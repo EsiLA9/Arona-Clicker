@@ -1,0 +1,32 @@
+{
+  "areas": [
+    {
+      "id": "base:area:millennium_lab",
+      "initId": "base:init:millennium",
+      "name": "千年·科研中枢",
+      "description": "千年科学学园的科研中枢，走廊上机器人穿梭不停。",
+      "defaultSpots": [
+        "base:spot:millennium_printer",
+        "base:spot:robot_shelter",
+        "base:spot:dispenser"
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              { "target": "stat", "key": "$GlobalProducedAmount base:resource:pyroxene", "comparator": ">=", "value": 10 }
+            ]
+          }
+        }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "theme": { "t": "str", "v": "millennium" }
+        }
+      }
+    }
+  ]
+}

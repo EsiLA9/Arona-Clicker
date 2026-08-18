@@ -1,0 +1,22 @@
+{
+  "affectorPacks": [
+    {
+      "id": "base:pack:energy_drink",
+      "entries": [
+        {
+          "id": "base:aff:energy_drink",
+          "effects": [
+            { "op": "addResource", "target": "base:resource:credit", "value": 1 }
+          ]
+        }
+      ],
+      "persistent": true,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "name_zh": { "t": "str", "v": "能量饮料效果" }
+        }
+      }
+    }
+  ]
+}

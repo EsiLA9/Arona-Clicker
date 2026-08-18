@@ -1,0 +1,53 @@
+import { UIContext } from '../context';
+import { renderResourceStrip } from './header';
+import { renderTabs, TabDef } from './tabs';
+import { renderProductionNodes } from './production';
+import { renderEnhancements } from './enhancements';
+
+const RIGHT_TABS: TabDef[] = [
+  { id: 'spot', label: '设施' },
+  { id: 'enh', label: '强化' },
+  { id: 'other', label: '其他' },
+];
+
+export function renderRightPanel(ctx: UIContext, activeTab: string): string {
+  let body: string;
+  if (activeTab === 'enh') {
+    body = renderEnhancements(ctx);
+  } else if (activeTab === 'other') {
+    body = renderOtherTab(ctx);
+  } else {
+    body = renderProductionNodes(ctx);
+  }
+  return `
+    <aside class="panel right-panel">
+      ${renderResourceStrip(ctx)}
+      ${renderTabs(ctx, 'right', RIGHT_TABS, activeTab)}
+      <div class="panel-body">${body}</div>
+    </aside>`;
+}
+
+function renderOtherTab(ctx: UIContext): string {
+  const { game, view } = ctx;
+  const inventoryRows = Object.entries(view.inventory).length
+    ? Object.entries(view.inventory).map(([itemId, count]) => {
+        const item = game.registry.items.get(itemId);
+        const useButton = item?.type === 'consumable'
+          ? `<button class="use-item-button" data-use-item="${itemId}">使用</button>`
+          : '';
+        return `<li class="hover-wrap" data-tooltip="item:${itemId}"><span>${ctx.escapeHtml(item?.name ?? itemId)}</span><div class="inventory-actions">${useButton}<b>${count}</b></div></li>`;
+      }).join('')
+    : '<li class="empty">背包目前为空</li>';
+
+  const affectors = view.activeAffectors.length
+    ? view.activeAffectors.map(instance => `
+        <div class="trace"><span class="trace-line cyan"></span><p><b>${ctx.escapeHtml(instance.packId)}</b><small>${ctx.escapeHtml(instance.mountEntityId)} / ${instance.activeEntryIds.length} active</small></p><span class="trace-value">ACTIVE</span></div>`).join('')
+    : '<div class="trace-empty">当前没有生效中的 Affector</div>';
+
+  return `
+    <div class="mini-panel-head"><span class="eyebrow">背包</span></div>
+    <ul class="inventory-list">${inventoryRows}</ul>
+    <div class="mini-panel-head"><span class="eyebrow">效果追踪</span></div>
+    <div class="trace"><span class="trace-line"></span><p><b>基础生产</b><small>Spot output pipeline</small></p><span class="trace-value">READY</span></div>
+    ${affectors}`;
+}

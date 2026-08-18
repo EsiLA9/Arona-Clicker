@@ -1,0 +1,21 @@
+{
+  "dropTables": [
+    {
+      "id": "base:drop:field_work",
+      "maxRolls": 2,
+      "guaranteed": [
+        { "itemId": "base:item:field_note", "count": 1 }
+      ],
+      "entries": [
+        { "itemId": "base:item:energy_drink", "min": 1, "max": 2, "weight": 3 },
+        { "itemId": "base:item:field_note", "min": 1, "max": 1, "weight": 1 }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "name_zh": { "t": "str", "v": "沙勒日常工作" }
+        }
+      }
+    }
+  ]
+}

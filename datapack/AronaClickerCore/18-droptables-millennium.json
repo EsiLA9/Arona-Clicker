@@ -1,0 +1,28 @@
+{
+  "dropTables": [
+    {
+      "id": "base:drop:millennium_lab",
+      "maxRolls": 3,
+      "guaranteed": [
+        { "itemId": "base:item:catalyst_shard", "count": 1 }
+      ],
+      "entries": [
+        { "itemId": "base:item:catalyst_shard", "min": 1, "max": 2, "weight": 2 },
+        { "itemId": "base:item:vending_snack", "min": 1, "max": 1, "weight": 3 },
+        { "itemId": "base:item:energy_drink", "min": 1, "max": 1, "weight": 1 }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          { "target": "stat", "key": "$GlobalProducedAmount base:resource:pyroxene", "comparator": ">=", "value": 3 }
+        ]
+      },
+      "extra": {
+        "t": "dict",
+        "v": {
+          "name_zh": { "t": "str", "v": "千年实验室探索" }
+        }
+      }
+    }
+  ]
+}

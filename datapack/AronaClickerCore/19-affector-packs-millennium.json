@@ -1,0 +1,22 @@
+{
+  "affectorPacks": [
+    {
+      "id": "base:pack:vending_snack",
+      "entries": [
+        {
+          "id": "base:aff:vending_snack",
+          "effects": [
+            { "op": "addResource", "target": "base:resource:credit", "value": 3 }
+          ]
+        }
+      ],
+      "persistent": true,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "name_zh": { "t": "str", "v": "售货机零食效果" }
+        }
+      }
+    }
+  ]
+}

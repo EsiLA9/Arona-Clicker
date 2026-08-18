@@ -1,0 +1,95 @@
+{
+  "spots": [
+    {
+      "id": "base:spot:millennium_printer",
+      "areaId": "base:area:millennium_lab",
+      "name": "高速制造机",
+      "description": "千年研发的第三代信用点制造机，效率远超沙勒的老古董。",
+      "baseCost": { "type": "const", "value": 40 },
+      "baseCostResource": "base:resource:credit",
+      "baseYield": { "type": "const", "value": 3 },
+      "baseYieldResource": "base:resource:credit",
+      "baseCapacity": 300,
+      "managerBonusYield": { "type": "const", "value": 4 },
+      "levelUpgrades": [],
+      "tags": [["millennium"], ["production"]],
+      "yieldPerLevel": 2,
+      "upgradeCostBase": 40,
+      "upgradeCostGrowth": 1.6,
+      "maxLevel": 30,
+      "functionalities": [
+        {
+          "id": "linear_credit",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              { "target": "stat", "key": "$GlobalProducedAmount base:resource:credit", "comparator": ">=", "value": 100 }
+            ]
+          }
+        }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "icon": { "t": "str", "v": "millennium_printer" }
+        }
+      }
+    },
+    {
+      "id": "base:spot:robot_shelter",
+      "areaId": "base:area:millennium_lab",
+      "name": "机器人托管所",
+      "description": "为实验机器人提供充电与维护的托管所，附带少量青辉石产出。",
+      "baseCost": { "type": "const", "value": 60 },
+      "baseCostResource": "base:resource:credit",
+      "baseYield": { "type": "const", "value": 1 },
+      "baseYieldResource": "base:resource:pyroxene",
+      "baseCapacity": 150,
+      "managerBonusYield": { "type": "const", "value": 2 },
+      "levelUpgrades": [],
+      "tags": [["millennium"], ["service"]],
+      "yieldPerLevel": 1,
+      "upgradeCostBase": 60,
+      "upgradeCostGrowth": 1.6,
+      "maxLevel": 20,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "icon": { "t": "str", "v": "shelter" }
+        }
+      }
+    },
+    {
+      "id": "base:spot:dispenser",
+      "areaId": "base:area:millennium_lab",
+      "name": "自动售货机",
+      "description": "校园走廊的自动售货机，据说塞进信用点就能吐出奇怪的道具。",
+      "baseCost": { "type": "const", "value": 80 },
+      "baseCostResource": "base:resource:credit",
+      "baseYield": { "type": "const", "value": 2 },
+      "baseYieldResource": "base:resource:pyroxene",
+      "baseCapacity": 200,
+      "managerBonusYield": { "type": "const", "value": 3 },
+      "levelUpgrades": [
+        {
+          "level": 5,
+          "effects": [{ "op": "setFlag", "target": "millennium_dispenser_vip", "value": "1" }]
+        }
+      ],
+      "tags": [["millennium"], ["loot"]],
+      "yieldPerLevel": 1,
+      "upgradeCostBase": 80,
+      "upgradeCostGrowth": 1.6,
+      "maxLevel": 15,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "icon": { "t": "str", "v": "dispenser" }
+        }
+      }
+    }
+  ]
+}

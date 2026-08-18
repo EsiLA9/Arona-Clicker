@@ -1,0 +1,12 @@
+{
+	"nodes":[
+		{"id":"d9fe5f791b2d0332","x":340,"y":-340,"width":500,"height":440,"type":"text","text":"![[AronaClickerPM#area]]"},
+		{"id":"45c8fcfe817ab8d4","type":"text","text":"![[AronaClickerPM#Init]]\n","x":-220,"y":-340,"width":500,"height":440},
+		{"id":"b889abd3e408b10d","type":"text","text":"![[AronaClickerPM#Spot]]\n","x":-220,"y":120,"width":500,"height":440},
+		{"id":"4f09347d5ac9cb06","type":"text","text":"![[AronaClickerPM#Upgrade]]\n","x":340,"y":120,"width":500,"height":440},
+		{"id":"1d90c1629c39e86b","type":"text","text":"![[AronaClickerPM#PassiveTalk]]\n","x":880,"y":-200,"width":500,"height":600},
+		{"id":"713c70077f4cc970","type":"text","text":"![[AronaClickerPM#ActiveTalk]]\n","x":880,"y":440,"width":500,"height":440},
+		{"id":"9870b1be582a7f5d","type":"text","text":"![[AronaClickerPM#EndOfGame]]\n","x":1400,"y":440,"width":500,"height":440}
+	],
+	"edges":[]
+}

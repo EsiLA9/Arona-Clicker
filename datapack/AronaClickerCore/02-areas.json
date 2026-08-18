@@ -1,0 +1,18 @@
+{
+  "areas": [
+    {
+      "id": "base:area:schale_main",
+      "initId": "base:init:schale_office",
+      "name": "沙勒主厅",
+      "description": "沙勒的中央办公区域，设施一应俱全。",
+      "defaultSpots": ["base:spot:credit_printer"],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "icon": { "t": "str", "v": "schale" },
+          "sort": { "t": "int", "v": 1 }
+        }
+      }
+    }
+  ]
+}

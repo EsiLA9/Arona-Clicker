@@ -1,0 +1,44 @@
+{
+  "triggerDefs": [
+    {
+      "id": "base:trigger:first_pyroxene",
+      "on": { "kind": "tick", "every": 1 },
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          { "target": "stat", "key": "$GlobalProducedAmount base:resource:pyroxene", "comparator": ">=", "value": 5 }
+        ]
+      },
+      "effects": [
+        { "op": "addItem", "target": "base:item:catalyst_shard", "value": 1 }
+      ],
+      "once": true,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "name_zh": { "t": "str", "v": "首次积累 5 青辉石" }
+        }
+      }
+    },
+    {
+      "id": "base:trigger:dispenser_lottery",
+      "on": { "kind": "spotLevel", "spotId": "base:spot:dispenser" },
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          { "target": "flag", "key": "millennium_dispenser_vip", "comparator": "==", "value": 1 }
+        ]
+      },
+      "effects": [
+        { "op": "addItem", "target": "base:item:vending_snack", "value": 1 }
+      ],
+      "once": false,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "name_zh": { "t": "str", "v": "售货机 VIP 彩蛋" }
+        }
+      }
+    }
+  ]
+}

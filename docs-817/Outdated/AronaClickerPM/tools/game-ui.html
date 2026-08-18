@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AronaClickerPM — 游戏测试界面</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 14px/1.5 system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+  h1 { font-size: 20px; margin-bottom: 12px; color: #58a6ff; }
+  h2 { font-size: 15px; margin-bottom: 8px; color: #8b949e; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 280px; }
+  .panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .stat { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #21262d; }
+  .stat:last-child { border: none; }
+  .label { color: #8b949e; }
+  .value { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .value.gold { color: #f0c040; }
+  .value.crystal { color: #a371f7; }
+  .value.mithril { color: #3fb950; }
+  button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  button:hover { background: #30363d; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  button.primary:hover { background: #388bfd; }
+  button.danger { background: #da3633; border-color: #da3633; color: #fff; }
+  button.danger:hover { background: #f85149; }
+  .toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #21262d; }
+  .item:last-child { border: none; }
+  .item .name { font-weight: 600; }
+  .item .desc { color: #8b949e; font-size: 12px; }
+  .log { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px; height: 200px; overflow-y: auto; font: 12px/1.6 monospace; }
+  .log div { padding: 1px 0; }
+  .log .tick { color: #58a6ff; }
+  .log .gain { color: #3fb950; }
+  .log .spend { color: #f85149; }
+  .log .info { color: #8b949e; }
+  .log .discover { color: #f0c040; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .badge { display: inline-block; background: #21262d; padding: 0 6px; border-radius: 10px; font-size: 11px; color: #8b949e; }
+  input[type=number] { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 8px; border-radius: 4px; width: 60px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>🧪 AronaClickerPM — 游戏测试界面</h1>
+
+<div class="row">
+  <!-- Left: Status -->
+  <div class="col">
+    <div class="panel">
+      <div class="flex-between"><h2>📊 游戏状态</h2><span id="tickDisplay" class="badge">Tick 0</span></div>
+      <div id="resources"></div>
+    </div>
+
+    <div class="panel">
+      <div class="flex-between"><h2>📍 位置</h2></div>
+      <div id="location"></div>
+    </div>
+
+    <div class="panel">
+      <h2>🎮 操作</h2>
+      <div class="toolbar">
+        <button class="primary" onclick="doTick(1)">⏩ Tick ×1</button>
+        <button class="primary" onclick="doTick(5)">⏩ Tick ×5</button>
+        <button class="primary" onclick="doTick(20)">⏩ Tick ×20</button>
+        <button class="primary" onclick="doTick(100)">⏩ Tick ×100</button>
+      </div>
+      <div class="toolbar">
+        <button onclick="resetGame()">🔄 重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Middle: Spots & Travel -->
+  <div class="col">
+    <div class="panel">
+      <h2>⛏️ 拥有的 Spot</h2>
+      <div id="spots"></div>
+    </div>
+
+    <div class="panel">
+      <h2>🌍 地区</h2>
+      <div id="areas"></div>
+    </div>
+  </div>
+
+  <!-- Right: Shop & Log -->
+  <div class="col">
+    <div class="panel">
+      <h2>🏪 商店</h2>
+      <div id="shop"></div>
+    </div>
+
+    <div class="panel">
+      <h2>📜 事件日志</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// Game Engine (embedded minimal version)
+// ═══════════════════════════════════════════
+
+const P = {
+  gold:    "demo/resource/gold",
+  crystal: "demo/resource/crystal",
+  mithril: "demo/resource/mithril",
+  central: "demo/area/central",
+  deep:    "demo/area/deep_mine",
+  pick:    "demo/spot/crystal_pick",
+  drill:   "demo/spot/mithril_drill",
+  enh:     "demo/enhancement/double_crystal",
+  eff:     "demo/effect/crystal_x2",
+}
+
+const DATA = {
+  resources: [
+    { id: P.gold,    name: "Gold",    icon: "🪙", persistent: true },
+    { id: P.crystal, name: "Crystal", icon: "💎" },
+    { id: P.mithril, name: "Mithril", icon: "🔮" },
+  ],
+  spots: {
+    [P.pick]: {
+      name: "Crystal Pick", icon: "⛏️",
+      resource: P.crystal, baseAmount: 5, interval: 5,
+      cost: { resource: P.gold, amount: 50 },
+      costScaling: { base: 1.15, exponent: 1 },
+      maxLevel: 10,
+    },
+    [P.drill]: {
+      name: "Mithril Drill", icon: "🔧",
+      resource: P.mithril, baseAmount: 1, interval: 20,
+      cost: { resource: P.crystal, amount: 100 },
+      unlockGold: 300,
+    },
+  },
+  areas: {
+    [P.central]: { name: "Central Square", adjacent: [P.deep] },
+    [P.deep]:    { name: "Deep Mine",      adjacent: [P.central], travelCost: 500 },
+  },
+  enhancements: {
+    [P.enh]: {
+      name: "Double Crystal", icon: "✨", cost: { resource: P.gold, amount: 300 },
+      effect: { type: "multiply", target: P.pick, value: 2 },
+    },
+  },
+}
+
+// ── Game State ──
+
+let G = null
+
+function defaultState() {
+  return {
+    tick: 0,
+    init: "Overworld",
+    area: P.central,
+    resources: { [P.gold]: 200 },
+    spots: { [P.pick]: { level: 1, lastTick: 0 } },
+    enhancements: {},
+    areaStates: {
+      [P.central]: { discovered: true, unlocked: true },
+      [P.deep]:    { discovered: false, unlocked: false },
+    },
+    log: [],
+  }
+}
+
+function resetGame() { G = defaultState(); document.getElementById("log").innerHTML = ""; render(); addLog("info", "New game started"); }
+
+// ── Core Logic ──
+
+function getSpotCost(spotId, level) {
+  const def = DATA.spots[spotId]
+  if (!def.costScaling) return def.cost.amount
+  return Math.ceil(def.cost.amount * Math.pow(def.costScaling.base, level * def.costScaling.exponent))
+}
+
+function getProduction(spotId) {
+  const s = G.spots[spotId]; if (!s) return 0
+  const d = DATA.spots[spotId]; if (!d) return 0
+  let base = d.baseAmount
+  const enh = Object.values(G.enhancements).find(e => e.active && e.effect?.target === spotId)
+  if (enh && enh.effect.type === "multiply") base *= enh.effect.value
+  return Math.floor(base)
+}
+
+function doTick(count) {
+  if (!G) resetGame()
+  for (let i = 0; i < count; i++) singleTick()
+  render()
+}
+
+function singleTick() {
+  G.tick++
+
+  // Production
+  for (const [id, s] of Object.entries(G.spots)) {
+    const d = DATA.spots[id]; if (!d) continue
+    if (G.tick - s.lastTick >= d.interval) {
+      const amount = getProduction(id)
+      G.resources[d.resource] = (G.resources[d.resource] || 0) + amount
+      s.lastTick = G.tick
+      addLog("gain", `${d.icon} ${d.name} → +${amount} ${d.resource.split("/").pop()}`)
+    }
+  }
+
+  // Check mithril drill unlock
+  const drillState = G.spots[P.drill]
+  const drillDef = DATA.spots[P.drill]
+  if (!drillState && (G.resources[P.gold] || 0) >= drillDef.unlockGold) {
+    G.spots[P.drill] = { level: 1, lastTick: G.tick }
+    addLog("discover", `🔧 Mithril Drill unlocked!`)
+  }
+
+  addLog("tick", `Tick ${G.tick}`)
+}
+
+// ── Actions ──
+
+function buySpot(spotId) {
+  const d = DATA.spots[spotId]
+  if (!d) return
+  const curLevel = G.spots[spotId]?.level || 0
+  if (d.maxLevel && curLevel >= d.maxLevel) { addLog("info", `${d.name} is max level`); return }
+  const cost = getSpotCost(spotId, curLevel)
+  const res = d.cost.resource
+  if ((G.resources[res] || 0) < cost) { addLog("spend", `Not enough ${res.split("/").pop()} (need ${cost})`); return }
+  G.resources[res] -= cost
+  if (G.spots[spotId]) {
+    G.spots[spotId].level++
+    addLog("spend", `${d.icon} ${d.name} → Lv.${G.spots[spotId].level} (${cost} ${res.split("/").pop()})`)
+  } else {
+    G.spots[spotId] = { level: 1, lastTick: G.tick }
+    addLog("spend", `${d.icon} ${d.name} purchased (${cost} ${res.split("/").pop()})`)
+  }
+  render()
+}
+
+function buyEnhancement(id) {
+  const d = DATA.enhancements[id]
+  if (!d) return
+  if (G.enhancements[id]) { addLog("info", "Already owned"); return }
+  const res = d.cost.resource
+  if ((G.resources[res] || 0) < d.cost.amount) { addLog("spend", `Not enough ${res.split("/").pop()} (need ${d.cost.amount})`); return }
+  G.resources[res] -= d.cost.amount
+  G.enhancements[id] = { active: true }
+  addLog("gain", `${d.icon} ${d.name} purchased!`)
+  render()
+}
+
+function travel(areaId) {
+  const areaDef = DATA.areas[areaId]
+  if (!areaDef) return
+  const curDef = DATA.areas[G.area]
+  if (!curDef.adjacent.includes(areaId)) { addLog("info", `Cannot reach ${areaDef.name} from here`); return }
+
+  const state = G.areaStates[areaId]
+  if (!state.discovered) {
+    if (areaDef.travelCost) {
+      if ((G.resources[P.gold] || 0) < areaDef.travelCost) { addLog("spend", `Need ${areaDef.travelCost} gold to travel`); return }
+      G.resources[P.gold] -= areaDef.travelCost
+      addLog("spend", `Paid ${areaDef.travelCost} gold for travel`)
+    }
+    state.discovered = true
+    state.unlocked = true
+  }
+
+  G.area = areaId
+  addLog("info", `📍 Traveled to ${areaDef.name}`)
+  render()
+}
+
+function toggleEnhancement(id) {
+  const e = G.enhancements[id]
+  if (!e) return
+  e.active = !e.active
+  addLog("info", `${DATA.enhancements[id].icon} ${DATA.enhancements[id].name} ${e.active ? "activated" : "deactivated"}`)
+  render()
+}
+
+// ── Log ──
+
+function addLog(cls, msg) {
+  const el = document.getElementById("log")
+  const d = document.createElement("div")
+  d.className = cls
+  d.textContent = msg
+  el.appendChild(d)
+  el.scrollTop = el.scrollHeight
+}
+
+// ── Render ──
+
+function render() {
+  if (!G) resetGame()
+
+  // Tick
+  document.getElementById("tickDisplay").textContent = `Tick ${G.tick}`
+
+  // Resources
+  const resEl = document.getElementById("resources")
+  const resNames = { [P.gold]: "Gold", [P.crystal]: "Crystal", [P.mithril]: "Mithril" }
+  const resIcons = { [P.gold]: "🪙", [P.crystal]: "💎", [P.mithril]: "🔮" }
+  const resClasses = { [P.gold]: "gold", [P.crystal]: "crystal", [P.mithril]: "mithril" }
+  resEl.innerHTML = Object.entries(resNames).map(([id, name]) =>
+    `<div class="stat"><span class="label">${resIcons[id]} ${name}</span><span class="value ${resClasses[id]}">${(G.resources[id] || 0).toLocaleString()}</span></div>`
+  ).join("")
+
+  // Location
+  document.getElementById("location").innerHTML =
+    `<div class="stat"><span class="label">🌍 Init</span><span class="value">${G.init}</span></div>` +
+    `<div class="stat"><span class="label">📍 Area</span><span class="value">${DATA.areas[G.area]?.name || G.area}</span></div>` +
+    `<div class="stat"><span class="label">⛏️ Spots owned</span><span class="value">${Object.keys(G.spots).length}</span></div>`
+
+  // Spots
+  const spotEl = document.getElementById("spots")
+  const owned = Object.entries(G.spots)
+  if (owned.length === 0) {
+    spotEl.innerHTML = '<div class="stat"><span class="label">No spots owned</span></div>'
+  } else {
+    spotEl.innerHTML = owned.map(([id, s]) => {
+      const d = DATA.spots[id]
+      if (!d) return ""
+      const prod = getProduction(id)
+      return `<div class="item">
+        <div><span class="name">${d.icon} ${d.name}</span> <span class="badge">Lv.${s.level}</span>
+        <div class="desc">${prod}/tick ${d.resource.split("/").pop()} every ${d.interval} ticks</div></div>
+        <div>
+          <button onclick="buySpot('${id}')" ${(G.resources[d.cost.resource]||0) < getSpotCost(id, s.level-1) ? "disabled" : ""}>⬆ ${getSpotCost(id, s.level-1)}</button>
+        </div>
+      </div>`
+    }).join("")
+  }
+
+  // Areas
+  const areaEl = document.getElementById("areas")
+  areaEl.innerHTML = Object.entries(DATA.areas).map(([id, d]) => {
+    const s = G.areaStates[id]
+    const isHere = G.area === id
+    return `<div class="item">
+      <div><span class="name">${isHere ? "📍" : "🌍"} ${d.name}</span>
+      <div class="desc">${s?.discovered ? (s?.unlocked ? "Unlocked" : "Discovered") : "Unknown"}</div></div>
+      <div>${isHere ? '<span class="badge">here</span>' : (s?.unlocked ? `<button onclick="travel('${id}')">Travel</button>` : '')}</div>
+    </div>`
+  }).join("")
+
+  // Shop
+  const shopEl = document.getElementById("shop")
+  shopEl.innerHTML = ""
+
+  // Enhancement
+  const enhD = DATA.enhancements[P.enh]
+  const ownedEnh = G.enhancements[P.enh]
+  const enhBtn = ownedEnh
+    ? `<button onclick="toggleEnhancement('${P.enh}')">${ownedEnh.active ? "Deactivate" : "Activate"}</button>`
+    : `<button ${(G.resources[enhD.cost.resource]||0) < enhD.cost.amount ? "disabled" : ""} onclick="buyEnhancement('${P.enh}')">Buy ${enhD.cost.amount} ${enhD.cost.resource.split("/").pop()}</button>`
+  shopEl.innerHTML += `<div class="item">
+    <div><span class="name">${enhD.icon} ${enhD.name}</span>
+    <div class="desc">${enhD.effect.type === "multiply" ? "×" : ""}${enhD.effect.value} Crystal Pick output</div></div>
+    <div>${enhBtn}</div>
+  </div>`
+
+  // Spots not yet purchased
+  for (const [id, d] of Object.entries(DATA.spots)) {
+    if (G.spots[id]) continue
+    const locked = d.unlockGold && (G.resources[P.gold]||0) < d.unlockGold
+    shopEl.innerHTML += `<div class="item">
+      <div><span class="name">${d.icon} ${d.name}</span>
+      <div class="desc">${d.baseAmount}/tick ${d.resource.split("/").pop()} | Cost: ${d.cost.amount} ${d.cost.resource.split("/").pop()}</div></div>
+      <div>${locked ? '<span class="badge">🔒 hidden</span>' : `<button ${(G.resources[d.cost.resource]||0) < d.cost.amount ? "disabled" : ""} onclick="buySpot('${id}')">Buy ${d.cost.amount}</button>`}</div>
+    </div>`
+  }
+
+  if (!shopEl.innerHTML) shopEl.innerHTML = '<div class="stat"><span class="label">All items purchased</span></div>'
+}
+
+// ── Init ──
+resetGame()
+</script>
+</body>
+</html>

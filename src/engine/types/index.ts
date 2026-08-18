@@ -1,0 +1,21 @@
+// ============================================================
+// engine/types/index.ts — 共享类型出口
+//
+// 历史兼容：原 engine/types.ts 拆分至本目录后由 index 汇总，
+// 全项目 `import { ... } from './types'` 保持兼容。
+// ============================================================
+
+// ID、枚举、全局资源标识
+export * from './ids';
+// Extra 树类型
+export * from './extra';
+// 数值表达式 / 条件 / 效果 / Funclet
+export * from './expression';
+// 数据包实体定义（Def）
+export * from './entities';
+// 运行时状态与统计
+export * from './state';
+// 操作返回结果 / 剧情视图
+export * from './results';
+// 运行时事件
+export * from './events';

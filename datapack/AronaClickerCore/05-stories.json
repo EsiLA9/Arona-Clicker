@@ -1,0 +1,31 @@
+{
+  "stories": [
+    {
+      "id": "base:story:schale_welcome",
+      "name": "欢迎来到沙勒",
+      "type": "active",
+      "availableInits": ["base:init:schale_office"],
+      "triggerCondition": { "type": "AND", "conditions": [] },
+      "pages": [
+        {
+          "speaker": "阿罗娜",
+          "text": "欢迎回来，老师！我是什亭之匣的系统助理阿罗娜。沙勒的设施已经准备就绪了。",
+          "sendText": "好久不见，阿罗娜。"
+        },
+        {
+          "speaker": "阿罗娜",
+          "text": "先从大厅里的信用点制造机开始吧。点击或让它自动运转都能积累信用点。",
+          "effects": [
+            { "op": "addResource", "target": "base:resource:credit", "value": 10 }
+          ]
+        }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "chapter": { "t": "int", "v": 1 }
+        }
+      }
+    }
+  ]
+}

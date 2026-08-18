@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AC Program · 本地工具台</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          'PingFang SC',
+          'Microsoft YaHei',
+          sans-serif;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background:
+          linear-gradient(180deg, #cfe6ff 0%, #eaf4ff 50%, #f8fbff 100%);
+        background-attachment: fixed;
+        color: #1e2a38;
+        padding: 24px;
+      }
+      .portal {
+        width: min(720px, 100%);
+        text-align: center;
+      }
+      h1 {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        background: linear-gradient(90deg, #2f9eff, #5ac8ff, #2f9eff);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: shimmer 6s linear infinite;
+      }
+      @keyframes shimmer {
+        to {
+          background-position: -200% 0;
+        }
+      }
+      .subtitle {
+        margin-top: 8px;
+        font-size: 14px;
+        color: #64748b;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
+        margin-top: 44px;
+      }
+      .card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: #ffffff;
+        border: 1px solid rgba(47, 158, 255, 0.18);
+        border-radius: 16px;
+        padding: 28px 24px;
+        box-shadow: 0 10px 28px rgba(47, 158, 255, 0.1);
+        transition:
+          transform 0.18s ease,
+          border-color 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(47, 158, 255, 0.55);
+        box-shadow: 0 14px 40px rgba(47, 158, 255, 0.18);
+      }
+      .card .icon {
+        font-size: 34px;
+      }
+      .card .name {
+        margin-top: 14px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #1e2a38;
+      }
+      .card .desc {
+        margin-top: 8px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #64748b;
+      }
+      .card .url {
+        display: inline-block;
+        margin-top: 16px;
+        font-size: 12px;
+        font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+        color: #2f9eff;
+        background: rgba(47, 158, 255, 0.1);
+        border: 1px solid rgba(47, 158, 255, 0.25);
+        border-radius: 999px;
+        padding: 4px 12px;
+      }
+      footer {
+        margin-top: 44px;
+        font-size: 12px;
+        color: #8aa0b5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="portal">
+      <h1>AC Program · 本地工具台</h1>
+      <p class="subtitle">AronaClicker 游戏与 Datapack 数据编辑工具共用同一本地服务</p>
+
+      <div class="cards">
+        <a class="card" href="/game">
+          <div class="icon">🎮</div>
+          <div class="name">AronaClicker 游戏</div>
+          <div class="desc">点击放置玩法主程序，加载真实数据包运行。</div>
+          <span class="url">/game</span>
+        </a>
+        <a class="card" href="/editor">
+          <div class="icon">🛠️</div>
+          <div class="name">Datapack Editor</div>
+          <div class="desc">Schema 驱动的表格化 JSON 编辑器：校验、补全、跳转、导入导出。</div>
+          <span class="url">/editor</span>
+        </a>
+      </div>
+
+      <footer>npm run dev → 本页 · /game · /editor</footer>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,51 @@
+{
+  "stories": [
+    {
+      "id": "base:story:millennium_welcome",
+      "name": "欢迎来到千年",
+      "type": "active",
+      "availableInits": ["base:init:millennium"],
+      "triggerCondition": { "type": "AND", "conditions": [] },
+      "pages": [
+        {
+          "speaker": "优香",
+          "text": "老师！这里就是千年科学学园的研究中枢。多亏了您的信用点支持，我们才能扩充设备。",
+          "sendText": "设备看起来都很新。"
+        },
+        {
+          "speaker": "优香",
+          "text": "高速制造机和机器人托管所都已经上线了。我放了一些青辉石在售货机里，请自取。",
+          "effects": [
+            { "op": "addResource", "target": "base:resource:pyroxene", "value": 5 }
+          ]
+        }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "chapter": { "t": "int", "v": 2 }
+        }
+      }
+    },
+    {
+      "id": "base:story:millennium_chat",
+      "name": "关于售货机",
+      "type": "passive",
+      "availableInits": ["base:init:millennium"],
+      "triggerCondition": { "type": "AND", "conditions": [] },
+      "repeatable": true,
+      "cooldownFrames": 120,
+      "weight": 3,
+      "pages": [
+        {
+          "speaker": "诺亚",
+          "text": "听说自动售货机偶尔会吐出稀有的东西……老师要去碰碰运气吗？",
+          "sendText": "听起来很有趣。"
+        }
+      ],
+      "completionReward": {
+        "repeat": [{ "op": "addResource", "target": "base:resource:pyroxene", "value": 1 }]
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+	"nodes":[
+		{"id":"00fd378d783cc1ab","type":"text","text":"# 记录\n[[Kivowiki]]\n","x":-440,"y":-160,"width":360,"height":240},
+		{"id":"34125c1a2f3bf905","type":"text","text":"# AC\n[[1-项目/ACProgram/docs-817/Outdated/AronaClicker/engine/README]]","x":-440,"y":120,"width":360,"height":240},
+		{"id":"3cded848f5ce7949","type":"text","text":"# 实用","x":-40,"y":-160,"width":360,"height":240},
+		{"id":"66a737eb85b7141e","type":"text","text":"# 学习\n","x":-40,"y":120,"width":360,"height":240},
+		{"id":"53364aa42e63e224","type":"text","text":"# eWriting","x":-440,"y":400,"width":360,"height":240}
+	],
+	"edges":[]
+}

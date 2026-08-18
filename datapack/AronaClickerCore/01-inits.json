@@ -1,0 +1,20 @@
+{
+  "name": "AronaClickerCore",
+  "version": "0.1.0",
+  "inits": [
+    {
+      "id": "base:init:schale_office",
+      "name": "沙勒办公室",
+      "description": "联邦搜查部「沙勒」的办公室，一切开始的地方。",
+      "defaultAreas": ["base:area:schale_main"],
+      "startStoryId": "base:story:schale_welcome",
+      "extra": {
+        "t": "dict",
+        "v": {
+          "unlock_order": { "t": "int", "v": 0 },
+          "free": { "t": "bool", "v": true }
+        }
+      }
+    }
+  ]
+}

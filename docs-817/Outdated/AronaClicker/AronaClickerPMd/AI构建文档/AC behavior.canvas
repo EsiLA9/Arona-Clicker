@@ -1,0 +1,20 @@
+{
+	"nodes":[
+		{"id":"f5671f8d73bbc390","type":"text","text":"# Area\n- 发现 Area\n- 提供 Area 的购买价格\n- 发现并提供 Area 的购买价格 \n- 赠送 Area \n- 改变 Area 的描述","x":-540,"y":180,"width":420,"height":420},
+		{"id":"a67a07857ea9e3a8","type":"text","text":"# Upgrade\n- 发现 Upgrade\n- 提供 Upgrade 的购买价格\n- 发现并提供 Upgrade 的购买价格 \n- 赠送 Upgrade \n- 改变 Upgrade 的描述 ","x":340,"y":180,"width":420,"height":420},
+		{"id":"5fa88a08b40f225f","type":"text","text":"# Spot\n- 发现 Spot\n- 提供 Spot 的购买价格\n- 发现并提供 Spot 的购买价格 \n- 赠送 Spot \n- 改变 Spot 的描述 ","x":-100,"y":180,"width":420,"height":420},
+		{"id":"117586038bae8bc0","type":"text","text":"# Chara\n- 发现 Chara\n- 提供 Chara 的立即购买价格\n- 发现并提供 Chara 的立即购买价格 \n- 赠送 Chara \n- 改变 Chara 的描述 ","x":780,"y":180,"width":420,"height":420},
+		{"id":"0191174f3257613f","type":"text","text":"# Resource \n- 获得 Resource \n- ","x":1220,"y":180,"width":420,"height":420},
+		{"id":"a7392321480965a4","type":"text","text":"# Init\n- 发现 Init：允许了解有某 Init ...\n- 提供 Init 的购买价格\n- 发现并提供 Init 的购买价格 \n- 赠送 Init \n- 改变 Init 的描述\n\t- affectedBy ... ","x":-980,"y":180,"width":420,"height":420},
+		{"id":"aa9c2cde6b0acd56","type":"text","text":"# Init\n- 发现 Init：允许了解有某 Init ...\n- 提供 Init 的购买价格\n- 发现并提供 Init 的购买价格 \n- 赠送 Init \n- 改变 Init 的描述\n\t- affectedBy ... ","x":-980,"y":640,"width":420,"height":420},
+		{"id":"a847592dafb0e60d","type":"text","text":"# Story \n- 发现 Story \n","x":-100,"y":620,"width":420,"height":420},
+		{"id":"f292ca5ed22d3249","type":"text","text":"Template ","x":-360,"y":1480,"width":160,"height":80},
+		{"id":"3fc8edff13c5ebaf","x":126,"y":1388,"width":250,"height":60,"type":"text","text":"自己的元信息"},
+		{"id":"320ec359271c6cea","x":91,"y":1566,"width":289,"height":74,"type":"text","text":"对其他的 AffectorBundles"}
+	],
+	"edges":[
+		{"id":"3a347ba3df1496f5","fromNode":"f292ca5ed22d3249","fromSide":"right","toNode":"3fc8edff13c5ebaf","toSide":"left"},
+		{"id":"cb46eb14944cc433","fromNode":"f292ca5ed22d3249","fromSide":"right","toNode":"320ec359271c6cea","toSide":"left"},
+		{"id":"73b8a575947a13a1","fromNode":"320ec359271c6cea","fromSide":"bottom","toNode":"f292ca5ed22d3249","toSide":"bottom","label":"反向记录"}
+	]
+}

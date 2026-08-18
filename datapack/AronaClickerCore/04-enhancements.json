@@ -1,0 +1,32 @@
+{
+  "enhancements": [
+    {
+      "id": "base:enh:field_manual",
+      "name": "沙勒行动手册",
+      "description": "印发给沙勒全体成员的行动手册，提高整体工作效率。",
+      "revealTriggers": [
+        { "reveal": "unlock", "condition": {
+          "type": "AND",
+          "conditions": [
+            { "target": "resource", "key": "base:resource:credit", "comparator": ">=", "value": 50 }
+          ]
+        }}
+      ],
+      "effects": [],
+      "autoApply": true,
+      "maxStacks": 1,
+      "price": [
+        { "resourceId": "base:resource:credit", "amount": 50 }
+      ],
+      "productionMultiplier": 1.25,
+      "productionTags": [["production"]],
+      "attachment": { "kind": "init", "initId": "base:init:schale_office" },
+      "extra": {
+        "t": "dict",
+        "v": {
+          "tier": { "t": "int", "v": 1 }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "spots": [
+    {
+      "id": "base:spot:credit_printer",
+      "areaId": "base:area:schale_main",
+      "name": "信用点制造机",
+      "description": "一台老旧但可靠的信用点制造设备，每个 Tick 都会产出信用点。",
+      "baseCost": { "type": "const", "value": 10 },
+      "baseCostResource": "base:resource:credit",
+      "baseYield": { "type": "const", "value": 1 },
+      "baseYieldResource": "base:resource:credit",
+      "baseCapacity": 100,
+      "managerBonusYield": { "type": "const", "value": 2 },
+      "levelUpgrades": [],
+      "tags": [["office"], ["production"]],
+      "yieldPerLevel": 1,
+      "upgradeCostBase": 10,
+      "upgradeCostGrowth": 1.5,
+      "maxLevel": 20,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "icon": { "t": "str", "v": "printer" },
+          "desc_zh": { "t": "str", "v": "自动生产信用点" }
+        }
+      }
+    },
+    {
+      "id": "base:spot:reception_desk",
+      "areaId": "base:area:schale_main",
+      "name": "前台接待桌",
+      "description": "沙勒的前台，负责接待来访的学生与市民。",
+      "baseCost": { "type": "const", "value": 25 },
+      "baseCostResource": "base:resource:credit",
+      "baseYield": { "type": "const", "value": 2 },
+      "baseYieldResource": "base:resource:credit",
+      "baseCapacity": 200,
+      "managerBonusYield": { "type": "const", "value": 3 },
+      "levelUpgrades": [],
+      "tags": [["service"], ["reception"]],
+      "yieldPerLevel": 2,
+      "upgradeCostBase": 25,
+      "upgradeCostGrowth": 1.5,
+      "maxLevel": 15,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "icon": { "t": "str", "v": "desk" }
+        }
+      }
+    }
+  ]
+}
