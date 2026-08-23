@@ -5,8 +5,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
 import { Character, Datapack, Resource, Expr, cond, and, value } from '../../src/engine/types';
-import { tagPath } from '../../src/engine/tag';
-import { extra } from '../../src/engine/extra';
+import { tagPath } from '../../src/engine/core/tag';
+import { extra } from '../../src/engine/extra/index';
 
 /** 推进完当前自动展开的剧情（active 欢迎剧情会锁定移动）。 */
 function finishWelcome(g: GameInstance): void {

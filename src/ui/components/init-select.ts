@@ -1,5 +1,5 @@
 import { RevealStage, ResourceAmount } from '../../engine/types';
-import { compareWorldTilt, normalizeWorldTilt } from '../../engine/world-tilt';
+import { compareWorldTilt, normalizeWorldTilt } from '../../engine/stats/world-tilt';
 import { UIContext } from '../context';
 import { getInitReveal } from './tooltip';
 

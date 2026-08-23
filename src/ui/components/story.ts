@@ -104,7 +104,8 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
         return `<div class="chat-bubble chat-system"><span class="chat-kind">SYSTEM</span><p>${ctx.escapeHtml(entry.text)}</p></div>`;
       }
       if (entry.kind === 'reward') {
-        return `<div class="chat-reward"><span class="chat-kind">REWARD</span><p>${ctx.escapeHtml(entry.text)}</p></div>`;
+        // 简洁风格：居中圆角小条，无「REWARD」小字符（奖励/移动通知同款）
+        return `<div class="chat-reward"><p>${ctx.escapeHtml(entry.text)}</p></div>`;
       }
       return renderTalk(ctx, entry);
     })

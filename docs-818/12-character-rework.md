@@ -242,3 +242,33 @@ protoStats: Record<Character, ProtoStat>;       // 派生视图，Trigger 维护
 | **M7 冻结回归** | manager 加成路径移除 / tag-stats 对齐 / 旧套件清理 | F 组、验收标准 |
 
 **明确不在原型内**（第二迭代）：通用装备、专属武器、聊天流高级交互（红点/分支选项）、色彩数值效果的平衡表。
+
+---
+
+## 9. 聊天空间壁垒 / 被动闲聊冷却 / 阻断重启
+
+对话空间（学生 Conversation）与一般聊天共用 `ChatStream` 与 `Story` 机制，按 `PanelState.conversationVariantId` 隔离语境。本次为「每个 Character 从自己独特的聊天空间抽取内容」与「关卡式剧情阻断」提供三项引擎能力：
+
+### 9.1 聊天空间壁垒（owner 路由）
+- `PassiveStoryEntry.owner?: VariantId` 与 `PassivePoolDef.owner?: VariantId` 声明归属学生。
+- `StoryService.triggerPassiveStory(initId, owner)`：`owner` 为空抽全局闲聊（owner 未设置的 entry/pool）；`owner` 为某 VariantId 时只抽归该学生的内容。
+- 抽取层 `PassivePoolSystem.pick` 的壁垒语义：
+  - 叶子 entry 的 **effective owner = `entry.owner ?? 最近声明 owner 的祖先池`**（池内 entry 继承池归属）；
+  - **无 owner 的中间池是中立容器**，放行其子树，不约束归属；
+  - 仅"显式声明 owner 的池"整体受壁垒约束，整枝仅对该学生可见。
+- UI 层 `controller.ts` 在对话空间抽取时传 `this.panelState.conversationVariantId` 作 owner，实现壁垒。
+
+### 9.2 抽取冷却（cooldownFrames）
+- `PassiveStoryEntry.cooldownFrames?` 与 `PassivePoolChild.cooldownFrames?` / `PassivePoolDef.cooldownFrames?`。
+- 命中后 `StoryService` 在完结落账点写入 `PlayerState.passiveCooldowns[id] = totalFrames`；池级冷却对"命中其内任一 entry"的池一并写入。
+- 抽选时 `totalFrames - 上次帧 < cooldownFrames` 的 entry/池被剪枝，过期后自动恢复。计时复用以 `PlayerState.totalFrames`（帧/tick）。
+
+### 9.3 对话空间阻断 / 重启（block）
+- `PassiveStoryEntry.block?: ConditionGroup`：播完最后一页后，`StateMutationService.setStudentBlock(owner, entryId)` 锁定该学生对话空间。
+- 锁定期间该学生对话空间抽取被剪枝，UI 在对话空间渲染锁定横幅（含 `describeCondition` 翻译的解锁条件）。
+- 解除检测：`GameInstance.recheckStudentBlocks()` 在每帧 `tick()` 与 `travelToArea()` 成功后调用，若 `block` 条件组现已满足则 `clearStudentBlock` 解除锁定——实现「剧情要求前往某地（到达某区域 / 持有物品 / 置某 flag）后对话空间重启继续下一步」。
+- 状态落在 `PlayerState.studentBlocks`（key = VariantId），归属层随 entry 自身（多为 init）。
+
+### 9.4 数据示例
+`src/data/base/stories-conversation-walls.ts` 提供可运行示例：星野对话空间池（`owner: 'Hoshino'`，含 600 帧冷却 entry 与带 `block` 的关卡式 entry）、全局冷却演示池（`cooldownFrames: 1200`）。合入 `src/data/base/stories.ts` 的 `basePassiveStories` / `basePassivePools`。
+

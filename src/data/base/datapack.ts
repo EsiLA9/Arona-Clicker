@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Datapack, ExtraValue, Resource, ResourceDisplayDef } from '../../engine/types';
-import { extra } from '../../engine/extra';
+import { extra } from '../../engine/extra/index';
 import { baseInits } from './inits';
 import { baseAreas } from './areas';
 import { baseSpots } from './spots';

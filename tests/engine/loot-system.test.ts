@@ -2,10 +2,10 @@
 // engine/loot-system.test.ts
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { Registry } from '../../src/engine/registry';
-import { EventBus } from '../../src/engine/event-bus';
-import { ConditionSystem } from '../../src/engine/condition-system';
-import { LootSystem } from '../../src/engine/loot-system';
+import { Registry } from '../../src/engine/registry/registry';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { ConditionSystem } from '../../src/engine/expression/condition-system';
+import { LootSystem } from '../../src/engine/system/loot-system';
 import { DropTableEntry, PlayerState } from '../../src/engine/types';
 
 function emptyState(): PlayerState {

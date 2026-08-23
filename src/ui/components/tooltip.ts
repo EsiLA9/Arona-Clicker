@@ -1,8 +1,8 @@
 import { Character, ConditionGroup, Condition, SpotDef, EnhancementDef, AreaDef, InitDef, ItemDef, StoryEntryDef, RevealStage, RevealTrigger, RevealTarget, PassiveStoryEntry, PassivePoolDef } from '../../engine/types';
-import { TagPath, matchesTag } from '../../engine/tag';
-import { existenceCondition, existenceMet, unlockCondition } from '../../engine/reveal';
-import { parseStatCall } from '../../engine/stat-dsl';
-import { describeAffectorPack } from '../../engine/affector-text';
+import { TagPath, matchesTag } from '../../engine/core/tag';
+import { existenceCondition, existenceMet, unlockCondition } from '../../engine/visibility/reveal';
+import { parseStatCall } from '../../engine/expression/stat-dsl';
+import { describeAffectorPack } from '../../engine/effect/affector-text';
 import { UIContext } from '../context';
 
 /**

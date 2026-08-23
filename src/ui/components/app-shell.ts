@@ -19,6 +19,8 @@ export interface PanelState {
   conversationVariantId: string | null;
   /** 每个学生各自的聊天流（对话空间复用聊天流机制，按学生恢复语境）。 */
   studentChats: Record<string, ChatEntry[]>;
+  /** 未读消息计数接口（预留，后续接入未读系统时提供）。 */
+  getUnread?: (variantId: string) => number;
 }
 
 export function renderAppShell(ctx: UIContext, state: PanelState): string {
@@ -32,8 +34,8 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
     <main class="console-shell">
       ${renderHeader(ctx)}
       <section class="workspace">
-        ${renderLeftPanel(ctx, state.leftTab, state.selectedVariantId)}
-        ${renderCenterPanel(ctx, state.centerTab, state.chatEntries, ctx.game.getSendState(), conversation)}
+        ${renderLeftPanel(ctx, state)}
+        ${renderCenterPanel(ctx, state.centerTab, state.chatEntries, ctx.game.getSendState(state.conversationVariantId ?? undefined), conversation)}
         ${renderRightPanel(ctx, state.rightTab, state.selectedVariantId)}
       </section>
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>TS-HTML ENGINE · NO NETWORK</span></footer>

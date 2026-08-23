@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { buildThemeVars, deriveNode, heroGradient, readableOn, THEME_NODES, type ThemeVarName } from '../../src/ui/theme-tree';
-import { LIGHTNESS_THRESHOLD } from '../../src/engine/color-system';
+import { LIGHTNESS_THRESHOLD } from '../../src/engine/system/color-system';
 
 describe('theme-tree：色彩树设定工具', () => {
   const primary = '#3b9eff';

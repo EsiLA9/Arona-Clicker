@@ -26,7 +26,7 @@ import {
   isDict,
   isList,
   isInt,
-} from '../../src/engine/extra';
+} from '../../src/engine/extra/index';
 
 /** 测试辅助：断言节点为 dict 并取出其表（收窄 ExtraValue 联合）。 */
 function dictOf(v: ExtraValue): Record<string, ExtraValue> {

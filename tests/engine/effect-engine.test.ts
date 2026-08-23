@@ -2,12 +2,12 @@
 // engine/effect-engine.test.ts
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { EventBus } from '../../src/engine/event-bus';
-import { EffectEngine } from '../../src/engine/effect-engine';
-import { StateMutationService } from '../../src/engine/state-mutation-service';
-import { ValueSystem } from '../../src/engine/value-system';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { EffectEngine } from '../../src/engine/effect/effect-engine';
+import { StateMutationService } from '../../src/engine/system/state-mutation-service';
+import { ValueSystem } from '../../src/engine/expression/value-system';
 import { PlayerState, Effect, Character, Expr, value } from '../../src/engine/types';
-import { extra } from '../../src/engine/extra';
+import { extra } from '../../src/engine/extra/index';
 
 function emptyState(): PlayerState {
   return {

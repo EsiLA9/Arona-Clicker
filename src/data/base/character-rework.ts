@@ -22,7 +22,7 @@ import {
   StoryDef,
   ThemeToken,
 } from '../../engine/types';
-import { extra } from '../../engine/extra';
+import { extra } from '../../engine/extra/index';
 import { allCharacters } from './characters';
 
 /** 全局默认培养曲线：上限 30 级、线性经验、5 星突破每星 +5 级上限。 */

@@ -8,8 +8,11 @@
 import { UIContext } from '../context';
 import { renderChatHistory, renderCurrentStory, ChatEntry } from './story';
 import { renderSendButton } from './center-panel';
-import { CharacterVariantDef } from '../../engine/types';
-import { getAtPath, isStr } from '../../engine/extra';
+import { CharacterVariantDef, type ConditionGroup, type Condition } from '../../engine/types';
+import { getAtPath, isStr } from '../../engine/extra/index';
+
+/** 未读消息计数接口：后续接入未读系统时由调用方提供。 */
+export type UnreadResolver = (variantId: string) => number;
 
 const RARITY_LABEL: Record<string, string> = {
   super_rare: '★★★',
@@ -17,8 +20,16 @@ const RARITY_LABEL: Record<string, string> = {
   common: '★',
 };
 
-/** 左栏：通讯录 tab。 */
-export function renderContactsTab(ctx: UIContext, selected: string | null): string {
+/** 左栏：通讯录 tab。
+ * @param studentChats 各学生对话空间聊天流，用于列表项消息预览
+ * @param getUnread    未读消息计数接口（预留，后续接入未读系统时传入）
+ */
+export function renderContactsTab(
+  ctx: UIContext,
+  selected: string | null,
+  studentChats: Record<string, ChatEntry[]> = {},
+  getUnread?: UnreadResolver,
+): string {
   const { game } = ctx;
   const groups = game.rosterSystem.contactGroups(game.state);
   const codex = game.rosterSystem.codex(game.state);
@@ -28,20 +39,24 @@ export function renderContactsTab(ctx: UIContext, selected: string | null): stri
     ? groups.map(g => `
       <div class="contact-group">
         <h4 class="contact-school">${ctx.escapeHtml(g.school)}</h4>
-        ${g.entries.map(({ variant }) => renderContactRow(ctx, variant, selected)).join('')}
+        ${g.entries.map(({ variant }) => renderContactRow(ctx, variant, selected, studentChats[variant.id] ?? [], getUnread?.(variant.id) ?? 0)).join('')}
       </div>`).join('')
-    : '<p class="empty">还没有获得任何学生。</p>';
+    : '';
+
+  const emptyHtml = groups.length === 0 && unowned.length === 0
+    ? `
+      <div class="contacts-empty">
+        <div class="contacts-empty-icon">✉</div>
+        <p class="contacts-empty-title">还没有获得任何学生</p>
+        <p class="contacts-empty-hint">名单空空如也，去 Spot 招募来扩充你的联系人吧。</p>
+      </div>`
+    : '';
 
   const placeholderHtml = unowned.length
     ? `
       <div class="contact-group">
         <h4 class="contact-school">未获得</h4>
-        ${unowned.map(({ variant }) => `
-          <div class="nav-item contact-row is-locked">
-            <span class="contact-avatar placeholder">?</span>
-            <span class="contact-name">???</span>
-            <small>${RARITY_LABEL[variant.rarity] ?? ''}</small>
-          </div>`).join('')}
+        ${unowned.map(({ variant }) => renderLockedRow(ctx, variant)).join('')}
       </div>`
     : '';
 
@@ -64,22 +79,71 @@ export function renderContactsTab(ctx: UIContext, selected: string | null): stri
 
   return `
     <div class="contacts-pane">
-      <button class="primary-button contact-gacha" data-open-gacha>招募补给</button>
+      ${emptyHtml}
       ${groupHtml}
       ${placeholderHtml}
       ${themeRow}
     </div>`;
 }
 
-function renderContactRow(ctx: UIContext, variant: CharacterVariantDef, selected: string | null): string {
+/** 未获得学生的锁定行（IM 式占位：头像 ? / 名 ??? / 预览提示）。 */
+function renderLockedRow(ctx: UIContext, variant: CharacterVariantDef): string {
+  return `
+    <div class="nav-item contact-row is-locked">
+      <span class="contact-avatar-wrap">
+        <span class="contact-avatar placeholder">?</span>
+      </span>
+      <span class="contact-info">
+        <span class="contact-line1"><span class="contact-name">???</span></span>
+        <span class="contact-line2">尚未加入对话</span>
+      </span>
+    </div>`;
+}
+
+function renderContactRow(
+  ctx: UIContext,
+  variant: CharacterVariantDef,
+  selected: string | null,
+  chats: ChatEntry[] = [],
+  unread = 0,
+): string {
   const entry = ctx.game.rosterSystem.getOwned(ctx.game.state, variant.id)!;
   const active = selected === variant.id;
+  const glyph = variant.name.slice(0, 1);
+  const avatar = (variant as any).avatar
+    ? `<img class="contact-avatar" src="${(variant as any).avatar}" alt="${ctx.escapeHtml(variant.displayName)}">`
+    : `<span class="contact-avatar">${ctx.escapeHtml(glyph)}</span>`;
+  const unreadBadge = unread > 0
+    ? `<span class="contact-unread" title="未读消息">${unread > 99 ? '99+' : unread}</span>`
+    : '';
+  const preview = lastPreview(chats, true);
+
   return `
-    <button class="nav-item contact-row ${active ? 'active' : ''}" data-select-variant="${ctx.escapeHtml(variant.id)}">
-      <span class="contact-avatar">${ctx.escapeHtml(variant.name.slice(0, 1))}</span>
-      <span class="contact-name">${ctx.escapeHtml(variant.displayName)}</span>
-      <small>Lv.${entry.level} · ${RARITY_LABEL[variant.rarity] ?? ''}</small>
+    <button class="nav-item contact-row ${active ? 'active' : ''}${unread > 0 ? ' has-unread' : ''}" data-select-variant="${ctx.escapeHtml(variant.id)}">
+      <span class="contact-avatar-wrap">${avatar}${unreadBadge}</span>
+      <span class="contact-info">
+        <span class="contact-line1">
+          <span class="contact-name">${ctx.escapeHtml(variant.displayName)}</span>
+          <span class="contact-meta">Lv.${entry.level} · ${RARITY_LABEL[variant.rarity] ?? ''}</span>
+        </span>
+        <span class="contact-line2">${ctx.escapeHtml(preview)}</span>
+      </span>
     </button>`;
+}
+
+/** 取聊天流最后一条可读文本作为列表预览（"收发人"感）。 */
+function lastPreview(chats: ChatEntry[], owned: boolean): string {
+  if (!owned) return '尚未加入对话';
+  for (let i = chats.length - 1; i >= 0; i--) {
+    const e = chats[i];
+    if (e.kind === 'talk' || e.kind === 'narration') {
+      const text = e.text ?? '';
+      const prefix = e.kind === 'talk' && e.isPlayer ? '我：' : '';
+      const out = `${prefix}${text}`.trim();
+      if (out) return out;
+    }
+  }
+  return '暂无消息';
 }
 
 /**
@@ -104,11 +168,27 @@ export function renderConversationView(
     <button class="bond-story-button" data-start-story="${ctx.escapeHtml(entry.id)}"
       title="${ctx.escapeHtml(entry.storyId)}">羁绊剧情</button>`).join('');
 
-  const story = ctx.game.getView().currentStory;
+  // 聊天沙盒：读取该角色对话空间自己游标上的当前剧情（与全局/其他角色并行互不干扰）
+  const story = ctx.game.getStoryView(variantId);
   // 羁绊剧情演出中：当前页照常渲染进流（choice 确认后显示选项卡片）
   const current = story && sendState.mode === 'choice' && sendState.confirmed
     ? renderCurrentStory(ctx, story)
     : '';
+
+  // 对话空间阻断态（壁垒重启）：某 PassiveStoryEntry 播完后要求满足条件才能继续闲聊。
+  // 仅在没有进行中演出时锁定抽取（演出中仍走 send 推进）。
+  const blockState = ctx.game.state.studentBlocks?.[variantId];
+  const blockEntry = blockState ? ctx.game.registry.passiveStories.get(blockState.entryId) : undefined;
+  const blocked = !story && !!(blockEntry && blockEntry.block)
+    && !ctx.game.conditionSystem.evaluateGroup(blockEntry.block, ctx.game.state);
+
+  const footer = blocked
+    ? `<div class="conversation-blocked">
+         <span class="blocked-lock">🔒</span>
+         <span>对话空间已锁定，满足条件后继续：</span>
+         <span class="blocked-cond">${ctx.escapeHtml(describeCondition(blockEntry!.block!))}</span>
+       </div>`
+    : renderSendButton(sendState);
 
   return `
     <section class="panel center-panel conversation-panel">
@@ -126,10 +206,33 @@ export function renderConversationView(
             ${renderChatHistory(entries, ctx)}
             ${current}
           </div>
-          ${renderSendButton(sendState)}
+          ${footer}
         </div>
       </div>
     </section>`;
+}
+
+/** 把阻断条件组翻译为简短中文提示（通用条件组语义，供 UI 展示解锁要求）。 */
+function describeCondition(group: import('../../engine/types').ConditionGroup): string {
+  const walk = (g: import('../../engine/types').ConditionGroup): string => {
+    const sub = g.conditions.map(c =>
+      'target' in c ? describeLeaf(c) : '(' + walk(c as import('../../engine/types').ConditionGroup) + ')',
+    );
+    return sub.join(g.type === 'OR' ? ' 或 ' : ' 且 ');
+  };
+  const out = walk(group);
+  return out.length ? out : '满足条件';
+}
+
+/** 单条条件的中文描述。 */
+function describeLeaf(c: import('../../engine/types').Condition): string {
+  const cmp: Record<string, string> = { '==': '=', '!=': '≠', '>=': '≥', '<=': '≤', '>': '>', '<': '<' };
+  const targetName: Record<string, string> = {
+    resource: '资源', spotLevel: '地点等级', manager: '负责人', flag: '标记',
+    hasEnh: '强化', hasTag: '标签地点', area: '区域', init: '世界线', item: '物品', extra: '扩展字段', protoStat: '原型统计',
+  };
+  const name = targetName[c.target] ?? c.target;
+  return `${name}「${c.key}」${cmp[c.comparator] ?? c.comparator}${c.value}`;
 }
 
 /** 某差分的羁绊剧情入口列表（ActiveStoryEntry.extra.owner 声明归属）。 */
@@ -194,11 +297,42 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
     </div>`;
 }
 
-/** 弹窗体：招募补给（卡池列表 + 可及成员 + 抽取按钮）。 */
+/** 弹窗体：通用招募补给（全部开放卡池 + 可及成员 + 抽取按钮）。 */
 export function renderGachaBody(ctx: UIContext): string {
   const { game } = ctx;
   const pools = [...game.registry.gachaPools.values()];
-  if (!pools.length) return '<p class="empty">当前没有开放卡池。</p>';
+  return renderGachaPools(ctx, pools, '通用卡池');
+}
+
+/** Spot 招募弹窗体：Switch 切换「专有卡池 / 通用卡池」。 */
+export function renderSpotGachaBody(ctx: UIContext, spotId: string): string {
+  const { game } = ctx;
+  const spot = game.registry.spots.get(spotId);
+  if (!spot) return '<p class="empty">未找到该设施。</p>';
+  const ownIds = spot.gachaPools ?? [];
+  const ownPools = ownIds
+    .map(id => game.registry.gachaPools.get(id))
+    .filter((p): p is NonNullable<typeof p> => !!p);
+  const allPools = [...game.registry.gachaPools.values()];
+  return `
+    <div class="switch-tabs" data-gacha-scope-switch>
+      <button class="switch-tab ${ownPools.length ? 'active' : ''}" data-scope="own">专有卡池${ownPools.length ? `（${ownPools.length}）` : ''}</button>
+      <button class="switch-tab ${ownPools.length ? '' : 'active'}" data-scope="global">通用卡池（${allPools.length}）</button>
+    </div>
+    <div class="gacha-scope" data-scope-panel="own" ${ownPools.length ? '' : 'hidden'}>
+      ${ownPools.length
+        ? renderGachaPools(ctx, ownPools, '专有卡池')
+        : '<p class="empty">该设施没有专属卡池，请切换到通用卡池。</p>'}
+    </div>
+    <div class="gacha-scope" data-scope-panel="global" ${ownPools.length ? 'hidden' : ''}>
+      ${renderGachaPools(ctx, allPools, '通用卡池')}
+    </div>`;
+}
+
+/** 渲染一组卡池卡片（含可及成员与抽取按钮）。 */
+function renderGachaPools(ctx: UIContext, pools: import('../../engine/types').GachaPoolDef[], scopeLabel: string): string {
+  const { game } = ctx;
+  if (!pools.length) return `<p class="empty">「${scopeLabel}」当前没有可用卡池。</p>`;
   return pools.map(pool => {
     const closed = game.availabilityService.isPoolClosed(pool, game.state);
     const drawable = game.availabilityService.drawableOf(pool, game.state);

@@ -1,23 +1,23 @@
 import { UIContext } from '../context';
 import { renderTabs, TabDef } from './tabs';
-import { getAreaReveal, getInitReveal, getStoryReveal, describeCondition } from './tooltip';
+import { getAreaReveal, getStoryReveal, describeCondition } from './tooltip';
 import { renderContactsTab } from './contacts';
 import type { ActiveStoryEntry, StoryDef } from '../../engine/types';
+import type { PanelState } from './app-shell';
 
 const LEFT_TABS: TabDef[] = [
   { id: 'area', label: '区域' },
   { id: 'contacts', label: '通讯录' },
   { id: 'story', label: '故事' },
-  { id: 'init', label: '世界线' },
 ];
 
-export function renderLeftPanel(ctx: UIContext, activeTab: string, selectedVariantId: string | null = null): string {
+export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string {
+  const { leftTab: activeTab, selectedVariantId } = panelState;
   let body: string;
   let tab: string;
   switch (activeTab) {
-    case 'init': body = renderInitTab(ctx); tab = 'init'; break;
     case 'story': body = renderStoryTab(ctx); tab = 'story'; break;
-    case 'contacts': body = renderContactsTab(ctx, selectedVariantId); tab = 'contacts'; break;
+    case 'contacts': body = renderContactsTab(ctx, selectedVariantId, panelState.studentChats, panelState.getUnread); tab = 'contacts'; break;
     default: body = renderAreaTab(ctx); tab = 'area'; break;
   }
   return `
@@ -87,29 +87,6 @@ function renderAreaTab(ctx: UIContext): string {
     <div class="nav-sub">可前往区域</div>
     ${reachableRows || '<div class="nav-item"><span class="nav-marker"></span><span>无可达区域</span><small>—</small></div>'}
     <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>${storyLocked ? '剧情演出中，暂不可移动区域。' : '点击可前往的区域即可移动；锁定区域需满足条件后才会开放。'}</p></div>`;
-}
-
-function renderInitTab(ctx: UIContext): string {
-  const { game, view } = ctx;
-  const totalInits = game.registry.inits.size;
-  const initRows = [...game.registry.inits.values()].map((init) => {
-    const reveal = getInitReveal(ctx, init);
-    if (reveal.stage === 'invisible') return '';
-    const unlocked = reveal.stage === 'owned';
-    const isCurrent = init.id === view.activeInit;
-    const areas = game.registry.areasOfInit(init.id);
-    const name = reveal.nameKnown ? init.name : '未知世界线';
-    return `
-      <div class="nav-item ${isCurrent ? 'active' : ''}">
-        <span class="nav-marker"></span>
-        <span>${ctx.escapeHtml(name)}</span>
-        <small>${unlocked ? `${areas.length} AREA` : 'LOCKED'}</small>
-      </div>`;
-  }).join('');
-  return `
-    <div class="panel-heading"><span class="eyebrow">WORLD LINE ARCHIVE</span><span class="index">03</span></div>
-    ${initRows || '<div class="nav-item"><span class="nav-marker"></span><span>暂无世界线</span><small>—</small></div>'}
-    <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>世界线档案：${view.unlockedInits.length} / ${totalInits} 已解锁。切换世界线需先完成当前主线。</p></div>`;
 }
 
 function renderStoryTab(ctx: UIContext): string {

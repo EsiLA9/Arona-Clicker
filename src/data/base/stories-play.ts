@@ -594,4 +594,73 @@ export const baseStories: StoryDef[] = [
       },
     ],
   },
+  {
+    // 星野对话空间专属演出（壁垒示例）。不复用全局「窗边的晚霞」，以直观验证壁垒生效。
+    id: 'base:story:hoshino_tea_time',
+    name: '星野的茶点时间',
+    talklets: [
+      {
+        speaker: '小鸟游星野',
+        text: '老师，茶要趁热喝哦。食堂今天的点心也特别好吃。',
+        sendText: '那我不客气了。',
+        effects: [{ op: 'addResource', target: Resource.Credit, value: 5 }],
+      },
+      {
+        speaker: '小鸟游星野',
+        text: '嘿嘿，能和老师一起喝茶，感觉一天都会很顺利呢。',
+        sendText: '我也是。',
+        effects: [{ op: 'addResource', target: Resource.Credit, value: 5 }],
+      },
+    ],
+  },
+  {
+    // 星野对话空间专属演出（壁垒示例）。不复用全局「窗边的晚霞」，以直观验证壁垒生效。
+    id: 'base:story:hoshino_rooftop_hint',
+    name: '星野的天台邀约',
+    talklets: [
+      {
+        speaker: '小鸟游星野',
+        text: '老师……天台的风景，现在一定很好看吧。',
+        sendText: '想去看看。',
+        effects: [{ op: 'addResource', target: Resource.Credit, value: 5 }],
+      },
+      {
+        speaker: '小鸟游星野',
+        text: '那、那我去天台等您。您也来吗？……不来我也不怪您哦。',
+        sendText: '这就来。',
+        // 邀约发出：聊天空间锁定，要求玩家前往天台（block 由 hoshino_conv_2 声明）
+        effects: [{ op: 'addResource', target: Resource.Credit, value: 5 }],
+      },
+    ],
+  },
+  {
+    // 天台相遇剧情（区域事件驱动，独立于聊天空间邀约）。
+    // 由天台 Trigger（进入 base:area:schale_rooftop）启动，避免与邀约重复触发。
+    id: 'base:story:hoshino_rooftop_meet',
+    name: '天台的相遇',
+    talklets: [
+      {
+        speaker: '小鸟游星野',
+        text: '老师，您真的来了……！晚霞把天空染成橘色，像我们第一次见面那天一样。',
+        sendText: '我答应过你呀。',
+        effects: [{ op: 'addResource', target: Resource.Credit, value: 10 }],
+      },
+      {
+        speaker: '小鸟游星野',
+        text: '……能和老师并肩看这片晚霞，就是我最想做的事。',
+        sendText: '以后也要一起来。',
+        effects: [
+          { op: 'addResource', target: Resource.Credit, value: 10 },
+          // 会话过程中移动到其他 Area：不判拓扑、仅限同 Init，notice=true 显示「移动到了 夏莱图书馆」
+          { op: 'travelToArea', target: 'base:area:schale_main', value: 0, notice: true },
+        ],
+      },
+      {
+        speaker: '小鸟游星野',
+        text: '天台风大，我们去图书馆吧。那里有你说的那本旧童话……我还想听老师讲一遍。',
+        sendText: '好，边走边讲。',
+        effects: [{ op: 'addResource', target: Resource.Credit, value: 10 }],
+      },
+    ],
+  },
 ];

@@ -4,12 +4,12 @@
 // 孤儿 entry 默认根池、环防护、无池退化平铺。
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { PassivePoolSystem } from '../../src/engine/passive-pool-system';
-import { ConditionSystem } from '../../src/engine/condition-system';
-import { EventBus } from '../../src/engine/event-bus';
+import { PassivePoolSystem } from '../../src/engine/system/passive-pool-system';
+import { ConditionSystem } from '../../src/engine/expression/condition-system';
+import { EventBus } from '../../src/engine/core/event-bus';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
-import type { Registry } from '../../src/engine/registry';
+import type { Registry } from '../../src/engine/registry/registry';
 import type { PassivePoolDef, PassiveStoryEntry, PlayerState } from '../../src/engine/types';
 
 function entry(id: string, weight = 1): PassiveStoryEntry {
@@ -127,6 +127,122 @@ describe('PassivePoolSystem 树状抽取', () => {
 });
 
 // ============================================================
+// 聊天空间壁垒 / 冷却 / 阻断（本次需求）
+// ============================================================
+describe('PassivePoolSystem 壁垒·冷却·阻断', () => {
+  test('壁垒：对话空间只抽 owner 命中的 entry，全局闲聊只抽 owner 为空者', () => {
+    const entries = [
+      entry('chat_global'),
+      { ...entry('chat_hibiki'), owner: 'base:variant:hibiki' },
+      { ...entry('chat_nozomi'), owner: 'base:variant:nozomi' },
+    ];
+    const { system } = setup([], entries);
+    // 全局闲聊（owner=null）：只收到无 owner 的 chat_global
+    for (let i = 0; i < 50; i++) expect(system.pick(makeState(), eligibleAll, { owner: null })).toBe('chat_global');
+    // 对话空间 hibiki：只收其 owner 的 chat_hibiki
+    for (let i = 0; i < 50; i++) expect(system.pick(makeState(), eligibleAll, { owner: 'base:variant:hibiki' })).toBe('chat_hibiki');
+    // 对话空间 nozomi：只收其 owner 的 chat_nozomi
+    for (let i = 0; i < 50; i++) expect(system.pick(makeState(), eligibleAll, { owner: 'base:variant:nozomi' })).toBe('chat_nozomi');
+  });
+
+  test('壁垒：池级 owner 不匹配则整枝剪除（仅该学生可见专属池）', () => {
+    const pools: PassivePoolDef[] = [
+      { id: 'root', children: [{ id: 'pool_hibi' }, { id: 'chat_global' }] },
+      { id: 'pool_hibi', owner: 'base:variant:hibiki', children: [{ id: 'chat_hibiki' }] },
+    ];
+    const entries = [entry('chat_hibiki'), entry('chat_global')];
+    const { system } = setup(pools, entries);
+    expect(system.pick(makeState(), eligibleAll, { owner: null })).toBe('chat_global');
+    expect(system.pick(makeState(), eligibleAll, { owner: 'base:variant:hibiki' })).toBe('chat_hibiki');
+  });
+
+  test('冷却：entry 被抽取后 cooldownFrames 帧内剪除，过期后恢复', () => {
+    const entries = [entry('chat_a'), entry('chat_b')];
+    // chat_a 冷却 100 帧
+    const { system } = setup([], [{ ...entries[0], cooldownFrames: 100 }, entries[1]]);
+    const state = makeState();
+    // 模拟 chat_a 被抽中并写入冷却帧
+    state.passiveCooldowns = { chat_a: 0 };
+    state.totalFrames = 10; // 10 - 0 = 10 < 100 → 冷却中
+    expect(system.pick(state, eligibleAll, { cooldowns: state.passiveCooldowns })).toBe('chat_b');
+    // 推进到 100 帧后冷却结束
+    state.totalFrames = 100; // 100 - 0 = 100 不 < 100 → 解除
+    const picked = new Set<string>();
+    for (let i = 0; i < 50; i++) picked.add(system.pick(state, eligibleAll, { cooldowns: state.passiveCooldowns })!);
+    expect(picked).toEqual(new Set(['chat_a', 'chat_b']));
+  });
+
+  test('阻断：学生对话空间锁定后其 entry 被剪除，解除后恢复', () => {
+    const entries = [
+      entry('chat_global'),
+      { ...entry('chat_hibiki'), owner: 'base:variant:hibiki' },
+    ];
+    const { system } = setup([], entries);
+    // 锁定 hibiki 对话空间
+    const blocks = { 'base:variant:hibiki': true };
+    expect(system.pick(makeState(), eligibleAll, { owner: 'base:variant:hibiki', blocks })).toBeNull();
+    // 解除后恢复
+    expect(system.pick(makeState(), eligibleAll, { owner: 'base:variant:hibiki', blocks: {} })).toBe('chat_hibiki');
+  });
+});
+
+// ============================================================
+// 阻断态全链路：PassiveStoryEntry.block 播完后锁定对话空间，条件满足后重启
+// ============================================================
+describe('对话空间阻断态全链路（GameInstance）', () => {
+  let game: GameInstance;
+  beforeEach(() => {
+    game = new GameInstance();
+    game.init([baseDatapack]);
+    game.startNewGame('base:init:schale_office');
+  });
+  afterEach(() => game.stop());
+
+  function finishWelcome(): void {
+    let guard = 0;
+    while (game.getView().currentStory && guard++ < 50) {
+      const r = game.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+    }
+  }
+
+  // 用临时数据包注入一个带 block 的被动闲聊（要求学生到达某区域/满足某 flag 才解锁对话空间）
+  test('block 闲聊播完后锁定对话空间，满足 block 条件后由 tick 重启', () => {
+    finishWelcome();
+    // 复用已有被动闲聊 entry（其 storyId 指向真实 Story），覆盖注册以加 owner + block
+    const owner = 'base:variant:hibiki';
+    const baseEntry = game.registry.passiveStories.get('base:story:schale_tea')!;
+    const blockEntry: PassiveStoryEntry = {
+      ...baseEntry,
+      owner,
+      block: { type: 'AND', conditions: [{ target: 'flag', key: 'met_at_roof', comparator: '==', value: 1 }] },
+    };
+    (game.registry.passiveStories as Map<string, PassiveStoryEntry>).set(blockEntry.id, blockEntry);
+
+    // 抽中并播完 → 应写入 studentBlocks[owner]（聊天沙盒游标内推进）
+    const res = game.triggerPassiveStory('base:init:schale_office', owner);
+    expect(res.success).toBe(true);
+    let r = game.advanceStory(undefined, owner);
+    while (r.success && 'finished' in r && !r.finished) r = game.advanceStory(undefined, owner);
+    expect(r.success && 'finished' in r && r.finished).toBe(true);
+
+    expect(game.state.studentBlocks?.[owner]).toBeDefined();
+    expect(game.state.studentBlocks?.[owner].entryId).toBe('base:story:schale_tea');
+
+    // 该学生对话空间此刻被阻断：pick 返回 null
+    expect(game.passivePoolSystem.pick(game.state, () => true, { owner, blocks: game.state.studentBlocks ?? {} })).toBeNull();
+
+    // 满足条件（玩家到达天台 → 置 flag）
+    game.mutations.setFlag('met_at_roof', '1');
+    game.tick(); // 复检阻断态
+
+    // 阻断已解除
+    expect(game.state.studentBlocks?.[owner]).toBeUndefined();
+    expect(game.passivePoolSystem.pick(game.state, () => true, { owner, blocks: game.state.studentBlocks ?? {} })).toBe('base:story:schale_tea');
+  });
+});
+
+// ============================================================
 // 集成：基础数据包夏莱办公室池树（GameInstance 全链路）
 // ============================================================
 describe('基础数据包池树（schale_office）', () => {
@@ -189,6 +305,239 @@ describe('基础数据包池树（schale_office）', () => {
     expect(seen.has('base:story:schale_night')).toBe(true);
   });
 
+  // 复现：千禧年 Init 下，小鸟游星野对话空间（owner='Hoshino'）只抽其专属闲聊，
+  // 绝不能抽中无 owner 的全局闲聊（如 base:story:schale_sunset）。
+  test('壁垒·真实数据：星野对话空间抽取不泄漏外部闲聊', () => {
+    game.startNewGame('base:init:millennium');
+    let guard = 0;
+    while (game.getView().currentStory && guard++ < 50) {
+      const r = game.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+    }
+    const owner = 'Hoshino';
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      const candidate = game.passivePoolSystem.pick(game.state, () => true, { owner });
+      if (candidate) seen.add(candidate);
+    }
+    // 专属闲聊应可被抽中
+    expect(seen.has('base:story:hoshino_conv_1')).toBe(true);
+    // 外部无 owner 全局闲聊绝不可泄漏
+    expect(seen.has('base:story:schale_sunset')).toBe(false);
+    expect(seen.has('base:story:schale_tea')).toBe(false);
+  });
+
+  // 回归：外部 ActiveStoryEntry 播放时，聊天空间（owner 非空）的专属抽取不被阻塞。
+  // 对话空间是角色的独立沙盒——外部 active 主线不应阻挠本空间点发送抽专属。
+  test('壁垒·沙盒：外部 active 主线播放时 Hoshino 空间抽取专属不被阻塞', () => {
+    finishWelcome();
+    // 启动一条外部 active 主线（不属于任何聊天空间）
+    const ext = game.startActiveStory('base:story:run_chain_1');
+    expect(ext.success).toBe(true);
+    expect(game.getView().currentStory).toBeTruthy();
+
+    // 一般聊天：按钮是外部 active 的推进态
+    expect(game.getSendState().mode).toBe('advance');
+
+    // Hoshino 对话空间：外部 active 不属于该角色 → 按钮转 idle，且抽取专属不被阻塞
+    expect(game.getSendState('Hoshino').mode).toBe('idle');
+    const r = game.clickSend('Hoshino');
+    expect(r.type).toBe('idle');
+    expect((r as { started?: boolean }).started).toBe(true);
+    // 聊天沙盒游标上是 Hoshino 专属闲聊
+    expect(game.getStoryView('Hoshino')!.storyId).toMatch(/hoshino_conv/);
+    // 外部 active 主线仍保留在全局游标（并行，未被内部故事打断）
+    expect(game.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
+  });
+
+  // 多沙盒持久化：聊天沙盒游标与全局游标互不干扰，且都随存档保存/恢复。
+  test('多沙盒·存档：聊天沙盒游标与全局游标并行，save/load 各自恢复', () => {
+    finishWelcome();
+    // 全局游标：外部 active 主线
+    expect(game.startActiveStory('base:story:run_chain_1').success).toBe(true);
+    // 聊天沙盒：Hoshino 专属闲聊
+    expect(game.triggerPassiveStory('base:init:schale_office', 'Hoshino').success).toBe(true);
+    const hoshinoId = game.getStoryView('Hoshino')!.storyId;
+    expect(hoshinoId).toMatch(/hoshino_conv/);
+    expect(game.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
+
+    // 存档 → 新实例读档
+    const saved = game.save();
+    const g2 = new GameInstance();
+    g2.init([baseDatapack]);
+    g2.load(saved);
+    // 聊天沙盒游标恢复
+    expect(g2.getStoryView('Hoshino')).not.toBeNull();
+    expect(g2.getStoryView('Hoshino')!.storyId).toBe(hoshinoId);
+    // 全局游标恢复（并行互不丢失）
+    expect(g2.getView().currentStory).not.toBeNull();
+    expect(g2.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
+  });
+
+  // 打断控制：天台剧情声明 leaveArea:false / interruptible:false，
+  // 播放中锁定移动且不被移动打断（演出中途不可离场）。
+  test('打断控制：天台剧情 leaveArea:false 锁定移动且不被打断', () => {
+    finishWelcome();
+    expect(game.startStory('base:story:hoshino_conv_2', 'passive').success).toBe(true);
+    // 播放中尝试移动（当前在 schale_main → 天台）→ 被 leaveArea:false 锁定
+    expect(game.getView().currentStory).not.toBeNull();
+    const move = game.travelToArea('base:area:schale_rooftop');
+    expect(move.success).toBe(false);
+    // interruptible:false：移动不会打断该剧情（即使强行触发 clearPassive）
+    expect(game.getView().currentStory).not.toBeNull();
+  });
+
+  // 天台 Trigger：玩家首次进入夏莱天台 → areaEntered 事件 → triggerStory effect 启动天台剧情。
+  test('天台 Trigger：进入天台自动触发天台剧情（triggerStory effect）', () => {
+    finishWelcome();
+    // 当前在 schale_main，前往天台（相邻）
+    const move = game.travelToArea('base:area:schale_rooftop');
+    expect(move.success).toBe(true);
+    // Trigger 命中（once 标记写入）→ storyStarter 启动天台相遇剧情（独立演出）
+    expect(game.state.triggersCompleted).toContain('base:trigger:hoshino_rooftop_story');
+    expect(game.getView().currentStory).not.toBeNull();
+    expect(game.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+  });
+
+  // 复现用户场景：完整新游戏 → 排干初始剧情 → 前往天台 → 触发天台剧情。
+  test('天台 Trigger·完整流程：new game → 排干 welcome → 前往天台触发剧情', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.startNewGame('base:init:schale_office');
+    // 排干初始 welcome 剧情
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
+    }
+    expect(g.getView().currentStory).toBeNull();
+    // 确认天台在夏莱 Init 可达
+    const move = g.travelToArea('base:area:schale_rooftop');
+    expect(move.success).toBe(true);
+    expect(g.state.currentAreaId).toBe('base:area:schale_rooftop');
+    // 触发天台相遇剧情
+    expect(g.state.triggersCompleted).toContain('base:trigger:hoshino_rooftop_story');
+    expect(g.getView().currentStory).not.toBeNull();
+    expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+  });
+
+  // 关键复现：玩家前往天台时全局游标已有被动闲聊在播放，天台 Trigger 仍应抢占触发
+  // （否则 storyStarter 会因 AlreadyActive 失败，天台剧情不触发）。
+  test('天台 Trigger·抢占：全局游标有被动闲聊时前往天台仍触发剧情', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
+    }
+    // 在一般聊天触发一条外部 passive 闲聊，占住全局游标
+    const ext = g.triggerPassiveStory('base:init:schale_office');
+    expect(ext.success).toBe(true);
+    expect(g.getView().currentStory).not.toBeNull();
+    const extId = g.getView().currentStory!.storyId;
+    expect(extId).not.toMatch(/hoshino_conv/);
+
+    // 前往天台 → 天台 Trigger（force）抢占该闲聊并启动天台剧情
+    const move = g.travelToArea('base:area:schale_rooftop');
+    expect(move.success).toBe(true);
+    expect(g.state.triggersCompleted).toContain('base:trigger:hoshino_rooftop_story');
+    expect(g.getView().currentStory).not.toBeNull();
+    expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+  });
+
+  // 关键复现：玩家已通过星野聊天空间播放过天台邀约（hoshino_rooftop_hint 已读）后，
+  // 前往天台仍应触发独立的「天台相遇」剧情（force 跳过已读，且演出与邀约解耦不重复）。
+  test('天台 Trigger·已读：先播过聊天空间邀约后前往天台仍触发天台相遇', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
+    }
+    // 在星野聊天空间触发天台邀约（hoshino_conv_2）并播完 → hoshino_rooftop_hint 已读
+    const inv = g.triggerPassiveStory('base:init:schale_office', 'Hoshino');
+    // 可能抽到 conv_1 或 conv_2；若为 conv_2 则标记已读
+    if (inv.success && g.getStoryView('Hoshino')?.storyDefId === 'base:story:hoshino_rooftop_hint') {
+      let rg = 0;
+      while (g.getStoryView('Hoshino') && rg++ < 20) g.advanceStory(undefined, 'Hoshino');
+    }
+    // 前往天台 → 天台 Trigger（force 跳过已读）仍应触发独立的天台相遇
+    const move = g.travelToArea('base:area:schale_rooftop');
+    expect(move.success).toBe(true);
+    expect(g.state.triggersCompleted).toContain('base:trigger:hoshino_rooftop_story');
+    expect(g.getView().currentStory).not.toBeNull();
+    expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+  });
+
+  // 回归：渲染守卫按 entry.id 反查 owner（story.storyId 是对外 Entry.id），
+  // 星野专属 entry 的 owner 唯一命中 Hoshino，Talklet 不被误判为外部而正常渲染
+  // （复现「Hoshino 聊天空间未渲染 Talklet」）。
+  test('壁垒·专属演出：Hoshino 专属 entry 的 owner 反查命中 Hoshino（Talklet 可被渲染）', () => {
+    finishWelcome();
+    // 触发星野专属闲聊
+    const r = game.triggerPassiveStory('base:init:schale_office', 'Hoshino');
+    expect(r.success).toBe(true);
+    const entryId = game.getStoryView('Hoshino')!.storyId; // StoryView.storyId = Entry.id（聊天沙盒游标）
+    // pick 权重随机，conv_1/conv_2 皆属星野专属；核心是 owner 归属命中 Hoshino
+    expect(entryId).toMatch(/^base:story:hoshino_conv_/);
+    // 渲染守卫反查（entry.id === story.storyId）应命中 owner='Hoshino'，而非全局无主 entry
+    const owning = [...game.registry.passiveStories.values()]
+      .filter(e => e.id === entryId)
+      .map(e => e.owner);
+    expect(owning).toEqual(['Hoshino']);
+  });
+
+  // 夏莱 Area 阻塞：天台剧情（hoshino_conv_2）block 条件 = 位于夏莱天台区域。
+  // 播完后锁定星野对话空间；玩家到达天台（travelToArea）后 recheckStudentBlocks 解除。
+  test('壁垒·Area 阻塞：天台剧情锁定星野空间，到达夏莱天台区域后重启', () => {
+    finishWelcome();
+    // 初始在夏莱主厅（非天台）
+    expect(game.getView().currentAreaId).toBe('base:area:schale_main');
+    // 模拟天台剧情播完后锁定了星野对话空间（block 条件 = 位于夏莱天台）
+    game.mutations.setStudentBlock('Hoshino', 'base:story:hoshino_conv_2');
+    expect(game.state.studentBlocks?.['Hoshino']?.entryId).toBe('base:story:hoshino_conv_2');
+    // 未到天台 → 阻断保持
+    game.tick();
+    expect(game.state.studentBlocks?.['Hoshino']).toBeTruthy();
+
+    // 到达夏莱天台 → recheckStudentBlocks 判定 area 条件满足 → 解除阻断
+    const travel = game.travelToArea('base:area:schale_rooftop');
+    expect(travel.success).toBe(true);
+    expect(game.getView().currentAreaId).toBe('base:area:schale_rooftop');
+    expect(game.state.studentBlocks?.['Hoshino']).toBeUndefined();
+  });
+
+  // 复现：外部 passive story 进行中时进入 Hoshino 对话空间，按钮状态按 owner 隔离，
+  // 抽取只抽 Hoshino 专属，绝不推进/延续外部故事（消除内容污染）。
+  test('壁垒·owner 隔离：外部故事进行中，角色空间按钮转 idle 且抽取只出专属', () => {
+    finishWelcome();
+    // 一般聊天触发外部 passive story（无 owner，作为进行中故事）
+    const ext = game.triggerPassiveStory('base:init:schale_office');
+    expect(ext.success).toBe(true);
+    const extEntryId = game.getView().currentStory!.storyId;
+    expect(extEntryId).not.toMatch(/hoshino_conv/);
+
+    // 一般聊天（owner=null）：按钮是外部故事的推进态
+    expect(game.getSendState().mode).toBe('advance');
+
+    // 进入 Hoshino 对话空间：外部故事不属于该角色 → 按钮转 idle
+    const convState = game.getSendState('Hoshino');
+    expect(convState.mode).toBe('idle');
+
+    // 在 Hoshino 空间点发送：并行抽取 Hoshino 专属闲聊（不打断外部故事）
+    const r = game.clickSend('Hoshino');
+    expect(r.type).toBe('idle');
+    expect((r as { started?: boolean }).started).toBe(true);
+    const newEntryId = game.getStoryView('Hoshino')!.storyId; // 聊天沙盒游标
+    expect(newEntryId).toMatch(/hoshino_conv/);
+    // 外部故事仍保留在全局游标（并行不打断）
+    expect(game.getView().currentStory!.storyId).toBe(extEntryId);
+  });
+
   test('完成「日程表攻防」后深夜模式链路全通（Talklet 效果 → flag → 池 gate）', () => {
     finishWelcome();
     const api = game as unknown as { startStory(id: string, t: 'passive'): { success: boolean } };
@@ -213,5 +562,38 @@ describe('基础数据包池树（schale_office）', () => {
     // triggerPassiveStory 全链路也能抽到（多次抽样）
     const seen = pickable(80);
     expect(seen.has('base:story:schale_night')).toBe(true);
+  });
+
+  // Talklet 移动：travelToArea effect 不判拓扑（但仍校验同 Init），notice=true 且成功时发 storyAreaTraveled。
+  test('Talklet 移动：剧情 travelToArea 不判拓扑、判 Init 归属，成功后发移动通知事件', () => {
+    finishWelcome();
+    // 当前在夏莱主厅
+    expect(game.getView().currentAreaId).toBe('base:area:schale_main');
+    let traveled = 0;
+    game.eventBus.on('storyAreaTraveled', e => {
+      if (e.type === 'storyAreaTraveled') traveled++;
+    });
+    // 启动天台相遇剧情（末页 travelToArea 到 schale_library，notice:true）
+    expect(game.startStory('base:story:hoshino_rooftop_meet', 'active').success).toBe(true);
+    let guard = 0;
+    while (game.getView().currentStory && guard++ < 20) {
+      const r = game.advanceStory();
+      if (r.success && 'finished' in r && r.finished) break;
+    }
+    // 移动到夏莱图书馆（同 Init，跳过拓扑）
+    expect(game.getView().currentAreaId).toBe('base:area:schale_library');
+    expect(traveled).toBeGreaterThan(0); // notice=true 时发出移动通知事件
+  });
+
+  // Talklet 移动·Init 归属：travelToArea（checkAdjacency=false）到不属于当前 Init 的 Area → 跳过。
+  // 即便跳过拓扑，Init 归属校验仍生效。
+  test('Talklet 移动·Init 归属：移动到非本 Init 的 Area 被跳过', () => {
+    finishWelcome();
+    const current = game.getView().currentAreaId;
+    // 模拟 Story 移动（checkAdjacency=false）到千禧年区域 → 不属于夏莱 Init → 跳过
+    const r = (game as unknown as { travelToArea(id: string, s: boolean, c: boolean): { success: boolean } })
+      .travelToArea('base:area:millennium_canteen', true, false);
+    expect(r.success).toBe(false);
+    expect(game.getView().currentAreaId).toBe(current); // 位置不变
   });
 });

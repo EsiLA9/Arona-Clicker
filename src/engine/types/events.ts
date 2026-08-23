@@ -18,6 +18,8 @@ export type GameEvent =
   | { type: 'initEntered'; initId: string }
   | { type: 'initUnlocked'; initId: string }
   | { type: 'areaEntered'; areaId: string; fromAreaId: string | null }
+  /** Story 的 travelToArea effect 成功移动（且 notice=true）→ UI 显示「移动到了 XX」迷你条目。 */
+  | { type: 'storyAreaTraveled'; areaId: string }
   | { type: 'storyTriggered'; storyId: string }
   | { type: 'storyCompleted'; storyId: string }
   /**
@@ -58,6 +60,10 @@ export type GameEvent =
   | { type: 'chatReadChanged'; messageId: string }
   /** 抽卡结算完成（count = 本次抽取次数；逐次结果以 characterAcquired 事件跟随）。 */
   | { type: 'gachaResolved'; poolId: string; count: number }
+  /** 被动闲聊冷却表更新（entryId/poolId → 上次抽取帧）。 */
+  | { type: 'passiveCooldownsChanged'; cooldowns: Record<string, number> }
+  /** 学生对话空间阻断态变化（blocked=true 锁定 / false 解除）。 */
+  | { type: 'studentBlockChanged'; variantId: string; blocked: boolean; entryId?: string }
   & { stats?: StatsContext };
 
 export type EventHandler = (event: GameEvent) => void;

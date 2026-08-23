@@ -68,6 +68,18 @@ export interface PlayerState {
   colorsOwned?: ColorId[];
   /** 聊天已读记录（归属由 characterPersistConfig.chatRead 声明）。 */
   chatRead?: Record<ChatMessageId, true>;
+  /**
+   * 被动闲聊冷却表：key = entryId 或 poolId，value = 上次被抽取时的 totalFrames。
+   * 抽选时若 totalFrames - 上次帧 < cooldownFrames 则剪枝（不可选）。
+   * 归属层随 element 自身（entry 多为 init，pool 多为 init）—— 由 ConditionSystem 在各 tick 自然失效。
+   */
+  passiveCooldowns?: Record<string, number>;
+  /**
+   * 对话空间阻断态：key = VariantId（学生差分），存在即该学生对话空间被锁定。
+   * value 记录触发阻断的 entryId 与设定帧，满足条件组（PassiveStoryEntry.block）后由
+   * StateMutationService 解除。用于「剧情结束后要求玩家前往某地继续下一步」。
+   */
+  studentBlocks?: Record<VariantId, { entryId: string; setAtFrame: number }>;
   /** 世界 Pool：已进入常驻集合的差分（池关闭条件触发后并入）。 */
   worldPool?: VariantId[];
   /** 原型聚合统计（派生视图，Trigger 维护；键为 Character id 字符串）。 */

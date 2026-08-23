@@ -3,7 +3,7 @@
 // ============================================================
 
 import { SpotDef, Expr, Resource, and } from '../../engine/types';
-import { tagPath } from '../../engine/tag';
+import { tagPath } from '../../engine/core/tag';
 
 export const baseSpots: SpotDef[] = [
   {
@@ -26,6 +26,8 @@ export const baseSpots: SpotDef[] = [
         resource: Resource.Credit,
         amountPerLevel: 2,
       },
+      // 招募：夏莱办公室内即可测试抽卡。无 gachaPools 声明 → 开放全局通用卡池。
+      { id: 'base:func:credit_printer_gacha', kind: 'gacha' },
     ],
     // 通用升级：每级基础产出 +2（线性）；升级花费 floor(50 × 2^(N-1))（指数）
     yieldPerLevel: 2,
@@ -368,6 +370,11 @@ export const baseSpots: SpotDef[] = [
     baseCapacity: 240,
     managerBonusYield: Expr.const(4),
     tags: [tagPath('shop'), tagPath('tech')],
+    // 功能：招募（热门角色的专属卡池，独立于全局通用卡池）
+    functionalities: [
+      { id: 'base:func:canteen_gacha', kind: 'gacha' },
+    ],
+    gachaPools: ['base:pool:canteen_exclusive'],
     revealTriggers: [
       { reveal: 'name', condition: and({ target: 'resource', key: Resource.Credit, comparator: '>=', value: 20 }) },
       { reveal: 'utility', condition: and({ target: 'resource', key: Resource.Credit, comparator: '>=', value: 60 }) },

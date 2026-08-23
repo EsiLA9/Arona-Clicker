@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-23T07:08:47.543Z",
+  "generatedAt": "2026-08-23T15:50:39.225Z",
   "sourceDir": "src/engine/types",
   "defMap": {
     "inits": {
@@ -518,6 +518,19 @@
           }
         },
         {
+          "key": "gachaPools",
+          "required": false,
+          "kind": "array",
+          "tsType": "GachaPoolId[]",
+          "description": "专有卡池：可在该 Spot 的招募界面访问，区别于全局通用卡池。",
+          "item": {
+            "key": "$",
+            "kind": "ref",
+            "table": "gachaPools",
+            "tsType": "GachaPoolId"
+          }
+        },
+        {
           "key": "extra",
           "required": false,
           "kind": "extra",
@@ -724,6 +737,41 @@
           "kind": "hand",
           "tsType": "{ first?: Effect[]; repeat?: Effect[] }",
           "description": "完结奖励：闲聊完整播放到最后一页后发放。"
+        },
+        {
+          "key": "owner",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "归属某学生差分的聊天空间（VariantId）。设置后该闲聊仅在该学生的对话空间被抽取，"
+        },
+        {
+          "key": "cooldownFrames",
+          "required": false,
+          "kind": "float",
+          "tsType": "number",
+          "description": "抽取后冷却帧数：被抽取（最后一页播完）后需经过 N 帧（tick）才能再次被选取。"
+        },
+        {
+          "key": "block",
+          "required": false,
+          "kind": "hand",
+          "tsType": "ConditionGroup",
+          "description": "阻断/重启条件：播完最后一页后锁定该学生的对话空间，直到该条件组满足才「重启」"
+        },
+        {
+          "key": "interruptible",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "description": "是否可被「移动 Area」打断（默认 true）。false 时进入该闲聊后不会被移动打断，"
+        },
+        {
+          "key": "leaveArea",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "description": "播放中是否允许离开 Area（默认 true）。false 时该闲聊播放期间禁止移动"
         }
       ]
     },
@@ -764,6 +812,20 @@
           "description": "池 gate：不满足时整棵子树退出候选。缺省 = 无条件可用。"
         },
         {
+          "key": "owner",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "归属某学生差分的聊天空间（VariantId）。设置后该池仅在该学生的对话空间被抽取。"
+        },
+        {
+          "key": "cooldownFrames",
+          "required": false,
+          "kind": "float",
+          "tsType": "number",
+          "description": "抽取后冷却帧数：该池被抽取（命中任一内条目）后需经过 N 帧才能再次被选取。"
+        },
+        {
           "key": "children",
           "required": true,
           "kind": "array",
@@ -786,6 +848,13 @@
                 "kind": "float",
                 "tsType": "number",
                 "description": "抽选权重（缺省 1）。叶子实际权重 = 路径上各池权重连乘 × entry 自身权重。"
+              },
+              {
+                "key": "cooldownFrames",
+                "required": false,
+                "kind": "float",
+                "tsType": "number",
+                "description": "抽取后冷却帧数：该子池（或叶子 entry）被选中后需经过 N 帧才能再次被选取。"
               }
             ],
             "tsType": "PassivePoolChild"

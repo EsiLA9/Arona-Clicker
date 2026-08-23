@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DevLog } from '../../src/engine/dev-log';
+import { DevLog } from '../../src/engine/core/dev-log';
 
 describe('DevLog', () => {
   test('keeps newest entries first and returns snapshots', () => {

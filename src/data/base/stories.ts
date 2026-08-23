@@ -17,9 +17,16 @@ import {
   cond,
   Resource,
 } from '../../engine/types';
-import { tagPath } from '../../engine/tag';
+import { tagPath } from '../../engine/core/tag';
 
 export { baseStories } from './stories-play';
+// 聊天空间壁垒 / 冷却 / 阻断 示例（见 stories-conversation-walls.ts）
+import {
+  hoshinoConversationPool,
+  hoshinoConversationStories,
+  cooldownDemoPool,
+  cooldownDemoStories,
+} from './stories-conversation-walls';
 
 // ============================================================
 // 触发入口拆分为两张独立表：
@@ -161,6 +168,15 @@ export const baseActiveStories: ActiveStoryEntry[] = [
       { reveal: 'name', condition: and({ target: 'hasReadStoryInRun', key: 'base:story:run_chain_1', comparator: '==', value: 1 }) },
       { reveal: 'condition', condition: and({ target: 'hasReadStoryInRun', key: 'base:story:run_chain_2', comparator: '==', value: 1 }) },
     ],
+  },
+  {
+    // 天台相遇剧情（夏莱）：由天台 Trigger（进入 schale_rooftop）启动。
+    // 独立于聊天空间邀约（hoshino_conv_2），避免前往天台时重复触发同一邀约。
+    id: 'base:story:hoshino_rooftop_meet',
+    storyId: 'base:story:hoshino_rooftop_meet',
+    type: 'active',
+    triggerCondition: and(),
+    availableInits: ['base:init:schale_office'],
   },
 ];
 
@@ -393,6 +409,9 @@ export const basePassiveStories: PassiveStoryEntry[] = [
       repeat: [{ op: 'addResource', target: Resource.Pyroxene, value: 5 }],
     },
   },
+  // —— 聊天空间壁垒 / 冷却 / 阻断 示例入口 ——
+  ...hoshinoConversationStories,
+  ...cooldownDemoStories,
 ];
 
 // ============================================================
@@ -453,4 +472,7 @@ export const basePassivePools: PassivePoolDef[] = [
       { id: 'base:story:schale_night', weight: 1 },
     ],
   },
+  // —— 聊天空间壁垒 / 冷却 / 阻断 示例池 ——
+  hoshinoConversationPool,
+  cooldownDemoPool,
 ];

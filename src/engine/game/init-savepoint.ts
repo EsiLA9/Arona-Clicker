@@ -4,9 +4,9 @@
 // ============================================================
 
 import type { PlayerState, InitDef } from '../types';
-import { Registry } from '../registry';
+import { Registry } from '../registry/registry';
 import { freshPerInitState, globalSpotEntries, localSpotEntries } from './snapshot';
-import { extra, mergeExtra } from '../extra';
+import { extra, mergeExtra } from '../extra/index';
 
 export class InitSavepoint {
   constructor(

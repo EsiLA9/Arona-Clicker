@@ -4,7 +4,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
-import { tagPath } from '../../src/engine/tag';
+import { tagPath } from '../../src/engine/core/tag';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';

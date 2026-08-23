@@ -4,12 +4,12 @@
 // ============================================================
 
 import { PlayerState, ItemId, UseItemResult } from '../types';
-import { Registry } from '../registry';
-import { ConditionSystem } from '../condition-system';
-import { EffectEngine } from '../effect-engine';
-import { LootSystem } from '../loot-system';
-import { StateMutationService } from '../state-mutation-service';
-import { DevLog } from '../dev-log';
+import { Registry } from '../registry/registry';
+import { ConditionSystem } from '../expression/condition-system';
+import { EffectEngine } from '../effect/effect-engine';
+import { LootSystem } from '../system/loot-system';
+import { StateMutationService } from '../system/state-mutation-service';
+import { DevLog } from '../core/dev-log';
 
 export interface ItemServiceOptions {
   registry: Registry;

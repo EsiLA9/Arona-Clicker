@@ -3,7 +3,7 @@
 // ============================================================
 
 import { EnhancementDef, and, or, Resource } from '../../engine/types';
-import { tagPath } from '../../engine/tag';
+import { tagPath } from '../../engine/core/tag';
 
 export const baseEnhancements: EnhancementDef[] = [
   {

@@ -4,18 +4,18 @@
 // 角色收集（roster 单一真相来源，F-04）、读档全量重建、类型间隔离。
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { TagStatService } from '../../src/engine/tag-stats';
-import { EventBus } from '../../src/engine/event-bus';
-import { ConditionSystem } from '../../src/engine/condition-system';
-import { ConditionDepIndex } from '../../src/engine/condition-deps';
-import { AffectorEngine } from '../../src/engine/affector-engine';
-import { StateMutationService } from '../../src/engine/state-mutation-service';
-import type { Registry } from '../../src/engine/registry';
+import { TagStatService } from '../../src/engine/stats/tag-stats';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { ConditionSystem } from '../../src/engine/expression/condition-system';
+import { ConditionDepIndex } from '../../src/engine/expression/condition-deps';
+import { AffectorEngine } from '../../src/engine/effect/affector-engine';
+import { StateMutationService } from '../../src/engine/system/state-mutation-service';
+import type { Registry } from '../../src/engine/registry/registry';
 import { Character, cond, GameEvent, PlayerState } from '../../src/engine/types';
-import { tagPath } from '../../src/engine/tag';
+import { tagPath } from '../../src/engine/core/tag';
 
-function makeRegistry(): import('../../src/engine/tag-stats').TagStatRegistry {
-  type E = import('../../src/engine/tag-stats').TagStatEntity;
+function makeRegistry(): import('../../src/engine/stats/tag-stats').TagStatRegistry {
+  type E = import('../../src/engine/stats/tag-stats').TagStatEntity;
   const empty = new Map<string, E>();
   return {
     inits: empty,

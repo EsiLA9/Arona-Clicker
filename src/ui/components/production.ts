@@ -1,7 +1,7 @@
 import { UIContext } from '../context';
 import { getSpotReveal, describeCondition } from './tooltip';
-import { TagPath } from '../../engine/tag';
-import { existenceCondition, unlockCondition } from '../../engine/reveal';
+import { TagPath } from '../../engine/core/tag';
+import { existenceCondition, unlockCondition } from '../../engine/visibility/reveal';
 
 export function renderProductionNodes(ctx: UIContext): string {
   const { game, view } = ctx;
@@ -35,11 +35,13 @@ export function renderProductionNodes(ctx: UIContext): string {
       const conditionNote = !owned && !purchaseable && reveal.conditionKnown
         ? `<small class="mini-note">条件：${ctx.escapeHtml(describeCondition(unlockCondition(spot.revealTriggers) ?? existenceCondition(spot.revealTriggers), ctx.nameOf))}</small>`
         : '';
-      // 外源/内源交互功能：软重启（保留快照）/ 硬重置（删除快照）
+      // 外源/内源交互功能：软重启（保留快照）/ 硬重置（删除快照）/ 招募
       const restartInit = reveal.utilityKnown
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state as never, 'restartInit');
       const hardResetInit = reveal.utilityKnown
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state as never, 'hardResetInit');
+      const gacha = reveal.utilityKnown
+        && game.spotFunctionalitySystem.hasFunctionality(spot, game.state as never, 'gacha');
       const action = owned
         ? '升级'
         : purchaseable
@@ -62,6 +64,9 @@ export function renderProductionNodes(ctx: UIContext): string {
               : ''}
             ${hardResetInit
               ? `<button data-hard-reset-init="${spot.id}" class="btn-hard-reset" title="彻底重置当前世界线（下次进入为崭新）">彻底重置</button>`
+              : ''}
+            ${gacha
+              ? `<button data-open-spot-gacha="${spot.id}" class="btn-gacha" title="在该设施招募角色">招募</button>`
               : ''}
           </div>
           ${conditionNote}

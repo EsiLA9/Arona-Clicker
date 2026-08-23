@@ -4,12 +4,12 @@
 // ConditionDepIndex 的 extra 前缀 / tag / 宽依赖命中语义。
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { AffectorEngine } from '../../src/engine/affector-engine';
-import { ConditionSystem } from '../../src/engine/condition-system';
-import { EventBus } from '../../src/engine/event-bus';
-import { Registry } from '../../src/engine/registry';
-import { StateMutationService } from '../../src/engine/state-mutation-service';
-import { ConditionDepIndex, collectConditionLeaves } from '../../src/engine/condition-deps';
+import { AffectorEngine } from '../../src/engine/effect/affector-engine';
+import { ConditionSystem } from '../../src/engine/expression/condition-system';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { Registry } from '../../src/engine/registry/registry';
+import { StateMutationService } from '../../src/engine/system/state-mutation-service';
+import { ConditionDepIndex, collectConditionLeaves } from '../../src/engine/expression/condition-deps';
 import { GameEvent, PlayerState } from '../../src/engine/types';
 
 function emptyState(): PlayerState {

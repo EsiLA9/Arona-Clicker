@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { AffectorEngine } from '../../src/engine/affector-engine';
-import { ConditionSystem } from '../../src/engine/condition-system';
-import { EventBus } from '../../src/engine/event-bus';
-import { Registry } from '../../src/engine/registry';
-import { StateMutationService } from '../../src/engine/state-mutation-service';
+import { AffectorEngine } from '../../src/engine/effect/affector-engine';
+import { ConditionSystem } from '../../src/engine/expression/condition-system';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { Registry } from '../../src/engine/registry/registry';
+import { StateMutationService } from '../../src/engine/system/state-mutation-service';
 import { PlayerState } from '../../src/engine/types';
 
 function emptyState(): PlayerState {

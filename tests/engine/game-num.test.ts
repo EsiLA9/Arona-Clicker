@@ -5,11 +5,11 @@ import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
 import { Character, Expr, PlayerState, value } from '../../src/engine/types';
-import type { GameNum } from '../../src/engine/game-num';
-import { GameNumSystem } from '../../src/engine/game-num';
-import { EventBus } from '../../src/engine/event-bus';
-import { ValueSystem } from '../../src/engine/value-system';
-import { matchesTag } from '../../src/engine/tag';
+import type { GameNum } from '../../src/engine/expression/game-num';
+import { GameNumSystem } from '../../src/engine/expression/game-num';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { ValueSystem } from '../../src/engine/expression/value-system';
+import { matchesTag } from '../../src/engine/core/tag';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';

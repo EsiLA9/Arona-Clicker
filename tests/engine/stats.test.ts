@@ -5,7 +5,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
 import { and } from '../../src/engine/types';
-import { parseStatCall } from '../../src/engine/stat-dsl';
+import { parseStatCall } from '../../src/engine/expression/stat-dsl';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';

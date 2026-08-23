@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { resolveTheme, contrastRatio, deriveThemeTokens, ColorSystem } from '../../src/engine/color-system';
+import { resolveTheme, contrastRatio, deriveThemeTokens, ColorSystem } from '../../src/engine/system/color-system';
 
 /** 从派生出的 hsl(...) 字符串中提取明度值（0~1）。 */
 function hslLightness(css: string): number {

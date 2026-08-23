@@ -13,17 +13,17 @@ import type {
   SpotUnlockResult,
 } from '../types';
 import { Character } from '../types';
-import type { TagPath } from '../tag';
-import { Registry } from '../registry';
-import { ValueSystem } from '../value-system';
-import { ConditionSystem } from '../condition-system';
-import { StateMutationService } from '../state-mutation-service';
-import { EffectEngine } from '../effect-engine';
-import { CharacterSystem } from '../character-system';
-import { AffectorEngine } from '../affector-engine';
-import { EventBus } from '../event-bus';
-import { DevLog } from '../dev-log';
-import { tagDisplay } from '../tag';
+import type { TagPath } from '../core/tag';
+import { Registry } from '../registry/registry';
+import { ValueSystem } from '../expression/value-system';
+import { ConditionSystem } from '../expression/condition-system';
+import { StateMutationService } from '../system/state-mutation-service';
+import { EffectEngine } from '../effect/effect-engine';
+import { CharacterSystem } from '../system/character-system';
+import { AffectorEngine } from '../effect/affector-engine';
+import { EventBus } from '../core/event-bus';
+import { DevLog } from '../core/dev-log';
+import { tagDisplay } from '../core/tag';
 
 export interface SpotServiceOptions {
   registry: Registry;

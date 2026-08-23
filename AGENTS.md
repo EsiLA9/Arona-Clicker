@@ -45,3 +45,12 @@
 - 默认不写注释；只在 WHY 非显而易见时写
 - 引用文件用路径而非复制代码，让 AI 用 Read 定向读
 - 改哪个功能先查 `docs-818/08-code-map.md` 的文件→职责映射
+
+## 默认数据与 Spot 招募
+
+- **默认加载的数据是 `src/data/base/*` 系列（TypeScript 编写），不是 `datapack/` 下的 JSON**。`datapack/` 是可选数据包导入，改默认行为/示例必须改 `src/data/base/`。
+- **Spot 招募（gacha）**：招募入口已从通讯录（`contacts.ts` 的"招募补给"按钮）移除，移植到 Spot 的 `gacha` 功能项。
+  - `SpotDef.functionalities` 支持 `kind: 'gacha'`，Spot 同时可声明 `gachaPools?: GachaPoolId[]`（专有卡池）；无声明时仅开放全局通用卡池（`registry.gachaPools`）。
+  - Spot 卡片（生产/设施面板 `production.ts`）在 `utilityKnown` 且 `hasFunctionality(spot, state, 'gacha')` 时渲染"招募"按钮（`data-open-spot-gacha`）。
+  - 点击打开的招募弹窗（`contacts.ts` 的 `renderSpotGachaBody`）用 `.switch-tabs` 在 **专有卡池 / 通用卡池** 间切换，弹窗交互由 `controller.ts` 的 `openSpotGachaModal` 绑定。
+  - 新增/修改 Spot 字段或 `SpotFunctionalityDef.kind` 后，必须 `npm run gen:schema` 并在 `editor-extras.ts` 兜底同步（见上文协议）。

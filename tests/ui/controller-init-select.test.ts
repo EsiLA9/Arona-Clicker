@@ -62,4 +62,34 @@ describe('UIController Init 选择页', () => {
     // 轮盘 DOM 未被整页重建：卡片节点引用保持不变（无飞入/丢绑定）
     expect(root.contains(row)).toBe(true);
   });
+
+  it('resetSessionPanel 彻底重置会话 UI：退出对话空间、清空学生聊天流与选中差分', () => {
+    const panel = (controller as unknown as { panelState: any }).panelState;
+    // 模拟上一会话残留：打开过星野对话空间并留了聊天记录
+    panel.conversationVariantId = 'Hoshino';
+    panel.selectedVariantId = 'Hoshino';
+    panel.studentChats['Hoshino'] = [{ id: 1, kind: 'talk', text: '旧消息', timestamp: 0 }];
+    panel.chatEntries = [{ id: 9, kind: 'talk', text: '一般聊天旧消息', timestamp: 0 }];
+
+    (controller as unknown as { resetSessionPanel(): void }).resetSessionPanel();
+
+    expect(panel.conversationVariantId).toBeNull();
+    expect(panel.selectedVariantId).toBeNull();
+    expect(panel.studentChats).toEqual({});
+    expect(panel.chatEntries).toEqual([]);
+    expect(panel.leftTab).toBe('area');
+    expect(panel.centerTab).toBe('chat');
+    expect(panel.rightTab).toBe('spot');
+  });
+
+  it('引擎层 startNewGame 产生干净的 per-Init 状态（资源/flag/剧情记录清空）', () => {
+    game.mutations.changeResource('base:resource:credit', 12345);
+    game.mutations.setFlag('some_flag', '1');
+    // 再次开启新游戏（同一 Init）
+    expect(game.startNewGame(OFFICE)).toBe(true);
+    const view = game.getView();
+    expect(view.resources['base:resource:credit'] ?? 0).toBe(0); // 新会话资源归零
+    expect(game.state.flags['some_flag']).toBeUndefined(); // 旧会话 flag 已清空
+    expect(game.state.storyLog).toEqual([]); // 剧情完成记录清空（startNewGame 重置会话记录）
+  });
 });

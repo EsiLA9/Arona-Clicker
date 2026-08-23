@@ -2,9 +2,9 @@
 // engine/registry.test.ts
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { Registry } from '../../src/engine/registry';
+import { Registry } from '../../src/engine/registry/registry';
 import { Datapack } from '../../src/engine/types';
-import { extra } from '../../src/engine/extra';
+import { extra } from '../../src/engine/extra/index';
 
 const sampleDatapack: Datapack = {
   name: 'test',

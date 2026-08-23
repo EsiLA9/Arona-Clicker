@@ -6,7 +6,7 @@
  * 但 editor 未同步"的漂移（error 红灯）。
  */
 import { describe, expect, it } from 'vitest';
-import { parseEngineSchema } from '../../../scripts/gen-engine-schema.mjs';
+import { parseEngineSchema } from '../../../scripts/gen-engine-schema';
 import { TABLE_META } from './editor-extras';
 import { getTable, TABLES } from './datapack.schema';
 import type { FieldDef, FieldType } from './types';

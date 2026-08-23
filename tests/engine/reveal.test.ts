@@ -4,7 +4,7 @@
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import { Condition, ConditionGroup, RevealTrigger } from '../../src/engine/types';
-import { existenceCondition, existenceMet, hasExistenceGate, unlockCondition, unlockMet, unlockTriggers } from '../../src/engine/reveal';
+import { existenceCondition, existenceMet, hasExistenceGate, unlockCondition, unlockMet, unlockTriggers } from '../../src/engine/visibility/reveal';
 
 const TRUE_COND: ConditionGroup = { type: 'AND', conditions: [] };
 const FALSE_COND: ConditionGroup = {

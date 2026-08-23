@@ -1,10 +1,16 @@
-import { GameInstance } from '../engine/game-instance';
+// ============================================================
+// ui/controller.ts — UI 控制器（集成层）
+// 疏散后作为门面：核心渲染/刷新/事件绑定保留于此，
+// 聊天流/滚动/选择页/IO 委托给专门模块（chat-stream / scroll /
+// init-select-page / import-export）。
+// ============================================================
+
+import { GameInstance, type SaveData } from '../engine/game-instance';
 import { Character, StoryAdvanceResult, StoryStartResult, Resource } from '../engine/types';
 import { SaveSystem } from '../save/storage';
-import { loadDatapackFromZipFile } from '../data/zip-loader';
 import { createUIContext } from './context';
-import { renderCollectionBody, renderColorCodex } from './components/collection';
-import { renderGachaBody } from './components/contacts';
+import { renderGachaBody, renderSpotGachaBody } from './components/contacts';
+import { openCollectionModal } from './components/collection-modal';
 import {
   getSpotReveal,
   getEnhancementReveal,
@@ -13,21 +19,24 @@ import {
   getStoryReveal,
 } from './components/tooltip';
 import { renderAppShell, PanelState } from './components/app-shell';
-import { renderInitSelect, renderInitDetail, renderInitRow } from './components/init-select';
+import { renderInitSelect } from './components/init-select';
 import type { InitSelectMode } from './components/init-select';
 import { renderEnhancementManager } from './components/enhancements';
 import { storyErrorText, ChatEntry } from './components/story';
-import { PLAYER_IDENTITY } from './player';
 import { buildThemeVars, heroGradient, THEME_NODES, type ThemeVarName } from './theme-tree';
 import { ToastService } from './components/toast';
 import { enhPurchaseErrorText, travelErrorText, itemUseErrorText } from './components/errors';
 import { ModalManager } from './modal';
 import { PopoverManager } from './popovers';
-import { hexToRgbTriplet } from '../engine/color-system';
-
-const CHAT_MAX = 200;
+import { hexToRgbTriplet } from '../engine/system/color-system';
+import { ChatStream } from './chat-stream';
+import { ScrollManager } from './scroll';
+import { InitSelectPage } from './init-select-page';
+import { ImportExportService } from './import-export';
 
 export class UIController {
+  /** 每个聊天沙盒（含一般聊天）持久化的历史条数上限。 */
+  private static readonly MAX_CHAT_HISTORY = 60;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private started = false;
   private panelState: PanelState = {
@@ -39,10 +48,6 @@ export class UIController {
     conversationVariantId: null,
     studentChats: {},
   };
-  private chatId = 1;
-  private lastChatCount = 0;
-  /** 当前剧情页指纹（storyId:pageIndex）：聊天流去重，防止重复入流。 */
-  private lastStoryFingerprint: string | null = null;
   /** 弹窗母版实例（body 级，独立于 #app 重建）。 */
   private readonly modal = new ModalManager();
   /** 全局 Toast 通知（body 级，独立于 #app 重建）。 */
@@ -55,6 +60,18 @@ export class UIController {
   private pendingRestart = false;
   /** 悬浮详情弹层（body 级，事件委托一次绑定）。 */
   private readonly popovers: PopoverManager;
+  /** 待落账的奖励通知（storyRewarded 排队，render 时统一入流）。 */
+  private pendingRewardChats: string[] = [];
+
+  // --- 疏散出去的领域模块 ---
+  /** 聊天流（ID 计数 / 剧情指纹 / 路由 / 同步）。 */
+  private readonly chat = new ChatStream();
+  /** 聊天流 / 面板滚动状态。 */
+  private readonly scroll = new ScrollManager();
+  /** 世界线选择页轮盘交互。 */
+  private readonly initPage: InitSelectPage;
+  /** 数据包导入 / 日志导出。 */
+  private readonly io: ImportExportService;
 
   constructor(
     private readonly game: GameInstance,
@@ -62,6 +79,23 @@ export class UIController {
   ) {
     // 绑定到 document.body：弹窗（app-modal）挂在 body 级，图鉴条目的悬停详情也要生效
     this.popovers = new PopoverManager(document.body, this.game);
+    this.initPage = new InitSelectPage({
+      game: this.game,
+      root: this.root,
+      popovers: this.popovers,
+      initSelectMode: () => this.initSelectMode(),
+      renderInitSelect: () => this.renderInitSelect(),
+      replaceInitDetail: () => this.replaceInitDetail(),
+      bindDetailActions: () => this.bindDetailActions(),
+    });
+    this.io = new ImportExportService({
+      game: this.game,
+      toast: this.toast,
+      resetSessionPanel: () => this.resetSessionPanel(),
+      setStarted: () => { this.started = true; },
+      clearPendingRestart: () => { this.pendingRestart = false; },
+      render: () => this.render(),
+    });
   }
 
   mount(): void {
@@ -95,12 +129,21 @@ export class UIController {
       const ctx = createUIContext(this.game);
       this.pendingRewardChats.push(`解锁闲聊池 · ${ctx.nameOf('pool', event.poolId)}`);
     });
+    // Story 的 travelToArea effect 移动（notice=true）→ 显示「移动到了 XX」迷你条目（REWARD 风格、无小字符）
+    this.game.eventBus.on('storyAreaTraveled', event => {
+      if (event.type !== 'storyAreaTraveled') return;
+      const ctx = createUIContext(this.game);
+      this.pendingRewardChats.push(`移动到了 ${ctx.nameOf('area', event.areaId)}`);
+    });
     // 无存档时先展示世界线选择；有存档则直接进入游戏。
     if (!SaveSystem.exists()) {
       this.renderInitSelect();
     } else {
       const data = SaveSystem.load();
-      if (data) this.game.load(data);
+      if (data) {
+        this.game.load(data);
+        this.restoreHistories(data);
+      }
       this.started = true;
       this.game.start();
       this.render();
@@ -202,22 +245,26 @@ export class UIController {
     // body 级弹窗（如图鉴）内的锚点不受 #app 重建影响，浮层保留
     this.popovers.retainIfAnchored();
     // 当前剧情页先同步进聊天流（以指纹去重），再重建 DOM
-    this.syncCurrentStoryToChat();
+    this.chat.syncCurrentStory(this.panelState, this.game);
     // 奖励通知在台词/回复气泡之后落账（排队见 storyRewarded 订阅）
     for (const text of this.pendingRewardChats) {
       this.pushChat({ kind: 'reward', text });
     }
     this.pendingRewardChats = [];
     // DOM 重建前先捕获各面板滚动位置（条件变化触发的揭示刷新不得把列表拽回顶层）
-    this.capturePanelScroll();
+    this.scroll.capturePanel(this.root);
     // 聊天流滚动状态单独按比例捕获（跨流恢复）
-    this.captureChatScroll();
+    this.scroll.captureChat(this.root);
     const context = createUIContext(this.game);
     this.root.innerHTML = renderAppShell(context, this.panelState);
     this.popovers.bind();
     this.bindActions();
-    this.restoreChatScroll();
-    this.restorePanelScroll();
+    this.scroll.restoreChat(this.root, {
+      centerTab: this.panelState.centerTab,
+      conversationVariantId: this.panelState.conversationVariantId,
+      activeStreamLength: this.activeStream().length,
+    });
+    this.scroll.restorePanel(this.root);
     this.applyTheme();
     // 同步揭示指纹，避免下一次事件重复重建
     this.revealFingerprint = this.computeRevealFingerprint();
@@ -283,226 +330,25 @@ export class UIController {
     style.setProperty('--hero-gradient', heroGradient(tokens['primary'] ?? '#3b9eff', tokens));
   }
 
-  /** 聊天流滚动状态：以比例保存，DOM 重建后恢复。 */
-  private chatScrollRatio = 1;
-  private chatAtBottom = true;
-  private pendingChatForceScroll = false;
-  /** 待落账的奖励通知（storyRewarded 排队，render 时统一入流）。 */
-  private pendingRewardChats: string[] = [];
-
-  /** 重建 DOM 前调用：记录当前聊天流滚动比例，并判断是否贴底。 */
-  private captureChatScroll(): void {
-    const stream = this.root.querySelector<HTMLElement>('.chat-stream');
-    if (!stream) return;
-    const max = stream.scrollHeight - stream.clientHeight;
-    if (max <= 0) {
-      this.chatScrollRatio = 1;
-      this.chatAtBottom = true;
-      return;
-    }
-    this.chatScrollRatio = stream.scrollTop / max;
-    // 距底部 24px 内视为"贴底"（新内容到达时跟随滚到底）
-    this.chatAtBottom = stream.scrollTop + stream.clientHeight >= stream.scrollHeight - 24;
-  }
-
-  /**
-   * 重建 DOM 后调用：
-   * - 新内容到达且用户原本贴底 → 滚到底
-   * - 用户在上方翻看历史 → 保持原位置（不打断）
-   * - force（从日志切回聊天）→ 滚到底
-   */
-  private restoreChatScroll(): void {
-    // 对话空间或一般聊天：两者都有 .chat-stream
-    if (this.panelState.centerTab !== 'chat' && !this.panelState.conversationVariantId) return;
-    const stream = this.root.querySelector<HTMLElement>('.chat-stream');
-    if (!stream) return;
-    const count = this.activeStream().length;
-    const hasNew = count !== this.lastChatCount;
-    this.lastChatCount = count;
-    if ((hasNew && this.chatAtBottom) || this.pendingChatForceScroll) {
-      this.chatScrollRatio = 1;
-      this.pendingChatForceScroll = false;
-      this.chatAtBottom = true;
-    }
-    const max = stream.scrollHeight - stream.clientHeight;
-    stream.scrollTop = this.chatScrollRatio * max;
-  }
-
-  /** 面板滚动位置快照：按面板序号记录 .panel-body 的 scrollTop（强化/通讯录等列表防刷新回滚）。 */
-  private panelScrollTop: number[] = [];
-
-  private capturePanelScroll(): void {
-    this.panelScrollTop = [...this.root.querySelectorAll<HTMLElement>('.panel')].map(
-      panel => panel.querySelector<HTMLElement>('.panel-body')?.scrollTop ?? 0,
-    );
-  }
-
-  private restorePanelScroll(): void {
-    if (this.panelScrollTop.length === 0) return;
-    this.root.querySelectorAll<HTMLElement>('.panel').forEach((panel, i) => {
-      const body = panel.querySelector<HTMLElement>('.panel-body');
-      if (body && this.panelScrollTop[i] !== undefined) {
-        body.scrollTop = this.panelScrollTop[i];
-      }
-    });
-  }
-
   /** Init 选择界面模式：由当前流程决定（新建 vs 重启/重选），替代从 activeInit 推断。 */
   private initSelectMode(): InitSelectMode {
     return this.pendingRestart ? 'restart' : 'new';
   }
 
-  /** 左侧圆盘当前展示的世界线（轮盘 3 点钟方向的选中项）。 */
-  private initSelectedId: string | null = null;
-
-  /** 轮盘局部刷新 API（bindInitStage 装配；页面不在选择态时为 null）。 */
-  private initStageApi: { refreshRow(initId: string): void } | null = null;
-
   private renderInitSelect(): void {
     const context = createUIContext(this.game);
-    this.initStageApi = null;
-    this.root.innerHTML = renderInitSelect(context, this.initSelectMode(), this.initSelectedId);
+    this.initPage.reset();
+    this.root.innerHTML = renderInitSelect(context, this.initSelectMode(), this.initPage.selectedInitId);
     // #app 重建后原锚点（如 Spot hover 的卡片）已脱离文档 → 关闭残留悬浮层，避免离开 Init 后 tooltip 不消失
     this.popovers.retainIfAnchored();
     // Init 选择页也需要 Hover 弹层（同一套事件委托，首次进入即绑定）
     this.popovers.bind();
-    this.bindInitStage();
+    this.initPage.bindStage();
   }
 
   /** 局部替换左侧详情文案块（不动轮盘 DOM，旋转状态得以保留）。 */
   private replaceInitDetail(): void {
-    const copy = this.root.querySelector('.init-orb-copy');
-    if (copy) {
-      copy.outerHTML = renderInitDetail(createUIContext(this.game), this.initSelectMode(), this.initSelectedId);
-    }
-    this.bindDetailActions();
-  }
-
-  /**
-   * Init 选择页交互：世界线卡片像时钟刻度一样沿盘缘环绕巨大圆盘排布。
-   * 已显示的 Init 视为一个有序 List，滚轮/点击驱动整组卡片绕盘心旋转，
-   * 转到正右方（与详情相邻）的卡片即聚焦项。
-   * 约束：
-   *   - 元素间相对位置不可破坏：每张卡片持有固定「世界角」i*step，随 spin 整体旋转，永不互相穿越。
-   *   - 不可聚焦到空元素：聚焦 = 转至正右方的卡片，始终有卡片就位。
-   *   - 滚到 List 边缘元素再继续滚，聚焦跳到另一侧元素（环形 List，spin 环形归一化）。
-   * 卡片 DOM 常驻，切换只改 transform/opacity + 局部替换左侧详情，保证过渡连续。
-   */
-  private bindInitStage(): void {
-    const shell = this.root.querySelector<HTMLElement>('.init-select-shell');
-    const disc = this.root.querySelector<HTMLElement>('.init-orb-disc');
-    const wheelEl = this.root.querySelector<HTMLElement>('.init-wheel');
-    if (!shell || !disc || !wheelEl || this.root.querySelectorAll('[data-init-select]').length === 0) {
-      this.bindDetailActions();
-      return;
-    }
-    const ids = [...this.root.querySelectorAll<HTMLButtonElement>('[data-init-select]')]
-      .map(row => row.dataset.initSelect!);
-    const count = ids.length;
-    // 盘缘步进角（度）：小间距可容纳更多条目同屏
-    const step = Math.min(360 / count, 16);
-    // 累积旋转（步数）：卡片 world 角 i*step 固定，随 spin 整体旋转；
-    // 聚焦 = 转至正右方的卡片；spin 环形，边缘继续滚则聚焦跳到另一侧，卡片不瞬移。
-    let spin = Math.max(0, ids.indexOf(this.initSelectedId ?? ids[0]));
-    this.initSelectedId = ids[spin];
-
-    const getRows = () => [...this.root.querySelectorAll<HTMLButtonElement>('[data-init-select]')];
-
-    /** 依当前 spin 沿盘缘排布卡片，返回聚焦卡片下标（正右方）。 */
-    const apply = (): number => {
-      if (!document.contains(wheelEl)) return spin;
-      const d = disc!.getBoundingClientRect();
-      const s = shell!.getBoundingClientRect();
-      const cx = d.left - s.left + d.width / 2;
-      const cy = d.top - s.top + d.height / 2;
-      const radius = (d.width / 2) * 0.985;
-      const rot = spin * step;
-
-      let focus = spin;
-      let bestAbs = Infinity;
-      const poses = getRows().map((row, i) => {
-        let angle = i * step - rot;
-        // 归一化到 [-180, 180] 仅用于背面绘制，不改变卡片相对顺序
-        while (angle > 180) angle -= 360;
-        while (angle < -180) angle += 360;
-        const abs = Math.abs(angle);
-        if (abs < bestAbs) { bestAbs = abs; focus = i; }
-        return { row, angle };
-      });
-      poses.forEach(({ row, angle }, i) => {
-        const rad = angle * Math.PI / 180;
-        const facing = Math.cos(rad);
-        const x = cx + radius * facing;
-        const y = cy + radius * Math.sin(rad);
-        row.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${angle}deg)`;
-        row.style.opacity = facing <= 0.05 ? '0' : String(Math.max(0.08, facing));
-        row.style.pointerEvents = facing <= 0.05 ? 'none' : 'auto';
-        row.classList.toggle('is-active', i === focus);
-      });
-      return focus;
-    };
-
-    const bindRowClick = (row: HTMLButtonElement) => {
-      row.addEventListener('click', () => {
-        const i = ids.indexOf(row.dataset.initSelect!);
-        if (i !== spin) rotateTo(i, true);
-      });
-    };
-
-    const rotateTo = (target: number, refreshDetail: boolean) => {
-      // 直接让目标卡片聚焦：spin 设为 target，卡片沿固定 world 角整体旋转到该卡片位于正右方
-      spin = ((target % count) + count) % count;
-      const focus = apply();
-      this.initSelectedId = ids[focus];
-      if (refreshDetail) this.replaceInitDetail();
-    };
-
-    /** 解锁等状态变化后原位同步该卡片内容：不替换节点，保留内联定位与事件绑定。 */
-    const refreshRow = (initId: string) => {
-      const html = renderInitRow(createUIContext(this.game), initId);
-      const old = getRows().find(row => row.dataset.initSelect === initId);
-      if (!html || !old) return;
-      const template = document.createElement('template');
-      template.innerHTML = html.trim();
-      const fresh = template.content.firstElementChild as HTMLButtonElement;
-      old.className = fresh.className;
-      old.innerHTML = fresh.innerHTML;
-      apply();
-    };
-    this.initStageApi = { refreshRow };
-
-    getRows().forEach(bindRowClick);
-
-    wheelEl.parentElement?.addEventListener('wheel', event => {
-      event.preventDefault();
-      // 连续旋转一格：整组卡片绕盘心转动，相对位置保持；spin 环形，转到 List 边缘元素后继续滚则聚焦跳到另一侧
-      spin = ((spin + ((event as WheelEvent).deltaY > 0 ? 1 : -1)) % count + count) % count;
-      const focus = apply();
-      this.initSelectedId = ids[focus];
-      this.replaceInitDetail();
-    }, { passive: false });
-
-    // 视差：指针移动时背景层与卡片轻微反向漂移，形成聚焦纵深感
-    const onMove = (event: MouseEvent) => {
-      if (!document.contains(wheelEl)) {
-        shell!.removeEventListener('mousemove', onMove);
-        return;
-      }
-      const rect = shell!.getBoundingClientRect();
-      const nx = Math.max(-1, Math.min(1, ((event.clientX - rect.left) / rect.width) * 2 - 1));
-      const ny = Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height) * 2 - 1));
-      shell!.style.setProperty('--par-x', nx.toFixed(3));
-      shell!.style.setProperty('--par-y', ny.toFixed(3));
-    };
-    shell.addEventListener('mousemove', onMove);
-    shell.addEventListener('mouseleave', () => {
-      shell.style.setProperty('--par-x', '0');
-      shell.style.setProperty('--par-y', '0');
-    });
-
-    window.addEventListener('resize', apply);
-    apply();
-    this.bindDetailActions();
+    this.initPage.replaceInitDetail();
   }
 
   /** 绑定详情 CTA（进入 / 购买）与顶栏读档按钮；轮盘局部刷新后需重绑。 */
@@ -537,11 +383,9 @@ export class UIController {
         const init = this.game.registry.inits.get(initId);
         this.toast.show(`已解锁世界线 <b>${init?.name ?? initId}</b>`, 'success');
         // 解锁后局部刷新：仅替换该卡片；若它正被选中则同步刷新详情 CTA
-        if (this.initSelectedId === initId) {
-          this.initStageApi?.refreshRow(initId);
+        this.initPage.refreshRow(initId);
+        if (this.initPage.selectedInitId === initId) {
           this.replaceInitDetail();
-        } else {
-          this.initStageApi?.refreshRow(initId);
         }
       });
     });
@@ -552,6 +396,7 @@ export class UIController {
         this.started = true;
         this.game.start();
         this.resetSessionPanel();
+        this.restoreHistories(data);
         this.game.devLog.record('本地存档已读取', { source: 'save', level: 'success' });
         this.render();
       }
@@ -567,11 +412,46 @@ export class UIController {
     this.panelState.centerTab = 'chat';
     this.panelState.rightTab = 'spot';
     this.panelState.chatEntries = [];
-    this.lastChatCount = 0;
-    this.lastStoryFingerprint = null;
-    this.chatScrollRatio = 1;
-    this.chatAtBottom = true;
-    this.pendingChatForceScroll = false;
+    // 彻底重置会话级 UI 状态：退出对话空间、清空选中差分与各学生聊天流，
+    // 避免新游戏 / 读档后残留上一会话的角色聊天记录或对话空间视图。
+    this.panelState.conversationVariantId = null;
+    this.panelState.selectedVariantId = null;
+    this.panelState.studentChats = {};
+    this.chat.reset();
+    this.scroll.reset();
+  }
+
+  /** 截断聊天历史到上限（保留最近 N 条）。 */
+  private trimHistory(entries: ChatEntry[]): ChatEntry[] {
+    const n = UIController.MAX_CHAT_HISTORY;
+    return entries.length > n ? entries.slice(entries.length - n) : entries;
+  }
+
+  /** 保存前：把各聊天沙盒 + 一般聊天历史（限 N 条）写入 SaveData。 */
+  private withHistories(data: SaveData): SaveData {
+    const histories: Record<string, unknown[]> = {};
+    for (const [variantId, entries] of Object.entries(this.panelState.studentChats)) {
+      histories[`variant:${variantId}`] = this.trimHistory(entries);
+    }
+    histories['global'] = this.trimHistory(this.panelState.chatEntries);
+    return { ...data, chatHistories: histories };
+  }
+
+  /** 读档后：把持久化的聊天历史恢复到各沙盒（需在 resetSessionPanel 清空之后调用）。 */
+  private restoreHistories(data: SaveData): void {
+    const histories = data.chatHistories;
+    if (!histories) return;
+    this.panelState.studentChats = {};
+    for (const [key, entries] of Object.entries(histories)) {
+      if (!key.startsWith('variant:')) continue;
+      const variantId = key.slice('variant:'.length);
+      this.panelState.studentChats[variantId] = entries as ChatEntry[];
+    }
+    // 一般聊天历史（非沙盒）仅在有沙盒占用时作为回退保留，恢复后并入 chatEntries
+    const globalEntries = histories['global'];
+    if (globalEntries && this.panelState.chatEntries.length === 0) {
+      this.panelState.chatEntries = globalEntries as ChatEntry[];
+    }
   }
 
   private startNewGame(initId: string): void {
@@ -609,49 +489,12 @@ export class UIController {
 
   /** 当前活跃聊天流（对话空间打开时 = 该学生的流；否则 = 一般聊天流）。 */
   private activeStream(): ChatEntry[] {
-    const convId = this.panelState.conversationVariantId;
-    if (!convId) return this.panelState.chatEntries;
-    return (this.panelState.studentChats[convId] ??= []);
+    return this.chat.activeStream(this.panelState);
   }
 
   /** 记录聊天流条目，维持上限（路由到当前活跃流：一般聊天 / 学生对话空间）。 */
   private pushChat(entry: Omit<ChatEntry, 'id' | 'timestamp'>): void {
-    const stream = this.activeStream();
-    stream.push({
-      ...entry,
-      id: this.chatId++,
-      timestamp: Date.now(),
-    });
-    if (stream.length > CHAT_MAX) {
-      stream.splice(0, stream.length - CHAT_MAX);
-    }
-  }
-
-  /**
-   * 每次 render 前把当前 Talklet 的演示内容同步进聊天流。
-   * 以 `storyId:pageIndex` 指纹去重，覆盖自动展开 / 手动启动 / 推进 / 读档 / 切换 Init 全部入口。
-   */
-  private syncCurrentStoryToChat(): void {
-    const story = this.game.getView().currentStory;
-    if (!story) {
-      this.lastStoryFingerprint = null;
-      return;
-    }
-    const fingerprint = `${story.storyId}:${story.pageIndex}`;
-    if (fingerprint === this.lastStoryFingerprint) return;
-    this.lastStoryFingerprint = fingerprint;
-    // click 页为纯底部按钮交互页（text 作按钮文案），不进入聊天流
-    if (story.page.kind === 'click') return;
-    this.pushChat({
-      kind: story.page.kind ?? 'talk',
-      speaker: story.page.speaker,
-      text: story.page.text,
-      storyType: story.type,
-      align: story.page.align,
-      avatar: story.page.avatar,
-      side: story.page.side,
-      noAvatar: story.page.noAvatar,
-    });
+    this.chat.push(this.panelState, entry);
   }
 
   private bindActions(): void {
@@ -660,23 +503,10 @@ export class UIController {
       this.render();
     });
     this.root.querySelector('#collection-modal')?.addEventListener('click', () => {
-      const ctx = createUIContext(this.game);
-      this.modal.open({
-        title: '图鉴 · Codex',
-        body: `
-          <section class="codex-section">
-            <h2 class="codex-section-title">被动闲聊收集</h2>
-            ${renderCollectionBody(ctx)}
-          </section>
-          <section class="codex-section">
-            <h2 class="codex-section-title">色彩收集与管理</h2>
-            ${renderColorCodex(ctx)}
-          </section>`,
-        width: 640,
-      });
+      openCollectionModal(this.modal, this.game);
     });
     this.root.querySelector('#import-datapack')?.addEventListener('click', () => {
-      this.importDatapack();
+      this.io.importDatapack();
     });
     this.root.querySelector('#theme-palette-btn')?.addEventListener('click', (e) => {
       const container = (e.currentTarget as HTMLElement).closest('.theme-palette');
@@ -704,7 +534,7 @@ export class UIController {
       this.render();
     });
     this.root.querySelector('#export-log')?.addEventListener('click', () => {
-      this.exportLog();
+      this.io.exportLog();
     });
     this.root.querySelector('#dump-enh-debug')?.addEventListener('click', () => {
       this.game.dumpEnhancementDebug();
@@ -712,7 +542,7 @@ export class UIController {
       this.render();
     });
     this.root.querySelector('#save-game')?.addEventListener('click', () => {
-      const saved = SaveSystem.save(this.game.save());
+      const saved = SaveSystem.save(this.withHistories(this.game.save()));
       this.game.devLog.record(saved ? '本地存档已保存' : '本地存档保存失败', {
         source: 'save',
         level: saved ? 'success' : 'error',
@@ -725,6 +555,8 @@ export class UIController {
       if (data) {
         this.game.load(data);
         this.game.unlockInit(this.game.state.activeInit || 'base:init:schale_office');
+        this.resetSessionPanel();
+        this.restoreHistories(data);
         this.game.devLog.record('本地存档已读取', { source: 'save', level: 'success' });
         this.toast.show('存档已加载', 'success');
       } else {
@@ -744,7 +576,7 @@ export class UIController {
           this.panelState.centerTab = tabId;
           if (!wasChat && tabId === 'chat') {
             // 从日志切回聊天：标记强制滚到底
-            this.pendingChatForceScroll = true;
+            this.scroll.forceToBottom();
           }
         } else if (panel === 'right') this.panelState.rightTab = tabId;
         this.render();
@@ -758,15 +590,16 @@ export class UIController {
         this.panelState.conversationVariantId = this.panelState.selectedVariantId;
         this.panelState.leftTab = 'contacts';
         this.panelState.rightTab = 'character';
-        this.pendingChatForceScroll = true;
+        this.scroll.forceToBottom();
         this.render();
       });
     });
-    // 对话空间返回键：回到一般聊天
+    // 对话空间返回键：回到一般聊天（并取消左侧该学生的 active 选中态）
     this.root.querySelector('[data-conversation-back]')?.addEventListener('click', () => {
       this.panelState.conversationVariantId = null;
+      this.panelState.selectedVariantId = null;
       this.panelState.centerTab = 'chat';
-      this.pendingChatForceScroll = true;
+      this.scroll.forceToBottom();
       this.render();
     });
     this.root.querySelectorAll<HTMLButtonElement>('[data-mark-read]').forEach(button => {
@@ -804,8 +637,8 @@ export class UIController {
       });
     });
     this.root.querySelector('#open-gacha')?.addEventListener('click', () => this.openGachaModal());
-    this.root.querySelectorAll<HTMLButtonElement>('[data-open-gacha]').forEach(button => {
-      button.addEventListener('click', () => this.openGachaModal());
+    this.root.querySelectorAll<HTMLButtonElement>('[data-open-spot-gacha]').forEach(button => {
+      button.addEventListener('click', () => this.openSpotGachaModal(button.dataset.openSpotGacha!));
     });
     // 抽取按钮在 body 级弹窗内，由 openGachaModal 打开时单独绑定（bindGachaButtons）
     this.bindGachaButtons(this.root.querySelectorAll('[data-gacha]'));
@@ -837,33 +670,28 @@ export class UIController {
       });
     });
     this.root.querySelector<HTMLButtonElement>('[data-trigger-passive-story]')?.addEventListener('click', () => {
-      const result = this.game.triggerPassiveStory();
+      // 壁垒：对话空间只抽归该学生的闲聊；一般聊天抽全局闲聊（owner = undefined）
+      const owner = this.panelState.conversationVariantId ?? undefined;
+      const result = this.game.triggerPassiveStory(this.game.getView().activeInit, owner);
       this.logStoryFailure(result);
       this.render();
     });
     // 底部发送按钮：本质是带发送交互的 Talklet 的演出形态
     this.root.querySelector<HTMLButtonElement>('[data-send]')?.addEventListener('click', () => {
-      const result = this.game.clickSend();
+      // 误触发的文本选区（拖拽选中气泡文字）不算点击，避免吞掉真实点击
+      const sel = document.getSelection();
+      if (sel && sel.type === 'Range' && !sel.isCollapsed) return;
+      // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
+      const owner = this.panelState.conversationVariantId ?? undefined;
+      const result = this.game.clickSend(owner);
       if (result.type === 'completed') {
         // 回显决策由引擎给出（非 click 页 + 有 sendText + 未 muteReply）：
         // 满足时才以"老师"身份发出右侧气泡；click / 静默发送不产生玩家回复气泡
         if (result.echoReply) {
-          this.pushChat({ kind: 'talk', speaker: PLAYER_IDENTITY.speaker, text: result.sentText, isPlayer: PLAYER_IDENTITY.isPlayer });
+          this.chat.pushPlayerReply(this.panelState, result.sentText);
         }
         // 向后吸收的过渡页（推进后自动跳过的纯展示页）同步进聊天流
-        for (const view of result.absorbed ?? []) {
-          if (view.page.kind === 'click') continue;
-          this.pushChat({
-            kind: view.page.kind ?? 'talk',
-            speaker: view.page.speaker,
-            text: view.page.text,
-            storyType: view.type,
-            align: view.page.align,
-            avatar: view.page.avatar,
-            side: view.page.side,
-            noAvatar: view.page.noAvatar,
-          });
-        }
+        this.chat.pushAbsorbed(this.panelState, result.absorbed ?? []);
       } else if (result.type === 'working') {
         // 多击任务：尚未完成，仅进度条 +1（本次点击不发送、不推进），render() 自动刷新
       } else if (result.type === 'idle' && result.started) {
@@ -873,7 +701,9 @@ export class UIController {
     });
     this.root.querySelectorAll<HTMLButtonElement>('[data-story-choice]').forEach(button => {
       button.addEventListener('click', () => {
-        const result = this.game.advanceStory(Number(button.dataset.storyChoice));
+        // 聊天沙盒：对话空间的选项推进作用于该角色自己的游标；一般聊天推进全局游标
+        const owner = this.panelState.conversationVariantId ?? undefined;
+        const result = this.game.advanceStory(Number(button.dataset.storyChoice), owner);
         this.logStoryFailure(result);
         this.render();
       });
@@ -1009,6 +839,29 @@ export class UIController {
     this.bindGachaButtons(document.querySelectorAll('.app-modal [data-gacha]'));
   }
 
+  /** Spot 招募弹窗：专有卡池 / 通用卡池 经 Switch 切换。 */
+  private openSpotGachaModal(spotId: string): void {
+    const spot = this.game.registry.spots.get(spotId);
+    if (!spot) return;
+    this.modal.open({
+      title: `招募 · ${spot.name}`,
+      body: renderSpotGachaBody(createUIContext(this.game), spotId),
+      width: 560,
+    });
+    // 弹窗位于 body 级 .app-modal，单独绑定 Switch 与抽取按钮
+    const modalEl = document.querySelector('.app-modal');
+    modalEl?.querySelectorAll<HTMLButtonElement>('[data-gacha-scope-switch] .switch-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const scope = tab.dataset.scope!;
+        modalEl.querySelectorAll('[data-gacha-scope-switch] .switch-tab').forEach(t => t.classList.toggle('active', t === tab));
+        modalEl.querySelectorAll<HTMLElement>('[data-scope-panel]').forEach(panel => {
+          panel.hidden = panel.dataset.scopePanel !== scope;
+        });
+      });
+    });
+    this.bindGachaButtons(modalEl?.querySelectorAll<HTMLButtonElement>('[data-gacha]') ?? document.querySelectorAll('.app-modal [data-gacha]'));
+  }
+
   /** 绑定抽取按钮（root 内与弹窗内共用）。 */
   private bindGachaButtons(buttons: NodeListOf<HTMLButtonElement>): void {
     buttons.forEach(button => {
@@ -1044,68 +897,6 @@ export class UIController {
     });
   }
 
-  /**
-   * 导入 Mod 压缩包：用户选择 .zip 后遍历其中所有 .json 文件构造 Datapack，
-   * 运行时整体替换数据包（reload）并进入新会话。
-   */
-  private importDatapack(): void {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.zip,application/zip,application/x-zip-compressed';
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      try {
-        const { datapack, jsonFileCount, ignoredCount } = await loadDatapackFromZipFile(file);
-        this.game.reload([datapack]);
-        // 数据包更换后旧存档 id 可能失效，清除以免下次启动读档报错
-        SaveSystem.delete();
-        this.started = true;
-        this.pendingRestart = false;
-        this.game.start();
-        this.resetSessionPanel();
-        this.game.devLog.record(
-          `导入数据包：${datapack.name} v${datapack.version}（${jsonFileCount} 个 json 文件${ignoredCount > 0 ? `，忽略 ${ignoredCount} 个非 json` : ''}）`,
-          { source: 'datapack', level: 'success' },
-        );
-        this.toast.show(
-          `已加载 Mod <b>${datapack.name}</b> v${datapack.version}<br><small>${jsonFileCount} 个 json 文件${ignoredCount > 0 ? `，忽略 ${ignoredCount} 个非 json` : ''}</small>`,
-          'success',
-        );
-        this.render();
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        this.game.devLog.record(`导入数据包失败：${message}`, { source: 'datapack', level: 'error' });
-        this.toast.show(`导入失败：${message}`, 'error');
-      } finally {
-        input.remove();
-      }
-    });
-    input.click();
-  }
-
-  /** 导出开发日志：devLog 全量 + 运行上下文，下载为 JSON 文件。 */
-  private exportLog(): void {
-    const payload = this.game.devLog.export({
-      frame: this.game.state.totalFrames,
-      activeInit: this.game.state.activeInit,
-      resources: { ...this.game.state.resources },
-      saveVersion: '1.0.0',
-    });
-    const blob = new Blob([payload], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    a.download = `aronaclicker-log-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    this.game.devLog.record(`已导出日志（${this.game.getDevLogs().length} 条）`, { source: 'dev', level: 'info' });
-    this.render();
-  }
-
   /** 打开"当前游戏 · 强化管理"弹窗：查看 + 移除已购买的 Enhancement。 */
   private openEnhancementManager(): void {
     const render = () => {
@@ -1130,5 +921,4 @@ export class UIController {
     };
     render();
   }
-
 }

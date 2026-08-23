@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { EventBus } from '../../src/engine/event-bus';
-import { StateMutationService } from '../../src/engine/state-mutation-service';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { StateMutationService } from '../../src/engine/system/state-mutation-service';
 import { Character, PlayerState } from '../../src/engine/types';
 
 function emptyState(): PlayerState {

@@ -2,7 +2,7 @@
 // engine/character-system.test.ts — 原型元数据查询 + roster 解锁语义（F-04）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { CharacterSystem } from '../../src/engine/character-system';
+import { CharacterSystem } from '../../src/engine/system/character-system';
 import {
   Character,
   CharacterData,

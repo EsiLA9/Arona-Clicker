@@ -8,7 +8,7 @@ import {
   loadDatapackFromZipBuffer,
   ZipLoadError,
 } from '../../src/data/zip-loader';
-import { Registry } from '../../src/engine/registry';
+import { Registry } from '../../src/engine/registry/registry';
 
 const INIT_FRAGMENT = {
   name: 'Test Mod',

@@ -75,7 +75,9 @@ export type ConditionTarget =
    * 原型聚合统计（Character 重构，docs-818/12-character-rework.md §3）。
    * key = 原型角色 id，actual = protoStats[key].acquiredTotal，缺失 → 0。
    */
-  | 'protoStat';
+  | 'protoStat'
+  /** 当前所在 Area 是否为指定 Area（key = AreaId，actual = currentAreaId === key ? 1 : 0）。 */
+  | 'area';
 
 export interface Condition {
   target: ConditionTarget;
@@ -156,6 +158,16 @@ export interface Effect {
   target: string;
   /** 数值、字符串、布尔、ValueExpression（引擎结算时按当前状态求值）、ExtraValue（setExtra）或 ThemeEffectValue（setTheme）。 */
   value: number | string | boolean | ValueExpression | ExtraValue | ThemeEffectValue;
+  /**
+   * 沙盒归属（仅 triggerStory / startStory 使用）：决定剧情启动到哪个游标。
+   * 缺省 = 全局游标（active 主线 / 一般闲聊）；设为 VariantId 则启动到该角色聊天沙盒游标。
+   */
+  owner?: string;
+  /**
+   * 展示通知（仅 travelToArea 使用）：移动成功后是否在聊天流显示一条「移动到了 XX」的
+   * 迷你展示条目（REWARD 风格、无小字符）。缺省 false = 不显示。
+   */
+  notice?: boolean;
 }
 
 // --- Funclet 系统 ---

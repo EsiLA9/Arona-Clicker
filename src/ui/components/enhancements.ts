@@ -1,6 +1,6 @@
 import { UIContext } from '../context';
 import { getEnhancementReveal, describeCondition } from './tooltip';
-import { unlockCondition } from '../../engine/reveal';
+import { unlockCondition } from '../../engine/visibility/reveal';
 import { EnhancementDef } from '../../engine/types';
 
 /** 挂靠展示文案（管理弹窗内"查看"用）。 */

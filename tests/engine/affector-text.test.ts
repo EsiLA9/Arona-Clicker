@@ -10,7 +10,7 @@ import {
   describeAffectorPack,
   describeValueExpression,
   describeExtraValue,
-} from '../../src/engine/affector-text';
+} from '../../src/engine/effect/affector-text';
 import type { Effect, EffectOp } from '../../src/engine/types';
 
 const nameOf = (type: string, id: string): string => {

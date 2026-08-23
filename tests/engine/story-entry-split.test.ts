@@ -5,7 +5,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
-import { Registry } from '../../src/engine/registry';
+import { Registry } from '../../src/engine/registry/registry';
 import { Datapack, and } from '../../src/engine/types';
 
 /** 推进完当前展开的剧情（active 会锁定移动）。 */

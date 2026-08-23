@@ -2,9 +2,9 @@
 // engine/game/snapshot.ts — per-Init 状态 / 快照纯函数辅助
 // ============================================================
 
-import { extra } from '../extra';
+import { extra } from '../extra/index';
 import type { ExtraCompound, InitSnapshot } from '../types';
-import type { Registry } from '../registry';
+import type { Registry } from '../registry/registry';
 
 /** 返回所有 Init 局部字段的 "新鲜" 默认值。 */
 export function freshPerInitState(): InitSnapshot & { initExtras: ExtraCompound } {

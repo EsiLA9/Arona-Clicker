@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeWorldTilt, compareWorldTilt, WORLD_TILT_TAIL_DIGITS } from '../../src/engine/world-tilt';
+import { normalizeWorldTilt, compareWorldTilt, WORLD_TILT_TAIL_DIGITS } from '../../src/engine/stats/world-tilt';
 
 describe('normalizeWorldTilt', () => {
   it('尾数不足 15 位补 0', () => {

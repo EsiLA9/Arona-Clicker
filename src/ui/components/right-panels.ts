@@ -4,7 +4,7 @@ import { renderTabs, TabDef } from './tabs';
 import { renderProductionNodes } from './production';
 import { renderEnhancements } from './enhancements';
 import { renderCharacterPanel } from './contacts';
-import { describeAffectorPack } from '../../engine/affector-text';
+import { describeAffectorPack } from '../../engine/effect/affector-text';
 import { describeCondition } from './tooltip';
 
 const RIGHT_TABS: TabDef[] = [

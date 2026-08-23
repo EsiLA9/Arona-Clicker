@@ -2,7 +2,7 @@
 // engine/types/entities.ts — 数据包实体定义（Def）
 // ============================================================
 
-import type { TagPath } from '../tag';
+import type { TagPath } from '../core/tag';
 import type {
   AreaId,
   Character,
@@ -23,6 +23,7 @@ import type {
   ColorDef,
   CultivateCurveDef,
   GachaPoolDef,
+  GachaPoolId,
 } from './character';
 
 /**
@@ -297,6 +298,8 @@ export interface SpotDef {
   revealTriggers?: RevealTrigger[];
   /** Spot 提供的功能：持续生效的加成效果，随等级线性增强，可带生效条件。 */
   functionalities?: SpotFunctionalityDef[];
+  /** 专有卡池：可在该 Spot 的招募界面访问，区别于全局通用卡池。 */
+  gachaPools?: GachaPoolId[];
   /** Extra 附加数据（数据包声明的结构化元数据，见 docs/13）。 */
   extra?: ExtraCompound;
 }
@@ -313,8 +316,8 @@ export interface SpotFunctionalityDef {
   id: string;
   /** 生效条件（可选）：满足才计入功能效果。可引用统计 DSL 等。 */
   condition?: ConditionGroup;
-  /** 功能类型：linearYield = 升级提供线性额外产出；restartInit = 软重启（保留快照+统计）；hardResetInit = 硬重置（删除快照，下次进入该 Init 为崭新，保留统计）。 */
-  kind: 'linearYield' | 'restartInit' | 'hardResetInit';
+  /** 功能类型：linearYield = 升级提供线性额外产出；restartInit = 软重启（保留快照+统计）；hardResetInit = 硬重置（删除快照，下次进入该 Init 为崭新，保留统计）；gacha = 招募功能入口。 */
+  kind: 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha';
   /** linearYield：线性产出目标资源（三段式 base:resource:xxx）。 */
   resource?: string;
   /** linearYield：每级线性额外产出量。 */
@@ -523,6 +526,31 @@ export interface PassiveStoryEntry extends StoryEntryBase {
    * 当 completionStrategy = 'conditional' 时，此字段被 conditionalRewards 替代。
    */
   completionReward?: { first?: Effect[]; repeat?: Effect[] };
+  /**
+   * 归属某学生差分的聊天空间（VariantId）。设置后该闲聊仅在该学生的对话空间被抽取，
+   * 一般聊天空间只抽 owner 为空的全局闲聊。实现「聊天空间壁垒」。
+   */
+  owner?: string;
+  /**
+   * 抽取后冷却帧数：被抽取（最后一页播完）后需经过 N 帧（tick）才能再次被选取。
+   * 复用 PlayerState.totalFrames 计数。0 或不设置表示无冷却。
+   */
+  cooldownFrames?: number;
+  /**
+   * 阻断/重启条件：播完最后一页后锁定该学生的对话空间，直到该条件组满足才「重启」
+   * （解除锁定）。用于如「剧情结束后要求玩家前往某地继续下一步」的关卡式剧情。
+   */
+  block?: ConditionGroup;
+  /**
+   * 是否可被「移动 Area」打断（默认 true）。false 时进入该闲聊后不会被移动打断，
+   * 其播放状态一直保留，直到剧情自然播完或主动切换。
+   */
+  interruptible?: boolean;
+  /**
+   * 播放中是否允许离开 Area（默认 true）。false 时该闲聊播放期间禁止移动
+   * （等同 active 的移动锁定，配合 interruptible:false 实现「演出中途不可离场」）。
+   */
+  leaveArea?: boolean;
 }
 
 /** 被动闲聊池子节点：子池引用或叶子 entry 引用。 */
@@ -531,6 +559,11 @@ export interface PassivePoolChild {
   id: string;
   /** 抽选权重（缺省 1）。叶子实际权重 = 路径上各池权重连乘 × entry 自身权重。 */
   weight?: number;
+  /**
+   * 抽取后冷却帧数：该子池（或叶子 entry）被选中后需经过 N 帧才能再次被选取。
+   * 0 或不设置表示无冷却。
+   */
+  cooldownFrames?: number;
 }
 
 /**
@@ -549,6 +582,16 @@ export interface PassivePoolDef {
   tags?: TagPath[];
   /** 池 gate：不满足时整棵子树退出候选。缺省 = 无条件可用。 */
   condition?: ConditionGroup;
+  /**
+   * 归属某学生差分的聊天空间（VariantId）。设置后该池仅在该学生的对话空间被抽取。
+   * 与 PassiveStoryEntry.owner 共同决定壁垒路由。
+   */
+  owner?: string;
+  /**
+   * 抽取后冷却帧数：该池被抽取（命中任一内条目）后需经过 N 帧才能再次被选取。
+   * 0 或不设置表示无冷却。
+   */
+  cooldownFrames?: number;
   /** 子节点列表：子池 id 或被动闲聊 Entry id。 */
   children: PassivePoolChild[];
 }

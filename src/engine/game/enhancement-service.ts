@@ -4,13 +4,13 @@
 // ============================================================
 
 import { PlayerState, VisibilitySnapshot, EnhancementId, EnhancementPurchaseResult, RevealTarget } from '../types';
-import { Registry } from '../registry';
-import { ConditionSystem } from '../condition-system';
-import { EffectEngine } from '../effect-engine';
-import { StateMutationService } from '../state-mutation-service';
-import { AffectorEngine } from '../affector-engine';
-import { DevLog } from '../dev-log';
-import { existenceCondition, unlockMet } from '../reveal';
+import { Registry } from '../registry/registry';
+import { ConditionSystem } from '../expression/condition-system';
+import { EffectEngine } from '../effect/effect-engine';
+import { StateMutationService } from '../system/state-mutation-service';
+import { AffectorEngine } from '../effect/affector-engine';
+import { DevLog } from '../core/dev-log';
+import { existenceCondition, unlockMet } from '../visibility/reveal';
 import { condLabel, triggerLabel } from './debug-labels';
 
 export interface EnhancementServiceOptions {

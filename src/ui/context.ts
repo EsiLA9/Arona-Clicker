@@ -1,7 +1,7 @@
 import { SaveSystem } from '../save/storage';
 import { GameInstance } from '../engine/game-instance';
 import { GameView } from '../engine/types';
-import { displayName } from '../engine/display-name';
+import { displayName } from '../engine/core/display-name';
 
 export interface UIContext {
   game: GameInstance;

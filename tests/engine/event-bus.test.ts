@@ -2,7 +2,7 @@
 // engine/event-bus.test.ts
 // ============================================================
 import { describe, test, expect, vi } from 'vitest';
-import { EventBus } from '../../src/engine/event-bus';
+import { EventBus } from '../../src/engine/core/event-bus';
 import { GameEvent } from '../../src/engine/types';
 
 describe('EventBus', () => {

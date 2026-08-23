@@ -2,9 +2,9 @@
 // engine/value-system.test.ts
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { ValueSystem } from '../../src/engine/value-system';
+import { ValueSystem } from '../../src/engine/expression/value-system';
 import { PlayerState, ValueExpression, Expr, value, Character } from '../../src/engine/types';
-import { extra } from '../../src/engine/extra';
+import { extra } from '../../src/engine/extra/index';
 
 function defaultState(overrides: Partial<PlayerState> = {}): PlayerState {
   return {

@@ -14,20 +14,20 @@ import type {
   InitPurchaseResult,
   TravelResult,
 } from '../types';
-import { Registry } from '../registry';
-import { EventBus } from '../event-bus';
-import { ConditionSystem } from '../condition-system';
-import { EffectEngine } from '../effect-engine';
-import { StateMutationService } from '../state-mutation-service';
-import { StatsService } from '../stats';
-import { AffectorEngine } from '../affector-engine';
-import { TriggerSystem } from '../trigger-system';
-import { VisibilityEngine } from '../visibility-engine';
-import { DevLog } from '../dev-log';
+import { Registry } from '../registry/registry';
+import { EventBus } from '../core/event-bus';
+import { ConditionSystem } from '../expression/condition-system';
+import { EffectEngine } from '../effect/effect-engine';
+import { StateMutationService } from '../system/state-mutation-service';
+import { StatsService } from '../stats/stats';
+import { AffectorEngine } from '../effect/affector-engine';
+import { TriggerSystem } from '../effect/trigger-system';
+import { VisibilityEngine } from '../visibility/visibility-engine';
+import { DevLog } from '../core/dev-log';
 import { StoryService } from './story-service';
 import { InitSavepoint } from './init-savepoint';
 import { globalSpotEntries } from './snapshot';
-import { extra, mergeExtra } from '../extra';
+import { extra, mergeExtra } from '../extra/index';
 
 export interface InitServiceOptions {
   registry: Registry;
@@ -175,11 +175,12 @@ export class InitService {
   }
 
   /**
-   * 在当前世界线内移动到相邻 Area（玩家入口）——可达性层。
+   * 在当前世界线内移动到 Area（玩家入口）——可达性层。
    * 门槛链：存在 → 同 Init → 非演出锁定 → 相邻 → 可见。
    * 非 passive 剧情演出进行中时禁止移动；Story 自身要求移动（travelToArea effect）视 allowDuringStory 放行。
+   * checkAdjacency=false：Story 移动不判断拓扑（仍校验同 Init），用于 Talklet 触发跨区移动。
    */
-  travelToArea(areaId: AreaId, allowDuringStory = false): TravelResult {
+  travelToArea(areaId: AreaId, allowDuringStory = false, checkAdjacency = true): TravelResult {
     const state = this.state;
     const area = this.opts.registry.areas.get(areaId);
     if (!area) {
@@ -204,7 +205,7 @@ export class InitService {
     if (fromAreaId === areaId) {
       return { success: false, areaId, error: 'AlreadyThere' };
     }
-    if (fromAreaId !== null) {
+    if (checkAdjacency && fromAreaId !== null) {
       const fromArea = this.opts.registry.areas.get(fromAreaId);
       const adjacent = fromArea?.adjacentAreaIds ?? [];
       if (!adjacent.includes(areaId)) {

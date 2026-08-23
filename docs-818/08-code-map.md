@@ -85,7 +85,11 @@
 | 文件 | 行数 | 职责 |
 |------|------|------|
 | [[src/ui/main.ts]] | 18 | UI 入口（建 GameInstance + UIController） |
-| [[src/ui/controller.ts]] | ~711 | 事件绑定、刷新策略（轻量/重建）、聊天流、导入 Mod、日志导出；弹层委托 popovers |
+| [[src/ui/controller.ts]] | ~780 | **集成门面**：事件绑定、刷新策略（轻量/重建）、弹层/弹窗；聊天流/滚动/选择页/IO 委托给下方模块 |
+| [[src/ui/chat-stream.ts]] | ~100 | 聊天流领域逻辑：ID 计数、剧情指纹去重、活跃流路由、剧情/回复/过渡页同步（`ChatStream`） |
+| [[src/ui/scroll.ts]] | ~110 | 聊天流 / 面板滚动状态：重建 DOM 前后按比例捕获与恢复（`ScrollManager`） |
+| [[src/ui/init-select-page.ts]] | ~200 | 世界线选择页轮盘交互：装配、聚焦旋转、局部刷新（`InitSelectPage`） |
+| [[src/ui/import-export.ts]] | ~90 | 数据包导入（zip→Datapack→reload）与日志导出（`ImportExportService`） |
 | [[src/ui/context.ts]] | 37 | `UIContext`（view + 格式化 + displayName），UI 渲染的只读上下文 |
 | [[src/ui/popovers.ts]] | ~114 | 悬浮详情弹层（body 级、事件委托 + 防抖，一次绑定跨 DOM 重建） |
 | [[src/ui/player.ts]] | 20 | 玩家（老师）聊天身份单一来源（`PLAYER_IDENTITY`） |
@@ -103,6 +107,8 @@
 | [[src/ui/components/right-panels.ts]] | 右侧面板（设施 / 强化 / 其他） |
 | [[src/ui/components/production.ts]] | 设施卡片渲染 |
 | [[src/ui/components/enhancements.ts]] | 强化购买/管理 |
+| [[src/ui/components/collection.ts]] | 图鉴正文渲染（闲聊池树 + 色彩收集） |
+| [[src/ui/components/collection-modal.ts]] | 图鉴弹窗：收集类型 Switch（闲聊 / 色彩）切换 |
 | [[src/ui/components/story.ts]] | 聊天流/剧情对话 |
 | [[src/ui/components/tooltip.ts]] | 揭示阶段计算 + tooltip 内容 |
 | [[src/ui/components/init-select.ts]] | 世界线选择页 |

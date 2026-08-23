@@ -27,40 +27,41 @@ import {
   ExtraValue,
   GLOBAL_RESOURCE_IDS,
 } from './types';
-import { StoryService } from './game/story-service';
+import { StoryService, type StoryCursor } from './game/story-service';
+import { type StoryView } from './types/results';
 import { SpotService } from './game/spot-service';
 import { InitService } from './game/init-service';
 import { ItemService } from './game/item-service';
 import { EnhancementService } from './game/enhancement-service';
 import { SessionService } from './game/session-service';
 
-import { extra, getAtPath, mergeExtra, setAtPath } from './extra';
-import { Registry } from './registry';
-import { EventBus } from './event-bus';
-import { ValueSystem } from './value-system';
-import { ConditionSystem } from './condition-system';
-import { FuncletExecutor } from './funclet-executor';
-import { EffectEngine } from './effect-engine';
-import { TickSystem } from './tick-system';
-import { LootSystem } from './loot-system';
-import { VisibilityEngine } from './visibility-engine';
-import { hasExistenceGate } from './reveal';
-import { StateMutationService } from './state-mutation-service';
-import { AffectorEngine } from './affector-engine';
-import { DevLog, DevLogEntry, DevLogOptions } from './dev-log';
-import { StatsService, PersistedStats } from './stats';
-import { SpotFunctionalitySystem } from './spot-functionality';
-import { GameNumSystem } from './game-num';
-import { TriggerSystem } from './trigger-system';
-import { TagPath } from './tag';
+import { extra, getAtPath, mergeExtra, setAtPath } from './extra/index';
+import { Registry } from './registry/registry';
+import { EventBus } from './core/event-bus';
+import { ValueSystem } from './expression/value-system';
+import { ConditionSystem } from './expression/condition-system';
+import { FuncletExecutor } from './expression/funclet-executor';
+import { EffectEngine } from './effect/effect-engine';
+import { TickSystem } from './system/tick-system';
+import { LootSystem } from './system/loot-system';
+import { VisibilityEngine } from './visibility/visibility-engine';
+import { hasExistenceGate } from './visibility/reveal';
+import { StateMutationService } from './system/state-mutation-service';
+import { AffectorEngine } from './effect/affector-engine';
+import { DevLog, DevLogEntry, DevLogOptions } from './core/dev-log';
+import { StatsService, PersistedStats } from './stats/stats';
+import { SpotFunctionalitySystem } from './system/spot-functionality';
+import { GameNumSystem } from './expression/game-num';
+import { TriggerSystem } from './effect/trigger-system';
+import { TagPath } from './core/tag';
 
-import { CharacterSystem } from './character-system';
-import { RosterSystem } from './roster-system';
-import { CharacterAvailabilityService } from './character-availability';
-import { ColorSystem } from './color-system';
-import { GachaService } from './gacha-service';
-import { TagStatService, type TagStatKind } from './tag-stats';
-import { PassivePoolSystem } from './passive-pool-system';
+import { CharacterSystem } from './system/character-system';
+import { RosterSystem } from './system/roster-system';
+import { CharacterAvailabilityService } from './system/character-availability';
+import { ColorSystem } from './system/color-system';
+import { GachaService } from './system/gacha-service';
+import { TagStatService, type TagStatKind } from './stats/tag-stats';
+import { PassivePoolSystem } from './system/passive-pool-system';
 
 /**
  * SaveData 是持久化的存档快照
@@ -85,6 +86,10 @@ export interface SaveData {
   pendingVisitedStoryIds?: string[];
   /** 是否处于重阅读模式（旧档无 = false）。 */
   pendingIsReplay?: boolean;
+  /** 各聊天沙盒游标（key → StoryCursor）：每个角色对话空间的独立剧情游标（旧档无 = 空）。 */
+  chatCursors?: Record<string, StoryCursor>;
+  /** 各聊天沙盒的历史条目（key → 聊天条目数组，已按上限截断；引擎不解析内部结构，由 UI 层读写）。 */
+  chatHistories?: Record<string, unknown[]>;
   /** 三层统计持久化部分（global + 各 init 聚合 + 当前游玩的 session）。 */
   stats?: PersistedStats;
 }
@@ -160,6 +165,13 @@ export class GameInstance {
     );
     // 临时演出主题（setTheme effect）→ 转发给 ColorSystem 运行时层
     this.effectEngine.themeEffectHandler = effect => this.colorSystem.handleThemeEffect(effect);
+    // 剧情启动（triggerStory effect）→ 按 target=storyId / owner=沙盒 启动剧情。
+    // force：Trigger 驱动的系统事件剧情可抢占当前进行中的被动闲聊（否则会因 AlreadyActive 失败）。
+    this.effectEngine.storyStarter = effect => {
+      const entry = this.registry.storyEntries.get(effect.target);
+      const type = entry?.type ?? 'passive';
+      this.storyService.startStory(effect.target, type, effect.owner ?? null, true);
+    };
     this.gachaService = new GachaService(
       this.registry,
       this.mutations,
@@ -375,6 +387,14 @@ export class GameInstance {
     };
   }
 
+  /**
+   * 返回指定聊天沙盒（owner = VariantId）的当前剧情视图。
+   * 与 getView().currentStory（全局游标）并行互不干扰——各角色对话空间有独立游标。
+   */
+  getStoryView(owner: string): StoryView | null {
+    return this.storyService.getCurrentStoryView(owner);
+  }
+
   // --- 初始化 ---
 
   /** 加载数据包并初始化游戏 */
@@ -455,10 +475,33 @@ export class GameInstance {
     // Affector 贯穿 Area / 整个 Init 持续生效：每帧应用挂载中的效果
     this.affectorEngine.applyActiveEffects();
     this.effectEngine.setState(this._state);
+    // 阻断态的对话空间：每帧检查 block 条件是否已满足（如到达指定区域/持有物品）
+    this.recheckStudentBlocks();
     // 可见性由事件驱动增量更新，不在每帧全量重算
     this.statsService.recordTick();
     this.devLog.recordTick(result);
     return result;
+  }
+
+  /**
+   * 对话空间阻断态复检（壁垒重启）：遍历当前被 block 锁定的学生，若其触发 entry 的
+   * block 条件组现已满足，则解除锁定（StateMutationService.clearStudentBlock）。
+   * 由 tick 与区域进入后调用，实现「剧情要求前往某地 → 到达后对话空间重启」的关卡式剧情。
+   */
+  private recheckStudentBlocks(): void {
+    const blocks = this._state.studentBlocks;
+    if (!blocks) return;
+    for (const variantId of Object.keys(blocks)) {
+      const block = blocks[variantId];
+      const entry = this.registry.passiveStories.get(block.entryId);
+      if (!entry || !entry.block) {
+        this.mutations.clearStudentBlock(variantId);
+        continue;
+      }
+      if (this.conditionSystem.evaluateGroup(entry.block, this._state)) {
+        this.mutations.clearStudentBlock(variantId);
+      }
+    }
   }
 
   /** 发放物品并执行其获得时效果。 */
@@ -496,13 +539,15 @@ export class GameInstance {
   }
 
   /**
-   * 移动到相邻 Area（玩家入口）——可达性层。
-   * 门槛链：存在 → 同 Init → 非演出锁定 → 相邻 → 可见。
+   * 移动到 Area（玩家入口）——可达性层。
+   * 门槛链：存在 → 同 Init → 非演出锁定 → 相邻（checkAdjacency=true）→ 可见。
    * 非 passive 剧情演出进行中时禁止移动（防止演出背景被切换）；该限制对
-   * Story 自身要求移动（travelToArea effect）放开。
+   * Story 自身要求移动（travelToArea effect）放开；Story 移动可跳过拓扑（checkAdjacency=false）。
    */
-  travelToArea(areaId: AreaId, allowDuringStory = false): TravelResult {
-    return this.initService.travelToArea(areaId, allowDuringStory);
+  travelToArea(areaId: AreaId, allowDuringStory = false, checkAdjacency = true): TravelResult {
+    const result = this.initService.travelToArea(areaId, allowDuringStory, checkAdjacency);
+    if (result.success) this.recheckStudentBlocks(); // 到达新区域可能满足对话空间阻断条件
+    return result;
   }
 
   /**
@@ -523,13 +568,17 @@ export class GameInstance {
    * 启动一个剧情（active 或 passive）。ActiveStory 可打断正在播放的 PassiveStory。
    * 进入 Init 自动展开 startStoryId 时由内部复用；测试亦依赖此入口。
    */
-  startStory(storyId: string, expectedType: 'active' | 'passive'): StoryStartResult {
-    return this.storyService.startStory(storyId, expectedType);
+  startStory(storyId: string, expectedType: 'active' | 'passive', owner?: string | null): StoryStartResult {
+    return this.storyService.startStory(storyId, expectedType, owner);
   }
 
-  /** Pick one eligible passive story from the current Init by weight. */
-  triggerPassiveStory(initId?: string): StoryStartResult {
-    return this.storyService.triggerPassiveStory(initId);
+  /**
+   * Pick one eligible passive story from the current Init by weight.
+   * @param initId 当前世界线
+   * @param owner 壁垒：仅抽取归属该 VariantId 的闲聊（对话空间）；省略/null = 全局闲聊。
+   */
+  triggerPassiveStory(initId?: string, owner?: string | null): StoryStartResult {
+    return this.storyService.triggerPassiveStory(initId, owner);
   }
 
   /**
@@ -541,16 +590,16 @@ export class GameInstance {
     return this.storyService.replayStory(storyId);
   }
 
-  advanceStory(choiceIndex?: number): StoryAdvanceResult {
-    return this.storyService.advanceStory(choiceIndex);
+  advanceStory(choiceIndex?: number, owner?: string | null): StoryAdvanceResult {
+    return this.storyService.advanceStory(choiceIndex, owner);
   }
 
   /**
    * 查询底部"回复按钮"的当前状态。
    * 该按钮本质是聊天流中的一条 Talklet；玩家点击它推进剧情。
    */
-  getSendState(): SendState {
-    return this.storyService.getSendState();
+  getSendState(owner?: string | null): SendState {
+    return this.storyService.getSendState(owner);
   }
 
   /**
@@ -558,8 +607,8 @@ export class GameInstance {
    * - 剧情演出中：直接推进一页（advanceStory），并执行当前页效果
    * - 无剧情：尝试按当前场景随机抽取并开始一条 PassiveTalk
    */
-  clickSend(): SendResult {
-    return this.storyService.clickSend();
+  clickSend(owner?: string | null): SendResult {
+    return this.storyService.clickSend(owner);
   }
 
   /** 解锁一个 Init */
@@ -720,6 +769,7 @@ export class GameInstance {
       pendingInsertStack: storyCursor.insertStack,
       pendingVisitedStoryIds: storyCursor.visitedStoryIds,
       pendingIsReplay: storyCursor.isReplay,
+      chatCursors: this.storyService.saveChatCursors(),
       stats: this.statsService.getPersistable(),
     };
   }
@@ -767,6 +817,8 @@ export class GameInstance {
       visitedStoryIds: saveData.pendingVisitedStoryIds ? [...saveData.pendingVisitedStoryIds] : [],
       isReplay: saveData.pendingIsReplay ?? false,
     });
+    // 恢复各聊天沙盒游标（各角色对话空间独立剧情游标）
+    this.storyService.restoreChatCursors(saveData.chatCursors);
     this.sessionService.setLastTick(saveData.timestamp);
 
     // 重新同步子系统

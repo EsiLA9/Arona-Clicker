@@ -756,6 +756,18 @@ export const TABLE_META: TableMeta[] = [
     },
   },
   {
+    key: 'gachaPools',
+    label: '卡池',
+    type: 'GachaPoolDef',
+    idField: 'id',
+    worldlineSplit: true,
+    overrides: {
+      closeWhen: () => cg('closeWhen', '关闭条件'),
+      featured: () => a('featured', s('$', '差分 ID'), 'UP 差分'),
+      members: () => a('members', s('$', '差分 ID'), '成员'),
+    },
+  },
+  {
     key: 'triggerDefs',
     label: '触发器',
     type: 'TriggerDef',

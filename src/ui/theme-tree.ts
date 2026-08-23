@@ -1,4 +1,4 @@
-import { hexToHsl, hexToRgbTriplet } from '../engine/color-system';
+import { hexToHsl, hexToRgbTriplet } from '../engine/system/color-system';
 
 /** 背景明暗 → 其上文本色：底暗用白，底亮用黑（确定性）。 */
 const ON_DARK = '#ffffff';

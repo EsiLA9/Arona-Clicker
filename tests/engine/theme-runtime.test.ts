@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { RuntimeThemeManager } from '../../src/engine/theme-runtime';
-import { ColorSystem } from '../../src/engine/color-system';
+import { RuntimeThemeManager } from '../../src/engine/core/theme-runtime';
+import { ColorSystem } from '../../src/engine/system/color-system';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
 

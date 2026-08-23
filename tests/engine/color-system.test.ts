@@ -7,7 +7,7 @@ import {
   contrastRatio,
   deriveThemeTokens,
   resolveTheme,
-} from '../../src/engine/color-system';
+} from '../../src/engine/system/color-system';
 import type { Datapack } from '../../src/engine/types';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/engine/types';
 

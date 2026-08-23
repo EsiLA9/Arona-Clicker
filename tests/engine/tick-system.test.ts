@@ -2,10 +2,10 @@
 // engine/tick-system.test.ts
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { Registry } from '../../src/engine/registry';
-import { EventBus } from '../../src/engine/event-bus';
-import { ValueSystem } from '../../src/engine/value-system';
-import { TickSystem } from '../../src/engine/tick-system';
+import { Registry } from '../../src/engine/registry/registry';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { ValueSystem } from '../../src/engine/expression/value-system';
+import { TickSystem } from '../../src/engine/system/tick-system';
 import { PlayerState, Datapack, Character } from '../../src/engine/types';
 
 const simpleDatapack: Datapack = {

@@ -5,10 +5,10 @@
 // ============================================================
 
 import { PlayerState, TickResult } from '../types';
-import { EventBus } from '../event-bus';
-import { EffectEngine } from '../effect-engine';
-import { DevLog } from '../dev-log';
-import { TICK_INTERVAL_MS } from '../tick-system';
+import { EventBus } from '../core/event-bus';
+import { EffectEngine } from '../effect/effect-engine';
+import { DevLog } from '../core/dev-log';
+import { TICK_INTERVAL_MS } from '../system/tick-system';
 
 export interface SessionServiceOptions {
   doTick: () => TickResult;

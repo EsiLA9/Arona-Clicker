@@ -12,6 +12,29 @@ import type { UIContext } from '../context';
 
 // --- 色彩收集图鉴 ---
 
+/** 调色板预览条目：友好标签 + token 键，仅取对玩家有意义的视觉角色。 */
+const PALETTE_ROLES: { key: string; label: string }[] = [
+  { key: 'primary', label: '主色' },
+  { key: 'bg', label: '背景' },
+  { key: 'border', label: '边框' },
+  { key: 'playerBubble', label: '气泡·师' },
+  { key: 'npcBubble', label: '气泡·生' },
+  { key: 'text', label: '文字' },
+];
+
+/** 调色板预览：把引擎 token 字段换成直观的色块阵列，不暴露内部变量名/取值。 */
+function palettePreview(desc: { tokens: { key: string; value: string }[] }): string {
+  const byKey = new Map(desc.tokens.map(t => [t.key, t.value]));
+  const chips = PALETTE_ROLES
+    .filter(r => byKey.has(r.key))
+    .map(r => `
+      <div class="codex-chip" title="${r.label}">
+        <span class="codex-chip-swatch" style="--swatch:${byKey.get(r.key)}"></span>
+        <span class="codex-chip-label">${r.label}</span>
+      </div>`).join('');
+  return `<div class="codex-palette">${chips}</div>`;
+}
+
 function colorCard(ctx: UIContext, def: import('../../engine/types').ColorDef): string {
   const esc = ctx.escapeHtml;
   const owned = ctx.game.colorSystem.isOwned(ctx.game.state, def.id);
@@ -23,14 +46,8 @@ function colorCard(ctx: UIContext, def: import('../../engine/types').ColorDef): 
       ? '<span class="coll-gate is-open">已拥有</span>'
       : '<span class="coll-gate is-locked">未解锁</span>';
   const sourceBadge = desc.autoConstructed
-    ? '<span class="coll-gate codex-auto">自动构造</span>'
-    : '<span class="coll-gate codex-defined">已被定义</span>';
-  const tokens = desc.tokens.map(t => `
-    <li class="codex-token ${t.source === 'derived' ? 'is-derived' : 'is-defined'}">
-      <span class="codex-token-key">${esc(t.key)}</span>
-      <span class="codex-token-val" style="--sample:${t.value}">${esc(t.value)}</span>
-      <span class="codex-token-src">${t.source === 'derived' ? '衍生' : '定义'}</span>
-    </li>`).join('');
+    ? '<span class="coll-gate codex-auto">自动配色</span>'
+    : '<span class="coll-gate codex-defined">自定义配色</span>';
   return `
     <article class="codex-color ${owned ? 'is-owned' : 'is-locked'} ${active ? 'is-active' : ''}">
       <header class="codex-color-head">
@@ -42,7 +59,7 @@ function colorCard(ctx: UIContext, def: import('../../engine/types').ColorDef): 
         <div class="codex-badges">${statusBadge}${sourceBadge}</div>
       </header>
       ${def.description ? `<p class="codex-color-desc">${esc(def.description)}</p>` : ''}
-      <ul class="codex-token-list">${tokens}</ul>
+      ${palettePreview(desc)}
     </article>`;
 }
 
@@ -54,7 +71,7 @@ export function renderColorCodex(ctx: UIContext): string {
   const summary = `
     <div class="coll-summary">
       <span class="eyebrow">COLOR CODEX</span>
-      <strong>${ownedCount} / ${all.length} 已收集 · ${definedCount} 已被定义</strong>
+      <strong>${ownedCount} / ${all.length} 已收集${definedCount > 0 ? ` · ${definedCount} 份自定义配色` : ''}</strong>
     </div>`;
   return `${summary}<div class="codex-grid">${cards}</div>`;
 }

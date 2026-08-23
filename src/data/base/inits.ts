@@ -63,6 +63,17 @@ const schaleTriggers: TriggerDef[] = [
     effects: [{ op: 'addResource', target: Resource.Credit, value: 10 }],
     once: true,
   },
+  {
+    // 天台剧情：玩家首次进入夏莱天台时，自动触发星野的天台邀约演出（区域事件驱动剧情）。
+    // once 保证只触发一次，避免每次进入都重复播放。
+    id: 'base:trigger:hoshino_rooftop_story',
+    on: { kind: 'area', areaId: 'base:area:schale_rooftop' },
+    effects: [
+      // 触发天台相遇剧情（独立于聊天空间邀约，避免重复触发同一故事）
+      { op: 'triggerStory', target: 'base:story:hoshino_rooftop_meet', value: 0 },
+    ],
+    once: true,
+  },
 ];
 
 export const baseInits: InitDef[] = [

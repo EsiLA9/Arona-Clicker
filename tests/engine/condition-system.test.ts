@@ -2,9 +2,9 @@
 // engine/condition-system.test.ts
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { ConditionSystem } from '../../src/engine/condition-system';
+import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { PlayerState, Condition, ConditionGroup, cond, and, or } from '../../src/engine/types';
-import { extra } from '../../src/engine/extra';
+import { extra } from '../../src/engine/extra/index';
 
 function defaultState(overrides: Partial<PlayerState> = {}): PlayerState {
   return {

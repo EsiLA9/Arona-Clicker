@@ -11,7 +11,7 @@ export const baseAreas: AreaDef[] = [
     name: '夏莱主厅',
     description: '夏莱的主办公区域，略显凌乱但充满生活气息。',
     defaultSpots: ['base:spot:credit_printer', 'base:spot:comms_terminal', 'base:spot:data_wiper'],
-    adjacentAreaIds: ['base:area:schale_library'],
+    adjacentAreaIds: ['base:area:schale_library', 'base:area:schale_rooftop'],
     // 场景特色主题：进入夏莱主厅 → 界面切换为夏莱蓝
     theme: { colorId: 'base:color:schale-blue' },
   },
@@ -35,6 +35,16 @@ export const baseAreas: AreaDef[] = [
     revealTriggers: [
       { reveal: 'name', condition: and({ target: 'stat', key: '$GlobalProducedAmount base:resource:credit', comparator: '>=', value: 80 }) },
     ],
+  },
+  {
+    id: 'base:area:schale_rooftop',
+    initId: 'base:init:schale_office',
+    name: '夏莱天台',
+    description: '天台的风很清爽，能俯瞰整片夏莱街景。星野的邀约与晚霞都收在这里。',
+    defaultSpots: [],
+    adjacentAreaIds: ['base:area:schale_main'],
+    // 场景特色主题：天台的黄昏暖橙
+    theme: { colorId: 'base:color:amber' },
   },
   {
     id: 'base:area:abydos_campus',
