@@ -8,6 +8,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
+    "resolveJsonModule": true,
     "types": ["node", "vite/client"]
   },
   "include": ["**/*.ts"],

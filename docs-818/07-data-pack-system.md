@@ -28,7 +28,7 @@ game.init([datapack])
 
 **实现位置**：[[src/engine/registry.ts]] `validate()`
 
-- **ID 唯一性**：inits / areas / spots / enhancements / stories / items / dropTables / funcletDefs / characters / resourceDisplays
+- **ID 唯一性**：inits / areas / spots / enhancements / stories / items / dropTables / funcletDefs / characters / resourceDisplays / tags
 - **引用完整性**：area→init、spot→area、init.defaultAreas→area、area.defaultSpots→spot
 - **Extra 合法性**：深度 ≤ 32、dict key 非空且不含 '/'、int 值必须为整数
 
@@ -71,6 +71,7 @@ game.init([datapack])
   "characters": [...],
   "characterBonuses": [...],
   "resourceDisplays": [...],
+  "tags": [{ "id": "office", "name": "办公室", "description": "行政与布局设施" }],
   "extras": { "key": { "t": "int", "v": 1 } }
 }
 ```
@@ -156,11 +157,11 @@ const baseExtras: Record<string, ExtraValue> = {
 
 ---
 
-## 5. JSON Schema 生成
+## 5. Schema 描述协议生成
 
-**脚本**：[[scripts/gen-datapack-schema.mjs]]
+**脚本**：[[scripts/gen-engine-schema.mjs]]（旧 `gen-datapack-schema.mjs` 已删除）
 
-从 [[src/engine/types/index.ts]] 解析顶层 interface / type alias，生成 JSON Schema 初稿。
+从 [[src/engine/types/]] 解析实体接口 + TSDoc 含义标签，生成 Schema 描述协议（defMap 派生自 `Datapack` 接口，defs 为各实体字段定义）。
 
 ### 用法
 
@@ -170,12 +171,14 @@ npm run gen:schema
 
 ### 生成内容
 
-- 各表字段名 / 必填 / 原始 TS 类型文本
-- 全部顶层类型索引
+- `defMap`：Datapack 数组/record 字段 → 实体类型（"有多少活跃数据结构"）
+- `defs`：各实体字段定义（kind/label/required/ref/enum 含义；复杂字段为 `hand` 占位）
 
 ### 输出
 
-[[tools/datapack-editor/schema/datapack.schema.gen.json]]
+[[tools/datapack-editor/schema/engine-defs.gen.json]]
+
+> editor 侧由 [[tools/datapack-editor/schema/merge.ts]] 将生成 defs 与 [[tools/datapack-editor/schema/editor-extras.ts]] 拼合为最终 `TableSchema[]`；一致性由 [[tools/datapack-editor/schema/engine-schema.sync.test.ts]] 兜底。详见 [[09-schema-protocol]]。
 
 ---
 
@@ -206,8 +209,10 @@ Schema 驱动的表格化 JSON 编辑器，支持校验、补全、跳转、导�
 | 子目录 | 说明 |
 |--------|------|
 | `model/` | 编辑器数据模型 |
-| `schema/` | JSON Schema 定义 + 测试 |
+| `schema/` | Schema 描述协议（`engine-defs.ts` / `editor-extras.ts` / `merge.ts` / `datapack.schema.ts`）+ 同步测试（`engine-schema.sync.test.ts`） |
 | `ui/` | 编辑器 UI（组件 + 导航 + IO） |
 | `validate/` | Extra 校验逻辑 |
+
+> `datapack.schema.ts` 已由 752 行瘦身为组装层：`TABLES = buildTables()`（生成 defs ⊕ editor-extras）。详见 [[09-schema-protocol]]。
 
 入口：`npm run dev:editor` → `http://localhost:5173/editor`

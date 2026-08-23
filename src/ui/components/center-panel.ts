@@ -1,6 +1,7 @@
 import { UIContext } from '../context';
 import { renderTabs, TabDef } from './tabs';
 import { renderChatHistory, renderCurrentStory, ChatEntry } from './story';
+import { renderConversationView } from './contacts';
 import { SendState } from '../../engine/types';
 
 const CENTER_TABS: TabDef[] = [
@@ -8,13 +9,25 @@ const CENTER_TABS: TabDef[] = [
   { id: 'log', label: '日志' },
 ];
 
+/** 对话空间参数：打开时中栏整体替换为学生对话视图（无 tab）。 */
+export interface ConversationView {
+  variantId: string;
+  entries: ChatEntry[];
+}
+
 export function renderCenterPanel(
   ctx: UIContext,
   activeTab: string,
   chatEntries: ChatEntry[],
   sendState: SendState,
+  conversation?: ConversationView,
 ): string {
-  const body = activeTab === 'log' ? renderLogTab(ctx) : renderChatTab(ctx, chatEntries, sendState);
+  if (conversation) {
+    return renderConversationView(ctx, conversation.variantId, conversation.entries, sendState);
+  }
+  const body = activeTab === 'log'
+    ? renderLogTab(ctx)
+    : renderChatTab(ctx, chatEntries, sendState);
   return `
     <section class="panel center-panel">
       ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}
@@ -29,11 +42,13 @@ function renderChatTab(
 ): string {
   const { game, view } = ctx;
   const story = view.currentStory;
-  const activeStory = [...game.registry.stories.values()].find(item => item.type === 'active');
-  const activeCompleted = activeStory ? view.storyLog.some(item => item.storyId === activeStory.id) : false;
+  const activeStory = [...game.registry.activeStories.values()][0];
+  const activeCompleted = activeStory ? view.storyLog.some(item => item.storyId === activeStory.storyId) : false;
 
   const history = renderChatHistory(chatEntries, ctx);
-  const current = story && sendState.mode === 'choice' ? renderCurrentStory(ctx, story) : '';
+  // choice 页：仅已确认文本（confirmed）后才渲染选项卡片；未确认时 text 已在聊天流中，
+  // 底部按钮为"继续"（点击确认，见 renderSendButton）
+  const current = story && sendState.mode === 'choice' && sendState.confirmed ? renderCurrentStory(ctx, story) : '';
   const launcher = story ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
   const send = renderSendButton(sendState);
 
@@ -66,12 +81,26 @@ function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeComplet
 
 /**
  * 底部"回复按钮"——本质是承载推进的 Talklet 的演出形态。
- * - advance：单次点击推进剧情
+ * - advance：单次点击推进剧情（无 sendText 时按钮显示"点击"）
  * - idle：无进行中剧情，点击触发被动闲聊
  * - choice：有选项，按钮让位
  */
-function renderSendButton(sendState: SendState): string {
-  if (sendState.mode === 'choice') return '';
+export function renderSendButton(sendState: SendState): string {
+  if (sendState.mode === 'choice') {
+    // choice 页 text 阻塞：未确认时显示"继续"按钮（点击确认后选项卡片出现），
+    // 已确认后按钮让位给选项（由 [data-story-choice] 驱动）。
+    if (!sendState.confirmed) {
+      return `
+      <button class="send-button send-player" data-send>
+        <span class="send-bubble">
+          <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="send-text">继续</span>
+          <span class="send-arrow">↗</span>
+        </span>
+      </button>`;
+    }
+    return '';
+  }
 
   if (sendState.mode === 'idle') {
     const hint = sendState.reason === 'noAvailable' ? '（暂无可用闲聊）' : '';
@@ -81,29 +110,33 @@ function renderSendButton(sendState: SendState): string {
       </button>`;
   }
 
-  // mode === 'advance'：单次点击回复
-  const label = sendState.text && sendState.text.trim() ? sendState.text : '点击回复';
+  // mode === 'advance'：无预设回复文案（旁白/普通对话）时按钮仅作推进 → "点击"
+  const label = sendState.text && sendState.text.trim() ? sendState.text : '点击';
 
-  // 多击任务（clickWork）：进度条从左往右填充，完成才推进
+  // 多击任务（clickWork）：进度条从左往右填充，填满（done === total）后按钮切换为"完成"态，
+  // 再点一次才结束该 click 页（推进剧情）
   if (sendState.clickWork) {
     const { done, total } = sendState.clickWork;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const filled = total > 1 && done >= total;
+    const workLabel = filled ? '完成' : label;
     return `
-      <button class="send-button work" data-send>
+      <button class="send-button send-player work${filled ? ' done' : ''}" data-send>
         <span class="send-bubble">
           <span class="send-progress" style="--pct: ${pct}%"></span>
           <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="send-text">${label}</span>
+          <span class="send-text">${workLabel}</span>
           <span class="send-work-count">${done}/${total}</span>
         </span>
       </button>`;
   }
 
   return `
-    <button class="send-button" data-send>
+    <button class="send-button send-player" data-send>
       <span class="send-bubble">
         <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="send-text">${label}</span>
+        <span class="send-arrow">↗</span>
       </span>
     </button>`;
 }

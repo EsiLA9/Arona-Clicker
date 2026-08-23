@@ -21,22 +21,41 @@ import { PlayerState, TriggerDef, GameEvent, TriggerEventDef } from './types';
 import { EventBus } from './event-bus';
 import { ConditionSystem } from './condition-system';
 import { EffectEngine } from './effect-engine';
+import { EventDrivenReactor } from './event-driven-reactor';
 
 export const GLOBAL_TRIGGER_GROUP = 'global';
 
-export class TriggerSystem {
+/** 触发器 `on.kind` 到派发事件类型的映射，避免对所有事件全量扫描。 */
+const ON_KIND_TO_EVENT = {
+  tick: 'tick',
+  resource: 'resourceChanged',
+  spotLevel: 'spotLevelChanged',
+  item: 'itemCollected',
+  story: 'storyCompleted',
+  init: 'initEntered',
+  area: 'areaEntered',
+} as const;
+
+export class TriggerSystem extends EventDrivenReactor {
   private readonly triggers = new Map<string, TriggerDef>();
   /** id → 所属分组（用于整组挂载/移除）。 */
   private readonly groups = new Map<string, string>();
+  /** 按事件类型分桶：每个事件只派发给关心该类型的触发器，消除 O(事件×触发器) 全扫描。 */
+  private readonly byType = new Map<GameEvent['type'], Set<string>>();
+  /** id → 其桶对应的事件类型，便于卸载时精确移除。 */
+  private readonly bucketType = new Map<string, GameEvent['type']>();
   private state: PlayerState | null = null;
   private readonly completed = new Set<string>();
 
   constructor(
-    private readonly eventBus: EventBus,
+    eventBus: EventBus,
     private readonly conditionSystem: ConditionSystem,
     private readonly effectEngine: EffectEngine,
   ) {
-    this.eventBus.onAny(event => this.onEvent(event));
+    super(eventBus);
+    // 仅订阅触发器关心的 7 种事件类型；每类事件只派发给对应桶，
+    // `tick` 类不再被高频 resourceChanged/spotProduced 反复扫描。
+    this.subscribeTo(Object.values(ON_KIND_TO_EVENT));
   }
 
   setState(state: PlayerState): void {
@@ -49,6 +68,7 @@ export class TriggerSystem {
   mount(def: TriggerDef, group = GLOBAL_TRIGGER_GROUP): void {
     this.triggers.set(def.id, def);
     this.groups.set(def.id, group);
+    this.registerBucket(def);
   }
 
   /** 批量挂载（数据包级）。 */
@@ -60,6 +80,7 @@ export class TriggerSystem {
   unmount(id: string): boolean {
     const removed = this.triggers.delete(id);
     this.groups.delete(id);
+    this.removeBucket(id);
     return removed;
   }
 
@@ -69,6 +90,7 @@ export class TriggerSystem {
       if (g === group) {
         this.triggers.delete(id);
         this.groups.delete(id);
+        this.removeBucket(id);
       }
     }
   }
@@ -80,17 +102,42 @@ export class TriggerSystem {
   clear(): void {
     this.triggers.clear();
     this.groups.clear();
+    this.byType.clear();
+    this.bucketType.clear();
   }
 
-  private onEvent(event: GameEvent): void {
+  /** EventDrivenReactor 命中入口：派发给本类型桶。 */
+  protected onEvent(type: GameEvent['type'], event: GameEvent): void {
+    this.processType(type, event);
+  }
+
+  private processType(type: GameEvent['type'], event: GameEvent): void {
     if (!this.state) return;
-    // 快照迭代：fire 执行 effects 可能动态挂载/移除，不允许在遍历中改 map
-    for (const trigger of [...this.triggers.values()]) {
+    const bucket = this.byType.get(type);
+    if (!bucket || bucket.size === 0) return;
+    // 快照迭代：fire 执行 effects 可能动态挂载/移除，不允许在遍历中改 set
+    for (const id of [...bucket]) {
+      const trigger = this.triggers.get(id);
+      if (!trigger) { this.removeBucket(id); continue; }
       if (!this.matchesEvent(trigger.on, event)) continue;
       if (trigger.once && this.completed.has(trigger.id)) continue;
       if (trigger.condition && !this.conditionSystem.evaluateExpr(trigger.condition, this.state)) continue;
       this.fire(trigger);
     }
+  }
+
+  private registerBucket(def: TriggerDef): void {
+    const type = ON_KIND_TO_EVENT[def.on.kind];
+    let set = this.byType.get(type);
+    if (!set) { set = new Set<string>(); this.byType.set(type, set); }
+    set.add(def.id);
+    this.bucketType.set(def.id, type);
+  }
+
+  private removeBucket(id: string): void {
+    const type = this.bucketType.get(id);
+    if (type) this.byType.get(type)?.delete(id);
+    this.bucketType.delete(id);
   }
 
   private matchesEvent(on: TriggerEventDef, event: GameEvent): boolean {

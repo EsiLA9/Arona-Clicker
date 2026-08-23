@@ -55,14 +55,27 @@ export type ConditionTarget =
   | 'hasTag'
   /** 拥有指定 tag 的已拥有 Spot 数量（层级 tag，含 child）。 */
   | 'countTags'
+  /**
+   * 按 tag 聚合的收集数（TagStatService，各类型统计独立）。
+   * key = `<kind>:<tagDisplay>`，如 `spots:office` / `characters:school/millennium`；
+   * actual = 该类型下已收集且声明命中该 tag（含祖先前缀）的实体数量。
+   */
+  | 'tagCount'
   /** 统计函数 DSL 求值（key 为 `$FunctionName 参数...`），返回数值与 value 比较。 */
   | 'stat'
   /** 是否完成过某个 Story（跨 Run，全局）。key = StoryId，0 或 1。 */
   | 'hasReadStory'
   /** 是否在当前 Run 完成过某个 Story。key = StoryId，0 或 1。 */
   | 'hasReadStoryInRun'
+  /** 当前 Entry 跳转链中是否经过某个 Story（含初始 Story 与所有 jumpToStory 目标，去重）。key = StoryId，0 或 1。 */
+  | 'visitedStoryInChain'
   /** Extra 三层合并视图数值比较。key = ExtraPath，actual = toNumber(合并视图)，缺失 → 0（见 docs/13 §6.2）。 */
-  | 'extra';
+  | 'extra'
+  /**
+   * 原型聚合统计（Character 重构，docs-818/12-character-rework.md §3）。
+   * key = 原型角色 id，actual = protoStats[key].acquiredTotal，缺失 → 0。
+   */
+  | 'protoStat';
 
 export interface Condition {
   target: ConditionTarget;
@@ -115,13 +128,34 @@ export type EffectOp =
   /** Extra 全局层数值增量（仅对 int/float 有效，缺失按 0）：target = ExtraPath，value = 增量（数值或 ValueExpression）。 */
   | 'addExtra'
   /** 删除 Extra 全局层节点：target = ExtraPath（不存在时静默忽略；value 忽略）。 */
-  | 'removeExtra';
+  | 'removeExtra'
+  /**
+   * 获得角色差分（Character 重构统一获得入口，docs-818/12-character-rework.md §1）：
+   * target = VariantId；重复获得自动转碎片。via 记为 story/event 类奖励。
+   */
+  | 'grantCharacter'
+  /**
+   * 临时演出主题（运行时非持久 UI 效果）：value 为 ThemeEffectValue。
+   * 由 effect-engine 转发给 ColorSystem.handleThemeEffect，mutations 保持 no-op。
+   */
+  | 'setTheme';
+
+/**
+ * 临时演出主题声明：引用某 Color 打底 + 可选局部 token 覆盖。
+ * 见 engine/theme-runtime.ts 的 ThemeLayer（缺省 scope 视为 ephemeral）。
+ */
+export interface ThemeEffectValue {
+  /** 引用 ColorDef id；缺省仅用 tokens 覆盖。 */
+  colorId?: string;
+  /** 局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。 */
+  tokens?: Record<string, string>;
+}
 
 export interface Effect {
   op: EffectOp;
   target: string;
-  /** 数值、字符串、布尔、ValueExpression（引擎结算时按当前状态求值）或 ExtraValue（setExtra 直接写入的结构化值）。 */
-  value: number | string | boolean | ValueExpression | ExtraValue;
+  /** 数值、字符串、布尔、ValueExpression（引擎结算时按当前状态求值）、ExtraValue（setExtra）或 ThemeEffectValue（setTheme）。 */
+  value: number | string | boolean | ValueExpression | ExtraValue | ThemeEffectValue;
 }
 
 // --- Funclet 系统 ---

@@ -1,6 +1,5 @@
 import { UIContext } from '../context';
 import { getEnhancementReveal, describeCondition } from './tooltip';
-import { tagDisplay } from '../../engine/tag';
 import { unlockCondition } from '../../engine/reveal';
 import { EnhancementDef } from '../../engine/types';
 
@@ -20,6 +19,7 @@ const HIDDEN_TEXT = '???';
 
 export function renderEnhancements(ctx: UIContext): string {
   const { game, view } = ctx;
+  const registry = game.registry;
   // 已购买的 enhancement 收入管理弹窗，此处不再显示；挂靠（仅 UI 位置）过滤可购项
   const visibleHere = (enh: EnhancementDef): boolean => {
     const att = enh.attachment;
@@ -39,7 +39,7 @@ export function renderEnhancements(ctx: UIContext): string {
       ? (unlock ? describeCondition(unlock, ctx.nameOf) : '无前置条件')
       : HIDDEN_TEXT;
     const multiplierText = enh.productionMultiplier
-      ? `×${ctx.formatNumber(enh.productionMultiplier * 100)}${enh.productionTags?.length ? `（${enh.productionTags.map(tagDisplay).join('/')}）` : ''}`
+      ? `×${ctx.formatNumber(enh.productionMultiplier * 100)}${enh.productionTags?.length ? `（${enh.productionTags.map(t => registry.tagName(t)).join('/')}）` : ''}`
       : '';
     const utilityText = reveal.utilityKnown ? (multiplierText || '—') : HIDDEN_TEXT;
     const priceText = enh.price?.length
@@ -51,11 +51,10 @@ export function renderEnhancements(ctx: UIContext): string {
 
     return `
       <article class="mini-card hover-wrap" data-tooltip="enh:${enh.id}">
-        <div class="mini-card-head">
-          <span class="mini-eyebrow">ENHANCEMENT</span>
-          <strong>${purchaseable ? '可购买' : '未解锁'}</strong>
+        <div class="mini-card-title-row">
+          <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
+          <strong class="mini-status">${purchaseable ? '可购买' : '未解锁'}</strong>
         </div>
-        <h3>${ctx.escapeHtml(title)}</h3>
         ${description}
         <div class="mini-card-foot">
           <span class="mini-yield">${ctx.escapeHtml(utilityText)}</span>
@@ -80,6 +79,7 @@ export function renderEnhancements(ctx: UIContext): string {
 /** 弹窗内容：当前游戏已购买的 Enhancement 列表（与购买面板同构的 mini-card，查看 + 移除管理）。 */
 export function renderEnhancementManager(ctx: UIContext): string {
   const { game, view } = ctx;
+  const registry = game.registry;
   const owned = [...game.registry.enhancements.values()]
     .filter(enh => view.unlockedEnhancements.includes(enh.id));
   if (owned.length === 0) {
@@ -87,15 +87,14 @@ export function renderEnhancementManager(ctx: UIContext): string {
   }
   const cards = owned.map(enh => {
     const multiplier = enh.productionMultiplier
-      ? `×${enh.productionMultiplier.toFixed(2)}${enh.productionTags?.length ? `（${enh.productionTags.map(tagDisplay).join('/')}）` : ''}`
+      ? `×${enh.productionMultiplier.toFixed(2)}${enh.productionTags?.length ? `（${enh.productionTags.map(t => registry.tagName(t)).join('/')}）` : ''}`
       : '';
     return `
       <article class="mini-card owned">
-        <div class="mini-card-head">
-          <span class="mini-eyebrow">ENHANCEMENT</span>
-          <strong class="owned-tag">已激活</strong>
+        <div class="mini-card-title-row">
+          <h3 class="mini-card-title">${ctx.escapeHtml(enh.name)}</h3>
+          <strong class="mini-status owned-tag">已激活</strong>
         </div>
-        <h3>${ctx.escapeHtml(enh.name)}</h3>
         <p>${ctx.escapeHtml(enh.description)}</p>
         <div class="mini-card-foot">
           <span class="mini-yield">${ctx.escapeHtml(multiplier || '—')} · ${ctx.escapeHtml(attachLabel(ctx, enh))}</span>

@@ -8,9 +8,19 @@ import { baseInits } from './inits';
 import { baseAreas } from './areas';
 import { baseSpots } from './spots';
 import { allCharacters } from './characters';
+import {
+  baseBondStories,
+  baseBondStoryEntries,
+  baseCharacterPersistConfig,
+  baseCharacterVariants,
+  baseChatMessages,
+  baseColors,
+  baseCultivateCurves,
+  baseGachaPools,
+} from './character-rework';
 import { baseItems } from './items';
 import { baseDropTables } from './drop-tables';
-import { baseStories } from './stories';
+import { baseActiveStories, basePassiveStories, basePassivePools, baseStories } from './stories';
 import { baseEnhancements } from './enhancements';
 import { baseTriggers } from './triggers';
 
@@ -40,6 +50,18 @@ const baseAffectorPacks = [
       effects: [{ op: 'addResource' as const, target: Resource.Credit, value: 1 }],
     }],
   },
+  {
+    // 测试用：青辉石量产管线（配合 base:enh:pyroxene_rush）
+    id: 'base:pack:pyroxene_flow',
+    extra: extra.dict({
+      desc: extra.str('青辉石提纯回路：每 tick +2500 青辉石'),
+      tier: extra.int(0),
+    }),
+    entries: [{
+      id: 'base:aff:pyroxene_flow',
+      effects: [{ op: 'addResource' as const, target: Resource.Pyroxene, value: 2500 }],
+    }],
+  },
 ];
 
 // 数据包级 Extra 全局常量表示例：扁平键 → 节点值，加载时展开为树（见 docs/13 §5.3）。
@@ -56,7 +78,10 @@ export const baseDatapack: Datapack = {
   areas: baseAreas,
   spots: baseSpots,
   enhancements: baseEnhancements,
-  stories: baseStories,
+  activeStories: [...baseActiveStories, ...baseBondStoryEntries],
+  passiveStories: basePassiveStories,
+  passivePools: basePassivePools,
+  stories: [...baseStories, ...baseBondStories],
   items: baseItems,
   dropTables: baseDropTables,
   affectorPacks: baseAffectorPacks,
@@ -64,6 +89,12 @@ export const baseDatapack: Datapack = {
   funcletDefs: [],
   characters: allCharacters,
   characterBonuses: [],
+  characterVariants: baseCharacterVariants,
+  cultivateCurves: baseCultivateCurves,
+  colors: baseColors,
+  gachaPools: baseGachaPools,
+  chatMessages: baseChatMessages,
+  characterPersistConfig: baseCharacterPersistConfig,
   resourceDisplays: baseResourceDisplays,
   extras: baseExtras,
 };

@@ -22,6 +22,8 @@ import type {
   ResourceDisplayDef,
   SpotDef,
   StoryDef,
+  ActiveStoryEntry,
+  PassiveStoryEntry,
   TriggerDef,
 } from '../engine/types';
 
@@ -31,6 +33,8 @@ export const DATAPACK_LIST_FIELDS = [
   'areas',
   'spots',
   'enhancements',
+  'activeStories',
+  'passiveStories',
   'stories',
   'items',
   'dropTables',
@@ -152,6 +156,8 @@ function mergeFragments(fragments: DatapackFragment[]): Datapack {
     areas: (lists.areas as AreaDef[] | undefined) ?? [],
     spots: (lists.spots as SpotDef[] | undefined) ?? [],
     enhancements: (lists.enhancements as EnhancementDef[] | undefined) ?? [],
+    activeStories: (lists.activeStories as ActiveStoryEntry[] | undefined) ?? [],
+    passiveStories: (lists.passiveStories as PassiveStoryEntry[] | undefined) ?? [],
     stories: (lists.stories as StoryDef[] | undefined) ?? [],
     items: (lists.items as ItemDef[] | undefined) ?? [],
     funcletDefs: (lists.funcletDefs as FuncletDef[] | undefined) ?? [],

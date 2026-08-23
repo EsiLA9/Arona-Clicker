@@ -128,7 +128,7 @@ tick()
 
 `savePerInitSnapshot(initId)`：将 PlayerState 中的 Init 局部字段保存到 `initSnapshots[initId]`。
 
-包含：resources / spotLevels / spotManagers / visitedAreas / storyCooldowns / totalFrames / inventory / unlockedEnhancements / storyLog / flags / triggersCompleted / currentAreaId / extras
+包含：resources / spotLevels / spotManagers / visitedAreas / totalFrames / inventory / unlockedEnhancements / storyLog / storyReadLogs / flags / triggersCompleted / currentAreaId / extras
 
 **global Spot**（`SpotDef.global=true`）的等级/管理角色不写入快照（跨世界线保留）。
 

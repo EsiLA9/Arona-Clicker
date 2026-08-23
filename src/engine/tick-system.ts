@@ -4,7 +4,6 @@
 
 import {
   PlayerState,
-  Character,
   TickResult,
   ProductionResult,
 } from './types';
@@ -12,7 +11,6 @@ import { Registry } from './registry';
 import { ValueSystem } from './value-system';
 import { EventBus } from './event-bus';
 import { StateMutationService } from './state-mutation-service';
-import { CharacterSystem } from './character-system';
 import { GameNumSystem } from './game-num';
 import { TagPath, matchesTag } from './tag';
 
@@ -23,7 +21,6 @@ export class TickSystem {
   private readonly registry: Registry;
   private readonly valueSystem: ValueSystem;
   private readonly eventBus: EventBus;
-  private readonly characterSystem?: CharacterSystem;
   private _state!: PlayerState;
   private readonly mutations: StateMutationService;
 
@@ -31,14 +28,12 @@ export class TickSystem {
     registry: Registry,
     valueSystem: ValueSystem,
     eventBus: EventBus,
-    characterSystem?: CharacterSystem,
     mutations?: StateMutationService,
     private readonly gameNumSystem?: GameNumSystem,
   ) {
     this.registry = registry;
     this.valueSystem = valueSystem;
     this.eventBus = eventBus;
-    this.characterSystem = characterSystem;
     this.mutations = mutations ?? new StateMutationService(eventBus);
   }
 
@@ -94,18 +89,10 @@ export class TickSystem {
 
       // All numeric inputs are evaluated through ValueSystem. A Spot's
       // baseYield is now its output for this unified tick.
+      // Manager 加成已冻结（docs-818/12-character-rework.md §4.4）：
+      // managerBonusYield / 角色标签加成不再参与产出，spotManagers 有值与否结果一致。
       const baseYield = this.valueSystem.evaluate(spotDef.baseYield, state);
-      const manager = state.spotManagers[spotId] ?? Character.None;
-      const managerBonus = manager === Character.None
-        ? 0
-        : this.valueSystem.evaluate(spotDef.managerBonusYield, state);
-      const tagMultiplier = manager === Character.None || !this.characterSystem
-        ? 1
-        : (spotDef.tags ?? []).reduce(
-          (multiplier, tag) => multiplier * this.characterSystem!.getTagBonus(manager, tag),
-          1,
-        );
-      const requested = (baseYield + managerBonus) * tagMultiplier * enhancementMultiplier;
+      const requested = baseYield * enhancementMultiplier;
       const resource = spotDef.baseYieldResource;
       const current = state.resources[resource] ?? 0;
       const actual = spotDef.baseCapacity > 0

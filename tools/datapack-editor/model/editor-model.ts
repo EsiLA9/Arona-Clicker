@@ -59,6 +59,15 @@ export class EditorModel {
   // ---------- 读取 ----------
 
   rowsOf(table: TableKey): Row[] {
+    // 虚拟合并表：storyEntries = activeStories ∪ passiveStories 的只读引用视图。
+    // 用于 hasReadStory / hasReadStoryInRun / story 触发等"任意剧情入口"引用，
+    // 不出现在导出的 datapack 中（load/toDatapack 不落盘）。
+    if (table === 'storyEntries') {
+      return [
+        ...this.rowsOf('activeStories'),
+        ...this.rowsOf('passiveStories'),
+      ];
+    }
     const d = this.data[table];
     return Array.isArray(d) ? (d as Row[]) : [];
   }
@@ -102,7 +111,10 @@ export class EditorModel {
     }
     let idx = -1;
     this.commit(`新增行 ${table}`, () => {
-      const rows = this.rowsOf(table);
+      // 表从未加载任何数据时 data[table] 为 undefined，rowsOf 只读返回临时空数组，
+      // 必须先初始化真实数组，否则 push 写入丢失（如全新的 tags 表）。
+      if (!Array.isArray(this.data[table])) this.data[table] = [];
+      const rows = this.data[table] as Row[];
       idx = rows.length;
       rows.push(row);
     });

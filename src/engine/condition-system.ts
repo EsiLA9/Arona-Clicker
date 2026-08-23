@@ -13,8 +13,12 @@ export class ConditionSystem {
   private statReader: (dsl: string) => number | null = () => null;
   /** 查询当前 Run 中是否完成过某个 Story（由 StatsService 提供）。 */
   private storyRunChecker: (storyId: string) => boolean = () => false;
+  /** 查询当前 Entry 跳转链中是否经过某个 Story（由 StoryService 提供）。 */
+  private storyChainChecker: (storyId: string) => boolean = () => false;
   /** Extra 三层合并视图读取器（全局 → per-Init → 数据包常量表，由 GameInstance.getExtra 提供）。 */
   private extraReader: (path: ExtraPath) => ExtraValue | undefined = () => undefined;
+  /** 按 tag 聚合的收集数读取器（key = `<kind>:<tagDisplay>`，由 TagStatService 提供）。 */
+  private tagCountReader: (key: string) => number = () => 0;
 
   setTagIndex(index: (tag: TagPath) => string[]): void {
     this.tagIndex = index;
@@ -28,8 +32,16 @@ export class ConditionSystem {
     this.storyRunChecker = checker;
   }
 
+  setStoryChainChecker(checker: (storyId: string) => boolean): void {
+    this.storyChainChecker = checker;
+  }
+
   setExtraReader(reader: (path: ExtraPath) => ExtraValue | undefined): void {
     this.extraReader = reader;
+  }
+
+  setTagCountReader(reader: (key: string) => number): void {
+    this.tagCountReader = reader;
   }
 
   evaluate(cond: Condition, state: PlayerState): boolean {
@@ -98,9 +110,21 @@ export class ConditionSystem {
       case 'hasReadStoryInRun':
         return this.storyRunChecker(cond.key) ? 1 : 0;
 
+      case 'visitedStoryInChain':
+        // 当前 Entry 跳转链中是否经过该 Story（由 StoryService 提供运行时上下文）
+        return this.storyChainChecker(cond.key) ? 1 : 0;
+
       case 'extra':
         // Extra 三层合并视图数值比较（缺失 → 0，语义见 docs/13 §6.2）
         return toNumber(this.extraReader(cond.key));
+
+      case 'tagCount':
+        // 按 tag 聚合的收集数（TagStatService，key = `<kind>:<tagDisplay>`）
+        return this.tagCountReader(cond.key);
+
+      case 'protoStat':
+        // 原型聚合统计（获得次数；docs-818/12-character-rework.md §3）
+        return state.protoStats?.[cond.key]?.acquiredTotal ?? 0;
 
       default:
         return 0;

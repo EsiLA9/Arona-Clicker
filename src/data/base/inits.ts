@@ -33,6 +33,10 @@ import {
 //   累计 800 credit → 阿比多斯存在感显现 → 继续积累后可购买
 //   解锁 2 条世界线 OR 累计 2000 credit → 崔妮蒂存在感显现
 //   解锁 3 条世界线 OR 累计 4000 credit → 盖赫纳存在感显现
+//
+// 世界倾斜数值（worldTilt）：神圣之塔对地极坐标概念，表述世界变动率。
+//   1 = 蔚蓝档案官方世界，0 = Vol.Final 指示的前世界；尾数不足 15 位自动补 0。
+//   选择页按该数值降序单列排列（高在上低在下）。
 // ============================================================
 
 const SCHALE: StoryId = 'base:story:schale_welcome';
@@ -73,6 +77,7 @@ export const baseInits: InitDef[] = [
     defaultAreas: ['base:area:schale_main'],
     startStoryId: SCHALE,
     triggers: schaleTriggers,
+    worldTilt: '0.999',
   },
 
   // ---------------------------------------------------------
@@ -87,6 +92,7 @@ export const baseInits: InitDef[] = [
     description: '科技与逻辑的学府。以高效率生产闻名，可解锁工程师长评、自动化流水线等高精尖 Spot。适合追求极致产能的玩家。',
     defaultAreas: [MILLENNIUM_AREA],
     purchaseCost: [{ resourceId: Resource.Pyroxene, amount: 20 }],
+    worldTilt: '0.985',
     revealTriggers: [
       { reveal: 'name', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 50)) },
       { reveal: 'condition', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 300)) },
@@ -106,6 +112,7 @@ export const baseInits: InitDef[] = [
     description: '沙漠中的学园，以高产出 Spot 著称但维护成本不菲。可解锁对策委员会专属设施，产出金币与稀有神名文字。适合已有经营经验的玩家。',
     defaultAreas: [ABYDOS_AREA],
     purchaseCost: [{ resourceId: Resource.Pyroxene, amount: 40 }],
+    worldTilt: '0.96',
     revealTriggers: [
       { reveal: 'existence', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 800)) },
       { reveal: 'name', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 800)) },
@@ -126,6 +133,7 @@ export const baseInits: InitDef[] = [
     description: '悠久传统的贵族学园，政治与社交的交汇点。可解锁修女会、正义实现委员会等势力 Spot，提供强化 buff 而非直接产出。适合寻求全局增幅的玩家。',
     defaultAreas: [TRINITY_AREA],
     purchaseCost: [{ resourceId: Resource.Pyroxene, amount: 80 }],
+    worldTilt: '0.9725',
     revealTriggers: [
       { reveal: 'existence', condition: or(
         and(cond('stat', '$GlobalUnlockedInits', '>=', 2)),
@@ -149,6 +157,8 @@ export const baseInits: InitDef[] = [
     description: '自由奔放的混沌学园，以高风险高回报的 Spot 著称。可解锁美食研究会、风纪委员会等设施，产出青辉石与大量信用点，但伴随随机事件。适合追求刺激的资深玩家。',
     defaultAreas: [GEHENNA_AREA],
     purchaseCost: [{ resourceId: Resource.Pyroxene, amount: 150 }],
+    worldTilt: '0.9413',
+    worldTiltAlias: '观测受限（伪装值）',
     revealTriggers: [
       { reveal: 'existence', condition: or(
         and(cond('stat', '$GlobalUnlockedInits', '>=', 3)),

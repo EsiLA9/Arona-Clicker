@@ -1,12 +1,17 @@
 {
+  "activeStories": [
+    {
+      "id": "base:story:schale_welcome",
+      "storyId": "base:story:schale_welcome",
+      "availableInits": ["base:init:schale_office"],
+      "triggerCondition": { "type": "AND", "conditions": [] }
+    }
+  ],
   "stories": [
     {
       "id": "base:story:schale_welcome",
       "name": "欢迎来到沙勒",
-      "type": "active",
-      "availableInits": ["base:init:schale_office"],
-      "triggerCondition": { "type": "AND", "conditions": [] },
-      "pages": [
+      "talklets": [
         {
           "speaker": "阿罗娜",
           "text": "欢迎回来，老师！我是什亭之匣的系统助理阿罗娜。沙勒的设施已经准备就绪了。",

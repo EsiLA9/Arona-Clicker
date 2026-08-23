@@ -4,7 +4,9 @@
 
 import {
   Character,
+  CharacterAcquireVia,
   CompletedStory,
+  DupRewards,
   Effect,
   ExtraPath,
   ExtraValue,
@@ -13,10 +15,12 @@ import {
   GameEvent,
   StatsContext,
   ValueExpression,
+  VariantId,
   isGlobalResource,
 } from './types';
 import { EventBus } from './event-bus';
 import { StatsService } from './stats';
+import { applyExp, checkBreakthrough, resolveCurve } from './cultivate-system';
 import { assertValidExtra, deleteAtPath, extra, extraFromJson, getAtPath, isFloat, setAtPath, toNumber } from './extra';
 
 /**
@@ -48,16 +52,45 @@ export class StateMutationService {
     this.extraReader = reader;
   }
 
+  /** 差分目录读取器（由 GameInstance 注入 registry 视图，供 acquireCharacter/培养/色彩解析定义）。 */
+  private characterCatalog: {
+    getVariant(id: VariantId): import('./types').CharacterVariantDef | undefined;
+    getCurve(id: string): import('./types').CultivateCurveDef | undefined;
+    getColor(id: string): import('./types').ColorDef | undefined;
+  } | null = null;
+
+  setCharacterCatalog(reader: {
+    getVariant(id: VariantId): import('./types').CharacterVariantDef | undefined;
+    getCurve(id: string): import('./types').CultivateCurveDef | undefined;
+    getColor(id: string): import('./types').ColorDef | undefined;
+  }): void {
+    this.characterCatalog = reader;
+  }
+
+  /** 解析差分的运行时曲线视图（经目录读取器取曲线定义）。 */
+  private curveOf(variant: import('./types').CharacterVariantDef) {
+    return resolveCurve(variant.curve ? this.characterCatalog?.getCurve(variant.curve) : undefined);
+  }
+
   private get current(): PlayerState {
     if (!this.state) throw new Error('StateMutationService is not initialized');
     return this.state;
   }
 
   private emit(event: GameEvent): void {
-    this.eventBus.emit({
-      ...event,
-      stats: this.statsService?.getContext() as StatsContext | undefined,
-    } as GameEvent);
+    const payload = { ...event } as GameEvent;
+    // 惰性统计上下文：仅在消费方实际访问 event.stats 时才深拷贝三层统计，
+    // 消除每事件（每 Tick 的 2R+1 个）急切构建完整 StatsContext 快照的开销。
+    const statsService = this.statsService;
+    if (statsService) {
+      let cached: StatsContext | undefined;
+      Object.defineProperty(payload, 'stats', {
+        enumerable: true,
+        configurable: true,
+        get: () => (cached ??= statsService.getContext()),
+      });
+    }
+    this.eventBus.emit(payload);
   }
 
   /** 资源实际存放的桶：全局资源放 globalResources（跨世界线），其余放 resources。 */
@@ -103,6 +136,183 @@ export class StateMutationService {
   setManager(spotId: string, character: Character): void {
     this.current.spotManagers[spotId] = character;
     this.emit({ type: 'managerChanged', spotId, newManager: character });
+  }
+
+  /**
+   * 获得角色差分（一切获得途径的统一入口）。
+   * - 首次获得：创建 RosterEntry（level=1/exp=0/stars=0），不发碎片。
+   * - 重复获得：不改动培养，返还该变体自己的碎片 + 附加资源
+   *   （rewards 缺省 = 1 碎片防呆；卡池调用时传池配置的 dupRewards）。
+   * @returns 实际结算结果（重复标记与返还明细）。
+   */
+  acquireCharacter(
+    variantId: VariantId,
+    via: CharacterAcquireVia,
+    rewards?: DupRewards,
+  ): { duplicate: boolean; shards: number; bonusResources: Record<string, number> } {
+    const variant = this.characterCatalog?.getVariant(variantId);
+    if (!variant) throw new Error(`[acquireCharacter] 未知差分: ${variantId}`);
+    const state = this.current;
+    state.roster ??= {};
+    state.fragments ??= {};
+
+    const existing = state.roster[variantId];
+    let duplicate = false;
+    let shards = 0;
+    let bonusResources: Record<string, number> = {};
+    if (!existing) {
+      state.roster[variantId] = {
+        variantId,
+        acquiredVia: via,
+        level: 1,
+        exp: 0,
+        stars: 0,
+        equippedColors: [],
+        acquiredCount: 1,
+      };
+    } else {
+      duplicate = true;
+      shards = rewards?.shards ?? 1;
+      bonusResources = rewards?.bonusResources ?? {};
+      state.fragments[variantId] = (state.fragments[variantId] ?? 0) + shards;
+      existing.acquiredCount += 1;
+      for (const [resource, amount] of Object.entries(bonusResources)) {
+        if (amount !== 0) this.changeResource(resource, amount);
+      }
+    }
+
+    const stats = (state.protoStats ??= {});
+    const ps = (stats[variant.proto] ??= { acquiredTotal: 0, cultTotal: 0 });
+    ps.acquiredTotal += 1;
+
+    this.emit({ type: 'characterAcquired', variantId, via, duplicate, shards, bonusResources });
+    return { duplicate, shards, bonusResources };
+  }
+
+  /** 聊天消息标记已读（幂等：已读不再发事件）。 */
+  markChatRead(messageId: string): void {
+    const state = this.current;
+    state.chatRead ??= {};
+    if (state.chatRead[messageId]) return;
+    state.chatRead[messageId] = true;
+    this.emit({ type: 'chatReadChanged', messageId });
+  }
+
+  /** 卡池计数写入（pity/pulls；由 GachaService 结算后调用）。 */
+  setGachaCounters(poolId: string, counters: { pity: number; pulls: number }): void {
+    const state = this.current;
+    state.gachaState ??= {};
+    state.gachaState[poolId] = counters;
+  }
+
+  /** 差分并入世界 Pool（幂等去重；由 AvailabilityService 在池关闭条件满足时调用）。 */
+  mergeIntoWorldPool(variantIds: VariantId[]): void {
+    const state = this.current;
+    const world = new Set(state.worldPool ?? []);
+    let changed = false;
+    for (const id of variantIds) {
+      if (!world.has(id)) {
+        world.add(id);
+        changed = true;
+      }
+    }
+    if (changed) state.worldPool = [...world];
+  }
+
+  // --- 色彩（docs-818/12-character-rework.md §2.3） ---
+
+  /** 色彩入库存（写层不做条件判定——由 ColorSystem 校验后调用；幂等）。 */
+  unlockColor(colorId: string): boolean {
+    const state = this.current;
+    state.colorsOwned ??= [];
+    if (state.colorsOwned.includes(colorId)) return false;
+    state.colorsOwned.push(colorId);
+    this.emit({ type: 'colorUnlocked', colorId });
+    return true;
+  }
+
+  /** 色彩装备到变体色彩槽。未拥有差分/色彩、槽位满均拒绝。 */
+  equipColor(variantId: VariantId, colorId: string): { ok: boolean; reason?: string } {
+    const variant = this.characterCatalog?.getVariant(variantId);
+    if (!variant) throw new Error(`[equipColor] 未知差分: ${variantId}`);
+    const entry = this.current.roster?.[variantId];
+    if (!entry) return { ok: false, reason: 'no-entry' };
+    const state = this.current;
+    if (!state.colorsOwned?.includes(colorId)) return { ok: false, reason: 'not-owned' };
+    if (entry.equippedColors.includes(colorId)) return { ok: false, reason: 'already-equipped' };
+    const maxSlots = variant.colorSlots ?? 1;
+    if (entry.equippedColors.length >= maxSlots) return { ok: false, reason: 'slots-full' };
+    entry.equippedColors.push(colorId);
+    this.emit({ type: 'colorEquipped', variantId, colorId });
+    return { ok: true };
+  }
+
+  /** 卸下变体装备的色彩。 */
+  unequipColor(variantId: VariantId, colorId: string): boolean {
+    const entry = this.current.roster?.[variantId];
+    if (!entry) return false;
+    const idx = entry.equippedColors.indexOf(colorId);
+    if (idx < 0) return false;
+    entry.equippedColors.splice(idx, 1);
+    return true;
+  }
+
+  /** 激活界面主题（全局单选）。未拥有色彩拒绝；同值幂等不发事件。 */
+  activateTheme(colorId: string | null): boolean {
+    if (colorId !== null && !this.current.colorsOwned?.includes(colorId)) {
+      return false;
+    }
+    if (this.current.activeColor === colorId) return true;
+    this.current.activeColor = colorId;
+    this.emit({ type: 'themeChanged', colorId });
+    return true;
+  }
+
+  /** 培养入口：加经验（支持一次跨多级；达有效上限后溢出截断）。未拥有/非法量拒绝。 */
+  addExp(variantId: VariantId, amount: number): { ok: boolean; newLevel: number; newExp: number } {
+    const variant = this.characterCatalog?.getVariant(variantId);
+    if (!variant) throw new Error(`[addExp] 未知差分: ${variantId}`);
+    const entry = this.current.roster?.[variantId];
+    if (!entry) return { ok: false, newLevel: 0, newExp: 0 };
+
+    const result = applyExp(this.curveOf(variant), entry, amount);
+    if (!result.ok) return { ok: false, newLevel: entry.level, newExp: entry.exp };
+
+    const state = this.current;
+    state.roster![variantId] = result.entry;
+    const ps = (state.protoStats ??= {})[variant.proto] ??= { acquiredTotal: 0, cultTotal: 0 };
+    ps.cultTotal += amount;
+    if (result.leveledUp) {
+      this.emit({
+        type: 'cultivated',
+        variantId,
+        kind: 'exp',
+        newLevel: result.entry.level,
+      });
+    }
+    return { ok: true, newLevel: result.entry.level, newExp: result.entry.exp };
+  }
+
+  /**
+   * 培养入口：星级突破。只消耗该变体自己的碎片（差分隔离，不可跨变体替代）。
+   * 未拥有 / 未配置曲线 / 已达星上限 / 碎片不足均拒绝。
+   */
+  breakthroughStar(variantId: VariantId): { ok: boolean; reason?: string; newStars?: number } {
+    const variant = this.characterCatalog?.getVariant(variantId);
+    if (!variant) throw new Error(`[breakthroughStar] 未知差分: ${variantId}`);
+    const state = this.current;
+    const entry = state.roster?.[variantId];
+    if (!entry) return { ok: false, reason: 'no-entry' };
+
+    const check = checkBreakthrough(this.curveOf(variant), state, variant, entry);
+    if (!check.ok || check.cost === undefined) return { ok: false, reason: check.reason };
+
+    state.fragments![variantId] -= check.cost;
+    entry.stars += 1;
+    (state.protoStats ??= {})[variant.proto] ??= { acquiredTotal: 0, cultTotal: 0 };
+    state.protoStats[variant.proto].cultTotal += check.cost;
+    this.emit({ type: 'cultivated', variantId, kind: 'star', newStars: entry.stars });
+    return { ok: true, newStars: entry.stars };
   }
 
   addEnhancement(enhancementId: string): boolean {
@@ -177,9 +387,24 @@ export class StateMutationService {
     this.emit({ type: 'storyCompleted', storyId: story.storyId });
   }
 
-  setStoryCooldown(storyId: StoryId, frame: number): void {
-    this.current.storyCooldowns ??= {};
-    this.current.storyCooldowns[storyId] = frame;
+  /**
+   * 记录 Story 阅读日志（按 Story.id；talkletIndex 为已读 Talklet 索引，choiceIndex 可选已选选项）。
+   * 为重阅读预留的简单记录，不驱动任何行为；重阅读服务本期不实现。
+   */
+  recordStoryRead(storyId: StoryId, talkletIndex: number, choiceIndex?: number): void {
+    const state = this.current;
+    const logs = (state.storyReadLogs ??= {});
+    const log = logs[storyId] ?? { readTalkletIndexes: [], chosenChoiceIndexes: {} };
+    if (!log.readTalkletIndexes.includes(talkletIndex)) {
+      log.readTalkletIndexes = [...log.readTalkletIndexes, talkletIndex].sort((a, b) => a - b);
+    }
+    if (choiceIndex !== undefined) {
+      const chosen = log.chosenChoiceIndexes[talkletIndex] ?? [];
+      if (!chosen.includes(choiceIndex)) {
+        log.chosenChoiceIndexes = { ...log.chosenChoiceIndexes, [talkletIndex]: [...chosen, choiceIndex] };
+      }
+    }
+    logs[storyId] = log;
   }
 
   /** 写 Extra 全局层（运行时动态数据；per-Init 层与数据包常量表保持只读）。 */
@@ -213,7 +438,8 @@ export class StateMutationService {
   }
 
   /** 把 Effect.value 归一为 ExtraValue：字面量 → extraFromJson；已结构化 ExtraValue 校验后透传。 */
-  private toExtraValue(raw: number | string | boolean | ValueExpression | ExtraValue): ExtraValue {
+  private toExtraValue(raw: number | string | boolean | ValueExpression | ExtraValue | import('./types/expression').ThemeEffectValue): ExtraValue {
+    // setTheme 的 value 走运行时层（effect-engine 已过滤），此处忽略以防误入
     if (typeof raw === 'object' && raw !== null && 't' in raw) {
       const node = raw as ExtraValue;
       assertValidExtra(node);
@@ -267,6 +493,13 @@ export class StateMutationService {
       case 'loot':
       case 'triggerStory':
         // 这些操作需要上层系统（Loot/Story）处理，不在状态层产生伪事件。
+        break;
+      case 'grantCharacter':
+        // 获得角色差分（重复自动转碎片）；未知差分由 acquireCharacter 抛错
+        this.acquireCharacter(effect.target, 'story');
+        break;
+      case 'setTheme':
+        // 临时演出主题：非持久 UI 效果，由 effect-engine 转发 ColorSystem 处理，状态层不落数据。
         break;
     }
   }

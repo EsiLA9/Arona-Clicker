@@ -10,6 +10,7 @@ import {
   AffectorInstance,
   AffectorPackDef,
   AffectorState,
+  GameEvent,
   PlayerState,
   SpotFunctionalityDef,
   SpotId,
@@ -23,20 +24,27 @@ import { StateMutationService } from './state-mutation-service';
 import { EffectEngine } from './effect-engine';
 import { SpotFunctionalitySystem } from './spot-functionality';
 import { EventBus } from './event-bus';
+import { EventDrivenReactor } from './event-driven-reactor';
+import { CONDITION_DEP_EVENT_TYPES, ConditionDepIndex } from './condition-deps';
 
-export class AffectorEngine {
+export class AffectorEngine extends EventDrivenReactor {
   private readonly packs = new Map<string, AffectorPackDef>();
   private readonly instances = new Map<string, AffectorInstance>();
+  /** 实例 id → 其 entry 条件的事件依赖（命中即定向 recheck，替代全量重估）。 */
+  private readonly condDeps = new ConditionDepIndex<string>();
+  /** 条件含 stat/未知 target 的实例：事件无法精确命中，保留每 Tick 轮询。 */
+  private readonly pollingInstances = new Set<string>();
   private state: PlayerState | null = null;
 
   constructor(
     private readonly registry: Registry,
     private readonly conditionSystem: ConditionSystem,
     private readonly mutations: StateMutationService,
-    private readonly eventBus?: EventBus,
+    eventBus?: EventBus,
     private readonly effectEngine?: EffectEngine,
     private readonly functionalitySystem?: SpotFunctionalitySystem,
   ) {
+    super(eventBus ?? new EventBus());
     if (!eventBus) return;
     eventBus.on('itemCollected', event => {
       if (event.count > 0) this.mountItemAffectors(event.itemId);
@@ -59,6 +67,13 @@ export class AffectorEngine {
     });
     // Spot 动态 Tag 变化也可能改变外源功能命中范围
     eventBus.on('spotTagChanged', () => this.syncAllSpotFunctionalities());
+    // entry 条件新鲜度：分桶订阅条件可能声明的事件，命中即定向 recheck
+    this.subscribeTo(CONDITION_DEP_EVENT_TYPES);
+  }
+
+  /** EventDrivenReactor 命中入口：条件依赖命中的实例定向重估。 */
+  protected onEvent(_type: GameEvent['type'], event: GameEvent): void {
+    for (const instanceId of this.condDeps.affected(event)) this.recheck(instanceId);
   }
 
   load(packs: AffectorPackDef[]): void {
@@ -87,6 +102,7 @@ export class AffectorEngine {
       activeEntryIds: [],
     };
     this.instances.set(instance.instanceId, instance);
+    this.registerConditionDeps(instance.instanceId, packId);
     this.recheck(instance.instanceId);
     this.eventBus?.emit({
       type: 'affectorMounted',
@@ -103,6 +119,8 @@ export class AffectorEngine {
     const oldState = instance.state;
     instance.state = 'Removed';
     instance.activeEntryIds = [];
+    this.condDeps.unregister(instanceId);
+    this.pollingInstances.delete(instanceId);
     this.eventBus?.emit({
       type: 'affectorStateChanged',
       instanceId,
@@ -258,10 +276,23 @@ export class AffectorEngine {
     };
   }
 
+  /**
+   * 登记实例全部 entry 条件的事件依赖；含 stat/未知 target 的实例转入每 Tick 轮询
+   * （stat 计数变化无专属事件，见 ADR-002 rev2「stat 宽依赖收窄」）。
+   */
+  private registerConditionDeps(instanceId: string, packId: string): void {
+    const pack = this.packs.get(packId);
+    if (!pack) return;
+    for (const entry of pack.entries) {
+      if (this.condDeps.register(instanceId, entry.condition)) this.pollingInstances.add(instanceId);
+    }
+  }
+
   applyActiveEffects(): void {
     if (!this.state) return;
-    // 条件可能由统计驱动（如累计产出阈值），每 tick 先全量重估保证最新
-    for (const instance of [...this.instances.values()]) this.recheck(instance.instanceId);
+    // 条件可能由统计驱动（stat 无专属事件），仅这类实例保留每 Tick 重估；
+    // 其余实例的条件翻转由事件驱动定向 recheck 保证新鲜
+    for (const instanceId of [...this.pollingInstances]) this.recheck(instanceId);
     for (const instance of this.getActiveInstances()) {
       const pack = this.packs.get(instance.packId);
       if (!pack) continue;

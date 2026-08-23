@@ -3,19 +3,25 @@ import { renderResourceStrip } from './header';
 import { renderTabs, TabDef } from './tabs';
 import { renderProductionNodes } from './production';
 import { renderEnhancements } from './enhancements';
+import { renderCharacterPanel } from './contacts';
+import { describeAffectorPack } from '../../engine/affector-text';
+import { describeCondition } from './tooltip';
 
 const RIGHT_TABS: TabDef[] = [
   { id: 'spot', label: '设施' },
+  { id: 'character', label: '学生' },
   { id: 'enh', label: '强化' },
   { id: 'other', label: '其他' },
 ];
 
-export function renderRightPanel(ctx: UIContext, activeTab: string): string {
+export function renderRightPanel(ctx: UIContext, activeTab: string, selectedVariantId: string | null = null): string {
   let body: string;
   if (activeTab === 'enh') {
     body = renderEnhancements(ctx);
   } else if (activeTab === 'other') {
     body = renderOtherTab(ctx);
+  } else if (activeTab === 'character') {
+    body = renderCharacterPanel(ctx, selectedVariantId);
   } else {
     body = renderProductionNodes(ctx);
   }
@@ -39,9 +45,20 @@ function renderOtherTab(ctx: UIContext): string {
       }).join('')
     : '<li class="empty">背包目前为空</li>';
 
+  const affectorText = (packId: string): string => {
+    const pack = game.affectorEngine.getPack(packId);
+    if (!pack) return '';
+    return describeAffectorPack(pack, ctx.nameOf, {
+      describeCondition: cond => describeCondition(cond, ctx.nameOf),
+    }).join('；');
+  };
   const affectors = view.activeAffectors.length
-    ? view.activeAffectors.map(instance => `
-        <div class="trace"><span class="trace-line cyan"></span><p><b>${ctx.escapeHtml(instance.packId)}</b><small>${ctx.escapeHtml(instance.mountEntityId)} / ${instance.activeEntryIds.length} active</small></p><span class="trace-value">ACTIVE</span></div>`).join('')
+    ? view.activeAffectors.map(instance => {
+        const shortName = instance.packId.split(':').pop() ?? instance.packId;
+        const detail = affectorText(instance.packId) || `${instance.mountEntityId} / ${instance.activeEntryIds.length} active`;
+        return `
+        <div class="trace"><span class="trace-line cyan"></span><p><b>${ctx.escapeHtml(shortName)}</b><small>${ctx.escapeHtml(detail)}</small></p><span class="trace-value">ACTIVE</span></div>`;
+      }).join('')
     : '<div class="trace-empty">当前没有生效中的 Affector</div>';
 
   return `

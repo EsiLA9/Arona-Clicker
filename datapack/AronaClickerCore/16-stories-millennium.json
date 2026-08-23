@@ -1,12 +1,30 @@
 {
+  "activeStories": [
+    {
+      "id": "base:story:millennium_welcome",
+      "storyId": "base:story:millennium_welcome",
+      "availableInits": ["base:init:millennium"],
+      "triggerCondition": { "type": "AND", "conditions": [] }
+    }
+  ],
+  "passiveStories": [
+    {
+      "id": "base:story:millennium_chat",
+      "storyId": "base:story:millennium_chat",
+      "availableInits": ["base:init:millennium"],
+      "triggerCondition": { "type": "AND", "conditions": [] },
+      "repeatable": true,
+      "weight": 3,
+      "completionReward": {
+        "repeat": [{ "op": "addResource", "target": "base:resource:pyroxene", "value": 1 }]
+      }
+    }
+  ],
   "stories": [
     {
       "id": "base:story:millennium_welcome",
       "name": "欢迎来到千年",
-      "type": "active",
-      "availableInits": ["base:init:millennium"],
-      "triggerCondition": { "type": "AND", "conditions": [] },
-      "pages": [
+      "talklets": [
         {
           "speaker": "优香",
           "text": "老师！这里就是千年科学学园的研究中枢。多亏了您的信用点支持，我们才能扩充设备。",
@@ -30,22 +48,13 @@
     {
       "id": "base:story:millennium_chat",
       "name": "关于售货机",
-      "type": "passive",
-      "availableInits": ["base:init:millennium"],
-      "triggerCondition": { "type": "AND", "conditions": [] },
-      "repeatable": true,
-      "cooldownFrames": 120,
-      "weight": 3,
-      "pages": [
+      "talklets": [
         {
           "speaker": "诺亚",
           "text": "听说自动售货机偶尔会吐出稀有的东西……老师要去碰碰运气吗？",
           "sendText": "听起来很有趣。"
         }
-      ],
-      "completionReward": {
-        "repeat": [{ "op": "addResource", "target": "base:resource:pyroxene", "value": 1 }]
-      }
+      ]
     }
   ]
 }

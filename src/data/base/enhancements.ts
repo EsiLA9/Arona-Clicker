@@ -182,6 +182,21 @@ export const baseEnhancements: EnhancementDef[] = [
     attachment: { kind: 'area', areaId: 'base:area:schale_main' },
   },
 
+  // ============================================================
+  // 测试 Enhancement：青辉石量产（极大提升抽卡货币获得率）
+  // ============================================================
+  {
+    id: 'base:enh:pyroxene_rush',
+    name: '【测试·青辉石】什亭之匣的财源',
+    description: '[测试用] 接入青辉石提纯回路，每 tick 自动产出 2500 青辉石——招募补给从此无忧。',
+    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'resource', key: Resource.Credit, comparator: '>=', value: 30 }) }],
+    effects: [],
+    autoApply: true,
+    affectorPackIds: ['base:pack:pyroxene_flow'],
+    price: [{ resourceId: Resource.Credit, amount: 30 }],
+    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
+  },
+
   // 阿比多斯 — 沙漠生存指南
   {
     id: 'base:enh:desert_survival',

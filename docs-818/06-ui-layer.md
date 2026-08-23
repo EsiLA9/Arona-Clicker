@@ -149,14 +149,18 @@ interface ChatEntry {
 
 | 状态 | 行为 |
 |------|------|
-| `advance` | 单次点击推进剧情 |
+| `advance` | 单次点击推进剧情（无 `sendText` 时按钮显示"点击"） |
 | `idle` | 无进行中剧情，点击触发被动闲聊 |
-| `choice` | 有选项，按钮让位 |
+| `choice` | 有选项，按钮让位（未确认文本时显示"继续"按钮） |
 | `working` | 多击任务（clickWork），进度条从左往右填充 |
+
+**统一化读取（逐页点击）**：剧情读取不再自动跳过纯展示页——每一句（旁白 / 对话 / click / 选项）都
+默认要求玩家点击一次才继续。goto / insert 跳转目标 Story 与普通 Story 行为完全一致，逐页阻塞推进；
+每页文本由 `syncCurrentStoryToChat` 在进入时进聊天流（click 页除外，其 text 作按钮文案）。
 
 ### 多击任务（clickWork）
 
-`StoryPage.clickWork`：要求玩家连续点击 `base + rand(0, rand)` 次才能推进。按钮上显示进度条。
+`StoryPage.clickWork`：要求玩家连续点击 `base + rand(0, rand)` 次从左往右填满进度条（进入该页时为 `0/N`），填满后还需再点一次才结束该页并推进；`click` 页缺省按 `{ base: 1 }`（点一下推进）。
 
 ---
 

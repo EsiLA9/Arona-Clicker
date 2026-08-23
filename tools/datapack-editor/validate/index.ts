@@ -214,6 +214,9 @@ function validateValue(
     case 'flexible':
       // 宽松值：接受任意 JSON
       break;
+    case 'hand':
+      // 生成器占位：merge 后不应残留（残留即同步遗漏）；防御性跳过校验
+      break;
     case 'extra':
       validateExtraValue(value, path, issues, table);
       break;

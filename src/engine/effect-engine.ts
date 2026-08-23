@@ -12,6 +12,12 @@ export class EffectEngine {
   private mutations: StateMutationService;
   private _state!: PlayerState;
 
+  /**
+   * 非状态主题类效果（setTheme）的处理器：由 GameInstance 注入 ColorSystem.handleThemeEffect。
+   * 这类 effect 不写入 PlayerState，只影响运行时 UI 主题层。
+   */
+  themeEffectHandler: ((effect: Effect) => void) | null = null;
+
   constructor(eventBus: EventBus, mutations?: StateMutationService, private readonly valueSystem?: ValueSystem) {
     this.eventBus = eventBus;
     this.mutations = mutations ?? new StateMutationService(eventBus);
@@ -25,7 +31,13 @@ export class EffectEngine {
   /** 批量执行效果列表（value 为 ValueExpression 时先按当前状态求值）。 */
   applyEffects(effects: Effect[]): void {
     const resolved = effects.map(effect => this.resolveValue(effect));
-    this.mutations.applyEffects(resolved);
+    // 主题类效果转发给运行时层（不落状态），其余走状态写入口
+    const stateEffects = resolved.filter(effect => {
+      if (effect.op !== 'setTheme') return true;
+      this.themeEffectHandler?.(effect);
+      return false;
+    });
+    if (stateEffects.length > 0) this.mutations.applyEffects(stateEffects);
   }
 
   /** 把 value 为 ValueExpression 的效果解析为数值；无 valueSystem 或非表达式（含 ExtraValue 等结构化对象）时原样保留。 */

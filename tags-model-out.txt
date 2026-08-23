@@ -1,0 +1,16 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/15229/Documents/Obsidian Vault/1-项目/ACProgram[39m
+
+[90mstdout[2m | tools/datapack-editor/schema/tags-model.test.ts[2m > [22m[2mtags model addRow[2m > [22m[2maddRow on tags creates a row with defaults
+[22m[39mADDED TAG ROW: {"id":"","name":"","description":""}
+
+[90mstdout[2m | tools/datapack-editor/schema/tags-model.test.ts[2m > [22m[2mtags model addRow[2m > [22m[2mvalidate does not throw on tags table
+[22m[39mVALIDATE THREW: [1mnull[22m
+
+ [32m✓[39m tools/datapack-editor/schema/tags-model.test.ts [2m([22m[2m2 tests[22m[2m)[22m[90m 7[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 22:47:12
+[2m   Duration [22m 579ms[2m (transform 179ms, setup 0ms, collect 212ms, tests 7ms, environment 0ms, prepare 133ms)[22m
+

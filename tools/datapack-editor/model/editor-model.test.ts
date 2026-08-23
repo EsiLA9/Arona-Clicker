@@ -39,6 +39,19 @@ describe('EditorModel', () => {
     expect(m.rowAt('spots', idx).name).toBe('C');
   });
 
+  it('对从未加载数据的空表（tags）addRow 仍能创建并持久化', () => {
+    const m = new EditorModel();
+    m.loadDatapack({}); // 不含任何表数据
+    const idx = m.addRow('tags');
+    expect(idx).toBe(0);
+    expect(m.rowsOf('tags')).toHaveLength(1);
+    expect(m.rowAt('tags', 0)).toEqual({ id: '', name: '', description: '' });
+    // 导出应包含新行，undo 应移除
+    expect(m.toDatapack().tags).toEqual([{ id: '', name: '', description: '' }]);
+    expect(m.undo()).toBe(true);
+    expect(m.rowsOf('tags')).toHaveLength(0);
+  });
+
   it('divider 横条不进入数据行（不参与 JSON 合并）', () => {
     const m = new EditorModel();
     m.loadDatapack({ inits: [{ id: 'base:init:test', name: '测试', description: '' }] });

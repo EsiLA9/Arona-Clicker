@@ -1,5 +1,10 @@
 // ============================================================
-// engine/character-system.ts — 角色辅助系统
+// engine/character-system.ts — 角色原型元数据查询
+//
+// Character 重构后本系统只负责原型表（CharacterData）的加载与筛选。
+// 解锁判定以 roster 为单一真相来源（拥有任一差分即解锁其原型）；
+// 旧 flag / manager 分配协议已冻结（docs-818/12-character-rework.md §4.4）。
+// 持有实例/碎片/培养见 roster-system 与 cultivate-system。
 // ============================================================
 
 import {
@@ -7,29 +12,22 @@ import {
   CharacterData,
   CharacterRarity,
   CharacterSchool,
-  CharacterBonusTable,
   PlayerState,
 } from './types';
-import { TagPath, matchesTag } from './tag';
 
 export class CharacterSystem {
   private characters: Map<Character, CharacterData> = new Map();
-  private bonuses: Map<string, Map<Character, number>> = new Map(); // spotId → characterId → multiplier
+  /** 差分 id → 原型 id 解析器（GameInstance 注入 registry 视图）。 */
+  private variantProto?: (variantId: string) => Character | undefined;
+
+  setVariantProtoResolver(fn: (variantId: string) => Character | undefined): void {
+    this.variantProto = fn;
+  }
 
   /** 从数据包加载角色数据 */
   load(characters: CharacterData[]): void {
     for (const ch of characters) {
       this.characters.set(ch.id, ch);
-    }
-  }
-
-  /** 加载角色加成表 */
-  loadBonuses(bonuses: CharacterBonusTable[]): void {
-    for (const b of bonuses) {
-      if (!this.bonuses.has(b.spotId)) {
-        this.bonuses.set(b.spotId, new Map());
-      }
-      this.bonuses.get(b.spotId)!.set(b.characterId, b.multiplier);
     }
   }
 
@@ -53,47 +51,22 @@ export class CharacterSystem {
     return this.getAll().filter(ch => ch.rarity === rarity);
   }
 
-  /** 获取已解锁角色 (在 state.unlockedInits 中标记或通过 spotManagers 分配) */
+  /**
+   * 获取已解锁角色（roster 单一真相来源）：
+   * 玩家拥有该原型的任一差分即视为解锁。
+   */
   getUnlocked(state: PlayerState): CharacterData[] {
+    const ownedProtos = new Set<Character>();
+    for (const variantId of Object.keys(state.roster ?? {})) {
+      const proto = this.variantProto?.(variantId);
+      if (proto !== undefined) ownedProtos.add(proto);
+    }
     const result: CharacterData[] = [];
     for (const ch of this.characters.values()) {
       if (ch.id === Character.None) continue;
-      // 被分配到 Spot 的角色视为已解锁
-      const assigned = Object.values(state.spotManagers).some(m => m === ch.id);
-      // 通过 flag 标记解锁
-      const flagged = state.flags[`char_unlock_${ch.id}`] === 'true';
-      if (assigned || flagged) {
-        result.push(ch);
-      }
+      if (ownedProtos.has(ch.id)) result.push(ch);
     }
     return result;
-  }
-
-  /** 获取可分配的角色列表 (已解锁但未分配) */
-  getAssignable(state: PlayerState): CharacterData[] {
-    const assigned = new Set(Object.values(state.spotManagers));
-    return this.getUnlocked(state).filter(ch => !assigned.has(ch.id));
-  }
-
-  /** 获取某个 Spot 的角色加成倍率 */
-  getBonus(spotId: string, characterId: Character): number {
-    const spotBonuses = this.bonuses.get(spotId);
-    if (!spotBonuses) return 1.0;
-    return spotBonuses.get(characterId) ?? 1.0;
-  }
-
-  /**
-   * 获取某个角色对给定 Spot 标签的加成（层级匹配）。
-   * 角色 spotTagBonus 的 key 是查询标签；声明标签（含其 child）命中同前缀的 key。
-   */
-  getTagBonus(characterId: Character, tag: TagPath): number {
-    const ch = this.characters.get(characterId);
-    if (!ch) return 1.0;
-    let bonus = 1.0;
-    for (const [key, value] of Object.entries(ch.spotTagBonus)) {
-      if (matchesTag(tag, [key])) bonus *= value;
-    }
-    return bonus;
   }
 
   /** 检查角色是否存在 */
@@ -104,7 +77,6 @@ export class CharacterSystem {
   /** 清空所有数据 */
   clear(): void {
     this.characters.clear();
-    this.bonuses.clear();
   }
 
   /** 获取角色对应学校的已解锁同校数量 */

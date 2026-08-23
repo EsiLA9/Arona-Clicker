@@ -1,19 +1,23 @@
 import { UIContext } from '../context';
 import { renderTabs, TabDef } from './tabs';
 import { getAreaReveal, getInitReveal, getStoryReveal, describeCondition } from './tooltip';
+import { renderContactsTab } from './contacts';
+import type { ActiveStoryEntry, StoryDef } from '../../engine/types';
 
 const LEFT_TABS: TabDef[] = [
   { id: 'area', label: '区域' },
+  { id: 'contacts', label: '通讯录' },
   { id: 'story', label: '故事' },
   { id: 'init', label: '世界线' },
 ];
 
-export function renderLeftPanel(ctx: UIContext, activeTab: string): string {
+export function renderLeftPanel(ctx: UIContext, activeTab: string, selectedVariantId: string | null = null): string {
   let body: string;
   let tab: string;
   switch (activeTab) {
     case 'init': body = renderInitTab(ctx); tab = 'init'; break;
     case 'story': body = renderStoryTab(ctx); tab = 'story'; break;
+    case 'contacts': body = renderContactsTab(ctx, selectedVariantId); tab = 'contacts'; break;
     default: body = renderAreaTab(ctx); tab = 'area'; break;
   }
   return `
@@ -34,10 +38,8 @@ function renderAreaTab(ctx: UIContext): string {
   // hero 横幅
   const hero = `
     <div class="area-hero">
-      <span class="eyebrow">CURRENT AREA</span>
       <h2>${ctx.escapeHtml(areaName)}</h2>
       <p>${ctx.escapeHtml(currentArea?.description ?? init?.description ?? '')}</p>
-      <small class="hero-worldline">WORLDLINE：${ctx.escapeHtml(initName)}</small>
     </div>`;
 
   // 可前往区域 = 严格按当前 Area 的可达性（相邻区域）
@@ -114,12 +116,15 @@ function renderStoryTab(ctx: UIContext): string {
   const { game, view } = ctx;
   const currentInit = view.activeInit;
 
-  // 仅收集 type === 'active' 的故事，且 availableInits 包含当前 init 或为空
-  const stories = [...game.registry.stories.values()].filter(s => {
-    if (s.type !== 'active') return false;
-    if (s.availableInits.length > 0 && !s.availableInits.includes(currentInit)) return false;
+  // 仅收集主线 / 支线故事入口（activeStories），且 availableInits 包含当前 init 或为空；
+  // 演出本体经 entry.storyId 重定向（registry 加载期已校验可解析，渲染期缺失则跳过）
+  const entries = [...game.registry.activeStories.values()].filter(e => {
+    if (e.availableInits.length > 0 && !e.availableInits.includes(currentInit)) return false;
     return true;
   });
+  const stories = entries
+    .map(e => ({ entry: e, story: game.registry.stories.get(e.storyId) }))
+    .filter((p): p is { entry: ActiveStoryEntry; story: StoryDef } => p.story !== undefined);
 
   if (stories.length === 0) {
     return `
@@ -131,10 +136,11 @@ function renderStoryTab(ctx: UIContext): string {
   const hasActiveStory = view.currentStory !== null && view.currentStory.type === 'active';
   const activeStoryId = view.currentStory?.storyId ?? null;
 
-  const rows = stories.map(story => {
-    const reveal = getStoryReveal(ctx, story);
+  const rows = stories.map(({ entry, story }) => {
+    const reveal = getStoryReveal(ctx, entry);
+    // 完成判定统一按 Story.id 记；进行中比对对外故事 id（Entry.id，currentStory.storyId 即入口 id）
     const completed = view.storyLog.some(s => s.storyId === story.id);
-    const isRunning = activeStoryId === story.id;
+    const isRunning = activeStoryId === entry.id;
     const storyLocked = hasActiveStory && !isRunning;
 
     // 状态判定
@@ -152,12 +158,12 @@ function renderStoryTab(ctx: UIContext): string {
     } else {
       // 未完成，判断是否可达
       if (reveal.conditionKnown) {
-        const condText = story.triggerCondition
-          ? describeCondition(story.triggerCondition, ctx.nameOf)
+        const condText = entry.triggerCondition
+          ? describeCondition(entry.triggerCondition, ctx.nameOf)
           : '无条件';
         status = `<small class="story-cond">${ctx.escapeHtml(condText)}</small>`;
         if (reveal.stage === 'purchaseable') {
-          button = `<button data-start-story="${story.id}" class="story-trigger">进入故事</button>`;
+          button = `<button data-start-story="${entry.id}" class="story-trigger">进入故事</button>`;
         } else {
           button = '<small class="story-locked">条件不足</small>';
         }
@@ -178,7 +184,7 @@ function renderStoryTab(ctx: UIContext): string {
       </div>`;
   }).join('');
 
-  const runningCount = stories.filter(s => view.storyLog.some(l => l.storyId === s.id)).length;
+  const runningCount = stories.filter(({ story }) => view.storyLog.some(l => l.storyId === story.id)).length;
   return `
     <div class="panel-heading"><span class="eyebrow">STORY ARCHIVE</span><span class="index">02</span></div>
     <div class="nav-sub">主动故事 · ${runningCount}/${stories.length} 已完成</div>

@@ -19,13 +19,23 @@ ACProgram/
 │   │   ├── game/            # GameInstance 拆出的领域服务
 │   │   │   ├── story-service.ts
 │   │   │   ├── spot-service.ts
+│   │   │   ├── init-service.ts      # + init-savepoint.ts（per-Init 快照）
+│   │   │   ├── item-service.ts      # 物品/掉落
+│   │   │   ├── enhancement-service.ts
+│   │   │   ├── session-service.ts   # 帧循环 + 离线收益
 │   │   │   ├── snapshot.ts
+│   │   │   ├── page-interaction.ts
+│   │   │   ├── passive-picker.ts
 │   │   │   └── debug-labels.ts
 │   │   └── *.ts             # 各子系统（event-bus / registry / game-num / ...）
+│   │                        # 大文件已按关注点拆分：extra-*（6）、visibility-*（3）、
+│   │                        # registry-validate、stats-counters、game-num-eval
 │   ├── ui/                  # UI 层
 │   │   ├── components/      # 13 个渲染组件
 │   │   ├── controller.ts    # UI 控制器（事件绑定 + 刷新策略）
 │   │   ├── context.ts       # UIContext（只读视图）
+│   │   ├── popovers.ts      # 悬浮详情弹层（body 级）
+│   │   ├── player.ts        # 玩家聊天身份单一来源
 │   │   ├── modal.ts         # 弹窗母版
 │   │   ├── styles.css       # 全部样式
 │   │   └── main.ts          # UI 入口
@@ -67,7 +77,7 @@ ACProgram/
 
 ### 3. 数据包声明式（Datapack-Driven）
 
-新机制优先设计成 Datapack 字段（JSON Schema 同步），而非硬编码。内容编辑者通过 [[tools/datapack-editor/]] 或直接编辑 JSON 分片定义游戏内容。
+新机制优先设计成 Datapack 字段（Schema 描述协议同步，见 [[09-schema-protocol]]），而非硬编码。内容编辑者通过 [[tools/datapack-editor/]] 或直接编辑 JSON 分片定义游戏内容。
 
 ### 4. 只读 UI（Read-Only UI）
 
@@ -86,7 +96,7 @@ UI 只消费 `getView()` / `createUIContext()`，不持有写引用。所有交�
 
 ```
 GameInstance
-├─ registry          Registry
+├─ registry          Registry（校验 → registry-validate）
 ├─ eventBus          EventBus
 ├─ mutations         StateMutationService
 ├─ valueSystem       ValueSystem
@@ -94,17 +104,21 @@ GameInstance
 ├─ funcletExecutor   FuncletExecutor
 ├─ effectEngine      EffectEngine
 ├─ tickSystem        TickSystem
-├─ gameNumSystem     GameNumSystem
+├─ gameNumSystem     GameNumSystem（求值 → game-num-eval）
 ├─ affectorEngine    AffectorEngine
 ├─ triggerSystem     TriggerSystem
-├─ visibilityEngine  VisibilityEngine
+├─ visibilityEngine  VisibilityEngine（索引 → visibility-index / 求值 → visibility-eval）
 ├─ lootSystem        LootSystem
 ├─ characterSystem   CharacterSystem
 ├─ spotFunctionalitySystem  SpotFunctionalitySystem
-├─ statsService      StatsService
+├─ statsService      StatsService（计数器纯函数 → stats-counters）
 ├─ devLog            DevLog
-├─ storyService      StoryService      # 从 GameInstance 拆出
-└─ spotService       SpotService       # 从 GameInstance 拆出
+├─ storyService      StoryService
+├─ spotService       SpotService
+├─ initService       InitService（快照 → init-savepoint）
+├─ itemService       ItemService
+├─ enhancementService  EnhancementService
+└─ sessionService    SessionService
 ```
 
 ## 数据流概览

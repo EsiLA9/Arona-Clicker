@@ -2,6 +2,18 @@ import { UIContext } from '../context';
 
 export function renderHeader(ctx: UIContext): string {
   const { view, game } = ctx;
+  const ownedColors = game.colorSystem.ownedColors(game.state);
+  const activeColor = game.state.activeColor;
+  const palette = ownedColors.length
+    ? `
+      <div class="theme-palette-pop">
+        <button class="theme-swatch default ${!activeColor ? 'active' : ''}" data-activate-color="" title="默认主题">默认</button>
+        ${ownedColors.map(c => `
+          <button class="theme-swatch ${activeColor === c.id ? 'active' : ''}"
+            data-activate-color="${c.id}" title="${ctx.escapeHtml(c.name)}"
+            style="--swatch:${c.theme['primary'] ?? '#888'}">${ctx.escapeHtml(c.name)}</button>`).join('')}
+      </div>`
+    : '<div class="theme-palette-pop"><small class="empty">尚未解锁任何主题色彩</small></div>';
   return `
     <header class="topbar">
       <div class="brand-lockup">
@@ -10,7 +22,14 @@ export function renderHeader(ctx: UIContext): string {
       </div>
       <div class="topbar-right">
         <div class="status-line"><span>WORLDLINE ${view.activeInit ? ctx.nameOf('init', view.activeInit) : '未进入'}</span><span class="live">● LIVE</span></div>
+        <div class="theme-palette">
+          <button id="theme-palette-btn" class="toolbar-button" title="切换界面主题色">
+            主题 <span>◑</span>
+          </button>
+          ${palette}
+        </div>
         <div class="save-actions">
+          <button id="collection-modal" class="toolbar-button" title="被动闲聊收集图鉴（按 Pool 分组）">图鉴 <span>✦</span></button>
           <button id="import-datapack" class="toolbar-button" title="从压缩包加载 Mod 数据包（遍历其中所有 .json 构造 Def）">导入 Mod <span>⇪</span></button>
           <button id="new-game" class="toolbar-button" title="放弃当前进度，选择新的世界线">新游戏 <span>↗</span></button>
           <button id="save-game" class="toolbar-button" title="保存当前进度">保存 <span>↓</span></button>

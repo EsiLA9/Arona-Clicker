@@ -1,6 +1,8 @@
-import { Character, ConditionGroup, Condition, SpotDef, EnhancementDef, AreaDef, InitDef, ItemDef, StoryDef, RevealStage, RevealTrigger, RevealTarget } from '../../engine/types';
-import { TagPath, matchesTag, tagDisplay } from '../../engine/tag';
+import { Character, ConditionGroup, Condition, SpotDef, EnhancementDef, AreaDef, InitDef, ItemDef, StoryEntryDef, RevealStage, RevealTrigger, RevealTarget, PassiveStoryEntry, PassivePoolDef } from '../../engine/types';
+import { TagPath, matchesTag } from '../../engine/tag';
 import { existenceCondition, existenceMet, unlockCondition } from '../../engine/reveal';
+import { parseStatCall } from '../../engine/stat-dsl';
+import { describeAffectorPack } from '../../engine/affector-text';
 import { UIContext } from '../context';
 
 /**
@@ -15,6 +17,46 @@ export type RevealLevel = 'hidden' | 'obfuscated' | 'revealed';
 
 /** 占位符，用于遮挡未揭示的数值。 */
 const OBFUSCATED = '???';
+
+/** revealTriggers 各揭示目标的中文标签。 */
+const REVEAL_TARGET_LABEL: Record<RevealTarget, string> = {
+  existence: '实体出现',
+  name: '名称',
+  condition: '解锁条件',
+  utility: '效用',
+  unlock: '自动解锁',
+};
+
+/**
+ * 揭示 Trigger 表：列出实体自身全部 revealTriggers（目标 + 条件）。
+ * - 目标标签常显（玩家可见"需要揭示哪些信息块"）；
+ * - 条件文本仅在该 Trigger 条件已满足（或实体已 owned，allKnown）时展示，
+ *   否则以 ??? 遮挡，尊重信息揭示阶梯；
+ * - 带 已满足/未满足 标记。
+ */
+export function renderRevealTriggers(
+  ctx: UIContext,
+  triggers: RevealTrigger[] | undefined,
+  allKnown = false,
+): string {
+  if (!triggers || triggers.length === 0) return '';
+  const rows = triggers.map(t => {
+    const label = REVEAL_TARGET_LABEL[t.reveal] ?? t.reveal;
+    const met = allKnown || conditionMet(t.condition, ctx.game);
+    const cond = t.condition ? describeCondition(t.condition, ctx.nameOf) : '无条件';
+    const text = met ? ctx.escapeHtml(cond) : OBFUSCATED;
+    const mark = met ? '已满足' : '未满足';
+    return `
+      <div class="info-row">
+        <span>${label}</span>
+        <span class="${met ? 'info-accent' : 'info-dim'}">${mark} · ${text}</span>
+      </div>`;
+  });
+  return `
+    <div class="info-divider"></div>
+    <div class="info-sub">揭示 Trigger</div>
+    ${rows.join('')}`;
+}
 
 /** 单一条件的达成判定（缺省条件 = 视为达成）。原子条件与条件组均可。 */
 const conditionMet = (
@@ -122,16 +164,71 @@ export function getAreaReveal(ctx: UIContext, area: AreaDef): RevealResult {
   });
 }
 
-/** Story 揭示：已完成视为已拥有；可触发（条件满足、未完成且知晓名称）视为可达。 */
-export function getStoryReveal(ctx: UIContext, story: StoryDef): RevealResult {
+/** Story 揭示：入口已完成视为已拥有；可触发（条件满足、未完成且知晓名称）视为可达。 */
+export function getStoryReveal(ctx: UIContext, entry: StoryEntryDef): RevealResult {
   const { view } = ctx;
-  const completed = view.storyLog.some(s => s.storyId === story.id);
+  // 完成判定统一按 Story.id 记（storyLog / completedStoryIdsThisRun）
+  const completed = view.storyLog.some(s => s.storyId === entry.storyId);
   return resolveReveal(ctx, {
     owned: completed,
-    triggers: story.revealTriggers,
+    triggers: entry.revealTriggers,
     isAccessible: info =>
-      !completed && conditionMet(story.triggerCondition, ctx.game) && info.nameKnown,
+      !completed && conditionMet(entry.triggerCondition, ctx.game) && info.nameKnown,
   });
+}
+
+/** 统计函数 DSL 的函数名 → 正式文体模板（{init}=世界线名，{key}=资源/物品名）。 */
+const STAT_TEXT: Record<string, string> = {
+  // 产出 / 消耗（key = 资源）
+  $GlobalProducedAmount: '全局累计产出 {key}',
+  $CurrentRunProducedAmount: '本次游玩累计产出 {key}',
+  $InitProducedAmount: '在 {init} 累计产出 {key}',
+  $GlobalConsumedAmount: '全局累计消耗 {key}',
+  $CurrentRunConsumedAmount: '本次游玩累计消耗 {key}',
+  $InitConsumedAmount: '在 {init} 累计消耗 {key}',
+  // 获得 / 使用（key = 物品）
+  $GlobalCollectedAmount: '全局累计获得 {key}',
+  $CurrentRunCollectedAmount: '本次游玩累计获得 {key}',
+  $InitCollectedAmount: '在 {init} 累计获得 {key}',
+  $GlobalUsedAmount: '全局累计使用 {key}',
+  $CurrentRunUsedAmount: '本次游玩累计使用 {key}',
+  $InitUsedAmount: '在 {init} 累计使用 {key}',
+  // 计数类（无 key）
+  $GlobalUnlockedSpots: '全局已解锁设施数',
+  $CurrentRunUnlockedSpots: '本次游玩已解锁设施数',
+  $InitUnlockedSpots: '在 {init} 已解锁设施数',
+  $GlobalUpgradedSpots: '全局升级设施数',
+  $CurrentRunUpgradedSpots: '本次游玩升级设施数',
+  $InitUpgradedSpots: '在 {init} 升级设施数',
+  $GlobalUnlockedEnhancements: '全局已解锁强化数',
+  $CurrentRunUnlockedEnhancements: '本次游玩已解锁强化数',
+  $InitUnlockedEnhancements: '在 {init} 已解锁强化数',
+  $GlobalCompletedStories: '全局已完成剧情数',
+  $CurrentRunCompletedStories: '本次游玩已完成剧情数',
+  $InitCompletedStories: '在 {init} 已完成剧情数',
+  $GlobalUnlockedInits: '全局已解锁世界线数',
+  $CurrentRunUnlockedInits: '本次游玩已解锁世界线数',
+  $InitUnlockedInits: '在 {init} 已解锁世界线数',
+  $GlobalFramesActive: '全局运行帧数',
+  $CurrentRunFramesActive: '本次游玩运行帧数',
+  $InitFramesActive: '在 {init} 运行帧数',
+  $InitFramesInInit: '在 {init} 停留帧数',
+};
+
+/**
+ * 将统计函数 DSL（如 `$GlobalProducedAmount base:resource:credit`）转义为正式文体，
+ * 供 hover 条件描述展示。无法解析（未知函数 / 缺参）时原样返回。
+ */
+export function describeStatDsl(dsl: string, nameOf: (type: string, id: string) => string): string {
+  const q = parseStatCall(dsl);
+  if (!q) return dsl;
+  const template = STAT_TEXT[q.fn];
+  if (!template) return dsl;
+  const key = q.key !== undefined
+    ? nameOf(q.def.metric === 'itemsCollected' || q.def.metric === 'itemsUsed' ? 'item' : 'resource', q.key)
+    : '';
+  const init = q.initId ? nameOf('init', q.initId) : '';
+  return template.replace('{key}', key).replace('{init}', init);
 }
 
 /** 单条原子条件转文本（仅覆盖原型中使用的常见形式）。 */
@@ -145,7 +242,10 @@ function describeConditionItem(c: Condition, nameOf: (type: string, id: string) 
     case 'hasEnh': return `已拥有 ${nameOf('enh', c.key)}`;
     case 'hasTag': return `拥有 "${c.key}" 标签`;
     case 'countTags': return `"${c.key}" 标签数 ${c.comparator} ${valueLabel}`;
-    case 'stat': return `统计 ${c.key} ${c.comparator} ${valueLabel}`;
+    case 'stat': {
+      const statText = describeStatDsl(c.key, nameOf);
+      return `${statText} ${c.comparator} ${valueLabel}`;
+    }
     case 'hasReadStory': return `已完成故事 ${nameOf('story', c.key)}`;
     case 'hasReadStoryInRun': return `本次游玩已完成 ${nameOf('story', c.key)}`;
     default: return `${c.target} ${c.key} ${c.comparator} ${valueLabel}`;
@@ -194,27 +294,16 @@ interface YieldBreakdown {
   total: number;
 }
 
-/** 与 TickSystem 一致的产出分解，供 hover 展示。 */
+/** 与 TickSystem 一致的产出分解，供 hover 展示（manager 加成已冻结，恒 0/1）。 */
 export function getSpotYieldBreakdown(ctx: UIContext, spot: SpotDef): YieldBreakdown {
-  const { game, view } = ctx;
-  const base = game.valueSystem.evaluate(spot.baseYield, game.state as never);
-  const manager = view.spotManagers[spot.id] ?? Character.None;
-  const managerBonus = manager === Character.None
-    ? 0
-    : game.valueSystem.evaluate(spot.managerBonusYield, game.state as never);
-  const tagMultiplier = manager === Character.None
-    ? 1
-    : (spot.tags ?? []).reduce(
-      (multiplier, tag) => multiplier * game.characterSystem.getTagBonus(manager, tag),
-      1,
-    );
+  const base = ctx.game.valueSystem.evaluate(spot.baseYield, ctx.game.state as never);
   const enhMultiplier = getEnhancementMultiplier(ctx, spot);
   return {
     base,
-    managerBonus,
-    tagMultiplier,
+    managerBonus: 0,
+    tagMultiplier: 1,
     enhMultiplier,
-    total: (base + managerBonus) * tagMultiplier * enhMultiplier,
+    total: base * enhMultiplier,
   };
 }
 
@@ -270,6 +359,7 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
       <div class="info-divider"></div>
       <div class="info-row"><span>相邻区域</span></div>
       <div class="info-tags">${adjacentRows || '<span class="info-dim">无相邻区域</span>'}</div>
+      ${renderRevealTriggers(ctx, area.revealTriggers, reveal.stage === 'owned')}
     </div>`;
 }
 
@@ -311,7 +401,7 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
   const upgradeRow = !known
     ? `<div class="info-row"><span>升级</span><span>${OBFUSCATED}</span></div>`
     : upgradeCostText !== null
-      ? `<div class="info-row"><span>升级 Lv.${nextLevel}</span><span>${upgradeCostText} ${spot.baseCostResource}${nextUpgradeDef?.condition ? ' · 需条件' : ''}</span></div>`
+      ? `<div class="info-row"><span>升级 Lv.${nextLevel}</span><span>${upgradeCostText} ${ctx.nameOf('resource', spot.baseCostResource)}${nextUpgradeDef?.condition ? ' · 需条件' : ''}</span></div>`
       : `<div class="info-row"><span>升级</span><span class="info-dim">${capped ? `已达上限 Lv.${maxLevel}` : '已达当前上限'}</span></div>`;
 
   const managerBonusRow = !known || manager === Character.None
@@ -366,7 +456,13 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       ${maxLevel !== undefined ? `<div class="info-row"><span>等级上限</span><span class="info-dim">Lv.${maxLevel}</span></div>` : ''}
       <div class="info-row"><span>Manager</span><span>${ctx.escapeHtml(managerName)}</span></div>
       <div class="info-divider"></div>
-      <div class="info-tags">${known ? (spot.tags ?? []).map(tag => `<span class="info-tag">${ctx.escapeHtml(tagDisplay(tag))}</span>`).join('') : ''}</div>
+      <div class="info-tags">${known ? (spot.tags ?? []).map(tag => {
+        const name = ctx.game.registry.tagName(tag);
+        const desc = ctx.game.registry.tagDescription(tag);
+        const tip = desc ? ` title="${ctx.escapeHtml(desc)}"` : '';
+        return `<span class="info-tag"${tip}>${ctx.escapeHtml(name)}</span>`;
+      }).join('') : ''}</div>
+      ${renderRevealTriggers(ctx, spot.revealTriggers, owned)}
     </div>`;
 }
 
@@ -419,10 +515,26 @@ export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): st
     ? `<div class="info-row"><span>产出倍率</span><span class="info-accent">×${enh.productionMultiplier.toFixed(2)}</span></div>`
     : '';
   const scopeRow = reveal.utilityKnown && enh.productionTags && enh.productionTags.length
-    ? `<div class="info-row"><span>作用范围</span><span>${ctx.escapeHtml(enh.productionTags.join(' / '))} 类 Spot</span></div>`
+    ? `<div class="info-row"><span>作用范围</span><span>${ctx.escapeHtml(enh.productionTags.map(t => ctx.game.registry.tagName(t)).join(' / '))} 类 Spot</span></div>`
     : '';
 
   const status = owned ? '已激活' : purchaseable ? '可购买' : '未解锁';
+  // 挂载的 Affector Pack：通用展示文本（条件 + 效果逐条转译）
+  const affectorSection = reveal.utilityKnown && enh.affectorPackIds?.length
+    ? (() => {
+        const lines = enh.affectorPackIds.flatMap(pid => {
+          const pack = ctx.game.affectorEngine.getPack(pid);
+          if (!pack) return [];
+          return describeAffectorPack(pack, ctx.nameOf, {
+            describeCondition: cond => describeCondition(cond, ctx.nameOf),
+          });
+        });
+        if (lines.length === 0) return '';
+        return `<div class="info-divider"></div><div class="info-sub">挂载效果（持有即持续生效）</div>${lines
+          .map(line => `<div class="info-row"><span>${ctx.escapeHtml(line)}</span></div>`)
+          .join('')}`;
+      })()
+    : '';
   return `
     <div class="info-popover">
       <div class="info-head"><span class="info-kind">ENHANCEMENT</span><strong>${ctx.escapeHtml(name)}</strong></div>
@@ -434,7 +546,9 @@ export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): st
       ${multRow}
       ${scopeRow}
       ${owned && enh.maxStacks ? `<div class="info-row"><span>最大叠加</span><span>${String(enh.maxStacks)}</span></div>` : ''}
+      ${affectorSection}
       ${owned && enh.effects.length ? `<div class="info-row"><span>附带效果</span><span>${enh.effects.length} 项</span></div>` : ''}
+      ${renderRevealTriggers(ctx, enh.revealTriggers, owned)}
     </div>`;
 }
 
@@ -499,6 +613,7 @@ export function renderInitDetail(ctx: UIContext, init: InitDef): string {
       ${reveal.utilityKnown
         ? `<div class="info-divider"></div><div class="info-row"><span>进度</span><span>${owned ? '独立保存，随时可返回' : '尚未开始'}</span></div>`
         : ''}
+      ${renderRevealTriggers(ctx, init.revealTriggers, owned)}
     </div>`;
 }
 
@@ -543,6 +658,7 @@ export function renderItemDetail(ctx: UIContext, item: ItemDef): string {
       ${item.type === 'consumable'
         ? `<div class="info-divider"></div><div class="info-row"><span>操作</span><span>右键使用</span></div>`
         : ''}
+      ${renderRevealTriggers(ctx, item.revealTriggers, true)}
     </div>`;
 }
 
@@ -582,7 +698,86 @@ export function getTooltipContent(ctx: UIContext, key: string): string {
     }
     case 'resource':
       return renderResourceDetail(ctx, id);
+    case 'passive': {
+      const entry = ctx.game.registry.passiveStories.get(id);
+      return entry ? renderPassiveEntryDetail(ctx, entry) : '';
+    }
+    case 'pool': {
+      const pool = ctx.game.registry.passivePools.get(id);
+      return pool ? renderPoolDetail(ctx, pool) : '';
+    }
     default:
       return '';
   }
+}
+
+/** 被动闲聊池详情（收集图鉴悬停用）。 */
+function renderPoolDetail(ctx: UIContext, pool: PassivePoolDef): string {
+  const directEntries = pool.children
+    .map(child => ctx.game.registry.passiveStories.get(child.id))
+    .filter((entry): entry is PassiveStoryEntry => !!entry);
+  const subPoolIds = pool.children.filter(child => ctx.game.registry.passivePools.has(child.id));
+  const totalWeight = pool.children.reduce((sum, child) => sum + (child.weight ?? 1), 0);
+  const tags = (pool.tags ?? []).map(t => t.join('/')).join('、') || '无';
+  const gateText = pool.condition ? describeCondition(pool.condition, ctx.nameOf) : '无条件';
+
+  const childRows = [
+    ...directEntries.map(entry => {
+      const count = (ctx.game.state.storyLog ?? []).filter(s => s.storyId === entry.storyId).length;
+      const done = count > 0;
+      return `<div class="info-row"><span>${ctx.escapeHtml(ctx.nameOf('story', entry.storyId))}</span><span class="${done ? 'info-accent' : 'info-dim'}">${done ? `已收集 ×${count}` : '未收集'} · w${entry.weight}</span></div>`;
+    }),
+    ...subPoolIds.map(child => `<div class="info-row"><span>子池</span><span>${ctx.escapeHtml(ctx.nameOf('pool', child.id))}</span></div>`),
+  ].join('');
+
+  return `
+    <div class="info-popover">
+      <div class="info-head"><span class="info-kind">POOL</span><strong>${ctx.escapeHtml(pool.name ?? pool.id)}</strong></div>
+      <div class="info-row"><span>gate 条件</span><span>${ctx.escapeHtml(gateText)}</span></div>
+      <div class="info-row"><span>权重合计</span><span>${totalWeight}（子节点 ${pool.children.length}：条目 ${directEntries.length} / 子池 ${subPoolIds.length}）</span></div>
+      <div class="info-row"><span>标签</span><span>${ctx.escapeHtml(tags)}</span></div>
+      <div class="info-divider"></div>
+      ${childRows}
+    </div>`;
+}
+
+/** 被动闲聊条目详情（收集图鉴悬停用）。 */
+function renderPassiveEntryDetail(ctx: UIContext, entry: PassiveStoryEntry): string {
+  const logs = (ctx.game.state.storyLog ?? []).filter(s => s.storyId === entry.storyId);
+  const done = logs.length > 0;
+  const inits = entry.availableInits.length === 0
+    ? '全部世界线'
+    : entry.availableInits.map(i => ctx.nameOf('init', i)).join('、');
+  const reward = entry.completionReward;
+  const rewardText = reward
+    ? [
+        reward.first ? `首次 ${summarizeEffects(ctx, reward.first)}` : '',
+        reward.repeat ? `重复 ${summarizeEffects(ctx, reward.repeat)}` : '',
+      ].filter(Boolean).join(' · ') || '无'
+    : '无';
+  const tags = (entry.tags ?? []).map(t => t.join('/')).join('、') || '无';
+
+  return `
+    <div class="info-popover">
+      <div class="info-head"><span class="info-kind">PASSIVE</span><strong>${ctx.escapeHtml(ctx.nameOf('story', entry.storyId))}</strong></div>
+      <div class="info-sub">${done ? '已收集' : '未收集'}</div>
+      <div class="info-row"><span>完成次数</span><span>${logs.length}</span></div>
+      <div class="info-row"><span>权重</span><span>${entry.weight}（可${entry.repeatable ? '' : '不'}重复）</span></div>
+      <div class="info-row"><span>可用世界线</span><span>${ctx.escapeHtml(inits)}</span></div>
+      <div class="info-row"><span>标签</span><span>${ctx.escapeHtml(tags)}</span></div>
+      <div class="info-divider"></div>
+      <div class="info-row"><span>完结奖励</span><span>${ctx.escapeHtml(rewardText)}</span></div>
+    </div>`;
+}
+
+/** 奖励效果摘要（仅展示 addResource 类；其余以数量计）。 */
+function summarizeEffects(ctx: UIContext, effects: { op: string; target?: string; value?: unknown }[]): string {
+  return effects
+    .map(effect => {
+      if (effect.op === 'addResource' && effect.target) {
+        return `${ctx.nameOf('resource', effect.target)} +${effect.value}`;
+      }
+      return `${effect.op}`;
+    })
+    .join('、');
 }

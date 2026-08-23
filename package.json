@@ -10,7 +10,7 @@
     "dev:game": "vite src/ui",
     "dev:editor": "vite tools/datapack-editor/ui",
     "build": "vite build",
-    "gen:schema": "node scripts/gen-datapack-schema.mjs"
+    "gen:schema": "node scripts/gen-engine-schema.mjs --write"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -31,7 +31,7 @@
 | `inventory` | `Record<ItemId, number>` | 背包物品 |
 | `flags` | `Record<string, string>` | 自定义标记 |
 | `storyLog` | `CompletedStory[]` | 已完成的剧情（跨 Run，全局） |
-| `storyCooldowns` | `Record<StoryId, number>` | 剧情冷却 |
+| `storyReadLogs` | `Record<StoryId, StoryReadLog>` | 按 Story.id 的阅读日志（重阅读/分歧守卫） |
 | `triggersCompleted` | `string[]` | 已触发过的 once Trigger |
 | `visitedAreas` | `AreaId[]` | 已访问过的 Area |
 | `currentAreaId` | `AreaId` | 当前所在 Area |
@@ -65,6 +65,7 @@
 | `areas`            | `AreaDef[]`                  | Yes |
 | `spots`            | `SpotDef[]`                  | Yes |
 | `enhancements`     | `EnhancementDef[]`           | Yes |
+| `storyEntries`     | `StoryEntryDef[]`            | Yes |
 | `stories`          | `StoryDef[]`                 | Yes |
 | `items`            | `ItemDef[]`                  | Yes |
 | `dropTables`       | `DropTableDef[]`             | No  |
@@ -74,6 +75,7 @@
 | `characters`       | `CharacterData[]`            | Yes |
 | `characterBonuses` | `CharacterBonusTable[]`      | Yes |
 | `resourceDisplays` | `ResourceDisplayDef[]`       | No  |
+| `tags`             | `TagDef[]`                   | No  |
 | `extras`           | `Record<string, ExtraValue>` | No  |
 
 加载：[[src/engine/registry.ts]] `load()` 先校验（ID 唯一、引用完整、Extra 合法）再合并到内存 Map。
@@ -164,36 +166,55 @@
 | `revealTriggers` | `RevealTrigger[]` | 揭示 Trigger 列表 |
 | `extra` | `ExtraCompound` | 额外数据 |
 
-### StoryDef（剧情）
+### StoryEntryDef（剧情触发入口）
 
 **定义位置**：[[src/engine/types/entities.ts]]
 
-联合类型 = `ActiveStoryDef` | `PassiveStoryDef`
+联合类型 = `ActiveStoryEntry` | `PassiveStoryEntry`。
 
-**ActiveStoryDef**：主线/支线，`startStoryId` 或 `startActiveStory()` 触发，不可重复。
+职责：只负责「何时何地可触发」与「入口揭示」。**对外故事 id（`startStoryId` / `hasReadStory` / `triggerStory` / `storyTriggered` event 均引用本表 id）**；演出本体经 `storyId` 重定向到 `stories` 表。当前 Entry.id 与 Story.id 1:1 同值，未来允许多 Entry 复用同一 Story。
+
+**ActiveStoryEntry**：主线/支线，`startStoryId` 或 `startActiveStory()` 触发，不可重复。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | `StoryId` | 三段式 ID |
-| `name` | `string` | 显示名 |
+| `id` | `StoryId` | 三段式 ID（对外故事 id） |
+| `storyId` | `StoryId` | 演出本体引用（stories 表） |
 | `type` | `'active'` | 类型标识 |
 | `availableInits` | `InitId[]` | 可触发的初始场景 |
-| `pages` | `StoryPage[]` | 剧情页面 |
 | `triggerCondition` | `ConditionGroup` | 触发条件 |
-| `revealTriggers` | `RevealTrigger[]` | 揭示 Trigger 列表 |
+| `revealTriggers` | `RevealTrigger[]` | 揭示 Trigger 列表（名称遮挡归 Entry） |
+| `replayable` | `boolean` | 是否允许重阅读（replayStory 入口） |
+| `completionStrategy` | `'simple' \| 'conditional'` | 完结奖励策略（缺省 simple） |
+| `conditionalRewards` | `ConditionalReward[]` | 条件分支奖励（conditional 时按序评估，首个满足生效） |
+| `branchGuards` | `BranchGuard[]` | 重阅读分歧点准入守卫 |
+| `extra` | `ExtraCompound` | 额外数据 |
 
-**PassiveStoryDef**：随机闲聊，按 `weight` 抽选。
+**PassiveStoryEntry**：随机闲聊，按 `weight` 抽选。
 
 额外字段：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `repeatable` | `boolean` | 是否允许多次触发 |
-| `cooldownFrames` | `number` | 冷却帧数 |
 | `weight` | `number` | 抽选权重 |
-| `completionReward` | `{ first?: Effect[]; repeat?: Effect[] }` | 完结奖励 |
+| `completionReward` | `{ first?: Effect[]; repeat?: Effect[] }` | 完结奖励（simple 策略；conditional 时被 conditionalRewards 替代） |
 
-### StoryPage（剧情页面）
+### StoryDef（剧情演出本体）
+
+**定义位置**：[[src/engine/types/entities.ts]]
+
+纯演出，不含任何触发/揭示逻辑。仅保留自身 id 供日志记录（`storyLog` / `storyReadLogs` 均按 Story.id 记），
+支持通过 Talklet / StoryChoice 的 `jumpToStory` 跨 Story 跳转（详见 [[10-story-graph]]）。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `StoryId` | 三段式 ID（与 Entry.id 当前 1:1 同值） |
+| `name` | `string` | 显示名 |
+| `talklets` | `Talklet[]` | 演示片段列表（内嵌，不可跨故事复用） |
+| `extra` | `ExtraCompound` | 额外数据 |
+
+### Talklet（微小演示片段）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -203,6 +224,10 @@
 | `effects` | `Effect[]` | 页面效果 |
 | `sendText` | `string` | 回复按钮文案 |
 | `clickWork` | `{ base: number; rand?: number }` | 点击工作（连续点击进度条） |
+| `jumpToStory` | `StoryId` | 离开本页后跳转到另一 Story |
+| `jumpMode` | `'goto' \| 'insert'` | 跳转模式（缺省 goto） |
+
+**StoryChoice** 额外支持 `jumpToStory` / `jumpMode`（选择后跳转）。
 
 ### ItemDef（物品）
 
@@ -433,7 +458,9 @@ ExtraValue =
   | { t: 'dict'; v: Record<string, ExtraValue> }
 ```
 
-便捷构造器（[[src/engine/extra.ts]]）：`extra.int()` / `extra.float()` / `extra.str()` / `extra.bool()` / `extra.list()` / `extra.dict()`
+便捷构造器（[[src/engine/extra.ts]]，聚合出口）：`extra.int()` / `extra.float()` / `extra.str()` / `extra.bool()` / `extra.list()` / `extra.dict()`
+
+> 实现按关注点拆分：[[src/engine/extra-core.ts]]（常量/错误/守卫/构造）、extra-construct（fromJson/clone）、[[src/engine/extra-path.ts]]（路径寻址）、[[src/engine/extra-merge.ts]]（合并/展开）、[[src/engine/extra-read.ts]]（宽松读取）、[[src/engine/extra-validate.ts]]（校验）。`from './extra'` 全项目兼容。
 
 ### 三层合并视图
 

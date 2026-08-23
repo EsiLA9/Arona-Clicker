@@ -40,6 +40,8 @@ export function displayName(
       return registry.items.get(id)?.name ?? shortId(id);
     case 'story':
       return registry.stories.get(id)?.name ?? shortId(id);
+    case 'pool':
+      return registry.passivePools.get(id)?.name ?? shortId(id);
     default:
       return id;
   }

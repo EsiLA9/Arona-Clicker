@@ -36,6 +36,7 @@ function renderSidebar(): void {
   sidebarEl.appendChild(title);
 
   for (const t of TABLES) {
+    if (t.virtual) continue; // 虚拟合并引用表不展示在导航
     const btn = document.createElement('button');
     btn.className = 'table-link' + (t.key === currentTable ? ' active' : '');
     btn.textContent = t.label;

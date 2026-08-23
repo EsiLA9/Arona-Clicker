@@ -18,6 +18,11 @@ export class ValueSystem {
     this.funcletDefs = defs;
   }
 
+  /** 读取 funclet 定义（供静态分析，如产出表达式资源依赖扫描）。 */
+  getFunclet(id: string): FuncletDef | undefined {
+    return this.funcletDefs.get(id);
+  }
+
   setExtraReader(reader: (path: ExtraPath) => ExtraValue | undefined): void {
     this.extraReader = reader;
   }

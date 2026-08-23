@@ -13,6 +13,8 @@ export * from './extra';
 export * from './expression';
 // 数据包实体定义（Def）
 export * from './entities';
+// Character 重构实体（变体/培养/色彩/抽卡/聊天流）
+export * from './character';
 // 运行时状态与统计
 export * from './state';
 // 操作返回结果 / 剧情视图

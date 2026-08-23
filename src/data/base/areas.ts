@@ -12,6 +12,8 @@ export const baseAreas: AreaDef[] = [
     description: '夏莱的主办公区域，略显凌乱但充满生活气息。',
     defaultSpots: ['base:spot:credit_printer', 'base:spot:comms_terminal', 'base:spot:data_wiper'],
     adjacentAreaIds: ['base:area:schale_library'],
+    // 场景特色主题：进入夏莱主厅 → 界面切换为夏莱蓝
+    theme: { colorId: 'base:color:schale-blue' },
   },
   {
     id: 'base:area:schale_library',
@@ -41,6 +43,8 @@ export const baseAreas: AreaDef[] = [
     description: '破旧却充满人情的校舍。对策委员会的据点，黄沙与日常并存。',
     defaultSpots: ['base:spot:abydos_rehab'],
     adjacentAreaIds: ['base:area:abydos_pool'],
+    // 场景特色主题：阿比多斯黄沙
+    theme: { colorId: 'base:color:abydos-sand' },
   },
   {
     id: 'base:area:abydos_pool',
@@ -50,6 +54,8 @@ export const baseAreas: AreaDef[] = [
     // 进入该 Area 时赠送
     defaultSpots: ['base:spot:pool_train'],
     adjacentAreaIds: ['base:area:abydos_campus'],
+    // 场景特色主题 + 局部覆盖：黄沙打底，但聊天气泡单独换成泳池蓝（多 Color 解耦示例）
+    theme: { colorId: 'base:color:abydos-sand', tokens: { playerBubble: '#3ec6e0' } },
   },
   {
     id: 'base:area:millennium_lab',
@@ -58,6 +64,8 @@ export const baseAreas: AreaDef[] = [
     description: '布满终端与缆线的研究楼。数据流昼夜不息，游戏开发部就藏在这里。',
     defaultSpots: ['base:spot:millennium_lab'],
     adjacentAreaIds: ['base:area:millennium_canteen'],
+    // 场景特色主题：千禧年科技靛蓝
+    theme: { colorId: 'base:color:indigo' },
   },
   {
     id: 'base:area:millennium_canteen',
@@ -85,6 +93,8 @@ export const baseAreas: AreaDef[] = [
     description: '庄严的大圣堂，彩绘玻璃透过柔和的光。补课部学生们常在此聚集。',
     defaultSpots: ['base:spot:trinity_donation', 'base:spot:trinity_repair'],
     adjacentAreaIds: ['base:area:trinity_tea_room'],
+    // 场景特色主题：圣堂暖琥珀光
+    theme: { colorId: 'base:color:amber' },
   },
   {
     id: 'base:area:trinity_tea_room',
@@ -101,6 +111,8 @@ export const baseAreas: AreaDef[] = [
     description: '万魔殿的行政中枢。虽然看上去混乱不堪，但一切都在某种秩序下运转。',
     defaultSpots: ['base:spot:gehenna_hall'],
     adjacentAreaIds: ['base:area:gehenna_district'],
+    // 场景特色主题：万魔殿绯红
+    theme: { colorId: 'base:color:crimson' },
   },
   {
     id: 'base:area:gehenna_district',

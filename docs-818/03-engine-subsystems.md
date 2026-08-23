@@ -6,9 +6,9 @@
 
 ## 1. GameInstance 游戏实例
 
-**文件**：[[src/engine/game-instance.ts]]（1278 行）
+**文件**：[[src/engine/game-instance.ts]]（758 行）
 
-GameInstance 是门面（Facade），组装全部子系统并暴露统一 API。剧情逻辑委托给 [[src/engine/game/story-service.ts]]，Spot 操作委托给 [[src/engine/game/spot-service.ts]]。
+GameInstance 是门面（Facade），组装全部子系统并暴露统一 API。领域逻辑委托给 game/ 服务：剧情 → [[src/engine/game/story-service.ts]]，Spot → [[src/engine/game/spot-service.ts]]，世界线 → [[src/engine/game/init-service.ts]]，物品/掉落 → [[src/engine/game/item-service.ts]]，强化购买/移除/诊断 → [[src/engine/game/enhancement-service.ts]]，帧循环与离线收益 → [[src/engine/game/session-service.ts]]。门面仅保留纯委托 + `getView()` + `save()/load()`。
 
 ### 公开 API
 
@@ -53,6 +53,10 @@ interface SaveData {
   pendingStoryPageIndex: number;
   pendingStoryChoiceIndex?: number;
   pendingTalkletClicks?: { total: number; done: number } | null;
+  pendingStoryDefId?: string | null;          // 当前实际播放的 Story.id（跳转链中可变）
+  pendingInsertStack?: { storyId: string; pageIndex: number }[];  // insert 返回点栈
+  pendingVisitedStoryIds?: string[];          // 本链已访问 Story.id（去重）
+  pendingIsReplay?: boolean;                  // 是否重阅读模式
   stats?: PersistedStats;
 }
 ```
@@ -161,6 +165,7 @@ interface SaveData {
 | `setTagIndex` | Registry.spotsWithTag | hasTag / countTags 条件 |
 | `setStatReader` | StatsService.evaluate | stat 条件（DSL） |
 | `setStoryRunChecker` | StatsService.hasCompletedStoryThisRun | hasReadStoryInRun 条件 |
+| `setStoryChainChecker` | StoryService.isVisitedInChain | visitedStoryInChain 条件（当前 Entry 跳转链） |
 | `setExtraReader` | GameInstance.getExtra | extra 条件 |
 
 ### ConditionTarget 求值
@@ -177,6 +182,7 @@ interface SaveData {
 | `stat` | 调用 statReader(key) |
 | `hasReadStory` | state.storyLog.some(s => s.storyId === key) |
 | `hasReadStoryInRun` | storyRunChecker(key) |
+| `visitedStoryInChain` | storyChainChecker(key)：当前 Entry 跳转链是否经过该 Story（含初始与全部 jumpToStory 目标，去重） |
 | `extra` | toNumber(extraReader(key)) |
 
 ---
@@ -193,9 +199,9 @@ interface SaveData {
 
 ## 7. GameNumSystem 统一数值注册 + 懒求值
 
-**文件**：[[src/engine/game-num.ts]]（241 行）
+**文件**：[[src/engine/game-num.ts]]（213 行）＋ [[src/engine/game-num-eval.ts]]（140 行）
 
-**产出主路径**。每个资源一棵 `primitiveGain` 树（add 根节点），构建时展开到最末端叶子，求值时懒读取 PlayerState。
+**产出主路径**。每个资源一棵 `primitiveGain` 树（add 根节点），构建时展开到最末端叶子，求值时懒读取 PlayerState。game-num.ts 持有索引/缓存生命周期（gains / spotNodes / spotEnhIndex / enhCache）；节点求值语义（const/expr/add/mul/owned/levelLinear/managerBonus/tagMultiplier/enhancementMultiplier/affectorFlows）为纯函数 `evaluateGameNum()`，位于 game-num-eval.ts（GameNum 类型亦定义于此）。
 
 ### primitiveGain 树结构（以 credit 为例）
 
@@ -326,7 +332,9 @@ mount(packId, entityId) → Latent
 
 ## 11. VisibilityEngine 可见性快照
 
-**文件**：[[src/engine/visibility-engine.ts]]（103 行）
+**文件**：[[src/engine/visibility-engine.ts]]（119 行）＋ [[src/engine/visibility-index.ts]]（202 行）＋ [[src/engine/visibility-eval.ts]]（93 行）
+
+三层分工：visibility-engine.ts 为编排层（快照持有 + 增量 dirty 标记 + 对外 API）；visibility-index.ts 持有「事件 → 受影响实体」反向索引（构建 + `collectAffected()` 标脏收集，含 extra 前缀 / tag / stat 宽依赖）；visibility-eval.ts 为求值层（`evaluateEntity` / 整类重算 / `existenceMet` 桥接），并定义共享类型 EntityKind/EntityKey。
 
 `compute(state)` 一次性算出全部实体可见性快照（inits/areas/spots/enhancements/items/stories）。
 
@@ -406,7 +414,9 @@ Spot 功能 = 内源（`spot.functionalities`）+ 外源（Enhancement `addsFunc
 
 ## 15. StatsService 三层统计
 
-**文件**：[[src/engine/stats.ts]]（319 行）
+**文件**：[[src/engine/stats.ts]]（262 行）＋ [[src/engine/stats-counters.ts]]（66 行）
+
+计数器纯函数（`bump` / `emptyCounters` / `copyCounters` / `copyInitMap` / `freshSnapshot`）拆至 stats-counters.ts；stats.ts 保留 StatsService（record 钩子 + DSL 求值 + 持久化）。
 
 ### 三层
 
@@ -464,11 +474,13 @@ UI 面向的运行时追踪日志，verbose 模式用于开发期排障。
 
 ## 17. Registry 数据包注册表
 
-**文件**：[[src/engine/registry.ts]]（313 行）
+**文件**：[[src/engine/registry.ts]]（261 行）＋ [[src/engine/registry-validate.ts]]（139 行）
+
+数据摄取与查询分层：registry.ts 持有主存储 / 关系索引 / 合并（merge）与运行时 Tag 增删；静态校验为纯函数 `validateDatapack()`（ID 唯一性、引用完整性、Extra 合法性），位于 registry-validate.ts（RegistryError 亦定义于此，registry.ts re-export 保持兼容）。
 
 ### 主存储
 
-inits / areas / spots / enhancements / stories / items / dropTables / funcletDefs / characters / characterBonuses / resourceDisplays / extras
+inits / areas / spots / enhancements / stories / items / dropTables / funcletDefs / characters / characterBonuses / resourceDisplays / tags / extras
 
 ### 关系索引
 

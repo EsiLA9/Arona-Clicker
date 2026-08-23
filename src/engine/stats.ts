@@ -30,6 +30,7 @@ import {
   InitStatsMap,
 } from './types';
 import { parseStatCall } from './stat-dsl';
+import { bump, emptyCounters, emptyInitCounters, copyCounters, copyInitMap, freshSnapshot } from './stats-counters';
 
 export interface PersistedSession {
   startFrame: number;
@@ -43,17 +44,12 @@ export interface PersistedStats {
   session: PersistedSession;
 }
 
-const bump = (map: Record<string, number> | undefined, key: string, delta: number): void => {
-  if (!map) return;
-  map[key] = (map[key] ?? 0) + delta;
-};
-
 export class StatsService {
   private state: PlayerState | null = null;
   private stats: StatsSnapshot;
 
   constructor() {
-    this.stats = this.freshSnapshot();
+    this.stats = freshSnapshot();
   }
 
   /** 注入运行时状态引用（用于读取 activeInit / currentAreaId / resources）。 */
@@ -63,7 +59,7 @@ export class StatsService {
 
   /** 清空全部统计并开启一次新游玩（新游戏 / 重置）。 */
   reset(): void {
-    this.stats = this.freshSnapshot();
+    this.stats = freshSnapshot();
   }
 
   /** 开启一次新的游玩（进入 Init / 新游戏 / 读档后调用）。 */
@@ -71,7 +67,7 @@ export class StatsService {
     const state = this.state;
     this.stats.session = {
       startFrame: state?.totalFrames ?? 0,
-      counters: this.emptyCounters(),
+      counters: emptyCounters(),
       currentInit: state?.activeInit || null,
       currentArea: state?.currentAreaId ?? null,
       resources: state ? { ...state.resources } : {},
@@ -82,11 +78,11 @@ export class StatsService {
   /** 全量快照（供 UI / 存档展示）。 */
   getSnapshot(): StatsSnapshot {
     return {
-      global: this.copyCounters(this.stats.global),
-      init: this.copyInitMap(this.stats.init),
+      global: copyCounters(this.stats.global),
+      init: copyInitMap(this.stats.init),
       session: {
         ...this.stats.session,
-        counters: this.copyCounters(this.stats.session.counters),
+        counters: copyCounters(this.stats.session.counters),
         resources: { ...this.stats.session.resources },
       },
     };
@@ -95,12 +91,12 @@ export class StatsService {
   /** 事件上下文：变更时点的三层摘要（浅拷贝，避免持有内部引用）。 */
   getContext(): StatsContext {
     return {
-      global: this.copyCounters(this.stats.global),
+      global: copyCounters(this.stats.global),
       currentInit: this.stats.session.currentInit,
-      currentInitStats: this.currentInitStats() ? this.copyCounters(this.currentInitStats()!) : null,
+      currentInitStats: this.currentInitStats() ? copyCounters(this.currentInitStats()!) : null,
       session: {
         ...this.stats.session,
-        counters: this.copyCounters(this.stats.session.counters),
+        counters: copyCounters(this.stats.session.counters),
         resources: { ...this.stats.session.resources },
       },
     };
@@ -124,11 +120,11 @@ export class StatsService {
 
   getPersistable(): PersistedStats {
     return {
-      global: this.copyCounters(this.stats.global),
-      init: this.copyInitMap(this.stats.init),
+      global: copyCounters(this.stats.global),
+      init: copyInitMap(this.stats.init),
       session: {
         startFrame: this.stats.session.startFrame,
-        counters: this.copyCounters(this.stats.session.counters),
+        counters: copyCounters(this.stats.session.counters),
         completedStoryIdsThisRun: [...this.stats.session.completedStoryIdsThisRun],
       },
     };
@@ -136,15 +132,15 @@ export class StatsService {
 
   /** 从存档恢复三层统计，并依据当前状态重建 session 定位信息。 */
   restore(persisted: PersistedStats): void {
-    this.stats = this.freshSnapshot();
-    this.stats.global = this.copyCounters(persisted.global);
-    this.stats.init = this.copyInitMap(persisted.init);
+    this.stats = freshSnapshot();
+    this.stats.global = copyCounters(persisted.global);
+    this.stats.init = copyInitMap(persisted.init);
     const state = this.state;
     this.stats.session = {
       startFrame: persisted.session?.startFrame ?? state?.totalFrames ?? 0,
       counters: persisted.session
-        ? this.copyCounters(persisted.session.counters)
-        : this.emptyCounters(),
+        ? copyCounters(persisted.session.counters)
+        : emptyCounters(),
       currentInit: state?.activeInit || null,
       currentArea: state?.currentAreaId ?? null,
       resources: state ? { ...state.resources } : {},
@@ -230,15 +226,14 @@ export class StatsService {
   recordAreaEntered(areaId: AreaId): void {
     this.stats.session.currentArea = areaId;
   }
-
-  recordTick(): void {
+recordTick(): void {
     this.stats.global.framesActive++;
     this.stats.session.counters.framesActive++;
     const init = this.currentInitStats();
     if (init) init.framesInInit++;
   }
 
-  // --- 内部 ---
+  // --- 内部（快照读写 + 层级选择） ---
 
   private selectCounters(query: { def: { scope: string }; initId?: string }): StatCounters | null {
     switch (query.def.scope) {
@@ -248,7 +243,7 @@ export class StatsService {
         return this.stats.session.counters;
       case 'init':
         // 未进入过的 Init 视为无统计（返回 0），不视为查询错误
-        return query.initId ? (this.stats.init[query.initId as InitId] ?? this.emptyCounters()) : null;
+        return query.initId ? (this.stats.init[query.initId as InitId] ?? emptyCounters()) : null;
       default:
         return null;
     }
@@ -257,63 +252,11 @@ export class StatsService {
   private currentInitStats(): InitStatCounters | null {
     const initId = this.state?.activeInit;
     if (!initId) return null;
-    if (!this.stats.init[initId]) this.stats.init[initId] = this.emptyInitCounters();
+    if (!this.stats.init[initId]) this.stats.init[initId] = emptyInitCounters();
     return this.stats.init[initId]!;
   }
 
   private counters(): { global: StatCounters; init: InitStatCounters | null; run: StatCounters } {
     return { global: this.stats.global, init: this.currentInitStats(), run: this.stats.session.counters };
-  }
-
-  private freshSnapshot(): StatsSnapshot {
-    return {
-      global: this.emptyCounters(),
-      init: {},
-      session: {
-        startFrame: 0,
-        counters: this.emptyCounters(),
-        currentInit: null,
-        currentArea: null,
-        resources: {},
-        completedStoryIdsThisRun: [],
-      },
-    };
-  }
-
-  private emptyCounters(): StatCounters {
-    return {
-      produced: {},
-      consumed: {},
-      itemsCollected: {},
-      itemsUsed: {},
-      spotsUnlocked: 0,
-      spotsUpgraded: 0,
-      storiesCompleted: 0,
-      enhancementsUnlocked: 0,
-      initsUnlocked: 0,
-      framesActive: 0,
-    };
-  }
-
-  private emptyInitCounters(): InitStatCounters {
-    return { ...this.emptyCounters(), framesInInit: 0 };
-  }
-
-  private copyCounters<T extends StatCounters>(c: T): T {
-    return {
-      ...c,
-      produced: { ...c.produced },
-      consumed: { ...c.consumed },
-      itemsCollected: { ...c.itemsCollected },
-      itemsUsed: { ...c.itemsUsed },
-    };
-  }
-
-  private copyInitMap(map: InitStatsMap): InitStatsMap {
-    const out: InitStatsMap = {};
-    for (const [id, counters] of Object.entries(map)) {
-      if (counters) out[id as InitId] = this.copyCounters(counters);
-    }
-    return out;
   }
 }

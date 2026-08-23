@@ -13,7 +13,6 @@ export function freshPerInitState(): InitSnapshot & { initExtras: ExtraCompound 
     spotLevels: {},
     spotManagers: {},
     visitedAreas: [],
-    storyCooldowns: {},
     totalFrames: 0,
     inventory: {},
     unlockedEnhancements: [],

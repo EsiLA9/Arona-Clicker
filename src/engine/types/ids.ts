@@ -10,7 +10,6 @@ export type SpotId = string;
 export type EnhancementId = string;
 export type StoryId = string;
 export type ItemId = string;
-export type CooldownId = string;
 export type FuncletId = string;
 
 // --- 资源枚举 ---

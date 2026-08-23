@@ -1,0 +1,103 @@
+// ============================================================
+// engine/loot-system.test.ts
+// ============================================================
+import { describe, test, expect } from 'vitest';
+import { Registry } from '../../src/engine/registry';
+import { EventBus } from '../../src/engine/event-bus';
+import { ConditionSystem } from '../../src/engine/condition-system';
+import { LootSystem } from '../../src/engine/loot-system';
+import { DropTableEntry, PlayerState } from '../../src/engine/types';
+
+function emptyState(): PlayerState {
+  return {
+    resources: {},
+    spotLevels: {},
+    spotManagers: {},
+    unlockedEnhancements: [],
+    activeInit: '',
+    totalFrames: 0,
+    storyLog: [],
+    inventory: {},
+    flags: {},
+    unlockedInits: [],
+  };
+}
+
+describe('LootSystem', () => {
+  test('should roll a single item from table', () => {
+    const reg = new Registry();
+    const bus = new EventBus();
+    const cs = new ConditionSystem();
+    const loot = new LootSystem(reg, cs, bus);
+
+    const table: DropTableEntry[] = [
+      { itemId: 'item_a', min: 1, max: 1, weight: 100 },
+    ];
+
+    const result = loot.roll(table, emptyState());
+    expect(result.size).toBe(1);
+    expect(result.get('item_a')).toBe(1);
+  });
+
+  test('should filter by condition', () => {
+    const reg = new Registry();
+    const bus = new EventBus();
+    const cs = new ConditionSystem();
+    const loot = new LootSystem(reg, cs, bus);
+
+    const state = emptyState();
+    state.resources.credit = 100;
+
+    const table: DropTableEntry[] = [
+      { itemId: 'item_b', min: 1, max: 1, weight: 1, condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 1000 }] } },
+      { itemId: 'item_a', min: 1, max: 1, weight: 100 },
+    ];
+
+    // item_b 不满足条件，只能抽到 item_a
+    for (let i = 0; i < 20; i++) {
+      const result = loot.roll(table, state);
+      expect(result.has('item_b')).toBe(false);
+    }
+  });
+
+  test('should return empty when all conditions fail', () => {
+    const reg = new Registry();
+    const bus = new EventBus();
+    const cs = new ConditionSystem();
+    const loot = new LootSystem(reg, cs, bus);
+
+    const table: DropTableEntry[] = [
+      { itemId: 'item_x', min: 1, max: 1, weight: 100, condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 10000 }] } },
+    ];
+
+    const result = loot.roll(table, emptyState());
+    expect(result.size).toBe(0);
+  });
+
+  test('should return empty for empty table', () => {
+    const reg = new Registry();
+    const bus = new EventBus();
+    const cs = new ConditionSystem();
+    const loot = new LootSystem(reg, cs, bus);
+
+    expect(loot.roll([], emptyState()).size).toBe(0);
+  });
+
+  test('should roll within min-max range', () => {
+    const reg = new Registry();
+    const bus = new EventBus();
+    const cs = new ConditionSystem();
+    const loot = new LootSystem(reg, cs, bus);
+
+    const table: DropTableEntry[] = [
+      { itemId: 'item_r', min: 3, max: 7, weight: 100 },
+    ];
+
+    for (let i = 0; i < 30; i++) {
+      const result = loot.roll(table, emptyState());
+      const count = result.get('item_r')!;
+      expect(count).toBeGreaterThanOrEqual(3);
+      expect(count).toBeLessThanOrEqual(7);
+    }
+  });
+});

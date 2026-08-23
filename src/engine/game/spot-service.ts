@@ -37,7 +37,7 @@ export interface SpotServiceOptions {
   devLog: DevLog;
   getState: () => PlayerState;
   getVisibility: () => VisibilitySnapshot;
-  /** 重算并落盘可见性快照（GameInstance 持有 _visibility）。 */
+  /** 强制重算可见性快照（平时由 EventBus 事件驱动增量更新）。 */
   refreshVisibility: () => void;
   /** 读取资源持有量：全局资源 + 当前世界线局部资源（局部优先覆盖同名）。 */
   getResourceAmount: (resourceId: string) => number;
@@ -137,34 +137,19 @@ export class SpotService {
     return true;
   }
 
-  /** 获取某个 Spot 当前 Manager 的标签加成倍率 */
+  /** 获取某个 Spot 当前 Manager 的标签加成倍率（冻结：恒 1.0，docs-818/12-character-rework.md §4.4） */
   getManagerBonus(spotId: string): number {
-    const manager = this.state.spotManagers[spotId] ?? Character.None;
-    if (manager === Character.None) return 1.0;
-    const spotDef = this.registry.spots.get(spotId);
-    if (!spotDef) return 1.0;
-    // 累乘所有匹配标签的加成
-    let bonus = 1.0;
-    for (const tag of spotDef.tags ?? []) {
-      bonus *= this.characterSystem.getTagBonus(manager, tag);
-    }
-    return bonus;
+    void spotId;
+    return 1.0;
   }
 
-  /** 计算某个 Spot 的总产出 (含 Manager 标签加成) */
+  /** 计算某个 Spot 的总产出（manager 加成已冻结，仅 base × enhancement） */
   getSpotYield(spotId: string): { base: number; managerBonus: number; tagMultiplier: number; total: number } {
     const spotDef = this.registry.spots.get(spotId);
     if (!spotDef) return { base: 0, managerBonus: 0, tagMultiplier: 1, total: 0 };
 
     const base = this.valueSystem.evaluate(spotDef.baseYield, this.state);
-    const manager = this.state.spotManagers[spotId] ?? Character.None;
-    const managerBonus = manager === Character.None
-      ? 0
-      : this.valueSystem.evaluate(spotDef.managerBonusYield, this.state);
-    const tagMultiplier = manager === Character.None ? 1 : this.getManagerBonus(spotId);
-    const total = (base + managerBonus) * tagMultiplier;
-
-    return { base, managerBonus, tagMultiplier, total };
+    return { base, managerBonus: 0, tagMultiplier: 1, total: base };
   }
 
   /**

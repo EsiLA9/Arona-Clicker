@@ -6,6 +6,15 @@ import type { StoryView } from './results';
 import type { AffectorInstance, EnhancementAttachment } from './entities';
 import type { Character, EnhancementId, InitId, SpotId, StoryId, ItemId, AreaId } from './ids';
 import type { ExtraCompound } from './extra';
+import type {
+  ChatMessageId,
+  ColorId,
+  GachaPoolId,
+  GachaPoolState,
+  ProtoStat,
+  RosterEntry,
+  VariantId,
+} from './character';
 
 // --- PlayerState ---
 
@@ -28,11 +37,14 @@ export interface PlayerState {
   visitedInits?: InitId[];
   totalFrames: number;
   storyLog: CompletedStory[];
+  /**
+   * 按 Story.id 记录的阅读日志（可选，兼容旧档）。
+   * 用于重阅读系统与分歧点准入守卫。
+   */
+  storyReadLogs?: Record<StoryId, StoryReadLog>;
   inventory: Record<ItemId, number>;
   flags: Record<string, string>;
   unlockedInits: InitId[];
-  /** Last completed frame per story. Optional for old saves. */
-  storyCooldowns?: Record<StoryId, number>;
   /** 已触发过的一次性 Trigger（once）id 集合。 */
   triggersCompleted?: string[];
   /** 当前 Init 的 per-Init 层额外数据（随快照保存/恢复，软重启清空重建；见 docs/13 §5.3）。可选，兼容旧档。 */
@@ -41,6 +53,25 @@ export interface PlayerState {
   initSnapshots?: Record<InitId, InitSnapshot>;
   /** 全局层额外数据（跨 Init 保留，入存档；三层合并视图最高优先级，见 docs/13 §5.3）。可选，兼容旧档。 */
   extras?: ExtraCompound;
+  /**
+   * 通讯录：玩家持有的变体实例（Character 重构；归属层由 characterPersistConfig.roster 声明）。
+   * 可选以兼容分阶段构建（M1 起写入）。
+   */
+  roster?: Record<VariantId, RosterEntry>;
+  /** 碎片余额（按差分隔离；归属随 roster）。 */
+  fragments?: Record<VariantId, number>;
+  /** 卡池计数（pity/pulls；归属由 characterPersistConfig.gacha 声明）。 */
+  gachaState?: Record<GachaPoolId, GachaPoolState>;
+  /** 当前激活的界面主题色彩（全局单选；null = 默认主题）。 */
+  activeColor?: ColorId | null;
+  /** 已解锁色彩库存（收集类资产，恒为 global 层）。 */
+  colorsOwned?: ColorId[];
+  /** 聊天已读记录（归属由 characterPersistConfig.chatRead 声明）。 */
+  chatRead?: Record<ChatMessageId, true>;
+  /** 世界 Pool：已进入常驻集合的差分（池关闭条件触发后并入）。 */
+  worldPool?: VariantId[];
+  /** 原型聚合统计（派生视图，Trigger 维护；键为 Character id 字符串）。 */
+  protoStats?: Record<string, ProtoStat>;
 }
 
 /** Init 内快照：结束 Init 时保存，重新进入时恢复。
@@ -52,21 +83,41 @@ export interface InitSnapshot {
   spotLevels: Record<SpotId, number>;
   spotManagers: Record<SpotId, Character>;
   visitedAreas: AreaId[];
-  storyCooldowns: Record<StoryId, number>;
   totalFrames: number;
   inventory: Record<ItemId, number>;
   unlockedEnhancements: EnhancementId[];
   storyLog: CompletedStory[];
+  /** 按 Story.id 记录的阅读日志（随快照保存/恢复；可选，兼容旧档）。 */
+  storyReadLogs?: Record<StoryId, StoryReadLog>;
   flags: Record<string, string>;
   triggersCompleted: string[];
   currentAreaId?: AreaId;
   /** per-Init 层额外数据（随快照，软重启/恢复时同步；见 docs/13 §5.3）。可选，兼容旧档。 */
   extras?: ExtraCompound;
+  /**
+   * Character 系统容器（仅 characterPersistConfig 声明为 init 的块才会写入快照；
+   * global 块跨世界线保留，不进快照。见 docs-818/12-character-rework.md §2.6）。
+   */
+  roster?: Record<VariantId, RosterEntry>;
+  fragments?: Record<VariantId, number>;
+  gachaState?: Record<GachaPoolId, GachaPoolState>;
+  chatRead?: Record<ChatMessageId, true>;
 }
 
 export type CompletedStory =
   | { type: 'passive'; storyId: StoryId }
   | { type: 'active'; storyId: StoryId; choiceIndex: number };
+
+/**
+ * Story 阅读日志：按 Story.id 记录一次演出的阅读进度。
+ * 用于重阅读时跳过已读内容 / 分歧点准入守卫。
+ */
+export interface StoryReadLog {
+  /** 已读过的 Talklet 索引（升序、去重）。 */
+  readTalkletIndexes: number[];
+  /** 各 Talklet 内已选过的 Choice 索引（key = Talklet 索引）。 */
+  chosenChoiceIndexes: Record<number, number[]>;
+}
 
 // --- 运行时事件 ---
 

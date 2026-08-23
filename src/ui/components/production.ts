@@ -1,10 +1,11 @@
 import { UIContext } from '../context';
 import { getSpotReveal, describeCondition } from './tooltip';
-import { tagDisplay } from '../../engine/tag';
+import { TagPath } from '../../engine/tag';
 import { existenceCondition, unlockCondition } from '../../engine/reveal';
 
 export function renderProductionNodes(ctx: UIContext): string {
   const { game, view } = ctx;
+  const registry = game.registry;
   // 只展示当前 Area 下的 Spot；移动 Area 后设施列表随之切换。
   const currentAreaId = view.currentAreaId;
   const areaSpotIds = currentAreaId ? new Set(game.registry.spotsOfArea(currentAreaId)) : new Set<string>();
@@ -26,7 +27,7 @@ export function renderProductionNodes(ctx: UIContext): string {
         : '产出 ???';
       const title = reveal.nameKnown ? spot.name : '???';
       const tags = reveal.utilityKnown
-        ? ((spot.tags ?? []).map(tagDisplay).join(' / ') || 'SPOT')
+        ? ((spot.tags ?? []).map(tag => registry.tagName(tag)).join(' / ') || 'SPOT')
         : '未解锁设施';
       const desc = reveal.utilityKnown
         ? `<p>${ctx.escapeHtml(spot.description)}</p>`
@@ -46,11 +47,10 @@ export function renderProductionNodes(ctx: UIContext): string {
           : '未解锁';
       return `
         <article class="mini-card hover-wrap ${visible ? '' : 'is-muted'}" data-tooltip="spot:${spot.id}">
-          <div class="mini-card-head">
-            <span class="mini-eyebrow">${ctx.escapeHtml(tags)}</span>
-            <strong>${owned ? `Lv.${level}` : purchaseable ? '可获取' : '未解锁'}</strong>
+          <div class="mini-card-title-row">
+            <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
+            <strong class="mini-status">${owned ? `Lv.${level}` : purchaseable ? '可获取' : '未解锁'}</strong>
           </div>
-          <h3>${ctx.escapeHtml(title)}</h3>
           ${desc}
           <div class="mini-card-foot">
             ${reveal.utilityKnown

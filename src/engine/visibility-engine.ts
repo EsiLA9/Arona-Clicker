@@ -1,103 +1,122 @@
 // ============================================================
-// engine/visibility-engine.ts — 可见性引擎
+// engine/visibility-engine.ts — 可见性引擎（事件驱动，编排层）
 //
-// 可知性/可达性层级的第一层：可见性（AccessStage.hidden ↔ visible）。
-// 上层仅回答"实体是否出现"，不涉及揭示/可达性/生效：
-//   可见性 → 揭示 → 可达性 → 生效
-// 可见性由 revealTriggers 中的 existence 目标承担（原 visibilityCondition 的职责）：
-// 无 existence 门槛 = 默认可见；有 = 任一满足即可见。
+// 以 EventBus（trigger-eventbus 底层）为唯一驱动源：
+//   反向索引构建 → visibility/index.ts；事件→受影响实体 → index.collectAffected；
+//   求值（existenceMet / evaluateEntity / 整类重算）→ visibility/eval.ts。
+// 本文件仅保留：快照持有 + 增量 dirty 标记 + 对外 API 编排。
 // ============================================================
 
-import {
-  PlayerState,
-  VisibilitySnapshot,
-  InitId,
-  AreaId,
-  SpotId,
-  EnhancementId,
-  StoryId,
-  ItemId,
-  RevealTrigger,
-} from './types';
+import { PlayerState, VisibilitySnapshot, InitId, AreaId, SpotId, EnhancementId, GameEvent } from './types';
 import { Registry } from './registry';
 import { ConditionSystem } from './condition-system';
-import { existenceMet } from './reveal';
+import { EventBus } from './event-bus';
+import { VisibilityIndex } from './visibility-index';
+import { VisibilityEval, EntityKind, EntityKey, emptySnapshot } from './visibility-eval';
+import { EventDrivenReactor } from './event-driven-reactor';
+import { CONDITION_DEP_EVENT_TYPES } from './condition-deps';
 
-export class VisibilityEngine {
-  private registry: Registry;
-  private conditionSystem: ConditionSystem;
+export class VisibilityEngine extends EventDrivenReactor {
+  private index: VisibilityIndex;
+  private eval: VisibilityEval;
 
-  constructor(registry: Registry, conditionSystem: ConditionSystem) {
-    this.registry = registry;
-    this.conditionSystem = conditionSystem;
+  private snapshot: VisibilitySnapshot = emptySnapshot();
+  private dirty = new Set<EntityKey>();
+  private dirtyAll = false;
+
+  constructor(registry: Registry, conditionSystem: ConditionSystem, eventBus: EventBus) {
+    super(eventBus);
+    this.index = new VisibilityIndex(registry);
+    this.eval = new VisibilityEval(registry, conditionSystem);
+    // 分桶订阅条件依赖可能声明的全部事件类型（超集，构造期即生效，
+    // 保证存档恢复等不经 rebuild 的路径也能持续标脏）
+    this.subscribeTo(CONDITION_DEP_EVENT_TYPES);
   }
 
-  /** 计算完整可见性快照 */
-  compute(state: PlayerState): VisibilitySnapshot {
-    return {
-      inits: this.computeSet(
-        [...this.registry.inits.keys()],
-        id => this.registry.inits.get(id)!.revealTriggers,
-        state,
-      ),
-      areas: this.computeSet(
-        [...this.registry.areas.keys()],
-        id => this.registry.areas.get(id)!.revealTriggers,
-        state,
-      ),
-      spots: this.computeSet(
-        [...this.registry.spots.keys()],
-        id => this.registry.spots.get(id)!.revealTriggers,
-        state,
-      ),
-      enhancements: this.computeSet(
-        [...this.registry.enhancements.keys()],
-        id => this.registry.enhancements.get(id)!.revealTriggers,
-        state,
-      ),
-      items: this.computeSet(
-        [...this.registry.items.keys()],
-        id => this.registry.items.get(id)!.revealTriggers,
-        state,
-      ),
-      stories: this.computeSet(
-        [...this.registry.stories.keys()],
-        id => undefined, // 故事可见性由 triggerCondition 控制，此处暂不处理
-        state,
-      ),
+  // --- 对外 API ---
+
+  /** 重建反向索引并全量重算（注册表加载/热替换后调用）。 */
+  rebuild(state: PlayerState): void {
+    this.index.build();
+    this.recomputeAll(state);
+  }
+
+  /** 读取快照；如有脏实体则增量重算后返回（最终一致）。 */
+  getVisibility(state: PlayerState): VisibilitySnapshot {
+    if (this.dirtyAll) {
+      this.recomputeAll(state);
+      return this.snapshot;
+    }
+    if (this.dirty.size > 0) {
+      for (const key of this.dirty) {
+        const idx = key.indexOf(':');
+        const kind = key.slice(0, idx) as EntityKind;
+        const id = key.slice(idx + 1);
+        this.snapshot[kind]![id] = this.eval.evaluateEntity(kind, id, state);
+      }
+      this.dirty.clear();
+    }
+    return this.snapshot;
+  }
+
+  /** 强制全量重算（存档迁移、调试、stat 边缘情形兜底）。 */
+  recomputeAll(state: PlayerState): void {
+    this.snapshot = {
+      inits: this.eval.recomputeCategory(state, 'inits'),
+      areas: this.eval.recomputeCategory(state, 'areas'),
+      spots: this.eval.recomputeCategory(state, 'spots'),
+      enhancements: this.eval.recomputeCategory(state, 'enhancements'),
+      items: this.eval.recomputeCategory(state, 'items'),
+      // 故事入口可见性由 triggerCondition 控制，此处始终保持可见（与旧语义一致）
+      stories: this.eval.allTrue(this.eval.allStoryEntryKeys()),
     };
+    this.dirty.clear();
+    this.dirtyAll = false;
   }
 
-  /** 检查单个实体是否可见 */
+  // 重置为默认空快照（不立即重算）。随后 enterInit / refreshVisibility 会全量重建，
+  // 与「reset 清空可见性、由后续进入世界线重新计算」的既有契约一致。
+  reset(): void {
+    this.snapshot = emptySnapshot();
+    this.dirty.clear();
+    this.dirtyAll = false;
+  }
+
+  /** 清空 spots/areas（世界线切换时调用）：下次读取全量重算以保证一致。 */
+  clearLocal(): void {
+    this.snapshot.spots = {};
+    this.snapshot.areas = {};
+    this.dirtyAll = true;
+  }
+
+  /** 直接恢复存档快照（load 时调用）。 */
+  setSnapshot(snapshot: VisibilitySnapshot): void {
+    this.snapshot = snapshot;
+    this.dirty.clear();
+    this.dirtyAll = false;
+  }
+
+  // 入口门槛查询需对「当前 registry + state」实时求值（移动/解锁等正确性关键路径），
+  // 不走增量缓存，避免注册表直接变更或非事件态变更造成缓存陈旧。
   isInitVisible(initId: InitId, state: PlayerState): boolean {
-    return this.checkSingle(this.registry.inits.get(initId)?.revealTriggers, state);
+    return this.eval.evaluateEntity('inits', initId, state);
   }
 
   isAreaVisible(areaId: AreaId, state: PlayerState): boolean {
-    return this.checkSingle(this.registry.areas.get(areaId)?.revealTriggers, state);
+    return this.eval.evaluateEntity('areas', areaId, state);
   }
 
   isSpotVisible(spotId: SpotId, state: PlayerState): boolean {
-    return this.checkSingle(this.registry.spots.get(spotId)?.revealTriggers, state);
+    return this.eval.evaluateEntity('spots', spotId, state);
   }
 
   isEnhancementVisible(enhId: EnhancementId, state: PlayerState): boolean {
-    return this.checkSingle(this.registry.enhancements.get(enhId)?.revealTriggers, state);
+    return this.eval.evaluateEntity('enhancements', enhId, state);
   }
 
-  private computeSet<T extends string>(
-    ids: T[],
-    getTriggers: (id: T) => RevealTrigger[] | undefined,
-    state: PlayerState,
-  ): Record<string, boolean> {
-    const result: Record<string, boolean> = {};
-    for (const id of ids) {
-      result[id] = this.checkSingle(getTriggers(id), state);
-    }
-    return result;
-  }
+  // --- 事件订阅（仅自增标脏）---
 
-  private checkSingle(triggers: RevealTrigger[] | undefined, state: PlayerState): boolean {
-    return existenceMet(triggers, cond => this.conditionSystem.evaluateExpr(cond, state));
+  protected onEvent(_type: GameEvent['type'], e: GameEvent): void {
+    for (const key of this.index.collectAffected(e)) this.dirty.add(key);
   }
 }

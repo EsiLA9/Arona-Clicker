@@ -1,5 +1,8 @@
 // ============================================================
 // data/base/characters.ts — 角色数据定义
+//
+// 精简测试数据：每个学部至少 1 名，覆盖全部稀有度；
+// 阿比多斯保留卡池（swimsuit-up）与聊天流引用所需的成员。
 // ============================================================
 
 import { Character, CharacterData, CharacterRarity, CharacterSchool } from '../../engine/types';
@@ -39,16 +42,6 @@ export const allCharacters: CharacterData[] = [
     passiveDescription: '「防御」类 Spot 产出 +50%，「休息」类 +20%',
   },
   {
-    id: Character.Nonomi,
-    name: '野乃美',
-    displayName: '十六夜野乃美',
-    school: CharacterSchool.Abydos,
-    rarity: CharacterRarity.Rare,
-    description: '来自富裕家庭的温柔大小姐，火力支援担当。',
-    spotTagBonus: { 'support': 1.4, 'credit': 1.2 },
-    passiveDescription: '「支援」类 Spot 产出 +40%，「信用点」类 +20%',
-  },
-  {
     id: Character.Serika,
     name: '芹香',
     displayName: '黑见芹香',
@@ -57,16 +50,6 @@ export const allCharacters: CharacterData[] = [
     description: '勤勉努力的后辈，在便利店打工以偿还债务。',
     spotTagBonus: { 'shop': 1.3, 'parttime': 1.2 },
     passiveDescription: '「商店」类 Spot 产出 +30%，「打工」类 +20%',
-  },
-  {
-    id: Character.Ayane,
-    name: '彩奈',
-    displayName: '奥空彩奈',
-    school: CharacterSchool.Abydos,
-    rarity: CharacterRarity.Common,
-    description: '眼镜娘后勤担当，信息收集和无人机操作专家。',
-    spotTagBonus: { 'intel': 1.4, 'tech': 1.2 },
-    passiveDescription: '「情报」类 Spot 产出 +40%，「科技」类 +20%',
   },
 
   // === Millennium (千禧年) ===
@@ -80,68 +63,8 @@ export const allCharacters: CharacterData[] = [
     spotTagBonus: { 'credit': 1.5, 'math': 1.3 },
     passiveDescription: '「信用点」类 Spot 产出 +50%，「数学」类 +30%',
   },
-  {
-    id: Character.Noa,
-    name: '乃爱',
-    displayName: '生塩乃爱',
-    school: CharacterSchool.Millennium,
-    rarity: CharacterRarity.Rare,
-    description: '优香的秘书，记忆力超群，温文尔雅的优等生。',
-    spotTagBonus: { 'archive': 1.4, 'office': 1.2 },
-    passiveDescription: '「档案」类 Spot 产出 +40%，「办公室」类 +20%',
-  },
-  {
-    id: Character.Midori,
-    name: '美依',
-    displayName: '才羽美依',
-    school: CharacterSchool.Millennium,
-    rarity: CharacterRarity.Common,
-    description: '游戏开发部成员，与姐姐桃依一起开发游戏。',
-    spotTagBonus: { 'game': 1.5, 'art': 1.2 },
-    passiveDescription: '「游戏」类 Spot 产出 +50%，「美术」类 +20%',
-  },
-  {
-    id: Character.Momoi,
-    name: '桃依',
-    displayName: '才羽桃依',
-    school: CharacterSchool.Millennium,
-    rarity: CharacterRarity.Common,
-    description: '游戏开发部成员，充满活力的班長役。',
-    spotTagBonus: { 'game': 1.4, 'teamwork': 1.2 },
-    passiveDescription: '「游戏」类 Spot 产出 +40%，「团队」类 +20%',
-  },
-  {
-    id: Character.Koyuki,
-    name: '小雪',
-    displayName: '黒舘小雪',
-    school: CharacterSchool.Millennium,
-    rarity: CharacterRarity.Common,
-    description: '黑客天才，喜欢恶作剧但本质上是个好孩子。',
-    spotTagBonus: { 'hack': 1.5, 'tech': 1.3 },
-    passiveDescription: '「黑客」类 Spot 产出 +50%，「科技」类 +30%',
-  },
 
   // === Trinity (崔妮蒂) ===
-  {
-    id: Character.Hifumi,
-    name: '一二三',
-    displayName: '阿蔶谷一二三',
-    school: CharacterSchool.Trinity,
-    rarity: CharacterRarity.Rare,
-    description: '补课部成员，热爱佩洛洛的大天使型少女。',
-    spotTagBonus: { 'support': 1.4, 'heal': 1.3 },
-    passiveDescription: '「支援」类 Spot 产出 +40%，「治疗」类 +30%',
-  },
-  {
-    id: Character.Nagisa,
-    name: '渚',
-    displayName: '桐藤渚',
-    school: CharacterSchool.Trinity,
-    rarity: CharacterRarity.SuperRare,
-    description: '崔妮蒂茶会成员之一，优雅从容的贵族气质的谋士。',
-    spotTagBonus: { 'politics': 1.5, 'tea': 1.2 },
-    passiveDescription: '「政治」类 Spot 产出 +50%，「茶会」类 +20%',
-  },
   {
     id: Character.Mika,
     name: '未花',
@@ -152,28 +75,8 @@ export const allCharacters: CharacterData[] = [
     spotTagBonus: { 'force': 1.5, 'royal': 1.3 },
     passiveDescription: '「武力」类 Spot 产出 +50%，「王室」类 +30%',
   },
-  {
-    id: Character.Koharu,
-    name: '小春',
-    displayName: '下江小春',
-    school: CharacterSchool.Trinity,
-    rarity: CharacterRarity.Common,
-    description: '稍带毒舌的图书管理员，内心深处关心他人。',
-    spotTagBonus: { 'book': 1.4, 'archive': 1.2 },
-    passiveDescription: '「书籍」类 Spot 产出 +40%，「档案」类 +20%',
-  },
 
   // === Gehenna (盖赫纳) ===
-  {
-    id: Character.Ako,
-    name: '亚子',
-    displayName: '火宫亚子',
-    school: CharacterSchool.Gehenna,
-    rarity: CharacterRarity.Rare,
-    description: '万魔殿的辅佐官，对老师极度崇拜的忠心秘书。',
-    spotTagBonus: { 'secretary': 1.5, 'admin': 1.3 },
-    passiveDescription: '「秘书」类 Spot 产出 +50%，「行政」类 +30%',
-  },
   {
     id: Character.Iori,
     name: '伊织',
@@ -184,67 +87,17 @@ export const allCharacters: CharacterData[] = [
     spotTagBonus: { 'combat': 1.4, 'discipline': 1.2 },
     passiveDescription: '「战斗」类 Spot 产出 +40%，「纪律」类 +20%',
   },
-  {
-    id: Character.Mutsuki,
-    name: '睦月',
-    displayName: '浅黄睦月',
-    school: CharacterSchool.Gehenna,
-    rarity: CharacterRarity.Common,
-    description: '便利屋68成员之一，炸弹狂人与恶作剧高手。',
-    spotTagBonus: { 'explosive': 1.5, 'mischief': 1.3 },
-    passiveDescription: '「爆炸」类 Spot 产出 +50%，「恶作剧」类 +30%',
-  },
-  {
-    id: Character.Aru,
-    name: '亚瑠',
-    displayName: '陸八魔亚瑠',
-    school: CharacterSchool.Gehenna,
-    rarity: CharacterRarity.Rare,
-    description: '便利屋68的社长，外表冷酷内心傲娇的法外之徒。',
-    spotTagBonus: { 'business': 1.4, 'outlaw': 1.3 },
-    passiveDescription: '「商业」类 Spot 产出 +40%，「法外」类 +30%',
-  },
 
   // === SRT ===
-  {
-    id: Character.Miyu,
-    name: '美游',
-    displayName: '霞沢美游',
-    school: CharacterSchool.SRT,
-    rarity: CharacterRarity.Common,
-    description: 'SRT特殊学院的狙击手，想被找到却又擅长隐藏失败的兔子。',
-    spotTagBonus: { 'sniper': 1.5, 'stealth': 1.3 },
-    passiveDescription: '「狙击」类 Spot 产出 +50%，「隐匿」类 +30%',
-  },
   {
     id: Character.Miyako,
     name: '都子',
     displayName: '空井都子',
     school: CharacterSchool.SRT,
-    rarity: CharacterRarity.Rare,
+    rarity: CharacterRarity.Common,
     description: 'RABBIT小队的队长，冷静沉着的战术指挥。',
     spotTagBonus: { 'tactical': 1.4, 'field': 1.2 },
     passiveDescription: '「战术」类 Spot 产出 +40%，「野外」类 +20%',
-  },
-  {
-    id: Character.Saki,
-    name: '咲',
-    displayName: '風倉咲',
-    school: CharacterSchool.SRT,
-    rarity: CharacterRarity.Common,
-    description: 'RABBIT小队的爆破手，活泼直率的元气少女。',
-    spotTagBonus: { 'demolition': 1.4, 'energy': 1.2 },
-    passiveDescription: '「爆破」类 Spot 产出 +40%，「活力」类 +20%',
-  },
-  {
-    id: Character.Moe,
-    name: '萌',
-    displayName: '音海萌',
-    school: CharacterSchool.SRT,
-    rarity: CharacterRarity.Common,
-    description: 'RABBIT小队的支援兵，技术宅的眼镜娘。',
-    spotTagBonus: { 'hack': 1.3, 'support': 1.3 },
-    passiveDescription: '「黑客」和「支援」类 Spot 产出各 +30%',
   },
 
   // === Arius (阿里乌斯) ===
@@ -257,15 +110,5 @@ export const allCharacters: CharacterData[] = [
     description: '阿里乌斯小队队长，忠诚而强大的战斗专家。',
     spotTagBonus: { 'combat': 1.5, 'leader': 1.3 },
     passiveDescription: '「战斗」类 Spot 产出 +50%，「领导」类 +30%',
-  },
-  {
-    id: Character.Atsuko,
-    name: '敦子',
-    displayName: '戒野敦子',
-    school: CharacterSchool.Arius,
-    rarity: CharacterRarity.Rare,
-    description: '阿里乌斯小队成员，沉默寡言却温柔的少女。',
-    spotTagBonus: { 'stealth': 1.4, 'silence': 1.2 },
-    passiveDescription: '「隐匿」类 Spot 产出 +40%，「寂静」类 +20%',
   },
 ];

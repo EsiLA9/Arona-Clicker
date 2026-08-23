@@ -20,34 +20,27 @@
 
 import {
   PlayerState,
-  ValueExpression,
-  Character,
   Resource,
-  Effect,
+  Value,
+  ValueExpression,
 } from './types';
 import { Registry } from './registry';
 import { ValueSystem } from './value-system';
 import { CharacterSystem } from './character-system';
 import { AffectorEngine } from './affector-engine';
 import { matchesTag } from './tag';
-
-export type GameNum =
-  | { id: string; kind: 'const'; value: number }
-  | { id: string; kind: 'expr'; expr: ValueExpression }
-  | { id: string; kind: 'add'; children: GameNum[] }
-  | { id: string; kind: 'mul'; children: GameNum[] }
-  | { id: string; kind: 'owned'; spotId: string }
-  | { id: string; kind: 'levelLinear'; spotId: string }
-  | { id: string; kind: 'managerBonus'; spotId: string }
-  | { id: string; kind: 'tagMultiplier'; spotId: string }
-  | { id: string; kind: 'enhancementMultiplier'; spotId: string }
-  | { id: string; kind: 'affectorFlows'; resource: string };
+import type { EventBus } from './event-bus';
+export type { GameNum } from './game-num-eval';
+import { evaluateGameNum, evaluateSpotAffectorFlows, GameNumEvalDeps } from './game-num-eval';
+import type { GameNum } from './game-num-eval';
 
 export interface GameNumContext {
   valueSystem: ValueSystem;
   registry: Registry;
   characterSystem: CharacterSystem;
   affectorEngine: AffectorEngine;
+  /** 可选：注入后订阅强化解锁/移除事件，增量维护产出反向索引与倍率缓存。 */
+  eventBus?: EventBus;
 }
 
 const add = (id: string, children: GameNum[]): GameNum => ({ id, kind: 'add', children });
@@ -58,9 +51,52 @@ export class GameNumSystem {
   private readonly gains = new Map<string, GameNum>();
   /** spotId → 该 Spot 的产出子树（构建时缓存，供单 Spot 最终产出查询）。 */
   private readonly spotNodes = new Map<string, GameNum>();
-  private built = false;
+  /** spotId → 已解锁且与 spot tags 匹配的强化 id 列表（反向索引：避免每 Tick 全量扫所有强化）。 */
+  private readonly spotEnhIndex = new Map<string, string[]>();
+  /** 当前已解锁强化集合（镜像，用于动态 tag 变化时重建索引）。 */
+  private readonly unlocked = new Set<string>();
+   /** spotId → 已计算的产出强化倍率缓存（在强化解锁/移除、spot tag 变化时整体失效）。 */
+   private readonly enhCache = new Map<string, number>();
+   /** spotId → spot 产出子树整体系数缓存（P1-2；事件驱动失效，见构造函数订阅）。 */
+   private readonly productionCache = new Map<string, number>();
+   /** 静态扫描结果：产出表达式是否引用资源余额（null = 未扫描）。 */
+   private resourceDependentExprs: boolean | null = null;
+   private built = false;
 
-  constructor(private readonly ctx: GameNumContext) {}
+   constructor(private readonly ctx: GameNumContext) {
+     const bus = ctx.eventBus;
+     if (bus) {
+       // 产出的强化倍率只取决于「已解锁强化 × spot tags(含动态)」组合：
+       // 解锁/移除增量维护索引；spot tag 动态变化时整索引重建。
+       bus.on('enhancementAdded', (e) => {
+         if (e.type !== 'enhancementAdded') return;
+         this.unlocked.add(e.enhancementId);
+         this.addEnhToIndex(e.enhancementId);
+         this.invalidateProduction();
+       });
+       bus.on('enhancementRemoved', (e) => {
+         if (e.type !== 'enhancementRemoved') return;
+         this.unlocked.delete(e.enhancementId);
+         this.removeEnhFromIndex(e.enhancementId);
+         this.invalidateProduction();
+       });
+       bus.on('spotTagChanged', () => {
+         this.rebuildIndex();
+         this.invalidateProduction();
+       });
+       // 产出子树内的 base/manager/tag 叶子依赖等级与指派（含 spotCount/managerCount
+       // 类表达式对任意 spot/init 的读取），以及 data 源对 Extra 的读取：
+       // 对应写入口的事件到达时整体失效。升级/指派是低频操作，不构成 Tick 热点。
+       for (const type of ['spotLevelChanged', 'managerChanged', 'extraChanged'] as const) {
+         bus.on(type, () => this.productionCache.clear());
+       }
+       // 资源余额默认不影响产出；仅当静态扫描发现存在 res 引用（含 funclet 展开）时才失效，
+       // 避免每 Tick 的 resourceChanged 把缓存打穿。
+       bus.on('resourceChanged', () => {
+         if (this.mayReadResources()) this.productionCache.clear();
+       });
+     }
+   }
 
   /** 已注册的资源集合。 */
   getResources(): string[] {
@@ -93,6 +129,69 @@ export class GameNumSystem {
     this.gains.set(resource, add(`primitiveGain:${resource}`, children));
   }
 
+  /** 用当前已解锁强化重建反向索引（加载存档/新游戏后调用一次）。 */
+  rebuildEnhIndex(unlocked: string[]): void {
+    this.unlocked.clear();
+    for (const id of unlocked) this.unlocked.add(id);
+    this.rebuildIndex();
+    this.invalidateProduction();
+  }
+
+  /** 清空全部产出缓存（强化倍率 + spot 整体系数；世界线切换/存档加载时随状态整体更换调用）。 */
+  invalidateProduction(): void {
+    this.enhCache.clear();
+    this.productionCache.clear();
+  }
+
+  /**
+   * 静态扫描全部 Spot 的产出表达式是否引用资源余额（res 源，含 funclet 定义展开）。
+   * 惰性计算一次：无引用时 resourceChanged 无需失效产出缓存。
+   */
+  private mayReadResources(): boolean {
+    if (this.resourceDependentExprs === null) {
+      let result = false;
+      for (const spot of this.ctx.registry.spots.values()) {
+        if (
+          exprReadsResource(spot.baseYield, this.ctx.valueSystem) ||
+          exprReadsResource(spot.managerBonusYield, this.ctx.valueSystem)
+        ) {
+          result = true;
+          break;
+        }
+      }
+      this.resourceDependentExprs = result;
+    }
+    return this.resourceDependentExprs;
+  }
+
+  /** 基于当前已解锁集合与 registry spot tags 重建反向索引。 */
+  private rebuildIndex(): void {
+    this.spotEnhIndex.clear();
+    for (const enhId of this.unlocked) this.addEnhToIndex(enhId);
+  }
+
+  /** 把单个强化按其 productionTags 与 spot tags 的匹配关系登记进各 spot 的反向索引。 */
+  private addEnhToIndex(enhId: string): void {
+    const enh = this.ctx.registry.enhancements.get(enhId);
+    if (!enh?.productionMultiplier) return;
+    const queries = enh.productionTags ?? [];
+    for (const spot of this.ctx.registry.spots.values()) {
+      const spotTags = spot.tags ?? [];
+      if (queries.length > 0 && !queries.some(q => spotTags.some(t => matchesTag(t, q)))) continue;
+      let list = this.spotEnhIndex.get(spot.id);
+      if (!list) { list = []; this.spotEnhIndex.set(spot.id, list); }
+      if (!list.includes(enhId)) list.push(enhId);
+    }
+  }
+
+  /** 从所有 spot 的反向索引中移除某强化（解锁回退）。 */
+  private removeEnhFromIndex(enhId: string): void {
+    for (const list of this.spotEnhIndex.values()) {
+      const i = list.indexOf(enhId);
+      if (i >= 0) list.splice(i, 1);
+    }
+  }
+
   /** 懒求值：某资源本 Tick 的获取量（primitiveGain）。 */
   evaluateResourceGain(resource: string, state: PlayerState): number {
     const node = this.gains.get(resource);
@@ -109,80 +208,12 @@ export class GameNumSystem {
     const spot = this.ctx.registry.spots.get(spotId);
     if (!spot) return 0;
     const node = this.spotNodes.get(spotId) ?? this.buildSpotProduction(spotId);
-    let total = this.evaluate(node, state);
-
-    for (const instance of this.ctx.affectorEngine.getActiveInstances()) {
-      if (instance.mountEntityId !== spotId) continue;
-      const pack = this.ctx.affectorEngine.getPack(instance.packId);
-      if (!pack) continue;
-      for (const entry of pack.entries) {
-        if (!instance.activeEntryIds.includes(entry.id)) continue;
-        for (const effect of entry.effects) {
-          if (effect.op !== 'addResource') continue;
-          total += this.resolveEffectValue(effect, state);
-        }
-      }
-    }
-    return total;
+    return this.evaluate(node, state) + evaluateSpotAffectorFlows(spotId, state, this.evalDeps());
   }
 
   /** 懒求值：递归求值任意 GameNum 节点。 */
   evaluate(node: GameNum, state: PlayerState): number {
-    switch (node.kind) {
-      case 'const':
-        return node.value;
-      case 'expr':
-        return this.ctx.valueSystem.evaluate(node.expr, state);
-      case 'add':
-        return node.children.reduce((sum, child) => sum + this.evaluate(child, state), 0);
-      case 'mul':
-        return node.children.reduce((product, child) => product * this.evaluate(child, state), 1);
-      case 'owned':
-        return (state.spotLevels[node.spotId] ?? 0) > 0 ? 1 : 0;
-      case 'levelLinear': {
-        // 每级产出线性提升：floor((level-1) × yieldPerLevel)，等级 1 无增量
-        const level = state.spotLevels[node.spotId] ?? 0;
-        const spot = this.ctx.registry.spots.get(node.spotId);
-        const perLevel = spot?.yieldPerLevel ?? 0;
-        return Math.floor(Math.max(0, level - 1) * perLevel);
-      }
-      case 'managerBonus': {
-        const manager = state.spotManagers[node.spotId] ?? Character.None;
-        if (manager === Character.None) return 0;
-        const spot = this.ctx.registry.spots.get(node.spotId);
-        if (!spot) return 0;
-        return this.ctx.valueSystem.evaluate(spot.managerBonusYield, state);
-      }
-      case 'tagMultiplier': {
-        const manager = state.spotManagers[node.spotId] ?? Character.None;
-        if (manager === Character.None) return 1;
-        const spot = this.ctx.registry.spots.get(node.spotId);
-        if (!spot) return 1;
-        return (spot.tags ?? []).reduce(
-          (multiplier, tag) => multiplier * this.ctx.characterSystem.getTagBonus(manager, tag),
-          1,
-        );
-      }
-      case 'enhancementMultiplier': {
-        const spot = this.ctx.registry.spots.get(node.spotId);
-        if (!spot) return 1;
-        const spotTags = spot.tags ?? [];
-        let multiplier = 1;
-        for (const enhId of state.unlockedEnhancements) {
-          const enh = this.ctx.registry.enhancements.get(enhId);
-          if (!enh?.productionMultiplier) continue;
-          // 作用域为全局（当前 Init）：只按 tag 匹配，不按 Area 限定
-          if (enh.productionTags && enh.productionTags.length > 0
-            && !enh.productionTags.some(query => spotTags.some(declared => matchesTag(declared, query)))) {
-            continue;
-          }
-          multiplier *= enh.productionMultiplier;
-        }
-        return multiplier;
-      }
-      case 'affectorFlows':
-        return this.evaluateAffectorFlows(node.resource, state);
-    }
+    return evaluateGameNum(node, state, this.evalDeps());
   }
 
   /** 构建单个 Spot 的产出子树（逐级展开到末端；缓存复用）。 */
@@ -213,29 +244,39 @@ export class GameNumSystem {
     return spot;
   }
 
-  /** 该资源所有活跃 Affector 的 addResource 贡献之和（懒求值）。 */
-  private evaluateAffectorFlows(resource: string, state: PlayerState): number {
-    let sum = 0;
-    for (const instance of this.ctx.affectorEngine.getActiveInstances()) {
-      const pack = this.ctx.affectorEngine.getPack(instance.packId);
-      if (!pack) continue;
-      for (const entry of pack.entries) {
-        if (!instance.activeEntryIds.includes(entry.id)) continue;
-        for (const effect of entry.effects) {
-          if (effect.op !== 'addResource' || effect.target !== resource) continue;
-          sum += this.resolveEffectValue(effect, state);
-        }
-      }
-    }
-    return sum;
-  }
-
-  private resolveEffectValue(effect: Effect, state: PlayerState): number {
-    const value = effect.value;
-    if (typeof value === 'number') return value;
-    if (typeof value === 'object' && value !== null && 'type' in value) {
-      return this.ctx.valueSystem.evaluate(value as ValueExpression, state);
-    }
-    return Number(value) || 0;
+  /** 组装求值依赖（含宿主维护的反向索引与倍率缓存）。 */
+  private evalDeps(): GameNumEvalDeps {
+    return {
+      valueSystem: this.ctx.valueSystem,
+      registry: this.ctx.registry,
+      characterSystem: this.ctx.characterSystem,
+      affectorEngine: this.ctx.affectorEngine,
+      enhIndex: this.spotEnhIndex,
+      enhCache: this.enhCache,
+      prodCache: this.productionCache,
+    };
   }
 }
+
+/** 表达式是否引用资源余额：mul 展开；value 走 Value 扫描。 */
+const exprReadsResource = (expr: ValueExpression, vs: ValueSystem, seen = new Set<string>()): boolean => {
+  if (expr.type === 'mul') {
+    return exprReadsResource(expr.left, vs, seen) || exprReadsResource(expr.right, vs, seen);
+  }
+  if (expr.type !== 'value') return false;
+  return valueReadsResource(expr.value, vs, seen);
+};
+
+/** Value 是否引用资源余额：res 直接命中；funclet 展开其定义（seen 防环）。 */
+const valueReadsResource = (val: Value, vs: ValueSystem, seen: Set<string>): boolean => {
+  if (val.source === 'res') return true;
+  if (val.source === 'funclet') {
+    const id = String(val.params.funclet ?? '');
+    if (seen.has(id)) return false;
+    const def = vs.getFunclet(id);
+    if (!def) return false;
+    seen.add(id);
+    return exprReadsResource(def.calc, vs, seen);
+  }
+  return false;
+};

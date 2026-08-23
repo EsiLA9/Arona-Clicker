@@ -21,11 +21,15 @@
           }
         }
       ],
+      "theme": {
+        "colorId": "base:color:indigo",
+        "tokens": {
+          "primary": "#6366f1"
+        }
+      },
       "extra": {
         "t": "dict",
-        "v": {
-          "theme": { "t": "str", "v": "millennium" }
-        }
+        "v": {}
       }
     }
   ]

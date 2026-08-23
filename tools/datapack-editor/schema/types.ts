@@ -4,8 +4,8 @@
  * 本文件是工具自有的自描述类型系统，与游戏运行时（src/**）完全解耦。
  * 所有表（spots / inits / ...）的编辑界面、校验、导入导出均由该 DSL 驱动。
  *
- * 初稿由 scripts/gen-datapack-schema.mjs 从 src/engine/types.ts 自动生成，
- * 人工在 schema/datapack.schema.ts 中修正维护。
+ * 表定义由 Schema 描述协议拼合而成（见 engine-defs.ts / merge.ts / editor-extras.ts，
+ * 源头为 src/engine/types/**，经 scripts/gen-engine-schema.mjs 生成）。
  */
 
 export type TableKey =
@@ -13,6 +13,10 @@ export type TableKey =
   | 'areas'
   | 'spots'
   | 'enhancements'
+  | 'activeStories'
+  | 'passiveStories'
+  /** 虚拟合并表：activeStories ∪ passiveStories 的只读引用视图（不落盘） */
+  | 'storyEntries'
   | 'stories'
   | 'items'
   | 'dropTables'
@@ -21,6 +25,7 @@ export type TableKey =
   | 'characters'
   | 'characterBonuses'
   | 'resourceDisplays'
+  | 'tags'
   | 'extras';
 
 export interface TableSchema {
@@ -37,6 +42,11 @@ export interface TableSchema {
   recordValue?: FieldType;
   /** 是否按世界线拆分为多个分片文件（如 01-inits.json / 12-inits-millennium.json） */
   worldlineSplit?: boolean;
+  /**
+   * 虚拟引用表：非真实数据源（不参与数据加载/导出/UI 编辑），
+   * 仅用于跨表引用下拉与引用合法性校验（如 storyEntries = active ∪ passive 合并视图）。
+   */
+  virtual?: boolean;
   fields: FieldDef[];
 }
 
@@ -99,8 +109,16 @@ export type FieldType =
     }
   /** 引用其他表的 id，下拉补全 */
   | { kind: 'ref'; table: TableKey }
-  /** 宽松值：int/float/string/bool 由数据自行推断（如 Effect.value） */
+  /**
+   * 宽松值：int/float/string/bool 由数据自行推断（如 Effect.value）
+   */
   | { kind: 'flexible' }
+  /**
+   * 生成器占位：该字段由 engine 类型推断为"复杂/联合/递归"，
+   * 必须由 editor-extras 在 merge 阶段用真实 FieldDef 替换。
+   * merge 后若仍残留 hand 字段 = 同步遗漏（engine-schema.sync.test.ts 报错）。
+   */
+  | { kind: 'hand' }
   /** Extra 自由树（NBT 六变体 {t,v}），开放可变内容 */
   | { kind: 'extra' }
   /** 分隔横条：仅用于 UI 语义分组，不参与 JSON 合并/校验（数据行中不存在该字段） */
