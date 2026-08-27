@@ -1,7 +1,7 @@
 # docs-824 — 04 核心算法（索引）
 
 > 本文回答：**关键机制具体怎么算的？状态如何写入？产出/抽卡/培养/色彩/事件联动怎么运作？**
-> 按主题拆分为 7 篇子文档，本篇保留算法总览表。
+> 按主题拆分为 8 篇子文档，本篇保留算法总览表。
 
 ## 阅读路径
 
@@ -14,6 +14,7 @@
 | [[docs-824/04e-color-derivation]] | 色彩派生：ColorSystem / 主题 token | 原五章 |
 | [[docs-824/04f-trigger-effect]] | 事件联动：Trigger / Effect / Affector / Reveal | 原六、七章 |
 | [[docs-824/04g-roster]] | 通讯录分组 / 图鉴 / 招募 | 原八章 |
+| [[docs-824/04h-affector-review]] | Affector 系统设计评审（存档/每 tick 语义/死字段等） | 评审 |
 
 ## 总体关系
 

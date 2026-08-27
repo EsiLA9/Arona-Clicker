@@ -87,4 +87,46 @@
 
 ---
 
+## 六、潜在设计问题（评审意见，按严重度排序）
+
+判定背景见文首「真引用 / 意义引用」定义。
+
+### 1. StoryEntry.id 与 StoryDef.id 共用一个主键（最危险）
+
+- Entry 与 Story 是两种实体（触发/奖励 vs 演出内容），却共用同一 id 值：entry.id 默认 = storyId（def-factory/story-entry.ts:36-39），加载期只校验 storyId 可解析（registry-validate.ts:136-142），**不校验 id === storyId**——1:1 只是 builder 约定，无强制。
+- **两个命名空间因巧合重合**：`triggerStory` 的 target 是 Entry id（game-instance.ts:181-185），而 `hasReadStory` 等条件的 key 是 StoryDef id（condition-system.ts:107-115；storyLog 按 StoryDef.id 记录，state-mutation-service.ts:499-513）。今天三者相等所以不炸；一旦按注释规划「多 Entry 复用同一 Story」解耦，条件系统会指向错误实体。
+- **跨表 id 冲突静默吞数据**：validateDatapack 对 activeStories / passiveStories 分别查重（registry-validate.ts:36-37），不查两表之间、也不查 story 表与 entry 表之间；`storyEntries` 合并视图同 id 时 passive 静默覆盖 active（registry.ts:113-115）。
+- 建议：要么合并 Entry 与 Story（既然 1:1，为何两张表）；要么让 storyId 成为显式独立引用，并补 `id === storyId` 一致性校验，把「解耦」变成有意识的重构。
+
+### 2. 真/意义引用没有统一校验规则
+
+- 有校验的：initId / areaId / defaultAreas / defaultSpots / storyId / curve / 色彩系 / gacha 成员。
+- **无校验的**：jumpToStory、startStoryId、kizuna.storyId、PassivePoolChild.id、owner、availableInits、adjacentAreaIds。真引用悬空 → 运行时软失败（「点了没反应」）；意义引用拼错 → 静默无行为（「聊天永远不出现」），都无 DevLog。
+- 建议：真引用必须解析成功（加载期报错）；意义引用悬空不报错但进 DevLog 警告。可并入已有跨表校验入口 `validateCharacterRefs`（registry.ts:161-197）。
+
+### 3. 混合/双通道引用与隐式覆盖
+
+- `affectorPackIds: string | AffectorPackDef`（content.ts:72,431）：同字段既是引用又是内联内容；同 id「后加载优先」覆盖是隐式的（affector-engine.ts:84-99），两个数据包声明同名 pack 时后加载静默获胜。
+- `SpotFunctionalityDef.id` 兼作运行时 pack 命名空间键 `${fn.id}@${spotId}`（affector-engine.ts:277-299）：内源（Spot 声明）与外源（Enhancement 注入）同 id 时「后注册者覆盖」（外源胜出），合并是隐式、顺序相关的，数据作者无法显式控制。
+- 共同问题：**用「同 id 即同一物」做隐式去重/覆盖**。匹配可以做，覆盖这种有副作用的事应显式声明。
+
+### 4. 写而不读 / 未接线
+
+- `EntityThemeSlot.equipmentId` 写入但不被读取（entity-theme-options.ts:10 写；解析用实时 equippedEquipmentId，color-system.ts:393-409）——两个真相源，换装备并不改槽。
+- `ChatMessageDef.owner`（character.ts:469）、`refreshWorldPool`（character-availability.ts:62-76，池关闭并入世界 Pool）、Effect `loot`（effect-ops.ts:55-58）——声明即存、无消费方。声明式数据包里「声明了却不生效」最易误导数据作者。
+
+### 5. 字符串 ID 泛滥（stringly-typed）
+
+- proto / owner / entityKey / 资源 / 标签全是裸字符串，无命名空间或枚举约束；标签按前缀匹配（hasTag / countTags / zoneModifiers），拼错永不报错也永不命中。owner / entityKey 这类「纯字符串相等路由」最易打错且最难发现。
+
+### 合理的部分（不必改）
+
+- TriggerEventDef / Condition 按 id 匹配运行时状态（trigger-system.ts:153-179）——事件系统的正常形态。
+- tags 纯语义匹配——意义引用的正当用途。
+- 状态层按 id 持有副本（RosterEntry.variantId、资源数量、storyReadLogs）——「我拥有和该 id 一致的副本生效」的正确场景。
+
+**一句话总结**：意义引用本身没有错；错在 ① 两个实体共用主键且无校验；② 引用校验无统一规则，缺口全在后期新增字段；③ 用「同 id」做隐式覆盖/去重。其中 ① 在推进「多 Entry 复用同一 Story」时会最先爆。
+
+---
+
 上一篇：[[docs-824/03d-stats-views]] · 下一篇：[[docs-824/04-core-algorithms]]
