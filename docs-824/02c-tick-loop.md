@@ -28,6 +28,12 @@ tick()
  └─ 6. game:ticked 事件            通知 UI（controller 的 refreshLight）
 ```
 
+### 生产结算（tickSystem.run）
+
+- 单一路径（taskProduction Phase 2 起）：只走 **GameNumSystem 的 primitiveGain 树**，逐 Resource 求一次 `evaluateResourceGain` 后 `changeResource` 入账。
+- **不再有逐 Spot 的旧结算路径**，也不再有 `baseCapacity` 夹取：产出为 **resource 级聚合**（跨所有 spot），Spot 自身容量不再截断 gain。需要「容量上限」语义应在数据包/数值层显式建模，而非在结算路径截断。
+- `spotProduced` 事件按 resource 发出（`spotId` 留空，因产出已是跨 spot 聚合值）；`productions` 同样以 resource 为粒度。
+
 ## 优先级与时机（原注释「谁先谁后」）
 
 | 时机 | 谁 | 说明 |

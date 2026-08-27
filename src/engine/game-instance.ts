@@ -229,8 +229,8 @@ export class GameInstance {
       this.registry,
       this.valueSystem,
       this.eventBus,
-      this.mutations,
       this.gameNumSystem,
+      this.mutations,
     );
     this.triggerSystem = new TriggerSystem(this.eventBus, this.conditionSystem, this.effectEngine);
     this.lootSystem = new LootSystem(this.registry, this.conditionSystem);

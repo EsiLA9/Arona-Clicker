@@ -6,6 +6,7 @@ import { Registry } from '../../src/engine/registry/registry';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { ValueSystem } from '../../src/engine/expression/value-system';
 import { TickSystem } from '../../src/engine/system/tick-system';
+import { GameNumSystem } from '../../src/engine/expression/game-num';
 import { PlayerState, Datapack, Character } from '../../src/engine/types';
 
 const simpleDatapack: Datapack = {
@@ -58,6 +59,19 @@ function tickState(level: number = 1): PlayerState {
   };
 }
 
+/** 为测试构造最小可用的 GameNumSystem（统一数值路径所需）。 */
+function makeGameNumSystem(reg: Registry, vs: ValueSystem, bus: EventBus, state: PlayerState): GameNumSystem {
+  const gns = new GameNumSystem({
+    registry: reg,
+    valueSystem: vs,
+    characterSystem: { getTagBonus: () => 1 } as any,
+    affectorEngine: { getActiveInstances: () => [], getPack: () => undefined } as any,
+    eventBus: bus,
+  });
+  gns.buildAll(state);
+  return gns;
+}
+
 describe('TickSystem', () => {
   test('should produce resources on every unified tick', () => {
     const reg = new Registry();
@@ -66,8 +80,9 @@ describe('TickSystem', () => {
     reg.load(simpleDatapack);
     vs.setFuncletDefs(reg.funcletDefs as Map<string, any>);
 
-    const ts = new TickSystem(reg, vs, bus);
     const state = tickState();
+    const gns = makeGameNumSystem(reg, vs, bus, state);
+    const ts = new TickSystem(reg, vs, bus, gns);
     ts.setState(state);
 
     // baseYield=5 is the output for one unified tick.
@@ -82,9 +97,10 @@ describe('TickSystem', () => {
     const bus = new EventBus();
     const vs = new ValueSystem();
     reg.load(simpleDatapack);
-    const ts = new TickSystem(reg, vs, bus);
     const state = tickState();
     state.spotManagers.spot_t = Character.Shiroko;
+    const gns = makeGameNumSystem(reg, vs, bus, state);
+    const ts = new TickSystem(reg, vs, bus, gns);
     ts.setState(state);
 
     // managerBonusYield 声明 3，但已冻结：产出与无 manager 完全一致
@@ -99,8 +115,9 @@ describe('TickSystem', () => {
     reg.load(simpleDatapack);
     vs.setFuncletDefs(reg.funcletDefs as Map<string, any>);
 
-    const ts = new TickSystem(reg, vs, bus);
     const state = tickState(0); // level = 0 → 未解锁
+    const gns = makeGameNumSystem(reg, vs, bus, state);
+    const ts = new TickSystem(reg, vs, bus, gns);
     ts.setState(state);
 
     for (let i = 0; i < 6; i++) ts.tick();
@@ -114,8 +131,9 @@ describe('TickSystem', () => {
     reg.load(simpleDatapack);
     vs.setFuncletDefs(reg.funcletDefs as Map<string, any>);
 
-    const ts = new TickSystem(reg, vs, bus);
     const state = tickState();
+    const gns = makeGameNumSystem(reg, vs, bus, state);
+    const ts = new TickSystem(reg, vs, bus, gns);
     ts.setState(state);
 
     const events: any[] = [];
@@ -123,7 +141,8 @@ describe('TickSystem', () => {
 
     for (let i = 0; i < 3; i++) ts.tick();
     expect(events).toHaveLength(3);
-    expect(events[0]).toMatchObject({ spotId: 'spot_t', resource: 'credit', amount: 5 });
+    // 产出为 resource 级聚合（跨 spot），spotId 留空
+    expect(events[0]).toMatchObject({ spotId: '', resource: 'credit', amount: 5 });
   });
 
   test('should emit tick event each frame', () => {
@@ -133,8 +152,9 @@ describe('TickSystem', () => {
     reg.load(simpleDatapack);
     vs.setFuncletDefs(reg.funcletDefs as Map<string, any>);
 
-    const ts = new TickSystem(reg, vs, bus);
     const state = tickState();
+    const gns = makeGameNumSystem(reg, vs, bus, state);
+    const ts = new TickSystem(reg, vs, bus, gns);
     ts.setState(state);
 
     const frames: number[] = [];
@@ -155,13 +175,15 @@ describe('TickSystem', () => {
     vs.setFuncletDefs(reg.funcletDefs as Map<string, any>);
 
     const state1 = tickState();
-    const ts1 = new TickSystem(reg, vs, bus);
+    const gns1 = makeGameNumSystem(reg, vs, bus, state1);
+    const ts1 = new TickSystem(reg, vs, bus, gns1);
     ts1.setState(state1);
     ts1.tick(); // frame 1 settles immediately
 
     // 新实例使用新状态，恢复计时器
     const state2 = tickState();
-    const ts2 = new TickSystem(reg, vs, bus);
+    const gns2 = makeGameNumSystem(reg, vs, bus, state2);
+    const ts2 = new TickSystem(reg, vs, bus, gns2);
     ts2.setState(state2);
     ts2.tick(); // 下一帧仍然结算
 

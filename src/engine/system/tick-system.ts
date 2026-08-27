@@ -12,8 +12,6 @@ import { ValueSystem } from '../expression/value-system';
 import { EventBus } from '../core/event-bus';
 import { StateMutationService } from './state-mutation-service';
 import { GameNumSystem } from '../expression/game-num';
-import { aggregateZone } from '../expression/game-num-eval';
-import { TagPath } from '../core/tag';
 
 /** One engine tick is one second for both manual and automatic progression. */
 export const TICK_INTERVAL_MS = 1000;
@@ -29,8 +27,8 @@ export class TickSystem {
     registry: Registry,
     valueSystem: ValueSystem,
     eventBus: EventBus,
+    private readonly gameNumSystem: GameNumSystem,
     mutations?: StateMutationService,
-    private readonly gameNumSystem?: GameNumSystem,
   ) {
     this.registry = registry;
     this.valueSystem = valueSystem;
@@ -48,53 +46,16 @@ export class TickSystem {
     const state = this._state;
     state.totalFrames += 1;
 
-    // 统一数值路径：每 Tick 对每个 Resource 求一次 primitiveGain（GameNum 懒求值）
-    if (this.gameNumSystem) {
-      const productions: ProductionResult[] = [];
-      for (const resource of this.gameNumSystem.getResources()) {
-        const gain = this.gameNumSystem.evaluateResourceGain(resource, state);
-        if (gain <= 0) continue;
-        this.mutations.changeResource(resource, gain);
-        productions.push({ spotId: resource, resource, amount: gain });
-        this.eventBus.emit({ type: 'spotProduced', spotId: resource, resource, amount: gain });
-      }
-      this.eventBus.emit({ type: 'tick', frame: state.totalFrames });
-      return { frame: state.totalFrames, productions };
-    }
-
-    // 旧路径（无 GameNum 时，供单元测试直用）：逐 Spot 结算
+    // 统一数值路径：每 Tick 对每个 Resource 求一次 primitiveGain（GameNum 懒求值）。
+    // 产出为 resource 级聚合（跨所有 spot），不再逐 spot 结算，故无 spot 级 capacity 截断。
     const productions: ProductionResult[] = [];
-
-    for (const [spotId, level] of Object.entries(state.spotLevels)) {
-      if (level <= 0) continue;
-      const spotDef = this.registry.spots.get(spotId);
-      if (!spotDef) continue;
-
-      // 统一产出倍率：经 GameNum 的 zone 聚合（tag / 指定实体双路命中）。
-      const spotTags = spotDef.tags ?? [];
-      const enhancementMultiplier = aggregateZone(state, { kind: 'spot', id: spotId }, spotTags, spotDef.baseYieldResource, 'mul', this.valueSystem);
-
-      // All numeric inputs are evaluated through ValueSystem. A Spot's
-      // baseYield is now its output for this unified tick.
-      // Manager 加成已冻结（docs-818/12-character-rework.md §4.4）：
-      // managerBonusYield / 角色标签加成不再参与产出，spotManagers 有值与否结果一致。
-      const baseYield = this.valueSystem.evaluate(spotDef.baseYield, state);
-      const requested = baseYield * enhancementMultiplier;
-      const resource = spotDef.baseYieldResource;
-      const current = state.resources[resource] ?? 0;
-      const actual = spotDef.baseCapacity > 0
-        ? Math.max(0, Math.min(requested, spotDef.baseCapacity - current))
-        : requested;
-
-      // Only settle real output. Zero-output ticks (e.g. capacity reached)
-      // stay silent so the UI log and event stream don't spam.
-      if (actual <= 0) continue;
-      this.mutations.changeResource(resource, actual);
-      productions.push({ spotId, resource, amount: actual });
-      this.eventBus.emit({ type: 'spotProduced', spotId, resource, amount: actual });
-      // Spot 功能的线性额外产出由挂载在其上的功能 Affector 在 applyActiveEffects 阶段结算。
+    for (const resource of this.gameNumSystem.getResources()) {
+      const gain = this.gameNumSystem.evaluateResourceGain(resource, state);
+      if (gain <= 0) continue;
+      this.mutations.changeResource(resource, gain);
+      productions.push({ spotId: '', resource, amount: gain });
+      this.eventBus.emit({ type: 'spotProduced', spotId: '', resource, amount: gain });
     }
-
     this.eventBus.emit({ type: 'tick', frame: state.totalFrames });
     return { frame: state.totalFrames, productions };
   }
