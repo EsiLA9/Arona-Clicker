@@ -421,7 +421,7 @@ describe('GameInstance (integration)', () => {
 
   test('should mount enhancement affector packs when purchased', () => {
     game.init([baseDatapack]);
-    game.state.resources['base:resource:credit'] = 100;
+    game.state.resources['base:resource:credit'] = 200;
     for (const spotId of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[spotId];
 
     // 购买带有 affectorPackIds 的 Enhancement
@@ -435,7 +435,7 @@ describe('GameInstance (integration)', () => {
   test('should apply enhancement affector packs every tick', () => {
     game.init([baseDatapack]);
     for (const spotId of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[spotId];
-    game.state.resources['base:resource:credit'] = 100;
+    game.state.resources['base:resource:credit'] = 200;
 
     // 购买 能量饮料后勤（base:pack:energy_drink，每 tick +1 credit）
     game.purchaseEnhancement('base:enh:energy_supply');
@@ -599,13 +599,13 @@ describe('GameInstance (integration)', () => {
 
   test('should purchase an enhancement and apply production multiplier', () => {
     game.init([baseDatapack]);
-    game.state.resources['base:resource:credit'] = 200;
+    game.state.resources['base:resource:credit'] = 300;
 
     // 条件：credit >= 100 且可见 → 可购买
     const result = game.purchaseEnhancement('base:enh:credit_system');
     expect(result).toEqual({ success: true, enhancementId: 'base:enh:credit_system' });
     expect(game.state.unlockedEnhancements).toContain('base:enh:credit_system');
-    // 扣费 100 credit
+    // 扣费 200 credit
     expect(game.state.resources['base:resource:credit']).toBe(100);
 
     // Tick 产出应被 ×1.5：主厅信用点制造机 5 × 1.5 + 功能 2 = 9.5

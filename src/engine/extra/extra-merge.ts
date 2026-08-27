@@ -3,7 +3,8 @@
 // ============================================================
 
 import { ExtraCompound, ExtraValue } from '../types';
-import { EXTRA_MAX_DEPTH, ExtraError, extra, isDict } from './extra-core';
+import { EXTRA_MAX_DEPTH, ExtraError, isDict } from './extra-core';
+import { extra } from '../def-factory/extra';
 import { cloneExtra } from './extra-construct';
 import { parseExtraPath, getAtPath, setAtPath } from './extra-path';
 

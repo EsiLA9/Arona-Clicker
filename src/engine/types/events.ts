@@ -7,6 +7,8 @@ import type { AffectorState } from './entities';
 import type { Effect } from './expression';
 import type { Character } from './ids';
 import type { ExtraPath, ExtraValue } from './extra';
+import type { Talklet } from './content';
+import type { ChatTextKind, ChatTextStyle } from './expression';
 
 export type GameEvent =
   | { type: 'resourceChanged'; resource: string; delta: number; newValue: number }
@@ -52,8 +54,10 @@ export type GameEvent =
   | { type: 'cultivated'; variantId: string; kind: 'exp' | 'star'; newLevel?: number; newStars?: number }
   /** 色彩解锁入库存（幂等：已拥有不重复发）。 */
   | { type: 'colorUnlocked'; colorId: string }
-  /** 色彩装备到变体色彩槽。 */
-  | { type: 'colorEquipped'; variantId: string; colorId: string }
+  /** 色彩装备收集入库存（幂等：已拥有不重复发）。 */
+  | { type: 'equipmentCollected'; equipmentId: string }
+  /** 色彩装备装备到变体单装备槽。 */
+  | { type: 'equipmentEquipped'; variantId: string; equipmentId: string }
   /** 激活主题切换（colorId = null 回默认主题）。 */
   | { type: 'themeChanged'; colorId: string | null }
   /** 聊天消息标记已读。 */
@@ -64,6 +68,20 @@ export type GameEvent =
   | { type: 'passiveCooldownsChanged'; cooldowns: Record<string, number> }
   /** 学生对话空间阻断态变化（blocked=true 锁定 / false 解除）。 */
   | { type: 'studentBlockChanged'; variantId: string; blocked: boolean; entryId?: string }
+  /** 玩家侧 Chara 头像-人名对覆写变化（setCharaCustom / clearCharaCustom）。 */
+  | { type: 'charaCustomChanged'; character: Character }
+  // --- 聊天流演出服务（Talklet 专用；UI 订阅后操作聊天流） ---
+  /** 清理聊天流全部内容（clearAllChatFlow）。UI 清空当前活跃流。 */
+  | { type: 'chatFlowCleared' }
+  /** 删除全部可变位置的演出文本（clearAllChatText / Story 完结默认）。UI 清空当前活跃流的覆盖层，保留聊天历史。 */
+  | { type: 'chatTextClearedAll' }
+  /**
+   * 演出专用文本显示（showChatText）：id = 临时 id，x/y 为百分比坐标（0,0=左下，1,1=右上）。
+   * 内容为 text 或嵌入的 talklet（talklet 优先，复用标准 Talklet 渲染）。
+   */
+  | { type: 'chatTextShown'; id: string; text?: string; talklet?: Talklet; x?: number; y?: number; align?: 'left' | 'center' | 'right'; kind?: ChatTextKind; style?: ChatTextStyle; title?: string; buttonText?: string; targetStoryId?: string }
+  /** 按临时 id 擦除演出专用文本（clearIdChatFlow）。 */
+  | { type: 'chatTextCleared'; id: string }
   & { stats?: StatsContext };
 
 export type EventHandler = (event: GameEvent) => void;

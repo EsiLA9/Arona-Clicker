@@ -6,10 +6,10 @@
 // ============================================================
 
 import { UIContext } from '../context';
-import { renderChatHistory, renderCurrentStory, ChatEntry } from './story';
+import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderSendButton } from './center-panel';
-import { CharacterVariantDef, type ConditionGroup, type Condition } from '../../engine/types';
-import { getAtPath, isStr } from '../../engine/extra/index';
+import { CharacterVariantDef, type ConditionGroup, type Condition, type Effect } from '../../engine/types';
+import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
 
 /** 未读消息计数接口：后续接入未读系统时由调用方提供。 */
 export type UnreadResolver = (variantId: string) => number;
@@ -110,9 +110,23 @@ function renderContactRow(
   const entry = ctx.game.rosterSystem.getOwned(ctx.game.state, variant.id)!;
   const active = selected === variant.id;
   const glyph = variant.name.slice(0, 1);
-  const avatar = (variant as any).avatar
-    ? `<img class="contact-avatar" src="${(variant as any).avatar}" alt="${ctx.escapeHtml(variant.displayName)}">`
-    : `<span class="contact-avatar">${ctx.escapeHtml(glyph)}</span>`;
+  // 头像优先级：装备的 ColorGroup > 差分声明的 colorGroupId > 图片/URL > 首字母占位
+  const equipmentId = entry.equippedEquipment;
+  const equippedColors = equipmentId ? ctx.game.colorEquipmentSystem.avatarColors(equipmentId) : undefined;
+  const equippedGroup = equipmentId ? ctx.game.colorEquipmentSystem.groupOf(equipmentId) : undefined;
+  const declaredGroup = variant.colorGroupId ? ctx.game.registry.colorGroups.get(variant.colorGroupId) : undefined;
+  const group = equippedGroup ?? declaredGroup;
+  const palette = equippedColors ?? (variant.colorGroupId ? ctx.game.colorEquipmentSystem.avatarColorsForGroup(variant.colorGroupId) : undefined);
+  let avatar: string;
+  if (group && palette?.length) {
+    avatar = renderAvatarSvg(group.compositionType, palette, 40);
+  } else {
+    // avatar 可为直连 URL 或 `mod:type(pic):id` 三段式图片索引；解析失败回退首字母占位
+    const avatarUrl = variant.avatar ? ctx.game.getPicUrl(variant.avatar) : undefined;
+    avatar = avatarUrl
+      ? `<img class="contact-avatar" src="${ctx.escapeHtml(avatarUrl)}" alt="${ctx.escapeHtml(variant.displayName)}">`
+      : `<span class="contact-avatar">${ctx.escapeHtml(glyph)}</span>`;
+  }
   const unreadBadge = unread > 0
     ? `<span class="contact-unread" title="未读消息">${unread > 99 ? '99+' : unread}</span>`
     : '';
@@ -148,12 +162,13 @@ function lastPreview(chats: ChatEntry[], owned: boolean): string {
 
 /**
  * 中栏对话空间：学生各自的聊天流（复用一般聊天的 ChatEntry/Story 机制）。
- * 顶部栏：左上 App 式返回键 + 学生名 + 羁绊剧情入口（手动点击进入的 StoryEntry）。
+ * 顶部栏：左上 App 式返回键 + 学生名 + 羁绊剧情卡片（手动点击强制触发）。
  */
 export function renderConversationView(
   ctx: UIContext,
   variantId: string,
   entries: ChatEntry[],
+  chatTexts: ChatTextEntry[],
   sendState: import('../../engine/types').SendState,
 ): string {
   const { game } = ctx;
@@ -162,18 +177,13 @@ export function renderConversationView(
     return '<div class="char-chat-empty"><p>该学生尚未加入通讯录。</p></div>';
   }
 
-  // 羁绊剧情：activeStories 中 extra.owner = 差分 id 的入口（需玩家手动点击进入）
-  const bondStories = bondStoriesOf(game, variantId);
-  const bondButtons = bondStories.map(entry => `
-    <button class="bond-story-button" data-start-story="${ctx.escapeHtml(entry.id)}"
-      title="${ctx.escapeHtml(entry.storyId)}">羁绊剧情</button>`).join('');
-
   // 聊天沙盒：读取该角色对话空间自己游标上的当前剧情（与全局/其他角色并行互不干扰）
   const story = ctx.game.getStoryView(variantId);
-  // 羁绊剧情演出中：当前页照常渲染进流（choice 确认后显示选项卡片）
-  const current = story && sendState.mode === 'choice' && sendState.confirmed
-    ? renderCurrentStory(ctx, story)
-    : '';
+  // 剧情演出中：choice 确认后渲染选项卡片；kizuna 页渲染羁绊卡片（均在流内）
+  const current = story && (
+    (sendState.mode === 'choice' && sendState.confirmed) ||
+    sendState.mode === 'kizuna'
+  ) ? renderCurrentStory(ctx, story) : '';
 
   // 对话空间阻断态（壁垒重启）：某 PassiveStoryEntry 播完后要求满足条件才能继续闲聊。
   // 仅在没有进行中演出时锁定抽取（演出中仍走 send 推进）。
@@ -182,12 +192,15 @@ export function renderConversationView(
   const blocked = !story && !!(blockEntry && blockEntry.block)
     && !ctx.game.conditionSystem.evaluateGroup(blockEntry.block, ctx.game.state);
 
+  // 底部固定回复按钮：始终存在；阻塞时变灰并附带解锁条件说明
   const footer = blocked
-    ? `<div class="conversation-blocked">
-         <span class="blocked-lock">🔒</span>
-         <span>对话空间已锁定，满足条件后继续：</span>
-         <span class="blocked-cond">${ctx.escapeHtml(describeCondition(blockEntry!.block!))}</span>
-       </div>`
+    ? `
+      <button class="send-button disabled" disabled>
+        <span class="send-bubble disabled">
+          <span class="send-text">🔒 对话空间已锁定</span>
+        </span>
+      </button>
+      <div class="blocked-condition">满足条件后继续：${ctx.escapeHtml(describeCondition(blockEntry!.block!))}</div>`
     : renderSendButton(sendState);
 
   return `
@@ -199,20 +212,21 @@ export function renderConversationView(
             <b>${ctx.escapeHtml(variant.displayName)}</b>
             <small>对话空间</small>
           </div>
-          <div class="conversation-bonds">${bondButtons}</div>
         </div>
         <div class="chat-pane">
           <div class="chat-stream conversation-stream">
             ${renderChatHistory(entries, ctx)}
             ${current}
           </div>
+          ${renderChatTexts(ctx, chatTexts)}
+        </div>
+        <div class="conversation-footer">
           ${footer}
         </div>
       </div>
     </section>`;
 }
 
-/** 把阻断条件组翻译为简短中文提示（通用条件组语义，供 UI 展示解锁要求）。 */
 function describeCondition(group: import('../../engine/types').ConditionGroup): string {
   const walk = (g: import('../../engine/types').ConditionGroup): string => {
     const sub = g.conditions.map(c =>
@@ -235,22 +249,6 @@ function describeLeaf(c: import('../../engine/types').Condition): string {
   return `${name}「${c.key}」${cmp[c.comparator] ?? c.comparator}${c.value}`;
 }
 
-/** 某差分的羁绊剧情入口列表（ActiveStoryEntry.extra.owner 声明归属）。 */
-export function bondStoriesOf(
-  game: { registry: { activeStories: ReadonlyMap<string, { id: string; storyId: string; extra?: import('../../engine/types').ExtraCompound }> } },
-  variantId: string,
-): { id: string; storyId: string }[] {
-  const out: { id: string; storyId: string }[] = [];
-  for (const entry of game.registry.activeStories.values()) {
-    if (!entry.extra) continue;
-    const owner = getAtPath(entry.extra, 'owner');
-    if (owner !== undefined && isStr(owner) && owner.v === variantId) {
-      out.push({ id: entry.id, storyId: entry.storyId });
-    }
-  }
-  return out;
-}
-
 /** 右栏：角色培养面板。 */
 export function renderCharacterPanel(ctx: UIContext, variantId: string | null): string {
   if (!variantId || !ctx.game.rosterSystem.isOwned(ctx.game.state, variantId)) {
@@ -261,20 +259,15 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
   const entry = game.rosterSystem.getOwned(game.state, variantId)!;
   const shards = game.rosterSystem.shardsOf(game.state, variantId);
 
-  const equipped = entry.equippedColors.map(id => {
-    const def = game.colorSystem.getDef(id);
-    return `
-      <span class="color-chip equipped" style="--swatch:${def?.theme['primary'] ?? '#888'}">
-        ${ctx.escapeHtml(def?.name ?? id)}
-        <button class="chip-x" data-unequip-color="${ctx.escapeHtml(id)}">×</button>
-      </span>`;
-  }).join('');
+  const equippedId = entry.equippedEquipment;
+  const equippedDef = equippedId ? game.colorEquipmentSystem.getDef(equippedId) : undefined;
+  const equippedHtml = equippedDef
+    ? renderEquipmentCard(ctx, equippedId!, equippedDef)
+    : '<small class="empty">未装备装备</small>';
 
-  const equippable = game.colorSystem.ownedColors(game.state)
-    .filter(c => !entry.equippedColors.includes(c.id))
-    .map(c => `
-      <button class="color-chip" style="--swatch:${c.theme['primary'] ?? '#888'}"
-        data-equip-color="${ctx.escapeHtml(c.id)}" title="装备到色彩槽">+ ${ctx.escapeHtml(c.name)}</button>`)
+  const equippable = game.colorEquipmentSystem.ownedEquipments(game.state)
+    .filter(e => e.id !== equippedId)
+    .map(e => renderEquipmentOption(ctx, e))
     .join('');
 
   return `
@@ -291,10 +284,57 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
         <button class="primary-button" data-add-exp="${ctx.escapeHtml(variantId)}">经验 +100</button>
         <button class="primary-button" data-breakthrough="${ctx.escapeHtml(variantId)}">星级突破</button>
       </div>
-      <h4>色彩槽</h4>
-      <div class="color-slots">${equipped || '<small class="empty">未装备色彩</small>'}</div>
-      ${equippable ? `<div class="color-equippable">${equippable}</div>` : ''}
+      <h4>色彩装备</h4>
+      <div class="equipment-slots">${equippedHtml}</div>
+      ${equippable ? `<div class="equipment-equippable">${equippable}</div>` : ''}
     </div>`;
+}
+
+/** 已装备卡片：头像 SVG 预览 + 名称 + 效用 + 卸下按钮。 */
+function renderEquipmentCard(
+  ctx: UIContext,
+  equipmentId: string,
+  def: import('../../engine/types').ColorEquipmentDef,
+): string {
+  const group = ctx.game.colorEquipmentSystem.groupOf(equipmentId);
+  const colors = ctx.game.colorEquipmentSystem.avatarColors(equipmentId);
+  const avatar = group ? renderAvatarSvg(group.compositionType, colors, 56) : '';
+  return `
+    <div class="equipment-card equipped">
+      <span class="equipment-avatar">${avatar}</span>
+      <div class="equipment-info">
+        <b>${ctx.escapeHtml(def.name)}</b>
+        <small>${ctx.escapeHtml(describeEffects(def.effects))}</small>
+      </div>
+      <button class="chip-x" data-unequip-equipment title="卸下">×</button>
+    </div>`;
+}
+
+/** 可装备列表项：头像 SVG + 名称。 */
+function renderEquipmentOption(ctx: UIContext, def: import('../../engine/types').ColorEquipmentDef): string {
+  const group = ctx.game.colorEquipmentSystem.groupOf(def.id);
+  const colors = ctx.game.colorEquipmentSystem.avatarColors(def.id);
+  const avatar = group ? renderAvatarSvg(group.compositionType, colors, 40) : '';
+  return `
+    <button class="equipment-option" data-equip-equipment="${ctx.escapeHtml(def.id)}" title="装备">
+      <span class="equipment-avatar">${avatar}</span>
+      <span class="equipment-option-name">${ctx.escapeHtml(def.name)}</span>
+    </button>`;
+}
+
+/** 效果的简短中文描述（仅覆盖常见 op，其余回退 op 名）。 */
+function describeEffects(effects: Effect[]): string {
+  if (!effects.length) return '无效用';
+  return effects.map(e => {
+    switch (e.op) {
+      case 'addResource':
+        return `+${e.value} ${String(e.target).split(':').pop() ?? ''}`;
+      case 'setFlag':
+        return `标记 ${String(e.target)}`;
+      default:
+        return e.op;
+    }
+  }).join(' / ');
 }
 
 /** 弹窗体：通用招募补给（全部开放卡池 + 可及成员 + 抽取按钮）。 */

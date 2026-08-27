@@ -7,7 +7,7 @@
 import { GameInstance } from '../engine/game-instance';
 import type { StoryView } from '../engine/types';
 import type { PanelState } from './components/app-shell';
-import type { ChatEntry } from './components/story';
+import type { ChatEntry, ChatTextEntry } from './components/story';
 import { PLAYER_IDENTITY } from './player';
 
 const CHAT_MAX = 200;
@@ -69,6 +69,7 @@ export class ChatStream {
       storyType: story.type,
       align: story.page.align,
       avatar: story.page.avatar,
+      image: story.page.image,
       side: story.page.side,
       noAvatar: story.page.noAvatar,
     });
@@ -95,9 +96,49 @@ export class ChatStream {
         storyType: view.type,
         align: view.page.align,
         avatar: view.page.avatar,
+        image: view.page.image,
         side: view.page.side,
         noAvatar: view.page.noAvatar,
       });
     }
+  }
+
+  /** 当前活跃流的演出专用文本覆盖层。 */
+  activeChatTexts(panelState: PanelState): ChatTextEntry[] {
+    const convId = panelState.conversationVariantId;
+    if (!convId) return panelState.chatTexts;
+    return (panelState.studentChatTexts[convId] ??= []);
+  }
+
+  /** 清理聊天流全部内容（含演出专用文本覆盖层）。 */
+  clearAll(panelState: PanelState): void {
+    const stream = this.activeStream(panelState);
+    stream.length = 0;
+    const texts = this.activeChatTexts(panelState);
+    texts.length = 0;
+  }
+
+  /** 删除全部可变位置的演出文本覆盖层（保留聊天历史）。 */
+  clearAllTexts(panelState: PanelState): void {
+    const texts = this.activeChatTexts(panelState);
+    texts.length = 0;
+  }
+
+  /** 添加演出专用文本覆盖层到当前活跃流（同 id 覆盖更新）。 */
+  pushChatText(panelState: PanelState, entry: ChatTextEntry): void {
+    const texts = this.activeChatTexts(panelState);
+    const existing = texts.findIndex(t => t.id === entry.id);
+    if (existing >= 0) {
+      texts[existing] = entry;
+    } else {
+      texts.push(entry);
+    }
+  }
+
+  /** 按临时 id 擦除演出专用文本覆盖层。 */
+  clearChatText(panelState: PanelState, id: string): void {
+    const texts = this.activeChatTexts(panelState);
+    const idx = texts.findIndex(t => t.id === id);
+    if (idx >= 0) texts.splice(idx, 1);
   }
 }

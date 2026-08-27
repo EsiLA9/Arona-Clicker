@@ -12,11 +12,14 @@ import type {
 } from './ids';
 import type { ExtraCompound } from './extra';
 import type { Condition, ConditionGroup, Effect, ValueExpression } from './expression';
+import type { PicId } from './pics';
 
 // --- 基础 ID ---
 
 export type VariantId = string;
 export type ColorId = string;
+export type ColorGroupId = string;
+export type EquipmentId = string;
 export type GachaPoolId = string;
 export type ChatMessageId = string;
 export type CultivateCurveId = string;
@@ -97,6 +100,19 @@ export interface CharacterVariantDef {
   /** @label 描述 */
   description: string;
   /**
+   * 头像：直连 URL 或 `mod:type(pic):id` 三段式图片索引（见 pics 表）。
+   * 缺省渲染首字母圆形占位。
+   * @label 头像
+   */
+  avatar?: string;
+  /**
+   * 默认头像颜色组（ColorGroup）：声明后该差分默认使用 Color 抽象图案头像，
+   * 未装备色彩装备时以此兜底。装备了色彩装备时以装备的 ColorGroup 优先。
+   * @label 默认头像色组
+   * @ref colorGroups
+   */
+  colorGroupId?: ColorGroupId;
+  /**
    * 默认差分（图鉴主展示/旧 flag 迁移指向）；每原型至多一个
    * @label 默认差分
    */
@@ -112,12 +128,6 @@ export interface CharacterVariantDef {
    * @ref cultivateCurves
    */
   curve?: CultivateCurveId;
-  /**
-   * 色彩装备槽位数（缺省 1）
-   * @label 色彩槽位
-   * @int
-   */
-  colorSlots?: number;
   /**
    * 对话空间特色主题：打开该学生的对话空间时界面自动切换。
    * @label 对话主题
@@ -167,15 +177,117 @@ export interface ColorDef {
    */
   theme: Record<ThemeToken, string>;
   /**
-   * 可选轻数值效果（走现有 Effect 体系）
-   * @label 效果
-   */
-  effects?: Effect[];
-  /**
    * 解锁条件（引用 protoStats / story flag 等）；缺省 = 不可自动解锁
    * @label 解锁条件
    */
   unlock?: Condition | ConditionGroup;
+}
+
+// --- 颜色组（ColorGroup） ---
+
+/**
+ * 颜色组构成方式：决定学生头像（抽象圆形图案）如何由组内颜色组合渲染。
+ * - solid     单色填充（1 个色位）
+ * - gradient  双色线性渐变（primary → secondary）
+ * - duotone   双色阶调（primary 主体 + shadow 阴影层）
+ * - pie       饼图分区（3~6 个色位按角色比例分配）
+ * - radial    径向渐变（center 中心 → edge 边缘）
+ */
+export type CompositionType = 'solid' | 'gradient' | 'duotone' | 'pie' | 'radial';
+
+/** 颜色组内某个色位的语义角色。 */
+export type ColorGroupRole = 'primary' | 'secondary' | 'accent' | 'highlight' | 'shadow' | 'edge';
+
+/** 颜色组中的单个色位：角色 + 引用的 Color。 */
+export interface ColorGroupSlot {
+  /**
+   * 色位角色（决定该色在构成中承担的位置）
+   * @label 角色
+   * @enum primary=主色
+   * @enum secondary=副色
+   * @enum accent=强调
+   * @enum highlight=高光
+   * @enum shadow=阴影
+   * @enum edge=边缘
+   */
+  role: ColorGroupRole;
+  /**
+   * 引用的颜色
+   * @label 颜色
+   * @ref colors
+   */
+  colorId: ColorId;
+}
+
+/**
+ * 颜色组：预制模板，由 1~6 个 Color 按构成方式组合，定义学生头像视觉。
+ * 仅可整体收集/装备，不可自由组装。
+ */
+export interface ColorGroupDef {
+  /** @label ID */
+  id: ColorGroupId;
+  /** @label 名称 */
+  name: string;
+  /** @label 描述 */
+  description?: string;
+  /**
+   * 构成方式
+   * @label 构成方式
+   * @enum solid=单色
+   * @enum gradient=渐变
+   * @enum duotone=双色阶调
+   * @enum pie=饼图
+   * @enum radial=径向
+   */
+  compositionType: CompositionType;
+  /**
+   * 色位表（数量与构成方式匹配）
+   * @label 色位
+   */
+  slots: ColorGroupSlot[];
+}
+
+/**
+ * 色彩装备：核心收集品。捆绑头像视觉（ColorGroup）+ 数值效用（effects）
+ * + 可选主题色（themeColorId）。装备到学生后同时决定头像与效用。
+ */
+export interface ColorEquipmentDef {
+  /** @label ID */
+  id: EquipmentId;
+  /** @label 名称 */
+  name: string;
+  /** @label 描述 */
+  description?: string;
+  /**
+   * 引用的颜色组（决定装备学生的头像视觉）
+   * @label 颜色组
+   * @ref colorGroups
+   */
+  colorGroupId: ColorGroupId;
+  /**
+   * 数值效用（走现有 Effect 体系；装备后生效）
+   * @label 效果
+   */
+  effects: Effect[];
+  /**
+   * 可选：该装备关联的主题色。激活为 UI 全局主题时使用（独立于头像）。
+   * @label 主题色
+   * @ref colors
+   */
+  themeColorId?: ColorId;
+  /**
+   * 解锁条件；缺省 = 不可自动解锁
+   * @label 解锁条件
+   */
+  unlock?: Condition | ConditionGroup;
+  /**
+   * 稀有度分类（UI 展示用）
+   * @label 稀有度
+   * @enum common=普通
+   * @enum rare=稀有
+   * @enum epic=史诗
+   */
+  category?: 'common' | 'rare' | 'epic';
 }
 
 // --- 抽卡 ---
@@ -350,7 +462,11 @@ export interface RosterEntry {
   exp: number;
   /** @int */
   stars: number;
-  equippedColors: ColorId[];
+  /**
+   * 已装备的色彩装备（单装备槽；null = 未装备）
+   * @ref colorEquipments
+   */
+  equippedEquipment: EquipmentId | null;
   /** 该差分自身的累计获得次数（含首次；重复获得 +1，与原型聚合统计互不影响）。 */
   acquiredCount: number;
 }

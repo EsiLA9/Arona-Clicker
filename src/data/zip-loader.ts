@@ -25,6 +25,8 @@ import type {
   ActiveStoryEntry,
   PassiveStoryEntry,
   TriggerDef,
+  PicDef,
+  CharaProfileDef,
 } from '../engine/types';
 
 /** Datapack 中承载条目列表的字段（每个分片可提供任意子集）。 */
@@ -44,8 +46,32 @@ export const DATAPACK_LIST_FIELDS = [
   'characters',
   'characterBonuses',
   'resourceDisplays',
+  'pics',
+  'charaProfiles',
 ] as const;
 export type DatapackListField = (typeof DATAPACK_LIST_FIELDS)[number];
+
+/** 压缩包内会被提取为图片资产的扩展名（大小写不敏感）。 */
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|apng|avif|bmp|ico)$/i;
+
+/** 图片扩展名 → MIME（data URL 组装用）。 */
+const IMAGE_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.apng': 'image/apng',
+  '.avif': 'image/avif',
+  '.bmp': 'image/bmp',
+  '.ico': 'image/x-icon',
+};
+
+function mimeOfPath(path: string): string {
+  const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
+  return IMAGE_MIME[ext] ?? 'application/octet-stream';
+}
 
 /** 加载失败时抛出的错误（携带出错文件路径）。 */
 export class ZipLoadError extends Error {
@@ -63,8 +89,10 @@ export interface ZipLoadResult {
   datapack: Datapack;
   /** 参与合并的 .json 文件数量。 */
   jsonFileCount: number;
-  /** 被忽略的非 .json 文件数量。 */
+  /** 被忽略的非 json / 非图片文件数量。 */
   ignoredCount: number;
+  /** 从压缩包提取的图片资产（包内相对路径 → data URL），供 ImageStore 登记后由 PicDef `zip:` src 引用。 */
+  images: { path: string; url: string }[];
 }
 
 interface DatapackFragment {
@@ -168,20 +196,24 @@ function mergeFragments(fragments: DatapackFragment[]): Datapack {
   if (lists.affectorPacks) dp.affectorPacks = lists.affectorPacks as AffectorPackDef[];
   if (lists.triggerDefs) dp.triggerDefs = lists.triggerDefs as TriggerDef[];
   if (lists.resourceDisplays) dp.resourceDisplays = lists.resourceDisplays as ResourceDisplayDef[];
+  if (lists.pics) dp.pics = lists.pics as PicDef[];
+  if (lists.charaProfiles) dp.charaProfiles = lists.charaProfiles as CharaProfileDef[];
   if (extras) dp.extras = extras;
   return dp;
 }
 
 /**
- * 解压并加载：遍历压缩包内所有 .json 文件（任意目录层级），
- * 逐份解析为分片后合并为单个 Datapack。
+ * 解压并加载：遍历压缩包内所有 .json 文件（任意目录层级）解析为分片后合并，
+ * 同时提取其中的图片文件（png/jpg/gif/webp/svg 等）为 data URL 供 ImageStore 登记。
  */
 export async function loadDatapackFromZip(zip: JSZip): Promise<ZipLoadResult> {
   const jsonPaths: string[] = [];
+  const imagePaths: string[] = [];
   let ignoredCount = 0;
   zip.forEach((path, entry) => {
     if (entry.dir) return;
     if (/\.json$/i.test(path)) jsonPaths.push(path);
+    else if (IMAGE_EXT_RE.test(path)) imagePaths.push(path);
     else ignoredCount += 1;
   });
 
@@ -194,11 +226,18 @@ export async function loadDatapackFromZip(zip: JSZip): Promise<ZipLoadResult> {
   const contents = await Promise.all(
     jsonPaths.map((path) => zip.file(path)!.async('string')),
   );
+  const images = await Promise.all(
+    imagePaths.map(async (path) => ({
+      path,
+      url: `data:${mimeOfPath(path)};base64,${await zip.file(path)!.async('base64')}`,
+    })),
+  );
   const fragments = jsonPaths.map((path, i) => parseFragment(path, contents[i]));
   return {
     datapack: mergeFragments(fragments),
     jsonFileCount: jsonPaths.length,
     ignoredCount,
+    images,
   };
 }
 

@@ -24,16 +24,7 @@ export function isBool(v: ExtraValue): v is { t: 'bool'; v: boolean } { return v
 export function isList(v: ExtraValue): v is { t: 'list'; v: ExtraValue[] } { return v.t === 'list'; }
 export function isDict(v: ExtraValue): v is { t: 'dict'; v: Record<string, ExtraValue> } { return v.t === 'dict'; }
 
-// --- 便捷构造器（数据包 TS 书写零负担）---
-
-export const extra = {
-  int: (v: number): ExtraValue => ({ t: 'int', v: Math.trunc(v) }),
-  float: (v: number): ExtraValue => ({ t: 'float', v }),
-  str: (v: string): ExtraValue => ({ t: 'str', v }),
-  bool: (v: boolean): ExtraValue => ({ t: 'bool', v }),
-  list: (...items: ExtraValue[]): ExtraValue => ({ t: 'list', v: items }),
-  dict: (v: Record<string, ExtraValue>): ExtraCompound => ({ t: 'dict', v }),
-};
+// 便捷构造器 extra 已移至 def-factory/extra.ts（经 extra/index re-export 兼容）。
 
 /** dict key 合法性：非空且不含 '/'。ExtraError 校验公共入口。 */
 export function validateDictKey(key: string): void {

@@ -1,10 +1,12 @@
+import type { InitDef } from '../../engine/types';
+
 import {
-  InitDef,
   AreaId,
   StoryId,
   and,
-  or,
   cond,
+  init,
+  or,
   Resource,
   TriggerDef,
 } from '../../engine/types';
@@ -64,10 +66,13 @@ const schaleTriggers: TriggerDef[] = [
     once: true,
   },
   {
-    // 天台剧情：玩家首次进入夏莱天台时，自动触发星野的天台邀约演出（区域事件驱动剧情）。
+    // 天台剧情：玩家已通过星野聊天空间播完天台邀约（hoshino_rooftop_hint 已读）后，
+    // 首次进入夏莱天台时自动触发天台相遇演出（区域事件驱动剧情）。
+    // condition 用 hasReadStory 守住"邀约已发布"门槛：未读邀约前进入天台不会外露该剧情。
     // once 保证只触发一次，避免每次进入都重复播放。
     id: 'base:trigger:hoshino_rooftop_story',
     on: { kind: 'area', areaId: 'base:area:schale_rooftop' },
+    condition: and(cond('hasReadStory', 'base:story:hoshino_rooftop_hint', '==', 1)),
     effects: [
       // 触发天台相遇剧情（独立于聊天空间邀约，避免重复触发同一故事）
       { op: 'triggerStory', target: 'base:story:hoshino_rooftop_meet', value: 0 },
@@ -81,15 +86,14 @@ export const baseInits: InitDef[] = [
   // L1：夏莱办公室 — 免费初始世界线
   // - 始终可见，始终可进入，无购买费用
   // ---------------------------------------------------------
-  {
-    id: 'base:init:schale_office',
-    name: '夏莱办公室',
-    description: '一切故事的起点。作为 Schale 的老师，从这间办公室开始，与学生们一起书写日常。适合新玩家建立第一座经营阵地。',
-    defaultAreas: ['base:area:schale_main'],
-    startStoryId: SCHALE,
-    triggers: schaleTriggers,
-    worldTilt: '0.999',
-  },
+  init('base:init:schale_office')
+    .name('夏莱办公室')
+    .desc('一切故事的起点。作为 Schale 的老师，从这间办公室开始，与学生们一起书写日常。适合新玩家建立第一座经营阵地。')
+    .areas('base:area:schale_main')
+    .startStory(SCHALE)
+    .triggers(...schaleTriggers)
+    .tilt('0.999')
+    .build(),
 
   // ---------------------------------------------------------
   // L2：千禧年学院 — 首个付费世界线
@@ -97,19 +101,16 @@ export const baseInits: InitDef[] = [
   // - reveal.condition / utility 需要积累 300 credit 后才揭示
   // - 揭示后显示 20 青辉石购买，属于温和定价
   // ---------------------------------------------------------
-  {
-    id: 'base:init:millennium',
-    name: '千禧年学院',
-    description: '科技与逻辑的学府。以高效率生产闻名，可解锁工程师长评、自动化流水线等高精尖 Spot。适合追求极致产能的玩家。',
-    defaultAreas: [MILLENNIUM_AREA],
-    purchaseCost: [{ resourceId: Resource.Pyroxene, amount: 20 }],
-    worldTilt: '0.985',
-    revealTriggers: [
-      { reveal: 'name', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 50)) },
-      { reveal: 'condition', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 300)) },
-      { reveal: 'utility', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 300)) },
-    ],
-  },
+  init('base:init:millennium')
+    .name('千禧年学院')
+    .desc('科技与逻辑的学府。以高效率生产闻名，可解锁工程师长评、自动化流水线等高精尖 Spot。适合追求极致产能的玩家。')
+    .areas(MILLENNIUM_AREA)
+    .cost(Resource.Pyroxene, 20)
+    .tilt('0.985')
+    .revealCredit('name', 50)
+    .revealCredit('condition', 300)
+    .revealCredit('utility', 300)
+    .build(),
 
   // ---------------------------------------------------------
   // L3：阿比多斯学院 — 需要积累后才发现
@@ -117,20 +118,17 @@ export const baseInits: InitDef[] = [
   // - 之后逐步揭示名称、条件、描述
   // - 可购买时需要 40 青辉石
   // ---------------------------------------------------------
-  {
-    id: 'base:init:abydos',
-    name: '阿比多斯学院',
-    description: '沙漠中的学园，以高产出 Spot 著称但维护成本不菲。可解锁对策委员会专属设施，产出金币与稀有神名文字。适合已有经营经验的玩家。',
-    defaultAreas: [ABYDOS_AREA],
-    purchaseCost: [{ resourceId: Resource.Pyroxene, amount: 40 }],
-    worldTilt: '0.96',
-    revealTriggers: [
-      { reveal: 'existence', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 800)) },
-      { reveal: 'name', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 800)) },
-      { reveal: 'condition', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 1200)) },
-      { reveal: 'utility', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 1200)) },
-    ],
-  },
+  init('base:init:abydos')
+    .name('阿比多斯学院')
+    .desc('沙漠中的学园，以高产出 Spot 著称但维护成本不菲。可解锁对策委员会专属设施，产出金币与稀有神名文字。适合已有经营经验的玩家。')
+    .areas(ABYDOS_AREA)
+    .cost(Resource.Pyroxene, 40)
+    .tilt('0.96')
+    .revealCredit('existence', 800)
+    .revealCredit('name', 800)
+    .revealCredit('condition', 1200)
+    .revealCredit('utility', 1200)
+    .build(),
 
   // ---------------------------------------------------------
   // L4：崔妮蒂学院 — 需要解锁 2+ 世界线后才可见
@@ -138,23 +136,20 @@ export const baseInits: InitDef[] = [
   // - name 阈值低于 existence（出现后稍早揭示名称）
   // - 可购买需要 80 青辉石
   // ---------------------------------------------------------
-  {
-    id: 'base:init:trinity',
-    name: '崔妮蒂学院',
-    description: '悠久传统的贵族学园，政治与社交的交汇点。可解锁修女会、正义实现委员会等势力 Spot，提供强化 buff 而非直接产出。适合寻求全局增幅的玩家。',
-    defaultAreas: [TRINITY_AREA],
-    purchaseCost: [{ resourceId: Resource.Pyroxene, amount: 80 }],
-    worldTilt: '0.9725',
-    revealTriggers: [
-      { reveal: 'existence', condition: or(
-        and(cond('stat', '$GlobalUnlockedInits', '>=', 2)),
-        and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 2000)),
-      )},
-      { reveal: 'name', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 1000)) },
-      { reveal: 'condition', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 1500)) },
-      { reveal: 'utility', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 1500)) },
-    ],
-  },
+  init('base:init:trinity')
+    .name('崔妮蒂学院')
+    .desc('悠久传统的贵族学园，政治与社交的交汇点。可解锁修女会、正义实现委员会等势力 Spot，提供强化 buff 而非直接产出。适合寻求全局增幅的玩家。')
+    .areas(TRINITY_AREA)
+    .cost(Resource.Pyroxene, 80)
+    .tilt('0.9725')
+    .reveal('existence', or(
+      and(cond('stat', '$GlobalUnlockedInits', '>=', 2)),
+      and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 2000)),
+    ))
+    .revealCredit('name', 1000)
+    .revealCredit('condition', 1500)
+    .revealCredit('utility', 1500)
+    .build(),
 
   // ---------------------------------------------------------
   // L5：盖赫纳学园 — 最终世界线，青辉石唯一来源世界线
@@ -162,23 +157,20 @@ export const baseInits: InitDef[] = [
   // - 另有产出 credit 的渐进 existence 揭示（先出现、后揭示详情）
   // - 购买需要 150 青辉石（Global 货币）
   // ---------------------------------------------------------
-  {
-    id: 'base:init:gehenna',
-    name: '盖赫纳学园',
-    description: '自由奔放的混沌学园，以高风险高回报的 Spot 著称。可解锁美食研究会、风纪委员会等设施，产出青辉石与大量信用点，但伴随随机事件。适合追求刺激的资深玩家。',
-    defaultAreas: [GEHENNA_AREA],
-    purchaseCost: [{ resourceId: Resource.Pyroxene, amount: 150 }],
-    worldTilt: '0.9413',
-    worldTiltAlias: '观测受限（伪装值）',
-    revealTriggers: [
-      { reveal: 'existence', condition: or(
-        and(cond('stat', '$GlobalUnlockedInits', '>=', 3)),
-        and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 4000)),
-      )},
-      { reveal: 'existence', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 2000)) },
-      { reveal: 'name', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 2500)) },
-      { reveal: 'condition', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 3000)) },
-      { reveal: 'utility', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 3000)) },
-    ],
-  },
+  init('base:init:gehenna')
+    .name('盖赫纳学园')
+    .desc('自由奔放的混沌学园，以高风险高回报的 Spot 著称。可解锁美食研究会、风纪委员会等设施，产出青辉石与大量信用点，但伴随随机事件。适合追求刺激的资深玩家。')
+    .areas(GEHENNA_AREA)
+    .cost(Resource.Pyroxene, 150)
+    .tilt('0.9413')
+    .tiltAlias('观测受限（伪装值）')
+    .reveal('existence', or(
+      and(cond('stat', '$GlobalUnlockedInits', '>=', 3)),
+      and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 4000)),
+    ))
+    .revealCredit('existence', 2000)
+    .revealCredit('name', 2500)
+    .revealCredit('condition', 3000)
+    .revealCredit('utility', 3000)
+    .build(),
 ];

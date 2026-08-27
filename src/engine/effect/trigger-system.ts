@@ -22,6 +22,7 @@ import { EventBus } from '../core/event-bus';
 import { ConditionSystem } from '../expression/condition-system';
 import { EffectEngine } from './effect-engine';
 import { EventDrivenReactor } from './event-driven-reactor';
+import { deriveAnonymousId } from '../core/anonymous-id';
 
 export const GLOBAL_TRIGGER_GROUP = 'global';
 
@@ -36,8 +37,11 @@ const ON_KIND_TO_EVENT = {
   area: 'areaEntered',
 } as const;
 
+/** 挂载后的 Trigger：id 必填（显式 id 或匿名派生 id 已归一化）。 */
+type MountedTrigger = TriggerDef & { id: string };
+
 export class TriggerSystem extends EventDrivenReactor {
-  private readonly triggers = new Map<string, TriggerDef>();
+  private readonly triggers = new Map<string, MountedTrigger>();
   /** id → 所属分组（用于整组挂载/移除）。 */
   private readonly groups = new Map<string, string>();
   /** 按事件类型分桶：每个事件只派发给关心该类型的触发器，消除 O(事件×触发器) 全扫描。 */
@@ -64,11 +68,17 @@ export class TriggerSystem extends EventDrivenReactor {
     for (const id of state.triggersCompleted ?? []) this.completed.add(id);
   }
 
-  /** 挂载一个 Trigger（默认归入 global 组）。重复 id 以新定义覆盖。 */
+  /**
+   * 挂载一个 Trigger（默认归入 global 组）。重复 id 以新定义覆盖。
+   * 匿名 Trigger（缺省/空 id）按「分组 + 结构内容」派生确定性身份（带 `anon:` 前缀），
+   * 结构不变 → 身份不变 → once 完成记录可跨存档读写复现；后加载包改动结构则身份变化、旧记录失效。
+   */
   mount(def: TriggerDef, group = GLOBAL_TRIGGER_GROUP): void {
-    this.triggers.set(def.id, def);
-    this.groups.set(def.id, group);
-    this.registerBucket(def);
+    const effectiveId = def.id?.trim() ? def.id : deriveAnonymousId(`anon:trigger:${group}`, def);
+    const normalized: MountedTrigger = { ...def, id: effectiveId };
+    this.triggers.set(effectiveId, normalized);
+    this.groups.set(effectiveId, group);
+    this.registerBucket(normalized);
   }
 
   /** 批量挂载（数据包级）。 */
@@ -126,7 +136,7 @@ export class TriggerSystem extends EventDrivenReactor {
     }
   }
 
-  private registerBucket(def: TriggerDef): void {
+  private registerBucket(def: MountedTrigger): void {
     const type = ON_KIND_TO_EVENT[def.on.kind];
     let set = this.byType.get(type);
     if (!set) { set = new Set<string>(); this.byType.set(type, set); }
@@ -168,7 +178,7 @@ export class TriggerSystem extends EventDrivenReactor {
     }
   }
 
-  private fire(trigger: TriggerDef): void {
+  private fire(trigger: MountedTrigger): void {
     // once 先落账再执行，避免执行产生的级联事件重复触发
     if (trigger.once) {
       this.completed.add(trigger.id);

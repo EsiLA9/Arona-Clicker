@@ -22,6 +22,11 @@ export class EffectEngine {
    * 不写入 PlayerState，由上层按 effect.target（storyId）与 effect.owner（可选沙盒）启动剧情。
    */
   storyStarter: ((effect: Effect) => void) | null = null;
+  /**
+   * 聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatFlow）的处理器：
+   * 由 GameInstance 注入 ChatFlowService。不写入 PlayerState，只发运行时事件供 UI 操作聊天流。
+   */
+  chatFlowHandler: ((effect: Effect) => void) | null = null;
 
   constructor(eventBus: EventBus, mutations?: StateMutationService, private readonly valueSystem?: ValueSystem) {
     this.eventBus = eventBus;
@@ -44,6 +49,10 @@ export class EffectEngine {
       }
       if (effect.op === 'triggerStory') {
         this.storyStarter?.(effect);
+        return false;
+      }
+      if (effect.op === 'clearAllChatFlow' || effect.op === 'showChatText' || effect.op === 'clearIdChatFlow' || effect.op === 'clearAllChatText') {
+        this.chatFlowHandler?.(effect);
         return false;
       }
       return true;

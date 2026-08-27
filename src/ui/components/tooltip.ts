@@ -1,19 +1,16 @@
-import { Character, ConditionGroup, Condition, SpotDef, EnhancementDef, AreaDef, InitDef, ItemDef, StoryEntryDef, RevealStage, RevealTrigger, RevealTarget, PassiveStoryEntry, PassivePoolDef } from '../../engine/types';
-import { TagPath, matchesTag } from '../../engine/core/tag';
-import { existenceCondition, existenceMet, unlockCondition } from '../../engine/visibility/reveal';
-import { parseStatCall } from '../../engine/expression/stat-dsl';
+import { Character, SpotDef, EnhancementDef, AreaDef, InitDef, ItemDef, PassiveStoryEntry, PassivePoolDef, RevealTrigger, RevealTarget } from '../../engine/types';
+import { existenceCondition, unlockCondition } from '../../engine/visibility/reveal';
 import { describeAffectorPack } from '../../engine/effect/affector-text';
 import { UIContext } from '../context';
+import { conditionMet, getAreaReveal, getEnhancementReveal, getInitReveal, getSpotReveal } from './tooltip-reveal';
+import { describeCondition, getSpotYieldBreakdown } from './tooltip-enhancement';
 
-/**
- * 信息可知系统（Info Reveal）——可知性/可达性层级的第二层：揭示。
- * 可见性（实体是否出现）已统一由 revealTriggers 的 existence 目标承担：
- * - Hidden      ：实体不存在于界面（existence 门槛不满足，由 visibilityEngine 快照过滤）
- * - Obfuscated  ：实体可见，但未满足揭示条件，具体数值以 ??? 遮挡
- * - Revealed    ：完整展示所有字段
- * 对应 AccessStage：hidden → obfuscated → revealed。
- */
-export type RevealLevel = 'hidden' | 'obfuscated' | 'revealed';
+// ---- re-export 兼容层（保持 `./components/tooltip` 导入路径不变） ----
+
+export { conditionMet, resolveReveal, getEnhancementReveal, getSpotReveal, getInitReveal, getAreaReveal, getStoryReveal } from './tooltip-reveal';
+export type { RevealLevel, RevealResult, RevealInput } from './tooltip-reveal';
+export { describeStatDsl, describeCondition, getEnhancementMultiplier, getSpotYieldBreakdown } from './tooltip-enhancement';
+export type { YieldBreakdown } from './tooltip-enhancement';
 
 /** 占位符，用于遮挡未揭示的数值。 */
 const OBFUSCATED = '???';
@@ -56,255 +53,6 @@ export function renderRevealTriggers(
     <div class="info-divider"></div>
     <div class="info-sub">揭示 Trigger</div>
     ${rows.join('')}`;
-}
-
-/** 单一条件的达成判定（缺省条件 = 视为达成）。原子条件与条件组均可。 */
-const conditionMet = (
-  cond: Condition | ConditionGroup | undefined,
-  game: { conditionSystem: { evaluateExpr: (g: Condition | ConditionGroup, s: never) => boolean }; state: unknown },
-): boolean =>
-  !cond || game.conditionSystem.evaluateExpr(cond, game.state as never);
-
-/** 由揭示 Trigger 列表计算信息是否已知：无该目标的 Trigger 视为无揭示门槛（已知）；否则任一满足即揭示。 */
-function resolveRevealTriggers(
-  triggers: RevealTrigger[] | undefined,
-  game: { conditionSystem: { evaluateExpr: (g: Condition | ConditionGroup, s: never) => boolean }; state: unknown },
-): { nameKnown: boolean; conditionKnown: boolean; utilityKnown: boolean } {
-  const met = (target: RevealTarget) => {
-    const list = triggers?.filter(t => t.reveal === target) ?? [];
-    if (!list.length) return true;
-    return list.some(t => conditionMet(t.condition, game));
-  };
-  return {
-    nameKnown: met('name'),
-    conditionKnown: met('condition'),
-    utilityKnown: met('utility'),
-  };
-}
-
-/**
- * 统一揭示求值：适用于 Spot / Enhancement / Init / Area / Story 等实体。
- * 从 L0 不可见到 L6 已拥有，逐级收窄信息；可达（可购买/进入/触发）即进入 L5。
- */
-export interface RevealResult {
-  stage: RevealStage;
-  nameKnown: boolean;
-  conditionKnown: boolean;
-  utilityKnown: boolean;
-}
-
-export interface RevealInput {
-  owned: boolean;
-  triggers?: RevealTrigger[];
-  /** 可达性判定（在阶梯解析后调用）：可购买/进入/触发。 */
-  isAccessible: (info: { nameKnown: boolean; conditionKnown: boolean; utilityKnown: boolean }) => boolean;
-}
-
-export function resolveReveal(ctx: UIContext, input: RevealInput): RevealResult {
-  if (input.owned) return { stage: 'owned', nameKnown: true, conditionKnown: true, utilityKnown: true };
-  // L0 存在性：由 revealTriggers 的 existence 目标判定（原 visibilityCondition 的职责）
-  if (!existenceMet(input.triggers, cond => conditionMet(cond, ctx.game))) {
-    return { stage: 'invisible', nameKnown: false, conditionKnown: false, utilityKnown: false };
-  }
-  const info = resolveRevealTriggers(input.triggers, ctx.game);
-  if (input.isAccessible(info)) {
-    return { stage: 'purchaseable', nameKnown: true, conditionKnown: true, utilityKnown: true };
-  }
-  if (info.nameKnown && info.conditionKnown && info.utilityKnown) return { stage: 'utility', ...info };
-  if (info.nameKnown && info.conditionKnown) return { stage: 'known', ...info };
-  if (info.nameKnown || info.conditionKnown) return { stage: 'partial', ...info };
-  return { stage: 'presence', ...info };
-}
-
-/** Enhancement 揭示：解锁条件满足即可购买（L5）。 */
-export function getEnhancementReveal(ctx: UIContext, enh: EnhancementDef): RevealResult {
-  const { view } = ctx;
-  return resolveReveal(ctx, {
-    owned: view.unlockedEnhancements.includes(enh.id),
-    triggers: enh.revealTriggers,
-    isAccessible: () => conditionMet(unlockCondition(enh.revealTriggers), ctx.game),
-  });
-}
-
-/** Spot 揭示：可购买须先揭示信息（无阶梯时兼容：可见即可购）。 */
-export function getSpotReveal(ctx: UIContext, spot: SpotDef): RevealResult {
-  const { view } = ctx;
-  return resolveReveal(ctx, {
-    owned: (view.spotLevels[spot.id] ?? 0) > 0,
-    triggers: spot.revealTriggers,
-    isAccessible: info => !spot.revealTriggers?.length || (info.nameKnown && info.utilityKnown),
-  });
-}
-
-/** Init 揭示：已解锁视为已拥有。 */
-export function getInitReveal(ctx: UIContext, init: InitDef): RevealResult {
-  const { view } = ctx;
-  const unlocked = view.unlockedInits.includes(init.id);
-  return resolveReveal(ctx, {
-    owned: unlocked,
-    triggers: init.revealTriggers,
-    /** 可购买判定：已解锁或免费，或当前资源足够支付购买费用。 */
-    isAccessible: () => {
-      if (unlocked) return true;
-      const cost = init.purchaseCost;
-      if (!cost || cost.length === 0) return true;
-      return cost.every(c => (view.resources[c.resourceId] ?? 0) >= c.amount);
-    },
-  });
-}
-
-/** Area 揭示：已访问视为已拥有。 */
-export function getAreaReveal(ctx: UIContext, area: AreaDef): RevealResult {
-  const { view } = ctx;
-  const visited = (view.visitedAreas ?? []).includes(area.id);
-  return resolveReveal(ctx, {
-    owned: visited,
-    triggers: area.revealTriggers,
-    isAccessible: () => visited,
-  });
-}
-
-/** Story 揭示：入口已完成视为已拥有；可触发（条件满足、未完成且知晓名称）视为可达。 */
-export function getStoryReveal(ctx: UIContext, entry: StoryEntryDef): RevealResult {
-  const { view } = ctx;
-  // 完成判定统一按 Story.id 记（storyLog / completedStoryIdsThisRun）
-  const completed = view.storyLog.some(s => s.storyId === entry.storyId);
-  return resolveReveal(ctx, {
-    owned: completed,
-    triggers: entry.revealTriggers,
-    isAccessible: info =>
-      !completed && conditionMet(entry.triggerCondition, ctx.game) && info.nameKnown,
-  });
-}
-
-/** 统计函数 DSL 的函数名 → 正式文体模板（{init}=世界线名，{key}=资源/物品名）。 */
-const STAT_TEXT: Record<string, string> = {
-  // 产出 / 消耗（key = 资源）
-  $GlobalProducedAmount: '全局累计产出 {key}',
-  $CurrentRunProducedAmount: '本次游玩累计产出 {key}',
-  $InitProducedAmount: '在 {init} 累计产出 {key}',
-  $GlobalConsumedAmount: '全局累计消耗 {key}',
-  $CurrentRunConsumedAmount: '本次游玩累计消耗 {key}',
-  $InitConsumedAmount: '在 {init} 累计消耗 {key}',
-  // 获得 / 使用（key = 物品）
-  $GlobalCollectedAmount: '全局累计获得 {key}',
-  $CurrentRunCollectedAmount: '本次游玩累计获得 {key}',
-  $InitCollectedAmount: '在 {init} 累计获得 {key}',
-  $GlobalUsedAmount: '全局累计使用 {key}',
-  $CurrentRunUsedAmount: '本次游玩累计使用 {key}',
-  $InitUsedAmount: '在 {init} 累计使用 {key}',
-  // 计数类（无 key）
-  $GlobalUnlockedSpots: '全局已解锁设施数',
-  $CurrentRunUnlockedSpots: '本次游玩已解锁设施数',
-  $InitUnlockedSpots: '在 {init} 已解锁设施数',
-  $GlobalUpgradedSpots: '全局升级设施数',
-  $CurrentRunUpgradedSpots: '本次游玩升级设施数',
-  $InitUpgradedSpots: '在 {init} 升级设施数',
-  $GlobalUnlockedEnhancements: '全局已解锁强化数',
-  $CurrentRunUnlockedEnhancements: '本次游玩已解锁强化数',
-  $InitUnlockedEnhancements: '在 {init} 已解锁强化数',
-  $GlobalCompletedStories: '全局已完成剧情数',
-  $CurrentRunCompletedStories: '本次游玩已完成剧情数',
-  $InitCompletedStories: '在 {init} 已完成剧情数',
-  $GlobalUnlockedInits: '全局已解锁世界线数',
-  $CurrentRunUnlockedInits: '本次游玩已解锁世界线数',
-  $InitUnlockedInits: '在 {init} 已解锁世界线数',
-  $GlobalFramesActive: '全局运行帧数',
-  $CurrentRunFramesActive: '本次游玩运行帧数',
-  $InitFramesActive: '在 {init} 运行帧数',
-  $InitFramesInInit: '在 {init} 停留帧数',
-};
-
-/**
- * 将统计函数 DSL（如 `$GlobalProducedAmount base:resource:credit`）转义为正式文体，
- * 供 hover 条件描述展示。无法解析（未知函数 / 缺参）时原样返回。
- */
-export function describeStatDsl(dsl: string, nameOf: (type: string, id: string) => string): string {
-  const q = parseStatCall(dsl);
-  if (!q) return dsl;
-  const template = STAT_TEXT[q.fn];
-  if (!template) return dsl;
-  const key = q.key !== undefined
-    ? nameOf(q.def.metric === 'itemsCollected' || q.def.metric === 'itemsUsed' ? 'item' : 'resource', q.key)
-    : '';
-  const init = q.initId ? nameOf('init', q.initId) : '';
-  return template.replace('{key}', key).replace('{init}', init);
-}
-
-/** 单条原子条件转文本（仅覆盖原型中使用的常见形式）。 */
-function describeConditionItem(c: Condition, nameOf: (type: string, id: string) => string): string {
-  const valueLabel = c.value.toString();
-  switch (c.target) {
-    case 'resource': return `${nameOf('resource', c.key)} ${c.comparator} ${valueLabel}`;
-    case 'spotLevel': return `${nameOf('spot', c.key)} 等级 ${c.comparator} ${valueLabel}`;
-    case 'manager': return `${nameOf('spot', c.key)} 已分配 Manager`;
-    case 'flag': return `标记 ${c.key}`;
-    case 'hasEnh': return `已拥有 ${nameOf('enh', c.key)}`;
-    case 'hasTag': return `拥有 "${c.key}" 标签`;
-    case 'countTags': return `"${c.key}" 标签数 ${c.comparator} ${valueLabel}`;
-    case 'stat': {
-      const statText = describeStatDsl(c.key, nameOf);
-      return `${statText} ${c.comparator} ${valueLabel}`;
-    }
-    case 'hasReadStory': return `已完成故事 ${nameOf('story', c.key)}`;
-    case 'hasReadStoryInRun': return `本次游玩已完成 ${nameOf('story', c.key)}`;
-    default: return `${c.target} ${c.key} ${c.comparator} ${valueLabel}`;
-  }
-}
-
-/** 条件文本描述：单条原子条件或条件组（仅覆盖原型中使用的常见形式）。 */
-export function describeCondition(
-  cond: Condition | ConditionGroup | undefined,
-  nameOf: (type: string, id: string) => string = (_, id) => id,
-): string {
-  if (!cond) return '无条件';
-  if (!('conditions' in cond) || !('type' in cond)) {
-    return describeConditionItem(cond as Condition, nameOf);
-  }
-  const group = cond as ConditionGroup;
-  if (!group.conditions.length) return '无条件';
-  const parts = group.conditions.map(condition => {
-    if ('type' in condition && 'conditions' in condition) {
-      return `(${describeCondition(condition as ConditionGroup, nameOf)})`;
-    }
-    return describeConditionItem(condition as Condition, nameOf);
-  });
-  return parts.join(group.type === 'AND' ? ' 且 ' : ' 或 ');
-}
-
-/** 计算某 Spot 适用的 Enhancement 产出倍率（按 tag 过滤，组内累乘）。作用域全局。 */
-export function getEnhancementMultiplier(ctx: UIContext, spot: SpotDef): number {
-  const spotTags = spot.tags ?? [];
-  return ctx.view.unlockedEnhancements.reduce((multiplier, enhId) => {
-    const enh = ctx.game.registry.enhancements.get(enhId);
-    if (!enh?.productionMultiplier) return multiplier;
-    if (enh.productionTags && enh.productionTags.length > 0
-      && !enh.productionTags.some(query => spotTags.some(declared => matchesTag(declared, query)))) {
-      return multiplier;
-    }
-    return multiplier * enh.productionMultiplier;
-  }, 1);
-}
-
-interface YieldBreakdown {
-  base: number;
-  managerBonus: number;
-  tagMultiplier: number;
-  enhMultiplier: number;
-  total: number;
-}
-
-/** 与 TickSystem 一致的产出分解，供 hover 展示（manager 加成已冻结，恒 0/1）。 */
-export function getSpotYieldBreakdown(ctx: UIContext, spot: SpotDef): YieldBreakdown {
-  const base = ctx.game.valueSystem.evaluate(spot.baseYield, ctx.game.state as never);
-  const enhMultiplier = getEnhancementMultiplier(ctx, spot);
-  return {
-    base,
-    managerBonus: 0,
-    tagMultiplier: 1,
-    enhMultiplier,
-    total: base * enhMultiplier,
-  };
 }
 
 /** 生成 Area 的详情信息面板 HTML（按信息揭示阶梯遮挡）。 */
@@ -511,11 +259,24 @@ export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): st
   const priceRow = purchaseable || reveal.utilityKnown
     ? `<div class="info-row"><span>购买花费</span><span>${ctx.escapeHtml(priceText)}</span></div>`
     : '';
-  const multRow = reveal.utilityKnown && enh.productionMultiplier
-    ? `<div class="info-row"><span>产出倍率</span><span class="info-accent">×${enh.productionMultiplier.toFixed(2)}</span></div>`
+  const allZoneMods = (enh.affectorPackIds ?? []).flatMap(pid => {
+    const pack = ctx.game.affectorEngine?.getPack(pid);
+    return pack ? pack.entries.flatMap(e => e.zoneModifiers ?? []) : [];
+  });
+  const mulMods = allZoneMods.filter(z => z.category === 'mul');
+  const multRow = reveal.utilityKnown && mulMods.length
+    ? `<div class="info-row"><span>产出倍率</span><span class="info-accent">${mulMods.map(z => `×${(typeof z.value === 'number' ? z.value : 1).toFixed(2)}`).join(' · ')}</span></div>`
     : '';
-  const scopeRow = reveal.utilityKnown && enh.productionTags && enh.productionTags.length
-    ? `<div class="info-row"><span>作用范围</span><span>${ctx.escapeHtml(enh.productionTags.map(t => ctx.game.registry.tagName(t)).join(' / '))} 类 Spot</span></div>`
+  const scopeRow = reveal.utilityKnown && mulMods.length
+    ? `<div class="info-row"><span>作用范围</span><span>${mulMods
+        .map(z =>
+          z.target.kind === 'tag'
+            ? `${ctx.game.registry.tagName(z.target.tag)} 类 Spot`
+            : z.target.ref.id === '*'
+            ? '全局'
+            : ctx.nameOf(z.target.ref.kind, z.target.ref.id),
+        )
+        .join(' / ')}</span></div>`
     : '';
 
   const status = owned ? '已激活' : purchaseable ? '可购买' : '未解锁';

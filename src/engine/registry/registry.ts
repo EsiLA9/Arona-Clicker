@@ -24,11 +24,17 @@ import {
   CharacterVariantDef,
   ChatMessageDef,
   ColorDef,
+  ColorEquipmentDef,
+  ColorGroupDef,
   CultivateCurveDef,
   GachaMode,
   GachaPoolDef,
   ResourceDisplayDef,
   TagDef,
+  PicDef,
+  PicKind,
+  parsePicId,
+  CharaProfileDef,
   ExtraCompound,
   ExtraPath,
   ExtraValue,
@@ -46,7 +52,10 @@ export class Registry {
   private _spots: Map<string, SpotDef> = new Map();
   private _enhancements: Map<string, EnhancementDef> = new Map();
   private _stories: Map<string, StoryDef> = new Map();
-  /** 主线 / 支线剧情入口注册表：id 为对外故事 id；演出经 entry.storyId 重定向到 _stories。 */
+  /**
+   * 剧情入口注册表：id 为对外故事 id；演出经 entry.storyId 重定向到 _stories。
+   * 含主线 / 支线 / 羁绊剧情入口（原 KizunaStoryEntry 已并入）。
+   */
   private _activeStories: Map<string, ActiveStoryEntry> = new Map();
   /** 随机闲聊入口注册表：id 为对外故事 id；演出经 entry.storyId 重定向到 _stories。 */
   private _passiveStories: Map<string, PassiveStoryEntry> = new Map();
@@ -61,6 +70,8 @@ export class Registry {
   private _cultivateCurves: Map<string, CultivateCurveDef> = new Map();
   private _gachaPools: Map<string, GachaPoolDef> = new Map();
   private _colors: Map<string, ColorDef> = new Map();
+  private _colorGroups: Map<string, ColorGroupDef> = new Map();
+  private _colorEquipments: Map<string, ColorEquipmentDef> = new Map();
   private _chatMessages: Map<string, ChatMessageDef> = new Map();
   /** 三层归属声明；缺省值见 characterScopeOf。 */
   private _characterPersistConfig: CharacterPersistConfig | undefined;
@@ -68,6 +79,12 @@ export class Registry {
   private _resourceDisplays: Map<string, ResourceDisplayDef> = new Map();
   /** 标签表现定义：路径串（如 'office' / 'office/defense'）→ 名称、简介。 */
   private _tagDefs: Map<string, TagDef> = new Map();
+  /** 图片资产表：完整索引（`mod:type(pic):id`）→ Def。 */
+  private _pics: Map<string, PicDef> = new Map();
+  /** 图片类别索引：typeName → 完整索引集合（由 id 中段推导）。 */
+  private _picsByKind: Map<string, Set<string>> = new Map();
+  /** Chara 资料表：原型 id → 声明。 */
+  private _charaProfiles: Map<Character, CharaProfileDef> = new Map();
   /** Extra 全局常量树：多个数据包 extras 常量表深合并结果（见 docs/13 §5.3）。 */
   private _extras: ExtraCompound = extra.dict({});
 
@@ -83,12 +100,14 @@ export class Registry {
   get spots(): ReadonlyMap<string, SpotDef> { return this._spots; }
   get enhancements(): ReadonlyMap<string, EnhancementDef> { return this._enhancements; }
   get stories(): ReadonlyMap<string, StoryDef> { return this._stories; }
-  /** 主线 / 支线剧情入口（对外故事 id → Entry）。 */
+  /** 剧情入口（对外故事 id → Entry）。 */
   get activeStories(): ReadonlyMap<string, ActiveStoryEntry> { return this._activeStories; }
   /** 随机闲聊入口（对外故事 id → Entry）。 */
   get passiveStories(): ReadonlyMap<string, PassiveStoryEntry> { return this._passiveStories; }
   get passivePools(): ReadonlyMap<string, PassivePoolDef> { return this._passivePools; }
-  /** 剧情入口合并只读视图（active + passive）。供需要统一遍历/按 id 查询的消费方（指纹、可见性、剧情服务）。 */
+  /**
+   * 剧情入口合并只读视图（active + passive）。供需要统一遍历/按 id 查询的消费方（指纹、可见性、剧情服务）。
+   */
   get storyEntries(): ReadonlyMap<string, StoryEntryDef> {
     return new Map<string, StoryEntryDef>([...this._activeStories, ...this._passiveStories]);
   }
@@ -106,6 +125,10 @@ export class Registry {
   get gachaPools(): ReadonlyMap<string, GachaPoolDef> { return this._gachaPools; }
   /** 色彩表（ColorId → Def）。 */
   get colors(): ReadonlyMap<string, ColorDef> { return this._colors; }
+  /** 颜色组表（ColorGroupId → Def）。 */
+  get colorGroups(): ReadonlyMap<string, ColorGroupDef> { return this._colorGroups; }
+  /** 色彩装备表（EquipmentId → Def）。 */
+  get colorEquipments(): ReadonlyMap<string, ColorEquipmentDef> { return this._colorEquipments; }
   /** 聊天流内容表（MessageId → Def）。 */
   get chatMessages(): ReadonlyMap<string, ChatMessageDef> { return this._chatMessages; }
 
@@ -144,12 +167,38 @@ export class Registry {
         }
       }
     }
+    for (const g of this._colorGroups.values()) {
+      for (const slot of g.slots) {
+        if (!this._colors.has(slot.colorId)) {
+          throw new RegistryError(`颜色组 ${g.id} 引用了未定义的颜色 "${slot.colorId}"`);
+        }
+      }
+    }
+    for (const e of this._colorEquipments.values()) {
+      if (!this._colorGroups.has(e.colorGroupId)) {
+        throw new RegistryError(`色彩装备 ${e.id} 引用了未定义的颜色组 "${e.colorGroupId}"`);
+      }
+      if (e.themeColorId && !this._colors.has(e.themeColorId)) {
+        throw new RegistryError(`色彩装备 ${e.id} 引用了未定义的主题色 "${e.themeColorId}"`);
+      }
+    }
   }
   /** 资源条显示条目（数据包声明，驱动 UI 资源条渲染）。 */
   get resourceDisplays(): ReadonlyMap<string, ResourceDisplayDef> { return this._resourceDisplays; }
 
   /** 标签表现定义（路径串 → 名称、简介，驱动 UI 中 Tag 的展示）。 */
   get tagDefs(): ReadonlyMap<string, TagDef> { return this._tagDefs; }
+
+  /** 图片资产表（完整索引 `mod:type(pic):id` → Def）。 */
+  get pics(): ReadonlyMap<string, PicDef> { return this._pics; }
+
+  /** 按用途类别（typeName 段）查询图片完整索引。 */
+  picsOfKind(kind: PicKind): string[] {
+    return [...(this._picsByKind.get(kind) ?? [])];
+  }
+
+  /** Chara 资料表（原型 id → CharaProfileDef）。 */
+  get charaProfiles(): ReadonlyMap<Character, CharaProfileDef> { return this._charaProfiles; }
 
   /**
    * 解析 Tag 的展示名：优先精确匹配 TagDef；否则沿路径逐级向上找最长前缀定义；
@@ -274,10 +323,15 @@ export class Registry {
     this._cultivateCurves.clear();
     this._gachaPools.clear();
     this._colors.clear();
+    this._colorGroups.clear();
+    this._colorEquipments.clear();
     this._chatMessages.clear();
     this._characterPersistConfig = undefined;
     this._resourceDisplays.clear();
     this._tagDefs.clear();
+    this._pics.clear();
+    this._picsByKind.clear();
+    this._charaProfiles.clear();
     this._extras = extra.dict({});
     this._areasByInit.clear();
     this._spotsByArea.clear();
@@ -340,6 +394,12 @@ export class Registry {
     if (dp.colors) {
       for (const c of dp.colors) this._colors.set(c.id, c);
     }
+    if (dp.colorGroups) {
+      for (const g of dp.colorGroups) this._colorGroups.set(g.id, g);
+    }
+    if (dp.colorEquipments) {
+      for (const e of dp.colorEquipments) this._colorEquipments.set(e.id, e);
+    }
     if (dp.chatMessages) {
       for (const m of dp.chatMessages) this._chatMessages.set(m.id, m);
     }
@@ -356,6 +416,18 @@ export class Registry {
     }
     if (dp.tags) {
       for (const t of dp.tags) this._tagDefs.set(t.id, t);
+    }
+    if (dp.pics) {
+      for (const p of dp.pics) {
+        this._pics.set(p.id, p);
+        const parsed = parsePicId(p.id);
+        if (!parsed) continue; // 非法 id 由 registry-validate 加载期拦截；此处防御
+        if (!this._picsByKind.has(parsed.type)) this._picsByKind.set(parsed.type, new Set());
+        this._picsByKind.get(parsed.type)!.add(p.id);
+      }
+    }
+    if (dp.charaProfiles) {
+      for (const cp of dp.charaProfiles) this._charaProfiles.set(cp.id, cp);
     }
     // Extra 常量表：扁平键展开为树后深合并进全局树（后加载覆盖同路径叶子）
     if (dp.extras) {

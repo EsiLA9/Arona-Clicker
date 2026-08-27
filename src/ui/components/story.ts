@@ -35,6 +35,34 @@ export interface ChatEntry {
   side?: 'left' | 'right';
   /** 是否渲染圆形头像（缺省 false = 渲染）。 */
   noAvatar?: boolean;
+  /** 聊天流发送图片：直连 URL 或 `mod:type(pic):id` 三段式图片索引（渲染在气泡内 text 上方）。 */
+  image?: string;
+  timestamp: number;
+}
+
+/** 演出专用文本条目（showChatText）：以聊天窗格百分比坐标定位，带临时 id 供 clearIdChatFlow 擦除。 */
+export interface ChatTextEntry {
+  id: string;
+  /** 直接文本内容（无 talklet 时使用）。 */
+  text?: string;
+  /** 嵌入的标准 Talklet（复用其 speaker/avatar/kind/side/kizuna 渲染，优先于 text）。 */
+  talklet?: import('../../engine/types').Talklet;
+  /** 锚点横坐标（0..1，0=左，1=右）。 */
+  x: number;
+  /** 锚点纵坐标（0..1，0=下，1=上）。 */
+  y: number;
+  /** 相对锚点的对齐方式。 */
+  align: 'left' | 'center' | 'right';
+  /** 视觉格式类别（无 talklet 时生效）。 */
+  kind?: import('../../engine/types/expression').ChatTextKind;
+  /** 样式覆写：字型 / 强制文字颜色 / 背景开关 / 强制背景色。 */
+  style?: import('../../engine/types/expression').ChatTextStyle;
+  /** 标题（kind='kizuna' 使用）。 */
+  title?: string;
+  /** 按钮文案（kind='kizuna' 使用）。 */
+  buttonText?: string;
+  /** 交互目标剧情入口 id（kind='kizuna' 使用）。 */
+  targetStoryId?: string;
   timestamp: number;
 }
 
@@ -42,25 +70,38 @@ export interface ChatEntry {
 function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: string | undefined): string {
   const initial = ctx.escapeHtml((speaker?.trim() || '?').charAt(0).toUpperCase());
   const fallback = `<span class="chat-avatar-fallback">${initial}</span>`;
-  if (!avatar) {
+  // avatar 可为直连 URL 或 `mod:type(pic):id` 三段式图片索引；解析失败回退首字母占位
+  const src = avatar ? ctx.game.getPicUrl(avatar) : undefined;
+  if (!src) {
     return `<span class="chat-avatar">${fallback}</span>`;
   }
-  return `<span class="chat-avatar"><img src="${ctx.escapeHtml(avatar)}" alt="${initial}" loading="lazy" onerror="this.remove()">${fallback}</span>`;
+  return `<span class="chat-avatar"><img src="${ctx.escapeHtml(src)}" alt="${initial}" loading="lazy" onerror="this.remove()">${fallback}</span>`;
 }
 
 /** 对话气泡：左侧圆形头像（NPC）/ 右侧（玩家），对侧上部名字 + 下部小箭头气泡。 */
-function renderTalk(ctx: UIContext, entry: ChatEntry): string {
+function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: string): string {
   const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
   // 仅玩家回复保留"回复"标签（当前注释禁用，见同步流）；NPC 不再显示 PASSIVE/ACTIVE
   const badge = /* entry.isPlayer ? '<span class="chat-kind">回复</span>' : */ '';
+  const styleAttr = inlineStyle ? ` style="${inlineStyle}"` : '';
+  // 聊天流发送图片：pic ref / 直连 URL 经 getPicUrl 解析；解析失败则整图不渲染
+  const image = entry.image ? renderChatImage(ctx, entry.image) : '';
   const bubble = `
-    <div class="chat-bubble chat-bubble-${isRight ? 'player' : 'npc'}">
+    <div class="chat-bubble chat-bubble-${isRight ? 'player' : 'npc'}"${styleAttr}>
+      ${image}
       <p>${ctx.escapeHtml(entry.text)}</p>
     </div>`;
   const main = `<div class="chat-talk-main"><div class="chat-name">${badge}${name}</div>${bubble}</div>`;
   const avatar = entry.noAvatar ? '' : renderAvatar(ctx, entry.avatar, entry.speaker);
   return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}">${avatar}${main}</div>`;
+}
+
+/** 聊天气泡内嵌图片：pic ref / 直连 URL 经 getPicUrl 解析；解析失败返回空串（不渲染）。 */
+function renderChatImage(ctx: UIContext, ref: string): string {
+  const src = ctx.game.getPicUrl(ref);
+  if (!src) return '';
+  return `<img class="chat-image" src="${ctx.escapeHtml(src)}" alt="" loading="lazy">`;
 }
 
 /** 场间旁白：横跨聊天流宽度，支持 center/left/right 对齐。 */
@@ -118,6 +159,131 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
  */
 export function renderCurrentStory(ctx: UIContext, story: StoryView): string {
   const choices = story.page.choices ?? [];
-  if (choices.length === 0) return '';
-  return `<div class="chat-current">${renderReplyCard(ctx, choices, story.availableChoiceIndexes)}</div>`;
+  if (choices.length > 0) return `<div class="chat-current">${renderReplyCard(ctx, choices, story.availableChoiceIndexes)}</div>`;
+  // 羁绊剧情：渲染 yuzu-kizuna 卡片在流内，点击启动目标 ActiveStoryEntry
+  if (story.page.kizuna) {
+    return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna)}</div>`;
+  }
+  return '';
+}
+
+/** 渲染演出专用文本覆盖层（showChatText）：以聊天窗格百分比坐标定位（0,0=左下，1,1=右上）。 */
+export function renderChatTexts(ctx: UIContext, entries: ChatTextEntry[]): string {
+  if (entries.length === 0) return '';
+  return entries
+    .map(entry => {
+      const pctX = Math.round(Math.min(1, Math.max(0, entry.x)) * 100);
+      const pctY = Math.round(Math.min(1, Math.max(0, entry.y)) * 100);
+      const alignCls = entry.align === 'right' ? 'align-right' : entry.align === 'center' ? 'align-center' : 'align-left';
+      const inline = overlayInlineStyle(entry.style);
+      const body = entry.talklet
+        ? renderOverlayTalklet(ctx, entry.talklet, entry.targetStoryId, inline)
+        : renderOverlayText(ctx, entry, inline);
+      return `
+      <div class="chat-text-overlay ${alignCls}" data-chat-text="${ctx.escapeHtml(entry.id)}" style="left: ${pctX}%; bottom: ${pctY}%;">
+        ${body}
+      </div>`;
+    })
+    .join('');
+}
+
+/** 把样式覆写转成内联 style 属性值（直接挂到展示元素上，确保最高优先级）。 */
+function overlayInlineStyle(style: ChatTextEntry['style']): string {
+  if (!style) return '';
+  const parts: string[] = [];
+  if (style.font) parts.push(`font-family:${chatTextFontStack(style.font)}`);
+  if (style.fontSize) parts.push(`font-size:${style.fontSize}`);
+  if (style.color) parts.push(`color:${style.color}`);
+  if (style.backgroundColor) parts.push(`background:${style.backgroundColor}`);
+  if (style.background === false) {
+    parts.push(`background:transparent`);
+    parts.push(`border-color:transparent`);
+    parts.push(`box-shadow:none`);
+  }
+  return parts.join(';');
+}
+
+/** 字型类别 → CSS font-family 栈。 */
+function chatTextFontStack(font: import('../../engine/types/expression').ChatTextFont): string {
+  const stacks: Record<string, string> = {
+    serif: `'Georgia', 'Noto Serif SC', 'Songti SC', serif`,
+    sans: `'Segoe UI', 'Noto Sans SC', 'PingFang SC', sans-serif`,
+    mono: `'DM Mono', 'JetBrains Mono', 'Consolas', monospace`,
+    handwritten: `'Comic Sans MS', 'KaiTi', '楷体', cursive`,
+  };
+  return stacks[font] ?? 'inherit';
+}
+
+/** 覆盖层直接文本：按 kind 选择视觉模板（default 简洁气泡 / title 大标题 / badge 标签 / note 弱化 / kizuna 羁绊卡片）。样式以内联属性直接挂在展示元素上。 */
+function renderOverlayText(ctx: UIContext, entry: ChatTextEntry, inline: string): string {
+  const text = ctx.escapeHtml(entry.text ?? '');
+  const styleAttr = inline ? ` style="${inline}"` : '';
+  switch (entry.kind) {
+    case 'title':
+      return `<div class="chat-text-title"${styleAttr}><span>${text}</span></div>`;
+    case 'badge':
+      return `<div class="chat-text-badge"${styleAttr}><span>${text}</span></div>`;
+    case 'note':
+      return `<div class="chat-text-note"${styleAttr}><span>${text}</span></div>`;
+    case 'kizuna':
+      return renderKizunaCard(ctx, {
+        storyId: entry.targetStoryId ?? '',
+        title: entry.title,
+        buttonText: entry.buttonText,
+      });
+    default:
+      return `<span class="chat-text-overlay-inner"${styleAttr}>${text}</span>`;
+  }
+}
+
+/** 覆盖层嵌入标准 Talklet：复用 talk/narration/kizuna 渲染管线。样式以内联属性挂在气泡/旁白上。 */
+function renderOverlayTalklet(ctx: UIContext, tl: import('../../engine/types').Talklet, targetStoryId?: string, inline?: string): string {
+  const styleAttr = inline ? ` style="${inline}"` : '';
+  if (tl.kizuna || targetStoryId) {
+    const kizuna = tl.kizuna ?? { storyId: targetStoryId ?? '' };
+    return renderKizunaCard(ctx, { storyId: kizuna.storyId, title: kizuna.title, buttonText: kizuna.buttonText });
+  }
+  if (tl.kind === 'narration') {
+    return `<div class="chat-narration chat-narration-${tl.align ?? 'center'}"><span class="chat-narration-text"${styleAttr}>${ctx.escapeHtml(tl.text)}</span></div>`;
+  }
+  return renderTalk(ctx, {
+    id: 0,
+    kind: 'talk',
+    speaker: tl.speaker,
+    text: tl.text,
+    avatar: tl.avatar,
+    image: tl.image,
+    side: tl.side,
+    noAvatar: tl.noAvatar,
+    timestamp: 0,
+  }, inline);
+}
+
+/** 羁绊剧情卡片（yuzu-kizuna 结构，渲染在聊天流中）。 */
+function renderKizunaCard(
+  ctx: UIContext,
+  kizuna: NonNullable<StoryView['page']['kizuna']>,
+): string {
+  const title = ctx.escapeHtml(kizuna.title ?? '羁绊事件');
+  const buttonText = ctx.escapeHtml(kizuna.buttonText ?? '进入羁绊剧情');
+  const alignCls = kizuna.align === 'right' ? ' align-right' : ' align-left';
+  const entryId = ctx.escapeHtml(kizuna.storyId);
+  return `
+    <div class="kizuna-card${alignCls}" data-kizuna="${entryId}">
+      <div class="yuzu-item yuzu-special-item">
+        <div class="yuzu-kizuna-item">
+          <div class="yuzu-kizuna-header">
+            <span class="text">${title}</span>
+          </div>
+          <div class="yuzu-kizuna-heart">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" height="100%">
+              <path d="M58.5 8.2a18.7 18.7 0 00-26.5 0 18.7 18.7 0 00-26.5 0 18.7 18.7 0 000 26.5L32 61.3l26.5-26.6a18.7 18.7 0 000-26.5z" fill="#FFD1DB"></path>
+            </svg>
+          </div>
+          <div class="yuzu-kizuna-footer">
+            <span class="text">${buttonText}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
 }

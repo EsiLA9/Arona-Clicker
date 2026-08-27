@@ -1,255 +1,166 @@
-// ============================================================
-// data/base/enhancements.ts — 基础 Enhancement 定义
-// ============================================================
+import { Resource, enhancement } from '../../engine/types';
+import type { EnhancementDef } from '../../engine/types';
 
-import { EnhancementDef, and, or, Resource } from '../../engine/types';
-import { tagPath } from '../../engine/core/tag';
+const CREDIT = Resource.Credit;
+const PYROXENE = Resource.Pyroxene;
 
+/**
+ * 基础增强包。所有产出加成统一经 affectorPackIds 挂载的 Affector 包声明
+ *（其 zoneModifiers 经桥接层转写为 PlayerState 的 tag/entity 效果，由 GameNum 的
+ * zone 叶子聚合；不再使用 EnhancementDef.productionMultiplier/productionTags）。
+ */
 export const baseEnhancements: EnhancementDef[] = [
-  {
-    id: 'base:enh:credit_system',
-    name: '信用点流通优化',
-    description: '优化夏莱内部信用点的流通效率。全部 Spot 的信用点产出 +50%。',
-    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'resource', key: Resource.Credit, comparator: '>=', value: 50 }) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.5,
-    price: [{ resourceId: Resource.Credit, amount: 100 }],
-    // 挂靠（UI 显示位置）：仅在夏莱主厅展示；作用域仍为全局
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
-  {
-    id: 'base:enh:office_layout',
-    name: '办公区整合计划',
-    description: '重新规划办公区域的动线，让办公室类 Spot 运转更高效。',
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.25,
-    productionTags: [tagPath('office')],
-    price: [{ resourceId: Resource.Credit, amount: 150 }],
-    // 信息揭示示例：随 credit_printer 等级逐级点亮 名称 → 名称+条件 → 效用
-    revealTriggers: [
-      { reveal: 'unlock', condition: and({ target: 'spotLevel', key: 'base:spot:credit_printer', comparator: '>=', value: 2 }) },
-      { reveal: 'name', condition: and({ target: 'spotLevel', key: 'base:spot:credit_printer', comparator: '>=', value: 2 }) },
-      { reveal: 'condition', condition: and({ target: 'spotLevel', key: 'base:spot:credit_printer', comparator: '>=', value: 1 }) },
-      { reveal: 'utility', condition: and({ target: 'spotLevel', key: 'base:spot:credit_printer', comparator: '>=', value: 3 }) },
-    ],
-  },
-  {
-    id: 'base:enh:field_logistics',
-    name: '野外补给网络',
-    description: '建立野外补给线路，提升野外与战术类 Spot 的产出。',
-    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'spotLevel', key: 'base:spot:field_work', comparator: '>=', value: 2 }) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.35,
-    productionTags: [tagPath('field'), tagPath('combat'), tagPath('tactical')],
-    price: [{ resourceId: Resource.Credit, amount: 200 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-    // 外源功能：获得后为命中的野外/战术 Spot 注入"结束当前游戏（重选 Init）"功能
-    addsFunctionalities: [
-      { id: 'base:func:field_restart', kind: 'restartInit' },
-    ],
-  },
+  enhancement('base:enh:credit_system')
+    .name('财政系统升级').desc('全局信用点产出 ×1.5。')
+    .tags(['core'])
+    .affectorPack('base:pack:credit_system_mult')
+    .cost(CREDIT, 200)
+    .build(),
 
-  // ============================================================
-  // 条件验证 Enhancement：覆盖 AND / OR / 嵌套场景
-  // ============================================================
+  enhancement('base:enh:office_layout')
+    .name('办公室动线优化').desc('office 标签 Spot 产出 ×1.25。')
+    .tags(['core'])
+    .affectorPack('base:pack:office_layout_mult')
+    .cost(CREDIT, 150)
+    .build(),
 
-  // 1. 纯 AND（两个独立条件）
-  {
-    id: 'base:enh:test_and_simple',
-    name: '【测试·与】双条件并联',
-    description: '[AND 条件验证] 需求：信用点 ≥100 且 信用点制造机 ≥2级。两个条件都必须满足才能解锁。',
-    revealTriggers: [{ reveal: 'unlock', condition: and(
-      { target: 'resource', key: Resource.Credit, comparator: '>=', value: 100 },
-      { target: 'spotLevel', key: 'base:spot:credit_printer', comparator: '>=', value: 2 },
-    ) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.1,
-    price: [{ resourceId: Resource.Credit, amount: 30 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
+  enhancement('base:enh:field_logistics')
+    .name('野外后勤协议')
+    .desc('field / combat / tactical 标签 Spot 产出 ×1.35；并为其注入「重启进程」外源功能。')
+    .tags(['field'], ['field', 'logistics'])
+    .affectorPack('base:pack:field_logistics_mult')
+    .cost(CREDIT, 200)
+    .addsFunctionality({ id: 'restart', kind: 'restartInit' })
+    .build(),
 
-  // 2. 纯 OR（任一满足即可）
-  {
-    id: 'base:enh:test_or_simple',
-    name: '【测试·或】二选一入口',
-    description: '[OR 条件验证] 需求：野外调查站 ≥1级 或 战术指挥台 ≥1级。只需满足其中一个即可解锁。',
-    revealTriggers: [{ reveal: 'unlock', condition: or(
-      { target: 'spotLevel', key: 'base:spot:field_work', comparator: '>=', value: 1 },
-      { target: 'spotLevel', key: 'base:spot:tactical_desk', comparator: '>=', value: 1 },
-    ) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.15,
-    productionTags: [tagPath('field'), tagPath('tactical'), tagPath('combat')],
-    price: [{ resourceId: Resource.Credit, amount: 40 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
+  enhancement('base:enh:combat_drone')
+    .name('战斗无人机').desc('combat 标签 Spot 产出 ×1.35。')
+    .tags(['combat'], ['combat', 'tech'])
+    .affectorPack('base:pack:combat_drone_mult')
+    .cost(CREDIT, 200)
+    .build(),
 
-  // 3. AND 内嵌套 OR
-  {
-    id: 'base:enh:test_and_nested_or',
-    name: '【测试·与或】配置达标线',
-    description: '[AND(OR) 嵌套验证] 需求：信用点 ≥200 且 (战术指挥台 ≥2级 或 已拥有信用点流通优化)。内层 OR 任一满足 + 外层 AND 必满足。',
-    revealTriggers: [{ reveal: 'unlock', condition: and(
-      { target: 'resource', key: Resource.Credit, comparator: '>=', value: 200 },
-      or(
-        { target: 'spotLevel', key: 'base:spot:tactical_desk', comparator: '>=', value: 2 },
-        { target: 'hasEnh', key: 'base:enh:credit_system', comparator: '==', value: 1 },
-      ),
-    ) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.3,
-    price: [{ resourceId: Resource.Credit, amount: 100 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
+  enhancement('base:enh:field_medicine')
+    .name('战地医疗').desc('活化（医疗）加成，医疗站恢复量提升。')
+    .tags(['field'], ['field', 'medical'])
+    .cost(CREDIT, 180)
+    .build(),
 
-  // 4. 多条件纯 AND（三种不同 target）
-  {
-    id: 'base:enh:test_multi_and',
-    name: '【测试·与】三重证书',
-    description: '[多条件 AND 验证] 需求：拥有 office 标签的 Spot 且 信用点制造机已派人 且 信用点 ≥150。三种不同类型的条件必须同时满足。',
-    revealTriggers: [{ reveal: 'unlock', condition: and(
-      { target: 'hasTag', key: 'office', comparator: '==', value: 1 },
-      { target: 'manager', key: 'base:spot:credit_printer', comparator: '==', value: 1 },
-      { target: 'resource', key: Resource.Credit, comparator: '>=', value: 150 },
-    ) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.2,
-    price: [{ resourceId: Resource.Credit, amount: 80 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
+  enhancement('base:enh:intel_network')
+    .name('情报网络').desc('情报处理效率提升。')
+    .tags(['intel'], ['intel', 'network'])
+    .cost(CREDIT, 160)
+    .build(),
 
-  // 5. 多条件纯 OR（四个条件任意满足）
-  {
-    id: 'base:enh:test_multi_or',
-    name: '【测试·或】四海皆可',
-    description: '[多条件 OR 验证] 需求：已拥有信用点流通优化 或 办公区整合计划 或 野外补给网络 或 信用点 ≥300。四个条件满足任意一个即可解锁。',
-    revealTriggers: [{ reveal: 'unlock', condition: or(
-      { target: 'hasEnh', key: 'base:enh:credit_system', comparator: '==', value: 1 },
-      { target: 'hasEnh', key: 'base:enh:office_layout', comparator: '==', value: 1 },
-      { target: 'hasEnh', key: 'base:enh:field_logistics', comparator: '==', value: 1 },
-      { target: 'resource', key: Resource.Credit, comparator: '>=', value: 300 },
-    ) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.05,
-    price: [{ resourceId: Resource.Credit, amount: 20 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
+  enhancement('base:enh:training_program')
+    .name('训练计划').desc('人员效率提升。')
+    .tags(['core'])
+    .cost(CREDIT, 120)
+    .build(),
 
-  // 6. OR 内嵌套 AND（两组 AND 取 OR）
-  {
-    id: 'base:enh:test_or_nested_and',
-    name: '【测试·或与】双路线进阶',
-    description: '[OR(AND) 嵌套验证] 需求：(信用点 ≥200 且 信用点制造机 ≥3级) 或 (信用点 ≥100 且 野外调查站 ≥2级)。两组 AND 满足任意一组即可解锁。',
-    revealTriggers: [{ reveal: 'unlock', condition: or(
-      and(
-        { target: 'resource', key: Resource.Credit, comparator: '>=', value: 200 },
-        { target: 'spotLevel', key: 'base:spot:credit_printer', comparator: '>=', value: 3 },
-      ),
-      and(
-        { target: 'resource', key: Resource.Credit, comparator: '>=', value: 100 },
-        { target: 'spotLevel', key: 'base:spot:field_work', comparator: '>=', value: 2 },
-      ),
-    ) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.25,
-    price: [{ resourceId: Resource.Credit, amount: 120 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
+  enhancement('base:enh:medical_station')
+    .name('医疗站扩建').desc('医疗站产能提升。')
+    .tags(['field'], ['field', 'medical'])
+    .cost(CREDIT, 180)
+    .build(),
 
-  // ============================================================
-  // 各学院专属 Enhancement
-  // ============================================================
+  enhancement('base:enh:rapid_deployment')
+    .name('快速部署').desc('部署速度提升。')
+    .tags(['field'])
+    .cost(CREDIT, 140)
+    .build(),
 
-  // 夏莱 — 能量饮料后勤（演示 Enhancement 承载持续 Affector）
-  {
-    id: 'base:enh:energy_supply',
-    name: '能量饮料后勤',
-    description: '建立战术能量饮料的稳定供应渠道，每 tick 自动恢复 1 信用点。',
-    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'resource', key: Resource.Credit, comparator: '>=', value: 50 }) }],
-    effects: [],
-    autoApply: true,
-    affectorPackIds: ['base:pack:energy_drink'],
-    price: [{ resourceId: Resource.Credit, amount: 50 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
+  enhancement('base:enh:area_hub')
+    .name('区域枢纽').desc('区域中转效率提升。')
+    .tags(['area'])
+    .cost(CREDIT, 220)
+    .build(),
 
-  // ============================================================
-  // 测试 Enhancement：青辉石量产（极大提升抽卡货币获得率）
-  // ============================================================
-  {
-    id: 'base:enh:pyroxene_rush',
-    name: '【测试·青辉石】什亭之匣的财源',
-    description: '[测试用] 接入青辉石提纯回路，每 tick 自动产出 2500 青辉石——招募补给从此无忧。',
-    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'resource', key: Resource.Credit, comparator: '>=', value: 30 }) }],
-    effects: [],
-    autoApply: true,
-    affectorPackIds: ['base:pack:pyroxene_flow'],
-    price: [{ resourceId: Resource.Credit, amount: 30 }],
-    attachment: { kind: 'area', areaId: 'base:area:schale_main' },
-  },
+  enhancement('base:enh:research_grant')
+    .name('研究拨款').desc('全局产出 ×1.4（研究加成）。')
+    .tags(['core'])
+    .affectorPack('base:pack:research_grant_mult')
+    .cost(CREDIT, 260)
+    .build(),
 
-  // 阿比多斯 — 沙漠生存指南
-  {
-    id: 'base:enh:desert_survival',
-    name: '沙漠生存指南',
-    description: '阿比多斯对策委员会积累的沙漠作战经验。野外与防御类 Spot 产出 +40%。',
-    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'spotLevel', key: 'base:spot:abydos_rehab', comparator: '>=', value: 2 }) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.4,
-    productionTags: [tagPath('field'), tagPath('defense'), tagPath('training')],
-    price: [{ resourceId: Resource.Credit, amount: 180 }],
-    attachment: { kind: 'area', areaId: 'base:area:abydos_campus' },
-  },
+  enhancement('base:enh:investment_fund')
+    .name('投资基金').desc('全局产出 ×1.3（资金杠杆）。')
+    .tags(['core'])
+    .affectorPack('base:pack:investment_fund_mult')
+    .cost(CREDIT, 240)
+    .build(),
 
-  // 千禧年 — 数据挖掘协议
-  {
-    id: 'base:enh:data_mining',
-    name: '数据挖掘协议',
-    description: '千禧年工程部研发的高效数据挖矿算法。科技与情报类 Spot 产出 +50%。',
-    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'spotLevel', key: 'base:spot:millennium_lab', comparator: '>=', value: 2 }) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.5,
-    productionTags: [tagPath('tech'), tagPath('intel'), tagPath('data')],
-    price: [{ resourceId: Resource.Credit, amount: 220 }],
-    attachment: { kind: 'area', areaId: 'base:area:millennium_lab' },
-  },
+  enhancement('base:enh:pyroxene_rush')
+    .name('燧石速采').desc('全局燧石产出 ×1.8；并额外 +1 燧石/分钟。')
+    .tags(['field'])
+    .affectorPacks('base:pack:pyroxene_flow', 'base:pack:pyroxene_rush_mult')
+    .cost(PYROXENE, 20)
+    .build(),
 
-  // 崔妮蒂 — 圣所祝福
-  {
-    id: 'base:enh:cathedral_blessing',
-    name: '圣所祝福',
-    description: '崔妮蒂大圣堂的祝福降临。信仰与礼仪类 Spot 产出 +35%。',
-    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'spotLevel', key: 'base:spot:trinity_donation', comparator: '>=', value: 2 }) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.35,
-    productionTags: [tagPath('faith'), tagPath('courtesy')],
-    price: [{ resourceId: Resource.Credit, amount: 200 }],
-    attachment: { kind: 'area', areaId: 'base:area:trinity_cathedral' },
-  },
+  enhancement('base:enh:tactical_command')
+    .name('战术指挥').desc('tactical 标签 Spot 产出 ×1.3。')
+    .tags(['tactical'], ['tactical', 'command'])
+    .affectorPack('base:pack:tactical_command_mult')
+    .cost(CREDIT, 200)
+    .build(),
 
-  // 盖赫纳 — 万魔殿的「效率」
-  {
-    id: 'base:enh:gehenna_discipline',
-    name: '万魔殿的效率学',
-    description: '看似混乱的万魔殿，其实有着一套独特的效率法则。行政与商业类 Spot 产出 +40%。',
-    revealTriggers: [{ reveal: 'unlock', condition: and({ target: 'spotLevel', key: 'base:spot:gehenna_hall', comparator: '>=', value: 2 }) }],
-    effects: [],
-    autoApply: true,
-    productionMultiplier: 1.4,
-    productionTags: [tagPath('admin'), tagPath('business'), tagPath('outlaw')],
-    price: [{ resourceId: Resource.Credit, amount: 210 }],
-    attachment: { kind: 'area', areaId: 'base:area:gehenna_council' },
-  },
+  enhancement('base:enh:supply_chain')
+    .name('供应链优化').desc('全局产出 ×1.6（后勤加成）。')
+    .tags(['core'])
+    .affectorPack('base:pack:supply_chain_mult')
+    .cost(CREDIT, 300)
+    .build(),
+
+  enhancement('base:enh:energy_supply')
+    .name('能源供给').desc('全局产出 ×1.25；并额外 +1 信用点/分钟。')
+    .tags(['core'])
+    .affectorPacks('base:pack:energy_drink', 'base:pack:energy_supply_mult')
+    .cost(CREDIT, 150)
+    .build(),
+
+  enhancement('base:enh:sanctuary_field')
+    .name('庇护所协议').desc('全局产出 ×1.5（庇护所加成）。')
+    .tags(['core'])
+    .affectorPack('base:pack:sanctuary_field_mult')
+    .cost(CREDIT, 280)
+    .build(),
+
+  // 测试用：初始免费，每 tick +2500 青辉石
+  enhancement('base:enh:test_pyroxene_cheat')
+    .name('代号：燧石·改').desc('每 tick +2500 青辉石（测试专用）。')
+    .tags(['core'])
+    .affectorPack('base:pack:pyroxene_flow')
+    .build(),
+];
+
+/**
+ * 全局强化（GlobalEnhancement）：attachment.kind = 'global'，只经「选择页 → 翻面 → 全局强化」
+ * 购买/启用（热插拔），不进入右侧强化面板。全局作用域经 affectorPackIds 的 zoneModifiers 声明。
+ * irreversible 的强化获得后不可撤回。
+ */
+export const baseGlobalEnhancements: EnhancementDef[] = [
+  enhancement('base:enh:foundation')
+    .name('全能基建').desc('全局信用点产出 ×2.0（基建奠基）。')
+    .tags(['core'])
+    .attachGlobal()
+    .affectorPack('base:pack:foundation_mult')
+    .cost(PYROXENE, 50)
+    .build(),
+
+  enhancement('base:enh:unified_logistics')
+    .name('全域物流').desc('每 tick 额外 +1 信用点（全域物流）。')
+    .tags(['core'], ['logistics'])
+    .attachGlobal()
+    .affectorPack('base:pack:unified_logistics_flow')
+    .cost(CREDIT, 500)
+    .build(),
+
+  enhancement('base:enh:eternal_contract')
+    .name('永恒契约').desc('全局产出 ×1.5（不可撤回）。')
+    .tags(['core'])
+    .attachGlobal()
+    .irreversible()
+    .affectorPack('base:pack:eternal_contract_mult')
+    .cost(PYROXENE, 150)
+    .build(),
 ];

@@ -4,6 +4,14 @@ import { getAreaReveal, getStoryReveal, describeCondition } from './tooltip';
 import { renderContactsTab } from './contacts';
 import type { ActiveStoryEntry, StoryDef } from '../../engine/types';
 import type { PanelState } from './app-shell';
+import {
+  baseStoryHierarchy,
+  StoryContentTable,
+  StoryContentCategoryDef,
+  StoryContentPartDef,
+  StoryContentChapterDef,
+  StoryContentItem,
+} from '../../data/base/story-hierarchy';
 
 const LEFT_TABS: TabDef[] = [
   { id: 'area', label: '区域' },
@@ -16,7 +24,7 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
   let body: string;
   let tab: string;
   switch (activeTab) {
-    case 'story': body = renderStoryTab(ctx); tab = 'story'; break;
+    case 'story': body = renderStoryTab(ctx, panelState); tab = 'story'; break;
     case 'contacts': body = renderContactsTab(ctx, selectedVariantId, panelState.studentChats, panelState.getUnread); tab = 'contacts'; break;
     default: body = renderAreaTab(ctx); tab = 'area'; break;
   }
@@ -81,7 +89,6 @@ function renderAreaTab(ctx: UIContext): string {
 
   return `
     ${hero}
-    <div class="panel-heading"><span class="eyebrow">NAVIGATION</span><span class="index">01</span></div>
     <div class="nav-sub">当前位置</div>
     ${currentRow}
     <div class="nav-sub">可前往区域</div>
@@ -89,67 +96,184 @@ function renderAreaTab(ctx: UIContext): string {
     <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>${storyLocked ? '剧情演出中，暂不可移动区域。' : '点击可前往的区域即可移动；锁定区域需满足条件后才会开放。'}</p></div>`;
 }
 
-function renderStoryTab(ctx: UIContext): string {
+function renderStoryTab(ctx: UIContext, panelState: PanelState): string {
+  const hierarchy = baseStoryHierarchy;
+  const path = panelState.storyNavPath;
+  return `
+    ${renderStoryBreadcrumb(ctx, hierarchy, path)}
+    <div class="story-nav-body">${renderStoryLevel(ctx, hierarchy, path)}</div>`;
+}
+
+/** 面包屑导航：点击任一级返回对应深度（0 = 分类页）。 */
+function renderStoryBreadcrumb(ctx: UIContext, h: StoryContentTable, path: string[]): string {
+  const crumbs: { label: string; depth: number; current: boolean }[] = [{ label: '故事', depth: 0, current: path.length === 0 }];
+  if (path.length >= 1) {
+    const cat = h.categories.find(c => c.id === path[0]);
+    if (cat) crumbs.push({ label: cat.name, depth: 1, current: path.length === 1 });
+  }
+  if (path.length >= 2) {
+    const part = h.categories.find(c => c.id === path[0])?.parts.find(p => p.id === path[1]);
+    if (part) crumbs.push({ label: part.name, depth: 2, current: path.length === 2 });
+  }
+  if (path.length >= 3) {
+    const ch = h.categories.find(c => c.id === path[0])?.parts.find(p => p.id === path[1])?.chapters?.find(ch => ch.id === path[2]);
+    if (ch) crumbs.push({ label: ch.name, depth: 3, current: true });
+  }
+  const items = crumbs.map((c, i) => {
+    const sep = i > 0 ? '<span class="story-crumb-sep">/</span>' : '';
+    const btn = c.current
+      ? `<span class="story-crumb current">${ctx.escapeHtml(c.label)}</span>`
+      : `<button class="story-crumb" data-story-back="${c.depth}">${ctx.escapeHtml(c.label)}</button>`;
+    return `${sep}${btn}`;
+  }).join('');
+  return `<div class="story-breadcrumb">${items}</div>`;
+}
+
+/** 按导航路径渲染对应层级内容。 */
+function renderStoryLevel(ctx: UIContext, h: StoryContentTable, path: string[]): string {
+  // 层级 1：分类选择（仅显示当前 init 有可用项的的分类）
+  if (path.length === 0) {
+    const cats = h.categories
+      .filter(cat => countItemsInCategory(ctx, cat) > 0)
+      .map(cat => {
+        const count = countItemsInCategory(ctx, cat);
+        return `
+        <button class="nav-item story-nav-btn" data-story-nav="${cat.id}">
+          <span class="nav-marker"></span><span>${ctx.escapeHtml(cat.name)}</span><small>${count} 项</small>
+        </button>`;
+      }).join('');
+    const archive = `
+      <button class="nav-item story-nav-btn" data-story-archive="1">
+        <span class="nav-marker"></span><span>档案</span><small>记录</small>
+      </button>`;
+    const catsBody = cats || '<div class="nav-item"><span class="nav-marker"></span><span>当前世界线暂无故事</span></div>';
+    return `${catsBody}${archive}`;
+  }
+
+  const cat = h.categories.find(c => c.id === path[0]);
+  if (!cat) return '<div class="nav-item"><span class="nav-marker"></span><span>未知分类</span></div>';
+
+  // 层级 2：篇选择（仅显示当前 init 可用的篇）
+  if (path.length === 1) {
+    const parts = cat.parts
+      .filter(part => countItemsInPart(ctx, part) > 0)
+      .map(part => {
+        const count = countItemsInPart(ctx, part);
+        const label = part.chapters ? `${part.name} · ${part.chapters.length} 章` : part.name;
+        return `
+        <button class="nav-item story-nav-btn" data-story-nav="${cat.id}:${part.id}">
+          <span class="nav-marker"></span><span>${ctx.escapeHtml(label)}</span><small>${count} 项</small>
+        </button>`;
+      }).join('');
+    return parts || '<div class="nav-item"><span class="nav-marker"></span><span>暂无篇目</span></div>';
+  }
+
+  const part = cat.parts.find(p => p.id === path[1]);
+  if (!part) return '<div class="nav-item"><span class="nav-marker"></span><span>未知篇目</span></div>';
+
+  // 层级 3：章选择（仅主线故事有章层级，仅显示当前 init 可用的章）
+  if (path.length === 2 && part.chapters) {
+    const chapters = part.chapters
+      .filter(ch => availableItemsInChapter(ctx, ch).length > 0)
+      .map(ch => {
+        const count = availableItemsInChapter(ctx, ch).length;
+        return `
+        <button class="nav-item story-nav-btn" data-story-nav="${cat.id}:${part.id}:${ch.id}">
+          <span class="nav-marker"></span><span>${ctx.escapeHtml(ch.name)}</span><small>${count} 项</small>
+        </button>`;
+      }).join('');
+    return chapters || '<div class="nav-item"><span class="nav-marker"></span><span>暂无章节</span></div>';
+  }
+
+  // 层级 4 / 末级：故事小项列表
+  return resolveItemsAt(ctx, h, path);
+}
+
+/** 统计分类下的故事项总数。 */
+function countItemsInCategory(ctx: UIContext, cat: StoryContentCategoryDef): number {
+  return cat.parts.reduce((sum, p) => sum + availableItemsInPart(ctx, p).length, 0);
+}
+
+/** 统计篇下的故事项总数（章展开）。 */
+function countItemsInPart(ctx: UIContext, part: StoryContentPartDef): number {
+  return availableItemsInPart(ctx, part).length;
+}
+
+/** 当前 init 下可用的故事项（章内可用项）。 */
+function availableItemsInChapter(ctx: UIContext, ch: StoryContentChapterDef): StoryContentItem[] {
+  return ch.items.filter(item => isEntryAvailable(ctx, item.entryId));
+}
+
+/** 当前 init 下可用的篇内故事项（章展开合计）。 */
+function availableItemsInPart(ctx: UIContext, part: StoryContentPartDef): StoryContentItem[] {
+  if (part.chapters) return part.chapters.flatMap(ch => availableItemsInChapter(ctx, ch));
+  return (part.items ?? []).filter(item => isEntryAvailable(ctx, item.entryId));
+}
+
+/** 该 StoryEntry 是否归属于当前 init（availableInits 为空 = 所有 init 可用）。 */
+function isEntryAvailable(ctx: UIContext, entryId: string): boolean {
+  const entry = ctx.game.registry.activeStories.get(entryId);
+  if (!entry) return false;
+  if (entry.availableInits.length > 0 && !entry.availableInits.includes(ctx.view.activeInit)) return false;
+  return true;
+}
+
+/** 解析当前路径下应展示的故事条目 HTML。 */
+function resolveItemsAt(ctx: UIContext, h: StoryContentTable, path: string[]): string {
   const { game, view } = ctx;
-  const currentInit = view.activeInit;
-
-  // 仅收集主线 / 支线故事入口（activeStories），且 availableInits 包含当前 init 或为空；
-  // 演出本体经 entry.storyId 重定向（registry 加载期已校验可解析，渲染期缺失则跳过）
-  const entries = [...game.registry.activeStories.values()].filter(e => {
-    if (e.availableInits.length > 0 && !e.availableInits.includes(currentInit)) return false;
-    return true;
-  });
-  const stories = entries
-    .map(e => ({ entry: e, story: game.registry.stories.get(e.storyId) }))
-    .filter((p): p is { entry: ActiveStoryEntry; story: StoryDef } => p.story !== undefined);
-
-  if (stories.length === 0) {
-    return `
-      <div class="panel-heading"><span class="eyebrow">STORY ARCHIVE</span><span class="index">02</span></div>
-      <div class="nav-item"><span class="nav-marker"></span><span>暂无主动故事</span><small>—</small></div>
-      <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>当前世界线没有可触发的主动故事。</p></div>`;
+  let items: StoryContentItem[] = [];
+  const cat = h.categories.find(c => c.id === path[0]);
+  const part = cat?.parts.find(p => p.id === path[1]);
+  if (path.length >= 3 && part?.chapters) {
+    const ch = part.chapters.find(ch => ch.id === path[2]);
+    items = ch ? availableItemsInChapter(ctx, ch) : [];
+  } else if (part) {
+    items = availableItemsInPart(ctx, part);
   }
 
   const hasActiveStory = view.currentStory !== null && view.currentStory.type === 'active';
   const activeStoryId = view.currentStory?.storyId ?? null;
 
-  const rows = stories.map(({ entry, story }) => {
+  const rows = items.map(item => {
+    const entry = game.registry.activeStories.get(item.entryId);
+    if (!entry) return '';
+    const story = game.registry.stories.get(entry.storyId);
+    if (!story) return '';
     const reveal = getStoryReveal(ctx, entry);
-    // 完成判定统一按 Story.id 记；进行中比对对外故事 id（Entry.id，currentStory.storyId 即入口 id）
     const completed = view.storyLog.some(s => s.storyId === story.id);
-    const isRunning = activeStoryId === entry.id;
+    const isRunning = activeStoryId === item.entryId;
     const storyLocked = hasActiveStory && !isRunning;
+    // 重读策略：内容项显式声明优先，否则回退 entry.replayable
+    const replayable = item.replayable ?? entry.replayable === true;
 
-    // 状态判定
     let status: string;
     let button = '';
     if (completed) {
       status = '<small class="story-done">✓ 已完成</small>';
+      if (replayable && !isRunning) {
+        button = `<button data-replay-story="${item.entryId}" class="story-trigger">重读</button>`;
+      }
     } else if (isRunning) {
       status = '<small class="story-active">● 进行中</small>';
     } else if (storyLocked) {
       status = '<small class="story-locked">🔒 演出中</small>';
     } else if (reveal.stage === 'owned') {
-      // 已完成但上面已经处理（此分支理论上不会进入）
       status = '<small class="story-done">✓ 已完成</small>';
-    } else {
-      // 未完成，判断是否可达
-      if (reveal.conditionKnown) {
-        const condText = entry.triggerCondition
-          ? describeCondition(entry.triggerCondition, ctx.nameOf)
-          : '无条件';
-        status = `<small class="story-cond">${ctx.escapeHtml(condText)}</small>`;
-        if (reveal.stage === 'purchaseable') {
-          button = `<button data-start-story="${entry.id}" class="story-trigger">进入故事</button>`;
-        } else {
-          button = '<small class="story-locked">条件不足</small>';
-        }
+    } else if (reveal.conditionKnown) {
+      const condText = entry.triggerCondition
+        ? describeCondition(entry.triggerCondition, ctx.nameOf)
+        : '无条件';
+      status = `<small class="story-cond">${ctx.escapeHtml(condText)}</small>`;
+      if (reveal.stage === 'purchaseable') {
+        button = `<button data-start-story="${item.entryId}" class="story-trigger">进入故事</button>`;
       } else {
-        status = '<small class="story-locked">条件未知</small>';
+        button = '<small class="story-locked">条件不足</small>';
       }
+    } else {
+      status = '<small class="story-locked">条件未知</small>';
     }
 
-    const name = reveal.nameKnown ? story.name : '???';
+    const name = reveal.nameKnown ? (item.name ?? story.name) : '???';
     return `
       <div class="nav-item story-entry ${isRunning ? 'active' : ''}">
         <span class="nav-marker"></span>
@@ -161,10 +285,6 @@ function renderStoryTab(ctx: UIContext): string {
       </div>`;
   }).join('');
 
-  const runningCount = stories.filter(({ story }) => view.storyLog.some(l => l.storyId === story.id)).length;
-  return `
-    <div class="panel-heading"><span class="eyebrow">STORY ARCHIVE</span><span class="index">02</span></div>
-    <div class="nav-sub">主动故事 · ${runningCount}/${stories.length} 已完成</div>
-    ${rows}
-    <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>主动故事是当前世界线的主线剧情。点击"进入故事"即可开始。</p></div>`;
+  if (!rows) return '<div class="nav-item"><span class="nav-marker"></span><span>暂无故事</span><small>—</small></div>';
+  return rows;
 }

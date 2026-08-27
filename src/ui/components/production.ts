@@ -1,6 +1,30 @@
 import { UIContext } from '../context';
 import { getSpotReveal, describeCondition } from './tooltip';
+import { cardAccent } from '../color-scheme';
 import { TagPath } from '../../engine/core/tag';
+
+/**
+ * 设施标签 → 语义颜色角色（硬编码映射，不读数据包 extra）。
+ * 按标签叶节点匹配，首个命中生效；无命中回退主色。
+ */
+const SPOT_TAG_SCHEME: Record<string, string> = {
+  defense: 'danger',
+  combat:  'danger',
+  field:   'npc',
+  tactical: 'success',
+  intel:   'success',
+  tech:    'purple',
+};
+
+/** 从 Spot 标签推导语义颜色角色（无匹配 → primary 默认蓝）。 */
+function spotColorScheme(tags: TagPath[] | undefined): string {
+  for (const path of tags ?? []) {
+    const leaf = path[path.length - 1];
+    const scheme = SPOT_TAG_SCHEME[leaf];
+    if (scheme) return scheme;
+  }
+  return 'primary';
+}
 import { existenceCondition, unlockCondition } from '../../engine/visibility/reveal';
 
 export function renderProductionNodes(ctx: UIContext): string {
@@ -47,8 +71,9 @@ export function renderProductionNodes(ctx: UIContext): string {
         : purchaseable
           ? '获取'
           : '未解锁';
+      const accentStyle = cardAccent(spotColorScheme(spot.tags));
       return `
-        <article class="mini-card hover-wrap ${visible ? '' : 'is-muted'}" data-tooltip="spot:${spot.id}">
+        <article class="mini-card hover-wrap ${visible ? '' : 'is-muted'}" ${accentStyle} data-tooltip="spot:${spot.id}">
           <div class="mini-card-title-row">
             <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
             <strong class="mini-status">${owned ? `Lv.${level}` : purchaseable ? '可获取' : '未解锁'}</strong>
@@ -58,16 +83,18 @@ export function renderProductionNodes(ctx: UIContext): string {
             ${reveal.utilityKnown
               ? `<span class="mini-yield" data-spot-yield="${spot.id}">${yieldText}</span>`
               : '<span class="mini-yield">产出 ???</span>'}
-            <button data-upgrade="${spot.id}" ${purchaseable || owned ? '' : 'disabled'}>${action}</button>
-            ${restartInit
-              ? `<button data-restart-init="${spot.id}" class="btn-restart" title="结束当前游戏并重新选择世界线">结束游戏</button>`
-              : ''}
-            ${hardResetInit
-              ? `<button data-hard-reset-init="${spot.id}" class="btn-hard-reset" title="彻底重置当前世界线（下次进入为崭新）">彻底重置</button>`
-              : ''}
-            ${gacha
-              ? `<button data-open-spot-gacha="${spot.id}" class="btn-gacha" title="在该设施招募角色">招募</button>`
-              : ''}
+            <div class="mini-actions">
+              <button class="mini-action" data-upgrade="${spot.id}" ${purchaseable || owned ? '' : 'disabled'}>${action}</button>
+              ${restartInit
+                ? `<button class="mini-action" data-restart-init="${spot.id}" title="结束当前游戏并重新选择世界线">结束游戏</button>`
+                : ''}
+              ${hardResetInit
+                ? `<button class="mini-action" data-hard-reset-init="${spot.id}" title="彻底重置当前世界线（下次进入为崭新）">彻底重置</button>`
+                : ''}
+              ${gacha
+                ? `<button class="mini-action" data-open-spot-gacha="${spot.id}" title="在该设施招募角色">招募</button>`
+                : ''}
+            </div>
           </div>
           ${conditionNote}
         </article>`;

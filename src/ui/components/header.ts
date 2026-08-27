@@ -18,10 +18,10 @@ export function renderHeader(ctx: UIContext): string {
     <header class="topbar">
       <div class="brand-lockup">
         <span class="signal-dot"></span>
-        <div><span class="eyebrow">SCHale / SYSTEM 01</span><h1>AronaClicker</h1></div>
+        <div><h1>AronaClicker</h1></div>
       </div>
       <div class="topbar-right">
-        <div class="status-line"><span>WORLDLINE ${view.activeInit ? ctx.nameOf('init', view.activeInit) : '未进入'}</span><span class="live">● LIVE</span></div>
+        <div class="status-line"><span>WORLDLINE ${view.activeInit ? ctx.nameOf('init', view.activeInit) : '未进入'}</span></div>
         <div class="theme-palette">
           <button id="theme-palette-btn" class="toolbar-button" title="切换界面主题色">
             主题 <span>◑</span>

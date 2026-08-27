@@ -238,6 +238,10 @@ const effectObject = (): FieldDef =>
       ['addExtra', '增加 Extra'],
       ['removeExtra', '移除 Extra'],
       ['setTheme', '临时主题（演出变色）'],
+      ['clearAllChatFlow', '清理聊天流'],
+      ['showChatText', '演出专用文本（定位显示）'],
+      ['clearIdChatFlow', '擦除演出文本（按临时 id）'],
+      ['clearAllChatText', '清空全部演出文本'],
     ], '操作', { required: true }),
     s('target', '目标（资源/Spot/Item/Story/ExtraPath）', { required: true }),
     { key: 'value', label: '值', type: { kind: 'flexible' } },
@@ -406,7 +410,7 @@ const enhancementAttachmentField = (): FieldDef => ({
 /** TriggerDef 内联对象（InitDef.triggers，on 用引用表下拉） */
 const triggerObject = (): FieldDef =>
   o('$', [
-    s('id', 'ID', { required: true }),
+    s('id', 'ID', { description: '缺省 = 匿名 Trigger，运行时按结构派生确定性身份' }),
     {
       key: 'on',
       label: '侦测事件',
@@ -585,6 +589,7 @@ const storiesTable = (): TableSchema => ({
           e('kind', [['talk', '对话'], ['narration', '旁白'], ['click', '点击阻塞']], '类型'),
           e('align', [['center', '居中'], ['left', '左对齐'], ['right', '右对齐']], '对齐'),
           s('avatar', '头像'),
+          s('image', '图片（pic 索引或 URL）'),
           a('choices', {
             key: 'choice',
             label: '选项',
@@ -703,7 +708,6 @@ export const TABLE_META: TableMeta[] = [
       effects: () => effectArray('effects', '效果', true),
       maxStacks: () => i('maxStacks', '最大层数'),
       price: () => a('price', resourceAmountObject(), '购买价格'),
-      productionTags: () => tagPathField('productionTags', '作用标签'),
       attachment: () => enhancementAttachmentField(),
       addsFunctionalities: () => a('addsFunctionalities', functionalityObject(), '注入功能'),
       affectorPackIds: () => a('affectorPackIds', r('$', 'affectorPacks'), 'Affector 包'),
@@ -822,6 +826,27 @@ export const TABLE_META: TableMeta[] = [
     idField: 'id',
     overrides: {
       id: () => s('id', '层级路径（如 office 或 office/defense）', { required: true }),
+    },
+  },
+  {
+    key: 'pics',
+    label: '图片',
+    type: 'PicDef',
+    idField: 'id',
+    idFormat: 'free',
+    overrides: {
+      id: () => s('id', '三段式索引（modName:typeName(pic):idName，如 base:avatar(pic):hoshino）', { required: true }),
+      src: () => s('src', '来源（直连 URL 或 zip:包内路径）', { required: true }),
+    },
+  },
+  {
+    key: 'charaProfiles',
+    label: '角色资料（头像-人名对）',
+    type: 'CharaProfileDef',
+    idField: 'id',
+    idFormat: 'free',
+    overrides: {
+      id: () => s('id', '原型 id（如 Hoshino）', { required: true }),
     },
   },
   { key: 'extras', label: 'Extra 杂项', custom: extrasTable },

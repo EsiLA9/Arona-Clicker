@@ -1,6 +1,6 @@
 import { UIContext } from '../context';
 import { renderTabs, TabDef } from './tabs';
-import { renderChatHistory, renderCurrentStory, ChatEntry } from './story';
+import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderConversationView } from './contacts';
 import { SendState } from '../../engine/types';
 
@@ -13,21 +13,49 @@ const CENTER_TABS: TabDef[] = [
 export interface ConversationView {
   variantId: string;
   entries: ChatEntry[];
+  chatTexts: ChatTextEntry[];
 }
 
 export function renderCenterPanel(
   ctx: UIContext,
   activeTab: string,
   chatEntries: ChatEntry[],
+  chatTexts: ChatTextEntry[],
   sendState: SendState,
   conversation?: ConversationView,
 ): string {
   if (conversation) {
-    return renderConversationView(ctx, conversation.variantId, conversation.entries, sendState);
+    return renderConversationView(ctx, conversation.variantId, conversation.entries, conversation.chatTexts, sendState);
+  }
+  // 通讯录临时页：由左栏"通讯录"触发，等待详细设计
+  if (activeTab === 'contacts-draft') {
+    return `
+      <section class="panel center-panel">
+        ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
+        <div class="panel-body">
+          <div class="chat-empty">
+            <p>📒 通讯录临时页</p>
+            <p style="margin-top: 8px; color: var(--muted);">此页面等待后续设计制作。</p>
+          </div>
+        </div>
+      </section>`;
+  }
+  // 档案临时页：由故事 Tab"档案"入口触发，等待记录内容设计
+  if (activeTab === 'archive-draft') {
+    return `
+      <section class="panel center-panel">
+        ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
+        <div class="panel-body">
+          <div class="chat-empty">
+            <p>🗄️ 档案临时页</p>
+            <p style="margin-top: 8px; color: var(--muted);">此页面等待后续设计制作。</p>
+          </div>
+        </div>
+      </section>`;
   }
   const body = activeTab === 'log'
     ? renderLogTab(ctx)
-    : renderChatTab(ctx, chatEntries, sendState);
+    : renderChatTab(ctx, chatEntries, chatTexts, sendState);
   return `
     <section class="panel center-panel">
       ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}
@@ -38,6 +66,7 @@ export function renderCenterPanel(
 function renderChatTab(
   ctx: UIContext,
   chatEntries: ChatEntry[],
+  chatTexts: ChatTextEntry[],
   sendState: SendState,
 ): string {
   const { game, view } = ctx;
@@ -48,12 +77,17 @@ function renderChatTab(
   const history = renderChatHistory(chatEntries, ctx);
   // choice 页：仅已确认文本（confirmed）后才渲染选项卡片；未确认时 text 已在聊天流中，
   // 底部按钮为"继续"（点击确认，见 renderSendButton）
-  const current = story && sendState.mode === 'choice' && sendState.confirmed ? renderCurrentStory(ctx, story) : '';
+  // kizuna 页：羁绊卡片在流内渲染，底部按钮变灰
+  const current = story && (
+    (sendState.mode === 'choice' && sendState.confirmed) ||
+    sendState.mode === 'kizuna'
+  ) ? renderCurrentStory(ctx, story) : '';
   const launcher = story ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
   const send = renderSendButton(sendState);
 
   // 聊天流与回复按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧，
   // 这样回复气泡能贴底出现在聊天框最底部，不被按钮挤占。
+  // 演出专用文本渲染在 .chat-pane 层（.chat-stream 之上），不随滚动位移，保持界面定位。
   return `
     <div class="chat-pane">
       <div class="chat-stream">
@@ -61,6 +95,7 @@ function renderChatTab(
         ${current}
         ${launcher}
       </div>
+      ${renderChatTexts(ctx, chatTexts)}
       ${send}
     </div>`;
 }
@@ -88,7 +123,7 @@ function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeComplet
 export function renderSendButton(sendState: SendState): string {
   if (sendState.mode === 'choice') {
     // choice 页 text 阻塞：未确认时显示"继续"按钮（点击确认后选项卡片出现），
-    // 已确认后按钮让位给选项（由 [data-story-choice] 驱动）。
+    // 已确认后按钮变灰不可点（选项卡片在流中，由 [data-story-choice] 驱动）
     if (!sendState.confirmed) {
       return `
       <button class="send-button send-player" data-send>
@@ -99,7 +134,23 @@ export function renderSendButton(sendState: SendState): string {
         </span>
       </button>`;
     }
-    return '';
+    return `
+      <button class="send-button disabled" disabled>
+        <span class="send-bubble disabled">
+          <span class="send-text">请选择选项</span>
+        </span>
+      </button>`;
+  }
+
+  if (sendState.mode === 'kizuna') {
+    // 羁绊卡片已在流内由 renderCurrentStory 渲染（yuzu-kizuna 结构），
+    // 底部按钮变灰不可点，提示玩家点击流中的卡片
+    return `
+      <button class="send-button disabled" disabled>
+        <span class="send-bubble disabled">
+          <span class="send-text">请点击羁绊卡片</span>
+        </span>
+      </button>`;
   }
 
   if (sendState.mode === 'idle') {

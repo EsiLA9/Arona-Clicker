@@ -26,6 +26,8 @@ export type TableKey =
   | 'characterBonuses'
   | 'resourceDisplays'
   | 'tags'
+  | 'pics'
+  | 'charaProfiles'
   | 'extras';
 
 export interface TableSchema {

@@ -3,7 +3,8 @@
 // ============================================================
 
 import { ExtraPath, ExtraValue } from '../types';
-import { ExtraError, extra, isDict, isList } from './extra-core';
+import { ExtraError, isDict, isList } from './extra-core';
+import { extra } from '../def-factory/extra';
 
 const LIST_INDEX_RE = /^\d+$/;
 

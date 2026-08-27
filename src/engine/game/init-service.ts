@@ -28,6 +28,7 @@ import { StoryService } from './story-service';
 import { InitSavepoint } from './init-savepoint';
 import { globalSpotEntries } from './snapshot';
 import { extra, mergeExtra } from '../extra/index';
+import { mountInitTriggers, unmountInitTriggers, type InitTriggerGroupState } from './init-mount';
 
 export interface InitServiceOptions {
   registry: Registry;
@@ -61,8 +62,8 @@ export interface InitServiceOptions {
 }
 
 export class InitService {
-  /** 当前已挂载的世界线 Trigger 分组（init:<initId>）；null = 未挂载。 */
-  private mountedInitTriggerGroup: string | null = null;
+  /** 当前已挂载的世界线 Trigger 分组状态（init:<initId>；null = 未挂载）。 */
+  private readonly initTriggerGroup: InitTriggerGroupState = { group: null };
   /** per-Init 快照操作（保存/恢复/清除/播种）。 */
   private readonly savepoint: InitSavepoint;
 
@@ -389,25 +390,14 @@ export class InitService {
 
   // --- 世界线专属 Trigger ---
 
-  /**
-   * 挂载当前世界线的专属 Trigger；若之前挂载了其它世界线的组则先移除。
-   * 重复进入同一世界线（幂等）不重复挂载。
-   */
+  /** @see init-mount.mountInitTriggers */
   mountInitTriggers(initId: string): void {
-    const group = `init:${initId}`;
-    if (this.mountedInitTriggerGroup === group) return;
-    if (this.mountedInitTriggerGroup) this.opts.triggerSystem.unmountGroup(this.mountedInitTriggerGroup);
-    const init = this.opts.registry.inits.get(initId);
-    for (const trigger of init?.triggers ?? []) this.opts.triggerSystem.mount(trigger, group);
-    this.mountedInitTriggerGroup = group;
+    mountInitTriggers(this.opts, this.initTriggerGroup, initId);
   }
 
-  /** 卸载当前挂载的世界线 Trigger 组（读档 / reset 时重置用）。 */
+  /** @see init-mount.unmountInitTriggers */
   unmountInitTriggers(): void {
-    if (this.mountedInitTriggerGroup) {
-      this.opts.triggerSystem.unmountGroup(this.mountedInitTriggerGroup);
-    }
-    this.mountedInitTriggerGroup = null;
+    unmountInitTriggers(this.opts, this.initTriggerGroup);
   }
 
   // --- Init 切换辅助 ---

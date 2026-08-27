@@ -25,17 +25,25 @@ import {
   ExtraCompound,
   ExtraPath,
   ExtraValue,
-  GLOBAL_RESOURCE_IDS,
 } from './types';
-import { StoryService, type StoryCursor } from './game/story-service';
+import { StoryService } from './game/story-service';
 import { type StoryView } from './types/results';
 import { SpotService } from './game/spot-service';
 import { InitService } from './game/init-service';
 import { ItemService } from './game/item-service';
 import { EnhancementService } from './game/enhancement-service';
 import { SessionService } from './game/session-service';
+import { ChatFlowService } from './game/chat-flow-service';
+import { buildGameView } from './game/view-builder';
+import { createDefaultState as createDefaultPlayerState } from './game/state-factory';
+import { buildSaveData, restoreFromSave } from './game/save-codec';
+import { recheckStudentBlocks as recheckBlocks, reloadRuntime, resetRuntime } from './game/runtime-reset';
 
 import { extra, getAtPath, mergeExtra, setAtPath } from './extra/index';
+import { ImageStore, ResolvedImageEntry, resolvePicSrc } from './image/index';
+import { PicDef } from './types/pics';
+import { resolveCharaProfile } from './core/chara-profile';
+import type { CharaProfile, CharaProfileDef, CharaCustomOverride, CharaNameEntry, CharaAvatarEntry } from './types/chara-profile';
 import { Registry } from './registry/registry';
 import { EventBus } from './core/event-bus';
 import { ValueSystem } from './expression/value-system';
@@ -49,7 +57,7 @@ import { hasExistenceGate } from './visibility/reveal';
 import { StateMutationService } from './system/state-mutation-service';
 import { AffectorEngine } from './effect/affector-engine';
 import { DevLog, DevLogEntry, DevLogOptions } from './core/dev-log';
-import { StatsService, PersistedStats } from './stats/stats';
+import { StatsService } from './stats/stats';
 import { SpotFunctionalitySystem } from './system/spot-functionality';
 import { GameNumSystem } from './expression/game-num';
 import { TriggerSystem } from './effect/trigger-system';
@@ -59,40 +67,13 @@ import { CharacterSystem } from './system/character-system';
 import { RosterSystem } from './system/roster-system';
 import { CharacterAvailabilityService } from './system/character-availability';
 import { ColorSystem } from './system/color-system';
+import { ColorEquipmentSystem } from './system/color-equipment-system';
 import { GachaService } from './system/gacha-service';
 import { TagStatService, type TagStatKind } from './stats/tag-stats';
 import { PassivePoolSystem } from './system/passive-pool-system';
 
-/**
- * SaveData 是持久化的存档快照
- */
-export interface SaveData {
-  version: string;
-  timestamp: number;
-  playerState: PlayerState;
-  visibility: VisibilitySnapshot;
-  /** Legacy field accepted on load; new saves do not persist per-Spot timers. */
-      timers?: Record<string, unknown>;
-  pendingStoryId: string | null;
-  pendingStoryPageIndex: number;
-  pendingStoryChoiceIndex?: number;
-  /** 多击任务（Talklet.clickWork）的进行中进度；缺省 = 无。 */
-  pendingTalkletClicks?: { total: number; done: number } | null;
-  /** 当前实际播放的 Story.id（跳转链中可变；旧档无 = 回退 pendingStoryId 的初始 Story）。 */
-  pendingStoryDefId?: string | null;
-  /** insert 跳转返回点栈（旧档无 = 空）。 */
-  pendingInsertStack?: { storyId: string; pageIndex: number }[];
-  /** 本 Entry 链已访问过的 Story.id（旧档无 = 空）。 */
-  pendingVisitedStoryIds?: string[];
-  /** 是否处于重阅读模式（旧档无 = false）。 */
-  pendingIsReplay?: boolean;
-  /** 各聊天沙盒游标（key → StoryCursor）：每个角色对话空间的独立剧情游标（旧档无 = 空）。 */
-  chatCursors?: Record<string, StoryCursor>;
-  /** 各聊天沙盒的历史条目（key → 聊天条目数组，已按上限截断；引擎不解析内部结构，由 UI 层读写）。 */
-  chatHistories?: Record<string, unknown[]>;
-  /** 三层统计持久化部分（global + 各 init 聚合 + 当前游玩的 session）。 */
-  stats?: PersistedStats;
-}
+import type { SaveData } from './game/save-codec';
+export type { SaveData };
 
 /**
  * GameInstance 是游戏的核心运行时管理器。
@@ -113,6 +94,7 @@ export class GameInstance {
   readonly rosterSystem: RosterSystem;
   readonly availabilityService: CharacterAvailabilityService;
   readonly colorSystem: ColorSystem;
+  readonly colorEquipmentSystem: ColorEquipmentSystem;
   readonly gachaService: GachaService;
   readonly tagStatService: TagStatService;
   readonly passivePoolSystem: PassivePoolSystem;
@@ -129,11 +111,16 @@ export class GameInstance {
   readonly itemService: ItemService;
   readonly enhancementService: EnhancementService;
   readonly sessionService: SessionService;
+  /** 聊天流演出服务（Talklet 专用）：clearAllChatFlow / showChatText / clearIdChatFlow 的运行时桥。 */
+  readonly chatFlowService: ChatFlowService;
+  /** 图片存储：Mod 压缩包解出的本地图片（UI 导入流程填充；见 getPicUrl）。 */
+  readonly imageStore: ImageStore;
 
   // 运行时状态
   private _state!: PlayerState;
 
   constructor(options: { devLog?: DevLogOptions } = {}) {
+    this.imageStore = new ImageStore();
     this.eventBus = new EventBus();
     this.registry = new Registry();
     this.valueSystem = new ValueSystem();
@@ -144,7 +131,25 @@ export class GameInstance {
     this.conditionSystem.setStatReader(dsl => this.statsService.evaluate(dsl));
     this.conditionSystem.setStoryRunChecker(id => this.statsService.hasCompletedStoryThisRun(id));
     this.mutations = new StateMutationService(this.eventBus, this.statsService);
-    this.spotFunctionalitySystem = new SpotFunctionalitySystem(this.registry, this.conditionSystem);
+    this.spotFunctionalitySystem = new SpotFunctionalitySystem(
+      this.registry,
+      this.conditionSystem,
+      (enhId) => {
+        const enh = this.registry.enhancements.get(enhId);
+        if (!enh?.affectorPackIds?.length) return [];
+        const tags: string[][] = [];
+        for (const pid of enh.affectorPackIds) {
+          const pack = this.affectorEngine.getPack(pid);
+          if (!pack) continue;
+          for (const entry of pack.entries) {
+            for (const z of entry.zoneModifiers ?? []) {
+              if (z.target.kind === 'tag') tags.push(z.target.tag);
+            }
+          }
+        }
+        return tags;
+      },
+    );
     this.effectEngine = new EffectEngine(this.eventBus, this.mutations, this.valueSystem);
     this.characterSystem = new CharacterSystem();
     this.characterSystem.setVariantProtoResolver(
@@ -163,6 +168,12 @@ export class GameInstance {
       () => this._state,
       (expr, state) => this.conditionSystem.evaluateExpr(expr, state),
     );
+    this.colorEquipmentSystem = new ColorEquipmentSystem(
+      this.registry,
+      this.mutations,
+      () => this._state,
+      (expr, state) => this.conditionSystem.evaluateExpr(expr, state),
+    );
     // 临时演出主题（setTheme effect）→ 转发给 ColorSystem 运行时层
     this.effectEngine.themeEffectHandler = effect => this.colorSystem.handleThemeEffect(effect);
     // 剧情启动（triggerStory effect）→ 按 target=storyId / owner=沙盒 启动剧情。
@@ -170,7 +181,16 @@ export class GameInstance {
     this.effectEngine.storyStarter = effect => {
       const entry = this.registry.storyEntries.get(effect.target);
       const type = entry?.type ?? 'passive';
-      this.storyService.startStory(effect.target, type, effect.owner ?? null, true);
+      this.storyService.startStory(effect.target, type, effect.owner ?? null, { force: true });
+    };
+    // 聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatFlow）→ 转发给 ChatFlowService 发运行时事件
+    this.chatFlowService = new ChatFlowService(this.eventBus);
+    this.effectEngine.chatFlowHandler = effect => {
+      const value = effect.value as import('./types/expression').ChatTextEffectValue;
+      if (effect.op === 'clearAllChatFlow') this.chatFlowService.clearAll();
+      else if (effect.op === 'showChatText') this.chatFlowService.showText(effect.target, value);
+      else if (effect.op === 'clearIdChatFlow') this.chatFlowService.clearId(effect.target);
+      else if (effect.op === 'clearAllChatText') this.chatFlowService.clearAllTexts();
     };
     this.gachaService = new GachaService(
       this.registry,
@@ -180,11 +200,13 @@ export class GameInstance {
       resourceId => this.initService.getResourceAmount(resourceId),
       pool => this.availabilityService.drawableOf(pool, this._state),
     );
-    // 差分目录接线：acquireCharacter/培养经 registry 解析原型与曲线（与 extraReader 同模式）
+    // 差分目录接线：acquireCharacter/培养/色彩装备解析经 registry 解析原型与曲线（与 extraReader 同模式）
     this.mutations.setCharacterCatalog({
       getVariant: id => this.registry.characterVariants.get(id),
       getCurve: id => this.registry.cultivateCurves.get(id),
       getColor: id => this.registry.colors.get(id),
+      getColorGroup: id => this.registry.colorGroups.get(id),
+      getColorEquipment: id => this.registry.colorEquipments.get(id),
     });
     this.affectorEngine = new AffectorEngine(
       this.registry,
@@ -201,6 +223,8 @@ export class GameInstance {
       affectorEngine: this.affectorEngine,
       eventBus: this.eventBus,
     });
+    // Affector 的按 tag 加成经 GameNum 的 tag 效果表落地
+    this.affectorEngine.gameNumSystem = this.gameNumSystem;
     this.tickSystem = new TickSystem(
       this.registry,
       this.valueSystem,
@@ -324,12 +348,14 @@ export class GameInstance {
       this.devLog.recordEvent(event, this._state.totalFrames);
     });
 
-    // 获得角色差分 / flag 变化后，自动重算色彩解锁（达成条件即入库存，闭环色彩系统）
+    // 获得角色差分 / flag 变化后，自动重算色彩与色彩装备解锁（达成条件即入库存，闭环收集系统）
     this.eventBus.on('characterAcquired', () => {
       this.colorSystem.recheckUnlocks();
+      this.colorEquipmentSystem.recheckUnlocks();
     });
     this.eventBus.on('flagChanged', () => {
       this.colorSystem.recheckUnlocks();
+      this.colorEquipmentSystem.recheckUnlocks();
     });
   }
 
@@ -353,38 +379,13 @@ export class GameInstance {
 
   /** 返回供 UI 使用的不可变数据快照，不暴露 PlayerState 写引用。 */
   getView(): GameView {
-    return {
-      activeInit: this._state.activeInit,
-      currentAreaId: this._state.currentAreaId ?? null,
-      visitedAreas: this._state.visitedAreas ? [...this._state.visitedAreas] : [],
-      totalFrames: this._state.totalFrames,
-      resources: {
-        // 视图合并：全局资源（跨世界线）+ 当前世界线局部资源
-        ...(this._state.globalResources ?? {}),
-        ...this._state.resources,
-      },
-      spotLevels: { ...this._state.spotLevels },
-      spotManagers: { ...this._state.spotManagers },
-      unlockedEnhancements: [...this._state.unlockedEnhancements],
-      inventory: { ...this._state.inventory },
-      unlockedInits: [...this._state.unlockedInits],
-      storyLog: this._state.storyLog.map(story => ({ ...story })),
-      flags: { ...this._state.flags },
-      visibility: {
-        inits: { ...this.visibility.inits },
-        areas: { ...this.visibility.areas },
-        spots: { ...this.visibility.spots },
-        enhancements: { ...this.visibility.enhancements },
-        items: { ...this.visibility.items },
-        stories: { ...this.visibility.stories },
-      },
+    return buildGameView({
+      state: this._state,
+      visibility: this.visibility,
       currentStory: this.storyService.getCurrentStoryView(),
-      activeAffectors: this.affectorEngine.getActiveInstances().map(instance => ({
-        ...instance,
-        activeEntryIds: [...instance.activeEntryIds],
-      })),
+      activeAffectors: this.affectorEngine.getActiveInstances(),
       stats: this.statsService.getSnapshot(),
-    };
+    });
   }
 
   /**
@@ -416,9 +417,7 @@ export class GameInstance {
     this.tickSystem.setState(this._state);
 
     // 统一数值注册：构建每个 Resource 的 primitiveGain 树（懒求值）
-    this.gameNumSystem.buildAll();
-    // 用当前已解锁强化初始化产出反向索引
-    this.gameNumSystem.rebuildEnhIndex(this._state.unlockedEnhancements);
+    this.gameNumSystem.buildAll(this._state);
     this.tagStatService.setState(this._state);
     this.tagStatService.rebuildDeclared();
     // 被动闲聊池：数据包加载后重建 gate 依赖索引
@@ -460,17 +459,21 @@ export class GameInstance {
    * 注意：数据包更换后旧存档语义失效，调用方应自行清除存档。
    */
   reload(datapacks: Datapack[]): void {
-    this.stop();
-    this.registry.clear();
-    this.affectorEngine.load([]);
-    this.triggerSystem.clear();
-    this.reset();
-    this.init(datapacks);
+    reloadRuntime({
+      stop: () => this.stop(),
+      registry: this.registry,
+      affectorEngine: this.affectorEngine,
+      triggerSystem: this.triggerSystem,
+      reset: () => this.reset(),
+      init: d => this.init(d),
+    }, datapacks);
   }
 
   /** 手动推进一帧并返回本帧生产结果。 */
   tick(): TickResult {
     this.tickSystem.setState(this._state);
+    // 每帧重算产出：先整树失效，避免直接改 state 的调用方读到陈旧缓存
+    this.gameNumSystem?.invalidateProduction();
     const result = this.tickSystem.tick();
     // Affector 贯穿 Area / 整个 Init 持续生效：每帧应用挂载中的效果
     this.affectorEngine.applyActiveEffects();
@@ -489,19 +492,12 @@ export class GameInstance {
    * 由 tick 与区域进入后调用，实现「剧情要求前往某地 → 到达后对话空间重启」的关卡式剧情。
    */
   private recheckStudentBlocks(): void {
-    const blocks = this._state.studentBlocks;
-    if (!blocks) return;
-    for (const variantId of Object.keys(blocks)) {
-      const block = blocks[variantId];
-      const entry = this.registry.passiveStories.get(block.entryId);
-      if (!entry || !entry.block) {
-        this.mutations.clearStudentBlock(variantId);
-        continue;
-      }
-      if (this.conditionSystem.evaluateGroup(entry.block, this._state)) {
-        this.mutations.clearStudentBlock(variantId);
-      }
-    }
+    recheckBlocks({
+      state: this._state,
+      registry: this.registry,
+      mutations: this.mutations,
+      conditionSystem: this.conditionSystem,
+    });
   }
 
   /** 发放物品并执行其获得时效果。 */
@@ -560,8 +556,16 @@ export class GameInstance {
 
   // --- Story flow（剧情游标与流程已拆至 game/story-service.ts，此处仅门面委托） ---
 
-  startActiveStory(storyId: string): StoryStartResult {
-    return this.storyService.startActiveStory(storyId);
+  startActiveStory(storyId: string, owner?: string | null): StoryStartResult {
+    return this.storyService.startActiveStory(storyId, owner);
+  }
+
+  /**
+   * 聊天卡片入口启动：跳过 availableInits / triggerCondition（卡片出现本身即 gate），
+   * 但尊重单次完成态（AlreadyCompleted 拒绝），可打断被动闲聊。
+   */
+  startCardStory(storyId: string, owner?: string | null): StoryStartResult {
+    return this.storyService.startCardStory(storyId, owner);
   }
 
   /**
@@ -585,9 +589,10 @@ export class GameInstance {
    * 重阅读入口：从 StoryEntry 重新阅读关联的 Story 链。
    * 仅对 entry.replayable = true 的 Entry 可用；
    * 重阅读模式受 entry.branchGuards 分歧点准入守卫约束。
+   * owner = VariantId 时在对应学生的对话空间沙盒内演出（与 startStory 沙盒语义一致）。
    */
-  replayStory(storyId: string): StoryStartResult {
-    return this.storyService.replayStory(storyId);
+  replayStory(storyId: string, owner?: string | null): StoryStartResult {
+    return this.storyService.replayStory(storyId, owner);
   }
 
   advanceStory(choiceIndex?: number, owner?: string | null): StoryAdvanceResult {
@@ -719,6 +724,68 @@ export class GameInstance {
     return this.spotService.removeSpotTag(spotId, tag);
   }
 
+  // --- 图片资产（PicDef / 三段式索引） ---
+
+  /**
+   * 解析图片引用为可显示 URL：
+   * - 直连 URL / 相对路径 → 原样返回；
+   * - `mod:type(pic):id` 三段式索引 → 查 pics 表解析（zip 来源经 ImageStore 取本地解出图片）；
+   * - 未声明 / zip 未登记 → undefined（UI 回退占位）。
+   */
+  getPicUrl(ref: string | undefined): string | undefined {
+    return resolvePicSrc(this.registry, this.imageStore, ref);
+  }
+
+  /** 取图片资产定义（pics 表查询）；未声明返回 undefined。 */
+  getPicDef(ref: string): PicDef | undefined {
+    return this.registry.pics.get(ref);
+  }
+
+  /** 登记一批压缩包解出的本地图片（导入流程在 reload 前调用）。 */
+  registerImages(mod: string, entries: readonly ResolvedImageEntry[]): void {
+    this.imageStore.registerAll(mod, entries);
+  }
+
+  // --- Chara 头像-人名对（charaProfile 便捷接口） ---
+
+  /**
+   * 便捷取某 Chara 当前使用的头像-人名对。
+   * 解析管线：兜底 → chara 表(declared) → 玩家覆写(player) → 调用点(override)。
+   * avatar 为已解析 URL（PicId → PicDef → resolvePicSrc），前端直接用。
+   */
+  characterProfile(
+    character: Character | null,
+    overrides?: { name?: string; avatar?: import('./types/pics').PicId },
+  ): CharaProfile {
+    return resolveCharaProfile(
+      this.registry,
+      this._state.charaCustom,
+      pic => resolvePicSrc(this.registry, this.imageStore, pic),
+      character,
+      overrides,
+    );
+  }
+
+  /** 玩家侧覆写某 Chara 的头像-人名对（player 层，随存档持久化）。 */
+  setCharaProfile(character: Character, override: CharaCustomOverride): void {
+    this.mutations.setCharaCustom(character, override);
+  }
+
+  /** 清除某 Chara 的玩家侧覆写（回到 chara 声明 / 兜底）。 */
+  clearCharaProfile(character: Character): void {
+    this.mutations.clearCharaCustom(character);
+  }
+
+  /** Chara 的 name 表（改名/选名面板用）。 */
+  charaNames(character: Character): CharaNameEntry[] {
+    return this.registry.charaProfiles.get(character)?.names ?? [];
+  }
+
+  /** Chara 的 avatar 表（换头像面板用）。 */
+  charaAvatars(character: Character): CharaAvatarEntry[] {
+    return this.registry.charaProfiles.get(character)?.avatars ?? [];
+  }
+
   // --- Extra 运行时 API（docs/13 §5.3） ---
 
   /**
@@ -755,135 +822,58 @@ export class GameInstance {
 
   /** 导出存档数据 */
   save(): SaveData {
-    const storyCursor = this.storyService.saveCursor();
-    return {
-      version: '1.0.0',
-      timestamp: Date.now(),
-      playerState: JSON.parse(JSON.stringify(this._state)),
-      visibility: JSON.parse(JSON.stringify(this.visibilityEngine.getVisibility(this._state))),
-      pendingStoryId: storyCursor.currentStoryId,
-      pendingStoryPageIndex: storyCursor.currentStoryPageIndex,
-      pendingStoryChoiceIndex: storyCursor.currentStoryChoiceIndex,
-      pendingTalkletClicks: storyCursor.talkletClickWork,
-      pendingStoryDefId: storyCursor.currentStoryDefId,
-      pendingInsertStack: storyCursor.insertStack,
-      pendingVisitedStoryIds: storyCursor.visitedStoryIds,
-      pendingIsReplay: storyCursor.isReplay,
-      chatCursors: this.storyService.saveChatCursors(),
-      stats: this.statsService.getPersistable(),
-    };
+    return buildSaveData({
+      state: this._state,
+      visibility: () => this.visibilityEngine.getVisibility(this._state),
+      storyCursor: () => this.storyService.saveCursor(),
+      chatCursors: () => this.storyService.saveChatCursors(),
+      persistedStats: () => this.statsService.getPersistable(),
+    });
   }
 
   /** 从存档数据恢复 */
   load(saveData: SaveData): void {
-    this._state = JSON.parse(JSON.stringify(saveData.playerState));
-    this._state.initSnapshots ??= {};
-    // 旧档兼容：extras / initExtras 字段缺失时补空底座（三层合并视图见 docs/13 §5.3）
-    this._state.extras ??= extra.dict({});
-    this._state.initExtras ??= extra.dict({});
-    for (const snap of Object.values(this._state.initSnapshots)) {
-      snap.extras ??= extra.dict({});
-    }
-    // 旧档迁移：早期存档可能把全局资源（青辉石）存在 resources 中
-    this._state.globalResources ??= {};
-    for (const id of GLOBAL_RESOURCE_IDS) {
-      const legacy = this._state.resources[id] ?? 0;
-      if (legacy > 0) {
-        this._state.globalResources[id] = (this._state.globalResources[id] ?? 0) + legacy;
-        delete this._state.resources[id];
-      }
-    }
-    // 旧存档兜底：无 currentAreaId 时定位到当前 Init 的第一个默认 Area
-    if (!this._state.currentAreaId) {
-      const init = this.registry.inits.get(this._state.activeInit);
-      this._state.currentAreaId = init?.defaultAreas[0] ?? undefined;
-    }
-    this.mutations.setState(this._state);
-    this.statsService.setState(this._state);
-    this.affectorEngine.setState(this._state);
-    this.triggerSystem.setState(this._state);
-    // 恢复当前世界线的专属 Trigger（先移除之前挂载的组）
-    this.initService.mountInitTriggers(this._state.activeInit);
-    if (saveData.visibility) this.visibilityEngine.setSnapshot(saveData.visibility);
-    if (saveData.stats) this.statsService.restore(saveData.stats);
-    else this.statsService.beginSession();
-    this.storyService.restoreCursor({
-      currentStoryId: saveData.pendingStoryId,
-      currentStoryDefId: saveData.pendingStoryDefId ?? null,
-      currentStoryPageIndex: saveData.pendingStoryPageIndex,
-      currentStoryChoiceIndex: saveData.pendingStoryChoiceIndex ?? -1,
-      talkletClickWork: saveData.pendingTalkletClicks ? { ...saveData.pendingTalkletClicks } : null,
-      insertStack: saveData.pendingInsertStack ? saveData.pendingInsertStack.map(s => ({ ...s })) : [],
-      visitedStoryIds: saveData.pendingVisitedStoryIds ? [...saveData.pendingVisitedStoryIds] : [],
-      isReplay: saveData.pendingIsReplay ?? false,
-    });
-    // 恢复各聊天沙盒游标（各角色对话空间独立剧情游标）
-    this.storyService.restoreChatCursors(saveData.chatCursors);
-    this.sessionService.setLastTick(saveData.timestamp);
-
-    // 重新同步子系统
-    this.effectEngine.setState(this._state);
-    this.tickSystem.setState(this._state);
-    // 用存档已解锁强化重建产出反向索引
-    this.gameNumSystem.rebuildEnhIndex(this._state.unlockedEnhancements);
-    this.tagStatService.setState(this._state);
-
-    const init = this.registry.inits.get(this._state.activeInit);
-    this.initService.logInitReachability('世界线可及性：读取存档');
-    this.devLog.record(`读取存档：恢复世界线 ${init?.name ?? this._state.activeInit}`, {
-      source: 'init',
-      level: 'info',
-      details: [
-        `帧 ${this._state.totalFrames}`,
-        `解锁世界线 ${this._state.unlockedInits.length} 个`,
-        this._state.currentAreaId ? `当前区域 ${this.registry.areas.get(this._state.currentAreaId)?.name ?? this._state.currentAreaId}` : '无当前区域',
-        `已启用设施 ${Object.keys(this._state.spotLevels).length} 处`,
-      ].join(' · '),
-    });
+    restoreFromSave({
+      registry: this.registry,
+      devLog: this.devLog,
+      mutations: this.mutations,
+      statsService: this.statsService,
+      affectorEngine: this.affectorEngine,
+      triggerSystem: this.triggerSystem,
+      effectEngine: this.effectEngine,
+      tickSystem: this.tickSystem,
+      tagStatService: this.tagStatService,
+      visibilityEngine: this.visibilityEngine,
+      storyService: this.storyService,
+      initService: this.initService,
+      sessionService: this.sessionService,
+      setState: next => { this._state = next; },
+    }, saveData);
   }
 
   /** 重置为默认状态 */
   reset(): void {
-    this.stop();
-    this._state = this.createDefaultState();
-    this.sessionService.touchLastTick();
-    this.mutations.setState(this._state);
-    this.statsService.setState(this._state);
-    this.statsService.reset();
-    this.affectorEngine.setState(this._state);
-    this.triggerSystem.setState(this._state);
-    // 用默认状态已解锁强化重建产出反向索引
-    this.gameNumSystem.rebuildEnhIndex(this._state.unlockedEnhancements);
-    this.tagStatService.setState(this._state);
-    // 移除已挂载的世界线专属 Trigger
-    this.initService.unmountInitTriggers();
-    this.visibilityEngine.reset();
-    this.storyService.clearCurrentStory();
-    this.devLog.clear();
-    this.devLog.record('运行时状态已重置', { source: 'runtime', level: 'warning' });
+    resetRuntime({
+      stop: () => this.stop(),
+      createDefaultState: () => createDefaultPlayerState(),
+      setState: next => { this._state = next; },
+      sessionService: this.sessionService,
+      mutations: this.mutations,
+      statsService: this.statsService,
+      affectorEngine: this.affectorEngine,
+      triggerSystem: this.triggerSystem,
+      tagStatService: this.tagStatService,
+      initService: this.initService,
+      visibilityEngine: this.visibilityEngine,
+      storyService: this.storyService,
+      devLog: this.devLog,
+    });
   }
 
   // --- 默认状态 ---
 
   private createDefaultState(): PlayerState {
-    return {
-      resources: {},
-      globalResources: {},
-      spotLevels: {},
-      spotManagers: {},
-      unlockedEnhancements: [],
-      activeInit: '',
-      totalFrames: 0,
-      storyLog: [],
-      inventory: {},
-      flags: {},
-      triggersCompleted: [],
-      unlockedInits: [],
-      visitedAreas: [],
-      initSnapshots: {},
-      extras: extra.dict({}),
-      initExtras: extra.dict({}),
-    };
+    return createDefaultPlayerState();
   }
 
 }

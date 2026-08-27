@@ -117,18 +117,18 @@ function detailHtml(ctx: UIContext, init: InitSummary, restarting: boolean): str
       : isFree
         ? '条件未满足'
         : `需要 ${ctx.escapeHtml(priceText)}`;
-    return `<span class="init-orb-lock">${label}</span>`;
+    return `<span class="orb-lock">${label}</span>`;
   })();
 
   return `
     <div class="init-orb-copy">
       <span class="eyebrow">WORLD LINE / TILT</span>
-      <span class="init-tilt-big">TILT ${ctx.escapeHtml(tiltText(init))}</span>
+      <span class="orb-big">TILT ${ctx.escapeHtml(tiltText(init))}</span>
       <h2>${ctx.escapeHtml(name)}</h2>
       <p>${ctx.escapeHtml(desc)}</p>
-      ${metaBits.length ? `<div class="init-orb-meta">${metaBits.map(b => `<span>${ctx.escapeHtml(b)}</span>`).join('')}</div>` : ''}
-      <div class="init-orb-actions">${action}</div>
-      ${restarting ? '<p class="init-orb-note">当前世界线进度已保存，切换后仍可随时返回。</p>' : ''}
+      ${metaBits.length ? `<div class="orb-meta">${metaBits.map(b => `<span>${ctx.escapeHtml(b)}</span>`).join('')}</div>` : ''}
+      <div class="orb-actions">${action}</div>
+      ${restarting ? '<p class="orb-note">当前世界线进度已保存，切换后仍可随时返回。</p>' : ''}
     </div>`;
 }
 
@@ -155,50 +155,4 @@ export function renderInitDetail(
 export function renderInitRow(ctx: UIContext, initId: string): string | null {
   const init = visibleInitsByTilt(ctx).find(summary => summary.id === initId);
   return init ? rowHtml(init) : null;
-}
-
-export function renderInitSelect(
-  ctx: UIContext,
-  mode: InitSelectMode = 'new',
-  selectedId: string | null = null,
-): string {
-  const list = visibleInitsByTilt(ctx);
-  const selected = list.find(init => init.id === selectedId) ?? list[0];
-  const restarting = mode === 'restart';
-
-  const detail = selected
-    ? detailHtml(ctx, selected, restarting)
-    : '<div class="init-orb-copy"><p>暂无可选的世界线。</p></div>';
-  const rows = list.map(init => rowHtml(init)).join('');
-
-  return `
-    <main class="console-shell init-select-shell">
-      <div class="init-orb-disc"></div>
-
-      <header class="topbar">
-        <div class="brand-lockup">
-          <span class="signal-dot"></span>
-          <div><span class="eyebrow">SCHale / SYSTEM 01</span><h1>AronaClicker</h1></div>
-        </div>
-        <div class="topbar-right">
-          ${ctx.saveExists && !restarting ? `<button id="load-game-init" class="toolbar-button">LOAD SAVE<span>↗</span></button>` : ''}
-          <div class="status-line"><span>${restarting ? 'RESTART' : 'NEW GAME'}</span><span class="live">● AWAITING INPUT</span></div>
-        </div>
-      </header>
-
-      <section class="init-stage">
-        ${detail}
-
-        <aside class="init-rail">
-          <div class="init-rail-head">
-            <span class="eyebrow">INDEX / BY TILT DESC</span>
-            <span class="init-rail-hint">滚轮移动聚焦 ↕</span>
-          </div>
-        </aside>
-      </section>
-
-      <div class="init-wheel">${rows}</div>
-
-      <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>TS-HTML ENGINE · NO NETWORK</span></footer>
-    </main>`;
 }

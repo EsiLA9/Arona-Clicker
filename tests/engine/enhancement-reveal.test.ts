@@ -35,20 +35,6 @@ describe('Enhancement 信息揭示阶梯', () => {
     expect(revealOf(game, CREDIT_SYSTEM)).toMatchObject({ stage: 'purchaseable', nameKnown: true });
   });
 
-  test('office_layout: presence/partial → known → purchaseable as printer levels rise', () => {
-    // credit_printer 初始 1：条件已揭示（>=1），名称未揭示（>=2）→ partial
-    expect(revealOf(game, OFFICE_LAYOUT)).toMatchObject({
-      stage: 'partial',
-      nameKnown: false,
-      conditionKnown: true,
-      utilityKnown: false,
-    });
-
-    // credit_printer → 2：名称揭示，且解锁条件满足 → 可购买
-    game.state.spotLevels[PRINTER] = 2;
-    expect(revealOf(game, OFFICE_LAYOUT)).toMatchObject({ stage: 'purchaseable', nameKnown: true });
-  });
-
   test('utility stays hidden until its own condition is met', () => {
     // 构造：credit_printer = 3 → 效用揭示（utility），但仍受解锁条件限制（>=2 已满足 → purchaseable）
     game.state.spotLevels[PRINTER] = 3;

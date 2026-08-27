@@ -3,7 +3,8 @@
 // ============================================================
 
 import { ExtraValue } from '../types';
-import { EXTRA_MAX_DEPTH, ExtraError, extra, validateDictKey } from './extra-core';
+import { EXTRA_MAX_DEPTH, ExtraError, validateDictKey } from './extra-core';
+import { extra } from '../def-factory/extra';
 
 /**
  * 从纯 TS 字面量（string/number/boolean/数组/纯对象）宽松转换。

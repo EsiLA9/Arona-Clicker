@@ -14,82 +14,63 @@
 // 演出本体（Talklet）已拆至 stories-play.ts，此处仅声明触发入口与池结构。
 // ============================================================
 
-import {
-  PassiveStoryEntry,
-  PassivePoolDef,
-  and,
-} from '../../engine/types';
+import { passiveStory, passivePool, and, cond } from '../../engine/types';
+import type { PassivePoolDef, PassiveStoryEntry } from '../../engine/types';
 
 // ------------------------------------------------------------
 // 1. 壁垒示例：每个学生的专属闲聊池（owner 路由）
 // ------------------------------------------------------------
 // 星野的对话空间只抽 this pool 内的 entry；一般聊天抽不到它们。
-export const hoshinoConversationPool: PassivePoolDef = {
-  id: 'base:pool:hoshino_conv',
-  name: '星野对话空间',
-  owner: 'Hoshino',
-  children: [
-    { id: 'base:story:hoshino_conv_1' },
-    { id: 'base:story:hoshino_conv_2' },
-  ],
-};
+export const hoshinoConversationPool: PassivePoolDef = passivePool('base:pool:hoshino_conv')
+  .name('星野对话空间')
+  .owner('Hoshino')
+  .child('base:story:hoshino_conv_1')
+  .child('base:story:hoshino_conv_2')
+  .child('base:story:hoshino_bond_invite')
+  .build();
 
 export const hoshinoConversationStories: PassiveStoryEntry[] = [
-  {
-    id: 'base:story:hoshino_conv_1',
+  passiveStory('base:story:hoshino_conv_1', 'base:story:hoshino_tea_time')
     // 星野专属演出本体（不复用全局「窗边晚霞」，保证壁垒 owner 反查唯一命中、内容独有）
-    storyId: 'base:story:hoshino_tea_time',
-    type: 'passive',
-    owner: 'Hoshino',
-    availableInits: [],
-    repeatable: true,
-    weight: 1,
-    triggerCondition: and(),
+    .owner('Hoshino')
+    .inits()
+    .weight(1)
     // 冷却：抽完后 600 帧（约 10 秒 tick）内不再被选取
-    cooldownFrames: 600,
-  },
-  {
-    id: 'base:story:hoshino_conv_2',
-    storyId: 'base:story:hoshino_rooftop_hint',
-    type: 'passive',
-    owner: 'Hoshino',
+    .cooldownFrames(600)
+    .build(),
+  passiveStory('base:story:hoshino_conv_2', 'base:story:hoshino_rooftop_hint')
+    .owner('Hoshino')
     // 天台剧情只在夏莱 Init 出现（外部 Init 无天台区域）
-    availableInits: ['base:init:schale_office'],
-    repeatable: false,
-    weight: 1,
-    triggerCondition: and(),
+    .inits('base:init:schale_office')
+    .repeatable(false)
+    .weight(1)
     // 阻断：播完后锁定星野对话空间，直到玩家「到达夏莱天台区域」才重启
-    block: {
-      type: 'AND',
-      conditions: [
-        { target: 'area', key: 'base:area:schale_rooftop', comparator: '==', value: 1 },
-      ],
-    },
+    .block(and(cond('area', 'base:area:schale_rooftop', '==', 1)))
     // 天台演出中锁定移动且不被打断（演出中途不可离场 / 移动打断）
-    leaveArea: false,
-    interruptible: false,
-  },
+    .leaveArea(false)
+    .interruptible(false)
+    .build(),
+  passiveStory('base:story:hoshino_bond_invite')
+    .owner('Hoshino')
+    .inits()
+    .repeatable(false)
+    .weight(1)
+    .build(),
 ];
 
 // ------------------------------------------------------------
 // 2. 冷却示例（全局闲聊池级冷却）
 // ------------------------------------------------------------
-export const cooldownDemoPool: PassivePoolDef = {
-  id: 'base:pool:cooldown_demo',
-  name: '冷却演示池',
+export const cooldownDemoPool: PassivePoolDef = passivePool('base:pool:cooldown_demo')
+  .name('冷却演示池')
   // 该池整体命中后 1200 帧内不再被抽（覆盖其内所有 entry）
-  cooldownFrames: 1200,
-  children: [{ id: 'base:story:cooldown_demo_1' }],
-};
+  .cooldownFrames(1200)
+  .child('base:story:cooldown_demo_1')
+  .build();
 
 export const cooldownDemoStories: PassiveStoryEntry[] = [
-  {
-    id: 'base:story:cooldown_demo_1',
-    storyId: 'base:story:schale_briefing',
-    type: 'passive',
-    availableInits: [],
-    repeatable: true,
-    weight: 1,
-    triggerCondition: and(),
-  },
+  passiveStory('base:story:cooldown_demo_1', 'base:story:schale_briefing')
+    .inits()
+    .weight(1)
+    .build(),
 ];

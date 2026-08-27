@@ -8,7 +8,8 @@ import { and, Character, CharacterRarity, CharacterSchool, GachaMode } from '../
 import { extra } from '../../../src/engine/extra/index';
 import { baseDatapack } from '../../../src/data/index';
 import { createUIContext } from '../../../src/ui/context';
-import { renderChatHistory } from '../../../src/ui/components/story';
+import { renderChatHistory, renderCurrentStory } from '../../../src/ui/components/story';
+import { renderSendButton } from '../../../src/ui/components/center-panel';
 import { ChatStream } from '../../../src/ui/chat-stream';
 import { renderProductionNodes } from '../../../src/ui/components/production';
 import {
@@ -17,7 +18,6 @@ import {
   renderCharacterPanel,
   renderGachaBody,
   renderSpotGachaBody,
-  bondStoriesOf,
 } from '../../../src/ui/components/contacts';
 
 function makeDatapack(): Datapack {
@@ -53,6 +53,18 @@ function makeDatapack(): Datapack {
     colors: [
       { id: 'color-a', name: '苍蓝', theme: { primary: '#3b82f6' }, unlock: { target: 'flag', key: 'unlock_a', comparator: '>=', value: 1 } },
     ],
+    colorGroups: [
+      { id: 'group-a', name: '组A', compositionType: 'solid', slots: [{ role: 'primary', colorId: 'color-a' }] },
+    ],
+    colorEquipments: [
+      {
+        id: 'equip-a',
+        name: '装备A',
+        colorGroupId: 'group-a',
+        effects: [{ op: 'addResource', target: 'credit', value: 1 }],
+        unlock: { target: 'flag', key: 'equip_a', comparator: '>=', value: 1 },
+      },
+    ],
     chatMessages: [
       { id: 'msg-1', owner: 'Hoshino', order: 1, content: '老师，早。' },
       { id: 'msg-2', owner: 'Hoshino', order: 2, content: '今天也要加油哦。' },
@@ -66,8 +78,7 @@ function makeDatapack(): Datapack {
         type: 'active',
         triggerCondition: and(),
         availableInits: [],
-        replayable: true,
-        extra: extra.dict({ owner: extra.str('Hoshino') }),
+        owner: 'Hoshino',
       },
     ],
     stories: [
@@ -109,27 +120,85 @@ describe('通讯录 UI（U 组）', () => {
     expect(panel).toContain('累计获得');
 
     const sendState = game.getSendState();
-    const conv = renderConversationView(ctx, 'Hoshino', [], sendState);
+    const conv = renderConversationView(ctx, 'Hoshino', [], [], sendState);
     expect(conv).toContain('小鸟游星野'); // 顶部栏标题
     expect(conv).toContain('data-conversation-back'); // App 式返回键
-    expect(conv).toContain('羁绊剧情'); // 手动进入按钮
+    expect(conv).toContain('data-send'); // 底部回复按钮（idle 态）
     expect(renderChatHistory([], ctx)).toContain('还没有对话记录'); // 空语境
 
     // 未选择：占位文案
     expect(renderCharacterPanel(ctx, null)).toContain('未选择学生');
   });
 
-  test('U-02b 羁绊剧情入口：extra.owner 声明归属，手动点击进入', () => {
-    // base 数据包为 Hoshino 声明了羁绊剧情
-    const bonds = bondStoriesOf(game, 'Hoshino');
-    expect(bonds.length).toBeGreaterThan(0);
-    // 其他学生没有
-    expect(bondStoriesOf(game, 'Yuuka')).toHaveLength(0);
-    // 经 startActiveStory 手动进入后，演出走一般 Story 流程
-    const started = game.startActiveStory(bonds[0].id);
+  test('U-02b 羁绊剧情入口：ActiveStoryEntry.owner 声明归属，卡片启动尊重单次', () => {
+    // base 数据包为 Hoshino 声明了羁绊剧情（active entry，owner='Hoshino'）
+    const entry = game.registry.activeStories.get('bond:hoshino_1')!;
+    expect(entry).toBeDefined();
+    expect(entry.owner).toBe('Hoshino');
+    // 经 startCardStory 触发（skipConditions，尊重单次完成态）
+    const started = game.startCardStory('bond:hoshino_1');
     expect(started.success).toBe(true);
     const view = game.getView().currentStory!;
-    expect(view.storyDefId).toBe(bonds[0].storyId);
+    expect(view.storyDefId).toBe('bond:hoshino_1');
+    // 完成后再次触发 → AlreadyCompleted 拒绝（尊重单次）
+    let guard = 0;
+    while (game.getView().currentStory && guard++ < 20) {
+      const r = game.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+    }
+    expect(game.getView().currentStory).toBeNull();
+    const retry = game.startCardStory('bond:hoshino_1');
+    expect(retry.success).toBe(false);
+    if (!retry.success) expect(retry.error).toBe('AlreadyCompleted');
+  });
+
+  test('U-02c 羁绊卡片渲染：kizuna 卡片进流渲染，底部按钮变灰', () => {
+    const ctx = createUIContext(game);
+    // 构造带 kizuna 页的 StoryView，验证 renderCurrentStory 在流内渲染的 yuzu-kizuna 结构
+    const story = {
+      storyId: 'test:entry',
+      type: 'active' as const,
+      storyDefId: 'base:bond:hoshino_evening',
+      pageIndex: 0,
+      totalPages: 1,
+      availableChoiceIndexes: [],
+      page: {
+        kind: 'talk' as const,
+        speaker: '星野',
+        text: '星野酝酿了一下情绪……',
+        kizuna: {
+          storyId: 'base:bond:hoshino_evening',
+          title: '傍晚的河堤',
+          buttonText: '进入羁绊剧情',
+          align: 'right' as const,
+        },
+      },
+    };
+    const html = renderCurrentStory(ctx as any, story as any);
+    expect(html).toContain('yuzu-kizuna-item');
+    expect(html).toContain('yuzu-kizuna-header');
+    expect(html).toContain('yuzu-kizuna-heart');
+    expect(html).toContain('yuzu-kizuna-footer');
+    expect(html).toContain('data-kizuna="base:bond:hoshino_evening"');
+    expect(html).toContain('傍晚的河堤');
+    expect(html).toContain('进入羁绊剧情');
+    expect(html).toContain('<svg');
+    expect(html).toContain('align-right');
+
+    // 底部回复按钮：kizuna 模式下变灰不可点，提示点击卡片
+    const kizunaState = {
+      mode: 'kizuna' as const,
+      storyId: 'test:story',
+      pageIndex: 0,
+      targetStoryId: 'test:bond',
+      title: '测试羁绊',
+      buttonText: '进入羁绊剧情',
+      align: 'left' as const,
+    };
+    const btnHtml = renderSendButton(kizunaState);
+    expect(btnHtml).toContain('send-button disabled');
+    expect(btnHtml).toContain('disabled');
+    expect(btnHtml).toContain('请点击羁绊卡片');
   });
 
   test('U-03 聊天已读标记走 StateMutationService（幂等）', () => {
@@ -151,6 +220,27 @@ describe('通讯录 UI（U 组）', () => {
     const html = renderContactsTab(createUIContext(game), null);
     expect(html).toContain('data-activate-color="color-a"'); // swatch 可点
     expect(html).toMatch(/theme-swatch active/); // 激活态标记
+  });
+
+  test('U-10 装备面板：收集后渲染装备卡片，装备后头像换为 SVG 圆', () => {
+    game.mutations.setFlag('equip_a', '1');
+    // setFlag 经 flagChanged 事件自动 recheck 收集（行为闭环）
+    expect(game.colorEquipmentSystem.isOwned(game.state, 'equip-a')).toBe(true);
+    // 收集即级联解锁其 colorGroup 引用的 Color（color-a）
+    expect(game.colorSystem.isOwned(game.state, 'color-a')).toBe(true);
+
+    const panel = renderCharacterPanel(createUIContext(game), 'Hoshino');
+    expect(panel).toContain('data-equip-equipment="equip-a"'); // 可装备列表项
+    expect(panel).toContain('色彩装备');
+
+    // 装备后：面板渲染已装备卡片（含卸下按钮），通讯录行头像换为 SVG 圆
+    expect(game.mutations.equipEquipment('Hoshino', 'equip-a').ok).toBe(true);
+    const panel2 = renderCharacterPanel(createUIContext(game), 'Hoshino');
+    expect(panel2).toContain('data-unequip-equipment');
+    const tab = renderContactsTab(createUIContext(game), null);
+    expect(tab).toContain('<svg'); // 装备驱动头像
+    // 未拥有不可装备
+    expect(game.mutations.equipEquipment('Hoshino', 'equip-missing').ok).toBe(false);
   });
 
   test('U-05 池界面可及性：开放池显示成员，关闭池标记并禁抽', () => {
@@ -206,20 +296,20 @@ describe('通讯录 UI（U 组）', () => {
       game.mutations.setStudentBlock('Hoshino', BLOCK_ENTRY_ID);
     });
 
-    test('U-08 阻断态：条件未满足时渲染锁定横幅而非发送按钮', () => {
+    test('U-08 阻断态：条件未满足时渲染灰色锁定按钮', () => {
       const sendState = game.getSendState();
-      const html = renderConversationView(createUIContext(game), 'Hoshino', [], sendState);
-      expect(html).toContain('conversation-blocked'); // 锁定横幅
+      const html = renderConversationView(createUIContext(game), 'Hoshino', [], [], sendState);
+      expect(html).toContain('send-button disabled'); // 灰色锁定按钮
       expect(html).toContain('对话空间已锁定'); // 提示文案
       expect(html).toContain('标记「met_at_rooftop」≥1'); // describeCondition 输出
-      expect(html).not.toContain('data-send'); // 未渲染发送按钮
+      expect(html).not.toContain('data-send'); // 未渲染可点发送按钮
     });
 
-    test('U-09 解除：满足 block 条件后横幅消失，恢复发送按钮', () => {
+    test('U-09 解除：满足 block 条件后锁定消失，恢复发送按钮', () => {
       game.mutations.setFlag('met_at_rooftop', '1');
       const sendState = game.getSendState();
-      const html = renderConversationView(createUIContext(game), 'Hoshino', [], sendState);
-      expect(html).not.toContain('conversation-blocked'); // 横幅消失
+      const html = renderConversationView(createUIContext(game), 'Hoshino', [], [], sendState);
+      expect(html).not.toContain('send-button disabled'); // 锁定消失
       expect(html).toContain('data-send'); // 发送按钮恢复
     });
   });

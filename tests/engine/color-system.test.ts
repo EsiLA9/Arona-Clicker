@@ -124,7 +124,7 @@ describe('CT 主题派生（纯函数）', () => {
   });
 });
 
-describe('CL 色彩获得与装备', () => {
+describe('CL 色彩获得与主题', () => {
   let game: GameInstance;
   const state = () => (game as any)._state;
   const events: any[] = [];
@@ -133,7 +133,8 @@ describe('CL 色彩获得与装备', () => {
     events.length = 0;
     game = new GameInstance();
     game.eventBus.on('colorUnlocked', e => events.push(e));
-    game.eventBus.on('colorEquipped', e => events.push(e));
+    game.eventBus.on('equipmentCollected', e => events.push(e));
+    game.eventBus.on('equipmentEquipped', e => events.push(e));
     game.eventBus.on('themeChanged', e => events.push(e));
     game.init([makeDatapack()]);
     game.mutations.acquireCharacter('Hoshino', 'gacha');
@@ -164,39 +165,13 @@ describe('CL 色彩获得与装备', () => {
     expect(events.filter(e => e.type === 'colorUnlocked' && e.colorId === 'color-flag')).toHaveLength(1);
   });
 
-  test('CL-04 装备受槽位上限约束（缺省 1）', () => {
-    for (const id of ['color-free', 'color-flag']) {
-      game.mutations.setFlag('unlock_blue', '1');
-      if (id === 'color-free') continue;
-      void game.colorSystem.tryUnlock(id);
-    }
-    game.colorSystem.tryUnlock('color-free');
-    expect(game.mutations.equipColor('Hoshino', 'color-free').ok).toBe(true);
-    // 缺省 1 槽 → 第二件拒绝
-    game.mutations.setFlag('unlock_blue', '1');
-    game.colorSystem.tryUnlock('color-flag');
-    const r = game.mutations.equipColor('Hoshino', 'color-flag');
-    expect(r.ok).toBe(false);
-    expect(r.reason).toBe('slots-full');
-  });
-
   test('CL-05/06 激活主题全局单选，未拥有拒绝，切换只改 activeColor', () => {
     expect(game.mutations.activateTheme('color-free')).toBe(false); // 未拥有
     game.colorSystem.tryUnlock('color-free');
     expect(game.mutations.activateTheme('color-free')).toBe(true);
     expect(state().activeColor).toBe('color-free');
-    // 不影响装备槽
-    expect(state().roster['Hoshino'].equippedColors).toEqual([]);
-  });
-
-  test('CL-07 卸下后聚合效果消失', () => {
-    game.colorSystem.tryUnlock('color-free');
-    game.mutations.equipColor('Hoshino', 'color-free');
-    expect(game.colorSystem.effectsOf(state(), 'Hoshino')).toEqual(
-      makeDatapack().colors!.find(c => c.id === 'color-free')!.effects ?? [],
-    );
-    game.mutations.unequipColor('Hoshino', 'color-free');
-    expect(game.colorSystem.effectsOf(state(), 'Hoshino')).toEqual([]);
+    // 不影响装备槽（equippedEquipment 维持 null）
+    expect(state().roster['Hoshino'].equippedEquipment).toBeNull();
   });
 
   test('activeThemeTokens 返回激活色彩的最终 token 表', () => {

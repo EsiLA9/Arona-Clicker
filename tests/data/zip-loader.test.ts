@@ -82,16 +82,34 @@ describe('loadDatapackFromZip', () => {
     expect(datapack.spots).toHaveLength(1);
   });
 
-  test('忽略非 json 文件并统计 ignoredCount', async () => {
+  test('提取图片资产并统计 ignoredCount（图片不再计入忽略）', async () => {
     const zip = makeZip({
       'mod/inits.json': INIT_FRAGMENT,
       'mod/assets/icon.png': 'fake-png',
+      'mod/assets/bg.webp': 'fake-webp',
       'mod/readme.md': '# mod',
       'mod/data.bson': 'binary',
     });
-    const { jsonFileCount, ignoredCount } = await loadDatapackFromZip(zip);
+    const { jsonFileCount, ignoredCount, images } = await loadDatapackFromZip(zip);
     expect(jsonFileCount).toBe(1);
-    expect(ignoredCount).toBe(3);
+    expect(ignoredCount).toBe(2); // readme.md / data.bson
+    expect(images).toHaveLength(2);
+    expect(images.map(i => i.path)).toEqual(['mod/assets/icon.png', 'mod/assets/bg.webp']);
+    expect(images[0].url).toMatch(/^data:image\/png;base64,/);
+  });
+
+  test('pics 列表字段并入 Datapack', async () => {
+    const zip = makeZip({
+      '00-pics.json': {
+        pics: [
+          { id: 'modA:avatar(pic):hoshino', src: 'zip:assets/avatar.png' },
+          { id: 'modA:background(pic):office', src: 'https://example.com/bg.png' },
+        ],
+      },
+    });
+    const { datapack } = await loadDatapackFromZip(zip);
+    expect(datapack.pics).toHaveLength(2);
+    expect(datapack.pics![0].id).toBe('modA:avatar(pic):hoshino');
   });
 
   test('extras 分片合并，name/version 取首个出现的文件', async () => {

@@ -12,7 +12,8 @@ import { ValueSystem } from '../expression/value-system';
 import { EventBus } from '../core/event-bus';
 import { StateMutationService } from './state-mutation-service';
 import { GameNumSystem } from '../expression/game-num';
-import { TagPath, matchesTag } from '../core/tag';
+import { aggregateZone } from '../expression/game-num-eval';
+import { TagPath } from '../core/tag';
 
 /** One engine tick is one second for both manual and automatic progression. */
 export const TICK_INTERVAL_MS = 1000;
@@ -64,28 +65,14 @@ export class TickSystem {
     // 旧路径（无 GameNum 时，供单元测试直用）：逐 Spot 结算
     const productions: ProductionResult[] = [];
 
-    // 某 Enhancement 是否作用于带给定 tags 的 Spot（层级匹配）：
-    // 无 productionTags = 全局；否则 Spot 的任一声明 tag 命中任一查询 tag（前缀匹配）。
-    // 作用域为全局（当前 Init），不按 Area 限定。
-    const matchesEnhancement = (enhId: string, spotTags: TagPath[]): boolean => {
-      const enh = this.registry.enhancements.get(enhId);
-      if (!enh?.productionMultiplier) return false;
-      if (!enh.productionTags || enh.productionTags.length === 0) return true;
-      return enh.productionTags.some(query => spotTags.some(declared => matchesTag(declared, query)));
-    };
-
     for (const [spotId, level] of Object.entries(state.spotLevels)) {
       if (level <= 0) continue;
       const spotDef = this.registry.spots.get(spotId);
       if (!spotDef) continue;
 
-      // 聚合当前 Spot 适用的 Enhancement 产出倍率（组内累乘，按 tag 过滤）。
+      // 统一产出倍率：经 GameNum 的 zone 聚合（tag / 指定实体双路命中）。
       const spotTags = spotDef.tags ?? [];
-      const enhancementMultiplier = state.unlockedEnhancements.reduce((multiplier, enhId) => {
-        return matchesEnhancement(enhId, spotTags)
-          ? multiplier * this.registry.enhancements.get(enhId)!.productionMultiplier!
-          : multiplier;
-      }, 1);
+      const enhancementMultiplier = aggregateZone(state, { kind: 'spot', id: spotId }, spotTags, spotDef.baseYieldResource, 'mul', this.valueSystem);
 
       // All numeric inputs are evaluated through ValueSystem. A Spot's
       // baseYield is now its output for this unified tick.

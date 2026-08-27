@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-23T15:50:39.225Z",
+  "generatedAt": "2026-08-26T15:01:51.712Z",
   "sourceDir": "src/engine/types",
   "defMap": {
     "inits": {
@@ -74,12 +74,28 @@
       "type": "ColorDef",
       "shape": "array"
     },
+    "colorGroups": {
+      "type": "ColorGroupDef",
+      "shape": "array"
+    },
+    "colorEquipments": {
+      "type": "ColorEquipmentDef",
+      "shape": "array"
+    },
     "gachaPools": {
       "type": "GachaPoolDef",
       "shape": "array"
     },
     "chatMessages": {
       "type": "ChatMessageDef",
+      "shape": "array"
+    },
+    "pics": {
+      "type": "PicDef",
+      "shape": "array"
+    },
+    "charaProfiles": {
+      "type": "CharaProfileDef",
       "shape": "array"
     },
     "resourceDisplays": {
@@ -615,32 +631,12 @@
           }
         },
         {
-          "key": "productionMultiplier",
-          "required": false,
-          "kind": "float",
-          "tsType": "number",
-          "label": "产出倍率",
-          "description": "解锁后对 Spot 产出的倍率（如 1.5 = +50%）。聚合时组内累乘。"
-        },
-        {
-          "key": "productionTags",
-          "required": false,
-          "kind": "array",
-          "tsType": "TagPath[]",
-          "description": "该倍率只作用于带有这些 tag 的 Spot（层级匹配：query 命中 declared 前缀）。",
-          "item": {
-            "key": "$",
-            "kind": "hand",
-            "tsType": "TagPath"
-          }
-        },
-        {
           "key": "tags",
           "required": false,
           "kind": "array",
           "tsType": "TagPath[]",
           "label": "标签",
-          "description": "层级标签（用于按 tag 聚合的收集统计；与 productionTags 的产出匹配语义无关）。",
+          "description": "层级标签（用于按 tag 聚合的收集统计）。",
           "item": {
             "key": "$",
             "kind": "hand",
@@ -655,11 +651,19 @@
           "description": "挂靠元数据（仅 UI 展示用，不参与作用域结算）。"
         },
         {
+          "key": "irreversible",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "label": "不可撤回",
+          "description": "不可撤回：获得后禁止移除（无热插拔）。缺省 false = 可自由启用/停用。"
+        },
+        {
           "key": "addsFunctionalities",
           "required": false,
           "kind": "array",
           "tsType": "SpotFunctionalityDef[]",
-          "description": "获得后为匹配 Spot 注入的外源功能（作用于 productionTags 命中的 Spot；空 = 全局）。",
+          "description": "获得后为匹配 Spot 注入的外源功能（作用范围由该 Enhancement 的 Affector 包 zoneModifiers 的 tag 目标决定；无 tag 目标 = 全局）。",
           "item": {
             "key": "$",
             "kind": "hand",
@@ -670,12 +674,12 @@
           "key": "affectorPackIds",
           "required": false,
           "kind": "array",
-          "tsType": "string[]",
-          "description": "获得后挂载的 Affector 包 ID 列表（用于持续被动效果）。",
+          "tsType": "AffectorPackRef[]",
+          "description": "获得后挂载的 Affector 包引用列表（用于持续被动效果）。",
           "item": {
             "key": "$",
-            "kind": "string",
-            "tsType": "string"
+            "kind": "hand",
+            "tsType": "AffectorPackRef"
           }
         },
         {
@@ -706,6 +710,20 @@
           "required": true,
           "kind": "hand",
           "tsType": "'active'"
+        },
+        {
+          "key": "completionReward",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ first?: Effect[]; repeat?: Effect[] }",
+          "description": "完结奖励：剧情完整播放到最后一页后发放。"
+        },
+        {
+          "key": "owner",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "归属某学生差分的聊天空间（VariantId）。"
         }
       ]
     },
@@ -1038,11 +1056,12 @@
           "key": "affectorPackIds",
           "required": false,
           "kind": "array",
-          "tsType": "string[]",
+          "tsType": "AffectorPackRef[]",
+          "description": "持有即生效的 Affector 包引用列表（每项可为 pack id 字符串或内联 AffectorPackDef）。",
           "item": {
             "key": "$",
-            "kind": "string",
-            "tsType": "string"
+            "kind": "hand",
+            "tsType": "AffectorPackRef"
           }
         },
         {
@@ -1147,10 +1166,11 @@
       "fields": [
         {
           "key": "id",
-          "required": true,
+          "required": false,
           "kind": "string",
           "tsType": "string",
-          "label": "ID"
+          "label": "ID",
+          "description": "唯一 ID。缺省时视为匿名 Trigger，挂载期按「分组 + 结构内容」派生确定性身份"
         },
         {
           "key": "on",
@@ -1512,6 +1532,23 @@
           "label": "描述"
         },
         {
+          "key": "avatar",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "头像",
+          "description": "头像：直连 URL 或 `mod:type(pic):id` 三段式图片索引（见 pics 表）。"
+        },
+        {
+          "key": "colorGroupId",
+          "required": false,
+          "kind": "ref",
+          "tsType": "ColorGroupId",
+          "label": "默认头像色组",
+          "description": "默认头像颜色组（ColorGroup）：声明后该差分默认使用 Color 抽象图案头像，",
+          "table": "colorGroups"
+        },
+        {
           "key": "isDefault",
           "required": false,
           "kind": "bool",
@@ -1540,14 +1577,6 @@
           "label": "培养曲线",
           "description": "培养曲线；缺省用全局默认",
           "table": "cultivateCurves"
-        },
-        {
-          "key": "colorSlots",
-          "required": false,
-          "kind": "int",
-          "tsType": "number",
-          "label": "色彩槽位",
-          "description": "色彩装备槽位数（缺省 1）"
         },
         {
           "key": "theme",
@@ -1693,12 +1722,149 @@
           }
         },
         {
-          "key": "effects",
+          "key": "unlock",
           "required": false,
+          "kind": "hand",
+          "tsType": "Condition | ConditionGroup",
+          "label": "解锁条件",
+          "description": "解锁条件（引用 protoStats / story flag 等）；缺省 = 不可自动解锁"
+        }
+      ]
+    },
+    "ColorGroupDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "ColorGroupId",
+          "label": "ID"
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "名称"
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "描述"
+        },
+        {
+          "key": "compositionType",
+          "required": true,
+          "kind": "enum",
+          "tsType": "CompositionType",
+          "label": "构成方式",
+          "description": "构成方式",
+          "options": [
+            "solid",
+            "gradient",
+            "duotone",
+            "pie",
+            "radial"
+          ],
+          "meaning": {
+            "单色": "单色",
+            "渐变": "渐变",
+            "双色阶调": "双色阶调",
+            "饼图": "饼图",
+            "径向": "径向"
+          }
+        },
+        {
+          "key": "slots",
+          "required": true,
+          "kind": "array",
+          "tsType": "ColorGroupSlot[]",
+          "label": "色位",
+          "description": "色位表（数量与构成方式匹配）",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "role",
+                "required": true,
+                "kind": "enum",
+                "tsType": "ColorGroupRole",
+                "label": "角色",
+                "description": "色位角色（决定该色在构成中承担的位置）",
+                "options": [
+                  "primary",
+                  "secondary",
+                  "accent",
+                  "highlight",
+                  "shadow",
+                  "edge"
+                ],
+                "meaning": {
+                  "主色": "主色",
+                  "副色": "副色",
+                  "强调": "强调",
+                  "高光": "高光",
+                  "阴影": "阴影",
+                  "边缘": "边缘"
+                }
+              },
+              {
+                "key": "colorId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "ColorId",
+                "label": "颜色",
+                "description": "引用的颜色",
+                "table": "colors"
+              }
+            ],
+            "tsType": "ColorGroupSlot"
+          }
+        }
+      ]
+    },
+    "ColorEquipmentDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "EquipmentId",
+          "label": "ID"
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "名称"
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "描述"
+        },
+        {
+          "key": "colorGroupId",
+          "required": true,
+          "kind": "ref",
+          "tsType": "ColorGroupId",
+          "label": "颜色组",
+          "description": "引用的颜色组（决定装备学生的头像视觉）",
+          "table": "colorGroups"
+        },
+        {
+          "key": "effects",
+          "required": true,
           "kind": "array",
           "tsType": "Effect[]",
           "label": "效果",
-          "description": "可选轻数值效果（走现有 Effect 体系）",
+          "description": "数值效用（走现有 Effect 体系；装备后生效）",
           "item": {
             "key": "$",
             "kind": "hand",
@@ -1706,12 +1872,39 @@
           }
         },
         {
+          "key": "themeColorId",
+          "required": false,
+          "kind": "ref",
+          "tsType": "ColorId",
+          "label": "主题色",
+          "description": "可选：该装备关联的主题色。激活为 UI 全局主题时使用（独立于头像）。",
+          "table": "colors"
+        },
+        {
           "key": "unlock",
           "required": false,
           "kind": "hand",
           "tsType": "Condition | ConditionGroup",
           "label": "解锁条件",
-          "description": "解锁条件（引用 protoStats / story flag 等）；缺省 = 不可自动解锁"
+          "description": "解锁条件；缺省 = 不可自动解锁"
+        },
+        {
+          "key": "category",
+          "required": false,
+          "kind": "enum",
+          "tsType": "'common' | 'rare' | 'epic'",
+          "label": "稀有度",
+          "description": "稀有度分类（UI 展示用）",
+          "options": [
+            "common",
+            "rare",
+            "epic"
+          ],
+          "meaning": {
+            "普通": "普通",
+            "稀有": "稀有",
+            "史诗": "史诗"
+          }
         }
       ]
     },
@@ -1938,6 +2131,151 @@
         }
       ]
     },
+    "PicDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "PicId",
+          "label": "ID",
+          "description": "完整索引 id（三段式 `modName:typeName(pic):idName`）"
+        },
+        {
+          "key": "src",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "来源",
+          "description": "图片来源："
+        },
+        {
+          "key": "label",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "名称",
+          "description": "展示名（可选，供图鉴/调试）"
+        }
+      ]
+    },
+    "CharaProfileDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "enum",
+          "tsType": "Character",
+          "description": "原型 id（chara 侧持有）",
+          "options": [
+            "None",
+            "Arona",
+            "Shiroko",
+            "Hoshino",
+            "Nonomi",
+            "Serika",
+            "Ayane",
+            "Yuuka",
+            "Noa",
+            "Midori",
+            "Momoi",
+            "Koyuki",
+            "Hifumi",
+            "Nagisa",
+            "Mika",
+            "Koharu",
+            "Ako",
+            "Iori",
+            "Mutsuki",
+            "Aru",
+            "Miyu",
+            "Miyako",
+            "Saki",
+            "Moe",
+            "Saori",
+            "Atsuko",
+            "Chise",
+            "Izuna",
+            "Shun",
+            "Rumi",
+            "Cherino",
+            "Tomoe",
+            "Kanna",
+            "Kirino"
+          ]
+        },
+        {
+          "key": "names",
+          "required": true,
+          "kind": "array",
+          "tsType": "CharaNameEntry[]",
+          "description": "name 表（至少一条）",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "description": "条目 id（如 'default' / 'nickname'）"
+              },
+              {
+                "key": "text",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "description": "显示名文本"
+              }
+            ],
+            "tsType": "CharaNameEntry"
+          }
+        },
+        {
+          "key": "avatars",
+          "required": true,
+          "kind": "array",
+          "tsType": "CharaAvatarEntry[]",
+          "description": "avatar 表（可选，无头像则为空）",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "description": "条目 id（如 'default' / 'swimsuit' / 'chibi'）"
+              },
+              {
+                "key": "pic",
+                "required": true,
+                "kind": "string",
+                "tsType": "PicId",
+                "description": "图片索引 PicId（不得持有裸 URL）"
+              }
+            ],
+            "tsType": "CharaAvatarEntry"
+          }
+        },
+        {
+          "key": "activeName",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "当前使用的 name id；缺省 = names[0].id"
+        },
+        {
+          "key": "activeAvatar",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "当前使用的 avatar id；缺省 = avatars[0].id（avatars 为空则无）"
+        }
+      ]
+    },
     "ResourceDisplayDef": {
       "fields": [
         {
@@ -2029,10 +2367,16 @@
     "AffectorEffect",
     "AffectorInstance",
     "AffectorPackDef",
+    "AffectorPackRef",
     "AffectorState",
     "AreaDef",
     "AreaId",
     "BranchGuard",
+    "CharaAvatarEntry",
+    "CharaCustomOverride",
+    "CharaNameEntry",
+    "CharaProfile",
+    "CharaProfileDef",
     "Character",
     "CharacterAcquireVia",
     "CharacterBonusTable",
@@ -2044,10 +2388,20 @@
     "CharacterVariantDef",
     "ChatMessageDef",
     "ChatMessageId",
+    "ChatTextEffectValue",
+    "ChatTextFont",
+    "ChatTextKind",
+    "ChatTextStyle",
     "ColorDef",
+    "ColorEquipmentDef",
+    "ColorGroupDef",
+    "ColorGroupId",
+    "ColorGroupRole",
+    "ColorGroupSlot",
     "ColorId",
     "Comparator",
     "CompletedStory",
+    "CompositionType",
     "Condition",
     "ConditionGroup",
     "ConditionTarget",
@@ -2066,6 +2420,7 @@
     "EnhancementPurchaseError",
     "EnhancementPurchaseResult",
     "EntryEffectDef",
+    "EquipmentId",
     "EventHandler",
     "ExtraCompound",
     "ExtraPath",
@@ -2094,6 +2449,10 @@
     "PassivePoolChild",
     "PassivePoolDef",
     "PassiveStoryEntry",
+    "PicDef",
+    "PicId",
+    "PicKind",
+    "PicRefParts",
     "PlayerState",
     "ProductionResult",
     "ProtoStat",

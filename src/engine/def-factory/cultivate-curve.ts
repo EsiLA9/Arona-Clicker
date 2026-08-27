@@ -1,0 +1,44 @@
+// ============================================================
+// engine/def-factory/cultivate-curve.ts — CultivateCurveDef 链式 Builder
+// ============================================================
+
+import type { ValueExpression } from '../types/expression';
+import type { CultivateCurveDef, CultivateCurveId } from '../types/character';
+
+export class CultivateCurveBuilder {
+  private readonly _id: CultivateCurveId;
+  private _maxLevel = 1;
+  private _expTable?: number[];
+  private _starMax?: number;
+  private _starCost?: number[];
+  private _levelCapPerStar?: number;
+  private _levelBonusPerLevel?: ValueExpression;
+
+  constructor(id: CultivateCurveId) {
+    this._id = id;
+  }
+
+  /** @label 等级上限 */
+  maxLevel(value: number): this { this._maxLevel = value; return this; }
+  /** @label 经验表 */
+  expTable(...values: number[]): this { this._expTable = values; return this; }
+  /** @label 星级上限 */
+  starMax(value: number): this { this._starMax = value; return this; }
+  /** @label 突破消耗 */
+  starCost(...values: number[]): this { this._starCost = values; return this; }
+  /** @label 每星上限 */
+  levelCapPerStar(value: number): this { this._levelCapPerStar = value; return this; }
+  levelBonusPerLevel(value: ValueExpression): this { this._levelBonusPerLevel = value; return this; }
+
+  build(): CultivateCurveDef {
+    const def: CultivateCurveDef = { id: this._id, maxLevel: this._maxLevel };
+    if (this._expTable) def.expTable = this._expTable;
+    if (this._starMax !== undefined) def.starMax = this._starMax;
+    if (this._starCost) def.starCost = this._starCost;
+    if (this._levelCapPerStar !== undefined) def.levelCapPerStar = this._levelCapPerStar;
+    if (this._levelBonusPerLevel) def.levelBonusPerLevel = this._levelBonusPerLevel;
+    return def;
+  }
+}
+
+export const cultivateCurve = (id: CultivateCurveId): CultivateCurveBuilder => new CultivateCurveBuilder(id);

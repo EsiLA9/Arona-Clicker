@@ -10,14 +10,15 @@
 import { GameInstance } from '../../engine/game-instance';
 import { createUIContext, type UIContext } from '../context';
 import type { ModalManager } from '../modal';
-import { renderCollectionBody, renderColorCodex } from './collection';
+import { renderCollectionBody, renderColorCodex, renderEquipmentCodex } from './collection';
 
 /** 图鉴弹窗的收集类型。 */
-export type CollectionTab = 'stories' | 'colors';
+export type CollectionTab = 'stories' | 'colors' | 'equipments';
 
 const TABS: { id: CollectionTab; label: string }[] = [
   { id: 'stories', label: '闲聊收集' },
   { id: 'colors', label: '色彩收集' },
+  { id: 'equipments', label: '装备图鉴' },
 ];
 
 /** Switch 头部：当前类型高亮。 */
@@ -38,6 +39,14 @@ function bodyHtml(ctx: UIContext, tab: CollectionTab): string {
         <h2 class="codex-section-title">色彩收集与管理</h2>
         <p class="codex-section-hint">每份配色都是一件可装备的「主题皮肤」：解锁后可在顶栏色彩面板切换。</p>
         ${renderColorCodex(ctx)}
+      </section>`;
+  }
+  if (tab === 'equipments') {
+    return `
+      <section class="codex-section">
+        <h2 class="codex-section-title">色彩装备图鉴</h2>
+        <p class="codex-section-hint">装备捆绑头像视觉 + 数值效用，可装备到学生身上。</p>
+        ${renderEquipmentCodex(ctx)}
       </section>`;
   }
   return `

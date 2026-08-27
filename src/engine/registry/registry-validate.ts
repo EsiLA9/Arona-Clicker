@@ -5,6 +5,7 @@
 // ============================================================
 
 import { Datapack, ExtraValue } from '../types';
+import { parsePicId } from '../types/pics';
 import { assertValidExtra, expandFlatKeys, ExtraError } from '../extra/index';
 
 export class RegistryError extends Error {
@@ -57,6 +58,51 @@ export function validateDatapack(dp: Datapack): void {
       }
     }
   }
+  if (dp.pics) {
+    checkDup(dp.pics, 'pic');
+    for (const p of dp.pics) {
+      if (!p.id) throw new RegistryError('Pic def missing id');
+      const parsed = parsePicId(p.id);
+      if (!parsed) {
+        throw new RegistryError(`Pic id "${p.id}" 不符合三段式格式（modName:typeName(pic):idName，中段须以 (pic) 结尾）`);
+      }
+      if (!p.src) {
+        throw new RegistryError(`Pic "${p.id}" missing src`);
+      }
+    }
+  }
+  if (dp.charaProfiles) {
+    checkDup(dp.charaProfiles, 'chara profile');    for (const cp of dp.charaProfiles) {
+      if (!cp.names || cp.names.length === 0) {
+        throw new RegistryError(`Chara profile "${cp.id}" name 表至少一条`);
+      }
+      for (const n of cp.names) {
+        if (!n.id || !n.text) {
+          throw new RegistryError(`Chara profile "${cp.id}" name 条目缺 id 或 text`);
+        }
+      }
+      const nameIds = new Set(cp.names.map(n => n.id));
+      if (cp.activeName !== undefined && !nameIds.has(cp.activeName)) {
+        throw new RegistryError(`Chara profile "${cp.id}" activeName "${cp.activeName}" 不在 name 表`);
+      }
+      const avatarIds = new Set((cp.avatars ?? []).map(a => a.id));
+      if (cp.activeAvatar !== undefined && !avatarIds.has(cp.activeAvatar)) {
+        throw new RegistryError(`Chara profile "${cp.id}" activeAvatar "${cp.activeAvatar}" 不在 avatar 表`);
+      }
+      for (const a of cp.avatars ?? []) {
+        if (!a.id || !a.pic) {
+          throw new RegistryError(`Chara profile "${cp.id}" avatar 条目缺 id 或 pic`);
+        }
+        if (!parsePicId(a.pic)) {
+          throw new RegistryError(`Chara profile "${cp.id}" avatar "${a.id}" 的 pic 非 PicId（须为 mod:type(pic):id，不得持有裸 URL）`);
+        }
+      }
+    }
+  }
+
+  if (dp.colors) checkDup(dp.colors, 'color');
+  if (dp.colorGroups) checkDup(dp.colorGroups, 'color group');
+  if (dp.colorEquipments) checkDup(dp.colorEquipments, 'color equipment');
 
   // 检查引用完整性
   const initIds = new Set(dp.inits.map(i => i.id));
@@ -96,7 +142,7 @@ export function validateDatapack(dp: Datapack): void {
   }
 
   // 校验 Extra 数据：各 Def 的 extra 字段 + 数据包 extras 常量表（统一规则，见 docs/13 §8）
-  const checkDefExtras = <T extends { id: unknown; extra?: ExtraValue }>(
+  const checkDefExtras = <T extends { id?: unknown; extra?: ExtraValue }>(
     items: T[] | undefined,
     label: string,
   ): void => {
@@ -107,7 +153,7 @@ export function validateDatapack(dp: Datapack): void {
         assertValidExtra(item.extra);
       } catch (e) {
         if (e instanceof ExtraError) {
-          throw new RegistryError(`Invalid extra on ${label} "${String(item.id)}": ${e.message}`);
+          throw new RegistryError(`Invalid extra on ${label} "${item.id ?? '<anonymous>'}": ${e.message}`);
         }
         throw e;
       }

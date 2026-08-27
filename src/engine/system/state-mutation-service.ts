@@ -6,6 +6,7 @@ import {
   Character,
   CharacterAcquireVia,
   CompletedStory,
+  CharaCustomOverride,
   DupRewards,
   Effect,
   ExtraPath,
@@ -14,14 +15,14 @@ import {
   StoryId,
   GameEvent,
   StatsContext,
-  ValueExpression,
   VariantId,
   isGlobalResource,
 } from '../types';
 import { EventBus } from '../core/event-bus';
 import { StatsService } from '../stats/stats';
 import { applyExp, checkBreakthrough, resolveCurve } from './cultivate-system';
-import { assertValidExtra, deleteAtPath, extra, extraFromJson, getAtPath, isFloat, setAtPath, toNumber } from '../extra/index';
+import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../extra/index';
+import { applyEffects as applyEffectsImpl, applyEffect as applyEffectImpl } from './effect-ops';
 
 /**
  * 所有需要修改 PlayerState 的基础操作集中在这里。
@@ -57,12 +58,16 @@ export class StateMutationService {
     getVariant(id: VariantId): import('../types').CharacterVariantDef | undefined;
     getCurve(id: string): import('../types').CultivateCurveDef | undefined;
     getColor(id: string): import('../types').ColorDef | undefined;
+    getColorGroup(id: string): import('../types').ColorGroupDef | undefined;
+    getColorEquipment(id: string): import('../types').ColorEquipmentDef | undefined;
   } | null = null;
 
   setCharacterCatalog(reader: {
     getVariant(id: VariantId): import('../types').CharacterVariantDef | undefined;
     getCurve(id: string): import('../types').CultivateCurveDef | undefined;
     getColor(id: string): import('../types').ColorDef | undefined;
+    getColorGroup(id: string): import('../types').ColorGroupDef | undefined;
+    getColorEquipment(id: string): import('../types').ColorEquipmentDef | undefined;
   }): void {
     this.characterCatalog = reader;
   }
@@ -167,7 +172,7 @@ export class StateMutationService {
         level: 1,
         exp: 0,
         stars: 0,
-        equippedColors: [],
+        equippedEquipment: null,
         acquiredCount: 1,
       };
     } else {
@@ -219,7 +224,7 @@ export class StateMutationService {
     if (changed) state.worldPool = [...world];
   }
 
-  // --- 色彩（docs-818/12-character-rework.md §2.3） ---
+  // --- 色彩与色彩装备（docs-824/04e-color-derivation.md） ---
 
   /** 色彩入库存（写层不做条件判定——由 ColorSystem 校验后调用；幂等）。 */
   unlockColor(colorId: string): boolean {
@@ -231,29 +236,34 @@ export class StateMutationService {
     return true;
   }
 
-  /** 色彩装备到变体色彩槽。未拥有差分/色彩、槽位满均拒绝。 */
-  equipColor(variantId: VariantId, colorId: string): { ok: boolean; reason?: string } {
+  /** 色彩装备入库存（写层不做条件判定——由 ColorEquipmentSystem 校验后调用；幂等）。 */
+  collectEquipment(equipmentId: string): boolean {
+    const state = this.current;
+    state.equipmentsOwned ??= [];
+    if (state.equipmentsOwned.includes(equipmentId)) return false;
+    state.equipmentsOwned.push(equipmentId);
+    this.emit({ type: 'equipmentCollected', equipmentId });
+    return true;
+  }
+
+  /** 装备色彩装备到变体单装备槽。未拥有差分/装备均拒绝。 */
+  equipEquipment(variantId: VariantId, equipmentId: string): { ok: boolean; reason?: string } {
     const variant = this.characterCatalog?.getVariant(variantId);
-    if (!variant) throw new Error(`[equipColor] 未知差分: ${variantId}`);
+    if (!variant) throw new Error(`[equipEquipment] 未知差分: ${variantId}`);
     const entry = this.current.roster?.[variantId];
     if (!entry) return { ok: false, reason: 'no-entry' };
-    const state = this.current;
-    if (!state.colorsOwned?.includes(colorId)) return { ok: false, reason: 'not-owned' };
-    if (entry.equippedColors.includes(colorId)) return { ok: false, reason: 'already-equipped' };
-    const maxSlots = variant.colorSlots ?? 1;
-    if (entry.equippedColors.length >= maxSlots) return { ok: false, reason: 'slots-full' };
-    entry.equippedColors.push(colorId);
-    this.emit({ type: 'colorEquipped', variantId, colorId });
+    if (!this.current.equipmentsOwned?.includes(equipmentId)) return { ok: false, reason: 'not-owned' };
+    if (entry.equippedEquipment === equipmentId) return { ok: false, reason: 'already-equipped' };
+    entry.equippedEquipment = equipmentId;
+    this.emit({ type: 'equipmentEquipped', variantId, equipmentId });
     return { ok: true };
   }
 
-  /** 卸下变体装备的色彩。 */
-  unequipColor(variantId: VariantId, colorId: string): boolean {
+  /** 卸下变体装备的色彩装备。 */
+  unequipEquipment(variantId: VariantId): boolean {
     const entry = this.current.roster?.[variantId];
-    if (!entry) return false;
-    const idx = entry.equippedColors.indexOf(colorId);
-    if (idx < 0) return false;
-    entry.equippedColors.splice(idx, 1);
+    if (!entry || entry.equippedEquipment === null) return false;
+    entry.equippedEquipment = null;
     return true;
   }
 
@@ -415,6 +425,23 @@ export class StateMutationService {
     this.emit({ type: 'studentBlockChanged', variantId, blocked: false });
   }
 
+  /** 覆写某 Chara 的头像-人名对（player 层，随存档；partial 合并）。 */
+  setCharaCustom(character: Character, override: CharaCustomOverride): void {
+    const state = this.current;
+    if (!state.charaCustom) state.charaCustom = {};
+    const custom = state.charaCustom;
+    custom[character] = { ...custom[character], ...override };
+    this.emit({ type: 'charaCustomChanged', character });
+  }
+
+  /** 清除某 Chara 的玩家侧覆写（回到 chara 声明 / 兜底）。 */
+  clearCharaCustom(character: Character): void {
+    const state = this.current;
+    if (!state.charaCustom || !state.charaCustom[character]) return;
+    delete state.charaCustom[character];
+    this.emit({ type: 'charaCustomChanged', character });
+  }
+
   /**
    * 记录 Story 阅读日志（按 Story.id；talkletIndex 为已读 Talklet 索引，choiceIndex 可选已选选项）。
    * 为重阅读预留的简单记录，不驱动任何行为；重阅读服务本期不实现。
@@ -465,70 +492,13 @@ export class StateMutationService {
     if (removed !== undefined) this.emit({ type: 'extraChanged', path });
   }
 
-  /** 把 Effect.value 归一为 ExtraValue：字面量 → extraFromJson；已结构化 ExtraValue 校验后透传。 */
-  private toExtraValue(raw: number | string | boolean | ValueExpression | ExtraValue | import('../types/expression').ThemeEffectValue): ExtraValue {
-    // setTheme 的 value 走运行时层（effect-engine 已过滤），此处忽略以防误入
-    if (typeof raw === 'object' && raw !== null && 't' in raw) {
-      const node = raw as ExtraValue;
-      assertValidExtra(node);
-      return node;
-    }
-    return extraFromJson(raw);
-  }
-
+  /** @see effect-ops.applyEffects */
   applyEffects(effects: Effect[]): void {
-    for (const effect of effects) this.applyEffect(effect);
+    applyEffectsImpl.call(this, effects);
   }
 
+  /** @see effect-ops.applyEffect */
   applyEffect(effect: Effect): void {
-    switch (effect.op) {
-      case 'setResource':
-        this.setResource(effect.target, Number(effect.value));
-        break;
-      case 'addResource':
-        this.changeResource(effect.target, Number(effect.value));
-        break;
-      case 'setSpotLevel':
-        this.setSpotLevel(effect.target, Number(effect.value));
-        break;
-      case 'addSpotLevel':
-        this.addSpotLevel(effect.target, Number(effect.value));
-        break;
-      case 'setManager':
-        this.setManager(effect.target, effect.value as Character);
-        break;
-      case 'addEnhancement':
-        this.addEnhancement(String(effect.value));
-        break;
-      case 'addItem':
-        this.addItem(effect.target, Number(effect.value));
-        break;
-      case 'unlockInit':
-        this.unlockInit(String(effect.value));
-        break;
-      case 'setFlag':
-        this.setFlag(effect.target, String(effect.value));
-        break;
-      case 'setExtra':
-        this.setExtra(effect.target, this.toExtraValue(effect.value));
-        break;
-      case 'addExtra':
-        this.addExtra(effect.target, Number(effect.value));
-        break;
-      case 'removeExtra':
-        this.removeExtra(effect.target);
-        break;
-      case 'loot':
-      case 'triggerStory':
-        // 这些操作需要上层系统（Loot/Story）处理，不在状态层产生伪事件。
-        break;
-      case 'grantCharacter':
-        // 获得角色差分（重复自动转碎片）；未知差分由 acquireCharacter 抛错
-        this.acquireCharacter(effect.target, 'story');
-        break;
-      case 'setTheme':
-        // 临时演出主题：非持久 UI 效果，由 effect-engine 转发 ColorSystem 处理，状态层不落数据。
-        break;
-    }
+    applyEffectImpl.call(this, effect);
   }
 }

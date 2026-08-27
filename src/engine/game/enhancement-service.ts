@@ -77,8 +77,13 @@ export class EnhancementService {
     return { success: true, enhancementId };
   }
 
-  /** 从当前游戏移除一个已获得的 Enhancement（不再生效，可重新购买）。 */
+  /** 从当前游戏移除一个已获得的 Enhancement（不再生效，可重新购买）。不可撤回（irreversible）的强化拒绝移除。 */
   removeEnhancement(enhancementId: EnhancementId): boolean {
+    const def = this.opts.registry.enhancements.get(enhancementId);
+    if (def?.irreversible) {
+      this.opts.devLog.record(`无法移除强化：${enhancementId}（不可撤回）`, { source: 'enhancement', level: 'warning' });
+      return false;
+    }
     const removed = this.opts.mutations.removeEnhancement(enhancementId);
     if (removed) {
       this.opts.refreshVisibility();

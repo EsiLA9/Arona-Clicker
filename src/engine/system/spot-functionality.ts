@@ -6,13 +6,14 @@
 // Spot 的功能分两种来源：
 // - 内源：SpotDef.functionalities（Spot 自身声明）。
 // - 外源：已获得的 Enhancement 通过 addsFunctionalities 注入，
-//         作用于 productionTags 命中的 Spot（空 = 全局）。
+//         作用范围由该 Enhancement 的 Affector 包 zoneModifiers 的 tag 目标决定（空 = 全局）。
 //
 // 持续型功能（linearYield）类比 Affector，按当前 Spot 等级生效；
 // 交互型功能（restartInit）由 UI 提供操作入口。
 // ============================================================
 
 import { SpotDef, PlayerState, ProductionResult, SpotFunctionalityDef } from '../types';
+import { TagPath } from '../core/tag';
 import { Registry } from '../registry/registry';
 import { ConditionSystem } from '../expression/condition-system';
 import { matchesTag } from '../core/tag';
@@ -21,6 +22,8 @@ export class SpotFunctionalitySystem {
   constructor(
     private readonly registry: Registry,
     private readonly conditionSystem?: ConditionSystem,
+    /** 给定 Enhancement 的 zoneModifiers 命中 tag 列表（空 = 全局）；由 GameInstance 经 Affector 包派生。 */
+    private readonly enhTargetTags?: (enhId: string) => TagPath[],
   ) {}
 
   /**
@@ -32,9 +35,10 @@ export class SpotFunctionalitySystem {
     for (const enhId of state.unlockedEnhancements) {
       const enh = this.registry.enhancements.get(enhId);
       if (!enh?.addsFunctionalities?.length) continue;
-      // 外源功能按 enhancement 的 productionTags 命中 spot（空 = 全局；层级前缀匹配）
-      if (enh.productionTags?.length
-        && !enh.productionTags.some(query => (spot.tags ?? []).some(declared => matchesTag(declared, query)))) {
+      // 外源功能按 enhancement 的 zoneModifiers 命中 tag 派生而来（空 = 全局；层级前缀匹配）
+      const tags = this.enhTargetTags?.(enhId) ?? [];
+      if (tags.length > 0
+        && !tags.some(query => (spot.tags ?? []).some(declared => matchesTag(declared, query)))) {
         continue;
       }
       out.push(...enh.addsFunctionalities);

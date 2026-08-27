@@ -6,9 +6,12 @@ import type { StoryView } from './results';
 import type { AffectorInstance, EnhancementAttachment } from './entities';
 import type { Character, EnhancementId, InitId, SpotId, StoryId, ItemId, AreaId } from './ids';
 import type { ExtraCompound } from './extra';
+import type { CharaCustomOverride } from './chara-profile';
+import type { TagEffectRecord } from '../expression/tag-effect';
 import type {
   ChatMessageId,
   ColorId,
+  EquipmentId,
   GachaPoolId,
   GachaPoolState,
   ProtoStat,
@@ -36,6 +39,18 @@ export interface PlayerState {
   /** 已进入过的 Init（first-entry 判定，跨世界线全局保留）。可选，兼容旧档。 */
   visitedInits?: InitId[];
   totalFrames: number;
+  /**
+   * tag 效果记录表（PlayerState 级，运行时派生，不持久化语义由来源重放保证）。
+   * key = tagId(path)。实体求值时按自身 tags 自下而上聚合命中记录（见 GameNum 的
+   * zone 节点）。可选字段以兼容旧存档（AGENTS.md：不写迁移代码）。
+   */
+  tagEffects?: Record<string, TagEffectRecord[]>;
+  /**
+   * 实体效果记录表（与 tagEffects 并列的另一条标定维度）。
+   * key = entityKey(kind:id)（id 为 '*' 表示该类全部实体）。定点作用于指定 typed-id 实体
+   * 的加区/乘区/上下限经此命中。可选字段以兼容旧存档。
+   */
+  entityEffects?: Record<string, TagEffectRecord[]>;
   storyLog: CompletedStory[];
   /**
    * 按 Story.id 记录的阅读日志（可选，兼容旧档）。
@@ -66,6 +81,8 @@ export interface PlayerState {
   activeColor?: ColorId | null;
   /** 已解锁色彩库存（收集类资产，恒为 global 层）。 */
   colorsOwned?: ColorId[];
+  /** 已收集的色彩装备库存（收集类资产，恒为 global 层）。 */
+  equipmentsOwned?: EquipmentId[];
   /** 聊天已读记录（归属由 characterPersistConfig.chatRead 声明）。 */
   chatRead?: Record<ChatMessageId, true>;
   /**
@@ -80,6 +97,11 @@ export interface PlayerState {
    * StateMutationService 解除。用于「剧情结束后要求玩家前往某地继续下一步」。
    */
   studentBlocks?: Record<VariantId, { entryId: string; setAtFrame: number }>;
+  /**
+   * 玩家对 Chara 头像-人名对的自定义覆写（charaProfile 解析的 player 层，随存档持久化）。
+   * key = Character 原型 id。
+   */
+  charaCustom?: Partial<Record<Character, CharaCustomOverride>>;
   /** 世界 Pool：已进入常驻集合的差分（池关闭条件触发后并入）。 */
   worldPool?: VariantId[];
   /** 原型聚合统计（派生视图，Trigger 维护；键为 Character id 字符串）。 */

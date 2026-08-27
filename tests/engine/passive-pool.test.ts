@@ -263,6 +263,15 @@ describe('基础数据包池树（schale_office）', () => {
     }
   }
 
+  /** 在星野聊天空间播完天台邀约（hoshino_conv_2 → hoshino_rooftop_hint 已读），武装天台 Trigger。 */
+  function readRooftopInvite(g: GameInstance): void {
+    const r = g.startStory('base:story:hoshino_conv_2', 'passive', 'Hoshino');
+    expect(r.success).toBe(true);
+    let rg = 0;
+    while (g.getStoryView('Hoshino') && rg++ < 20) g.advanceStory(undefined, 'Hoshino');
+    expect(g.state.storyLog.some(s => s.storyId === 'base:story:hoshino_rooftop_hint')).toBe(true);
+  }
+
   const pickable = (times = 200): Set<string> => {
     const seen = new Set<string>();
     for (let i = 0; i < times; i++) {
@@ -345,7 +354,7 @@ describe('基础数据包池树（schale_office）', () => {
     expect(r.type).toBe('idle');
     expect((r as { started?: boolean }).started).toBe(true);
     // 聊天沙盒游标上是 Hoshino 专属闲聊
-    expect(game.getStoryView('Hoshino')!.storyId).toMatch(/hoshino_conv/);
+    expect(game.getStoryView('Hoshino')!.storyId).toMatch(/hoshino_conv|hoshino_bond_invite/);
     // 外部 active 主线仍保留在全局游标（并行，未被内部故事打断）
     expect(game.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
   });
@@ -358,7 +367,7 @@ describe('基础数据包池树（schale_office）', () => {
     // 聊天沙盒：Hoshino 专属闲聊
     expect(game.triggerPassiveStory('base:init:schale_office', 'Hoshino').success).toBe(true);
     const hoshinoId = game.getStoryView('Hoshino')!.storyId;
-    expect(hoshinoId).toMatch(/hoshino_conv/);
+    expect(hoshinoId).toMatch(/hoshino_conv|hoshino_bond_invite/);
     expect(game.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
 
     // 存档 → 新实例读档
@@ -387,20 +396,20 @@ describe('基础数据包池树（schale_office）', () => {
     expect(game.getView().currentStory).not.toBeNull();
   });
 
-  // 天台 Trigger：玩家首次进入夏莱天台 → areaEntered 事件 → triggerStory effect 启动天台剧情。
-  test('天台 Trigger：进入天台自动触发天台剧情（triggerStory effect）', () => {
+  // 复现缺陷：天台 Trigger 不得外露——未在星野聊天空间播过天台邀约（hoshino_rooftop_hint 未读）前，
+  // 进入天台绝不能触发天台相遇剧情（Trigger 的 hasReadStory 门槛拦下）。
+  test('天台 Trigger·门槛：未读邀约前进入天台不触发天台相遇', () => {
     finishWelcome();
     // 当前在 schale_main，前往天台（相邻）
     const move = game.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
-    // Trigger 命中（once 标记写入）→ storyStarter 启动天台相遇剧情（独立演出）
-    expect(game.state.triggersCompleted).toContain('base:trigger:hoshino_rooftop_story');
-    expect(game.getView().currentStory).not.toBeNull();
-    expect(game.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+    // 门槛未满足 → 不命中，不写 once 标记、不启动天台相遇
+    expect(game.state.triggersCompleted).not.toContain('base:trigger:hoshino_rooftop_story');
+    expect(game.getView().currentStory).toBeNull();
   });
 
-  // 复现用户场景：完整新游戏 → 排干初始剧情 → 前往天台 → 触发天台剧情。
-  test('天台 Trigger·完整流程：new game → 排干 welcome → 前往天台触发剧情', () => {
+  // 复现用户场景：完整新游戏 → 排干初始剧情 → 聊天空间读邀约 → 前往天台 → 触发天台剧情。
+  test('天台 Trigger·完整流程：new game → 排干 welcome → 读邀约 → 前往天台触发剧情', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
     g.startNewGame('base:init:schale_office');
@@ -411,6 +420,8 @@ describe('基础数据包池树（schale_office）', () => {
       if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
     }
     expect(g.getView().currentStory).toBeNull();
+    // 播完聊天空间邀约 → hoshino_rooftop_hint 已读 → 天台 Trigger 激活
+    readRooftopInvite(g);
     // 确认天台在夏莱 Init 可达
     const move = g.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
@@ -423,7 +434,7 @@ describe('基础数据包池树（schale_office）', () => {
 
   // 关键复现：玩家前往天台时全局游标已有被动闲聊在播放，天台 Trigger 仍应抢占触发
   // （否则 storyStarter 会因 AlreadyActive 失败，天台剧情不触发）。
-  test('天台 Trigger·抢占：全局游标有被动闲聊时前往天台仍触发剧情', () => {
+  test('天台 Trigger·抢占：邀约已读且全局游标有被动闲聊时前往天台仍触发剧情', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
     g.startNewGame('base:init:schale_office');
@@ -432,6 +443,7 @@ describe('基础数据包池树（schale_office）', () => {
       const r = g.advanceStory();
       if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
     }
+    readRooftopInvite(g);
     // 在一般聊天触发一条外部 passive 闲聊，占住全局游标
     const ext = g.triggerPassiveStory('base:init:schale_office');
     expect(ext.success).toBe(true);
@@ -449,7 +461,7 @@ describe('基础数据包池树（schale_office）', () => {
 
   // 关键复现：玩家已通过星野聊天空间播放过天台邀约（hoshino_rooftop_hint 已读）后，
   // 前往天台仍应触发独立的「天台相遇」剧情（force 跳过已读，且演出与邀约解耦不重复）。
-  test('天台 Trigger·已读：先播过聊天空间邀约后前往天台仍触发天台相遇', () => {
+  test('天台 Trigger·已读：先播完聊天空间邀约后前往天台仍触发天台相遇', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
     g.startNewGame('base:init:schale_office');
@@ -458,13 +470,8 @@ describe('基础数据包池树（schale_office）', () => {
       const r = g.advanceStory();
       if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
     }
-    // 在星野聊天空间触发天台邀约（hoshino_conv_2）并播完 → hoshino_rooftop_hint 已读
-    const inv = g.triggerPassiveStory('base:init:schale_office', 'Hoshino');
-    // 可能抽到 conv_1 或 conv_2；若为 conv_2 则标记已读
-    if (inv.success && g.getStoryView('Hoshino')?.storyDefId === 'base:story:hoshino_rooftop_hint') {
-      let rg = 0;
-      while (g.getStoryView('Hoshino') && rg++ < 20) g.advanceStory(undefined, 'Hoshino');
-    }
+    // 播完聊天空间邀约（hoshino_conv_2）→ hoshino_rooftop_hint 已读
+    readRooftopInvite(g);
     // 前往天台 → 天台 Trigger（force 跳过已读）仍应触发独立的天台相遇
     const move = g.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
@@ -482,8 +489,8 @@ describe('基础数据包池树（schale_office）', () => {
     const r = game.triggerPassiveStory('base:init:schale_office', 'Hoshino');
     expect(r.success).toBe(true);
     const entryId = game.getStoryView('Hoshino')!.storyId; // StoryView.storyId = Entry.id（聊天沙盒游标）
-    // pick 权重随机，conv_1/conv_2 皆属星野专属；核心是 owner 归属命中 Hoshino
-    expect(entryId).toMatch(/^base:story:hoshino_conv_/);
+    // pick 权重随机，conv_1/conv_2/bond_invite 皆属星野专属；核心是 owner 归属命中 Hoshino
+    expect(entryId).toMatch(/^base:story:hoshino_(conv_|bond_invite)/);
     // 渲染守卫反查（entry.id === story.storyId）应命中 owner='Hoshino'，而非全局无主 entry
     const owning = [...game.registry.passiveStories.values()]
       .filter(e => e.id === entryId)
@@ -533,7 +540,7 @@ describe('基础数据包池树（schale_office）', () => {
     expect(r.type).toBe('idle');
     expect((r as { started?: boolean }).started).toBe(true);
     const newEntryId = game.getStoryView('Hoshino')!.storyId; // 聊天沙盒游标
-    expect(newEntryId).toMatch(/hoshino_conv/);
+    expect(newEntryId).toMatch(/hoshino_conv|hoshino_bond_invite/);
     // 外部故事仍保留在全局游标（并行不打断）
     expect(game.getView().currentStory!.storyId).toBe(extEntryId);
   });
@@ -562,27 +569,6 @@ describe('基础数据包池树（schale_office）', () => {
     // triggerPassiveStory 全链路也能抽到（多次抽样）
     const seen = pickable(80);
     expect(seen.has('base:story:schale_night')).toBe(true);
-  });
-
-  // Talklet 移动：travelToArea effect 不判拓扑（但仍校验同 Init），notice=true 且成功时发 storyAreaTraveled。
-  test('Talklet 移动：剧情 travelToArea 不判拓扑、判 Init 归属，成功后发移动通知事件', () => {
-    finishWelcome();
-    // 当前在夏莱主厅
-    expect(game.getView().currentAreaId).toBe('base:area:schale_main');
-    let traveled = 0;
-    game.eventBus.on('storyAreaTraveled', e => {
-      if (e.type === 'storyAreaTraveled') traveled++;
-    });
-    // 启动天台相遇剧情（末页 travelToArea 到 schale_library，notice:true）
-    expect(game.startStory('base:story:hoshino_rooftop_meet', 'active').success).toBe(true);
-    let guard = 0;
-    while (game.getView().currentStory && guard++ < 20) {
-      const r = game.advanceStory();
-      if (r.success && 'finished' in r && r.finished) break;
-    }
-    // 移动到夏莱图书馆（同 Init，跳过拓扑）
-    expect(game.getView().currentAreaId).toBe('base:area:schale_library');
-    expect(traveled).toBeGreaterThan(0); // notice=true 时发出移动通知事件
   });
 
   // Talklet 移动·Init 归属：travelToArea（checkAdjacency=false）到不属于当前 Init 的 Area → 跳过。

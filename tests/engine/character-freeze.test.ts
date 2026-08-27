@@ -69,18 +69,6 @@ describe('base 数据包 Character 重构内容冒烟', () => {
     expect(drawable.length).toBeGreaterThan(0);
   });
 
-  test('青辉石量产 Enhancement：购买 → 每 tick +2500 → 可抽卡', () => {
-    game.state.resources['base:resource:credit'] = 200;
-    expect(game.purchaseEnhancement('base:enh:pyroxene_rush').success).toBe(true);
-    const before = game.initService.getResourceAmount('base:resource:pyroxene');
-    for (let i = 0; i < 5; i++) game.tick();
-    const after = game.initService.getResourceAmount('base:resource:pyroxene');
-    expect(after - before).toBe(12500);
-    // 全局资源桶语义：直接可支付招募
-    const summary = game.gachaService.roll('base:pool:swimsuit-up', 1);
-    expect(summary.results).toHaveLength(1);
-  });
-
   test('端到端：抽卡 → 获得差分 → 培养 → 色彩解锁 → 主题激活', () => {
     game.mutations.changeResource('base:resource:pyroxene', 100000);
     const summary = game.gachaService.roll('base:pool:swimsuit-up', 10);

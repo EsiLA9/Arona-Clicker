@@ -11,16 +11,41 @@
 // ============================================================
 
 import type { Effect, ValueExpression, Value, ExtraValue } from '../types';
+import type { ChatTextEffectValue } from '../types/expression';
 
 export type NameResolver = (type: string, id: string) => string;
 
 /** ValueExpression → 紧凑展示文本。 */
 export function describeValueExpression(expr: ValueExpression, nameOf: NameResolver): string {
-  if (expr.type === 'const') return String(expr.value);
-  if (expr.type === 'mul') {
-    return `${describeValueExpression(expr.left, nameOf)}×${describeValueExpression(expr.right, nameOf)}`;
+  const wrap = (e: ValueExpression) => describeValueExpression(e, nameOf);
+  switch (expr.type) {
+    case 'const':
+      return String(expr.value);
+    case 'value':
+      return describeValue(expr.value, nameOf);
+    case 'mul':
+      return `${wrap(expr.left)}×${wrap(expr.right)}`;
+    case 'div':
+      return `${wrap(expr.left)}÷${wrap(expr.right)}`;
+    case 'add':
+      return `${wrap(expr.left)}+${wrap(expr.right)}`;
+    case 'sub':
+      return `${wrap(expr.left)}-${wrap(expr.right)}`;
+    case 'min':
+      return `min(${wrap(expr.left)}, ${wrap(expr.right)})`;
+    case 'max':
+      return `max(${wrap(expr.left)}, ${wrap(expr.right)})`;
+    case 'pow':
+      return `${wrap(expr.left)}^${wrap(expr.right)}`;
+    case 'floor':
+      return `⌊${wrap(expr.expr)}⌋`;
+    case 'ceil':
+      return `⌈${wrap(expr.expr)}⌉`;
+    case 'round':
+      return `round(${wrap(expr.expr)})`;
+    case 'clamp':
+      return `clamp(${wrap(expr.expr)}, ${wrap(expr.min)}, ${wrap(expr.max)})`;
   }
-  return describeValue(expr.value, nameOf);
 }
 
 /** 单个 Value → 展示文本（覆盖全部 ValueSource）。 */
@@ -57,6 +82,7 @@ function describeEffectValue(effect: Effect, nameOf: NameResolver): string {
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (typeof value === 'string') return value;
   if (typeof value === 'object' && 't' in value) return describeExtraValue(value as ExtraValue);
+  if (typeof value === 'object' && value !== null && 'text' in value) return String((value as ChatTextEffectValue).text);
   return describeValueExpression(value as ValueExpression, nameOf);
 }
 
@@ -87,6 +113,10 @@ export function describeEffect(effect: Effect, nameOf: NameResolver): string {
     case 'removeExtra': return `移除数据 ${target}`;
     case 'grantCharacter': return `获得学生「${valueText}」`;
     case 'setTheme': return `临时主题：${valueText}`;
+    case 'clearAllChatFlow': return `清理聊天流`;
+    case 'showChatText': return `演出文本「${valueText}」@${target}`;
+    case 'clearIdChatFlow': return `擦除演出文本 ${target}`;
+    case 'clearAllChatText': return `清空全部演出文本`;
     default: {
       // 穷尽性守卫：EffectOp 新增成员而未补文案时编译报错
       const never: never = effect.op;

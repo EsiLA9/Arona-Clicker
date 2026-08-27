@@ -127,6 +127,20 @@ export type SendState =
        * + "继续"按钮，点击确认后才显示选项）；true = 已确认，可渲染选项卡片。
        */
       confirmed: boolean;
+    }
+  | {
+      mode: 'kizuna';
+      /** 当前进行中的 StoryId（若处于剧情演出中） */
+      storyId: StoryId | null;
+      pageIndex: number;
+      /** 目标剧情入口 id（指向 ActiveStoryEntry）。 */
+      targetStoryId: StoryId;
+      /** 卡片标题。 */
+      title?: string;
+      /** 按钮文案。 */
+      buttonText?: string;
+      /** 卡片对齐（left | right，不允许居中）。 */
+      align?: 'left' | 'right';
     };
 
 /**

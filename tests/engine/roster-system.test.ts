@@ -93,7 +93,7 @@ describe('acquireCharacter（R-01 ~ R-06, P-01）', () => {
       level: 1,
       exp: 0,
       stars: 0,
-      equippedColors: [],
+      equippedEquipment: null,
       acquiredCount: 1,
     });
     expect(events).toHaveLength(1);

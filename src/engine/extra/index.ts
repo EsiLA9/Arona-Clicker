@@ -13,3 +13,5 @@ export * from './extra-path';
 export * from './extra-merge';
 export * from './extra-read';
 export * from './extra-validate';
+// extra 便捷构造器已移至 def-factory/extra.ts，此处 re-export 保持兼容
+export { extra } from '../def-factory/extra';

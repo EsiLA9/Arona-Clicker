@@ -9,6 +9,7 @@
 import {
   AffectorInstance,
   AffectorPackDef,
+  AffectorPackRef,
   AffectorState,
   GameEvent,
   PlayerState,
@@ -26,6 +27,8 @@ import { SpotFunctionalitySystem } from '../system/spot-functionality';
 import { EventBus } from '../core/event-bus';
 import { EventDrivenReactor } from './event-driven-reactor';
 import { CONDITION_DEP_EVENT_TYPES, ConditionDepIndex } from '../expression/condition-deps';
+import { deriveAnonymousId } from '../core/anonymous-id';
+import type { GameNumSystem } from '../expression/game-num';
 
 export class AffectorEngine extends EventDrivenReactor {
   private readonly packs = new Map<string, AffectorPackDef>();
@@ -35,6 +38,8 @@ export class AffectorEngine extends EventDrivenReactor {
   /** 条件含 stat/未知 target 的实例：事件无法精确命中，保留每 Tick 轮询。 */
   private readonly pollingInstances = new Set<string>();
   private state: PlayerState | null = null;
+  /** 可选：接入后把按 tag 的加成转写为 GameNum tag 效果（经 syncAffectorZoneEffects）。 */
+  gameNumSystem?: GameNumSystem;
 
   constructor(
     private readonly registry: Registry,
@@ -76,9 +81,17 @@ export class AffectorEngine extends EventDrivenReactor {
     for (const instanceId of this.condDeps.affected(event)) this.recheck(instanceId);
   }
 
+  /**
+   * 合并加载数据包级 Affector pack（多 Datapack 叠加：后加载的包覆盖同名 id，
+   * 即「以新加载的 Datapack 为第一判断依据」）。调用方在整体替换（reload）时须先 clear()。
+   */
   load(packs: AffectorPackDef[]): void {
-    this.packs.clear();
     for (const pack of packs) this.packs.set(pack.id, pack);
+  }
+
+  /** 清空全部 pack 注册（整体替换数据包时使用）。 */
+  clear(): void {
+    this.packs.clear();
   }
 
   /** 运行时注册数据包之外的 Affector pack（如由 Spot 功能动态构造）。 */
@@ -92,8 +105,20 @@ export class AffectorEngine extends EventDrivenReactor {
     if (this.effectEngine) this.effectEngine.setState(state);
   }
 
-  mount(packId: string, mountEntityId: string): AffectorInstance | null {
-    if (!this.packs.has(packId) || !this.state) return null;
+  mount(packRef: AffectorPackRef, mountEntityId: string): AffectorInstance | null {
+    if (!this.state) return null;
+    // 解析引用：内联完整包 → 派生/采用其 id 并注册；id 字符串 → 查已注册表
+    let packId: string;
+    let pack: AffectorPackDef | undefined;
+    if (typeof packRef === 'string') {
+      packId = packRef;
+      pack = this.packs.get(packId);
+      if (!pack) return null;
+    } else {
+      pack = packRef;
+      packId = pack.id?.trim() ? pack.id : deriveAnonymousId('anon:pack', pack);
+      if (!this.packs.has(packId)) this.packs.set(packId, pack); // 内联包先注册（同 id 不重复覆盖）
+    }
     const instance: AffectorInstance = {
       instanceId: `${packId}@${mountEntityId}`,
       packId,
@@ -104,6 +129,7 @@ export class AffectorEngine extends EventDrivenReactor {
     this.instances.set(instance.instanceId, instance);
     this.registerConditionDeps(instance.instanceId, packId);
     this.recheck(instance.instanceId);
+    if (this.gameNumSystem) this.gameNumSystem.syncAffectorZoneEffects(this, this.state);
     this.eventBus?.emit({
       type: 'affectorMounted',
       instanceId: instance.instanceId,
@@ -162,8 +188,9 @@ export class AffectorEngine extends EventDrivenReactor {
     return this.instances.get(instanceId);
   }
 
-  getPack(packId: string): AffectorPackDef | undefined {
-    return this.packs.get(packId);
+  getPack(ref: AffectorPackRef): AffectorPackDef | undefined {
+    if (typeof ref === 'string') return this.packs.get(ref);
+    return ref; // 内联完整包直接返回
   }
 
   getActiveInstances(): AffectorInstance[] {
@@ -307,5 +334,7 @@ export class AffectorEngine extends EventDrivenReactor {
         else this.mutations.applyEffects(nonResourceEffects);
       }
     }
+    // 把按 tag 的加成（zoneModifiers）写入 GameNum tag 效果表；失活实例由其内部对账撤销
+    if (this.gameNumSystem && this.state) this.gameNumSystem.syncAffectorZoneEffects(this, this.state);
   }
 }

@@ -2,11 +2,13 @@
 
 ## 快速上手
 
-- 项目结构速览：`docs-818/00-README.md`
-- 改引擎机制前先读：`docs-818/03-engine-subsystems.md`
-- 改数据结构前先读：`docs-818/02-data-structures.md`
-- 定位修改文件：`docs-818/08-code-map.md`
-- 改实体字段/枚举前先读：`docs-818/09-schema-protocol.md`
+- 项目结构速览：`docs-824/00-README.md`（docs-818 已归档）
+- 改引擎机制前先读：`docs-824/03-engine-subsystems.md`（运行逻辑见 `02-run-logic.md` 及 02a-e）
+- 改数据结构前先读：`docs-824/03-data-structures.md` 及 03a-d
+- 核心算法先读：`docs-824/04-core-algorithms.md` 及 04a-g
+- 定位修改文件：`docs-824/01-file-composition.md` 或 `docs-818/08-code-map.md`（归档版）
+- 改实体字段/枚举前先读：`docs-818/09-schema-protocol.md`（归档版）
+- 大文件拆分规范：`docs-824/06-refactoring-guide.md`；架构诊断基线：`docs-824/05-architecture-review.md`
 
 ## 命令
 
@@ -45,6 +47,7 @@
 - 默认不写注释；只在 WHY 非显而易见时写
 - 引用文件用路径而非复制代码，让 AI 用 Read 定向读
 - 改哪个功能先查 `docs-818/08-code-map.md` 的文件→职责映射
+- 建议拆解较大的代码文件，可以把引擎或关键数据结构的本体与关键循环、集成完毕的服务放在单文件，较大的关键底层服务与枚举功能各自拆出为多个文件到对应文件夹内
 
 ## 默认数据与 Spot 招募
 

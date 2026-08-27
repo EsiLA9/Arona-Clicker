@@ -279,17 +279,7 @@ export class ColorSystem {
     return newly;
   }
 
-  /** 变体已装备色彩的聚合效果声明（消费方按现有 Effect 语义求值）。 */
-  effectsOf(state: PlayerState, variantId: string): Effect[] {
-    const entry = state.roster?.[variantId];
-    if (!entry) return [];
-    const out: Effect[] = [];
-    for (const colorId of entry.equippedColors) {
-      const def = this.registry.colors.get(colorId);
-      if (def?.effects) out.push(...def.effects);
-    }
-    return out;
-  }
+  /** 变体已装备色彩装备的聚合效果声明已迁移至 ColorEquipmentSystem.effectsOf（单装备槽按 equippedEquipment 聚合）。 */
 
   /** 当前激活主题的最终 token 表（activeColor 为 null 或未知 → null，UI 用默认主题）。 */
   activeThemeTokens(state: PlayerState): Record<string, string> | null {

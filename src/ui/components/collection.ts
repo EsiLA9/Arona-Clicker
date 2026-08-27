@@ -9,6 +9,7 @@
 
 import type { PassivePoolDef, PassiveStoryEntry } from '../../engine/types';
 import type { UIContext } from '../context';
+import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
 
 // --- 色彩收集图鉴 ---
 
@@ -72,6 +73,49 @@ export function renderColorCodex(ctx: UIContext): string {
     <div class="coll-summary">
       <span class="eyebrow">COLOR CODEX</span>
       <strong>${ownedCount} / ${all.length} 已收集${definedCount > 0 ? ` · ${definedCount} 份自定义配色` : ''}</strong>
+    </div>`;
+  return `${summary}<div class="codex-grid">${cards}</div>`;
+}
+
+/** 装备图鉴（equipment codex）：含头像预览 + 效用说明。 */
+export function renderEquipmentCodex(ctx: UIContext): string {
+  const { game } = ctx;
+  const all = [...game.registry.colorEquipments.values()];
+  const ownedIds = new Set(game.state.equipmentsOwned ?? []);
+  const ownedCount = all.filter(e => ownedIds.has(e.id)).length;
+  const cards = all.map(def => {
+    const owned = ownedIds.has(def.id);
+    const group = game.colorEquipmentSystem.groupOf(def.id);
+    const colors = game.colorEquipmentSystem.avatarColors(def.id);
+    const avatar = group ? renderAvatarSvg(group.compositionType, colors, 56) : '';
+    const effects = def.effects.map(e => {
+      switch (e.op) {
+        case 'addResource': return `+${e.value} ${String(e.target).split(':').pop() ?? ''}`;
+        default: return e.op;
+      }
+    }).join(' / ') || '无效用';
+    const badge = owned
+      ? '<span class="coll-gate is-open">已收集</span>'
+      : '<span class="coll-gate is-locked">未收集</span>';
+    const categoryLabel: Record<string, string> = { common: '普通', rare: '稀有', epic: '史诗' };
+    return `
+      <article class="codex-equipment ${owned ? 'is-owned' : 'is-locked'}">
+        <header class="codex-equip-head">
+          <span class="equipment-avatar">${avatar}</span>
+          <div class="codex-equip-title">
+            <h3>${ctx.escapeHtml(def.name)}</h3>
+            <small>${categoryLabel[def.category ?? ''] ?? def.category ?? ''}</small>
+          </div>
+          <div class="codex-badges">${badge}</div>
+        </header>
+        ${def.description ? `<p class="codex-equip-desc">${ctx.escapeHtml(def.description)}</p>` : ''}
+        <p class="codex-equip-effects">${ctx.escapeHtml(effects)}</p>
+      </article>`;
+  }).join('');
+  const summary = `
+    <div class="coll-summary">
+      <span class="eyebrow">EQUIPMENT CODEX</span>
+      <strong>${ownedCount} / ${all.length} 已收集</strong>
     </div>`;
   return `${summary}<div class="codex-grid">${cards}</div>`;
 }

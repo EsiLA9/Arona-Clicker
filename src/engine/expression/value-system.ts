@@ -29,9 +29,40 @@ export class ValueSystem {
 
   /** 求值 ValueExpression 为数字 */
   evaluate(expr: ValueExpression, state: PlayerState): number {
-    if (expr.type === 'const') return expr.value;
-    if (expr.type === 'mul') return this.evaluate(expr.left, state) * this.evaluate(expr.right, state);
-    return this.evaluateValue(expr.value, state);
+    switch (expr.type) {
+      case 'const':
+        return expr.value;
+      case 'value':
+        return this.evaluateValue(expr.value, state);
+      case 'add':
+        return this.evaluate(expr.left, state) + this.evaluate(expr.right, state);
+      case 'sub':
+        return this.evaluate(expr.left, state) - this.evaluate(expr.right, state);
+      case 'mul':
+        return this.evaluate(expr.left, state) * this.evaluate(expr.right, state);
+      case 'div': {
+        const d = this.evaluate(expr.right, state);
+        return d === 0 ? 0 : this.evaluate(expr.left, state) / d;
+      }
+      case 'min':
+        return Math.min(this.evaluate(expr.left, state), this.evaluate(expr.right, state));
+      case 'max':
+        return Math.max(this.evaluate(expr.left, state), this.evaluate(expr.right, state));
+      case 'pow':
+        return Math.pow(this.evaluate(expr.left, state), this.evaluate(expr.right, state));
+      case 'floor':
+        return Math.floor(this.evaluate(expr.expr, state));
+      case 'ceil':
+        return Math.ceil(this.evaluate(expr.expr, state));
+      case 'round':
+        return Math.round(this.evaluate(expr.expr, state));
+      case 'clamp': {
+        const v = this.evaluate(expr.expr, state);
+        const lo = this.evaluate(expr.min, state);
+        const hi = this.evaluate(expr.max, state);
+        return Math.min(Math.max(v, lo), hi);
+      }
+    }
   }
 
   /** 求值单个 Value */

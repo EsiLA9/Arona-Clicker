@@ -1,0 +1,198 @@
+// ============================================================
+// engine/color-equipment-system.test.ts — 色彩装备系统
+// （收集/级联解锁/单装备槽/条件拒绝/效果聚合）
+// ============================================================
+import { describe, test, expect, beforeEach } from 'vitest';
+import { GameInstance } from '../../src/engine/game-instance';
+import type { Datapack } from '../../src/engine/types';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/engine/types';
+
+function v(id: string, proto: Character) {
+  return {
+    id,
+    proto,
+    name: id,
+    displayName: id,
+    school: CharacterSchool.Abydos,
+    rarity: CharacterRarity.Rare,
+    description: '',
+  };
+}
+
+function makeDatapack(): Datapack {
+  return {
+    name: 'test',
+    version: '0',
+    inits: [],
+    areas: [],
+    spots: [],
+    enhancements: [],
+    activeStories: [],
+    passiveStories: [],
+    stories: [],
+    items: [],
+    funcletDefs: [],
+    characters: [],
+    characterBonuses: [],
+    characterVariants: [v('Hoshino', Character.Hoshino), v('Multi', Character.Mika)],
+    colors: [
+      { id: 'color-free', name: '无条件色', theme: { primary: '#22c55e' } },
+      { id: 'color-flag', name: '旗标色', theme: { primary: '#3b82f6' } },
+      { id: 'color-shadow', name: '阴影色', theme: { primary: '#1e3a5f' } },
+    ],
+    colorGroups: [
+      {
+        id: 'group-solid',
+        name: '单色组',
+        compositionType: 'solid',
+        slots: [{ role: 'primary', colorId: 'color-free' }],
+      },
+      {
+        id: 'group-duo',
+        name: '双色组',
+        compositionType: 'duotone',
+        slots: [
+          { role: 'primary', colorId: 'color-flag' },
+          { role: 'shadow', colorId: 'color-shadow' },
+        ],
+      },
+    ],
+    colorEquipments: [
+      {
+        id: 'equip-free',
+        name: '无条件装备',
+        colorGroupId: 'group-solid',
+        effects: [{ op: 'addResource', target: 'credit', value: 1 }],
+      },
+      {
+        id: 'equip-flag',
+        name: '旗标装备',
+        colorGroupId: 'group-duo',
+        effects: [{ op: 'addResource', target: 'credit', value: 2 }],
+        themeColorId: 'color-flag',
+        unlock: { target: 'flag', key: 'equip_unlocked', comparator: '>=', value: 1 },
+      },
+      {
+        id: 'equip-proto',
+        name: '经历装备',
+        colorGroupId: 'group-duo',
+        effects: [],
+        unlock: { target: 'protoStat', key: String(Character.Hoshino), comparator: '>=', value: 2 },
+      },
+    ],
+  };
+}
+
+describe('色彩装备系统', () => {
+  let game: GameInstance;
+  const state = () => (game as any)._state;
+  const events: any[] = [];
+
+  beforeEach(() => {
+    events.length = 0;
+    game = new GameInstance();
+    game.eventBus.on('equipmentCollected', e => events.push(e));
+    game.eventBus.on('equipmentEquipped', e => events.push(e));
+    game.eventBus.on('colorUnlocked', e => events.push(e));
+    game.init([makeDatapack()]);
+    game.mutations.acquireCharacter('Hoshino', 'gacha');
+  });
+
+  test('EQ-01 无条件装备 tryUnlock 直接收集并发事件', () => {
+    expect(game.colorEquipmentSystem.tryUnlock('equip-free')).toBe('unlocked');
+    expect(game.colorEquipmentSystem.isOwned(state(), 'equip-free')).toBe(true);
+    expect(state().equipmentsOwned).toEqual(['equip-free']);
+    expect(events.filter(e => e.type === 'equipmentCollected' && e.equipmentId === 'equip-free')).toHaveLength(1);
+  });
+
+  test('EQ-02 收集即级联解锁 colorGroup 引用的所有 Color', () => {
+    game.colorEquipmentSystem.tryUnlock('equip-free');
+    expect(game.colorSystem.isOwned(state(), 'color-free')).toBe(true);
+    // 双色组：满足装备解锁条件（flag）后收集，两个色位都解锁
+    game.mutations.setFlag('equip_unlocked', '1');
+    game.colorEquipmentSystem.tryUnlock('equip-flag');
+    expect(game.colorSystem.isOwned(state(), 'color-flag')).toBe(true);
+    expect(game.colorSystem.isOwned(state(), 'color-shadow')).toBe(true);
+    // 级联经 mutations.unlockColor 发 colorUnlocked
+    expect(events.filter(e => e.type === 'colorUnlocked' && e.colorId === 'color-free')).toHaveLength(1);
+  });
+
+  test('EQ-03 条件不满足拒绝；条件满足后（recheck/主动）入库存', () => {
+    expect(game.colorEquipmentSystem.tryUnlock('equip-flag')).toBe(false);
+    expect(game.colorEquipmentSystem.tryUnlock('equip-proto')).toBe(false);
+    game.mutations.setFlag('equip_unlocked', '1');
+    // flagChanged 触发 recheckUnlocks 自动收集（与 EQ-10 一致）；再 tryUnlock 即为幂等
+    expect(game.colorEquipmentSystem.isOwned(state(), 'equip-flag')).toBe(true);
+    expect(game.colorEquipmentSystem.tryUnlock('equip-flag')).toBe('already');
+  });
+
+  test('EQ-04 重复收集幂等：不重复入库存、不重复发事件', () => {
+    game.colorEquipmentSystem.tryUnlock('equip-free');
+    const n = state().equipmentsOwned.length;
+    expect(game.colorEquipmentSystem.tryUnlock('equip-free')).toBe('already');
+    expect(state().equipmentsOwned.length).toBe(n);
+    expect(events.filter(e => e.type === 'equipmentCollected' && e.equipmentId === 'equip-free')).toHaveLength(1);
+  });
+
+  test('EQ-05 单装备槽：可换装；未拥有 / 同装备拒绝', () => {
+    game.colorEquipmentSystem.tryUnlock('equip-free');
+    game.mutations.setFlag('equip_unlocked', '1');
+    game.colorEquipmentSystem.tryUnlock('equip-flag');
+
+    expect(game.mutations.equipEquipment('Hoshino', 'equip-free').ok).toBe(true);
+    expect(state().roster['Hoshino'].equippedEquipment).toBe('equip-free');
+    // 同装备幂等拒绝
+    expect(game.mutations.equipEquipment('Hoshino', 'equip-free').reason).toBe('already-equipped');
+    // 未拥有拒绝
+    expect(game.mutations.equipEquipment('Hoshino', 'equip-proto').reason).toBe('not-owned');
+    // 换装：直接替换为另一件
+    expect(game.mutations.equipEquipment('Hoshino', 'equip-flag').ok).toBe(true);
+    expect(state().roster['Hoshino'].equippedEquipment).toBe('equip-flag');
+  });
+
+  test('EQ-06 卸下后装备槽回 null', () => {
+    game.colorEquipmentSystem.tryUnlock('equip-free');
+    game.mutations.equipEquipment('Hoshino', 'equip-free');
+    expect(game.mutations.unequipEquipment('Hoshino')).toBe(true);
+    expect(state().roster['Hoshino'].equippedEquipment).toBeNull();
+    expect(game.mutations.unequipEquipment('Hoshino')).toBe(false); // 已空
+  });
+
+  test('EQ-07 effectsOf 按 equippedEquipment 聚合，卸下后消失', () => {
+    game.colorEquipmentSystem.tryUnlock('equip-free');
+    expect(game.colorEquipmentSystem.effectsOf(state(), 'Hoshino')).toEqual([]);
+    game.mutations.equipEquipment('Hoshino', 'equip-free');
+    expect(game.colorEquipmentSystem.effectsOf(state(), 'Hoshino')).toEqual([{ op: 'addResource', target: 'credit', value: 1 }]);
+    game.mutations.unequipEquipment('Hoshino');
+    expect(game.colorEquipmentSystem.effectsOf(state(), 'Hoshino')).toEqual([]);
+  });
+
+  test('EQ-08 groupOf / avatarColors 解析', () => {
+    const group = game.colorEquipmentSystem.groupOf('equip-free');
+    expect(group?.compositionType).toBe('solid');
+    expect(game.colorEquipmentSystem.avatarColors('equip-free')).toEqual(['#22c55e']);
+    // 双色组按 slot 顺序返回实际 hex
+    expect(game.colorEquipmentSystem.avatarColors('equip-flag')).toEqual(['#3b82f6', '#1e3a5f']);
+    // 未定义装备 → undefined / 空数组
+    expect(game.colorEquipmentSystem.groupOf('nope')).toBeUndefined();
+    expect(game.colorEquipmentSystem.avatarColors('nope')).toEqual([]);
+  });
+
+  test('EQ-09 ownedEquipments / getDef / getAll', () => {
+    game.colorEquipmentSystem.tryUnlock('equip-free');
+    expect(game.colorEquipmentSystem.ownedEquipments(state()).map(e => e.id)).toEqual(['equip-free']);
+    expect(game.colorEquipmentSystem.getDef('equip-free')?.name).toBe('无条件装备');
+    expect(game.colorEquipmentSystem.getAll()).toHaveLength(3);
+  });
+
+  test('EQ-10 characterAcquired / flagChanged 自动 recheck 收集', () => {
+    // acquire Hoshino ×2（beforeEach 已有 1 次）→ equip-proto 条件满足自动收集
+    game.mutations.acquireCharacter('Hoshino', 'gacha');
+    expect(game.colorEquipmentSystem.isOwned(state(), 'equip-proto')).toBe(true);
+    // flag 满足自动收集
+    game.mutations.setFlag('equip_unlocked', '1');
+    expect(game.colorEquipmentSystem.isOwned(state(), 'equip-flag')).toBe(true);
+    // 无条件装备无 unlock → 不自动收集（约定：缺省 unlock = 不可自动解锁）
+    expect(game.colorEquipmentSystem.isOwned(state(), 'equip-free')).toBe(false);
+  });
+});
