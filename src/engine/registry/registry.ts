@@ -38,6 +38,7 @@ import {
   ExtraCompound,
   ExtraPath,
   ExtraValue,
+  ThemeDesignDef,
 } from '../types';
 import { TagPath, tagDisplay } from '../core/tag';
 import { expandFlatKeys, extra, getAtPath, mergeExtra } from '../extra/index';
@@ -72,6 +73,7 @@ export class Registry {
   private _colors: Map<string, ColorDef> = new Map();
   private _colorGroups: Map<string, ColorGroupDef> = new Map();
   private _colorEquipments: Map<string, ColorEquipmentDef> = new Map();
+  private _themeDesigns: Map<string, ThemeDesignDef> = new Map();
   private _chatMessages: Map<string, ChatMessageDef> = new Map();
   /** 三层归属声明；缺省值见 characterScopeOf。 */
   private _characterPersistConfig: CharacterPersistConfig | undefined;
@@ -129,6 +131,8 @@ export class Registry {
   get colorGroups(): ReadonlyMap<string, ColorGroupDef> { return this._colorGroups; }
   /** 色彩装备表（EquipmentId → Def）。 */
   get colorEquipments(): ReadonlyMap<string, ColorEquipmentDef> { return this._colorEquipments; }
+  /** 实体配色设计表（DesignId → Def）。 */
+  get themeDesigns(): ReadonlyMap<string, ThemeDesignDef> { return this._themeDesigns; }
   /** 聊天流内容表（MessageId → Def）。 */
   get chatMessages(): ReadonlyMap<string, ChatMessageDef> { return this._chatMessages; }
 
@@ -180,6 +184,14 @@ export class Registry {
       }
       if (e.themeColorId && !this._colors.has(e.themeColorId)) {
         throw new RegistryError(`色彩装备 ${e.id} 引用了未定义的主题色 "${e.themeColorId}"`);
+      }
+      if (e.theme?.colorId && !this._colors.has(e.theme.colorId)) {
+        throw new RegistryError(`色彩装备 ${e.id} 的主题引用了未定义的颜色 "${e.theme.colorId}"`);
+      }
+    }
+    for (const d of this._themeDesigns.values()) {
+      if (d.theme.colorId && !this._colors.has(d.theme.colorId)) {
+        throw new RegistryError(`配色设计 ${d.id} 引用了未定义的颜色 "${d.theme.colorId}"`);
       }
     }
   }
@@ -325,6 +337,7 @@ export class Registry {
     this._colors.clear();
     this._colorGroups.clear();
     this._colorEquipments.clear();
+    this._themeDesigns.clear();
     this._chatMessages.clear();
     this._characterPersistConfig = undefined;
     this._resourceDisplays.clear();
@@ -399,6 +412,9 @@ export class Registry {
     }
     if (dp.colorEquipments) {
       for (const e of dp.colorEquipments) this._colorEquipments.set(e.id, e);
+    }
+    if (dp.themeDesigns) {
+      for (const d of dp.themeDesigns) this._themeDesigns.set(d.id, d);
     }
     if (dp.chatMessages) {
       for (const m of dp.chatMessages) this._chatMessages.set(m.id, m);

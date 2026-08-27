@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { RuntimeThemeManager } from '../../src/engine/core/theme-runtime';
+import { RuntimeThemeManager, type ThemeOrderScope } from '../../src/engine/core/theme-runtime';
 import { ColorSystem } from '../../src/engine/system/color-system';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
@@ -117,6 +117,64 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
     manager.popEphemeral('fx');
     expect(r).not.toBe(manager.resolve()); // 覆盖后 pop 生效
     expect(manager.resolve().layers).not.toContain('fx');
+  });
+
+  test('RUNTIME-09 玩家自定义优先级：area 提到最高（player < student < area）', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', colorId: 'blue' });
+    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.pushScene({ scope: 'student', tokens: { primary: '#22c55e', 'player-bubble': '#112233' } });
+    manager.setLayerOrder(['player', 'student', 'area']);
+    const r = manager.resolve();
+    // area 层最高：primary/bg 取 area（pink）
+    expect(r.tokens['primary']).toBe('#ec4899');
+    expect(r.tokens['bg']).toBe('#fdeef7');
+    // student 高于 player：player-bubble 取 student 的局部覆盖
+    expect(r.tokens['player-bubble']).toBe('#112233');
+    // 溯源取最底层 colorId（player）
+    expect(r.colorId).toBe('blue');
+    expect(r.layers).toEqual(['player', 'student', 'area']);
+  });
+
+  test('RUNTIME-10 玩家自定义优先级：player 提到最高（student < area < player）', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', colorId: 'blue' });
+    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.pushScene({ scope: 'student', tokens: { primary: '#22c55e', 'player-bubble': '#112233' } });
+    manager.setLayerOrder(['student', 'area', 'player']);
+    const r = manager.resolve();
+    // player 层最高：primary/bg 取 player（blue）
+    expect(r.tokens['primary']).toBe('#3b82f6');
+    expect(r.tokens['bg']).toBe('#eef4ff');
+    // 最底层 student 的局部 token 仍保留（无更高层覆盖）
+    expect(r.tokens['player-bubble']).toBe('#112233');
+    expect(r.layers).toEqual(['student', 'area', 'player']);
+  });
+
+  test('RUNTIME-11 非法/不完整优先级保持现有顺序', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', colorId: 'blue' });
+    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    const r = manager.resolve();
+    // 缺省顺序：area 覆盖 player
+    expect(r.tokens['primary']).toBe('#ec4899');
+    manager.setLayerOrder(['player', 'area', 'area']); // 重复
+    expect(manager.resolve().tokens['primary']).toBe('#ec4899');
+    manager.setLayerOrder(['player', 'area']); // 缺一个
+    expect(manager.resolve().tokens['primary']).toBe('#ec4899');
+    manager.setLayerOrder(['player', 'area', 'bogus'] as ThemeOrderScope[]); // 非法 scope
+    expect(manager.resolve().tokens['primary']).toBe('#ec4899');
+  });
+
+  test('RUNTIME-12 演出层不受优先级排列影响，始终最高', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', colorId: 'blue' });
+    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.setLayerOrder(['area', 'player', 'student']); // player 提到最高
+    manager.pushEphemeral({ id: 'fx', scope: 'ephemeral', tokens: { primary: '#ff0000' } });
+    const r = manager.resolve();
+    expect(r.tokens['primary']).toBe('#ff0000');
+    expect(r.layers).toEqual(['area', 'player', 'fx']);
   });
 });
 

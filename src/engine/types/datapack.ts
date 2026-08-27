@@ -36,6 +36,7 @@ import type {
   ColorGroupDef,
   CultivateCurveDef,
   GachaPoolDef,
+  ThemeDesignDef,
 } from './character';
 import type { ExtraValue } from './extra';
 import type { PicDef } from './pics';
@@ -95,6 +96,11 @@ export interface Datapack {
    * @label 色彩装备
    */
   colorEquipments?: ColorEquipmentDef[];
+  /**
+   * 实体配色设计表（Area / 学生差分的可解锁命名主题）
+   * @label 配色设计
+   */
+  themeDesigns?: ThemeDesignDef[];
   /**
    * 卡池表
    * @label 卡池

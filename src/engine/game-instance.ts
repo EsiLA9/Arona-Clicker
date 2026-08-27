@@ -351,10 +351,12 @@ export class GameInstance {
     // 获得角色差分 / flag 变化后，自动重算色彩与色彩装备解锁（达成条件即入库存，闭环收集系统）
     this.eventBus.on('characterAcquired', () => {
       this.colorSystem.recheckUnlocks();
+      this.colorSystem.recheckDesignUnlocks();
       this.colorEquipmentSystem.recheckUnlocks();
     });
     this.eventBus.on('flagChanged', () => {
       this.colorSystem.recheckUnlocks();
+      this.colorSystem.recheckDesignUnlocks();
       this.colorEquipmentSystem.recheckUnlocks();
     });
   }

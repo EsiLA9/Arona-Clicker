@@ -5,6 +5,7 @@
 // 重排目标面条项（relayout）再淡入。切换期间只移动圆盘，条项与文本由
 // 淡入淡出承接，避免错位与文字堆叠。
 // Init 面聚焦盘右缘，GlobalEnhancement 面聚焦盘左缘（镜像、方向相反）。
+// 轮盘层（.wheel-init/.wheel-enh）挂在 shell 顶部覆盖整页，翻面时与文本面同步淡入淡出/显隐。
 // ============================================================
 
 import { GameInstance } from '../engine/game-instance';
@@ -85,16 +86,19 @@ export class SelectorPage {
     const shell = root.querySelector<HTMLElement>('.selector-shell');
     const oldEl = root.querySelector<HTMLElement>(`.selector-face.face-${faceClass(this.face)}`);
     const newEl = root.querySelector<HTMLElement>(`.selector-face.face-${faceClass(face)}`);
+    const oldWheel = root.querySelector<HTMLElement>(`.wheel-${faceClass(this.face)}`);
+    const newWheel = root.querySelector<HTMLElement>(`.wheel-${faceClass(face)}`);
     if (!shell || !oldEl || !newEl) return;
 
     // 防连点：新切换令旧定时器失效，并清掉上次中断残留的中间态
     const seq = ++this.flipSeq;
     this.face = face;
-    root.querySelectorAll('.selector-face.is-fading').forEach(el => el.classList.remove('is-fading'));
+    root.querySelectorAll('.selector-face.is-fading, .init-wheel.is-fading').forEach(el => el.classList.remove('is-fading'));
 
     const isEnh = face === 'global-enh';
     // 1) 淡出当前面条项与文本
     oldEl.classList.add('is-fading');
+    oldWheel?.classList.add('is-fading');
     window.setTimeout(() => {
       if (seq !== this.flipSeq) return;
       // 2) 只滑动圆盘，交换可见面
@@ -102,11 +106,14 @@ export class SelectorPage {
       shell.classList.toggle('enh-mode', isEnh);
       oldEl.classList.remove('is-fading');
       oldEl.classList.add('is-inactive');
+      oldWheel?.classList.remove('is-fading');
+      oldWheel?.classList.add('is-inactive');
       window.setTimeout(() => {
         if (seq !== this.flipSeq) return;
         // 3) 圆盘落位后按新坐标重排目标面条项，再淡入
         (isEnh ? this.enhWheel : this.initWheel)?.relayout();
         newEl.classList.remove('is-inactive');
+        newWheel?.classList.remove('is-inactive');
         this.syncTopbar();
       }, DISC_MS);
     }, FADE_MS);
@@ -151,6 +158,29 @@ export class SelectorPage {
     this.host.bindDetailActions();
     this.host.bindGlobalEnhancementDetailActions();
     this.host.bindSelectorCommonActions();
+    this.bindParallax();
+  }
+
+  /** 鼠标视差：光标相对圆盘中心的位置写入 --par-x/--par-y，条项与圆盘据此轻微偏移（仅视觉，不改选中）。 */
+  private bindParallax(): void {
+    const root = this.host.root;
+    const shell = root.querySelector<HTMLElement>('.selector-shell');
+    const disc = root.querySelector<HTMLElement>('.init-orb-disc');
+    if (!shell || !disc) return;
+
+    const setPar = (x: string, y: string) => {
+      shell.style.setProperty('--par-x', x);
+      shell.style.setProperty('--par-y', y);
+    };
+    // 挂在 shell 上以覆盖圆盘中心区域（圆盘可能位于 viewport 之上）
+    shell.addEventListener('mousemove', (e: MouseEvent) => {
+      const r = disc.getBoundingClientRect();
+      const radius = r.width / 2 || 1;
+      const dx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / radius));
+      const dy = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / radius));
+      setPar(dx.toFixed(3), dy.toFixed(3));
+    });
+    shell.addEventListener('mouseleave', () => setPar('0', '0'));
   }
 
   private syncTopbar(): void {
@@ -169,7 +199,7 @@ export class SelectorPage {
   private bindWheel(face: SelectionFace): WheelApi | null {
     const isEnh = face === 'global-enh';
     const rowSel = isEnh ? '[data-global-enh-select]' : '[data-init-select]';
-    const wheelEl = this.host.root.querySelector<HTMLElement>(isEnh ? '.face-enh .enh-wheel' : '.face-init .init-wheel');
+    const wheelEl = this.host.root.querySelector<HTMLElement>(isEnh ? '.wheel-enh' : '.wheel-init');
     const disc = this.host.root.querySelector<HTMLElement>('.init-orb-disc');
     if (!wheelEl || !disc || this.host.root.querySelectorAll(rowSel).length === 0) return null;
 

@@ -6,6 +6,7 @@
 // ============================================================
 
 import { GameInstance, type SaveData } from '../engine/game-instance';
+import { DEFAULT_LAYER_ORDER, type ThemeOrderScope } from '../engine/core/theme-runtime';
 import { Character, StoryAdvanceResult, StoryStartResult, Resource } from '../engine/types';
 import { SaveSystem } from '../save/storage';
 import { createUIContext } from './context';
@@ -18,7 +19,7 @@ import { ToastService } from './components/toast';
 import { enhPurchaseErrorText, travelErrorText, itemUseErrorText } from './components/errors';
 import { ModalManager } from './modal';
 import { PopoverManager } from './popovers';
-import { hexToRgbTriplet } from '../engine/system/color-system';
+import { entityKeyOf, hexToRgbTriplet } from '../engine/system/color-system';
 import { ChatStream } from './chat-stream';
 import { ScrollManager } from './scroll';
 import { SelectorPage } from './selector-page';
@@ -87,6 +88,9 @@ export class UIController {
   readonly popovers: PopoverManager;
   /** @internal 待落账的奖励通知（storyRewarded 排队，render 时统一入流）。 */
   pendingRewardChats: string[] = [];
+  /** @internal 主题浮窗：跨 render 全量重建 #app 保留其开关键与位置（避免被其它 DOM 刷新干掉）。 */
+  private themeFloatOpen = false;
+  private themeFloatPos: { x: number; y: number } | null = null;
 
   // --- 疏散出去的领域模块 ---
   /** 聊天流（ID 计数 / 剧情指纹 / 路由 / 同步）。 */
@@ -279,8 +283,29 @@ export class UIController {
     this.scroll.observeChatStream(this.root);
     this.scroll.restorePanel(this.root);
     this.applyTheme();
+    // 主题浮窗跨 render 重建存活（开关 + 位置）
+    this.restoreThemeFloat();
     // 同步揭示指纹，避免下一次事件重复重建
     this.revealFingerprint = this.computeRevealFingerprint();
+  }
+
+  /**
+   * 主题浮窗跨 render 重建 #app 的存活：render 全量重建会销毁浮窗 DOM，
+   * 这里在重建后依据持久化的开关键与位置重新打开并归位，使其不被其它 DOM 刷新干掉。
+   */
+  private restoreThemeFloat(): void {
+    const float = this.root.querySelector<HTMLElement>('[data-theme-float]');
+    if (!float) return;
+    if (this.themeFloatOpen) {
+      float.classList.add('open');
+      if (this.themeFloatPos) {
+        float.style.left = `${this.themeFloatPos.x}px`;
+        float.style.top = `${this.themeFloatPos.y}px`;
+        float.style.right = 'auto';
+      }
+    } else {
+      float.classList.remove('open');
+    }
   }
 
   /**
@@ -314,15 +339,47 @@ export class UIController {
     const areaId = this.game.getView().currentAreaId;
     if (areaId) {
       const area = this.game.registry.areas.get(areaId);
-      if (area?.theme) {
-        this.game.colorSystem.pushSceneTheme({ scope: 'area', colorId: area.theme.colorId, tokens: area.theme.tokens });
+      // 实体主题槽覆盖（设计/自定义）优先，否则声明默认
+      const override = area
+        ? this.game.colorSystem.entityThemeOverride(this.game.state, entityKeyOf('area', areaId))
+        : null;
+      const theme = override ?? area?.theme;
+      if (theme) {
+        this.game.colorSystem.pushSceneTheme({ scope: 'area', colorId: theme.colorId, tokens: theme.tokens });
       }
     }
     const convId = this.panelState.conversationVariantId;
     if (convId) {
       const variant = this.game.registry.characterVariants.get(convId);
-      if (variant?.theme) {
-        this.game.colorSystem.pushSceneTheme({ scope: 'student', colorId: variant.theme.colorId, tokens: variant.theme.tokens });
+      if (variant) {
+        const entry = this.game.state.roster?.[convId];
+        const equipped = entry?.equippedEquipment ?? null;
+        const override = this.game.colorSystem.entityThemeOverride(
+          this.game.state,
+          entityKeyOf('variant', convId),
+          equipped,
+        );
+        if (override) {
+          // 实体主题槽覆盖（设计/装备/自定义）：直接采用
+          this.game.colorSystem.pushSceneTheme({ scope: 'student', colorId: override.colorId, tokens: override.tokens });
+        } else {
+          // 学生层：优先用其 ColorGroup（装备 > 差分声明）的主色位 Color 驱动参考树；
+          // variant.theme 作为显式覆盖层（仍可被作者手动指定 Color 覆盖）。
+          let studentColorId: string | undefined = variant.theme?.colorId;
+          const groupId = equipped
+            ? this.game.colorEquipmentSystem.groupOf(equipped)?.id
+            : variant.colorGroupId;
+          if (!studentColorId && groupId) {
+            const group = this.game.registry.colorGroups.get(groupId);
+            const slot = group?.slots.find(s => s.role === 'primary') ?? group?.slots[0];
+            if (slot) studentColorId = slot.colorId;
+          }
+          this.game.colorSystem.pushSceneTheme({
+            scope: 'student',
+            colorId: studentColorId,
+            tokens: variant.theme?.tokens,
+          });
+        }
       }
     }
     const resolved = this.game.colorSystem.runtimeTheme();
@@ -395,6 +452,7 @@ export class UIController {
    * 都回到一致的默认页面（左=区域、中=聊天、右=Spot），聊天流清空。
    */
   resetSessionPanel(): void {
+    this.themeFloatOpen = false;
     resetSessionPanelImpl(this);
   }
 
@@ -415,6 +473,7 @@ export class UIController {
 
   /** 新游戏进入世界线（保留跨 Init 进度）。 */
   startNewGame(initId: string): void {
+    this.themeFloatOpen = false;
     const started = this.game.startNewGame(initId);
     if (!started) {
       this.game.devLog.record(`无法开始世界线：${initId}`, { source: 'init', level: 'error' });
@@ -431,6 +490,7 @@ export class UIController {
 
   /** 软重启后恢复进入世界线（保留跨 Init 进度与统计，有快照则恢复）。 */
   resumeInit(initId: string): void {
+    this.themeFloatOpen = false;
     // 玩家选择 Init 时才真正执行 restartInit（保存快照 + 清 per-init 状态）
     this.game.restartInit();
     const resumed = this.game.resumeInit(initId);
@@ -469,9 +529,49 @@ export class UIController {
       this.io.importDatapack();
     });
     this.root.querySelector('#theme-palette-btn')?.addEventListener('click', (e) => {
-      const container = (e.currentTarget as HTMLElement).closest('.theme-palette');
-      container?.classList.toggle('open');
+      const float = (e.currentTarget as HTMLElement)
+        .closest('.theme-palette')
+        ?.querySelector<HTMLElement>('[data-theme-float]');
+      if (!float) return;
+      this.themeFloatOpen = !this.themeFloatOpen;
+      float.classList.toggle('open', this.themeFloatOpen);
     });
+    this.root.querySelector('[data-theme-float-close]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.themeFloatOpen = false;
+      (e.currentTarget as HTMLElement).closest('[data-theme-float]')?.classList.remove('open');
+    });
+    // 主题浮窗：拖动标题栏移动（position: fixed，绕开顶栏拥挤）
+    const themeFloat = this.root.querySelector<HTMLElement>('[data-theme-float]');
+    const themeFloatHead = this.root.querySelector<HTMLElement>('[data-theme-float-head]');
+    if (themeFloat && themeFloatHead) {
+      themeFloatHead.addEventListener('pointerdown', (e) => {
+        if ((e.target as HTMLElement).closest('[data-theme-float-close]')) return;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const rect = themeFloat.getBoundingClientRect();
+        const baseX = rect.left;
+        const baseY = rect.top;
+        themeFloatHead.setPointerCapture(e.pointerId);
+        const onMove = (ev: PointerEvent) => {
+          const nx = baseX + (ev.clientX - startX);
+          const ny = baseY + (ev.clientY - startY);
+          const x = Math.max(0, Math.min(window.innerWidth - 80, nx));
+          const y = Math.max(0, Math.min(window.innerHeight - 40, ny));
+          themeFloat.style.left = `${x}px`;
+          themeFloat.style.top = `${y}px`;
+          themeFloat.style.right = 'auto';
+          this.themeFloatPos = { x, y };
+        };
+        const onUp = () => {
+          themeFloatHead.releasePointerCapture(e.pointerId);
+          themeFloatHead.removeEventListener('pointermove', onMove);
+          themeFloatHead.removeEventListener('pointerup', onUp);
+        };
+        themeFloatHead.addEventListener('pointermove', onMove);
+        themeFloatHead.addEventListener('pointerup', onUp);
+      });
+    }
     this.root.querySelector('#help-modal')?.addEventListener('click', () => {
       this.modal.open({
         title: '关于 AronaClicker',
@@ -490,6 +590,7 @@ export class UIController {
       this.started = false;
       this.pendingRestart = false;
       this.toast.show('已彻底重置，回到世界线选择', 'info');
+      this.themeFloatOpen = false;
       this.renderInitSelect();
     });
     this.root.querySelector('#clear-log')?.addEventListener('click', () => {
@@ -599,8 +700,60 @@ export class UIController {
           this.toast.show('该色彩尚未解锁', 'error');
           return;
         }
+        this.game.mutations.setCustomTheme(null);
         this.toast.show(colorId ? '主题已切换' : '已恢复默认主题', 'success');
         this.render();
+      });
+    });
+    // 自定义主题：从 ColorGroup 取主色位 Color 构建 ThemeDef（绕过 ownership 闸门）。
+    this.root.querySelectorAll<HTMLButtonElement>('[data-activate-custom-theme]').forEach(button => {
+      button.addEventListener('click', () => {
+        const groupId = button.dataset.activateCustomTheme;
+        if (!groupId) {
+          this.game.mutations.setCustomTheme(null);
+          this.toast.show('已恢复默认主题', 'success');
+          this.render();
+          return;
+        }
+        const group = this.game.registry.colorGroups.get(groupId);
+        const slot = group?.slots.find(s => s.role === 'primary') ?? group?.slots[0];
+        if (!slot) {
+          this.toast.show('该色组无效', 'error');
+          return;
+        }
+        this.game.mutations.setCustomTheme({ colorId: slot.colorId });
+        this.game.mutations.activateTheme(null);
+        this.toast.show('已应用自定义主题', 'success');
+        this.render();
+      });
+    });
+    // 层级优先级：◀/▶ 交换相邻位（低 → 高排列）
+    this.root.querySelectorAll<HTMLButtonElement>('[data-theme-layer-order-move]').forEach(button => {
+      button.addEventListener('click', () => {
+        const scope = button.dataset.themeLayerOrderMove as ThemeOrderScope;
+        const dir = Number(button.dataset.dir);
+        const cur = this.game.state.themeLayerOrder ?? DEFAULT_LAYER_ORDER;
+        const idx = cur.indexOf(scope);
+        const target = idx + dir;
+        if (idx < 0 || target < 0 || target >= cur.length) return;
+        const next = [...cur];
+        [next[idx], next[target]] = [next[target], next[idx]];
+        this.game.mutations.setThemeLayerOrder(next);
+        this.render();
+      });
+    });
+    // 实体主题槽：选定 Area / 学生的当前主题来源（载荷 = {entityKey, slot} JSON）
+    this.root.querySelectorAll<HTMLButtonElement>('[data-entity-theme-select]').forEach(button => {
+      button.addEventListener('click', () => {
+        const raw = button.dataset.entityThemeSelect;
+        if (!raw) return;
+        try {
+          const { entityKey, slot } = JSON.parse(raw);
+          this.game.mutations.setEntityThemeSlot(entityKey, slot);
+          this.render();
+        } catch {
+          this.toast.show('无效的主题选择', 'error');
+        }
       });
     });
     this.root.querySelector('#open-gacha')?.addEventListener('click', () => this.openGachaModal());

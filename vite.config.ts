@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
@@ -9,7 +9,7 @@ const resolveEntry = (p: string): string => fileURLToPath(new URL(p, import.meta
  * Vite 构建产物按「相对 root 的路径」保留目录结构（web-dist/src/ui/index.html 等），
  * 因此 dev（源码）与 preview（产物）使用同一套映射。
  */
-function mpaRoutes() {
+function mpaRoutes(): Plugin {
   const targets: Record<string, string> = {
     '/game': '/src/ui/index.html',
     '/editor': '/tools/datapack-editor/ui/index.html',
@@ -24,10 +24,10 @@ function mpaRoutes() {
   };
   return {
     name: 'ac-mpa-routes',
-    configureServer(server: { middlewares: { use: (fn: unknown) => void } }) {
+    configureServer(server) {
       server.middlewares.use(redirect);
     },
-    configurePreviewServer(server: { middlewares: { use: (fn: unknown) => void } }) {
+    configurePreviewServer(server) {
       server.middlewares.use(redirect);
     },
   };

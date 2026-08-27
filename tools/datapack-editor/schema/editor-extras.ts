@@ -695,6 +695,8 @@ export const TABLE_META: TableMeta[] = [
       tags: () => tagPathField('tags'),
       revealTriggers: () => revealTriggersField(),
       functionalities: () => a('functionalities', functionalityObject(), '功能'),
+      theme: () => themeField('theme', '设施主题'),
+      colorGroupId: () => s('colorGroupId', '默认色组', { description: 'ColorGroupDef id（如 base:color-group:xxx）；声明后设施卡片以该色组主色构建自身 ThemeTree。' }),
     },
   },
   {

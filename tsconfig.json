@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vite.config.ts", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist", "web-dist", "src/ui/dist", "tools"]
+}

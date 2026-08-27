@@ -153,6 +153,15 @@ export interface ThemeEffectValue {
   colorId?: string;
   /** 局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。 */
   tokens?: Record<string, string>;
+  /**
+   * 作用范围：ephemeral（临时演出，默认）| area（场景）| student（学生）。
+   * ephemeral 走 ColorSystem 临时层；area/student 改写实体主题槽。
+   */
+  scope?: 'ephemeral' | 'area' | 'student';
+  /**
+   * 目标实体键（`area:<id>` / `variant:<id>`），scope 为 area/student 时必填。
+   */
+  entityKey?: string;
 }
 
 /** 演出专用文本的视觉格式类别（showChatText.kind，无 talklet 时生效）。 */

@@ -6,10 +6,14 @@
 
 | 层 | 来源 | 优先级 |
 | --- | --- | --- |
-| 玩家全局层 | `syncPlayerThemeFromState(state)` | 低 |
-| 场景层 area | 当前 Area 的 theme | 中 |
-| 场景层 student | 当前对话学生差分 theme | 高 |
-| 临时演出层 | `setTheme` effect（剧情演出） | 最高 |
+| 玩家全局层 | `syncPlayerThemeFromState(state)` | 可自定义 |
+| 场景层 area | 当前 Area 的 theme | 可自定义 |
+| 场景层 student | 当前对话学生差分 theme | 可自定义 |
+| 临时演出层 | `setTheme` effect（剧情演出） | 始终最高 |
+
+player/area/student 三层的相对优先级由玩家可自定义（`PlayerState.themeLayerOrder`，
+`RuntimeThemeManager.setLayerOrder`，缺省 `['player','area','student']`）；
+演出层不参与排序，始终最高。主题浮窗「层级优先级」段用 ◀/▶ 交换相邻位。
 
 ## 合并规则
 
@@ -22,6 +26,31 @@ runtimeTheme() → 按优先级合并 token：
 
 - 合并是**运行时派生**，不落 PlayerState；
 - 每次场景切换（`travelToArea` / 对话空间切换）→ `popSceneTheme` + `pushSceneTheme` → UI `applyTheme` 重注入 CSS 变量。
+
+## 实体配色槽（Area / 学生的多来源配色）
+
+每个 Area 与 CharacterVariant 有一个「主题槽」（`PlayerState.entityThemeSlots`，key =
+`area:<id>` / `variant:<id>`），当前生效主题可来自多个来源：
+
+| 来源 | 说明 |
+| --- | --- |
+| 声明默认 | `AreaDef.theme` / `CharacterVariantDef.theme`（兜底，无槽位时生效） |
+| equipment | 已装备的 `ColorEquipmentDef`（`theme` 完整主题优先，否则 `themeColorId`） |
+| design | 已解锁的 `ThemeDesignDef`（全局表 `themeDesigns`，`entityKey` 声明目标实体） |
+| custom | 玩家/剧情写入的 `ThemeDef`（`setTheme` effect 的 `scope=area|student` + `entityKey`） |
+
+解析（`ColorSystem.entityThemeOverride`）：玩家槽位（custom → design → equipment，按
+`entityThemeSlots[key].kind`）→ 无槽位/`default` → 声明默认（student 走既有
+ColorGroup 主色位回退）。UI 侧 `entityThemeOptions` 汇总可选项，主题浮窗「区域配色」
+段与学生面板「配色设计」段渲染（未解锁设计置灰）。
+
+获得途径：
+- `ThemeDesignDef.unlock` 条件满足 → `recheckDesignUnlocks()` 自动解锁（挂
+  `characterAcquired` / `flagChanged`，与 ColorEquipment 同一闭环）；
+- 获得后自动写入槽位（改默认色），玩家可手动换回；
+- `setTheme` effect 的 `scope=area|student` 直接改写实体主题槽（写入 `custom` 来源）。
+
+状态归属：`entityThemeSlots` / `entityThemeDesignsOwned` 均为收集类资产（global 层，入存档）。
 
 ## 三层色彩体系（Color / ColorGroup / ColorEquipment）
 

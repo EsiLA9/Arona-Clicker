@@ -15,7 +15,7 @@ import type {
   Effect,
   ValueExpression,
 } from './expression';
-import type { GachaPoolId } from './character';
+import type { ColorGroupId, GachaPoolId, ThemeDef } from './character';
 import type { ResourceAmount } from './common';
 import type { RevealTrigger } from './reveal';
 import type { TriggerDef } from './trigger';
@@ -196,6 +196,19 @@ export interface SpotDef {
   functionalities?: SpotFunctionalityDef[];
   /** 专有卡池：可在该 Spot 的招募界面访问，区别于全局通用卡池。 */
   gachaPools?: GachaPoolId[];
+  /**
+   * 设施特色主题：声明后该 Spot 卡片/详情以自身 ThemeTree 渲染（绕过全局参考树、作用域化落到卡片）。
+   * 缺省跟随全局参考树。
+   * @label 设施主题
+   */
+  theme?: ThemeDef;
+  /**
+   * 默认色组：声明后设施卡片以该 ColorGroup 主色构建自身 ThemeTree（缩略/强调），
+   * 未声明则跟随 theme 或全局参考树。
+   * @label 默认色组
+   * @ref colorGroups
+   */
+  colorGroupId?: ColorGroupId;
   /** Extra 附加数据（数据包声明的结构化元数据，见 docs/13）。 */
   extra?: ExtraCompound;
 }

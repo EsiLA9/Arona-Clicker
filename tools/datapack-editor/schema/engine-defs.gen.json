@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-27T01:10:37.446Z",
+  "generatedAt": "2026-08-27T04:56:00.492Z",
   "sourceDir": "src/engine/types",
   "defMap": {
     "inits": {
@@ -80,6 +80,10 @@
     },
     "colorEquipments": {
       "type": "ColorEquipmentDef",
+      "shape": "array"
+    },
+    "themeDesigns": {
+      "type": "ThemeDesignDef",
       "shape": "array"
     },
     "gachaPools": {
@@ -545,6 +549,42 @@
             "table": "gachaPools",
             "tsType": "GachaPoolId"
           }
+        },
+        {
+          "key": "theme",
+          "required": false,
+          "kind": "object",
+          "tsType": "ThemeDef",
+          "label": "设施主题",
+          "description": "设施特色主题：声明后该 Spot 卡片/详情以自身 ThemeTree 渲染（绕过全局参考树、作用域化落到卡片）。",
+          "fields": [
+            {
+              "key": "colorId",
+              "required": false,
+              "kind": "ref",
+              "tsType": "ColorId",
+              "label": "引用色彩",
+              "description": "引用 ColorDef id；缺省仅用 tokens 覆盖。",
+              "table": "colors"
+            },
+            {
+              "key": "tokens",
+              "required": false,
+              "kind": "hand",
+              "tsType": "Partial<Record<ThemeToken, string>>",
+              "label": "局部覆盖",
+              "description": "局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。"
+            }
+          ]
+        },
+        {
+          "key": "colorGroupId",
+          "required": false,
+          "kind": "ref",
+          "tsType": "ColorGroupId",
+          "label": "默认色组",
+          "description": "默认色组：声明后设施卡片以该 ColorGroup 主色构建自身 ThemeTree（缩略/强调），",
+          "table": "colorGroups"
         },
         {
           "key": "extra",
@@ -1881,6 +1921,33 @@
           "table": "colors"
         },
         {
+          "key": "theme",
+          "required": false,
+          "kind": "object",
+          "tsType": "ThemeDef",
+          "label": "装备主题",
+          "description": "可选：装备提供的完整主题（用于该学生的实体主题槽 equipment 来源）。",
+          "fields": [
+            {
+              "key": "colorId",
+              "required": false,
+              "kind": "ref",
+              "tsType": "ColorId",
+              "label": "引用色彩",
+              "description": "引用 ColorDef id；缺省仅用 tokens 覆盖。",
+              "table": "colors"
+            },
+            {
+              "key": "tokens",
+              "required": false,
+              "kind": "hand",
+              "tsType": "Partial<Record<ThemeToken, string>>",
+              "label": "局部覆盖",
+              "description": "局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。"
+            }
+          ]
+        },
+        {
           "key": "unlock",
           "required": false,
           "kind": "hand",
@@ -1905,6 +1972,74 @@
             "稀有": "稀有",
             "史诗": "史诗"
           }
+        }
+      ]
+    },
+    "ThemeDesignDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "ID"
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "名称"
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "描述"
+        },
+        {
+          "key": "entityKey",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "目标实体",
+          "description": "目标实体键（`area:<id>` / `variant:<id>`）。声明后解锁条件满足即自动"
+        },
+        {
+          "key": "theme",
+          "required": true,
+          "kind": "object",
+          "tsType": "ThemeDef",
+          "label": "主题",
+          "description": "主题定义（colorId 打底 + tokens 覆盖）",
+          "fields": [
+            {
+              "key": "colorId",
+              "required": false,
+              "kind": "ref",
+              "tsType": "ColorId",
+              "label": "引用色彩",
+              "description": "引用 ColorDef id；缺省仅用 tokens 覆盖。",
+              "table": "colors"
+            },
+            {
+              "key": "tokens",
+              "required": false,
+              "kind": "hand",
+              "tsType": "Partial<Record<ThemeToken, string>>",
+              "label": "局部覆盖",
+              "description": "局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。"
+            }
+          ]
+        },
+        {
+          "key": "unlock",
+          "required": false,
+          "kind": "hand",
+          "tsType": "Condition | ConditionGroup",
+          "label": "解锁条件",
+          "description": "解锁条件；缺省 = 不可自动解锁"
         }
       ]
     },
@@ -2419,6 +2554,7 @@
     "EnhancementId",
     "EnhancementPurchaseError",
     "EnhancementPurchaseResult",
+    "EntityThemeSlot",
     "EntryEffectDef",
     "EquipmentId",
     "EventHandler",
@@ -2488,7 +2624,9 @@
     "TagDef",
     "Talklet",
     "ThemeDef",
+    "ThemeDesignDef",
     "ThemeEffectValue",
+    "ThemeOrderScope",
     "ThemeToken",
     "TickResult",
     "TravelError",

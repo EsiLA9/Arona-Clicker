@@ -2,6 +2,7 @@
 // ui/components/selector-page.ts — 选择页整页渲染（Init ⇄ GlobalEnhancement）
 // 两个面向叠放于同一视口（一次只显示一面），共享一个可左右滑动的圆盘：
 // Init 面：盘在左、盘右缘聚焦、详情在左；GlobalEnhancement 面：盘在右、盘左缘聚焦、详情在右（镜像）。
+// 两个轮盘层（.wheel-init / .wheel-enh）直接挂在 shell 上覆盖整页，卡片只受页面边界裁剪。
 // initialFace 决定默认进入的面与圆盘初始位置。
 // ============================================================
 
@@ -52,8 +53,6 @@ export function renderSelectorPage(
           </div>
         </aside>
       </div>
-
-      <div class="init-wheel">${initRows}</div>
     </section>`;
 
   const enhFace = `
@@ -68,8 +67,6 @@ export function renderSelectorPage(
 
         ${enhDetail}
       </div>
-
-      <div class="init-wheel enh-wheel">${enhRows}</div>
     </section>`;
 
   return `
@@ -93,6 +90,9 @@ export function renderSelectorPage(
         ${initFace}
         ${enhFace}
       </div>
+
+      <div class="init-wheel wheel-init ${isEnh ? 'is-inactive' : ''}">${initRows}</div>
+      <div class="init-wheel wheel-enh ${isEnh ? '' : 'is-inactive'}">${enhRows}</div>
 
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>TS-HTML ENGINE · NO NETWORK</span></footer>
     </main>`;

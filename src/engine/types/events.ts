@@ -60,6 +60,10 @@ export type GameEvent =
   | { type: 'equipmentEquipped'; variantId: string; equipmentId: string }
   /** 激活主题切换（colorId = null 回默认主题）。 */
   | { type: 'themeChanged'; colorId: string | null }
+  /** 实体主题槽变化（玩家/系统更改了某实体的当前主题来源）。 */
+  | { type: 'entityThemeChanged'; entityKey: string }
+  /** 实体配色设计解锁入库存（幂等）。 */
+  | { type: 'entityDesignUnlocked'; entityKey: string; designId: string }
   /** 聊天消息标记已读。 */
   | { type: 'chatReadChanged'; messageId: string }
   /** 抽卡结算完成（count = 本次抽取次数；逐次结果以 characterAcquired 事件跟随）。 */

@@ -7,14 +7,19 @@
 
 import type {
   ColorDef,
+  ColorGroupDef,
+  ColorGroupId,
+  ColorId,
   Condition,
   ConditionGroup,
   Effect,
   PlayerState,
+  ThemeDef,
+  ThemeDesignDef,
 } from '../types';
 import type { Registry } from '../registry/registry';
 import type { StateMutationService } from './state-mutation-service';
-import { RuntimeThemeManager, type ThemeLayer } from '../core/theme-runtime';
+import { RuntimeThemeManager, type ThemeLayer, type ThemeTokens } from '../core/theme-runtime';
 
 // --- HSL 工具（纯函数，UI 可复用） ---
 
@@ -50,6 +55,11 @@ export function hexToRgbTriplet(hex: string): string {
   return `${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}`;
 }
 
+/** 实体键：`area:<id>` / `variant:<id>`（主题槽 / 配色设计归属的键）。 */
+export function entityKeyOf(kind: 'area' | 'variant', id: string): string {
+  return `${kind}:${id}`;
+}
+
 /** WCAG 相对亮度。 */
 function luminance(cssColor: string): number {
   const hsl = typeof cssColor === 'string' && cssColor.startsWith('#')
@@ -77,6 +87,17 @@ export function contrastRatio(fg: string, bg: string): number {
 }
 
 const MIN_CONTRAST = 4.5;
+
+/** 实体主题槽的 UI 选项视图。 */
+export interface EntityThemeOption {
+  kind: 'default' | 'equipment' | 'design' | 'custom';
+  id?: string;
+  name: string;
+  theme?: ThemeDef;
+  swatch?: string;
+  owned: boolean;
+  active: boolean;
+}
 
 /**
  * 深浅判定的统一明度阈值（0.38）。
@@ -141,6 +162,51 @@ export function resolveTheme(def: Pick<ColorDef, 'theme'>): Record<string, strin
   return tokens;
 }
 
+// ============================================================================
+// Color / ColorGroup → theme-tree 快速映射（token 贡献）
+//
+// 每个实体（角色对话 / Area / Spot / Talklet·Story / 自定义主题）都可把自身
+// 解析为一组 token 贡献，填入全局参考 theme-tree（见 theme-runtime 分层合并）。
+// Color 直接用其 theme；ColorGroup 取其 primary role slot（回退首个）的 Color。
+// ============================================================================
+
+/** Color → 整包 token 贡献（即 resolveTheme）。 */
+export function themeContributionFromColor(def: ColorDef): ThemeTokens {
+  return resolveTheme(def);
+}
+
+/**
+ * ColorGroup → token 贡献：取主色位（role==='primary'，无则首个 slot）引用的 Color，
+ * 解析其整包 theme。无主色位 / 主色未定义时返回空表（不污染参考树）。
+ */
+export function themeContributionFromGroup(
+  group: ColorGroupDef,
+  getColor: (id: ColorId) => ColorDef | undefined,
+): ThemeTokens {
+  const slot = group.slots.find(s => s.role === 'primary') ?? group.slots[0];
+  if (!slot) return {};
+  const color = getColor(slot.colorId);
+  return color ? resolveTheme(color) : {};
+}
+
+/**
+ * ThemeDef（声明式主题：引用 Color 打底 + 局部覆盖）→ token 贡献。
+ * 供 Area / 学生对话 / Spot / 自定义主题统一复用同一条解析路径。
+ */
+export function themeContributionFromThemeDef(
+  theme: ThemeDef | undefined,
+  getColor: (id: ColorId) => ColorDef | undefined,
+): ThemeTokens {
+  if (!theme) return {};
+  const tokens: ThemeTokens = {};
+  if (theme.colorId) {
+    const color = getColor(theme.colorId);
+    if (color) Object.assign(tokens, resolveTheme(color));
+  }
+  if (theme.tokens) Object.assign(tokens, theme.tokens);
+  return tokens;
+}
+
 // --- 服务 ---
 
 export class ColorSystem {
@@ -167,10 +233,19 @@ export class ColorSystem {
 
   // --- 运行时主题（RuntimeThemeManager 门面） ---
 
-  /** 从状态同步玩家全局主题层（activeColor → player 层；读档/激活主题后调用）。 */
+  /** 从状态同步玩家全局主题层：自定义主题优先，否则 activeColor（读档/激活主题后调用）。 */
   syncPlayerThemeFromState(state: PlayerState): void {
-    const id = state.activeColor ?? null;
-    this.runtime.setPlayer(id ? { scope: 'player', colorId: id } : null);
+    if (state.customTheme) {
+      this.runtime.setPlayer({
+        scope: 'player',
+        colorId: state.customTheme.colorId,
+        tokens: state.customTheme.tokens,
+      });
+    } else {
+      const id = state.activeColor ?? null;
+      this.runtime.setPlayer(id ? { scope: 'player', colorId: id } : null);
+    }
+    this.runtime.setLayerOrder(state.themeLayerOrder);
   }
 
   /** 压入场景特色层（当前 Area / 当前对话学生；同 scope 覆盖）。 */
@@ -211,6 +286,7 @@ export class ColorSystem {
   /**
    * 处理临时演出类 theme effect（setTheme op）。
    * 由 effect-engine 在 applyEffects 时转发（mutations 对 setTheme 保持 no-op）。
+   * scope=area/student 时改写实体主题槽（持久，玩家可改回）；否则推临时演出层。
    * @returns 是否已消费（op 属于主题类）。
    */
   /** 剧情演出临时层的固定槽位：同一剧情内的 setTheme 覆盖式更新，离开剧情即清除。 */
@@ -219,6 +295,15 @@ export class ColorSystem {
   handleThemeEffect(effect: Effect): boolean {
     if (effect.op !== 'setTheme') return false;
     const value = effect.value as import('../types/expression').ThemeEffectValue;
+    if (value?.scope === 'area' || value?.scope === 'student') {
+      if (!value.entityKey) return false;
+      // 剧情/Trigger 直接改写实体主题槽（自定义来源，持久至玩家改回）
+      this.mutations.setEntityThemeSlot(value.entityKey, {
+        kind: 'custom',
+        customTheme: { colorId: value.colorId, tokens: value.tokens },
+      });
+      return true;
+    }
     this.pushEphemeralTheme({
       id: ColorSystem.STORY_EPHEMERAL_ID,
       scope: 'ephemeral',
@@ -235,6 +320,176 @@ export class ColorSystem {
 
   getDef(colorId: string): ColorDef | undefined {
     return this.registry.colors.get(colorId);
+  }
+
+  /** 取 ColorGroup 定义（供 UI 快速映射）。 */
+  getGroup(groupId: ColorGroupId): ColorGroupDef | undefined {
+    return this.registry.colorGroups.get(groupId);
+  }
+
+  // --- theme-tree 快速映射（封装 registry 解析） ---
+
+  /** Color → 整包 token 贡献。 */
+  themeFromColor(colorId: ColorId): ThemeTokens {
+    const def = this.registry.colors.get(colorId);
+    return def ? resolveTheme(def) : {};
+  }
+
+  /** ColorGroup → token 贡献（主色位 Color）。 */
+  themeFromGroup(groupId: ColorGroupId): ThemeTokens {
+    const group = this.registry.colorGroups.get(groupId);
+    return group ? themeContributionFromGroup(group, id => this.registry.colors.get(id)) : {};
+  }
+
+  /** ThemeDef → token 贡献（统一解析路径）。 */
+  themeFromThemeDef(theme: ThemeDef | undefined): ThemeTokens {
+    return themeContributionFromThemeDef(theme, id => this.registry.colors.get(id));
+  }
+
+  // --- 实体主题槽（Area / 学生差分的多来源配色） ---
+
+  /** 设计 → 主题定义。 */
+  designTheme(designId: string): ThemeDef | undefined {
+    return this.registry.themeDesigns.get(designId)?.theme;
+  }
+
+  /** 某实体已解锁的设计（按获得顺序）。 */
+  ownedDesigns(state: PlayerState, entityKey: string): ThemeDesignDef[] {
+    return (state.entityThemeDesignsOwned?.[entityKey] ?? [])
+      .map(id => this.registry.themeDesigns.get(id))
+      .filter((d): d is ThemeDesignDef => !!d);
+  }
+
+  /** 设计是否已解锁。 */
+  isDesignOwned(state: PlayerState, entityKey: string, designId: string): boolean {
+    return state.entityThemeDesignsOwned?.[entityKey]?.includes(designId) ?? false;
+  }
+
+  /** 由 ThemeDef 取预览主色（colorId → Color.primary；否则 tokens.primary）。 */
+  themeSwatchColor(theme: ThemeDef): string | undefined {
+    if (theme.colorId) {
+      const primary = this.registry.colors.get(theme.colorId)?.theme['primary'];
+      if (primary) return primary;
+    }
+    return theme.tokens?.['primary'];
+  }
+
+  /**
+   * 解析实体当前生效的主题槽覆盖（ThemeDef | null）。
+   * null = 无覆盖，调用方走声明默认（Area.theme / Variant.theme / 色组回退）。
+   * equipment 来源跟随「当前已装备」的装备（kind 即「跟随装备」语义）。
+   */
+  entityThemeOverride(
+    state: PlayerState,
+    entityKey: string,
+    equippedEquipmentId?: string | null,
+  ): ThemeDef | null {
+    const slot = state.entityThemeSlots?.[entityKey];
+    if (!slot || slot.kind === 'default') return null;
+    if (slot.kind === 'custom') return slot.customTheme ?? null;
+    if (slot.kind === 'design') {
+      if (!slot.designId || !this.isDesignOwned(state, entityKey, slot.designId)) return null;
+      return this.registry.themeDesigns.get(slot.designId)?.theme ?? null;
+    }
+    if (!equippedEquipmentId) return null;
+    const def = this.registry.colorEquipments.get(equippedEquipmentId);
+    if (!def) return null;
+    return def.theme ?? (def.themeColorId ? { colorId: def.themeColorId } : null);
+  }
+
+  /**
+   * 实体的可用主题来源列表（UI 渲染用）：
+   * 声明默认 → 当前装备主题 → 目标为该实体的设计（含未解锁，owned=false）→ 玩家自定义。
+   */
+  entityThemeOptions(
+    state: PlayerState,
+    entityKey: string,
+    opts: { declaredTheme?: ThemeDef; equippedEquipmentId?: string | null },
+  ): EntityThemeOption[] {
+    const { declaredTheme, equippedEquipmentId } = opts;
+    const slot = state.entityThemeSlots?.[entityKey];
+    const options: EntityThemeOption[] = [];
+    if (declaredTheme) {
+      options.push({
+        kind: 'default',
+        name: '默认',
+        theme: declaredTheme,
+        swatch: this.themeSwatchColor(declaredTheme),
+        owned: true,
+        active: !slot || slot.kind === 'default',
+      });
+    }
+    if (equippedEquipmentId) {
+      const def = this.registry.colorEquipments.get(equippedEquipmentId);
+      const theme = def?.theme ?? (def?.themeColorId ? { colorId: def.themeColorId } : undefined);
+      if (def && theme) {
+        options.push({
+          kind: 'equipment',
+          id: def.id,
+          name: `装备 · ${def.name}`,
+          theme,
+          swatch: this.themeSwatchColor(theme),
+          owned: true,
+          active: slot?.kind === 'equipment',
+        });
+      }
+    }
+    const owned = state.entityThemeDesignsOwned?.[entityKey] ?? [];
+    const designs = [...this.registry.themeDesigns.values()].filter(
+      d => d.entityKey === entityKey || (!d.entityKey && owned.includes(d.id)),
+    );
+    for (const d of designs) {
+      options.push({
+        kind: 'design',
+        id: d.id,
+        name: d.name,
+        theme: d.theme,
+        swatch: this.themeSwatchColor(d.theme),
+        owned: owned.includes(d.id),
+        active: slot?.kind === 'design' && slot.designId === d.id,
+      });
+    }
+    if (slot?.kind === 'custom' && slot.customTheme) {
+      options.push({
+        kind: 'custom',
+        name: '自定义',
+        theme: slot.customTheme,
+        swatch: this.themeSwatchColor(slot.customTheme),
+        owned: true,
+        active: true,
+      });
+    }
+    return options;
+  }
+
+  /**
+   * 尝试解锁实体配色设计：条件校验 → 入库存 → 自动设为该实体当前生效主题。
+   * @returns 'unlocked' 成功 | 'already' 幂等 | false 条件不满足或定义缺失
+   */
+  tryUnlockDesign(entityKey: string, designId: string): 'unlocked' | 'already' | false {
+    const def = this.registry.themeDesigns.get(designId);
+    if (!def) return false;
+    const state = this.getState();
+    if (this.isDesignOwned(state, entityKey, designId)) return 'already';
+    if (def.unlock && !this.checkCondition(def.unlock, state)) return false;
+    if (!this.mutations.unlockEntityDesign(entityKey, designId)) return 'already';
+    // 获得即改默认：自动把该设计设为实体当前生效主题
+    this.mutations.setEntityThemeSlot(entityKey, { kind: 'design', designId });
+    return 'unlocked';
+  }
+
+  /**
+   * 扫描全部带 unlock + entityKey 的配色设计，对尚未拥有且条件已满足者自动解锁。
+   * 挂在 characterAcquired / flagChanged 时机（与 ColorEquipmentSystem.recheckUnlocks 同一闭环）。
+   * @returns 本次新解锁的设计 id 列表（空数组 = 无变化）。
+   */
+  recheckDesignUnlocks(): string[] {
+    const newly: string[] = [];
+    for (const def of this.registry.themeDesigns.values()) {
+      if (!def.unlock || !def.entityKey) continue;
+      if (this.tryUnlockDesign(def.entityKey, def.id) === 'unlocked') newly.push(def.id);
+    }
+    return newly;
   }
 
   getAll(): ColorDef[] {

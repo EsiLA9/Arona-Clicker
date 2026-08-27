@@ -1,6 +1,7 @@
 import { UIContext } from '../context';
 import { getSpotReveal, describeCondition } from './tooltip';
-import { cardAccent } from '../color-scheme';
+import { cardAccent, accentPalette } from '../color-scheme';
+import { themeTreeFromThemeDef, themeTreeFromGroup, themeTreeToInlineStyle } from '../theme-tree';
 import { TagPath } from '../../engine/core/tag';
 
 /**
@@ -72,8 +73,24 @@ export function renderProductionNodes(ctx: UIContext): string {
           ? '获取'
           : '未解锁';
       const accentStyle = cardAccent(spotColorScheme(spot.tags));
+      // 设施自有主题：声明 theme 或 colorGroupId 时，构建其 ThemeTree 并作用域化落到卡片
+      // （绕过全局参考树，直接 fill styles），使 Spot 卡片自带主题色而不影响整页。
+      let spotStyleAttr = accentStyle;
+      if (spot.theme || spot.colorGroupId) {
+        const getColor = (id: string) => ctx.game.registry.colors.get(id);
+        const tree = spot.theme
+          ? themeTreeFromThemeDef(spot.theme, getColor)
+          : (() => {
+              const group = spot.colorGroupId ? ctx.game.registry.colorGroups.get(spot.colorGroupId) : undefined;
+              return group ? themeTreeFromGroup(group, getColor) : undefined;
+            })();
+        if (tree) {
+          const primary = tree['--ac-primary'] ?? '#3b9eff';
+          spotStyleAttr = `style="${themeTreeToInlineStyle(tree)};${accentPalette(primary)}"`;
+        }
+      }
       return `
-        <article class="mini-card hover-wrap ${visible ? '' : 'is-muted'}" ${accentStyle} data-tooltip="spot:${spot.id}">
+        <article class="mini-card hover-wrap ${visible ? '' : 'is-muted'}" ${spotStyleAttr} data-tooltip="spot:${spot.id}">
           <div class="mini-card-title-row">
             <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
             <strong class="mini-status">${owned ? `Lv.${level}` : purchaseable ? '可获取' : '未解锁'}</strong>

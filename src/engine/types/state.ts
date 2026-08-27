@@ -11,11 +11,14 @@ import type { TagEffectRecord } from '../expression/tag-effect';
 import type {
   ChatMessageId,
   ColorId,
+  EntityThemeSlot,
   EquipmentId,
   GachaPoolId,
   GachaPoolState,
   ProtoStat,
   RosterEntry,
+  ThemeDef,
+  ThemeOrderScope,
   VariantId,
 } from './character';
 
@@ -79,10 +82,29 @@ export interface PlayerState {
   gachaState?: Record<GachaPoolId, GachaPoolState>;
   /** 当前激活的界面主题色彩（全局单选；null = 默认主题）。 */
   activeColor?: ColorId | null;
+  /**
+   * 自定义主题（玩家从 ColorGroup / 自定义 token 组合而成，绕过 ownership 闸门）。
+   * 优先级高于 activeColor；由 ColorSystem.syncPlayerThemeFromState 写入运行时参考树。
+   */
+  customTheme?: ThemeDef | null;
+  /**
+   * 玩家自定义的主题层优先级排列（低→高；缺省 ['player','area','student']）。
+   * 仅玩家/场景/学生三层参与；剧情演出层始终最高优先级。非法值回退默认。
+   */
+  themeLayerOrder?: ThemeOrderScope[];
   /** 已解锁色彩库存（收集类资产，恒为 global 层）。 */
   colorsOwned?: ColorId[];
   /** 已收集的色彩装备库存（收集类资产，恒为 global 层）。 */
   equipmentsOwned?: EquipmentId[];
+  /**
+   * 实体主题槽：玩家/系统为某实体（`area:<id>` / `variant:<id>`）选定的主题来源。
+   * 缺省（无条目）= 声明默认。获得新配色设计时会自动写入（改默认颜色）。
+   */
+  entityThemeSlots?: Record<string, EntityThemeSlot>;
+  /**
+   * 各实体已解锁的配色设计（key = `area:<id>` / `variant:<id>`；幂等入库存，恒为 global 层）。
+   */
+  entityThemeDesignsOwned?: Record<string, string[]>;
   /** 聊天已读记录（归属由 characterPersistConfig.chatRead 声明）。 */
   chatRead?: Record<ChatMessageId, true>;
   /**

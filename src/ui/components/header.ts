@@ -1,19 +1,72 @@
 import { UIContext } from '../context';
+import { DEFAULT_LAYER_ORDER, type ThemeOrderScope } from '../../engine/core/theme-runtime';
+import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
+
+const LAYER_LABELS: Record<ThemeOrderScope, string> = {
+  player: '玩家层',
+  area: '场景层',
+  student: '学生层',
+};
+
+/** 主题浮窗内的层级优先级段：三行各带 ◀/▶ 交换相邻位（低 → 高）。 */
+function renderLayerOrderSection(ctx: UIContext): string {
+  const order = ctx.game.state.themeLayerOrder ?? DEFAULT_LAYER_ORDER;
+  return `
+    <section class="theme-float-section layer-order">
+      <h4 class="theme-float-section-title">层级优先级 <small>低 → 高</small></h4>
+      <div class="layer-order-rows">
+        ${order.map((scope, i) => `
+          <div class="layer-order-row">
+            <span class="layer-order-rank">${i + 1}</span>
+            <span class="layer-order-name">${LAYER_LABELS[scope]}</span>
+            <span class="layer-order-actions">
+              <button type="button" class="layer-order-move" data-theme-layer-order-move="${scope}" data-dir="-1" title="降低优先级" ${i === 0 ? 'disabled' : ''}>◀</button>
+              <button type="button" class="layer-order-move" data-theme-layer-order-move="${scope}" data-dir="1" title="提高优先级" ${i === order.length - 1 ? 'disabled' : ''}>▶</button>
+            </span>
+          </div>`).join('')}
+      </div>
+      <p class="theme-float-note">剧情演出临时层始终最高优先级</p>
+    </section>`;
+}
+
+/** 主题浮窗内的区域配色段：当前 Area 的可用主题来源（仅进入 Area 时渲染）。 */
+function renderAreaDesignsSection(ctx: UIContext): string {
+  const areaId = ctx.view.currentAreaId;
+  if (!areaId) return '';
+  const area = ctx.game.registry.areas.get(areaId);
+  if (!area) return '';
+  const entityKey = entityKeyOf('area', areaId);
+  const options = ctx.game.colorSystem.entityThemeOptions(ctx.game.state, entityKey, {
+    declaredTheme: area.theme,
+  });
+  if (options.length === 0) return '';
+  return `
+    <section class="theme-float-section entity-designs">
+      <h4 class="theme-float-section-title">区域配色 <small>${ctx.escapeHtml(area.name)}</small></h4>
+      ${renderEntityThemeOptions(ctx, entityKey, options)}
+    </section>`;
+}
 
 export function renderHeader(ctx: UIContext): string {
   const { view, game } = ctx;
   const ownedColors = game.colorSystem.ownedColors(game.state);
   const activeColor = game.state.activeColor;
-  const palette = ownedColors.length
-    ? `
-      <div class="theme-palette-pop">
-        <button class="theme-swatch default ${!activeColor ? 'active' : ''}" data-activate-color="" title="默认主题">默认</button>
+  const customTheme = game.state.customTheme;
+  const palette = `
+        <button class="theme-swatch default ${!activeColor && !customTheme ? 'active' : ''}" data-activate-color="" title="默认主题">默认</button>
         ${ownedColors.map(c => `
-          <button class="theme-swatch ${activeColor === c.id ? 'active' : ''}"
+          <button class="theme-swatch ${activeColor === c.id && !customTheme ? 'active' : ''}"
             data-activate-color="${c.id}" title="${ctx.escapeHtml(c.name)}"
             style="--swatch:${c.theme['primary'] ?? '#888'}">${ctx.escapeHtml(c.name)}</button>`).join('')}
-      </div>`
-    : '<div class="theme-palette-pop"><small class="empty">尚未解锁任何主题色彩</small></div>';
+        ${[...game.registry.colorGroups.values()].map(g => {
+          const slot = g.slots.find(s => s.role === 'primary') ?? g.slots[0];
+          const color = slot ? game.registry.colors.get(slot.colorId) : undefined;
+          const primary = color?.theme['primary'] ?? '#888';
+          const active = customTheme?.colorId === slot?.colorId ? 'active' : '';
+          return `
+          <button class="theme-swatch group ${active}" data-activate-custom-theme="${g.id}"
+            title="自定义主题 · ${ctx.escapeHtml(g.name)}" style="--swatch:${primary}">${ctx.escapeHtml(g.name)}</button>`;
+        }).join('')}`;
   return `
     <header class="topbar">
       <div class="brand-lockup">
@@ -26,7 +79,17 @@ export function renderHeader(ctx: UIContext): string {
           <button id="theme-palette-btn" class="toolbar-button" title="切换界面主题色">
             主题 <span>◑</span>
           </button>
-          ${palette}
+          <div class="theme-float" data-theme-float>
+            <div class="theme-float-head" data-theme-float-head>
+              <span>主题设置</span>
+              <button class="theme-float-close" type="button" data-theme-float-close title="关闭">✕</button>
+            </div>
+            <div class="theme-float-body">
+              <div class="theme-swatches">${palette}</div>
+              ${renderLayerOrderSection(ctx)}
+              ${renderAreaDesignsSection(ctx)}
+            </div>
+          </div>
         </div>
         <div class="save-actions">
           <button id="collection-modal" class="toolbar-button" title="被动闲聊收集图鉴（按 Pool 分组）">图鉴 <span>✦</span></button>

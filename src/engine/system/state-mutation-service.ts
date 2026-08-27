@@ -9,12 +9,15 @@ import {
   CharaCustomOverride,
   DupRewards,
   Effect,
+  EntityThemeSlot,
   ExtraPath,
   ExtraValue,
   PlayerState,
   StoryId,
   GameEvent,
   StatsContext,
+  ThemeDef,
+  ThemeOrderScope,
   VariantId,
   isGlobalResource,
 } from '../types';
@@ -275,6 +278,53 @@ export class StateMutationService {
     if (this.current.activeColor === colorId) return true;
     this.current.activeColor = colorId;
     this.emit({ type: 'themeChanged', colorId });
+    return true;
+  }
+
+  /** 设置自定义主题（绕过 ownership 闸门；null 清除，回退到 activeColor）。同值幂等。 */
+  setCustomTheme(theme: ThemeDef | null): boolean {
+    const next = theme ?? null;
+    if (this.current.customTheme === next) return true;
+    this.current.customTheme = next;
+    this.emit({ type: 'themeChanged', colorId: null });
+    return true;
+  }
+
+  /** 设置玩家自定义的主题层优先级（低→高；仅 player/area/student 三层）。非法顺序回退默认。 */
+  setThemeLayerOrder(order: ThemeOrderScope[]): boolean {
+    const scopes: ThemeOrderScope[] = ['player', 'area', 'student'];
+    const valid = order.length === scopes.length && scopes.every(s => order.includes(s));
+    const next = valid ? [...order] : undefined;
+    if (this.current.themeLayerOrder === next) return true;
+    this.current.themeLayerOrder = next;
+    this.emit({ type: 'themeChanged', colorId: null });
+    return true;
+  }
+
+  /** 实体配色设计入库存（写层不做条件判定——由 ColorSystem 校验后调用；幂等）。 */
+  unlockEntityDesign(entityKey: string, designId: string): boolean {
+    const state = this.current;
+    const owned = (state.entityThemeDesignsOwned ??= {});
+    const list = (owned[entityKey] ??= []);
+    if (list.includes(designId)) return false;
+    list.push(designId);
+    this.emit({ type: 'entityDesignUnlocked', entityKey, designId });
+    return true;
+  }
+
+  /** 设置实体主题槽（null 清除，回退声明默认）。 */
+  setEntityThemeSlot(entityKey: string, slot: EntityThemeSlot | null): boolean {
+    const state = this.current;
+    const cur = state.entityThemeSlots?.[entityKey];
+    const next = slot ?? null;
+    if (cur === next) return true;
+    if (state.entityThemeSlots == null) {
+      if (next === null) return true;
+      state.entityThemeSlots = {};
+    }
+    if (next === null) delete state.entityThemeSlots[entityKey];
+    else state.entityThemeSlots[entityKey] = next;
+    this.emit({ type: 'entityThemeChanged', entityKey });
     return true;
   }
 

@@ -10,6 +10,7 @@ import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, Chat
 import { renderSendButton } from './center-panel';
 import { CharacterVariantDef, type ConditionGroup, type Condition, type Effect } from '../../engine/types';
 import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
+import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
 
 /** 未读消息计数接口：后续接入未读系统时由调用方提供。 */
 export type UnreadResolver = (variantId: string) => number;
@@ -287,6 +288,16 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
       <h4>色彩装备</h4>
       <div class="equipment-slots">${equippedHtml}</div>
       ${equippable ? `<div class="equipment-equippable">${equippable}</div>` : ''}
+      ${(() => {
+        const entityKey = entityKeyOf('variant', variantId);
+        const themeOptions = game.colorSystem.entityThemeOptions(game.state, entityKey, {
+          declaredTheme: variant.theme,
+          equippedEquipmentId: entry.equippedEquipment,
+        });
+        return themeOptions.length
+          ? `<h4>配色设计</h4>${renderEntityThemeOptions(ctx, entityKey, themeOptions)}`
+          : '';
+      })()}
     </div>`;
 }
 

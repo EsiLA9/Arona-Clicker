@@ -146,6 +146,12 @@ export interface CharacterVariantDef {
 export type ThemeToken = string;
 
 /**
+ * 参与玩家自定义优先级排序的主题层（低→高）。
+ * 剧情临时演出层（ephemeral）不参与排序，始终最高。
+ */
+export type ThemeOrderScope = 'player' | 'area' | 'student';
+
+/**
  * 场景/演出声明式主题：引用某 Color 打底 + 可选局部 token 覆盖。
  * 引擎在进入 Area / 打开学生对话时据此推入场景层（见 theme-runtime.ts）。
  */
@@ -161,6 +167,52 @@ export interface ThemeDef {
    * @label 局部覆盖
    */
   tokens?: Partial<Record<ThemeToken, string>>;
+}
+
+/**
+ * 实体主题槽：玩家为某实体（`area:<id>` / `variant:<id>`）选定的主题来源。
+ * - default：声明默认（无覆盖）
+ * - equipment：装备提供的主题（theme / themeColorId，需已装备）
+ * - design：已解锁的配色设计
+ * - custom：剧情/Trigger 或玩家写入的临时主题
+ */
+export interface EntityThemeSlot {
+  kind: 'default' | 'equipment' | 'design' | 'custom';
+  /** kind='design' 时：ThemeDesignDef id。 */
+  designId?: string;
+  /** kind='equipment' 时：ColorEquipmentDef id。 */
+  equipmentId?: string;
+  /** kind='custom' 时：完整主题定义。 */
+  customTheme?: ThemeDef;
+}
+
+/**
+ * 实体配色设计：可解锁/授予的命名主题，作用于某个 Area / 学生差分。
+ * 解锁后自动成为该实体当前生效主题（玩家可手动换回）。
+ */
+export interface ThemeDesignDef {
+  /** @label ID */
+  id: string;
+  /** @label 名称 */
+  name: string;
+  /** @label 描述 */
+  description?: string;
+  /**
+   * 目标实体键（`area:<id>` / `variant:<id>`）。声明后解锁条件满足即自动
+   * 解锁到该实体；缺省 = 通用设计，由授予方（effect / 系统）显式指定落点。
+   * @label 目标实体
+   */
+  entityKey?: string;
+  /**
+   * 主题定义（colorId 打底 + tokens 覆盖）
+   * @label 主题
+   */
+  theme: ThemeDef;
+  /**
+   * 解锁条件；缺省 = 不可自动解锁
+   * @label 解锁条件
+   */
+  unlock?: Condition | ConditionGroup;
 }
 
 export interface ColorDef {
@@ -275,6 +327,12 @@ export interface ColorEquipmentDef {
    * @ref colors
    */
   themeColorId?: ColorId;
+  /**
+   * 可选：装备提供的完整主题（用于该学生的实体主题槽 equipment 来源）。
+   * 声明时优先于 themeColorId。
+   * @label 装备主题
+   */
+  theme?: ThemeDef;
   /**
    * 解锁条件；缺省 = 不可自动解锁
    * @label 解锁条件

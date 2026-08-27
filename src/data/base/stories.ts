@@ -231,7 +231,7 @@ export const basePassiveStories: PassiveStoryEntry[] = [
   // —— 图片系统演示：星野自拍（含头像 + 发送图片） ——
   passiveStory('base:story:hoshino_selfie')
     .inits('base:init:schale_office')
-    .weight(300)
+    .weight(2)
     .tags(tagPath('theme', 'daily'))
     .rewardPyroxene(15, 5)
     .build(),

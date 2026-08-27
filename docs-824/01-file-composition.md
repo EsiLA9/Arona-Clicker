@@ -27,7 +27,7 @@
 | ------------------------------ | --------------------------------------------------------- |
 | `event-bus.ts`                 | 全局事件总线：mutation 写状态后广播的通道，也是增量缓存/触发器失效的入口                 |
 | `tag.ts`                       | Tag 匹配（`matchesTag`），供强化反向索引与产出查询使用                       |
-| `theme-runtime.ts`             | 运行时主题管理器（`RuntimeThemeManager`）：L1 临时 / L2 场景 / L3 玩家三层叠合 |
+| `theme-runtime.ts`             | 运行时主题管理器（`RuntimeThemeManager`）：临时演出层恒最高，player/area/student 相对优先级玩家可自定义（`setLayerOrder`） |
 | `entity-id.ts` / `resource.ts` | 实体 ID 工厂 / 资源 ID 常量（含 `GLOBAL_RESOURCE_IDS`）              |
 | `display-name.ts`              | 显示名解析（角色显示名等）                                             |
 | `dev-log.ts`                   | 开发日志（`DevLog`），循环 tick 记录                                 |

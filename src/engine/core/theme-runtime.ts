@@ -7,21 +7,28 @@
 //   - 或自定义局部 token 覆盖（tokens）
 //   - 或两者混合（用某 Color 打底 + 局部 override）
 //
-// 三层叠加（优先级从高到低）：
+// 叠加（优先级从高到低）：
 //   L1 ephemeral 临时演出：Talklet/Trigger 推入的临时层，可覆盖一切，可帧过期
 //   L2 scene      场景特色：当前 Area / 当前对话学生，进入设、离开清
 //   L3 player     玩家全局主题：state.activeColor 常驻基色
-// 前端实际消费的 theme-tree = 各层按优先级合并（高层 token 覆盖低层）。
+// player/area/student 三层的相对优先级可由玩家自定义（setLayerOrder）；
+// 演出层不参与排序，始终最高。前端实际消费的 theme-tree =
+// 各层按优先级合并（高层 token 覆盖低层）。
 // ============================================================
 
-import type { ColorId, ThemeToken } from '../types/character';
+import type { ColorId, ThemeOrderScope, ThemeToken } from '../types/character';
+
+export type { ThemeOrderScope } from '../types/character';
+
+/** 参与玩家自定义排序的三层（低→高缺省顺序）。 */
+export const DEFAULT_LAYER_ORDER: ThemeOrderScope[] = ['player', 'area', 'student'];
 
 /** 单层主题来源：引用 Color（整包 token）或自定义 token 覆盖，或混合。 */
 export interface ThemeLayer {
   /** 层的唯一标识（用于 pop/清除；缺省自动生成）。 */
   id?: string;
   /** 层类型：决定它与其它层叠加的槽位语义。 */
-  scope: 'player' | 'area' | 'student' | 'ephemeral';
+  scope: ThemeOrderScope | 'ephemeral';
   /** 引用 ColorDef；存在时先取其整包 token 作为基底。 */
   colorId?: ColorId;
   /** 局部 token 覆盖；在 colorId 基底之上逐 key 覆盖。 */
@@ -51,6 +58,8 @@ export class RuntimeThemeManager {
   /** 场景栈（后进先出）：进入 Area 压入 area 层，打开学生对话再压入 student 层，关闭时弹出回退。 */
   private readonly sceneStack: ThemeLayer[] = [];
   private readonly ephemeralStack: { layer: ThemeLayer; id: string }[] = [];
+  /** 玩家自定义的 player/area/student 相对优先级（低→高；缺省见 DEFAULT_LAYER_ORDER）。 */
+  private layerOrder: ThemeOrderScope[] = [...DEFAULT_LAYER_ORDER];
   private seq = 0;
 
   constructor(private readonly resolveLayer: ThemeLayerResolver) {}
@@ -60,6 +69,18 @@ export class RuntimeThemeManager {
     this.player = null;
     this.sceneStack.length = 0;
     this.ephemeralStack.length = 0;
+  }
+
+  /**
+   * 设置 player/area/student 三层的相对优先级（低→高；演出层不受影响，始终最高）。
+   * 非完整排列（缺失/重复/非法 scope）时保持现有顺序。
+   */
+  setLayerOrder(order: ThemeOrderScope[] | null | undefined): void {
+    const cleaned: ThemeOrderScope[] = [];
+    for (const scope of order ?? []) {
+      if (DEFAULT_LAYER_ORDER.includes(scope) && !cleaned.includes(scope)) cleaned.push(scope);
+    }
+    if (cleaned.length === DEFAULT_LAYER_ORDER.length) this.layerOrder = cleaned;
   }
 
   // --- 各层写入 ---
@@ -121,14 +142,20 @@ export class RuntimeThemeManager {
   }
 
   /**
-   * 解析最终主题：L1 > L2 > L3 按优先级合并。
-   * 以最底层的非空层为基底求整包 token，其上各层逐 token 覆盖。
+   * 解析最终主题：按玩家配置的 player/area/student 相对优先级合并，演出层叠加在最上。
+   * 以最底层（优先级最低）的非空层为基底求整包 token，其上各层逐 token 覆盖。
    */
   resolve(): ResolvedTheme {
-    // 从低到高收集参与叠加的层（空层跳过）
+    // 各槽位层（player 单层 + 场景栈按 scope 去重），再按配置顺序从低到高收集；
+    // 演出层不参与排序，恒在顶层叠加
+    const byScope: Partial<Record<ThemeOrderScope | 'ephemeral', ThemeLayer>> = {};
+    if (this.player) byScope.player = this.player;
+    for (const scene of this.sceneStack) byScope[scene.scope] = scene;
     const ordered: ThemeLayer[] = [];
-    if (this.player) ordered.push(this.player);
-    for (const scene of this.sceneStack) ordered.push(scene);
+    for (const scope of this.layerOrder) {
+      const layer = byScope[scope];
+      if (layer) ordered.push(layer);
+    }
     for (const e of this.ephemeralStack) ordered.push(e.layer);
     if (ordered.length === 0) return { colorId: null, tokens: { ...DEFAULT_TOKENS }, layers: [] };
 

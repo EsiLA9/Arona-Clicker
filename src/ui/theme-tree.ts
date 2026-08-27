@@ -1,4 +1,16 @@
-import { hexToHsl, hexToRgbTriplet } from '../engine/system/color-system';
+import {
+  hexToHsl,
+  hexToRgbTriplet,
+  resolveTheme,
+  themeContributionFromGroup,
+  themeContributionFromThemeDef,
+} from '../engine/system/color-system';
+import type {
+  ColorDef,
+  ColorGroupDef,
+  ColorId,
+  ThemeDef,
+} from '../engine/types';
 
 /** 背景明暗 → 其上文本色：底暗用白，底亮用黑（确定性）。 */
 const ON_DARK = '#ffffff';
@@ -164,4 +176,78 @@ export function heroGradient(primary: string, tokens?: Record<string, string> | 
   const realPrimary = (tokens && tokens['primary']) || primary;
   const glow = `color-mix(in srgb, ${realPrimary} 22%, transparent)`;
   return `linear-gradient(125deg, ${'var(--canvas)'} 0%, ${'var(--panel-light)'} 55%, ${glow} 100%)`;
+}
+
+// ============================================================================
+// ThemeTree：实体自有的"参考树"快照（CSS 变量映射）
+//
+// 与整个界面一一对应的全局参考树由 controller.applyTheme 维护（合并运行时层后
+// 经 buildThemeVars 注入 :root）。此处提供"实体把自己的期望色填入参考树某个节点、
+// 向下构建出完整 CSS 变量映射"的快速映射，既可用于整体预览，也可在必要时绕过全局
+// 参考树、直接把映射落到某个容器（作用域化 / inline 覆盖）。
+// ============================================================================
+
+/** 一套完整 CSS 变量映射（含 --ac-* 引擎 token、语义节点、--hero-gradient）。 */
+export type ThemeTree = Record<string, string>;
+
+/**
+ * 由引擎 token 表构建实体自有的 ThemeTree 快照：
+ *  - 透传 --ac-*（背景节点上的 --ink-on-* 才能按 token 明暗正确反色）
+ *  - 展开语义节点（ink / panel / canvas / 气泡 …）
+ *  - 附加 --hero-gradient
+ * 等价于把该 token 表"填入参考树 primary 节点、向下构建"的结果。
+ */
+export function buildThemeTree(
+  tokens: Record<string, string>,
+  primary: string = tokens['primary'] ?? '#3b9eff',
+): ThemeTree {
+  const tree: ThemeTree = { ...buildThemeVars(primary, {}, tokens) };
+  for (const [key, value] of Object.entries(tokens)) {
+    tree[`--ac-${key}`] = value;
+  }
+  tree['--hero-gradient'] = heroGradient(primary, tokens);
+  return tree;
+}
+
+/** 把 ThemeTree 应用到某个容器元素（作用域化：其后代继承这些变量）。 */
+export function applyThemeTree(el: HTMLElement, tree: ThemeTree): void {
+  for (const [key, value] of Object.entries(tree)) {
+    el.style.setProperty(key, value);
+  }
+}
+
+/** 清除容器上的 ThemeTree 变量（传 tree 只清已知键；缺省清全部自定义属性）。 */
+export function clearThemeTree(el: HTMLElement, tree?: ThemeTree): void {
+  const keys = tree ? Object.keys(tree) : [...el.style];
+  for (const key of keys) el.style.removeProperty(key);
+}
+
+/** ThemeTree → 内联 style 字符串（供 HTML 模板直接填入，即"绕过参考树直接 fill styles"）。 */
+export function themeTreeToInlineStyle(tree: ThemeTree): string {
+  return Object.entries(tree)
+    .map(([k, v]) => `${k}:${v}`)
+    .join(';');
+}
+
+// --- Color / ColorGroup / ThemeDef 各自的快速映射 ---
+
+/** Color 快速映射：直接用其 theme 解析为 ThemeTree。 */
+export function themeTreeFromColor(color: ColorDef): ThemeTree {
+  return buildThemeTree(resolveTheme(color));
+}
+
+/** ColorGroup 快速映射：取主色位（role==='primary'）的 Color 解析为 ThemeTree。 */
+export function themeTreeFromGroup(
+  group: ColorGroupDef,
+  getColor: (id: ColorId) => ColorDef | undefined,
+): ThemeTree {
+  return buildThemeTree(themeContributionFromGroup(group, getColor));
+}
+
+/** ThemeDef（自定义主题）快速映射：引用 Color 打底 + 局部覆盖。 */
+export function themeTreeFromThemeDef(
+  theme: ThemeDef | undefined,
+  getColor: (id: ColorId) => ColorDef | undefined,
+): ThemeTree {
+  return buildThemeTree(themeContributionFromThemeDef(theme, getColor));
 }
