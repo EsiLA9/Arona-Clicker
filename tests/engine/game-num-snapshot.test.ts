@@ -1,0 +1,410 @@
+// ============================================================
+// engine/game-num-snapshot.test.ts — Phase 0 行为快照（todoTask/taskGameNum/TASK.md）
+//
+// 作用：把 GameNum 区表 / hierarchy / flows / 失效的当前语义锁进测试，作为
+//   Phase 1（删 childMulMap 投影，统一走 state 表）与 Phase 4（精确失效）的安全网。
+//   除显式标注的 KNOWN DIVERGENCE 外，本文件全部断言 Phase 1 后必须保持全绿。
+//
+// 合成 fixture：最小 registry（2 init / 3 area / 4 spot）+ 可注入 fake Affector，
+//   便于精确控制 tags 与挂载，不依赖 baseDatapack 的具体数据。
+// ============================================================
+import { describe, test, expect } from 'vitest';
+import { GameInstance } from '../../src/engine/game-instance';
+import { baseDatapack } from '../../src/data/index';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { ValueSystem } from '../../src/engine/expression/value-system';
+import { GameNumSystem } from '../../src/engine/expression/game-num';
+import { aggregateZone, evaluateResourceAffectorFlows, evaluateSpotAffectorFlows } from '../../src/engine/expression/game-num-eval';
+import { tagPath, tagId } from '../../src/engine/core/tag';
+import type { PlayerState } from '../../src/engine/types';
+import type { AffectorEngine } from '../../src/engine/effect/affector-engine';
+
+const CREDIT = 'credit';
+const GOLD = 'gold';
+
+const office = tagPath('office');
+const creditTag = tagPath('credit');
+const areaTag = tagPath('area_tag');
+const initTag = tagPath('init_tag');
+
+const constV = (n: number) => ({ id: `c${n}`, kind: 'const', value: n } as const);
+const mulRecord = (id: string, value: number, extra: Partial<{ resource: string; multiplierId: string; min: number; max: number; source: string }> = {}) =>
+  ({ id, category: 'mul' as const, value: constV(value), life: 'init' as const, ...extra });
+const flatRecord = (id: string, value: number) => ({ id, category: 'flat' as const, value: constV(value), life: 'init' as const });
+const customRecord = (id: string, multiplierId: string, value: number) => ({ id, category: 'custom' as const, multiplierId, value: constV(value), life: 'init' as const });
+const boundRecord = (id: string, min: number, max: number, source?: string) => ({ id, category: 'bound' as const, min, max, ...(source ? { source } : {}), life: 'init' as const });
+
+interface Fixture {
+  system: GameNumSystem;
+  vs: ValueSystem;
+  state: PlayerState;
+}
+
+/** 最小合成世界：s1/s2 在 areaA（initI），s3 在 areaB（initI），s4 在 areaC（initOther）。
+ *  baseYield：s1=5, s2=10, s3=20, s4=40；s1/s2 带 office 标签，s1 另带 credit 标签。 */
+function makeFixture(affector: unknown = { getActiveInstances: () => [], getPack: () => undefined }): Fixture {
+  const bus = new EventBus();
+  const vs = new ValueSystem();
+  const spot = (id: string, areaId: string, baseYield: number, tags: string[][]) => ({
+    id, areaId, baseYieldResource: CREDIT, baseYield: { type: 'const', value: baseYield }, tags,
+  });
+  const registry = {
+    spots: new Map([
+      ['s1', spot('s1', 'areaA', 5, [office, creditTag])],
+      ['s2', spot('s2', 'areaA', 10, [office])],
+      ['s3', spot('s3', 'areaB', 20, [])],
+      ['s4', spot('s4', 'areaC', 40, [])],
+    ]),
+    areas: new Map([
+      ['areaA', { id: 'areaA', initId: 'initI', tags: [areaTag] }],
+      ['areaB', { id: 'areaB', initId: 'initI', tags: [] }],
+      ['areaC', { id: 'areaC', initId: 'initOther', tags: [] }],
+    ]),
+    inits: new Map([
+      ['initI', { id: 'initI', tags: [initTag] }],
+      ['initOther', { id: 'initOther', tags: [] }],
+    ]),
+    enhancements: new Map(),
+  };
+  const system = new GameNumSystem({
+    valueSystem: vs,
+    registry: registry as never,
+    characterSystem: { getTagBonus: () => 1 } as never,
+    affectorEngine: affector as never,
+    eventBus: bus,
+  });
+  const state = {
+    resources: { [CREDIT]: 0, [GOLD]: 0 },
+    spotLevels: { s1: 1, s2: 1, s3: 1, s4: 1 },
+    spotManagers: {},
+    unlockedEnhancements: [],
+    activeInit: 'initI',
+    totalFrames: 0,
+  } as unknown as PlayerState;
+  system.buildAll(state);
+  return { system, vs, state };
+}
+
+const officeKey = tagId(office);
+const creditKey = tagId(creditTag);
+const areaKey = tagId(areaTag);
+const initKey = tagId(initTag);
+const s1Scope = { kind: 'spot' as const, id: 's1' };
+const areaAScope = { kind: 'area' as const, id: 'areaA' };
+const initIScope = { kind: 'init' as const, id: 'initI' };
+
+describe('Phase 0 快照：zone 聚合语义（主路径 childMulMap）', () => {
+  test('空区：flat → 0，mul → 1', () => {
+    const { system, state } = makeFixture();
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'flat', CREDIT), state)).toBe(0);
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(1);
+  });
+
+  test('flat 多 tag 自下而上求和', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, flatRecord('f1', 3));
+    system.registerTagEffect(state, creditKey, flatRecord('f2', 4));
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'flat', CREDIT), state)).toBe(7);
+    // s2 只有 office 标签 → 只吃 f1
+    expect(system.evaluate(system.buildZoneNode({ kind: 'spot', id: 's2' }, 'flat', CREDIT), state)).toBe(3);
+  });
+
+  test('mul 单记录：区值 = 1 + (f - 1)', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 1.5));
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(1.5);
+  });
+
+  test('mul 多记录同组：1 + Σ(f-1)（加法语义，非连乘）', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 1.5));
+    system.registerTagEffect(state, officeKey, mulRecord('m2', 2));
+    // 同 tag 两条 mul 都进 defaultMul 组：1 + 0.5 + 1 = 2.5
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(2.5);
+  });
+
+  test('custom 按 multiplierId 分组：同组 1+Σ(f-1)，跨组连乘', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, customRecord('c1', 'vip', 2));
+    system.registerTagEffect(state, officeKey, customRecord('c2', 'vip', 3));
+    system.registerTagEffect(state, officeKey, customRecord('c3', 'gold', 4));
+    // vip 组 1+(2-1)+(3-1) = 4，gold 组 4 → 4 × 4 = 16
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(16);
+  });
+
+  test('bound 跨 source 合并：min 取 max、max 取 min', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, boundRecord('b1', 1, 5, 'srcA'));
+    system.registerTagEffect(state, creditKey, boundRecord('b2', 2, 4, 'srcB'));
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 2));
+    // bound 合并为 [2,4]，mul 2 落区间内 → 2
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(2);
+  });
+
+  test('bound 非法区间（min > max）不夹取', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, boundRecord('b1', 3, 1));
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 2));
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(2);
+  });
+
+  test('record.resource 限定：只影响对应资源的 zone 节点', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 2, { resource: CREDIT }));
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(2);
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', GOLD), state)).toBe(1);
+  });
+
+  test('registerTagEffect 同 id 覆盖旧记录（不重复累计）', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 2));
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 3));
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(3);
+  });
+
+  test('removeTagEffect 撤销后区值回落', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 2, { source: 'srcA' }));
+    system.removeTagEffect(state, officeKey, 'm1');
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(1);
+  });
+});
+
+describe('Phase 0 快照：Area/Init hierarchy 逐级上抛', () => {
+  test('area tag mul 作用于其下所有 spot', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, areaKey, mulRecord('am', 2));
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(90); // s1/s2 ×2：10+20+20+40
+    // s1/s2 在 areaA：×2；s3（areaB）、s4（areaC）不受影响
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(10);
+    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(20);
+    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(20);
+    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40);
+  });
+
+  test('init tag mul 作用于该 init 全部 spot（跨 area）', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, initKey, mulRecord('im', 3));
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(15);
+    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(30);
+    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(60);
+    // s4 在 initOther，不受影响
+    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40);
+  });
+
+  test('area 与 init 同处 hierarchy 组：1+Σ(f-1) 相加（非相乘）', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, areaKey, mulRecord('am', 2));
+    system.registerTagEffect(state, initKey, mulRecord('im', 3));
+    // hierarchy 组 = 1 + (2-1) + (3-1) = 4；s1 = 5×4 = 20
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(20);
+    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(40);
+    // s3 仅 init 上抛：20 × (1 + 0 + 2) = 60
+    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(60);
+    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40); // 无上抛
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(160);
+  });
+
+  test('entity 精确引用 area/init 键同样逐级上抛（hierarchy 组内相加）', () => {
+    const { system, state } = makeFixture();
+    system.registerEntityEffect(state, 'area:areaA', mulRecord('am', 2));
+    system.registerEntityEffect(state, 'init:initI', mulRecord('im', 3));
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(20); // 5 × 4
+    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(60); // 仅 init 上抛
+    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40); // 无上抛
+  });
+
+  test('getSpotMultiplier 仅 spot 自身 mul 区（不含 hierarchy，与注释不符）', () => {
+    const { system, state } = makeFixture();
+    system.registerTagEffect(state, areaKey, mulRecord('am', 2));
+    system.registerTagEffect(state, initKey, mulRecord('im', 3));
+    // 实际行为：只求值 spotZone.mul（spot 级 mul 区），hierarchy 在 spotMul 上，未被计入。
+    // game-num.ts 的 JSDoc 声称「含逐级上抛」，与实际不符——Phase 0 锁定实际行为，
+    // 该不一致列入遗留风险（Phase 6 修注释或修实现）。
+    expect(system.getSpotMultiplier('s1', state)).toBe(1);
+    expect(system.evaluateSpotYield('s1', state)).toBe(20); // 含 hierarchy 的最终子树值
+  });
+});
+
+describe('Phase 0 快照：双聚合路径对拍（Phase 1 安全网）', () => {
+  const zoneOf = (system: GameNumSystem, scope: { kind: 'spot' | 'area' | 'init'; id: string }, part: 'flat' | 'mul', resource?: string) =>
+    system.buildZoneNode(scope, part, resource);
+
+  test('单条 mul：childMulMap 与 aggregateZone 一致', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 1.5));
+    const node = zoneOf(system, s1Scope, 'mul', CREDIT);
+    expect(system.evaluate(node, state)).toBe(aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs));
+  });
+
+  test('flat 多条：两路径一致（求和）', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, flatRecord('f1', 3));
+    system.registerTagEffect(state, creditKey, flatRecord('f2', 4));
+    const node = zoneOf(system, s1Scope, 'flat', CREDIT);
+    expect(system.evaluate(node, state)).toBe(aggregateZone(state, s1Scope, [office, creditTag], CREDIT, 'flat', vs));
+  });
+
+  test('custom 跨组 + mul：两路径一致', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 1.5));
+    system.registerTagEffect(state, officeKey, customRecord('c1', 'vip', 2));
+    system.registerTagEffect(state, officeKey, customRecord('c2', 'gold', 3));
+    const node = zoneOf(system, s1Scope, 'mul', CREDIT);
+    expect(system.evaluate(node, state)).toBe(aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs));
+  });
+
+  test('bound 跨 source：两路径一致', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, boundRecord('b1', 1, 5, 'srcA'));
+    system.registerTagEffect(state, creditKey, boundRecord('b2', 2, 4, 'srcB'));
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 2));
+    const node = zoneOf(system, s1Scope, 'mul', CREDIT);
+    expect(system.evaluate(node, state)).toBe(aggregateZone(state, s1Scope, [office, creditTag], CREDIT, 'mul', vs));
+  });
+
+  test('resource 限定：两路径一致', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 2, { resource: CREDIT }));
+    const node = zoneOf(system, s1Scope, 'mul', CREDIT);
+    expect(system.evaluate(node, state)).toBe(aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs));
+    expect(system.evaluate(zoneOf(system, s1Scope, 'mul', GOLD), state))
+      .toBe(aggregateZone(state, s1Scope, [office], GOLD, 'mul', vs));
+  });
+
+  test('area/init zone 单条 mul：两路径一致', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerTagEffect(state, areaKey, mulRecord('am', 2));
+    system.registerTagEffect(state, initKey, mulRecord('im', 3));
+    expect(system.evaluate(zoneOf(system, areaAScope, 'mul'), state))
+      .toBe(aggregateZone(state, areaAScope, [areaTag], undefined, 'mul', vs));
+    expect(system.evaluate(zoneOf(system, initIScope, 'mul'), state))
+      .toBe(aggregateZone(state, initIScope, [initTag], undefined, 'mul', vs));
+  });
+});
+
+describe('Phase 0 快照：KNOWN DIVERGENCE（Phase 1 决策点，统一后需更新断言）', () => {
+  // 背景：childMulMap 路径按「乘区组」合并（组内 1+Σ(f-1) 加法），aggregateZone 路径
+  // 对所有 mul/custom 记录直接连乘（Πf）。单条记录时两者相等；同组多条时不等。
+  // 当前生产路径是 childMulMap（GameNum 运行时），aggregateZone 为不可达兜底（仅旧
+  // tick 路径与测试调用）。Phase 1 任务书倾向统一为 aggregateZone 语义（连乘），
+  // 届时以下「各自当前值」断言将变红，需按统一语义更新。
+
+  test('同组多条 mul：childMulMap=1+Σ(f-1)，aggregateZone=Πf', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 1.5));
+    system.registerTagEffect(state, officeKey, mulRecord('m2', 2));
+    const node = system.buildZoneNode(s1Scope, 'mul', CREDIT);
+    expect(system.evaluate(node, state)).toBe(2.5); // 1 + 0.5 + 1
+    expect(aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs)).toBe(3); // 1.5 × 2
+  });
+
+  test('同 multiplierId 多条 custom：childMulMap=1+Σ(f-1)，aggregateZone=Πf', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerTagEffect(state, officeKey, customRecord('c1', 'vip', 2));
+    system.registerTagEffect(state, officeKey, customRecord('c2', 'vip', 3));
+    const node = system.buildZoneNode(s1Scope, 'mul', CREDIT);
+    expect(system.evaluate(node, state)).toBe(4); // 1 + 1 + 2
+    expect(aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs)).toBe(6); // 2 × 3
+  });
+
+  test('通配 entity 键：childMulMap 不路由（zoneIndex 无通配键），aggregateZone 会读', () => {
+    const { system, vs, state } = makeFixture();
+    system.registerEntityEffect(state, 'area:*', mulRecord('w', 2));
+    const node = system.buildZoneNode(areaAScope, 'mul');
+    expect(system.evaluate(node, state)).toBe(1); // 未路由到 childMulMap
+    expect(aggregateZone(state, areaAScope, [areaTag], undefined, 'mul', vs)).toBe(2); // 读到了 area:*
+  });
+});
+
+describe('Phase 0 快照：flows 双求值入口', () => {
+  // 实例 i1 挂 s1（entry e1 产 credit 3 / gold 5，e2 产 credit 7，e3 未激活），
+  // i2 挂 s2（entry e1 产 credit 3 / gold 5）。
+  const flowsAffector = {
+    getActiveInstances: () => [
+      { instanceId: 'i1', packId: 'p1', mountEntityId: 's1', activeEntryIds: ['e1', 'e2'] },
+      { instanceId: 'i2', packId: 'p2', mountEntityId: 's2', activeEntryIds: ['e1'] },
+    ],
+    getPack: (id: string) => ({
+      id,
+      entries: [
+        { id: 'e1', effects: [], flows: [{ resource: CREDIT, value: 3 }, { resource: GOLD, value: 5 }] },
+        { id: 'e2', effects: [], flows: [{ resource: CREDIT, value: { type: 'const', value: 7 } }] },
+        { id: 'e3', effects: [], flows: [{ resource: CREDIT, value: 100 }] },
+      ],
+    }),
+  } as unknown as AffectorEngine;
+
+  test('evaluateResourceAffectorFlows 按资源聚合所有活跃实例', () => {
+    const { system, vs, state } = makeFixture(flowsAffector);
+    expect(evaluateResourceAffectorFlows(CREDIT, state, { valueSystem: vs, registry: system.registry, characterSystem: system.characterSystem, affectorEngine: system.affectorEngine })).toBe(13); // i1(3+7) + i2(3)
+    expect(evaluateResourceAffectorFlows(GOLD, state, { valueSystem: vs, registry: system.registry, characterSystem: system.characterSystem, affectorEngine: system.affectorEngine })).toBe(10); // i1(5) + i2(5)
+  });
+
+  test('evaluateSpotAffectorFlows 按挂载 spot 聚合', () => {
+    const { system, vs, state } = makeFixture(flowsAffector);
+    const deps = { valueSystem: vs, registry: system.registry, characterSystem: system.characterSystem, affectorEngine: system.affectorEngine };
+    expect(evaluateSpotAffectorFlows('s1', state, deps)).toBe(15); // e1(3+5) + e2(7)
+    expect(evaluateSpotAffectorFlows('s2', state, deps)).toBe(8); // e1(3+5)
+    expect(evaluateSpotAffectorFlows('s3', state, deps)).toBe(0); // 无实例挂载
+  });
+
+  test('未激活 entry 不参与 flows 求值', () => {
+    const { system, vs, state } = makeFixture(flowsAffector);
+    const deps = { valueSystem: vs, registry: system.registry, characterSystem: system.characterSystem, affectorEngine: system.affectorEngine };
+    // e3（100 credit）未激活：不影响 credit 聚合
+    expect(evaluateResourceAffectorFlows(CREDIT, state, deps)).toBe(13);
+  });
+
+  test('affectorFlows 叶子挂入 primitiveGain：evaluateResourceGain 包含 flows', () => {
+    const { system, state } = makeFixture(flowsAffector);
+    for (const key of Object.keys(state.spotLevels)) (state as any).spotLevels[key] = 0;
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(13); // 无 spot 产出，仅 flows
+    expect(system.evaluateResourceGain(GOLD, state)).toBe(10);
+  });
+});
+
+describe('Phase 0 快照：失效行为', () => {
+  test('求值缓存后直接改 state 需 invalidateProduction 才反映新值', () => {
+    const { system, state } = makeFixture();
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(75); // 5+10+20+40
+    (state as any).spotLevels.s1 = 0;
+    // 未经失效：仍返回旧缓存
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(75);
+    system.invalidateProduction();
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(70);
+  });
+
+  test('registerTagEffect 内部 markDirty：注册后无需手动失效立即生效', () => {
+    const { system, state } = makeFixture();
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(75);
+    system.registerTagEffect(state, officeKey, mulRecord('m1', 2));
+    // s1/s2 命中 office → 5×2 + 10×2 + 20 + 40 = 90
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(90);
+  });
+
+  test('GameInstance 多帧 tick：每帧 invalidateProduction 后数值持续正确', () => {
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    game.startNewGame('base:init:schale_office');
+    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
+    game.state.spotLevels['base:spot:credit_printer'] = 1;
+    game.state.resources['base:resource:credit'] = 0;
+    for (let i = 0; i < 5; i++) game.tick();
+    expect(game.state.resources['base:resource:credit']).toBe(35); // 5 帧 × 7
+    game.stop();
+  });
+
+  test('事件驱动失效：spotLevelChanged 后立即反映新值', () => {
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    game.startNewGame('base:init:schale_office');
+    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
+    game.mutations.setSpotLevel('base:spot:credit_printer', 1);
+    expect(game.gameNumSystem.evaluateResourceGain('base:resource:credit', game.state)).toBe(7);
+    game.mutations.setSpotLevel('base:spot:credit_printer', 3);
+    // 1+(3-1)×2 线性 + 功能 3×2 → 5 + 4 + 6 = 15
+    expect(game.gameNumSystem.evaluateResourceGain('base:resource:credit', game.state)).toBe(15);
+    game.stop();
+  });
+});
