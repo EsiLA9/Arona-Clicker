@@ -176,6 +176,29 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
     expect(r.tokens['primary']).toBe('#ff0000');
     expect(r.layers).toEqual(['area', 'player', 'fx']);
   });
+
+  test('RUNTIME-13 resolveScope：按 scope 取当前生效层（忽略演出层）', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', colorId: 'blue' });
+    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.pushScene({ scope: 'student', tokens: { primary: '#22c55e' } });
+    expect(manager.resolveScope('player')['primary']).toBe('#3b82f6');
+    expect(manager.resolveScope('area')['primary']).toBe('#ec4899');
+    expect(manager.resolveScope('student')['primary']).toBe('#22c55e');
+    // 无该 scope 层 → 空表
+    manager.popScene('student');
+    expect(manager.resolveScope('student')).toEqual({});
+    // 临时演出层不参与（其不参与排序）
+    manager.pushEphemeral({ id: 'fx', scope: 'ephemeral', tokens: { primary: '#ff0000' } });
+    expect(manager.resolveScope('area')['primary']).toBe('#ec4899');
+  });
+
+  test('RUNTIME-14 resolveScope：同 scope 重推后取最新层', () => {
+    const { manager } = makeManager();
+    manager.pushScene({ scope: 'area', colorId: 'blue' });
+    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    expect(manager.resolveScope('area')['primary']).toBe('#ec4899');
+  });
 });
 
 describe('ColorSystem 运行时主题门面 + setTheme effect', () => {

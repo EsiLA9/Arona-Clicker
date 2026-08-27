@@ -50,7 +50,7 @@ import {
   showBackToGame as showBackToGameImpl,
 } from './controller-panels';
 import { bindEvents } from './controller-events';
-import { applyTheme as applyThemeImpl, restoreThemeFloat as restoreThemeFloatImpl } from './controller-theme';
+import { applyTheme as applyThemeImpl, restoreThemeFloat as restoreThemeFloatImpl, syncRuntimeTheme as syncRuntimeThemeImpl } from './controller-theme';
 import { bindSaveActions } from './controller-save';
 import { bindTopBarActions } from './controller-actions-topbar';
 import { bindContactsActions } from './controller-actions-contacts';
@@ -203,6 +203,9 @@ export class UIController {
     // 聊天流滚动状态单独按比例捕获（跨流恢复）
     this.scroll.captureChat(this.root);
     const context = createUIContext(this.game);
+    // 先同步运行时主题层再生成 DOM：层级优先级色胶囊等依赖运行时层状态的 UI
+    // 若晚于 DOM 生成（applyTheme 内），会读到上一帧的层 → 换色后落后一拍
+    this.syncRuntimeTheme();
     this.root.innerHTML = renderAppShell(context, this.panelState);
     this.popovers.bind();
     this.bindActions();
@@ -234,6 +237,11 @@ export class UIController {
    */
   private applyTheme(): void {
     applyThemeImpl(this);
+  }
+
+  /** 同步运行时主题层（player/area/student）到当前状态：须在生成依赖它的 UI 之前调用（委托 controller-theme）。 */
+  private syncRuntimeTheme(): void {
+    syncRuntimeThemeImpl(this);
   }
 
   /** Init 选择界面模式：由当前流程决定（新建 vs 重启/重选），替代从 activeInit 推断。 */

@@ -29,26 +29,12 @@ export function restoreThemeFloat(ctrl: UIController): void {
 }
 
 /**
- * 激活主题 → CSS 变量注入。
- * 运行时主题：玩家全局层 + 场景层（当前 Area / 对话学生）按优先级合并。
+ * 重建运行时场景层（保留玩家基色与临时演出层）：
+ * 先清空 area/student 场景栈，再按当前场景（学生对话 > Area）重推。
+ * 必须在任何依赖运行时层状态的 UI（如层级优先级色胶囊）生成之前调用，
+ * 否则胶囊会读到上一帧的层 → 换色后落后一拍。
  */
-export function applyTheme(ctrl: UIController): void {
-  const style = document.documentElement.style;
-  const removeInjected = () => {
-    for (const key of [...style]) {
-      // 清理所有引擎 / 语义层注入：--ac-*、背景节点自身、以及背景感知文字色（ink-on/muted-on）
-      if (key.startsWith('--ac-') || key.startsWith('--ink-on-') || key.startsWith('--muted-on-')) {
-        style.removeProperty(key);
-      }
-    }
-    for (const name of Object.keys(THEME_NODES) as ThemeVarName[]) {
-      style.removeProperty(`--${name}`);
-    }
-    style.removeProperty('--hero-gradient');
-  };
-  removeInjected();
-  // 重建运行时场景层（保留玩家基色与临时演出层）：
-  // 先清空 area/student 场景栈，再按当前场景（学生对话 > Area）重推。
+export function syncRuntimeTheme(ctrl: UIController): void {
   ctrl.game.colorSystem.popSceneTheme('area');
   ctrl.game.colorSystem.popSceneTheme('student');
   ctrl.game.colorSystem.syncPlayerThemeFromState(ctrl.game.state);
@@ -102,6 +88,28 @@ export function applyTheme(ctrl: UIController): void {
       }
     }
   }
+}
+
+/**
+ * 激活主题 → CSS 变量注入。
+ * 运行时主题：玩家全局层 + 场景层（当前 Area / 对话学生）按优先级合并。
+ */
+export function applyTheme(ctrl: UIController): void {
+  const style = document.documentElement.style;
+  const removeInjected = () => {
+    for (const key of [...style]) {
+      // 清理所有引擎 / 语义层注入：--ac-*、背景节点自身、以及背景感知文字色（ink-on/muted-on）
+      if (key.startsWith('--ac-') || key.startsWith('--ink-on-') || key.startsWith('--muted-on-')) {
+        style.removeProperty(key);
+      }
+    }
+    for (const name of Object.keys(THEME_NODES) as ThemeVarName[]) {
+      style.removeProperty(`--${name}`);
+    }
+    style.removeProperty('--hero-gradient');
+  };
+  removeInjected();
+  syncRuntimeTheme(ctrl);
   const resolved = ctrl.game.colorSystem.runtimeTheme();
   if (resolved.layers.length === 0) return; // 无任何层：移除覆盖，回退到 :root fallback
   const tokens = resolved.tokens;

@@ -283,6 +283,11 @@ export class ColorSystem {
     return this.runtimeTheme().tokens;
   }
 
+  /** 某 scope 当前生效层（忽略临时演出层）解析出的 token 表；无该层返回空表。 */
+  scopeThemeTokens(scope: ThemeLayer['scope']): ThemeTokens {
+    return this.runtime.resolveScope(scope);
+  }
+
   /**
    * 处理临时演出类 theme effect（setTheme op）。
    * 由 effect-engine 在 applyEffects 时转发（mutations 对 setTheme 保持 no-op）。

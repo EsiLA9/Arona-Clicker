@@ -142,6 +142,20 @@ export class RuntimeThemeManager {
   }
 
   /**
+   * 解析某 scope 当前生效层（player 或场景栈内该 scope 最顶层）的 token 表；
+   * 无该层返回空表。忽略临时演出层（其不参与排序，恒为最高）。
+   */
+  resolveScope(scope: ThemeLayer['scope']): ThemeTokens {
+    if (scope === 'player') {
+      return this.player ? this.resolveLayer(this.player) : {};
+    }
+    for (let i = this.sceneStack.length - 1; i >= 0; i--) {
+      if (this.sceneStack[i].scope === scope) return this.resolveLayer(this.sceneStack[i]);
+    }
+    return {};
+  }
+
+  /**
    * 解析最终主题：按玩家配置的 player/area/student 相对优先级合并，演出层叠加在最上。
    * 以最底层（优先级最低）的非空层为基底求整包 token，其上各层逐 token 覆盖。
    */

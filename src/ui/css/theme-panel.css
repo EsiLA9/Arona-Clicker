@@ -110,6 +110,33 @@
   padding: 4px 8px;
   border-radius: 8px;
   background: rgba(0, 0, 0, .04);
+  cursor: grab;
+  user-select: none;
+}
+
+.layer-order-row:active {
+  cursor: grabbing;
+}
+
+.layer-order-row.is-dragging {
+  opacity: .45;
+}
+
+/* drop 插入指示线（落在行上方/下方） */
+.layer-order-row.drop-before {
+  box-shadow: 0 -2px 0 0 var(--cyan, #3b9eff);
+}
+
+.layer-order-row.drop-after {
+  box-shadow: 0 2px 0 0 var(--cyan, #3b9eff);
+}
+
+.layer-order-handle {
+  color: var(--muted-on-panel-light, #6b7a99);
+  font-size: 12px;
+  letter-spacing: -2px;
+  line-height: 1;
+  cursor: grab;
 }
 
 .layer-order-rank {
@@ -130,32 +157,19 @@
   color: var(--ink-on-panel-light, #16203a);
 }
 
-.layer-order-actions {
-  display: flex;
-  gap: 4px;
+/* 行右侧：当前生效主题色胶囊（未生效 → 虚线斜纹占位） */
+.layer-order-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, .14);
+  background: var(--swatch, #c3ccdb);
 }
 
-.layer-order-move {
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line, #d8e2f0);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--ink-on-panel-light, #16203a);
-  font-size: 10px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.layer-order-move:hover:not(:disabled) {
-  background: rgba(var(--primary-rgb, 59, 126, 255), .12);
-}
-
-.layer-order-move:disabled {
-  opacity: .35;
-  cursor: not-allowed;
+.layer-order-swatch.none {
+  border-style: dashed;
+  background: repeating-linear-gradient(45deg, #c3ccdb 0 3px, #e3e9f5 3px 6px);
 }
 
 .theme-float-note {

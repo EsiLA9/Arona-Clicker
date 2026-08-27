@@ -8,22 +8,25 @@ const LAYER_LABELS: Record<ThemeOrderScope, string> = {
   student: '学生层',
 };
 
-/** 主题浮窗内的层级优先级段：三行各带 ◀/▶ 交换相邻位（低 → 高）。 */
+/** 主题浮窗内的层级优先级段：行可拖拽排序，上方优先（高 → 低）；右侧显示该层当前生效主题色。 */
 function renderLayerOrderSection(ctx: UIContext): string {
   const order = ctx.game.state.themeLayerOrder ?? DEFAULT_LAYER_ORDER;
+  // 引擎序 = 低 → 高（后合并者覆盖）；展示序反转，使顶部为最高优先级
+  const display = [...order].reverse();
   return `
     <section class="theme-float-section layer-order">
-      <h4 class="theme-float-section-title">层级优先级 <small>低 → 高</small></h4>
-      <div class="layer-order-rows">
-        ${order.map((scope, i) => `
-          <div class="layer-order-row">
+      <h4 class="theme-float-section-title">层级优先级 <small>上方优先 · 拖拽排序</small></h4>
+      <div class="layer-order-rows" data-theme-layer-order-rows>
+        ${display.map((scope, i) => {
+          const primary = ctx.game.colorSystem.scopeThemeTokens(scope)['primary'] ?? null;
+          return `
+          <div class="layer-order-row" draggable="true" data-theme-layer-order-scope="${scope}">
+            <span class="layer-order-handle" title="拖拽调整优先级">⋮⋮</span>
             <span class="layer-order-rank">${i + 1}</span>
             <span class="layer-order-name">${LAYER_LABELS[scope]}</span>
-            <span class="layer-order-actions">
-              <button type="button" class="layer-order-move" data-theme-layer-order-move="${scope}" data-dir="-1" title="降低优先级" ${i === 0 ? 'disabled' : ''}>◀</button>
-              <button type="button" class="layer-order-move" data-theme-layer-order-move="${scope}" data-dir="1" title="提高优先级" ${i === order.length - 1 ? 'disabled' : ''}>▶</button>
-            </span>
-          </div>`).join('')}
+            <span class="layer-order-swatch ${primary ? '' : 'none'}" style="--swatch:${primary ?? '#c3ccdb'}" title="${primary ? '当前生效主题色' : '当前未生效'}"></span>
+          </div>`;
+        }).join('')}
       </div>
       <p class="theme-float-note">剧情演出临时层始终最高优先级</p>
     </section>`;
