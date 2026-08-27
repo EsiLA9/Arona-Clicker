@@ -3,15 +3,29 @@
 // ============================================================
 
 import type { ExtraCompound } from './extra';
-import type { Condition, ConditionGroup, Effect } from './expression';
+import type { Condition, ConditionGroup, Effect, ValueExpression } from './expression';
 import type { ZoneModifierDecl } from '../expression/tag-effect';
 
 export type AffectorState = 'Latent' | 'Active' | 'Removed';
 
+/** 持续流：Affector 激活期间每 tick 懒求值入账的资源产出。 */
+export interface AffectorFlow {
+  /** 目标资源。 */
+  resource: string;
+  /** 每 tick 数量（数值或表达式，如 spotLevel × amountPerLevel）。 */
+  value: number | ValueExpression;
+}
+
 export interface AffectorEffect {
   id: string;
   condition?: ConditionGroup;
+  /**
+   * 即时效果：激活（Latent→Active 翻转）时一次性执行；其中 addResource 即一次性发放，
+   * 非 addResource 效果在 Active 期间每 tick 执行。持续产出请用 flows。
+   */
   effects: Effect[];
+  /** 持续流：激活期间每 tick 懒求值入账（替代原 effects 中 addResource 的每 tick 语义）。 */
+  flows?: AffectorFlow[];
   /** 按作用目标（tag 或指定实体）的加区/乘区/上下限声明（经桥接层转写为 PlayerState.tagEffects / entityEffects）。 */
   zoneModifiers?: ZoneModifierDecl[];
 }

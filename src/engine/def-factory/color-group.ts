@@ -10,6 +10,7 @@ import type {
   ColorGroupSlot,
   ColorId,
   CompositionType,
+  ThemeToken,
 } from '../types/character';
 
 export class ColorGroupBuilder {
@@ -18,6 +19,7 @@ export class ColorGroupBuilder {
   private _description?: string;
   private _compositionType: CompositionType = 'solid';
   private readonly _slots: ColorGroupSlot[] = [];
+  private _theme: Partial<Record<ThemeToken, string>> = {};
 
   constructor(id: ColorGroupId) {
     this._id = id;
@@ -35,6 +37,12 @@ export class ColorGroupBuilder {
     return this;
   }
 
+  /** 部分主题覆盖（token 键，如 panel / playerBubble / bg）；未给的由主色位 Color 解析。 */
+  theme(tokens: Partial<Record<ThemeToken, string>>): this {
+    this._theme = { ...this._theme, ...tokens };
+    return this;
+  }
+
   build(): ColorGroupDef {
     if (!this._name) throw new Error(`ColorGroupBuilder(${this._id}): name 未设置`);
     if (this._slots.length === 0) throw new Error(`ColorGroupBuilder(${this._id}): 至少 1 个色位`);
@@ -45,6 +53,7 @@ export class ColorGroupBuilder {
       slots: this._slots,
     };
     if (this._description) def.description = this._description;
+    if (Object.keys(this._theme).length > 0) def.theme = this._theme;
     return def;
   }
 }

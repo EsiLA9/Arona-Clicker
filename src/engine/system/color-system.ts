@@ -137,6 +137,7 @@ export function deriveThemeTokens(primary: string): Record<string, string> {
     textDim: hslCss(h, s * 0.08, light ? 0.40 : 0.65),
     border: hslCss(h, s * 0.20, light ? 0.82 : 0.28),
     accent: primary,
+    panel: '#ffffff',
     playerBubble: playerBg,
     playerBubbleText: playerText,
     npcBubble: npcBg,
@@ -184,9 +185,14 @@ export function themeContributionFromGroup(
   getColor: (id: ColorId) => ColorDef | undefined,
 ): ThemeTokens {
   const slot = group.slots.find(s => s.role === 'primary') ?? group.slots[0];
-  if (!slot) return {};
-  const color = getColor(slot.colorId);
-  return color ? resolveTheme(color) : {};
+  const base: ThemeTokens = {};
+  if (slot) {
+    const color = getColor(slot.colorId);
+    if (color) Object.assign(base, resolveTheme(color));
+  }
+  // 组自身声明的部分节点覆盖（panel / playerBubble 等），叠加在主色位 Color 之上
+  if (group.theme) Object.assign(base, group.theme);
+  return base;
 }
 
 /**

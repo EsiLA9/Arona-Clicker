@@ -497,6 +497,10 @@ const affectorEntryObject = (): FieldDef =>
         s('id', 'ID', { required: true }),
         cg('condition', '条件'),
         effectArray('effects', '效果', true),
+        alist('flows', o('$', [
+          s('resource', '资源', { required: true }),
+          { key: 'value', label: '值', type: { kind: 'flexible' } },
+        ], '持续流'), '持续流'),
       ],
     },
   }, '条目', { required: true });

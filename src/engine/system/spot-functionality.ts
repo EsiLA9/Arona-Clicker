@@ -12,7 +12,7 @@
 // 交互型功能（restartInit）由 UI 提供操作入口。
 // ============================================================
 
-import { SpotDef, PlayerState, ProductionResult, SpotFunctionalityDef } from '../types';
+import { SpotDef, PlayerState, SpotFunctionalityDef } from '../types';
 import { TagPath } from '../core/tag';
 import { Registry } from '../registry/registry';
 import { ConditionSystem } from '../expression/condition-system';
@@ -49,21 +49,5 @@ export class SpotFunctionalitySystem {
   /** Spot 是否拥有某类功能（供 UI 展示交互型功能入口）。 */
   hasFunctionality(spot: SpotDef, state: PlayerState, kind: SpotFunctionalityDef['kind']): boolean {
     return this.functionalitiesOf(spot, state).some(fn => fn.kind === kind);
-  }
-
-  /**
-   * 计算某 Spot 当前等级下由"功能"提供的额外产出。
-   * 仅返回生效且 amount > 0 的条目；容量限制由调用方（tick 结算）处理。
-   */
-  extraYields(spot: SpotDef, level: number, state: PlayerState): ProductionResult[] {
-    const out: ProductionResult[] = [];
-    for (const fn of this.functionalitiesOf(spot, state)) {
-      if (fn.condition && !this.conditionSystem?.evaluateGroup(fn.condition, state)) continue;
-      if (fn.kind === 'linearYield') {
-        const amount = level * (fn.amountPerLevel ?? 0);
-        if (amount > 0) out.push({ spotId: spot.id, resource: fn.resource ?? '', amount });
-      }
-    }
-    return out;
   }
 }

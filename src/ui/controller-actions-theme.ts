@@ -37,7 +37,7 @@ export function bindThemeActions(ctrl: UIController): void {
         ctrl.toast.show('该色组无效', 'error');
         return;
       }
-      ctrl.game.mutations.setCustomTheme({ colorId: slot.colorId });
+      ctrl.game.mutations.setCustomTheme({ colorId: slot.colorId, tokens: group?.theme });
       ctrl.game.mutations.activateTheme(null);
       ctrl.toast.show('已应用自定义主题', 'success');
       ctrl.render();

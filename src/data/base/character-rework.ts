@@ -177,11 +177,12 @@ export const baseColors: ColorDef[] = [
   color('base:color:ink')
     .name('墨蓝').desc('拥有星野（任一差分）后解锁（深底变体）。')
     .primary('#1e3a5f')
+    .tokens({ panel: '#101828' }) // 部分节点示例：只定义 panel，其余仍由 primary 派生
     .unlockProtoStat(Character.Hoshino)
     .build(),
   color('base:color:coral')
     .name('珊瑚').desc('完成欢迎剧情（flag）后解锁（全量自定义覆盖示例）。')
-    .theme({ primary: '#ff7a59', bg: '#fff3ee', bgAlt: '#ffe6dc', text: '#3a1f17', textDim: '#8a6a5c', border: '#ffd0c0', accent: '#ff9e80' })
+    .theme({ primary: '#ff7a59', bg: '#fff3ee', bgAlt: '#ffe6dc', text: '#3a1f17', textDim: '#8a6a5c', border: '#ffd0c0', accent: '#ff9e80', panel: '#fff7f2' })
     .unlockFlag('momotalk_pink_unlocked')
     .build(),
 ];
@@ -198,6 +199,7 @@ export const baseColorGroups: ColorGroupDef[] = [
     .type('gradient')
     .slot('primary', 'base:color:hoshino-swim')
     .slot('secondary', 'base:color:sky')
+    .theme({ playerBubble: '#0e3a4d' }) // 部分节点示例：组声明自己的 player-bubble，其余沿用主色位 Color
     .build(),
   colorGroup('base:group:abydos-duotone')
     .name('阿比多斯·双色').desc('黄沙主色 + 墨蓝阴影的阶调层次。')

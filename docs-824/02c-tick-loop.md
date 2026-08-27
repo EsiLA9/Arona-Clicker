@@ -19,7 +19,7 @@ start() → this.running = true → this.runId = crypto.randomUUID()
 ```text
 tick()
  ├─ 1. tickSystem.run()            生产结算（GameNumSystem 产出，见 04b）
- ├─ 2. affectorEngine.apply()      持续效果：先清场再按当前挂载实例逐条 apply
+ ├─ 2. affectorEngine.applyActiveEffects()  持续效果：先重估轮询实例，再按当前挂载实例逐条 apply
  │       ├─ 直接效果（改动可见类）→ applyEffects
  │       └─ zoneModifiers（区效果）→ syncAffectorZoneEffects 并入数值树
  ├─ 3. storyService.tick()         剧情被动推进（activeStory 条件不满足时结算 + 收尾）

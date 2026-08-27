@@ -5,8 +5,8 @@
 
 import type { TagPath } from '../core/tag';
 import type { ExtraCompound } from '../types/extra';
-import type { ConditionGroup, Effect } from '../types/expression';
-import type { AffectorEffect, AffectorPackDef } from '../types/trigger';
+import type { ConditionGroup, Effect, ValueExpression } from '../types/expression';
+import type { AffectorEffect, AffectorPackDef, AffectorFlow } from '../types/trigger';
 import type { TagEffectCategory, ZoneModifierDecl } from '../expression/tag-effect';
 
 export class AffectorPackBuilder {
@@ -19,9 +19,11 @@ export class AffectorPackBuilder {
     this._id = id;
   }
 
-  /** 开启一条 AffectorEffect（后续 effect/mod* 附着到该条目）。 */
+  /** 开启一条 AffectorEffect（后续 effect/flow/mod* 附着到该条目）。 */
   entry(id: string, condition?: ConditionGroup): this {
-    this._entries.push(condition ? { id, condition, effects: [], zoneModifiers: [] } : { id, effects: [], zoneModifiers: [] });
+    this._entries.push(condition
+      ? { id, condition, effects: [], flows: [], zoneModifiers: [] }
+      : { id, effects: [], flows: [], zoneModifiers: [] });
     return this;
   }
 
@@ -34,6 +36,12 @@ export class AffectorPackBuilder {
   /** 效果（附着到当前 entry）。 */
   effect(...effs: Effect[]): this {
     this.last().effects.push(...effs);
+    return this;
+  }
+
+  /** 持续流：激活期间每 tick 懒求值产出（附着到当前 entry）。 */
+  flow(resource: string, value: number | ValueExpression): this {
+    this.last().flows!.push({ resource, value });
     return this;
   }
 
@@ -69,9 +77,12 @@ export class AffectorPackBuilder {
     if (!this._entries.length) throw new Error(`AffectorPackBuilder(${this._id}): 至少需要一条 entry()`);
     const def: AffectorPackDef = {
       id: this._id,
-      entries: this._entries.map(e => {
-        const { zoneModifiers, ...rest } = e;
-        return (zoneModifiers && zoneModifiers.length) ? e : rest;
+      entries: this._entries.map((e: AffectorEffect): AffectorEffect => {
+        const out: AffectorEffect = { id: e.id, effects: e.effects };
+        if (e.condition) out.condition = e.condition;
+        if (e.flows && e.flows.length) out.flows = e.flows;
+        if (e.zoneModifiers && e.zoneModifiers.length) out.zoneModifiers = e.zoneModifiers;
+        return out;
       }),
     };
     if (this._persistent) def.persistent = true;

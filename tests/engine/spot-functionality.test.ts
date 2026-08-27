@@ -4,10 +4,26 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/engine/game-instance';
 import { baseDatapack } from '../../src/data/index';
-import { and } from '../../src/engine/types';
+import { and, Datapack, EnhancementDef } from '../../src/engine/types';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';
+
+/** 向运行中的 GameInstance 追加加载一个仅含目标 enhancement 的附加 Datapack。 */
+function loadExtraEnhancementDp(game: GameInstance, enhancement: EnhancementDef): void {
+  game.registry.load({
+    name: 'test:dp:extra_enh',
+    version: '1',
+    inits: [],
+    areas: [],
+    spots: [],
+    enhancements: [enhancement],
+    activeStories: [],
+    passiveStories: [],
+    stories: [],
+    items: [],
+  } as unknown as Datapack);
+}
 
 describe('SpotFunctionalitySystem', () => {
   let game: GameInstance;
@@ -23,23 +39,25 @@ describe('SpotFunctionalitySystem', () => {
   });
 
   test('linearYield functionality scales with spot level', () => {
-    const spot = game.registry.spots.get('base:spot:credit_printer')!;
-    const ys = (level: number) =>
-      game.spotFunctionalitySystem.extraYields(spot, level, game.state);
-    expect(ys(1)).toEqual([{ spotId: spot.id, resource: CREDIT, amount: 2 }]);
-    expect(ys(3)).toEqual([{ spotId: spot.id, resource: CREDIT, amount: 6 }]);
+    // linearYield 转译为 affector flows：贡献 = level × amountPerLevel，经 GameNum 懒求值
+    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
+    game.mutations.setSpotLevel('base:spot:credit_printer', 1);
+    // base 5 + 功能 flow 2 = 7
+    expect(game.gameNumSystem.evaluateSpotYield('base:spot:credit_printer', game.state)).toBe(7);
+    game.mutations.setSpotLevel('base:spot:credit_printer', 3);
+    // base 5 + 线性 2×2 + 功能 flow 3×2 = 15
+    expect(game.gameNumSystem.evaluateSpotYield('base:spot:credit_printer', game.state)).toBe(15);
   });
 
   test('conditioned functionality is ignored while its condition is unmet', () => {
-    // field_work 功能条件：全局累计产出 > 100 信用点
-    const spot = game.registry.spots.get('base:spot:field_work')!;
-    expect(game.spotFunctionalitySystem.extraYields(spot, 1, game.state)).toEqual([]);
-
-    // 累计产出超过阈值后生效（level 1 → 每级 +1）
-    game.mutations.changeResource(CREDIT, 101);
-    expect(game.spotFunctionalitySystem.extraYields(spot, 1, game.state)).toEqual([
-      { spotId: spot.id, resource: CREDIT, amount: 1 },
-    ]);
+    // field_work 功能条件：全局累计产出 > 100 信用点（stat 宽依赖 → 每 tick 轮询重估）
+    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
+    game.mutations.setSpotLevel('base:spot:field_work', 1);
+    game.state.resources[CREDIT] = 0;
+    game.tick();
+    // 条件未满足：功能 Affector 保持 Latent，仅 base 8 入账（flow 不生效）
+    expect(game.state.resources[CREDIT]).toBe(8);
+    expect(game.affectorEngine.getActiveInstances().some(i => i.mountEntityId === 'base:spot:field_work')).toBe(false);
   });
 
   test('tick settles functionality output alongside base yield', () => {
@@ -86,12 +104,35 @@ describe('SpotFunctionalitySystem', () => {
     const creditInstances = game.affectorEngine.getActiveInstances()
       .filter(i => i.mountEntityId === 'base:spot:credit_printer');
     expect(creditInstances).toHaveLength(1);
-    expect(creditInstances[0].packId).toBe('base:func:credit_printer_linear');
+    expect(creditInstances[0].packId).toBe('base:func:credit_printer_linear@base:spot:credit_printer');
 
     // field_work 的条件功能初始不满足 → 挂载但保持 Latent（不在 active 列表）
     const fieldInstances = game.affectorEngine.getActiveInstances()
       .filter(i => i.mountEntityId === 'base:spot:field_work');
     expect(fieldInstances).toHaveLength(0);
+  });
+
+  test('same functionality id mounted on multiple spots keeps per-spot level', () => {
+    // 外源注入：无 affectorPackIds → 全局作用域，所有 Spot 都获得同 id 的 linearYield
+    loadExtraEnhancementDp(game, {
+      id: 'test:enh:shared_flow',
+      name: '',
+      description: '',
+      effects: [],
+      autoApply: false,
+      addsFunctionalities: [{ id: 'shared_linear', kind: 'linearYield', resource: CREDIT, amountPerLevel: 1 }],
+    } as EnhancementDef);
+    game.mutations.addEnhancement('test:enh:shared_flow');
+
+    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
+    // comms_terminal / data_wiper 自身无 linearYield，只有外源 shared_linear（各自按本 Spot 等级）
+    game.mutations.setSpotLevel('base:spot:comms_terminal', 1); // shared flow = 1×1
+    game.mutations.setSpotLevel('base:spot:data_wiper', 4);     // shared flow = 4×1
+    game.state.resources[CREDIT] = 0;
+    game.tick();
+    // comms_terminal base 3 + flow 1 = 4；data_wiper base 2+3×1 + flow 4 = 9 → 13
+    // （修复前：data_wiper 复用首个注册的 pack，flow 按 comms_terminal 的 Lv.1 算 → 10）
+    expect(game.state.resources[CREDIT]).toBe(13);
   });
 
   test('conditioned functionality becomes Active once its stat condition is met', () => {

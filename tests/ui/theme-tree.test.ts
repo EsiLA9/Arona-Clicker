@@ -30,11 +30,12 @@ describe('theme-tree：色彩树设定工具', () => {
     expect(vars['primary-rgb']).toMatch(/^var\(--ac-primary-rgb, \d+, \d+, \d+\)$/);
   });
 
-  test('TREE-02 常量节点（语义色）直接透传，不衍生', () => {
+  test('TREE-02 常量节点（语义色）直接透传，不衍生；panel 已改为可被 token 覆盖的 var 链', () => {
     const vars = buildThemeVars(primary);
     expect(vars['lime']).toBe('#2ec494');
     expect(vars['orange']).toBe('#ffa94d');
-    expect(vars['panel']).toBe('#ffffff');
+    // panel 原有 constant 现作为 fallback：var(--ac-panel, #ffffff)
+    expect(vars['panel']).toBe('var(--ac-panel, #ffffff)');
   });
 
   test('TREE-03 任意节点可强制设色（overrides 优先级最高）', () => {
@@ -154,6 +155,21 @@ describe('theme-tree：色彩树设定工具', () => {
     expect(vars['ink-on-panel-light']).toBe('#ffffff');
     // panel 恒白 → 黑字
     expect(vars['ink-on-panel']).toBe('hsl(220 18% 12%)');
+  });
+
+  test('TREE-11d panel token 覆盖 → 引擎 token 可设深色面板、ink-on 随之翻转为白字', () => {
+    // 无 panel token：fallback 白底 → 黑字
+    const no = buildThemeVars(primary);
+    expect(no['panel']).toBe('var(--ac-panel, #ffffff)');
+    expect(no['ink-on-panel']).toBe('hsl(220 18% 12%)');
+    // 引擎 token 注入深色 panel → 白字（ink-on 按实际色判定，而非 fallback）
+    const withToken = buildThemeVars(primary, {}, { panel: '#101828' });
+    expect(withToken['panel']).toBe('var(--ac-panel, #ffffff)');
+    expect(withToken['ink-on-panel']).toBe('#ffffff');
+    // overrides 仍最高优先级
+    const overridden = buildThemeVars(primary, { panel: '#222' });
+    expect(overridden['panel']).toBe('#222');
+    expect(overridden['ink-on-panel']).toBe('#ffffff');
   });
 
   test('TREE-12 heroGradient 以主题 primary 为光晕、基底随 canvas/panel-light', () => {

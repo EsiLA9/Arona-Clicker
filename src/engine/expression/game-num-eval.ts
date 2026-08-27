@@ -19,7 +19,7 @@
 // 其余上下文由宿主注入（valueSystem / registry / characterSystem / affectorEngine）。
 // ============================================================
 
-import { PlayerState, ValueExpression, Character, Effect } from '../types';
+import { PlayerState, ValueExpression, Character, AffectorFlow } from '../types';
 import { ValueSystem } from './value-system';
 import { CharacterSystem } from '../system/character-system';
 import { AffectorEngine } from '../effect/affector-engine';
@@ -373,7 +373,7 @@ export function evaluateGameNumBreakdown(node: GameNum, state: PlayerState, deps
   }
 }
 
-/** 某 Spot 上挂载：所有活跃 Affector 的 addResource 贡献之和（evaluateSpotYield 的补充项）。 */
+/** 某 Spot 上挂载：所有活跃 Affector 的 flows 贡献之和（evaluateSpotYield 的补充项）。 */
 export function evaluateSpotAffectorFlows(spotId: string, state: PlayerState, deps: GameNumEvalDeps): number {
   let total = 0;
   for (const instance of deps.affectorEngine.getActiveInstances()) {
@@ -382,16 +382,15 @@ export function evaluateSpotAffectorFlows(spotId: string, state: PlayerState, de
     if (!pack) continue;
     for (const entry of pack.entries) {
       if (!instance.activeEntryIds.includes(entry.id)) continue;
-      for (const effect of entry.effects) {
-        if (effect.op !== 'addResource') continue;
-        total += resolveEffectValue(effect, state, deps.valueSystem);
+      for (const flow of entry.flows ?? []) {
+        total += resolveFlowValue(flow, state, deps.valueSystem);
       }
     }
   }
   return total;
 }
 
-/** 该资源所有活跃 Affector 的 addResource 贡献之和（懒求值）。 */
+/** 该资源所有活跃 Affector 的 flows 贡献之和（懒求值）。 */
 export function evaluateResourceAffectorFlows(resource: string, state: PlayerState, deps: GameNumEvalDeps): number {
   let sum = 0;
   for (const instance of deps.affectorEngine.getActiveInstances()) {
@@ -399,20 +398,17 @@ export function evaluateResourceAffectorFlows(resource: string, state: PlayerSta
     if (!pack) continue;
     for (const entry of pack.entries) {
       if (!instance.activeEntryIds.includes(entry.id)) continue;
-      for (const effect of entry.effects) {
-        if (effect.op !== 'addResource' || effect.target !== resource) continue;
-        sum += resolveEffectValue(effect, state, deps.valueSystem);
+      for (const flow of entry.flows ?? []) {
+        if (flow.resource !== resource) continue;
+        sum += resolveFlowValue(flow, state, deps.valueSystem);
       }
     }
   }
   return sum;
 }
 
-export function resolveEffectValue(effect: Effect, state: PlayerState, valueSystem: ValueSystem): number {
-  const value = effect.value;
+export function resolveFlowValue(flow: AffectorFlow, state: PlayerState, valueSystem: ValueSystem): number {
+  const value = flow.value;
   if (typeof value === 'number') return value;
-  if (typeof value === 'object' && value !== null && 'type' in value) {
-    return valueSystem.evaluate(value as ValueExpression, state);
-  }
-  return Number(value) || 0;
+  return valueSystem.evaluate(value, state);
 }

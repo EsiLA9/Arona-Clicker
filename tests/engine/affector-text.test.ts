@@ -32,7 +32,7 @@ const eff = (op: EffectOp, target = '', value: Effect['value'] = 1): Effect =>
 
 describe('describeEffect 全 op 覆盖', () => {
   test('资源类', () => {
-    expect(describeEffect(eff('addResource', 'base:resource:credit', 3), nameOf)).toBe('每 Tick 信用点 +3');
+    expect(describeEffect(eff('addResource', 'base:resource:credit', 3), nameOf)).toBe('获得 信用点 +3');
     expect(describeEffect(eff('setResource', 'base:resource:credit', 10), nameOf)).toBe('信用点 设为 10');
   });
 
@@ -105,14 +105,25 @@ describe('describeAffectorEntry / describeAffectorPack', () => {
       { describeCondition: cond => `flag ${JSON.stringify(cond.conditions[0])}` },
     );
     expect(withCond).toContain('【flag');
-    expect(withCond).toContain('】获得物品 能量饮料 ×1；每 Tick 信用点 +2');
+    expect(withCond).toContain('】获得物品 能量饮料 ×1；获得 信用点 +2');
 
     const noCond = describeAffectorEntry(
       { effects: [eff('addResource', 'base:resource:credit', 1)] },
       nameOf,
     );
-    expect(noCond).toBe('每 Tick 信用点 +1');
+    expect(noCond).toBe('获得 信用点 +1');
     expect(noCond).not.toContain('【');
+  });
+
+  test('flows 渲染为每 Tick 持续产出', () => {
+    expect(describeAffectorEntry(
+      { effects: [], flows: [{ resource: 'base:resource:credit', value: 2 }] },
+      nameOf,
+    )).toBe('每 Tick 信用点 +2');
+    expect(describeAffectorEntry(
+      { effects: [eff('addResource', 'base:resource:credit', 5)], flows: [{ resource: 'base:resource:credit', value: 2 }] },
+      nameOf,
+    )).toBe('获得 信用点 +5；每 Tick 信用点 +2');
   });
 
   test('空效果 entry 显示占位；pack 输出逐行', () => {

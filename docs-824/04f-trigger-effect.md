@@ -16,11 +16,12 @@
 
 ## Affector（挂载持续效果）
 
-- `AffectorPackDef`：{ entries: [{ condition, zoneModifiers[] }] }；
-- 每帧 `affectorEngine.apply()`：
-  - 实例 = 条件满足的 entry → 收集其 `zoneModifiers`；
-  - `syncAffectorZoneEffects` 把 zone 效果并入 GameNumSystem 区表（按 instanceId 反查撤回）；
-- 源是「持久挂载」→ 区效果在**每帧产出**生效，不改状态。
+- `AffectorPackDef`：{ entries: [{ condition, effects[], flows[], zoneModifiers[] }] }；
+- entry 的效果分三条通道：
+  - `effects`：激活时执行——`addResource` 在 **Latent→Active 翻转时一次性发放**（边沿触发，保持 Active 不重复），其余 op 在 Active 期间每帧执行；
+  - `flows`：持续产出，激活期间每帧经 GameNum `primitiveGain` 懒求值入账（Spot 功能的 linearYield 即转译为 flow）；
+  - `zoneModifiers`：区效果，`syncAffectorZoneEffects` 并入 GameNumSystem 区表（按 instanceId 反查撤回）；
+- 每帧 `affectorEngine.applyActiveEffects()`：先重估轮询实例（stat 宽依赖），再执行 Active 实例的非资源效果。
 
 ## ZoneModifier（区效果）
 

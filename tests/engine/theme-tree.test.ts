@@ -52,6 +52,30 @@ describe('theme-tree 快速映射：Color/ColorGroup/ThemeDef → token 贡献',
     expect(themeContributionFromGroup(group, getColor)).toEqual({});
   });
 
+  test('themeContributionFromGroup 组自身 theme 覆盖叠加在主色位 Color 之上（部分节点）', () => {
+    const group: ColorGroupDef = {
+      id: 'g5', name: 'g5', compositionType: 'solid',
+      slots: [{ role: 'primary', colorId: 'c-blue' }],
+      theme: { panel: '#101828', playerBubble: '#0e3a4d' },
+    };
+    const t = themeContributionFromGroup(group, getColor);
+    // 主色位 Color 的整包 token 保留
+    expect(t['primary']).toBe('#3b82f6');
+    expect(t['bg']).toBeTruthy();
+    // 组声明的部分节点覆盖生效
+    expect(t['panel']).toBe('#101828');
+    expect(t['playerBubble']).toBe('#0e3a4d');
+  });
+
+  test('themeContributionFromGroup 主色位缺失但组有 theme → 仅覆盖生效', () => {
+    const group: ColorGroupDef = {
+      id: 'g6', name: 'g6', compositionType: 'solid',
+      slots: [{ role: 'primary', colorId: 'missing' }],
+      theme: { panel: '#101828' },
+    };
+    expect(themeContributionFromGroup(group, getColor)).toEqual({ panel: '#101828' });
+  });
+
   test('themeContributionFromThemeDef colorId 打底 + tokens 覆盖', () => {
     const t = themeContributionFromThemeDef({ colorId: 'c-blue', tokens: { bg: '#101828' } }, getColor);
     expect(t['primary']).toBe('#3b82f6');

@@ -61,7 +61,8 @@ function bgLightness(bg: string): number {
  *  - acRef：对齐引擎注入的 --ac-* token 名；存在时该节点「引擎强制设色优先」，
  *           生成 `var(--ac-<acRef>, <derive>)`，引擎给了就用、否则自动衍生。
  *  - derive：从主题 primary 自动衍生默认值（无 acRef 或 acRef 缺失时采用）。
- *  - constant：固定语义色（如成功/警告），不随主题变化。
+ *  - constant：固定语义色（如成功/警告），不随主题变化；与 acRef 共存时作为
+ *           var 链的兜底值（如 panel 默认为白、可被 Color 的 panel token 覆盖）。
  *  - isBg：标记该节点为「背景色」，额外生成 `--ink-on-<name>` 文本色变量，
  *          由背景明暗决定其上文字是白还是黑（底暗白字 / 底亮黑字）。
  *
@@ -104,7 +105,7 @@ export const THEME_NODES: Record<ThemeVarName, ThemeNode> = {
   'ink-strong':   {                         derive: p => `color-mix(in srgb, var(--ink, ${shade(p, 0.08, 0.15)}), #000 18%)` },
   muted:          { acRef: 'textDim',      derive: p => shade(p, 0.08, 0.40) },
   line:           { acRef: 'border',       derive: p => shade(p, 0.20, 0.82) },
-  panel:          { constant: '#ffffff', isBg: true },
+  panel:          { acRef: 'panel', constant: '#ffffff', isBg: true },
   'panel-light':  { acRef: 'bgAlt',        derive: p => shade(p, 0.15, 0.90), isBg: true },
   canvas:         { acRef: 'bg',           derive: p => shade(p, 0.12, 0.96), isBg: true },
   cyan:           { acRef: 'primary',      derive: p => p, isBg: true },
@@ -123,18 +124,25 @@ export function buildThemeVars(
   const out: Record<string, string> = {};
   for (const name of Object.keys(THEME_NODES) as ThemeVarName[]) {
     const node = THEME_NODES[name];
-    let bgColor: string;
+    let bgColor: string;  // 写入 out[name] 的值（acRef 节点为 var 链）
+    let rawColor: string; // 该节点「实际解析后」的静态色（供背景明暗判定）
     if (overrides[name] != null) {
       bgColor = overrides[name]!;
-      out[name] = bgColor;
+      rawColor = bgColor;
+    } else if (node.acRef) {
+      // 引擎强制层优先：var(--ac-<acRef>, <constant|derive>)；
+      // 常量节点（如 panel）也可被引擎 token 覆盖（作者定义部分节点颜色）。
+      const fallback = node.constant ?? (node.derive ? node.derive(primary) : '');
+      rawColor = fallback;
+      bgColor = `var(--ac-${node.acRef}, ${fallback})`;
     } else if (node.constant != null) {
       bgColor = node.constant;
-      out[name] = bgColor;
+      rawColor = bgColor;
     } else {
-      const derived = node.derive ? node.derive(primary) : '';
-      bgColor = derived;
-      out[name] = node.acRef ? `var(--ac-${node.acRef}, ${derived})` : derived;
+      bgColor = node.derive ? node.derive(primary) : '';
+      rawColor = bgColor;
     }
+    out[name] = bgColor;
     // 背景节点 → 其上文本色：跟随「该背景的实际取值」判定白/黑，而非主题色的深浅。
     // 判定优先级：引擎真实 token（作者显式深浅背景）> 本节点最终色（含 override/constant/derived）。
     // 用确定性 JS 判定并落成静态色值（而非 CSS color-contrast()）：
@@ -143,7 +151,7 @@ export function buildThemeVars(
     // 这里取该背景节点「实际解析后」的颜色做明暗判定，任一背景（含 --ac-* 覆盖、override）都正确反色。
     if (node.isBg) {
       const realBg = node.acRef && tokens ? tokens[node.acRef] : undefined;
-      const bg = realBg ?? bgColor;
+      const bg = realBg ?? rawColor;
       const inkOn = bgLightness(bg) > PERCEIVED_LIGHT_THRESHOLD ? ON_LIGHT : ON_DARK;
       out[`ink-on-${name}` as InkOnVarName] = inkOn;
       // 弱化字色（次要/说明文本）：跟随同一背景的 ink-on 派生，保证任何明暗背景上都有可读的灰字。

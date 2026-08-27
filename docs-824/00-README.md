@@ -9,7 +9,7 @@
 | --- | --- |
 | 整个仓库的文件构成与职责 | [[docs-824/01-file-composition]] |
 | 程序从启动到运行的主干时序 | [[docs-824/02-run-logic]]（子文档 02a-e） |
-| 核心数据类型 / 状态结构 / 注册表 | [[docs-824/03-data-structures]]（子文档 03a-d） |
+| 核心数据类型 / 状态结构 / 注册表 / 引用语义 | [[docs-824/03-data-structures]]（子文档 03a-e） |
 | 生产结算 / 抽卡 / 培养 / 色彩 / 状态写入算法 | [[docs-824/04-core-algorithms]]（子文档 04a-g） |
 | 架构诊断基线（大文件清单与拆分决策） | [[docs-824/05-architecture-review]] |
 | 代码拆分规范（何时拆/如何拆/验证） | [[docs-824/06-refactoring-guide]] |

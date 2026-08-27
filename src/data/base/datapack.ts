@@ -49,7 +49,7 @@ const baseAffectorPacks: AffectorPackDef[] = [
       tier: extra.int(1),
     }))
     .entry('base:aff:energy_drink')
-    .effect({ op: 'addResource' as const, target: Resource.Credit, value: 1 })
+    .flow(Resource.Credit, 1)
     .build(),
   // 测试用：青辉石量产管线（配合 base:enh:pyroxene_rush）
   affectorPack('base:pack:pyroxene_flow')
@@ -58,7 +58,7 @@ const baseAffectorPacks: AffectorPackDef[] = [
       tier: extra.int(0),
     }))
     .entry('base:aff:pyroxene_flow')
-    .effect({ op: 'addResource' as const, target: Resource.Pyroxene, value: 2500 })
+    .flow(Resource.Pyroxene, 2500)
     .build(),
   affectorPack('base:pack:credit_system_mult')
     .entry('base:aff:credit_system_mult')
@@ -117,7 +117,7 @@ const baseAffectorPacks: AffectorPackDef[] = [
     .build(),
   affectorPack('base:pack:unified_logistics_flow')
     .entry('base:aff:unified_logistics_flow')
-    .effect({ op: 'addResource' as const, target: Resource.Credit, value: 1 })
+    .flow(Resource.Credit, 1)
     .build(),
 ];
 

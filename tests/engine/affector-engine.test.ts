@@ -47,6 +47,68 @@ describe('AffectorEngine', () => {
     expect(engine.getInstance(instance.instanceId)?.state).toBe('Active');
   });
 
+  test('addResource grants once on Latent→Active edge, not while staying active', () => {
+    const state = emptyState();
+    const engine = new AffectorEngine(
+      new Registry(),
+      new ConditionSystem(),
+      new StateMutationService(new EventBus()),
+    );
+    engine.load([{
+      id: 'pack_test',
+      entries: [{
+        id: 'entry_credit',
+        condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 10 }] },
+        effects: [{ op: 'addResource', target: 'credit', value: 1 }],
+      }],
+    }]);
+    engine.setState(state);
+    const instance = engine.mount('pack_test', 'spot_test')!;
+    expect(instance.state).toBe('Latent');
+    expect(state.resources.credit).toBeUndefined();
+
+    // 条件满足 → Active → 立即一次性发放
+    state.resources.credit = 10;
+    engine.recheck(instance.instanceId);
+    expect(state.resources.credit).toBe(11);
+
+    // 保持 Active：重复 recheck 不重复发放
+    engine.recheck(instance.instanceId);
+    engine.applyActiveEffects();
+    expect(state.resources.credit).toBe(11);
+
+    // Latent 期间不发放；再次翻转回 Active 再次发放（edge-triggered）
+    state.resources.credit = 0;
+    engine.recheck(instance.instanceId);
+    expect(engine.getInstance(instance.instanceId)?.state).toBe('Latent');
+    expect(state.resources.credit).toBe(0);
+    state.resources.credit = 10;
+    engine.recheck(instance.instanceId);
+    expect(state.resources.credit).toBe(11);
+  });
+
+  test('mount 即满足条件时立即发放；挂载后才有 state 才生效', () => {
+    const state = emptyState();
+    state.resources.credit = 100;
+    const engine = new AffectorEngine(
+      new Registry(),
+      new ConditionSystem(),
+      new StateMutationService(new EventBus()),
+    );
+    engine.load([{
+      id: 'pack_test',
+      entries: [{
+        id: 'entry_credit',
+        condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 10 }] },
+        effects: [{ op: 'addResource', target: 'credit', value: 1 }],
+      }],
+    }]);
+    engine.setState(state);
+    const instance = engine.mount('pack_test', 'spot_test')!;
+    expect(instance.state).toBe('Active');
+    expect(state.resources.credit).toBe(101);
+  });
+
   test('removed instances never reactivate', () => {
     const engine = new AffectorEngine(
       new Registry(),

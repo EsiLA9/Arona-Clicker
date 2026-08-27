@@ -15,7 +15,6 @@ import {
   PlayerState,
   SpotFunctionalityDef,
   SpotId,
-  Effect,
   Expr,
   value,
 } from '../types';
@@ -169,6 +168,16 @@ export class AffectorEngine extends EventDrivenReactor {
     const oldState = instance.state;
     instance.activeEntryIds = activeEntryIds;
     instance.state = activeEntryIds.length > 0 ? 'Active' : 'Latent';
+    // addResource 一次性语义：Latent→Active 翻转时立即发放一次（保持 Active 不重复，翻转回 Latent 再激活会再次发放）
+    if (oldState !== 'Active' && instance.state === 'Active') {
+      const grants = pack.entries
+        .filter(entry => activeEntryIds.includes(entry.id))
+        .flatMap(entry => entry.effects.filter(effect => effect.op === 'addResource'));
+      if (grants.length > 0) {
+        if (this.effectEngine) this.effectEngine.applyEffects(grants);
+        else this.mutations.applyEffects(grants);
+      }
+    }
     if (oldState !== instance.state) {
       this.eventBus?.emit({
         type: 'affectorStateChanged',
@@ -262,24 +271,30 @@ export class AffectorEngine extends EventDrivenReactor {
 
   /**
    * 同步某 Spot 的 linearYield 功能 Affector（内源 + 外源）：挂载缺失的、卸载失效的。
+   * pack 注册键按 fn.id@spotId 命名空间化：同一功能定义挂到多个 Spot 时各自独立，
+   * flow 内嵌的 spotLevel 引用各自 Spot（避免首个注册者的等级串号）。
    */
   private syncSpotFunctionalities(spotId: string): void {
     const spot = this.registry.spots.get(spotId);
     if (!spot || !this.state) return;
     const funcs = this.functionalitySystem?.functionalitiesOf(spot, this.state) ?? spot.functionalities ?? [];
 
+    const expectedPackIds = new Set(
+      funcs.filter(fn => fn.kind === 'linearYield').map(fn => `${fn.id}@${spotId}`),
+    );
     // 卸载已不再匹配的功能实例
     for (const instance of [...this.instances.values()]) {
       if (instance.mountEntityId !== spotId || instance.state === 'Removed') continue;
-      if (funcs.some(fn => fn.id === instance.packId)) continue;
+      if (expectedPackIds.has(instance.packId)) continue;
       this.unmount(instance.instanceId, 'functionality removed');
     }
     // 挂载缺失的线性功能
     for (const fn of funcs) {
       if (fn.kind !== 'linearYield') continue;
-      if (!this.packs.has(fn.id)) this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
-      const instanceId = `${fn.id}@${spotId}`;
-      if (!this.instances.has(instanceId)) this.mount(fn.id, spotId);
+      const packId = `${fn.id}@${spotId}`;
+      if (!this.packs.has(packId)) this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
+      const instanceId = `${packId}@${spotId}`;
+      if (!this.instances.has(instanceId)) this.mount(packId, spotId);
     }
   }
 
@@ -289,17 +304,20 @@ export class AffectorEngine extends EventDrivenReactor {
   }
 
   private buildSpotFunctionalityPack(spotId: string, fn: SpotFunctionalityDef): AffectorPackDef {
-    const effect: Effect = {
-      op: 'addResource',
-      target: fn.resource ?? '',
-      value: Expr.mul(
-        Expr.val(value('spotLevel', { spot: spotId })),
-        Expr.const(fn.amountPerLevel ?? 0),
-      ),
-    };
     return {
-      id: fn.id,
-      entries: [{ id: fn.id, condition: fn.condition, effects: [effect] }],
+      id: `${fn.id}@${spotId}`,
+      entries: [{
+        id: fn.id,
+        condition: fn.condition,
+        effects: [],
+        flows: [{
+          resource: fn.resource ?? '',
+          value: Expr.mul(
+            Expr.val(value('spotLevel', { spot: spotId })),
+            Expr.const(fn.amountPerLevel ?? 0),
+          ),
+        }],
+      }],
     };
   }
 
@@ -325,7 +343,8 @@ export class AffectorEngine extends EventDrivenReactor {
       if (!pack) continue;
       for (const entry of pack.entries) {
         if (!instance.activeEntryIds.includes(entry.id)) continue;
-        // addResource 合流进资源的 primitiveGain（GameNum 懒求值），此处只执行其余效果
+        // addResource 由 recheck 在 Latent→Active 翻转时一次性发放（edge-triggered），此处只执行其余效果；
+        // 持续产出走 entry.flows（GameNum 懒求值）
         const nonResourceEffects = entry.effects.filter(
           effect => effect.op !== 'addResource' && effect.op !== 'setSpotMaxLevel' && effect.op !== 'removeSpotMaxLevel',
         );

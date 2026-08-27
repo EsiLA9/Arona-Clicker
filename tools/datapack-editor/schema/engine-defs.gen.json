@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-27T04:56:00.492Z",
+  "generatedAt": "2026-08-27T12:59:13.400Z",
   "sourceDir": "src/engine/types",
   "defMap": {
     "inits": {
@@ -1863,6 +1863,14 @@
             ],
             "tsType": "ColorGroupSlot"
           }
+        },
+        {
+          "key": "theme",
+          "required": false,
+          "kind": "hand",
+          "tsType": "Partial<Record<ThemeToken, string>>",
+          "label": "主题覆盖",
+          "description": "部分主题覆盖（token 键，如 panel / playerBubble / bg）。"
         }
       ]
     },
@@ -2500,6 +2508,7 @@
     "AccessStage",
     "ActiveStoryEntry",
     "AffectorEffect",
+    "AffectorFlow",
     "AffectorInstance",
     "AffectorPackDef",
     "AffectorPackRef",

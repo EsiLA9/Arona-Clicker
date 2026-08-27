@@ -297,6 +297,14 @@ export interface ColorGroupDef {
    * @label 色位
    */
   slots: ColorGroupSlot[];
+  /**
+   * 部分主题覆盖（token 键，如 panel / playerBubble / bg）。
+   * 未给的 token 由主色位（role==='primary'）Color 的 theme 解析；
+   * 主色位未定义时仅本覆盖生效。使 ColorGroup 可声明自己的部分节点颜色，
+   * 而不必完全依赖主色位 Color。
+   * @label 主题覆盖
+   */
+  theme?: Partial<Record<ThemeToken, string>>;
 }
 
 /**

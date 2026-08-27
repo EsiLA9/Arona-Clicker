@@ -7,6 +7,7 @@
 
 import { THEME_NODES, buildThemeVars, heroGradient, type ThemeVarName } from './theme-tree';
 import { entityKeyOf, hexToRgbTriplet } from '../engine/system/color-system';
+import type { ThemeToken } from '../engine/types';
 import type { UIController } from './controller';
 
 /**
@@ -75,15 +76,18 @@ export function syncRuntimeTheme(ctrl: UIController): void {
         const groupId = equipped
           ? ctrl.game.colorEquipmentSystem.groupOf(equipped)?.id
           : variant.colorGroupId;
+        let groupTheme: Partial<Record<ThemeToken, string>> | undefined;
         if (!studentColorId && groupId) {
           const group = ctrl.game.registry.colorGroups.get(groupId);
+          groupTheme = group?.theme;
           const slot = group?.slots.find(s => s.role === 'primary') ?? group?.slots[0];
           if (slot) studentColorId = slot.colorId;
         }
         ctrl.game.colorSystem.pushSceneTheme({
           scope: 'student',
           colorId: studentColorId,
-          tokens: variant.theme?.tokens,
+          // 组自身声明的部分节点覆盖（panel / playerBubble 等）叠加在主色位 Color 之上
+          tokens: { ...(variant.theme?.tokens ?? {}), ...(groupTheme ?? {}) },
         });
       }
     }

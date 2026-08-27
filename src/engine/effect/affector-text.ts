@@ -10,8 +10,8 @@
 // 引擎层不耦合具体显示名服务。
 // ============================================================
 
-import type { Effect, ValueExpression, Value, ExtraValue } from '../types';
-import type { ChatTextEffectValue } from '../types/expression';
+import type { Effect, ValueExpression, Value, ExtraValue, AffectorFlow } from '../types';
+import type { ChatTextEffectValue, ConditionGroup } from '../types/expression';
 
 export type NameResolver = (type: string, id: string) => string;
 
@@ -95,7 +95,7 @@ export function describeEffect(effect: Effect, nameOf: NameResolver): string {
   const valueText = describeEffectValue(effect, nameOf);
   switch (effect.op) {
     case 'setResource': return `${nameOf('resource', target)} 设为 ${valueText}`;
-    case 'addResource': return `每 Tick ${nameOf('resource', target)} +${valueText}`;
+    case 'addResource': return `获得 ${nameOf('resource', target)} +${valueText}`;
     case 'setSpotLevel': return `${nameOf('spot', target)} 等级设为 ${valueText}`;
     case 'addSpotLevel': return `${nameOf('spot', target)} 等级 +${valueText}`;
     case 'setManager': return `指派 ${nameOf('character', valueText)} 至 ${nameOf('spot', target)}`;
@@ -132,20 +132,25 @@ export interface DescribeOptions {
   describeCondition?: (condition: import('../types').ConditionGroup) => string;
 }
 
-/** Affector entry → 「【条件】效果1；效果2」。 */
+/** Affector entry → 「【条件】效果1；效果2；每 Tick 资源 +v」。 */
 export function describeAffectorEntry(
-  entry: { condition?: import('../types').ConditionGroup; effects: Effect[] },
+  entry: { condition?: ConditionGroup; effects: Effect[]; flows?: AffectorFlow[] },
   nameOf: NameResolver,
   opts: DescribeOptions = {},
 ): string {
-  const body = entry.effects.map(effect => describeEffect(effect, nameOf)).join('；') || '(无效果)';
+  const body = [
+    ...entry.effects.map(effect => describeEffect(effect, nameOf)),
+    ...(entry.flows ?? []).map(flow =>
+      `每 Tick ${nameOf('resource', flow.resource)} +${typeof flow.value === 'number' ? String(flow.value) : describeValueExpression(flow.value, nameOf)}`,
+    ),
+  ].join('；') || '(无效果)';
   const gate = entry.condition && opts.describeCondition ? opts.describeCondition(entry.condition) : undefined;
   return gate ? `【${gate}】${body}` : body;
 }
 
 /** Affector pack → 每 entry 一行文本。 */
 export function describeAffectorPack(
-  pack: { entries: { id: string; condition?: import('../types').ConditionGroup; effects: Effect[] }[] },
+  pack: { entries: { id: string; condition?: ConditionGroup; effects: Effect[]; flows?: AffectorFlow[] }[] },
   nameOf: NameResolver,
   opts: DescribeOptions = {},
 ): string[] {
