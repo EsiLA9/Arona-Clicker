@@ -1,22 +1,18 @@
 // ============================================================
 // engine/game-num-eval.ts — GameNum 节点纯求值
-// evaluateGameNum：按节点语义递归求值（const/expr/add/mul/owned/levelLinear/
+// evaluateGameNum：按节点语义递归求值（const/expr/add/sub/mul/owned/levelLinear/
 // zone/affectorFlows/clamp/floor/...）。从 game-num.ts 抽出，便于对最末端求值语义独立测试。
 //
 // 节点级运行时字段（挂载在 GameNum 上，由宿主 GameNumSystem 维护）：
 //   dirty    标记该节点是否需要重算（源变动时由宿主标记，读取到 dirty 才重算）
 //   cached   上次求值结果缓存（仅 dirty===false 时有效）
-//   childMulMap  命名乘区容器：zoneName -> 贡献节点集合；乘区值 = 1 + Σ(贡献求值)
-//   bound    上下限夹取 [min,max]（非法 min>max 不夹取）
 //
-// 乘区语义统一为「1 + Σ」：原始乘区因子 f 以贡献节点 (f - 1) 存入，
-// 故 1 + Σ(fᵢ - 1) ≡ Π fᵢ，与旧「原始因子连乘」逐位一致；custom/累乘区同理。
-// flat 区为纯加法（Σ 原始值），不走 1+Σ。
+// zone 节点求值统一走 state 表聚合（aggregateZone）——state.tagEffects / state.entityEffects
+// 是唯一真相（Phase 1 后不再有 childMulMap 投影）。
 //
 // 侵入点（动态数据）都作为参数传入：
 //   state   PlayerState（懒读取，不缓存）
-//   enh/zone 效果从 PlayerState / 节点 childMulMap 读取，由宿主注入上下文。
-// 其余上下文由宿主注入（valueSystem / registry / characterSystem / affectorEngine）。
+//   其余上下文由宿主注入（valueSystem / registry / characterSystem / affectorEngine）。
 // ============================================================
 
 import { PlayerState, ValueExpression, Character, AffectorFlow } from '../types';
@@ -27,7 +23,7 @@ import { Registry } from '../registry/registry';
 import { TagPath } from '../core/tag';
 import { EntityRef, TagEffectRecord, entityKey, tagPrefixesBottomUp } from './tag-effect';
 
-/** 乘区上下限。source 记录最后设置者，用于按 source 撤销。 */
+/** 乘区上下限夹取区间（bound 记录合并结果，zone 求值时对 mul 结果夹取）。 */
 export interface ZoneBound {
   min: number;
   max: number;
@@ -45,19 +41,19 @@ export interface GNAttrs {
  * 组合算子：add/sub/mul/div/min/max/pow（多叉，从左到右折叠）、
  * clamp（min/value/max 三节点）、floor/ceil/round（单节点）、cond（test/then/else）。
  * 叶子：const/expr/owned/levelLinear/affectorFlows/
- * zone（按作用目标聚合的 flat 区 / mul 区，支持命名乘区 childMulMap 与 bound）。
+ * zone（按作用目标聚合的 flat 区 / mul 区，求值统一走 state 表 aggregateZone）。
  * 整棵树必须为无环图（节点仅持子节点引用，无反向引用）。 */
 export type GameNum =
   | (GNAttrs & { id: string; kind: 'const'; value: number })
   | (GNAttrs & { id: string; kind: 'expr'; expr: ValueExpression })
-  | (GNAttrs & { id: string; kind: 'add' | 'sub' | 'mul' | 'div' | 'min' | 'max' | 'pow'; children: GameNum[]; childMulMap?: Map<string, GameNum[]>; bound?: ZoneBound })
+  | (GNAttrs & { id: string; kind: 'add' | 'sub' | 'mul' | 'div' | 'min' | 'max' | 'pow'; children: GameNum[] })
   | (GNAttrs & { id: string; kind: 'clamp'; min: GameNum; value: GameNum; max: GameNum })
   | (GNAttrs & { id: string; kind: 'floor' | 'ceil' | 'round'; child: GameNum })
   | (GNAttrs & { id: string; kind: 'cond'; test: GameNum; then: GameNum; else: GameNum })
   | (GNAttrs & { id: string; kind: 'owned'; spotId: string })
   | (GNAttrs & { id: string; kind: 'levelLinear'; spotId: string })
   | (GNAttrs & { id: string; kind: 'affectorFlows'; resource: string })
-  | (GNAttrs & { id: string; kind: 'zone'; scope: EntityRef; part: 'flat' | 'mul'; resource?: string; childMulMap?: Map<string, GameNum[]>; bound?: ZoneBound });
+  | (GNAttrs & { id: string; kind: 'zone'; scope: EntityRef; part: 'flat' | 'mul'; resource?: string });
 
 /** 贡献明细（溯源分解 API 输出）。children 仅组合节点存在，与子节点顺序一致。 */
 export interface Contribution {
@@ -113,12 +109,18 @@ function resolveRecordValue(v: number | GameNum | undefined, state: PlayerState,
 }
 
 /**
- * 按作用目标双路聚合某实体在某资源上的区修饰器（兜底路径，当节点无 childMulMap 时使用）：
- * - tag 路径：实体 tags 自下而上前缀展开命中 state.tagEffects；
- * - entity 路径：实体精确键 + 同 kind 通配键（'*'）命中 state.entityEffects。
- * flat 求和；mul/custom 连乘（custom 按 multiplierId 分组）；bound 夹取（非法 bound 回落不夹取）。
- * 空集时 flat→0、mul→1，保证无修饰器场景下数值与现状一致。
- */
+	 * 按作用目标双路聚合某实体在某资源上的区修饰器（唯一求值路径，Phase 1 后不再有 childMulMap 投影）：
+	 * - tag 路径：实体 tags 自下而上前缀展开命中 state.tagEffects；
+	 * - entity 路径：实体精确键 + 同 kind 通配键（'*'）命中 state.entityEffects。
+	 *
+	 * 语义（分桶，依 category 区分）：
+	 * - flat：求和（Σ 原始值）
+	 * - mul（默认乘区，加百分比）：1 + Σ(f-1)，即 +a%  +b% → 1+(a+b)
+	 * - custom（手动新乘区，✕倍）：按 multiplierId 分组，组内 Πv、组间连乘
+	 * - bound：夹取下上界（非法 bound 回落不夹取）
+	 *
+	 * 空集时 flat→0、mul→1，保证无修饰器场景下数值正确。
+	 */
 export function aggregateZone(
   state: PlayerState,
   scope: EntityRef,
@@ -147,11 +149,13 @@ export function aggregateZone(
   let product = 1;
   let lo = -Infinity;
   let hi = Infinity;
+  // 默认乘区（mul，加百分比）：1 + Σ(f-1)
+  let addMulSum = 0;
   const customGroups = new Map<string, number>();
   for (const r of records) {
     if (!matchResource(r)) continue;
     const v = resolveRecordValue(r.value, state, vs);
-    if (r.category === 'mul') product *= v;
+    if (r.category === 'mul') addMulSum += v - 1;
     else if (r.category === 'custom' && r.multiplierId) {
       customGroups.set(r.multiplierId, (customGroups.get(r.multiplierId) ?? 1) * v);
     } else if (r.category === 'bound') {
@@ -159,32 +163,14 @@ export function aggregateZone(
       hi = Math.min(hi, r.max ?? Infinity);
     }
   }
+  product *= 1 + addMulSum;
   for (const g of customGroups.values()) product *= g;
   if (lo > hi) return product;
   return Math.min(Math.max(product, lo), hi);
 }
 
-/** 命名乘区求值：flat = Σ 贡献；mul = Π(1 + Σ 贡献)。bound 对 mul 结果夹取。 */
+/** zone 节点求值：唯一路径为全局区表聚合（state.tagEffects / state.entityEffects 是唯一真相）。 */
 function zoneValue(node: GameNum & { kind: 'zone' }, state: PlayerState, deps: GameNumEvalDeps, useCache: boolean): number {
-  const map = node.childMulMap;
-  if (map) {
-    if (node.part === 'flat') {
-      let sum = 0;
-      for (const list of map.values()) for (const c of list) sum += evaluateGameNum(c, state, deps, useCache);
-      return sum;
-    }
-    let product = 1;
-    for (const list of map.values()) {
-      let s = 0;
-      for (const c of list) s += evaluateGameNum(c, state, deps, useCache);
-      product *= 1 + s;
-    }
-    if (node.bound && node.bound.min <= node.bound.max) {
-      product = Math.min(Math.max(product, node.bound.min), node.bound.max);
-    }
-    return product;
-  }
-  // 兜底：节点未接入 childMulMap 时走全局区表聚合
   const tags = entityTagsOf(node.scope, deps);
   return aggregateZone(state, node.scope, tags, node.resource, node.part, deps.valueSystem);
 }
@@ -214,18 +200,7 @@ function switchEval(node: GameNum, state: PlayerState, deps: GameNumEvalDeps, us
       return tail.reduce((acc, child) => acc - evaluateGameNum(child, state, deps, useCache), evaluateGameNum(head, state, deps, useCache));
     }
     case 'mul': {
-      let result = node.children.reduce((product, child) => product * evaluateGameNum(child, state, deps, useCache), 1);
-      if (node.childMulMap) {
-        for (const list of node.childMulMap.values()) {
-          let s = 0;
-          for (const c of list) s += evaluateGameNum(c, state, deps, useCache);
-          result *= 1 + s;
-        }
-      }
-      if (node.bound && node.bound.min <= node.bound.max) {
-        result = Math.min(Math.max(result, node.bound.min), node.bound.max);
-      }
-      return result;
+      return node.children.reduce((product, child) => product * evaluateGameNum(child, state, deps, useCache), 1);
     }
     case 'div': {
       if (node.children.length === 0) return 0;
@@ -297,13 +272,7 @@ export function evaluateGameNumBreakdown(node: GameNum, state: PlayerState, deps
     case 'mul': {
       const children = node.children.map(c => evaluateGameNumBreakdown(c, state, deps));
       const value = children.length === 0 ? 0 : children.reduce((acc, c) => acc * c.value, 1);
-      const extra = node.childMulMap
-        ? [...node.childMulMap.entries()].map(([z, list]) => {
-            const sum = list.reduce((s, c) => s + evaluateGameNum(c, state, deps, false), 0);
-            return { id: `${node.id}:${z}`, kind: 'zone', value: 1 + sum, label: z };
-          })
-        : undefined;
-      return { id: node.id, kind: 'mul', value, children: extra ? [...children, ...extra] : children };
+      return { id: node.id, kind: 'mul', value, children };
     }
     case 'div': {
       const children = node.children.map(c => evaluateGameNumBreakdown(c, state, deps));
@@ -360,13 +329,7 @@ export function evaluateGameNumBreakdown(node: GameNum, state: PlayerState, deps
       const scope = node.scope;
       const label = `zone:${scope.kind}:${scope.id}:${node.part}${node.resource ? `:${node.resource}` : ''}`;
       const value = zoneValue(node, state, deps, false);
-      const children = node.childMulMap
-        ? [...node.childMulMap.entries()].map(([z, list]) => {
-            const sum = list.reduce((s, c) => s + evaluateGameNum(c, state, deps, false), 0);
-            return { id: `${node.id}:${z}`, kind: 'zone', value: node.part === 'flat' ? sum : 1 + sum, label: z };
-          })
-        : undefined;
-      return { id: node.id, kind: 'zone', value, label, ...(children ? { children } : {}) };
+      return { id: node.id, kind: 'zone', value, label };
     }
     case 'affectorFlows':
       return { id: node.id, kind: 'affectorFlows', value: evaluateResourceAffectorFlows(node.resource, state, deps), label: node.resource };

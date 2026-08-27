@@ -293,8 +293,9 @@ export class GameInstance {
       getVisibility: () => this.visibilityEngine.getVisibility(this._state),
       setState: next => {
         this._state = next;
-        // 状态整体更换（新游戏/进入世界线）时产出缓存一并失效
-        this.gameNumSystem.invalidateProduction();
+        // 状态整体更换（新游戏/进入世界线）时重建数值树并绑定新 state，
+        // 否则 GameNumSystem.state 仍指向旧对象，区表写入/清理会落错对象
+        this.gameNumSystem.buildAll(this._state);
       },
       resetVisibility: () => { this.visibilityEngine.reset(); },
       clearLocalVisibility: () => {
@@ -849,7 +850,10 @@ export class GameInstance {
       storyService: this.storyService,
       initService: this.initService,
       sessionService: this.sessionService,
-      setState: next => { this._state = next; },
+      setState: next => {
+        this._state = next;
+        this.gameNumSystem.buildAll(this._state);
+      },
     }, saveData);
   }
 
@@ -858,7 +862,10 @@ export class GameInstance {
     resetRuntime({
       stop: () => this.stop(),
       createDefaultState: () => createDefaultPlayerState(),
-      setState: next => { this._state = next; },
+      setState: next => {
+        this._state = next;
+        this.gameNumSystem.buildAll(this._state);
+      },
       sessionService: this.sessionService,
       mutations: this.mutations,
       statsService: this.statsService,

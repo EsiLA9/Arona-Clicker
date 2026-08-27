@@ -93,7 +93,7 @@ const s1Scope = { kind: 'spot' as const, id: 's1' };
 const areaAScope = { kind: 'area' as const, id: 'areaA' };
 const initIScope = { kind: 'init' as const, id: 'initI' };
 
-describe('Phase 0 快照：zone 聚合语义（主路径 childMulMap）', () => {
+describe('Phase 0 快照：zone 聚合语义（state 表聚合）', () => {
   test('空区：flat → 0，mul → 1', () => {
     const { system, state } = makeFixture();
     expect(system.evaluate(system.buildZoneNode(s1Scope, 'flat', CREDIT), state)).toBe(0);
@@ -123,13 +123,13 @@ describe('Phase 0 快照：zone 聚合语义（主路径 childMulMap）', () => 
     expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(2.5);
   });
 
-  test('custom 按 multiplierId 分组：同组 1+Σ(f-1)，跨组连乘', () => {
+  test('custom 按 multiplierId 分组：同组连乘、跨组连乘', () => {
     const { system, state } = makeFixture();
     system.registerTagEffect(state, officeKey, customRecord('c1', 'vip', 2));
     system.registerTagEffect(state, officeKey, customRecord('c2', 'vip', 3));
     system.registerTagEffect(state, officeKey, customRecord('c3', 'gold', 4));
-    // vip 组 1+(2-1)+(3-1) = 4，gold 组 4 → 4 × 4 = 16
-    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(16);
+    // vip 组 2×3 = 6，gold 组 4 → 6 × 4 = 24（组内/组间均连乘，分桶语义）
+    expect(system.evaluate(system.buildZoneNode(s1Scope, 'mul', CREDIT), state)).toBe(24);
   });
 
   test('bound 跨 source 合并：min 取 max、max 取 min', () => {
@@ -281,41 +281,42 @@ describe('Phase 0 快照：双聚合路径对拍（Phase 1 安全网）', () => 
     expect(system.evaluate(zoneOf(system, initIScope, 'mul'), state))
       .toBe(aggregateZone(state, initIScope, [initTag], undefined, 'mul', vs));
   });
-});
 
-describe('Phase 0 快照：KNOWN DIVERGENCE（Phase 1 决策点，统一后需更新断言）', () => {
-  // 背景：childMulMap 路径按「乘区组」合并（组内 1+Σ(f-1) 加法），aggregateZone 路径
-  // 对所有 mul/custom 记录直接连乘（Πf）。单条记录时两者相等；同组多条时不等。
-  // 当前生产路径是 childMulMap（GameNum 运行时），aggregateZone 为不可达兜底（仅旧
-  // tick 路径与测试调用）。Phase 1 任务书倾向统一为 aggregateZone 语义（连乘），
-  // 届时以下「各自当前值」断言将变红，需按统一语义更新。
-
-  test('同组多条 mul：childMulMap=1+Σ(f-1)，aggregateZone=Πf', () => {
+  test('同组多条 mul：两路径统一为加法 1+Σ(f-1)', () => {
     const { system, vs, state } = makeFixture();
     system.registerTagEffect(state, officeKey, mulRecord('m1', 1.5));
     system.registerTagEffect(state, officeKey, mulRecord('m2', 2));
-    const node = system.buildZoneNode(s1Scope, 'mul', CREDIT);
-    expect(system.evaluate(node, state)).toBe(2.5); // 1 + 0.5 + 1
-    expect(aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs)).toBe(3); // 1.5 × 2
+    const node = zoneOf(system, s1Scope, 'mul', CREDIT);
+    const viaMap = system.evaluate(node, state);
+    const viaTable = aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs);
+    expect(viaMap).toBe(viaTable);
+    expect(viaMap).toBe(2.5); // 1 + 0.5 + 1
   });
 
-  test('同 multiplierId 多条 custom：childMulMap=1+Σ(f-1)，aggregateZone=Πf', () => {
+  test('同 multiplierId 多条 custom：两路径统一为组内连乘 Πf', () => {
     const { system, vs, state } = makeFixture();
     system.registerTagEffect(state, officeKey, customRecord('c1', 'vip', 2));
     system.registerTagEffect(state, officeKey, customRecord('c2', 'vip', 3));
-    const node = system.buildZoneNode(s1Scope, 'mul', CREDIT);
-    expect(system.evaluate(node, state)).toBe(4); // 1 + 1 + 2
-    expect(aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs)).toBe(6); // 2 × 3
+    const node = zoneOf(system, s1Scope, 'mul', CREDIT);
+    const viaMap = system.evaluate(node, state);
+    const viaTable = aggregateZone(state, s1Scope, [office], CREDIT, 'mul', vs);
+    expect(viaMap).toBe(viaTable);
+    expect(viaMap).toBe(6); // 2 × 3
   });
 
-  test('通配 entity 键：childMulMap 不路由（zoneIndex 无通配键），aggregateZone 会读', () => {
+  test('通配 entity 键：统一后两路径均生效（桥接层把 * 展开为逐实体键，无数据影响）', () => {
     const { system, vs, state } = makeFixture();
     system.registerEntityEffect(state, 'area:*', mulRecord('w', 2));
     const node = system.buildZoneNode(areaAScope, 'mul');
-    expect(system.evaluate(node, state)).toBe(1); // 未路由到 childMulMap
-    expect(aggregateZone(state, areaAScope, [areaTag], undefined, 'mul', vs)).toBe(2); // 读到了 area:*
+    const viaMap = system.evaluate(node, state);
+    const viaTable = aggregateZone(state, areaAScope, [areaTag], undefined, 'mul', vs);
+    expect(viaMap).toBe(viaTable);
+    expect(viaMap).toBe(2);
   });
 });
+
+// KNOWN DIVERGENCE 已统一：分桶乘区语义下，buildZoneNode（生产路径）与 aggregateZone（表路径）
+// 结果一致，见上方「双聚合路径对拍」三个新用例（同组 mul=加法 / 同 multiplierId custom=连乘 / 通配键生效）。
 
 describe('Phase 0 快照：flows 双求值入口', () => {
   // 实例 i1 挂 s1（entry e1 产 credit 3 / gold 5，e2 产 credit 7，e3 未激活），

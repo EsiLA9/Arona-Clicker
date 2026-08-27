@@ -3,14 +3,12 @@
 // （build / tag 模块与宿主类之间共享，不对外）
 // ============================================================
 
-import type { GameNum, ZoneBound } from './game-num-eval';
+import type { GameNum } from './game-num-eval';
 
 export type { GameNum } from './game-num-eval';
 
-/** zone 节点（携带 childMulMap/bound）。 */
+/** zone 节点（求值统一走 state 表 aggregateZone）。 */
 export type ZoneNode = GameNum & { kind: 'zone' };
-/** 可乘区节点（携带 childMulMap/bound）。 */
-export type MulNode = GameNum & { childMulMap?: Map<string, GameNum[]>; bound?: ZoneBound };
 
 export interface ZoneIndexEntry {
   flat: Set<GameNum>;

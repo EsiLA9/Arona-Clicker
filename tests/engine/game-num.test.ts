@@ -42,10 +42,12 @@ describe('GameNum (primitiveGain 懒求值)', () => {
     const spotNode = childrenOf(game.gameNumSystem.getGainNode(CREDIT))
       .find(c => c.id === 'spot:base:spot:credit_printer')!;
     expect(spotNode.kind).toBe('mul');
+    // spotMul 子节点：owned / baseLine / zone(mul) / hierarchy:spotId（Area·Init 逐级上抛显式节点）
     expect(childrenOf(spotNode).map(c => c.id)).toEqual([
       'owned:base:spot:credit_printer',
       'baseLine:base:spot:credit_printer',
       'zone:spot:base:spot:credit_printer:mul:base:resource:credit',
+      'hierarchy:base:spot:credit_printer',
     ]);
     // baseLine → add[ baseYield(add[expr, levelLinear]), zone(flat 区节点) ]
     const baseLine = childrenOf(spotNode).find(c => c.id === 'baseLine:base:spot:credit_printer')!;

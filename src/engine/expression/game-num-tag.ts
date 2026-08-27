@@ -1,15 +1,22 @@
 // ============================================================
-// engine/expression/game-num-tag.ts — GameNumSystem 区表维护 + Affector 桥接
+// engine/expression/game-num-tag.ts — GameNumSystem 区表写入 + Affector 桥接
 // 从 game-num.ts 拆出：registerTagEffect / registerEntityEffect / removeTagEffect
-//   / removeTagEffectsBySource / clearTagEffectsByLife / routeToZoneNodes
-//   / addContribution / applyBound / toValueNode / removeContribByKey
-//   / syncAffectorZoneEffects / registerAffectorModifier
+//   / removeTagEffectsBySource / clearTagEffectsByLife / syncAffectorZoneEffects
+//   / registerAffectorModifier
+//
+// Phase 1 起：state.tagEffects / state.entityEffects 是唯一真相，写入只落 state 表；
+// zone 求值由 aggregateZone 扫描 state 表（game-num-eval.ts），本文件不再维护
+// childMulMap 投影。zoneIndex 降级为定向失效索引（写入后反查 zone 节点 markDirty）。
+//
+// 注意：本模块所有函数都信任调用方传入的 state 即当前 PlayerState。
+// GameNumSystem.state 若与 GameInstance._state 脱钩（startNewGame 后未重新 buildAll），
+// 会导致写入/清理落错对象——见 todoTask/taskProduction/HANDOFF.md「Phase 1 阻塞项」。
 // ============================================================
 
 import type { PlayerState, ValueExpression } from '../types';
 import type { AffectorEngine } from '../effect/affector-engine';
 import type { GameNumSystem } from './game-num';
-import type { GameNum, ZoneNode, MulNode } from './game-num-internal';
+import type { GameNum } from './game-num-internal';
 import { tagId } from '../core/tag';
 import { TagEffectRecord, EntityRef, entityKey, ZoneModifierDecl } from './tag-effect';
 
@@ -20,7 +27,7 @@ export function registerTagEffect(system: GameNumSystem, state: PlayerState, tag
   const i = list.findIndex(r => r.id === record.id);
   if (i >= 0) list[i] = record;
   else list.push(record);
-  routeToZoneNodes(system, tagKey, record);
+  markZoneDirty(system, tagKey);
 }
 
 export function registerEntityEffect(system: GameNumSystem, state: PlayerState, entityKeyStr: string, record: TagEffectRecord): void {
@@ -28,50 +35,41 @@ export function registerEntityEffect(system: GameNumSystem, state: PlayerState, 
   const i = list.findIndex(r => r.id === record.id);
   if (i >= 0) list[i] = record;
   else list.push(record);
-  routeToZoneNodes(system, entityKeyStr, record);
+  markZoneDirty(system, entityKeyStr);
 }
 
 export function removeTagEffect(system: GameNumSystem, state: PlayerState, tagKey: string, id: string): void {
   const list = state.tagEffects?.[tagKey];
-  const rec = list?.find(r => r.id === id);
   if (list) {
     const i = list.findIndex(r => r.id === id);
     if (i >= 0) list.splice(i, 1);
   }
-  removeContribByKey(system, tagKey, rec?.source, id);
+  markZoneDirty(system, tagKey);
 }
 
 export function removeTagEffectsBySource(system: GameNumSystem, state: PlayerState, source: string): void {
+  const affectedKeys = new Set<string>();
   if (state.tagEffects) {
-    for (const list of Object.values(state.tagEffects)) {
-      for (let i = list.length - 1; i >= 0; i--) if (list[i].source === source) list.splice(i, 1);
-    }
-  }
-  if (state.entityEffects) {
-    for (const list of Object.values(state.entityEffects)) {
-      for (let i = list.length - 1; i >= 0; i--) if (list[i].source === source) list.splice(i, 1);
-    }
-  }
-  const prefix = `contrib:${source}:`;
-  for (const n of system.zoneNodes) {
-    let changed = false;
-    const zn = n as MulNode;
-    if (zn.childMulMap) {
-      for (const list of zn.childMulMap.values()) {
-        for (let i = list.length - 1; i >= 0; i--) {
-          if (list[i].id.startsWith(prefix)) {
-            list.splice(i, 1);
-            changed = true;
-          }
+    for (const [key, list] of Object.entries(state.tagEffects)) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].source === source) {
+          list.splice(i, 1);
+          affectedKeys.add(key);
         }
       }
     }
-    if (zn.bound && zn.bound.source?.startsWith(source)) {
-      zn.bound = undefined;
-      changed = true;
-    }
-    if (changed) markDirty(system, n);
   }
+  if (state.entityEffects) {
+    for (const [key, list] of Object.entries(state.entityEffects)) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].source === source) {
+          list.splice(i, 1);
+          affectedKeys.add(key);
+        }
+      }
+    }
+  }
+  for (const key of affectedKeys) markZoneDirty(system, key);
 }
 
 export function clearTagEffectsByLife(system: GameNumSystem, state: PlayerState, life: 'global' | 'init' | 'snapshot'): void {
@@ -88,83 +86,14 @@ export function clearTagEffectsByLife(system: GameNumSystem, state: PlayerState,
   markAllDirty(system);
 }
 
-// ---- 命名乘区路由 ----
+// ---- 定向失效（zoneIndex 反查） ----
 
-function routeToZoneNodes(system: GameNumSystem, key: string, record: TagEffectRecord): void {
+/** 按 tagKey / entityKey 反查命中的 zone 节点并沿 parents 传播 markDirty。 */
+function markZoneDirty(system: GameNumSystem, key: string): void {
   const entry = system.zoneIndex.get(key);
   if (!entry) return;
-  const resMatch = (n: GameNum) => {
-    const zn = n as ZoneNode;
-    return !record.resource || !zn.resource || record.resource === zn.resource;
-  };
-  const targets = record.category === 'flat' ? entry.flat : entry.mul;
-  for (const n of targets) {
-    if (!resMatch(n)) continue;
-    if (record.category === 'flat') addContribution(system, n, 'flat', record);
-    else if (record.category === 'bound') applyBound(system, n, record);
-    else addContribution(system, n, record.multiplierId ?? 'defaultMul', record);
-    markDirty(system, n);
-  }
-}
-
-function addContribution(system: GameNumSystem, node: GameNum, zoneName: string, record: TagEffectRecord): void {
-  const n = node as MulNode;
-  const map = n.childMulMap ??= new Map();
-  let list = map.get(zoneName);
-  if (!list) {
-    list = [];
-    map.set(zoneName, list);
-  }
-  const contribId = `contrib:${record.source}:${record.id}`;
-  for (let i = list.length - 1; i >= 0; i--) if (list[i].id === contribId) list.splice(i, 1);
-  const valueNode = toValueNode(record.value);
-  const child: GameNum =
-    record.category === 'flat'
-      ? { ...valueNode, id: contribId }
-      : { id: contribId, kind: 'sub', children: [valueNode, { id: `${contribId}:1`, kind: 'const', value: 1 }] };
-  list.push(child);
-}
-
-function applyBound(system: GameNumSystem, node: GameNum, record: TagEffectRecord): void {
-  const n = node as MulNode;
-  const min = record.min ?? -Infinity;
-  const max = record.max ?? Infinity;
-  const prev = n.bound;
-  n.bound = {
-    min: prev ? Math.max(prev.min, min) : min,
-    max: prev ? Math.min(prev.max, max) : max,
-    source: record.source,
-  };
-}
-
-function toValueNode(v: number | GameNum | undefined): GameNum {
-  if (v && typeof v === 'object' && 'kind' in v) return v as GameNum;
-  return { id: `const:${Math.random().toString(36).slice(2)}`, kind: 'const', value: typeof v === 'number' ? v : 0 };
-}
-
-function removeContribByKey(system: GameNumSystem, key: string, source: string | undefined, id: string): void {
-  const entry = system.zoneIndex.get(key);
-  if (!entry) return;
-  const contribId = `contrib:${source}:${id}`;
-  for (const n of [...entry.flat, ...entry.mul]) {
-    let changed = false;
-    const zn = n as MulNode;
-    if (zn.childMulMap) {
-      for (const list of zn.childMulMap.values()) {
-        for (let i = list.length - 1; i >= 0; i--) {
-          if (list[i].id === contribId) {
-            list.splice(i, 1);
-            changed = true;
-          }
-        }
-      }
-    }
-    if (zn.bound && zn.bound.source === id) {
-      zn.bound = undefined;
-      changed = true;
-    }
-    if (changed) markDirty(system, n);
-  }
+  for (const n of entry.flat) markDirty(system, n);
+  for (const n of entry.mul) markDirty(system, n);
 }
 
 // ---- Affector 桥接 ----

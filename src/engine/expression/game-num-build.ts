@@ -8,7 +8,7 @@
 import type { PlayerState } from '../types';
 import type { Registry } from '../registry/registry';
 import type { GameNumSystem } from './game-num';
-import type { GameNum, ZoneNode, MulNode } from './game-num-internal';
+import type { GameNum, ZoneNode } from './game-num-internal';
 import { TagPath } from '../core/tag';
 import { EntityRef, entityKey, tagPrefixesBottomUp } from './tag-effect';
 
@@ -22,6 +22,7 @@ export function buildAll(system: GameNumSystem, state?: PlayerState): void {
   system.spotZone.clear();
   system.zoneIndex.clear();
   system.entityZoneNodes.clear();
+  system.zoneNodeById.clear();
   system.parents.clear();
   system.allNodes = [];
   system.zoneNodes = [];
@@ -85,22 +86,41 @@ function buildSpotProduction(system: GameNumSystem, spotId: string): GameNum {
   const baseLine: GameNum = { id: `baseLine:${spotId}`, kind: 'add', children: [baseYield, flatZone] };
 
   const mulZone = buildZoneNode(system, { kind: 'spot', id: spotId }, 'mul', spot.baseYieldResource);
-  mulZone.childMulMap!.set('defaultMul', []);
-  mulZone.childMulMap!.set('defaultAddMul', []);
 
   const owned: GameNum = { id: `owned:${spotId}`, kind: 'owned', spotId };
   const spotMul: GameNum = { id: `spot:${spotId}`, kind: 'mul', children: [owned, baseLine, mulZone] };
 
-  // 逐级上抛
+  // 逐级上抛：所属 Area / Init 的乘区以 hierarchy 节点加入 spotMul（显式 add 子节点，
+  // 替代旧 childMulMap 的 'hierarchy' 组；值 = 1 + Σ(upperZone - 1)，与旧行为一致）。
+  const upperNodes: GameNum[] = [];
   const area = system.registry.areas?.get(spot.areaId);
   if (area) {
     const aNode = system.entityZoneNodes.get(entityKey({ kind: 'area', id: area.id }));
-    if (aNode) linkHierarchy(system, spotMul, aNode);
+    if (aNode) upperNodes.push(aNode);
     const init = system.registry.inits?.get(area.initId);
     if (init) {
       const iNode = system.entityZoneNodes.get(entityKey({ kind: 'init', id: init.id }));
-      if (iNode) linkHierarchy(system, spotMul, iNode);
+      if (iNode) upperNodes.push(iNode);
     }
+  }
+  if (upperNodes.length > 0) {
+    const hierarchyAdd: GameNum = {
+      id: `hierarchy:${spotId}`,
+      kind: 'add',
+      children: [{ id: `hierarchy:${spotId}:1`, kind: 'const', value: 1 }],
+    };
+    for (const upper of upperNodes) {
+      const subNode: GameNum = {
+        id: `hier:${upper.id}`,
+        kind: 'sub',
+        children: [upper, { id: `hier:${upper.id}:1`, kind: 'const', value: 1 }],
+      };
+      hierarchyAdd.children.push(subNode);
+      setParent(system, upper, subNode);
+      setParent(system, subNode, hierarchyAdd);
+    }
+    setParent(system, hierarchyAdd, spotMul);
+    spotMul.children.push(hierarchyAdd);
   }
 
   setParent(system, owned, spotMul);
@@ -124,7 +144,6 @@ export function buildZoneNode(system: GameNumSystem, scope: EntityRef, part: 'fl
     scope,
     part,
     ...(resource ? { resource } : {}),
-    childMulMap: new Map(),
   };
   registerZoneNode(system, node);
   system.allNodes.push(node);
@@ -171,22 +190,6 @@ function scopeTags(system: GameNumSystem, scope: EntityRef): TagPath[] {
     case 'enhancement': def = system.registry.enhancements.get(scope.id) as TaggedDef | undefined; break;
   }
   return def?.tags ?? [];
-}
-
-function linkHierarchy(system: GameNumSystem, spotMul: GameNum, upperNode: GameNum): void {
-  const sm = spotMul as MulNode;
-  const map = sm.childMulMap ??= new Map();
-  let list = map.get('hierarchy');
-  if (!list) {
-    list = [];
-    map.set('hierarchy', list);
-  }
-  list.push({
-    id: `hier:${upperNode.id}`,
-    kind: 'sub' as const,
-    children: [upperNode, { id: `hier:${upperNode.id}:1`, kind: 'const' as const, value: 1 }],
-  });
-  setParent(system, upperNode, spotMul);
 }
 
 export function setParent(system: GameNumSystem, child: GameNum, parent: GameNum): void {
