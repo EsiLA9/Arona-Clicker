@@ -1,0 +1,132 @@
+/* ============================================================
+   ui/css/equipment.css — 色彩装备 + 装备图鉴卡片
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* --- 色彩装备（ColorEquipment）--- */
+.equipment-slots {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+}
+
+.equipment-equippable {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+   margin-top: 8px;
+}
+
+.equipment-card {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   padding: 8px 10px;
+   border: 1px solid var(--line);
+   border-radius: 12px;
+   background: var(--bg);
+}
+
+.equipment-avatar {
+   display: inline-flex;
+   flex: 0 0 auto;
+}
+
+.equipment-avatar svg {
+   display: block;
+   border-radius: 999px;
+   box-shadow: 0 0 0 2px var(--line);
+}
+
+.equipment-info {
+   display: flex;
+   flex-direction: column;
+   gap: 2px;
+   min-width: 0;
+   flex: 1;
+}
+
+.equipment-info b {
+   font-size: 13px;
+   color: var(--ink);
+}
+
+.equipment-info small {
+   font-size: 11px;
+   color: var(--muted);
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.equipment-option {
+   display: inline-flex;
+   align-items: center;
+   gap: 8px;
+   padding: 6px 10px;
+   border: 1px solid var(--line);
+   border-radius: 999px;
+   background: transparent;
+   color: var(--ink);
+   font-size: 12px;
+   cursor: pointer;
+}
+
+.equipment-option:hover {
+   border-color: var(--accent);
+}
+
+.equipment-option-name {
+   white-space: nowrap;
+}
+
+/* 装备图鉴卡片 */
+.codex-equipment {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+   padding: 12px;
+   border: 1px solid var(--line);
+   border-radius: 12px;
+   background: var(--bg);
+}
+
+.codex-equipment.is-locked {
+   opacity: .55;
+}
+
+.codex-equip-head {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+}
+
+.codex-equip-title {
+   display: flex;
+   flex-direction: column;
+   gap: 2px;
+   flex: 1;
+   min-width: 0;
+}
+
+.codex-equip-title h3 {
+   margin: 0;
+   font-size: 14px;
+}
+
+.codex-equip-title small {
+   color: var(--muted);
+   font-size: 11px;
+}
+
+.codex-equip-desc {
+   margin: 0;
+   font-size: 12px;
+   color: var(--muted);
+}
+
+.codex-equip-effects {
+   margin: 0;
+   font-size: 12px;
+   color: var(--ink);
+}

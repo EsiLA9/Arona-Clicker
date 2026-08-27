@@ -2,6 +2,11 @@
 
 > 本文记录 ACProgram 引擎的架构体检结果，作为拆分重构的**基线参照**。所有数据以 `main` 分支代码为准，重构后本文不再更新——后续增量问题应记录在 `06-refactoring-guide.md` 的惯例中。
 
+> **进展标注（2026-08）**：基线中三个 UI 大文件已完成拆分，当前实际结构以 `01-file-composition.md` 为准：
+> - `ui/controller.ts`（967 行）→ 385 行门面，另拆出 controller-events / controller-theme / controller-save / controller-actions-{topbar,contacts,theme,story,inventory}
+> - `ui/components/tooltip.ts`（787 行）→ 门面 + tooltip-detail-{area,spot,enh,init,item,resource,codex}（共享基础并入 tooltip-reveal）
+> - `src/ui/styles.css`（未入基线，3785 行）→ 拆为 `css/` 下 16 个主题分区文件（区块顺序与原文件一致）
+
 ## 诊断方法
 
 - **工具**：LSP `documentSymbol` 分析每个文件的符号边界与行号范围

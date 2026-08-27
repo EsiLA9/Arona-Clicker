@@ -1,0 +1,342 @@
+/* ============================================================
+   ui/css/story-nav.css — 故事条目 + 层级导航
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* 故事条目 (左栏) */
+.story-entry {
+   display: grid;
+   grid-template-columns: 12px 1fr;
+   gap: 7px;
+   align-items: start;
+   width: 100%;
+   padding: 13px 10px;
+   color: var(--muted-on-panel);
+   border: 0;
+   border-bottom: 1px solid var(--line);
+   font-size: 12px;
+   text-align: left;
+   border-radius: 8px;
+}
+
+.story-entry.active {
+   color: var(--ink-on-panel);
+   background: rgba(var(--primary-rgb), .20);
+   box-shadow: inset 4px 0 0 var(--cyan);
+   border: 1px solid color-mix(in srgb, var(--cyan) 45%, transparent);
+   font-weight: 700;
+}
+
+.story-entry-body {
+   display: flex;
+   flex-direction: column;
+   gap: 5px;
+   min-width: 0;
+}
+
+.story-name {
+   color: var(--ink-on-panel);
+   font-weight: 600;
+   font-size: 13px;
+}
+
+.story-done {
+   color: var(--lime) !important;
+}
+
+.story-active {
+   color: var(--cyan) !important;
+}
+
+.story-locked {
+   color: var(--muted-on-panel) !important;
+}
+
+.story-cond {
+   color: var(--orange) !important;
+}
+
+.story-trigger {
+   align-self: flex-start;
+   border: 1px solid var(--cyan);
+   padding: 4px 10px;
+   background: transparent;
+   color: var(--cyan);
+   font-size: 11px;
+   font-weight: 600;
+   cursor: pointer;
+   border-radius: 8px;
+}
+
+.story-trigger:hover {
+   background: var(--cyan);
+   color: #ffffff;
+}
+
+/* 故事层级导航 */
+.story-breadcrumb {
+   display: flex;
+   align-items: center;
+/*    gap: 4px; */
+   padding: 0px 10px 3px;
+   font-size: 12px;
+   color: var(--muted, #999);
+   flex-wrap: wrap;
+}
+
+.story-crumb {
+   background: transparent;
+   border: 0;
+   color: var(--cyan, #3b9eff);
+   cursor: pointer;
+   font-size: 12px;
+   padding: 2px 4px;
+   border-radius: 4px;
+}
+
+.story-crumb:hover {
+   text-decoration: underline;
+}
+
+.story-crumb.current {
+   color: var(--ink, #333);
+   cursor: default;
+   font-weight: 600;
+}
+
+.story-crumb-sep {
+   color: var(--line, #ccc);
+   margin: 0 2px;
+}
+
+.story-nav-body {
+   flex: 1;
+   min-height: 0;
+   overflow-y: auto;
+}
+
+.story-nav-btn {
+   width: 100%;
+   padding: 13px 10px;
+   border: 0;
+   border-bottom: 1px solid var(--line);
+   background: transparent;
+   color: var(--ink-on-panel);
+   font-size: 13px;
+   font-weight: 600;
+   text-align: left;
+   cursor: pointer;
+   border-radius: 8px;
+   display: flex;
+   align-items: center;
+   gap: 7px;
+}
+
+.story-nav-btn:hover {
+   background: rgba(var(--primary-rgb), .08);
+}
+
+.story-nav-btn small {
+   margin-left: auto;
+   font-weight: 400;
+   font-size: 11px;
+   color: var(--muted-on-panel);
+}
+
+.area-hero {
+   position: relative;
+   overflow: hidden;
+   padding: 18px;
+   flex-shrink: 0;
+   background: var(--hero-gradient, linear-gradient(125deg, var(--canvas, #bfe2ff), var(--panel-light, #e4f2ff) 55%, var(--cyan, #3b9eff) 100%));
+   border-radius: 12px;
+}
+
+.area-hero h2 {
+   margin: 0 0 6px;
+   font-size: 22px;
+   letter-spacing: -.04em;
+   color: var(--ink-on-panel-light);
+   font-family: '方正兰亭圆简体';
+}
+
+.area-hero p {
+   color: color-mix(in srgb, var(--ink-on-panel-light) 78%, transparent);
+   font-size: 11px;
+   font-family: '方正兰亭圆简体';
+   line-height: 1.6;
+}
+
+.story-panel {
+   margin-top: 14px;
+   padding: 18px;
+}
+
+.story-panel .panel-heading {
+   margin-bottom: 16px;
+}
+
+.story-panel h2 {
+   margin-top: 5px;
+   font-size: 24px;
+}
+
+.story-progress {
+   color: var(--cyan);
+   font: 11px 'DM Mono', monospace;
+}
+
+.story-idle-copy {
+   display: flex;
+   align-items: end;
+   justify-content: space-between;
+   gap: 20px;
+}
+
+.story-idle-copy strong {
+   display: block;
+   font-size: 14px;
+}
+
+.story-idle-copy p {
+   max-width: 420px;
+   margin-top: 6px;
+   color: var(--muted-on-panel);
+   font-size: 11px;
+   line-height: 1.6;
+}
+
+.story-actions {
+   display: flex;
+   flex-wrap: wrap;
+   justify-content: flex-end;
+   gap: 8px;
+}
+
+.story-actions button,
+.story-continue {
+   border: 1px solid var(--cyan);
+   padding: 9px 12px;
+   background: transparent;
+   color: var(--cyan);
+   font-size: 11px;
+   cursor: pointer;
+   border-radius: 10px;
+}
+
+.story-actions button:first-child,
+.story-continue {
+   background: var(--cyan);
+   color: #ffffff;
+   font-weight: 800;
+}
+
+.story-actions button span,
+.story-continue span {
+   margin-left: 8px;
+}
+
+.story-actions button:disabled {
+   border-color: var(--line);
+   background: transparent;
+   color: var(--muted-on-panel);
+   opacity: .55;
+   cursor: not-allowed;
+}
+
+.story-dialogue {
+   display: flex;
+   gap: 14px;
+   padding: 16px;
+   background: var(--panel-light);
+   color: var(--ink-on-panel-light);
+   border-left: 2px solid var(--cyan);
+   border-radius: 12px;
+}
+
+.story-dialogue-mark {
+   display: grid;
+   flex: 0 0 32px;
+   place-items: center;
+   width: 32px;
+   height: 32px;
+   background: var(--cyan);
+   color: #ffffff;
+   font: 800 13px 'DM Mono', monospace;
+   border-radius: 9px;
+}
+
+.story-dialogue-body {
+   min-width: 0;
+}
+
+.story-dialogue-body strong {
+   display: block;
+   margin-top: 6px;
+   color: var(--cyan);
+   font-size: 12px;
+}
+
+.story-dialogue-body p {
+   margin-top: 8px;
+   color: var(--ink-on-panel-light);
+   font-size: 14px;
+   line-height: 1.8;
+}
+
+.story-continue {
+   display: block;
+   margin: 12px 0 0 auto;
+}
+
+.story-choice-list {
+   display: grid;
+   gap: 8px;
+   margin-top: 12px;
+}
+
+.story-choice {
+   display: grid;
+   grid-template-columns: 28px 1fr auto;
+   gap: 9px;
+   align-items: center;
+   width: 100%;
+   border: 1px solid var(--line);
+   padding: 11px 12px;
+   background: transparent;
+   color: var(--ink-on-panel);
+   text-align: left;
+   font-size: 12px;
+   cursor: pointer;
+   border-radius: 10px;
+}
+
+.story-choice:hover {
+   border-color: var(--cyan);
+   color: var(--cyan);
+}
+
+.story-choice:disabled {
+   color: var(--muted-on-panel);
+   opacity: .5;
+   cursor: not-allowed;
+}
+
+.story-choice:disabled:hover {
+   border-color: var(--line);
+}
+
+.choice-index {
+   color: var(--muted-on-panel);
+   font: 10px 'DM Mono', monospace;
+}
+
+.choice-arrow {
+   color: var(--cyan);
+}
+
+.story-choice small {
+   color: var(--muted-on-panel);
+   font: 9px 'DM Mono', monospace;
+}
+

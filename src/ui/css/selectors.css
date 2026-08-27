@@ -1,0 +1,337 @@
+/* ============================================================
+   ui/css/selectors.css — Init 选择屏轮盘 + GlobalEnhancement 镜像面 + 动画
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* Init selection screen */
+.init-select-shell {
+   position: relative;
+   overflow: hidden;
+   display: flex;
+   flex-direction: column;
+   min-height: 100vh;
+}
+
+.init-select-shell>* {
+   position: relative;
+   z-index: 1;
+}
+
+/* 巨型倾斜值圆盘：贯穿整个页面高度的背景层 */
+.init-orb-disc {
+   position: absolute;
+   z-index: 0;
+   left: min(-42vmin, -380px);
+   top: 50%;
+   width: 175vmin;
+   height: 175vmin;
+   transform: translateY(-50%);
+   translate: calc(var(--par-x, 0) * -16px) calc(var(--par-y, 0) * -10px);
+   border-radius: 50%;
+   background: radial-gradient(circle at 72% 50%, var(--panel-light, #f2f9ff) 0%, var(--canvas, #e2f1ff) 42%, color-mix(in srgb, var(--cyan, #cbe6ff) 22%, #ffffff) 100%);
+   border: 1px solid var(--line);
+   box-shadow: inset 0 0 110px rgba(var(--primary-rgb), .14), 0 0 90px rgba(var(--primary-rgb), .12);
+   animation: orb-drift .55s ease-out;
+   transition: translate .35s ease-out;
+}
+
+.init-orb-disc::before {
+   content: '';
+   position: absolute;
+   inset: 4%;
+   border-radius: 50%;
+   border: 1px dashed rgba(var(--primary-rgb), .32);
+}
+
+.init-orb-disc::after {
+   content: '';
+   position: absolute;
+   inset: 13%;
+   border-radius: 50%;
+   border: 1px solid rgba(var(--primary-rgb), .16);
+}
+
+@keyframes orb-drift {
+   from {
+      transform: translateY(-50%) rotate(-5deg) scale(.985);
+      opacity: .55;
+   }
+}
+
+/* 左详细（坐在圆盘弧上）- 右简略（索引列表）双栏舞台 */
+.init-stage {
+   flex: 1;
+   min-height: 0;
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) 380px;
+   gap: 28px;
+   align-items: stretch;
+   padding: 10px 0 14px;
+}
+
+.init-orb-copy {
+   display: flex;
+   flex-direction: column;
+   justify-content: center;
+   gap: 13px;
+   max-width: 430px;
+   min-height: 340px;
+   height: 100%;
+   padding: 34px 0 34px clamp(4px, 2vw, 28px);
+}
+
+.orb-big {
+   color: var(--cyan);
+   font: 500 12px 'DM Mono', monospace;
+   letter-spacing: .1em;
+}
+
+.init-orb-copy h2 {
+   font-family: '方正兰亭圆简体_中';
+   font-size: clamp(26px, 3vw, 40px);
+   letter-spacing: -.05em;
+}
+
+.init-orb-copy p {
+   font-family: '方正兰亭圆简体_中';
+   color: var(--muted);
+   font-size: 16px;
+   line-height: 1.5;
+   max-width: 380px;
+}
+
+.orb-note {
+   font-size: 10px !important;
+}
+
+.orb-meta {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 14px;
+   color: var(--muted);
+   font: 500 10px 'DM Mono', monospace;
+   letter-spacing: .08em;
+}
+
+.orb-actions {
+   margin-top: 10px;
+   display: flex;
+   align-items: center;
+   gap: 14px;
+}
+
+.orb-actions .primary-button {
+   align-self: auto;
+   min-height: 44px;
+   box-shadow: 0 6px 16px rgba(var(--primary-rgb), .3);
+}
+
+.orb-lock {
+   color: var(--muted);
+   font: 500 10px 'DM Mono', monospace;
+   letter-spacing: .08em;
+}
+
+/* 右侧世界线索引头部：卡片沿盘缘环绕，JS 驱动整组绕盘心旋转（保持相对位置、聚焦正右方） */
+.init-rail {
+   display: flex;
+   flex-direction: column;
+   min-height: 0;
+}
+
+.init-rail-head {
+   display: flex;
+   justify-content: space-between;
+   align-items: baseline;
+   gap: 12px;
+   padding: 6px 2px 10px;
+   border-bottom: 1px solid var(--line);
+}
+
+.init-rail-hint {
+   color: var(--muted);
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .08em;
+}
+
+/* 全页轮盘层：挂在 shell 上（inset:0 = 整个页面），卡片由 JS 定位到盘缘坐标，
+   只受 .init-select-shell 的 overflow:hidden 裁剪，不被 .selector-viewport 截断 */
+.init-wheel {
+   position: absolute;
+   inset: 0;
+   z-index: 2;
+   pointer-events: none;
+   transition: opacity .18s ease;
+}
+
+.init-wheel.is-fading {
+   opacity: 0;
+}
+
+.init-wheel.is-inactive {
+   opacity: 0;
+   visibility: hidden;
+}
+
+.init-row {
+   position: absolute;
+   left: 0;
+   top: 0;
+   width: clamp(290px, 25vw, 400px);
+   pointer-events: auto;
+   display: grid;
+   grid-template-columns: 1fr auto;
+   gap: 12px;
+   align-items: center;
+   padding: 14px 17px;
+   background: rgba(255, 255, 255, .9);
+   border: 1px solid var(--line);
+   border-radius: 14px;
+   color: var(--ink-on-panel);
+   text-align: left;
+   cursor: pointer;
+   box-shadow: 0 10px 26px rgba(var(--primary-rgb), .10);
+   translate: calc(var(--par-x, 0) * 18px) calc(var(--par-y, 0) * 12px);
+   transition: transform .6s cubic-bezier(.24, .9, .3, 1), opacity .45s ease, translate .35s ease-out, border-color .15s ease, box-shadow .15s ease;
+   will-change: transform, opacity;
+}
+
+.init-row:hover {
+   border-color: var(--cyan);
+}
+
+.init-row:focus-visible {
+   outline: 2px solid var(--cyan);
+   outline-offset: 2px;
+}
+
+.init-row.is-active {
+   border-color: var(--cyan);
+   background: #ffffff;
+   box-shadow: 0 16px 38px rgba(var(--primary-rgb), .22);
+}
+
+.init-row.is-locked .init-row-main strong {
+   color: var(--muted-on-panel);
+}
+
+.init-row.is-locked {
+   cursor: help;
+}
+
+.init-row-main {
+   display: flex;
+   flex-direction: column;
+   gap: 3px;
+   min-width: 0;
+}
+
+.init-row-main strong {
+   font-size: 13px;
+   letter-spacing: -.01em;
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+}
+
+.init-row-main small {
+   color: var(--muted-on-panel);
+   font: 500 8px 'DM Mono', monospace;
+   letter-spacing: .08em;
+}
+
+.init-row-tilt {
+   max-width: 150px;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+   color: var(--cyan);
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .04em;
+}
+
+/* GlobalEnhancement 选择面：与 Init 共享同一圆盘与详情结构，聚焦盘左缘（镜像、方向相反） */
+.enh-orb-copy {
+   align-items: flex-end;
+   text-align: right;
+   margin-left: auto;
+   padding: 34px clamp(4px, 2vw, 28px) 34px 0;
+}
+
+/* 镜像面的条项元信息与操作行右对齐（容器本身已右对齐，此处强化换行行为） */
+.enh-orb-copy .orb-meta,
+.enh-orb-copy .orb-actions {
+   justify-content: flex-end;
+}
+
+/* 选择页：双面叠放、共享一个可左右滑动的大圆盘（Init 偏左 / Enh 偏右，镜像） */
+.selector-shell .init-orb-disc {
+   left: 50%;
+   top: 50%;
+   width: 172vmin;
+   height: 172vmin;
+   transform: translate(-50%, -50%);
+   /* 鼠标视差：跟随光标偏移（与 transform 定位叠加），不改变选中 */
+   translate: calc(var(--par-x, 0) * 12px) calc(var(--par-y, 0) * 8px);
+   background: radial-gradient(circle at 50% 50%, var(--panel-light, #f2f9ff) 0%, var(--canvas, #e2f1ff) 42%, color-mix(in srgb, var(--cyan, #cbe6ff) 22%, #ffffff) 100%);
+   animation: selector-orb-fade .5s ease-out;
+   transition: transform .42s cubic-bezier(.24, .9, .3, 1), translate .35s ease-out;
+   will-change: transform;
+}
+
+/* Init 面：圆盘偏左，聚焦落在盘右缘 */
+.selector-shell.init-mode .selector-disc {
+   transform: translate(calc(-50% - 44vmin), -50%);
+}
+
+/* GlobalEnhancement 面：圆盘偏右，聚焦落在盘左缘 */
+.selector-shell.enh-mode .selector-disc {
+   transform: translate(calc(-50% + 44vmin), -50%);
+}
+
+/* 入场仅淡入（不触碰 transform，避免轮盘测量到错位圆盘） */
+@keyframes selector-orb-fade {
+   from {
+      opacity: 0;
+   }
+}
+
+/* 面向视口：占满顶栏与页脚之间，水平裁切 */
+.selector-viewport {
+   flex: 1;
+   min-height: 0;
+   position: relative;
+   overflow: hidden;
+}
+
+/* 两面叠放于同一视口，一次只显示一面（切换动画由 JS 驱动淡出/滑盘/淡入） */
+.selector-face {
+   position: absolute;
+   inset: 0;
+   display: flex;
+   flex-direction: column;
+   opacity: 1;
+   transition: opacity .18s ease;
+}
+
+.selector-face.is-inactive {
+   opacity: 0;
+   visibility: hidden;
+   pointer-events: none;
+}
+
+.selector-face.is-fading {
+   opacity: 0;
+   pointer-events: none;
+}
+
+.selector-face .init-stage {
+   flex: 1;
+   min-height: 0;
+}
+
+/* 镜像面：左栏索引 - 右详情（与 Init 面左右对调） */
+.enh-stage {
+   grid-template-columns: 380px minmax(0, 1fr);
+}
+

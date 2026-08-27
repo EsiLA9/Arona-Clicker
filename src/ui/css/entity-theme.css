@@ -1,0 +1,246 @@
+/* ============================================================
+   ui/css/entity-theme.css — 实体主题来源选择
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* 实体主题来源选择（区域配色 / 学生配色设计） */
+.entity-design-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.entity-design-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line, #d8e2f0);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-on-panel-light, #16203a);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.entity-design-option .entity-design-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--swatch, var(--line, #d8e2f0));
+}
+
+.entity-design-option.active {
+  border-color: var(--cyan, #3b9eff);
+  background: rgba(var(--primary-rgb, 59, 126, 255), .14);
+}
+
+.entity-design-option.locked {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.entity-design-lock {
+  font-size: 10px;
+}
+
+.char-chat-empty,
+.char-panel-empty {
+   display: grid;
+   place-items: center;
+   height: 100%;
+   color: var(--muted-on-panel);
+}
+
+.char-chat-pane {
+   display: flex;
+   flex-direction: column;
+   height: 100%;
+   gap: 8px;
+}
+
+.char-chat-header {
+   display: flex;
+   align-items: baseline;
+   gap: 8px;
+   padding: 8px 12px;
+   border-bottom: 1px solid var(--line);
+}
+
+.char-chat-header small {
+   color: var(--muted-on-panel);
+}
+
+.char-stream {
+   flex: 1;
+   overflow-y: auto;
+   display: flex;
+   flex-direction: column;
+   gap: 10px;
+   padding: 12px;
+}
+
+.char-message {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+   gap: 4px;
+}
+
+.char-message.read {
+   opacity: .65;
+}
+
+.char-bubble {
+   max-width: 72%;
+   padding: 8px 12px;
+   background: var(--panel-light);
+   border: 1px solid var(--line);
+   border-radius: 12px 12px 12px 4px;
+   font-size: 13px;
+}
+
+.mark-read {
+   align-self: flex-end;
+   padding: 2px 10px;
+   border: 1px solid var(--line);
+   border-radius: 999px;
+   background: transparent;
+   color: var(--muted);
+   font-size: 10px;
+   cursor: pointer;
+}
+
+.mark-read:hover {
+   color: var(--cyan);
+   border-color: var(--cyan);
+}
+
+.char-panel {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+}
+
+.char-panel h3 {
+   margin: 0;
+}
+
+.char-proto {
+   color: var(--muted);
+   font: 9px 'DM Mono', monospace;
+   letter-spacing: .06em;
+}
+
+.char-stats {
+   display: grid;
+   grid-template-columns: auto 1fr;
+   gap: 4px 12px;
+   margin: 0;
+   font-size: 12px;
+}
+
+.char-stats dt {
+   color: var(--muted);
+}
+
+.char-stats dd {
+   margin: 0;
+   color: var(--ink);
+}
+
+.char-actions {
+   display: flex;
+   gap: 8px;
+}
+
+.char-actions .primary-button {
+   flex: 1;
+   font-size: 12px;
+}
+
+.char-panel h4 {
+   margin: 8px 0 2px;
+   color: var(--muted);
+   font: 700 10px 'DM Mono', monospace;
+   letter-spacing: .08em;
+}
+
+.color-slots {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   min-height: 24px;
+}
+
+.color-equippable {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   margin-top: 4px;
+}
+
+.color-chip {
+   display: inline-flex;
+   align-items: center;
+   gap: 4px;
+   padding: 3px 10px;
+   border: 1px solid var(--line);
+   border-left: 4px solid var(--swatch, var(--line));
+   border-radius: 999px;
+   background: transparent;
+   color: var(--ink);
+   font-size: 11px;
+   cursor: pointer;
+}
+
+.chip-x {
+   border: none;
+   background: transparent;
+   color: var(--muted);
+   cursor: pointer;
+   font-size: 12px;
+}
+
+.chip-x:hover {
+   color: var(--orange);
+}
+
+.gacha-pool {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   padding: 12px;
+   border: 1px solid var(--line);
+   border-radius: 12px;
+}
+
+.gacha-pool.closed {
+   opacity: .5;
+}
+
+.gacha-pool h4 {
+   margin: 0;
+}
+
+.gacha-pool h4 small {
+   color: var(--muted);
+   font: 9px 'DM Mono', monospace;
+}
+
+.gacha-members {
+   margin: 0;
+   padding-left: 18px;
+   font-size: 12px;
+   color: var(--ink);
+}
+
+.gacha-members small {
+   color: var(--muted);
+}
+
+.gacha-actions {
+   display: flex;
+   gap: 8px;
+}
+

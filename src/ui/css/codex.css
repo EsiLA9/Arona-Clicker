@@ -1,0 +1,383 @@
+/* ============================================================
+   ui/css/codex.css — 闲聊收集图鉴 + 图鉴分区色彩 + 调色板预览 + 演出文本覆盖层
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* ============================================================
+   闲聊收集图鉴（collection modal）
+   ============================================================ */
+.coll-summary {
+   display: flex;
+   align-items: baseline;
+   justify-content: space-between;
+   padding: 8px 2px 12px;
+   border-bottom: 1px solid var(--line);
+   margin-bottom: 12px;
+}
+
+.coll-summary strong {
+   color: var(--cyan);
+   font: 700 16px 'DM Mono', monospace;
+}
+
+.coll-tree {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+}
+
+.coll-pool {
+   border: 1px solid var(--line);
+   border-radius: 12px;
+   padding: 10px 14px;
+   background: color-mix(in srgb, var(--panel-light) 70%, transparent);
+}
+
+.coll-pool-head {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   padding-bottom: 8px;
+   border-bottom: 1px dashed var(--line);
+}
+
+.coll-pool-head h3 {
+   font-size: 13px;
+}
+
+.coll-pool-head .index {
+   margin-left: auto;
+   color: var(--muted-on-panel-light);
+   font: 10px 'DM Mono', monospace;
+}
+
+.coll-gate {
+   border: 1px solid var(--line);
+   padding: 2px 8px;
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .06em;
+   border-radius: 8px;
+   color: var(--muted-on-panel-light);
+}
+
+.coll-gate.is-open {
+   border-color: var(--lime);
+   color: var(--lime);
+}
+
+.coll-gate.is-locked {
+   border-color: var(--orange);
+   color: var(--orange);
+}
+
+.coll-pool-body {
+   display: flex;
+   flex-direction: column;
+   gap: 2px;
+   padding-top: 6px;
+}
+
+.coll-entry {
+   display: grid;
+   grid-template-columns: 18px 1fr auto auto;
+   gap: 8px;
+   align-items: center;
+   padding: 6px 6px;
+   border-radius: 8px;
+   font-size: 12px;
+   cursor: default;
+}
+
+.coll-entry:hover {
+   background: rgba(var(--primary-rgb), .08);
+}
+
+.coll-mark {
+   display: grid;
+   place-items: center;
+   width: 16px;
+   height: 16px;
+   border-radius: 50%;
+   font: 700 9px 'DM Mono', monospace;
+}
+
+.coll-entry.is-done .coll-mark {
+   background: var(--lime);
+   color: #ffffff;
+}
+
+.coll-entry.is-missed .coll-mark {
+   border: 1px solid var(--line);
+   color: var(--muted-on-panel-light);
+}
+
+.coll-name {
+   color: var(--ink-on-panel-light);
+}
+
+.coll-entry.is-missed .coll-name {
+   color: var(--muted-on-panel-light);
+}
+
+.coll-meta {
+   color: var(--muted-on-panel-light);
+   font: 9px 'DM Mono', monospace;
+}
+
+.coll-count {
+   color: var(--cyan);
+   font: 500 10px 'DM Mono', monospace;
+}
+
+.coll-count.coll-new {
+   color: var(--orange);
+}
+
+/* 图鉴分区与色彩收集（codex） */
+.codex-section {
+   margin-bottom: 22px;
+}
+
+.codex-section:last-child {
+   margin-bottom: 0;
+}
+
+.codex-section-title {
+   font-size: 13px;
+   letter-spacing: .04em;
+   color: var(--muted-on-panel-light);
+   margin: 0 0 6px;
+   text-transform: uppercase;
+   font-family: 'DM Mono', monospace;
+}
+
+.codex-section-hint {
+   margin: 0 0 10px;
+   font-size: 11px;
+   line-height: 1.6;
+   color: var(--muted-on-panel-light);
+}
+
+.codex-grid {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+   gap: 12px;
+}
+
+@media (max-width: 560px) {
+   .codex-grid {
+      grid-template-columns: 1fr;
+   }
+}
+
+.codex-color {
+   border: 1px solid var(--line);
+   border-radius: 12px;
+   padding: 12px;
+   background: color-mix(in srgb, var(--panel-light) 70%, transparent);
+}
+
+.codex-color.is-active {
+   border-color: var(--cyan);
+   box-shadow: 0 0 0 2px rgba(var(--primary-rgb), .18);
+}
+
+.codex-color.is-locked {
+   opacity: .62;
+}
+
+.codex-color-head {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+}
+
+.codex-swatch {
+   width: 22px;
+   height: 22px;
+   border-radius: 6px;
+   flex: 0 0 auto;
+   background: var(--swatch, #888);
+   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+}
+
+.codex-color-title {
+   min-width: 0;
+}
+
+.codex-color-title h3 {
+   font-size: 13px;
+   margin: 0;
+   color: var(--ink-on-panel-light);
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+}
+
+.codex-color-id {
+   color: var(--muted-on-panel-light);
+   font: 9px 'DM Mono', monospace;
+}
+
+.codex-badges {
+   margin-left: auto;
+   display: flex;
+   flex-wrap: wrap;
+   gap: 4px;
+   justify-content: flex-end;
+}
+
+.codex-badges .coll-gate {
+   white-space: nowrap;
+}
+
+.coll-gate.codex-auto {
+   border-color: var(--orange);
+   color: var(--orange);
+}
+
+.coll-gate.codex-defined {
+   border-color: var(--cyan);
+   color: var(--cyan);
+}
+
+.codex-color-desc {
+   margin: 8px 0 6px;
+   font-size: 11px;
+   line-height: 1.5;
+   color: var(--muted-on-panel-light);
+}
+
+/* 调色板预览：色块阵列替代原始 token 字段，避免暴露内部变量名/取值 */
+.codex-palette {
+   margin: 8px 0 0;
+   padding-top: 8px;
+   border-top: 1px dashed var(--line);
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+}
+
+.codex-chip {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   gap: 4px;
+   min-width: 40px;
+}
+
+.codex-chip-swatch {
+   width: 30px;
+   height: 22px;
+   border-radius: 5px;
+   background: var(--swatch, #888);
+   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .14);
+}
+
+.codex-chip-label {
+   font: 9px 'DM Mono', monospace;
+   color: var(--muted-on-panel-light);
+   letter-spacing: .04em;
+}
+
+
+/* 剧情结算奖励通知：文字 + 小圆矩形背景，聊天流居中 */
+.chat-reward {
+   align-self: center;
+   display: inline-flex;
+   align-items: center;
+   gap: 8px;
+   padding: 6px 16px;
+   background: var(--panel-light);
+   border: 1px solid var(--line);
+   border-radius: 999px;
+}
+
+.chat-reward .chat-kind {
+   color: var(--ink-on-panel-light);
+}
+
+.chat-reward p {
+   margin: 0;
+   color: var(--ink-on-panel-light);
+   font-size: 12px;
+   font-weight: 600;
+}
+
+/* 演出专用文本覆盖层（showChatText）：以聊天窗格百分比坐标定位（0,0=左下，1,1=右上） */
+.chat-text-overlay {
+   position: absolute;
+   max-width: 70%;
+   pointer-events: none;
+   z-index: 5;
+}
+
+/* 样式覆写（font/color/background/backgroundColor）由渲染层以内联 style 直接挂在展示元素上，
+   此处只保留模板默认样式与对齐位移。 */
+
+/* 对齐：对覆盖层内直接内容做位移，锚点为文本垂直中线 */
+.chat-text-overlay > * { transform: translateY(50%); }
+.chat-text-overlay.align-center > * { transform: translateX(-50%) translateY(50%); }
+.chat-text-overlay.align-right > * { transform: translateX(-100%) translateY(50%); }
+
+/* 交互式内容（羁绊卡片）需恢复点击 */
+.chat-text-overlay .kizuna-card { pointer-events: auto; }
+
+/* 覆盖层文本保留换行（旁白多行演出文本经 \n 换行显示） */
+.chat-text-overlay .chat-text-overlay-inner,
+.chat-text-overlay .chat-text-title,
+.chat-text-overlay .chat-text-badge,
+.chat-text-overlay .chat-text-note,
+.chat-text-overlay .chat-narration-text,
+.chat-text-overlay .chat-bubble p {
+   white-space: pre-line;
+}
+
+.chat-text-overlay .chat-text-overlay-inner {
+   display: inline-block;
+   padding: 6px 12px;
+   background: color-mix(in srgb, var(--panel-light) 88%, transparent);
+   border: 1px solid var(--line);
+   border-radius: 12px;
+   color: var(--ink-on-panel-light);
+   font-size: 12px;
+   font-weight: 600;
+   line-height: 1.5;
+   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* 大标题：居中大字，半透明衬底 */
+.chat-text-title {
+   padding: 10px 20px;
+   background: color-mix(in srgb, var(--panel-light) 82%, transparent);
+   border-radius: 14px;
+   color: var(--ink-on-panel-light);
+   font-size: 20px;
+   font-weight: 800;
+   letter-spacing: .08em;
+   text-align: center;
+   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+}
+
+/* 标签：紧凑小圆角条 */
+.chat-text-badge {
+   display: inline-block;
+   padding: 3px 10px;
+   background: color-mix(in srgb, var(--panel-light) 90%, transparent);
+   border: 1px solid var(--line);
+   border-radius: 999px;
+   color: var(--ink-on-panel-light);
+   font-size: 11px;
+   font-weight: 700;
+   letter-spacing: .06em;
+}
+
+/* 弱化提示：无背景小字 */
+.chat-text-note {
+   color: var(--muted-on-panel-light, var(--muted));
+   font-size: 11px;
+   font-style: italic;
+   line-height: 1.5;
+}
+
+

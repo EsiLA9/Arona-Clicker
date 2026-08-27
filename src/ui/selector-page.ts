@@ -35,7 +35,7 @@ interface WheelApi {
   relayout(): void;
 }
 
-/** 与 styles.css 中 .selector-face 过渡 / 圆盘 transform 过渡保持一致。 */
+/** 与 css/selectors.css 中 .selector-face 过渡 / 圆盘 transform 过渡保持一致。 */
 const FADE_MS = 180;
 const DISC_MS = 420;
 

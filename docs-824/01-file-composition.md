@@ -186,15 +186,20 @@
 
 | 路径 | 职责 |
 | --- | --- |
-| `main.ts` | UI 启动：建引擎实例、挂循环、渲染入口 |
+| `main.ts` | UI 启动：建引擎实例、挂循环、渲染入口（样式经 `css/` 多文件导入） |
 | `components/` | UI 组件（生产/设施、通讯录、招募、图鉴、聊天、主题色面板等） |
-| `components/tooltip.ts` | 提示面板门面：渲染组合（render*Detail / getTooltipContent + re-export 兼容） |
-| `components/tooltip-reveal.ts` | 揭示阶段计算：resolveReveal / get*Reveal（自 tooltip.ts 拆出） |
+| `components/tooltip.ts` | 提示面板门面：`getTooltipContent` 统一入口路由 + re-export 兼容层（渲染按实体类型拆至 tooltip-detail-*） |
+| `components/tooltip-reveal.ts` | 揭示阶段计算：resolveReveal / get*Reveal + 共享基础（renderRevealTriggers / OBFUSCATED，自 tooltip.ts 拆出） |
 | `components/tooltip-enhancement.ts` | 强化诊断：describeCondition / getSpotYieldBreakdown（自 tooltip.ts 拆出） |
-| `controller.ts` | UI 控制器：事件绑定与编排（委托 core/modals/panels 三个模块） |
+| `components/tooltip-detail-*.ts` | 各实体类型提示渲染（area / spot / enh / init / item / resource / codex，自 tooltip.ts 拆出） |
+| `controller.ts` | UI 控制器门面：构造 / mount / render 编排，事件绑定与订阅委托 controller-* 各模块 |
 | `controller-core.ts` | 刷新策略/生命周期：reveal 指纹 / 轻量刷新 / destroy / 面板重置 / 聊天历史持久化（自 controller.ts 拆出） |
 | `controller-modals.ts` | 弹层弹窗管理：Gacha / 强化管理（自 controller.ts 拆出） |
 | `controller-panels.ts` | 面板桥接：Init 选择 / 详情 CTA / 读档按钮（自 controller.ts 拆出） |
+| `controller-events.ts` | EventBus 订阅：揭示刷新 / 奖励排队 / 池 gate / 聊天流清理与演出文本（自 controller.ts 拆出） |
+| `controller-theme.ts` | 主题运行时注入：场景栈合并 + CSS 变量落 :root（自 controller.ts 拆出；theme-tree.ts 是纯色彩树） |
+| `controller-save.ts` | 存档 / 读档：handleSave / handleLoad / bindSaveActions（自 controller.ts 拆出） |
+| `controller-actions-*.ts` | #app 内各域事件绑定：topbar / contacts / theme / story / inventory（自 controller.ts 的 bindActions 拆出） |
 | `context.ts` | UI 上下文（主题 token、当前 Init/Area/Spot） |
 | `theme-tree.ts` | 把引擎运行时主题 token 落成 CSS 变量 |
 | `chat-stream.ts` | 聊天流打字机/滚动 |
@@ -202,6 +207,7 @@
 | `components/selector-page.ts` | 选择页整页渲染（Init ⇄ GlobalEnhancement 左右滑动、共享一圆） |
 | `selector-page.ts` | 选择页交互：双轮盘装配、翻面/滑动、详情局部刷新（自 init-select-page.ts 演进） |
 | `import-export.ts` | 存档导入/导出 |
+| `css/` | 样式按主题分区（自 styles.css 拆出，16 个文件，区块顺序与原文件一致）：variables / layout / story-nav / chat / chat-input / cards / toast / selectors / popover / modal / codex / contacts / theme-panel / entity-theme / conversation / equipment |
 
 ## 脚本与工具
 

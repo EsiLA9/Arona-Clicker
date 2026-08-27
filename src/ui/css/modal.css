@@ -1,0 +1,233 @@
+/* ============================================================
+   ui/css/modal.css — 弹窗母版（ModalManager）
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* --- 弹窗母版（ModalManager） --- */
+.app-modal {
+   position: fixed;
+   inset: 0;
+   z-index: 1000;
+}
+
+.app-modal:not(.is-open) {
+   display: none;
+}
+
+.modal-overlay {
+   position: fixed;
+   inset: 0;
+   display: grid;
+   place-items: center;
+   padding: 24px;
+   background: rgba(15, 30, 48, .45);
+   backdrop-filter: blur(2px);
+}
+
+.modal-panel {
+   display: flex;
+   flex-direction: column;
+   width: min(560px, 100%);
+   max-height: 82vh;
+   overflow: hidden;
+   background: var(--panel);
+   color: var(--ink-on-panel);
+   border: 1px solid var(--line);
+   border-radius: 16px;
+   box-shadow: 0 24px 60px rgba(15, 30, 48, .35);
+}
+
+.modal-head {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 14px;
+   padding: 15px 20px;
+   border-bottom: 1px solid var(--line);
+}
+
+.modal-head .eyebrow {
+   font-size: 11px;
+}
+
+.modal-body {
+   padding: 20px;
+   overflow-y: auto;
+   font-size: 12px;
+   line-height: 1.8;
+   color: var(--ink-on-panel);
+}
+
+.modal-foot {
+   display: flex;
+   justify-content: flex-end;
+   gap: 8px;
+   padding: 14px 20px;
+   border-top: 1px solid var(--line);
+}
+
+.manager-entry {
+   width: 100%;
+   margin-top: 10px;
+   padding: 8px 10px;
+   border: 1px dashed var(--line);
+   background: transparent;
+   color: var(--muted-on-panel);
+   font: 10px 'DM Mono', monospace;
+   cursor: pointer;
+   border-radius: 8px;
+}
+
+.manager-entry:hover {
+   border-color: var(--cyan);
+   color: var(--cyan);
+}
+
+.mini-note {
+   display: block;
+   margin-top: 6px;
+   color: var(--muted-on-panel-light);
+   font-size: 10px;
+   line-height: 1.5;
+}
+
+@media (max-width: 620px) {
+   .modal-overlay {
+      padding: 12px;
+   }
+
+   .modal-panel {
+      max-height: 90vh;
+   }
+}
+
+@media (max-width: 620px) {
+   .info-popover {
+      width: min(280px, calc(100vw - 24px));
+   }
+}
+
+@media (max-width: 620px) {
+   .init-stage {
+      grid-template-columns: 1fr;
+   }
+
+   .init-orb-copy {
+      min-height: 260px;
+      padding: 24px 4px 24px 0;
+   }
+
+   .init-orb-disc {
+      left: -80vmin;
+   }
+
+   .init-wheel {
+      min-height: 300px;
+   }
+}
+
+@media (max-width: 950px) {
+   .workspace {
+      grid-template-columns: 1fr 1fr;
+   }
+
+   .center-panel {
+      grid-column: 1 / -1;
+      order: -1;
+   }
+
+   .left-panel,
+   .right-panel {
+      min-width: 0;
+   }
+
+   .init-stage {
+      grid-template-columns: 1fr;
+   }
+}
+
+@media (max-width: 620px) {
+   .console-shell {
+      padding: 18px 12px;
+      height: auto;
+   }
+
+   .topbar {
+      align-items: flex-start;
+      gap: 16px;
+   }
+
+   .topbar-right {
+      align-items: flex-end;
+      flex-direction: column;
+      gap: 8px;
+   }
+
+   .status-line {
+      display: block;
+      text-align: right;
+      line-height: 1.8;
+   }
+
+   .resource-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+   }
+
+   .resource-bar .res-item {
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+      padding: 4px 6px;
+   }
+
+   .resource-bar .res-item:last-of-type {
+      border-bottom: 0;
+   }
+
+   .resource-bar .primary-button {
+      margin-left: 0;
+   }
+
+   .workspace {
+      display: grid;
+      grid-template-columns: 1fr;
+   }
+
+   .left-panel,
+   .center-panel,
+   .right-panel {
+      grid-column: 1;
+      min-height: auto;
+      max-height: none;
+   }
+
+   .center-panel {
+      order: -1;
+   }
+
+   .story-actions {
+      justify-content: flex-start;
+      margin-top: 14px;
+   }
+
+   .story-choice {
+      grid-template-columns: 24px 1fr auto;
+   }
+
+   footer {
+      display: block;
+      line-height: 2;
+   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+   *,
+   *::before,
+   *::after {
+      scroll-behavior: auto !important;
+      transition: none !important;
+   }
+}
+

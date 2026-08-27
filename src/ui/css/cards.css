@@ -1,0 +1,367 @@
+/* ============================================================
+   ui/css/cards.css — Mini cards / 卡片 token / 旧按钮兼容 / 按钮容器
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* Mini cards (right panel) */
+.mini-panel-head {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   padding: 2px 2px 6px;
+}
+
+.mini-card-grid {
+   display: grid;
+   gap: 10px;
+   align-content: start;
+}
+
+/* 卡片视觉 token：默认 = 全局主题；强调卡由 JS 内联注入整组 --card-* 覆盖。
+   所有子元素规则只消费 token，不直接引用主题变量 —— 强调卡与全局卡共享同一套规则，
+   仅 token 值不同，杜绝"共享 CSS 被局部改动"的混合态。 */
+.mini-card {
+   --card-bg: var(--panel-light);
+   --card-border: var(--line);
+   --card-border-hover: var(--cyan);
+   --card-text: var(--ink-on-panel-light);
+   --card-text-strong: var(--ink-on-panel-light);
+   --card-text-dim: color-mix(in srgb, var(--ink-on-panel-light) 70%, transparent);
+   --card-accent: color-mix(in srgb, var(--ink-on-panel-light) 82%, var(--cyan));
+   --card-shadow: none;
+   --card-btn-border: var(--line);
+   --card-btn-text: var(--ink-on-panel-light);
+   --card-btn-border-hover: var(--cyan);
+   --card-btn-text-hover: color-mix(in srgb, var(--ink-on-panel-light) 82%, var(--cyan));
+
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   padding: 12px 13px;
+   background: var(--card-bg);
+   color: var(--card-text);
+   border: 1px solid var(--card-border);
+   border-radius: 12px;
+}
+
+.mini-card:hover {
+   border-color: var(--card-border-hover);
+   box-shadow: var(--card-shadow);
+}
+
+.mini-card-title-row {
+   display: flex;
+   justify-content: space-between;
+   align-items: baseline;
+   gap: 8px;
+}
+
+.mini-card-title {
+   color: var(--card-text-strong);
+   font-size: 13px;
+   letter-spacing: -.01em;
+   min-width: 0;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.mini-status {
+   color: var(--card-accent);
+   font-size: 0.7em;
+   font-family: 'DM Mono','方正兰亭圆简体';
+   letter-spacing: .04em;
+   white-space: nowrap;
+   flex-shrink: 0;
+}
+
+.mini-status.owned-tag {
+   color: var(--lime);
+}
+
+.mini-card p {
+   color: var(--card-text-dim);
+   font-size: 10px;
+   line-height: 1.5;
+}
+
+.mini-card-foot {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 8px;
+   margin-top: 2px;
+}
+
+.mini-yield {
+   color: var(--card-accent);
+   font: 500 10px 'DM Mono', monospace;
+}
+
+/* 旧按钮规则保留兼容（新卡片统一走 .mini-action） */
+.mini-card-foot button {
+   border: 1px solid var(--line);
+   padding: 5px 9px;
+   background: transparent;
+   color: var(--ink-on-panel-light);
+   font-size: 10px;
+   cursor: pointer;
+   border-radius: 8px;
+   white-space: nowrap;
+}
+
+.mini-card-foot button:hover {
+   border-color: var(--cyan);
+   color: color-mix(in srgb, var(--ink-on-panel-light) 82%, var(--cyan));
+}
+
+.mini-card-foot button:disabled {
+   opacity: .4;
+   cursor: not-allowed;
+}
+
+.mini-card.owned {
+   opacity: .8;
+}
+
+/* 卡片按钮统一容器：flex 右对齐，多个按钮自动换行 */
+.mini-actions {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 4px;
+   justify-content: flex-end;
+}
+
+.mini-action {
+   border: 1px solid var(--card-btn-border);
+   padding: 5px 9px;
+   background: transparent;
+   color: var(--card-btn-text);
+   font-size: 10px;
+   cursor: pointer;
+   border-radius: 8px;
+   white-space: nowrap;
+}
+
+.mini-action:hover {
+   border-color: var(--card-btn-border-hover);
+   color: var(--card-btn-text-hover);
+}
+
+.mini-action:disabled {
+   opacity: .4;
+   cursor: not-allowed;
+}
+
+.side-panel {
+   padding: 18px;
+}
+
+.inventory-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+}
+
+.inventory-list li {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 8px;
+   padding: 11px 0;
+   border-bottom: 1px solid var(--line);
+   font-size: 12px;
+}
+
+.inventory-list li b {
+   color: var(--cyan);
+   font: 500 12px 'DM Mono', monospace;
+}
+
+.inventory-list .empty {
+   color: var(--muted-on-panel);
+}
+
+.inventory-actions {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+}
+
+.use-item-button {
+   border: 1px solid var(--line);
+   padding: 4px 7px;
+   background: transparent;
+   color: var(--cyan);
+   font-size: 10px;
+   cursor: pointer;
+   border-radius: 7px;
+}
+
+.use-item-button:hover {
+   border-color: var(--cyan);
+}
+
+.trace {
+   gap: 10px;
+   padding: 10px 0;
+}
+
+.trace-line {
+   width: 8px;
+   height: 8px;
+   background: var(--lime);
+   border-radius: 50%;
+}
+
+.trace-line.cyan {
+   background: var(--cyan);
+}
+
+.trace p {
+   flex: 1;
+   min-width: 0;
+}
+
+.trace-value {
+   color: var(--lime);
+   font: 10px 'DM Mono', monospace;
+}
+
+.trace-empty {
+   padding: 10px 0;
+   color: var(--muted);
+   font-size: 11px;
+}
+
+.muted-text {
+   color: var(--muted);
+}
+
+.log-panel {
+   color: var(--muted-on-panel);
+}
+
+.log-panel .panel-heading {
+   align-items: flex-start;
+}
+
+.log-actions {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+}
+
+.log-count {
+   display: block;
+   margin-top: 6px;
+   color: var(--muted-on-panel);
+   font: 9px 'DM Mono', monospace;
+   font-weight: 400;
+}
+
+.icon-button {
+   display: grid;
+   place-items: center;
+   width: 25px;
+   height: 25px;
+   border: 1px solid var(--line);
+   background: transparent;
+   color: var(--muted-on-panel);
+   font-size: 19px;
+   line-height: 1;
+   cursor: pointer;
+   border-radius: 8px;
+}
+
+.icon-button:hover {
+   border-color: var(--cyan);
+   color: var(--cyan);
+}
+
+.log-list {
+   display: grid;
+   gap: 0;
+   max-height: 330px;
+   margin: 0;
+   padding: 0;
+   overflow-y: auto;
+   list-style: none;
+}
+
+.log-entry {
+   position: relative;
+   padding: 10px 0 10px 12px;
+   border-bottom: 1px solid var(--line);
+   font-size: 11px;
+   line-height: 1.45;
+}
+
+.log-entry::before {
+   content: '';
+   position: absolute;
+   top: 15px;
+   left: 0;
+   width: 4px;
+   height: 4px;
+   border-radius: 50%;
+   background: var(--cyan);
+}
+
+.log-success::before {
+   background: var(--lime);
+}
+
+.log-warning::before {
+   background: var(--orange);
+}
+
+.log-error::before {
+   background: #ff7e86;
+}
+
+.log-meta {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+   margin-bottom: 4px;
+   color: var(--cyan);
+   font: 9px 'DM Mono', monospace;
+}
+
+.log-meta b {
+   color: var(--muted-on-panel);
+   font-weight: 400;
+}
+
+.log-meta i {
+   margin-left: auto;
+   color: var(--muted-on-panel);
+   font-style: normal;
+}
+
+.log-entry p {
+   color: var(--ink-on-panel);
+}
+
+.log-entry small {
+   display: block;
+   margin-top: 4px;
+   color: var(--muted-on-panel);
+   font-size: 10px;
+}
+
+.empty-log {
+   padding: 15px 0;
+   color: var(--muted-on-panel);
+   font-size: 11px;
+}
+
+footer {
+   justify-content: space-between;
+   margin-top: 20px;
+   color: var(--muted);
+   font: 9px 'DM Mono', monospace;
+   letter-spacing: .08em;
+}
+

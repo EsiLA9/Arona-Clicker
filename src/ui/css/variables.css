@@ -1,0 +1,57 @@
+/* ============================================================
+   ui/css/variables.css — 远程字体 + :root 兜底主题变量
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+/* 兜底常量：无 JS / 未注入主题时的默认界面色。
+   运行时所有 --<name> 由 src/ui/theme-tree.ts 的 buildThemeVars 注入（含 --ac-* 强制层）。
+   切勿在此写 var(--ac-*, …) —— 那层逻辑已收归主题树。 */
+:root {
+   color-scheme: light;
+   --ink: #1e2a38;
+   --ink-strong: color-mix(in srgb, #1e2a38, #000 18%);
+   --muted: #64748b;
+   --line: rgba(61, 124, 200, .20);
+   --panel: #ffffff;
+   --panel-light: #eef5ff;
+   --canvas: #e9f3ff;
+   --cyan: #3b9eff;
+   --lime: #2ec494;
+   --orange: #ffa94d;
+   --primary-rgb: 59, 158, 255;
+   --player-bubble: #4a8aca;
+   --npc-bubble: #4c5b70;
+   /* 背景感知文本色兜底（运行时由 theme-tree 按背景明暗覆写为 #fff / 黑） */
+   --ink-on-panel: hsl(220 18% 12%);
+   --ink-on-panel-light: hsl(220 18% 12%);
+   --ink-on-canvas: hsl(220 18% 12%);
+   --ink-on-cyan: #ffffff;
+   --ink-on-player-bubble: #ffffff;
+   --ink-on-npc-bubble: #ffffff;
+   /* 弱化字色兜底：与对应背景的 ink-on 同源（58% 灰），默认浅底 → 深灰 */
+   --muted-on-panel: color-mix(in srgb, hsl(220 18% 12%) 58%, transparent);
+   --muted-on-panel-light: color-mix(in srgb, hsl(220 18% 12%) 58%, transparent);
+   --muted-on-canvas: color-mix(in srgb, hsl(220 18% 12%) 58%, transparent);
+   /* area-hero 渐变兜底（运行时由 theme-tree.heroGradient 注入主题光晕） */
+   --hero-gradient: linear-gradient(125deg, #e9f3ff 0%, #eef5ff 55%, #3b9eff 100%);
+}
+
+* {
+   box-sizing: border-box;
+}
+
+body {
+   margin: 0;
+   min-width: 320px;
+   background: linear-gradient(180deg, var(--canvas, #dcebff) 0%, var(--panel-light, #eef6ff) 45%, #f8fbff 100%);
+   background-attachment: fixed;
+   color: var(--ink-on-canvas);
+   font-family: Manrope, sans-serif;
+}
+
+button {
+   font: inherit;
+}
+

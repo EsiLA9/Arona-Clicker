@@ -7,6 +7,7 @@
 import { Condition, ConditionGroup, SpotDef, EnhancementDef, AreaDef, InitDef, StoryEntryDef, RevealStage, RevealTrigger, RevealTarget } from '../../engine/types';
 import { existenceMet, unlockCondition } from '../../engine/visibility/reveal';
 import { UIContext } from '../context';
+import { describeCondition } from './tooltip-enhancement';
 
 /**
  * 信息可知系统（Info Reveal）——可知性/可达性层级的第二层：揭示。
@@ -135,4 +136,47 @@ export function getStoryReveal(ctx: UIContext, entry: StoryEntryDef): RevealResu
     isAccessible: info =>
       !completed && conditionMet(entry.triggerCondition, ctx.game) && info.nameKnown,
   });
+}
+
+/** 占位符，用于遮挡未揭示的数值。 */
+export const OBFUSCATED = '???';
+
+/** revealTriggers 各揭示目标的中文标签。 */
+export const REVEAL_TARGET_LABEL: Record<RevealTarget, string> = {
+  existence: '实体出现',
+  name: '名称',
+  condition: '解锁条件',
+  utility: '效用',
+  unlock: '自动解锁',
+};
+
+/**
+ * 揭示 Trigger 表：列出实体自身全部 revealTriggers（目标 + 条件）。
+ * - 目标标签常显（玩家可见"需要揭示哪些信息块"）；
+ * - 条件文本仅在该 Trigger 条件已满足（或实体已 owned，allKnown）时展示，
+ *   否则以 ??? 遮挡，尊重信息揭示阶梯；
+ * - 带 已满足/未满足 标记。
+ */
+export function renderRevealTriggers(
+  ctx: UIContext,
+  triggers: RevealTrigger[] | undefined,
+  allKnown = false,
+): string {
+  if (!triggers || triggers.length === 0) return '';
+  const rows = triggers.map(t => {
+    const label = REVEAL_TARGET_LABEL[t.reveal] ?? t.reveal;
+    const met = allKnown || conditionMet(t.condition, ctx.game);
+    const cond = t.condition ? describeCondition(t.condition, ctx.nameOf) : '无条件';
+    const text = met ? ctx.escapeHtml(cond) : OBFUSCATED;
+    const mark = met ? '已满足' : '未满足';
+    return `
+      <div class="info-row">
+        <span>${label}</span>
+        <span class="${met ? 'info-accent' : 'info-dim'}">${mark} · ${text}</span>
+      </div>`;
+  });
+  return `
+    <div class="info-divider"></div>
+    <div class="info-sub">揭示 Trigger</div>
+    ${rows.join('')}`;
 }

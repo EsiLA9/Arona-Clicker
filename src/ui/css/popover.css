@@ -1,0 +1,204 @@
+/* ============================================================
+   ui/css/popover.css — 悬浮提示层（hover / floating-tooltip）
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* Unified hover info popover */
+.hover-wrap {
+   position: relative;
+   cursor: help;
+}
+
+.hover-wrap:hover,
+.hover-wrap:focus-within {
+   z-index: 50;
+}
+
+.info-popover {
+   opacity: 0;
+   visibility: hidden;
+   pointer-events: none;
+   position: absolute;
+   z-index: 51;
+   width: 280px;
+   padding: 16px 18px;
+   background: #ffffff;
+   color: var(--ink-on-panel);
+   border: 1px solid rgba(var(--primary-rgb), .35);
+   box-shadow: 0 18px 44px rgba(var(--primary-rgb), .25);
+   text-align: left;
+   transition: opacity .1s ease;
+}
+
+.info-popover.is-open {
+   opacity: 1;
+   visibility: visible;
+   pointer-events: auto;
+}
+
+/* body 级浮层：fixed 定位与视口坐标一致，独立于主 DOM 刷新 */
+.floating-tooltip {
+   position: fixed;
+   z-index: 1100;
+   opacity: 0;
+   visibility: hidden;
+   pointer-events: none;
+   user-select: text;
+}
+
+.floating-tooltip.is-open {
+   opacity: 1;
+   visibility: visible;
+   pointer-events: none;
+}
+
+.floating-tooltip .info-popover {
+   position: relative;
+   top: 0;
+   left: 0;
+   opacity: 1;
+   visibility: visible;
+   pointer-events: none;
+}
+
+.info-head {
+   display: flex;
+   align-items: baseline;
+   gap: 10px;
+   margin-bottom: 8px;
+}
+
+.info-kind {
+   color: var(--cyan);
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .1em;
+}
+
+.info-head strong {
+   font-size: 14px;
+   letter-spacing: -.02em;
+}
+
+.info-desc {
+   color: var(--muted-on-panel);
+   font-size: 11px;
+   line-height: 1.65;
+}
+
+.info-divider {
+   height: 1px;
+   margin: 12px 0;
+   background: var(--line);
+}
+
+.info-row {
+   display: flex;
+   justify-content: space-between;
+   gap: 14px;
+   padding: 5px 0;
+   color: var(--muted-on-panel);
+   font-size: 11px;
+   line-height: 1.5;
+}
+
+.info-row>span:first-child {
+   flex: 0 0 auto;
+}
+
+.info-row>span:last-child {
+   text-align: right;
+   color: var(--ink-on-panel);
+}
+
+.info-accent {
+   color: var(--cyan) !important;
+}
+
+.info-dim {
+   color: var(--muted-on-panel) !important;
+}
+
+.info-rarity {
+   font: 500 8px 'DM Mono', monospace;
+   padding: 1px 7px;
+   border-radius: 10px;
+   margin-left: 4px;
+}
+
+.info-rarity-common {
+   background: #2a2e3a;
+   color: #8892a4;
+}
+
+.info-rarity-rare {
+   background: #1a2540;
+   color: #5b9cf0;
+}
+
+.info-rarity-epic {
+   background: #251a3a;
+   color: #a878f0;
+}
+
+.info-rarity-legendary {
+   background: #382a10;
+   color: #f0b060;
+}
+
+.info-tags {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+}
+
+.info-tag {
+   padding: 2px 8px;
+   border: 1px solid var(--line);
+   background: var(--panel-light);
+   color: var(--muted-on-panel-light);
+   font: 9px 'DM Mono', monospace;
+   letter-spacing: .06em;
+   border-radius: 6px;
+}
+
+.info-current {
+   margin-left: auto;
+   color: var(--lime);
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .08em;
+}
+
+.info-sub {
+   margin: 8px 0 4px;
+   color: var(--muted-on-panel);
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .08em;
+   text-transform: uppercase;
+}
+
+.info-spot-list {
+   display: grid;
+   gap: 2px;
+}
+
+.info-spot {
+   display: flex;
+   justify-content: space-between;
+   gap: 12px;
+   padding: 3px 0;
+   font-size: 11px;
+   color: var(--ink-on-panel);
+}
+
+.info-spot-name {
+   min-width: 0;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.info-spot>span:last-child {
+   flex: 0 0 auto;
+   font-size: 10px;
+}
+

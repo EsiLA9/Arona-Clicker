@@ -1,0 +1,166 @@
+/* ============================================================
+   ui/css/theme-panel.css — 主题设置浮窗 + 层级分组
+   （自 styles.css 拆出，区块顺序与原文件一致）
+   ============================================================ */
+
+/* 主题设置：可拖动浮窗（不再内联展开挤占顶栏） */
+.theme-float {
+  display: none;
+  position: fixed;
+  top: 60px;
+  right: 16px;
+  z-index: 60;
+  min-width: 240px;
+  max-width: 320px;
+  background: var(--panel-light, #ffffff);
+  color: var(--ink-on-panel-light, #16203a);
+  border: 1px solid var(--line, #d8e2f0);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(15, 30, 60, .22);
+  overflow: hidden;
+}
+
+.theme-float.open {
+  display: flex;
+  flex-direction: column;
+}
+
+.theme-float-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  cursor: grab;
+  background: rgba(var(--primary-rgb, 59, 126, 255), .10);
+  border-bottom: 1px solid var(--line, #d8e2f0);
+  user-select: none;
+  touch-action: none;
+}
+
+.theme-float-head:active {
+  cursor: grabbing;
+}
+
+.theme-float-head span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.theme-float-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.theme-float-close:hover {
+  background: rgba(0, 0, 0, .08);
+}
+
+.theme-float-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.theme-float-body .theme-swatch {
+  color: var(--ink-on-panel-light, #16203a);
+}
+
+/* 主题浮窗分组段（层级优先级等） */
+.theme-float-section {
+  flex: 0 0 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line, #d8e2f0);
+}
+
+.theme-float-section-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-on-panel-light, #16203a);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.theme-float-section-title small {
+  font-weight: 400;
+  color: var(--muted-on-panel-light, #6b7a99);
+}
+
+.layer-order-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layer-order-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .04);
+}
+
+.layer-order-rank {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cyan, #3b9eff);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.layer-order-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ink-on-panel-light, #16203a);
+}
+
+.layer-order-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.layer-order-move {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line, #d8e2f0);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-on-panel-light, #16203a);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.layer-order-move:hover:not(:disabled) {
+  background: rgba(var(--primary-rgb, 59, 126, 255), .12);
+}
+
+.layer-order-move:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.theme-float-note {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--muted-on-panel-light, #6b7a99);
+}
+
