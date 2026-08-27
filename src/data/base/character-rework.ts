@@ -52,6 +52,17 @@ export const baseCultivateCurves: CultivateCurveDef[] = [
  * spotTagBonus 沿用原型旧表（字段冻结预留，不参与计算）。
  */
 function defaultVariants(): CharacterVariantDef[] {
+  // 除星野外，每位角色的默认头像色组（星野默认差分使用 pics 图片头像）
+  const defaultColorGroups: Record<string, string> = {
+    [Character.Arona]: 'base:group:arona-solid',
+    [Character.Shiroko]: 'base:group:shiroko-duotone',
+    [Character.Serika]: 'base:group:serika-gradient',
+    [Character.Yuuka]: 'base:group:yuuka-radial',
+    [Character.Mika]: 'base:group:mika-pie',
+    [Character.Iori]: 'base:group:iori-gradient',
+    [Character.Miyako]: 'base:group:miyako-duotone',
+    [Character.Saori]: 'base:group:saori-radial',
+  };
   return allCharacters
     .filter(c => c.id !== Character.None)
     .map(c => {
@@ -69,8 +80,13 @@ function defaultVariants(): CharacterVariantDef[] {
         .default()
         .curve('base:curve:standard');
       if (theme) b.theme(theme.colorId, theme.tokens);
-      // 星野默认差分头像指向 pics 表
-      if (c.id === Character.Hoshino) b.avatar('base:avatar(pic):hoshino');
+      // 星野默认差分头像指向 pics 表；其余角色用 ColorGroup 抽象头像
+      if (c.id === Character.Hoshino) {
+        b.avatar('base:avatar(pic):hoshino');
+      } else {
+        const cg = defaultColorGroups[c.id];
+        if (cg) b.colorGroup(cg);
+      }
       return b.build();
     });
 }
@@ -84,6 +100,7 @@ const specialVariants: CharacterVariantDef[] = [
     .rarity(CharacterRarity.SuperRare)
     .desc('换上泳装的星野学长。夏日限定，慵懒依旧。')
     .curve('base:curve:standard')
+    .colorGroup('base:group:hoshino-gradient')
     .build(),
 ];
 
@@ -201,6 +218,56 @@ export const baseColorGroups: ColorGroupDef[] = [
     .type('radial')
     .slot('primary', 'base:color:coral')
     .slot('edge', 'base:color:rose')
+    .build(),
+  // 角色默认头像色组：除星野（使用 pics 图片头像）外，每人一套专属构成
+  colorGroup('base:group:arona-solid')
+    .name('阿罗娜·单色').desc('阿罗娜的标准单色圆徽。')
+    .type('solid')
+    .slot('primary', 'base:color:schale-blue')
+    .build(),
+  colorGroup('base:group:shiroko-duotone')
+    .name('白子·双色').desc('白子的玫瑰主色叠墨蓝阴影。')
+    .type('duotone')
+    .slot('primary', 'base:color:rose')
+    .slot('shadow', 'base:color:ink')
+    .build(),
+  colorGroup('base:group:serika-gradient')
+    .name('芹香·渐变').desc('芹香的翡翠色滑向青柠色。')
+    .type('gradient')
+    .slot('primary', 'base:color:emerald')
+    .slot('secondary', 'base:color:lime')
+    .build(),
+  colorGroup('base:group:yuuka-radial')
+    .name('优香·径向').desc('优香的紫罗兰色中心向晴空色散射。')
+    .type('radial')
+    .slot('primary', 'base:color:violet')
+    .slot('edge', 'base:color:sky')
+    .build(),
+  colorGroup('base:group:mika-pie')
+    .name('未花·饼图').desc('未花的多彩扇形分区。')
+    .type('pie')
+    .slot('primary', 'base:color:amber')
+    .slot('secondary', 'base:color:rose')
+    .slot('accent', 'base:color:violet')
+    .slot('highlight', 'base:color:emerald')
+    .build(),
+  colorGroup('base:group:iori-gradient')
+    .name('伊织·渐变').desc('伊织的绯红向墨蓝渐沉。')
+    .type('gradient')
+    .slot('primary', 'base:color:crimson')
+    .slot('secondary', 'base:color:ink')
+    .build(),
+  colorGroup('base:group:miyako-duotone')
+    .name('都子·双色').desc('都子的青碧主色叠墨蓝阴影。')
+    .type('duotone')
+    .slot('primary', 'base:color:teal')
+    .slot('shadow', 'base:color:ink')
+    .build(),
+  colorGroup('base:group:saori-radial')
+    .name('纱织·径向').desc('纱织的靛蓝中心向晴空色散射。')
+    .type('radial')
+    .slot('primary', 'base:color:indigo')
+    .slot('edge', 'base:color:sky')
     .build(),
 ];
 

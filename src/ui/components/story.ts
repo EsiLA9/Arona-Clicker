@@ -1,5 +1,6 @@
 import { StoryView } from '../../engine/types';
 import { UIContext } from '../context';
+import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
 
 export const storyErrorText: Record<string, string> = {
   AlreadyActive: '已有剧情流程进行中',
@@ -66,16 +67,38 @@ export interface ChatTextEntry {
   timestamp: number;
 }
 
-/** 圆形头像：有图渲染 <img>（加载失败回退首字母占位），无图渲染首字母圆形占位。 */
+/**
+ * 圆形头像：优先级 = talklet 图片 > 说话人 ColorGroup 抽象头像 > 首字母圆形占位。
+ * 图片加载失败回退首字母占位。
+ */
 function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: string | undefined): string {
   const initial = ctx.escapeHtml((speaker?.trim() || '?').charAt(0).toUpperCase());
   const fallback = `<span class="chat-avatar-fallback">${initial}</span>`;
   // avatar 可为直连 URL 或 `mod:type(pic):id` 三段式图片索引；解析失败回退首字母占位
   const src = avatar ? ctx.game.getPicUrl(avatar) : undefined;
-  if (!src) {
-    return `<span class="chat-avatar">${fallback}</span>`;
+  if (src) {
+    return `<span class="chat-avatar"><img src="${ctx.escapeHtml(src)}" alt="${initial}" loading="lazy" onerror="this.remove()">${fallback}</span>`;
   }
-  return `<span class="chat-avatar"><img src="${ctx.escapeHtml(src)}" alt="${initial}" loading="lazy" onerror="this.remove()">${fallback}</span>`;
+  // 说话人匹配角色差分（displayName / name / id）→ 装备的 ColorGroup > 差分声明的 colorGroupId
+  const speakerId = speaker?.trim();
+  if (speakerId) {
+    const variant = [...ctx.game.registry.characterVariants.values()].find(
+      v => v.displayName === speakerId || v.name === speakerId || v.id === speakerId,
+    );
+    if (variant) {
+      const equip = ctx.game.rosterSystem.getOwned(ctx.game.state, variant.id)?.equippedEquipment;
+      const group = equip
+        ? ctx.game.colorEquipmentSystem.groupOf(equip)
+        : (variant.colorGroupId ? ctx.game.registry.colorGroups.get(variant.colorGroupId) : undefined);
+      const colors = equip
+        ? ctx.game.colorEquipmentSystem.avatarColors(equip)
+        : (variant.colorGroupId ? ctx.game.colorEquipmentSystem.avatarColorsForGroup(variant.colorGroupId) : []);
+      if (group && colors.length) {
+        return `<span class="chat-avatar">${renderAvatarSvg(group.compositionType, colors, 40)}</span>`;
+      }
+    }
+  }
+  return `<span class="chat-avatar">${fallback}</span>`;
 }
 
 /** 对话气泡：左侧圆形头像（NPC）/ 右侧（玩家），对侧上部名字 + 下部小箭头气泡。 */

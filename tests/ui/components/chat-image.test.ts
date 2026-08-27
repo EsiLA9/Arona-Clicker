@@ -66,6 +66,35 @@ describe('聊天流图片与头像（pic 系统集成）', () => {
     expect(html).not.toContain('chat-image');
   });
 
+  test('无图片角色（阿罗娜）说话：回退渲染 ColorGroup 抽象头像 SVG', () => {
+    const arona = ctx.game.registry.characterVariants.get('Arona');
+    expect(arona?.colorGroupId).toBe('base:group:arona-solid'); // 数据已接线
+    expect(arona?.avatar).toBeUndefined();
+    const html = renderChatHistory(
+      [{ id: 1, kind: 'talk', speaker: '阿罗娜', text: '你好，老师！', timestamp: 0 }],
+      ctx,
+    );
+    // 渲染 SVG 抽象头像，而非 <img> 或首字母占位
+    expect(html).toContain('<svg');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('chat-avatar-fallback');
+  });
+
+  test('说话人 displayName / 角色 id 均可匹配到 ColorGroup 头像', () => {
+    // id 匹配（如聊天流 ChatMessageDef.owner 使用 Character id）
+    const byId = renderChatHistory(
+      [{ id: 1, kind: 'talk', speaker: 'Yuuka', text: '预算请省着点用。', timestamp: 0 }],
+      ctx,
+    );
+    expect(byId).toContain('<svg');
+    // displayName 匹配（如 talklet.speaker 使用中文显示名）
+    const byDisplay = renderChatHistory(
+      [{ id: 1, kind: 'talk', speaker: '早濑优香', text: '预算请省着点用。', timestamp: 0 }],
+      ctx,
+    );
+    expect(byDisplay).toContain('<svg');
+  });
+
   test('星野自拍 story 的 talklet 携带 avatar + image', () => {
     const story = ctx.game.registry.stories.get('base:story:hoshino_selfie');
     expect(story).toBeDefined();
