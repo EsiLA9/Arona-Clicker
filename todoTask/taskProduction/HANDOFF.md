@@ -1,85 +1,82 @@
-# HANDOFF — Phase 1 交接文档（taskProduction）
+# HANDOFF — Phase 6 交接文档（taskProduction）
 
-> 交接时间点：Phase 1 代码改造已完成、根因已定位，**尚未提交**。
-> 下一步执行者按「剩余工作」清单继续即可。
+> 交接时间点：Phase 6（显式四级层级树）已完成并提交（commit `901713b`），工作区干净。
+> 下一步执行者从 **Phase 7 死代码清理** 开始，按「剩余工作」清单继续即可。
 
 ---
 
 ## 1. 总体进度
 
-| Phase | 状态 |
-| --- | --- |
-| Phase 0 行为快照 | ✅ 完成并提交（commit `1faf5c3`，`tests/engine/game-num-snapshot.test.ts` 32 tests） |
-| **Phase 1 统一区表真相** | **进行中（本交接）**——核心代码已改完，剩 6 个测试更新 + 1 个引擎 bug 修复 + 验收提交 |
-| Phase 2-8 | 未开始 |
+| Phase | 状态 | commit |
+| --- | --- | --- |
+| Phase 0 行为快照 | ✅ | `1faf5c3` |
+| Phase 1 统一区表真相（删 childMulMap） | ✅ | `b558235` |
+| Phase 2 单生产路径（删旧 tick 路径） | ✅ | `975c3a9` |
+| Phase 3 收敛双表达式系统（删 9 算子） | ✅ | `6132636` |
+| Phase 4 Affector 正确性 | ✅ | `c181cfb` |
+| Phase 5 事件驱动精确失效（删每帧 invalidate） | ✅ | `d2c2848` |
+| Phase 6 显式四级层级树 + flows 层级分发 | ✅ | `901713b` |
+| **Phase 7 死代码清理** | **← 下一步** | — |
+| Phase 8 收尾（文档同步） | 未开始 | — |
 
-任务书：`todoTask/taskProduction/TASK.md`；原任务书：`todoTask/taskGameNum/TASK.md`；未来树设计：`todoTask/taskGameNum/tree-design.md`。
+验收基线：`npm test` 90 文件 920 测试全绿；`npx tsc --noEmit` 通过。
+任务书：`todoTask/taskProduction/TASK.md`（Phase 7 在 §224-236）；执行报告：`todoTask/taskProduction/REPORT.md`。
 
-## 2. 决策项 1 已定案（用户拍板）
+## 2. 当前架构要点（Phase 5/6 落定，改动前必读）
 
-**分桶语义**：
-- `category: 'mul'`（默认乘区，不指定 multiplierId）→ **加百分比**：`1 + Σ(f-1)`（+25% + +50% → 1.75）
-- `category: 'custom'` + multiplierId（手动新乘区）→ **✕倍**：组内连乘 `Πf`、组间连乘（×1.5 ×2 → 3.0）
+### 2.1 显式四级层级树（Phase 6）
 
-现有数据包全部是单条 mul 记录（加法=连乘），**现有游戏数值不变**。
+每资源一棵树，节点全部在 `game-num-build.ts` 构造：
 
-## 3. 已完成的代码改动（未提交，工作区中）
+```
+primitiveGain:<res> = globalProduct(×globalMulZone) + globalFlat + globalFlows
+initFull  = (Σ areaProduct) × initMulZone + initExtra
+areaFull  = (Σ spotProduct) × areaMulZone + areaExtra
+spotFull  = spotBase × spotMulZone + spotExtra
+```
 
-### 3.1 `src/engine/expression/game-num-eval.ts`
-- `aggregateZone`：mul 路径改为 `addMulSum += v - 1` 后 `product *= 1 + addMulSum`（加法）；custom 保持组内连乘。头注释重写为分桶语义说明。
-- `zoneValue`：删除 childMulMap 分支，zone 节点唯一求值路径 = `aggregateZone`。
-- `switchEval` 的 `mul` 分支：删除 `childMulMap`/`bound` 处理。
-- `evaluateGameNumBreakdown`：`mul`/`zone` 分支删除 childMulMap 展开。
-- `GameNum` 类型联合：所有节点删除 `childMulMap`/`bound` 字段（`ZoneBound` 接口保留但已无消费者，Phase 7 可删）。
+- **乘区只乘下一级 base 链**：spotProduct / areaProduct 进上级 base 和，逐级连乘（旧 hierarchy 组内相加语义已废止）。
+- **flat/flows 不进乘区**：spotFlat 经 `spotFlatGated`（owned 门控）进 spotExtra；flows 不受 owned 门控。
+- **spot 子树在所有资源树统一构建**：非本资源树中 spotBase 恒 0（const），仅承载跨资源 flows；孤儿 spot（registry 无 area/init 链，见 game-num.test P1-2 fixture）base 链直挂根。
+- **flows 按 mountEntityId 层级分发**（`ensureFlowsNodes` 幂等创建）：spot → spotExtra；area/init → 各自 Extra；enhancement/item 等非层级实体 → 资源树根的 global flows 兜底节点（`affectorFlows` 节点带 `mount?` 字段，求值时过滤）。
 
-### 3.2 `src/engine/expression/game-num-tag.ts`（整文件重写）
-- **删除**：`routeToZoneNodes` / `addContribution` / `applyBound` / `toValueNode`（随机 id）/ `removeContribByKey` 全部投影机制。
-- `registerTagEffect` / `registerEntityEffect`：只写 state 表 + `markZoneDirty`（经 zoneIndex 反查定向失效）。
-- `removeTagEffect` / `removeTagEffectsBySource`：state 表清理 + 收集受影响 key → 定向 markDirty（删除镜像撤销半边）。
-- 保留：`syncAffectorZoneEffects`（结构不变，但现在只操作 state 表）、`clearTagEffectsByLife`（Phase 7 处理）、`markAllDirty`/`markDirty`。
+### 2.2 构建期不变量（⚠️ 违反即出隐蔽 bug，Phase 6 已踩过三次）
 
-### 3.3 `src/engine/expression/game-num-build.ts`
-- `buildZoneNode`：删除 `childMulMap: new Map()` 初始化。
-- `buildSpotProduction`：删除 defaultMul/defaultAddMul 预置组；**hierarchy 显式化**——area/init 上抛改为显式节点 `hierarchy:<spotId>`（add：const 1 + 各 `sub(upperZone, const 1)`），parents 链：upper → subNode → hierarchyAdd → spotMul（保证 markDirty 沿缓存依赖传播）。数值不变（`1+Σ(zone-1)`）。
-- 删除 `linkHierarchy` 函数与 `MulNode` import。
-- 注意：build.ts 里 `allEntitiesOfKind` 是死代码（tag.ts 有同名实用版本），Phase 7 清理。
+1. **每个 children.push 必须配 setParent(child, parent)**——`markDirty` 沿 `parents` 向上传播，漏设父指针 = 该子树变化时上层缓存不失效（陈旧读）。
+2. **求值可达性走 children，失效传播走 parents，两者都要接**——`initExtra.children` 漏 push `areaExtra` 曾导致 flat/flows 无法上抛到总产出。
+3. 改动 build 后跑 `tests/engine/game-num-invalidation.test.ts`（7 条陈旧读回归，覆盖完整父链）。
 
-### 3.4 `src/engine/expression/game-num-internal.ts`
-- 删除 `MulNode` 类型；保留 `ZoneNode`（纯别名）与 `ZoneIndexEntry`（zoneIndex 字段仍用）。
+### 2.3 事件驱动失效契约（Phase 5）
 
-### 3.5 类型检查
-`npx tsc --noEmit` ✅ 通过。
+- tick 不再每帧 `invalidateProduction()`；状态变更必须走 `StateMutationService`（事件 → 定向或全树失效）。
+- `resourceChanged` 三路定向：`gainResourceDeps`（markSubtreeDirty 向下）+ `zoneKeyResourceDeps`（markZoneDirty 反查）+ `flowsResourceDeps`（flows 节点 markDirty 向上）。
+- `zoneKeyResourceDeps` / `flowsResourceDeps` 为只增不减的过标记设计（漏标记安全、多标记无害）。
+- Affector 翻转链：mount/unmount/recheck → `notifyGameNum` → `onAffectorInstancesChanged`（重同步区表 + 补 flows 节点 + 全部 flows 失效）。
 
-## 4. ⚠️ 根因发现：`GameNumSystem.state` 陈旧引用（Phase 1 暴露的引擎 bug）
+## 3. Phase 7 待办清单（按 TASK.md §224-236）
 
-**现象**：`tests/engine/game-num.test.ts` 的 `P1: enhancement production multiplier...` 失败——`removeEnhancement` 后乘区记录未清理，产出维持旧值。
+1. **[G] `named` 注册表**（game-num.ts `named`/`register`/`evaluateByName`/`hasNamed`/`getNamedNumbers`）：全库无消费者 → 删除；若保留需写明理由。删前 grep 确认（含 tests/）。
+2. **[G][A] `clearTagEffectsByLife` + `life` 字段三选一**（TASK.md 倾向删除，按 AGENTS.md「不做存档迁移」）：
+   - `TagEffectRecord.life`（tag-effect.ts:29，PlayerState 内部字段）；
+   - `ZoneModifierDecl.life`（tag-effect.ts:59，**数据包字段**——删除后必须 `npm run gen:schema` 并检查 `tools/datapack-editor/schema/editor-extras.ts` 是否兜底声明了该字段）；
+   - `AffectorPackBuilder.modTag/modEntity` 的 life 参数（affector-pack.ts:49,60）；
+   - 消费点：`clearTagEffectsByLife`（game-num-tag.ts）与其调用方（grep `clearTagEffectsByLife` 找接线点，删除时一并清）。
+   - 注意：base 数据 `src/data/base/datapack.ts` 的 modTag/modEntity 调用带 `'init'` 实参，删除参数后同步修改所有调用点。
+3. **[A] `AffectorPackDef.persistent`**（trigger.ts:38）：删除，同步 schema（gen:schema）。
+4. **[G] `zoneNodeById`**：收敛为 `buildZoneNode` 局部去重——评估是否能从 GameNumSystem 字段降为 build 模块内部（注意 `ensureFlowsNodes` 的 `flowsNodeById` 是另一个 Map，勿混淆；flowsNodeById 因 flows 节点动态创建而必须留在 system 上）。
+5. ~~toValueNode 随机 id~~：已随 Phase 1 消失，无需处理。
+6. **[A] `modTag`/`modEntity` 支持 ValueExpression**（docs-824/04h §4.3）；`describeValue` 参数名修正（04h §4.2）。
+7. **验收**：`npm test` 全绿 + `npx tsc --noEmit` 通过 + grep 确认无残留引用；删除数据包字段则 `engine-defs.gen.json` 已重新生成（生成产物本身不手改）。
 
-**调试结论（已实证，证据充分）**：
-- `startNewGame` 等路径替换 `GameInstance._state` 为新对象后，`AffectorEngine.state` 指向**新对象**（记录经 mount → sync 写进新对象），但 `GameNumSystem.state` 仍指向**旧对象**（未重新 `buildAll`）。
-- 关键证据（调试日志）：`sync state identity: system.state===state: false, affector.state===state: true, entityEffects of state: 19, entityEffects of system.state: 0`。
-- 结果：GameNumSystem 事件处理器里的 `syncAffectorZoneEffects(this.affectorEngine, this.state)` 清理的是旧对象的空表；`evaluateResourceGain(res, game.state)` 读的是新对象（记录还在）→ 旧值。
-- **旧代码为什么没暴露**：childMulMap 投影挂在共享节点上（与 state 对象无关），删除投影即清理了求值路径；state 表只有不可达的 aggregateZone 兜底在读。Phase 1 让 state 表成为唯一真相后，此 bug 立即变成正确性问题。
+## 4. Phase 8 收尾（Phase 7 之后）
 
-**修复方向**（下一步执行）：GameInstance 所有 `_state` 替换路径（`startNewGame`/enterInit/`restoreFromSave`/`reset`，见 game-instance.ts:294-298、852、861 的 setState 回调）必须统一重调 `this.gameNumSystem.buildAll(this._state)`（回调 294-298 已有 `invalidateProduction()`，替换/追加为 buildAll）。修复后补回归测试：state 替换后 register/remove 立即生效。
+- 文档同步：`docs-824/02c-tick-loop.md`（capacity 语义、失效策略）、`docs-824/04b-production.md`（单一真相、zone 求值路径、四级层级树——失效策略表已在 Phase 5 更新过）、`docs-824/04f-trigger-effect.md`（Affector 桥接简化、flows 层级分发）、`docs-824/04h-affector-review.md`（标记已修复项）。
+- `todoTask/taskGameNum/TASK.md` 标记完成状态；`todoTask/taskGameNum/tree-design.md` 标记「已实现」（注意：§2 图示的 `Σ areaBase` 与实作的 `Σ areaProduct`（逐级连乘）有出入，实作以 REPORT.md Phase 6 节的公式为准，标记时一并修正图示）。
 
-## 5. 剩余工作（按序）
+## 5. 遗留风险与说明
 
-1. **修 §4 陈旧 state bug**：在 game-instance.ts 的三处 setState 回调中，把 `invalidateProduction()` 换/补为 `gameNumSystem.buildAll(this._state)`（restoreFromSave 的回调 852 与 reset 的 861 也要加；确认 buildAll 在 registry 就绪后调用）。
-2. **更新快照测试** `tests/engine/game-num-snapshot.test.ts`（4 处，语义统一后的预期值）：
-   - `custom 按 multiplierId 分组`：16 → **24**（vip 组 2×3=6，gold 组 4，6×4=24；组内连乘是分桶语义）
-   - KNOWN DIVERGENCE describe 三个测试移入「双聚合路径对拍」describe：
-     - 同组多条 mul：两边都 = **2.5**（加法），改 `expect(viaMap).toBe(viaTable)` 并断言 2.5
-     - 同 multiplierId 多条 custom：两边都 = **6**（连乘）
-     - 通配 entity 键（`area:*`）：现在**生效**（aggregateZone 读通配键），断言 `evaluate(areaZone)` = 2，注明「统一后通配键生效，桥接层已把 `*` 展开为逐实体键故无数据影响」
-   - describe 标题「主路径 childMulMap」可改为「state 表聚合」。
-3. **更新结构断言** `tests/engine/game-num.test.ts` 的 `spot subtree expands down to owned/baseLine/zone leaves`：spotMul children 现为 **4 个**（多出 `hierarchy:<spotId>` add 节点）。改为 toEqual 4 元数组或toContain 前三项 + hierarchy。
-4. **验收**：`npm test` 全绿 + `npx tsc --noEmit` 通过 + `grep childMulMap src/` 确认无残留（除 ZoneBound 死类型外）。
-5. **提交**：commit message 概括「Phase 1: 删 childMulMap 投影，state 表唯一真相，分桶乘区语义，hierarchy 显式化，修 GameNumSystem.state 陈旧引用」。
-6. 然后按任务书继续 Phase 2（删旧 tick 路径）。
-
-## 6. 遗留说明
-
-- `ZoneBound` 接口（game-num-eval.ts）已无消费者，Phase 7 删除。
-- build.ts 的 `allEntitiesOfKind` 死代码，Phase 7 删除。
-- 当前失败测试恰好 6 个：快照 4 + game-num.test.ts 2（结构断言 + 陈旧 state bug），其余全绿（tick-system / spot-functionality 等不受影响）。
-- 调试产物（`_debug-affector.test.ts`、fullout*.txt、dbglog.txt）已全部删除，源码无调试残留。
+- **funclet 求值链**：`value-system.ts:122` 将 `FuncletDef.calc`（类型 ValueExpression）强转 Value，运行时落 default 分支返回 0。与本任务无关，建议独立任务修复。
+- **层级树规模**：spot 子树在所有资源树统一构建，节点数 O(spots × resources)，当前规模无感知；数据包显著增长时可按「本资源 spot ∪ 有 flows 挂载的 spot」惰性裁剪。
+- **跨树 zone 节点**：无 resource 限定的 zone 节点（global/area/init scope）在资源树间共享（zoneNodeById 去重）；spot scope 节点带 resource 限定按树独立。失效标记可能跨树过标记（无害）。
+- `src/data/Hoshino.png` 未跟踪文件与本任务无关，待用户定夺入库或忽略。
+- 工作区如出现 `docs-824/04f-trigger-effect.md` 的「假改动」（git diff 为空、仅 CRLF 行尾警告），为行尾规范化误报，可忽略或 `git checkout` 还原。
