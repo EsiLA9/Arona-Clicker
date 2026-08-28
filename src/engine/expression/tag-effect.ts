@@ -29,9 +29,9 @@ export interface TagEffectRecord {
   life: 'global' | 'init' | 'snapshot';
 }
 
-/** 实体引用：解析其声明 tags，以自下而上聚合 tag 效果。 */
+/** 实体引用：解析其声明 tags，以自下而上聚合 tag 效果。global 为资源树全局层（Phase 6）。 */
 export interface EntityRef {
-  kind: 'spot' | 'area' | 'init' | 'enhancement';
+  kind: 'spot' | 'area' | 'init' | 'enhancement' | 'global';
   id: string;
 }
 

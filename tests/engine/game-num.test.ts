@@ -38,24 +38,47 @@ describe('GameNum (primitiveGain 懒求值)', () => {
     expect(root).toMatchObject({ id: 'primitiveGain:base:resource:credit', kind: 'add' });
   });
 
-  test('spot subtree expands down to owned/baseLine/zone leaves', () => {
-    const spotNode = childrenOf(game.gameNumSystem.getGainNode(CREDIT))
-      .find(c => c.id === 'spot:base:spot:credit_printer')!;
-    expect(spotNode.kind).toBe('mul');
-    // spotMul 子节点：owned / baseLine / zone(mul) / hierarchy:spotId（Area·Init 逐级上抛显式节点）
-    expect(childrenOf(spotNode).map(c => c.id)).toEqual([
-      'owned:base:spot:credit_printer',
-      'baseLine:base:spot:credit_printer',
-      'zone:spot:base:spot:credit_printer:mul:base:resource:credit',
-      'hierarchy:base:spot:credit_printer',
+  test('resource tree expands to the explicit four-level hierarchy (Phase 6)', () => {
+    const root = game.gameNumSystem.getGainNode(CREDIT)!;
+    // 根 = globalProduct + globalFlat(zone) + globalFlows
+    expect(childrenOf(root).map(c => c.id)).toEqual([
+      'globalProduct:base:resource:credit',
+      'zone:global:*:flat',
+      'flows:global:base:resource:credit',
     ]);
-    // baseLine → add[ baseYield(add[expr, levelLinear]), zone(flat 区节点) ]
-    const baseLine = childrenOf(spotNode).find(c => c.id === 'baseLine:base:spot:credit_printer')!;
-    expect(baseLine.kind).toBe('add');
-    expect(childrenOf(baseLine).map(c => c.kind)).toEqual(['add', 'zone']);
-    // baseYield 含线性升级增量节点
-    const baseYield = childrenOf(baseLine).find(c => c.id === 'baseYield:base:spot:credit_printer')!;
+    const globalProduct = childrenOf(root)[0];
+    expect(childrenOf(globalProduct).map(c => c.id)).toEqual([
+      'initSum:base:resource:credit',
+      'zone:global:*:mul',
+    ]);
+  });
+
+  test('spot subtree expands down to owned/baseSum/zone leaves', () => {
+    const system = game.gameNumSystem;
+    const spotNode = system.spotSubtrees.get('base:spot:credit_printer')!;
+    expect(spotNode).toMatchObject({ id: 'spot:base:spot:credit_printer:base:resource:credit', kind: 'add' });
+    // spotFull = spotProduct(mul) + spotExtra(flat/flows 直加，不进乘区)
+    expect(childrenOf(spotNode).map(c => c.id)).toEqual([
+      'spotProduct:base:spot:credit_printer:base:resource:credit',
+      'spotExtra:base:spot:credit_printer:base:resource:credit',
+    ]);
+    // spotProduct = spotBase(mul[owned, baseSum]) × zone(mul 区节点)
+    const spotProduct = childrenOf(spotNode)[0];
+    expect(spotProduct.kind).toBe('mul');
+    const spotBase = childrenOf(spotProduct).find(c => c.kind === 'mul')!;
+    expect(childrenOf(spotBase).map(c => c.id)).toEqual([
+      'owned:base:spot:credit_printer',
+      'baseSum:base:spot:credit_printer:base:resource:credit',
+    ]);
+    // baseSum → baseYield(add[expr, levelLinear])
+    const baseSum = childrenOf(spotBase).find(c => c.id === 'baseSum:base:spot:credit_printer:base:resource:credit')!;
+    expect(childrenOf(baseSum).map(c => c.kind)).toEqual(['add']);
+    const baseYield = childrenOf(baseSum)[0];
     expect(childrenOf(baseYield).map(c => c.kind)).toEqual(['expr', 'levelLinear']);
+    // DAG 共享：spotProduct 同为上级 areaBase 的子节点（base 链逐级连乘）
+    const sharedProduct = system.spotProductNodes.get('base:spot:credit_printer@base:resource:credit')!;
+    const areaBase = (system.parents.get(sharedProduct.id) ?? []).find(p => p.id.startsWith('areaBase:'))!;
+    expect(childrenOf(areaBase).map(c => c.id)).toContain('spotProduct:base:spot:credit_printer:base:resource:credit');
   });
 
   test('primitiveGain is lazily evaluated per tick for a resource', () => {

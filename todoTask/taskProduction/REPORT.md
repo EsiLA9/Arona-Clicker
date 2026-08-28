@@ -194,6 +194,43 @@ commit `975c3a9`（Phase2Bef）。
 
 ---
 
+## Phase 6 — 未来树结构落地（tree-design.md 显式层级树）✅
+
+### 决策项（用户拍板）
+
+- **决策项 1**（同乘区组合并语义）：Phase 1 已定（mul 加法 / custom 连乘），沿用。
+- **决策项 2**（globalMul 乘什么）：**选 A：乘 Σ initFull（完整值）**——全局倍率放大一切，与 tree-design.md §2 数学公式一致；base 数据无全局乘区记录，现有数值不变。
+- **决策项 3**（getSpotMultiplier 去向）：**选 A：删除 API**。注释与实现不符的语义缺口一并消除；UI（tooltip-enhancement）改经 `buildZoneNode({kind:'spot',id},'mul',resource)` 精确读 spot 自身 mul 区。
+- **flows 求值方式**：**选 A：按 mountEntityId 层级分发**，删 `evaluateSpotAffectorFlows` / `evaluateResourceAffectorFlows` 两个扫描函数。
+
+### 实际改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `src/engine/expression/game-num-build.ts` | 整文件重写为显式四级层级树：`primitiveGain = globalProduct(×globalMulZone) + globalFlat + globalFlows`；`initFull = (Σ areaProduct)×initMulZone + initExtra`；`areaFull = (Σ spotProduct)×areaMulZone + areaExtra`；`spotFull = spotBase×spotMulZone + spotExtra`。乘区只乘下一级 base 链（spotProduct/areaProduct 进上级 base 和，逐级连乘，替代旧 hierarchy 组内相加）；flat/flows 不进乘区。spot 子树在所有资源树统一构建（非本资源树 spotBase 恒 0，仅承载跨资源 flows）；孤儿 spot（registry 无 area/init 链）base 链直挂根。新增 `ensureFlowsNodes` 幂等创建 flows 节点。删 hierarchy 上抛块 / `allEntitiesOfKind` 死代码 |
+| `src/engine/expression/game-num-eval.ts` | `affectorFlows` 节点增加 `mount?: string`；新增 `evaluateAffectorFlowsNode`（按挂载过滤活跃实例，mount 缺省 = global 兜底只收非层级实体挂载）；删 `evaluateSpotAffectorFlows` / `evaluateResourceAffectorFlows` / `SPOT_NODE_PREFIX` |
+| `src/engine/expression/game-num.ts` | 删 `spotZone` / `entityZoneNodes` 字段与 `getSpotMultiplier`；`affectorFlowsNodes` 改 `Map<resource, GameNum[]>`；新增六个层级节点索引（`spotFullNodes` / `spotProductNodes` / `spotExtraNodes` / `areaExtraNodes` / `initExtraNodes` / `flowsNodeById`，key `<entityId>@<resource>`）；`onAffectorInstancesChanged` 补齐缺失 flows 节点；`evaluateSpotYield` 改纯树求值（含自身 flows） |
+| `src/engine/expression/game-num-tag.ts` | `syncAffectorZoneEffects` 收尾调 `ensureFlowsNodes`；EntityRef 增加 `'global'` kind（tag-effect.ts） |
+| `src/ui/components/tooltip-enhancement.ts` | `getEnhancementMultiplier` 改经 `buildZoneNode` + `evaluate` 精确读 spot 自身 mul 区 |
+| `tests/engine/game-num.test.ts` | 结构测试重写为显式层级树断言（根/spotFull/spotProduct/baseSum/DAG 父链） |
+| `tests/engine/game-num-snapshot.test.ts` | hierarchy 块重锚定：area×init 乘区从「组内相加 1+Σ(f-1)」升级为「逐级连乘」（160→190）；spot 视图不再含上极乘区（s1=5 而非 10）；flows 块改为层级分发断言（s1 视图 15 = base 5 + flows 10；gold 树承载跨资源 flows 10） |
+
+### 语义变化（显式声明）
+
+- **层级乘区连乘**：spot base 现在经 spotMul × areaMul × initMul × globalMul 逐级缩放；旧 hierarchy 组内相加（b×(a+i-1)）废止。base 数据全部乘区都是 spot 作用域，现有游戏数值不变。
+- **flat/flows 不进乘区**：spot flat 受 owned 门控（未拥有 spot 不产出 flat，与旧 baseLine 语义一致）但不被任何乘区缩放；flows 不受 owned 门控（与旧根级 flows 语义一致）。
+- **flows 层级分发**：挂 spot → 该 spot 的 spotExtra（随 areaExtra 上抛）；挂 area/init → 各自 Extra；挂 enhancement/item 等非层级实体 → 资源树根的 global flows 节点。跨资源 flows 进入对应资源树的同名层级。
+- getSpotMultiplier 删除后「spot 倍率」的 UI 读数 = spot 自身 mul 区值；完整逐级倍率可经各层 zone 节点复合求取。
+
+### 验收核验（实测）
+
+- `npm test`：90 文件 920 测试全绿（+1：结构测试拆分为根层级 + spot 子树两条，snapshot hierarchy/flows 块重锚定同数量替换）。
+- `npx tsc --noEmit`：通过。
+- `grep getSpotMultiplier / evaluateSpotAffectorFlows / evaluateResourceAffectorFlows / SPOT_NODE_PREFIX`：全库无残留。
+- Phase 5 陈旧读回归 7 tests 全绿（事件驱动失效在新树上保持正确，含 spotExtra→areaExtra→initExtra 完整父链）。
+
+---
+
 ## 测试结果汇总
 
 | 时点 | npm test | tsc --noEmit |
@@ -202,7 +239,8 @@ commit `975c3a9`（Phase2Bef）。
 | Phase 2 后（975c3a9，当前 HEAD） | 908 passed（88 files） | ✅ |
 | Phase 3 后（6132636） | 905 passed（88 files，-3 删除用例） | ✅ |
 | Phase 4 后（c181cfb） | 912 passed（89 files，+7 affector-reconcile） | ✅ |
-| Phase 5 后（本次提交） | 919 passed（90 files，+7 game-num-invalidation） | ✅ |
+| Phase 5 后（d2c2848） | 919 passed（90 files，+7 game-num-invalidation） | ✅ |
+| Phase 6 后（本次提交） | 920 passed（90 files，层级树快照重锚定 +1） | ✅ |
 
 ## 遗留风险与后续建议
 
@@ -210,4 +248,5 @@ commit `975c3a9`（Phase2Bef）。
 - 未跟踪文件 `src/data/Hoshino.png` 与本任务无关，待用户定夺入库或忽略。
 - funclet 求值链有历史遗留：`value-system.ts:122` 将 `FuncletDef.calc`（类型为 ValueExpression）强转 Value 求值，运行时落入 `evaluateValue` 的 default 分支——本任务未触碰，Phase 5 资源写路径审计确认无其他写路径缺口，建议独立任务修复。
 - Phase 5 事件驱动失效依赖「状态变更走 StateMutationService」纪律：绕过 mutation 直接写 state 的调用方将得到陈旧缓存（tick 注释已声明契约）；`onResourceChanged` 三索引（zoneKeyResourceDeps/flowsResourceDeps）为只增不减的过标记设计，漏标记安全、多标记无害。
-- Phase 5 起待办见 `TASK.md` roadmap。
+- Phase 6 显式层级树在所有资源树中统一构建 spot 子树（非本资源树 spotBase 恒 0）：节点数 = O(spots × resources)，当前规模无感知；若未来数据包规模显著增长，可考虑按「本资源 spot ∪ 有 flows 挂载的 spot」惰性裁剪。
+- Phase 6 起待办见 `TASK.md` roadmap（Phase 7 死代码清理：named 注册表 / life 字段 / persistent 等）。

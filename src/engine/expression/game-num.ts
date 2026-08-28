@@ -8,7 +8,8 @@
 //   parents / allNodes / zoneNodes 等索引（供 build/tag 模块读写）。
 // - 求值入口：evaluate / evaluateWithBreakdown / getGainNode / getResources /
 //   getNamedNumbers / hasNamed / register / evaluateByName / evaluateResourceGain /
-//   evaluateSpotYield / getSpotMultiplier。
+//   evaluateSpotYield（层级视图含自身 flat/flows；getSpotMultiplier 已删，UI 经
+//   buildZoneNode 精确读区节点）。
 //
 // 树构建见 ./game-num-build.ts，区表维护与 Affector 桥接见 ./game-num-tag.ts，
 // 纯求值见 ./game-num-eval.ts。
@@ -20,12 +21,11 @@ import { Registry } from '../registry/registry';
 import { ValueSystem } from './value-system';
 import { CharacterSystem } from '../system/character-system';
 import { AffectorEngine } from '../effect/affector-engine';
-import type { GameNum, GameNumEvalDeps, BreakdownResult, ZoneBound } from './game-num-eval';
-import { evaluateGameNum, evaluateGameNumBreakdown, evaluateSpotAffectorFlows } from './game-num-eval';
+import type { GameNum, GameNumEvalDeps, BreakdownResult } from './game-num-eval';
+import { evaluateGameNum, evaluateGameNumBreakdown } from './game-num-eval';
 import { TagEffectRecord, EntityRef, ZoneModifierDecl } from './tag-effect';
 import type { ZoneNode, ZoneIndexEntry } from './game-num-internal';
-import { buildAll as buildAllImpl, buildZoneNode as buildZoneNodeImpl, rebuildZoneIndex as rebuildZoneIndexImpl, collect } from './game-num-build';
-import {
+import { buildAll as buildAllImpl, buildZoneNode as buildZoneNodeImpl, rebuildZoneIndex as rebuildZoneIndexImpl, collect } from './game-num-build';import {
   registerTagEffect as registerTagEffectImpl,
   registerEntityEffect as registerEntityEffectImpl,
   removeTagEffect as removeTagEffectImpl,
@@ -61,23 +61,33 @@ export class GameNumSystem {
   gains = new Map<string, GameNum>();
   /** 命名数值注册表（evaluateByName 用）。 */
   named = new Map<string, GameNum>();
-  /** spot -> 其产出子树（evaluateSpotYield 用）。 */
+  /** spot -> 其产出子树根（spotFull = spotProduct + spotExtra；evaluateSpotYield 用）。 */
   spotSubtrees = new Map<string, GameNum>();
-  /** spot -> 其 flat/mul 区节点（getSpotMultiplier 用）。 */
-  spotZone = new Map<string, { flat: ZoneNode; mul: ZoneNode }>();
 
   /** zoneIndex：tagKey / entityKey -> 命中的 flat/mul 区节点集合（注册来源路由用）。 */
   zoneIndex = new Map<string, ZoneIndexEntry>();
-  /** entityKey -> 该 Area/Init 的 mul 区节点（逐级上抛用）。 */
-  entityZoneNodes = new Map<string, ZoneNode>();
   /** 子节点 -> 父节点列表（脏位向上回溯用）。 */
   parents = new Map<string, GameNum[]>();
   /** 所有节点（整树失效用）。 */
   allNodes: GameNum[] = [];
-  /** 所有 zone 节点（childMulMap 贡献撤回用）。 */
+  /** 所有 zone 节点（rebuildZoneIndex 重建反路由用）。 */
   zoneNodes: ZoneNode[] = [];
   /** zone 节点 id -> 节点（buildZoneNode 去重，保证测试/运行期拿到同一节点）。 */
   zoneNodeById = new Map<string, ZoneNode>();
+
+  // ---- Phase 6 显式层级树的节点索引（buildAll 填充，key 均为 `<entityId>@<resource>`） ----
+  /** spotId@res -> spotFull（flows 挂载点）。 */
+  spotFullNodes = new Map<string, GameNum>();
+  /** spotId@res -> spotProduct（进上级 areaBase 的 base 链节点）。 */
+  spotProductNodes = new Map<string, GameNum>();
+  /** spotId@res -> spotExtra（spotFlat + spotFlows）。 */
+  spotExtraNodes = new Map<string, GameNum>();
+  /** areaId@res -> areaExtra（areaFlat + areaFlows + Σ spotExtra）。 */
+  areaExtraNodes = new Map<string, GameNum>();
+  /** initId@res -> initExtra（initFlat + initFlows + Σ areaExtra）。 */
+  initExtraNodes = new Map<string, GameNum>();
+  /** flows 节点 id -> 节点（ensureFlowsNodes 幂等创建用）。 */
+  flowsNodeById = new Map<string, GameNum>();
 
   /** 活跃 Affector 源集合，用于按 source 反查撤回区记录。 */
   syncedAffectorSources = new Set<string>();
@@ -88,10 +98,10 @@ export class GameNumSystem {
   mayReadResources = false;
   /** 区表 key -> 该键下登记记录 expr 所读资源集合（register 时累积，resourceChanged 定向失效用）。 */
   zoneKeyResourceDeps = new Map<string, Set<string>>();
-  /** affectorFlows 节点 resource -> 活跃 flows expr 所读资源集合（syncAffectorZoneEffects 重建）。 */
+  /** flows expr 所读资源集合（syncAffectorZoneEffects 重建；resourceChanged 定向失效用）。 */
   flowsResourceDeps = new Map<string, Set<string>>();
-  /** resource -> affectorFlows 节点（buildAll 索引；affector 翻转 / 资源变化时定向失效）。 */
-  affectorFlowsNodes = new Map<string, GameNum>();
+  /** resource -> flows 节点列表（flows 按挂载层级分发出多个节点，Phase 6）。 */
+  affectorFlowsNodes = new Map<string, GameNum[]>();
 
   /** 已登记资源集合（spot 基础产出 + state.resources，含仅经 affectorFlows 产出的资源）。 */
   resourceSet = new Set<string>();
@@ -144,21 +154,21 @@ export class GameNumSystem {
     for (const [key, deps] of this.zoneKeyResourceDeps) {
       if (deps.has(resource)) markZoneDirty(this, key);
     }
-    for (const [nodeRes, deps] of this.flowsResourceDeps) {
-      if (!deps.has(resource)) continue;
-      const node = this.affectorFlowsNodes.get(nodeRes);
-      if (node) markDirty(this, node);
+    for (const node of this.affectorFlowsNodes.get(resource) ?? []) {
+      markDirty(this, node);
     }
   }
 
   /**
    * Affector 实例集合 / 激活 entry 集变化（mount / unmount / recheck 翻转）：
-   * 同步区表记录 + 失效全部 affectorFlows 节点（flows 随活跃集懒求值）。
+   * 同步区表记录 + 补齐缺失的层级 flows 节点 + 全部 flows 节点失效（缓存值随活跃集变化）。
    */
   onAffectorInstancesChanged(): void {
     if (!this.state) return;
     this.syncAffectorZoneEffects(this.affectorEngine, this.state);
-    for (const node of this.affectorFlowsNodes.values()) markDirty(this, node);
+    for (const nodes of this.affectorFlowsNodes.values()) {
+      for (const node of nodes) markDirty(this, node);
+    }
   }
 
   private evalDeps(): GameNumEvalDeps {
@@ -273,16 +283,7 @@ export class GameNumSystem {
   evaluateSpotYield(spotId: string, state: PlayerState): number {
     const node = this.spotSubtrees.get(spotId);
     if (!node) return 0;
-    return this.evaluate(node, state) + evaluateSpotAffectorFlows(spotId, state, this.evalDeps());
-  }
-
-  /** 该 spot 的 mul 区总系数（含所属 Area/Init 的逐级上抛）。 */
-  getSpotMultiplier(spotId: string, state: PlayerState): number {
-    const spot = this.registry.spots.get(spotId);
-    if (!spot) return 1;
-    const z = this.spotZone.get(spotId)?.mul;
-    if (!z) return 1;
-    return this.evaluate(z, state);
+    return this.evaluate(node, state);
   }
 
   }

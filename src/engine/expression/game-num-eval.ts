@@ -48,7 +48,7 @@ export type GameNum =
   | (GNAttrs & { id: string; kind: 'add' | 'sub' | 'mul'; children: GameNum[] })
   | (GNAttrs & { id: string; kind: 'owned'; spotId: string })
   | (GNAttrs & { id: string; kind: 'levelLinear'; spotId: string })
-  | (GNAttrs & { id: string; kind: 'affectorFlows'; resource: string })
+  | (GNAttrs & { id: string; kind: 'affectorFlows'; resource: string; mount?: string })
   | (GNAttrs & { id: string; kind: 'zone'; scope: EntityRef; part: 'flat' | 'mul'; resource?: string });
 
 /** 贡献明细（溯源分解 API 输出）。children 仅组合节点存在，与子节点顺序一致。 */
@@ -72,9 +72,6 @@ export interface GameNumEvalDeps {
   characterSystem: CharacterSystem;
   affectorEngine: AffectorEngine;
 }
-
-/** spot 产出子树根节点 id 前缀（buildSpotProduction 约定），用于识别可缓存的 mul 节点。 */
-export const SPOT_NODE_PREFIX = 'spot:';
 
 /** 取实体声明 tags（自下而上聚合用）。registry 各实体 def 的 tags 字段可选。 */
 const entityTagsOf = (ref: EntityRef, deps: GameNumEvalDeps): TagPath[] => {
@@ -209,7 +206,7 @@ function switchEval(node: GameNum, state: PlayerState, deps: GameNumEvalDeps, us
     case 'zone':
       return zoneValue(node, state, deps, useCache);
     case 'affectorFlows':
-      return evaluateResourceAffectorFlows(node.resource, state, deps);
+      return evaluateAffectorFlowsNode(node, state, deps);
   }
 }
 
@@ -254,37 +251,32 @@ export function evaluateGameNumBreakdown(node: GameNum, state: PlayerState, deps
       return { id: node.id, kind: 'zone', value, label };
     }
     case 'affectorFlows':
-      return { id: node.id, kind: 'affectorFlows', value: evaluateResourceAffectorFlows(node.resource, state, deps), label: node.resource };
+      return { id: node.id, kind: 'affectorFlows', value: evaluateAffectorFlowsNode(node, state, deps), label: node.mount ? `${node.resource}@${node.mount}` : node.resource };
   }
 }
 
-/** 某 Spot 上挂载：所有活跃 Affector 的 flows 贡献之和（evaluateSpotYield 的补充项）。 */
-export function evaluateSpotAffectorFlows(spotId: string, state: PlayerState, deps: GameNumEvalDeps): number {
-  let total = 0;
-  for (const instance of deps.affectorEngine.getActiveInstances()) {
-    if (instance.mountEntityId !== spotId) continue;
-    const pack = deps.affectorEngine.getPack(instance.packId);
-    if (!pack) continue;
-    for (const entry of pack.entries) {
-      if (!instance.activeEntryIds.includes(entry.id)) continue;
-      for (const flow of entry.flows ?? []) {
-        total += resolveFlowValue(flow, state, deps.valueSystem);
-      }
-    }
-  }
-  return total;
+/** mountEntityId 是否解析为层级实体（spot/area/init）——决定 flows 进层级节点还是 global 兜底。 */
+function isLevelEntity(registry: Registry, entityId: string): boolean {
+  return registry.spots.has(entityId)
+    || registry.areas?.has(entityId) === true
+    || registry.inits?.has(entityId) === true;
 }
 
-/** 该资源所有活跃 Affector 的 flows 贡献之和（懒求值）。 */
-export function evaluateResourceAffectorFlows(resource: string, state: PlayerState, deps: GameNumEvalDeps): number {
+/**
+ * affectorFlows 节点求值：按节点挂载过滤活跃实例——
+ * - mount 指向 spot/area/init：只累计挂在该实体上的实例（层级 flows 分发，Phase 6）；
+ * - mount 缺省（global 兜底节点）：只累计挂在非层级实体（enhancement/item 等）上的实例。
+ */
+export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows' }, state: PlayerState, deps: GameNumEvalDeps): number {
   let sum = 0;
   for (const instance of deps.affectorEngine.getActiveInstances()) {
+    if (node.mount !== undefined ? instance.mountEntityId !== node.mount : isLevelEntity(deps.registry, instance.mountEntityId)) continue;
     const pack = deps.affectorEngine.getPack(instance.packId);
     if (!pack) continue;
     for (const entry of pack.entries) {
       if (!instance.activeEntryIds.includes(entry.id)) continue;
       for (const flow of entry.flows ?? []) {
-        if (flow.resource !== resource) continue;
+        if (flow.resource !== node.resource) continue;
         sum += resolveFlowValue(flow, state, deps.valueSystem);
       }
     }

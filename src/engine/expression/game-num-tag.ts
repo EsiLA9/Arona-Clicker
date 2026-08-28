@@ -19,7 +19,7 @@ import type { GameNumSystem } from './game-num';
 import type { GameNum } from './game-num-internal';
 import { tagId } from '../core/tag';
 import { TagEffectRecord, EntityRef, entityKey, ZoneModifierDecl } from './tag-effect';
-import { exprResourceDepsOf } from './game-num-build';
+import { exprResourceDepsOf, ensureFlowsNodes } from './game-num-build';
 
 // ---- 区表写入 ----
 
@@ -136,6 +136,7 @@ export function syncAffectorZoneEffects(system: GameNumSystem, affector: Affecto
     if (!activeSources.has(source)) removeTagEffectsBySource(system, state, source);
   }
   system.syncedAffectorSources = activeSources;
+  ensureFlowsNodes(system, affector);
   rebuildFlowsResourceDeps(system, affector);
 }
 

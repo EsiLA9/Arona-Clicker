@@ -1,8 +1,18 @@
 // ============================================================
 // engine/expression/game-num-build.ts — GameNumSystem 树构建
-// 从 game-num.ts 拆出：buildAll / buildResourceGain / buildSpotProduction
+// 从 game-num.ts 拆出：buildAll / buildResourceGain（显式四级层级树）
 //   / buildZoneNode / rebuildZoneIndex / registerZoneNode
-//   / allEntitiesOfKind / scopeTags / setParent / collect / gainResourceDeps
+//   / ensureFlowsNodes / scopeTags / setParent / collect / gainResourceDeps
+//
+// Phase 6 起每资源一棵显式层级树（tree-design.md §2）：
+//   primitiveGain:<res> = globalProduct + globalFlat + globalFlows
+//   globalProduct = (Σ initFull) × globalMulZone（决策项 2：乘完整值）
+//   initFull  = (Σ areaProduct) × initMulZone + initExtra
+//   areaFull  = (Σ spotProduct) × areaMulZone + areaExtra
+//   spotFull  = spotBase × spotMulZone + spotExtra
+// 乘区只乘下一级 base 链（spotProduct / areaProduct 进上级 base 和，逐级连乘）；
+// flat / flows 不进乘区，经 spotExtra / areaExtra / initExtra 直加到总产出。
+// spotFull / areaFull / initFull 为层级视图节点，额外项经 Extra 节点进入上级。
 // ============================================================
 
 import type { PlayerState, Value, ValueExpression } from '../types';
@@ -19,26 +29,19 @@ export function buildAll(system: GameNumSystem, state?: PlayerState): void {
   system.gains.clear();
   system.named.clear();
   system.spotSubtrees.clear();
-  system.spotZone.clear();
   system.zoneIndex.clear();
-  system.entityZoneNodes.clear();
   system.zoneNodeById.clear();
   system.parents.clear();
   system.allNodes = [];
   system.zoneNodes = [];
   system.syncedAffectorSources.clear();
-
-  // 先建 Area / Init 乘区节点（逐级上抛的上层）
-  if (system.registry.areas) {
-    for (const area of system.registry.areas.values()) {
-      buildZoneNode(system, { kind: 'area', id: area.id }, 'mul');
-    }
-  }
-  if (system.registry.inits) {
-    for (const init of system.registry.inits.values()) {
-      buildZoneNode(system, { kind: 'init', id: init.id }, 'mul');
-    }
-  }
+  system.spotProductNodes.clear();
+  system.spotFullNodes.clear();
+  system.spotExtraNodes.clear();
+  system.areaExtraNodes.clear();
+  system.initExtraNodes.clear();
+  system.flowsNodeById.clear();
+  system.affectorFlowsNodes = new Map();
 
   const resourceSet = new Set<string>();
   for (const spot of system.registry.spots.values()) if (spot.baseYieldResource) resourceSet.add(spot.baseYieldResource);
@@ -46,98 +49,252 @@ export function buildAll(system: GameNumSystem, state?: PlayerState): void {
   if (state?.resources) for (const r of Object.keys(state.resources)) resourceSet.add(r);
   system.resourceSet = resourceSet;
   for (const res of resourceSet) {
-    system.gains.set(res, buildResourceGain(system, system.registry, res));
+    system.gains.set(res, buildResourceGain(system, res));
   }
   system.gainResourceDeps = gainResourceDeps(system);
   system.mayReadResources = [...system.gainResourceDeps.values()].some(s => s.size > 0);
-  system.affectorFlowsNodes = new Map();
-  for (const node of system.allNodes) {
-    if (node.kind === 'affectorFlows') system.affectorFlowsNodes.set(node.resource, node);
-  }
+  if (state) ensureFlowsNodes(system, system.affectorEngine);
 }
 
-function buildResourceGain(system: GameNumSystem, registry: Registry, resource: string): GameNum {
-  const children: GameNum[] = [];
-  const root: GameNum = { id: `primitiveGain:${resource}`, kind: 'add', children };
-  for (const spot of registry.spots.values()) {
-    if (spot.baseYieldResource !== resource) continue;
-    const sub = buildSpotProduction(system, spot.id);
-    setParent(system, sub, root);
-    children.push(sub);
+/**
+ * 每资源一棵层级树。spot 子树在所有资源树中统一构建（无跨树 DAG 共享）：
+ * 非 baseYieldResource 树中 spotBase 恒 0，仅承载挂载到该 spot 的其他资源 flows。
+ */
+function buildResourceGain(system: GameNumSystem, resource: string): GameNum {
+  const root: GameNum = { id: `primitiveGain:${resource}`, kind: 'add', children: [] };
+
+  const globalMulZone = buildZoneNode(system, { kind: 'global', id: '*' }, 'mul');
+  const initSum: GameNum = { id: `initSum:${resource}`, kind: 'add', children: [] };
+  const globalProduct: GameNum = {
+    id: `globalProduct:${resource}`,
+    kind: 'mul',
+    children: [initSum, globalMulZone],
+  };
+  const globalFlatZone = buildZoneNode(system, { kind: 'global', id: '*' }, 'flat');
+  const globalFlows = createFlowsNode(system, undefined, resource);
+  root.children.push(globalProduct, globalFlatZone, globalFlows);
+  setParent(system, initSum, globalProduct);
+  setParent(system, globalMulZone, globalProduct);
+  setParent(system, globalProduct, root);
+  setParent(system, globalFlatZone, root);
+  setParent(system, globalFlows, root);
+
+  for (const init of system.registry.inits?.values() ?? []) {
+    initSum.children.push(buildInitNode(system, init.id, resource, initSum));
   }
-  const affectorNode: GameNum = { id: `affectors:${resource}`, kind: 'affectorFlows', resource };
-  system.allNodes.push(affectorNode);
-  children.push(affectorNode);
+  // 孤儿 spot（无 area/init 链，registry 可只声明 spots）：base 链与 Extra 直挂根（不进任何乘区）
+  for (const spot of system.registry.spots.values()) {
+    if (spot.baseYieldResource !== resource) continue;
+    if (system.spotFullNodes.has(`${spot.id}@${resource}`)) continue;
+    const built = buildSpotNode(system, spot.id, resource);
+    root.children.push(built.spotProduct, built.spotExtra);
+    setParent(system, built.spotProduct, root);
+    setParent(system, built.spotExtra, root);
+  }
   collect(system, root);
   return root;
 }
 
-function buildSpotProduction(system: GameNumSystem, spotId: string): GameNum {
-  const spot = system.registry.spots.get(spotId)!;
-
-  const base: GameNum = spot.baseYield
-    ? { id: `base:${spotId}`, kind: 'expr', expr: spot.baseYield }
-    : { id: `base:${spotId}`, kind: 'const', value: 0 };
-  const levelLinear: GameNum | undefined = spot.yieldPerLevel
-    ? { id: `levelLinear:${spotId}`, kind: 'levelLinear', spotId }
-    : undefined;
-  const baseYield: GameNum = {
-    id: `baseYield:${spotId}`,
-    kind: 'add',
-    children: levelLinear ? [base, levelLinear] : [base],
+function buildInitNode(system: GameNumSystem, initId: string, resource: string, initSum: GameNum): GameNum {
+  const initBase: GameNum = { id: `initBase:${initId}:${resource}`, kind: 'add', children: [] };
+  const initMulZone = buildZoneNode(system, { kind: 'init', id: initId }, 'mul');
+  const initProduct: GameNum = {
+    id: `initProduct:${initId}:${resource}`,
+    kind: 'mul',
+    children: [initBase, initMulZone],
   };
+  const initFlatZone = buildZoneNode(system, { kind: 'init', id: initId }, 'flat');
+  const initExtra: GameNum = { id: `initExtra:${initId}:${resource}`, kind: 'add', children: [initFlatZone] };
+  system.initExtraNodes.set(`${initId}@${resource}`, initExtra);
+  const initFull: GameNum = {
+    id: `init:${initId}:${resource}`,
+    kind: 'add',
+    children: [initProduct, initExtra],
+  };
+  setParent(system, initBase, initProduct);
+  setParent(system, initMulZone, initProduct);
+  setParent(system, initProduct, initFull);
+  setParent(system, initFlatZone, initExtra);
+  setParent(system, initExtra, initFull);
+  setParent(system, initFull, initSum);
+  collect(system, initFull);
 
-  const flatZone = buildZoneNode(system, { kind: 'spot', id: spotId }, 'flat', spot.baseYieldResource);
-  const baseLine: GameNum = { id: `baseLine:${spotId}`, kind: 'add', children: [baseYield, flatZone] };
-
-  const mulZone = buildZoneNode(system, { kind: 'spot', id: spotId }, 'mul', spot.baseYieldResource);
-
-  const owned: GameNum = { id: `owned:${spotId}`, kind: 'owned', spotId };
-  const spotMul: GameNum = { id: `spot:${spotId}`, kind: 'mul', children: [owned, baseLine, mulZone] };
-
-  // 逐级上抛：所属 Area / Init 的乘区以 hierarchy 节点加入 spotMul（显式 add 子节点，
-  // 替代旧 childMulMap 的 'hierarchy' 组；值 = 1 + Σ(upperZone - 1)，与旧行为一致）。
-  const upperNodes: GameNum[] = [];
-  const area = system.registry.areas?.get(spot.areaId);
-  if (area) {
-    const aNode = system.entityZoneNodes.get(entityKey({ kind: 'area', id: area.id }));
-    if (aNode) upperNodes.push(aNode);
-    const init = system.registry.inits?.get(area.initId);
-    if (init) {
-      const iNode = system.entityZoneNodes.get(entityKey({ kind: 'init', id: init.id }));
-      if (iNode) upperNodes.push(iNode);
-    }
+  for (const area of system.registry.areas?.values() ?? []) {
+    if (area.initId !== initId) continue;
+    initBase.children.push(buildAreaNode(system, area.id, resource, initBase, initExtra));
   }
-  if (upperNodes.length > 0) {
-    const hierarchyAdd: GameNum = {
-      id: `hierarchy:${spotId}`,
-      kind: 'add',
-      children: [{ id: `hierarchy:${spotId}:1`, kind: 'const', value: 1 }],
-    };
-    for (const upper of upperNodes) {
-      const subNode: GameNum = {
-        id: `hier:${upper.id}`,
-        kind: 'sub',
-        children: [upper, { id: `hier:${upper.id}:1`, kind: 'const', value: 1 }],
-      };
-      hierarchyAdd.children.push(subNode);
-      setParent(system, upper, subNode);
-      setParent(system, subNode, hierarchyAdd);
-    }
-    setParent(system, hierarchyAdd, spotMul);
-    spotMul.children.push(hierarchyAdd);
-  }
-
-  setParent(system, owned, spotMul);
-  setParent(system, flatZone, baseLine);
-  setParent(system, baseLine, spotMul);
-  setParent(system, mulZone, spotMul);
-
-  collect(system, spotMul);
-  system.spotSubtrees.set(spotId, spotMul);
-  system.spotZone.set(spotId, { flat: flatZone, mul: mulZone });
-  return spotMul;
+  return initFull;
 }
+
+function buildAreaNode(
+  system: GameNumSystem,
+  areaId: string,
+  resource: string,
+  initBase: GameNum,
+  initExtra: Extract<GameNum, { children: GameNum[] }>,
+): GameNum {
+  const areaBase: GameNum = { id: `areaBase:${areaId}:${resource}`, kind: 'add', children: [] };
+  const areaMulZone = buildZoneNode(system, { kind: 'area', id: areaId }, 'mul');
+  const areaProduct: GameNum = {
+    id: `areaProduct:${areaId}:${resource}`,
+    kind: 'mul',
+    children: [areaBase, areaMulZone],
+  };
+  const areaFlatZone = buildZoneNode(system, { kind: 'area', id: areaId }, 'flat');
+  const areaExtra: GameNum = { id: `areaExtra:${areaId}:${resource}`, kind: 'add', children: [areaFlatZone] };
+  system.areaExtraNodes.set(`${areaId}@${resource}`, areaExtra);
+  initExtra.children.push(areaExtra);
+  const areaFull: GameNum = {
+    id: `area:${areaId}:${resource}`,
+    kind: 'add',
+    children: [areaProduct, areaExtra],
+  };
+  setParent(system, areaBase, areaProduct);
+  setParent(system, areaMulZone, areaProduct);
+  setParent(system, areaProduct, areaFull);
+  setParent(system, areaProduct, initBase);
+  setParent(system, areaFlatZone, areaExtra);
+  setParent(system, areaExtra, areaFull);
+  setParent(system, areaExtra, initExtra);
+  collect(system, areaFull);
+
+  for (const spot of system.registry.spots.values()) {
+    if (spot.areaId !== areaId || !spot.baseYieldResource) continue;
+    const built = buildSpotNode(system, spot.id, resource);
+    areaBase.children.push(built.spotProduct);
+    setParent(system, built.spotProduct, areaBase);
+    areaExtra.children.push(built.spotExtra);
+    setParent(system, built.spotExtra, areaExtra);
+  }
+  return areaProduct;
+}
+
+interface BuiltSpot {
+  spotProduct: GameNum;
+  spotExtra: GameNum;
+}
+
+function buildSpotNode(system: GameNumSystem, spotId: string, resource: string): BuiltSpot {
+  const spot = system.registry.spots.get(spotId)!;
+  const own = spot.baseYieldResource === resource;
+
+  let spotBase: GameNum;
+  const owned: GameNum = { id: `owned:${spotId}`, kind: 'owned', spotId };
+  if (own) {
+    const base: GameNum = spot.baseYield
+      ? { id: `base:${spotId}`, kind: 'expr', expr: spot.baseYield }
+      : { id: `base:${spotId}`, kind: 'const', value: 0 };
+    const levelLinear: GameNum | undefined = spot.yieldPerLevel
+      ? { id: `levelLinear:${spotId}`, kind: 'levelLinear', spotId }
+      : undefined;
+    const baseYield: GameNum = {
+      id: `baseYield:${spotId}`,
+      kind: 'add',
+      children: levelLinear ? [base, levelLinear] : [base],
+    };
+    const baseSum: GameNum = { id: `baseSum:${spotId}:${resource}`, kind: 'add', children: [baseYield] };
+    spotBase = { id: `spotBase:${spotId}:${resource}`, kind: 'mul', children: [owned, baseSum] };
+    setParent(system, base, baseYield);
+    if (levelLinear) setParent(system, levelLinear, baseYield);
+    setParent(system, baseYield, baseSum);
+    setParent(system, baseSum, spotBase);
+    setParent(system, owned, spotBase);
+  } else {
+    spotBase = { id: `spotBase:${spotId}:${resource}`, kind: 'const', value: 0 };
+  }
+
+  const spotMulZone = buildZoneNode(system, { kind: 'spot', id: spotId }, 'mul', resource);
+  const spotProduct: GameNum = {
+    id: `spotProduct:${spotId}:${resource}`,
+    kind: 'mul',
+    children: [spotBase, spotMulZone],
+  };
+  // spotFlat 受 owned 门控（未拥有 spot 不产出 flat，与旧 baseLine 语义一致）；flows 不门控
+  const spotExtraChildren: GameNum[] = [];
+  if (own) {
+    const spotFlatZone = buildZoneNode(system, { kind: 'spot', id: spotId }, 'flat', resource);
+    const gatedFlat: GameNum = {
+      id: `spotFlatGated:${spotId}:${resource}`,
+      kind: 'mul',
+      children: [owned, spotFlatZone],
+    };
+    setParent(system, owned, gatedFlat);
+    setParent(system, spotFlatZone, gatedFlat);
+    spotExtraChildren.push(gatedFlat);
+  }
+  const spotExtra: GameNum = { id: `spotExtra:${spotId}:${resource}`, kind: 'add', children: spotExtraChildren };
+  if (own) setParent(system, spotExtraChildren[0], spotExtra);
+  const spotFull: GameNum = {
+    id: `spot:${spotId}:${resource}`,
+    kind: 'add',
+    children: [spotProduct, spotExtra],
+  };
+  setParent(system, spotBase, spotProduct);
+  setParent(system, spotMulZone, spotProduct);
+  setParent(system, spotProduct, spotFull);
+  setParent(system, spotExtra, spotFull);
+  collect(system, spotFull);
+  system.spotFullNodes.set(`${spotId}@${resource}`, spotFull);
+  system.spotProductNodes.set(`${spotId}@${resource}`, spotProduct);
+  system.spotExtraNodes.set(`${spotId}@${resource}`, spotExtra);
+  if (own) system.spotSubtrees.set(spotId, spotFull);
+  return { spotProduct, spotExtra };
+}
+
+// ---- flows 节点动态创建（Affector 挂载 → 层级分发，Phase 6） ----
+
+/** mountEntityId 解析到层级实体则原样返回；否则归入 global 兜底节点。 */
+function resolveFlowsMount(system: GameNumSystem, mountEntityId: string): string | undefined {
+  if (system.registry.spots.has(mountEntityId)) return mountEntityId;
+  if (system.registry.areas?.has(mountEntityId)) return mountEntityId;
+  if (system.registry.inits?.has(mountEntityId)) return mountEntityId;
+  return undefined;
+}
+
+function createFlowsNode(system: GameNumSystem, mount: string | undefined, resource: string): GameNum {
+  const id = `flows:${mount ?? 'global'}:${resource}`;
+  const existing = system.flowsNodeById.get(id);
+  if (existing) return existing;
+  const node: GameNum = { id, kind: 'affectorFlows', resource, ...(mount !== undefined ? { mount } : {}) };
+  system.flowsNodeById.set(id, node);
+  const list = system.affectorFlowsNodes.get(resource) ?? [];
+  list.push(node);
+  system.affectorFlowsNodes.set(resource, list);
+  return node;
+}
+
+/** 把 flows 节点挂到对应层级：spot → spotExtra（随 areaExtra 上抛）；area/init → 各自 Extra；其他 → 资源树根（global）。 */
+function attachFlowsNode(system: GameNumSystem, mount: string | undefined, resource: string): void {
+  const node = createFlowsNode(system, mount, resource);
+  if ((system.parents.get(node.id) ?? []).length > 0) return;
+  let parent: GameNum | undefined;
+  if (mount !== undefined) {
+    parent = system.spotExtraNodes.get(`${mount}@${resource}`)
+      ?? system.areaExtraNodes.get(`${mount}@${resource}`)
+      ?? system.initExtraNodes.get(`${mount}@${resource}`);
+  }
+  if (!parent) parent = system.gains.get(resource);
+  if (!parent || parent.kind !== 'add') return;
+  parent.children.push(node);
+  setParent(system, node, parent);
+  collect(system, node);
+}
+
+/** 按当前活跃 Affector 实例补齐缺失的 flows 节点（buildAll 收尾与实例变化时调用；幂等）。 */
+export function ensureFlowsNodes(system: GameNumSystem, affector: { getActiveInstances(): { mountEntityId: string; packId: string; activeEntryIds: string[] }[]; getPack(id: string): { entries: { id: string; flows?: { resource: string }[] }[] } | undefined }): void {
+  for (const instance of affector.getActiveInstances()) {
+    const pack = affector.getPack(instance.packId);
+    if (!pack) continue;
+    for (const entry of pack.entries) {
+      if (!instance.activeEntryIds.includes(entry.id)) continue;
+      for (const flow of entry.flows ?? []) {
+        attachFlowsNode(system, resolveFlowsMount(system, instance.mountEntityId), flow.resource);
+      }
+    }
+  }
+}
+
+// ---- zone 节点 ----
 
 export function buildZoneNode(system: GameNumSystem, scope: EntityRef, part: 'flat' | 'mul', resource?: string): ZoneNode {
   const id = `zone:${scope.kind}:${scope.id}:${part}${resource ? `:${resource}` : ''}`;
@@ -173,16 +330,6 @@ function registerZoneNode(system: GameNumSystem, node: ZoneNode): void {
     }
     entry[node.part].add(node);
   }
-  if (node.scope.kind === 'area' || node.scope.kind === 'init') {
-    system.entityZoneNodes.set(entityKey(node.scope), node);
-  }
-}
-
-function allEntitiesOfKind(system: GameNumSystem, kind: EntityRef['kind']): EntityRef[] {
-  if (kind === 'spot') return [...system.registry.spots.keys()].map(id => ({ kind, id }));
-  if (kind === 'area') return [...system.registry.areas?.keys() ?? []].map(id => ({ kind, id }));
-  if (kind === 'init') return [...system.registry.inits?.keys() ?? []].map(id => ({ kind, id }));
-  return [];
 }
 
 function scopeTags(system: GameNumSystem, scope: EntityRef): TagPath[] {
@@ -193,6 +340,7 @@ function scopeTags(system: GameNumSystem, scope: EntityRef): TagPath[] {
     case 'area': def = system.registry.areas.get(scope.id) as TaggedDef | undefined; break;
     case 'init': def = system.registry.inits.get(scope.id) as TaggedDef | undefined; break;
     case 'enhancement': def = system.registry.enhancements.get(scope.id) as TaggedDef | undefined; break;
+    case 'global': break;
   }
   return def?.tags ?? [];
 }

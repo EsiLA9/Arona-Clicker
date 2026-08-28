@@ -103,9 +103,11 @@ export function describeCondition(
   return parts.join(group.type === 'AND' ? ' 且 ' : ' 或 ');
 }
 
-/** 计算某 Spot 适用的产出倍率（统一经 GameNum 的 zone 聚合）。 */
+/** 计算某 Spot 适用的产出倍率：精确读该 spot 自身 mul 区节点（显式层级树后不含上极乘区）。 */
 export function getEnhancementMultiplier(ctx: UIContext, spot: SpotDef): number {
-  return ctx.game.gameNumSystem.getSpotMultiplier(spot.id, ctx.game.state as never);
+  const system = ctx.game.gameNumSystem;
+  const zone = system.buildZoneNode({ kind: 'spot', id: spot.id }, 'mul', spot.baseYieldResource);
+  return system.evaluate(zone, ctx.game.state as never);
 }
 
 export interface YieldBreakdown {

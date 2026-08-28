@@ -1,9 +1,9 @@
 // ============================================================
-// engine/game-num-snapshot.test.ts — Phase 0 行为快照（todoTask/taskGameNum/TASK.md）
+// engine/game-num-snapshot.test.ts — 行为快照（todoTask/taskGameNum/TASK.md）
 //
-// 作用：把 GameNum 区表 / hierarchy / flows / 失效的当前语义锁进测试，作为
-//   Phase 1（删 childMulMap 投影，统一走 state 表）与 Phase 4（精确失效）的安全网。
-//   除显式标注的 KNOWN DIVERGENCE 外，本文件全部断言 Phase 1 后必须保持全绿。
+// 作用：把 GameNum 区表 / 显式层级树 / flows 分发 / 失效的当前语义锁进测试，作为
+//   Phase 1（删 childMulMap 投影）、Phase 5（精确失效）与 Phase 6（显式四级层级树）
+//   的安全网。Phase 6 起 hierarchy 组内相加语义升级为逐级连乘，相关断言按新结构重锚定。
 //
 // 合成 fixture：最小 registry（2 init / 3 area / 4 spot）+ 可注入 fake Affector，
 //   便于精确控制 tags 与挂载，不依赖 baseDatapack 的具体数据。
@@ -14,7 +14,7 @@ import { baseDatapack } from '../../src/data/index';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { ValueSystem } from '../../src/engine/expression/value-system';
 import { GameNumSystem } from '../../src/engine/expression/game-num';
-import { aggregateZone, evaluateResourceAffectorFlows, evaluateSpotAffectorFlows } from '../../src/engine/expression/game-num-eval';
+import { aggregateZone } from '../../src/engine/expression/game-num-eval';
 import { tagPath, tagId } from '../../src/engine/core/tag';
 import type { PlayerState } from '../../src/engine/types';
 import type { AffectorEngine } from '../../src/engine/effect/affector-engine';
@@ -170,59 +170,55 @@ describe('Phase 0 快照：zone 聚合语义（state 表聚合）', () => {
   });
 });
 
-describe('Phase 0 快照：Area/Init hierarchy 逐级上抛', () => {
-  test('area tag mul 作用于其下所有 spot', () => {
+describe('Phase 6 快照：显式层级树（Area/Init 乘区逐级连乘）', () => {
+  test('area tag mul 作用于其下所有 spot 的 base 链', () => {
     const { system, state } = makeFixture();
     system.registerTagEffect(state, areaKey, mulRecord('am', 2));
-    expect(system.evaluateResourceGain(CREDIT, state)).toBe(90); // s1/s2 ×2：10+20+20+40
-    // s1/s2 在 areaA：×2；s3（areaB）、s4（areaC）不受影响
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(10);
-    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(20);
+    // areaA: (5+10)×2=30；areaB 20；areaC 40 → initI 50 + initOther 40 = 90
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(90);
+    // spot 视图只含自身乘区，不再包含上极乘区（新语义）
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(5);
+    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(10);
     expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(20);
     expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40);
+    // area 乘区值经区节点精确读取
+    expect(system.evaluate(system.buildZoneNode(areaAScope, 'mul'), state)).toBe(2);
   });
 
-  test('init tag mul 作用于该 init 全部 spot（跨 area）', () => {
+  test('init tag mul 作用于该 init 全部 area 的 base 链（跨 area）', () => {
     const { system, state } = makeFixture();
     system.registerTagEffect(state, initKey, mulRecord('im', 3));
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(15);
-    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(30);
-    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(60);
-    // s4 在 initOther，不受影响
-    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40);
+    // initI: (15+20)×3=105；initOther 40 → 145
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(145);
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(5);
+    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40); // initOther 不受影响
+    expect(system.evaluate(system.buildZoneNode(initIScope, 'mul'), state)).toBe(3);
   });
 
-  test('area 与 init 同处 hierarchy 组：1+Σ(f-1) 相加（非相乘）', () => {
+  test('area 与 init 乘区逐级连乘（替代旧 hierarchy 组内相加）', () => {
     const { system, state } = makeFixture();
     system.registerTagEffect(state, areaKey, mulRecord('am', 2));
     system.registerTagEffect(state, initKey, mulRecord('im', 3));
-    // hierarchy 组 = 1 + (2-1) + (3-1) = 4；s1 = 5×4 = 20
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(20);
-    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(40);
-    // s3 仅 init 上抛：20 × (1 + 0 + 2) = 60
-    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(60);
-    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40); // 无上抛
-    expect(system.evaluateResourceGain(CREDIT, state)).toBe(160);
+    // base 链逐级连乘：s1 5×2×3、s2 10×2×3、s3 20×3、s4 40 → 30+60+60+40 = 190
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(190);
   });
 
-  test('entity 精确引用 area/init 键同样逐级上抛（hierarchy 组内相加）', () => {
+  test('entity 精确引用 area/init 键同样逐级连乘', () => {
     const { system, state } = makeFixture();
     system.registerEntityEffect(state, 'area:areaA', mulRecord('am', 2));
     system.registerEntityEffect(state, 'init:initI', mulRecord('im', 3));
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(20); // 5 × 4
-    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(60); // 仅 init 上抛
-    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40); // 无上抛
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(190);
   });
 
-  test('getSpotMultiplier 仅 spot 自身 mul 区（不含 hierarchy，与注释不符）', () => {
+  test('层级视图与乘区各归其位（getSpotMultiplier 已删，读区节点）', () => {
     const { system, state } = makeFixture();
     system.registerTagEffect(state, areaKey, mulRecord('am', 2));
     system.registerTagEffect(state, initKey, mulRecord('im', 3));
-    // 实际行为：只求值 spotZone.mul（spot 级 mul 区），hierarchy 在 spotMul 上，未被计入。
-    // game-num.ts 的 JSDoc 声称「含逐级上抛」，与实际不符——Phase 0 锁定实际行为，
-    // 该不一致列入遗留风险（Phase 6 修注释或修实现）。
-    expect(system.getSpotMultiplier('s1', state)).toBe(1);
-    expect(system.evaluateSpotYield('s1', state)).toBe(20); // 含 hierarchy 的最终子树值
+    // spot 自身视图不含上极乘区；上极乘区经区节点精确读取
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(5);
+    expect(system.evaluate(system.buildZoneNode(areaAScope, 'mul'), state)).toBe(2);
+    expect(system.evaluate(system.buildZoneNode(initIScope, 'mul'), state)).toBe(3);
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(190);
   });
 });
 
@@ -318,7 +314,7 @@ describe('Phase 0 快照：双聚合路径对拍（Phase 1 安全网）', () => 
 // KNOWN DIVERGENCE 已统一：分桶乘区语义下，buildZoneNode（生产路径）与 aggregateZone（表路径）
 // 结果一致，见上方「双聚合路径对拍」三个新用例（同组 mul=加法 / 同 multiplierId custom=连乘 / 通配键生效）。
 
-describe('Phase 0 快照：flows 双求值入口', () => {
+describe('Phase 6 快照：flows 层级分发（按 mountEntityId）', () => {
   // 实例 i1 挂 s1（entry e1 产 credit 3 / gold 5，e2 产 credit 7，e3 未激活），
   // i2 挂 s2（entry e1 产 credit 3 / gold 5）。
   const flowsAffector = {
@@ -336,30 +332,31 @@ describe('Phase 0 快照：flows 双求值入口', () => {
     }),
   } as unknown as AffectorEngine;
 
-  test('evaluateResourceAffectorFlows 按资源聚合所有活跃实例', () => {
-    const { system, vs, state } = makeFixture(flowsAffector);
-    expect(evaluateResourceAffectorFlows(CREDIT, state, { valueSystem: vs, registry: system.registry, characterSystem: system.characterSystem, affectorEngine: system.affectorEngine })).toBe(13); // i1(3+7) + i2(3)
-    expect(evaluateResourceAffectorFlows(GOLD, state, { valueSystem: vs, registry: system.registry, characterSystem: system.characterSystem, affectorEngine: system.affectorEngine })).toBe(10); // i1(5) + i2(5)
+  test('spot 挂载的 flows 分发到对应 spot 的 spotExtra 节点', () => {
+    const { system, state } = makeFixture(flowsAffector);
+    // s1 视图 = base 5 + flows(3+7)=10 → 15；s2 = 10+3=13；s3/s4 无挂载
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(15);
+    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(13);
+    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(20);
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(15 + 13 + 20 + 40);
   });
 
-  test('evaluateSpotAffectorFlows 按挂载 spot 聚合', () => {
-    const { system, vs, state } = makeFixture(flowsAffector);
-    const deps = { valueSystem: vs, registry: system.registry, characterSystem: system.characterSystem, affectorEngine: system.affectorEngine };
-    expect(evaluateSpotAffectorFlows('s1', state, deps)).toBe(15); // e1(3+5) + e2(7)
-    expect(evaluateSpotAffectorFlows('s2', state, deps)).toBe(8); // e1(3+5)
-    expect(evaluateSpotAffectorFlows('s3', state, deps)).toBe(0); // 无实例挂载
+  test('跨资源 flows 进入对应资源树的 spot 节点', () => {
+    const { system, state } = makeFixture(flowsAffector);
+    // gold 树中 s1..s4 的 base 恒 0，仅承载挂载的 gold flows：s1 5 + s2 5
+    expect(system.evaluateResourceGain(GOLD, state)).toBe(10);
   });
 
   test('未激活 entry 不参与 flows 求值', () => {
-    const { system, vs, state } = makeFixture(flowsAffector);
-    const deps = { valueSystem: vs, registry: system.registry, characterSystem: system.characterSystem, affectorEngine: system.affectorEngine };
-    // e3（100 credit）未激活：不影响 credit 聚合
-    expect(evaluateResourceAffectorFlows(CREDIT, state, deps)).toBe(13);
+    const { system, state } = makeFixture(flowsAffector);
+    // e3（100 credit）未激活：s1 视图不含 100
+    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(15);
   });
 
-  test('affectorFlows 叶子挂入 primitiveGain：evaluateResourceGain 包含 flows', () => {
+  test('未拥有 spot 的 flows 仍产出（flows 不受 owned 门控）', () => {
     const { system, state } = makeFixture(flowsAffector);
     for (const key of Object.keys(state.spotLevels)) (state as any).spotLevels[key] = 0;
+    system.invalidateProduction();
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(13); // 无 spot 产出，仅 flows
     expect(system.evaluateResourceGain(GOLD, state)).toBe(10);
   });
@@ -384,7 +381,7 @@ describe('Phase 0 快照：失效行为', () => {
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(90);
   });
 
-  test('GameInstance 多帧 tick：每帧 invalidateProduction 后数值持续正确', () => {
+  test('多帧 tick 数值持续正确（事件驱动失效，Phase 5 起无每帧 invalidate）', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);
     game.startNewGame('base:init:schale_office');
