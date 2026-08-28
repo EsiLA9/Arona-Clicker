@@ -23,7 +23,7 @@ describe('UIController Init 选择页', () => {
     root = document.querySelector('#app')!;
     controller = new UIController(game, root);
     controller.mount();
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -86,7 +86,7 @@ describe('UIController Init 选择页', () => {
     game.mutations.changeResource('base:resource:credit', 12345);
     game.mutations.setFlag('some_flag', '1');
     // 再次开启新游戏（同一 Init）
-    expect(game.startNewGame(OFFICE)).toBe(true);
+    expect(game.inits.startNewGame(OFFICE)).toBe(true);
     const view = game.getView();
     expect(view.resources['base:resource:credit'] ?? 0).toBe(0); // 新会话资源归零
     expect(game.state.flags['some_flag']).toBeUndefined(); // 旧会话 flag 已清空

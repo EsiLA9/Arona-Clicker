@@ -31,7 +31,7 @@ describe('SpotFunctionalitySystem', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -151,7 +151,7 @@ describe('SpotFunctionalitySystem', () => {
     // 购买 field_logistics（解锁条件 field_work>=2），其 addsFunctionalities 注入 field/combat/tactical Spot
     game.state.resources[CREDIT] = 500;
     game.state.spotLevels['base:spot:field_work'] = 2;
-    expect(game.purchaseEnhancement('base:enh:field_logistics').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enh:field_logistics').success).toBe(true);
 
     const fieldWork = game.registry.spots.get('base:spot:field_work')!;
     expect(game.spotFunctionalitySystem.hasFunctionality(fieldWork, game.state, 'restartInit')).toBe(true);
@@ -163,17 +163,17 @@ describe('SpotFunctionalitySystem', () => {
   test('removing the enhancement drops its external functionalities', () => {
     game.state.resources[CREDIT] = 500;
     game.state.spotLevels['base:spot:field_work'] = 2;
-    expect(game.purchaseEnhancement('base:enh:field_logistics').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enh:field_logistics').success).toBe(true);
 
     const fieldWork = game.registry.spots.get('base:spot:field_work')!;
     expect(game.spotFunctionalitySystem.hasFunctionality(fieldWork, game.state, 'restartInit')).toBe(true);
-    expect(game.removeEnhancement('base:enh:field_logistics')).toBe(true);
+    expect(game.enhancements.removeEnhancement('base:enh:field_logistics')).toBe(true);
     expect(game.spotFunctionalitySystem.hasFunctionality(fieldWork, game.state, 'restartInit')).toBe(false);
   });
 
   test('restartInit ends the current game and resets state', () => {
     game.mutations.changeResource(CREDIT, 50);
-    game.restartInit();
+    game.inits.restartInit();
     expect(game.running).toBe(false);
     expect(game.state.resources[CREDIT]).toBeUndefined();
     expect(game.state.activeInit).toBe('');

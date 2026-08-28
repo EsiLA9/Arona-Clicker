@@ -145,6 +145,13 @@ export type EffectOp =
   | 'clearAllChatText';
 
 /**
+ * 声明类效果 op：不进执行流（mutations 静默、Affector 激活沿过滤），
+ * 由消费方按声明动态读取（现役：Affector 区等级上限，getSpotMaxLevelOverrides）。
+ * 新增声明类 op = EffectOp 联合加成员 + 本集合加一项。
+ */
+export const DECLARATIVE_EFFECT_OPS: ReadonlySet<EffectOp> = new Set<EffectOp>(['setSpotMaxLevel', 'removeSpotMaxLevel']);
+
+/**
  * 临时演出主题声明：引用某 ColorGroup 打底 + 可选局部 token 覆盖。
  * 见 engine/theme-runtime.ts 的 ThemeLayer（缺省 scope 视为 ephemeral）。
  */

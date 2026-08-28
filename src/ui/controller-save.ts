@@ -22,7 +22,7 @@ export function handleLoad(ctrl: UIController): void {
   const data = SaveSystem.load();
   if (data) {
     ctrl.game.load(data);
-    ctrl.game.unlockInit(ctrl.game.state.activeInit || 'base:init:schale_office');
+    ctrl.game.inits.unlockInit(ctrl.game.state.activeInit || 'base:init:schale_office');
     ctrl.resetSessionPanel();
     ctrl.restoreHistories(data);
     ctrl.game.devLog.record('本地存档已读取', { source: 'save', level: 'success' });

@@ -426,6 +426,8 @@ const triggerObject = (): FieldDef =>
           { tag: 'story', label: '剧情', fields: [r('storyId', 'storyEntries', '剧情入口')] },
           { tag: 'init', label: '世界线', fields: [r('initId', 'inits', '世界线')] },
           { tag: 'area', label: '区域', fields: [r('areaId', 'areas', '区域')] },
+          { tag: 'character', label: '获得角色', fields: [s('variantId', '差分（可选）')] },
+          { tag: 'cultivated', label: '培养变更', fields: [s('variantId', '差分（可选）'), e('cultivation', [['exp', '升级'], ['star', '突破']], '方式（可选）')] },
         ],
       },
     },
@@ -451,6 +453,8 @@ const triggerOnFieldFree = (): FieldDef => ({
       { tag: 'story', label: '剧情', fields: [s('storyId', '剧情')] },
       { tag: 'init', label: '世界线', fields: [s('initId', '世界线')] },
       { tag: 'area', label: '区域', fields: [s('areaId', '区域')] },
+      { tag: 'character', label: '获得角色', fields: [s('variantId', '差分（可选）')] },
+      { tag: 'cultivated', label: '培养变更', fields: [s('variantId', '差分（可选）'), e('cultivation', [['exp', '升级'], ['star', '突破']], '方式（可选）')] },
     ],
   },
 });

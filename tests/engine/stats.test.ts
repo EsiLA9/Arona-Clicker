@@ -42,7 +42,7 @@ describe('StatsService (三层统计)', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -64,8 +64,8 @@ describe('StatsService (三层统计)', () => {
   });
 
   test('item collection and usage are counted separately', () => {
-    game.giveItem(ITEM, 3);
-    game.useItem(ITEM);
+    game.items.giveItem(ITEM, 3);
+    game.items.useItem(ITEM);
 
     const stats = game.getView().stats;
     expect(stats.global.itemsCollected[ITEM]).toBe(3);
@@ -88,8 +88,8 @@ describe('StatsService (三层统计)', () => {
     game.mutations.changeResource(CREDIT, 100);
     const runProducedAfterFirst = game.getView().stats.session.counters.produced[CREDIT];
 
-    game.unlockInit(MILLENNIUM);
-    game.enterInit(MILLENNIUM);
+    game.inits.unlockInit(MILLENNIUM);
+    game.inits.enterInit(MILLENNIUM);
     game.mutations.changeResource(CREDIT, 10);
 
     const stats = game.getView().stats;

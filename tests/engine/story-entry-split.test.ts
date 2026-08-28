@@ -11,10 +11,10 @@ import { Datapack, and } from '../../src/engine/types';
 /** 推进完当前展开的剧情（active 会锁定移动）。 */
 function finishStory(g: GameInstance): void {
   for (let guard = 0; guard < 200; guard++) {
-    const r = g.advanceStory();
+    const r = g.story.advanceStory();
     if (r.success && 'finished' in r && r.finished) break;
     if (!r.success && r.error === 'ChoiceRequired') {
-      g.advanceStory(0);
+      g.story.advanceStory(0);
       continue;
     }
     if (!r.success) break;
@@ -63,7 +63,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
   test('passive 抽选与完结奖励经 Entry 消费；完成记录仍按 Story.id', () => {
     game.init([baseDatapack]);
     finishStory(game); // 先完成主动 welcome，腾出 passive 抽选窗口
-    game.clickSend();
+    game.story.clickSend();
     const current = game.getView().currentStory;
     if (current?.type !== 'passive') return; // 池内无可用 passive 时跳过
     finishStory(game);
@@ -79,16 +79,16 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     const logs = () => game.state.storyReadLogs ?? {};
     expect(logs()['base:story:schale_welcome']?.readTalkletIndexes).toEqual([0]);
 
-    game.advanceStory(); // 0 → 1
-    game.advanceStory(); // 1 → 2
-    game.advanceStory(); // 2 → 3
-    game.advanceStory(); // 3 → 4
-    game.advanceStory(); // 4 → 5（选项页）
+    game.story.advanceStory(); // 0 → 1
+    game.story.advanceStory(); // 1 → 2
+    game.story.advanceStory(); // 2 → 3
+    game.story.advanceStory(); // 3 → 4
+    game.story.advanceStory(); // 4 → 5（选项页）
     let log = logs()['base:story:schale_welcome']!;
     expect(log.readTalkletIndexes).toEqual([0, 1, 2, 3, 4, 5]);
     expect(log.chosenChoiceIndexes[5]).toBeUndefined();
 
-    game.advanceStory(0); // 5(选 0) → 6
+    game.story.advanceStory(0); // 5(选 0) → 6
     log = logs()['base:story:schale_welcome']!;
     expect(log.chosenChoiceIndexes[5]).toEqual([0]);
     expect(log.readTalkletIndexes).toEqual([0, 1, 2, 3, 4, 5, 6]);
@@ -96,7 +96,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
 
   test('无选项页推进不记录 chosenChoiceIndexes', () => {
     game.init([baseDatapack]);
-    game.advanceStory(); // 0 → 1（0 无选项）
+    game.story.advanceStory(); // 0 → 1（0 无选项）
     const log = game.state.storyReadLogs!['base:story:schale_welcome']!;
     expect(log.chosenChoiceIndexes).toEqual({});
   });
@@ -105,7 +105,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     game.init([baseDatapack]);
     // 模拟旧档：删除可选字段
     delete (game.state as { storyReadLogs?: unknown }).storyReadLogs;
-    const r = game.advanceStory();
+    const r = game.story.advanceStory();
     expect(r.success).toBe(true);
     // 推进后重新产生日志
     expect(game.state.storyReadLogs?.['base:story:schale_welcome']).toBeDefined();

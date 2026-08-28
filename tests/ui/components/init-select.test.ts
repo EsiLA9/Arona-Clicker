@@ -22,7 +22,7 @@ describe('renderSelectorPage Init 面世界倾斜数值', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -32,7 +32,7 @@ describe('renderSelectorPage Init 面世界倾斜数值', () => {
   it('Init 面右列按倾斜值降序排列（高在上低在下）', () => {
     // 累计产出拉满全部揭示阈值，并解锁全部世界线
     game.mutations.changeResource(CREDIT, 5000);
-    for (const id of [MILLENNIUM, ABYDOS, TRINITY, GEHENNA]) game.unlockInit(id);
+    for (const id of [MILLENNIUM, ABYDOS, TRINITY, GEHENNA]) game.inits.unlockInit(id);
 
     const html = renderSelectorPage(createUIContext(game), 'new', null, null, false, 'init');
     expect(railOrder(html)).toEqual([OFFICE, MILLENNIUM, TRINITY, ABYDOS, GEHENNA]);
@@ -47,7 +47,7 @@ describe('renderSelectorPage Init 面世界倾斜数值', () => {
 
   it('Init 面选中项驱动左侧详情：有伪装展示字符串时代替数值展示', () => {
     game.mutations.changeResource(CREDIT, 5000);
-    game.unlockInit(GEHENNA);
+    game.inits.unlockInit(GEHENNA);
     const html = renderSelectorPage(createUIContext(game), 'new', GEHENNA, null, false, 'init');
     expect(html).toContain('观测受限（伪装值）');
     expect(html).not.toContain('TILT 0.941300000000000');

@@ -116,7 +116,7 @@ describe('Phase 5 陈旧读回归（事件驱动精确失效）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack, datapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
     // 干净起点：清空默认等级与余额（走 mutation 入口，事件即失效）
     for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
     game.mutations.setResource(CREDIT, 0);

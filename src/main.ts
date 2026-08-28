@@ -32,7 +32,7 @@ function boot(): void {
     console.log('[Boot] Save loaded, resuming...');
   } else {
     // 新存档：解锁默认 Init
-    game.unlockInit('base:init:schale_office');
+    game.inits.unlockInit('base:init:schale_office');
     console.log('[Boot] New game started');
   }
 

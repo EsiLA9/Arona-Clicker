@@ -159,7 +159,7 @@ export class UIController {
     document.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'D') {
         e.preventDefault();
-        this.game.dumpEnhancementDebug();
+        this.game.enhancements.dumpEnhancementDebug();
         this.toast.show('Enhancement 条件诊断已写入日志', 'info');
         this.render();
       }
@@ -318,7 +318,7 @@ export class UIController {
   /** 新游戏进入世界线（保留跨 Init 进度）。 */
   startNewGame(initId: string): void {
     this.themeFloatOpen = false;
-    const started = this.game.startNewGame(initId);
+    const started = this.game.inits.startNewGame(initId);
     if (!started) {
       this.game.devLog.record(`无法开始世界线：${initId}`, { source: 'init', level: 'error' });
       this.toast.show('无法开始世界线', 'error');
@@ -336,8 +336,8 @@ export class UIController {
   resumeInit(initId: string): void {
     this.themeFloatOpen = false;
     // 玩家选择 Init 时才真正执行 restartInit（保存快照 + 清 per-init 状态）
-    this.game.restartInit();
-    const resumed = this.game.resumeInit(initId);
+    this.game.inits.restartInit();
+    const resumed = this.game.inits.resumeInit(initId);
     if (!resumed) {
       this.game.devLog.record(`无法恢复世界线：${initId}`, { source: 'init', level: 'error' });
       this.toast.show('无法恢复世界线', 'error');

@@ -5,6 +5,7 @@
 import type { StoryView } from './results';
 import type { AffectorInstance, EnhancementAttachment } from './entities';
 import type { Character, EnhancementId, InitId, SpotId, StoryId, ItemId, AreaId } from './ids';
+import type { TagPath } from '../core/tag';
 import type { ExtraCompound } from './extra';
 import type { CharaCustomOverride } from './chara-profile';
 import type { TagEffectRecord } from '../expression/tag-effect';
@@ -22,6 +23,14 @@ import type {
 } from './character';
 
 // --- PlayerState ---
+
+/** 运行时 Spot tag 增撤记录（有效 tags = 声明 + added − removed）。 */
+export interface SpotTagOverride {
+  /** 运行时新增的 tags（叠加在声明之上）。 */
+  added: TagPath[];
+  /** 运行时撤出的 tags（可撤销声明 tag）。 */
+  removed: TagPath[];
+}
 
 export interface PlayerState {
   /** 世界线局部（per-Init）资源：随 Init 快照保存/清除，不跨世界线。 */
@@ -90,6 +99,12 @@ export interface PlayerState {
   groupsOwned?: ColorGroupId[];
   /** 已收集的色彩装备库存（收集类资产，恒为 global 层）。 */
   equipmentsOwned?: EquipmentId[];
+  /**
+   * 运行时 Spot tag 增撤覆盖（spot-service.addSpotTag/removeSpotTag 经 mutations 写入；
+   * key = SpotId，恒为 global 层，随存档保留。有效 tags = 声明 + added − removed，
+   * 见 registry.effectiveSpotTags；docs-824/08 T6 起 Registry 恒只读）。
+   */
+  spotTagOverrides?: Record<SpotId, SpotTagOverride>;
   /**
    * 实体主题槽：玩家/系统为某实体（`area:<id>` / `variant:<id>`）选定的主题来源。
    * 缺省（无条目）= 声明默认。获得新配色设计时会自动写入（改默认颜色）。

@@ -73,13 +73,13 @@ export interface GameNumEvalDeps {
   affectorEngine: AffectorEngine;
 }
 
-/** 取实体声明 tags（自下而上聚合用）。registry 各实体 def 的 tags 字段可选。 */
-const entityTagsOf = (ref: EntityRef, deps: GameNumEvalDeps): TagPath[] => {
+/** 取实体 tags（spot 按「有效 tags」= 声明 + 运行时增撤，docs-824/08 T6；其余读声明；自下而上聚合用）。 */
+const entityTagsOf = (ref: EntityRef, deps: GameNumEvalDeps, state: PlayerState): TagPath[] => {
+  if (ref.kind === 'spot') {
+    return deps.registry.effectiveSpotTags(ref.id, state.spotTagOverrides);
+  }
   let def: { tags?: TagPath[] } | undefined;
   switch (ref.kind) {
-    case 'spot':
-      def = deps.registry.spots.get(ref.id);
-      break;
     case 'area':
       def = deps.registry.areas.get(ref.id) as { tags?: TagPath[] } | undefined;
       break;
@@ -164,7 +164,7 @@ export function aggregateZone(
 
 /** zone 节点求值：唯一路径为全局区表聚合（state.tagEffects / state.entityEffects 是唯一真相）。 */
 function zoneValue(node: GameNum & { kind: 'zone' }, state: PlayerState, deps: GameNumEvalDeps, useCache: boolean): number {
-  const tags = entityTagsOf(node.scope, deps);
+  const tags = entityTagsOf(node.scope, deps, state);
   return aggregateZone(state, node.scope, tags, node.resource, node.part, deps.valueSystem);
 }
 

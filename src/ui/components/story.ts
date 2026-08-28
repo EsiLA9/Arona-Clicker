@@ -75,7 +75,7 @@ function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: strin
   const initial = ctx.escapeHtml((speaker?.trim() || '?').charAt(0).toUpperCase());
   const fallback = `<span class="chat-avatar-fallback">${initial}</span>`;
   // avatar 可为直连 URL 或 `mod:type(pic):id` 三段式图片索引；解析失败回退首字母占位
-  const src = avatar ? ctx.game.getPicUrl(avatar) : undefined;
+  const src = avatar ? ctx.game.pics.urlOf(avatar) : undefined;
   if (src) {
     return `<span class="chat-avatar"><img src="${ctx.escapeHtml(src)}" alt="${initial}" loading="lazy" onerror="this.remove()">${fallback}</span>`;
   }
@@ -122,7 +122,7 @@ function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: string): str
 
 /** 聊天气泡内嵌图片：pic ref / 直连 URL 经 getPicUrl 解析；解析失败返回空串（不渲染）。 */
 function renderChatImage(ctx: UIContext, ref: string): string {
-  const src = ctx.game.getPicUrl(ref);
+  const src = ctx.game.pics.urlOf(ref);
   if (!src) return '';
   return `<img class="chat-image" src="${ctx.escapeHtml(src)}" alt="" loading="lazy">`;
 }

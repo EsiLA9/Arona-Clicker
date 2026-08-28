@@ -103,7 +103,7 @@ export function renderHeader(ctx: UIContext): string {
 export function renderResourceStrip(ctx: UIContext): string {
   const { view, game } = ctx;
   const gainOf = (resourceId: string) =>
-    ctx.formatNumber(game.gameNumSystem.evaluateResourceGain(resourceId, game.state as never));
+    ctx.formatNumber(game.gameNumSystem.evaluateResourceGain(resourceId, game.state));
   // 资源条由数据包声明的 resourceDisplays 驱动：
   // 数据包编辑者可自定义显示哪些货币、标签、可选策略（hasAmount）与排序，UI 不再硬编码。
   const items = [...game.registry.resourceDisplays.values()]

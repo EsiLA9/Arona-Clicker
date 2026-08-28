@@ -1,8 +1,14 @@
 // ============================================================
 // engine/effect-engine.ts — Effect 效果引擎
+//
+// op 分发表驱动：状态层 op 委托 StateMutationService；演出类 op
+// （主题/剧情启动/聊天流）发射运行时请求事件，由 RuntimeEffectReactor
+// 消费（EventBus 同步派发，语义与原回调处理器一致）——效果层不反向
+// 持有领域服务，依赖单向（docs-824/08 T7）。声明类 op 见
+// types/expression DECLARATIVE_EFFECT_OPS。
 // ============================================================
 
-import { Effect, PlayerState, ValueExpression } from '../types';
+import { Effect, EffectOp, GameEvent, PlayerState, ValueExpression } from '../types';
 import { EventBus } from '../core/event-bus';
 import { StateMutationService } from '../system/state-mutation-service';
 import { ValueSystem } from '../expression/value-system';
@@ -12,25 +18,20 @@ export class EffectEngine {
   private mutations: StateMutationService;
   private _state!: PlayerState;
 
-  /**
-   * 非状态主题类效果（setTheme）的处理器：由 GameInstance 注入 ColorSystem.handleThemeEffect。
-   * 这类 effect 不写入 PlayerState，只影响运行时 UI 主题层。
-   */
-  themeEffectHandler: ((effect: Effect) => void) | null = null;
-  /**
-   * 剧情启动效果（triggerStory）的处理器：由 GameInstance 注入 StoryService.startStory。
-   * 不写入 PlayerState，由上层按 effect.target（storyId）与 effect.owner（可选沙盒）启动剧情。
-   */
-  storyStarter: ((effect: Effect) => void) | null = null;
-  /**
-   * 聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatFlow）的处理器：
-   * 由 GameInstance 注入 ChatFlowService。不写入 PlayerState，只发运行时事件供 UI 操作聊天流。
-   */
-  chatFlowHandler: ((effect: Effect) => void) | null = null;
+  /** 运行时请求事件发射表（构造期建一次）：演出类 op → 对应请求事件。 */
+  private readonly runtimeEmit: Partial<Record<EffectOp, (effect: Effect) => GameEvent>>;
 
   constructor(eventBus: EventBus, mutations?: StateMutationService, private readonly valueSystem?: ValueSystem) {
     this.eventBus = eventBus;
     this.mutations = mutations ?? new StateMutationService(eventBus);
+    this.runtimeEmit = {
+      setTheme: effect => ({ type: 'themeEffectRequested', effect }),
+      triggerStory: effect => ({ type: 'storyEffectRequested', effect }),
+      clearAllChatFlow: effect => ({ type: 'chatFlowEffectRequested', effect }),
+      showChatText: effect => ({ type: 'chatFlowEffectRequested', effect }),
+      clearIdChatFlow: effect => ({ type: 'chatFlowEffectRequested', effect }),
+      clearAllChatText: effect => ({ type: 'chatFlowEffectRequested', effect }),
+    };
   }
 
   setState(state: PlayerState): void {
@@ -41,18 +42,11 @@ export class EffectEngine {
   /** 批量执行效果列表（value 为 ValueExpression 时先按当前状态求值）。 */
   applyEffects(effects: Effect[]): void {
     const resolved = effects.map(effect => this.resolveValue(effect));
-    // 主题/剧情启动类效果转发给运行时层（不落状态），其余走状态写入口
+    // 演出类 op 发运行时请求事件（不落状态），其余走状态写入口
     const stateEffects = resolved.filter(effect => {
-      if (effect.op === 'setTheme') {
-        this.themeEffectHandler?.(effect);
-        return false;
-      }
-      if (effect.op === 'triggerStory') {
-        this.storyStarter?.(effect);
-        return false;
-      }
-      if (effect.op === 'clearAllChatFlow' || effect.op === 'showChatText' || effect.op === 'clearIdChatFlow' || effect.op === 'clearAllChatText') {
-        this.chatFlowHandler?.(effect);
+      const build = this.runtimeEmit[effect.op];
+      if (build) {
+        this.eventBus.emit(build(effect));
         return false;
       }
       return true;

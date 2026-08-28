@@ -1,0 +1,44 @@
+所在位置 行:1 字符: 156
++ ... ring -Path $f.FullName -Pattern '(?:ctx\.game|game)\.(\w+)'))) {} };  ...
++                                                                  ~
+foreach 循环中缺少语句体。
+所在位置 行:1 字符: 68
++ ... }; foreach ($f in (Get-ChildItem 'src\ui\components\*.ts')) { foreach ...
++                                                                 ~
+语句块或类型定义中缺少右“}”。
+所在位置 行:1 字符: 156
++ ... ing -Path $f.FullName -Pattern '(?:ctx\.game|game)\.(\w+)'))) {} };   ...
++                                                                 ~
+表达式或语句中包含意外的标记“)”。
+所在位置 行:1 字符: 161
++ ... Path $f.FullName -Pattern '(?:ctx\.game|game)\.(\w+)'))) {} };  ; pow ...
++                                                                 ~
+表达式或语句中包含意外的标记“}”。
+所在位置 行:1 字符: 414
++ ... Path $f.FullName -Pattern '(?:ctx\.game|[^.\w]game)\.(\w+)'))) { } }  ...
++                                                                  ~
+foreach 循环中缺少语句体。
+所在位置 行:1 字符: 317
++ ... ]; foreach ($f in (Get-ChildItem 'src\ui\components\*.ts')) { foreach ...
++                                                                 ~
+语句块或类型定义中缺少右“}”。
+所在位置 行:1 字符: 414
++ ... ath $f.FullName -Pattern '(?:ctx\.game|[^.\w]game)\.(\w+)'))) { } } ; ...
++                                                                 ~
+表达式或语句中包含意外的标记“)”。
+所在位置 行:1 字符: 420
++ ... .FullName -Pattern '(?:ctx\.game|[^.\w]game)\.(\w+)'))) { } } ; power ...
++                                                                 ~
+表达式或语句中包含意外的标记“}”。
+所在位置 行:1 字符: 633
++ ... lName -AllMatches -Pattern '(?:ctx\.game|[^.\w]game)\.(\w+)'))) { } }
++                                                                   ~
+foreach 循环中缺少语句体。
+所在位置 行:1 字符: 524
++ ... }; foreach ($f in (Get-ChildItem 'src\ui\components\*.ts')) { foreach ...
++                                                                 ~
+语句块或类型定义中缺少右“}”。
+并未报告所有分析错误。请更正报告的错误并重试。
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : MissingForeachStatement
+ 

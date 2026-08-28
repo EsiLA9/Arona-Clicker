@@ -23,7 +23,7 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
 
   // 下一级升级信息（通用升级：指数花费；否则 levelUpgrades 逐级）
   const nextLevel = level + 1;
-  const maxLevel = game.getEffectiveMaxLevel(spot.id);
+  const maxLevel = game.spot.getEffectiveMaxLevel(spot.id);
   const capped = maxLevel !== undefined && nextLevel > maxLevel;
 
   const upgradeCostText: string | null = capped
@@ -32,7 +32,7 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
         // 优先用 levelUpgrades 的显式 cost
         const nextUpgrade = (spot.levelUpgrades ?? []).find(u => u.level === nextLevel);
         if (nextUpgrade?.cost !== undefined) {
-          return ctx.formatNumber(game.valueSystem.evaluate(nextUpgrade.cost, game.state as never));
+          return ctx.formatNumber(game.valueSystem.evaluate(nextUpgrade.cost, game.state));
         }
         // 通用公式
         if (spot.upgradeCostBase !== undefined) {
@@ -57,10 +57,10 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
   // Spot 功能（内源 + 外源）：线性产出 / 交互型功能；未揭示时遮挡。
   const funcRows = !known
     ? ''
-    : game.spotFunctionalitySystem.functionalitiesOf(spot, game.state as never).map(fn => {
+    : game.spotFunctionalitySystem.functionalitiesOf(spot, game.state).map(fn => {
       if (fn.kind === 'linearYield') {
         const perLevel = `每级 +${ctx.formatNumber(fn.amountPerLevel ?? 0)} ${ctx.nameOf('resource', fn.resource ?? '')}`;
-        const active = fn.condition && !game.conditionSystem.evaluateGroup(fn.condition, game.state as never)
+        const active = fn.condition && !game.conditionSystem.evaluateGroup(fn.condition, game.state)
           ? '（未生效）'
           : '';
         const cond = fn.condition
@@ -102,7 +102,7 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       ${maxLevel !== undefined ? `<div class="info-row"><span>等级上限</span><span class="info-dim">Lv.${maxLevel}</span></div>` : ''}
       <div class="info-row"><span>Manager</span><span>${ctx.escapeHtml(managerName)}</span></div>
       <div class="info-divider"></div>
-      <div class="info-tags">${known ? (spot.tags ?? []).map(tag => {
+      <div class="info-tags">${known ? ctx.game.registry.effectiveSpotTags(spot.id, ctx.game.state.spotTagOverrides).map(tag => {
         const name = ctx.game.registry.tagName(tag);
         const desc = ctx.game.registry.tagDescription(tag);
         const tip = desc ? ` title="${ctx.escapeHtml(desc)}"` : '';

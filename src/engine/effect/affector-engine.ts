@@ -18,6 +18,7 @@ import {
   Expr,
   value,
 } from '../types';
+import { DECLARATIVE_EFFECT_OPS } from '../types/expression';
 import { Registry } from '../registry/registry';
 import { ConditionSystem } from '../expression/condition-system';
 import { StateMutationService } from '../system/state-mutation-service';
@@ -28,7 +29,6 @@ import { EventDrivenReactor } from './event-driven-reactor';
 import { CONDITION_DEP_EVENT_TYPES, ConditionDepIndex } from '../expression/condition-deps';
 import { deriveAnonymousId } from '../core/anonymous-id';
 import type { DevLog } from '../core/dev-log';
-import type { GameNumSystem } from '../expression/game-num';
 
 export class AffectorEngine extends EventDrivenReactor {
   private readonly packs = new Map<string, AffectorPackDef>();
@@ -38,8 +38,6 @@ export class AffectorEngine extends EventDrivenReactor {
   /** 条件含 stat/未知 target 的实例：事件无法精确命中，保留每 Tick 轮询。 */
   private readonly pollingInstances = new Set<string>();
   private state: PlayerState | null = null;
-  /** 可选：接入后把按 tag 的加成转写为 GameNum tag 效果（经 syncAffectorZoneEffects）。 */
-  gameNumSystem?: GameNumSystem;
   /** 可选：数据包校验警告（entry id 重复等）的日志出口，由宿主注入。 */
   devLog?: DevLog;
   /** getSpotMaxLevelOverrides 结果缓存（recheck/unmount 时失效）。 */
@@ -159,7 +157,6 @@ export class AffectorEngine extends EventDrivenReactor {
     this.instances.set(instance.instanceId, instance);
     this.registerConditionDeps(instance.instanceId, packId);
     this.recheck(instance.instanceId);
-    this.notifyGameNum();
     this.eventBus?.emit({
       type: 'affectorMounted',
       instanceId: instance.instanceId,
@@ -167,11 +164,6 @@ export class AffectorEngine extends EventDrivenReactor {
       mountEntityId,
     });
     return instance;
-  }
-
-  /** 实例集合 / 激活 entry 集变化 → 同步 GameNum 区表并失效 flows（Phase 5 事件驱动失效）。 */
-  private notifyGameNum(): void {
-    this.gameNumSystem?.onAffectorInstancesChanged();
   }
 
   unmount(instanceId: string, reason = 'unmounted'): boolean {
@@ -183,7 +175,6 @@ export class AffectorEngine extends EventDrivenReactor {
     instance.activeEntryIds = [];
     this.condDeps.unregister(instanceId);
     this.pollingInstances.delete(instanceId);
-    this.notifyGameNum();
     this.eventBus?.emit({
       type: 'affectorStateChanged',
       instanceId,
@@ -215,18 +206,18 @@ export class AffectorEngine extends EventDrivenReactor {
     if (oldState !== 'Active' && instance.state === 'Active') {
       const grants = pack.entries
         .filter(entry => activeEntryIds.includes(entry.id))
-        .flatMap(entry => entry.effects.filter(effect => effect.op !== 'setSpotMaxLevel' && effect.op !== 'removeSpotMaxLevel'));
+        .flatMap(entry => entry.effects.filter(effect => !DECLARATIVE_EFFECT_OPS.has(effect.op)));
       if (grants.length > 0) {
         if (this.effectEngine) this.effectEngine.applyEffects(grants);
         else this.mutations.applyEffects(grants);
       }
     }
     // 状态翻转或激活 entry 集变化（Active 内 entry 条件增减）都会改变
-    // zoneModifiers / flows 的有效集 → 通知 GameNum 同步区表并失效 flows
+    // zoneModifiers / flows 的有效集 → 发事件通知 GameNum 重同步区表并失效 flows
     const entriesChanged =
       oldEntryIds.length !== activeEntryIds.length ||
       activeEntryIds.some((id, i) => oldEntryIds[i] !== id);
-    if (oldState !== instance.state || entriesChanged) this.notifyGameNum();
+    if (entriesChanged) this.eventBus?.emit({ type: 'affectorEntriesChanged', instanceId });
     if (oldState !== instance.state) {
       this.eventBus?.emit({
         type: 'affectorStateChanged',
@@ -441,7 +432,7 @@ export class AffectorEngine extends EventDrivenReactor {
       }
     }
     for (const m of expected.values()) this.mount(m.ref, m.mountEntityId);
-    if (this.gameNumSystem) this.gameNumSystem.syncAffectorZoneEffects(this, state);
+    // 区表/flows 重同步由 mount/unmount 过程中的 affector 事件驱动（GameNum 自行订阅）
   }
 
   private spotFunctionalitiesOf(spotId: string): SpotFunctionalityDef[] {

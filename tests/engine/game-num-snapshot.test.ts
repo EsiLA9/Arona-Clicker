@@ -66,6 +66,11 @@ function makeFixture(affector: unknown = { getActiveInstances: () => [], getPack
     ]),
     enhancements: new Map(),
   };
+  // T6：spot tag 读取走 effectiveSpotTags（无覆盖时回声明 tags）
+  (registry as unknown as { effectiveSpotTags: (id: string) => string[][] }).effectiveSpotTags = (id: string) => {
+    const s = registry.spots.get(id);
+    return s?.tags ?? [];
+  };
   const system = new GameNumSystem({
     valueSystem: vs,
     registry: registry as never,
@@ -384,7 +389,7 @@ describe('Phase 0 快照：失效行为', () => {
   test('多帧 tick 数值持续正确（事件驱动失效，Phase 5 起无每帧 invalidate）', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame('base:init:schale_office');
+    game.inits.startNewGame('base:init:schale_office');
     for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
     game.state.spotLevels['base:spot:credit_printer'] = 1;
     game.state.resources['base:resource:credit'] = 0;
@@ -396,7 +401,7 @@ describe('Phase 0 快照：失效行为', () => {
   test('事件驱动失效：spotLevelChanged 后立即反映新值', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame('base:init:schale_office');
+    game.inits.startNewGame('base:init:schale_office');
     for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
     game.mutations.setSpotLevel('base:spot:credit_printer', 1);
     expect(game.gameNumSystem.evaluateResourceGain('base:resource:credit', game.state)).toBe(7);

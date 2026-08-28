@@ -15,7 +15,7 @@ describe('TriggerSystem (对外 DSL)', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -25,12 +25,12 @@ describe('TriggerSystem (对外 DSL)', () => {
   test('registers base trigger defs and fires on story completion', () => {
     // 完成欢迎剧情 → welcome_reward 触发，发放能量饮料
     // 推进循环用 advanceStory 跳过全部演出页（含 clickWork 页），选项页选第 0 项
-    const advanceable = () => game.getSendState().mode === 'advance';
+    const advanceable = () => game.story.getSendState().mode === 'advance';
     expect(game.state.inventory['base:item:energy_drink'] ?? 0).toBe(0);
-    while (advanceable()) game.advanceStory();
-    if (game.getSendState().mode === 'choice') {
-      game.advanceStory(0);
-      while (advanceable()) game.advanceStory();
+    while (advanceable()) game.story.advanceStory();
+    if (game.story.getSendState().mode === 'choice') {
+      game.story.advanceStory(0);
+      while (advanceable()) game.story.advanceStory();
     }
     expect(game.state.inventory['base:item:energy_drink'] ?? 0).toBeGreaterThanOrEqual(1);
   });
@@ -178,13 +178,13 @@ describe('TriggerSystem (对外 DSL)', () => {
     expect(game.triggerSystem.has('base:trigger:schale_entered')).toBe(true);
 
     // 切换到千禧年：夏莱专属 trigger 被移除
-    game.unlockInit('base:init:millennium');
-    game.enterInit('base:init:millennium');
+    game.inits.unlockInit('base:init:millennium');
+    game.inits.enterInit('base:init:millennium');
     expect(game.triggerSystem.has('base:trigger:schale_entered')).toBe(false);
     expect(game.triggerSystem.has('base:trigger:schale_first_upgrade')).toBe(false);
 
     // 回到夏莱：重新挂载
-    game.enterInit(OFFICE);
+    game.inits.enterInit(OFFICE);
     expect(game.triggerSystem.has('base:trigger:schale_entered')).toBe(true);
   });
 

@@ -24,7 +24,7 @@ describe('GameNum (primitiveGain 懒求值)', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -152,7 +152,11 @@ describe('GameNum (primitiveGain 懒求值)', () => {
     };
     const ctx = {
       valueSystem: new ValueSystem(),
-      registry: { spots: new Map([[spot.id, spot]]), enhancements: new Map() },
+      registry: {
+        spots: new Map([[spot.id, spot]]),
+        enhancements: new Map(),
+        effectiveSpotTags: () => [],
+      },
       characterSystem: { getTagBonus: () => 1 },
       affectorEngine: { getActiveInstances: () => [], getPack: () => undefined },
       eventBus: bus,
@@ -210,7 +214,7 @@ describe('GameNum 算子扩展 / 通用数值容器 / 溯源分解', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
   afterEach(() => game.stop());
 
@@ -261,7 +265,7 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
     for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
     game.state.spotLevels['base:spot:credit_printer'] = 1;
     game.state.resources[CREDIT] = 0;

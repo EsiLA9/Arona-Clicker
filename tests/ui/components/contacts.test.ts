@@ -117,7 +117,7 @@ describe('通讯录 UI（U 组）', () => {
     expect(panel).toContain('Lv.1');
     expect(panel).toContain('累计获得');
 
-    const sendState = game.getSendState();
+    const sendState = game.story.getSendState();
     const conv = renderConversationView(ctx, 'Hoshino', [], [], sendState);
     expect(conv).toContain('小鸟游星野'); // 顶部栏标题
     expect(conv).toContain('data-conversation-back'); // App 式返回键
@@ -134,18 +134,18 @@ describe('通讯录 UI（U 组）', () => {
     expect(entry).toBeDefined();
     expect(entry.owner).toBe('Hoshino');
     // 经 startCardStory 触发（skipConditions，尊重单次完成态）
-    const started = game.startCardStory('bond:hoshino_1');
+    const started = game.story.startCardStory('bond:hoshino_1');
     expect(started.success).toBe(true);
     const view = game.getView().currentStory!;
     expect(view.storyDefId).toBe('bond:hoshino_1');
     // 完成后再次触发 → AlreadyCompleted 拒绝（尊重单次）
     let guard = 0;
     while (game.getView().currentStory && guard++ < 20) {
-      const r = game.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+      const r = game.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
     expect(game.getView().currentStory).toBeNull();
-    const retry = game.startCardStory('bond:hoshino_1');
+    const retry = game.story.startCardStory('bond:hoshino_1');
     expect(retry.success).toBe(false);
     if (!retry.success) expect(retry.error).toBe('AlreadyCompleted');
   });
@@ -295,7 +295,7 @@ describe('通讯录 UI（U 组）', () => {
     });
 
     test('U-08 阻断态：条件未满足时渲染灰色锁定按钮', () => {
-      const sendState = game.getSendState();
+      const sendState = game.story.getSendState();
       const html = renderConversationView(createUIContext(game), 'Hoshino', [], [], sendState);
       expect(html).toContain('send-button disabled'); // 灰色锁定按钮
       expect(html).toContain('对话空间已锁定'); // 提示文案
@@ -305,7 +305,7 @@ describe('通讯录 UI（U 组）', () => {
 
     test('U-09 解除：满足 block 条件后锁定消失，恢复发送按钮', () => {
       game.mutations.setFlag('met_at_rooftop', '1');
-      const sendState = game.getSendState();
+      const sendState = game.story.getSendState();
       const html = renderConversationView(createUIContext(game), 'Hoshino', [], [], sendState);
       expect(html).not.toContain('send-button disabled'); // 锁定消失
       expect(html).toContain('data-send'); // 发送按钮恢复
@@ -318,11 +318,11 @@ describe('对话空间流壁垒（ChatStream 隔离外部故事）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame('base:init:schale_office');
+    game.inits.startNewGame('base:init:schale_office');
     let guard = 0;
     while (game.getView().currentStory && guard++ < 50) {
-      const r = game.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+      const r = game.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
   });
 
@@ -332,7 +332,7 @@ describe('对话空间流壁垒（ChatStream 隔离外部故事）', () => {
 
   test('外部故事进行中，打开角色空间不把其页同步进角色流（不意外继续外部内容）', () => {
     // 在一般聊天触发一个无 owner 的外部被动闲聊（作为进行中故事）
-    const r = game.triggerPassiveStory('base:init:schale_office'); // owner=null → 全局
+    const r = game.story.triggerPassiveStory('base:init:schale_office'); // owner=null → 全局
     expect(r.success).toBe(true);
     expect(game.getView().currentStory).toBeTruthy();
 
@@ -349,11 +349,11 @@ describe('夏莱办公室 gacha Spot（生产面板招募入口）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame('base:init:schale_office');
+    game.inits.startNewGame('base:init:schale_office');
     let guard = 0;
     while (game.getView().currentStory && guard++ < 50) {
-      const r = game.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+      const r = game.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
   });
 

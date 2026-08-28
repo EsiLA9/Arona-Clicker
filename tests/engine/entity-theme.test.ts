@@ -21,7 +21,7 @@ describe('实体主题槽：entityThemeOverride', () => {
   beforeAll(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
     game.mutations.acquireCharacter('Arona', 'gacha');
     game.mutations.activateTheme('base:group:schale-solid');
     game.colorSystem.syncPlayerThemeFromState(game.state);

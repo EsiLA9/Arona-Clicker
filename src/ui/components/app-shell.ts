@@ -42,7 +42,7 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
       ${renderHeader(ctx)}
       <section class="workspace">
         ${renderLeftPanel(ctx, state)}
-        ${renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.getSendState(state.conversationVariantId ?? undefined), conversation)}
+        ${renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation)}
         ${renderRightPanel(ctx, state.rightTab, state.selectedVariantId)}
       </section>
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>TS-HTML ENGINE · NO NETWORK</span></footer>

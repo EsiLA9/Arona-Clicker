@@ -116,8 +116,8 @@ export class GameNumSystem {
       if (this.affectorEngine && this.state) this.syncAffectorZoneEffects(this.affectorEngine, this.state);
     });
     this.bus?.on('spotTagChanged', () => {
-      // spot 标签运行时增减：registry 的 tags 变了，但 zoneIndex 是按构建期标签建的，
-      // 必须先按当前 tags 重建反路由，否则后续 sync 仍命中旧 spot 集。
+      // spot 有效标签变化（T6 状态层覆盖）：zoneIndex 按构建期标签建的，
+      // 必须先按当前有效 tags 重建反路由，否则后续 sync 仍命中旧 spot 集。
       this.rebuildZoneIndex();
       this.invalidateProduction();
       if (this.affectorEngine && this.state) this.syncAffectorZoneEffects(this.affectorEngine, this.state);
@@ -131,6 +131,12 @@ export class GameNumSystem {
     this.bus?.on('resourceChanged', event => {
       this.onResourceChanged(event.resource);
     });
+    // Affector 生命周期 / 激活 entry 集变化 → 重同步区表与 flows
+    // （T7 事件化：替代 Affector 反向持 GameNum 的 notifyGameNum 通道）
+    this.bus?.on('affectorMounted', () => this.onAffectorInstancesChanged());
+    this.bus?.on('affectorUnmounted', () => this.onAffectorInstancesChanged());
+    this.bus?.on('affectorStateChanged', () => this.onAffectorInstancesChanged());
+    this.bus?.on('affectorEntriesChanged', () => this.onAffectorInstancesChanged());
   }
 
   /**

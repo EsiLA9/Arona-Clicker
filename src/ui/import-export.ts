@@ -42,7 +42,7 @@ export class ImportExportService {
         const { datapack, jsonFileCount, ignoredCount, images } = await loadDatapackFromZipFile(file);
         // 新 Mod 整体替换：先清空旧图片存储，再登记压缩包解出的图片，最后 reload
         game.imageStore.clear();
-        game.registerImages(datapack.name, images);
+        game.pics.register(datapack.name, images);
         game.reload([datapack]);
         // 数据包更换后旧存档 id 可能失效，清除以免下次启动读档报错
         SaveSystem.delete();

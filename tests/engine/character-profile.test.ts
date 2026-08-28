@@ -19,7 +19,7 @@ describe('characterProfile（chara 声明层）', () => {
   });
 
   test('base 数据包：Hoshino 取声明 name 表 + 解析后的头像 URL', () => {
-    const p = game.characterProfile(Character.Hoshino);
+    const p = game.charaProfiles.characterProfile(Character.Hoshino);
     expect(p.character).toBe(Character.Hoshino);
     expect(p.name).toBe('小鸟游星野');
     expect(p.nameId).toBe('default');
@@ -30,7 +30,7 @@ describe('characterProfile（chara 声明层）', () => {
   });
 
   test('未声明 profile 的角色回退原型表 / 兜底', () => {
-    const p = game.characterProfile(Character.Shiroko);
+    const p = game.charaProfiles.characterProfile(Character.Shiroko);
     expect(p.name).toBeTruthy(); // CharacterData.displayName 或 id 串
     expect(p.nameFrom).toBe('proto');
     expect(p.avatar).toBeUndefined();
@@ -38,9 +38,9 @@ describe('characterProfile（chara 声明层）', () => {
   });
 
   test('charaNames / charaAvatars 暴露表', () => {
-    expect(game.charaNames(Character.Hoshino).map(n => n.id)).toEqual(['default', 'nickname']);
-    expect(game.charaAvatars(Character.Hoshino).map(a => a.id)).toEqual(['default']);
-    expect(game.charaNames(Character.Shiroko)).toEqual([]);
+    expect(game.charaProfiles.charaNames(Character.Hoshino).map(n => n.id)).toEqual(['default', 'nickname']);
+    expect(game.charaProfiles.charaAvatars(Character.Hoshino).map(a => a.id)).toEqual(['default']);
+    expect(game.charaProfiles.charaNames(Character.Shiroko)).toEqual([]);
   });
 });
 
@@ -53,8 +53,8 @@ describe('characterProfile（玩家覆写层）', () => {
   });
 
   test('setCharaProfile 表内选 nameId/avatarId → player 层', () => {
-    game.setCharaProfile(Character.Hoshino, { nameId: 'nickname', avatarId: 'default' });
-    const p = game.characterProfile(Character.Hoshino);
+    game.charaProfiles.setCharaProfile(Character.Hoshino, { nameId: 'nickname', avatarId: 'default' });
+    const p = game.charaProfiles.characterProfile(Character.Hoshino);
     expect(p.name).toBe('星野酱');
     expect(p.nameId).toBe('nickname');
     expect(p.nameFrom).toBe('player');
@@ -64,17 +64,17 @@ describe('characterProfile（玩家覆写层）', () => {
   });
 
   test('setCharaProfile 完全自定义 name/avatar → 优先于表', () => {
-    game.setCharaProfile(Character.Hoshino, { name: '自定义星野' });
-    const p = game.characterProfile(Character.Hoshino);
+    game.charaProfiles.setCharaProfile(Character.Hoshino, { name: '自定义星野' });
+    const p = game.charaProfiles.characterProfile(Character.Hoshino);
     expect(p.name).toBe('自定义星野');
     expect(p.nameFrom).toBe('player');
   });
 
   test('clearCharaProfile 回到声明层', () => {
-    game.setCharaProfile(Character.Hoshino, { nameId: 'nickname' });
-    expect(game.characterProfile(Character.Hoshino).name).toBe('星野酱');
-    game.clearCharaProfile(Character.Hoshino);
-    expect(game.characterProfile(Character.Hoshino).name).toBe('小鸟游星野');
+    game.charaProfiles.setCharaProfile(Character.Hoshino, { nameId: 'nickname' });
+    expect(game.charaProfiles.characterProfile(Character.Hoshino).name).toBe('星野酱');
+    game.charaProfiles.clearCharaProfile(Character.Hoshino);
+    expect(game.charaProfiles.characterProfile(Character.Hoshino).name).toBe('小鸟游星野');
     expect(game.state.charaCustom?.[Character.Hoshino]).toBeUndefined();
   });
 });
@@ -88,16 +88,16 @@ describe('characterProfile（调用点覆写层）', () => {
   });
 
   test('overrides 优先于 player 与 declared，且不落盘', () => {
-    game.setCharaProfile(Character.Hoshino, { nameId: 'nickname' });
-    const p = game.characterProfile(Character.Hoshino, { name: '本次临时名' });
+    game.charaProfiles.setCharaProfile(Character.Hoshino, { nameId: 'nickname' });
+    const p = game.charaProfiles.characterProfile(Character.Hoshino, { name: '本次临时名' });
     expect(p.name).toBe('本次临时名');
     expect(p.nameFrom).toBe('override');
     // 未落盘
-    expect(game.characterProfile(Character.Hoshino).name).toBe('星野酱');
+    expect(game.charaProfiles.characterProfile(Character.Hoshino).name).toBe('星野酱');
   });
 
   test('overrides.avatar 经 PicDef 解析', () => {
-    const p = game.characterProfile(Character.Hoshino, { avatar: 'base:sticker(pic):hoshino_selfie' });
+    const p = game.charaProfiles.characterProfile(Character.Hoshino, { avatar: 'base:sticker(pic):hoshino_selfie' });
     expect(p.avatarFrom).toBe('override');
     expect(p.avatar).toBeTruthy();
   });

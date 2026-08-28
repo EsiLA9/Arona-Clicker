@@ -211,20 +211,27 @@ export class SpotService {
 
   /** 运行时给 Spot 新加入一个 Tag：Enhancement 按 Tag 作用、tag 条件即时更新。 */
   addSpotTag(spotId: string, tag: TagPath): boolean {
-    const changed = this.registry.addSpotTag(spotId, tag);
-    if (changed) this.afterSpotTagChange(spotId, tag, true);
-    return changed;
+    if (this.hasEffectiveTag(spotId, tag)) return false;
+    this.mutations.applySpotTagChange(spotId, tag, true);
+    this.afterSpotTagChange(spotId, tag, true);
+    return true;
   }
 
   /** 运行时让 Spot 撤出一个 Tag：相关按 Tag 作用即时失效。 */
   removeSpotTag(spotId: string, tag: TagPath): boolean {
-    const changed = this.registry.removeSpotTag(spotId, tag);
-    if (changed) this.afterSpotTagChange(spotId, tag, false);
-    return changed;
+    if (!this.hasEffectiveTag(spotId, tag)) return false;
+    this.mutations.applySpotTagChange(spotId, tag, false);
+    this.afterSpotTagChange(spotId, tag, false);
+    return true;
+  }
+
+  /** 当前有效 tags（声明 + 运行时增撤）是否已含该 tag。 */
+  private hasEffectiveTag(spotId: string, tag: TagPath): boolean {
+    return this.registry.effectiveSpotTags(spotId, this.opts.getState().spotTagOverrides)
+      .some(t => tagDisplay(t) === tagDisplay(tag));
   }
 
   private afterSpotTagChange(spotId: string, tag: TagPath, added: boolean): void {
-    this.eventBus.emit({ type: 'spotTagChanged', spotId, tag: tagDisplay(tag), added });
     this.opts.refreshVisibility();
     this.affectorEngine.recheckAll();
     this.devLog.record(

@@ -27,7 +27,7 @@ describe('GlobalEnhancement 选择界面', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -50,14 +50,14 @@ describe('GlobalEnhancement 选择界面', () => {
 
   it('已拥有的 global 强化在轮盘中标记「已激活」', () => {
     game.state.resources[PYROXENE] = 100;
-    expect(game.purchaseEnhancement(FOUNDATION).success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(FOUNDATION).success).toBe(true);
     const html = renderSelectorPage(createUIContext(game), 'new', null, FOUNDATION, false, 'global-enh');
     expect(html).toContain('已激活');
   });
 
   it('不可撤回的 global 强化详情展示 IRREVERSIBLE 标记与无操作 CTA', () => {
     game.state.resources[PYROXENE] = 200;
-    game.purchaseEnhancement(ETERNAL);
+    game.enhancements.purchaseEnhancement(ETERNAL);
     const html = renderSelectorPage(createUIContext(game), 'new', null, ETERNAL, false, 'global-enh');
     expect(html).toContain('IRREVERSIBLE');
     expect(html).toContain('不可撤回');

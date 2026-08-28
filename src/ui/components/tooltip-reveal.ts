@@ -4,10 +4,17 @@
 //   resolveReveal / get*Reveal（Spot/Enhancement/Init/Area/Story）
 // ============================================================
 
-import { Condition, ConditionGroup, SpotDef, EnhancementDef, AreaDef, InitDef, StoryEntryDef, RevealStage, RevealTrigger, RevealTarget } from '../../engine/types';
+import { Condition, ConditionGroup, SpotDef, EnhancementDef, AreaDef, InitDef, StoryEntryDef, RevealStage, RevealTrigger, RevealTarget, PlayerState } from '../../engine/types';
+import type { ConditionSystem } from '../../engine/expression/condition-system';
 import { existenceMet, unlockCondition } from '../../engine/visibility/reveal';
 import { UIContext } from '../context';
 import { describeCondition } from './tooltip-enhancement';
+
+/** 揭示求值所需的游戏只读面（conditionSystem 求值 + 只读状态）。 */
+interface RevealGame {
+  conditionSystem: ConditionSystem;
+  state: Readonly<PlayerState>;
+}
 
 /**
  * 信息可知系统（Info Reveal）——可知性/可达性层级的第二层：揭示。
@@ -22,14 +29,14 @@ export type RevealLevel = 'hidden' | 'obfuscated' | 'revealed';
 /** 单一条件的达成判定（缺省条件 = 视为达成）。原子条件与条件组均可。 */
 export const conditionMet = (
   cond: Condition | ConditionGroup | undefined,
-  game: { conditionSystem: { evaluateExpr: (g: Condition | ConditionGroup, s: never) => boolean }; state: unknown },
+  game: RevealGame,
 ): boolean =>
-  !cond || game.conditionSystem.evaluateExpr(cond, game.state as never);
+  !cond || game.conditionSystem.evaluateExpr(cond, game.state);
 
 /** 由揭示 Trigger 列表计算信息是否已知：无该目标的 Trigger 视为无揭示门槛（已知）；否则任一满足即揭示。 */
 function resolveRevealTriggers(
   triggers: RevealTrigger[] | undefined,
-  game: { conditionSystem: { evaluateExpr: (g: Condition | ConditionGroup, s: never) => boolean }; state: unknown },
+  game: RevealGame,
 ): { nameKnown: boolean; conditionKnown: boolean; utilityKnown: boolean } {
   const met = (target: RevealTarget) => {
     const list = triggers?.filter(t => t.reveal === target) ?? [];

@@ -20,7 +20,7 @@ describe('GlobalEnhancement（global 挂靠强化）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -29,7 +29,7 @@ describe('GlobalEnhancement（global 挂靠强化）', () => {
 
   test('global 强化经全局乘区作用（可购买、全局生效）', () => {
     game.state.resources[PYROXENE] = 100;
-    expect(game.purchaseEnhancement(FOUNDATION).success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(FOUNDATION).success).toBe(true);
 
     // credit_printer：5 × 2.0（foundation）+ 功能 2
     for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
@@ -41,22 +41,22 @@ describe('GlobalEnhancement（global 挂靠强化）', () => {
 
   test('可热插拔的 global 强化可移除并重新购买', () => {
     game.state.resources[PYROXENE] = 100;
-    expect(game.purchaseEnhancement(FOUNDATION).success).toBe(true);
-    expect(game.removeEnhancement(FOUNDATION)).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(FOUNDATION).success).toBe(true);
+    expect(game.enhancements.removeEnhancement(FOUNDATION)).toBe(true);
     expect(game.state.unlockedEnhancements).not.toContain(FOUNDATION);
     game.state.resources[PYROXENE] = 100;
-    expect(game.purchaseEnhancement(FOUNDATION).success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(FOUNDATION).success).toBe(true);
   });
 
   test('irreversible 的 global 强化获得后不可撤回（移除被拒）', () => {
     game.state.resources[PYROXENE] = 200;
     game.state.resources[CREDIT] = 500;
-    expect(game.purchaseEnhancement(ETERNAL).success).toBe(true);
-    expect(game.removeEnhancement(ETERNAL)).toBe(false);
+    expect(game.enhancements.purchaseEnhancement(ETERNAL).success).toBe(true);
+    expect(game.enhancements.removeEnhancement(ETERNAL)).toBe(false);
     expect(game.state.unlockedEnhancements).toContain(ETERNAL);
     // 非 irreversible 的 global 强化不受影响，仍可移除
-    expect(game.purchaseEnhancement(UNIFIED).success).toBe(true);
-    expect(game.removeEnhancement(UNIFIED)).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(UNIFIED).success).toBe(true);
+    expect(game.enhancements.removeEnhancement(UNIFIED)).toBe(true);
   });
 
   test('global 强化的 id 与 attachment 元数据可在注册表中解析', () => {

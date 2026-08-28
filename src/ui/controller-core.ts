@@ -79,13 +79,13 @@ export function refreshLight(ctrl: UIController): void {
     if (el) {
       // 与 header.ts renderResourceStrip 的初始风格保持一致（+N/t），
       // 否则全量 render 与每 Tick 轻量刷新会来回改写两种风格造成跳变
-      el.textContent = `+${Math.floor(ctrl.game.gameNumSystem.evaluateResourceGain(res, ctrl.game.state as never)).toLocaleString('en-US')}/t`;
+      el.textContent = `+${Math.floor(ctrl.game.gameNumSystem.evaluateResourceGain(res, ctrl.game.state)).toLocaleString('en-US')}/t`;
     }
   };
   // Spot 产出实时刷新（最终值：含倍率与功能 Affector）
   ctrl.root.querySelectorAll<HTMLElement>('[data-spot-yield]').forEach(el => {
     const spotId = el.dataset.spotYield!;
-    const yieldValue = Math.floor(ctrl.game.gameNumSystem.evaluateSpotYield(spotId, ctrl.game.state as never));
+    const yieldValue = Math.floor(ctrl.game.gameNumSystem.evaluateSpotYield(spotId, ctrl.game.state));
     el.textContent = `产出 ${yieldValue.toLocaleString('en-US')} / tick`;
   });
   set('frame', view.totalFrames);

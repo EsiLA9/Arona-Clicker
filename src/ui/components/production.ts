@@ -45,14 +45,15 @@ export function renderProductionNodes(ctx: UIContext): string {
       const visible = view.visibility.spots[spot.id] ?? false;
       // 最终产出值：GameNum 懒求值（base + 倍率 + 挂载的功能 Affector），随状态实时变化
       const finalYield = reveal.utilityKnown
-        ? game.gameNumSystem.evaluateSpotYield(spot.id, game.state as never)
+        ? game.gameNumSystem.evaluateSpotYield(spot.id, game.state)
         : 0;
       const yieldText = reveal.utilityKnown
         ? `产出 ${ctx.formatNumber(finalYield)} / tick`
         : '产出 ???';
       const title = reveal.nameKnown ? spot.name : '???';
+      const effectiveTags = game.registry.effectiveSpotTags(spot.id, game.state.spotTagOverrides);
       const tags = reveal.utilityKnown
-        ? ((spot.tags ?? []).map(tag => registry.tagName(tag)).join(' / ') || 'SPOT')
+        ? (effectiveTags.map(tag => registry.tagName(tag)).join(' / ') || 'SPOT')
         : '未解锁设施';
       const desc = reveal.utilityKnown
         ? `<p>${ctx.escapeHtml(spot.description)}</p>`
@@ -62,17 +63,17 @@ export function renderProductionNodes(ctx: UIContext): string {
         : '';
       // 外源/内源交互功能：软重启（保留快照）/ 硬重置（删除快照）/ 招募
       const restartInit = reveal.utilityKnown
-        && game.spotFunctionalitySystem.hasFunctionality(spot, game.state as never, 'restartInit');
+        && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'restartInit');
       const hardResetInit = reveal.utilityKnown
-        && game.spotFunctionalitySystem.hasFunctionality(spot, game.state as never, 'hardResetInit');
+        && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'hardResetInit');
       const gacha = reveal.utilityKnown
-        && game.spotFunctionalitySystem.hasFunctionality(spot, game.state as never, 'gacha');
+        && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'gacha');
       const action = owned
         ? '升级'
         : purchaseable
           ? '获取'
           : '未解锁';
-      const accentStyle = cardAccent(spotColorScheme(spot.tags));
+      const accentStyle = cardAccent(spotColorScheme(effectiveTags));
       // 设施自有主题：声明 theme 或 colorGroupId 时，构建其 ThemeTree 并作用域化落到卡片
       // （绕过全局参考树，直接 fill styles），使 Spot 卡片自带主题色而不影响整页。
       let spotStyleAttr = accentStyle;

@@ -15,7 +15,7 @@ describe('测试用青辉石灌注（每 tick +2500）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -29,7 +29,7 @@ describe('测试用青辉石灌注（每 tick +2500）', () => {
     // 免费：无 price → 立即可购
     const enh = game.registry.enhancements.get(CHEAT)!;
     expect(enh.price).toBeUndefined();
-    expect(game.purchaseEnhancement(CHEAT).success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(CHEAT).success).toBe(true);
 
     expect(pyroxeneAmount()).toBe(0);
     game.tick();

@@ -93,7 +93,7 @@ export function bindTopBarActions(ctrl: UIController): void {
     ctrl.io.exportLog();
   });
   ctrl.root.querySelector('#dump-enh-debug')?.addEventListener('click', () => {
-    ctrl.game.dumpEnhancementDebug();
+    ctrl.game.enhancements.dumpEnhancementDebug();
     ctrl.toast.show('Enhancement 条件诊断已写入日志', 'info');
     ctrl.render();
   });

@@ -22,7 +22,7 @@ describe('Enhancement 信息揭示阶梯', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -46,7 +46,7 @@ describe('Enhancement 信息揭示阶梯', () => {
   test('owned enhancement reports stage owned', () => {
     game.state.resources[CREDIT] = 500;
     game.state.spotLevels[PRINTER] = 2;
-    expect(game.purchaseEnhancement(OFFICE_LAYOUT).success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(OFFICE_LAYOUT).success).toBe(true);
     expect(revealOf(game, OFFICE_LAYOUT).stage).toBe('owned');
   });
 

@@ -13,7 +13,7 @@ export function bindInventoryActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-use-item]').forEach(button => {
     button.addEventListener('click', () => {
       const itemId = button.dataset.useItem!;
-      const result = ctrl.game.useItem(itemId);
+      const result = ctrl.game.items.useItem(itemId);
       if (result.success) {
         const item = ctrl.game.registry.items.get(itemId);
         ctrl.toast.show(`已使用 <b>${item?.name ?? itemId}</b>`, 'success');
@@ -43,7 +43,7 @@ export function bindInventoryActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-purchase-enh]').forEach(button => {
     button.addEventListener('click', () => {
       const enhId = button.dataset.purchaseEnh!;
-      const result = ctrl.game.purchaseEnhancement(enhId);
+      const result = ctrl.game.enhancements.purchaseEnhancement(enhId);
       if (result.success) {
         const enh = ctrl.game.registry.enhancements.get(enhId);
         ctrl.toast.show(`已获得强化 <b>${enh?.name ?? enhId}</b>`, 'success');
@@ -69,7 +69,7 @@ export function bindInventoryActions(ctrl: UIController): void {
       const spotName = spotDef?.name ?? spotId;
 
       if (level <= 0) {
-        const result = ctrl.game.unlockSpot(spotId);
+        const result = ctrl.game.spot.unlockSpot(spotId);
         if (result.success) {
           ctrl.toast.show(`已解锁 <b>${spotName}</b>`, 'success');
         } else {
@@ -83,7 +83,7 @@ export function bindInventoryActions(ctrl: UIController): void {
           ctrl.toast.show(`解锁失败：${errMap[result.error] ?? result.error}`, 'error');
         }
       } else {
-        const result = ctrl.game.upgradeSpot(spotId);
+        const result = ctrl.game.spot.upgradeSpot(spotId);
         if (result.success) {
           ctrl.toast.show(`<b>${spotName}</b> 已升级至 Lv.${result.newLevel}`, 'success');
         } else {
@@ -91,8 +91,8 @@ export function bindInventoryActions(ctrl: UIController): void {
             NotFound: '未找到该设施',
             NotOwned: '尚未拥有该设施',
             InsufficientResource: '资源不足',
-            MaxLevel: ctrl.game.getEffectiveMaxLevel(spotId) !== undefined
-              ? `已达等级上限 Lv.${ctrl.game.getEffectiveMaxLevel(spotId)}`
+            MaxLevel: ctrl.game.spot.getEffectiveMaxLevel(spotId) !== undefined
+              ? `已达等级上限 Lv.${ctrl.game.spot.getEffectiveMaxLevel(spotId)}`
               : '已达等级上限',
             ConditionNotMet: '条件未满足',
           };
@@ -115,7 +115,7 @@ export function bindInventoryActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-hard-reset-init]').forEach(button => {
     button.addEventListener('click', () => {
       // 硬重置仍需立即清档（放弃快照），但保留 unlockedInits 与统计。
-      ctrl.game.hardRestartInit();
+      ctrl.game.inits.hardRestartInit();
       ctrl.started = false;
       ctrl.pendingRestart = true;
       ctrl.toast.show('已彻底重置当前世界线，返回选择', 'info');

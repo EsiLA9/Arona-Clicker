@@ -17,7 +17,7 @@
 // 已完成后不再触发。迭代采用快照，允许 effects 执行期间动态挂载/移除。
 // ============================================================
 
-import { PlayerState, TriggerDef, GameEvent, TriggerEventDef } from '../types';
+import { PlayerState, TriggerDef, GameEvent, TriggerEventDef, TriggerEventKind } from '../types';
 import { EventBus } from '../core/event-bus';
 import { ConditionSystem } from '../expression/condition-system';
 import { EffectEngine } from './effect-engine';
@@ -26,8 +26,12 @@ import { deriveAnonymousId } from '../core/anonymous-id';
 
 export const GLOBAL_TRIGGER_GROUP = 'global';
 
-/** 触发器 `on.kind` 到派发事件类型的映射，避免对所有事件全量扫描。 */
-const ON_KIND_TO_EVENT = {
+/**
+ * 触发器 `on.kind` 到派发事件类型的映射，避免对所有事件全量扫描。
+ * Record 键为 TriggerEventKind 全集 —— 新增 kind 缺映射（或多出无效键）即编译错误，
+ * 与 TriggerEventDef 联合双向锁合（docs-824/08 T4）。
+ */
+export const ON_KIND_TO_EVENT: Record<TriggerEventKind, GameEvent['type']> = {
   tick: 'tick',
   resource: 'resourceChanged',
   spotLevel: 'spotLevelChanged',
@@ -35,7 +39,9 @@ const ON_KIND_TO_EVENT = {
   story: 'storyCompleted',
   init: 'initEntered',
   area: 'areaEntered',
-} as const;
+  character: 'characterAcquired',
+  cultivated: 'cultivated',
+};
 
 /** 挂载后的 Trigger：id 必填（显式 id 或匿名派生 id 已归一化）。 */
 type MountedTrigger = TriggerDef & { id: string };
@@ -173,6 +179,13 @@ export class TriggerSystem extends EventDrivenReactor {
       case 'area':
         return event.type === 'areaEntered'
           && (!on.areaId || event.areaId === on.areaId);
+      case 'character':
+        return event.type === 'characterAcquired'
+          && (!on.variantId || event.variantId === on.variantId);
+      case 'cultivated':
+        return event.type === 'cultivated'
+          && (!on.variantId || event.variantId === on.variantId)
+          && (!on.cultivation || event.kind === on.cultivation);
       default:
         return false;
     }

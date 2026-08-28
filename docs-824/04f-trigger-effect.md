@@ -4,7 +4,7 @@
 
 ## Trigger（一次性/持续性条件触发）
 
-- `TriggerDef`：{ id, trigger (事件类型), condition, effects, maxRuns? }；`on` 的 `TriggerEventDef.kind`（tick/resource/spotLevel/item/story/init/area）与 `Condition`/`Effect` 全枚举见 [[docs-824/03f-declarative-dsl]] ==new==；
+- `TriggerDef`：{ id, trigger (事件类型), condition, effects, maxRuns? }；`on` 的 `TriggerEventDef.kind`（tick/resource/spotLevel/item/story/init/area/**character/cultivated**）与 `Condition`/`Effect` 全枚举见 [[docs-824/03f-declarative-dsl]] ==new==；
 - 运行时订阅事件（可订阅的事件全集见下文「GameEvent 事件目录」）→ 条件满足（`evaluateGroup`）→ 执行 `effects`（经 [[docs-824/04a-state-mutation-pipeline]]）；
 - 未触发/触发中状态持久化在 PlayerState（`triggerState`）。
 
@@ -49,7 +49,7 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 
 ## GameEvent 事件目录（EventBus 订阅面）==new==
 
-> 权威枚举来自 `src/engine/types/events.ts` 的 `GameEvent` 联合类型（共 **41** 个）。总线 API 见 `src/engine/core/event-bus.ts`：`on(type, handler)` 定向订阅（返回反注册函数）、`onAny(handler)` 通配订阅、`off` / `emit` / `flush` / `clear`。派发顺序先特定后通配；`emit` 在 `flush` 期间入队、`flush()` 批量排空（重入保护）。**每个事件对象都额外携带可选字段 `stats?: StatsContext`（联合末尾 `& { stats?: StatsContext }`）。下表「发射方」为 `emit` 调用所在模块（`src/engine/` 下相对路径）。
+> 权威枚举来自 `src/engine/types/events.ts` 的 `GameEvent` 联合类型（共 **40** 个）。发射方/订阅方/用途的**机器可查登记表**见同文件 `EVENT_CATALOG`（`Record<GameEvent['type'], …>`，新增/删除事件类型时编译期强制同步；下方发射方列表与它同源）。总线 API 见 `src/engine/core/event-bus.ts`：`on(type, handler)` 定向订阅（返回反注册函数）、`onAny(handler)` 通配订阅、`off` / `emit` / `flush` / `clear`。派发顺序先特定后通配；`emit` 在 `flush` 期间入队、`flush()` 批量排空（重入保护）。**每个事件对象都额外携带可选字段 `stats?: StatsContext`（联合末尾 `& { stats?: StatsContext }`）。下表「发射方」为 `emit` 调用所在模块（`src/engine/` 下相对路径）。
 
 **资源与生产**
 - `resourceChanged { resource, delta, newValue }` — 资源增减（生产失效驱动核心）· `system/state-mutation-service`
@@ -82,7 +82,7 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 - `extraChanged { path, value? }` · `system/state-mutation-service`
 - `poolGateChanged { poolId, available }` — 闲聊池 gate 翻转 · `system/passive-pool-system`
 - `tagCollectedChanged { kind }` — TagStat 集合增删（读档全量重建不发）· `stats/tag-stats`
-- `conditionGroupMet { triggerId }` — ⚠️ 当前全库无发射方/订阅方（死事件，待清理或接线）
+- `conditionGroupMet` — ==已删除（2026-08-28）==：原为全库无发射方/订阅方的死事件，T4 清理时移除（见 [[docs-824/08-architecture-tasks]]）
 
 **Affector 生命周期**（均在 `effect/affector-engine`）
 - `affectorMounted { instanceId, packId, mountEntityId }`

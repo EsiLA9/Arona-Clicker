@@ -139,7 +139,7 @@ function collectStats(ctx: UIContext): Map<string, CollectedInfo> {
 /** 池 gate 徽标：无条件=常开；有条件则实时求值展示。 */
 function gateBadge(ctx: UIContext, pool: PassivePoolDef): string {
   if (!pool.condition) return '<span class="coll-gate is-open">无条件</span>';
-  const ok = ctx.game.conditionSystem.evaluateExpr(pool.condition, ctx.game.state as never);
+  const ok = ctx.game.conditionSystem.evaluateExpr(pool.condition, ctx.game.state);
   return ok
     ? '<span class="coll-gate is-open">已解锁</span>'
     : '<span class="coll-gate is-locked">未解锁</span>';

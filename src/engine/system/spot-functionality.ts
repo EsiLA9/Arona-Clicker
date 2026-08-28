@@ -37,8 +37,10 @@ export class SpotFunctionalitySystem {
       if (!enh?.addsFunctionalities?.length) continue;
       // 外源功能按 enhancement 的 zoneModifiers 命中 tag 派生而来（空 = 全局；层级前缀匹配）
       const tags = this.enhTargetTags?.(enhId) ?? [];
+      // tag 派生命中按「有效 tags」（声明 + 运行时增撤，docs-824/08 T6）判定
+      const effective = this.registry.effectiveSpotTags(spot.id, state.spotTagOverrides);
       if (tags.length > 0
-        && !tags.some(query => (spot.tags ?? []).some(declared => matchesTag(declared, query)))) {
+        && !tags.some(query => effective.some(declared => matchesTag(declared, query)))) {
         continue;
       }
       out.push(...enh.addsFunctionalities);

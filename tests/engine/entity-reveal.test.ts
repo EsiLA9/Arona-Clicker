@@ -22,7 +22,7 @@ describe('探索机制：Init / Area / Story', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -38,7 +38,7 @@ describe('探索机制：Init / Area / Story', () => {
     expect(getInitReveal(ctxOf(game), game.registry.inits.get(ABYDOS)!).nameKnown).toBe(true);
 
     // 解锁 → owned
-    game.unlockInit(ABYDOS);
+    game.inits.unlockInit(ABYDOS);
     expect(getInitReveal(ctxOf(game), game.registry.inits.get(ABYDOS)!).stage).toBe('owned');
   });
 

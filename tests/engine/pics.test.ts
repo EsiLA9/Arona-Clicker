@@ -269,20 +269,20 @@ describe('GameInstance 图片 API', () => {
       ],
     };
     game.init([dp]);
-    game.registerImages('picmod', [
+    game.pics.register('picmod', [
       { path: 'avatar/hoshino.png', url: 'data:image/png;base64,hoshino' },
     ]);
 
-    expect(game.getPicUrl('picmod:avatar(pic):hoshino')).toBe('data:image/png;base64,hoshino');
-    expect(game.getPicUrl('picmod:background(pic):office')).toBe('https://example.com/office.png');
-    expect(game.getPicUrl('picmod:avatar(pic):missing')).toBeUndefined();
-    expect(game.getPicUrl('https://example.com/x.png')).toBeUndefined();
-    expect(game.getPicUrl(undefined)).toBeUndefined();
-    expect(game.getPicDef('picmod:avatar(pic):hoshino')?.src).toBe('zip:avatar/hoshino.png');
-    expect(game.getPicDef('nope')).toBeUndefined();
+    expect(game.pics.urlOf('picmod:avatar(pic):hoshino')).toBe('data:image/png;base64,hoshino');
+    expect(game.pics.urlOf('picmod:background(pic):office')).toBe('https://example.com/office.png');
+    expect(game.pics.urlOf('picmod:avatar(pic):missing')).toBeUndefined();
+    expect(game.pics.urlOf('https://example.com/x.png')).toBeUndefined();
+    expect(game.pics.urlOf(undefined)).toBeUndefined();
+    expect(game.pics.defOf('picmod:avatar(pic):hoshino')?.src).toBe('zip:avatar/hoshino.png');
+    expect(game.pics.defOf('nope')).toBeUndefined();
 
     game.imageStore.clear();
-    expect(game.getPicUrl('picmod:avatar(pic):hoshino')).toBeUndefined();
+    expect(game.pics.urlOf('picmod:avatar(pic):hoshino')).toBeUndefined();
     game.stop();
   });
 });

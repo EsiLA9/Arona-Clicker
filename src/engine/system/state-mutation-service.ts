@@ -13,6 +13,7 @@ import {
   ExtraPath,
   ExtraValue,
   PlayerState,
+  SpotTagOverride,
   StoryId,
   GameEvent,
   StatsContext,
@@ -20,6 +21,7 @@ import {
   VariantId,
   isGlobalResource,
 } from '../types';
+import { TagPath, tagDisplay } from '../core/tag';
 import { EventBus } from '../core/event-bus';
 import { StatsService } from '../stats/stats';
 import { applyExp, checkBreakthrough, resolveCurve } from './cultivate-system';
@@ -461,6 +463,27 @@ export class StateMutationService {
     if (!state.studentBlocks || !state.studentBlocks[variantId]) return;
     delete state.studentBlocks[variantId];
     this.emit({ type: 'studentBlockChanged', variantId, blocked: false });
+  }
+
+  /**
+   * 运行时 Spot tag 增撤（spot-service 门面调用；单一写入口，docs-824/08 T6）。
+   * 覆盖记录落 PlayerState.spotTagOverrides（global 层，随存档保留），
+   * 有效 tags = 声明 + added − removed（registry.effectiveSpotTags 解析）。
+   */
+  applySpotTagChange(spotId: string, tag: TagPath, added: boolean): void {
+    const state = this.current;
+    const overrides = (state.spotTagOverrides ??= {});
+    const display = tagDisplay(tag);
+    const override: SpotTagOverride = overrides[spotId] ?? { added: [], removed: [] };
+    if (added) {
+      override.removed = override.removed.filter(t => tagDisplay(t) !== display);
+      if (!override.added.some(t => tagDisplay(t) === display)) override.added.push(tag);
+    } else {
+      override.added = override.added.filter(t => tagDisplay(t) !== display);
+      if (!override.removed.some(t => tagDisplay(t) === display)) override.removed.push(tag);
+    }
+    overrides[spotId] = override;
+    this.emit({ type: 'spotTagChanged', spotId, tag: display, added });
   }
 
   /** 覆写某 Chara 的头像-人名对（player 层，随存档；partial 合并）。 */

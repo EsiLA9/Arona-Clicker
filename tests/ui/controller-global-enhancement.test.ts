@@ -24,7 +24,7 @@ describe('UIController 选择页翻面（Init ⇄ GlobalEnhancement）', () => {
     root = document.querySelector('#app')!;
     controller = new UIController(game, root);
     controller.mount();
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {

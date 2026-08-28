@@ -92,7 +92,7 @@ export function openEnhancementManager(ctrl: UIController): void {
     document.querySelectorAll<HTMLButtonElement>('[data-remove-enh]').forEach(btn => {
       btn.addEventListener('click', () => {
         const enhId = btn.dataset.removeEnh!;
-        const removed = ctrl.game.removeEnhancement(enhId);
+        const removed = ctrl.game.enhancements.removeEnhancement(enhId);
         if (removed) {
           const enh = ctrl.game.registry.enhancements.get(enhId);
           ctrl.toast.show(`已移除强化 <b>${enh?.name ?? enhId}</b>`, 'info');

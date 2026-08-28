@@ -123,7 +123,7 @@ function renderContactRow(
     avatar = renderAvatarSvg(group.compositionType, palette, 40);
   } else {
     // avatar 可为直连 URL 或 `mod:type(pic):id` 三段式图片索引；解析失败回退首字母占位
-    const avatarUrl = variant.avatar ? ctx.game.getPicUrl(variant.avatar) : undefined;
+    const avatarUrl = variant.avatar ? ctx.game.pics.urlOf(variant.avatar) : undefined;
     avatar = avatarUrl
       ? `<img class="contact-avatar" src="${ctx.escapeHtml(avatarUrl)}" alt="${ctx.escapeHtml(variant.displayName)}">`
       : `<span class="contact-avatar">${ctx.escapeHtml(glyph)}</span>`;

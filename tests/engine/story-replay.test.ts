@@ -41,9 +41,9 @@ describe('重阅读与分歧点准入守卫', () => {
     finishWelcome(game);
 
     // supply_mission 未设 replayable → 拒绝
-    expect(game.replayStory('test:story:supply_mission')).toMatchObject({ success: false, error: 'NotReplayable' });
+    expect(game.story.replayStory('test:story:supply_mission')).toMatchObject({ success: false, error: 'NotReplayable' });
     // desert_mission 可重阅读
-    expect(game.replayStory('test:story:desert_mission')).toMatchObject({ success: true });
+    expect(game.story.replayStory('test:story:desert_mission')).toMatchObject({ success: true });
     expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_intro');
   });
 
@@ -52,14 +52,14 @@ describe('重阅读与分歧点准入守卫', () => {
     finishWelcome(game);
 
     // 首次演出：走谈判分支（未读突击分支）
-    game.startActiveStory('test:story:desert_mission');
+    game.story.startActiveStory('test:story:desert_mission');
     finishStory(game, 1);
     expect(game.getView().currentStory).toBeNull();
 
     // 重阅读：先推进到选项页，再选"正面突击" → 守卫拦截
-    expect(game.replayStory('test:story:desert_mission')).toMatchObject({ success: true });
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false }); // t0 → t1（选项页）
-    const blocked = game.advanceStory(0);
+    expect(game.story.replayStory('test:story:desert_mission')).toMatchObject({ success: true });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false }); // t0 → t1（选项页）
+    const blocked = game.story.advanceStory(0);
     expect(blocked).toMatchObject({ success: false, error: 'BranchGuardDenied' });
     if ('denialMessage' in blocked) {
       expect(blocked.denialMessage).toBe('你还没有真正走过突击路线，无法进入该分歧。');
@@ -69,7 +69,7 @@ describe('重阅读与分歧点准入守卫', () => {
     expect(game.getView().currentStory!.pageIndex).toBe(1);
 
     // 改选"迂回谈判"（已真读）→ 放行
-    expect(game.advanceStory(1)).toMatchObject({ success: true, finished: false });
+    expect(game.story.advanceStory(1)).toMatchObject({ success: true, finished: false });
     expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_negotiate');
   });
 
@@ -78,14 +78,14 @@ describe('重阅读与分歧点准入守卫', () => {
     finishWelcome(game);
 
     // 首次演出走突击分支（真读）
-    game.startActiveStory('test:story:desert_mission');
+    game.story.startActiveStory('test:story:desert_mission');
     finishStory(game, 0);
     expect(game.getView().currentStory).toBeNull();
 
     // 重阅读：先推进到选项页，选突击 → 已读 → 放行
-    game.replayStory('test:story:desert_mission');
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false }); // t0 → t1
-    expect(game.advanceStory(0)).toMatchObject({ success: true, finished: false });
+    game.story.replayStory('test:story:desert_mission');
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false }); // t0 → t1
+    expect(game.story.advanceStory(0)).toMatchObject({ success: true, finished: false });
     expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_assault');
   });
 
@@ -105,12 +105,12 @@ describe('重阅读与分歧点准入守卫', () => {
     finishWelcome(game);
 
     // 首次走突击 → +30
-    game.startActiveStory('test:story:replay_reward');
+    game.story.startActiveStory('test:story:replay_reward');
     finishStory(game, 0);
     expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(30);
 
     // 重阅读再走突击 → 不重复发放
-    game.replayStory('test:story:replay_reward');
+    game.story.replayStory('test:story:replay_reward');
     finishStory(game, 0);
     expect(game.getView().currentStory).toBeNull();
     expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(30);
@@ -121,20 +121,20 @@ describe('重阅读与分歧点准入守卫', () => {
     finishWelcome(game);
 
     // 首次走谈判（未读突击）→ 重阅读选突击被拒
-    game.startActiveStory('test:story:desert_mission');
+    game.story.startActiveStory('test:story:desert_mission');
     finishStory(game, 1);
-    game.replayStory('test:story:desert_mission');
-    game.advanceStory(); // t0 → t1
-    expect(game.advanceStory(0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
+    game.story.replayStory('test:story:desert_mission');
+    game.story.advanceStory(); // t0 → t1
+    expect(game.story.advanceStory(0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
     // 改走谈判完成本次重阅读（真实读完谈判分支）
-    expect(game.advanceStory(1)).toMatchObject({ success: true, finished: false });
+    expect(game.story.advanceStory(1)).toMatchObject({ success: true, finished: false });
     finishStory(game, 1);
 
     // 第二次重阅读：走谈判分支时经过的 negotiate 已完整读过，仍放行；
     // 突击分支从未被真实阅读 → 仍被拒
-    game.replayStory('test:story:desert_mission');
-    game.advanceStory();
-    expect(game.advanceStory(0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
-    expect(game.advanceStory(1)).toMatchObject({ success: true, finished: false });
+    game.story.replayStory('test:story:desert_mission');
+    game.story.advanceStory();
+    expect(game.story.advanceStory(0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
+    expect(game.story.advanceStory(1)).toMatchObject({ success: true, finished: false });
   });
 });

@@ -194,15 +194,15 @@ describe('对话空间阻断态全链路（GameInstance）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame('base:init:schale_office');
+    game.inits.startNewGame('base:init:schale_office');
   });
   afterEach(() => game.stop());
 
   function finishWelcome(): void {
     let guard = 0;
     while (game.getView().currentStory && guard++ < 50) {
-      const r = game.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+      const r = game.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
   }
 
@@ -220,10 +220,10 @@ describe('对话空间阻断态全链路（GameInstance）', () => {
     (game.registry.passiveStories as Map<string, PassiveStoryEntry>).set(blockEntry.id, blockEntry);
 
     // 抽中并播完 → 应写入 studentBlocks[owner]（聊天沙盒游标内推进）
-    const res = game.triggerPassiveStory('base:init:schale_office', owner);
+    const res = game.story.triggerPassiveStory('base:init:schale_office', owner);
     expect(res.success).toBe(true);
-    let r = game.advanceStory(undefined, owner);
-    while (r.success && 'finished' in r && !r.finished) r = game.advanceStory(undefined, owner);
+    let r = game.story.advanceStory(undefined, owner);
+    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory(undefined, owner);
     expect(r.success && 'finished' in r && r.finished).toBe(true);
 
     expect(game.state.studentBlocks?.[owner]).toBeDefined();
@@ -250,7 +250,7 @@ describe('基础数据包池树（schale_office）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame('base:init:schale_office');
+    game.inits.startNewGame('base:init:schale_office');
   });
   afterEach(() => game.stop());
 
@@ -258,17 +258,17 @@ describe('基础数据包池树（schale_office）', () => {
   function finishWelcome(): void {
     let guard = 0;
     while (game.getView().currentStory && guard++ < 50) {
-      const r = game.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+      const r = game.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
   }
 
   /** 在星野聊天空间播完天台邀约（hoshino_conv_2 → hoshino_rooftop_hint 已读），武装天台 Trigger。 */
   function readRooftopInvite(g: GameInstance): void {
-    const r = g.startStory('base:story:hoshino_conv_2', 'passive', 'Hoshino');
+    const r = g.story.startStory('base:story:hoshino_conv_2', 'passive', 'Hoshino');
     expect(r.success).toBe(true);
     let rg = 0;
-    while (g.getStoryView('Hoshino') && rg++ < 20) g.advanceStory(undefined, 'Hoshino');
+    while (g.getStoryView('Hoshino') && rg++ < 20) g.story.advanceStory(undefined, 'Hoshino');
     expect(g.state.storyLog.some(s => s.storyId === 'base:story:hoshino_rooftop_hint')).toBe(true);
   }
 
@@ -317,11 +317,11 @@ describe('基础数据包池树（schale_office）', () => {
   // 复现：千禧年 Init 下，小鸟游星野对话空间（owner='Hoshino'）只抽其专属闲聊，
   // 绝不能抽中无 owner 的全局闲聊（如 base:story:schale_sunset）。
   test('壁垒·真实数据：星野对话空间抽取不泄漏外部闲聊', () => {
-    game.startNewGame('base:init:millennium');
+    game.inits.startNewGame('base:init:millennium');
     let guard = 0;
     while (game.getView().currentStory && guard++ < 50) {
-      const r = game.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.advanceStory(0);
+      const r = game.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
     const owner = 'Hoshino';
     const seen = new Set<string>();
@@ -341,16 +341,16 @@ describe('基础数据包池树（schale_office）', () => {
   test('壁垒·沙盒：外部 active 主线播放时 Hoshino 空间抽取专属不被阻塞', () => {
     finishWelcome();
     // 启动一条外部 active 主线（不属于任何聊天空间）
-    const ext = game.startActiveStory('base:story:run_chain_1');
+    const ext = game.story.startActiveStory('base:story:run_chain_1');
     expect(ext.success).toBe(true);
     expect(game.getView().currentStory).toBeTruthy();
 
     // 一般聊天：按钮是外部 active 的推进态
-    expect(game.getSendState().mode).toBe('advance');
+    expect(game.story.getSendState().mode).toBe('advance');
 
     // Hoshino 对话空间：外部 active 不属于该角色 → 按钮转 idle，且抽取专属不被阻塞
-    expect(game.getSendState('Hoshino').mode).toBe('idle');
-    const r = game.clickSend('Hoshino');
+    expect(game.story.getSendState('Hoshino').mode).toBe('idle');
+    const r = game.story.clickSend('Hoshino');
     expect(r.type).toBe('idle');
     expect((r as { started?: boolean }).started).toBe(true);
     // 聊天沙盒游标上是 Hoshino 专属闲聊
@@ -363,9 +363,9 @@ describe('基础数据包池树（schale_office）', () => {
   test('多沙盒·存档：聊天沙盒游标与全局游标并行，save/load 各自恢复', () => {
     finishWelcome();
     // 全局游标：外部 active 主线
-    expect(game.startActiveStory('base:story:run_chain_1').success).toBe(true);
+    expect(game.story.startActiveStory('base:story:run_chain_1').success).toBe(true);
     // 聊天沙盒：Hoshino 专属闲聊
-    expect(game.triggerPassiveStory('base:init:schale_office', 'Hoshino').success).toBe(true);
+    expect(game.story.triggerPassiveStory('base:init:schale_office', 'Hoshino').success).toBe(true);
     const hoshinoId = game.getStoryView('Hoshino')!.storyId;
     expect(hoshinoId).toMatch(/hoshino_conv|hoshino_bond_invite/);
     expect(game.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
@@ -387,7 +387,7 @@ describe('基础数据包池树（schale_office）', () => {
   // 播放中锁定移动且不被移动打断（演出中途不可离场）。
   test('打断控制：天台剧情 leaveArea:false 锁定移动且不被打断', () => {
     finishWelcome();
-    expect(game.startStory('base:story:hoshino_conv_2', 'passive').success).toBe(true);
+    expect(game.story.startStory('base:story:hoshino_conv_2', 'passive').success).toBe(true);
     // 播放中尝试移动（当前在 schale_main → 天台）→ 被 leaveArea:false 锁定
     expect(game.getView().currentStory).not.toBeNull();
     const move = game.travelToArea('base:area:schale_rooftop');
@@ -412,12 +412,12 @@ describe('基础数据包池树（schale_office）', () => {
   test('天台 Trigger·完整流程：new game → 排干 welcome → 读邀约 → 前往天台触发剧情', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
-    g.startNewGame('base:init:schale_office');
+    g.inits.startNewGame('base:init:schale_office');
     // 排干初始 welcome 剧情
     let guard = 0;
     while (g.getView().currentStory && guard++ < 50) {
-      const r = g.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
     }
     expect(g.getView().currentStory).toBeNull();
     // 播完聊天空间邀约 → hoshino_rooftop_hint 已读 → 天台 Trigger 激活
@@ -437,15 +437,15 @@ describe('基础数据包池树（schale_office）', () => {
   test('天台 Trigger·抢占：邀约已读且全局游标有被动闲聊时前往天台仍触发剧情', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
-    g.startNewGame('base:init:schale_office');
+    g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
     while (g.getView().currentStory && guard++ < 50) {
-      const r = g.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
     }
     readRooftopInvite(g);
     // 在一般聊天触发一条外部 passive 闲聊，占住全局游标
-    const ext = g.triggerPassiveStory('base:init:schale_office');
+    const ext = g.story.triggerPassiveStory('base:init:schale_office');
     expect(ext.success).toBe(true);
     expect(g.getView().currentStory).not.toBeNull();
     const extId = g.getView().currentStory!.storyId;
@@ -464,11 +464,11 @@ describe('基础数据包池树（schale_office）', () => {
   test('天台 Trigger·已读：先播完聊天空间邀约后前往天台仍触发天台相遇', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
-    g.startNewGame('base:init:schale_office');
+    g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
     while (g.getView().currentStory && guard++ < 50) {
-      const r = g.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.advanceStory(0);
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
     }
     // 播完聊天空间邀约（hoshino_conv_2）→ hoshino_rooftop_hint 已读
     readRooftopInvite(g);
@@ -486,7 +486,7 @@ describe('基础数据包池树（schale_office）', () => {
   test('壁垒·专属演出：Hoshino 专属 entry 的 owner 反查命中 Hoshino（Talklet 可被渲染）', () => {
     finishWelcome();
     // 触发星野专属闲聊
-    const r = game.triggerPassiveStory('base:init:schale_office', 'Hoshino');
+    const r = game.story.triggerPassiveStory('base:init:schale_office', 'Hoshino');
     expect(r.success).toBe(true);
     const entryId = game.getStoryView('Hoshino')!.storyId; // StoryView.storyId = Entry.id（聊天沙盒游标）
     // pick 权重随机，conv_1/conv_2/bond_invite 皆属星野专属；核心是 owner 归属命中 Hoshino
@@ -523,20 +523,20 @@ describe('基础数据包池树（schale_office）', () => {
   test('壁垒·owner 隔离：外部故事进行中，角色空间按钮转 idle 且抽取只出专属', () => {
     finishWelcome();
     // 一般聊天触发外部 passive story（无 owner，作为进行中故事）
-    const ext = game.triggerPassiveStory('base:init:schale_office');
+    const ext = game.story.triggerPassiveStory('base:init:schale_office');
     expect(ext.success).toBe(true);
     const extEntryId = game.getView().currentStory!.storyId;
     expect(extEntryId).not.toMatch(/hoshino_conv/);
 
     // 一般聊天（owner=null）：按钮是外部故事的推进态
-    expect(game.getSendState().mode).toBe('advance');
+    expect(game.story.getSendState().mode).toBe('advance');
 
     // 进入 Hoshino 对话空间：外部故事不属于该角色 → 按钮转 idle
-    const convState = game.getSendState('Hoshino');
+    const convState = game.story.getSendState('Hoshino');
     expect(convState.mode).toBe('idle');
 
     // 在 Hoshino 空间点发送：并行抽取 Hoshino 专属闲聊（不打断外部故事）
-    const r = game.clickSend('Hoshino');
+    const r = game.story.clickSend('Hoshino');
     expect(r.type).toBe('idle');
     expect((r as { started?: boolean }).started).toBe(true);
     const newEntryId = game.getStoryView('Hoshino')!.storyId; // 聊天沙盒游标
@@ -547,7 +547,7 @@ describe('基础数据包池树（schale_office）', () => {
 
   test('完成「日程表攻防」后深夜模式链路全通（Talklet 效果 → flag → 池 gate）', () => {
     finishWelcome();
-    const api = game as unknown as { startStory(id: string, t: 'passive'): { success: boolean } };
+    const api = game.story;
     const rewarded: { flags: string[] }[] = [];
     game.eventBus.on('storyRewarded', e => {
       if (e.type === 'storyRewarded') rewarded.push({ flags: e.flags });
@@ -556,8 +556,8 @@ describe('基础数据包池树（schale_office）', () => {
 
     // 完成两页闲聊（第二页 Talklet 效果置 night_mode）
     expect(api.startStory('base:story:schale_planner', 'passive').success).toBe(true);
-    let r = game.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.advanceStory();
+    let r = game.story.advanceStory();
+    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(r.success && 'finished' in r && r.finished).toBe(true);
 
     expect(game.state.flags['night_mode']).toBe('1');

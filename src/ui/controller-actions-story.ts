@@ -32,7 +32,7 @@ export function bindStoryActions(ctrl: UIController): void {
       ctrl.panelState.centerTab = 'chat';
       ctrl.panelState.leftTab = 'story';
       ctrl.scroll.forceToBottom();
-      const result = ctrl.game.startActiveStory(storyId, owner);
+      const result = ctrl.game.story.startActiveStory(storyId, owner);
       logStoryFailure(ctrl, result);
       ctrl.render();
     });
@@ -50,7 +50,7 @@ export function bindStoryActions(ctrl: UIController): void {
       ctrl.panelState.centerTab = 'chat';
       ctrl.panelState.leftTab = 'story';
       ctrl.scroll.forceToBottom();
-      const result = ctrl.game.replayStory(storyId, owner);
+      const result = ctrl.game.story.replayStory(storyId, owner);
       logStoryFailure(ctrl, result);
       ctrl.render();
     });
@@ -83,7 +83,7 @@ export function bindStoryActions(ctrl: UIController): void {
   ctrl.root.querySelector<HTMLButtonElement>('[data-trigger-passive-story]')?.addEventListener('click', () => {
     // 壁垒：对话空间只抽归该学生的闲聊；一般聊天抽全局闲聊（owner = undefined）
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
-    const result = ctrl.game.triggerPassiveStory(ctrl.game.getView().activeInit, owner);
+    const result = ctrl.game.story.triggerPassiveStory(ctrl.game.getView().activeInit, owner);
     logStoryFailure(ctrl, result);
     ctrl.render();
   });
@@ -94,7 +94,7 @@ export function bindStoryActions(ctrl: UIController): void {
     if (sel && sel.type === 'Range' && !sel.isCollapsed) return;
     // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
-    const result = ctrl.game.clickSend(owner);
+    const result = ctrl.game.story.clickSend(owner);
     if (result.type === 'completed') {
       // 回显决策由引擎给出（非 click 页 + 有 sendText + 未 muteReply）：
       // 满足时才以"老师"身份发出右侧气泡；click / 静默发送不产生玩家回复气泡
@@ -114,7 +114,7 @@ export function bindStoryActions(ctrl: UIController): void {
     button.addEventListener('click', () => {
       // 聊天沙盒：对话空间的选项推进作用于该角色自己的游标；一般聊天推进全局游标
       const owner = ctrl.panelState.conversationVariantId ?? undefined;
-      const result = ctrl.game.advanceStory(Number(button.dataset.storyChoice), owner);
+      const result = ctrl.game.story.advanceStory(Number(button.dataset.storyChoice), owner);
       logStoryFailure(ctrl, result);
       ctrl.render();
     });
@@ -124,7 +124,7 @@ export function bindStoryActions(ctrl: UIController): void {
     el.addEventListener('click', () => {
       const storyId = el.dataset.kizuna!;
       const owner = ctrl.panelState.conversationVariantId ?? undefined;
-      const result = ctrl.game.startCardStory(storyId, owner);
+      const result = ctrl.game.story.startCardStory(storyId, owner);
       logStoryFailure(ctrl, result);
       ctrl.render();
     });

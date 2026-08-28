@@ -40,7 +40,7 @@ describe('Story 完结奖励（conditionalRewards）', () => {
     const pack = makePack([entry], [desertIntro, desertAssault, desertNegotiate, desertEpilogue]);
     game.init([baseDatapack, pack]);
     finishWelcome(game);
-    game.startActiveStory('test:story:assault_mission');
+    game.story.startActiveStory('test:story:assault_mission');
     finishStory(game, 0); // 走突击 → route flag 存在 → 命中第一条 +50
     expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(50);
   });
@@ -61,7 +61,7 @@ describe('Story 完结奖励（conditionalRewards）', () => {
     const pack = makePack([entry], [desertIntro, desertAssault, desertNegotiate, desertEpilogue]);
     game.init([baseDatapack, pack]);
     finishWelcome(game);
-    game.startActiveStory('test:story:fallback_mission');
+    game.story.startActiveStory('test:story:fallback_mission');
     finishStory(game, 1); // 走谈判
     expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(5);
   });
@@ -83,7 +83,7 @@ describe('Story 完结奖励（conditionalRewards）', () => {
     // 走突击 → +30
     game.init([baseDatapack, pack]);
     finishWelcome(game);
-    game.startActiveStory('test:story:chain_mission');
+    game.story.startActiveStory('test:story:chain_mission');
     finishStory(game, 0);
     expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(30);
 
@@ -91,7 +91,7 @@ describe('Story 完结奖励（conditionalRewards）', () => {
     game.reset();
     game.init([baseDatapack, pack]);
     finishWelcome(game);
-    game.startActiveStory('test:story:chain_mission');
+    game.story.startActiveStory('test:story:chain_mission');
     finishStory(game, 1);
     expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(15);
   });

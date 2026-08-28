@@ -74,7 +74,7 @@ export function bindDetailActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-init-purchase]').forEach(button => {
     button.addEventListener('click', () => {
       const initId = button.dataset.initPurchase!;
-      const result = ctrl.game.purchaseInit(initId);
+      const result = ctrl.game.inits.purchaseInit(initId);
       if (!result.success) {
         const errMap: Record<string, string> = {
           NotFound: '世界线不存在',
@@ -101,7 +101,7 @@ export function bindGlobalEnhancementDetailActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-global-enh-purchase]').forEach(button => {
     button.addEventListener('click', () => {
       const enhId = button.dataset.globalEnhPurchase!;
-      const result = ctrl.game.purchaseEnhancement(enhId);
+      const result = ctrl.game.enhancements.purchaseEnhancement(enhId);
       if (!result.success) {
         const errMap: Record<string, string> = {
           NotFound: '不存在',
@@ -126,7 +126,7 @@ export function bindGlobalEnhancementDetailActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-global-enh-deactivate]').forEach(button => {
     button.addEventListener('click', () => {
       const enhId = button.dataset.globalEnhDeactivate!;
-      const removed = ctrl.game.removeEnhancement(enhId);
+      const removed = ctrl.game.enhancements.removeEnhancement(enhId);
       if (!removed) {
         ctrl.toast.show('无法停用（不可撤回或发生错误）', 'error');
         return;

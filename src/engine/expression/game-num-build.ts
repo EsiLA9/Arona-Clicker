@@ -347,9 +347,12 @@ function registerZoneNode(system: GameNumSystem, node: ZoneNode): void {
 
 function scopeTags(system: GameNumSystem, scope: EntityRef): TagPath[] {
   interface TaggedDef { tags?: TagPath[] }
+  // Spot 按「有效 tags」派生（声明 + 运行时增撤，docs-824/08 T6）；其余实体仍读声明
+  if (scope.kind === 'spot') {
+    return system.registry.effectiveSpotTags(scope.id, system.state?.spotTagOverrides);
+  }
   let def: TaggedDef | undefined;
   switch (scope.kind) {
-    case 'spot': def = system.registry.spots.get(scope.id) as TaggedDef | undefined; break;
     case 'area': def = system.registry.areas.get(scope.id) as TaggedDef | undefined; break;
     case 'init': def = system.registry.inits.get(scope.id) as TaggedDef | undefined; break;
     case 'enhancement': def = system.registry.enhancements.get(scope.id) as TaggedDef | undefined; break;

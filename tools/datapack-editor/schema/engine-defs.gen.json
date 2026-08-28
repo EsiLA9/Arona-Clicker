@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T10:17:39.743Z",
+  "generatedAt": "2026-08-28T14:28:35.202Z",
   "sourceDir": "src/engine/types",
   "defMap": {
     "inits": {
@@ -2504,6 +2504,7 @@
     "EntityThemeSlot",
     "EntryEffectDef",
     "EquipmentId",
+    "EventCatalogEntry",
     "EventHandler",
     "ExtraCompound",
     "ExtraPath",
@@ -2580,6 +2581,7 @@
     "TravelResult",
     "TriggerDef",
     "TriggerEventDef",
+    "TriggerEventKind",
     "UseItemResult",
     "Value",
     "ValueExpression",

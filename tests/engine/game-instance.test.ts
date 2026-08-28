@@ -11,10 +11,10 @@ import { extra } from '../../src/engine/extra/index';
 /** 推进完当前自动展开的剧情（active 欢迎剧情会锁定移动）。 */
 function finishWelcome(g: GameInstance): void {
   for (let guard = 0; guard < 200; guard++) {
-    const r = g.advanceStory();
+    const r = g.story.advanceStory();
     if (r.success && 'finished' in r && r.finished) break;
     if (!r.success && r.error === 'ChoiceRequired') {
-      g.advanceStory(0);
+      g.story.advanceStory(0);
       continue;
     }
     if (!r.success) break;
@@ -46,7 +46,7 @@ describe('GameInstance (integration)', () => {
 
   test('should unlock init', () => {
     game.init([baseDatapack]);
-    game.unlockInit('base:init:schale_office');
+    game.inits.unlockInit('base:init:schale_office');
     expect(game.state.unlockedInits).toContain('base:init:schale_office');
   });
 
@@ -57,7 +57,7 @@ describe('GameInstance (integration)', () => {
     game.state.spotLevels['base:spot:credit_printer'] = 1;
 
     // Lv1 → Lv2 通用升级花费 floor(50 × 2^1) = 100；升级触发 schale_first_upgrade（+10），净 -90
-    const result = game.upgradeSpot('base:spot:credit_printer');
+    const result = game.spot.upgradeSpot('base:spot:credit_printer');
     expect(result.success).toBe(true);
     expect(game.state.spotLevels['base:spot:credit_printer']).toBe(2);
     expect(game.state.resources['base:resource:credit']).toBe(110);
@@ -68,14 +68,14 @@ describe('GameInstance (integration)', () => {
     game.state.spotLevels['base:spot:credit_printer'] = 1;
     game.state.resources['base:resource:credit'] = 10;
 
-    const result = game.upgradeSpot('base:spot:credit_printer');
+    const result = game.spot.upgradeSpot('base:spot:credit_printer');
     expect(result.success).toBe(false);
     expect(game.state.spotLevels['base:spot:credit_printer']).toBe(1);
   });
 
   test('should assign manager', () => {
     game.init([baseDatapack]);
-    game.assignManager('base:spot:credit_printer', 'shiroko' as any);
+    game.spot.assignManager('base:spot:credit_printer', 'shiroko' as any);
     expect(game.state.spotManagers['base:spot:credit_printer']).toBe('shiroko');
   });
 
@@ -125,7 +125,7 @@ describe('GameInstance (integration)', () => {
     // 冻结后 tag 加成不生效：与无 manager 一致（base 5 + 功能 2）
     expect(game.state.resources['base:resource:credit']).toBe(7);
     // 旧 getSpotYield 接口仅含 base（功能 Affector 不在其分解内）
-    expect(game.getSpotYield('base:spot:credit_printer').total).toBe(5);
+    expect(game.spot.getSpotYield('base:spot:credit_printer').total).toBe(5);
   });
 
   test('should run an active story with choice, effects, reward, and completion record', () => {
@@ -139,25 +139,25 @@ describe('GameInstance (integration)', () => {
     });
 
     // page0 → page1 → page2 → page3 → page4（连续无选项页：旁白/对话/click 交互页推进）
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 1 } });
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 2 } });
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 3 } });
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 4 } });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 1 } });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 2 } });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 3 } });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 4 } });
 
     // page4 → page5（选项页）
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 5 } });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 5 } });
     // 选项页必须先选
-    expect(game.advanceStory()).toEqual({
+    expect(game.story.advanceStory()).toEqual({
       success: false,
       storyId: 'base:story:schale_welcome',
       error: 'ChoiceRequired',
     });
 
-    const choicePage = game.advanceStory(1);
+    const choicePage = game.story.advanceStory(1);
     expect(choicePage).toMatchObject({ success: true, finished: false, story: { pageIndex: 6 } });
     expect(game.state.flags.welcome_choice).toBe('production');
 
-    const finished = game.advanceStory();
+    const finished = game.story.advanceStory();
     expect(finished).toMatchObject({
       success: true,
       finished: true,
@@ -169,7 +169,7 @@ describe('GameInstance (integration)', () => {
       type: 'active', storyId: 'base:story:schale_welcome', choiceIndex: 1,
     });
     expect(game.getView().currentStory).toBeNull();
-    expect(game.startActiveStory('base:story:schale_welcome')).toEqual({
+    expect(game.story.startActiveStory('base:story:schale_welcome')).toEqual({
       success: false,
       storyId: 'base:story:schale_welcome',
       error: 'AlreadyCompleted',
@@ -182,50 +182,50 @@ describe('GameInstance (integration)', () => {
 
     // 先完成自动展开的欢迎剧情（遇选项页选第 0 项），进入剧情空闲状态
     while (game.getView().currentStory) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (r.success && 'finished' in r && r.finished) break;
       if (!r.success && r.error === 'ChoiceRequired') {
-        game.advanceStory(0);
+        game.story.advanceStory(0);
       }
     }
     expect(game.getView().currentStory).toBeNull();
 
     // 触发一条被动闲聊（多条之一，随机；可能为多页）
-    const started = game.triggerPassiveStory();
+    const started = game.story.triggerPassiveStory();
     expect(started).toMatchObject({ success: true });
     if (!started.success) throw new Error('expected passive start');
 
     // 推进到整条闲聊完成（支持选项页与多击任务页）
     let guard = 0;
     while (game.getView().currentStory && guard++ < 50) {
-      const r = game.clickSend();
+      const r = game.story.clickSend();
       if (r.type === 'working') continue;
       if (!game.getView().currentStory) break;
-      game.advanceStory();
+      game.story.advanceStory();
     }
     expect(game.getView().currentStory).toBeNull();
 
     // 无时间限制：完成后立即可再次触发被动闲聊
-    expect(game.triggerPassiveStory()).toMatchObject({ success: true });
+    expect(game.story.triggerPassiveStory()).toMatchObject({ success: true });
   });
 
   test('should grant passive completion rewards: first 15, repeat 5 pyroxene', () => {
     game.init([baseDatapack]);
     finishWelcome(game);
-    const api = game as unknown as { startStory(id: string, t: 'passive'): { success: boolean } };
+    const api = game.story;
 
     // 首次完成被动闲聊 → +15 青辉石（Global）
     expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
-    let r = game.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.advanceStory();
+    let r = game.story.advanceStory();
+    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(r.success && 'finished' in r && r.finished).toBe(true);
     expect(game.getView().resources[Resource.Pyroxene]).toBe(15);
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(15);
 
     // 完成闲聊 → 无需等待可直接再次触发同一被动闲聊，重复完成只 +5
     expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
-    r = game.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.advanceStory();
+    r = game.story.advanceStory();
+    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(game.getView().resources[Resource.Pyroxene]).toBe(20);
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(20);
   });
@@ -233,7 +233,7 @@ describe('GameInstance (integration)', () => {
   test('emits storyRewarded with source and effects on passive completion', () => {
     game.init([baseDatapack]);
     finishWelcome(game);
-    const api = game as unknown as { startStory(id: string, t: 'passive'): { success: boolean } };
+    const api = game.story;
     const events: { source: string; effects: { op: string; value?: unknown }[] }[] = [];
     game.eventBus.on('storyRewarded', e => {
       if (e.type === 'storyRewarded') events.push({ source: e.source, effects: e.effects });
@@ -241,16 +241,16 @@ describe('GameInstance (integration)', () => {
 
     // 首次完成：source=first，效果含青辉石 +15
     expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
-    let r = game.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.advanceStory();
+    let r = game.story.advanceStory();
+    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(events).toHaveLength(1);
     expect(events[0]!.source).toBe('first');
     expect(events[0]!.effects.some(e => e.op === 'addResource' && e.value === 15)).toBe(true);
 
     // 重复完成：source=repeat，效果为 +5
     expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
-    r = game.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.advanceStory();
+    r = game.story.advanceStory();
+    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(events).toHaveLength(2);
     expect(events[1]!.source).toBe('repeat');
     expect(events[1]!.effects.some(e => e.op === 'addResource' && e.value === 5)).toBe(true);
@@ -260,21 +260,21 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack]);
     finishWelcome(game);
     // 通过闲聊获得青辉石（Global）
-    const api = game as unknown as { startStory(id: string, t: 'passive'): { success: boolean } };
+    const api = game.story;
     expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
-    let r = game.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.advanceStory();
+    let r = game.story.advanceStory();
+    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(game.getView().resources[Resource.Pyroxene]).toBe(15);
 
     // 保存式重启（快照 + 恢复）：青辉石跨世界线保留
-    game.unlockInit('base:init:millennium');
-    game.restartInit();
-    game.resumeInit('base:init:millennium');
+    game.inits.unlockInit('base:init:millennium');
+    game.inits.restartInit();
+    game.inits.resumeInit('base:init:millennium');
     expect(game.getView().resources[Resource.Pyroxene]).toBe(15);
 
     // 不保存式重启（删快照）：同样保留
-    game.hardRestartInit();
-    game.resumeInit('base:init:millennium');
+    game.inits.hardRestartInit();
+    game.inits.resumeInit('base:init:millennium');
     expect(game.getView().resources[Resource.Pyroxene]).toBe(15);
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(15);
   });
@@ -286,7 +286,7 @@ describe('GameInstance (integration)', () => {
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(30);
 
     // 千禧年购买成本 20 青辉石（Global 货币）
-    const r = game.purchaseInit('base:init:millennium');
+    const r = game.inits.purchaseInit('base:init:millennium');
     expect(r.success).toBe(true);
     expect(game.state.unlockedInits).toContain('base:init:millennium');
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(10);
@@ -360,7 +360,7 @@ describe('GameInstance (integration)', () => {
 
     // init 后 credit_printer 已由默认区域授予 level=1，先清除再手动解锁
     delete game.state.spotLevels['base:spot:credit_printer'];
-    const result = game.unlockSpot('base:spot:credit_printer');
+    const result = game.spot.unlockSpot('base:spot:credit_printer');
     expect(result.success).toBe(true);
     expect(game.state.spotLevels['base:spot:credit_printer']).toBe(1);
   });
@@ -391,10 +391,10 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack]);
     game.state.resources['base:resource:credit'] = 0;
 
-    expect(game.giveItem('base:item:energy_drink', 99)).toBe(true);
+    expect(game.items.giveItem('base:item:energy_drink', 99)).toBe(true);
     expect(game.state.inventory['base:item:energy_drink']).toBe(5);
 
-    const result = game.useItem('base:item:energy_drink');
+    const result = game.items.useItem('base:item:energy_drink');
     expect(result).toEqual({ success: true, itemId: 'base:item:energy_drink' });
     expect(game.state.inventory['base:item:energy_drink']).toBe(4);
     expect(game.state.resources['base:resource:credit']).toBe(25);
@@ -403,7 +403,7 @@ describe('GameInstance (integration)', () => {
   test('should roll a registered drop table into inventory', () => {
     game.init([baseDatapack]);
 
-    const result = game.rollDropTable('base:drop:basic_field_reward');
+    const result = game.items.rollDropTable('base:drop:basic_field_reward');
 
     expect(result.get('base:item:field_note')).toBe(1);
     expect(game.state.inventory['base:item:field_note']).toBe(1);
@@ -412,7 +412,7 @@ describe('GameInstance (integration)', () => {
   test('should mount item affectors when item is obtained', () => {
     game.init([baseDatapack]);
 
-    game.giveItem('base:item:energy_drink', 1);
+    game.items.giveItem('base:item:energy_drink', 1);
 
     // 消耗品的使用效果在 useEffects 中声明，不通过 Affector 挂载
     // 验证物品已正确入包
@@ -425,7 +425,7 @@ describe('GameInstance (integration)', () => {
     for (const spotId of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[spotId];
 
     // 购买带有 affectorPackIds 的 Enhancement
-    const result = game.purchaseEnhancement('base:enh:energy_supply');
+    const result = game.enhancements.purchaseEnhancement('base:enh:energy_supply');
     expect(result.success).toBe(true);
 
     // Enhancement 的 Affector 被挂载
@@ -438,7 +438,7 @@ describe('GameInstance (integration)', () => {
     game.state.resources['base:resource:credit'] = 200;
 
     // 购买 能量饮料后勤（base:pack:energy_drink，每 tick +1 credit）
-    game.purchaseEnhancement('base:enh:energy_supply');
+    game.enhancements.purchaseEnhancement('base:enh:energy_supply');
     game.state.resources['base:resource:credit'] = 0;
 
     game.tick();
@@ -467,10 +467,10 @@ describe('GameInstance (integration)', () => {
 
     // 千禧年需要购买解锁，先通过 purchaseInit 解锁（购买货币为青辉石 = Global 资源）
     game.mutations.changeResource('base:resource:pyroxene', 20);
-    expect(game.purchaseInit('base:init:millennium').success).toBe(true);
+    expect(game.inits.purchaseInit('base:init:millennium').success).toBe(true);
 
     // 开启千禧年新游戏：应重置旧状态，仅初始化所选世界线的 Spot
-    expect(game.startNewGame('base:init:millennium')).toBe(true);
+    expect(game.inits.startNewGame('base:init:millennium')).toBe(true);
     expect(game.state.activeInit).toBe('base:init:millennium');
     expect(game.state.unlockedInits).toContain('base:init:millennium');
     expect(game.state.spotLevels['base:spot:credit_printer']).toBeUndefined();
@@ -481,7 +481,7 @@ describe('GameInstance (integration)', () => {
 
   test('should reject starting a new game with an unknown init', () => {
     game.init([baseDatapack]);
-    expect(game.startNewGame('unknown_init')).toBe(false);
+    expect(game.inits.startNewGame('unknown_init')).toBe(false);
   });
 
   test('should keep spot state isolated between different inits', () => {
@@ -491,15 +491,15 @@ describe('GameInstance (integration)', () => {
     game.state.spotLevels['base:spot:credit_printer'] = 3;
 
     // 进入千禧年：夏莱的 Spot 持有与 Manager 应被清理
-    game.unlockInit('base:init:millennium');
-    game.enterInit('base:init:millennium');
+    game.inits.unlockInit('base:init:millennium');
+    game.inits.enterInit('base:init:millennium');
     expect(game.state.activeInit).toBe('base:init:millennium');
     expect(game.state.spotLevels['base:spot:credit_printer']).toBeUndefined();
     expect(game.state.spotLevels['base:spot:millennium_lab']).toBe(1);
 
     // 进入阿比多斯：千禧年 Spot 清理，只保留阿比多斯
-    game.unlockInit('base:init:abydos');
-    game.enterInit('base:init:abydos');
+    game.inits.unlockInit('base:init:abydos');
+    game.inits.enterInit('base:init:abydos');
     expect(game.state.spotLevels['base:spot:millennium_lab']).toBeUndefined();
     expect(game.state.spotLevels['base:spot:abydos_rehab']).toBe(1);
     // pool_train 在 abydos_pool 区域，非默认区域，需要 travelToArea 后才会授予
@@ -602,7 +602,7 @@ describe('GameInstance (integration)', () => {
     game.state.resources['base:resource:credit'] = 300;
 
     // 条件：credit >= 100 且可见 → 可购买
-    const result = game.purchaseEnhancement('base:enh:credit_system');
+    const result = game.enhancements.purchaseEnhancement('base:enh:credit_system');
     expect(result).toEqual({ success: true, enhancementId: 'base:enh:credit_system' });
     expect(game.state.unlockedEnhancements).toContain('base:enh:credit_system');
     // 扣费 200 credit
@@ -620,7 +620,7 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack]);
     game.state.resources['base:resource:credit'] = 50; // 需要 100
 
-    const result = game.purchaseEnhancement('base:enh:credit_system');
+    const result = game.enhancements.purchaseEnhancement('base:enh:credit_system');
     expect(result).toMatchObject({ success: false, error: 'InsufficientResource' });
     expect(game.state.unlockedEnhancements).not.toContain('base:enh:credit_system');
   });
@@ -628,9 +628,9 @@ describe('GameInstance (integration)', () => {
   test('should reject duplicate enhancement purchase', () => {
     game.init([baseDatapack]);
     game.state.resources['base:resource:credit'] = 500;
-    expect(game.purchaseEnhancement('base:enh:credit_system').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enh:credit_system').success).toBe(true);
 
-    const second = game.purchaseEnhancement('base:enh:credit_system');
+    const second = game.enhancements.purchaseEnhancement('base:enh:credit_system');
     expect(second).toMatchObject({ success: false, error: 'AlreadyOwned' });
   });
 
@@ -641,7 +641,7 @@ describe('GameInstance (integration)', () => {
     game.state.spotLevels['base:spot:credit_printer'] = 2;
 
     // 办公区整合计划：只作用于带 office tag 的 Spot（×1.25）
-    expect(game.purchaseEnhancement('base:enh:office_layout').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enh:office_layout').success).toBe(true);
 
     // 单独结算信用点制造机（tags: credit/office → 命中 office）
     game.mutations.setResource('base:resource:credit', 0);
@@ -670,7 +670,7 @@ describe('GameInstance (integration)', () => {
     game.state.resources['base:resource:credit'] = 500;
     // 满足办公区整合计划的解锁条件
     game.state.spotLevels['base:spot:credit_printer'] = 2;
-    expect(game.purchaseEnhancement('base:enh:office_layout').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enh:office_layout').success).toBe(true);
 
     // 把战术指挥台临时改标为 office/command（office 的 child），office_layout（office）应命中
     const spot = game.registry.spots.get('base:spot:tactical_desk')!;
@@ -686,106 +686,106 @@ describe('GameInstance (integration)', () => {
   test('should advance story via single reply button click', () => {
     game.init([baseDatapack]);
     // 欢迎剧情已自动展开：page0 为无 sendText 的旁白页 → 默认按动（按钮"点击"），不自动流过
-    expect(game.getSendState()).toMatchObject({ mode: 'advance', text: '' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
 
     // 单次点击推进 page0 → page1（阿罗娜，有 sendText，交互页不被吸收）
-    const first = game.clickSend();
+    const first = game.story.clickSend();
     if (first.type !== 'completed') throw new Error('expected completed');
     expect(first.absorbed).toEqual([]);
-    expect(game.getSendState()).toMatchObject({ mode: 'advance', text: '设备准备完毕，可以开始调度。' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '设备准备完毕，可以开始调度。' });
 
     // 点击发送 → 推进到 page2（老师，无交互）→ 逐页阻塞（不再吸收）
-    const second = game.clickSend();
+    const second = game.story.clickSend();
     if (second.type !== 'completed') throw new Error('expected completed');
     expect(second.absorbed).toEqual([]);
-    expect(game.getSendState()).toMatchObject({ mode: 'advance' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance' });
 
     // 再点击 → 推进到 page3(click + clickWork)
-    const third = game.clickSend();
+    const third = game.story.clickSend();
     if (third.type !== 'completed') throw new Error('expected completed');
     expect(third.absorbed).toEqual([]);
 
     // clickWork 页：进入时 0/N，前 total 次点击填充进度条
-    const work = game.getSendState();
+    const work = game.story.getSendState();
     if (work.mode !== 'advance' || !work.clickWork) throw new Error('expected advance with clickWork');
     expect(work.clickWork.done).toBe(0);
     const total = work.clickWork.total;
-    for (let i = 0; i < total; i++) expect(game.clickSend().type).toBe('working');
+    for (let i = 0; i < total; i++) expect(game.story.clickSend().type).toBe('working');
 
     // 填满后再点一次：推进 page3 → page4(旁白，逐页阻塞) → 停在 page4
-    expect(game.clickSend().type).toBe('completed');
-    expect(game.getSendState()).toMatchObject({ mode: 'advance' });
+    expect(game.story.clickSend().type).toBe('completed');
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance' });
     // 再点击 → page5(选项页)
-    expect(game.clickSend().type).toBe('completed');
-    expect(game.getSendState()).toMatchObject({ mode: 'choice' });
+    expect(game.story.clickSend().type).toBe('completed');
+    expect(game.story.getSendState()).toMatchObject({ mode: 'choice' });
   });
 
   test('should not advance via reply button when current page has choices', () => {
     game.init([baseDatapack]);
     // 推进到选项页（page5）：逐页阻塞，每页一次点击
-    expect(game.clickSend().type).toBe('completed'); // page0 → page1(sendText)
-    expect(game.clickSend().type).toBe('completed'); // page1 → page2(老师)
-    expect(game.clickSend().type).toBe('completed'); // page2 → page3(clickWork)
-    const work = game.getSendState();
+    expect(game.story.clickSend().type).toBe('completed'); // page0 → page1(sendText)
+    expect(game.story.clickSend().type).toBe('completed'); // page1 → page2(老师)
+    expect(game.story.clickSend().type).toBe('completed'); // page2 → page3(clickWork)
+    const work = game.story.getSendState();
     if (work.mode !== 'advance' || !work.clickWork) throw new Error('expected advance with clickWork');
-    for (let i = 0; i < work.clickWork.total; i++) expect(game.clickSend().type).toBe('working');
-    expect(game.clickSend().type).toBe('completed'); // 填满后再点一次：page3 → page4(旁白)
-    expect(game.clickSend().type).toBe('completed'); // page4 → page5(choice)
-    expect(game.getSendState()).toMatchObject({ mode: 'choice' });
+    for (let i = 0; i < work.clickWork.total; i++) expect(game.story.clickSend().type).toBe('working');
+    expect(game.story.clickSend().type).toBe('completed'); // 填满后再点一次：page3 → page4(旁白)
+    expect(game.story.clickSend().type).toBe('completed'); // page4 → page5(choice)
+    expect(game.story.getSendState()).toMatchObject({ mode: 'choice' });
 
     // 选项页点击回复按钮 → 返回 choice，不推进
-    expect(game.clickSend()).toEqual({ type: 'choice' });
-    expect(game.getSendState()).toMatchObject({ mode: 'choice' });
+    expect(game.story.clickSend()).toEqual({ type: 'choice' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'choice' });
   });
 
   test('multi-click Talklet: clickWork fills progress bar then one more click finishes the page', () => {
     game.init([baseDatapack]);
     // 完成自动展开的欢迎剧情，避免干扰
     while (game.getView().currentStory) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.advanceStory(0);
+      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
     expect(game.getView().currentStory).toBeNull();
 
     // 切到阿比多斯并启动 serika_side_1（第 4 页为 clickWork 页：0 芹香 / 1 芹香 / 2 旁白 / 3 调查 clickWork）
-    game.enterInit('base:init:abydos');
-    const started = game.startActiveStory('base:story:serika_side_1');
+    game.inits.enterInit('base:init:abydos');
+    const started = game.story.startActiveStory('base:story:serika_side_1');
     expect(started.success).toBe(true);
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false });
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false });
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
 
     // 首次 getSendState 会 roll 随机 total：base 4 + rand 0..1（rand: 2 → 0/1）
-    const send = game.getSendState();
+    const send = game.story.getSendState();
     if (send.mode !== 'advance') throw new Error('expected advance');
     const total = send.clickWork!.total;
     expect(total).toBeGreaterThanOrEqual(4);
     expect(total).toBeLessThanOrEqual(5);
     expect(send.clickWork!.done).toBe(0);
     // 多次调用不重新 roll
-    const again = game.getSendState();
+    const again = game.story.getSendState();
     if (again.mode !== 'advance') throw new Error('expected advance');
     expect(again.clickWork!.total).toBe(total);
 
     // 前 total 次点击：返回 working、不推进，进度逐次累加（第 total 次填满 100%）
     for (let i = 1; i <= total; i++) {
-      const r = game.clickSend();
+      const r = game.story.clickSend();
       expect(r.type).toBe('working');
       if (r.type === 'working') {
         expect(r.clicksDone).toBe(i);
         expect(r.clicksTotal).toBe(total);
       }
       expect(game.getView().currentStory!.pageIndex).toBe(3);
-      const st = game.getSendState();
+      const st = game.story.getSendState();
       if (st.mode !== 'advance') throw new Error('expected advance');
       expect(st.clickWork).toEqual({ total, done: i });
     }
 
     // 填满后再点一次：completed 且剧情结束（serika_side_1 共 4 页，clickWork 为最后一页）
-    const last = game.clickSend();
+    const last = game.story.clickSend();
     expect(last.type).toBe('completed');
-    expect(game.getSendState().mode).toBe('idle');
+    expect(game.story.getSendState().mode).toBe('idle');
     expect(game.getView().currentStory).toBeNull();
   });
 
@@ -793,25 +793,25 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack]);
     // 完成欢迎剧情
     while (game.getView().currentStory) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.advanceStory(0);
+      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
     // 启动 serika_side_1 并推进到 clickWork 页（前 3 页无选项）
-    game.enterInit('base:init:abydos');
-    expect(game.startActiveStory('base:story:serika_side_1').success).toBe(true);
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false });
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false });
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: false });
+    game.inits.enterInit('base:init:abydos');
+    expect(game.story.startActiveStory('base:story:serika_side_1').success).toBe(true);
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
 
     // 点击两次（working），存档
-    expect(game.clickSend().type).toBe('working');
-    expect(game.clickSend().type).toBe('working');
+    expect(game.story.clickSend().type).toBe('working');
+    expect(game.story.clickSend().type).toBe('working');
     const snapshot = game.save();
 
     // 读档：进度应恢复（total/done 均不变，不重新 roll）
     game.load(snapshot);
-    const st = game.getSendState();
+    const st = game.story.getSendState();
     if (st.mode !== 'advance' || !st.clickWork) throw new Error('expected advance with clickWork');
     expect(st.clickWork.done).toBe(2);
     expect(st.clickWork.total).toBe(snapshot.pendingTalkletClicks!.total);
@@ -852,21 +852,21 @@ describe('GameInstance (integration)', () => {
     finishWelcome(game);
 
     // 手动启动：第 0 页为 talk 页、无 sendText → 默认按动（按钮"点击"），不自动流过
-    expect(game.startActiveStory('test:story:click_flow').success).toBe(true);
+    expect(game.story.startActiveStory('test:story:click_flow').success).toBe(true);
     expect(game.getView().currentStory!.pageIndex).toBe(0);
-    expect(game.getSendState()).toMatchObject({ mode: 'advance', text: '' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
 
     // 点击推进 → page1(click 页)：click 页为交互页，不被吸收
-    expect(game.clickSend().type).toBe('completed');
+    expect(game.story.clickSend().type).toBe('completed');
     expect(game.getView().currentStory!.page.kind).toBe('click');
     expect(game.getView().currentStory!.pageIndex).toBe(1);
-    const send = game.getSendState();
+    const send = game.story.getSendState();
     if (send.mode !== 'advance') throw new Error('expected advance');
     expect(send.text).toBe('按下按钮');
     expect(send.clickWork).toEqual({ total: 1, done: 0 });
 
     // 点击一次即 completed（默认 1 次）且剧情结束
-    const r = game.clickSend();
+    const r = game.story.clickSend();
     expect(r.type).toBe('completed');
     expect(game.getView().currentStory).toBeNull();
   });
@@ -906,41 +906,41 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack, autoPack]);
     finishWelcome(game);
 
-    expect(game.startActiveStory('test:story:auto_flow').success).toBe(true);
+    expect(game.story.startActiveStory('test:story:auto_flow').success).toBe(true);
 
     // talk 页无 sendText → 逐页阻塞（不再自动流过）
     expect(game.getView().currentStory!.pageIndex).toBe(0);
-    expect(game.getSendState()).toMatchObject({ mode: 'advance', text: '' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
 
     // 点击 → 推进到 page1(narration) → 逐页阻塞（不再吸收）
-    const r1 = game.clickSend();
+    const r1 = game.story.clickSend();
     if (r1.type !== 'completed') throw new Error('expected completed');
     expect(r1.absorbed).toEqual([]);
     expect(game.getView().currentStory!.pageIndex).toBe(1);
-    expect(game.getSendState()).toMatchObject({ mode: 'advance', text: '' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
 
     // 再点击 → page2(有 sendText)
-    const r2 = game.clickSend();
+    const r2 = game.story.clickSend();
     if (r2.type !== 'completed') throw new Error('expected completed');
     expect(r2.absorbed).toEqual([]);
     expect(game.getView().currentStory!.pageIndex).toBe(2);
-    const withText = game.getSendState();
+    const withText = game.story.getSendState();
     if (withText.mode !== 'advance') throw new Error('expected advance');
     expect(withText.text).toBe('回复');
 
     // 有 sendText 的页点击发送 → page3(clickWork)
-    const r3 = game.clickSend();
+    const r3 = game.story.clickSend();
     if (r3.type !== 'completed') throw new Error('expected completed');
     expect(r3.absorbed).toEqual([]);
     expect(game.getView().currentStory!.pageIndex).toBe(3);
 
     // 有 clickWork 的页（base 2）：进入时 0/2，前 2 次点击填充，第 3 次结束该页
-    const withWork = game.getSendState();
+    const withWork = game.story.getSendState();
     if (withWork.mode !== 'advance' || !withWork.clickWork) throw new Error('expected advance with clickWork');
     expect(withWork.clickWork).toEqual({ total: 2, done: 0 });
-    expect(game.clickSend().type).toBe('working');
-    expect(game.clickSend().type).toBe('working');
-    expect(game.clickSend().type).toBe('completed');
+    expect(game.story.clickSend().type).toBe('working');
+    expect(game.story.clickSend().type).toBe('working');
+    expect(game.story.clickSend().type).toBe('completed');
 
     // 到达 click 页
     expect(game.getView().currentStory!.page.kind).toBe('click');
@@ -979,33 +979,33 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack, plainPack]);
     finishWelcome(game);
 
-    expect(game.startActiveStory('test:story:plain_flow').success).toBe(true);
+    expect(game.story.startActiveStory('test:story:plain_flow').success).toBe(true);
     // narration 无 sendText、无 clickWork、且后续不存在 click 页 → 默认点击保留（与 talk 一致）
-    expect(game.getSendState()).toMatchObject({ mode: 'advance', text: '' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
 
-    expect(game.advanceStory()).toMatchObject({ success: true });
+    expect(game.story.advanceStory()).toMatchObject({ success: true });
     expect(game.getView().currentStory!.pageIndex).toBe(1);
-    expect(game.getSendState()).toMatchObject({ mode: 'advance', text: '' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
   });
 
   test('should idle-send trigger a passive talk when no story is active', () => {
     game.init([baseDatapack]);
     // 先完成自动展开的欢迎剧情（遇选项页选第 0 项）
     while (game.getView().currentStory) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (r.success && 'finished' in r && r.finished) break;
       if (!r.success && r.error === 'ChoiceRequired') {
-        game.advanceStory(0);
+        game.story.advanceStory(0);
       }
     }
     // 剧情空闲 → getSendState idle
-    expect(game.getSendState()).toMatchObject({ mode: 'idle', reason: 'noStory' });
+    expect(game.story.getSendState()).toMatchObject({ mode: 'idle', reason: 'noStory' });
 
-    const result = game.clickSend();
+    const result = game.story.clickSend();
     // 应触发被动闲聊并开始演出（getSendState 转为 advance）
     if (result.type !== 'idle') throw new Error('expected idle');
     expect(result.started).toBe(true);
-    expect(game.getSendState().mode).toBe('advance');
+    expect(game.story.getSendState().mode).toBe('advance');
   });
 
   test('should auto-expand InitStory on enterInit', () => {
@@ -1013,10 +1013,10 @@ describe('GameInstance (integration)', () => {
     // schale_office 有 startStoryId → init 后自动展开欢迎剧情
     // page0 为无 sendText 的旁白页 → 默认按动（按钮"点击"），不自动流过
     expect(game.state.activeInit).toBe('base:init:schale_office');
-    expect(game.getSendState().mode).toBe('advance');
+    expect(game.story.getSendState().mode).toBe('advance');
 
     // 自动展开的是欢迎剧情（未手动启动）
-    const started = game.startActiveStory('base:story:schale_welcome');
+    const started = game.story.startActiveStory('base:story:schale_welcome');
     expect(started).toMatchObject({ success: false, error: 'AlreadyActive' });
   });
 
@@ -1037,9 +1037,9 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack]);
     // 推进完欢迎剧情
     while (game.getView().currentStory) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.advanceStory(0);
+      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
     expect(game.getView().currentStory).toBeNull();
 
@@ -1052,12 +1052,12 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack]);
     // 完成欢迎剧情
     while (game.getView().currentStory) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.advanceStory(0);
+      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
     // 触发被动闲聊演出
-    game.clickSend();
+    game.story.clickSend();
     const passiveStory = game.getView().currentStory;
     if (passiveStory?.type !== 'passive') return; // 池内无可用 passive 时跳过
     expect(passiveStory.type).toBe('passive');
@@ -1076,7 +1076,7 @@ describe('GameInstance (integration)', () => {
     ];
 
     // 推进一页（talklet0 无选项，推进时执行 travelToArea effect）
-    const result = game.advanceStory();
+    const result = game.story.advanceStory();
     expect(result.success).toBe(true);
     expect(game.getView().currentAreaId).toBe('base:area:schale_library');
     expect(game.getView().currentStory).not.toBeNull();
@@ -1094,7 +1094,7 @@ describe('GameInstance (integration)', () => {
 
     // 购买 field_work（baseCost 20）
     game.state.resources['base:resource:credit'] = 100;
-    expect(game.unlockSpot('base:spot:field_work').success).toBe(true);
+    expect(game.spot.unlockSpot('base:spot:field_work').success).toBe(true);
     expect(game.state.spotLevels['base:spot:field_work']).toBe(1);
     expect(game.state.resources['base:resource:credit']).toBe(80);
 
@@ -1127,7 +1127,7 @@ describe('GameInstance (integration)', () => {
     // 指数花费：Lv2 → Lv3 = floor(50 × 2^2) = 200；首次升到 Lv2+ 触发 schale_first_upgrade（+10）
     game.state.resources['base:resource:credit'] = 1000;
     game.state.spotLevels['base:spot:credit_printer'] = 2;
-    expect(game.upgradeSpot('base:spot:credit_printer').success).toBe(true);
+    expect(game.spot.upgradeSpot('base:spot:credit_printer').success).toBe(true);
     expect(game.state.resources['base:resource:credit']).toBe(810);
     expect(game.state.spotLevels['base:spot:credit_printer']).toBe(3);
   });
@@ -1189,7 +1189,7 @@ describe('Extra 运行时（M3）', () => {
   test('should seed global extras on startNewGame (deep copy, isolated from registry)', () => {
     game.init([baseDatapack]);
     expect(game.state.extras).toEqual(extra.dict({}));
-    game.startNewGame('base:init:schale_office');
+    game.inits.startNewGame('base:init:schale_office');
     expect(game.state.extras).not.toEqual(extra.dict({}));
     expect(game.getExtra('meta/author')).toEqual(extra.str('AronaClicker Team'));
     // 独立性：写全局层不污染数据包常量层
@@ -1200,7 +1200,7 @@ describe('Extra 运行时（M3）', () => {
 
   test('should read three layers with priority global > per-init > registry', () => {
     game.init([extrasDatapack]);
-    game.startNewGame('init_a');
+    game.inits.startNewGame('init_a');
     // per-Init 独有键
     expect(game.getExtra('init/k')).toEqual(extra.int(10));
     // 常量表独有键（底座已深拷贝进全局层）
@@ -1211,7 +1211,7 @@ describe('Extra 运行时（M3）', () => {
 
   test('should write global layer via setExtra and per-init layer via setPerInitExtra', () => {
     game.init([extrasDatapack]);
-    game.startNewGame('init_a');
+    game.inits.startNewGame('init_a');
     game.setExtra('both/k', extra.int(9));
     expect(game.getExtra('both/k')).toEqual(extra.int(9));
     // per-Init 层保持 InitDef.extra 原样
@@ -1227,7 +1227,7 @@ describe('Extra 运行时（M3）', () => {
 
   test('should merge extras into global layer via mergeExtras', () => {
     game.init([extrasDatapack]);
-    game.startNewGame('init_a');
+    game.inits.startNewGame('init_a');
     game.mergeExtras(extra.dict({ merged: extra.dict({ k: extra.int(7) }) }));
     expect(game.getExtra('merged/k')).toEqual(extra.int(7));
     expect(game.getExtra('init/k')).toEqual(extra.int(10));
@@ -1235,10 +1235,10 @@ describe('Extra 运行时（M3）', () => {
 
   test('should clear per-init extras on soft restart but keep global extras, and restore from snapshot', () => {
     game.init([extrasDatapack]);
-    game.startNewGame('init_a');
+    game.inits.startNewGame('init_a');
     game.setPerInitExtra('mut/k', extra.int(5));
 
-    game.restartInit();
+    game.inits.restartInit();
     expect(game.state.activeInit).toBe('');
     // 全局层保留
     expect(game.getExtra('both/k')).toEqual(extra.int(1));
@@ -1247,17 +1247,17 @@ describe('Extra 运行时（M3）', () => {
     expect(game.getExtra('mut/k')).toBeUndefined();
 
     // 断点续玩：从快照恢复 per-Init extras
-    game.resumeInit('init_a');
+    game.inits.resumeInit('init_a');
     expect(game.getExtra('init/k')).toEqual(extra.int(10));
     expect(game.getExtra('mut/k')).toEqual(extra.int(5));
   });
 
   test('should rebuild per-init extras on hard restart (keep global extras)', () => {
     game.init([extrasDatapack]);
-    game.startNewGame('init_a');
+    game.inits.startNewGame('init_a');
     game.setPerInitExtra('mut/k', extra.int(5));
 
-    game.hardRestartInit();
+    game.inits.hardRestartInit();
     // per-Init 重建为 InitDef.extra（mut/k 丢弃）
     expect(game.getExtra('mut/k')).toBeUndefined();
     expect(game.getExtra('init/k')).toEqual(extra.int(10));
@@ -1267,9 +1267,9 @@ describe('Extra 运行时（M3）', () => {
 
   test('should tolerate old saves without extras fields', () => {
     game.init([baseDatapack]);
-    game.startNewGame('base:init:schale_office');
+    game.inits.startNewGame('base:init:schale_office');
     game.setPerInitExtra('run/k', extra.int(3));
-    game.restartInit(); // 生成含 extras 的快照
+    game.inits.restartInit(); // 生成含 extras 的快照
     const data = game.save();
     delete data.playerState.extras;
     delete data.playerState.initExtras;
@@ -1281,7 +1281,7 @@ describe('Extra 运行时（M3）', () => {
     // 常量层兜底仍可读
     expect(game.getExtra('meta/author')).toEqual(extra.str('AronaClicker Team'));
     // 快照无 extras → 恢复后 per-Init 为空
-    game.resumeInit('base:init:schale_office');
+    game.inits.resumeInit('base:init:schale_office');
     expect(game.getExtra('run/k')).toBeUndefined();
   });
 });
@@ -1387,7 +1387,7 @@ describe('Extra 引擎消费（M4）', () => {
 
   test('should run extra effects on enter, gate choices by extra condition, and remove on finish', () => {
     game.init([engineDatapack]);
-    expect(game.startNewGame('init_a')).toBe(true);
+    expect(game.inits.startNewGame('init_a')).toBe(true);
 
     // enterEffects：setExtra + addExtra（含以 per-Init 层为基数）+ value data 源读常量表
     expect(game.getExtra('meta/kills')).toEqual(extra.int(5));
@@ -1395,15 +1395,15 @@ describe('Extra 引擎消费（M4）', () => {
     expect(game.getExtra('meta/constant_copy')).toEqual(extra.int(1000));
 
     // 页面0含选项 → 必须显式选择
-    expect(game.advanceStory()).toMatchObject({ success: false, error: 'ChoiceRequired' });
+    expect(game.story.advanceStory()).toMatchObject({ success: false, error: 'ChoiceRequired' });
     // 不满足 extra 条件的选项被拒（kills=5 < 100）
-    expect(game.advanceStory(1)).toMatchObject({ success: false, error: 'ChoiceConditionNotMet' });
+    expect(game.story.advanceStory(1)).toMatchObject({ success: false, error: 'ChoiceConditionNotMet' });
     // 满足 extra 条件的选项推进：页面 effects（kills 5→7、power 0+5）+ 选项 effects（kills 7→10）
-    expect(game.advanceStory(0)).toMatchObject({ success: true });
+    expect(game.story.advanceStory(0)).toMatchObject({ success: true });
     expect(game.getExtra('meta/power')).toEqual(extra.int(5));
 
     // 末页：removeExtra meta/power 后剧情完结
-    expect(game.advanceStory()).toMatchObject({ success: true, finished: true });
+    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: true });
 
     expect(game.getExtra('meta/kills')).toEqual(extra.int(10));
     expect(game.getExtra('meta/power')).toBeUndefined();
@@ -1413,7 +1413,7 @@ describe('Extra 引擎消费（M4）', () => {
 
   test('should keep extra ops scoped to global layer (per-init layer untouched)', () => {
     game.init([engineDatapack]);
-    game.startNewGame('init_a');
+    game.inits.startNewGame('init_a');
     game.setExtra('only/global', extra.str('x'));
 
     expect(game.state.initExtras).toEqual(
@@ -1499,7 +1499,7 @@ describe('Extra 引擎消费（M4）', () => {
 
     // 解锁条件后，同 Run 再次进入：first 跳过（已首次进入），condition 生效，无条件继续
     game.setExtra('meta/gate_open', extra.int(1));
-    game.resumeInit('init_gate');
+    game.inits.resumeInit('init_gate');
     expect(game.getExtra('meta/init_first_count')).toEqual(extra.int(1));
     expect(game.getExtra('meta/init_conditioned')).toEqual(extra.int(1));
     expect(game.getExtra('meta/init_entries')).toEqual(extra.int(2));
@@ -1543,17 +1543,17 @@ describe('SendResult.echoReply', () => {
   /** 完成自动展开的欢迎剧情，释放剧情游标。 */
   function finishWelcome(): void {
     while (game.getView().currentStory) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.advanceStory(0);
+      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
   }
 
   test('talk + sendText（未 mute）→ echoReply true', () => {
     game.init([withSingleTalkletStory('t:story:echo', { text: '你好', speaker: '阿罗娜', sendText: '收到！' })]);
     finishWelcome();
-    expect(game.startStory('t:story:echo', 'passive').success).toBe(true);
-    const r = game.clickSend();
+    expect(game.story.startStory('t:story:echo', 'passive').success).toBe(true);
+    const r = game.story.clickSend();
     expect(r.type).toBe('completed');
     if (r.type === 'completed') {
       expect(r.sentText).toBe('收到！');
@@ -1564,8 +1564,8 @@ describe('SendResult.echoReply', () => {
   test('talk + sendText + muteReply → echoReply false', () => {
     game.init([withSingleTalkletStory('t:story:muted', { text: '欢迎', speaker: '阿罗娜', sendText: '（推进）', muteReply: true })]);
     finishWelcome();
-    expect(game.startStory('t:story:muted', 'passive').success).toBe(true);
-    const r = game.clickSend();
+    expect(game.story.startStory('t:story:muted', 'passive').success).toBe(true);
+    const r = game.story.clickSend();
     expect(r.type).toBe('completed');
     if (r.type === 'completed') expect(r.echoReply).toBe(false);
   });
@@ -1573,8 +1573,8 @@ describe('SendResult.echoReply', () => {
   test('click 页 + sendText → echoReply false（即便未设 muteReply）', () => {
     game.init([withSingleTalkletStory('t:story:click', { text: '点一下', kind: 'click', sendText: '推进' })]);
     finishWelcome();
-    expect(game.startStory('t:story:click', 'passive').success).toBe(true);
-    const r = game.clickSend();
+    expect(game.story.startStory('t:story:click', 'passive').success).toBe(true);
+    const r = game.story.clickSend();
     expect(r.type).toBe('completed');
     if (r.type === 'completed') {
       expect(r.sentText).toBe('推进');

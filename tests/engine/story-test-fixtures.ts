@@ -9,10 +9,10 @@ import { Resource, and } from '../../src/engine/types';
 /** 推进完当前展开的剧情（active 会锁定移动）。 */
 export function finishWelcome(g: GameInstance): void {
   for (let guard = 0; guard < 200; guard++) {
-    const r = g.advanceStory();
+    const r = g.story.advanceStory();
     if (r.success && 'finished' in r && r.finished) break;
     if (!r.success && r.error === 'ChoiceRequired') {
-      g.advanceStory(0);
+      g.story.advanceStory(0);
       continue;
     }
     if (!r.success) break;
@@ -24,10 +24,10 @@ export function finishStory(g: GameInstance, choiceIndex = 0): void {
   for (let guard = 0; guard < 200; guard++) {
     const view = g.getView().currentStory;
     if (!view) return;
-    const r = g.advanceStory();
+    const r = g.story.advanceStory();
     if (r.success && 'finished' in r && r.finished) return;
     if (!r.success && r.error === 'ChoiceRequired') {
-      const r2 = g.advanceStory(choiceIndex);
+      const r2 = g.story.advanceStory(choiceIndex);
       if (r2.success && 'finished' in r2 && r2.finished) return;
       continue;
     }

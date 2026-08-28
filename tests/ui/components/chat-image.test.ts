@@ -32,10 +32,10 @@ describe('聊天流图片与头像（pic 系统集成）', () => {
   ];
 
   test('base 数据包图片索引解析为可显示 URL', () => {
-    expect(ctx.game.getPicUrl('base:avatar(pic):hoshino')).toBeTruthy();
-    expect(ctx.game.getPicUrl('base:sticker(pic):hoshino_selfie')).toBeTruthy();
+    expect(ctx.game.pics.urlOf('base:avatar(pic):hoshino')).toBeTruthy();
+    expect(ctx.game.pics.urlOf('base:sticker(pic):hoshino_selfie')).toBeTruthy();
     // 未声明的索引返回 undefined
-    expect(ctx.game.getPicUrl('base:sticker(pic):missing')).toBeUndefined();
+    expect(ctx.game.pics.urlOf('base:sticker(pic):missing')).toBeUndefined();
   });
 
   test('星野默认差分 avatar 已接线到 pics 表', () => {

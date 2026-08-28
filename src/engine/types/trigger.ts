@@ -58,7 +58,8 @@ export interface AffectorInstance {
 
 // --- Trigger 系统（对外 DSL：事件侦测 → 条件 → 执行） ---
 
-/** 侦测来源：由哪些运行时事件驱动检查。 */
+/** 侦测来源：由哪些运行时事件驱动检查。kind 全集与
+ *  `TriggerSystem.ON_KIND_TO_EVENT` 双向锁合（docs-824/08 T4）。 */
 export type TriggerEventDef =
   | { kind: 'tick'; every?: number }
   | { kind: 'resource'; resource?: string }
@@ -66,7 +67,14 @@ export type TriggerEventDef =
   | { kind: 'item'; itemId?: string }
   | { kind: 'story'; storyId?: string }
   | { kind: 'init'; initId?: string }
-  | { kind: 'area'; areaId?: string };
+  | { kind: 'area'; areaId?: string }
+  /** 角色差分获得（含重复获得）。variantId 缺省 = 任意角色。 */
+  | { kind: 'character'; variantId?: string }
+  /** 培养变更。variantId / cultivation 缺省 = 任意差分 / 任意方式。 */
+  | { kind: 'cultivated'; variantId?: string; cultivation?: 'exp' | 'star' };
+
+/** Trigger `on.kind` 全集（供映射表与测试穷尽）。 */
+export type TriggerEventKind = TriggerEventDef['kind'];
 
 export interface TriggerDef {
   /**

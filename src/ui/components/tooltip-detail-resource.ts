@@ -11,7 +11,7 @@ export function renderResourceDetail(ctx: UIContext, resourceId: string): string
   const value = view.resources[resourceId] ?? 0;
   const initId = view.activeInit;
   const stat = (dsl: string) => game.statsService.evaluate(dsl) ?? 0;
-  const perTick = game.gameNumSystem.evaluateResourceGain(resourceId, game.state as never) ?? 0;
+  const perTick = game.gameNumSystem.evaluateResourceGain(resourceId, game.state) ?? 0;
   const produced = stat(`$GlobalProducedAmount ${resourceId}`);
   const consumed = stat(`$GlobalConsumedAmount ${resourceId}`);
   const runProduced = stat(`$CurrentRunProducedAmount ${resourceId}`);

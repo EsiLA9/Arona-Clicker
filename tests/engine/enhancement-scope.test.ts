@@ -17,7 +17,7 @@ describe('Enhancement 作用域（全局/当前 Init）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
   });
 
   afterEach(() => {
@@ -26,7 +26,7 @@ describe('Enhancement 作用域（全局/当前 Init）', () => {
 
   test('purchased enhancement applies across every area within the init', () => {
     game.state.resources[CREDIT] = 500;
-    expect(game.purchaseEnhancement(CREDIT_SYSTEM).success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(CREDIT_SYSTEM).success).toBe(true);
 
     // schale_main 的 credit_printer：5×1.5 + 功能 2（走 mutation 入口：事件驱动失效）
     for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
@@ -50,7 +50,7 @@ describe('Enhancement 作用域（全局/当前 Init）', () => {
 
   test('removing an enhancement disables it and allows re-purchase', () => {
     game.state.resources[CREDIT] = 500;
-    expect(game.purchaseEnhancement(CREDIT_SYSTEM).success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(CREDIT_SYSTEM).success).toBe(true);
 
     // 生效中：hangar 的 spot 受 ×1.5
     for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
@@ -60,13 +60,13 @@ describe('Enhancement 作用域（全局/当前 Init）', () => {
     expect(game.state.resources[CREDIT]).toBe(9 * 1.5);
 
     // 移除 → 不再作用
-    expect(game.removeEnhancement(CREDIT_SYSTEM)).toBe(true);
+    expect(game.enhancements.removeEnhancement(CREDIT_SYSTEM)).toBe(true);
     game.mutations.setResource(CREDIT, 0);
     game.tick();
     expect(game.state.resources[CREDIT]).toBe(9);
 
     // 可重新购买
     game.state.resources[CREDIT] = 500;
-    expect(game.purchaseEnhancement(CREDIT_SYSTEM).success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement(CREDIT_SYSTEM).success).toBe(true);
   });
 });

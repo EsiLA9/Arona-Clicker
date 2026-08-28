@@ -279,7 +279,7 @@ describe('存档往返恢复 Affector（Phase 4.1）', () => {
   beforeEach(() => {
     gameA = new GameInstance();
     gameA.init([baseDatapack, extraDp]);
-    gameA.startNewGame(OFFICE);
+    gameA.inits.startNewGame(OFFICE);
     for (const key of Object.keys(gameA.state.spotLevels)) delete gameA.state.spotLevels[key];
     gameA.state.spotLevels['base:spot:credit_printer'] = 1;
     base = gameA.gameNumSystem.evaluateResourceGain(CREDIT, gameA.state);

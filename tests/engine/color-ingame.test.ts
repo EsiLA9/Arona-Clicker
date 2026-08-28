@@ -7,7 +7,7 @@ const OFFICE = 'base:init:office';
 function freshGame(): GameInstance {
   const g = new GameInstance();
   g.init([baseDatapack]);
-  g.startNewGame(OFFICE);
+  g.inits.startNewGame(OFFICE);
   return g;
 }
 

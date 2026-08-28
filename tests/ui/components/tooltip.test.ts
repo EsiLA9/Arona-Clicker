@@ -91,7 +91,7 @@ describe('renderSpotDetail', () => {
   it('升级消费展示资源书面名而非原始三段式 id', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);
-    game.startNewGame(OFFICE);
+    game.inits.startNewGame(OFFICE);
     const ctx = createUIContext(game);
     const spot = game.registry.spots.get('base:spot:credit_printer')!;
     const html = renderSpotDetail(ctx, spot, 1);

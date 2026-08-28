@@ -107,7 +107,7 @@ export function describeCondition(
 export function getEnhancementMultiplier(ctx: UIContext, spot: SpotDef): number {
   const system = ctx.game.gameNumSystem;
   const zone = system.buildZoneNode({ kind: 'spot', id: spot.id }, 'mul', spot.baseYieldResource);
-  return system.evaluate(zone, ctx.game.state as never);
+  return system.evaluate(zone, ctx.game.state);
 }
 
 export interface YieldBreakdown {
@@ -120,7 +120,7 @@ export interface YieldBreakdown {
 
 /** 与 TickSystem 一致的产出分解，供 hover 展示（manager 加成已冻结，恒 0/1）。 */
 export function getSpotYieldBreakdown(ctx: UIContext, spot: SpotDef): YieldBreakdown {
-  const base = ctx.game.valueSystem.evaluate(spot.baseYield, ctx.game.state as never);
+  const base = ctx.game.valueSystem.evaluate(spot.baseYield, ctx.game.state);
   const enhMultiplier = getEnhancementMultiplier(ctx, spot);
   return {
     base,

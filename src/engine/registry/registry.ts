@@ -37,6 +37,7 @@ import {
   ExtraCompound,
   ExtraPath,
   ExtraValue,
+  SpotTagOverride,
   ThemeDesignDef,
 } from '../types';
 import { TagPath, tagDisplay } from '../core/tag';
@@ -45,7 +46,22 @@ import { RegistryError, validateDatapack } from './registry-validate';
 
 export { RegistryError };
 
+/** 数据包表合并/清空步骤：merge 与 clear 共用的单一表清单（docs-824/08 T6）。 */
+interface TableStep {
+  /** 表名（清单可读性记录）。 */
+  readonly table: string;
+  /** 合并一个数据包的该表（含表专属索引/校验）。 */
+  merge(dp: Datapack): void;
+  /** 清空该表及其专属索引。 */
+  clear(): void;
+}
+
 export class Registry {
+  /**
+   * 表步骤清单（构造期建一次）：新增一张表 = 私有字段 + getter + 本清单 1 条 step，
+   * merge/clear 自动同步，不再各自手写清单。
+   */
+  private readonly tableSteps: readonly TableStep[];
   // 主存储
   private _inits: Map<string, InitDef> = new Map();
   private _areas: Map<string, AreaDef> = new Map();
@@ -93,6 +109,215 @@ export class Registry {
   private _spotsByArea: Map<string, string[]> = new Map();
   /** 层级标签 → 拥有该标签（或其前缀匹配）的 Spot。key 为路径串（含所有前缀展开）。 */
   private _spotsByTag: Map<string, Set<string>> = new Map();
+
+  constructor() {
+    this.tableSteps = [
+      {
+        table: 'inits',
+        merge: dp => { for (const init of dp.inits) this._inits.set(init.id, init); },
+        clear: () => this._inits.clear(),
+      },
+      {
+        table: 'areas',
+        merge: dp => {
+          for (const area of dp.areas) {
+            this._areas.set(area.id, area);
+            if (!this._areasByInit.has(area.initId)) {
+              this._areasByInit.set(area.initId, []);
+            }
+            this._areasByInit.get(area.initId)!.push(area.id);
+          }
+        },
+        clear: () => { this._areas.clear(); this._areasByInit.clear(); },
+      },
+      {
+        table: 'spots',
+        merge: dp => {
+          for (const spot of dp.spots) {
+            this._spots.set(spot.id, spot);
+            if (!this._spotsByArea.has(spot.areaId)) {
+              this._spotsByArea.set(spot.areaId, []);
+            }
+            this._spotsByArea.get(spot.areaId)!.push(spot.id);
+            // 层级标签索引：把每个声明标签的所有前缀都登记（父含子）
+            for (const tag of spot.tags ?? []) this.indexSpotTag(spot.id, tag);
+          }
+        },
+        clear: () => { this._spots.clear(); this._spotsByArea.clear(); this._spotsByTag.clear(); },
+      },
+      {
+        table: 'enhancements',
+        merge: dp => { for (const enh of dp.enhancements) this._enhancements.set(enh.id, enh); },
+        clear: () => this._enhancements.clear(),
+      },
+      {
+        table: 'stories',
+        merge: dp => { for (const story of dp.stories) this._stories.set(story.id, story); },
+        clear: () => this._stories.clear(),
+      },
+      {
+        table: 'activeStories',
+        merge: dp => { for (const entry of dp.activeStories) this._activeStories.set(entry.id, entry); },
+        clear: () => this._activeStories.clear(),
+      },
+      {
+        table: 'passiveStories',
+        merge: dp => { for (const entry of dp.passiveStories) this._passiveStories.set(entry.id, entry); },
+        clear: () => this._passiveStories.clear(),
+      },
+      {
+        table: 'passivePools',
+        merge: dp => { for (const pool of dp.passivePools ?? []) this._passivePools.set(pool.id, pool); },
+        clear: () => this._passivePools.clear(),
+      },
+      {
+        table: 'items',
+        merge: dp => { for (const item of dp.items) this._items.set(item.id, item); },
+        clear: () => this._items.clear(),
+      },
+      {
+        table: 'dropTables',
+        merge: dp => {
+          if (dp.dropTables) for (const table of dp.dropTables) this._dropTables.set(table.id, table);
+        },
+        clear: () => this._dropTables.clear(),
+      },
+      {
+        table: 'funcletDefs',
+        merge: dp => {
+          if (dp.funcletDefs) for (const fd of dp.funcletDefs) this._funcletDefs.set(fd.id, fd);
+        },
+        clear: () => this._funcletDefs.clear(),
+      },
+      {
+        table: 'characters',
+        merge: dp => {
+          if (dp.characters) for (const ch of dp.characters) this._characters.set(ch.id, ch);
+        },
+        clear: () => this._characters.clear(),
+      },
+      {
+        // F-02：characterBonuses 已废弃，不再存储（GameInstance.init 负责警告）
+        table: 'characterBonuses',
+        merge: () => {},
+        clear: () => { this._characterBonuses = []; },
+      },
+      {
+        table: 'characterVariants',
+        merge: dp => {
+          if (dp.characterVariants) for (const v of dp.characterVariants) this._characterVariants.set(v.id, v);
+        },
+        clear: () => this._characterVariants.clear(),
+      },
+      {
+        table: 'cultivateCurves',
+        merge: dp => {
+          if (dp.cultivateCurves) for (const c of dp.cultivateCurves) this._cultivateCurves.set(c.id, c);
+        },
+        clear: () => this._cultivateCurves.clear(),
+      },
+      {
+        table: 'gachaPools',
+        merge: dp => {
+          if (!dp.gachaPools) return;
+          const knownModes = new Set<string>(Object.values(GachaMode));
+          for (const pool of dp.gachaPools) {
+            if (!knownModes.has(pool.mode)) {
+              throw new RegistryError(
+                `卡池 ${pool.id} 的抽取模式 "${pool.mode}" 未在引擎注册（GachaMode 为代码定义，不可由数据包扩展）`,
+              );
+            }
+            this._gachaPools.set(pool.id, pool);
+          }
+        },
+        clear: () => this._gachaPools.clear(),
+      },
+      {
+        table: 'colorGroups',
+        merge: dp => {
+          if (dp.colorGroups) for (const g of dp.colorGroups) this._colorGroups.set(g.id, g);
+        },
+        clear: () => this._colorGroups.clear(),
+      },
+      {
+        table: 'colorEquipments',
+        merge: dp => {
+          if (dp.colorEquipments) for (const e of dp.colorEquipments) this._colorEquipments.set(e.id, e);
+        },
+        clear: () => this._colorEquipments.clear(),
+      },
+      {
+        table: 'themeDesigns',
+        merge: dp => {
+          if (dp.themeDesigns) for (const d of dp.themeDesigns) this._themeDesigns.set(d.id, d);
+        },
+        clear: () => this._themeDesigns.clear(),
+      },
+      {
+        table: 'chatMessages',
+        merge: dp => {
+          if (dp.chatMessages) for (const m of dp.chatMessages) this._chatMessages.set(m.id, m);
+        },
+        clear: () => this._chatMessages.clear(),
+      },
+      {
+        table: 'characterPersistConfig',
+        merge: dp => {
+          if (!dp.characterPersistConfig) return;
+          for (const [key, scope] of Object.entries(dp.characterPersistConfig)) {
+            if (scope !== undefined && !Registry.PERSIST_SCOPES.has(scope)) {
+              throw new RegistryError(`characterPersistConfig.${key} 非法值 "${scope}"（应为 global | init）`);
+            }
+          }
+          this._characterPersistConfig = { ...this._characterPersistConfig, ...dp.characterPersistConfig };
+        },
+        clear: () => { this._characterPersistConfig = undefined; },
+      },
+      {
+        table: 'resourceDisplays',
+        merge: dp => {
+          if (dp.resourceDisplays) for (const rd of dp.resourceDisplays) this._resourceDisplays.set(rd.resourceId, rd);
+        },
+        clear: () => this._resourceDisplays.clear(),
+      },
+      {
+        table: 'tags',
+        merge: dp => {
+          if (dp.tags) for (const t of dp.tags) this._tagDefs.set(t.id, t);
+        },
+        clear: () => this._tagDefs.clear(),
+      },
+      {
+        table: 'pics',
+        merge: dp => {
+          if (!dp.pics) return;
+          for (const p of dp.pics) {
+            this._pics.set(p.id, p);
+            const parsed = parsePicId(p.id);
+            if (!parsed) continue; // 非法 id 由 registry-validate 加载期拦截；此处防御
+            if (!this._picsByKind.has(parsed.type)) this._picsByKind.set(parsed.type, new Set());
+            this._picsByKind.get(parsed.type)!.add(p.id);
+          }
+        },
+        clear: () => { this._pics.clear(); this._picsByKind.clear(); },
+      },
+      {
+        table: 'charaProfiles',
+        merge: dp => {
+          if (dp.charaProfiles) for (const cp of dp.charaProfiles) this._charaProfiles.set(cp.id, cp);
+        },
+        clear: () => this._charaProfiles.clear(),
+      },
+      {
+        // Extra 常量表：扁平键展开为树后深合并进全局树（后加载覆盖同路径叶子）
+        table: 'extras',
+        merge: dp => {
+          if (dp.extras) this._extras = mergeExtra(this._extras, expandFlatKeys(dp.extras));
+        },
+        clear: () => { this._extras = extra.dict({}); },
+      },
+    ];
+  }
 
   // 只读访问器
   get inits(): ReadonlyMap<string, InitDef> { return this._inits; }
@@ -246,53 +471,57 @@ export class Registry {
   /**
    * 查询拥有指定标签（含其 child，前缀匹配）的所有 Spot ID。
    * @param tag 查询标签路径，如 tagPath('office') 命中 office 与 office/*。
+   * @param overrides 运行时 tag 增撤覆盖（PlayerState.spotTagOverrides）；缺省只查声明。
    */
-  spotsWithTag(tag: TagPath): string[] {
-    return [...(this._spotsByTag.get(tagDisplay(tag)) ?? [])];
+  spotsWithTag(tag: TagPath, overrides?: Record<string, SpotTagOverride>): string[] {
+    const display = tagDisplay(tag);
+    const result = new Set(this._spotsByTag.get(display) ?? []);
+    // 运行时新增的 tag 不在声明索引里：按覆盖表补齐（含其前缀命中）
+    for (const [spotId, override] of Object.entries(overrides ?? {})) {
+      for (const added of override.added) {
+        for (let i = 1; i <= added.length; i++) {
+          if (tagDisplay(added.slice(0, i)) === display) {
+            result.add(spotId);
+            break;
+          }
+        }
+      }
+    }
+    // 声明索引命中可能已被运行时撤出；按有效 tags 前缀匹配复核
+    return [...result].filter(spotId => this.effectiveSpotTags(spotId, overrides)
+      .some(t => {
+        for (let i = 1; i <= t.length; i++) {
+          if (tagDisplay(t.slice(0, i)) === display) return true;
+        }
+        return false;
+      }));
   }
 
   /**
-   * 运行时给 Spot 新加入一个 Tag（会同步更新层级索引，使 Enhancement 按 Tag
-   * 的作用范围、tag 条件等立即生效）。已存在同名 Tag 时无操作。
+   * Spot 的有效 tags = 声明 tags + 运行时新增 − 运行时撤出。
+   * 纯查询：Registry 恒只读，运行时增撤经 mutations 落 PlayerState.spotTagOverrides（docs-824/08 T6）。
    */
-  addSpotTag(spotId: string, tag: TagPath): boolean {
+  effectiveSpotTags(spotId: string, overrides?: Record<string, SpotTagOverride>): TagPath[] {
     const spot = this._spots.get(spotId);
-    if (!spot) return false;
-    if ((spot.tags ?? []).some(t => tagDisplay(t) === tagDisplay(tag))) return false;
-    if (!spot.tags) (spot as { tags?: TagPath[] }).tags = [];
-    spot.tags.push(tag);
-    this.indexSpotTag(spotId, tag);
-    return true;
+    if (!spot) return [];
+    const override = overrides?.[spotId];
+    const removed = new Set((override?.removed ?? []).map(tagDisplay));
+    const out: TagPath[] = [];
+    for (const t of spot.tags ?? []) {
+      if (!removed.has(tagDisplay(t))) out.push(t);
+    }
+    for (const t of override?.added ?? []) {
+      if (!removed.has(tagDisplay(t))) out.push(t);
+    }
+    return out;
   }
 
-  /** 运行时让 Spot 撤出一个 Tag（同步更新层级索引）。无该 Tag 时无操作。 */
-  removeSpotTag(spotId: string, tag: TagPath): boolean {
-    const spot = this._spots.get(spotId);
-    if (!spot) return false;
-    const idx = (spot.tags ?? []).findIndex(t => tagDisplay(t) === tagDisplay(tag));
-    if (idx < 0) return false;
-    spot.tags.splice(idx, 1);
-    this.unindexSpotTag(spotId, tag);
-    return true;
-  }
-
-  /** 登记某 Spot 的某 Tag 的所有前缀（父含子）。 */
+  /** 登记某 Spot 的某 Tag 的所有前缀（父含子）——数据包加载时建立声明索引用。 */
   private indexSpotTag(spotId: string, tag: TagPath): void {
     for (let i = 1; i <= tag.length; i++) {
       const prefix = tagDisplay(tag.slice(0, i));
       if (!this._spotsByTag.has(prefix)) this._spotsByTag.set(prefix, new Set());
       this._spotsByTag.get(prefix)!.add(spotId);
-    }
-  }
-
-  /** 撤出某 Spot 的某 Tag 的所有前缀登记。 */
-  private unindexSpotTag(spotId: string, tag: TagPath): void {
-    for (let i = 1; i <= tag.length; i++) {
-      const prefix = tagDisplay(tag.slice(0, i));
-      const set = this._spotsByTag.get(prefix);
-      if (!set) continue;
-      set.delete(spotId);
-      if (set.size === 0) this._spotsByTag.delete(prefix);
     }
   }
 
@@ -302,134 +531,14 @@ export class Registry {
     this.merge(datapack);
   }
 
-  /** 清空所有注册数据 */
+  /** 清空所有注册数据（遍历表步骤清单，与 merge 共用同一清单） */
   clear(): void {
-    this._inits.clear();
-    this._areas.clear();
-    this._spots.clear();
-    this._enhancements.clear();
-    this._stories.clear();
-    this._activeStories.clear();
-    this._passiveStories.clear();
-    this._passivePools.clear();
-    this._items.clear();
-    this._dropTables.clear();
-    this._funcletDefs.clear();
-    this._characters.clear();
-    this._characterBonuses = [];
-    this._characterVariants.clear();
-    this._cultivateCurves.clear();
-    this._gachaPools.clear();
-    this._colorGroups.clear();
-    this._colorEquipments.clear();
-    this._themeDesigns.clear();
-    this._chatMessages.clear();
-    this._characterPersistConfig = undefined;
-    this._resourceDisplays.clear();
-    this._tagDefs.clear();
-    this._pics.clear();
-    this._picsByKind.clear();
-    this._charaProfiles.clear();
-    this._extras = extra.dict({});
-    this._areasByInit.clear();
-    this._spotsByArea.clear();
-    this._spotsByTag.clear();
+    for (const step of this.tableSteps) step.clear();
   }
 
 
-  /** 合并数据包到注册表 */
+  /** 合并数据包到注册表（遍历表步骤清单，与 clear 共用同一清单） */
   private merge(dp: Datapack): void {
-    for (const init of dp.inits) this._inits.set(init.id, init);
-    for (const area of dp.areas) {
-      this._areas.set(area.id, area);
-      if (!this._areasByInit.has(area.initId)) {
-        this._areasByInit.set(area.initId, []);
-      }
-      this._areasByInit.get(area.initId)!.push(area.id);
-    }
-    for (const spot of dp.spots) {
-      this._spots.set(spot.id, spot);
-      if (!this._spotsByArea.has(spot.areaId)) {
-        this._spotsByArea.set(spot.areaId, []);
-      }
-      this._spotsByArea.get(spot.areaId)!.push(spot.id);
-      // 层级标签索引：把每个声明标签的所有前缀都登记（父含子）
-      for (const tag of spot.tags ?? []) this.indexSpotTag(spot.id, tag);
-    }
-    for (const enh of dp.enhancements) this._enhancements.set(enh.id, enh);
-    for (const story of dp.stories) this._stories.set(story.id, story);
-    for (const entry of dp.activeStories) this._activeStories.set(entry.id, entry);
-    for (const entry of dp.passiveStories) this._passiveStories.set(entry.id, entry);
-    for (const pool of dp.passivePools ?? []) this._passivePools.set(pool.id, pool);
-    for (const item of dp.items) this._items.set(item.id, item);
-    if (dp.dropTables) {
-      for (const table of dp.dropTables) this._dropTables.set(table.id, table);
-    }
-    if (dp.funcletDefs) {
-      for (const fd of dp.funcletDefs) this._funcletDefs.set(fd.id, fd);
-    }
-    if (dp.characters) {
-      for (const ch of dp.characters) this._characters.set(ch.id, ch);
-    }
-    // F-02：characterBonuses 已废弃，不再存储（GameInstance.init 负责警告）
-    if (dp.characterVariants) {
-      for (const v of dp.characterVariants) this._characterVariants.set(v.id, v);
-    }
-    if (dp.cultivateCurves) {
-      for (const c of dp.cultivateCurves) this._cultivateCurves.set(c.id, c);
-    }
-    if (dp.gachaPools) {
-      const knownModes = new Set<string>(Object.values(GachaMode));
-      for (const pool of dp.gachaPools) {
-        if (!knownModes.has(pool.mode)) {
-          throw new RegistryError(
-            `卡池 ${pool.id} 的抽取模式 "${pool.mode}" 未在引擎注册（GachaMode 为代码定义，不可由数据包扩展）`,
-          );
-        }
-        this._gachaPools.set(pool.id, pool);
-      }
-    }
-    if (dp.colorGroups) {
-      for (const g of dp.colorGroups) this._colorGroups.set(g.id, g);
-    }
-    if (dp.colorEquipments) {
-      for (const e of dp.colorEquipments) this._colorEquipments.set(e.id, e);
-    }
-    if (dp.themeDesigns) {
-      for (const d of dp.themeDesigns) this._themeDesigns.set(d.id, d);
-    }
-    if (dp.chatMessages) {
-      for (const m of dp.chatMessages) this._chatMessages.set(m.id, m);
-    }
-    if (dp.characterPersistConfig) {
-      for (const [key, scope] of Object.entries(dp.characterPersistConfig)) {
-        if (scope !== undefined && !Registry.PERSIST_SCOPES.has(scope)) {
-          throw new RegistryError(`characterPersistConfig.${key} 非法值 "${scope}"（应为 global | init）`);
-        }
-      }
-      this._characterPersistConfig = { ...this._characterPersistConfig, ...dp.characterPersistConfig };
-    }
-    if (dp.resourceDisplays) {
-      for (const rd of dp.resourceDisplays) this._resourceDisplays.set(rd.resourceId, rd);
-    }
-    if (dp.tags) {
-      for (const t of dp.tags) this._tagDefs.set(t.id, t);
-    }
-    if (dp.pics) {
-      for (const p of dp.pics) {
-        this._pics.set(p.id, p);
-        const parsed = parsePicId(p.id);
-        if (!parsed) continue; // 非法 id 由 registry-validate 加载期拦截；此处防御
-        if (!this._picsByKind.has(parsed.type)) this._picsByKind.set(parsed.type, new Set());
-        this._picsByKind.get(parsed.type)!.add(p.id);
-      }
-    }
-    if (dp.charaProfiles) {
-      for (const cp of dp.charaProfiles) this._charaProfiles.set(cp.id, cp);
-    }
-    // Extra 常量表：扁平键展开为树后深合并进全局树（后加载覆盖同路径叶子）
-    if (dp.extras) {
-      this._extras = mergeExtra(this._extras, expandFlatKeys(dp.extras));
-    }
+    for (const step of this.tableSteps) step.merge(dp);
   }
 }

@@ -124,12 +124,12 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
   test('端到端：Talklet 播放推进时按序转发三种事件', () => {
     // 先播完 Init 自动展开的欢迎剧情，腾出全局游标
     finishWelcome(game);
-    game.startActiveStory('test:story:chat_show');
+    game.story.startActiveStory('test:story:chat_show');
     // 第 0 页：showChatText × 2
-    expect(game.advanceStory().success).toBe(true);
+    expect(game.story.advanceStory().success).toBe(true);
     expect(events.filter(e => e.type === 'chatTextShown')).toHaveLength(2);
     // 第 1 页：clearAllChatFlow + clearIdChatFlow
-    expect(game.advanceStory().success).toBe(true);
+    expect(game.story.advanceStory().success).toBe(true);
     expect(events.some(e => e.type === 'chatFlowCleared')).toBe(true);
     const cleared = events.find(e => e.type === 'chatTextCleared') as
       | { type: 'chatTextCleared'; id: string }
@@ -195,10 +195,10 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
   test('kizuna 演出浮窗可实际导航：startCardStory 清空当前游标（goto 语义）后启动目标剧情', () => {
     finishWelcome(game);
     // 播放流剧场预演（active 主线），制造"进行中"状态
-    expect(game.startActiveStory('base:story:schale_flow_show').success).toBe(true);
+    expect(game.story.startActiveStory('base:story:schale_flow_show').success).toBe(true);
     expect(game.getView().currentStory).not.toBeNull();
     // 点击演出浮窗上的羁绊卡片：目标 run_chain_1（同一 Init、未完成）
-    const result = game.startCardStory('base:story:run_chain_1');
+    const result = game.story.startCardStory('base:story:run_chain_1');
     expect(result.success).toBe(true);
     // goto 语义：原剧情被丢弃，直接进入目标剧情
     expect(game.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
@@ -206,9 +206,9 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
 
   test('Story 完结默认触发 storyCompleted（UI 据此自动删除全部演出文本）', () => {
     finishWelcome(game);
-    game.startActiveStory('base:story:schale_flow_show');
+    game.story.startActiveStory('base:story:schale_flow_show');
     for (let guard = 0; guard < 60; guard++) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (!r.success) break;
       if ('finished' in r && r.finished) break;
     }
@@ -219,17 +219,17 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
   test('重读（replay）不触发 storyCompleted → 不默认清场', () => {
     finishWelcome(game);
     // 完成一次
-    game.startActiveStory('base:story:schale_flow_show');
+    game.story.startActiveStory('base:story:schale_flow_show');
     for (let guard = 0; guard < 60; guard++) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (!r.success) break;
       if ('finished' in r && r.finished) break;
     }
     const beforeReplay = events.filter(e => e.type === 'storyCompleted').length;
     // 重读走完整条链
-    expect(game.replayStory('base:story:schale_flow_show').success).toBe(true);
+    expect(game.story.replayStory('base:story:schale_flow_show').success).toBe(true);
     for (let guard = 0; guard < 60; guard++) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (!r.success) break;
       if ('finished' in r && r.finished) break;
     }
@@ -239,10 +239,10 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
 
   test('base 主线「流剧场预演」：showChatText（含嵌入 talklet）/ clearIdChatFlow / clearAllChatFlow 按序触发', () => {
     finishWelcome(game);
-    expect(game.startActiveStory('base:story:schale_flow_show').success).toBe(true);
+    expect(game.story.startActiveStory('base:story:schale_flow_show').success).toBe(true);
     // 逐页推进到剧情结束
     for (let guard = 0; guard < 60; guard++) {
-      const r = game.advanceStory();
+      const r = game.story.advanceStory();
       if (!r.success) break;
       if ('finished' in r && r.finished) break;
     }
@@ -257,6 +257,6 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
     expect(cleared).toHaveLength(1);
     expect(cleared[0].id).toBe('perf:note');
     // 完成态可重读（replayable）
-    expect(game.replayStory('base:story:schale_flow_show').success).toBe(true);
+    expect(game.story.replayStory('base:story:schale_flow_show').success).toBe(true);
   });
 });
