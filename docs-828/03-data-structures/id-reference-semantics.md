@@ -80,7 +80,7 @@
 
 ## 特别说明
 
-1. **StoryEntry.id 与 StoryDef.id 同值**是最典型的「副本 id」设计：每个 Entry 都带一份与 Story 同名的 id 副本，`entry.storyId` 才是真引用（builder 缺省 `_storyId = id`，`def-factory/story-entry.ts`）。运行时**不强制 id===storyId**，只有加载期校验 storyId 必须可解析——一旦启用「多 Entry 复用同一 Story」，entry.id 就退化为纯身份键，这是当前设计里最值得注意的一处。
+1. **StoryEntry.id 与 StoryDef.id 同值**是最典型的「副本 id」设计：每个 Entry 都带一份与 Story 同名的 id 副本， `entry.storyId` 才是真引用（builder 缺省 `_storyId = id` ， `def-factory/story-entry.ts` ）。运行时**不强制 id\=\=\=storyId**，只有加载期校验 storyId 必须可解析——一旦启用「多 Entry 复用同一 Story」，entry.id 就退化为纯身份键，这是当前设计里最值得注意的一处。
 2. **混合引用**：`setTheme` 的 value 中 `colorId` 是真引用、`entityKey` 是意义引用；`affectorPackIds` 字符串真引用、内联匿名；`EntityThemeSlot.equipmentId` 写而不读。
 3. **三处未接线/未实现**：`refreshWorldPool`（池关闭并入世界 Pool）无调用点；`ChatMessageDef.owner` 无消费方；Effect `loot` 是 no-op 预留。
 4. **加载期校验覆盖面不一致**：有校验的（initId/areaId/defaultAreas/defaultSpots/storyId/curve/色彩系/gacha 成员）多数是真引用；而 jumpToStory、startStoryId、availableInits、adjacentAreaIds、PassivePoolChild、BranchGuard、owner 等**均无静态校验**——意义引用悬空不影响行为（身份匹配恒不中），但真引用悬空只会运行时软失败。
