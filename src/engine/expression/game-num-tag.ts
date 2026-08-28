@@ -19,14 +19,32 @@ import type { GameNumSystem } from './game-num';
 import type { GameNum } from './game-num-internal';
 import { tagId } from '../core/tag';
 import { TagEffectRecord, EntityRef, entityKey, ZoneModifierDecl } from './tag-effect';
+import { exprResourceDepsOf } from './game-num-build';
 
 // ---- 区表写入 ----
+
+/** 区记录 value 的资源依赖：const / 字面量无依赖，expr 经类型化扫描取 source='res' 集合。 */
+function recordValueResourceDeps(record: TagEffectRecord): Set<string> {
+  const v = record.value;
+  if (v === undefined || typeof v === 'number' || v.kind !== 'expr') return new Set();
+  return exprResourceDepsOf(v.expr);
+}
+
+/** 区记录 value 读资源时登记 key -> 资源依赖（resourceChanged 定向失效用；只增不减，过标记安全）。 */
+function accumulateKeyResourceDeps(system: GameNumSystem, key: string, record: TagEffectRecord): void {
+  const deps = recordValueResourceDeps(record);
+  if (deps.size === 0) return;
+  const set = system.zoneKeyResourceDeps.get(key) ?? new Set<string>();
+  for (const d of deps) set.add(d);
+  system.zoneKeyResourceDeps.set(key, set);
+}
 
 export function registerTagEffect(system: GameNumSystem, state: PlayerState, tagKey: string, record: TagEffectRecord): void {
   const list = ((state.tagEffects ??= {})[tagKey] ??= []);
   const i = list.findIndex(r => r.id === record.id);
   if (i >= 0) list[i] = record;
   else list.push(record);
+  accumulateKeyResourceDeps(system, tagKey, record);
   markZoneDirty(system, tagKey);
 }
 
@@ -35,6 +53,7 @@ export function registerEntityEffect(system: GameNumSystem, state: PlayerState, 
   const i = list.findIndex(r => r.id === record.id);
   if (i >= 0) list[i] = record;
   else list.push(record);
+  accumulateKeyResourceDeps(system, entityKeyStr, record);
   markZoneDirty(system, entityKeyStr);
 }
 
@@ -89,7 +108,7 @@ export function clearTagEffectsByLife(system: GameNumSystem, state: PlayerState,
 // ---- 定向失效（zoneIndex 反查） ----
 
 /** 按 tagKey / entityKey 反查命中的 zone 节点并沿 parents 传播 markDirty。 */
-function markZoneDirty(system: GameNumSystem, key: string): void {
+export function markZoneDirty(system: GameNumSystem, key: string): void {
   const entry = system.zoneIndex.get(key);
   if (!entry) return;
   for (const n of entry.flat) markDirty(system, n);
@@ -117,6 +136,28 @@ export function syncAffectorZoneEffects(system: GameNumSystem, affector: Affecto
     if (!activeSources.has(source)) removeTagEffectsBySource(system, state, source);
   }
   system.syncedAffectorSources = activeSources;
+  rebuildFlowsResourceDeps(system, affector);
+}
+
+/** 活跃 Affector flows 的资源依赖表（flows 节点 resource -> expr 所读资源集合），随活跃集重建。 */
+function rebuildFlowsResourceDeps(system: GameNumSystem, affector: AffectorEngine): void {
+  const flowsDeps = new Map<string, Set<string>>();
+  for (const instance of affector.getActiveInstances()) {
+    const pack = affector.getPack(instance.packId);
+    if (!pack) continue;
+    for (const entry of pack.entries) {
+      if (!instance.activeEntryIds.includes(entry.id)) continue;
+      for (const flow of entry.flows ?? []) {
+        if (typeof flow.value === 'number') continue;
+        const deps = exprResourceDepsOf(flow.value);
+        if (deps.size === 0) continue;
+        const set = flowsDeps.get(flow.resource) ?? new Set<string>();
+        for (const d of deps) set.add(d);
+        flowsDeps.set(flow.resource, set);
+      }
+    }
+  }
+  system.flowsResourceDeps = flowsDeps;
 }
 
 function registerAffectorModifier(system: GameNumSystem, state: PlayerState, source: string, modifier: ZoneModifierDecl, mountEntityId: string): void {
@@ -171,5 +212,22 @@ export function markDirty(system: GameNumSystem, node: GameNum): void {
     if (n.dirty === true) continue;
     n.dirty = true;
     for (const p of system.parents.get(n.id) ?? []) stack.push(p);
+  }
+}
+
+/** 自根向下整棵子树标脏（resourceChanged 定向失效：受影响 primitiveGain 的子树整体重算；
+ * DAG 共享节点（zone 节点）会被多次标记，无害）。 */
+export function markSubtreeDirty(root: GameNum): void {
+  const stack: GameNum[] = [root];
+  const seen = new Set<GameNum>();
+  while (stack.length) {
+    const n = stack.pop()!;
+    if (seen.has(n)) continue;
+    seen.add(n);
+    n.dirty = true;
+    n.cached = undefined;
+    if (n.kind === 'add' || n.kind === 'sub' || n.kind === 'mul') {
+      for (const c of n.children) stack.push(c);
+    }
   }
 }

@@ -477,8 +477,8 @@ export class GameInstance {
   /** 手动推进一帧并返回本帧生产结果。 */
   tick(): TickResult {
     this.tickSystem.setState(this._state);
-    // 每帧重算产出：先整树失效，避免直接改 state 的调用方读到陈旧缓存
-    this.gameNumSystem?.invalidateProduction();
+    // 产出求值走事件驱动精确失效（Phase 5）：mutation 写路径经事件定向 markDirty，
+    // 未受影响的 gain 子树跨帧保持缓存。直接改 state 的调用方须走 StateMutationService。
     const result = this.tickSystem.tick();
     // Affector 贯穿 Area / 整个 Init 持续生效：每帧应用挂载中的效果
     this.affectorEngine.applyActiveEffects();

@@ -159,7 +159,7 @@ export class AffectorEngine extends EventDrivenReactor {
     this.instances.set(instance.instanceId, instance);
     this.registerConditionDeps(instance.instanceId, packId);
     this.recheck(instance.instanceId);
-    if (this.gameNumSystem) this.gameNumSystem.syncAffectorZoneEffects(this, this.state);
+    this.notifyGameNum();
     this.eventBus?.emit({
       type: 'affectorMounted',
       instanceId: instance.instanceId,
@@ -167,6 +167,11 @@ export class AffectorEngine extends EventDrivenReactor {
       mountEntityId,
     });
     return instance;
+  }
+
+  /** 实例集合 / 激活 entry 集变化 → 同步 GameNum 区表并失效 flows（Phase 5 事件驱动失效）。 */
+  private notifyGameNum(): void {
+    this.gameNumSystem?.onAffectorInstancesChanged();
   }
 
   unmount(instanceId: string, reason = 'unmounted'): boolean {
@@ -178,6 +183,7 @@ export class AffectorEngine extends EventDrivenReactor {
     instance.activeEntryIds = [];
     this.condDeps.unregister(instanceId);
     this.pollingInstances.delete(instanceId);
+    this.notifyGameNum();
     this.eventBus?.emit({
       type: 'affectorStateChanged',
       instanceId,
@@ -199,6 +205,7 @@ export class AffectorEngine extends EventDrivenReactor {
       .filter(entry => !entry.condition || this.conditionSystem.evaluateGroup(entry.condition, this.state!))
       .map(entry => entry.id);
     const oldState = instance.state;
+    const oldEntryIds = instance.activeEntryIds;
     instance.activeEntryIds = activeEntryIds;
     instance.state = activeEntryIds.length > 0 ? 'Active' : 'Latent';
     // 激活沿（Latent→Active）一次性执行 entry.effects 全量（Phase 4.3）：
@@ -214,6 +221,12 @@ export class AffectorEngine extends EventDrivenReactor {
         else this.mutations.applyEffects(grants);
       }
     }
+    // 状态翻转或激活 entry 集变化（Active 内 entry 条件增减）都会改变
+    // zoneModifiers / flows 的有效集 → 通知 GameNum 同步区表并失效 flows
+    const entriesChanged =
+      oldEntryIds.length !== activeEntryIds.length ||
+      activeEntryIds.some((id, i) => oldEntryIds[i] !== id);
+    if (oldState !== instance.state || entriesChanged) this.notifyGameNum();
     if (oldState !== instance.state) {
       this.eventBus?.emit({
         type: 'affectorStateChanged',
@@ -326,13 +339,12 @@ export class AffectorEngine extends EventDrivenReactor {
       if (expectedPackIds.has(instance.packId)) continue;
       this.unmount(instance.instanceId, 'functionality removed');
     }
-    // 挂载缺失的线性功能
+    // 挂载缺失的线性功能（mount 幂等：Removed 旧实例会被重建）
     for (const fn of funcs) {
       if (fn.kind !== 'linearYield') continue;
       const packId = `${fn.id}@${spotId}`;
       if (!this.packs.has(packId)) this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
-      const instanceId = `${packId}@${spotId}`;
-      if (!this.instances.has(instanceId)) this.mount(packId, spotId);
+      this.mount(packId, spotId);
     }
   }
 
@@ -388,8 +400,6 @@ export class AffectorEngine extends EventDrivenReactor {
         else this.mutations.applyEffects(perTick);
       }
     }
-    // 把按 tag 的加成（zoneModifiers）写入 GameNum tag 效果表；失活实例由其内部对账撤销
-    if (this.gameNumSystem && this.state) this.gameNumSystem.syncAffectorZoneEffects(this, this.state);
   }
 
   /**

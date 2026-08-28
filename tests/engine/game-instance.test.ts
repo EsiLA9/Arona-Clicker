@@ -644,23 +644,23 @@ describe('GameInstance (integration)', () => {
     expect(game.purchaseEnhancement('base:enh:office_layout').success).toBe(true);
 
     // 单独结算信用点制造机（tags: credit/office → 命中 office）
-    game.state.resources['base:resource:credit'] = 0;
-    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
-    game.state.spotLevels['base:spot:credit_printer'] = 1; // base 5 ×1.25 + 功能 2
+    game.mutations.setResource('base:resource:credit', 0);
+    for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
+    game.mutations.setSpotLevel('base:spot:credit_printer', 1); // base 5 ×1.25 + 功能 2
     game.tick();
     expect(game.state.resources['base:resource:credit']).toBe(5 * 1.25 + 2);
 
     // 单独结算战术指挥台（tags: tactical/intel/office → 命中 office）
-    game.state.resources['base:resource:credit'] = 0;
-    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
-    game.state.spotLevels['base:spot:tactical_desk'] = 1; // base 10
+    game.mutations.setResource('base:resource:credit', 0);
+    for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
+    game.mutations.setSpotLevel('base:spot:tactical_desk', 1); // base 10
     game.tick();
     expect(game.state.resources['base:resource:credit']).toBe(10 * 1.25);
 
     // 野外调查站（tags: field/combat → 无 office，不被办公强化影响）
-    game.state.resources['base:resource:credit'] = 0;
-    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
-    game.state.spotLevels['base:spot:field_work'] = 1; // base 8
+    game.mutations.setResource('base:resource:credit', 0);
+    for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
+    game.mutations.setSpotLevel('base:spot:field_work', 1); // base 8
     game.tick();
     expect(game.state.resources['base:resource:credit']).toBe(8);
   });
@@ -676,9 +676,9 @@ describe('GameInstance (integration)', () => {
     const spot = game.registry.spots.get('base:spot:tactical_desk')!;
     (spot as { tags: unknown }).tags = [tagPath('office', 'command')];
 
-    game.state.resources['base:resource:credit'] = 0;
-    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
-    game.state.spotLevels['base:spot:tactical_desk'] = 1; // base 10
+    game.mutations.setResource('base:resource:credit', 0);
+    for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
+    game.mutations.setSpotLevel('base:spot:tactical_desk', 1); // base 10
     game.tick();
     expect(game.state.resources['base:resource:credit']).toBe(10 * 1.25);
   });

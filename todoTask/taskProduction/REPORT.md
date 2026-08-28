@@ -146,6 +146,54 @@ commit `975c3a9`（Phase2Bef）。
 
 ---
 
+## Phase 5 — 事件驱动精确失效（04g）✅
+
+### 实际改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `src/engine/game-instance.ts` | `tick()` 删每帧无条件 `invalidateProduction()`（未受影响的 gain 子树跨帧保持缓存）；注释声明「直接改 state 的调用方须走 StateMutationService」契约 |
+| `src/engine/expression/game-num.ts` | 新增三个依赖索引：`zoneKeyResourceDeps`（区表 key → 区记录 expr 所读资源）、`flowsResourceDeps`（flows 节点 resource → 其 expr 依赖资源）、`affectorFlowsNodes`（resource → flows 节点）；`resourceChanged` 订阅改精确失效 `onResourceChanged`（不再全树）；新增 `onAffectorInstancesChanged()`（sync 区表 + flows 节点 markDirty） |
+| `src/engine/expression/game-num-tag.ts` | 新增导出 `markSubtreeDirty(root)`（**向下**整子树失效，补 markDirty 只向上传播的缺口）；`markZoneDirty` 导出；`registerTagEffect` / `registerEntityEffect` 经 `accumulateKeyResourceDeps` 记录区记录 expr 的资源依赖（只增不减，过标记安全）；`syncAffectorZoneEffects` 收尾 `rebuildFlowsResourceDeps` |
+| `src/engine/expression/game-num-build.ts` | `exprResourceDepsOf` 导出（Phase 3 已有内部实现）；`buildAll` 建 `affectorFlowsNodes` 索引 |
+| `src/engine/effect/affector-engine.ts` | ① 新增 `notifyGameNum()` → `gameNumSystem.onAffectorInstancesChanged()`，在 mount / unmount / recheck 的状态翻转或 activeEntryIds 变化时调用（recheck 捕获 `oldEntryIds` 比对）；② `applyActiveEffects` 删每 tick `syncAffectorZoneEffects`；③ 修复 `syncSpotFunctionalities` 对 Removed 实例跳过重挂的 bug（`instances.has` 命中 Removed 阻塞重挂 → 无条件幂等 `mount`） |
+| `tests/engine/game-num-invalidation.test.ts` | 新增 7 tests（下） |
+| `tests/engine/enhancement-scope.test.ts` / `tests/engine/game-instance.test.ts` | settle 块的直接 `spotLevels` 写改走 `mutations.setSpotLevel/setResource`（原依赖每帧失效掩盖陈旧读） |
+
+### 失效拓扑（设计说明）
+
+- `markDirty` 沿 parents **向上**；`markSubtreeDirty` 沿 children **向下**。resourceChanged 定向失效需两者配合：gain 根标记子树整体重算（子节点缓存陈旧）。
+- resourceChanged 三路定向：`gainResourceDeps`（markSubtreeDirty 对应 gain 子树）+ `zoneKeyResourceDeps`（markZoneDirty 反查 zoneIndex）+ `flowsResourceDeps`（markDirty flows 节点，向上传至 gain 根）。
+- 其余事件（enhancementAdded/Removed、spotLevelChanged、spotTagChanged、managerChanged、extraChanged）全树失效（markAllDirty）。
+- Affector 翻转链：recheck 状态翻转 → `notifyGameNum` → `syncAffectorZoneEffects`（区表重同步）+ 全部 flows 节点 markDirty。注意 markDirty 向上只到已缓存的根，故对每个 flows 节点逐一标记。
+- 回退方案（TASK.md 预设）：若未来发现事件缺口，恢复 `tick()` 末尾 `invalidateProduction()` 一行即可回到每帧全树失效。
+
+### 正确性审计结论（TASK.md 要求）
+
+- StateMutationService 全部生产相关写路径均发射对应事件（resource/spotLevel/spotTag/enhancement/manager/extra/flag）。
+- 资源写路径核查：`effect-ops` addResource、`init-service` 购买结算走 `changeResource`；`loot-system` 无资源写（仅发 looted 事件由上层结算）。
+- Affector 状态翻转经 `notifyGameNum` 覆盖（此前 `affectorStateChanged` 无 game-num 消费者）。
+
+### 回归测试（tests/engine/game-num-invalidation.test.ts，7 tests）
+
+每条：先求值建立缓存 → mutation 变更 → 不经 tick 立即断言 `evaluateResourceGain`：
+
+1. changeResource/setResource → 读资源的 gain 子树定向重算（5/47/12）。
+2. setSpotLevel/addSpotLevel → owned/levelLinear/功能 flows（7/11/15）。
+3. setExtra/addExtra → data 源 gain（0/7/10）。
+4. addEnhancement/removeEnhancement → zone mul 桥接（7/9.5/7；flows 不进乘区，5×1.5+2）。
+5. zone 记录 expr 读资源 → zoneKeyResourceDeps 定向失效 zone 节点（5/5/65）。
+6. Affector 资源阈值翻转 → flows 进出（5/115/55）。
+7. tick 多帧一致性：首帧按变更时余额入账 12，resourceChanged 定向失效后次帧自反增至 36。
+
+### 验收核验（实测）
+
+- `npm test`：90 文件 919 测试全绿（+7）。
+- `npx tsc --noEmit`：通过。
+- 多帧 tick 数值与 Phase 0 基线一致（game-num-snapshot.test.ts 32 tests 全绿）。
+
+---
+
 ## 测试结果汇总
 
 | 时点 | npm test | tsc --noEmit |
@@ -153,12 +201,13 @@ commit `975c3a9`（Phase2Bef）。
 | Phase 1 后（b558235） | 908 passed | ✅ |
 | Phase 2 后（975c3a9，当前 HEAD） | 908 passed（88 files） | ✅ |
 | Phase 3 后（6132636） | 905 passed（88 files，-3 删除用例） | ✅ |
-| Phase 4 后（本次提交） | 912 passed（89 files，+7 affector-reconcile） | ✅ |
+| Phase 4 后（c181cfb） | 912 passed（89 files，+7 affector-reconcile） | ✅ |
+| Phase 5 后（本次提交） | 919 passed（90 files，+7 game-num-invalidation） | ✅ |
 
 ## 遗留风险与后续建议
 
 - `Phase2Bef` commit message 未按任务书 Phase 8 要求「说明清理内容与验收结果」（同时打包了 TASK.md/HANDOFF.md/tree-design.md 入库）。历史已成型，不改写；后续 Phase commit message 补足描述即可。
 - 未跟踪文件 `src/data/Hoshino.png` 与本任务无关，待用户定夺入库或忽略。
-- funclet 求值链有历史遗留：`value-system.ts:122` 将 `FuncletDef.calc`（类型为 ValueExpression）强转 Value 求值，运行时落入 `evaluateValue` 的 default 分支——本任务未触碰，建议 Phase 5 资源写路径审计时一并核查。
-- zone / affectorFlows 叶子的动态值（区记录 expr、Affector flow value）不在 gain 依赖扫描内，`resourceChanged` 对它们不失效——Phase 5 精确失效需一并设计。
-- Phase 4 起待办见 `TASK.md` roadmap。
+- funclet 求值链有历史遗留：`value-system.ts:122` 将 `FuncletDef.calc`（类型为 ValueExpression）强转 Value 求值，运行时落入 `evaluateValue` 的 default 分支——本任务未触碰，Phase 5 资源写路径审计确认无其他写路径缺口，建议独立任务修复。
+- Phase 5 事件驱动失效依赖「状态变更走 StateMutationService」纪律：绕过 mutation 直接写 state 的调用方将得到陈旧缓存（tick 注释已声明契约）；`onResourceChanged` 三索引（zoneKeyResourceDeps/flowsResourceDeps）为只增不减的过标记设计，漏标记安全、多标记无害。
+- Phase 5 起待办见 `TASK.md` roadmap。

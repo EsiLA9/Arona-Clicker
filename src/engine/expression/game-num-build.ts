@@ -50,6 +50,10 @@ export function buildAll(system: GameNumSystem, state?: PlayerState): void {
   }
   system.gainResourceDeps = gainResourceDeps(system);
   system.mayReadResources = [...system.gainResourceDeps.values()].some(s => s.size > 0);
+  system.affectorFlowsNodes = new Map();
+  for (const node of system.allNodes) {
+    if (node.kind === 'affectorFlows') system.affectorFlowsNodes.set(node.resource, node);
+  }
 }
 
 function buildResourceGain(system: GameNumSystem, registry: Registry, resource: string): GameNum {
@@ -237,6 +241,13 @@ function exprResourceDeps(expr: ValueExpression, out: Set<string>): void {
       exprResourceDeps(expr.left, out);
       exprResourceDeps(expr.right, out);
   }
+}
+
+/** ValueExpression 的资源依赖集合（区记录 / flows 动态值登记定向失效用）。 */
+export function exprResourceDepsOf(expr: ValueExpression): Set<string> {
+  const out = new Set<string>();
+  exprResourceDeps(expr, out);
+  return out;
 }
 
 /** GameNum 子树的资源依赖。zone/affectorFlows 叶子的动态值不经本树求值，不计入（与旧扫描等价）。 */

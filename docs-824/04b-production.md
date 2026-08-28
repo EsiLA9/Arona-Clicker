@@ -21,16 +21,21 @@ buildAll(state)
 ## zone 聚合（命名乘区）
 
 - `tagMultiplier` = 该 tag 的 mul 区求值结果（`zone` 节点）；
-- 注册 TagEffect/EntityEffect → 路由进对应 zone 节点的 `childMulMap`（flat 贡献 / mul 乘数 / bound 夹取）；
-- Affector 的 `zoneModifiers` 由 `syncAffectorZoneEffects` 每帧同步进区表（见 [[docs-824/04f-trigger-effect]]）。
+- TagEffect/EntityEffect 注册 → 写 state 区表（`state.tagEffects` / `state.entityEffects` 唯一真相，见 [[docs-824/03c]]）；
+- Affector 的 `zoneModifiers` 由 `syncAffectorZoneEffects` 在挂载/翻转时同步进区表（见 [[docs-824/04f-trigger-effect]]）。
 
-## 失效策略
+## 失效策略（Phase 5 事件驱动）
 
 | 触发 | 动作 |
 | --- | --- |
-| enhancement/tag/level/manager 变化 | `invalidateProduction()` 全树 dirty |
-| 帧内产出 | 不清树，仅数值更新 |
+| resourceChanged | 定向：`gainResourceDeps` 子树 `markSubtreeDirty`（向下）+ 区表依赖 `markZoneDirty` + flows 节点 `markDirty`（向上） |
+| enhancement/tag/level/manager/extra 变化 | `invalidateProduction()` 全树 dirty |
+| Affector 状态翻转 / activeEntryIds 变化 | `notifyGameNum` → 重同步区表 + flows 节点 `markDirty` |
 | spotTagChanged | 重建 zoneIndex 反路由 + 失效 + 重同步 Affector |
+| 帧内产出 | 不清树，仅数值更新 |
+
+- `markDirty` 沿 parents 向上传播；`markSubtreeDirty` 沿 children 向下（resourceChanged 定向失效需两者配合）。
+- tick 不再每帧失效：未受影响的 gain 子树跨帧保持缓存；直接改 state 的调用方必须走 StateMutationService，否则陈旧读。
 
 ## 求值入口
 

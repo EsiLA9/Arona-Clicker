@@ -33,6 +33,9 @@ import {
   clearTagEffectsByLife as clearTagEffectsByLifeImpl,
   syncAffectorZoneEffects as syncAffectorZoneEffectsImpl,
   markAllDirty,
+  markDirty,
+  markZoneDirty,
+  markSubtreeDirty,
 } from './game-num-tag';
 
 export { aggregateZone } from './game-num-eval';
@@ -81,8 +84,14 @@ export class GameNumSystem {
 
   /** 每个 primitiveGain 的资源依赖集合（buildAll 静态扫描产物；resourceChanged 定向失效的数据基础）。 */
   gainResourceDeps = new Map<string, Set<string>>();
-  /** 任一 gain 读资源时为 true（gainResourceDeps 的派生，现有 resourceChanged 全量失效仍用它）。 */
+  /** 任一 gain 读资源时为 true（gainResourceDeps 的派生）。 */
   mayReadResources = false;
+  /** 区表 key -> 该键下登记记录 expr 所读资源集合（register 时累积，resourceChanged 定向失效用）。 */
+  zoneKeyResourceDeps = new Map<string, Set<string>>();
+  /** affectorFlows 节点 resource -> 活跃 flows expr 所读资源集合（syncAffectorZoneEffects 重建）。 */
+  flowsResourceDeps = new Map<string, Set<string>>();
+  /** resource -> affectorFlows 节点（buildAll 索引；affector 翻转 / 资源变化时定向失效）。 */
+  affectorFlowsNodes = new Map<string, GameNum>();
 
   /** 已登记资源集合（spot 基础产出 + state.resources，含仅经 affectorFlows 产出的资源）。 */
   resourceSet = new Set<string>();
@@ -114,9 +123,42 @@ export class GameNumSystem {
     });
     this.bus?.on('managerChanged', invalidate);
     this.bus?.on('extraChanged', invalidate);
-    this.bus?.on('resourceChanged', () => {
-      if (this.mayReadResources) this.invalidateProduction();
+    this.bus?.on('resourceChanged', event => {
+      this.onResourceChanged(event.resource);
     });
+  }
+
+  /**
+   * resourceChanged 定向失效（Phase 5）：只重算受该资源影响的子树——
+   * ① 静态依赖该资源的 primitiveGain（gainResourceDeps）；
+   * ② 登记过读该资源 expr 的区表 key 命中的 zone 节点；
+   * ③ flows expr 读该资源的 affectorFlows 节点。
+   * 不读任何资源的 gain 保持跨帧缓存。
+   */
+  onResourceChanged(resource: string): void {
+    for (const [gainId, deps] of this.gainResourceDeps) {
+      if (!deps.has(resource)) continue;
+      const gain = this.gains.get(gainId);
+      if (gain) markSubtreeDirty(gain);
+    }
+    for (const [key, deps] of this.zoneKeyResourceDeps) {
+      if (deps.has(resource)) markZoneDirty(this, key);
+    }
+    for (const [nodeRes, deps] of this.flowsResourceDeps) {
+      if (!deps.has(resource)) continue;
+      const node = this.affectorFlowsNodes.get(nodeRes);
+      if (node) markDirty(this, node);
+    }
+  }
+
+  /**
+   * Affector 实例集合 / 激活 entry 集变化（mount / unmount / recheck 翻转）：
+   * 同步区表记录 + 失效全部 affectorFlows 节点（flows 随活跃集懒求值）。
+   */
+  onAffectorInstancesChanged(): void {
+    if (!this.state) return;
+    this.syncAffectorZoneEffects(this.affectorEngine, this.state);
+    for (const node of this.affectorFlowsNodes.values()) markDirty(this, node);
   }
 
   private evalDeps(): GameNumEvalDeps {

@@ -28,17 +28,17 @@ describe('Enhancement 作用域（全局/当前 Init）', () => {
     game.state.resources[CREDIT] = 500;
     expect(game.purchaseEnhancement(CREDIT_SYSTEM).success).toBe(true);
 
-    // schale_main 的 credit_printer：5×1.5 + 功能 2
-    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
-    game.state.spotLevels[PRINTER] = 1;
-    game.state.resources[CREDIT] = 0;
+    // schale_main 的 credit_printer：5×1.5 + 功能 2（走 mutation 入口：事件驱动失效）
+    for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
+    game.mutations.setSpotLevel(PRINTER, 1);
+    game.mutations.setResource(CREDIT, 0);
     game.tick();
     expect(game.state.resources[CREDIT]).toBe(5 * 1.5 + 2);
 
     // schale_hangar 的 hangar_supply（其它 Area）：同样受全局倍率 9×1.5
-    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
-    game.state.spotLevels[HANGAR_SPOT] = 1;
-    game.state.resources[CREDIT] = 0;
+    for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
+    game.mutations.setSpotLevel(HANGAR_SPOT, 1);
+    game.mutations.setResource(CREDIT, 0);
     game.tick();
     expect(game.state.resources[CREDIT]).toBe(9 * 1.5);
   });
@@ -53,15 +53,15 @@ describe('Enhancement 作用域（全局/当前 Init）', () => {
     expect(game.purchaseEnhancement(CREDIT_SYSTEM).success).toBe(true);
 
     // 生效中：hangar 的 spot 受 ×1.5
-    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
-    game.state.spotLevels[HANGAR_SPOT] = 1;
-    game.state.resources[CREDIT] = 0;
+    for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
+    game.mutations.setSpotLevel(HANGAR_SPOT, 1);
+    game.mutations.setResource(CREDIT, 0);
     game.tick();
     expect(game.state.resources[CREDIT]).toBe(9 * 1.5);
 
     // 移除 → 不再作用
     expect(game.removeEnhancement(CREDIT_SYSTEM)).toBe(true);
-    game.state.resources[CREDIT] = 0;
+    game.mutations.setResource(CREDIT, 0);
     game.tick();
     expect(game.state.resources[CREDIT]).toBe(9);
 
