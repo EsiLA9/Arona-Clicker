@@ -231,6 +231,33 @@ commit `975c3a9`（Phase2Bef）。
 
 ---
 
+## Phase 7 — 死代码清理（TASK.md §224-236）✅
+
+### 实际改动
+
+| 项 | 文件 | 改动 |
+| --- | --- | --- |
+| 1. `named` 注册表 | `game-num.ts` / `game-num-build.ts` / `game-num.test.ts` | 删 `named` 字段与 `register` / `evaluateByName` / `evaluateByNameWithBreakdown` / `hasNamed` / `getNamedNumbers`（全库无生产消费者）；buildAll 删 `named.clear()`；删 2 个专属测试 |
+| 2. `life` 三件套 | `tag-effect.ts` / `game-num-tag.ts` / `affector-pack.ts` / `src/data/base/datapack.ts` | 删 `TagEffectRecord.life`、`ZoneModifierDecl.life`（数据包字段）、`AffectorPackBuilder.modTag/modEntity` 的 life 参数、`clearTagEffectsByLife`（函数 + 门面方法 + import）；`registerAffectorModifier` 不再写 life；base 数据 15 处调用点去 `'init'` 实参；4 个测试文件同步 |
+| 3. `persistent` | `trigger.ts` / `affector-pack.ts` / `datapack/AronaClickerCore/*.json` | 删 `AffectorPackDef.persistent` 字段、builder `persistent()` / `_persistent` / build 接线；两个示例数据包删 `"persistent": true` 行；pool-pack 测试改为仅测缺 entry 抛错 |
+| 4. `zoneNodeById` | `game-num.ts` / `game-num-build.ts` | 从 GameNumSystem 公开字段降为 build 模块内部 `WeakMap<GameNumSystem, Map<id, ZoneNode>>`（按 system 隔离，buildAll 整表换新；运行期 `buildZoneNode` 复用同表，UI/测试仍拿到树内同一节点实例）。`flowsNodeById` 保持 system 字段（flows 节点动态创建，不随 buildAll 重建） |
+| 5. `modTag`/`modEntity` 表达式值 | `affector-pack.ts` | value 参数 `number` → `number | ValueExpression`（04h §4.3）；桥接层 `registerAffectorModifier` 本就双分支处理，无需改动 |
+| 6. `spotCount` 命名 | `types/expression.ts` / `value-system.ts` / `affector-text.ts` / `editor-extras.ts` / `affector-text.test.ts` | ValueSource `spotCount` → `areaSpotCount`（04h §4.2：源名与 `params.area` 语义对齐）；编辑器枚举标签改「区域内设施数量」。默认数据与 JSON 包均无该源使用，仅测试 fixture 同步 |
+
+### 语义变化（显式声明）
+
+- 无游戏数值行为变化：`life` / `persistent` 从未被引擎读取；`named` 从未被生产代码使用；`zoneNodeById` 仅改可见性；`areaSpotCount` 为纯重命名（无数据使用）。
+- 数据包破坏性变更（按 AGENTS.md「不做存档迁移」直接生效）：`ZoneModifierDecl.life`、`AffectorPackDef.persistent` 字段删除；`ValueSource.spotCount` 更名。旧 JSON 包若仍带这些字段，加载时被忽略（无校验拒绝），不报错。
+
+### 验收核验（实测）
+
+- `npm test`：90 文件 918 测试全绿（920 − 2：删除 named 专属测试）。
+- `npx tsc --noEmit`：通过。
+- `npm run gen:schema`：`engine-defs.gen.json` 重新生成（−8/+1：life/persistent 字段出清，spotCount→areaSpotCount）；`engine-schema.sync.test.ts` 三向一致通过。
+- grep 残留：`clearTagEffectsByLife` / `zoneNodeById` / `named` / `evaluateByName` / `persistent` / `life` / `spotCount`（ValueSource 义）全库零残留（UI 局部变量 `spotCount` 为区域设施计数展示，与枚举无关）。
+
+---
+
 ## 测试结果汇总
 
 | 时点 | npm test | tsc --noEmit |
@@ -240,7 +267,8 @@ commit `975c3a9`（Phase2Bef）。
 | Phase 3 后（6132636） | 905 passed（88 files，-3 删除用例） | ✅ |
 | Phase 4 后（c181cfb） | 912 passed（89 files，+7 affector-reconcile） | ✅ |
 | Phase 5 后（d2c2848） | 919 passed（90 files，+7 game-num-invalidation） | ✅ |
-| Phase 6 后（本次提交） | 920 passed（90 files，层级树快照重锚定 +1） | ✅ |
+| Phase 6 后（901713b） | 920 passed（90 files，层级树快照重锚定 +1） | ✅ |
+| Phase 7 后（本次提交） | 918 passed（90 files，−2 删除 named 用例） | ✅ |
 
 ## 遗留风险与后续建议
 
@@ -249,4 +277,4 @@ commit `975c3a9`（Phase2Bef）。
 - funclet 求值链有历史遗留：`value-system.ts:122` 将 `FuncletDef.calc`（类型为 ValueExpression）强转 Value 求值，运行时落入 `evaluateValue` 的 default 分支——本任务未触碰，Phase 5 资源写路径审计确认无其他写路径缺口，建议独立任务修复。
 - Phase 5 事件驱动失效依赖「状态变更走 StateMutationService」纪律：绕过 mutation 直接写 state 的调用方将得到陈旧缓存（tick 注释已声明契约）；`onResourceChanged` 三索引（zoneKeyResourceDeps/flowsResourceDeps）为只增不减的过标记设计，漏标记安全、多标记无害。
 - Phase 6 显式层级树在所有资源树中统一构建 spot 子树（非本资源树 spotBase 恒 0）：节点数 = O(spots × resources)，当前规模无感知；若未来数据包规模显著增长，可考虑按「本资源 spot ∪ 有 flows 挂载的 spot」惰性裁剪。
-- Phase 6 起待办见 `TASK.md` roadmap（Phase 7 死代码清理：named 注册表 / life 字段 / persistent 等）。
+- Phase 7 死代码清理已完成（named / life / persistent / zoneNodeById / modTag-modEntity 表达式值 / spotCount 更名）；剩余 Phase 8 文档同步收尾。

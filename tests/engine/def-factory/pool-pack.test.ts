@@ -59,14 +59,14 @@ describe('AffectorPackBuilder', () => {
   test('zoneModifier 构造等价于字面量（credit_system_mult 参照）', () => {
     const def = affectorPack('base:pack:credit_system_mult')
       .entry('base:aff:credit_system_mult')
-      .modEntity('spot', '*', 'mul', 1.5, 'init')
+      .modEntity('spot', '*', 'mul', 1.5)
       .build();
     expect(def).toEqual<AffectorPackDef>({
       id: 'base:pack:credit_system_mult',
       entries: [{
         id: 'base:aff:credit_system_mult',
         effects: [],
-        zoneModifiers: [{ target: { kind: 'entity', ref: { kind: 'spot', id: '*' } }, category: 'mul', value: 1.5, life: 'init' }],
+        zoneModifiers: [{ target: { kind: 'entity', ref: { kind: 'spot', id: '*' } }, category: 'mul', value: 1.5 }],
       }],
     });
   });
@@ -74,12 +74,12 @@ describe('AffectorPackBuilder', () => {
   test('多 modTag + 效果 + extra（field_logistics_mult / energy_drink 参照）', () => {
     const multi = affectorPack('base:pack:field_logistics_mult')
       .entry('base:aff:field_logistics_mult')
-      .modTag(['field'], 'mul', 1.35, 'init')
-      .modTag(['combat'], 'mul', 1.35, 'init')
-      .modTag(['tactical'], 'mul', 1.35, 'init')
+      .modTag(['field'], 'mul', 1.35)
+      .modTag(['combat'], 'mul', 1.35)
+      .modTag(['tactical'], 'mul', 1.35)
       .build();
     expect(multi.entries[0].zoneModifiers).toHaveLength(3);
-    expect(multi.entries[0].zoneModifiers![0]).toEqual({ target: { kind: 'tag', tag: ['field'] }, category: 'mul', value: 1.35, life: 'init' });
+    expect(multi.entries[0].zoneModifiers![0]).toEqual({ target: { kind: 'tag', tag: ['field'] }, category: 'mul', value: 1.35 });
 
     const drink = affectorPack('base:pack:energy_drink')
       .extra(extra.dict({ desc: extra.str('能量饮料：每次点击 +1 信用点'), tier: extra.int(1) }))
@@ -91,9 +91,7 @@ describe('AffectorPackBuilder', () => {
     expect(drink.entries[0].effects).toEqual([{ op: 'addResource', target: 'base:resource:credit', value: 1 }]);
   });
 
-  test('persistent 与缺 entry 抛错', () => {
+  test('缺 entry 抛错', () => {
     expect(() => affectorPack('base:pack:x').build()).toThrow(/entry/);
-    const def = affectorPack('base:pack:x').entry('e').persistent().build();
-    expect(def.persistent).toBe(true);
   });
 });

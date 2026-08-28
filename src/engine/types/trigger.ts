@@ -38,8 +38,6 @@ export interface AffectorPackDef {
   /** @label ID */
   id: string;
   entries: AffectorEffect[];
-  /** @label 持久 */
-  persistent?: boolean;
   /** Extra 附加数据（数据包声明的结构化元数据，见 docs/13）。 */
   extra?: ExtraCompound;
 }

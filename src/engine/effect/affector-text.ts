@@ -55,7 +55,7 @@ export function describeValue(val: Value, nameOf: NameResolver): string {
     case 'const': return String(p.value ?? 0);
     case 'res': return nameOf('resource', String(p.resource ?? ''));
     case 'spotLevel': return `${nameOf('spot', String(p.spot ?? ''))}等级`;
-    case 'spotCount': return `${nameOf('area', String(p.area ?? ''))}设施数`;
+    case 'areaSpotCount': return `${nameOf('area', String(p.area ?? ''))}设施数`;
     case 'managerCount': return `${nameOf('init', String(p.init ?? ''))}经理数`;
     case 'funclet': return `函数 ${String(p.funclet ?? '')}(...)`;
     case 'data': return `数据 ${String(p.path ?? '')}`;

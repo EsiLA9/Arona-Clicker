@@ -12,7 +12,6 @@ import type { TagEffectCategory, ZoneModifierDecl } from '../expression/tag-effe
 export class AffectorPackBuilder {
   private readonly _id: string;
   private _entries: AffectorEffect[] = [];
-  private _persistent = false;
   private _extra?: ExtraCompound;
 
   constructor(id: string) {
@@ -52,8 +51,8 @@ export class AffectorPackBuilder {
   }
 
   /** 区修饰：按 tag 目标（自下而上命中）。 */
-  modTag(tag: TagPath, category: TagEffectCategory, value: number, life: ZoneModifierDecl['life'] = 'init'): this {
-    this.last().zoneModifiers!.push({ target: { kind: 'tag', tag }, category, value, life });
+  modTag(tag: TagPath, category: TagEffectCategory, value: number | ValueExpression): this {
+    this.last().zoneModifiers!.push({ target: { kind: 'tag', tag }, category, value });
     return this;
   }
 
@@ -62,10 +61,9 @@ export class AffectorPackBuilder {
     kind: 'spot' | 'area' | 'init' | 'enhancement',
     id: string,
     category: TagEffectCategory,
-    value: number,
-    life: ZoneModifierDecl['life'] = 'init',
+    value: number | ValueExpression,
   ): this {
-    this.last().zoneModifiers!.push({ target: { kind: 'entity', ref: { kind, id } }, category, value, life });
+    this.last().zoneModifiers!.push({ target: { kind: 'entity', ref: { kind, id } }, category, value });
     return this;
   }
 
@@ -75,8 +73,6 @@ export class AffectorPackBuilder {
     return this;
   }
 
-  /** @label 持久 */
-  persistent(): this { this._persistent = true; return this; }
   extra(value: ExtraCompound): this { this._extra = value; return this; }
 
   build(): AffectorPackDef {
@@ -92,7 +88,6 @@ export class AffectorPackBuilder {
         return out;
       }),
     };
-    if (this._persistent) def.persistent = true;
     if (this._extra) def.extra = this._extra;
     return def;
   }

@@ -316,7 +316,7 @@ function valueExpressionField(key: string, label: string, required = false): Fie
                   e('type', [
                     ['res', '资源'],
                     ['spotLevel', '设施等级'],
-                    ['spotCount', '设施数量'],
+                    ['areaSpotCount', '区域内设施数量'],
                     ['managerCount', '经理数量'],
                     ['funclet', '功能'],
                     ['data', '数据'],

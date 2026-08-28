@@ -79,7 +79,7 @@ describe('describeValueExpression / describeExtraValue', () => {
       ({ type: 'value', value: { type: 'value', source, params } } as never);
     expect(describeValueExpression(val('spotLevel' as never, { spot: 'base:spot:credit_printer' }), nameOf))
       .toBe('信用点制造机等级');
-    expect(describeValueExpression(val('spotCount' as never, { area: 'base:area:x' }), nameOf))
+    expect(describeValueExpression(val('areaSpotCount' as never, { area: 'base:area:x' }), nameOf))
       .toBe('教室设施数');
     expect(describeValueExpression(val('managerCount' as never, { init: 'base:init:abydos' }), nameOf))
       .toBe('阿比多斯经理数');

@@ -27,10 +27,8 @@ import { EntityRef, entityKey, tagPrefixesBottomUp } from './tag-effect';
 export function buildAll(system: GameNumSystem, state?: PlayerState): void {
   system.state = state;
   system.gains.clear();
-  system.named.clear();
   system.spotSubtrees.clear();
   system.zoneIndex.clear();
-  system.zoneNodeById.clear();
   system.parents.clear();
   system.allNodes = [];
   system.zoneNodes = [];
@@ -42,6 +40,7 @@ export function buildAll(system: GameNumSystem, state?: PlayerState): void {
   system.initExtraNodes.clear();
   system.flowsNodeById.clear();
   system.affectorFlowsNodes = new Map();
+  zoneNodeMaps.set(system, new Map());
 
   const resourceSet = new Set<string>();
   for (const spot of system.registry.spots.values()) if (spot.baseYieldResource) resourceSet.add(spot.baseYieldResource);
@@ -296,9 +295,23 @@ export function ensureFlowsNodes(system: GameNumSystem, affector: { getActiveIns
 
 // ---- zone 节点 ----
 
+/** zone 节点 id -> 节点去重表（仅 build 模块内部；按 system 隔离，buildAll 重建时整表换新。
+ * 运行期 buildZoneNode 复用同一表，保证 UI/测试读到与树内相同的节点实例）。 */
+const zoneNodeMaps = new WeakMap<GameNumSystem, Map<string, ZoneNode>>();
+
+function zoneNodeMap(system: GameNumSystem): Map<string, ZoneNode> {
+  let map = zoneNodeMaps.get(system);
+  if (!map) {
+    map = new Map();
+    zoneNodeMaps.set(system, map);
+  }
+  return map;
+}
+
 export function buildZoneNode(system: GameNumSystem, scope: EntityRef, part: 'flat' | 'mul', resource?: string): ZoneNode {
   const id = `zone:${scope.kind}:${scope.id}:${part}${resource ? `:${resource}` : ''}`;
-  const existing = system.zoneNodeById.get(id);
+  const byId = zoneNodeMap(system);
+  const existing = byId.get(id);
   if (existing) return existing;
   const node: ZoneNode = {
     id,
@@ -310,7 +323,7 @@ export function buildZoneNode(system: GameNumSystem, scope: EntityRef, part: 'fl
   registerZoneNode(system, node);
   system.allNodes.push(node);
   system.zoneNodes.push(node);
-  system.zoneNodeById.set(id, node);
+  byId.set(id, node);
   return node;
 }
 

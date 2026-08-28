@@ -233,20 +233,6 @@ describe('GameNum 算子扩展 / 通用数值容器 / 溯源分解', () => {
     expect(sys.evaluate(node, game.state)).toBe(3);
   });
 
-  test('通用命名数值：register / evaluateByName / hasNamed', () => {
-    const sys = game.gameNumSystem;
-    const tree: GameNum = {
-      id: 'cost:upgrade',
-      kind: 'mul',
-      children: [C('base', 10), C('lvl', 2)],
-    };
-    sys.register('cost:upgrade', tree);
-    expect(sys.hasNamed('cost:upgrade')).toBe(true);
-    expect(sys.getNamedNumbers()).toContain('cost:upgrade');
-    expect(sys.evaluateByName('cost:upgrade', game.state)).toBe(20);
-    expect(sys.evaluateByName('nonexistent', game.state)).toBe(0);
-  });
-
   test('evaluateWithBreakdown 贡献明细与 evaluate 一致', () => {
     const sys = game.gameNumSystem;
     const tree: GameNum = {
@@ -268,15 +254,6 @@ describe('GameNum 算子扩展 / 通用数值容器 / 溯源分解', () => {
     expect(root.children![1].kind).toBe('mul');
     expect(root.children![1].children!.map(c => c.value)).toEqual([2, 3]);
   });
-
-  test('evaluateByNameWithBreakdown 按 name 返回明细', () => {
-    const sys = game.gameNumSystem;
-    const tree: GameNum = { id: 'n', kind: 'add', children: [C('a', 4), C('b', 6)] };
-    sys.register('sum:test', tree);
-    const bd = sys.evaluateByNameWithBreakdown('sum:test', game.state);
-    expect(bd?.value).toBe(10);
-    expect(bd?.contributions[0].children?.map(c => c.value)).toEqual([4, 6]);
-  });
 });
 
 describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
@@ -297,7 +274,7 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
 
   test('tagFlat 自下而上直接加成进入产出', () => {
     game.gameNumSystem.registerTagEffect(game.state, officeKey, {
-      id: 't1', category: 'flat', value: { id: 'v', kind: 'const', value: 10 }, life: 'init',
+      id: 't1', category: 'flat', value: { id: 'v', kind: 'const', value: 10 },
     });
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(17);
   });
@@ -305,14 +282,14 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
   test('tagMultiplier 通用乘区（无记录→1 不影响基线）', () => {
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(7);
     game.gameNumSystem.registerTagEffect(game.state, officeKey, {
-      id: 't2', category: 'mul', value: { id: 'v', kind: 'const', value: 1.5 }, life: 'init',
+      id: 't2', category: 'mul', value: { id: 'v', kind: 'const', value: 1.5 },
     });
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(9.5);
   });
 
   test('自下而上：多 tag 直接加成求和', () => {
-    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'a', category: 'flat', value: { id: 'v', kind: 'const', value: 3 }, life: 'init' });
-    game.gameNumSystem.registerTagEffect(game.state, creditKey, { id: 'b', category: 'flat', value: { id: 'v', kind: 'const', value: 4 }, life: 'init' });
+    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'a', category: 'flat', value: { id: 'v', kind: 'const', value: 3 } });
+    game.gameNumSystem.registerTagEffect(game.state, creditKey, { id: 'b', category: 'flat', value: { id: 'v', kind: 'const', value: 4 } });
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(7 + 3 + 4);
   });
 
@@ -320,26 +297,26 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
     const zone = game.gameNumSystem.buildZoneNode({ kind: 'spot', id: 'base:spot:credit_printer' }, 'mul', 'base:resource:credit');
     expect(game.gameNumSystem.evaluate(zone, game.state)).toBe(1); // 无 mul 记录 → 1
     game.gameNumSystem.registerTagEffect(game.state, officeKey, {
-      id: 'cm', category: 'custom', multiplierId: 'vip', value: { id: 'v', kind: 'const', value: 2 }, life: 'init',
+      id: 'cm', category: 'custom', multiplierId: 'vip', value: { id: 'v', kind: 'const', value: 2 },
     });
     game.gameNumSystem.registerTagEffect(game.state, creditKey, {
-      id: 'bd', category: 'bound', min: 1, max: 3, life: 'init',
+      id: 'bd', category: 'bound', min: 1, max: 3,
     });
     expect(game.gameNumSystem.evaluate(zone, game.state)).toBe(2); // clamp(2, [1,3]) = 2
   });
 
   test('removeTagEffect / removeTagEffectsBySource 撤销效果', () => {
-    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'x', category: 'flat', value: { id: 'v', kind: 'const', value: 9 }, source: 'srcA', life: 'init' });
+    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'x', category: 'flat', value: { id: 'v', kind: 'const', value: 9 }, source: 'srcA' });
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(16);
     game.gameNumSystem.removeTagEffect(game.state, officeKey, 'x');
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(7);
-    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'y', category: 'flat', value: { id: 'v', kind: 'const', value: 5 }, source: 'srcB', life: 'init' });
+    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'y', category: 'flat', value: { id: 'v', kind: 'const', value: 5 }, source: 'srcB' });
     game.gameNumSystem.removeTagEffectsBySource(game.state, 'srcB');
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(7);
   });
 
   test('evaluateWithBreakdown 包含 zone 区贡献明细', () => {
-    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'f', category: 'flat', value: { id: 'v', kind: 'const', value: 8 }, life: 'init' });
+    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'f', category: 'flat', value: { id: 'v', kind: 'const', value: 8 } });
     const flatNode = game.gameNumSystem.buildZoneNode({ kind: 'spot', id: 'base:spot:credit_printer' }, 'flat', 'base:resource:credit');
     const bd = game.gameNumSystem.evaluateWithBreakdown(flatNode, game.state);
     expect(bd.value).toBe(8);
@@ -354,7 +331,7 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
       ],
       getPack: (id: string) => ({
         id,
-        entries: [{ id: 'e1', effects: [], zoneModifiers: [{ target: { kind: 'tag', tag: ['office'] }, category: 'mul', value: 2, life: 'init' }] }],
+        entries: [{ id: 'e1', effects: [], zoneModifiers: [{ target: { kind: 'tag', tag: ['office'] }, category: 'mul', value: 2 }] }],
       }),
     } as unknown as AffectorEngine;
     game.gameNumSystem.syncAffectorZoneEffects(fakeAffector, game.state);

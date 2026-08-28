@@ -29,10 +29,10 @@ const initTag = tagPath('init_tag');
 
 const constV = (n: number) => ({ id: `c${n}`, kind: 'const', value: n } as const);
 const mulRecord = (id: string, value: number, extra: Partial<{ resource: string; multiplierId: string; min: number; max: number; source: string }> = {}) =>
-  ({ id, category: 'mul' as const, value: constV(value), life: 'init' as const, ...extra });
-const flatRecord = (id: string, value: number) => ({ id, category: 'flat' as const, value: constV(value), life: 'init' as const });
-const customRecord = (id: string, multiplierId: string, value: number) => ({ id, category: 'custom' as const, multiplierId, value: constV(value), life: 'init' as const });
-const boundRecord = (id: string, min: number, max: number, source?: string) => ({ id, category: 'bound' as const, min, max, ...(source ? { source } : {}), life: 'init' as const });
+  ({ id, category: 'mul' as const, value: constV(value), ...extra });
+const flatRecord = (id: string, value: number) => ({ id, category: 'flat' as const, value: constV(value) });
+const customRecord = (id: string, multiplierId: string, value: number) => ({ id, category: 'custom' as const, multiplierId, value: constV(value) });
+const boundRecord = (id: string, min: number, max: number, source?: string) => ({ id, category: 'bound' as const, min, max, ...(source ? { source } : {}) });
 
 interface Fixture {
   system: GameNumSystem;

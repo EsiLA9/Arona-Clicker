@@ -10,7 +10,6 @@
           ]
         }
       ],
-      "persistent": true,
       "extra": {
         "t": "dict",
         "v": {

@@ -1,7 +1,7 @@
 // ============================================================
 // engine/expression/game-num-tag.ts — GameNumSystem 区表写入 + Affector 桥接
 // 从 game-num.ts 拆出：registerTagEffect / registerEntityEffect / removeTagEffect
-//   / removeTagEffectsBySource / clearTagEffectsByLife / syncAffectorZoneEffects
+//   / removeTagEffectsBySource / syncAffectorZoneEffects
 //   / registerAffectorModifier
 //
 // Phase 1 起：state.tagEffects / state.entityEffects 是唯一真相，写入只落 state 表；
@@ -91,20 +91,6 @@ export function removeTagEffectsBySource(system: GameNumSystem, state: PlayerSta
   for (const key of affectedKeys) markZoneDirty(system, key);
 }
 
-export function clearTagEffectsByLife(system: GameNumSystem, state: PlayerState, life: 'global' | 'init' | 'snapshot'): void {
-  if (state.tagEffects) {
-    for (const list of Object.values(state.tagEffects)) {
-      for (let i = list.length - 1; i >= 0; i--) if (list[i].life === life) list.splice(i, 1);
-    }
-  }
-  if (state.entityEffects) {
-    for (const list of Object.values(state.entityEffects)) {
-      for (let i = list.length - 1; i >= 0; i--) if (list[i].life === life) list.splice(i, 1);
-    }
-  }
-  markAllDirty(system);
-}
-
 // ---- 定向失效（zoneIndex 反查） ----
 
 /** 按 tagKey / entityKey 反查命中的 zone 节点并沿 parents 传播 markDirty。 */
@@ -174,7 +160,6 @@ function registerAffectorModifier(system: GameNumSystem, state: PlayerState, sou
     category: modifier.category,
     ...(modifier.multiplierId ? { multiplierId: modifier.multiplierId } : {}),
     value: valueNode,
-    life: modifier.life ?? 'global',
     ...(modifier.resource ? { resource: modifier.resource } : {}),
     ...(modifier.min !== undefined ? { min: modifier.min } : {}),
     ...(modifier.max !== undefined ? { max: modifier.max } : {}),

@@ -4,10 +4,10 @@
 // 职责（门面层）：
 // - 构造：子系统注入 + 事件订阅（enhancementAdded/Removed、spotTag/Level 变更、
 //   manager/extra/resource 变更 → 失效重建）。
-// - 状态字段：价值树（gains）、命名数值（named）、spot 子树、zone 节点、
+// - 状态字段：价值树（gains）、spot 子树、zone 节点、
 //   parents / allNodes / zoneNodes 等索引（供 build/tag 模块读写）。
 // - 求值入口：evaluate / evaluateWithBreakdown / getGainNode / getResources /
-//   getNamedNumbers / hasNamed / register / evaluateByName / evaluateResourceGain /
+//   evaluateResourceGain /
 //   evaluateSpotYield（层级视图含自身 flat/flows；getSpotMultiplier 已删，UI 经
 //   buildZoneNode 精确读区节点）。
 //
@@ -25,12 +25,11 @@ import type { GameNum, GameNumEvalDeps, BreakdownResult } from './game-num-eval'
 import { evaluateGameNum, evaluateGameNumBreakdown } from './game-num-eval';
 import { TagEffectRecord, EntityRef, ZoneModifierDecl } from './tag-effect';
 import type { ZoneNode, ZoneIndexEntry } from './game-num-internal';
-import { buildAll as buildAllImpl, buildZoneNode as buildZoneNodeImpl, rebuildZoneIndex as rebuildZoneIndexImpl, collect } from './game-num-build';import {
+import { buildAll as buildAllImpl, buildZoneNode as buildZoneNodeImpl, rebuildZoneIndex as rebuildZoneIndexImpl } from './game-num-build';import {
   registerTagEffect as registerTagEffectImpl,
   registerEntityEffect as registerEntityEffectImpl,
   removeTagEffect as removeTagEffectImpl,
   removeTagEffectsBySource as removeTagEffectsBySourceImpl,
-  clearTagEffectsByLife as clearTagEffectsByLifeImpl,
   syncAffectorZoneEffects as syncAffectorZoneEffectsImpl,
   markAllDirty,
   markDirty,
@@ -59,8 +58,6 @@ export class GameNumSystem {
 
   /** 资源 -> 该资源 primitiveGain 根节点（add 树）。 */
   gains = new Map<string, GameNum>();
-  /** 命名数值注册表（evaluateByName 用）。 */
-  named = new Map<string, GameNum>();
   /** spot -> 其产出子树根（spotFull = spotProduct + spotExtra；evaluateSpotYield 用）。 */
   spotSubtrees = new Map<string, GameNum>();
 
@@ -72,8 +69,6 @@ export class GameNumSystem {
   allNodes: GameNum[] = [];
   /** 所有 zone 节点（rebuildZoneIndex 重建反路由用）。 */
   zoneNodes: ZoneNode[] = [];
-  /** zone 节点 id -> 节点（buildZoneNode 去重，保证测试/运行期拿到同一节点）。 */
-  zoneNodeById = new Map<string, ZoneNode>();
 
   // ---- Phase 6 显式层级树的节点索引（buildAll 填充，key 均为 `<entityId>@<resource>`） ----
   /** spotId@res -> spotFull（flows 挂载点）。 */
@@ -219,10 +214,6 @@ export class GameNumSystem {
     removeTagEffectsBySourceImpl(this, state, source);
   }
 
-  clearTagEffectsByLife(state: PlayerState, life: 'global' | 'init' | 'snapshot'): void {
-    clearTagEffectsByLifeImpl(this, state, life);
-  }
-
   syncAffectorZoneEffects(affector: AffectorEngine, state: PlayerState): void {
     syncAffectorZoneEffectsImpl(this, affector, state);
   }
@@ -247,31 +238,6 @@ export class GameNumSystem {
   /** 当前已构建产出的资源清单（tick-system 遍历用）。 */
   getResources(): string[] {
     return [...this.gains.keys()];
-  }
-
-  getNamedNumbers(): string[] {
-    return [...this.named.keys()];
-  }
-
-  hasNamed(name: string): boolean {
-    return this.named.has(name);
-  }
-
-  register(name: string, node: GameNum): void {
-    this.named.set(name, node);
-    collect(this, node);
-  }
-
-  evaluateByName(name: string, state: PlayerState): number {
-    const node = this.named.get(name);
-    if (!node) return 0;
-    return this.evaluate(node, state);
-  }
-
-  evaluateByNameWithBreakdown(name: string, state: PlayerState): BreakdownResult {
-    const node = this.named.get(name);
-    if (!node) return { value: 0, contributions: [] };
-    return this.evaluateWithBreakdown(node, state);
   }
 
   evaluateResourceGain(resource: string, state: PlayerState): number {

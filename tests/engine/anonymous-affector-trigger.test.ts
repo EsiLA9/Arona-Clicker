@@ -180,7 +180,6 @@ describe('GameInstance：enhancement 内联 affectorPackIds 生命周期', () =>
             target: { kind: 'entity', ref: { kind: 'spot', id: '*' } },
             category: 'mul',
             value: 1.5,
-            life: 'init',
           }],
         }],
       }],

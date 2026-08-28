@@ -79,7 +79,7 @@ export class ValueSystem {
         return state.spotLevels[spotId] ?? 0;
       }
 
-      case 'spotCount': {
+      case 'areaSpotCount': {
         // 计算某 Area 下已解锁的 Spot 数量
         const areaId = String(val.params.area ?? '');
         let count = 0;

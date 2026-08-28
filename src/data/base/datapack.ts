@@ -62,58 +62,58 @@ const baseAffectorPacks: AffectorPackDef[] = [
     .build(),
   affectorPack('base:pack:credit_system_mult')
     .entry('base:aff:credit_system_mult')
-    .modEntity('spot', '*', 'mul', 1.5, 'init')
+    .modEntity('spot', '*', 'mul', 1.5)
     .build(),
   affectorPack('base:pack:office_layout_mult')
     .entry('base:aff:office_layout_mult')
-    .modTag(['office'], 'mul', 1.25, 'init')
+    .modTag(['office'], 'mul', 1.25)
     .build(),
   affectorPack('base:pack:field_logistics_mult')
     .entry('base:aff:field_logistics_mult')
-    .modTag(['field'], 'mul', 1.35, 'init')
-    .modTag(['combat'], 'mul', 1.35, 'init')
-    .modTag(['tactical'], 'mul', 1.35, 'init')
+    .modTag(['field'], 'mul', 1.35)
+    .modTag(['combat'], 'mul', 1.35)
+    .modTag(['tactical'], 'mul', 1.35)
     .build(),
   affectorPack('base:pack:combat_drone_mult')
     .entry('base:aff:combat_drone_mult')
-    .modTag(['combat'], 'mul', 1.35, 'init')
+    .modTag(['combat'], 'mul', 1.35)
     .build(),
   affectorPack('base:pack:research_grant_mult')
     .entry('base:aff:research_grant_mult')
-    .modEntity('spot', '*', 'mul', 1.4, 'init')
+    .modEntity('spot', '*', 'mul', 1.4)
     .build(),
   affectorPack('base:pack:investment_fund_mult')
     .entry('base:aff:investment_fund_mult')
-    .modEntity('spot', '*', 'mul', 1.3, 'init')
+    .modEntity('spot', '*', 'mul', 1.3)
     .build(),
   affectorPack('base:pack:pyroxene_rush_mult')
     .entry('base:aff:pyroxene_rush_mult')
-    .modEntity('spot', '*', 'mul', 1.8, 'init')
+    .modEntity('spot', '*', 'mul', 1.8)
     .build(),
   affectorPack('base:pack:tactical_command_mult')
     .entry('base:aff:tactical_command_mult')
-    .modTag(['tactical'], 'mul', 1.3, 'init')
+    .modTag(['tactical'], 'mul', 1.3)
     .build(),
   affectorPack('base:pack:supply_chain_mult')
     .entry('base:aff:supply_chain_mult')
-    .modEntity('spot', '*', 'mul', 1.6, 'init')
+    .modEntity('spot', '*', 'mul', 1.6)
     .build(),
   affectorPack('base:pack:energy_supply_mult')
     .entry('base:aff:energy_supply_mult')
-    .modEntity('spot', '*', 'mul', 1.25, 'init')
+    .modEntity('spot', '*', 'mul', 1.25)
     .build(),
   affectorPack('base:pack:sanctuary_field_mult')
     .entry('base:aff:sanctuary_field_mult')
-    .modEntity('spot', '*', 'mul', 1.5, 'init')
+    .modEntity('spot', '*', 'mul', 1.5)
     .build(),
   // GlobalEnhancement 专用包：global 挂靠强化（仅经选择页购买，全局作用域）
   affectorPack('base:pack:foundation_mult')
     .entry('base:aff:foundation_mult')
-    .modEntity('spot', '*', 'mul', 2, 'init')
+    .modEntity('spot', '*', 'mul', 2)
     .build(),
   affectorPack('base:pack:eternal_contract_mult')
     .entry('base:aff:eternal_contract_mult')
-    .modEntity('spot', '*', 'mul', 1.5, 'init')
+    .modEntity('spot', '*', 'mul', 1.5)
     .build(),
   affectorPack('base:pack:unified_logistics_flow')
     .entry('base:aff:unified_logistics_flow')

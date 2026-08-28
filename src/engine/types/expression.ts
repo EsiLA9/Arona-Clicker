@@ -12,7 +12,7 @@ export type ValueSource =
   | 'const'
   | 'res'
   | 'spotLevel'
-  | 'spotCount'
+  | 'areaSpotCount'
   | 'managerCount'
   | 'funclet'
   /** 读 Extra 三层合并视图（全局 → per-Init → 数据包常量表），params.path = ExtraPath，数值语义同 toNumber（见 docs/13 §6.1）。 */
