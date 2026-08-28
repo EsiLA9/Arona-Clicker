@@ -1,0 +1,18 @@
+schema_version: 1
+module_path: ""
+title: ACProgram Arona Clicker 工程根
+scope:
+    - package.json
+    - tsconfig.json
+    - vite.config.ts
+    - vitest.config.ts
+    - index.html
+    - bondDict.ts
+    - .gitignore
+    - plan.md
+    - AGENTS.md
+    - $null
+    - package-lock.json
+source_files: []
+depends_on: []
+related_to: []

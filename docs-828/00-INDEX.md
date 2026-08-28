@@ -1,0 +1,116 @@
+# docs-828 — 总入口（00-INDEX）
+
+> 本文是文档库的**唯一入口**：只做路由，不写正文。想了解什么、想改什么，按表跳转到对应文档。
+> 本库取代 `docs-824/`（已归档）；内容以 2026-08-28 代码实况为准（引擎拆分 + T1-T7 架构整理完成后）。
+
+## 系统一句话
+
+**事件驱动 + 声明式数据包**的放置类 RPG 引擎（TypeScript / Vite / vitest）：游戏逻辑写成 `Datapack`，由引擎子系统解释执行；所有状态变更走 `StateMutationService` 单一写入口；UI 只消费只读快照。
+
+## 主干调用链
+
+```text
+main.ts → new GameInstance()（wiring 装配 28 个子系统）
+        → init(datapacks)（Registry 建表 → GameNum buildAll → 进入默认 Init）
+        → start()（1 tick/秒）
+        → tick()（生产结算 → Affector → 剧情 → 阻断复检 → 统计）
+```
+
+## 路由表
+
+### 我想理解……
+
+| 想了解 | 看这篇 |
+| --- | --- |
+| 系统全貌 / 核心思想 / 目录职责速览 | [[docs-828/01-architecture/overview]] |
+| 启动 → 装配 → tick 的完整时序 | [[docs-828/01-architecture/run-logic]] |
+| 三层状态（global / per-Init 快照 / per-Init 当前）与写入口 | [[docs-828/01-architecture/state-layers]] |
+| Datapack → Registry → PlayerState → GameView 数据流 | [[docs-828/01-architecture/data-flow]] |
+| 某个子系统（GameNum / Affector / 抽卡 / 色彩 / 剧情…） | [[#02-modules 模块卡片索引]] |
+| PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs-828/03-data-structures/player-state]] 起（见下方分区表） |
+| 生产 / 抽卡 / 培养 / 色彩 / 事件联动的算法细节 | [[docs-828/04-algorithms/state-mutation]] 起（见下方分区表） |
+
+### 我想改……
+
+| 想改 | 先读 |
+| --- | --- |
+| 引擎机制 / 新增子系统 | 对应 [[#02-modules 模块卡片索引]] + [[docs-828/05-conventions/architecture-discipline]] |
+| 实体字段 / 枚举（`src/engine/types/`） | [[docs-828/05-conventions/schema-sync]]（必读，含 `gen:schema` 协议） |
+| 文件拆分 / 重构 | [[docs-828/05-conventions/refactoring]] |
+| 默认游戏内容 | `src/data/base/`（TypeScript，不是 `datapack/` 的 JSON）+ [[docs-828/02-modules/registry]] |
+| 新增跨世界线保留的数据 | [[docs-828/01-architecture/state-layers]]（先想清楚放哪一层） |
+| 测试 | [[docs-828/05-conventions/testing]] |
+| 文档本身 | [[docs-828/05-conventions/doc-maintenance]] |
+
+## 02-modules 模块卡片索引
+
+| 卡片                                     | 子系统                                              | 代码位置                                             |
+| -------------------------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| [[docs-828/02-modules/core]]           | 事件总线 / Tag / 主题运行时 / DevLog 等横切基础                | `src/engine/core/`                               |
+| [[docs-828/02-modules/registry]]       | 数据包注册表 + 加载校验 + def-factory 构建器                  | `src/engine/registry/`、`src/engine/def-factory/` |
+| [[docs-828/02-modules/expression]]     | ValueSystem / ConditionSystem / Funclet / 统计 DSL | `src/engine/expression/`                         |
+| [[docs-828/02-modules/game-num]]       | GameNum 统一数值树（产出结算核心）                            | `src/engine/expression/game-num*.ts`             |
+| [[docs-828/02-modules/effect-trigger]] | Effect / Trigger / 事件驱动响应器                       | `src/engine/effect/`                             |
+| [[docs-828/02-modules/affector]]       | Affector 持续效果（四通道）                               | `src/engine/effect/affector-engine.ts`           |
+| [[docs-828/02-modules/state-mutation]] | StateMutationService 单一写入口                       | `src/engine/system/state-mutation-service.ts`    |
+| [[docs-828/02-modules/character]]      | Character / 抽卡 / 培养 / 通讯录                        | `src/engine/system/` 角色域                         |
+| [[docs-828/02-modules/color]]          | 色彩 / 主题 / 装备                                     | `src/engine/system/color*.ts`                    |
+| [[docs-828/02-modules/world]]          | Init / Area / Spot / 会话 / 存档                     | `src/engine/game/` 门面层                           |
+| [[docs-828/02-modules/story]]          | 剧情演出 / 聊天流 / 被动闲聊                                | `src/engine/game/story*.ts`                      |
+| [[docs-828/02-modules/visibility]]     | 可见性 / Reveal 揭示阶梯                                | `src/engine/visibility/`                         |
+| [[docs-828/02-modules/stats]]          | 三层统计 / Tag 统计 / 世界倾斜                             | `src/engine/stats/`                              |
+| [[docs-828/02-modules/extra]]          | Extra 三层附加数据树                                    | `src/engine/extra/`                              |
+| [[docs-828/02-modules/pics]]           | 图片资产（PicDef / ImageStore / charaProfile）         | `src/engine/image/`                              |
+| [[docs-828/02-modules/ui]]             | 前端 UI（只读消费 + controller 拆分）                      | `src/ui/`                                        |
+
+## 03-data-structures 分区（数据结构）
+
+| 文档 | 主题 |
+| --- | --- |
+| [[docs-828/03-data-structures/player-state]] | PlayerState 三层运行时状态 |
+| [[docs-828/03-data-structures/registry]] | Registry 表 + 关系索引 + 校验 |
+| [[docs-828/03-data-structures/character-entities]] | Character 实体：差分/卡池/曲线/色彩 |
+| [[docs-828/03-data-structures/stats-views]] | 三层统计 & UI 只读视图 |
+| [[docs-828/03-data-structures/id-reference-semantics]] | 真引用 / 意义引用判定全表 |
+| [[docs-828/03-data-structures/declarative-dsl]] | 声明式 DSL 枚举总目录 |
+
+## 04-algorithms 分区（核心算法）
+
+| 文档 | 主题 |
+| --- | --- |
+| [[docs-828/04-algorithms/state-mutation]] | 状态写入 4 步管道 |
+| [[docs-828/04-algorithms/production]] | 生产结算：GameNum 四级层级树 + zone 聚合 |
+| [[docs-828/04-algorithms/gacha]] | 抽卡结算 |
+| [[docs-828/04-algorithms/cultivate]] | 培养推进 |
+| [[docs-828/04-algorithms/color-derivation]] | 色彩派生与主题 token |
+| [[docs-828/04-algorithms/trigger-effect]] | 事件联动 + GameEvent 事件目录 |
+| [[docs-828/04-algorithms/roster]] | 通讯录 / 图鉴 / 招募入口 |
+
+## 05-conventions（纪律与规范）
+
+| 文档 | 主题 |
+| --- | --- |
+| [[docs-828/05-conventions/architecture-discipline]] | 架构纪律 7 条（不可破坏） |
+| [[docs-828/05-conventions/refactoring]] | 文件拆分规范 |
+| [[docs-828/05-conventions/schema-sync]] | 实体类型 → 数据包编辑器同步协议 |
+| [[docs-828/05-conventions/testing]] | 测试纪律 |
+| [[docs-828/05-conventions/doc-maintenance]] | 文档维护规则（防漂移） |
+
+## 06-adr（架构决策记录）
+
+| 文档 | 决策 |
+| --- | --- |
+| [[docs-828/06-adr/0001-architecture-consolidation]] | T1-T7 架构整理收官（装配外移 / 只读纪律 / 表驱动 / 环解扣） |
+| [[docs-828/06-adr/0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
+| [[docs-828/06-adr/0003-docs-828-restructure]] | 文档库重构：从日期戳手册到分层索引 |
+| [[docs-828/06-adr/planning]] | 规划文档集（好感 / 聊天好感 / 羁绊尾巴，未实现） |
+
+## 命令速查
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm test` | vitest 全量测试 |
+| `npx tsc --noEmit` | 类型检查 |
+| `npm run dev:game` / `npm run dev` | UI / 引擎开发服务器 |
+| `npm run build` | 构建 |
+| `npm run gen:schema` | `src/engine/types/` → 编辑器 Schema 协议 |

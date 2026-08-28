@@ -1,0 +1,71 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: main
+nodes_managed: true
+exported_at: "2026-08-28T15:46:34Z"
+modules:
+    "":
+        dir_name: ACProgram Arona Clicker 工程根
+        title: ACProgram Arona Clicker 工程根
+        scope:
+            - package.json
+            - tsconfig.json
+            - vite.config.ts
+            - vitest.config.ts
+            - index.html
+            - bondDict.ts
+            - .gitignore
+            - plan.md
+            - AGENTS.md
+            - $null
+            - package-lock.json
+        source_files: []
+        children:
+            - datapack_assets
+            - docs
+            - scripts
+            - tests
+        depends_on: []
+        related_to: []
+    datapack_assets:
+        dir_name: AronaClickerCore 数据包（游戏内容配置）
+        title: AronaClickerCore 数据包（游戏内容配置）
+        scope:
+            - datapack/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: scripts
+            - path: tests
+    docs:
+        dir_name: ACProgram 引擎文档与重构任务书
+        title: ACProgram 引擎文档与重构任务书
+        scope:
+            - docs-824/
+            - todoTask/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    scripts:
+        dir_name: 引擎构建与重构辅助脚本集
+        title: 引擎构建与重构辅助脚本集
+        scope:
+            - scripts/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: datapack_assets
+    tests:
+        dir_name: 游戏引擎与 UI 层测试套件
+        title: 游戏引擎与 UI 层测试套件
+        scope:
+            - tests/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: datapack_assets
