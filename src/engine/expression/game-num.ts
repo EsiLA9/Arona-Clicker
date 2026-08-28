@@ -79,6 +79,9 @@ export class GameNumSystem {
   /** 活跃 Affector 源集合，用于按 source 反查撤回区记录。 */
   syncedAffectorSources = new Set<string>();
 
+  /** 每个 primitiveGain 的资源依赖集合（buildAll 静态扫描产物；resourceChanged 定向失效的数据基础）。 */
+  gainResourceDeps = new Map<string, Set<string>>();
+  /** 任一 gain 读资源时为 true（gainResourceDeps 的派生，现有 resourceChanged 全量失效仍用它）。 */
   mayReadResources = false;
 
   /** 已登记资源集合（spot 基础产出 + state.resources，含仅经 affectorFlows 产出的资源）。 */

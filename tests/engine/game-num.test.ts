@@ -193,40 +193,11 @@ describe('GameNum 算子扩展 / 通用数值容器 / 溯源分解', () => {
 
   const C = (id: string, v: number): GameNum => ({ id, kind: 'const', value: v });
 
-  test('组合算子 add/sub/mul/div/min/max/pow 求值', () => {
+  test('组合算子 add/sub/mul 求值', () => {
     const sys = game.gameNumSystem;
     expect(sys.evaluate({ id: 'a', kind: 'add', children: [C('1', 3), C('2', 4), C('3', 5)] }, game.state)).toBe(12);
     expect(sys.evaluate({ id: 's', kind: 'sub', children: [C('1', 10), C('2', 3), C('3', 2)] }, game.state)).toBe(5);
     expect(sys.evaluate({ id: 'm', kind: 'mul', children: [C('1', 2), C('2', 3), C('3', 4)] }, game.state)).toBe(24);
-    expect(sys.evaluate({ id: 'd', kind: 'div', children: [C('1', 24), C('2', 3), C('3', 2)] }, game.state)).toBe(4);
-    expect(sys.evaluate({ id: 'mi', kind: 'min', children: [C('1', 5), C('2', 2), C('3', 8)] }, game.state)).toBe(2);
-    expect(sys.evaluate({ id: 'ma', kind: 'max', children: [C('1', 5), C('2', 2), C('3', 8)] }, game.state)).toBe(8);
-    expect(sys.evaluate({ id: 'p', kind: 'pow', children: [C('1', 2), C('2', 3)] }, game.state)).toBe(8);
-  });
-
-  test('div 除零返回 0（不抛错、不 Infinity）', () => {
-    const sys = game.gameNumSystem;
-    expect(
-      sys.evaluate({ id: 'd', kind: 'div', children: [C('1', 5), C('2', 0)] }, game.state),
-    ).toBe(0);
-  });
-
-  test('一元 floor/ceil/round 与 clamp 区间夹取', () => {
-    const sys = game.gameNumSystem;
-    expect(sys.evaluate({ id: 'f', kind: 'floor', child: C('x', 2.9) }, game.state)).toBe(2);
-    expect(sys.evaluate({ id: 'r', kind: 'round', child: C('x', 2.5) }, game.state)).toBe(3);
-    expect(sys.evaluate({ id: 'c', kind: 'clamp', value: C('v', 15), min: C('lo', 0), max: C('hi', 10) }, game.state)).toBe(10);
-    expect(sys.evaluate({ id: 'c2', kind: 'clamp', value: C('v', -3), min: C('lo', 0), max: C('hi', 10) }, game.state)).toBe(0);
-  });
-
-  test('cond 以 test 数值非零选择 then 分支', () => {
-    const sys = game.gameNumSystem;
-    expect(
-      sys.evaluate({ id: 'if', kind: 'cond', test: C('t', 1), then: C('a', 100), else: C('b', 200) }, game.state),
-    ).toBe(100);
-    expect(
-      sys.evaluate({ id: 'if2', kind: 'cond', test: C('t', 0), then: C('a', 100), else: C('b', 200) }, game.state),
-    ).toBe(200);
   });
 
   test('expr 叶子透传 ValueExpression 新算子（clamp）', () => {

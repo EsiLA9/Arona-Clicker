@@ -76,6 +76,40 @@ commit `975c3a9`（Phase2Bef）。
 - `findstr aggregateZone src\engine\system\tick-system.ts`：无匹配。
 - `TickSystem` 构造函数 gameNumSystem 必传（无退化分支），全库 7 处调用点均已注入。
 
+## Phase 3 — 收敛双表达式系统 ✅（方案 A）
+
+### 决策项：方案选择
+
+**选择方案 A（删除）**：GameNum 17 种 kind 中 9 种（`div` / `min` / `max` / `pow` / `clamp` / `floor` / `ceil` / `round` / `cond`）从未被 buildAll 构造，属纯算术重复实现；数据包作者的可选算术由 ValueExpression 完整覆盖（经 `expr` 叶子进入 GameNum 树）。`cond` 在 ValueExpression 无直接对应，但同样无构造点，删除无影响。
+
+### 实际改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `src/engine/expression/game-num-eval.ts` | 类型联合删 4 行（clamp/floor-ceil-round/cond 成员与 div/min/max/pow 字面量）；`switchEval` 删 9 个 case；`evaluateGameNumBreakdown` 删 9 个 case；头注释与 GameNum 文档注释同步 |
+| `src/engine/expression/game-num-build.ts` | `collect` 子节点枚举简化为 add/sub/mul；`gainsMayReadResource`（JSON.stringify hack）整体删除，替换为类型化静态扫描 `gainResourceDeps`（`valueResourceDeps` / `exprResourceDeps` / `nodeResourceDeps` 三个纯函数），粒度到每个 primitiveGain 一个资源依赖集合 |
+| `src/engine/expression/game-num.ts` | 新增 `gainResourceDeps = Map<string, Set<string>>` 字段（buildAll 填充）；`mayReadResources` 改为其派生布尔（任一 gain 依赖集非空），`resourceChanged` 订阅行为不变 |
+| `tests/engine/game-num.test.ts` | 「组合算子」测试裁剪为 add/sub/mul（保留 kind）；删除 div 除零 / floor-ceil-round-clamp / cond 三个专属用例（-3 tests） |
+
+### 语义等价性说明（gainsMayReadResource 重写）
+
+- 旧 hack 检测 `'"source":"res"'` 与 `'"source":"resource"'` 两串；`ValueSource` 联合实际只有 `'res'`（expression.ts:11-19），`'resource'` 是防御性冗余，类型化扫描仅匹配 `'res'`，等价。
+- 旧 hack 与新扫描均不展开 funclet 的 calc（funclet 节点序列化只含参数）；且 zone / affectorFlows 叶子的动态值（区记录 expr、Affector flow value）不经本扫描——与旧行为一致，其失效语义归 Phase 5 精确失效统一处理。
+- `condition-deps.ts:178` 的 JSON.stringify 是 extraPath 键序列化，与本 hack 无关，保留。
+
+### 删除的 API / 字段
+
+- `GameNum` 联合的 9 个 kind 成员（game-num-eval.ts:49-52 旧）
+- `switchEval` / `evaluateGameNumBreakdown` 各 9 个 case
+- `gainsMayReadResource` 函数（game-num-build.ts，旧 219-244）
+
+### 验收核验（实测）
+
+- `npm test`：88 文件 905 测试全绿（908 − 3 删除用例）。
+- `npx tsc --noEmit`：通过。
+- 递归 grep `kind: 'div'|'min'|'max'|'pow'|'clamp'|'floor'|'ceil'|'round'|'cond'`：src/ 与 tests/ 均无匹配。
+- `gainsMayReadResource`：全库无引用残留；`gainsMayReadResource` 原 JSON.stringify hack 所在函数已整体删除。
+
 ---
 
 ## 测试结果汇总
@@ -84,9 +118,12 @@ commit `975c3a9`（Phase2Bef）。
 | --- | --- | --- |
 | Phase 1 后（b558235） | 908 passed | ✅ |
 | Phase 2 后（975c3a9，当前 HEAD） | 908 passed（88 files） | ✅ |
+| Phase 3 后（本次提交） | 905 passed（88 files，-3 删除用例） | ✅ |
 
 ## 遗留风险与后续建议
 
 - `Phase2Bef` commit message 未按任务书 Phase 8 要求「说明清理内容与验收结果」（同时打包了 TASK.md/HANDOFF.md/tree-design.md 入库）。历史已成型，不改写；后续 Phase commit message 补足描述即可。
 - 未跟踪文件 `src/data/Hoshino.png` 与本任务无关，待用户定夺入库或忽略。
-- Phase 3 起待办见 `TASK.md` roadmap。
+- funclet 求值链有历史遗留：`value-system.ts:122` 将 `FuncletDef.calc`（类型为 ValueExpression）强转 Value 求值，运行时落入 `evaluateValue` 的 default 分支——本任务未触碰，建议 Phase 5 资源写路径审计时一并核查。
+- zone / affectorFlows 叶子的动态值（区记录 expr、Affector flow value）不在 gain 依赖扫描内，`resourceChanged` 对它们不失效——Phase 5 精确失效需一并设计。
+- Phase 4 起待办见 `TASK.md` roadmap。

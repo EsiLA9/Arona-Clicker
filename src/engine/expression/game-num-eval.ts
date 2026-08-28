@@ -1,7 +1,7 @@
 // ============================================================
 // engine/game-num-eval.ts — GameNum 节点纯求值
 // evaluateGameNum：按节点语义递归求值（const/expr/add/sub/mul/owned/levelLinear/
-// zone/affectorFlows/clamp/floor/...）。从 game-num.ts 抽出，便于对最末端求值语义独立测试。
+// zone/affectorFlows）。从 game-num.ts 抽出，便于对最末端求值语义独立测试。
 //
 // 节点级运行时字段（挂载在 GameNum 上，由宿主 GameNumSystem 维护）：
 //   dirty    标记该节点是否需要重算（源变动时由宿主标记，读取到 dirty 才重算）
@@ -38,18 +38,14 @@ export interface GNAttrs {
 }
 
 /** GameNum 节点类型。
- * 组合算子：add/sub/mul/div/min/max/pow（多叉，从左到右折叠）、
- * clamp（min/value/max 三节点）、floor/ceil/round（单节点）、cond（test/then/else）。
+ * 组合算子：add/sub/mul（多叉，从左到右折叠）。
  * 叶子：const/expr/owned/levelLinear/affectorFlows/
  * zone（按作用目标聚合的 flat 区 / mul 区，求值统一走 state 表 aggregateZone）。
  * 整棵树必须为无环图（节点仅持子节点引用，无反向引用）。 */
 export type GameNum =
   | (GNAttrs & { id: string; kind: 'const'; value: number })
   | (GNAttrs & { id: string; kind: 'expr'; expr: ValueExpression })
-  | (GNAttrs & { id: string; kind: 'add' | 'sub' | 'mul' | 'div' | 'min' | 'max' | 'pow'; children: GameNum[] })
-  | (GNAttrs & { id: string; kind: 'clamp'; min: GameNum; value: GameNum; max: GameNum })
-  | (GNAttrs & { id: string; kind: 'floor' | 'ceil' | 'round'; child: GameNum })
-  | (GNAttrs & { id: string; kind: 'cond'; test: GameNum; then: GameNum; else: GameNum })
+  | (GNAttrs & { id: string; kind: 'add' | 'sub' | 'mul'; children: GameNum[] })
   | (GNAttrs & { id: string; kind: 'owned'; spotId: string })
   | (GNAttrs & { id: string; kind: 'levelLinear'; spotId: string })
   | (GNAttrs & { id: string; kind: 'affectorFlows'; resource: string })
@@ -202,37 +198,6 @@ function switchEval(node: GameNum, state: PlayerState, deps: GameNumEvalDeps, us
     case 'mul': {
       return node.children.reduce((product, child) => product * evaluateGameNum(child, state, deps, useCache), 1);
     }
-    case 'div': {
-      if (node.children.length === 0) return 0;
-      const [head, ...tail] = node.children;
-      return tail.reduce((acc, child) => {
-        const d = evaluateGameNum(child, state, deps, useCache);
-        return d === 0 ? 0 : acc / d;
-      }, evaluateGameNum(head, state, deps, useCache));
-    }
-    case 'min':
-      return node.children.reduce((m, child) => Math.min(m, evaluateGameNum(child, state, deps, useCache)), Infinity);
-    case 'max':
-      return node.children.reduce((m, child) => Math.max(m, evaluateGameNum(child, state, deps, useCache)), -Infinity);
-    case 'pow': {
-      if (node.children.length === 0) return 0;
-      const [head, ...tail] = node.children;
-      return tail.reduce((acc, child) => Math.pow(acc, evaluateGameNum(child, state, deps, useCache)), evaluateGameNum(head, state, deps, useCache));
-    }
-    case 'clamp': {
-      const v = evaluateGameNum(node.value, state, deps, useCache);
-      const lo = evaluateGameNum(node.min, state, deps, useCache);
-      const hi = evaluateGameNum(node.max, state, deps, useCache);
-      return Math.min(Math.max(v, lo), hi);
-    }
-    case 'floor':
-      return Math.floor(evaluateGameNum(node.child, state, deps, useCache));
-    case 'ceil':
-      return Math.ceil(evaluateGameNum(node.child, state, deps, useCache));
-    case 'round':
-      return Math.round(evaluateGameNum(node.child, state, deps, useCache));
-    case 'cond':
-      return evaluateGameNum(evaluateGameNum(node.test, state, deps, useCache) !== 0 ? node.then : node.else, state, deps, useCache);
     case 'owned':
       return (state.spotLevels[node.spotId] ?? 0) > 0 ? 1 : 0;
     case 'levelLinear': {
@@ -273,49 +238,6 @@ export function evaluateGameNumBreakdown(node: GameNum, state: PlayerState, deps
       const children = node.children.map(c => evaluateGameNumBreakdown(c, state, deps));
       const value = children.length === 0 ? 0 : children.reduce((acc, c) => acc * c.value, 1);
       return { id: node.id, kind: 'mul', value, children };
-    }
-    case 'div': {
-      const children = node.children.map(c => evaluateGameNumBreakdown(c, state, deps));
-      const value = children.length === 0 ? 0
-        : children.slice(1).reduce((acc, c) => (c.value === 0 ? 0 : acc / c.value), children[0].value);
-      return { id: node.id, kind: 'div', value, children };
-    }
-    case 'min': {
-      const children = node.children.map(c => evaluateGameNumBreakdown(c, state, deps));
-      return { id: node.id, kind: 'min', value: children.reduce((m, c) => Math.min(m, c.value), Infinity), children };
-    }
-    case 'max': {
-      const children = node.children.map(c => evaluateGameNumBreakdown(c, state, deps));
-      return { id: node.id, kind: 'max', value: children.reduce((m, c) => Math.max(m, c.value), -Infinity), children };
-    }
-    case 'pow': {
-      const children = node.children.map(c => evaluateGameNumBreakdown(c, state, deps));
-      const value = children.length === 0 ? 0
-        : children.slice(1).reduce((acc, c) => Math.pow(acc, c.value), children[0].value);
-      return { id: node.id, kind: 'pow', value, children };
-    }
-    case 'clamp': {
-      const value = evaluateGameNumBreakdown(node.value, state, deps);
-      const min = evaluateGameNumBreakdown(node.min, state, deps);
-      const max = evaluateGameNumBreakdown(node.max, state, deps);
-      return { id: node.id, kind: 'clamp', value: Math.min(Math.max(value.value, min.value), max.value), children: [value, min, max] };
-    }
-    case 'floor': {
-      const child = evaluateGameNumBreakdown(node.child, state, deps);
-      return { id: node.id, kind: 'floor', value: Math.floor(child.value), children: [child] };
-    }
-    case 'ceil': {
-      const child = evaluateGameNumBreakdown(node.child, state, deps);
-      return { id: node.id, kind: 'ceil', value: Math.ceil(child.value), children: [child] };
-    }
-    case 'round': {
-      const child = evaluateGameNumBreakdown(node.child, state, deps);
-      return { id: node.id, kind: 'round', value: Math.round(child.value), children: [child] };
-    }
-    case 'cond': {
-      const test = evaluateGameNumBreakdown(node.test, state, deps);
-      const taken = evaluateGameNumBreakdown(test.value !== 0 ? node.then : node.else, state, deps);
-      return { id: node.id, kind: 'cond', value: taken.value, children: [test, taken] };
     }
     case 'owned':
       return { id: node.id, kind: 'owned', value: (state.spotLevels[node.spotId] ?? 0) > 0 ? 1 : 0, label: node.spotId };

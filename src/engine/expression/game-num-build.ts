@@ -2,10 +2,10 @@
 // engine/expression/game-num-build.ts — GameNumSystem 树构建
 // 从 game-num.ts 拆出：buildAll / buildResourceGain / buildSpotProduction
 //   / buildZoneNode / rebuildZoneIndex / registerZoneNode
-//   / allEntitiesOfKind / scopeTags / linkHierarchy / setParent / collect
+//   / allEntitiesOfKind / scopeTags / setParent / collect / gainResourceDeps
 // ============================================================
 
-import type { PlayerState } from '../types';
+import type { PlayerState, Value, ValueExpression } from '../types';
 import type { Registry } from '../registry/registry';
 import type { GameNumSystem } from './game-num';
 import type { GameNum, ZoneNode } from './game-num-internal';
@@ -48,7 +48,8 @@ export function buildAll(system: GameNumSystem, state?: PlayerState): void {
   for (const res of resourceSet) {
     system.gains.set(res, buildResourceGain(system, system.registry, res));
   }
-  system.mayReadResources = gainsMayReadResource(system);
+  system.gainResourceDeps = gainResourceDeps(system);
+  system.mayReadResources = [...system.gainResourceDeps.values()].some(s => s.size > 0);
 }
 
 function buildResourceGain(system: GameNumSystem, registry: Registry, resource: string): GameNum {
@@ -201,44 +202,69 @@ export function setParent(system: GameNumSystem, child: GameNum, parent: GameNum
 export function collect(system: GameNumSystem, node: GameNum): void {
   if (system.allNodes.includes(node)) return;
   system.allNodes.push(node);
-  const kids: GameNum[] =
-    node.kind === 'add' || node.kind === 'sub' || node.kind === 'mul' || node.kind === 'div' || node.kind === 'min' || node.kind === 'max' || node.kind === 'pow'
-      ? node.children
-      : node.kind === 'clamp'
-        ? [node.min, node.value, node.max]
-        : node.kind === 'floor' || node.kind === 'ceil' || node.kind === 'round'
-          ? [node.child]
-          : node.kind === 'cond'
-            ? [node.test, node.then, node.else]
-            : [];
+  const kids: GameNum[] = node.kind === 'add' || node.kind === 'sub' || node.kind === 'mul' ? node.children : [];
   for (const c of kids) collect(system, c);
 }
 
-// ---- 内部：gainsMayReadResource ----
+// ---- 内部：gain 资源依赖静态扫描 ----
 
-export function gainsMayReadResource(system: GameNumSystem): boolean {
-  for (const node of system.gains.values()) {
-    let found = false;
-    const walk = (n: GameNum): void => {
-      if (found) return;
-      if (n.kind === 'expr') {
-        found = JSON.stringify(n.expr).includes('"source":"res"') || JSON.stringify(n.expr).includes('"source":"resource"');
-        return;
-      }
-      const kids =
-        n.kind === 'add' || n.kind === 'sub' || n.kind === 'mul' || n.kind === 'div' || n.kind === 'min' || n.kind === 'max' || n.kind === 'pow'
-          ? n.children
-          : n.kind === 'clamp'
-            ? [n.min, n.value, n.max]
-            : n.kind === 'floor' || n.kind === 'ceil' || n.kind === 'round'
-              ? [n.child]
-              : n.kind === 'cond'
-                ? [n.test, n.then, n.else]
-                : [];
-      for (const c of kids) walk(c);
-    };
-    walk(node);
-    if (found) return true;
+/** Value 叶子的资源依赖：仅 source='res' 直接读 state.resources。 */
+function valueResourceDeps(val: Value, out: Set<string>): void {
+  if (val.source !== 'res') return;
+  const id = String(val.params.resource ?? '');
+  if (id) out.add(id);
+}
+
+/** ValueExpression 的资源依赖（类型化遍历，funclet 参数为字面量不展开其 calc）。 */
+function exprResourceDeps(expr: ValueExpression, out: Set<string>): void {
+  switch (expr.type) {
+    case 'const':
+      return;
+    case 'value':
+      valueResourceDeps(expr.value, out);
+      return;
+    case 'floor':
+    case 'ceil':
+    case 'round':
+      exprResourceDeps(expr.expr, out);
+      return;
+    case 'clamp':
+      exprResourceDeps(expr.expr, out);
+      exprResourceDeps(expr.min, out);
+      exprResourceDeps(expr.max, out);
+      return;
+    default:
+      exprResourceDeps(expr.left, out);
+      exprResourceDeps(expr.right, out);
   }
-  return false;
+}
+
+/** GameNum 子树的资源依赖。zone/affectorFlows 叶子的动态值不经本树求值，不计入（与旧扫描等价）。 */
+function nodeResourceDeps(node: GameNum, out: Set<string>): void {
+  switch (node.kind) {
+    case 'const':
+    case 'owned':
+    case 'levelLinear':
+    case 'zone':
+    case 'affectorFlows':
+      return;
+    case 'expr':
+      exprResourceDeps(node.expr, out);
+      return;
+    case 'add':
+    case 'sub':
+    case 'mul':
+      for (const c of node.children) nodeResourceDeps(c, out);
+  }
+}
+
+/** 每个 primitiveGain 一个资源依赖集合（resourceChanged 定向失效用，Phase 5 接线）。 */
+export function gainResourceDeps(system: GameNumSystem): Map<string, Set<string>> {
+  const deps = new Map<string, Set<string>>();
+  for (const [resource, gain] of system.gains) {
+    const set = new Set<string>();
+    nodeResourceDeps(gain, set);
+    deps.set(resource, set);
+  }
+  return deps;
 }
