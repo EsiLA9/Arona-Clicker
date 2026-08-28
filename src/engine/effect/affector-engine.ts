@@ -27,6 +27,7 @@ import { EventBus } from '../core/event-bus';
 import { EventDrivenReactor } from './event-driven-reactor';
 import { CONDITION_DEP_EVENT_TYPES, ConditionDepIndex } from '../expression/condition-deps';
 import { deriveAnonymousId } from '../core/anonymous-id';
+import type { DevLog } from '../core/dev-log';
 import type { GameNumSystem } from '../expression/game-num';
 
 export class AffectorEngine extends EventDrivenReactor {
@@ -39,6 +40,10 @@ export class AffectorEngine extends EventDrivenReactor {
   private state: PlayerState | null = null;
   /** 可选：接入后把按 tag 的加成转写为 GameNum tag 效果（经 syncAffectorZoneEffects）。 */
   gameNumSystem?: GameNumSystem;
+  /** 可选：数据包校验警告（entry id 重复等）的日志出口，由宿主注入。 */
+  devLog?: DevLog;
+  /** getSpotMaxLevelOverrides 结果缓存（recheck/unmount 时失效）。 */
+  private maxLevelOverridesCache: { lifted: Set<SpotId>; maxLevels: Map<SpotId, number> } | null = null;
 
   constructor(
     private readonly registry: Registry,
@@ -85,7 +90,10 @@ export class AffectorEngine extends EventDrivenReactor {
    * 即「以新加载的 Datapack 为第一判断依据」）。调用方在整体替换（reload）时须先 clear()。
    */
   load(packs: AffectorPackDef[]): void {
-    for (const pack of packs) this.packs.set(pack.id, pack);
+    for (const pack of packs) {
+      this.warnDuplicateEntryIds(pack);
+      this.packs.set(pack.id, pack);
+    }
   }
 
   /** 清空全部 pack 注册（整体替换数据包时使用）。 */
@@ -95,7 +103,22 @@ export class AffectorEngine extends EventDrivenReactor {
 
   /** 运行时注册数据包之外的 Affector pack（如由 Spot 功能动态构造）。 */
   registerPack(pack: AffectorPackDef): void {
+    this.warnDuplicateEntryIds(pack);
     this.packs.set(pack.id, pack);
+  }
+
+  /** entry id 重复 → 同 id 会被 activeEntryIds 隐式视为同时激活（04h §3.2），数据包作者需知悉。 */
+  private warnDuplicateEntryIds(pack: AffectorPackDef): void {
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    for (const entry of pack.entries) {
+      if (seen.has(entry.id)) dupes.add(entry.id);
+      seen.add(entry.id);
+    }
+    if (dupes.size === 0) return;
+    const message = `AffectorPack ${pack.id} 存在重复 entry id：${[...dupes].join('、')}（同 id entry 会被视为同时激活）`;
+    if (this.devLog) this.devLog.record(message, { source: 'affector', level: 'warning' });
+    else console.warn(`[Affector] ${message}`);
   }
 
   setState(state: PlayerState): void {
@@ -118,8 +141,16 @@ export class AffectorEngine extends EventDrivenReactor {
       packId = pack.id?.trim() ? pack.id : deriveAnonymousId('anon:pack', pack);
       if (!this.packs.has(packId)) this.packs.set(packId, pack); // 内联包先注册（同 id 不重复覆盖）
     }
+    const instanceId = `${packId}@${mountEntityId}`;
+    // 幂等（04h §3.3）：实例已存在（如重复获得同一物品再次触发 itemCollected）→
+    // 只 recheck 不重建，避免新实例 Latent→Active 翻转重复发放一次性 effects
+    const existing = this.instances.get(instanceId);
+    if (existing && existing.state !== 'Removed') {
+      this.recheck(instanceId);
+      return existing;
+    }
     const instance: AffectorInstance = {
-      instanceId: `${packId}@${mountEntityId}`,
+      instanceId,
       packId,
       mountEntityId,
       state: 'Latent',
@@ -141,6 +172,7 @@ export class AffectorEngine extends EventDrivenReactor {
   unmount(instanceId: string, reason = 'unmounted'): boolean {
     const instance = this.instances.get(instanceId);
     if (!instance) return false;
+    this.maxLevelOverridesCache = null;
     const oldState = instance.state;
     instance.state = 'Removed';
     instance.activeEntryIds = [];
@@ -161,6 +193,7 @@ export class AffectorEngine extends EventDrivenReactor {
     if (!instance || instance.state === 'Removed' || !this.state) return instance?.state ?? null;
     const pack = this.packs.get(instance.packId);
     if (!pack) return null;
+    this.maxLevelOverridesCache = null;
 
     const activeEntryIds = pack.entries
       .filter(entry => !entry.condition || this.conditionSystem.evaluateGroup(entry.condition, this.state!))
@@ -168,11 +201,14 @@ export class AffectorEngine extends EventDrivenReactor {
     const oldState = instance.state;
     instance.activeEntryIds = activeEntryIds;
     instance.state = activeEntryIds.length > 0 ? 'Active' : 'Latent';
-    // addResource 一次性语义：Latent→Active 翻转时立即发放一次（保持 Active 不重复，翻转回 Latent 再激活会再次发放）
+    // 激活沿（Latent→Active）一次性执行 entry.effects 全量（Phase 4.3）：
+    // addResource 一次性发放，setFlag/addItem 等一次性 op 同样只在此执行一次；
+    // 持续产出走 flows，每 tick 逻辑走 perTickEffects（applyActiveEffects）；
+    // setSpotMaxLevel/removeSpotMaxLevel 为声明类 op，由 getSpotMaxLevelOverrides 动态读取。
     if (oldState !== 'Active' && instance.state === 'Active') {
       const grants = pack.entries
         .filter(entry => activeEntryIds.includes(entry.id))
-        .flatMap(entry => entry.effects.filter(effect => effect.op === 'addResource'));
+        .flatMap(entry => entry.effects.filter(effect => effect.op !== 'setSpotMaxLevel' && effect.op !== 'removeSpotMaxLevel'));
       if (grants.length > 0) {
         if (this.effectEngine) this.effectEngine.applyEffects(grants);
         else this.mutations.applyEffects(grants);
@@ -216,6 +252,7 @@ export class AffectorEngine extends EventDrivenReactor {
    *  3. 无 Affector → undefined（回退 SpotDef.maxLevel）
    */
   getSpotMaxLevelOverrides(): { lifted: Set<SpotId>; maxLevels: Map<SpotId, number> } {
+    if (this.maxLevelOverridesCache) return this.maxLevelOverridesCache;
     const lifted = new Set<SpotId>();
     const maxLevels = new Map<SpotId, number>();
 
@@ -239,7 +276,8 @@ export class AffectorEngine extends EventDrivenReactor {
     // lifted 优先：已解除限制的 Spot 不需要 maxLevel
     for (const id of lifted) maxLevels.delete(id);
 
-    return { lifted, maxLevels };
+    this.maxLevelOverridesCache = { lifted, maxLevels };
+    return this.maxLevelOverridesCache;
   }
 
   private mountItemAffectors(itemId: string): void {
@@ -343,17 +381,62 @@ export class AffectorEngine extends EventDrivenReactor {
       if (!pack) continue;
       for (const entry of pack.entries) {
         if (!instance.activeEntryIds.includes(entry.id)) continue;
-        // addResource 由 recheck 在 Latent→Active 翻转时一次性发放（edge-triggered），此处只执行其余效果；
-        // 持续产出走 entry.flows（GameNum 懒求值）
-        const nonResourceEffects = entry.effects.filter(
-          effect => effect.op !== 'addResource' && effect.op !== 'setSpotMaxLevel' && effect.op !== 'removeSpotMaxLevel',
-        );
-        if (nonResourceEffects.length === 0) continue;
-        if (this.effectEngine) this.effectEngine.applyEffects(nonResourceEffects);
-        else this.mutations.applyEffects(nonResourceEffects);
+        // effects 已在激活沿一次性执行（recheck）；每 tick 只执行显式声明的 perTickEffects
+        const perTick = entry.perTickEffects ?? [];
+        if (perTick.length === 0) continue;
+        if (this.effectEngine) this.effectEngine.applyEffects(perTick);
+        else this.mutations.applyEffects(perTick);
       }
     }
     // 把按 tag 的加成（zoneModifiers）写入 GameNum tag 效果表；失活实例由其内部对账撤销
     if (this.gameNumSystem && this.state) this.gameNumSystem.syncAffectorZoneEffects(this, this.state);
+  }
+
+  /**
+   * 状态 ↔ 实例对账重挂载（Phase 4.1/4.2）：按当前 PlayerState 计算期望挂载集合
+   * （inventory 中已拥有物品 / unlockedEnhancements 的 affectorPackIds + 已解锁 Spot 的
+   * linearYield 功能），卸载不再成立的实例、补挂缺失的实例。用于不经
+   * itemCollected / enhancementAdded / spotLevelChanged 事件的状态重建路径：
+   * init / enterInit（世界线切换）/ restoreFromSave / reset。
+   */
+  reconcileMounts(): void {
+    const state = this.state;
+    if (!state) return;
+    const expected = new Map<string, { ref: AffectorPackRef; mountEntityId: string }>();
+    const expectPacks = (entityId: string, refs: readonly AffectorPackRef[] | undefined) => {
+      for (const ref of refs ?? []) {
+        const packId = typeof ref === 'string' ? ref : (ref.id?.trim() ? ref.id : deriveAnonymousId('anon:pack', ref));
+        expected.set(`${packId}@${entityId}`, { ref, mountEntityId: entityId });
+      }
+    };
+    for (const [itemId, count] of Object.entries(state.inventory ?? {})) {
+      if (!(count > 0)) continue;
+      expectPacks(itemId, this.registry.items.get(itemId)?.affectorPackIds);
+    }
+    for (const enhId of state.unlockedEnhancements) {
+      expectPacks(enhId, this.registry.enhancements.get(enhId)?.affectorPackIds);
+    }
+    for (const spotId of Object.keys(state.spotLevels)) {
+      if ((state.spotLevels[spotId] ?? 0) <= 0) continue;
+      for (const fn of this.spotFunctionalitiesOf(spotId)) {
+        if (fn.kind !== 'linearYield') continue;
+        const packId = `${fn.id}@${spotId}`;
+        if (!this.packs.has(packId)) this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
+        expected.set(`${packId}@${spotId}`, { ref: packId, mountEntityId: spotId });
+      }
+    }
+    for (const instance of [...this.instances.values()]) {
+      if (instance.state !== 'Removed' && !expected.has(instance.instanceId)) {
+        this.unmount(instance.instanceId, 'mount condition no longer holds');
+      }
+    }
+    for (const m of expected.values()) this.mount(m.ref, m.mountEntityId);
+    if (this.gameNumSystem) this.gameNumSystem.syncAffectorZoneEffects(this, state);
+  }
+
+  private spotFunctionalitiesOf(spotId: string): SpotFunctionalityDef[] {
+    const spot = this.registry.spots.get(spotId);
+    if (!spot || !this.state) return [];
+    return this.functionalitySystem?.functionalitiesOf(spot, this.state) ?? spot.functionalities ?? [];
   }
 }

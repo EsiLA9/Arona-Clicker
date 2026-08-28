@@ -112,13 +112,48 @@ commit `975c3a9`（Phase2Bef）。
 
 ---
 
+## Phase 4 — Affector 正确性（04h §1.1/1.2/1.3/3.2/3.3/3.5）✅
+
+### 实际改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `src/engine/types/trigger.ts` | `AffectorEffect` 语义显式化：`effects`（激活沿一次性）+ `perTickEffects?`（持续期每 tick，仅限幂等/维持类 op）+ `flows`（唯一持续产出通道）+ `zoneModifiers`；文档注释重写 |
+| `src/engine/def-factory/affector-pack.ts` | 新增 builder `perTickEffect(...)`；build() 序列化 `perTickEffects` |
+| `src/engine/effect/affector-engine.ts` | ① `mount()` 幂等：同 `packId@mountEntityId` 已有非 Removed 实例时只 recheck 并返回既有实例（§3.3 覆盖挂载/重复发放修复）；② `recheck()` 激活沿发放从「仅 addResource」扩为「全部 op 除 setSpotMaxLevel/removeSpotMaxLevel」（声明式 op 归 applyActiveEffects 维护，§3.5）；③ `applyActiveEffects()` 每 tick 只执行显式 `perTickEffects`，不再重复执行 effects（§1.3 per-tick 陷阱修复）；④ 新增 `reconcileMounts()` 状态↔实例对账（§1.1/1.2）：按 `state.inventory`（物品 affectorPackIds）/ `state.unlockedEnhancements` / `spotLevels>0` 的 linearYield 功能计算期望集合，卸载失效实例、补挂缺失实例，收尾 `syncAffectorZoneEffects`；⑤ `getSpotMaxLevelOverrides()` 加缓存（recheck/unmount 失效，§3.5 扫描开销）；⑥ `warnDuplicateEntryIds`：load/registerPack 时 entry id 重复警告（§3.2），经 `devLog` 注入（game-instance.ts 接线）；⑦ `unmount()` 同步失效 maxLevel 缓存 |
+| `src/engine/game/save-codec.ts` | `restoreFromSave` 在 setState 后调 `reconcileMounts()`（存档不保存 Affector 实例，读档按状态重建，§1.1） |
+| `src/engine/game/init-service.ts` | `enterInit` 在 enterEffects 后调 `reconcileMounts()`（初始状态/世界线切换不经 itemCollected 等事件路径，§1.2；enterInit 是 init/startNewGame/resumeInit 唯一汇合点） |
+| `src/engine/game/runtime-reset.ts` | `resetRuntime` 在 setState 后调 `reconcileMounts()`（重置后默认状态无物品/强化/Spot，对账清空旧世界线遗留实例） |
+| `src/engine/game-instance.ts` | `affectorEngine.devLog = this.devLog` 注入 |
+| `tools/datapack-editor/schema/engine-defs.gen.json` | `npm run gen:schema` 重新生成（仅时间戳；生成器不展开 entries 内部字段，perTickEffects 对编辑器暂透明） |
+| `docs-824/04f-trigger-effect.md` | Affector 四通道语义（effects 激活沿 / perTickEffects 每 tick / flows 唯一持续产出 / zoneModifiers）+ 双通道警告（flows 与 effects[addResource] 并存=双倍）+ 实例生命周期（reconcileMounts 四接线点、mount 幂等） |
+| `tests/engine/affector-reconcile.test.ts` | 新增 7 tests（下） |
+
+### 回归测试（tests/engine/affector-reconcile.test.ts）
+
+1. **§1.3 陷阱回归**：effects 中 addItem 激活沿发放一次，3 次 `applyActiveEffects` 不重复；`perTickEffects` 每 tick 执行（3 tick → 3 credit）；未声明 perTickEffects 时无持续产出。
+2. **§3.3 mount 幂等**：重复 `mount(pack, entity)` 返回同一实例，激活沿 addResource 不重复发放。
+3. **§1.1/1.2 reconcile**：inventory/enhancements 补挂并执行激活沿（两实例 ×7）；物品移除后对账卸载（Removed）其余保留；Spot linearYield 功能按 `spotLevels` 对账挂载/归零卸载。
+4. **存档往返**：baseDatapack + 附加强化包（entity 通配 `spot:*` 的 zone mul 1.5 + flows 5）→ A 存档 → B 读档后 active 实例恢复、`evaluateResourceGain` 一致、tick 后 flows 持续入账。
+
+> 数值口径：flows 在 primitiveGain 根级加法、不进 spot 乘区，zone mul 只乘 spot 子树（5×1.5 + 2 + 5 = 14.5）；断言按此显式锚定。
+
+### 验收核验（实测）
+
+- `npm test`：89 文件 912 测试全绿。
+- `npx tsc --noEmit`：通过。
+- `reconcileMounts` 接线点 grep：affector-engine.ts（定义）/ init-service.ts:153 / runtime-reset.ts:49 / save-codec.ts:157，共 4 处。
+
+---
+
 ## 测试结果汇总
 
 | 时点 | npm test | tsc --noEmit |
 | --- | --- | --- |
 | Phase 1 后（b558235） | 908 passed | ✅ |
 | Phase 2 后（975c3a9，当前 HEAD） | 908 passed（88 files） | ✅ |
-| Phase 3 后（本次提交） | 905 passed（88 files，-3 删除用例） | ✅ |
+| Phase 3 后（6132636） | 905 passed（88 files，-3 删除用例） | ✅ |
+| Phase 4 后（本次提交） | 912 passed（89 files，+7 affector-reconcile） | ✅ |
 
 ## 遗留风险与后续建议
 

@@ -153,6 +153,8 @@ export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   ctx.effectEngine.setState(state);
   ctx.tickSystem.setState(state);
   ctx.tagStatService.setState(state);
+  // 存档不保存 Affector 实例：按恢复后的状态对账重挂载（flows/zoneModifiers/effects 激活沿重放）
+  ctx.affectorEngine.reconcileMounts();
 
   const init = ctx.registry.inits.get(state.activeInit);
   ctx.initService.logInitReachability('世界线可及性：读取存档');

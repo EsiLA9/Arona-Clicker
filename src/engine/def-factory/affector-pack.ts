@@ -33,9 +33,15 @@ export class AffectorPackBuilder {
     return last;
   }
 
-  /** 效果（附着到当前 entry）。 */
+  /** 效果（附着到当前 entry；仅在激活沿执行一次）。 */
   effect(...effs: Effect[]): this {
     this.last().effects.push(...effs);
+    return this;
+  }
+
+  /** 持续期每 tick 执行的效果（附着到当前 entry；仅限幂等/维持类 op）。 */
+  perTickEffect(...effs: Effect[]): this {
+    (this.last().perTickEffects ??= []).push(...effs);
     return this;
   }
 
@@ -80,6 +86,7 @@ export class AffectorPackBuilder {
       entries: this._entries.map((e: AffectorEffect): AffectorEffect => {
         const out: AffectorEffect = { id: e.id, effects: e.effects };
         if (e.condition) out.condition = e.condition;
+        if (e.perTickEffects && e.perTickEffects.length) out.perTickEffects = e.perTickEffects;
         if (e.flows && e.flows.length) out.flows = e.flows;
         if (e.zoneModifiers && e.zoneModifiers.length) out.zoneModifiers = e.zoneModifiers;
         return out;

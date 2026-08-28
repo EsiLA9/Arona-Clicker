@@ -20,11 +20,15 @@ export interface AffectorEffect {
   id: string;
   condition?: ConditionGroup;
   /**
-   * 即时效果：激活（Latent→Active 翻转）时一次性执行；其中 addResource 即一次性发放，
-   * 非 addResource 效果在 Active 期间每 tick 执行。持续产出请用 flows。
+   * 即时效果：仅在激活沿（Latent→Active 翻转）执行一次。addResource 为一次性发放，
+   * setFlag/addItem/addEnhancement 等一次性 op 同样只执行一次——持续产出用 flows，
+   * 每 tick 逻辑用 perTickEffects，声明类 op（setSpotMaxLevel/removeSpotMaxLevel）
+   * 由 getSpotMaxLevelOverrides 动态读取，不经执行。
    */
   effects: Effect[];
-  /** 持续流：激活期间每 tick 懒求值入账（替代原 effects 中 addResource 的每 tick 语义）。 */
+  /** 持续期每 tick 执行的效果（仅限幂等/维持类 op；一次性 op 会随每 tick 重复发放）。 */
+  perTickEffects?: Effect[];
+  /** 持续流：激活期间每 tick 懒求值入账（唯一持续产出通道）。 */
   flows?: AffectorFlow[];
   /** 按作用目标（tag 或指定实体）的加区/乘区/上下限声明（经桥接层转写为 PlayerState.tagEffects / entityEffects）。 */
   zoneModifiers?: ZoneModifierDecl[];

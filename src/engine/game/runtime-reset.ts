@@ -45,6 +45,8 @@ export function resetRuntime(ctx: ResetContext): void {
   ctx.affectorEngine.setState(state);
   ctx.triggerSystem.setState(state);
   ctx.tagStatService.setState(state);
+  // 重置后默认状态无物品/强化/Spot：对账清空旧世界线遗留实例
+  ctx.affectorEngine.reconcileMounts();
   // 移除已挂载的世界线专属 Trigger
   ctx.initService.unmountInitTriggers();
   ctx.visibilityEngine.reset();

@@ -149,6 +149,9 @@ export class InitService {
 
     this.applyEntryEffects(init.enterEffects, isFirstEnter);
 
+    // 初始状态/切换世界线不经事件路径（itemCollected 等）：按当前状态对账重挂载 Affector
+    this.opts.affectorEngine.reconcileMounts();
+
     this.opts.refreshVisibility();
     this.opts.devLog.record(`进入 ${init.name}：解锁内容`, {
       source: 'init',

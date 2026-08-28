@@ -16,12 +16,15 @@
 
 ## Affector（挂载持续效果）
 
-- `AffectorPackDef`：{ entries: [{ condition, effects[], flows[], zoneModifiers[] }] }；
-- entry 的效果分三条通道：
-  - `effects`：激活时执行——`addResource` 在 **Latent→Active 翻转时一次性发放**（边沿触发，保持 Active 不重复），其余 op 在 Active 期间每帧执行；
-  - `flows`：持续产出，激活期间每帧经 GameNum `primitiveGain` 懒求值入账（Spot 功能的 linearYield 即转译为 flow）；
+- `AffectorPackDef`：{ entries: [{ condition, effects[], perTickEffects?[], flows[], zoneModifiers[] }] }；
+- entry 的效果分四条通道：
+  - `effects`：**激活沿（Latent→Active 翻转）一次性执行**——`addResource` 一次性发放，setFlag/addItem 等一次性 op 同样只执行一次；声明类 op（setSpotMaxLevel/removeSpotMaxLevel）由 `getSpotMaxLevelOverrides` 动态读取，不经执行；
+  - `perTickEffects`：Active 期间每帧执行（仅限幂等/维持类 op）；
+  - `flows`：**唯一持续产出通道**，激活期间每帧经 GameNum `primitiveGain` 懒求值入账（Spot 功能的 linearYield 即转译为 flow）；
   - `zoneModifiers`：区效果，`syncAffectorZoneEffects` 并入 GameNumSystem 区表（按 instanceId 反查撤回）；
-- 每帧 `affectorEngine.applyActiveEffects()`：先重估轮询实例（stat 宽依赖），再执行 Active 实例的非资源效果。
+- 每帧 `affectorEngine.applyActiveEffects()`：先重估轮询实例（stat 宽依赖），再执行 Active 实例的 `perTickEffects`；
+- **双通道警告**：`flows` 与 `effects[addResource]` 并存时语义不同但会叠加——激活沿发放一次 + 每帧持续入账 = **双倍**。数据作者应二选一：一次性奖励用 `effects[addResource]`，持续产出用 `flows`；
+- **实例生命周期**：实例不落存档；`reconcileMounts()` 按当前 PlayerState（inventory / unlockedEnhancements / spotLevels 的 linearYield 功能）对账重挂载，在 init / enterInit / restoreFromSave / reset 时调用；`mount` 幂等（已存在实例只 recheck 不重建，激活沿不重复发放）。
 
 ## ZoneModifier（区效果）
 

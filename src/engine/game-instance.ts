@@ -249,6 +249,8 @@ export class GameInstance {
     this.conditionSystem.setExtraReader(path => this.getExtra(path));
     this.mutations.setExtraReader(path => this.getExtra(path));
     this.devLog = new DevLog(options.devLog);
+    // Affector 数据包校验警告（entry id 重复等）走统一 DevLog
+    this.affectorEngine.devLog = this.devLog;
     this.passivePoolSystem = new PassivePoolSystem(this.registry, this.conditionSystem, this.eventBus);
     this.storyService = new StoryService({
       registry: this.registry,
