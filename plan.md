@@ -50,36 +50,36 @@
 - [ ] `types/events.ts`：`GameEvent` union 中 `colorEquipped` 替换为 `equipmentCollected { equipmentId }` / `equipmentEquipped { variantId; equipmentId }`
 
 ### 2. 系统/服务
-- [ ] **`system/color-equipment-system.ts`**（新）：
+- [ ] `system/color-equipment-system.ts`（新）：
   - `tryUnlock(equipmentId)`：条件校验 → `mutations.collectEquipment` + 级联解锁其 colorGroup 引用的所有 Color（`mutations.unlockColor`）
   - `recheckUnlocks()`：扫描全部装备，条件满足自动收集（挂 characterAcquired/flagChanged）
   - `ownedEquipments(state)` / `isOwned(state, id)` / `getDef` / `getAll`
   - `groupOf(equipmentId)`：解析装备的 ColorGroup
   - `effectsOf(state, variantId)`：装备的 effects（迁移自 ColorSystem.effectsOf，改为按 equippedEquipment 聚合）
   - `avatarColors(equipmentId)`：解析 ColorGroup 各 slot 的实际 hex（供 AvatarRenderer）
-- [ ] **`system/avatar-renderer.ts`**（新，纯函数）：
+- [ ] `system/avatar-renderer.ts`（新，纯函数）：
   - `renderAvatarSvg(pattern: CompositionType, colors: string[], size?)` → SVG 字符串
   - solid 单色圆 / gradient 线性渐变 / duotone 双色叠加 / pie 饼图分区 / radial 径向渐变
-- [ ] **`system/color-system.ts`**：`effectsOf` 迁移到 ColorEquipmentSystem（或改造）；新增 `resolveThemeFromGroup(group)` 提取主色驱动 Theme-Tree（可选增强）
+- [ ] `system/color-system.ts`：`effectsOf` 迁移到 ColorEquipmentSystem（或改造）；新增 `resolveThemeFromGroup(group)` 提取主色驱动 Theme-Tree（可选增强）
 
 ### 3. 装配
-- [ ] **`game-instance.ts`**：实例化 `ColorEquipmentSystem` 并注入 registry/mutations/state/condition；`mutations.setCharacterCatalog` 补 `getColorGroup`/`getColorEquipment`；`characterAcquired`/`flagChanged` 事件挂 `equipmentSystem.recheckUnlocks()`
+- [ ] `game-instance.ts`：实例化 `ColorEquipmentSystem` 并注入 registry/mutations/state/condition；`mutations.setCharacterCatalog` 补 `getColorGroup`/`getColorEquipment`；`characterAcquired`/`flagChanged` 事件挂 `equipmentSystem.recheckUnlocks()`
 
 ### 4. 数据（base）
-- [ ] **`data/base/character-rework.ts`**：
+- [ ] `data/base/character-rework.ts`：
   - `baseColors` 移除 `.effects()` 调用
   - 新增 `baseColorGroups`：若干预制组（solid/gradient/duotone/pie/radial 各一），引用现有 ColorId
   - 新增 `baseColorEquipments`：捆绑 ColorGroup + effects（如星野泳装组 + Credit 加成）+ themeColorId + unlock
-- [ ] **`data/base/datapack.ts`**：导出 `colorGroups` / `colorEquipments`
+- [ ] `data/base/datapack.ts`：导出 `colorGroups` / `colorEquipments`
 
 ### 5. UI
-- [ ] **`ui/components/contacts.ts`**：
+- [ ] `ui/components/contacts.ts`：
   - 角色面板：`equippedColors` → `equippedEquipment`，渲染装备卡片 + 头像 SVG 预览 + 装备/卸下按钮（data-equip-equipment / data-unequip-equipment）
   - 可装备列表来自 `colorEquipmentSystem.ownedEquipments`
   - 通讯录行头像：装备后显示 ColorGroup 生成的圆形头像
-- [ ] **`ui/components/collection.ts`**：新增装备图鉴（equipment codex，含头像预览 + 效用说明）；`renderColorCodex` 保留
-- [ ] **`ui/controller.ts`**：`[data-equip-color]` / `[data-unequip-color]` → `[data-equip-equipment]` / `[data-unequip-equipment]`，调 `mutations.equipEquipment` / `unequipEquipment`
-- [ ] **`ui/components/header.ts`**：主题 swatch 保留（colorsOwned 驱动），不变或微调
+- [ ] `ui/components/collection.ts`：新增装备图鉴（equipment codex，含头像预览 + 效用说明）；`renderColorCodex` 保留
+- [ ] `ui/controller.ts`：`[data-equip-color]` / `[data-unequip-color]` → `[data-equip-equipment]` / `[data-unequip-equipment]`，调 `mutations.equipEquipment` / `unequipEquipment`
+- [ ] `ui/components/header.ts`：主题 swatch 保留（colorsOwned 驱动），不变或微调
 
 ### 6. 测试
 - [ ] `tests/engine/color-system.test.ts`：CL 组改造——装备相关改为装备系统测试（collect/equip/unequip/effects/级联解锁）

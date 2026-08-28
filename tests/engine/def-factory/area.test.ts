@@ -34,7 +34,7 @@ describe('AreaBuilder', () => {
       .desc('早已干涸的露天泳池。如今堆满器材，偶尔被学生们当作训练场。')
       .spots('base:spot:pool_train')
       .adjacent('base:area:abydos_campus')
-      .theme('base:color:abydos-sand', { playerBubble: '#3ec6e0' })
+      .theme('base:group:abydos-sand', { playerBubble: '#3ec6e0' })
       .build();
     expect(def).toEqual<AreaDef>({
       id: 'base:area:abydos_pool',
@@ -43,7 +43,7 @@ describe('AreaBuilder', () => {
       description: '早已干涸的露天泳池。如今堆满器材，偶尔被学生们当作训练场。',
       defaultSpots: ['base:spot:pool_train'],
       adjacentAreaIds: ['base:area:abydos_campus'],
-      theme: { colorId: 'base:color:abydos-sand', tokens: { playerBubble: '#3ec6e0' } },
+      theme: { colorGroupId: 'base:group:abydos-sand', tokens: { playerBubble: '#3ec6e0' } },
     });
   });
 

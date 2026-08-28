@@ -29,10 +29,10 @@
 
 遵循现有 controller-core/modals/panels 模式：**自由函数 + `ctrl: UIController` 参数 + `import type` 反向依赖（无运行时环）**，controller.ts 保留一行委托壳；需跨模块访问的私有字段（如 `themeFloatOpen`）改 `@internal` public（已有 `refreshTimer`/`panelState` 先例）。
 
-1. **`controller-events.ts`（~110 行）**：mount() 内 EventBus 订阅块（136-234）——onAny 揭示刷新、storyRewarded 奖励排队、poolGateChanged、storyAreaTraveled、聊天流清理、story 完成/触发、chatTextShown。导出 `bindEvents(ctrl)`。
-2. **`controller-theme.ts`（~115 行）**：`restoreThemeFloat`（296-309）+ `applyTheme`（315-401，场景栈合并 + CSS 变量注入的运行时逻辑，与 theme-tree.ts 纯色树区分）+ `themeFloatOpen`/`themeFloatPos` 字段（92-93）。
-3. **`controller-save.ts`（~50 行）**：收敛散落在 bindActions 608-631（#save-game/#load-game）与 controller-panels 154-165（#load-game-init）的存/读档逻辑，统一 SaveSystem.load → game.load → restoreHistories 流程。
-4. **`controller-actions-*.ts`（5 个域模块）**：bindActions() 主体（520-1006，约 486 行）按现有注释分组拆出，每模块导出 `bind<域>Actions(ctrl)`，render() 依次调用：
+1. `controller-events.ts`（~110 行）**：mount() 内 EventBus 订阅块（136-234）——onAny 揭示刷新、storyRewarded 奖励排队、poolGateChanged、storyAreaTraveled、聊天流清理、story 完成/触发、chatTextShown。导出 `bindEvents(ctrl)`。
+2. `controller-theme.ts`（~115 行）**：`restoreThemeFloat`（296-309）+ `applyTheme`（315-401，场景栈合并 + CSS 变量注入的运行时逻辑，与 theme-tree.ts 纯色树区分）+ `themeFloatOpen`/`themeFloatPos` 字段（92-93）。
+3. `controller-save.ts`（~50 行）**：收敛散落在 bindActions 608-631（#save-game/#load-game）与 controller-panels 154-165（#load-game-init）的存/读档逻辑，统一 SaveSystem.load → game.load → restoreHistories 流程。
+4. `controller-actions-*.ts`（5 个域模块）**：bindActions() 主体（520-1006，约 486 行）按现有注释分组拆出，每模块导出 `bind<域>Actions(ctrl)`，render() 依次调用：
    - `controller-actions-topbar.ts` — 顶栏/全局工具条 + Tab 切换（521-652，约 130 行）
    - `controller-actions-contacts.ts` — 通讯录/角色 + Gacha 入口 + 角色成长（654-781，约 65 行）
    - `controller-actions-theme.ts` — 主题交互 data-* 事件绑定（696-758，约 65 行；注意与 controller-theme.ts 的"应用 CSS 变量"区分）

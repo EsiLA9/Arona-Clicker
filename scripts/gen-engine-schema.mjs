@@ -31,7 +31,6 @@ const ID_REF_TABLE = {
   Funclet: 'funcletDefs',
   // Character 重构表（docs-818/12-character-rework.md §2）
   Variant: 'characterVariants',
-  Color: 'colors',
   GachaPool: 'gachaPools',
   ChatMessage: 'chatMessages',
   CultivateCurve: 'cultivateCurves',

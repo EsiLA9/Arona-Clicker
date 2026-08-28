@@ -57,7 +57,7 @@ status: handoff
 |---|---|
 | `tools/datapack-editor/schema/engine-schema.sync.test.ts` | `enhancements.productionTags 覆盖了 engine 类型中不存在的字段（请先补 types 或移除该覆盖）` |
 
-> `src/data/base/enhancements.ts` 本次被大量改写（141 增 / 216 删，含价格变动）。`productionTags` 字段在 `editor-extras.ts` 有覆盖但 `src/engine/types/**` 无对应类型。处理方式二选一：① 在 types 补 `productionTags` 字段后 `npm run gen:schema`；② 移除 editor-extras 的该覆盖。需确认这是本任务引入还是既有。
+> `src/data/base/enhancements.ts` 本次被大量改写（141 增 / 216 删，含价格变动）。`productionTags` 字段在 `editor-extras.ts` 有覆盖但 `src/engine/types/` 无对应类型。处理方式二选一：① 在 types 补 `productionTags` 字段后 `npm run gen:schema`；② 移除 editor-extras 的该覆盖。需确认这是本任务引入还是既有。
 
 ### C. 疑似既有、需先确认是否本任务引入（用 git stash 对照）
 
@@ -78,7 +78,7 @@ status: handoff
 3. **[必须] 处理 `engine-schema.sync.test.ts` 漂移**：补 types 的 `productionTags` 并 `npm run gen:schema`，或移除 editor-extras 覆盖。
 4. **[确认] 用 git stash 对照 character-freeze / enhancement-reveal / passive-pool 三条**，判定是否本任务引入；若是则一并修，若否则标注「既有，不修」。
 5. **[收尾] 全库 `npm test` 通过 + `npx tsc --noEmit` 无错 + `npm run gen:schema`（若改 types）**。
-6. **[文档] 同步 `docs-818/`**：GameNum 数值结构、命名乘区语义、脏位机制说明；并删除/更新 `.codebuddy/plans/gamenum-zone-affector-tag_e532708a(未完成).md` 那份冲突的旧「ZoneRegistry 表」方案，避免后续误解。
+6. **[文档] 同步 `docs-818/`：GameNum 数值结构、命名乘区语义、脏位机制说明；并删除/更新 `.codebuddy/plans/gamenum-zone-affector-tag_e532708a(未完成).md` 那份冲突的旧「ZoneRegistry 表」方案，避免后续误解。
 
 ---
 
@@ -86,7 +86,7 @@ status: handoff
 
 - **两套计划冲突**：`.codebuddy/plans/gamenum-zone-affector-tag_e532708a(未完成).md` 是旧方案（独立 `tag-registry.ts`/`zone-registry.ts` 模块 + zone 叶子查表）；当前代码已实现的是「节点 childMulMap + 脏位」方案（与激活的 `plan.md` 一致）。**以当前代码为准，旧计划作废。**
 - **不要引入第二种乘积语义**：累乘区必须写成贡献 `(f-1)` 并入 `1+Σ`，不要新增 `product` 分支。
-- **AGENTS.md 纪律**：状态变更走 `StateMutationService`；改 `src/engine/types/**` 必 `npm run gen:schema` 且同步 `editor-extras.ts`；禁止存档迁移代码；机制改动带 vitest。
+- **AGENTS.md 纪律**：状态变更走 `StateMutationService`；改 `src/engine/types/` 必 `npm run gen:schema` 且同步 `editor-extras.ts`；禁止存档迁移代码；机制改动带 vitest。
 - **调试入口**：`game-num.test.ts` 已绿，可作为 childMulMap / 脏位 / 1+Σ 的行为参照；spot-tag 测试是 tag 动态变化回归的最小复现。
 - **当前工作树已 modified 的文件**（与本任务相关）：`src/data/base/enhancements.ts`、`src/data/base/character-rework.ts`、`src/engine/effect/affector-engine.ts`、`src/engine/effect/affector-text.ts`、`src/engine/expression/game-num.ts`、`src/engine/expression/game-num-eval.ts`、`src/engine/expression/value-system.ts`、`src/engine/game-instance.ts`、`tests/engine/game-num.test.ts`。其中 `enhancements.ts`/`character-rework.ts` 改动量最大，是多数数据类失败的根源候选。
 

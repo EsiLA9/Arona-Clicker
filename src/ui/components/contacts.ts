@@ -61,19 +61,19 @@ export function renderContactsTab(
       </div>`
     : '';
 
-  // 主题切换：已解锁色彩 swatch
-  const ownedColors = game.colorSystem.ownedColors(game.state);
-  const activeColor = game.state.activeColor;
-  const themeRow = ownedColors.length
+  // 主题切换：已解锁色彩组 swatch
+  const ownedGroups = game.colorSystem.ownedGroups(game.state);
+  const activeGroupId = game.state.activeGroupId;
+  const themeRow = ownedGroups.length
     ? `
       <div class="contact-themes">
-        <h4 class="contact-school">主题色彩</h4>
+        <h4 class="contact-school">主题色彩组</h4>
         <div class="theme-swatches">
-          <button class="theme-swatch default ${!activeColor ? 'active' : ''}" data-activate-color="" title="默认主题">默认</button>
-          ${ownedColors.map(c => `
-            <button class="theme-swatch ${activeColor === c.id ? 'active' : ''}"
-              data-activate-color="${c.id}" title="${ctx.escapeHtml(c.name)}"
-              style="--swatch:${c.theme['primary'] ?? '#888'}">${ctx.escapeHtml(c.name)}</button>`).join('')}
+          <button class="theme-swatch default ${!activeGroupId ? 'active' : ''}" data-activate-group="" title="默认主题">默认</button>
+          ${ownedGroups.map(g => `
+            <button class="theme-swatch ${activeGroupId === g.id ? 'active' : ''}"
+              data-activate-group="${g.id}" title="${ctx.escapeHtml(g.name)}"
+              style="--swatch:${game.colorSystem.themeSwatchColor({ colorGroupId: g.id }) ?? '#888'}">${ctx.escapeHtml(g.name)}</button>`).join('')}
         </div>
       </div>`
     : '';

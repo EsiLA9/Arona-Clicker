@@ -23,7 +23,6 @@ import {
   CharacterPersistScope,
   CharacterVariantDef,
   ChatMessageDef,
-  ColorDef,
   ColorEquipmentDef,
   ColorGroupDef,
   CultivateCurveDef,
@@ -70,7 +69,6 @@ export class Registry {
   private _characterVariants: Map<string, CharacterVariantDef> = new Map();
   private _cultivateCurves: Map<string, CultivateCurveDef> = new Map();
   private _gachaPools: Map<string, GachaPoolDef> = new Map();
-  private _colors: Map<string, ColorDef> = new Map();
   private _colorGroups: Map<string, ColorGroupDef> = new Map();
   private _colorEquipments: Map<string, ColorEquipmentDef> = new Map();
   private _themeDesigns: Map<string, ThemeDesignDef> = new Map();
@@ -125,9 +123,7 @@ export class Registry {
   get cultivateCurves(): ReadonlyMap<string, CultivateCurveDef> { return this._cultivateCurves; }
   /** 卡池表（PoolId → Def）。 */
   get gachaPools(): ReadonlyMap<string, GachaPoolDef> { return this._gachaPools; }
-  /** 色彩表（ColorId → Def）。 */
-  get colors(): ReadonlyMap<string, ColorDef> { return this._colors; }
-  /** 颜色组表（ColorGroupId → Def）。 */
+  /** 色彩组表（ColorGroupId → Def；唯一色彩实体）。 */
   get colorGroups(): ReadonlyMap<string, ColorGroupDef> { return this._colorGroups; }
   /** 色彩装备表（EquipmentId → Def）。 */
   get colorEquipments(): ReadonlyMap<string, ColorEquipmentDef> { return this._colorEquipments; }
@@ -171,27 +167,17 @@ export class Registry {
         }
       }
     }
-    for (const g of this._colorGroups.values()) {
-      for (const slot of g.slots) {
-        if (!this._colors.has(slot.colorId)) {
-          throw new RegistryError(`颜色组 ${g.id} 引用了未定义的颜色 "${slot.colorId}"`);
-        }
-      }
-    }
     for (const e of this._colorEquipments.values()) {
       if (!this._colorGroups.has(e.colorGroupId)) {
         throw new RegistryError(`色彩装备 ${e.id} 引用了未定义的颜色组 "${e.colorGroupId}"`);
       }
-      if (e.themeColorId && !this._colors.has(e.themeColorId)) {
-        throw new RegistryError(`色彩装备 ${e.id} 引用了未定义的主题色 "${e.themeColorId}"`);
-      }
-      if (e.theme?.colorId && !this._colors.has(e.theme.colorId)) {
-        throw new RegistryError(`色彩装备 ${e.id} 的主题引用了未定义的颜色 "${e.theme.colorId}"`);
+      if (e.theme?.colorGroupId && !this._colorGroups.has(e.theme.colorGroupId)) {
+        throw new RegistryError(`色彩装备 ${e.id} 的主题引用了未定义的颜色组 "${e.theme.colorGroupId}"`);
       }
     }
     for (const d of this._themeDesigns.values()) {
-      if (d.theme.colorId && !this._colors.has(d.theme.colorId)) {
-        throw new RegistryError(`配色设计 ${d.id} 引用了未定义的颜色 "${d.theme.colorId}"`);
+      if (d.theme.colorGroupId && !this._colorGroups.has(d.theme.colorGroupId)) {
+        throw new RegistryError(`配色设计 ${d.id} 引用了未定义的颜色组 "${d.theme.colorGroupId}"`);
       }
     }
   }
@@ -334,7 +320,6 @@ export class Registry {
     this._characterVariants.clear();
     this._cultivateCurves.clear();
     this._gachaPools.clear();
-    this._colors.clear();
     this._colorGroups.clear();
     this._colorEquipments.clear();
     this._themeDesigns.clear();
@@ -403,9 +388,6 @@ export class Registry {
         }
         this._gachaPools.set(pool.id, pool);
       }
-    }
-    if (dp.colors) {
-      for (const c of dp.colors) this._colors.set(c.id, c);
     }
     if (dp.colorGroups) {
       for (const g of dp.colorGroups) this._colorGroups.set(g.id, g);

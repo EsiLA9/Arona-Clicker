@@ -52,23 +52,17 @@ function renderAreaDesignsSection(ctx: UIContext): string {
 
 export function renderHeader(ctx: UIContext): string {
   const { view, game } = ctx;
-  const ownedColors = game.colorSystem.ownedColors(game.state);
-  const activeColor = game.state.activeColor;
-  const customTheme = game.state.customTheme;
+  const activeGroupId = game.state.activeGroupId;
+  // 色板只展示已拥有的色彩组（未解锁的不渲染，避免"看得到用不了"）
+  const ownedGroups = game.colorSystem.ownedGroups(game.state);
   const palette = `
-        <button class="theme-swatch default ${!activeColor && !customTheme ? 'active' : ''}" data-activate-color="" title="默认主题">默认</button>
-        ${ownedColors.map(c => `
-          <button class="theme-swatch ${activeColor === c.id && !customTheme ? 'active' : ''}"
-            data-activate-color="${c.id}" title="${ctx.escapeHtml(c.name)}"
-            style="--swatch:${c.theme['primary'] ?? '#888'}">${ctx.escapeHtml(c.name)}</button>`).join('')}
-        ${[...game.registry.colorGroups.values()].map(g => {
-          const slot = g.slots.find(s => s.role === 'primary') ?? g.slots[0];
-          const color = slot ? game.registry.colors.get(slot.colorId) : undefined;
-          const primary = color?.theme['primary'] ?? '#888';
-          const active = customTheme?.colorId === slot?.colorId ? 'active' : '';
+        <button class="theme-swatch default ${!activeGroupId ? 'active' : ''}" data-activate-group="" title="默认主题">默认</button>
+        ${ownedGroups.map(g => {
+          const primary = game.colorSystem.themeSwatchColor({ colorGroupId: g.id }) ?? '#888';
+          const active = activeGroupId === g.id ? 'active' : '';
           return `
-          <button class="theme-swatch group ${active}" data-activate-custom-theme="${g.id}"
-            title="自定义主题 · ${ctx.escapeHtml(g.name)}" style="--swatch:${primary}">${ctx.escapeHtml(g.name)}</button>`;
+          <button class="theme-swatch group ${active}" data-activate-group="${g.id}"
+            title="${ctx.escapeHtml(g.name)}" style="--swatch:${primary}">${ctx.escapeHtml(g.name)}</button>`;
         }).join('')}`;
   return `
     <header class="topbar">

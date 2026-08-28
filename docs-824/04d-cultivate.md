@@ -22,7 +22,7 @@ applyExp(variantId, exp)
  │    ├─ 等级 +1
  │    ├─ 经验 -= 门槛
  │    └─ 应用该级 attachment（额外属性/奖励）
- └─ 发 expApplied 事件 → UI 刷新
+ └─ 发 cultivated（kind:'exp'）事件 → UI 刷新 ==new==（原 `expApplied` 不存在）
 ```
 
 ## 突破（breakthroughStar）
@@ -33,7 +33,7 @@ applyExp(variantId, exp)
 ## 统计 / 事件
 
 - 每级推进同步记统计（`statsService.record` 培养相关指标）；
-- `expApplied` / `starUpgraded` 事件驱动 UI 动画与通知。
+- `cultivated` 事件（升级 `kind:'exp'` / 突破 `kind:'star'`）驱动 UI 动画与通知。==new==（原 `expApplied`/`starUpgraded` 不存在，统一为 `cultivated`）
 
 ---
 

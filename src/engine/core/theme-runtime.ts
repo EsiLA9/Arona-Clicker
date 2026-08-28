@@ -1,37 +1,37 @@
 // ============================================================
 // engine/theme-runtime.ts — 运行时主题管理框架（分层叠加）
 //
-// 将 Color 自身与游戏实际结构解耦：场景（Area/学生）与临时演出
-// 不再绑定「必须是某个 Color 的完整主题」，而是可以：
-//   - 引用多个 ColorDef（colorId）各取一套 token
+// 将色彩组（ColorGroup）自身与游戏实际结构解耦：场景（Area/学生）与临时演出
+// 不再绑定「必须是某个组的完整主题」，而是可以：
+//   - 引用多个 ColorGroupDef（groupId）各取一套 token
 //   - 或自定义局部 token 覆盖（tokens）
-//   - 或两者混合（用某 Color 打底 + 局部 override）
+//   - 或两者混合（用某组打底 + 局部 override）
 //
 // 叠加（优先级从高到低）：
 //   L1 ephemeral 临时演出：Talklet/Trigger 推入的临时层，可覆盖一切，可帧过期
 //   L2 scene      场景特色：当前 Area / 当前对话学生，进入设、离开清
-//   L3 player     玩家全局主题：state.activeColor 常驻基色
+//   L3 player     玩家全局主题：state.activeGroupId 常驻基色
 // player/area/student 三层的相对优先级可由玩家自定义（setLayerOrder）；
 // 演出层不参与排序，始终最高。前端实际消费的 theme-tree =
 // 各层按优先级合并（高层 token 覆盖低层）。
 // ============================================================
 
-import type { ColorId, ThemeOrderScope, ThemeToken } from '../types/character';
+import type { ColorGroupId, ThemeOrderScope, ThemeToken } from '../types/character';
 
 export type { ThemeOrderScope } from '../types/character';
 
 /** 参与玩家自定义排序的三层（低→高缺省顺序）。 */
 export const DEFAULT_LAYER_ORDER: ThemeOrderScope[] = ['player', 'area', 'student'];
 
-/** 单层主题来源：引用 Color（整包 token）或自定义 token 覆盖，或混合。 */
+/** 单层主题来源：引用色彩组（整包 token）或自定义 token 覆盖，或混合。 */
 export interface ThemeLayer {
   /** 层的唯一标识（用于 pop/清除；缺省自动生成）。 */
   id?: string;
   /** 层类型：决定它与其它层叠加的槽位语义。 */
   scope: ThemeOrderScope | 'ephemeral';
-  /** 引用 ColorDef；存在时先取其整包 token 作为基底。 */
-  colorId?: ColorId;
-  /** 局部 token 覆盖；在 colorId 基底之上逐 key 覆盖。 */
+  /** 引用 ColorGroupDef；存在时先取其整包 token 作为基底。 */
+  groupId?: ColorGroupId;
+  /** 局部 token 覆盖；在 groupId 基底之上逐 key 覆盖。 */
   tokens?: Partial<Record<ThemeToken, string>>;
 }
 
@@ -43,8 +43,8 @@ export type ThemeLayerResolver = (layer: ThemeLayer) => ThemeTokens;
 
 /** 合并后的最终主题结果。 */
 export interface ResolvedTheme {
-  /** 参与合并的最底层 colorId（通常来自 player 或 scene），无则 null。 */
-  colorId: ColorId | null;
+  /** 参与合并的最底层 groupId（通常来自 player 或 scene），无则 null。 */
+  groupId: ColorGroupId | null;
   /** 合并后的最终 token 表（高层覆盖低层）。 */
   tokens: ThemeTokens;
   /** 实际参与叠加的层 id（调试/溯源用，从低到高）。 */
@@ -171,18 +171,18 @@ export class RuntimeThemeManager {
       if (layer) ordered.push(layer);
     }
     for (const e of this.ephemeralStack) ordered.push(e.layer);
-    if (ordered.length === 0) return { colorId: null, tokens: { ...DEFAULT_TOKENS }, layers: [] };
+    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, layers: [] };
 
     let merged: ThemeTokens = {};
-    let colorId: ColorId | null = null;
+    let groupId: ColorGroupId | null = null;
     // 先求基底（最底层）整包 token，再逐层覆盖
     const base = this.resolveLayer(ordered[0]);
     merged = { ...base };
-    if (ordered[0].colorId) colorId = ordered[0].colorId;
+    if (ordered[0].groupId) groupId = ordered[0].groupId;
     for (const layer of ordered.slice(1)) {
-      if (layer.colorId) {
+      if (layer.groupId) {
         merged = { ...merged, ...this.resolveLayer(layer) };
-        if (!colorId) colorId = layer.colorId;
+        if (!groupId) groupId = layer.groupId;
       }
       if (layer.tokens) {
         for (const [key, value] of Object.entries(layer.tokens)) {
@@ -191,7 +191,7 @@ export class RuntimeThemeManager {
       }
     }
     return {
-      colorId,
+      groupId,
       tokens: merged,
       layers: ordered.map(l => l.id ?? l.scope),
     };

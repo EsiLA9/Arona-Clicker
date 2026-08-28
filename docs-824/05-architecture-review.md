@@ -187,6 +187,8 @@
 - `game-num-tag.ts`：tag 效果维护 / Affector 桥接
 - `game-num.ts`：保留 evaluate() / getNamedValue() / 注册表 / 缓存
 
+==new== **执行状态（taskProduction 后回填）**：切割已完成——`game-num-build.ts` / `game-num-tag.ts` / `game-num-internal.ts` 拆出，`game-num.ts` 收敛为门面（构造注入 + 事件订阅 + 求值入口）。`getNamedValue()` / 命名数值注册表（named）已于 Phase 7 作为死代码删除，门面不再保留注册表职责。本节行号与符号分布为诊断时点基线，保留原文不改。
+
 ---
 
 ### 7. `system/state-mutation-service.ts` — 534 行

@@ -9,37 +9,15 @@ import type { UIController } from './controller';
 
 /** 绑定主题交互事件（render 后调用）。 */
 export function bindThemeActions(ctrl: UIController): void {
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-activate-color]').forEach(button => {
+  // 主题切换：激活某色彩组（统一走 ownership 闸门，null = 恢复默认）。
+  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-activate-group]').forEach(button => {
     button.addEventListener('click', () => {
-      const colorId = button.dataset.activateColor || null;
-      if (!ctrl.game.mutations.activateTheme(colorId)) {
-        ctrl.toast.show('该色彩尚未解锁', 'error');
+      const groupId = button.dataset.activateGroup || null;
+      if (!ctrl.game.mutations.activateTheme(groupId)) {
+        ctrl.toast.show('该色彩组尚未解锁', 'error');
         return;
       }
-      ctrl.game.mutations.setCustomTheme(null);
-      ctrl.toast.show(colorId ? '主题已切换' : '已恢复默认主题', 'success');
-      ctrl.render();
-    });
-  });
-  // 自定义主题：从 ColorGroup 取主色位 Color 构建 ThemeDef（绕过 ownership 闸门）。
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-activate-custom-theme]').forEach(button => {
-    button.addEventListener('click', () => {
-      const groupId = button.dataset.activateCustomTheme;
-      if (!groupId) {
-        ctrl.game.mutations.setCustomTheme(null);
-        ctrl.toast.show('已恢复默认主题', 'success');
-        ctrl.render();
-        return;
-      }
-      const group = ctrl.game.registry.colorGroups.get(groupId);
-      const slot = group?.slots.find(s => s.role === 'primary') ?? group?.slots[0];
-      if (!slot) {
-        ctrl.toast.show('该色组无效', 'error');
-        return;
-      }
-      ctrl.game.mutations.setCustomTheme({ colorId: slot.colorId, tokens: group?.theme });
-      ctrl.game.mutations.activateTheme(null);
-      ctrl.toast.show('已应用自定义主题', 'success');
+      ctrl.toast.show(groupId ? '主题已切换' : '已恢复默认主题', 'success');
       ctrl.render();
     });
   });

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T04:03:17.698Z",
+  "generatedAt": "2026-08-28T10:17:39.743Z",
   "sourceDir": "src/engine/types",
   "defMap": {
     "inits": {
@@ -68,10 +68,6 @@
     },
     "cultivateCurves": {
       "type": "CultivateCurveDef",
-      "shape": "array"
-    },
-    "colors": {
-      "type": "ColorDef",
       "shape": "array"
     },
     "colorGroups": {
@@ -559,13 +555,13 @@
           "description": "设施特色主题：声明后该 Spot 卡片/详情以自身 ThemeTree 渲染（绕过全局参考树、作用域化落到卡片）。",
           "fields": [
             {
-              "key": "colorId",
+              "key": "colorGroupId",
               "required": false,
               "kind": "ref",
-              "tsType": "ColorId",
-              "label": "引用色彩",
-              "description": "引用 ColorDef id；缺省仅用 tokens 覆盖。",
-              "table": "colors"
+              "tsType": "ColorGroupId",
+              "label": "引用色彩组",
+              "description": "引用 ColorGroupDef id（其 theme-tree 预设整包打底）；缺省仅用 tokens 覆盖。",
+              "table": "colorGroups"
             },
             {
               "key": "tokens",
@@ -1620,13 +1616,13 @@
           "description": "对话空间特色主题：打开该学生的对话空间时界面自动切换。",
           "fields": [
             {
-              "key": "colorId",
+              "key": "colorGroupId",
               "required": false,
               "kind": "ref",
-              "tsType": "ColorId",
-              "label": "引用色彩",
-              "description": "引用 ColorDef id；缺省仅用 tokens 覆盖。",
-              "table": "colors"
+              "tsType": "ColorGroupId",
+              "label": "引用色彩组",
+              "description": "引用 ColorGroupDef id（其 theme-tree 预设整包打底）；缺省仅用 tokens 覆盖。",
+              "table": "colorGroups"
             },
             {
               "key": "tokens",
@@ -1717,53 +1713,6 @@
         }
       ]
     },
-    "ColorDef": {
-      "fields": [
-        {
-          "key": "id",
-          "required": true,
-          "kind": "ref",
-          "tsType": "ColorId",
-          "label": "ID",
-          "table": "colors"
-        },
-        {
-          "key": "name",
-          "required": true,
-          "kind": "string",
-          "tsType": "string",
-          "label": "名称"
-        },
-        {
-          "key": "description",
-          "required": false,
-          "kind": "string",
-          "tsType": "string",
-          "label": "描述"
-        },
-        {
-          "key": "theme",
-          "required": true,
-          "kind": "record",
-          "tsType": "Record<ThemeToken, string>",
-          "label": "主题",
-          "description": "主题 token 表。至少给 primary；未给的 token 由 primary 经 HSL 规则确定性派生，",
-          "value": {
-            "key": "$",
-            "kind": "string",
-            "tsType": "string"
-          }
-        },
-        {
-          "key": "unlock",
-          "required": false,
-          "kind": "hand",
-          "tsType": "Condition | ConditionGroup",
-          "label": "解锁条件",
-          "description": "解锁条件（引用 protoStats / story flag 等）；缺省 = 不可自动解锁"
-        }
-      ]
-    },
     "ColorGroupDef": {
       "fields": [
         {
@@ -1845,13 +1794,12 @@
                 }
               },
               {
-                "key": "colorId",
+                "key": "color",
                 "required": true,
-                "kind": "ref",
-                "tsType": "ColorId",
-                "label": "颜色",
-                "description": "引用的颜色",
-                "table": "colors"
+                "kind": "string",
+                "tsType": "string",
+                "label": "色值",
+                "description": "色值（#rrggbb）"
               }
             ],
             "tsType": "ColorGroupSlot"
@@ -1863,7 +1811,15 @@
           "kind": "hand",
           "tsType": "Partial<Record<ThemeToken, string>>",
           "label": "主题覆盖",
-          "description": "部分主题覆盖（token 键，如 panel / playerBubble / bg）。"
+          "description": "theme-tree 预设覆盖表（token 键，如 panel / playerBubble / bg / primary）。"
+        },
+        {
+          "key": "unlock",
+          "required": false,
+          "kind": "hand",
+          "tsType": "Condition | ConditionGroup",
+          "label": "解锁条件",
+          "description": "解锁条件（引用 protoStats / story flag 等）；缺省 = 不可自动解锁。"
         }
       ]
     },
@@ -1896,7 +1852,7 @@
           "kind": "ref",
           "tsType": "ColorGroupId",
           "label": "颜色组",
-          "description": "引用的颜色组（决定装备学生的头像视觉）",
+          "description": "引用的颜色组（决定装备学生的头像视觉与主题预设）",
           "table": "colorGroups"
         },
         {
@@ -1913,15 +1869,6 @@
           }
         },
         {
-          "key": "themeColorId",
-          "required": false,
-          "kind": "ref",
-          "tsType": "ColorId",
-          "label": "主题色",
-          "description": "可选：该装备关联的主题色。激活为 UI 全局主题时使用（独立于头像）。",
-          "table": "colors"
-        },
-        {
           "key": "theme",
           "required": false,
           "kind": "object",
@@ -1930,13 +1877,13 @@
           "description": "可选：装备提供的完整主题（用于该学生的实体主题槽 equipment 来源）。",
           "fields": [
             {
-              "key": "colorId",
+              "key": "colorGroupId",
               "required": false,
               "kind": "ref",
-              "tsType": "ColorId",
-              "label": "引用色彩",
-              "description": "引用 ColorDef id；缺省仅用 tokens 覆盖。",
-              "table": "colors"
+              "tsType": "ColorGroupId",
+              "label": "引用色彩组",
+              "description": "引用 ColorGroupDef id（其 theme-tree 预设整包打底）；缺省仅用 tokens 覆盖。",
+              "table": "colorGroups"
             },
             {
               "key": "tokens",
@@ -2016,13 +1963,13 @@
           "description": "主题定义（colorId 打底 + tokens 覆盖）",
           "fields": [
             {
-              "key": "colorId",
+              "key": "colorGroupId",
               "required": false,
               "kind": "ref",
-              "tsType": "ColorId",
-              "label": "引用色彩",
-              "description": "引用 ColorDef id；缺省仅用 tokens 覆盖。",
-              "table": "colors"
+              "tsType": "ColorGroupId",
+              "label": "引用色彩组",
+              "description": "引用 ColorGroupDef id（其 theme-tree 预设整包打底）；缺省仅用 tokens 覆盖。",
+              "table": "colorGroups"
             },
             {
               "key": "tokens",
@@ -2529,13 +2476,11 @@
     "ChatTextFont",
     "ChatTextKind",
     "ChatTextStyle",
-    "ColorDef",
     "ColorEquipmentDef",
     "ColorGroupDef",
     "ColorGroupId",
     "ColorGroupRole",
     "ColorGroupSlot",
-    "ColorId",
     "Comparator",
     "CompletedStory",
     "CompositionType",

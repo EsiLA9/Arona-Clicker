@@ -13,22 +13,22 @@ function freshGame(): GameInstance {
   return g;
 }
 
-describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () => {
-  // 用一个能按 colorId 解析 token 的解析器（模拟 ColorSystem 注入）
+describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', () => {
+  // 用一个能按 groupId 解析 token 的解析器（模拟 ColorSystem 注入）
   function makeManager() {
-    const colors: Record<string, Record<string, string>> = {
+    const groups: Record<string, Record<string, string>> = {
       blue: { primary: '#3b82f6', bg: '#eef4ff' },
       pink: { primary: '#ec4899', bg: '#fdeef7' },
     };
     const manager = new RuntimeThemeManager(layer => {
       const out: Record<string, string> = {};
-      if (layer.colorId && colors[layer.colorId]) Object.assign(out, colors[layer.colorId]);
+      if (layer.groupId && groups[layer.groupId]) Object.assign(out, groups[layer.groupId]);
       if (layer.tokens) {
         for (const [k, v] of Object.entries(layer.tokens)) if (v != null) out[k] = v;
       }
       return out;
     });
-    return { manager, colors };
+    return { manager, groups };
   }
 
   test('RUNTIME-01 无层 → 返回默认 primary，不崩溃', () => {
@@ -38,30 +38,30 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
     expect(r.tokens['primary']).toBeTruthy();
   });
 
-  test('RUNTIME-02 玩家层生效：引用 color 整包 token', () => {
+  test('RUNTIME-02 玩家层生效：引用组整包 token', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
     const r = manager.resolve();
     expect(r.tokens['primary']).toBe('#3b82f6');
     expect(r.tokens['bg']).toBe('#eef4ff');
-    expect(r.colorId).toBe('blue');
+    expect(r.groupId).toBe('blue');
   });
 
   test('RUNTIME-03 场景层（Area）覆盖玩家层对应 token，其余保留', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     const r = manager.resolve();
     // 后压入的场景层覆盖 player 的 primary/bg
     expect(r.tokens['primary']).toBe('#ec4899');
     expect(r.tokens['bg']).toBe('#fdeef7');
-    // 场景层引用的 color 覆盖后，colorId 溯源应为 player（最底层 color）
-    expect(r.colorId).toBe('blue');
+    // 场景层引用的组覆盖后，groupId 溯源应为 player（最底层组）
+    expect(r.groupId).toBe('blue');
   });
 
   test('RUNTIME-04 学生场景栈覆盖 Area：打开学生对话后关闭回退 Area', () => {
     const { manager } = makeManager();
-    manager.pushScene({ scope: 'area', colorId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'blue' });
     const before = manager.resolve();
     expect(before.tokens['primary']).toBe('#3b82f6');
     // 打开学生对话 → 压入 student 层
@@ -76,8 +76,8 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
 
   test('RUNTIME-05 临时演出层最高优先级，且可 pop 恢复', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     const id = manager.pushEphemeral({ scope: 'ephemeral', tokens: { primary: '#ff0000', 'player-bubble': '#ff0000' } });
     const r = manager.resolve();
     expect(r.tokens['primary']).toBe('#ff0000');
@@ -88,20 +88,20 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
     expect(after.tokens['primary']).toBe('#ec4899');
   });
 
-  test('RUNTIME-06 局部 token 覆盖与 colorId 引用混合', () => {
+  test('RUNTIME-06 局部 token 覆盖与 groupId 引用混合', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink', tokens: { 'player-bubble': '#123456' } });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink', tokens: { 'player-bubble': '#123456' } });
     const r = manager.resolve();
-    expect(r.tokens['primary']).toBe('#ec4899'); // 来自 pink 的 color 基底
+    expect(r.tokens['primary']).toBe('#ec4899'); // 来自 pink 的组基底
     expect(r.tokens['player-bubble']).toBe('#123456'); // 局部覆盖
-    expect(r.tokens['bg']).toBe('#fdeef7'); // 保留 color 其它 token
+    expect(r.tokens['bg']).toBe('#fdeef7'); // 保留组其它 token
   });
 
   test('RUNTIME-07 同 scope 场景重推覆盖，不重复压栈', () => {
     const { manager } = makeManager();
-    manager.pushScene({ scope: 'area', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.pushScene({ scope: 'area', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     expect(manager.resolve().tokens['primary']).toBe('#ec4899');
     manager.popScene('area');
     // 同 scope 已覆盖为一份，pop 后无 area 层
@@ -121,8 +121,8 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
 
   test('RUNTIME-09 玩家自定义优先级：area 提到最高（player < student < area）', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     manager.pushScene({ scope: 'student', tokens: { primary: '#22c55e', 'player-bubble': '#112233' } });
     manager.setLayerOrder(['player', 'student', 'area']);
     const r = manager.resolve();
@@ -131,15 +131,15 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
     expect(r.tokens['bg']).toBe('#fdeef7');
     // student 高于 player：player-bubble 取 student 的局部覆盖
     expect(r.tokens['player-bubble']).toBe('#112233');
-    // 溯源取最底层 colorId（player）
-    expect(r.colorId).toBe('blue');
+    // 溯源取最底层 groupId（player）
+    expect(r.groupId).toBe('blue');
     expect(r.layers).toEqual(['player', 'student', 'area']);
   });
 
   test('RUNTIME-10 玩家自定义优先级：player 提到最高（student < area < player）', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     manager.pushScene({ scope: 'student', tokens: { primary: '#22c55e', 'player-bubble': '#112233' } });
     manager.setLayerOrder(['student', 'area', 'player']);
     const r = manager.resolve();
@@ -153,8 +153,8 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
 
   test('RUNTIME-11 非法/不完整优先级保持现有顺序', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     const r = manager.resolve();
     // 缺省顺序：area 覆盖 player
     expect(r.tokens['primary']).toBe('#ec4899');
@@ -168,8 +168,8 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
 
   test('RUNTIME-12 演出层不受优先级排列影响，始终最高', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     manager.setLayerOrder(['area', 'player', 'student']); // player 提到最高
     manager.pushEphemeral({ id: 'fx', scope: 'ephemeral', tokens: { primary: '#ff0000' } });
     const r = manager.resolve();
@@ -179,8 +179,8 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
 
   test('RUNTIME-13 resolveScope：按 scope 取当前生效层（忽略演出层）', () => {
     const { manager } = makeManager();
-    manager.setPlayer({ scope: 'player', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     manager.pushScene({ scope: 'student', tokens: { primary: '#22c55e' } });
     expect(manager.resolveScope('player')['primary']).toBe('#3b82f6');
     expect(manager.resolveScope('area')['primary']).toBe('#ec4899');
@@ -195,8 +195,8 @@ describe('RuntimeThemeManager：多 Color/场景/临时演出分层叠加', () =
 
   test('RUNTIME-14 resolveScope：同 scope 重推后取最新层', () => {
     const { manager } = makeManager();
-    manager.pushScene({ scope: 'area', colorId: 'blue' });
-    manager.pushScene({ scope: 'area', colorId: 'pink' });
+    manager.pushScene({ scope: 'area', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
     expect(manager.resolveScope('area')['primary']).toBe('#ec4899');
   });
 });
@@ -206,8 +206,8 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
 
   test('setTheme effect → handleThemeEffect → 临时层生效', () => {
     game = freshGame();
-    game.mutations.acquireCharacter('Arona', 'gacha'); // 解锁 schale-blue
-    game.mutations.activateTheme('base:color:schale-blue');
+    game.mutations.acquireCharacter('Arona', 'gacha'); // 解锁 schale-solid
+    game.mutations.activateTheme('base:group:schale-solid');
     game.colorSystem.syncPlayerThemeFromState(game.state);
     const base = game.colorSystem.runtimeTheme();
     expect(base.layers).toContain('player');
@@ -215,7 +215,7 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     const handled = game.colorSystem.handleThemeEffect({
       op: 'setTheme',
       target: '',
-      value: { colorId: 'base:color:coral', tokens: { 'player-bubble': '#ff0000' } },
+      value: { colorGroupId: 'base:group:coral', tokens: { 'player-bubble': '#ff0000' } },
     });
     expect(handled).toBe(true);
     const themed = game.colorSystem.runtimeTheme();
@@ -233,16 +233,16 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     expect(handled).toBe(false);
   });
 
-  test('多 Color 叠加：场景覆盖玩家、临时覆盖一切', () => {
+  test('多色彩组叠加：场景覆盖玩家、临时覆盖一切', () => {
     game = freshGame();
     game.mutations.acquireCharacter('Arona', 'gacha');
-    game.mutations.activateTheme('base:color:schale-blue');
+    game.mutations.activateTheme('base:group:schale-solid');
     game.colorSystem.syncPlayerThemeFromState(game.state);
     // 进入千年 Area → 场景层（靛蓝）
-    game.colorSystem.pushSceneTheme({ scope: 'area', colorId: 'base:color:indigo' });
+    game.colorSystem.pushSceneTheme({ scope: 'area', groupId: 'base:group:indigo' });
     expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe('#6366f1');
     // 打开学生对话（无 theme 的默认学生不影响，但此处模拟千年学生有 theme）
-    game.colorSystem.pushSceneTheme({ scope: 'student', colorId: 'base:color:violet' });
+    game.colorSystem.pushSceneTheme({ scope: 'student', groupId: 'base:group:violet' });
     expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe('#8b5cf6');
     // 临时演出压栈 → 最高优先级
     game.colorSystem.pushEphemeralTheme({ scope: 'ephemeral', tokens: { primary: '#111111' } });

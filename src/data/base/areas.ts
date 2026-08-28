@@ -12,7 +12,7 @@ export const baseAreas: AreaDef[] = [
     .spots('base:spot:credit_printer', 'base:spot:comms_terminal', 'base:spot:data_wiper')
     .adjacent('base:area:schale_library', 'base:area:schale_rooftop')
     // 场景特色主题：进入夏莱主厅 → 界面切换为夏莱蓝
-    .theme('base:color:schale-blue')
+    .theme('base:group:schale-solid')
     .build(),
   area('base:area:schale_library', 'base:init:schale_office')
     .name('夏莱资料室')
@@ -35,7 +35,7 @@ export const baseAreas: AreaDef[] = [
     .spots()
     .adjacent('base:area:schale_main')
     // 场景特色主题：天台的黄昏暖橙
-    .theme('base:color:amber')
+    .theme('base:group:amber')
     .build(),
   area('base:area:abydos_campus', 'base:init:abydos')
     .name('阿比多斯旧校舍')
@@ -43,7 +43,7 @@ export const baseAreas: AreaDef[] = [
     .spots('base:spot:abydos_rehab')
     .adjacent('base:area:abydos_pool')
     // 场景特色主题：阿比多斯黄沙
-    .theme('base:color:abydos-sand')
+    .theme('base:group:abydos-sand')
     .build(),
   area('base:area:abydos_pool', 'base:init:abydos')
     .name('废弃泳池')
@@ -51,8 +51,8 @@ export const baseAreas: AreaDef[] = [
     // 进入该 Area 时赠送
     .spots('base:spot:pool_train')
     .adjacent('base:area:abydos_campus')
-    // 场景特色主题 + 局部覆盖：黄沙打底，但聊天气泡单独换成泳池蓝（多 Color 解耦示例）
-    .theme('base:color:abydos-sand', { playerBubble: '#3ec6e0' })
+    // 场景特色主题 + 局部覆盖：黄沙打底，但聊天气泡单独换成泳池蓝（多组解耦示例）
+    .theme('base:group:abydos-sand', { playerBubble: '#3ec6e0' })
     .build(),
   area('base:area:millennium_lab', 'base:init:millennium')
     .name('千禧年研究楼')
@@ -60,7 +60,7 @@ export const baseAreas: AreaDef[] = [
     .spots('base:spot:millennium_lab')
     .adjacent('base:area:millennium_canteen')
     // 场景特色主题：千禧年科技靛蓝
-    .theme('base:color:indigo')
+    .theme('base:group:indigo')
     .build(),
   area('base:area:millennium_canteen', 'base:init:millennium')
     .name('千禧年自助食堂')
@@ -81,7 +81,7 @@ export const baseAreas: AreaDef[] = [
     .spots('base:spot:trinity_donation', 'base:spot:trinity_repair')
     .adjacent('base:area:trinity_tea_room')
     // 场景特色主题：圣堂暖琥珀光
-    .theme('base:color:amber')
+    .theme('base:group:amber')
     .build(),
   area('base:area:trinity_tea_room', 'base:init:trinity')
     .name('茶话会室')
@@ -95,7 +95,7 @@ export const baseAreas: AreaDef[] = [
     .spots('base:spot:gehenna_hall')
     .adjacent('base:area:gehenna_district')
     // 场景特色主题：万魔殿绯红
-    .theme('base:color:crimson')
+    .theme('base:group:crimson')
     .build(),
   area('base:area:gehenna_district', 'base:init:gehenna')
     .name('盖赫纳商业街')

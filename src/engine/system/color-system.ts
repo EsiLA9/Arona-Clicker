@@ -1,15 +1,14 @@
 // ============================================================
-// engine/color-system.ts — 色彩系统（库存查询/解锁编排/HSL 主题派生）
+// engine/color-system.ts — 色彩系统（色彩组库存查询/解锁编排/HSL 主题派生）
 //
-// 主题派生规则：至少配 primary；其余 token 按 HSL 深/浅确定性派生，
-// 显式配置覆盖派生值；派生前景/背景对对比度不足时自动翻转深浅。
+// 主题派生规则：primary 缺省取色彩组主色位（role==='primary'，无则首个 slot）色值；
+// 其余 token 按 HSL 深/浅确定性派生，group.theme 显式配置覆盖派生值；
+// 派生前景/背景对对比度不足时自动翻转深浅。
 // ============================================================
 
 import type {
-  ColorDef,
   ColorGroupDef,
   ColorGroupId,
-  ColorId,
   Condition,
   ConditionGroup,
   Effect,
@@ -100,13 +99,15 @@ export interface EntityThemeOption {
 }
 
 /**
- * 深浅判定的统一明度阈值（0.38）。
- * 引擎层（deriveThemeTokens / readableOn）与 UI 层（theme-tree 的 --ink-on-*）
- * 必须共用此值，避免边界色在两层判定不一致。
- * 以 HSL 明度为感知亮度模型：仅配 primary 的主题（夏莱蓝 #3b82f6、晴空 #38bdf8、
- * 泳装 #3ec6e0、青柠 #a3e635、翡翠 #10b981、青碧 #14b8a6、绯红 #e11d48、
- * 阿比多斯黄沙 #eab308 等）明度均高于此线，自动派生为浅底而非近黑；
- * 仅真正深色（如墨蓝 #1e3a5f 等）保持深底。
+ * 引擎层「主题浅底/深底」判定的明度阈值（HSL 明度，0~1）。
+ * 双层契约（有意为之，勿"统一"掉）：
+ *  - 引擎层（本值 0.38 + HSL 明度）：决定整套主题派生走浅底还是深底。
+ *    仅配 primary 的主题（夏莱蓝 #3b82f6、晴空 #38bdf8、泳装 #3ec6e0、青柠 #a3e635、
+ *    翡翠 #10b981、青碧 #14b8a6、绯红 #e11d48、阿比多斯黄沙 #eab308 等）明度均高于
+ *    此线，自动派生为浅底而非近黑；仅真正深色（如墨蓝 #1e3a5f 等）保持深底。
+ *  - UI 层（theme-tree 的 PERCEIVED_LIGHT_THRESHOLD 0.30 + WCAG 相对亮度）：
+ *    只决定「某个具体背景上文字用白还是黑」，感知亮度模型对中等饱和彩色更准，
+ *    与主题整体深浅是两个不同的判定问题，阈值与模型允许不同。
  */
 export const LIGHTNESS_THRESHOLD = 0.38;
 
@@ -145,14 +146,26 @@ export function deriveThemeTokens(primary: string): Record<string, string> {
   };
 }
 
+/** 色彩组主色位色值（role==='primary'，无则首个 slot；空组返回 undefined）。 */
+export function primaryColorOf(group: ColorGroupDef): string | undefined {
+  const slot = group.slots.find(s => s.role === 'primary') ?? group.slots[0];
+  return slot?.color;
+}
+
 /**
- * 解析色彩的最终 token 表：
- * 显式 theme 全量覆盖 > primary 派生 > 默认 primary。
+ * 解析色彩组的最终 token 表（唯一主题解析路径）：
+ * group.theme 显式覆盖 > primary 派生 > 默认 primary；
+ * primary 缺省取主色位色值。
  * CT-04 对比度防呆：text/bg 对不足阈值时翻转 text 深浅。
  */
-export function resolveTheme(def: Pick<ColorDef, 'theme'>): Record<string, string> {
-  const primary = def.theme['primary'] ?? '#4a7dff';
-  const tokens = { ...deriveThemeTokens(primary), ...def.theme };
+export function resolveTheme(group: ColorGroupDef): Record<string, string> {
+  const primary = group.theme?.['primary'] ?? primaryColorOf(group) ?? '#4a7dff';
+  const tokens = { ...deriveThemeTokens(primary) };
+  if (group.theme) {
+    for (const [key, value] of Object.entries(group.theme)) {
+      if (value != null) tokens[key] = value;
+    }
+  }
   const fg = tokens['text'];
   const bg = tokens['bg'];
   if (fg && bg && contrastRatio(fg, bg) < MIN_CONTRAST) {
@@ -164,50 +177,26 @@ export function resolveTheme(def: Pick<ColorDef, 'theme'>): Record<string, strin
 }
 
 // ============================================================================
-// Color / ColorGroup → theme-tree 快速映射（token 贡献）
+// ColorGroup / ThemeDef → theme-tree 快速映射（token 贡献）
 //
 // 每个实体（角色对话 / Area / Spot / Talklet·Story / 自定义主题）都可把自身
 // 解析为一组 token 贡献，填入全局参考 theme-tree（见 theme-runtime 分层合并）。
-// Color 直接用其 theme；ColorGroup 取其 primary role slot（回退首个）的 Color。
+// ColorGroup 直接 resolveTheme；ThemeDef = 引用组打底 + tokens 局部覆盖。
 // ============================================================================
 
-/** Color → 整包 token 贡献（即 resolveTheme）。 */
-export function themeContributionFromColor(def: ColorDef): ThemeTokens {
-  return resolveTheme(def);
-}
-
 /**
- * ColorGroup → token 贡献：取主色位（role==='primary'，无则首个 slot）引用的 Color，
- * 解析其整包 theme。无主色位 / 主色未定义时返回空表（不污染参考树）。
- */
-export function themeContributionFromGroup(
-  group: ColorGroupDef,
-  getColor: (id: ColorId) => ColorDef | undefined,
-): ThemeTokens {
-  const slot = group.slots.find(s => s.role === 'primary') ?? group.slots[0];
-  const base: ThemeTokens = {};
-  if (slot) {
-    const color = getColor(slot.colorId);
-    if (color) Object.assign(base, resolveTheme(color));
-  }
-  // 组自身声明的部分节点覆盖（panel / playerBubble 等），叠加在主色位 Color 之上
-  if (group.theme) Object.assign(base, group.theme);
-  return base;
-}
-
-/**
- * ThemeDef（声明式主题：引用 Color 打底 + 局部覆盖）→ token 贡献。
+ * ThemeDef（声明式主题：引用 ColorGroup 打底 + 局部覆盖）→ token 贡献。
  * 供 Area / 学生对话 / Spot / 自定义主题统一复用同一条解析路径。
  */
 export function themeContributionFromThemeDef(
   theme: ThemeDef | undefined,
-  getColor: (id: ColorId) => ColorDef | undefined,
+  getGroup: (id: ColorGroupId) => ColorGroupDef | undefined,
 ): ThemeTokens {
   if (!theme) return {};
   const tokens: ThemeTokens = {};
-  if (theme.colorId) {
-    const color = getColor(theme.colorId);
-    if (color) Object.assign(tokens, resolveTheme(color));
+  if (theme.colorGroupId) {
+    const group = getGroup(theme.colorGroupId);
+    if (group) Object.assign(tokens, resolveTheme(group));
   }
   if (theme.tokens) Object.assign(tokens, theme.tokens);
   return tokens;
@@ -216,7 +205,7 @@ export function themeContributionFromThemeDef(
 // --- 服务 ---
 
 export class ColorSystem {
-  /** 运行时主题管理：Color 与游戏实际结构解耦，多 Color/临时演出的叠加入口。 */
+  /** 运行时主题管理：色彩组与游戏实际结构解耦，多组/临时演出的叠加入口。 */
   readonly runtime: RuntimeThemeManager;
 
   constructor(
@@ -225,11 +214,11 @@ export class ColorSystem {
     private readonly getState: () => PlayerState,
     private readonly checkCondition: (expr: Condition | ConditionGroup, state: PlayerState) => boolean,
   ) {
-    // 层→token 表解析：引用 ColorId 时取其整包 resolveTheme，否则空表；tokens 覆盖在此层合并
+    // 层→token 表解析：引用 ColorGroupId 时取其整包 resolveTheme，否则空表；tokens 覆盖在此层合并
     this.runtime = new RuntimeThemeManager(layer => {
       const tokens: Record<string, string> = {};
-      if (layer.colorId) {
-        const def = this.registry.colors.get(layer.colorId);
+      if (layer.groupId) {
+        const def = this.registry.colorGroups.get(layer.groupId);
         if (def) Object.assign(tokens, resolveTheme(def));
       }
       if (layer.tokens) Object.assign(tokens, layer.tokens);
@@ -239,18 +228,10 @@ export class ColorSystem {
 
   // --- 运行时主题（RuntimeThemeManager 门面） ---
 
-  /** 从状态同步玩家全局主题层：自定义主题优先，否则 activeColor（读档/激活主题后调用）。 */
+  /** 从状态同步玩家全局主题层：activeGroupId 常驻基色（读档/激活主题后调用）。 */
   syncPlayerThemeFromState(state: PlayerState): void {
-    if (state.customTheme) {
-      this.runtime.setPlayer({
-        scope: 'player',
-        colorId: state.customTheme.colorId,
-        tokens: state.customTheme.tokens,
-      });
-    } else {
-      const id = state.activeColor ?? null;
-      this.runtime.setPlayer(id ? { scope: 'player', colorId: id } : null);
-    }
+    const id = state.activeGroupId ?? null;
+    this.runtime.setPlayer(id ? { scope: 'player', groupId: id } : null);
     this.runtime.setLayerOrder(state.themeLayerOrder);
   }
 
@@ -311,14 +292,14 @@ export class ColorSystem {
       // 剧情/Trigger 直接改写实体主题槽（自定义来源，持久至玩家改回）
       this.mutations.setEntityThemeSlot(value.entityKey, {
         kind: 'custom',
-        customTheme: { colorId: value.colorId, tokens: value.tokens },
+        customTheme: { colorGroupId: value.colorGroupId, tokens: value.tokens },
       });
       return true;
     }
     this.pushEphemeralTheme({
       id: ColorSystem.STORY_EPHEMERAL_ID,
       scope: 'ephemeral',
-      colorId: value?.colorId,
+      groupId: value?.colorGroupId,
       tokens: value?.tokens,
     });
     return true;
@@ -329,32 +310,21 @@ export class ColorSystem {
     this.runtime.popEphemeral(ColorSystem.STORY_EPHEMERAL_ID);
   }
 
-  getDef(colorId: string): ColorDef | undefined {
-    return this.registry.colors.get(colorId);
-  }
-
-  /** 取 ColorGroup 定义（供 UI 快速映射）。 */
   getGroup(groupId: ColorGroupId): ColorGroupDef | undefined {
     return this.registry.colorGroups.get(groupId);
   }
 
   // --- theme-tree 快速映射（封装 registry 解析） ---
 
-  /** Color → 整包 token 贡献。 */
-  themeFromColor(colorId: ColorId): ThemeTokens {
-    const def = this.registry.colors.get(colorId);
-    return def ? resolveTheme(def) : {};
-  }
-
-  /** ColorGroup → token 贡献（主色位 Color）。 */
+  /** ColorGroup → 整包 token 贡献（即 resolveTheme）。 */
   themeFromGroup(groupId: ColorGroupId): ThemeTokens {
     const group = this.registry.colorGroups.get(groupId);
-    return group ? themeContributionFromGroup(group, id => this.registry.colors.get(id)) : {};
+    return group ? resolveTheme(group) : {};
   }
 
   /** ThemeDef → token 贡献（统一解析路径）。 */
   themeFromThemeDef(theme: ThemeDef | undefined): ThemeTokens {
-    return themeContributionFromThemeDef(theme, id => this.registry.colors.get(id));
+    return themeContributionFromThemeDef(theme, id => this.registry.colorGroups.get(id));
   }
 
   // --- 实体主题槽（Area / 学生差分的多来源配色） ---
@@ -376,10 +346,11 @@ export class ColorSystem {
     return state.entityThemeDesignsOwned?.[entityKey]?.includes(designId) ?? false;
   }
 
-  /** 由 ThemeDef 取预览主色（colorId → Color.primary；否则 tokens.primary）。 */
+  /** 由 ThemeDef 取预览主色（colorGroupId → 组主色位/theme.primary；否则 tokens.primary）。 */
   themeSwatchColor(theme: ThemeDef): string | undefined {
-    if (theme.colorId) {
-      const primary = this.registry.colors.get(theme.colorId)?.theme['primary'];
+    if (theme.colorGroupId) {
+      const group = this.registry.colorGroups.get(theme.colorGroupId);
+      const primary = group?.theme?.['primary'] ?? (group ? primaryColorOf(group) : undefined);
       if (primary) return primary;
     }
     return theme.tokens?.['primary'];
@@ -405,7 +376,8 @@ export class ColorSystem {
     if (!equippedEquipmentId) return null;
     const def = this.registry.colorEquipments.get(equippedEquipmentId);
     if (!def) return null;
-    return def.theme ?? (def.themeColorId ? { colorId: def.themeColorId } : null);
+    // 装备未声明专属主题时，回退为其引用色彩组自身的主题预设
+    return def.theme ?? { colorGroupId: def.colorGroupId };
   }
 
   /**
@@ -432,7 +404,7 @@ export class ColorSystem {
     }
     if (equippedEquipmentId) {
       const def = this.registry.colorEquipments.get(equippedEquipmentId);
-      const theme = def?.theme ?? (def?.themeColorId ? { colorId: def.themeColorId } : undefined);
+      const theme = def?.theme ?? (def ? { colorGroupId: def.colorGroupId } : undefined);
       if (def && theme) {
         options.push({
           kind: 'equipment',
@@ -503,72 +475,74 @@ export class ColorSystem {
     return newly;
   }
 
-  getAll(): ColorDef[] {
-    return [...this.registry.colors.values()];
+  getAllGroups(): ColorGroupDef[] {
+    return [...this.registry.colorGroups.values()];
   }
 
-  isOwned(state: PlayerState, colorId: string): boolean {
-    return state.colorsOwned?.includes(colorId) ?? false;
+  isGroupOwned(state: PlayerState, groupId: string): boolean {
+    return state.groupsOwned?.includes(groupId) ?? false;
   }
 
-  ownedColors(state: PlayerState): ColorDef[] {
-    return (state.colorsOwned ?? [])
-      .map(id => this.registry.colors.get(id))
-      .filter((d): d is ColorDef => !!d);
+  ownedGroups(state: PlayerState): ColorGroupDef[] {
+    return (state.groupsOwned ?? [])
+      .map(id => this.registry.colorGroups.get(id))
+      .filter((d): d is ColorGroupDef => !!d);
   }
 
   /**
-   * 尝试解锁色彩（条件编排在此，写经 mutations.unlockColor）。
+   * 尝试解锁色彩组（条件编排在此，写经 mutations.unlockGroup）。
    * @returns 'unlocked' 成功 | 'already' 幂等 | false 条件不满足或定义缺失
    */
-  tryUnlock(colorId: string): 'unlocked' | 'already' | false {
-    const def = this.getDef(colorId);
+  tryUnlockGroup(groupId: string): 'unlocked' | 'already' | false {
+    const def = this.getGroup(groupId);
     if (!def) return false;
     const state = this.getState();
-    if (this.isOwned(state, colorId)) return 'already';
+    if (this.isGroupOwned(state, groupId)) return 'already';
     if (def.unlock && !this.checkCondition(def.unlock, state)) return false;
-    return this.mutations.unlockColor(colorId) ? 'unlocked' : 'already';
+    return this.mutations.unlockGroup(groupId) ? 'unlocked' : 'already';
   }
 
   /**
-   * 扫描所有已定义色彩，对尚未拥有且条件已满足者执行 tryUnlock。
-   * 仅覆盖带 unlock 条件的色彩（缺省无 unlock = 不可自动解锁，见 ColorDef 约定）。
+   * 扫描所有已定义色彩组，对尚未拥有且条件已满足者执行 tryUnlockGroup。
+   * 仅覆盖带 unlock 条件的色彩组（缺省无 unlock = 不可自动解锁，见 ColorGroupDef 约定）。
    * 挂在 characterAcquired / 进入世界线等时机，使"达成条件即自动解锁"闭环。
-   * @returns 本次新解锁的色彩 id 列表（空数组 = 无变化）。
+   * @returns 本次新解锁的色彩组 id 列表（空数组 = 无变化）。
    */
   recheckUnlocks(): string[] {
     const newly: string[] = [];
-    for (const def of this.getAll()) {
+    for (const def of this.getAllGroups()) {
       if (!def.unlock) continue;
-      if (this.tryUnlock(def.id) === 'unlocked') newly.push(def.id);
+      if (this.tryUnlockGroup(def.id) === 'unlocked') newly.push(def.id);
     }
     return newly;
   }
 
   /** 变体已装备色彩装备的聚合效果声明已迁移至 ColorEquipmentSystem.effectsOf（单装备槽按 equippedEquipment 聚合）。 */
 
-  /** 当前激活主题的最终 token 表（activeColor 为 null 或未知 → null，UI 用默认主题）。 */
+  /** 当前激活主题的最终 token 表（activeGroupId 为 null 或未知/未拥有 → null，UI 用默认主题）。 */
   activeThemeTokens(state: PlayerState): Record<string, string> | null {
-    const id = state.activeColor;
+    const id = state.activeGroupId;
     if (!id) return null;
-    const def = this.getDef(id);
-    if (!def || !this.isOwned(state, id)) return null;
+    const def = this.getGroup(id);
+    if (!def || !this.isGroupOwned(state, id)) return null;
     return resolveTheme(def);
   }
 
   /**
-   * 图鉴用：拆解出色彩每个 token 的取值与来源。
-   * - 来源 'defined'  = 作者显式写在 ColorDef.theme 中的定义值
+   * 图鉴用：拆解出色彩组每个 token 的取值与来源。
+   * - 来源 'defined'  = 作者显式配置值：ColorGroupDef.theme 中的键，或主色位色值
    * - 来源 'derived'  = 引擎由 primary 经 HSL 规则确定性派生的自动构造值
-   * autoConstructed：整套主题仅配 primary、其余全部靠派生 → 视为「自动构造」；
+   * autoConstructed：theme 缺省或仅配 primary（其余全部靠派生）→ 视为「自动构造」；
    * 反之作者显式补充了至少一个非 primary token → 「已被定义」。
    * 返回顺序按 token 稳定性：primary 优先，其余按解析结果键序。
    */
-  describeColor(def: ColorDef): {
+  describeGroup(def: ColorGroupDef): {
     autoConstructed: boolean;
     tokens: { key: string; value: string; source: 'defined' | 'derived' }[];
   } {
-    const definedKeys = new Set(Object.keys(def.theme));
+    const definedKeys = new Set(Object.keys(def.theme ?? {}));
+    // 主色位色值本身即作者的显式定义（哪怕 theme 缺省）
+    if (!definedKeys.has('primary')) definedKeys.add('primary');
     const resolved = resolveTheme(def);
     const autoConstructed = [...definedKeys].every(k => k === 'primary');
     const ordered = ['primary', ...Object.keys(resolved).filter(k => k !== 'primary')];

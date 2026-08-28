@@ -52,14 +52,14 @@ export type GameEvent =
   | { type: 'characterAcquired'; variantId: string; via: 'gacha' | 'story' | 'event'; duplicate: boolean; shards: number; bonusResources: Record<string, number> }
   /** 培养变更（exp = 升级；star = 突破）。 */
   | { type: 'cultivated'; variantId: string; kind: 'exp' | 'star'; newLevel?: number; newStars?: number }
-  /** 色彩解锁入库存（幂等：已拥有不重复发）。 */
-  | { type: 'colorUnlocked'; colorId: string }
+  /** 色彩组解锁入库存（幂等：已拥有不重复发）。 */
+  | { type: 'groupUnlocked'; groupId: string }
   /** 色彩装备收集入库存（幂等：已拥有不重复发）。 */
   | { type: 'equipmentCollected'; equipmentId: string }
   /** 色彩装备装备到变体单装备槽。 */
   | { type: 'equipmentEquipped'; variantId: string; equipmentId: string }
-  /** 激活主题切换（colorId = null 回默认主题）。 */
-  | { type: 'themeChanged'; colorId: string | null }
+  /** 激活主题切换（groupId = null 回默认主题）。 */
+  | { type: 'themeChanged'; groupId: string | null }
   /** 实体主题槽变化（玩家/系统更改了某实体的当前主题来源）。 */
   | { type: 'entityThemeChanged'; entityKey: string }
   /** 实体配色设计解锁入库存（幂等）。 */

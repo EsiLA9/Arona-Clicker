@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { resolveTheme, contrastRatio, deriveThemeTokens, ColorSystem } from '../../src/engine/system/color-system';
+import type { ColorGroupDef } from '../../src/engine/types';
 
 /** 从派生出的 hsl(...) 字符串中提取明度值（0~1）。 */
 function hslLightness(css: string): number {
@@ -8,15 +9,26 @@ function hslLightness(css: string): number {
   return Number(m[1]) / 100;
 }
 
+/** 构造最小 ColorGroupDef（solid 单主色位；theme 可带部分覆盖）。 */
+function group(hex: string, theme?: Record<string, string>): ColorGroupDef {
+  return {
+    id: 'g',
+    name: 'g',
+    compositionType: 'solid',
+    slots: [{ role: 'primary', color: hex }],
+    ...(theme ? { theme } : {}),
+  };
+}
+
 const KEYS = ['primary', 'bg', 'bgAlt', 'text', 'textDim', 'border', 'accent'];
 
 describe('主题派生：不同数量/色相下自动构造完整 token', () => {
   const hues = ['#ff5d8f', '#10b981', '#8b5cf6', '#f59e0b', '#e11d48', '#14b8a6', '#6366f1', '#38bdf8', '#a3e635', '#1e3a5f'];
   for (const primary of hues) {
     test(`派生 ${primary} 产出全部 7 个 token`, () => {
-      const t = resolveTheme({ theme: { primary } });
+      const t = resolveTheme(group(primary));
       for (const k of KEYS) expect(t[k]).toBeTruthy();
-      // primary 原样透传
+      // primary 缺省取主色位色值并原样透传
       expect(t['primary']).toBe(primary);
       // accent 缺省等于 primary
       expect(t['accent']).toBe(primary);
@@ -35,7 +47,7 @@ describe('主题派生：不同数量/色相下自动构造完整 token', () => 
   });
 
   test('显式 theme 全量覆盖派生值', () => {
-    const t = resolveTheme({ theme: { primary: '#ff7a59', bg: '#fff3ee', text: '#3a1f17' } });
+    const t = resolveTheme(group('#ff7a59', { primary: '#ff7a59', bg: '#fff3ee', text: '#3a1f17' }));
     expect(t['bg']).toBe('#fff3ee');
     expect(t['text']).toBe('#3a1f17');
     expect(t['primary']).toBe('#ff7a59');
@@ -91,29 +103,30 @@ describe('主题派生：不同数量/色相下自动构造完整 token', () => 
   test('CT-04 对比度防呆：text/bg 对不足阈值时自动翻转', () => {
     // 极端仅给 primary，断言任何 primary 下最终 text/bg 对比度达标
     for (const primary of ['#ffffff', '#000000', '#808080', '#ff00ff', '#00ff00']) {
-      const t = resolveTheme({ theme: { primary } });
+      const t = resolveTheme(group(primary));
       expect(contrastRatio(t['text'], t['bg'])).toBeGreaterThanOrEqual(4.5);
     }
   });
 });
 
-describe('describeColor：定义值 / 自动衍生值拆解（图鉴用）', () => {
-  // 仅用纯函数式子集：ColorSystem.describeColor 依赖 registry/mutations，
+describe('describeGroup：定义值 / 自动衍生值拆解（图鉴用）', () => {
+  // 仅用纯函数式子集：ColorSystem.describeGroup 依赖 registry/mutations，
   // 这里直接构造轻量桩验证 source 判定与 autoConstructed 语义。
   function makeSystem() {
     const defs = new Map<string, any>();
-    const reg = { colors: defs } as any;
+    const reg = { colorGroups: defs } as any;
     const sys = new ColorSystem(reg, {} as any, () => ({}) as any, () => true);
     return { sys, defs };
   }
 
-  test('仅给 primary → 自动构造，且只有 primary 为定义值', () => {
+  test('仅给 primary（theme 缺省）→ 自动构造，且 primary 为主色位定义值', () => {
     const { sys, defs } = makeSystem();
-    defs.set('c1', { id: 'c1', name: '自动蓝', theme: { primary: '#3b82f6' } });
-    const r = sys.describeColor(defs.get('c1')!);
+    defs.set('g1', { id: 'g1', name: '自动蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] });
+    const r = sys.describeGroup(defs.get('g1')!);
     expect(r.autoConstructed).toBe(true);
     const primary = r.tokens.find(t => t.key === 'primary')!;
     expect(primary.source).toBe('defined');
+    expect(primary.value).toBe('#3b82f6');
     const bg = r.tokens.find(t => t.key === 'bg')!;
     expect(bg.source).toBe('derived');
     expect(bg.value).toBeTruthy();
@@ -121,8 +134,8 @@ describe('describeColor：定义值 / 自动衍生值拆解（图鉴用）', () 
 
   test('显式补充非 primary token → 已被定义', () => {
     const { sys, defs } = makeSystem();
-    defs.set('c2', { id: 'c2', name: '定制青', theme: { primary: '#10b981', bg: '#eafff5', text: '#0c3a2b' } });
-    const r = sys.describeColor(defs.get('c2')!);
+    defs.set('g2', { id: 'g2', name: '定制青', compositionType: 'solid', slots: [{ role: 'primary', color: '#10b981' }], theme: { primary: '#10b981', bg: '#eafff5', text: '#0c3a2b' } });
+    const r = sys.describeGroup(defs.get('g2')!);
     expect(r.autoConstructed).toBe(false);
     expect(r.tokens.find(t => t.key === 'bg')!.source).toBe('defined');
     expect(r.tokens.find(t => t.key === 'bg')!.value).toBe('#eafff5');
@@ -130,10 +143,10 @@ describe('describeColor：定义值 / 自动衍生值拆解（图鉴用）', () 
     expect(r.tokens.find(t => t.key === 'border')!.source).toBe('derived');
   });
 
-  test('primary 始终为定义值且原样透传', () => {
+  test('primary 原样透传（取自 theme.primary）', () => {
     const { sys, defs } = makeSystem();
-    defs.set('c3', { id: 'c3', name: 'x', theme: { primary: '#ff5d8f' } });
-    const primary = sys.describeColor(defs.get('c3')!).tokens.find(t => t.key === 'primary')!;
+    defs.set('g3', { id: 'g3', name: 'x', compositionType: 'solid', slots: [{ role: 'primary', color: '#ff5d8f' }], theme: { primary: '#ff5d8f' } });
+    const primary = sys.describeGroup(defs.get('g3')!).tokens.find(t => t.key === 'primary')!;
     expect(primary.source).toBe('defined');
     expect(primary.value).toBe('#ff5d8f');
   });

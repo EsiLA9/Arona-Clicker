@@ -204,7 +204,6 @@ export class GameInstance {
     this.mutations.setCharacterCatalog({
       getVariant: id => this.registry.characterVariants.get(id),
       getCurve: id => this.registry.cultivateCurves.get(id),
-      getColor: id => this.registry.colors.get(id),
       getColorGroup: id => this.registry.colorGroups.get(id),
       getColorEquipment: id => this.registry.colorEquipments.get(id),
     });

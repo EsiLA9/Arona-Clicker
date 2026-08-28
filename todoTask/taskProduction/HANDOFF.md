@@ -56,11 +56,11 @@ spotFull  = spotBase × spotMulZone + spotExtra
 ## 3. Phase 7 完成摘要（详见 REPORT.md Phase 7 节）
 
 1. **[G] `named` 注册表**：已删（game-num.ts 字段 + 5 个方法、buildAll 的 `named.clear()`、2 个专属测试）。
-2. **[G][A] `life` 三件套 + `clearTagEffectsByLife`**：已删（`TagEffectRecord.life`、`ZoneModifierDecl.life`、builder life 参数、`clearTagEffectsByLife` 函数与门面方法、`registerAffectorModifier` 的 life 写入）；base 数据 15 处 `'init'` 实参出清；4 个测试文件同步；`gen:schema` 已重生成。
-3. **[A] `AffectorPackDef.persistent`**：已删（trigger.ts 字段、builder `persistent()`、两个 AronaClickerCore JSON 包的 `"persistent": true` 行、pool-pack 测试）。
-4. **[G] `zoneNodeById`**：已从 GameNumSystem 公开字段降为 `game-num-build.ts` 模块内部 `WeakMap<GameNumSystem, Map<id, ZoneNode>>`（buildAll 整表换新；运行期 buildZoneNode 复用同表）。`flowsNodeById` 按 HANDOFF 原提示保留在 system 上。
+2. **[G][A] `life` 三件套 + `clearTagEffectsByLife`：已删（`TagEffectRecord.life`、`ZoneModifierDecl.life`、builder life 参数、`clearTagEffectsByLife` 函数与门面方法、`registerAffectorModifier` 的 life 写入）；base 数据 15 处 `'init'` 实参出清；4 个测试文件同步；`gen:schema` 已重生成。
+3. **[A] `AffectorPackDef.persistent`：已删（trigger.ts 字段、builder `persistent()`、两个 AronaClickerCore JSON 包的 `"persistent": true` 行、pool-pack 测试）。
+4. **[G] `zoneNodeById`：已从 GameNumSystem 公开字段降为 `game-num-build.ts` 模块内部 `WeakMap<GameNumSystem, Map<id, ZoneNode>>`（buildAll 整表换新；运行期 buildZoneNode 复用同表）。`flowsNodeById` 按 HANDOFF 原提示保留在 system 上。
 5. ~~toValueNode 随机 id~~：Phase 1 已消失，确认无需处理。
-6. **[A] `modTag`/`modEntity`**：value 放宽为 `number | ValueExpression`（04h §4.3）；**04h §4.2 命名修正**：ValueSource `spotCount` → `areaSpotCount`（源名与 `params.area` 对齐；无数据使用，仅 editor-extras 标签与 1 个测试 fixture 同步）。
+6. **[A] `modTag`/`modEntity`：value 放宽为 `number | ValueExpression`（04h §4.3）；**04h §4.2 命名修正**：ValueSource `spotCount` → `areaSpotCount`（源名与 `params.area` 对齐；无数据使用，仅 editor-extras 标签与 1 个测试 fixture 同步）。
 7. **验收**：`npm test` 918 全绿（−2 named 用例）+ `tsc --noEmit` 通过 + grep 零残留 + `engine-defs.gen.json` 已重生成（−8/+1）。
 
 ## 4. Phase 8 收尾（下一步）

@@ -35,7 +35,7 @@ runtimeTheme() → 按优先级合并 token：
 | 来源 | 说明 |
 | --- | --- |
 | 声明默认 | `AreaDef.theme` / `CharacterVariantDef.theme`（兜底，无槽位时生效） |
-| equipment | 已装备的 `ColorEquipmentDef`（`theme` 完整主题优先，否则 `themeColorId`） |
+| equipment | 已装备的 `ColorEquipmentDef`（`theme` 完整主题优先，否则回退其引用的 `colorGroupId` 组预设） |
 | design | 已解锁的 `ThemeDesignDef`（全局表 `themeDesigns`，`entityKey` 声明目标实体） |
 | custom | 玩家/剧情写入的 `ThemeDef`（`setTheme` effect 的 `scope=area|student` + `entityKey`） |
 
@@ -52,33 +52,40 @@ ColorGroup 主色位回退）。UI 侧 `entityThemeOptions` 汇总可选项，�
 
 状态归属：`entityThemeSlots` / `entityThemeDesignsOwned` 均为收集类资产（global 层，入存档）。
 
-## 三层色彩体系（Color / ColorGroup / ColorEquipment）
+## 色彩体系（ColorGroup / ColorEquipment）
 
-学生头像与效用由三层实体构成，主题（UI）与头像（学生）解耦：
+学生头像与效用由两个实体构成，主题（UI）与头像（学生）由同一实体承载：
 
 | 实体 | 职责 | 关键字段 |
 | --- | --- | --- |
-| `ColorDef` | 主题 token 表（primary 派生全套 UI 配色）+ 解锁条件 | `theme` / `unlock` |
-| `ColorGroupDef` | 预制头像构成模板（不可自由组装），决定抽象圆形图案 | `compositionType` / `slots[{role,colorId}]` |
-| `ColorEquipmentDef` | 核心收集品：捆绑 `colorGroupId`（头像视觉）+ `effects`（效用）+ 可选 `themeColorId`（UI 主题） | `colorGroupId` / `effects` / `themeColorId` / `unlock` |
+| `ColorGroupDef` | 唯一色彩实体 = 重点色彩组（slots 内联 hex）+ 头像渲染方案（compositionType）+ theme-tree 预设（theme 覆盖表，primary 缺省取主色位色值）+ 解锁条件 | `slots[{role,color}]` / `compositionType` / `theme` / `unlock` |
+| `ColorEquipmentDef` | 核心收集品：捆绑 `colorGroupId`（头像视觉 + 主题预设）+ `effects`（效用）；收集时级联解锁该组 | `colorGroupId` / `effects` / `unlock` |
+
+> 合并说明：原 `ColorDef`（纯主题皮肤，等价 solid 单主色位组）与 `ColorGroupDef`（头像模板）已合并为单一 `ColorGroupDef`。
+> 原 `ColorDef.theme` → 组 `theme`（partial）；原 `ColorGroupSlot.colorId`（引用 Color）→ `color`（内联 hex，组间互不牵连）；
+> 原 `ColorEquipmentDef.themeColorId` 删除（装备回退为其引用的组预设）。`activeColor`/`colorsOwned` → `activeGroupId`/`groupsOwned`。
 
 `CompositionType`：`solid` 单色 / `gradient` 线性渐变 / `duotone` 双色阶调 / `pie` 饼图分区 / `radial` 径向渐变。
 
 ### 状态归属
 
+- `PlayerState.groupsOwned: ColorGroupId[]` —— 已解锁色彩组清单（幂等入库存）；
+- `PlayerState.activeGroupId: ColorGroupId | null` —— 当前激活全局主题（须已拥有）；
 - `PlayerState.equipmentsOwned: EquipmentId[]` —— 已收集装备清单（幂等入库存）；
 - `RosterEntry.equippedEquipment: EquipmentId | null` —— 单装备槽（`null` = 未装备，替换旧 `equippedColors` / `colorSlots`）。
 
 ### 写入口（全部经 StateMutationService）
 
-- `unlockColor(colorId)`：Color 解锁（条件满足）；
-- `collectEquipment(equipmentId)`：装备收集入库存（幂等）；`tryUnlock` 收集时会**级联解锁其 ColorGroup 引用的全部 Color**；
-- `equipEquipment(variantId, equipmentId)` / `unequipEquipment(variantId)`：单槽装备/卸下（未拥有 / 同装备 → 拒绝）。
+- `unlockGroup(groupId)`：色彩组解锁（条件满足）；
+- `collectEquipment(equipmentId)`：装备收集入库存（幂等）；`tryUnlock` 收集时会**级联解锁其引用的 ColorGroup**；
+- `equipEquipment(variantId, equipmentId)` / `unequipEquipment(variantId)`：单槽装备/卸下（未拥有 / 同装备 → 拒绝）；
+- `activateTheme(groupId)`：激活全局主题（未拥有拒绝；`null` 回默认）。
 
 ### 解析与渲染
 
+- `ColorSystem.resolveTheme(group)`：唯一主题解析路径 —— `theme` 显式覆盖 > primary（主色位色值）派生 > 默认；
 - `ColorEquipmentSystem.effectsOf(state, variantId)`：按 `equippedEquipment` 聚合装备 effects（原 `ColorSystem.effectsOf` 已迁移至此）；
-- `ColorEquipmentSystem.avatarColors(equipmentId)`：解析 ColorGroup 各 slot 的实际 hex（按 slot 顺序）；
+- `ColorEquipmentSystem.avatarColors(equipmentId)`：按 slot 顺序返回组内各色位的内联 hex；
 - `avatar-renderer.ts` `renderAvatarSvg(compositionType, colors)`：纯函数，按构成方式输出圆形头像 SVG，供通讯录行头像与装备预览消费。
 
 ### 自动收集闭环

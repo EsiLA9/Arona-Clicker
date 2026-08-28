@@ -1,6 +1,6 @@
 // ============================================================
 // engine/color-equipment-system.test.ts — 色彩装备系统
-// （收集/级联解锁/单装备槽/条件拒绝/效果聚合）
+// （收集/级联解锁色彩组/单装备槽/条件拒绝/效果聚合）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
 import { GameInstance } from '../../src/engine/game-instance';
@@ -35,25 +35,20 @@ function makeDatapack(): Datapack {
     characters: [],
     characterBonuses: [],
     characterVariants: [v('Hoshino', Character.Hoshino), v('Multi', Character.Mika)],
-    colors: [
-      { id: 'color-free', name: '无条件色', theme: { primary: '#22c55e' } },
-      { id: 'color-flag', name: '旗标色', theme: { primary: '#3b82f6' } },
-      { id: 'color-shadow', name: '阴影色', theme: { primary: '#1e3a5f' } },
-    ],
     colorGroups: [
       {
         id: 'group-solid',
         name: '单色组',
         compositionType: 'solid',
-        slots: [{ role: 'primary', colorId: 'color-free' }],
+        slots: [{ role: 'primary', color: '#22c55e' }],
       },
       {
         id: 'group-duo',
         name: '双色组',
         compositionType: 'duotone',
         slots: [
-          { role: 'primary', colorId: 'color-flag' },
-          { role: 'shadow', colorId: 'color-shadow' },
+          { role: 'primary', color: '#3b82f6' },
+          { role: 'shadow', color: '#1e3a5f' },
         ],
       },
     ],
@@ -69,7 +64,6 @@ function makeDatapack(): Datapack {
         name: '旗标装备',
         colorGroupId: 'group-duo',
         effects: [{ op: 'addResource', target: 'credit', value: 2 }],
-        themeColorId: 'color-flag',
         unlock: { target: 'flag', key: 'equip_unlocked', comparator: '>=', value: 1 },
       },
       {
@@ -93,7 +87,7 @@ describe('色彩装备系统', () => {
     game = new GameInstance();
     game.eventBus.on('equipmentCollected', e => events.push(e));
     game.eventBus.on('equipmentEquipped', e => events.push(e));
-    game.eventBus.on('colorUnlocked', e => events.push(e));
+    game.eventBus.on('groupUnlocked', e => events.push(e));
     game.init([makeDatapack()]);
     game.mutations.acquireCharacter('Hoshino', 'gacha');
   });
@@ -105,16 +99,15 @@ describe('色彩装备系统', () => {
     expect(events.filter(e => e.type === 'equipmentCollected' && e.equipmentId === 'equip-free')).toHaveLength(1);
   });
 
-  test('EQ-02 收集即级联解锁 colorGroup 引用的所有 Color', () => {
+  test('EQ-02 收集即级联解锁其引用的色彩组', () => {
     game.colorEquipmentSystem.tryUnlock('equip-free');
-    expect(game.colorSystem.isOwned(state(), 'color-free')).toBe(true);
-    // 双色组：满足装备解锁条件（flag）后收集，两个色位都解锁
+    expect(game.colorSystem.isGroupOwned(state(), 'group-solid')).toBe(true);
+    // 双色组：满足装备解锁条件（flag）后收集，整体解锁该组
     game.mutations.setFlag('equip_unlocked', '1');
     game.colorEquipmentSystem.tryUnlock('equip-flag');
-    expect(game.colorSystem.isOwned(state(), 'color-flag')).toBe(true);
-    expect(game.colorSystem.isOwned(state(), 'color-shadow')).toBe(true);
-    // 级联经 mutations.unlockColor 发 colorUnlocked
-    expect(events.filter(e => e.type === 'colorUnlocked' && e.colorId === 'color-free')).toHaveLength(1);
+    expect(game.colorSystem.isGroupOwned(state(), 'group-duo')).toBe(true);
+    // 级联经 mutations.unlockGroup 发 groupUnlocked
+    expect(events.filter(e => e.type === 'groupUnlocked' && e.groupId === 'group-solid')).toHaveLength(1);
   });
 
   test('EQ-03 条件不满足拒绝；条件满足后（recheck/主动）入库存', () => {
@@ -171,7 +164,7 @@ describe('色彩装备系统', () => {
     const group = game.colorEquipmentSystem.groupOf('equip-free');
     expect(group?.compositionType).toBe('solid');
     expect(game.colorEquipmentSystem.avatarColors('equip-free')).toEqual(['#22c55e']);
-    // 双色组按 slot 顺序返回实际 hex
+    // 双色组按 slot 顺序返回内联 hex
     expect(game.colorEquipmentSystem.avatarColors('equip-flag')).toEqual(['#3b82f6', '#1e3a5f']);
     // 未定义装备 → undefined / 空数组
     expect(game.colorEquipmentSystem.groupOf('nope')).toBeUndefined();

@@ -7,7 +7,6 @@
 
 import { THEME_NODES, buildThemeVars, heroGradient, type ThemeVarName } from './theme-tree';
 import { entityKeyOf, hexToRgbTriplet } from '../engine/system/color-system';
-import type { ThemeToken } from '../engine/types';
 import type { UIController } from './controller';
 
 /**
@@ -52,7 +51,7 @@ export function syncRuntimeTheme(ctrl: UIController): void {
       : null;
     const theme = override ?? area?.theme;
     if (theme) {
-      ctrl.game.colorSystem.pushSceneTheme({ scope: 'area', colorId: theme.colorId, tokens: theme.tokens });
+      ctrl.game.colorSystem.pushSceneTheme({ scope: 'area', groupId: theme.colorGroupId, tokens: theme.tokens });
     }
   }
   const convId = ctrl.panelState.conversationVariantId;
@@ -68,26 +67,21 @@ export function syncRuntimeTheme(ctrl: UIController): void {
       );
       if (override) {
         // 实体主题槽覆盖（设计/装备/自定义）：直接采用
-        ctrl.game.colorSystem.pushSceneTheme({ scope: 'student', colorId: override.colorId, tokens: override.tokens });
+        ctrl.game.colorSystem.pushSceneTheme({ scope: 'student', groupId: override.colorGroupId, tokens: override.tokens });
       } else {
-        // 学生层：优先用其 ColorGroup（装备 > 差分声明）的主色位 Color 驱动参考树；
-        // variant.theme 作为显式覆盖层（仍可被作者手动指定 Color 覆盖）。
-        let studentColorId: string | undefined = variant.theme?.colorId;
+        // 学生层：优先用其 ColorGroup（装备 > 差分声明）驱动参考树；
+        // variant.theme 作为显式覆盖层（仍可被作者手动指定组覆盖）。
+        let studentGroupId: string | undefined = variant.theme?.colorGroupId;
         const groupId = equipped
           ? ctrl.game.colorEquipmentSystem.groupOf(equipped)?.id
           : variant.colorGroupId;
-        let groupTheme: Partial<Record<ThemeToken, string>> | undefined;
-        if (!studentColorId && groupId) {
-          const group = ctrl.game.registry.colorGroups.get(groupId);
-          groupTheme = group?.theme;
-          const slot = group?.slots.find(s => s.role === 'primary') ?? group?.slots[0];
-          if (slot) studentColorId = slot.colorId;
+        if (!studentGroupId && groupId) {
+          studentGroupId = groupId;
         }
         ctrl.game.colorSystem.pushSceneTheme({
           scope: 'student',
-          colorId: studentColorId,
-          // 组自身声明的部分节点覆盖（panel / playerBubble 等）叠加在主色位 Color 之上
-          tokens: { ...(variant.theme?.tokens ?? {}), ...(groupTheme ?? {}) },
+          groupId: studentGroupId,
+          tokens: variant.theme?.tokens,
         });
       }
     }

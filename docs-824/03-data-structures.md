@@ -22,6 +22,7 @@ Datapack 声明（JSON/TS 定义）
 | [[docs-824/03c-character-entities]] | Character 实体：差分/卡池/曲线/色彩 | 原四章 |
 | [[docs-824/03d-stats-views]] | 三层统计 & UI 只读视图 | 原五、七章 |
 | [[docs-824/03e-id-reference-semantics]] | 带 id 的 Def 条目与引用语义（真引用 / 意义引用） | 新增 |
+| [[docs-824/03f-declarative-dsl]] | 声明式 DSL 枚举目录（ValueExpression / Condition / Effect / Funclet / Trigger / Extra / Reveal / 角色色彩抽卡） | 新增 ==new== |
 
 ---
 

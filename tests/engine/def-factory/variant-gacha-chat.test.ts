@@ -50,11 +50,11 @@ describe('CharacterVariantBuilder', () => {
       .desc('x')
       .default()
       .bonus('credit', 1.5)
-      .theme('base:color:violet', { primary: '#8b5cf6' })
+      .theme('base:group:violet', { primary: '#8b5cf6' })
       .build();
     expect(def.isDefault).toBe(true);
     expect(def.spotTagBonus).toEqual({ credit: 1.5 });
-    expect(def.theme).toEqual({ colorId: 'base:color:violet', tokens: { primary: '#8b5cf6' } });
+    expect(def.theme).toEqual({ colorGroupId: 'base:group:violet', tokens: { primary: '#8b5cf6' } });
   });
 });
 

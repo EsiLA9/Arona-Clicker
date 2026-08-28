@@ -16,8 +16,6 @@ import {
   CharacterVariantDef,
   chatMessage,
   ChatMessageDef,
-  color,
-  ColorDef,
   colorGroup,
   ColorGroupDef,
   colorEquipment,
@@ -54,7 +52,7 @@ export const baseCultivateCurves: CultivateCurveDef[] = [
 function defaultVariants(): CharacterVariantDef[] {
   // 除星野外，每位角色的默认头像色组（星野默认差分使用 pics 图片头像）
   const defaultColorGroups: Record<string, string> = {
-    [Character.Arona]: 'base:group:arona-solid',
+    [Character.Arona]: 'base:group:schale-solid',
     [Character.Shiroko]: 'base:group:shiroko-duotone',
     [Character.Serika]: 'base:group:serika-gradient',
     [Character.Yuuka]: 'base:group:yuuka-radial',
@@ -69,7 +67,7 @@ function defaultVariants(): CharacterVariantDef[] {
       const id = `${c.id.charAt(0).toUpperCase()}${c.id.slice(1)}`;
       // 千年学生：打开对话空间时界面切换为对应特色的对话主题
       const theme = id === 'Yuuka' || id === 'Noa'
-        ? { colorId: 'base:color:violet', tokens: { primary: '#8b5cf6' } }
+        ? { colorGroupId: 'base:group:violet', tokens: { primary: '#8b5cf6' } }
         : undefined;
       const b = variant(id, c.id)
         .name(c.name)
@@ -79,7 +77,7 @@ function defaultVariants(): CharacterVariantDef[] {
         .desc(c.description)
         .default()
         .curve('base:curve:standard');
-      if (theme) b.theme(theme.colorId, theme.tokens);
+      if (theme) b.theme(theme.colorGroupId, theme.tokens);
       // 星野默认差分头像指向 pics 表；其余角色用 ColorGroup 抽象头像
       if (c.id === Character.Hoshino) {
         b.avatar('base:avatar(pic):hoshino');
@@ -106,180 +104,195 @@ const specialVariants: CharacterVariantDef[] = [
 
 export const baseCharacterVariants: CharacterVariantDef[] = [...defaultVariants(), ...specialVariants];
 
-/** 色彩：主题皮肤 + 轻数值效果，解锁条件引用经历/统计。 */
-export const baseColors: ColorDef[] = [
-  color('base:color:schale-blue')
+/**
+ * 色彩组（唯一色彩实体）：重点色彩组（slots 内联 hex）+ 头像渲染方案（compositionType）
+ * + theme-tree 预设（theme 覆盖表，primary 缺省取主色位）+ 解锁条件。
+ * 原 Color（纯主题皮肤，solid 单色组）与 ColorGroup（头像模板）合并为一表：
+ * 共享色（sky/ink/rose 等）按字面 hex 复制进各组的 slots/theme，组间互不牵连。
+ */
+export const baseColorGroups: ColorGroupDef[] = [
+  // --- 主题皮肤（solid 单色组；原 Color） ---
+  colorGroup('base:group:schale-solid')
     .name('夏莱蓝').desc('什亭之匣的标准配色。获得阿罗娜后解锁。')
+    .type('solid')
     .primary('#3b82f6')
     .unlockProtoStat(Character.Arona)
     .build(),
-  color('base:color:abydos-sand')
+  colorGroup('base:group:abydos-sand')
     .name('阿比多斯黄沙').desc('被沙漠侵蚀的学园配色。拥有星野（任一差分）后解锁。')
+    .type('solid')
     .primary('#eab308')
     .unlockProtoStat(Character.Hoshino)
     .build(),
-  color('base:color:momotalk-pink')
+  colorGroup('base:group:momotalk-pink')
     .name('Momotalk 粉').desc('聊天软件的主题色。完成欢迎剧情（flag）后解锁。')
+    .type('solid')
     .primary('#ec4899')
     .unlockFlag('momotalk_pink_unlocked')
     .build(),
-  // 多色相示例：获得对应学生原型即解锁，验证不同 primary 下 HSL 自动派生能力
-  color('base:color:hoshino-swim')
+  colorGroup('base:group:hoshino-swim')
     .name('星野·泳装').desc('夏日泳池的清凉蓝调。拥有星野（任一差分）后解锁。')
+    .type('solid')
     .primary('#3ec6e0')
     .unlockProtoStat(Character.Hoshino)
     .build(),
-  color('base:color:rose')
+  colorGroup('base:group:rose')
     .name('玫瑰').desc('获得白子后解锁。')
+    .type('solid')
     .primary('#ff5d8f')
     .unlockProtoStat(Character.Shiroko)
     .build(),
-  color('base:color:emerald')
+  colorGroup('base:group:emerald')
     .name('翡翠').desc('获得芹香后解锁。')
+    .type('solid')
     .primary('#10b981')
     .unlockProtoStat(Character.Serika)
     .build(),
-  color('base:color:violet')
+  colorGroup('base:group:violet')
     .name('紫罗兰').desc('获得优香后解锁。')
+    .type('solid')
     .primary('#8b5cf6')
     .unlockProtoStat(Character.Yuuka)
     .build(),
-  color('base:color:amber')
+  colorGroup('base:group:amber')
     .name('琥珀').desc('获得未花后解锁。')
+    .type('solid')
     .primary('#f59e0b')
     .unlockProtoStat(Character.Mika)
     .build(),
-  color('base:color:crimson')
+  colorGroup('base:group:crimson')
     .name('绯红').desc('获得伊织后解锁。')
+    .type('solid')
     .primary('#e11d48')
     .unlockProtoStat(Character.Iori)
     .build(),
-  color('base:color:teal')
+  colorGroup('base:group:teal')
     .name('青碧').desc('获得都子后解锁。')
+    .type('solid')
     .primary('#14b8a6')
     .unlockProtoStat(Character.Miyako)
     .build(),
-  color('base:color:indigo')
+  colorGroup('base:group:indigo')
     .name('靛蓝').desc('获得纱织后解锁。')
+    .type('solid')
     .primary('#6366f1')
     .unlockProtoStat(Character.Saori)
     .build(),
-  color('base:color:sky')
+  colorGroup('base:group:sky')
     .name('晴空').desc('获得阿罗娜后解锁（浅蓝变体）。')
+    .type('solid')
     .primary('#38bdf8')
     .unlockProtoStat(Character.Arona)
     .build(),
-  color('base:color:lime')
+  colorGroup('base:group:lime')
     .name('青柠').desc('完成欢迎剧情（flag）后解锁。')
+    .type('solid')
     .primary('#a3e635')
     .unlockFlag('momotalk_pink_unlocked')
     .build(),
-  color('base:color:ink')
+  colorGroup('base:group:ink')
     .name('墨蓝').desc('拥有星野（任一差分）后解锁（深底变体）。')
+    .type('solid')
     .primary('#1e3a5f')
-    .tokens({ panel: '#101828' }) // 部分节点示例：只定义 panel，其余仍由 primary 派生
+    .theme({ panel: '#101828' }) // 部分节点示例：只定义 panel，其余仍由 primary 派生
     .unlockProtoStat(Character.Hoshino)
     .build(),
-  color('base:color:coral')
+  colorGroup('base:group:coral')
     .name('珊瑚').desc('完成欢迎剧情（flag）后解锁（全量自定义覆盖示例）。')
+    .type('solid')
+    .primary('#ff7a59')
     .theme({ primary: '#ff7a59', bg: '#fff3ee', bgAlt: '#ffe6dc', text: '#3a1f17', textDim: '#8a6a5c', border: '#ffd0c0', accent: '#ff9e80', panel: '#fff7f2' })
     .unlockFlag('momotalk_pink_unlocked')
     .build(),
-];
 
-/** 颜色组：预制头像构成模板，引用已有 Color 定义色板。 */
-export const baseColorGroups: ColorGroupDef[] = [
-  colorGroup('base:group:schale-solid')
-    .name('夏莱徽章').desc('什亭之匣的标准单色圆徽。')
-    .type('solid')
-    .slot('primary', 'base:color:schale-blue')
-    .build(),
+  // --- 头像构成模板（组合色组；原 ColorGroup） ---
   colorGroup('base:group:hoshino-gradient')
     .name('星野·渐变').desc('泳装蓝调的柔滑渐变。')
     .type('gradient')
-    .slot('primary', 'base:color:hoshino-swim')
-    .slot('secondary', 'base:color:sky')
-    .theme({ playerBubble: '#0e3a4d' }) // 部分节点示例：组声明自己的 player-bubble，其余沿用主色位 Color
+    .primary('#3ec6e0')
+    .slot('secondary', '#38bdf8')
+    .theme({ playerBubble: '#0e3a4d' }) // 部分节点示例：组声明自己的 player-bubble，其余沿用主色位
     .build(),
   colorGroup('base:group:abydos-duotone')
     .name('阿比多斯·双色').desc('黄沙主色 + 墨蓝阴影的阶调层次。')
     .type('duotone')
-    .slot('primary', 'base:color:abydos-sand')
-    .slot('shadow', 'base:color:ink')
+    .primary('#eab308')
+    .slot('shadow', '#1e3a5f')
     .build(),
   colorGroup('base:group:prism-pie')
     .name('棱镜·饼图').desc('四色分区构成的抽象头像。')
     .type('pie')
-    .slot('primary', 'base:color:rose')
-    .slot('secondary', 'base:color:emerald')
-    .slot('accent', 'base:color:violet')
-    .slot('highlight', 'base:color:amber')
+    .primary('#ff5d8f')
+    .slot('secondary', '#10b981')
+    .slot('accent', '#8b5cf6')
+    .slot('highlight', '#f59e0b')
     .build(),
   colorGroup('base:group:radial-dawn')
     .name('黎明·径向').desc('珊瑚中心向绯红边缘的径向渐变。')
     .type('radial')
-    .slot('primary', 'base:color:coral')
-    .slot('edge', 'base:color:rose')
+    .primary('#ff7a59')
+    .slot('edge', '#ff5d8f')
     .build(),
-  // 角色默认头像色组：除星野（使用 pics 图片头像）外，每人一套专属构成
-  colorGroup('base:group:arona-solid')
-    .name('阿罗娜·单色').desc('阿罗娜的标准单色圆徽。')
-    .type('solid')
-    .slot('primary', 'base:color:schale-blue')
-    .build(),
+  // 角色默认头像色组：除星野（使用 pics 图片头像）外，每人一套专属构成；解锁随角色获得
   colorGroup('base:group:shiroko-duotone')
     .name('白子·双色').desc('白子的玫瑰主色叠墨蓝阴影。')
     .type('duotone')
-    .slot('primary', 'base:color:rose')
-    .slot('shadow', 'base:color:ink')
+    .primary('#ff5d8f')
+    .slot('shadow', '#1e3a5f')
+    .unlockProtoStat(Character.Shiroko)
     .build(),
   colorGroup('base:group:serika-gradient')
     .name('芹香·渐变').desc('芹香的翡翠色滑向青柠色。')
     .type('gradient')
-    .slot('primary', 'base:color:emerald')
-    .slot('secondary', 'base:color:lime')
+    .primary('#10b981')
+    .slot('secondary', '#a3e635')
+    .unlockProtoStat(Character.Serika)
     .build(),
   colorGroup('base:group:yuuka-radial')
     .name('优香·径向').desc('优香的紫罗兰色中心向晴空色散射。')
     .type('radial')
-    .slot('primary', 'base:color:violet')
-    .slot('edge', 'base:color:sky')
+    .primary('#8b5cf6')
+    .slot('edge', '#38bdf8')
+    .unlockProtoStat(Character.Yuuka)
     .build(),
   colorGroup('base:group:mika-pie')
     .name('未花·饼图').desc('未花的多彩扇形分区。')
     .type('pie')
-    .slot('primary', 'base:color:amber')
-    .slot('secondary', 'base:color:rose')
-    .slot('accent', 'base:color:violet')
-    .slot('highlight', 'base:color:emerald')
+    .primary('#f59e0b')
+    .slot('secondary', '#ff5d8f')
+    .slot('accent', '#8b5cf6')
+    .slot('highlight', '#10b981')
+    .unlockProtoStat(Character.Mika)
     .build(),
   colorGroup('base:group:iori-gradient')
     .name('伊织·渐变').desc('伊织的绯红向墨蓝渐沉。')
     .type('gradient')
-    .slot('primary', 'base:color:crimson')
-    .slot('secondary', 'base:color:ink')
+    .primary('#e11d48')
+    .slot('secondary', '#1e3a5f')
+    .unlockProtoStat(Character.Iori)
     .build(),
   colorGroup('base:group:miyako-duotone')
     .name('都子·双色').desc('都子的青碧主色叠墨蓝阴影。')
     .type('duotone')
-    .slot('primary', 'base:color:teal')
-    .slot('shadow', 'base:color:ink')
+    .primary('#14b8a6')
+    .slot('shadow', '#1e3a5f')
+    .unlockProtoStat(Character.Miyako)
     .build(),
   colorGroup('base:group:saori-radial')
     .name('纱织·径向').desc('纱织的靛蓝中心向晴空色散射。')
     .type('radial')
-    .slot('primary', 'base:color:indigo')
-    .slot('edge', 'base:color:sky')
+    .primary('#6366f1')
+    .slot('edge', '#38bdf8')
+    .unlockProtoStat(Character.Saori)
     .build(),
 ];
 
-/** 色彩装备：收集品，捆绑颜色组 + 数值效用 + 可选主题色。 */
+/** 色彩装备：收集品，捆绑色彩组（头像视觉 + 主题预设）+ 数值效用。 */
 export const baseColorEquipments: ColorEquipmentDef[] = [
   colorEquipment('base:equip:schale-badge')
     .name('夏莱徽章').desc('什亭之匣的标准徽章，信用点获取 +1。')
     .colorGroup('base:group:schale-solid')
     .effects({ op: 'addResource', target: Resource.Credit, value: 1 })
-    .themeColor('base:color:schale-blue')
     .category('common')
     .unlockFlag('momotalk_pink_unlocked')
     .build(),
@@ -287,7 +300,6 @@ export const baseColorEquipments: ColorEquipmentDef[] = [
     .name('星野泳装装备').desc('夏日泳池的清凉套装，信用点获取 +2。')
     .colorGroup('base:group:hoshino-gradient')
     .effects({ op: 'addResource', target: Resource.Credit, value: 2 })
-    .themeColor('base:color:hoshino-swim')
     .category('rare')
     .unlockProtoStat(Character.Hoshino)
     .build(),
@@ -295,7 +307,6 @@ export const baseColorEquipments: ColorEquipmentDef[] = [
     .name('阿比多斯传承').desc('阿比多斯学园的古老传承，信用点获取 +3。')
     .colorGroup('base:group:abydos-duotone')
     .effects({ op: 'addResource', target: Resource.Credit, value: 3 })
-    .themeColor('base:color:abydos-sand')
     .category('epic')
     .unlockProtoStat(Character.Hoshino, 2)
     .build(),
@@ -310,7 +321,6 @@ export const baseColorEquipments: ColorEquipmentDef[] = [
     .name('黎明之气').desc('破晓时分的暖色光晕，信用点获取 +2。')
     .colorGroup('base:group:radial-dawn')
     .effects({ op: 'addResource', target: Resource.Credit, value: 2 })
-    .themeColor('base:color:coral')
     .category('common')
     .unlockProtoStat(Character.Shiroko)
     .build(),

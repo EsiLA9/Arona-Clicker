@@ -17,7 +17,6 @@ import type { PicId } from './pics';
 // --- 基础 ID ---
 
 export type VariantId = string;
-export type ColorId = string;
 export type ColorGroupId = string;
 export type EquipmentId = string;
 export type GachaPoolId = string;
@@ -140,7 +139,7 @@ export interface CharacterVariantDef {
 // --- 色彩 ---
 
 /**
- * UI 主题 token 键（primary 必配；其余可由 primary 按 HSL 深/浅派生）。
+ * UI 主题 token 键（primary 缺省取色彩组主色位色值；其余可由 primary 按 HSL 深/浅派生）。
  * 常用 token 见 ColorSystem 派生实现；任意字符串键均允许（全量自定义）。
  */
 export type ThemeToken = string;
@@ -152,16 +151,16 @@ export type ThemeToken = string;
 export type ThemeOrderScope = 'player' | 'area' | 'student';
 
 /**
- * 场景/演出声明式主题：引用某 Color 打底 + 可选局部 token 覆盖。
+ * 场景/演出声明式主题：引用某 ColorGroup 打底 + 可选局部 token 覆盖。
  * 引擎在进入 Area / 打开学生对话时据此推入场景层（见 theme-runtime.ts）。
  */
 export interface ThemeDef {
   /**
-   * 引用 ColorDef id；缺省仅用 tokens 覆盖。
-   * @label 引用色彩
-   * @ref colors
+   * 引用 ColorGroupDef id（其 theme-tree 预设整包打底）；缺省仅用 tokens 覆盖。
+   * @label 引用色彩组
+   * @ref colorGroups
    */
-  colorId?: ColorId;
+  colorGroupId?: ColorGroupId;
   /**
    * 局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。
    * @label 局部覆盖
@@ -172,7 +171,7 @@ export interface ThemeDef {
 /**
  * 实体主题槽：玩家为某实体（`area:<id>` / `variant:<id>`）选定的主题来源。
  * - default：声明默认（无覆盖）
- * - equipment：装备提供的主题（theme / themeColorId，需已装备）
+ * - equipment：装备提供的主题（theme，缺省回退装备引用的组；需已装备）
  * - design：已解锁的配色设计
  * - custom：剧情/Trigger 或玩家写入的临时主题
  */
@@ -215,27 +214,11 @@ export interface ThemeDesignDef {
   unlock?: Condition | ConditionGroup;
 }
 
-export interface ColorDef {
-  /** @label ID */
-  id: ColorId;
-  /** @label 名称 */
-  name: string;
-  /** @label 描述 */
-  description?: string;
-  /**
-   * 主题 token 表。至少给 primary；未给的 token 由 primary 经 HSL 规则确定性派生，
-   * 显式给出的 token 覆盖派生值（支持近整 UI 配色自定义）
-   * @label 主题
-   */
-  theme: Record<ThemeToken, string>;
-  /**
-   * 解锁条件（引用 protoStats / story flag 等）；缺省 = 不可自动解锁
-   * @label 解锁条件
-   */
-  unlock?: Condition | ConditionGroup;
-}
-
-// --- 颜色组（ColorGroup） ---
+// --- 色彩组（ColorGroup）：唯一色彩实体 ---
+//
+// 合并原 Color（主题预设）与 ColorGroup（头像模板）：一个 ColorGroupDef =
+// 重点色彩组（slots 内联 hex）+ 头像渲染方案（compositionType）
+// + theme-tree 预设（theme 覆盖表，primary 缺省取主色位 hex）+ 解锁条件。
 
 /**
  * 颜色组构成方式：决定学生头像（抽象圆形图案）如何由组内颜色组合渲染。
@@ -250,7 +233,7 @@ export type CompositionType = 'solid' | 'gradient' | 'duotone' | 'pie' | 'radial
 /** 颜色组内某个色位的语义角色。 */
 export type ColorGroupRole = 'primary' | 'secondary' | 'accent' | 'highlight' | 'shadow' | 'edge';
 
-/** 颜色组中的单个色位：角色 + 引用的 Color。 */
+/** 颜色组中的单个色位：角色 + 内联色值（hex）。 */
 export interface ColorGroupSlot {
   /**
    * 色位角色（决定该色在构成中承担的位置）
@@ -264,16 +247,15 @@ export interface ColorGroupSlot {
    */
   role: ColorGroupRole;
   /**
-   * 引用的颜色
-   * @label 颜色
-   * @ref colors
+   * 色值（#rrggbb）
+   * @label 色值
    */
-  colorId: ColorId;
+  color: string;
 }
 
 /**
- * 颜色组：预制模板，由 1~6 个 Color 按构成方式组合，定义学生头像视觉。
- * 仅可整体收集/装备，不可自由组装。
+ * 色彩组：唯一色彩实体。重点色彩组（slots）+ 头像渲染方案（compositionType）
+ * + theme-tree 预设（theme 覆盖表）。可整体解锁/装备，不可自由组装。
  */
 export interface ColorGroupDef {
   /** @label ID */
@@ -298,18 +280,23 @@ export interface ColorGroupDef {
    */
   slots: ColorGroupSlot[];
   /**
-   * 部分主题覆盖（token 键，如 panel / playerBubble / bg）。
-   * 未给的 token 由主色位（role==='primary'）Color 的 theme 解析；
-   * 主色位未定义时仅本覆盖生效。使 ColorGroup 可声明自己的部分节点颜色，
-   * 而不必完全依赖主色位 Color。
+   * theme-tree 预设覆盖表（token 键，如 panel / playerBubble / bg / primary）。
+   * 未给的 token 由主色位（role==='primary'，无则首个 slot）的色值经 HSL 规则
+   * 确定性派生；显式给出的 token 覆盖派生值（支持近整 UI 配色自定义）。
    * @label 主题覆盖
    */
   theme?: Partial<Record<ThemeToken, string>>;
+  /**
+   * 解锁条件（引用 protoStats / story flag 等）；缺省 = 不可自动解锁。
+   * 解锁后玩家可将其激活为全局主题；装备解锁会级联解锁其引用的组。
+   * @label 解锁条件
+   */
+  unlock?: Condition | ConditionGroup;
 }
 
 /**
- * 色彩装备：核心收集品。捆绑头像视觉（ColorGroup）+ 数值效用（effects）
- * + 可选主题色（themeColorId）。装备到学生后同时决定头像与效用。
+ * 色彩装备：核心收集品。捆绑色彩组（ColorGroup：头像视觉 + theme-tree 预设）
+ * + 数值效用（effects）。装备到学生后同时决定头像与效用，并级联解锁该组。
  */
 export interface ColorEquipmentDef {
   /** @label ID */
@@ -319,7 +306,7 @@ export interface ColorEquipmentDef {
   /** @label 描述 */
   description?: string;
   /**
-   * 引用的颜色组（决定装备学生的头像视觉）
+   * 引用的颜色组（决定装备学生的头像视觉与主题预设）
    * @label 颜色组
    * @ref colorGroups
    */
@@ -330,14 +317,8 @@ export interface ColorEquipmentDef {
    */
   effects: Effect[];
   /**
-   * 可选：该装备关联的主题色。激活为 UI 全局主题时使用（独立于头像）。
-   * @label 主题色
-   * @ref colors
-   */
-  themeColorId?: ColorId;
-  /**
    * 可选：装备提供的完整主题（用于该学生的实体主题槽 equipment 来源）。
-   * 声明时优先于 themeColorId。
+   * 缺省时回退为引用组本身的主题预设（colorGroupId）。
    * @label 装备主题
    */
   theme?: ThemeDef;

@@ -26,7 +26,7 @@ overview: 为 GameNum 增加“区（Zone）”概念与运行时 Tag 注册表�
 - 语言：TypeScript（项目既有，零新增依赖）
 - 引擎目录：`src/engine/expression/*`（GameNum 求值体系）、`src/engine/core/tag.ts`（Tag 树语义）、`src/engine/effect/affector-engine.ts`（Affector）
 - 测试：vitest（`tests/engine/game-num.test.ts` 等）
-- 协议同步：`npm run gen:schema` + `tools/datapack-editor/schema/engine-schema.sync.test.ts`（仅在改动 `src/engine/types/**` 时触发）
+- 协议同步：`npm run gen:schema` + `tools/datapack-editor/schema/engine-schema.sync.test.ts`（仅在改动 `src/engine/types/` 时触发）
 
 ## 实现方案
 
@@ -61,7 +61,7 @@ overview: 为 GameNum 增加“区（Zone）”概念与运行时 Tag 注册表�
 - Spot 产出树的既有节点 `id` 前缀约定（`spot:` / `owned:` / `baseLine:` / `enh:`）必须保留，`prodCache` 依赖 `SPOT_NODE_PREFIX` 判定；新增区节点用新前缀（如 `zone:`）。
 - 移除 `managerBonus` / `tagMultiplier` 后需全仓搜索引用点（`game-num.ts` 构树、`game-num-eval.ts` 求值与 breakdown、`tests/engine/game-num.test.ts` 形状断言、docs-818 文档表格），逐一同步。
 - `managerChanged` 事件订阅在冻结节点移除后若无消费者，保留订阅但改为仅 `invalidateProduction()`，不要顺手删除（后续 Manager 机制会回来）。
-- 若 `AffectorEffect` / `EffectOp` 等 `src/engine/types/**` 类型有改动，必须执行 `npm run gen:schema`，并在 `tools/datapack-editor/schema/editor-extras.ts` 兜底新字段，跑通 `engine-schema.sync.test.ts`。
+- 若 `AffectorEffect` / `EffectOp` 等 `src/engine/types/` 类型有改动，必须执行 `npm run gen:schema`，并在 `tools/datapack-editor/schema/editor-extras.ts` 兜底新字段，跑通 `engine-schema.sync.test.ts`。
 - 生命周期事件接入前先确认事件名实际存在（Init/Area 进出事件需在 `src/engine/core/event-bus.ts` 或 game-instance 中核实），不存在则通过 `StateMutationService` 已有写入口回调接入，不新造事件。
 - `tests/engine/passive-pool.test.ts:584` 存在与本任务无关的既有失败，不在本次范围内修复，但不得引入新失败。
 

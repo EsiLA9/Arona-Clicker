@@ -44,8 +44,8 @@ export class CharacterVariantBuilder {
   /** @label 培养曲线 */
   curve(id: CultivateCurveId): this { this._curve = id; return this; }
   /** @label 对话主题 */
-  theme(colorId?: string, tokens?: Record<string, string>): this {
-    this._theme = tokens ? { colorId, tokens } : (colorId ? { colorId } : {});
+  theme(colorGroupId?: string, tokens?: Record<string, string>): this {
+    this._theme = tokens ? { colorGroupId, tokens } : (colorGroupId ? { colorGroupId } : {});
     return this;
   }
   /** @label 头像 */

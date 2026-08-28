@@ -36,8 +36,8 @@ export class AreaBuilder {
   adjacent(...ids: AreaId[]): this { this._adjacentAreaIds = ids; return this; }
 
   /** @label 场景主题 */
-  theme(colorId: string, tokens?: Record<string, string>): this {
-    this._theme = tokens ? { colorId, tokens } : { colorId };
+  theme(colorGroupId: string, tokens?: Record<string, string>): this {
+    this._theme = tokens ? { colorGroupId, tokens } : { colorGroupId };
     return this;
   }
 

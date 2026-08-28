@@ -36,11 +36,13 @@ function palettePreview(desc: { tokens: { key: string; value: string }[] }): str
   return `<div class="codex-palette">${chips}</div>`;
 }
 
-function colorCard(ctx: UIContext, def: import('../../engine/types').ColorDef): string {
+function groupCard(ctx: UIContext, def: import('../../engine/types').ColorGroupDef): string {
   const esc = ctx.escapeHtml;
-  const owned = ctx.game.colorSystem.isOwned(ctx.game.state, def.id);
-  const active = ctx.game.state.activeColor === def.id;
-  const desc = ctx.game.colorSystem.describeColor(def);
+  const owned = ctx.game.colorSystem.isGroupOwned(ctx.game.state, def.id);
+  const active = ctx.game.state.activeGroupId === def.id;
+  const desc = ctx.game.colorSystem.describeGroup(def);
+  const primary = ctx.game.colorSystem.themeSwatchColor({ colorGroupId: def.id }) ?? '#888';
+  const avatar = renderAvatarSvg(def.compositionType, def.slots.map(s => s.color), 56);
   const statusBadge = active
     ? '<span class="coll-gate is-open">● 使用中</span>'
     : owned
@@ -52,7 +54,7 @@ function colorCard(ctx: UIContext, def: import('../../engine/types').ColorDef): 
   return `
     <article class="codex-color ${owned ? 'is-owned' : 'is-locked'} ${active ? 'is-active' : ''}">
       <header class="codex-color-head">
-        <span class="codex-swatch" style="--swatch:${def.theme['primary'] ?? '#888'}"></span>
+        <span class="equipment-avatar">${avatar}</span>
         <div class="codex-color-title">
           <h3>${esc(def.name)}</h3>
           <small class="codex-color-id">${esc(def.id)}</small>
@@ -64,14 +66,14 @@ function colorCard(ctx: UIContext, def: import('../../engine/types').ColorDef): 
     </article>`;
 }
 
-export function renderColorCodex(ctx: UIContext): string {
-  const all = ctx.game.colorSystem.getAll();
-  const ownedCount = all.filter(c => ctx.game.colorSystem.isOwned(ctx.game.state, c.id)).length;
-  const definedCount = all.filter(c => !ctx.game.colorSystem.describeColor(c).autoConstructed).length;
-  const cards = all.map(c => colorCard(ctx, c)).join('');
+export function renderGroupCodex(ctx: UIContext): string {
+  const all = ctx.game.colorSystem.getAllGroups();
+  const ownedCount = all.filter(g => ctx.game.colorSystem.isGroupOwned(ctx.game.state, g.id)).length;
+  const definedCount = all.filter(g => !ctx.game.colorSystem.describeGroup(g).autoConstructed).length;
+  const cards = all.map(g => groupCard(ctx, g)).join('');
   const summary = `
     <div class="coll-summary">
-      <span class="eyebrow">COLOR CODEX</span>
+      <span class="eyebrow">COLOR GROUP CODEX</span>
       <strong>${ownedCount} / ${all.length} 已收集${definedCount > 0 ? ` · ${definedCount} 份自定义配色` : ''}</strong>
     </div>`;
   return `${summary}<div class="codex-grid">${cards}</div>`;

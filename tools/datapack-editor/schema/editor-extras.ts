@@ -250,10 +250,10 @@ const effectObject = (): FieldDef =>
 const effectArray = (key: string, label: string, required = false): FieldDef =>
   a(key, effectObject(), label, { required });
 
-/** ThemeDef：{ colorId?, tokens? } —— 场景/演出声明式主题（引用 Color + 局部覆盖）。 */
+/** ThemeDef：{ colorGroupId?, tokens? } —— 场景/演出声明式主题（引用 ColorGroup + 局部覆盖）。 */
 const themeField = (key: string, label: string): FieldDef =>
   o(key, [
-    s('colorId', '引用色彩', { description: '引用某个已定义 ColorDef id（如 base:color:millennium）；缺省仅用局部覆盖。' }),
+    s('colorGroupId', '引用色彩组', { description: '引用某个已定义 ColorGroupDef id（如 base:group:indigo）；缺省仅用局部覆盖。' }),
     { key: 'tokens', label: '局部覆盖', type: { kind: 'flexible' }, description: '引擎 token 键（primary / bg / player-bubble 等）→ 颜色值。' },
   ], label);
 

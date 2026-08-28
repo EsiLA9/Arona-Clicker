@@ -191,7 +191,7 @@ export const baseStories: StoryDef[] = [
         .effects(
           { op: 'addResource', target: Resource.Credit, value: 6 },
           // 临时演出主题示例：这段剧情期间界面短暂切换为泳装星野的清凉蓝调
-          { op: 'setTheme', target: '', value: { colorId: 'base:color:hoshino-swim' } },
+          { op: 'setTheme', target: '', value: { colorGroupId: 'base:group:hoshino-swim' } },
         ),
     )
     .build(),

@@ -100,7 +100,6 @@ export function validateDatapack(dp: Datapack): void {
     }
   }
 
-  if (dp.colors) checkDup(dp.colors, 'color');
   if (dp.colorGroups) checkDup(dp.colorGroups, 'color group');
   if (dp.colorEquipments) checkDup(dp.colorEquipments, 'color equipment');
 

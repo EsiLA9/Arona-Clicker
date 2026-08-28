@@ -2,6 +2,8 @@
 
 > 基于 `todoTask/taskGameNum/TASK.md` Phase 0 完成后的需求分析。
 > 对应会话：用户对 Affector 未来需求的描述。
+>
+> ==new== **状态：已实现**（taskProduction Phase 6，commit `901713b`；Phase 7 死代码清理后保持）。本文 §2 图示与 §5/§6 已按实作修正——实作公式以 `todoTask/taskProduction/REPORT.md` Phase 6 节为准；与设计稿的出入处标 ==new==。
 
 ---
 
@@ -49,74 +51,66 @@ Spot 持有以下终端产出：
 
 ---
 
-## 2. 树结构（每资源一棵）
+## 2. 树结构（每资源一棵）==new==（图示已按实作修正）
 
 ```
 primitiveGain:<res> (add)                    ← 资源总产出
 │
 ├── globalProduct (mul)                      ← = Σ initFull × globalMulZone
 │   ├── initSum (add)                        ← Σ initFull
-│   └── globalMulZone (zone·mul)             ← 全局乘区（childMulMap）
+│   └── globalMulZone (zone·mul)             ← 全局乘区（aggregateZone 扫描 state 区表）==new==
 │
-├── globalFlat (add)                         ← 全局额外产出
-└── globalFlows (affectorFlows)              ← 全局 Affector flows
+├── globalFlatZone (zone·flat)               ← 全局额外产出 ==new==（原 globalFlat add）
+└── globalFlows (affectorFlows)              ← 非层级实体挂载的 flows 兜底节点（mount 缺省）==new==
 
 
 └── init:<initId> (add)                      ← initFull
     │
     ├── initProduct (mul)                    ← = initBase × initMulZone
-    │   ├── initBase (add)                   ← Σ areaBase（共享 areaBase 节点）
+    │   ├── initBase (add)                   ← Σ areaProduct（逐级连乘，非 Σ areaBase）==new==
     │   └── initMulZone (zone·mul)           ← Init 乘区（乘 Area base 和）
     │
-    ├── initFlat (add)                       ← Init 额外产出
-    └── initFlows (affectorFlows)            ← Init 级 Affector flows
+    └── initExtra (add)                      ← = initFlatZone + initFlows + Σ areaExtra ==new==（原 initFlat/initFlows 合并入 Extra 节点）
 
 
     └── area:<areaId> (add)                  ← areaFull
         │
         ├── areaProduct (mul)                ← = areaBase × areaMulZone
-        │   ├── areaBase (add)               ← Σ spotBase + areaOwn + enhGains
-        │   │   │
-        │   │   ├── spotBase (共享，DAG)     ← 各 Spot 的纯 base（见下）
-        │   │   ├── areaOwn (add)            ← Area 自身 gainResource（甚少用）
-        │   │   └── enhGains (add)           ← Enhancement 直接 gainResource
-        │   │
+        │   ├── areaBase (add)               ← Σ spotProduct（areaOwn/enhGains 未实装）==new==
+        │   │   └── spotProduct (共享，DAG)  ← 各 Spot 的 base 链（见下）==new==（原 spotBase 共享）
         │   └── areaMulZone (zone·mul)       ← Area 乘区（乘 Spot base 和）
         │
-        ├── areaFlat (add)                   ← Area 额外产出
-        └── areaFlows (affectorFlows)        ← Area 级 Affector flows
+        └── areaExtra (add)                  ← = areaFlatZone + areaFlows + Σ spotExtra ==new==（原 areaFlat/areaFlows 合并入 Extra 节点）
 
 
         └── spot:<spotId> (add)              ← spotFull
             │
             ├── spotProduct (mul)            ← = spotBase × spotMulZone
-            │   ├── spotBase (add)           ← baseYield + levelLinear + baseAdd
-            │   │   ├── baseYield (expr)         ← Spot 声明 base（gainResource 的 primitiveValue）
-            │   │   ├── levelLinear (levelLinear) ← 每级 base（gainResourceLeveled）
-            │   │   └── baseAdd (add)            ← Affector 对 base 的加值（外源/内源）
-            │   │       └── baseMod (expr/const)  ← 每条加值记录
-            │   │
-            │   └── spotMulZone (zone·mul)   ← Spot 乘区（childMulMap：defaultMul/custom/bound）
+            │   ├── spotBase (mul)           ← = owned × baseSum；baseSum = baseYield + levelLinear ==new==（baseAdd 通道未实装；非本资源树恒 const 0）
+            │   │   ├── owned (owned)            ← 未拥有门控
+            │   │   └── baseSum (add)
+            │   │       ├── baseYield (expr/const)   ← Spot 声明 base（gainResource 的 primitiveValue）
+            │   │       └── levelLinear (levelLinear) ← 每级 base（gainResourceLeveled）
+            │   └── spotMulZone (zone·mul)   ← Spot 乘区（aggregateZone：mul 加法合并 / custom 连乘 / bound 夹取；带 resource 限定）==new==
             │
-            ├── spotFlat (add)               ← Spot 额外产出
-            └── spotFlows (affectorFlows)    ← Spot 自身 Affector flows
+            └── spotExtra (add)              ← = spotFlatGated + spotFlows ==new==（原 spotFlat/spotFlows；flat 经 owned 门控，flows 不门控）
 ```
 
 ### DAG 共享
 
-- `spotBase` 节点同时被 `spotProduct`（spot 自己的乘区）和上级 `areaBase` 节点引用。
+- `spotBase` 节点同时被 `spotProduct`（spot 自己的乘区）和上级 `areaBase` 节点引用。==new==（实作中共享进上级的是 `spotProduct`：areaBase = Σ spotProduct）
 - GameNum 已是多父 DAG（`parents` 表支持），只需在 build 时把同一节点加入两个父节点的 children 列表。
 
-### 数学形式
+### 数学形式 ==new==（已按实作修正：乘区逐级连乘 base 链，flat/flows 经 Extra 直加）
 
 ```
-spotFull  = spotBase × spotMulZone + spotFlat + spotFlows
-areaBase  = Σ spotBase + areaOwn + enhGains
-areaFull  = areaBase × areaMulZone + areaFlat + areaFlows
-initBase  = Σ areaBase
-initFull  = initBase × initMulZone + initFlat + initFlows
-total     = Σ initFull × globalMulZone + globalFlat + globalFlows
+spotFull  = spotBase × spotMulZone + spotExtra        （spotExtra = spotFlatGated + spotFlows）
+areaFull  = (Σ spotProduct) × areaMulZone + areaExtra （areaExtra = areaFlat + areaFlows + Σ spotExtra）
+initFull  = (Σ areaProduct) × initMulZone + initExtra （initExtra = initFlat + initFlows + Σ areaExtra）
+total     = (Σ initFull) × globalMulZone + globalFlat + globalFlows
 ```
+
+（原设计稿的 `areaBase = Σ spotBase + areaOwn + enhGains` / `initBase = Σ areaBase` 未实装：areaOwn/enhGains/baseAdd 通道留待未来需求，当前 Area/Init 自身产出与 Enhancement 产出经 flat 区与 flows 进入 Extra 链。）
 
 ---
 
@@ -151,12 +145,12 @@ total     = Σ initFull × globalMulZone + globalFlat + globalFlows
 ### 延续设计
 
 - **flows 仍然是声明数据，不进实例**：实例只携带 `mountEntityId` 决定挂载层级。
-- **`mountEntityId` 决定 flows 进入哪个层级节点**：
+- `mountEntityId` 决定 flows 进入哪个层级节点**：
   - 挂 Spot → `spotFlows`
   - 挂 Area → `areaFlows`
   - 挂 Init → `initFlows`
   - 挂 Global → `globalFlows`
-- **`gainResource` / `gainResourceLeveled` 不属于 Affector**：它们是 `SpotDef` 的终端字段，进 `baseYield` / `levelLinear`。
+- `gainResource` / `gainResourceLeveled` 不属于 Affector**：它们是 `SpotDef` 的终端字段，进 `baseYield` / `levelLinear`。
 - **Affector 对 base 的加值**：走 `baseAdd` 通道，每条加值一条记录，以 `source` 为键支持撤销。
 - **若需反查「挂的 spot 属于哪个 area/init」**：由 Affector 引擎挂载时经 registry 解析一次，缓存在实例上或求值时现场反查。
 
@@ -171,13 +165,13 @@ total     = Σ initFull × globalMulZone + globalFlat + globalFlows
 | base 加值 | 无独立通道 | 新增 `baseAdd` 节点 |
 | Area 自身产出 | 无 | 新增 `areaOwn` 节点 |
 | Enhancement 聚合 | 无 | 新增 `enhGains` 节点 |
-| 乘区语义 | 同组 `1+Σ(f-1)`（加法）vs 兜底 `Πf`（连乘）冲突 | 沿用 zone·mul 的 childMulMap 机制，但需先定语义（Phase 1 决策点） |
-| `getSpotMultiplier` | 不含 hierarchy（与注释不符） | 删除此 API，改用 `evaluate(spotProduct)` 或 `evaluate(areaMulZone)` 等精确节点 |
+| 乘区语义 | 同组 `1+Σ(f-1)`（加法）vs 兜底 `Πf`（连乘）冲突 | ==new== 已定（Phase 1）：统一 `aggregateZone` 扫描 state 区表——mul 加法合并 `1+Σ(v-1)`、custom 按 multiplierId 连乘、bound 夹取；childMulMap 已删 |
+| `getSpotMultiplier` | 不含 hierarchy（与注释不符） | ==new== 已删（Phase 6）：UI 改经 `buildZoneNode` 精确读 zone 节点 |
 
 ---
 
-## 6. 待决策项（Phase 1 前置）
+## 6. 待决策项（Phase 1 前置）==new==（全部已定）
 
-1. **同乘区组多条记录的合并语义**：`1+Σ(f-1)`（加法，当前 childMulMap 路径） vs `Πf`（连乘，当前 aggregateZone 路径）——选一个统一。
-2. **`globalMul` 乘什么**：推荐乘 `Σ initFull`（完整值），但也可乘 `Σ initBase`（纯 base 链）。选一个。
-3. **`getSpotMultiplier` 去向**：删，或改为 `evaluate(spotMulZone)` 的精确语义。
+1. **同乘区组多条记录的合并语义**：`1+Σ(f-1)`（加法，当前 childMulMap 路径） vs `Πf`（连乘，当前 aggregateZone 路径）——选一个统一。==new== ✅ 定案（Phase 1）：mul 加法合并 `1+Σ(v-1)`；custom 按 multiplierId 连乘；bound 折叠夹取。childMulMap 删除。
+2. `globalMul` 乘什么**：推荐乘 `Σ initFull`（完整值），但也可乘 `Σ initBase`（纯 base 链）。选一个。==new== ✅ 定案（Phase 6 决策项 2，选 A）：乘 `Σ initFull`（完整值）。
+3. `getSpotMultiplier` 去向**：删，或改为 `evaluate(spotMulZone)` 的精确语义。==new== ✅ 定案（Phase 6 决策项 3，选 A）：删除 API，UI 经 `buildZoneNode` 精确读区节点。

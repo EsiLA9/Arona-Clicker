@@ -2,13 +2,11 @@ import {
   hexToHsl,
   hexToRgbTriplet,
   resolveTheme,
-  themeContributionFromGroup,
   themeContributionFromThemeDef,
 } from '../engine/system/color-system';
 import type {
-  ColorDef,
   ColorGroupDef,
-  ColorId,
+  ColorGroupId,
   ThemeDef,
 } from '../engine/types';
 
@@ -237,25 +235,17 @@ export function themeTreeToInlineStyle(tree: ThemeTree): string {
     .join(';');
 }
 
-// --- Color / ColorGroup / ThemeDef 各自的快速映射 ---
+// --- ColorGroup / ThemeDef 各自的快速映射 ---
 
-/** Color 快速映射：直接用其 theme 解析为 ThemeTree。 */
-export function themeTreeFromColor(color: ColorDef): ThemeTree {
-  return buildThemeTree(resolveTheme(color));
+/** ColorGroup 快速映射：直接用 resolveTheme 解析为 ThemeTree。 */
+export function themeTreeFromGroup(group: ColorGroupDef): ThemeTree {
+  return buildThemeTree(resolveTheme(group));
 }
 
-/** ColorGroup 快速映射：取主色位（role==='primary'）的 Color 解析为 ThemeTree。 */
-export function themeTreeFromGroup(
-  group: ColorGroupDef,
-  getColor: (id: ColorId) => ColorDef | undefined,
-): ThemeTree {
-  return buildThemeTree(themeContributionFromGroup(group, getColor));
-}
-
-/** ThemeDef（自定义主题）快速映射：引用 Color 打底 + 局部覆盖。 */
+/** ThemeDef（自定义主题）快速映射：引用 ColorGroup 打底 + 局部覆盖。 */
 export function themeTreeFromThemeDef(
   theme: ThemeDef | undefined,
-  getColor: (id: ColorId) => ColorDef | undefined,
+  getGroup: (id: ColorGroupId) => ColorGroupDef | undefined,
 ): ThemeTree {
-  return buildThemeTree(themeContributionFromThemeDef(theme, getColor));
+  return buildThemeTree(themeContributionFromThemeDef(theme, getGroup));
 }

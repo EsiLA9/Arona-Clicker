@@ -101,11 +101,11 @@ GameNum 树是唯一结算路径，state 表是唯一修饰数据真相，Affect
 
 1. **存档恢复缺实例重挂载**（04h §1.1，严重）：`restoreFromSave` 只调 `setState`，不重挂载实例 → 读档后 flows/zoneModifiers/addResource 全丢。
 2. **初始状态物品/强化无挂载**（04h §1.2，严重）：`createDefaultPlayerState` 的初始物品/强化不触发挂载事件。
-3. **`Effect[]` 每 tick 执行**（04h §1.3，严重）：非 addResource 的一次性 op（addItem/grantCharacter/unlockInit/triggerStory）在 Affector 中每 tick 重复执行 → 无限发放。
+3. `Effect[]` 每 tick 执行**（04h §1.3，严重）：非 addResource 的一次性 op（addItem/grantCharacter/unlockInit/triggerStory）在 Affector 中每 tick 重复执行 → 无限发放。
 4. **flow 与 effects[addResource] 双通道双重发放**（04h §3.1，中）：并存时数据作者可能拿到双倍。
 5. **mount 无条件覆盖旧实例**（04h §3.3，中）：重复获得同一物品 → addResource 重复发放。
 6. **同 pack 多 entry 共用 id 隐式 OR**（04h §3.2，中）：无校验。
-7. **`getSpotMaxLevelOverrides` 每调用全量扫描**（04h §3.5，中）。
+7. `getSpotMaxLevelOverrides` 每调用全量扫描**（04h §3.5，中）。
 
 ### 主题 5：Affector–GameNum 桥接 [G][A]
 
@@ -253,7 +253,7 @@ GameNum 树是唯一结算路径，state 表是唯一修饰数据真相，Affect
 
 - 阅读并遵守仓库根目录 `AGENTS.md`：单一写入口（所有状态变更走 `StateMutationService`）、事件驱动、测试先行（`npm test` 通过才算完成）、**不做存档迁移/版本兼容代码**。
 - 改引擎机制前先读 `docs-824/02-run-logic.md` 及 02a-e；改数据结构前先读 `docs-824/03-data-structures.md` 及 03a-e。
-- 改 `src/engine/types/**` 的数据包字段后必须 `npm run gen:schema`（本任务涉及：`ZoneModifierDecl.life`、`AffectorPackDef.persistent` 若删除）。
+- 改 `src/engine/types/` 的数据包字段后必须 `npm run gen:schema`（本任务涉及：`ZoneModifierDecl.life`、`AffectorPackDef.persistent` 若删除）。
 - 禁止修改：`dist/` / `web-dist/` / `src/ui/dist/` / `node_modules/` / `tools/datapack-editor/schema/engine-defs.gen.json`（生成产物，改源头后重新生成）。
 - 默认不写注释；只在 WHY 非显而易见时写。
 - **行为保持**：除测试已显式声明的语义外，所有游戏数值结果不变。每完成一个 Phase 先跑测试再进入下一 Phase。

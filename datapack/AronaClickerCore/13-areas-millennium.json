@@ -22,7 +22,7 @@
         }
       ],
       "theme": {
-        "colorId": "base:color:indigo",
+        "colorGroupId": "base:group:indigo",
         "tokens": {
           "primary": "#6366f1"
         }

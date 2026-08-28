@@ -1,6 +1,6 @@
 // ============================================================
 // engine/def-factory/color-equipment.ts — ColorEquipmentDef 链式 Builder
-// 构造色彩装备（收集品：颜色组 + 效用 + 可选主题色）。.build() 返回标准 ColorEquipmentDef。
+// 构造色彩装备（收集品：颜色组 + 效用）。.build() 返回标准 ColorEquipmentDef。
 // ============================================================
 
 import type { Condition, ConditionGroup, Effect } from '../types/expression';
@@ -8,7 +8,6 @@ import type { Character } from '../types/ids';
 import type {
   ColorEquipmentDef,
   ColorGroupId,
-  ColorId,
   EquipmentId,
 } from '../types/character';
 import { cond } from './condition';
@@ -19,7 +18,6 @@ export class ColorEquipmentBuilder {
   private _description?: string;
   private _colorGroupId = '';
   private readonly _effects: Effect[] = [];
-  private _themeColorId?: ColorId;
   private _unlock?: Condition | ConditionGroup;
   private _category?: 'common' | 'rare' | 'epic';
 
@@ -30,14 +28,11 @@ export class ColorEquipmentBuilder {
   name(value: string): this { this._name = value; return this; }
   desc(value: string): this { this._description = value; return this; }
 
-  /** 引用的颜色组（决定装备学生的头像视觉）。 */
+  /** 引用的颜色组（决定装备学生的头像视觉与主题预设）。 */
   colorGroup(id: ColorGroupId): this { this._colorGroupId = id; return this; }
 
   /** 追加数值效用（装备后生效）。 */
   effects(...effs: Effect[]): this { this._effects.push(...effs); return this; }
-
-  /** 关联主题色（激活为 UI 全局主题时使用）。 */
-  themeColor(id: ColorId): this { this._themeColorId = id; return this; }
 
   /** 稀有度分类（UI 展示用）。 */
   category(value: 'common' | 'rare' | 'epic'): this { this._category = value; return this; }
@@ -66,7 +61,6 @@ export class ColorEquipmentBuilder {
       effects: this._effects,
     };
     if (this._description) def.description = this._description;
-    if (this._themeColorId) def.themeColorId = this._themeColorId;
     if (this._unlock) def.unlock = this._unlock;
     if (this._category) def.category = this._category;
     return def;

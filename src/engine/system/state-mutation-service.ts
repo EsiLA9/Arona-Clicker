@@ -16,7 +16,6 @@ import {
   StoryId,
   GameEvent,
   StatsContext,
-  ThemeDef,
   ThemeOrderScope,
   VariantId,
   isGlobalResource,
@@ -60,7 +59,6 @@ export class StateMutationService {
   private characterCatalog: {
     getVariant(id: VariantId): import('../types').CharacterVariantDef | undefined;
     getCurve(id: string): import('../types').CultivateCurveDef | undefined;
-    getColor(id: string): import('../types').ColorDef | undefined;
     getColorGroup(id: string): import('../types').ColorGroupDef | undefined;
     getColorEquipment(id: string): import('../types').ColorEquipmentDef | undefined;
   } | null = null;
@@ -68,7 +66,6 @@ export class StateMutationService {
   setCharacterCatalog(reader: {
     getVariant(id: VariantId): import('../types').CharacterVariantDef | undefined;
     getCurve(id: string): import('../types').CultivateCurveDef | undefined;
-    getColor(id: string): import('../types').ColorDef | undefined;
     getColorGroup(id: string): import('../types').ColorGroupDef | undefined;
     getColorEquipment(id: string): import('../types').ColorEquipmentDef | undefined;
   }): void {
@@ -227,15 +224,15 @@ export class StateMutationService {
     if (changed) state.worldPool = [...world];
   }
 
-  // --- 色彩与色彩装备（docs-824/04e-color-derivation.md） ---
+  // --- 色彩组与色彩装备（docs-824/04e-color-derivation.md） ---
 
-  /** 色彩入库存（写层不做条件判定——由 ColorSystem 校验后调用；幂等）。 */
-  unlockColor(colorId: string): boolean {
+  /** 色彩组入库存（写层不做条件判定——由 ColorSystem 校验后调用；幂等）。 */
+  unlockGroup(groupId: string): boolean {
     const state = this.current;
-    state.colorsOwned ??= [];
-    if (state.colorsOwned.includes(colorId)) return false;
-    state.colorsOwned.push(colorId);
-    this.emit({ type: 'colorUnlocked', colorId });
+    state.groupsOwned ??= [];
+    if (state.groupsOwned.includes(groupId)) return false;
+    state.groupsOwned.push(groupId);
+    this.emit({ type: 'groupUnlocked', groupId });
     return true;
   }
 
@@ -270,23 +267,14 @@ export class StateMutationService {
     return true;
   }
 
-  /** 激活界面主题（全局单选）。未拥有色彩拒绝；同值幂等不发事件。 */
-  activateTheme(colorId: string | null): boolean {
-    if (colorId !== null && !this.current.colorsOwned?.includes(colorId)) {
+  /** 激活界面主题（全局单选）。未拥有色彩组拒绝；同值幂等不发事件。 */
+  activateTheme(groupId: string | null): boolean {
+    if (groupId !== null && !this.current.groupsOwned?.includes(groupId)) {
       return false;
     }
-    if (this.current.activeColor === colorId) return true;
-    this.current.activeColor = colorId;
-    this.emit({ type: 'themeChanged', colorId });
-    return true;
-  }
-
-  /** 设置自定义主题（绕过 ownership 闸门；null 清除，回退到 activeColor）。同值幂等。 */
-  setCustomTheme(theme: ThemeDef | null): boolean {
-    const next = theme ?? null;
-    if (this.current.customTheme === next) return true;
-    this.current.customTheme = next;
-    this.emit({ type: 'themeChanged', colorId: null });
+    if (this.current.activeGroupId === groupId) return true;
+    this.current.activeGroupId = groupId;
+    this.emit({ type: 'themeChanged', groupId });
     return true;
   }
 
@@ -297,7 +285,7 @@ export class StateMutationService {
     const next = valid ? [...order] : undefined;
     if (this.current.themeLayerOrder === next) return true;
     this.current.themeLayerOrder = next;
-    this.emit({ type: 'themeChanged', colorId: null });
+    this.emit({ type: 'themeChanged', groupId: null });
     return true;
   }
 

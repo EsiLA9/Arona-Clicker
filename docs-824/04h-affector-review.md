@@ -3,6 +3,8 @@
 > 本文回答：**Affector 系列（AffectorPackDef / AffectorEngine / zoneModifiers / GameNum 桥接）有哪些不合适的设计？**
 > 覆盖：`src/engine/types/trigger.ts` 的 Affector 类型 → `src/engine/effect/affector-engine.ts` / `affector-text.ts` → `src/engine/expression/tag-effect.ts` / `game-num-tag.ts` → `src/engine/def-factory/affector-pack.ts`。
 > 方法：读类型定义 + 核对运行时代码 + 追踪存档/加载/重置路径。
+>
+> ==new== **修复状态（taskProduction Phase 1–7 后回填）**：§1.1 / §1.2 / §1.3 / §2.1 / §2.2 / §2.3 / §3.2 / §3.3 / §3.5 / §4.1 / §4.2 / §4.3 已修复；§3.1 保留为数据作者纪律警告（04f「双通道警告」）；§3.4 本任务范围外未修。详见各节标注与 `todoTask/taskProduction/REPORT.md`。
 
 ---
 
@@ -19,6 +21,8 @@
 
 ### 1.1 Affector 实例不跨存档保存，读档后全部丢失
 
+==new== ✅ **已修复（Phase 4）**：`reconcileMounts()` 按当前 PlayerState（inventory / unlockedEnhancements / spotLevels linearYield 功能）对账重挂载，接线 init / enterInit / restoreFromSave / reset；回归测试 `tests/engine/affector-reconcile.test.ts`。
+
 Affector 实例（`instances` Map）仅存在于 `AffectorEngine` 内存中，**不落存档**。`restoreFromSave`（save-codec.ts:126-169）只调了 `affectorEngine.setState(state)`，没有重挂载任何实例。读档后：
 
 - **flows 彻底消失**：`applyActiveEffects` 的 `getActiveInstances()` 返回空，`tick` 中 `gameNumEval` 的 `scanActiveFlows`（game-num-eval.ts:379-397）也扫不到活跃实例 → 所有持续产出归零。
@@ -33,11 +37,15 @@ Affector 实例（`instances` Map）仅存在于 `AffectorEngine` 内存中，**
 
 ### 1.2 初始状态/默认状态的物品和强化没有 Affector 挂载
 
+==new== ✅ **已修复（Phase 4）**：`reconcileMounts()` 在 init 流程末尾统一扫描初始状态（同 §1.1 接线点）。
+
 `createDefaultPlayerState`（state-factory.ts）给定的初始物品、强化不触发 `itemCollected` / `enhancementAdded` 事件 → 它们的 `affectorPackIds` 永远不会被 mount。当前默认数据中无初始物品/强化，故本条未暴露；一旦数据作者添加就会中招。
 
 **修复方向**：`init()` 流程末尾应扫描初始状态中的物品/强化/Spot 功能，统一 mount。
 
 ### 1.3 `Effect[]` 在 Affector 中「每 tick 执行」——类型失配
+
+==new== ✅ **已修复（Phase 4，方案 A）**：`AffectorEffect` 新增 `perTickEffects?: Effect[]` 双通道拆分——`effects` 仅在激活沿（Latent→Active 翻转）执行一次，`perTickEffects` 每 tick 执行（仅限幂等/维持类 op）；`applyActiveEffects` 不再执行 `effects`。声明类 op 由 `getSpotMaxLevelOverrides` 动态读取。
 
 `AffectorEffect.effects` 是 `Effect[]`，与 `Talklet.effects` / `EntryEffectDef.effects` / `TriggerDef.effects` 类型相同。但在 Affector 中 **非 `addResource` 的效果每 tick 执行一次**（`applyActiveEffects` 第 348-353 行，只排除了 `addResource` / `setSpotMaxLevel` / `removeSpotMaxLevel`）。
 
@@ -54,9 +62,13 @@ Affector 实例（`instances` Map）仅存在于 `AffectorEngine` 内存中，**
 
 ### 2.1 `persistent` 字段声明即死
 
+==new== ✅ **已修复（Phase 7）**：`AffectorPackDef.persistent` 字段、builder `persistent()`、两个示例数据包的 `"persistent": true` 行全部删除；`engine-defs.gen.json` 已重生成。
+
 `AffectorPackDef.persistent`（trigger.ts:38）在 builder 中可设置（affector-pack.ts:88），但**引擎从未读取此字段**。全库检索 `persistent` 仅出现在 builder 写入处（affector-pack.ts:88）。这是一个死字段——如果它意图是「实例跨 Init 持久」，当前未实现；如果已废弃，应移除。
 
 ### 2.2 `life` 三层语义无执行者，且缺省不一致
+
+==new== ✅ **已修复（Phase 7，删除方案）**：`TagEffectRecord.life`、`ZoneModifierDecl.life`、builder `modTag`/`modEntity` 的 life 参数、`clearTagEffectsByLife` 全部删除（按 AGENTS.md「不做存档迁移」直接破坏性出清）；base 数据 15 处 `'init'` 实参同步移除。
 
 `TagEffectRecord.life`（tag-effect.ts:29）声明了 `'global' | 'init' | 'snapshot'` 三档生命周期，`clearTagEffectsByLife`（game-num-tag.ts:77）实现了按档清理，但**没有任何调用方**——`clearTagEffectsByLife` 是一个死函数。三档永远不会被清理，`life` 字段形同虚设。
 
@@ -67,6 +79,8 @@ Affector 实例（`instances` Map）仅存在于 `AffectorEngine` 内存中，**
 即 builder 生成的 pack 默认 `life='init'`，而引擎在遇到未显式声明的 `ZoneModifierDecl` 时默认 `'global'`。两个缺省不对齐，且两者都无实际效果（反正没人清理）。
 
 ### 2.3 `syncAffectorZoneEffects` 每 tick 全量重建
+
+==new== ✅ **已修复（Phase 4/5）**：`applyActiveEffects` 不再调用 `syncAffectorZoneEffects`；同步改事件驱动——mount/unmount/recheck 翻转 → `notifyGameNum` → `onAffectorInstancesChanged`（重同步区表 + 补 flows 节点 + flows 失效），另在 enhancementRemoved / spotTagChanged / spotLevelChanged / reconcileMounts 触发。`toValueNode` 随机 id 随 Phase 1 旧路径删除消失（见 §4.1）。
 
 `applyActiveEffects`（affector-engine.ts:336-358）每 tick 调用 `syncAffectorZoneEffects`：
 - 遍历所有活跃实例，对每个实例先 `removeTagEffectsBySource`（遍历 `tagEffects` 和 `entityEffects` 全表），再重新注册所有 modifier。
@@ -81,6 +95,8 @@ Affector 实例（`instances` Map）仅存在于 `AffectorEngine` 内存中，**
 
 ### 3.1 `flow` 与 `effects[addResource]` 双通道
 
+==new== ⚠️ **保留为数据作者纪律警告**（Phase 4 后语义已明确：`effects` 仅激活沿执行一次，`flows` 每 tick 持续入账；并存仍会叠加）。04f「双通道警告」已记录，数据作者应二选一。
+
 相同「持续产出」意图存在两种表达：
 
 | 通道 | 时机 | 存放位置 |
@@ -94,6 +110,8 @@ Affector 实例（`instances` Map）仅存在于 `AffectorEngine` 内存中，**
 
 ### 3.2 同一 pack 内多个 entry 共用 id 导致隐式 OR
 
+==new== ✅ **已修复（Phase 4）**：pack 注册时检测重复 entry id，经宿主注入的 DevLog 出口发出警告（affector-engine.ts:110-119）；隐式 OR 行为保持（改语义属破坏性变更，无必要），但数据作者被显式告知。
+
 `recheck`（affector-engine.ts:165-167）：
 ```ts
 const activeEntryIds = pack.entries
@@ -104,6 +122,8 @@ const activeEntryIds = pack.entries
 
 ### 3.3 `mount` 无条件覆盖已有实例，导致 addResource 重复发放
 
+==new== ✅ **已修复（Phase 4）**：`mount` 幂等——实例已存在时只 `recheck` 不重建，避免重复获得同一物品触发 Latent→Active 翻转重复发放一次性 effects（affector-engine.ts:145-146）。
+
 `mount()`（affector-engine.ts:128）：
 ```ts
 this.instances.set(instance.instanceId, instance);
@@ -112,9 +132,13 @@ this.instances.set(instance.instanceId, instance);
 
 ### 3.4 `syncSpotFunctionalities` 的 pack 键冗余
 
+==new== ❌ **未修（本任务范围外）**：`SpotFunctionalityDef.id` 兼作 pack 命名空间键属 03e 记录的架构问题，taskProduction 不触碰。
+
 `buildSpotFunctionalityPack` 把 pack 注册为 `${fn.id}@${spotId}`（affector-engine.ts:308），然后 `mount` 把 `instanceId` 拼成 `${packId}@${mountEntityId}` = `${fn.id}@${spotId}@${spotId}`（mountEntityId 也是 spotId）。pack 键已含 spotId，实例 id 又拼一次。冗余但无害。
 
 ### 3.5 `getSpotMaxLevelOverrides` 每调用全量扫描
+
+==new== ✅ **已修复（Phase 4）**：maxLevel 覆盖集合缓存，实例/激活 entry 翻转时失效重建，按需调用不再 O(instances×entries) 全量扫描。
 
 每次调用（spot-service.ts:165 按需）遍历所有活跃实例的活跃 entry，扫描 setSpotMaxLevel / removeSpotMaxLevel 效果。O(instances×entries)。当前数据量小不是问题，但架构上无隔离。
 
@@ -124,6 +148,8 @@ this.instances.set(instance.instanceId, instance);
 
 ### 4.1 `toValueNode` 使用随机 id
 
+==new== ✅ **已修复（Phase 1）**：`toValueNode` 随旧 childMulMap 投影路径一并删除；区记录 value 现为 const/expr GameNum 叶子，id 确定性（`${source}:${category}[:${multiplierId}]`）。
+
 ```ts
 // game-num-tag.ts:142
 return { id: `const:${Math.random().toString(36).slice(2)}`, kind: 'const', value: ... };
@@ -132,6 +158,8 @@ return { id: `const:${Math.random().toString(36).slice(2)}`, kind: 'const', valu
 
 ### 4.2 `describeValue` 的 spotCount 参数名与语义不符
 
+==new== ✅ **已修复（Phase 7）**：ValueSource `spotCount` 重命名为 `areaSpotCount`，源名与 `params.area` 语义自洽；编辑器枚举标签改「区域内设施数量」。默认数据与 JSON 包无该源使用，仅测试 fixture 同步。
+
 ```ts
 // affector-text.ts:58
 case 'spotCount': return `${nameOf('area', String(p.area ?? ''))}设施数`;
@@ -139,6 +167,8 @@ case 'spotCount': return `${nameOf('area', String(p.area ?? ''))}设施数`;
 `spotCount` 的 params 是 `area`，命名与语义不匹配（应为 `area` 或 `spotCount` 明示）。
 
 ### 4.3 `modTag` / `modEntity` 仅接受 `number` 值
+
+==new== ✅ **已修复（Phase 7）**：builder `modTag`/`modEntity` 的 value 参数放宽为 `number | ValueExpression`（桥接层 `registerAffectorModifier` 本就双分支处理）；表达式值 modifier 不再必须走 `modifier()` 兜底。
 
 Builder 的 `modTag` / `modEntity`（affector-pack.ts:49,60）只接受 `number` 类型，不支持 `ValueExpression`。需要表达式值的 modifier 必须走 `modifier()` 兜底。API 不一致。
 
@@ -158,9 +188,17 @@ Builder 的 `modTag` / `modEntity`（affector-pack.ts:49,60）只接受 `number`
 
 ## 六、总结：最需要优先修复的三件事
 
+==new== **全部完成（taskProduction Phase 4/7）**：
+
+1. **存档恢复缺失 Affector 实例重挂载**（§1.1）——✅ Phase 4 `reconcileMounts()`；
+2. `Effect[]` 在 Affector 中全量每 tick 执行**（§1.3）——✅ Phase 4 `perTickEffects` 双通道拆分；
+3. `persistent` 死字段 + `life` 死语义**（§2.1, §2.2）——✅ Phase 7 删除。
+
+（原文）：
+
 1. **存档恢复缺失 Affector 实例重挂载**（§1.1）——功能正确性bug，影响所有使用了 affector 的存档。
-2. **`Effect[]` 在 Affector 中全量每 tick 执行**（§1.3）——类型失配陷阱，数据作者极易写出无限物品/无限角色。
-3. **`persistent` 死字段 + `life` 死语义**（§2.1, §2.2）——声明即存但永不生效，误导数据作者。
+2. `Effect[]` 在 Affector 中全量每 tick 执行**（§1.3）——类型失配陷阱，数据作者极易写出无限物品/无限角色。
+3. `persistent` 死字段 + `life` 死语义**（§2.1, §2.2）——声明即存但永不生效，误导数据作者。
 
 ---
 

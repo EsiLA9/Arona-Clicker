@@ -44,7 +44,7 @@
 | `content.ts` | 内容实体：`StoryDef` / `ItemDef` / `DropTableDef` / `EnhancementDef`（自 entities.ts 拆出） |
 | `trigger.ts` | 联动实体：`TriggerDef` / `AffectorPackDef` / `EffectDef`（自 entities.ts 拆出） |
 | `datapack.ts` | `Datapack` 聚合类型（自 entities.ts 拆出） |
-| `character.ts` | Character 重构实体：`CharacterVariantDef` / `ColorDef` / `GachaPoolDef` / `CultivateCurveDef` / `RosterEntry` / `ThemeDef` |
+| `character.ts` | Character 重构实体：`CharacterVariantDef` / `ColorGroupDef` / `GachaPoolDef` / `CultivateCurveDef` / `RosterEntry` / `ThemeDef` |
 | `expression.ts` | `Value` / `ValueExpression` / `Condition` / `Effect` 等声明式类型 |
 | `events.ts` | 事件载荷类型（event bus 的 payload 契约） |
 | `extra.ts` | Extra 附加数据树（`ExtraCompound`） |
@@ -66,11 +66,11 @@
 | --- | --- |
 | `value-system.ts` | `ValueSystem`：解析/求值 `ValueExpression`（字面量、res、funclet、属性源） |
 | `condition-system.ts` | `ConditionSystem`：求值 `Condition` / `ConditionGroup`（and/or/not、flag、资源、帧数等） |
-| `game-num.ts` | `GameNumSystem` 门面：索引/缓存/求值入口（每资源的 primitiveGain 产出树） |
+| `game-num.ts` | `GameNumSystem` 门面：索引/缓存/求值入口（每资源的 primitiveGain 产出树）+ 事件订阅定向失效（Phase 5）==new== |
 | `game-num-eval.ts` | `evaluateGameNum`：GameNum 树的递归求值实现（含两级缓存） |
-| `game-num-build.ts` | GameNum 树构建：`buildAll` / gain 树 / spot 子树 / zone 节点（自 game-num.ts 拆出） |
+| `game-num-build.ts` | GameNum 树构建：`buildAll` 显式四级层级树 / spot 子树 / zone 节点（去重表为模块内部 WeakMap，Phase 7）/ flows 层级分发（自 game-num.ts 拆出）==new== |
 | `game-num-tag.ts` | GameNum 区表维护：TagEffect 路由 / Affector 桥接 / 脏位传播（自 game-num.ts 拆出） |
-| `game-num-internal.ts` | GameNum 内部共享类型（ZoneNode / MulNode / ZoneIndexEntry） |
+| `game-num-internal.ts` | GameNum 内部共享类型（ZoneNode / ZoneIndexEntry）==new== |
 | `funclet-executor.ts` | Funclet 执行（复用数值片段的运行时求值） |
 | `condition-deps.ts` | 条件依赖收集（静态扫描） |
 | `stat-dsl.ts` | 统计 DSL（`stat:` 取值路径解析） |
@@ -215,12 +215,12 @@
 | --- | --- |
 | `npm run dev` / `dev:game` | 引擎 / UI 开发服务器 |
 | `npm test` | vitest |
-| `npm run gen:schema` | `src/engine/types/**` → `tools/datapack-editor/schema/engine-defs.gen.json` |
+| `npm run gen:schema` | `src/engine/types/` → `tools/datapack-editor/schema/engine-defs.gen.json` |
 | `npm run build` | 构建 |
 
 ## 阅读顺序建议
 
 1. 先读 [[docs-824/02-run-logic]] 建立主干时序；
-2. 改数据结构读 [[docs-824/03-data-structures]] + `src/engine/types/**`；
+2. 改数据结构读 [[docs-824/03-data-structures]] + `src/engine/types/`；
 3. 写联动逻辑读 [[docs-824/04-core-algorithms]] 的 Trigger/Affector 部分；
 4. 定位文件用本文件的映射表。

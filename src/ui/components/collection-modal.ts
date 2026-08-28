@@ -10,14 +10,14 @@
 import { GameInstance } from '../../engine/game-instance';
 import { createUIContext, type UIContext } from '../context';
 import type { ModalManager } from '../modal';
-import { renderCollectionBody, renderColorCodex, renderEquipmentCodex } from './collection';
+import { renderCollectionBody, renderGroupCodex, renderEquipmentCodex } from './collection';
 
 /** 图鉴弹窗的收集类型。 */
-export type CollectionTab = 'stories' | 'colors' | 'equipments';
+export type CollectionTab = 'stories' | 'groups' | 'equipments';
 
 const TABS: { id: CollectionTab; label: string }[] = [
   { id: 'stories', label: '闲聊收集' },
-  { id: 'colors', label: '色彩收集' },
+  { id: 'groups', label: '色彩组收集' },
   { id: 'equipments', label: '装备图鉴' },
 ];
 
@@ -33,12 +33,12 @@ function tabBar(tab: CollectionTab): string {
 
 /** 按当前类型渲染正文（含分区标题）。 */
 function bodyHtml(ctx: UIContext, tab: CollectionTab): string {
-  if (tab === 'colors') {
+  if (tab === 'groups') {
     return `
       <section class="codex-section">
-        <h2 class="codex-section-title">色彩收集与管理</h2>
-        <p class="codex-section-hint">每份配色都是一件可装备的「主题皮肤」：解锁后可在顶栏色彩面板切换。</p>
-        ${renderColorCodex(ctx)}
+        <h2 class="codex-section-title">色彩组收集与管理</h2>
+        <p class="codex-section-hint">每份色彩组都是可收集的「主题皮肤」：解锁后可在顶栏色彩面板切换。</p>
+        ${renderGroupCodex(ctx)}
       </section>`;
   }
   if (tab === 'equipments') {

@@ -50,11 +50,9 @@ function makeDatapack(): Datapack {
         closeWhen: { target: 'flag', key: 'event_over', comparator: '>=', value: 1 },
       },
     ],
-    colors: [
-      { id: 'color-a', name: '苍蓝', theme: { primary: '#3b82f6' }, unlock: { target: 'flag', key: 'unlock_a', comparator: '>=', value: 1 } },
-    ],
     colorGroups: [
-      { id: 'group-a', name: '组A', compositionType: 'solid', slots: [{ role: 'primary', colorId: 'color-a' }] },
+      { id: 'color-a', name: '苍蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }], unlock: { target: 'flag', key: 'unlock_a', comparator: '>=', value: 1 } },
+      { id: 'group-a', name: '组A', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] },
     ],
     colorEquipments: [
       {
@@ -210,15 +208,15 @@ describe('通讯录 UI（U 组）', () => {
     expect(events).toBe(1); // 幂等
   });
 
-  test('U-04 主题切换：activeColor → token 表输出', () => {
+  test('U-04 主题切换：activeGroupId → token 表输出', () => {
     game.mutations.setFlag('unlock_a', '1');
     // setFlag 经 flagChanged 事件自动 recheck 解锁（行为闭环），手动再解锁为幂等
-    expect(game.colorSystem.tryUnlock('color-a')).toBe('already');
+    expect(game.colorSystem.tryUnlockGroup('color-a')).toBe('already');
     game.mutations.activateTheme('color-a');
     const tokens = game.colorSystem.activeThemeTokens(game.state);
     expect(tokens?.['primary']).toBe('#3b82f6');
     const html = renderContactsTab(createUIContext(game), null);
-    expect(html).toContain('data-activate-color="color-a"'); // swatch 可点
+    expect(html).toContain('data-activate-group="color-a"'); // swatch 可点
     expect(html).toMatch(/theme-swatch active/); // 激活态标记
   });
 
@@ -226,8 +224,8 @@ describe('通讯录 UI（U 组）', () => {
     game.mutations.setFlag('equip_a', '1');
     // setFlag 经 flagChanged 事件自动 recheck 收集（行为闭环）
     expect(game.colorEquipmentSystem.isOwned(game.state, 'equip-a')).toBe(true);
-    // 收集即级联解锁其 colorGroup 引用的 Color（color-a）
-    expect(game.colorSystem.isOwned(game.state, 'color-a')).toBe(true);
+    // 收集即级联解锁其引用的 ColorGroup（group-a）
+    expect(game.colorSystem.isGroupOwned(game.state, 'group-a')).toBe(true);
 
     const panel = renderCharacterPanel(createUIContext(game), 'Hoshino');
     expect(panel).toContain('data-equip-equipment="equip-a"'); // 可装备列表项

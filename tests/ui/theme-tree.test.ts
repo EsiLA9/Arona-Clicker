@@ -9,14 +9,13 @@ import {
   themeTreeToInlineStyle,
   applyThemeTree,
   clearThemeTree,
-  themeTreeFromColor,
   themeTreeFromGroup,
   themeTreeFromThemeDef,
   type ThemeVarName,
   type ThemeTree,
 } from '../../src/ui/theme-tree';
 import { LIGHTNESS_THRESHOLD } from '../../src/engine/system/color-system';
-import type { ColorDef, ColorGroupDef, ColorId } from '../../src/engine/types';
+import type { ColorGroupDef, ColorGroupId } from '../../src/engine/types';
 
 describe('theme-tree：色彩树设定工具', () => {
   const primary = '#3b9eff';
@@ -237,39 +236,33 @@ describe('theme-tree：ThemeTree 快照与快速映射', () => {
     expect((el as any)._store['--ink']).toBeUndefined();
   });
 
-  const blue: ColorDef = { id: 'b', name: '蓝', theme: { primary: '#3b82f6' } };
-  const pink: ColorDef = { id: 'p', name: '粉', theme: { primary: '#ff5d8f' } };
-  const getColor = (id: ColorId): ColorDef | undefined =>
-    ({ b: blue, p: pink } as Record<string, ColorDef>)[id];
+  const blue: ColorGroupDef = { id: 'g-blue', name: '蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] };
+  const pink: ColorGroupDef = { id: 'g-pink', name: '粉', compositionType: 'solid', slots: [{ role: 'primary', color: '#ff5d8f' }] };
+  const getGroup = (id: ColorGroupId): ColorGroupDef | undefined =>
+    ({ 'g-blue': blue, 'g-pink': pink } as Record<string, ColorGroupDef>)[id];
 
-  test('TREE-17 themeTreeFromColor：直接用 ColorDef.theme 解析', () => {
-    const tree = themeTreeFromColor(blue);
-    expect(tree['--ac-primary']).toBe('#3b82f6');
-    expect(tree['ink']).toBeTruthy();
-  });
-
-  test('TREE-18 themeTreeFromGroup：取 primary role slot 的 Color 构建', () => {
+  test('TREE-17 themeTreeFromGroup：直接用主色位色值解析整包 token', () => {
     const group: ColorGroupDef = {
       id: 'g', name: 'g', compositionType: 'gradient',
       slots: [
-        { role: 'secondary', colorId: 'p' },
-        { role: 'primary', colorId: 'b' },
+        { role: 'secondary', color: '#ff5d8f' },
+        { role: 'primary', color: '#3b82f6' },
       ],
     };
-    const tree = themeTreeFromGroup(group, getColor);
+    const tree = themeTreeFromGroup(group);
     expect(tree['--ac-primary']).toBe('#3b82f6');
     // 整包 token 也展开
     expect(tree['--ac-bg']).toBeTruthy();
   });
 
-  test('TREE-19 themeTreeFromThemeDef：colorId 打底 + tokens 覆盖', () => {
-    const tree = themeTreeFromThemeDef({ colorId: 'b', tokens: { bg: '#101828' } }, getColor);
+  test('TREE-18 themeTreeFromThemeDef：colorGroupId 打底 + tokens 覆盖', () => {
+    const tree = themeTreeFromThemeDef({ colorGroupId: 'g-blue', tokens: { bg: '#101828' } }, getGroup);
     expect(tree['--ac-primary']).toBe('#3b82f6');
     expect(tree['--ac-bg']).toBe('#101828');
   });
 
-  test('TREE-20 themeTreeFromThemeDef：undefined → 仅默认派生（primary 缺省）', () => {
-    const tree = themeTreeFromThemeDef(undefined, getColor);
+  test('TREE-19 themeTreeFromThemeDef：undefined → 仅默认派生（primary 缺省）', () => {
+    const tree = themeTreeFromThemeDef(undefined, getGroup);
     // tokens 为空 → 无 --ac-* 透传，但语义节点仍以默认 primary 派生
     expect(tree['--ac-primary']).toBeUndefined();
     expect(tree['cyan']).toBe('var(--ac-primary, #3b9eff)'); // 默认主色兜底

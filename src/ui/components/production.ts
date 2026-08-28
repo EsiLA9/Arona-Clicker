@@ -77,12 +77,12 @@ export function renderProductionNodes(ctx: UIContext): string {
       // （绕过全局参考树，直接 fill styles），使 Spot 卡片自带主题色而不影响整页。
       let spotStyleAttr = accentStyle;
       if (spot.theme || spot.colorGroupId) {
-        const getColor = (id: string) => ctx.game.registry.colors.get(id);
+        const getGroup = (id: string) => ctx.game.registry.colorGroups.get(id);
         const tree = spot.theme
-          ? themeTreeFromThemeDef(spot.theme, getColor)
+          ? themeTreeFromThemeDef(spot.theme, getGroup)
           : (() => {
               const group = spot.colorGroupId ? ctx.game.registry.colorGroups.get(spot.colorGroupId) : undefined;
-              return group ? themeTreeFromGroup(group, getColor) : undefined;
+              return group ? themeTreeFromGroup(group) : undefined;
             })();
         if (tree) {
           const primary = tree['--ac-primary'] ?? '#3b9eff';

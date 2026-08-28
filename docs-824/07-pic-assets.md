@@ -52,8 +52,8 @@ Mod 压缩包（.zip）
                     ImageStore（mod + 包内路径 → URL）
 ```
 
-- **`ImageStore`**（`src/engine/image/image-store.ts`）：纯逻辑层，键 = `modName + 包内相对路径`，值 = 可显示 URL（data: / blob:）。只做登记与查询，不碰 DOM。
-- **`zip-loader`** 现在会提取 png/jpg/gif/webp/svg/apng/avif/bmp/ico 为 data URL 返回，不再计入 ignoredCount。
+- `ImageStore`（`src/engine/image/image-store.ts`）：纯逻辑层，键 = `modName + 包内相对路径`，值 = 可显示 URL（data: / blob:）。只做登记与查询，不碰 DOM。
+- `zip-loader` 现在会提取 png/jpg/gif/webp/svg/apng/avif/bmp/ico 为 data URL 返回，不再计入 ignoredCount。
 - **UI 导入流程**（`src/ui/import-export.ts`）：`game.imageStore.clear()` → `game.registerImages(datapack.name, images)` → `game.reload([datapack])`。
 - 切换 Mod / 新会话时由调用方负责 `imageStore.clear()`（引擎不在 init/reload 内隐式清空，避免误伤运行时引用）。
 

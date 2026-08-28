@@ -31,7 +31,6 @@ import type {
   CharacterPersistConfig,
   CharacterVariantDef,
   ChatMessageDef,
-  ColorDef,
   ColorEquipmentDef,
   ColorGroupDef,
   CultivateCurveDef,
@@ -82,17 +81,12 @@ export interface Datapack {
    */
   cultivateCurves?: CultivateCurveDef[];
   /**
-   * 色彩表
-   * @label 色彩
-   */
-  colors?: ColorDef[];
-  /**
-   * 颜色组表（预制头像构成模板）
-   * @label 颜色组
+   * 色彩组表（唯一色彩实体：重点色彩组 + 头像渲染方案 + theme-tree 预设）
+   * @label 色彩组
    */
   colorGroups?: ColorGroupDef[];
   /**
-   * 色彩装备表（收集品：颜色组 + 效用 + 可选主题色）
+   * 色彩装备表（收集品：色彩组 + 效用）
    * @label 色彩装备
    */
   colorEquipments?: ColorEquipmentDef[];

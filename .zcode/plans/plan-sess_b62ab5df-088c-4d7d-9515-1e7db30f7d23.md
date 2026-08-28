@@ -50,11 +50,11 @@ setThemeLayerOrder(order: ThemeLayerScope[]): boolean
 **6. `controller.ts` 绑定**：
 - `[data-theme-layer-order]` click → 解析新顺序 → `game.mutations.setThemeLayerOrder(newOrder)` → `render()` → `applyTheme()` 自动重建。
 
-**7. `styles.css`** — 新增 `.layer-order` 相关样式。
+**7. `styles.css` — 新增 `.layer-order` 相关样式。
 
 ### 测试
 
-**8. `tests/engine/theme-runtime.test.ts`**：
+**8. `tests/engine/theme-runtime.test.ts`：
 - 新增用例：`setLayerOrder([player, student, area])` → student 高于 player 但低于 area。
 - 新增用例：`setLayerOrder([student, area, player])` → player 最低。
 - 验证 `colorId` 溯源取最底层、`layers` 输出顺序正确。

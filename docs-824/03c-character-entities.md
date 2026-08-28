@@ -9,7 +9,7 @@ CharacterDef          → 角色基础原型（id/name/rarity/profile）
     └─ CharacterVariantDef  → 差分：不同时装的独立实体（id/displayName/theme/curves）
          ├─ VariantSource   → 产出方式（gacha / story / event）
          ├─ unlockCondition → 差分解锁条件
-         └─ colors          → 可用色彩方案 ColorDef
+         └─ colorGroup      → 默认头像色彩组 ColorGroupDef
 ```
 
 - `CharacterDef` 是角色的「全集」概念：`unlockedCharacters` 记录已收集角色；
@@ -26,10 +26,10 @@ CharacterDef          → 角色基础原型（id/name/rarity/profile）
 - 每条曲线（`CurveDef`）是一个 `{ level, exp, attachment }` 数组，按 `resolveCurve(id, level)` 解析；
 - 培养系统用 `applyExp` 沿曲线推进（见 [[docs-824/04d-cultivate]]）。
 
-## 色彩（Color）
+## 色彩（ColorGroup）
 
-- `ColorDef`：{ id, name, tokens, ... }，装备在差分上改变主题色；
-- `ColorSystem` 管理解锁/装备/运行时主题合并（见 [[docs-824/04e-color-derivation]]）。
+- `ColorGroupDef`：{ id, name, compositionType, slots[{role,color}], theme?, unlock? }，唯一色彩实体 = 重点色彩组 + 头像渲染方案 + theme-tree 预设；
+- `ColorSystem` 管理解锁/激活/运行时主题合并（见 [[docs-824/04e-color-derivation]]）。
 
 ---
 

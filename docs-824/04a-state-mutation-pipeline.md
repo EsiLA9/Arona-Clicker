@@ -21,15 +21,16 @@
 | `setResource`/`changeResource` | 设置/增减资源（Global 资源走 globalResources） | `resourceChanged` |
 | `setSpotLevel`/`addSpotLevel` | 设施等级 | `spotLevelChanged` |
 | `setManager` | 指派 Manager | `managerChanged` |
-| `unlockInit`/`addItem`/`addEnhancement` | 解锁世界线/物品/强化 | `initUnlocked`/`itemAdded`/`enhancementAdded` |
+| `unlockInit`/`addItem`/`addEnhancement` | 解锁世界线/物品/强化 | `initUnlocked`/`itemCollected`/`enhancementAdded` ==new==（原 `itemAdded` 为笔误，实际事件名 `itemCollected`） |
 | `setFlag`/`setExtra`/`addExtra`/`removeExtra` | 标记/扩展数据 | `flagChanged`/`extraChanged` |
-| `applyExp`/`breakthroughStar` | 培养推进 | `expApplied`/`starUpgraded` |
+| `applyExp`/`breakthroughStar` | 培养推进 | `cultivated`（`kind: 'exp'` / `'star'`）==new==（原 `expApplied`/`starUpgraded` 不存在，统一为 `cultivated`） |
 
 ## Effect 执行（effect-ops）
 
 - `applyEffects(effects)` 逐条 `applyEffect(effect)`：按 `op` 分发到对应写方法；
 - 支持 op：`setResource/addResource/setSpotLevel/addSpotLevel/setManager/addEnhancement/addItem/unlockInit/setFlag/setExtra/addExtra/removeExtra`；
 - `loot`/`triggerStory`/`setTheme` 在状态层不落数据（由上层系统转发）。
+- 完整 `EffectOp`（23 种）+ `target`/`value` 语义 + `ValueExpression`/`Condition`/`Funclet` 等声明式 DSL 枚举目录见 [[docs-824/03f-declarative-dsl]]。==new==
 
 ## 为什么不可绕过
 

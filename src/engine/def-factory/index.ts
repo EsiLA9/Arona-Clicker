@@ -12,7 +12,6 @@ export * from './init';
 export * from './spot';
 export * from './enhancement';
 export * from './trigger';
-export * from './color';
 export * from './color-group';
 export * from './color-equipment';
 export * from './item';

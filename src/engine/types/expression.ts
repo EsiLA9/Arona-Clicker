@@ -145,12 +145,12 @@ export type EffectOp =
   | 'clearAllChatText';
 
 /**
- * 临时演出主题声明：引用某 Color 打底 + 可选局部 token 覆盖。
+ * 临时演出主题声明：引用某 ColorGroup 打底 + 可选局部 token 覆盖。
  * 见 engine/theme-runtime.ts 的 ThemeLayer（缺省 scope 视为 ephemeral）。
  */
 export interface ThemeEffectValue {
-  /** 引用 ColorDef id；缺省仅用 tokens 覆盖。 */
-  colorId?: string;
+  /** 引用 ColorGroupDef id；缺省仅用 tokens 覆盖。 */
+  colorGroupId?: string;
   /** 局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。 */
   tokens?: Record<string, string>;
   /**

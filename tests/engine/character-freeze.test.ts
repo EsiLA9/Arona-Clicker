@@ -57,7 +57,7 @@ describe('base 数据包 Character 重构内容冒烟', () => {
   test('变体/曲线/色彩/卡池/聊天流全部加载', () => {
     expect(game.registry.characterVariants.size).toBeGreaterThanOrEqual(10);
     expect(game.registry.cultivateCurves.get('base:curve:standard')).toBeDefined();
-    expect(game.registry.colors.size).toBeGreaterThanOrEqual(3);
+    expect(game.registry.colorGroups.size).toBeGreaterThanOrEqual(3);
     expect(game.registry.gachaPools.size).toBeGreaterThanOrEqual(2);
     expect(game.registry.chatMessages.size).toBeGreaterThan(0);
   });
@@ -79,11 +79,12 @@ describe('base 数据包 Character 重构内容冒烟', () => {
     expect(game.mutations.addExp(variantId, 500).ok).toBe(true);
 
     // 夏莱蓝条件（Arona 获得）可能未触发；用无条件路径验证主题链路
-    const owned = [...game.registry.colors.values()].find(c =>
-      !c.unlock || game.colorSystem.tryUnlock(c.id) === 'unlocked');
+    const owned = [...game.registry.colorGroups.values()].find(g =>
+      !g.unlock || game.colorSystem.tryUnlockGroup(g.id) === 'unlocked');
     if (owned) {
       expect(game.mutations.activateTheme(owned.id)).toBe(true);
-      expect(game.colorSystem.activeThemeTokens(game.state)?.['primary']).toBe(owned.theme['primary']);
+      expect(game.colorSystem.activeThemeTokens(game.state)?.['primary'])
+        .toBe(game.colorSystem.themeSwatchColor({ colorGroupId: owned.id }));
     }
   });
 });

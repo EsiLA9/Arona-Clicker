@@ -48,7 +48,7 @@ todos:
 - **通用数值注册**：按命名（`name`）注册任意数值节点树（不再局限于资源），`evaluateByName(name,state)` 统一求值；保留 `evaluateResourceGain`/`evaluateSpotYield` 作为便捷封装。
 - **溯源分解 API**：`evaluateWithBreakdown(name,state)` 返回 `{ value, contributions: [{id, kind, value, label?, children?}] }`，递归展开子节点贡献，供 tooltip 展示"base 5 × 强化 1.5 = 15"。
 - **缓存与失效泛化**：算子引入的新依赖源（如 `cond` 读资源、读 Extra）须接入现有事件驱动失效或泛化依赖扫描，避免缓存击穿。
-- **文档与测试同步**：更新 `tests/engine/game-num.test.ts` 与 docs-818 相关文档，按 AGENTS.md 纪律同步 Schema（如需改 `src/engine/types/**` 则 `npm run gen:schema`）。
+- **文档与测试同步**：更新 `tests/engine/game-num.test.ts` 与 docs-818 相关文档，按 AGENTS.md 纪律同步 Schema（如需改 `src/engine/types/` 则 `npm run gen:schema`）。
 
 ## 技术栈
 

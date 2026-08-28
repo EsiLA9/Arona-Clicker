@@ -68,10 +68,7 @@ export class ColorEquipmentSystem {
   avatarColorsForGroup(groupId: ColorGroupId): string[] {
     const group = this.registry.colorGroups.get(groupId);
     if (!group) return [];
-    return group.slots.map(slot => {
-      const color = this.registry.colors.get(slot.colorId);
-      return color?.theme['primary'] ?? '#888888';
-    });
+    return group.slots.map(slot => slot.color);
   }
 
   /** 解析装备 ColorGroup 各 slot 的实际 hex（按 slot 顺序，供 AvatarRenderer 消费）。 */
@@ -94,7 +91,7 @@ export class ColorEquipmentSystem {
   // --- 解锁编排（写经 mutations） ---
 
   /**
-   * 尝试收集装备：条件校验 → collectEquipment → 级联解锁其 ColorGroup 引用的所有 Color。
+   * 尝试收集装备：条件校验 → collectEquipment → 级联解锁其引用的 ColorGroup。
    * @returns 'unlocked' 成功 | 'already' 幂等 | false 条件不满足或定义缺失
    */
   tryUnlock(equipmentId: EquipmentId): 'unlocked' | 'already' | false {
@@ -106,7 +103,7 @@ export class ColorEquipmentSystem {
     if (!this.mutations.collectEquipment(equipmentId)) return 'already';
     const group = this.groupOf(equipmentId);
     if (group) {
-      for (const slot of group.slots) this.mutations.unlockColor(slot.colorId);
+      this.mutations.unlockGroup(group.id);
     }
     return 'unlocked';
   }

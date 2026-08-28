@@ -9,11 +9,12 @@
 | --- | --- |
 | 整个仓库的文件构成与职责 | [[docs-824/01-file-composition]] |
 | 程序从启动到运行的主干时序 | [[docs-824/02-run-logic]]（子文档 02a-e） |
-| 核心数据类型 / 状态结构 / 注册表 / 引用语义 | [[docs-824/03-data-structures]]（子文档 03a-e） |
-| 生产结算 / 抽卡 / 培养 / 色彩 / 状态写入算法 | [[docs-824/04-core-algorithms]]（子文档 04a-g） |
+| 核心数据类型 / 状态结构 / 注册表 / 引用语义 / 声明式 DSL 枚举目录 / 好感数值（规划） | [[docs-824/03-data-structures]]（子文档 03a-g）==new== |
+| 生产结算 / 抽卡 / 培养 / 色彩 / 状态写入 / 聊天好感与羁绊尾巴（规划） | [[docs-824/04-core-algorithms]]（子文档 04a-j） |
 | 架构诊断基线（大文件清单与拆分决策） | [[docs-824/05-architecture-review]] |
 | 代码拆分规范（何时拆/如何拆/验证） | [[docs-824/06-refactoring-guide]] |
 | 图片资产（PicDef 存储/索引/解析） | [[docs-824/07-pic-assets]] |
+| 架构整理任务清单（T1-T7 todoTASK，独立迭代） | [[docs-824/08-architecture-tasks]] |
 
 ## 概览
 
@@ -57,5 +58,5 @@ main.ts
 
 - 引用代码/文件一律使用 Obsidian `[[path]]` 链接 + `path:行号` 定位。
 - 改引擎机制前先读 [[docs-824/01-file-composition]] 确认改动文件。
-- 改数据结构前先读 [[docs-824/03-data-structures]] 与 `src/engine/types/**`，改完跑 `npm run gen:schema`。
+- 改数据结构前先读 [[docs-824/03-data-structures]] 与 `src/engine/types/`，改完跑 `npm run gen:schema`。
 - 机制改动必须带 vitest 测试。

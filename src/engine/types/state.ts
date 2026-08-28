@@ -10,14 +10,13 @@ import type { CharaCustomOverride } from './chara-profile';
 import type { TagEffectRecord } from '../expression/tag-effect';
 import type {
   ChatMessageId,
-  ColorId,
+  ColorGroupId,
   EntityThemeSlot,
   EquipmentId,
   GachaPoolId,
   GachaPoolState,
   ProtoStat,
   RosterEntry,
-  ThemeDef,
   ThemeOrderScope,
   VariantId,
 } from './character';
@@ -80,20 +79,15 @@ export interface PlayerState {
   fragments?: Record<VariantId, number>;
   /** 卡池计数（pity/pulls；归属由 characterPersistConfig.gacha 声明）。 */
   gachaState?: Record<GachaPoolId, GachaPoolState>;
-  /** 当前激活的界面主题色彩（全局单选；null = 默认主题）。 */
-  activeColor?: ColorId | null;
-  /**
-   * 自定义主题（玩家从 ColorGroup / 自定义 token 组合而成，绕过 ownership 闸门）。
-   * 优先级高于 activeColor；由 ColorSystem.syncPlayerThemeFromState 写入运行时参考树。
-   */
-  customTheme?: ThemeDef | null;
+  /** 当前激活的界面主题色彩组（全局单选；null = 默认主题）。须为 groupsOwned 内已解锁项。 */
+  activeGroupId?: ColorGroupId | null;
   /**
    * 玩家自定义的主题层优先级排列（低→高；缺省 ['player','area','student']）。
    * 仅玩家/场景/学生三层参与；剧情演出层始终最高优先级。非法值回退默认。
    */
   themeLayerOrder?: ThemeOrderScope[];
-  /** 已解锁色彩库存（收集类资产，恒为 global 层）。 */
-  colorsOwned?: ColorId[];
+  /** 已解锁色彩组库存（收集类资产，恒为 global 层）。 */
+  groupsOwned?: ColorGroupId[];
   /** 已收集的色彩装备库存（收集类资产，恒为 global 层）。 */
   equipmentsOwned?: EquipmentId[];
   /**

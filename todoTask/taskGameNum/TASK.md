@@ -3,6 +3,8 @@
 > 本任务书为后续执行 agent 的**唯一输入**，自包含，无需依赖原会话上下文。
 > 仓库根目录：`C:\Users\15229\Documents\Obsidian Vault\1-项目\ACProgram`（git 仓库，分支 main）。
 
+==new== **状态：全部完成（Phase 0–6）。** 实际执行按 `todoTask/taskProduction/` 的 Phase 1–7 落地，交付细节以 `todoTask/taskProduction/REPORT.md` 为准。本任务书 Phase 0→taskProduction Phase 0（行为快照）；Phase 1→taskProduction Phase 1（删 childMulMap 投影）；Phase 2→taskProduction Phase 2（删旧 tick 路径）；Phase 3→taskProduction Phase 3（收敛双表达式，选方案 A）；Phase 4→taskProduction Phase 5（事件驱动精确失效）；Phase 5→taskProduction Phase 7（死代码清理）；Phase 6→taskProduction Phase 4/6/8（Affector 正确性、四级层级树、文档同步）。
+
 ---
 
 ## 0. 任务目标（一句话）
@@ -53,6 +55,8 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 └── affectors:<res> (affectorFlows)       活跃 Affector 的 flows 懒求值
 ```
 
+==new== 上图是立项时的旧结构（spot 子树直接挂在 primitiveGain 下、含 `childMulMap`）。清理后实作为显式四级层级树：`primitiveGain:<res> = globalProduct(×globalMulZone) + globalFlat + globalFlows`，其下 `initFull = (Σ areaProduct) × initMulZone + initExtra`，`areaFull = (Σ spotProduct) × areaMulZone + areaExtra`，`spotFull = spotBase × spotMulZone + spotExtra`；乘区只乘下一级 base 链，flat/flows 不进乘区（经 Extra 直加）。权威图示见 `tree-design.md` §2 与 `docs-824/04b-production.md`。
+
 ### 关键机制
 
 - **求值**：`evaluateGameNum` 递归，节点级 `dirty`/`cached` 两级缓存（`useCache=false` 时跳过，溯源用）。
@@ -60,6 +64,14 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 - **区表**：`buildZoneNode` 为 scope(spot/area/init)×part(flat/mul)×resource 建 zone 节点；`zoneIndex` 按「tag 前缀自下而上 + entityKey」建反路由；`registerTagEffect` 把记录写进 `state.tagEffects` 并路由进 zone 节点 `childMulMap`。
 - **失效**：事件驱动（enhancementAdded/spotTagChanged/spotLevelChanged/managerChanged/extraChanged/resourceChanged）+ `game-instance.tick` 每帧无条件 `invalidateProduction()`（全树置脏）。
 - **Affector 桥接**：`syncAffectorZoneEffects`（game-num-tag.ts:172-191）在 `applyActiveEffects` 每 tick 全量「先按 source 撤销、再重注册」。
+
+==new== **实作修正（清理后现状）**：上列「关键机制」描述的是任务立项时的旧状，Phase 1–7 后已变——
+- 节点 kind 由 17 种收敛为 9 种（`add/sub/mul/const/expr/owned/levelLinear/zone/affectorFlows`，删 div/min/max/pow/clamp/floor/ceil/round/cond）。
+- `childMulMap` 投影机制整体删除，zone 求值统一走 `aggregateZone` 扫 `state.tagEffects`/`entityEffects` 单一真相；`zoneIndex` 降级为定向失效索引。
+- 树结构升级为显式四级层级树（global→init→area→spot 逐级连乘，乘区只乘下一级 base 链，flat/flows 经 Extra 直加），详见 `docs-824/04b-production.md` 与 `tree-design.md`。
+- 每帧 `invalidateProduction()` 已删除，改为事件驱动三路定向失效（`gainResourceDeps`/`zoneKeyResourceDeps`/`flowsResourceDeps`）。
+- `syncAffectorZoneEffects` 不再每 tick 全量重建，改由挂载/卸载/状态对账事件驱动；`applyActiveEffects` 每 tick 仅执行 `perTickEffects`，`effects` 在激活沿边沿触发。
+- `named` 注册表、`clearTagEffectsByLife`、`life` 字段、`AffectorPackDef.persistent`、`zoneNodeById` 字段均已删除。
 
 ---
 
@@ -118,7 +130,7 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 
 ## 3. 执行 Roadmap（按序执行；Phase 0→1→4 有强依赖，2/3/5 可穿插）
 
-### Phase 0 — 行为快照（前置保险，先做）
+### Phase 0 — 行为快照（前置保险，先做）==new== ✅ 已完成
 
 **目标**：把当前语义锁进测试，保证后续每步可回归。
 
@@ -130,7 +142,7 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
   - 每帧失效行为：`invalidateProduction` 后结果仍正确（Phase 4 前保持现状断言）。
 - 验收：`npm test` 全绿；新增对拍测试在 Phase 1 前先红后绿的标记（或直接全绿作为基线）。
 
-### Phase 1 — 统一区表真相：删 childMulMap 投影（核心结构清理）
+### Phase 1 — 统一区表真相：删 childMulMap 投影（核心结构清理）==new== ✅ 已完成（zone 求值统一走 `aggregateZone` 扫 state 表；`zoneIndex` 降级为定向失效索引）
 
 **目标**：`state.tagEffects` / `state.entityEffects` 成为**唯一真相**；zone 求值统一走 state 表扫描；`zoneIndex` 保留，降级为**定向失效索引**。
 
@@ -143,7 +155,7 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 - **语义迁移注意**：`aggregateZone` mul 路径是 `product *= v`（v 为原始因子 f），childMulMap 路径是 `1+Σ(f-1)`，两者等价——迁移后统一为 `aggregateZone` 语义。
 - 验收：Phase 0 对拍测试全绿；`registerTagEffect` 后无需 `routeToZoneNodes` 调用；grep 确认 `childMulMap` 仅剩定义与（如需）build 初始化残留清零。
 
-### Phase 2 — 单生产路径：删旧 tick 路径
+### Phase 2 — 单生产路径：删旧 tick 路径 ==new== ✅ 已完成（`tick-system.ts` 仅剩 GameNum 一条路径；`productions.push` 的 spotId 标签错位一并修正）
 
 **目标**：`tick-system.ts` 只有 GameNum 一条结算路径。
 
@@ -153,7 +165,7 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 - 修复 `productions.push({ spotId: resource, ... })`（tick-system.ts:58）标签错位。
 - 验收：`npm test` 全绿；`tick-system.ts` 不再 import `aggregateZone`；`TickSystem` 构造函数中 gameNumSystem 变为必传（或保持可选但旧路径删除后无退化分支）。
 
-### Phase 3 — 收敛双表达式系统
+### Phase 3 — 收敛双表达式系统 ==new== ✅ 已完成（选**方案 A**：删除 9 个未构造 kind，GameNum 收敛至 `add/sub/mul/const/expr/owned/levelLinear/zone/affectorFlows`；`gainsMayReadResource` 重写为类型化 `gainResourceDeps` 依赖扫描，无 JSON.stringify）
 
 **目标**：GameNum 与 ValueExpression 不再维护两套算术求值。
 
@@ -165,7 +177,7 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 - **同一 Phase 必做**：重写 `gainsMayReadResource`（game-num-build.ts:216-241）为类型化静态扫描（参考 `condition-deps.ts` 的 walk 风格），并细化粒度为**按 gain 子树**（每个 primitiveGain 根节点一个布尔，或每个依赖资源一个集合），为 Phase 4 铺路。
 - 验收：`npm test` 全绿；grep 确认无残留 kind 构造；`gainsMayReadResource` 无 JSON.stringify。
 
-### Phase 4 — 让懒求值真正跨帧：精确失效（核心收益，放最后）
+### Phase 4 — 让懒求值真正跨帧：精确失效（核心收益，放最后）==new== ✅ 已完成（删除 `game-instance.tick` 每帧 `invalidateProduction()`；`resourceChanged` 三路定向失效 `gainResourceDeps`/`zoneKeyResourceDeps`/`flowsResourceDeps`；陈旧读回归测试覆盖全部 mutation 写路径）
 
 **目标**：跨帧只重算受影响子树。
 
@@ -180,7 +192,7 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 - **回退方案（若审计失败）**：保留每帧失效，删除 `parents` 索引与定向传播（接受「帧内缓存」），在交付说明中写明选择。
 - 验收：`npm test` 全绿；陈旧读测试覆盖全部 mutation 写路径；tick 循环多帧运行后数值与 Phase 0 基线一致。
 
-### Phase 5 — 死代码清理
+### Phase 5 — 死代码清理 ==new== ✅ 已完成（对应 taskProduction Phase 7：删 `named` 注册表、`clearTagEffectsByLife` + `life` 字段、`AffectorPackDef.persistent`、`zoneNodeById`（降为 build 模块 WeakMap 局部去重）；`modTag`/`modEntity` 支持 `ValueExpression`；`describeValue` 参数名 `spotCount`→`areaSpotCount`；已 `gen:schema` 同步）
 
 - `named` 注册表（game-num.ts:59,205-220）：无消费者 → 删除（若保留，需在交付说明中写明理由）。
 - `clearTagEffectsByLife` + `life` 字段：三选一——接线（Init 切换/savepoint 时清理）、删除、保留标注。按 AGENTS.md「不做存档迁移」，**倾向删除**：
@@ -192,7 +204,7 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 - `toValueNode` 随机 id：随 Phase 1 的 childMulMap 消失；如仍存在则改确定性生成。
 - 验收：`npm test` + `npx tsc --noEmit` 全绿；grep 确认无残留引用；如删数据包字段则 schema 已同步。
 
-### Phase 6 — 收尾
+### Phase 6 — 收尾 ==new== ✅ 已完成（文档同步见 taskProduction Phase 8；flows 双入口问题组 G 经 Phase 6 层级分发收敛为按 `mountEntityId` 单层扫描）
 
 - 评估双 flows 求值入口（问题组 G）是否合并为一个带过滤器的扫描函数（可选，低优先）。
 - 同步文档：
@@ -210,7 +222,7 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 
 - 阅读并遵守仓库根目录 `AGENTS.md`：单一写入口（所有状态变更走 `StateMutationService`）、事件驱动、测试先行（`npm test` 通过才算完成）、**不做存档迁移/版本兼容代码**。
 - 改引擎机制前先读 `docs-824/02-run-logic.md` 及 02a-e；改数据结构前先读 `docs-824/03-data-structures.md` 及 03a-e。
-- 改 `src/engine/types/**` 的数据包字段后必须 `npm run gen:schema`（本任务涉及：`ZoneModifierDecl.life` 若删除）。
+- 改 `src/engine/types/` 的数据包字段后必须 `npm run gen:schema`（本任务涉及：`ZoneModifierDecl.life` 若删除）。
 - 禁止修改：`dist/` / `web-dist/` / `src/ui/dist/` / `node_modules/` / `tools/datapack-editor/schema/engine-defs.gen.json`（生成产物，改源头后重新生成）。
 - 默认不写注释；只在 WHY 非显而易见时写。
 - **行为保持**：除测试已显式声明的语义（capacity 不截断）外，所有游戏数值结果不变。每完成一个 Phase 先跑测试再进入下一 Phase。
@@ -229,11 +241,13 @@ primitiveGain:<res> (add)                 ← tick 结算入口（evaluateResour
 
 ## 6. 验收标准（最终）
 
-- [ ] `npm test` 全绿（vitest），`npx tsc --noEmit` 通过。
-- [ ] `grep childMulMap`：仅剩（如需）定义与清理后无残留投影逻辑。
-- [ ] `tick-system.ts` 无旧逐 Spot 路径、无 `aggregateZone` 直接调用（或经 GameNumSystem 唯一入口）。
-- [ ] GameNum kind 缩减至构建实际使用集合（方案 A）或有明确分工文档（方案 B）。
-- [ ] `gainsMayReadResource` 无 JSON.stringify。
-- [ ] 每帧不再无条件整树失效；陈旧读回归测试覆盖全部 mutation 写路径。
-- [ ] 死 API（named / clearTagEffectsByLife / life 字段）已删除或标注理由。
-- [ ] 文档已同步；`REPORT.md` 已填写。
+==new== **全部达成（918 tests 全绿 / tsc 通过 / gen:schema 同步）：**
+
+- [x] `npm test` 全绿（vitest），`npx tsc --noEmit` 通过。==new==
+- [x] `grep childMulMap`：仅剩（如需）定义与清理后无残留投影逻辑。==new== 投影机制整体删除，零残留。
+- [x] `tick-system.ts` 无旧逐 Spot 路径、无 `aggregateZone` 直接调用（或经 GameNumSystem 唯一入口）。==new==
+- [x] GameNum kind 缩减至构建实际使用集合（方案 A）或有明确分工文档（方案 B）。==new== 选方案 A，收敛至 9 种 kind。
+- [x] `gainsMayReadResource` 无 JSON.stringify。==new== 重写为类型化 `gainResourceDeps`。
+- [x] 每帧不再无条件整树失效；陈旧读回归测试覆盖全部 mutation 写路径。==new==
+- [x] 死 API（named / clearTagEffectsByLife / life 字段）已删除或标注理由。==new== 另删 `AffectorPackDef.persistent`、`zoneNodeById` 字段。
+- [x] 文档已同步；`REPORT.md` 已填写。==new== 见 taskProduction Phase 8 文档同步。

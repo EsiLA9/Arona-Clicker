@@ -1,7 +1,7 @@
 # docs-824 — 03e 带 id 的 Def 条目与引用语义（真引用 / 意义引用）
 
 > 本文回答：**哪些「带 id 的内容条目」被其他字段按 id 引用？每次引用是取目标内容生效（真引用），还是只拿 id 做身份/分组/路由键、行为由自身副本决定（意义引用）？**
-> 覆盖：`src/engine/types/**` 全部 Def 实体 + 运行时代码消费点核对。
+> 覆盖：`src/engine/types/` 全部 Def 实体 + 运行时代码消费点核对。
 
 ## 判定标准
 
@@ -45,8 +45,8 @@
 | --- | --- | --- | --- |
 | `CharacterVariantDef.proto` (character.ts:90) | 原型角色 | 意义 | 差分自带 name/rarity/school 内容副本；proto 只做聚合/分组键（protoStats 按 proto 记账 state-mutation-service.ts:193,343；tag-stats.ts:240 分组；图鉴默认差分迁移） |
 | `CharacterVariantDef.curve` (character.ts:130) | CultivateCurveDef | 真 | 取 expTable/starCost/maxLevel 等参与升级突破（cultivate-system.ts:36-45）；缺省用全局默认曲线。有加载期校验（registry-validate.ts:168-172） |
-| `CharacterVariantDef.colorGroupId` / `SpotDef.colorGroupId` / `ColorEquipmentDef.colorGroupId` | ColorGroupDef | 真 | 取 compositionType + 各 slot 的 Color 内容渲染头像/主题（avatar-renderer.ts:55-60、color-system.ts:183-196） |
-| `ThemeDef.colorId` / `ColorGroupSlot.colorId` / `ColorEquipmentDef.themeColorId` / `ThemeEffectValue.colorId` | ColorDef | 真 | 解析成完整 token 表（color-system.ts:202-214,229-237,406-408）；未给 token 由 primary 派生。加载期强校验（registry-validate.ts:174-196） |
+| `CharacterVariantDef.colorGroupId` / `SpotDef.colorGroupId` / `ColorEquipmentDef.colorGroupId` | ColorGroupDef | 真 | 取 compositionType + 各 slot 内联 hex 渲染头像/主题（avatar-renderer.ts、color-system.ts resolveTheme）；加载期强校验（registry-validate.ts） |
+| `ThemeDef.colorGroupId` / `ThemeEffectValue.colorGroupId` | ColorGroupDef | 真 | 解析成完整 token 表（color-system.ts `themeContributionFromThemeDef` / `resolveTheme`）；未给 token 由主色位色值派生。加载期强校验（registry-validate.ts） |
 | `GachaPoolDef.members / featured` (character.ts:437,451) | CharacterVariantDef | 真 | 抽卡按 variant 的 rarity 等字段结算、featured 偏置（gacha-service.ts:56-81）。有校验（validateCharacterRefs）。注意：「池关闭成员并入世界 Pool」的 `refreshWorldPool`（character-availability.ts:62-76）已实现但无调用点，未接线 |
 | `SpotDef.gachaPools` (world.ts:198) | GachaPoolDef | 真 | 取池定义渲染专有面板并跑 roll（contacts.ts:359-381）；无声明仅开全局通用池 |
 | `RosterEntry.equippedEquipment` (character.ts:535) | ColorEquipmentDef | 真 | 取 effects 应用（color-equipment-system.ts:88-92） |
