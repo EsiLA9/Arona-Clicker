@@ -170,3 +170,19 @@
    flex: 1;
 }
 
+/* 轴 A 可用消息：未读气泡包裹层，点击已读 */
+.chat-msg-unread {
+   cursor: pointer;
+}
+
+.chat-msg-unread:hover .chat-bubble-npc {
+   border-color: var(--cyan, #3b82f6);
+   box-shadow: 0 2px 10px rgba(59, 130, 246, .18);
+}
+
+/* §3 羁绊尾巴收尾段：与流内普通条目同款式，仅上方加分隔间距 */
+.conversation-stream .chat-msg-unread,
+.conversation-stream .kizuna-card {
+   margin-top: 6px;
+}
+

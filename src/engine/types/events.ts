@@ -51,6 +51,8 @@ export type GameEvent =
   | { type: 'characterAcquired'; variantId: string; via: 'gacha' | 'story' | 'event'; duplicate: boolean; shards: number; bonusResources: Record<string, number> }
   /** 培养变更（exp = 升级；star = 突破）。 */
   | { type: 'cultivated'; variantId: string; kind: 'exp' | 'star'; newLevel?: number; newStars?: number }
+  /** 好感小值入账（每次成功入账都发；leveledUp = 本次跨级，UI 升级提示据此过滤）。 */
+  | { type: 'affectionChanged'; variantId: string; delta: number; newLevel: number; newExp: number; leveledUp: boolean }
   /** 色彩组解锁入库存（幂等：已拥有不重复发）。 */
   | { type: 'groupUnlocked'; groupId: string }
   /** 色彩装备收集入库存（幂等：已拥有不重复发）。 */
@@ -145,6 +147,7 @@ export const EVENT_CATALOG: Record<GameEvent['type'], EventCatalogEntry> = {
   affectorEntriesChanged: { purpose: 'Affector 激活 entry 集在 Active 内变化（GameNum 重同步，状态未翻转）', emit: ['affector-engine'], subscribe: ['game-num'] },
   characterAcquired: { purpose: '角色差分获得（色彩解锁重算 + 图鉴统计 + Trigger）', emit: ['state-mutation-service'], subscribe: ['color-unlock-reactor', 'tag-stats', 'trigger-system'] },
   cultivated: { purpose: '培养变更（升级/突破；Trigger 联动）', emit: ['state-mutation-service'], subscribe: ['trigger-system'] },
+  affectionChanged: { purpose: '好感小值入账（跨级升级；Trigger 联动 + UI 升级提示）', emit: ['state-mutation-service'], subscribe: ['condition-deps', 'trigger-system', 'ui-controller-events'] },
   groupUnlocked: { purpose: '色彩组解锁入库存（观测）', emit: ['state-mutation-service'], subscribe: [] },
   equipmentCollected: { purpose: '色彩装备收集入库存（观测）', emit: ['state-mutation-service'], subscribe: [] },
   equipmentEquipped: { purpose: '装备装配到变体（观测）', emit: ['state-mutation-service'], subscribe: [] },

@@ -40,6 +40,8 @@ const TARGET_EVALUATORS: Record<ConditionTarget, TargetEvaluator> = {
   tagCount: (sys, cond) => sys.tagCountReader(cond.key),
   // 原型聚合统计（获得次数；docs-818/12-character-rework.md §3）
   protoStat: (_sys, cond, state) => state.protoStats?.[cond.key]?.acquiredTotal ?? 0,
+  // 好感等级（key = VariantId；未拥有/缺失 → 0，已拥有缺字段 ??= 1）
+  affectionLevel: (sys, cond, state) => sys.affectionLevelReader(cond.key, state),
   // 当前所在区域是否等于指定 Area（key = AreaId）
   area: (_sys, cond, state) => (state.currentAreaId === cond.key ? 1 : 0),
 };
@@ -68,6 +70,8 @@ export class ConditionSystem {
   extraReader: (path: ExtraPath) => ExtraValue | undefined = () => undefined;
   /** @internal 按 tag 聚合的收集数读取器（由 TagStatService 提供）。 */
   tagCountReader: (key: string) => number = () => 0;
+  /** @internal 好感等级读取器（由 RosterSystem 提供，注入星级锁与缺省等级兜底）。 */
+  affectionLevelReader: (variantId: string, state: PlayerState) => number = () => 0;
 
   setTagIndex(index: (tag: TagPath) => string[]): void {
     this.tagIndex = index;
@@ -91,6 +95,10 @@ export class ConditionSystem {
 
   setTagCountReader(reader: (key: string) => number): void {
     this.tagCountReader = reader;
+  }
+
+  setAffectionLevelReader(reader: (variantId: string, state: PlayerState) => number): void {
+    this.affectionLevelReader = reader;
   }
 
   evaluate(cond: Condition, state: PlayerState): boolean {

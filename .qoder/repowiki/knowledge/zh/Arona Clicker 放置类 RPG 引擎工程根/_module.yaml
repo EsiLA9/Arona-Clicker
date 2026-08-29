@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: ACProgram Arona Clicker 工程根
+title: Arona Clicker 放置类 RPG 引擎工程根
 scope:
     - package.json
     - tsconfig.json

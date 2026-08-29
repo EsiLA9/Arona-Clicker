@@ -82,7 +82,7 @@ describe('acquireCharacter（R-01 ~ R-06, P-01）', () => {
     game.init([makeDatapack()]);
   });
 
-  test('R-01 首次获得：创建 entry（level=1/exp=0/stars=0/acquiredCount=1），不发碎片，发事件', () => {
+  test('R-01 首次获得：创建 entry（level=1/exp=0/stars=0/acquiredCount=1/好感 1 级 0 小值），不发碎片，发事件', () => {
     const r = game.mutations.acquireCharacter('Hoshino', 'story');
     expect(r.duplicate).toBe(false);
     expect(r.shards).toBe(0);
@@ -95,6 +95,8 @@ describe('acquireCharacter（R-01 ~ R-06, P-01）', () => {
       stars: 0,
       equippedEquipment: null,
       acquiredCount: 1,
+      affectionLevel: 1,
+      affectionExp: 0,
     });
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ variantId: 'Hoshino', via: 'story', duplicate: false, shards: 0 });

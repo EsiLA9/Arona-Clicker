@@ -192,6 +192,12 @@ export interface PassiveStoryEntry extends StoryEntryBase {
    */
   owner?: string;
   /**
+   * 好感台阶门槛（好感等级达标才进入该角色的就绪队列；缺省 null = 普通闲聊，
+   * 参与加权随机抽取）。声明后该 entry 不再进入随机抽取，改为按需求值升序的
+   * 队列推送（见 docs-828/06-adr/planning.md §2 轴 B）。
+   */
+  affectionRequired?: number;
+  /**
    * 抽取后冷却帧数：被抽取（最后一页播完）后需经过 N 帧（tick）才能再次被选取。
    * 复用 PlayerState.totalFrames 计数。0 或不设置表示无冷却。
    */

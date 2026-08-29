@@ -98,7 +98,10 @@ export function wireGameInstance(
   g.characterSystem.setVariantProtoResolver(
     id => g.registry.characterVariants.get(id)?.proto,
   );
-  g.rosterSystem = new RosterSystem(g.registry);
+  g.rosterSystem = new RosterSystem(g.registry, g.conditionSystem);
+  // affectionLevel 条件：读取该角色的当前好感等级（未拥有 → 0）
+  g.conditionSystem.setAffectionLevelReader((variantId, state) =>
+    g.rosterSystem.affectionLevelOf(state, variantId));
   g.availabilityService = new CharacterAvailabilityService(
     g.registry,
     g.mutations,
@@ -133,6 +136,8 @@ export function wireGameInstance(
     getCurve: id => g.registry.cultivateCurves.get(id),
     getColorGroup: id => g.registry.colorGroups.get(id),
     getColorEquipment: id => g.registry.colorEquipments.get(id),
+    getChatMessage: id => g.registry.chatMessages.get(id),
+    getAffectionConfig: () => g.registry.affectionConfig,
   });
   g.affectorEngine = new AffectorEngine(
     g.registry,

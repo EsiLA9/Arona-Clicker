@@ -26,6 +26,7 @@ import {
   ColorEquipmentDef,
   ColorGroupDef,
   CultivateCurveDef,
+  AffectionConfigDef,
   GachaMode,
   GachaPoolDef,
   ResourceDisplayDef,
@@ -91,6 +92,8 @@ export class Registry {
   private _chatMessages: Map<string, ChatMessageDef> = new Map();
   /** 三层归属声明；缺省值见 characterScopeOf。 */
   private _characterPersistConfig: CharacterPersistConfig | undefined;
+  /** 好感数值配置（部分覆盖合并；缺省字段用引擎内置阶梯，见 system/affection-system.ts）。 */
+  private _affectionConfig: AffectionConfigDef | undefined;
   /** 资源条显示条目：resourceId → 显示配置（标签、可选策略、排序）。 */
   private _resourceDisplays: Map<string, ResourceDisplayDef> = new Map();
   /** 标签表现定义：路径串（如 'office' / 'office/defense'）→ 名称、简介。 */
@@ -274,6 +277,27 @@ export class Registry {
         clear: () => { this._characterPersistConfig = undefined; },
       },
       {
+        table: 'affectionConfig',
+        merge: dp => {
+          if (!dp.affectionConfig) return;
+          const cfg = dp.affectionConfig;
+          for (const key of ['expBeyond', 'maxLevel'] as const) {
+            const v = cfg[key];
+            if (v !== undefined && (!Number.isFinite(v) || v < 0)) {
+              throw new RegistryError(`affectionConfig.${key} 非法值 "${v}"（应为非负数）`);
+            }
+          }
+          if (cfg.expCurve?.some(v => !Number.isFinite(v) || v <= 0)) {
+            throw new RegistryError('affectionConfig.expCurve 含非法值（应为正数阶梯）');
+          }
+          if (cfg.defaultLevelCapByStar?.some(v => !Number.isFinite(v) || v <= 0)) {
+            throw new RegistryError('affectionConfig.defaultLevelCapByStar 含非法值（应为正数上限）');
+          }
+          this._affectionConfig = { ...this._affectionConfig, ...cfg };
+        },
+        clear: () => { this._affectionConfig = undefined; },
+      },
+      {
         table: 'resourceDisplays',
         merge: dp => {
           if (dp.resourceDisplays) for (const rd of dp.resourceDisplays) this._resourceDisplays.set(rd.resourceId, rd);
@@ -356,6 +380,8 @@ export class Registry {
   get themeDesigns(): ReadonlyMap<string, ThemeDesignDef> { return this._themeDesigns; }
   /** 聊天流内容表（MessageId → Def）。 */
   get chatMessages(): ReadonlyMap<string, ChatMessageDef> { return this._chatMessages; }
+  /** 好感数值配置（数据包声明；未声明返回 undefined = 引擎内置阶梯）。 */
+  get affectionConfig(): AffectionConfigDef | undefined { return this._affectionConfig; }
 
   /** CharacterPersistScope 合法值（加载期 fail-fast 校验用）。 */
   private static readonly PERSIST_SCOPES: ReadonlySet<string> = new Set(['global', 'init']);

@@ -113,6 +113,9 @@ export class UIController {
     /** @internal 供 controller-core / controller-modals / controller-panels 使用。 */
     readonly root: HTMLElement,
   ) {
+    // 未读消息计数（轴 A）：通讯录角色行气泡由 RosterSystem 可用消息查询驱动
+    this.panelState.getUnread = (variantId: string) =>
+      this.game.rosterSystem.unreadChatCount(this.game.state, variantId);
     // 绑定到 document.body：弹窗（app-modal）挂在 body 级，图鉴条目的悬停详情也要生效
     this.popovers = new PopoverManager(document.body, this.game);
     this.selectorPage = new SelectorPage({

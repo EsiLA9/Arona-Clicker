@@ -60,6 +60,10 @@ export function applyEffect(this: StateMutationService, effect: Effect): void {
       // 获得角色差分（重复自动转碎片）；未知差分由 acquireCharacter 抛错
       this.acquireCharacter(effect.target, 'story');
       break;
+    case 'addAffectionExp':
+      // 好感小值入账（未拥有/非法量拒绝）；未知差分由 addAffectionExp 抛错
+      this.addAffectionExp(effect.target, Number(effect.value));
+      break;
     case 'setTheme':
     case 'clearAllChatFlow':
     case 'showChatText':

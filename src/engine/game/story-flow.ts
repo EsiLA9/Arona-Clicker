@@ -113,9 +113,13 @@ export function triggerPassiveStory(rt: StoryRuntime, initId: string = rt.getSta
   // 并行双游标：本沙盒已有进行中故事 → 拒绝（不打断他人，也不重抽）。
   // owner 为空时全局游标进行中（如 active 主线）同样拒绝，避免覆盖。
   if (!cur.empty) return { success: false, error: 'AlreadyActive' };
+  // 尾巴展示期间：该对话空间不抽取新的被动闲聊（§3 回环保护）
+  if (owner && rt.hasPendingKizunaTail(owner)) return { success: false, error: 'NoAvailableStory' };
 
   const selectedId = rt.passivePools.pick(rt.getState(), (entry) => {
     if (entry.weight <= 0) return false;
+    // 好感台阶（affectionRequired 声明者）退出随机抽取，只走就绪队列
+    if (entry.affectionRequired != null) return false;
     if (entry.availableInits.length > 0 && !entry.availableInits.includes(initId)) return false;
     if (entry.triggerCondition && !rt.conditionSystem.evaluateGroup(entry.triggerCondition, rt.getState())) return false;
     if (!entry.repeatable && rt.hasCompletedStory(entry.storyId)) return false;
@@ -126,6 +130,51 @@ export function triggerPassiveStory(rt: StoryRuntime, initId: string = rt.getSta
     blocks: rt.getState().studentBlocks ?? {},
   });
 
+  if (!selectedId) return { success: false, error: 'NoAvailableStory' };
+  return startStory(rt, selectedId, 'passive', owner);
+}
+
+/**
+ * 就绪队列查询（§2 轴 B）：该角色「好感达标 ∧ 未经历过 ∧ 冷却外 ∧ 条件过」的台阶中
+ * 取 affectionRequired 最小者（并列按声明序）。repeatable 条目不入队列；
+ * 可反复性由普通闲聊轴承担。顺序完全由需求值决定——改数值即改顺序。
+ */
+export function pickAffectionStep(rt: StoryRuntime, owner: string): string | null {
+  const state = rt.getState();
+  const frame = state.totalFrames;
+  const cooldowns = state.passiveCooldowns ?? {};
+  const level = rt.conditionSystem.affectionLevelReader(owner, state);
+  const blocked = !!state.studentBlocks?.[owner];
+
+  let bestId: string | null = null;
+  let bestRequired = Number.POSITIVE_INFINITY;
+  for (const entry of rt.registry.passiveStories.values()) {
+    if (entry.affectionRequired == null) continue;
+    if (entry.affectionRequired >= bestRequired) continue;
+    if (entry.repeatable) continue;
+    if (entry.owner !== owner) continue;
+    if (blocked) continue;
+    if (entry.affectionRequired > level) continue;
+    if (entry.availableInits.length > 0 && !entry.availableInits.includes(state.activeInit)) continue;
+    if (entry.triggerCondition && !rt.conditionSystem.evaluateGroup(entry.triggerCondition, state)) continue;
+    if (!entry.repeatable && rt.hasCompletedStory(entry.storyId)) continue;
+    const last = cooldowns[entry.id];
+    if (last !== undefined && entry.cooldownFrames && frame - last < entry.cooldownFrames) continue;
+    bestId = entry.id;
+    bestRequired = entry.affectionRequired;
+  }
+  return bestId;
+}
+
+/**
+ * 台阶推送（§2 轴 B「进入即推 / 点击必中」）：就绪队列非空时自动开始队列顶的台阶剧情。
+ * 只在对应聊天空间内发生（owner 壁垒），绝不影响外部；尾巴展示期间拒绝。
+ */
+export function triggerAffectionPush(rt: StoryRuntime, owner: string): StoryStartResult {
+  if (rt.hasPendingKizunaTail(owner)) return { success: false, error: 'NoAvailableStory' };
+  const cur = rt.cursorFor(owner);
+  if (!cur.empty) return { success: false, error: 'AlreadyActive' };
+  const selectedId = pickAffectionStep(rt, owner);
   if (!selectedId) return { success: false, error: 'NoAvailableStory' };
   return startStory(rt, selectedId, 'passive', owner);
 }
@@ -313,6 +362,11 @@ export function clickSend(rt: StoryRuntime, owner?: string | null): SendResult {
   }
 
   if (state.mode === 'idle') {
+    // 台阶优先（§2 轴 B）：就绪队列非空时点击必中队列顶；队列空回落加权随机闲聊
+    if (owner) {
+      const pushed = triggerAffectionPush(rt, owner);
+      if (pushed.success) return { type: 'idle', started: true };
+    }
     const result = triggerPassiveStory(rt, rt.getState().activeInit, owner);
     if (result.success) return { type: 'idle', started: true };
     return { type: 'idle', started: false, error: result.error };

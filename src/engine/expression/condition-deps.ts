@@ -32,6 +32,7 @@ export const CONDITION_DEP_EVENT_TYPES: readonly GameEvent['type'][] = [
     'extraChanged',
     'spotTagChanged',
     'tagCollectedChanged',
+    'affectionChanged',
   ]),
 ];
 
@@ -48,6 +49,7 @@ export function collectConditionLeaves(node: Condition | ConditionGroup | undefi
 export function eventEntityKeyOf(e: GameEvent): string | undefined {
   switch (e.type) {
     case 'resourceChanged': return e.resource;
+    case 'affectionChanged': return e.variantId;
     case 'spotLevelChanged': return e.spotId;
     case 'managerChanged': return e.spotId;
     case 'flagChanged': return e.flag;
@@ -152,6 +154,10 @@ export class ConditionDepIndex<K> {
     switch (leaf.target) {
       case 'resource':
         this.indexAdd('resourceChanged', leaf.key, key);
+        return false;
+      case 'affectionLevel':
+        // key = VariantId：好感小值入账即失效
+        this.indexAdd('affectionChanged', leaf.key, key);
         return false;
       case 'spotLevel':
         this.indexAdd('spotLevelChanged', leaf.key, key);

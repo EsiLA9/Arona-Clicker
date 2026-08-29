@@ -26,12 +26,14 @@ import {
   GachaPoolDef,
   line,
   narrate,
+  passiveStory,
   Resource,
   story,
   StoryDef,
   talklet,
   variant,
 } from '../../engine/types';
+import type { PassiveStoryEntry } from '../../engine/types';
 import { allCharacters } from './characters';
 
 /** 全局默认培养曲线：上限 30 级、线性经验、5 星突破每星 +5 级上限。 */
@@ -364,6 +366,63 @@ export const baseChatMessages: ChatMessageDef[] = [
     .unlock({ target: 'protoStat', key: String(Character.Hoshino), comparator: '>=', value: 2 })
     .build(),
   chatMessage('base:chat:shiroko-1', 'Shiroko').order(1).content('老师，今天的行动方针呢？').build(),
+  // --- 好感回环示范（docs-828/06-adr/planning.md §2/§3）---
+  // 轴 A：读完奖励好感小值（1→2 级需 15，读完即达 2 级、解锁台阶一）
+  chatMessage('base:chat:hoshino-aff-1', 'Hoshino').order(3)
+    .content('……给，便当。不小心做多了。')
+    .affectionExpReward(15)
+    .build(),
+  // 轴 A 可反复：每次读取 +5（冷却字段第一迭代未启用，条件满足期间恒可读）
+  chatMessage('base:chat:hoshino-aff-repeat', 'Hoshino').order(4)
+    .content('今天也辛苦了呢，队长……嗯，摸摸头。')
+    .repeatable()
+    .affectionExpReward(5)
+    .build(),
+  // §3 羁绊尾巴：点击卡片进入 base:bond:hoshino_1，剧情完成后回对话空间收尾
+  chatMessage('base:chat:hoshino-kizuna', 'Hoshino').order(5)
+    .content('那个……有件事想跟老师说。……可以的话，来堤防一趟吗？')
+    .kizunaStory('base:bond:hoshino_1')
+    .kizunaTail(
+      line('星野', '……剧情就到这里。剩下的，我们边走边说吧，队长。').build(),
+      narrate('——羁绊剧情 · 午后的堤防 完——', 'center').build(),
+    )
+    .build(),
+];
+
+// ============================================================
+// 好感台阶剧情（§2 轴 B 就绪队列）：好感达标即入队，按需求值升序自动推送。
+// 台阶退出随机抽取（affectionRequired 声明即生效），完结奖励走 addAffectionExp 回环。
+// ============================================================
+
+export const baseAffectionStepStories: StoryDef[] = [
+  story('base:affinity:hoshino_1', '好感台阶 · 星野：午后的便当')
+    .scene(
+      line('星野', '……队长，便当还合口味吗？'),
+      line('星野', '呵呵，那就好。下次……也一起吃吧。')
+        .effects({ op: 'addAffectionExp', target: 'Hoshino', value: 50 }),
+    )
+    .build(),
+  story('base:affinity:hoshino_2', '好感台阶 · 星野：黄昏的堤防')
+    .scene(
+      narrate('——阿比多斯 · 堤防 · 黄昏——', 'center'),
+      line('星野', '黄昏的海，总会让人想起点什么……'),
+      line('星野', '能这样并肩看海，就已经很满足了哦，队长。')
+        .effects({ op: 'addAffectionExp', target: 'Hoshino', value: 50 }),
+    )
+    .build(),
+];
+
+export const baseAffectionSteps: PassiveStoryEntry[] = [
+  passiveStory('base:affinity:hoshino_1')
+    .owner('Hoshino')
+    .repeatable(false)
+    .affectionRequired(2)
+    .build(),
+  passiveStory('base:affinity:hoshino_2')
+    .owner('Hoshino')
+    .repeatable(false)
+    .affectionRequired(4)
+    .build(),
 ];
 
 /** 三层归属声明：收集类资产跨世界线保留，已读随世界线。 */

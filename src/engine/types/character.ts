@@ -13,6 +13,7 @@ import type {
 import type { ExtraCompound } from './extra';
 import type { Condition, ConditionGroup, Effect, ValueExpression } from './expression';
 import type { PicId } from './pics';
+import type { Talklet } from './content';
 
 // --- 基础 ID ---
 
@@ -132,6 +133,13 @@ export interface CharacterVariantDef {
    * @label 对话主题
    */
   theme?: ThemeDef;
+  /**
+   * 星级锁 per-variant 好感等级上限覆盖（索引 = 星级；缺省用 affectionConfig.defaultLevelCapByStar）。
+   * 可做渐进式如 [1,5,10,15,20,100]。
+   * @label 好感星级锁
+   * @int
+   */
+  affectionLevelCapByStar?: number[];
   /** Extra 附加数据 */
   extra?: ExtraCompound;
 }
@@ -461,6 +469,66 @@ export interface ChatMessageDef {
    * @label 解锁条件
    */
   unlock?: Condition | ConditionGroup;
+  /**
+   * 可反复触发（缺省 false = 单次已读即止）
+   * @label 可反复
+   */
+  repeatable?: boolean;
+  /**
+   * 好感等级门槛（与 unlock AND；缺省 0 = 无要求）
+   * @label 好感门槛
+   * @int
+   */
+  affectionRequired?: number;
+  /**
+   * 读完奖励的好感小值（按 owner 归属结算；缺省 0）
+   * @label 好感奖励
+   * @int
+   */
+  affectionExpReward?: number;
+  /**
+   * 关联的羁绊剧情入口 id：声明后该消息在对话空间渲染羁绊卡片，
+   * 点击启动该 ActiveStoryEntry（剧情完成后在对话空间追加 kizunaTail）。
+   * @label 羁绊剧情
+   * @ref activeStories
+   */
+  kizunaStoryId?: string;
+  /**
+   * 羁绊收尾段：关联 kizuna 卡片的消息在剧情完成后于对话空间追加展示的 Talklet 序列。
+   * 缺省 = 无尾巴（剧情完成即结束）。@label 羁绊尾巴
+   */
+  kizunaTail?: Talklet[];
+}
+
+// --- 好感配置 ---
+
+/**
+ * 好感数值配置（Datapack 顶层可选表；缺省用引擎内置阶梯，见 system/affection-system.ts）。
+ * 好感值内嵌 RosterEntry，呈现为「等级 + 级内小值」，不作可见货币。
+ */
+export interface AffectionConfigDef {
+  /**
+   * 阶梯区升级需求：expCurve[i] = 第 (i+1)→(i+2) 级所需小值；长度 = 阶梯覆盖等级数。
+   * @label 升级阶梯
+   */
+  expCurve?: number[];
+  /**
+   * 等值区需求：超出 expCurve 覆盖后每级固定需求
+   * @label 等值需求
+   * @int
+   */
+  expBeyond?: number;
+  /**
+   * 等级硬上限（含等值区）；缺省取 expCurve.length
+   * @label 等级上限
+   * @int
+   */
+  maxLevel?: number;
+  /**
+   * 星级锁默认表（索引 = 星级）：5 星前一律 20 级的默认形如 [20,20,20,20,20,100]
+   * @label 星级锁默认表
+   */
+  defaultLevelCapByStar?: number[];
 }
 
 // --- 三层归属声明 ---
@@ -516,6 +584,13 @@ export interface RosterEntry {
   equippedEquipment: EquipmentId | null;
   /** 该差分自身的累计获得次数（含首次；重复获得 +1，与原型聚合统计互不影响）。 */
   acquiredCount: number;
+  /**
+   * 好感等级（初始 1；运行时 ??= 1 兜底旧档）。
+   * 随 RosterEntry 归属层自动进出存档与 per-Init 快照。
+   */
+  affectionLevel?: number;
+  /** 当前级内积累的好感小值（隐藏内部值；UI 呈现为等级 + 进度）。 */
+  affectionExp?: number;
 }
 
 /** 原型层聚合统计（派生视图，Trigger 维护；供色彩解锁条件/图鉴使用） */

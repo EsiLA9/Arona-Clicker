@@ -22,6 +22,7 @@ import {
   getCurrentStoryView,
   getSendState,
   startStory,
+  triggerAffectionPush,
   triggerPassiveStory,
 } from './story-flow';
 import { guardPrereqsMet, replayStory } from './story-replay';
@@ -54,6 +55,12 @@ export class StoryService {
   private globalCursor = new StoryCursorState();
   /** 聊天沙盒游标：按 owner（VariantId）分区，各角色对话空间并行互不打断。 */
   private chatCursors = new Map<string, StoryCursorState>();
+  /**
+   * 待收尾的羁绊尾巴（§3）：key = VariantId，value = 关联聊天消息 id。
+   * 纯运行时状态（不持久化）：剧情完成前退出应用则 pending 丢失——消息保持未读、
+   * 卡片可重新点击，流程重走（无奖励丢失，奖励在尾巴结束的 markChatRead 才结算）。
+   */
+  private pendingKizunaTails = new Map<string, string>();
   /** 本次剧情播放期间经 Talklet/选项效果设置的 flag（完成时随 storyRewarded 通知 UI）。 */
   private flagsSetThisStory = new Set<string>();
   /** applyCompletionReward 的结算记录（供完成时发出 storyRewarded 事件）。 */
@@ -78,6 +85,7 @@ export class StoryService {
       hasCompletedStory: storyId => this.hasCompletedStory(storyId),
       getView: owner => this.getCurrentStoryView(owner),
       guardPrereqsMet: guard => this.guardPrereqsMet(guard),
+      hasPendingKizunaTail: owner => this.pendingKizunaTails.has(owner),
       flagsSetThisStory: this.flagsSetThisStory,
       lastRewarded: this.lastRewarded,
     };
@@ -200,6 +208,46 @@ export class StoryService {
   /** @see story-flow.triggerPassiveStory */
   triggerPassiveStory(initId: string = this.state.activeInit, owner?: string | null): StoryStartResult {
     return triggerPassiveStory(this.runtime, initId, owner);
+  }
+
+  /**
+   * §2 轴 B 台阶推送：就绪队列非空时自动开始队列顶的台阶剧情。
+   * 由「进入对话空间」（进入即推）与 clickSend idle（点击必中）两个时机调用。
+   */
+  triggerAffectionPush(owner: string): StoryStartResult {
+    return triggerAffectionPush(this.runtime, owner);
+  }
+
+  /**
+   * §3 消息羁绊卡片入口：登记 pendingKizunaTail 后启动关联剧情。
+   * 与 startCardStory 同语义（跳过场景/条件判定，尊重单次完成态）。
+   * 无尾巴的消息（剧情完成即结束）在卡片点击时即标记已读；有尾巴的留待尾巴收尾。
+   */
+  startMessageKizuna(messageId: string, owner: string): StoryStartResult {
+    const message = this.registry.chatMessages.get(messageId);
+    if (!message?.kizunaStoryId) return { success: false, storyId: messageId, error: 'NotFound' };
+    const result = this.startCardStory(message.kizunaStoryId, owner);
+    if (result.success) {
+      this.pendingKizunaTails.set(owner, messageId);
+      if (!message.kizunaTail?.length) this.mutations.markChatRead(messageId);
+    }
+    return result;
+  }
+
+  /** 该角色是否挂着待收尾的羁绊尾巴；返回关联聊天消息 id（无 pending = null）。 */
+  getPendingKizunaTail(owner: string): string | null {
+    return this.pendingKizunaTails.get(owner) ?? null;
+  }
+
+  /**
+   * §3 尾巴收尾：尾巴展示完由 UI 调用——markChatRead（内含 affectionExpReward 结算）
+   * + 清除 pending。该次聊天至此才标记彻底结束。
+   */
+  completeKizunaTail(owner: string): void {
+    const messageId = this.pendingKizunaTails.get(owner);
+    if (!messageId) return;
+    this.pendingKizunaTails.delete(owner);
+    this.mutations.markChatRead(messageId);
   }
 
   /** @see story-replay.replayStory */

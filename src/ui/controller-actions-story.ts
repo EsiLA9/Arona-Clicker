@@ -9,7 +9,7 @@ import { storyErrorText } from './components/story';
 import type { UIController } from './controller';
 
 /** 剧情操作失败 → devLog 记录（结果带 error 时）。 */
-function logStoryFailure(ctrl: UIController, result: StoryStartResult | StoryAdvanceResult): void {
+export function logStoryFailure(ctrl: UIController, result: StoryStartResult | StoryAdvanceResult): void {
   if (result.success) return;
   ctrl.game.devLog.record(`剧情操作失败：${storyErrorText[result.error] ?? result.error}`, {
     source: 'story',

@@ -85,6 +85,19 @@ export class ChatStream {
     });
   }
 
+  /** 定向入流：把条目写进指定学生的聊天流（不路由，供升级提示等后台事件使用）。 */
+  pushToVariant(panelState: PanelState, variantId: string, entry: Omit<ChatEntry, 'id' | 'timestamp'>): void {
+    const stream = (panelState.studentChats[variantId] ??= []);
+    stream.push({
+      ...entry,
+      id: this.chatId++,
+      timestamp: Date.now(),
+    });
+    if (stream.length > CHAT_MAX) {
+      stream.splice(0, stream.length - CHAT_MAX);
+    }
+  }
+
   /** 向后吸收的过渡页（推进后自动跳过的纯展示页）同步进聊天流。 */
   pushAbsorbed(panelState: PanelState, views: StoryView[]): void {
     for (const view of views) {

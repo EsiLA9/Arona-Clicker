@@ -102,7 +102,7 @@ function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: strin
 }
 
 /** 对话气泡：左侧圆形头像（NPC）/ 右侧（玩家），对侧上部名字 + 下部小箭头气泡。 */
-function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: string): string {
+export function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: string): string {
   const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
   // 仅玩家回复保留"回复"标签（当前注释禁用，见同步流）；NPC 不再显示 PASSIVE/ACTIVE

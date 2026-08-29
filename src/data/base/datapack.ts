@@ -10,6 +10,8 @@ import { baseAreas } from './areas';
 import { baseSpots } from './spots';
 import { allCharacters } from './characters';
 import {
+  baseAffectionStepStories,
+  baseAffectionSteps,
   baseBondStories,
   baseBondStoryEntries,
   baseCharacterPersistConfig,
@@ -135,9 +137,9 @@ export const baseDatapack: Datapack = {
   spots: baseSpots,
   enhancements: [...baseEnhancements, ...baseGlobalEnhancements],
   activeStories: [...baseActiveStories, ...baseBondStoryEntries],
-  passiveStories: basePassiveStories,
+  passiveStories: [...basePassiveStories, ...baseAffectionSteps],
   passivePools: basePassivePools,
-  stories: [...baseStories, ...baseBondStories],
+  stories: [...baseStories, ...baseBondStories, ...baseAffectionStepStories],
   items: baseItems,
   dropTables: baseDropTables,
   affectorPacks: baseAffectorPacks,

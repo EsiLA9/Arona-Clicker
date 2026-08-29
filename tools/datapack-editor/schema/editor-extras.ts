@@ -115,6 +115,7 @@ function conditionTagged(): FieldType & { kind: 'tagged' } {
       ['hasReadStoryInRun', '本世界线已读剧情'],
       ['visitedStoryInChain', '链内经过剧情'],
       ['extra', 'Extra'],
+      ['affectionLevel', '好感等级'],
     ], '目标', { required: true }),
     combos: [
       { tag: 'resource', fields: [r('key', 'resourceDisplays', '资源')] },
@@ -129,6 +130,7 @@ function conditionTagged(): FieldType & { kind: 'tagged' } {
       { tag: 'hasReadStoryInRun', fields: [r('key', 'storyEntries', '剧情入口')] },
       { tag: 'visitedStoryInChain', fields: [r('key', 'stories', '演出本体')] },
       { tag: 'extra', fields: [s('key', 'Extra 路径', { required: true })] },
+      { tag: 'affectionLevel', fields: [s('key', '差分 VariantId', { required: true })] },
     ],
     after: [
       e('comparator', [
@@ -237,6 +239,7 @@ const effectObject = (): FieldDef =>
       ['setExtra', '设置 Extra'],
       ['addExtra', '增加 Extra'],
       ['removeExtra', '移除 Extra'],
+      ['addAffectionExp', '增加好感'],
       ['setTheme', '临时主题（演出变色）'],
       ['clearAllChatFlow', '清理聊天流'],
       ['showChatText', '演出专用文本（定位显示）'],
@@ -556,6 +559,7 @@ const passiveStoriesTable = (): TableSchema => ({
     cg('triggerCondition', '触发条件'),
     b('repeatable', '可重复'),
     n('weight', '权重'),
+    i('affectionRequired', '好感台阶门槛', { description: '声明后退出随机抽取：好感达标即入该角色就绪队列，按需求值升序自动推送（docs-828/06-adr/planning.md §2 轴 B）。' }),
     o('completionReward', [
       a('first', effectObject(), '首次'),
       a('repeat', effectObject(), '重复'),

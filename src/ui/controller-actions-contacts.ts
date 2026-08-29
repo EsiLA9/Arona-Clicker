@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { UIController } from './controller';
+import { logStoryFailure } from './controller-actions-story';
 
 /** 绑定通讯录 / 角色面板、招募入口与角色成长事件（render 后调用）。 */
 export function bindContactsActions(ctrl: UIController): void {
@@ -16,6 +17,68 @@ export function bindContactsActions(ctrl: UIController): void {
       ctrl.panelState.leftTab = 'contacts';
       ctrl.panelState.rightTab = 'character';
       ctrl.scroll.forceToBottom();
+      // §2 轴 B 进入即推：就绪队列非空时自动开始队列顶的台阶剧情（引擎内幂等保护）
+      const variantId = ctrl.panelState.conversationVariantId;
+      if (variantId && ctrl.game.rosterSystem.isOwned(ctrl.game.state, variantId)) {
+        ctrl.game.story.triggerAffectionPush(variantId);
+      }
+      ctrl.render();
+    });
+  });
+  // 轴 A 可用消息：点击已读（引擎内结算 affectionExpReward → affectionChanged）
+  ctrl.root.querySelectorAll<HTMLElement>('[data-chat-read]').forEach(el => {
+    el.addEventListener('click', () => {
+      const messageId = el.dataset.chatRead!;
+      const variantId = ctrl.panelState.conversationVariantId;
+      // 消息内容先落流（气泡留档），再走引擎结算
+      const message = ctrl.game.registry.chatMessages.get(messageId);
+      if (message && variantId) {
+        ctrl.chat.pushToVariant(ctrl.panelState, variantId, {
+          kind: 'talk',
+          speaker: ctrl.game.rosterSystem.getVariant(variantId)?.displayName,
+          text: message.content,
+          side: 'left',
+        });
+      }
+      ctrl.game.mutations.markChatRead(messageId);
+      ctrl.render();
+    });
+  });
+  // §3 消息羁绊卡片：登记 pendingKizunaTail 后启动关联剧情；无尾巴的消息即点即已读
+  ctrl.root.querySelectorAll<HTMLElement>('[data-kizuna-msg]').forEach(el => {
+    el.addEventListener('click', () => {
+      const messageId = el.dataset.kizunaMsg!;
+      const owner = ctrl.panelState.conversationVariantId;
+      if (!owner) return;
+      const result = ctrl.game.story.startMessageKizuna(messageId, owner);
+      logStoryFailure(ctrl, result);
+      ctrl.render();
+    });
+  });
+  // §3 尾巴收尾：把尾巴段落档进该学生聊天流 → markChatRead（结算奖励）+ 清 pending
+  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-tail-done]').forEach(button => {
+    button.addEventListener('click', () => {
+      const owner = ctrl.panelState.conversationVariantId;
+      if (!owner) return;
+      const messageId = ctrl.game.story.getPendingKizunaTail(owner);
+      const message = messageId ? ctrl.game.registry.chatMessages.get(messageId) : undefined;
+      if (message?.kizunaTail?.length) {
+        const name = ctrl.game.rosterSystem.getVariant(owner)?.displayName;
+        for (const tl of message.kizunaTail) {
+          if (tl.kind === 'click') continue;
+          ctrl.chat.pushToVariant(ctrl.panelState, owner, {
+            kind: tl.kind === 'narration' ? 'narration' : 'talk',
+            speaker: tl.speaker ?? name,
+            text: tl.text,
+            align: tl.align,
+            avatar: tl.avatar,
+            image: tl.image,
+            side: tl.side,
+            noAvatar: tl.noAvatar,
+          });
+        }
+      }
+      ctrl.game.story.completeKizunaTail(owner);
       ctrl.render();
     });
   });

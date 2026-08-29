@@ -3,11 +3,11 @@ schema_version: 1
 locale: zh-CN
 branch: main
 nodes_managed: true
-exported_at: "2026-08-28T16:50:59Z"
+exported_at: "2026-08-28T17:49:35Z"
 modules:
     "":
-        dir_name: ACProgram Arona Clicker 工程根
-        title: ACProgram Arona Clicker 工程根
+        dir_name: Arona Clicker 放置类 RPG 引擎工程根
+        title: Arona Clicker 放置类 RPG 引擎工程根
         scope:
             - package.json
             - tsconfig.json
@@ -48,7 +48,8 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: scripts
     scripts:
         dir_name: 引擎构建与重构辅助脚本集
         title: 引擎构建与重构辅助脚本集
@@ -59,6 +60,7 @@ modules:
         depends_on: []
         related_to:
             - path: datapack_assets
+            - path: docs
     tests:
         dir_name: 游戏引擎与 UI 层测试套件
         title: 游戏引擎与 UI 层测试套件

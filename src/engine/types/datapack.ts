@@ -28,6 +28,7 @@ import type {
   SpotDef,
 } from './world';
 import type {
+  AffectionConfigDef,
   CharacterPersistConfig,
   CharacterVariantDef,
   ChatMessageDef,
@@ -121,6 +122,12 @@ export interface Datapack {
    * @collapsible
    */
   characterPersistConfig?: CharacterPersistConfig;
+  /**
+   * 好感数值配置（缺省 = 引擎内置蔚蓝档案阶梯，见 system/affection-system.ts）
+   * @label 好感配置
+   * @collapsible
+   */
+  affectionConfig?: AffectionConfigDef;
   /** 资源条显示条目（可选）：数据包自定义 UI 中展示的资源、标签与可选策略。 */
   resourceDisplays?: ResourceDisplayDef[];
   /** 标签表现定义（可选）：为层级 Tag 提供名称、简介等辅助表现，未定义的 Tag 回退路径串。 */

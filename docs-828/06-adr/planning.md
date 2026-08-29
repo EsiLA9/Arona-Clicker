@@ -1,8 +1,13 @@
 # 06-adr/planning — 好感度系统规划（数值 / 聊天好感 / 羁绊尾巴）
 
-- **状态**：规划（未实现，2026-08-28 代码核对确认无任何落地代码）
+- **状态**：已实现（2026-08-29 全量落地；三节测试清单见 `tests/engine/affection-system.test.ts`）
 - **来源**：docs-824 的 03g / 04i / 04j 三篇规划文档合并迁移
 - **依赖顺序**：好感数值（§1）→ 聊天好感触发（§2）→ 羁绊尾巴（§3），逐层叠加
+- **实现落定**（与原规划的差异/补充，均为落地时确认）：
+  - §1：`markChatRead` 结算奖励经扩展后的差分目录读取器（`getChatMessage` / `getAffectionConfig`）完成；`affectionChanged` 每次成功入账都发（附 `leveledUp` 标记，UI 仅跨级时提示）。
+  - §2 轴 A：单次消息仅在首次已读结算奖励；**可反复消息每次读取都重新结算**（冷却字段第一迭代未做，条件满足期间恒可用）。UI 交互 = 对话空间流内渲染可用消息，点击即读（内容落档进该学生聊天流）。
+  - §2 轴 B：就绪队列 + `triggerAffectionPush`（进入对话空间自动推送 / `clickSend` idle 必中），并新增 `StoryRuntime.hasPendingKizunaTail` 供尾巴期抑制抽取。
+  - §3：规划遗漏的消息 ↔ 剧情衔接字段补齐为 `ChatMessageDef.kizunaStoryId?`（羁绊卡片 targetStoryId 的数据来源）；无尾巴的 kizuna 消息在卡片点击时即标记已读，有尾巴的留待 `completeKizunaTail` 收尾（尾巴段落档进聊天流 + markChatRead + 清 pending）。
 
 > 三节共同构成「蔚蓝档案式好感回环」：聊天读消息 → 奖励好感小值 → 好感等级解锁更多聊天/羁绊剧情 → 剧情完成回聊天收尾。落地时任一节可独立开工，但 §2/§3 依赖 §1 的 `addAffectionExp` 写入口。
 

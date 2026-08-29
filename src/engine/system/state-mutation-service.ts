@@ -25,6 +25,7 @@ import { TagPath, tagDisplay } from '../core/tag';
 import { EventBus } from '../core/event-bus';
 import { StatsService } from '../stats/stats';
 import { applyExp, checkBreakthrough, resolveCurve } from './cultivate-system';
+import { applyAffectionExp, affectionLevelCapOf, resolveAffectionConfig } from './affection-system';
 import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../extra/index';
 import { applyEffects as applyEffectsImpl, applyEffect as applyEffectImpl } from './effect-ops';
 
@@ -63,6 +64,8 @@ export class StateMutationService {
     getCurve(id: string): import('../types').CultivateCurveDef | undefined;
     getColorGroup(id: string): import('../types').ColorGroupDef | undefined;
     getColorEquipment(id: string): import('../types').ColorEquipmentDef | undefined;
+    getChatMessage(id: string): import('../types').ChatMessageDef | undefined;
+    getAffectionConfig(): import('../types').AffectionConfigDef | undefined;
   } | null = null;
 
   setCharacterCatalog(reader: {
@@ -70,6 +73,8 @@ export class StateMutationService {
     getCurve(id: string): import('../types').CultivateCurveDef | undefined;
     getColorGroup(id: string): import('../types').ColorGroupDef | undefined;
     getColorEquipment(id: string): import('../types').ColorEquipmentDef | undefined;
+    getChatMessage(id: string): import('../types').ChatMessageDef | undefined;
+    getAffectionConfig(): import('../types').AffectionConfigDef | undefined;
   }): void {
     this.characterCatalog = reader;
   }
@@ -77,6 +82,11 @@ export class StateMutationService {
   /** 解析差分的运行时曲线视图（经目录读取器取曲线定义）。 */
   private curveOf(variant: import('../types').CharacterVariantDef) {
     return resolveCurve(variant.curve ? this.characterCatalog?.getCurve(variant.curve) : undefined);
+  }
+
+  /** 解析好感配置的运行时视图（缺省用引擎内置阶梯）。 */
+  private affectionConfigOf() {
+    return resolveAffectionConfig(this.characterCatalog?.getAffectionConfig());
   }
 
   private get current(): PlayerState {
@@ -176,6 +186,8 @@ export class StateMutationService {
         stars: 0,
         equippedEquipment: null,
         acquiredCount: 1,
+        affectionLevel: 1,
+        affectionExp: 0,
       };
     } else {
       duplicate = true;
@@ -196,13 +208,51 @@ export class StateMutationService {
     return { duplicate, shards, bonusResources };
   }
 
-  /** 聊天消息标记已读（幂等：已读不再发事件）。 */
+  /**
+   * 聊天消息标记已读。单次消息幂等（已读不再结算）；可反复消息每次读取都结算
+   * affectionExpReward（按 owner 走 addAffectionExp；冷却第一迭代未启用）。
+   */
   markChatRead(messageId: string): void {
     const state = this.current;
     state.chatRead ??= {};
-    if (state.chatRead[messageId]) return;
-    state.chatRead[messageId] = true;
-    this.emit({ type: 'chatReadChanged', messageId });
+    const message = this.characterCatalog?.getChatMessage(messageId);
+    const repeatable = message?.repeatable === true;
+    if (!state.chatRead[messageId]) {
+      state.chatRead[messageId] = true;
+      this.emit({ type: 'chatReadChanged', messageId });
+    } else if (!repeatable) {
+      return;
+    }
+    if (message?.affectionExpReward && message.owner) {
+      this.addAffectionExp(message.owner, message.affectionExpReward);
+    }
+  }
+
+  /**
+   * 好感写入口：增加好感小值（支持一次跨多级；达星级锁后小值截断）。
+   * 未拥有 / delta <= 0 拒绝（与 addExp 一致）。等级高于新 cap 时只升不降，仅阻止继续积累。
+   */
+  addAffectionExp(variantId: VariantId, delta: number): { ok: boolean; newLevel: number; newExp: number } {
+    const variant = this.characterCatalog?.getVariant(variantId);
+    if (!variant) throw new Error(`[addAffectionExp] 未知差分: ${variantId}`);
+    const entry = this.current.roster?.[variantId];
+    if (!entry) return { ok: false, newLevel: 0, newExp: 0 };
+
+    const config = this.affectionConfigOf();
+    const cap = affectionLevelCapOf(config, variant, entry.stars);
+    const result = applyAffectionExp(config, entry, cap, variant, delta);
+    if (!result.ok) return { ok: false, newLevel: entry.affectionLevel ?? 1, newExp: entry.affectionExp ?? 0 };
+
+    this.current.roster![variantId] = result.entry;
+    this.emit({
+      type: 'affectionChanged',
+      variantId,
+      delta,
+      newLevel: result.entry.affectionLevel ?? 1,
+      newExp: result.entry.affectionExp ?? 0,
+      leveledUp: result.leveledUp,
+    });
+    return { ok: true, newLevel: result.entry.affectionLevel ?? 1, newExp: result.entry.affectionExp ?? 0 };
   }
 
   /** 卡池计数写入（pity/pulls；由 GachaService 结算后调用）。 */

@@ -72,6 +72,8 @@ export type ConditionTarget =
    * key = 原型角色 id，actual = protoStats[key].acquiredTotal，缺失 → 0。
    */
   | 'protoStat'
+  /** 好感等级（key = VariantId，actual = 该角色当前好感等级，未拥有/缺失 → 0）。 */
+  | 'affectionLevel'
   /** 当前所在 Area 是否为指定 Area（key = AreaId，actual = currentAreaId === key ? 1 : 0）。 */
   | 'area';
 
@@ -115,6 +117,11 @@ export type EffectOp =
    * target = VariantId；重复获得自动转碎片。via 记为 story/event 类奖励。
    */
   | 'grantCharacter'
+  /**
+   * 增加好感小值（好感系统统一写入口 addAffectionExp）：target = VariantId，
+   * value = 差分（未拥有/非法量拒绝）。走 affectionChanged 事件。
+   */
+  | 'addAffectionExp'
   /**
    * 临时演出主题（运行时非持久 UI 效果）：value 为 ThemeEffectValue。
    * 由 effect-engine 转发给 ColorSystem.handleThemeEffect，mutations 保持 no-op。
