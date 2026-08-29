@@ -92,6 +92,12 @@ export function bindStoryActions(ctrl: UIController): void {
     // 误触发的文本选区（拖拽选中气泡文字）不算点击，避免吞掉真实点击
     const sel = document.getSelection();
     if (sel && sel.type === 'Range' && !sel.isCollapsed) return;
+    // 输入中提示：手动发送即视为送达，取消省略号定时
+    if (ctrl.typingTimer !== null) {
+      clearTimeout(ctrl.typingTimer);
+      ctrl.typingTimer = null;
+    }
+    ctrl.panelState.typingVariantId = null;
     // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
     const result = ctrl.game.story.clickSend(owner);

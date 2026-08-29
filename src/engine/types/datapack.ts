@@ -31,7 +31,6 @@ import type {
   AffectionConfigDef,
   CharacterPersistConfig,
   CharacterVariantDef,
-  ChatMessageDef,
   ColorEquipmentDef,
   ColorGroupDef,
   CultivateCurveDef,
@@ -101,11 +100,6 @@ export interface Datapack {
    * @label 卡池
    */
   gachaPools?: GachaPoolDef[];
-  /**
-   * 聊天流内容表
-   * @label 聊天消息
-   */
-  chatMessages?: ChatMessageDef[];
   /**
    * 图片资产表：`mod:type(pic):id` 三段式索引 → URL / zip 包内图片
    * @label 图片

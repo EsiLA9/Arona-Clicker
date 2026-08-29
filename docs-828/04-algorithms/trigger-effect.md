@@ -96,9 +96,10 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 - `groupUnlocked { groupId }`（色彩组；旧名 `colorUnlocked` 已废）/ `equipmentCollected` / `equipmentEquipped`（均观测事件）
 - `themeChanged { groupId: string | null }` / `entityThemeChanged { entityKey }` / `entityDesignUnlocked { entityKey, designId }`（均观测）
 
-**抽卡 / 社交 / 被动**
+**抽卡 / 社交 / 被动 / 好感**
 - `gachaResolved { poolId, count }` · emit `gacha-service`（逐次结果以 characterAcquired 跟随）
-- `passiveCooldownsChanged` / `studentBlockChanged` / `charaCustomChanged` / `chatReadChanged`（均 emit `state-mutation-service`，观测）
+- `passiveCooldownsChanged` / `studentBlockChanged` / `charaCustomChanged` / `chatReadChanged`（均 emit `state-mutation-service`，观测；chatReadChanged 当前无写入方）
+- `affectionChanged { variantId, delta, newLevel, newExp, leveledUp }` · emit `state-mutation-service`（好感小值入账；condition-deps 按 variantId 失效 + UI 跨级提示）
 
 **运行时效果请求**（EffectEngine 转发演出类 op → RuntimeEffectReactor 消费，不落状态）
 - `themeEffectRequested { effect }` — setTheme → ColorSystem 临时主题层

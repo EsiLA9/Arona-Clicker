@@ -1,23 +1,20 @@
 // ============================================================
-// engine/affection-system.test.ts — 好感系统（§1 数值 / §2 双轴 / §3 羁绊尾巴）
+// engine/affection-system.test.ts — 好感系统（§1 数值 / §2 轴 B 队列 / §3 尾巴挂靠推送）
 //
-// 覆盖 docs-828/06-adr/planning.md 三节测试清单：
+// 覆盖 docs-828/06-adr/planning.md 测试清单（2026-08-29 修订：轴 A 消息成分移除）：
 //   §1  默认阶梯（bondDict）、跨级推演、星级锁、save/load 往返、
 //       addAffectionExp effect、acquireCharacter 初始化、affectionLevel 条件
-//   §2A 单次/可反复消息、好感门槛、markChatRead 结算 → affectionChanged、未读计数
-//   §2B 就绪队列：达标入队、需求值升序、推送时机、闲聊回落、聊天空间壁垒
-//   §3  pendingKizunaTail：登记/收尾/中断重走/owner 隔离/尾巴期抽取抑制
+//   §2B 就绪队列：达标入队、需求值升序、推送时机、闲聊回落、聊天空间壁垒、readyStepCount
+//   §3  尾巴挂靠：完结即入队、强制优先、triggerTailPush 定向推送、owner 隔离、退出随机抽取
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import { GameInstance } from '../../src/engine/game-instance';
 import type { CharacterVariantDef, Datapack, GameEvent, PlayerState } from '../../src/engine/types';
 import {
-  and,
   activeStory,
   Character,
   CharacterRarity,
   CharacterSchool,
-  chatMessage,
   line,
   narrate,
   passiveStory,
@@ -58,6 +55,11 @@ const kizunaStory = story('test:aff:kizuna_story', '羁绊剧情').scene(
   line('星野', '羁绊剧情 · 完'),
 ).build();
 
+const tailStory = story('test:aff:tail', '羁绊尾巴').scene(
+  narrate('——归途——', 'center'),
+  line('星野', '尾巴 · 完'),
+).build();
+
 function makePack(overrides: Partial<Datapack> = {}): Datapack {
   return {
     name: 'affection-test',
@@ -75,8 +77,10 @@ function makePack(overrides: Partial<Datapack> = {}): Datapack {
       passiveStory('test:aff:s2').owner('Hoshino').repeatable(false).affectionRequired(3).build(),
       // 普通闲聊（owner 归属星野，参与随机抽取）
       passiveStory('test:aff:chatter').owner('Hoshino').repeatable(true).build(),
+      // §3 羁绊尾巴：kizuna 剧情完结后强制优先推送
+      passiveStory('test:aff:tail', 'test:aff:tail').owner('Hoshino').repeatable(false).pushAfterStory('test:aff:kizuna_story').build(),
     ],
-    stories: [stepStory1, stepStory2, chatterStory, kizunaStory],
+    stories: [stepStory1, stepStory2, chatterStory, kizunaStory, tailStory],
     items: [],
     funcletDefs: [],
     characters: [],
@@ -84,21 +88,6 @@ function makePack(overrides: Partial<Datapack> = {}): Datapack {
     characterVariants: [
       ...makeVariant('Hoshino', Character.Hoshino),
       ...makeVariant('Serika', Character.Serika),
-    ],
-    chatMessages: [
-      chatMessage('test:aff:m1', 'Hoshino').order(1).content('单次消息 +15').affectionExpReward(15).build(),
-      chatMessage('test:aff:m2', 'Hoshino').order(2).content('可反复消息 +5').repeatable().affectionExpReward(5).build(),
-      chatMessage('test:aff:m3', 'Hoshino').order(3).content('好感 5 级才可见').affectionRequired(5).affectionExpReward(10).build(),
-      chatMessage('test:aff:mk', 'Hoshino').order(4)
-        .content('带尾巴的羁绊消息')
-        .kizunaStory('test:aff:kizuna')
-        .kizunaTail(line('星野', '尾巴一').build(), narrate('——完——', 'center').build())
-        .build(),
-      chatMessage('test:aff:mk2', 'Hoshino').order(5)
-        .content('无尾巴的羁绊消息')
-        .kizunaStory('test:aff:kizuna')
-        .build(),
-      chatMessage('test:aff:m-other', 'Serika').order(1).content('别人的消息').build(),
     ],
     ...overrides,
   };
@@ -250,55 +239,6 @@ describe('§1 addAffectionExp 推演', () => {
 });
 
 // ============================================================
-// §2 轴 A 静态消息
-// ============================================================
-
-describe('§2 轴 A：可用消息与未读计数', () => {
-  test('单次消息：已读后不计未读；可反复消息：奖励后仍计未读并重复结算', () => {
-    const game = new GameInstance();
-    game.init([makePack()]);
-    game.mutations.acquireCharacter('Hoshino', 'gacha');
-    // m1 / m2 / mk / mk2 可见；m3（好感 5 级门槛）未达标不可见
-    expect(game.rosterSystem.unreadChatCount(game.state, 'Hoshino')).toBe(4);
-    // 未拥有角色 → 0
-    expect(game.rosterSystem.unreadChatCount(game.state, 'Serika')).toBe(0);
-
-    game.mutations.markChatRead('test:aff:m1');
-    expect(game.rosterSystem.unreadChatCount(game.state, 'Hoshino')).toBe(3);
-    expect(game.rosterSystem.affectionLevelOf(game.state, 'Hoshino')).toBe(2); // +15 达 2 级
-
-    // 可反复：已读不消耗、奖励重复结算（+5 ×2 = 10：2→3 需 30，仍在 2 级）
-    const expBefore = game.rosterSystem.affectionExpOf(game.state, 'Hoshino');
-    game.mutations.markChatRead('test:aff:m2');
-    game.mutations.markChatRead('test:aff:m2');
-    expect(game.rosterSystem.unreadChatCount(game.state, 'Hoshino')).toBe(3); // m2 仍可用
-    expect(game.rosterSystem.affectionExpOf(game.state, 'Hoshino')).toBe(expBefore + 10);
-  });
-
-  test('affectionRequired 未达标不可见；达标后立即可见', () => {
-    const game = new GameInstance();
-    game.init([makePack()]);
-    game.mutations.acquireCharacter('Hoshino', 'gacha');
-    const visible = () => game.rosterSystem.availableChatMessages(game.state, 'Hoshino').map(m => m.id);
-    expect(visible()).not.toContain('test:aff:m3');
-    // 直推好感到 5 级（cap 内）
-    game.mutations.addAffectionExp('Hoshino', 100_000);
-    expect(game.rosterSystem.affectionLevelOf(game.state, 'Hoshino')).toBe(20);
-    expect(visible()).toContain('test:aff:m3');
-  });
-
-  test('markChatRead → 奖励入账 → 跨级 → affectionChanged（事件链）', () => {
-    const game = new GameInstance();
-    game.init([makePack()]);
-    game.mutations.acquireCharacter('Hoshino', 'gacha');
-    const events = collectEvents(game);
-    game.mutations.markChatRead('test:aff:m1');
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ variantId: 'Hoshino', newLevel: 2 });
-  });
-});
-
-// ============================================================
 // §2 轴 B 就绪队列
 // ============================================================
 
@@ -331,7 +271,7 @@ describe('§2 轴 B：好感台阶剧情', () => {
         passiveStory('test:aff:sa').owner('Hoshino').repeatable(false).affectionRequired(2).build(), // 同需求
         passiveStory('test:aff:s2').owner('Hoshino').repeatable(false).affectionRequired(3).build(), // 需求更高
       ],
-      stories: [stepStoryA, stepStoryB, stepStory2, kizunaStory],
+      stories: [stepStoryA, stepStoryB, stepStory2, kizunaStory, tailStory],
     });
     const game = new GameInstance();
     game.init([pack]);
@@ -365,6 +305,23 @@ describe('§2 轴 B：好感台阶剧情', () => {
     expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:s1');
   });
 
+  test('readyStepCount = 就绪队列条数（未拥有 → 0；消费后递减）', () => {
+    const game = new GameInstance();
+    game.init([makePack()]);
+    game.mutations.acquireCharacter('Hoshino', 'gacha');
+    expect(game.story.readyStepCount('Hoshino')).toBe(0);
+    game.mutations.addAffectionExp('Hoshino', 100_000); // 两级台阶全部达标
+    expect(game.story.readyStepCount('Hoshino')).toBe(2);
+    game.story.triggerAffectionPush('Hoshino');
+    expect(game.story.readyStepCount('Hoshino')).toBe(1); // 播出中不计未读
+    finishStory(game, 'Hoshino');
+    expect(game.story.readyStepCount('Hoshino')).toBe(1);
+    game.story.triggerAffectionPush('Hoshino');
+    finishStory(game, 'Hoshino');
+    expect(game.story.readyStepCount('Hoshino')).toBe(0);
+    expect(game.story.readyStepCount('Serika')).toBe(0);
+  });
+
   test('壁垒：其他角色对话空间与全局闲聊均抽不到台阶；完成前重复推送被拒', () => {
     const game = new GameInstance();
     game.init([makePack()]);
@@ -382,61 +339,66 @@ describe('§2 轴 B：好感台阶剧情', () => {
 });
 
 // ============================================================
-// §3 羁绊尾巴
+// §3 尾巴挂靠推送（pushAfterStory）
 // ============================================================
 
-describe('§3 羁绊尾巴（pendingKizunaTail）', () => {
-  test('点卡片登记 pending；剧情完成前消息未读、可重新触发；尾巴期抑制抽取', () => {
+describe('§3 羁绊尾巴（pushAfterStory）', () => {
+  test('关联剧情完结后尾巴即入队；triggerTailPush 定向推送；播过即出队', () => {
     const game = new GameInstance();
     game.init([makePack()]);
     game.mutations.acquireCharacter('Hoshino', 'gacha');
-    game.mutations.addAffectionExp('Hoshino', 100_000); // 高好感：消息全可见、台阶全入队
+    // 羁绊剧情未完结：尾巴不入队，定向推送无可用
+    expect(game.story.readyStepCount('Hoshino')).toBe(0);
+    expect(game.story.triggerTailPush('Hoshino', 'test:aff:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
 
-    // 点卡片 → pending 登记，消息未读（有尾巴留待收尾）
-    expect(game.story.startMessageKizuna('test:aff:mk', 'Hoshino').success).toBe(true);
-    expect(game.story.getPendingKizunaTail('Hoshino')).toBe('test:aff:mk');
-    expect(game.state.chatRead?.['test:aff:mk']).toBeUndefined();
-
-    // 中断（游标清空）：pending 保留、消息未读、卡片可重新点击
-    game.story.clearCurrentStory('Hoshino');
-    expect(game.story.getPendingKizunaTail('Hoshino')).toBe('test:aff:mk');
-    expect(game.story.startMessageKizuna('test:aff:mk', 'Hoshino').success).toBe(true);
-
-    // 播完剧情（未点尾巴）：抽取被抑制（回环保护）
+    // 完结羁绊剧情（startCardStory 语义，skipConditions）
+    expect(game.story.startCardStory('test:aff:kizuna', 'Hoshino').success).toBe(true);
     finishStory(game, 'Hoshino');
-    expect(game.getStoryView('Hoshino')).toBeNull();
-    expect(game.story.triggerAffectionPush('Hoshino')).toMatchObject({ success: false, error: 'NoAvailableStory' });
-    expect(game.story.triggerPassiveStory(undefined, 'Hoshino')).toMatchObject({ success: false, error: 'NoAvailableStory' });
-    // 但其他角色不受影响
-    game.mutations.acquireCharacter('Serika', 'gacha');
-    expect(game.story.getPendingKizunaTail('Serika')).toBeNull();
+    expect(game.story.readyStepCount('Hoshino')).toBe(1); // 尾巴入队（台阶未达标）
 
-    // 尾巴收尾：markChatRead + pending 清除 + 抽取恢复
-    game.story.completeKizunaTail('Hoshino');
-    expect(game.story.getPendingKizunaTail('Hoshino')).toBeNull();
-    expect(game.state.chatRead?.['test:aff:mk']).toBe(true);
+    // 定向推送尾巴；播过后出队，再推被拒
+    expect(game.story.triggerTailPush('Hoshino', 'test:aff:kizuna_story').success).toBe(true);
+    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:tail');
+    finishStory(game, 'Hoshino');
+    expect(game.story.triggerTailPush('Hoshino', 'test:aff:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
+    expect(game.story.readyStepCount('Hoshino')).toBe(0);
+  });
+
+  test('尾巴强制优先于好感台阶（队列顶先尾巴，其后按需求值）', () => {
+    const game = new GameInstance();
+    game.init([makePack()]);
+    game.mutations.acquireCharacter('Hoshino', 'gacha');
+    game.mutations.addAffectionExp('Hoshino', 100_000); // 台阶全部达标
+    // 完结羁绊剧情 → 尾巴入队，且排在台阶之前
+    game.story.startCardStory('test:aff:kizuna', 'Hoshino');
+    finishStory(game, 'Hoshino');
+    expect(game.story.readyStepCount('Hoshino')).toBe(3); // 尾巴 + 台阶一 + 台阶二
+
     expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
+    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:tail'); // 强制优先
+    finishStory(game, 'Hoshino');
+    expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
+    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:s1'); // 其后按需求值
   });
 
-  test('无尾巴的羁绊消息：卡片点击即已读（剧情完成即结束）', () => {
-    const game = new GameInstance();
-    game.init([makePack()]);
-    game.mutations.acquireCharacter('Hoshino', 'gacha');
-    expect(game.story.startMessageKizuna('test:aff:mk2', 'Hoshino').success).toBe(true);
-    expect(game.state.chatRead?.['test:aff:mk2']).toBe(true);
-    // pending 已登记但无尾巴段可展示（UI 的 tailActive 要求 kizunaTail 非空）
-    expect(game.story.getPendingKizunaTail('Hoshino')).toBe('test:aff:mk2');
-    game.story.completeKizunaTail('Hoshino');
-    expect(game.story.getPendingKizunaTail('Hoshino')).toBeNull();
-    expect(game.state.chatRead?.['test:aff:mk2']).toBe(true);
-  });
-
-  test('owner 不匹配的 pending 相互隔离', () => {
+  test('尾巴退出随机抽取；owner 不匹配不触发', () => {
     const game = new GameInstance();
     game.init([makePack()]);
     game.mutations.acquireCharacter('Hoshino', 'gacha');
     game.mutations.acquireCharacter('Serika', 'gacha');
-    game.story.startMessageKizuna('test:aff:mk', 'Hoshino');
-    expect(game.story.getPendingKizunaTail('Serika')).toBeNull();
+    game.story.startCardStory('test:aff:kizuna', 'Hoshino');
+    finishStory(game, 'Hoshino'); // 尾巴就绪（Hoshino）
+
+    // 点击发送在队列有尾巴时必中尾巴（不走随机）
+    const r = game.story.clickSend('Hoshino');
+    expect(r).toMatchObject({ type: 'idle', started: true });
+    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:tail');
+    finishStory(game, 'Hoshino');
+
+    // owner 不匹配：Serika 的空间推不到 Hoshino 的尾巴
+    expect(game.story.triggerTailPush('Serika', 'test:aff:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
+    // 游标占用：进行中剧情拒绝推送
+    game.story.clickSend('Hoshino'); // 台阶一（队列优先）
+    expect(game.story.triggerTailPush('Hoshino', 'test:aff:kizuna_story')).toMatchObject({ success: false, error: 'AlreadyActive' });
   });
 });

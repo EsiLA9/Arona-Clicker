@@ -1,15 +1,16 @@
-# 06-adr/planning — 好感度系统规划（数值 / 聊天好感 / 羁绊尾巴）
+# 06-adr/planning — 好感度系统设计（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）
 
-- **状态**：已实现（2026-08-29 全量落地；三节测试清单见 `tests/engine/affection-system.test.ts`）
+- **状态**：已实现（2026-08-29 落地；同日修订：聊天消息成分按用户裁定移除，见下）
 - **来源**：docs-824 的 03g / 04i / 04j 三篇规划文档合并迁移
-- **依赖顺序**：好感数值（§1）→ 聊天好感触发（§2）→ 羁绊尾巴（§3），逐层叠加
-- **实现落定**（与原规划的差异/补充，均为落地时确认）：
-  - §1：`markChatRead` 结算奖励经扩展后的差分目录读取器（`getChatMessage` / `getAffectionConfig`）完成；`affectionChanged` 每次成功入账都发（附 `leveledUp` 标记，UI 仅跨级时提示）。
-  - §2 轴 A：单次消息仅在首次已读结算奖励；**可反复消息每次读取都重新结算**（冷却字段第一迭代未做，条件满足期间恒可用）。UI 交互 = 对话空间流内渲染可用消息，点击即读（内容落档进该学生聊天流）。
-  - §2 轴 B：就绪队列 + `triggerAffectionPush`（进入对话空间自动推送 / `clickSend` idle 必中），并新增 `StoryRuntime.hasPendingKizunaTail` 供尾巴期抑制抽取。
-  - §3：规划遗漏的消息 ↔ 剧情衔接字段补齐为 `ChatMessageDef.kizunaStoryId?`（羁绊卡片 targetStoryId 的数据来源）；无尾巴的 kizuna 消息在卡片点击时即标记已读，有尾巴的留待 `completeKizunaTail` 收尾（尾巴段落档进聊天流 + markChatRead + 清 pending）。
+- **依赖顺序**：好感数值（§1）→ 台阶推送（§2）→ 羁绊尾巴（§3），逐层叠加
+- **实现落定**（与原规划的差异，均为与用户对齐后的裁定）：
+  - **轴 A（ChatMessageDef 静态消息）整体移除**（2026-08-29 用户裁定：该成分本就不该实现）：`ChatMessageDef` 表、`chatMessages` 数据、消息推送/已读/奖励结算全部删除；既有 `chatRead` / `markChatRead` / `chatReadChanged` 基础设施保留（当前无写入方）。
+  - **未读迁移到对话空间**：未读 = 该角色**就绪队列条数**（`StoryService.readyStepCount`）；通讯录徽标与对话空间头部「N 条未读」同源；打开空间且队列非空时先展示**输入中省略号**（约 900ms）再推送队列顶——还原现实聊天的"正在输入…→ 送达"节奏。
+  - **§3 尾巴改挂靠推送服务**（原消息承载随轴 A 移除）：`PassiveStoryEntry.pushAfterStory` 挂靠演出本体 id，关联剧情完结后**强制优先推送**进 owner 对话空间；羁绊入口走剧情侧 `Talklet.kizuna` 既有机制。
+  - §1：`affectionChanged` 每次成功入账都发（附 `leveledUp` 标记，UI 仅跨级时提示）。
+  - §2 轴 B：就绪队列 + `triggerAffectionPush`（进入对话空间经输入中提示自动推送 / `clickSend` idle 必中）。
 
-> 三节共同构成「蔚蓝档案式好感回环」：聊天读消息 → 奖励好感小值 → 好感等级解锁更多聊天/羁绊剧情 → 剧情完成回聊天收尾。落地时任一节可独立开工，但 §2/§3 依赖 §1 的 `addAffectionExp` 写入口。
+> 三节共同构成「蔚蓝档案式好感回环」：好感达标 → 台阶/尾巴剧情经就绪队列推送到对话空间 → 完结奖励 `addAffectionExp` → 更高好感解锁后续内容。§2/§3 依赖 §1 的 `addAffectionExp` 写入口。
 
 ---
 
@@ -102,86 +103,17 @@ defaultLevelCapByStar = [20,20,20,20,20,100]
 
 ---
 
-## §2 聊天好感触发与未读计数（交互设计）
+## §2 台阶推送与未读计数（交互设计）
 
 ### 玩法需求（验收口径）
 
-1. 存在**对好感等级有需求**的聊天消息：好感未达标不可见/不可触发。
-2. 触发模式：**单次**（读完即止）与**可反复**（条件满足可再次触发）。
-3. 这类聊天驱动好感成长（读完奖励好感小值）。
-4. **未读消息个数**在通讯录与对话空间 UI 协同显示。
-5. 存在**好感台阶式剧情**：好感达标后**即刻进入就绪队列**，该角色对话空间在合适条件下**按需求值序列自动推送**一条**未经历过**的台阶剧情（渐进式剧情披露）。
+1. 存在**好感台阶式剧情**：好感达标后**即刻进入就绪队列**，该角色对话空间在合适条件下**按需求值序列自动推送**一条**未经历过**的台阶剧情（渐进式剧情披露）。
+2. **未读个数**在通讯录与对话空间 UI 协同显示；未读 = 就绪队列条数。
+3. 打开有未读的对话空间时，先展示**输入中省略号**再推送内容（现实聊天节奏）。
 
-聊天消息为**单对 chara**：`ChatMessageDef.owner: VariantId`（现状已有，见 [[docs-828/03-data-structures/character-entities]]），聊天空间按角色打开，消息与好感奖励均按 owner 归属。
+### 轴 A（ChatMessageDef 静态消息）——已移除
 
-### 双轴分工
-
-| 轴      | 载体                                | 适用      | 演出能力                                              |
-| ------ | --------------------------------- | ------- | ------------------------------------------------- |
-| A 静态消息 | `ChatMessageDef`（本节扩展）            | 海量一句话碎聊 | 无（单条文本）                                           |
-| B 台阶剧情 | `PassiveStoryEntry` 链（现有机制的声明式组合） | 有感好感台阶  | Talklet 多页/选项/Effects/Story 跳转/剧情日志，与 §3 羁绊尾巴天然衔接 |
-
-### 轴 A：ChatMessageDef 扩展（静态消息）
-
-现状字段（已核对）：`id / owner / order / content / unlock?`。规划新增：
-
-| 新字段 | 语义 |
-| --- | --- |
-| `repeatable?: boolean` | 可反复触发（默认 false = 单次已读即止） |
-| `affectionRequired?: number` | 好感等级门槛（与 `unlock` AND；缺省 0 = 无要求）——好感维度的声明式快捷方式 |
-| `affectionExpReward?: number` | 读完奖励的好感小值（按 owner 归属结算；缺省 0） |
-
-#### 可用消息与已读规则
-
-```text
-可用消息(variantId) = chatMessages.filter(m =>
-    m.owner === variantId
- && 满足(m.affectionRequired, 该角色好感等级)
- && evaluateGroup(m.unlock)        // 缺省视为满足
- && (m.repeatable ? 冷却外 : 未读)
-)
-```
-
-- **单次**：已读走现成 `PlayerState.chatRead`（`Record<ChatMessageId, true>`），已读即消失。
-- **可反复**：已读不消耗；冷却**沿用被动闲聊模式**——新增 `chatCooldowns?: Record<ChatMessageId, number>`（value = 上次读完的 totalFrames，归属层随 chatRead），按 `totalFrames - 上次帧 < cooldown` 剪枝。第一迭代可不做冷却字段，退化为「条件满足即可重触发」。
-- **读完时机**：内容完整展示后由 UI 调用现成 `markChatRead(variantId, messageId)`；引擎在该写入口内结算 `affectionExpReward`（按 owner 加小值，触发 `affectionChanged`）。
-
-#### 未读计数
-
-```text
-unreadChatCount(state, variantId) = 可用消息(variantId).length
-```
-
-只读查询挂 `RosterSystem`（或独立 chat 查询服务），UI 不直改状态（纪律 #4）。未拥有角色 → 0。
-
-#### UI 协同（`src/ui/components/contacts.ts`）
-
-| 位置 | 呈现 |
-| --- | --- |
-| 通讯录角色行 | 行尾未读气泡（如 `（3）`），0 条不显示 |
-| 对话空间头部 | 学生名旁「N 条未读」小字 |
-| 聊天流内 | 未读消息以现有 chat 条目样式插入，读完走 markChatRead |
-
-#### 轴 A 接线点与边界
-
-| 文件 | 职责 |
-| --- | --- |
-| `types/character.ts` | ChatMessageDef 三个新字段（+ 可选 chatCooldowns） |
-| `types/state.ts` | `chatCooldowns?`（如做，需同步 per-init specs 与快照——**优先级低，第一迭代不做**） |
-| `system/state-mutation-service.ts` | markChatRead 内结算奖励 |
-| `system/roster-system.ts` | `unreadChatCount` + 可用消息过滤 |
-| `src/ui/components/contacts.ts` | 未读气泡 + 头部提示 |
-| schema | 新字段 TSDoc 标注后 `npm run gen:schema`（流程见 [[docs-828/05-conventions/schema-sync]]） |
-
-边界：未拥有角色未读数 0 不渲染气泡；缺省 0 兜底；旧档 `??=`；奖励结算走 `addAffectionExp`。
-
-#### 轴 A 测试清单
-
-- 单次消息：已读后不计未读、不再展示
-- 可反复消息：奖励后仍计未读（冷却外），冷却内不计
-- `affectionRequired` 未达标不可见不计数；达标后立即可见
-- `markChatRead` → 奖励入账 → 跨级升级 → `affectionChanged`
-- 未拥有角色未读数为 0
+原规划的消息轴（`ChatMessageDef` 扩展 `repeatable / affectionRequired / affectionExpReward`、可用消息过滤、未读气泡、`markChatRead` 内结算奖励）于 **2026-08-29 按用户裁定整体移除**：该成分本就不在用户意图内，消息的"满足条件后推送、点击读取、点击给效果"模式一并废弃。保留的既有基础设施：`chatRead` / `markChatRead` / `chatReadChanged`（当前无写入方，供未来读追踪复用）。本节以下仅描述存活的**轴 B（台阶剧情）**。
 
 ### 轴 B：好感台阶剧情（就绪队列 · 渐进式剧情披露）
 
@@ -202,26 +134,35 @@ unreadChatCount(state, variantId) = 可用消息(variantId).length
 
 > 术语备注：规划沟通中提到的「PassiveTalkEntry」在引擎中不存在——台阶剧情的投递载体就是现有 `PassiveStoryEntry`（被动条目管线）。
 
-达标（`affectionLevel >= affectionRequired`）的未经历台阶**即刻进入该角色的就绪队列**；推送按需求值升序取最低者，顺序完全由需求值决定，改数值即改顺序，**无需手工串链**（纪律 #3）。同一时刻至多推送一条；完成后下一条回到就绪。
+达标（`affectionLevel >= affectionRequired`）的未经历台阶**即刻进入该角色的就绪队列**（§3 的尾巴条目同样入队且**强制优先**）；台阶推送按需求值升序取最低者，顺序完全由需求值决定，改数值即改顺序，**无需手工串链**（纪律 #3）。同一时刻至多推送一条；完成后下一条回到就绪。
 
 ```text
 就绪队列(variantId) = passiveStories.filter(e =>
     e.owner === variantId
- && e.affectionRequired != null
- && e.affectionRequired <= affectionLevel(variantId)
+ && (e.affectionRequired 达标                     // 台阶
+     || e.pushAfterStory 已完结)                  // 尾巴（§3，强制优先）
  && !hasCompletedStory(e.storyId)      // 未经历过（repeatable 条目不入队列）
+ && e.id != 当前沙盒进行中的 entry        // 播出中不计（内容已送达即不再未读）
  && cooldownFrames 未满
  && triggerCondition 通过（如声明）
 )
-推送 = 队列中 affectionRequired 最小者（并列按声明顺序）
+推送 = 尾巴（声明序）在前 → 台阶按 affectionRequired 升序（并列按声明顺序）
 ```
 
 #### 推送时机与闲聊回落
 
-- **进入即推**：玩家进入该角色对话空间时，若队列非空且该沙盒无进行中演出，**自动推送**队列顶（复用 `startStory` 管线，owner 壁垒内）。
-- **完成后续接**：一条推送完成后若队列仍非空，**不自动连播**；此时点击发送**必中队列顶**（点击抽取候选退化为队列），退出后再次进入空间才恢复自动推送。
+- **输入中省略号 + 进入即推**：玩家进入该角色对话空间时，若队列非空且该沙盒无进行中演出，先展示动态省略号（`.chat-typing`，约 900ms）再**自动推送**队列顶（复用 `startStory` 管线，owner 壁垒内）——现实聊天的"正在输入…→ 送达"节奏；期间点发送或返回键取消定时（点发送即立即推送）。
+- **完成后续接**：一条推送完成后若队列仍非空，**不自动连播**；此时点击发送**必中队列顶**（点击抽取候选退化为队列），退出后再次进入空间才恢复输入中提示 + 自动推送。
 - **闲聊回落**：队列为空时，点击发送按现状加权随机抽日常闲聊（保留现状作为兜底）。
 - **边界（第一迭代硬约束）**：推送只发生在对应聊天空间内，**不得影响外部**——全局闲聊、其他角色空间、空间外场景均无感知、无弹窗。
+
+#### 未读计数（对话空间语义）
+
+```text
+readyStepCount(variantId) = 就绪队列条数（尾巴 + 台阶）
+```
+
+只读查询挂 `StoryService`（`readyStepIds` / `readyStepCount`），UI 不直改状态（纪律 #4）。未拥有角色 → 0。UI 协同：通讯录角色行未读徽标（沿用既有 `getUnread` 预留接口，数据源改接本查询）+ 对话空间头部「N 条未读」小字。
 
 数据形态（`src/data/base/` 现有 builder 增一个字段）：
 
@@ -234,18 +175,18 @@ passiveStory('base:affinity:hoshino_2', 'base:affinity:hoshino_2')
   .build();
 ```
 
-- **奖励回环**：台阶完结奖励走 `completionReward.first` 结算 `addAffectionExp`——与轴 A 在 `markChatRead` 内结算等价，无新写入口。
-- **未读语义**：台阶剧情**不计入**轴 A 的未读气泡（推送由对话空间自动完成，无「未读」概念）。
-- **跨世界线语义**：`hasCompletedStory` 为跨 Run 全局条件，队列消费进度跨世界线保留；若需台阶随世界线重置，改用随 init 层的 `flag`（完成奖励 `setFlag` + 台阶 `triggerCondition` 加 flag 门），§1 落地前也可用此方式先行跑通全流程。
-- **引擎改动（相对旧链式门控方案的差异）**：顺序从「数据手工串链」改为「引擎按需求值有序选取」——新增队列查询（`pickAffectionStep` 类，`story-flow.ts` 或 `passive-pool-system.ts`）+ `PassiveStoryEntry.affectionRequired` 新字段（TSDoc 标注 + `gen:schema` + 测试）。
+- **奖励回环**：台阶完结奖励走 `completionReward.first` 或末页 effects 结算 `addAffectionExp`——无新写入口。
+- **跨世界线语义**：`hasCompletedStory` 为跨 Run 全局条件，队列消费进度跨世界线保留；若需台阶随世界线重置，改用随 init 层的 `flag`（完成奖励 `setFlag` + 台阶 `triggerCondition` 加 flag 门）。
+- **引擎改动**：队列查询（`readyStepIds` / `pickAffectionStep`，`story-flow.ts`）+ `PassiveStoryEntry.affectionRequired` 新字段（TSDoc 标注 + `gen:schema`）。
 
 #### 轴 B 接线点与边界
 
 | 文件 | 职责 |
 | --- | --- |
-| `src/engine/types/content.ts` | `PassiveStoryEntry.affectionRequired?: number` 新字段 |
-| `story-flow.ts` / `passive-pool-system.ts` | 就绪队列查询 + 推送入口 |
-| `src/ui/controller-actions-contacts.ts` | `data-select-variant` 打开对话空间时调用推送入口 |
+| `src/engine/types/content.ts` | `PassiveStoryEntry.affectionRequired?: number` / `pushAfterStory?: string` 新字段 |
+| `story-flow.ts` | `readyStepIds` / `pickAffectionStep` / `triggerAffectionPush` / `triggerTailPush` |
+| `src/ui/controller-actions-contacts.ts` | `data-select-variant` 打开对话空间 → 输入中提示 + 延时推送 |
+| `src/ui/controller-events.ts` | `storyCompleted` → 尾巴即时推送（§3） |
 | `src/data/base/` | 台阶数据（builder 增 `affectionRequired`） |
 | —（依赖） | §1 的 `affectionLevel` target 与 `addAffectionExp` op 先行 |
 
@@ -255,7 +196,8 @@ passiveStory('base:affinity:hoshino_2', 'base:affinity:hoshino_2')
 
 - 达标即刻入队：需求满足前后推送可用性翻转；冷却内 / `triggerCondition` 不过则不入队
 - 顺序：多条同时达标按需求值升序逐条放出；修改需求值即改变顺序
-- 推送时机：进入空间自动推一条；完成后不自动连播、点击必中下一条；再次进入恢复自动推送
+- readyStepCount：队列条数（未拥有 → 0；播出中不计；消费后递减）
+- 推送时机：进入空间经输入中提示自动推一条；完成后不自动连播、点击必中下一条；再次进入恢复自动推送
 - 回落：队列空时点击发送按现状抽日常闲聊
 - 壁垒与边界：其他角色对话空间 / 全局闲聊（owner 为空）均抽不到；推送不影响全局游标与外部场景
 - 台阶完结 → `addAffectionExp` 入账 → 跨级升级 → `affectionChanged`
@@ -263,86 +205,144 @@ passiveStory('base:affinity:hoshino_2', 'base:affinity:hoshino_2')
 ### 升级提示与 UI 负空间（第一迭代收敛，2026-08-29 与用户对齐）
 
 - **好感升级提示**：`affectionChanged` 跨级时，向该角色对话空间聊天流插入一条 `kind:'reward'` 的简单提示行（复用现成 `ChatEntry` reward 样式 `.chat-reward`，如「与 XX 的羁绊提升至 Lv.N」）。**不做** toast/飘字/动画播报。
-- **负空间**：通讯录/对话空间当前**无禁做项**——列表行好感徽标、台阶剧情红点、列表管理功能（排序/搜索/置顶）均未被排除，作为后续可选增强，不进第一迭代承诺范围。
-- 好感等级 + 进度 UI 放右栏角色培养面板（`renderCharacterPanel`）；列表行与对话空间头部不放（默认倾向，可推翻）。
+- **负空间**：通讯录/对话空间当前**无禁做项**——列表行好感徽标、列表管理功能（排序/搜索/置顶）均未被排除，作为后续可选增强，不进第一迭代承诺范围。
+- 好感等级 + 进度 UI 放右栏角色培养面板（`renderCharacterPanel`）；对话空间头部仅显示未读数（就绪队列条数），不显示好感进度。
 
 ---
 
-## §3 羁绊剧情小尾巴（聊天-剧情回环）
+## §3 羁绊剧情小尾巴（挂靠推送服务）
 
 ### 玩法需求（验收口径）
 
-1. 聊天中触发**羁绊剧情入口**（kizuna 卡片）→ 进入剧情演出。
-2. 剧情完成后**回到该角色对话空间**，自动追加**尾巴内容**（收尾段聊天）。
-3. 尾巴聊完 → 该次小聊天才标记彻底结束（已读/结算）。
-4. 未完成剧情前中断 → 该次聊天未结束，可重新从卡片进入。
+1. 剧情侧 **kizuna 卡片**（`Talklet.kizuna` 既有机制，`data-kizuna → startCardStory`）触发羁绊剧情演出。
+2. 剧情完成后，其**羁绊尾巴**经就绪队列**强制优先推送**到该角色对话空间（正在观看时立即追加；不在则留在队列顶，经输入中提示送达）。
+3. 尾巴本身是一条完整 PassiveStory 演出：免费获得 Talklet 多页/选项/Effects 与 `storyReadLogs` 记录，播过即出队（单次）。
 
-现状锚点：kizuna 入口卡片（`Talklet.kizuna` / `showChatText kind='kizuna'`，见 [[docs-828/03-data-structures/declarative-dsl]]）、角色沙盒剧情游标（`startCardStory`，owner=VariantId）、`storyCompleted` 事件。
+> 2026-08-29 修订：原「消息承载尾巴」方案（`ChatMessageDef.kizunaStoryId / kizunaTail` + `pendingKizunaTail` 运行时状态机）随 §2 轴 A 一并按用户裁定移除，尾巴改挂靠 `PassiveStoryEntry` 推送服务。
 
-### 消息分段模型
-
-一条含羁绊的聊天消息 = **前置段**（现有 content）+ **kizuna 卡片**（现有机制）+ **尾巴段**（新增）：
+### 数据形态（无新写入口，一个声明字段）
 
 ```ts
-// ChatMessageDef 扩展（叠加 §2 三字段之上）
+// PassiveStoryEntry 扩展（types/content.ts）
 /**
- * 羁绊收尾段：关联 kizuna 卡片的消息在剧情完成后于对话空间追加展示的 Talklet 序列。
- * 缺省 = 无尾巴（剧情完成即结束）。@label 羁绊尾巴
+ * 羁绊尾巴挂靠（§3）：引用演出本体 StoryDef id（与 hasCompletedStory/storyCompleted
+ * 同语义）。该剧情完结后本 entry 强制优先推送进 owner 的对话空间；声明后退出随机
+ * 抽取，队列优先级高于好感台阶。
  */
-kizunaTail?: Talklet[];
+pushAfterStory?: string;
 ```
 
-- 尾巴复用标准 Talklet 渲染（speaker / avatar / kind / side），与前置段同款式。
-- 配了 `kizunaTail` 的消息，其 kizuna 卡片的 `targetStoryId` 即该消息的关联剧情。
+```ts
+// src/data/base/ 示例：base:bond:hoshino_1 完结后收尾
+passiveStory('base:affinity:hoshino_bond_tail', 'base:affinity:hoshino_bond_tail')
+  .owner('Hoshino').repeatable(false)
+  .pushAfterStory('base:bond:hoshino_1')
+  .build();
+```
 
-### 流程状态机（运行时）
+### 流程状态机
 
 ```text
-[展示] 聊天消息（前置段 + kizuna 卡片）
-   │ 玩家点击卡片
+[入口] 剧情页 Talklet.kizuna 卡片（既有机制）→ data-kizuna → startCardStory
    ▼
-[剧情] startCardStory(storyId, owner=variantId)
-   │    记 pendingKizunaTail = { chatMessageId, variantId }   ← 运行时状态
+[剧情] 关联 Story 演出（owner 壁垒内）
    ▼
-[完成] storyCompleted（该沙盒游标 owner 匹配）
-   │ ChatFlowService 检查 pendingKizunaTail
+[完成] storyCompleted（payload.storyId = 演出本体 id）
+   │ 玩家正在该角色对话空间？ ── 是 → triggerTailPush 立即开始尾巴
+   │                          └─ 否 → 尾巴留队列顶（readyStepCount 计未读）
    ▼
-[尾巴] 对话空间追加展示 kizunaTail Talklet 序列
-   │ 尾巴展示完（玩家点完最后一条）
-   ▼
-[结束] markChatRead + affectionExpReward 结算（复用 §2 规则）
-        清除 pendingKizunaTail
+[尾巴] 尾巴 Story 经常规管线播出（Talklet 渲染与前置剧情同款式）
 ```
 
-- **pendingKizunaTail** = `{ chatMessageId, variantId }`，第一迭代为**纯运行时状态（不持久化）**：剧情完成前退出应用则 pending 丢失——消息保持未读、卡片可重新点击，流程重走（可接受，因剧情奖励在 `storyCompleted` 才结算，无奖励丢失）。
-- 单次消息：尾巴结束才 markChatRead（而非前置段展示时）——保证中断后可重来。
-- 可反复消息：尾巴结束进冷却（若启用 `chatCooldowns`）。
+- **强制优先**：就绪队列排序中尾巴（声明序）恒在好感台阶之前；`pickAffectionStep` / `clickSend idle` 消费顺序一致。
+- **即时推送（UI 侧）**：`controller-events` 订阅 `storyCompleted`，匹配「`pushAfterStory === event.storyId` ∧ 尾巴 owner = 当前对话空间 ∧ 完结剧情 owner 一致（或全局）∧ 尾巴未播过」→ `StoryService.triggerTailPush`（skipConditions，完结本身即入口判定）。
+- **未推送不丢**：即时推送失败（游标占用 / 不在空间）只影响时机——尾巴留在队列顶，由打开空间（输入中提示后）/ 点击发送送达。
 
 ### 边界规则
 
-- `owner` 不匹配的 `storyCompleted`（其他角色沙盒 / 全局游标主线）**不触发**尾巴。
-- 无 `kizunaTail` 的 kizuna 消息：现状行为不变（剧情完成即结束）。
-- 尾巴展示期间：该对话空间不抽取新的被动闲聊、不展示其他可用消息（避免穿插打断回环）。
-- 尾巴走消息流插入，演出层走覆盖层，二者不冲突。
-- pending 存在时切到其他角色对话空间：pending 保留（按 variantId 区分），回到对应空间继续。
+- 完结剧情 owner 与尾巴 owner 不匹配（其他角色沙盒 / 全局游标主线）**不触发**即时推送。
+- 尾巴未播过判定走 `hasCompletedStory(tail.storyId)`：播过即出队，重复完结不重推。
+- 尾巴是普通 PassiveStory 演出：占用该沙盒游标，可被 active 打断 / `interruptible` 语义照旧；不新增抑制规则。
 
 ### 引擎接线点
 
 | 文件 | 职责 |
 | --- | --- |
-| `types/character.ts` | `ChatMessageDef.kizunaTail?: Talklet[]` |
-| `system/chat-flow-service.ts` | pendingKizunaTail 持有；订阅 `storyCompleted` 匹配 owner → 发尾巴渲染事件（复用 `chatTextShown` 族） |
-| `game/story-service.ts` | 确认 `storyCompleted` 负载含 owner/variantId（缺则补） |
-| `src/ui/components/contacts.ts` | 对话空间渲染尾巴段；尾巴「点完」回调 → markChatRead + 清 pending |
-| `src/ui/controller*.ts` | kizuna 卡片点击已有 `data-kizuna → startCardStory`，接线 pending 登记 |
+| `types/content.ts` | `PassiveStoryEntry.pushAfterStory?: string` |
+| `game/story-flow.ts` | `triggerTailPush`（定向推送）+ 队列谓词尾巴分支 + 随机抽取排除 |
+| `game/story-service.ts` | `triggerTailPush` / `readyStepCount` 门面 |
+| `src/ui/controller-events.ts` | `storyCompleted` → 空间内即时推送 |
+| `src/data/base/character-rework.ts` | `base:bond:hoshino_1` 的尾巴条目示范 |
 
-### 测试清单
+### 测试清单（已覆盖于 `tests/engine/affection-system.test.ts`）
 
-- 完成剧情 → 尾巴段出现在该角色对话空间；结束 → 已读 + 奖励结算 + pending 清除
-- 剧情未完成退出（重开 GameInstance）→ 消息仍未读、卡片可重新触发
-- owner 不匹配的 storyCompleted 不触发尾巴
-- 无 kizunaTail 的消息行为回归不变
-- 尾巴展示期间被动闲聊被抑制
+- 关联剧情完结后尾巴即入队；未完结不入队、定向推送返回 NoAvailableStory
+- `triggerTailPush` 定向开播尾巴；播过后出队、再推被拒
+- 尾巴强制优先于好感台阶（队列顶先尾巴，其后按需求值）
+- 尾巴退出随机抽取；owner 不匹配不触发；游标占用返回 AlreadyActive
+
+---
+
+## §4 Talklet 输入中提示（预出现省略号，未实现 — 2026-08-29 策划）
+
+### 玩法需求（验收口径）
+
+1. 任意 `kind:'talk'` 的 Talklet 可声明 `typing?: number`（毫秒）：本页内容进入聊天流**之前**，先以同说话人 / 头像 / 气泡侧渲染一个动态省略号气泡（"正在输入…"），持续声明时长后**自动替换为本页内容**——现实聊天的"对方在打字 → 消息送达"节奏。
+2. 玩家加速（快速点发送）**不丢内容**：typing 未结束就推进时，取消提示并**立即补落该页内容**——typing 只是节奏装饰，不是交互闸门。
+3. 纯 UI 节奏服务：不写 PlayerState、不进存档契约（纪律 #4；持久化聊天历史中过滤 typing 条目）。
+
+### 与已实现的"空间级"提示的分工
+
+| 层级 | 触发时机 | 载体 | 状态 |
+| --- | --- | --- | --- |
+| 空间级 | 队列非读、故事**尚未开始**（打开对话空间 → 推送队列顶） | `scheduleTypingPush` + `PanelState.typingVariantId` + `.chat-typing` | **已实现**（§2） |
+| 页级（本节） | 故事已开始，**某条 talk 消息送达前** | `Talklet.typing` 声明 + `ChatStream` 指纹状态机 | 未实现 |
+
+两者互补：推送瞬间空间级提示让位，进入故事后由页级接管逐条节奏。
+
+### 数据声明（Talklet 新字段，无引擎状态）
+
+```ts
+// Talklet（types/content.ts）
+/**
+ * 预出现输入中提示（毫秒）：本页 talk 内容进流前，先渲染同 speaker/avatar/side
+ * 的动态省略号气泡，持续该时长后替换为本页内容。0 / 缺省 = 关闭。
+ * 仅 kind='talk' 生效；建议 600–1200ms，实现侧夹取上限（防数据笔误冻结聊天流）。
+ */
+typing?: number;
+```
+
+### 实现设计（UI 侧，落在 ChatStream 指纹状态机）
+
+- `ChatEntry.kind` 增 `'typing'`：渲染复用 renderTalk 的气泡骨架（头像/名字/侧向），正文为 `.chat-typing` 三点动画（样式已存在）。
+- `ChatStream.syncCurrentStory`：指纹变化 → 先 **cancelTyping**（移除旧气泡 + **补落旧页内容**，防快进丢内容；pending 载荷随计时器保存）→ 若本页 `typing > 0` 且 `kind === 'talk'`：压入 typing 条目（id = `typing:${fingerprint}`）、记账指纹防重复触发、起计时器 → 到期后校验指纹未变（剧情未被推进/清空）则移除气泡并落内容，否则仅移除气泡。
+- `clearAll` / `reset()`（读档/软重启）取消计时并清 typing 条目；`withHistories` 持久化时过滤 `kind === 'typing'`（瞬态条目不入档）。
+- choice 页：正文文本参与 typing；选项卡片本就等确认后才渲染（`sendState.confirmed`），不受影响；确认点击发生在 typing 期间时按补落规则立即落文本。
+- narration / click / kizuna 页、`pushAbsorbed` 过渡页：**忽略** typing（回归不变）。
+
+### 接线点
+
+| 文件 | 职责 |
+| --- | --- |
+| `types/content.ts` | `Talklet.typing?: number` 字段（TSDoc @label） |
+| `def-factory/talklet.ts` | `typing(ms)` builder 方法 |
+| `src/ui/chat-stream.ts` | 指纹状态机 typing 分支：计时 / 取消 / 补落 / 瞬态条目管理 |
+| `src/ui/components/story.ts` | `ChatEntry` 增 `'typing'` 分支渲染 |
+| `tools/datapack-editor/schema/editor-extras.ts` | `storiesTable` 的 talklet 对象补 `typing` 字段（Talklet 为 HAND 类型，不走 gen:schema） |
+
+### 测试清单（UI 侧，`tests/ui/`）
+
+- 声明 typing 的页：进流顺序 = 省略号气泡 → 计时后移除气泡、落内容（同说话人样式）
+- 计时内玩家推进：旧页内容立即补落、气泡移除，新页按自身声明处理
+- 读档 / 软重启 / `clearAll`：计时取消、无残留 typing 条目；存档往返不含 typing 条目
+- narration / click / kizuna / absorbed 页声明 typing：被忽略（回归不变）
+- builder：`talklet.typing(ms)` 输出；时长夹取上限生效
+
+### 开放点（实现前与用户对齐）
+
+1. **absorbed 过渡页**是否第二迭代支持逐页 typing（需链式计时，第一迭代忽略）。
+2. 是否提供"被动推送的首条消息默认打字"的全局默认（当前为纯声明式，数据不声明则无）。
+3. **narration** 是否允许 typing（当前策划：不允许——旁白不是聊天气泡，无"对方"语义）。
 
 ---
 

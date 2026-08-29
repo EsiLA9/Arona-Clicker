@@ -29,7 +29,7 @@
 | `roster` / `fragments` | Record<VariantId, RosterEntry> / Record | 通讯录（持有差分实例）/ 碎片余额（归属随 characterPersistConfig.roster） |
 | `gachaState` | Record<GachaPoolId, GachaPoolState> | 各卡池保底/抽取计数（pity/pulls） |
 | `studentBlocks` | Record<VariantId, {entryId, setAtFrame}> | 学生对话空间阻断态 |
-| `chatRead` / `passiveCooldowns` | Record | 聊天已读 / 被动闲聊冷却表 |
+| `chatRead` / `passiveCooldowns` | Record | 聊天已读（基础设施保留，消息成分已移除、当前无写入方）/ 被动闲聊冷却表 |
 | `charaCustom` | Record<Character, CharaCustomOverride> | 玩家头像-人名对覆写（见 [[docs-828/02-modules/pics]]） |
 | `worldPool` | VariantId[] | 世界 Pool：已并入常驻集合的差分（`refreshWorldPool` 未接线） |
 | `protoStats` | Record<string, ProtoStat> | 原型聚合统计（派生视图，Trigger 维护） |

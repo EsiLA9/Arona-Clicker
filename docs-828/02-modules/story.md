@@ -4,8 +4,8 @@
 
 ## 职责边界
 
-- **管**：剧情启动/推进/选择/跳转链/重读守卫/完结奖励、聊天流演出事件、被动闲聊抽选。
-- **不管**：好感与未读计数（规划中，见 [[docs-828/06-adr/planning]]）、色彩演出层推送（由 ColorSystem 响应）。
+- **管**：剧情启动/推进/选择/跳转链/重读守卫/完结奖励、聊天流演出事件、被动闲聊抽选、好感台阶/羁绊尾巴的就绪队列推送（见 [[docs-828/06-adr/planning]]）。
+- **不管**：色彩演出层推送（由 ColorSystem 响应）。
 
 ## 关键文件（`src/engine/game/`）
 
@@ -43,4 +43,4 @@
 
 ## 相关文档
 
-[[docs-828/03-data-structures/declarative-dsl]]（Talklet/Entry 枚举）· [[docs-828/06-adr/planning]]（好感/尾巴规划）
+[[docs-828/03-data-structures/declarative-dsl]]（Talklet/Entry 枚举）· [[docs-828/06-adr/planning]]（好感数值/台阶推送/羁绊尾巴）

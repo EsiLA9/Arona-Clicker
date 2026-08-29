@@ -13,7 +13,6 @@ import type {
 import type { ExtraCompound } from './extra';
 import type { Condition, ConditionGroup, Effect, ValueExpression } from './expression';
 import type { PicId } from './pics';
-import type { Talklet } from './content';
 
 // --- 基础 ID ---
 
@@ -443,61 +442,6 @@ export interface GachaPoolDef {
    * @label 关闭条件
    */
   closeWhen?: Condition | ConditionGroup;
-}
-
-// --- 聊天流 ---
-
-export interface ChatMessageDef {
-  /** @label ID */
-  id: ChatMessageId;
-  /**
-   * 所属差分
-   * @label 所属
-   * @ref characterVariants
-   */
-  owner: VariantId;
-  /**
-   * 排序（越小越先）
-   * @label 排序
-   * @int
-   */
-  order: number;
-  /** @label 内容 */
-  content: string;
-  /**
-   * 解锁条件；缺省 = 获得即可读
-   * @label 解锁条件
-   */
-  unlock?: Condition | ConditionGroup;
-  /**
-   * 可反复触发（缺省 false = 单次已读即止）
-   * @label 可反复
-   */
-  repeatable?: boolean;
-  /**
-   * 好感等级门槛（与 unlock AND；缺省 0 = 无要求）
-   * @label 好感门槛
-   * @int
-   */
-  affectionRequired?: number;
-  /**
-   * 读完奖励的好感小值（按 owner 归属结算；缺省 0）
-   * @label 好感奖励
-   * @int
-   */
-  affectionExpReward?: number;
-  /**
-   * 关联的羁绊剧情入口 id：声明后该消息在对话空间渲染羁绊卡片，
-   * 点击启动该 ActiveStoryEntry（剧情完成后在对话空间追加 kizunaTail）。
-   * @label 羁绊剧情
-   * @ref activeStories
-   */
-  kizunaStoryId?: string;
-  /**
-   * 羁绊收尾段：关联 kizuna 卡片的消息在剧情完成后于对话空间追加展示的 Talklet 序列。
-   * 缺省 = 无尾巴（剧情完成即结束）。@label 羁绊尾巴
-   */
-  kizunaTail?: Talklet[];
 }
 
 // --- 好感配置 ---

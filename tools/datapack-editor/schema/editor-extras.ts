@@ -560,6 +560,7 @@ const passiveStoriesTable = (): TableSchema => ({
     b('repeatable', '可重复'),
     n('weight', '权重'),
     i('affectionRequired', '好感台阶门槛', { description: '声明后退出随机抽取：好感达标即入该角色就绪队列，按需求值升序自动推送（docs-828/06-adr/planning.md §2 轴 B）。' }),
+    s('pushAfterStory', '羁绊尾巴挂靠', { description: '引用演出本体 StoryDef id：该剧情完结后本条强制优先推送进 owner 对话空间（§3）；声明后退出随机抽取。' }),
     o('completionReward', [
       a('first', effectObject(), '首次'),
       a('repeat', effectObject(), '重复'),

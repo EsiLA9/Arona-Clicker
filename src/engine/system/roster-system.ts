@@ -3,14 +3,13 @@
 //
 // 玩家持有的差分实例（RosterEntry）与碎片余额的统一查询入口。
 // 写操作一律经 StateMutationService.acquireCharacter / cultivate*。
-// 好感查询与聊天消息可用性过滤（docs-828/06-adr/planning.md §1/§2）。
+// 好感只读查询（docs-828/06-adr/planning.md §1）。
 // ============================================================
 
 import type {
   Character,
   CharacterSchool,
   CharacterVariantDef,
-  ChatMessageDef,
   PlayerState,
   ProtoStat,
   RosterEntry,
@@ -18,7 +17,6 @@ import type {
 } from '../types';
 import { CharacterRarity } from '../types';
 import type { Registry } from '../registry/registry';
-import type { ConditionSystem } from '../expression/condition-system';
 import { affectionLevelCapOf, resolveAffectionConfig } from './affection-system';
 
 /** 通讯录分组：按学校聚合，组内稀有度降序。 */
@@ -40,11 +38,7 @@ const RARITY_ORDER: Record<CharacterRarity, number> = {
 };
 
 export class RosterSystem {
-  constructor(
-    private readonly registry: Registry,
-    /** 可选：用于聊天消息 unlock 条件求值（缺省时 unlock 视为满足）。 */
-    private readonly conditionSystem?: ConditionSystem,
-  ) {}
+  constructor(private readonly registry: Registry) {}
 
   /** 好感等级（未拥有 → 0；已拥有缺字段 ??= 1）。 */
   affectionLevelOf(state: PlayerState, variantId: VariantId): number {
@@ -67,28 +61,6 @@ export class RosterSystem {
     if (!entry) return 0;
     const config = resolveAffectionConfig(this.registry.affectionConfig);
     return affectionLevelCapOf(config, this.getVariant(variantId), entry.stars);
-  }
-
-  /**
-   * 轴 A 可用消息过滤：
-   * owner 归属 ∧ 好感门槛达标 ∧ unlock 条件满足 ∧（单次 = 未读 / 可反复 = 冷却外）。
-   * 第一迭代未启用 chatCooldowns，可反复消息在条件满足期间恒可用。
-   */
-  availableChatMessages(state: PlayerState, variantId: VariantId): ChatMessageDef[] {
-    if (!this.isOwned(state, variantId)) return [];
-    const level = this.affectionLevelOf(state, variantId);
-    return [...this.registry.chatMessages.values()].filter(m => {
-      if (m.owner !== variantId) return false;
-      if ((m.affectionRequired ?? 0) > level) return false;
-      if (m.unlock && this.conditionSystem && !this.conditionSystem.evaluateExpr(m.unlock, state)) return false;
-      if (m.repeatable) return true;
-      return !state.chatRead?.[m.id];
-    });
-  }
-
-  /** 轴 A 未读计数 = 可用消息条数（未拥有角色 → 0）。 */
-  unreadChatCount(state: PlayerState, variantId: VariantId): number {
-    return this.availableChatMessages(state, variantId).length;
   }
 
   /** 获取差分定义；未知 id 返回 undefined。 */

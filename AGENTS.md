@@ -15,7 +15,7 @@
 | 文件拆分 / 重构 | [[docs-828/05-conventions/refactoring]] |
 | 写测试 | [[docs-828/05-conventions/testing]] |
 | 维护文档本身 | [[docs-828/05-conventions/doc-maintenance]] |
-| 好感系统（数值 / 聊天好感 / 羁绊尾巴）机制 | [[docs-828/06-adr/planning]]（已实现，机制单一事实源） |
+| 好感系统（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）机制 | [[docs-828/06-adr/planning]]（机制单一事实源；聊天消息成分已移除；§4 未实现） |
 
 ## 命令
 

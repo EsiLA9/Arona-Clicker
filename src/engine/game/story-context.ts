@@ -42,8 +42,6 @@ export interface StoryRuntime {
   hasCompletedStory: (storyId: string) => boolean;
   getView: (owner?: string | null) => StoryView | null;
   guardPrereqsMet: (guard: BranchGuard) => boolean;
-  /** 该角色对话空间是否挂着待收尾的羁绊尾巴（§3；尾巴展示期间抑制抽取）。 */
-  hasPendingKizunaTail: (owner: string) => boolean;
   /** 本次剧情播放期间经 Talklet/选项效果设置的 flag（完成时随 storyRewarded 通知 UI）。 */
   flagsSetThisStory: Set<string>;
   /** applyCompletionReward 的结算记录（包装引用，供 resolveStoryEnd 读取并清空）。 */

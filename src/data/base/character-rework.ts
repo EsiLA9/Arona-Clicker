@@ -14,8 +14,6 @@ import {
   CharacterRarity,
   CharacterSchool,
   CharacterVariantDef,
-  chatMessage,
-  ChatMessageDef,
   colorGroup,
   ColorGroupDef,
   colorEquipment,
@@ -356,42 +354,12 @@ export const baseGachaPools: GachaPoolDef[] = [
     .build(),
 ];
 
-/** 聊天流内容：少量开场消息示范。 */
-export const baseChatMessages: ChatMessageDef[] = [
-  chatMessage('base:chat:arona-1', 'Arona').order(1).content('老师，欢迎回到什亭之匣！系统一切正常哦。').build(),
-  chatMessage('base:chat:arona-2', 'Arona').order(2).content('有什么计划的话，随时叫我！').build(),
-  chatMessage('base:chat:hoshino-1', 'Hoshino').order(1).content('唔……老师吗……好困……').build(),
-  chatMessage('base:chat:hoshino-2', 'Hoshino').order(2)
-    .content('下次一起去海边吧……嗯，说定了哦，队长。')
-    .unlock({ target: 'protoStat', key: String(Character.Hoshino), comparator: '>=', value: 2 })
-    .build(),
-  chatMessage('base:chat:shiroko-1', 'Shiroko').order(1).content('老师，今天的行动方针呢？').build(),
-  // --- 好感回环示范（docs-828/06-adr/planning.md §2/§3）---
-  // 轴 A：读完奖励好感小值（1→2 级需 15，读完即达 2 级、解锁台阶一）
-  chatMessage('base:chat:hoshino-aff-1', 'Hoshino').order(3)
-    .content('……给，便当。不小心做多了。')
-    .affectionExpReward(15)
-    .build(),
-  // 轴 A 可反复：每次读取 +5（冷却字段第一迭代未启用，条件满足期间恒可读）
-  chatMessage('base:chat:hoshino-aff-repeat', 'Hoshino').order(4)
-    .content('今天也辛苦了呢，队长……嗯，摸摸头。')
-    .repeatable()
-    .affectionExpReward(5)
-    .build(),
-  // §3 羁绊尾巴：点击卡片进入 base:bond:hoshino_1，剧情完成后回对话空间收尾
-  chatMessage('base:chat:hoshino-kizuna', 'Hoshino').order(5)
-    .content('那个……有件事想跟老师说。……可以的话，来堤防一趟吗？')
-    .kizunaStory('base:bond:hoshino_1')
-    .kizunaTail(
-      line('星野', '……剧情就到这里。剩下的，我们边走边说吧，队长。').build(),
-      narrate('——羁绊剧情 · 午后的堤防 完——', 'center').build(),
-    )
-    .build(),
-];
-
 // ============================================================
-// 好感台阶剧情（§2 轴 B 就绪队列）：好感达标即入队，按需求值升序自动推送。
-// 台阶退出随机抽取（affectionRequired 声明即生效），完结奖励走 addAffectionExp 回环。
+// 好感台阶剧情（§2 轴 B 就绪队列）+ 羁绊尾巴（§3 pushAfterStory）
+//
+// 台阶：好感达标即入队，按需求值升序自动推送（退出随机抽取）。
+// 尾巴：关联剧情完结后强制优先推送——羁绊入口走剧情侧 Talklet.kizuna 既有机制。
+// 完结奖励走 addAffectionExp 回环。
 // ============================================================
 
 export const baseAffectionStepStories: StoryDef[] = [
@@ -410,18 +378,31 @@ export const baseAffectionStepStories: StoryDef[] = [
         .effects({ op: 'addAffectionExp', target: 'Hoshino', value: 50 }),
     )
     .build(),
+  story('base:affinity:hoshino_bond_tail', '羁绊尾巴 · 星野：堤防之后')
+    .scene(
+      narrate('——阿比多斯 · 堤防 · 归途——', 'center'),
+      line('星野', '……剧情就到这里。剩下的，我们边走边说吧，队长。'),
+      narrate('——羁绊剧情 · 午后的堤防 完——', 'center'),
+    )
+    .build(),
 ];
 
 export const baseAffectionSteps: PassiveStoryEntry[] = [
   passiveStory('base:affinity:hoshino_1')
     .owner('Hoshino')
     .repeatable(false)
-    .affectionRequired(2)
+    .affectionRequired(1)
     .build(),
   passiveStory('base:affinity:hoshino_2')
     .owner('Hoshino')
     .repeatable(false)
-    .affectionRequired(4)
+    .affectionRequired(3)
+    .build(),
+  // §3 羁绊尾巴：base:bond:hoshino_1 完结后强制优先推送到星野对话空间
+  passiveStory('base:affinity:hoshino_bond_tail', 'base:affinity:hoshino_bond_tail')
+    .owner('Hoshino')
+    .repeatable(false)
+    .pushAfterStory('base:bond:hoshino_1')
     .build(),
 ];
 

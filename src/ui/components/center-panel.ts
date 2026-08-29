@@ -14,6 +14,8 @@ export interface ConversationView {
   variantId: string;
   entries: ChatEntry[];
   chatTexts: ChatTextEntry[];
+  /** 输入中提示：队列有待推送内容，先展示省略号再推送。 */
+  typing?: boolean;
 }
 
 export function renderCenterPanel(
@@ -25,7 +27,7 @@ export function renderCenterPanel(
   conversation?: ConversationView,
 ): string {
   if (conversation) {
-    return renderConversationView(ctx, conversation.variantId, conversation.entries, conversation.chatTexts, sendState);
+    return renderConversationView(ctx, conversation.variantId, conversation.entries, conversation.chatTexts, sendState, conversation.typing);
   }
   // 通讯录临时页：由左栏"通讯录"触发，等待详细设计
   if (activeTab === 'contacts-draft') {

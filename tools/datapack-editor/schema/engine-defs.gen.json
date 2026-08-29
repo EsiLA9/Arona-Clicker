@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T18:10:42.448Z",
+  "generatedAt": "2026-08-29T02:08:36.947Z",
   "sourceDir": "src/engine/types",
   "defMap": {
     "inits": {
@@ -84,10 +84,6 @@
     },
     "gachaPools": {
       "type": "GachaPoolDef",
-      "shape": "array"
-    },
-    "chatMessages": {
-      "type": "ChatMessageDef",
       "shape": "array"
     },
     "pics": {
@@ -805,6 +801,13 @@
           "kind": "float",
           "tsType": "number",
           "description": "好感台阶门槛（好感等级达标才进入该角色的就绪队列；缺省 null = 普通闲聊，"
+        },
+        {
+          "key": "pushAfterStory",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "羁绊尾巴挂靠（§3）：引用演出本体 StoryDef id（与 hasCompletedStory/storyCompleted"
         },
         {
           "key": "cooldownFrames",
@@ -2185,95 +2188,6 @@
         }
       ]
     },
-    "ChatMessageDef": {
-      "fields": [
-        {
-          "key": "id",
-          "required": true,
-          "kind": "ref",
-          "tsType": "ChatMessageId",
-          "label": "ID",
-          "table": "chatMessages"
-        },
-        {
-          "key": "owner",
-          "required": true,
-          "kind": "ref",
-          "tsType": "VariantId",
-          "label": "所属",
-          "description": "所属差分",
-          "table": "characterVariants"
-        },
-        {
-          "key": "order",
-          "required": true,
-          "kind": "int",
-          "tsType": "number",
-          "label": "排序",
-          "description": "排序（越小越先）"
-        },
-        {
-          "key": "content",
-          "required": true,
-          "kind": "string",
-          "tsType": "string",
-          "label": "内容"
-        },
-        {
-          "key": "unlock",
-          "required": false,
-          "kind": "hand",
-          "tsType": "Condition | ConditionGroup",
-          "label": "解锁条件",
-          "description": "解锁条件；缺省 = 获得即可读"
-        },
-        {
-          "key": "repeatable",
-          "required": false,
-          "kind": "bool",
-          "tsType": "boolean",
-          "label": "可反复",
-          "description": "可反复触发（缺省 false = 单次已读即止）"
-        },
-        {
-          "key": "affectionRequired",
-          "required": false,
-          "kind": "int",
-          "tsType": "number",
-          "label": "好感门槛",
-          "description": "好感等级门槛（与 unlock AND；缺省 0 = 无要求）"
-        },
-        {
-          "key": "affectionExpReward",
-          "required": false,
-          "kind": "int",
-          "tsType": "number",
-          "label": "好感奖励",
-          "description": "读完奖励的好感小值（按 owner 归属结算；缺省 0）"
-        },
-        {
-          "key": "kizunaStoryId",
-          "required": false,
-          "kind": "ref",
-          "tsType": "string",
-          "label": "羁绊剧情",
-          "description": "关联的羁绊剧情入口 id：声明后该消息在对话空间渲染羁绊卡片，",
-          "table": "activeStories"
-        },
-        {
-          "key": "kizunaTail",
-          "required": false,
-          "kind": "array",
-          "tsType": "Talklet[]",
-          "description": "羁绊收尾段：关联 kizuna 卡片的消息在剧情完成后于对话空间追加展示的 Talklet 序列。",
-          "item": {
-            "key": "$",
-            "kind": "hand",
-            "tsType": "Talklet"
-          }
-        }
-      ]
-    },
     "PicDef": {
       "fields": [
         {
@@ -2531,7 +2445,6 @@
     "CharacterRarity",
     "CharacterSchool",
     "CharacterVariantDef",
-    "ChatMessageDef",
     "ChatMessageId",
     "ChatTextEffectValue",
     "ChatTextFont",

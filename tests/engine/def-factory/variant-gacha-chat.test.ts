@@ -1,6 +1,6 @@
 // ============================================================
 // engine/def-factory/variant-gacha-chat.test.ts
-// CharacterVariantDef / GachaPoolDef / ChatMessageDef Builder
+// CharacterVariantDef / GachaPoolDef Builder
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import {
@@ -8,8 +8,6 @@ import {
   CharacterVariantBuilder,
   gachaPool,
   GachaPoolBuilder,
-  chatMessage,
-  ChatMessageBuilder,
   cond,
   Character,
   CharacterRarity,
@@ -17,7 +15,7 @@ import {
   GachaMode,
   Resource,
 } from '../../../src/engine/types';
-import type { CharacterVariantDef, ChatMessageDef, GachaPoolDef } from '../../../src/engine/types';
+import type { CharacterVariantDef, GachaPoolDef } from '../../../src/engine/types';
 
 describe('CharacterVariantBuilder', () => {
   test('variant() 返回 CharacterVariantBuilder 实例', () => {
@@ -103,32 +101,5 @@ describe('GachaPoolBuilder', () => {
     expect(def.featured).toEqual(['HoshinoSwimsuit']);
     expect(def.pity).toEqual({ guaranteedAt: 50 });
     expect(def.closeWhen).toEqual(cond('flag', 'done', '==', 1));
-  });
-});
-
-describe('ChatMessageBuilder', () => {
-  test('chatMessage() 返回 ChatMessageBuilder 实例', () => {
-    expect(chatMessage('base:chat:arona-1', 'Arona')).toBeInstanceOf(ChatMessageBuilder);
-  });
-
-  test('build() 等价于字面量（hoshino-2 参照，带 unlock）', () => {
-    const def = chatMessage('base:chat:hoshino-2', 'Hoshino')
-      .order(2)
-      .content('下次一起去海边吧……嗯，说定了哦，队长。')
-      .unlock(cond('protoStat', String(Character.Hoshino), '>=', 2))
-      .build();
-    expect(def).toEqual<ChatMessageDef>({
-      id: 'base:chat:hoshino-2',
-      owner: 'Hoshino',
-      order: 2,
-      content: '下次一起去海边吧……嗯，说定了哦，队长。',
-      unlock: cond('protoStat', String(Character.Hoshino), '>=', 2),
-    });
-  });
-
-  test('缺 content 抛错 / 未调用 unlock 不输出', () => {
-    expect(() => chatMessage('m', 'o').build()).toThrow(/content/);
-    const def = chatMessage('m', 'o').order(1).content('hi').build();
-    expect(def).not.toHaveProperty('unlock');
   });
 });

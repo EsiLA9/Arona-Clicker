@@ -103,7 +103,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | [[docs-828/06-adr/0001-architecture-consolidation]] | T1-T7 架构整理收官（装配外移 / 只读纪律 / 表驱动 / 环解扣） |
 | [[docs-828/06-adr/0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
 | [[docs-828/06-adr/0003-docs-828-restructure]] | 文档库重构：从日期戳手册到分层索引 |
-| [[docs-828/06-adr/planning]] | 好感系统设计（§1 数值 / §2 聊天好感双轴 / §3 羁绊尾巴；2026-08-29 已落地，机制细节以此为准） |
+| [[docs-828/06-adr/planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送；§4 Talklet 输入中提示未实现；2026-08-29 落地，轴 A 消息成分同日裁定移除） |
 
 ## 命令速查
 

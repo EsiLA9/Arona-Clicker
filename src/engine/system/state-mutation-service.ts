@@ -58,13 +58,12 @@ export class StateMutationService {
     this.extraReader = reader;
   }
 
-  /** 差分目录读取器（由 GameInstance 注入 registry 视图，供 acquireCharacter/培养/色彩解析定义）。 */
+  /** 差分目录读取器（由 GameInstance 注入 registry 视图，供 acquireCharacter/培养/色彩/好感解析定义）。 */
   private characterCatalog: {
     getVariant(id: VariantId): import('../types').CharacterVariantDef | undefined;
     getCurve(id: string): import('../types').CultivateCurveDef | undefined;
     getColorGroup(id: string): import('../types').ColorGroupDef | undefined;
     getColorEquipment(id: string): import('../types').ColorEquipmentDef | undefined;
-    getChatMessage(id: string): import('../types').ChatMessageDef | undefined;
     getAffectionConfig(): import('../types').AffectionConfigDef | undefined;
   } | null = null;
 
@@ -73,7 +72,6 @@ export class StateMutationService {
     getCurve(id: string): import('../types').CultivateCurveDef | undefined;
     getColorGroup(id: string): import('../types').ColorGroupDef | undefined;
     getColorEquipment(id: string): import('../types').ColorEquipmentDef | undefined;
-    getChatMessage(id: string): import('../types').ChatMessageDef | undefined;
     getAffectionConfig(): import('../types').AffectionConfigDef | undefined;
   }): void {
     this.characterCatalog = reader;
@@ -208,24 +206,13 @@ export class StateMutationService {
     return { duplicate, shards, bonusResources };
   }
 
-  /**
-   * 聊天消息标记已读。单次消息幂等（已读不再结算）；可反复消息每次读取都结算
-   * affectionExpReward（按 owner 走 addAffectionExp；冷却第一迭代未启用）。
-   */
+  /** 聊天消息标记已读（幂等：已读不再发事件）。 */
   markChatRead(messageId: string): void {
     const state = this.current;
     state.chatRead ??= {};
-    const message = this.characterCatalog?.getChatMessage(messageId);
-    const repeatable = message?.repeatable === true;
-    if (!state.chatRead[messageId]) {
-      state.chatRead[messageId] = true;
-      this.emit({ type: 'chatReadChanged', messageId });
-    } else if (!repeatable) {
-      return;
-    }
-    if (message?.affectionExpReward && message.owner) {
-      this.addAffectionExp(message.owner, message.affectionExpReward);
-    }
+    if (state.chatRead[messageId]) return;
+    state.chatRead[messageId] = true;
+    this.emit({ type: 'chatReadChanged', messageId });
   }
 
   /**

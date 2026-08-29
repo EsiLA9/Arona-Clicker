@@ -71,6 +71,25 @@ export function bindEvents(ctrl: UIController): void {
   ctrl.game.eventBus.on('storyCompleted', () => {
     ctrl.chat.clearAllTexts(ctrl.panelState);
   });
+  // §3 羁绊尾巴：完结剧情的关联尾巴在玩家正在观看该角色对话空间时立即推送；
+  // 不在该空间则留在就绪队列顶（通讯录徽标提示，打开时经输入中提示送达）
+  ctrl.game.eventBus.on('storyCompleted', event => {
+    if (event.type !== 'storyCompleted') return;
+    const convId = ctrl.panelState.conversationVariantId;
+    if (!convId) return;
+    if (ctrl.game.getStoryView(convId)) return; // 沙盒有进行中演出（如 insert 链未完）
+    const completedEntry = [...ctrl.game.registry.storyEntries.values()]
+      .find(e => e.storyId === event.storyId);
+    const hasTail = [...ctrl.game.registry.passiveStories.values()].some(tail =>
+      tail.pushAfterStory === event.storyId
+      && tail.owner === convId
+      && (!completedEntry?.owner || completedEntry.owner === tail.owner)
+      && !ctrl.game.story.hasCompletedStory(tail.storyId));
+    if (hasTail) {
+      ctrl.game.story.triggerTailPush(convId, event.storyId);
+      ctrl.render();
+    }
+  });
   // 聊天流演出服务（Talklet）：显示演出专用文本（临时 id + 百分比坐标，可嵌入标准 Talklet）
   ctrl.game.eventBus.on('chatTextShown', event => {
     if (event.type !== 'chatTextShown') return;

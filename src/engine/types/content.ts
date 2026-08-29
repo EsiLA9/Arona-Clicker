@@ -198,6 +198,12 @@ export interface PassiveStoryEntry extends StoryEntryBase {
    */
   affectionRequired?: number;
   /**
+   * 羁绊尾巴挂靠（§3）：引用演出本体 StoryDef id（与 hasCompletedStory/storyCompleted
+   * 同语义）。该剧情完结后本 entry 强制优先推送进 owner 的对话空间；声明后退出随机
+   * 抽取，队列优先级高于好感台阶。
+   */
+  pushAfterStory?: string;
+  /**
    * 抽取后冷却帧数：被抽取（最后一页播完）后需经过 N 帧（tick）才能再次被选取。
    * 复用 PlayerState.totalFrames 计数。0 或不设置表示无冷却。
    */

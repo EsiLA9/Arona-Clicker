@@ -23,7 +23,7 @@ Registry 内部所有表经 `tableSteps: TableStep[]` 单一声明（table 名 +
 | `cultivateCurves` | curveId | CultivateCurveDef |
 | `gachaPools` | poolId | GachaPoolDef |
 | `colorGroups` / `colorEquipments` / `themeDesigns` | id | ColorGroupDef / ColorEquipmentDef / ThemeDesignDef |
-| `chatMessages` | id | ChatMessageDef |
+| `affectionConfig` | —（单值，部分覆盖合并） | AffectionConfigDef（好感阶梯/星级锁，缺省用引擎内置） |
 | `characterPersistConfig` | —（单值） | CharacterPersistConfig（三层归属声明） |
 | `resourceDisplays` | resourceId | ResourceDisplayDef |
 | `tagDefs` | 标签路径串 | TagDef |

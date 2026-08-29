@@ -23,8 +23,10 @@ export interface PanelState {
   studentChats: Record<string, ChatEntry[]>;
   /** 每个学生各自的演出专用文本覆盖层。 */
   studentChatTexts: Record<string, ChatTextEntry[]>;
-  /** 未读消息计数接口（预留，后续接入未读系统时提供）。 */
+  /** 未读消息计数接口（对话空间就绪队列条数，由 controller 提供）。 */
   getUnread?: (variantId: string) => number;
+  /** 输入中提示：该学生对话空间有待推送内容，先展示省略号再推送。 */
+  typingVariantId?: string | null;
   /** 故事层级导航路径：[]=分类选择，['main']=主线篇，['main','part_1']=主线篇1章，['main','part_1','ch_1']=项。 */
   storyNavPath: string[];
 }
@@ -35,6 +37,7 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
         variantId: state.conversationVariantId,
         entries: state.studentChats[state.conversationVariantId] ?? [],
         chatTexts: state.studentChatTexts[state.conversationVariantId] ?? [],
+        typing: state.typingVariantId === state.conversationVariantId,
       }
     : undefined;
   return `

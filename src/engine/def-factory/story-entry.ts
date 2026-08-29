@@ -123,6 +123,7 @@ export class PassiveStoryBuilder extends StoryEntryBaseBuilder {
   private _interruptible?: boolean;
   private _leaveArea?: boolean;
   private _affectionRequired?: number;
+  private _pushAfterStory?: string;
 
   /** 可重复触发（缺省 true，与 base 数据一致）。 */
   repeatable(value = true): this { this._repeatable = value; return this; }
@@ -150,6 +151,8 @@ export class PassiveStoryBuilder extends StoryEntryBaseBuilder {
   cooldownFrames(value: number): this { this._cooldownFrames = value; return this; }
   /** 好感台阶门槛：好感达标才入就绪队列（声明后退出随机抽取，改按需求值升序推送）。 */
   affectionRequired(value: number): this { this._affectionRequired = value; return this; }
+  /** 羁绊尾巴挂靠：关联剧情完结后强制优先推送进 owner 对话空间（声明后退出随机抽取）。 */
+  pushAfterStory(storyId: StoryId): this { this._pushAfterStory = storyId; return this; }
   block(condition: ConditionGroup): this { this._block = condition; return this; }
   /** 是否可被移动 Area 打断（缺省 true）。 */
   interruptible(value = true): this { this._interruptible = value; return this; }
@@ -167,6 +170,7 @@ export class PassiveStoryBuilder extends StoryEntryBaseBuilder {
     if (this._owner) def.owner = this._owner;
     if (this._cooldownFrames !== undefined) def.cooldownFrames = this._cooldownFrames;
     if (this._affectionRequired !== undefined) def.affectionRequired = this._affectionRequired;
+    if (this._pushAfterStory !== undefined) def.pushAfterStory = this._pushAfterStory;
     if (this._block) def.block = this._block;
     if (this._interruptible !== undefined) def.interruptible = this._interruptible;
     if (this._leaveArea !== undefined) def.leaveArea = this._leaveArea;

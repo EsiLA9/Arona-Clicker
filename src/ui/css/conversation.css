@@ -170,18 +170,35 @@
    flex: 1;
 }
 
-/* 轴 A 可用消息：未读气泡包裹层，点击已读 */
-.chat-msg-unread {
-   cursor: pointer;
+/* 输入中提示：动态省略号（队列有待推送内容，推送前展示） */
+.chat-typing {
+   display: inline-flex;
+   align-items: center;
+   gap: 5px;
+   margin: 6px 0 4px 46px;
+   padding: 10px 14px;
+   background: var(--panel, #fff);
+   border: 1px solid var(--line, #d8d8d8);
+   border-radius: 14px;
+   width: fit-content;
 }
 
-.chat-msg-unread:hover .chat-bubble-npc {
-   border-color: var(--cyan, #3b82f6);
-   box-shadow: 0 2px 10px rgba(59, 130, 246, .18);
+.chat-typing-dot {
+   width: 7px;
+   height: 7px;
+   border-radius: 50%;
+   background: var(--muted, #999);
+   animation: chat-typing-bounce 1.2s infinite ease-in-out;
 }
 
-/* §3 羁绊尾巴收尾段：与流内普通条目同款式，仅上方加分隔间距 */
-.conversation-stream .chat-msg-unread,
+.chat-typing-dot:nth-child(2) { animation-delay: .15s; }
+.chat-typing-dot:nth-child(3) { animation-delay: .3s; }
+
+@keyframes chat-typing-bounce {
+   0%, 60%, 100% { opacity: .35; transform: translateY(0); }
+   30% { opacity: 1; transform: translateY(-3px); }
+}
+
 .conversation-stream .kizuna-card {
    margin-top: 6px;
 }

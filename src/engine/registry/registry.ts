@@ -22,7 +22,6 @@ import {
   CharacterPersistConfig,
   CharacterPersistScope,
   CharacterVariantDef,
-  ChatMessageDef,
   ColorEquipmentDef,
   ColorGroupDef,
   CultivateCurveDef,
@@ -89,7 +88,6 @@ export class Registry {
   private _colorGroups: Map<string, ColorGroupDef> = new Map();
   private _colorEquipments: Map<string, ColorEquipmentDef> = new Map();
   private _themeDesigns: Map<string, ThemeDesignDef> = new Map();
-  private _chatMessages: Map<string, ChatMessageDef> = new Map();
   /** 三层归属声明；缺省值见 characterScopeOf。 */
   private _characterPersistConfig: CharacterPersistConfig | undefined;
   /** 好感数值配置（部分覆盖合并；缺省字段用引擎内置阶梯，见 system/affection-system.ts）。 */
@@ -257,13 +255,6 @@ export class Registry {
         clear: () => this._themeDesigns.clear(),
       },
       {
-        table: 'chatMessages',
-        merge: dp => {
-          if (dp.chatMessages) for (const m of dp.chatMessages) this._chatMessages.set(m.id, m);
-        },
-        clear: () => this._chatMessages.clear(),
-      },
-      {
         table: 'characterPersistConfig',
         merge: dp => {
           if (!dp.characterPersistConfig) return;
@@ -378,8 +369,6 @@ export class Registry {
   get colorEquipments(): ReadonlyMap<string, ColorEquipmentDef> { return this._colorEquipments; }
   /** 实体配色设计表（DesignId → Def）。 */
   get themeDesigns(): ReadonlyMap<string, ThemeDesignDef> { return this._themeDesigns; }
-  /** 聊天流内容表（MessageId → Def）。 */
-  get chatMessages(): ReadonlyMap<string, ChatMessageDef> { return this._chatMessages; }
   /** 好感数值配置（数据包声明；未声明返回 undefined = 引擎内置阶梯）。 */
   get affectionConfig(): AffectionConfigDef | undefined { return this._affectionConfig; }
 

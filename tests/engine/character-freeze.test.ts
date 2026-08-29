@@ -54,12 +54,12 @@ describe('base 数据包 Character 重构内容冒烟', () => {
     game.init([baseDatapack]);
   });
 
-  test('变体/曲线/色彩/卡池/聊天流全部加载', () => {
+  test('变体/曲线/色彩/卡池/好感台阶全部加载', () => {
     expect(game.registry.characterVariants.size).toBeGreaterThanOrEqual(10);
     expect(game.registry.cultivateCurves.get('base:curve:standard')).toBeDefined();
     expect(game.registry.colorGroups.size).toBeGreaterThanOrEqual(3);
     expect(game.registry.gachaPools.size).toBeGreaterThanOrEqual(2);
-    expect(game.registry.chatMessages.size).toBeGreaterThan(0);
+    expect(game.registry.passiveStories.get('base:affinity:hoshino_1')).toBeDefined();
   });
 
   test('卡池引用完整性通过（validateCharacterRefs 已在 init 执行）', () => {

@@ -63,12 +63,6 @@ function makeDatapack(): Datapack {
         unlock: { target: 'flag', key: 'equip_a', comparator: '>=', value: 1 },
       },
     ],
-    chatMessages: [
-      { id: 'msg-1', owner: 'Hoshino', order: 1, content: '老师，早。' },
-      { id: 'msg-2', owner: 'Hoshino', order: 2, content: '今天也要加油哦。' },
-      { id: 'msg-locked', owner: 'Hoshino', order: 3, content: '隐藏消息', unlock: { target: 'flag', key: 'never', comparator: '>=', value: 1 } },
-      { id: 'msg-other', owner: 'Yuuka', order: 1, content: '优香的消息' },
-    ],
     activeStories: [
       {
         id: 'bond:hoshino_1',

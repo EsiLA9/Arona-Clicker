@@ -92,6 +92,8 @@ export class UIController {
   readonly popovers: PopoverManager;
   /** @internal 待落账的奖励通知（storyRewarded 排队，render 时统一入流）。 */
   pendingRewardChats: string[] = [];
+  /** @internal 输入中提示的推送定时器（进入对话空间时排队列，点发送/返回时取消）。 */
+  typingTimer: ReturnType<typeof setTimeout> | null = null;
   /** @internal 主题浮窗：跨 render 全量重建 #app 保留其开关键与位置（供 controller-theme / controller-actions-topbar 读写）。 */
   themeFloatOpen = false;
   /** @internal 主题浮窗位置（同上）。 */
@@ -113,9 +115,11 @@ export class UIController {
     /** @internal 供 controller-core / controller-modals / controller-panels 使用。 */
     readonly root: HTMLElement,
   ) {
-    // 未读消息计数（轴 A）：通讯录角色行气泡由 RosterSystem 可用消息查询驱动
+    // 未读计数（对话空间语义）：通讯录角色行气泡 = 该学生就绪队列条数（尾巴 + 台阶）
     this.panelState.getUnread = (variantId: string) =>
-      this.game.rosterSystem.unreadChatCount(this.game.state, variantId);
+      this.game.rosterSystem.isOwned(this.game.state, variantId)
+        ? this.game.story.readyStepCount(variantId)
+        : 0;
     // 绑定到 document.body：弹窗（app-modal）挂在 body 级，图鉴条目的悬停详情也要生效
     this.popovers = new PopoverManager(document.body, this.game);
     this.selectorPage = new SelectorPage({

@@ -24,7 +24,6 @@ export * from './drop-table';
 export * from './cultivate-curve';
 export * from './variant';
 export * from './gacha-pool';
-export * from './chat-message';
 export * from './passive-pool';
 export * from './affector-pack';
 export * from './chara-profile';

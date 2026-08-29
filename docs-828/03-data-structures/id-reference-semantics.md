@@ -52,7 +52,8 @@
 | `RosterEntry.equippedEquipment` | ColorEquipmentDef | 真 | 取 effects 应用（color-equipment-system） |
 | `ThemeDesignDef.entityKey` | Area / Variant | 意义 | 解锁时只作落点键：`entityThemeDesignsOwned[entityKey]` 与 setEntityThemeSlot 的键；设计自身携带 theme 内容 |
 | `EntityThemeSlot.designId / equipmentId` | ThemeDesignDef / ColorEquipmentDef | designId 真；equipmentId 特殊 | designId 解析出主题；equipmentId 写入但从不被读取——装备槽实际跟随当前已装备装备，是「身份存、实时解析」 |
-| `ChatMessageDef.owner` | CharacterVariantDef | 未接线 | 全引擎无任何代码读取 owner 做分组/展示，声明即存 |
+| `PassiveStoryEntry.owner` | CharacterVariantDef | 真 | 聊天空间壁垒：owner 声明者仅在该学生对话空间被抽取/推送（passive-pool-system 的 ownerOk 剪枝 + 就绪队列谓词） |
+| `PassiveStoryEntry.pushAfterStory` | StoryDef（演出本体 id） | 真 | 羁绊尾巴挂靠：关联剧情完结后强制优先推送进 owner 对话空间（见 [[docs-828/06-adr/planning]] §3） |
 
 ## 四、物品 / 掉落 / 强化
 
@@ -82,7 +83,7 @@
 
 1. **StoryEntry.id 与 StoryDef.id 同值**是最典型的「副本 id」设计：每个 Entry 都带一份与 Story 同名的 id 副本， `entry.storyId` 才是真引用（builder 缺省 `_storyId = id` ， `def-factory/story-entry.ts` ）。运行时**不强制 id\=\=\=storyId**，只有加载期校验 storyId 必须可解析——一旦启用「多 Entry 复用同一 Story」，entry.id 就退化为纯身份键，这是当前设计里最值得注意的一处。
 2. **混合引用**：`setTheme` 的 value 中 `colorId` 是真引用、`entityKey` 是意义引用；`affectorPackIds` 字符串真引用、内联匿名；`EntityThemeSlot.equipmentId` 写而不读。
-3. **三处未接线/未实现**：`refreshWorldPool`（池关闭并入世界 Pool）无调用点；`ChatMessageDef.owner` 无消费方；Effect `loot` 是 no-op 预留。
+3. **两处未接线/未实现**：`refreshWorldPool`（池关闭并入世界 Pool）无调用点；Effect `loot` 是 no-op 预留。（原第三处 `ChatMessageDef.owner` 随 ChatMessageDef 表于 2026-08-29 移除，不再存在。）
 4. **加载期校验覆盖面不一致**：有校验的（initId/areaId/defaultAreas/defaultSpots/storyId/curve/色彩系/gacha 成员）多数是真引用；而 jumpToStory、startStoryId、availableInits、adjacentAreaIds、PassivePoolChild、BranchGuard、owner 等**均无静态校验**——意义引用悬空不影响行为（身份匹配恒不中），但真引用悬空只会运行时软失败。
 
 ---
@@ -111,7 +112,7 @@
 ### 4. 写而不读 / 未接线
 
 - `EntityThemeSlot.equipmentId` 写入但不被读取——两个真相源，换装备并不改槽。
-- `ChatMessageDef.owner`、`refreshWorldPool`、Effect `loot`——声明即存、无消费方。声明式数据包里「声明了却不生效」最易误导数据作者。
+- `refreshWorldPool`、Effect `loot`——声明即存、无消费方。声明式数据包里「声明了却不生效」最易误导数据作者。（原列的 `ChatMessageDef.owner` 随该表于 2026-08-29 移除。）
 
 ### 5. 字符串 ID 泛滥（stringly-typed）
 
