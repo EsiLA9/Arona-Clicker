@@ -149,7 +149,16 @@ export type EffectOp =
    * target 忽略；value 忽略。由 effect-engine 转发给 ChatFlowService，mutations 保持 no-op。
    * Story 完结时引擎默认自动执行一次（UI 订阅 storyCompleted 清理）。
    */
-  | 'clearAllChatText';
+  | 'clearAllChatText'
+  /**
+   * 呼出开幕标题横幅（Talklet 演出服务）：在当前活跃聊天流中央显示横幅状标题
+   * （30 秒自动淡出，展示期间 UI 阻断该流的剧情推进点击）。target 忽略（''）；
+   * value = 横幅标题文本（覆盖式优先），空字符串/缺省时 UI 回退 entry.openingTitle ?? StoryDef.name。
+   * 时机：声明在首页时随剧情开始（含重读）立即呼出（推进离开首页时跳过防重复）；
+   * 声明在非首页时于离开该页时呼出（幕间标题）。
+   * 由 effect-engine 转发给 ChatFlowService，mutations 保持 no-op。
+   */
+  | 'showOpeningTitle';
 
 /**
  * 声明类效果 op：不进执行流（mutations 静默、Affector 激活沿过滤），

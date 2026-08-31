@@ -92,7 +92,7 @@ export const baseStories: StoryDef[] = [
           op: 'showChatText',
           target: 'perf:kizuna',
           value: {
-            talklet: { speaker: '阿罗娜', text: '羁绊入口', kizuna: { storyId: 'base:story:run_chain_1', title: '羁绊剧情 · 深夜巡逻（一）', buttonText: '进入羁绊剧情' } },
+            talklet: { speaker: '阿罗娜', text: '羁绊入口', kizuna: { storyId: 'base:activestory:run_chain_1', title: '羁绊剧情 · 深夜巡逻（一）', buttonText: '进入羁绊剧情' } },
             x: 0.5,
             y: 0.35,
             align: 'center',
@@ -191,7 +191,7 @@ export const baseStories: StoryDef[] = [
         .effects(
           { op: 'addResource', target: Resource.Credit, value: 6 },
           // 临时演出主题示例：这段剧情期间界面短暂切换为泳装星野的清凉蓝调
-          { op: 'setTheme', target: '', value: { colorGroupId: 'base:group:hoshino-swim' } },
+          { op: 'setTheme', target: '', value: { colorGroupId: 'base:colorgroup:hoshino-swim' } },
         ),
     )
     .build(),
@@ -425,7 +425,7 @@ export const baseStories: StoryDef[] = [
       narrate('——星野似乎有话想说……——', 'center'),
       line('星野', '老师，有件事想跟你说……', '嗯？什么事？'),
       talklet('星野酝酿了一下情绪……')
-        .kizunaCard('base:bond:hoshino_evening', { title: '傍晚的河堤', buttonText: '进入羁绊剧情' }),
+        .kizunaCard('base:activestory:bond_hoshino_evening', { title: '傍晚的河堤', buttonText: '进入羁绊剧情' }),
     )
     .build(),
 ];

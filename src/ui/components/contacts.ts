@@ -8,6 +8,7 @@
 import { UIContext } from '../context';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderSendButton } from './center-panel';
+import { renderOpeningBanner, renderStoryGate } from './story-gate';
 import { CharacterVariantDef, type ConditionGroup, type Condition, type Effect } from '../../engine/types';
 import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
 import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
@@ -163,8 +164,7 @@ function lastPreview(chats: ChatEntry[], owned: boolean): string {
 
 /**
  * 中栏对话空间：学生各自的聊天流（复用一般聊天的 ChatEntry/Story 机制）。
- * 顶部栏：左上 App 式返回键 + 学生名 + 未读小字（就绪队列条数）；
- * 流内：输入中省略号（队列有待推送内容时的"正在输入"提示）。
+ * 顶部栏：左上 App 式返回键 + 学生名 + 未读小字（就绪队列条数）。
  */
 export function renderConversationView(
   ctx: UIContext,
@@ -172,7 +172,9 @@ export function renderConversationView(
   entries: ChatEntry[],
   chatTexts: ChatTextEntry[],
   sendState: import('../../engine/types').SendState,
-  typing = false,
+  sendGate: import('./app-shell').SendGatePhase | null = null,
+  storyGate: import('./app-shell').StoryGateState | null = null,
+  openingBanner: import('./app-shell').ActiveBanner | null = null,
 ): string {
   const { game } = ctx;
   const variant = game.rosterSystem.getVariant(variantId);
@@ -188,11 +190,6 @@ export function renderConversationView(
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
 
-  // 输入中省略号：队列有待推送内容且无进行中演出（推送由打开空间/点击发送触发）
-  const typingHtml = typing && !story && game.story.readyStepCount(variantId) > 0
-    ? '<div class="chat-typing"><span class="chat-typing-dot"></span><span class="chat-typing-dot"></span><span class="chat-typing-dot"></span></div>'
-    : '';
-
   // 对话空间阻断态（壁垒重启）：某 PassiveStoryEntry 播完后要求满足条件才能继续闲聊。
   // 仅在没有进行中演出时锁定抽取（演出中仍走 send 推进）。
   const blockState = ctx.game.state.studentBlocks?.[variantId];
@@ -200,7 +197,7 @@ export function renderConversationView(
   const blocked = !story && !!(blockEntry && blockEntry.block)
     && !ctx.game.conditionSystem.evaluateGroup(blockEntry.block, ctx.game.state);
 
-  // 底部固定回复按钮：始终存在；阻塞时变灰并附带解锁条件说明
+  // 底部固定回复按钮：始终存在；门控/阻塞时不可推进（门控态由点击处理器转为节奏加速）
   const footer = blocked
     ? `
       <button class="send-button disabled" disabled>
@@ -209,7 +206,7 @@ export function renderConversationView(
         </span>
       </button>
       <div class="blocked-condition">满足条件后继续：${ctx.escapeHtml(describeCondition(blockEntry!.block!))}</div>`
-    : renderSendButton(sendState);
+    : renderSendButton(sendState, sendGate);
 
   const unreadCount = game.story.readyStepCount(variantId);
 
@@ -227,9 +224,10 @@ export function renderConversationView(
           <div class="chat-stream conversation-stream">
             ${renderChatHistory(entries, ctx)}
             ${current}
-            ${typingHtml}
           </div>
           ${renderChatTexts(ctx, chatTexts)}
+          ${openingBanner ? renderOpeningBanner(ctx, openingBanner) : ''}
+          ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
         </div>
         <div class="conversation-footer">
           ${footer}

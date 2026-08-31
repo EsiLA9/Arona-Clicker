@@ -211,7 +211,7 @@ describe('对话空间阻断态全链路（GameInstance）', () => {
     finishWelcome();
     // 复用已有被动闲聊 entry（其 storyId 指向真实 Story），覆盖注册以加 owner + block
     const owner = 'base:variant:hibiki';
-    const baseEntry = game.registry.passiveStories.get('base:story:schale_tea')!;
+    const baseEntry = game.registry.passiveStories.get('base:passivestory:schale_tea')!;
     const blockEntry: PassiveStoryEntry = {
       ...baseEntry,
       owner,
@@ -227,7 +227,7 @@ describe('对话空间阻断态全链路（GameInstance）', () => {
     expect(r.success && 'finished' in r && r.finished).toBe(true);
 
     expect(game.state.studentBlocks?.[owner]).toBeDefined();
-    expect(game.state.studentBlocks?.[owner].entryId).toBe('base:story:schale_tea');
+    expect(game.state.studentBlocks?.[owner].entryId).toBe('base:passivestory:schale_tea');
 
     // 该学生对话空间此刻被阻断：pick 返回 null
     expect(game.passivePoolSystem.pick(game.state, () => true, { owner, blocks: game.state.studentBlocks ?? {} })).toBeNull();
@@ -238,7 +238,7 @@ describe('对话空间阻断态全链路（GameInstance）', () => {
 
     // 阻断已解除
     expect(game.state.studentBlocks?.[owner]).toBeUndefined();
-    expect(game.passivePoolSystem.pick(game.state, () => true, { owner, blocks: game.state.studentBlocks ?? {} })).toBe('base:story:schale_tea');
+    expect(game.passivePoolSystem.pick(game.state, () => true, { owner, blocks: game.state.studentBlocks ?? {} })).toBe('base:passivestory:schale_tea');
   });
 });
 
@@ -265,7 +265,7 @@ describe('基础数据包池树（schale_office）', () => {
 
   /** 在星野聊天空间播完天台邀约（hoshino_conv_2 → hoshino_rooftop_hint 已读），武装天台 Trigger。 */
   function readRooftopInvite(g: GameInstance): void {
-    const r = g.story.startStory('base:story:hoshino_conv_2', 'passive', 'Hoshino');
+    const r = g.story.startStory('base:passivestory:hoshino_conv_2', 'passive', 'Hoshino');
     expect(r.success).toBe(true);
     let rg = 0;
     while (g.getStoryView('Hoshino') && rg++ < 20) g.story.advanceStory(undefined, 'Hoshino');
@@ -283,10 +283,10 @@ describe('基础数据包池树（schale_office）', () => {
 
   test('初始仅日常池可抽；office 设施归零关闭专题池，重开即时恢复', () => {
     // 初始：默认设施（信用点制造机等带 office 标签）已拥有 → 专题池开放
-    expect(game.passivePoolSystem.isAvailable('base:pool:schale_office_topic', game.state)).toBe(true);
-    expect(game.passivePoolSystem.isAvailable('base:pool:schale_night_owl', game.state)).toBe(false);
+    expect(game.passivePoolSystem.isAvailable('base:passivepool:schale_office_topic', game.state)).toBe(true);
+    expect(game.passivePoolSystem.isAvailable('base:passivepool:schale_night_owl', game.state)).toBe(false);
     const initial = pickable();
-    expect(initial.has('base:story:schale_tea')).toBe(true);
+    expect(initial.has('base:passivestory:schale_tea')).toBe(true);
 
     // 归零全部 office 标签设施 → tagCollectedChanged → 专题池关闭
     for (const [spotId, level] of Object.entries(game.state.spotLevels)) {
@@ -295,23 +295,23 @@ describe('基础数据包池树（schale_office）', () => {
       }
     }
     expect(game.tagStatService.collectedCount('spots', 'office')).toBe(0);
-    expect(game.passivePoolSystem.isAvailable('base:pool:schale_office_topic', game.state)).toBe(false);
+    expect(game.passivePoolSystem.isAvailable('base:passivepool:schale_office_topic', game.state)).toBe(false);
     const closed = pickable();
-    expect(closed.has('base:story:schale_vending')).toBe(false);
-    expect(closed.has('base:story:schale_tea')).toBe(true);
+    expect(closed.has('base:passivestory:schale_vending')).toBe(false);
+    expect(closed.has('base:passivestory:schale_tea')).toBe(true);
 
     // 重新解锁 → 专题池即时恢复（无需手动 recheck）
     game.mutations.setSpotLevel('base:spot:credit_printer', 1);
-    expect(game.passivePoolSystem.isAvailable('base:pool:schale_office_topic', game.state)).toBe(true);
+    expect(game.passivePoolSystem.isAvailable('base:passivepool:schale_office_topic', game.state)).toBe(true);
     const reopened = pickable();
-    expect(reopened.has('base:story:schale_vending')).toBe(true);
-    expect(reopened.has('base:story:schale_tea')).toBe(true);
+    expect(reopened.has('base:passivestory:schale_vending')).toBe(true);
+    expect(reopened.has('base:passivestory:schale_tea')).toBe(true);
   });
 
   test('night_mode flag 开启后深夜池可抽（经事件反射）', () => {
     game.mutations.setFlag('night_mode', '1');
     const seen = pickable(80);
-    expect(seen.has('base:story:schale_night')).toBe(true);
+    expect(seen.has('base:passivestory:schale_night')).toBe(true);
   });
 
   // 复现：千禧年 Init 下，小鸟游星野对话空间（owner='Hoshino'）只抽其专属闲聊，
@@ -330,10 +330,10 @@ describe('基础数据包池树（schale_office）', () => {
       if (candidate) seen.add(candidate);
     }
     // 专属闲聊应可被抽中
-    expect(seen.has('base:story:hoshino_conv_1')).toBe(true);
+    expect(seen.has('base:passivestory:hoshino_conv_1')).toBe(true);
     // 外部无 owner 全局闲聊绝不可泄漏
-    expect(seen.has('base:story:schale_sunset')).toBe(false);
-    expect(seen.has('base:story:schale_tea')).toBe(false);
+    expect(seen.has('base:passivestory:schale_sunset')).toBe(false);
+    expect(seen.has('base:passivestory:schale_tea')).toBe(false);
   });
 
   // 回归：外部 ActiveStoryEntry 播放时，聊天空间（owner 非空）的专属抽取不被阻塞。
@@ -341,7 +341,7 @@ describe('基础数据包池树（schale_office）', () => {
   test('壁垒·沙盒：外部 active 主线播放时 Hoshino 空间抽取专属不被阻塞', () => {
     finishWelcome();
     // 启动一条外部 active 主线（不属于任何聊天空间）
-    const ext = game.story.startActiveStory('base:story:run_chain_1');
+    const ext = game.story.startActiveStory('base:activestory:run_chain_1');
     expect(ext.success).toBe(true);
     expect(game.getView().currentStory).toBeTruthy();
 
@@ -356,19 +356,19 @@ describe('基础数据包池树（schale_office）', () => {
     // 聊天沙盒游标上是 Hoshino 专属闲聊
     expect(game.getStoryView('Hoshino')!.storyId).toMatch(/hoshino_conv|hoshino_bond_invite/);
     // 外部 active 主线仍保留在全局游标（并行，未被内部故事打断）
-    expect(game.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
+    expect(game.getView().currentStory!.storyId).toBe('base:activestory:run_chain_1');
   });
 
   // 多沙盒持久化：聊天沙盒游标与全局游标互不干扰，且都随存档保存/恢复。
   test('多沙盒·存档：聊天沙盒游标与全局游标并行，save/load 各自恢复', () => {
     finishWelcome();
     // 全局游标：外部 active 主线
-    expect(game.story.startActiveStory('base:story:run_chain_1').success).toBe(true);
+    expect(game.story.startActiveStory('base:activestory:run_chain_1').success).toBe(true);
     // 聊天沙盒：Hoshino 专属闲聊
     expect(game.story.triggerPassiveStory('base:init:schale_office', 'Hoshino').success).toBe(true);
     const hoshinoId = game.getStoryView('Hoshino')!.storyId;
     expect(hoshinoId).toMatch(/hoshino_conv|hoshino_bond_invite/);
-    expect(game.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
+    expect(game.getView().currentStory!.storyId).toBe('base:activestory:run_chain_1');
 
     // 存档 → 新实例读档
     const saved = game.save();
@@ -380,14 +380,14 @@ describe('基础数据包池树（schale_office）', () => {
     expect(g2.getStoryView('Hoshino')!.storyId).toBe(hoshinoId);
     // 全局游标恢复（并行互不丢失）
     expect(g2.getView().currentStory).not.toBeNull();
-    expect(g2.getView().currentStory!.storyId).toBe('base:story:run_chain_1');
+    expect(g2.getView().currentStory!.storyId).toBe('base:activestory:run_chain_1');
   });
 
   // 打断控制：天台剧情声明 leaveArea:false / interruptible:false，
   // 播放中锁定移动且不被移动打断（演出中途不可离场）。
   test('打断控制：天台剧情 leaveArea:false 锁定移动且不被打断', () => {
     finishWelcome();
-    expect(game.story.startStory('base:story:hoshino_conv_2', 'passive').success).toBe(true);
+    expect(game.story.startStory('base:passivestory:hoshino_conv_2', 'passive').success).toBe(true);
     // 播放中尝试移动（当前在 schale_main → 天台）→ 被 leaveArea:false 锁定
     expect(game.getView().currentStory).not.toBeNull();
     const move = game.travelToArea('base:area:schale_rooftop');
@@ -490,7 +490,7 @@ describe('基础数据包池树（schale_office）', () => {
     expect(r.success).toBe(true);
     const entryId = game.getStoryView('Hoshino')!.storyId; // StoryView.storyId = Entry.id（聊天沙盒游标）
     // pick 权重随机，conv_1/conv_2/bond_invite 皆属星野专属；核心是 owner 归属命中 Hoshino
-    expect(entryId).toMatch(/^base:story:hoshino_(conv_|bond_invite)/);
+    expect(entryId).toMatch(/^base:passivestory:hoshino_(conv_|bond_invite)/);
     // 渲染守卫反查（entry.id === story.storyId）应命中 owner='Hoshino'，而非全局无主 entry
     const owning = [...game.registry.passiveStories.values()]
       .filter(e => e.id === entryId)
@@ -505,8 +505,8 @@ describe('基础数据包池树（schale_office）', () => {
     // 初始在夏莱主厅（非天台）
     expect(game.getView().currentAreaId).toBe('base:area:schale_main');
     // 模拟天台剧情播完后锁定了星野对话空间（block 条件 = 位于夏莱天台）
-    game.mutations.setStudentBlock('Hoshino', 'base:story:hoshino_conv_2');
-    expect(game.state.studentBlocks?.['Hoshino']?.entryId).toBe('base:story:hoshino_conv_2');
+    game.mutations.setStudentBlock('Hoshino', 'base:passivestory:hoshino_conv_2');
+    expect(game.state.studentBlocks?.['Hoshino']?.entryId).toBe('base:passivestory:hoshino_conv_2');
     // 未到天台 → 阻断保持
     game.tick();
     expect(game.state.studentBlocks?.['Hoshino']).toBeTruthy();
@@ -552,23 +552,23 @@ describe('基础数据包池树（schale_office）', () => {
     game.eventBus.on('storyRewarded', e => {
       if (e.type === 'storyRewarded') rewarded.push({ flags: e.flags });
     });
-    expect(game.passivePoolSystem.isAvailable('base:pool:schale_night_owl', game.state)).toBe(false);
+    expect(game.passivePoolSystem.isAvailable('base:passivepool:schale_night_owl', game.state)).toBe(false);
 
     // 完成两页闲聊（第二页 Talklet 效果置 night_mode）
-    expect(api.startStory('base:story:schale_planner', 'passive').success).toBe(true);
+    expect(api.startStory('base:passivestory:schale_planner', 'passive').success).toBe(true);
     let r = game.story.advanceStory();
     while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(r.success && 'finished' in r && r.finished).toBe(true);
 
     expect(game.state.flags['night_mode']).toBe('1');
     expect(rewarded.some(e => e.flags.includes('night_mode'))).toBe(true);
-    expect(game.passivePoolSystem.isAvailable('base:pool:schale_night_owl', game.state)).toBe(true);
+    expect(game.passivePoolSystem.isAvailable('base:passivepool:schale_night_owl', game.state)).toBe(true);
 
     // 抽选树确实可达深夜剧情（谓词限定只允许 night 命中）
-    expect(game.passivePoolSystem.pick(game.state, e => e.id === 'base:story:schale_night')).toBe('base:story:schale_night');
+    expect(game.passivePoolSystem.pick(game.state, e => e.id === 'base:passivestory:schale_night')).toBe('base:passivestory:schale_night');
     // triggerPassiveStory 全链路也能抽到（多次抽样）
     const seen = pickable(80);
-    expect(seen.has('base:story:schale_night')).toBe(true);
+    expect(seen.has('base:passivestory:schale_night')).toBe(true);
   });
 
   // Talklet 移动·Init 归属：travelToArea（checkAdjacency=false）到不属于当前 Init 的 Area → 跳过。

@@ -24,9 +24,9 @@ describe('AronaClickerCore JSON 数据包（打包读取）', () => {
     zipBuffer = readFileSync(ZIP_PATH);
   });
 
-  test('加载 zip：22 个 json 分片全部合并，无忽略文件', async () => {
+  test('加载 zip：23 个 json 分片全部合并，无忽略文件', async () => {
     const { datapack, jsonFileCount, ignoredCount } = await loadDatapackFromZipBuffer(zipBuffer);
-    expect(jsonFileCount).toBe(22);
+    expect(jsonFileCount).toBe(23);
     expect(ignoredCount).toBe(0);
     expect(datapack.name).toBe('AronaClickerCore');
     expect(datapack.version).toBe('0.1.0');
@@ -78,14 +78,14 @@ describe('AronaClickerCore JSON 数据包（打包读取）', () => {
     expect(reg.spotsOfArea('base:area:schale_main')).toContain('base:spot:credit_printer');
     expect(reg.getExtra('balance/max-credit')).toEqual({ t: 'int', v: 100000 });
     // 触发入口注册表：active / passive 分表，入口与演出 1:1 可解析
-    expect(reg.activeStories.get('base:story:schale_welcome')).toBeDefined();
-    expect(reg.activeStories.get('base:story:schale_welcome')!.storyId).toBe('base:story:schale_welcome');
-    expect(reg.passiveStories.get('base:story:millennium_chat')).toBeDefined();
-    const millenniumChat = reg.passiveStories.get('base:story:millennium_chat')!;
+    expect(reg.activeStories.get('base:activestory:schale_welcome')).toBeDefined();
+    expect(reg.activeStories.get('base:activestory:schale_welcome')!.storyId).toBe('base:story:schale_welcome');
+    expect(reg.passiveStories.get('base:passivestory:millennium_chat')).toBeDefined();
+    const millenniumChat = reg.passiveStories.get('base:passivestory:millennium_chat')!;
     expect(millenniumChat.completionReward).toBeDefined();
     // 合并只读视图：active ∪ passive 统一可按 id 查询
-    expect(reg.storyEntries.get('base:story:schale_welcome')).toBeDefined();
-    expect(reg.storyEntries.get('base:story:millennium_chat')).toBeDefined();
+    expect(reg.storyEntries.get('base:activestory:schale_welcome')).toBeDefined();
+    expect(reg.storyEntries.get('base:passivestory:millennium_chat')).toBeDefined();
     // 演出本体纯演出：无触发字段
     expect(reg.stories.get('base:story:schale_welcome')!.talklets).toHaveLength(2);
     expect(reg.stories.get('base:story:schale_welcome')!).not.toHaveProperty('triggerCondition');

@@ -36,26 +36,26 @@ function makeVariant(id: string, proto: Character): CharacterVariantDef[] {
   }];
 }
 
-const stepStory1 = story('test:aff:s1', '台阶一').scene(
+const stepStory1 = story('test:story:s1', '台阶一').scene(
   line('星野', '台阶一 · 第一页'),
   line('星野', '台阶一 · 完').effects({ op: 'addAffectionExp', target: 'Hoshino', value: 50 }),
 ).build();
 
-const stepStory2 = story('test:aff:s2', '台阶二').scene(
+const stepStory2 = story('test:story:s2', '台阶二').scene(
   line('星野', '台阶二 · 完').effects({ op: 'addAffectionExp', target: 'Hoshino', value: 50 }),
 ).build();
 
-const stepStoryA = story('test:aff:sa', '台阶A').scene(line('星野', '台阶A · 完')).build();
-const stepStoryB = story('test:aff:sb', '台阶B').scene(line('星野', '台阶B · 完')).build();
+const stepStoryA = story('test:story:sa', '台阶A').scene(line('星野', '台阶A · 完')).build();
+const stepStoryB = story('test:story:sb', '台阶B').scene(line('星野', '台阶B · 完')).build();
 
-const chatterStory = story('test:aff:chatter', '日常闲聊').scene(line('星野', '唔……闲聊……')).build();
+const chatterStory = story('test:story:chatter', '日常闲聊').scene(line('星野', '唔……闲聊……')).build();
 
-const kizunaStory = story('test:aff:kizuna_story', '羁绊剧情').scene(
+const kizunaStory = story('test:story:kizuna_story', '羁绊剧情').scene(
   narrate('——羁绊演出——', 'center'),
   line('星野', '羁绊剧情 · 完'),
 ).build();
 
-const tailStory = story('test:aff:tail', '羁绊尾巴').scene(
+const tailStory = story('test:story:tail', '羁绊尾巴').scene(
   narrate('——归途——', 'center'),
   line('星野', '尾巴 · 完'),
 ).build();
@@ -69,16 +69,16 @@ function makePack(overrides: Partial<Datapack> = {}): Datapack {
     spots: [],
     enhancements: [],
     activeStories: [
-      activeStory('test:aff:kizuna', 'test:aff:kizuna_story').owner('Hoshino').build(),
+      activeStory('test:activestory:kizuna', 'test:story:kizuna_story').owner('Hoshino').build(),
     ],
     passiveStories: [
       // 台阶：需求值升序 2 → 3
-      passiveStory('test:aff:s1').owner('Hoshino').repeatable(false).affectionRequired(2).build(),
-      passiveStory('test:aff:s2').owner('Hoshino').repeatable(false).affectionRequired(3).build(),
+      passiveStory('test:passivestory:s1', 'test:story:s1').owner('Hoshino').repeatable(false).affectionRequired(2).build(),
+      passiveStory('test:passivestory:s2', 'test:story:s2').owner('Hoshino').repeatable(false).affectionRequired(3).build(),
       // 普通闲聊（owner 归属星野，参与随机抽取）
-      passiveStory('test:aff:chatter').owner('Hoshino').repeatable(true).build(),
+      passiveStory('test:passivestory:chatter', 'test:story:chatter').owner('Hoshino').repeatable(true).build(),
       // §3 羁绊尾巴：kizuna 剧情完结后强制优先推送
-      passiveStory('test:aff:tail', 'test:aff:tail').owner('Hoshino').repeatable(false).pushAfterStory('test:aff:kizuna_story').build(),
+      passiveStory('test:passivestory:tail', 'test:story:tail').owner('Hoshino').repeatable(false).pushAfterStory('test:story:kizuna_story').build(),
     ],
     stories: [stepStory1, stepStory2, chatterStory, kizunaStory, tailStory],
     items: [],
@@ -254,7 +254,7 @@ describe('§2 轴 B：好感台阶剧情', () => {
     game.mutations.addAffectionExp('Hoshino', 15); // → 2 级，台阶一入队
     const push = game.story.triggerAffectionPush('Hoshino');
     expect(push.success).toBe(true);
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:s1');
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:s1');
 
     finishStory(game, 'Hoshino');
     expect(game.getStoryView('Hoshino')).toBeNull();
@@ -267,9 +267,9 @@ describe('§2 轴 B：好感台阶剧情', () => {
   test('多条同时达标按需求值升序逐条放出（并列按声明序）', () => {
     const pack = makePack({
       passiveStories: [
-        passiveStory('test:aff:sb').owner('Hoshino').repeatable(false).affectionRequired(2).build(), // 声明在前
-        passiveStory('test:aff:sa').owner('Hoshino').repeatable(false).affectionRequired(2).build(), // 同需求
-        passiveStory('test:aff:s2').owner('Hoshino').repeatable(false).affectionRequired(3).build(), // 需求更高
+        passiveStory('test:passivestory:sb', 'test:story:sb').owner('Hoshino').repeatable(false).affectionRequired(2).build(), // 声明在前
+        passiveStory('test:passivestory:sa', 'test:story:sa').owner('Hoshino').repeatable(false).affectionRequired(2).build(), // 同需求
+        passiveStory('test:passivestory:s2', 'test:story:s2').owner('Hoshino').repeatable(false).affectionRequired(3).build(), // 需求更高
       ],
       stories: [stepStoryA, stepStoryB, stepStory2, kizunaStory, tailStory],
     });
@@ -279,13 +279,13 @@ describe('§2 轴 B：好感台阶剧情', () => {
     game.mutations.addAffectionExp('Hoshino', 100_000); // 直达 20 级，三条全部达标
 
     expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:sb'); // 并列取声明序
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:sb'); // 并列取声明序
     finishStory(game, 'Hoshino');
     expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:sa');
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:sa');
     finishStory(game, 'Hoshino');
     expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:s2'); // 需求值更高者殿后
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:s2'); // 需求值更高者殿后
   });
 
   test('台阶退出随机抽取；队列空时点击发送回落日常闲聊', () => {
@@ -295,14 +295,14 @@ describe('§2 轴 B：好感台阶剧情', () => {
     // 好感 1 级：队列空 → 点击发送回落闲聊（chatter 可用）
     const r = game.story.clickSend('Hoshino');
     expect(r).toMatchObject({ type: 'idle', started: true });
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:chatter');
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:chatter');
     finishStory(game, 'Hoshino');
 
     // 直达高好感后：点击发送必中台阶（队列优先），不再随机
     game.mutations.addAffectionExp('Hoshino', 100_000);
     const r2 = game.story.clickSend('Hoshino');
     expect(r2).toMatchObject({ type: 'idle', started: true });
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:s1');
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:s1');
   });
 
   test('readyStepCount = 就绪队列条数（未拥有 → 0；消费后递减）', () => {
@@ -349,18 +349,18 @@ describe('§3 羁绊尾巴（pushAfterStory）', () => {
     game.mutations.acquireCharacter('Hoshino', 'gacha');
     // 羁绊剧情未完结：尾巴不入队，定向推送无可用
     expect(game.story.readyStepCount('Hoshino')).toBe(0);
-    expect(game.story.triggerTailPush('Hoshino', 'test:aff:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
+    expect(game.story.triggerTailPush('Hoshino', 'test:story:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
 
     // 完结羁绊剧情（startCardStory 语义，skipConditions）
-    expect(game.story.startCardStory('test:aff:kizuna', 'Hoshino').success).toBe(true);
+    expect(game.story.startCardStory('test:activestory:kizuna', 'Hoshino').success).toBe(true);
     finishStory(game, 'Hoshino');
     expect(game.story.readyStepCount('Hoshino')).toBe(1); // 尾巴入队（台阶未达标）
 
     // 定向推送尾巴；播过后出队，再推被拒
-    expect(game.story.triggerTailPush('Hoshino', 'test:aff:kizuna_story').success).toBe(true);
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:tail');
+    expect(game.story.triggerTailPush('Hoshino', 'test:story:kizuna_story').success).toBe(true);
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:tail');
     finishStory(game, 'Hoshino');
-    expect(game.story.triggerTailPush('Hoshino', 'test:aff:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
+    expect(game.story.triggerTailPush('Hoshino', 'test:story:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
     expect(game.story.readyStepCount('Hoshino')).toBe(0);
   });
 
@@ -370,15 +370,15 @@ describe('§3 羁绊尾巴（pushAfterStory）', () => {
     game.mutations.acquireCharacter('Hoshino', 'gacha');
     game.mutations.addAffectionExp('Hoshino', 100_000); // 台阶全部达标
     // 完结羁绊剧情 → 尾巴入队，且排在台阶之前
-    game.story.startCardStory('test:aff:kizuna', 'Hoshino');
+    game.story.startCardStory('test:activestory:kizuna', 'Hoshino');
     finishStory(game, 'Hoshino');
     expect(game.story.readyStepCount('Hoshino')).toBe(3); // 尾巴 + 台阶一 + 台阶二
 
     expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:tail'); // 强制优先
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:tail'); // 强制优先
     finishStory(game, 'Hoshino');
     expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:s1'); // 其后按需求值
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:s1'); // 其后按需求值
   });
 
   test('尾巴退出随机抽取；owner 不匹配不触发', () => {
@@ -386,19 +386,19 @@ describe('§3 羁绊尾巴（pushAfterStory）', () => {
     game.init([makePack()]);
     game.mutations.acquireCharacter('Hoshino', 'gacha');
     game.mutations.acquireCharacter('Serika', 'gacha');
-    game.story.startCardStory('test:aff:kizuna', 'Hoshino');
+    game.story.startCardStory('test:activestory:kizuna', 'Hoshino');
     finishStory(game, 'Hoshino'); // 尾巴就绪（Hoshino）
 
     // 点击发送在队列有尾巴时必中尾巴（不走随机）
     const r = game.story.clickSend('Hoshino');
     expect(r).toMatchObject({ type: 'idle', started: true });
-    expect(game.getStoryView('Hoshino')!.storyId).toBe('test:aff:tail');
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:tail');
     finishStory(game, 'Hoshino');
 
     // owner 不匹配：Serika 的空间推不到 Hoshino 的尾巴
-    expect(game.story.triggerTailPush('Serika', 'test:aff:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
+    expect(game.story.triggerTailPush('Serika', 'test:story:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
     // 游标占用：进行中剧情拒绝推送
     game.story.clickSend('Hoshino'); // 台阶一（队列优先）
-    expect(game.story.triggerTailPush('Hoshino', 'test:aff:kizuna_story')).toMatchObject({ success: false, error: 'AlreadyActive' });
+    expect(game.story.triggerTailPush('Hoshino', 'test:story:kizuna_story')).toMatchObject({ success: false, error: 'AlreadyActive' });
   });
 });

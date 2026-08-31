@@ -118,6 +118,7 @@ export function describeEffect(effect: Effect, nameOf: NameResolver): string {
     case 'showChatText': return `演出文本「${valueText}」@${target}`;
     case 'clearIdChatFlow': return `擦除演出文本 ${target}`;
     case 'clearAllChatText': return `清空全部演出文本`;
+    case 'showOpeningTitle': return `呼出开幕标题「${valueText}」`;
     default: {
       // 穷尽性守卫：EffectOp 新增成员而未补文案时编译报错
       const never: never = effect.op;

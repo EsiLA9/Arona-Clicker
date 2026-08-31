@@ -41,7 +41,7 @@ import {
 //   选择页按该数值降序单列排列（高在上低在下）。
 // ============================================================
 
-const SCHALE: StoryId = 'base:story:schale_welcome';
+const SCHALE: StoryId = 'base:activestory:schale_welcome';
 
 const MILLENNIUM_AREA: AreaId = 'base:area:millennium_lab';
 const ABYDOS_AREA: AreaId = 'base:area:abydos_campus';
@@ -75,7 +75,7 @@ const schaleTriggers: TriggerDef[] = [
     condition: and(cond('hasReadStory', 'base:story:hoshino_rooftop_hint', '==', 1)),
     effects: [
       // 触发天台相遇剧情（独立于聊天空间邀约，避免重复触发同一故事）
-      { op: 'triggerStory', target: 'base:story:hoshino_rooftop_meet', value: 0 },
+      { op: 'triggerStory', target: 'base:activestory:hoshino_rooftop_meet', value: 0 },
     ],
     once: true,
   },

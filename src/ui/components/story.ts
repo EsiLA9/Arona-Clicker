@@ -22,7 +22,7 @@ export const storyErrorText: Record<string, string> = {
 /** 聊天流中的一个条目（由 controller 累积，含历史）。 */
 export interface ChatEntry {
   id: number;
-  kind: 'talk' | 'narration' | 'system' | 'reward';
+  kind: 'talk' | 'narration' | 'system' | 'reward' | 'typing';
   speaker?: string;
   text: string;
   storyType?: 'active' | 'passive';
@@ -36,6 +36,8 @@ export interface ChatEntry {
   side?: 'left' | 'right';
   /** 是否渲染圆形头像（缺省 false = 渲染）。 */
   noAvatar?: boolean;
+  /** 连发分组中强制完整显示头像与名称（Talklet.showAvatar 的透传，缺省跟随分组规则）。 */
+  showAvatar?: boolean;
   /** 聊天流发送图片：直连 URL 或 `mod:type(pic):id` 三段式图片索引（渲染在气泡内 text 上方）。 */
   image?: string;
   timestamp: number;
@@ -101,8 +103,9 @@ function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: strin
   return `<span class="chat-avatar">${fallback}</span>`;
 }
 
-/** 对话气泡：左侧圆形头像（NPC）/ 右侧（玩家），对侧上部名字 + 下部小箭头气泡。 */
-export function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: string): string {
+/** 对话气泡：左侧圆形头像（NPC）/ 右侧（玩家），对侧上部名字 + 下部小箭头气泡。
+ *  hideIdentity（§4 连发分组）：同人连发中非首条不渲染头像与名称，以不可见头像占位保持气泡缩进对齐。 */
+export function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: string, hideIdentity = false): string {
   const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
   // 仅玩家回复保留"回复"标签（当前注释禁用，见同步流）；NPC 不再显示 PASSIVE/ACTIVE
@@ -111,12 +114,17 @@ export function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: strin
   // 聊天流发送图片：pic ref / 直连 URL 经 getPicUrl 解析；解析失败则整图不渲染
   const image = entry.image ? renderChatImage(ctx, entry.image) : '';
   const bubble = `
-    <div class="chat-bubble chat-bubble-${isRight ? 'player' : 'npc'}"${styleAttr}>
+    <div class="chat-bubble chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}"${styleAttr}>
       ${image}
       <p>${ctx.escapeHtml(entry.text)}</p>
     </div>`;
-  const main = `<div class="chat-talk-main"><div class="chat-name">${badge}${name}</div>${bubble}</div>`;
-  const avatar = entry.noAvatar ? '' : renderAvatar(ctx, entry.avatar, entry.speaker);
+  const nameLine = hideIdentity ? '' : `<div class="chat-name">${badge}${name}</div>`;
+  const main = `<div class="chat-talk-main">${nameLine}${bubble}</div>`;
+  const avatar = entry.noAvatar
+    ? ''
+    : hideIdentity
+      ? '<span class="chat-avatar chat-avatar-ghost" aria-hidden="true"></span>'
+      : renderAvatar(ctx, entry.avatar, entry.speaker);
   return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}">${avatar}${main}</div>`;
 }
 
@@ -156,14 +164,49 @@ function renderReplyCard(
     </div>`;
 }
 
-/** 渲染累积的聊天历史（气泡流）。 */
+/** "正在输入"气泡：复用 talk 气泡骨架（头像/名字/侧向），正文为 send-dots 节奏点（§4 页级打字提示）。
+ *  hideIdentity（连发分组接续）：不渲染头像与名称，仅显示气泡内节奏点。 */
+function renderTyping(ctx: UIContext, entry: ChatEntry, hideIdentity = false): string {
+  const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
+  const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
+  const bubble = `<div class="chat-bubble chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}"><span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>`;
+  const nameLine = hideIdentity ? '' : `<div class="chat-name">${name}</div>`;
+  const main = `<div class="chat-talk-main">${nameLine}${bubble}</div>`;
+  const avatar = entry.noAvatar
+    ? ''
+    : hideIdentity
+      ? '<span class="chat-avatar chat-avatar-ghost" aria-hidden="true"></span>'
+      : renderAvatar(ctx, entry.avatar, entry.speaker);
+  return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}">${avatar}${main}</div>`;
+}
+
+/** 连发分组判定（§4）：相邻两条均为简单 chat（talk/typing）且同人同侧——
+ *  speaker / avatar / 气泡侧 / 玩家身份 / noAvatar 形态全部一致。其余条目（旁白、
+ *  系统行、奖励行、他人回复等）一律打断分组。 */
+function sameChainGroup(a: ChatEntry | undefined, b: ChatEntry): boolean {
+  if (!a || (a.kind !== 'talk' && a.kind !== 'typing')) return false;
+  if (b.kind !== 'talk' && b.kind !== 'typing') return false;
+  const sideOf = (e: ChatEntry) => e.side ?? (e.isPlayer ? 'right' : 'left');
+  return (a.speaker ?? '') === (b.speaker ?? '')
+    && (a.avatar ?? '') === (b.avatar ?? '')
+    && sideOf(a) === sideOf(b)
+    && !!a.isPlayer === !!b.isPlayer
+    && !!a.noAvatar === !!b.noAvatar;
+}
+
+/** 渲染累积的聊天历史（气泡流）。同人连发分组：仅组内首条渲染头像/名称，后续只出现气泡。 */
 export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string {
   if (entries.length === 0) {
     return '<div class="chat-empty">还没有对话记录。点击下方按钮开始一次聊天。</div>';
   }
+  let prev: ChatEntry | undefined;
   return entries
     .map(entry => {
+      // showAvatar 强制完整显示；否则仅当上一条同属同人连发时隐藏头像/名称
+      const hideIdentity = !entry.showAvatar && sameChainGroup(prev, entry);
+      prev = entry;
       if (entry.kind === 'narration') return renderNarration(ctx, entry);
+      if (entry.kind === 'typing') return renderTyping(ctx, entry, hideIdentity);
       if (entry.kind === 'system') {
         return `<div class="chat-bubble chat-system"><span class="chat-kind">SYSTEM</span><p>${ctx.escapeHtml(entry.text)}</p></div>`;
       }
@@ -171,7 +214,7 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
         // 简洁风格：居中圆角小条，无「REWARD」小字符（奖励/移动通知同款）
         return `<div class="chat-reward"><p>${ctx.escapeHtml(entry.text)}</p></div>`;
       }
-      return renderTalk(ctx, entry);
+      return renderTalk(ctx, entry, undefined, hideIdentity);
     })
     .join('');
 }

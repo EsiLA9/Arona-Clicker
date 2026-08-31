@@ -34,4 +34,9 @@ export class ChatFlowService {
   clearId(id: string): void {
     this.eventBus.emit({ type: 'chatTextCleared', id });
   }
+
+  /** 呼出开幕标题横幅：title = showOpeningTitle 效果的 value 文本（缺省时 UI 回退 entry.openingTitle ?? StoryDef.name）。 */
+  showOpeningTitle(title?: string): void {
+    this.eventBus.emit(title ? { type: 'openingTitleShown', title } : { type: 'openingTitleShown' });
+  }
 }

@@ -48,21 +48,21 @@ describe('TriggerBuilder', () => {
   });
 
   test('once() 显式控制 true/false 均输出', () => {
-    expect(trigger('t').onTick().once(false).build()).toHaveProperty('once', false);
-    expect(trigger('t').onTick().build()).toHaveProperty('once', true);
-    expect(trigger('t').onTick().once().build()).toHaveProperty('once', true);
+    expect(trigger('test:trigger:t').onTick().once(false).build()).toHaveProperty('once', false);
+    expect(trigger('test:trigger:t').onTick().build()).toHaveProperty('once', true);
+    expect(trigger('test:trigger:t').onTick().once().build()).toHaveProperty('once', true);
   });
 
   test('事件侦测糖方法构造 TriggerEventDef 变体', () => {
     const t = (b: ReturnType<typeof trigger>) => b.build().on;
-    expect(t(trigger('t').onTick(5))).toEqual({ kind: 'tick', every: 5 });
-    expect(t(trigger('t').onResource(CREDIT))).toEqual({ kind: 'resource', resource: CREDIT });
-    expect(t(trigger('t').onSpotLevel('s'))).toEqual({ kind: 'spotLevel', spotId: 's' });
-    expect(t(trigger('t').onSpotLevel())).toEqual({ kind: 'spotLevel' });
-    expect(t(trigger('t').onItem('i'))).toEqual({ kind: 'item', itemId: 'i' });
-    expect(t(trigger('t').onStory('st'))).toEqual({ kind: 'story', storyId: 'st' });
-    expect(t(trigger('t').onInit('in'))).toEqual({ kind: 'init', initId: 'in' });
-    expect(t(trigger('t').onArea('a'))).toEqual({ kind: 'area', areaId: 'a' });
+    expect(t(trigger('test:trigger:t').onTick(5))).toEqual({ kind: 'tick', every: 5 });
+    expect(t(trigger('test:trigger:t').onResource(CREDIT))).toEqual({ kind: 'resource', resource: CREDIT });
+    expect(t(trigger('test:trigger:t').onSpotLevel('test:spot:s'))).toEqual({ kind: 'spotLevel', spotId: 'test:spot:s' });
+    expect(t(trigger('test:trigger:t').onSpotLevel())).toEqual({ kind: 'spotLevel' });
+    expect(t(trigger('test:trigger:t').onItem('test:item:i'))).toEqual({ kind: 'item', itemId: 'test:item:i' });
+    expect(t(trigger('test:trigger:t').onStory('test:story:st'))).toEqual({ kind: 'story', storyId: 'test:story:st' });
+    expect(t(trigger('test:trigger:t').onInit('test:init:in'))).toEqual({ kind: 'init', initId: 'test:init:in' });
+    expect(t(trigger('test:trigger:t').onArea('test:area:a'))).toEqual({ kind: 'area', areaId: 'test:area:a' });
   });
 
   test('匿名 Trigger（无 id）不输出 id 字段', () => {
@@ -72,7 +72,7 @@ describe('TriggerBuilder', () => {
   });
 
   test('effects 追加与 and() 组合条件', () => {
-    const def = trigger('t')
+    const def = trigger('test:trigger:t')
       .onTick()
       .when(and(cond('resource', CREDIT, '>=', 10), cond('flag', 'f', '==', 1)))
       .effects({ op: 'addResource', target: CREDIT, value: 5 })

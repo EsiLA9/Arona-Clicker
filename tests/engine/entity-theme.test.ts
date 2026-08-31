@@ -23,22 +23,22 @@ describe('实体主题槽：entityThemeOverride', () => {
     game.init([baseDatapack]);
     game.inits.startNewGame(OFFICE);
     game.mutations.acquireCharacter('Arona', 'gacha');
-    game.mutations.activateTheme('base:group:schale-solid');
+    game.mutations.activateTheme('base:colorgroup:schale-solid');
     game.colorSystem.syncPlayerThemeFromState(game.state);
     // 注册一个样例设计（目标 Abydos 沙漠街道）
     addDesign({
-      id: 'base:design:abydos-sunset',
+      id: 'base:themedesign:abydos-sunset',
       name: '阿比多斯·落日',
       entityKey: entityKeyOf('area', 'base:area:abydos_pool'),
-      theme: { colorGroupId: 'base:group:coral' },
+      theme: { colorGroupId: 'base:colorgroup:coral' },
       unlock: { target: 'flag', key: 'abydos_sunset_unlocked', comparator: '==', value: 1 },
     });
     // 第二个设计：专供「解锁流程」用例（未被前置用例解锁）
     addDesign({
-      id: 'base:design:abydos-dusk',
+      id: 'base:themedesign:abydos-dusk',
       name: '阿比多斯·暮色',
       entityKey: entityKeyOf('area', 'base:area:abydos_pool'),
-      theme: { colorGroupId: 'base:group:indigo' },
+      theme: { colorGroupId: 'base:colorgroup:indigo' },
       unlock: { target: 'flag', key: 'abydos_dusk_unlocked', comparator: '==', value: 1 },
     });
   });
@@ -56,7 +56,7 @@ describe('实体主题槽：entityThemeOverride', () => {
 
   test('custom 槽 → 返回 customTheme', () => {
     const key = entityKeyOf('area', 'base:area:abydos_pool');
-    const custom = { colorGroupId: 'base:group:ink', tokens: { primary: '#1e3a5f' } };
+    const custom = { colorGroupId: 'base:colorgroup:ink', tokens: { primary: '#1e3a5f' } };
     game.mutations.setEntityThemeSlot(key, { kind: 'custom', customTheme: custom });
     const override = game.colorSystem.entityThemeOverride(game.state, key);
     expect(override).toEqual(custom);
@@ -66,32 +66,32 @@ describe('实体主题槽：entityThemeOverride', () => {
 
   test('design 槽 — 未拥有 → null', () => {
     const key = entityKeyOf('area', 'base:area:abydos_pool');
-    game.mutations.setEntityThemeSlot(key, { kind: 'design', designId: 'base:design:abydos-sunset' });
+    game.mutations.setEntityThemeSlot(key, { kind: 'design', designId: 'base:themedesign:abydos-sunset' });
     expect(game.colorSystem.entityThemeOverride(game.state, key)).toBeNull();
     game.mutations.setEntityThemeSlot(key, null);
   });
 
   test('design 槽 — 已拥有 → 返回设计的 theme', () => {
     const key = entityKeyOf('area', 'base:area:abydos_pool');
-    game.mutations.unlockEntityDesign(key, 'base:design:abydos-sunset');
-    game.mutations.setEntityThemeSlot(key, { kind: 'design', designId: 'base:design:abydos-sunset' });
+    game.mutations.unlockEntityDesign(key, 'base:themedesign:abydos-sunset');
+    game.mutations.setEntityThemeSlot(key, { kind: 'design', designId: 'base:themedesign:abydos-sunset' });
     const override = game.colorSystem.entityThemeOverride(game.state, key);
     expect(override).toBeTruthy();
-    expect(override!.colorGroupId).toBe('base:group:coral');
+    expect(override!.colorGroupId).toBe('base:colorgroup:coral');
     // 清理
     game.mutations.setEntityThemeSlot(key, null);
   });
 
   test('equipment 槽 — 未装备 → null', () => {
     const key = entityKeyOf('variant', 'Arona');
-    game.mutations.setEntityThemeSlot(key, { kind: 'equipment', equipmentId: 'base:equip:schale-badge' });
+    game.mutations.setEntityThemeSlot(key, { kind: 'equipment', equipmentId: 'base:colorequipment:schale-badge' });
     expect(game.colorSystem.entityThemeOverride(game.state, key, null)).toBeNull();
     game.mutations.setEntityThemeSlot(key, null);
   });
 });
 
 describe('设计解锁 tryUnlockDesign', () => {
-  const DESIGN = 'base:design:abydos-dusk';
+  const DESIGN = 'base:themedesign:abydos-dusk';
 
   test('未知设计 → false', () => {
     expect(game.colorSystem.tryUnlockDesign(entityKeyOf('area', 'base:area:abydos_pool'), 'nonexistent')).toBe(false);
@@ -131,10 +131,10 @@ describe('主题选项 entityThemeOptions', () => {
   test('有声明主题 + 已解锁设计 → 包含默认 + 设计选项', () => {
     const key = entityKeyOf('area', 'base:area:abydos_pool');
     const opts = game.colorSystem.entityThemeOptions(game.state, key, {
-      declaredTheme: { colorGroupId: 'base:group:abydos-sand' },
+      declaredTheme: { colorGroupId: 'base:colorgroup:abydos-sand' },
     });
     expect(opts.some(o => o.kind === 'default')).toBe(true);
-    expect(opts.some(o => o.kind === 'design' && o.id === 'base:design:abydos-sunset' && o.owned)).toBe(true);
+    expect(opts.some(o => o.kind === 'design' && o.id === 'base:themedesign:abydos-sunset' && o.owned)).toBe(true);
   });
 });
 
@@ -144,12 +144,12 @@ describe('setTheme effect scope 扩展', () => {
     const handled = game.colorSystem.handleThemeEffect({
       op: 'setTheme',
       target: '',
-      value: { scope: 'area', entityKey: key, colorGroupId: 'base:group:ink', tokens: { primary: '#1e3a5f' } },
+      value: { scope: 'area', entityKey: key, colorGroupId: 'base:colorgroup:ink', tokens: { primary: '#1e3a5f' } },
     });
     expect(handled).toBe(true);
     const slot = game.state.entityThemeSlots?.[key];
     expect(slot?.kind).toBe('custom');
-    expect(slot?.customTheme?.colorGroupId).toBe('base:group:ink');
+    expect(slot?.customTheme?.colorGroupId).toBe('base:colorgroup:ink');
     // 清理
     game.mutations.setEntityThemeSlot(key, null);
   });
@@ -158,7 +158,7 @@ describe('setTheme effect scope 扩展', () => {
     const handled = game.colorSystem.handleThemeEffect({
       op: 'setTheme',
       target: '',
-      value: { colorGroupId: 'base:group:coral' },
+      value: { colorGroupId: 'base:colorgroup:coral' },
     });
     expect(handled).toBe(true);
     const themed = game.colorSystem.runtimeTheme();

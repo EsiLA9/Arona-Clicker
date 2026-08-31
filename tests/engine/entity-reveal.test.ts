@@ -12,7 +12,7 @@ const OFFICE = 'base:init:schale_office';
 const ABYDOS = 'base:init:abydos';
 const HANGAR = 'base:area:schale_hangar';
 const MAIN = 'base:area:schale_main';
-const BRIEFING = 'base:story:schale_briefing';
+const BRIEFING = 'base:passivestory:schale_briefing';
 
 const ctxOf = (game: GameInstance) => createUIContext(game);
 

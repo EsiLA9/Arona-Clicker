@@ -5,6 +5,25 @@ import { renderCenterPanel } from './center-panel';
 import { renderRightPanel } from './right-panels';
 import { ChatEntry, ChatTextEntry } from './story';
 
+/** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 按钮"想回复"中。 */
+export type SendGatePhase = 'typing' | 'pause' | 'thinking';
+
+/** 开幕标题横幅快照：标题 + 呼出时刻（render 重建元素时按 startedAt 断点续播 CSS 动画，见 story-gate.ts）。 */
+export interface ActiveBanner {
+  title: string;
+  startedAt: number;
+}
+
+/** 剧情入口确认浮层（点击剧情入口后等待确认；确认/取消动作见 controller-actions-story）。 */
+export interface StoryGateState {
+  /** 待进入的剧情入口 id（ActiveStoryEntry.id）。 */
+  storyId: string;
+  /** 目标沙盒（VariantId）；null = 全局聊天流。 */
+  owner: string | null;
+  /** 确认后的启动方式：active = startActiveStory / replay = replayStory / card = startCardStory。 */
+  mode: 'active' | 'replay' | 'card';
+}
+
 export interface PanelState {
   leftTab: string;
   centerTab: string;
@@ -25,10 +44,18 @@ export interface PanelState {
   studentChatTexts: Record<string, ChatTextEntry[]>;
   /** 未读消息计数接口（对话空间就绪队列条数，由 controller 提供）。 */
   getUnread?: (variantId: string) => number;
-  /** 输入中提示：该学生对话空间有待推送内容，先展示省略号再推送。 */
-  typingVariantId?: string | null;
+  /**
+   * 底部按钮门控阶段（§4 页级节奏，render 前由 ChatStream 计算当前活跃流）：
+   * typing = 对方消息未送达；pause = 连发停顿拍；thinking = 按钮"想回复"中。
+   * 三阶段内按钮均无文案、不可推进、点击仅加速 0.1s/次。
+   */
+  sendGate?: SendGatePhase | null;
   /** 故事层级导航路径：[]=分类选择，['main']=主线篇，['main','part_1']=主线篇1章，['main','part_1','ch_1']=项。 */
   storyNavPath: string[];
+  /** 剧情入口确认浮层（非 null 时中心聊天窗格叠加确认浮层，确认才真正启动剧情）。 */
+  storyGate?: StoryGateState | null;
+  /** 当前活跃流的开幕标题横幅（render 前由 ChatStream.activeBanner 计算；null = 无）。 */
+  openingBanner?: ActiveBanner | null;
 }
 
 export function renderAppShell(ctx: UIContext, state: PanelState): string {
@@ -37,7 +64,6 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
         variantId: state.conversationVariantId,
         entries: state.studentChats[state.conversationVariantId] ?? [],
         chatTexts: state.studentChatTexts[state.conversationVariantId] ?? [],
-        typing: state.typingVariantId === state.conversationVariantId,
       }
     : undefined;
   return `
@@ -45,7 +71,7 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
       ${renderHeader(ctx)}
       <section class="workspace">
         ${renderLeftPanel(ctx, state)}
-        ${renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation)}
+        ${renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null)}
         ${renderRightPanel(ctx, state.rightTab, state.selectedVariantId)}
       </section>
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>TS-HTML ENGINE · NO NETWORK</span></footer>

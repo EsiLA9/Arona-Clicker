@@ -22,7 +22,7 @@ import type { ZoneModifierDecl } from '../../src/engine/expression/tag-effect';
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';
 const ITEM_X = 'test:item:x';
-const ENH_X = 'test:enh:boost';
+const ENH_X = 'test:enhancement:boost';
 
 function emptyState(): PlayerState {
   return {

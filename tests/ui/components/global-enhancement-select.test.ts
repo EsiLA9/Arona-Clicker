@@ -11,10 +11,10 @@ import { renderEnhancements } from '../../../src/ui/components/enhancements';
 
 const OFFICE = 'base:init:schale_office';
 const PYROXENE = 'base:resource:pyroxene';
-const FOUNDATION = 'base:enh:foundation';
-const UNIFIED = 'base:enh:unified_logistics';
-const ETERNAL = 'base:enh:eternal_contract';
-const CREDIT_SYSTEM = 'base:enh:credit_system';
+const FOUNDATION = 'base:enhancement:foundation';
+const UNIFIED = 'base:enhancement:unified_logistics';
+const ETERNAL = 'base:enhancement:eternal_contract';
+const CREDIT_SYSTEM = 'base:enhancement:credit_system';
 
 /** 渲染整页（Enh 面），提取轮盘卡片 id。 */
 function enhIds(html: string): string[] {

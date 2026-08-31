@@ -1,0 +1,254 @@
+/* ============================================================
+   ui/css/story-overlays.css — 剧情入口确认浮层 + 开幕标题横幅
+   主题预留接口：颜色全部消费 :root 主题令牌；组件级自定义属性
+   （--story-gate-* / --story-banner-*）为 theme-tree 预留的覆写点，
+   直接覆盖变量即可重肤，无需改 DOM 或类名。
+   ============================================================ */
+
+/* --- 剧情入口确认浮层（.chat-pane 内覆盖层；仿蔚蓝档案「好感故事」弹窗） --- */
+.story-gate-overlay {
+  --story-gate-bg: var(--panel);
+  --story-gate-ink: var(--ink-on-panel);
+  --story-gate-muted: var(--muted-on-panel);
+  --story-gate-line: var(--line);
+  --story-gate-band: var(--npc-bubble);
+  --story-gate-band-ink: var(--ink-on-npc-bubble);
+  --story-gate-accent: var(--cyan);
+  --story-gate-confirm-ink: var(--ink);
+  --story-gate-heart: #ff9eb4;
+  --story-gate-heart-ink: #ffffff;
+  --story-gate-veil: color-mix(in srgb, var(--canvas), transparent 30%);
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--story-gate-veil);
+  backdrop-filter: blur(2px);
+}
+
+.story-gate-card {
+  width: min(340px, 88%);
+  max-height: 92%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--story-gate-bg);
+  color: var(--story-gate-ink);
+  border: 1px solid var(--story-gate-line);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(15, 35, 60, .22);
+}
+
+/* 标题栏：左标题 / 右关闭，下缘分隔线 */
+.story-gate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--story-gate-line);
+}
+
+.story-gate-label {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--story-gate-ink);
+}
+
+.story-gate-close {
+  border: 0;
+  background: none;
+  color: var(--story-gate-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.story-gate-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 18px 14px;
+}
+
+/* 圆形头像 + 右下好感心形角标 */
+.story-gate-avatar {
+  position: relative;
+  width: 92px;
+  height: 92px;
+}
+
+.story-gate-avatar svg,
+.story-gate-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+}
+
+.story-gate-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-light);
+  color: var(--ink-on-panel-light);
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.story-gate-heart {
+  position: absolute;
+  right: -7px;
+  bottom: -3px;
+  width: 36px;
+  height: 32px;
+}
+
+.story-gate-heart svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(15, 35, 60, .25));
+}
+
+.story-gate-heart b {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 3px;
+  color: var(--story-gate-heart-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.story-gate-owner {
+  font-size: 17px;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* 深蓝标题横带（仿「好感故事奖励」条）：两端微斜切 */
+.story-gate-band {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--story-gate-band);
+  color: var(--story-gate-band-ink);
+  clip-path: polygon(1.5% 0, 100% 0, 98.5% 100%, 0 100%);
+  text-align: center;
+}
+
+.story-gate-band span {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+/* 首次奖励 chips（entry.completionReward.first 有声明时出现） */
+.story-gate-rewards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.story-gate-reward {
+  padding: 4px 10px;
+  border: 1px solid var(--story-gate-line);
+  border-radius: 999px;
+  background: var(--panel-light);
+  color: var(--muted-on-panel-light);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* 大进入按钮：浅蓝渐变 + 深色粗体文案（仿参考图） */
+.story-gate-confirm {
+  width: 100%;
+  margin-top: 4px;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--story-gate-accent), #ffffff 55%),
+    color-mix(in srgb, var(--story-gate-accent), #ffffff 15%));
+  color: var(--story-gate-confirm-ink);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
+    0 6px 14px color-mix(in srgb, var(--story-gate-accent), transparent 72%);
+}
+
+.story-gate-confirm:hover {
+  filter: brightness(1.04);
+}
+
+.story-gate-cancel {
+  border: 0;
+  background: none;
+  color: var(--story-gate-muted);
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 13px;
+}
+
+/* --- 开幕标题横幅（.chat-pane 内覆盖层，非阻塞） --- */
+.story-opening-banner {
+  --story-banner-bg: var(--panel-light);
+  --story-banner-ink: var(--ink);
+  --story-banner-line: var(--line);
+  --story-banner-blur: 8px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26px 12px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--story-banner-bg), transparent 14%),
+    var(--story-banner-bg),
+    color-mix(in srgb, var(--story-banner-bg), transparent 14%));
+  border-top: 1px solid var(--story-banner-line);
+  border-bottom: 1px solid var(--story-banner-line);
+  color: var(--story-banner-ink);
+  pointer-events: none;
+  /* 模糊出现 → 清晰保持 → 淡出；总时长与 story-gate.ts 的 BANNER_ANIMATION_MS 一致（改时长两处同步） */
+  animation: story-banner-life 3s ease forwards;
+}
+
+.story-opening-banner-text {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-align: center;
+}
+
+@keyframes story-banner-life {
+  0% { opacity: 0; filter: blur(var(--story-banner-blur)); }
+  2% { opacity: 1; filter: blur(0); }
+  90% { opacity: 1; filter: blur(0); }
+  100% { opacity: 0; filter: blur(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-opening-banner { animation: story-banner-static 3s linear forwards; }
+}
+
+@keyframes story-banner-static {
+  0%, 97% { opacity: 1; }
+  100% { opacity: 0; }
+}

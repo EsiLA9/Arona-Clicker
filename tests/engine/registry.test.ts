@@ -10,14 +10,14 @@ const sampleDatapack: Datapack = {
   name: 'test',
   version: '1.0.0',
   inits: [
-    { id: 'init_a', name: 'Test Init', description: '', defaultAreas: ['area_1'] },
+    { id: 'test:init:init_a', name: 'Test Init', description: '', defaultAreas: ['test:area:area_1'] },
   ],
   areas: [
-    { id: 'area_1', initId: 'init_a', name: 'Test Area', description: '', defaultSpots: ['spot_1'] },
+    { id: 'test:area:area_1', initId: 'test:init:init_a', name: 'Test Area', description: '', defaultSpots: ['test:spot:spot_1'] },
   ],
   spots: [
     {
-      id: 'spot_1', areaId: 'area_1', name: 'Test Spot', description: '',
+      id: 'test:spot:spot_1', areaId: 'test:area:area_1', name: 'Test Spot', description: '',
       baseCost: { type: 'const', value: 10 },
       baseCostResource: 'credit',
       baseYield: { type: 'const', value: 5 },
@@ -42,9 +42,9 @@ describe('Registry', () => {
   test('should load a valid datapack', () => {
     const reg = new Registry();
     expect(() => reg.load(sampleDatapack)).not.toThrow();
-    expect(reg.inits.get('init_a')).toBeDefined();
-    expect(reg.areas.get('area_1')).toBeDefined();
-    expect(reg.spots.get('spot_1')).toBeDefined();
+    expect(reg.inits.get('test:init:init_a')).toBeDefined();
+    expect(reg.areas.get('test:area:area_1')).toBeDefined();
+    expect(reg.spots.get('test:spot:spot_1')).toBeDefined();
   });
 
   test('should reject duplicate IDs', () => {
@@ -52,8 +52,8 @@ describe('Registry', () => {
     const dp: Datapack = {
       ...sampleDatapack,
       inits: [
-        { id: 'init_a', name: 'A', description: '', defaultAreas: [] },
-        { id: 'init_a', name: 'A dup', description: '', defaultAreas: [] },
+        { id: 'test:init:init_a', name: 'A', description: '', defaultAreas: [] },
+        { id: 'test:init:init_a', name: 'A dup', description: '', defaultAreas: [] },
       ],
     };
     expect(() => reg.load(dp)).toThrow(/Duplicate/);
@@ -80,8 +80,8 @@ describe('Registry', () => {
   test('should build relationship indices', () => {
     const reg = new Registry();
     reg.load(sampleDatapack);
-    expect(reg.areasOfInit('init_a')).toEqual(['area_1']);
-    expect(reg.spotsOfArea('area_1')).toEqual(['spot_1']);
+    expect(reg.areasOfInit('test:init:init_a')).toEqual(['test:area:area_1']);
+    expect(reg.spotsOfArea('test:area:area_1')).toEqual(['test:spot:spot_1']);
   });
 
   test('should index hierarchical tags with parent containing children', () => {
@@ -89,18 +89,18 @@ describe('Registry', () => {
     reg.load({
       ...sampleDatapack,
       spots: [
-        { ...sampleDatapack.spots[0], id: 'spot_1', tags: [['office'], ['field']] },
-        { ...sampleDatapack.spots[0], id: 'spot_2', tags: [['office', 'layout']] },
-        { ...sampleDatapack.spots[0], id: 'spot_3', tags: [['office', 'layout', 'desk']] },
+        { ...sampleDatapack.spots[0], id: 'test:spot:spot_1', tags: [['office'], ['field']] },
+        { ...sampleDatapack.spots[0], id: 'test:spot:spot_2', tags: [['office', 'layout']] },
+        { ...sampleDatapack.spots[0], id: 'test:spot:spot_3', tags: [['office', 'layout', 'desk']] },
       ],
     });
     // 查询 office：命中 office 及其所有 child（office/layout, office/layout/desk）
-    expect(reg.spotsWithTag(['office'])).toEqual(expect.arrayContaining(['spot_1', 'spot_2', 'spot_3']));
+    expect(reg.spotsWithTag(['office'])).toEqual(expect.arrayContaining(['test:spot:spot_1', 'test:spot:spot_2', 'test:spot:spot_3']));
     // 查询 office/layout：命中自身与其 child，不含 spot_1
-    expect(reg.spotsWithTag(['office', 'layout'])).toEqual(expect.arrayContaining(['spot_2', 'spot_3']));
-    expect(reg.spotsWithTag(['office', 'layout'])).not.toContain('spot_1');
+    expect(reg.spotsWithTag(['office', 'layout'])).toEqual(expect.arrayContaining(['test:spot:spot_2', 'test:spot:spot_3']));
+    expect(reg.spotsWithTag(['office', 'layout'])).not.toContain('test:spot:spot_1');
     // 查询叶子：仅 spot_3
-    expect(reg.spotsWithTag(['office', 'layout', 'desk'])).toEqual(['spot_3']);
+    expect(reg.spotsWithTag(['office', 'layout', 'desk'])).toEqual(['test:spot:spot_3']);
   });
 
   test('should clear all data', () => {
@@ -119,7 +119,7 @@ describe('Registry', () => {
       name: 'extension',
       version: '1.0.0',
       inits: [
-        { id: 'init_b', name: 'Init B', description: '', defaultAreas: [] },
+        { id: 'test:init:init_b', name: 'Init B', description: '', defaultAreas: [] },
       ],
       areas: [],
       spots: [],

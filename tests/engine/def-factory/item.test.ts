@@ -55,7 +55,7 @@ describe('ItemBuilder', () => {
       .maxStack(1).rarity('epic').type('key')
       .sellPrice(CREDIT, 500)
       .pickupEffects({ op: 'setFlag', target: 'pass', value: '1' })
-      .affectorPack('base:pack:credit_system_mult')
+      .affectorPack('base:affectorpack:credit_system_mult')
       .icon('icon.png')
       .extra(extra.dict({ tier: extra.int(3) }))
       .build();
@@ -63,7 +63,7 @@ describe('ItemBuilder', () => {
     expect(def.type).toBe('key');
     expect(def.sellPrice).toEqual({ resourceId: CREDIT, amount: 500 });
     expect(def.pickupEffects).toEqual([{ op: 'setFlag', target: 'pass', value: '1' }]);
-    expect(def.affectorPackIds).toEqual(['base:pack:credit_system_mult']);
+    expect(def.affectorPackIds).toEqual(['base:affectorpack:credit_system_mult']);
     expect(def.icon).toBe('icon.png');
     expect(def.extra).toEqual(extra.dict({ tier: extra.int(3) }));
   });

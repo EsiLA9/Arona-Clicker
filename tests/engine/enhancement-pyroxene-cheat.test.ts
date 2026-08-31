@@ -7,7 +7,7 @@ import { baseDatapack } from '../../src/data/index';
 
 const PYROXENE = 'base:resource:pyroxene';
 const OFFICE = 'base:init:schale_office';
-const CHEAT = 'base:enh:test_pyroxene_cheat';
+const CHEAT = 'base:enhancement:test_pyroxene_cheat';
 
 describe('测试用青辉石灌注（每 tick +2500）', () => {
   let game: GameInstance;

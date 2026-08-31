@@ -1,10 +1,10 @@
 {
   "affectorPacks": [
     {
-      "id": "base:pack:vending_snack",
+      "id": "base:affectorpack:vending_snack",
       "entries": [
         {
-          "id": "base:aff:vending_snack",
+          "id": "base:affector:vending_snack",
           "effects": [
             { "op": "addResource", "target": "base:resource:credit", "value": 3 }
           ]

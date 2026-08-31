@@ -68,7 +68,7 @@ describe('聊天流图片与头像（pic 系统集成）', () => {
 
   test('无图片角色（阿罗娜）说话：回退渲染 ColorGroup 抽象头像 SVG', () => {
     const arona = ctx.game.registry.characterVariants.get('Arona');
-    expect(arona?.colorGroupId).toBe('base:group:schale-solid'); // 数据已接线
+    expect(arona?.colorGroupId).toBe('base:colorgroup:schale-solid'); // 数据已接线
     expect(arona?.avatar).toBeUndefined();
     const html = renderChatHistory(
       [{ id: 1, kind: 'talk', speaker: '阿罗娜', text: '你好，老师！', timestamp: 0 }],

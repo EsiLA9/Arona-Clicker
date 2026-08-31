@@ -10,7 +10,7 @@ const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';
 const PRINTER = 'base:spot:credit_printer';
 const TACTICAL = 'base:spot:tactical_desk';
-const OFFICE_LAYOUT = 'base:enh:office_layout';
+const OFFICE_LAYOUT = 'base:enhancement:office_layout';
 
 describe('Spot 动态 Tag（撤出/新加入）', () => {
   let game: GameInstance;

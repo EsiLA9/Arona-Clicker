@@ -27,7 +27,7 @@ describe('CharacterVariantBuilder', () => {
       .name('泳装星野').displayName('小鸟游星野（泳装）')
       .school(CharacterSchool.Abydos).rarity(CharacterRarity.SuperRare)
       .desc('换上泳装的星野学长。夏日限定，慵懒依旧。')
-      .curve('base:curve:standard')
+      .curve('base:cultivatecurve:standard')
       .build();
     expect(def).toEqual<CharacterVariantDef>({
       id: 'HoshinoSwimsuit',
@@ -37,7 +37,7 @@ describe('CharacterVariantBuilder', () => {
       school: CharacterSchool.Abydos,
       rarity: CharacterRarity.SuperRare,
       description: '换上泳装的星野学长。夏日限定，慵懒依旧。',
-      curve: 'base:curve:standard',
+      curve: 'base:cultivatecurve:standard',
     });
   });
 
@@ -48,21 +48,21 @@ describe('CharacterVariantBuilder', () => {
       .desc('x')
       .default()
       .bonus('credit', 1.5)
-      .theme('base:group:violet', { primary: '#8b5cf6' })
+      .theme('base:colorgroup:violet', { primary: '#8b5cf6' })
       .build();
     expect(def.isDefault).toBe(true);
     expect(def.spotTagBonus).toEqual({ credit: 1.5 });
-    expect(def.theme).toEqual({ colorGroupId: 'base:group:violet', tokens: { primary: '#8b5cf6' } });
+    expect(def.theme).toEqual({ colorGroupId: 'base:colorgroup:violet', tokens: { primary: '#8b5cf6' } });
   });
 });
 
 describe('GachaPoolBuilder', () => {
   test('gachaPool() 返回 GachaPoolBuilder 实例', () => {
-    expect(gachaPool('base:pool:regular')).toBeInstanceOf(GachaPoolBuilder);
+    expect(gachaPool('base:gachapool:regular')).toBeInstanceOf(GachaPoolBuilder);
   });
 
   test('build() 等价于字面量（regular 参照）', () => {
-    const def = gachaPool('base:pool:regular')
+    const def = gachaPool('base:gachapool:regular')
       .name('常规招募').desc('常驻开放的招募池。')
       .mode(GachaMode.BaClassic)
       .currency(Resource.Pyroxene)
@@ -74,7 +74,7 @@ describe('GachaPoolBuilder', () => {
       .members('Arona', 'Hoshino')
       .build();
     expect(def).toEqual<GachaPoolDef>({
-      id: 'base:pool:regular',
+      id: 'base:gachapool:regular',
       name: '常规招募',
       description: '常驻开放的招募池。',
       mode: GachaMode.BaClassic,
@@ -91,7 +91,7 @@ describe('GachaPoolBuilder', () => {
   });
 
   test('featured / pity / closeWhen 输出', () => {
-    const def = gachaPool('base:pool:up')
+    const def = gachaPool('base:gachapool:up')
       .name('UP').currency(Resource.Pyroxene).costPerPull(120)
       .featured('HoshinoSwimsuit')
       .pity(50)

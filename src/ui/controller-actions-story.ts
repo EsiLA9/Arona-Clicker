@@ -4,12 +4,29 @@
 //   archive / 被动闲聊 / send / story-choice / kizuna
 // ============================================================
 
-import type { StoryAdvanceResult, StoryStartResult } from '../engine/types';
+import type { SendResult, StoryAdvanceResult, StoryStartResult } from '../engine/types';
 import { storyErrorText } from './components/story';
 import type { UIController } from './controller';
 
-/** 剧情操作失败 → devLog 记录（结果带 error 时）。 */
-export function logStoryFailure(ctrl: UIController, result: StoryStartResult | StoryAdvanceResult): void {
+/** 剧情操作失败 → devLog 记录（结果带 error 时；SendResult 见 completed.advance / idle.error）。 */
+export function logStoryFailure(ctrl: UIController, result: StoryStartResult | StoryAdvanceResult | SendResult): void {
+  if ('type' in result) {
+    if (result.type === 'completed' && !result.advance.success) {
+      ctrl.game.devLog.record(`剧情操作失败：${storyErrorText[result.advance.error] ?? result.advance.error}`, {
+        source: 'story',
+        level: 'warning',
+        details: result.advance.error,
+      });
+    }
+    if (result.type === 'idle' && result.error) {
+      ctrl.game.devLog.record(`剧情操作失败：${storyErrorText[result.error] ?? result.error}`, {
+        source: 'story',
+        level: 'warning',
+        details: result.error,
+      });
+    }
+    return;
+  }
   if (result.success) return;
   ctrl.game.devLog.record(`剧情操作失败：${storyErrorText[result.error] ?? result.error}`, {
     source: 'story',
@@ -21,7 +38,8 @@ export function logStoryFailure(ctrl: UIController, result: StoryStartResult | S
 /** 绑定剧情域事件（render 后调用）。 */
 export function bindStoryActions(ctrl: UIController): void {
   // 剧情：首次进入 Entry 时切到剧情所需聊天空间（owner = VariantId → 学生对话空间沙盒；
-  // 无 owner → 一般聊天流全局沙盒），并切到聊天 tab，让演出立即可见。
+  // 无 owner → 一般聊天流全局沙盒），并切到聊天 tab 让浮层落在目标聊天窗格上；
+  // 实际启动改由确认浮层触发（storyGate → data-story-gate-confirm）。
   // 不移动 Area：startActiveStory 只启动演出游标，不触发 travelToArea。
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-start-story]').forEach(button => {
     button.addEventListener('click', () => {
@@ -32,14 +50,12 @@ export function bindStoryActions(ctrl: UIController): void {
       ctrl.panelState.centerTab = 'chat';
       ctrl.panelState.leftTab = 'story';
       ctrl.scroll.forceToBottom();
-      const result = ctrl.game.story.startActiveStory(storyId, owner);
-      logStoryFailure(ctrl, result);
+      ctrl.panelState.storyGate = { storyId, owner, mode: 'active' };
       ctrl.render();
     });
   });
   // 重阅读：故事栏已完成 + replayable 的内容项。
-  // 点击后前往该 Entry 归属的对话空间演出（owner = VariantId → 学生对话空间沙盒；
-  // 无 owner → 一般聊天流全局沙盒），并切到聊天 tab，让演出立即可见。
+  // 点击后前往该 Entry 归属的对话空间并弹出确认浮层（实际重读由确认触发）。
   // 重读不移动 Area：replayStory 只重置演出游标，不触发 travelToArea。
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-replay-story]').forEach(button => {
     button.addEventListener('click', () => {
@@ -50,8 +66,31 @@ export function bindStoryActions(ctrl: UIController): void {
       ctrl.panelState.centerTab = 'chat';
       ctrl.panelState.leftTab = 'story';
       ctrl.scroll.forceToBottom();
-      const result = ctrl.game.story.replayStory(storyId, owner);
+      ctrl.panelState.storyGate = { storyId, owner, mode: 'replay' };
+      ctrl.render();
+    });
+  });
+  // 剧情入口确认浮层：进入（按 mode 分派原启动逻辑；卡片入口 = goto 重开，
+  // 已完结剧情由 startCardStory 的 force 直接重新开始，不再转 replayStory）
+  ctrl.root.querySelectorAll<HTMLElement>('[data-story-gate-confirm]').forEach(button => {
+    button.addEventListener('click', () => {
+      const gate = ctrl.panelState.storyGate;
+      if (!gate) return;
+      ctrl.panelState.storyGate = null;
+      const owner = gate.owner ?? undefined;
+      let result: StoryStartResult;
+      if (gate.mode === 'card') result = ctrl.game.story.startCardStory(gate.storyId, owner);
+      else if (gate.mode === 'replay') result = ctrl.game.story.replayStory(gate.storyId, owner);
+      else result = ctrl.game.story.startActiveStory(gate.storyId, owner);
       logStoryFailure(ctrl, result);
+      ctrl.render();
+    });
+  });
+  // 剧情入口确认浮层：取消（X / 取消按钮 / 遮罩空白；卡片内点击冒泡不关闭）
+  ctrl.root.querySelectorAll<HTMLElement>('[data-story-gate-cancel]').forEach(el => {
+    el.addEventListener('click', event => {
+      if (event.target !== event.currentTarget) return;
+      ctrl.panelState.storyGate = null;
       ctrl.render();
     });
   });
@@ -81,6 +120,8 @@ export function bindStoryActions(ctrl: UIController): void {
     });
   });
   ctrl.root.querySelector<HTMLButtonElement>('[data-trigger-passive-story]')?.addEventListener('click', () => {
+    // 开幕横幅展示/淡出期间阻断剧情推进类点击
+    if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
     // 壁垒：对话空间只抽归该学生的闲聊；一般聊天抽全局闲聊（owner = undefined）
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
     const result = ctrl.game.story.triggerPassiveStory(ctrl.game.getView().activeInit, owner);
@@ -92,12 +133,14 @@ export function bindStoryActions(ctrl: UIController): void {
     // 误触发的文本选区（拖拽选中气泡文字）不算点击，避免吞掉真实点击
     const sel = document.getSelection();
     if (sel && sel.type === 'Range' && !sel.isCollapsed) return;
-    // 输入中提示：手动发送即视为送达，取消省略号定时
-    if (ctrl.typingTimer !== null) {
-      clearTimeout(ctrl.typingTimer);
-      ctrl.typingTimer = null;
+    // 开幕横幅展示/淡出期间阻断剧情推进类点击（节奏加速一并阻断）
+    if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
+    // §4 按钮门控：对方打字 / 自己"想回复"阶段点击不推进，仅加速节奏计时
+    //（阶段完成时由 ChatStream.onChange 触发重渲染；未完成无视觉变化，无需 render）
+    if (ctrl.chat.activeGate(ctrl.panelState) !== null) {
+      ctrl.chat.accelerateActiveGate(ctrl.panelState);
+      return;
     }
-    ctrl.panelState.typingVariantId = null;
     // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
     const result = ctrl.game.story.clickSend(owner);
@@ -118,6 +161,8 @@ export function bindStoryActions(ctrl: UIController): void {
   });
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-story-choice]').forEach(button => {
     button.addEventListener('click', () => {
+      // 开幕横幅展示/淡出期间阻断剧情推进类点击
+      if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
       // 聊天沙盒：对话空间的选项推进作用于该角色自己的游标；一般聊天推进全局游标
       const owner = ctrl.panelState.conversationVariantId ?? undefined;
       const result = ctrl.game.story.advanceStory(Number(button.dataset.storyChoice), owner);
@@ -125,13 +170,15 @@ export function bindStoryActions(ctrl: UIController): void {
       ctrl.render();
     });
   });
-  // 羁绊剧情卡片（流内渲染）：点击启动目标 ActiveStoryEntry（skipConditions，尊重单次完成态）
+  // 羁绊剧情卡片（流内渲染）：点击弹出确认浮层，确认后启动目标 ActiveStoryEntry
+  //（skipConditions，尊重单次完成态；owner 取点击时所在对话空间）
   ctrl.root.querySelectorAll<HTMLElement>('[data-kizuna]').forEach(el => {
     el.addEventListener('click', () => {
+      // 开幕横幅展示/淡出期间阻断剧情推进类点击
+      if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
       const storyId = el.dataset.kizuna!;
-      const owner = ctrl.panelState.conversationVariantId ?? undefined;
-      const result = ctrl.game.story.startCardStory(storyId, owner);
-      logStoryFailure(ctrl, result);
+      const owner = ctrl.panelState.conversationVariantId ?? null;
+      ctrl.panelState.storyGate = { storyId, owner, mode: 'card' };
       ctrl.render();
     });
   });

@@ -185,14 +185,15 @@ export class StoryService {
   }
 
   /**
-   * 聊天卡片入口启动（kizuna 羁绊卡片 / 演出浮窗）： 
-   * 清空当前游标（丢弃进行中演出的剩余页，goto 语义），跳过 availableInits / triggerCondition，
-   * 但尊重单次完成态（AlreadyCompleted 拒绝）。
+   * 聊天卡片入口启动（kizuna 羁绊卡片 / 演出浮窗）：goto 重开语义——
+   * 清空当前游标（丢弃进行中演出的剩余页），跳过 availableInits / triggerCondition，
+   * 已完结剧情亦可正常重新开始（force 跳过 AlreadyCompleted；isReplay 保持 false，
+   * 分支自由探索，重复完结奖励走 repeat 评估一般不发放）。
    * 与 clickSend 的 kizuna 处理（story-flow.ts:295-313）一致。
    */
   startCardStory(storyId: string, owner?: string | null): StoryStartResult {
     this.runtime.cursorFor(owner).clear();
-    return this.startStory(storyId, 'active', owner, { skipConditions: true });
+    return this.startStory(storyId, 'active', owner, { skipConditions: true, force: true });
   }
 
   /** @see story-flow.startStory */

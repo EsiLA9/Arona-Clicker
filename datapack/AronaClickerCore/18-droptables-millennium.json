@@ -1,7 +1,7 @@
 {
   "dropTables": [
     {
-      "id": "base:drop:millennium_lab",
+      "id": "base:droptable:millennium_lab",
       "maxRolls": 3,
       "guaranteed": [
         { "itemId": "base:item:catalyst_shard", "count": 1 }

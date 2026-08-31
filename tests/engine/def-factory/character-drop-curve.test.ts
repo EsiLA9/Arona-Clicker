@@ -50,17 +50,17 @@ describe('CharacterBuilder', () => {
 
 describe('DropTableBuilder', () => {
   test('dropTable() 返回 DropTableBuilder 实例', () => {
-    expect(dropTable('base:drop:x')).toBeInstanceOf(DropTableBuilder);
+    expect(dropTable('base:droptable:x')).toBeInstanceOf(DropTableBuilder);
   });
 
   test('build() 等价于字面量（basic_field_reward 参照）', () => {
-    const def = dropTable('base:drop:basic_field_reward')
+    const def = dropTable('base:droptable:basic_field_reward')
       .maxRolls(1)
       .guaranteed('base:item:field_note', 1)
       .entry('base:item:energy_drink', 1, 1, 1)
       .build();
     expect(def).toEqual<DropTableDef>({
-      id: 'base:drop:basic_field_reward',
+      id: 'base:droptable:basic_field_reward',
       maxRolls: 1,
       guaranteed: [{ itemId: 'base:item:field_note', count: 1 }],
       entries: [{ itemId: 'base:item:energy_drink', min: 1, max: 1, weight: 1 }],
@@ -68,7 +68,7 @@ describe('DropTableBuilder', () => {
   });
 
   test('多条目追加与未调用字段省略', () => {
-    const def = dropTable('base:drop:t').maxRolls(2)
+    const def = dropTable('base:droptable:t').maxRolls(2)
       .entry('a', 1, 2, 3)
       .entry('b', 2, 3, 4)
       .build();
@@ -79,11 +79,11 @@ describe('DropTableBuilder', () => {
 
 describe('CultivateCurveBuilder', () => {
   test('cultivateCurve() 返回 CultivateCurveBuilder 实例', () => {
-    expect(cultivateCurve('base:curve:standard')).toBeInstanceOf(CultivateCurveBuilder);
+    expect(cultivateCurve('base:cultivatecurve:standard')).toBeInstanceOf(CultivateCurveBuilder);
   });
 
   test('build() 等价于字面量（standard 参照）', () => {
-    const def = cultivateCurve('base:curve:standard')
+    const def = cultivateCurve('base:cultivatecurve:standard')
       .maxLevel(30)
       .expTable(...Array.from({ length: 34 }, (_, i) => 100 * (i + 1)))
       .starMax(5)
@@ -91,7 +91,7 @@ describe('CultivateCurveBuilder', () => {
       .levelCapPerStar(5)
       .build();
     expect(def).toEqual<CultivateCurveDef>({
-      id: 'base:curve:standard',
+      id: 'base:cultivatecurve:standard',
       maxLevel: 30,
       expTable: Array.from({ length: 34 }, (_, i) => 100 * (i + 1)),
       starMax: 5,
@@ -101,7 +101,7 @@ describe('CultivateCurveBuilder', () => {
   });
 
   test('最小曲线（仅 maxLevel）', () => {
-    const def = cultivateCurve('c').maxLevel(10).build();
-    expect(def).toEqual<CultivateCurveDef>({ id: 'c', maxLevel: 10 });
+    const def = cultivateCurve('test:cultivatecurve:c').maxLevel(10).build();
+    expect(def).toEqual<CultivateCurveDef>({ id: 'test:cultivatecurve:c', maxLevel: 10 });
   });
 });

@@ -44,7 +44,7 @@ describe('InitBuilder', () => {
       .name('千禧年学院')
       .desc('科技与逻辑的学府。')
       .areas('base:area:millennium_lab', 'base:area:millennium_canteen')
-      .startStory('base:story:welcome')
+      .startStory('base:activestory:welcome')
       .tilt('0.985')
       .tiltAlias('观测受限')
       .cost(CREDIT, 20)
@@ -63,7 +63,7 @@ describe('InitBuilder', () => {
       name: '千禧年学院',
       description: '科技与逻辑的学府。',
       defaultAreas: ['base:area:millennium_lab', 'base:area:millennium_canteen'],
-      startStoryId: 'base:story:welcome',
+      startStoryId: 'base:activestory:welcome',
       worldTilt: '0.985',
       worldTiltAlias: '观测受限',
       purchaseCost: [{ resourceId: CREDIT, amount: 20 }],

@@ -77,9 +77,9 @@ describe('TalkletBuilder', () => {
   });
 
   test('kizunaCard 构造羁绊卡片', () => {
-    const def = talklet('羁绊邀请').kizunaCard('base:bond:hoshino_1', { title: '午后的堤防', buttonText: '进入羁绊剧情' }).build();
+    const def = talklet('羁绊邀请').kizunaCard('base:story:bond_hoshino_1', { title: '午后的堤防', buttonText: '进入羁绊剧情' }).build();
     expect(def.kizuna).toEqual({
-      storyId: 'base:bond:hoshino_1',
+      storyId: 'base:story:bond_hoshino_1',
       title: '午后的堤防',
       buttonText: '进入羁绊剧情',
     });

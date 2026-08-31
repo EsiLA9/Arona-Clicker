@@ -135,7 +135,7 @@ describe('GameInstance (integration)', () => {
     // 欢迎剧情因 schale_office 的 startStoryId 自动展开，已处于 page0
     // 结构：0 开场旁白 / 1 阿罗娜 / 2 老师 / 3 click 交互页 / 4 转场旁白 / 5 选项页 / 6 结尾
     expect(game.getView().currentStory).toMatchObject({
-      storyId: 'base:story:schale_welcome', pageIndex: 0, totalPages: 7,
+      storyId: 'base:activestory:schale_welcome', pageIndex: 0, totalPages: 7,
     });
 
     // page0 → page1 → page2 → page3 → page4（连续无选项页：旁白/对话/click 交互页推进）
@@ -169,9 +169,9 @@ describe('GameInstance (integration)', () => {
       type: 'active', storyId: 'base:story:schale_welcome', choiceIndex: 1,
     });
     expect(game.getView().currentStory).toBeNull();
-    expect(game.story.startActiveStory('base:story:schale_welcome')).toEqual({
+    expect(game.story.startActiveStory('base:activestory:schale_welcome')).toEqual({
       success: false,
-      storyId: 'base:story:schale_welcome',
+      storyId: 'base:activestory:schale_welcome',
       error: 'AlreadyCompleted',
     });
   });
@@ -215,7 +215,7 @@ describe('GameInstance (integration)', () => {
     const api = game.story;
 
     // 首次完成被动闲聊 → +15 青辉石（Global）
-    expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
+    expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
     let r = game.story.advanceStory();
     while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(r.success && 'finished' in r && r.finished).toBe(true);
@@ -223,7 +223,7 @@ describe('GameInstance (integration)', () => {
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(15);
 
     // 完成闲聊 → 无需等待可直接再次触发同一被动闲聊，重复完成只 +5
-    expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
+    expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
     r = game.story.advanceStory();
     while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(game.getView().resources[Resource.Pyroxene]).toBe(20);
@@ -240,7 +240,7 @@ describe('GameInstance (integration)', () => {
     });
 
     // 首次完成：source=first，效果含青辉石 +15
-    expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
+    expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
     let r = game.story.advanceStory();
     while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(events).toHaveLength(1);
@@ -248,7 +248,7 @@ describe('GameInstance (integration)', () => {
     expect(events[0]!.effects.some(e => e.op === 'addResource' && e.value === 15)).toBe(true);
 
     // 重复完成：source=repeat，效果为 +5
-    expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
+    expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
     r = game.story.advanceStory();
     while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(events).toHaveLength(2);
@@ -261,7 +261,7 @@ describe('GameInstance (integration)', () => {
     finishWelcome(game);
     // 通过闲聊获得青辉石（Global）
     const api = game.story;
-    expect(api.startStory('base:story:schale_tea', 'passive').success).toBe(true);
+    expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
     let r = game.story.advanceStory();
     while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
     expect(game.getView().resources[Resource.Pyroxene]).toBe(15);
@@ -403,7 +403,7 @@ describe('GameInstance (integration)', () => {
   test('should roll a registered drop table into inventory', () => {
     game.init([baseDatapack]);
 
-    const result = game.items.rollDropTable('base:drop:basic_field_reward');
+    const result = game.items.rollDropTable('base:droptable:basic_field_reward');
 
     expect(result.get('base:item:field_note')).toBe(1);
     expect(game.state.inventory['base:item:field_note']).toBe(1);
@@ -425,11 +425,11 @@ describe('GameInstance (integration)', () => {
     for (const spotId of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[spotId];
 
     // 购买带有 affectorPackIds 的 Enhancement
-    const result = game.enhancements.purchaseEnhancement('base:enh:energy_supply');
+    const result = game.enhancements.purchaseEnhancement('base:enhancement:energy_supply');
     expect(result.success).toBe(true);
 
     // Enhancement 的 Affector 被挂载
-    expect(game.affectorEngine.getActiveInstances().some(i => i.mountEntityId === 'base:enh:energy_supply')).toBe(true);
+    expect(game.affectorEngine.getActiveInstances().some(i => i.mountEntityId === 'base:enhancement:energy_supply')).toBe(true);
   });
 
   test('should apply enhancement affector packs every tick', () => {
@@ -437,8 +437,8 @@ describe('GameInstance (integration)', () => {
     for (const spotId of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[spotId];
     game.state.resources['base:resource:credit'] = 200;
 
-    // 购买 能量饮料后勤（base:pack:energy_drink，每 tick +1 credit）
-    game.enhancements.purchaseEnhancement('base:enh:energy_supply');
+    // 购买 能量饮料后勤（base:affectorpack:energy_drink，每 tick +1 credit）
+    game.enhancements.purchaseEnhancement('base:enhancement:energy_supply');
     game.state.resources['base:resource:credit'] = 0;
 
     game.tick();
@@ -481,7 +481,7 @@ describe('GameInstance (integration)', () => {
 
   test('should reject starting a new game with an unknown init', () => {
     game.init([baseDatapack]);
-    expect(game.inits.startNewGame('unknown_init')).toBe(false);
+    expect(game.inits.startNewGame('test:init:unknown_init')).toBe(false);
   });
 
   test('should keep spot state isolated between different inits', () => {
@@ -602,9 +602,9 @@ describe('GameInstance (integration)', () => {
     game.state.resources['base:resource:credit'] = 300;
 
     // 条件：credit >= 100 且可见 → 可购买
-    const result = game.enhancements.purchaseEnhancement('base:enh:credit_system');
-    expect(result).toEqual({ success: true, enhancementId: 'base:enh:credit_system' });
-    expect(game.state.unlockedEnhancements).toContain('base:enh:credit_system');
+    const result = game.enhancements.purchaseEnhancement('base:enhancement:credit_system');
+    expect(result).toEqual({ success: true, enhancementId: 'base:enhancement:credit_system' });
+    expect(game.state.unlockedEnhancements).toContain('base:enhancement:credit_system');
     // 扣费 200 credit
     expect(game.state.resources['base:resource:credit']).toBe(100);
 
@@ -620,17 +620,17 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack]);
     game.state.resources['base:resource:credit'] = 50; // 需要 100
 
-    const result = game.enhancements.purchaseEnhancement('base:enh:credit_system');
+    const result = game.enhancements.purchaseEnhancement('base:enhancement:credit_system');
     expect(result).toMatchObject({ success: false, error: 'InsufficientResource' });
-    expect(game.state.unlockedEnhancements).not.toContain('base:enh:credit_system');
+    expect(game.state.unlockedEnhancements).not.toContain('base:enhancement:credit_system');
   });
 
   test('should reject duplicate enhancement purchase', () => {
     game.init([baseDatapack]);
     game.state.resources['base:resource:credit'] = 500;
-    expect(game.enhancements.purchaseEnhancement('base:enh:credit_system').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enhancement:credit_system').success).toBe(true);
 
-    const second = game.enhancements.purchaseEnhancement('base:enh:credit_system');
+    const second = game.enhancements.purchaseEnhancement('base:enhancement:credit_system');
     expect(second).toMatchObject({ success: false, error: 'AlreadyOwned' });
   });
 
@@ -641,7 +641,7 @@ describe('GameInstance (integration)', () => {
     game.state.spotLevels['base:spot:credit_printer'] = 2;
 
     // 办公区整合计划：只作用于带 office tag 的 Spot（×1.25）
-    expect(game.enhancements.purchaseEnhancement('base:enh:office_layout').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enhancement:office_layout').success).toBe(true);
 
     // 单独结算信用点制造机（tags: credit/office → 命中 office）
     game.mutations.setResource('base:resource:credit', 0);
@@ -670,7 +670,7 @@ describe('GameInstance (integration)', () => {
     game.state.resources['base:resource:credit'] = 500;
     // 满足办公区整合计划的解锁条件
     game.state.spotLevels['base:spot:credit_printer'] = 2;
-    expect(game.enhancements.purchaseEnhancement('base:enh:office_layout').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enhancement:office_layout').success).toBe(true);
 
     // 把战术指挥台临时改标为 office/command（office 的 child），office_layout（office）应命中
     const spot = game.registry.spots.get('base:spot:tactical_desk')!;
@@ -750,7 +750,7 @@ describe('GameInstance (integration)', () => {
 
     // 切到阿比多斯并启动 serika_side_1（第 4 页为 clickWork 页：0 芹香 / 1 芹香 / 2 旁白 / 3 调查 clickWork）
     game.inits.enterInit('base:init:abydos');
-    const started = game.story.startActiveStory('base:story:serika_side_1');
+    const started = game.story.startActiveStory('base:activestory:serika_side_1');
     expect(started.success).toBe(true);
     expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
     expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
@@ -799,7 +799,7 @@ describe('GameInstance (integration)', () => {
     }
     // 启动 serika_side_1 并推进到 clickWork 页（前 3 页无选项）
     game.inits.enterInit('base:init:abydos');
-    expect(game.story.startActiveStory('base:story:serika_side_1').success).toBe(true);
+    expect(game.story.startActiveStory('base:activestory:serika_side_1').success).toBe(true);
     expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
     expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
     expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
@@ -1016,7 +1016,7 @@ describe('GameInstance (integration)', () => {
     expect(game.story.getSendState().mode).toBe('advance');
 
     // 自动展开的是欢迎剧情（未手动启动）
-    const started = game.story.startActiveStory('base:story:schale_welcome');
+    const started = game.story.startActiveStory('base:activestory:schale_welcome');
     expect(started).toMatchObject({ success: false, error: 'AlreadyActive' });
   });
 
@@ -1150,10 +1150,10 @@ describe('Extra 运行时（M3）', () => {
     version: '1.0.0',
     inits: [
       {
-        id: 'init_a',
+        id: 'test:init:init_a',
         name: 'Extra Init',
         description: '',
-        defaultAreas: ['area_1'],
+        defaultAreas: ['test:area:area_1'],
         // Def 级 extra 是 dict 树：键为单段（路径分隔符 '/' 仅用于 ExtraPath 与常量表扁平键）
         extra: extra.dict({
           init: extra.dict({ k: extra.int(10) }),
@@ -1162,7 +1162,7 @@ describe('Extra 运行时（M3）', () => {
       },
     ],
     areas: [
-      { id: 'area_1', initId: 'init_a', name: 'Extra Area', description: '', defaultSpots: [] },
+      { id: 'test:area:area_1', initId: 'test:init:init_a', name: 'Extra Area', description: '', defaultSpots: [] },
     ],
     spots: [],
     enhancements: [],
@@ -1200,7 +1200,7 @@ describe('Extra 运行时（M3）', () => {
 
   test('should read three layers with priority global > per-init > registry', () => {
     game.init([extrasDatapack]);
-    game.inits.startNewGame('init_a');
+    game.inits.startNewGame('test:init:init_a');
     // per-Init 独有键
     expect(game.getExtra('init/k')).toEqual(extra.int(10));
     // 常量表独有键（底座已深拷贝进全局层）
@@ -1211,7 +1211,7 @@ describe('Extra 运行时（M3）', () => {
 
   test('should write global layer via setExtra and per-init layer via setPerInitExtra', () => {
     game.init([extrasDatapack]);
-    game.inits.startNewGame('init_a');
+    game.inits.startNewGame('test:init:init_a');
     game.setExtra('both/k', extra.int(9));
     expect(game.getExtra('both/k')).toEqual(extra.int(9));
     // per-Init 层保持 InitDef.extra 原样
@@ -1227,7 +1227,7 @@ describe('Extra 运行时（M3）', () => {
 
   test('should merge extras into global layer via mergeExtras', () => {
     game.init([extrasDatapack]);
-    game.inits.startNewGame('init_a');
+    game.inits.startNewGame('test:init:init_a');
     game.mergeExtras(extra.dict({ merged: extra.dict({ k: extra.int(7) }) }));
     expect(game.getExtra('merged/k')).toEqual(extra.int(7));
     expect(game.getExtra('init/k')).toEqual(extra.int(10));
@@ -1235,7 +1235,7 @@ describe('Extra 运行时（M3）', () => {
 
   test('should clear per-init extras on soft restart but keep global extras, and restore from snapshot', () => {
     game.init([extrasDatapack]);
-    game.inits.startNewGame('init_a');
+    game.inits.startNewGame('test:init:init_a');
     game.setPerInitExtra('mut/k', extra.int(5));
 
     game.inits.restartInit();
@@ -1247,14 +1247,14 @@ describe('Extra 运行时（M3）', () => {
     expect(game.getExtra('mut/k')).toBeUndefined();
 
     // 断点续玩：从快照恢复 per-Init extras
-    game.inits.resumeInit('init_a');
+    game.inits.resumeInit('test:init:init_a');
     expect(game.getExtra('init/k')).toEqual(extra.int(10));
     expect(game.getExtra('mut/k')).toEqual(extra.int(5));
   });
 
   test('should rebuild per-init extras on hard restart (keep global extras)', () => {
     game.init([extrasDatapack]);
-    game.inits.startNewGame('init_a');
+    game.inits.startNewGame('test:init:init_a');
     game.setPerInitExtra('mut/k', extra.int(5));
 
     game.inits.hardRestartInit();
@@ -1303,11 +1303,11 @@ describe('Extra 引擎消费（M4）', () => {
     version: '1.0.0',
     inits: [
       {
-        id: 'init_a',
+        id: 'test:init:init_a',
         name: 'Extra Engine Init',
         description: '',
-        defaultAreas: ['area_1'],
-        startStoryId: 'story_a',
+        defaultAreas: ['test:area:area_1'],
+        startStoryId: 'test:story:story_a',
         // 进入世界线时初始化全局层运行时数据（per-Init 底座来自 InitDef.extra）
         enterEffects: [
           {
@@ -1328,22 +1328,22 @@ describe('Extra 引擎消费（M4）', () => {
         }),
       },
     ],
-    areas: [{ id: 'area_1', initId: 'init_a', name: 'Area', description: '', defaultSpots: [] }],
+    areas: [{ id: 'test:area:area_1', initId: 'test:init:init_a', name: 'Area', description: '', defaultSpots: [] }],
     spots: [],
     enhancements: [],
     activeStories: [
       {
-        id: 'story_a',
-        storyId: 'story_a',
+        id: 'test:story:story_a',
+        storyId: 'test:story:story_a',
         type: 'active',
-        availableInits: ['init_a'],
+        availableInits: ['test:init:init_a'],
         triggerCondition: and(cond('extra', 'meta/constant', '==', 1000)), // 恒真（常量表兜底）
       },
     ],
     passiveStories: [],
     stories: [
       {
-        id: 'story_a',
+        id: 'test:story:story_a',
         name: 'Extra Story',
         talklets: [
           {
@@ -1387,7 +1387,7 @@ describe('Extra 引擎消费（M4）', () => {
 
   test('should run extra effects on enter, gate choices by extra condition, and remove on finish', () => {
     game.init([engineDatapack]);
-    expect(game.inits.startNewGame('init_a')).toBe(true);
+    expect(game.inits.startNewGame('test:init:init_a')).toBe(true);
 
     // enterEffects：setExtra + addExtra（含以 per-Init 层为基数）+ value data 源读常量表
     expect(game.getExtra('meta/kills')).toEqual(extra.int(5));
@@ -1413,7 +1413,7 @@ describe('Extra 引擎消费（M4）', () => {
 
   test('should keep extra ops scoped to global layer (per-init layer untouched)', () => {
     game.init([engineDatapack]);
-    game.inits.startNewGame('init_a');
+    game.inits.startNewGame('test:init:init_a');
     game.setExtra('only/global', extra.str('x'));
 
     expect(game.state.initExtras).toEqual(
@@ -1440,10 +1440,10 @@ describe('Extra 引擎消费（M4）', () => {
       version: '1.0.0',
       inits: [
         {
-          id: 'init_gate',
+          id: 'test:init:init_gate',
           name: 'Gate Init',
           description: '',
-          defaultAreas: ['area_a'],
+          defaultAreas: ['test:area:area_a'],
           // first：仅首次进入执行；condition：meta/gate_open 就绪才执行；无条件：每次进入都执行
           enterEffects: [
             { first: true, effects: [{ op: 'addExtra', target: 'meta/init_first_count', value: 1 }] },
@@ -1456,14 +1456,14 @@ describe('Extra 引擎消费（M4）', () => {
         },
       ],
       areas: [
-        { id: 'area_a', initId: 'init_gate', name: 'A', description: '', defaultSpots: [], adjacentAreaIds: ['area_b'] },
+        { id: 'test:area:area_a', initId: 'test:init:init_gate', name: 'A', description: '', defaultSpots: [], adjacentAreaIds: ['test:area:area_b'] },
         {
-          id: 'area_b',
-          initId: 'init_gate',
+          id: 'test:area:area_b',
+          initId: 'test:init:init_gate',
           name: 'B',
           description: '',
           defaultSpots: [],
-          adjacentAreaIds: ['area_a'],
+          adjacentAreaIds: ['test:area:area_a'],
           // first：仅首次进入该 Area 执行
           enterEffects: [
             { first: true, effects: [{ op: 'addExtra', target: 'meta/area_first_count', value: 1 }] },
@@ -1499,19 +1499,19 @@ describe('Extra 引擎消费（M4）', () => {
 
     // 解锁条件后，同 Run 再次进入：first 跳过（已首次进入），condition 生效，无条件继续
     game.setExtra('meta/gate_open', extra.int(1));
-    game.inits.resumeInit('init_gate');
+    game.inits.resumeInit('test:init:init_gate');
     expect(game.getExtra('meta/init_first_count')).toEqual(extra.int(1));
     expect(game.getExtra('meta/init_conditioned')).toEqual(extra.int(1));
     expect(game.getExtra('meta/init_entries')).toEqual(extra.int(2));
 
     // Area first：首次进入 area_b → first + 无条件
-    expect(game.travelToArea('area_b')).toMatchObject({ success: true });
+    expect(game.travelToArea('test:area:area_b')).toMatchObject({ success: true });
     expect(game.getExtra('meta/area_first_count')).toEqual(extra.int(1));
     expect(game.getExtra('meta/area_entries')).toEqual(extra.int(1));
 
     // 往返后再次进入 area_b：first 跳过，无条件继续
-    expect(game.travelToArea('area_a')).toMatchObject({ success: true });
-    expect(game.travelToArea('area_b')).toMatchObject({ success: true });
+    expect(game.travelToArea('test:area:area_a')).toMatchObject({ success: true });
+    expect(game.travelToArea('test:area:area_b')).toMatchObject({ success: true });
     expect(game.getExtra('meta/area_first_count')).toEqual(extra.int(1));
     expect(game.getExtra('meta/area_entries')).toEqual(extra.int(2));
   });

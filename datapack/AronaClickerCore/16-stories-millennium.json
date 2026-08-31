@@ -1,22 +1,38 @@
 {
   "activeStories": [
     {
-      "id": "base:story:millennium_welcome",
+      "id": "base:activestory:millennium_welcome",
       "storyId": "base:story:millennium_welcome",
-      "availableInits": ["base:init:millennium"],
-      "triggerCondition": { "type": "AND", "conditions": [] }
+      "availableInits": [
+        "base:init:millennium"
+      ],
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      }
     }
   ],
   "passiveStories": [
     {
-      "id": "base:story:millennium_chat",
+      "id": "base:passivestory:millennium_chat",
       "storyId": "base:story:millennium_chat",
-      "availableInits": ["base:init:millennium"],
-      "triggerCondition": { "type": "AND", "conditions": [] },
+      "availableInits": [
+        "base:init:millennium"
+      ],
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
       "repeatable": true,
       "weight": 3,
       "completionReward": {
-        "repeat": [{ "op": "addResource", "target": "base:resource:pyroxene", "value": 1 }]
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 1
+          }
+        ]
       }
     }
   ],
@@ -34,14 +50,21 @@
           "speaker": "优香",
           "text": "高速制造机和机器人托管所都已经上线了。我放了一些青辉石在售货机里，请自取。",
           "effects": [
-            { "op": "addResource", "target": "base:resource:pyroxene", "value": 5 }
+            {
+              "op": "addResource",
+              "target": "base:resource:pyroxene",
+              "value": 5
+            }
           ]
         }
       ],
       "extra": {
         "t": "dict",
         "v": {
-          "chapter": { "t": "int", "v": 2 }
+          "chapter": {
+            "t": "int",
+            "v": 2
+          }
         }
       }
     },

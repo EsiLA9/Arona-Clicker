@@ -31,6 +31,7 @@ export class EffectEngine {
       showChatText: effect => ({ type: 'chatFlowEffectRequested', effect }),
       clearIdChatFlow: effect => ({ type: 'chatFlowEffectRequested', effect }),
       clearAllChatText: effect => ({ type: 'chatFlowEffectRequested', effect }),
+      showOpeningTitle: effect => ({ type: 'chatFlowEffectRequested', effect }),
     };
   }
 

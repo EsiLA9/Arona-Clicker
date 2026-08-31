@@ -67,7 +67,7 @@ ConditionTarget（15 种）—— key 与 actual 语义：
 
 `Effect`：`{ op: EffectOp, target, value, owner?, notice? }`。`value` 可为 数值/字符串/布尔/`ValueExpression`/`ExtraValue`(setExtra)/`ThemeEffectValue`(setTheme)/`ChatTextEffectValue`(showChatText)。
 
-`EffectOp`（23 种 = 状态层 13 + 转发类 8 + 声明类 2，见 [[docs-828/02-modules/effect-trigger]]）：
+`EffectOp`（24 种 = 状态层 13 + 转发类 9 + 声明类 2，见 [[docs-828/02-modules/effect-trigger]]）：
 
 | op | target | 归属 |
 | --- | --- | --- |
@@ -89,6 +89,7 @@ ConditionTarget（15 种）—— key 与 actual 语义：
 | `showChatText` | 临时 id（`value: ChatTextEffectValue`） | → ChatFlowService |
 | `clearIdChatFlow` | 临时 id | → ChatFlowService |
 | `clearAllChatText` | — | → ChatFlowService（Story 完结默认执行一次） |
+| `showOpeningTitle` | —（`value: string` 横幅标题，可空回退） | → ChatFlowService（发 `openingTitleShown`；首页声明随剧情开始立即呼出，非首页于离开该页时呼出，机制见 planning §3） |
 
 `ThemeEffectValue.scope`：`ephemeral`（临时演出，默认）/ `area`（场景）/ `student`（学生）；`area`/`student` 需 `entityKey`（`area:<id>` / `variant:<id>`）。
 

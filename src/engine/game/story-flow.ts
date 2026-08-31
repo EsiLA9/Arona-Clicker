@@ -38,6 +38,15 @@ export function beginStory(rt: StoryRuntime, cur: StoryCursorState, entry: Story
   // 阅读日志：首条 Talklet 已显示（按 Story.id 记）
   rt.mutations.recordStoryRead(entry.storyId, 0);
   rt.eventBus.emit({ type: 'storyTriggered', storyId: entry.id });
+  // 开幕标题：首页 Talklet 声明 showOpeningTitle 时随剧情开始（含重读）立即呼出，
+  // 不要求先推进一页；推进离开首页时跳过该 op 防重复（见 advanceStory）。
+  // 非首页声明仍在离开该页时呼出（幕间标题）。
+  const leadOpening = story.talklets[0]?.effects?.find(effect => effect.op === 'showOpeningTitle');
+  if (leadOpening) {
+    rt.eventBus.emit(typeof leadOpening.value === 'string' && leadOpening.value
+      ? { type: 'openingTitleShown', title: leadOpening.value }
+      : { type: 'openingTitleShown' });
+  }
 }
 
 /**
@@ -278,7 +287,11 @@ export function advanceStory(rt: StoryRuntime, choiceIndex?: number, owner?: str
   }
 
   if (page.effects) {
-    trackFlagsAndApply(rt, page.effects);
+    // 首页的 showOpeningTitle 已随 beginStory 开局呼出，推进离开首页时跳过防重复
+    const pageEffects = cur.currentStoryPageIndex === 0
+      ? page.effects.filter(effect => effect.op !== 'showOpeningTitle')
+      : page.effects;
+    if (pageEffects.length > 0) trackFlagsAndApply(rt, pageEffects);
   }
   if (selectedChoice?.effects) {
     trackFlagsAndApply(rt, selectedChoice.effects);

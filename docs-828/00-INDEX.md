@@ -29,6 +29,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | 某个子系统（GameNum / Affector / 抽卡 / 色彩 / 剧情…） | [[#02-modules 模块卡片索引]] |
 | PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs-828/03-data-structures/player-state]] 起（见下方分区表） |
 | 生产 / 抽卡 / 培养 / 色彩 / 事件联动的算法细节 | [[docs-828/04-algorithms/state-mutation]] 起（见下方分区表） |
+| 长期目标 / roadmap / 里程碑进度 | [[docs-828/08-roadmap/00-overview]] |
 
 ### 我想改……
 
@@ -39,6 +40,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | 文件拆分 / 重构 | [[docs-828/05-conventions/refactoring]] |
 | 默认游戏内容 | `src/data/base/`（TypeScript，不是 `datapack/` 的 JSON）+ [[docs-828/02-modules/registry]] |
 | 新增跨世界线保留的数据 | [[docs-828/01-architecture/state-layers]]（先想清楚放哪一层） |
+| Datapack 读取 / 多包管理 / mod 冲突 | [[docs-828/06-adr/0004-datapack-management]] |
 | 测试 | [[docs-828/05-conventions/testing]] |
 | 文档本身 | [[docs-828/05-conventions/doc-maintenance]] |
 
@@ -103,7 +105,34 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | [[docs-828/06-adr/0001-architecture-consolidation]] | T1-T7 架构整理收官（装配外移 / 只读纪律 / 表驱动 / 环解扣） |
 | [[docs-828/06-adr/0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
 | [[docs-828/06-adr/0003-docs-828-restructure]] | 文档库重构：从日期戳手册到分层索引 |
+| [[docs-828/06-adr/0004-datapack-management]] | Datapack 多包读取与管理（三段式命名空间 / 包库与启用集 / 惰性存档；规划中） |
 | [[docs-828/06-adr/planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送；§4 Talklet 输入中提示未实现；2026-08-29 落地，轴 A 消息成分同日裁定移除） |
+
+## 07-audit 设计审查（2026-08-30）
+
+> 繁简 / 兜底问题清单（位置 / 原因 / 方案组）。**GameNum 增量失效体系与 Affector 对账链为多第三方 Datapack 基础设施，豁免**（见 00-overview）。整改完成后本分区归档。
+
+| 文档 | 主题 |
+| --- | --- |
+| [[docs-828/07-audit/00-overview]] | 范围 / 前提豁免 / 分组路由 |
+| [[docs-828/07-audit/runtime-tolerance]] | 运行时容错政策分裂（三轨失效路径 / funclet 实证 / 存档双政策） |
+| [[docs-828/07-audit/dual-track-state]] | 双轨与副本状态（剧情 id / 阅读记录 / equipmentId / SPECS 登记面） |
+| [[docs-828/07-audit/dormant-machinery]] | 休眠与预留机制（无调用点 / 无写入方 / no-op 群） |
+| [[docs-828/07-audit/presentation-fallbacks]] | 表现层回退链与 UI 防御密度 |
+| [[docs-828/07-audit/enum-taxonomy]] | 枚举面与分类学超配（可见性阶梯 / 返回码 / EffectOp） |
+| [[docs-828/07-audit/stats-ledgers]] | 统计五套并记与 worldTilt 预留体系 |
+| [[docs-828/07-audit/sync-burden]] | 同步义务与流程负担（含漂移实证） |
+
+## 08-roadmap 长期目标追踪
+
+> 每个长期目标 1 篇（编号递增）：目标陈述 / 里程碑切片 / 状态 / 验收口径。设计权威在对应 ADR，本分区只管进度。
+
+| 编号 | 目标 | 状态 |
+| --- | --- | --- |
+| [[docs-828/08-roadmap/0001-datapack-management-rollout]] | Datapack 多包管理落地（S1-S7） | 进行中（S1a/S1b 已落地） |
+| [[docs-828/08-roadmap/0002-spot-shop]] | Spot 商店（购买集 / 发现限制） | 待设计裁定 |
+| [[docs-828/08-roadmap/0003-gacha-pool-model]] | 卡池模型规范化（banner ↔ 角色池解耦） | 待设计裁定 |
+| [[docs-828/08-roadmap/0004-chara-ownership]] | Chara 拥有体系 Init 化 + 追赶统计 | 待设计裁定 |
 
 ## 命令速查
 

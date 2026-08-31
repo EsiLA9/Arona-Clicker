@@ -8,7 +8,7 @@ import { baseDatapack } from '../../src/data/index';
 import { UIController } from '../../src/ui/controller';
 
 const OFFICE = 'base:init:schale_office';
-const FOUNDATION = 'base:enh:foundation';
+const FOUNDATION = 'base:enhancement:foundation';
 
 describe('UIController 选择页翻面（Init ⇄ GlobalEnhancement）', () => {
   let game: GameInstance;

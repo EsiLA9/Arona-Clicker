@@ -5,10 +5,10 @@ import {
 } from '../../src/engine/system/color-system';
 import type { ColorGroupDef, ColorGroupId } from '../../src/engine/types';
 
-const blue: ColorGroupDef = { id: 'g-blue', name: '蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] };
+const blue: ColorGroupDef = { id: 'test:colorgroup:g-blue', name: '蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] };
 const pink: ColorGroupDef = { id: 'g-pink', name: '粉', compositionType: 'solid', slots: [{ role: 'primary', color: '#ff5d8f' }] };
 const getGroup = (id: ColorGroupId): ColorGroupDef | undefined =>
-  ({ 'g-blue': blue, 'g-pink': pink } as Record<string, ColorGroupDef>)[id];
+  ({ 'test:colorgroup:g-blue': blue, 'g-pink': pink } as Record<string, ColorGroupDef>)[id];
 
 describe('theme-tree 快速映射：resolveTheme / themeContributionFromThemeDef → token 贡献', () => {
   test('resolveTheme 取主色位色值派生整包 token', () => {
@@ -45,7 +45,7 @@ describe('theme-tree 快速映射：resolveTheme / themeContributionFromThemeDef
   });
 
   test('themeContributionFromThemeDef groupId 打底 + tokens 覆盖', () => {
-    const t = themeContributionFromThemeDef({ colorGroupId: 'g-blue', tokens: { bg: '#101828' } }, getGroup);
+    const t = themeContributionFromThemeDef({ colorGroupId: 'test:colorgroup:g-blue', tokens: { bg: '#101828' } }, getGroup);
     expect(t['primary']).toBe('#3b82f6');
     expect(t['bg']).toBe('#101828');
   });

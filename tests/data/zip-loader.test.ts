@@ -14,20 +14,20 @@ const INIT_FRAGMENT = {
   name: 'Test Mod',
   version: '1.0.0',
   inits: [
-    { id: 'init_a', name: 'Test Init', description: '', defaultAreas: ['area_1'] },
+    { id: 'test:init:init_a', name: 'Test Init', description: '', defaultAreas: ['test:area:area_1'] },
   ],
 };
 
 const AREA_FRAGMENT = {
   areas: [
-    { id: 'area_1', initId: 'init_a', name: 'Test Area', description: '', defaultSpots: ['spot_1'] },
+    { id: 'test:area:area_1', initId: 'test:init:init_a', name: 'Test Area', description: '', defaultSpots: ['test:spot:spot_1'] },
   ],
 };
 
 const SPOT_FRAGMENT = {
   spots: [
     {
-      id: 'spot_1', areaId: 'area_1', name: 'Test Spot', description: '',
+      id: 'test:spot:spot_1', areaId: 'test:area:area_1', name: 'Test Spot', description: '',
       baseCost: { type: 'const', value: 10 },
       baseCostResource: 'credit',
       baseYield: { type: 'const', value: 5 },

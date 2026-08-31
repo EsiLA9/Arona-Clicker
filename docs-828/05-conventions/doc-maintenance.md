@@ -13,6 +13,8 @@
 | `04-algorithms/` | 核心算法流程（结算/失效/派生） | 按主题 |
 | `05-conventions/` | 规范（纪律/重构/协议/测试/本文） | 每规范 1 篇 |
 | `06-adr/` | 架构决策记录（重大变动一篇：背景/决策/后果）+ `planning` 未来规划 | 编号递增 |
+| `07-audit/` | 设计审查：繁简/兜底问题清单（位置/原因/方案组）；GameNum/Affector 多包基础设施豁免；整改完成后归档 | 每组 1 篇 + 总览 |
+| `08-roadmap/` | 长期目标与里程碑追踪（目标陈述/切片/状态/验收口径）；设计权威在对应 ADR，本区只管进度 | 每目标 1 篇（编号递增 `000N-<topic>`）+ 总览 |
 
 ## 写作规则
 
@@ -30,6 +32,7 @@
 | 新增/删除事件 | `04-algorithms/trigger-effect` 速览表（权威仍为 `EVENT_CATALOG`） |
 | 新增 PlayerState 字段 | `03-data-structures/player-state` + `01-architecture/state-layers`（三层归属） |
 | 架构级变动（新系统/改纪律） | 新 `06-adr/` 一篇 + `00-INDEX` 路由表 |
+| roadmap 切片状态变化（开工/完成/废弃） | 对应 `08-roadmap/` 目标篇里程碑表 + 进度记录（实现记录仍写 ADR） |
 
 ## 归档规则
 

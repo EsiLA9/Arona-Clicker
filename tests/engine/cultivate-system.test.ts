@@ -6,7 +6,7 @@ import { GameInstance } from '../../src/engine/game-instance';
 import type { Datapack } from '../../src/engine/types';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/engine/types';
 
-const CURVE_ID = 'curve-main';
+const CURVE_ID = 'test:cultivatecurve:curve-main';
 
 function makeDatapack(): Datapack {
   return {

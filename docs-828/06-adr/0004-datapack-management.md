@@ -1,0 +1,181 @@
+# 0004 — Datapack 多包读取与管理（三段式命名空间 / 包库 / 惰性存档）
+
+- **状态**：规划中（2026-08-29 经三轮设计裁定定稿，未实现；实现切片见 §8）
+- **范围**：Datapack 的物理读取（单文件 / 文件夹 / zip）、包内格式与 manifest、多包包库管理与启用集、跨包引用与冲突语义、存档与多包的关系（惰性保留）
+- **来源**：2026-08-29 设计会话（基于现有 `src/data/zip-loader.ts` 单 mod 加载器与 `game.init(datapacks[])` 多包引擎语义的扩展设计）
+
+## 术语
+
+| 术语 | 含义 |
+| --- | --- |
+| **modName** | 包的唯一标识（manifest 声明），三段式 id 的第一段；base 包固定为 `base` |
+| **三段式 id** | `modName:typeName:idName`，全游戏所有实体 id 的统一形态 |
+| **包库** | 已导入的全部数据包集合（存 IndexedDB），包之间可同 modName 并存 |
+| **启用集** | 包库中被玩家勾选启用的有序子集，决定实际加载内容 |
+| **惰性保留** | 存档数据在 Registry 中查不到对应 id 时不加载、不索引，但**原样保留在存档内** |
+| **残留数据** | 存档中来自未启用 mod 的惰性数据，可在存档检查界面查看/清除 |
+
+---
+
+## §1 分层架构：Source → Pack → PackManager → Engine
+
+```
+第0层 Source（物理来源适配）  单文件 / 文件夹 / zip —— 统一为"路径→字节"条目集
+第1层 Pack（包内解析）        manifest + 分片解析（按扩展名注册解析器）→ 一个逻辑 Datapack
+第2层 PackManager（包库管理） 导入、启停、排序、启用集校验 → 有序 Datapack[]
+第3层 Engine（已有，不改）    game.init / reload(datapacks[]) + Registry tableSteps 合并
+```
+
+**Source 统一接口**（zip 只是"不可变的虚拟文件夹"）：
+
+```ts
+interface PackSource {
+  kind: 'file' | 'folder' | 'zip';
+  list(): Promise<PackEntry[]>;          // 递归列出全部条目
+}
+interface PackEntry {
+  path: string;                          // 包内相对路径
+  read(): Promise<Uint8Array>;
+}
+```
+
+- 单文件：一个 `.json` 构造为单分片包。
+- 文件夹：File System Access API（`showDirectoryPicker`）递归遍历，与 zip 完全同构——文件夹开发与打包 zip 走同一条代码路径。
+- 分片解析器**按扩展名注册**：`.json` 现状（JSON.parse → 分片）；将来 `.dsl` 等注册新解析器即可，Source / merge 层零改动。
+
+现有 `zip-loader.ts` 重构降级为：`ZipSource` 适配器 + `parseFragment / mergeFragments`（留在第 1 层作 json 解析器），对外行为并入新的 Pack 流程。
+
+## §2 三段式 id 命名空间（核心裁定）
+
+全游戏所有实体 id 统一为 **`modName:typeName:idName`**：
+
+| 段 | 语义 | 规则 |
+| --- | --- | --- |
+| `modName` | 所属包标识 | 包内自声明的 id **必须**属于本包 modName（校验不一致即报错，防手误跨包定义） |
+| `typeName` | 游戏自身定义的类型枚举 | 与注册表表对应（spot / item / story / area / init / character / variant / …）；用于**存档数据内唯一判别**——同 mod 同 idName 不同类型的数据结构不冲突 |
+| `idName` | 包内唯一名 | 仅要求同 mod 同 typeName 内唯一 |
+
+- **跨包同 idName 不冲突**（命名空间天然隔离）；**modName 冲突**才是包级冲突（见 §4）。
+- 跨包引用 = 引用完整三段 id，**自由引用 + 事后校验**：不强制声明依赖，Registry 现有"全量加载后统一校验悬空引用"机制覆盖（[[docs-828/03-data-structures/id-reference-semantics]]）。
+- 现有 `base:affinity:hoshino_2` 类两段/语义组 id **全面迁移**为三段式（纪律 #7：无迁移负担，直接改数据 + 同步测试与文档）。
+- 字符集约束：modName / typeName 段为 `[a-z0-9-]`，idName 段为 `[a-z0-9_-]`（沿用现有下划线命名惯例），分隔符 `:`，保证解析无歧义。
+- 校验三则：非三段格式报错；typeName 未注册报错；id 的 modName 与所在包 manifest 不一致报错。
+
+## §3 包格式与 manifest
+
+```
+mypack.zip（或文件夹）
+├── datapack.json        ← manifest（固定文件名、包根；不当作分片）
+├── data/**/*.json       ← 分片（任意层级 .json 皆分片，现状行为保留）
+└── images/*.png         ← 图片资产（ImageStore 登记，PicDef src 引用）
+```
+
+manifest（**v1 强制要求**，modName 是承载命名空间的负载字段，不做文件名推导歧义）：
+
+```json
+{
+  "modName": "my-mod",
+  "name": "显示名",
+  "version": "1.0.0",
+  "author": "...",
+  "dependencies": ["other-mod"],
+  "icon": "icon.png"
+}
+```
+
+- `dependencies` **仅作展示提示与排序参考**，不参与校验（裁定：自由引用 + 事后校验）。
+- 目录结构（`data/`、`images/`）只是给人看的约定，加载器保持路径无关。
+- 图片资产 key 按 mod 命名空间化：同 mod 内 PicDef src 用包内相对路径（解析时自动加 mod 前缀），跨包引用用完整 `mod:path`——两包同路径图片互不冲突。
+
+## §4 包库与启用集（PackManager）
+
+- **存储**：IndexedDB，每包记录 `{ modName, version, manifest, 原始字节(zip)/文件夹快照, contentHash, importedAt }`。
+- **导入**：任意包随时可导入（含与已装包同 modName 的不同版本，**统一显示于包库、并存**），导入后由**玩家选择启用或弃用**；导入不做自动替换、不弹窗强制。
+- **modName 冲突判定在启用时**：启用集内不允许两个同 modName 的包同时启用——预加载扫描发现 modName 冲突即**拒绝加载**该启用集（提示二选一）。
+- **排序**：玩家手动排序（拖拽列表）+ 依赖提示（展示谁依赖谁）；顺序敏感语义（同表遍历序）由手动顺序唯一决定，可预测。
+- **base 包**：`src/data/base/*` 编译期内置，恒启用、固定第 0 位、不可卸载（所有内容包的事实基底）。
+- **应用（all-or-nothing）**：启用集变更 → 全量校验（分片解析 + Registry 干跑合并校验）→ 通过才 `game.reload(orderedPacks)`（现有 reload 已实现清注册表 + 重置运行时）；校验失败则整套拒绝、保持旧启用集。
+
+## §5 惰性存档与残留管理（关键新语义，取代"变更即清档"）
+
+**原则**：存档中所有"id 索引类"数据（roster 条目、背包 items、storyReadLogs、flags、spotTagOverrides、passiveCooldowns、好感值等），加载时按当前 Registry 做**存在性过滤**：
+
+```
+Registry 查得到 → 正常加载、索引、参与结算与 UI
+Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
+                  但原样保留在存档对象内，保存时全量写回
+```
+
+- **重新启用对应 mod → 数据复活**：下次加载时该批数据重新通过存在性检查。
+- Registry 校验只针对数据包集（§4），**不针对存档**——存档悬空数据静默降级，不报错。
+- **残留检查/清除界面**：列出存档中来自未启用 mod 的残留数据（按 modName 分组计数），玩家可**手动清除**（按 modName 前缀过滤删除）。玩家可见性裁定：可检查、可清除。
+- 该语义取代"切 mod 即清档"：切 mod 不丢档，只有玩家主动清除才删数据。
+
+## §6 连带机制裁定
+
+| 机制 | 裁定 |
+| --- | --- |
+| **affectionConfig** | 单值表改**特化表**：`affectionConfigs: AffectionConfigDef[]`（key = 三段式 affectionConfigId）；角色/变体加 `affectionConfigId?` 字段——缺省用标准表（内置 `base:affectionconfig:standard`），声明则查特化表，查不到报错。多包全局合并问题随之消解为命名空间表 |
+| **extras** | 暂不考虑多包语义、**置空**：v1 仅 base 包声明有效，其他包携带 extras 时警告忽略 |
+| **标签（tagDefs / spotsByTag）** | 当前层级 tag 缺失多 mod 下继续编辑子叶的能力——**标签子叶节点自身命名空间化**（每个子叶带 `modName:idName`）；子叶声明 parent 可跨包挂靠（自由引用 + 事后校验覆盖），spotsByTag 索引沿祖先链命中——扩展包可把 spot 挂进 base 的标签体系被 base 的 affector/条件命中（扩展包玩法核心机制） |
+| **默认开局** | 当前游戏实现未使用默认开局（无 gate init 自动进入路径未启用），多包开局归属**不涉及**，无需裁定 |
+| **被动池/就绪队列** | 多包给同一角色（base 角色）加 passiveStories 属**良性叠加**：共享池加权随机自然混排；好感台阶就绪队列按 affectionRequired 跨包混排，无需特殊处理 |
+| **Spot 功能项** | spot 归属唯一 mod（命名空间隔离），不存在两包往同一 spot 声明功能项的问题 |
+
+## §7 多包冲突语义矩阵（速查）
+
+| 冲突面 | 多包同场语义 |
+| --- | --- |
+| 所有键值表（spots/items/stories/…） | 命名空间完全隔离，零冲突；跨包悬空引用 → 事后校验报错（启用集拒绝应用） |
+| modName | 启用集内唯一；包库内可并存多个同 modName 包，玩家启停二选一 |
+| 单值表（affectionConfig 等） | affectionConfig 表化 + 角色级引用（§6）；extras 冻结仅 base |
+| 标签命中 | 子叶命名空间化 + 祖先链命中；跨包挂靠为特性非冲突 |
+| 图片资产 | key 按 mod 前缀隔离，同路径不冲突 |
+| 加载顺序敏感语义（同表遍历序） | 手动排序唯一决定 |
+| 存档 | 惰性保留（§5），不因切 mod 报错或丢档 |
+
+## §8 实现切片（建议顺序）
+
+> 实现记录（随切片推进更新）：
+> - **S1a 已落地（2026-08-30）**：`core/entity-id.ts` 强化（`ENTITY_TYPES` 注册表 + `validateEntityId`，idName 字符集含下划线）；`registry-validate.ts` 接入 16 张表的强校验（init/area/spot/enhancement/item/droptable/trigger(匿名 `anon:` 豁免)/affectorpack/funclet/passivepool/gachapool/cultivatecurve/colorgroup/colorequipment/themedesign/resource）。语义组中段已全部归位表名（func→funclet、enh→enhancement、pack→affectorpack、aff→affector、group→colorgroup、equip→colorequipment、curve→cultivatecurve、drop→droptable、design→themedesign、pool 按语境二分 passivepool/gachapool；`src/data/base` + `tests` + `datapack/*.json` + 重打包 zip，约 550 处）。story 域（entry/storyId 拆分前仅格式校验）与 characters/characterVariants（裸名）暂不校验，待 S1b/c。
+> - **S1b 已落地（2026-08-30，当日完成）**：Story entry id 拆分。演出本体统一 `base:story:{语义组_}idName`（`base:affinity:X`/`base:bond:X` → `base:story:affinity_X`/`base:story:bond_X`）；投放位拆为 `base:activestory:*` / `base:passivestory:*` 并显式声明 `.story(本体)`（废除 entry.id == storyId 同值惯例）；被动池 `.child()` / 冷却键 / `studentBlocks.entryId` 跟随 entry id。JSON 分片（05/16-stories*.json）同步拆分并重打包 zip。story 三表收紧强校验。**引用语义分界**（拆分后的权威口径）：
+>
+>   | 引用点 | 语义 | 指向 |
+>   | --- | --- | --- |
+>   | `startStory` / `startActiveStory` / `startCardStory` / `replayStory` / `triggerStory` op / `InitDef.startStoryId` | 启动入口 | **entry id**（引擎 `rt.entryById` 解析；参数名 `storyId` 为历史遗留） |
+>   | 聊天流 kizuna 卡（`Talklet.kizuna.storyId` / `kizunaCard()`）→ `data-kizuna` | 启动入口 | **entry id** |
+>   | `StoryView.storyId` / `storyGate.storyId` / `storyTriggered` 事件 / 被动池成员 / `passiveCooldowns` 键 | 投放位标识 | **entry id** |
+>   | `hasCompletedStory` / `storyLog` / `hasReadStory` 条件 / `visitedStoryInChain` / `pushAfterStory` / `branchGuards` / goto·jump / `onStory`（storyCompleted） | 本体与已读 | **story id**（`StoryView.storyDefId` = 本体） |
+>
+>   连带引擎修复：`init-service.ts` 的 startStoryId 完结守卫改为按 `entry.storyId` 判定（原来 entry/story 同值两用，拆分后必须解析）；`ui/components/story-gate.ts` 的 `storyDisplayTitle` / `rewardLines` / 完结判定改为按 entry id 正向解析（原 `e.storyId === storyId` 反查失效）。`npm test` 995 全绿。
+> - **S1c 待做**：Character / VariantId 命名空间化（现 Character 枚举值为裸名、默认差分 id 为原型名首字母大写如 `Arona`、`HoshinoSwimsuit`；迁移为 `base:character:*` / `base:variant:*`）；完成后 characters/variants 收紧校验。
+
+1. **三段式 id 迁移**：types / registry 校验（格式 + modName 归属 + typeName 注册表）+ `src/data/base/` 数据全面改名 + `gen:schema` + 相关测试同步。
+2. **Source 适配器**：`PackSource`（file / folder / zip）统一条目集 + `zip-loader.ts` 重构为第 1 层解析器。
+3. **manifest + 包解析**：`datapack.json` 解析、分片解析器按扩展名注册、包级解析报告（错误带路径）。
+4. **PackManager**：IndexedDB 包库 + 导入 + 启停 + 手动排序 + 启用集校验（modName 冲突 / 全量干跑）+ `game.reload` 接线。
+5. **惰性存档**：加载期存在性过滤（逐 id 索引类结构接入）+ 残留检查/清除界面。
+6. **连带机制**：affectionConfigId 特化表 + 标签子叶命名空间化（可与 1 并行）。
+7. **mod 管理 UI**：包库列表 / 导入（文件·文件夹·zip）/ 启停排序 / 依赖提示 / 残留管理。
+
+## §9 测试清单
+
+- 三段式解析校验：非法格式 / modName 与所在包不一致 / typeName 未注册 / 同 mod 同 typeName 重复 idName
+- 多包加载：跨包同 idName 不冲突；跨包引用校验通过；悬空引用 → 启用集拒绝应用（all-or-nothing）
+- 启用集：modName 冲突拒绝；手动顺序决定同表遍历序
+- 包库：IndexedDB 往返；同 modName 多版本并存；三种来源（文件/文件夹/zip）解析一致
+- 惰性存档：禁用 mod 后加载不索引不报错、数据保留；重新启用复活；残留计数与清除
+- affectionConfigId：缺省标准表 / 特化表生效 / 查不到报错
+- 标签：跨包子叶挂靠后祖先链命中（base affector 命中扩展包 spot）
+- 图片：两包同路径图片隔离、跨包 `mod:path` 引用
+
+## §10 开放点（未裁定负空间）
+
+- manifest 缺省时的降级行为（v1 强制；是否放宽待包生态形成后看）
+- `version` 语义：仅展示，不做区间匹配；将来若做更新提示再引入
+- 依赖拓扑自动排序（当前纯手动 + 提示）
+- 存档残留的跨 mod 合并语义（如两个 mod 提供同 typeName 同 idName 的角色变体时的好感数据归属）——命名空间隔离下理论上不出现，出现即校验错误
+
+## 相关文档
+
+[[docs-828/03-data-structures/registry]] · [[docs-828/03-data-structures/id-reference-semantics]] · [[docs-828/02-modules/pics]] · [[docs-828/05-conventions/architecture-discipline]] · [[docs-828/06-adr/planning]]（affectionConfig 现单值设计，本 ADR §6 修订）

@@ -236,10 +236,10 @@ describe('theme-tree：ThemeTree 快照与快速映射', () => {
     expect((el as any)._store['--ink']).toBeUndefined();
   });
 
-  const blue: ColorGroupDef = { id: 'g-blue', name: '蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] };
+  const blue: ColorGroupDef = { id: 'test:colorgroup:g-blue', name: '蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] };
   const pink: ColorGroupDef = { id: 'g-pink', name: '粉', compositionType: 'solid', slots: [{ role: 'primary', color: '#ff5d8f' }] };
   const getGroup = (id: ColorGroupId): ColorGroupDef | undefined =>
-    ({ 'g-blue': blue, 'g-pink': pink } as Record<string, ColorGroupDef>)[id];
+    ({ 'test:colorgroup:g-blue': blue, 'g-pink': pink } as Record<string, ColorGroupDef>)[id];
 
   test('TREE-17 themeTreeFromGroup：直接用主色位色值解析整包 token', () => {
     const group: ColorGroupDef = {
@@ -256,7 +256,7 @@ describe('theme-tree：ThemeTree 快照与快速映射', () => {
   });
 
   test('TREE-18 themeTreeFromThemeDef：colorGroupId 打底 + tokens 覆盖', () => {
-    const tree = themeTreeFromThemeDef({ colorGroupId: 'g-blue', tokens: { bg: '#101828' } }, getGroup);
+    const tree = themeTreeFromThemeDef({ colorGroupId: 'test:colorgroup:g-blue', tokens: { bg: '#101828' } }, getGroup);
     expect(tree['--ac-primary']).toBe('#3b82f6');
     expect(tree['--ac-bg']).toBe('#101828');
   });

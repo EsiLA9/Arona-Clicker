@@ -207,7 +207,7 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
   test('setTheme effect → handleThemeEffect → 临时层生效', () => {
     game = freshGame();
     game.mutations.acquireCharacter('Arona', 'gacha'); // 解锁 schale-solid
-    game.mutations.activateTheme('base:group:schale-solid');
+    game.mutations.activateTheme('base:colorgroup:schale-solid');
     game.colorSystem.syncPlayerThemeFromState(game.state);
     const base = game.colorSystem.runtimeTheme();
     expect(base.layers).toContain('player');
@@ -215,7 +215,7 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     const handled = game.colorSystem.handleThemeEffect({
       op: 'setTheme',
       target: '',
-      value: { colorGroupId: 'base:group:coral', tokens: { 'player-bubble': '#ff0000' } },
+      value: { colorGroupId: 'base:colorgroup:coral', tokens: { 'player-bubble': '#ff0000' } },
     });
     expect(handled).toBe(true);
     const themed = game.colorSystem.runtimeTheme();
@@ -236,13 +236,13 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
   test('多色彩组叠加：场景覆盖玩家、临时覆盖一切', () => {
     game = freshGame();
     game.mutations.acquireCharacter('Arona', 'gacha');
-    game.mutations.activateTheme('base:group:schale-solid');
+    game.mutations.activateTheme('base:colorgroup:schale-solid');
     game.colorSystem.syncPlayerThemeFromState(game.state);
     // 进入千年 Area → 场景层（靛蓝）
-    game.colorSystem.pushSceneTheme({ scope: 'area', groupId: 'base:group:indigo' });
+    game.colorSystem.pushSceneTheme({ scope: 'area', groupId: 'base:colorgroup:indigo' });
     expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe('#6366f1');
     // 打开学生对话（无 theme 的默认学生不影响，但此处模拟千年学生有 theme）
-    game.colorSystem.pushSceneTheme({ scope: 'student', groupId: 'base:group:violet' });
+    game.colorSystem.pushSceneTheme({ scope: 'student', groupId: 'base:colorgroup:violet' });
     expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe('#8b5cf6');
     // 临时演出压栈 → 最高优先级
     game.colorSystem.pushEphemeralTheme({ scope: 'ephemeral', tokens: { primary: '#111111' } });

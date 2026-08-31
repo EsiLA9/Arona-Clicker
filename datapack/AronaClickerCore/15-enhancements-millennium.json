@@ -1,7 +1,7 @@
 {
   "enhancements": [
     {
-      "id": "base:enh:millennium_catalyst",
+      "id": "base:enhancement:millennium_catalyst",
       "name": "千年级催化剂",
       "description": "千年工坊特制的生产催化剂，大幅提升实验室的产出效率。",
       "revealTriggers": [
@@ -35,7 +35,7 @@
       }
     },
     {
-      "id": "base:enh:pyroxene_vein",
+      "id": "base:enhancement:pyroxene_vein",
       "name": "青辉石矿脉勘探",
       "description": "在千年校区周边勘探出的青辉石矿脉，为实验室提供额外收入。",
       "revealTriggers": [

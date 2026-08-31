@@ -56,7 +56,7 @@ describe('SpotBuilder', () => {
       .revealResource('name', CREDIT, 10)
       .revealResource('utility', CREDIT, 40)
       .linearYieldWhen(
-        'base:func:field_work_conditioned',
+        'base:funclet:field_work_conditioned',
         CREDIT,
         1,
         and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>', 100)),
@@ -83,7 +83,7 @@ describe('SpotBuilder', () => {
       ],
       functionalities: [
         {
-          id: 'base:func:field_work_conditioned',
+          id: 'base:funclet:field_work_conditioned',
           kind: 'linearYield',
           resource: CREDIT,
           amountPerLevel: 1,
@@ -148,9 +148,9 @@ describe('SpotBuilder', () => {
     const def = spot('base:spot:x', 'base:area:a')
       .name('x').desc('x')
       .gacha('f')
-      .gachaPools('base:pool:a', 'base:pool:b')
+      .gachaPools('base:gachapool:a', 'base:gachapool:b')
       .build();
-    expect(def.gachaPools).toEqual(['base:pool:a', 'base:pool:b']);
+    expect(def.gachaPools).toEqual(['base:gachapool:a', 'base:gachapool:b']);
   });
 
   test('maxLevel / global / extra / conditionText 输出', () => {

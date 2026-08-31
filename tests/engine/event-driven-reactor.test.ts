@@ -130,9 +130,9 @@ describe('ConditionDepIndex 命中语义', () => {
     const idx = new ConditionDepIndex<string>();
     idx.register('tagged', { target: 'hasTag', key: 'office', comparator: '==', value: 1 } as never);
 
-    expect(idx.affected({ type: 'spotLevelChanged', spotId: 's1', newLevel: 1 })).toEqual(new Set(['tagged']));
-    expect(idx.affected({ type: 'spotTagChanged', spotId: 's1', tag: 'office', added: true })).toEqual(new Set(['tagged']));
-    expect(idx.affected({ type: 'spotTagChanged', spotId: 's1', tag: 'field', added: true })).toEqual(new Set());
+    expect(idx.affected({ type: 'spotLevelChanged', spotId: 'test:spot:s1', newLevel: 1 })).toEqual(new Set(['tagged']));
+    expect(idx.affected({ type: 'spotTagChanged', spotId: 'test:spot:s1', tag: 'office', added: true })).toEqual(new Set(['tagged']));
+    expect(idx.affected({ type: 'spotTagChanged', spotId: 'test:spot:s1', tag: 'field', added: true })).toEqual(new Set());
   });
 
   test('unregister 摘除全部依赖；collectConditionLeaves 展开嵌套条件组', () => {

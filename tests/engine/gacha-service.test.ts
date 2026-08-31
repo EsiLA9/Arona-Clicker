@@ -6,7 +6,7 @@ import { GameInstance } from '../../src/engine/game-instance';
 import type { Datapack } from '../../src/engine/types';
 import { Character, CharacterRarity, CharacterSchool, GachaMode } from '../../src/engine/types';
 
-const POOL = 'pool-main';
+const POOL = 'test:gachapool:pool-main';
 const CURRENCY = 'base:resource:pyroxene';
 
 /** mulberry32 确定性 RNG（G-08）。 */
@@ -206,6 +206,6 @@ describe('gacha（G-01 ~ G-10）', () => {
   });
 
   test('G-10 多模式注册表互不影响（未知池报错路径）', () => {
-    expect(() => game.gachaService.roll('pool-ghost', 1)).toThrow(/未知卡池/);
+    expect(() => game.gachaService.roll('test:gachapool:pool-ghost', 1)).toThrow(/未知卡池/);
   });
 });

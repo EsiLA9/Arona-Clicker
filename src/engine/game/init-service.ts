@@ -143,8 +143,13 @@ export class InitService {
     }
 
     // 自动展开起始剧情（InitStory）：进入 Init 时直接开始，无需玩家手动启动。
-    if (init.startStoryId && !this.opts.storyService.hasCompletedStory(init.startStoryId)) {
-      this.opts.storyService.startStory(init.startStoryId, 'active');
+    // startStoryId 指向 active entry（投放位）；完结守卫按 entry.storyId（演出本体）判定。
+    if (init.startStoryId) {
+      const startEntry = this.opts.registry.activeStories.get(init.startStoryId);
+      const completedStoryId = startEntry?.storyId ?? init.startStoryId;
+      if (!this.opts.storyService.hasCompletedStory(completedStoryId)) {
+        this.opts.storyService.startStory(init.startStoryId, 'active');
+      }
     }
 
     this.applyEntryEffects(init.enterEffects, isFirstEnter);

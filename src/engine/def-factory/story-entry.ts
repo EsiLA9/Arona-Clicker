@@ -31,6 +31,7 @@ abstract class StoryEntryBaseBuilder {
   protected _completionStrategy?: 'simple' | 'conditional';
   protected _conditionalRewards: ConditionalReward[] = [];
   protected _branchGuards: BranchGuard[] = [];
+  protected _openingTitle?: string;
   protected _extra?: ExtraCompound;
 
   constructor(id: StoryId, storyId?: StoryId) {
@@ -60,6 +61,8 @@ abstract class StoryEntryBaseBuilder {
     this._revealTriggers.push(condition ? { reveal: target, condition } : { reveal: target });
     return this;
   }
+  /** 开幕标题：确认浮层展示标题 + 开幕横幅回退标题（横幅由 Talklet 的 showOpeningTitle 效果呼出）。 */
+  openingTitle(value: string): this { this._openingTitle = value; return this; }
   extra(value: ExtraCompound): this { this._extra = value; return this; }
 
   protected toBase(): StoryEntryBase {
@@ -75,6 +78,7 @@ abstract class StoryEntryBaseBuilder {
     if (this._completionStrategy) def.completionStrategy = this._completionStrategy;
     if (this._conditionalRewards.length) def.conditionalRewards = this._conditionalRewards;
     if (this._branchGuards.length) def.branchGuards = this._branchGuards;
+    if (this._openingTitle) def.openingTitle = this._openingTitle;
     if (this._extra) def.extra = this._extra;
     return def;
   }

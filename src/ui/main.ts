@@ -17,6 +17,7 @@ import './css/contacts.css';
 import './css/theme-panel.css';
 import './css/entity-theme.css';
 import './css/conversation.css';
+import './css/story-overlays.css';
 import './css/equipment.css';
 
 const game = new GameInstance();

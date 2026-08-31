@@ -26,8 +26,8 @@ const RES_SPOT = 'test:spot:res_reader';
 const EXTRA_SPOT = 'test:spot:extra_reader';
 const AREA = 'test:area:a';
 const INIT = 'test:init:a';
-const ENH_ZONE = 'test:enh:zone-expr';
-const ENH_GATE = 'test:enh:gate-flows';
+const ENH_ZONE = 'test:enhancement:zone-expr';
+const ENH_GATE = 'test:enhancement:gate-flows';
 
 const datapack = {
   name: 'test:dp:invalidation',
@@ -158,10 +158,10 @@ describe('Phase 5 陈旧读回归（事件驱动精确失效）', () => {
   test('addEnhancement/removeEnhancement → zone mul 桥接立即生效/撤销', () => {
     game.mutations.setSpotLevel(PRINTER, 1);
     expect(gain()).toBe(7);
-    expect(game.mutations.addEnhancement('base:enh:credit_system')).toBe(true);
+    expect(game.mutations.addEnhancement('base:enhancement:credit_system')).toBe(true);
     // zone mul 只乘 spot 子树（5×1.5），功能 flows 在根级加法不受乘区影响
     expect(gain()).toBeCloseTo(9.5, 6);
-    expect(game.mutations.removeEnhancement('base:enh:credit_system')).toBe(true);
+    expect(game.mutations.removeEnhancement('base:enhancement:credit_system')).toBe(true);
     expect(gain()).toBe(7);
   });
 

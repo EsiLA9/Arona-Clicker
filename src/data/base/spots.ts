@@ -16,9 +16,9 @@ export const baseSpots: SpotDef[] = [
     .managerBonus(3)
     .tags(tagPath('credit'), tagPath('office'))
     // 功能：升级提供线性额外产出（每级 +2 信用点，类比持续生效的 Affector）
-    .linearYield('base:func:credit_printer_linear', Resource.Credit, 2)
+    .linearYield('base:funclet:credit_printer_linear', Resource.Credit, 2)
     // 招募：夏莱办公室内即可测试抽卡。无 gachaPools 声明 → 开放全局通用卡池。
-    .gacha('base:func:credit_printer_gacha')
+    .gacha('base:funclet:credit_printer_gacha')
     // 通用升级：每级基础产出 +2（线性）；升级花费 floor(50 × 2^(N-1))（指数）
     .genericUpgrade(50, 2, 2)
     .build(),
@@ -34,7 +34,7 @@ export const baseSpots: SpotDef[] = [
     .capacity(200)
     .managerBonus(1)
     .tags(tagPath('office'), tagPath('tech'))
-    .restartInit('base:func:comms_restart')
+    .restartInit('base:funclet:comms_restart')
     .genericUpgrade(30, 2, 1)
     .build(),
 
@@ -49,7 +49,7 @@ export const baseSpots: SpotDef[] = [
     .capacity(100)
     .managerBonus(1)
     .tags(tagPath('tech'), tagPath('defense'))
-    .hardResetInit('base:func:data_wiper_hard_reset')
+    .hardResetInit('base:funclet:data_wiper_hard_reset')
     .genericUpgrade(25, 2, 1)
     .build(),
 
@@ -65,7 +65,7 @@ export const baseSpots: SpotDef[] = [
     .revealResource('utility', Resource.Credit, 40)
     // 功能（带条件）：全局累计产出超过 100 信用点后，每级额外 +1（演示条件需求）
     .linearYieldWhen(
-      'base:func:field_work_conditioned',
+      'base:funclet:field_work_conditioned',
       Resource.Credit,
       1,
       and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>', 100)),
@@ -96,7 +96,7 @@ export const baseSpots: SpotDef[] = [
     .capacity(400)
     .managerBonus(2)
     .tags(tagPath('office'), tagPath('defense'))
-    .restartInit('base:func:abydos_restart')
+    .restartInit('base:funclet:abydos_restart')
     .levelUpTo(3)
     .genericUpgrade(45, 1.8, 1)
     .build(),
@@ -123,7 +123,7 @@ export const baseSpots: SpotDef[] = [
     .capacity(350)
     .managerBonus(4)
     .tags(tagPath('tech'), tagPath('intel'))
-    .restartInit('base:func:millennium_restart')
+    .restartInit('base:funclet:millennium_restart')
     .levelUpTo(3)
     .genericUpgrade(60, 1.8, 1)
     .build(),
@@ -189,8 +189,8 @@ export const baseSpots: SpotDef[] = [
     .managerBonus(4)
     .tags(tagPath('shop'), tagPath('tech'))
     // 功能：招募（热门角色的专属卡池，独立于全局通用卡池）
-    .gacha('base:func:canteen_gacha')
-    .gachaPools('base:pool:canteen_exclusive')
+    .gacha('base:funclet:canteen_gacha')
+    .gachaPools('base:gachapool:canteen_exclusive')
     .revealResource('name', Resource.Credit, 20)
     .revealResource('utility', Resource.Credit, 60)
     .levelUpTo(3)
@@ -208,7 +208,7 @@ export const baseSpots: SpotDef[] = [
     .capacity(400)
     .managerBonus(6)
     .tags(tagPath('tech'), tagPath('link'), tagPath('math'))
-    .restartInit('base:func:ai_restart')
+    .restartInit('base:funclet:ai_restart')
     .levelUpTo(3)
     .genericUpgrade(200, 1.8, 1)
     .build(),
@@ -224,7 +224,7 @@ export const baseSpots: SpotDef[] = [
     .capacity(500)
     .managerBonus(3)
     .tags(tagPath('faith'), tagPath('courtesy'), tagPath('credit'))
-    .restartInit('base:func:trinity_restart')
+    .restartInit('base:funclet:trinity_restart')
     .levelUpTo(3)
     .genericUpgrade(55, 1.8, 1)
     .build(),
@@ -271,7 +271,7 @@ export const baseSpots: SpotDef[] = [
     .capacity(350)
     .managerBonus(4)
     .tags(tagPath('admin'), tagPath('discipline'), tagPath('office'))
-    .restartInit('base:func:gehenna_restart')
+    .restartInit('base:funclet:gehenna_restart')
     .levelUpTo(3)
     .genericUpgrade(65, 1.8, 1)
     .build(),

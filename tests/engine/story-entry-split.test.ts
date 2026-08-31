@@ -34,7 +34,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
 
   test('registry：storyEntries 与 stories 并行注册，entry.storyId 重定向到演出本体', () => {
     game.init([baseDatapack]);
-    const entry = game.registry.storyEntries.get('base:story:schale_welcome')!;
+    const entry = game.registry.storyEntries.get('base:activestory:schale_welcome')!;
     expect(entry.type).toBe('active');
     expect(entry.storyId).toBe('base:story:schale_welcome');
     expect(entry.availableInits).toContain('base:init:schale_office');
@@ -53,7 +53,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
       ...baseDatapack,
       stories: [],
       activeStories: [
-        { id: 'x:story:ghost', storyId: 'x:story:missing', type: 'active', availableInits: [], triggerCondition: and() },
+        { id: 'x:activestory:ghost', storyId: 'x:story:missing', type: 'active', availableInits: [], triggerCondition: and() },
       ],
       passiveStories: [],
     };

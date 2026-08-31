@@ -10,9 +10,9 @@ const CREDIT = 'base:resource:credit';
 const PYROXENE = 'base:resource:pyroxene';
 const OFFICE = 'base:init:schale_office';
 const PRINTER = 'base:spot:credit_printer';
-const FOUNDATION = 'base:enh:foundation';
-const UNIFIED = 'base:enh:unified_logistics';
-const ETERNAL = 'base:enh:eternal_contract';
+const FOUNDATION = 'base:enhancement:foundation';
+const UNIFIED = 'base:enhancement:unified_logistics';
+const ETERNAL = 'base:enhancement:eternal_contract';
 
 describe('GlobalEnhancement（global 挂靠强化）', () => {
   let game: GameInstance;

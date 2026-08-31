@@ -104,7 +104,7 @@ describe('SpotFunctionalitySystem', () => {
     const creditInstances = game.affectorEngine.getActiveInstances()
       .filter(i => i.mountEntityId === 'base:spot:credit_printer');
     expect(creditInstances).toHaveLength(1);
-    expect(creditInstances[0].packId).toBe('base:func:credit_printer_linear@base:spot:credit_printer');
+    expect(creditInstances[0].packId).toBe('base:funclet:credit_printer_linear@base:spot:credit_printer');
 
     // field_work 的条件功能初始不满足 → 挂载但保持 Latent（不在 active 列表）
     const fieldInstances = game.affectorEngine.getActiveInstances()
@@ -115,14 +115,14 @@ describe('SpotFunctionalitySystem', () => {
   test('same functionality id mounted on multiple spots keeps per-spot level', () => {
     // 外源注入：无 affectorPackIds → 全局作用域，所有 Spot 都获得同 id 的 linearYield
     loadExtraEnhancementDp(game, {
-      id: 'test:enh:shared_flow',
+      id: 'test:enhancement:shared_flow',
       name: '',
       description: '',
       effects: [],
       autoApply: false,
       addsFunctionalities: [{ id: 'shared_linear', kind: 'linearYield', resource: CREDIT, amountPerLevel: 1 }],
     } as EnhancementDef);
-    game.mutations.addEnhancement('test:enh:shared_flow');
+    game.mutations.addEnhancement('test:enhancement:shared_flow');
 
     for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
     // comms_terminal / data_wiper 自身无 linearYield，只有外源 shared_linear（各自按本 Spot 等级）
@@ -151,7 +151,7 @@ describe('SpotFunctionalitySystem', () => {
     // 购买 field_logistics（解锁条件 field_work>=2），其 addsFunctionalities 注入 field/combat/tactical Spot
     game.state.resources[CREDIT] = 500;
     game.state.spotLevels['base:spot:field_work'] = 2;
-    expect(game.enhancements.purchaseEnhancement('base:enh:field_logistics').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enhancement:field_logistics').success).toBe(true);
 
     const fieldWork = game.registry.spots.get('base:spot:field_work')!;
     expect(game.spotFunctionalitySystem.hasFunctionality(fieldWork, game.state, 'restartInit')).toBe(true);
@@ -163,11 +163,11 @@ describe('SpotFunctionalitySystem', () => {
   test('removing the enhancement drops its external functionalities', () => {
     game.state.resources[CREDIT] = 500;
     game.state.spotLevels['base:spot:field_work'] = 2;
-    expect(game.enhancements.purchaseEnhancement('base:enh:field_logistics').success).toBe(true);
+    expect(game.enhancements.purchaseEnhancement('base:enhancement:field_logistics').success).toBe(true);
 
     const fieldWork = game.registry.spots.get('base:spot:field_work')!;
     expect(game.spotFunctionalitySystem.hasFunctionality(fieldWork, game.state, 'restartInit')).toBe(true);
-    expect(game.enhancements.removeEnhancement('base:enh:field_logistics')).toBe(true);
+    expect(game.enhancements.removeEnhancement('base:enhancement:field_logistics')).toBe(true);
     expect(game.spotFunctionalitySystem.hasFunctionality(fieldWork, game.state, 'restartInit')).toBe(false);
   });
 

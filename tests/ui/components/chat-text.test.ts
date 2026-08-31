@@ -69,11 +69,11 @@ describe('renderChatTexts（showChatText 覆盖层渲染）', () => {
 
   test('嵌入 kizuna Talklet：渲染羁绊卡片且带 data-kizuna（点击沿用 startCardStory 绑定）', () => {
     const html = renderChatTexts(ctx, entry({
-      talklet: { speaker: '星野', text: '来聊聊', kizuna: { storyId: 'bond:hoshino_1', title: '羁绊剧情', buttonText: '进入' } },
-      targetStoryId: 'bond:hoshino_1',
+      talklet: { speaker: '星野', text: '来聊聊', kizuna: { storyId: 'test:story:bond_hoshino_1', title: '羁绊剧情', buttonText: '进入' } },
+      targetStoryId: 'test:story:bond_hoshino_1',
     }));
     expect(html).toContain('kizuna-card');
-    expect(html).toContain('data-kizuna="bond:hoshino_1"');
+    expect(html).toContain('data-kizuna="test:story:bond_hoshino_1"');
     expect(html).toContain('羁绊剧情');
     expect(html).toContain('进入');
   });

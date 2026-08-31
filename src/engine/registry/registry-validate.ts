@@ -6,6 +6,7 @@
 
 import { Datapack, ExtraValue } from '../types';
 import { parsePicId } from '../types/pics';
+import { validateEntityId } from '../core/entity-id';
 import { assertValidExtra, expandFlatKeys, ExtraError } from '../extra/index';
 
 export class RegistryError extends Error {
@@ -14,6 +15,31 @@ export class RegistryError extends Error {
     this.name = 'RegistryError';
   }
 }
+
+/**
+ * 三段式 id 校验（docs-828/06-adr/0004 §2）：
+ * formatOnly = true 时只查格式（story / character 表待 S1b/c 中段归位后收紧）。
+ */
+const checkEntityIds = (
+  items: { id: string }[] | undefined,
+  expectedType: string,
+  label: string,
+  formatOnly = false,
+) => {
+  if (!items) return;
+  for (const item of items) {
+    const issue = validateEntityId(item.id);
+    if (issue === 'format') {
+      throw new RegistryError(
+        `${label} id "${item.id}" 不符合三段式格式 modName:typeName:idName（段字符集 [a-z0-9-_]）`,
+      );
+    }
+    if (formatOnly || issue === null) continue;
+    throw new RegistryError(
+      `${label} id "${item.id}" 的 typeName 段须为 "${expectedType}"（注册表见 core/entity-id.ts ENTITY_TYPES）`,
+    );
+  }
+};
 
 /** 校验数据包；非法即抛 RegistryError。 */
 export function validateDatapack(dp: Datapack): void {
@@ -102,6 +128,35 @@ export function validateDatapack(dp: Datapack): void {
 
   if (dp.colorGroups) checkDup(dp.colorGroups, 'color group');
   if (dp.colorEquipments) checkDup(dp.colorEquipments, 'color equipment');
+
+  // 三段式 id 规范校验（§2）：强校验表按表名核对 typeName；
+  // story / character 域 S1b/c 归位前仅查格式。
+  checkEntityIds(dp.inits, 'init', 'Init');
+  checkEntityIds(dp.areas, 'area', 'Area');
+  checkEntityIds(dp.spots, 'spot', 'Spot');
+  checkEntityIds(dp.enhancements, 'enhancement', 'Enhancement');
+  checkEntityIds(dp.items, 'item', 'Item');
+  checkEntityIds(dp.dropTables, 'droptable', 'Drop table');
+  // 匿名 Trigger（id 缺省 / anon: 派生前缀）不参与三段式校验
+  checkEntityIds(
+    dp.triggerDefs?.filter(t => t.id !== undefined && !t.id.startsWith('anon:')) as { id: string }[] | undefined,
+    'trigger',
+    'Trigger',
+  );
+  checkEntityIds(dp.affectorPacks, 'affectorpack', 'Affector pack');
+  checkEntityIds(dp.funcletDefs, 'funclet', 'Funclet');
+  checkEntityIds(dp.passivePools, 'passivepool', 'Passive pool');
+  checkEntityIds(dp.gachaPools, 'gachapool', 'Gacha pool');
+  checkEntityIds(dp.cultivateCurves, 'cultivatecurve', 'Cultivate curve');
+  checkEntityIds(dp.colorGroups, 'colorgroup', 'Color group');
+  checkEntityIds(dp.colorEquipments, 'colorequipment', 'Color equipment');
+  checkEntityIds(dp.themeDesigns, 'themedesign', 'Theme design');
+  checkEntityIds(dp.resourceDisplays?.map(rd => ({ id: rd.resourceId })), 'resource', 'Resource display');
+  // story 三表强校验（S1b 落地）：本体 / 主动投放位 / 被动投放位各自中段归位；
+  // characters / characterVariants 裸名（S1c 命名空间化）暂不校验。
+  checkEntityIds(dp.stories, 'story', 'Story');
+  checkEntityIds(dp.activeStories, 'activestory', 'Active story entry');
+  checkEntityIds(dp.passiveStories, 'passivestory', 'Passive story entry');
 
   // 检查引用完整性
   const initIds = new Set(dp.inits.map(i => i.id));

@@ -145,7 +145,7 @@ describe('Story 主流程（click 门控推进）', () => {
     finishWelcome(game);
 
     // 启动千禧年危机（active entry，availableInits 限 millennium init → 用 replayStory 绕过）
-    expect(game.story.replayStory('base:story:millennium_game_crisis').success).toBe(true);
+    expect(game.story.replayStory('base:activestory:millennium_game_crisis').success).toBe(true);
 
     // t0 旁白（普通页）→ advance 模式，逐页阻塞
     expect(game.story.getSendState()).toMatchObject({ mode: 'advance' });

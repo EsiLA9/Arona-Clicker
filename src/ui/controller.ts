@@ -55,7 +55,7 @@ import { bindSaveActions } from './controller-save';
 import { bindTopBarActions } from './controller-actions-topbar';
 import { bindContactsActions } from './controller-actions-contacts';
 import { bindThemeActions } from './controller-actions-theme';
-import { bindStoryActions } from './controller-actions-story';
+import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 
 export class UIController {
@@ -63,8 +63,10 @@ export class UIController {
   static readonly MAX_CHAT_HISTORY = MAX_CHAT_HISTORY;
   /** @internal 供 controller-core 读取。 */
   refreshTimer: ReturnType<typeof setInterval> | null = null;
-  /** @internal 供 controller-core / controller-panels 读取。 */
+  /** @internal 供 controller-core 读取。 */
   started = false;
+  /** 奖励通知延迟入流时长（毫秒）：Story 末尾留一拍，避免奖励信息贴着最后一页弹出。 */
+  static readonly REWARD_REVEAL_DELAY_MS = 800;
   /** @internal 供 controller-core / controller-panels 读写。 */
   panelState: PanelState = {
     leftTab: 'area',
@@ -77,6 +79,8 @@ export class UIController {
     studentChats: {},
     studentChatTexts: {},
     storyNavPath: [],
+    storyGate: null,
+    openingBanner: null,
   };
   /** 弹窗母版实例（body 级，独立于 #app 重建）。 */
   readonly modal = new ModalManager();
@@ -90,10 +94,12 @@ export class UIController {
   pendingRestart = false;
   /** 悬浮详情弹层（body 级，事件委托一次绑定）。 */
   readonly popovers: PopoverManager;
-  /** @internal 待落账的奖励通知（storyRewarded 排队，render 时统一入流）。 */
+  /** @internal 待落账的奖励通知（storyRewarded 排队，延迟入流见 scheduleRewardChats）。 */
   pendingRewardChats: string[] = [];
-  /** @internal 输入中提示的推送定时器（进入对话空间时排队列，点发送/返回时取消）。 */
-  typingTimer: ReturnType<typeof setTimeout> | null = null;
+  /** @internal 待落账的进入 Area 通知（render 时先于剧情内容入流）。 */
+  pendingTravelChats: string[] = [];
+  /** @internal 奖励通知延迟入流计时器（Story 末尾留一拍）。 */
+  rewardTimer: ReturnType<typeof setTimeout> | null = null;
   /** @internal 主题浮窗：跨 render 全量重建 #app 保留其开关键与位置（供 controller-theme / controller-actions-topbar 读写）。 */
   themeFloatOpen = false;
   /** @internal 主题浮窗位置（同上）。 */
@@ -120,6 +126,21 @@ export class UIController {
       this.game.rosterSystem.isOwned(this.game.state, variantId)
         ? this.game.story.readyStepCount(variantId)
         : 0;
+    // 页级打字提示（§4）到期落内容后重建 DOM，让省略号气泡替换为消息本体
+    this.chat.onChange = () => this.render();
+    // 链式连发（§4）：无按钮要求的左侧页送达后自动推进一页（引擎 clickSend 每次恰好
+    // 推进一页；选项/按动/回复页不满足连发谓词，不会进入自动推进）
+    this.chat.onAutoAdvance = (streamKey) => {
+      const owner = streamKey === '#global' ? undefined : streamKey;
+      const view = owner ? this.game.getStoryView(owner) : this.game.getView().currentStory;
+      if (!view) return; // 剧情已结束：链终止
+      const result = this.game.story.clickSend(owner);
+      logStoryFailure(this, result);
+      if (result.type === 'completed') {
+        this.chat.pushAbsorbedTo(streamKey, this.panelState, result.absorbed ?? []);
+      }
+      this.render();
+    };
     // 绑定到 document.body：弹窗（app-modal）挂在 body 级，图鉴条目的悬停详情也要生效
     this.popovers = new PopoverManager(document.body, this.game);
     this.selectorPage = new SelectorPage({
@@ -176,6 +197,40 @@ export class UIController {
   destroy(): void {
     if (this.refreshTimer !== null) clearInterval(this.refreshTimer);
     this.refreshTimer = null;
+    if (this.rewardTimer !== null) clearTimeout(this.rewardTimer);
+    this.rewardTimer = null;
+  }
+
+  /**
+   * 奖励通知延迟入流（Story 末尾留一拍）：排队后等一小拍统一落账并重渲染。
+   * 落账前校验活跃流演出已彻底结束（游标清空）——完结瞬间被推送的尾巴等内容
+   * 仍在播放时顺延重试，避免奖励行插在后续剧情内容中间。
+   */
+  private scheduleRewardChats(): void {
+    if (this.pendingRewardChats.length === 0 || this.rewardTimer !== null) return;
+    this.rewardTimer = setTimeout(() => {
+      this.rewardTimer = null;
+      const convId = this.panelState.conversationVariantId;
+      const playing = convId ? this.game.getStoryView(convId) : this.game.getView().currentStory;
+      if (playing) {
+        this.scheduleRewardChats();
+        return;
+      }
+      this.flushRewardChatsNow();
+      this.render();
+    }, UIController.REWARD_REVEAL_DELAY_MS);
+  }
+
+  /** 立即落账待入流奖励（存档前调用防丢；计时中途调用先撤计时器）。 */
+  private flushRewardChatsNow(): void {
+    if (this.rewardTimer !== null) {
+      clearTimeout(this.rewardTimer);
+      this.rewardTimer = null;
+    }
+    for (const text of this.pendingRewardChats) {
+      this.pushChat({ kind: 'reward', text });
+    }
+    this.pendingRewardChats = [];
   }
 
   /** 揭示状态指纹：计算全部实体的当前揭示级别（委托 controller-core）。 */
@@ -198,13 +253,23 @@ export class UIController {
     // 交互触发重建前处理 hover 弹层：锚点被重建移除才关闭；
     // body 级弹窗（如图鉴）内的锚点不受 #app 重建影响，浮层保留
     this.popovers.retainIfAnchored();
-    // 当前剧情页先同步进聊天流（以指纹去重），再重建 DOM
-    this.chat.syncCurrentStory(this.panelState, this.game);
-    // 奖励通知在台词/回复气泡之后落账（排队见 storyRewarded 订阅）
-    for (const text of this.pendingRewardChats) {
+    // 进入 Area 的「移动到了」迷你条目先于剧情内容入流：移动触发的故事与通知
+    // 落在同一次 render，通知必须先落账（否则故事首内容会排在通知之前）
+    for (const text of this.pendingTravelChats) {
       this.pushChat({ kind: 'reward', text });
     }
-    this.pendingRewardChats = [];
+    this.pendingTravelChats = [];
+    // 当前剧情页先同步进聊天流（以指纹去重），再重建 DOM
+    this.chat.syncCurrentStory(this.panelState, this.game);
+    // 底部按钮门控阶段（§4）：同步后按当前活跃流计算，供 renderSendButton 隐藏回复文案；
+    // 开幕横幅展示/淡出期间呈阻断态（点击由 data-send 处理器忽略）
+    this.panelState.sendGate = this.chat.activeGate(this.panelState)
+      ?? (this.chat.bannerBlocking(this.panelState) ? 'typing' : null);
+    // 开幕标题横幅：按当前活跃流读取（showBanner 状态由 openingTitleShown 事件写入）
+    this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
+    // 奖励通知在台词/回复气泡之后落账（排队见 storyRewarded 订阅）；
+    // Story 末尾留一拍：延迟入流，避免奖励信息贴着最后一页台词瞬间弹出
+    this.scheduleRewardChats();
     // DOM 重建前先捕获各面板滚动位置（条件变化触发的揭示刷新不得把列表拽回顶层）
     this.scroll.capturePanel(this.root);
     // 聊天流滚动状态单独按比例捕获（跨流恢复）
@@ -314,6 +379,7 @@ export class UIController {
 
   /** 保存前：把各聊天沙盒 + 一般聊天历史（限 N 条）写入 SaveData。 */
   withHistories(data: SaveData): SaveData {
+    this.flushRewardChatsNow(); // 存档前先落账，延迟中的奖励通知不丢
     return withHistoriesImpl(this, data);
   }
 

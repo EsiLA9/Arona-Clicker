@@ -104,12 +104,13 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 **运行时效果请求**（EffectEngine 转发演出类 op → RuntimeEffectReactor 消费，不落状态）
 - `themeEffectRequested { effect }` — setTheme → ColorSystem 临时主题层
 - `storyEffectRequested { effect }` — triggerStory → StoryService.startStory（force）
-- `chatFlowEffectRequested { effect }` — 聊天流族 4 种 → ChatFlowService
+- `chatFlowEffectRequested { effect }` — 聊天流族 5 种 → ChatFlowService
 
 **聊天流演出**（Talklet 专用，均 emit `chat-flow-service`，订 UI controller-events）
 - `chatFlowCleared` / `chatTextClearedAll`
 - `chatTextShown { id, text?, talklet?, x?, y?, align?, kind?, style?, title?, buttonText?, targetStoryId? }`
 - `chatTextCleared { id }`
+- `openingTitleShown { title? }` — 开幕标题横幅呼出：首页声明的 `showOpeningTitle` 随剧情开始由 `story-flow` 发出；非首页/演出管线经 `chat-flow-service`。title 为 effect.value 文本，缺省时 UI 回退 `entry.openingTitle ?? StoryDef.name`
 
 **全局兜底订阅**（不逐条列入 subscribe）：devLog 的 `onAny` 全量记录（`wiring.ts`）；UI 的 `onAny` 揭示刷新（`controller-events.ts`，跳过 tick/spotProduced）。
 

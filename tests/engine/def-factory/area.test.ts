@@ -24,8 +24,8 @@ describe('AreaBuilder', () => {
   });
 
   test('缺 name / description 时 build() 抛错', () => {
-    expect(() => area('a', 'i').build()).toThrow(/name/);
-    expect(() => area('a', 'i').name('x').build()).toThrow(/description/);
+    expect(() => area('test:area:a', 'i').build()).toThrow(/name/);
+    expect(() => area('test:area:a', 'i').name('x').build()).toThrow(/description/);
   });
 
   test('全字段链式等价于字面量（abydos_pool 参照）', () => {
@@ -34,7 +34,7 @@ describe('AreaBuilder', () => {
       .desc('早已干涸的露天泳池。如今堆满器材，偶尔被学生们当作训练场。')
       .spots('base:spot:pool_train')
       .adjacent('base:area:abydos_campus')
-      .theme('base:group:abydos-sand', { playerBubble: '#3ec6e0' })
+      .theme('base:colorgroup:abydos-sand', { playerBubble: '#3ec6e0' })
       .build();
     expect(def).toEqual<AreaDef>({
       id: 'base:area:abydos_pool',
@@ -43,7 +43,7 @@ describe('AreaBuilder', () => {
       description: '早已干涸的露天泳池。如今堆满器材，偶尔被学生们当作训练场。',
       defaultSpots: ['base:spot:pool_train'],
       adjacentAreaIds: ['base:area:abydos_campus'],
-      theme: { colorGroupId: 'base:group:abydos-sand', tokens: { playerBubble: '#3ec6e0' } },
+      theme: { colorGroupId: 'base:colorgroup:abydos-sand', tokens: { playerBubble: '#3ec6e0' } },
     });
   });
 
@@ -62,7 +62,7 @@ describe('AreaBuilder', () => {
   });
 
   test('onEnter* 构造 EntryEffectDef 变体', () => {
-    const def = area('a', 'i').name('x').desc('x')
+    const def = area('test:area:a', 'i').name('x').desc('x')
       .onEnter({ op: 'setFlag', target: 'f', value: '1' })
       .onEnterFirst({ op: 'addResource', target: CREDIT, value: 1 })
       .build();
@@ -73,7 +73,7 @@ describe('AreaBuilder', () => {
   });
 
   test('未调用可选 setter 时不输出该字段', () => {
-    const def = area('a', 'i').name('x').desc('x').build();
+    const def = area('test:area:a', 'i').name('x').desc('x').build();
     expect(def).not.toHaveProperty('adjacentAreaIds');
     expect(def).not.toHaveProperty('theme');
     expect(def).not.toHaveProperty('revealTriggers');

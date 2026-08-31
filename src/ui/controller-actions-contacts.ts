@@ -6,36 +6,15 @@
 
 import type { UIController } from './controller';
 
-/** 输入中提示时长（ms）：省略号展示后自动推送就绪队列顶。 */
-const TYPING_DELAY_MS = 900;
-
-/** 取消输入中定时并清除提示态。 */
-function clearTyping(ctrl: UIController): void {
-  if (ctrl.typingTimer !== null) {
-    clearTimeout(ctrl.typingTimer);
-    ctrl.typingTimer = null;
-  }
-  ctrl.panelState.typingVariantId = null;
-}
-
 /**
- * 输入中提示流程：队列非空且无进行中演出时，先展示省略号（typing 态），
- * 延时后自动推送就绪队列顶（§2 轴 B 进入即推 / §3 尾巴强制优先）。
+ * 打开对话空间即推：队列非空且无进行中演出时立即推送就绪队列顶
+ * （§2 轴 B 进入即推 / §3 尾巴强制优先）。"正在输入"节奏由页级打字提示承担（§4）。
  */
-function scheduleTypingPush(ctrl: UIController, variantId: string): void {
-  clearTyping(ctrl);
+function pushReadyTop(ctrl: UIController, variantId: string): void {
   if (!ctrl.game.rosterSystem.isOwned(ctrl.game.state, variantId)) return;
   if (ctrl.game.getStoryView(variantId)) return; // 沙盒有进行中演出：直接恢复，不打断
   if (ctrl.game.story.readyStepCount(variantId) <= 0) return;
-  ctrl.panelState.typingVariantId = variantId;
-  ctrl.render();
-  ctrl.typingTimer = setTimeout(() => {
-    ctrl.typingTimer = null;
-    if (ctrl.panelState.conversationVariantId !== variantId) return;
-    ctrl.panelState.typingVariantId = null;
-    ctrl.game.story.triggerAffectionPush(variantId);
-    ctrl.render();
-  }, TYPING_DELAY_MS);
+  ctrl.game.story.triggerAffectionPush(variantId);
 }
 
 /** 绑定通讯录 / 角色面板、招募入口与角色成长事件（render 后调用）。 */
@@ -47,19 +26,20 @@ export function bindContactsActions(ctrl: UIController): void {
       ctrl.panelState.conversationVariantId = ctrl.panelState.selectedVariantId;
       ctrl.panelState.leftTab = 'contacts';
       ctrl.panelState.rightTab = 'character';
+      ctrl.panelState.storyGate = null; // 换流后浮层失效（owner 已不属于当前流）
       ctrl.scroll.forceToBottom();
-      // 未读即推：队列非空时先展示输入中省略号，延时送达队列顶
+      // 未读即推：队列非空时立即送达队列顶（打字节奏由剧情首条 talk 页承担）
       const variantId = ctrl.panelState.conversationVariantId;
-      if (variantId) scheduleTypingPush(ctrl, variantId);
-      if (!ctrl.panelState.typingVariantId) ctrl.render();
+      if (variantId) pushReadyTop(ctrl, variantId);
+      ctrl.render();
     });
   });
   // 对话空间返回键：回到一般聊天（并取消左侧该学生的 active 选中态）
   ctrl.root.querySelector('[data-conversation-back]')?.addEventListener('click', () => {
-    clearTyping(ctrl);
     ctrl.panelState.conversationVariantId = null;
     ctrl.panelState.selectedVariantId = null;
     ctrl.panelState.centerTab = 'chat';
+    ctrl.panelState.storyGate = null; // 换流后浮层失效（owner 已不属于当前流）
     ctrl.scroll.forceToBottom();
     ctrl.render();
   });

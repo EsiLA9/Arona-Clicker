@@ -95,7 +95,9 @@ export function syncRuntimeTheme(ctrl: UIController): void {
 export function applyTheme(ctrl: UIController): void {
   const style = document.documentElement.style;
   const removeInjected = () => {
-    for (const key of [...style]) {
+    // 索引遍历而非展开（CSSStyleDeclaration 迭代器在 happy-dom 下不可用）
+    for (let i = 0; i < style.length; i++) {
+      const key = style.item(i);
       // 清理所有引擎 / 语义层注入：--ac-*、背景节点自身、以及背景感知文字色（ink-on/muted-on）
       if (key.startsWith('--ac-') || key.startsWith('--ink-on-') || key.startsWith('--muted-on-')) {
         style.removeProperty(key);

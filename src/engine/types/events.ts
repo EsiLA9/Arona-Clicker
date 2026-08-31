@@ -96,6 +96,8 @@ export type GameEvent =
   | { type: 'chatTextShown'; id: string; text?: string; talklet?: Talklet; x?: number; y?: number; align?: 'left' | 'center' | 'right'; kind?: ChatTextKind; style?: ChatTextStyle; title?: string; buttonText?: string; targetStoryId?: string }
   /** 按临时 id 擦除演出专用文本（clearIdChatFlow）。 */
   | { type: 'chatTextCleared'; id: string }
+  /** 呼出开幕标题横幅（showOpeningTitle）：UI 在当前活跃流显示横幅；title 为 effect.value 文本，缺省时 UI 回退 entry.openingTitle ?? StoryDef.name。 */
+  | { type: 'openingTitleShown'; title?: string }
   & { stats?: StatsContext };
 
 export type EventHandler = (event: GameEvent) => void;
@@ -166,4 +168,5 @@ export const EVENT_CATALOG: Record<GameEvent['type'], EventCatalogEntry> = {
   chatTextClearedAll: { purpose: '删除全部演出文本覆盖层（演出服务 → UI）', emit: ['chat-flow-service'], subscribe: ['ui-controller-events'] },
   chatTextShown: { purpose: '显示演出专用文本（演出服务 → UI）', emit: ['chat-flow-service'], subscribe: ['ui-controller-events'] },
   chatTextCleared: { purpose: '按临时 id 擦除演出文本（演出服务 → UI）', emit: ['chat-flow-service'], subscribe: ['ui-controller-events'] },
+  openingTitleShown: { purpose: '呼出开幕标题横幅（演出服务/剧情开局 → UI，当前活跃流）', emit: ['chat-flow-service', 'story-flow'], subscribe: ['ui-controller-events'] },
 };

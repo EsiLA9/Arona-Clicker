@@ -32,8 +32,9 @@ export function bindInventoryActions(ctrl: UIController): void {
       if (result.success) {
         const area = ctrl.game.registry.areas.get(areaId);
         ctrl.toast.show(`已前往 ${area?.name ?? areaId}`, 'success');
-        // 与 Talklet 的 travelToArea（notice=true）一致：在聊天流显示「移动到了 XX」迷你条目
-        ctrl.pendingRewardChats.push(`移动到了 ${area?.name ?? areaId}`);
+        // 与 Talklet 的 travelToArea（notice=true）一致：在聊天流显示「移动到了 XX」迷你条目。
+        // 进 travel 队列：移动触发的剧情与通知在同一次 render，通知必须先于剧情内容入流
+        ctrl.pendingTravelChats.push(`移动到了 ${area?.name ?? areaId}`);
       } else {
         ctrl.toast.show(`无法移动：${travelErrorText[result.error] ?? result.error}`, 'error');
       }

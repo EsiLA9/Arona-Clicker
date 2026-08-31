@@ -1,10 +1,10 @@
 {
   "affectorPacks": [
     {
-      "id": "base:pack:energy_drink",
+      "id": "base:affectorpack:energy_drink",
       "entries": [
         {
-          "id": "base:aff:energy_drink",
+          "id": "base:affector:energy_drink",
           "effects": [
             { "op": "addResource", "target": "base:resource:credit", "value": 1 }
           ]

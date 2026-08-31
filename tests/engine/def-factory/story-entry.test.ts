@@ -20,9 +20,9 @@ describe('StoryEntry builders', () => {
   });
 
   test('active：最小 entry（缺省恒真条件 / storyId 缺省自身 / 可重读）', () => {
-    const def = activeStory('base:story:welcome').inits('base:init:schale_office').build();
+    const def = activeStory('base:activestory:welcome', 'base:story:welcome').inits('base:init:schale_office').build();
     expect(def).toEqual<ActiveStoryEntry>({
-      id: 'base:story:welcome',
+      id: 'base:activestory:welcome',
       storyId: 'base:story:welcome',
       type: 'active',
       triggerCondition: and(),
@@ -32,7 +32,7 @@ describe('StoryEntry builders', () => {
 
   test('active：分歧链 entry（conditionalRewards / branchGuard / replayable）', () => {
     const def = activeStory(
-      'base:story:millennium_game_crisis',
+      'base:activestory:millennium_game_crisis',
       'base:story:millennium_game_crisis_intro',
     )
       .inits('base:init:millennium')
@@ -49,7 +49,7 @@ describe('StoryEntry builders', () => {
       )
       .build();
     expect(def).toEqual<ActiveStoryEntry>({
-      id: 'base:story:millennium_game_crisis',
+      id: 'base:activestory:millennium_game_crisis',
       storyId: 'base:story:millennium_game_crisis_intro',
       type: 'active',
       triggerCondition: and(),
@@ -73,7 +73,7 @@ describe('StoryEntry builders', () => {
   });
 
   test('passive：闲聊 entry（weight / 完结奖励 / tags / reveal）', () => {
-    const def = passiveStory('base:story:schale_briefing')
+    const def = passiveStory('base:passivestory:schale_briefing', 'base:story:schale_briefing')
       .inits('base:init:schale_office')
       .weight(1)
       .tags(tagPath('theme', 'daily'))
@@ -82,7 +82,7 @@ describe('StoryEntry builders', () => {
       .rewardRepeat({ op: 'addResource', target: Resource.Pyroxene, value: 5 })
       .build();
     expect(def).toEqual<PassiveStoryEntry>({
-      id: 'base:story:schale_briefing',
+      id: 'base:passivestory:schale_briefing',
       storyId: 'base:story:schale_briefing',
       type: 'passive',
       triggerCondition: and(),
@@ -101,7 +101,7 @@ describe('StoryEntry builders', () => {
   });
 
   test('passive：壁垒/冷却/阻断（owner / cooldown / block / 演出锁定）', () => {
-    const def = passiveStory('base:story:hoshino_conv_2', 'base:story:hoshino_rooftop_hint')
+    const def = passiveStory('base:passivestory:hoshino_conv_2', 'base:story:hoshino_rooftop_hint')
       .owner('Hoshino')
       .inits('base:init:schale_office')
       .repeatable(false)
@@ -111,7 +111,7 @@ describe('StoryEntry builders', () => {
       .interruptible(false)
       .build();
     expect(def).toEqual<PassiveStoryEntry>({
-      id: 'base:story:hoshino_conv_2',
+      id: 'base:passivestory:hoshino_conv_2',
       storyId: 'base:story:hoshino_rooftop_hint',
       type: 'passive',
       owner: 'Hoshino',
@@ -126,14 +126,14 @@ describe('StoryEntry builders', () => {
   });
 
   test('active：羁绊剧情 entry（owner / 首次奖励）', () => {
-    const def = activeStory('base:bond:hoshino_1')
+    const def = activeStory('base:activestory:bond_hoshino_1', 'base:story:bond_hoshino_1')
       .owner('Hoshino')
       .replayable()
       .rewardFirst({ op: 'addResource', target: Resource.Pyroxene, value: 30 })
       .build();
     expect(def).toEqual<ActiveStoryEntry>({
-      id: 'base:bond:hoshino_1',
-      storyId: 'base:bond:hoshino_1',
+      id: 'base:activestory:bond_hoshino_1',
+      storyId: 'base:story:bond_hoshino_1',
       type: 'active',
       triggerCondition: and(),
       availableInits: [],
@@ -143,6 +143,15 @@ describe('StoryEntry builders', () => {
         first: [{ op: 'addResource', target: Resource.Pyroxene, value: 30 }],
       },
     });
+  });
+
+  test('openingTitle：active / passive 均落字段，缺省不输出', () => {
+    const active = activeStory('base:activestory:bond_hoshino_1', 'base:story:bond_hoshino_1').owner('Hoshino').openingTitle('星野 · 午后的堤防').build();
+    expect(active.openingTitle).toBe('星野 · 午后的堤防');
+    const passive = passiveStory('base:passivestory:affinity_hoshino_1', 'base:story:affinity_hoshino_1').owner('Hoshino').openingTitle('午后的便当').build();
+    expect(passive.openingTitle).toBe('午后的便当');
+    expect(activeStory('s').build()).not.toHaveProperty('openingTitle');
+    expect(passiveStory('s').build()).not.toHaveProperty('openingTitle');
   });
 
   test('两个 builder 实例类型正确', () => {

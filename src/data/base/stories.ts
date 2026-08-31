@@ -36,10 +36,10 @@ import {
 // ============================================================
 
 export const baseActiveStories: ActiveStoryEntry[] = [
-  activeStory('base:story:schale_welcome').inits('base:init:schale_office').replayable().build(),
-  activeStory('base:story:schale_flow_show').inits('base:init:schale_office').replayable().build(),
-  activeStory('base:story:abydos_welcome').inits('base:init:abydos').replayable().build(),
-  activeStory('base:story:millennium_welcome').inits('base:init:millennium').replayable().build(),
+  activeStory('base:activestory:schale_welcome', 'base:story:schale_welcome').inits('base:init:schale_office').replayable().build(),
+  activeStory('base:activestory:schale_flow_show', 'base:story:schale_flow_show').inits('base:init:schale_office').replayable().build(),
+  activeStory('base:activestory:abydos_welcome', 'base:story:abydos_welcome').inits('base:init:abydos').replayable().build(),
+  activeStory('base:activestory:millennium_welcome', 'base:story:millennium_welcome').inits('base:init:millennium').replayable().build(),
   // ============================================================
   // Demo: Story 跳转链 + 条件奖励 + 重阅读守卫
   //
@@ -50,7 +50,7 @@ export const baseActiveStories: ActiveStoryEntry[] = [
   //     3. conditionalRewards：按经过的 Story 发放分歧奖励
   //     4. replayable + branchGuards：重阅读 + 分歧点准入守卫
   // ============================================================
-  activeStory('base:story:millennium_game_crisis', 'base:story:millennium_game_crisis_intro')
+  activeStory('base:activestory:millennium_game_crisis', 'base:story:millennium_game_crisis_intro')
     .inits('base:init:millennium')
     .replayable()
     // 分歧奖励：亲自调试路线奖励更高（体现"更深入的参与"）
@@ -76,8 +76,8 @@ export const baseActiveStories: ActiveStoryEntry[] = [
   //   渐进揭示：(上)完成 → (下)名称揭开 + 可开始。
   //   跨 Run 永久记忆：完成过上篇就不会再隐藏下篇。
   // ============================================================
-  activeStory('base:story:serika_side_1').inits('base:init:abydos').replayable().build(),
-  activeStory('base:story:serika_side_2')
+  activeStory('base:activestory:serika_side_1', 'base:story:serika_side_1').inits('base:init:abydos').replayable().build(),
+  activeStory('base:activestory:serika_side_2', 'base:story:serika_side_2')
     .inits('base:init:abydos')
     .replayable()
     .when(and(cond('hasReadStory', 'base:story:serika_side_1', '==', 1)))
@@ -101,8 +101,8 @@ export const baseActiveStories: ActiveStoryEntry[] = [
   //   - 完成 (二)：(三) 变为可开始
   //   - 新 Run 全部重置回到 "???"
   // ============================================================
-  activeStory('base:story:run_chain_1').inits('base:init:schale_office').replayable().build(),
-  activeStory('base:story:run_chain_2')
+  activeStory('base:activestory:run_chain_1', 'base:story:run_chain_1').inits('base:init:schale_office').replayable().build(),
+  activeStory('base:activestory:run_chain_2', 'base:story:run_chain_2')
     .inits('base:init:schale_office')
     .replayable()
     .when(and(cond('hasReadStoryInRun', 'base:story:run_chain_1', '==', 1)))
@@ -110,7 +110,7 @@ export const baseActiveStories: ActiveStoryEntry[] = [
     .reveal('name', and(cond('hasReadStoryInRun', 'base:story:run_chain_1', '==', 1)))
     .reveal('condition', and(cond('hasReadStoryInRun', 'base:story:run_chain_1', '==', 1)))
     .build(),
-  activeStory('base:story:run_chain_3')
+  activeStory('base:activestory:run_chain_3', 'base:story:run_chain_3')
     .inits('base:init:schale_office')
     .replayable()
     .when(and(cond('hasReadStoryInRun', 'base:story:run_chain_2', '==', 1)))
@@ -123,11 +123,11 @@ export const baseActiveStories: ActiveStoryEntry[] = [
     .build(),
   // 天台相遇剧情（夏莱）：由天台 Trigger（进入 schale_rooftop）启动。
   // 独立于聊天空间邀约（hoshino_conv_2），避免前往天台时重复触发同一邀约。
-  activeStory('base:story:hoshino_rooftop_meet').inits('base:init:schale_office').replayable().build(),
+  activeStory('base:activestory:hoshino_rooftop_meet', 'base:story:hoshino_rooftop_meet').inits('base:init:schale_office').replayable().build(),
 ];
 
 export const basePassiveStories: PassiveStoryEntry[] = [
-  passiveStory('base:story:schale_briefing')
+  passiveStory('base:passivestory:schale_briefing', 'base:story:schale_briefing')
     .inits('base:init:schale_office')
     .weight(1)
     .tags(tagPath('theme', 'daily'))
@@ -136,25 +136,25 @@ export const basePassiveStories: PassiveStoryEntry[] = [
     // 闲聊完结奖励：首次 +15 青辉石（Global），重复 +5
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:schale_tea')
+  passiveStory('base:passivestory:schale_tea', 'base:story:schale_tea')
     .inits('base:init:schale_office')
     .weight(2)
     .tags(tagPath('theme', 'daily'))
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:schale_printer')
+  passiveStory('base:passivestory:schale_printer', 'base:story:schale_printer')
     .inits('base:init:schale_office')
     .weight(1)
     .tags(tagPath('theme', 'office'))
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:schale_archive')
+  passiveStory('base:passivestory:schale_archive', 'base:story:schale_archive')
     .inits('base:init:schale_office')
     .weight(2)
     .tags(tagPath('theme', 'office'))
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:schale_sunset')
+  passiveStory('base:passivestory:schale_sunset', 'base:story:schale_sunset')
     .inits('base:init:schale_office')
     .weight(1)
     .tags(tagPath('theme', 'daily'))
@@ -167,60 +167,60 @@ export const basePassiveStories: PassiveStoryEntry[] = [
   //   schale_vending  — 办公专题池（gate：拥有 office 标签设施 ≥ 1）。
   //   schale_night    — 深夜池（gate：flag night_mode）。
   // ============================================================
-  passiveStory('base:story:schale_planner')
+  passiveStory('base:passivestory:schale_planner', 'base:story:schale_planner')
     .inits('base:init:schale_office')
     .weight(2)
     .tags(tagPath('theme', 'daily'))
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:schale_vending')
+  passiveStory('base:passivestory:schale_vending', 'base:story:schale_vending')
     .inits('base:init:schale_office')
     .weight(1)
     .tags(tagPath('theme', 'office'))
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:schale_night')
+  passiveStory('base:passivestory:schale_night', 'base:story:schale_night')
     .inits('base:init:schale_office')
     .weight(2)
     .tags(tagPath('theme', 'night'))
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:abydos_daily_committee')
+  passiveStory('base:passivestory:abydos_daily_committee', 'base:story:abydos_daily_committee')
     .inits('base:init:abydos')
     .weight(2)
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:abydos_siesta')
-    .inits('base:init:abydos')
-    .weight(1)
-    .rewardPyroxene(15, 5)
-    .build(),
-  passiveStory('base:story:abydos_serika_shift')
-    .inits('base:init:abydos')
-    .weight(2)
-    .rewardPyroxene(15, 5)
-    .build(),
-  passiveStory('base:story:abydos_money')
+  passiveStory('base:passivestory:abydos_siesta', 'base:story:abydos_siesta')
     .inits('base:init:abydos')
     .weight(1)
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:millennium_calculation')
+  passiveStory('base:passivestory:abydos_serika_shift', 'base:story:abydos_serika_shift')
+    .inits('base:init:abydos')
+    .weight(2)
+    .rewardPyroxene(15, 5)
+    .build(),
+  passiveStory('base:passivestory:abydos_money', 'base:story:abydos_money')
+    .inits('base:init:abydos')
+    .weight(1)
+    .rewardPyroxene(15, 5)
+    .build(),
+  passiveStory('base:passivestory:millennium_calculation', 'base:story:millennium_calculation')
     .inits('base:init:millennium')
     .weight(2)
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:millennium_game_dev')
+  passiveStory('base:passivestory:millennium_game_dev', 'base:story:millennium_game_dev')
     .inits('base:init:millennium')
     .weight(2)
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:millennium_hack')
+  passiveStory('base:passivestory:millennium_hack', 'base:story:millennium_hack')
     .inits('base:init:millennium')
     .weight(1)
     .rewardPyroxene(15, 5)
     .build(),
-  passiveStory('base:story:millennium_server')
+  passiveStory('base:passivestory:millennium_server', 'base:story:millennium_server')
     .inits('base:init:millennium')
     .weight(1)
     .rewardPyroxene(15, 5)
@@ -229,7 +229,7 @@ export const basePassiveStories: PassiveStoryEntry[] = [
   ...hoshinoConversationStories,
   ...cooldownDemoStories,
   // —— 图片系统演示：星野自拍（含头像 + 发送图片） ——
-  passiveStory('base:story:hoshino_selfie')
+  passiveStory('base:passivestory:hoshino_selfie', 'base:story:hoshino_selfie')
     .inits('base:init:schale_office')
     .weight(2)
     .tags(tagPath('theme', 'daily'))
@@ -254,34 +254,34 @@ export const basePassiveStories: PassiveStoryEntry[] = [
 //   3) 抽到「日程表攻防」→ 其 Talklet 效果置 night_mode flag → 深夜池解锁。
 // ============================================================
 export const basePassivePools: PassivePoolDef[] = [
-  passivePool('base:pool:schale_root')
+  passivePool('base:passivepool:schale_root')
     .name('夏莱闲聊')
     .tags(tagPath('place', 'schale'))
-    .child('base:pool:schale_daily', 3)
-    .child('base:pool:schale_office_topic', 2)
-    .child('base:pool:schale_night_owl', 2)
+    .child('base:passivepool:schale_daily', 3)
+    .child('base:passivepool:schale_office_topic', 2)
+    .child('base:passivepool:schale_night_owl', 2)
     .build(),
-  passivePool('base:pool:schale_daily')
+  passivePool('base:passivepool:schale_daily')
     .name('日常')
     .tags(tagPath('theme', 'daily'))
-    .child('base:story:schale_briefing', 1)
-    .child('base:story:schale_tea', 2)
-    .child('base:story:schale_sunset', 1)
-    .child('base:story:schale_planner', 2)
+    .child('base:passivestory:schale_briefing', 1)
+    .child('base:passivestory:schale_tea', 2)
+    .child('base:passivestory:schale_sunset', 1)
+    .child('base:passivestory:schale_planner', 2)
     .build(),
-  passivePool('base:pool:schale_office_topic')
+  passivePool('base:passivepool:schale_office_topic')
     .name('办公区专题')
     .tags(tagPath('theme', 'office'))
     .condition(and(cond('tagCount', 'spots:office', '>=', 1)))
-    .child('base:story:schale_printer', 1)
-    .child('base:story:schale_archive', 2)
-    .child('base:story:schale_vending', 1)
+    .child('base:passivestory:schale_printer', 1)
+    .child('base:passivestory:schale_archive', 2)
+    .child('base:passivestory:schale_vending', 1)
     .build(),
-  passivePool('base:pool:schale_night_owl')
+  passivePool('base:passivepool:schale_night_owl')
     .name('深夜闲聊')
     .tags(tagPath('theme', 'night'))
     .condition(and(cond('flag', 'night_mode', '==', 1)))
-    .child('base:story:schale_night', 1)
+    .child('base:passivestory:schale_night', 1)
     .build(),
   // —— 聊天空间壁垒 / 冷却 / 阻断 示例池 ——
   hoshinoConversationPool,

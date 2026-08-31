@@ -110,8 +110,8 @@ describe('GameNum (primitiveGain 懒求值)', () => {
   test('affectorFlows leaf aggregates addResource into the same resource', () => {
     for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
     game.state.resources[CREDIT] = 100;
-    // 挂载 能源供给 Enhancement（挂载 base:pack:energy_drink，+1 credit/tick）
-    game.mutations.addEnhancement('base:enh:energy_supply');
+    // 挂载 能源供给 Enhancement（挂载 base:affectorpack:energy_drink，+1 credit/tick）
+    game.mutations.addEnhancement('base:enhancement:energy_supply');
     game.state.resources[CREDIT] = 0;
     // 仅 enhancement affector +1（无 spot 产出）
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(1);

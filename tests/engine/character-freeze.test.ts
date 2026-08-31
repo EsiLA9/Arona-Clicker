@@ -56,14 +56,14 @@ describe('base 数据包 Character 重构内容冒烟', () => {
 
   test('变体/曲线/色彩/卡池/好感台阶全部加载', () => {
     expect(game.registry.characterVariants.size).toBeGreaterThanOrEqual(10);
-    expect(game.registry.cultivateCurves.get('base:curve:standard')).toBeDefined();
+    expect(game.registry.cultivateCurves.get('base:cultivatecurve:standard')).toBeDefined();
     expect(game.registry.colorGroups.size).toBeGreaterThanOrEqual(3);
     expect(game.registry.gachaPools.size).toBeGreaterThanOrEqual(2);
-    expect(game.registry.passiveStories.get('base:affinity:hoshino_1')).toBeDefined();
+    expect(game.registry.passiveStories.get('base:passivestory:affinity_hoshino_1')).toBeDefined();
   });
 
   test('卡池引用完整性通过（validateCharacterRefs 已在 init 执行）', () => {
-    const pool = game.gachaService.getPool('base:pool:swimsuit-up')!;
+    const pool = game.gachaService.getPool('base:gachapool:swimsuit-up')!;
     expect(pool.featured).toContain('HoshinoSwimsuit');
     const drawable = game.availabilityService.drawableOf(pool, game.state);
     expect(drawable.length).toBeGreaterThan(0);
@@ -71,7 +71,7 @@ describe('base 数据包 Character 重构内容冒烟', () => {
 
   test('端到端：抽卡 → 获得差分 → 培养 → 色彩解锁 → 主题激活', () => {
     game.mutations.changeResource('base:resource:pyroxene', 100000);
-    const summary = game.gachaService.roll('base:pool:swimsuit-up', 10);
+    const summary = game.gachaService.roll('base:gachapool:swimsuit-up', 10);
     expect(summary.results.length).toBeGreaterThan(0);
 
     // 拿到任一差分后培养

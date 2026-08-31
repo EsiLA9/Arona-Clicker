@@ -1,7 +1,7 @@
 {
   "dropTables": [
     {
-      "id": "base:drop:field_work",
+      "id": "base:droptable:field_work",
       "maxRolls": 2,
       "guaranteed": [
         { "itemId": "base:item:field_note", "count": 1 }

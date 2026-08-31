@@ -68,6 +68,16 @@
    font-weight: 600;
 }
 
+/* 等高占位（§4 门控 / clickWork）：0 宽隐藏箭头行框，把无箭头态撑到与一般点击态
+   （高度由箭头行框决定）等高；负外边距抵消 flex gap，不影响既有布局 */
+.send-ghost {
+   display: block;
+   width: 0;
+   overflow: hidden;
+   visibility: hidden;
+   margin-left: -10px;
+}
+
 .send-arrow {
    position: relative;
    z-index: 1;

@@ -51,6 +51,9 @@ export class RuntimeEffectReactor extends EventDrivenReactor {
         else if (effect.op === 'showChatText') this.chatFlowService.showText(effect.target, value);
         else if (effect.op === 'clearIdChatFlow') this.chatFlowService.clearId(effect.target);
         else if (effect.op === 'clearAllChatText') this.chatFlowService.clearAllTexts();
+        else if (effect.op === 'showOpeningTitle') {
+          this.chatFlowService.showOpeningTitle(typeof effect.value === 'string' && effect.value ? effect.value : undefined);
+        }
         break;
       }
     }

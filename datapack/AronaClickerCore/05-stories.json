@@ -1,10 +1,15 @@
 {
   "activeStories": [
     {
-      "id": "base:story:schale_welcome",
+      "id": "base:activestory:schale_welcome",
       "storyId": "base:story:schale_welcome",
-      "availableInits": ["base:init:schale_office"],
-      "triggerCondition": { "type": "AND", "conditions": [] }
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      }
     }
   ],
   "stories": [
@@ -21,14 +26,21 @@
           "speaker": "阿罗娜",
           "text": "先从大厅里的信用点制造机开始吧。点击或让它自动运转都能积累信用点。",
           "effects": [
-            { "op": "addResource", "target": "base:resource:credit", "value": 10 }
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 10
+            }
           ]
         }
       ],
       "extra": {
         "t": "dict",
         "v": {
-          "chapter": { "t": "int", "v": 1 }
+          "chapter": {
+            "t": "int",
+            "v": 1
+          }
         }
       }
     }

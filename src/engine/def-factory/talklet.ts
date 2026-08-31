@@ -20,7 +20,10 @@ export class TalkletBuilder {
   private _clickWork?: { base: number; rand?: number };
   private _side?: Talklet['side'];
   private _noAvatar = false;
+  private _showAvatar = false;
   private _image?: string;
+  private _typing?: number;
+  private _thinking?: number;
   private _jumpToStory?: StoryId;
   private _jumpMode?: Talklet['jumpMode'];
   private _kizuna?: Talklet['kizuna'];
@@ -57,9 +60,17 @@ export class TalkletBuilder {
   muteReply(): this { this._muteReply = true; return this; }
   side(value: Talklet['side']): this { this._side = value; return this; }
   noAvatar(): this { this._noAvatar = true; return this; }
+  /** 连发分组中强制本页完整显示头像与名称（缺省仅组内首条显示）。 */
+  showAvatar(): this { this._showAvatar = true; return this; }
 
   /** 聊天流发送图片：直连 URL 或 `mod:type(pic):id` 三段式图片索引（见 pics 表）。 */
   image(value: string): this { this._image = value; return this; }
+
+  /** 页级"正在输入"时长（秒）：缺省 = 非右侧 talk 页默认 0.9s；0 = 关闭；上限 10s。 */
+  typing(seconds: number): this { this._typing = seconds; return this; }
+
+  /** 底部按钮"想回复"时长（秒）：内容送达后文字出现前的停顿；缺省 0.9s；0 = 关闭；上限 10s。 */
+  thinking(seconds: number): this { this._thinking = seconds; return this; }
 
   /** 普通选项（text + 效果）。 */
   choice(text: string, ...effects: Effect[]): this {
@@ -100,7 +111,10 @@ export class TalkletBuilder {
     if (this._clickWork) def.clickWork = this._clickWork;
     if (this._side) def.side = this._side;
     if (this._noAvatar) def.noAvatar = true;
+    if (this._showAvatar) def.showAvatar = true;
     if (this._image) def.image = this._image;
+    if (this._typing !== undefined) def.typing = this._typing;
+    if (this._thinking !== undefined) def.thinking = this._thinking;
     if (this._jumpToStory) {
       def.jumpToStory = this._jumpToStory;
       if (this._jumpMode) def.jumpMode = this._jumpMode;

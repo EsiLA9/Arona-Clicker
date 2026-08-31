@@ -104,9 +104,17 @@ export function bindTopBarActions(ctrl: UIController): void {
       const [panel, tabId] = (button.dataset.tab ?? ':').split(':');
       if (panel === 'left') {
         ctrl.panelState.leftTab = tabId;
-        // 左 Tab 联动中栏：点击"区域"→ 聊天（init 视图），点击"通讯录"→ 临时页
-        if (tabId === 'area') ctrl.panelState.centerTab = 'chat';
-        else if (tabId === 'contacts') ctrl.panelState.centerTab = 'contacts-draft';
+        // 左 Tab 联动中栏：点击"区域"→ Init 的一般聊天流，点击"通讯录"→ 临时页
+        if (tabId === 'area') {
+          // 对话空间优先级高于 centerTab：不退出就会停留在学生聊天流上（与对话空间返回键同款退出）
+          const onInitChat = ctrl.panelState.centerTab === 'chat' && !ctrl.panelState.conversationVariantId;
+          if (ctrl.panelState.conversationVariantId) {
+            ctrl.panelState.conversationVariantId = null;
+            ctrl.panelState.selectedVariantId = null;
+          }
+          ctrl.panelState.centerTab = 'chat';
+          if (!onInitChat) ctrl.scroll.forceToBottom();
+        } else if (tabId === 'contacts') ctrl.panelState.centerTab = 'contacts-draft';
       } else if (panel === 'center') {
         const wasChat = ctrl.panelState.centerTab === 'chat';
         ctrl.panelState.centerTab = tabId;

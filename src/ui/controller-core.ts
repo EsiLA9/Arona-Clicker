@@ -64,8 +64,8 @@ export function refreshRevealIfChanged(ctrl: UIController): void {
  * 这样聊天流等区域的滚动位置与交互不受 Tick 干扰。
  */
 export function refreshLight(ctrl: UIController): void {
-  // 兜底：奖励通知排队后若没有后续全量 render，由下一 Tick 补一次
-  if (ctrl.pendingRewardChats.length > 0) {
+  // 兜底：奖励/移动通知排队后若没有后续全量 render，由下一 Tick 补一次
+  if (ctrl.pendingRewardChats.length > 0 || ctrl.pendingTravelChats.length > 0) {
     ctrl.render();
     return;
   }
@@ -127,14 +127,19 @@ export function trimHistory(ctrl: UIController, entries: ChatEntry[]): ChatEntry
   return entries.length > n ? entries.slice(entries.length - n) : entries;
 }
 
-/** 保存前：把各聊天沙盒 + 一般聊天历史（限 N 条）写入 SaveData。 */
+/** 保存前：把各聊天沙盒 + 一般聊天历史（限 N 条）写入 SaveData（typing 瞬态条目不入档）。 */
 export function withHistories(ctrl: UIController, data: SaveData): SaveData {
   const histories: Record<string, unknown[]> = {};
   for (const [variantId, entries] of Object.entries(ctrl.panelState.studentChats)) {
-    histories[`variant:${variantId}`] = trimHistory(ctrl, entries);
+    histories[`variant:${variantId}`] = trimHistory(ctrl, persistableEntries(entries));
   }
-  histories['global'] = trimHistory(ctrl, ctrl.panelState.chatEntries);
+  histories['global'] = trimHistory(ctrl, persistableEntries(ctrl.panelState.chatEntries));
   return { ...data, chatHistories: histories };
+}
+
+/** 页级打字提示（§4）是瞬态条目：不持久化，读档后由剧情同步重新压入。 */
+function persistableEntries(entries: ChatEntry[]): ChatEntry[] {
+  return entries.filter(e => e.kind !== 'typing');
 }
 
 /** 读档后：把持久化的聊天历史恢复到各沙盒（需在 resetSessionPanel 清空之后调用）。 */

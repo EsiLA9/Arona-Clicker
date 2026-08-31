@@ -148,6 +148,13 @@ export interface StoryEntryBase {
    * 但 storyReadLogs 中缺乏指定的前置 Talklet 阅读记录，则拒绝进入。
    */
   branchGuards?: BranchGuard[];
+  /**
+   * 开幕标题：入口确认浮层的展示标题与开幕横幅的回退标题
+   * （横幅标题优先级：showOpeningTitle 效果的 value 参数 > 本字段 > StoryDef.name）。
+   * 横幅由 Talklet 的 showOpeningTitle 效果呼出，不呼出不显示。
+   * @label 开幕标题
+   */
+  openingTitle?: string;
   /** Extra 附加数据（数据包声明的结构化元数据，见 docs/13）。 */
   extra?: ExtraCompound;
 }
@@ -359,11 +366,34 @@ export interface Talklet {
    */
   noAvatar?: boolean;
   /**
+   * @label 强制显示头像
+   * 连发分组（同人同侧相邻的简单对话仅首条显示头像/名称，后续只出现气泡）中，
+   * 强制本页完整显示头像与名称。缺省 = 跟随分组规则。
+   */
+  showAvatar?: boolean;
+  /**
    * 聊天流发送图片：图片索引（`mod:type(pic):id`，见 pics 表；不得持有裸 URL）。
    * 实际图片经 PicDef → getPicUrl 解析。图片渲染在聊天气泡内（text 上方）。缺省不发送图片。
    * @label 图片
    */
   image?: PicId;
+  /**
+   * @label 输入中提示（秒）
+   * 页级"正在输入"节奏：本页 talk 内容进聊天流前，先渲染同 speaker/avatar/side
+   * 的动态省略号气泡，持续该时长后替换为本页内容。
+   * 缺省 = 非右侧 talk 页默认 0.9s；显式 0 = 关闭；自定义值夹取上限 10s。
+   * 仅 talk 生效（narration/click/kizuna 页与右侧气泡忽略）；纯 UI 节奏，不入存档。
+   */
+  typing?: number;
+  /**
+   * @label 想回复（秒）
+   * 底部回复按钮的"想回复"节奏：本页内容送达后、按钮文案出现前，按钮仅渲染
+   * 节奏点（不透露回复文案、不可推进，点击可加速），持续该时长后文字出现，
+   * 之后照常推进（含按动次数 clickWork）。
+   * 缺省 = 非右侧 talk 页默认 0.9s；显式 0 = 关闭；自定义值夹取上限 10s。
+   * 资格与 typing 相同（仅非右侧 talk 页生效）；纯 UI 节奏，不入存档。
+   */
+  thinking?: number;
   /**
    * 跳转到另一个 Story（当前 Talklet 的效果执行完毕后跳转）。
    * - goto（缺省）: 转移演出流到目标 Story，本 Story 不再返回。目标 Story 完结即 Entry 完结。

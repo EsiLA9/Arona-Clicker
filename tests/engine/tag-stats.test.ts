@@ -21,8 +21,8 @@ function makeRegistry(): import('../../src/engine/stats/tag-stats').TagStatRegis
     inits: empty,
     areas: empty,
     spots: new Map<string, E>([
-      ['spot_printer', { id: 'spot_printer', tags: [tagPath('office', 'admin')] }],
-      ['spot_field', { id: 'spot_field', tags: [tagPath('field', 'combat')] }],
+      ['test:spot:spot_printer', { id: 'test:spot:spot_printer', tags: [tagPath('office', 'admin')] }],
+      ['test:spot:spot_field', { id: 'test:spot:spot_field', tags: [tagPath('field', 'combat')] }],
       ['spot_untagged', { id: 'spot_untagged' }],
     ]),
     characters: new Map([
@@ -31,11 +31,11 @@ function makeRegistry(): import('../../src/engine/stats/tag-stats').TagStatRegis
     ]),
     enhancements: empty,
     passiveStories: new Map<string, E>([
-      ['chat_office', { id: 'chat_office', tags: [tagPath('theme', 'daily')] }],
+      ['test:story:chat_office', { id: 'test:story:chat_office', tags: [tagPath('theme', 'daily')] }],
       ['chat_field', { id: 'chat_field', tags: [tagPath('theme', 'outdoor')] }],
     ]),
     activeStories: new Map<string, E>([
-      ['main_1', { id: 'main_1', tags: [tagPath('chapter', 'one')] }],
+      ['test:story:main_1', { id: 'test:story:main_1', tags: [tagPath('chapter', 'one')] }],
     ]),
     characterVariants: new Map([
       ['Arona', { id: 'Arona', proto: 'arona' }],
@@ -100,14 +100,14 @@ describe('TagStatService 收集侧（Spot）', () => {
     const { service, mutations } = makeService();
     expect(service.collectedCount('spots', 'office')).toBe(0);
 
-    mutations.setSpotLevel('spot_printer', 1);
+    mutations.setSpotLevel('test:spot:spot_printer', 1);
     expect(service.collectedCount('spots', tagPath('office'))).toBe(1);
     expect(service.collectedCount('spots', 'office/admin')).toBe(1);
 
-    mutations.setSpotLevel('spot_printer', 3);
+    mutations.setSpotLevel('test:spot:spot_printer', 3);
     expect(service.collectedCount('spots', 'office')).toBe(1);
 
-    mutations.setSpotLevel('spot_printer', 0);
+    mutations.setSpotLevel('test:spot:spot_printer', 0);
     expect(service.collectedCount('spots', 'office/admin')).toBe(0);
   });
 
@@ -148,7 +148,7 @@ describe('TagStatService 状态重建与类型隔离', () => {
     const bus = new EventBus();
     const service = new TagStatService(makeRegistry(), bus);
     service.setState({
-      spotLevels: { spot_printer: 2 },
+      spotLevels: { 'test:spot:spot_printer': 2 },
       roster: { HoshinoSwimsuit: {} },
       flags: {},
     } as never);
@@ -159,7 +159,7 @@ describe('TagStatService 状态重建与类型隔离', () => {
 
   test('各类型统计相互独立，不跨类型加和', () => {
     const { service, mutations } = makeService();
-    mutations.setSpotLevel('spot_printer', 1);
+    mutations.setSpotLevel('test:spot:spot_printer', 1);
     mutations.acquireVariant('Arona'); // arona 声明 office tag
     // spots 与 characters 都有 office tag 命中体，但计数各自独立
     expect(service.collectedCount('spots', 'office')).toBe(1);
@@ -183,22 +183,22 @@ describe('TagStatService 全类型覆盖', () => {
 
     // 初始重建：解锁世界线 + 完成闲聊
     state.unlockedInits.push('init_a');
-    state.storyLog.push({ storyId: 'chat_office' });
+    state.storyLog.push({ storyId: 'test:story:chat_office' });
     service.setState(state);
     expect(service.collectedCount('inits', 'office')).toBe(0); // init_a 未声明 tag
-    expect(service.collectedIds('passiveStories', 'theme/daily')).toEqual(['chat_office']);
+    expect(service.collectedIds('passiveStories', 'theme/daily')).toEqual(['test:story:chat_office']);
     expect(service.collectedCount('activeStories', 'chapter')).toBe(0);
 
     // 事件增量：进入区域 / 解锁强化 / 完成主线
-    state.visitedAreas.push('area_x');
-    emit({ type: 'areaEntered', areaId: 'area_x', fromAreaId: null });
+    state.visitedAreas.push('test:area:area_x');
+    emit({ type: 'areaEntered', areaId: 'test:area:area_x', fromAreaId: null });
     state.unlockedEnhancements.push('enh_1');
     emit({ type: 'enhancementAdded', enhancementId: 'enh_1' });
-    emit({ type: 'storyCompleted', storyId: 'main_1' });
+    emit({ type: 'storyCompleted', storyId: 'test:story:main_1' });
 
     expect(service.collectedCount('areas', 'anything')).toBe(0); // area_x 无声明
     expect(service.collectedCount('enhancements', 'school')).toBe(0);
-    expect(service.collectedIds('activeStories', 'chapter/one')).toEqual(['main_1']);
+    expect(service.collectedIds('activeStories', 'chapter/one')).toEqual(['test:story:main_1']);
 
     // 移除强化
     state.unlockedEnhancements.pop();
@@ -224,15 +224,15 @@ describe('tagCollectedChanged 事件与 tagCount 条件接入', () => {
     service.setState(state); // 重建路径：不发
     expect(events).toHaveLength(0);
 
-    state.spotLevels['spot_printer'] = 1;
-    bus.emit({ type: 'spotLevelChanged', spotId: 'spot_printer', newLevel: 1 });
+    state.spotLevels['test:spot:spot_printer'] = 1;
+    bus.emit({ type: 'spotLevelChanged', spotId: 'test:spot:spot_printer', newLevel: 1 });
     expect(events).toEqual([{ type: 'tagCollectedChanged', kind: 'spots' }]);
 
-    bus.emit({ type: 'spotLevelChanged', spotId: 'spot_printer', newLevel: 3 }); // 升级：无变化
+    bus.emit({ type: 'spotLevelChanged', spotId: 'test:spot:spot_printer', newLevel: 3 }); // 升级：无变化
     expect(events).toHaveLength(1);
 
-    state.spotLevels['spot_printer'] = 0;
-    bus.emit({ type: 'spotLevelChanged', spotId: 'spot_printer', newLevel: 0 }); // 移除：变化
+    state.spotLevels['test:spot:spot_printer'] = 0;
+    bus.emit({ type: 'spotLevelChanged', spotId: 'test:spot:spot_printer', newLevel: 0 }); // 移除：变化
     expect(events).toHaveLength(2);
   });
 
@@ -272,7 +272,7 @@ describe('tagCollectedChanged 事件与 tagCount 条件接入', () => {
     cs.setTagIndex(() => []);
     cs.setTagCountReader(key => {
       const counts: Record<string, number> = {
-        'spots:field': (state.spotLevels['spot_field'] ?? 0) > 0 ? 1 : 0,
+        'spots:field': (state.spotLevels['test:spot:spot_field'] ?? 0) > 0 ? 1 : 0,
       };
       return counts[key] ?? 0;
     });
@@ -291,8 +291,8 @@ describe('tagCollectedChanged 事件与 tagCount 条件接入', () => {
     expect(instance.state).toBe('Latent');
 
     // 解锁带 field/combat 标签的 Spot → 服务发 tagCollectedChanged(spots) → 定向 recheck
-    state.spotLevels['spot_field'] = 1;
-    bus.emit({ type: 'spotLevelChanged', spotId: 'spot_field', newLevel: 1 });
+    state.spotLevels['test:spot:spot_field'] = 1;
+    bus.emit({ type: 'spotLevelChanged', spotId: 'test:spot:spot_field', newLevel: 1 });
     expect(engine.getInstance(instance.instanceId)?.state).toBe('Active');
   });
 });

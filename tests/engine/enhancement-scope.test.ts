@@ -9,7 +9,7 @@ const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';
 const PRINTER = 'base:spot:credit_printer';
 const HANGAR_SPOT = 'base:spot:hangar_supply';
-const CREDIT_SYSTEM = 'base:enh:credit_system';
+const CREDIT_SYSTEM = 'base:enhancement:credit_system';
 
 describe('Enhancement 作用域（全局/当前 Init）', () => {
   let game: GameInstance;

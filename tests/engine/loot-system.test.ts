@@ -31,12 +31,12 @@ describe('LootSystem', () => {
     const loot = new LootSystem(reg, cs, bus);
 
     const table: DropTableEntry[] = [
-      { itemId: 'item_a', min: 1, max: 1, weight: 100 },
+      { itemId: 'test:item:item_a', min: 1, max: 1, weight: 100 },
     ];
 
     const result = loot.roll(table, emptyState());
     expect(result.size).toBe(1);
-    expect(result.get('item_a')).toBe(1);
+    expect(result.get('test:item:item_a')).toBe(1);
   });
 
   test('should filter by condition', () => {
@@ -49,14 +49,14 @@ describe('LootSystem', () => {
     state.resources.credit = 100;
 
     const table: DropTableEntry[] = [
-      { itemId: 'item_b', min: 1, max: 1, weight: 1, condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 1000 }] } },
-      { itemId: 'item_a', min: 1, max: 1, weight: 100 },
+      { itemId: 'test:item:item_b', min: 1, max: 1, weight: 1, condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 1000 }] } },
+      { itemId: 'test:item:item_a', min: 1, max: 1, weight: 100 },
     ];
 
     // item_b 不满足条件，只能抽到 item_a
     for (let i = 0; i < 20; i++) {
       const result = loot.roll(table, state);
-      expect(result.has('item_b')).toBe(false);
+      expect(result.has('test:item:item_b')).toBe(false);
     }
   });
 
@@ -67,7 +67,7 @@ describe('LootSystem', () => {
     const loot = new LootSystem(reg, cs, bus);
 
     const table: DropTableEntry[] = [
-      { itemId: 'item_x', min: 1, max: 1, weight: 100, condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 10000 }] } },
+      { itemId: 'test:item:item_x', min: 1, max: 1, weight: 100, condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 10000 }] } },
     ];
 
     const result = loot.roll(table, emptyState());
@@ -90,12 +90,12 @@ describe('LootSystem', () => {
     const loot = new LootSystem(reg, cs, bus);
 
     const table: DropTableEntry[] = [
-      { itemId: 'item_r', min: 3, max: 7, weight: 100 },
+      { itemId: 'test:item:item_r', min: 3, max: 7, weight: 100 },
     ];
 
     for (let i = 0; i < 30; i++) {
       const result = loot.roll(table, emptyState());
-      const count = result.get('item_r')!;
+      const count = result.get('test:item:item_r')!;
       expect(count).toBeGreaterThanOrEqual(3);
       expect(count).toBeLessThanOrEqual(7);
     }

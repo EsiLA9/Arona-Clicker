@@ -1,7 +1,7 @@
 {
   "enhancements": [
     {
-      "id": "base:enh:field_manual",
+      "id": "base:enhancement:field_manual",
       "name": "沙勒行动手册",
       "description": "印发给沙勒全体成员的行动手册，提高整体工作效率。",
       "revealTriggers": [

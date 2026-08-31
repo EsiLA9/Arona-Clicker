@@ -42,81 +42,81 @@ const baseResourceDisplays: ResourceDisplayDef[] = [
 ];
 
 const baseAffectorPacks: AffectorPackDef[] = [
-  affectorPack('base:pack:energy_drink')
+  affectorPack('base:affectorpack:energy_drink')
     // Def 级 extra 示例：结构化元数据（见 docs/13 §5.2），运行时零消费
     .extra(extra.dict({
       desc: extra.str('能量饮料：每次点击 +1 信用点'),
       tier: extra.int(1),
     }))
-    .entry('base:aff:energy_drink')
+    .entry('base:affector:energy_drink')
     .flow(Resource.Credit, 1)
     .build(),
-  // 测试用：青辉石量产管线（配合 base:enh:pyroxene_rush）
-  affectorPack('base:pack:pyroxene_flow')
+  // 测试用：青辉石量产管线（配合 base:enhancement:pyroxene_rush）
+  affectorPack('base:affectorpack:pyroxene_flow')
     .extra(extra.dict({
       desc: extra.str('青辉石提纯回路：每 tick +2500 青辉石'),
       tier: extra.int(0),
     }))
-    .entry('base:aff:pyroxene_flow')
+    .entry('base:affector:pyroxene_flow')
     .flow(Resource.Pyroxene, 2500)
     .build(),
-  affectorPack('base:pack:credit_system_mult')
-    .entry('base:aff:credit_system_mult')
+  affectorPack('base:affectorpack:credit_system_mult')
+    .entry('base:affector:credit_system_mult')
     .modEntity('spot', '*', 'mul', 1.5)
     .build(),
-  affectorPack('base:pack:office_layout_mult')
-    .entry('base:aff:office_layout_mult')
+  affectorPack('base:affectorpack:office_layout_mult')
+    .entry('base:affector:office_layout_mult')
     .modTag(['office'], 'mul', 1.25)
     .build(),
-  affectorPack('base:pack:field_logistics_mult')
-    .entry('base:aff:field_logistics_mult')
+  affectorPack('base:affectorpack:field_logistics_mult')
+    .entry('base:affector:field_logistics_mult')
     .modTag(['field'], 'mul', 1.35)
     .modTag(['combat'], 'mul', 1.35)
     .modTag(['tactical'], 'mul', 1.35)
     .build(),
-  affectorPack('base:pack:combat_drone_mult')
-    .entry('base:aff:combat_drone_mult')
+  affectorPack('base:affectorpack:combat_drone_mult')
+    .entry('base:affector:combat_drone_mult')
     .modTag(['combat'], 'mul', 1.35)
     .build(),
-  affectorPack('base:pack:research_grant_mult')
-    .entry('base:aff:research_grant_mult')
+  affectorPack('base:affectorpack:research_grant_mult')
+    .entry('base:affector:research_grant_mult')
     .modEntity('spot', '*', 'mul', 1.4)
     .build(),
-  affectorPack('base:pack:investment_fund_mult')
-    .entry('base:aff:investment_fund_mult')
+  affectorPack('base:affectorpack:investment_fund_mult')
+    .entry('base:affector:investment_fund_mult')
     .modEntity('spot', '*', 'mul', 1.3)
     .build(),
-  affectorPack('base:pack:pyroxene_rush_mult')
-    .entry('base:aff:pyroxene_rush_mult')
+  affectorPack('base:affectorpack:pyroxene_rush_mult')
+    .entry('base:affector:pyroxene_rush_mult')
     .modEntity('spot', '*', 'mul', 1.8)
     .build(),
-  affectorPack('base:pack:tactical_command_mult')
-    .entry('base:aff:tactical_command_mult')
+  affectorPack('base:affectorpack:tactical_command_mult')
+    .entry('base:affector:tactical_command_mult')
     .modTag(['tactical'], 'mul', 1.3)
     .build(),
-  affectorPack('base:pack:supply_chain_mult')
-    .entry('base:aff:supply_chain_mult')
+  affectorPack('base:affectorpack:supply_chain_mult')
+    .entry('base:affector:supply_chain_mult')
     .modEntity('spot', '*', 'mul', 1.6)
     .build(),
-  affectorPack('base:pack:energy_supply_mult')
-    .entry('base:aff:energy_supply_mult')
+  affectorPack('base:affectorpack:energy_supply_mult')
+    .entry('base:affector:energy_supply_mult')
     .modEntity('spot', '*', 'mul', 1.25)
     .build(),
-  affectorPack('base:pack:sanctuary_field_mult')
-    .entry('base:aff:sanctuary_field_mult')
+  affectorPack('base:affectorpack:sanctuary_field_mult')
+    .entry('base:affector:sanctuary_field_mult')
     .modEntity('spot', '*', 'mul', 1.5)
     .build(),
   // GlobalEnhancement 专用包：global 挂靠强化（仅经选择页购买，全局作用域）
-  affectorPack('base:pack:foundation_mult')
-    .entry('base:aff:foundation_mult')
+  affectorPack('base:affectorpack:foundation_mult')
+    .entry('base:affector:foundation_mult')
     .modEntity('spot', '*', 'mul', 2)
     .build(),
-  affectorPack('base:pack:eternal_contract_mult')
-    .entry('base:aff:eternal_contract_mult')
+  affectorPack('base:affectorpack:eternal_contract_mult')
+    .entry('base:affector:eternal_contract_mult')
     .modEntity('spot', '*', 'mul', 1.5)
     .build(),
-  affectorPack('base:pack:unified_logistics_flow')
-    .entry('base:aff:unified_logistics_flow')
+  affectorPack('base:affectorpack:unified_logistics_flow')
+    .entry('base:affector:unified_logistics_flow')
     .flow(Resource.Credit, 1)
     .build(),
 ];

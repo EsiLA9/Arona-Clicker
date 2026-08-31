@@ -40,7 +40,7 @@ function makeDatapack(): Datapack {
     ],
     gachaPools: [
       {
-        id: 'pool-1',
+        id: 'test:gachapool:pool-1',
         name: '测试池',
         mode: GachaMode.BaClassic,
         currency: 'base:resource:pyroxene',
@@ -51,22 +51,22 @@ function makeDatapack(): Datapack {
       },
     ],
     colorGroups: [
-      { id: 'color-a', name: '苍蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }], unlock: { target: 'flag', key: 'unlock_a', comparator: '>=', value: 1 } },
-      { id: 'group-a', name: '组A', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] },
+      { id: 'test:colorgroup:color-a', name: '苍蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }], unlock: { target: 'flag', key: 'unlock_a', comparator: '>=', value: 1 } },
+      { id: 'test:colorgroup:group-a', name: '组A', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] },
     ],
     colorEquipments: [
       {
-        id: 'equip-a',
+        id: 'test:colorequipment:equip-a',
         name: '装备A',
-        colorGroupId: 'group-a',
+        colorGroupId: 'test:colorgroup:group-a',
         effects: [{ op: 'addResource', target: 'credit', value: 1 }],
         unlock: { target: 'flag', key: 'equip_a', comparator: '>=', value: 1 },
       },
     ],
     activeStories: [
       {
-        id: 'bond:hoshino_1',
-        storyId: 'bond:hoshino_1',
+        id: 'test:story:bond_hoshino_1',
+        storyId: 'test:story:bond_hoshino_1',
         type: 'active',
         triggerCondition: and(),
         availableInits: [],
@@ -75,7 +75,7 @@ function makeDatapack(): Datapack {
     ],
     stories: [
       {
-        id: 'bond:hoshino_1',
+        id: 'test:story:bond_hoshino_1',
         name: '羁绊剧情 · 星野：测试',
         talklets: [
           { kind: 'narration', align: 'center', text: '——测试——' },
@@ -122,26 +122,26 @@ describe('通讯录 UI（U 组）', () => {
     expect(renderCharacterPanel(ctx, null)).toContain('未选择学生');
   });
 
-  test('U-02b 羁绊剧情入口：ActiveStoryEntry.owner 声明归属，卡片启动尊重单次', () => {
+  test('U-02b 羁绊剧情入口：ActiveStoryEntry.owner 声明归属，卡片启动 = goto 重开', () => {
     // base 数据包为 Hoshino 声明了羁绊剧情（active entry，owner='Hoshino'）
-    const entry = game.registry.activeStories.get('bond:hoshino_1')!;
+    const entry = game.registry.activeStories.get('test:story:bond_hoshino_1')!;
     expect(entry).toBeDefined();
     expect(entry.owner).toBe('Hoshino');
-    // 经 startCardStory 触发（skipConditions，尊重单次完成态）
-    const started = game.story.startCardStory('bond:hoshino_1');
+    // 经 startCardStory 触发（清游标 + skipConditions 的 goto 语义）
+    const started = game.story.startCardStory('test:story:bond_hoshino_1');
     expect(started.success).toBe(true);
     const view = game.getView().currentStory!;
-    expect(view.storyDefId).toBe('bond:hoshino_1');
-    // 完成后再次触发 → AlreadyCompleted 拒绝（尊重单次）
+    expect(view.storyDefId).toBe('test:story:bond_hoshino_1');
+    // 完成后再次触发 → goto 重开成功（force 跳过 AlreadyCompleted，isReplay=false 分支自由）
     let guard = 0;
     while (game.getView().currentStory && guard++ < 20) {
       const r = game.story.advanceStory();
       if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
     }
     expect(game.getView().currentStory).toBeNull();
-    const retry = game.story.startCardStory('bond:hoshino_1');
-    expect(retry.success).toBe(false);
-    if (!retry.success) expect(retry.error).toBe('AlreadyCompleted');
+    const retry = game.story.startCardStory('test:story:bond_hoshino_1');
+    expect(retry.success).toBe(true);
+    expect(game.getView().currentStory?.pageIndex).toBe(0);
   });
 
   test('U-02c 羁绊卡片渲染：kizuna 卡片进流渲染，底部按钮变灰', () => {
@@ -150,7 +150,7 @@ describe('通讯录 UI（U 组）', () => {
     const story = {
       storyId: 'test:entry',
       type: 'active' as const,
-      storyDefId: 'base:bond:hoshino_evening',
+      storyDefId: 'base:story:bond_hoshino_evening',
       pageIndex: 0,
       totalPages: 1,
       availableChoiceIndexes: [],
@@ -159,7 +159,7 @@ describe('通讯录 UI（U 组）', () => {
         speaker: '星野',
         text: '星野酝酿了一下情绪……',
         kizuna: {
-          storyId: 'base:bond:hoshino_evening',
+          storyId: 'base:activestory:bond_hoshino_evening',
           title: '傍晚的河堤',
           buttonText: '进入羁绊剧情',
           align: 'right' as const,
@@ -171,7 +171,7 @@ describe('通讯录 UI（U 组）', () => {
     expect(html).toContain('yuzu-kizuna-header');
     expect(html).toContain('yuzu-kizuna-heart');
     expect(html).toContain('yuzu-kizuna-footer');
-    expect(html).toContain('data-kizuna="base:bond:hoshino_evening"');
+    expect(html).toContain('data-kizuna="base:activestory:bond_hoshino_evening"');
     expect(html).toContain('傍晚的河堤');
     expect(html).toContain('进入羁绊剧情');
     expect(html).toContain('<svg');
@@ -205,28 +205,28 @@ describe('通讯录 UI（U 组）', () => {
   test('U-04 主题切换：activeGroupId → token 表输出', () => {
     game.mutations.setFlag('unlock_a', '1');
     // setFlag 经 flagChanged 事件自动 recheck 解锁（行为闭环），手动再解锁为幂等
-    expect(game.colorSystem.tryUnlockGroup('color-a')).toBe('already');
-    game.mutations.activateTheme('color-a');
+    expect(game.colorSystem.tryUnlockGroup('test:colorgroup:color-a')).toBe('already');
+    game.mutations.activateTheme('test:colorgroup:color-a');
     const tokens = game.colorSystem.activeThemeTokens(game.state);
     expect(tokens?.['primary']).toBe('#3b82f6');
     const html = renderContactsTab(createUIContext(game), null);
-    expect(html).toContain('data-activate-group="color-a"'); // swatch 可点
+    expect(html).toContain('data-activate-group="test:colorgroup:color-a"'); // swatch 可点
     expect(html).toMatch(/theme-swatch active/); // 激活态标记
   });
 
   test('U-10 装备面板：收集后渲染装备卡片，装备后头像换为 SVG 圆', () => {
     game.mutations.setFlag('equip_a', '1');
     // setFlag 经 flagChanged 事件自动 recheck 收集（行为闭环）
-    expect(game.colorEquipmentSystem.isOwned(game.state, 'equip-a')).toBe(true);
+    expect(game.colorEquipmentSystem.isOwned(game.state, 'test:colorequipment:equip-a')).toBe(true);
     // 收集即级联解锁其引用的 ColorGroup（group-a）
-    expect(game.colorSystem.isGroupOwned(game.state, 'group-a')).toBe(true);
+    expect(game.colorSystem.isGroupOwned(game.state, 'test:colorgroup:group-a')).toBe(true);
 
     const panel = renderCharacterPanel(createUIContext(game), 'Hoshino');
-    expect(panel).toContain('data-equip-equipment="equip-a"'); // 可装备列表项
+    expect(panel).toContain('data-equip-equipment="test:colorequipment:equip-a"'); // 可装备列表项
     expect(panel).toContain('色彩装备');
 
     // 装备后：面板渲染已装备卡片（含卸下按钮），通讯录行头像换为 SVG 圆
-    expect(game.mutations.equipEquipment('Hoshino', 'equip-a').ok).toBe(true);
+    expect(game.mutations.equipEquipment('Hoshino', 'test:colorequipment:equip-a').ok).toBe(true);
     const panel2 = renderCharacterPanel(createUIContext(game), 'Hoshino');
     expect(panel2).toContain('data-unequip-equipment');
     const tab = renderContactsTab(createUIContext(game), null);
@@ -239,7 +239,7 @@ describe('通讯录 UI（U 组）', () => {
     game.mutations.changeResource('base:resource:pyroxene', 100000);
     let body = renderGachaBody(createUIContext(game));
     expect(body).toContain('测试池');
-    expect(body).toContain('data-gacha="pool-1"'); // 单抽按钮（count 为独立属性）
+    expect(body).toContain('data-gacha="test:gachapool:pool-1"'); // 单抽按钮（count 为独立属性）
 
     game.mutations.setFlag('event_over', '1');
     game.availabilityService.refreshWorldPool();
@@ -277,7 +277,7 @@ describe('通讯录 UI（U 组）', () => {
       // 注入一条声明 block 条件的 PassiveStoryEntry（阻断条件：flag met_at_rooftop ≥ 1）
       const entry: any = {
         id: BLOCK_ENTRY_ID,
-        storyId: 'bond:hoshino_1',
+        storyId: 'test:story:bond_hoshino_1',
         type: 'passive',
         weight: 1,
         triggerCondition: and(),
@@ -358,7 +358,7 @@ describe('夏莱办公室 gacha Spot（生产面板招募入口）', () => {
     // 弹窗体默认开放通用卡池（无专有池声明）
     const body = renderSpotGachaBody(createUIContext(game), 'base:spot:credit_printer');
     expect(body).toContain('data-scope="global"');
-    expect(body).toContain('常规招募'); // 全局卡池 base:pool:regular
+    expect(body).toContain('常规招募'); // 全局卡池 base:gachapool:regular
   });
 
   // 需求2：离开对话空间后 selectedVariantId=null → 通讯录无 active 高亮（渲染层验证）

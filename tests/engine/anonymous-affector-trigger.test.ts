@@ -138,7 +138,7 @@ describe('GameInstance：enhancement 内联 affectorPackIds 生命周期', () =>
   });
 
   test('获得携带内联 pack 的 enhancement → 挂载；移除 → 卸载', () => {
-    const enhId = 'test:enh:inline_pack';
+    const enhId = 'test:enhancement:inline_pack';
     loadExtraEnhancementDp(game, {
       id: enhId,
       name: '',
@@ -164,7 +164,7 @@ describe('GameInstance：enhancement 内联 affectorPackIds 生命周期', () =>
   });
 
   test('内联 pack 的 zoneModifiers 经桥接写入区效果，移除后按 source 撤销', () => {
-    const enhId = 'test:enh:inline_zone';
+    const enhId = 'test:enhancement:inline_zone';
     loadExtraEnhancementDp(game, {
       id: enhId,
       name: '',

@@ -13,15 +13,15 @@ const simpleDatapack: Datapack = {
   name: 'tick-test',
   version: '1.0.0',
   inits: [
-    { id: 'init_t', name: 'T', description: '', defaultAreas: ['area_t'] },
+    { id: 'test:init:init_t', name: 'T', description: '', defaultAreas: ['test:area:area_t'] },
   ],
   areas: [
-    { id: 'area_t', initId: 'init_t', name: 'TA', description: '', defaultSpots: ['spot_t'] },
+    { id: 'test:area:area_t', initId: 'test:init:init_t', name: 'TA', description: '', defaultSpots: ['test:spot:spot_t'] },
   ],
   spots: [
     {
-      id: 'spot_t',
-      areaId: 'area_t',
+      id: 'test:spot:spot_t',
+      areaId: 'test:area:area_t',
       name: 'Test Producer',
       description: '',
       baseCost: { type: 'const', value: 10 },
@@ -47,15 +47,15 @@ const simpleDatapack: Datapack = {
 function tickState(level: number = 1): PlayerState {
   return {
     resources: { credit: 0 },
-    spotLevels: { spot_t: level },
+    spotLevels: { 'test:spot:spot_t': level },
     spotManagers: {},
     unlockedEnhancements: [],
-    activeInit: 'init_t',
+    activeInit: 'test:init:init_t',
     totalFrames: 0,
     storyLog: [],
     inventory: {},
     flags: {},
-    unlockedInits: ['init_t'],
+    unlockedInits: ['test:init:init_t'],
   };
 }
 
@@ -98,7 +98,7 @@ describe('TickSystem', () => {
     const vs = new ValueSystem();
     reg.load(simpleDatapack);
     const state = tickState();
-    state.spotManagers.spot_t = Character.Shiroko;
+    state.spotManagers['test:spot:spot_t'] = Character.Shiroko;
     const gns = makeGameNumSystem(reg, vs, bus, state);
     const ts = new TickSystem(reg, vs, bus, gns);
     ts.setState(state);

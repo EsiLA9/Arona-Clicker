@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: Arona Clicker 引擎根工程
+title: Arona Clicker 引擎根工作区
 scope:
     - package.json
     - tsconfig.json

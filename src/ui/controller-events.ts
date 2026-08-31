@@ -40,11 +40,12 @@ export function bindEvents(ctrl: UIController): void {
     const ctx = createUIContext(ctrl.game);
     ctrl.pendingRewardChats.push(`解锁闲聊池 · ${ctx.nameOf('pool', event.poolId)}`);
   });
-  // Story 的 travelToArea effect 移动（notice=true）→ 显示「移动到了 XX」迷你条目（REWARD 风格、无小字符）
+  // Story 的 travelToArea effect 移动（notice=true）→ 「移动到了 XX」迷你条目
+  //（REWARD 风格、无小字符）。进 travel 队列：render 时先于剧情内容入流
   ctrl.game.eventBus.on('storyAreaTraveled', event => {
     if (event.type !== 'storyAreaTraveled') return;
     const ctx = createUIContext(ctrl.game);
-    ctrl.pendingRewardChats.push(`移动到了 ${ctx.nameOf('area', event.areaId)}`);
+    ctrl.pendingTravelChats.push(`移动到了 ${ctx.nameOf('area', event.areaId)}`);
   });
   // 好感跨级 → 该角色对话空间聊天流 reward 风格提示行（第一迭代唯一升级播报）
   ctrl.game.eventBus.on('affectionChanged', event => {
@@ -66,6 +67,20 @@ export function bindEvents(ctrl: UIController): void {
   // Story 开始前默认清理：避免中途进入（如羁绊卡片 startCardStory）时残留上一场的演出文本
   ctrl.game.eventBus.on('storyTriggered', () => {
     ctrl.chat.clearAllTexts(ctrl.panelState);
+  });
+  // 开幕标题横幅（showOpeningTitle 效果呼出）：挂到当前活跃流；标题优先级
+  // effect.value → entry.openingTitle → StoryDef.name。发起方管线随后必 render，此处只写状态
+  ctrl.game.eventBus.on('openingTitleShown', event => {
+    if (event.type !== 'openingTitleShown') return;
+    const convId = ctrl.panelState.conversationVariantId;
+    const view = convId ? ctrl.game.getStoryView(convId) : ctrl.game.getView().currentStory;
+    let title = event.title;
+    if (!title && view) {
+      const entry = [...ctrl.game.registry.storyEntries.values()].find(e => e.storyId === view.storyId);
+      title = entry?.openingTitle ?? ctrl.game.registry.stories.get(view.storyId)?.name;
+    }
+    if (!title) return;
+    ctrl.chat.showBanner(convId ?? '#global', title);
   });
   // Story 完结默认清理：结束后自动删除全部演出文本覆盖层（与 clearAllChatText 一致）
   ctrl.game.eventBus.on('storyCompleted', () => {

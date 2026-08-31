@@ -3,11 +3,11 @@ schema_version: 1
 locale: zh-CN
 branch: main
 nodes_managed: true
-exported_at: "2026-08-29T01:49:29Z"
+exported_at: "2026-08-29T03:49:09Z"
 modules:
     "":
-        dir_name: Arona Clicker 引擎根工程
-        title: Arona Clicker 引擎根工程
+        dir_name: Arona Clicker 引擎根工作区
+        title: Arona Clicker 引擎根工作区
         scope:
             - package.json
             - tsconfig.json
@@ -62,8 +62,8 @@ modules:
             - path: datapack_assets
             - path: docs
     tests:
-        dir_name: Arona Clicker 游戏引擎与 UI 测试套件
-        title: Arona Clicker 游戏引擎与 UI 测试套件
+        dir_name: Arona Clicker 测试套件（引擎_数据加载_UI）
+        title: Arona Clicker 测试套件（引擎/数据加载/UI）
         scope:
             - tests/
         source_files: []

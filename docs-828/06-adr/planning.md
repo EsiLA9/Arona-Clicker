@@ -1,11 +1,11 @@
 # 06-adr/planning — 好感度系统设计（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）
 
-- **状态**：已实现（2026-08-29 落地；同日修订：聊天消息成分按用户裁定移除，见下）
+- **状态**：已实现（2026-08-29 落地；同日修订：聊天消息成分按用户裁定移除、§4 页级打字提示与按钮门控/想回复阶段落地并移除空间级大省略号，见各节修订记录）
 - **来源**：docs-824 的 03g / 04i / 04j 三篇规划文档合并迁移
 - **依赖顺序**：好感数值（§1）→ 台阶推送（§2）→ 羁绊尾巴（§3），逐层叠加
 - **实现落定**（与原规划的差异，均为与用户对齐后的裁定）：
   - **轴 A（ChatMessageDef 静态消息）整体移除**（2026-08-29 用户裁定：该成分本就不该实现）：`ChatMessageDef` 表、`chatMessages` 数据、消息推送/已读/奖励结算全部删除；既有 `chatRead` / `markChatRead` / `chatReadChanged` 基础设施保留（当前无写入方）。
-  - **未读迁移到对话空间**：未读 = 该角色**就绪队列条数**（`StoryService.readyStepCount`）；通讯录徽标与对话空间头部「N 条未读」同源；打开空间且队列非空时先展示**输入中省略号**（约 900ms）再推送队列顶——还原现实聊天的"正在输入…→ 送达"节奏。
+  - **未读迁移到对话空间**：未读 = 该角色**就绪队列条数**（`StoryService.readyStepCount`）；通讯录徽标与对话空间头部「N 条未读」同源；打开空间且队列非空时**立即推送**队列顶——"正在输入…→ 送达"节奏由页级打字提示承担（§4，2026-08-29 修订：原空间级大省略号已移除）。
   - **§3 尾巴改挂靠推送服务**（原消息承载随轴 A 移除）：`PassiveStoryEntry.pushAfterStory` 挂靠演出本体 id，关联剧情完结后**强制优先推送**进 owner 对话空间；羁绊入口走剧情侧 `Talklet.kizuna` 既有机制。
   - §1：`affectionChanged` 每次成功入账都发（附 `leveledUp` 标记，UI 仅跨级时提示）。
   - §2 轴 B：就绪队列 + `triggerAffectionPush`（进入对话空间经输入中提示自动推送 / `clickSend` idle 必中）。
@@ -109,7 +109,7 @@ defaultLevelCapByStar = [20,20,20,20,20,100]
 
 1. 存在**好感台阶式剧情**：好感达标后**即刻进入就绪队列**，该角色对话空间在合适条件下**按需求值序列自动推送**一条**未经历过**的台阶剧情（渐进式剧情披露）。
 2. **未读个数**在通讯录与对话空间 UI 协同显示；未读 = 就绪队列条数。
-3. 打开有未读的对话空间时，先展示**输入中省略号**再推送内容（现实聊天节奏）。
+3. 打开有未读的对话空间时**立即推送**内容；"正在输入…→ 送达"节奏由 §4 页级打字提示承担（2026-08-29 修订：原空间级输入中省略号已移除）。
 
 ### 轴 A（ChatMessageDef 静态消息）——已移除
 
@@ -151,7 +151,7 @@ defaultLevelCapByStar = [20,20,20,20,20,100]
 
 #### 推送时机与闲聊回落
 
-- **输入中省略号 + 进入即推**：玩家进入该角色对话空间时，若队列非空且该沙盒无进行中演出，先展示动态省略号（`.chat-typing`，约 900ms）再**自动推送**队列顶（复用 `startStory` 管线，owner 壁垒内）——现实聊天的"正在输入…→ 送达"节奏；期间点发送或返回键取消定时（点发送即立即推送）。
+- **进入即推（立即）**：玩家进入该角色对话空间时，若队列非空且该沙盒无进行中演出，**立即自动推送**队列顶（复用 `startStory` 管线，owner 壁垒内）；"正在输入"节奏由推送剧情的首个 talk 页打字提示承担（§4，非右侧 talk 页默认 0.9s）。
 - **完成后续接**：一条推送完成后若队列仍非空，**不自动连播**；此时点击发送**必中队列顶**（点击抽取候选退化为队列），退出后再次进入空间才恢复输入中提示 + 自动推送。
 - **闲聊回落**：队列为空时，点击发送按现状加权随机抽日常闲聊（保留现状作为兜底）。
 - **边界（第一迭代硬约束）**：推送只发生在对应聊天空间内，**不得影响外部**——全局闲聊、其他角色空间、空间外场景均无感知、无弹窗。
@@ -197,7 +197,7 @@ passiveStory('base:affinity:hoshino_2', 'base:affinity:hoshino_2')
 - 达标即刻入队：需求满足前后推送可用性翻转；冷却内 / `triggerCondition` 不过则不入队
 - 顺序：多条同时达标按需求值升序逐条放出；修改需求值即改变顺序
 - readyStepCount：队列条数（未拥有 → 0；播出中不计；消费后递减）
-- 推送时机：进入空间经输入中提示自动推一条；完成后不自动连播、点击必中下一条；再次进入恢复自动推送
+- 推送时机：进入空间立即自动推一条（节奏由首条 talk 页打字提示承担）；完成后不自动连播、点击必中下一条；再次进入恢复自动推送
 - 回落：队列空时点击发送按现状抽日常闲聊
 - 壁垒与边界：其他角色对话空间 / 全局闲聊（owner 为空）均抽不到；推送不影响全局游标与外部场景
 - 台阶完结 → `addAffectionExp` 入账 → 跨级升级 → `affectionChanged`
@@ -214,8 +214,8 @@ passiveStory('base:affinity:hoshino_2', 'base:affinity:hoshino_2')
 
 ### 玩法需求（验收口径）
 
-1. 剧情侧 **kizuna 卡片**（`Talklet.kizuna` 既有机制，`data-kizuna → startCardStory`）触发羁绊剧情演出。
-2. 剧情完成后，其**羁绊尾巴**经就绪队列**强制优先推送**到该角色对话空间（正在观看时立即追加；不在则留在队列顶，经输入中提示送达）。
+1. 剧情侧 **kizuna 卡片**（`Talklet.kizuna` 既有机制，`data-kizuna → storyGate 确认浮层 → startCardStory`，2026-08-29 起入口带确认）触发羁绊剧情演出。
+2. 剧情完成后，其**羁绊尾巴**经就绪队列**强制优先推送**到该角色对话空间（正在观看时立即追加；不在则留在队列顶，打开空间立即推送送达）。
 3. 尾巴本身是一条完整 PassiveStory 演出：免费获得 Talklet 多页/选项/Effects 与 `storyReadLogs` 记录，播过即出队（单次）。
 
 > 2026-08-29 修订：原「消息承载尾巴」方案（`ChatMessageDef.kizunaStoryId / kizunaTail` + `pendingKizunaTail` 运行时状态机）随 §2 轴 A 一并按用户裁定移除，尾巴改挂靠 `PassiveStoryEntry` 推送服务。
@@ -243,7 +243,7 @@ passiveStory('base:affinity:hoshino_bond_tail', 'base:affinity:hoshino_bond_tail
 ### 流程状态机
 
 ```text
-[入口] 剧情页 Talklet.kizuna 卡片（既有机制）→ data-kizuna → startCardStory
+[入口] 剧情页 Talklet.kizuna 卡片（既有机制）→ data-kizuna → storyGate 确认浮层 → 确认 → startCardStory
    ▼
 [剧情] 关联 Story 演出（owner 壁垒内）
    ▼
@@ -256,7 +256,7 @@ passiveStory('base:affinity:hoshino_bond_tail', 'base:affinity:hoshino_bond_tail
 
 - **强制优先**：就绪队列排序中尾巴（声明序）恒在好感台阶之前；`pickAffectionStep` / `clickSend idle` 消费顺序一致。
 - **即时推送（UI 侧）**：`controller-events` 订阅 `storyCompleted`，匹配「`pushAfterStory === event.storyId` ∧ 尾巴 owner = 当前对话空间 ∧ 完结剧情 owner 一致（或全局）∧ 尾巴未播过」→ `StoryService.triggerTailPush`（skipConditions，完结本身即入口判定）。
-- **未推送不丢**：即时推送失败（游标占用 / 不在空间）只影响时机——尾巴留在队列顶，由打开空间（输入中提示后）/ 点击发送送达。
+- **未推送不丢**：即时推送失败（游标占用 / 不在空间）只影响时机——尾巴留在队列顶，由打开空间（立即推送）/ 点击发送送达。
 
 ### 边界规则
 
@@ -281,68 +281,119 @@ passiveStory('base:affinity:hoshino_bond_tail', 'base:affinity:hoshino_bond_tail
 - 尾巴强制优先于好感台阶（队列顶先尾巴，其后按需求值）
 - 尾巴退出随机抽取；owner 不匹配不触发；游标占用返回 AlreadyActive
 
+### 入口确认浮层与开幕标题横幅（2026-08-29 落地）
+
+**入口确认浮层（storyGate）**：点击剧情入口不再直接启动，先在中心聊天窗格上叠加确认浮层（标题栏 + 角色名 + 剧情标题 + 进入/取消），风格对齐蔚蓝档案「好感故事」弹窗，功能优先。
+
+- **覆盖入口**（用户裁定：卡片 + 故事栏全部条目）：`data-kizuna`（mode 'card'）/ `data-start-story`（mode 'active'）/ `data-replay-story`（mode 'replay'）。前两者点击时保留切 tab / 切对话空间行为，让浮层落在目标聊天窗格上。
+- **状态驱动**：`PanelState.storyGate = { storyId, owner, mode } | null`，随全量 render 重建保持稳定；`data-story-gate-confirm` 按 mode 分派 `startCardStory` / `startActiveStory` / `replayStory`（原启动逻辑迁入）；`data-story-gate-cancel`（X / 取消按钮 / 遮罩空白，`event.target` 判定使卡片内冒泡不关闭）清状态。换流（`data-select-variant` / `data-conversation-back`）清 storyGate。
+- **展示标题**：`StoryEntryBase.openingTitle`（声明字段，`@label 开幕标题`）优先，回退 `StoryDef.name`。
+
+**开幕标题横幅**：聊天流中央横幅状背景 + 标题文本，展示/淡出期间**阻断该流的剧情推进点击**（发送/选项/卡片/闲聊抽取，发送按钮呈阻断态），结束后自动淡出移除。**默认不显示，由 Talklet 呼出**（用户裁定）：
+
+```ts
+// 呼出开关：挂在 Talklet.effects 上。首页声明 → 随剧情开始（含重读）立即呼出，
+// 推进离开首页时跳过防重复；非首页声明 → 离开该页时呼出（幕间标题）。
+narrate('——阿比多斯 · 堤防 · 午后——', 'center')
+  .effects({ op: 'showOpeningTitle', target: '', value: '星野 · 午后的堤防' })
+```
+
+- **数据**：`StoryEntryBase.openingTitle?: string`（浮层展示标题 + 横幅回退标题）+ `EffectOp 'showOpeningTitle'`（`value` = 横幅标题字符串，覆盖式优先；空/缺省回退 `entry.openingTitle ?? StoryDef.name`）。
+- **管线**：首页声明路径 = `beginStory` 直接发 `openingTitleShown { title? }`（emit `story-flow`）；非首页/演出效果路径 = `EffectEngine.runtimeEmit` → `chatFlowEffectRequested` → `RuntimeEffectReactor` → `ChatFlowService.showOpeningTitle(title?)`（emit `chat-flow-service`）→ UI `controller-events` 订阅 → `ChatStream.showBanner(streamKey, title)`（记录 startedAt，展示期满清除并触发重渲染）→ render 时经 `PanelState.openingBanner` 在 `.chat-pane` 渲染 `.story-opening-banner`。
+- **连续播放（不闪动）**：聊天流打字门控/连发推进约每 0.4-0.9s 触发全量 render，重建横幅元素会重置 CSS 动画；渲染时按 `startedAt` 换算负 `animation-delay` 断点续播（超时长钳制到终值，forwards 定格），动画全程只播一次。
+- **已完结卡片 = 正常重开（goto 语义，用户裁定）**：上游 Story 可被 PassiveStoryEntry 式重复抽取，本身即宣告「该事件可多次经历、分支探索」。卡片确认对已完结剧情由 `startCardStory` 的 `force` 直接重开（清游标 + 跳过 AlreadyCompleted），浮层文案「重新开始」；isReplay 保持 false——分支自由探索（choice 覆写同一 flag）、`branchGuards` 不约束卡片路径（仅约束故事栏重读）、重复完结奖励走 repeat 评估一般不发放、storyLog 追加记录经历次数。被 goto 丢弃的宿主被动剧情：闲聊可再抽；台阶/尾巴未完结仍留就绪队列，之后重新推送。`replayStory`（重看、受限）仅保留给故事栏重读入口。
+- **主题预留接口**：两族组件（`.story-gate-*` / `.story-opening-banner`）样式全部消费主题令牌，组件级 CSS 变量（`--story-gate-*` / `--story-banner-*`，见 `css/story-overlays.css`）即 theme-tree 后续美化的覆写点，不改 DOM/类名即可重肤。
+
+**测试清单**：`tests/ui/story-gate.test.ts`（三入口拦截 / 确认 / 取消 / 遮罩判定 / 横幅 3s 消失）+ `tests/ui/components/story-gate.test.ts`（标题解析 / 转义 / data 钩子）+ `tests/engine/chat-flow-service.test.ts`（showOpeningTitle → 事件链）。
+
 ---
 
-## §4 Talklet 输入中提示（预出现省略号，未实现 — 2026-08-29 策划）
+## §4 Talklet 输入中提示（页级打字省略号，2026-08-29 落地）
 
-### 玩法需求（验收口径）
+### 玩法需求（验收口径，2026-08-29 与用户对齐；同日二次修订：门控与思考阶段）
 
-1. 任意 `kind:'talk'` 的 Talklet 可声明 `typing?: number`（毫秒）：本页内容进入聊天流**之前**，先以同说话人 / 头像 / 气泡侧渲染一个动态省略号气泡（"正在输入…"），持续声明时长后**自动替换为本页内容**——现实聊天的"对方在打字 → 消息送达"节奏。
-2. 玩家加速（快速点发送）**不丢内容**：typing 未结束就推进时，取消提示并**立即补落该页内容**——typing 只是节奏装饰，不是交互闸门。
-3. 纯 UI 节奏服务：不写 PlayerState、不进存档契约（纪律 #4；持久化聊天历史中过滤 typing 条目）。
+1. **默认开启**：所有**非右侧**（NPC 侧）`kind:'talk'` 的 Talklet 页，内容进入聊天流**之前**，先以同说话人 / 头像 / 气泡侧渲染动态省略号气泡（"正在输入…"，表述该侧 chat 正在生成/回复内容），持续默认 **0.9s** 后自动替换为本页内容——现实聊天的"对方在打字 → 消息送达"节奏。气泡内节奏点**复用底部按钮的 `send-dots` 结构与动画**，点色跟随 theme-tree 的气泡文本色（`--ink-on-npc-bubble` / `--ink-on-player-bubble`）。
+2. **数据可覆盖**：`Talklet.typing?: number`（单位**秒**，支持小数）——缺省 = 默认 0.9s；显式 `0` = 关闭；自定义值夹取上限 **10s**（防数据笔误冻结聊天流）。
+3. **打字期按钮门控**：聊天流的省略时间未结束前，底部回复按钮**不显示回复文案**（无法提前看到要返回的消息内容）且**不可推进**；作为补偿，期间点击底部按钮每次将剩余时间**加速约 0.1s**。
+4. **按钮"想回复"阶段**：消息送达后，底部按钮同样先"想回复"——只渲染节奏点（无文案），持续 `Talklet.thinking` 声明时长后**按钮文字出现**（sendText / "继续" / "点击"），之后照常推进（含经典按动次数 clickWork）。思考阶段点击同样每次加速约 0.1s。`thinking?: number`（秒）缺省 0.9s、`0` 关闭、上限 10s；资格谓词与 typing 相同。
+5. **链式连发（三次修订）**：左侧 talk 页若**无任何按钮要求**（无 sendText 回复文案、无选项、无 clickWork 按动），送达后跳过"想回复"阶段，经**停顿拍**（默认 0.4s，门控阶段 `pause`）自动推进下一页——"省略号-发出-停顿-省略号-发出"接连不断，直到需要玩家接话的页（sendText 回复 / 选项 / 按动次数 / 右侧回话 / 旁白 / click / 羁绊）为止。停顿拍与打字/思考同属门控：按钮只显示节奏点、不可推进、点击加速 0.1s/次。
+6. **连发分组渲染（四次修订）**：聊天流中同人同侧相邻的简单 chat（talk/typing 条目，speaker / avatar / 气泡侧 / 玩家身份 / noAvatar 形态全同）为一组，**仅组内首条渲染头像与名称**，后续条目只出现气泡（**同时隐藏气泡小三角**，`.chat-bubble-continued`），并以同尺寸不可见头像占位（`.chat-avatar-ghost`）保持与首条气泡的缩进对齐；旁白 / 系统行 / 奖励行 / 他人回复等条目打断分组。`Talklet.showAvatar?: boolean`（builder `showAvatar()`）强制该页完整显示头像与名称（保留三角）。分组在渲染期由相邻条目推导（不入档、无状态）。
+7. **忽略范围**：右侧气泡（`side:'right'`，玩家/对话方侧）、narration、click、kizuna 页、`pushAbsorbed` 过渡页不产生打字/思考门控，也终止连发链；choice 页正文参与打字，选项卡片在门控结束前不可达（"继续"确认按钮被门控）。
+8. **纯 UI 节奏服务**：不写 PlayerState（门控阶段仅作 render 期快照）、不进存档契约（纪律 #4；持久化聊天历史过滤 typing 条目）。
 
-### 与已实现的"空间级"提示的分工
+### 修订记录（2026-08-29）
 
-| 层级 | 触发时机 | 载体 | 状态 |
-| --- | --- | --- | --- |
-| 空间级 | 队列非读、故事**尚未开始**（打开对话空间 → 推送队列顶） | `scheduleTypingPush` + `PanelState.typingVariantId` + `.chat-typing` | **已实现**（§2） |
-| 页级（本节） | 故事已开始，**某条 talk 消息送达前** | `Talklet.typing` 声明 + `ChatStream` 指纹状态机 | 未实现 |
-
-两者互补：推送瞬间空间级提示让位，进入故事后由页级接管逐条节奏。
+- **移除空间级大省略号**（§2 原实现）：打开对话空间不再先展示独立省略号块 + 900ms 延迟，改为**立即推送**队列顶；"正在输入"节奏整体移交本节页级提示。`PanelState.typingVariantId` / `ctrl.typingTimer` / `scheduleTypingPush` 延迟 / `renderConversationView` 的独立省略号块随之删除。
+- **单位从毫秒改秒**：`typing` 以秒声明（支持小数如 0.9）。
+- **原开放点落定**：非右侧 talk 页全局默认打字（原开放点 2，用户裁定默认开启）；absorbed 逐页 typing 维持第二迭代（原开放点 1）；narration 维持不允许（原开放点 3）。
+- **二次修订（实际效果驱动）**：①打字气泡改用 `send-dots` 渲染结构，点色跟随 theme-tree 气泡文本色；②typing 从"纯装饰"改为**按钮门控**——打字期间按钮无文案、不可推进、点击加速 0.1s/次；③新增按钮**"想回复"阶段**（`Talklet.thinking` 独立字段，用户裁定不与 typing 共用旋钮），消息送达后按钮先思考再出文字，之后走经典按动次数（clickWork）。
+- **三次修订（链式连发 + 停顿拍）**：无按钮要求的左侧页送达后自动推进下一页，节奏为"省略号-发出-停顿-省略号-发出"（停顿拍 0.4s，门控阶段 `pause`，同样可点击加速）；实现为 ChatStream 送达后节奏决策（`chainEligible` → pause 门控 → `scheduleAutoAdvance` 指纹守卫）+ `controller.onAutoAdvance` 对该流执行一次 `clickSend` 单页推进（引擎 clickSend 每次恰好推进一页，absorbed 恒为空）。
+- **四次修订（连发分组渲染）**：同人同侧相邻简单 chat 仅首条显示头像/名称，后续只出现气泡（ghost 头像占位保持缩进）；`Talklet.showAvatar` 强制完整显示。分组为渲染期推导，无状态、不入档。
 
 ### 数据声明（Talklet 新字段，无引擎状态）
 
 ```ts
 // Talklet（types/content.ts）
 /**
- * 预出现输入中提示（毫秒）：本页 talk 内容进流前，先渲染同 speaker/avatar/side
- * 的动态省略号气泡，持续该时长后替换为本页内容。0 / 缺省 = 关闭。
- * 仅 kind='talk' 生效；建议 600–1200ms，实现侧夹取上限（防数据笔误冻结聊天流）。
+ * @label 输入中提示（秒）
+ * 页级"正在输入"节奏：本页 talk 内容进聊天流前，先渲染同 speaker/avatar/side
+ * 的动态省略号气泡（send-dots 结构），持续该时长后替换为本页内容。
+ * 打字期间底部按钮门控（无文案 / 不可推进 / 点击加速 0.1s）。
+ * 缺省 = 非右侧 talk 页默认 0.9s；显式 0 = 关闭；自定义值夹取上限 10s。
+ * 仅 talk 生效（narration/click/kizuna 页与右侧气泡忽略）；纯 UI 节奏，不入存档。
  */
 typing?: number;
+/**
+ * @label 想回复（秒）
+ * 底部回复按钮的"想回复"节奏：本页内容送达后、按钮文案出现前，按钮仅渲染节奏点
+ * （不可推进，点击可加速），持续该时长后文字出现，之后照常推进（含 clickWork）。
+ * 缺省 = 非右侧 talk 页默认 0.9s；显式 0 = 关闭；上限 10s；资格与 typing 相同。
+ */
+thinking?: number;
 ```
 
-### 实现设计（UI 侧，落在 ChatStream 指纹状态机）
+### 实现设计（UI 侧，落在 ChatStream 门控状态机）
 
-- `ChatEntry.kind` 增 `'typing'`：渲染复用 renderTalk 的气泡骨架（头像/名字/侧向），正文为 `.chat-typing` 三点动画（样式已存在）。
-- `ChatStream.syncCurrentStory`：指纹变化 → 先 **cancelTyping**（移除旧气泡 + **补落旧页内容**，防快进丢内容；pending 载荷随计时器保存）→ 若本页 `typing > 0` 且 `kind === 'talk'`：压入 typing 条目（id = `typing:${fingerprint}`）、记账指纹防重复触发、起计时器 → 到期后校验指纹未变（剧情未被推进/清空）则移除气泡并落内容，否则仅移除气泡。
-- `clearAll` / `reset()`（读档/软重启）取消计时并清 typing 条目；`withHistories` 持久化时过滤 `kind === 'typing'`（瞬态条目不入档）。
-- choice 页：正文文本参与 typing；选项卡片本就等确认后才渲染（`sendState.confirmed`），不受影响；确认点击发生在 typing 期间时按补落规则立即落文本。
-- narration / click / kizuna 页、`pushAbsorbed` 过渡页：**忽略** typing（回归不变）。
+- `ChatEntry.kind` 增 `'typing'`：渲染复用 renderTalk 的气泡骨架（头像/名字/侧向），正文为 `send-dots` 三点（blink 动画与底部按钮同源；点色经 `.chat-bubble-* .send-dots i` 覆写为 theme-tree 气泡文本色）。
+- `ChatStream`：
+  - 指纹按**流**记账（`Map<streamKey, fingerprint>`，streamKey = 对话空间 variantId ?? 全局）——切换流不误判推进、返回原流不重复落页。
+  - 门控按**流**记账（`Map<streamKey, GateState>`，`endsAt` + 计时器，阶段 `typing / pause / thinking`）：typing 期压入 typing 条目；到期 **deliver**（打字条目原位替换为内容，保序）并做节奏决策——`chainEligible`（左侧 talk 且无 sendText/选项/clickWork）→ pause 停顿拍 → 到期连发推进下一页；否则 → thinking 门控 → 到期解除（按钮文字出现）。各阶段流转经 `onChange` 触发重渲染。
+  - 连发推进经 `scheduleAutoAdvance`（0ms 计时器 + 指纹守卫防竞态）交还 `controller.onAutoAdvance(streamKey)`：view 存在守卫 → `clickSend(owner)` 单页推进 → 定向 `pushAbsorbedTo` → render。`typing:0` 的合格页内容直接落流后同样走停顿拍连发。
+  - `activeGate(panelState)` 返回当前活跃流门控阶段；`accelerateActiveGate` 把剩余时间 −0.1s（`endsAt` 前移 + 重排计时器，归零立即完成该阶段），对三阶段一律生效。
+  - 防御路径：同流指纹变化（外部剧情变动）→ typing 期内容立即落流 / 门控与连发解除；跨流切换不干扰他流门控。
+  - `clearAll`（chatFlowCleared）解除该流门控与连发；`reset()`（读档/软重启）全量解除；`withHistories` 持久化过滤 `kind === 'typing'`（瞬态条目不入档）。
+- **按钮门控渲染**：`PanelState.sendGate`（render 期由 `activeGate` 计算的快照）→ `renderSendButton(sendState, gate)` 门控分支只渲染 `send-dots`（无 `send-text`/箭头/进度，按钮仍可点）；点击处理器（`[data-send]`）检测到门控时**不调 `clickSend`**，仅 `accelerateActiveGate`。choice 页门控期"继续"确认不可达 → 选项卡片天然被挡在门外。
 
 ### 接线点
 
 | 文件 | 职责 |
 | --- | --- |
-| `types/content.ts` | `Talklet.typing?: number` 字段（TSDoc @label） |
-| `def-factory/talklet.ts` | `typing(ms)` builder 方法 |
-| `src/ui/chat-stream.ts` | 指纹状态机 typing 分支：计时 / 取消 / 补落 / 瞬态条目管理 |
-| `src/ui/components/story.ts` | `ChatEntry` 增 `'typing'` 分支渲染 |
-| `tools/datapack-editor/schema/editor-extras.ts` | `storiesTable` 的 talklet 对象补 `typing` 字段（Talklet 为 HAND 类型，不走 gen:schema） |
+| `types/content.ts` | `Talklet.typing? / thinking?: number` 字段（TSDoc @label，单位秒） |
+| `def-factory/talklet.ts` | `typing(seconds) / thinking(seconds)` builder 方法 |
+| `src/ui/chat-stream.ts` | 门控状态机：按流指纹 + GateState（typing/thinking）/ deliver / 加速 / onChange |
+| `src/ui/controller.ts` | 注入 `chat.onChange = render` 与 `chat.onAutoAdvance`（连发：view 守卫 + 单页 clickSend + 定向 absorbed）；render 期计算 `panelState.sendGate` |
+| `src/ui/components/app-shell.ts` | `PanelState.sendGate` 快照传递 |
+| `src/ui/components/center-panel.ts` | `renderSendButton(sendState, gate)` 门控分支（仅节奏点） |
+| `src/ui/components/contacts.ts` | 对话空间底部按钮同门控 |
+| `src/ui/controller-actions-story.ts` | `[data-send]` 门控期 → `accelerateActiveGate`（不推进） |
+| `src/ui/components/story.ts` | `ChatEntry 'typing'` 分支渲染（send-dots 气泡）；连发分组：`sameChainGroup` 推导 + `hideIdentity` 渲染（ghost 头像占位） |
+| `src/ui/css/chat.css` | `.chat-bubble-* .send-dots i` 点色 = theme-tree `--ink-on-*-bubble`；`.chat-avatar-ghost` 分组缩进占位 |
+| `src/ui/controller-core.ts` | `withHistories` 过滤 typing 条目 |
+| `tools/datapack-editor/schema/editor-extras.ts` | `storiesTable` 的 talklet 对象补 `typing / thinking` 字段（Talklet 为 HAND 类型，不走 gen:schema） |
 
-### 测试清单（UI 侧，`tests/ui/`）
+### 测试清单（`tests/ui/chat-typing.test.ts`，已覆盖）
 
-- 声明 typing 的页：进流顺序 = 省略号气泡 → 计时后移除气泡、落内容（同说话人样式）
-- 计时内玩家推进：旧页内容立即补落、气泡移除，新页按自身声明处理
-- 读档 / 软重启 / `clearAll`：计时取消、无残留 typing 条目；存档往返不含 typing 条目
-- narration / click / kizuna / absorbed 页声明 typing：被忽略（回归不变）
-- builder：`talklet.typing(ms)` 输出；时长夹取上限生效
-
-### 开放点（实现前与用户对齐）
-
-1. **absorbed 过渡页**是否第二迭代支持逐页 typing（需链式计时，第一迭代忽略）。
-2. 是否提供"被动推送的首条消息默认打字"的全局默认（当前为纯声明式，数据不声明则无）。
-3. **narration** 是否允许 typing（当前策划：不允许——旁白不是聊天气泡，无"对方"语义）。
+- 默认打字：非右侧 talk 页进流 = 省略号气泡 → 0.9s 后替换为内容（同说话人/侧向）
+- 数据覆盖：`typing:0` 立即落内容；`typing:2` 按 2s；`typing:20` 夹取 10s
+- 右侧气泡 / narration / click / kizuna / absorbed：无打字提示（回归不变）
+- 门控链：typing → 送达 → thinking → 解除；`thinking:0` 关闭；`thinking:2` 独立时长；`typing:0` + thinking 缺省仍思考
+- 链式连发：省略号-发出-停顿-省略号-发出（typing 0.9s + pause 0.4s 停顿拍）；sendText / 选项 / clickWork 页停下进入 thinking；`typing:0` 链；末页连发到剧情完结自然终止；外部推进 / 剧情清空取消待执行连发
+- 点击加速：每击 −0.1s，9 击打完打字阶段进入思考、再 9 击解除
+- 推进补落（防御路径）/ 完结补落 / clearAll / reset：内容恰好落一次、无残留
+- 跨流切换：他流门控不受影响，到期内容落入原流；返回原流不重复落页
+- 门控态按钮渲染：仅 send-dots、无 send-text 文案；打字气泡复用 send-dots 结构
+- 连发分组：同人相邻仅首条显示头像/名称（后续 ghost 占位）；换人 / 旁白 / 玩家回复打断重排；typing 条目参与分组；`showAvatar` 强制完整显示
+- 存档往返不含 typing 条目；builder 输出
 
 ---
 

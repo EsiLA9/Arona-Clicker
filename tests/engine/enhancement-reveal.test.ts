@@ -10,8 +10,8 @@ import { getEnhancementReveal } from '../../src/ui/components/tooltip';
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';
 const PRINTER = 'base:spot:credit_printer';
-const OFFICE_LAYOUT = 'base:enh:office_layout';
-const CREDIT_SYSTEM = 'base:enh:credit_system';
+const OFFICE_LAYOUT = 'base:enhancement:office_layout';
+const CREDIT_SYSTEM = 'base:enhancement:credit_system';
 
 const revealOf = (game: GameInstance, enhId: string) =>
   getEnhancementReveal(createUIContext(game), game.registry.enhancements.get(enhId)!);

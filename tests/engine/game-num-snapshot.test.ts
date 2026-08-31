@@ -50,19 +50,19 @@ function makeFixture(affector: unknown = { getActiveInstances: () => [], getPack
   });
   const registry = {
     spots: new Map([
-      ['s1', spot('s1', 'areaA', 5, [office, creditTag])],
-      ['s2', spot('s2', 'areaA', 10, [office])],
-      ['s3', spot('s3', 'areaB', 20, [])],
-      ['s4', spot('s4', 'areaC', 40, [])],
+      ['test:spot:s1', spot('test:spot:s1', 'areaA', 5, [office, creditTag])],
+      ['test:spot:s2', spot('test:spot:s2', 'areaA', 10, [office])],
+      ['test:spot:s3', spot('test:spot:s3', 'areaB', 20, [])],
+      ['test:spot:s4', spot('test:spot:s4', 'areaC', 40, [])],
     ]),
     areas: new Map([
-      ['areaA', { id: 'areaA', initId: 'initI', tags: [areaTag] }],
-      ['areaB', { id: 'areaB', initId: 'initI', tags: [] }],
-      ['areaC', { id: 'areaC', initId: 'initOther', tags: [] }],
+      ['areaA', { id: 'areaA', initId: 'test:init:initi', tags: [areaTag] }],
+      ['areaB', { id: 'areaB', initId: 'test:init:initi', tags: [] }],
+      ['areaC', { id: 'areaC', initId: 'test:init:initother', tags: [] }],
     ]),
     inits: new Map([
-      ['initI', { id: 'initI', tags: [initTag] }],
-      ['initOther', { id: 'initOther', tags: [] }],
+      ['test:init:initi', { id: 'test:init:initi', tags: [initTag] }],
+      ['test:init:initother', { id: 'test:init:initother', tags: [] }],
     ]),
     enhancements: new Map(),
   };
@@ -80,10 +80,10 @@ function makeFixture(affector: unknown = { getActiveInstances: () => [], getPack
   });
   const state = {
     resources: { [CREDIT]: 0, [GOLD]: 0 },
-    spotLevels: { s1: 1, s2: 1, s3: 1, s4: 1 },
+    spotLevels: { 'test:spot:s1': 1, 'test:spot:s2': 1, 'test:spot:s3': 1, 'test:spot:s4': 1 },
     spotManagers: {},
     unlockedEnhancements: [],
-    activeInit: 'initI',
+    activeInit: 'test:init:initi',
     totalFrames: 0,
   } as unknown as PlayerState;
   system.buildAll(state);
@@ -94,9 +94,9 @@ const officeKey = tagId(office);
 const creditKey = tagId(creditTag);
 const areaKey = tagId(areaTag);
 const initKey = tagId(initTag);
-const s1Scope = { kind: 'spot' as const, id: 's1' };
+const s1Scope = { kind: 'spot' as const, id: 'test:spot:s1' };
 const areaAScope = { kind: 'area' as const, id: 'areaA' };
-const initIScope = { kind: 'init' as const, id: 'initI' };
+const initIScope = { kind: 'init' as const, id: 'test:init:initi' };
 
 describe('Phase 0 快照：zone 聚合语义（state 表聚合）', () => {
   test('空区：flat → 0，mul → 1', () => {
@@ -111,7 +111,7 @@ describe('Phase 0 快照：zone 聚合语义（state 表聚合）', () => {
     system.registerTagEffect(state, creditKey, flatRecord('f2', 4));
     expect(system.evaluate(system.buildZoneNode(s1Scope, 'flat', CREDIT), state)).toBe(7);
     // s2 只有 office 标签 → 只吃 f1
-    expect(system.evaluate(system.buildZoneNode({ kind: 'spot', id: 's2' }, 'flat', CREDIT), state)).toBe(3);
+    expect(system.evaluate(system.buildZoneNode({ kind: 'spot', id: 'test:spot:s2' }, 'flat', CREDIT), state)).toBe(3);
   });
 
   test('mul 单记录：区值 = 1 + (f - 1)', () => {
@@ -182,10 +182,10 @@ describe('Phase 6 快照：显式层级树（Area/Init 乘区逐级连乘）', (
     // areaA: (5+10)×2=30；areaB 20；areaC 40 → initI 50 + initOther 40 = 90
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(90);
     // spot 视图只含自身乘区，不再包含上极乘区（新语义）
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(5);
-    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(10);
-    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(20);
-    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s1')!, state)).toBe(5);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s2')!, state)).toBe(10);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s3')!, state)).toBe(20);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s4')!, state)).toBe(40);
     // area 乘区值经区节点精确读取
     expect(system.evaluate(system.buildZoneNode(areaAScope, 'mul'), state)).toBe(2);
   });
@@ -195,8 +195,8 @@ describe('Phase 6 快照：显式层级树（Area/Init 乘区逐级连乘）', (
     system.registerTagEffect(state, initKey, mulRecord('im', 3));
     // initI: (15+20)×3=105；initOther 40 → 145
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(145);
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(5);
-    expect(system.evaluate(system.spotSubtrees.get('s4')!, state)).toBe(40); // initOther 不受影响
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s1')!, state)).toBe(5);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s4')!, state)).toBe(40); // initOther 不受影响
     expect(system.evaluate(system.buildZoneNode(initIScope, 'mul'), state)).toBe(3);
   });
 
@@ -211,7 +211,7 @@ describe('Phase 6 快照：显式层级树（Area/Init 乘区逐级连乘）', (
   test('entity 精确引用 area/init 键同样逐级连乘', () => {
     const { system, state } = makeFixture();
     system.registerEntityEffect(state, 'area:areaA', mulRecord('am', 2));
-    system.registerEntityEffect(state, 'init:initI', mulRecord('im', 3));
+    system.registerEntityEffect(state, 'init:test:init:initi', mulRecord('im', 3));
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(190);
   });
 
@@ -220,7 +220,7 @@ describe('Phase 6 快照：显式层级树（Area/Init 乘区逐级连乘）', (
     system.registerTagEffect(state, areaKey, mulRecord('am', 2));
     system.registerTagEffect(state, initKey, mulRecord('im', 3));
     // spot 自身视图不含上极乘区；上极乘区经区节点精确读取
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(5);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s1')!, state)).toBe(5);
     expect(system.evaluate(system.buildZoneNode(areaAScope, 'mul'), state)).toBe(2);
     expect(system.evaluate(system.buildZoneNode(initIScope, 'mul'), state)).toBe(3);
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(190);
@@ -324,8 +324,8 @@ describe('Phase 6 快照：flows 层级分发（按 mountEntityId）', () => {
   // i2 挂 s2（entry e1 产 credit 3 / gold 5）。
   const flowsAffector = {
     getActiveInstances: () => [
-      { instanceId: 'i1', packId: 'p1', mountEntityId: 's1', activeEntryIds: ['e1', 'e2'] },
-      { instanceId: 'i2', packId: 'p2', mountEntityId: 's2', activeEntryIds: ['e1'] },
+      { instanceId: 'i1', packId: 'p1', mountEntityId: 'test:spot:s1', activeEntryIds: ['e1', 'e2'] },
+      { instanceId: 'i2', packId: 'p2', mountEntityId: 'test:spot:s2', activeEntryIds: ['e1'] },
     ],
     getPack: (id: string) => ({
       id,
@@ -340,9 +340,9 @@ describe('Phase 6 快照：flows 层级分发（按 mountEntityId）', () => {
   test('spot 挂载的 flows 分发到对应 spot 的 spotExtra 节点', () => {
     const { system, state } = makeFixture(flowsAffector);
     // s1 视图 = base 5 + flows(3+7)=10 → 15；s2 = 10+3=13；s3/s4 无挂载
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(15);
-    expect(system.evaluate(system.spotSubtrees.get('s2')!, state)).toBe(13);
-    expect(system.evaluate(system.spotSubtrees.get('s3')!, state)).toBe(20);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s1')!, state)).toBe(15);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s2')!, state)).toBe(13);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s3')!, state)).toBe(20);
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(15 + 13 + 20 + 40);
   });
 
@@ -355,7 +355,7 @@ describe('Phase 6 快照：flows 层级分发（按 mountEntityId）', () => {
   test('未激活 entry 不参与 flows 求值', () => {
     const { system, state } = makeFixture(flowsAffector);
     // e3（100 credit）未激活：s1 视图不含 100
-    expect(system.evaluate(system.spotSubtrees.get('s1')!, state)).toBe(15);
+    expect(system.evaluate(system.spotSubtrees.get('test:spot:s1')!, state)).toBe(15);
   });
 
   test('未拥有 spot 的 flows 仍产出（flows 不受 owned 门控）', () => {
@@ -371,7 +371,7 @@ describe('Phase 0 快照：失效行为', () => {
   test('求值缓存后直接改 state 需 invalidateProduction 才反映新值', () => {
     const { system, state } = makeFixture();
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(75); // 5+10+20+40
-    (state as any).spotLevels.s1 = 0;
+    (state as any).spotLevels['test:spot:s1'] = 0;
     // 未经失效：仍返回旧缓存
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(75);
     system.invalidateProduction();

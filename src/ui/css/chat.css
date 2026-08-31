@@ -174,11 +174,17 @@
    font-weight: 700;
 }
 
+/* 连发分组占位（§4）：同人连发非首条不渲染头像/名称，以同尺寸不可见头像占位，
+   保持后续气泡与组内首条气泡的缩进对齐（窄屏 avatar 缩放时随 .chat-avatar 同步）。 */
+.chat-avatar-ghost {
+   visibility: hidden;
+}
+
 .chat-bubble {
    font-family: '方正兰亭圆简体_中';
    position: relative;
-   padding: 10px 14px;
-   border-radius: 12px;
+   padding: 6px 10px;
+   border-radius: 8px;
    max-width: 100%;
 }
 
@@ -196,8 +202,8 @@
 .chat-bubble-player::before {
    content: '';
    position: absolute;
-   top: 14px;
-   width: 0;
+   top: 8px;
+   width: 1px;
    height: 0;
    border: 5px solid transparent;
 }
@@ -212,6 +218,11 @@
    border-left-color: var(--player-bubble, #4a8aca);
 }
 
+/* 连发分组接续（§4）：无头像可指向，隐藏气泡小三角 */
+.chat-bubble-continued::before {
+   content: none;
+}
+
 .chat-bubble-npc p {
    margin: 0;
    color: var(--ink-on-npc-bubble, var(--ac-npcBubbleText, #ffffff));
@@ -224,6 +235,15 @@
    color: var(--ink-on-player-bubble, var(--ac-playerBubbleText, #ffffff));
    font-size: 13px;
    line-height: 1.7;
+}
+
+/* 打字气泡内的节奏点（§4）：复用 send-dots 结构，颜色跟随 theme-tree 的气泡文本色 */
+.chat-bubble-npc .send-dots i {
+   background: var(--ink-on-npc-bubble, var(--ac-npcBubbleText, #ffffff));
+}
+
+.chat-bubble-player .send-dots i {
+   background: var(--ink-on-player-bubble, var(--ac-playerBubbleText, #ffffff));
 }
 
 .chat-bubble .chat-image {

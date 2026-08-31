@@ -2,7 +2,9 @@ import { UIContext } from '../context';
 import { renderTabs, TabDef } from './tabs';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderConversationView } from './contacts';
+import { renderOpeningBanner, renderStoryGate } from './story-gate';
 import { SendState } from '../../engine/types';
+import type { ActiveBanner, SendGatePhase, StoryGateState } from './app-shell';
 
 const CENTER_TABS: TabDef[] = [
   { id: 'chat', label: '聊天' },
@@ -14,8 +16,6 @@ export interface ConversationView {
   variantId: string;
   entries: ChatEntry[];
   chatTexts: ChatTextEntry[];
-  /** 输入中提示：队列有待推送内容，先展示省略号再推送。 */
-  typing?: boolean;
 }
 
 export function renderCenterPanel(
@@ -25,9 +25,12 @@ export function renderCenterPanel(
   chatTexts: ChatTextEntry[],
   sendState: SendState,
   conversation?: ConversationView,
+  sendGate?: SendGatePhase | null,
+  storyGate?: StoryGateState | null,
+  openingBanner?: ActiveBanner | null,
 ): string {
   if (conversation) {
-    return renderConversationView(ctx, conversation.variantId, conversation.entries, conversation.chatTexts, sendState, conversation.typing);
+    return renderConversationView(ctx, conversation.variantId, conversation.entries, conversation.chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   }
   // 通讯录临时页：由左栏"通讯录"触发，等待详细设计
   if (activeTab === 'contacts-draft') {
@@ -57,7 +60,7 @@ export function renderCenterPanel(
   }
   const body = activeTab === 'log'
     ? renderLogTab(ctx)
-    : renderChatTab(ctx, chatEntries, chatTexts, sendState);
+    : renderChatTab(ctx, chatEntries, chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   return `
     <section class="panel center-panel">
       ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}
@@ -70,6 +73,9 @@ function renderChatTab(
   chatEntries: ChatEntry[],
   chatTexts: ChatTextEntry[],
   sendState: SendState,
+  sendGate: SendGatePhase | null,
+  storyGate: StoryGateState | null,
+  openingBanner: ActiveBanner | null,
 ): string {
   const { game, view } = ctx;
   const story = view.currentStory;
@@ -85,11 +91,12 @@ function renderChatTab(
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
   const launcher = story ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
-  const send = renderSendButton(sendState);
+  const send = renderSendButton(sendState, sendGate);
 
   // 聊天流与回复按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧，
   // 这样回复气泡能贴底出现在聊天框最底部，不被按钮挤占。
   // 演出专用文本渲染在 .chat-pane 层（.chat-stream 之上），不随滚动位移，保持界面定位。
+  // 开幕横幅 / 入口确认浮层同层叠加（横幅在下、浮层在上）。
   return `
     <div class="chat-pane">
       <div class="chat-stream">
@@ -98,6 +105,8 @@ function renderChatTab(
         ${launcher}
       </div>
       ${renderChatTexts(ctx, chatTexts)}
+      ${openingBanner ? renderOpeningBanner(ctx, openingBanner) : ''}
+      ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
       ${send}
     </div>`;
 }
@@ -118,11 +127,23 @@ function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeComplet
 
 /**
  * 底部"回复按钮"——本质是承载推进的 Talklet 的演出形态。
+ * - gate（§4）：对方打字 / 自己"想回复"阶段——只渲染节奏点，不透露回复文案；
+ *   按钮仍可点击（由点击处理器转为节奏加速），但点击不推进。
  * - advance：单次点击推进剧情（无 sendText 时按钮显示"点击"）
  * - idle：无进行中剧情，点击触发被动闲聊
  * - choice：有选项，按钮让位
  */
-export function renderSendButton(sendState: SendState): string {
+export function renderSendButton(sendState: SendState, gate: SendGatePhase | null = null): string {
+  if (gate) {
+    // send-ghost：隐藏箭头行框占位，节奏点态与一般点击态等高（§4）
+    return `
+      <button class="send-button thinking" data-send aria-label="正在输入">
+        <span class="send-bubble">
+          <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="send-ghost" aria-hidden="true">↗</span>
+        </span>
+      </button>`;
+  }
   if (sendState.mode === 'choice') {
     // choice 页 text 阻塞：未确认时显示"继续"按钮（点击确认后选项卡片出现），
     // 已确认后按钮变灰不可点（选项卡片在流中，由 [data-story-choice] 驱动）
@@ -180,6 +201,7 @@ export function renderSendButton(sendState: SendState): string {
           <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           <span class="send-text">${workLabel}</span>
           <span class="send-work-count">${done}/${total}</span>
+          <span class="send-ghost" aria-hidden="true">↗</span>
         </span>
       </button>`;
   }

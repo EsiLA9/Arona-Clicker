@@ -18,7 +18,7 @@ const nameOf = (type: string, id: string): string => {
     'resource:base:resource:credit': '信用点',
     'spot:base:spot:credit_printer': '信用点制造机',
     'character:arona': '阿罗娜',
-    'enh:base:enh:x': '神秘强化',
+    'enh:base:enhancement:x': '神秘强化',
     'item:base:item:x': '能量饮料',
     'init:base:init:abydos': '阿比多斯',
     'story:base:story:x': '深夜的夏莱',
@@ -45,7 +45,7 @@ describe('describeEffect 全 op 覆盖', () => {
   });
 
   test('获取/解锁/剧情/标记/掉落/移动', () => {
-    expect(describeEffect(eff('addEnhancement', '', 'base:enh:x'), nameOf)).toBe('获得强化「神秘强化」');
+    expect(describeEffect(eff('addEnhancement', '', 'base:enhancement:x'), nameOf)).toBe('获得强化「神秘强化」');
     expect(describeEffect(eff('addItem', 'base:item:x', 3), nameOf)).toBe('获得物品 能量饮料 ×3');
     expect(describeEffect(eff('unlockInit', '', 'base:init:abydos'), nameOf)).toBe('解锁世界线 阿比多斯');
     expect(describeEffect(eff('triggerStory', '', 'base:story:x'), nameOf)).toBe('触发剧情 深夜的夏莱');

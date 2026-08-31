@@ -6,8 +6,8 @@ import { GameInstance } from '../../src/engine/game-instance';
 import type { Datapack } from '../../src/engine/types';
 import { Character, CharacterRarity, CharacterSchool, GachaMode } from '../../src/engine/types';
 
-const LIMITED = 'pool-limited';
-const PERM = 'pool-perm';
+const LIMITED = 'test:gachapool:pool-limited';
+const PERM = 'test:gachapool:pool-perm';
 
 function v(id: string, proto: Character) {
   return {
