@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: datapack_assets
-title: AronaClickerCore 数据包（游戏内容配置）
+title: Arona Clicker 核心数据资产包
 scope:
     - datapack/
 source_files: []

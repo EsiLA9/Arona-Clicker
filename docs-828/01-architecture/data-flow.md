@@ -6,7 +6,7 @@
 ## 四层关系
 
 ```text
-Datapack 声明（src/data/base/*.ts 或 JSON 导入）
+Datapack 声明（测试/示例包或 JSON/文件夹/ZIP 导入）
     ↓ Registry 编译态（25+ 表 + 关系索引 + 引用校验，恒只读）
         ↓ PlayerState 运行时（三层：Global + per-Init 快照 + per-Init 当前）
             ↓ GameView 只读快照（UI 消费）
@@ -15,9 +15,10 @@ Datapack 声明（src/data/base/*.ts 或 JSON 导入）
 
 ## 层 1：Datapack 声明
 
-- **默认加载的是 `src/data/base/`（TypeScript）**；`datapack/` 根目录是可选 JSON 导入（`src/data/zip-loader.ts` 解包）。
-- `datapack.ts` 组合所有定义块导出默认数据包，注入 `GameInstance.init()`。
-- 实体类型权威定义在 `src/engine/types/`；构建器在 `src/engine/def-factory/`。
+- `src/data/base/` 是测试/示例 Datapack；应用入口或测试夹具显式选择并注入 Datapack。
+- `datapack/` 可通过基础数据服务从 JSON、文件夹或 ZIP 导入，不由基础引擎主动加载。
+- Datapack 由数据服务解析、合并并校验后注入 Runtime；引擎只消费已注入的数据包。
+- 引擎机制契约与 AronaClicker 实体类型逐步分层；构建器按契约归属拆分。
 
 ## 层 2：Registry 编译态
 

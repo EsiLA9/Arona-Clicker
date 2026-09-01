@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: tests
-title: Arona Clicker 测试套件（引擎/数据加载/UI）
+title: Arona Clicker 测试套件（引擎/数据/UI）
 scope:
     - tests/
 source_files: []

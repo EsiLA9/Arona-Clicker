@@ -26,6 +26,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | 启动 → 装配 → tick 的完整时序 | [[docs-828/01-architecture/run-logic]] |
 | 三层状态（global / per-Init 快照 / per-Init 当前）与写入口 | [[docs-828/01-architecture/state-layers]] |
 | Datapack → Registry → PlayerState → GameView 数据流 | [[docs-828/01-architecture/data-flow]] |
+| 内聚施工前的模块归类与依赖基线 | [[docs-828/01-architecture/module-dependency-baseline]] |
 | 某个子系统（GameNum / Affector / 抽卡 / 色彩 / 剧情…） | [[#02-modules 模块卡片索引]] |
 | PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs-828/03-data-structures/player-state]] 起（见下方分区表） |
 | 生产 / 抽卡 / 培养 / 色彩 / 事件联动的算法细节 | [[docs-828/04-algorithms/state-mutation]] 起（见下方分区表） |
@@ -133,6 +134,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | [[docs-828/08-roadmap/0002-spot-shop]] | Spot 商店（购买集 / 发现限制） | 待设计裁定 |
 | [[docs-828/08-roadmap/0003-gacha-pool-model]] | 卡池模型规范化（banner ↔ 角色池解耦） | 待设计裁定 |
 | [[docs-828/08-roadmap/0004-chara-ownership]] | Chara 拥有体系 Init 化 + 追赶统计 | 待设计裁定 |
+| [[docs-828/08-roadmap/0005-engine-domain-consolidation]] | 基础引擎、基础数据服务与 AronaClicker 领域内聚 | 规划中（待 M0/M1 review） |
 
 ## 命令速查
 

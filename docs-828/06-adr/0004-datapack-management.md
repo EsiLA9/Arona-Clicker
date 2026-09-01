@@ -8,7 +8,7 @@
 
 | 术语 | 含义 |
 | --- | --- |
-| **modName** | 包的唯一标识（manifest 声明），三段式 id 的第一段；base 包固定为 `base` |
+| **modName** | 包的唯一标识（manifest 声明），三段式 id 的第一段；测试/示例包当前使用 `base` |
 | **三段式 id** | `modName:typeName:idName`，全游戏所有实体 id 的统一形态 |
 | **包库** | 已导入的全部数据包集合（存 IndexedDB），包之间可同 modName 并存 |
 | **启用集** | 包库中被玩家勾选启用的有序子集，决定实际加载内容 |
@@ -93,7 +93,7 @@ manifest（**v1 强制要求**，modName 是承载命名空间的负载字段，
 - **导入**：任意包随时可导入（含与已装包同 modName 的不同版本，**统一显示于包库、并存**），导入后由**玩家选择启用或弃用**；导入不做自动替换、不弹窗强制。
 - **modName 冲突判定在启用时**：启用集内不允许两个同 modName 的包同时启用——预加载扫描发现 modName 冲突即**拒绝加载**该启用集（提示二选一）。
 - **排序**：玩家手动排序（拖拽列表）+ 依赖提示（展示谁依赖谁）；顺序敏感语义（同表遍历序）由手动顺序唯一决定，可预测。
-- **base 包**：`src/data/base/*` 编译期内置，恒启用、固定第 0 位、不可卸载（所有内容包的事实基底）。
+- **测试/示例包**：当前 `src/data/base/*` 仅作为开发与测试夹具；不由基础引擎强制加载、不占用启用集固定位置，也不可作为正式内容包管理语义的前提。
 - **应用（all-or-nothing）**：启用集变更 → 全量校验（分片解析 + Registry 干跑合并校验）→ 通过才 `game.reload(orderedPacks)`（现有 reload 已实现清注册表 + 重置运行时）；校验失败则整套拒绝、保持旧启用集。
 
 ## §5 惰性存档与残留管理（关键新语义，取代"变更即清档"）
@@ -115,11 +115,11 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 
 | 机制 | 裁定 |
 | --- | --- |
-| **affectionConfig** | 单值表改**特化表**：`affectionConfigs: AffectionConfigDef[]`（key = 三段式 affectionConfigId）；角色/变体加 `affectionConfigId?` 字段——缺省用标准表（内置 `base:affectionconfig:standard`），声明则查特化表，查不到报错。多包全局合并问题随之消解为命名空间表 |
-| **extras** | 暂不考虑多包语义、**置空**：v1 仅 base 包声明有效，其他包携带 extras 时警告忽略 |
-| **标签（tagDefs / spotsByTag）** | 当前层级 tag 缺失多 mod 下继续编辑子叶的能力——**标签子叶节点自身命名空间化**（每个子叶带 `modName:idName`）；子叶声明 parent 可跨包挂靠（自由引用 + 事后校验覆盖），spotsByTag 索引沿祖先链命中——扩展包可把 spot 挂进 base 的标签体系被 base 的 affector/条件命中（扩展包玩法核心机制） |
+| **affectionConfig** | 单值表改**特化表**：`affectionConfigs: AffectionConfigDef[]`（key = 三段式 affectionConfigId）；角色/变体加 `affectionConfigId?` 字段——缺省标准表由 AronaClicker 内容层提供，声明则查特化表，查不到报错。多包全局合并问题随之消解为命名空间表 |
+| **extras** | 暂不考虑多包语义、**置空**：v1 仅由指定的 AronaClicker 内容包声明有效，其他包携带 extras 时警告忽略 |
+| **标签（tagDefs / spotsByTag）** | 当前层级 tag 缺失多 mod 下继续编辑子叶的能力——**标签子叶节点自身命名空间化**（每个子叶带 `modName:idName`）；子叶声明 parent 可跨包挂靠（自由引用 + 事后校验覆盖），spotsByTag 索引沿祖先链命中——扩展包可把 spot 挂进内容包的标签体系并被 affector/条件命中 |
 | **默认开局** | 当前游戏实现未使用默认开局（无 gate init 自动进入路径未启用），多包开局归属**不涉及**，无需裁定 |
-| **被动池/就绪队列** | 多包给同一角色（base 角色）加 passiveStories 属**良性叠加**：共享池加权随机自然混排；好感台阶就绪队列按 affectionRequired 跨包混排，无需特殊处理 |
+| **被动池/就绪队列** | 多包给同一角色（内容包角色）加 passiveStories 属**良性叠加**：共享池加权随机自然混排；好感台阶就绪队列按 affectionRequired 跨包混排，无需特殊处理 |
 | **Spot 功能项** | spot 归属唯一 mod（命名空间隔离），不存在两包往同一 spot 声明功能项的问题 |
 
 ## §7 多包冲突语义矩阵（速查）
@@ -128,7 +128,7 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 | --- | --- |
 | 所有键值表（spots/items/stories/…） | 命名空间完全隔离，零冲突；跨包悬空引用 → 事后校验报错（启用集拒绝应用） |
 | modName | 启用集内唯一；包库内可并存多个同 modName 包，玩家启停二选一 |
-| 单值表（affectionConfig 等） | affectionConfig 表化 + 角色级引用（§6）；extras 冻结仅 base |
+| 单值表（affectionConfig 等） | affectionConfig 表化 + 角色级引用（§6）；extras 冻结仅指定内容包 |
 | 标签命中 | 子叶命名空间化 + 祖先链命中；跨包挂靠为特性非冲突 |
 | 图片资产 | key 按 mod 前缀隔离，同路径不冲突 |
 | 加载顺序敏感语义（同表遍历序） | 手动排序唯一决定 |

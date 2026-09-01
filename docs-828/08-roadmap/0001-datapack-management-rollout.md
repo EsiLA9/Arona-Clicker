@@ -4,7 +4,7 @@
 
 ## 目标陈述
 
-引擎支持任意多 Datapack 并存：三段式 id 命名空间（`modName:typeName:idName`）、Source → Pack → PackManager 分层、包库与启用集（IndexedDB 包库 / 玩家启停 / 手动排序 / modName 冲突拒绝）、惰性存档（切 mod 不丢档、残留可查可清）、mod 管理 UI。base 包恒为第 0 位基底。
+引擎支持任意多 Datapack 并存：三段式 id 命名空间（`modName:typeName:idName`）、Source → Pack → PackManager 分层、包库与启用集（IndexedDB 包库 / 玩家启停 / 手动排序 / modName 冲突拒绝）、惰性存档（切 mod 不丢档、残留可查可清）、mod 管理 UI。`base` 仅表示当前测试/示例包的命名空间，不是引擎恒启用的生产基底；具体应用内容由入口显式选择。
 
 ## 里程碑切片
 
@@ -26,7 +26,7 @@
 
 - **现状**：`src/engine/types/ids.ts` 的 `Character` 枚举值为裸名（`'hoshino'`，None='none'）；默认差分 id = 原型名首字母大写（`character-rework.ts:67` 派生 `Arona` / `HoshinoSwimsuit`）。
 - **波及面**：`owner('Hoshino')` 等字符串引用、`ConditionTarget` affectionLevel key、gacha featured/members、roster 存档键（VariantId）、`proto` 字段、tests 大量字面量。
-- **目标**：`base:character:hoshino` / `base:variant:*`；完成后 registry-validate 收紧 characters/characterVariants 强校验（参照 S1b 收尾方式）。
+- **目标**：测试包中的 `base:character:hoshino` / `base:variant:*`；完成后 registry-validate 收紧 characters/characterVariants 强校验（参照 S1b 收尾方式）。
 - **建议做法**：与 S1a/b 相同——先摸底 Character 枚举值 / VariantId 的全部引用形态 → codemod（枚举值本身 + 字符串字面量引用）→ 收紧校验 → 全绿。
 
 ## 用户已裁定的关键决策（速记；权威口径见 ADR §2-§6）

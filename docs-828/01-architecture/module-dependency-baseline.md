@@ -1,0 +1,150 @@
+# 01-architecture/module-dependency-baseline — 模块依赖基线
+
+> 本文回答：开始内聚施工前，项目当前真实的模块归属、依赖方向和主要交叉点是什么。本文记录代码实况，不定义最终设计；最终边界见 [[docs-828/06-adr/0005-engine-domain-boundaries]]。
+
+## 核对范围
+
+已检查 `src/engine/`、`src/data/`、`src/save/`、`src/ui/`、`src/main.ts`、`src/ui/main.ts`、`tests/`、`tools/datapack-editor/` 以及 `package.json`、`vite.config.ts`、`tsconfig.json`。
+
+本基线只描述 import 和入口关系，不改变代码行为。
+
+## 当前模块归类
+
+| 当前目录 | 当前实际职责 | 目标归属 |
+|---|---|---|
+| `src/engine/core/` | EventBus、Tag、EntityId、DevLog、显示名、主题运行时 | 基础引擎；图片/主题相关部分需另评估 |
+| `src/engine/types/` | 机制契约、事件、Datapack、AronaClicker 实体和 PlayerState | 拆为 Engine Contracts 与 AronaClicker Types |
+| `src/engine/registry/` | Registry 表、合并、清理、引用校验 | 基础 Registry Core + AronaClicker Registry Adapter |
+| `src/engine/def-factory/` | 各类定义 builder | 按机制契约/领域实体拆分 |
+| `src/engine/expression/` | Value、Condition、Funclet、Stat DSL、GameNum | 基础引擎 |
+| `src/engine/effect/` | Effect、Trigger、Affector、响应器 | 基础引擎 |
+| `src/engine/visibility/` | Reveal、Visibility 快照和增量失效 | 基础引擎，领域通过查询适配器接入 |
+| `src/engine/stats/` | 三层统计、Tag 统计、World Tilt | 基础引擎机制 + 领域统计源适配器 |
+| `src/engine/extra/` | Extra 数据树构造、读取、合并、校验 | 基础数据/机制服务，归属待 M2 裁定 |
+| `src/engine/image/` | 图片存储、Pic 解析 | 基础数据服务 |
+| `src/engine/system/` | 状态写入、Tick、角色、抽卡、培养、色彩、头像等 | 拆为基础状态管道与 AronaClicker 领域服务 |
+| `src/engine/game/` | Runtime 编排、Init、Story、Spot、Item、Enhancement、存档、Session | AronaClicker Runtime 与领域服务 |
+| `src/engine/game-instance.ts` | 全部服务的组合根和应用门面 | `AronaClickerRuntime` |
+| `src/data/zip-loader.ts` | ZIP Datapack 解包和解析 | 基础数据服务 |
+| `src/data/base/` | 当前测试/示例 Datapack | 测试/示例 Datapack |
+| `src/save/storage.ts` | LocalStorage 存档入口 | 基础持久化服务 |
+| `src/ui/` | 游戏 UI、Controller、组件、主题和交互状态 | UI 表现层 |
+| `tools/datapack-editor/` | Schema 驱动的 Datapack 编辑器 | 独立工具，依赖 Schema 契约 |
+
+## 当前依赖图
+
+```text
+src/ui/main.ts
+  ├─ src/data/index.ts ──> src/data/base/*
+  ├─ GameInstance ───────> src/engine/*
+  └─ UIController ──────> src/save/storage.ts
+
+src/main.ts
+  ├─ src/data/index.ts ──> src/data/base/*
+  ├─ GameInstance ───────> src/engine/*
+  └─ SaveSystem ─────────> SaveData from engine/game-instance
+
+src/engine/game-instance.ts
+  ├─ 基础机制：Core / Expression / Effect / Visibility / Stats
+  ├─ 领域服务：Character / Color / Gacha / Story / Spot / Init
+  ├─ 状态与存档：PlayerState / SaveCodec / RuntimeReset
+  └─ 资源：ImageStore / PicService
+
+src/data/base/*
+  └─ 直接依赖 src/engine/types 与部分 src/engine/extra、src/engine/core
+
+tools/datapack-editor/
+  └─ 主要依赖自身 schema 与生成的 engine-defs.gen.json
+```
+
+## 已确认的边界事实
+
+### 1. `src/engine` 没有直接依赖 `src/data` 和 UI
+
+当前没有明显的：
+
+```text
+engine → data
+engine → ui
+```
+
+这是后续内聚的有利条件。主要问题是 `engine` 内部的基础机制与 AronaClicker 领域服务没有语义隔离。
+
+### 2. `src/data/base` 由入口和测试直接导入
+
+目前 `src/main.ts`、`src/ui/main.ts` 以及大量 `tests/engine/*`、`tests/ui/*` 直接导入 `baseDatapack`。这说明 `base` 是测试/应用装配层的输入，不应进入基础引擎依赖图。
+
+### 3. UI 具备只读门面，但仍依赖具体实现
+
+`src/ui/context.ts` 已提供 `UIFacingGame`，但字段仍是具体的 `Registry`、`ConditionSystem`、`GameNumSystem`、`ColorSystem`、`StoryService` 等类。
+
+UI 还直接依赖 `avatar-renderer`、`color-system` 工具、`visibility/reveal`、`stat-dsl` 和 `src/data/base/story-hierarchy.ts`。因此当前边界是“类型约束下的只读约定”，还不是完全隔离的 ReadModel / Commands 边界。
+
+### 4. 存档层反向依赖 Runtime 门面
+
+当前关系为：
+
+```text
+src/save/storage.ts → SaveData from src/engine/game-instance.ts
+```
+
+后续应将 `SaveData` 移到独立数据契约，消除基础持久化服务对完整 Runtime 的依赖。
+
+### 5. 存在两个游戏启动路径
+
+当前同时存在 `src/main.ts` 和 `src/ui/main.ts`。前者自行处理存档、默认 Init 和启动；后者创建 Runtime 后交由 UIController 处理启动流程。Vite 游戏 HTML 当前指向 `src/ui/main.ts`，但 `src/main.ts` 仍保留独立启动逻辑。
+
+### 6. 测试目前偏向完整 Runtime 集成
+
+大量测试同时依赖：
+
+```text
+GameInstance + baseDatapack + 具体 engine 实现
+```
+
+这对全链路回归有效，但不足以证明基础引擎可以脱离 AronaClicker 内容独立运行。后续需要增加不加载 base 的基础机制测试。
+
+## 当前大型文件热点
+
+| 文件 | 行数约 | 说明 |
+|---|---:|---|
+| `state-mutation-service.ts` | 602 | 统一写入口，先抽契约/辅助模块，不直接改变行为 |
+| `registry.ts` | 559 | Registry 表驱动机制与 AronaClicker 表耦合 |
+| `color-system.ts` | 558 | 领域服务与主题派生混合 |
+| `types/character.ts` | 553 | 明确的 AronaClicker 类型热点 |
+| `story-flow.ts` | 513 | Story 领域流程 |
+| `types/content.ts` | 498 | Datapack 内容实体混合 |
+| `game-instance.ts` | 398 | 应逐步收拢为 Runtime 组合根 |
+| `ui/controller.ts` | 466 | UI 编排门面，后续与 Commands/ReadModel 对齐 |
+
+## M1-2 的直接前置结论
+
+下一步不应立即搬迁文件，而应先新增稳定公共入口：
+
+```text
+src/engine/index.ts
+src/data-services/index.ts
+src/arona-clicker/index.ts
+src/app/index.ts
+```
+
+入口职责：
+
+- Engine 只导出基础机制和机制契约；
+- Data Services 只导出加载、持久化和资产服务；
+- AronaClicker 导出领域类型、Runtime、领域服务和适配器；
+- UI 不向组件暴露完整 `GameInstance` 类型；
+- 测试包由测试夹具或应用入口显式注入。
+
+## 基线结论
+
+当前主要问题不是存在 `engine → data` 的反向依赖，而是：
+
+1. `engine` 内部基础机制与产品领域服务混合；
+2. `engine/types` 同时承担机制契约和产品实体定义；
+3. `GameInstance` 同时承担组合根、领域门面、生命周期和存档编排；
+4. UI 依赖具体服务和测试/默认内容；
+5. SaveStorage 依赖 Runtime 门面；
+6. 测试数据包没有被明确标注为测试输入。
+
+这些结论作为 M1-2、M2-1 和 M4-1 的施工基线。
