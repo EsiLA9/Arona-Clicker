@@ -30,13 +30,13 @@
 1. **候选集过滤维度**：rarity / 原型列表 / tag / Init 集合——哪些进 v1？
 2. **限定池语义强度**：限定不进基础池是数据作者约定，还是引擎校验（声明 `limited` 的差分出现在基础池候选即报错）？
 3. **"跟随 Init 进度扩充"的判定载体**：进入某 Init 才生效，还是条件满足即全局生效（跨世界线）？
-4. **`gachaState`（pity/pulls）的键与归属层**：banner 解耦后按 bannerId 记；归属 global 还是 per-Init——与 [[docs-828/08-roadmap/0004-chara-ownership]] 的拥有体系联动裁定。
+4. **`gachaState`（pity/pulls）的键与归属层**：banner 解耦后按 bannerId 记；归属 global 还是 per-Init——与 [[0x-plan&work/active/roadmap-0004-chara-ownership]] 的拥有体系联动裁定。
 5. **`refreshWorldPool` 去留**：本目标内接线，还是废弃删除（[[docs-828/07-audit/dormant-machinery]] 已记录为休眠机制）？
 
 ## 前置与关联
 
-- **强关联 [[docs-828/08-roadmap/0004-chara-ownership]]**：拥有体系归属翻转影响 drawableOf 排除逻辑与统计口径，建议两目标设计裁定同场进行。
-- 依赖 [[docs-828/08-roadmap/0001-datapack-management-rollout]] S1c：character/variant id 三段化完成后，池成员引用统一三段 id。
+- **强关联 [[0x-plan&work/active/roadmap-0004-chara-ownership]]**：拥有体系归属翻转影响 drawableOf 排除逻辑与统计口径，建议两目标设计裁定同场进行。
+- 依赖 [[0x-plan&work/active/roadmap-0001-datapack-management]] S1c：character/variant id 三段化完成后，池成员引用统一三段 id。
 
 ## 状态
 

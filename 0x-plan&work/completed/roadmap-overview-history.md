@@ -1,4 +1,6 @@
-# 08-roadmap/00-overview — 路线图总览（长期目标追踪）
+> 本文已被 [[0x-plan&work/00-index]] 取代。当前计划、Roadmap 与 ADR 状态统一以新入口为准。
+
+# 计划工作旧总览（已归档）
 
 > 本文回答：docs-828 的长期目标有哪些、各自进度如何、按什么工作模式推进。本分区只管目标拆解与状态追踪，不承载设计。
 
@@ -18,11 +20,11 @@
 
 | 编号 | 目标 | 权威 ADR | 状态 |
 | --- | --- | --- | --- |
-| 0001 | Datapack 多包管理落地（S1-S7） | [[docs-828/06-adr/0004-datapack-management]] | 进行中（S1a/S1b 已落地） |
+| 0001 | Datapack 多包管理落地（S1-S7） | [[0x-plan&work/active/adr-0004-datapack-management]] | 进行中（S1a/S1b 已落地） |
 | 0002 | Spot 商店（购买集 / 发现限制） | 待产出（拟后续 ADR） | 待设计裁定 |
 | 0003 | 卡池模型规范化（banner ↔ 角色池解耦） | 待产出 | 待设计裁定 |
 | 0004 | Chara 拥有体系 Init 化 + 追赶统计 | 待产出 | 待设计裁定 |
-| 0005 | 基础引擎、基础数据服务与 AronaClicker 领域内聚 | [[docs-828/06-adr/0005-engine-domain-boundaries]] | 规划中（待 M0/M1 review） |
+| 0005 | 基础引擎、基础数据服务与 AronaClicker 领域内聚 | [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]] | 规划中（待 M0/M1 review） |
 
 详细状态与切片表见各目标篇。0003 与 0004 同处角色域（统计口径互相引用），建议同场设计裁定。
 

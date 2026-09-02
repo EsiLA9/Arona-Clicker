@@ -1,6 +1,8 @@
 # 08-roadmap/0005 — 基础引擎与 AronaClicker 领域内聚
 
-> 本文回答：如何将基础引擎、基础数据服务、AronaClicker 领域服务、具体 Datapack 与 UI 逐步内聚。设计权威见 [[docs-828/06-adr/0005-engine-domain-boundaries]]；本文只记录施工切片、状态和验收。
+> 本文回答：如何将基础引擎、基础数据服务、AronaClicker 领域服务、具体 Datapack 与 UI 逐步内聚。设计权威见 [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]]；本文只记录施工切片、状态和验收。
+
+**状态：✅ 已完成（2026-09-02）**
 
 ## 目标陈述
 
@@ -131,7 +133,7 @@ M3 和 M4 可以小范围交错，但禁止在类型边界未确定前大规模�
 
 产出：
 
-- [[docs-828/06-adr/0005-engine-domain-boundaries]]；
+- [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]]；
 - `base` 语义从“默认基础内容”改为“测试/示例 Datapack”；
 - `GameInstance` 定位为 AronaClicker Runtime；
 - 确认 Engine Contracts、Data Services、AronaClicker Types、UI ReadModel 四个边界。
@@ -149,8 +151,8 @@ M3 和 M4 可以小范围交错，但禁止在类型边界未确定前大规模�
 - [[docs-828/00-INDEX]]；
 - [[docs-828/01-architecture/overview]]；
 - [[docs-828/01-architecture/data-flow]]；
-- [[docs-828/08-roadmap/0001-datapack-management-rollout]]；
-- [[docs-828/06-adr/0004-datapack-management]]。
+- [[0x-plan&work/active/roadmap-0001-datapack-management]]；
+- [[0x-plan&work/active/adr-0004-datapack-management]]。
 
 验收：
 
@@ -203,15 +205,15 @@ M3 和 M4 可以小范围交错，但禁止在类型边界未确定前大规模�
 
 ## 相关目标
 
-- [[docs-828/08-roadmap/0001-datapack-management-rollout]]
-- [[docs-828/08-roadmap/0002-spot-shop]]
-- [[docs-828/08-roadmap/0003-gacha-pool-model]]
-- [[docs-828/08-roadmap/0004-chara-ownership]]
+- [[0x-plan&work/active/roadmap-0001-datapack-management]]
+- [[0x-plan&work/active/roadmap-0002-spot-shop]]
+- [[0x-plan&work/active/roadmap-0003-gacha-pool-model]]
+- [[0x-plan&work/active/roadmap-0004-chara-ownership]]
 
 ## 进度记录（append-only）
 
 - 2026-09-01：根据项目结构探索结果建立本目标与对应 ADR；尚未开始源码施工。
-- 2026-09-01：用户确认 [[docs-828/06-adr/0005-engine-domain-boundaries]]，M0-1 完成；进入 M0-2 文档路由同步。
+- 2026-09-01：用户确认 [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]]，M0-1 完成；进入 M0-2 文档路由同步。
 - 2026-09-01：完成 overview、data-flow、Datapack Roadmap 与多包 ADR 的 base 语义同步；M0-2 完成，进入 M1-1 依赖基线。
 - 2026-09-01：完成模块归类、跨层 import、启动入口、存档依赖和测试耦合盘点，新增 [[docs-828/01-architecture/module-dependency-baseline]]；M1-1 完成，进入 M1-2 公共入口与依赖方向。
 - 2026-09-01：新增 `src/engine/index.ts`、`src/data-services/index.ts`、`src/arona-clicker/index.ts`、`src/app/index.ts` 公共入口；类型检查与 995 项全量测试通过，M1-2 完成。

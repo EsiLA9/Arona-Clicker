@@ -28,7 +28,7 @@
 
 - `getView()` → `GameView`：资源快照 + spotLevels + unlockedInits + storyLog + visibility 等；
 - `createUIContext(game)` → `UIContext`：GameView + nameOf/formatNumber/escapeHtml 等 UI 辅助；
-- 组件层只持 `UIFacingGame`（18 个只读成员，T2）；每帧 `refreshLight` 更新数字，揭示指纹变化 → `refreshRevealIfChanged` → 重建 DOM。
+- 组件层只持 `GameReadModel` 只读视图；每帧 `refreshLight` 更新数字，揭示指纹变化 → `refreshRevealIfChanged` → 重建 DOM。
 
 ## 可见性（VisibilityEngine）
 

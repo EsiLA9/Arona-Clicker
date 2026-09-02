@@ -1,0 +1,83 @@
+# 0x-plan&work — 计划、路线图与工作记录总入口
+
+> 本目录是项目所有计划、Roadmap、ADR、方案草稿与 Code Review 工作的唯一入口。
+> 代码与机制文档仍以 `src/`、`docs-828/01-05` 为准；本目录只管理决策、工作范围、状态和后续行动。
+
+## 当前状态
+
+| 状态 | 含义 | 当前内容 |
+| --- | --- | --- |
+| ✅ 已完成 | 设计或施工已经完成，文档作为决策/历史记录保留 | 架构整理、GameNum、文档重构、引擎领域内聚、好感、色彩系统 |
+| 🟡 进行中 | 已有部分实现或准备工作，仍有明确未完成切片 | Datapack 多包管理、Code Review |
+| 🔵 待裁定 | 有目标和设计草案，但尚未形成最终 ADR | Spot 商店、卡池模型、角色拥有体系 |
+
+## 已完成
+
+| 文件 | 内容 | 状态 |
+| --- | --- | --- |
+| [[0x-plan&work/completed/adr-0001-architecture-consolidation]] | T1-T7 架构整理 | ✅ 已完成 |
+| [[0x-plan&work/completed/adr-0002-gamenum-tree]] | GameNum 生产树与 Affector 修复 | ✅ 已完成 |
+| [[0x-plan&work/completed/adr-0003-docs-restructure]] | docs-824 → docs-828 文档体系重构 | ✅ 已完成 |
+| [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]] | 基础引擎与 AronaClicker 领域内聚决策 | ✅ 已完成 |
+| [[0x-plan&work/completed/roadmap-0005-engine-domain-consolidation]] | 引擎/数据服务/领域层/UI 内聚施工记录 | ✅ 已完成 |
+| [[0x-plan&work/completed/affection-planning]] | 好感数值、台阶剧情、羁绊尾巴 | ✅ 已实现 |
+| [[0x-plan&work/completed/color-system-plan]] | ColorGroup / ColorEquipment 系统 | ✅ 已实现 |
+| [[0x-plan&work/completed/roadmap-overview-history]] | 原 Roadmap 总览 | 📦 已归档，由本文取代 |
+
+## 未完成：按语义分组
+
+### 数据包生态
+
+- [[0x-plan&work/active/adr-0004-datapack-management]]：多包读取、启用集、惰性存档和包管理决策权威。
+- [[0x-plan&work/active/roadmap-0001-datapack-management]]：对应实现切片与状态追踪。
+
+当前重点：S1c 角色/差分 ID 命名空间化，以及后续 Source、manifest、PackManager、惰性存档和 UI。
+
+### 世界经营玩法
+
+- [[0x-plan&work/active/roadmap-0002-spot-shop]]：Spot 商店、货架发现与购买集。
+
+当前状态：待设计裁定，尚无独立 ADR。
+
+### 招募与角色成长
+
+- [[0x-plan&work/active/roadmap-0003-gacha-pool-model]]：Banner 与角色候选池解耦。
+- [[0x-plan&work/active/roadmap-0004-chara-ownership]]：角色拥有体系 Init 化与追赶统计。
+
+两项应联合裁定，因为池候选、拥有状态、保底和跨世界线统计互相影响。
+
+### 全量理解与审查
+
+- [[0x-plan&work/review/code-review-roadmap]]：按数据、数值、写入、领域、UI、Datapack 顺序完成全量 Review。
+
+当前状态：路线已建立，但检查清单尚未全部打勾；应以当前源码路径重新执行，而不是沿用旧目录假设。
+
+### UI 表现层
+
+- [[0x-plan&work/active/roadmap-0006-ui-background-layering]]：背景图片、渐变与 SVG 装饰叠层服务。
+
+当前状态：待设计裁定，已完成现况审阅与施工切片草案。
+
+### 新策划汇总（待评审）
+
+- [[0x-plan&work/newPlan/00-index]]：学生获取与关系资产化方案总览。
+
+该目录按模块/玩法簇收录 Sol 策划回复，当前属于方案草案；评审后再分别沉淀为正式 ADR、Roadmap 与实现任务。
+
+## 工作规则
+
+1. 新的架构级决策先写入本目录的 ADR，再拆成 Roadmap 切片。
+2. Roadmap 只记录目标、切片、状态和验收结果，不复制机制正文。
+3. 方案已实现后保留在 `completed/`，在文首和索引中标记完成，不删除历史决策。
+4. 未完成方案按主题拆分为独立文件，避免一个总计划同时承载多个不相干问题。
+5. 每个代码切片完成后至少更新对应 Roadmap 状态，并记录类型检查、专项测试和全量测试结果。
+
+## 其他文档分区
+
+- `docs-828/01-architecture`：当前系统架构与运行逻辑。
+- `docs-828/02-modules`：当前模块卡片。
+- `docs-828/03-data-structures`：当前数据结构与边界审计。
+- `docs-828/04-algorithms`：当前机制和算法说明。
+- `docs-828/05-conventions`：协作与代码规范。
+- `docs-828/07-audit`：设计审查问题与整改记录。
+- `abstract.md`：面向玩法策划聊天的游戏概念摘要。

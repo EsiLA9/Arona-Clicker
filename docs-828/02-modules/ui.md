@@ -1,6 +1,6 @@
 # 02-modules/ui — 前端 UI（只读消费）
 
-> 一句话：`src/ui/` 是无框架 DOM UI，只消费 `getView()` / `createUIContext()`；controller 拆分为门面 + 6 个职责模块，组件类型面收窄为 `UIFacingGame`（T2）。
+> 一句话：`src/ui/` 是无框架 DOM UI，只消费 `getView()` / `createUIContext()`；controller 拆分为门面 + 职责模块，组件类型面统一使用 `GameReadModel`。
 
 ## 职责边界
 
@@ -22,7 +22,7 @@
 | `controller-save.ts` | 存档 / 读档 / 导入导出绑定 |
 | `controller-actions-*.ts` | #app 内各域事件绑定：topbar / contacts / theme / story / inventory |
 
-> controller 层持完整 `GameInstance`（命令编排层）；**组件层**只持 `UIFacingGame`（18 个只读成员：state / registry / 查询系统 / 子门面，无写方法，T2）。
+> controller 层持 AronaClicker Runtime 与 `GameCommands`（命令编排层）；**组件层**只持 `GameReadModel`（只读视图：state / registry / 查询结果，无写方法）。
 
 ### 组件（`src/ui/components/`，28 个）
 
@@ -37,7 +37,7 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `context.ts` | `UIContext` / `UIFacingGame` 类型面 |
+| `context.ts` | `UIContext` / `GameReadModel` 类型面 |
 | `theme-tree.ts` | 把引擎运行时主题 token 落成 CSS 变量（纯色彩树） |
 | `color-scheme.ts` | 配色派生（背景感知文字色等） |
 | `chat-stream.ts` | 聊天流打字机/滚动 + 开幕标题横幅状态（`showBanner` / `activeBanner`，记录 startedAt 供断点续播，3s 自动清除） |
@@ -49,7 +49,7 @@
 ### 剧情入口确认浮层与开幕横幅（2026-08-29 落地）
 
 - **storyGate**（`PanelState.storyGate`，状态驱动）：`data-kizuna` / `data-start-story` / `data-replay-story` 三入口点击 → 只记状态 + render，`data-story-gate-confirm` 按 mode 分派 `startCardStory`（goto 重开，已完结亦可正常重新开始，浮层文案「重新开始」）/ `startActiveStory` / `replayStory`（故事栏重读，文案「重新观看」），`data-story-gate-cancel`（X / 取消 / 遮罩空白，卡片冒泡不关闭）关闭；换流（`data-select-variant` / `data-conversation-back`）清空。
-- **开幕横幅**：`openingTitleShown` 事件（Talklet `showOpeningTitle` 效果呼出）→ `ChatStream.showBanner` 写当前活跃流 → render 时经 `PanelState.openingBanner` 渲染 `.chat-pane` 内横幅（非阻塞，CSS 动画模糊→清晰→淡出，JS 3s 计时清除）。机制详情见 [[docs-828/06-adr/planning]] §3。
+- **开幕横幅**：`openingTitleShown` 事件（Talklet `showOpeningTitle` 效果呼出）→ `ChatStream.showBanner` 写当前活跃流 → render 时经 `PanelState.openingBanner` 渲染 `.chat-pane` 内横幅（非阻塞，CSS 动画模糊→清晰→淡出，JS 3s 计时清除）。机制详情见 [[0x-plan&work/completed/affection-planning]] §3。
 
 ## 核心概念
 
@@ -63,4 +63,4 @@
 
 ## 相关文档
 
-[[docs-828/06-adr/0001-architecture-consolidation]]（T2 执行记录）· [[docs-828/02-modules/color]]（theme-tree 数据源）
+[[0x-plan&work/completed/adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs-828/02-modules/color]]（theme-tree 数据源）

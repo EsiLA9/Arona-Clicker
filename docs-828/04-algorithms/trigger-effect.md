@@ -51,7 +51,7 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 
 ## GameEvent 事件目录（EventBus 订阅面）
 
-> **权威源是 `src/engine/types/events.ts`**：`GameEvent` 联合类型（共 **44** 个）+ `EVENT_CATALOG`（`Record<GameEvent['type'], EventCatalogEntry>`，purpose / emit / subscribe 机器可查，新增/删除事件编译期强制同步）。下表为按域速览，契约以 `EVENT_CATALOG` 为准。总线 API 见 `src/engine/core/event-bus.ts`：`on(type, handler)` 定向订阅（返回反注册函数）、`onAny(handler)` 通配、`off` / `emit` / `flush` / `clear`；派发先特定后通配；`emit` 在 `flush` 期间入队（重入保护）。每个事件对象额外携带可选 `stats?: StatsContext`。
+> **权威源是 `src/arona-clicker/contracts/event-catalog.ts`**：`GameEvent` 联合类型 + `EVENT_CATALOG`（`Record<GameEvent['type'], EventCatalogEntry>`，purpose / emit / subscribe 机器可查，新增/删除事件编译期强制同步）。下表为按域速览，契约以代码为准。总线 API 见 `src/engine/core/event-bus.ts`：`on(type, handler)` 定向订阅、`onAny(handler)` 通配、`off` / `emit` / `flush` / `clear`；基础总线支持泛型事件。每个事件对象额外携带可选 `stats?: StatsContext`。
 
 **资源与生产**
 - `resourceChanged { resource, delta, newValue }` — 生产失效驱动核心 · emit `state-mutation-service` · 订 condition-deps / game-num / trigger-system
@@ -82,7 +82,7 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 - `extraChanged { path, value? }` · 订 condition-deps / game-num
 - `poolGateChanged { poolId, available }` — 闲聊池 gate 翻转 · 订 UI
 - `tagCollectedChanged { kind }` — TagStat 集合增删（读档全量重建不发）· 订 condition-deps
-- `conditionGroupMet`：**已删除**——原为全库无发射方/订阅方的死事件，T4 清理时移除（见 [[docs-828/06-adr/0001-architecture-consolidation]]）
+- `conditionGroupMet`：**已删除**——原为全库无发射方/订阅方的死事件，T4 清理时移除（见 [[0x-plan&work/completed/adr-0001-architecture-consolidation]]）
 
 **Affector 生命周期**（均 emit `affector-engine`，订 game-num）
 - `affectorMounted { instanceId, packId, mountEntityId }`

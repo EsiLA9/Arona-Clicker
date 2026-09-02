@@ -1,9 +1,9 @@
 # 06-adr/0005 — 基础引擎与 AronaClicker 领域边界
 
-- **状态**：已确认（2026-09-01）
+- **状态**：已完成（2026-09-02；设计确认于 2026-09-01）
 - **决策者**：项目维护者 + AI 协作
 - **来源**：项目结构探索与后续内聚任务设计
-- **关联 Roadmap**：[[docs-828/08-roadmap/0005-engine-domain-consolidation]]
+- **关联 Roadmap**：[[0x-plan&work/completed/roadmap-0005-engine-domain-consolidation]]
 
 ## 背景
 
@@ -190,7 +190,7 @@ src/
 - 需要增加 Engine Context、领域 Adapter、ReadModel、Commands 等接口；
 - Registry、PlayerState、SaveData 需要分阶段拆分；
 - 迁移期会存在 re-export 和新旧入口并存；
-- 与 [[docs-828/08-roadmap/0001-datapack-management-rollout]] 的多包管理工作存在交叉，需要按本 ADR 更新 base 语义。
+- 与 [[0x-plan&work/active/roadmap-0001-datapack-management]] 的多包管理工作存在交叉，需要按本 ADR 更新 base 语义。
 
 ## 实现记录
 
@@ -319,7 +319,7 @@ src/
 - 2026-09-01：M8-2 后续切片：项目内测试与生产代码已不再引用 `engine/game-instance`，该历史兼容入口删除；Runtime 的唯一实现入口为 AronaClicker。
 - 2026-09-01：M8-2 后续切片：确认好感、培养与色彩装备 shim 仍被 `StateMutationService` / `ColorUnlockReactor` 等引擎内部代码消费，已恢复并明确标记为待能力端口拆分；其余领域服务的外部消费者仍已迁出旧入口。
 - 2026-09-01：M6-1/M6-2/M6-3 收口：产品默认 Datapack、测试/示例 Datapack 与测试注入入口已经分离；旧数据路径只保留兼容导出，后续兼容层删除不再影响数据包职责划分。
-- 后续实现进度记录在 [[docs-828/08-roadmap/0005-engine-domain-consolidation]]；设计变更只更新本 ADR。
+- 后续实现进度记录在 [[0x-plan&work/completed/roadmap-0005-engine-domain-consolidation]]；设计变更只更新本 ADR。
 
 ## 相关文档
 

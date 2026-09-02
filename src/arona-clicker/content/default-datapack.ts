@@ -35,6 +35,7 @@ export const defaultDatapack: Datapack = {
   enhancements: [...baseEnhancements, ...baseGlobalEnhancements],
   items: baseItems,
   characters: allCharacters,
+  characterVariants: baseCharacterVariants,
   dropTables: baseDropTables,
   pics: basePics,
   charaProfiles: baseCharaProfiles,

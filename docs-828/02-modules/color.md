@@ -7,7 +7,7 @@
 - **管**：色彩组/装备解锁与收集、主题 token 解析、实体配色槽（area/student）、头像渲染。
 - **不管**：临时演出主题层（`RuntimeThemeManager`，见 [[docs-828/02-modules/core]]）。
 
-## 关键文件（`src/engine/system/`）
+## 关键文件（`src/arona-clicker/services/`）
 
 | 文件 | 职责 |
 | --- | --- |

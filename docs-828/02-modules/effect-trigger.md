@@ -1,6 +1,6 @@
 # 02-modules/effect-trigger — Effect 执行 / Trigger 联动 / 响应器
 
-> 一句话：`src/engine/effect/` 是「事件驱动」的执行层——Effect 按 op 分发、Trigger 订阅事件跑「侦测→条件→效果」、演出类效果经请求事件转发。
+> 一句话：`src/engine/effect/` 是「事件驱动」的基础执行层——Effect 按 op 分发、Trigger 订阅事件跑「侦测→条件→效果」、产品演出类效果经请求事件交给领域宿主。
 
 ## 职责边界
 
@@ -14,7 +14,7 @@
 | `effect-engine.ts` | `EffectEngine`：状态层落数据经 mutations；**演出/转发类 op**（`setTheme` / `triggerStory` / 聊天流族）只发请求事件（`themeEffectRequested` / `storyEffectRequested` / `chatFlowEffectRequested`），运行期转发表 `runtimeForward` 构造期建表（T5/T7，回调字段已删） |
 | `trigger-system.ts` | `TriggerSystem`：`TriggerDef` 事件侦测 + 条件判定 + 效果执行；`on.kind` 9 种与 `ON_KIND_TO_EVENT` **双向锁合**（`Record<TriggerEventKind, GameEvent['type']>`，T4）；once/maxRuns 语义；状态持久化 `state.triggerState`；匿名 Trigger 派 `anon:` 确定性 id |
 | `event-driven-reactor.ts` | `EventDrivenReactor` 基类：分桶订阅模式（多个响应器共用） |
-| `runtime-effect-reactor.ts` | `RuntimeEffectReactor`：订阅 3 个演出请求事件，分派给 ColorSystem / StoryService / ChatFlowService（T7） |
+| `src/arona-clicker/services/runtime-effect-reactor.ts` | `RuntimeEffectReactor`：订阅演出请求事件，分派给 ColorSystem / StoryService / ChatFlowService |
 
 ## 核心概念
 
@@ -28,4 +28,4 @@
 
 ## 相关文档
 
-[[docs-828/04-algorithms/trigger-effect]]（事件目录 + ZoneModifier）· [[docs-828/04-algorithms/state-mutation]]（effect-ops 分发）
+[[docs-828/04-algorithms/trigger-effect]]（事件目录 + ZoneModifier）· [[docs-828/04-algorithms/state-mutation]]（产品状态效果分发）

@@ -1,8 +1,16 @@
 import { describe, expect, test } from 'vitest';
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { defaultDatapack } from '../../src/arona-clicker/content';
 import type { PackManagerSnapshot } from '../../src/data-services/datapack/pack-manager';
 
 describe('AronaClickerRuntime PackManager 接线', () => {
+  test('默认产品包包含卡池所引用的角色差分', () => {
+    const game = new AronaClickerRuntime();
+
+    expect(() => game.init([defaultDatapack])).not.toThrow();
+    expect(game.registry.characterVariants.has('Arona')).toBe(true);
+  });
+
   test('登记并应用启用包到 reload 与图片资源', () => {
     const game = new AronaClickerRuntime();
     game.registerParsedPack({

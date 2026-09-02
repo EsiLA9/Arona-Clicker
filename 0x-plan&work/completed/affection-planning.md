@@ -73,7 +73,7 @@ addAffectionExp(variantId, delta):
 | `system/roster-system.ts` | 只读 `affectionLevelOf / affectionExpOf / affectionLevelCapOf`（含星级锁） |
 | `types/expression.ts` | `ConditionTarget` 加 `affectionLevel`（key=VariantId，缺失→0）；`EffectOp` 加 `addAffectionExp` |
 | `system/effect-ops.ts` + `condition-system.ts` | 两个新分发分支（注册表化，见 [[docs-828/02-modules/effect-trigger]]） |
-| `types/events.ts` | `affectionChanged { variantId, delta, newLevel, newExp }`（登记进 `EVENT_CATALOG`） |
+| `src/arona-clicker/contracts/event-catalog.ts` | `affectionChanged { variantId, delta, newLevel, newExp }`（登记进 `EVENT_CATALOG`） |
 
 ### 默认阶梯（引擎内置，数据包可覆盖）
 
@@ -105,6 +105,8 @@ defaultLevelCapByStar = [20,20,20,20,20,100]
 
 ## §2 台阶推送与未读计数（交互设计）
 
+> 实现归属更新（2026-09-02）：当前 `PassiveStoryEntry` 契约位于 `src/data-services/contracts/story-entry.ts`，被动池与剧情流程位于 `src/arona-clicker/services/`；下方早期设计表中的旧路径仅保留作为方案演进记录。
+
 ### 玩法需求（验收口径）
 
 1. 存在**好感台阶式剧情**：好感达标后**即刻进入就绪队列**，该角色对话空间在合适条件下**按需求值序列自动推送**一条**未经历过**的台阶剧情（渐进式剧情披露）。
@@ -123,7 +125,7 @@ defaultLevelCapByStar = [20,20,20,20,20,100]
 
 | 需求 | 机制 | 锚点 |
 | --- | --- | --- |
-| 只在该角色聊天流抽取 | `PassiveStoryEntry.owner = VariantId`（聊天空间壁垒） | `src/engine/system/passive-pool-system.ts` `pick` 的 ownerOk 剪枝 |
+| 只在该角色聊天流抽取 | `PassiveStoryEntry.owner = VariantId`（聊天空间壁垒） | `src/arona-clicker/services/passive-pool-system.ts` `pick` 的 ownerOk 剪枝 |
 | 好感达标才入队 | 新字段 `PassiveStoryEntry.affectionRequired?`（定义于 `src/engine/types/content.ts`） | 队列谓词直接比对 `affectionLevel`；§1 的 `ConditionTarget` 仅作条件表达兜底 |
 | 未见过的 | `repeatable: false` | `src/engine/game/story-flow.ts` `triggerPassiveStory` eligible 谓词已排除 `hasCompletedStory`，「没见过」零成本 |
 | 合适的条件 | `triggerCondition` + `cooldownFrames` （entry 级，队列路径不经过池） | `state.passiveCooldowns` 剪枝 | 
@@ -183,11 +185,11 @@ passiveStory('base:affinity:hoshino_2', 'base:affinity:hoshino_2')
 
 | 文件 | 职责 |
 | --- | --- |
-| `src/engine/types/content.ts` | `PassiveStoryEntry.affectionRequired?: number` / `pushAfterStory?: string` 新字段 |
+| `src/data-services/contracts/story-entry.ts` | `PassiveStoryEntry.affectionRequired?: number` / `pushAfterStory?: string` 新字段 |
 | `story-flow.ts` | `readyStepIds` / `pickAffectionStep` / `triggerAffectionPush` / `triggerTailPush` |
 | `src/ui/controller-actions-contacts.ts` | `data-select-variant` 打开对话空间 → 输入中提示 + 延时推送 |
 | `src/ui/controller-events.ts` | `storyCompleted` → 尾巴即时推送（§3） |
-| `src/data/base/` | 台阶数据（builder 增 `affectionRequired`） |
+| `src/arona-clicker/content/` | 正式台阶数据（builder 增 `affectionRequired`）；`src/data/base/` 仅用于测试/示例 |
 | —（依赖） | §1 的 `affectionLevel` target 与 `addAffectionExp` op 先行 |
 
 边界：`storyId` 与 `entry.id` 同值沿用现有惯例；台阶不声明进 `PassivePoolDef`（队列路径直接扫描 registry，池声明对台阶无意义）。

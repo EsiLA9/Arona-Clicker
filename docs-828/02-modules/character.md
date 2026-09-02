@@ -7,7 +7,7 @@
 - **管**：角色收集/差分/碎片、卡池抽取结算、经验曲线与突破、通讯录只读查询。
 - **不管**：色彩（[[docs-828/02-modules/color]]）、剧情与聊天（[[docs-828/02-modules/story]]）。
 
-## 关键文件（`src/engine/system/`）
+## 关键文件（`src/arona-clicker/services/`）
 
 | 文件 | 职责 |
 | --- | --- |

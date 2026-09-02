@@ -12,7 +12,7 @@
 | 数据包声明式 | 游戏逻辑尽量写成 `Datapack`（JSON/TS 定义），由引擎子系统解释执行，而非硬编码 | `src/data-services/contracts/datapack.ts` 承载汇总契约，实体定义按引擎/产品边界归属；`tools/datapack-editor/` 可视化编辑 |
 | 单一写入口 | 所有状态变更经 `StateMutationService`，禁止绕过直改 `PlayerState` | [[docs-828/04-algorithms/state-mutation]] |
 | 事件驱动 | 写状态后广播事件，联动逻辑做成 Trigger / Affector 订阅响应 | [[docs-828/04-algorithms/trigger-effect]] |
-| 只读 UI | UI 只消费 `getView()` / `createUIContext()` 的不可变快照，类型面收窄为 `UIFacingGame` | [[docs-828/02-modules/ui]] |
+| 只读 UI | UI 只消费 `getView()` / `createUIContext()` 的不可变快照，组件类型面使用 `GameReadModel` | [[docs-828/02-modules/ui]] |
 | 三层状态 | 跨世界线（global）/ per-Init 快照 / per-Init 当前 | [[docs-828/01-architecture/state-layers]] |
 
 ## 主干调用链
@@ -29,26 +29,26 @@ app/game-entry.ts
 
 ## 目录速览
 
-| 目录 | 一句话职责 |
-| --- | --- |
-| `src/engine/core/` | 事件总线、Tag 路径、DevLog、运行时主题等横切基础 |
-| `src/engine/types/` | 引擎机制契约、表达式、事件类型定义（实体类型逐步迁移至 AronaClicker 领域层） |
-| `src/data-services/registry/` | 数据包注册表 + 加载校验（表驱动 merge/clear，恒只读） |
-| `src/engine/def-factory/` | 各实体的 builder（测试与数据包构造用） |
-| `src/engine/expression/` | 数值表达式、条件系统、Funclet、统一数值（GameNum） |
-| `src/engine/effect/` | Effect 引擎、Affector 持续效果、Trigger 事件触发、演出响应器 |
-| `src/engine/system/` | 当前混合目录；目标是将基础状态管道留在引擎、角色/抽卡/培养/色彩等迁移至 AronaClicker 领域层 |
-| `src/arona-clicker/` | AronaClicker Runtime、PlayerState、Init、Story、Spot 等产品领域服务与 ReadModel |
-| `src/engine/stats/` | 三层统计（global / init / session）+ Tag 统计 |
-| `src/engine/visibility/` | 可见性快照引擎（事件驱动增量） |
-| `src/engine/extra/` | Extra 附加数据树（三层合并） |
-| `src/data-services/assets/` | 图片存储、Pic 解析与图片服务 |
-| `src/data/base/` | **测试/示例 Datapack（不代表引擎内置生产内容）** |
-| `src/ui/` | 前端 UI，只读消费 |
-| `tests/` | vitest 测试（与引擎实现目录基本镜像） |
-| `tools/datapack-editor/` | 数据包编辑器 + Schema 协议（`engine-defs.gen.json` 为生成产物） |
-| `datapack/` | 可选导入的 JSON 数据包；具体内容包由应用入口显式选择 |
-| `scripts/` | 构建辅助脚本（gen:schema / 打包 / 历史重构迁移脚本） |
+| 目录                            | 一句话职责                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `src/engine/core/`            | 事件总线、Tag 路径、DevLog、运行时主题等横切基础                                                  |
+| `src/engine/types/`           | 基础机制 DSL、通用 ID 与少量运行时事件类型；产品实体契约归数据服务或 AronaClicker                            |
+| `src/data-services/registry/` | 数据包注册表 + 加载校验（表驱动 merge/clear，恒只读）                                             |
+| `src/engine/def-factory/`     | 基础机制与资源 DSL 的 builder；产品实体 builder 位于 `src/arona-clicker/content/def-factory/` |
+| `src/engine/expression/`      | 数值表达式、条件系统、Funclet、统一数值（GameNum）                                               |
+| `src/engine/effect/`          | Effect、Affector、Trigger 与事件响应机制；产品演出由宿主注入                                      |
+| `src/engine/system/`          | 目前仅保留基础 Tick 管道；产品领域服务位于 AronaClicker                                          |
+| `src/arona-clicker/`          | AronaClicker Runtime、PlayerState、Init、Story、Spot 等产品领域服务与 ReadModel            |
+| `src/engine/stats/`           | 三层统计（global / init / session）+ Tag 统计                                          |
+| `src/engine/visibility/`      | 可见性快照引擎（事件驱动增量）                                                                |
+| `src/engine/extra/`           | Extra 附加数据树（三层合并）                                                              |
+| `src/data-services/assets/`   | 图片存储、Pic 解析与图片服务                                                               |
+| `src/data/base/`              | **测试/示例 Datapack（不代表引擎内置生产内容）**                                                |
+| `src/ui/`                     | 前端 UI，只读消费                                                                     |
+| `tests/`                      | vitest 测试（与引擎实现目录基本镜像）                                                         |
+| `tools/datapack-editor/`      | 数据包编辑器 + Schema 协议（`engine-defs.gen.json` 为生成产物）                               |
+| `datapack/`                   | 可选导入的 JSON 数据包；具体内容包由应用入口显式选择                                                  |
+| `scripts/`                    | 构建辅助脚本（gen:schema / 打包 / 历史重构迁移脚本）                                             |
 
 ## 技术栈与工程配置
 

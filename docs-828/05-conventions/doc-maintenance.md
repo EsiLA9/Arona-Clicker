@@ -12,9 +12,9 @@
 | `03-data-structures/` | 数据结构定义（类型权威仍在 `src/engine/types/`，文档只讲布局与语义） | 按主题 |
 | `04-algorithms/` | 核心算法流程（结算/失效/派生） | 按主题 |
 | `05-conventions/` | 规范（纪律/重构/协议/测试/本文） | 每规范 1 篇 |
-| `06-adr/` | 架构决策记录（重大变动一篇：背景/决策/后果）+ `planning` 未来规划 | 编号递增 |
+| `0x-plan&work/` | 架构决策、Roadmap、方案草稿、Code Review 与完成记录的统一工作区 | 按 `00-index` 路由 |
 | `07-audit/` | 设计审查：繁简/兜底问题清单（位置/原因/方案组）；GameNum/Affector 多包基础设施豁免；整改完成后归档 | 每组 1 篇 + 总览 |
-| `08-roadmap/` | 长期目标与里程碑追踪（目标陈述/切片/状态/验收口径）；设计权威在对应 ADR，本区只管进度 | 每目标 1 篇（编号递增 `000N-<topic>`）+ 总览 |
+| `08-roadmap/` | 已迁移至 `0x-plan&work/active/` 或 `completed/`；旧目录不再承载计划正文 | 由 `0x-plan&work/00-index.md` 统一索引 |
 
 ## 写作规则
 
@@ -31,8 +31,8 @@
 | 改实体字段/枚举 | `03-data-structures/declarative-dsl` + [[docs-828/05-conventions/schema-sync]] 流程 |
 | 新增/删除事件 | `04-algorithms/trigger-effect` 速览表（权威仍为 `EVENT_CATALOG`） |
 | 新增 PlayerState 字段 | `03-data-structures/player-state` + `01-architecture/state-layers`（三层归属） |
-| 架构级变动（新系统/改纪律） | 新 `06-adr/` 一篇 + `00-INDEX` 路由表 |
-| roadmap 切片状态变化（开工/完成/废弃） | 对应 `08-roadmap/` 目标篇里程碑表 + 进度记录（实现记录仍写 ADR） |
+| 架构级变动（新系统/改纪律） | `0x-plan&work/` 新增 ADR + `00-index` 路由 |
+| roadmap 切片状态变化（开工/完成/废弃） | `0x-plan&work/active/` 或 `completed/` 对应目标篇 + `00-index` 状态表 |
 
 ## 归档规则
 
@@ -41,4 +41,4 @@
 
 ## 相关文档
 
-[[docs-828/00-INDEX]] · [[docs-828/06-adr/0003-docs-828-restructure]]
+[[docs-828/00-INDEX]] · [[0x-plan&work/completed/adr-0003-docs-restructure]]

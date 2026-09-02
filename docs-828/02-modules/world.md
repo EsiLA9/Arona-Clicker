@@ -44,12 +44,12 @@
 | `save-codec.ts` | 存档序列化/反序列化（`normalizePlayerState` 兜底、version 校验） |
 | `runtime-reset.ts` | 运行时重置 / reload |
 
-### 其他（`src/engine/system/`）
+### 其他领域服务（`src/arona-clicker/services/`）
 
 | 文件 | 职责 |
 | --- | --- |
-| `services/spot-functionality.ts` | Spot 功能项（`linearYield` / `restartInit` / `hardResetInit` / `gacha`）注册与查询 |
-| `system/loot-system.ts` | 掉落池结算（`loot` effect → giveItem） |
+| `spot-functionality.ts` | Spot 功能项（`linearYield` / `restartInit` / `hardResetInit` / `gacha`）注册与查询 |
+| `loot-system.ts` | 掉落池结算（`loot` effect → giveItem） |
 
 ## 核心概念
 
@@ -63,4 +63,4 @@
 
 ## 相关文档
 
-[[docs-828/01-architecture/run-logic]] · [[docs-828/06-adr/0001-architecture-consolidation]]（T1/T3/T6 执行记录）
+[[docs-828/01-architecture/run-logic]] · [[0x-plan&work/completed/adr-0001-architecture-consolidation]]（T1/T3/T6 执行记录）

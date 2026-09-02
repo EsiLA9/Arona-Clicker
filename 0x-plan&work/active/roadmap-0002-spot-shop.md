@@ -32,7 +32,7 @@
 
 ## 前置与关联
 
-- 与 [[docs-828/08-roadmap/0001-datapack-management-rollout]] 无强依赖，但新表/实体 id 自即日起须符合三段式（S1a 强校验已生效）。
+- 与 [[0x-plan&work/active/roadmap-0001-datapack-management]] 无强依赖，但新表/实体 id 自即日起须符合三段式（S1a 强校验已生效）。
 - 独立于 0003/0004，可并行设计。
 
 ## 状态

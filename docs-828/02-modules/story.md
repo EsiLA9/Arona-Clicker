@@ -4,7 +4,7 @@
 
 ## 职责边界
 
-- **管**：剧情启动/推进/选择/跳转链/重读守卫/完结奖励、聊天流演出事件、被动闲聊抽选、好感台阶/羁绊尾巴的就绪队列推送（见 [[docs-828/06-adr/planning]]）。
+- **管**：剧情启动/推进/选择/跳转链/重读守卫/完结奖励、聊天流演出事件、被动闲聊抽选、好感台阶/羁绊尾巴的就绪队列推送（见 [[0x-plan&work/completed/affection-planning]]）。
 - **不管**：色彩演出层推送（由 ColorSystem 响应）。
 
 ## 关键文件（`src/arona-clicker/services/`）
@@ -22,11 +22,11 @@
 | `story-interaction.ts` | 被动闲聊挑选与交互页判定（纯函数） |
 | `debug-labels.ts` | reveal/condition 调试标签 |
 
-### 相关（`src/engine/system/`）
+### 相关（`src/arona-clicker/services/`）
 
 | 文件 | 职责 |
 | --- | --- |
-| `system/passive-pool-system.ts` | 被动闲聊池：子池递归解析（`PassivePoolChild` 真引用取完整内容）/ 差分并入常驻池 / gate 条件（发 `poolGateChanged`）/ owner 空间壁垒（字符串相等比较） |
+| `passive-pool-system.ts` | 被动闲聊池：子池递归解析（`PassivePoolChild` 真引用取完整内容）/ 差分并入常驻池 / gate 条件（发 `poolGateChanged`）/ owner 空间壁垒（字符串相等比较） |
 
 ## 核心概念
 
@@ -42,4 +42,4 @@
 
 ## 相关文档
 
-[[docs-828/03-data-structures/declarative-dsl]]（Talklet/Entry 枚举）· [[docs-828/06-adr/planning]]（好感数值/台阶推送/羁绊尾巴）
+[[docs-828/03-data-structures/declarative-dsl]]（Talklet/Entry 枚举）· [[0x-plan&work/completed/affection-planning]]（好感数值/台阶推送/羁绊尾巴）

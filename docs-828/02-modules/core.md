@@ -17,12 +17,12 @@
 | `entity-id.ts` / `anonymous-id.ts` | 实体 ID 工厂 / 匿名实体确定性派生 id（`anon:` 前缀） |
 | `resource.ts` | 资源 ID 常量（含 `GLOBAL_RESOURCE_IDS`，青辉石为唯一跨世界线全局资源） |
 | `display-name.ts` | 显示名解析（角色显示名等） |
-| `chara-profile.ts` | CharaProfile 结构辅助（配合 `system/chara-profile-service.ts`） |
+| `chara-profile.ts` | 通用角色显示/ID 辅助；产品角色档案服务位于 `src/arona-clicker/services/` |
 | `dev-log.ts` | `DevLog`：循环 tick 记录，供调试面板消费（`game.getDevLogs()`） |
 
 ## 核心概念
 
-- **事件对象统一携带 `stats?: StatsContext`**（`GameEvent` 联合末尾 `& { stats?: StatsContext }`），事件全集与发射/订阅登记见 `types/events.ts` 的 `EVENT_CATALOG`（编译期穷尽）。
+- **事件对象统一携带 `stats?: StatsContext`**（当前 AronaClicker `GameEvent` 联合末尾 `& { stats?: StatsContext }`）；基础 `EventBus` 支持泛型事件，产品事件目录位于 `src/arona-clicker/contracts/event-catalog.ts`。
 - **Tag 是纯语义标记**：匹配按 id 前缀（`hasTag` / `countTags` / zoneModifiers），`TagDef` 的 name/description 仅 UI 展示。
 
 ## 测试入口

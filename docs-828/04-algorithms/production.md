@@ -1,6 +1,6 @@
 # 04-algorithms/production — 生产结算：GameNumSystem 数值树
 
-> 本文回答：**每帧产出怎么算。** 生产 = 数值树求值 + zone 聚合；模块卡片见 [[docs-828/02-modules/game-num]]；设计决策见 [[docs-828/06-adr/0002-gamenum-tree]]。
+> 本文回答：**每帧产出怎么算。** 生产 = 数值树求值 + zone 聚合；模块卡片见 [[docs-828/02-modules/game-num]]；设计决策见 [[0x-plan&work/completed/adr-0002-gamenum-tree]]。
 
 ## GameNum 数值树
 
@@ -53,4 +53,4 @@ spotFull  = spotBase × spotMulZone + spotExtra
 
 ## 相关文档
 
-[[docs-828/02-modules/game-num]] · [[docs-828/06-adr/0002-gamenum-tree]] · [[docs-828/02-modules/affector]]
+[[docs-828/02-modules/game-num]] · [[0x-plan&work/completed/adr-0002-gamenum-tree]] · [[docs-828/02-modules/affector]]

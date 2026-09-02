@@ -43,7 +43,7 @@ main.ts（UI 启动）
 | `mutations` 持有 `eventBus` + `statsService` | 写状态即发事件、即计统计 |
 | `setExtraReader` | Extra 三层合并视图统一读取入口（注入 value/condition/mutations） |
 | `ColorUnlockReactor` | `characterAcquired` / `flagChanged` → 重算色彩/装备/设计解锁（位于 `arona-clicker/services/color-unlock-reactor.ts`） |
-| `RuntimeEffectReactor` | 演出类 effect 请求事件（`themeEffectRequested` / `storyEffectRequested` / `chatFlowEffectRequested`）→ ColorSystem / StoryService / ChatFlowService（T7 后 EffectEngine 不再持回调，只发请求事件） |
+| `RuntimeEffectReactor` | AronaClicker 服务层消费演出类 effect 请求事件（`themeEffectRequested` / `storyEffectRequested` / `chatFlowEffectRequested`），编排 ColorSystem / StoryService / ChatFlowService |
 
 ## 二、初始化：init(datapacks) / reload
 
@@ -90,7 +90,7 @@ tick()
 | 剧情 | `storyService.*` | reveal 门槛 + triggerCondition | storyLog + 奖励 |
 
 - 门面做**只读判定**（canXxx）与**顺序编排**；真正改状态只经 `StateMutationService`（写方法内：改值 → 记统计 → 发事件）。
-- UI（`src/ui/controller.ts`）只调用 `getView()` / `createUIContext()`；组件类型面为 `UIFacingGame`（18 个只读成员，T2 收窄），写方法不可触达。
+- UI（`src/ui/controller.ts`）只调用 `getView()` / `createUIContext()`；组件类型面为 AronaClicker `GameReadModel`，写方法不可触达。
 
 ## 五、存档 / 读档 / 重置
 

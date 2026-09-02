@@ -15,10 +15,10 @@
 | 文件拆分 / 重构 | [[docs-828/05-conventions/refactoring]] |
 | 写测试 | [[docs-828/05-conventions/testing]] |
 | 维护文档本身 | [[docs-828/05-conventions/doc-maintenance]] |
-| 好感系统（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）机制 | [[docs-828/06-adr/planning]]（机制单一事实源；聊天消息成分已移除） |
-| Datapack 读取 / 多包管理 / mod 冲突与命名空间 | [[docs-828/06-adr/0004-datapack-management]]（规划中，裁定记录见文内） |
+| 好感系统（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）机制 | [[0x-plan&work/completed/affection-planning]]（机制单一事实源；聊天消息成分已移除） |
+| Datapack 读取 / 多包管理 / mod 冲突与命名空间 | [[0x-plan&work/active/adr-0004-datapack-management]]（规划中，裁定记录见文内） |
 | Datapack 汇总契约 / Registry 组合边界 | `src/data-services/contracts/datapack.ts`、`src/data-services/registry/`；基础引擎只消费注入后的数据 |
-| 长期目标 / roadmap / 里程碑进度 | [[docs-828/08-roadmap/00-overview]]（设计权威在各目标 ADR） |
+| 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[0x-plan&work/00-index]]（设计决策、工作状态与历史记录统一入口） |
 
 ## 命令
 

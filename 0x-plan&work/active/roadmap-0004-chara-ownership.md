@@ -9,13 +9,13 @@
 
 ## 现状归属
 
-| 数据 | 当前层 | 位置 |
-| --- | --- | --- |
-| `state.characters`（收集全集） | **Global** | [[docs-828/01-architecture/state-layers]] 分层表 |
-| `state.roster`（RosterEntry 进度副本，内嵌好感值） | **Global**（`characterPersistConfig` 可声明 global/init，机制已存在） | `character-persist.ts` 系 |
-| `state.fragments`（碎片） | Global | [[docs-828/03-data-structures/character-entities]] |
-| `gachaState`（pity/pulls，按 poolId 意义引用） | PlayerState 持久化 | [[docs-828/04-algorithms/gacha]] |
-| 统计底座 | StatsService 三层桶 + TagStatService（characters 维度已有 protoStats / acquiredCount） | [[docs-828/02-modules/stats]] |
+| 数据                                     | 当前层                                                                           | 位置                                                 |
+| -------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------- |
+| `state.characters`（收集全集）               | **Global**                                                                    | [[docs-828/01-architecture/state-layers]] 分层表      |
+| `state.roster`（RosterEntry 进度副本，内嵌好感值） | **Global**（`characterPersistConfig` 可声明 global/init，机制已存在）                    | `character-persist.ts` 系                           |
+| `state.fragments`（碎片）                  | Global                                                                        | [[docs-828/03-data-structures/character-entities]] |
+| `gachaState`（pity/pulls，按 poolId 意义引用） | PlayerState 持久化                                                               | [[docs-828/04-algorithms/gacha]]                   |
+| 统计底座                                   | StatsService 三层桶 + TagStatService（characters 维度已有 protoStats / acquiredCount） | [[docs-828/02-modules/stats]]                      |
 
 关键点：`CharacterPersistScope` / `characterPersistConfig` 机制**已存在**（roster/gacha/chatRead 三分支可声明 global/init），本目标主要是默认值翻转与字段拆分，不是从零造归属机制。
 
@@ -30,12 +30,12 @@
 1. **"一般为 Init 级"的例外清单**：哪些域保留 global（图鉴发现记录？跨线总收集统计？聊天已读 chatRead 现默认 init 是否维持）？
 2. **统计的消费者**：GachaService 权重 / ConditionSystem 新 stat 函数 / 纯 UI 展示——v1 范围？
 3. **roster 改 per-Init 的工程面**：`PER_INIT_FIELD_SPECS` 登记（characterContainer 三分支）、快照/恢复路径、`??=` 兜底清档（纪律 7，无迁移代码）。
-4. **与好感系统的交互**：好感值内嵌 RosterEntry、随 roster 归属层走（[[docs-828/06-adr/planning]]）——好感随 Init 重置是否为期望行为？"好感追赶"是否意味着部分好感投入需跨线补偿？
+4. **与好感系统的交互**：好感值内嵌 RosterEntry、随 roster 归属层走（[[0x-plan&work/completed/affection-planning]]）——好感随 Init 重置是否为期望行为？"好感追赶"是否意味着部分好感投入需跨线补偿？
 
 ## 前置与关联
 
-- **强关联 [[docs-828/08-roadmap/0003-gacha-pool-model]]**：两目标同处角色域、统计口径互相引用，建议同场设计裁定。
-- 建议排在 [[docs-828/08-roadmap/0001-datapack-management-rollout]] S1c 之后实施：先完成 character/variant id 三段化，避免归属翻转与 id 改名叠加。
+- **强关联 [[0x-plan&work/active/roadmap-0003-gacha-pool-model]]**：两目标同处角色域、统计口径互相引用，建议同场设计裁定。
+- 建议排在 [[0x-plan&work/active/roadmap-0001-datapack-management]] S1c 之后实施：先完成 character/variant id 三段化，避免归属翻转与 id 改名叠加。
 
 ## 状态
 

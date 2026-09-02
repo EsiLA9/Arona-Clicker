@@ -1,6 +1,6 @@
 # 01-architecture/module-dependency-baseline — 模块依赖基线
 
-> 本文回答：开始内聚施工前，项目当前真实的模块归属、依赖方向和主要交叉点是什么。本文记录代码实况，不定义最终设计；最终边界见 [[docs-828/06-adr/0005-engine-domain-boundaries]]。
+> 本文回答：开始内聚施工前，项目当前真实的模块归属、依赖方向和主要交叉点是什么。本文记录代码实况，不定义最终设计；最终边界见 [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]]。
 
 ## 核对范围
 
@@ -22,7 +22,7 @@
 | `src/engine/stats/` | 三层统计、Tag 统计、World Tilt | 基础引擎机制 + 领域统计源适配器 |
 | `src/engine/extra/` | Extra 数据树构造、读取、合并、校验 | 基础数据/机制服务，归属待 M2 裁定 |
 | `src/data-services/assets/` | 图片存储、Pic 解析与 PicService | 基础数据服务 |
-| `src/engine/system/` | 状态写入、Tick、角色、抽卡、培养、色彩、头像等 | 拆为基础状态管道与 AronaClicker 领域服务 |
+| `src/engine/system/` | 基础 Tick 管道 | 产品状态写入、角色、抽卡、培养、色彩、头像等已归入 AronaClicker |
 | `src/arona-clicker/` | Runtime 编排、Init、Story、Spot、Item、Enhancement、状态与领域适配 | AronaClicker Runtime 与领域服务 |
 | `src/arona-clicker/runtime-game-instance.ts` | 产品运行时门面与引擎子系统组合宿主 | `AronaClickerRuntime` |
 | `src/data-services/datapack/zip-loader.ts` | ZIP Datapack 解包和解析 | 基础数据服务 |
@@ -76,7 +76,7 @@ engine → ui
 
 ### 3. UI 具备只读门面，但仍依赖具体实现
 
-`src/ui/context.ts` 已提供 `UIFacingGame`，但字段仍是具体的 `Registry`、`ConditionSystem`、`GameNumSystem`、`ColorSystem`、`StoryService` 等类。
+`src/ui/context.ts` 通过 `GameReadModel` 提供只读视图；控制器通过 `GameCommands` 调用产品 Runtime，组件不再接触具体写入服务。
 
 UI 仍有少量表现工具与领域查询的直接依赖，但主要读写边界已通过 ReadModel / Commands 与 Runtime 能力端口收敛；后续继续清理具体服务类型泄漏。
 

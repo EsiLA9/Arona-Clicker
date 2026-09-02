@@ -53,7 +53,7 @@
 | `ThemeDesignDef.entityKey` | Area / Variant | 意义 | 解锁时只作落点键：`entityThemeDesignsOwned[entityKey]` 与 setEntityThemeSlot 的键；设计自身携带 theme 内容 |
 | `EntityThemeSlot.designId / equipmentId` | ThemeDesignDef / ColorEquipmentDef | designId 真；equipmentId 特殊 | designId 解析出主题；equipmentId 写入但从不被读取——装备槽实际跟随当前已装备装备，是「身份存、实时解析」 |
 | `PassiveStoryEntry.owner` | CharacterVariantDef | 真 | 聊天空间壁垒：owner 声明者仅在该学生对话空间被抽取/推送（passive-pool-system 的 ownerOk 剪枝 + 就绪队列谓词） |
-| `PassiveStoryEntry.pushAfterStory` | StoryDef（演出本体 id） | 真 | 羁绊尾巴挂靠：关联剧情完结后强制优先推送进 owner 对话空间（见 [[docs-828/06-adr/planning]] §3） |
+| `PassiveStoryEntry.pushAfterStory` | StoryDef（演出本体 id） | 真 | 羁绊尾巴挂靠：关联剧情完结后强制优先推送进 owner 对话空间（见 [[0x-plan&work/completed/affection-planning]] §3） |
 
 ## 四、物品 / 掉落 / 强化
 

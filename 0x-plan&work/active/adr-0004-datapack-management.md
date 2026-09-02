@@ -194,4 +194,4 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 
 ## 相关文档
 
-[[docs-828/03-data-structures/registry]] · [[docs-828/03-data-structures/id-reference-semantics]] · [[docs-828/02-modules/pics]] · [[docs-828/05-conventions/architecture-discipline]] · [[docs-828/06-adr/planning]]（affectionConfig 现单值设计，本 ADR §6 修订）
+[[docs-828/03-data-structures/registry]] · [[docs-828/03-data-structures/id-reference-semantics]] · [[docs-828/02-modules/pics]] · [[docs-828/05-conventions/architecture-discipline]] · [[0x-plan&work/completed/affection-planning]]（affectionConfig 现单值设计，本 ADR §6 修订）

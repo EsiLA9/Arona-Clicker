@@ -1,6 +1,6 @@
 # 08-roadmap/0001-datapack-management-rollout — Datapack 多包管理落地（S1-S7）
 
-> 本文回答：多包管理这一长期目标的切片拆解、当前进度与验收口径。设计权威：[[docs-828/06-adr/0004-datapack-management]]（裁定与实现记录，本文不重复设计，只做状态追踪）。
+> 本文回答：多包管理这一长期目标的切片拆解、当前进度与验收口径。设计权威：[[0x-plan&work/active/adr-0004-datapack-management]]（裁定与实现记录，本文不重复设计，只做状态追踪）。
 
 ## 目标陈述
 
@@ -40,7 +40,7 @@
 
 ## 引用语义分界
 
-S1b 拆分后的 entry id / story id 引用语义权威口径见 [[docs-828/06-adr/0004-datapack-management]] §8 表格，此处不复制（防双源漂移）。
+S1b 拆分后的 entry id / story id 引用语义权威口径见 [[0x-plan&work/active/adr-0004-datapack-management]] §8 表格，此处不复制（防双源漂移）。
 
 ## 验收口径
 
@@ -56,4 +56,4 @@ S1b 拆分后的 entry id / story id 引用语义权威口径见 [[docs-828/06-a
 ## 进度记录（append-only）
 
 - 2026-08-30：S1a + S1b 落地，`npm test` 995/995 全绿，`npx tsc --noEmit` 通过；改动未 commit（遵循"用户未要求不提交"）。
-- 2026-08-30：本文由会话交接稿 `handoff2.md` 迁移建立（交接稿删除，防双源漂移）；建立 [[docs-828/08-roadmap]] 分区。
+- 2026-08-30：本文由会话交接稿 `handoff2.md` 迁移建立（交接稿删除，防双源漂移）；建立 [[0x-plan&work]] 分区。

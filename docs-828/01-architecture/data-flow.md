@@ -34,7 +34,7 @@ Datapack 声明（测试/示例包或 JSON/文件夹/ZIP 导入）
 ## 层 4：GameView / UIContext
 
 - `getView()` → `GameView`（资源快照 + spotLevels + unlockedInits + storyLog + visibility 等）。
-- `createUIContext()` → `UIContext`（GameView + `UIFacingGame` 只读查询面 + nameOf/formatNumber 辅助）。
+- `createUIContext()` → `UIContext`（GameView + `GameReadModel` 只读查询面 + nameOf/formatNumber 辅助）。
 - UI 刷新：每帧 `refreshLight`（轻量数字）；揭示指纹变化 → `refreshRevealIfChanged` → 重建 DOM。
 
 ## 派生数据一览

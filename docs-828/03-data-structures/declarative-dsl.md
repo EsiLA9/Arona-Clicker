@@ -95,7 +95,7 @@ ConditionTarget（15 种）—— key 与 actual 语义：
 
 ## 5. 触发与持续效果
 
-`TriggerEventDef.kind`（`types/trigger.ts:63-74`，**9 种**）—— Trigger「何时检查」，均可带可选过滤 id；kind 全集与 `TriggerSystem.ON_KIND_TO_EVENT` 双向锁合、且登记于 `EVENT_CATALOG`（[[docs-828/06-adr/0001-architecture-consolidation]] T4）：
+`TriggerEventDef.kind`（`types/trigger.ts:63-74`，**9 种**）—— Trigger「何时检查」，均可带可选过滤 id；kind 全集与 `TriggerSystem.ON_KIND_TO_EVENT` 双向锁合、且登记于 `EVENT_CATALOG`（[[0x-plan&work/completed/adr-0001-architecture-consolidation]] T4）：
 
 | kind | 过滤字段 | 对应事件 |
 | --- | --- | --- |

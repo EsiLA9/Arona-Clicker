@@ -2,6 +2,8 @@
 
 > 目标：将 Color 升级为「Color（颜色原子）+ ColorGroup（头像构成模板）+ ColorEquipment（装备收集品）」三层体系，学生头像由 ColorGroup 抽象图案构成，装备捆绑视觉+效用。
 
+**状态：✅ 已完成（2026-09-02）。** 本文保留原始设计与施工清单；当前实现以 `src/arona-clicker/`、`src/data-services/` 和测试为准。
+
 ## 设计定稿（已确认）
 
 | 问题 | 决策 |
@@ -44,56 +46,56 @@
   - `acquireCharacter` 创建 entry 时 `equippedEquipment: null`
   - catalog 增加 `getColorGroup`/`getColorEquipment`
 
-## 待完成 🔲
+## 历史施工项（已完成）
 
 ### 1. 事件类型
-- [ ] `types/events.ts`：`GameEvent` union 中 `colorEquipped` 替换为 `equipmentCollected { equipmentId }` / `equipmentEquipped { variantId; equipmentId }`
+- [x] `types/events.ts`：`GameEvent` union 中 `colorEquipped` 替换为 `equipmentCollected { equipmentId }` / `equipmentEquipped { variantId; equipmentId }`
 
 ### 2. 系统/服务
-- [ ] `system/color-equipment-system.ts`（新）：
+- [x] `system/color-equipment-system.ts`（新）：
   - `tryUnlock(equipmentId)`：条件校验 → `mutations.collectEquipment` + 级联解锁其 colorGroup 引用的所有 Color（`mutations.unlockColor`）
   - `recheckUnlocks()`：扫描全部装备，条件满足自动收集（挂 characterAcquired/flagChanged）
   - `ownedEquipments(state)` / `isOwned(state, id)` / `getDef` / `getAll`
   - `groupOf(equipmentId)`：解析装备的 ColorGroup
   - `effectsOf(state, variantId)`：装备的 effects（迁移自 ColorSystem.effectsOf，改为按 equippedEquipment 聚合）
   - `avatarColors(equipmentId)`：解析 ColorGroup 各 slot 的实际 hex（供 AvatarRenderer）
-- [ ] `system/avatar-renderer.ts`（新，纯函数）：
+- [x] `system/avatar-renderer.ts`（新，纯函数）：
   - `renderAvatarSvg(pattern: CompositionType, colors: string[], size?)` → SVG 字符串
   - solid 单色圆 / gradient 线性渐变 / duotone 双色叠加 / pie 饼图分区 / radial 径向渐变
-- [ ] `system/color-system.ts`：`effectsOf` 迁移到 ColorEquipmentSystem（或改造）；新增 `resolveThemeFromGroup(group)` 提取主色驱动 Theme-Tree（可选增强）
+- [x] `system/color-system.ts`：`effectsOf` 迁移到 ColorEquipmentSystem（或改造）；新增 `resolveThemeFromGroup(group)` 提取主色驱动 Theme-Tree（可选增强）
 
 ### 3. 装配
-- [ ] `game-instance.ts`：实例化 `ColorEquipmentSystem` 并注入 registry/mutations/state/condition；`mutations.setCharacterCatalog` 补 `getColorGroup`/`getColorEquipment`；`characterAcquired`/`flagChanged` 事件挂 `equipmentSystem.recheckUnlocks()`
+- [x] `game-instance.ts`：实例化 `ColorEquipmentSystem` 并注入 registry/mutations/state/condition；`mutations.setCharacterCatalog` 补 `getColorGroup`/`getColorEquipment`；`characterAcquired`/`flagChanged` 事件挂 `equipmentSystem.recheckUnlocks()`
 
 ### 4. 数据（base）
-- [ ] `data/base/character-rework.ts`：
+- [x] `data/base/character-rework.ts`：
   - `baseColors` 移除 `.effects()` 调用
   - 新增 `baseColorGroups`：若干预制组（solid/gradient/duotone/pie/radial 各一），引用现有 ColorId
   - 新增 `baseColorEquipments`：捆绑 ColorGroup + effects（如星野泳装组 + Credit 加成）+ themeColorId + unlock
-- [ ] `data/base/datapack.ts`：导出 `colorGroups` / `colorEquipments`
+- [x] `data/base/datapack.ts`：导出 `colorGroups` / `colorEquipments`
 
 ### 5. UI
-- [ ] `ui/components/contacts.ts`：
+- [x] `ui/components/contacts.ts`：
   - 角色面板：`equippedColors` → `equippedEquipment`，渲染装备卡片 + 头像 SVG 预览 + 装备/卸下按钮（data-equip-equipment / data-unequip-equipment）
   - 可装备列表来自 `colorEquipmentSystem.ownedEquipments`
   - 通讯录行头像：装备后显示 ColorGroup 生成的圆形头像
-- [ ] `ui/components/collection.ts`：新增装备图鉴（equipment codex，含头像预览 + 效用说明）；`renderColorCodex` 保留
-- [ ] `ui/controller.ts`：`[data-equip-color]` / `[data-unequip-color]` → `[data-equip-equipment]` / `[data-unequip-equipment]`，调 `mutations.equipEquipment` / `unequipEquipment`
-- [ ] `ui/components/header.ts`：主题 swatch 保留（colorsOwned 驱动），不变或微调
+- [x] `ui/components/collection.ts`：新增装备图鉴（equipment codex，含头像预览 + 效用说明）；`renderColorCodex` 保留
+- [x] `ui/controller.ts`：`[data-equip-color]` / `[data-unequip-color]` → `[data-equip-equipment]` / `[data-unequip-equipment]`，调 `mutations.equipEquipment` / `unequipEquipment`
+- [x] `ui/components/header.ts`：主题 swatch 保留（colorsOwned 驱动），不变或微调
 
 ### 6. 测试
-- [ ] `tests/engine/color-system.test.ts`：CL 组改造——装备相关改为装备系统测试（collect/equip/unequip/effects/级联解锁）
-- [ ] `tests/engine/color-equipment-system.test.ts`（新）：解锁/级联/单槽/条件拒绝
-- [ ] `tests/engine/avatar-renderer.test.ts`（新）：各 compositionType 输出 SVG 且颜色数量匹配
-- [ ] `tests/engine/roster-system.test.ts`：`equippedColors: []` → `equippedEquipment: null`
-- [ ] `tests/engine/def-factory/variant-gacha-chat.test.ts`：移除 `colorSlots`
-- [ ] `tests/ui/components/contacts.test.ts`：适配新面板结构
-- [ ] `tests/engine/color-ingame.test.ts` / `color-derive.test.ts` / `theme-runtime.test.ts` / `character-freeze.test.ts`：按需适配
+- [x] `tests/engine/color-system.test.ts`：CL 组改造——装备相关改为装备系统测试（collect/equip/unequip/effects/级联解锁）
+- [x] `tests/engine/color-equipment-system.test.ts`（新）：解锁/级联/单槽/条件拒绝
+- [x] `tests/engine/avatar-renderer.test.ts`（新）：各 compositionType 输出 SVG 且颜色数量匹配
+- [x] `tests/engine/roster-system.test.ts`：`equippedColors: []` → `equippedEquipment: null`
+- [x] `tests/engine/def-factory/variant-gacha-chat.test.ts`：移除 `colorSlots`
+- [x] `tests/ui/components/contacts.test.ts`：适配新面板结构
+- [x] `tests/engine/color-ingame.test.ts` / `color-derive.test.ts` / `theme-runtime.test.ts` / `character-freeze.test.ts`：按需适配
 
 ### 7. 文档 / Schema
-- [ ] `docs-824/04e-color-derivation.md`：补充 ColorGroup / ColorEquipment 章节
-- [ ] `npm run gen:schema`：重新生成 `engine-defs.gen.json`（新增实体必须同步）
-- [ ] `tools/datapack-editor/schema/editor-extras.ts`：如需要，为新实体字段补 override
+- [x] `docs-824/04e-color-derivation.md`：补充 ColorGroup / ColorEquipment 章节
+- [x] `npm run gen:schema`：重新生成 `engine-defs.gen.json`（新增实体必须同步）
+- [x] `tools/datapack-editor/schema/editor-extras.ts`：如需要，为新实体字段补 override
 
 ## 验证
 
