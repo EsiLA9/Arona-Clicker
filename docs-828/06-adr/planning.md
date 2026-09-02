@@ -67,7 +67,7 @@ addAffectionExp(variantId, delta):
 | 文件 | 职责 |
 | --- | --- |
 | `types/character.ts` | RosterEntry 两字段；AffectionConfigDef；CharacterVariantDef.affectionLevelCapByStar |
-| `types/datapack.ts` | `Datapack.affectionConfig?` 表挂载 |
+| `src/data-services/contracts/datapack.ts` | `Datapack.affectionConfig?` 表挂载 |
 | `registry/registry.ts` | 解析 affectionConfig + 引擎默认值（配置型，恒 global 语义） |
 | `system/state-mutation-service.ts` | `addAffectionExp`（写入口）；`acquireCharacter` 建 entry 时初始化 1/0 |
 | `system/roster-system.ts` | 只读 `affectionLevelOf / affectionExpOf / affectionLevelCapOf`（含星级锁） |
@@ -272,7 +272,7 @@ passiveStory('base:affinity:hoshino_bond_tail', 'base:affinity:hoshino_bond_tail
 | `game/story-flow.ts` | `triggerTailPush`（定向推送）+ 队列谓词尾巴分支 + 随机抽取排除 |
 | `game/story-service.ts` | `triggerTailPush` / `readyStepCount` 门面 |
 | `src/ui/controller-events.ts` | `storyCompleted` → 空间内即时推送 |
-| `src/data/base/character-rework.ts` | `base:bond:hoshino_1` 的尾巴条目示范 |
+| `src/arona-clicker/content/bond-content.ts` | `base:bond:hoshino_1` 的尾巴条目示范 |
 
 ### 测试清单（已覆盖于 `tests/engine/affection-system.test.ts`）
 

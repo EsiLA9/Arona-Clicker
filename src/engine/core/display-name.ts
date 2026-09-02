@@ -6,14 +6,23 @@
 // 简名（如 resource 'credit'）也可传入。
 
 import { resourceLabel } from './resource';
-import { Registry } from '../registry/registry';
-import { Character } from '../types';
+interface DisplayNameCatalog {
+  readonly resourceDisplays: ReadonlyMap<string, { label?: string; detailLabel?: string }>;
+  readonly spots: ReadonlyMap<string, { name?: string }>;
+  readonly enhancements: ReadonlyMap<string, { name?: string }>;
+  readonly inits: ReadonlyMap<string, { name?: string }>;
+  readonly areas: ReadonlyMap<string, { name?: string }>;
+  readonly characters: ReadonlyMap<string, { displayName?: string; name?: string }>;
+  readonly items: ReadonlyMap<string, { name?: string }>;
+  readonly stories: ReadonlyMap<string, { title?: string; name?: string }>;
+  readonly passivePools: ReadonlyMap<string, { name?: string }>;
+}
 
 export type EntityType = 'resource' | 'spot' | 'enh' | 'init' | 'area' | 'character' | 'item' | 'story';
 
 /** 将任意实体 ID 映射为人类可读显示名。 */
 export function displayName(
-  registry: Registry,
+  registry: DisplayNameCatalog,
   type: string,
   id: string,
 ): string {
@@ -34,8 +43,8 @@ export function displayName(
     case 'area':
       return registry.areas.get(id)?.name ?? shortId(id);
     case 'character':
-      if (id === Character.None) return '未分配';
-      return registry.characters.get(id as Character)?.displayName ?? shortId(id);
+      if (id === 'none') return '未分配';
+      return registry.characters.get(id)?.displayName ?? shortId(id);
     case 'item':
       return registry.items.get(id)?.name ?? shortId(id);
     case 'story':

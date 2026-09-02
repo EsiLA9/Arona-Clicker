@@ -16,9 +16,10 @@
 // 各层按优先级合并（高层 token 覆盖低层）。
 // ============================================================
 
-import type { ColorGroupId, ThemeOrderScope, ThemeToken } from '../types/character';
+import type { ColorGroupId } from '../types/character';
+import type { ThemeOrderScope, ThemeToken } from '../types/theme';
 
-export type { ThemeOrderScope } from '../types/character';
+export type { ThemeOrderScope } from '../types/theme';
 
 /** 参与玩家自定义排序的三层（低→高缺省顺序）。 */
 export const DEFAULT_LAYER_ORDER: ThemeOrderScope[] = ['player', 'area', 'student'];

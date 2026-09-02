@@ -1,3 +1,4 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/chat-flow-service.test.ts — 聊天流演出服务（Talklet 专用）
 //
@@ -9,10 +10,11 @@
 //   5. ChatFlowService 方法直接调用的事件语义
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import type { GameEvent } from '../../src/engine/types';
-import type { StoryDef, ActiveStoryEntry } from '../../src/engine/types';
+import type { StoryDef } from '../../src/data-services/contracts/story';
+import type { ActiveStoryEntry } from '../../src/data-services/contracts/story-entry';
 import { finishWelcome } from './story-test-fixtures';
 
 const chatShowStory: StoryDef = {
@@ -63,7 +65,7 @@ const openingEntry: ActiveStoryEntry = {
   triggerCondition: { type: 'AND', conditions: [] },
 };
 
-function makeChatPack(): import('../../src/engine/types').Datapack {
+function makeChatPack(): import('../../src/data-services/contracts/datapack').Datapack {
   return {
     name: 'chat-flow-test',
     version: '0.0.0',

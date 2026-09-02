@@ -7,19 +7,21 @@
 // 数据包 JSON 可能携带未知 target：查找失败回落 0（保持原 default 语义）。
 // ============================================================
 
-import { Condition, ConditionGroup, ConditionTarget, Comparator, PlayerState, Character, ExtraPath, ExtraValue } from '../types';
+import { Condition, ConditionGroup, ConditionTarget, Comparator, ExtraPath, ExtraValue } from '../types';
+import type { ConditionState } from '../contracts/state-query';
+import type { ConditionEvaluationContext } from '../contracts/evaluation-context';
 import { parseTagId, TagPath } from '../core/tag';
 import { toNumber } from '../extra/index';
 
 /** 单个 target 的求值器：从状态与注入依赖读取 actual 数值。 */
-type TargetEvaluator = (sys: ConditionSystem, cond: Condition, state: PlayerState) => number;
+type TargetEvaluator = (sys: ConditionSystem, cond: Condition, state: ConditionState) => number;
 
 const TARGET_EVALUATORS: Record<ConditionTarget, TargetEvaluator> = {
   resource: (_sys, cond, state) => state.resources[cond.key] ?? 0,
   spotLevel: (_sys, cond, state) => state.spotLevels[cond.key] ?? 0,
   manager: (_sys, cond, state) => {
     const manager = state.spotManagers[cond.key];
-    return manager && manager !== Character.None ? 1 : 0;
+    return manager && manager !== 'none' ? 1 : 0;
   },
   flag: (_sys, cond, state) => {
     // flag 条件: cond.value=1 检查 flag 存在且非空, cond.value=0 检查不存在或为空
@@ -55,7 +57,7 @@ const COMPARATORS: Record<Comparator, (actual: number, expected: number) => bool
   '<': (a, e) => a < e,
 };
 
-export class ConditionSystem {
+export class ConditionSystem implements ConditionEvaluationContext<ConditionState> {
   // --- 注入依赖（@internal：供 TARGET_EVALUATORS 模块级求值器读取） ---
 
   /** @internal 查询拥有指定标签的 Spot（由 Registry 的层级标签索引提供）。 */
@@ -71,7 +73,7 @@ export class ConditionSystem {
   /** @internal 按 tag 聚合的收集数读取器（由 TagStatService 提供）。 */
   tagCountReader: (key: string) => number = () => 0;
   /** @internal 好感等级读取器（由 RosterSystem 提供，注入星级锁与缺省等级兜底）。 */
-  affectionLevelReader: (variantId: string, state: PlayerState) => number = () => 0;
+  affectionLevelReader: (variantId: string, state: ConditionState) => number = () => 0;
 
   setTagIndex(index: (tag: TagPath) => string[]): void {
     this.tagIndex = index;
@@ -97,24 +99,24 @@ export class ConditionSystem {
     this.tagCountReader = reader;
   }
 
-  setAffectionLevelReader(reader: (variantId: string, state: PlayerState) => number): void {
+  setAffectionLevelReader(reader: (variantId: string, state: ConditionState) => number): void {
     this.affectionLevelReader = reader;
   }
 
-  evaluate(cond: Condition, state: PlayerState): boolean {
+  evaluate(cond: Condition, state: ConditionState): boolean {
     const actual = this.getActualValue(cond, state);
     return this.compare(actual, cond.comparator, cond.value);
   }
 
   /** 求值一条条件表达式：单条原子条件直接求值，条件组递归求值（Trigger 的 condition 可为两者）。 */
-  evaluateExpr(expr: Condition | ConditionGroup, state: PlayerState): boolean {
+  evaluateExpr(expr: Condition | ConditionGroup, state: ConditionState): boolean {
     if ('conditions' in expr && 'type' in expr) {
       return this.evaluateGroup(expr as ConditionGroup, state);
     }
     return this.evaluate(expr as Condition, state);
   }
 
-  evaluateGroup(group: ConditionGroup, state: PlayerState): boolean {
+  evaluateGroup(group: ConditionGroup, state: ConditionState): boolean {
     const results = group.conditions.map(c => {
       if ('conditions' in c && 'type' in c) {
         return this.evaluateGroup(c as ConditionGroup, state);
@@ -127,13 +129,13 @@ export class ConditionSystem {
     return false;
   }
 
-  private getActualValue(cond: Condition, state: PlayerState): number {
+  private getActualValue(cond: Condition, state: ConditionState): number {
     const evaluator = TARGET_EVALUATORS[cond.target];
     return evaluator ? evaluator(this, cond, state) : 0;
   }
 
   /** @internal 拥有指定标签（含 child，前缀匹配）且已拥有的 Spot 数量。 */
-  countOwnedTagSpots(tag: TagPath, state: PlayerState): number {
+  countOwnedTagSpots(tag: TagPath, state: ConditionState): number {
     return this.tagIndex(tag).filter(spotId => (state.spotLevels[spotId] ?? 0) > 0).length;
   }
 

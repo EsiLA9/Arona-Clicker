@@ -2,14 +2,10 @@
 // engine/def-factory/enhancement.test.ts — Enhancement 链式 Builder
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import {
-  enhancement,
-  EnhancementBuilder,
-  extra,
-  r,
-  Resource,
-} from '../../../src/engine/types';
-import type { EnhancementDef } from '../../../src/engine/types';
+import { extra, r } from '../../../src/engine/types';
+import { Resource } from '../../../src/arona-clicker/types/ids';
+import type { EnhancementDef } from '../../../src/data-services/contracts/enhancement';
+import { enhancement, EnhancementBuilder } from '../../../src/arona-clicker/content/def-factory';
 
 const CREDIT = Resource.Credit;
 

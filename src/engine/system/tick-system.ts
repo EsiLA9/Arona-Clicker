@@ -2,43 +2,37 @@
 // engine/tick-system.ts - Unified production tick
 // ============================================================
 
-import {
-  PlayerState,
-  TickResult,
-  ProductionResult,
-} from '../types';
-import { Registry } from '../registry/registry';
+import type { ProductionResult, TickResult } from '../contracts/tick';
 import { ValueSystem } from '../expression/value-system';
 import { EventBus } from '../core/event-bus';
-import { StateMutationService } from './state-mutation-service';
+import type { StateMutationPort } from '../contracts/mutation';
+import type { TickState } from '../contracts/state-query';
 import { GameNumSystem } from '../expression/game-num';
 
 /** One engine tick is one second for both manual and automatic progression. */
 export const TICK_INTERVAL_MS = 1000;
 
 export class TickSystem {
-  private readonly registry: Registry;
   private readonly valueSystem: ValueSystem;
   private readonly eventBus: EventBus;
-  private _state!: PlayerState;
-  private readonly mutations: StateMutationService;
+  private _state!: TickState;
+  private readonly mutations: StateMutationPort;
 
   constructor(
-    registry: Registry,
     valueSystem: ValueSystem,
     eventBus: EventBus,
     private readonly gameNumSystem: GameNumSystem,
-    mutations?: StateMutationService,
+    mutations: StateMutationPort,
   ) {
-    this.registry = registry;
     this.valueSystem = valueSystem;
     this.eventBus = eventBus;
-    this.mutations = mutations ?? new StateMutationService(eventBus);
+    this.mutations = mutations;
   }
 
-  setState(state: PlayerState): void {
+  setState(state: TickState): void {
     this._state = state;
-    this.mutations.setState(state);
+    // 迁移兼容：旧宿主允许通过 setState 同步写入口；基础契约不再要求该能力。
+    (this.mutations as StateMutationPort & { setState?: (state: object) => void }).setState?.(state);
   }
 
   /** Execute one unified tick and settle every owned Spot once. */

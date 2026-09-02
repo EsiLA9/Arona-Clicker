@@ -2,10 +2,7 @@
 // ui/components/errors.ts — 游戏操作错误码 → 用户可读中文文案
 // ============================================================
 
-import {
-  EnhancementPurchaseError,
-  TravelError,
-} from '../../engine/types';
+import type { EnhancementPurchaseError, TravelError } from '../../arona-clicker/contracts/results';
 
 // --- Enhancement 购买错误 ---
 export const enhPurchaseErrorText: Record<EnhancementPurchaseError, string> = {

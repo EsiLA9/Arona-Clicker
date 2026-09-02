@@ -1,10 +1,12 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/character-availability.test.ts — 可及性管理（A 组）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import type { Datapack } from '../../src/engine/types';
-import { Character, CharacterRarity, CharacterSchool, GachaMode } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { } from '../../src/engine/types';
+import { GachaMode } from '../../src/data-services/contracts/gacha-pool';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
 const LIMITED = 'test:gachapool:pool-limited';
 const PERM = 'test:gachapool:pool-perm';

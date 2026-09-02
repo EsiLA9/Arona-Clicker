@@ -4,13 +4,15 @@
 // 孤儿 entry 默认根池、环防护、无池退化平铺。
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { PassivePoolSystem } from '../../src/engine/system/passive-pool-system';
+import { PassivePoolSystem } from '../../src/arona-clicker/services/passive-pool-system';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { EventBus } from '../../src/engine/core/event-bus';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import type { Registry } from '../../src/engine/registry/registry';
-import type { PassivePoolDef, PassiveStoryEntry, PlayerState } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import type { Registry } from '../../src/data-services/registry/registry';
+import type { PassiveStoryEntry } from '../../src/data-services/contracts/story-entry';
+import type { PassivePoolDef } from '../../src/data-services/contracts/passive-pool';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
 
 function entry(id: string, weight = 1): PassiveStoryEntry {
   return {

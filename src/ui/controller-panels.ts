@@ -8,7 +8,8 @@ import { createUIContext } from './context';
 import { renderSelectorPage as renderSelectorPageView } from './components/selector-page';
 import type { InitSelectMode } from './components/init-select';
 import type { SelectionFace } from './components/global-enhancement-select';
-import { SaveSystem } from '../save/storage';
+import { SaveSystem } from '../data-services/persistence/storage';
+import type { SaveData } from '../arona-clicker/contracts/save-data';
 import type { UIController } from './controller';
 
 /** Init 选择界面模式：由当前流程决定（新建 vs 重启/重选），替代从 activeInit 推断。 */
@@ -74,7 +75,7 @@ export function bindDetailActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-init-purchase]').forEach(button => {
     button.addEventListener('click', () => {
       const initId = button.dataset.initPurchase!;
-      const result = ctrl.game.inits.purchaseInit(initId);
+      const result = ctrl.commands.purchaseInit(initId);
       if (!result.success) {
         const errMap: Record<string, string> = {
           NotFound: '世界线不存在',
@@ -84,7 +85,7 @@ export function bindDetailActions(ctrl: UIController): void {
         ctrl.toast.show(`购买失败：${errMap[result.error] ?? result.error}`, 'error');
         return;
       }
-      const init = ctrl.game.registry.inits.get(initId);
+      const init = ctrl.game.world.inits.get(initId);
       ctrl.toast.show(`已解锁世界线 <b>${init?.name ?? initId}</b>`, 'success');
       // 解锁后局部刷新：仅替换该卡片；若它正被选中则同步刷新详情 CTA
       ctrl.selectorPage.refreshInitRow(initId);
@@ -101,7 +102,7 @@ export function bindGlobalEnhancementDetailActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-global-enh-purchase]').forEach(button => {
     button.addEventListener('click', () => {
       const enhId = button.dataset.globalEnhPurchase!;
-      const result = ctrl.game.enhancements.purchaseEnhancement(enhId);
+      const result = ctrl.commands.purchaseEnhancement(enhId);
       if (!result.success) {
         const errMap: Record<string, string> = {
           NotFound: '不存在',
@@ -126,7 +127,7 @@ export function bindGlobalEnhancementDetailActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-global-enh-deactivate]').forEach(button => {
     button.addEventListener('click', () => {
       const enhId = button.dataset.globalEnhDeactivate!;
-      const removed = ctrl.game.enhancements.removeEnhancement(enhId);
+      const removed = ctrl.commands.removeEnhancement(enhId);
       if (!removed) {
         ctrl.toast.show('无法停用（不可撤回或发生错误）', 'error');
         return;
@@ -152,11 +153,11 @@ export function bindSelectorCommonActions(ctrl: UIController): void {
 
   // 读档（选择页顶栏）
   ctrl.root.querySelector('#load-game-init')?.addEventListener('click', () => {
-    const data = SaveSystem.load();
+    const data = SaveSystem.load<SaveData>();
     if (data) {
-      ctrl.game.load(data);
+      ctrl.commands.load(data);
       ctrl.started = true;
-      ctrl.game.start();
+      ctrl.commands.start();
       ctrl.resetSessionPanel();
       ctrl.restoreHistories(data);
       ctrl.game.devLog.record('本地存档已读取', { source: 'save', level: 'success' });

@@ -17,6 +17,7 @@
 | 维护文档本身 | [[docs-828/05-conventions/doc-maintenance]] |
 | 好感系统（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）机制 | [[docs-828/06-adr/planning]]（机制单一事实源；聊天消息成分已移除） |
 | Datapack 读取 / 多包管理 / mod 冲突与命名空间 | [[docs-828/06-adr/0004-datapack-management]]（规划中，裁定记录见文内） |
+| Datapack 汇总契约 / Registry 组合边界 | `src/data-services/contracts/datapack.ts`、`src/data-services/registry/`；基础引擎只消费注入后的数据 |
 | 长期目标 / roadmap / 里程碑进度 | [[docs-828/08-roadmap/00-overview]]（设计权威在各目标 ADR） |
 
 ## 命令
@@ -37,7 +38,8 @@
 4. **只读 UI**：UI 只消费 `getView()` / `createUIContext()`（`UIFacingGame` 只读面），不持有写引用
 5. **三层状态**：新增"跨世界线保留"数据时想清楚放 global / per-Init 快照 / per-Init 当前哪一层；per-Init 字段必须在 `PER_INIT_FIELD_SPECS` 登记
 6. **测试先行**：机制改动必须带 vitest 测试（`npm test` 通过才算完成）
-7. **不做存档迁移**：项目处于长期开发阶段，PlayerState / Datapack 结构可随时破坏性变更，**禁止编写任何存档迁移/版本兼容代码**；旧存档失效直接清档重来。改状态结构时同步更新相关测试与文档即可
+7. **数据服务单向依赖**：`src/data-services/` 不得依赖 `src/arona-clicker/`、`src/ui/`、`src/data/` 或 `src/save/`；由 `npm run check:architecture` 强制检查
+8. **不做存档迁移**：项目处于长期开发阶段，PlayerState / Datapack 结构可随时破坏性变更，**禁止编写任何存档迁移/版本兼容代码**；旧存档失效直接清档重来。改状态结构时同步更新相关测试与文档即可
 
 ## 实体类型 → 数据包编辑器 同步协议（防漂移）
 
@@ -61,6 +63,6 @@
 
 ## 默认数据与 Spot 招募
 
-- **默认加载的数据是 `src/data/base/*` 系列（TypeScript 编写），不是 `datapack/` 下的 JSON**。`datapack/` 是可选数据包导入，改默认行为/示例必须改 `src/data/base/`。
+- **正式应用默认内容从 `src/arona-clicker/content/default-datapack.ts` 进入**；`src/data/test-datapack.ts` 与其底层兼容出口用于测试/示例 Datapack，不是基础引擎内置内容。`datapack/` 是可选数据包导入，默认内容变更应修改 AronaClicker 内容层。
 - **Spot 招募（gacha）**：招募入口在 Spot 的 `gacha` 功能项（不在通讯录）。机制细节见 [[docs-828/04-algorithms/gacha]] 与 [[docs-828/04-algorithms/roster]]；UI 落点见 [[docs-828/02-modules/ui]]。
 - 新增/修改 Spot 字段或 `SpotFunctionalityDef.kind` 后，必须 `npm run gen:schema` 并在 `editor-extras.ts` 兜底同步（见上文协议）。

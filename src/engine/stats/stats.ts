@@ -17,35 +17,15 @@
 // 由 stat-dsl.ts 定义受限函数库，StatsService.evaluate() 求值。
 // ============================================================
 
-import {
-  PlayerState,
-  StatCounters,
-  InitStatCounters,
-  InitId,
-  AreaId,
-  ItemId,
-  StoryId,
-  StatsSnapshot,
-  StatsContext,
-  InitStatsMap,
-} from '../types';
+import type { InitId, AreaId, ItemId, StoryId } from '../types/ids';
+import type { InitStatCounters, InitStatsMap, PersistedStats, StatCounters, StatsContext, StatsSnapshot } from '../contracts/stats';
+import type { StatsState } from '../contracts/state-query';
 import { parseStatCall } from '../expression/stat-dsl';
+import type { StatsQueryContext } from '../contracts/stats';
 import { bump, emptyCounters, emptyInitCounters, copyCounters, copyInitMap, freshSnapshot } from './stats-counters';
 
-export interface PersistedSession {
-  startFrame: number;
-  counters: StatCounters;
-  completedStoryIdsThisRun: string[];
-}
-
-export interface PersistedStats {
-  global: StatCounters;
-  init: InitStatsMap;
-  session: PersistedSession;
-}
-
-export class StatsService {
-  private state: PlayerState | null = null;
+export class StatsService implements StatsQueryContext {
+  private state: StatsState | null = null;
   private stats: StatsSnapshot;
 
   constructor() {
@@ -53,7 +33,7 @@ export class StatsService {
   }
 
   /** 注入运行时状态引用（用于读取 activeInit / currentAreaId / resources）。 */
-  setState(state: PlayerState): void {
+  setState(state: StatsState): void {
     this.state = state;
   }
 

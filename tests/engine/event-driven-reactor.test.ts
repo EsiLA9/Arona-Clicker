@@ -7,10 +7,11 @@ import { describe, test, expect } from 'vitest';
 import { AffectorEngine } from '../../src/engine/effect/affector-engine';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { EventBus } from '../../src/engine/core/event-bus';
-import { Registry } from '../../src/engine/registry/registry';
-import { StateMutationService } from '../../src/engine/system/state-mutation-service';
+import { Registry } from '../../src/data-services/registry/registry';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
 import { ConditionDepIndex, collectConditionLeaves } from '../../src/engine/expression/condition-deps';
-import { GameEvent, PlayerState } from '../../src/engine/types';
+import { GameEvent } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
 
 function emptyState(): PlayerState {
   return {

@@ -7,8 +7,10 @@
 // 本文件仅保留：快照持有 + 增量 dirty 标记 + 对外 API 编排。
 // ============================================================
 
-import { PlayerState, VisibilitySnapshot, InitId, AreaId, SpotId, EnhancementId, GameEvent } from '../types';
-import { Registry } from '../registry/registry';
+import { InitId, AreaId, SpotId, EnhancementId, GameEvent } from '../types';
+import type { VisibilitySnapshot } from '../contracts/reveal';
+import type { ConditionState } from '../contracts/state-query';
+import type { RevealRegistryContext } from '../contracts/reveal';
 import { ConditionSystem } from '../expression/condition-system';
 import { EventBus } from '../core/event-bus';
 import { VisibilityIndex } from './visibility-index';
@@ -24,7 +26,7 @@ export class VisibilityEngine extends EventDrivenReactor {
   private dirty = new Set<EntityKey>();
   private dirtyAll = false;
 
-  constructor(registry: Registry, conditionSystem: ConditionSystem, eventBus: EventBus) {
+  constructor(registry: RevealRegistryContext, conditionSystem: ConditionSystem, eventBus: EventBus) {
     super(eventBus);
     this.index = new VisibilityIndex(registry);
     this.eval = new VisibilityEval(registry, conditionSystem);
@@ -36,13 +38,13 @@ export class VisibilityEngine extends EventDrivenReactor {
   // --- 对外 API ---
 
   /** 重建反向索引并全量重算（注册表加载/热替换后调用）。 */
-  rebuild(state: PlayerState): void {
+  rebuild(state: ConditionState): void {
     this.index.build();
     this.recomputeAll(state);
   }
 
   /** 读取快照；如有脏实体则增量重算后返回（最终一致）。 */
-  getVisibility(state: PlayerState): VisibilitySnapshot {
+  getVisibility(state: ConditionState): VisibilitySnapshot {
     if (this.dirtyAll) {
       this.recomputeAll(state);
       return this.snapshot;
@@ -60,7 +62,7 @@ export class VisibilityEngine extends EventDrivenReactor {
   }
 
   /** 强制全量重算（存档迁移、调试、stat 边缘情形兜底）。 */
-  recomputeAll(state: PlayerState): void {
+  recomputeAll(state: ConditionState): void {
     this.snapshot = {
       inits: this.eval.recomputeCategory(state, 'inits'),
       areas: this.eval.recomputeCategory(state, 'areas'),
@@ -98,19 +100,19 @@ export class VisibilityEngine extends EventDrivenReactor {
 
   // 入口门槛查询需对「当前 registry + state」实时求值（移动/解锁等正确性关键路径），
   // 不走增量缓存，避免注册表直接变更或非事件态变更造成缓存陈旧。
-  isInitVisible(initId: InitId, state: PlayerState): boolean {
+  isInitVisible(initId: InitId, state: ConditionState): boolean {
     return this.eval.evaluateEntity('inits', initId, state);
   }
 
-  isAreaVisible(areaId: AreaId, state: PlayerState): boolean {
+  isAreaVisible(areaId: AreaId, state: ConditionState): boolean {
     return this.eval.evaluateEntity('areas', areaId, state);
   }
 
-  isSpotVisible(spotId: SpotId, state: PlayerState): boolean {
+  isSpotVisible(spotId: SpotId, state: ConditionState): boolean {
     return this.eval.evaluateEntity('spots', spotId, state);
   }
 
-  isEnhancementVisible(enhId: EnhancementId, state: PlayerState): boolean {
+  isEnhancementVisible(enhId: EnhancementId, state: ConditionState): boolean {
     return this.eval.evaluateEntity('enhancements', enhId, state);
   }
 

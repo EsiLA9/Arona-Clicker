@@ -3,14 +3,14 @@
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import {
-  passivePool,
-  PassivePoolBuilder,
   affectorPack,
   AffectorPackBuilder,
   extra,
 } from '../../../src/engine/types';
 import { tagPath } from '../../../src/engine/core/tag';
-import type { AffectorPackDef, PassivePoolDef } from '../../../src/engine/types';
+import type { AffectorPackDef } from '../../../src/engine/types';
+import type { PassivePoolDef } from '../../../src/data-services/contracts/passive-pool';
+import { passivePool, PassivePoolBuilder } from '../../../src/arona-clicker/content/def-factory';
 
 describe('PassivePoolBuilder', () => {
   test('passivePool() 返回 PassivePoolBuilder 实例', () => {

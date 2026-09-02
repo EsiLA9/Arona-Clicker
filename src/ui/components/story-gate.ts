@@ -9,7 +9,7 @@
 
 import { UIContext } from '../context';
 import type { ActiveBanner, StoryGateState } from './app-shell';
-import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
+import { renderAvatarSvg } from '../avatar-renderer';
 
 /** 横幅动画总时长（毫秒）：单一事实源——CSS 的 story-banner-life 与 ChatStream 的清除计时均以此为准，改时长只改这里 + CSS。 */
 export const BANNER_ANIMATION_MS = 3000;
@@ -37,7 +37,7 @@ function rewardLines(ctx: UIContext, entryId: string): string[] {
 
 /** 圆形头像（VariantId 直查，优先级同通讯录行）：装备 ColorGroup > 差分 colorGroupId > 差分头像图；都无则 null。 */
 function variantAvatar(ctx: UIContext, variantId: string, size = 96): string | null {
-  const variant = ctx.game.registry.characterVariants.get(variantId);
+  const variant = ctx.game.rosterSystem.getVariant(variantId);
   if (!variant) return null;
   const equip = ctx.game.rosterSystem.getOwned(ctx.game.state, variantId)?.equippedEquipment;
   const group = equip

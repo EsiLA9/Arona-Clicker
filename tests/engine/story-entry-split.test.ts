@@ -1,12 +1,13 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/story-entry-split.test.ts
 // Story 三层拆分回归：StoryEntryDef（触发入口）/ StoryDef（纯演出）/ Talklet
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import { Registry } from '../../src/engine/registry/registry';
-import { Datapack, and } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import { Registry } from '../../src/data-services/registry/registry';
+import { and } from '../../src/engine/types';
 
 /** 推进完当前展开的剧情（active 会锁定移动）。 */
 function finishStory(g: GameInstance): void {

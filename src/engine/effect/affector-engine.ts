@@ -12,18 +12,17 @@ import {
   AffectorPackRef,
   AffectorState,
   GameEvent,
-  PlayerState,
-  SpotFunctionalityDef,
   SpotId,
   Expr,
   value,
 } from '../types';
+import type { AffectorRuntimeState } from '../contracts/state-query';
 import { DECLARATIVE_EFFECT_OPS } from '../types/expression';
-import { Registry } from '../registry/registry';
 import { ConditionSystem } from '../expression/condition-system';
-import { StateMutationService } from '../system/state-mutation-service';
+import type { StateMutationPort } from '../contracts/mutation';
 import { EffectEngine } from './effect-engine';
-import { SpotFunctionalitySystem } from '../system/spot-functionality';
+import type { SpotFunctionalityQueryPort } from '../contracts/spot-functionality-query';
+import type { SpotFunctionalityView } from '../contracts/spot-functionality-query';
 import { EventBus } from '../core/event-bus';
 import { EventDrivenReactor } from './event-driven-reactor';
 import { CONDITION_DEP_EVENT_TYPES, ConditionDepIndex } from '../expression/condition-deps';
@@ -37,19 +36,19 @@ export class AffectorEngine extends EventDrivenReactor {
   private readonly condDeps = new ConditionDepIndex<string>();
   /** 条件含 stat/未知 target 的实例：事件无法精确命中，保留每 Tick 轮询。 */
   private readonly pollingInstances = new Set<string>();
-  private state: PlayerState | null = null;
+  private state: AffectorRuntimeState | null = null;
   /** 可选：数据包校验警告（entry id 重复等）的日志出口，由宿主注入。 */
   devLog?: DevLog;
   /** getSpotMaxLevelOverrides 结果缓存（recheck/unmount 时失效）。 */
   private maxLevelOverridesCache: { lifted: Set<SpotId>; maxLevels: Map<SpotId, number> } | null = null;
 
   constructor(
-    private readonly registry: Registry,
+    private readonly registry: AffectorRegistryContext,
     private readonly conditionSystem: ConditionSystem,
-    private readonly mutations: StateMutationService,
+    private readonly mutations: StateMutationPort,
     eventBus?: EventBus,
     private readonly effectEngine?: EffectEngine,
-    private readonly functionalitySystem?: SpotFunctionalitySystem,
+    private readonly functionalitySystem?: SpotFunctionalityQueryPort,
   ) {
     super(eventBus ?? new EventBus());
     if (!eventBus) return;
@@ -119,9 +118,10 @@ export class AffectorEngine extends EventDrivenReactor {
     else console.warn(`[Affector] ${message}`);
   }
 
-  setState(state: PlayerState): void {
+  setState(state: AffectorRuntimeState): void {
     this.state = state;
-    this.mutations.setState(state);
+    // 迁移兼容：旧宿主允许通过 setState 同步写入口；基础契约不再要求该能力。
+    (this.mutations as StateMutationPort & { setState?: (state: object) => void }).setState?.(state);
     if (this.effectEngine) this.effectEngine.setState(state);
   }
 
@@ -344,7 +344,7 @@ export class AffectorEngine extends EventDrivenReactor {
     for (const spot of this.registry.spots.values()) this.syncSpotFunctionalities(spot.id);
   }
 
-  private buildSpotFunctionalityPack(spotId: string, fn: SpotFunctionalityDef): AffectorPackDef {
+  private buildSpotFunctionalityPack(spotId: string, fn: SpotFunctionalityView): AffectorPackDef {
     return {
       id: `${fn.id}@${spotId}`,
       entries: [{
@@ -435,9 +435,15 @@ export class AffectorEngine extends EventDrivenReactor {
     // 区表/flows 重同步由 mount/unmount 过程中的 affector 事件驱动（GameNum 自行订阅）
   }
 
-  private spotFunctionalitiesOf(spotId: string): SpotFunctionalityDef[] {
+  private spotFunctionalitiesOf(spotId: string): SpotFunctionalityView[] {
     const spot = this.registry.spots.get(spotId);
     if (!spot || !this.state) return [];
     return this.functionalitySystem?.functionalitiesOf(spot, this.state) ?? spot.functionalities ?? [];
   }
+}
+
+export interface AffectorRegistryContext {
+  readonly items: ReadonlyMap<string, { affectorPackIds?: readonly AffectorPackRef[] }>;
+  readonly enhancements: ReadonlyMap<string, { affectorPackIds?: readonly AffectorPackRef[] }>;
+  readonly spots: ReadonlyMap<string, { id: string; functionalities?: SpotFunctionalityView[] }>;
 }

@@ -1,10 +1,11 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/character-persist.test.ts — Character 容器三层归属（PS 组）
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import type { Datapack, PlayerState } from '../../src/engine/types';
-import { Character, CharacterRarity, CharacterSchool } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
 function makeDatapack(persist: Datapack['characterPersistConfig']): Datapack {
   return {

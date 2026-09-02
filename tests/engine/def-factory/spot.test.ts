@@ -4,15 +4,14 @@
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import {
-  spot,
-  SpotBuilder,
   Expr,
-  Resource,
   and,
   cond,
   extra,
 } from '../../../src/engine/types';
-import type { SpotDef } from '../../../src/engine/types';
+import { spot, SpotBuilder } from '../../../src/arona-clicker/content/def-factory/spot';
+import { Resource } from '../../../src/arona-clicker/types/ids';
+import type { SpotDef } from '../../../src/data-services/contracts/world';
 
 const CREDIT = Resource.Credit;
 

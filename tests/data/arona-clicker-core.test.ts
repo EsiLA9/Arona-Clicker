@@ -7,8 +7,8 @@
 import { describe, test, expect, beforeAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadDatapackFromZipBuffer } from '../../src/data/zip-loader';
-import { Registry } from '../../src/engine/registry/registry';
+import { loadDatapackFromZipBuffer } from '../../src/data-services/datapack/zip-loader';
+import { Registry } from '../../src/data-services/registry/registry';
 
 const ZIP_PATH = fileURLToPath(
   new URL('../../datapack/arona-clicker-core.zip', import.meta.url),

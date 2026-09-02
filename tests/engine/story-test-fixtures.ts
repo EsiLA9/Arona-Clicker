@@ -1,10 +1,13 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/story-test-fixtures.ts — story 系列测试共享数据与工具
 // （非 .test.ts，不会被 vitest 收集）
 // ============================================================
-import type { GameInstance } from '../../src/engine/game-instance';
-import type { Datapack, StoryDef, StoryEntryDef, ActiveStoryEntry } from '../../src/engine/types';
-import { Resource, and } from '../../src/engine/types';
+import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { StoryDef } from '../../src/data-services/contracts/story';
+import type { StoryEntryDef, ActiveStoryEntry } from '../../src/data-services/contracts/story-entry';
+import { and } from '../../src/engine/types';
+import { Resource } from '../../src/arona-clicker/types/ids';
 
 /** 推进完当前展开的剧情（active 会锁定移动）。 */
 export function finishWelcome(g: GameInstance): void {

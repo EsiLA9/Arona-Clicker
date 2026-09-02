@@ -9,8 +9,9 @@ import { UIContext } from '../context';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderSendButton } from './center-panel';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
-import { CharacterVariantDef, type ConditionGroup, type Condition, type Effect } from '../../engine/types';
-import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
+import type { CharacterVariantDef } from '../../arona-clicker/types/character';
+import type { ConditionGroup, Condition, Effect } from '../../engine/types';
+import { renderAvatarSvg } from '../avatar-renderer';
 import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
 
 /** 未读消息计数接口：后续接入未读系统时由调用方提供。 */
@@ -171,7 +172,7 @@ export function renderConversationView(
   variantId: string,
   entries: ChatEntry[],
   chatTexts: ChatTextEntry[],
-  sendState: import('../../engine/types').SendState,
+  sendState: import('../../arona-clicker/contracts/results').SendState,
   sendGate: import('./app-shell').SendGatePhase | null = null,
   storyGate: import('./app-shell').StoryGateState | null = null,
   openingBanner: import('./app-shell').ActiveBanner | null = null,
@@ -313,7 +314,7 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
 function renderEquipmentCard(
   ctx: UIContext,
   equipmentId: string,
-  def: import('../../engine/types').ColorEquipmentDef,
+  def: import('../../data-services/contracts/color').ColorEquipmentDef,
 ): string {
   const group = ctx.game.colorEquipmentSystem.groupOf(equipmentId);
   const colors = ctx.game.colorEquipmentSystem.avatarColors(equipmentId);
@@ -330,7 +331,7 @@ function renderEquipmentCard(
 }
 
 /** 可装备列表项：头像 SVG + 名称。 */
-function renderEquipmentOption(ctx: UIContext, def: import('../../engine/types').ColorEquipmentDef): string {
+function renderEquipmentOption(ctx: UIContext, def: import('../../data-services/contracts/color').ColorEquipmentDef): string {
   const group = ctx.game.colorEquipmentSystem.groupOf(def.id);
   const colors = ctx.game.colorEquipmentSystem.avatarColors(def.id);
   const avatar = group ? renderAvatarSvg(group.compositionType, colors, 40) : '';
@@ -366,7 +367,7 @@ export function renderGachaBody(ctx: UIContext): string {
 /** Spot 招募弹窗体：Switch 切换「专有卡池 / 通用卡池」。 */
 export function renderSpotGachaBody(ctx: UIContext, spotId: string): string {
   const { game } = ctx;
-  const spot = game.registry.spots.get(spotId);
+  const spot = game.world.spots.get(spotId);
   if (!spot) return '<p class="empty">未找到该设施。</p>';
   const ownIds = spot.gachaPools ?? [];
   const ownPools = ownIds
@@ -389,7 +390,7 @@ export function renderSpotGachaBody(ctx: UIContext, spotId: string): string {
 }
 
 /** 渲染一组卡池卡片（含可及成员与抽取按钮）。 */
-function renderGachaPools(ctx: UIContext, pools: import('../../engine/types').GachaPoolDef[], scopeLabel: string): string {
+function renderGachaPools(ctx: UIContext, pools: import('../../data-services/contracts/gacha-pool').GachaPoolDef[], scopeLabel: string): string {
   const { game } = ctx;
   if (!pools.length) return `<p class="empty">「${scopeLabel}」当前没有可用卡池。</p>`;
   return pools.map(pool => {
@@ -397,7 +398,7 @@ function renderGachaPools(ctx: UIContext, pools: import('../../engine/types').Ga
     const drawable = game.availabilityService.drawableOf(pool, game.state);
     const counters = game.gachaService.countersOf(pool.id);
     const members = drawable.map(id => {
-      const v = game.registry.characterVariants.get(id);
+      const v = game.rosterSystem.getVariant(id);
       return v ? `<li>${ctx.escapeHtml(v.displayName)} <small>${RARITY_LABEL[v.rarity] ?? ''}</small></li>` : '';
     }).join('');
     const actions = closed

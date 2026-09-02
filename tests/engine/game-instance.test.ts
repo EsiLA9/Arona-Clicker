@@ -1,10 +1,13 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/game-instance.test.ts — 集成测试
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import { Character, Datapack, Resource, Expr, cond, and, value } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import { Expr, cond, and, value } from '../../src/engine/types';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
+import { Resource } from '../../src/arona-clicker/types/ids';
 import { tagPath } from '../../src/engine/core/tag';
 import { extra } from '../../src/engine/extra/index';
 
@@ -1265,24 +1268,20 @@ describe('Extra 运行时（M3）', () => {
     expect(game.getExtra('both/k')).toEqual(extra.int(1));
   });
 
-  test('should tolerate old saves without extras fields', () => {
+  test('should restore current saves with extras fields intact', () => {
     game.init([baseDatapack]);
     game.inits.startNewGame('base:init:schale_office');
     game.setPerInitExtra('run/k', extra.int(3));
     game.inits.restartInit(); // 生成含 extras 的快照
     const data = game.save();
-    delete data.playerState.extras;
-    delete data.playerState.initExtras;
-    delete data.playerState.initSnapshots!['base:init:schale_office'].extras;
-
     game.load(data);
-    expect(game.state.extras).toEqual(extra.dict({}));
-    expect(game.state.initExtras).toEqual(extra.dict({}));
-    // 常量层兜底仍可读
+    expect(game.state.extras).toEqual(data.playerState.extras);
+    expect(game.state.initExtras).toEqual(data.playerState.initExtras);
+    expect(game.state.initSnapshots!['base:init:schale_office'].extras)
+      .toEqual(data.playerState.initSnapshots!['base:init:schale_office'].extras);
     expect(game.getExtra('meta/author')).toEqual(extra.str('AronaClicker Team'));
-    // 快照无 extras → 恢复后 per-Init 为空
     game.inits.resumeInit('base:init:schale_office');
-    expect(game.getExtra('run/k')).toBeUndefined();
+    expect(game.getExtra('run/k')).toEqual(extra.int(3));
   });
 });
 

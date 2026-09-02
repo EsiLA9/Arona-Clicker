@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { EventBus } from '../../src/engine/core/event-bus';
-import { StateMutationService } from '../../src/engine/system/state-mutation-service';
-import { Character, PlayerState } from '../../src/engine/types';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
 function emptyState(): PlayerState {
   return {

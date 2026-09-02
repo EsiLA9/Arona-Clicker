@@ -1,11 +1,12 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/color-equipment-system.test.ts — 色彩装备系统
 // （收集/级联解锁色彩组/单装备槽/条件拒绝/效果聚合）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import type { Datapack } from '../../src/engine/types';
-import { Character, CharacterRarity, CharacterSchool } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { } from '../../src/engine/types';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
 function v(id: string, proto: Character) {
   return {

@@ -4,9 +4,11 @@
 import { describe, test, expect } from 'vitest';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { EffectEngine } from '../../src/engine/effect/effect-engine';
-import { StateMutationService } from '../../src/engine/system/state-mutation-service';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
 import { ValueSystem } from '../../src/engine/expression/value-system';
-import { PlayerState, Effect, Character, Expr, value } from '../../src/engine/types';
+import { Effect, Expr, value } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 import { extra } from '../../src/engine/extra/index';
 
 function emptyState(): PlayerState {
@@ -27,7 +29,7 @@ function emptyState(): PlayerState {
 describe('EffectEngine', () => {
   test('should add resource', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -37,7 +39,7 @@ describe('EffectEngine', () => {
 
   test('should set resource', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     state.resources.credit = 50;
     engine.setState(state);
@@ -48,7 +50,7 @@ describe('EffectEngine', () => {
 
   test('should set spot level', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -58,7 +60,7 @@ describe('EffectEngine', () => {
 
   test('should add spot level', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     state.spotLevels.spot_x = 1;
     engine.setState(state);
@@ -69,7 +71,7 @@ describe('EffectEngine', () => {
 
   test('should set manager', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -79,7 +81,7 @@ describe('EffectEngine', () => {
 
   test('should add enhancement (no dup)', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -90,7 +92,7 @@ describe('EffectEngine', () => {
 
   test('should add item to inventory', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -100,7 +102,7 @@ describe('EffectEngine', () => {
 
   test('should unlock init', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -110,7 +112,7 @@ describe('EffectEngine', () => {
 
   test('should set flag', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -118,9 +120,29 @@ describe('EffectEngine', () => {
     expect(state.flags.tutorial).toBe('done');
   });
 
+  test('should delegate runtime effects to the injected host handler', () => {
+    const bus = new EventBus();
+    const seen: Effect[] = [];
+    const engine = new EffectEngine(
+      new StateMutationService(bus),
+      undefined,
+      effect => {
+        seen.push(effect);
+        return effect.op === 'setTheme';
+      },
+    );
+    const state = emptyState();
+    engine.setState(state);
+
+    engine.applyEffects([{ op: 'setTheme', target: '', value: 'ephemeral-theme' }]);
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.op).toBe('setTheme');
+  });
+
   test('should apply multiple effects in order', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -135,7 +157,7 @@ describe('EffectEngine', () => {
 
   test('should set extra with ExtraValue (not resolved as ValueExpression)', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -147,7 +169,7 @@ describe('EffectEngine', () => {
 
   test('should set extra with primitive literal (auto-converted)', () => {
     const bus = new EventBus();
-    const engine = new EffectEngine(bus);
+    const engine = new EffectEngine(new StateMutationService(bus));
     const state = emptyState();
     engine.setState(state);
 
@@ -159,7 +181,7 @@ describe('EffectEngine', () => {
     const bus = new EventBus();
     // 带 valueSystem 的 EffectEngine：addExtra 增量按表达式求值
     const vs = new ValueSystem();
-    const engine = new EffectEngine(bus, undefined, vs);
+    const engine = new EffectEngine(new StateMutationService(bus), vs);
     const state = emptyState();
     state.resources.credit = 10;
     engine.setState(state);

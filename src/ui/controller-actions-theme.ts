@@ -13,7 +13,7 @@ export function bindThemeActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-activate-group]').forEach(button => {
     button.addEventListener('click', () => {
       const groupId = button.dataset.activateGroup || null;
-      if (!ctrl.game.mutations.activateTheme(groupId)) {
+      if (!ctrl.commands.activateTheme(groupId)) {
         ctrl.toast.show('该色彩组尚未解锁', 'error');
         return;
       }
@@ -58,7 +58,7 @@ export function bindThemeActions(ctrl: UIController): void {
       const at = dispNext.indexOf(target.dataset.themeLayerOrderScope as ThemeOrderScope);
       if (at < 0) return;
       dispNext.splice(after ? at + 1 : at, 0, dragged as ThemeOrderScope);
-      ctrl.game.mutations.setThemeLayerOrder([...dispNext].reverse());
+      ctrl.commands.setThemeLayerOrder([...dispNext].reverse());
       ctrl.render();
     });
     layerRows.addEventListener('dragend', () => {
@@ -74,7 +74,7 @@ export function bindThemeActions(ctrl: UIController): void {
       if (!raw) return;
       try {
         const { entityKey, slot } = JSON.parse(raw);
-        ctrl.game.mutations.setEntityThemeSlot(entityKey, slot);
+        ctrl.commands.setEntityThemeSlot(entityKey, slot);
         ctrl.render();
       } catch {
         ctrl.toast.show('无效的主题选择', 'error');

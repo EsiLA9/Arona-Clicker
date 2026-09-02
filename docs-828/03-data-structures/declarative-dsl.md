@@ -180,7 +180,7 @@ ConditionTarget（15 种）—— key 与 actual 语义：
 
 ## 附：运行时操作返回码（非声明式）
 
-`types/results.ts` 里的判别联合（供门面/服务返回值消费，数据作者不直接书写）：
+`src/arona-clicker/contracts/results.ts` 里的判别联合（供门面/服务返回值消费，数据作者不直接书写）：
 - `UseItemResult.error`：`NotFound` / `NotOwned` / `NotUsable` / `ConditionNotMet`；
 - `TravelError`：`NotFound` / `NotInThisInit` / `NotAdjacent` / `AlreadyThere` / `Locked` / `StoryBlocked`；
 - `EnhancementPurchaseError`：`NotFound` / `NotVisible` / `ConditionNotMet` / `InsufficientResource` / `AlreadyOwned`；

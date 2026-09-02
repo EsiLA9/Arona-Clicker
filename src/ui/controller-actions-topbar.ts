@@ -4,14 +4,15 @@
 //   帮助 / 彻底重置 / 日志 / Tab 切换（存读档见 controller-save）
 // ============================================================
 
-import { SaveSystem } from '../save/storage';
+import { SaveSystem } from '../data-services/persistence/storage';
 import { openCollectionModal } from './components/collection-modal';
+import { openPackManager } from './controller-modals';
 import type { UIController } from './controller';
 
 /** 绑定顶栏 / 全局工具条与 Tab 切换（render 后调用）。 */
 export function bindTopBarActions(ctrl: UIController): void {
   ctrl.root.querySelector('#tick-now')?.addEventListener('click', () => {
-    ctrl.game.tick();
+    ctrl.commands.tick();
     ctrl.render();
   });
   ctrl.root.querySelector('#collection-modal')?.addEventListener('click', () => {
@@ -20,6 +21,7 @@ export function bindTopBarActions(ctrl: UIController): void {
   ctrl.root.querySelector('#import-datapack')?.addEventListener('click', () => {
     ctrl.io.importDatapack();
   });
+  ctrl.root.querySelector('#pack-manager')?.addEventListener('click', () => openPackManager(ctrl));
   ctrl.root.querySelector('#theme-palette-btn')?.addEventListener('click', (e) => {
     const float = (e.currentTarget as HTMLElement)
       .closest('.theme-palette')
@@ -77,7 +79,7 @@ export function bindTopBarActions(ctrl: UIController): void {
   ctrl.root.querySelector('#new-game')?.addEventListener('click', () => {
     // 彻底重启：清空全部运行时状态（含 Global 资源 / 已解锁世界线 / 统计），
     // 并删除本地存档，回到首次启动的全新世界线选择。
-    ctrl.game.reset();
+    ctrl.commands.reset();
     SaveSystem.delete();
     ctrl.started = false;
     ctrl.pendingRestart = false;
@@ -86,7 +88,7 @@ export function bindTopBarActions(ctrl: UIController): void {
     ctrl.renderInitSelect();
   });
   ctrl.root.querySelector('#clear-log')?.addEventListener('click', () => {
-    ctrl.game.clearDevLogs();
+    ctrl.commands.clearDevLogs();
     ctrl.render();
   });
   ctrl.root.querySelector('#export-log')?.addEventListener('click', () => {

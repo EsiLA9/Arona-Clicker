@@ -10,7 +10,7 @@
 
 | 挂钩 | 位置 | 说明 |
 | --- | --- | --- |
-| Spot 功能项 kind 注册 | `system/spot-functionality.ts` | 现有 `linearYield` / `restartInit` / `hardResetInit` / `gacha` 四种；`shop` 为新增 kind |
+| Spot 功能项 kind 注册 | `src/arona-clicker/services/spot-functionality.ts` | 现有 `linearYield` / `restartInit` / `hardResetInit` / `gacha` 四种；`shop` 为新增 kind |
 | RevealStage 揭示阶梯 | `src/engine/types/reveal.ts` | 7 级中已含 `purchaseable` 级，商店发现限制可直接复用该语义 |
 | 物品发放先例 | `game/item-service.ts`（pickupEffects / giveItem）、`system/loot-system.ts`（`loot` effect） | 购买发货可复用既有链路 |
 | 扣费购买先例 | `game/init-service.ts`（purchaseInit）、Spot 升级购买 | 门面只读判定 + mutations 写入的门槛链模式 |

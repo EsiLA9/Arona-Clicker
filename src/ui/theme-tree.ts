@@ -3,12 +3,12 @@ import {
   hexToRgbTriplet,
   resolveTheme,
   themeContributionFromThemeDef,
-} from '../engine/system/color-system';
+} from '../arona-clicker/services/color-system';
 import type {
-  ColorGroupDef,
   ColorGroupId,
   ThemeDef,
 } from '../engine/types';
+import type { ColorGroupDef } from '../data-services/contracts/color';
 
 /** 背景明暗 → 其上文本色：底暗用白，底亮用黑（确定性）。 */
 const ON_DARK = '#ffffff';

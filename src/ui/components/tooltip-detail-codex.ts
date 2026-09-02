@@ -3,7 +3,8 @@
 // 从 tooltip.ts 拆出：renderPoolDetail / renderPassiveEntryDetail / summarizeEffects
 // ============================================================
 
-import { PassiveStoryEntry, PassivePoolDef } from '../../engine/types';
+import type { PassiveStoryEntry } from '../../data-services/contracts/story-entry';
+import type { PassivePoolDef } from '../../data-services/contracts/passive-pool';
 import { UIContext } from '../context';
 import { describeCondition } from './tooltip-enhancement';
 

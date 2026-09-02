@@ -30,11 +30,11 @@ import { existenceCondition, unlockCondition } from '../../engine/visibility/rev
 
 export function renderProductionNodes(ctx: UIContext): string {
   const { game, view } = ctx;
-  const registry = game.registry;
+  const world = game.world;
   // 只展示当前 Area 下的 Spot；移动 Area 后设施列表随之切换。
   const currentAreaId = view.currentAreaId;
-  const areaSpotIds = currentAreaId ? new Set(game.registry.spotsOfArea(currentAreaId)) : new Set<string>();
-  const spotCards = [...game.registry.spots.values()]
+  const areaSpotIds = currentAreaId ? new Set(world.spotsOfArea(currentAreaId)) : new Set<string>();
+  const spotCards = [...world.spots.values()]
     .filter(spot => areaSpotIds.has(spot.id))
     .map(spot => {
       const reveal = getSpotReveal(ctx, spot);
@@ -51,9 +51,9 @@ export function renderProductionNodes(ctx: UIContext): string {
         ? `产出 ${ctx.formatNumber(finalYield)} / tick`
         : '产出 ???';
       const title = reveal.nameKnown ? spot.name : '???';
-      const effectiveTags = game.registry.effectiveSpotTags(spot.id, game.state.spotTagOverrides);
+      const effectiveTags = world.effectiveSpotTags(spot.id, game.state.spotTagOverrides);
       const tags = reveal.utilityKnown
-        ? (effectiveTags.map(tag => registry.tagName(tag)).join(' / ') || 'SPOT')
+        ? (effectiveTags.map(tag => world.tagName(tag)).join(' / ') || 'SPOT')
         : '未解锁设施';
       const desc = reveal.utilityKnown
         ? `<p>${ctx.escapeHtml(spot.description)}</p>`

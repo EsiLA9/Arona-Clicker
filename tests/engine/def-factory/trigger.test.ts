@@ -7,8 +7,8 @@ import {
   TriggerBuilder,
   and,
   cond,
-  Resource,
 } from '../../../src/engine/types';
+import { Resource } from '../../../src/arona-clicker/types/ids';
 import type { TriggerDef } from '../../../src/engine/types';
 
 const CREDIT = Resource.Credit;

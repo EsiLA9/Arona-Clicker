@@ -17,7 +17,8 @@
 // 已完成后不再触发。迭代采用快照，允许 effects 执行期间动态挂载/移除。
 // ============================================================
 
-import { PlayerState, TriggerDef, GameEvent, TriggerEventDef, TriggerEventKind } from '../types';
+import { TriggerDef, GameEvent, TriggerEventDef, TriggerEventKind } from '../types';
+import type { TriggerState } from '../contracts/state-query';
 import { EventBus } from '../core/event-bus';
 import { ConditionSystem } from '../expression/condition-system';
 import { EffectEngine } from './effect-engine';
@@ -54,7 +55,7 @@ export class TriggerSystem extends EventDrivenReactor {
   private readonly byType = new Map<GameEvent['type'], Set<string>>();
   /** id → 其桶对应的事件类型，便于卸载时精确移除。 */
   private readonly bucketType = new Map<string, GameEvent['type']>();
-  private state: PlayerState | null = null;
+  private state: TriggerState | null = null;
   private readonly completed = new Set<string>();
 
   constructor(
@@ -68,7 +69,7 @@ export class TriggerSystem extends EventDrivenReactor {
     this.subscribeTo(Object.values(ON_KIND_TO_EVENT));
   }
 
-  setState(state: PlayerState): void {
+  setState(state: TriggerState): void {
     this.state = state;
     this.completed.clear();
     for (const id of state.triggersCompleted ?? []) this.completed.add(id);

@@ -1,30 +1,32 @@
 # 02-modules/world — 世界结构门面（Init / Area / Spot / 会话 / 存档）
 
-> 一句话：`src/engine/game/` 门面层编排世界线生命周期、Spot/物品/强化操作、会话循环与存档编解码；装配逻辑在 `wiring.ts`（T1 外移）。
+> 一句话：`src/arona-clicker/` Runtime 与领域服务编排世界线生命周期、Spot/物品/强化操作、会话循环与存档；基础引擎只提供机制与状态写入管道。
 
 ## 职责边界
 
 - **管**：世界线进出/快照、区域移动、Spot 升级/购买/功能项、物品/强化操作、会话循环、存档与重置。
 - **不管**：剧情演出（[[docs-828/02-modules/story]]）、数值结算（GameNum）。
 
-## 关键文件（`src/engine/game/`，按域分组）
+基础引擎的通用部分位于 `src/engine/`；PlayerState、Init 快照与产品视图不再归入引擎目录。
+
+## 关键文件（`src/arona-clicker/`，按域分组）
 
 ### 装配与状态
 
 | 文件 | 职责 |
 | --- | --- |
-| `wiring.ts` | `wireGameInstance(g, hooks, options)`：全部子系统装配 + 事件接线（构造器只剩 new + wire，T1） |
-| `state-factory.ts` | `createDefaultState()`（per-Init 部分引 SPECS） |
-| `per-init-fields.ts` | `PER_INIT_FIELD_SPECS`：per-Init 字段单一事实源 + 编译期键守卫（T3） |
-| `view-builder.ts` | `getView` / `createUIContext` 视图组装 |
+| `runtime-wiring.ts` | `wireGameInstance(g, hooks, options)`：产品 Runtime 装配与事件接线 |
+| `state/state-factory.ts` | `createDefaultState()` |
+| `state/per-init-fields.ts` | `PER_INIT_FIELD_SPECS`：per-Init 字段单一事实源 + 编译期键守卫（T3） |
+| `read-model/game-view-builder.ts` | `getView` / `createUIContext` 视图组装 |
 
 ### 世界线生命周期
 
 | 文件 | 职责 |
 | --- | --- |
-| `init-service.ts` | Init 进入/退出/快照保存恢复、`travelToArea` 可达性、`purchaseInit` |
-| `init-mount.ts` | `mountInitTriggers`：世界线专属 Trigger 挂载 |
-| `init-savepoint.ts` / `snapshot.ts` | Init 断点 save/clear/restore（遍历 SPECS）/ Spot 条目切分辅助 |
+| `services/init-service.ts` | Init 进入/退出/快照保存恢复、`travelToArea` 可达性、`purchaseInit` |
+| `services/init-mount.ts` | `mountInitTriggers`：世界线专属 Trigger 挂载 |
+| `state/init-savepoint.ts` / `state/snapshot.ts` | Init 断点 save/clear/restore（遍历 SPECS）/ Spot 条目切分辅助 |
 
 ### 操作门面
 
@@ -46,7 +48,7 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `system/spot-functionality.ts` | Spot 功能项（`linearYield` / `restartInit` / `hardResetInit` / `gacha`）注册与查询 |
+| `services/spot-functionality.ts` | Spot 功能项（`linearYield` / `restartInit` / `hardResetInit` / `gacha`）注册与查询 |
 | `system/loot-system.ts` | 掉落池结算（`loot` effect → giveItem） |
 
 ## 核心概念

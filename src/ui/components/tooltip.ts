@@ -40,7 +40,7 @@ export function getTooltipContent(ctx: UIContext, key: string): string {
   const id = key.slice(sep + 1);
   switch (kind) {
     case 'spot': {
-      const spot = ctx.game.registry.spots.get(id);
+      const spot = ctx.world.spots.get(id);
       if (!spot) return '';
       const level = ctx.view.spotLevels[id] ?? 0;
       return renderSpotDetail(ctx, spot, level);
@@ -50,11 +50,11 @@ export function getTooltipContent(ctx: UIContext, key: string): string {
       return enh ? renderEnhancementDetail(ctx, enh) : '';
     }
     case 'area': {
-      const area = ctx.game.registry.areas.get(id);
+      const area = ctx.world.areas.get(id);
       return area ? renderAreaDetail(ctx, area) : '';
     }
     case 'init': {
-      const init = ctx.game.registry.inits.get(id);
+      const init = ctx.world.inits.get(id);
       return init ? renderInitDetail(ctx, init) : '';
     }
     case 'item': {

@@ -9,9 +9,11 @@
 //   5. 重阅读走完链后可再次通过守卫（阅读记录已累积）
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import { Resource, StoryEntryDef, cond, and } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import { cond, and } from '../../src/engine/types';
+import type { StoryEntryDef } from '../../src/data-services/contracts/story-entry';
+import { Resource } from '../../src/arona-clicker/types/ids';
 import {
   finishWelcome,
   finishStory,

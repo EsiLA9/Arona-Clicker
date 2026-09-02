@@ -5,7 +5,8 @@
 // 聚焦正左方、详情在右。由顶栏翻面按钮在两面间切换。
 // ============================================================
 
-import { RevealStage, ResourceAmount } from '../../engine/types';
+import type { RevealStage } from '../../engine/contracts/reveal';
+import type { ResourceAmount } from '../../data-services/contracts/common';
 import { UIContext } from '../context';
 import { getEnhancementReveal } from './tooltip';
 import { enhMultiplierLabel } from './enhancements';

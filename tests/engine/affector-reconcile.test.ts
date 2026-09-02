@@ -1,3 +1,4 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/affector-reconcile.test.ts — Phase 4 Affector 正确性
 //
@@ -11,12 +12,16 @@ import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { AffectorEngine } from '../../src/engine/effect/affector-engine';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { EventBus } from '../../src/engine/core/event-bus';
-import { Registry } from '../../src/engine/registry/registry';
-import { StateMutationService } from '../../src/engine/system/state-mutation-service';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import { spot, area, init } from '../../src/engine/types';
-import type { PlayerState, AffectorPackDef, Datapack, EnhancementDef } from '../../src/engine/types';
+import { Registry } from '../../src/data-services/registry/registry';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import { spot } from '../../src/arona-clicker/content/def-factory/spot';
+import { area } from '../../src/arona-clicker/content/def-factory/area';
+import { init } from '../../src/arona-clicker/content/def-factory/init';
+import type { AffectorPackDef } from '../../src/engine/types';
+import type { EnhancementDef } from '../../src/data-services/contracts/enhancement';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { ZoneModifierDecl } from '../../src/engine/expression/tag-effect';
 
 const CREDIT = 'base:resource:credit';

@@ -1,5 +1,5 @@
-import { entityKeyOf, type EntityThemeOption } from '../../engine/system/color-system';
-import type { EntityThemeSlot } from '../../engine/types/character';
+import { entityKeyOf, type EntityThemeOption } from '../../arona-clicker/services/color-system';
+import type { EntityThemeSlot } from '../../engine/types/theme';
 import type { UIContext } from '../context';
 
 export { entityKeyOf };

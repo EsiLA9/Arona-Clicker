@@ -3,7 +3,7 @@
 // 从 tooltip.ts 拆出：renderEnhancementDetail
 // ============================================================
 
-import { EnhancementDef } from '../../engine/types';
+import type { EnhancementDef } from '../../data-services/contracts/enhancement';
 import { unlockCondition } from '../../engine/visibility/reveal';
 import { describeAffectorPack } from '../../engine/effect/affector-text';
 import { UIContext } from '../context';
@@ -40,7 +40,7 @@ export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): st
     ? `<div class="info-row"><span>作用范围</span><span>${mulMods
         .map(z =>
           z.target.kind === 'tag'
-            ? `${ctx.game.registry.tagName(z.target.tag)} 类 Spot`
+            ? `${ctx.world.tagName(z.target.tag)} 类 Spot`
             : z.target.ref.id === '*'
             ? '全局'
             : ctx.nameOf(z.target.ref.kind, z.target.ref.id),

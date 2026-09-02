@@ -9,9 +9,9 @@ import {
   narrate,
   click,
   talklet,
-  Resource,
-} from '../../../src/engine/types';
-import type { StoryDef } from '../../../src/engine/types';
+} from '../../../src/arona-clicker/content/def-factory';
+import { Resource } from '../../../src/arona-clicker/types/ids';
+import type { StoryDef } from '../../../src/data-services/contracts/story';
 
 const CREDIT = Resource.Credit;
 

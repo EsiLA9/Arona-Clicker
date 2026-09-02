@@ -1,7 +1,7 @@
 /**
  * datapack.schema.ts —— 13 张表 Schema（由协议拼合）
  *
- * 结构 + 简单含义来自 src/engine/types/**（scripts/gen-engine-schema.mjs →
+ * 结构 + 简单含义来自 src/engine/types/** 与 src/engine/contracts/**（scripts/gen-engine-schema.mjs →
  * engine-defs.gen.json）；复杂/编辑语义来自 editor-extras.ts；merge.ts 拼合为最终 TableSchema。
  *
  * 修改约定：改引擎类型后必须 `npm run gen:schema`；engine-schema.sync.test.ts 兜底防漂移。

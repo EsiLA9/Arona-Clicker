@@ -2,8 +2,9 @@
 // engine/def-factory/talklet.test.ts — Talklet 链式 Builder
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { talklet, TalkletBuilder, Resource } from '../../../src/engine/types';
-import type { Talklet } from '../../../src/engine/types';
+import { talklet, TalkletBuilder } from '../../../src/arona-clicker/content/def-factory';
+import { Resource } from '../../../src/arona-clicker/types/ids';
+import type { Talklet } from '../../../src/data-services/contracts/story';
 
 const CREDIT = Resource.Credit;
 

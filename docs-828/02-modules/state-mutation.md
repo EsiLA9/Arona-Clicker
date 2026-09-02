@@ -7,12 +7,12 @@
 - **管**：`PlayerState` 全部写方法（30+）、`effect-ops` 的 op 分发、三层访问器（当前层/快照层回退）、每帧产出入账。
 - **不管**：业务校验（门面层 canXxx 只读判定）、联动逻辑（订阅方自己做）。
 
-## 关键文件（`src/engine/system/`）
+## 关键文件
 
 | 文件 | 职责 |
 | --- | --- |
-| `state-mutation-service.ts` | **单一写入口**：资源/Spot/Manager/物品/强化/世界线/标记/Extra/角色/色彩/剧情/学生阻断等全部写方法；每个方法内「改值 → 记统计 → 发事件」；`protoStats` 按原型记账；`spotTagOverrides` 写入（`applySpotTagChange`，T6） |
-| `effect-ops.ts` | `applyEffects` / `applyEffect`：按 `EffectOp` 分发到写方法或上层系统（自 state-mutation-service 拆出） |
+| `src/arona-clicker/state/state-mutation-service.ts` | **产品 Runtime 的单一写入口实现**：资源/Spot/Manager/物品/强化/世界线/标记/Extra/角色/色彩/剧情/学生阻断等全部写方法；每个方法内「改值 → 记统计 → 发事件」 |
+| `src/engine/system/effect-ops.ts` | `applyEffects` / `applyEffect`：按 `EffectOp` 分发到 `EffectMutationPort`，基础引擎只定义机制，不持有产品写入实现 |
 | `tick-system.ts` | 每 Tick 编排：逐 Resource 调 `gameNumSystem.evaluateResourceGain` → `changeResource` 入账 → 发 `spotProduced`（resource 粒度）+ `tick` 事件 |
 
 ## 核心概念

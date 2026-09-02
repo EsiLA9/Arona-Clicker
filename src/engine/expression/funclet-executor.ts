@@ -2,7 +2,8 @@
 // engine/funclet-executor.ts — Funclet 执行器
 // ============================================================
 
-import { FuncletDef, FuncletCall, PlayerState, ValueExpression } from '../types';
+import { FuncletDef, FuncletCall } from '../types';
+import type { ValueState } from '../contracts/state-query';
 import { ValueSystem } from './value-system';
 
 export class FuncletExecutor {
@@ -22,11 +23,11 @@ export class FuncletExecutor {
   /**
    * 执行一次 Funclet 调用并返回结果数值
    */
-  execute(call: FuncletCall, state: PlayerState): number {
+  execute(call: FuncletCall, state: ValueState): number {
     const def = this.defs.get(call.funcletId);
     if (!def) return 0;
 
-    const augmentedState: PlayerState = {
+    const augmentedState: ValueState = {
       ...state,
       flags: { ...state.flags },
     };

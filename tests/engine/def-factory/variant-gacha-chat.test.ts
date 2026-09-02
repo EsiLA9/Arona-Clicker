@@ -4,18 +4,14 @@
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import {
-  variant,
-  CharacterVariantBuilder,
-  gachaPool,
-  GachaPoolBuilder,
   cond,
-  Character,
-  CharacterRarity,
-  CharacterSchool,
-  GachaMode,
-  Resource,
 } from '../../../src/engine/types';
-import type { CharacterVariantDef, GachaPoolDef } from '../../../src/engine/types';
+import { variant, CharacterVariantBuilder, gachaPool, GachaPoolBuilder } from '../../../src/arona-clicker/content/def-factory';
+import { GachaMode } from '../../../src/data-services/contracts/gacha-pool';
+import { Resource } from '../../../src/arona-clicker/types/ids';
+import type { GachaPoolDef } from '../../../src/data-services/contracts/gacha-pool';
+import type { CharacterVariantDef } from '../../../src/arona-clicker/types/character';
+import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
 
 describe('CharacterVariantBuilder', () => {
   test('variant() 返回 CharacterVariantBuilder 实例', () => {

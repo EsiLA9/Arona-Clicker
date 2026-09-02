@@ -3,8 +3,8 @@
 // 与右侧强化面板的 global 过滤
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../../src/engine/game-instance';
-import { baseDatapack } from '../../../src/data/index';
+import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../../src/data/test-datapack';
 import { createUIContext } from '../../../src/ui/context';
 import { renderSelectorPage } from '../../../src/ui/components/selector-page';
 import { renderEnhancements } from '../../../src/ui/components/enhancements';

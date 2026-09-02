@@ -2,8 +2,8 @@
 // engine/entity-reveal.test.ts — 探索机制：Init / Area / Story 揭示
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { createUIContext } from '../../src/ui/context';
 import { getInitReveal, getAreaReveal, getStoryReveal } from '../../src/ui/components/tooltip';
 

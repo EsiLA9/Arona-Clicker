@@ -7,7 +7,7 @@
 - **管**：剧情启动/推进/选择/跳转链/重读守卫/完结奖励、聊天流演出事件、被动闲聊抽选、好感台阶/羁绊尾巴的就绪队列推送（见 [[docs-828/06-adr/planning]]）。
 - **不管**：色彩演出层推送（由 ColorSystem 响应）。
 
-## 关键文件（`src/engine/game/`）
+## 关键文件（`src/arona-clicker/services/`）
 
 | 文件 | 职责 |
 | --- | --- |
@@ -19,8 +19,7 @@
 | `story-cursor-state.ts` | 剧情游标 / 聊天沙盒游标状态结构 |
 | `story-context.ts` | 剧情上下文（当前 entry/talklet/跳转链视图） |
 | `chat-flow-service.ts` | `ChatFlowService`：聊天流演出事件出口（`chatTextShown` / `chatFlowCleared` 族，Talklet 专用，UI 订阅后操作聊天流） |
-| `passive-picker.ts` | 被动闲聊挑选（资格过滤 + 权重抽取，纯函数） |
-| `page-interaction.ts` | 交互页判定（click 页 / 回应回显 / 点击工作量） |
+| `story-interaction.ts` | 被动闲聊挑选与交互页判定（纯函数） |
 | `debug-labels.ts` | reveal/condition 调试标签 |
 
 ### 相关（`src/engine/system/`）
@@ -35,7 +34,7 @@
 - **Talklet 三类**：`talk`（对话气泡）/ `narration`（旁白）/ `click`（纯交互页）；`jumpMode`：goto / insert。
 - **阅读记录双轨**：`storyLog`（跨 run 累计，按 StoryDef.id）与 `storyReadLogs`（per-Init 快照，T3 修复后随快照保存）。
 - **聊天沙盒**：每个角色差分一个对话空间（`owner` 意义引用），`storyCompleted` 按沙盒 owner 匹配。
-- `StoryError` 14 种返回码见 `types/results.ts`。
+- `StoryError` 14 种返回码见 `src/arona-clicker/contracts/results.ts`。
 
 ## 测试入口
 

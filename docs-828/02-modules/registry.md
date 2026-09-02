@@ -13,7 +13,7 @@
 | --- | --- |
 | `registry/registry.ts` | `Registry`：25+ 张 `Map<id, Def>` 表；**表驱动** `tableSteps` 清单统一 merge / clear（T6）；关系索引 `spotsOfArea` / `areasOfInit` / `tagsOf` / `tagIndex` / `nameOf`；`effectiveSpotTags(spotId, overrides)` / `spotsWithTag` 有效 tag 查询；`validateCharacterRefs` 跨表校验 |
 | `registry/registry-validate.ts` | 加载期引用校验（世界结构、剧情、曲线、色彩、卡池成员等；覆盖面清单见 [[docs-828/03-data-structures/id-reference-semantics]]） |
-| `def-factory/` | 26 个实体的 builder（init/spot/area/enhancement/item/story/story-entry/talklet/character/variant/gacha-pool/cultivate-curve/color-group/color-equipment/chat-message/passive-pool/affector-pack/trigger/drop-table/expr/condition/extra/reveal/resource/chara-profile），经 `def-factory/index.ts` 聚合导出；供测试与 `src/data/base/` 构造数据 |
+| `def-factory/` | 基础机制与通用数据 builder（init/spot/area/enhancement/item/story/story-entry/talklet/gacha-pool/cultivate-curve/color-group/color-equipment/chat-message/passive-pool/affector-pack/trigger/drop-table/expr/condition/extra/reveal/resource/chara-profile），经 `def-factory/index.ts` 聚合导出；角色/角色变体 builder 已归入 `src/arona-clicker/content/def-factory/` |
 
 ## 核心概念
 

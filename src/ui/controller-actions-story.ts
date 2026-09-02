@@ -4,7 +4,7 @@
 //   archive / 被动闲聊 / send / story-choice / kizuna
 // ============================================================
 
-import type { SendResult, StoryAdvanceResult, StoryStartResult } from '../engine/types';
+import type { SendResult, StoryAdvanceResult, StoryStartResult } from '../arona-clicker/contracts/results';
 import { storyErrorText } from './components/story';
 import type { UIController } from './controller';
 
@@ -79,9 +79,9 @@ export function bindStoryActions(ctrl: UIController): void {
       ctrl.panelState.storyGate = null;
       const owner = gate.owner ?? undefined;
       let result: StoryStartResult;
-      if (gate.mode === 'card') result = ctrl.game.story.startCardStory(gate.storyId, owner);
-      else if (gate.mode === 'replay') result = ctrl.game.story.replayStory(gate.storyId, owner);
-      else result = ctrl.game.story.startActiveStory(gate.storyId, owner);
+      if (gate.mode === 'card') result = ctrl.commands.startCardStory(gate.storyId, owner);
+      else if (gate.mode === 'replay') result = ctrl.commands.replayStory(gate.storyId, owner);
+      else result = ctrl.commands.startActiveStory(gate.storyId, owner);
       logStoryFailure(ctrl, result);
       ctrl.render();
     });
@@ -124,7 +124,7 @@ export function bindStoryActions(ctrl: UIController): void {
     if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
     // 壁垒：对话空间只抽归该学生的闲聊；一般聊天抽全局闲聊（owner = undefined）
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
-    const result = ctrl.game.story.triggerPassiveStory(ctrl.game.getView().activeInit, owner);
+    const result = ctrl.commands.triggerPassiveStory(ctrl.game.getView().activeInit, owner);
     logStoryFailure(ctrl, result);
     ctrl.render();
   });
@@ -143,7 +143,7 @@ export function bindStoryActions(ctrl: UIController): void {
     }
     // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
-    const result = ctrl.game.story.clickSend(owner);
+    const result = ctrl.commands.clickSend(owner);
     if (result.type === 'completed') {
       // 回显决策由引擎给出（非 click 页 + 有 sendText + 未 muteReply）：
       // 满足时才以"老师"身份发出右侧气泡；click / 静默发送不产生玩家回复气泡
@@ -165,7 +165,7 @@ export function bindStoryActions(ctrl: UIController): void {
       if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
       // 聊天沙盒：对话空间的选项推进作用于该角色自己的游标；一般聊天推进全局游标
       const owner = ctrl.panelState.conversationVariantId ?? undefined;
-      const result = ctrl.game.story.advanceStory(Number(button.dataset.storyChoice), owner);
+      const result = ctrl.commands.advanceStory(Number(button.dataset.storyChoice), owner);
       logStoryFailure(ctrl, result);
       ctrl.render();
     });

@@ -1,11 +1,13 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/character-freeze.test.ts — M7 冻结回归验收（F 组收口）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import type { Datapack } from '../../src/engine/types';
-import { Character } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import type { } from '../../src/engine/types';
+import { } from '../../src/engine/types';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
 describe('F-02：characterBonuses 废弃', () => {
   test('携带旧表时 devLog 警告且不生效', () => {
@@ -79,8 +81,11 @@ describe('base 数据包 Character 重构内容冒烟', () => {
     expect(game.mutations.addExp(variantId, 500).ok).toBe(true);
 
     // 夏莱蓝条件（Arona 获得）可能未触发；用无条件路径验证主题链路
-    const owned = [...game.registry.colorGroups.values()].find(g =>
-      !g.unlock || game.colorSystem.tryUnlockGroup(g.id) === 'unlocked');
+    const owned = [...game.registry.colorGroups.values()].find(g => {
+      if (!g.unlock) return false;
+      const result = game.colorSystem.tryUnlockGroup(g.id);
+      return result === 'unlocked' || result === 'already';
+    });
     if (owned) {
       expect(game.mutations.activateTheme(owned.id)).toBe(true);
       expect(game.colorSystem.activeThemeTokens(game.state)?.['primary'])

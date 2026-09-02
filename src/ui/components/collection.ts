@@ -7,9 +7,10 @@
 // 条目行复用 hover-wrap + data-tooltip 机制悬停查看详情。
 // ============================================================
 
-import type { PassivePoolDef, PassiveStoryEntry } from '../../engine/types';
+import type { PassiveStoryEntry } from '../../data-services/contracts/story-entry';
+import type { PassivePoolDef } from '../../data-services/contracts/passive-pool';
 import type { UIContext } from '../context';
-import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
+import { renderAvatarSvg } from '../avatar-renderer';
 
 // --- 色彩收集图鉴 ---
 
@@ -36,7 +37,7 @@ function palettePreview(desc: { tokens: { key: string; value: string }[] }): str
   return `<div class="codex-palette">${chips}</div>`;
 }
 
-function groupCard(ctx: UIContext, def: import('../../engine/types').ColorGroupDef): string {
+function groupCard(ctx: UIContext, def: import('../../data-services/contracts/color').ColorGroupDef): string {
   const esc = ctx.escapeHtml;
   const owned = ctx.game.colorSystem.isGroupOwned(ctx.game.state, def.id);
   const active = ctx.game.state.activeGroupId === def.id;

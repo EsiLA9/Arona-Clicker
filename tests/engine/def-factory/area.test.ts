@@ -2,8 +2,10 @@
 // engine/def-factory/area.test.ts — Area 链式 Builder
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { area, AreaBuilder, Resource, cond, and } from '../../../src/engine/types';
-import type { AreaDef } from '../../../src/engine/types';
+import { cond, and } from '../../../src/engine/types';
+import { area, AreaBuilder } from '../../../src/arona-clicker/content/def-factory/area';
+import { Resource } from '../../../src/arona-clicker/types/ids';
+import type { AreaDef } from '../../../src/data-services/contracts/world';
 
 const CREDIT = Resource.Credit;
 

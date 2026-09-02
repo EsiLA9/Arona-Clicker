@@ -1,14 +1,15 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/character-profile.test.ts — Chara 头像-人名对（charaProfile）
 // 覆盖：声明层 / 玩家覆写层 / 调用点覆写层 / 表查询 / 校验
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import { Character } from '../../src/engine/types/ids';
-import { Registry } from '../../src/engine/registry/registry';
-import { RegistryError } from '../../src/engine/registry/registry-validate';
-import type { Datapack } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import { Character } from '../../src/arona-clicker/types/ids';
+import { Registry } from '../../src/data-services/registry/registry';
+import { RegistryError } from '../../src/data-services/registry/registry-validate';
+import type { } from '../../src/engine/types';
 
 describe('characterProfile（chara 声明层）', () => {
   let game: GameInstance;

@@ -15,12 +15,12 @@
 // 纯求值见 ./game-num-eval.ts。
 // ============================================================
 
-import { PlayerState, ValueExpression } from '../types';
+import type { ValueExpression } from '../types';
+import type { GameNumState } from '../contracts/state-query';
 import type { EventBus } from '../core/event-bus';
-import { Registry } from '../registry/registry';
+import type { GameNumRegistryContext } from '../contracts/evaluation-context';
+import type { GameNumAffectorContext } from '../contracts/evaluation-context';
 import { ValueSystem } from './value-system';
-import { CharacterSystem } from '../system/character-system';
-import { AffectorEngine } from '../effect/affector-engine';
 import type { GameNum, GameNumEvalDeps, BreakdownResult } from './game-num-eval';
 import { evaluateGameNum, evaluateGameNumBreakdown } from './game-num-eval';
 import { TagEffectRecord, EntityRef, ZoneModifierDecl } from './tag-effect';
@@ -43,18 +43,16 @@ export type { GameNum } from './game-num-eval';
 /** GameNumSystem 构造上下文（宿主注入系统与可选事件总线）。 */
 export interface GameNumContext {
   valueSystem: ValueSystem;
-  registry: Registry;
-  characterSystem: CharacterSystem;
-  affectorEngine: AffectorEngine;
+  registry: GameNumRegistryContext;
+  affectorEngine: GameNumAffectorContext;
   eventBus?: EventBus;
 }
 
 export class GameNumSystem {
   readonly bus?: EventBus;
-  readonly registry: Registry;
-  readonly characterSystem: CharacterSystem;
+  readonly registry: GameNumRegistryContext;
   readonly valueSystem: ValueSystem;
-  readonly affectorEngine: AffectorEngine;
+  readonly affectorEngine: GameNumAffectorContext;
 
   /** 资源 -> 该资源 primitiveGain 根节点（add 树）。 */
   gains = new Map<string, GameNum>();
@@ -100,12 +98,11 @@ export class GameNumSystem {
 
   /** 已登记资源集合（spot 基础产出 + state.resources，含仅经 affectorFlows 产出的资源）。 */
   resourceSet = new Set<string>();
-  state?: PlayerState;
+  state?: GameNumState;
 
   constructor(ctx: GameNumContext) {
     this.bus = ctx.eventBus;
     this.registry = ctx.registry;
-    this.characterSystem = ctx.characterSystem;
     this.valueSystem = ctx.valueSystem;
     this.affectorEngine = ctx.affectorEngine;
 
@@ -176,14 +173,13 @@ export class GameNumSystem {
     return {
       valueSystem: this.valueSystem,
       registry: this.registry,
-      characterSystem: this.characterSystem,
       affectorEngine: this.affectorEngine,
     };
   }
 
   // ---------------- 构建（委托 ./game-num-build.ts） ----------------
 
-  buildAll(state?: PlayerState): void {
+  buildAll(state?: GameNumState): void {
     buildAllImpl(this, state);
   }
 
@@ -204,33 +200,33 @@ export class GameNumSystem {
 
   // ---------------- 区表 + 命名乘区路由（委托 ./game-num-tag.ts） ----------------
 
-  registerTagEffect(state: PlayerState, tagKey: string, record: TagEffectRecord): void {
+  registerTagEffect(state: GameNumState, tagKey: string, record: TagEffectRecord): void {
     registerTagEffectImpl(this, state, tagKey, record);
   }
 
-  registerEntityEffect(state: PlayerState, entityKeyStr: string, record: TagEffectRecord): void {
+  registerEntityEffect(state: GameNumState, entityKeyStr: string, record: TagEffectRecord): void {
     registerEntityEffectImpl(this, state, entityKeyStr, record);
   }
 
-  removeTagEffect(state: PlayerState, tagKey: string, id: string): void {
+  removeTagEffect(state: GameNumState, tagKey: string, id: string): void {
     removeTagEffectImpl(this, state, tagKey, id);
   }
 
-  removeTagEffectsBySource(state: PlayerState, source: string): void {
+  removeTagEffectsBySource(state: GameNumState, source: string): void {
     removeTagEffectsBySourceImpl(this, state, source);
   }
 
-  syncAffectorZoneEffects(affector: AffectorEngine, state: PlayerState): void {
+  syncAffectorZoneEffects(affector: GameNumAffectorContext, state: GameNumState): void {
     syncAffectorZoneEffectsImpl(this, affector, state);
   }
 
   // ---------------- 求值入口 ----------------
 
-  evaluate(node: GameNum, state: PlayerState): number {
+  evaluate(node: GameNum, state: GameNumState): number {
     return evaluateGameNum(node, state, this.evalDeps());
   }
 
-  evaluateWithBreakdown(node: GameNum, state: PlayerState): BreakdownResult {
+  evaluateWithBreakdown(node: GameNum, state: GameNumState): BreakdownResult {
     return {
       value: this.evaluate(node, state),
       contributions: [evaluateGameNumBreakdown(node, state, this.evalDeps())],
@@ -246,13 +242,13 @@ export class GameNumSystem {
     return [...this.gains.keys()];
   }
 
-  evaluateResourceGain(resource: string, state: PlayerState): number {
+  evaluateResourceGain(resource: string, state: GameNumState): number {
     const node = this.gains.get(resource);
     if (!node) return 0;
     return this.evaluate(node, state);
   }
 
-  evaluateSpotYield(spotId: string, state: PlayerState): number {
+  evaluateSpotYield(spotId: string, state: GameNumState): number {
     const node = this.spotSubtrees.get(spotId);
     if (!node) return 0;
     return this.evaluate(node, state);

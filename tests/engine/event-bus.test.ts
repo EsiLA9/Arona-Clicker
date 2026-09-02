@@ -87,4 +87,15 @@ describe('EventBus', () => {
     expect(h1).toHaveBeenCalledOnce();
     expect(h2).toHaveBeenCalledOnce();
   });
+
+  test('支持不依赖 GameEvent 的自定义事件联合类型', () => {
+    type CustomEvent =
+      | { type: 'started'; source: string }
+      | { type: 'progress'; value: number };
+    const bus = new EventBus<CustomEvent>();
+    const handler = vi.fn((event: { type: 'progress'; value: number }) => event.value);
+    bus.on('progress', handler);
+    bus.emit({ type: 'progress', value: 3 });
+    expect(handler).toHaveBeenCalledWith({ type: 'progress', value: 3 });
+  });
 });

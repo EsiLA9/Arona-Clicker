@@ -3,7 +3,7 @@
 // 验证各 compositionType 输出 SVG 且颜色数量匹配。
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { renderAvatarSvg, resolveAvatarColors, avatarColorCount } from '../../src/engine/system/avatar-renderer';
+import { renderAvatarSvg, resolveAvatarColors, avatarColorCount } from '../../src/ui/avatar-renderer';
 
 describe('resolveAvatarColors', () => {
   test('solid 取 1 色，不足补 #888', () => {

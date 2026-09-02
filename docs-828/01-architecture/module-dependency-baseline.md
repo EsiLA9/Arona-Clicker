@@ -13,21 +13,21 @@
 | 当前目录 | 当前实际职责 | 目标归属 |
 |---|---|---|
 | `src/engine/core/` | EventBus、Tag、EntityId、DevLog、显示名、主题运行时 | 基础引擎；图片/主题相关部分需另评估 |
-| `src/engine/types/` | 机制契约、事件、Datapack、AronaClicker 实体和 PlayerState | 拆为 Engine Contracts 与 AronaClicker Types |
-| `src/engine/registry/` | Registry 表、合并、清理、引用校验 | 基础 Registry Core + AronaClicker Registry Adapter |
+| `src/engine/types/` | 机制实体定义、事件与仍在迁移中的共享类型 | 拆为 Engine Contracts 与 AronaClicker Types；Datapack 汇总契约已迁至 `src/data-services/contracts/` |
+| `src/data-services/registry/` | Registry 表、合并、清理、引用校验 | 基础数据服务 Registry；AronaClicker Runtime 组合使用 |
 | `src/engine/def-factory/` | 各类定义 builder | 按机制契约/领域实体拆分 |
 | `src/engine/expression/` | Value、Condition、Funclet、Stat DSL、GameNum | 基础引擎 |
 | `src/engine/effect/` | Effect、Trigger、Affector、响应器 | 基础引擎 |
 | `src/engine/visibility/` | Reveal、Visibility 快照和增量失效 | 基础引擎，领域通过查询适配器接入 |
 | `src/engine/stats/` | 三层统计、Tag 统计、World Tilt | 基础引擎机制 + 领域统计源适配器 |
 | `src/engine/extra/` | Extra 数据树构造、读取、合并、校验 | 基础数据/机制服务，归属待 M2 裁定 |
-| `src/engine/image/` | 图片存储、Pic 解析 | 基础数据服务 |
+| `src/data-services/assets/` | 图片存储、Pic 解析与 PicService | 基础数据服务 |
 | `src/engine/system/` | 状态写入、Tick、角色、抽卡、培养、色彩、头像等 | 拆为基础状态管道与 AronaClicker 领域服务 |
-| `src/engine/game/` | Runtime 编排、Init、Story、Spot、Item、Enhancement、存档、Session | AronaClicker Runtime 与领域服务 |
-| `src/engine/game-instance.ts` | 全部服务的组合根和应用门面 | `AronaClickerRuntime` |
-| `src/data/zip-loader.ts` | ZIP Datapack 解包和解析 | 基础数据服务 |
+| `src/arona-clicker/` | Runtime 编排、Init、Story、Spot、Item、Enhancement、状态与领域适配 | AronaClicker Runtime 与领域服务 |
+| `src/arona-clicker/runtime-game-instance.ts` | 产品运行时门面与引擎子系统组合宿主 | `AronaClickerRuntime` |
+| `src/data-services/datapack/zip-loader.ts` | ZIP Datapack 解包和解析 | 基础数据服务 |
 | `src/data/base/` | 当前测试/示例 Datapack | 测试/示例 Datapack |
-| `src/save/storage.ts` | LocalStorage 存档入口 | 基础持久化服务 |
+| `src/data-services/persistence/storage.ts` | LocalStorage 存档入口 | 基础持久化服务 |
 | `src/ui/` | 游戏 UI、Controller、组件、主题和交互状态 | UI 表现层 |
 | `tools/datapack-editor/` | Schema 驱动的 Datapack 编辑器 | 独立工具，依赖 Schema 契约 |
 
@@ -35,23 +35,23 @@
 
 ```text
 src/ui/main.ts
-  ├─ src/data/index.ts ──> src/data/base/*
-  ├─ GameInstance ───────> src/engine/*
-  └─ UIController ──────> src/save/storage.ts
+  ├─ src/arona-clicker/content/default-datapack.ts
+  ├─ AronaClickerRuntime ──> src/engine/*
+  └─ UIController ──────> src/data-services/persistence/storage.ts
 
 src/main.ts
-  ├─ src/data/index.ts ──> src/data/base/*
-  ├─ GameInstance ───────> src/engine/*
-  └─ SaveSystem ─────────> SaveData from engine/game-instance
+  ├─ src/arona-clicker/content/default-datapack.ts
+  ├─ src/arona-clicker/runtime.ts ──> src/engine/*
+  └─ SaveSystem ─────────> 泛型 JSON 文档（产品 SaveData 由 AronaClicker 组合）
 
-src/engine/game-instance.ts
+src/arona-clicker/runtime.ts
   ├─ 基础机制：Core / Expression / Effect / Visibility / Stats
-  ├─ 领域服务：Character / Color / Gacha / Story / Spot / Init
-  ├─ 状态与存档：PlayerState / SaveCodec / RuntimeReset
-  └─ 资源：ImageStore / PicService
+  ├─ 产品领域：Character / Color / Gacha / Story / Spot / Init
+  ├─ 状态与存档：arona-clicker/state / data-services/persistence
+  └─ 资源：data-services/assets
 
-src/data/base/*
-  └─ 直接依赖 src/engine/types 与部分 src/engine/extra、src/engine/core
+src/data/base/datapack.ts
+  └─ 组装 src/arona-clicker/content 为测试/示例 Datapack
 
 tools/datapack-editor/
   └─ 主要依赖自身 schema 与生成的 engine-defs.gen.json
@@ -70,25 +70,25 @@ engine → ui
 
 这是后续内聚的有利条件。主要问题是 `engine` 内部的基础机制与 AronaClicker 领域服务没有语义隔离。
 
-### 2. `src/data/base` 由入口和测试直接导入
+### 2. `src/data/base/datapack.ts` 仅由测试包入口组装
 
-目前 `src/main.ts`、`src/ui/main.ts` 以及大量 `tests/engine/*`、`tests/ui/*` 直接导入 `baseDatapack`。这说明 `base` 是测试/应用装配层的输入，不应进入基础引擎依赖图。
+正式应用从 `src/arona-clicker/content/default-datapack.ts` 读取产品内容；测试通过 `src/data/test-datapack.ts` 显式注入测试包。测试数据不进入基础引擎依赖图。
 
 ### 3. UI 具备只读门面，但仍依赖具体实现
 
 `src/ui/context.ts` 已提供 `UIFacingGame`，但字段仍是具体的 `Registry`、`ConditionSystem`、`GameNumSystem`、`ColorSystem`、`StoryService` 等类。
 
-UI 还直接依赖 `avatar-renderer`、`color-system` 工具、`visibility/reveal`、`stat-dsl` 和 `src/data/base/story-hierarchy.ts`。因此当前边界是“类型约束下的只读约定”，还不是完全隔离的 ReadModel / Commands 边界。
+UI 仍有少量表现工具与领域查询的直接依赖，但主要读写边界已通过 ReadModel / Commands 与 Runtime 能力端口收敛；后续继续清理具体服务类型泄漏。
 
 ### 4. 存档层反向依赖 Runtime 门面
 
 当前关系为：
 
 ```text
-src/save/storage.ts → SaveData from src/engine/game-instance.ts
+src/data-services/persistence/storage.ts → 泛型 JSON 文档；具体 SaveData 位于 src/arona-clicker/contracts/save-data.ts
 ```
 
-后续应将 `SaveData` 移到独立数据契约，消除基础持久化服务对完整 Runtime 的依赖。
+该目标已完成：基础持久化服务不再依赖完整 Runtime 或产品 SaveData。
 
 ### 5. 存在两个游戏启动路径
 
@@ -135,6 +135,15 @@ src/app/index.ts
 - AronaClicker 导出领域类型、Runtime、领域服务和适配器；
 - UI 不向组件暴露完整 `GameInstance` 类型；
 - 测试包由测试夹具或应用入口显式注入。
+
+M1-2 已新增上述入口；当前入口仍是迁移期兼容层，不能视为最终目录已经完成搬迁。
+
+当前边界施工进展：
+
+- 产品运行时实现位于 `src/arona-clicker`：GameInstance、wiring、Story/Spot/Init/Item/Enhancement/ChatFlow 服务、运行时重置与存档恢复编排均由该层承载。
+- `src/data-services` 负责存档快照组装、存储、数据包管理与图片资产服务；不负责恢复产品领域运行态。
+- `src/engine/contracts` 只保留跨层 DTO/Port，例如 `StoryCursorSnapshot`、`StoryEffectPort`、`ChatTextEffectValue`；剧情播放瞬态和具体 StoryService 不进入基础引擎，演出文本仅以最小请求契约跨层传递。
+- `src/engine/game` 的旧领域文件已逐步收敛为兼容转发；架构检查会阻止新的引擎向上层实现扩散依赖。
 
 ## 基线结论
 

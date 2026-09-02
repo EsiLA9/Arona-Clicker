@@ -1,10 +1,11 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/cultivate-system.test.ts — 培养（C 组）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import type { Datapack } from '../../src/engine/types';
-import { Character, CharacterRarity, CharacterSchool } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { } from '../../src/engine/types';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
 const CURVE_ID = 'test:cultivatecurve:curve-main';
 

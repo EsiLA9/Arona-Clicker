@@ -4,8 +4,9 @@
 // 由 controller 持有一个实例并委托。
 // ============================================================
 
-import { GameInstance } from '../engine/game-instance';
-import type { StoryView, Talklet } from '../engine/types';
+import type { GameReadModel } from '../arona-clicker/contracts';
+import type { StoryView } from '../arona-clicker/contracts/results';
+import type { Talklet } from '../data-services/contracts/story';
 import type { ActiveBanner, PanelState, SendGatePhase } from './components/app-shell';
 import type { ChatEntry, ChatTextEntry } from './components/story';
 import { BANNER_ANIMATION_MS } from './components/story-gate';
@@ -151,7 +152,7 @@ export class ChatStream {
    * 其余页进入底部按钮"想回复"门控（`thinking` 独立声明，缺省 0.9s）——
    * 两阶段内按钮无文案、不可推进，点击仅加速 0.1s/次。
    */
-  syncCurrentStory(panelState: PanelState, game: GameInstance): void {
+  syncCurrentStory(panelState: PanelState, game: Pick<GameReadModel, 'getView' | 'getStoryView'>): void {
     const convId = panelState.conversationVariantId;
     const streamKey = convId ?? '#global';
     const story = convId ? game.getStoryView(convId) : game.getView().currentStory;

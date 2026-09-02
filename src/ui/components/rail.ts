@@ -2,7 +2,8 @@ import { UIContext } from '../context';
 import { renderTabs, TabDef } from './tabs';
 import { getAreaReveal, getStoryReveal, describeCondition } from './tooltip';
 import { renderContactsTab } from './contacts';
-import type { ActiveStoryEntry, StoryDef } from '../../engine/types';
+import type { ActiveStoryEntry } from '../../data-services/contracts/story-entry';
+import type { StoryDef } from '../../data-services/contracts/story';
 import type { PanelState } from './app-shell';
 import {
   baseStoryHierarchy,
@@ -11,7 +12,7 @@ import {
   StoryContentPartDef,
   StoryContentChapterDef,
   StoryContentItem,
-} from '../../data/base/story-hierarchy';
+} from '../../arona-clicker/content/story-hierarchy';
 
 const LEFT_TABS: TabDef[] = [
   { id: 'area', label: '区域' },
@@ -37,9 +38,9 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
 
 function renderAreaTab(ctx: UIContext): string {
   const { game, view } = ctx;
-  const init = game.registry.inits.get(view.activeInit);
+  const init = game.world.inits.get(view.activeInit);
   const currentAreaId = view.currentAreaId;
-  const currentArea = currentAreaId ? game.registry.areas.get(currentAreaId) : undefined;
+  const currentArea = currentAreaId ? game.world.areas.get(currentAreaId) : undefined;
   const initName = init?.name ?? '未进入';
   const areaName = currentArea?.name ?? '—';
 
@@ -55,8 +56,8 @@ function renderAreaTab(ctx: UIContext): string {
   // 非 passive 剧情演出进行中禁止移动（演出锁定）
   const storyLocked = view.currentStory !== null && view.currentStory.type !== 'passive';
   const reachableRows = adjacent.map(areaId => {
-    const area = game.registry.areas.get(areaId);
-    const spotCount = game.registry.spotsOfArea(areaId).length;
+    const area = game.world.areas.get(areaId);
+    const spotCount = game.world.spotsOfArea(areaId).length;
     const visible = view.visibility.areas[areaId] ?? false;
     if (!area) return '';
     const reveal = getAreaReveal(ctx, area);
@@ -76,9 +77,9 @@ function renderAreaTab(ctx: UIContext): string {
       </button>`;
   }).join('');
 
-  const currentSpotCount = currentArea ? game.registry.spotsOfArea(currentArea.id).length : 0;
+  const currentSpotCount = currentArea ? game.world.spotsOfArea(currentArea.id).length : 0;
   const currentOwned = currentArea
-    ? game.registry.spotsOfArea(currentArea.id).filter(id => (view.spotLevels[id] ?? 0) > 0).length
+    ? game.world.spotsOfArea(currentArea.id).filter(id => (view.spotLevels[id] ?? 0) > 0).length
     : 0;
   const currentRow = currentArea
     ? `

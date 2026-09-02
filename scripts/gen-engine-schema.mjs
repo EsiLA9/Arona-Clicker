@@ -1,5 +1,5 @@
 /**
- * gen-engine-schema.mjs —— 从 src/engine/types/** 生成 Schema 描述协议
+ * gen-engine-schema.mjs —— 从引擎类型、引擎契约与数据服务 Datapack 契约生成 Schema 描述协议
  *
  * 协议 = defMap（派生自 Datapack 接口）+ defs（各实体字段定义，含简单含义与 hand 占位）。
  * editor 侧 merge.ts 将其与 editor-extras 拼合成最终 TableSchema。
@@ -18,6 +18,8 @@ import ts from 'typescript';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const TYPES_DIR = resolve(ROOT, 'src/engine/types');
+const CONTRACTS_DIR = resolve(ROOT, 'src/engine/contracts');
+const DATAPACK_CONTRACT_DIR = resolve(ROOT, 'src/data-services/contracts');
 const OUT_FILE = resolve(ROOT, 'tools/datapack-editor/schema/engine-defs.gen.json');
 
 /** 推断为 ref 的类型别名基名 → 表 key（editor TableKey 命名对齐）。 */
@@ -202,14 +204,17 @@ function describeInterface(node, decl, depth, ctx) {
 }
 
 /**
- * 解析 src/engine/types/** → { defMap, defs, indexedTypes }。
+ * 解析数据包类型与基础引擎契约 → { defMap, defs, indexedTypes }。
  * defMap 派生自 Datapack 接口的数组/record 字段。
  */
-export function parseEngineSchema({ dir = TYPES_DIR } = {}) {
-  const files = readdirSync(dir).filter((f) => f.endsWith('.ts') && f !== 'index.ts');
-  const sourceFiles = files.map((f) => {
-    const path = join(dir, f);
-    return ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+export function parseEngineSchema({ dir = TYPES_DIR, contractDir = CONTRACTS_DIR, datapackContractDir = DATAPACK_CONTRACT_DIR } = {}) {
+  const dirs = [dir, contractDir, datapackContractDir].filter(Boolean);
+  const sourceFiles = dirs.flatMap((sourceDir) => {
+    const files = readdirSync(sourceDir).filter((f) => f.endsWith('.ts') && f !== 'index.ts');
+    return files.map((f) => {
+      const path = join(sourceDir, f);
+      return ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    });
   });
 
   const decl = new Map();
@@ -259,7 +264,7 @@ export function parseEngineSchema({ dir = TYPES_DIR } = {}) {
 
   return {
     generatedAt: new Date().toISOString(),
-    sourceDir: 'src/engine/types',
+    sourceDirs: ['src/engine/types', 'src/engine/contracts', 'src/data-services/contracts'],
     defMap,
     defs,
     indexedTypes: [...decl.keys()].sort(),

@@ -3,7 +3,7 @@
 // 从 tooltip.ts 拆出：renderItemDetail
 // ============================================================
 
-import { ItemDef } from '../../engine/types';
+import type { ItemDef } from '../../data-services/contracts/item';
 import { UIContext } from '../context';
 import { renderRevealTriggers } from './tooltip-reveal';
 

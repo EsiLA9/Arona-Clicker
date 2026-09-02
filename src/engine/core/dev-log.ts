@@ -2,7 +2,8 @@
 // engine/dev-log.ts - Small runtime log for the early prototype UI
 // ============================================================
 
-import { GameEvent, TickResult } from '../types';
+import { GameEvent } from '../types';
+import type { TickResult } from '../contracts/tick';
 
 export type DevLogLevel = 'info' | 'success' | 'warning' | 'error';
 

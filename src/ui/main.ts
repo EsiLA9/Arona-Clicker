@@ -1,6 +1,7 @@
-import { baseDatapack } from '../data/index';
-import { GameInstance } from '../engine/game-instance';
 import { UIController } from './controller';
+import type { AronaClickerRuntime } from '../arona-clicker/runtime';
+import { IndexedDbPackSnapshotStore } from '../data-services';
+import { createAppRuntime, loadDefaultDatapack } from '../app/runtime-bootstrap';
 // 样式按原 styles.css 分区拆分（variables 必须最先引入，其顶部 @import 为远程字体）
 import './css/variables.css';
 import './css/layout.css';
@@ -20,16 +21,27 @@ import './css/conversation.css';
 import './css/story-overlays.css';
 import './css/equipment.css';
 
-const game = new GameInstance();
-game.init([baseDatapack]);
+const game = createAppRuntime();
+const packStore = new IndexedDbPackSnapshotStore();
 
-const root = document.querySelector<HTMLDivElement>('#app');
-if (!root) throw new Error('UI root is missing');
+async function boot(): Promise<void> {
+  try {
+    await game.restorePackManager(packStore);
+  } catch (error) {
+    console.warn('[PackManager] 包库恢复失败，将继续使用当前会话：', error);
+  }
+  loadDefaultDatapack(game);
 
-const controller = new UIController(game, root);
-controller.mount();
+  const root = document.querySelector<HTMLDivElement>('#app');
+  if (!root) throw new Error('UI root is missing');
 
-if (typeof window !== 'undefined') {
-  (window as Window & { __game?: GameInstance; __ui?: UIController }).__game = game;
-  (window as Window & { __game?: GameInstance; __ui?: UIController }).__ui = controller;
+  const controller = new UIController(game, root);
+  controller.mount();
+
+  if (typeof window !== 'undefined') {
+    (window as Window & { __game?: AronaClickerRuntime; __ui?: UIController }).__game = game;
+    (window as Window & { __game?: AronaClickerRuntime; __ui?: UIController }).__ui = controller;
+  }
 }
+
+void boot();

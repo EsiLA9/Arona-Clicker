@@ -3,7 +3,7 @@ import { renderTabs, TabDef } from './tabs';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderConversationView } from './contacts';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
-import { SendState } from '../../engine/types';
+import type { SendState } from '../../arona-clicker/contracts/results';
 import type { ActiveBanner, SendGatePhase, StoryGateState } from './app-shell';
 
 const CENTER_TABS: TabDef[] = [

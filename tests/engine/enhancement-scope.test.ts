@@ -2,8 +2,8 @@
 // engine/enhancement-scope.test.ts — Enhancement 作用域（全局/当前 Init）
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';

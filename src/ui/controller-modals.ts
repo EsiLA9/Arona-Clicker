@@ -8,6 +8,8 @@ import { createUIContext } from './context';
 import { renderGachaBody, renderSpotGachaBody } from './components/contacts';
 import { renderEnhancementManager } from './components/enhancements';
 import type { UIController } from './controller';
+import { openPackManagerModal } from './components/pack-manager-modal';
+import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
 
 /** 招募补给弹窗：卡池列表 + 抽取按钮（结果经 chat/toast 反馈）。 */
 export function openGachaModal(ctrl: UIController): void {
@@ -23,7 +25,7 @@ export function openGachaModal(ctrl: UIController): void {
 
 /** Spot 招募弹窗：专有卡池 / 通用卡池 经 Switch 切换。 */
 export function openSpotGachaModal(ctrl: UIController, spotId: string): void {
-  const spot = ctrl.game.registry.spots.get(spotId);
+  const spot = ctrl.game.world.spots.get(spotId);
   if (!spot) return;
   ctrl.modal.open({
     title: `招募 · ${spot.name}`,
@@ -51,7 +53,7 @@ export function bindGachaButtons(ctrl: UIController, buttons: NodeListOf<HTMLBut
       const poolId = button.dataset.gacha!;
       const count = Number(button.dataset.gachaCount) || 1;
       try {
-        const summary = ctrl.game.gachaService.roll(poolId, count);
+        const summary = ctrl.commands.roll(poolId, count);
         for (const r of summary.results) {
           const v = ctrl.game.rosterSystem.getVariant(r.variantId);
           ctrl.pushChat({
@@ -92,7 +94,7 @@ export function openEnhancementManager(ctrl: UIController): void {
     document.querySelectorAll<HTMLButtonElement>('[data-remove-enh]').forEach(btn => {
       btn.addEventListener('click', () => {
         const enhId = btn.dataset.removeEnh!;
-        const removed = ctrl.game.enhancements.removeEnhancement(enhId);
+        const removed = ctrl.commands.removeEnhancement(enhId);
         if (removed) {
           const enh = ctrl.game.registry.enhancements.get(enhId);
           ctrl.toast.show(`已移除强化 <b>${enh?.name ?? enhId}</b>`, 'info');
@@ -102,4 +104,13 @@ export function openEnhancementManager(ctrl: UIController): void {
     });
   };
   render();
+}
+
+export function openPackManager(ctrl: UIController): void {
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel & PackCatalogCommands>;
+  if (!host.getPackCatalog || !host.setPackEnabled || !host.reorderPacks || !host.applyEnabledPacks) {
+    ctrl.toast.show('当前运行时不支持数据包库管理', 'error');
+    return;
+  }
+  openPackManagerModal(ctrl.modal, host as PackCatalogReadModel & PackCatalogCommands, () => ctrl.render());
 }

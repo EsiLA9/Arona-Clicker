@@ -7,9 +7,11 @@
 //   controller-save / controller-actions-*。
 // ============================================================
 
-import { GameInstance, type SaveData } from '../engine/game-instance';
-import { SaveSystem } from '../save/storage';
+import { GameInstance } from '../arona-clicker/runtime-game-instance';
+import type { SaveData } from '../arona-clicker/contracts/save-data';
+import { SaveSystem } from '../data-services/persistence/storage';
 import { createUIContext } from './context';
+import { createGameCommands } from '../arona-clicker/runtime-commands';
 import { renderAppShell, PanelState } from './components/app-shell';
 import type { InitSelectMode } from './components/init-select';
 import type { ChatEntry } from './components/story';
@@ -57,8 +59,11 @@ import { bindContactsActions } from './controller-actions-contacts';
 import { bindThemeActions } from './controller-actions-theme';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
+import type { GameCommands } from '../arona-clicker/contracts';
 
 export class UIController {
+  /** UI 写操作的能力边界；迁移期由 AronaClickerRuntime 直接实现。 */
+  readonly commands: GameCommands;
   /** 每个聊天沙盒（含一般聊天）持久化的历史条数上限。 */
   static readonly MAX_CHAT_HISTORY = MAX_CHAT_HISTORY;
   /** @internal 供 controller-core 读取。 */
@@ -121,6 +126,7 @@ export class UIController {
     /** @internal 供 controller-core / controller-modals / controller-panels 使用。 */
     readonly root: HTMLElement,
   ) {
+    this.commands = createGameCommands(game);
     // 未读计数（对话空间语义）：通讯录角色行气泡 = 该学生就绪队列条数（尾巴 + 台阶）
     this.panelState.getUnread = (variantId: string) =>
       this.game.rosterSystem.isOwned(this.game.state, variantId)
@@ -134,7 +140,7 @@ export class UIController {
       const owner = streamKey === '#global' ? undefined : streamKey;
       const view = owner ? this.game.getStoryView(owner) : this.game.getView().currentStory;
       if (!view) return; // 剧情已结束：链终止
-      const result = this.game.story.clickSend(owner);
+      const result = this.commands.clickSend(owner);
       logStoryFailure(this, result);
       if (result.type === 'completed') {
         this.chat.pushAbsorbedTo(streamKey, this.panelState, result.absorbed ?? []);
@@ -171,13 +177,13 @@ export class UIController {
     if (!SaveSystem.exists()) {
       renderInitSelectImpl(this);
     } else {
-      const data = SaveSystem.load();
+      const data = SaveSystem.load<SaveData>();
       if (data) {
-        this.game.load(data);
+      this.commands.load(data);
         restoreHistoriesImpl(this, data);
       }
       this.started = true;
-      this.game.start();
+      this.commands.start();
       this.render();
     }
     this.refreshTimer = setInterval(() => {
@@ -391,16 +397,16 @@ export class UIController {
   /** 新游戏进入世界线（保留跨 Init 进度）。 */
   startNewGame(initId: string): void {
     this.themeFloatOpen = false;
-    const started = this.game.inits.startNewGame(initId);
+    const started = this.commands.startNewGame(initId);
     if (!started) {
       this.game.devLog.record(`无法开始世界线：${initId}`, { source: 'init', level: 'error' });
       this.toast.show('无法开始世界线', 'error');
       return;
     }
     this.started = true;
-    this.game.start();
+    this.commands.start();
     resetSessionPanelImpl(this);
-    const init = this.game.registry.inits.get(initId);
+    const init = this.game.world.inits.get(initId);
     this.toast.show(`进入世界线 <b>${init?.name ?? initId}</b>`, 'success');
     this.render();
   }
@@ -409,17 +415,17 @@ export class UIController {
   resumeInit(initId: string): void {
     this.themeFloatOpen = false;
     // 玩家选择 Init 时才真正执行 restartInit（保存快照 + 清 per-init 状态）
-    this.game.inits.restartInit();
-    const resumed = this.game.inits.resumeInit(initId);
+    this.commands.restartInit();
+    const resumed = this.commands.resumeInit(initId);
     if (!resumed) {
       this.game.devLog.record(`无法恢复世界线：${initId}`, { source: 'init', level: 'error' });
       this.toast.show('无法恢复世界线', 'error');
       return;
     }
     this.started = true;
-    this.game.start();
+    this.commands.start();
     resetSessionPanelImpl(this);
-    const init = this.game.registry.inits.get(initId);
+    const init = this.game.world.inits.get(initId);
     this.toast.show(`回到世界线 <b>${init?.name ?? initId}</b>`, 'success');
     this.render();
   }

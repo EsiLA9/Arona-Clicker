@@ -3,58 +3,9 @@
 // ============================================================
 
 import type { ExtraCompound } from './extra';
-import type { Condition, ConditionGroup, Effect, ValueExpression } from './expression';
-import type { ZoneModifierDecl } from '../expression/tag-effect';
+import type { Condition, ConditionGroup, Effect } from './expression';
 
-export type AffectorState = 'Latent' | 'Active' | 'Removed';
-
-/** 持续流：Affector 激活期间每 tick 懒求值入账的资源产出。 */
-export interface AffectorFlow {
-  /** 目标资源。 */
-  resource: string;
-  /** 每 tick 数量（数值或表达式，如 spotLevel × amountPerLevel）。 */
-  value: number | ValueExpression;
-}
-
-export interface AffectorEffect {
-  id: string;
-  condition?: ConditionGroup;
-  /**
-   * 即时效果：仅在激活沿（Latent→Active 翻转）执行一次。addResource 为一次性发放，
-   * setFlag/addItem/addEnhancement 等一次性 op 同样只执行一次——持续产出用 flows，
-   * 每 tick 逻辑用 perTickEffects，声明类 op（setSpotMaxLevel/removeSpotMaxLevel）
-   * 由 getSpotMaxLevelOverrides 动态读取，不经执行。
-   */
-  effects: Effect[];
-  /** 持续期每 tick 执行的效果（仅限幂等/维持类 op；一次性 op 会随每 tick 重复发放）。 */
-  perTickEffects?: Effect[];
-  /** 持续流：激活期间每 tick 懒求值入账（唯一持续产出通道）。 */
-  flows?: AffectorFlow[];
-  /** 按作用目标（tag 或指定实体）的加区/乘区/上下限声明（经桥接层转写为 PlayerState.tagEffects / entityEffects）。 */
-  zoneModifiers?: ZoneModifierDecl[];
-}
-
-export interface AffectorPackDef {
-  /** @label ID */
-  id: string;
-  entries: AffectorEffect[];
-  /** Extra 附加数据（数据包声明的结构化元数据，见 docs/13）。 */
-  extra?: ExtraCompound;
-}
-
-/**
- * Affector 包引用：既可是全局注册的 pack id 字符串，也可是内联的完整 AffectorPackDef
- * （匿名构建，依附所在 Datapack，不存存档本体）。运行时按「后加载优先」解析为可用 pack。
- */
-export type AffectorPackRef = string | AffectorPackDef;
-
-export interface AffectorInstance {
-  instanceId: string;
-  packId: string;
-  mountEntityId: string;
-  state: AffectorState;
-  activeEntryIds: string[];
-}
+export type { AffectorState, AffectorFlow, AffectorEffect, AffectorPackDef, AffectorPackRef, AffectorInstance } from '../contracts/affector';
 
 // --- Trigger 系统（对外 DSL：事件侦测 → 条件 → 执行） ---
 

@@ -3,7 +3,8 @@
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
-import { PlayerState, Condition, ConditionGroup, cond, and, or } from '../../src/engine/types';
+import { Condition, ConditionGroup, cond, and, or } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
 import { extra } from '../../src/engine/extra/index';
 
 function defaultState(overrides: Partial<PlayerState> = {}): PlayerState {

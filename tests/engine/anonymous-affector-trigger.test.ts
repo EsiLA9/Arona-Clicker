@@ -1,3 +1,4 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/anonymous-affector-trigger.test.ts — 匿名构建模式
 //
@@ -12,11 +13,13 @@ import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { AffectorEngine } from '../../src/engine/effect/affector-engine';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { EventBus } from '../../src/engine/core/event-bus';
-import { Registry } from '../../src/engine/registry/registry';
-import { StateMutationService } from '../../src/engine/system/state-mutation-service';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import { PlayerState, TriggerDef, EnhancementDef, AffectorPackDef, Datapack } from '../../src/engine/types';
+import { Registry } from '../../src/data-services/registry/registry';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import { TriggerDef, AffectorPackDef, } from '../../src/engine/types';
+import type { EnhancementDef } from '../../src/data-services/contracts/enhancement';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
 import { deriveAnonymousId } from '../../src/engine/core/anonymous-id';
 
 const CREDIT = 'base:resource:credit';

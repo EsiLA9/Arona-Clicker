@@ -2,8 +2,10 @@
 // engine/def-factory/item.test.ts — Item 链式 Builder
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { item, ItemBuilder, Resource, extra } from '../../../src/engine/types';
-import type { ItemDef } from '../../../src/engine/types';
+import { item, ItemBuilder } from '../../../src/arona-clicker/content/def-factory';
+import { extra } from '../../../src/engine/types';
+import { Resource } from '../../../src/arona-clicker/types/ids';
+import type { ItemDef } from '../../../src/data-services/contracts/item';
 
 const CREDIT = Resource.Credit;
 

@@ -3,8 +3,8 @@
 // controller-global-enhancement.test.ts — 选择页翻面 + GlobalEnhancement 购买
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
 
 const OFFICE = 'base:init:schale_office';

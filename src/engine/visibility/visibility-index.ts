@@ -5,7 +5,7 @@
 // ============================================================
 
 import { GameEvent } from '../types';
-import { Registry } from '../registry/registry';
+import type { RevealRegistryContext } from '../contracts/reveal';
 import { ConditionDepIndex } from '../expression/condition-deps';
 import { EntityKind, EntityKey, DefWithTriggers } from './visibility-eval';
 
@@ -13,7 +13,7 @@ import { EntityKind, EntityKey, DefWithTriggers } from './visibility-eval';
 export class VisibilityIndex {
   private readonly deps = new ConditionDepIndex<EntityKey>();
 
-  constructor(private readonly registry: Registry) {}
+  constructor(private readonly registry: RevealRegistryContext) {}
 
   /** 重建反向索引（注册表加载/热替换后调用）。 */
   build(): void {

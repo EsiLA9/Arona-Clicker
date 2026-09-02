@@ -3,7 +3,8 @@
 // 从 stats.ts 拆出的无状态工具，供 StatsService 复用并可独立测试。
 // ============================================================
 
-import { StatCounters, InitStatCounters, InitId, InitStatsMap, StatsSnapshot } from '../types';
+import type { StatCounters, InitStatCounters, InitStatsMap, StatsSnapshot } from '../contracts/stats';
+import type { InitId } from '../types/ids';
 
 /** 安全地对计数 map 累加（map 为 undefined 时忽略）。 */
 export function bump(map: Record<string, number> | undefined, key: string, delta: number): void {

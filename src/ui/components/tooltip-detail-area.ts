@@ -3,7 +3,7 @@
 // 从 tooltip.ts 拆出：renderAreaDetail
 // ============================================================
 
-import { AreaDef } from '../../engine/types';
+import type { AreaDef } from '../../data-services/contracts/world';
 import { existenceCondition } from '../../engine/visibility/reveal';
 import { UIContext } from '../context';
 import { getAreaReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
@@ -19,10 +19,10 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
   const isLocked = !visible;
   const name = reveal.nameKnown ? area.name : OBFUSCATED;
   const desc = known ? area.description : '';
-  const init = game.registry.inits.get(area.initId);
-  const spotIds = game.registry.spotsOfArea(area.id);
+  const init = game.world.inits.get(area.initId);
+  const spotIds = game.world.spotsOfArea(area.id);
   const spotRows = spotIds.map(spotId => {
-    const spot = game.registry.spots.get(spotId);
+    const spot = game.world.spots.get(spotId);
     if (!spot) return '';
     const level = view.spotLevels[spotId] ?? 0;
     const owned = level > 0;
@@ -35,7 +35,7 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
       </div>`;
   }).join('');
   const adjacentRows = (area.adjacentAreaIds ?? [])
-    .map(adjId => game.registry.areas.get(adjId))
+    .map(adjId => game.world.areas.get(adjId))
     .filter((adj): adj is AreaDef => !!adj)
     .map(adj => {
       const adjReveal = getAreaReveal(ctx, adj);

@@ -2,16 +2,18 @@
 // main.ts — 游戏入口
 // ============================================================
 
-import { GameInstance } from './engine/game-instance';
-import { SaveSystem } from './save/storage';
-import { baseDatapack } from './data/index';
+import { SaveSystem } from './data-services/persistence/storage';
+import { JsonPackSnapshotStore, LocalStorageAdapter } from './data-services';
+import { DEFAULT_INIT_ID, createAppRuntime, loadDefaultDatapack } from './app/runtime-bootstrap';
+import type { SaveData } from './arona-clicker/contracts/save-data';
 
 // 创建游戏实例。开发模式下开启详细日志（verbose），便于排障导出。
-const game = new GameInstance({
+const game = createAppRuntime({
   devLog: {
     verbose: import.meta.env.DEV,
     maxEntries: import.meta.env.DEV ? 20000 : undefined,
   },
+  packStore: new JsonPackSnapshotStore(new LocalStorageAdapter()),
 });
 
 // 输出到全局以便调试
@@ -22,17 +24,17 @@ function boot(): void {
   console.log('=== AronaClicker Engine ===');
 
   // 加载数据包
-  game.init([baseDatapack]);
+  loadDefaultDatapack(game);
   console.log('[Boot] Datapacks loaded');
 
   // 尝试加载存档
-  const saved = SaveSystem.load();
+  const saved = SaveSystem.load<SaveData>();
   if (saved) {
     game.load(saved);
     console.log('[Boot] Save loaded, resuming...');
   } else {
     // 新存档：解锁默认 Init
-    game.inits.unlockInit('base:init:schale_office');
+    game.inits.unlockInit(DEFAULT_INIT_ID);
     console.log('[Boot] New game started');
   }
 

@@ -1,6 +1,6 @@
 # 03-data-structures/registry — Registry 注册表结构
 
-> 本文回答：**Registry 有哪些表、关系索引、校验规则。** 模块卡片见 [[docs-828/02-modules/registry]]；类型权威在 `src/engine/registry/registry.ts`。
+> 本文回答：**Registry 有哪些表、关系索引、校验规则。** 模块卡片见 [[docs-828/02-modules/registry]]；实现位于 `src/data-services/registry/registry.ts`。
 
 ## 表（Map 容器，表驱动 `tableSteps`）
 

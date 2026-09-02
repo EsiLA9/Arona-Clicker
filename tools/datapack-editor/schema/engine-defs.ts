@@ -1,7 +1,7 @@
 /**
  * engine-defs.ts —— Schema 描述协议（engine → editor 的序列化形状）
  *
- * 由 scripts/gen-engine-schema.mjs 从 src/engine/types/** 生成
+ * 由 scripts/gen-engine-schema.mjs 从引擎类型、引擎契约与数据服务 Datapack 契约生成
  * engine-defs.gen.json，此处定义其 TS 形状并加载。
  * editor 不直接 import src/**，仅消费该生成协议（解耦纪律）。
  */

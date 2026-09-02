@@ -5,7 +5,7 @@
  * 所有表（spots / inits / ...）的编辑界面、校验、导入导出均由该 DSL 驱动。
  *
  * 表定义由 Schema 描述协议拼合而成（见 engine-defs.ts / merge.ts / editor-extras.ts，
- * 源头为 src/engine/types/**，经 scripts/gen-engine-schema.mjs 生成）。
+ * 源头为引擎类型、引擎契约与 src/data-services/contracts/datapack.ts，经 scripts/gen-engine-schema.mjs 生成）。
  */
 
 export type TableKey =

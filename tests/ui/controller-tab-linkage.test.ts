@@ -5,8 +5,8 @@
 // 退出对话空间（通讯录/剧情的聊天沙盒）、替换通讯录/档案临时页。
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
 
 const OFFICE = 'base:init:schale_office';

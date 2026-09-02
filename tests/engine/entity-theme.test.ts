@@ -3,10 +3,10 @@
 // ============================================================
 
 import { describe, test, expect, beforeAll } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { entityKeyOf } from '../../src/engine/system/color-system';
-import { baseDatapack } from '../../src/data/index';
-import type { ThemeDesignDef } from '../../src/engine/types/character';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { entityKeyOf } from '../../src/arona-clicker/services/color-system';
+import { baseDatapack } from '../../src/data/test-datapack';
+import type { ThemeDesignDef } from '../../src/data-services/contracts/color';
 
 const OFFICE = 'base:init:office';
 

@@ -2,9 +2,11 @@
 // engine/game-num.test.ts — 统一数值注册 + 懒求值（primitiveGain）
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import { Character, Expr, PlayerState, value } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import { Expr, value } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 import type { GameNum } from '../../src/engine/expression/game-num';
 import { GameNumSystem } from '../../src/engine/expression/game-num';
 import { EventBus } from '../../src/engine/core/event-bus';
@@ -157,7 +159,6 @@ describe('GameNum (primitiveGain 懒求值)', () => {
         enhancements: new Map(),
         effectiveSpotTags: () => [],
       },
-      characterSystem: { getTagBonus: () => 1 },
       affectorEngine: { getActiveInstances: () => [], getPack: () => undefined },
       eventBus: bus,
     } as unknown as ConstructorParameters<typeof GameNumSystem>[0];

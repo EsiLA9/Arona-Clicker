@@ -1,13 +1,13 @@
 # 01-architecture/run-logic — 运行逻辑与时序
 
 > 本文回答：**程序从启动到运行的主干时序——子系统如何装配、初始化做什么、每帧发生什么、业务操作与存档怎么走。**
-> 装配代码在 `src/engine/game/wiring.ts`（T1 外移）；门面在 `src/engine/game-instance.ts`（~400 行，子门面别名 `game.story / spot / inits / items / enhancements / charaProfiles / pics`）。
+> 装配代码在 `src/arona-clicker/runtime-wiring.ts`；运行时门面在 `src/arona-clicker/runtime-game-instance.ts`，状态初始化在 `src/arona-clicker/state/state-factory.ts`，视图组装在 `src/arona-clicker/read-model/game-view-builder.ts`，由 AronaClicker Runtime 负责组合产品领域服务与基础引擎机制。
 
 ## 总体调用链
 
 ```text
 main.ts（UI 启动）
-  └─ new GameInstance()            wiring 装配全部子系统（依赖顺序 + 事件接线）
+  └─ createAppRuntime()            AronaClicker Runtime 装配全部子系统（依赖顺序 + 事件接线）
        └─ init(datapacks)          加载数据包 → 校验 → 建索引 → 建产出树 → 进入默认 Init
             └─ start()             启动会话循环（1 tick/秒）
                  └─ tick()         每帧：生产结算 → Affector → 剧情 → 阻断复检 → 统计
@@ -42,7 +42,7 @@ main.ts（UI 启动）
 | --- | --- |
 | `mutations` 持有 `eventBus` + `statsService` | 写状态即发事件、即计统计 |
 | `setExtraReader` | Extra 三层合并视图统一读取入口（注入 value/condition/mutations） |
-| `ColorUnlockReactor` | `characterAcquired` / `flagChanged` → 重算色彩/装备/设计解锁（T1 从组合根外移，`system/color-unlock-reactor.ts`） |
+| `ColorUnlockReactor` | `characterAcquired` / `flagChanged` → 重算色彩/装备/设计解锁（位于 `arona-clicker/services/color-unlock-reactor.ts`） |
 | `RuntimeEffectReactor` | 演出类 effect 请求事件（`themeEffectRequested` / `storyEffectRequested` / `chatFlowEffectRequested`）→ ColorSystem / StoryService / ChatFlowService（T7 后 EffectEngine 不再持回调，只发请求事件） |
 
 ## 二、初始化：init(datapacks) / reload
@@ -55,7 +55,7 @@ init(datapacks)
  4. affectorEngine.reconcileMounts()：按初始状态对账挂载物品/强化/功能的 Affector 实例
 ```
 
-- 新建状态：`createDefaultState()`（`game/state-factory.ts`），per-Init 字段统一由 `game/per-init-fields.ts` 的 `PER_INIT_FIELD_SPECS` 单一事实源生成（T3）。
+- 新建状态：`createDefaultState()`（`arona-clicker/state/state-factory.ts`），per-Init 字段统一由 `arona-clicker/state/per-init-fields.ts` 的 `PER_INIT_FIELD_SPECS` 单一事实源管理（T3）。
 - 读档：`load(data)` 校验 version（不符抛错，**不做存档迁移**）→ 替换 `state` → `syncSubsystems()` → `rebuildRuntime()`（visibility 重算 + tag 索引重建 + runId 恢复）。
 
 ## 三、运行循环：start / tick
@@ -95,7 +95,7 @@ tick()
 ## 五、存档 / 读档 / 重置
 
 ```text
-save() → 深拷贝 state → SaveData（version + PlayerState + stats + chatHistories）
+save() → 深拷贝 state → AronaClicker SaveData（version + PlayerState + stats + chatHistories）→ 泛型 SaveSystem
          聊天历史由 UI 层 withHistories 注入（不污染引擎状态）
 load() → 校验 version → 替换 state → syncSubsystems → rebuildRuntime → UI restoreHistories
 ```

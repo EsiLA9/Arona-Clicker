@@ -56,6 +56,7 @@ export class TagStatService {
   constructor(
     private readonly registry: TagStatRegistry,
     private readonly eventBus?: EventBus,
+    private readonly characterProtoOf: (variantId: string) => string | undefined = () => undefined,
   ) {
     for (const kind of TAG_STAT_KINDS) this.kinds.set(kind, newKindIndex());
     this.buildDeclared();
@@ -237,7 +238,7 @@ export class TagStatService {
     if (!state) return;
     const ownedProtos = new Set<string>();
     for (const variantId of Object.keys(state.roster ?? {})) {
-      const proto = this.registry.characterVariants?.get(variantId)?.proto;
+      const proto = this.characterProtoOf(variantId);
       if (proto !== undefined) ownedProtos.add(proto);
     }
     for (const ch of this.registry.characters.values()) {
@@ -257,8 +258,6 @@ export interface TagStatRegistry {
   readonly enhancements: ReadonlyMap<string, TagStatEntity>;
   readonly passiveStories: ReadonlyMap<string, TagStatEntity>;
   readonly activeStories: ReadonlyMap<string, TagStatEntity>;
-  /** 差分表（F-04：roster 差分 → 原型解析）。 */
-  readonly characterVariants?: ReadonlyMap<string, { id: string; proto: string }>;
 }
 
 export interface PlayerStateLike {

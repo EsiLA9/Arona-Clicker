@@ -2,8 +2,9 @@ import { describe, test, expect } from 'vitest';
 import {
   resolveTheme,
   themeContributionFromThemeDef,
-} from '../../src/engine/system/color-system';
-import type { ColorGroupDef, ColorGroupId } from '../../src/engine/types';
+} from '../../src/arona-clicker/services/color-system';
+import type { ColorGroupId } from '../../src/engine/types';
+import type { ColorGroupDef } from '../../src/data-services/contracts/color';
 
 const blue: ColorGroupDef = { id: 'test:colorgroup:g-blue', name: '蓝', compositionType: 'solid', slots: [{ role: 'primary', color: '#3b82f6' }] };
 const pink: ColorGroupDef = { id: 'g-pink', name: '粉', compositionType: 'solid', slots: [{ role: 'primary', color: '#ff5d8f' }] };

@@ -2,8 +2,8 @@
 // tooltip.test.ts — 统计 DSL 转义 + Hover 条件描述 + 升级消费展示
 // ============================================================
 import { describe, it, expect } from 'vitest';
-import { GameInstance } from '../../../src/engine/game-instance';
-import { baseDatapack } from '../../../src/data/index';
+import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../../src/data/test-datapack';
 import { createUIContext } from '../../../src/ui/context';
 import type { Condition, ConditionGroup } from '../../../src/engine/types';
 import { describeCondition, describeStatDsl, renderSpotDetail } from '../../../src/ui/components/tooltip';

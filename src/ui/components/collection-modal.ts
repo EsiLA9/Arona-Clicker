@@ -7,8 +7,8 @@
 // 事件委托处理，切换重渲染不影响悬停详情。
 // ============================================================
 
-import { GameInstance } from '../../engine/game-instance';
 import { createUIContext, type UIContext } from '../context';
+import type { GameReadModel } from '../../arona-clicker/contracts';
 import type { ModalManager } from '../modal';
 import { renderCollectionBody, renderGroupCodex, renderEquipmentCodex } from './collection';
 
@@ -65,7 +65,7 @@ export function renderCollectionModalBody(ctx: UIContext, tab: CollectionTab): s
 /**
  * 打开图鉴弹窗：顶部 Switch 切换收集类型，正文原位替换（不重开弹窗）。
  */
-export function openCollectionModal(modal: ModalManager, game: GameInstance): void {
+export function openCollectionModal(modal: ModalManager, game: GameReadModel): void {
   const render = (tab: CollectionTab) => {
     const ctx = createUIContext(game);
     modal.open({
@@ -81,7 +81,7 @@ export function openCollectionModal(modal: ModalManager, game: GameInstance): vo
 /** 绑定 Switch 按钮：切换后以目标类型重渲染弹窗内容。 */
 function bindSwitch(
   modal: ModalManager,
-  game: GameInstance,
+  game: GameReadModel,
   render: (tab: CollectionTab) => void,
 ): void {
   document.querySelectorAll<HTMLButtonElement>('[data-collection-tab]').forEach(button => {

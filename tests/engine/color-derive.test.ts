@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { resolveTheme, contrastRatio, deriveThemeTokens, ColorSystem } from '../../src/engine/system/color-system';
-import type { ColorGroupDef } from '../../src/engine/types';
+import { resolveTheme, contrastRatio, deriveThemeTokens, ColorSystem } from '../../src/arona-clicker/services/color-system';
+import type { ColorGroupDef } from '../../src/data-services/contracts/color';
 
 /** 从派生出的 hsl(...) 字符串中提取明度值（0~1）。 */
 function hslLightness(css: string): number {

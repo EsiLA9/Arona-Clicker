@@ -4,8 +4,8 @@
 //   destroy / resetSessionPanel / 聊天历史持久化
 // ============================================================
 
-import type { SaveData } from '../engine/game-instance';
-import { Resource } from '../engine/types';
+import type { SaveData } from '../arona-clicker/contracts/save-data';
+import { Resource } from '../arona-clicker/types/ids';
 import { createUIContext } from './context';
 import type { ChatEntry } from './components/story';
 
@@ -24,17 +24,17 @@ import type { UIController } from './controller';
 export function computeRevealFingerprint(ctrl: UIController): string {
   const ctx = createUIContext(ctrl.game);
   let fp = '';
-  for (const spot of ctrl.game.registry.spots.values()) {
+  for (const spot of ctrl.game.world.spots.values()) {
     const r = getSpotReveal(ctx, spot);
     fp += `${spot.id}:${r.stage}:${r.nameKnown}${r.conditionKnown}${r.utilityKnown};`;
   }
   for (const enh of ctrl.game.registry.enhancements.values()) {
     fp += `${enh.id}:${getEnhancementReveal(ctx, enh).stage};`;
   }
-  for (const init of ctrl.game.registry.inits.values()) {
+  for (const init of ctrl.game.world.inits.values()) {
     fp += `i:${init.id}:${getInitReveal(ctx, init).stage};`;
   }
-  for (const area of ctrl.game.registry.areas.values()) {
+  for (const area of ctrl.game.world.areas.values()) {
     fp += `a:${area.id}:${getAreaReveal(ctx, area).stage};`;
   }
   for (const entry of [...ctrl.game.registry.activeStories.values(), ...ctrl.game.registry.passiveStories.values()]) {

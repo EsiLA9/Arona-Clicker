@@ -1,13 +1,16 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // tests/engine/per-init-fields.test.ts — per-Init 字段清单守卫与语义
 // ============================================================
 
 import { describe, it, expect } from 'vitest';
-import { PER_INIT_FIELD_SPECS } from '../../src/engine/game/per-init-fields';
-import { InitSavepoint } from '../../src/engine/game/init-savepoint';
-import { createDefaultState } from '../../src/engine/game/state-factory';
-import { Registry } from '../../src/engine/registry/registry';
-import type { PlayerState, Datapack, CharacterPersistScope } from '../../src/engine/types';
+import { PER_INIT_FIELD_SPECS } from '../../src/arona-clicker/state/per-init-fields';
+import { InitSavepoint } from '../../src/arona-clicker/state/init-savepoint';
+import { createDefaultState } from '../../src/arona-clicker/state/state-factory';
+import { Registry } from '../../src/data-services/registry/registry';
+import type { CharacterPersistScope } from '../../src/data-services/contracts/character-persist';
+import type { PlayerState, InitSnapshot } from '../../src/arona-clicker/types/state';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
 /** 快照键全集（与 types/state.ts InitSnapshot 对齐；漂移时本测试与编译期守卫同时报警）。 */
 const EXPECTED_SNAPSHOT_KEYS = [

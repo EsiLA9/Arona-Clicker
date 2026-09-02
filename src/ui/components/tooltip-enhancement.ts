@@ -4,7 +4,8 @@
 //   describeCondition / getEnhancementMultiplier / getSpotYieldBreakdown
 // ============================================================
 
-import { Condition, ConditionGroup, SpotDef } from '../../engine/types';
+import { Condition, ConditionGroup } from '../../engine/types';
+import type { SpotDef } from '../../data-services/contracts/world';
 import { parseStatCall } from '../../engine/expression/stat-dsl';
 import { UIContext } from '../context';
 

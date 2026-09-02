@@ -2,8 +2,8 @@
 // engine/stats.test.ts — 三层统计数据 + 函数式统计 DSL
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { and } from '../../src/engine/types';
 import { parseStatCall } from '../../src/engine/expression/stat-dsl';
 

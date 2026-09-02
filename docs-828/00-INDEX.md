@@ -29,6 +29,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | 内聚施工前的模块归类与依赖基线 | [[docs-828/01-architecture/module-dependency-baseline]] |
 | 某个子系统（GameNum / Affector / 抽卡 / 色彩 / 剧情…） | [[#02-modules 模块卡片索引]] |
 | PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs-828/03-data-structures/player-state]] 起（见下方分区表） |
+| 引擎契约与 AronaClicker 类型边界 | [[docs-828/03-data-structures/type-boundary-audit]] |
 | 生产 / 抽卡 / 培养 / 色彩 / 事件联动的算法细节 | [[docs-828/04-algorithms/state-mutation]] 起（见下方分区表） |
 | 长期目标 / roadmap / 里程碑进度 | [[docs-828/08-roadmap/00-overview]] |
 
@@ -39,7 +40,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | 引擎机制 / 新增子系统 | 对应 [[#02-modules 模块卡片索引]] + [[docs-828/05-conventions/architecture-discipline]] |
 | 实体字段 / 枚举（`src/engine/types/`） | [[docs-828/05-conventions/schema-sync]]（必读，含 `gen:schema` 协议） |
 | 文件拆分 / 重构 | [[docs-828/05-conventions/refactoring]] |
-| 默认游戏内容 | `src/data/base/`（TypeScript，不是 `datapack/` 的 JSON）+ [[docs-828/02-modules/registry]] |
+| 正式默认游戏内容 | `src/arona-clicker/content/default-datapack.ts` + [[docs-828/02-modules/registry]]；测试/示例包见 `src/data/test-datapack.ts` |
 | 新增跨世界线保留的数据 | [[docs-828/01-architecture/state-layers]]（先想清楚放哪一层） |
 | Datapack 读取 / 多包管理 / mod 冲突 | [[docs-828/06-adr/0004-datapack-management]] |
 | 测试 | [[docs-828/05-conventions/testing]] |
@@ -50,20 +51,20 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | 卡片                                     | 子系统                                              | 代码位置                                             |
 | -------------------------------------- | ------------------------------------------------ | ------------------------------------------------ |
 | [[docs-828/02-modules/core]]           | 事件总线 / Tag / 主题运行时 / DevLog 等横切基础                | `src/engine/core/`                               |
-| [[docs-828/02-modules/registry]]       | 数据包注册表 + 加载校验 + def-factory 构建器                  | `src/engine/registry/`、`src/engine/def-factory/` |
+| [[docs-828/02-modules/registry]]       | 数据包注册表 + 加载校验 + def-factory 构建器                  | `src/data-services/registry/`、`src/engine/def-factory/` |
 | [[docs-828/02-modules/expression]]     | ValueSystem / ConditionSystem / Funclet / 统计 DSL | `src/engine/expression/`                         |
 | [[docs-828/02-modules/game-num]]       | GameNum 统一数值树（产出结算核心）                            | `src/engine/expression/game-num*.ts`             |
 | [[docs-828/02-modules/effect-trigger]] | Effect / Trigger / 事件驱动响应器                       | `src/engine/effect/`                             |
 | [[docs-828/02-modules/affector]]       | Affector 持续效果（四通道）                               | `src/engine/effect/affector-engine.ts`           |
-| [[docs-828/02-modules/state-mutation]] | StateMutationService 单一写入口                       | `src/engine/system/state-mutation-service.ts`    |
-| [[docs-828/02-modules/character]]      | Character / 抽卡 / 培养 / 通讯录                        | `src/engine/system/` 角色域                         |
-| [[docs-828/02-modules/color]]          | 色彩 / 主题 / 装备                                     | `src/engine/system/color*.ts`                    |
-| [[docs-828/02-modules/world]]          | Init / Area / Spot / 会话 / 存档                     | `src/engine/game/` 门面层                           |
-| [[docs-828/02-modules/story]]          | 剧情演出 / 聊天流 / 被动闲聊                                | `src/engine/game/story*.ts`                      |
+| [[docs-828/02-modules/state-mutation]] | StateMutationService 单一写入口                       | `src/arona-clicker/state/state-mutation-service.ts`    |
+| [[docs-828/02-modules/character]]      | Character / 抽卡 / 培养 / 通讯录                        | `src/arona-clicker/services/` 角色域              |
+| [[docs-828/02-modules/color]]          | 色彩 / 主题 / 装备                                     | `src/arona-clicker/services/color*.ts`           |
+| [[docs-828/02-modules/world]]          | Init / Area / Spot / 会话 / 存档                     | `src/arona-clicker/` Runtime 与领域服务            |
+| [[docs-828/02-modules/story]]          | 剧情演出 / 聊天流 / 被动闲聊                                | `src/arona-clicker/services/`                   |
 | [[docs-828/02-modules/visibility]]     | 可见性 / Reveal 揭示阶梯                                | `src/engine/visibility/`                         |
 | [[docs-828/02-modules/stats]]          | 三层统计 / Tag 统计 / 世界倾斜                             | `src/engine/stats/`                              |
 | [[docs-828/02-modules/extra]]          | Extra 三层附加数据树                                    | `src/engine/extra/`                              |
-| [[docs-828/02-modules/pics]]           | 图片资产（PicDef / ImageStore / charaProfile）         | `src/engine/image/`                              |
+| [[docs-828/02-modules/pics]]           | 图片资产（PicDef / ImageStore / charaProfile）         | `src/data-services/assets/`                              |
 | [[docs-828/02-modules/ui]]             | 前端 UI（只读消费 + controller 拆分）                      | `src/ui/`                                        |
 
 ## 03-data-structures 分区（数据结构）

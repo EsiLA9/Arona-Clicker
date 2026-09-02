@@ -10,7 +10,7 @@
 // 编辑者只能用本库预定义函数，新增统计模式 = 注册新函数名，语法不变。
 // ============================================================
 
-import { StatCounters } from '../types';
+import type { StatCounters } from '../contracts/stats';
 
 export type StatScope = 'global' | 'currentRun' | 'init';
 

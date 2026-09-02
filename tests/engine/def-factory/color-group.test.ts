@@ -3,11 +3,11 @@
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import {
-  colorGroup,
   cond,
-  Character,
 } from '../../../src/engine/types';
-import type { ColorGroupDef } from '../../../src/engine/types';
+import { colorGroup } from '../../../src/arona-clicker/content/def-factory';
+import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
+import type { ColorGroupDef } from '../../../src/data-services/contracts/color';
 
 describe('ColorGroupBuilder', () => {
   test('colorGroup() 返回 builder 实例', () => {

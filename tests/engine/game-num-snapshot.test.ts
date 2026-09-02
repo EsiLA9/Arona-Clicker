@@ -9,14 +9,14 @@
 //   便于精确控制 tags 与挂载，不依赖 baseDatapack 的具体数据。
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { ValueSystem } from '../../src/engine/expression/value-system';
 import { GameNumSystem } from '../../src/engine/expression/game-num';
 import { aggregateZone } from '../../src/engine/expression/game-num-eval';
 import { tagPath, tagId } from '../../src/engine/core/tag';
-import type { PlayerState } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { AffectorEngine } from '../../src/engine/effect/affector-engine';
 
 const CREDIT = 'credit';
@@ -74,7 +74,6 @@ function makeFixture(affector: unknown = { getActiveInstances: () => [], getPack
   const system = new GameNumSystem({
     valueSystem: vs,
     registry: registry as never,
-    characterSystem: { getTagBonus: () => 1 } as never,
     affectorEngine: affector as never,
     eventBus: bus,
   });

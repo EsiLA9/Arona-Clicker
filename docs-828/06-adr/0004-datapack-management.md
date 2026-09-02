@@ -93,7 +93,7 @@ manifest（**v1 强制要求**，modName 是承载命名空间的负载字段，
 - **导入**：任意包随时可导入（含与已装包同 modName 的不同版本，**统一显示于包库、并存**），导入后由**玩家选择启用或弃用**；导入不做自动替换、不弹窗强制。
 - **modName 冲突判定在启用时**：启用集内不允许两个同 modName 的包同时启用——预加载扫描发现 modName 冲突即**拒绝加载**该启用集（提示二选一）。
 - **排序**：玩家手动排序（拖拽列表）+ 依赖提示（展示谁依赖谁）；顺序敏感语义（同表遍历序）由手动顺序唯一决定，可预测。
-- **测试/示例包**：当前 `src/data/base/*` 仅作为开发与测试夹具；不由基础引擎强制加载、不占用启用集固定位置，也不可作为正式内容包管理语义的前提。
+- **测试/示例包**：当前 `src/data/base/datapack.ts` 仅作为开发与测试包组装夹具；不由基础引擎强制加载、不占用启用集固定位置，也不可作为正式内容包管理语义的前提。
 - **应用（all-or-nothing）**：启用集变更 → 全量校验（分片解析 + Registry 干跑合并校验）→ 通过才 `game.reload(orderedPacks)`（现有 reload 已实现清注册表 + 重置运行时）；校验失败则整套拒绝、保持旧启用集。
 
 ## §5 惰性存档与残留管理（关键新语义，取代"变更即清档"）
@@ -175,6 +175,22 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 - `version` 语义：仅展示，不做区间匹配；将来若做更新提示再引入
 - 依赖拓扑自动排序（当前纯手动 + 提示）
 - 存档残留的跨 mod 合并语义（如两个 mod 提供同 typeName 同 idName 的角色变体时的好感数据归属）——命名空间隔离下理论上不出现，出现即校验错误
+
+## 实现记录（2026-09-01）
+
+- M5-1 第二段：新增 `src/data-services/datapack/source.ts`，定义 `PackSource` / `PackEntry`，并实现 `ZipPackSource`；现有 ZIP Loader 已通过该 Source 读取 JSON 条目，文件夹与单文件适配器、manifest 和 PackManager 留待后续切片。
+- M5-1 第三段：新增 `src/data-services/datapack/manifest.ts`，实现 manifest 的结构与命名空间校验；兼容旧 Loader 暂不强制 `datapack.json`，由后续 Pack 解析流程接入强制规则。
+- M5-1 第四段：新增 `src/data-services/datapack/fragment-parser.ts`，将 JSON 分片解析/合并从 ZIP 物理读取中剥离，解析器不依赖 ZIP 或 UI。
+- M5-1 第五段：新增 `parsePack(source)` 统一 Pack 解析入口，强制根目录 manifest，使用 Source 条目读取 JSON 与图片；旧 Loader 保留为历史包兼容入口，后续 PackManager 接入新流程。
+- M5-1 第六段：UI 导入已切换到 `parsePackFromZipFile`，新导入流程使用 manifest 的 `modName` 作为资源命名空间，展示名称与版本不再由 Datapack 名称字段承担。
+- M5-4 第一段：新增纯内存 `PackManager` 与 `StoredPack` / 快照模型；包库持久化尚未绑定 IndexedDB，启用集冲突检查已在管理层完成。
+- M5-4 第二段：新增 `PackSnapshotStore` 契约与 `JsonPackSnapshotStore`，通过既有 `StorageAdapter` 持久化包库快照；IndexedDB 仍作为后续介质适配，不侵入包库领域逻辑。
+- M5-4 第三段：新增 `PackApplyTarget`，PackManager 通过最小运行时端口应用有序启用集；应用顺序为先 `reload(datapacks)`，成功后清理并登记图片资源，避免包库直接依赖引擎实现。
+- M5-4 第六段：PackManager 现在可注入 `PackSnapshotStore` 并自动持久化成功变更；AronaClickerRuntime 的浏览器入口注入 JSON 快照适配器，存储介质仍可替换。
+- M5-4 第七段：`PackApplyTarget` 增加可选预校验；Runtime 通过临时 Registry 验证整个启用集，验证成功后才 reload 与替换图片资源。
+- M5-4 第八段：PackManager 提供只读依赖提示，依赖仍仅用于 UI 展示与排序参考，不参与启用集合法性判定。
+- M5-4 第九段：新增异步 IndexedDB 快照适配器；不改变 PackManager 的同步逻辑接口，应用层可在启动时异步恢复包库。
+- M5-4 第十段：AronaClickerRuntime 提供显式异步恢复/保存方法，异步存储生命周期由应用启动层控制。
 
 ## 相关文档
 

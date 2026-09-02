@@ -3,18 +3,11 @@
 // CharacterData / DropTableDef / CultivateCurveDef Builder
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import {
-  character,
-  CharacterBuilder,
-  dropTable,
-  DropTableBuilder,
-  cultivateCurve,
-  CultivateCurveBuilder,
-  Character,
-  CharacterRarity,
-  CharacterSchool,
-} from '../../../src/engine/types';
-import type { CharacterData, CultivateCurveDef, DropTableDef } from '../../../src/engine/types';
+import { dropTable, DropTableBuilder, character, CharacterBuilder, cultivateCurve, CultivateCurveBuilder } from '../../../src/arona-clicker/content/def-factory';
+import type { CharacterData } from '../../../src/arona-clicker/types/character';
+import type { DropTableDef } from '../../../src/data-services/contracts/drop-table';
+import type { CultivateCurveDef } from '../../../src/arona-clicker/types/character';
+import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
 
 describe('CharacterBuilder', () => {
   test('character() 返回 CharacterBuilder 实例', () => {

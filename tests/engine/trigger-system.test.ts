@@ -2,8 +2,8 @@
 // engine/trigger-system.test.ts — Trigger DSL 桥接（事件侦测 → 条件 → 执行）
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { and, TriggerDef } from '../../src/engine/types';
 
 const CREDIT = 'base:resource:credit';

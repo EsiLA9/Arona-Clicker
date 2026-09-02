@@ -13,7 +13,7 @@ export function bindInventoryActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-use-item]').forEach(button => {
     button.addEventListener('click', () => {
       const itemId = button.dataset.useItem!;
-      const result = ctrl.game.items.useItem(itemId);
+      const result = ctrl.commands.useItem(itemId);
       if (result.success) {
         const item = ctrl.game.registry.items.get(itemId);
         ctrl.toast.show(`已使用 <b>${item?.name ?? itemId}</b>`, 'success');
@@ -28,9 +28,9 @@ export function bindInventoryActions(ctrl: UIController): void {
       // aria-disabled 行（当前 Area / 锁定 Area）不可移动
       if (button.getAttribute('aria-disabled') === 'true') return;
       const areaId = button.dataset.area!;
-      const result = ctrl.game.travelToArea(areaId);
+      const result = ctrl.commands.travelToArea(areaId);
       if (result.success) {
-        const area = ctrl.game.registry.areas.get(areaId);
+        const area = ctrl.game.world.areas.get(areaId);
         ctrl.toast.show(`已前往 ${area?.name ?? areaId}`, 'success');
         // 与 Talklet 的 travelToArea（notice=true）一致：在聊天流显示「移动到了 XX」迷你条目。
         // 进 travel 队列：移动触发的剧情与通知在同一次 render，通知必须先于剧情内容入流
@@ -44,7 +44,7 @@ export function bindInventoryActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-purchase-enh]').forEach(button => {
     button.addEventListener('click', () => {
       const enhId = button.dataset.purchaseEnh!;
-      const result = ctrl.game.enhancements.purchaseEnhancement(enhId);
+      const result = ctrl.commands.purchaseEnhancement(enhId);
       if (result.success) {
         const enh = ctrl.game.registry.enhancements.get(enhId);
         ctrl.toast.show(`已获得强化 <b>${enh?.name ?? enhId}</b>`, 'success');
@@ -66,11 +66,11 @@ export function bindInventoryActions(ctrl: UIController): void {
       const spotId = button.dataset.upgrade!;
       // 未拥有（level 0）→ 购买解锁；已拥有 → 升级
       const level = ctrl.game.getView().spotLevels[spotId] ?? 0;
-      const spotDef = ctrl.game.registry.spots.get(spotId);
+      const spotDef = ctrl.game.world.spots.get(spotId);
       const spotName = spotDef?.name ?? spotId;
 
       if (level <= 0) {
-        const result = ctrl.game.spot.unlockSpot(spotId);
+        const result = ctrl.commands.unlockSpot(spotId);
         if (result.success) {
           ctrl.toast.show(`已解锁 <b>${spotName}</b>`, 'success');
         } else {
@@ -84,7 +84,7 @@ export function bindInventoryActions(ctrl: UIController): void {
           ctrl.toast.show(`解锁失败：${errMap[result.error] ?? result.error}`, 'error');
         }
       } else {
-        const result = ctrl.game.spot.upgradeSpot(spotId);
+        const result = ctrl.commands.upgradeSpot(spotId);
         if (result.success) {
           ctrl.toast.show(`<b>${spotName}</b> 已升级至 Lv.${result.newLevel}`, 'success');
         } else {
@@ -116,7 +116,7 @@ export function bindInventoryActions(ctrl: UIController): void {
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-hard-reset-init]').forEach(button => {
     button.addEventListener('click', () => {
       // 硬重置仍需立即清档（放弃快照），但保留 unlockedInits 与统计。
-      ctrl.game.inits.hardRestartInit();
+      ctrl.commands.hardRestartInit();
       ctrl.started = false;
       ctrl.pendingRestart = true;
       ctrl.toast.show('已彻底重置当前世界线，返回选择', 'info');

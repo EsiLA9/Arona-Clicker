@@ -3,7 +3,7 @@
 // 独立于 #app 的 body 级弹性层，一次绑定、跨 DOM 重建保持。
 // ============================================================
 
-import { GameInstance } from '../engine/game-instance';
+import type { GameReadModel } from '../arona-clicker/contracts';
 import { createUIContext } from './context';
 import { getTooltipContent } from './components/tooltip';
 
@@ -23,7 +23,7 @@ export class PopoverManager {
 
   constructor(
     private readonly root: HTMLElement,
-    private readonly game: GameInstance,
+    private readonly game: GameReadModel,
   ) {}
 
   /**

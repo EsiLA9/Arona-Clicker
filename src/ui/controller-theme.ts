@@ -6,7 +6,7 @@
 // ============================================================
 
 import { THEME_NODES, buildThemeVars, heroGradient, type ThemeVarName } from './theme-tree';
-import { entityKeyOf, hexToRgbTriplet } from '../engine/system/color-system';
+import { entityKeyOf, hexToRgbTriplet } from '../arona-clicker/services/color-system';
 import type { UIController } from './controller';
 
 /**
@@ -44,7 +44,7 @@ export function syncRuntimeTheme(ctrl: UIController): void {
   }
   const areaId = ctrl.game.getView().currentAreaId;
   if (areaId) {
-    const area = ctrl.game.registry.areas.get(areaId);
+    const area = ctrl.game.world.areas.get(areaId);
     // 实体主题槽覆盖（设计/自定义）优先，否则声明默认
     const override = area
       ? ctrl.game.colorSystem.entityThemeOverride(ctrl.game.state, entityKeyOf('area', areaId))
@@ -56,7 +56,7 @@ export function syncRuntimeTheme(ctrl: UIController): void {
   }
   const convId = ctrl.panelState.conversationVariantId;
   if (convId) {
-    const variant = ctrl.game.registry.characterVariants.get(convId);
+    const variant = ctrl.game.rosterSystem.getVariant(convId);
     if (variant) {
       const entry = ctrl.game.state.roster?.[convId];
       const equipped = entry?.equippedEquipment ?? null;

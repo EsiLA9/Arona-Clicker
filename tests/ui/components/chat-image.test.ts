@@ -3,8 +3,8 @@
 // 覆盖：base 数据包图片索引解析 / 聊天流条目图片渲染 / 未解析索引降级
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../../src/engine/game-instance';
-import { baseDatapack } from '../../../src/data/index';
+import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../../src/data/test-datapack';
 import { createUIContext } from '../../../src/ui/context';
 import { renderChatHistory, type ChatEntry } from '../../../src/ui/components/story';
 
@@ -39,7 +39,7 @@ describe('聊天流图片与头像（pic 系统集成）', () => {
   });
 
   test('星野默认差分 avatar 已接线到 pics 表', () => {
-    const variant = ctx.game.registry.characterVariants.get('Hoshino');
+    const variant = ctx.game.rosterSystem.getVariant('Hoshino');
     expect(variant?.avatar).toBe('base:avatar(pic):hoshino');
   });
 
@@ -67,7 +67,7 @@ describe('聊天流图片与头像（pic 系统集成）', () => {
   });
 
   test('无图片角色（阿罗娜）说话：回退渲染 ColorGroup 抽象头像 SVG', () => {
-    const arona = ctx.game.registry.characterVariants.get('Arona');
+    const arona = ctx.game.rosterSystem.getVariant('Arona');
     expect(arona?.colorGroupId).toBe('base:colorgroup:schale-solid'); // 数据已接线
     expect(arona?.avatar).toBeUndefined();
     const html = renderChatHistory(

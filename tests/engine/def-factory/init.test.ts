@@ -3,8 +3,11 @@
 // .build() 必须产出标准 InitDef（纯数据），字段语义与字面量等价。
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { init, InitBuilder, and, cond, r, extra, Resource } from '../../../src/engine/types';
-import type { InitDef, TriggerDef } from '../../../src/engine/types';
+import { and, cond, r, extra } from '../../../src/engine/types';
+import { init, InitBuilder } from '../../../src/arona-clicker/content/def-factory/init';
+import { Resource } from '../../../src/arona-clicker/types/ids';
+import type { InitDef } from '../../../src/data-services/contracts/world';
+import type { TriggerDef } from '../../../src/engine/types';
 
 const CREDIT = Resource.Credit;
 

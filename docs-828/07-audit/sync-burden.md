@@ -39,7 +39,7 @@
 
 ### 4. 默认数据双载体
 
-- **位置**：`05-conventions/testing.md:28`（改默认行为必须改 `src/data/base/` 并同步 `tests/data/`；`datapack/` JSON 另存在）。
+- **位置**：`05-conventions/testing.md`（正式默认行为改 `src/arona-clicker/content/`，测试行为改 `src/data/base/datapack.ts` / `src/data/test-datapack.ts`；`datapack/` JSON 另存在）。
 - **原因**：同一套默认内容存在 TS 与 JSON 两种载体，外加测试同步断言——一处改动三处对齐。
 - **方案组**：
   - **A（推荐）**：明确定位——`datapack/` = 编辑器导出示例包（多包前提下的样例资产），**不要求**与 base 同步，写进 testing.md。

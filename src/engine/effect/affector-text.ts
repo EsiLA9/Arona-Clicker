@@ -11,7 +11,8 @@
 // ============================================================
 
 import type { Effect, ValueExpression, Value, ExtraValue, AffectorFlow } from '../types';
-import type { ChatTextEffectValue, ConditionGroup } from '../types/expression';
+import type { ConditionGroup } from '../types/expression';
+import type { ChatTextEffectValue } from '../contracts/chat-presentation';
 
 export type NameResolver = (type: string, id: string) => string;
 

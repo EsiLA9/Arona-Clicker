@@ -9,7 +9,7 @@
 
 | 思想 | 含义 | 落点 |
 | --- | --- | --- |
-| 数据包声明式 | 游戏逻辑尽量写成 `Datapack`（JSON/TS 定义），由引擎子系统解释执行，而非硬编码 | `src/engine/types/` 是唯一事实源；`tools/datapack-editor/` 可视化编辑 |
+| 数据包声明式 | 游戏逻辑尽量写成 `Datapack`（JSON/TS 定义），由引擎子系统解释执行，而非硬编码 | `src/data-services/contracts/datapack.ts` 承载汇总契约，实体定义按引擎/产品边界归属；`tools/datapack-editor/` 可视化编辑 |
 | 单一写入口 | 所有状态变更经 `StateMutationService`，禁止绕过直改 `PlayerState` | [[docs-828/04-algorithms/state-mutation]] |
 | 事件驱动 | 写状态后广播事件，联动逻辑做成 Trigger / Affector 订阅响应 | [[docs-828/04-algorithms/trigger-effect]] |
 | 只读 UI | UI 只消费 `getView()` / `createUIContext()` 的不可变快照，类型面收窄为 `UIFacingGame` | [[docs-828/02-modules/ui]] |
@@ -33,16 +33,16 @@ app/game-entry.ts
 | --- | --- |
 | `src/engine/core/` | 事件总线、Tag 路径、DevLog、运行时主题等横切基础 |
 | `src/engine/types/` | 引擎机制契约、表达式、事件类型定义（实体类型逐步迁移至 AronaClicker 领域层） |
-| `src/engine/registry/` | 数据包注册表 + 加载校验（表驱动 merge/clear，恒只读） |
+| `src/data-services/registry/` | 数据包注册表 + 加载校验（表驱动 merge/clear，恒只读） |
 | `src/engine/def-factory/` | 各实体的 builder（测试与数据包构造用） |
 | `src/engine/expression/` | 数值表达式、条件系统、Funclet、统一数值（GameNum） |
 | `src/engine/effect/` | Effect 引擎、Affector 持续效果、Trigger 事件触发、演出响应器 |
 | `src/engine/system/` | 当前混合目录；目标是将基础状态管道留在引擎、角色/抽卡/培养/色彩等迁移至 AronaClicker 领域层 |
-| `src/engine/game/` | 当前混合目录；目标是将 Runtime 组合根与 AronaClicker 的 Init、Story、Spot 服务分离 |
+| `src/arona-clicker/` | AronaClicker Runtime、PlayerState、Init、Story、Spot 等产品领域服务与 ReadModel |
 | `src/engine/stats/` | 三层统计（global / init / session）+ Tag 统计 |
 | `src/engine/visibility/` | 可见性快照引擎（事件驱动增量） |
 | `src/engine/extra/` | Extra 附加数据树（三层合并） |
-| `src/engine/image/` | 当前图片机制；目标是归入基础数据/资产服务 |
+| `src/data-services/assets/` | 图片存储、Pic 解析与图片服务 |
 | `src/data/base/` | **测试/示例 Datapack（不代表引擎内置生产内容）** |
 | `src/ui/` | 前端 UI，只读消费 |
 | `tests/` | vitest 测试（与引擎实现目录基本镜像） |
@@ -54,7 +54,7 @@ app/game-entry.ts
 
 - TypeScript + Vite（构建）+ vitest（测试）；无框架依赖的 DOM UI（`src/ui/`）。
 - 命令见 [[docs-828/00-INDEX]] 命令速查。
-- 存档走 localStorage（`src/save/storage.ts`）；**项目不做存档迁移**（结构可破坏性变更，旧档直接清）。
+- 存档走 localStorage（`src/data-services/persistence/storage.ts`）；**项目不做存档迁移**（结构可破坏性变更，旧档直接清）。
 
 ## 下一步
 

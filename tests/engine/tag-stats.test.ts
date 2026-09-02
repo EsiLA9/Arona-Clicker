@@ -9,9 +9,11 @@ import { EventBus } from '../../src/engine/core/event-bus';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { ConditionDepIndex } from '../../src/engine/expression/condition-deps';
 import { AffectorEngine } from '../../src/engine/effect/affector-engine';
-import { StateMutationService } from '../../src/engine/system/state-mutation-service';
-import type { Registry } from '../../src/engine/registry/registry';
-import { Character, cond, GameEvent, PlayerState } from '../../src/engine/types';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
+import type { Registry } from '../../src/data-services/registry/registry';
+import { cond, GameEvent } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 import { tagPath } from '../../src/engine/core/tag';
 
 function makeRegistry(): import('../../src/engine/stats/tag-stats').TagStatRegistry {
@@ -37,12 +39,13 @@ function makeRegistry(): import('../../src/engine/stats/tag-stats').TagStatRegis
     activeStories: new Map<string, E>([
       ['test:story:main_1', { id: 'test:story:main_1', tags: [tagPath('chapter', 'one')] }],
     ]),
-    characterVariants: new Map([
-      ['Arona', { id: 'Arona', proto: 'arona' }],
-      ['HoshinoSwimsuit', { id: 'HoshinoSwimsuit', proto: 'hoshino' }],
-    ]),
   };
 }
+
+const characterProtoOf = (variantId: string): string | undefined => ({
+  Arona: 'arona',
+  HoshinoSwimsuit: 'hoshino',
+}[variantId]);
 
 function emptyState() {
   return {
@@ -56,7 +59,7 @@ function emptyState() {
 function makeService() {
   const bus = new EventBus();
   const registry = makeRegistry();
-  const service = new TagStatService(registry, bus);
+  const service = new TagStatService(registry, bus, characterProtoOf);
   const state = emptyState();
   service.setState(state);
   const mutations = {
@@ -146,7 +149,7 @@ describe('TagStatService 收集侧（Character，F-04）', () => {
 describe('TagStatService 状态重建与类型隔离', () => {
   test('setState 全量重建 collected（模拟读档，roster 语义）', () => {
     const bus = new EventBus();
-    const service = new TagStatService(makeRegistry(), bus);
+    const service = new TagStatService(makeRegistry(), bus, characterProtoOf);
     service.setState({
       spotLevels: { 'test:spot:spot_printer': 2 },
       roster: { HoshinoSwimsuit: {} },
@@ -170,7 +173,7 @@ describe('TagStatService 状态重建与类型隔离', () => {
 describe('TagStatService 全类型覆盖', () => {
   test('inits/areas/enhancements/stories 的收集与事件增量', () => {
     const bus = new EventBus();
-    const service = new TagStatService(makeRegistry(), bus);
+    const service = new TagStatService(makeRegistry(), bus, characterProtoOf);
     const state = {
       ...emptyState(),
       unlockedInits: [] as string[],
@@ -207,7 +210,7 @@ describe('TagStatService 全类型覆盖', () => {
 
     // 事件增量：解锁带 tag 的实体（registry.inits 为空，改用 areas 声明验证 collect 路径）
     const tagged = new Map([...makeRegistry().areas, ['area_tagged', { id: 'area_tagged', tags: [tagPath('zone', 'campus')] }]]);
-    const service2 = new TagStatService({ ...makeRegistry(), areas: tagged }, bus);
+    const service2 = new TagStatService({ ...makeRegistry(), areas: tagged }, bus, characterProtoOf);
     service2.setState({ ...emptyState(), visitedAreas: ['area_tagged'] });
     expect(service2.collectedCount('areas', 'zone')).toBe(1);
   });
@@ -217,7 +220,7 @@ describe('tagCollectedChanged 事件与 tagCount 条件接入', () => {
   test('实际增删才发事件；升级不重复；setState 重建不发', () => {
     const bus = new EventBus();
     const registry = makeRegistry();
-    const service = new TagStatService(registry, bus);
+    const service = new TagStatService(registry, bus, characterProtoOf);
     const events: GameEvent[] = [];
     bus.on('tagCollectedChanged', e => events.push(e));
     const state = emptyState();
@@ -266,7 +269,7 @@ describe('tagCollectedChanged 事件与 tagCount 条件接入', () => {
     } as unknown as PlayerState;
     mutations.setState(state);
 
-    new TagStatService(registry, bus); // 订阅收集事件并发出 tagCollectedChanged
+    new TagStatService(registry, bus, characterProtoOf); // 订阅收集事件并发出 tagCollectedChanged
     const cs = new ConditionSystem();
     cs.setStatReader(() => null);
     cs.setTagIndex(() => []);

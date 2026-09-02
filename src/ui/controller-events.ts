@@ -101,7 +101,7 @@ export function bindEvents(ctrl: UIController): void {
       && (!completedEntry?.owner || completedEntry.owner === tail.owner)
       && !ctrl.game.story.hasCompletedStory(tail.storyId));
     if (hasTail) {
-      ctrl.game.story.triggerTailPush(convId, event.storyId);
+      ctrl.commands.triggerTailPush(convId, event.storyId);
       ctrl.render();
     }
   });

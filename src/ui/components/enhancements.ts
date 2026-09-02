@@ -1,7 +1,8 @@
 import { UIContext } from '../context';
 import { getEnhancementReveal, describeCondition } from './tooltip';
 import { unlockCondition } from '../../engine/visibility/reveal';
-import { EnhancementDef, AffectorPackDef } from '../../engine/types';
+import type { EnhancementDef } from '../../data-services/contracts/enhancement';
+import { AffectorPackDef } from '../../engine/types';
 
 /** 从 Enhancement 挂载的 Affector 包派生其产出倍率展示文案（统一 zone 模型）。 */
 export function enhMultiplierLabel(ctx: UIContext, enh: EnhancementDef): string {
@@ -17,7 +18,7 @@ export function enhMultiplierLabel(ctx: UIContext, enh: EnhancementDef): string 
           return `+${((val - 1) * 100).toFixed(0)}%（全局）`;
         }
         if (z.target.kind === 'tag') {
-          return `+${((val - 1) * 100).toFixed(0)}%（${ctx.game.registry.tagName(z.target.tag)}）`;
+          return `+${((val - 1) * 100).toFixed(0)}%（${ctx.world.tagName(z.target.tag)}）`;
         }
       }
     }

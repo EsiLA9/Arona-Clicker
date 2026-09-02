@@ -3,7 +3,7 @@
 // 从 tooltip.ts 拆出：renderInitDetail
 // ============================================================
 
-import { InitDef } from '../../engine/types';
+import type { InitDef } from '../../data-services/contracts/world';
 import { UIContext } from '../context';
 import { getInitReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
 
@@ -19,9 +19,9 @@ export function renderInitDetail(ctx: UIContext, init: InitDef): string {
     ? `<p class="info-desc">${ctx.escapeHtml(init.description)}</p>`
     : '';
 
-  const areas = ctx.game.registry.areasOfInit(init.id);
+  const areas = ctx.world.areasOfInit(init.id);
   const spotCount = areas.reduce(
-    (sum, areaId) => sum + ctx.game.registry.spotsOfArea(areaId).length,
+    (sum, areaId) => sum + ctx.world.spotsOfArea(areaId).length,
     0,
   );
 
@@ -29,7 +29,7 @@ export function renderInitDetail(ctx: UIContext, init: InitDef): string {
   const defaultAreaNames = reveal.utilityKnown && init.defaultAreas.length
     ? init.defaultAreas
         .map(aid => {
-          const area = ctx.game.registry.areas.get(aid);
+          const area = ctx.world.areas.get(aid);
           return area ? ctx.escapeHtml(area.name) : aid;
         })
         .join('、')

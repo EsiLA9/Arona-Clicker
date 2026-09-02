@@ -1,7 +1,7 @@
 /**
  * engine-schema.sync.test.ts —— 引擎类型 ↔ editor schema 三向一致性
  *
- * 复用 scripts/gen-engine-schema.mjs 的解析器重新解析 src/engine/types/**，
+ * 复用 scripts/gen-engine-schema.mjs 的解析器重新解析数据包类型与 engine/contracts，
  * 与提交的 engine-defs.gen.json 及 merge 后的 TABLES 对比，防"引擎新增字段/枚举
  * 但 editor 未同步"的漂移（error 红灯）。
  */

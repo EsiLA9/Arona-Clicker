@@ -5,8 +5,8 @@
 //   确认 → 按 mode 启动；取消 → 关闭未启动；横幅渲染与 3s 自动消失。
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
 import { bindStoryActions } from '../../src/ui/controller-actions-story';
 import { finishWelcome } from '../engine/story-test-fixtures';

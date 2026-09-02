@@ -10,9 +10,10 @@ import type { ChatEntry } from '../../src/ui/components/story';
 import { renderChatHistory } from '../../src/ui/components/story';
 import { renderSendButton } from '../../src/ui/components/center-panel';
 import type { UIContext } from '../../src/ui/context';
-import type { GameInstance, SaveData } from '../../src/engine/game-instance';
-import type { StoryView, Talklet } from '../../src/engine/types';
-import { talklet } from '../../src/engine/def-factory';
+import type { GameInstance, SaveData } from '../../src/arona-clicker/runtime-game-instance';
+import type { StoryView } from '../../src/arona-clicker/contracts/results';
+import type { Talklet } from '../../src/data-services/contracts/story';
+import { talklet } from '../../src/arona-clicker/content/def-factory';
 import { withHistories } from '../../src/ui/controller-core';
 
 function makePanelState(): PanelState {
@@ -533,7 +534,7 @@ describe('连发分组渲染（同人同侧仅首条显示头像/名称）', () 
     game: {
       pics: { urlOf: () => undefined },
       registry: { characterVariants: { values: () => [] } },
-      rosterSystem: { getOwned: () => undefined },
+      rosterSystem: { getOwned: () => undefined, getAllVariants: () => [] },
     },
   } as unknown as UIContext;
 
@@ -591,7 +592,7 @@ describe('门控态按钮与打字气泡渲染', () => {
     game: {
       pics: { urlOf: () => undefined },
       registry: { characterVariants: { values: () => [] } },
-      rosterSystem: { getOwned: () => undefined },
+      rosterSystem: { getOwned: () => undefined, getAllVariants: () => [] },
     },
   } as unknown as UIContext;
 

@@ -11,7 +11,7 @@
 //   - 卡片结构/字体完全共享 .mini-card，强调卡仅注入 --card-* token
 // ============================================================
 
-import { hexToHsl } from '../engine/system/color-system';
+import { hexToHsl } from '../arona-clicker/services/color-system';
 
 /** HSL(h s% l%) 序列化（h/s/l 均为 0~1）。 */
 function hslCss(h: number, s: number, l: number, a?: number): string {

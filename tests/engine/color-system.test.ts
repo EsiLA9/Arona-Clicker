@@ -1,15 +1,16 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/color-system.test.ts — 色彩系统（CL 组 + CT 组）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import {
   contrastRatio,
   deriveThemeTokens,
   resolveTheme,
-} from '../../src/engine/system/color-system';
-import type { ColorGroupDef, Datapack } from '../../src/engine/types';
-import { Character, CharacterRarity, CharacterSchool } from '../../src/engine/types';
+} from '../../src/arona-clicker/services/color-system';
+import type { ColorGroupDef, } from '../../src/data-services/contracts/color';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
 function v(id: string, proto: Character) {
   return {

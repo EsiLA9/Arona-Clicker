@@ -3,10 +3,10 @@
 // kind 与 ON_KIND_TO_EVENT 穷尽（映射双向锁合的行为面验证）
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { ON_KIND_TO_EVENT } from '../../src/engine/effect/trigger-system';
-import { EVENT_CATALOG } from '../../src/engine/types/events';
+import { EVENT_CATALOG } from '../../src/arona-clicker/contracts/event-catalog';
 import type { TriggerEventKind } from '../../src/engine/types';
 
 const CREDIT = 'base:resource:credit';

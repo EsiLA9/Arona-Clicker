@@ -3,21 +3,12 @@
 // 资源为三段式 ID：base:resource:credit（编辑者 DSL / 统计 / 条件共用）
 // ============================================================
 
-import { Resource } from '../types';
-
 export type ResourceId = string;
 
-export const RESOURCE_MOD = 'base';
-export const RESOURCE_PREFIX = `${RESOURCE_MOD}:resource:`;
-
-/** 构造三段式资源 ID：resourceId('base', 'credit') → base:resource:credit */
+/** 构造三段式资源 ID。 */
 export const resourceId = (mod: string, name: string): string => `${mod}:resource:${name}`;
 
-/** 展示名（UI / 日志用）。未知资源回退为原 ID。 */
+/** 通用展示回退；产品资源名由 ResourceDisplay 配置提供。 */
 export function resourceLabel(id: string): string {
-  switch (id) {
-    case Resource.Credit: return '信用点';
-    case Resource.Pyroxene: return '青辉石';
-    default: return id;
-  }
+  return id;
 }

@@ -5,7 +5,7 @@
 ## 职责边界
 
 - **管**：图片索引格式、登记与解析、chara 头像-人名对（charaProfile）。
-- **不管**：图片渲染（UI 拿 URL 自行渲染）、zip 解包（`src/data/zip-loader.ts`）。
+- **不管**：图片渲染（UI 拿 URL 自行渲染）、zip 解包（`src/data-services/datapack/zip-loader.ts`）。
 
 ## 关键文件
 

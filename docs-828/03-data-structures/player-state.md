@@ -1,13 +1,13 @@
 # 03-data-structures/player-state — PlayerState 运行时状态结构
 
-> 本文回答：**PlayerState 长什么样、字段怎么分层。** 分层原则见 [[docs-828/01-architecture/state-layers]]；类型权威在 `src/engine/types/state.ts`。
+> 本文回答：**PlayerState 长什么样、字段怎么分层。** 分层原则见 [[docs-828/01-architecture/state-layers]]；类型权威在 `src/arona-clicker/types/state.ts`。
 
 ## 三层分层（跨世界线 / 世界线内 / 当前运行）
 
 | 层 | 字段前缀/载体 | 生命周期 | 代表字段 |
 | --- | --- | --- | --- |
 | **Global** | `global*` / 收集类顶层字段 | 跨世界线永久 | `globalResources`、`unlockedInits`、`visitedInits`、`groupsOwned`/`equipmentsOwned`、色彩/装备收集、`spotTagOverrides`、`roster`/`fragments`（归属层由 `characterPersistConfig` 逐块声明，声明为 global 时不进快照） |
-| **per-Init 快照** | `initSnapshots[initId]` | 离开时保存、回时恢复 | `InitSnapshot`：`{ resources, spotLevels, spotManagers, visitedAreas, totalFrames, inventory, unlockedEnhancements, storyLog, storyReadLogs, flags, triggersCompleted, currentAreaId, extras, roster?, fragments?, gachaState?, chatRead? }`（`PER_INIT_FIELD_SPECS` 17 项，`game/per-init-fields.ts`） |
+| **per-Init 快照** | `initSnapshots[initId]` | 离开时保存、回时恢复 | `InitSnapshot`：`{ resources, spotLevels, spotManagers, visitedAreas, totalFrames, inventory, unlockedEnhancements, storyLog, storyReadLogs, flags, triggersCompleted, currentAreaId, extras, roster?, fragments?, gachaState?, chatRead? }`（`PER_INIT_FIELD_SPECS` 17 项，`arona-clicker/state/per-init-fields.ts`） |
 | **per-Init 当前** | 顶层字段 | 当前世界线运行时 | `resources`、`flags`、`initExtras`、`inventory`、`spotLevels`、`currentAreaId`、`storyLog`、`visitedAreas` |
 
 **关键约定**：读状态时「当前层有值用当前层，无值回退快照层」——由 `extraFromLayer` / `resourceBucket` 等访问器统一实现（`StateMutationService`）。

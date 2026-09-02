@@ -5,8 +5,6 @@
 // ============================================================
 
 import {
-  PlayerState,
-  VisibilitySnapshot,
   InitId,
   AreaId,
   SpotId,
@@ -15,7 +13,8 @@ import {
   ItemId,
   RevealTrigger,
 } from '../types';
-import { Registry } from '../registry/registry';
+import type { RevealRegistryContext, VisibilitySnapshot } from '../contracts/reveal';
+import type { ConditionState } from '../contracts/state-query';
 import { ConditionSystem } from '../expression/condition-system';
 import { existenceMet } from './reveal';
 
@@ -23,7 +22,7 @@ export type EntityKind = 'inits' | 'areas' | 'spots' | 'enhancements' | 'items' 
 export type EntityKey = string; // `${kind}:${id}`
 
 export interface DefWithTriggers {
-  revealTriggers?: RevealTrigger[];
+  revealTriggers?: readonly RevealTrigger[];
 }
 
 export function emptySnapshot(): VisibilitySnapshot {
@@ -33,22 +32,22 @@ export function emptySnapshot(): VisibilitySnapshot {
 /** 对 registry + conditionSystem 的可见性求值门面。 */
 export class VisibilityEval {
   constructor(
-    private readonly registry: Registry,
+    private readonly registry: RevealRegistryContext,
     private readonly conditionSystem: ConditionSystem,
   ) {}
 
   /** existenceMet：无 existence 门槛 = 默认可见；有且任一满足即见。 */
-  evaluate(triggers: RevealTrigger[] | undefined, state: PlayerState): boolean {
+  evaluate(triggers: readonly RevealTrigger[] | undefined, state: ConditionState): boolean {
     return existenceMet(triggers, c => this.conditionSystem.evaluateExpr(c, state));
   }
 
-  evaluateEntity(kind: EntityKind, id: string, state: PlayerState): boolean {
+  evaluateEntity(kind: EntityKind, id: string, state: ConditionState): boolean {
     const def = this.lookup(kind, id);
     return def ? this.evaluate(def.revealTriggers, state) : false;
   }
 
   /** 整类重算：inits/areas/spots/enhancements/items/stories。 */
-  recomputeCategory(state: PlayerState, kind: EntityKind): Record<string, boolean> {
+  recomputeCategory(state: ConditionState, kind: EntityKind): Record<string, boolean> {
     const out: Record<string, boolean> = {};
     for (const [id, def] of this.entriesOf(kind)) {
       out[id] = this.evaluate(def?.revealTriggers, state);

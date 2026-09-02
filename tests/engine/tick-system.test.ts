@@ -1,13 +1,16 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/tick-system.test.ts
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { Registry } from '../../src/engine/registry/registry';
+import { Registry } from '../../src/data-services/registry/registry';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { ValueSystem } from '../../src/engine/expression/value-system';
 import { TickSystem } from '../../src/engine/system/tick-system';
 import { GameNumSystem } from '../../src/engine/expression/game-num';
-import { PlayerState, Datapack, Character } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
 
 const simpleDatapack: Datapack = {
   name: 'tick-test',
@@ -64,7 +67,6 @@ function makeGameNumSystem(reg: Registry, vs: ValueSystem, bus: EventBus, state:
   const gns = new GameNumSystem({
     registry: reg,
     valueSystem: vs,
-    characterSystem: { getTagBonus: () => 1 } as any,
     affectorEngine: { getActiveInstances: () => [], getPack: () => undefined } as any,
     eventBus: bus,
   });
@@ -82,7 +84,7 @@ describe('TickSystem', () => {
 
     const state = tickState();
     const gns = makeGameNumSystem(reg, vs, bus, state);
-    const ts = new TickSystem(reg, vs, bus, gns);
+    const ts = new TickSystem(vs, bus, gns, new StateMutationService(bus));
     ts.setState(state);
 
     // baseYield=5 is the output for one unified tick.
@@ -100,7 +102,7 @@ describe('TickSystem', () => {
     const state = tickState();
     state.spotManagers['test:spot:spot_t'] = Character.Shiroko;
     const gns = makeGameNumSystem(reg, vs, bus, state);
-    const ts = new TickSystem(reg, vs, bus, gns);
+    const ts = new TickSystem(vs, bus, gns, new StateMutationService(bus));
     ts.setState(state);
 
     // managerBonusYield 声明 3，但已冻结：产出与无 manager 完全一致
@@ -117,7 +119,7 @@ describe('TickSystem', () => {
 
     const state = tickState(0); // level = 0 → 未解锁
     const gns = makeGameNumSystem(reg, vs, bus, state);
-    const ts = new TickSystem(reg, vs, bus, gns);
+    const ts = new TickSystem(vs, bus, gns, new StateMutationService(bus));
     ts.setState(state);
 
     for (let i = 0; i < 6; i++) ts.tick();
@@ -133,7 +135,7 @@ describe('TickSystem', () => {
 
     const state = tickState();
     const gns = makeGameNumSystem(reg, vs, bus, state);
-    const ts = new TickSystem(reg, vs, bus, gns);
+    const ts = new TickSystem(vs, bus, gns, new StateMutationService(bus));
     ts.setState(state);
 
     const events: any[] = [];
@@ -154,7 +156,7 @@ describe('TickSystem', () => {
 
     const state = tickState();
     const gns = makeGameNumSystem(reg, vs, bus, state);
-    const ts = new TickSystem(reg, vs, bus, gns);
+    const ts = new TickSystem(vs, bus, gns, new StateMutationService(bus));
     ts.setState(state);
 
     const frames: number[] = [];
@@ -176,14 +178,14 @@ describe('TickSystem', () => {
 
     const state1 = tickState();
     const gns1 = makeGameNumSystem(reg, vs, bus, state1);
-    const ts1 = new TickSystem(reg, vs, bus, gns1);
+    const ts1 = new TickSystem(vs, bus, gns1, new StateMutationService(bus));
     ts1.setState(state1);
     ts1.tick(); // frame 1 settles immediately
 
     // 新实例使用新状态，恢复计时器
     const state2 = tickState();
     const gns2 = makeGameNumSystem(reg, vs, bus, state2);
-    const ts2 = new TickSystem(reg, vs, bus, gns2);
+    const ts2 = new TickSystem(vs, bus, gns2, new StateMutationService(bus));
     ts2.setState(state2);
     ts2.tick(); // 下一帧仍然结算
 

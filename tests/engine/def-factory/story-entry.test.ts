@@ -7,12 +7,11 @@ import {
   passiveStory,
   ActiveStoryBuilder,
   PassiveStoryBuilder,
-  and,
-  cond,
-  Resource,
-} from '../../../src/engine/types';
+} from '../../../src/arona-clicker/content/def-factory';
+import { and, cond } from '../../../src/engine/types';
+import { Resource } from '../../../src/arona-clicker/types/ids';
 import { tagPath } from '../../../src/engine/core/tag';
-import type { ActiveStoryEntry, PassiveStoryEntry } from '../../../src/engine/types';
+import type { ActiveStoryEntry, PassiveStoryEntry } from '../../../src/data-services/contracts/story-entry';
 
 describe('StoryEntry builders', () => {
   test('activeStory() 返回 ActiveStoryBuilder 实例', () => {

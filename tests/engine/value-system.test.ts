@@ -3,7 +3,9 @@
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import { ValueSystem } from '../../src/engine/expression/value-system';
-import { PlayerState, ValueExpression, Expr, value, Character } from '../../src/engine/types';
+import { ValueExpression, Expr, value, } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 import { extra } from '../../src/engine/extra/index';
 
 function defaultState(overrides: Partial<PlayerState> = {}): PlayerState {

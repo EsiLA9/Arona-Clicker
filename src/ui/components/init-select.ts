@@ -1,4 +1,5 @@
-import { RevealStage, ResourceAmount } from '../../engine/types';
+import type { RevealStage } from '../../engine/contracts/reveal';
+import type { ResourceAmount } from '../../data-services/contracts/common';
 import { compareWorldTilt, normalizeWorldTilt } from '../../engine/stats/world-tilt';
 import { UIContext } from '../context';
 import { getInitReveal } from './tooltip';
@@ -26,10 +27,10 @@ export interface InitSummary {
 export type InitSelectMode = 'new' | 'restart';
 
 function summarize(ctx: UIContext): InitSummary[] {
-  return [...ctx.game.registry.inits.values()].map(init => {
-    const areas = ctx.game.registry.areasOfInit(init.id);
+  return [...ctx.world.inits.values()].map(init => {
+    const areas = ctx.world.areasOfInit(init.id);
     const spotCount = areas.reduce(
-      (sum, areaId) => sum + ctx.game.registry.spotsOfArea(areaId).length,
+      (sum, areaId) => sum + ctx.world.spotsOfArea(areaId).length,
       0,
     );
     const reveal = getInitReveal(ctx, init);

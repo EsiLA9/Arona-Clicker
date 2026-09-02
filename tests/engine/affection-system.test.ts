@@ -1,3 +1,4 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/affection-system.test.ts — 好感系统（§1 数值 / §2 轴 B 队列 / §3 尾巴挂靠推送）
 //
@@ -8,19 +9,19 @@
 //   §3  尾巴挂靠：完结即入队、强制优先、triggerTailPush 定向推送、owner 隔离、退出随机抽取
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import type { CharacterVariantDef, Datapack, GameEvent, PlayerState } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { GameEvent } from '../../src/engine/types';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
+import type { CharacterVariantDef } from '../../src/arona-clicker/types/character';
 import {
   activeStory,
-  Character,
-  CharacterRarity,
-  CharacterSchool,
   line,
   narrate,
   passiveStory,
   story,
-} from '../../src/engine/types';
-import { DEFAULT_AFFECTION_EXP_CURVE, affectionLevelCapOf, resolveAffectionConfig } from '../../src/engine/system/affection-system';
+} from '../../src/arona-clicker/content/def-factory';
+import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
+import { DEFAULT_AFFECTION_EXP_CURVE, affectionLevelCapOf, resolveAffectionConfig } from '../../src/arona-clicker/services/affection-system';
 
 // --- 测试数据 ---
 

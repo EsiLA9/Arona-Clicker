@@ -7,7 +7,9 @@
 // 可能携带未知 source：查找失败回落 0（保持原 default 语义）。
 // ============================================================
 
-import { ValueExpression, PlayerState, Value, ValueSource, FuncletDef, ExtraPath, ExtraValue } from '../types';
+import { ValueExpression, Value, ValueSource, FuncletDef, ExtraPath, ExtraValue } from '../types';
+import type { ValueState } from '../contracts/state-query';
+import type { ValueEvaluationContext } from '../contracts/evaluation-context';
 import { toNumber } from '../extra/index';
 
 /** 二元算子表（div 有除零保护，clamp 三操作数，均走显式分支）。 */
@@ -28,7 +30,7 @@ const UNARY_OPS = {
 } as const;
 
 /** 单个 source 的求值器：从状态与注入依赖读取数值。 */
-type SourceEvaluator = (sys: ValueSystem, val: Value, state: PlayerState) => number;
+type SourceEvaluator = (sys: ValueSystem, val: Value, state: ValueState) => number;
 
 const SOURCE_EVALUATORS: Record<ValueSource, SourceEvaluator> = {
   const: (_sys, val) => Number(val.params.value ?? 0),
@@ -85,7 +87,7 @@ const SOURCE_EVALUATORS: Record<ValueSource, SourceEvaluator> = {
   },
 };
 
-export class ValueSystem {
+export class ValueSystem implements ValueEvaluationContext {
   /** @internal funclet 定义表（供 SOURCE_EVALUATORS 读取；setFuncletDefs 注入）。 */
   funcletDefs: Map<string, FuncletDef>;
   /** @internal Extra 三层合并视图读取器（由 GameInstance.getExtra 提供）。 */
@@ -109,7 +111,7 @@ export class ValueSystem {
   }
 
   /** 求值 ValueExpression 为数字 */
-  evaluate(expr: ValueExpression, state: PlayerState): number {
+  evaluate(expr: ValueExpression, state: ValueState): number {
     switch (expr.type) {
       case 'const':
         return expr.value;
@@ -142,7 +144,7 @@ export class ValueSystem {
   }
 
   /** 求值单个 Value */
-  evaluateValue(val: Value, state: PlayerState): number {
+  evaluateValue(val: Value, state: ValueState): number {
     const evaluator = SOURCE_EVALUATORS[val.source];
     return evaluator ? evaluator(this, val, state) : 0;
   }

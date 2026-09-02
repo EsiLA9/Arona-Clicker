@@ -2,8 +2,8 @@
 // engine/enhancement-pyroxene-cheat.test.ts — 测试用青辉石灌注 Enhancement
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 
 const PYROXENE = 'base:resource:pyroxene';
 const OFFICE = 'base:init:schale_office';

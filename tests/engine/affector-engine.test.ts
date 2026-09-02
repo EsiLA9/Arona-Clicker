@@ -2,9 +2,9 @@ import { describe, expect, test } from 'vitest';
 import { AffectorEngine } from '../../src/engine/effect/affector-engine';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { EventBus } from '../../src/engine/core/event-bus';
-import { Registry } from '../../src/engine/registry/registry';
-import { StateMutationService } from '../../src/engine/system/state-mutation-service';
-import { PlayerState } from '../../src/engine/types';
+import { Registry } from '../../src/data-services/registry/registry';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
+import type { PlayerState } from '../../src/arona-clicker/types/state';
 
 function emptyState(): PlayerState {
   return {

@@ -15,8 +15,8 @@
 // spotFull / areaFull / initFull 为层级视图节点，额外项经 Extra 节点进入上级。
 // ============================================================
 
-import type { PlayerState, Value, ValueExpression } from '../types';
-import type { Registry } from '../registry/registry';
+import type { Value, ValueExpression } from '../types';
+import type { GameNumState } from '../contracts/state-query';
 import type { GameNumSystem } from './game-num';
 import type { GameNum, ZoneNode } from './game-num-internal';
 import { TagPath } from '../core/tag';
@@ -24,7 +24,7 @@ import { EntityRef, entityKey, tagPrefixesBottomUp } from './tag-effect';
 
 // ---- 构建 ----
 
-export function buildAll(system: GameNumSystem, state?: PlayerState): void {
+export function buildAll(system: GameNumSystem, state?: GameNumState): void {
   system.state = state;
   system.gains.clear();
   system.spotSubtrees.clear();
@@ -280,7 +280,7 @@ function attachFlowsNode(system: GameNumSystem, mount: string | undefined, resou
 }
 
 /** 按当前活跃 Affector 实例补齐缺失的 flows 节点（buildAll 收尾与实例变化时调用；幂等）。 */
-export function ensureFlowsNodes(system: GameNumSystem, affector: { getActiveInstances(): { mountEntityId: string; packId: string; activeEntryIds: string[] }[]; getPack(id: string): { entries: { id: string; flows?: { resource: string }[] }[] } | undefined }): void {
+export function ensureFlowsNodes(system: GameNumSystem, affector: { getActiveInstances(): readonly { mountEntityId: string; packId: string; activeEntryIds: readonly string[] }[]; getPack(id: string): { entries: readonly { id: string; flows?: readonly { resource: string }[] }[] } | undefined }): void {
   for (const instance of affector.getActiveInstances()) {
     const pack = affector.getPack(instance.packId);
     if (!pack) continue;

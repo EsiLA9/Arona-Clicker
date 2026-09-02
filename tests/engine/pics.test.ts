@@ -1,3 +1,4 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/pics.test.ts — 图片资产存储与索引（PicDef / ImageStore / 解析器）
 // ============================================================
@@ -9,12 +10,12 @@ import {
   isDirectUrl,
   isZipPicSrc,
   zipPathOf,
-} from '../../src/engine/types/pics';
-import { ImageStore, resolvePicSrc } from '../../src/engine/image/index';
-import { Registry } from '../../src/engine/registry/registry';
-import { RegistryError } from '../../src/engine/registry/registry-validate';
-import { GameInstance } from '../../src/engine/game-instance';
-import type { Datapack } from '../../src/engine/types';
+} from '../../src/data-services/contracts/pic';
+import { ImageStore, resolvePicSrc } from '../../src/data-services';
+import { Registry } from '../../src/data-services/registry/registry';
+import { RegistryError } from '../../src/data-services/registry/registry-validate';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { } from '../../src/engine/types';
 
 describe('parsePicId / buildPicId / isPicRef', () => {
   test('标准三段式解析', () => {
@@ -130,38 +131,38 @@ describe('resolvePicSrc', () => {
   });
 
   test('非 PicId（直连 URL / 相对路径）→ undefined（def 只持有 PicId）', () => {
-    expect(resolvePicSrc(registry, store, 'https://example.com/x.png')).toBeUndefined();
-    expect(resolvePicSrc(registry, store, '/assets/x.png')).toBeUndefined();
-    expect(resolvePicSrc(registry, store, 'icon-name')).toBeUndefined();
-    expect(resolvePicSrc(registry, store, 'shard')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, 'https://example.com/x.png')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, '/assets/x.png')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, 'icon-name')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, 'shard')).toBeUndefined();
   });
 
   test('pic ref + zip 来源 → 从 ImageStore 取 URL', () => {
-    expect(resolvePicSrc(registry, store, 'base:avatar(pic):hoshino')).toBe('data:image/png;base64,hoshino');
+    expect(resolvePicSrc(registry.pics, store, 'base:avatar(pic):hoshino')).toBe('data:image/png;base64,hoshino');
   });
 
   test('pic ref + 直连 src → 直接返回 src', () => {
-    expect(resolvePicSrc(registry, store, 'base:avatar(pic):serika')).toBe('https://example.com/serika.png');
+    expect(resolvePicSrc(registry.pics, store, 'base:avatar(pic):serika')).toBe('https://example.com/serika.png');
   });
 
   test('pic ref 但 pics 表无声明 → undefined', () => {
-    expect(resolvePicSrc(registry, store, 'base:avatar(pic):nonexistent')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, 'base:avatar(pic):nonexistent')).toBeUndefined();
   });
 
   test('非 pic ref 非直连 URL → undefined（不再透传）', () => {
-    expect(resolvePicSrc(registry, store, 'icon-name')).toBeUndefined();
-    expect(resolvePicSrc(registry, store, 'shard')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, 'icon-name')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, 'shard')).toBeUndefined();
   });
 
   test('undefined/空 → undefined', () => {
-    expect(resolvePicSrc(registry, store, undefined)).toBeUndefined();
-    expect(resolvePicSrc(registry, store, '')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, undefined)).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, '')).toBeUndefined();
   });
 
   test('zip 来源但 ImageStore 未登记 → undefined', () => {
-    expect(resolvePicSrc(registry, store, 'base:background(pic):office')).toBe('data:image/webp;base64,office');
+    expect(resolvePicSrc(registry.pics, store, 'base:background(pic):office')).toBe('data:image/webp;base64,office');
     store.clear();
-    expect(resolvePicSrc(registry, store, 'base:avatar(pic):hoshino')).toBeUndefined();
+    expect(resolvePicSrc(registry.pics, store, 'base:avatar(pic):hoshino')).toBeUndefined();
   });
 });
 

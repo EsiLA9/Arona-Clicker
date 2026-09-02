@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'vitest';
 import { RuntimeThemeManager, type ThemeOrderScope } from '../../src/engine/core/theme-runtime';
-import { ColorSystem } from '../../src/engine/system/color-system';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { ColorSystem } from '../../src/arona-clicker/services/color-system';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 
 const OFFICE = 'base:init:office';
 

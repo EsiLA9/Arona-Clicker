@@ -14,7 +14,7 @@ function pushReadyTop(ctrl: UIController, variantId: string): void {
   if (!ctrl.game.rosterSystem.isOwned(ctrl.game.state, variantId)) return;
   if (ctrl.game.getStoryView(variantId)) return; // 沙盒有进行中演出：直接恢复，不打断
   if (ctrl.game.story.readyStepCount(variantId) <= 0) return;
-  ctrl.game.story.triggerAffectionPush(variantId);
+  ctrl.commands.triggerAffectionPush(variantId);
 }
 
 /** 绑定通讯录 / 角色面板、招募入口与角色成长事件（render 后调用）。 */
@@ -45,7 +45,7 @@ export function bindContactsActions(ctrl: UIController): void {
   });
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-mark-read]').forEach(button => {
     button.addEventListener('click', () => {
-      ctrl.game.mutations.markChatRead(button.dataset.markRead!);
+      ctrl.commands.markChatRead(button.dataset.markRead!);
       ctrl.render();
     });
   });
@@ -53,7 +53,7 @@ export function bindContactsActions(ctrl: UIController): void {
     button.addEventListener('click', () => {
       const variantId = ctrl.panelState.selectedVariantId;
       if (!variantId) return;
-      const r = ctrl.game.mutations.equipEquipment(variantId, button.dataset.equipEquipment!);
+      const r = ctrl.commands.equipEquipment(variantId, button.dataset.equipEquipment!);
       if (!r.ok) ctrl.toast.show(r.reason === 'not-owned' ? '尚未收集该装备' : '无法装备', 'error');
       ctrl.render();
     });
@@ -62,7 +62,7 @@ export function bindContactsActions(ctrl: UIController): void {
     button.addEventListener('click', () => {
       const variantId = ctrl.panelState.selectedVariantId;
       if (!variantId) return;
-      ctrl.game.mutations.unequipEquipment(variantId);
+      ctrl.commands.unequipEquipment(variantId);
       ctrl.render();
     });
   });
@@ -78,14 +78,14 @@ export function bindContactsActions(ctrl: UIController): void {
     button.addEventListener('click', () => {
       const variantId = button.dataset.addExp!;
       const before = ctrl.game.rosterSystem.getOwned(ctrl.game.state, variantId)?.level ?? 0;
-      const r = ctrl.game.mutations.addExp(variantId, 100);
+      const r = ctrl.commands.addExp(variantId, 100);
       if (r.ok && r.newLevel > before) ctrl.toast.show(`升级！Lv.${r.newLevel}`, 'success');
       ctrl.render();
     });
   });
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-breakthrough]').forEach(button => {
     button.addEventListener('click', () => {
-      const r = ctrl.game.mutations.breakthroughStar(button.dataset.breakthrough!);
+      const r = ctrl.commands.breakthroughStar(button.dataset.breakthrough!);
       if (!r.ok) ctrl.toast.show('碎片不足或已达上限', 'error');
       else ctrl.toast.show(`突破成功 ★${r.newStars}`, 'success');
       ctrl.render();

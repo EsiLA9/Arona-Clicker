@@ -13,8 +13,9 @@
 // 会导致写入/清理落错对象——见 todoTask/taskProduction/HANDOFF.md「Phase 1 阻塞项」。
 // ============================================================
 
-import type { PlayerState, ValueExpression } from '../types';
-import type { AffectorEngine } from '../effect/affector-engine';
+import type { ValueExpression } from '../types';
+import type { GameNumState } from '../contracts/state-query';
+import type { GameNumAffectorContext } from '../contracts/evaluation-context';
 import type { GameNumSystem } from './game-num';
 import type { GameNum } from './game-num-internal';
 import { tagId } from '../core/tag';
@@ -39,7 +40,7 @@ function accumulateKeyResourceDeps(system: GameNumSystem, key: string, record: T
   system.zoneKeyResourceDeps.set(key, set);
 }
 
-export function registerTagEffect(system: GameNumSystem, state: PlayerState, tagKey: string, record: TagEffectRecord): void {
+export function registerTagEffect(system: GameNumSystem, state: GameNumState, tagKey: string, record: TagEffectRecord): void {
   const list = ((state.tagEffects ??= {})[tagKey] ??= []);
   const i = list.findIndex(r => r.id === record.id);
   if (i >= 0) list[i] = record;
@@ -48,7 +49,7 @@ export function registerTagEffect(system: GameNumSystem, state: PlayerState, tag
   markZoneDirty(system, tagKey);
 }
 
-export function registerEntityEffect(system: GameNumSystem, state: PlayerState, entityKeyStr: string, record: TagEffectRecord): void {
+export function registerEntityEffect(system: GameNumSystem, state: GameNumState, entityKeyStr: string, record: TagEffectRecord): void {
   const list = ((state.entityEffects ??= {})[entityKeyStr] ??= []);
   const i = list.findIndex(r => r.id === record.id);
   if (i >= 0) list[i] = record;
@@ -57,7 +58,7 @@ export function registerEntityEffect(system: GameNumSystem, state: PlayerState, 
   markZoneDirty(system, entityKeyStr);
 }
 
-export function removeTagEffect(system: GameNumSystem, state: PlayerState, tagKey: string, id: string): void {
+export function removeTagEffect(system: GameNumSystem, state: GameNumState, tagKey: string, id: string): void {
   const list = state.tagEffects?.[tagKey];
   if (list) {
     const i = list.findIndex(r => r.id === id);
@@ -66,7 +67,7 @@ export function removeTagEffect(system: GameNumSystem, state: PlayerState, tagKe
   markZoneDirty(system, tagKey);
 }
 
-export function removeTagEffectsBySource(system: GameNumSystem, state: PlayerState, source: string): void {
+export function removeTagEffectsBySource(system: GameNumSystem, state: GameNumState, source: string): void {
   const affectedKeys = new Set<string>();
   if (state.tagEffects) {
     for (const [key, list] of Object.entries(state.tagEffects)) {
@@ -103,7 +104,7 @@ export function markZoneDirty(system: GameNumSystem, key: string): void {
 
 // ---- Affector 桥接 ----
 
-export function syncAffectorZoneEffects(system: GameNumSystem, affector: AffectorEngine, state: PlayerState): void {
+export function syncAffectorZoneEffects(system: GameNumSystem, affector: GameNumAffectorContext, state: GameNumState): void {
   const activeSources = new Set<string>();
   for (const instance of affector.getActiveInstances()) {
     const source = `affector:${instance.instanceId}`;
@@ -127,7 +128,7 @@ export function syncAffectorZoneEffects(system: GameNumSystem, affector: Affecto
 }
 
 /** 活跃 Affector flows 的资源依赖表（flows 节点 resource -> expr 所读资源集合），随活跃集重建。 */
-function rebuildFlowsResourceDeps(system: GameNumSystem, affector: AffectorEngine): void {
+function rebuildFlowsResourceDeps(system: GameNumSystem, affector: GameNumAffectorContext): void {
   const flowsDeps = new Map<string, Set<string>>();
   for (const instance of affector.getActiveInstances()) {
     const pack = affector.getPack(instance.packId);
@@ -147,7 +148,7 @@ function rebuildFlowsResourceDeps(system: GameNumSystem, affector: AffectorEngin
   system.flowsResourceDeps = flowsDeps;
 }
 
-function registerAffectorModifier(system: GameNumSystem, state: PlayerState, source: string, modifier: ZoneModifierDecl, mountEntityId: string): void {
+function registerAffectorModifier(system: GameNumSystem, state: GameNumState, source: string, modifier: ZoneModifierDecl, mountEntityId: string): void {
   const idSuffix = modifier.multiplierId ? `:${modifier.multiplierId}` : '';
   const id = `${source}:${modifier.category}${idSuffix}`;
   const valueNode: GameNum =

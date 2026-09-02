@@ -36,7 +36,7 @@ function renderLayerOrderSection(ctx: UIContext): string {
 function renderAreaDesignsSection(ctx: UIContext): string {
   const areaId = ctx.view.currentAreaId;
   if (!areaId) return '';
-  const area = ctx.game.registry.areas.get(areaId);
+  const area = ctx.world.areas.get(areaId);
   if (!area) return '';
   const entityKey = entityKeyOf('area', areaId);
   const options = ctx.game.colorSystem.entityThemeOptions(ctx.game.state, entityKey, {
@@ -91,6 +91,7 @@ export function renderHeader(ctx: UIContext): string {
         <div class="save-actions">
           <button id="collection-modal" class="toolbar-button" title="被动闲聊收集图鉴（按 Pool 分组）">图鉴 <span>✦</span></button>
           <button id="import-datapack" class="toolbar-button" title="从压缩包加载 Mod 数据包（遍历其中所有 .json 构造 Def）">导入 Mod <span>⇪</span></button>
+          <button id="pack-manager" class="toolbar-button" title="管理已导入的数据包">数据包库 <span>▦</span></button>
           <button id="new-game" class="toolbar-button" title="放弃当前进度，选择新的世界线">新游戏 <span>↗</span></button>
           <button id="save-game" class="toolbar-button" title="保存当前进度">保存 <span>↓</span></button>
           <button id="load-game" class="toolbar-button" title="读取本地存档" ${ctx.saveExists ? '' : 'disabled'}>读取 <span>↗</span></button>

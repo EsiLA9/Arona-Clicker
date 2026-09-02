@@ -8,7 +8,7 @@
 // 轮盘层（.wheel-init/.wheel-enh）挂在 shell 顶部覆盖整页，翻面时与文本面同步淡入淡出/显隐。
 // ============================================================
 
-import { GameInstance } from '../engine/game-instance';
+import type { GameReadModel } from '../arona-clicker/contracts';
 import { createUIContext } from './context';
 import type { InitSelectMode } from './components/init-select';
 import { renderInitDetail, renderInitRow } from './components/init-select';
@@ -18,7 +18,7 @@ import type { PopoverManager } from './popovers';
 
 /** controller 暴露给选择页的回调（避免反向依赖）。 */
 export interface SelectorHost {
-  game: GameInstance;
+  game: GameReadModel;
   root: HTMLElement;
   popovers: PopoverManager;
   initSelectMode(): InitSelectMode;

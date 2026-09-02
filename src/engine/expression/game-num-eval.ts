@@ -12,14 +12,14 @@
 //
 // 侵入点（动态数据）都作为参数传入：
 //   state   PlayerState（懒读取，不缓存）
-//   其余上下文由宿主注入（valueSystem / registry / characterSystem / affectorEngine）。
+//   其余上下文由宿主注入（valueSystem / registry / affectorEngine）。
 // ============================================================
 
-import { PlayerState, ValueExpression, Character, AffectorFlow } from '../types';
+import { ValueExpression, AffectorFlow } from '../types';
+import type { GameNumState } from '../contracts/state-query';
 import { ValueSystem } from './value-system';
-import { CharacterSystem } from '../system/character-system';
-import { AffectorEngine } from '../effect/affector-engine';
-import { Registry } from '../registry/registry';
+import type { GameNumAffectorContext } from '../contracts/evaluation-context';
+import type { GameNumRegistryContext } from '../contracts/evaluation-context';
 import { TagPath } from '../core/tag';
 import { EntityRef, TagEffectRecord, entityKey, tagPrefixesBottomUp } from './tag-effect';
 
@@ -68,13 +68,12 @@ export interface BreakdownResult {
 
 export interface GameNumEvalDeps {
   valueSystem: ValueSystem;
-  registry: Registry;
-  characterSystem: CharacterSystem;
-  affectorEngine: AffectorEngine;
+  registry: GameNumRegistryContext;
+  affectorEngine: GameNumAffectorContext;
 }
 
 /** 取实体 tags（spot 按「有效 tags」= 声明 + 运行时增撤，docs-824/08 T6；其余读声明；自下而上聚合用）。 */
-const entityTagsOf = (ref: EntityRef, deps: GameNumEvalDeps, state: PlayerState): TagPath[] => {
+const entityTagsOf = (ref: EntityRef, deps: GameNumEvalDeps, state: GameNumState): TagPath[] => {
   if (ref.kind === 'spot') {
     return deps.registry.effectiveSpotTags(ref.id, state.spotTagOverrides);
   }
@@ -94,7 +93,7 @@ const entityTagsOf = (ref: EntityRef, deps: GameNumEvalDeps, state: PlayerState)
 };
 
 /** 把 TagEffectRecord.value（number 或 const/expr 节点）解析为数值。 */
-function resolveRecordValue(v: number | GameNum | undefined, state: PlayerState, vs: ValueSystem): number {
+function resolveRecordValue(v: number | GameNum | undefined, state: GameNumState, vs: ValueSystem): number {
   if (typeof v === 'number') return v;
   if (v && v.kind === 'const') return v.value;
   if (v && v.kind === 'expr') return vs.evaluate(v.expr, state);
@@ -115,7 +114,7 @@ function resolveRecordValue(v: number | GameNum | undefined, state: PlayerState,
 	 * 空集时 flat→0、mul→1，保证无修饰器场景下数值正确。
 	 */
 export function aggregateZone(
-  state: PlayerState,
+  state: GameNumState,
   scope: EntityRef,
   tags: TagPath[],
   resource: string | undefined,
@@ -163,13 +162,13 @@ export function aggregateZone(
 }
 
 /** zone 节点求值：唯一路径为全局区表聚合（state.tagEffects / state.entityEffects 是唯一真相）。 */
-function zoneValue(node: GameNum & { kind: 'zone' }, state: PlayerState, deps: GameNumEvalDeps, useCache: boolean): number {
+function zoneValue(node: GameNum & { kind: 'zone' }, state: GameNumState, deps: GameNumEvalDeps, useCache: boolean): number {
   const tags = entityTagsOf(node.scope, deps, state);
   return aggregateZone(state, node.scope, tags, node.resource, node.part, deps.valueSystem);
 }
 
 /** 懒求值：递归求值任意 GameNum 节点；useCache=false 时跳过节点缓存（溯源分解用）。 */
-export function evaluateGameNum(node: GameNum, state: PlayerState, deps: GameNumEvalDeps, useCache = true): number {
+export function evaluateGameNum(node: GameNum, state: GameNumState, deps: GameNumEvalDeps, useCache = true): number {
   if (useCache && node.dirty === false && node.cached !== undefined) return node.cached;
   const value = switchEval(node, state, deps, useCache);
   if (useCache) {
@@ -179,7 +178,7 @@ export function evaluateGameNum(node: GameNum, state: PlayerState, deps: GameNum
   return value;
 }
 
-function switchEval(node: GameNum, state: PlayerState, deps: GameNumEvalDeps, useCache: boolean): number {
+function switchEval(node: GameNum, state: GameNumState, deps: GameNumEvalDeps, useCache: boolean): number {
   switch (node.kind) {
     case 'const':
       return node.value;
@@ -215,7 +214,7 @@ function switchEval(node: GameNum, state: PlayerState, deps: GameNumEvalDeps, us
  * tooltip 展示「base 5 × 强化 1.5 = 15」。返回结构与 evaluateGameNum 同复杂度，
  * 不走缓存（useCache=false），仅在调试/tooltip 触发时使用。
  */
-export function evaluateGameNumBreakdown(node: GameNum, state: PlayerState, deps: GameNumEvalDeps): Contribution {
+export function evaluateGameNumBreakdown(node: GameNum, state: GameNumState, deps: GameNumEvalDeps): Contribution {
   switch (node.kind) {
     case 'const':
       return { id: node.id, kind: 'const', value: node.value };
@@ -256,7 +255,7 @@ export function evaluateGameNumBreakdown(node: GameNum, state: PlayerState, deps
 }
 
 /** mountEntityId 是否解析为层级实体（spot/area/init）——决定 flows 进层级节点还是 global 兜底。 */
-function isLevelEntity(registry: Registry, entityId: string): boolean {
+function isLevelEntity(registry: GameNumRegistryContext, entityId: string): boolean {
   return registry.spots.has(entityId)
     || registry.areas?.has(entityId) === true
     || registry.inits?.has(entityId) === true;
@@ -267,7 +266,7 @@ function isLevelEntity(registry: Registry, entityId: string): boolean {
  * - mount 指向 spot/area/init：只累计挂在该实体上的实例（层级 flows 分发，Phase 6）；
  * - mount 缺省（global 兜底节点）：只累计挂在非层级实体（enhancement/item 等）上的实例。
  */
-export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows' }, state: PlayerState, deps: GameNumEvalDeps): number {
+export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows' }, state: GameNumState, deps: GameNumEvalDeps): number {
   let sum = 0;
   for (const instance of deps.affectorEngine.getActiveInstances()) {
     if (node.mount !== undefined ? instance.mountEntityId !== node.mount : isLevelEntity(deps.registry, instance.mountEntityId)) continue;
@@ -284,7 +283,7 @@ export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows
   return sum;
 }
 
-export function resolveFlowValue(flow: AffectorFlow, state: PlayerState, valueSystem: ValueSystem): number {
+export function resolveFlowValue(flow: AffectorFlow, state: GameNumState, valueSystem: ValueSystem): number {
   const value = flow.value;
   if (typeof value === 'number') return value;
   return valueSystem.evaluate(value, state);

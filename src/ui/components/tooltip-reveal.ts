@@ -4,15 +4,20 @@
 //   resolveReveal / get*Reveal（Spot/Enhancement/Init/Area/Story）
 // ============================================================
 
-import { Condition, ConditionGroup, SpotDef, EnhancementDef, AreaDef, InitDef, StoryEntryDef, RevealStage, RevealTrigger, RevealTarget, PlayerState } from '../../engine/types';
-import type { ConditionSystem } from '../../engine/expression/condition-system';
+import { Condition, ConditionGroup } from '../../engine/types';
+import type { SpotDef, AreaDef, InitDef } from '../../data-services/contracts/world';
+import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
+import type { EnhancementDef } from '../../data-services/contracts/enhancement';
+import type { RevealStage, RevealTrigger, RevealTarget } from '../../engine/contracts/reveal';
+import type { PlayerState } from '../../arona-clicker/types/state';
+import type { ConditionQueryPort } from '../../arona-clicker/contracts';
 import { existenceMet, unlockCondition } from '../../engine/visibility/reveal';
 import { UIContext } from '../context';
 import { describeCondition } from './tooltip-enhancement';
 
 /** 揭示求值所需的游戏只读面（conditionSystem 求值 + 只读状态）。 */
 interface RevealGame {
-  conditionSystem: ConditionSystem;
+  conditionSystem: ConditionQueryPort;
   state: Readonly<PlayerState>;
 }
 

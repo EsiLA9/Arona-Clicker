@@ -14,8 +14,9 @@ import {
   type ThemeVarName,
   type ThemeTree,
 } from '../../src/ui/theme-tree';
-import { LIGHTNESS_THRESHOLD } from '../../src/engine/system/color-system';
-import type { ColorGroupDef, ColorGroupId } from '../../src/engine/types';
+import { LIGHTNESS_THRESHOLD } from '../../src/arona-clicker/services/color-system';
+import type { ColorGroupId } from '../../src/engine/types';
+import type { ColorGroupDef } from '../../src/data-services/contracts/color';
 
 describe('theme-tree：色彩树设定工具', () => {
   const primary = '#3b9eff';

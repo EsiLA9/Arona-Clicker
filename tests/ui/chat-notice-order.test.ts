@@ -5,8 +5,8 @@
 //       奖励通知延迟入流（Story 末尾留一拍，~0.8s 后统一落账）。
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
 import { finishWelcome } from '../engine/story-test-fixtures';
 

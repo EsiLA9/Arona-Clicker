@@ -15,17 +15,17 @@
 import { Condition, ConditionGroup, RevealTrigger } from '../types';
 
 /** 取 revealTriggers 中负责「存在性」（实体是否出现）的 Trigger 列表。 */
-export function existenceTriggers(triggers?: RevealTrigger[]): RevealTrigger[] {
+export function existenceTriggers(triggers?: readonly RevealTrigger[]): RevealTrigger[] {
   return triggers?.filter(t => t.reveal === 'existence') ?? [];
 }
 
 /** 是否有存在性门槛（出现条件）。无 = 实体始终可见。 */
-export function hasExistenceGate(triggers?: RevealTrigger[]): boolean {
+export function hasExistenceGate(triggers?: readonly RevealTrigger[]): boolean {
   return existenceTriggers(triggers).length > 0;
 }
 
 /** 取存在性条件（首个带条件的 existence Trigger），用于 UI 展示「出现条件」。无 = undefined。 */
-export function existenceCondition(triggers?: RevealTrigger[]): Condition | ConditionGroup | undefined {
+export function existenceCondition(triggers?: readonly RevealTrigger[]): Condition | ConditionGroup | undefined {
   return existenceTriggers(triggers).find(t => t.condition)?.condition;
 }
 
@@ -35,7 +35,7 @@ export function existenceCondition(triggers?: RevealTrigger[]): Condition | Cond
  * @param evaluate 对单个条件求值（返回 true 表示满足）
  */
 export function existenceMet(
-  triggers: RevealTrigger[] | undefined,
+  triggers: readonly RevealTrigger[] | undefined,
   evaluate: (condition: Condition | ConditionGroup) => boolean,
 ): boolean {
   const list = existenceTriggers(triggers);
@@ -44,12 +44,12 @@ export function existenceMet(
 }
 
 /** 取 revealTriggers 中负责「解锁」（实际解锁 / 自动解锁条件）的 Trigger 列表。 */
-export function unlockTriggers(triggers?: RevealTrigger[]): RevealTrigger[] {
+export function unlockTriggers(triggers?: readonly RevealTrigger[]): RevealTrigger[] {
   return triggers?.filter(t => t.reveal === 'unlock') ?? [];
 }
 
 /** 取实际解锁条件（首个带条件的 unlock Trigger）。无 unlock Trigger / 均无条件 = 无解锁门槛（恒真）。 */
-export function unlockCondition(triggers?: RevealTrigger[]): Condition | ConditionGroup | undefined {
+export function unlockCondition(triggers?: readonly RevealTrigger[]): Condition | ConditionGroup | undefined {
   return unlockTriggers(triggers).find(t => t.condition)?.condition;
 }
 
@@ -59,7 +59,7 @@ export function unlockCondition(triggers?: RevealTrigger[]): Condition | Conditi
  * @param evaluate 对单个条件求值（返回 true 表示满足）
  */
 export function unlockMet(
-  triggers: RevealTrigger[] | undefined,
+  triggers: readonly RevealTrigger[] | undefined,
   evaluate: (condition: Condition | ConditionGroup) => boolean,
 ): boolean {
   const list = unlockTriggers(triggers);

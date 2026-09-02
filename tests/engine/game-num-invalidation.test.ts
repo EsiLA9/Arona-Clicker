@@ -1,3 +1,4 @@
+import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/game-num-invalidation.test.ts — Phase 5 陈旧读回归
 //
@@ -12,12 +13,15 @@
 // 多帧 tick 基线由 game-num-snapshot.test.ts 覆盖。
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/engine/game-instance';
-import { baseDatapack } from '../../src/data/index';
-import { spot, area, init, Expr, value, cond, and } from '../../src/engine/types';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
+import { Expr, value, cond, and } from '../../src/engine/types';
+import { spot } from '../../src/arona-clicker/content/def-factory/spot';
+import { area } from '../../src/arona-clicker/content/def-factory/area';
+import { init } from '../../src/arona-clicker/content/def-factory/init';
 import { extra } from '../../src/engine/extra/index';
 import { tagPath } from '../../src/engine/core/tag';
-import type { Datapack, EnhancementDef } from '../../src/engine/types';
+import type { EnhancementDef } from '../../src/data-services/contracts/enhancement';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';

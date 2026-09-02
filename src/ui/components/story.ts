@@ -1,6 +1,6 @@
-import { StoryView } from '../../engine/types';
+import type { StoryView } from '../../arona-clicker/contracts/results';
 import { UIContext } from '../context';
-import { renderAvatarSvg } from '../../engine/system/avatar-renderer';
+import { renderAvatarSvg } from '../avatar-renderer';
 
 export const storyErrorText: Record<string, string> = {
   AlreadyActive: '已有剧情流程进行中',
@@ -49,7 +49,7 @@ export interface ChatTextEntry {
   /** 直接文本内容（无 talklet 时使用）。 */
   text?: string;
   /** 嵌入的标准 Talklet（复用其 speaker/avatar/kind/side/kizuna 渲染，优先于 text）。 */
-  talklet?: import('../../engine/types').Talklet;
+  talklet?: import('../../data-services/contracts/story').Talklet;
   /** 锚点横坐标（0..1，0=左，1=右）。 */
   x: number;
   /** 锚点纵坐标（0..1，0=下，1=上）。 */
@@ -57,9 +57,9 @@ export interface ChatTextEntry {
   /** 相对锚点的对齐方式。 */
   align: 'left' | 'center' | 'right';
   /** 视觉格式类别（无 talklet 时生效）。 */
-  kind?: import('../../engine/types/expression').ChatTextKind;
+  kind?: import('../../engine/contracts/chat-presentation').ChatTextKind;
   /** 样式覆写：字型 / 强制文字颜色 / 背景开关 / 强制背景色。 */
-  style?: import('../../engine/types/expression').ChatTextStyle;
+  style?: import('../../engine/contracts/chat-presentation').ChatTextStyle;
   /** 标题（kind='kizuna' 使用）。 */
   title?: string;
   /** 按钮文案（kind='kizuna' 使用）。 */
@@ -84,7 +84,7 @@ function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: strin
   // 说话人匹配角色差分（displayName / name / id）→ 装备的 ColorGroup > 差分声明的 colorGroupId
   const speakerId = speaker?.trim();
   if (speakerId) {
-    const variant = [...ctx.game.registry.characterVariants.values()].find(
+    const variant = ctx.game.rosterSystem.getAllVariants().find(
       v => v.displayName === speakerId || v.name === speakerId || v.id === speakerId,
     );
     if (variant) {
@@ -270,7 +270,7 @@ function overlayInlineStyle(style: ChatTextEntry['style']): string {
 }
 
 /** 字型类别 → CSS font-family 栈。 */
-function chatTextFontStack(font: import('../../engine/types/expression').ChatTextFont): string {
+function chatTextFontStack(font: import('../../engine/contracts/chat-presentation').ChatTextFont): string {
   const stacks: Record<string, string> = {
     serif: `'Georgia', 'Noto Serif SC', 'Songti SC', serif`,
     sans: `'Segoe UI', 'Noto Sans SC', 'PingFang SC', sans-serif`,
@@ -303,7 +303,7 @@ function renderOverlayText(ctx: UIContext, entry: ChatTextEntry, inline: string)
 }
 
 /** 覆盖层嵌入标准 Talklet：复用 talk/narration/kizuna 渲染管线。样式以内联属性挂在气泡/旁白上。 */
-function renderOverlayTalklet(ctx: UIContext, tl: import('../../engine/types').Talklet, targetStoryId?: string, inline?: string): string {
+function renderOverlayTalklet(ctx: UIContext, tl: import('../../data-services/contracts/story').Talklet, targetStoryId?: string, inline?: string): string {
   const styleAttr = inline ? ` style="${inline}"` : '';
   if (tl.kizuna || targetStoryId) {
     const kizuna = tl.kizuna ?? { storyId: targetStoryId ?? '' };

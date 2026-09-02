@@ -1,12 +1,15 @@
+import type { Datapack } from '../../../src/data-services/contracts/datapack';
 // ============================================================
 // ui/components/contacts.test.ts — 通讯录 UI（U 组）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../../src/engine/game-instance';
-import type { Datapack } from '../../../src/engine/types';
-import { and, Character, CharacterRarity, CharacterSchool, GachaMode } from '../../../src/engine/types';
+import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
+import type { } from '../../../src/engine/types';
+import { and } from '../../../src/engine/types';
+import { GachaMode } from '../../../src/data-services/contracts/gacha-pool';
+import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
 import { extra } from '../../../src/engine/extra/index';
-import { baseDatapack } from '../../../src/data/index';
+import { baseDatapack } from '../../../src/data/test-datapack';
 import { createUIContext } from '../../../src/ui/context';
 import { renderChatHistory, renderCurrentStory } from '../../../src/ui/components/story';
 import { renderSendButton } from '../../../src/ui/components/center-panel';
