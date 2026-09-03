@@ -5,6 +5,8 @@ import { renderConversationView } from './contacts';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
 import type { SendState } from '../../arona-clicker/contracts/results';
 import type { ActiveBanner, SendGatePhase, StoryGateState } from './app-shell';
+import { renderBackground } from '../background-service';
+import { renderPresentationRegion } from '../presentation-service';
 
 const CENTER_TABS: TabDef[] = [
   { id: 'chat', label: '聊天' },
@@ -36,6 +38,8 @@ export function renderCenterPanel(
   if (activeTab === 'contacts-draft') {
     return `
       <section class="panel center-panel">
+        ${renderBackground(ctx.background, 'console-panel-background')}
+        ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
         <div class="panel-body">
           <div class="chat-empty">
@@ -49,6 +53,8 @@ export function renderCenterPanel(
   if (activeTab === 'archive-draft') {
     return `
       <section class="panel center-panel">
+        ${renderBackground(ctx.background, 'console-panel-background')}
+        ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
         <div class="panel-body">
           <div class="chat-empty">
@@ -63,6 +69,8 @@ export function renderCenterPanel(
     : renderChatTab(ctx, chatEntries, chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   return `
     <section class="panel center-panel">
+      ${renderBackground(ctx.background, 'console-panel-background')}
+      ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}
       <div class="panel-body">${body}</div>
     </section>`;

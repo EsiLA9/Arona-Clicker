@@ -39,6 +39,7 @@ import {
   openSpotGachaModal as openSpotGachaModalImpl,
   bindGachaButtons as bindGachaButtonsImpl,
   openEnhancementManager as openEnhancementManagerImpl,
+  openUserThemeEditor as openUserThemeEditorImpl,
 } from './controller-modals';
 import {
   initSelectMode as initSelectModeImpl,
@@ -52,7 +53,7 @@ import {
   showBackToGame as showBackToGameImpl,
 } from './controller-panels';
 import { bindEvents } from './controller-events';
-import { applyTheme as applyThemeImpl, restoreThemeFloat as restoreThemeFloatImpl, syncRuntimeTheme as syncRuntimeThemeImpl } from './controller-theme';
+import { applyTheme as applyThemeImpl, backgroundView as backgroundViewImpl, presentationView as presentationViewImpl, restoreThemeFloat as restoreThemeFloatImpl, syncRuntimeTheme as syncRuntimeThemeImpl } from './controller-theme';
 import { bindSaveActions } from './controller-save';
 import { bindTopBarActions } from './controller-actions-topbar';
 import { bindContactsActions } from './controller-actions-contacts';
@@ -173,18 +174,24 @@ export class UIController {
   mount(): void {
     // EventBus 广播 → 揭示条件判断 → 变化则反射到 UI（无需玩家交互才刷新）
     bindEvents(this);
-    // 无存档时先展示世界线选择；有存档则直接进入游戏。
+    // 无存档或存档尚未选择 Init 时展示世界线选择；只有已进入 Init 的存档才恢复游戏。
     if (!SaveSystem.exists()) {
+      // GameInstance.init 会先进入默认 Init；选择大厅不应把它误认为已进入世界线。
+      this.commands.reset();
       renderInitSelectImpl(this);
     } else {
       const data = SaveSystem.load<SaveData>();
       if (data) {
-      this.commands.load(data);
+        this.commands.load(data);
         restoreHistoriesImpl(this, data);
       }
-      this.started = true;
-      this.commands.start();
-      this.render();
+      if (data?.playerState.activeInit) {
+        this.started = true;
+        this.commands.start();
+        this.render();
+      } else {
+        renderInitSelectImpl(this);
+      }
     }
     this.refreshTimer = setInterval(() => {
       if (this.started) refreshLightImpl(this);
@@ -280,10 +287,10 @@ export class UIController {
     this.scroll.capturePanel(this.root);
     // 聊天流滚动状态单独按比例捕获（跨流恢复）
     this.scroll.captureChat(this.root);
-    const context = createUIContext(this.game);
     // 先同步运行时主题层再生成 DOM：层级优先级色胶囊等依赖运行时层状态的 UI
     // 若晚于 DOM 生成（applyTheme 内），会读到上一帧的层 → 换色后落后一拍
     this.syncRuntimeTheme();
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     this.root.innerHTML = renderAppShell(context, this.panelState);
     this.popovers.bind();
     this.bindActions();
@@ -394,7 +401,7 @@ export class UIController {
     restoreHistoriesImpl(this, data);
   }
 
-  /** 新游戏进入世界线（保留跨 Init 进度）。 */
+  /** 新游戏进入世界线（不继承旧状态）。 */
   startNewGame(initId: string): void {
     this.themeFloatOpen = false;
     const started = this.commands.startNewGame(initId);
@@ -469,4 +476,9 @@ export class UIController {
   openEnhancementManager(): void {
     openEnhancementManagerImpl(this);
   }
+
+  openUserThemeEditor(): void { openUserThemeEditorImpl(this); }
+
+  /** 仅重新注入当前运行时主题变量，供编辑器颜色预览使用。 */
+  refreshTheme(): void { this.applyTheme(); }
 }

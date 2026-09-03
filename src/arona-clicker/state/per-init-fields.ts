@@ -2,7 +2,7 @@ import type { AronaClickerState, AronaClickerInitSnapshot } from '../types/state
 import type { Character } from '../types/ids';
 import type { Registry } from '../../data-services/registry/registry';
 import { extra, mergeExtra } from '../../engine/extra/index';
-import { globalSpotEntries, localSpotEntries } from './snapshot';
+import { globalEnhancementEntries, localEnhancementEntries, globalSpotEntries, localSpotEntries } from './snapshot';
 
 export interface PerInitFieldSpec {
   readonly key: keyof AronaClickerInitSnapshot & string;
@@ -48,6 +48,18 @@ function spotField<K extends 'spotLevels' | 'spotManagers'>(key: K): FieldSpec<K
   };
 }
 
+const enhancementField: FieldSpec<'unlockedEnhancements'> = {
+  key: 'unlockedEnhancements',
+  clear: (registry, state) => { state.unlockedEnhancements = globalEnhancementEntries(registry, state.unlockedEnhancements); },
+  capture: (registry, state, into) => { into.unlockedEnhancements = localEnhancementEntries(registry, state.unlockedEnhancements); },
+  restore: (registry, state, snapshot) => {
+    state.unlockedEnhancements = [...new Set([
+      ...globalEnhancementEntries(registry, state.unlockedEnhancements),
+      ...localEnhancementEntries(registry, snapshot.unlockedEnhancements ?? []),
+    ])];
+  },
+};
+
 function characterContainer<K extends 'roster' | 'fragments' | 'gachaState' | 'chatRead'>(key: K, scope: 'roster' | 'gacha' | 'chatRead'): FieldSpec<K> {
   return {
     key,
@@ -72,7 +84,7 @@ const extrasSpec: FieldSpec<'extras'> = {
 export const PER_INIT_FIELD_SPECS = [
   field('resources', () => ({})), spotField('spotLevels'), spotField('spotManagers'),
   field('visitedAreas', () => []), field('totalFrames', () => 0), field('inventory', () => ({})),
-  field('unlockedEnhancements', () => []), field('storyLog', () => []), field('storyReadLogs', () => ({})),
+  enhancementField, field('storyLog', () => []), field('storyReadLogs', () => ({})),
   field('flags', () => ({})), field('triggersCompleted', () => []), field('currentAreaId', () => undefined), extrasSpec,
   characterContainer('roster', 'roster'), characterContainer('fragments', 'roster'),
   characterContainer('gachaState', 'gacha'), characterContainer('chatRead', 'chatRead'),

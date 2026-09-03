@@ -3,6 +3,7 @@ import type { AffectorPackDef } from '../../engine/types';
 import { extra } from '../../engine/extra/index';
 
 export const baseAffectorPacks: AffectorPackDef[] = [
+  affectorPack('base:affectorpack:user-theme-editor').serviceCapability('user-theme.editor').entry('base:affector:user-theme-editor').build(),
   affectorPack('base:affectorpack:energy_drink').extra(extra.dict({ desc: extra.str('能量饮料：每次点击 +1 信用点'), tier: extra.int(1) })).entry('base:affector:energy_drink').flow(Resource.Credit, 1).build(),
   affectorPack('base:affectorpack:pyroxene_flow').extra(extra.dict({ desc: extra.str('青辉石提纯回路：每 tick +2500 青辉石'), tier: extra.int(0) })).entry('base:affector:pyroxene_flow').flow(Resource.Pyroxene, 2500).build(),
   affectorPack('base:affectorpack:credit_system_mult').entry('base:affector:credit_system_mult').modEntity('spot', '*', 'mul', 1.5).build(),

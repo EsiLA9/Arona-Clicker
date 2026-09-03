@@ -8,6 +8,8 @@
 import { THEME_NODES, buildThemeVars, heroGradient, type ThemeVarName } from './theme-tree';
 import { entityKeyOf, hexToRgbTriplet } from '../arona-clicker/services/color-system';
 import type { UIController } from './controller';
+import { buildBackgroundView } from './background-service';
+import { buildPresentationView } from './presentation-service';
 
 /**
  * 主题浮窗跨 render 重建 #app 的存活：render 全量重建会销毁浮窗 DOM，
@@ -38,6 +40,7 @@ export function syncRuntimeTheme(ctrl: UIController): void {
   ctrl.game.colorSystem.popSceneTheme('area');
   ctrl.game.colorSystem.popSceneTheme('student');
   ctrl.game.colorSystem.syncPlayerThemeFromState(ctrl.game.state);
+  ctrl.game.colorSystem.syncUserThemeFromState(ctrl.game.state, ctrl.game.userThemeService.capability().active);
   // 剧情未播放时清除剧情临时演出层（setTheme 仅在演出期间生效）
   if (!ctrl.game.getView().currentStory) {
     ctrl.game.colorSystem.clearStoryTheme();
@@ -49,9 +52,11 @@ export function syncRuntimeTheme(ctrl: UIController): void {
     const override = area
       ? ctrl.game.colorSystem.entityThemeOverride(ctrl.game.state, entityKeyOf('area', areaId))
       : null;
-    const theme = override ?? area?.theme;
+    const theme = override
+      ? { ...override, background: override.background ?? area?.theme?.background }
+      : area?.theme;
     if (theme) {
-      ctrl.game.colorSystem.pushSceneTheme({ scope: 'area', groupId: theme.colorGroupId, tokens: theme.tokens });
+      ctrl.game.colorSystem.pushSceneTheme({ scope: 'area', groupId: theme.colorGroupId, tokens: theme.tokens, background: theme.background, presentation: theme.presentation });
     }
   }
   const convId = ctrl.panelState.conversationVariantId;
@@ -67,7 +72,13 @@ export function syncRuntimeTheme(ctrl: UIController): void {
       );
       if (override) {
         // 实体主题槽覆盖（设计/装备/自定义）：直接采用
-        ctrl.game.colorSystem.pushSceneTheme({ scope: 'student', groupId: override.colorGroupId, tokens: override.tokens });
+        ctrl.game.colorSystem.pushSceneTheme({
+          scope: 'student',
+          groupId: override.colorGroupId,
+          tokens: override.tokens,
+          background: override.background ?? variant.theme?.background,
+          presentation: override.presentation ?? variant.theme?.presentation,
+        });
       } else {
         // 学生层：优先用其 ColorGroup（装备 > 差分声明）驱动参考树；
         // variant.theme 作为显式覆盖层（仍可被作者手动指定组覆盖）。
@@ -82,6 +93,8 @@ export function syncRuntimeTheme(ctrl: UIController): void {
           scope: 'student',
           groupId: studentGroupId,
           tokens: variant.theme?.tokens,
+          background: variant.theme?.background,
+          presentation: variant.theme?.presentation,
         });
       }
     }
@@ -126,4 +139,16 @@ export function applyTheme(ctrl: UIController): void {
   }
   // area-hero 横幅渐变（跟随主题 primary 的光晕）
   style.setProperty('--hero-gradient', heroGradient(tokens['primary'] ?? '#3b9eff', tokens));
+}
+
+export function backgroundView(ctrl: UIController) {
+  const theme = ctrl.game.colorSystem.runtimeTheme();
+  return buildBackgroundView(theme.background, ctrl.game.pics, theme.tokens);
+}
+
+export function presentationView(ctrl: UIController) {
+  const theme = ctrl.game.colorSystem.runtimeTheme();
+  return buildPresentationView(theme.presentation, ctrl.game.pics, {
+    evaluateCondition: condition => ctrl.game.conditionSystem.evaluate(condition, ctrl.game.state),
+  });
 }

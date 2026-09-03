@@ -26,6 +26,7 @@ export const baseEnhancements: EnhancementDef[] = [
 ];
 
 export const baseGlobalEnhancements: EnhancementDef[] = [
+  enhancement('base:enhancement:user-theme-editor').name('主题编辑权限').desc('开放用户自定主题编辑服务。').tags(['core']).attachGlobal().affectorPack('base:affectorpack:user-theme-editor').build(),
   enhancement('base:enhancement:foundation').name('全能基建').desc('全局信用点产出 ×2.0（基建奠基）。').tags(['core']).attachGlobal().affectorPack('base:affectorpack:foundation_mult').cost(PYROXENE, 50).build(),
   enhancement('base:enhancement:unified_logistics').name('全域物流').desc('每 tick 额外 +1 信用点（全域物流）。').tags(['core'], ['logistics']).attachGlobal().affectorPack('base:affectorpack:unified_logistics_flow').cost(CREDIT, 500).build(),
   enhancement('base:enhancement:eternal_contract').name('永恒契约').desc('全局产出 ×1.5（不可撤回）。').tags(['core']).attachGlobal().irreversible().affectorPack('base:affectorpack:eternal_contract_mult').cost(PYROXENE, 150).build(),

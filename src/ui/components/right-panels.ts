@@ -6,6 +6,7 @@ import { renderEnhancements } from './enhancements';
 import { renderCharacterPanel } from './contacts';
 import { describeAffectorPack } from '../../engine/effect/affector-text';
 import { describeCondition } from './tooltip';
+import { renderBackground } from '../background-service';
 
 const RIGHT_TABS: TabDef[] = [
   { id: 'spot', label: '设施' },
@@ -27,6 +28,7 @@ export function renderRightPanel(ctx: UIContext, activeTab: string, selectedVari
   }
   return `
     <aside class="panel right-panel">
+      ${renderBackground(ctx.background, 'console-panel-background')}
       ${renderResourceStrip(ctx)}
       ${renderTabs(ctx, 'right', RIGHT_TABS, activeTab)}
       <div class="panel-body">${body}</div>

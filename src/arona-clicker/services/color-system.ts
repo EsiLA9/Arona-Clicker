@@ -9,7 +9,7 @@
 import type { ColorGroupDef, ThemeDesignDef } from '../../data-services/contracts/color';
 import type { ColorGroupId } from '../types/character';
 import type { Condition, ConditionGroup, Effect } from '../../engine/types/expression';
-import type { ThemeDef } from '../../engine/types/theme';
+import type { ThemeDef, ThemeToken } from '../../engine/types/theme';
 import type { PlayerState } from '../types/state';
 import type { Registry } from '../../data-services/registry/registry';
 import type { ColorMutationPort } from '../contracts/mutation';
@@ -230,6 +230,26 @@ export class ColorSystem {
     this.runtime.setLayerOrder(state.themeLayerOrder);
   }
 
+  syncUserThemeFromState(state: PlayerState, active: boolean): void {
+    const user = state.userTheme;
+    this.runtime.setUser(active && user?.enabled && user.applied ? {
+      id: 'user-theme',
+      scope: 'player',
+      tokens: user.applied.tokens,
+      presentation: user.applied.presentation,
+    } : null);
+  }
+
+  /** 编辑器草稿预览：高于已应用用户主题，低于剧情临时层。 */
+  setUserThemePreview(draft: { tokens?: Partial<Record<ThemeToken, string>>; presentation?: import('../../engine/types/theme').PresentationDef } | null): void {
+    this.runtime.setPreview(draft ? {
+      id: 'user-theme-preview',
+      scope: 'ephemeral',
+      tokens: draft.tokens,
+      presentation: draft.presentation,
+    } : null);
+  }
+
   /** 压入场景特色层（当前 Area / 当前对话学生；同 scope 覆盖）。 */
   pushSceneTheme(layer: ThemeLayer): void {
     this.runtime.pushScene(layer);
@@ -296,6 +316,7 @@ export class ColorSystem {
       scope: 'ephemeral',
       groupId: value?.colorGroupId,
       tokens: value?.tokens,
+      background: value?.background,
     });
     return true;
   }

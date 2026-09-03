@@ -31,6 +31,7 @@ export type GameEvent =
   | { type: 'affectorStateChanged'; instanceId: string; oldState: AffectorState; newState: AffectorState }
   | { type: 'affectorUnmounted'; instanceId: string; reason: string }
   | { type: 'affectorEntriesChanged'; instanceId: string }
+  | { type: 'userThemeChanged'; enabled: boolean }
   | { type: 'characterAcquired'; variantId: string; via: 'gacha' | 'story' | 'event'; duplicate: boolean; shards: number; bonusResources: Record<string, number> }
   | { type: 'cultivated'; variantId: string; kind: 'exp' | 'star'; newLevel?: number; newStars?: number }
   | { type: 'affectionChanged'; variantId: string; delta: number; newLevel: number; newExp: number; leveledUp: boolean }

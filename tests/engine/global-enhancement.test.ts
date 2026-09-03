@@ -13,6 +13,7 @@ const PRINTER = 'base:spot:credit_printer';
 const FOUNDATION = 'base:enhancement:foundation';
 const UNIFIED = 'base:enhancement:unified_logistics';
 const ETERNAL = 'base:enhancement:eternal_contract';
+const USER_THEME = 'base:enhancement:user-theme-editor';
 
 describe('GlobalEnhancement（global 挂靠强化）', () => {
   let game: GameInstance;
@@ -63,5 +64,15 @@ describe('GlobalEnhancement（global 挂靠强化）', () => {
     const def = game.registry.enhancements.get(FOUNDATION)!;
     expect(def.attachment?.kind).toBe('global');
     expect(game.registry.enhancements.get(ETERNAL)!.irreversible).toBe(true);
+  });
+
+  test('选择大厅购买的 GlobalEnh 在首次进入 Init 后保留', () => {
+    game.reset();
+    game.visibilityEngine.recomputeAll(game.state);
+    expect(game.enhancements.purchaseEnhancement(USER_THEME).success).toBe(true);
+
+    expect(game.inits.startNewGame(OFFICE)).toBe(true);
+    expect(game.state.unlockedEnhancements).toContain(USER_THEME);
+    expect(game.userThemeService.capability().active).toBe(true);
   });
 });

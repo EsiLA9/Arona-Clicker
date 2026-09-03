@@ -3,6 +3,12 @@ import type { ZoneModifierDecl } from '../expression/tag-effect';
 import type { ExtraCompound } from './extra';
 
 export type AffectorState = 'Latent' | 'Active' | 'Removed';
+export type ServiceCapabilityId = 'user-theme.editor' | (string & {});
+export interface AffectorCapabilityGrant {
+  kind: 'service';
+  id: ServiceCapabilityId;
+  mode: 'enable';
+}
 /** 持续流：Affector 激活期间每 tick 懒求值入账的资源产出。 */
 export interface AffectorFlow {
   /** 目标资源。 */
@@ -15,6 +21,8 @@ export interface AffectorPackDef {
   /** @label ID */
   id: string;
   entries: AffectorEffect[];
+  /** 声明由 Active Affector 提供的高级服务能力；多个来源可并存。 */
+  capabilities?: AffectorCapabilityGrant[];
   /** Extra 附加数据（数据包声明的结构化元数据，见 docs/13）。 */
   extra?: ExtraCompound;
 }

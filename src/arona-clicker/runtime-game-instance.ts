@@ -64,6 +64,7 @@ import { TagStatService } from '../engine/stats/tag-stats';
 import { PassivePoolSystem } from './services/passive-pool-system';
 import { CharaProfileService } from './services/chara-profile-service';
 import { PicService } from '../data-services/assets/pic-service';
+import { UserThemeService } from './services/user-theme-service';
 
 import type { SaveData } from './contracts/save-data';
 import type { SaveBuildContext } from './contracts/save-codec';
@@ -115,6 +116,7 @@ export class GameInstance {
   readonly charaProfileService!: CharaProfileService;
   /** 图片资产服务（game.pics 门面）。 */
   readonly picService!: PicService;
+  readonly userThemeService!: UserThemeService;
 
   // 运行时状态
   private _state!: PlayerState;
@@ -342,6 +344,9 @@ export class GameInstance {
 
   /** 导出存档数据 */
   save(): SaveData {
+    // visibility 是派生数据：生成存档时按当前 Registry/State 重算，避免旧快照
+    // 缺少新增的 Init 或 GlobalEnh 条目而在下次读档时被误判为不可见。
+    this.refreshVisibility();
     return this.saveCodec({
       state: this._state,
       visibility: () => this.visibilityEngine.getVisibility(this._state),

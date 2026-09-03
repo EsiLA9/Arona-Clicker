@@ -10,6 +10,7 @@ import { getTable } from '../../schema/datapack.schema';
 import { renderField, renderType, type FieldEditorCtx } from './field-editor';
 import type { NaviService } from '../navi';
 import { rowSummary, type Selection } from './list-view';
+import { renderPresentationPreview } from './presentation-preview';
 
 export interface DetailViewOpts {
   navi?: NaviService;
@@ -91,7 +92,12 @@ function renderRowDetail(
     statusEl.textContent = '有未保存更改';
   };
   body.appendChild(renderType({ kind: 'object', fields: schema.fields }, work, ctx, () => {}));
+  const preview = document.createElement('div');
+  renderPresentationPreview(preview, model, (work.theme as { presentation?: unknown } | undefined)?.presentation as never);
+  body.appendChild(preview);
   body.addEventListener('input', markDirty, true);
+  body.addEventListener('input', () => renderPresentationPreview(preview, model, (work.theme as { presentation?: unknown } | undefined)?.presentation as never), true);
+  body.addEventListener('change', () => renderPresentationPreview(preview, model, (work.theme as { presentation?: unknown } | undefined)?.presentation as never), true);
   body.addEventListener('change', markDirty, true);
   container.appendChild(body);
 

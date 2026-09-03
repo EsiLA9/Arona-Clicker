@@ -5,7 +5,7 @@
 import type { ExtraCompound } from './extra';
 import type { Condition, ConditionGroup, Effect } from './expression';
 
-export type { AffectorState, AffectorFlow, AffectorEffect, AffectorPackDef, AffectorPackRef, AffectorInstance } from '../contracts/affector';
+export type { AffectorState, AffectorFlow, AffectorEffect, AffectorPackDef, AffectorPackRef, AffectorInstance, AffectorCapabilityGrant, ServiceCapabilityId } from '../contracts/affector';
 
 // --- Trigger 系统（对外 DSL：事件侦测 → 条件 → 执行） ---
 

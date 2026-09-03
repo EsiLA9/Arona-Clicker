@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
+import { SaveSystem } from '../../src/data-services/persistence/storage';
 
 const OFFICE = 'base:init:schale_office';
 const MILLENNIUM = 'base:init:millennium';
@@ -61,6 +62,50 @@ describe('UIController Init 选择页', () => {
 
     // 轮盘 DOM 未被整页重建：卡片节点引用保持不变（无飞入/丢绑定）
     expect(root.contains(row)).toBe(true);
+  });
+
+  it('无存档进入 Init / GlobalEnhancement 轮盘时立即创建可读取的存档', () => {
+    localStorage.clear();
+
+    const freshGame = new GameInstance();
+    freshGame.init([baseDatapack]);
+    const freshRoot = document.createElement('div');
+    document.body.appendChild(freshRoot);
+    const freshController = new UIController(freshGame, freshRoot);
+
+    freshController.mount();
+
+    expect(SaveSystem.exists()).toBe(true);
+    expect(SaveSystem.load()).not.toBeNull();
+
+    SaveSystem.delete();
+    freshController.openGlobalEnhancementSelect();
+    expect(SaveSystem.exists()).toBe(true);
+    expect(SaveSystem.load()).not.toBeNull();
+
+    freshController.destroy();
+    freshGame.stop();
+  });
+
+  it('有存档但尚未进入 Init 时仍停留轮盘，不启动游戏会话', () => {
+    localStorage.clear();
+
+    const pendingGame = new GameInstance();
+    pendingGame.init([baseDatapack]);
+    pendingGame.reset();
+    SaveSystem.save(pendingGame.save());
+    const pendingRoot = document.createElement('div');
+    document.body.appendChild(pendingRoot);
+    const pendingController = new UIController(pendingGame, pendingRoot);
+
+    pendingController.mount();
+
+    expect(pendingGame.state.activeInit).toBe('');
+    expect(pendingController.started).toBe(false);
+    expect(pendingRoot.querySelector('.selector-shell')).not.toBeNull();
+
+    pendingController.destroy();
+    pendingGame.stop();
   });
 
   it('resetSessionPanel 彻底重置会话 UI：退出对话空间、清空学生聊天流与选中差分', () => {

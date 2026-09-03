@@ -24,6 +24,11 @@ export function showBackToGame(ctrl: UIController): boolean {
 
 /** 全量渲染选择页（Init ⇄ GlobalEnhancement 左右滑动，共享一圆）。initialFace 决定初始滑动位置。 */
 export function renderSelectorPage(ctrl: UIController, initialFace: SelectionFace = 'init'): void {
+  // 选择页是新游戏的首个可见界面：先落一份存档，避免用户在选择 Init
+  // 或 GlobalEnhancement 前关闭页面后丢失这次新建会话。
+  if (!SaveSystem.exists()) {
+    SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
+  }
   const context = createUIContext(ctrl.game);
   ctrl.selectorPage.reset();
   ctrl.root.innerHTML = renderSelectorPageView(

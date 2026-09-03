@@ -5,6 +5,18 @@ export interface PicDef {
   id: PicId;
   src: string;
   label?: string;
+  /** @label 替代文本 */
+  alt?: string;
+  /** @label 表现角色 */
+  role?: 'avatar' | 'background' | 'overlay' | 'icon' | 'sticker' | 'banner';
+  /** @label 视觉焦点 */
+  focalPoint?: { x: number; y: number };
+  /** @label 默认适配 */
+  defaultFit?: 'cover' | 'contain' | 'natural';
+  /** @label 可着色 */
+  tintable?: boolean;
+  /** @label 预加载 */
+  preload?: boolean;
 }
 
 export interface PicRefParts { mod: string; type: string; id: string; }

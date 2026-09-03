@@ -31,4 +31,11 @@ describe('renderModalShell (弹窗母版)', () => {
     expect(renderModalShell({ body: 'x' })).toContain('data-modal-overlay');
     expect(renderModalShell({ body: 'x', dismissable: false })).not.toContain('data-modal-overlay');
   });
+
+  test('主题编辑器使用非阻塞浮窗外壳', () => {
+    const html = renderModalShell({ body: 'x', panelClass: 'user-theme-modal' });
+    expect(html).toContain('modal-overlay-user-theme');
+    expect(html).toContain('user-theme-modal');
+    expect(html).toContain('data-user-theme-drag');
+  });
 });

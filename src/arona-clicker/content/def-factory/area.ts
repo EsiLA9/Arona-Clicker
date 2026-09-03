@@ -3,7 +3,7 @@ import type { ExtraCompound } from '../../../engine/types/extra';
 import type { Condition, ConditionGroup, Effect } from '../../../engine/types/expression';
 import type { AreaId, InitId, SpotId } from '../../../engine/types/ids';
 import type { RevealTarget, RevealTrigger } from '../../../engine/types/reveal';
-import type { ThemeDef } from '../../../engine/types/theme';
+import type { BackgroundLayerDef, PresentationDef, ThemeDef } from '../../../engine/types/theme';
 import type { AreaDef, EntryEffectDef } from '../../../data-services/contracts/world';
 import { revealCredit, revealResource } from '../../../engine/def-factory/reveal';
 
@@ -25,6 +25,14 @@ export class AreaBuilder {
   spots(...ids: SpotId[]): this { this._defaultSpots = ids; return this; }
   adjacent(...ids: AreaId[]): this { this._adjacentAreaIds = ids; return this; }
   theme(colorGroupId: string, tokens?: Record<string, string>): this { this._theme = tokens ? { colorGroupId, tokens } : { colorGroupId }; return this; }
+  background(...layers: BackgroundLayerDef[]): this {
+    this._theme = { ...(this._theme ?? {}), background: layers };
+    return this;
+  }
+  presentation(value: PresentationDef): this {
+    this._theme = { ...(this._theme ?? {}), presentation: value };
+    return this;
+  }
   onEnter(...effects: Effect[]): this { this._enterEffects.push({ effects }); return this; }
   onEnterFirst(...effects: Effect[]): this { this._enterEffects.push({ first: true, effects }); return this; }
   onEnterWhen(condition: ConditionGroup, ...effects: Effect[]): this { this._enterEffects.push({ condition, effects }); return this; }

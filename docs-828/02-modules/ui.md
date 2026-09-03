@@ -18,7 +18,7 @@
 | `controller-modals.ts` | 弹层弹窗：Gacha / 强化管理 |
 | `controller-panels.ts` | 面板桥接：Init 选择 / 详情 CTA / 读档按钮 |
 | `controller-events.ts` | EventBus 订阅：揭示刷新 / 奖励排队 / 池 gate / 聊天流清理与演出文本 |
-| `controller-theme.ts` | 主题注入：场景栈合并 + CSS 变量落 `:root` |
+| `controller-theme.ts` | 主题注入：场景栈合并 + CSS 变量与背景层落 UI |
 | `controller-save.ts` | 存档 / 读档 / 导入导出绑定 |
 | `controller-actions-*.ts` | #app 内各域事件绑定：topbar / contacts / theme / story / inventory |
 
@@ -39,6 +39,7 @@
 | --- | --- |
 | `context.ts` | `UIContext` / `GameReadModel` 类型面 |
 | `theme-tree.ts` | 把引擎运行时主题 token 落成 CSS 变量（纯色彩树） |
+| `background-service.ts` | 背景层解析、Pic URL 校验、回退与 DOM 层渲染 |
 | `color-scheme.ts` | 配色派生（背景感知文字色等） |
 | `chat-stream.ts` | 聊天流打字机/滚动 + 开幕标题横幅状态（`showBanner` / `activeBanner`，记录 startedAt 供断点续播，3s 自动清除） |
 | `selector-page.ts` | 选择页交互：双轮盘装配、翻面/滑动、详情局部刷新 |
@@ -54,6 +55,7 @@
 ## 核心概念
 
 - **刷新双轨**：每帧 `refreshLight`（轻量数字）；揭示指纹变化 → `refreshRevealIfChanged` → 重建 DOM。
+- **背景视觉层**：`ThemeDef.background` 沿用运行时主题层级；按 id 覆盖、匿名层追加，UI 通过 `.console-background` 独立渲染，装饰层不接收指针事件。
 - **只读纪律**（纪律 4）：组件无 `game.state` 写引用、无 `as never`（T2/T6 清零）。
 - **聊天流通知次序**：`pendingTravelChats`（进入 Area「移动到了」通知）在 render 内**先于**剧情内容入流；`pendingRewardChats`（完结奖励/池解锁等）延迟 `REWARD_REVEAL_DELAY_MS`（0.8s）落账，且落账前校验活跃流演出已彻底结束（游标清空，如完结即推的尾巴播完）——未结束则顺延重试，存档前立即落账防丢。
 

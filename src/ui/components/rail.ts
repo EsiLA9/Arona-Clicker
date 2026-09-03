@@ -5,6 +5,7 @@ import { renderContactsTab } from './contacts';
 import type { ActiveStoryEntry } from '../../data-services/contracts/story-entry';
 import type { StoryDef } from '../../data-services/contracts/story';
 import type { PanelState } from './app-shell';
+import { renderBackground } from '../background-service';
 import {
   baseStoryHierarchy,
   StoryContentTable,
@@ -31,6 +32,7 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
   }
   return `
     <aside class="panel left-panel">
+      ${renderBackground(ctx.background, 'console-panel-background')}
       ${renderTabs(ctx, 'left', LEFT_TABS, tab)}
       <div class="panel-body">${body}</div>
     </aside>`;

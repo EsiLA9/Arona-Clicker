@@ -31,6 +31,7 @@ export const EVENT_CATALOG: Record<GameEvent['type'], EventCatalogEntry> = {
   affectorStateChanged: { purpose: 'Affector 状态翻转', emit: ['affector-engine'], subscribe: ['game-num'] },
   affectorUnmounted: { purpose: 'Affector 实例卸载', emit: ['affector-engine'], subscribe: ['game-num'] },
   affectorEntriesChanged: { purpose: 'Affector 激活 entry 集变化', emit: ['affector-engine'], subscribe: ['game-num'] },
+  userThemeChanged: { purpose: '用户自定主题保存或启停', emit: ['state-mutation-service'], subscribe: ['color-system', 'ui-controller'] },
   characterAcquired: { purpose: '角色差分获得', emit: ['state-mutation-service'], subscribe: ['color-unlock-reactor', 'tag-stats', 'trigger-system'] },
   cultivated: { purpose: '培养变更', emit: ['state-mutation-service'], subscribe: ['trigger-system'] },
   affectionChanged: { purpose: '好感变更', emit: ['state-mutation-service'], subscribe: ['condition-deps', 'trigger-system', 'ui-controller-events'] },

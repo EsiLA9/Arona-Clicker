@@ -80,7 +80,8 @@ describe('UIController 选择页翻面（Init ⇄ GlobalEnhancement）', () => {
     expect(row).not.toBeNull();
     expect(root.querySelector('.face-enh')?.classList.contains('is-inactive')).toBe(false);
 
-    // 默认选中成本最低的 foundation → 详情 CTA 为购买
+    // 显式选中 foundation，避免测试依赖全局强化价格排序
+    row.click();
     const buy = root.querySelector<HTMLButtonElement>(`[data-global-enh-purchase="${FOUNDATION}"]`);
     expect(buy).not.toBeNull();
     buy!.click();

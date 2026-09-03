@@ -50,6 +50,17 @@ function renderAreaDesignsSection(ctx: UIContext): string {
     </section>`;
 }
 
+function renderUserThemeSection(ctx: UIContext): string {
+  const capability = ctx.game.userThemeService.capability();
+  return `
+    <section class="theme-float-section user-theme-access">
+      <h4 class="theme-float-section-title">用户自定主题 <small>由 Active Affector 开放</small></h4>
+      <button type="button" class="theme-editor-entry ${capability.active ? 'is-available' : 'is-locked'}" data-open-user-theme>
+        <span>${capability.active ? '打开主题编辑器' : '需要主题编辑权限'}</span><span>↗</span>
+      </button>
+    </section>`;
+}
+
 export function renderHeader(ctx: UIContext): string {
   const { view, game } = ctx;
   const activeGroupId = game.state.activeGroupId;
@@ -83,6 +94,7 @@ export function renderHeader(ctx: UIContext): string {
             </div>
             <div class="theme-float-body">
               <div class="theme-swatches">${palette}</div>
+              ${renderUserThemeSection(ctx)}
               ${renderLayerOrderSection(ctx)}
               ${renderAreaDesignsSection(ctx)}
             </div>

@@ -55,8 +55,15 @@
 ### UI 表现层
 
 - [[0x-plan&work/active/roadmap-0006-ui-background-layering]]：背景图片、渐变与 SVG 装饰叠层服务。
+- [[0x-plan&work/active/adr-0006-ui-background-layering]]：背景层数据结构、合并规则与安全边界裁定。
 
-当前状态：待设计裁定，已完成现况审阅与施工切片草案。
+当前状态：B0–B3 已完成，B4 待实施。
+
+### 强化与服务权限
+
+- [[0x-plan&work/active/roadmap-0007-enhancement-reveal]]：GlobalEnh 揭示、资源观察与 0 成本服务权限语义。
+
+当前状态：主题编辑权限暂时免费赠送；未观察青辉石时的可见性异常待后续修复。
 
 ### 新策划汇总（待评审）
 

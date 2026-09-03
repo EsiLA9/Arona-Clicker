@@ -7,9 +7,11 @@
 import { createUIContext } from './context';
 import { renderGachaBody, renderSpotGachaBody } from './components/contacts';
 import { renderEnhancementManager } from './components/enhancements';
+import { renderUserThemeEditor } from './components/user-theme-editor';
 import type { UIController } from './controller';
 import { openPackManagerModal } from './components/pack-manager-modal';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
+import type { ComponentPlacementDef, PresentationRegion } from '../engine/types/theme';
 
 /** 招募补给弹窗：卡池列表 + 抽取按钮（结果经 chat/toast 反馈）。 */
 export function openGachaModal(ctrl: UIController): void {
@@ -104,6 +106,127 @@ export function openEnhancementManager(ctrl: UIController): void {
     });
   };
   render();
+}
+
+export function openUserThemeEditor(ctrl: UIController): void {
+  const session = ctrl.game.userThemeService.beginEdit();
+  if ('ok' in session && !session.ok) {
+    ctrl.modal.open({ title: '用户自定主题', body: `<p class="modal-empty">${ctrl.game.userThemeService.capability().active ? '编辑服务暂不可用' : '需要 Active Affector 开放主题编辑能力。'}</p>` });
+    return;
+  }
+  const capability = ctrl.game.userThemeService.capability();
+  const current = session as import('../arona-clicker/services/user-theme-service').UserThemeEditSession;
+  if (capability.active) {
+    ctrl.game.colorSystem.setUserThemePreview(current.draft);
+    ctrl.render();
+  }
+  ctrl.modal.open({ title: '用户自定主题', body: renderUserThemeEditor(createUIContext(ctrl.game), current, capability.active, capability.sources), width: 420, panelClass: 'user-theme-modal', footer: `<button class="modal-close">取消</button><button class="primary-button" data-user-theme-save ${capability.active ? '' : 'disabled'}>保存并应用</button>`, onClose: () => {
+    ctrl.game.colorSystem.setUserThemePreview(null);
+    ctrl.game.userThemeService.discard(current.id);
+    ctrl.render();
+  } });
+  const modal = document.querySelector('.app-modal');
+  if (!modal) return;
+  bindUserThemeDrag(modal);
+  bindUserThemeEditor(ctrl, modal, current, capability.active);
+  const save = modal?.querySelector<HTMLButtonElement>('[data-user-theme-save]');
+  save?.addEventListener('click', () => {
+    const result = ctrl.game.userThemeService.apply(current.id, { ...current.draft, version: 1, tokens: current.draft.tokens });
+    if (!result.ok) { showUserThemeError(modal, result.issues?.join('；') ?? result.message); return; }
+    const enabled = modal.querySelector<HTMLInputElement>('[data-user-theme-enabled]')?.checked ?? true;
+    if (enabled !== result.state.enabled) ctrl.game.userThemeService.setEnabled(enabled);
+    ctrl.modal.close(); ctrl.render(); ctrl.toast.show('用户主题已保存并应用', 'success');
+  });
+}
+
+function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean): void {
+  const draft = session.draft;
+  const presentation = draft.presentation ?? (draft.presentation = { layers: [], components: [] });
+  const components = () => presentation.components ?? (presentation.components = []);
+  modal.querySelectorAll<HTMLButtonElement>('[data-theme-editor-section]').forEach(button => button.addEventListener('click', () => {
+    const section = button.dataset.themeEditorSection;
+    modal.querySelectorAll<HTMLElement>('[data-theme-editor-panel]').forEach(panel => { panel.hidden = panel.dataset.themeEditorPanel !== section; });
+    modal.querySelectorAll('[data-theme-editor-section]').forEach(item => item.classList.toggle('is-active', item === button));
+  }));
+  modal.querySelectorAll<HTMLInputElement>('[data-user-theme-token]').forEach(input => input.addEventListener('input', () => {
+    if (!active) return;
+    draft.tokens = { ...(draft.tokens ?? {}), [input.dataset.userThemeToken!]: input.value };
+    if (input.dataset.userThemeToken) {
+      ctrl.game.colorSystem.setUserThemePreview(draft);
+      ctrl.refreshTheme();
+    }
+    const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
+  }));
+  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-token-clear]').forEach(button => button.addEventListener('click', () => {
+    if (!active) return;
+    const token = button.dataset.userThemeTokenClear as import('../arona-clicker/types/user-theme').UserThemeToken;
+    if (draft.tokens) {
+      delete draft.tokens[token];
+      if (Object.keys(draft.tokens).length === 0) delete draft.tokens;
+    }
+    const input = modal.querySelector<HTMLInputElement>(`[data-user-theme-token="${token}"]`);
+    if (input) input.value = '#6b8cff';
+    const code = button.parentElement?.querySelector('code');
+    if (code) code.textContent = '跟随上一层';
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+  }));
+  modal.querySelectorAll<HTMLSelectElement>('[data-user-theme-layer-region]').forEach(select => select.addEventListener('change', () => {
+    if (!active || !presentation.layers) return;
+    const layer = presentation.layers[Number(select.dataset.userThemeLayerRegion)]; if (layer) { layer.region = select.value as PresentationRegion; ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); }
+  }));
+  modal.querySelectorAll<HTMLSelectElement>('[data-user-theme-component-parent]').forEach(select => select.addEventListener('change', () => {
+    if (!active) return;
+    const component = components().find(item => item.id === select.dataset.userThemeComponentParent); if (component) { component.parent = select.value; ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); }
+  }));
+  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-component-anchor]').forEach(button => button.addEventListener('click', () => {
+    if (!active) return;
+    const component = components().find(item => item.id === button.dataset.userThemeComponentAnchor); if (!component) return;
+    component.anchor = button.dataset.anchor as ComponentPlacementDef['anchor'];
+    button.parentElement?.querySelectorAll('[data-user-theme-component-anchor]').forEach(item => item.classList.toggle('active', item === button));
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.render();
+  }));
+  for (const axis of ['x', 'y'] as const) modal.querySelectorAll<HTMLInputElement>(`[data-user-theme-component-${axis}]`).forEach(input => input.addEventListener('input', () => {
+    if (!active) return;
+    const component = components().find(item => item.id === input.dataset[`userThemeComponent${axis.toUpperCase()}`]); if (!component) return;
+    component.offset = { x: component.offset?.x ?? 0, y: component.offset?.y ?? 0, unit: component.offset?.unit ?? 'percent', [axis]: Number(input.value) || 0 };
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.render();
+  }));
+}
+
+function bindUserThemeDrag(modal: Element): void {
+  const panel = modal.querySelector<HTMLElement>('.user-theme-modal');
+  const handle = modal.querySelector<HTMLElement>('[data-user-theme-drag]');
+  if (!panel || !handle) return;
+  let drag: { offsetX: number; offsetY: number } | null = null;
+  handle.addEventListener('pointerdown', event => {
+    if ((event.target as HTMLElement).closest('button')) return;
+    const rect = panel.getBoundingClientRect();
+    drag = { offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
+    handle.setPointerCapture?.(event.pointerId);
+    panel.classList.add('is-dragging');
+  });
+  handle.addEventListener('pointermove', event => {
+    if (!drag) return;
+    const maxX = Math.max(8, window.innerWidth - panel.offsetWidth - 8);
+    const maxY = Math.max(8, window.innerHeight - panel.offsetHeight - 8);
+    const left = Math.min(maxX, Math.max(8, event.clientX - drag.offsetX));
+    const top = Math.min(maxY, Math.max(8, event.clientY - drag.offsetY));
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+  });
+  const end = () => { drag = null; panel.classList.remove('is-dragging'); };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
+function showUserThemeError(modal: Element, message: string): void {
+  const error = modal.querySelector<HTMLElement>('[data-user-theme-error]');
+  if (error) { error.textContent = message; error.hidden = false; }
 }
 
 export function openPackManager(ctrl: UIController): void {

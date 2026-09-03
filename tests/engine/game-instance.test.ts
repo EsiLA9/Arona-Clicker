@@ -378,6 +378,34 @@ describe('GameInstance (integration)', () => {
     expect(vis.spots['base:spot:credit_printer']).toBe(true);
   });
 
+  test('should recompute Init and GlobalEnh visibility when creating a save', () => {
+    game.init([baseDatapack]);
+    game.visibilityEngine.reset();
+
+    const saveData = game.save();
+
+    expect(saveData.visibility.inits['base:init:schale_office']).toBe(true);
+    expect(saveData.visibility.enhancements['base:enhancement:user-theme-editor']).toBe(true);
+    expect(saveData.visibility.enhancements['base:enhancement:foundation']).toBe(true);
+  });
+
+  test('should recompute Init and GlobalEnh visibility after loading a stale snapshot', () => {
+    game.init([baseDatapack]);
+    const saveData = game.save();
+    saveData.visibility.inits['base:init:schale_office'] = false;
+    saveData.visibility.enhancements['base:enhancement:user-theme-editor'] = false;
+    saveData.visibility.enhancements['base:enhancement:foundation'] = false;
+
+    const game2 = new GameInstance();
+    game2.init([baseDatapack]);
+    game2.load(saveData);
+
+    expect(game2.visibility.inits['base:init:schale_office']).toBe(true);
+    expect(game2.visibility.enhancements['base:enhancement:user-theme-editor']).toBe(true);
+    expect(game2.visibility.enhancements['base:enhancement:foundation']).toBe(true);
+    game2.stop();
+  });
+
   test('should expose a detached UI view snapshot', () => {
     game.init([baseDatapack]);
     game.state.resources['base:resource:credit'] = 20;

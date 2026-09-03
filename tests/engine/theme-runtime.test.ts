@@ -177,6 +177,18 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     expect(r.layers).toEqual(['area', 'player', 'fx']);
   });
 
+  test('RUNTIME-12A 编辑预览层高于用户主题且低于演出层', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', tokens: { primary: '#101010' } });
+    manager.setUser({ scope: 'player', tokens: { primary: '#202020' } });
+    manager.setPreview({ scope: 'ephemeral', tokens: { primary: '#303030' } });
+    expect(manager.resolve().tokens['primary']).toBe('#303030');
+    manager.pushEphemeral({ id: 'story', scope: 'ephemeral', tokens: { primary: '#404040' } });
+    expect(manager.resolve().tokens['primary']).toBe('#404040');
+    manager.setPreview(null);
+    expect(manager.resolve().tokens['primary']).toBe('#404040');
+  });
+
   test('RUNTIME-13 resolveScope：按 scope 取当前生效层（忽略演出层）', () => {
     const { manager } = makeManager();
     manager.setPlayer({ scope: 'player', groupId: 'blue' });
@@ -199,6 +211,42 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     manager.pushScene({ scope: 'area', groupId: 'pink' });
     expect(manager.resolveScope('area')['primary']).toBe('#ec4899');
   });
+
+  test('RUNTIME-19 表现层按 id 叠加，支持高层替换与新组件追加', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', presentation: {
+      layers: [{ id: 'wash', region: 'centerPanel', kind: 'solid', value: '#fff' }],
+      components: [{ id: 'portrait', parent: 'centerPanel', asset: 'base:pic:old', anchor: 'bottom-right' }],
+    } });
+    manager.pushScene({ scope: 'area', presentation: {
+      layers: [{ id: 'wash', region: 'centerPanel', kind: 'gradient', value: 'linear-gradient(#fff, #def)' }],
+      components: [
+        { id: 'portrait', parent: 'centerPanel', asset: 'base:pic:new', anchor: 'bottom-left' },
+        { id: 'triangle', parent: 'centerPanel', asset: 'base:pic:triangle', anchor: 'top-left' },
+      ],
+    } });
+    const presentation = manager.resolve().presentation;
+    expect(presentation.layers).toEqual([{ id: 'wash', region: 'centerPanel', kind: 'gradient', value: 'linear-gradient(#fff, #def)' }]);
+    expect(presentation.components?.map(component => component.id)).toEqual(['portrait', 'triangle']);
+    expect(presentation.components?.[0].asset).toBe('base:pic:new');
+  });
+
+  test('RUNTIME-15 背景层按优先级合并，同 id 覆盖、匿名层追加', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', background: [
+      { id: 'scene', kind: 'gradient', value: 'linear-gradient(#fff,#def)' },
+      { kind: 'image', value: 'base:background(pic):one' },
+    ] });
+    manager.pushScene({ scope: 'area', background: [
+      { id: 'scene', kind: 'image', value: 'base:background(pic):two' },
+      { kind: 'image', value: 'base:overlay(pic):triangles' },
+    ] });
+    expect(manager.resolve().background.map(layer => layer.value)).toEqual([
+      'base:background(pic):two',
+      'base:background(pic):one',
+      'base:overlay(pic):triangles',
+    ]);
+  });
 });
 
 describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
@@ -215,12 +263,17 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     const handled = game.colorSystem.handleThemeEffect({
       op: 'setTheme',
       target: '',
-      value: { colorGroupId: 'base:colorgroup:coral', tokens: { 'player-bubble': '#ff0000' } },
+      value: {
+        colorGroupId: 'base:colorgroup:coral',
+        tokens: { 'player-bubble': '#ff0000' },
+        background: [{ id: 'story', kind: 'gradient', value: 'linear-gradient(#111,#333)' }],
+      },
     });
     expect(handled).toBe(true);
     const themed = game.colorSystem.runtimeTheme();
     expect(themed.tokens['primary']).toBe('#ff7a59'); // coral 的 primary
     expect(themed.tokens['player-bubble']).toBe('#ff0000');
+    expect(themed.background[0]?.value).toContain('linear-gradient');
     // 清除剧情临时层
     game.colorSystem.clearStoryTheme();
     const cleared = game.colorSystem.runtimeTheme();

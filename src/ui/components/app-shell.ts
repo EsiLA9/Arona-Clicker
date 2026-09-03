@@ -4,6 +4,7 @@ import { renderLeftPanel } from './rail';
 import { renderCenterPanel } from './center-panel';
 import { renderRightPanel } from './right-panels';
 import { ChatEntry, ChatTextEntry } from './story';
+import { renderBackground } from '../background-service';
 
 /** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 按钮"想回复"中。 */
 export type SendGatePhase = 'typing' | 'pause' | 'thinking';
@@ -67,6 +68,7 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
       }
     : undefined;
   return `
+    ${renderBackground(ctx.background)}
     <main class="console-shell">
       ${renderHeader(ctx)}
       <section class="workspace">

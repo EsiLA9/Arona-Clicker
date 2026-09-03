@@ -2,7 +2,16 @@ import { area } from './def-factory/area';
 import type { AreaDef } from '../../data-services/contracts/world';
 
 export const baseAreas: AreaDef[] = [
-  area('base:area:schale_main', 'base:init:schale_office').name('夏莱主厅').desc('夏莱的主办公区域，略显凌乱但充满生活气息。').spots('base:spot:credit_printer', 'base:spot:comms_terminal', 'base:spot:data_wiper').adjacent('base:area:schale_library', 'base:area:schale_rooftop').theme('base:colorgroup:schale-solid').build(),
+  area('base:area:schale_main', 'base:init:schale_office').name('夏莱主厅').desc('夏莱的主办公区域，略显凌乱但充满生活气息。').spots('base:spot:credit_printer', 'base:spot:comms_terminal', 'base:spot:data_wiper').adjacent('base:area:schale_library', 'base:area:schale_rooftop').theme('base:colorgroup:schale-solid').background(
+    { id: 'scene', kind: 'image', value: 'base:background(pic):hoshino', opacity: 0.38, position: '72% 50%', size: 'auto 92%', blendMode: 'normal' },
+    { id: 'triangles-back', kind: 'image', value: 'base:overlay(pic):triangles', opacity: 0.68, position: '8% 8%', size: '42rem', blendMode: 'screen' },
+    { id: 'triangles-front', kind: 'image', value: 'base:overlay(pic):triangles', opacity: 0.42, position: '86% 78%', size: '32rem', blendMode: 'multiply' },
+  ).presentation({
+    components: [
+      { id: 'center-hoshino-portrait', parent: 'centerPanel', asset: 'base:background(pic):hoshino', anchor: 'bottom-right', offset: { x: 4, y: 1, unit: 'percent' }, size: { height: 88, unit: 'percent' }, fit: 'contain' },
+      { id: 'center-triangle-decoration', parent: 'centerPanel', asset: 'base:overlay(pic):triangles', anchor: 'top-left', offset: { x: 3, y: 3, unit: 'percent' }, size: { width: 38, unit: 'percent' }, fit: 'contain' },
+    ],
+  }).build(),
   area('base:area:schale_library', 'base:init:schale_office').name('夏莱资料室').desc('堆满委托卷宗与旧档案的资料室。联邦的运作痕迹都沉淀在这里。').spots('base:spot:archive').adjacent('base:area:schale_main', 'base:area:schale_hangar').build(),
   area('base:area:schale_hangar', 'base:init:schale_office').name('夏莱机库').desc('停放着夏莱专用车的机库。出勤的起点，也常被当作临时午休地。').spots().adjacent('base:area:schale_library').revealCredit('name', 80).build(),
   area('base:area:schale_rooftop', 'base:init:schale_office').name('夏莱天台').desc('天台的风很清爽，能俯瞰整片夏莱街景。星野的邀约与晚霞都收在这里。').spots().adjacent('base:area:schale_main').theme('base:colorgroup:amber').build(),

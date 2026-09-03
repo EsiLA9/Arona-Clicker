@@ -9,6 +9,9 @@ import type { UIController } from './controller';
 
 /** 绑定主题交互事件（render 后调用）。 */
 export function bindThemeActions(ctrl: UIController): void {
+  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-open-user-theme]').forEach(button => {
+    button.addEventListener('click', () => ctrl.openUserThemeEditor());
+  });
   // 主题切换：激活某色彩组（统一走 ownership 闸门，null = 恢复默认）。
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-activate-group]').forEach(button => {
     button.addEventListener('click', () => {

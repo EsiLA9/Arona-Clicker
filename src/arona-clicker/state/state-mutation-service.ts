@@ -20,6 +20,7 @@ import type { CharaCustomOverride } from '../types/chara-profile';
 import type { DupRewards } from '../../data-services/contracts/gacha-pool';
 import type { CompletedStory } from '../types/story-state';
 import type { AronaClickerState } from '../types/state';
+import type { UserThemeDraft, UserThemeState } from '../types/user-theme';
 import { isGlobalResource } from '../types/ids';
 import { TagPath, tagDisplay } from '../../engine/core/tag';
 import { EventBus } from '../../engine/core/event-bus';
@@ -333,6 +334,30 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     if (this.current.themeLayerOrder === next) return true;
     this.current.themeLayerOrder = next;
     this.emit({ type: 'themeChanged', groupId: null });
+    return true;
+  }
+
+  /** 原子保存用户主题；仅由 UserThemeService 在能力和结构校验通过后调用。 */
+  setUserTheme(applied: UserThemeDraft, enabled = true): boolean {
+    const current: UserThemeState = this.current.userTheme ?? { enabled: false, revision: 0 };
+    this.current.userTheme = {
+      enabled,
+      applied: structuredClone(applied),
+      revision: current.revision + 1,
+      updatedAtFrame: this.current.totalFrames,
+    };
+    this.emit({ type: 'userThemeChanged', enabled });
+    return true;
+  }
+
+  /** 切换用户主题应用状态，不改变已保存的主题内容。 */
+  setUserThemeEnabled(enabled: boolean): boolean {
+    const current = this.current.userTheme;
+    if (!current || current.enabled === enabled) return !!current;
+    current.enabled = enabled;
+    current.revision += 1;
+    current.updatedAtFrame = this.current.totalFrames;
+    this.emit({ type: 'userThemeChanged', enabled });
     return true;
   }
 

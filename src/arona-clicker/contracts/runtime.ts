@@ -23,6 +23,7 @@ import type { ColorEquipmentQueryPort } from './color-equipment-query';
 import type { StoryQueryPort } from './story-query';
 import type { PackDependencyStatus, PackSourceKind } from '../../data-services/datapack/pack-manager';
 import type { WorldCatalogQueryPort } from './world-catalog';
+import type { UserThemeService } from '../services/user-theme-service';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -69,6 +70,7 @@ export interface GameReadModel {
   readonly spotFunctionalitySystem: SpotFunctionalityQueryPort;
   readonly statsService: StatsQueryContext;
   readonly pics: PicQueryPort;
+  readonly userThemeService: UserThemeService;
   readonly story: StoryQueryPort;
   readonly spot: SpotQueryPort;
   getView(): GameView;

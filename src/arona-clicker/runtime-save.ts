@@ -45,8 +45,11 @@ export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   ctx.statsService.setState(state);
   ctx.affectorEngine.setState(state);
   ctx.triggerSystem.setState(state);
-  ctx.initService.mountInitTriggers(state.activeInit);
+  if (state.activeInit) ctx.initService.mountInitTriggers(state.activeInit);
+  // visibility 是基于当前 Registry/State 的派生数据；旧存档中的快照可能缺少
+  // 新增的 Init/GlobalEnh 条目，因此读档后统一按当前数据重算。
   if (saveData.visibility) ctx.visibilityEngine.setSnapshot(saveData.visibility);
+  ctx.visibilityEngine.recomputeAll(state);
   if (saveData.stats) ctx.statsService.restore(saveData.stats);
   else ctx.statsService.beginSession();
   ctx.storyService.restoreCursor({

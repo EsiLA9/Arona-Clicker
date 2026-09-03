@@ -1,0 +1,109 @@
+.console-background {
+   position: fixed;
+   inset: 0;
+   z-index: 0;
+   overflow: hidden;
+   pointer-events: none;
+   background: var(--canvas, #e9f3ff);
+}
+
+.console-background-layer {
+   position: absolute;
+   inset: 0;
+   pointer-events: none;
+   transition: opacity .35s ease, background .35s ease;
+}
+
+.panel {
+   position: relative;
+   isolation: isolate;
+}
+
+.console-panel-background {
+   position: absolute;
+   inset: 0;
+   z-index: 0;
+   overflow: hidden;
+   pointer-events: none;
+   border-radius: inherit;
+   opacity: .72;
+}
+
+.panel > :not(.console-panel-background) {
+   position: relative;
+   z-index: 1;
+}
+
+.console-panel-background .console-background-layer {
+   transition: opacity .35s ease, background .35s ease;
+}
+
+.presentation-region {
+   position: absolute;
+   inset: 0;
+   z-index: 0;
+   overflow: hidden;
+   pointer-events: none;
+   border-radius: inherit;
+}
+
+.presentation-layer {
+   position: absolute;
+   inset: 0;
+   pointer-events: none;
+}
+
+.presentation-component {
+   max-width: none;
+}
+
+.console-shell {
+   position: relative;
+   z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+   .console-background-layer { transition: none; }
+}
+
+.user-theme-editor { color: var(--text); min-width:0; }
+.user-theme-editor-status { display:flex; align-items:center; gap:8px; padding:6px 0; margin-bottom:10px; border-bottom:1px solid color-mix(in srgb, var(--text) 12%, transparent); }
+.user-theme-editor-status small { margin-left:auto; color:var(--muted); }
+.user-theme-editor-status.is-locked { color:var(--muted); }
+.user-theme-editor-grid { display:grid; grid-template-columns:.9fr 1.1fr; gap:18px; }
+.user-theme-section { min-width:0; }
+.user-theme-section-head { display:flex; flex-direction:column; gap:2px; margin-bottom:7px; }
+.user-theme-section-head strong { font-size:15px; }
+.user-theme-section-head small { color:var(--muted); }
+.user-theme-token-grid { display:grid; grid-template-columns:1fr; gap:5px; }
+.user-theme-token { display:grid; grid-template-columns:1fr 28px auto; gap:5px; align-items:center; padding:5px 6px; border:1px solid color-mix(in srgb, var(--text) 12%, transparent); border-radius:6px; }
+.user-theme-token span { font-size:12px; }
+.user-theme-token code { grid-column:1 / -1; color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; }
+.user-theme-token input { width:28px; height:22px; padding:0; border:0; background:transparent; }
+.user-theme-token-clear { border:0; padding:3px 4px; color:var(--muted); background:transparent; cursor:pointer; font-size:10px; }
+.user-theme-token-clear:hover { color:var(--accent); }
+.user-theme-json { width:100%; min-height:260px; resize:vertical; box-sizing:border-box; font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; color:var(--text); background:color-mix(in srgb, var(--panel) 82%, #000); border:1px solid color-mix(in srgb, var(--text) 16%, transparent); border-radius:8px; padding:10px; }
+.user-theme-enabled { display:flex; align-items:center; gap:8px; margin-top:14px; font-size:12px; }
+.user-theme-editor-error { margin-top:10px; padding:8px 10px; color:#b42318; background:#fff1f0; border-radius:6px; font-size:12px; }
+.theme-editor-entry { width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border:1px solid color-mix(in srgb, var(--text) 16%, transparent); border-radius:8px; background:transparent; color:var(--text); cursor:pointer; }
+.theme-editor-entry.is-locked { color:var(--muted); }
+.user-theme-workspace { display:grid; grid-template-columns:92px minmax(0,1fr); gap:10px; min-height:0; height:min(560px, calc(100vh - 150px)); }
+.user-theme-nav { display:flex; flex-direction:column; gap:4px; border-right:1px solid color-mix(in srgb, var(--text) 12%, transparent); padding-right:8px; }
+.user-theme-nav-item { border:0; border-left:2px solid transparent; background:transparent; color:var(--muted); text-align:left; padding:7px 5px; cursor:pointer; font-size:11px; }
+.user-theme-nav-item.is-active { border-left-color:var(--accent); color:var(--text); background:color-mix(in srgb, var(--accent) 10%, transparent); }
+.user-theme-inspector { min-width:0; border-left:1px solid color-mix(in srgb, var(--text) 12%, transparent); padding-left:10px; overflow:auto; min-height:0; }
+.user-theme-field { display:flex; flex-direction:column; gap:5px; margin:10px 0; color:var(--muted); font-size:11px; }
+.user-theme-field select, .user-theme-number-row input { color:var(--text); background:var(--panel); border:1px solid color-mix(in srgb, var(--text) 16%, transparent); border-radius:5px; padding:6px; }
+.user-theme-field small, .user-theme-component small { color:var(--muted); }
+.user-theme-component { border:1px solid color-mix(in srgb, var(--text) 12%, transparent); border-radius:7px; margin:10px 0; padding:8px; }
+.user-theme-component legend { color:var(--text); font-size:12px; padding:0 4px; }
+.user-theme-anchor-grid { display:grid; grid-template-columns:repeat(3,28px); gap:4px; justify-content:center; margin:8px 0; }
+.user-theme-anchor-grid button { height:26px; border:1px solid color-mix(in srgb, var(--text) 14%, transparent); background:transparent; color:var(--muted); border-radius:4px; cursor:pointer; }
+.user-theme-anchor-grid button.active { color:var(--text); border-color:var(--accent); background:color-mix(in srgb, var(--accent) 14%, transparent); }
+.user-theme-number-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.user-theme-number-row label { display:flex; align-items:center; gap:4px; color:var(--muted); font-size:11px; }
+.user-theme-number-row input { width:100%; box-sizing:border-box; }
+.user-theme-editor.is-readonly .user-theme-nav-item { cursor:default; }
+@media (max-width:999px) { .user-theme-workspace { grid-template-columns:82px minmax(0,1fr); height:auto; } .user-theme-inspector { grid-column:1 / -1; border-left:0; border-top:1px solid color-mix(in srgb, var(--text) 12%, transparent); padding:10px 0 0; max-height:300px; } }
+@media (max-width:760px) { .user-theme-workspace { display:flex; flex-direction:column; gap:8px; } .user-theme-nav { flex-direction:row; align-items:center; overflow-x:auto; border-right:0; border-bottom:1px solid color-mix(in srgb, var(--text) 12%, transparent); padding:0 0 6px; white-space:nowrap; } .user-theme-inspector { max-height:none; } }
+@media (prefers-reduced-motion: reduce) { .user-theme-editor *, .user-theme-editor *::before, .user-theme-editor *::after { transition:none !important; animation:none !important; } }

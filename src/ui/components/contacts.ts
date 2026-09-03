@@ -8,6 +8,8 @@
 import { UIContext } from '../context';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderSendButton } from './center-panel';
+import { renderBackground } from '../background-service';
+import { renderPresentationRegion } from '../presentation-service';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
 import type { CharacterVariantDef } from '../../arona-clicker/types/character';
 import type { ConditionGroup, Condition, Effect } from '../../engine/types';
@@ -79,6 +81,7 @@ export function renderContactsTab(
         </div>
       </div>`
     : '';
+  const userTheme = `<div class="contact-themes user-theme-access"><h4 class="contact-school">用户自定主题</h4><button class="theme-editor-entry ${game.userThemeService.capability().active ? 'is-available' : 'is-locked'}" data-open-user-theme>${game.userThemeService.capability().active ? '打开主题编辑器' : '需要主题编辑权限'}<span>↗</span></button></div>`;
 
   return `
     <div class="contacts-pane">
@@ -86,6 +89,7 @@ export function renderContactsTab(
       ${groupHtml}
       ${placeholderHtml}
       ${themeRow}
+      ${userTheme}
     </div>`;
 }
 
@@ -213,6 +217,8 @@ export function renderConversationView(
 
   return `
     <section class="panel center-panel conversation-panel">
+      ${renderBackground(ctx.background, 'console-panel-background')}
+      ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       <div class="conversation-pane" data-conversation="${ctx.escapeHtml(variantId)}">
         <div class="conversation-header">
           <button class="conversation-back" data-conversation-back aria-label="返回一般聊天" title="返回一般聊天">‹</button>

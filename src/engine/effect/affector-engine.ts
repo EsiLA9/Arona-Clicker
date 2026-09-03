@@ -246,6 +246,21 @@ export class AffectorEngine extends EventDrivenReactor {
     return [...this.instances.values()].filter(instance => instance.state === 'Active');
   }
 
+  /** 返回当前 Active Affector 提供的服务能力及来源，不暴露内部实例表。 */
+  getActiveServiceCapabilities(): ReadonlyMap<string, readonly string[]> {
+    const sources = new Map<string, string[]>();
+    for (const instance of this.getActiveInstances()) {
+      const pack = this.packs.get(instance.packId);
+      for (const grant of pack?.capabilities ?? []) {
+        if (grant.kind !== 'service' || grant.mode !== 'enable' || !grant.id) continue;
+        const list = sources.get(grant.id) ?? [];
+        list.push(`${instance.packId}@${instance.mountEntityId}`);
+        sources.set(grant.id, list);
+      }
+    }
+    return sources;
+  }
+
   /**
    * 扫描所有活跃 Affector 的 setSpotMaxLevel / removeSpotMaxLevel 效果，
    * 返回按优先级解析后的 maxLevel 覆盖表。

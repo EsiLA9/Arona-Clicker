@@ -6,13 +6,14 @@
 import type { TagPath } from '../core/tag';
 import type { ExtraCompound } from '../types/extra';
 import type { ConditionGroup, Effect, ValueExpression } from '../types/expression';
-import type { AffectorEffect, AffectorPackDef, AffectorFlow } from '../types/trigger';
+import type { AffectorCapabilityGrant, AffectorEffect, AffectorPackDef, AffectorFlow, ServiceCapabilityId } from '../types/trigger';
 import type { TagEffectCategory, ZoneModifierDecl } from '../expression/tag-effect';
 
 export class AffectorPackBuilder {
   private readonly _id: string;
   private _entries: AffectorEffect[] = [];
   private _extra?: ExtraCompound;
+  private _capabilities: AffectorCapabilityGrant[] = [];
 
   constructor(id: string) {
     this._id = id;
@@ -75,6 +76,11 @@ export class AffectorPackBuilder {
 
   extra(value: ExtraCompound): this { this._extra = value; return this; }
 
+  serviceCapability(id: ServiceCapabilityId): this {
+    this._capabilities.push({ kind: 'service', id, mode: 'enable' });
+    return this;
+  }
+
   build(): AffectorPackDef {
     if (!this._entries.length) throw new Error(`AffectorPackBuilder(${this._id}): 至少需要一条 entry()`);
     const def: AffectorPackDef = {
@@ -89,6 +95,7 @@ export class AffectorPackBuilder {
       }),
     };
     if (this._extra) def.extra = this._extra;
+    if (this._capabilities.length) def.capabilities = [...this._capabilities];
     return def;
   }
 }

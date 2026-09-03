@@ -7,7 +7,7 @@
 | 层 | 字段前缀/载体 | 生命周期 | 代表字段 |
 | --- | --- | --- | --- |
 | **Global** | `global*` / 收集类顶层字段 | 跨世界线永久 | `globalResources`、`unlockedInits`、`visitedInits`、`groupsOwned`/`equipmentsOwned`、色彩/装备收集、`spotTagOverrides`、`roster`/`fragments`（归属层由 `characterPersistConfig` 逐块声明，声明为 global 时不进快照） |
-| **per-Init 快照** | `initSnapshots[initId]` | 离开时保存、回时恢复 | `InitSnapshot`：`{ resources, spotLevels, spotManagers, visitedAreas, totalFrames, inventory, unlockedEnhancements, storyLog, storyReadLogs, flags, triggersCompleted, currentAreaId, extras, roster?, fragments?, gachaState?, chatRead? }`（`PER_INIT_FIELD_SPECS` 17 项，`arona-clicker/state/per-init-fields.ts`） |
+| **per-Init 快照** | `initSnapshots[initId]` | 离开时保存、回时恢复 | `InitSnapshot`：`{ resources, spotLevels, spotManagers, visitedAreas, totalFrames, inventory, 本地 unlockedEnhancements, storyLog, storyReadLogs, flags, triggersCompleted, currentAreaId, extras, roster?, fragments?, gachaState?, chatRead? }`（GlobalEnh 不进入快照） |
 | **per-Init 当前** | 顶层字段 | 当前世界线运行时 | `resources`、`flags`、`initExtras`、`inventory`、`spotLevels`、`currentAreaId`、`storyLog`、`visitedAreas` |
 
 **关键约定**：读状态时「当前层有值用当前层，无值回退快照层」——由 `extraFromLayer` / `resourceBucket` 等访问器统一实现（`StateMutationService`）。
@@ -23,7 +23,7 @@
 | `spotLevels` / `spotManagers` | Record | 设施等级 / 指派 Manager |
 | `currentAreaId` / `visitedAreas` / `visitedInits` | — | 当前所在 / 已访问 Area / 已进入过 Init |
 | `spotTagOverrides` | Record<SpotId, {added, removed}> | Spot 标签运行时增减（T6，global 层，随存档保留） |
-| `unlockedEnhancements` / `enhancementAttachments` | string[] / Record | 已解锁强化 / 挂靠元数据（仅 UI 展示） |
+| `unlockedEnhancements` / `enhancementAttachments` | string[] / Record | 已解锁强化；GlobalEnh 跨 Init 保留，本地强化进入对应 Init 快照 / 挂靠元数据（仅 UI 展示） |
 | `storyLog` | CompletedStory[] | 剧情完成记录（按 StoryDef.id）；`storyReadLogs` 另存阅读日志（重读/分歧守卫） |
 | `triggersCompleted` | string[] | 已触发的一次性 Trigger（once）id 集合 |
 | `roster` / `fragments` | Record<VariantId, RosterEntry> / Record | 通讯录（持有差分实例）/ 碎片余额（归属随 characterPersistConfig.roster） |

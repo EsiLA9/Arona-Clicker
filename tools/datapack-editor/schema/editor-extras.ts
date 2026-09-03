@@ -253,11 +253,60 @@ const effectObject = (): FieldDef =>
 const effectArray = (key: string, label: string, required = false): FieldDef =>
   a(key, effectObject(), label, { required });
 
-/** ThemeDef：{ colorGroupId?, tokens? } —— 场景/演出声明式主题（引用 ColorGroup + 局部覆盖）。 */
+/** ThemeDef 背景层：渐变/纯色/图片及其 CSS 表现参数。 */
+const backgroundLayerObject = (): FieldDef =>
+  o('$', [
+    s('id', '层 ID', { description: '同 id 的高优先级层覆盖低优先级层；留空则追加。' }),
+    e('kind', [['solid', '纯色'], ['gradient', '渐变'], ['image', '图片']], '类型', { required: true }),
+    s('value', '值', { required: true, description: 'image 使用 Pic 三段式索引；solid/gradient 使用受控 CSS 值。' }),
+    n('opacity', '透明度'),
+    s('position', '位置'),
+    s('size', '尺寸'),
+    e('repeat', [['no-repeat', '不重复'], ['repeat', '重复'], ['repeat-x', '横向重复'], ['repeat-y', '纵向重复'], ['space', '均匀留白'], ['round', '均匀缩放']], '重复'),
+    e('blendMode', [['normal', '正常'], ['multiply', '正片叠底'], ['screen', '滤色'], ['overlay', '叠加'], ['soft-light', '柔光'], ['hard-light', '强光'], ['darken', '变暗'], ['lighten', '变亮']], '混合模式'),
+    e('attachment', [['fixed', '固定'], ['scroll', '随页面'], ['local', '随容器']], '附着'),
+  ], '背景层');
+
+const presentationLayerObject = (): FieldDef =>
+  o('$', [
+    s('id', '层 ID'),
+    e('region', [['shell', '页面'], ['header', '顶栏'], ['leftPanel', '左栏'], ['centerPanel', '中栏'], ['rightPanel', '右栏'], ['footer', '底栏'], ['story', '剧情'], ['modal', '弹层']], '表现区域', { required: true }),
+    e('kind', [['solid', '纯色'], ['gradient', '渐变'], ['image', '图片']], '类型', { required: true }),
+    s('value', '值', { required: true, description: 'image 使用 Pic 三段式索引；solid/gradient 使用受控 CSS 值。' }),
+    n('opacity', '透明度'),
+    s('position', '位置'),
+    s('size', '尺寸'),
+    e('repeat', [['no-repeat', '不重复'], ['repeat', '重复'], ['repeat-x', '横向重复'], ['repeat-y', '纵向重复'], ['space', '均匀留白'], ['round', '均匀缩放']], '重复'),
+    e('blendMode', [['normal', '正常'], ['multiply', '正片叠底'], ['screen', '滤色'], ['overlay', '叠加'], ['soft-light', '柔光'], ['hard-light', '强光'], ['darken', '变暗'], ['lighten', '变亮']], '混合模式'),
+    e('attachment', [['fixed', '固定'], ['scroll', '随页面'], ['local', '随容器']], '附着'),
+  ], '区域图层');
+
+const presentationComponentObject = (): FieldDef =>
+  o('$', [
+    s('id', '组件 ID', { required: true }),
+    s('parent', '父区域 / 父组件', { required: true }),
+    r('asset', 'pics', '图片资源'),
+    e('anchor', [['top-left', '左上'], ['top-right', '右上'], ['bottom-left', '左下'], ['bottom-right', '右下'], ['center', '中心']], '锚点', { required: true }),
+    o('offset', [n('x', '横向'), n('y', '纵向'), e('unit', [['percent', '百分比'], ['px', '像素']], '单位')], '相对偏移'),
+    o('size', [n('width', '宽度'), n('height', '高度'), e('unit', [['percent', '百分比'], ['px', '像素'], ['auto', '自动']], '单位')], '尺寸'),
+    e('fit', [['contain', '完整包含'], ['cover', '覆盖裁切'], ['natural', '原始比例']], '图片适配'),
+    conditionExprField('visibleWhen', '显示条件'),
+  ], '表现组件');
+
+/** ThemeDef：{ colorGroupId?, tokens?, background? } —— 场景/演出声明式主题。 */
 const themeField = (key: string, label: string): FieldDef =>
   o(key, [
     s('colorGroupId', '引用色彩组', { description: '引用某个已定义 ColorGroupDef id（如 base:group:indigo）；缺省仅用局部覆盖。' }),
     { key: 'tokens', label: '局部覆盖', type: { kind: 'flexible' }, description: '引擎 token 键（primary / bg / player-bubble 等）→ 颜色值。' },
+    alist('background', backgroundLayerObject(), '背景视觉层'),
+    o('presentation', [
+      alist('layers', presentationLayerObject(), '区域图层'),
+      alist('components', presentationComponentObject(), '区域组件'),
+      alist('panels', presentationPanelObject(), '面板表现'),
+      alist('infoItems', presentationInfoItemObject(), '信息项'),
+      { key: 'motions', label: '动效预设', type: { kind: 'flexible' }, description: '命名动效 → 受控 MotionDef；仅允许预设枚举。' },
+      alist('states', presentationStateObject(), '状态外观'),
+    ], 'UI 表现配置'),
   ], label);
 
 /** EntryEffectDef：进入条目（first / condition / effects）。 */
@@ -365,6 +414,30 @@ const revealTriggersField = (): FieldDef =>
   alist('revealTriggers', revealTriggerObject(), '揭示 Trigger 列表', {
     description: '每个 Trigger 负责揭示一个信息块（条件满足即揭示）。可增删多条。existence 目标即「可见条件」；unlock 目标即「解锁 / 自动解锁条件」。',
   });
+
+const presentationMotionObject = (): FieldDef => o('motion', [
+  e('enter', [['none', '无'], ['fade', '淡入'], ['fade-up', '上移淡入'], ['soft-scale', '柔和缩放'], ['slide-in', '滑入'], ['pulse', '脉冲']], '进入'),
+  e('exit', [['none', '无'], ['fade', '淡出'], ['fade-up', '上移淡出'], ['soft-scale', '柔和缩放'], ['slide-in', '滑出'], ['pulse', '脉冲']], '退出'),
+  e('hover', [['none', '无'], ['fade', '淡化'], ['soft-scale', '柔和缩放'], ['pulse', '脉冲']], '悬停'),
+  e('duration', [['fast', '快'], ['normal', '普通'], ['slow', '慢']], '时长'),
+], '动效');
+
+const presentationPanelObject = (): FieldDef => o('panel', [
+  e('region', [['shell', '外壳'], ['header', '顶部'], ['leftPanel', '左栏'], ['centerPanel', '中栏'], ['rightPanel', '右栏'], ['footer', '底部'], ['story', '剧情'], ['modal', '弹窗']], '区域', { required: true }),
+  o('header', [s('icon', '图标'), s('eyebrow', '眉题'), s('accent', '强调色')], '标题'),
+  o('emptyState', [s('icon', '图标'), s('title', '标题'), s('description', '描述')], '空状态'),
+], '面板');
+
+const presentationInfoItemObject = (): FieldDef => o('infoItem', [
+  s('id', 'ID', { required: true }), s('label', '标签', { required: true }), s('valueSource', '值来源', { required: true }),
+  s('icon', '图标'), s('colorToken', '颜色 Token'), cg('visibleWhen', '显示条件'), i('priority', '优先级'),
+], '信息项');
+
+const presentationStateObject = (): FieldDef => o('state', [
+  e('state', [['locked', '锁定'], ['available', '可用'], ['active', '激活'], ['completed', '完成'], ['warning', '警告']], '状态', { required: true }),
+  s('label', '标签'), s('icon', '图标'), s('colorToken', '颜色 Token'),
+  e('emphasis', [['quiet', '弱'], ['normal', '普通'], ['strong', '强']], '强调'),
+], '状态');
 
 /** LevelUpgradeDef */
 const levelUpgradeField = (): FieldDef =>
@@ -855,6 +928,7 @@ export const TABLE_META: TableMeta[] = [
     overrides: {
       id: () => s('id', '三段式索引（modName:typeName(pic):idName，如 base:avatar(pic):hoshino）', { required: true }),
       src: () => s('src', '来源（直连 URL 或 zip:包内路径）', { required: true }),
+      focalPoint: () => o('focalPoint', [n('x', '横向焦点'), n('y', '纵向焦点')], '视觉焦点'),
     },
   },
   {

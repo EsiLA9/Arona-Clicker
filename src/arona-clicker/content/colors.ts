@@ -3,7 +3,7 @@ import { Character } from '../types/ids';
 import type { ColorGroupDef } from '../../data-services/contracts/color';
 
 export const baseColorGroups: ColorGroupDef[] = [
-  colorGroup('base:colorgroup:schale-solid').name('夏莱蓝').desc('什亭之匣的标准配色。获得阿罗娜后解锁。').type('solid').primary('#3b82f6').unlockProtoStat(Character.Arona).build(),
+  colorGroup('base:colorgroup:schale-solid').name('夏莱蓝').desc('什亭之匣的标准配色。获得阿罗娜后解锁。').type('solid').primary('#3b9eff').unlockProtoStat(Character.Arona).build(),
   colorGroup('base:colorgroup:abydos-sand').name('阿比多斯黄沙').desc('被沙漠侵蚀的学园配色。拥有星野（任一差分）后解锁。').type('solid').primary('#eab308').unlockProtoStat(Character.Hoshino).build(),
   colorGroup('base:colorgroup:momotalk-pink').name('Momotalk 粉').desc('聊天软件的主题色。完成欢迎剧情（flag）后解锁。').type('solid').primary('#ec4899').unlockFlag('momotalk_pink_unlocked').build(),
   colorGroup('base:colorgroup:hoshino-swim').name('星野·泳装').desc('夏日泳池的清凉蓝调。拥有星野（任一差分）后解锁。').type('solid').primary('#3ec6e0').unlockProtoStat(Character.Hoshino).build(),

@@ -7,8 +7,8 @@
 
 | 层 | 载体 | 生命周期 | 代表内容 |
 | --- | --- | --- | --- |
-| **Global** | `PlayerState` 顶层 `global*` 字段与收集类字段 | 跨世界线永久 | `globalResources`、`unlockedInits`、`globalStats`、`characters`（收集全集）、色彩/装备收集 |
-| **per-Init 快照** | `PlayerState.initSnapshots[initId]` | 离开世界线时保存、回来时恢复 | flag / extra / resources / items / enhancements / spotLevels / stats / storyReadLogs 等 |
+| **Global** | `PlayerState` 顶层 `global*` 字段与收集类字段 | 跨世界线永久（新游戏除外） | `globalResources`、`unlockedInits`、GlobalEnh、Global Chara、用户主题、色彩/装备收集 |
+| **per-Init 快照** | `PlayerState.initSnapshots[initId]` | 离开世界线时保存、回来时恢复 | flag / extra / resources / items / 本地 enhancements / spotLevels / stats / storyReadLogs 等 |
 | **per-Init 当前** | `PlayerState` 顶层字段 | 当前世界线运行时 | `resources`、`flags`、`extra`、`items`、`spotLevels`、`activeAreaId`、`storyLog` |
 
 **关键约定**：读状态时「当前层有值用当前层，无值回退快照层」——由 `StateMutationService` 的访问器（`extraFromLayer` / `resourceBucket` 等）统一实现。

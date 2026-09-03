@@ -14,6 +14,7 @@ import type {
 import type { EntityThemeSlot, ThemeOrderScope } from '../../engine/types/theme';
 import type { SpotTagOverrideState } from '../../engine/contracts/state-query';
 import type { Character } from './ids';
+import type { UserThemeState } from './user-theme';
 import type { CompletedStory, StoryReadLog } from './story-state';
 import type { GachaPoolState, ProtoStat, RosterEntry } from './character';
 
@@ -56,6 +57,7 @@ export interface PlayerState {
   passiveCooldowns?: Record<string, number>;
   studentBlocks?: Record<VariantId, { entryId: string; setAtFrame: number }>;
   charaCustom?: Partial<Record<Character, CharaCustomOverride>>;
+  userTheme?: UserThemeState;
   worldPool?: VariantId[];
   protoStats?: Record<string, ProtoStat>;
 }

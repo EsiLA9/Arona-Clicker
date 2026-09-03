@@ -17,7 +17,7 @@
 // ============================================================
 
 import type { ColorGroupId } from '../types/character';
-import type { ThemeOrderScope, ThemeToken } from '../types/theme';
+import type { BackgroundLayerDef, PresentationDef, PresentationLayerDef, ComponentPlacementDef, ThemeOrderScope, ThemeToken } from '../types/theme';
 
 export type { ThemeOrderScope } from '../types/theme';
 
@@ -34,6 +34,10 @@ export interface ThemeLayer {
   groupId?: ColorGroupId;
   /** 局部 token 覆盖；在 groupId 基底之上逐 key 覆盖。 */
   tokens?: Partial<Record<ThemeToken, string>>;
+  /** 背景视觉层；高优先级层按 id 覆盖，匿名层追加。 */
+  background?: readonly BackgroundLayerDef[];
+  /** 区域化 UI 表现；高优先级层按 id 覆盖。 */
+  presentation?: PresentationDef;
 }
 
 /** 某一层最终解析出的 token 表。 */
@@ -50,12 +54,19 @@ export interface ResolvedTheme {
   tokens: ThemeTokens;
   /** 实际参与叠加的层 id（调试/溯源用，从低到高）。 */
   layers: string[];
+  /** 按最终绘制顺序排列的背景层。 */
+  background: BackgroundLayerDef[];
+  /** 区域化 UI 表现结果。 */
+  presentation: PresentationDef;
 }
 
 const DEFAULT_TOKENS: ThemeTokens = { primary: '#4a7dff' };
 
 export class RuntimeThemeManager {
   private player: ThemeLayer | null = null;
+  private user: ThemeLayer | null = null;
+  /** 编辑器草稿预览层：高于已应用主题，低于剧情演出层。 */
+  private preview: ThemeLayer | null = null;
   /** 场景栈（后进先出）：进入 Area 压入 area 层，打开学生对话再压入 student 层，关闭时弹出回退。 */
   private readonly sceneStack: ThemeLayer[] = [];
   private readonly ephemeralStack: { layer: ThemeLayer; id: string }[] = [];
@@ -68,6 +79,8 @@ export class RuntimeThemeManager {
   /** 清空全部运行时层（新会话/读档时调用）。 */
   reset(): void {
     this.player = null;
+    this.user = null;
+    this.preview = null;
     this.sceneStack.length = 0;
     this.ephemeralStack.length = 0;
   }
@@ -89,6 +102,16 @@ export class RuntimeThemeManager {
   /** 玩家全局主题层（常驻基色）。 */
   setPlayer(layer: ThemeLayer | null): void {
     this.player = layer;
+  }
+
+  /** 用户主题层：高于场景、低于临时演出，不参与 player/area/student 排序。 */
+  setUser(layer: ThemeLayer | null): void {
+    this.user = layer;
+  }
+
+  /** 设置当前编辑会话的临时预览层，不写入玩家状态。 */
+  setPreview(layer: ThemeLayer | null): void {
+    this.preview = layer;
   }
 
   /**
@@ -171,20 +194,63 @@ export class RuntimeThemeManager {
       const layer = byScope[scope];
       if (layer) ordered.push(layer);
     }
+    if (this.user) ordered.push(this.user);
+    if (this.preview) ordered.push(this.preview);
     for (const e of this.ephemeralStack) ordered.push(e.layer);
-    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, layers: [] };
+    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, layers: [], background: [], presentation: {} };
 
     let merged: ThemeTokens = {};
     let groupId: ColorGroupId | null = null;
+    const background: BackgroundLayerDef[] = [];
+    const presentation: PresentationDef = { layers: [], components: [] };
+    const presentationLayerIds = new Map<string, number>();
+    const presentationComponentIds = new Map<string, number>();
+    const backgroundIds = new Map<string, number>();
+    const mergeBackground = (layers: readonly BackgroundLayerDef[] | undefined): void => {
+      for (const layer of layers ?? []) {
+        if (layer.id) {
+          const index = backgroundIds.get(layer.id);
+          if (index !== undefined) background[index] = { ...layer };
+          else {
+            backgroundIds.set(layer.id, background.length);
+            background.push({ ...layer });
+          }
+        } else background.push({ ...layer });
+      }
+    };
+    const mergePresentation = (value: PresentationDef | undefined): void => {
+      for (const layer of value?.layers ?? []) {
+        if (layer.id) {
+          const index = presentationLayerIds.get(layer.id);
+          if (index !== undefined) presentation.layers![index] = { ...layer };
+          else {
+            presentationLayerIds.set(layer.id, presentation.layers!.length);
+            presentation.layers!.push({ ...layer });
+          }
+        } else presentation.layers!.push({ ...layer });
+      }
+      for (const component of value?.components ?? []) {
+        const index = presentationComponentIds.get(component.id);
+        if (index !== undefined) presentation.components![index] = { ...component };
+        else {
+          presentationComponentIds.set(component.id, presentation.components!.length);
+          presentation.components!.push({ ...component });
+        }
+      }
+    };
     // 先求基底（最底层）整包 token，再逐层覆盖
     const base = this.resolveLayer(ordered[0]);
     merged = { ...base };
+    mergeBackground(ordered[0].background);
+    mergePresentation(ordered[0].presentation);
     if (ordered[0].groupId) groupId = ordered[0].groupId;
     for (const layer of ordered.slice(1)) {
       if (layer.groupId) {
         merged = { ...merged, ...this.resolveLayer(layer) };
         if (!groupId) groupId = layer.groupId;
       }
+      mergeBackground(layer.background);
+      mergePresentation(layer.presentation);
       if (layer.tokens) {
         for (const [key, value] of Object.entries(layer.tokens)) {
           if (value != null) merged[key] = value;
@@ -195,6 +261,8 @@ export class RuntimeThemeManager {
       groupId,
       tokens: merged,
       layers: ordered.map(l => l.id ?? l.scope),
+      background,
+      presentation,
     };
   }
 }

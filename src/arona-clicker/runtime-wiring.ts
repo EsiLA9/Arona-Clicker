@@ -41,6 +41,7 @@ import { SpotService } from './services/spot-service';
 import { InitService } from './services/init-service';
 import { ItemService } from './services/item-service';
 import { EnhancementService } from './services/enhancement-service';
+import { UserThemeService } from './services/user-theme-service';
 import { SessionService } from '../engine/runtime/session-service';
 import { ChatFlowService } from './services/chat-flow-service';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
@@ -298,6 +299,7 @@ export function wireGameInstance(
   });
   g.charaProfileService = new CharaProfileService(g.registry, g.mutations, g.imageStore, hooks.getState);
   g.picService = new PicService(g.registry.pics, g.imageStore);
+  g.userThemeService = new UserThemeService(g.mutations, g.affectorEngine, g.picService, hooks.getState);
   // 演出类 op 请求事件 → 领域服务分派（替代 EffectEngine 反向 handler，docs-824/08 T7）
   new RuntimeEffectReactor(g.eventBus, g.registry, g.colorSystem, g.storyService, g.chatFlowService);
 

@@ -25,7 +25,6 @@ import { VisibilityEngine } from '../../engine/visibility/visibility-engine';
 import { DevLog } from '../../engine/core/dev-log';
 import { StoryService } from './story-service';
 import { InitSavepoint } from '../state/init-savepoint';
-import { globalSpotEntries } from '../state/snapshot';
 import { extra, mergeExtra } from '../../engine/extra/index';
 import { mountInitTriggers, unmountInitTriggers, type InitTriggerGroupState } from './init-mount';
 
@@ -296,15 +295,16 @@ export class InitService {
     }
 
     this.opts.stop();
-    const savedUnlockedInits = [...state.unlockedInits];
-    const savedGlobalResources = { ...(state.globalResources ?? {}) };
-    const savedGlobalSpotLevels = globalSpotEntries(this.opts.registry, state.spotLevels);
-    const savedGlobalSpotManagers = globalSpotEntries(this.opts.registry, state.spotManagers);
     const next = this.opts.createDefaultState();
-    next.unlockedInits = savedUnlockedInits;
-    next.globalResources = savedGlobalResources;
-    next.spotLevels = savedGlobalSpotLevels;
-    next.spotManagers = savedGlobalSpotManagers;
+    // 选择大厅允许先购买 GlobalEnh；此时尚未进入任何 Init，进入首个 Init
+    // 不应清除刚刚获得的全局资产。已有世界线重新开始仍保持完整清空语义。
+    if (!state.activeInit) {
+      next.globalResources = { ...(state.globalResources ?? {}) };
+      next.unlockedInits = [...state.unlockedInits];
+      next.unlockedEnhancements = state.unlockedEnhancements.filter(
+        enhancementId => this.opts.registry.enhancements.get(enhancementId)?.attachment?.kind === 'global',
+      );
+    }
     next.extras = mergeExtra(extra.dict({}), this.opts.registry.extras);
     next.initExtras = mergeExtra(extra.dict({}), init.extra ?? extra.dict({}));
     this.opts.setState(next);
@@ -319,7 +319,8 @@ export class InitService {
     this.opts.storyService.clearCurrentStory();
     this.opts.devLog.clear();
 
-    if (isFree) this.unlockInit(initId);
+    // 新游戏不继承旧的 Global；当前选择的 Init 通过写入口成为新状态自身的起点登记。
+    this.unlockInit(initId);
     this.enterInit(initId);
     this.logInitReachability('世界线可及性：新建世界');
     this.opts.devLog.record(`新的开始：${init.name}`, { source: 'init', level: 'success' });

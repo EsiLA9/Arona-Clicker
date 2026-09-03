@@ -21,6 +21,8 @@ export interface ModalOptions {
   footer?: string;
   /** 面板最大宽度（px）。 */
   width?: number;
+  /** 仅用于需要专用布局的弹窗面板。 */
+  panelClass?: string;
   /** 是否可关闭（Esc + 遮罩点击）。默认 true。 */
   dismissable?: boolean;
   onClose?: () => void;
@@ -40,10 +42,13 @@ function escapeHtml(s: string): string {
 export function renderModalShell(opts: ModalOptions): string {
   const width = opts.width ? ` style="max-width:${opts.width}px"` : '';
   const dismissable = opts.dismissable ?? true;
+  const panelClass = opts.panelClass ? ` ${opts.panelClass}` : '';
+  const overlayClass = opts.panelClass === 'user-theme-modal' ? ' modal-overlay-user-theme' : '';
+  const headClass = opts.panelClass === 'user-theme-modal' ? ' modal-head-user-theme' : '';
   return `
-    <div class="modal-overlay" ${dismissable ? 'data-modal-overlay' : ''}>
-      <section class="modal-panel" role="dialog" aria-modal="true"${width}>
-        <header class="modal-head">
+    <div class="modal-overlay${overlayClass}" ${dismissable ? 'data-modal-overlay' : ''}>
+      <section class="modal-panel${panelClass}" role="dialog" aria-modal="true"${width}>
+        <header class="modal-head${headClass}" ${opts.panelClass === 'user-theme-modal' ? 'data-user-theme-drag' : ''}>
           <span class="eyebrow">${opts.title ? escapeHtml(opts.title) : ''}</span>
           <button class="modal-close icon-button" aria-label="关闭" title="关闭">×</button>
         </header>

@@ -611,3 +611,13 @@ body {
   color: var(--text-dim);
   font-size: 12px;
 }
+.presentation-preview {
+  margin-top: 16px;
+  border-top: 1px solid var(--border, #d8dee9);
+  padding-top: 12px;
+}
+.presentation-preview-title { font-size: 12px; color: var(--muted, #667085); margin-bottom: 8px; }
+.presentation-preview-stage { position: relative; height: 180px; overflow: hidden; background: #eef4ff; border: 1px solid var(--border, #d8dee9); border-radius: 8px; }
+.presentation-preview-stage .presentation-region { position: absolute; inset: 0; }
+.presentation-preview-stage .presentation-component-node { position: absolute; }
+.presentation-preview-stage .presentation-component { display: block; max-width: 100%; }

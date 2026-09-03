@@ -150,6 +150,8 @@ export interface ThemeEffectValue {
   colorGroupId?: string;
   /** 局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。 */
   tokens?: Record<string, string>;
+  /** 临时背景视觉层，规则同 ThemeDef.background。 */
+  background?: import('./theme').BackgroundLayerDef[];
   /**
    * 作用范围：ephemeral（临时演出，默认）| area（场景）| student（学生）。
    * ephemeral 走 ColorSystem 临时层；area/student 改写实体主题槽。
