@@ -1,5 +1,6 @@
 import type {
   ComponentPlacementDef,
+  BackgroundLayerDef,
   PresentationDef,
   PresentationLayerDef,
   PresentationRegion,
@@ -10,8 +11,10 @@ import type {
 } from '../engine/types/theme';
 import type { Condition } from '../engine/types/expression';
 import type { PicQueryPort } from '../arona-clicker/contracts/pic-query';
+import type { BackgroundView } from './background-service';
 
 export interface PresentationViewLayer {
+  id?: string;
   kind: PresentationLayerDef['kind'];
   value: string;
   opacity: number;
@@ -20,6 +23,8 @@ export interface PresentationViewLayer {
   repeat: string;
   blendMode: string;
   attachment: string;
+  scale?: number;
+  rotation?: number;
 }
 
 export interface ResolvedAssetView {
@@ -42,8 +47,13 @@ export interface PresentationRegionView {
   components: readonly ComponentView[];
 }
 
+export interface PresentationHostView {
+  layers: readonly PresentationViewLayer[];
+}
+
 export interface PresentationView {
   region(region: PresentationRegion): PresentationRegionView;
+  host(id: string): PresentationHostView;
   panelOpacity(region: PresentationRegion): number;
   asset(ref: string): ResolvedAssetView | undefined;
   motion(name: string): MotionDef | undefined;
@@ -92,9 +102,11 @@ function imageView(ref: string, pics: PicQueryPort): ResolvedAssetView | undefin
   return { ref, url, alt: def.alt ?? def.label ?? '', fit: fit as ResolvedAssetView['fit'] };
 }
 
-function layerView(layer: PresentationLayerDef, value: string): PresentationViewLayer | undefined {
+function layerView(layer: BackgroundLayerDef, value: string): PresentationViewLayer | undefined {
+  if (layer.kind === 'empty') return { kind: layer.kind, value: 'transparent', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed', scale: 1, rotation: 0 };
   if (layer.kind !== 'image' && !SAFE_VALUE.test(value.trim())) return undefined;
   return {
+    id: layer.id,
     kind: layer.kind,
     value: value ?? '',
     opacity: Math.max(0, Math.min(1, layer.opacity ?? 1)),
@@ -103,6 +115,8 @@ function layerView(layer: PresentationLayerDef, value: string): PresentationView
     repeat: safeCss(layer.repeat, SAFE_REPEAT, 'no-repeat'),
     blendMode: safeCss(layer.blendMode, SAFE_BLEND, 'normal'),
     attachment: layer.attachment && SAFE_ATTACHMENT.has(layer.attachment) ? layer.attachment : 'fixed',
+    scale: Math.max(0.05, Math.min(8, typeof layer.scale === 'number' && Number.isFinite(layer.scale) ? layer.scale : 1)),
+    rotation: typeof layer.rotation === 'number' && Number.isFinite(layer.rotation) ? ((layer.rotation % 360) + 360) % 360 : 0,
   };
 }
 
@@ -138,10 +152,17 @@ export function buildPresentationView(
     REGIONS.map(region => [region, { layers: [], components: [] }]),
   );
   const panelOpacity = new Map<PresentationRegion, number>();
+  const hostMap = new Map<string, PresentationHostView>();
   for (const panel of presentation?.panels ?? []) {
     if (REGIONS.includes(panel.region)) panelOpacity.set(panel.region, Math.max(0, Math.min(1, panel.opacity ?? 0.8)));
   }
   const asset = (ref: string): ResolvedAssetView | undefined => imageView(ref, pics);
+  const resolveLayer = (layer: BackgroundLayerDef): PresentationViewLayer | undefined => {
+    const image = layer.kind === 'image' ? asset(layer.value) : undefined;
+    return layer.kind === 'image'
+      ? (image ? layerView({ ...layer, value: `url(\"${image.url.replace(/\"/g, '%22')}\")` }, `url(\"${image.url.replace(/\"/g, '%22')}\")`) : undefined)
+      : layerView(layer, layer.value.trim());
+  };
   const motions = new Map<string, MotionDef>();
   for (const [name, motion] of Object.entries(presentation?.motions ?? {})) {
     if (!/^[a-zA-Z0-9_-]{1,64}$/.test(name)) continue;
@@ -157,14 +178,17 @@ export function buildPresentationView(
   }] as const));
   for (const layer of presentation?.layers ?? []) {
     if (!REGIONS.includes(layer.region)) continue;
-    const image = layer.kind === 'image' ? asset(layer.value) : undefined;
-    const resolved = layer.kind === 'image'
-      ? (image ? layerView({ ...layer, value: `url(\"${image.url.replace(/\"/g, '%22')}\")` }, `url(\"${image.url.replace(/\"/g, '%22')}\")`) : undefined)
-      : layerView(layer, layer.value.trim());
+    const resolved = resolveLayer(layer);
     if (resolved) {
       const current = regionMap.get(layer.region)!;
       regionMap.set(layer.region, { ...current, layers: [...current.layers, resolved] });
     }
+  }
+  for (const host of presentation?.hosts ?? []) {
+    const resolvedLayers = (host.layers ?? []).map(resolveLayer).filter((layer): layer is PresentationViewLayer => Boolean(layer));
+    const rank = new Map((host.layerOrder ?? []).map((id, index) => [id, index]));
+    const orderedLayers = [...resolvedLayers].sort((a, b) => (rank.get(a.id ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id ?? '') ?? Number.MAX_SAFE_INTEGER));
+    hostMap.set(host.id, { layers: orderedLayers });
   }
   const defs = (presentation?.components ?? []).filter(component => component.id && component.parent);
   const byId = new Map(defs.map(component => [component.id, component]));
@@ -193,6 +217,7 @@ export function buildPresentationView(
   }
   return {
     region: region => regionMap.get(region) ?? { layers: [], components: [] },
+    host: id => hostMap.get(id) ?? { layers: [] },
     panelOpacity: region => panelOpacity.get(region) ?? 0.8,
     asset,
     motion: name => motions.get(name),
@@ -224,7 +249,7 @@ function renderComponent(component: ComponentView, children: ReadonlyMap<string,
 
 export function renderPresentationRegion(view: PresentationView, region: PresentationRegion): string {
   const resolved = view.region(region);
-  const layers = resolved.layers.map((layer, index) => `<div class="presentation-layer" data-presentation-layer="${index}" aria-hidden="true" style="${escapeAttribute(`background:${layer.value};opacity:${layer.opacity};background-position:${layer.position};background-size:${layer.size};background-repeat:${layer.repeat};background-blend-mode:${layer.blendMode};background-attachment:${layer.attachment}`)}"></div>`).join('');
+  const layers = resolved.layers.map((layer, index) => `<div class="presentation-layer" data-presentation-layer="${index}" aria-hidden="true" style="${escapeAttribute(`z-index:${resolved.layers.length - index};background:${layer.value};opacity:${layer.opacity};background-position:${layer.position};background-size:${layer.size};background-repeat:${layer.repeat};background-blend-mode:${layer.blendMode};background-attachment:${layer.attachment};transform:scale(${layer.scale ?? 1}) rotate(${layer.rotation ?? 0}deg)`)}"></div>`).join('');
   const children = new Map<string, ComponentView[]>();
   for (const component of resolved.components) {
     const list = children.get(component.parent) ?? [];

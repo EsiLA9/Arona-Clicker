@@ -18,6 +18,10 @@ export class PicService {
     return this.pics.get(ref);
   }
 
+  list(): readonly PicDef[] {
+    return [...this.pics.values()];
+  }
+
   register(mod: string, entries: readonly ResolvedImageEntry[]): void {
     this.imageStore.registerAll(mod, entries);
   }

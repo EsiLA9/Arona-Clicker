@@ -12,7 +12,7 @@ export type ThemeNodeName =
   | 'text' | 'muted' | 'line' | 'active' | 'highlight'
   | 'success' | 'warning' | 'danger' | 'accent' | 'playerBubble' | 'npcBubble';
 
-export type BackgroundLayerKind = 'solid' | 'gradient' | 'image';
+export type BackgroundLayerKind = 'empty' | 'solid' | 'gradient' | 'image';
 
 export type PresentationRegion =
   | 'shell'
@@ -80,6 +80,10 @@ export interface BackgroundLayerDef {
   blendMode?: string;
   /** @label 附着方式 */
   attachment?: 'scroll' | 'fixed' | 'local';
+  /** @label 缩放比例 */
+  scale?: number;
+  /** @label 旋转角度 */
+  rotation?: number;
 }
 
 export interface PresentationLayerDef extends BackgroundLayerDef {
@@ -110,6 +114,19 @@ export interface ComponentPlacementDef {
   };
 }
 
+export interface PresentationHostDef {
+  /** @label UI 宿主 ID；可引用内置宿主或稳定组件 ID。 */
+  id: string;
+  /** @label 父簇或父宿主 ID。 */
+  parent?: string;
+  /** @label 宿主背景图层。 */
+  layers?: BackgroundLayerDef[];
+  /** @label 宿主图层顺序。 */
+  layerOrder?: string[];
+  /** @label 忽略系统颜色层。 */
+  systemColorLayerIgnored?: boolean;
+}
+
 export interface PresentationDef {
   /** @label 区域图层 */
   layers?: PresentationLayerDef[];
@@ -123,6 +140,8 @@ export interface PresentationDef {
   motions?: Record<string, MotionDef>;
   /** @label 状态外观 */
   states?: StateAppearanceDef[];
+  /** @label 控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。 */
+  hosts?: PresentationHostDef[];
 }
 
 export interface ThemeDef {

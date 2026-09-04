@@ -46,4 +46,30 @@ describe('PresentationService', () => {
     expect(html).toContain('data-presentation-component="a&amp;&quot;"');
     expect(html).not.toContain('<script');
   });
+
+  test('控件宿主按宿主 ID解析背景层并遵守显式顺序', () => {
+    const view = buildPresentationView({
+      hosts: [{
+        id: 'toolbar.button',
+        parent: 'header',
+        layers: [
+          { id: 'base', kind: 'solid', value: '#ffffff' },
+          { id: 'accent', kind: 'gradient', value: 'linear-gradient(#fff, #def)' },
+        ],
+        layerOrder: ['accent', 'base'],
+      }],
+    }, pics);
+    expect(view.host('toolbar.button').layers.map(layer => layer.id)).toEqual(['accent', 'base']);
+    expect(view.host('missing').layers).toHaveLength(0);
+  });
+
+  test('表现层限制并输出缩放与旋转变换', () => {
+    const view = buildPresentationView({
+      layers: [{ id: 'transform', region: 'centerPanel', kind: 'solid', value: '#fff', scale: 99, rotation: -30 }],
+    }, pics);
+    const layer = view.region('centerPanel').layers[0];
+    expect(layer.scale).toBe(8);
+    expect(layer.rotation).toBe(330);
+    expect(renderPresentationRegion(view, 'centerPanel')).toContain('transform:scale(8) rotate(330deg)');
+  });
 });

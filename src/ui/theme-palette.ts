@@ -28,13 +28,20 @@ function hexToHsl(color: string): { h: number; s: number; l: number } | undefine
   return { h, s, l };
 }
 
-function lightBackgroundSurface(color: string, mode: ThemeMode, hueShift = 0): string {
+export const DEFAULT_LIGHT_BACKGROUND_OPACITY = 0.14;
+
+function lightBackgroundSurface(
+  color: string,
+  mode: ThemeMode,
+  hueShift = 0,
+  opacity = DEFAULT_LIGHT_BACKGROUND_OPACITY,
+): string {
   if (mode === 'dark') return color;
   const hsl = hexToHsl(color);
-  if (!hsl) return `color-mix(in srgb, ${color} 8%, #ffffff)`;
-  const lightness = hsl.l + (0.999 - hsl.l) * 0.97;
-  const controlledLightness = Math.min(0.99, lightness > 0.985 ? lightness - 0.004 : lightness);
-  return hslCss((hsl.h + hueShift) % 1, hsl.s * 0.36, controlledLightness);
+  const percentage = Math.round(Math.max(0, Math.min(1, opacity)) * 100);
+  if (!hsl) return `color-mix(in srgb, ${color} ${percentage}%, transparent)`;
+  const shifted = hslCss((hsl.h + hueShift) % 1, hsl.s, hsl.l);
+  return `color-mix(in srgb, ${shifted} ${percentage}%, transparent)`;
 }
 
 /** 将主题锚点压向浅色表面；dark 分支只保留接口，暂时不改变颜色。 */

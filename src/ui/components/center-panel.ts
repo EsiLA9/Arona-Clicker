@@ -38,7 +38,7 @@ export function renderCenterPanel(
   if (activeTab === 'contacts-draft') {
     return `
       <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
-        ${renderBackground(ctx.background, 'console-panel-background')}
+        ${renderBackground(ctx.backgroundForHost('centerPanel'), 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
         <div class="ui-cluster ui-cluster--center-contacts-draft panel-body" data-theme-scope="center.contacts-draft">
@@ -53,7 +53,7 @@ export function renderCenterPanel(
   if (activeTab === 'archive-draft') {
     return `
       <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
-        ${renderBackground(ctx.background, 'console-panel-background')}
+        ${renderBackground(ctx.backgroundForHost('centerPanel'), 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
         <div class="ui-cluster ui-cluster--center-archive-draft panel-body" data-theme-scope="center.archive-draft">
@@ -69,7 +69,7 @@ export function renderCenterPanel(
     : renderChatTab(ctx, chatEntries, chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   return `
     <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
-      ${renderBackground(ctx.background, 'console-panel-background')}
+      ${renderBackground(ctx.backgroundForHost('centerPanel'), 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}
       <div class="ui-cluster ui-cluster--center-${activeTab} panel-body" data-theme-scope="center.${activeTab}">${body}</div>

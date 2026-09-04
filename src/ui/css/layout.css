@@ -83,6 +83,14 @@ footer {
    color: inherit;
 }
 
+/* 初版装饰试验：把透明三角形作为独立背景图层叠到按钮底色上。 */
+.toolbar-button {
+   background-image: url('../../data/ba_triangles.svg');
+   background-position: center;
+   background-size: 420px auto;
+   background-repeat: no-repeat;
+}
+
 /* 三栏中的中性按钮沿用顶部工具按钮的白底与浅灰边框；active / 主要行动按钮保留各自语义色。 */
 .workspace button.nav-item:not(.active),
 .workspace button.switch-tab:not(.active),

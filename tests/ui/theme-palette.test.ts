@@ -63,36 +63,35 @@ describe('theme-palette：主题色列表与语义节点解析', () => {
     expect(child.highlight).toBe(parent.highlight);
   });
 
-  test('浅色模式把高饱和主题色压向浅表面，并生成双端渐变', () => {
+  test('浅色模式保留主题色并以透明度生成双端渐变', () => {
     const surface = deriveSurfaceColor('#1456c0', 'light');
     expect(surface).toMatch(/^hsl\(/);
     expect(deriveSurfaceColor('#1456c0', 'dark')).toBe('#1456c0');
     const fallbackGradient = deriveBackgroundGradient(['#1456c0'], 'light');
     expect(fallbackGradient).toContain('linear-gradient');
-    expect(fallbackGradient.match(/hsl\(/g)).toHaveLength(2);
-    const endpointLightness = (fallbackGradient.match(/hsl\((?:\d+) (?:\d+)% (\d+)%\)/g) ?? [])
-      .map(endpoint => Number(endpoint.match(/ (\d+)%\)/)?.[1]));
-    expect(endpointLightness.every(lightness => lightness >= 98 && lightness <= 99)).toBe(true);
+    expect(fallbackGradient).toContain('transparent');
+    expect(fallbackGradient).toContain('14%');
     const twoColorGradient = deriveBackgroundGradient(['#1456c0', '#ff4d8d'], 'light');
-    const twoColorLightness = (twoColorGradient.match(/hsl\((?:\d+) (?:\d+)% (\d+)%\)/g) ?? [])
-      .map(endpoint => Number(endpoint.match(/ (\d+)%\)/)?.[1]));
-    expect(twoColorLightness.every(lightness => lightness >= 98 && lightness <= 99)).toBe(true);
+    expect(twoColorGradient).toContain('hsl(217 81% 42%)');
+    expect(twoColorGradient).toContain('hsl(338 100% 65%)');
+    expect(twoColorGradient.match(/transparent/g)).toHaveLength(2);
   });
 
-  test('单主题色的第二背景端点进一步变浅并扩大色相偏移', () => {
+  test('单主题色的第二背景端点保留透明度并扩大色相偏移', () => {
     const gradient = deriveBackgroundGradient(['#1456c0'], 'light');
     const endpoints = gradient.match(/hsl\((\d+) (\d+)% (\d+)%\)/g) ?? [];
     expect(endpoints).toHaveLength(2);
     const [, secondHue, secondSaturation, secondLightness] = endpoints[1].match(/hsl\((\d+) (\d+)% (\d+)%\)/) ?? [];
     expect(Number(secondHue)).toBeGreaterThan(220);
-    expect(Number(secondSaturation)).toBeLessThan(40);
-    expect(Number(secondLightness)).toBeGreaterThanOrEqual(97);
+    expect(Number(secondSaturation)).toBeGreaterThan(70);
+    expect(Number(secondLightness)).toBeLessThan(60);
+    expect(gradient).toContain('14%, transparent');
   });
 
-  test('主题色系统的文字判别也使用 0.75 明度阈值', () => {
+  test('主题色系统的文字判别遵循当前明度阈值', () => {
     const base = resolveThemeNodes({ colors: ['#4a7dff'] });
-    const below = buildScopedThemeCompatibilityVars({ ...base, panel: '#bfbfbf' });
-    const above = buildScopedThemeCompatibilityVars({ ...base, panel: '#c0c0c0' });
+    const below = buildScopedThemeCompatibilityVars({ ...base, panel: '#cccccc' });
+    const above = buildScopedThemeCompatibilityVars({ ...base, panel: '#cdcdcd' });
     expect(below['--ink-on-panel']).toBe('#ffffff');
     expect(above['--ink-on-panel']).toBe('#172033');
   });

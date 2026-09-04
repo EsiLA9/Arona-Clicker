@@ -52,4 +52,13 @@ describe('BackgroundService', () => {
     expect(html).toContain('console-background-layer');
     expect(html).toContain('background:url(&quot;x&quot;)');
   });
+
+  test('背景层输出安全的缩放与旋转变换', () => {
+    const view = buildBackgroundView([
+      { kind: 'solid', value: '#fff', scale: 99, rotation: -30 },
+    ], pics);
+    expect(view.layers[0].scale).toBe(8);
+    expect(view.layers[0].rotation).toBe(330);
+    expect(renderBackground(view)).toContain('transform:scale(8) rotate(330deg)');
+  });
 });

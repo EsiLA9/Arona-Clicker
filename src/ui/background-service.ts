@@ -12,6 +12,8 @@ export interface BackgroundViewLayer {
   repeat: string;
   blendMode: string;
   attachment: string;
+  scale?: number;
+  rotation?: number;
 }
 
 export interface BackgroundView {
@@ -35,6 +37,7 @@ function safeCss(value: string | undefined, pattern: RegExp, fallback: string): 
 }
 
 function resolveValue(layer: BackgroundLayerDef, pics: PicQueryPort): string | undefined {
+  if (layer.kind === 'empty') return 'transparent';
   if (layer.kind === 'image') {
     const def = pics.defOf(layer.value);
     const url = pics.urlOf(layer.value) ?? (def && isDirectUrl(def.src) ? def.src : undefined);
@@ -62,15 +65,17 @@ export function buildBackgroundView(
       repeat: safeCss(layer.repeat, SAFE_REPEAT, 'no-repeat'),
       blendMode: safeCss(layer.blendMode, SAFE_BLEND, 'normal'),
       attachment: layer.attachment ?? 'fixed',
+      scale: Math.max(0.05, Math.min(8, typeof layer.scale === 'number' && Number.isFinite(layer.scale) ? layer.scale : 1)),
+      rotation: typeof layer.rotation === 'number' && Number.isFinite(layer.rotation) ? ((layer.rotation % 360) + 360) % 360 : 0,
     }];
   });
   return { layers: resolved.length > 0 ? resolved : [{
-    kind: 'gradient', value: fallback, opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed',
+    kind: 'gradient', value: fallback, opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed', scale: 1, rotation: 0,
   }] };
 }
 
 export function renderBackground(view: BackgroundView, className = 'console-background'): string {
   return '<div class=\"' + className + '\" aria-hidden=\"true\">' + view.layers.map((layer, index) =>
-    '<div class=\"console-background-layer\" data-background-layer=\"' + index + '\" style=\"' + escapeHtmlAttribute('background:' + layer.value + ';opacity:' + layer.opacity + ';background-position:' + layer.position + ';background-size:' + layer.size + ';background-repeat:' + layer.repeat + ';background-blend-mode:' + layer.blendMode + ';background-attachment:' + layer.attachment) + '\"></div>',
+    '<div class=\"console-background-layer\" data-background-layer=\"' + index + '\" style=\"' + escapeHtmlAttribute('z-index:' + (view.layers.length - index) + ';background:' + layer.value + ';opacity:' + layer.opacity + ';background-position:' + layer.position + ';background-size:' + layer.size + ';background-repeat:' + layer.repeat + ';background-blend-mode:' + layer.blendMode + ';background-attachment:' + layer.attachment + ';transform:scale(' + (layer.scale ?? 1) + ') rotate(' + (layer.rotation ?? 0) + 'deg)') + '\"></div>',
   ).join('') + '</div>';
 }

@@ -9,7 +9,7 @@
 import type { ColorGroupDef, ThemeDesignDef } from '../../data-services/contracts/color';
 import type { ColorGroupId } from '../types/character';
 import type { Condition, ConditionGroup, Effect } from '../../engine/types/expression';
-import type { ThemeDef, ThemeToken } from '../../engine/types/theme';
+import type { BackgroundLayerDef, ThemeDef, ThemeToken } from '../../engine/types/theme';
 import type { PlayerState } from '../types/state';
 import type { Registry } from '../../data-services/registry/registry';
 import type { ColorMutationPort } from '../contracts/mutation';
@@ -17,6 +17,12 @@ import { RuntimeThemeManager, type ThemeLayer, type ThemeTokens } from '../../en
 
 function normalizePalette(colors: readonly string[] | undefined, uiEnabled?: readonly boolean[]): string[] {
   return [...(colors ?? [])].filter((color, index) => typeof color === 'string' && color.trim().length > 0 && uiEnabled?.[index] !== false).slice(0, 6);
+}
+
+const SYSTEM_COLOR_BACKGROUND_ID = 'system-color-background';
+
+function systemColorBackground(opacity = 1): BackgroundLayerDef {
+  return { id: SYSTEM_COLOR_BACKGROUND_ID, kind: 'gradient', value: 'linear-gradient(135deg, var(--bg) 0%, var(--bgAlt) 100%)', opacity, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' };
 }
 
 // --- HSL 工具（纯函数，UI 可复用） ---
@@ -236,26 +242,38 @@ export class ColorSystem {
 
   syncUserThemeFromState(state: PlayerState, active: boolean): void {
     const user = state.userTheme;
+    const colorLayer = user?.applied?.systemColorLayerIgnored ? {} : {
+      tokens: user?.applied?.tokens,
+      palette: normalizePalette(user?.applied?.palette, user?.applied?.paletteUiEnabled),
+      nodeOverrides: user?.applied?.nodes,
+      scopeNodeOverrides: user?.applied?.scopes,
+    };
     this.runtime.setUser(active && user?.enabled && user.applied ? {
       id: 'user-theme',
       scope: 'player',
-      tokens: user.applied.tokens,
-      palette: normalizePalette(user.applied.palette, user.applied.paletteUiEnabled),
-      nodeOverrides: user.applied.nodes,
-      scopeNodeOverrides: user.applied.scopes,
+      ...colorLayer,
+      background: [systemColorBackground(user.applied.systemColorLayerIgnored ? 0 : 1), ...(user.applied.background ?? [])],
+      backgroundLayerOrder: user.applied.backgroundLayerOrder,
+      systemColorLayerIgnored: user.applied.systemColorLayerIgnored === true,
       presentation: user.applied.presentation,
     } : null);
   }
 
   /** 编辑器草稿预览：高于已应用用户主题，低于剧情临时层。 */
-  setUserThemePreview(draft: { palette?: string[]; paletteUiEnabled?: boolean[]; tokens?: Partial<Record<ThemeToken, string>>; nodes?: import('../../engine/types/theme').ThemeDef['nodes']; scopes?: import('../types/user-theme').UserThemeDraft['scopes']; presentation?: import('../../engine/types/theme').PresentationDef } | null): void {
+  setUserThemePreview(draft: { palette?: string[]; paletteUiEnabled?: boolean[]; systemColorLayerIgnored?: boolean; backgroundLayerOrder?: string[]; tokens?: Partial<Record<ThemeToken, string>>; nodes?: import('../../engine/types/theme').ThemeDef['nodes']; scopes?: import('../types/user-theme').UserThemeDraft['scopes']; background?: import('../../engine/types/theme').ThemeDef['background']; presentation?: import('../../engine/types/theme').PresentationDef } | null): void {
+    const colorLayer = draft?.systemColorLayerIgnored ? {} : {
+      tokens: draft?.tokens,
+      palette: normalizePalette(draft?.palette, draft?.paletteUiEnabled),
+      nodeOverrides: draft?.nodes,
+      scopeNodeOverrides: draft?.scopes,
+    };
     this.runtime.setPreview(draft ? {
       id: 'user-theme-preview',
       scope: 'ephemeral',
-      palette: normalizePalette(draft.palette, draft.paletteUiEnabled),
-      tokens: draft.tokens,
-      nodeOverrides: draft.nodes,
-      scopeNodeOverrides: draft.scopes,
+      ...colorLayer,
+      background: [systemColorBackground(draft.systemColorLayerIgnored ? 0 : 1), ...(draft.background ?? [])],
+      backgroundLayerOrder: draft.backgroundLayerOrder,
+      systemColorLayerIgnored: draft.systemColorLayerIgnored === true,
       presentation: draft.presentation,
     } : null);
   }

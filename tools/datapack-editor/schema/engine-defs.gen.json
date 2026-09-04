@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-03T16:41:55.111Z",
+  "generatedAt": "2026-09-04T07:26:38.611Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -406,6 +406,7 @@
                     "tsType": "BackgroundLayerKind",
                     "label": "背景类型",
                     "options": [
+                      "empty",
                       "solid",
                       "gradient",
                       "image"
@@ -464,6 +465,20 @@
                       "fixed",
                       "local"
                     ]
+                  },
+                  {
+                    "key": "scale",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "缩放比例"
+                  },
+                  {
+                    "key": "rotation",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "旋转角度"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -783,6 +798,65 @@
                       }
                     ],
                     "tsType": "StateAppearanceDef"
+                  }
+                },
+                {
+                  "key": "hosts",
+                  "required": false,
+                  "kind": "array",
+                  "tsType": "PresentationHostDef[]",
+                  "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                  "item": {
+                    "key": "$",
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "UI 宿主 ID；可引用内置宿主或稳定组件 ID。"
+                      },
+                      {
+                        "key": "parent",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "父簇或父宿主 ID。"
+                      },
+                      {
+                        "key": "layers",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "BackgroundLayerDef[]",
+                        "label": "宿主背景图层。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "BackgroundLayerDef"
+                        }
+                      },
+                      {
+                        "key": "layerOrder",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "string[]",
+                        "label": "宿主图层顺序。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "string"
+                        }
+                      },
+                      {
+                        "key": "systemColorLayerIgnored",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "忽略系统颜色层。"
+                      }
+                    ],
+                    "tsType": "PresentationHostDef"
                   }
                 }
               ]
@@ -1030,6 +1104,7 @@
                     "tsType": "BackgroundLayerKind",
                     "label": "背景类型",
                     "options": [
+                      "empty",
                       "solid",
                       "gradient",
                       "image"
@@ -1088,6 +1163,20 @@
                       "fixed",
                       "local"
                     ]
+                  },
+                  {
+                    "key": "scale",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "缩放比例"
+                  },
+                  {
+                    "key": "rotation",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "旋转角度"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -1407,6 +1496,65 @@
                       }
                     ],
                     "tsType": "StateAppearanceDef"
+                  }
+                },
+                {
+                  "key": "hosts",
+                  "required": false,
+                  "kind": "array",
+                  "tsType": "PresentationHostDef[]",
+                  "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                  "item": {
+                    "key": "$",
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "UI 宿主 ID；可引用内置宿主或稳定组件 ID。"
+                      },
+                      {
+                        "key": "parent",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "父簇或父宿主 ID。"
+                      },
+                      {
+                        "key": "layers",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "BackgroundLayerDef[]",
+                        "label": "宿主背景图层。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "BackgroundLayerDef"
+                        }
+                      },
+                      {
+                        "key": "layerOrder",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "string[]",
+                        "label": "宿主图层顺序。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "string"
+                        }
+                      },
+                      {
+                        "key": "systemColorLayerIgnored",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "忽略系统颜色层。"
+                      }
+                    ],
+                    "tsType": "PresentationHostDef"
                   }
                 }
               ]
@@ -2373,6 +2521,7 @@
                     "tsType": "BackgroundLayerKind",
                     "label": "背景类型",
                     "options": [
+                      "empty",
                       "solid",
                       "gradient",
                       "image"
@@ -2431,6 +2580,20 @@
                       "fixed",
                       "local"
                     ]
+                  },
+                  {
+                    "key": "scale",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "缩放比例"
+                  },
+                  {
+                    "key": "rotation",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "旋转角度"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -2750,6 +2913,65 @@
                       }
                     ],
                     "tsType": "StateAppearanceDef"
+                  }
+                },
+                {
+                  "key": "hosts",
+                  "required": false,
+                  "kind": "array",
+                  "tsType": "PresentationHostDef[]",
+                  "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                  "item": {
+                    "key": "$",
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "UI 宿主 ID；可引用内置宿主或稳定组件 ID。"
+                      },
+                      {
+                        "key": "parent",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "父簇或父宿主 ID。"
+                      },
+                      {
+                        "key": "layers",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "BackgroundLayerDef[]",
+                        "label": "宿主背景图层。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "BackgroundLayerDef"
+                        }
+                      },
+                      {
+                        "key": "layerOrder",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "string[]",
+                        "label": "宿主图层顺序。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "string"
+                        }
+                      },
+                      {
+                        "key": "systemColorLayerIgnored",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "忽略系统颜色层。"
+                      }
+                    ],
+                    "tsType": "PresentationHostDef"
                   }
                 }
               ]
@@ -3017,6 +3239,7 @@
                     "tsType": "BackgroundLayerKind",
                     "label": "背景类型",
                     "options": [
+                      "empty",
                       "solid",
                       "gradient",
                       "image"
@@ -3075,6 +3298,20 @@
                       "fixed",
                       "local"
                     ]
+                  },
+                  {
+                    "key": "scale",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "缩放比例"
+                  },
+                  {
+                    "key": "rotation",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "旋转角度"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -3394,6 +3631,65 @@
                       }
                     ],
                     "tsType": "StateAppearanceDef"
+                  }
+                },
+                {
+                  "key": "hosts",
+                  "required": false,
+                  "kind": "array",
+                  "tsType": "PresentationHostDef[]",
+                  "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                  "item": {
+                    "key": "$",
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "UI 宿主 ID；可引用内置宿主或稳定组件 ID。"
+                      },
+                      {
+                        "key": "parent",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "父簇或父宿主 ID。"
+                      },
+                      {
+                        "key": "layers",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "BackgroundLayerDef[]",
+                        "label": "宿主背景图层。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "BackgroundLayerDef"
+                        }
+                      },
+                      {
+                        "key": "layerOrder",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "string[]",
+                        "label": "宿主图层顺序。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "string"
+                        }
+                      },
+                      {
+                        "key": "systemColorLayerIgnored",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "忽略系统颜色层。"
+                      }
+                    ],
+                    "tsType": "PresentationHostDef"
                   }
                 }
               ]
@@ -3509,6 +3805,7 @@
                     "tsType": "BackgroundLayerKind",
                     "label": "背景类型",
                     "options": [
+                      "empty",
                       "solid",
                       "gradient",
                       "image"
@@ -3567,6 +3864,20 @@
                       "fixed",
                       "local"
                     ]
+                  },
+                  {
+                    "key": "scale",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "缩放比例"
+                  },
+                  {
+                    "key": "rotation",
+                    "required": false,
+                    "kind": "float",
+                    "tsType": "number",
+                    "label": "旋转角度"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -3886,6 +4197,65 @@
                       }
                     ],
                     "tsType": "StateAppearanceDef"
+                  }
+                },
+                {
+                  "key": "hosts",
+                  "required": false,
+                  "kind": "array",
+                  "tsType": "PresentationHostDef[]",
+                  "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                  "item": {
+                    "key": "$",
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "UI 宿主 ID；可引用内置宿主或稳定组件 ID。"
+                      },
+                      {
+                        "key": "parent",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "父簇或父宿主 ID。"
+                      },
+                      {
+                        "key": "layers",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "BackgroundLayerDef[]",
+                        "label": "宿主背景图层。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "BackgroundLayerDef"
+                        }
+                      },
+                      {
+                        "key": "layerOrder",
+                        "required": false,
+                        "kind": "array",
+                        "tsType": "string[]",
+                        "label": "宿主图层顺序。",
+                        "item": {
+                          "key": "$",
+                          "kind": "hand",
+                          "tsType": "string"
+                        }
+                      },
+                      {
+                        "key": "systemColorLayerIgnored",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "忽略系统颜色层。"
+                      }
+                    ],
+                    "tsType": "PresentationHostDef"
                   }
                 }
               ]
@@ -4389,6 +4759,7 @@
     "PicRefParts",
     "PlacementAnchor",
     "PresentationDef",
+    "PresentationHostDef",
     "PresentationLayerDef",
     "PresentationRegion",
     "ProductionResult",

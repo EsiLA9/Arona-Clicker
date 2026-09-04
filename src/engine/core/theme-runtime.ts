@@ -42,6 +42,10 @@ export interface ThemeLayer {
   scopeNodeOverrides?: Record<string, Partial<Record<ThemeNodeName, string>>>;
   /** 背景视觉层；高优先级层按 id 覆盖，匿名层追加。 */
   background?: readonly BackgroundLayerDef[];
+  /** 背景表现层的来源无关堆叠顺序；未列出的层保持合并顺序追加。 */
+  backgroundLayerOrder?: readonly string[];
+  /** 是否显式关闭主题色系统生成的全局颜色底层。 */
+  systemColorLayerIgnored?: boolean;
   /** 区域化 UI 表现；高优先级层按 id 覆盖。 */
   presentation?: PresentationDef;
 }
@@ -68,6 +72,7 @@ export interface ResolvedTheme {
   layers: string[];
   /** 按最终绘制顺序排列的背景层。 */
   background: BackgroundLayerDef[];
+  systemColorLayerIgnored: boolean;
   /** 区域化 UI 表现结果。 */
   presentation: PresentationDef;
 }
@@ -209,7 +214,7 @@ export class RuntimeThemeManager {
     if (this.user) ordered.push(this.user);
     if (this.preview) ordered.push(this.preview);
     for (const e of this.ephemeralStack) ordered.push(e.layer);
-    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, palette: [], nodeOverrides: {}, scopeNodeOverrides: {}, layers: [], background: [], presentation: {} };
+    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, palette: [], nodeOverrides: {}, scopeNodeOverrides: {}, layers: [], background: [], systemColorLayerIgnored: false, presentation: {} };
 
     let merged: ThemeTokens = {};
     let palette: string[] = [];
@@ -217,11 +222,14 @@ export class RuntimeThemeManager {
     let scopeNodeOverrides: Record<string, Partial<Record<ThemeNodeName, string>>> = {};
     let groupId: ColorGroupId | null = null;
     const background: BackgroundLayerDef[] = [];
-    const presentation: PresentationDef = { layers: [], components: [], panels: [] };
+    const presentation: PresentationDef = { layers: [], components: [], panels: [], hosts: [] };
     const presentationLayerIds = new Map<string, number>();
     const presentationComponentIds = new Map<string, number>();
     const presentationPanelIds = new Map<PresentationRegion, number>();
+    const presentationHostIds = new Map<string, number>();
     const backgroundIds = new Map<string, number>();
+    let backgroundLayerOrder: string[] = [];
+    let systemColorLayerIgnored = false;
     const mergeBackground = (layers: readonly BackgroundLayerDef[] | undefined): void => {
       for (const layer of layers ?? []) {
         if (layer.id) {
@@ -261,6 +269,14 @@ export class RuntimeThemeManager {
           presentation.panels!.push({ ...panel });
         }
       }
+      for (const host of value?.hosts ?? []) {
+        const index = presentationHostIds.get(host.id);
+        if (index !== undefined) presentation.hosts![index] = { ...presentation.hosts![index], ...host, layers: host.layers?.map(layer => ({ ...layer })) };
+        else {
+          presentationHostIds.set(host.id, presentation.hosts!.length);
+          presentation.hosts!.push({ ...host, layers: host.layers?.map(layer => ({ ...layer })) });
+        }
+      }
     };
     // 先求基底（最底层）整包 token，再逐层覆盖
     const base = this.resolveLayer(ordered[0]);
@@ -269,6 +285,8 @@ export class RuntimeThemeManager {
     nodeOverrides = { ...(ordered[0].nodeOverrides ?? {}) };
     scopeNodeOverrides = { ...(ordered[0].scopeNodeOverrides ?? {}) };
     mergeBackground(ordered[0].background);
+    if (ordered[0].backgroundLayerOrder?.length) backgroundLayerOrder = [...ordered[0].backgroundLayerOrder];
+    if (ordered[0].systemColorLayerIgnored !== undefined) systemColorLayerIgnored = ordered[0].systemColorLayerIgnored;
     mergePresentation(ordered[0].presentation);
     if (ordered[0].groupId) groupId = ordered[0].groupId;
     for (const layer of ordered.slice(1)) {
@@ -280,12 +298,18 @@ export class RuntimeThemeManager {
         if (!groupId) groupId = layer.groupId;
       }
       mergeBackground(layer.background);
+      if (layer.backgroundLayerOrder?.length) backgroundLayerOrder = [...layer.backgroundLayerOrder];
+      if (layer.systemColorLayerIgnored !== undefined) systemColorLayerIgnored = layer.systemColorLayerIgnored;
       mergePresentation(layer.presentation);
       if (layer.tokens) {
         for (const [key, value] of Object.entries(layer.tokens)) {
           if (value != null) merged[key] = value;
         }
       }
+    }
+    if (background.length > 0 && backgroundLayerOrder.length > 0) {
+      const rank = new Map(backgroundLayerOrder.map((id, index) => [id, index]));
+      background.sort((a, b) => (rank.get(a.id ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id ?? '') ?? Number.MAX_SAFE_INTEGER));
     }
     return {
       groupId,
@@ -295,6 +319,7 @@ export class RuntimeThemeManager {
       scopeNodeOverrides,
       layers: ordered.map(l => l.id ?? l.scope),
       background,
+      systemColorLayerIgnored,
       presentation,
     };
   }

@@ -16,6 +16,17 @@ export const themeShowcaseAreas: AreaDef[] = [
     .name('主题实验室')
     .desc('用于观察主题色、UI 语义节点与组件继承关系的临时展示区域。')
     .spots(...THEME_SHOWCASE_SPOTS)
+    .background({
+      id: 'theme-showcase-triangles',
+      kind: 'image',
+      value: 'base:overlay(pic):ba_triangles_svg',
+      opacity: 0.16,
+      position: 'center',
+      size: 'cover',
+      repeat: 'no-repeat',
+      blendMode: 'normal',
+      attachment: 'fixed',
+    })
     .build(),
 ];
 

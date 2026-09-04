@@ -28,7 +28,7 @@ export function renderRightPanel(ctx: UIContext, activeTab: string, selectedVari
   }
   return `
     <aside class="ui-cluster ui-cluster--right-panel panel right-panel" data-theme-scope="right">
-      ${renderBackground(ctx.background, 'console-panel-background')}
+      ${renderBackground(ctx.backgroundForHost('rightPanel'), 'console-panel-background')}
       ${renderResourceStrip(ctx)}
       ${renderTabs(ctx, 'right', RIGHT_TABS, activeTab)}
       <div class="ui-cluster ui-cluster--right-${activeTab} panel-body" data-theme-scope="right.${activeTab}">${body}</div>

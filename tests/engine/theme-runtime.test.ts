@@ -251,6 +251,22 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     expect(presentation.components?.[0].asset).toBe('base:pic:new');
   });
 
+  test('RUNTIME-20 控件宿主背景按 id 叠加并保留宿主图层契约', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', presentation: {
+      hosts: [{ id: 'toolbar.button', parent: 'header', layers: [{ id: 'base', kind: 'solid', value: '#fff' }] }],
+    } });
+    manager.pushScene({ scope: 'area', presentation: {
+      hosts: [{ id: 'toolbar.button', layers: [{ id: 'base', kind: 'gradient', value: 'linear-gradient(#fff,#def)' }, { id: 'active', kind: 'empty', value: '' }], layerOrder: ['active', 'base'] }],
+    } });
+    const host = manager.resolve().presentation.hosts?.[0];
+    expect(host?.id).toBe('toolbar.button');
+    expect(host?.parent).toBe('header');
+    expect(host?.layers?.map(layer => layer.id)).toEqual(['base', 'active']);
+    expect(host?.layers?.[0].kind).toBe('gradient');
+    expect(host?.layerOrder).toEqual(['active', 'base']);
+  });
+
   test('RUNTIME-15 背景层按优先级合并，同 id 覆盖、匿名层追加', () => {
     const { manager } = makeManager();
     manager.setPlayer({ scope: 'player', background: [
@@ -265,6 +281,18 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
       'base:background(pic):two',
       'base:background(pic):one',
       'base:overlay(pic):triangles',
+    ]);
+  });
+
+  test('RUNTIME-16 背景层按显式顺序排列，未列出的层保持合并顺序', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', background: [
+      { id: 'base', kind: 'solid', value: '#fff' },
+      { id: 'system-color-background', kind: 'gradient', value: 'linear-gradient(#fff,#eee)' },
+    ], backgroundLayerOrder: ['system-color-background', 'overlay', 'base'] });
+    manager.pushScene({ scope: 'area', background: [{ id: 'overlay', kind: 'image', value: 'base:overlay(pic):triangles' }] });
+    expect(manager.resolve().background.map(layer => layer.id)).toEqual([
+      'system-color-background', 'overlay', 'base',
     ]);
   });
 });

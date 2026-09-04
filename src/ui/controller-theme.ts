@@ -151,7 +151,7 @@ export function applyTheme(ctrl: UIController): void {
   const rootNodes = resolveThemeNodes({ colors: palette }, tokens, nodeOverrides);
   for (const [key, value] of Object.entries(buildScopedThemeCompatibilityVars(rootNodes))) style.setProperty(key, value);
   applyThemeScopes(ctrl, tokens, palette, nodeOverrides, resolved.scopeNodeOverrides, resolved.presentation);
-  style.setProperty('--theme-bg-gradient', deriveBackgroundGradient(palette, themeMode));
+  style.setProperty('--theme-bg-gradient', resolved.systemColorLayerIgnored ? 'transparent' : deriveBackgroundGradient(palette, themeMode));
   // area-hero 横幅渐变（跟随主题 primary 的光晕）
   style.setProperty('--hero-gradient', heroGradient(tokens['primary'] ?? '#3b9eff', tokens));
 }

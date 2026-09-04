@@ -58,6 +58,10 @@
 - [[0x-plan&work/active/adr-0006-ui-background-layering]]：背景层数据结构、合并规则与安全边界裁定。
 - [[0x-plan&work/active/roadmap-0008-theme-color-system-refactor]]：主题色双轨、语义节点、UI 作用域继承与颜色迁移。
 - [[0x-plan&work/active/roadmap-0009-theme-control-backgrounds]]：按钮与控件的多背景层、定位、状态和作用域继承。
+- [[0x-plan&work/active/roadmap-0010-presentation-layer-service]]：统一表现层服务、系统颜色层排序与来源模型。
+- [[0x-plan&work/active/roadmap-0011-ui-component-layer-backgrounds]]：将背景图层服务扩展到面板、按钮、Tab、卡片、气泡与弹窗。
+- [[0x-plan&work/active/roadmap-0012-flat-presentation-targets]]：平级表现目标、级别筛选弹窗与统一图层编辑器。
+- [[0x-plan&work/active/roadmap-0013-presentation-editor-ux]]：自定义表现控件编辑器体验、目标卡片与颜色/图片变换参数（E0/E1 完成，E2-E4 首版进行中）。
 
 当前状态：B0–B3 已完成，B4 待实施。
 

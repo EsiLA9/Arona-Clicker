@@ -22,6 +22,7 @@ export interface UIContext {
   nameOf(type: string, id: string): string;
   background: BackgroundView;
   presentation: PresentationView;
+  backgroundForHost(hostId: string): BackgroundView;
 }
 
 const formatNumber = (value: number) => Math.floor(value).toLocaleString('en-US');
@@ -36,6 +37,7 @@ const formatTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString
 
 const emptyPresentation: PresentationView = {
   region: () => ({ layers: [], components: [] }),
+  host: () => ({ layers: [] }),
   panelOpacity: () => 0.8,
   asset: () => undefined,
   motion: () => undefined,
@@ -54,5 +56,9 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
     nameOf: (type, id) => displayName(game.registry, type, id),
     background: background ?? { layers: [] },
     presentation: presentation ?? emptyPresentation,
+    backgroundForHost: hostId => {
+      const hostLayers = (presentation ?? emptyPresentation).host(hostId).layers;
+      return { layers: hostLayers.length > 0 ? hostLayers : (background ?? { layers: [] }).layers };
+    },
   };
 }

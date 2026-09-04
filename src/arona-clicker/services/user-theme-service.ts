@@ -47,12 +47,33 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
     }
   }
   const presentation = draft?.presentation;
+  const background = draft?.background ?? [];
   const layers = presentation?.layers ?? [];
   const components = presentation?.components ?? [];
   const panels = presentation?.panels ?? [];
+  const hosts = presentation?.hosts ?? [];
   if (layers.length > 24) issue(issues, '区域图层最多 24 个');
+  if (background.length > 24) issue(issues, '全局背景图层最多 24 个');
+  if ((draft?.backgroundLayerOrder?.length ?? 0) > 32) issue(issues, '全局表现层排序最多 32 项');
   if (components.length > 32) issue(issues, '组件最多 32 个');
   if (panels.length > 8) issue(issues, '面板表现最多 8 个');
+  if (hosts.length > 64) issue(issues, '控件宿主表现最多 64 个');
+  const hostIds = new Set<string>();
+  for (const host of hosts) {
+    if (!host.id || host.id.length > 96 || !/^[a-zA-Z0-9_.:-]+$/.test(host.id)) issue(issues, `非法控件宿主 ID：${host.id}`);
+    if (hostIds.has(host.id)) issue(issues, `控件宿主 ID 重复：${host.id}`);
+    hostIds.add(host.id);
+    if (host.parent && host.parent.length > 96) issue(issues, `控件宿主父级 ID 过长：${host.id}`);
+    if ((host.layers?.length ?? 0) > 24) issue(issues, `控件宿主图层最多 24 个：${host.id}`);
+    if ((host.layerOrder?.length ?? 0) > 32) issue(issues, `控件宿主排序最多 32 项：${host.id}`);
+    for (const layer of host.layers ?? []) {
+      if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法控件图层 ID：${host.id}.${layer.id}`);
+      if (layer.kind !== 'empty' && layer.kind !== 'solid' && layer.kind !== 'gradient' && layer.kind !== 'image') issue(issues, `非法控件图层类型：${host.id}`);
+      if (layer.value.length > 256 || (layer.kind !== 'image' && /[<>;]|url\s*\(|expression\s*\(/i.test(layer.value))) issue(issues, `非法控件图层值：${host.id}`);
+      if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `控件图片资源不存在：${host.id}.${layer.value}`);
+      if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法控件图层透明度：${host.id}`);
+    }
+  }
   for (const panel of panels) {
     if (!REGIONS.has(panel.region)) issue(issues, `非法面板区域：${panel.region}`);
     if (panel.opacity !== undefined && (!Number.isFinite(panel.opacity) || panel.opacity < 0 || panel.opacity > 1)) issue(issues, `非法面板透明度：${panel.region}`);
@@ -61,11 +82,20 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
   for (const layer of layers) {
     if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法图层 ID：${layer.id}`);
     if (!REGIONS.has(layer.region)) issue(issues, `非法表现区域：${layer.region}`);
-    if (layer.kind !== 'solid' && layer.kind !== 'gradient' && layer.kind !== 'image') issue(issues, '非法图层类型');
+    if (layer.kind !== 'empty' && layer.kind !== 'solid' && layer.kind !== 'gradient' && layer.kind !== 'image') issue(issues, '非法图层类型');
     if (layer.value.length > 256 || (layer.kind !== 'image' && /[<>;]|url\s*\(|expression\s*\(/i.test(layer.value))) issue(issues, `非法图层值：${layer.id ?? '(anonymous)'}`);
     if (layer.kind === 'image' && !layer.value.includes(':')) issue(issues, `图片必须使用已注册 Pic 引用：${layer.value}`);
     if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `图片资源不存在：${layer.value}`);
     if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法图层透明度：${layer.id ?? '(anonymous)'}`);
+  }
+  for (const layer of background) {
+    if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法背景图层 ID：${layer.id}`);
+    if (layer.id === 'system-color-background') issue(issues, '不允许覆盖系统颜色层');
+    if (layer.kind !== 'empty' && layer.kind !== 'solid' && layer.kind !== 'gradient' && layer.kind !== 'image') issue(issues, '非法背景图层类型');
+    if (layer.value.length > 256 || (layer.kind !== 'image' && /[<>;]|url\s*\(|expression\s*\(/i.test(layer.value))) issue(issues, `非法背景图层值：${layer.id ?? '(anonymous)'}`);
+    if (layer.kind === 'image' && !layer.value.includes(':')) issue(issues, `图片必须使用已注册 Pic 引用：${layer.value}`);
+    if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `图片资源不存在：${layer.value}`);
+    if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法背景图层透明度：${layer.id ?? '(anonymous)'}`);
   }
   for (const component of components) {
     if (!component.id || component.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(component.id)) issue(issues, `非法组件 ID：${component.id}`);

@@ -39,16 +39,31 @@
 
 .modal-panel.user-theme-modal {
    width: min(560px, calc(100vw - 32px));
+   height: min(760px, calc(100vh - 32px));
    max-height: min(760px, calc(100vh - 32px));
 }
 
 .modal-panel.user-theme-modal .modal-body {
+   display: flex;
+   flex: 1 1 auto;
    min-height: 0;
    overflow: hidden;
 }
 
 .modal-panel.user-theme-modal .modal-foot {
    flex: 0 0 auto;
+}
+
+.modal-panel.user-theme-modal .modal-body > .user-theme-editor {
+   display: flex;
+   flex: 1 1 auto;
+   flex-direction: column;
+   min-height: 0;
+}
+
+.modal-panel.user-theme-modal .user-theme-workspace {
+   flex: 1 1 auto;
+   height: auto;
 }
 
 .modal-overlay-user-theme {
