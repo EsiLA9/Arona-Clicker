@@ -57,9 +57,11 @@ describe('PresentationService', () => {
           { id: 'accent', kind: 'gradient', value: 'linear-gradient(#fff, #def)' },
         ],
         layerOrder: ['accent', 'base'],
+        opacity: 0.65,
       }],
     }, pics);
     expect(view.host('toolbar.button').layers.map(layer => layer.id)).toEqual(['accent', 'base']);
+    expect(view.host('toolbar.button').opacity).toBe(0.65);
     expect(view.host('missing').layers).toHaveLength(0);
   });
 

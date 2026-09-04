@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T07:26:38.611Z",
+  "generatedAt": "2026-09-04T08:23:03.952Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -849,6 +849,13 @@
                         }
                       },
                       {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
+                      },
+                      {
                         "key": "systemColorLayerIgnored",
                         "required": false,
                         "kind": "bool",
@@ -1545,6 +1552,13 @@
                           "kind": "hand",
                           "tsType": "string"
                         }
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
                       },
                       {
                         "key": "systemColorLayerIgnored",
@@ -2964,6 +2978,13 @@
                         }
                       },
                       {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
+                      },
+                      {
                         "key": "systemColorLayerIgnored",
                         "required": false,
                         "kind": "bool",
@@ -3682,6 +3703,13 @@
                         }
                       },
                       {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
+                      },
+                      {
                         "key": "systemColorLayerIgnored",
                         "required": false,
                         "kind": "bool",
@@ -4246,6 +4274,13 @@
                           "kind": "hand",
                           "tsType": "string"
                         }
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
                       },
                       {
                         "key": "systemColorLayerIgnored",

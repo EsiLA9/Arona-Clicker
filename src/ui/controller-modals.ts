@@ -152,7 +152,7 @@ export function openUserThemeEditor(ctrl: UIController): void {
 
 function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean): void {
   const draft = session.draft;
-  const presentation = draft.presentation ?? (draft.presentation = { layers: [], components: [] });
+  const presentation = draft.presentation ?? (draft.presentation = { layers: [], components: [], hosts: [] });
   const components = () => presentation.components ?? (presentation.components = []);
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-system-color-ignore]').forEach(input => input.addEventListener('change', event => {
     if (!active) return;
@@ -163,6 +163,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-theme-editor-section]').forEach(button => button.addEventListener('click', () => {
     const section = button.dataset.themeEditorSection;
+    modal.querySelector<HTMLElement>('.user-theme-editor')?.setAttribute('data-theme-editor-current-section', section ?? 'colors');
     modal.querySelectorAll<HTMLElement>('[data-theme-editor-panel]').forEach(panel => { panel.hidden = panel.dataset.themeEditorPanel !== section; });
     modal.querySelectorAll('[data-theme-editor-section]').forEach(item => item.classList.toggle('is-active', item === button));
   }));
@@ -277,10 +278,6 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const code = button.parentElement?.querySelector('code'); if (code) code.textContent = '继承';
     ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
   }));
-  modal.querySelectorAll<HTMLSelectElement>('[data-user-theme-layer-region]').forEach(select => select.addEventListener('change', () => {
-    if (!active || !presentation.layers) return;
-    const layer = presentation.layers[Number(select.dataset.userThemeLayerRegion)]; if (layer) { layer.region = select.value as PresentationRegion; ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); }
-  }));
   const updateBackgroundField = (field: HTMLInputElement | HTMLSelectElement) => {
     if (!active || !draft.background) return;
     const index = Number(field.dataset.userThemeBackgroundIndex);
@@ -306,11 +303,11 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
       else if (previousKind === 'empty' || !layer.value) {
         layer.value = nextKind === 'solid' ? '#6b8cff' : nextKind === 'gradient' ? 'linear-gradient(135deg, #6b8cff, #dbeafe)' : (ctrl.game.pics.list?.()[0]?.id ?? '');
       }
-      ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
+      ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
       return;
     }
     else layer[key] = field.value as never;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render();
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
   };
   modal.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-user-theme-background-field]').forEach(field => {
     field.addEventListener(field instanceof HTMLSelectElement ? 'change' : 'input', () => updateBackgroundField(field));
@@ -338,9 +335,9 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
       layer.kind = field.value as typeof layer.kind;
       if (layer.kind === 'empty') layer.value = '';
       else if (previousKind === 'empty' || !layer.value) layer.value = layer.kind === 'solid' ? '#6b8cff' : layer.kind === 'gradient' ? 'linear-gradient(135deg, #6b8cff, #dbeafe)' : (ctrl.game.pics.list?.()[0]?.id ?? '');
-      ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshPresentationHostCard(ctrl, modal, session, active, field.dataset.userThemeHostId!); return;
+      ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostCard(ctrl, modal, session, active, field.dataset.userThemeHostId!); return;
     } else layer[key] = field.value as never;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render();
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-add]').forEach(button => button.addEventListener('click', () => {
     if (!active || !presentation.hosts) return;
@@ -348,7 +345,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (!host) return;
     const layers = host.layers ?? (host.layers = []);
     layers.push({ id: `${host.id.replace(/\./g, '-')}-layer-${layers.length + 1}`, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostAdd!);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostAdd!);
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-delete]').forEach(button => button.addEventListener('click', () => {
     if (!active || !presentation.hosts) return;
@@ -366,7 +363,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (!layers || !layers[index] || target < 0 || target >= layers.length) return;
     [layers[index], layers[target]] = [layers[target], layers[index]];
     host!.layerOrder = layers.map(layer => layer.id).filter((id): id is string => Boolean(id));
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostMove!);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostMove!);
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-remove]').forEach(button => button.addEventListener('click', () => {
     if (!active || !presentation.hosts) return;
@@ -375,7 +372,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (!host?.layers?.[index]) return;
     host.layers.splice(index, 1);
     host.layerOrder = host.layers.map(layer => layer.id).filter((id): id is string => Boolean(id));
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostRemove!);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostRemove!);
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-background-remove]').forEach(button => button.addEventListener('click', () => {
     if (!active || !draft.background) return;
@@ -395,9 +392,13 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-region-layer-add]').forEach(button => button.addEventListener('click', () => {
     if (!active) return;
     const region = button.dataset.userThemeRegionLayerAdd as PresentationRegion;
-    const layers = presentation.layers ?? (presentation.layers = []);
-    const count = layers.filter(layer => layer.region === region).length + 1;
-    layers.push({ id: `${region}-layer-${count}`, region, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
+    const hosts = presentation.hosts ?? (presentation.hosts = []);
+    const host = hosts.find(item => item.id === region) ?? { id: region, parent: undefined, layers: [] };
+    if (!hosts.includes(host)) hosts.push(host);
+    const layers = host.layers ?? (host.layers = []);
+    const count = layers.length + 1;
+    layers.push({ id: `${region}-layer-${count}`, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
+    host.layerOrder = layers.map(layer => layer.id).filter((id): id is string => Boolean(id));
     ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
   const targetPicker = modal.querySelector<HTMLElement>('[data-user-theme-target-picker]');
@@ -427,14 +428,6 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (!active) return;
     modal.querySelectorAll('[data-user-theme-target-level]').forEach(item => item.classList.toggle('is-active', item === button));
     renderTargetOptions(button.dataset.userThemeTargetLevel as import('./presentation-targets').PresentationTargetLevel);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-layer-add]').forEach(button => button.addEventListener('click', () => {
-    if (!active) return;
-    const layers = presentation.layers ?? (presentation.layers = []);
-    let id = `presentation-layer-${layers.length + 1}`;
-    while (layers.some(layer => layer.id === id)) id = `presentation-layer-${layers.length + 1}-${layers.length}`;
-    layers.push({ id, region: 'shell', kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
   const moveLayer = (index: number, direction: -1 | 1, layers: PresentationLayerDef[] | BackgroundLayerDef[]) => {
     const target = index + direction;
@@ -479,10 +472,10 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-panel-opacity]').forEach(input => input.addEventListener('input', () => {
     if (!active) return;
     const region = input.dataset.userThemePanelOpacity as PresentationRegion;
-    const panels = presentation.panels ?? (presentation.panels = []);
-    const panel = panels.find(item => item.region === region) ?? { region };
-    if (!panels.includes(panel)) panels.push(panel);
-    panel.opacity = Math.max(0, Math.min(1, Number(input.value) || 0));
+    const hosts = presentation.hosts ?? (presentation.hosts = []);
+    const host = hosts.find(item => item.id === region) ?? { id: region, parent: undefined, layers: [] };
+    if (!hosts.includes(host)) hosts.push(host);
+    host.opacity = Math.max(0, Math.min(1, Number(input.value) || 0));
     ctrl.game.colorSystem.setUserThemePreview(draft);
     ctrl.refreshTheme();
   }));
@@ -509,7 +502,11 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
 
 function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean): void {
   const inspector = modal.querySelector<HTMLElement>('.user-theme-inspector');
-  const section = modal.querySelector<HTMLElement>('[data-theme-editor-panel]:not([hidden])')?.dataset.themeEditorPanel ?? 'colors';
+  const editor = modal.querySelector<HTMLElement>('.user-theme-editor');
+  const section = editor?.dataset.themeEditorCurrentSection
+    ?? modal.querySelector<HTMLElement>('[data-theme-editor-section].is-active')?.dataset.themeEditorSection
+    ?? modal.querySelector<HTMLElement>('[data-theme-editor-panel]:not([hidden])')?.dataset.themeEditorPanel
+    ?? 'colors';
   const scrollTop = inspector?.scrollTop ?? 0;
   const openTargets = new Set([...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-card]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostCard));
   const openLayers = new Set([...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-layer]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostLayer));
@@ -518,8 +515,10 @@ function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: imp
   if (!body) return;
   const capability = ctrl.game.userThemeService.capability();
   body.innerHTML = renderUserThemeEditor(createUIContext(ctrl.game), session, active, capability.sources);
+  body.querySelector<HTMLElement>('.user-theme-editor')?.setAttribute('data-theme-editor-current-section', section);
   body.querySelector<HTMLElement>(`[data-theme-editor-panel="${section}"]`)?.removeAttribute('hidden');
   body.querySelectorAll<HTMLElement>('[data-theme-editor-panel]').forEach(panel => { if (panel.dataset.themeEditorPanel !== section) panel.hidden = true; });
+  body.querySelectorAll<HTMLElement>('[data-theme-editor-section]').forEach(item => item.classList.toggle('is-active', item.dataset.themeEditorSection === section));
   bindUserThemeEditor(ctrl, modal, session, active);
   const nextInspector = modal.querySelector<HTMLElement>('.user-theme-inspector');
   if (nextInspector) nextInspector.scrollTop = scrollTop;

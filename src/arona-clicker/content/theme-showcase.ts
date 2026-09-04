@@ -20,7 +20,7 @@ export const themeShowcaseAreas: AreaDef[] = [
       id: 'theme-showcase-triangles',
       kind: 'image',
       value: 'base:overlay(pic):ba_triangles_svg',
-      opacity: 0.16,
+      opacity: 1,
       position: 'center',
       size: 'cover',
       repeat: 'no-repeat',

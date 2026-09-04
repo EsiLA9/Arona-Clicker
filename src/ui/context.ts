@@ -37,7 +37,7 @@ const formatTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString
 
 const emptyPresentation: PresentationView = {
   region: () => ({ layers: [], components: [] }),
-  host: () => ({ layers: [] }),
+  host: () => ({ layers: [], opacity: 0.8 }),
   panelOpacity: () => 0.8,
   asset: () => undefined,
   motion: () => undefined,

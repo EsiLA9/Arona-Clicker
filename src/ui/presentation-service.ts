@@ -49,6 +49,7 @@ export interface PresentationRegionView {
 
 export interface PresentationHostView {
   layers: readonly PresentationViewLayer[];
+  opacity: number;
 }
 
 export interface PresentationView {
@@ -188,7 +189,7 @@ export function buildPresentationView(
     const resolvedLayers = (host.layers ?? []).map(resolveLayer).filter((layer): layer is PresentationViewLayer => Boolean(layer));
     const rank = new Map((host.layerOrder ?? []).map((id, index) => [id, index]));
     const orderedLayers = [...resolvedLayers].sort((a, b) => (rank.get(a.id ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id ?? '') ?? Number.MAX_SAFE_INTEGER));
-    hostMap.set(host.id, { layers: orderedLayers });
+    hostMap.set(host.id, { layers: orderedLayers, opacity: Math.max(0, Math.min(1, host.opacity ?? 0.8)) });
   }
   const defs = (presentation?.components ?? []).filter(component => component.id && component.parent);
   const byId = new Map(defs.map(component => [component.id, component]));
@@ -217,8 +218,8 @@ export function buildPresentationView(
   }
   return {
     region: region => regionMap.get(region) ?? { layers: [], components: [] },
-    host: id => hostMap.get(id) ?? { layers: [] },
-    panelOpacity: region => panelOpacity.get(region) ?? 0.8,
+    host: id => hostMap.get(id) ?? { layers: [], opacity: 0.8 },
+    panelOpacity: region => hostMap.get(region)?.opacity ?? panelOpacity.get(region) ?? 0.8,
     asset,
     motion: name => motions.get(name),
     stateAppearance: state => states.get(state),

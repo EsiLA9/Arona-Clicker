@@ -87,6 +87,44 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
     }
   });
 
+  test('保存时将旧区域图层与面板透明度收束到宿主', () => {
+    const g = fresh();
+    g.enhancements.purchaseEnhancement(USER_THEME);
+    const session = g.userThemeService.beginEdit();
+    if ('readonly' in session) {
+      const result = g.userThemeService.apply(session.id, {
+        version: 1,
+        presentation: {
+          layers: [{ id: 'legacy', region: 'leftPanel', kind: 'solid', value: '#ffffff' }],
+          panels: [{ region: 'leftPanel', opacity: 0.65 }],
+        },
+      });
+      expect(result.ok).toBe(true);
+      expect(g.state.userTheme?.applied?.presentation?.layers).toBeUndefined();
+      expect(g.state.userTheme?.applied?.presentation?.panels).toBeUndefined();
+      expect(g.state.userTheme?.applied?.presentation?.hosts).toEqual([
+        { id: 'leftPanel', layers: [{ id: 'legacy', region: 'leftPanel', kind: 'solid', value: '#ffffff' }], layerOrder: ['legacy'], opacity: 0.65 },
+      ]);
+    }
+  });
+
+  test('global 表现宿主只收束到外部背景，不参与内容宿主树', () => {
+    const g = fresh();
+    g.enhancements.purchaseEnhancement(USER_THEME);
+    const session = g.userThemeService.beginEdit();
+    if ('readonly' in session) {
+      const result = g.userThemeService.apply(session.id, {
+        version: 1,
+        presentation: {
+          hosts: [{ id: 'global', layers: [{ id: 'outer', kind: 'solid', value: '#ffffff' }], layerOrder: ['outer'] }],
+        },
+      });
+      expect(result.ok).toBe(true);
+      expect(g.state.userTheme?.applied?.background).toEqual([{ id: 'outer', kind: 'solid', value: '#ffffff' }]);
+      expect(g.state.userTheme?.applied?.presentation?.hosts).toEqual([]);
+    }
+  });
+
   test('用户主题拒绝超过六个主题色', () => {
     const g = fresh();
     g.enhancements.purchaseEnhancement(USER_THEME);

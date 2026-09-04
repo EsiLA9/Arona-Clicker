@@ -1,6 +1,6 @@
 import type { AffectorEngine } from '../../engine/effect/affector-engine';
 import type { StateMutationService } from '../state/state-mutation-service';
-import type { ThemeNodeName } from '../../engine/types/theme';
+import type { PresentationHostDef, ThemeNodeName } from '../../engine/types/theme';
 import type { UserThemeDraft, UserThemeState, UserThemeToken } from '../types/user-theme';
 import type { PlayerState } from '../types/state';
 import type { PicQueryPort } from '../contracts/pic-query';
@@ -10,6 +10,48 @@ export interface UserThemeError { ok: false; code: UserThemeErrorCode; message: 
 export interface UserThemeOk { ok: true; state: Readonly<UserThemeState> }
 export type UserThemeResult = UserThemeOk | UserThemeError;
 export interface UserThemeEditSession { id: string; baseRevision: number; draft: UserThemeDraft; readonly: boolean }
+
+const PRESENTATION_REGIONS = ['shell', 'header', 'leftPanel', 'centerPanel', 'rightPanel', 'footer', 'story', 'modal'] as const;
+
+function normalizePresentationDraft(draft: UserThemeDraft): void {
+  const presentation = draft.presentation ?? (draft.presentation = { layers: [], components: [] });
+  const hosts = [...(presentation.hosts ?? [])];
+  const byId = new Map(hosts.map(host => [host.id, host]));
+  const globalHost = byId.get('global');
+  if (globalHost) {
+    draft.background = [...(draft.background ?? []), ...(globalHost.layers ?? []).map(layer => ({ ...layer }))];
+    draft.backgroundLayerOrder = [...(draft.backgroundLayerOrder ?? []), ...(globalHost.layerOrder ?? [])];
+    const index = hosts.indexOf(globalHost);
+    if (index >= 0) hosts.splice(index, 1);
+    byId.delete('global');
+  }
+  const hostFor = (id: string) => {
+    const existing = byId.get(id);
+    if (existing) return existing;
+    const host: PresentationHostDef = { id, layers: [] };
+    hosts.push(host);
+    byId.set(id, host);
+    return host;
+  };
+  for (const layer of presentation.layers ?? []) {
+    if (!PRESENTATION_REGIONS.includes(layer.region)) continue;
+    const host = hostFor(layer.region);
+    host.layers = [...(host.layers ?? []), { ...layer }];
+    host.layerOrder = [...(host.layerOrder ?? []), ...(layer.id ? [layer.id] : [])];
+  }
+  for (const panel of presentation.panels ?? []) {
+    if (!PRESENTATION_REGIONS.includes(panel.region)) continue;
+    const host = hostFor(panel.region);
+    if (panel.opacity !== undefined) host.opacity = panel.opacity;
+    if (panel.layers?.length) {
+      host.layers = [...(host.layers ?? []), ...panel.layers.map(layer => ({ ...layer }))];
+      host.layerOrder = [...(host.layerOrder ?? []), ...panel.layers.flatMap(layer => layer.id ? [layer.id] : [])];
+    }
+  }
+  presentation.hosts = hosts;
+  delete presentation.layers;
+  delete presentation.panels;
+}
 
 const TOKEN_KEYS = new Set<UserThemeToken>(['primary', 'primaryStrong', 'bg', 'bgAlt', 'panel', 'panelAlt', 'text', 'muted', 'accent', 'danger']);
 const NODE_KEYS = new Set<ThemeNodeName>(['primary', 'primaryStrong', 'bg', 'bgAlt', 'panel', 'panelLight', 'text', 'muted', 'line', 'active', 'highlight', 'success', 'warning', 'danger', 'accent', 'playerBubble', 'npcBubble']);
@@ -64,6 +106,7 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
     if (hostIds.has(host.id)) issue(issues, `控件宿主 ID 重复：${host.id}`);
     hostIds.add(host.id);
     if (host.parent && host.parent.length > 96) issue(issues, `控件宿主父级 ID 过长：${host.id}`);
+    if (host.opacity !== undefined && (!Number.isFinite(host.opacity) || host.opacity < 0 || host.opacity > 1)) issue(issues, `非法控件宿主透明度：${host.id}`);
     if ((host.layers?.length ?? 0) > 24) issue(issues, `控件宿主图层最多 24 个：${host.id}`);
     if ((host.layerOrder?.length ?? 0) > 32) issue(issues, `控件宿主排序最多 32 项：${host.id}`);
     for (const layer of host.layers ?? []) {
@@ -144,6 +187,7 @@ export class UserThemeService {
     const draft: UserThemeDraft = current.applied
       ? structuredClone(current.applied)
       : { version: 1, palette: [initialPalette?.[0] ?? '#6b8cff'], paletteUiEnabled: [true] };
+    normalizePresentationDraft(draft);
     const session: UserThemeEditSession = { id: `user-theme-${++this.sequence}`, baseRevision: current.revision, draft, readonly: !capability.active };
     this.sessions.set(session.id, session);
     return session;
@@ -154,6 +198,7 @@ export class UserThemeService {
     if (!session) return { ok: false, code: 'session-not-found', message: '编辑会话不存在' };
     if (!this.capability().active || session.readonly) return { ok: false, code: 'capability-unavailable', message: '没有 Active Affector 提供用户主题编辑能力' };
     if (this.get().revision !== session.baseRevision) return { ok: false, code: 'revision-conflict', message: '主题已被其他编辑会话更新，请重新载入' };
+    normalizePresentationDraft(draft);
     const issues = validateDraft(draft, this.pics);
     if (issues.length) return { ok: false, code: 'invalid-draft', message: '用户主题校验失败', issues };
     this.mutations.setUserTheme(draft, this.getState().userTheme ? this.get().enabled : true);

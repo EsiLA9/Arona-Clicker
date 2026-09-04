@@ -123,6 +123,8 @@ export interface PresentationHostDef {
   layers?: BackgroundLayerDef[];
   /** @label 宿主图层顺序。 */
   layerOrder?: string[];
+  /** @label 宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。 */
+  opacity?: number;
   /** @label 忽略系统颜色层。 */
   systemColorLayerIgnored?: boolean;
 }

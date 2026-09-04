@@ -171,7 +171,8 @@ function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, pa
     resolvedByScope.set(scope, inherited);
     const panelRegion = scope === 'left' ? 'leftPanel' : scope === 'center' ? 'centerPanel' : scope === 'right' ? 'rightPanel' : undefined;
     if (panelRegion) {
-      const configured = presentation.panels?.find(panel => panel.region === panelRegion)?.opacity;
+      const configured = presentation.hosts?.find(host => host.id === panelRegion)?.opacity
+        ?? presentation.panels?.find(panel => panel.region === panelRegion)?.opacity;
       element.style.setProperty('--theme-cluster-opacity', String(Math.max(0, Math.min(1, configured ?? 0.8))));
     }
     for (const [key, value] of Object.entries(buildScopedThemeNodeVars(inherited))) {
