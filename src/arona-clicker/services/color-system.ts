@@ -15,6 +15,10 @@ import type { Registry } from '../../data-services/registry/registry';
 import type { ColorMutationPort } from '../contracts/mutation';
 import { RuntimeThemeManager, type ThemeLayer, type ThemeTokens } from '../../engine/core/theme-runtime';
 
+function normalizePalette(colors: readonly string[] | undefined, uiEnabled?: readonly boolean[]): string[] {
+  return [...(colors ?? [])].filter((color, index) => typeof color === 'string' && color.trim().length > 0 && uiEnabled?.[index] !== false).slice(0, 6);
+}
+
 // --- HSL 工具（纯函数，UI 可复用） ---
 
 export function hexToHsl(hex: string): { h: number; s: number; l: number } {
@@ -226,7 +230,7 @@ export class ColorSystem {
   /** 从状态同步玩家全局主题层：activeGroupId 常驻基色（读档/激活主题后调用）。 */
   syncPlayerThemeFromState(state: PlayerState): void {
     const id = state.activeGroupId ?? null;
-    this.runtime.setPlayer(id ? { scope: 'player', groupId: id } : null);
+    this.runtime.setPlayer(id ? { scope: 'player', groupId: id, palette: this.paletteOfGroup(id) } : null);
     this.runtime.setLayerOrder(state.themeLayerOrder);
   }
 
@@ -236,23 +240,29 @@ export class ColorSystem {
       id: 'user-theme',
       scope: 'player',
       tokens: user.applied.tokens,
+      palette: normalizePalette(user.applied.palette, user.applied.paletteUiEnabled),
+      nodeOverrides: user.applied.nodes,
+      scopeNodeOverrides: user.applied.scopes,
       presentation: user.applied.presentation,
     } : null);
   }
 
   /** 编辑器草稿预览：高于已应用用户主题，低于剧情临时层。 */
-  setUserThemePreview(draft: { tokens?: Partial<Record<ThemeToken, string>>; presentation?: import('../../engine/types/theme').PresentationDef } | null): void {
+  setUserThemePreview(draft: { palette?: string[]; paletteUiEnabled?: boolean[]; tokens?: Partial<Record<ThemeToken, string>>; nodes?: import('../../engine/types/theme').ThemeDef['nodes']; scopes?: import('../types/user-theme').UserThemeDraft['scopes']; presentation?: import('../../engine/types/theme').PresentationDef } | null): void {
     this.runtime.setPreview(draft ? {
       id: 'user-theme-preview',
       scope: 'ephemeral',
+      palette: normalizePalette(draft.palette, draft.paletteUiEnabled),
       tokens: draft.tokens,
+      nodeOverrides: draft.nodes,
+      scopeNodeOverrides: draft.scopes,
       presentation: draft.presentation,
     } : null);
   }
 
   /** 压入场景特色层（当前 Area / 当前对话学生；同 scope 覆盖）。 */
   pushSceneTheme(layer: ThemeLayer): void {
-    this.runtime.pushScene(layer);
+    this.runtime.pushScene(this.enrichThemeLayer(layer));
   }
 
   /** 弹出场景层（按 scope 弹出；缺省弹出最近一个）。 */
@@ -262,7 +272,7 @@ export class ColorSystem {
 
   /** 推入临时演出层，返回其 id（供 popEphemeralTheme 移除）。 */
   pushEphemeralTheme(layer: ThemeLayer): string {
-    return this.runtime.pushEphemeral(layer);
+    return this.runtime.pushEphemeral(this.enrichThemeLayer(layer));
   }
 
   /** 移除临时演出层（不存在则静默忽略）。 */
@@ -307,7 +317,7 @@ export class ColorSystem {
       // 剧情/Trigger 直接改写实体主题槽（自定义来源，持久至玩家改回）
       this.mutations.setEntityThemeSlot(value.entityKey, {
         kind: 'custom',
-        customTheme: { colorGroupId: value.colorGroupId, tokens: value.tokens },
+        customTheme: { colorGroupId: value.colorGroupId, palette: value.palette, tokens: value.tokens, nodes: value.nodes },
       });
       return true;
     }
@@ -315,7 +325,9 @@ export class ColorSystem {
       id: ColorSystem.STORY_EPHEMERAL_ID,
       scope: 'ephemeral',
       groupId: value?.colorGroupId,
+      palette: normalizePalette(value?.palette),
       tokens: value?.tokens,
+      nodeOverrides: value?.nodes,
       background: value?.background,
     });
     return true;
@@ -328,6 +340,17 @@ export class ColorSystem {
 
   getGroup(groupId: ColorGroupId): ColorGroupDef | undefined {
     return this.registry.colorGroups.get(groupId);
+  }
+
+  paletteOfGroup(groupId: ColorGroupId): string[] {
+    const group = this.registry.colorGroups.get(groupId);
+    return group ? normalizePalette(group.slots.map(slot => slot.color)) : [];
+  }
+
+  private enrichThemeLayer(layer: ThemeLayer): ThemeLayer {
+    return layer.palette?.length || !layer.groupId
+      ? layer
+      : { ...layer, palette: this.paletteOfGroup(layer.groupId) };
   }
 
   // --- theme-tree 快速映射（封装 registry 解析） ---

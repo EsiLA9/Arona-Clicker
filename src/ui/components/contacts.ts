@@ -216,7 +216,7 @@ export function renderConversationView(
   const unreadCount = game.story.readyStepCount(variantId);
 
   return `
-    <section class="panel center-panel conversation-panel">
+    <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-theme-scope="center.conversation">
       ${renderBackground(ctx.background, 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       <div class="conversation-pane" data-conversation="${ctx.escapeHtml(variantId)}">

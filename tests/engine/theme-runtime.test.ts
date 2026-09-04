@@ -212,6 +212,26 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     expect(manager.resolveScope('area')['primary']).toBe('#ec4899');
   });
 
+  test('RUNTIME-16 主题色列表按层覆盖，语义节点按名称合并', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', palette: ['#111111', '#222222'], nodeOverrides: { accent: '#abcdef', active: '#123456' } });
+    manager.pushScene({ scope: 'area', palette: ['#aaaaaa'], nodeOverrides: { active: '#654321' } });
+    const resolved = manager.resolve();
+    expect(resolved.palette).toEqual(['#aaaaaa']);
+    expect(resolved.nodeOverrides).toEqual({ accent: '#abcdef', active: '#654321' });
+  });
+
+  test('RUNTIME-17 作用域节点覆盖按 scope 合并并保留父级未覆盖值', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', scopeNodeOverrides: {
+      left: { panel: '#101010', text: '#ffffff' },
+      'left.contacts': { active: '#00ff00' },
+    } });
+    const resolved = manager.resolve();
+    expect(resolved.scopeNodeOverrides.left).toEqual({ panel: '#101010', text: '#ffffff' });
+    expect(resolved.scopeNodeOverrides['left.contacts']).toEqual({ active: '#00ff00' });
+  });
+
   test('RUNTIME-19 表现层按 id 叠加，支持高层替换与新组件追加', () => {
     const { manager } = makeManager();
     manager.setPlayer({ scope: 'player', presentation: {

@@ -37,11 +37,11 @@ export function renderCenterPanel(
   // 通讯录临时页：由左栏"通讯录"触发，等待详细设计
   if (activeTab === 'contacts-draft') {
     return `
-      <section class="panel center-panel">
+      <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
         ${renderBackground(ctx.background, 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
-        <div class="panel-body">
+        <div class="ui-cluster ui-cluster--center-contacts-draft panel-body" data-theme-scope="center.contacts-draft">
           <div class="chat-empty">
             <p>📒 通讯录临时页</p>
             <p style="margin-top: 8px; color: var(--muted);">此页面等待后续设计制作。</p>
@@ -52,11 +52,11 @@ export function renderCenterPanel(
   // 档案临时页：由故事 Tab"档案"入口触发，等待记录内容设计
   if (activeTab === 'archive-draft') {
     return `
-      <section class="panel center-panel">
+      <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
         ${renderBackground(ctx.background, 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
-        <div class="panel-body">
+        <div class="ui-cluster ui-cluster--center-archive-draft panel-body" data-theme-scope="center.archive-draft">
           <div class="chat-empty">
             <p>🗄️ 档案临时页</p>
             <p style="margin-top: 8px; color: var(--muted);">此页面等待后续设计制作。</p>
@@ -68,11 +68,11 @@ export function renderCenterPanel(
     ? renderLogTab(ctx)
     : renderChatTab(ctx, chatEntries, chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   return `
-    <section class="panel center-panel">
+    <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
       ${renderBackground(ctx.background, 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}
-      <div class="panel-body">${body}</div>
+      <div class="ui-cluster ui-cluster--center-${activeTab} panel-body" data-theme-scope="center.${activeTab}">${body}</div>
     </section>`;
 }
 

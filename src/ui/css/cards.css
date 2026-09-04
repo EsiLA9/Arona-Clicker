@@ -44,6 +44,9 @@
    border-radius: 12px;
 }
 
+.mini-card { --card-border: var(--theme-node-line); --card-border-hover: var(--theme-node-primary); --card-btn-border: var(--theme-node-line); --card-btn-border-hover: var(--theme-node-primary); }
+.mini-card.is-active, .mini-card:hover { --card-accent: var(--theme-node-highlight); }
+
 .mini-card:hover {
    border-color: var(--card-border-hover);
    box-shadow: var(--card-shadow);
@@ -364,4 +367,3 @@ footer {
    font: 9px 'DM Mono', monospace;
    letter-spacing: .08em;
 }
-

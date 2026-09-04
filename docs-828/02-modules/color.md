@@ -22,6 +22,7 @@
 - **状态归属**（全经 mutations 写）：`groupsOwned` / `activeGroupId` / `equipmentsOwned`（global 层）；`RosterEntry.equippedEquipment`（单装备槽）。
 - **实体配色槽**：`state.entityThemeSlots`（key = `area:<id>` / `variant:<id>`），来源四选一：声明默认 / equipment / design / custom（`setTheme` effect `scope=area|student` 写入）。
 - 主题分层与合并规则见 [[docs-828/04-algorithms/color-derivation]]。
+- 主题渲染采用两条轨道：`palette` 是最多六个、按优先级取色的自动轨道；`nodes` / `scopes` 是按语义节点名的手动覆盖轨道。UI 作用域未覆盖的节点沿父作用域继承。
 
 ## 测试入口
 

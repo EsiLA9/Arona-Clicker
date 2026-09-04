@@ -31,10 +31,10 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
     default: body = renderAreaTab(ctx); tab = 'area'; break;
   }
   return `
-    <aside class="panel left-panel">
+    <aside class="ui-cluster ui-cluster--left-panel panel left-panel" data-theme-scope="left">
       ${renderBackground(ctx.background, 'console-panel-background')}
       ${renderTabs(ctx, 'left', LEFT_TABS, tab)}
-      <div class="panel-body">${body}</div>
+      <div class="ui-cluster ui-cluster--left-${tab} panel-body" data-theme-scope="left.${tab}">${body}</div>
     </aside>`;
 }
 

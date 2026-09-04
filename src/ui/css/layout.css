@@ -20,7 +20,7 @@ footer {
 
 .topbar {
    justify-content: space-between;
-   border-bottom: 1px solid var(--line);
+   border-bottom: 1px solid #ebebeb;
    padding-bottom: 12px;
 }
 
@@ -45,6 +45,69 @@ footer {
    cursor: pointer;
    border-radius: 8px;
    transition: background .15s, color .15s, border-color .15s;
+}
+
+/* 顶部工具按钮在浅色模式下保持白色，打开/激活时使用 highlight（主题色 3→2→1）。 */
+.topbar .toolbar-button {
+   background: #ffffff;
+   color: var(--theme-node-text);
+   border-color: #ebebeb;
+}
+
+.topbar .toolbar-button.is-active,
+.topbar .theme-palette:has([data-theme-float].open) > #theme-palette-btn,
+.topbar .toolbar-button:hover {
+   background: var(--theme-node-highlight);
+   color: var(--ink-on-highlight);
+   border-color: var(--theme-node-highlight);
+}
+
+.topbar .toolbar-button.is-active span,
+.topbar .toolbar-button:hover span {
+   color: var(--ink-on-highlight);
+}
+
+/* 顶部按钮中的文字、Unicode 图标与 SVG 图标共用同一前景色。 */
+.topbar .toolbar-button svg {
+   color: inherit;
+   fill: currentColor;
+   stroke: currentColor;
+}
+
+.topbar .toolbar-button svg * {
+   fill: currentColor;
+   stroke: currentColor;
+}
+
+.topbar .toolbar-button > span {
+   color: inherit;
+}
+
+/* 三栏中的中性按钮沿用顶部工具按钮的白底与浅灰边框；active / 主要行动按钮保留各自语义色。 */
+.workspace button.nav-item:not(.active),
+.workspace button.switch-tab:not(.active),
+.workspace button.mini-action:not(.is-active),
+.workspace button.use-item-button,
+.workspace button.manager-entry,
+.workspace button.story-trigger,
+.workspace button.equipment-option {
+   background: #ffffff;
+   border: 1px solid #ebebeb;
+   color: var(--theme-node-text);
+   border-radius: 8px;
+   transition: background .15s, color .15s, border-color .15s;
+}
+
+.workspace button.nav-item:not(.active):hover,
+.workspace button.switch-tab:not(.active):hover,
+.workspace button.mini-action:not(.is-active):hover,
+.workspace button.use-item-button:hover,
+.workspace button.manager-entry:hover,
+.workspace button.story-trigger:hover,
+.workspace button.equipment-option:hover {
+   background: var(--theme-node-highlight);
+   border-color: var(--theme-node-highlight);
+   color: var(--ink-on-highlight);
 }
 
 .toolbar-button span {
@@ -209,6 +272,9 @@ h3 {
    overflow: hidden;
 }
 
+.ui-cluster--left-panel, .ui-cluster--center-panel, .ui-cluster--right-panel { border-color: var(--theme-node-line); background: color-mix(in srgb, #ffffff calc(var(--theme-cluster-opacity, .8) * 100%), transparent); color: var(--theme-node-text); }
+.ui-control--active, .switch-tab.active { color: var(--theme-node-active); border-color: var(--theme-node-active); }
+
 .panel {
    background: var(--panel);
    color: var(--ink-on-panel);
@@ -350,4 +416,3 @@ h3 {
    font: 500 9px 'DM Mono', monospace;
    letter-spacing: .08em;
 }
-

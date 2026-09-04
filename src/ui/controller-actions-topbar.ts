@@ -29,11 +29,16 @@ export function bindTopBarActions(ctrl: UIController): void {
     if (!float) return;
     ctrl.themeFloatOpen = !ctrl.themeFloatOpen;
     float.classList.toggle('open', ctrl.themeFloatOpen);
+    const button = e.currentTarget as HTMLButtonElement;
+    button.classList.toggle('is-active', ctrl.themeFloatOpen);
+    button.setAttribute('aria-expanded', String(ctrl.themeFloatOpen));
   });
   ctrl.root.querySelector('[data-theme-float-close]')?.addEventListener('click', (e) => {
     e.stopPropagation();
     ctrl.themeFloatOpen = false;
     (e.currentTarget as HTMLElement).closest('[data-theme-float]')?.classList.remove('open');
+    ctrl.root.querySelector<HTMLButtonElement>('#theme-palette-btn')?.classList.remove('is-active');
+    ctrl.root.querySelector<HTMLButtonElement>('#theme-palette-btn')?.setAttribute('aria-expanded', 'false');
   });
   // 主题浮窗：拖动标题栏移动（position: fixed，绕开顶栏拥挤）
   const themeFloat = ctrl.root.querySelector<HTMLElement>('[data-theme-float]');

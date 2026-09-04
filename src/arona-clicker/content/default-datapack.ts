@@ -24,15 +24,16 @@ import type { } from '../../engine/types';
 import { baseAffectorPacks } from './affector-packs';
 import { baseResourceDisplays } from './resource-displays';
 import { baseExtras } from './extras';
+import { themeShowcaseAreas, themeShowcaseEnhancements, themeShowcaseInits, themeShowcasePassiveStories, themeShowcaseSpots } from './theme-showcase';
 
 /** Product composition root; it is independent from the test datapack entry. */
 export const defaultDatapack: Datapack = {
   name: 'AronaClicker',
   version: '1.0.0',
-  inits: baseInits,
-  areas: baseAreas,
-  spots: baseSpots,
-  enhancements: [...baseEnhancements, ...baseGlobalEnhancements],
+  inits: [...baseInits, ...themeShowcaseInits],
+  areas: [...baseAreas, ...themeShowcaseAreas],
+  spots: [...baseSpots, ...themeShowcaseSpots],
+  enhancements: [...baseEnhancements, ...baseGlobalEnhancements, ...themeShowcaseEnhancements],
   items: baseItems,
   characters: allCharacters,
   characterVariants: baseCharacterVariants,
@@ -45,7 +46,7 @@ export const defaultDatapack: Datapack = {
   gachaPools: baseGachaPools,
   triggerDefs: baseTriggers,
   passivePools: basePassivePools,
-  passiveStories: [...basePassiveStories, ...baseAffectionSteps],
+  passiveStories: [...basePassiveStories, ...baseAffectionSteps, ...themeShowcasePassiveStories],
   stories: [...baseStories, ...baseBondStories, ...baseAffectionStepStories],
   activeStories: [...baseActiveStories, ...baseBondStoryEntries],
   affectorPacks: baseAffectorPacks,

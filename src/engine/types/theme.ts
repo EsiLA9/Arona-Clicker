@@ -5,7 +5,12 @@ import type { Condition } from './expression';
 // ============================================================
 
 export type ThemeToken = string;
+export type ThemeMode = 'light' | 'dark';
 export type ThemeOrderScope = 'player' | 'area' | 'student';
+export type ThemeNodeName =
+  | 'primary' | 'primaryStrong' | 'bg' | 'bgAlt' | 'panel' | 'panelLight'
+  | 'text' | 'muted' | 'line' | 'active' | 'highlight'
+  | 'success' | 'warning' | 'danger' | 'accent' | 'playerBubble' | 'npcBubble';
 
 export type BackgroundLayerKind = 'solid' | 'gradient' | 'image';
 
@@ -39,6 +44,8 @@ export interface StateAppearanceDef {
 
 export interface PanelPresentationDef {
   region: PresentationRegion;
+  /** @label 簇背景透明度 */
+  opacity?: number;
   layers?: PresentationLayerDef[];
   header?: { icon?: string; eyebrow?: string; accent?: string };
   emptyState?: { icon?: string; title?: string; description?: string };
@@ -121,8 +128,12 @@ export interface PresentationDef {
 export interface ThemeDef {
   /** @label 引用色彩组 @ref colorGroups */
   colorGroupId?: string;
+  /** @label 有序主题色列表（最多六个） */
+  palette?: string[];
   /** @label 局部覆盖 */
   tokens?: Partial<Record<ThemeToken, string>>;
+  /** @label 语义颜色节点覆盖 */
+  nodes?: Partial<Record<ThemeNodeName, string>>;
   /** @label 背景视觉层 */
   background?: BackgroundLayerDef[];
   /** @label UI 表现配置 */

@@ -15,9 +15,9 @@ export function renderTabs(
 ): string {
   const buttons = tabs.map(tab => `
     <button
-      class="switch-tab ${tab.id === active ? 'active' : ''}"
+      class="ui-control ui-control--tab switch-tab ${tab.id === active ? 'active ui-control--active' : ''}"
       data-tab="${panel}:${tab.id}"
       aria-pressed="${tab.id === active}"
     >${ctx.escapeHtml(tab.label)}</button>`).join('');
-  return `<div class="switch-tabs" role="tablist">${buttons}</div>`;
+  return `<div class="ui-cluster ui-cluster--${panel}-tabs switch-tabs" role="tablist">${buttons}</div>`;
 }

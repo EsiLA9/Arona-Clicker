@@ -38,6 +38,12 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
     expect(g.userThemeService.capability().active).toBe(true);
   });
 
+  test('新编辑会话默认沿用当前界面的首个主题色', () => {
+    const g = fresh();
+    const session = g.userThemeService.beginEdit(['#1456c0', '#ff4d8d']);
+    expect(session).toMatchObject({ draft: { palette: ['#1456c0'], paletteUiEnabled: [true] } });
+  });
+
   test('保存用户主题只更新 Global 状态，并由 revision 保护旧会话', () => {
     const g = fresh();
     g.enhancements.purchaseEnhancement(USER_THEME);
@@ -62,6 +68,35 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
       });
       expect(result).toMatchObject({ ok: false, code: 'invalid-draft' });
       expect(g.state.userTheme?.applied).toBeUndefined();
+    }
+  });
+
+  test('用户主题保存主题色列表与语义节点覆盖', () => {
+    const g = fresh();
+    g.enhancements.purchaseEnhancement(USER_THEME);
+    const session = g.userThemeService.beginEdit();
+    if ('readonly' in session) {
+      const result = g.userThemeService.apply(session.id, {
+        version: 1,
+        palette: ['#123456', '#abcdef'],
+        nodes: { active: '#fedcba' },
+      });
+      expect(result.ok).toBe(true);
+      expect(g.state.userTheme?.applied?.palette).toEqual(['#123456', '#abcdef']);
+      expect(g.state.userTheme?.applied?.nodes?.active).toBe('#fedcba');
+    }
+  });
+
+  test('用户主题拒绝超过六个主题色', () => {
+    const g = fresh();
+    g.enhancements.purchaseEnhancement(USER_THEME);
+    const session = g.userThemeService.beginEdit();
+    if ('readonly' in session) {
+      const result = g.userThemeService.apply(session.id, {
+        version: 1,
+        palette: ['#1', '#2', '#3', '#4', '#5', '#6', '#7'],
+      });
+      expect(result).toMatchObject({ ok: false, code: 'invalid-draft' });
     }
   });
 });

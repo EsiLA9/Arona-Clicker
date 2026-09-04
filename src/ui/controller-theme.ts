@@ -10,6 +10,7 @@ import { entityKeyOf, hexToRgbTriplet } from '../arona-clicker/services/color-sy
 import type { UIController } from './controller';
 import { buildBackgroundView } from './background-service';
 import { buildPresentationView } from './presentation-service';
+import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, deriveBackgroundGradient, resolveScopedThemeNodes, resolveThemeNodes, type ThemeMode } from './theme-palette';
 
 /**
  * 主题浮窗跨 render 重建 #app 的存活：render 全量重建会销毁浮窗 DOM，
@@ -56,7 +57,7 @@ export function syncRuntimeTheme(ctrl: UIController): void {
       ? { ...override, background: override.background ?? area?.theme?.background }
       : area?.theme;
     if (theme) {
-      ctrl.game.colorSystem.pushSceneTheme({ scope: 'area', groupId: theme.colorGroupId, tokens: theme.tokens, background: theme.background, presentation: theme.presentation });
+      ctrl.game.colorSystem.pushSceneTheme({ scope: 'area', groupId: theme.colorGroupId, palette: theme.palette, tokens: theme.tokens, nodeOverrides: theme.nodes, background: theme.background, presentation: theme.presentation });
     }
   }
   const convId = ctrl.panelState.conversationVariantId;
@@ -75,7 +76,9 @@ export function syncRuntimeTheme(ctrl: UIController): void {
         ctrl.game.colorSystem.pushSceneTheme({
           scope: 'student',
           groupId: override.colorGroupId,
+          palette: override.palette,
           tokens: override.tokens,
+          nodeOverrides: override.nodes,
           background: override.background ?? variant.theme?.background,
           presentation: override.presentation ?? variant.theme?.presentation,
         });
@@ -92,7 +95,9 @@ export function syncRuntimeTheme(ctrl: UIController): void {
         ctrl.game.colorSystem.pushSceneTheme({
           scope: 'student',
           groupId: studentGroupId,
+          palette: variant.theme?.palette,
           tokens: variant.theme?.tokens,
+          nodeOverrides: variant.theme?.nodes,
           background: variant.theme?.background,
           presentation: variant.theme?.presentation,
         });
@@ -112,7 +117,7 @@ export function applyTheme(ctrl: UIController): void {
     for (let i = 0; i < style.length; i++) {
       const key = style.item(i);
       // 清理所有引擎 / 语义层注入：--ac-*、背景节点自身、以及背景感知文字色（ink-on/muted-on）
-      if (key.startsWith('--ac-') || key.startsWith('--ink-on-') || key.startsWith('--muted-on-')) {
+      if (key.startsWith('--ac-') || key.startsWith('--ink-on-') || key.startsWith('--muted-on-') || key.startsWith('--theme-node-')) {
         style.removeProperty(key);
       }
     }
@@ -120,11 +125,11 @@ export function applyTheme(ctrl: UIController): void {
       style.removeProperty(`--${name}`);
     }
     style.removeProperty('--hero-gradient');
+    style.removeProperty('--theme-bg-gradient');
   };
   removeInjected();
   syncRuntimeTheme(ctrl);
   const resolved = ctrl.game.colorSystem.runtimeTheme();
-  if (resolved.layers.length === 0) return; // 无任何层：移除覆盖，回退到 :root fallback
   const tokens = resolved.tokens;
   // 引擎强制设色层：合并后的 token 注入为 --ac-*
   for (const [key, value] of Object.entries(tokens)) {
@@ -137,8 +142,43 @@ export function applyTheme(ctrl: UIController): void {
   for (const [key, value] of Object.entries(vars)) {
     style.setProperty(`--${key}`, value);
   }
+  const palette = resolved.palette.length > 0 ? resolved.palette : [tokens['primary'] ?? '#3b9eff'];
+  const themeMode: ThemeMode = 'light';
+  const nodeOverrides = new Map(Object.entries(resolved.nodeOverrides) as [import('./theme-palette').ThemeNodeName, string][]);
+  for (const [key, value] of Object.entries(buildThemeNodeVars({ colors: palette }, tokens, nodeOverrides))) {
+    style.setProperty(key, value);
+  }
+  const rootNodes = resolveThemeNodes({ colors: palette }, tokens, nodeOverrides);
+  for (const [key, value] of Object.entries(buildScopedThemeCompatibilityVars(rootNodes))) style.setProperty(key, value);
+  applyThemeScopes(ctrl, tokens, palette, nodeOverrides, resolved.scopeNodeOverrides, resolved.presentation);
+  style.setProperty('--theme-bg-gradient', deriveBackgroundGradient(palette, themeMode));
   // area-hero 横幅渐变（跟随主题 primary 的光晕）
   style.setProperty('--hero-gradient', heroGradient(tokens['primary'] ?? '#3b9eff', tokens));
+}
+
+function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, palette: string[], rootOverrides: ReadonlyMap<import('./theme-palette').ThemeNodeName, string>, scopeOverrides: Record<string, Partial<Record<import('./theme-palette').ThemeNodeName, string>>>, presentation: import('../engine/types/theme').PresentationDef): void {
+  const rootNodes = resolveThemeNodes({ colors: palette }, tokens, rootOverrides);
+  const resolvedByScope = new Map<string, typeof rootNodes>();
+  ctrl.root.querySelectorAll<HTMLElement>('[data-theme-scope]').forEach(element => {
+    const scope = element.dataset.themeScope ?? '';
+    const parentScope = scope.includes('.') ? scope.slice(0, scope.lastIndexOf('.')) : 'root';
+    // 当前阶段作用域只建立父级继承链；节点覆盖接入后在此处按 scope 查表应用。
+    const localOverrides = scopeOverrides[scope];
+    const inherited = resolveScopedThemeNodes(
+      resolvedByScope.get(parentScope) ?? rootNodes,
+      new Map(Object.entries(localOverrides ?? {}) as [import('./theme-palette').ThemeNodeName, string][]),
+    );
+    resolvedByScope.set(scope, inherited);
+    const panelRegion = scope === 'left' ? 'leftPanel' : scope === 'center' ? 'centerPanel' : scope === 'right' ? 'rightPanel' : undefined;
+    if (panelRegion) {
+      const configured = presentation.panels?.find(panel => panel.region === panelRegion)?.opacity;
+      element.style.setProperty('--theme-cluster-opacity', String(Math.max(0, Math.min(1, configured ?? 0.8))));
+    }
+    for (const [key, value] of Object.entries(buildScopedThemeNodeVars(inherited))) {
+      element.style.setProperty(key, value);
+    }
+    for (const [key, value] of Object.entries(buildScopedThemeCompatibilityVars(inherited))) element.style.setProperty(key, value);
+  });
 }
 
 export function backgroundView(ctrl: UIController) {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T13:54:02.004Z",
+  "generatedAt": "2026-09-03T16:41:55.111Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -357,11 +357,30 @@
               "table": "colorGroups"
             },
             {
+              "key": "palette",
+              "required": false,
+              "kind": "array",
+              "tsType": "string[]",
+              "label": "有序主题色列表（最多六个）",
+              "item": {
+                "key": "$",
+                "kind": "string",
+                "tsType": "string"
+              }
+            },
+            {
               "key": "tokens",
               "required": false,
               "kind": "hand",
               "tsType": "Partial<Record<ThemeToken, string>>",
               "label": "局部覆盖"
+            },
+            {
+              "key": "nodes",
+              "required": false,
+              "kind": "hand",
+              "tsType": "Partial<Record<ThemeNodeName, string>>",
+              "label": "语义颜色节点覆盖"
             },
             {
               "key": "background",
@@ -576,6 +595,13 @@
                         "required": true,
                         "kind": "hand",
                         "tsType": "PresentationRegion"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "簇背景透明度"
                       },
                       {
                         "key": "layers",
@@ -955,11 +981,30 @@
               "table": "colorGroups"
             },
             {
+              "key": "palette",
+              "required": false,
+              "kind": "array",
+              "tsType": "string[]",
+              "label": "有序主题色列表（最多六个）",
+              "item": {
+                "key": "$",
+                "kind": "string",
+                "tsType": "string"
+              }
+            },
+            {
               "key": "tokens",
               "required": false,
               "kind": "hand",
               "tsType": "Partial<Record<ThemeToken, string>>",
               "label": "局部覆盖"
+            },
+            {
+              "key": "nodes",
+              "required": false,
+              "kind": "hand",
+              "tsType": "Partial<Record<ThemeNodeName, string>>",
+              "label": "语义颜色节点覆盖"
             },
             {
               "key": "background",
@@ -1174,6 +1219,13 @@
                         "required": true,
                         "kind": "hand",
                         "tsType": "PresentationRegion"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "簇背景透明度"
                       },
                       {
                         "key": "layers",
@@ -2272,11 +2324,30 @@
               "table": "colorGroups"
             },
             {
+              "key": "palette",
+              "required": false,
+              "kind": "array",
+              "tsType": "string[]",
+              "label": "有序主题色列表（最多六个）",
+              "item": {
+                "key": "$",
+                "kind": "string",
+                "tsType": "string"
+              }
+            },
+            {
               "key": "tokens",
               "required": false,
               "kind": "hand",
               "tsType": "Partial<Record<ThemeToken, string>>",
               "label": "局部覆盖"
+            },
+            {
+              "key": "nodes",
+              "required": false,
+              "kind": "hand",
+              "tsType": "Partial<Record<ThemeNodeName, string>>",
+              "label": "语义颜色节点覆盖"
             },
             {
               "key": "background",
@@ -2491,6 +2562,13 @@
                         "required": true,
                         "kind": "hand",
                         "tsType": "PresentationRegion"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "簇背景透明度"
                       },
                       {
                         "key": "layers",
@@ -2890,11 +2968,30 @@
               "table": "colorGroups"
             },
             {
+              "key": "palette",
+              "required": false,
+              "kind": "array",
+              "tsType": "string[]",
+              "label": "有序主题色列表（最多六个）",
+              "item": {
+                "key": "$",
+                "kind": "string",
+                "tsType": "string"
+              }
+            },
+            {
               "key": "tokens",
               "required": false,
               "kind": "hand",
               "tsType": "Partial<Record<ThemeToken, string>>",
               "label": "局部覆盖"
+            },
+            {
+              "key": "nodes",
+              "required": false,
+              "kind": "hand",
+              "tsType": "Partial<Record<ThemeNodeName, string>>",
+              "label": "语义颜色节点覆盖"
             },
             {
               "key": "background",
@@ -3109,6 +3206,13 @@
                         "required": true,
                         "kind": "hand",
                         "tsType": "PresentationRegion"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "簇背景透明度"
                       },
                       {
                         "key": "layers",
@@ -3356,11 +3460,30 @@
               "table": "colorGroups"
             },
             {
+              "key": "palette",
+              "required": false,
+              "kind": "array",
+              "tsType": "string[]",
+              "label": "有序主题色列表（最多六个）",
+              "item": {
+                "key": "$",
+                "kind": "string",
+                "tsType": "string"
+              }
+            },
+            {
               "key": "tokens",
               "required": false,
               "kind": "hand",
               "tsType": "Partial<Record<ThemeToken, string>>",
               "label": "局部覆盖"
+            },
+            {
+              "key": "nodes",
+              "required": false,
+              "kind": "hand",
+              "tsType": "Partial<Record<ThemeNodeName, string>>",
+              "label": "语义颜色节点覆盖"
             },
             {
               "key": "background",
@@ -3575,6 +3698,13 @@
                         "required": true,
                         "kind": "hand",
                         "tsType": "PresentationRegion"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "簇背景透明度"
                       },
                       {
                         "key": "layers",
@@ -4300,6 +4430,8 @@
     "ThemeDef",
     "ThemeDesignDef",
     "ThemeEffectValue",
+    "ThemeMode",
+    "ThemeNodeName",
     "ThemeOrderScope",
     "ThemeToken",
     "TickResult",

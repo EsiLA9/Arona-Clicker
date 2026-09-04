@@ -119,6 +119,11 @@ describe('theme-tree：色彩树设定工具', () => {
     expect(readableOn('#f5f9ff')).toBe('hsl(220 18% 12%)');
   });
 
+  test('TREE-10d 感知亮度达到 0.75 后才切换为深色文字', () => {
+    expect(readableOn('#e0e0e0')).toBe('#ffffff');
+    expect(readableOn('#e1e1e1')).toBe('hsl(220 18% 12%)');
+  });
+
   test('TREE-11 resource-bar 使用的 panel-light 背景感知文字：暗化时翻白字', () => {
     // resource-bar 以 panel-light 为背景，其 data-resource 文本消费 --ink-on-panel-light
     const light = buildThemeVars(primary);
@@ -130,7 +135,7 @@ describe('theme-tree：色彩树设定工具', () => {
 
   test('TREE-11b player-bubble 背景节点生成 --ink-on-player-bubble，随背景明暗翻字色', () => {
     const light = buildThemeVars(primary);
-    expect(light['ink-on-player-bubble']).toBe('hsl(220 18% 12%)');
+    expect(light['ink-on-player-bubble']).toBe('#ffffff');
     const dark = buildThemeVars(primary, { 'player-bubble': '#101828' });
     expect(dark['ink-on-player-bubble']).toBe('#ffffff');
   });

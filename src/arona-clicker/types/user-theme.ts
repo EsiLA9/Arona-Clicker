@@ -1,4 +1,4 @@
-import type { PresentationDef } from '../../engine/types/theme';
+import type { PresentationDef, ThemeNodeName } from '../../engine/types/theme';
 
 export type UserThemeToken =
   | 'primary' | 'primaryStrong' | 'bg' | 'bgAlt' | 'panel'
@@ -6,8 +6,13 @@ export type UserThemeToken =
 
 export interface UserThemeDraft {
   version: 1;
+  palette?: string[];
+  /** 与 palette 同索引；false 表示保留给头像/色板，但不参与 UI 自动取色。 */
+  paletteUiEnabled?: boolean[];
   tokens?: Partial<Record<UserThemeToken, string>>;
-  presentation?: Pick<PresentationDef, 'layers' | 'components'>;
+  nodes?: Partial<Record<ThemeNodeName, string>>;
+  scopes?: Record<string, Partial<Record<ThemeNodeName, string>>>;
+  presentation?: Pick<PresentationDef, 'layers' | 'components' | 'panels'>;
   motionPreferences?: { reducedMotion?: 'system' | 'always' | 'never' };
 }
 

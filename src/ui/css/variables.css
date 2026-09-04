@@ -45,7 +45,7 @@
 body {
    margin: 0;
    min-width: 320px;
-   background: linear-gradient(180deg, var(--canvas, #dcebff) 0%, var(--panel-light, #eef6ff) 45%, #f8fbff 100%);
+   background: var(--theme-bg-gradient, linear-gradient(180deg, var(--canvas, #dcebff) 0%, var(--panel-light, #eef6ff) 45%, #f8fbff 100%));
    background-attachment: fixed;
    color: var(--ink-on-canvas);
    font-family: Manrope, sans-serif;
@@ -54,4 +54,3 @@ body {
 button {
    font: inherit;
 }
-

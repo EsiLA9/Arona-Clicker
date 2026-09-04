@@ -1,5 +1,6 @@
 import type { AffectorEngine } from '../../engine/effect/affector-engine';
 import type { StateMutationService } from '../state/state-mutation-service';
+import type { ThemeNodeName } from '../../engine/types/theme';
 import type { UserThemeDraft, UserThemeState, UserThemeToken } from '../types/user-theme';
 import type { PlayerState } from '../types/state';
 import type { PicQueryPort } from '../contracts/pic-query';
@@ -11,6 +12,7 @@ export type UserThemeResult = UserThemeOk | UserThemeError;
 export interface UserThemeEditSession { id: string; baseRevision: number; draft: UserThemeDraft; readonly: boolean }
 
 const TOKEN_KEYS = new Set<UserThemeToken>(['primary', 'primaryStrong', 'bg', 'bgAlt', 'panel', 'panelAlt', 'text', 'muted', 'accent', 'danger']);
+const NODE_KEYS = new Set<ThemeNodeName>(['primary', 'primaryStrong', 'bg', 'bgAlt', 'panel', 'panelLight', 'text', 'muted', 'line', 'active', 'highlight', 'success', 'warning', 'danger', 'accent', 'playerBubble', 'npcBubble']);
 const REGIONS = new Set(['shell', 'header', 'leftPanel', 'centerPanel', 'rightPanel', 'footer', 'story', 'modal']);
 const ANCHORS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center']);
 const COLOR = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla)\([^;<>]+\)|var\(--[a-z0-9-]+\))$/i;
@@ -20,15 +22,41 @@ function issue(issues: string[], message: string): void { if (issues.length < 10
 function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
   const issues: string[] = [];
   if (!draft || draft.version !== 1) issue(issues, '仅支持 version 1 的用户主题');
+  if (draft?.palette && draft.palette.length > 6) issue(issues, '主题色最多 6 个');
+  if (draft?.paletteUiEnabled && draft.paletteUiEnabled.length > 6) issue(issues, '主题色 UI 开关最多 6 个');
+  if (draft?.paletteUiEnabled && draft.palette && draft.paletteUiEnabled.length > draft.palette.length) issue(issues, '主题色 UI 开关不能超过主题色数量');
+  for (const color of draft?.palette ?? []) {
+    if (typeof color !== 'string' || color.length > 128 || !COLOR.test(color.trim())) issue(issues, `非法主题色：${color}`);
+  }
   for (const [key, value] of Object.entries(draft?.tokens ?? {})) {
     if (!TOKEN_KEYS.has(key as UserThemeToken)) issue(issues, `不允许的颜色 Token：${key}`);
     else if (typeof value !== 'string' || value.length > 128 || !COLOR.test(value.trim())) issue(issues, `非法颜色值：${key}`);
   }
+  for (const [key, value] of Object.entries(draft?.nodes ?? {})) {
+    if (!NODE_KEYS.has(key as ThemeNodeName)) issue(issues, `不允许的语义颜色节点：${key}`);
+    else if (typeof value !== 'string' || value.length > 128 || !COLOR.test(value.trim())) issue(issues, `非法节点颜色：${key}`);
+  }
+  for (const [scope, value] of Object.entries(draft?.scopes ?? {})) {
+    if (!/^(?:header|left(?:\.(?:area|contacts|story))?|center(?:\.(?:chat|log|conversation))?|right(?:\.(?:spot|character|enh|other))?|footer)$/.test(scope)) {
+      issue(issues, `不允许的主题作用域：${scope}`);
+      continue;
+    }
+    for (const [key, color] of Object.entries(value ?? {})) {
+      if (!NODE_KEYS.has(key as ThemeNodeName)) issue(issues, `不允许的作用域颜色节点：${scope}.${key}`);
+      else if (typeof color !== 'string' || color.length > 128 || !COLOR.test(color.trim())) issue(issues, `非法作用域节点颜色：${scope}.${key}`);
+    }
+  }
   const presentation = draft?.presentation;
   const layers = presentation?.layers ?? [];
   const components = presentation?.components ?? [];
+  const panels = presentation?.panels ?? [];
   if (layers.length > 24) issue(issues, '区域图层最多 24 个');
   if (components.length > 32) issue(issues, '组件最多 32 个');
+  if (panels.length > 8) issue(issues, '面板表现最多 8 个');
+  for (const panel of panels) {
+    if (!REGIONS.has(panel.region)) issue(issues, `非法面板区域：${panel.region}`);
+    if (panel.opacity !== undefined && (!Number.isFinite(panel.opacity) || panel.opacity < 0 || panel.opacity > 1)) issue(issues, `非法面板透明度：${panel.region}`);
+  }
   const ids = new Set<string>();
   for (const layer of layers) {
     if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法图层 ID：${layer.id}`);
@@ -37,6 +65,7 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
     if (layer.value.length > 256 || (layer.kind !== 'image' && /[<>;]|url\s*\(|expression\s*\(/i.test(layer.value))) issue(issues, `非法图层值：${layer.id ?? '(anonymous)'}`);
     if (layer.kind === 'image' && !layer.value.includes(':')) issue(issues, `图片必须使用已注册 Pic 引用：${layer.value}`);
     if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `图片资源不存在：${layer.value}`);
+    if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法图层透明度：${layer.id ?? '(anonymous)'}`);
   }
   for (const component of components) {
     if (!component.id || component.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(component.id)) issue(issues, `非法组件 ID：${component.id}`);
@@ -79,10 +108,12 @@ export class UserThemeService {
 
   get(): Readonly<UserThemeState> { return this.getState().userTheme ?? { enabled: false, revision: 0 }; }
 
-  beginEdit(): UserThemeEditSession | UserThemeError {
+  beginEdit(initialPalette?: readonly string[]): UserThemeEditSession | UserThemeError {
     const capability = this.capability();
     const current = this.get();
-    const draft: UserThemeDraft = current.applied ? structuredClone(current.applied) : { version: 1 };
+    const draft: UserThemeDraft = current.applied
+      ? structuredClone(current.applied)
+      : { version: 1, palette: [initialPalette?.[0] ?? '#6b8cff'], paletteUiEnabled: [true] };
     const session: UserThemeEditSession = { id: `user-theme-${++this.sequence}`, baseRevision: current.revision, draft, readonly: !capability.active };
     this.sessions.set(session.id, session);
     return session;

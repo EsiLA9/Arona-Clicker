@@ -56,6 +56,8 @@
 
 - [[0x-plan&work/active/roadmap-0006-ui-background-layering]]：背景图片、渐变与 SVG 装饰叠层服务。
 - [[0x-plan&work/active/adr-0006-ui-background-layering]]：背景层数据结构、合并规则与安全边界裁定。
+- [[0x-plan&work/active/roadmap-0008-theme-color-system-refactor]]：主题色双轨、语义节点、UI 作用域继承与颜色迁移。
+- [[0x-plan&work/active/roadmap-0009-theme-control-backgrounds]]：按钮与控件的多背景层、定位、状态和作用域继承。
 
 当前状态：B0–B3 已完成，B4 待实施。
 

@@ -38,7 +38,7 @@
 }
 
 .modal-panel.user-theme-modal {
-   width: min(420px, calc(100vw - 32px));
+   width: min(560px, calc(100vw - 32px));
    max-height: min(760px, calc(100vh - 32px));
 }
 
@@ -65,7 +65,7 @@
    right: 16px;
    bottom: auto;
    pointer-events: auto;
-   width: min(420px, calc(100vw - 32px));
+   width: min(560px, calc(100vw - 32px));
    max-height: min(760px, calc(100vh - 32px));
    margin: 0;
    animation: user-theme-float-in .2s ease-out both;

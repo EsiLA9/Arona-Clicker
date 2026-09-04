@@ -109,7 +109,11 @@ export function openEnhancementManager(ctrl: UIController): void {
 }
 
 export function openUserThemeEditor(ctrl: UIController): void {
-  const session = ctrl.game.userThemeService.beginEdit();
+  const runtimeTheme = ctrl.game.colorSystem.runtimeTheme();
+  const initialPalette = runtimeTheme.palette.length > 0
+    ? runtimeTheme.palette
+    : [runtimeTheme.tokens.primary ?? '#6b8cff'];
+  const session = ctrl.game.userThemeService.beginEdit(initialPalette);
   if ('ok' in session && !session.ok) {
     ctrl.modal.open({ title: '用户自定主题', body: `<p class="modal-empty">${ctrl.game.userThemeService.capability().active ? '编辑服务暂不可用' : '需要 Active Affector 开放主题编辑能力。'}</p>` });
     return;
@@ -157,6 +161,34 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     }
     const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
   }));
+  modal.querySelectorAll<HTMLInputElement>('[data-user-theme-palette]').forEach(input => input.addEventListener('input', () => {
+    if (!active) return;
+    const index = Number(input.dataset.userThemePalette);
+    const palette = [...(draft.palette ?? [])];
+    palette[index] = input.value;
+    draft.palette = palette;
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+    const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
+  }));
+  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-palette-clear]').forEach(button => button.addEventListener('click', () => {
+    if (!active) return;
+    const index = Number(button.dataset.userThemePaletteClear);
+    const palette = [...(draft.palette ?? [])];
+    palette.splice(index, 1);
+    while (palette.length > 0 && !palette[palette.length - 1]) palette.pop();
+    const enabled = [...(draft.paletteUiEnabled ?? [])];
+    enabled.splice(index, 1);
+    while (enabled.length > 0 && enabled[enabled.length - 1] === undefined) enabled.pop();
+    draft.palette = palette.length > 0 ? palette : undefined;
+    draft.paletteUiEnabled = palette.length > 0 ? enabled : undefined;
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+    const input = button.parentElement?.querySelector<HTMLInputElement>('input'); if (input) { input.value = '#6b8cff'; input.disabled = true; }
+    button.disabled = true;
+    const enable = button.parentElement?.querySelector<HTMLButtonElement>('[data-user-theme-palette-enable]'); if (enable) enable.textContent = '添加颜色';
+    const code = button.parentElement?.querySelector('code'); if (code) code.textContent = '未设置';
+  }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-token-clear]').forEach(button => button.addEventListener('click', () => {
     if (!active) return;
     const token = button.dataset.userThemeTokenClear as import('../arona-clicker/types/user-theme').UserThemeToken;
@@ -171,9 +203,83 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     ctrl.game.colorSystem.setUserThemePreview(draft);
     ctrl.refreshTheme();
   }));
+  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-palette-enable]').forEach(button => button.addEventListener('click', () => {
+    if (!active) return;
+    const index = Number(button.dataset.userThemePaletteEnable);
+    const palette = [...(draft.palette ?? [])];
+    if (index > palette.length) return;
+    if (index === palette.length) palette.push('#6b8cff');
+    const enabled = [...(draft.paletteUiEnabled ?? [])];
+    enabled[index] = enabled[index] === false;
+    draft.palette = palette;
+    draft.paletteUiEnabled = enabled;
+    const container = button.parentElement;
+    const input = container?.querySelector<HTMLInputElement>('[data-user-theme-palette]');
+    const clear = container?.querySelector<HTMLButtonElement>('[data-user-theme-palette-clear]');
+    const code = container?.querySelector('code');
+    const hasColor = Boolean(palette[index]);
+    if (input) { input.disabled = !hasColor; input.value = palette[index] ?? '#6b8cff'; }
+    if (clear) clear.disabled = !hasColor;
+    if (code) code.textContent = palette[index] ?? '无色';
+    button.textContent = hasColor ? (enabled[index] === false ? '仅头像' : '参与 UI') : '添加颜色';
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
+  }));
+  modal.querySelectorAll<HTMLInputElement>('[data-user-theme-node]').forEach(input => input.addEventListener('input', () => {
+    if (!active) return;
+    const node = input.dataset.userThemeNode as import('../engine/types/theme').ThemeNodeName;
+    draft.nodes = { ...(draft.nodes ?? {}), [node]: input.value };
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+    const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
+  }));
+  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-node-clear]').forEach(button => button.addEventListener('click', () => {
+    if (!active) return;
+    const node = button.dataset.userThemeNodeClear as import('../engine/types/theme').ThemeNodeName;
+    if (draft.nodes) {
+      delete draft.nodes[node];
+      if (Object.keys(draft.nodes).length === 0) delete draft.nodes;
+    }
+    const input = modal.querySelector<HTMLInputElement>(`[data-user-theme-node="${node}"]`);
+    if (input) input.value = '#6b8cff';
+    const code = button.parentElement?.querySelector('code'); if (code) code.textContent = '自动分配';
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+  }));
+  modal.querySelectorAll<HTMLInputElement>('[data-user-theme-scope-node]').forEach(input => input.addEventListener('input', () => {
+    if (!active) return;
+    const scope = input.dataset.userThemeScopeNode!;
+    const node = input.dataset.userThemeScopeNodeName as import('../engine/types/theme').ThemeNodeName;
+    draft.scopes = { ...(draft.scopes ?? {}), [scope]: { ...(draft.scopes?.[scope] ?? {}), [node]: input.value } };
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
+    const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
+  }));
+  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-scope-clear]').forEach(button => button.addEventListener('click', () => {
+    if (!active) return;
+    const scope = button.dataset.userThemeScopeClear!;
+    const node = button.dataset.userThemeScopeNodeName as import('../engine/types/theme').ThemeNodeName;
+    if (draft.scopes?.[scope]) { delete draft.scopes[scope][node]; if (Object.keys(draft.scopes[scope]).length === 0) delete draft.scopes[scope]; }
+    if (draft.scopes && Object.keys(draft.scopes).length === 0) delete draft.scopes;
+    const input = button.parentElement?.querySelector('input'); if (input) input.value = '#6b8cff';
+    const code = button.parentElement?.querySelector('code'); if (code) code.textContent = '继承';
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
+  }));
   modal.querySelectorAll<HTMLSelectElement>('[data-user-theme-layer-region]').forEach(select => select.addEventListener('change', () => {
     if (!active || !presentation.layers) return;
     const layer = presentation.layers[Number(select.dataset.userThemeLayerRegion)]; if (layer) { layer.region = select.value as PresentationRegion; ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); }
+  }));
+  modal.querySelectorAll<HTMLInputElement>('[data-user-theme-layer-opacity]').forEach(input => input.addEventListener('input', () => {
+    if (!active || !presentation.layers) return;
+    const layer = presentation.layers[Number(input.dataset.userThemeLayerOpacity)]; if (layer) { layer.opacity = Math.max(0, Math.min(1, Number(input.value) || 0)); ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); }
+  }));
+  modal.querySelectorAll<HTMLInputElement>('[data-user-theme-panel-opacity]').forEach(input => input.addEventListener('input', () => {
+    if (!active) return;
+    const region = input.dataset.userThemePanelOpacity as PresentationRegion;
+    const panels = presentation.panels ?? (presentation.panels = []);
+    const panel = panels.find(item => item.region === region) ?? { region };
+    if (!panels.includes(panel)) panels.push(panel);
+    panel.opacity = Math.max(0, Math.min(1, Number(input.value) || 0));
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
   }));
   modal.querySelectorAll<HTMLSelectElement>('[data-user-theme-component-parent]').forEach(select => select.addEventListener('change', () => {
     if (!active) return;

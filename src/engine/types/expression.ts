@@ -148,8 +148,12 @@ export const DECLARATIVE_EFFECT_OPS: ReadonlySet<EffectOp> = new Set<EffectOp>([
 export interface ThemeEffectValue {
   /** 引用 ColorGroupDef id；缺省仅用 tokens 覆盖。 */
   colorGroupId?: string;
+  /** 有序主题色列表（最多六个）。 */
+  palette?: string[];
   /** 局部 token 覆盖表（引擎 token 键，如 primary / bg / player-bubble）。 */
   tokens?: Record<string, string>;
+  /** 语义颜色节点显式覆盖。 */
+  nodes?: Partial<Record<import('./theme').ThemeNodeName, string>>;
   /** 临时背景视觉层，规则同 ThemeDef.background。 */
   background?: import('./theme').BackgroundLayerDef[];
   /**

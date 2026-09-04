@@ -16,14 +16,24 @@ player/area/student 三层的相对优先级由玩家可自定义（`PlayerState
 ## 合并规则
 
 ```text
-runtimeTheme() → 按优先级合并 token：
+runtimeTheme() → 按优先级合并主题层：
   tokens 逐键覆盖（低层缺失键 → 高层补）
-  → 渲染为 --ac-* CSS 变量 + --ink-on-*/--muted-on-* 背景感知文字色
-  → UI 层 buildThemeVars 展开语义层（由 --ac-primary 衍生）
+  palette 取最高层的非空有序色板（最多六色）
+  nodes 逐节点覆盖，scopes 逐作用域节点覆盖
+  → 渲染为 --ac-* 与 --theme-node-* CSS 变量
+  → UI 作用域按 root → cluster → child 继承；背景文字色同步派生
 ```
 
 - 合并是**运行时派生**，不落 PlayerState；
 - 每次场景切换（`travelToArea` / 对话空间切换）→ `popSceneTheme` + `pushSceneTheme` → UI `applyTheme` 重注入 CSS 变量。
+
+### 双轨主题色与作用域继承
+
+自动轨道使用 `ThemeDef.palette`、用户主题 `palette` 或色彩组 `slots` 生成 `--theme-node-*`。主色/背景/面板优先取第 1 色，辅助与 active 取第 2 色，高亮取第 3 色，状态色偏向后部色位；色板不足时退回最后一个可用颜色，因此只配置一个主题色也能完整工作。
+
+手动轨道使用 `ThemeDef.nodes` 或用户主题 `nodes` 按节点名覆盖自动结果；`scopeNodeOverrides` / 用户主题 `scopes` 可对 `left.contacts`、`center.chat` 等 UI 作用域进行局部覆盖。作用域没有指定的节点从父作用域继承，最终回到 root 的自动结果。
+
+组件应优先使用 `--theme-node-<node>` 与专用 `ui-cluster--*` / `ui-control--*` 类名。旧的 `--cyan`、`--panel` 等变量目前由兼容别名提供，作为渐进迁移层。
 
 ## 实体配色槽（Area / 学生的多来源配色）
 

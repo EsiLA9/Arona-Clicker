@@ -31,15 +31,15 @@
 .switch-tab.active {
    background: var(--cyan);
    border-color: var(--cyan);
-   color: #ffffff;
+   color: var(--ink-on-primary);
 }
 
 /* 中栏一般聊天的顶部 Tab 栏与对话空间顶部栏统一：等高 46px + 底部分隔线 + 下方 14px 间距 */
 .center-panel > .switch-tabs {
-   height: 46px;
-   align-items: center;
+   height: auto;
+   align-items: flex-start;
    margin-bottom: 14px;
-   padding-bottom: 0;
+   padding-bottom: 12px;
 }
 
 /* Center chat stream：chat-pane 填满 panel-body（flex:1）而非固定高度，
@@ -197,6 +197,9 @@
    background: var(--player-bubble, #4a8aca);
    border-top-right-radius: 4px;
 }
+
+.chat-bubble-npc { background: var(--theme-node-npc-bubble); color: var(--ink-on-npc-bubble); }
+.chat-bubble-player { background: var(--theme-node-player-bubble); color: var(--ink-on-player-bubble); }
 
 .chat-bubble-npc::before,
 .chat-bubble-player::before {
@@ -406,4 +409,3 @@
       transition: none;
    }
 }
-

@@ -44,6 +44,7 @@ export interface PresentationRegionView {
 
 export interface PresentationView {
   region(region: PresentationRegion): PresentationRegionView;
+  panelOpacity(region: PresentationRegion): number;
   asset(ref: string): ResolvedAssetView | undefined;
   motion(name: string): MotionDef | undefined;
   stateAppearance(state: StateAppearanceDef['state']): StateAppearanceDef | undefined;
@@ -136,6 +137,10 @@ export function buildPresentationView(
   const regionMap = new Map<PresentationRegion, PresentationRegionView>(
     REGIONS.map(region => [region, { layers: [], components: [] }]),
   );
+  const panelOpacity = new Map<PresentationRegion, number>();
+  for (const panel of presentation?.panels ?? []) {
+    if (REGIONS.includes(panel.region)) panelOpacity.set(panel.region, Math.max(0, Math.min(1, panel.opacity ?? 0.8)));
+  }
   const asset = (ref: string): ResolvedAssetView | undefined => imageView(ref, pics);
   const motions = new Map<string, MotionDef>();
   for (const [name, motion] of Object.entries(presentation?.motions ?? {})) {
@@ -188,6 +193,7 @@ export function buildPresentationView(
   }
   return {
     region: region => regionMap.get(region) ?? { layers: [], components: [] },
+    panelOpacity: region => panelOpacity.get(region) ?? 0.8,
     asset,
     motion: name => motions.get(name),
     stateAppearance: state => states.get(state),

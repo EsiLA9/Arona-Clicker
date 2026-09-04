@@ -9,6 +9,7 @@ import type {
   ThemeDef,
 } from '../engine/types';
 import type { ColorGroupDef } from '../data-services/contracts/color';
+import { buildThemeNodeVars, type ThemeNodeName } from './theme-palette';
 
 /** 背景明暗 → 其上文本色：底暗用白，底亮用黑（确定性）。 */
 const ON_DARK = '#ffffff';
@@ -19,7 +20,7 @@ const ON_LIGHT = 'hsl(220 18% 12%)';
  * 用「感知亮度」而非 HSL 明度：蓝色等分量的 HSL 明度偏高，但人眼感知偏暗，
  * 故中等饱和的彩色气泡（如 #3d83f2）应判为暗底、用白字而非黑字。
  */
-const PERCEIVED_LIGHT_THRESHOLD = 0.30;
+const PERCEIVED_LIGHT_THRESHOLD = 0.75;
 
 /** HSL(h s% l%) → 相对亮度近似（hue 转换为 RGB 权重再算 Y）。 */
 function hslRelativeLuminance(h: number, s: number, l: number): number {
@@ -205,13 +206,18 @@ export type ThemeTree = Record<string, string>;
  */
 export function buildThemeTree(
   tokens: Record<string, string>,
-  primary: string = tokens['primary'] ?? '#3b9eff',
+  primary?: string,
+  palette?: readonly string[],
+  nodeOverrides: ReadonlyMap<ThemeNodeName, string> = new Map(),
 ): ThemeTree {
-  const tree: ThemeTree = { ...buildThemeVars(primary, {}, tokens) };
+  const resolvedPrimary = primary ?? tokens['primary'] ?? '#3b9eff';
+  const resolvedPalette = palette && palette.length > 0 ? palette : [resolvedPrimary];
+  const tree: ThemeTree = { ...buildThemeVars(resolvedPrimary, {}, tokens) };
+  Object.assign(tree, buildThemeNodeVars({ colors: resolvedPalette }, tokens, nodeOverrides));
   for (const [key, value] of Object.entries(tokens)) {
     tree[`--ac-${key}`] = value;
   }
-  tree['--hero-gradient'] = heroGradient(primary, tokens);
+  tree['--hero-gradient'] = heroGradient(resolvedPrimary, tokens);
   return tree;
 }
 
@@ -239,7 +245,7 @@ export function themeTreeToInlineStyle(tree: ThemeTree): string {
 
 /** ColorGroup 快速映射：直接用 resolveTheme 解析为 ThemeTree。 */
 export function themeTreeFromGroup(group: ColorGroupDef): ThemeTree {
-  return buildThemeTree(resolveTheme(group));
+  return buildThemeTree(resolveTheme(group), undefined, group.slots.map(slot => slot.color));
 }
 
 /** ThemeDef（自定义主题）快速映射：引用 ColorGroup 打底 + 局部覆盖。 */
@@ -247,5 +253,8 @@ export function themeTreeFromThemeDef(
   theme: ThemeDef | undefined,
   getGroup: (id: ColorGroupId) => ColorGroupDef | undefined,
 ): ThemeTree {
-  return buildThemeTree(themeContributionFromThemeDef(theme, getGroup));
+  const group = theme?.colorGroupId ? getGroup(theme.colorGroupId) : undefined;
+  const palette = theme?.palette?.length ? theme.palette : group?.slots.map(slot => slot.color);
+  const nodeOverrides = new Map(Object.entries(theme?.nodes ?? {}) as [ThemeNodeName, string][]);
+  return buildThemeTree(themeContributionFromThemeDef(theme, getGroup), undefined, palette, nodeOverrides);
 }

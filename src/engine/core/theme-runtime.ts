@@ -17,7 +17,7 @@
 // ============================================================
 
 import type { ColorGroupId } from '../types/character';
-import type { BackgroundLayerDef, PresentationDef, PresentationLayerDef, ComponentPlacementDef, ThemeOrderScope, ThemeToken } from '../types/theme';
+import type { BackgroundLayerDef, PresentationDef, PresentationLayerDef, ComponentPlacementDef, PresentationRegion, ThemeNodeName, ThemeOrderScope, ThemeToken } from '../types/theme';
 
 export type { ThemeOrderScope } from '../types/theme';
 
@@ -32,8 +32,14 @@ export interface ThemeLayer {
   scope: ThemeOrderScope | 'ephemeral';
   /** 引用 ColorGroupDef；存在时先取其整包 token 作为基底。 */
   groupId?: ColorGroupId;
+  /** 有序主题色列表；高层有值时作为最终语义节点的色板。 */
+  palette?: readonly string[];
   /** 局部 token 覆盖；在 groupId 基底之上逐 key 覆盖。 */
   tokens?: Partial<Record<ThemeToken, string>>;
+  /** 语义节点显式覆盖；高层同名节点覆盖低层。 */
+  nodeOverrides?: Partial<Record<ThemeNodeName, string>>;
+  /** UI 作用域节点覆盖；由最高优先级主题层提供。 */
+  scopeNodeOverrides?: Record<string, Partial<Record<ThemeNodeName, string>>>;
   /** 背景视觉层；高优先级层按 id 覆盖，匿名层追加。 */
   background?: readonly BackgroundLayerDef[];
   /** 区域化 UI 表现；高优先级层按 id 覆盖。 */
@@ -52,6 +58,12 @@ export interface ResolvedTheme {
   groupId: ColorGroupId | null;
   /** 合并后的最终 token 表（高层覆盖低层）。 */
   tokens: ThemeTokens;
+  /** 最终采用的有序主题色列表。 */
+  palette: string[];
+  /** 最终采用的语义节点显式覆盖。 */
+  nodeOverrides: Partial<Record<ThemeNodeName, string>>;
+  /** 最终采用的 UI 作用域节点覆盖。 */
+  scopeNodeOverrides: Record<string, Partial<Record<ThemeNodeName, string>>>;
   /** 实际参与叠加的层 id（调试/溯源用，从低到高）。 */
   layers: string[];
   /** 按最终绘制顺序排列的背景层。 */
@@ -197,14 +209,18 @@ export class RuntimeThemeManager {
     if (this.user) ordered.push(this.user);
     if (this.preview) ordered.push(this.preview);
     for (const e of this.ephemeralStack) ordered.push(e.layer);
-    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, layers: [], background: [], presentation: {} };
+    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, palette: [], nodeOverrides: {}, scopeNodeOverrides: {}, layers: [], background: [], presentation: {} };
 
     let merged: ThemeTokens = {};
+    let palette: string[] = [];
+    let nodeOverrides: Partial<Record<ThemeNodeName, string>> = {};
+    let scopeNodeOverrides: Record<string, Partial<Record<ThemeNodeName, string>>> = {};
     let groupId: ColorGroupId | null = null;
     const background: BackgroundLayerDef[] = [];
-    const presentation: PresentationDef = { layers: [], components: [] };
+    const presentation: PresentationDef = { layers: [], components: [], panels: [] };
     const presentationLayerIds = new Map<string, number>();
     const presentationComponentIds = new Map<string, number>();
+    const presentationPanelIds = new Map<PresentationRegion, number>();
     const backgroundIds = new Map<string, number>();
     const mergeBackground = (layers: readonly BackgroundLayerDef[] | undefined): void => {
       for (const layer of layers ?? []) {
@@ -237,14 +253,28 @@ export class RuntimeThemeManager {
           presentation.components!.push({ ...component });
         }
       }
+      for (const panel of value?.panels ?? []) {
+        const index = presentationPanelIds.get(panel.region);
+        if (index !== undefined) presentation.panels![index] = { ...panel };
+        else {
+          presentationPanelIds.set(panel.region, presentation.panels!.length);
+          presentation.panels!.push({ ...panel });
+        }
+      }
     };
     // 先求基底（最底层）整包 token，再逐层覆盖
     const base = this.resolveLayer(ordered[0]);
     merged = { ...base };
+    if (ordered[0].palette?.length) palette = [...ordered[0].palette];
+    nodeOverrides = { ...(ordered[0].nodeOverrides ?? {}) };
+    scopeNodeOverrides = { ...(ordered[0].scopeNodeOverrides ?? {}) };
     mergeBackground(ordered[0].background);
     mergePresentation(ordered[0].presentation);
     if (ordered[0].groupId) groupId = ordered[0].groupId;
     for (const layer of ordered.slice(1)) {
+      if (layer.palette?.length) palette = [...layer.palette];
+      nodeOverrides = { ...nodeOverrides, ...(layer.nodeOverrides ?? {}) };
+      scopeNodeOverrides = { ...scopeNodeOverrides, ...(layer.scopeNodeOverrides ?? {}) };
       if (layer.groupId) {
         merged = { ...merged, ...this.resolveLayer(layer) };
         if (!groupId) groupId = layer.groupId;
@@ -260,6 +290,9 @@ export class RuntimeThemeManager {
     return {
       groupId,
       tokens: merged,
+      palette,
+      nodeOverrides,
+      scopeNodeOverrides,
       layers: ordered.map(l => l.id ?? l.scope),
       background,
       presentation,
