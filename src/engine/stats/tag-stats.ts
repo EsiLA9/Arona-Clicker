@@ -11,7 +11,7 @@
 // ============================================================
 
 import type { EventBus } from '../core/event-bus';
-import { parseTagId, tagDisplay, TagPath } from '../core/tag';
+import { parseTagId, tagKey, TagPath } from '../core/tag';
 
 /** 参与按 tag 收集统计的实体类型（各类型统计相互独立）。 */
 export type TagStatKind =
@@ -124,7 +124,7 @@ export class TagStatService {
     const idx = this.kinds.get(kind);
     if (!idx) return new Set();
     const path = typeof tag === 'string' ? parseTagId(tag) : tag;
-    return idx[side].get(tagDisplay(path)) ?? new Set();
+    return idx[side].get(tagKey(path)) ?? new Set();
   }
 
   /**
@@ -163,15 +163,18 @@ export class TagStatService {
     };
     for (const kind of TAG_STAT_KINDS) {
       const idx = this.kinds.get(kind)!;
-      for (const entity of entitiesOf[kind]) this.declare(idx, entity.id, entity.tags ?? []);
+      for (const entity of entitiesOf[kind]) this.declare(idx, entity.id, entity.tags ?? [], this.registry.tagOwnerOf?.(entity.id));
     }
   }
 
-  private declare(idx: KindIndex, id: string, tags: TagPath[]): void {
+  private declare(idx: KindIndex, id: string, tags: TagPath[], defaultModName = 'base'): void {
     if (tags.length === 0) return;
     const keys = new Set<string>();
     for (const path of tags) {
-      for (let i = 1; i <= path.length; i++) keys.add(tagDisplay(path.slice(0, i)));
+      const resolvedKeys = this.registry.tagKeysForTag
+        ? this.registry.tagKeysForTag(path, defaultModName)
+        : Array.from({ length: path.length }, (_, i) => tagKey(path.slice(0, i + 1), defaultModName));
+      for (const key of resolvedKeys) keys.add(key);
     }
     for (const key of keys) {
       const set = idx.declared.get(key) ?? new Set<string>();
@@ -258,6 +261,8 @@ export interface TagStatRegistry {
   readonly enhancements: ReadonlyMap<string, TagStatEntity>;
   readonly passiveStories: ReadonlyMap<string, TagStatEntity>;
   readonly activeStories: ReadonlyMap<string, TagStatEntity>;
+  readonly tagOwnerOf?: (entityId: string) => string;
+  readonly tagKeysForTag?: (path: TagPath, defaultModName?: string) => string[];
 }
 
 export interface PlayerStateLike {

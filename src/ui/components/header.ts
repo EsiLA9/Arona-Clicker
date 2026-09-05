@@ -1,6 +1,7 @@
 import { UIContext } from '../context';
 import { DEFAULT_LAYER_ORDER, type ThemeOrderScope } from '../../engine/core/theme-runtime';
 import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
+import { renderPresentationHostBackground } from '../presentation-service';
 
 const LAYER_LABELS: Record<ThemeOrderScope, string> = {
   player: '玩家层',
@@ -84,8 +85,8 @@ export function renderHeader(ctx: UIContext): string {
       <div class="topbar-right">
         <div class="status-line"><span>WORLDLINE ${view.activeInit ? ctx.nameOf('init', view.activeInit) : '未进入'}</span></div>
         <div class="theme-palette">
-          <button id="theme-palette-btn" class="toolbar-button" title="切换界面主题色">
-            主题 <span>◑</span>
+          <button id="theme-palette-btn" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="切换界面主题色">
+            ${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">主题 <span>◑</span></span>
           </button>
           <div class="theme-float" data-theme-float>
             <div class="theme-float-head" data-theme-float-head>
@@ -101,13 +102,13 @@ export function renderHeader(ctx: UIContext): string {
           </div>
         </div>
         <div class="save-actions">
-          <button id="collection-modal" class="toolbar-button" title="被动闲聊收集图鉴（按 Pool 分组）">图鉴 <span>✦</span></button>
-          <button id="import-datapack" class="toolbar-button" title="从压缩包加载 Mod 数据包（遍历其中所有 .json 构造 Def）">导入 Mod <span>⇪</span></button>
-          <button id="pack-manager" class="toolbar-button" title="管理已导入的数据包">数据包库 <span>▦</span></button>
-          <button id="new-game" class="toolbar-button" title="放弃当前进度，选择新的世界线">新游戏 <span>↗</span></button>
-          <button id="save-game" class="toolbar-button" title="保存当前进度">保存 <span>↓</span></button>
-          <button id="load-game" class="toolbar-button" title="读取本地存档" ${ctx.saveExists ? '' : 'disabled'}>读取 <span>↗</span></button>
-          <button id="help-modal" class="toolbar-button" title="关于">?</button>
+          <button id="collection-modal" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="被动闲聊收集图鉴（按 Pool 分组）">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">图鉴 <span>✦</span></span></button>
+          <button id="import-datapack" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="从压缩包加载 Mod 数据包（遍历其中所有 .json 构造 Def）">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">导入 Mod <span>⇪</span></span></button>
+          <button id="pack-manager" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="管理已导入的数据包">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">数据包库 <span>▦</span></span></button>
+          <button id="new-game" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="放弃当前进度，选择新的世界线">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">新游戏 <span>↗</span></span></button>
+          <button id="save-game" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="保存当前进度">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">保存 <span>↓</span></span></button>
+          <button id="load-game" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="${ctx.saveExists ? 'inactive' : 'disabled'}" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', ctx.saveExists ? 'inactive' : 'disabled') ?? 'auto'}" title="读取本地存档" ${ctx.saveExists ? '' : 'disabled'}>${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', ctx.saveExists ? 'inactive' : 'disabled')}<span class="presentation-host-content">读取 <span>↗</span></span></button>
+          <button id="help-modal" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="关于">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">?</span></button>
         </div>
       </div>
     </header>`;

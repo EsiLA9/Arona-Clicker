@@ -37,11 +37,11 @@ export function renderCenterPanel(
   // 通讯录临时页：由左栏"通讯录"触发，等待详细设计
   if (activeTab === 'contacts-draft') {
     return `
-      <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
-        ${renderBackground(ctx.backgroundForHost('centerPanel'), 'console-panel-background')}
+      <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center.contacts-draft">
+        ${renderBackground(ctx.backgroundForHost('centerPanel.contacts-draft'), 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
-        <div class="ui-cluster ui-cluster--center-contacts-draft panel-body" data-theme-scope="center.contacts-draft">
+        <div class="ui-cluster ui-cluster--center-contacts-draft panel-body">
           <div class="chat-empty">
             <p>📒 通讯录临时页</p>
             <p style="margin-top: 8px; color: var(--muted);">此页面等待后续设计制作。</p>
@@ -52,11 +52,11 @@ export function renderCenterPanel(
   // 档案临时页：由故事 Tab"档案"入口触发，等待记录内容设计
   if (activeTab === 'archive-draft') {
     return `
-      <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
-        ${renderBackground(ctx.backgroundForHost('centerPanel'), 'console-panel-background')}
+      <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center.archive-draft">
+        ${renderBackground(ctx.backgroundForHost('centerPanel.archive-draft'), 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
-        <div class="ui-cluster ui-cluster--center-archive-draft panel-body" data-theme-scope="center.archive-draft">
+        <div class="ui-cluster ui-cluster--center-archive-draft panel-body">
           <div class="chat-empty">
             <p>🗄️ 档案临时页</p>
             <p style="margin-top: 8px; color: var(--muted);">此页面等待后续设计制作。</p>
@@ -68,15 +68,17 @@ export function renderCenterPanel(
     ? renderLogTab(ctx)
     : renderChatTab(ctx, chatEntries, chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   return `
-    <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center">
-      ${renderBackground(ctx.backgroundForHost('centerPanel'), 'console-panel-background')}
+    <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center.${activeTab}">
+      ${renderBackground(ctx.backgroundForHost(`centerPanel.${activeTab}`), 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}
-      <div class="ui-cluster ui-cluster--center-${activeTab} panel-body" data-theme-scope="center.${activeTab}">${body}</div>
+      <div class="ui-cluster ui-cluster--center-${activeTab} panel-body">
+        ${body}
+      </div>
     </section>`;
 }
 
-function renderChatTab(
+export function renderChatTab(
   ctx: UIContext,
   chatEntries: ChatEntry[],
   chatTexts: ChatTextEntry[],
@@ -224,7 +226,7 @@ export function renderSendButton(sendState: SendState, gate: SendGatePhase | nul
     </button>`;
 }
 
-function renderLogTab(ctx: UIContext): string {
+export function renderLogTab(ctx: UIContext): string {
   const { game } = ctx;
   const entries = game.getDevLogs().slice(0, 60).map(entry => `
     <li class="log-entry log-${entry.level}">

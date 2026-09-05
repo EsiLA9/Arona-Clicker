@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { Character } from '../../engine/types/ids';
+import type { TagRef } from '../../engine/core/tag';
 
 export type { ResourceAmount } from '../../engine/contracts/resource';
 
@@ -20,12 +21,20 @@ export interface ResourceDisplayDef {
 }
 
 export interface TagDef {
-  /** @label 路径 */
+  /** @label 完整 TagRef；当前包新建时由 manifest.modName 自动补齐 */
   id: string;
+  /** @label 父 TagRef；允许跨包挂靠 */
+  parent?: string;
   /** @label 名称 */
   name: string;
   /** @label 简介 */
   description?: string;
+}
+
+/** Registry 入库后的 TagDef：身份字段已解析为完整 TagRef。 */
+export interface ResolvedTagDef extends Omit<TagDef, 'id' | 'parent'> {
+  id: TagRef;
+  parent?: TagRef;
 }
 
 export interface CharacterBonusTable {

@@ -11,4 +11,6 @@ export interface WorldCatalogQueryPort {
   effectiveSpotTags(spotId: string, overrides?: Record<string, SpotTagOverrideState>): TagPath[];
   tagName(path: TagPath): string;
   tagDescription(path: TagPath): string | undefined;
+  tagNameForSpotTag?(spotId: string, path: TagPath): string;
+  tagDescriptionForSpotTag?(spotId: string, path: TagPath): string | undefined;
 }

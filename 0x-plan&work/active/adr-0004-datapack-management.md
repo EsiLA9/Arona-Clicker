@@ -117,7 +117,7 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 | --- | --- |
 | **affectionConfig** | 单值表改**特化表**：`affectionConfigs: AffectionConfigDef[]`（key = 三段式 affectionConfigId）；角色/变体加 `affectionConfigId?` 字段——缺省标准表由 AronaClicker 内容层提供，声明则查特化表，查不到报错。多包全局合并问题随之消解为命名空间表 |
 | **extras** | 暂不考虑多包语义、**置空**：v1 仅由指定的 AronaClicker 内容包声明有效，其他包携带 extras 时警告忽略 |
-| **标签（tagDefs / spotsByTag）** | 当前层级 tag 缺失多 mod 下继续编辑子叶的能力——**标签子叶节点自身命名空间化**（每个子叶带 `modName:idName`）；子叶声明 parent 可跨包挂靠（自由引用 + 事后校验覆盖），spotsByTag 索引沿祖先链命中——扩展包可把 spot 挂进内容包的标签体系并被 affector/条件命中 |
+| **标签（tagDefs / spotsByTag）** | Tag 不另设独立 modName 字段；TagRef 使用 `modName:tagPath`，命名空间位于根部、子路径继承命名空间。TagDef 可声明完整 parent TagRef，允许扩展包显式挂靠公共 Tag；spotsByTag 索引按显式 parent/祖先链命中，扩展包可引用公共 Tag 并被 affector/条件命中 |
 | **默认开局** | 当前游戏实现未使用默认开局（无 gate init 自动进入路径未启用），多包开局归属**不涉及**，无需裁定 |
 | **被动池/就绪队列** | 多包给同一角色（内容包角色）加 passiveStories 属**良性叠加**：共享池加权随机自然混排；好感台阶就绪队列按 affectionRequired 跨包混排，无需特殊处理 |
 | **Spot 功能项** | spot 归属唯一 mod（命名空间隔离），不存在两包往同一 spot 声明功能项的问题 |
@@ -155,7 +155,7 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 3. **manifest + 包解析**：`datapack.json` 解析、分片解析器按扩展名注册、包级解析报告（错误带路径）。
 4. **PackManager**：IndexedDB 包库 + 导入 + 启停 + 手动排序 + 启用集校验（modName 冲突 / 全量干跑）+ `game.reload` 接线。
 5. **惰性存档**：加载期存在性过滤（逐 id 索引类结构接入）+ 残留检查/清除界面。
-6. **连带机制**：affectionConfigId 特化表 + 标签子叶命名空间化（可与 1 并行）。
+6. **连带机制**：affectionConfigId 特化表 + TagRef 根命名空间/显式 parent + extras 冻结（可与 1 并行）。
 7. **mod 管理 UI**：包库列表 / 导入（文件·文件夹·zip）/ 启停排序 / 依赖提示 / 残留管理。
 
 ## §9 测试清单

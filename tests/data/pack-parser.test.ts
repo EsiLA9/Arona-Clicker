@@ -15,6 +15,7 @@ describe('parsePack', () => {
   test('解析 manifest、分片与图片资源', async () => {
     const pack = await parsePack(makePack({ 'images/icon.svg': '<svg></svg>', 'notes.txt': 'ignored' }));
     expect(pack.manifest.modName).toBe('demo');
+    expect(pack.datapack.modName).toBe('demo');
     expect(pack.datapack.name).toBe('Demo');
     expect(pack.jsonFileCount).toBe(1);
     expect(pack.images[0].url).toMatch(/^data:image\/svg\+xml;base64,/);

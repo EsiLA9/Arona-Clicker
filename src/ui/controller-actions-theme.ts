@@ -8,12 +8,12 @@ import { DEFAULT_LAYER_ORDER, type ThemeOrderScope } from '../engine/core/theme-
 import type { UIController } from './controller';
 
 /** 绑定主题交互事件（render 后调用）。 */
-export function bindThemeActions(ctrl: UIController): void {
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-open-user-theme]').forEach(button => {
+export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  scope.querySelectorAll<HTMLButtonElement>('[data-open-user-theme]').forEach(button => {
     button.addEventListener('click', () => ctrl.openUserThemeEditor());
   });
   // 主题切换：激活某色彩组（统一走 ownership 闸门，null = 恢复默认）。
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-activate-group]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-activate-group]').forEach(button => {
     button.addEventListener('click', () => {
       const groupId = button.dataset.activateGroup || null;
       if (!ctrl.commands.activateTheme(groupId)) {
@@ -21,11 +21,11 @@ export function bindThemeActions(ctrl: UIController): void {
         return;
       }
       ctrl.toast.show(groupId ? '主题已切换' : '已恢复默认主题', 'success');
-      ctrl.render();
+      ctrl.scheduleRender();
     });
   });
   // 层级优先级：拖拽行重排（HTML5 DnD；drop 时把新顺序落库并重渲染）
-  const layerRows = ctrl.root.querySelector<HTMLElement>('[data-theme-layer-order-rows]');
+  const layerRows = scope.querySelector<HTMLElement>('[data-theme-layer-order-rows]');
   if (layerRows) {
     let dragging: string | null = null;
     layerRows.addEventListener('dragstart', (e) => {
@@ -62,7 +62,7 @@ export function bindThemeActions(ctrl: UIController): void {
       if (at < 0) return;
       dispNext.splice(after ? at + 1 : at, 0, dragged as ThemeOrderScope);
       ctrl.commands.setThemeLayerOrder([...dispNext].reverse());
-      ctrl.render();
+      ctrl.scheduleRender();
     });
     layerRows.addEventListener('dragend', () => {
       layerRows.querySelectorAll('.is-dragging, .drop-before, .drop-after')
@@ -71,14 +71,14 @@ export function bindThemeActions(ctrl: UIController): void {
     });
   }
   // 实体主题槽：选定 Area / 学生的当前主题来源（载荷 = {entityKey, slot} JSON）
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-entity-theme-select]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-entity-theme-select]').forEach(button => {
     button.addEventListener('click', () => {
       const raw = button.dataset.entityThemeSelect;
       if (!raw) return;
       try {
         const { entityKey, slot } = JSON.parse(raw);
         ctrl.commands.setEntityThemeSlot(entityKey, slot);
-        ctrl.render();
+        ctrl.scheduleRender();
       } catch {
         ctrl.toast.show('无效的主题选择', 'error');
       }

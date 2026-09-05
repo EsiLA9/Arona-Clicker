@@ -75,4 +75,17 @@ describe('UIController 左 Tab ↔ 中栏联动', () => {
     expect(panel.centerTab).toBe('chat');
     expect(root.querySelector('.center-panel .chat-pane')).not.toBeNull();
   });
+
+  it('切换右栏只刷新右栏，不重建左栏与中栏', () => {
+    const leftBefore = root.querySelector('.left-panel');
+    const centerBefore = root.querySelector('.center-panel');
+    const fullBefore = controller.getRefreshStats().fullRenders;
+
+    root.querySelector<HTMLButtonElement>('[data-tab="right:enh"]')!.click();
+
+    expect(root.querySelector('.left-panel')).toBe(leftBefore);
+    expect(root.querySelector('.center-panel')).toBe(centerBefore);
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
+    expect(controller.getRefreshStats().panelRefreshes).toBeGreaterThan(0);
+  });
 });

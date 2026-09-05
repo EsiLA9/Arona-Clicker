@@ -19,7 +19,7 @@ import type { Value, ValueExpression } from '../types';
 import type { GameNumState } from '../contracts/state-query';
 import type { GameNumSystem } from './game-num';
 import type { GameNum, ZoneNode } from './game-num-internal';
-import { TagPath } from '../core/tag';
+import { qualifyTagPath, TagPath } from '../core/tag';
 import { EntityRef, entityKey, tagPrefixesBottomUp } from './tag-effect';
 
 // ---- 构建 ----
@@ -358,7 +358,7 @@ function scopeTags(system: GameNumSystem, scope: EntityRef): TagPath[] {
     case 'enhancement': def = system.registry.enhancements.get(scope.id) as TaggedDef | undefined; break;
     case 'global': break;
   }
-  return def?.tags ?? [];
+  return (def?.tags ?? []).map(tag => qualifyTagPath(tag, system.registry.tagOwnerOf?.(scope.id) ?? 'base'));
 }
 
 export function setParent(system: GameNumSystem, child: GameNum, parent: GameNum): void {

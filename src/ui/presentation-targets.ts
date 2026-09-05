@@ -33,6 +33,7 @@ export const PRESENTATION_TARGETS: readonly PresentationTargetDef[] = [
   { id: 'centerPanel.tab', label: '中部 Tab', level: 'control', parent: 'centerPanel', kind: 'tab' },
   { id: 'rightPanel.tab', label: '右侧 Tab', level: 'control', parent: 'rightPanel', kind: 'tab' },
   { id: 'card', label: '信息卡片', level: 'control', parent: 'shell', kind: 'card' },
+  { id: 'card.action', label: '卡片操作按钮', level: 'control', parent: 'card', kind: 'button' },
   { id: 'bubble', label: '聊天气泡', level: 'control', parent: 'centerPanel', kind: 'bubble' },
 ];
 

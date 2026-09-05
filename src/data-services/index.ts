@@ -6,6 +6,8 @@ export {
 } from './datapack/zip-loader';
 export { ZipPackSource } from './datapack/source';
 export type { Datapack } from './contracts/datapack';
+export type { TagRef } from '../engine/core/tag';
+export { isTagRef, parseTagRef, tagRef } from '../engine/core/tag';
 export type { CharacterData } from './contracts/character-data';
 export type { PicDef, PicId, PicKind, PicRefParts } from './contracts/pic';
 export { parsePicId, isPicRef, buildPicId, isDirectUrl, isZipPicSrc, zipPathOf } from './contracts/pic';

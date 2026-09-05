@@ -1,4 +1,5 @@
 import { UIContext } from '../context';
+import { renderPresentationHostBackground } from '../presentation-service';
 import { getEnhancementReveal, describeCondition } from './tooltip';
 import { unlockCondition } from '../../engine/visibility/reveal';
 import type { EnhancementDef } from '../../data-services/contracts/enhancement';
@@ -72,7 +73,8 @@ export function renderEnhancements(ctx: UIContext): string {
       ? `<p>${ctx.escapeHtml(enh.description)}</p>`
       : '';
     return `
-      <article class="mini-card hover-wrap" data-tooltip="enh:${enh.id}">
+      <article class="mini-card hover-wrap presentation-host-target" data-theme-host-id="card" data-theme-text-mode="${ctx.textColorModeForHost?.('card') ?? 'auto'}" data-tooltip="enh:${enh.id}">
+        ${renderPresentationHostBackground(ctx, 'card')}
         <div class="mini-card-title-row">
           <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
           <strong class="mini-status">${purchaseable ? '可购买' : '未解锁'}</strong>
@@ -82,7 +84,7 @@ export function renderEnhancements(ctx: UIContext): string {
           <span class="mini-yield">${ctx.escapeHtml(utilityText)}</span>
           <div class="mini-actions">
             ${purchaseable
-              ? `<button class="mini-action" data-purchase-enh="${enh.id}">购买 ${priceText} <span>↗</span></button>`
+              ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-purchase-enh="${enh.id}">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">购买 ${priceText} <span>↗</span></span></button>`
               : ''}
           </div>
         </div>
@@ -127,7 +129,7 @@ export function renderEnhancementManager(ctx: UIContext): string {
         <div class="mini-card-foot">
           <span class="mini-yield">${ctx.escapeHtml(multiplier || '—')} · ${ctx.escapeHtml(attachLabel(ctx, enh))}</span>
           <div class="mini-actions">
-            <button class="mini-action" data-remove-enh="${enh.id}" title="从当前游戏移除该强化">移除</button>
+            <button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-remove-enh="${enh.id}" title="从当前游戏移除该强化">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">移除</span></button>
           </div>
         </div>
       </article>`;

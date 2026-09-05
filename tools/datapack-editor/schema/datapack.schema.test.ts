@@ -57,7 +57,7 @@ describe('divider 横条（UI 语义分组，非数据字段）', () => {
 });
 
 describe('叶子条件 tagged 联动（target 首枚举 → key 引用表）', () => {
-  const pack = (conditions: unknown[], resources: unknown[] = []) => ({
+  const pack = (conditions: unknown[], resources: unknown[] = [], tags: unknown[] = []) => ({
     inits: [
       {
         id: 'base:init:test',
@@ -68,6 +68,7 @@ describe('叶子条件 tagged 联动（target 首枚举 → key 引用表）', (
       },
     ],
     resourceDisplays: resources,
+    tags,
   });
 
   it('target=resource 时 key 按资源表引用校验（credit 命中）', () => {
@@ -90,8 +91,35 @@ describe('叶子条件 tagged 联动（target 首枚举 → key 引用表）', (
     expect(issues.some((i) => i.severity === 'error' && i.message.includes('resourceDisplays'))).toBe(true);
   });
 
-  it('target=hasTag（自由文本）不校验引用表', () => {
-    const issues = validateDatapack(pack([{ target: 'hasTag', key: 'any-tag', comparator: '==', value: 1 }]));
+  it('target=hasTag 使用完整 TagRef 引用标签表', () => {
+    const issues = validateDatapack(
+      pack(
+        [{ target: 'hasTag', key: 'base:office', comparator: '==', value: 1 }],
+        [],
+        [{ id: 'base:office', name: '办公室' }],
+      ),
+    );
     expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
+  });
+
+  it('target=hasTag 拒绝非法 TagRef 格式', () => {
+    const issues = validateDatapack(
+      pack(
+        [{ target: 'hasTag', key: 'bad:tag:path', comparator: '==', value: 1 }],
+        [],
+        [{ id: 'tag', name: '标签' }],
+      ),
+    );
+    expect(issues.some((i) => i.severity === 'error' && i.message.includes('合法 TagRef'))).toBe(true);
+  });
+
+  it('tags 表拒绝非法 id/parent，但允许裸 id', () => {
+    const issues = validateDatapack({ tags: [
+      { id: 'office', name: '办公室' },
+      { id: 'bad:tag:path', name: '坏标签', parent: 'not-a-ref' },
+    ] });
+    expect(issues.filter((i) => i.severity === 'error').map(i => i.path)).toEqual([
+      'tags[1].id', 'tags[1].parent',
+    ]);
   });
 });

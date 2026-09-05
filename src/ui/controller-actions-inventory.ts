@@ -8,9 +8,9 @@ import { enhPurchaseErrorText, travelErrorText, itemUseErrorText } from './compo
 import type { UIController } from './controller';
 
 /** 绑定背包 / 区域 / 强化 / 升级 / 重启事件（render 后调用）。 */
-export function bindInventoryActions(ctrl: UIController): void {
+export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
   // 背包 / 区域 / 强化 / 升级
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-use-item]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-use-item]').forEach(button => {
     button.addEventListener('click', () => {
       const itemId = button.dataset.useItem!;
       const result = ctrl.commands.useItem(itemId);
@@ -20,10 +20,10 @@ export function bindInventoryActions(ctrl: UIController): void {
       } else {
         ctrl.toast.show(`使用失败：${itemUseErrorText[result.error] ?? result.error}`, 'error');
       }
-      ctrl.render();
+      ctrl.refreshPanels(['right']);
     });
   });
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-area]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-area]').forEach(button => {
     button.addEventListener('click', () => {
       // aria-disabled 行（当前 Area / 锁定 Area）不可移动
       if (button.getAttribute('aria-disabled') === 'true') return;
@@ -38,10 +38,10 @@ export function bindInventoryActions(ctrl: UIController): void {
       } else {
         ctrl.toast.show(`无法移动：${travelErrorText[result.error] ?? result.error}`, 'error');
       }
-      ctrl.render();
+      ctrl.scheduleRender();
     });
   });
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-purchase-enh]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-purchase-enh]').forEach(button => {
     button.addEventListener('click', () => {
       const enhId = button.dataset.purchaseEnh!;
       const result = ctrl.commands.purchaseEnhancement(enhId);
@@ -51,17 +51,17 @@ export function bindInventoryActions(ctrl: UIController): void {
       } else {
         ctrl.toast.show(`购买失败：${enhPurchaseErrorText[result.error] ?? result.error}`, 'error');
       }
-      ctrl.render();
+      ctrl.refreshPanels(['right']);
     });
   });
-  ctrl.root.querySelector('[data-open-enh-manager]')?.addEventListener('click', () => {
+  scope.querySelector('[data-open-enh-manager]')?.addEventListener('click', () => {
     ctrl.openEnhancementManager();
   });
   // 全局强化选择页入口（mid-game 热插拔）：打开镜像盘的 GlobalEnhancement 面
-  ctrl.root.querySelector('[data-open-global-enh-select]')?.addEventListener('click', () => {
+  scope.querySelector('[data-open-global-enh-select]')?.addEventListener('click', () => {
     ctrl.openGlobalEnhancementSelect();
   });
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-upgrade]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-upgrade]').forEach(button => {
     button.addEventListener('click', () => {
       const spotId = button.dataset.upgrade!;
       // 未拥有（level 0）→ 购买解锁；已拥有 → 升级
@@ -100,10 +100,10 @@ export function bindInventoryActions(ctrl: UIController): void {
           ctrl.toast.show(`升级失败：${errMap[result.error] ?? result.error}`, 'error');
         }
       }
-      ctrl.render();
+      ctrl.refreshPanels(['right']);
     });
   });
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-restart-init]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-restart-init]').forEach(button => {
     button.addEventListener('click', () => {
       // 不立即调用 restartInit（会清资源），仅在控制器标记待重启。
       // 玩家在 InitSelect 中选卡 / 购买时再真正执行 restartInit + resumeInit。
@@ -113,7 +113,7 @@ export function bindInventoryActions(ctrl: UIController): void {
       ctrl.renderInitSelect();
     });
   });
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-hard-reset-init]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-hard-reset-init]').forEach(button => {
     button.addEventListener('click', () => {
       // 硬重置仍需立即清档（放弃快照），但保留 unlockedInits 与统计。
       ctrl.commands.hardRestartInit();

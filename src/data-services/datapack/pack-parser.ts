@@ -65,7 +65,7 @@ export async function parsePack(source: PackSource): Promise<ParsedPack> {
     path: entry.path,
     url: 'data:' + mimeOfPath(entry.path) + ';base64,' + base64Of(await entry.read()),
   })));
-  const datapack = mergeFragments(fragments);
+  const datapack = { ...mergeFragments(fragments), modName: manifest.modName };
   if (datapack.name !== manifest.name || datapack.version !== manifest.version) {
     throw new PackParseError('manifest 与 Datapack 分片的 name/version 不一致。', manifestEntry.path);
   }

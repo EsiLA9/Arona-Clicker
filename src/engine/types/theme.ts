@@ -13,6 +13,7 @@ export type ThemeNodeName =
   | 'success' | 'warning' | 'danger' | 'accent' | 'playerBubble' | 'npcBubble';
 
 export type BackgroundLayerKind = 'empty' | 'solid' | 'gradient' | 'image';
+export type PresentationTextColorMode = 'auto' | 'light' | 'dark';
 
 export type PresentationRegion =
   | 'shell'
@@ -125,8 +126,25 @@ export interface PresentationHostDef {
   layerOrder?: string[];
   /** @label 宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。 */
   opacity?: number;
+  /** @label 宿主文字颜色模式。 */
+  textColorMode?: PresentationTextColorMode;
   /** @label 忽略系统颜色层。 */
   systemColorLayerIgnored?: boolean;
+  /** @label 状态表现覆盖；未设置时继承宿主默认态。 */
+  states?: Partial<Record<PresentationHostState, PresentationHostStateDef>>;
+}
+
+export type PresentationHostState = 'default' | 'active' | 'inactive' | 'disabled';
+
+export interface PresentationHostStateDef {
+  /** @label 状态图层。 */
+  layers?: BackgroundLayerDef[];
+  /** @label 状态图层顺序。 */
+  layerOrder?: string[];
+  /** @label 状态下忽略系统颜色层。 */
+  systemColorLayerIgnored?: boolean;
+  /** @label 状态文字颜色模式。 */
+  textColorMode?: PresentationTextColorMode;
 }
 
 export interface PresentationDef {

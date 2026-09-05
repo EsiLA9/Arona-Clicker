@@ -58,6 +58,7 @@ const NODE_KEYS = new Set<ThemeNodeName>(['primary', 'primaryStrong', 'bg', 'bgA
 const REGIONS = new Set(['shell', 'header', 'leftPanel', 'centerPanel', 'rightPanel', 'footer', 'story', 'modal']);
 const ANCHORS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center']);
 const COLOR = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla)\([^;<>]+\)|var\(--[a-z0-9-]+\))$/i;
+const TEXT_COLOR_MODES = new Set(['auto', 'light', 'dark']);
 
 function issue(issues: string[], message: string): void { if (issues.length < 100) issues.push(message); }
 
@@ -107,6 +108,7 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
     hostIds.add(host.id);
     if (host.parent && host.parent.length > 96) issue(issues, `控件宿主父级 ID 过长：${host.id}`);
     if (host.opacity !== undefined && (!Number.isFinite(host.opacity) || host.opacity < 0 || host.opacity > 1)) issue(issues, `非法控件宿主透明度：${host.id}`);
+    if (host.textColorMode !== undefined && !TEXT_COLOR_MODES.has(host.textColorMode)) issue(issues, `非法宿主文字颜色模式：${host.id}`);
     if ((host.layers?.length ?? 0) > 24) issue(issues, `控件宿主图层最多 24 个：${host.id}`);
     if ((host.layerOrder?.length ?? 0) > 32) issue(issues, `控件宿主排序最多 32 项：${host.id}`);
     for (const layer of host.layers ?? []) {
@@ -115,6 +117,19 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
       if (layer.value.length > 256 || (layer.kind !== 'image' && /[<>;]|url\s*\(|expression\s*\(/i.test(layer.value))) issue(issues, `非法控件图层值：${host.id}`);
       if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `控件图片资源不存在：${host.id}.${layer.value}`);
       if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法控件图层透明度：${host.id}`);
+    }
+    for (const [state, stateDef] of Object.entries(host.states ?? {})) {
+      if (state !== 'default' && state !== 'active' && state !== 'inactive' && state !== 'disabled') issue(issues, `非法控件状态：${host.id}.${state}`);
+      if ((stateDef?.layers?.length ?? 0) > 24) issue(issues, `控件状态图层最多 24 个：${host.id}.${state}`);
+      if ((stateDef?.layerOrder?.length ?? 0) > 32) issue(issues, `控件状态排序最多 32 项：${host.id}.${state}`);
+      if (stateDef?.textColorMode !== undefined && !TEXT_COLOR_MODES.has(stateDef.textColorMode)) issue(issues, `非法状态文字颜色模式：${host.id}.${state}`);
+      for (const layer of stateDef?.layers ?? []) {
+        if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法控件状态图层 ID：${host.id}.${state}.${layer.id}`);
+        if (layer.kind !== 'empty' && layer.kind !== 'solid' && layer.kind !== 'gradient' && layer.kind !== 'image') issue(issues, `非法控件状态图层类型：${host.id}.${state}`);
+        if (layer.value.length > 256 || (layer.kind !== 'image' && /[<>;]|url\s*\(|expression\s*\(/i.test(layer.value))) issue(issues, `非法控件状态图层值：${host.id}.${state}`);
+        if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `控件状态图片资源不存在：${host.id}.${state}.${layer.value}`);
+        if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法控件状态图层透明度：${host.id}.${state}`);
+      }
     }
   }
   for (const panel of panels) {

@@ -4,6 +4,14 @@ import type { GameReadModel } from '../arona-clicker/contracts';
 import { displayName } from '../engine/core/display-name';
 import type { BackgroundView } from './background-service';
 import type { PresentationView } from './presentation-service';
+import { DEFAULT_PANEL_OPACITY } from './presentation-config';
+import type { PresentationHostState, PresentationTextColorMode } from '../engine/types/theme';
+
+export interface PresentationHostStateResult {
+  background: BackgroundView;
+  textColorMode: PresentationTextColorMode;
+  source: 'state' | 'default' | 'parent' | 'auto';
+}
 
 /**
  * 组件层可见的游戏只读门面：仅暴露渲染所需的状态读取与查询系统，
@@ -22,7 +30,9 @@ export interface UIContext {
   nameOf(type: string, id: string): string;
   background: BackgroundView;
   presentation: PresentationView;
-  backgroundForHost(hostId: string): BackgroundView;
+  backgroundForHost(hostId: string, inheritGlobal?: boolean, state?: PresentationHostState): BackgroundView;
+  presentationHostState(hostId: string, state?: PresentationHostState): PresentationHostStateResult;
+  textColorModeForHost(hostId: string, state?: PresentationHostState): PresentationTextColorMode;
 }
 
 const formatNumber = (value: number) => Math.floor(value).toLocaleString('en-US');
@@ -37,15 +47,46 @@ const formatTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString
 
 const emptyPresentation: PresentationView = {
   region: () => ({ layers: [], components: [] }),
-  host: () => ({ layers: [], opacity: 0.8 }),
-  panelOpacity: () => 0.8,
+  host: () => ({ layers: [], opacity: DEFAULT_PANEL_OPACITY, layerOrder: [] }),
+  hasHost: () => false,
+  panelOpacity: () => DEFAULT_PANEL_OPACITY,
   asset: () => undefined,
   motion: () => undefined,
   stateAppearance: () => undefined,
 };
 
 export function createUIContext(game: GameReadModel, background?: BackgroundView, presentation?: PresentationView): UIContext {
-  return {
+  const presentationView = presentation ?? emptyPresentation;
+  const resolveHostId = (hostId: string): string | undefined => {
+    let candidate = hostId;
+    while (candidate) {
+      if (presentationView.hasHost(candidate)) return candidate;
+      const separator = candidate.lastIndexOf('.');
+      candidate = separator >= 0 ? candidate.slice(0, separator) : '';
+    }
+    return undefined;
+  };
+  const resolveTextColorMode = (hostId: string, state: PresentationHostState): Pick<PresentationHostStateResult, 'textColorMode' | 'source'> => {
+    let candidate = hostId;
+    let first = true;
+    while (candidate) {
+      const resolvedHostId = resolveHostId(candidate);
+      if (!resolvedHostId) break;
+      const host = presentationView.host(resolvedHostId);
+      // A concrete state always wins over the host default, including an
+      // explicit `auto`. Only after the exact state is absent do we inherit
+      // the host's default-state configuration.
+      const stateMode = state === 'default' ? undefined : host.states?.get(state)?.textColorMode;
+      if (stateMode !== undefined) return { textColorMode: stateMode, source: first ? 'state' : 'parent' };
+      const defaultMode = host.states?.get('default')?.textColorMode ?? host.textColorMode;
+      if (defaultMode !== undefined) return { textColorMode: defaultMode, source: first ? 'default' : 'parent' };
+      const separator = resolvedHostId.lastIndexOf('.');
+      candidate = separator >= 0 ? resolvedHostId.slice(0, separator) : '';
+      first = false;
+    }
+    return { textColorMode: 'auto', source: 'auto' };
+  };
+  const context: UIContext = {
     game,
     world: game.world,
     view: game.getView(),
@@ -56,9 +97,89 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
     nameOf: (type, id) => displayName(game.registry, type, id),
     background: background ?? { layers: [] },
     presentation: presentation ?? emptyPresentation,
-    backgroundForHost: hostId => {
-      const hostLayers = (presentation ?? emptyPresentation).host(hostId).layers;
-      return { layers: hostLayers.length > 0 ? hostLayers : (background ?? { layers: [] }).layers };
+    backgroundForHost: (hostId, inheritGlobal = true, state: PresentationHostState = 'default') => {
+      const globalLayers = (background ?? { layers: [] }).layers;
+      const activeFallbackLayer = {
+        kind: 'solid' as const,
+        value: 'var(--theme-palette-2, var(--theme-palette-1, var(--theme-node-primary)))',
+        opacity: 1,
+        position: 'center' as const,
+        size: 'cover' as const,
+        repeat: 'no-repeat' as const,
+        blendMode: 'normal' as const,
+        attachment: 'fixed' as const,
+        scale: 1,
+        rotation: 0,
+      };
+      const resolvedHostId = resolveHostId(hostId);
+      if (!resolvedHostId) {
+        return { layers: state === 'active' ? [activeFallbackLayer] : inheritGlobal ? globalLayers : [] };
+      }
+      let effectiveHostId = resolvedHostId;
+      let host = presentationView.host(effectiveHostId);
+      const requestedHost = host;
+      const requestedState = requestedHost.states?.get(state);
+      const hasRequestedStateOverride = state === 'default'
+        || Boolean(requestedState && (requestedState.layers.length > 0 || requestedState.systemColorLayerIgnored));
+      const stateView = () => {
+        const exact = host.states?.get(state);
+        return exact && (exact.layers.length > 0 || exact.systemColorLayerIgnored)
+          ? exact
+          : undefined;
+      };
+      while ((stateView()?.layers.length ?? host.layers.length) === 0 && !(stateView()?.systemColorLayerIgnored ?? host.systemColorLayerIgnored)) {
+        const separator: number = effectiveHostId.lastIndexOf('.');
+        const parentId: string = separator >= 0 ? effectiveHostId.slice(0, separator) : '';
+        if (!parentId || !presentationView.hasHost(parentId)) break;
+        effectiveHostId = parentId;
+        host = presentationView.host(parentId);
+      }
+      const activeState = stateView();
+      const activeFallback = state === 'active' && !hasRequestedStateOverride;
+      const hostLayers = activeFallback ? [] : activeState?.layers ?? host.layers;
+      const systemColorLayerIgnored = activeFallback
+        ? requestedHost.systemColorLayerIgnored
+        : activeState?.systemColorLayerIgnored ?? host.systemColorLayerIgnored;
+      if (hostLayers.length === 0 && !systemColorLayerIgnored && !activeFallback) return { layers: globalLayers };
+      if (systemColorLayerIgnored) {
+        return { layers: hostLayers.length > 0 ? hostLayers : [{
+          kind: 'empty' as const,
+          value: 'transparent',
+          opacity: 0,
+          position: 'center',
+          size: 'cover',
+          repeat: 'no-repeat',
+          blendMode: 'normal',
+          attachment: 'fixed',
+          scale: 1,
+          rotation: 0,
+        }] };
+      }
+      const systemLayer = {
+        kind: state === 'active' && activeFallback ? 'solid' as const : 'gradient' as const,
+        value: state === 'active' && activeFallback
+          ? activeFallbackLayer.value
+          : 'linear-gradient(135deg, var(--bg) 0%, var(--bgAlt) 100%)',
+        opacity: 1,
+        position: 'center',
+        size: 'cover',
+        repeat: 'no-repeat',
+        blendMode: 'normal',
+        attachment: 'fixed',
+        scale: 1,
+        rotation: 0,
+      };
+      const entries = [{ id: 'system-color-background', layer: systemLayer }, ...hostLayers.map(layer => ({ id: layer.id ?? '', layer }))];
+      const rank = new Map((activeState?.layerOrder ?? host.layerOrder ?? []).map((id, index) => [id, index + 1]));
+      if (!rank.has('system-color-background')) rank.set('system-color-background', 0);
+      entries.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+      return { layers: entries.map(entry => entry.layer) };
     },
+    presentationHostState: (hostId, state: PresentationHostState = 'default') => ({
+      background: context.backgroundForHost(hostId, false, state),
+      ...resolveTextColorMode(hostId, state),
+    }),
+    textColorModeForHost: (hostId, state: PresentationHostState = 'default') => resolveTextColorMode(hostId, state).textColorMode,
   };
+  return context;
 }

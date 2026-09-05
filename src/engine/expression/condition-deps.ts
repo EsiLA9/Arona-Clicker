@@ -7,7 +7,7 @@
 // ============================================================
 
 import { Condition, ConditionGroup, GameEvent } from '../types';
-import { parseTagId, tagDisplay } from '../core/tag';
+import { parseTagId, tagKey } from '../core/tag';
 
 /** stat 目标依赖的非每帧事件集合（宽依赖；statChanged 事件上线后可收窄）。 */
 export const STAT_DEP_EVENTS: readonly GameEvent['type'][] = [
@@ -139,7 +139,7 @@ export class ConditionDepIndex<K> {
     }
 
     if (event.type === 'spotTagChanged') {
-      const s = this.tagDeps.get(event.tag);
+      const s = this.tagDeps.get(tagKey(parseTagId(event.tag)));
       if (s) for (const k of s) hit.add(k);
     }
 
@@ -174,10 +174,10 @@ export class ConditionDepIndex<K> {
         return false;
       case 'hasTag':
       case 'countTags': {
-        const tagKey = tagDisplay(parseTagId(leaf.key));
-        const set = this.tagDeps.get(tagKey) ?? new Set<K>();
+        const tagIndexKey = tagKey(parseTagId(leaf.key));
+        const set = this.tagDeps.get(tagIndexKey) ?? new Set<K>();
         set.add(key);
-        this.tagDeps.set(tagKey, set);
+        this.tagDeps.set(tagIndexKey, set);
         return false;
       }
       case 'extra': {

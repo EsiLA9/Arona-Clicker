@@ -41,6 +41,8 @@ import type { GachaPoolDef } from './gacha-pool';
 // --- Datapack 汇总 ---
 
 export interface Datapack {
+  /** manifest 提供的 Tag 默认命名空间；内置/测试包缺省为 base。 */
+  modName?: string;
   name: string;
   version: string;
   inits: InitDef[];

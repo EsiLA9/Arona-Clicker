@@ -23,7 +23,7 @@ import { CharacterSystem } from './character-system';
 import { AffectorEngine } from '../../engine/effect/affector-engine';
 import { EventBus } from '../../engine/core/event-bus';
 import { DevLog } from '../../engine/core/dev-log';
-import { tagDisplay } from '../../engine/core/tag';
+import { tagDisplay, tagKey } from '../../engine/core/tag';
 
 export interface SpotServiceOptions {
   registry: Registry;
@@ -228,7 +228,7 @@ export class SpotService {
   /** 当前有效 tags（声明 + 运行时增撤）是否已含该 tag。 */
   private hasEffectiveTag(spotId: string, tag: TagPath): boolean {
     return this.registry.effectiveSpotTags(spotId, this.opts.getState().spotTagOverrides)
-      .some(t => tagDisplay(t) === tagDisplay(tag));
+      .some(t => this.registry.tagKeyForSpotTag(spotId, t) === tagKey(tag));
   }
 
   private afterSpotTagChange(spotId: string, tag: TagPath, added: boolean): void {

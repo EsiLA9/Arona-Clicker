@@ -123,8 +123,8 @@ function conditionTagged(): FieldType & { kind: 'tagged' } {
       { tag: 'manager', fields: [r('key', 'spots', '设施')] },
       { tag: 'flag', fields: [s('key', '标记名', { required: true })] },
       { tag: 'hasEnh', fields: [r('key', 'enhancements', '强化')] },
-      { tag: 'hasTag', fields: [s('key', '标签', { required: true })] },
-      { tag: 'countTags', fields: [s('key', '标签', { required: true })] },
+      { tag: 'hasTag', fields: [r('key', 'tags', '标签 TagRef', { required: true })] },
+      { tag: 'countTags', fields: [r('key', 'tags', '标签 TagRef', { required: true })] },
       { tag: 'stat', fields: [s('key', '统计键', { required: true })] },
       { tag: 'hasReadStory', fields: [r('key', 'storyEntries', '剧情入口')] },
       { tag: 'hasReadStoryInRun', fields: [r('key', 'storyEntries', '剧情入口')] },
@@ -465,7 +465,7 @@ const tagPathField = (key = 'tags', label = '层级标签'): FieldDef =>
     },
   }, label, {
     required: false,
-    description: '路径数组，如 [["office"],["production"]]',
+    description: '路径数组；根段可为当前包 Tag（如 ["office"]），跨包 Tag 使用 ["base:office"]。',
   });
 
 /** Enhancement.attachment 挂靠元数据（判别联合） */
@@ -915,8 +915,10 @@ export const TABLE_META: TableMeta[] = [
     label: '标签表现',
     type: 'TagDef',
     idField: 'id',
+    idFormat: 'free',
     overrides: {
-      id: () => s('id', '层级路径（如 office 或 office/defense）', { required: true }),
+      id: () => s('id', '完整 TagRef（如 base:office）', { required: true }),
+      parent: () => s('parent', '父 TagRef（可跨包）'),
     },
   },
   {

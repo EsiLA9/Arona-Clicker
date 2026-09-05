@@ -115,7 +115,8 @@ export function syncAffectorZoneEffects(system: GameNumSystem, affector: GameNum
     for (const entry of pack.entries) {
       if (!instance.activeEntryIds.includes(entry.id)) continue;
       for (const modifier of entry.zoneModifiers ?? []) {
-        registerAffectorModifier(system, state, source, modifier, instance.mountEntityId);
+        const packModName = pack.id.includes(':') ? pack.id.split(':')[0] : 'base';
+        registerAffectorModifier(system, state, source, modifier, instance.mountEntityId, packModName);
       }
     }
   }
@@ -148,7 +149,7 @@ function rebuildFlowsResourceDeps(system: GameNumSystem, affector: GameNumAffect
   system.flowsResourceDeps = flowsDeps;
 }
 
-function registerAffectorModifier(system: GameNumSystem, state: GameNumState, source: string, modifier: ZoneModifierDecl, mountEntityId: string): void {
+function registerAffectorModifier(system: GameNumSystem, state: GameNumState, source: string, modifier: ZoneModifierDecl, mountEntityId: string, defaultModName: string): void {
   const idSuffix = modifier.multiplierId ? `:${modifier.multiplierId}` : '';
   const id = `${source}:${modifier.category}${idSuffix}`;
   const valueNode: GameNum =
@@ -166,7 +167,7 @@ function registerAffectorModifier(system: GameNumSystem, state: GameNumState, so
     ...(modifier.max !== undefined ? { max: modifier.max } : {}),
   };
   if (modifier.target.kind === 'tag') {
-    registerTagEffect(system, state, tagId(modifier.target.tag), record);
+    registerTagEffect(system, state, tagId(modifier.target.tag, defaultModName), record);
   } else if (modifier.target.ref.id === '*') {
     for (const e of allEntitiesOfKind(system, modifier.target.ref.kind)) {
       registerEntityEffect(system, state, entityKey(e), record);

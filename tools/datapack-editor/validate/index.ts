@@ -206,7 +206,9 @@ function validateValue(
         break;
       }
       const ids = ctx.idSets.get(type.table);
-      if (ids && !ids.has(value)) {
+      if (type.table === 'tags' && value.includes(':') && !TAG_REF_FORMAT.test(value)) {
+        push(issues, table, rowIndex, path, `${path} 不是合法 TagRef（应为 modName:tagPath）`);
+      } else if (ids && (type.table === 'tags' ? !hasTagReference(value, ids) : !ids.has(value))) {
         push(issues, table, rowIndex, path, `${path} 引用 "${value}" 不存在于 ${type.table} 表`);
       }
       break;
@@ -312,6 +314,14 @@ export function checkUniqueIds(table: TableSchema, rows: unknown[]): ValidationI
 
 /** 三段式 ID 格式：`pack:kind:name`（如 base:spot:credit_printer） */
 const ID_FORMAT = /^[a-z0-9]+:[a-z0-9]+:[^:]+$/;
+const TAG_REF_FORMAT = /^[a-z0-9-]+:[a-z0-9_-]+(?:\/[a-z0-9_-]+)*$/;
+
+function hasTagReference(value: string, ids: Set<string>): boolean {
+  if (ids.has(value)) return true;
+  if (!TAG_REF_FORMAT.test(value)) return false;
+  const path = value.slice(value.indexOf(':') + 1);
+  return ids.has(path);
+}
 
 export function checkIdFormat(table: TableSchema, rows: unknown[]): ValidationIssue[] {
   if (!table.idField || table.idFormat === 'free') return [];
@@ -381,6 +391,19 @@ export function validateDatapack(
       continue;
     }
     issues.push(...validateTable(table, raw, ctx));
+    if (table.key === 'tags') {
+      raw.forEach((row, idx) => {
+        if (!isObj(row)) return;
+        const id = row.id;
+        const parent = row.parent;
+        if (typeof id === 'string' && id.includes(':') && !TAG_REF_FORMAT.test(id)) {
+          push(issues, table.key, idx, `tags[${idx}].id`, `tags[${idx}].id 不是合法 TagRef（应为 modName:tagPath）`);
+        }
+        if (typeof parent === 'string' && parent.length > 0 && !TAG_REF_FORMAT.test(parent)) {
+          push(issues, table.key, idx, `tags[${idx}].parent`, `tags[${idx}].parent 不是合法 TagRef（应为 modName:tagPath）`);
+        }
+      });
+    }
     if (checkIds) {
       issues.push(...checkUniqueIds(table, raw));
       issues.push(...checkIdFormat(table, raw));

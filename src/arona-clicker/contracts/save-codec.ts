@@ -3,6 +3,7 @@ import type { PersistedStats } from '../../engine/contracts/stats';
 import type { StoryCursorSnapshot } from '../../engine/contracts/story-cursor';
 import type { PlayerState } from '../types/state';
 import type { SaveData } from './save-data';
+import type { TagOverrideResidue } from '../state/tag-residue';
 
 /** AronaClicker Runtime 组装存档 DTO 所需的产品上下文。 */
 export interface SaveBuildContext {
@@ -11,6 +12,8 @@ export interface SaveBuildContext {
   storyCursor: () => StoryCursorSnapshot;
   chatCursors: () => Record<string, StoryCursorSnapshot>;
   persistedStats: () => PersistedStats;
+  activeModNames?: ReadonlySet<string>;
+  retainedTagResidue?: TagOverrideResidue;
 }
 
 export type SaveCodec = (ctx: SaveBuildContext) => SaveData;

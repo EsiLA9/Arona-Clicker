@@ -49,8 +49,8 @@ footer {
 
 /* 顶部工具按钮在浅色模式下保持白色，打开/激活时使用 highlight（主题色 3→2→1）。 */
 .topbar .toolbar-button {
-   background: #ffffff;
-   color: var(--theme-node-text);
+   background: var(--ui-button-bg, #ffffff);
+   color: var(--ui-button-text, var(--theme-node-text));
    border-color: #ebebeb;
 }
 
@@ -99,9 +99,9 @@ footer {
 .workspace button.manager-entry,
 .workspace button.story-trigger,
 .workspace button.equipment-option {
-   background: #ffffff;
+   background: var(--ui-button-bg, #ffffff);
    border: 1px solid #ebebeb;
-   color: var(--theme-node-text);
+   color: var(--ui-button-text, var(--theme-node-text));
    border-radius: 8px;
    transition: background .15s, color .15s, border-color .15s;
 }
@@ -116,6 +116,21 @@ footer {
    background: var(--theme-node-highlight);
    border-color: var(--theme-node-highlight);
    color: var(--ink-on-highlight);
+}
+
+.topbar .toolbar-button.is-active,
+.topbar .theme-palette:has([data-theme-float].open) > #theme-palette-btn,
+.ui-control--active,
+.switch-tab.active,
+.mini-action.is-active {
+   color: var(--ui-button-text-active, var(--ink-on-active));
+}
+
+.ui-control--active,
+.switch-tab.active,
+.mini-action.is-active {
+   background: var(--ui-button-bg-active, var(--theme-node-active));
+   border-color: var(--ui-button-bg-active, var(--theme-node-active));
 }
 
 .toolbar-button span {
@@ -136,6 +151,27 @@ footer {
 .toolbar-button:disabled {
    opacity: .4;
    cursor: not-allowed;
+}
+
+/* 表现目标负责按钮底色；hover/打开只提供边框与轻量反馈，避免覆盖状态图层。 */
+.topbar .presentation-host-target:hover {
+   background-color: var(--theme-node-highlight);
+   color: var(--ink-on-highlight);
+   border-color: var(--theme-node-highlight);
+   box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-node-highlight) 30%, transparent);
+}
+
+.topbar .presentation-host-target.is-active,
+.topbar .theme-palette:has([data-theme-float].open) > #theme-palette-btn {
+   background-color: transparent;
+   color: inherit;
+   border-color: var(--theme-node-highlight);
+   box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-node-highlight) 30%, transparent);
+}
+
+.topbar .presentation-host-target:hover > .presentation-host-content,
+.topbar .presentation-host-target.is-active > .presentation-host-content {
+   color: inherit;
 }
 
 .brand-lockup,
@@ -280,7 +316,7 @@ h3 {
    overflow: hidden;
 }
 
-.ui-cluster--left-panel, .ui-cluster--center-panel, .ui-cluster--right-panel { border-color: var(--theme-node-line); background: color-mix(in srgb, #ffffff calc(var(--theme-cluster-opacity, .8) * 100%), transparent); color: var(--theme-node-text); }
+.panel.ui-cluster--left-panel, .panel.ui-cluster--center-panel, .panel.ui-cluster--right-panel { border-color: var(--theme-node-line); background: var(--theme-cluster-background, color-mix(in srgb, #ffffff calc(var(--theme-cluster-opacity, .8) * 100%), transparent)); color: var(--theme-node-text); }
 .ui-control--active, .switch-tab.active { color: var(--theme-node-active); border-color: var(--theme-node-active); }
 
 .panel {

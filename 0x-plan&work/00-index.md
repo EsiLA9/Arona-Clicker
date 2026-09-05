@@ -30,8 +30,9 @@
 
 - [[0x-plan&work/active/adr-0004-datapack-management]]：多包读取、启用集、惰性存档和包管理决策权威。
 - [[0x-plan&work/active/roadmap-0001-datapack-management]]：对应实现切片与状态追踪。
+- [[0x-plan&work/registry&saves/00-index]]：Registry、启用集与多包存档的完整施工计划。
 
-当前重点：S1c 角色/差分 ID 命名空间化，以及后续 Source、manifest、PackManager、惰性存档和 UI。
+当前重点：先完成 Registry 全量校验与启用集恢复接线，再实现惰性存档和残留管理。
 
 ### 世界经营玩法
 
@@ -62,7 +63,10 @@
 - [[0x-plan&work/active/roadmap-0011-ui-component-layer-backgrounds]]：将背景图层服务扩展到面板、按钮、Tab、卡片、气泡与弹窗。
 - [[0x-plan&work/active/roadmap-0012-flat-presentation-targets]]：平级表现目标、级别筛选弹窗与统一图层编辑器。
 - [[0x-plan&work/active/roadmap-0013-presentation-editor-ux]]：自定义表现控件编辑器体验、目标卡片与颜色/图片变换参数（E0-E5 已完成，保留全量 UI 测试环境问题）。
-- [[0x-plan&work/active/roadmap-0014-theme-editor-convergence]]：主题编辑器信息架构、表现模型收束、来源可视化与预览画布重构（P0-P1 已完成，P2-P4 待实施）。
+- [[0x-plan&work/active/roadmap-0014-theme-editor-convergence]]：主题编辑器信息架构、表现模型收束、来源可视化与预览画布重构（P0-P1 完成，P2 首版完成，P3-P4 待实施）。
+- [[0x-plan&work/active/roadmap-0015-ui-dom-recalculation]]：正常游玩过程 DOM 重算收敛，区分局部更新与必要结构刷新（待实施）。
+- [[0x-plan&work/active/roadmap-0016-cluster-region-context-overrides]]：簇默认与当前区域状态覆盖，统一三栏宿主表现关系（待实施）。
+- [[0x-plan&work/completed/roadmap-0019-presentation-text-color]]：表现宿主文字颜色统一、四态解析与验收（✅ 已完成）。
 
 当前状态：B0–B3 已完成，B4 待实施。
 

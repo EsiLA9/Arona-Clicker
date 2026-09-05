@@ -7,6 +7,8 @@ import type { Datapack } from '../contracts/datapack';
 
 import { ExtraValue } from '../../engine/types';
 import { parsePicId } from '../contracts/pic';
+import { isTagRef } from '../../engine/core/tag';
+import type { TagPath } from '../../engine/core/tag';
 import { validateEntityId } from '../../engine/core/entity-id';
 import { assertValidExtra, expandFlatKeys, ExtraError } from '../../engine/extra/index';
 
@@ -44,6 +46,9 @@ const checkEntityIds = (
 
 /** 校验数据包；非法即抛 RegistryError。 */
 export function validateDatapack(dp: Datapack): void {
+  if (dp.modName !== undefined && !/^[a-z0-9-]+$/.test(dp.modName)) {
+    throw new RegistryError(`Datapack modName "${dp.modName}" 格式无效`);
+  }
   // 检查 ID 唯一性
   const checkDup = <T extends { id: string }>(items: T[], label: string) => {
     const seen = new Set<string>();
@@ -83,6 +88,25 @@ export function validateDatapack(dp: Datapack): void {
       if (!t.id) {
         throw new RegistryError('Tag def missing id');
       }
+      if (t.id.includes(':') && !isTagRef(t.id)) {
+        throw new RegistryError(`Tag id "${t.id}" 不符合 modName:tagPath 格式`);
+      }
+      if (t.parent !== undefined && !isTagRef(t.parent)) {
+        throw new RegistryError(`Tag "${t.id}" 的 parent 必须是完整 TagRef`);
+      }
+    }
+  }
+  checkTaggedItems(dp.inits, 'Init');
+  checkTaggedItems(dp.areas, 'Area');
+  checkTaggedItems(dp.spots, 'Spot');
+  checkTaggedItems(dp.enhancements, 'Enhancement');
+  checkTaggedItems(dp.activeStories, 'Active story entry');
+  checkTaggedItems(dp.passiveStories, 'Passive story entry');
+  checkTaggedItems(dp.passivePools, 'Passive pool');
+  checkTaggedItems(dp.characters, 'Character');
+  for (const pack of dp.affectorPacks ?? []) for (const entry of pack.entries) {
+    for (const modifier of entry.zoneModifiers ?? []) if (modifier.target.kind === 'tag') {
+      checkTagPath(modifier.target.tag, `Affector pack "${pack.id}" zone modifier tag`);
     }
   }
   if (dp.pics) {
@@ -236,5 +260,23 @@ export function validateDatapack(dp: Datapack): void {
       }
       throw e;
     }
+  }
+}
+
+function checkTagPath(path: TagPath, label: string): void {
+  if (!Array.isArray(path) || path.length === 0 || path.some(segment => typeof segment !== 'string' || segment.length === 0)) {
+    throw new RegistryError(`${label} 必须是非空 TagPath`);
+  }
+  const key = path.join('/');
+  if (path.some((segment, index) => segment.includes(':') && index !== 0) || (path[0].includes(':') && !isTagRef(key))) {
+    throw new RegistryError(`${label} 不符合 modName:tagPath 格式`);
+  }
+  const normalized = path[0].includes(':') ? key : `base:${key}`;
+  if (!isTagRef(normalized)) throw new RegistryError(`${label} 含非法 TagPath 段`);
+}
+
+function checkTaggedItems(items: Array<{ id: string; tags?: TagPath[] }> | undefined, label: string): void {
+  for (const item of items ?? []) for (const [index, path] of (item.tags ?? []).entries()) {
+    checkTagPath(path, `${label} "${item.id}" tags[${index}]`);
   }
 }

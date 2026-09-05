@@ -344,4 +344,19 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
     expect(records.some(r => r.source?.startsWith('affector:') && r.category === 'mul')).toBe(true);
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(12); // 树内 5×2 + 树外 2
   });
+
+  test('Affector tag modifier uses the pack namespace for a bare tag', () => {
+    const fakeAffector = {
+      getActiveInstances: () => [
+        { instanceId: 'extension-pack@spot', packId: 'extension:affectorpack:pack', mountEntityId: 'spot', state: 'Active', activeEntryIds: ['e1'] },
+      ],
+      getPack: (id: string) => ({
+        id,
+        entries: [{ id: 'e1', effects: [], zoneModifiers: [{ target: { kind: 'tag', tag: ['office'] }, category: 'mul', value: 2 }] }],
+      }),
+    } as unknown as AffectorEngine;
+    game.gameNumSystem.syncAffectorZoneEffects(fakeAffector, game.state);
+    expect(game.state.tagEffects?.['extension:office']).toHaveLength(1);
+    expect(game.state.tagEffects?.['base:office']).toBeUndefined();
+  });
 });

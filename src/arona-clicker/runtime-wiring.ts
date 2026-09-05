@@ -42,6 +42,7 @@ import { InitService } from './services/init-service';
 import { ItemService } from './services/item-service';
 import { EnhancementService } from './services/enhancement-service';
 import { UserThemeService } from './services/user-theme-service';
+import { qualifyTagPath } from '../engine/core/tag';
 import { SessionService } from '../engine/runtime/session-service';
 import { ChatFlowService } from './services/chat-flow-service';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
@@ -95,7 +96,11 @@ export function wireGameInstance(
         if (!pack) continue;
         for (const entry of pack.entries) {
           for (const z of entry.zoneModifiers ?? []) {
-            if (z.target.kind === 'tag') tags.push(z.target.tag);
+            if (z.target.kind === 'tag') {
+              const packId = typeof pid === 'string' ? pid : pack.id;
+              const modName = packId.includes(':') ? packId.split(':')[0] : 'base';
+              tags.push(qualifyTagPath(z.target.tag, modName));
+            }
           }
         }
       }

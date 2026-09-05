@@ -74,6 +74,11 @@
    pointer-events: none;
 }
 
+/* 主题编辑器是浮动面板，不应以全屏事件层阻断后方游戏界面。 */
+.app-modal:has(.modal-overlay-user-theme) {
+   pointer-events: none;
+}
+
 .modal-overlay-user-theme .modal-panel {
    position: fixed;
    top: 16px;

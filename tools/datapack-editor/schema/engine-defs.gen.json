@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T08:23:03.952Z",
+  "generatedAt": "2026-09-04T16:47:05.328Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -856,11 +856,25 @@
                         "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
                       },
                       {
+                        "key": "textColorMode",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "PresentationTextColorMode",
+                        "label": "宿主文字颜色模式。"
+                      },
+                      {
                         "key": "systemColorLayerIgnored",
                         "required": false,
                         "kind": "bool",
                         "tsType": "boolean",
                         "label": "忽略系统颜色层。"
+                      },
+                      {
+                        "key": "states",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "Partial<Record<PresentationHostState, PresentationHostStateDef>>",
+                        "label": "状态表现覆盖；未设置时继承宿主默认态。"
                       }
                     ],
                     "tsType": "PresentationHostDef"
@@ -1561,11 +1575,25 @@
                         "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
                       },
                       {
+                        "key": "textColorMode",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "PresentationTextColorMode",
+                        "label": "宿主文字颜色模式。"
+                      },
+                      {
                         "key": "systemColorLayerIgnored",
                         "required": false,
                         "kind": "bool",
                         "tsType": "boolean",
                         "label": "忽略系统颜色层。"
+                      },
+                      {
+                        "key": "states",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "Partial<Record<PresentationHostState, PresentationHostStateDef>>",
+                        "label": "状态表现覆盖；未设置时继承宿主默认态。"
                       }
                     ],
                     "tsType": "PresentationHostDef"
@@ -2985,11 +3013,25 @@
                         "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
                       },
                       {
+                        "key": "textColorMode",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "PresentationTextColorMode",
+                        "label": "宿主文字颜色模式。"
+                      },
+                      {
                         "key": "systemColorLayerIgnored",
                         "required": false,
                         "kind": "bool",
                         "tsType": "boolean",
                         "label": "忽略系统颜色层。"
+                      },
+                      {
+                        "key": "states",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "Partial<Record<PresentationHostState, PresentationHostStateDef>>",
+                        "label": "状态表现覆盖；未设置时继承宿主默认态。"
                       }
                     ],
                     "tsType": "PresentationHostDef"
@@ -3710,11 +3752,25 @@
                         "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
                       },
                       {
+                        "key": "textColorMode",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "PresentationTextColorMode",
+                        "label": "宿主文字颜色模式。"
+                      },
+                      {
                         "key": "systemColorLayerIgnored",
                         "required": false,
                         "kind": "bool",
                         "tsType": "boolean",
                         "label": "忽略系统颜色层。"
+                      },
+                      {
+                        "key": "states",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "Partial<Record<PresentationHostState, PresentationHostStateDef>>",
+                        "label": "状态表现覆盖；未设置时继承宿主默认态。"
                       }
                     ],
                     "tsType": "PresentationHostDef"
@@ -4283,11 +4339,25 @@
                         "label": "宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。"
                       },
                       {
+                        "key": "textColorMode",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "PresentationTextColorMode",
+                        "label": "宿主文字颜色模式。"
+                      },
+                      {
                         "key": "systemColorLayerIgnored",
                         "required": false,
                         "kind": "bool",
                         "tsType": "boolean",
                         "label": "忽略系统颜色层。"
+                      },
+                      {
+                        "key": "states",
+                        "required": false,
+                        "kind": "hand",
+                        "tsType": "Partial<Record<PresentationHostState, PresentationHostStateDef>>",
+                        "label": "状态表现覆盖；未设置时继承宿主默认态。"
                       }
                     ],
                     "tsType": "PresentationHostDef"
@@ -4795,8 +4865,11 @@
     "PlacementAnchor",
     "PresentationDef",
     "PresentationHostDef",
+    "PresentationHostState",
+    "PresentationHostStateDef",
     "PresentationLayerDef",
     "PresentationRegion",
+    "PresentationTextColorMode",
     "ProductionResult",
     "ProtoStatState",
     "ResourceAmount",

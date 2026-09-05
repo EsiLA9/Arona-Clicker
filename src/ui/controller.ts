@@ -61,6 +61,16 @@ import { bindThemeActions } from './controller-actions-theme';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 import type { GameCommands } from '../arona-clicker/contracts';
+import { renderLeftPanel } from './components/rail';
+import { renderCenterPanel, renderChatTab, renderLogTab } from './components/center-panel';
+import { renderRightPanel } from './components/right-panels';
+
+export interface UIRefreshStats {
+  fullRenders: number;
+  panelRefreshes: number;
+  lightRefreshes: number;
+  themeApplications: number;
+}
 
 export class UIController {
   /** UI 写操作的能力边界；迁移期由 AronaClickerRuntime 直接实现。 */
@@ -106,6 +116,9 @@ export class UIController {
   pendingTravelChats: string[] = [];
   /** @internal 奖励通知延迟入流计时器（Story 末尾留一拍）。 */
   rewardTimer: ReturnType<typeof setTimeout> | null = null;
+  /** @internal 合并同一事件循环内由 EventBus 与点击处理器产生的重复重建。 */
+  private renderScheduled = false;
+  private refreshStats: UIRefreshStats = { fullRenders: 0, panelRefreshes: 0, lightRefreshes: 0, themeApplications: 0 };
   /** @internal 主题浮窗：跨 render 全量重建 #app 保留其开关键与位置（供 controller-theme / controller-actions-topbar 读写）。 */
   themeFloatOpen = false;
   /** @internal 主题浮窗位置（同上）。 */
@@ -133,8 +146,8 @@ export class UIController {
       this.game.rosterSystem.isOwned(this.game.state, variantId)
         ? this.game.story.readyStepCount(variantId)
         : 0;
-    // 页级打字提示（§4）到期落内容后重建 DOM，让省略号气泡替换为消息本体
-    this.chat.onChange = () => this.render();
+    // 页级打字提示到期只更新聊天面板；其它面板无需随门控计时器重建
+    this.chat.onChange = () => this.refreshChatPanel();
     // 链式连发（§4）：无按钮要求的左侧页送达后自动推进一页（引擎 clickSend 每次恰好
     // 推进一页；选项/按动/回复页不满足连发谓词，不会进入自动推进）
     this.chat.onAutoAdvance = (streamKey) => {
@@ -146,7 +159,7 @@ export class UIController {
       if (result.type === 'completed') {
         this.chat.pushAbsorbedTo(streamKey, this.panelState, result.absorbed ?? []);
       }
-      this.render();
+      this.scheduleRender();
     };
     // 绑定到 document.body：弹窗（app-modal）挂在 body 级，图鉴条目的悬停详情也要生效
     this.popovers = new PopoverManager(document.body, this.game);
@@ -230,7 +243,7 @@ export class UIController {
         return;
       }
       this.flushRewardChatsNow();
-      this.render();
+      this.refreshChatPanel();
     }, UIController.REWARD_REVEAL_DELAY_MS);
   }
 
@@ -258,11 +271,147 @@ export class UIController {
 
   /** 轻量刷新：每 Tick 只更新资源数字节点，不重建 #app DOM（委托 controller-core）。 */
   refreshLight(): void {
+    this.refreshStats.lightRefreshes += 1;
+    this.publishRefreshStats();
     refreshLightImpl(this);
+  }
+
+  /** 开发检查用刷新计数；只返回快照，不参与界面逻辑。 */
+  getRefreshStats(): UIRefreshStats {
+    return { ...this.refreshStats };
+  }
+
+  /** 同步当前聊天门控状态后，仅刷新中心聊天面板。 */
+  refreshChatPanel(): void {
+    if (!this.started) {
+      this.render();
+      return;
+    }
+    // 与全量 render 保持一致：移动通知必须先于新剧情页进入当前流。
+    for (const text of this.pendingTravelChats) this.pushChat({ kind: 'reward', text });
+    this.pendingTravelChats = [];
+    this.chat.syncCurrentStory(this.panelState, this.game);
+    this.panelState.sendGate = this.chat.activeGate(this.panelState)
+      ?? (this.chat.bannerBlocking(this.panelState) ? 'typing' : null);
+    this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
+    this.scheduleRewardChats();
+    const center = this.root.querySelector<HTMLElement>('.center-panel');
+    const chatPane = center?.querySelector<HTMLElement>('.chat-pane');
+    if (center && chatPane && this.panelState.centerTab === 'chat' && !this.panelState.conversationVariantId) {
+      this.scroll.captureChat(this.root);
+      const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      chatPane.outerHTML = renderChatTab(
+        context,
+        this.panelState.chatEntries,
+        this.panelState.chatTexts,
+        this.game.story.getSendState(),
+        this.panelState.sendGate ?? null,
+        this.panelState.storyGate ?? null,
+        this.panelState.openingBanner ?? null,
+      );
+      const nextPane = center.querySelector<HTMLElement>('.chat-pane');
+      if (nextPane) bindStoryActions(this, nextPane);
+      this.scroll.restoreChat(this.root, {
+        centerTab: this.panelState.centerTab,
+        conversationVariantId: this.panelState.conversationVariantId,
+        activeStreamLength: this.activeStream().length,
+      });
+      this.scroll.observeChatStream(this.root);
+      this.applyTheme(false);
+      return;
+    }
+    this.refreshPanels(['center']);
+  }
+
+  /** 日志流所在面板可见时，只替换日志列表区域。 */
+  refreshLogPanel(): void {
+    if (!this.started || this.panelState.centerTab !== 'log') return;
+    const center = this.root.querySelector<HTMLElement>('.center-panel');
+    const log = center?.querySelector<HTMLElement>('.log-panel');
+    if (!center || !log) return;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    log.outerHTML = renderLogTab(context);
+    bindTopBarActions(this, center);
+  }
+
+  /** 全量重建 #app DOM（供 controller-core / controller-modals 触发）。 */
+  scheduleRender(): void {
+    if (this.renderScheduled) return;
+    this.renderScheduled = true;
+    queueMicrotask(() => {
+      if (!this.renderScheduled) return;
+      this.renderScheduled = false;
+      this.render();
+    });
+  }
+
+  /** 只替换发生变化的工作区面板，保留其它面板、焦点与事件状态。 */
+  refreshPanels(panels: Array<'left' | 'center' | 'right'>): void {
+    if (!this.started || !this.root.querySelector('.workspace')) {
+      this.render();
+      return;
+    }
+    this.refreshStats.panelRefreshes += 1;
+    this.publishRefreshStats();
+    this.popovers.retainIfAnchored();
+    this.scroll.capturePanel(this.root);
+    this.scroll.captureChat(this.root);
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const uniquePanels = [...new Set(panels)];
+    for (const panel of uniquePanels) {
+      const current = this.root.querySelector<HTMLElement>(`.${panel}-panel`);
+      if (!current) continue;
+      let html: string;
+      if (panel === 'left') {
+        html = renderLeftPanel(context, this.panelState);
+      } else if (panel === 'center') {
+        const conversation = this.panelState.conversationVariantId
+          ? {
+              variantId: this.panelState.conversationVariantId,
+              entries: this.panelState.studentChats[this.panelState.conversationVariantId] ?? [],
+              chatTexts: this.panelState.studentChatTexts[this.panelState.conversationVariantId] ?? [],
+            }
+          : undefined;
+        html = renderCenterPanel(
+          context,
+          this.panelState.centerTab,
+          this.panelState.chatEntries,
+          this.panelState.chatTexts,
+          this.game.story.getSendState(this.panelState.conversationVariantId ?? undefined),
+          conversation,
+          this.panelState.sendGate ?? null,
+          this.panelState.storyGate ?? null,
+          this.panelState.openingBanner ?? null,
+        );
+      } else {
+        html = renderRightPanel(context, this.panelState.rightTab, this.panelState.selectedVariantId);
+      }
+      current.outerHTML = html;
+    }
+    for (const panel of uniquePanels) {
+      const next = this.root.querySelector<HTMLElement>(`.${panel}-panel`);
+      if (!next) continue;
+      bindTopBarActions(this, next);
+      bindContactsActions(this, next);
+      bindThemeActions(this, next);
+      bindStoryActions(this, next);
+      bindInventoryActions(this, next);
+    }
+    this.scroll.restoreChat(this.root, {
+      centerTab: this.panelState.centerTab,
+      conversationVariantId: this.panelState.conversationVariantId,
+      activeStreamLength: this.activeStream().length,
+    });
+    this.scroll.observeChatStream(this.root);
+    this.scroll.restorePanel(this.root);
+    this.applyTheme(false);
   }
 
   /** 全量重建 #app DOM（供 controller-core / controller-modals 触发）。 */
   render(): void {
+    this.refreshStats.fullRenders += 1;
+    this.publishRefreshStats();
+    this.renderScheduled = false;
     // 交互触发重建前处理 hover 弹层：锚点被重建移除才关闭；
     // body 级弹窗（如图鉴）内的锚点不受 #app 重建影响，浮层保留
     this.popovers.retainIfAnchored();
@@ -302,7 +451,7 @@ export class UIController {
     // 贴底时观察流尺寸：最新条目里的图片异步加载撑开后自动再滚到底
     this.scroll.observeChatStream(this.root);
     this.scroll.restorePanel(this.root);
-    this.applyTheme();
+    this.applyTheme(false);
     // 主题浮窗跨 render 重建存活（开关 + 位置）
     this.restoreThemeFloat();
     // 同步揭示指纹，避免下一次事件重复重建
@@ -320,8 +469,17 @@ export class UIController {
   /**
    * 激活主题 → CSS 变量注入：场景栈合并 + 语义层展开（委托 controller-theme）。
    */
-  private applyTheme(): void {
-    applyThemeImpl(this);
+  private applyTheme(syncRuntime = true): void {
+    this.refreshStats.themeApplications += 1;
+    this.publishRefreshStats();
+    applyThemeImpl(this, syncRuntime);
+  }
+
+  private publishRefreshStats(): void {
+    this.root.dataset.uiRefreshFull = String(this.refreshStats.fullRenders);
+    this.root.dataset.uiRefreshPanels = String(this.refreshStats.panelRefreshes);
+    this.root.dataset.uiRefreshLight = String(this.refreshStats.lightRefreshes);
+    this.root.dataset.uiRefreshTheme = String(this.refreshStats.themeApplications);
   }
 
   /** 同步运行时主题层（player/area/student）到当前状态：须在生成依赖它的 UI 之前调用（委托 controller-theme）。 */
@@ -415,7 +573,7 @@ export class UIController {
     resetSessionPanelImpl(this);
     const init = this.game.world.inits.get(initId);
     this.toast.show(`进入世界线 <b>${init?.name ?? initId}</b>`, 'success');
-    this.render();
+      this.scheduleRender();
   }
 
   /** 软重启后恢复进入世界线（保留跨 Init 进度与统计，有快照则恢复）。 */

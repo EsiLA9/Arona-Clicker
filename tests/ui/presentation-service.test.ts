@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { buildPresentationView, renderPresentationRegion } from '../../src/ui/presentation-service';
+import { DEFAULT_PANEL_OPACITY } from '../../src/ui/presentation-config';
 
 const pics = {
   urlOf: (ref: string) => ref === 'hoshino' ? '/assets/hoshino.png' : ref === 'triangle' ? 'data:image/svg+xml;base64,triangle' : undefined,
@@ -62,7 +63,59 @@ describe('PresentationService', () => {
     }, pics);
     expect(view.host('toolbar.button').layers.map(layer => layer.id)).toEqual(['accent', 'base']);
     expect(view.host('toolbar.button').opacity).toBe(0.65);
+    expect(view.hasHost('toolbar.button')).toBe(true);
     expect(view.host('missing').layers).toHaveLength(0);
+    expect(view.hasHost('missing')).toBe(false);
+  });
+
+  test('控件宿主保留自己的系统颜色层开关状态', () => {
+    const view = buildPresentationView({
+      hosts: [{ id: 'leftPanel', systemColorLayerIgnored: true, layers: [{ id: 'panel', kind: 'solid', value: '#fff' }] }],
+    }, pics);
+    expect(view.host('leftPanel').systemColorLayerIgnored).toBe(true);
+  });
+
+  test('控件宿主解析状态图层并保留状态顺序', () => {
+    const view = buildPresentationView({ hosts: [{
+      id: 'header.button',
+      states: { active: {
+        layers: [
+          { id: 'base', kind: 'solid', value: '#fff' },
+          { id: 'accent', kind: 'solid', value: '#acf' },
+        ],
+        layerOrder: ['accent', 'base'],
+        systemColorLayerIgnored: true,
+      } },
+    }] }, pics);
+    const active = view.host('header.button').states?.get('active');
+    expect(active?.layers.map(layer => layer.id)).toEqual(['accent', 'base']);
+    expect(active?.systemColorLayerIgnored).toBe(true);
+  });
+
+  test('控件宿主保留默认与四态文字颜色模式', () => {
+    const view = buildPresentationView({ hosts: [{
+      id: 'header.button',
+      textColorMode: 'dark',
+      states: {
+        default: { textColorMode: 'light' },
+        active: { textColorMode: 'dark' },
+        inactive: { textColorMode: 'auto' },
+        disabled: { textColorMode: 'light' },
+      },
+    }] }, pics);
+    const host = view.host('header.button');
+    expect(host.textColorMode).toBe('dark');
+    expect(host.states?.get('default')?.textColorMode).toBe('light');
+    expect(host.states?.get('active')?.textColorMode).toBe('dark');
+    expect(host.states?.get('inactive')?.textColorMode).toBe('auto');
+    expect(host.states?.get('disabled')?.textColorMode).toBe('light');
+  });
+
+  test('未配置面板透明度时使用默认值', () => {
+    const view = buildPresentationView({}, pics);
+    expect(view.panelOpacity('leftPanel')).toBe(DEFAULT_PANEL_OPACITY);
+    expect(view.panelOpacity('centerPanel')).toBe(DEFAULT_PANEL_OPACITY);
+    expect(view.panelOpacity('rightPanel')).toBe(DEFAULT_PANEL_OPACITY);
   });
 
   test('表现层限制并输出缩放与旋转变换', () => {

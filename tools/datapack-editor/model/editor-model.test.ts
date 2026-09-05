@@ -45,9 +45,9 @@ describe('EditorModel', () => {
     const idx = m.addRow('tags');
     expect(idx).toBe(0);
     expect(m.rowsOf('tags')).toHaveLength(1);
-    expect(m.rowAt('tags', 0)).toEqual({ id: '', name: '', description: '' });
+    expect(m.rowAt('tags', 0)).toEqual({ id: '', name: '', description: '', parent: '' });
     // 导出应包含新行，undo 应移除
-    expect(m.toDatapack().tags).toEqual([{ id: '', name: '', description: '' }]);
+    expect(m.toDatapack().tags).toEqual([{ id: '', name: '', description: '', parent: '' }]);
     expect(m.undo()).toBe(true);
     expect(m.rowsOf('tags')).toHaveLength(0);
   });

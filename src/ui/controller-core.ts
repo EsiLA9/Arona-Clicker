@@ -55,7 +55,8 @@ export function refreshRevealIfChanged(ctrl: UIController): void {
   const fp = computeRevealFingerprint(ctrl);
   if (fp !== ctrl.revealFingerprint) {
     ctrl.revealFingerprint = fp;
-    ctrl.render();
+    // 揭示变化只影响区域/故事列表与右侧设施/强化列表；顶部栏和聊天流保持不动。
+    ctrl.refreshPanels(['left', 'right']);
   }
 }
 

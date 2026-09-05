@@ -138,12 +138,18 @@
 .mini-action {
    border: 1px solid var(--card-btn-border);
    padding: 5px 9px;
-   background: transparent;
-   color: var(--card-btn-text);
+   background: var(--ui-button-bg, transparent);
+   color: var(--ui-button-text, var(--card-btn-text));
    font-size: 10px;
    cursor: pointer;
    border-radius: 8px;
    white-space: nowrap;
+}
+
+.mini-action.is-active {
+   background: var(--ui-button-bg-active, var(--theme-node-active));
+   color: var(--ui-button-text-active, var(--ink-on-active));
+   border-color: var(--ui-button-bg-active, var(--theme-node-active));
 }
 
 .mini-action:hover {

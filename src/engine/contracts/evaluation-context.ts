@@ -51,6 +51,7 @@ export interface GameNumRegistryContext {
   readonly enhancements: ReadonlyMap<string, GameNumTaggedSource>;
   readonly resourceDisplays?: ReadonlyMap<string, unknown>;
   effectiveSpotTags(spotId: string, overrides?: Record<string, SpotTagOverrideState>): TagPath[];
+  tagOwnerOf?(entityId: string): string;
 }
 
 /** GameNum 读取 Affector 生命周期数据所需的最小端口。 */

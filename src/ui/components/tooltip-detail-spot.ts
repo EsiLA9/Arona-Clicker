@@ -104,8 +104,8 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       <div class="info-row"><span>Manager</span><span>${ctx.escapeHtml(managerName)}</span></div>
       <div class="info-divider"></div>
       <div class="info-tags">${known ? ctx.world.effectiveSpotTags(spot.id, ctx.game.state.spotTagOverrides).map(tag => {
-        const name = ctx.world.tagName(tag);
-        const desc = ctx.world.tagDescription(tag);
+        const name = ctx.world.tagNameForSpotTag?.(spot.id, tag) ?? ctx.world.tagName(tag);
+        const desc = ctx.world.tagDescriptionForSpotTag?.(spot.id, tag) ?? ctx.world.tagDescription(tag);
         const tip = desc ? ` title="${ctx.escapeHtml(desc)}"` : '';
         return `<span class="info-tag"${tip}>${ctx.escapeHtml(name)}</span>`;
       }).join('') : ''}</div>

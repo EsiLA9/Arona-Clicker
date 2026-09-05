@@ -15,6 +15,7 @@ export function bindEvents(ctrl: UIController): void {
     // 生产类高频事件由 refreshLight 覆盖数值，不参与揭示评估
     if (event.type === 'tick' || event.type === 'spotProduced') return;
     refreshRevealIfChanged(ctrl);
+    ctrl.refreshLogPanel();
   });
   // 剧情完结奖励结算 → 排队（不立即渲染）：等点击处理器推完玩家回复气泡、
   // render 内同步完最后一页台词后，再统一落账，保证聊天流顺序正确
@@ -102,7 +103,7 @@ export function bindEvents(ctrl: UIController): void {
       && !ctrl.game.story.hasCompletedStory(tail.storyId));
     if (hasTail) {
       ctrl.commands.triggerTailPush(convId, event.storyId);
-      ctrl.render();
+      ctrl.refreshChatPanel();
     }
   });
   // 聊天流演出服务（Talklet）：显示演出专用文本（临时 id + 百分比坐标，可嵌入标准 Talklet）
@@ -122,10 +123,12 @@ export function bindEvents(ctrl: UIController): void {
       targetStoryId: event.targetStoryId,
       timestamp: Date.now(),
     });
+    ctrl.refreshChatPanel();
   });
   // 聊天流演出服务（Talklet）：按临时 id 擦除演出专用文本
   ctrl.game.eventBus.on('chatTextCleared', event => {
     if (event.type !== 'chatTextCleared') return;
     ctrl.chat.clearChatText(ctrl.panelState, event.id);
+    ctrl.refreshChatPanel();
   });
 }

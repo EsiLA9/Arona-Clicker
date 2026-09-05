@@ -96,6 +96,17 @@ describe('TagStatService 声明侧', () => {
     expect(service.declaredCount('characters', tagPath('school'))).toBe(2);
     expect(service.declaredCount('characters', 'school/millennium')).toBe(1);
   });
+
+  test('explicit parent contributes to the parent tag through the registry ancestor contract', () => {
+    const registry = makeRegistry();
+    const tagged = { ...registry, spots: new Map([
+      ['extension:spot:special', { id: 'extension:spot:special', tags: [tagPath('extension:office-special')] }],
+    ]), tagKeysForTag: (path: import('../../src/engine/core/tag').TagPath) =>
+      path[0] === 'extension:office-special' ? ['extension:office-special', 'base:office'] : [path.join('/')],
+    };
+    const service = new TagStatService(tagged, undefined);
+    expect(service.declaredCount('spots', 'base:office')).toBe(1);
+  });
 });
 
 describe('TagStatService 收集侧（Spot）', () => {

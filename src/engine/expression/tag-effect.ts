@@ -1,7 +1,7 @@
 import type { GameNum } from './game-num-eval';
 import type { ValueExpression } from '../types/expression';
 import type { TagPath } from '../core/tag';
-import { tagId } from '../core/tag';
+import { tagKey } from '../core/tag';
 
 /** tag 效果分类：直接加成 / 通用乘区 / 自定义乘区 / 乘区上下限。 */
 export type TagEffectCategory = 'flat' | 'mul' | 'custom' | 'bound';
@@ -63,7 +63,7 @@ export function tagPrefixesBottomUp(tags: TagPath[]): string[] {
   const out: string[] = [];
   for (const path of tags) {
     for (let i = path.length; i >= 1; i--) {
-      const key = tagId(path.slice(0, i));
+      const key = tagKey(path.slice(0, i));
       if (!seen.has(key)) {
         seen.add(key);
         out.push(key);

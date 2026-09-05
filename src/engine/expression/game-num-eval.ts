@@ -20,7 +20,7 @@ import type { GameNumState } from '../contracts/state-query';
 import { ValueSystem } from './value-system';
 import type { GameNumAffectorContext } from '../contracts/evaluation-context';
 import type { GameNumRegistryContext } from '../contracts/evaluation-context';
-import { TagPath } from '../core/tag';
+import { qualifyTagPath, TagPath } from '../core/tag';
 import { EntityRef, TagEffectRecord, entityKey, tagPrefixesBottomUp } from './tag-effect';
 
 /** 乘区上下限夹取区间（bound 记录合并结果，zone 求值时对 mul 结果夹取）。 */
@@ -89,7 +89,7 @@ const entityTagsOf = (ref: EntityRef, deps: GameNumEvalDeps, state: GameNumState
       def = deps.registry.enhancements.get(ref.id) as { tags?: TagPath[] } | undefined;
       break;
   }
-  return def?.tags ?? [];
+  return (def?.tags ?? []).map(tag => qualifyTagPath(tag, deps.registry.tagOwnerOf?.(ref.id) ?? 'base'));
 };
 
 /** 把 TagEffectRecord.value（number 或 const/expr 节点）解析为数值。 */

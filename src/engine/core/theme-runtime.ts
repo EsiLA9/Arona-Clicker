@@ -17,7 +17,7 @@
 // ============================================================
 
 import type { ColorGroupId } from '../types/character';
-import type { BackgroundLayerDef, PresentationDef, PresentationLayerDef, ComponentPlacementDef, PresentationRegion, ThemeNodeName, ThemeOrderScope, ThemeToken } from '../types/theme';
+import type { BackgroundLayerDef, PresentationDef, PresentationLayerDef, ComponentPlacementDef, PresentationHostDef, PresentationRegion, ThemeNodeName, ThemeOrderScope, ThemeToken } from '../types/theme';
 
 export type { ThemeOrderScope } from '../types/theme';
 
@@ -78,6 +78,18 @@ export interface ResolvedTheme {
 }
 
 const DEFAULT_TOKENS: ThemeTokens = { primary: '#4a7dff' };
+
+function mergeScopeNodeOverrides(
+  base: Record<string, Partial<Record<ThemeNodeName, string>>>,
+  next: Record<string, Partial<Record<ThemeNodeName, string>>> | undefined,
+): Record<string, Partial<Record<ThemeNodeName, string>>> {
+  if (!next) return base;
+  const merged = { ...base };
+  for (const [scope, overrides] of Object.entries(next)) {
+    merged[scope] = { ...(merged[scope] ?? {}), ...overrides };
+  }
+  return merged;
+}
 
 export class RuntimeThemeManager {
   private player: ThemeLayer | null = null;
@@ -243,6 +255,27 @@ export class RuntimeThemeManager {
       }
     };
     const mergePresentation = (value: PresentationDef | undefined): void => {
+      const mergeHost = (baseHost: PresentationHostDef | undefined, incoming: PresentationHostDef): PresentationHostDef => {
+        const mergedHost: PresentationHostDef = {
+          ...(baseHost ?? {}),
+          ...incoming,
+          ...(incoming.layers ? { layers: incoming.layers.map(layer => ({ ...layer })) } : {}),
+          ...(incoming.layerOrder ? { layerOrder: [...incoming.layerOrder] } : {}),
+        };
+        if (baseHost?.states || incoming.states) {
+          mergedHost.states = { ...(baseHost?.states ?? {}) };
+          for (const [state, stateDef] of Object.entries(incoming.states ?? {})) {
+            const previous = mergedHost.states[state as keyof NonNullable<PresentationHostDef['states']>];
+            mergedHost.states[state as keyof NonNullable<PresentationHostDef['states']>] = {
+              ...(previous ?? {}),
+              ...stateDef,
+              ...(stateDef?.layers ? { layers: stateDef.layers.map(layer => ({ ...layer })) } : {}),
+              ...(stateDef?.layerOrder ? { layerOrder: [...stateDef.layerOrder] } : {}),
+            };
+          }
+        }
+        return mergedHost;
+      };
       for (const layer of value?.layers ?? []) {
         if (layer.id) {
           const index = presentationLayerIds.get(layer.id);
@@ -271,10 +304,10 @@ export class RuntimeThemeManager {
       }
       for (const host of value?.hosts ?? []) {
         const index = presentationHostIds.get(host.id);
-        if (index !== undefined) presentation.hosts![index] = { ...presentation.hosts![index], ...host, layers: host.layers?.map(layer => ({ ...layer })) };
+        if (index !== undefined) presentation.hosts![index] = mergeHost(presentation.hosts![index], host);
         else {
           presentationHostIds.set(host.id, presentation.hosts!.length);
-          presentation.hosts!.push({ ...host, layers: host.layers?.map(layer => ({ ...layer })) });
+          presentation.hosts!.push(mergeHost(undefined, host));
         }
       }
     };
@@ -283,7 +316,7 @@ export class RuntimeThemeManager {
     merged = { ...base };
     if (ordered[0].palette?.length) palette = [...ordered[0].palette];
     nodeOverrides = { ...(ordered[0].nodeOverrides ?? {}) };
-    scopeNodeOverrides = { ...(ordered[0].scopeNodeOverrides ?? {}) };
+    scopeNodeOverrides = mergeScopeNodeOverrides({}, ordered[0].scopeNodeOverrides);
     mergeBackground(ordered[0].background);
     if (ordered[0].backgroundLayerOrder?.length) backgroundLayerOrder = [...ordered[0].backgroundLayerOrder];
     if (ordered[0].systemColorLayerIgnored !== undefined) systemColorLayerIgnored = ordered[0].systemColorLayerIgnored;
@@ -292,7 +325,7 @@ export class RuntimeThemeManager {
     for (const layer of ordered.slice(1)) {
       if (layer.palette?.length) palette = [...layer.palette];
       nodeOverrides = { ...nodeOverrides, ...(layer.nodeOverrides ?? {}) };
-      scopeNodeOverrides = { ...scopeNodeOverrides, ...(layer.scopeNodeOverrides ?? {}) };
+      scopeNodeOverrides = mergeScopeNodeOverrides(scopeNodeOverrides, layer.scopeNodeOverrides);
       if (layer.groupId) {
         merged = { ...merged, ...this.resolveLayer(layer) };
         if (!groupId) groupId = layer.groupId;

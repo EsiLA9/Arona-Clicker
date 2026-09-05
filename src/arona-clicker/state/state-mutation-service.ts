@@ -22,7 +22,7 @@ import type { CompletedStory } from '../types/story-state';
 import type { AronaClickerState } from '../types/state';
 import type { UserThemeDraft, UserThemeState } from '../types/user-theme';
 import { isGlobalResource } from '../types/ids';
-import { TagPath, tagDisplay } from '../../engine/core/tag';
+import { TagPath, tagDisplay, tagKey } from '../../engine/core/tag';
 import { EventBus } from '../../engine/core/event-bus';
 import { StatsService } from '../../engine/stats/stats';
 import type { CharacterProgressionPort } from '../contracts/character-progression';
@@ -543,17 +543,17 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   applySpotTagChange(spotId: string, tag: TagPath, added: boolean): void {
     const state = this.current;
     const overrides = (state.spotTagOverrides ??= {});
-    const display = tagDisplay(tag);
+    const key = tagKey(tag);
     const override: SpotTagOverride = overrides[spotId] ?? { added: [], removed: [] };
     if (added) {
-      override.removed = override.removed.filter(t => tagDisplay(t) !== display);
-      if (!override.added.some(t => tagDisplay(t) === display)) override.added.push(tag);
+      override.removed = override.removed.filter(t => tagKey(t) !== key);
+      if (!override.added.some(t => tagKey(t) === key)) override.added.push(tag);
     } else {
-      override.added = override.added.filter(t => tagDisplay(t) !== display);
-      if (!override.removed.some(t => tagDisplay(t) === display)) override.removed.push(tag);
+      override.added = override.added.filter(t => tagKey(t) !== key);
+      if (!override.removed.some(t => tagKey(t) === key)) override.removed.push(tag);
     }
     overrides[spotId] = override;
-    this.emit({ type: 'spotTagChanged', spotId, tag: display, added });
+    this.emit({ type: 'spotTagChanged', spotId, tag: tagDisplay(tag), added });
   }
 
   /** 覆写某 Chara 的头像-人名对（player 层，随存档；partial 合并）。 */

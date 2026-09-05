@@ -232,6 +232,22 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     expect(resolved.scopeNodeOverrides['left.contacts']).toEqual({ active: '#00ff00' });
   });
 
+  test('RUNTIME-18 簇与区域作用域跨主题层叠加时按节点合并，区域仍可覆盖簇', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', scopeNodeOverrides: {
+      left: { active: '#111111', highlight: '#222222' },
+      'left.area': { active: '#333333' },
+    } });
+    manager.pushScene({ scope: 'area', scopeNodeOverrides: {
+      left: { active: '#aaaaaa' },
+      'left.area': { highlight: '#bbbbbb' },
+    } });
+
+    const resolved = manager.resolve();
+    expect(resolved.scopeNodeOverrides.left).toEqual({ active: '#aaaaaa', highlight: '#222222' });
+    expect(resolved.scopeNodeOverrides['left.area']).toEqual({ active: '#333333', highlight: '#bbbbbb' });
+  });
+
   test('RUNTIME-19 表现层按 id 叠加，支持高层替换与新组件追加', () => {
     const { manager } = makeManager();
     manager.setPlayer({ scope: 'player', presentation: {
@@ -265,6 +281,21 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     expect(host?.layers?.map(layer => layer.id)).toEqual(['base', 'active']);
     expect(host?.layers?.[0].kind).toBe('gradient');
     expect(host?.layerOrder).toEqual(['active', 'base']);
+  });
+
+  test('RUNTIME-21 控件状态文字模式跨层合并时保留 inactive 的显式优先级', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', presentation: {
+      hosts: [{ id: 'header.button', textColorMode: 'auto', states: {
+        inactive: { textColorMode: 'light' },
+      } }],
+    } });
+    manager.pushScene({ scope: 'area', presentation: {
+      hosts: [{ id: 'header.button', textColorMode: 'dark' }],
+    } });
+    const host = manager.resolve().presentation.hosts?.[0];
+    expect(host?.textColorMode).toBe('dark');
+    expect(host?.states?.inactive?.textColorMode).toBe('light');
   });
 
   test('RUNTIME-15 背景层按优先级合并，同 id 覆盖、匿名层追加', () => {

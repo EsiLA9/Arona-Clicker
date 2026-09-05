@@ -3,6 +3,7 @@ import { getSpotReveal, describeCondition } from './tooltip';
 import { cardAccent, accentPalette } from '../color-scheme';
 import { themeTreeFromThemeDef, themeTreeFromGroup, themeTreeToInlineStyle } from '../theme-tree';
 import { TagPath } from '../../engine/core/tag';
+import { renderPresentationHostBackground } from '../presentation-service';
 
 /**
  * 设施标签 → 语义颜色角色（硬编码映射，不读数据包 extra）。
@@ -53,7 +54,7 @@ export function renderProductionNodes(ctx: UIContext): string {
       const title = reveal.nameKnown ? spot.name : '???';
       const effectiveTags = world.effectiveSpotTags(spot.id, game.state.spotTagOverrides);
       const tags = reveal.utilityKnown
-        ? (effectiveTags.map(tag => world.tagName(tag)).join(' / ') || 'SPOT')
+        ? (effectiveTags.map(tag => world.tagNameForSpotTag?.(spot.id, tag) ?? world.tagName(tag)).join(' / ') || 'SPOT')
         : '未解锁设施';
       const desc = reveal.utilityKnown
         ? `<p>${ctx.escapeHtml(spot.description)}</p>`
@@ -91,7 +92,8 @@ export function renderProductionNodes(ctx: UIContext): string {
         }
       }
       return `
-        <article class="mini-card hover-wrap ${visible ? '' : 'is-muted'}" ${spotStyleAttr} data-tooltip="spot:${spot.id}">
+        <article class="mini-card hover-wrap presentation-host-target ${visible ? '' : 'is-muted'}" data-theme-host-id="card" data-theme-text-mode="${ctx.textColorModeForHost?.('card') ?? 'auto'}" ${spotStyleAttr} data-tooltip="spot:${spot.id}">
+          ${renderPresentationHostBackground(ctx, 'card')}
           <div class="mini-card-title-row">
             <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
             <strong class="mini-status">${owned ? `Lv.${level}` : purchaseable ? '可获取' : '未解锁'}</strong>
@@ -102,15 +104,15 @@ export function renderProductionNodes(ctx: UIContext): string {
               ? `<span class="mini-yield" data-spot-yield="${spot.id}">${yieldText}</span>`
               : '<span class="mini-yield">产出 ???</span>'}
             <div class="mini-actions">
-              <button class="mini-action" data-upgrade="${spot.id}" ${purchaseable || owned ? '' : 'disabled'}>${action}</button>
+              <button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="${purchaseable || owned ? 'inactive' : 'disabled'}" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', purchaseable || owned ? 'inactive' : 'disabled') ?? 'auto'}" data-upgrade="${spot.id}" ${purchaseable || owned ? '' : 'disabled'}>${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', purchaseable || owned ? 'inactive' : 'disabled')}<span class="presentation-host-content">${action}</span></button>
               ${restartInit
-                ? `<button class="mini-action" data-restart-init="${spot.id}" title="结束当前游戏并重新选择世界线">结束游戏</button>`
+                ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-restart-init="${spot.id}" title="结束当前游戏并重新选择世界线">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">结束游戏</span></button>`
                 : ''}
               ${hardResetInit
-                ? `<button class="mini-action" data-hard-reset-init="${spot.id}" title="彻底重置当前世界线（下次进入为崭新）">彻底重置</button>`
+                ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-hard-reset-init="${spot.id}" title="彻底重置当前世界线（下次进入为崭新）">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">彻底重置</span></button>`
                 : ''}
               ${gacha
-                ? `<button class="mini-action" data-open-spot-gacha="${spot.id}" title="在该设施招募角色">招募</button>`
+                ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-open-spot-gacha="${spot.id}" title="在该设施招募角色">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">招募</span></button>`
                 : ''}
             </div>
           </div>

@@ -8,21 +8,22 @@ import { SaveSystem } from '../data-services/persistence/storage';
 import { openCollectionModal } from './components/collection-modal';
 import { openPackManager } from './controller-modals';
 import type { UIController } from './controller';
+import { refreshPresentationHostElements } from './controller-theme';
 
 /** 绑定顶栏 / 全局工具条与 Tab 切换（render 后调用）。 */
-export function bindTopBarActions(ctrl: UIController): void {
-  ctrl.root.querySelector('#tick-now')?.addEventListener('click', () => {
+export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  scope.querySelector('#tick-now')?.addEventListener('click', () => {
     ctrl.commands.tick();
-    ctrl.render();
+    ctrl.refreshLight();
   });
-  ctrl.root.querySelector('#collection-modal')?.addEventListener('click', () => {
+  scope.querySelector('#collection-modal')?.addEventListener('click', () => {
     openCollectionModal(ctrl.modal, ctrl.game);
   });
-  ctrl.root.querySelector('#import-datapack')?.addEventListener('click', () => {
+  scope.querySelector('#import-datapack')?.addEventListener('click', () => {
     ctrl.io.importDatapack();
   });
-  ctrl.root.querySelector('#pack-manager')?.addEventListener('click', () => openPackManager(ctrl));
-  ctrl.root.querySelector('#theme-palette-btn')?.addEventListener('click', (e) => {
+  scope.querySelector('#pack-manager')?.addEventListener('click', () => openPackManager(ctrl));
+  scope.querySelector('#theme-palette-btn')?.addEventListener('click', (e) => {
     const float = (e.currentTarget as HTMLElement)
       .closest('.theme-palette')
       ?.querySelector<HTMLElement>('[data-theme-float]');
@@ -31,18 +32,23 @@ export function bindTopBarActions(ctrl: UIController): void {
     float.classList.toggle('open', ctrl.themeFloatOpen);
     const button = e.currentTarget as HTMLButtonElement;
     button.classList.toggle('is-active', ctrl.themeFloatOpen);
+    button.dataset.themeState = ctrl.themeFloatOpen ? 'active' : 'inactive';
     button.setAttribute('aria-expanded', String(ctrl.themeFloatOpen));
+    refreshPresentationHostElements(ctrl, ['header.button']);
   });
-  ctrl.root.querySelector('[data-theme-float-close]')?.addEventListener('click', (e) => {
+  scope.querySelector('[data-theme-float-close]')?.addEventListener('click', (e) => {
     e.stopPropagation();
     ctrl.themeFloatOpen = false;
     (e.currentTarget as HTMLElement).closest('[data-theme-float]')?.classList.remove('open');
-    ctrl.root.querySelector<HTMLButtonElement>('#theme-palette-btn')?.classList.remove('is-active');
-    ctrl.root.querySelector<HTMLButtonElement>('#theme-palette-btn')?.setAttribute('aria-expanded', 'false');
+    const button = scope.querySelector<HTMLButtonElement>('#theme-palette-btn');
+    button?.classList.remove('is-active');
+    if (button) button.dataset.themeState = 'inactive';
+    button?.setAttribute('aria-expanded', 'false');
+    refreshPresentationHostElements(ctrl, ['header.button']);
   });
   // 主题浮窗：拖动标题栏移动（position: fixed，绕开顶栏拥挤）
-  const themeFloat = ctrl.root.querySelector<HTMLElement>('[data-theme-float]');
-  const themeFloatHead = ctrl.root.querySelector<HTMLElement>('[data-theme-float-head]');
+  const themeFloat = scope.querySelector<HTMLElement>('[data-theme-float]');
+  const themeFloatHead = scope.querySelector<HTMLElement>('[data-theme-float-head]');
   if (themeFloat && themeFloatHead) {
     themeFloatHead.addEventListener('pointerdown', (e) => {
       if ((e.target as HTMLElement).closest('[data-theme-float-close]')) return;
@@ -71,7 +77,7 @@ export function bindTopBarActions(ctrl: UIController): void {
       themeFloatHead.addEventListener('pointerup', onUp);
     });
   }
-  ctrl.root.querySelector('#help-modal')?.addEventListener('click', () => {
+  scope.querySelector('#help-modal')?.addEventListener('click', () => {
     ctrl.modal.open({
       title: '关于 AronaClicker',
       body: `
@@ -81,7 +87,7 @@ export function bindTopBarActions(ctrl: UIController): void {
       footer: `<button class="primary-button modal-close">知道了</button>`,
     });
   });
-  ctrl.root.querySelector('#new-game')?.addEventListener('click', () => {
+  scope.querySelector('#new-game')?.addEventListener('click', () => {
     // 彻底重启：清空全部运行时状态（含 Global 资源 / 已解锁世界线 / 统计），
     // 并删除本地存档，回到首次启动的全新世界线选择。
     ctrl.commands.reset();
@@ -92,21 +98,21 @@ export function bindTopBarActions(ctrl: UIController): void {
     ctrl.themeFloatOpen = false;
     ctrl.renderInitSelect();
   });
-  ctrl.root.querySelector('#clear-log')?.addEventListener('click', () => {
+  scope.querySelector('#clear-log')?.addEventListener('click', () => {
     ctrl.commands.clearDevLogs();
-    ctrl.render();
+    ctrl.scheduleRender();
   });
-  ctrl.root.querySelector('#export-log')?.addEventListener('click', () => {
+  scope.querySelector('#export-log')?.addEventListener('click', () => {
     ctrl.io.exportLog();
   });
-  ctrl.root.querySelector('#dump-enh-debug')?.addEventListener('click', () => {
+  scope.querySelector('#dump-enh-debug')?.addEventListener('click', () => {
     ctrl.game.enhancements.dumpEnhancementDebug();
     ctrl.toast.show('Enhancement 条件诊断已写入日志', 'info');
-    ctrl.render();
+    ctrl.scheduleRender();
   });
 
   // Tab 切换
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button => {
     button.addEventListener('click', () => {
       const [panel, tabId] = (button.dataset.tab ?? ':').split(':');
       if (panel === 'left') {
@@ -130,7 +136,8 @@ export function bindTopBarActions(ctrl: UIController): void {
           ctrl.scroll.forceToBottom();
         }
       } else if (panel === 'right') ctrl.panelState.rightTab = tabId;
-      ctrl.render();
+      const panels = panel === 'left' ? ['left', 'center'] : [panel];
+      ctrl.refreshPanels(panels as Array<'left' | 'center' | 'right'>);
     });
   });
 }

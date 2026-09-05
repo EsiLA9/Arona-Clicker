@@ -1,6 +1,7 @@
 import type { StoryView } from '../../arona-clicker/contracts/results';
 import { UIContext } from '../context';
 import { renderAvatarSvg } from '../avatar-renderer';
+import { renderPresentationHostBackground } from '../presentation-service';
 
 export const storyErrorText: Record<string, string> = {
   AlreadyActive: '已有剧情流程进行中',
@@ -114,9 +115,10 @@ export function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: strin
   // 聊天流发送图片：pic ref / 直连 URL 经 getPicUrl 解析；解析失败则整图不渲染
   const image = entry.image ? renderChatImage(ctx, entry.image) : '';
   const bubble = `
-    <div class="chat-bubble chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}"${styleAttr}>
+    <div class="chat-bubble presentation-host-target chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}" data-theme-host-id="bubble" data-theme-text-mode="${ctx.textColorModeForHost?.('bubble') ?? 'auto'}"${styleAttr}>
+      ${renderPresentationHostBackground(ctx, 'bubble')}
       ${image}
-      <p>${ctx.escapeHtml(entry.text)}</p>
+      <p class="presentation-host-content">${ctx.escapeHtml(entry.text)}</p>
     </div>`;
   const nameLine = hideIdentity ? '' : `<div class="chat-name">${badge}${name}</div>`;
   const main = `<div class="chat-talk-main">${nameLine}${bubble}</div>`;
@@ -169,7 +171,7 @@ function renderReplyCard(
 function renderTyping(ctx: UIContext, entry: ChatEntry, hideIdentity = false): string {
   const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
-  const bubble = `<div class="chat-bubble chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}"><span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>`;
+  const bubble = `<div class="chat-bubble presentation-host-target chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}" data-theme-host-id="bubble" data-theme-text-mode="${ctx.textColorModeForHost?.('bubble') ?? 'auto'}">${renderPresentationHostBackground(ctx, 'bubble')}<span class="send-dots presentation-host-content" aria-hidden="true"><i></i><i></i><i></i></span></div>`;
   const nameLine = hideIdentity ? '' : `<div class="chat-name">${name}</div>`;
   const main = `<div class="chat-talk-main">${nameLine}${bubble}</div>`;
   const avatar = entry.noAvatar

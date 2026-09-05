@@ -8,10 +8,15 @@ import type {
   MotionDef,
   MotionPreset,
   StateAppearanceDef,
+  PresentationHostState,
+  PresentationTextColorMode,
 } from '../engine/types/theme';
 import type { Condition } from '../engine/types/expression';
 import type { PicQueryPort } from '../arona-clicker/contracts/pic-query';
 import type { BackgroundView } from './background-service';
+import { renderBackground } from './background-service';
+import type { UIContext } from './context';
+import { DEFAULT_PANEL_OPACITY } from './presentation-config';
 
 export interface PresentationViewLayer {
   id?: string;
@@ -50,11 +55,23 @@ export interface PresentationRegionView {
 export interface PresentationHostView {
   layers: readonly PresentationViewLayer[];
   opacity: number;
+  textColorMode?: PresentationTextColorMode;
+  systemColorLayerIgnored?: boolean;
+  layerOrder?: readonly string[];
+  states?: ReadonlyMap<PresentationHostState, PresentationHostStateView>;
+}
+
+export interface PresentationHostStateView {
+  layers: readonly PresentationViewLayer[];
+  systemColorLayerIgnored?: boolean;
+  layerOrder?: readonly string[];
+  textColorMode?: PresentationTextColorMode;
 }
 
 export interface PresentationView {
   region(region: PresentationRegion): PresentationRegionView;
   host(id: string): PresentationHostView;
+  hasHost(id: string): boolean;
   panelOpacity(region: PresentationRegion): number;
   asset(ref: string): ResolvedAssetView | undefined;
   motion(name: string): MotionDef | undefined;
@@ -155,7 +172,7 @@ export function buildPresentationView(
   const panelOpacity = new Map<PresentationRegion, number>();
   const hostMap = new Map<string, PresentationHostView>();
   for (const panel of presentation?.panels ?? []) {
-    if (REGIONS.includes(panel.region)) panelOpacity.set(panel.region, Math.max(0, Math.min(1, panel.opacity ?? 0.8)));
+    if (REGIONS.includes(panel.region)) panelOpacity.set(panel.region, Math.max(0, Math.min(1, panel.opacity ?? DEFAULT_PANEL_OPACITY)));
   }
   const asset = (ref: string): ResolvedAssetView | undefined => imageView(ref, pics);
   const resolveLayer = (layer: BackgroundLayerDef): PresentationViewLayer | undefined => {
@@ -186,10 +203,31 @@ export function buildPresentationView(
     }
   }
   for (const host of presentation?.hosts ?? []) {
-    const resolvedLayers = (host.layers ?? []).map(resolveLayer).filter((layer): layer is PresentationViewLayer => Boolean(layer));
-    const rank = new Map((host.layerOrder ?? []).map((id, index) => [id, index]));
-    const orderedLayers = [...resolvedLayers].sort((a, b) => (rank.get(a.id ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id ?? '') ?? Number.MAX_SAFE_INTEGER));
-    hostMap.set(host.id, { layers: orderedLayers, opacity: Math.max(0, Math.min(1, host.opacity ?? 0.8)) });
+    const orderLayers = (layers: readonly BackgroundLayerDef[] | undefined, layerOrder: readonly string[] | undefined) => {
+      const resolvedLayers = (layers ?? []).map(resolveLayer).filter((layer): layer is PresentationViewLayer => Boolean(layer));
+      const rank = new Map((layerOrder ?? []).map((id, index) => [id, index]));
+      return [...resolvedLayers].sort((a, b) => (rank.get(a.id ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id ?? '') ?? Number.MAX_SAFE_INTEGER));
+    };
+    const orderedLayers = orderLayers(host.layers, host.layerOrder);
+    const states = new Map<PresentationHostState, PresentationHostStateView>();
+    for (const state of ['default', 'active', 'inactive', 'disabled'] as const) {
+      const stateDef = host.states?.[state];
+      if (!stateDef) continue;
+    states.set(state, {
+        layers: orderLayers(stateDef.layers, stateDef.layerOrder),
+        systemColorLayerIgnored: stateDef.systemColorLayerIgnored === true,
+        layerOrder: stateDef.layerOrder,
+        textColorMode: stateDef.textColorMode,
+      });
+    }
+    hostMap.set(host.id, {
+      layers: orderedLayers,
+      opacity: Math.max(0, Math.min(1, host.opacity ?? DEFAULT_PANEL_OPACITY)),
+      textColorMode: host.textColorMode,
+      systemColorLayerIgnored: host.systemColorLayerIgnored === true,
+      layerOrder: host.layerOrder ?? orderedLayers.map(layer => layer.id).filter((id): id is string => Boolean(id)),
+      states,
+    });
   }
   const defs = (presentation?.components ?? []).filter(component => component.id && component.parent);
   const byId = new Map(defs.map(component => [component.id, component]));
@@ -218,8 +256,9 @@ export function buildPresentationView(
   }
   return {
     region: region => regionMap.get(region) ?? { layers: [], components: [] },
-    host: id => hostMap.get(id) ?? { layers: [], opacity: 0.8 },
-    panelOpacity: region => hostMap.get(region)?.opacity ?? panelOpacity.get(region) ?? 0.8,
+    host: id => hostMap.get(id) ?? { layers: [], opacity: DEFAULT_PANEL_OPACITY },
+    hasHost: id => hostMap.has(id),
+    panelOpacity: region => hostMap.get(region)?.opacity ?? panelOpacity.get(region) ?? DEFAULT_PANEL_OPACITY,
     asset,
     motion: name => motions.get(name),
     stateAppearance: state => states.get(state),
@@ -260,4 +299,9 @@ export function renderPresentationRegion(view: PresentationView, region: Present
   const components = resolved.components.filter(component => component.parent === region)
     .map(component => renderComponent(component, children)).join('');
   return `<div class="presentation-region" data-presentation-region="${region}" aria-hidden="true">${layers}${components}</div>`;
+}
+
+export function renderPresentationHostBackground(ctx: UIContext, hostId: string, className = 'presentation-host-background', state: PresentationHostState = 'default'): string {
+  if (!ctx.presentation?.hasHost?.(hostId) && state !== 'active') return '';
+  return renderBackground(ctx.backgroundForHost(hostId, false, state), className);
 }

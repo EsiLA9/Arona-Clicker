@@ -14,6 +14,8 @@ import { StoryService } from './services/story-service';
 import { InitService } from './services/init-service';
 import { SessionService } from '../engine/runtime/session-service';
 import type { SaveData } from './contracts/save-data';
+import { mergeTagEffects, mergeTagOverrides } from './state/tag-residue';
+import { splitTagEffects, splitTagOverrides, type TagOverrideResidue } from './state/tag-residue';
 
 export type { SaveData };
 
@@ -36,10 +38,22 @@ export interface RestoreContext {
   initService: InitService;
   sessionService: SessionService;
   setState: (next: PlayerState) => void;
+  setTagResidue?: (residue: TagOverrideResidue) => void;
 }
 
 export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   const state = clonePlayerState(saveData.playerState);
+  const tagOverrides = splitTagOverrides(
+    mergeTagOverrides(state.spotTagOverrides, saveData.retained),
+    ctx.registry.loadedModNames,
+  );
+  state.spotTagOverrides = tagOverrides.active;
+  const tagEffects = splitTagEffects(
+    mergeTagEffects(state.tagEffects, saveData.retained),
+    ctx.registry.loadedModNames,
+  );
+  state.tagEffects = tagEffects.active;
+  ctx.setTagResidue?.({ ...tagOverrides.residue, ...(Object.keys(tagEffects.residue).length ? { tagEffects: tagEffects.residue } : {}) });
   ctx.setState(state);
   ctx.mutations.setState(state);
   ctx.statsService.setState(state);

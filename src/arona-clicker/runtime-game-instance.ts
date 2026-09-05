@@ -67,6 +67,7 @@ import { PicService } from '../data-services/assets/pic-service';
 import { UserThemeService } from './services/user-theme-service';
 
 import type { SaveData } from './contracts/save-data';
+import { clearTagResidueByMod, summarizeTagResidue, type TagOverrideResidue } from './state/tag-residue';
 import type { SaveBuildContext } from './contracts/save-codec';
 import type { GameInstanceOptions } from './runtime-options';
 export type { SaveData };
@@ -120,6 +121,7 @@ export class GameInstance {
 
   // 运行时状态
   private _state!: PlayerState;
+  private _tagResidue: TagOverrideResidue = { spotTagOverrides: {} };
 
   private readonly saveCodec: (ctx: SaveBuildContext) => SaveData;
 
@@ -137,6 +139,12 @@ export class GameInstance {
   get state(): Readonly<PlayerState> { return this._state; }
   get visibility(): Readonly<VisibilitySnapshot> { return this.visibilityEngine.getVisibility(this._state); }
   get running(): boolean { return this.sessionService.running; }
+  getTagResidueSummary(): Readonly<Record<string, number>> { return summarizeTagResidue(this._tagResidue); }
+  clearTagResidueByMod(modName: string): number {
+    const result = clearTagResidueByMod(this._tagResidue, modName);
+    this._tagResidue = result.residue;
+    return result.removed;
+  }
 
   /** 剧情门面：story flow 统一入口（startStory / advanceStory / clickSend 等）。 */
   get story(): StoryService { return this.storyService; }
@@ -197,6 +205,7 @@ export class GameInstance {
     this.funcletExecutor.setDefs(this.registry.funcletDefs as Map<string, import('../engine/types').FuncletDef>);
     // Character 引用完整性：全部数据包加载完成后统一校验（跨包引用允许）
     this.registry.validateCharacterRefs();
+    this.registry.validateTagRefs();
     this.effectEngine.setState(this._state);
     this.tickSystem.setState(this._state);
 
@@ -347,13 +356,17 @@ export class GameInstance {
     // visibility 是派生数据：生成存档时按当前 Registry/State 重算，避免旧快照
     // 缺少新增的 Init 或 GlobalEnh 条目而在下次读档时被误判为不可见。
     this.refreshVisibility();
-    return this.saveCodec({
+    const saveData = this.saveCodec({
       state: this._state,
       visibility: () => this.visibilityEngine.getVisibility(this._state),
       storyCursor: () => this.storyService.saveCursor(),
       chatCursors: () => this.storyService.saveChatCursors(),
       persistedStats: () => this.statsService.getPersistable(),
+      activeModNames: this.registry.loadedModNames,
+      retainedTagResidue: this._tagResidue,
     });
+    this._tagResidue = saveData.retained ?? { spotTagOverrides: {} };
+    return saveData;
   }
 
   /** 从存档数据恢复 */
@@ -376,11 +389,13 @@ export class GameInstance {
         this._state = next;
         this.gameNumSystem.buildAll(this._state);
       },
+      setTagResidue: residue => { this._tagResidue = residue; },
     }, saveData);
   }
 
   /** 重置为默认状态 */
   reset(): void {
+    this._tagResidue = { spotTagOverrides: {} };
     resetRuntime({
       stop: () => this.stop(),
       createDefaultState: () => createDefaultPlayerState(),

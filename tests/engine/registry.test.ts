@@ -218,7 +218,7 @@ describe('Registry', () => {
       ],
     });
     expect(reg.tagDefs.size).toBe(2);
-    expect(reg.tagDefs.get('office')?.name).toBe('办公室');
+    expect(reg.tagDefs.get('base:office')?.name).toBe('办公室');
   });
 
   test('should resolve tag name by exact match, else inherit from parent', () => {
@@ -264,5 +264,86 @@ describe('Registry', () => {
       ],
     };
     expect(() => reg.load(dp)).toThrow(/Duplicate/);
+  });
+
+  test('should reject duplicate canonical TagRef ids', () => {
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, tags: [{ id: 'office', name: 'A' }] });
+    expect(() => reg.load({ ...sampleDatapack, modName: 'extension', tags: [{ id: 'base:office', name: 'B' }] })).toThrow(/canonical tag id/);
+  });
+
+  test('should resolve an explicit cross-namespace tag parent', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [
+        { id: 'base:office', name: '办公室' },
+        { id: 'extension:office-special', parent: 'base:office', name: '特殊办公室' },
+      ],
+      spots: [{ ...sampleDatapack.spots[0], tags: [['extension:office-special']] }],
+    });
+    reg.validateTagRefs();
+    expect(reg.spotsWithTag(['base:office'])).toContain('test:spot:spot_1');
+    expect(reg.tagName(['extension:office-special'])).toBe('特殊办公室');
+  });
+
+  test('should reject an unknown explicit tag parent after merge', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [{ id: 'extension:office-special', parent: 'base:office', name: '特殊办公室' }],
+    });
+    expect(() => reg.validateTagRefs()).toThrow(/unknown parent/);
+  });
+
+  test('should reject an explicit tag parent cycle', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [
+        { id: 'base:a', parent: 'base:b', name: 'A' },
+        { id: 'base:b', parent: 'base:a', name: 'B' },
+      ],
+    });
+    expect(() => reg.validateTagRefs()).toThrow(/cycle/);
+  });
+
+  test('should reject malformed entity and affector TagPath values', () => {
+    const malformedSpot = { ...sampleDatapack.spots[0], tags: [['office', 'bad:child']] };
+    expect(() => new Registry().load({ ...sampleDatapack, spots: [malformedSpot] })).toThrow(/modName:tagPath/);
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      affectorPacks: [{ id: 'test:affectorpack:tag', entries: [{ id: 'e', effects: [], zoneModifiers: [{ target: { kind: 'tag', tag: ['bad:tag:path'] }, category: 'mul', value: 2 }] }] }],
+    })).toThrow(/modName:tagPath/);
+  });
+
+  test('should assign bare tags to the datapack namespace', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      tags: [{ id: 'office', name: '扩展办公室' }],
+      spots: [{ ...sampleDatapack.spots[0], tags: [['office']] }],
+    });
+    expect(reg.spotsWithTag(['extension:office'])).toContain('test:spot:spot_1');
+    expect(reg.spotsWithTag(['base:office'])).not.toContain('test:spot:spot_1');
+    expect(reg.tagName(['extension:office'])).toBe('扩展办公室');
+  });
+
+  test('declared bare tags keep their owning datapack across load order', () => {
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, modName: 'base', spots: sampleDatapack.spots.map(s => ({ ...s, tags: [['office']] })) });
+    reg.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      inits: sampleDatapack.inits.map(i => ({ ...i, defaultAreas: [] })),
+      areas: sampleDatapack.areas.map(a => ({ ...a, defaultSpots: [] })),
+      spots: sampleDatapack.spots.map(s => ({ ...s, id: `${s.id}-extension`, tags: [['office']] })),
+    });
+    expect(reg.effectiveSpotTags('test:spot:spot_1')).toEqual([['office']]);
+    expect(reg.effectiveSpotTags('test:spot:spot_1-extension')).toEqual([['office']]);
+    expect(reg.spotsWithTag(['base:office'])).toContain('test:spot:spot_1');
+    expect(reg.spotsWithTag(['base:office'])).not.toContain('test:spot:spot_1-extension');
+    expect(reg.tagNameForSpotTag('test:spot:spot_1-extension', ['office'])).toBe('office');
   });
 });
