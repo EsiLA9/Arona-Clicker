@@ -4,6 +4,23 @@ import { defaultDatapack } from '../../src/arona-clicker/content';
 import type { PackManagerSnapshot } from '../../src/data-services/datapack/pack-manager';
 
 describe('AronaClickerRuntime PackManager 接线', () => {
+  test('base 作为内置数据包进入包库并始终参与启用集', () => {
+    const game = new AronaClickerRuntime();
+    const base = game.getPackCatalog().entries.find(entry => entry.modName === 'base');
+
+    expect(base).toMatchObject({ id: 'base@1.0.0', sourceKind: 'builtin', enabled: true, capabilities: { required: true, removable: false, enableable: false } });
+    expect(() => game.setPackEnabled('base@1.0.0', false)).toThrow('内置数据包不可停用');
+    expect(() => game.packManager.removePack('base@1.0.0')).toThrow('内置数据包不可删除');
+  });
+
+  test('默认启动通过启用集加载 base，而不是绕过 PackManager', () => {
+    const game = new AronaClickerRuntime();
+    game.applyEnabledPacks();
+
+    expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
+    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.0']);
+  });
+
   test('默认产品包包含卡池所引用的角色差分', () => {
     const game = new AronaClickerRuntime();
 
@@ -48,9 +65,9 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     await source.savePackManager(store);
     const restored = new AronaClickerRuntime();
     await restored.restorePackManager(store);
-    expect(restored.packManager.listPacks().map(pack => pack.id)).toEqual(['demo@1.0.0']);
+    expect(restored.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.0', 'demo@1.0.0']);
     restored.setPackEnabled('demo@1.0.0', true);
     await Promise.resolve();
-    expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['demo@1.0.0']);
+    expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0', 'demo@1.0.0']);
   });
 });

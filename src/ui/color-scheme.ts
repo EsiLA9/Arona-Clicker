@@ -12,6 +12,7 @@
 // ============================================================
 
 import { hexToHsl } from '../arona-clicker/services/color-system';
+import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
 
 /** HSL(h s% l%) 序列化（h/s/l 均为 0~1）。 */
 function hslCss(h: number, s: number, l: number, a?: number): string {
@@ -31,10 +32,10 @@ function hslCss(h: number, s: number, l: number, a?: number): string {
  * 避免数据包通过 extra 注入任意颜色值。
  */
 const COLOR_SCHEME_REGISTRY: Record<string, string> = {
-  primary: '#3b9eff',
-  accent:  '#3b9eff',
+  primary: SYSTEM_DEFAULT_PRIMARY,
+  accent:  SYSTEM_DEFAULT_PRIMARY,
   npc:     '#5a7ac0',
-  player:  '#3b9eff',
+  player:  SYSTEM_DEFAULT_PRIMARY,
   danger:  '#e11d48',
   success: '#2ec494',
   warning: '#ffa94d',

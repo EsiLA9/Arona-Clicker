@@ -31,7 +31,7 @@
 ## 后果
 
 - **收益**：新增事件/Trigger kind/条件 target/EffectOp/Registry 表均收敛为「类型联合 + 1 处注册/登记」；装配与业务订阅分离；UI 写路径被类型系统强制阻断；依赖图无环。
-- **代价**：`EVENT_CATALOG` / `tableSteps` / 注册表为新成员增加一层间接——由 [[docs-828/04-algorithms/trigger-effect]] 与模块卡片补偿可读性。
+- **代价**：`EVENT_CATALOG` / `tableSteps` / 注册表为新成员增加一层间接——由 [[docs-828/04-mechanisms/trigger-effect]] 与模块卡片补偿可读性。
 - **验证**：`npx tsc --noEmit` 零错误；`npm test` 926/926 全绿（演出/产出/存档往返全回归）。
 
 ## 纪律沉淀

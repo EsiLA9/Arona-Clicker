@@ -1,6 +1,6 @@
 # 07-audit/dormant-machinery — 休眠与预留机制
 
-> 本文回答：**已实现 / 已声明但当前无消费方的机制群，逐项处理方案。**
+> 本文回答：**已实现 / 已声明但当前无消费方的机制群，逐项处理方案。** 本文是 2026-08-30 审查快照，处理建议不代表已经执行。
 > 仓库先例：ChatMessageDef 整表移除（2026-08-29，见 [[docs-828/03-data-structures/id-reference-semantics]] 特别说明 3）——砍预留机制已有成熟路径。
 
 ## 共同原因与成本
@@ -12,16 +12,16 @@
 | 机制 | 位置 | 状态 | 推荐动作 |
 | --- | --- | --- | --- |
 | `refreshWorldPool` + `state.worldPool` | `02-modules/character.md:15`、`03-data-structures/player-state.md:34` | 已实现、无调用点 | 删 |
-| `chatRead` / `markChatRead` / `chatReadChanged` | `03-data-structures/player-state.md:32`、`04-algorithms/trigger-effect.md:101`、`06-adr/planning.md:7` | 保留、无写入方（裁定供复用） | 限期接线或删 |
-| EffectOp `loot` | `04-algorithms/trigger-effect.md:16` ↔ `02-modules/world.md:50` | 文档矛盾（见下） | 先核代码，再接线或删 |
+| `chatRead` / `markChatRead` / `chatReadChanged` | `03-data-structures/player-state.md`、`04-mechanisms/trigger-effect.md`、[[0x-plan&work/completed/affection-planning]] | 保留、无写入方（裁定供复用） | 限期接线或删 |
+| EffectOp `loot` | `04-mechanisms/trigger-effect.md:16` ↔ `02-modules/world.md:50` | 文档矛盾（见下） | 先核代码，再接线或删 |
 | Trigger `maxRuns`（引擎支持） | `02-modules/effect-trigger.md:15`；DSL 无此字段（`declarative-dsl.md:112`） | 数据从不使用 | 删，保留 `once` |
 | `state.enhancementAttachments` | `03-data-structures/id-reference-semantics.md:65` | 引擎只写不读，UI 用 id 分组 | 标注「仅 UI」或删 |
-| 组件级 CSS 变量预留覆写点 | `02-modules/ui.md:47`、`06-adr/planning.md:305` | 预留、有明确重肤用途 | 保留（低优先） |
+| 组件级 CSS 变量预留覆写点 | `02-modules/ui.md`、[[0x-plan&work/completed/affection-planning]] §3 | 预留、有明确重肤用途 | 保留（低优先） |
 
 ### 1. refreshWorldPool + worldPool
 
 - **原因**：「池关闭成员并入世界 Pool」的玩法未立项，服务、状态字段、测试全部休眠。
-- **方案组**：**A（推荐）删**（服务 + 字段 + 测试）；玩法立项时重写——纪律 7 下无迁移负担。B 接线（需先定触发时机）。
+- **方案组**：**A（推荐）删**（服务 + 字段 + 测试）；玩法立项时重写——纪律 8 下无迁移负担。B 接线（需先定触发时机）。
 
 ### 2. chatRead 全链
 

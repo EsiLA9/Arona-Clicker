@@ -1,7 +1,7 @@
 # 03-data-structures/id-reference-semantics — 带 id 的 Def 条目与引用语义（真引用 / 意义引用）
 
 > 本文回答：**哪些「带 id 的内容条目」被其他字段按 id 引用？每次引用是取目标内容生效（真引用），还是只拿 id 做身份/分组/路由键、行为由自身副本决定（意义引用）？**
-> 覆盖：`src/engine/types/` 全部 Def 实体 + 运行时代码消费点核对（行号为核对时快照）。
+> 覆盖：`src/data-services/contracts/`、`src/engine/contracts/`、`src/engine/types/` 和 `src/arona-clicker/` 中的 Def/状态实体，以及运行时代码消费点核对（行号为核对时快照）。
 
 ## 判定标准
 

@@ -32,7 +32,7 @@
 
 - **两实体分离**：`StoryEntryDef`（active/passive 分表：触发条件/奖励/可用性）与 `StoryDef`（talklets 演出内容）；`entry.storyId` 是真引用，当前约定 `entry.id === storyId`（1:1，解耦风险见 [[docs-828/03-data-structures/id-reference-semantics]]）。
 - **Talklet 三类**：`talk`（对话气泡）/ `narration`（旁白）/ `click`（纯交互页）；`jumpMode`：goto / insert。
-- **阅读记录双轨**：`storyLog`（跨 run 累计，按 StoryDef.id）与 `storyReadLogs`（per-Init 快照，T3 修复后随快照保存）。
+- **阅读记录双轨**：`storyLog`（当前 Init 的完成记录，按 StoryDef.id）与 `storyReadLogs`（当前 Init 的逐 Talklet 阅读记录，随 Init 快照保存）。
 - **聊天沙盒**：每个角色差分一个对话空间（`owner` 意义引用），`storyCompleted` 按沙盒 owner 匹配。
 - `StoryError` 14 种返回码见 `src/arona-clicker/contracts/results.ts`。
 

@@ -1,4 +1,4 @@
-# 08-roadmap/0008-theme-color-system-refactor — 主题色双轨与 UI 语义节点重构
+# roadmap-0008-theme-color-system-refactor — 主题色双轨与 UI 语义节点重构
 
 > 本文记录现有 `ColorGroup / ThemeDef / theme-tree` 完成后的前端色彩系统精细化方案。旧色彩系统设计与实现记录见 [[0x-plan&work/completed/color-system-plan]]；本文只管理本次重构的目标、裁定点、实现切片与验收，不覆盖旧方案。
 
@@ -249,12 +249,12 @@ const colorRef = { node: 'active' } satisfies ColorRef;
 - `npm test` 全量通过；
 - `npx tsc --noEmit` 通过；
 - 若修改 `src/engine/types/`，必须执行 `npm run gen:schema` 并完成 Schema 同步检查；
-- 施工完成后同步 `docs-828/02-modules/color`、`docs-828/04-algorithms/color-derivation` 和本 Roadmap。
+- 施工完成后同步 `docs-828/02-modules/color`、`docs-828/04-mechanisms/color-derivation` 和本 Roadmap。
 
 ## 关联文件与文档
 
 - [[docs-828/02-modules/color]]
-- [[docs-828/04-algorithms/color-derivation]]
+- [[docs-828/04-mechanisms/color-derivation]]
 - [[docs-828/02-modules/ui]]
 - [[0x-plan&work/completed/color-system-plan]]
 - `src/arona-clicker/services/color-system.ts`

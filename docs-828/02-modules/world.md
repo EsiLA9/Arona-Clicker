@@ -32,16 +32,16 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `spot-service.ts` | Spot 升级/购买/标签增减（幂等判定 + `spotTagChanged` 链）/ 功能项面板 |
-| `item-service.ts` | 物品使用/发放（`pickupEffects`） |
-| `enhancement-service.ts` | 强化解锁/移除 |
+| `services/spot-service.ts` | Spot 升级/购买/标签增减（幂等判定 + `spotTagChanged` 链）/ 功能项面板 |
+| `services/item-service.ts` | 物品使用/发放（`pickupEffects`） |
+| `services/enhancement-service.ts` | 强化解锁/移除 |
 
 ### 会话与存档
 
 | 文件 | 职责 |
 | --- | --- |
-| `session-service.ts` | 1 tick/秒循环、running/runId、Session 上下文 |
-| `save-codec.ts` | 存档序列化/反序列化（`normalizePlayerState` 兜底、version 校验） |
+| `src/engine/runtime/session-service.ts` | 1 tick/秒循环、running/runId、Session 上下文 |
+| `runtime-save-codec.ts` | 存档序列化/反序列化（`normalizePlayerState` 兜底、version 校验） |
 | `runtime-reset.ts` | 运行时重置 / reload |
 
 ### 其他领域服务（`src/arona-clicker/services/`）
@@ -49,7 +49,7 @@
 | 文件 | 职责 |
 | --- | --- |
 | `spot-functionality.ts` | Spot 功能项（`linearYield` / `restartInit` / `hardResetInit` / `gacha`）注册与查询 |
-| `loot-system.ts` | 掉落池结算（`loot` effect → giveItem） |
+| `loot-system.ts` | 掉落池纯计算（`rollTable` 返回物品数量）；实际发放由 `item-service.ts` 的 `rollDropTable` 调用 `giveItem` 完成，`loot` EffectOp 当前仍未接线 |
 
 ## 核心概念
 
@@ -59,7 +59,7 @@
 
 ## 测试入口
 
-`tests/engine/game-instance.test.ts`、`spot-functionality.test.ts`、`per-init-fields.test.ts`、`enhancement-scope.test.ts`
+`tests/engine/game-instance.test.ts`、`tests/engine/spot-functionality.test.ts`、`tests/engine/per-init-fields.test.ts`、`tests/engine/enhancement-scope.test.ts`
 
 ## 相关文档
 

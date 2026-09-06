@@ -61,6 +61,7 @@ import { bindThemeActions } from './controller-actions-theme';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 import type { GameCommands } from '../arona-clicker/contracts';
+import type { PackCatalogReadModel } from '../arona-clicker/contracts';
 import { renderLeftPanel } from './components/rail';
 import { renderCenterPanel, renderChatTab, renderLogTab } from './components/center-panel';
 import { renderRightPanel } from './components/right-panels';
@@ -85,6 +86,7 @@ export class UIController {
   static readonly REWARD_REVEAL_DELAY_MS = 800;
   /** @internal 供 controller-core / controller-panels 读写。 */
   panelState: PanelState = {
+    service: 'game',
     leftTab: 'area',
     centerTab: 'chat',
     rightTab: 'spot',
@@ -176,6 +178,7 @@ export class UIController {
     });
     this.io = new ImportExportService({
       game: this.game,
+      modal: this.modal,
       toast: this.toast,
       resetSessionPanel: () => resetSessionPanelImpl(this),
       setStarted: () => { this.started = true; },
@@ -439,6 +442,7 @@ export class UIController {
     // 先同步运行时主题层再生成 DOM：层级优先级色胶囊等依赖运行时层状态的 UI
     // 若晚于 DOM 生成（applyTheme 内），会读到上一帧的层 → 换色后落后一拍
     this.syncRuntimeTheme();
+    this.ensureDatapackWorkspaceState();
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     this.root.innerHTML = renderAppShell(context, this.panelState);
     this.popovers.bind();
@@ -473,6 +477,46 @@ export class UIController {
     this.refreshStats.themeApplications += 1;
     this.publishRefreshStats();
     applyThemeImpl(this, syncRuntime);
+  }
+
+  ensureDatapackWorkspaceState(): void {
+    const host = this.game as GameInstance & Partial<PackCatalogReadModel>;
+    const catalog = host.getPackCatalog?.();
+    if (!catalog) return;
+    if (this.panelState.datapackWorkspace) {
+      const workspace = this.panelState.datapackWorkspace;
+      const known = new Set(catalog.entries.map(entry => entry.id));
+      const order = workspace.draftOrder.filter(id => known.has(id));
+      for (const entry of catalog.entries) if (!order.includes(entry.id)) order.push(entry.id);
+      workspace.draftOrder = order;
+      workspace.draftEnabledIds = workspace.draftEnabledIds.filter(id => known.has(id));
+      if (workspace.selectedPackId && !known.has(workspace.selectedPackId)) workspace.selectedPackId = catalog.entries[0]?.id ?? null;
+      return;
+    }
+    const configuration = host.getPackConfiguration?.();
+    this.panelState.datapackWorkspace = {
+      section: 'all',
+      selectedPackId: catalog.entries[0]?.id ?? null,
+      draftEnabledIds: [...(configuration?.enabledIds ?? catalog.entries.filter(entry => entry.enabled).map(entry => entry.id))],
+      draftOrder: [...(configuration?.order ?? catalog.entries.map(entry => entry.id))],
+      validation: null,
+      lastResult: null,
+    };
+  }
+
+  resetDatapackDraft(): void {
+    const host = this.game as GameInstance & Partial<PackCatalogReadModel>;
+    const catalog = host.getPackCatalog?.();
+    if (!catalog) return;
+    const configuration = host.getPackConfiguration?.();
+    this.panelState.datapackWorkspace = {
+      section: this.panelState.datapackWorkspace?.section ?? 'all',
+      selectedPackId: this.panelState.datapackWorkspace?.selectedPackId ?? catalog.entries[0]?.id ?? null,
+      draftEnabledIds: [...(configuration?.enabledIds ?? catalog.entries.filter(entry => entry.enabled).map(entry => entry.id))],
+      draftOrder: [...(configuration?.order ?? catalog.entries.map(entry => entry.id))],
+      validation: null,
+      lastResult: null,
+    };
   }
 
   private publishRefreshStats(): void {

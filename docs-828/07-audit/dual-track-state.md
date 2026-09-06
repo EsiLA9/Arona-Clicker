@@ -1,6 +1,6 @@
 # 07-audit/dual-track-state — 双轨与副本状态
 
-> 本文回答：**同一逻辑数据存两份 / 两轨的问题清单与合并方案。**
+> 本文回答：**同一逻辑数据存两份 / 两轨的问题清单与合并方案。** 本文是 2026-08-30 审查快照，方案不等于已批准改造。
 > 引用语义的权威评审在 [[docs-828/03-data-structures/id-reference-semantics]] §六，本篇不重复其结论，只补方案组。
 
 ## 问题清单
@@ -23,7 +23,7 @@
 
 ### 2. 阅读记录双轨
 
-- **位置**：`02-modules/story.md:36`（`storyLog` 跨 run 累计 vs `storyReadLogs` per-Init 快照）；`03-data-structures/player-state.md:10,27`（两者同入快照）。
+- **位置**：`02-modules/story.md`（`storyLog` 与 `storyReadLogs` 均为当前 Init 记录，但粒度不同）；`03-data-structures/player-state.md`（两者同入 Init 快照）。
 - **原因**：「读过没有」这一事实存两份，两种生命周期；`hasReadStory` / `hasReadStoryInRun` / `visitedStoryInChain` / BranchGuard 四个条件分轨消费（`declarative-dsl.md:59-61`），一致性靠约定维护。
 - **方案组**：
   - **A（推荐）**：合并为单轨完成记录（含 runId）——「当前 run 是否读过」改为过滤派生，`hasReadStoryInRun` 条件随之简化。

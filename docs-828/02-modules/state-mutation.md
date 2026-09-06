@@ -17,9 +17,9 @@
 
 ## 核心概念
 
-- **4 步管道**：门面只读校验 → mutations 写（改值/统计/事件）→ 监听器响应 → 可选派生重建。详见 [[docs-828/04-algorithms/state-mutation]]。
+- **4 步管道**：门面只读校验 → mutations 写（改值/统计/事件）→ 监听器响应 → 可选派生重建。详见 [[docs-828/04-mechanisms/state-mutation]]。
 - **为什么不可绕过**：绕过则统计错记、事件漏发、GameNum 缓存陈旧、UI 不一致。
-- 写方法与事件对照表见 [[docs-828/04-algorithms/state-mutation]]。
+- 写方法与事件对照表见 [[docs-828/04-mechanisms/state-mutation]]。
 
 ## 测试入口
 

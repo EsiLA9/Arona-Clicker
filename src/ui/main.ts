@@ -2,6 +2,7 @@ import { UIController } from './controller';
 import type { AronaClickerRuntime } from '../arona-clicker/runtime';
 import { IndexedDbPackSnapshotStore } from '../data-services';
 import { createAppRuntime, loadDefaultDatapack } from '../app/runtime-bootstrap';
+import './service-definitions';
 // 样式按原 styles.css 分区拆分（variables 必须最先引入，其顶部 @import 为远程字体）
 import './css/variables.css';
 import './css/layout.css';

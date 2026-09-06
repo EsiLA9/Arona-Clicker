@@ -1,10 +1,12 @@
 # 01-architecture/module-dependency-baseline — 模块依赖基线
 
-> 本文回答：开始内聚施工前，项目当前真实的模块归属、依赖方向和主要交叉点是什么。本文记录代码实况，不定义最终设计；最终边界见 [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]]。
+> 本文回答：当前模块归属、依赖方向和主要交叉点是什么。本文记录代码实况，不定义最终设计；历史施工背景见 [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]]。
+
+> 核对基准：2026-09-06 工作区代码。未提交改动可能使主题、Datapack 工作区和 UI Host Registry 相关文件继续变化。
 
 ## 核对范围
 
-已检查 `src/engine/`、`src/data/`、`src/save/`、`src/ui/`、`src/main.ts`、`src/ui/main.ts`、`tests/`、`tools/datapack-editor/` 以及 `package.json`、`vite.config.ts`、`tsconfig.json`。
+已检查 `src/engine/`、`src/data-services/`、`src/data/`、`src/ui/`、`src/main.ts`、`src/ui/main.ts`、`tests/`、`tools/datapack-editor/` 以及 `package.json`、`vite.config.ts`、`tsconfig.json`。
 
 本基线只描述 import 和入口关系，不改变代码行为。
 
@@ -108,16 +110,15 @@ GameInstance + baseDatapack + 具体 engine 实现
 
 | 文件 | 行数约 | 说明 |
 |---|---:|---|
-| `state-mutation-service.ts` | 602 | 统一写入口，先抽契约/辅助模块，不直接改变行为 |
-| `registry.ts` | 559 | Registry 表驱动机制与 AronaClicker 表耦合 |
-| `color-system.ts` | 558 | 领域服务与主题派生混合 |
-| `types/character.ts` | 553 | 明确的 AronaClicker 类型热点 |
-| `story-flow.ts` | 513 | Story 领域流程 |
-| `types/content.ts` | 498 | Datapack 内容实体混合 |
-| `game-instance.ts` | 398 | 应逐步收拢为 Runtime 组合根 |
-| `ui/controller.ts` | 466 | UI 编排门面，后续与 Commands/ReadModel 对齐 |
+| `state/state-mutation-service.ts` | 678 | 统一写入口；产品 EffectOp 分发与状态写入仍集中于此域 |
+| `data-services/registry/registry.ts` | 649 | Registry 表驱动装载、合并与索引 |
+| `services/color-system.ts` | 671 | 领域服务与主题派生 |
+| `types/character.ts` | 44 | 产品角色状态/类型入口，已不再是大型实体总表 |
+| `services/story-flow.ts` | 514 | Story 领域流程 |
+| `runtime-game-instance.ts` | 425 | AronaClicker Runtime 组合根实现 |
+| `ui/controller.ts` | 686 | UI 编排门面，委托 Commands/ReadModel 与职责模块 |
 
-## M1-2 的直接前置结论
+## 历史施工结论（保留作变更背景）
 
 下一步不应立即搬迁文件，而应先新增稳定公共入口：
 
@@ -136,24 +137,22 @@ src/app/index.ts
 - UI 不向组件暴露完整 `GameInstance` 类型；
 - 测试包由测试夹具或应用入口显式注入。
 
-M1-2 已新增上述入口；当前入口仍是迁移期兼容层，不能视为最终目录已经完成搬迁。
+上述入口已新增；当前仍是迁移期兼容层，不能视为最终目录已经完成搬迁。
 
 当前边界施工进展：
 
 - 产品运行时实现位于 `src/arona-clicker`：GameInstance、wiring、Story/Spot/Init/Item/Enhancement/ChatFlow 服务、运行时重置与存档恢复编排均由该层承载。
 - `src/data-services` 负责存档快照组装、存储、数据包管理与图片资产服务；不负责恢复产品领域运行态。
 - `src/engine/contracts` 只保留跨层 DTO/Port，例如 `StoryCursorSnapshot`、`StoryEffectPort`、`ChatTextEffectValue`；剧情播放瞬态和具体 StoryService 不进入基础引擎，演出文本仅以最小请求契约跨层传递。
-- `src/engine/game` 的旧领域文件已逐步收敛为兼容转发；架构检查会阻止新的引擎向上层实现扩散依赖。
+- 当前代码中未保留 `src/engine/game` 目录；架构检查会阻止新的引擎向上层实现扩散依赖。
 
-## 基线结论
+## 当前基线结论
 
-当前主要问题不是存在 `engine → data` 的反向依赖，而是：
+当前已确认：
 
-1. `engine` 内部基础机制与产品领域服务混合；
-2. `engine/types` 同时承担机制契约和产品实体定义；
-3. `GameInstance` 同时承担组合根、领域门面、生命周期和存档编排；
-4. UI 依赖具体服务和测试/默认内容；
-5. SaveStorage 依赖 Runtime 门面；
-6. 测试数据包没有被明确标注为测试输入。
-
-这些结论作为 M1-2、M2-1 和 M4-1 的施工基线。
+1. `src/engine` 与 `src/data-services` 的禁止向上依赖由 `npm run check:architecture` 守护，当前检查通过；
+2. 产品 Runtime、状态、领域服务和存档恢复编排集中在 `src/arona-clicker/`；
+3. 数据包加载、PackManager、Registry、持久化和资产服务位于 `src/data-services/`；
+4. 游戏页面入口是 `src/ui/main.ts`，兼容性的 `src/main.ts` 仍保留独立启动路径；
+5. UI 仍在持续收敛到 ReadModel / Commands，主题宿主注册和服务工作区属于当前未提交施工范围；
+6. 测试既包含完整 Runtime 集成测试，也包含基础引擎与数据服务测试，不能再概括为“主要依赖 baseDatapack”。

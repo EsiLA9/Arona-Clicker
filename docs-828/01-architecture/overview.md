@@ -10,16 +10,16 @@
 | 思想 | 含义 | 落点 |
 | --- | --- | --- |
 | 数据包声明式 | 游戏逻辑尽量写成 `Datapack`（JSON/TS 定义），由引擎子系统解释执行，而非硬编码 | `src/data-services/contracts/datapack.ts` 承载汇总契约，实体定义按引擎/产品边界归属；`tools/datapack-editor/` 可视化编辑 |
-| 单一写入口 | 所有状态变更经 `StateMutationService`，禁止绕过直改 `PlayerState` | [[docs-828/04-algorithms/state-mutation]] |
-| 事件驱动 | 写状态后广播事件，联动逻辑做成 Trigger / Affector 订阅响应 | [[docs-828/04-algorithms/trigger-effect]] |
+| 单一写入口 | 所有状态变更经 `StateMutationService`，禁止绕过直改 `PlayerState` | [[docs-828/04-mechanisms/state-mutation]] |
+| 事件驱动 | 写状态后广播事件，联动逻辑做成 Trigger / Affector 订阅响应 | [[docs-828/04-mechanisms/trigger-effect]] |
 | 只读 UI | UI 只消费 `getView()` / `createUIContext()` 的不可变快照，组件类型面使用 `GameReadModel` | [[docs-828/02-modules/ui]] |
 | 三层状态 | 跨世界线（global）/ per-Init 快照 / per-Init 当前 | [[docs-828/01-architecture/state-layers]] |
 
 ## 主干调用链
 
 ```text
-app/game-entry.ts
-  └─ new AronaClickerRuntime()   组合基础引擎、领域服务与数据服务
+src/ui/main.ts（Vite 游戏入口）
+  └─ createAppRuntime()          组合基础引擎、领域服务与数据服务
        └─ init(datapacks)        加载数据包 → 校验 → 建索引 → 建产出树 → 进入默认世界线
             └─ start()           启动 1 tick/秒 会话循环
                  └─ tick()       每帧：生产结算 → 持续效果 → 剧情推进 → 阻断复检 → 统计
@@ -47,7 +47,7 @@ app/game-entry.ts
 | `src/ui/`                     | 前端 UI，只读消费                                                                     |
 | `tests/`                      | vitest 测试（与引擎实现目录基本镜像）                                                         |
 | `tools/datapack-editor/`      | 数据包编辑器 + Schema 协议（`engine-defs.gen.json` 为生成产物）                               |
-| `datapack/`                   | 可选导入的 JSON 数据包；具体内容包由应用入口显式选择                                                  |
+| `datapack/`                   | 可选导入的 JSON 数据包；具体内容包由应用入口或 PackManager 显式选择                                      |
 | `scripts/`                    | 构建辅助脚本（gen:schema / 打包 / 历史重构迁移脚本）                                             |
 
 ## 技术栈与工程配置

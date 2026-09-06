@@ -1,10 +1,11 @@
 import { GameInstance } from './runtime-game-instance';
 import { buildSaveData } from './runtime-save-codec';
 import type { GameInstanceOptions } from './runtime-options';
-import { PackManager, type StoredPack } from '../data-services/datapack/pack-manager';
+import { PackManager, type PackConfigurationDraft, type StoredPack } from '../data-services/datapack/pack-manager';
 import type { ParsedPack } from '../data-services/datapack/pack-parser';
 import type { AsyncPackSnapshotStore, PackSnapshotStore } from '../data-services/datapack/pack-storage';
 import { Registry } from '../data-services/registry/registry';
+import { defaultDatapack } from './content/default-datapack';
 import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogReadModel } from './contracts';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
@@ -23,7 +24,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
   constructor(options: AronaClickerRuntimeOptions = {}) {
     super({ ...options, saveCodec: options.saveCodec ?? buildSaveData });
-    this.packManager = new PackManager(undefined, options.packStore);
+    this.packManager = new PackManager(undefined, options.packStore, [createBuiltinBasePack()]);
   }
 
   registerParsedPack(parsed: ParsedPack, id = parsed.manifest.modName + '@' + parsed.manifest.version): void {
@@ -64,9 +65,51 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         sourceKind: pack.sourceKind,
         importedAt: pack.importedAt,
         enabled: enabled.has(pack.id),
+        capabilities: {
+          required: pack.sourceKind === 'builtin',
+          removable: pack.sourceKind !== 'builtin',
+          reorderable: pack.sourceKind !== 'builtin',
+          enableable: pack.sourceKind !== 'builtin',
+        },
       })),
       dependencies: this.packManager.dependencyHints(),
     };
+  }
+
+  getPackConfiguration(): PackConfigurationDraft {
+    return this.packManager.configuration();
+  }
+
+  validatePackConfiguration(draft: PackConfigurationDraft): { ok: boolean; errors: readonly string[]; warnings: readonly string[] } {
+    try {
+      this.packManager.validateConfiguration(draft);
+      const registry = new Registry();
+      for (const id of draft.order) {
+        if (draft.enabledIds.includes(id)) registry.load(this.packManager.getPack(id)!.datapack);
+      }
+      return { ok: true, errors: [], warnings: [] };
+    } catch (error) {
+      return { ok: false, errors: [error instanceof Error ? error.message : String(error)], warnings: [] };
+    }
+  }
+
+  applyPackConfiguration(draft: PackConfigurationDraft): { ok: boolean; message: string; validation: { ok: boolean; errors: readonly string[]; warnings: readonly string[] } } {
+    const validation = this.validatePackConfiguration(draft);
+    if (!validation.ok) return { ok: false, message: validation.errors[0] ?? '数据包配置校验失败。', validation };
+    try {
+      this.packManager.applyConfiguration(draft, {
+        validate: datapacks => {
+          const registry = new Registry();
+          for (const datapack of datapacks) registry.load(datapack);
+        },
+        reload: datapacks => this.reload([...datapacks]),
+        clearImages: () => this.imageStore.clear(),
+        registerImages: (modName, images) => this.pics.register(modName, images),
+      });
+      return { ok: true, message: '数据包启用集已应用。', validation };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error), validation };
+    }
   }
 
   setPackEnabled(id: string, enabled: boolean): void {
@@ -84,7 +127,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   async restorePackManager(store: AsyncPackSnapshotStore): Promise<void> {
     this.packAsyncStore = store;
     const snapshot = await store.load();
-    if (snapshot) this.packManager = new PackManager(snapshot);
+    if (snapshot) this.packManager = new PackManager(snapshot, undefined, [createBuiltinBasePack()]);
   }
 
   async savePackManager(store: AsyncPackSnapshotStore): Promise<void> {
@@ -97,6 +140,23 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       this.devLog.record(`包库快照保存失败：${error instanceof Error ? error.message : String(error)}`, { source: 'datapack', level: 'error' });
     });
   }
+}
+
+function createBuiltinBasePack(): StoredPack {
+  return {
+    id: 'base@1.0.0',
+    manifest: {
+      modName: 'base',
+      name: 'AronaClicker 基础内容',
+      version: '1.0.0',
+      author: 'AronaClicker',
+      dependencies: [],
+    },
+    datapack: defaultDatapack,
+    images: [],
+    sourceKind: 'builtin',
+    importedAt: 0,
+  };
 }
 
 export type { SaveData } from './contracts/save-data';

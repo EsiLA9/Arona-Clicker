@@ -20,7 +20,7 @@ export function renderPackCatalog(host: PackCatalogReadModel): string {
       }).join('');
     return `<article class="pack-entry" data-pack-id="${escapeHtml(pack.id)}">
       <div class="pack-entry-main"><strong>${escapeHtml(pack.name)}</strong><span>${escapeHtml(pack.modName)} · v${escapeHtml(pack.version)}</span></div>
-      <div class="pack-entry-meta">${pack.author ? `作者：${escapeHtml(pack.author)} · ` : ''}${pack.sourceKind} · ${dependencyText}</div>
+      <div class="pack-entry-meta">${pack.author ? `作者：${escapeHtml(pack.author)} · ` : ''}${pack.sourceKind === 'builtin' ? '内置数据包' : pack.sourceKind} · ${dependencyText}</div>
       <div class="pack-entry-actions">
         <button class="toolbar-button" data-pack-toggle="${escapeHtml(pack.id)}">${pack.enabled ? '停用' : '启用'}</button>
         <button class="toolbar-button" data-pack-up="${escapeHtml(pack.id)}" ${index === 0 ? 'disabled' : ''}>上移</button>

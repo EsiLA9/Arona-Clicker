@@ -1,0 +1,8 @@
+{
+  "modName": "addition-test",
+  "name": "Addition Test Pack",
+  "version": "0.1.0",
+  "author": "AronaClicker Test Team",
+  "dependencies": ["base"],
+  "icon": "assets/addition-test.svg"
+}

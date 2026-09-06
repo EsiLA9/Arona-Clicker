@@ -33,15 +33,15 @@
 | `charaCustom` | Record<Character, CharaCustomOverride> | 玩家头像-人名对覆写（见 [[docs-828/02-modules/pics]]） |
 | `worldPool` | VariantId[] | 世界 Pool：已并入常驻集合的差分（`refreshWorldPool` 未接线） |
 | `protoStats` | Record<string, ProtoStat> | 原型聚合统计（派生视图，Trigger 维护） |
-| `tagEffects` / `entityEffects` | Record | 区表：命名乘区记录唯一真相（见 [[docs-828/04-algorithms/production]]） |
+| `tagEffects` / `entityEffects` | Record | 区表：命名乘区记录唯一真相（见 [[docs-828/04-mechanisms/production]]） |
 | `groupsOwned` / `activeGroupId` / `equipmentsOwned` | — | 色彩组/装备收集（见 [[docs-828/02-modules/color]]） |
 | `entityThemeSlots` / `entityThemeDesignsOwned` | Record | 实体配色槽 / 已解锁配色设计（global） |
 | `themeLayerOrder` | string[] | player/area/student 层优先级自定义 |
 | `initSnapshots` | Record<string, InitSnapshot> | 各世界线快照 |
-| `globalStats` / `initStats` / 会话统计 | StatsState | 三层统计（`completedStoryIdsThisRun` 在会话层；见 [[docs-828/03-data-structures/stats-views]]） |
+| `StatsSnapshot.global` / `StatsSnapshot.init` / `StatsSnapshot.session` | StatsSnapshot | 三层统计（`completedStoryIdsThisRun` 在 session 层；见 [[docs-828/03-data-structures/stats-views]]） |
 
 ## 变更纪律
 
 - **任何字段只经 `StateMutationService` 写**；写方法内部同时：改值 → 发事件 → 记统计。
 - 新增字段前先想清楚放三层哪一层（[[docs-828/01-architecture/state-layers]]）；per-Init 字段必须登记 `PER_INIT_FIELD_SPECS`。
-- 不写存档迁移代码（架构纪律 7）。
+- 不写存档迁移代码（架构纪律 8）。

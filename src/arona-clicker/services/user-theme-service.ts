@@ -4,6 +4,7 @@ import type { PresentationHostDef, ThemeNodeName } from '../../engine/types/them
 import type { UserThemeDraft, UserThemeState, UserThemeToken } from '../types/user-theme';
 import type { PlayerState } from '../types/state';
 import type { PicQueryPort } from '../contracts/pic-query';
+import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
 
 export type UserThemeErrorCode = 'capability-unavailable' | 'invalid-draft' | 'revision-conflict' | 'session-not-found';
 export interface UserThemeError { ok: false; code: UserThemeErrorCode; message: string; issues?: string[] }
@@ -201,7 +202,7 @@ export class UserThemeService {
     const current = this.get();
     const draft: UserThemeDraft = current.applied
       ? structuredClone(current.applied)
-      : { version: 1, palette: [initialPalette?.[0] ?? '#6b8cff'], paletteUiEnabled: [true] };
+      : { version: 1, palette: [initialPalette?.[0] ?? SYSTEM_DEFAULT_PRIMARY], paletteUiEnabled: [true] };
     normalizePresentationDraft(draft);
     const session: UserThemeEditSession = { id: `user-theme-${++this.sequence}`, baseRevision: current.revision, draft, readonly: !capability.active };
     this.sessions.set(session.id, session);

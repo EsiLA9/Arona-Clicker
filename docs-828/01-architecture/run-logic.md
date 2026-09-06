@@ -6,7 +6,7 @@
 ## 总体调用链
 
 ```text
-main.ts（UI 启动）
+src/ui/main.ts（Vite UI 启动）
   └─ createAppRuntime()            AronaClicker Runtime 装配全部子系统（依赖顺序 + 事件接线）
        └─ init(datapacks)          加载数据包 → 校验 → 建索引 → 建产出树 → 进入默认 Init
             └─ start()             启动会话循环（1 tick/秒）
@@ -49,9 +49,9 @@ main.ts（UI 启动）
 
 ```text
 init(datapacks)
- 1. 组装 Registry：全部 Datapack → 表 + 关系索引 + 名称解析（表驱动 merge），完成触发 `registry:built`
- 2. 建产出树：gameNumSystem.buildAll()（四级层级树，见 [[docs-828/04-algorithms/production]]）
- 3. 进入默认世界线：解锁 + 建 per-init 状态 + 挂载专属 Trigger（mountInitTriggers）+ 发 `init:mounted`
+ 1. 组装 Registry：全部 Datapack → 表 + 关系索引 + 名称解析（表驱动 merge）
+ 2. 建产出树：gameNumSystem.buildAll()（四级层级树，见 [[docs-828/04-mechanisms/production]]）
+ 3. 进入默认世界线：解锁 + 建 per-init 状态 + 挂载专属 Trigger（mountInitTriggers）+ 发 `initEntered`
  4. affectorEngine.reconcileMounts()：按初始状态对账挂载物品/强化/功能的 Affector 实例
 ```
 
@@ -61,7 +61,7 @@ init(datapacks)
 ## 三、运行循环：start / tick
 
 ```text
-start() → running = true → runId = randomUUID() → startSession() → setInterval(tick, 1000) → game:started
+start() → SessionService.start() → 离线收益补算（最多 8 小时）→ setInterval(doTick, 1000)
 ```
 
 ```text
@@ -70,14 +70,14 @@ tick()
  ├─ 2. affectorEngine.applyActiveEffects()
  │       ├─ 先重估轮询实例（stat 宽依赖）
  │       └─ 执行 Active 实例的 perTickEffects（effects 仅激活沿执行一次，不在每帧路径）
- ├─ 3. storyService.tick()         剧情被动推进
- ├─ 4. recheckStudentBlocks()      阻断复检（纯只读判定 + 发事件，不改状态）
- ├─ 5. statsService.tick()         帧统计累计
- └─ 6. `tick` 事件                 通知 UI（refreshLight）
+ ├─ 3. recheckStudentBlocks()      阻断复检（纯只读判定 + 发事件，不改状态）
+ ├─ 4. statsService.recordTick()   帧统计累计
+ ├─ 5. devLog.recordTick()         记录本帧生产结果
+ └─ 6. TickSystem 发出 `tick`，SessionService 随后 flush EventBus
 ```
 
-- **失效策略（事件驱动）**：tick 不再每帧失效产出树——状态变更经 `StateMutationService` 发事件定向失效（`resourceChanged` 三路定向）；未受影响子树跨帧保持缓存。绕过写入口直改 state 会得到陈旧读数。详见 [[docs-828/04-algorithms/production]]。
-- **时机约定**：帧先产出、后算持续效果（Affector 影响的是下一帧可观察结果）；阻断复检在帧尾且只读。
+- **失效策略（事件驱动）**：tick 不再每帧失效产出树——状态变更经 `StateMutationService` 发事件定向失效（`resourceChanged` 三路定向）；未受影响子树跨帧保持缓存。绕过写入口直改 state 会得到陈旧读数。详见 [[docs-828/04-mechanisms/production]]。
+- **时机约定**：帧先产出、后算持续效果（Affector 影响的是下一帧可观察结果）；阻断复检在帧尾且只读。剧情推进不在 Runtime 的 tick 主循环中独立调用。
 
 ## 四、业务门面操作与 UI 只读消费
 

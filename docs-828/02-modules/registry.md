@@ -20,7 +20,7 @@
 - **构建一次、运行只读**：只在 `init(datapacks)` 时构建；校验失败即抛错（缺引用 / 重复 ID / 非法枚举）。
 - **表驱动扩展**（T6）：新增一张表 = 私有字段 + getter + `tableSteps` 一条 step（原 4 处手工同步）。
 - **同 id 覆盖语义**：多数据包同表同 id 后加载优先；`storyEntries` 合并视图同 id 时 passive 静默覆盖 active（注意避坑，见 [[docs-828/03-data-structures/id-reference-semantics]]）。
-- 构建完成触发 `registry:built` 事件。
+- 构建完成后由 Runtime 继续执行角色引用、Tag 引用、可见性与产出树等后处理；Registry 本身不发 `registry:built` 事件。
 
 ## 测试入口
 

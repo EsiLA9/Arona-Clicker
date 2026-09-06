@@ -21,10 +21,33 @@ export interface UserThemeDraft {
   motionPreferences?: { reducedMotion?: 'system' | 'always' | 'never' };
 }
 
+export interface ThemeBaseRef {
+  kind: 'system' | 'color-group' | 'theme-design';
+  id?: string;
+}
+
+/** 独立存储的用户主题；它只保存用户覆盖，不回写任何 Datapack 定义。 */
+export interface StoredCustomTheme extends UserThemeDraft {
+  id: string;
+  name: string;
+  baseThemeRef?: ThemeBaseRef;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 自定义主题的应用关系；target='base' 表示玩家全局主题宿主。 */
+export interface ThemeAttachment {
+  target: 'base' | string;
+  customThemeId: string;
+  enabled: boolean;
+}
+
 export interface UserThemeState {
   enabled: boolean;
   draft?: UserThemeDraft;
   applied?: UserThemeDraft;
   revision: number;
   updatedAtFrame?: number;
+  /** 兼容旧 userTheme 状态的索引；真实主题内容位于 PlayerState.customThemes。 */
+  customThemeId?: string;
 }

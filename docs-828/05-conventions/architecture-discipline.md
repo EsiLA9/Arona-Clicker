@@ -1,11 +1,11 @@
 # 05-conventions/architecture-discipline — 架构纪律（不可破坏）
 
-> 本文是 7 条架构纪律的权威定义与代码落点。任何改动违反任一条都视为破坏架构。
+> 本文是 8 条架构纪律的权威定义与代码落点。任何改动违反任一条都视为破坏架构。
 
 | # | 纪律 | 代码落点 / 守护机制 |
 | --- | --- | --- |
-| 1 | **单一写入口**：所有状态变更走 `StateMutationService`，禁止直接改 PlayerState | 写方法内联「改值→记统计→发事件」（[[docs-828/04-algorithms/state-mutation]]）；绕过会导致 GameNum 陈旧读与统计错漏 |
-| 2 | **事件驱动**：新增联动逻辑优先做成 Trigger/Affector，不要塞进 GameInstance 方法体 | `EVENT_CATALOG` 登记所有事件（[[docs-828/04-algorithms/trigger-effect]]）；联动闭环示例：`ColorUnlockReactor` |
+| 1 | **单一写入口**：所有状态变更走 `StateMutationService`，禁止直接改 PlayerState | 写方法内联「改值→记统计→发事件」（[[docs-828/04-mechanisms/state-mutation]]）；绕过会导致 GameNum 陈旧读与统计错漏 |
+| 2 | **事件驱动**：新增联动逻辑优先做成 Trigger/Affector，不要塞进 GameInstance 方法体 | `EVENT_CATALOG` 登记所有事件（[[docs-828/04-mechanisms/trigger-effect]]）；联动闭环示例：`ColorUnlockReactor` |
 | 3 | **数据包声明式**：新机制优先设计成 Datapack 字段（Schema 协议同步），而非硬编码 | `src/data-services/contracts/datapack.ts` 汇总数据包契约；引擎/产品 def-factory 与 `npm run gen:schema`（[[docs-828/05-conventions/schema-sync]]） |
 | 4 | **只读 UI**：UI 只消费 `getView()` / `createUIContext()`，不持有写引用 | 组件层统一使用 `GameReadModel`，查询成员均为只读端口，无 `as never`；controller 层的状态写入统一经 `GameCommands`（[[docs-828/02-modules/ui]]） |
 | 5 | **三层状态**：新增「跨世界线保留」数据时想清楚放 global / per-Init 快照 / per-Init 当前 哪一层 | `PER_INIT_FIELD_SPECS` + 编译期键守卫（[[docs-828/01-architecture/state-layers]]）；角色域逐块声明 `characterPersistConfig` |

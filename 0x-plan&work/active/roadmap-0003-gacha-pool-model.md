@@ -1,4 +1,4 @@
-# 08-roadmap/0003-gacha-pool-model — 卡池模型规范化（banner ↔ 角色池解耦）
+# roadmap-0003-gacha-pool-model — 卡池模型规范化（banner ↔ 角色池解耦）
 
 > 本文回答：卡池规范化的目标、现状痛点、设计草案与待裁定问题。设计权威：待产出 ADR；本文只登记目标与追踪状态。
 
@@ -13,11 +13,11 @@
 
 | 现状 | 位置 | 痛点 |
 | --- | --- | --- |
-| `GachaPoolDef` = `{ mode, currency, costPerPull, rates, featured?, pity?, 重复返还 }` | `src/engine/types/` | banner 与候选集未分家：候选来源只有"世界 Pool 隐式合并"单一路径 |
-| `drawableOf(pool, state)`：世界 Pool 合并 + 排除已满收藏 | `system/character-availability.ts` | 无声明式成员过滤维度（星级/子集/tag），限定差分无法隔离出基础池 |
-| Spot 可声明专有 `gachaPools`，否则全局通用池 | [[docs-828/04-algorithms/gacha]] | 池间关系（基础/限定）无模型 |
+| `GachaPoolDef` = `{ mode, currency, costPerPull, rates, featured?, pity?, 重复返还 }` | `src/data-services/contracts/gacha-pool.ts` | banner 与候选集未分家：候选来源只有"世界 Pool 隐式合并"单一路径 |
+| `drawableOf(pool, state)`：世界 Pool 合并 + 排除已满收藏 | `src/arona-clicker/services/character-availability.ts` | 无声明式成员过滤维度（星级/子集/tag），限定差分无法隔离出基础池 |
+| Spot 可声明专有 `gachaPools`，否则全局通用池 | [[docs-828/04-mechanisms/gacha]] | 池间关系（基础/限定）无模型 |
 | `refreshWorldPool`（池关闭成员并入世界 Pool）**已实现无调用点** | character-availability.ts | 未接线的半成品语义，本目标需裁定去留 |
-| `GachaMode` 为代码注册表（`ba-classic`），非数据包可插拔 | `system/gacha-service.ts` | 模式是否数据包化的取舍 |
+| `GachaMode` 为代码注册表（`ba-classic`），非数据包可插拔 | `src/arona-clicker/services/gacha-service.ts` | 模式是否数据包化的取舍 |
 
 ## 设计方向（草案，待裁定）
 

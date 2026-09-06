@@ -1,4 +1,4 @@
-# 04-algorithms/cultivate — 培养推进：经验曲线 / 突破
+# 04-mechanisms/cultivate — 培养推进：经验曲线 / 突破
 
 > 本文回答：**差分升级与突破怎么结算。** `CultivateSystem.applyExp(variantId, exp)` / `breakthroughStar`；实体结构见 [[docs-828/03-data-structures/character-entities]]。
 
@@ -39,4 +39,5 @@ applyExp(variantId, exp)
 
 ## 相关文档
 
-[[docs-828/04-algorithms/gacha]] · [[docs-828/03-data-structures/declarative-dsl]] §5（`cultivated` Trigger kind）
+[[docs-828/04-mechanisms/gacha]] · [[docs-828/03-data-structures/declarative-dsl]] §5（`cultivated` Trigger kind）
+

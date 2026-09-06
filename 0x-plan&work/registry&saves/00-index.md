@@ -20,13 +20,15 @@
 | [[01-registry-plan]] | Registry 编译、命名空间、跨包合并、引用校验与启用集应用 |
 | [[02-save-plan]] | 存档 DTO、三层状态、惰性保留、残留清理与读档安全 |
 | [[03-rollout-and-acceptance]] | 施工阶段、依赖关系、测试矩阵与完成判定 |
+| [[04-service-workspace-plan]] | 顶部栏导航、数据包工作区、存档工作区与高风险操作确认 |
 
 ## 当前基线
 
-- 已有：大部分三段式 ID 校验、ZIP/manifest/分片解析、PackManager、包库快照、基础包管理 UI。
-- 未完成：Character / Variant 命名空间化、文件夹/单文件 Source、跨包统一校验、惰性存档、残留管理、affectionConfig 与 Tag 多包化。
+- 已有：三段式 ID 校验、ZIP/manifest/分片解析、PackManager、同步/IndexedDB 包库快照、基础包保护、启用集草案/校验/应用、依赖提示和基础包管理 UI。
+- 未完成：Character / Variant 命名空间化、文件夹/单文件 Source、完整跨包统一校验、惰性存档、通用残留管理、affectionConfig 表化与完整 Tag 多包化。
 - Tag 设定已裁定：不增加独立 Tag `modName` 字段；TagRef 使用 `modName:tagPath`，命名空间位于根部，子路径继承命名空间。
-- 已知接线问题：UI 启动恢复包库快照后仍无条件加载默认包；导入数据包仍会删除旧存档。两项属于 P0。
+- 已核验接线：UI 启动先恢复 IndexedDB 包库快照，再按当前启用集应用；产品默认包由 PackManager 作为 builtin 登记，不再由 UI 直接覆盖恢复配置。导入包路径当前只加入包库，不删除游戏存档。
+- 当前 P0：正式应用仍以逐包 `Registry.load()` 为主，尚未形成独立的完整启用集 dry-run / 失败回滚边界；文件夹/单文件 Source 和通用残留管理仍未落地。
 - 项目纪律：不编写存档迁移；旧 DTO 不兼容时允许清档重来，但同一版本内缺失可选字段必须安全降级。
 
 ## 总体数据流

@@ -22,7 +22,7 @@
 | `effects`        | **仅激活沿**（Latent→Active 翻转）执行一次 | 一次性奖励（`addResource` 发放、setFlag/addItem 等）；声明类 op 不执行                       |
 | `perTickEffects` | Active 期间每帧                    | 仅限幂等/维持类 op                                                                |
 | `flows`          | 激活期间每帧经 GameNum 懒求值            | **唯一持续产出通道**（Spot `linearYield` 即转译为 flow）；Phase 6 起按 `mountEntityId` 层级分发 |
-| `zoneModifiers`  | 事件驱动同步进区表                      | 命名乘区（flat/mul/custom/bound），见 [[docs-828/04-algorithms/trigger-effect]]    |
+| `zoneModifiers`  | 事件驱动同步进区表                      | 命名乘区（flat/mul/custom/bound），见 [[docs-828/04-mechanisms/trigger-effect]]    |
 
 - ⚠️ **双通道警告**：`flows` 与 `effects[addResource]` 并存 = 激活沿发一次 + 每帧持续入账 = **双倍**。数据作者二选一。
 - **依赖方向**（T7）：Affector 只发事件（`affectorMounted/StateChanged/Unmounted/EntriesChanged`），GameNum 构造期自订阅重同步区表——不再互持。
@@ -33,4 +33,4 @@
 
 ## 相关文档
 
-[[docs-828/04-algorithms/trigger-effect]] · [[docs-828/02-modules/game-num]] · 评审历史见 [[0x-plan&work/completed/adr-0002-gamenum-tree]]
+[[docs-828/04-mechanisms/trigger-effect]] · [[docs-828/02-modules/game-num]] · 评审历史见 [[0x-plan&work/completed/adr-0002-gamenum-tree]]

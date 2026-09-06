@@ -17,6 +17,7 @@
 // ============================================================
 
 import type { ColorGroupId } from '../types/character';
+import { SYSTEM_DEFAULT_PRIMARY } from './theme-defaults';
 import type { BackgroundLayerDef, PresentationDef, PresentationLayerDef, ComponentPlacementDef, PresentationHostDef, PresentationRegion, ThemeNodeName, ThemeOrderScope, ThemeToken } from '../types/theme';
 
 export type { ThemeOrderScope } from '../types/theme';
@@ -77,7 +78,7 @@ export interface ResolvedTheme {
   presentation: PresentationDef;
 }
 
-const DEFAULT_TOKENS: ThemeTokens = { primary: '#4a7dff' };
+const DEFAULT_TOKENS: ThemeTokens = { primary: SYSTEM_DEFAULT_PRIMARY };
 
 function mergeScopeNodeOverrides(
   base: Record<string, Partial<Record<ThemeNodeName, string>>>,

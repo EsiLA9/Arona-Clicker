@@ -82,6 +82,58 @@ describe('PackManager', () => {
     expect(calls).toEqual([]);
   });
 
+  test('草案校验失败时不改变正式启用集', () => {
+    const manager = new PackManager();
+    manager.importPack(pack('a', 'same-mod'));
+    manager.importPack(pack('b', 'same-mod'));
+    const before = manager.configuration();
+    expect(() => manager.validateConfiguration({ enabledIds: ['a', 'b'], order: ['a', 'b'] })).toThrow('modName 冲突');
+    expect(manager.configuration()).toEqual(before);
+  });
+
+  test('草案不能移除内置核心包', () => {
+    const builtin = { ...pack('base', 'base'), sourceKind: 'builtin' as const };
+    const manager = new PackManager(undefined, undefined, [builtin]);
+    expect(() => manager.validateConfiguration({ enabledIds: [], order: ['base'] })).toThrow('核心数据包必须保留');
+    expect(manager.configuration().enabledIds).toEqual(['base']);
+  });
+
+  test('草案校验要求依赖位于启用序列内', () => {
+    const root = pack('root', 'root-mod');
+    root.manifest.dependencies.push('dep-mod');
+    const dependency = pack('dep', 'dep-mod');
+    const manager = new PackManager(undefined, undefined, []);
+    manager.importPack(root);
+    manager.importPack(dependency);
+    expect(() => manager.validateConfiguration({ enabledIds: ['root'], order: ['root', 'dep'] })).toThrow('缺少启用依赖');
+  });
+
+  test('草案应用成功后才提交正式启用集', () => {
+    const manager = new PackManager();
+    manager.importPack(pack('a', 'alpha'));
+    manager.importPack(pack('b', 'beta'));
+    const calls: string[] = [];
+    manager.applyConfiguration({ enabledIds: ['b'], order: ['b', 'a'] }, {
+      reload: datapacks => calls.push('reload:' + datapacks.map(item => item.name).join(',')),
+      clearImages: () => calls.push('clear'),
+      registerImages: modName => calls.push('images:' + modName),
+    });
+    expect(calls).toEqual(['reload:beta', 'clear', 'images:beta']);
+    expect(manager.configuration()).toEqual({ enabledIds: ['b'], order: ['b', 'a'] });
+  });
+
+  test('草案应用 reload 失败时保留旧正式启用集', () => {
+    const manager = new PackManager();
+    manager.importPack(pack('a', 'alpha'));
+    manager.setEnabled('a', true);
+    expect(() => manager.applyConfiguration({ enabledIds: [], order: ['a'] }, {
+      reload: () => { throw new Error('reload failed'); },
+      clearImages: () => undefined,
+      registerImages: () => undefined,
+    })).toThrow('reload failed');
+    expect(manager.configuration()).toEqual({ enabledIds: ['a'], order: ['a'] });
+  });
+
   test('依赖提示区分已启用、已安装未启用与缺失', () => {
     const manager = new PackManager();
     const root = pack('root', 'root-mod');

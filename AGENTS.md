@@ -5,13 +5,20 @@
 
 ## 快速上手
 
+### “编辑器”术语约定
+
+- 当前项目语义中，未特别说明的“编辑器”默认指 **游戏内 UI 编辑器**，即 `src/ui/` 中随游戏页面运行的编辑能力。
+- `tools/datapack-editor/` 是暂时弃用的独立数据包编辑器，仅作为历史工具、Schema 同步产物和后续恢复时的参考；除非任务明确点名，否则不要把它作为当前 UI 问题的默认调查或修改目标。
+- 当问题描述“游戏内编辑器”“UI 编辑器”“主题 UI 控件”时，优先检查 `src/ui/`、游戏内路由和当前 Edge 中的游戏页面。
+- 只有明确提到“独立数据包编辑器”“tools/datapack-editor”或 Schema 编辑器时，才切换到 `tools/datapack-editor/` 路由。
+
 | 场景 | 路由 |
 | --- | --- |
 | 第一次接触项目 / 任务定位 | [[docs-828/00-INDEX]]（唯一入口，双路由表） |
 | 改引擎机制 / 新增子系统 | [[docs-828/00-INDEX]] 模块卡片索引 → 对应卡片 + [[docs-828/05-conventions/architecture-discipline]] |
 | 改实体字段 / 枚举（`src/engine/types/`） | 必读 [[docs-828/05-conventions/schema-sync]]（含 `gen:schema` 协议） |
 | 改数据结构 / 状态分层 | [[docs-828/03-data-structures/player-state]] + [[docs-828/01-architecture/state-layers]] |
-| 改核心算法（生产/抽卡/培养/色彩/事件联动） | [[docs-828/04-algorithms/state-mutation]] 起（分区表见 00-INDEX） |
+| 改核心算法（生产/抽卡/培养/色彩/事件联动） | [[docs-828/04-mechanisms/state-mutation]] 起（分区表见 00-INDEX） |
 | 文件拆分 / 重构 | [[docs-828/05-conventions/refactoring]] |
 | 写测试 | [[docs-828/05-conventions/testing]] |
 | 维护文档本身 | [[docs-828/05-conventions/doc-maintenance]] |
@@ -64,5 +71,5 @@
 ## 默认数据与 Spot 招募
 
 - **正式应用默认内容从 `src/arona-clicker/content/default-datapack.ts` 进入**；`src/data/test-datapack.ts` 与其底层兼容出口用于测试/示例 Datapack，不是基础引擎内置内容。`datapack/` 是可选数据包导入，默认内容变更应修改 AronaClicker 内容层。
-- **Spot 招募（gacha）**：招募入口在 Spot 的 `gacha` 功能项（不在通讯录）。机制细节见 [[docs-828/04-algorithms/gacha]] 与 [[docs-828/04-algorithms/roster]]；UI 落点见 [[docs-828/02-modules/ui]]。
+- **Spot 招募（gacha）**：招募入口在 Spot 的 `gacha` 功能项（不在通讯录）。机制细节见 [[docs-828/04-mechanisms/gacha]] 与 [[docs-828/04-mechanisms/roster]]；UI 落点见 [[docs-828/02-modules/ui]]。
 - 新增/修改 Spot 字段或 `SpotFunctionalityDef.kind` 后，必须 `npm run gen:schema` 并在 `editor-extras.ts` 兜底同步（见上文协议）。

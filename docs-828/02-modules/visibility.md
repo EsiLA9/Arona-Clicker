@@ -11,7 +11,7 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `visibility-engine.ts` | 可见性快照：事件驱动增量维护（`refresh()` 全量重建用于读档/标签变化） |
+| `visibility-engine.ts` | 可见性快照：事件驱动增量维护（`rebuild()` / `recomputeAll()` 全量重建用于注册表加载和读档） |
 | `visibility-eval.ts` | 单点显隐判定（`revealTriggers` 的 `existence` 目标） |
 | `visibility-index.ts` | 反向索引（id → 显隐） |
 | `reveal.ts` | 揭示/曝光（新进 Area 揭示） |
@@ -23,6 +23,7 @@
   - `AccessStage`（5 阶段，访问权限收窄）：`hidden → obfuscated → revealed → accessible → active`。
 - **`RevealTarget`（5 种）**：`existence`（唯一被引擎直接消费的——驱动可见性）/ `name` / `condition` / `utility` / `unlock`（其余仅信息揭示，UI 按阶段遮挡）。
 - `revealTriggers`：`{ target, condition }` 声明；`get*Reveal`（UI tooltip-reveal 模块）统一求值。
+- `VisibilitySnapshot` 包含 `inits`、`areas`、`spots`、`enhancements`、`items`、`stories` 六类布尔掩码；故事入口当前按旧语义保持全可见。
 - 类型权威：`src/engine/types/reveal.ts`。
 
 ## 测试入口

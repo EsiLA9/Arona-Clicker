@@ -19,7 +19,7 @@
 ## 核心概念
 
 - **Trigger 侦测来源**（`TriggerEventDef.kind`，9 种）：`tick / resource / spotLevel / item / story / init / area / character / cultivated`，均可带过滤 id；全表见 [[docs-828/03-data-structures/declarative-dsl]]。
-- **EffectOp 23 种**：状态层 13 种落数据（经 mutations），转发类 8 种（`loot` → LootSystem、`triggerStory` / `travelToArea`、`setTheme`、聊天流族 4 种——演出类发请求事件），声明类 2 种（`setSpotMaxLevel` / `removeSpotMaxLevel`，登记在 `DECLARATIVE_EFFECT_OPS`，由 `getSpotMaxLevelOverrides` 动态读取、不进执行流）。
+- **EffectOp 25 种**：状态层 14 种落数据（经 mutations），转发类 9 种（`loot` → LootSystem、`triggerStory` / `travelToArea`、`setTheme`、聊天流族 5 种——演出类发请求事件），声明类 2 种（`setSpotMaxLevel` / `removeSpotMaxLevel`，登记在 `DECLARATIVE_EFFECT_OPS`，由 `getSpotMaxLevelOverrides` 动态读取、不进执行流）。
 - **扩展纪律**：新增 op = 类型联合 + 注册 1 处（T5）。
 
 ## 测试入口
@@ -28,4 +28,4 @@
 
 ## 相关文档
 
-[[docs-828/04-algorithms/trigger-effect]]（事件目录 + ZoneModifier）· [[docs-828/04-algorithms/state-mutation]]（产品状态效果分发）
+[[docs-828/04-mechanisms/trigger-effect]]（事件目录 + ZoneModifier）· [[docs-828/04-mechanisms/state-mutation]]（产品状态效果分发）

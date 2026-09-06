@@ -14,12 +14,25 @@ import type { PlayerState } from '../types/state';
 import type { Registry } from '../../data-services/registry/registry';
 import type { ColorMutationPort } from '../contracts/mutation';
 import { RuntimeThemeManager, type ThemeLayer, type ThemeTokens } from '../../engine/core/theme-runtime';
+import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
+import type { StoredCustomTheme } from '../types/user-theme';
 
 function normalizePalette(colors: readonly string[] | undefined, uiEnabled?: readonly boolean[]): string[] {
   return [...(colors ?? [])].filter((color, index) => typeof color === 'string' && color.trim().length > 0 && uiEnabled?.[index] !== false).slice(0, 6);
 }
 
 const SYSTEM_COLOR_BACKGROUND_ID = 'system-color-background';
+
+function storedThemeDef(theme: StoredCustomTheme, base?: ThemeDef): ThemeDef {
+  return {
+    ...base,
+    palette: theme.palette ?? base?.palette,
+    tokens: { ...(base?.tokens ?? {}), ...(theme.tokens ?? {}) },
+    nodes: { ...(base?.nodes ?? {}), ...(theme.nodes ?? {}) },
+    background: theme.background ?? base?.background,
+    presentation: theme.presentation ?? base?.presentation,
+  };
+}
 
 function systemColorBackground(opacity = 1): BackgroundLayerDef {
   return { id: SYSTEM_COLOR_BACKGROUND_ID, kind: 'gradient', value: 'linear-gradient(135deg, var(--bg) 0%, var(--bgAlt) 100%)', opacity, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' };
@@ -164,7 +177,7 @@ export function primaryColorOf(group: ColorGroupDef): string | undefined {
  * CT-04 对比度防呆：text/bg 对不足阈值时翻转 text 深浅。
  */
 export function resolveTheme(group: ColorGroupDef): Record<string, string> {
-  const primary = group.theme?.['primary'] ?? primaryColorOf(group) ?? '#4a7dff';
+  const primary = group.theme?.['primary'] ?? primaryColorOf(group) ?? SYSTEM_DEFAULT_PRIMARY;
   const tokens = { ...deriveThemeTokens(primary) };
   if (group.theme) {
     for (const [key, value] of Object.entries(group.theme)) {
@@ -242,20 +255,25 @@ export class ColorSystem {
 
   syncUserThemeFromState(state: PlayerState, active: boolean): void {
     const user = state.userTheme;
-    const colorLayer = user?.applied?.systemColorLayerIgnored ? {} : {
-      tokens: user?.applied?.tokens,
-      palette: normalizePalette(user?.applied?.palette, user?.applied?.paletteUiEnabled),
-      nodeOverrides: user?.applied?.nodes,
-      scopeNodeOverrides: user?.applied?.scopes,
+    const customId = user?.customThemeId ?? 'user:theme:default';
+    const attachment = state.themeAttachments?.base;
+    const stored = attachment?.customThemeId === customId ? state.customThemes?.[customId] : undefined;
+    const applied = stored ?? user?.applied;
+    const enabled = active && (attachment?.enabled ?? user?.enabled) && !!applied;
+    const colorLayer = applied?.systemColorLayerIgnored ? {} : {
+      tokens: applied?.tokens,
+      palette: normalizePalette(applied?.palette, applied?.paletteUiEnabled),
+      nodeOverrides: applied?.nodes,
+      scopeNodeOverrides: applied?.scopes,
     };
-    this.runtime.setUser(active && user?.enabled && user.applied ? {
-      id: 'user-theme',
+    this.runtime.setUser(enabled ? {
+      id: customId,
       scope: 'player',
       ...colorLayer,
-      background: [systemColorBackground(user.applied.systemColorLayerIgnored ? 0 : 1), ...(user.applied.background ?? [])],
-      backgroundLayerOrder: user.applied.backgroundLayerOrder,
-      systemColorLayerIgnored: user.applied.systemColorLayerIgnored === true,
-      presentation: user.applied.presentation,
+      background: [systemColorBackground(applied?.systemColorLayerIgnored ? 0 : 1), ...(applied?.background ?? [])],
+      backgroundLayerOrder: applied?.backgroundLayerOrder,
+      systemColorLayerIgnored: applied?.systemColorLayerIgnored === true,
+      presentation: applied?.presentation,
     } : null);
   }
 
@@ -423,18 +441,44 @@ export class ColorSystem {
     entityKey: string,
     equippedEquipmentId?: string | null,
   ): ThemeDef | null {
-    const slot = state.entityThemeSlots?.[entityKey];
-    if (!slot || slot.kind === 'default') return null;
-    if (slot.kind === 'custom') return slot.customTheme ?? null;
-    if (slot.kind === 'design') {
-      if (!slot.designId || !this.isDesignOwned(state, entityKey, slot.designId)) return null;
-      return this.registry.themeDesigns.get(slot.designId)?.theme ?? null;
+    return this.resolveEntityTheme(state, entityKey, { equippedEquipmentId }).theme;
+  }
+
+  /** 统一解析实体主题来源，供 UI、预览和运行时使用。 */
+  resolveEntityTheme(
+    state: PlayerState,
+    entityKey: string,
+    opts: { declaredTheme?: ThemeDef; equippedEquipmentId?: string | null } = {},
+  ): { theme: ThemeDef | null; sourceKind: 'custom' | 'design' | 'equipment' | 'declared-default' | 'none'; sourceId?: string; baseThemeRef?: StoredCustomTheme['baseThemeRef'] } {
+    const attachment = state.themeAttachments?.[entityKey];
+    const stored = attachment?.enabled ? state.customThemes?.[attachment.customThemeId] : undefined;
+    if (stored) {
+      const base = stored.baseThemeRef?.kind === 'color-group' && stored.baseThemeRef.id
+        ? { colorGroupId: stored.baseThemeRef.id }
+        : stored.baseThemeRef?.kind === 'theme-design' && stored.baseThemeRef.id
+          ? this.registry.themeDesigns.get(stored.baseThemeRef.id)?.theme
+          : undefined;
+      return { theme: storedThemeDef(stored, base), sourceKind: 'custom', sourceId: stored.id, baseThemeRef: stored.baseThemeRef };
     }
-    if (!equippedEquipmentId) return null;
-    const def = this.registry.colorEquipments.get(equippedEquipmentId);
-    if (!def) return null;
-    // 装备未声明专属主题时，回退为其引用色彩组自身的主题预设
-    return def.theme ?? { colorGroupId: def.colorGroupId };
+    const slot = state.entityThemeSlots?.[entityKey];
+    if (slot?.kind === 'custom') return { theme: slot.customTheme ?? null, sourceKind: 'custom' };
+    if (slot?.kind === 'design') {
+      if (!slot.designId || !this.isDesignOwned(state, entityKey, slot.designId)) return { theme: null, sourceKind: 'none' };
+      return { theme: this.registry.themeDesigns.get(slot.designId)?.theme ?? null, sourceKind: 'design', sourceId: slot.designId };
+    }
+    const equippedEquipmentId = opts.equippedEquipmentId;
+    if (equippedEquipmentId) {
+      const def = this.registry.colorEquipments.get(equippedEquipmentId);
+      if (def) {
+        // 装备未声明专属主题时，回退为其引用色彩组自身的主题预设
+        return { theme: def.theme ?? { colorGroupId: def.colorGroupId }, sourceKind: 'equipment', sourceId: def.id };
+      }
+    }
+    if (slot?.kind === 'equipment') return { theme: null, sourceKind: 'none' };
+    return {
+      theme: opts.declaredTheme ?? null,
+      sourceKind: opts.declaredTheme ? 'declared-default' : 'none',
+    };
   }
 
   /**
@@ -452,7 +496,7 @@ export class ColorSystem {
     if (declaredTheme) {
       options.push({
         kind: 'default',
-        name: '默认',
+        name: '声明默认',
         theme: declaredTheme,
         swatch: this.themeSwatchColor(declaredTheme),
         owned: true,
@@ -489,7 +533,19 @@ export class ColorSystem {
         active: slot?.kind === 'design' && slot.designId === d.id,
       });
     }
-    if (slot?.kind === 'custom' && slot.customTheme) {
+    const attachedCustom = state.themeAttachments?.[entityKey];
+    const storedCustom = attachedCustom?.enabled ? state.customThemes?.[attachedCustom.customThemeId] : undefined;
+    if (storedCustom) {
+      options.push({
+        kind: 'custom',
+        id: storedCustom.id,
+        name: `自定义 · ${storedCustom.name}`,
+        theme: storedThemeDef(storedCustom),
+        swatch: this.themeSwatchColor(storedThemeDef(storedCustom)),
+        owned: true,
+        active: true,
+      });
+    } else if (slot?.kind === 'custom' && slot.customTheme) {
       options.push({
         kind: 'custom',
         name: '自定义',

@@ -1,8 +1,8 @@
 # 0004 — Datapack 多包读取与管理（三段式命名空间 / 包库 / 惰性存档）
 
-- **状态**：规划中（2026-08-29 经三轮设计裁定定稿，未实现；实现切片见 §8）
+- **状态**：实施中（设计裁定已完成；S1a/S1b 与 PackSource、manifest、PackManager、IndexedDB 快照及基础 UI 已落地，惰性存档与 Character/Variant 命名空间化仍未完成；实现切片见 §8）
 - **范围**：Datapack 的物理读取（单文件 / 文件夹 / zip）、包内格式与 manifest、多包包库管理与启用集、跨包引用与冲突语义、存档与多包的关系（惰性保留）
-- **来源**：2026-08-29 设计会话（基于现有 `src/data/zip-loader.ts` 单 mod 加载器与 `game.init(datapacks[])` 多包引擎语义的扩展设计）
+- **来源**：2026-08-29 设计会话（基于现有 `src/data-services/datapack/zip-loader.ts` 单包加载器与 `game.init(datapacks[])` 多包引擎语义的扩展设计）
 
 ## 术语
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | **modName** | 包的唯一标识（manifest 声明），三段式 id 的第一段；测试/示例包当前使用 `base` |
 | **三段式 id** | `modName:typeName:idName`，全游戏所有实体 id 的统一形态 |
-| **包库** | 已导入的全部数据包集合（存 IndexedDB），包之间可同 modName 并存 |
+| **包库** | 已导入的全部数据包集合（当前以 PackManager 快照存 IndexedDB），包之间可同 modName 并存 |
 | **启用集** | 包库中被玩家勾选启用的有序子集，决定实际加载内容 |
 | **惰性保留** | 存档数据在 Registry 中查不到对应 id 时不加载、不索引，但**原样保留在存档内** |
 | **残留数据** | 存档中来自未启用 mod 的惰性数据，可在存档检查界面查看/清除 |
@@ -89,16 +89,16 @@ manifest（**v1 强制要求**，modName 是承载命名空间的负载字段，
 
 ## §4 包库与启用集（PackManager）
 
-- **存储**：IndexedDB，每包记录 `{ modName, version, manifest, 原始字节(zip)/文件夹快照, contentHash, importedAt }`。
+- **存储**：当前以 `PackManagerSnapshot` 保存解析后的 `{ id, manifest, datapack, images, sourceKind, importedAt }`、启用集和顺序；浏览器入口使用 IndexedDB，JSON 快照适配器用于同步/测试。原始字节、文件夹快照和 `contentHash` 尚未纳入模型。
 - **导入**：任意包随时可导入（含与已装包同 modName 的不同版本，**统一显示于包库、并存**），导入后由**玩家选择启用或弃用**；导入不做自动替换、不弹窗强制。
 - **modName 冲突判定在启用时**：启用集内不允许两个同 modName 的包同时启用——预加载扫描发现 modName 冲突即**拒绝加载**该启用集（提示二选一）。
 - **排序**：玩家手动排序（拖拽列表）+ 依赖提示（展示谁依赖谁）；顺序敏感语义（同表遍历序）由手动顺序唯一决定，可预测。
-- **测试/示例包**：当前 `src/data/base/datapack.ts` 仅作为开发与测试包组装夹具；不由基础引擎强制加载、不占用启用集固定位置，也不可作为正式内容包管理语义的前提。
+- **内置基础包**：产品内容以 `modName = base` 作为一个 `builtin` 来源的数据包登记进 PackManager。它显示在包库和启用集内，参与 Registry 应用、来源统计和存档环境记录；默认始终启用，不允许玩家停用或删除。`src/data/base/datapack.ts` 仍仅作为开发与测试包夹具，正式产品内容使用 AronaClicker 内容层的 `defaultDatapack`。
 - **应用（all-or-nothing）**：启用集变更 → 全量校验（分片解析 + Registry 干跑合并校验）→ 通过才 `game.reload(orderedPacks)`（现有 reload 已实现清注册表 + 重置运行时）；校验失败则整套拒绝、保持旧启用集。
 
 ## §5 惰性存档与残留管理（关键新语义，取代"变更即清档"）
 
-**原则**：存档中所有"id 索引类"数据（roster 条目、背包 items、storyReadLogs、flags、spotTagOverrides、passiveCooldowns、好感值等），加载时按当前 Registry 做**存在性过滤**：
+**设计原则（当前尚未完整接入）**：存档中所有"id 索引类"数据（roster 条目、背包 items、storyReadLogs、flags、spotTagOverrides、passiveCooldowns、好感值等），加载时按当前 Registry 做**存在性过滤**：
 
 ```
 Registry 查得到 → 正常加载、索引、参与结算与 UI
@@ -118,7 +118,7 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 | **affectionConfig** | 单值表改**特化表**：`affectionConfigs: AffectionConfigDef[]`（key = 三段式 affectionConfigId）；角色/变体加 `affectionConfigId?` 字段——缺省标准表由 AronaClicker 内容层提供，声明则查特化表，查不到报错。多包全局合并问题随之消解为命名空间表 |
 | **extras** | 暂不考虑多包语义、**置空**：v1 仅由指定的 AronaClicker 内容包声明有效，其他包携带 extras 时警告忽略 |
 | **标签（tagDefs / spotsByTag）** | Tag 不另设独立 modName 字段；TagRef 使用 `modName:tagPath`，命名空间位于根部、子路径继承命名空间。TagDef 可声明完整 parent TagRef，允许扩展包显式挂靠公共 Tag；spotsByTag 索引按显式 parent/祖先链命中，扩展包可引用公共 Tag 并被 affector/条件命中 |
-| **默认开局** | 当前游戏实现未使用默认开局（无 gate init 自动进入路径未启用），多包开局归属**不涉及**，无需裁定 |
+| **默认开局** | Runtime 在 Registry 中选择第一个没有 `existence` gate 的 Init 自动进入；多包组合后的默认 Init 由启用包顺序与该筛选结果共同决定 |
 | **被动池/就绪队列** | 多包给同一角色（内容包角色）加 passiveStories 属**良性叠加**：共享池加权随机自然混排；好感台阶就绪队列按 affectionRequired 跨包混排，无需特殊处理 |
 | **Spot 功能项** | spot 归属唯一 mod（命名空间隔离），不存在两包往同一 spot 声明功能项的问题 |
 
@@ -151,12 +151,12 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 > - **S1c 待做**：Character / VariantId 命名空间化（现 Character 枚举值为裸名、默认差分 id 为原型名首字母大写如 `Arona`、`HoshinoSwimsuit`；迁移为 `base:character:*` / `base:variant:*`）；完成后 characters/variants 收紧校验。
 
 1. **三段式 id 迁移**：types / registry 校验（格式 + modName 归属 + typeName 注册表）+ `src/data/base/` 数据全面改名 + `gen:schema` + 相关测试同步。
-2. **Source 适配器**：`PackSource`（file / folder / zip）统一条目集 + `zip-loader.ts` 重构为第 1 层解析器。
-3. **manifest + 包解析**：`datapack.json` 解析、分片解析器按扩展名注册、包级解析报告（错误带路径）。
-4. **PackManager**：IndexedDB 包库 + 导入 + 启停 + 手动排序 + 启用集校验（modName 冲突 / 全量干跑）+ `game.reload` 接线。
+2. **Source 适配器**：`PackSource`（当前已实现 zip；file / folder 适配器尚未接入）统一条目集 + `zip-loader.ts` 保留为兼容解析器。
+3. **manifest + 包解析**：`datapack.json` 解析、JSON 分片解析与图片收集已实现；按扩展名注册的通用解析器仍未完成。
+4. **PackManager**：内存编排、快照持久化、IndexedDB 恢复、导入、启停、手动排序、modName 冲突/依赖校验、临时 Registry 预校验与 `reload` 接线已实现。
 5. **惰性存档**：加载期存在性过滤（逐 id 索引类结构接入）+ 残留检查/清除界面。
 6. **连带机制**：affectionConfigId 特化表 + TagRef 根命名空间/显式 parent + extras 冻结（可与 1 并行）。
-7. **mod 管理 UI**：包库列表 / 导入（文件·文件夹·zip）/ 启停排序 / 依赖提示 / 残留管理。
+7. **mod 管理 UI**：包库列表、zip 导入、启停排序与依赖提示已实现；文件夹/单文件导入、残留管理和完整草案确认流程仍未完成。
 
 ## §9 测试清单
 
@@ -178,7 +178,9 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 
 ## 实现记录（2026-09-01）
 
-- M5-1 第二段：新增 `src/data-services/datapack/source.ts`，定义 `PackSource` / `PackEntry`，并实现 `ZipPackSource`；现有 ZIP Loader 已通过该 Source 读取 JSON 条目，文件夹与单文件适配器、manifest 和 PackManager 留待后续切片。
+- M5-4 第十一段：`base` 正式纳入 PackManager，作为 `base@1.0.0` 的 `builtin` 数据包进入包库和启用集；启动改为从启用集应用，内置包不可停用/删除，旧包库快照恢复时自动补入。
+
+- M5-1 第二段：新增 `src/data-services/datapack/source.ts`，定义 `PackSource` / `PackEntry`，并实现 `ZipPackSource`；现有 ZIP Loader 已通过该 Source 读取 JSON 条目，文件夹与单文件适配器仍待后续切片。
 - M5-1 第三段：新增 `src/data-services/datapack/manifest.ts`，实现 manifest 的结构与命名空间校验；兼容旧 Loader 暂不强制 `datapack.json`，由后续 Pack 解析流程接入强制规则。
 - M5-1 第四段：新增 `src/data-services/datapack/fragment-parser.ts`，将 JSON 分片解析/合并从 ZIP 物理读取中剥离，解析器不依赖 ZIP 或 UI。
 - M5-1 第五段：新增 `parsePack(source)` 统一 Pack 解析入口，强制根目录 manifest，使用 Source 条目读取 JSON 与图片；旧 Loader 保留为历史包兼容入口，后续 PackManager 接入新流程。
@@ -186,7 +188,7 @@ Registry 查不到 → 不加载、不索引、不参与任何结算与 UI，
 - M5-4 第一段：新增纯内存 `PackManager` 与 `StoredPack` / 快照模型；包库持久化尚未绑定 IndexedDB，启用集冲突检查已在管理层完成。
 - M5-4 第二段：新增 `PackSnapshotStore` 契约与 `JsonPackSnapshotStore`，通过既有 `StorageAdapter` 持久化包库快照；IndexedDB 仍作为后续介质适配，不侵入包库领域逻辑。
 - M5-4 第三段：新增 `PackApplyTarget`，PackManager 通过最小运行时端口应用有序启用集；应用顺序为先 `reload(datapacks)`，成功后清理并登记图片资源，避免包库直接依赖引擎实现。
-- M5-4 第六段：PackManager 现在可注入 `PackSnapshotStore` 并自动持久化成功变更；AronaClickerRuntime 的浏览器入口注入 JSON 快照适配器，存储介质仍可替换。
+- M5-4 第六段：PackManager 可注入 `PackSnapshotStore` 并自动持久化成功变更；当前浏览器入口使用异步 IndexedDB 快照适配器，JSON 适配器仍可用于同步/测试场景。
 - M5-4 第七段：`PackApplyTarget` 增加可选预校验；Runtime 通过临时 Registry 验证整个启用集，验证成功后才 reload 与替换图片资源。
 - M5-4 第八段：PackManager 提供只读依赖提示，依赖仍仅用于 UI 展示与排序参考，不参与启用集合法性判定。
 - M5-4 第九段：新增异步 IndexedDB 快照适配器；不改变 PackManager 的同步逻辑接口，应用层可在启动时异步恢复包库。

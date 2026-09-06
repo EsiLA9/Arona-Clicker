@@ -1,6 +1,6 @@
-# 08-roadmap/0002-spot-shop — Spot 商店（购买集 / 发现限制）
+# roadmap-0002-spot-shop — Spot 商店（购买集 / 发现限制）
 
-> 本文回答：商店功能的定位、现状挂钩点、设计草案与待裁定问题。设计权威：待产出 ADR（编号顺延，现为 06-adr/0005 起）；本文只登记目标与追踪状态。
+> 本文回答：商店功能的定位、现状挂钩点、设计草案与待裁定问题。设计权威：待产出 ADR；本文只登记目标与追踪状态。
 
 ## 目标陈述
 
@@ -12,13 +12,13 @@
 | --- | --- | --- |
 | Spot 功能项 kind 注册 | `src/arona-clicker/services/spot-functionality.ts` | 现有 `linearYield` / `restartInit` / `hardResetInit` / `gacha` 四种；`shop` 为新增 kind |
 | RevealStage 揭示阶梯 | `src/engine/types/reveal.ts` | 7 级中已含 `purchaseable` 级，商店发现限制可直接复用该语义 |
-| 物品发放先例 | `game/item-service.ts`（pickupEffects / giveItem）、`system/loot-system.ts`（`loot` effect） | 购买发货可复用既有链路 |
-| 扣费购买先例 | `game/init-service.ts`（purchaseInit）、Spot 升级购买 | 门面只读判定 + mutations 写入的门槛链模式 |
+| 物品发放先例 | `src/arona-clicker/services/item-service.ts`（pickupEffects / giveItem）、`src/arona-clicker/services/loot-system.ts`（`loot` effect） | 购买发货可复用既有链路 |
+| 扣费购买先例 | `src/arona-clicker/services/init-service.ts`（purchaseInit）、Spot 升级购买 | 门面只读判定 + mutations 写入的门槛链模式 |
 | Spot 功能项面板 | [[docs-828/02-modules/ui]] | UI 落点：功能项面板扩展商店弹层 |
 
 ## 设计方向（草案，待裁定）
 
-- 新增 ShopDef（Datapack 表，进 `src/engine/types/` 后跑 `npm run gen:schema`，协议见 [[docs-828/05-conventions/schema-sync]]）；货架条目 = `{ 商品 ref, 价格, 限购, 可见/可购条件 }`。
+- 新增 ShopDef（Datapack 表，按实体归属进入 `src/data-services/contracts/` 或产品内容契约，随后跑 `npm run gen:schema`，协议见 [[docs-828/05-conventions/schema-sync]]）；货架条目 = `{ 商品 ref, 价格, 限购, 可见/可购条件 }`。
 - **发现限制的 Affector 承载**：货架条目或分组引用 AffectorPack——Affector 条件达成激活（Latent→Active）即对应商品上架，未激活时隐藏；激活沿 `effects` 可承担"上架"一次性动作。
 - 购买结算走 `StateMutationService` 单一写入口（扣费 → 发货 → 记账），发 `purchased` 类事件登记进 `EVENT_CATALOG` 供 Trigger 联动。
 

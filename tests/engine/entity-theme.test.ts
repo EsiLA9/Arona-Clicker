@@ -64,6 +64,25 @@ describe('实体主题槽：entityThemeOverride', () => {
     game.mutations.setEntityThemeSlot(key, null);
   });
 
+  test('独立 custom theme 挂靠到实体时不修改 ColorGroup 定义', () => {
+    const key = entityKeyOf('area', 'base:area:abydos_pool');
+    const original = game.registry.colorGroups.get('base:colorgroup:ink');
+    game.mutations.saveCustomTheme({
+      id: 'user:theme:abydos-test',
+      name: '阿比多斯测试主题',
+      version: 1,
+      baseThemeRef: { kind: 'color-group', id: 'base:colorgroup:ink' },
+      tokens: { primary: '#123456' },
+      createdAt: 0,
+      updatedAt: 1,
+    }, { target: key, customThemeId: 'user:theme:abydos-test', enabled: true });
+    const resolution = game.colorSystem.resolveEntityTheme(game.state, key);
+    expect(resolution).toMatchObject({ sourceKind: 'custom', sourceId: 'user:theme:abydos-test' });
+    expect(resolution.theme).toMatchObject({ colorGroupId: 'base:colorgroup:ink', tokens: { primary: '#123456' } });
+    expect(game.registry.colorGroups.get('base:colorgroup:ink')).toBe(original);
+    game.mutations.setThemeAttachment(key, null);
+  });
+
   test('design 槽 — 未拥有 → null', () => {
     const key = entityKeyOf('area', 'base:area:abydos_pool');
     game.mutations.setEntityThemeSlot(key, { kind: 'design', designId: 'base:themedesign:abydos-sunset' });

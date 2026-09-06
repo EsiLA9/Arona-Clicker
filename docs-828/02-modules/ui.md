@@ -13,7 +13,7 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `controller.ts` | 门面：构造 / mount / render 编排（~540 行），委托下列模块 |
+| `controller.ts` | 门面：构造 / mount / render 编排（~686 行），委托下列模块 |
 | `controller-core.ts` | 刷新策略/生命周期：reveal 指纹 / 轻量刷新 / destroy / 面板重置 / 聊天历史持久化 |
 | `controller-modals.ts` | 弹层弹窗：Gacha / 强化管理 |
 | `controller-panels.ts` | 面板桥接：Init 选择 / 详情 CTA / 读档按钮 |
@@ -24,7 +24,7 @@
 
 > controller 层持 AronaClicker Runtime 与 `GameCommands`（命令编排层）；**组件层**只持 `GameReadModel`（只读视图：state / registry / 查询结果，无写方法）。
 
-### 组件（`src/ui/components/`，28 个）
+### 组件（`src/ui/components/`，32 个）
 
 | 组 | 文件 |
 | --- | --- |
@@ -53,6 +53,12 @@
 - **开幕横幅**：`openingTitleShown` 事件（Talklet `showOpeningTitle` 效果呼出）→ `ChatStream.showBanner` 写当前活跃流 → render 时经 `PanelState.openingBanner` 渲染 `.chat-pane` 内横幅（非阻塞，CSS 动画模糊→清晰→淡出，JS 3s 计时清除）。机制详情见 [[0x-plan&work/completed/affection-planning]] §3。
 
 ## 核心概念
+
+### UI Host Registry
+
+UI 表现宿主由 `src/ui/ui-host-registry.ts` 统一登记。核心 UI 提供基础宿主，服务工作区通过 `UIServiceDefinition` 声明自己的宿主；用户主题编辑器、运行时表现刷新和预览使用同一份注册信息。新增数据包/存档服务时，应声明稳定的 Host ID，并通过 `renderUIHost` 接入，不要在主题编辑器内重复维护目标列表。
+
+宿主未配置专属表现时按父级回退；Registry 只描述目标和层级，不保存用户主题值，也不开放任意 CSS/DOM 注入。
 
 - **刷新双轨**：每帧 `refreshLight`（轻量数字）；揭示指纹变化 → `refreshRevealIfChanged` → 重建 DOM。
 - **背景视觉层**：`ThemeDef.background` 沿用运行时主题层级；按 id 覆盖、匿名层追加，UI 通过 `.console-background` 独立渲染，装饰层不接收指针事件。

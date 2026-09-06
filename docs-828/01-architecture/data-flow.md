@@ -41,7 +41,7 @@ Datapack 声明（测试/示例包或 JSON/文件夹/ZIP 导入）
 
 | 派生物 | 持有者 | 失效方式 |
 | --- | --- | --- |
-| GameNum 产出树 | `GameNumSystem` | 事件定向失效（见 [[docs-828/04-algorithms/production]]） |
+| GameNum 产出树 | `GameNumSystem` | 事件定向失效（见 [[docs-828/04-mechanisms/production]]） |
 | 可见性快照 | `VisibilityEngine` | 事件驱动增量 + 读档 `refresh()` |
 | tag 反向索引 | `TagStatService` | `tagCollectedChanged` / 读档重建 |
 | Affector 实例 | `AffectorEngine`（不落存档） | `reconcileMounts()` 对账 + 事件驱动 |

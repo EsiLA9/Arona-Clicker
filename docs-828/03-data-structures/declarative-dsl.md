@@ -1,7 +1,7 @@
 # 03-data-structures/declarative-dsl — 声明式 DSL 枚举目录
 
-> 本文集中编目引擎里所有**枚举式 / tagged-union** 设计（判别字段 `type` / `kind` / `source` / `t` / `op` / `target` / `category` 等），供数据作者与改引擎者一屏查全。权威定义在 `src/engine/types/`；改这些字段/枚举后必须 `npm run gen:schema`（见 [[docs-828/05-conventions/schema-sync]]）。
-> 运行时事件 `GameEvent` 的枚举目录见 [[docs-828/04-algorithms/trigger-effect]]「GameEvent 事件目录」；GameNum 数值树节点 kind 见 [[docs-828/04-algorithms/production]]。本文不重复。
+> 本文集中编目引擎与产品数据里的所有**枚举式 / tagged-union** 设计（判别字段 `type` / `kind` / `source` / `t` / `op` / `target` / `category` 等），供数据作者与改引擎者一屏查全。机制类型权威在 `src/engine/types/`，数据包契约在 `src/data-services/contracts/`，产品实体在 `src/arona-clicker/types/`；改可生成 Schema 的字段/枚举后必须 `npm run gen:schema`（见 [[docs-828/05-conventions/schema-sync]]）。
+> 运行时事件 `GameEvent` 的枚举目录见 [[docs-828/04-mechanisms/trigger-effect]]「GameEvent 事件目录」；GameNum 数值树节点 kind 见 [[docs-828/04-mechanisms/production]]。本文不重复。
 
 ## 1. 数值与表达式（ValueSystem）
 
@@ -42,7 +42,7 @@ Comparator：== != >= <= > <。
 Condition：{ target: ConditionTarget, key, comparator, value }；
 ConditionGroup：{ type: 'AND' | 'OR', conditions: (Condition|ConditionGroup)[] }（可嵌套）。
 
-ConditionTarget（15 种）—— key 与 actual 语义：
+ConditionTarget（16 种）—— key 与 actual 语义：
 ```
 
 | target                | key                   | actual 语义                                     |
@@ -61,13 +61,14 @@ ConditionTarget（15 种）—— key 与 actual 语义：
 | `visitedStoryInChain` | StoryId               | 当前 Entry 跳转链是否经过（0/1）                         |
 | `extra`               | ExtraPath             | Extra 合并视图 `toNumber`（缺失→0）                   |
 | `protoStat`           | 原型角色 id               | `protoStats[key].acquiredTotal`（缺失→0）         |
+| `affectionLevel`      | 差分角色 id               | 当前角色好感等级（未拥有/缺失→0）                    |
 | `area`                | AreaId                | 当前所在 Area 是否为该 Area（0/1）                      |
 
 ## 4. 效果（EffectOp）
 
 `Effect`：`{ op: EffectOp, target, value, owner?, notice? }`。`value` 可为 数值/字符串/布尔/`ValueExpression`/`ExtraValue`(setExtra)/`ThemeEffectValue`(setTheme)/`ChatTextEffectValue`(showChatText)。
 
-`EffectOp`（24 种 = 状态层 13 + 转发类 9 + 声明类 2，见 [[docs-828/02-modules/effect-trigger]]）：
+`EffectOp`（25 种 = 状态层 14 + 转发类 9 + 声明类 2，见 [[docs-828/02-modules/effect-trigger]]）：
 
 | op | target | 归属 |
 | --- | --- | --- |
@@ -142,7 +143,7 @@ ConditionTarget（15 种）—— key 与 actual 语义：
 
 ## 9. 内容实体枚举
 
-**Talklet**（`types/content.ts`）：
+**Talklet**（`src/data-services/contracts/story-entry.ts`）：
 - `kind`：`talk`（对话气泡，默认）/ `narration`（横跨宽度旁白）/ `click`（纯底部按钮交互页）；
 - `align`（仅 narration）：`center`（默认）/ `left` / `right`；
 - `side`（仅 talk）：`left`（默认）/ `right`；
@@ -192,4 +193,4 @@ ConditionTarget（15 种）—— key 与 actual 语义：
 
 ## 相关文档
 
-[[docs-828/04-algorithms/trigger-effect]] · [[docs-828/05-conventions/schema-sync]]
+[[docs-828/04-mechanisms/trigger-effect]] · [[docs-828/05-conventions/schema-sync]]

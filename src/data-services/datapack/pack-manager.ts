@@ -9,11 +9,11 @@ export interface StoredPack {
   readonly manifest: PackManifest;
   readonly datapack: Datapack;
   readonly images: readonly { path: string; url: string }[];
-  readonly sourceKind: PackSource['kind'];
+  readonly sourceKind: PackSource['kind'] | 'builtin';
   readonly importedAt: number;
 }
 
-export type PackSourceKind = PackSource['kind'];
+export type PackSourceKind = PackSource['kind'] | 'builtin';
 
 export interface PackManagerSnapshot {
   readonly packs: readonly StoredPack[];
@@ -26,6 +26,11 @@ export interface PackApplyTarget {
   reload(datapacks: readonly Datapack[]): void;
   clearImages(): void;
   registerImages(modName: string, images: readonly { path: string; url: string }[]): void;
+}
+
+export interface PackConfigurationDraft {
+  readonly enabledIds: readonly string[];
+  readonly order: readonly string[];
 }
 
 export type PackDependencyStatus = 'enabled' | 'available' | 'missing';
@@ -49,13 +54,18 @@ export class PackManager {
   private enabledIds = new Set<string>();
   private order: string[] = [];
 
-  constructor(initial?: PackManagerSnapshot, private readonly store?: PackSnapshotStore) {
+  constructor(initial?: PackManagerSnapshot, private readonly store?: PackSnapshotStore, builtinPacks: readonly StoredPack[] = []) {
     initial ??= store?.load() ?? { packs: [], enabledIds: [], order: [] };
     for (const pack of initial.packs) this.packs.set(pack.id, pack);
+    for (const pack of builtinPacks) this.packs.set(pack.id, pack);
     this.order = this.normalizeOrder(initial.order);
+    for (const pack of builtinPacks) {
+      if (!this.order.includes(pack.id)) this.order.unshift(pack.id);
+    }
     for (const id of initial.enabledIds) {
       if (this.packs.has(id)) this.enabledIds.add(id);
     }
+    for (const pack of builtinPacks) this.enabledIds.add(pack.id);
     this.validateEnabledSet();
   }
 
@@ -67,6 +77,63 @@ export class PackManager {
     };
   }
 
+  configuration(): PackConfigurationDraft {
+    return {
+      enabledIds: this.order.filter(id => this.enabledIds.has(id)),
+      order: [...this.order],
+    };
+  }
+
+  validateConfiguration(draft: PackConfigurationDraft): void {
+    const known = new Set(this.packs.keys());
+    if (draft.order.length !== known.size || new Set(draft.order).size !== draft.order.length || draft.order.some(id => !known.has(id))) {
+      throw new PackManagerError('排序列表必须包含包库中的每个数据包且不能重复。');
+    }
+    const enabled = new Set(draft.enabledIds);
+    if (enabled.size !== draft.enabledIds.length || draft.enabledIds.some(id => !known.has(id))) {
+      throw new PackManagerError('启用集包含未知或重复的数据包。');
+    }
+    for (const pack of this.packs.values()) {
+      if (pack.sourceKind === 'builtin' && !enabled.has(pack.id)) {
+        throw new PackManagerError(`核心数据包必须保留在启用集内：${pack.manifest.name}。`);
+      }
+    }
+    const byModName = new Map<string, string>();
+    for (const id of draft.order) {
+      if (!enabled.has(id)) continue;
+      const pack = this.packs.get(id)!;
+      const previous = byModName.get(pack.manifest.modName);
+      if (previous) throw new PackManagerError(`启用集存在 modName 冲突：${pack.manifest.modName}（${previous} 与 ${id}）。`);
+      byModName.set(pack.manifest.modName, id);
+    }
+    for (const id of draft.order) {
+      if (!enabled.has(id)) continue;
+      const pack = this.packs.get(id)!;
+      for (const dependency of pack.manifest.dependencies) {
+        if (!Array.from(byModName.keys()).includes(dependency)) {
+          throw new PackManagerError(`${pack.manifest.name} 缺少启用依赖：${dependency}。`);
+        }
+      }
+    }
+  }
+
+  applyConfiguration(draft: PackConfigurationDraft, target: PackApplyTarget): void {
+    this.validateConfiguration(draft);
+    const enabled = new Set(draft.enabledIds);
+    const datapacks = draft.order.filter(id => enabled.has(id)).map(id => this.packs.get(id)!.datapack);
+    target.validate?.(datapacks);
+    target.reload(datapacks);
+    target.clearImages();
+    for (const id of draft.order) {
+      if (!enabled.has(id)) continue;
+      const pack = this.packs.get(id)!;
+      target.registerImages(pack.manifest.modName, pack.images);
+    }
+    this.order = [...draft.order];
+    this.enabledIds = enabled;
+    this.persist();
+  }
+
   importPack(pack: StoredPack): void {
     this.packs.set(pack.id, pack);
     if (!this.order.includes(pack.id)) this.order.push(pack.id);
@@ -74,6 +141,7 @@ export class PackManager {
   }
 
   removePack(id: string): void {
+    if (this.packs.get(id)?.sourceKind === 'builtin') throw new PackManagerError('内置数据包不可删除：' + id);
     this.packs.delete(id);
     this.enabledIds.delete(id);
     this.order = this.order.filter(packId => packId !== id);
@@ -90,6 +158,7 @@ export class PackManager {
 
   setEnabled(id: string, enabled: boolean): void {
     if (!this.packs.has(id)) throw new PackManagerError('不存在的数据包：' + id);
+    if (!enabled && this.packs.get(id)?.sourceKind === 'builtin') throw new PackManagerError('内置数据包不可停用：' + id);
     if (enabled) {
       this.enabledIds.add(id);
       try { this.validateEnabledSet(); }
@@ -136,13 +205,7 @@ export class PackManager {
   }
 
   applyEnabled(target: PackApplyTarget): void {
-    this.validateEnabledSet();
-    const enabled = this.order.filter(id => this.enabledIds.has(id)).map(id => this.packs.get(id)!);
-    const datapacks = enabled.map(pack => pack.datapack);
-    target.validate?.(datapacks);
-    target.reload(datapacks);
-    target.clearImages();
-    for (const pack of enabled) target.registerImages(pack.manifest.modName, pack.images);
+    this.applyConfiguration(this.configuration(), target);
   }
 
   private orderedPacks(): StoredPack[] {

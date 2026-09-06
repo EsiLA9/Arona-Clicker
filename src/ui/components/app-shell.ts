@@ -5,6 +5,18 @@ import { renderCenterPanel } from './center-panel';
 import { renderRightPanel } from './right-panels';
 import { ChatEntry, ChatTextEntry } from './story';
 import { renderBackground } from '../background-service';
+import { renderServiceWorkspace } from './service-workspace';
+
+export type DatapackWorkspaceSection = 'all' | 'enabled' | 'disabled' | 'issues' | 'import';
+
+export interface DatapackWorkspaceState {
+  section: DatapackWorkspaceSection;
+  selectedPackId: string | null;
+  draftEnabledIds: string[];
+  draftOrder: string[];
+  validation: { ok: boolean; errors: string[]; warnings: string[] } | null;
+  lastResult: { ok: boolean; message: string } | null;
+}
 
 /** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 按钮"想回复"中。 */
 export type SendGatePhase = 'typing' | 'pause' | 'thinking';
@@ -26,6 +38,9 @@ export interface StoryGateState {
 }
 
 export interface PanelState {
+  /** 当前顶层服务工作区；game = 正常游玩三栏。 */
+  service?: 'game' | 'datapack' | 'saves' | 'records';
+  datapackWorkspace?: DatapackWorkspaceState;
   leftTab: string;
   centerTab: string;
   rightTab: string;
@@ -60,6 +75,10 @@ export interface PanelState {
 }
 
 export function renderAppShell(ctx: UIContext, state: PanelState): string {
+  const service = state.service ?? 'game';
+  if (service !== 'game') {
+    return renderConsoleFrame(ctx, renderServiceWorkspace(ctx, service, state), '服务工作区 · 只读视图');
+  }
   const conversation = state.conversationVariantId
     ? {
         variantId: state.conversationVariantId,
@@ -67,15 +86,21 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
         chatTexts: state.studentChatTexts[state.conversationVariantId] ?? [],
       }
     : undefined;
-  return `
-    ${renderBackground(ctx.background)}
-    <main class="console-shell">
-      ${renderHeader(ctx)}
+  return renderConsoleFrame(ctx, `
       <section class="workspace">
         ${renderLeftPanel(ctx, state)}
         ${renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null)}
         ${renderRightPanel(ctx, state.rightTab, state.selectedVariantId)}
       </section>
-      <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>TS-HTML ENGINE · NO NETWORK</span></footer>
+    `, 'TS-HTML ENGINE · NO NETWORK');
+}
+
+function renderConsoleFrame(ctx: UIContext, body: string, footerNote: string): string {
+  return `
+    ${renderBackground(ctx.background)}
+    <main class="console-shell">
+      ${renderHeader(ctx)}
+      ${body}
+      <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>${footerNote}</span></footer>
     </main>`;
 }

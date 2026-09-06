@@ -20,7 +20,7 @@ import type { CharaCustomOverride } from '../types/chara-profile';
 import type { DupRewards } from '../../data-services/contracts/gacha-pool';
 import type { CompletedStory } from '../types/story-state';
 import type { AronaClickerState } from '../types/state';
-import type { UserThemeDraft, UserThemeState } from '../types/user-theme';
+import type { StoredCustomTheme, ThemeAttachment, UserThemeDraft, UserThemeState } from '../types/user-theme';
 import { isGlobalResource } from '../types/ids';
 import { TagPath, tagDisplay, tagKey } from '../../engine/core/tag';
 import { EventBus } from '../../engine/core/event-bus';
@@ -339,12 +339,30 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
 
   /** 原子保存用户主题；仅由 UserThemeService 在能力和结构校验通过后调用。 */
   setUserTheme(applied: UserThemeDraft, enabled = true): boolean {
+    const state = this.current;
     const current: UserThemeState = this.current.userTheme ?? { enabled: false, revision: 0 };
+    const id = current.customThemeId ?? 'user:theme:default';
+    const previous = state.customThemes?.[id];
+    const now = state.totalFrames;
+    const stored: StoredCustomTheme = {
+      ...structuredClone(applied),
+      id,
+      name: previous?.name ?? '自定义主题',
+      baseThemeRef: previous?.baseThemeRef ?? { kind: 'system' },
+      createdAt: previous?.createdAt ?? now,
+      updatedAt: now,
+    };
+    state.customThemes = { ...(state.customThemes ?? {}), [id]: stored };
+    state.themeAttachments = {
+      ...(state.themeAttachments ?? {}),
+      base: { target: 'base', customThemeId: id, enabled },
+    };
     this.current.userTheme = {
       enabled,
       applied: structuredClone(applied),
       revision: current.revision + 1,
-      updatedAtFrame: this.current.totalFrames,
+      updatedAtFrame: now,
+      customThemeId: id,
     };
     this.emit({ type: 'userThemeChanged', enabled });
     return true;
@@ -357,7 +375,32 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     current.enabled = enabled;
     current.revision += 1;
     current.updatedAtFrame = this.current.totalFrames;
+    const id = current.customThemeId ?? 'user:theme:default';
+    this.current.themeAttachments = {
+      ...(this.current.themeAttachments ?? {}),
+      base: { target: 'base', customThemeId: id, enabled },
+    };
     this.emit({ type: 'userThemeChanged', enabled });
+    return true;
+  }
+
+  /** 保存独立用户主题及其应用关系；供更通用的主题编辑入口使用。 */
+  saveCustomTheme(theme: StoredCustomTheme, attachment: ThemeAttachment | null = null): boolean {
+    this.current.customThemes = { ...(this.current.customThemes ?? {}), [theme.id]: structuredClone(theme) };
+    if (attachment) {
+      this.current.themeAttachments = { ...(this.current.themeAttachments ?? {}), [attachment.target]: structuredClone(attachment) };
+    }
+    this.emit({ type: 'userThemeChanged', enabled: attachment?.enabled ?? false });
+    return true;
+  }
+
+  /** 改变自定义主题挂靠，不修改主题本体。 */
+  setThemeAttachment(target: string, attachment: ThemeAttachment | null): boolean {
+    const attachments = { ...(this.current.themeAttachments ?? {}) };
+    if (attachment === null) delete attachments[target];
+    else attachments[target] = structuredClone(attachment);
+    this.current.themeAttachments = attachments;
+    this.emit({ type: 'userThemeChanged', enabled: attachment?.enabled ?? false });
     return true;
   }
 

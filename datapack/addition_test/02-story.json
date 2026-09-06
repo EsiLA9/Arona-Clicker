@@ -1,0 +1,47 @@
+{
+  "stories": [
+    {
+      "id": "addition-test:story:welcome",
+      "name": "观测站启动",
+      "talklets": [
+        { "speaker": "测试观测员", "text": "欢迎进入 addition_test。这里会覆盖故事、选项、奖励和图鉴记录。", "sendText": "开始测试。", "avatar": "addition-test:avatar(pic):observer" },
+        {
+          "speaker": "测试观测员",
+          "text": "请选择要检查的分支。",
+          "choices": [
+            { "text": "检查 Registry", "effects": [{ "op": "addItem", "target": "addition-test:item:archive-fragment", "value": 1 }] },
+            { "text": "检查存档", "effects": [{ "op": "addResource", "target": "base:resource:credit", "value": 3 }] }
+          ]
+        },
+        { "speaker": "测试观测员", "text": "测试完成。你可以在图鉴与统计服务中检查这次记录。", "effects": [{ "op": "setFlag", "target": "addition_test_story_done", "value": "1" }] }
+      ],
+      "extra": { "t": "dict", "v": { "category": { "t": "str", "v": "integration" } } }
+    },
+    {
+      "id": "addition-test:story:passive-signal",
+      "name": "信号灯闪烁",
+      "talklets": [{ "speaker": "测试观测员", "text": "被动故事池也在正常工作。" }]
+    }
+  ],
+  "activeStories": [{
+    "id": "addition-test:activestory:welcome",
+    "storyId": "addition-test:story:welcome",
+    "availableInits": ["addition-test:init:observatory"],
+    "triggerCondition": { "type": "AND", "conditions": [] },
+    "replayable": true,
+    "openingTitle": "Addition Test · 启动"
+  }],
+  "passiveStories": [{
+    "id": "addition-test:passivestory:signal",
+    "storyId": "addition-test:story:passive-signal",
+    "availableInits": ["addition-test:init:observatory"],
+    "triggerCondition": { "type": "AND", "conditions": [] },
+    "repeatable": true,
+    "weight": 2,
+    "affectionRequired": 0,
+    "completionReward": { "repeat": [{ "op": "addItem", "target": "addition-test:item:signal-chip", "value": 1 }] }
+  }],
+  "passivePools": [
+    { "id": "addition-test:passivepool:root", "name": "测试闲聊池", "tags": [["experimental", "conversation"]], "children": [{ "id": "addition-test:passivestory:signal", "weight": 1 }] }
+  ]
+}

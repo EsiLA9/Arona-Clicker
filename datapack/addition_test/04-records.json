@@ -1,0 +1,51 @@
+{
+  "cultivateCurves": [{
+    "id": "addition-test:cultivatecurve:test",
+    "maxLevel": 10,
+    "expTable": [10, 20, 35, 55, 80, 110, 145, 185, 230, 280],
+    "starMax": 3,
+    "starCost": [1, 2, 4],
+    "levelCapPerStar": 4
+  }],
+  "colorGroups": [{
+    "id": "addition-test:colorgroup:violet",
+    "name": "测试紫晶",
+    "description": "验证外部包色彩组与实体主题引用。",
+    "compositionType": "gradient",
+    "slots": [{ "role": "primary", "color": "#7c3aed" }, { "role": "secondary", "color": "#f59e0b" }],
+    "theme": { "primary": "#7c3aed", "accent": "#f59e0b" }
+  }],
+  "colorEquipments": [{
+    "id": "addition-test:colorequipment:scanner-lens",
+    "name": "扫描透镜",
+    "description": "验证色彩装备收集与效果声明。",
+    "colorGroupId": "addition-test:colorgroup:violet",
+    "effects": [{ "op": "addResource", "target": "base:resource:credit", "value": 1 }],
+    "category": "rare"
+  }],
+  "themeDesigns": [{
+    "id": "addition-test:themedesign:observatory",
+    "name": "观测站夜色",
+    "description": "验证 ThemeDesign 和 UI presentation 数据。",
+    "entityKey": "area:addition-test:area:observatory",
+    "theme": { "colorGroupId": "addition-test:colorgroup:violet", "nodes": { "accent": "#f59e0b" } }
+  }],
+  "gachaPools": [{
+    "id": "addition-test:gachapool:observer",
+    "name": "观测员招募测试池",
+    "description": "验证扩展包卡池、稀有度、UP 和保底字段。",
+    "mode": "ba-classic",
+    "currency": "base:resource:pyroxene",
+    "costPerPull": 1,
+    "rates": [{ "rarity": "common", "weight": 80 }, { "rarity": "rare", "weight": 18 }, { "rarity": "super_rare", "weight": 2 }],
+    "featured": ["addition-test:variant:observer"],
+    "pity": { "guaranteedAt": 10 },
+    "dupRewards": { "shards": 1, "bonusResources": { "base:resource:credit": 2 } },
+    "members": ["addition-test:variant:observer"]
+  }],
+  "tags": [
+    { "id": "experimental", "name": "实验内容", "description": "addition_test 的顶层标签。" },
+    { "id": "experimental/scanner", "parent": "addition-test:experimental", "name": "扫描仪", "description": "可用于设施筛选和标签统计。" },
+    { "id": "experimental/archive", "parent": "addition-test:experimental", "name": "档案扩展", "description": "用于标签层级和统计筛选的子标签。" }
+  ]
+}

@@ -4,7 +4,7 @@ import type { UserThemeDraft } from '../../arona-clicker/types/user-theme';
 import type { UserThemeToken } from '../../arona-clicker/types/user-theme';
 import type { BackgroundLayerDef, ComponentPlacementDef, PresentationHostDef, PresentationHostState, PresentationLayerDef, PresentationRegion } from '../../engine/types/theme';
 import type { ThemeNodeName } from '../../engine/types/theme';
-import { PRESENTATION_TARGETS, presentationTargetForLegacyRegion, type PresentationTargetLevel } from '../presentation-targets';
+import { getPresentationTargets, presentationTargetForLegacyRegion, type PresentationTargetLevel } from '../presentation-targets';
 import { DEFAULT_PANEL_OPACITY } from '../presentation-config';
 
 const TOKENS: readonly UserThemeToken[] = ['primary', 'primaryStrong', 'bg', 'bgAlt', 'panel', 'panelAlt', 'text', 'muted', 'accent', 'danger'];
@@ -154,7 +154,7 @@ export function renderPresentationTargetOptions(ctx: UIContext, draft: UserTheme
     if (target) configured.add(target.id);
   }
   for (const host of draft.presentation?.hosts ?? []) configured.add(host.id);
-  return PRESENTATION_TARGETS.filter(target => target.id !== 'global' && target.level === level && !configured.has(target.id))
+  return getPresentationTargets().filter(target => target.id !== 'global' && target.level === level && target.editable !== false && !configured.has(target.id))
     .map(target => `<button type="button" class="user-theme-target-option" data-user-theme-target-option="${ctx.escapeHtml(target.id)}"><strong>${ctx.escapeHtml(target.label)}</strong><small>${target.parent ? `父级：${ctx.escapeHtml(target.parent)}` : '无父级'}</small></button>`).join('') || '<p class="modal-empty">该级别暂无可加入的表现目标。</p>';
 }
 
@@ -165,7 +165,7 @@ function renderHostTargets(ctx: UIContext, presentation: NonNullable<UserThemeDr
   const kindOptions = (kind: BackgroundLayerDef['kind']) => `<option value="empty" ${kind === 'empty' ? 'selected' : ''}>空</option><option value="solid" ${kind === 'solid' ? 'selected' : ''}>纯色</option><option value="gradient" ${kind === 'gradient' ? 'selected' : ''}>渐变</option><option value="image" ${kind === 'image' ? 'selected' : ''}>图片资源</option>`;
   const field = (hostId: string, index: number, key: string) => `data-user-theme-host-field="${key}" data-user-theme-host-id="${ctx.escapeHtml(hostId)}" data-user-theme-host-index="${index}"`;
   return (presentation.hosts ?? []).map(host => {
-    const target = PRESENTATION_TARGETS.find(item => item.id === host.id);
+    const target = getPresentationTargets().find(item => item.id === host.id);
     const state = hostStateForRender.get(host.id) ?? 'default';
     const stateDef = state === 'default' ? undefined : host.states?.[state];
     // 非默认态没有覆盖时只显示继承提示，不把默认态的数组借用为当前编辑数据。
@@ -177,7 +177,8 @@ function renderHostTargets(ctx: UIContext, presentation: NonNullable<UserThemeDr
     if (!rank.has('system-color-background')) rank.set('system-color-background', 0);
     entries.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER));
     const systemIndex = entries.findIndex(entry => entry.system);
-    const stateButtons = `<div class="switch-tabs user-theme-host-state-switch" role="tablist" aria-label="${ctx.escapeHtml(target?.label ?? host.id)}状态">${(['default', 'active', 'inactive', 'disabled'] as const).map(item => `<button type="button" role="tab" aria-selected="${state === item}" class="switch-tab ${state === item ? 'active is-active' : ''}" data-user-theme-host-state="${ctx.escapeHtml(host.id)}" data-user-theme-state-value="${item}" ${active ? '' : 'disabled'}>${item === 'default' ? '默认' : item === 'active' ? 'active' : item === 'inactive' ? 'inactive' : '禁用'}</button>`).join('')}</div>`;
+    const supportedStates = target?.states ?? (['default', 'active', 'inactive', 'disabled'] as const);
+    const stateButtons = `<div class="switch-tabs user-theme-host-state-switch" role="tablist" aria-label="${ctx.escapeHtml(target?.label ?? host.id)}状态">${supportedStates.map(item => `<button type="button" role="tab" aria-selected="${state === item}" class="switch-tab ${state === item ? 'active is-active' : ''}" data-user-theme-host-state="${ctx.escapeHtml(host.id)}" data-user-theme-state-value="${item}" ${active ? '' : 'disabled'}>${item === 'default' ? '默认' : item === 'active' ? '激活' : item === 'inactive' ? '未激活' : '禁用'}</button>`).join('')}</div>`;
     const textColorMode = stateDef?.textColorMode ?? host.textColorMode ?? 'auto';
     const textColorEditor = `<label class="user-theme-field user-theme-text-color-field"><span>文字颜色</span><select data-user-theme-host-text-color="${ctx.escapeHtml(host.id)}" ${active ? '' : 'disabled'}><option value="auto" ${textColorMode === 'auto' ? 'selected' : ''}>自动判别</option><option value="light" ${textColorMode === 'light' ? 'selected' : ''}>指定白色</option><option value="dark" ${textColorMode === 'dark' ? 'selected' : ''}>指定黑色</option></select><small>${state === 'default' ? '经典亮度判别；状态可单独覆盖。' : '未单独设置时继承默认态。'}</small></label>`;
     const stateLayer = state === 'default' || stateDef ? '' : '<p class="user-theme-layer-inherited">当前状态尚未单独设置，将继承默认态；修改图层后创建状态覆盖。</p>';

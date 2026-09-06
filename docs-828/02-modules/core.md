@@ -31,4 +31,4 @@
 
 ## 相关文档
 
-[[docs-828/04-algorithms/trigger-effect]]（GameEvent 事件目录）· [[docs-828/04-algorithms/color-derivation]]（主题分层）
+[[docs-828/04-mechanisms/trigger-effect]]（GameEvent 事件目录）· [[docs-828/04-mechanisms/color-derivation]]（主题分层）

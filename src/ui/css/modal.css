@@ -175,6 +175,77 @@
    background: color-mix(in srgb, var(--panel) 88%, var(--cyan));
 }
 
+.pack-entry.is-selected {
+   border-color: var(--theme-node-active, var(--cyan));
+   box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-node-active, var(--cyan)) 18%, transparent);
+}
+
+.pack-entry.is-draft-changed {
+   background: color-mix(in srgb, var(--panel) 82%, var(--gold));
+}
+
+.pack-entry-select {
+   display: grid;
+   gap: 6px;
+   width: 100%;
+   padding: 0;
+   border: 0;
+   background: transparent;
+   color: inherit;
+   text-align: left;
+   cursor: pointer;
+}
+
+.pack-entry-select:focus-visible {
+   outline: 2px solid var(--theme-node-active, var(--cyan));
+   outline-offset: 3px;
+}
+
+.pack-entry-status {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+}
+
+.pack-state,
+.service-draft-status,
+.service-result {
+   display: inline-flex;
+   align-items: center;
+   width: fit-content;
+   padding: 3px 7px;
+   border-radius: 999px;
+   font: 10px 'DM Mono', monospace;
+}
+
+.pack-state.enabled { color: var(--cyan); background: color-mix(in srgb, var(--cyan) 14%, transparent); }
+.pack-state.disabled { color: var(--muted-on-panel); background: color-mix(in srgb, var(--line) 55%, transparent); }
+.pack-state.draft,
+.service-draft-status { color: var(--gold); background: color-mix(in srgb, var(--gold) 16%, transparent); }
+
+.service-result.success { color: var(--success, #16805c); background: color-mix(in srgb, var(--success, #16805c) 12%, transparent); }
+.service-result.error { color: var(--danger, #b43b48); background: color-mix(in srgb, var(--danger, #b43b48) 12%, transparent); }
+
+.pack-detail-list {
+   display: grid;
+   gap: 8px;
+   margin: 0;
+}
+
+.pack-detail-list div {
+   display: flex;
+   justify-content: space-between;
+   gap: 10px;
+}
+
+.pack-detail-list dt { color: var(--muted-on-panel); font-size: 10px; }
+.pack-detail-list dd { margin: 0; text-align: right; font-size: 11px; }
+.service-issue-list { margin: 0; padding-left: 18px; color: var(--danger, #b43b48); font-size: 11px; }
+.service-warning-list { margin: 0; padding-left: 18px; color: var(--gold); font-size: 11px; }
+.service-ok { color: var(--success, #16805c); }
+.service-nav-count { margin-left: auto; color: var(--muted-on-panel); }
+.import-guide { display: grid; gap: 10px; }
+
 .pack-entry-main,
 .pack-entry-actions {
    display: flex;

@@ -37,8 +37,8 @@ export function renderCenterPanel(
   // 通讯录临时页：由左栏"通讯录"触发，等待详细设计
   if (activeTab === 'contacts-draft') {
     return `
-      <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center.contacts-draft">
-        ${renderBackground(ctx.backgroundForHost('centerPanel.contacts-draft'), 'console-panel-background')}
+      <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.contacts" data-theme-host-id="centerPanel.contacts" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost('centerPanel.contacts')}">
+        ${renderBackground(ctx.backgroundForHost('centerPanel.contacts'), 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
         <div class="ui-cluster ui-cluster--center-contacts-draft panel-body">
@@ -52,8 +52,8 @@ export function renderCenterPanel(
   // 档案临时页：由故事 Tab"档案"入口触发，等待记录内容设计
   if (activeTab === 'archive-draft') {
     return `
-      <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center.archive-draft">
-        ${renderBackground(ctx.backgroundForHost('centerPanel.archive-draft'), 'console-panel-background')}
+      <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.archive" data-theme-host-id="centerPanel.archive" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost('centerPanel.archive')}">
+        ${renderBackground(ctx.backgroundForHost('centerPanel.archive'), 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
         ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
         <div class="ui-cluster ui-cluster--center-archive-draft panel-body">

@@ -13,6 +13,7 @@ import { buildPresentationView } from './presentation-service';
 import { DEFAULT_PANEL_OPACITY } from './presentation-config';
 import { createUIContext } from './context';
 import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, deriveBackgroundGradient, resolveScopedThemeNodes, resolveThemeNodes, type ThemeMode } from './theme-palette';
+import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
 
 /**
  * 主题浮窗跨 render 重建 #app 的存活：render 全量重建会销毁浮窗 DOM，
@@ -64,12 +65,12 @@ export function syncRuntimeTheme(ctrl: UIController): void {
   if (areaId) {
     const area = ctrl.game.world.areas.get(areaId);
     // 实体主题槽覆盖（设计/自定义）优先，否则声明默认
-    const override = area
-      ? ctrl.game.colorSystem.entityThemeOverride(ctrl.game.state, entityKeyOf('area', areaId))
+    const resolution = area
+      ? ctrl.game.colorSystem.resolveEntityTheme(ctrl.game.state, entityKeyOf('area', areaId), { declaredTheme: area.theme })
+      : { theme: null };
+    const theme = resolution.theme
+      ? { ...resolution.theme, background: resolution.theme.background ?? area?.theme?.background }
       : null;
-    const theme = override
-      ? { ...override, background: override.background ?? area?.theme?.background }
-      : area?.theme;
     if (theme) {
       ctrl.game.colorSystem.pushSceneTheme({ scope: 'area', groupId: theme.colorGroupId, palette: theme.palette, tokens: theme.tokens, nodeOverrides: theme.nodes, background: theme.background, presentation: theme.presentation });
     }
@@ -80,13 +81,14 @@ export function syncRuntimeTheme(ctrl: UIController): void {
     if (variant) {
       const entry = ctrl.game.state.roster?.[convId];
       const equipped = entry?.equippedEquipment ?? null;
-      const override = ctrl.game.colorSystem.entityThemeOverride(
+      const resolution = ctrl.game.colorSystem.resolveEntityTheme(
         ctrl.game.state,
         entityKeyOf('variant', convId),
-        equipped,
+        { declaredTheme: variant.theme, equippedEquipmentId: equipped },
       );
-      if (override) {
-        // 实体主题槽覆盖（设计/装备/自定义）：直接采用
+      if (resolution.theme) {
+        // 统一解析实体主题来源（自定义 / 设计 / 装备 / 声明默认）
+        const override = resolution.theme;
         ctrl.game.colorSystem.pushSceneTheme({
           scope: 'student',
           groupId: override.colorGroupId,
@@ -149,16 +151,16 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   for (const [key, value] of Object.entries(tokens)) {
     style.setProperty(`--ac-${key}`, value);
   }
-  style.setProperty('--ac-primary-rgb', hexToRgbTriplet(tokens['primary'] ?? '#3b9eff'));
+  style.setProperty('--ac-primary-rgb', hexToRgbTriplet(tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY));
   // 界面语义层：由色彩树展开，引擎 --ac-* 优先、否则自动衍生；
   // 传入真实 tokens 使背景节点上的文字色（--ink-on-*）按背景明暗正确选白/黑
-  const vars = buildThemeVars(tokens['primary'] ?? '#3b9eff', {}, tokens);
+  const vars = buildThemeVars(tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY, {}, tokens);
   for (const [key, value] of Object.entries(vars)) {
     style.setProperty(`--${key}`, value);
   }
-  const palette = resolved.palette.length > 0 ? resolved.palette : [tokens['primary'] ?? '#3b9eff'];
-  style.setProperty('--theme-palette-1', palette[0] ?? tokens['primary'] ?? '#3b9eff');
-  style.setProperty('--theme-palette-2', palette[1] ?? palette[0] ?? tokens['primary'] ?? '#3b9eff');
+  const palette = resolved.palette.length > 0 ? resolved.palette : [tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY];
+  style.setProperty('--theme-palette-1', palette[0] ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY);
+  style.setProperty('--theme-palette-2', palette[1] ?? palette[0] ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY);
   const themeMode: ThemeMode = 'light';
   const nodeOverrides = new Map(Object.entries(resolved.nodeOverrides) as [import('./theme-palette').ThemeNodeName, string][]);
   for (const [key, value] of Object.entries(buildThemeNodeVars({ colors: palette }, tokens, nodeOverrides))) {
@@ -179,9 +181,10 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   applyThemeScopes(ctrl, tokens, palette, nodeOverrides, resolved.scopeNodeOverrides, resolved.presentation);
   style.setProperty('--theme-bg-gradient', resolved.systemColorLayerIgnored ? 'transparent' : deriveBackgroundGradient(palette, themeMode));
   // area-hero 横幅渐变（跟随主题 primary 的光晕）
-  style.setProperty('--hero-gradient', heroGradient(tokens['primary'] ?? '#3b9eff', tokens));
+  style.setProperty('--hero-gradient', heroGradient(tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY, tokens));
   // 主题变量重算后同步表现目标状态与文字颜色模式，避免状态属性滞留在默认态。
   refreshPresentationHostElements(ctrl);
+  refreshBackgroundElements(ctrl);
 }
 
 function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, palette: string[], rootOverrides: ReadonlyMap<import('./theme-palette').ThemeNodeName, string>, scopeOverrides: Record<string, Partial<Record<import('./theme-palette').ThemeNodeName, string>>>, presentation: import('../engine/types/theme').PresentationDef): void {
@@ -268,5 +271,24 @@ export function refreshPresentationHostElements(ctrl: UIController, hostIds?: re
     } else {
       current?.remove();
     }
+  });
+}
+
+/** 仅更新已存在的背景节点，不重建游戏主体 DOM。 */
+export function refreshBackgroundElements(ctrl: UIController): void {
+  const context = createUIContext(ctrl.game, backgroundView(ctrl), presentationView(ctrl));
+  const global = ctrl.root.querySelector<HTMLElement>(':scope > .console-background');
+  if (global) global.outerHTML = renderBackground(context.background, 'console-background');
+  ctrl.root.querySelectorAll<HTMLElement>('.ui-cluster > .console-panel-background').forEach(current => {
+    const cluster = current.parentElement;
+    const scope = cluster?.dataset.themeScope;
+    if (!scope) return;
+    const [region, tab] = scope.split('.', 2);
+    const hostId = region === 'left' ? `leftPanel.${tab ?? 'area'}` : region === 'center' ? `centerPanel.${tab ?? 'chat'}` : region === 'right' ? `rightPanel.${tab ?? 'spot'}` : undefined;
+    if (!hostId) return;
+    const background = scope === 'center.conversation'
+      ? context.background
+      : context.backgroundForHost(hostId);
+    current.outerHTML = renderBackground(background, 'console-panel-background');
   });
 }

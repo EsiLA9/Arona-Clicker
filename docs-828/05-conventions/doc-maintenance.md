@@ -10,7 +10,7 @@
 | `01-architecture/` | 跨模块的运行逻辑、状态分层、数据流动 | 每主题 1 篇 |
 | `02-modules/` | 模块卡片：与 `src/` 子系统镜像对齐（一句话/职责边界/关键文件/核心概念/测试入口） | 每模块 1 张（100-200 行内） |
 | `03-data-structures/` | 数据结构定义（类型权威仍在 `src/engine/types/`，文档只讲布局与语义） | 按主题 |
-| `04-algorithms/` | 核心算法流程（结算/失效/派生） | 按主题 |
+| `04-mechanisms/` | 核心算法流程（结算/失效/派生） | 按主题 |
 | `05-conventions/` | 规范（纪律/重构/协议/测试/本文） | 每规范 1 篇 |
 | `0x-plan&work/` | 架构决策、Roadmap、方案草稿、Code Review 与完成记录的统一工作区 | 按 `00-index` 路由 |
 | `07-audit/` | 设计审查：繁简/兜底问题清单（位置/原因/方案组）；GameNum/Affector 多包基础设施豁免；整改完成后归档 | 每组 1 篇 + 总览 |
@@ -29,7 +29,7 @@
 | --- | --- |
 | 新增/删除 `src/engine/` 文件 | 对应 `02-modules/` 卡片关键文件表 |
 | 改实体字段/枚举 | `03-data-structures/declarative-dsl` + [[docs-828/05-conventions/schema-sync]] 流程 |
-| 新增/删除事件 | `04-algorithms/trigger-effect` 速览表（权威仍为 `EVENT_CATALOG`） |
+| 新增/删除事件 | `04-mechanisms/trigger-effect` 速览表（权威仍为 `EVENT_CATALOG`） |
 | 新增 PlayerState 字段 | `03-data-structures/player-state` + `01-architecture/state-layers`（三层归属） |
 | 架构级变动（新系统/改纪律） | `0x-plan&work/` 新增 ADR + `00-index` 路由 |
 | roadmap 切片状态变化（开工/完成/废弃） | `0x-plan&work/active/` 或 `completed/` 对应目标篇 + `00-index` 状态表 |

@@ -21,7 +21,7 @@
 ## 核心概念
 
 - **统一读取入口**：`setExtraReader` 把合并视图注入 valueSystem / conditionSystem / mutations——任何 `extra` 条件、`data` ValueSource、`setExtra/addExtra/removeExtra` op 都看同一合并结果。
-- 状态落点：`PlayerState.extra`（per-Init 当前）+ 快照层；全局层在 `globalExtra`。
+- 状态落点：`PlayerState.initExtras`（per-Init 当前）+ `InitSnapshot.extras` 快照层；全局层在 `PlayerState.extras`。
 - DSL 枚举见 [[docs-828/03-data-structures/declarative-dsl]] §6。
 
 ## 测试入口

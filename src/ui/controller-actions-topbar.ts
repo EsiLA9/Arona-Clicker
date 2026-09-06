@@ -9,9 +9,43 @@ import { openCollectionModal } from './components/collection-modal';
 import { openPackManager } from './controller-modals';
 import type { UIController } from './controller';
 import { refreshPresentationHostElements } from './controller-theme';
+import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
 
 /** 绑定顶栏 / 全局工具条与 Tab 切换（render 后调用）。 */
 export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  bindDatapackActions(ctrl, scope);
+  scope.querySelectorAll<HTMLButtonElement>('[data-service]').forEach(button => {
+    button.addEventListener('click', () => {
+      const service = button.dataset.service as 'game' | 'datapack' | 'saves' | 'records' | undefined;
+      if (!service) return;
+      const workspace = ctrl.panelState.datapackWorkspace;
+      const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
+      const formal = host.getPackConfiguration?.();
+      const hasDraft = Boolean(workspace && formal && (
+        JSON.stringify(workspace.draftEnabledIds) !== JSON.stringify(formal.enabledIds)
+        || JSON.stringify(workspace.draftOrder) !== JSON.stringify(formal.order)
+      ));
+      const switchService = () => {
+        ctrl.panelState.service = service;
+        ctrl.render();
+      };
+      if (ctrl.panelState.service === 'datapack' && service !== 'datapack' && hasDraft) {
+        ctrl.modal.open({
+          title: '还有未应用的数据包修改',
+          body: '<p>当前数据包草案尚未应用。离开后可以继续保留草案，也可以放弃这些修改。</p>',
+          footer: '<button class="modal-close">继续编辑</button><button class="toolbar-button" data-modal-action="discard-pack-draft">放弃修改并离开</button>',
+          onAction: action => {
+            if (action !== 'discard-pack-draft') return;
+            ctrl.resetDatapackDraft();
+            ctrl.modal.close();
+            switchService();
+          },
+        });
+        return;
+      }
+      switchService();
+    });
+  });
   scope.querySelector('#tick-now')?.addEventListener('click', () => {
     ctrl.commands.tick();
     ctrl.refreshLight();
@@ -138,6 +172,99 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
       } else if (panel === 'right') ctrl.panelState.rightTab = tabId;
       const panels = panel === 'left' ? ['left', 'center'] : [panel];
       ctrl.refreshPanels(panels as Array<'left' | 'center' | 'right'>);
+    });
+  });
+}
+
+function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
+  const root = ctrl.panelState.datapackWorkspace;
+  if (!root) return;
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel & PackCatalogCommands>;
+  const render = () => ctrl.render();
+  scope.querySelectorAll<HTMLButtonElement>('[data-datapack-section]').forEach(button => {
+    button.addEventListener('click', () => {
+      root.section = button.dataset.datapackSection as typeof root.section;
+      ctrl.panelState.service = 'datapack';
+      render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-select]').forEach(button => {
+    button.addEventListener('click', () => {
+      root.selectedPackId = button.dataset.packSelect ?? null;
+      render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-toggle]').forEach(button => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.packDraftToggle;
+      if (!id) return;
+      const entry = host.getPackCatalog?.().entries.find(item => item.id === id);
+      if (entry && entry.capabilities && !entry.capabilities.enableable) {
+        root.lastResult = { ok: false, message: '核心数据包必须始终保留在启用集内。' };
+        render();
+        return;
+      }
+      root.draftEnabledIds = root.draftEnabledIds.includes(id)
+        ? root.draftEnabledIds.filter(item => item !== id)
+        : [...root.draftEnabledIds, id];
+      root.validation = null;
+      root.lastResult = null;
+      render();
+    });
+  });
+  const move = (id: string, delta: number) => {
+    const index = root.draftOrder.indexOf(id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= root.draftOrder.length) return;
+    const next = [...root.draftOrder];
+    [next[index], next[target]] = [next[target], next[index]];
+    root.draftOrder = next;
+    root.validation = null;
+    root.lastResult = null;
+    render();
+  };
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-up]').forEach(button => button.addEventListener('click', () => move(button.dataset.packDraftUp!, -1)));
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-down]').forEach(button => button.addEventListener('click', () => move(button.dataset.packDraftDown!, 1)));
+  scope.querySelector('[data-pack-discard]')?.addEventListener('click', () => {
+    ctrl.resetDatapackDraft();
+    render();
+  });
+  scope.querySelector('[data-pack-validate]')?.addEventListener('click', () => {
+    if (!host.validatePackConfiguration) return;
+    const report = host.validatePackConfiguration({ enabledIds: root.draftEnabledIds, order: root.draftOrder });
+    root.validation = { ok: report.ok, errors: [...report.errors], warnings: [...report.warnings] };
+    root.lastResult = { ok: report.ok, message: report.ok ? '启用集校验通过，可以应用。' : report.errors[0] ?? '启用集校验失败。' };
+    render();
+  });
+  scope.querySelector('[data-pack-apply]')?.addEventListener('click', () => {
+    if (!host.applyPackConfiguration) return;
+    const draft = { enabledIds: [...root.draftEnabledIds], order: [...root.draftOrder] };
+    const report = host.validatePackConfiguration?.(draft);
+    if (report && !report.ok) {
+      root.validation = { ok: false, errors: [...report.errors], warnings: [...report.warnings] };
+      root.lastResult = { ok: false, message: report.errors[0] ?? '启用集校验失败。' };
+      render();
+      return;
+    }
+    const saved = SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
+    if (!saved) {
+      root.lastResult = { ok: false, message: '应用已停止：当前进度保存失败，数据包序列未重载。' };
+      render();
+      return;
+    }
+    ctrl.modal.open({
+      title: '确认应用启用集',
+      body: '<p>当前进度已保存。确认后将重新加载数据包序列，并重建 Registry、图片索引和主题资源。</p><p class="muted">这可能重置本次运行中的临时状态。取消则保持旧序列继续运行。</p>',
+      footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="apply-datapack">确认应用</button>',
+      onAction: action => {
+        if (action !== 'apply-datapack') return;
+        const result = host.applyPackConfiguration!(draft);
+        if (result.ok) ctrl.resetDatapackDraft();
+        root.validation = { ok: result.validation.ok, errors: [...result.validation.errors], warnings: [...result.validation.warnings] };
+        root.lastResult = { ok: result.ok, message: result.message };
+        ctrl.modal.close();
+        render();
+      },
     });
   });
 }

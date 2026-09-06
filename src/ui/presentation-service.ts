@@ -305,3 +305,24 @@ export function renderPresentationHostBackground(ctx: UIContext, hostId: string,
   if (!ctx.presentation?.hasHost?.(hostId) && state !== 'active') return '';
   return renderBackground(ctx.backgroundForHost(hostId, false, state), className);
 }
+
+export interface UIHostRenderOptions {
+  hostId: string;
+  content: string;
+  className?: string;
+  state?: PresentationHostState;
+  textMode?: PresentationTextColorMode;
+  themeScope?: string;
+}
+
+/** 统一生成带表现宿主元数据的服务容器，避免新服务重复手写主题接线。 */
+export function renderUIHost(ctx: UIContext, options: UIHostRenderOptions): string {
+  const state = options.state ?? 'default';
+  const resolved = ctx.presentationHostState(options.hostId, state);
+  const textMode = options.textMode ?? resolved.textColorMode;
+  const background = renderPresentationHostBackground(ctx, options.hostId, 'presentation-host-background', state);
+  const hostId = escapeAttribute(options.hostId);
+  const className = escapeAttribute(options.className ?? 'ui-host');
+  const scope = options.themeScope ? ` data-theme-scope="${escapeAttribute(options.themeScope)}"` : '';
+  return `<section class="${className} presentation-host-target" data-theme-host-id="${hostId}" data-theme-state="${state}" data-theme-text-mode="${textMode}"${scope}>${background}<div class="presentation-host-content">${options.content}</div></section>`;
+}

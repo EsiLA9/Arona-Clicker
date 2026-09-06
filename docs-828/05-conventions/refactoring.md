@@ -64,7 +64,7 @@ export * from './trigger';
 
 ## 不做的
 
-- 不做存档迁移（架构纪律 7，见 [[docs-828/05-conventions/architecture-discipline]]）；
+- 不做存档迁移（架构纪律 8，见 [[docs-828/05-conventions/architecture-discipline]]）；
 - 不改公共 API 签名（构造参数、公开方法名、事件类型）；
 - 不改 tick 热路径（求值/事件派发）的调用序列；
 - 不引入新依赖或重构框架。

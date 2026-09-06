@@ -4,7 +4,6 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // 疏散自 controller.ts：把两个自包含的 IO 操作收拢到这里。
 // ============================================================
 
-import { SaveSystem } from '../data-services/persistence/storage';
 import { parsePackFromZipFile } from '../data-services/datapack/pack-parser';
 import type { PackManifest } from '../data-services/datapack/manifest';
 import type { GameReadModel } from '../arona-clicker/contracts';
@@ -13,10 +12,12 @@ import type { SaveData } from '../arona-clicker/contracts/save-data';
 import type { DevLog } from '../engine/core/dev-log';
 import type { ImageStore, ResolvedImageEntry } from '../data-services/assets/image-store';
 import type { ToastService } from './components/toast';
+import type { ModalManager } from './modal';
 
 /** controller 暴露给 IO 服务的回调（避免反向依赖 controller）。 */
 export interface ImportExportHost {
   game: ImportExportGame;
+  modal: ModalManager;
   toast: ToastService;
   /** 会话重置为默认页面（新游戏/读档后调用）。 */
   resetSessionPanel(): void;
@@ -42,7 +43,6 @@ interface ImportExportGame extends GameReadModel {
     ignoredCount: number;
   }): void;
   applyEnabledPacks?(): void;
-  packManager?: { setEnabled(id: string, enabled: boolean): void };
 }
 
 /** 数据包导入 / 日志导出服务。 */
@@ -64,18 +64,36 @@ export class ImportExportService {
       try {
         const { manifest, datapack, jsonFileCount, ignoredCount, images } = await parsePackFromZipFile(file);
         if (game.registerParsedPack && game.applyEnabledPacks) {
-          game.registerParsedPack({ manifest, datapack, images, jsonFileCount, ignoredCount });
-          const packId = manifest.modName + '@' + manifest.version;
-          game.packManager?.setEnabled(packId, true);
-          game.applyEnabledPacks();
+          const escape = (value: string): string => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+          this.host.modal.open({
+            title: '导入数据包预览',
+            body: `
+              <p><strong>${escape(manifest.name)}</strong> <span class="muted">v${escape(manifest.version)}</span></p>
+              <dl class="pack-detail-list">
+                <div><dt>命名空间</dt><dd>${escape(manifest.modName)}</dd></div>
+                <div><dt>JSON 文件</dt><dd>${jsonFileCount}</dd></div>
+                <div><dt>图片资源</dt><dd>${images.length}</dd></div>
+                ${ignoredCount > 0 ? `<div><dt>忽略文件</dt><dd>${ignoredCount}</dd></div>` : ''}
+              </dl>
+              <p class="muted">确认后会加入包库，但不会立即改变当前运行内容；是否启用由“数据包”工作区中的启用集草案决定。</p>`,
+            footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="confirm-import">加入包库</button>',
+            onAction: action => {
+              if (action !== 'confirm-import') return;
+              game.registerParsedPack!({ manifest, datapack, images, jsonFileCount, ignoredCount });
+              game.devLog.record(`已加入数据包库：${manifest.name} v${manifest.version}（尚未启用）`, { source: 'datapack', level: 'success' });
+              toast.show(`已加入包库 <b>${escape(manifest.name)}</b> v${escape(manifest.version)}<br><small>当前运行内容未改变，可在数据包工作区中决定是否启用</small>`, 'success');
+              this.host.modal.close();
+              this.host.render();
+            },
+          });
+          return;
         } else {
           // 导入后由运行时门面重新应用启用集。
           game.imageStore.clear();
           game.pics.register(manifest.modName, images);
           game.reload([datapack]);
         }
-        // 数据包更换后旧存档 id 可能失效，清除以免下次启动读档报错
-        SaveSystem.delete();
+        // 兼容旧宿主：只有直接替换运行时的旧路径才会进入新会话。
         this.host.setStarted();
         this.host.clearPendingRestart();
         game.start();

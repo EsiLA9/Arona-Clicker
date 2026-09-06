@@ -11,6 +11,18 @@
 | 🟡 进行中 | 已有部分实现或准备工作，仍有明确未完成切片 | Datapack 多包管理、Code Review |
 | 🔵 待裁定 | 有目标和设计草案，但尚未形成最终 ADR | Spot 商店、卡池模型、角色拥有体系 |
 
+## 当前整理任务
+
+| 任务 | 目标 | 状态 |
+| --- | --- | --- |
+| [[0x-plan&work/active/task-0023-project-documentation-normalization]] | 文档职责收敛、机制文件夹建立、逐篇核验与失效链接清理 | 🟡 进行中 |
+
+机制正文已从 `docs-828/04-algorithms` 迁移到 `docs-828/04-mechanisms`；旧目录仅保留迁移说明。
+
+## 按机制阅读
+
+计划文档原位按生命周期存放；若需要按功能机制连续阅读，请从 [[0x-plan&work/mechanisms/00-index]] 进入。该层只聚合链接，不复制计划正文或改变 active/completed/newPlan 状态。
+
 ## 已完成
 
 | 文件 | 内容 | 状态 |
@@ -24,6 +36,16 @@
 | [[0x-plan&work/completed/color-system-plan]] | ColorGroup / ColorEquipment 系统 | ✅ 已实现 |
 | [[0x-plan&work/completed/roadmap-overview-history]] | 原 Roadmap 总览 | 📦 已归档，由本文取代 |
 
+### 已完成但待归档的活动路线
+
+以下文档已经完成主要施工，但仍保留在 `active/` 记录渐进迁移或后续非阻塞清理；在归档前不得把它们当作未实施方案：
+
+| 文件 | 当前状态 | 保留原因 |
+| --- | --- | --- |
+| [[0x-plan&work/active/roadmap-0008-theme-color-system-refactor]] | ✅ 主要目标已完成 | 保留 CSS 渐进迁移记录 |
+| [[0x-plan&work/active/roadmap-0013-presentation-editor-ux]] | ✅ E0–E5 已完成首版 | 保留既存 UI 环境限制与后续增强 |
+| [[0x-plan&work/active/roadmap-0018-ui-host-registry]] | 🟡 H0–H2 完成，H3/H4 未完成 | 服务工作区宿主仍在施工 |
+
 ## 未完成：按语义分组
 
 ### 数据包生态
@@ -32,7 +54,7 @@
 - [[0x-plan&work/active/roadmap-0001-datapack-management]]：对应实现切片与状态追踪。
 - [[0x-plan&work/registry&saves/00-index]]：Registry、启用集与多包存档的完整施工计划。
 
-当前重点：先完成 Registry 全量校验与启用集恢复接线，再实现惰性存档和残留管理。
+当前重点：完成跨包启用集统一校验与正式应用回滚边界，再实现惰性存档和通用残留管理；包库快照恢复接线已完成。
 
 ### 世界经营玩法
 
@@ -66,6 +88,8 @@
 - [[0x-plan&work/active/roadmap-0014-theme-editor-convergence]]：主题编辑器信息架构、表现模型收束、来源可视化与预览画布重构（P0-P1 完成，P2 首版完成，P3-P4 待实施）。
 - [[0x-plan&work/active/roadmap-0015-ui-dom-recalculation]]：正常游玩过程 DOM 重算收敛，区分局部更新与必要结构刷新（待实施）。
 - [[0x-plan&work/active/roadmap-0016-cluster-region-context-overrides]]：簇默认与当前区域状态覆盖，统一三栏宿主表现关系（待实施）。
+- [[0x-plan&work/active/roadmap-0018-ui-host-registry]]：UI Host Registry、服务面板自动表现接入与主题编辑器发现机制（设计完成，待实施）。
+- [[0x-plan&work/active/roadmap-0020-service-workspaces]]：存档、数据包、图鉴与统计服务工作区交互目标（目标设计完成，待实施）。
 - [[0x-plan&work/completed/roadmap-0019-presentation-text-color]]：表现宿主文字颜色统一、四态解析与验收（✅ 已完成）。
 
 当前状态：B0–B3 已完成，B4 待实施。
@@ -95,7 +119,8 @@
 - `docs-828/01-architecture`：当前系统架构与运行逻辑。
 - `docs-828/02-modules`：当前模块卡片。
 - `docs-828/03-data-structures`：当前数据结构与边界审计。
-- `docs-828/04-algorithms`：当前机制和算法说明。
+- `docs-828/04-mechanisms`：当前机制正文与总入口。
+- `docs-828/04-algorithms`：旧目录，仅保留迁移说明。
 - `docs-828/05-conventions`：协作与代码规范。
 - `docs-828/07-audit`：设计审查问题与整改记录。
 - `abstract.md`：面向玩法策划聊天的游戏概念摘要。

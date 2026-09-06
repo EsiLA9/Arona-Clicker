@@ -1,4 +1,4 @@
-# 04-algorithms/color-derivation — 色彩派生：ColorSystem / 主题 token
+# 04-mechanisms/color-derivation — 色彩派生：ColorSystem / 主题 token
 
 > 本文回答：**主题与色彩怎么解析、合并、落 CSS。** 模块卡片见 [[docs-828/02-modules/color]]；`ColorSystem` 负责：解锁管理 + 主题 token 合并 + CSS 变量注入。
 
@@ -85,7 +85,7 @@ runtimeTheme() → 按优先级合并主题层：
 - `ColorSystem.resolveTheme(group)`：唯一主题解析路径 —— `theme` 显式覆盖 > primary（主色位色值）派生 > 默认；
 - `ColorEquipmentSystem.effectsOf(state, variantId)`：按 `equippedEquipment` 聚合装备 effects；
 - `ColorEquipmentSystem.avatarColors(equipmentId)`：按 slot 顺序返回组内各色位的内联 hex；
-- `avatar-renderer.ts` `renderAvatarSvg(compositionType, colors)`：纯函数，按构成方式输出圆形头像 SVG。
+- `src/ui/avatar-renderer.ts` `renderAvatarSvg(compositionType, colors)`：纯函数，按构成方式输出圆形头像 SVG。
 
 ### 自动收集闭环
 
@@ -93,9 +93,10 @@ runtimeTheme() → 按优先级合并主题层：
 
 ## 剧情演出层
 
-- `triggerStory` effect 或 `setTheme` → `pushStoryTheme`（`setTheme` 经 `themeEffectRequested` 请求事件转发，见 [[docs-828/04-algorithms/trigger-effect]]）；
+- `triggerStory` effect 或 `setTheme` → `pushStoryTheme`（`setTheme` 经 `themeEffectRequested` 请求事件转发，见 [[docs-828/04-mechanisms/trigger-effect]]）；
 - 剧情结束（`clearStoryTheme`）→ 移除演出层，回到场景主题。
 
 ## 相关文档
 
 [[docs-828/02-modules/color]] · [[docs-828/03-data-structures/declarative-dsl]] §10
+

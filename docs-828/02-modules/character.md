@@ -22,7 +22,7 @@
 - **原型与差分**：`CharacterDef` 是「全集」概念（收集/分组按原型）；`CharacterVariantDef` 是具体差分（独立实体，带 name/rarity 副本，`proto` 仅作聚合键——意义引用）。实体结构见 [[docs-828/03-data-structures/character-entities]]。
 - **招募入口**：在 Spot 的 `gacha` 功能项（Spot 可声明 `gachaPools` 专有卡池；无声明仅开放全局通用卡池）。
 - **重复转换**：重复差分转碎片（图鉴兑换用）；新差分发 `characterAcquired` → 色彩解锁联动（`ColorUnlockReactor`）。
-- 结算细节：抽卡 [[docs-828/04-algorithms/gacha]]、培养 [[docs-828/04-algorithms/cultivate]]、通讯录 [[docs-828/04-algorithms/roster]]。
+- 结算细节：抽卡 [[docs-828/04-mechanisms/gacha]]、培养 [[docs-828/04-mechanisms/cultivate]]、通讯录 [[docs-828/04-mechanisms/roster]]。
 
 ## 测试入口
 

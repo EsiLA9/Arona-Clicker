@@ -68,7 +68,7 @@ export function renderHeader(ctx: UIContext): string {
   // 色板只展示已拥有的色彩组（未解锁的不渲染，避免"看得到用不了"）
   const ownedGroups = game.colorSystem.ownedGroups(game.state);
   const palette = `
-        <button class="theme-swatch default ${!activeGroupId ? 'active' : ''}" data-activate-group="" title="默认主题">默认</button>
+        <button class="theme-swatch default ${!activeGroupId ? 'active' : ''}" data-activate-group="" title="系统默认主题">系统默认</button>
         ${ownedGroups.map(g => {
           const primary = game.colorSystem.themeSwatchColor({ colorGroupId: g.id }) ?? '#888';
           const active = activeGroupId === g.id ? 'active' : '';
@@ -101,13 +101,8 @@ export function renderHeader(ctx: UIContext): string {
             </div>
           </div>
         </div>
-        <div class="save-actions">
-          <button id="collection-modal" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="被动闲聊收集图鉴（按 Pool 分组）">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">图鉴 <span>✦</span></span></button>
-          <button id="import-datapack" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="从压缩包加载 Mod 数据包（遍历其中所有 .json 构造 Def）">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">导入 Mod <span>⇪</span></span></button>
-          <button id="pack-manager" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="管理已导入的数据包">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">数据包库 <span>▦</span></span></button>
-          <button id="new-game" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="放弃当前进度，选择新的世界线">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">新游戏 <span>↗</span></span></button>
-          <button id="save-game" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="保存当前进度">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">保存 <span>↓</span></span></button>
-          <button id="load-game" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="${ctx.saveExists ? 'inactive' : 'disabled'}" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', ctx.saveExists ? 'inactive' : 'disabled') ?? 'auto'}" title="读取本地存档" ${ctx.saveExists ? '' : 'disabled'}>${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', ctx.saveExists ? 'inactive' : 'disabled')}<span class="presentation-host-content">读取 <span>↗</span></span></button>
+        <div class="save-actions service-nav-actions">
+          ${['game:游戏:⌂', 'datapack:数据包:▦', 'saves:存档:↓', 'records:记录:✦'].map(item => { const [id, label, icon] = item.split(':'); return `<button class="toolbar-button presentation-host-target" data-service="${id}" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="进入${label}服务">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">${label} <span>${icon}</span></span></button>`; }).join('')}
           <button id="help-modal" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="关于">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">?</span></button>
         </div>
       </div>

@@ -1,10 +1,10 @@
-# 08-roadmap/0001-datapack-management-rollout — Datapack 多包管理落地（S1-S7）
+# roadmap-0001-datapack-management-rollout — Datapack 多包管理落地（S1-S7）
 
 > 本文回答：多包管理这一长期目标的切片拆解、当前进度与验收口径。设计权威：[[0x-plan&work/active/adr-0004-datapack-management]]（裁定与实现记录，本文不重复设计，只做状态追踪）。
 
 ## 目标陈述
 
-引擎支持任意多 Datapack 并存：三段式 id 命名空间（`modName:typeName:idName`）、Source → Pack → PackManager 分层、包库与启用集（IndexedDB 包库 / 玩家启停 / 手动排序 / modName 冲突拒绝）、惰性存档（切 mod 不丢档、残留可查可清）、mod 管理 UI。`base` 仅表示当前测试/示例包的命名空间，不是引擎恒启用的生产基底；具体应用内容由入口显式选择。
+引擎支持任意多 Datapack 并存：三段式 id 命名空间（`modName:typeName:idName`）、Source → Pack → PackManager 分层、包库与启用集（当前已有 IndexedDB 快照 / 玩家启停 / 手动排序 / modName 冲突拒绝）、惰性存档（切 mod 不丢档、残留可查可清）、mod 管理 UI。`base` 当前作为正式应用的内置核心包登记并恒启用；惰性存档、Character/Variant 命名空间化和完整导入形态仍在规划中。
 
 ## 里程碑切片
 
@@ -13,18 +13,18 @@
 | S1a | 语义组中段归位 + id 校验基建（`ENTITY_TYPES` / `validateEntityId` / `checkEntityIds` 16 表强校验） | ✅ 2026-08-30 |
 | S1b | Story entry id 拆分（本体 / 投放位分表，story 三表收紧强校验） | ✅ 2026-08-30 |
 | S1c | Character / VariantId 命名空间化（`base:character:*` / `base:variant:*`），完成后 characters/characterVariants 收紧强校验 | 待用户 review 方案 |
-| S2 | Source 适配器：`PackSource`（file / folder / zip）统一条目集，`zip-loader.ts` 降级为第 1 层解析器 | 未开始 |
-| S3 | manifest（`datapack.json`，v1 强制）+ 分片解析器按扩展名注册 | 未开始 |
-| S4 | PackManager：IndexedDB 包库 / 导入并存 / 启停 / 手动排序 / modName 冲突与全量干跑校验 / `game.reload` 接线 | 未开始 |
+| S2 | Source 适配器：`PackSource`（file / folder / zip）统一条目集，`zip-loader.ts` 降级为第 1 层解析器 | 部分完成：zip 已实现，file/folder 未接入 |
+| S3 | manifest（`datapack.json`，v1 强制）+ 分片解析器按扩展名注册 | 部分完成：manifest、分片和图片解析已实现，通用扩展注册未完成 |
+| S4 | PackManager：IndexedDB 包库 / 导入并存 / 启停 / 手动排序 / modName 冲突与全量干跑校验 / `game.reload` 接线 | ✅ 核心完成（2026-09-06）；仍需补齐更完整的应用事务语义 |
 | S5 | 惰性存档：加载期存在性过滤 + 残留检查/清除界面 | 未开始 |
-| S6 | 连带机制：affectionConfigId 特化表 / extras 置空冻结 / 标签子叶命名空间化（可与 S1 并行） | 未开始 |
-| S7 | mod 管理 UI：包库列表 / 导入 / 启停排序 / 依赖提示 / 残留管理 | 未开始 |
+| S6 | 连带机制：单值 `affectionConfig` / extras 置空冻结 / 标签子叶命名空间化（可与 S1 并行） | 部分完成：单值配置与 TagRef 命名空间已落地，惰性存档接入仍未完成 |
+| S7 | mod 管理 UI：包库列表 / 导入 / 启停排序 / 依赖提示 / 残留管理 | 部分完成：zip、列表、启停排序、依赖提示已实现；残留管理与完整导入形态未完成 |
 
 切片内容以 ADR §8 实现切片为准；各切片完成后的实现记录写入 ADR §8，本文只更新状态列。
 
 ### S1c 摘要（下一步，方案待 review）
 
-- **现状**：`src/engine/types/ids.ts` 的 `Character` 枚举值为裸名（`'hoshino'`，None='none'）；默认差分 id = 原型名首字母大写（`character-rework.ts:67` 派生 `Arona` / `HoshinoSwimsuit`）。
+- **现状**：`Character` 仍是产品侧裸 ID 词表（`src/arona-clicker/types/ids.ts`），角色变体内容契约位于 `src/data-services/contracts/character-variant.ts`；默认差分由 `src/arona-clicker/content/character-variants.ts` 组装，仍未完成三段式 Character/Variant ID 改造。
 - **波及面**：`owner('Hoshino')` 等字符串引用、`ConditionTarget` affectionLevel key、gacha featured/members、roster 存档键（VariantId）、`proto` 字段、tests 大量字面量。
 - **目标**：测试包中的 `base:character:hoshino` / `base:variant:*`；完成后 registry-validate 收紧 characters/characterVariants 强校验（参照 S1b 收尾方式）。
 - **建议做法**：与 S1a/b 相同——先摸底 Character 枚举值 / VariantId 的全部引用形态 → codemod（枚举值本身 + 字符串字面量引用）→ 收紧校验 → 全绿。
@@ -45,7 +45,7 @@ S1b 拆分后的 entry id / story id 引用语义权威口径见 [[0x-plan&work/
 ## 验收口径
 
 - 每切片：`npm test` 全量绿 + `npx tsc --noEmit` 通过 + 用户逐片 review（动手前先给改动清单与裁定点，不跳步合并实施）。
-- 改 `src/engine/types/` 字段后跑 `npm run gen:schema`（S1a/b 未改 types 字段，未跑）。
+- 若改动 `src/engine/types/`、`src/engine/contracts/` 或 `src/data-services/contracts/` 字段，必须跑 `npm run gen:schema`；S1a/b 未改协议字段。
 
 ## 操作备忘
 
@@ -56,4 +56,4 @@ S1b 拆分后的 entry id / story id 引用语义权威口径见 [[0x-plan&work/
 ## 进度记录（append-only）
 
 - 2026-08-30：S1a + S1b 落地，`npm test` 995/995 全绿，`npx tsc --noEmit` 通过；改动未 commit（遵循"用户未要求不提交"）。
-- 2026-08-30：本文由会话交接稿 `handoff2.md` 迁移建立（交接稿删除，防双源漂移）；建立 [[0x-plan&work]] 分区。
+- 2026-08-30：本文由会话交接稿 `handoff2.md` 迁移建立（交接稿删除，防双源漂移）；建立 [[0x-plan&work/00-index]] 分区。

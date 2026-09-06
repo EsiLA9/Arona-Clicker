@@ -1,4 +1,4 @@
-# 04-algorithms/trigger-effect — 事件联动：Trigger / Effect / Affector / Reveal
+# 04-mechanisms/trigger-effect — 事件联动：Trigger / Effect / Affector / Reveal
 
 > 本文回答：**事件如何驱动联动。** 事件驱动是「机制优先做成 Trigger/Affector」纪律的落点；模块卡片见 [[docs-828/02-modules/effect-trigger]] / [[docs-828/02-modules/affector]]。
 
@@ -6,13 +6,13 @@
 
 - `TriggerDef`：{ id?, on, condition?, effects[], once?, extra? }；`on` 的 `TriggerEventDef.kind`（9 种）与 `Condition`/`Effect` 全枚举见 [[docs-828/03-data-structures/declarative-dsl]] §3-5；
 - kind 全集与 `TriggerSystem.ON_KIND_TO_EVENT` 双向锁合（新增侦测面 = 类型联合 + 映射表各 1 处）；
-- 运行时订阅事件 → 条件满足（`evaluateGroup`）→ 执行 `effects`（经 [[docs-828/04-algorithms/state-mutation]]）；
+- 运行时订阅事件 → 条件满足（`evaluateGroup`）→ 执行 `effects`（经 [[docs-828/04-mechanisms/state-mutation]]）；
 - 触发状态（once 完成）持久化在 PlayerState（`triggerState`），匿名 Trigger 按派生 `anon:` id 持久。
 
 ## Effect（op 分发）
 
-- `EffectOp` 23 种分发见 [[docs-828/03-data-structures/declarative-dsl]] §4；
-- 转发类演出 op **不落状态、经请求事件转发**（effect-engine 发、`RuntimeEffectReactor` 订）：`setTheme` → `themeEffectRequested`（ColorSystem 临时主题层）；`triggerStory` → `storyEffectRequested`（StoryService.startStory force）；聊天流族 4 种 → `chatFlowEffectRequested`（ChatFlowService）；
+- `EffectOp` 25 种分发见 [[docs-828/03-data-structures/declarative-dsl]] §4；
+- 转发类演出 op **不落状态、经请求事件转发**（effect-engine 发、`RuntimeEffectReactor` 订）：`setTheme` → `themeEffectRequested`（ColorSystem 临时主题层）；`triggerStory` → `storyEffectRequested`（StoryService.startStory force）；聊天流族 5 种 → `chatFlowEffectRequested`（ChatFlowService）；
 - `loot` 当前为 no-op 预留（effect-ops 中既不落状态也不转发，未接线）。
 
 ## Affector（挂载持续效果）
@@ -116,4 +116,5 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 
 ## 相关文档
 
-[[docs-828/02-modules/effect-trigger]] · [[docs-828/03-data-structures/declarative-dsl]] · [[docs-828/04-algorithms/production]]（失效策略）
+[[docs-828/02-modules/effect-trigger]] · [[docs-828/03-data-structures/declarative-dsl]] · [[docs-828/04-mechanisms/production]]（失效策略）
+

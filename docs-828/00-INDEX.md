@@ -30,7 +30,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | 某个子系统（GameNum / Affector / 抽卡 / 色彩 / 剧情…） | [[#02-modules 模块卡片索引]] |
 | PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs-828/03-data-structures/player-state]] 起（见下方分区表） |
 | 引擎契约与 AronaClicker 类型边界 | [[docs-828/03-data-structures/type-boundary-audit]] |
-| 生产 / 抽卡 / 培养 / 色彩 / 事件联动的算法细节 | [[docs-828/04-algorithms/state-mutation]] 起（见下方分区表） |
+| 生产 / 抽卡 / 培养 / 色彩 / 事件联动的机制细节 | [[docs-828/04-mechanisms/00-index]]（正文迁移中，当前文件见下方分区表） |
 | 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[0x-plan&work/00-index]] |
 
 ### 我想改……
@@ -78,23 +78,25 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | [[docs-828/03-data-structures/id-reference-semantics]] | 真引用 / 意义引用判定全表 |
 | [[docs-828/03-data-structures/declarative-dsl]] | 声明式 DSL 枚举总目录 |
 
-## 04-algorithms 分区（核心算法）
+## 04-mechanisms 分区（当前机制）
+
+> 当前机制正文统一位于 `04-mechanisms`；旧目录 `04-algorithms` 仅保留迁移说明。
 
 | 文档 | 主题 |
 | --- | --- |
-| [[docs-828/04-algorithms/state-mutation]] | 状态写入 4 步管道 |
-| [[docs-828/04-algorithms/production]] | 生产结算：GameNum 四级层级树 + zone 聚合 |
-| [[docs-828/04-algorithms/gacha]] | 抽卡结算 |
-| [[docs-828/04-algorithms/cultivate]] | 培养推进 |
-| [[docs-828/04-algorithms/color-derivation]] | 色彩派生与主题 token |
-| [[docs-828/04-algorithms/trigger-effect]] | 事件联动 + GameEvent 事件目录 |
-| [[docs-828/04-algorithms/roster]] | 通讯录 / 图鉴 / 招募入口 |
+| [[docs-828/04-mechanisms/state-mutation]] | 状态写入 4 步管道 |
+| [[docs-828/04-mechanisms/production]] | 生产结算：GameNum 四级层级树 + zone 聚合 |
+| [[docs-828/04-mechanisms/gacha]] | 抽卡结算 |
+| [[docs-828/04-mechanisms/cultivate]] | 培养推进 |
+| [[docs-828/04-mechanisms/color-derivation]] | 色彩派生与主题 token |
+| [[docs-828/04-mechanisms/trigger-effect]] | 事件联动 + GameEvent 事件目录 |
+| [[docs-828/04-mechanisms/roster]] | 通讯录 / 图鉴 / 招募入口 |
 
 ## 05-conventions（纪律与规范）
 
 | 文档 | 主题 |
 | --- | --- |
-| [[docs-828/05-conventions/architecture-discipline]] | 架构纪律 7 条（不可破坏） |
+| [[docs-828/05-conventions/architecture-discipline]] | 架构纪律 8 条（不可破坏） |
 | [[docs-828/05-conventions/refactoring]] | 文件拆分规范 |
 | [[docs-828/05-conventions/schema-sync]] | 实体类型 → 数据包编辑器同步协议 |
 | [[docs-828/05-conventions/testing]] | 测试纪律 |

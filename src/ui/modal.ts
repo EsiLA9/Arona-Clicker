@@ -26,6 +26,7 @@ export interface ModalOptions {
   /** 是否可关闭（Esc + 遮罩点击）。默认 true。 */
   dismissable?: boolean;
   onClose?: () => void;
+  onAction?: (action: string) => void;
 }
 
 function escapeHtml(s: string): string {
@@ -61,6 +62,7 @@ export function renderModalShell(opts: ModalOptions): string {
 export class ModalManager {
   private el: HTMLElement | null = null;
   private closeHandler: (() => void) | undefined;
+  private actionHandler: ((action: string) => void) | undefined;
 
   /** 打开弹窗（重复 open 会替换内容）。 */
   open(opts: ModalOptions): void {
@@ -68,6 +70,7 @@ export class ModalManager {
     this.el!.innerHTML = renderModalShell(opts);
     this.el!.classList.add('is-open');
     this.closeHandler = opts.onClose;
+    this.actionHandler = opts.onAction;
   }
 
   close(): void {
@@ -76,6 +79,7 @@ export class ModalManager {
     this.el.innerHTML = '';
     const handler = this.closeHandler;
     this.closeHandler = undefined;
+    this.actionHandler = undefined;
     handler?.();
   }
 
@@ -94,6 +98,11 @@ export class ModalManager {
       const target = event.target as HTMLElement;
       if (target.matches('.modal-close')) {
         this.close();
+        return;
+      }
+      const action = target.dataset.modalAction;
+      if (action) {
+        this.actionHandler?.(action);
         return;
       }
       if (target.matches('[data-modal-overlay]')) this.close();

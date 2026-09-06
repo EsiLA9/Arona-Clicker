@@ -125,5 +125,5 @@ npm run build
 
 - [[0x-plan&work/active/roadmap-0017-theme-state-and-semantic-storage]]
 - [[0x-plan&work/active/roadmap-0018-button-state-unification]]
-- [[docs-828/04-algorithms/color-derivation]]
+- [[docs-828/04-mechanisms/color-derivation]]
 - [[docs-828/05-conventions/schema-sync]]

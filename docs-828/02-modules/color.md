@@ -14,14 +14,15 @@
 | `color-system.ts` | `ColorSystem`：解锁编排 / `resolveTheme`（theme 显式覆盖 > primary 派生 > 默认）/ 实体主题槽解析 `entityThemeOverride`（custom → design → equipment → 声明默认）/ `recheckDesignUnlocks` |
 | `color-equipment-system.ts` | `ColorEquipmentSystem`：装备收集（`collectEquipment` 幂等，级联解锁其 `colorGroupId`）/ `effectsOf` 聚合装备效用 / `avatarColors` / `recheckUnlocks` 自动收集闭环 |
 | `color-unlock-reactor.ts` | `ColorUnlockReactor`：订阅 `characterAcquired` / `flagChanged` 重算解锁（T1 从组合根外移） |
-| `avatar-renderer.ts` | `renderAvatarSvg(compositionType, colors)`：纯函数圆形头像 SVG（solid/gradient/duotone/pie/radial） |
+| `src/ui/avatar-renderer.ts` | `renderAvatarSvg(compositionType, colors)`：纯函数圆形头像 SVG（solid/gradient/duotone/pie/radial） |
 
 ## 核心概念
 
 - **两个实体**：`ColorGroupDef`（色彩组 = slots 内联 hex + compositionType + theme 预设 + unlock）+ `ColorEquipmentDef`（收集品 = 捆绑色彩组 + effects）。原 `ColorDef` 已并入 `ColorGroupDef`。
 - **状态归属**（全经 mutations 写）：`groupsOwned` / `activeGroupId` / `equipmentsOwned`（global 层）；`RosterEntry.equippedEquipment`（单装备槽）。
 - **实体配色槽**：`state.entityThemeSlots`（key = `area:<id>` / `variant:<id>`），来源四选一：声明默认 / equipment / design / custom（`setTheme` effect `scope=area|student` 写入）。
-- 主题分层与合并规则见 [[docs-828/04-algorithms/color-derivation]]。
+- 主题分层与合并规则见 [[docs-828/04-mechanisms/color-derivation]]。
+- 系统默认主题的业务 fallback 由 `src/engine/core/theme-defaults.ts` 的 `SYSTEM_DEFAULT_PRIMARY` 单一提供；CSS 同值只作加载失败时的最后保险。
 - 主题渲染采用两条轨道：`palette` 是最多六个、按优先级取色的自动轨道；`nodes` / `scopes` 是按语义节点名的手动覆盖轨道。UI 作用域未覆盖的节点沿父作用域继承。
 
 ## 测试入口
@@ -30,4 +31,4 @@
 
 ## 相关文档
 
-[[docs-828/04-algorithms/color-derivation]] · [[docs-828/02-modules/ui]]（theme-tree 落 CSS 变量）
+[[docs-828/04-mechanisms/color-derivation]] · [[docs-828/02-modules/ui]]（theme-tree 落 CSS 变量）

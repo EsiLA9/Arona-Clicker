@@ -73,7 +73,7 @@ export function renderContactsTab(
       <div class="contact-themes">
         <h4 class="contact-school">主题色彩组</h4>
         <div class="theme-swatches">
-          <button class="theme-swatch default ${!activeGroupId ? 'active' : ''}" data-activate-group="" title="默认主题">默认</button>
+        <button class="theme-swatch default ${!activeGroupId ? 'active' : ''}" data-activate-group="" title="系统默认主题">系统默认</button>
           ${ownedGroups.map(g => `
             <button class="theme-swatch ${activeGroupId === g.id ? 'active' : ''}"
               data-activate-group="${g.id}" title="${ctx.escapeHtml(g.name)}"

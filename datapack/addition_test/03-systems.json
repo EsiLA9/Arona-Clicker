@@ -1,0 +1,40 @@
+{
+  "enhancements": [{
+    "id": "addition-test:enhancement:scanner-calibration",
+    "name": "扫描仪校准",
+    "description": "验证增强、价格、标签生产和 Init 附着。",
+    "revealTriggers": [{ "reveal": "unlock", "condition": { "type": "AND", "conditions": [{ "target": "resource", "key": "base:resource:credit", "comparator": ">=", "value": 5 }] } }],
+    "effects": [],
+    "autoApply": true,
+    "maxStacks": 2,
+    "price": [{ "resourceId": "base:resource:credit", "amount": 5 }],
+    "productionMultiplier": 1.1,
+    "productionTags": [["experimental"]],
+    "attachment": { "kind": "init", "initId": "addition-test:init:observatory" }
+  }],
+  "dropTables": [{
+    "id": "addition-test:droptable:scanner",
+    "maxRolls": 2,
+    "guaranteed": [{ "itemId": "addition-test:item:archive-fragment", "count": 1 }],
+    "entries": [
+      { "itemId": "addition-test:item:signal-chip", "min": 1, "max": 1, "weight": 2 },
+      { "itemId": "addition-test:item:archive-fragment", "min": 1, "max": 2, "weight": 3 }
+    ]
+  }],
+  "affectorPacks": [{
+    "id": "addition-test:affectorpack:scanner-bonus",
+    "entries": [{ "id": "addition-test:affector:scanner-bonus", "effects": [{ "op": "addResource", "target": "base:resource:credit", "value": 1 }] }]
+  }],
+  "triggerDefs": [{
+    "id": "addition-test:trigger:story-reward",
+    "on": { "kind": "tick", "every": 2 },
+    "condition": { "type": "AND", "conditions": [{ "target": "flag", "key": "addition_test_story_done", "comparator": "==", "value": 1 }] },
+    "effects": [{ "op": "addItem", "target": "addition-test:item:signal-chip", "value": 1 }],
+    "once": true
+  }],
+  "extras": {
+    "addition-test/author": { "t": "str", "v": "AronaClicker Test Team" },
+    "addition-test/coverage/entities": { "t": "int", "v": 18 },
+    "addition-test/coverage/cross-pack": { "t": "bool", "v": true }
+  }
+}

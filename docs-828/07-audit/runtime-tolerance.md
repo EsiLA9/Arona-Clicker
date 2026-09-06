@@ -31,9 +31,9 @@
 
 ### 3. 存档政策两套并存
 
-- **位置**：`02-modules/world.md:42`（`normalizePlayerState` 兜底 + version 校验）；`01-architecture/state-layers.md:31`（旧档缺字段 `??=` 兜底）；`03-data-structures/player-state.md:47`（纪律 7：不写迁移）。
+- **位置**：`02-modules/world.md:42`（`normalizePlayerState` 兜底 + version 校验）；`01-architecture/state-layers.md:31`（旧档缺字段 `??=` 兜底）；`03-data-structures/player-state.md:47`（纪律 8：不写迁移）。
 - **原因**：「读档补默认」与「不做迁移、坏档清档」是方向相反的两套旧数据政策；清档政策下字段级兜底大多成为永不触发的死分支。
 - **方案组**：
-  - **A（推荐）**：统一为「version 不符 → 抛错清档；同 version → 不做字段级兜底」，最贴合纪律 7。
+  - **A（推荐）**：统一为「version 不符 → 抛错清档；同 version → 不做字段级兜底」，最贴合纪律 8。
   - B：删 version 抛错、只留 normalize（宽松路线，与 A 互斥）。
   - C：保留现状，但把两政策的触发场景写进一篇文档。

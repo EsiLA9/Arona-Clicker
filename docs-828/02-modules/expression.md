@@ -12,7 +12,7 @@
 | 文件 | 职责 |
 | --- | --- |
 | `value-system.ts` | `ValueSystem`：解析/求值 `ValueExpression`；7 个 `ValueSource` → `SOURCE_EVALUATORS` 注册表、二元/一元算子 → `BINARY_OPS`/`UNARY_OPS` 表（T5）；未知 source 回落 0 |
-| `condition-system.ts` | `ConditionSystem`：15 种 `ConditionTarget` → `TARGET_EVALUATORS` 注册表、6 比较符 → `COMPARATORS` 表（T5）；注入读取器（tag 索引 / tag 收集数 / 剧情完成 / 跳转链） |
+| `condition-system.ts` | `ConditionSystem`：16 种 `ConditionTarget` → `TARGET_EVALUATORS` 注册表、6 比较符 → `COMPARATORS` 表（T5）；注入读取器（tag 索引 / tag 收集数 / 剧情完成 / 跳转链 / 好感等级） |
 | `funclet-executor.ts` | Funclet 执行（复用数值片段的运行时求值）。⚠️ 已知缺陷：`calc` 运行时恒返回 0（`value-system.ts` 强转 bug，独立任务待修） |
 | `condition-deps.ts` | 条件依赖收集（静态扫描，供增量失效） |
 | `stat-dsl.ts` | 统计 DSL：`parseStatCall('$GlobalProducedAmount base:resource:credit')` → `{ fn, key, initId }`，映射三层统计桶 |

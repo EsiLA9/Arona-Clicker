@@ -11,11 +11,11 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `types/pics.ts` | `PicDef` / 三段式解析（`parsePicId` / `buildPicId` / `isPicRef`） |
-| `image/image-store.ts` | `ImageStore`：纯逻辑层登记（键 = `mod + 包内相对路径` → 可显示 URL），不碰 DOM |
-| `image/resolve.ts` | `resolvePicSrc`：只接受三段式 PicId → 查 `registry.pics` → 直连 URL 或 `zip:path` 经 ImageStore；非三段式 → `undefined` |
-| `system/pic-service.ts` | `PicService`（子门面 `game.pics`）：`urlOf` / `defOf` / `register` |
-| `system/chara-profile-service.ts` | `CharaProfileService`（子门面 `game.charaProfiles`）：`characterProfile(char, overrides?)` 四层优先级解析（兜底 proto → 声明表 active → 玩家 charaCustom → 调用点覆写）；改名/换头像选择器 |
+| `data-services/contracts/pic.ts` | `PicDef` / 三段式解析（`parsePicId` / `buildPicId` / `isPicRef`） |
+| `data-services/assets/image-store.ts` | `ImageStore`：纯逻辑层登记（键 = `mod + 包内相对路径` → 可显示 URL），不碰 DOM |
+| `data-services/assets/pic-resolver.ts` | `resolvePicSrc`：只接受三段式 PicId → 查 `registry.pics` → 直连 URL 或 `zip:path` 经 ImageStore；非三段式 → `undefined` |
+| `data-services/assets/pic-service.ts` | `PicService`（运行时图片服务）：`urlOf` / `defOf` / `register` |
+| `arona-clicker/services/chara-profile-service.ts` | `CharaProfileService`（子门面 `game.charaProfiles`）：`characterProfile(char, overrides?)` 四层优先级解析（兜底 proto → 声明表 active → 玩家 charaCustom → 调用点覆写）；改名/换头像选择器 |
 
 ## 核心概念
 

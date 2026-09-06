@@ -1,5 +1,6 @@
 import type { ThemeTokens } from '../engine/core/theme-runtime';
 import type { ThemeMode, ThemeNodeName } from '../engine/types/theme';
+import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
 
 export type { ThemeNodeName } from '../engine/types/theme';
 export type { ThemeMode } from '../engine/types/theme';
@@ -54,7 +55,7 @@ export function deriveSurfaceColor(color: string, mode: ThemeMode = 'light', amo
 
 /** 生成没有显式背景层时使用的主题浅渐变。第二色缺失时由第一色派生第二端点。 */
 export function deriveBackgroundGradient(colors: readonly string[], mode: ThemeMode = 'light'): string {
-  const first = colors[0] ?? '#3b9eff';
+  const first = colors[0] ?? SYSTEM_DEFAULT_PRIMARY;
   const second = colors[1]
     ? lightBackgroundSurface(colors[1], mode)
     : lightBackgroundSurface(first, mode, 0.11);
@@ -133,7 +134,7 @@ export function normalizeThemePalette(colors: readonly string[] | undefined): st
   return [...(colors ?? [])].filter(color => typeof color === 'string' && color.trim().length > 0).slice(0, THEME_PALETTE_MAX);
 }
 
-export function paletteColor(colors: readonly string[], preferredIndex: number, fallback = '#3b9eff'): string {
+export function paletteColor(colors: readonly string[], preferredIndex: number, fallback = SYSTEM_DEFAULT_PRIMARY): string {
   if (colors.length === 0) return fallback;
   const index = Math.max(0, Math.min(Math.floor(preferredIndex), colors.length - 1));
   return colors[index] ?? colors[0] ?? fallback;

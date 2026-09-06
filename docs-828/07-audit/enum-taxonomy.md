@@ -9,7 +9,7 @@
 | --- | --- | --- | --- |
 | 1 | RevealStage 7 级 + AccessStage 5 阶段，引擎只消费 `existence` 一档 | 见下 | 高 |
 | 2 | 操作返回码 ~39 种 + canXxx 前置判定双保险 | 见下 | 中 |
-| 3 | EffectOp 24 种混三类执行语义（落数据 / 转发 / 声明不执行） | 见下 | 中 |
+| 3 | EffectOp 25 种混三类执行语义（落数据 / 转发 / 声明不执行） | 见下 | 中 |
 | 4 | 统计 DSL 30+ 函数 | 见下 | 低 |
 | 5 | hasTag / countTags / tagCount 三胞胎走两条链路 | 见下 | 低 |
 
@@ -31,10 +31,10 @@
 
 ### 3. EffectOp 三类执行语义混一
 
-- **位置**：`03-data-structures/declarative-dsl.md:70-92`（24 种 = 状态层 13 + 转发类 9 + 声明类 2）；`02-modules/effect-trigger.md:22`（声明类「登记在分发但不执行」）。
+- **位置**：`03-data-structures/declarative-dsl.md:70-92`（25 种 = 状态层 14 + 转发类 9 + 声明类 2）；`02-modules/effect-trigger.md:22`（声明类「登记在分发但不执行」）。
 - **原因**：同一 op 联合混三种行为模型；数据作者写一个 `setSpotMaxLevel` 进 effects 数组会被静默跳过——「声明了却不生效」的隐坑。
 - **方案组**：
-  - **A（推荐）**：把声明类 2 op 移出 EffectOp（SpotDef 专字段或独立声明表），op 24 → 22，执行语义统一为「落数据或转发」。
+  - **A（推荐）**：把声明类 2 op 移出 EffectOp（SpotDef 专字段或独立声明表），op 25 → 23，执行语义统一为「落数据或转发」。
   - B：保留，但 schema `@label` 显著标注「声明类，不经执行」。
 
 ### 4. 统计 DSL 函数面

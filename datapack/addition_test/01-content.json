@@ -1,0 +1,68 @@
+{
+  "items": [
+    {
+      "id": "addition-test:item:signal-chip",
+      "name": "观测信号芯片",
+      "description": "测试包产出的可消耗物品，验证物品、效果和出售价格。",
+      "icon": "addition-test:icon(pic):signal-chip",
+      "maxStack": 20,
+      "rarity": "epic",
+      "type": "consumable",
+      "useEffects": [{ "op": "addResource", "target": "base:resource:credit", "value": 7 }],
+      "sellPrice": { "resourceId": "base:resource:credit", "amount": 3 },
+      "extra": { "t": "dict", "v": { "testArea": { "t": "str", "v": "inventory" } } }
+    },
+    {
+      "id": "addition-test:item:archive-fragment",
+      "name": "档案碎片",
+      "description": "用于验证材料物品和图鉴来源。",
+      "maxStack": 99,
+      "rarity": "rare",
+      "type": "material"
+    }
+  ],
+  "characters": [
+    {
+      "id": "addition_test_mascot",
+      "name": "测试观测员",
+      "displayName": "测试观测员",
+      "school": "扩展实验室",
+      "rarity": "rare",
+      "description": "用于验证外部包角色、标签加成和图鉴来源。",
+      "spotTagBonus": { "experimental": 1.25 },
+      "passiveDescription": "实验标签设施产出 +25%。",
+      "tags": [["experimental"], ["character", "test"]]
+    }
+  ],
+  "characterBonuses": [{ "characterId": "addition_test_mascot", "spotId": "addition-test:spot:scanner", "multiplier": 1.25 }],
+  "characterVariants": [
+    {
+      "id": "addition-test:variant:observer",
+      "proto": "addition_test_mascot",
+      "name": "观测员",
+      "displayName": "测试观测员",
+      "school": "扩展实验室",
+      "rarity": "rare",
+      "description": "测试包中的默认角色差分。",
+      "avatar": "addition-test:avatar(pic):observer",
+      "colorGroupId": "addition-test:colorgroup:violet",
+      "isDefault": true,
+      "curve": "addition-test:cultivatecurve:test"
+    }
+  ],
+  "charaProfiles": [{
+    "id": "addition_test_mascot",
+    "names": [{ "id": "default", "text": "测试观测员" }, { "id": "short", "text": "观测员" }],
+    "avatars": [{ "id": "default", "pic": "addition-test:avatar(pic):observer" }],
+    "activeName": "default",
+    "activeAvatar": "default"
+  }],
+  "pics": [
+    { "id": "addition-test:avatar(pic):observer", "src": "zip:assets/addition-test.svg", "label": "测试观测员头像" },
+    { "id": "addition-test:icon(pic):signal-chip", "src": "zip:assets/addition-test.svg", "label": "信号芯片图标" }
+  ],
+  "resourceDisplays": [
+    { "resourceId": "base:resource:credit", "label": "信用点（测试包）", "order": 80 },
+    { "resourceId": "base:resource:pyroxene", "label": "青辉石（测试包）", "showWhen": "hasAmount", "order": 81 }
+  ]
+}

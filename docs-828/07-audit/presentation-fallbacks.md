@@ -1,6 +1,6 @@
 # 07-audit/presentation-fallbacks — 表现层回退链与 UI 防御密度
 
-> 本文回答：**主题 / 头像 / 横幅等纯表现层为何走多层回退、UI 时序防御为何超配、怎么收敛。**
+> 本文回答：**主题 / 头像 / 横幅等纯表现层为何走多层回退、UI 时序防御为何超配、怎么收敛。** 本文是 2026-08-30 审查快照，代码路径和落地状态需以当前源码复核。
 > 与多 Datapack 前提的关系：第三方包内容缺图 / 缺主题是常态，「缺省占位」类回退应**保留**；要收敛的是**层数**与**防御密度**。用户已裁定项（如 typing/thinking 双旋钮）不列入。
 
 ## 问题清单
@@ -15,7 +15,7 @@
 
 ### 1. 主题解析多链叠加
 
-- **位置**：`02-modules/color.md:14`（同一行两条链：`resolveTheme` 三级 + `entityThemeOverride` 四级）；`04-algorithms/color-derivation.md:14,34-39,75`（层序自定义、四来源、再一条三级链）；`03-data-structures/player-state.md:39`；`declarative-dsl.md:172`（ephemeral 恒最高）。
+- **位置**：`02-modules/color.md:14`（同一行两条链：`resolveTheme` 三级 + `entityThemeOverride` 四级）；`04-mechanisms/color-derivation.md:14,34-39,75`（层序自定义、四来源、再一条三级链）；`03-data-structures/player-state.md:39`；`declarative-dsl.md:172`（ephemeral 恒最高）。
 - **原因**：「当前用什么配色」一个问题被拆成两条独立回退链，再叠玩家自定义层序与临时层恒最高——5 层以上优先级机制，需两篇文档共同描述。
 - **方案组**：
   - **A（推荐）**：单解析器——一个纯函数 `resolveEffectiveTheme(entity) → tokens` 内部固定一条链（ephemeral > custom > design > equipment > 声明默认 > 派生 > 默认），`themeLayerOrder` 只影响场景层排序；文档收敛为 color-derivation 一处。
@@ -31,7 +31,7 @@
 
 ### 3. 开幕横幅链路（2026-08-29 落地，列为观察项）
 
-- **位置**：`06-adr/planning.md:301-303`（三级标题回退、6 跳事件中继、CSS 负 `animation-delay` 断点续播）；`02-modules/ui.md:43`。
+- **位置**：[[0x-plan&work/completed/affection-planning]] §3（三级标题回退、事件中继、CSS 负 `animation-delay` 断点续播）；`02-modules/ui.md`。
 - **原因**：一条 3 秒横幅穿越 EffectEngine → 请求事件 → Reactor → Service → UI 订阅共 6 跳；负延迟续播是对「每 0.4-0.9s 全量 render 重建 DOM」的补丁——用防御性补丁修补自身架构选择的副作用。
 - **方案组（长期，短期不动）**：
   - A：render 改增量更新（只重建变化节点）——续播补丁与 #5 的指纹重建一并消失。

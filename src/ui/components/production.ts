@@ -4,6 +4,7 @@ import { cardAccent, accentPalette } from '../color-scheme';
 import { themeTreeFromThemeDef, themeTreeFromGroup, themeTreeToInlineStyle } from '../theme-tree';
 import { TagPath } from '../../engine/core/tag';
 import { renderPresentationHostBackground } from '../presentation-service';
+import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
 
 /**
  * 设施标签 → 语义颜色角色（硬编码映射，不读数据包 extra）。
@@ -87,7 +88,7 @@ export function renderProductionNodes(ctx: UIContext): string {
               return group ? themeTreeFromGroup(group) : undefined;
             })();
         if (tree) {
-          const primary = tree['--ac-primary'] ?? '#3b9eff';
+          const primary = tree['--ac-primary'] ?? SYSTEM_DEFAULT_PRIMARY;
           spotStyleAttr = `style="${themeTreeToInlineStyle(tree)};${accentPalette(primary)}"`;
         }
       }

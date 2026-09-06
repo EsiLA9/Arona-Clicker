@@ -1,4 +1,4 @@
-# 04-algorithms/production — 生产结算：GameNumSystem 数值树
+# 04-mechanisms/production — 生产结算：GameNumSystem 数值树
 
 > 本文回答：**每帧产出怎么算。** 生产 = 数值树求值 + zone 聚合；模块卡片见 [[docs-828/02-modules/game-num]]；设计决策见 [[0x-plan&work/completed/adr-0002-gamenum-tree]]。
 
@@ -30,7 +30,7 @@ spotFull  = spotBase × spotMulZone + spotExtra
 
 - `zone` 节点求值 = `aggregateZone` 扫描 state 区表（`state.tagEffects` / `state.entityEffects` 唯一真相）；
 - TagEffect/EntityEffect 注册 → 写 state 区表；
-- Affector 的 `zoneModifiers` 由 `syncAffectorZoneEffects` 在挂载/翻转/世界线切换时同步进区表（**不再每 tick 全量重建**，见 [[docs-828/04-algorithms/trigger-effect]]）。
+- Affector 的 `zoneModifiers` 由 `syncAffectorZoneEffects` 在挂载/翻转/世界线切换时同步进区表（**不再每 tick 全量重建**，见 [[docs-828/04-mechanisms/trigger-effect]]）。
 
 ## 失效策略（事件驱动定向失效）
 
@@ -54,3 +54,4 @@ spotFull  = spotBase × spotMulZone + spotExtra
 ## 相关文档
 
 [[docs-828/02-modules/game-num]] · [[0x-plan&work/completed/adr-0002-gamenum-tree]] · [[docs-828/02-modules/affector]]
+

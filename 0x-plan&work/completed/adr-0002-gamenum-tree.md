@@ -18,7 +18,7 @@
 - 显式四级层级树 `primitiveGain → initFull → areaFull → spotFull`，乘区只乘下一级 base 链；
 - 区记录 value 为确定性 GameNum 叶子（const/expr，id = `${source}:${category}[:${multiplierId}]`），删除随机 id 与旧投影路径；
 - 失效改事件驱动定向（`gainResourceDeps` 静态扫描 + `markSubtreeDirty`/`markDirty` 双向），tick 不再每帧失效。
-- 详见 [[docs-828/04-algorithms/production]]。
+- 详见 [[docs-828/04-mechanisms/production]]。
 
 ### Affector 修复（Phase 4, 7）
 
@@ -37,7 +37,7 @@
 ## 后果
 
 - **收益**：存档往返正确性恢复；生产语义可解释（每级可单独求值）；失效成本从每帧全树降到定向子树。
-- **保留的纪律警告**：`flows` 与 `effects[addResource]` 并存会叠加（激活沿一次 + 每帧持续 = 双倍），数据作者二选一（见 [[docs-828/04-algorithms/trigger-effect]]「双通道警告」）。
+- **保留的纪律警告**：`flows` 与 `effects[addResource]` 并存会叠加（激活沿一次 + 每帧持续 = 双倍），数据作者二选一（见 [[docs-828/04-mechanisms/trigger-effect]]「双通道警告」）。
 - **范围外未修**：`SpotFunctionalityDef.id` 兼作 pack 命名空间键的隐式覆盖（记录于 [[docs-828/03-data-structures/id-reference-semantics]] §六.3）。
 
 ## 相关文档

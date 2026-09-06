@@ -1,4 +1,4 @@
-# 04-algorithms/gacha — 抽卡结算：卡池 / 保底 / 重复转换
+# 04-mechanisms/gacha — 抽卡结算：卡池 / 保底 / 重复转换
 
 > 本文回答：**招募（gacha）怎么结算。** `GachaService.roll(poolId, count)`；招募入口在 Spot 的 `gacha` 功能项（不在通讯录，见 [[docs-828/02-modules/character]]）。
 
@@ -39,4 +39,5 @@ roll(poolId, count)
 
 ## 相关文档
 
-[[docs-828/03-data-structures/character-entities]] · [[docs-828/04-algorithms/cultivate]]
+[[docs-828/03-data-structures/character-entities]] · [[docs-828/04-mechanisms/cultivate]]
+

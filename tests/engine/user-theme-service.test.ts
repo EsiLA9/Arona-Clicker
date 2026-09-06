@@ -54,7 +54,20 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
       expect(g.userThemeService.apply(second.id, { version: 1, tokens: { primary: '#abcdef' } })).toMatchObject({ ok: false, code: 'revision-conflict' });
     }
     expect(g.state.userTheme?.applied?.tokens?.primary).toBe('#123456');
+    expect(g.state.userTheme?.customThemeId).toBe('user:theme:default');
+    expect(g.state.customThemes?.['user:theme:default']?.tokens?.primary).toBe('#123456');
+    expect(g.state.themeAttachments?.base).toMatchObject({ target: 'base', customThemeId: 'user:theme:default', enabled: true });
     expect(g.state.initSnapshots).toEqual({});
+  });
+
+  test('禁用用户主题只解除 base 挂靠，不删除独立主题记录', () => {
+    const g = fresh();
+    g.enhancements.purchaseEnhancement(USER_THEME);
+    const session = g.userThemeService.beginEdit();
+    if ('readonly' in session) expect(g.userThemeService.apply(session.id, { version: 1, tokens: { primary: '#123456' } }).ok).toBe(true);
+    expect(g.userThemeService.setEnabled(false).ok).toBe(true);
+    expect(g.state.customThemes?.['user:theme:default']?.tokens?.primary).toBe('#123456');
+    expect(g.state.themeAttachments?.base?.enabled).toBe(false);
   });
 
   test('危险表现值被拒绝且不会覆盖已保存主题', () => {

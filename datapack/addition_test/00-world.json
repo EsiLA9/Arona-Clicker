@@ -1,0 +1,58 @@
+{
+  "name": "Addition Test Pack",
+  "version": "0.1.0",
+  "inits": [
+    {
+      "id": "addition-test:init:observatory",
+      "name": "扩展测试观测线",
+      "description": "用于验证外部数据包如何追加世界线、区域和跨包引用。",
+      "defaultAreas": ["addition-test:area:observatory"],
+      "startStoryId": "addition-test:story:welcome",
+      "purchaseCost": [{ "resourceId": "base:resource:pyroxene", "amount": 1 }],
+      "revealTriggers": [{ "reveal": "name", "condition": { "type": "AND", "conditions": [{ "target": "resource", "key": "base:resource:pyroxene", "comparator": ">=", "value": 1 }] } }],
+      "tags": [["world", "addition-test"]]
+    }
+  ],
+  "areas": [
+    {
+      "id": "addition-test:area:observatory",
+      "initId": "addition-test:init:observatory",
+      "name": "扩展观测站",
+      "description": "一个用于检查主题、相邻区域和跨包资源引用的测试区域。",
+      "defaultSpots": ["addition-test:spot:scanner"],
+      "adjacentAreaIds": ["base:area:schale_main"],
+      "tags": [["world", "addition-test"], ["experimental"]],
+      "theme": {
+        "palette": ["#7c3aed", "#c4b5fd", "#f5f3ff"],
+        "tokens": { "primary": "#7c3aed", "accent": "#f59e0b" },
+        "background": [{ "kind": "gradient", "value": "linear-gradient(135deg, #1e1b4b 0%, #7c3aed 100%)", "opacity": 0.85 }],
+        "presentation": {
+          "panels": [{ "region": "centerPanel", "opacity": 0.82, "header": { "eyebrow": "ADDITION TEST" } }],
+          "states": [{ "state": "available", "label": "可观测", "icon": "◈", "colorToken": "accent" }]
+        }
+      }
+    }
+  ],
+  "spots": [
+    {
+      "id": "addition-test:spot:scanner",
+      "areaId": "addition-test:area:observatory",
+      "name": "跨包数据扫描仪",
+      "description": "同时使用基础包信用点与扩展包 Tag 的测试设施。",
+      "baseCost": { "type": "const", "value": 1 },
+      "baseCostResource": "base:resource:credit",
+      "baseYield": { "type": "const", "value": 1 },
+      "baseYieldResource": "base:resource:credit",
+      "baseCapacity": 50,
+      "managerBonusYield": { "type": "const", "value": 1 },
+      "yieldPerLevel": 1,
+      "upgradeCostBase": 1,
+      "upgradeCostGrowth": 1.2,
+      "maxLevel": 5,
+      "tags": [["experimental"], ["experimental", "scanner"]],
+      "functionalities": [{ "id": "scanner_yield", "kind": "linearYield", "resource": "base:resource:credit", "amountPerLevel": 1 }],
+      "theme": { "colorGroupId": "addition-test:colorgroup:violet" },
+      "extra": { "t": "dict", "v": { "purpose": { "t": "str", "v": "registry-and-save-smoke-test" } } }
+    }
+  ]
+}

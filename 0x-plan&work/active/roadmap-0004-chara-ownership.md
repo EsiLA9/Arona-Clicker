@@ -1,4 +1,4 @@
-# 08-roadmap/0004-chara-ownership — Chara 拥有体系 Init 化 + 追赶统计
+# roadmap-0004-chara-ownership — Chara 拥有体系 Init 化 + 追赶统计
 
 > 本文回答：角色拥有体系改造的目标、现状归属、设计草案与待裁定问题。设计权威：待产出 ADR；本文只登记目标与追踪状态。
 
@@ -14,7 +14,7 @@
 | `state.characters`（收集全集）               | **Global**                                                                    | [[docs-828/01-architecture/state-layers]] 分层表      |
 | `state.roster`（RosterEntry 进度副本，内嵌好感值） | **Global**（`characterPersistConfig` 可声明 global/init，机制已存在）                    | `character-persist.ts` 系                           |
 | `state.fragments`（碎片）                  | Global                                                                        | [[docs-828/03-data-structures/character-entities]] |
-| `gachaState`（pity/pulls，按 poolId 意义引用） | PlayerState 持久化                                                               | [[docs-828/04-algorithms/gacha]]                   |
+| `gachaState`（pity/pulls，按 poolId 意义引用） | PlayerState 持久化                                                               | [[docs-828/04-mechanisms/gacha]]                   |
 | 统计底座                                   | StatsService 三层桶 + TagStatService（characters 维度已有 protoStats / acquiredCount） | [[docs-828/02-modules/stats]]                      |
 
 关键点：`CharacterPersistScope` / `characterPersistConfig` 机制**已存在**（roster/gacha/chatRead 三分支可声明 global/init），本目标主要是默认值翻转与字段拆分，不是从零造归属机制。

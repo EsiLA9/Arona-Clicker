@@ -9,6 +9,7 @@ import type {
   ThemeDef,
 } from '../engine/types';
 import type { ColorGroupDef } from '../data-services/contracts/color';
+import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
 import { buildThemeNodeVars, type ThemeNodeName } from './theme-palette';
 
 /** 背景明暗 → 其上文本色：底暗用白，底亮用黑（确定性）。 */
@@ -210,7 +211,7 @@ export function buildThemeTree(
   palette?: readonly string[],
   nodeOverrides: ReadonlyMap<ThemeNodeName, string> = new Map(),
 ): ThemeTree {
-  const resolvedPrimary = primary ?? tokens['primary'] ?? '#3b9eff';
+  const resolvedPrimary = primary ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY;
   const resolvedPalette = palette && palette.length > 0 ? palette : [resolvedPrimary];
   const tree: ThemeTree = { ...buildThemeVars(resolvedPrimary, {}, tokens) };
   Object.assign(tree, buildThemeNodeVars({ colors: resolvedPalette }, tokens, nodeOverrides));

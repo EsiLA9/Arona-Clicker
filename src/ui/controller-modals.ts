@@ -12,7 +12,7 @@ import type { UIController } from './controller';
 import { openPackManagerModal } from './components/pack-manager-modal';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
 import type { BackgroundLayerDef, ComponentPlacementDef, PresentationHostState, PresentationHostStateDef, PresentationLayerDef, PresentationRegion, PresentationTextColorMode } from '../engine/types/theme';
-import { PRESENTATION_TARGETS } from './presentation-targets';
+import { getPresentationTargets } from './presentation-targets';
 import { refreshPresentationHostElements } from './controller-theme';
 
 /** 招募补给弹窗：卡池列表 + 抽取按钮（结果经 chat/toast 反馈）。 */
@@ -216,7 +216,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
   });
   modal.querySelector<HTMLElement>('.user-theme-global-card')?.setAttribute('data-theme-editor-target-level', 'background');
   modal.querySelectorAll<HTMLElement>('[data-user-theme-host-card]').forEach(card => {
-    const target = PRESENTATION_TARGETS.find(item => item.id === card.dataset.userThemeHostCard);
+    const target = getPresentationTargets().find(item => item.id === card.dataset.userThemeHostCard);
     card.setAttribute('data-theme-editor-target-level', target?.level ?? 'control');
   });
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-system-color-ignore]').forEach(input => input.addEventListener('change', event => {
@@ -224,7 +224,6 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     draft.systemColorLayerIgnored = !(event.currentTarget as HTMLInputElement).checked;
     ctrl.game.colorSystem.setUserThemePreview(draft);
     ctrl.refreshTheme();
-    ctrl.render();
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-theme-editor-section]').forEach(button => button.addEventListener('click', () => {
     const section = button.dataset.themeEditorSection;
@@ -427,7 +426,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const index = presentation.hosts.findIndex(item => item.id === button.dataset.userThemeHostDelete);
     if (index < 0) return;
     presentation.hosts.splice(index, 1);
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-move]').forEach(button => button.addEventListener('click', () => {
     if (!active || !presentation.hosts) return;
@@ -459,7 +458,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (!active || !draft.background) return;
     draft.background.splice(Number(button.dataset.userThemeBackgroundRemove), 1);
     if (draft.background.length === 0) delete draft.background;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render();
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-background-add]').forEach(button => button.addEventListener('click', () => {
     if (!active) return;
@@ -468,7 +467,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     while (layers.some(layer => layer.id === id)) id = `user-background-${Number(id.split('-').pop()) + 1}`;
     layers.push({ id, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
     draft.backgroundLayerOrder = [...(draft.backgroundLayerOrder ?? ['system-color-background']), id];
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-region-layer-add]').forEach(button => button.addEventListener('click', () => {
     if (!active) return;
@@ -480,7 +479,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const count = layers.length + 1;
     layers.push({ id: `${region}-layer-${count}`, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
     host.layerOrder = layers.map(layer => layer.id).filter((id): id is string => Boolean(id));
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
   const targetPicker = modal.querySelector<HTMLElement>('[data-user-theme-target-picker]');
   const targetOptions = modal.querySelector<HTMLElement>('[data-user-theme-target-options]');
@@ -490,12 +489,12 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
   targetOptions?.addEventListener('click', event => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-user-theme-target-option]');
     if (!button || !active) return;
-    const target = PRESENTATION_TARGETS.find(item => item.id === button.dataset.userThemeTargetOption);
+    const target = getPresentationTargets().find(item => item.id === button.dataset.userThemeTargetOption);
     if (!target) return;
     const hosts = presentation.hosts ?? (presentation.hosts = []);
     hosts.push({ id: target.id, parent: target.parent, layers: [{ id: `${target.id.replace(/\./g, '-')}-layer-1`, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' }] });
     if (targetPicker) targetPicker.hidden = true;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active, target.id);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active, target.id);
   });
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-target-add]').forEach(button => button.addEventListener('click', () => {
     if (!active || !targetPicker) return;
@@ -514,7 +513,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const target = index + direction;
     if (!layers[index] || target < 0 || target >= layers.length) return;
     [layers[index], layers[target]] = [layers[target], layers[index]];
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
   };
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-layer-move]').forEach(button => button.addEventListener('click', () => {
     if (!active || !presentation.layers) return;
@@ -531,7 +530,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (current < 0 || target < 0 || target >= order.length) return;
     [order[current], order[target]] = [order[target], order[current]];
     draft.backgroundLayerOrder = order;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-system-layer-move]').forEach(button => button.addEventListener('click', () => {
     if (!active) return;
@@ -544,7 +543,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (target < 0 || target >= ids.length) return;
     [ids[index], ids[target]] = [ids[target], ids[index]];
     draft.backgroundLayerOrder = ids;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); refreshUserThemeEditor(ctrl, modal, session, active);
+    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-layer-opacity]').forEach(input => input.addEventListener('input', () => {
     if (!active || !presentation.layers) return;
@@ -592,6 +591,7 @@ function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: imp
   const scrollTop = inspector?.scrollTop ?? 0;
   const openTargets = new Set([...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-card]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostCard));
   const openLayers = new Set([...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-layer]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostLayer));
+  const openBackgroundLayers = [...modal.querySelectorAll<HTMLDetailsElement>('.user-theme-layer-collapsible:not([data-user-theme-host-layer])')].map(item => item.open);
   const focused = document.activeElement instanceof HTMLElement ? { host: focusedHostField(document.activeElement), section: document.activeElement.closest<HTMLElement>('[data-theme-editor-panel]')?.dataset.themeEditorPanel } : undefined;
   const body = modal.querySelector<HTMLElement>('.modal-body');
   if (!body) return;
@@ -609,6 +609,7 @@ function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: imp
     item.open = item.dataset.userThemeHostCard === openHostId || openTargets.has(item.dataset.userThemeHostCard);
   });
   nextInspector?.querySelectorAll<HTMLDetailsElement>('[data-user-theme-host-layer]').forEach(item => { item.open = openLayers.has(item.dataset.userThemeHostLayer); });
+  nextInspector?.querySelectorAll<HTMLDetailsElement>('.user-theme-layer-collapsible:not([data-user-theme-host-layer])').forEach((item, index) => { item.open = openBackgroundLayers[index] ?? (index === openBackgroundLayers.length); });
   if (focused?.host) {
     const field = nextInspector?.querySelector<HTMLElement>(`[data-user-theme-host-field="${focused.host.key}"][data-user-theme-host-id="${focused.host.id}"][data-user-theme-host-index="${focused.host.index}"]`);
     field?.focus();

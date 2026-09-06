@@ -1,11 +1,11 @@
 # 05-conventions/schema-sync — 实体类型 → 数据包编辑器 同步协议（防漂移）
 
-> 本文定义「引擎类型 ↔ 编辑器协议 ↔ 编辑器表」三向一致流程。改 `src/engine/types/` 的实体字段/枚举后**必须**执行。
+> 本文定义「机制/数据服务类型 ↔ 编辑器协议 ↔ 编辑器表」三向一致流程。改 `src/engine/types/`、`src/engine/contracts/` 或 `src/data-services/contracts/` 中参与 Datapack Schema 的字段/枚举后**必须**执行。
 
 ## 流程
 
-1. 改 `src/engine/types/` 的字段/枚举；
-2. 跑 `npm run gen:schema` → 重新生成 `tools/datapack-editor/schema/engine-defs.gen.json`（生成产物，禁止手改）；
+1. 改参与 Schema 的 `src/engine/types/`、`src/engine/contracts/` 或 `src/data-services/contracts/` 字段/枚举；
+2. 跑 `npm run gen:schema` → 重新生成 `tools/datapack-editor/schema/engine-defs.gen.json`（生成器扫描上述三组目录；生成产物，禁止手改）；
 3. 需要中文标签/枚举含义时，在字段 TSDoc 写注解：
    - `@label 中文名`；
    - `@enum 值=中文`（逐值含义）；

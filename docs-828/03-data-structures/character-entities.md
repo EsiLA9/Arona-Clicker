@@ -1,6 +1,6 @@
 # 03-data-structures/character-entities — Character 实体：原型 / 差分 / 曲线 / 色彩
 
-> 本文回答：**角色体系的实体结构与关系。** 模块卡片见 [[docs-828/02-modules/character]]；类型权威在 `src/engine/types/character.ts`。
+> 本文回答：**角色体系的实体结构与关系。** 模块卡片见 [[docs-828/02-modules/character]]；数据包实体契约权威在 `src/data-services/contracts/character-variant.ts`、`character-persist.ts`、`gacha-pool.ts`、`color.ts` 与 `cultivate-curve.ts`，产品状态入口在 `src/arona-clicker/types/character.ts`。
 
 ## 实体结构
 
@@ -9,7 +9,7 @@ Character（原型 id）     → 角色基础原型（name/rarity/school，Regis
     └─ CharacterVariantDef → 差分：不同时装的独立实体（id/displayName/theme/curves）
          ├─ VariantSource    → 产出方式（gacha / story / event）
          ├─ unlockCondition  → 差分解锁条件
-         ├─ curve            → CultivateCurveDef 真引用（培养见 04-algorithms/cultivate）
+         ├─ curve            → CultivateCurveDef 真引用（培养见 04-mechanisms/cultivate）
          └─ colorGroupId     → 默认头像色彩组 ColorGroupDef
 ```
 
@@ -26,7 +26,7 @@ Character（原型 id）     → 角色基础原型（name/rarity/school，Regis
 ## 曲线（CultivateCurveDef）
 
 - 曲线含 `expTable` / `starCost` / `maxLevel`；差分 `curve` 缺省用全局默认曲线；
-- 培养系统沿曲线推进升级/突破（见 [[docs-828/04-algorithms/cultivate]]）。
+- 培养系统沿曲线推进升级/突破（见 [[docs-828/04-mechanisms/cultivate]]）。
 
 ## 色彩（ColorGroupDef）
 
@@ -39,4 +39,4 @@ Character（原型 id）     → 角色基础原型（name/rarity/school，Regis
 
 ## 相关文档
 
-[[docs-828/04-algorithms/gacha]] · [[docs-828/04-algorithms/cultivate]] · [[docs-828/04-algorithms/color-derivation]]
+[[docs-828/04-mechanisms/gacha]] · [[docs-828/04-mechanisms/cultivate]] · [[docs-828/04-mechanisms/color-derivation]]

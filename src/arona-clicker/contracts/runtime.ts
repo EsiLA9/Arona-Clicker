@@ -21,7 +21,7 @@ import type { RosterQueryPort } from './roster-query';
 import type { ColorQueryPort } from './color-query';
 import type { ColorEquipmentQueryPort } from './color-equipment-query';
 import type { StoryQueryPort } from './story-query';
-import type { PackDependencyStatus, PackSourceKind } from '../../data-services/datapack/pack-manager';
+import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } from '../../data-services/datapack/pack-manager';
 import type { WorldCatalogQueryPort } from './world-catalog';
 import type { UserThemeService } from '../services/user-theme-service';
 
@@ -35,6 +35,12 @@ export interface PackCatalogEntry {
   readonly sourceKind: PackSourceKind;
   readonly importedAt: number;
   readonly enabled: boolean;
+  readonly capabilities?: {
+    readonly required: boolean;
+    readonly removable: boolean;
+    readonly reorderable: boolean;
+    readonly enableable: boolean;
+  };
 }
 
 export interface PackCatalogDependencyHint {
@@ -45,12 +51,27 @@ export interface PackCatalogDependencyHint {
 
 export interface PackCatalogReadModel {
   getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[] };
+  getPackConfiguration?(): PackConfigurationDraft;
+}
+
+export interface PackValidationReport {
+  readonly ok: boolean;
+  readonly errors: readonly string[];
+  readonly warnings: readonly string[];
+}
+
+export interface PackApplyResult {
+  readonly ok: boolean;
+  readonly message: string;
+  readonly validation: PackValidationReport;
 }
 
 export interface PackCatalogCommands {
   setPackEnabled(id: string, enabled: boolean): void;
   reorderPacks(ids: readonly string[]): void;
   applyEnabledPacks(): void;
+  validatePackConfiguration?(draft: PackConfigurationDraft): PackValidationReport;
+  applyPackConfiguration?(draft: PackConfigurationDraft): PackApplyResult;
 }
 
 /** UI 可读取的 AronaClicker 运行时快照与查询能力。 */

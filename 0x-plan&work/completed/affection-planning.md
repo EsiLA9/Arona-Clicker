@@ -401,4 +401,4 @@ thinking?: number;
 
 ## 相关文档
 
-[[docs-828/03-data-structures/character-entities]] · [[docs-828/02-modules/story]] · [[docs-828/04-algorithms/roster]] · [[docs-828/05-conventions/architecture-discipline]]
+[[docs-828/03-data-structures/character-entities]] · [[docs-828/02-modules/story]] · [[docs-828/04-mechanisms/roster]] · [[docs-828/05-conventions/architecture-discipline]]

@@ -1,4 +1,4 @@
-# 04-algorithms/state-mutation — 状态写入 4 步管道
+# 04-mechanisms/state-mutation — 状态写入 4 步管道
 
 > 本文回答：**状态变更如何流经引擎。** 所有状态变更的必经之路（架构纪律 1）；模块卡片见 [[docs-828/02-modules/state-mutation]]。
 
@@ -26,21 +26,22 @@
 | `acquireCharacter` | 获得差分（重复转碎片） | 角色获得事件（Trigger kind `character` 侦测） |
 | `applyExp` / `breakthroughStar` | 培养推进 | `cultivated`（`kind: 'exp'` / `'star'`） |
 
-事件名以 `EVENT_CATALOG`（`src/engine/types/events.ts`）登记为准——新增事件必须登记，编译期穷尽检查。
+事件名以 `EVENT_CATALOG`（`src/arona-clicker/contracts/event-catalog.ts`）登记为准；事件联合类型位于 `src/engine/types/events.ts`。新增事件必须同时更新两者，编译期穷尽检查。
 
 ## Effect 执行（effect-ops）
 
 - `applyEffects(effects)` 逐条 `applyEffect(effect)`：按 `op` 分发到对应写方法；
 - 状态层落数据的 13 种：`setResource/addResource/setSpotLevel/addSpotLevel/setManager/addEnhancement/addItem/unlockInit/setFlag/setExtra/addExtra/removeExtra/grantCharacter`；
-- 转发类（`loot`/`triggerStory`/`travelToArea`/`setTheme`/聊天流族）在状态层不落数据——演出类经**请求事件**转发（`themeEffectRequested` 等，见 [[docs-828/04-algorithms/trigger-effect]]）；
+- 转发类（`loot`/`triggerStory`/`travelToArea`/`setTheme`/聊天流族）在状态层不落数据——演出类经**请求事件**转发（`themeEffectRequested` 等，见 [[docs-828/04-mechanisms/trigger-effect]]）；
 - 声明类（`setSpotMaxLevel`/`removeSpotMaxLevel`）不经执行，由 `getSpotMaxLevelOverrides` 动态读取。
-- 完整 `EffectOp`（23 种）枚举见 [[docs-828/03-data-structures/declarative-dsl]] §4。
+- 完整 `EffectOp`（25 种）枚举见 [[docs-828/03-data-structures/declarative-dsl]] §4。
 
 ## 为什么不可绕过
 
 - 校验只发生在门面层，但**写状态必须经管道**，保证：统计不错记、事件不漏发、GameNum 失效不遗漏、UI 只读一致性。
-- 直接改 `state` 的调用方会导致 GameNum 陈旧读（失效由事件驱动，见 [[docs-828/04-algorithms/production]]）。
+- 直接改 `state` 的调用方会导致 GameNum 陈旧读（失效由事件驱动，见 [[docs-828/04-mechanisms/production]]）。
 
 ## 相关文档
 
 [[docs-828/02-modules/state-mutation]] · [[docs-828/03-data-structures/player-state]]
+

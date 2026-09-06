@@ -49,7 +49,7 @@ footer {
 
 /* 顶部工具按钮在浅色模式下保持白色，打开/激活时使用 highlight（主题色 3→2→1）。 */
 .topbar .toolbar-button {
-   background: var(--ui-button-bg, #ffffff);
+   background-color: var(--ui-button-bg, #ffffff);
    color: var(--ui-button-text, var(--theme-node-text));
    border-color: #ebebeb;
 }
@@ -57,7 +57,7 @@ footer {
 .topbar .toolbar-button.is-active,
 .topbar .theme-palette:has([data-theme-float].open) > #theme-palette-btn,
 .topbar .toolbar-button:hover {
-   background: var(--theme-node-highlight);
+   background-color: var(--theme-node-highlight);
    color: var(--ink-on-highlight);
    border-color: var(--theme-node-highlight);
 }
@@ -139,7 +139,7 @@ footer {
 }
 
 .toolbar-button:hover {
-   background: var(--cyan);
+   background-color: var(--cyan);
    color: var(--ink-on-cyan);
    border-color: var(--cyan);
 }
@@ -314,6 +314,219 @@ h3 {
    flex: 1;
    min-height: 0;
    overflow: hidden;
+}
+
+.service-workspace {
+   display: grid;
+   grid-template-columns: 230px minmax(0, 1fr) 300px;
+   gap: 14px;
+   margin-top: 16px;
+   flex: 1;
+   min-height: 0;
+   overflow: hidden;
+}
+
+.service-column {
+   position: relative;
+   isolation: isolate;
+   min-height: 0;
+   overflow-y: auto;
+   padding: 16px;
+   border: 1px solid var(--theme-node-line, var(--line));
+   border-radius: 14px;
+   background: var(--theme-cluster-background, color-mix(in srgb, #ffffff calc(var(--theme-cluster-opacity, .8) * 100%), transparent));
+   color: var(--theme-node-text, var(--ink-on-panel));
+}
+
+.service-navigation,
+.service-inspector {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+}
+
+.service-column-title {
+   display: flex;
+   justify-content: space-between;
+   align-items: baseline;
+   gap: 8px;
+   padding-bottom: 10px;
+   border-bottom: 1px solid var(--line);
+}
+
+.service-main {
+   display: flex;
+   flex-direction: column;
+   gap: 14px;
+   min-height: 0;
+   overflow-y: auto;
+}
+
+.service-main > .presentation-host-content {
+   display: flex;
+   flex: 1 1 auto;
+   flex-direction: column;
+   gap: 14px;
+   min-height: 0;
+}
+
+.service-main > .presentation-host-content > .service-card,
+.service-main > .presentation-host-content > .service-result,
+.service-main > .presentation-host-content > .service-warning-list,
+.service-main > .presentation-host-content > .service-issue-list {
+   flex: 0 0 auto;
+}
+
+.service-main > .presentation-host-content > .service-pack-list {
+   display: flex;
+   flex: 1 1 auto;
+   flex-direction: column;
+   min-height: 0;
+}
+
+.service-pack-list .pack-catalog {
+   flex: 1 1 auto;
+   min-height: 0;
+   overflow-y: auto;
+   padding-right: 4px;
+}
+
+.pack-draft-actions {
+   position: sticky;
+   bottom: 0;
+   z-index: 2;
+   margin-top: auto;
+   background: color-mix(in srgb, var(--panel) 96%, transparent);
+   box-shadow: 0 -8px 18px color-mix(in srgb, var(--panel) 45%, transparent);
+}
+
+.pack-fixed-state {
+   display: inline-flex;
+   align-items: center;
+   min-height: 26px;
+   padding: 4px 8px;
+   border: 1px solid var(--line);
+   border-radius: 6px;
+   color: var(--muted-on-panel);
+   font-size: 10px;
+}
+
+.service-dependency-list {
+   display: grid;
+   gap: 8px;
+   margin: 10px 0 0;
+   padding: 0;
+   list-style: none;
+}
+
+.service-dependency-list li {
+   display: grid;
+   gap: 3px;
+   padding: 8px;
+   border: 1px solid var(--line);
+   border-radius: 8px;
+   font-size: 11px;
+}
+
+.service-dependency-list li span { color: var(--muted-on-panel); }
+
+.service-heading {
+   display: flex;
+   justify-content: space-between;
+   align-items: flex-start;
+   gap: 16px;
+}
+
+.service-heading h2 {
+   margin: 4px 0 8px;
+   font-size: clamp(24px, 4vw, 42px);
+}
+
+.service-heading p,
+.service-card p {
+   color: var(--muted-on-panel);
+   line-height: 1.7;
+   font-size: 12px;
+}
+
+.service-status {
+   flex: 0 0 auto;
+   padding: 6px 9px;
+   border: 1px solid var(--line);
+   border-radius: 999px;
+   color: var(--theme-node-active, var(--cyan));
+   font: 10px 'DM Mono', monospace;
+}
+
+.service-actions {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+}
+
+.service-actions .primary-button,
+.service-actions .toolbar-button {
+   min-height: 34px;
+   padding: 6px 12px;
+}
+
+.service-card {
+   padding: 14px;
+   border: 1px solid var(--line);
+   border-radius: 12px;
+   background: color-mix(in srgb, var(--panel) 72%, transparent);
+}
+
+.service-summary {
+   margin: 6px 0 14px;
+}
+
+.service-empty {
+   padding: 24px 12px;
+   text-align: center;
+   border: 1px dashed var(--line);
+   border-radius: 10px;
+}
+
+.service-empty strong {
+   display: block;
+   margin-bottom: 6px;
+}
+
+.service-stat-grid {
+   display: grid;
+   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+   gap: 8px;
+}
+
+.service-stat-grid div {
+   display: grid;
+   gap: 4px;
+   padding: 12px;
+   border: 1px solid var(--line);
+   border-radius: 9px;
+}
+
+.service-stat-grid strong { font-size: 20px; }
+.service-stat-grid span { color: var(--muted-on-panel); font-size: 11px; }
+
+@media (max-width: 900px) {
+   .service-workspace { grid-template-columns: 190px minmax(0, 1fr); }
+   .service-inspector {
+      grid-column: 1 / -1;
+      max-height: 360px;
+   }
+}
+
+@media (max-width: 640px) {
+   .service-workspace { display: flex; flex-direction: column; overflow-y: auto; }
+   .service-navigation { flex: 0 0 auto; max-height: 180px; overflow-y: auto; }
+   .service-inspector { flex: 0 0 auto; max-height: 420px; }
+   .service-main { overflow: visible; padding-bottom: 18px; }
+   .service-main > .presentation-host-content { flex: 0 0 auto; }
+   .service-main > .presentation-host-content > .service-pack-list { flex: 0 0 auto; }
+   .service-pack-list .pack-catalog { overflow: visible; }
+   .pack-draft-actions { position: sticky; bottom: 0; }
 }
 
 .panel.ui-cluster--left-panel, .panel.ui-cluster--center-panel, .panel.ui-cluster--right-panel { border-color: var(--theme-node-line); background: var(--theme-cluster-background, color-mix(in srgb, #ffffff calc(var(--theme-cluster-opacity, .8) * 100%), transparent)); color: var(--theme-node-text); }

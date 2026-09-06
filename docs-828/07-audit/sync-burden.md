@@ -1,6 +1,6 @@
 # 07-audit/sync-burden — 同步义务与流程负担
 
-> 本文回答：**「改一处要同步 N 处」的义务链哪些可砍、哪些靠机器化，含两处已发生的漂移实证。**
+> 本文回答：**「改一处要同步 N 处」的义务链哪些可砍、哪些靠机器化，含两处已发生的漂移实证。** 本文记录的是审查时点的问题，不把建议误读为已完成改造。
 > `gen:schema` 与 `EVENT_CATALOG` 是多 Datapack 前提（[[docs-828/07-audit/00-overview]]）下的核心资产，**保留**；要砍的是义务链中无机器校验的重复人肉部分。
 
 ## 问题清单
@@ -15,7 +15,7 @@
 
 ### 1. 漂移实证（防漂移协议自身在漂移）
 
-- **实证一**：`04-algorithms/trigger-effect.md:15`「聊天流族 **4 种**」 vs `:107`「聊天流族 **5 种**」——同一文件自相矛盾，发生在号称「编译期强制同步」的事件域。
+- **实证一**：`04-mechanisms/trigger-effect.md:15`「聊天流族 **4 种**」 vs `:107`「聊天流族 **5 种**」——同一文件自相矛盾，发生在号称「编译期强制同步」的事件域。
 - **实证二**：`trigger-effect.md:16` 称 `loot`「no-op 预留、未接线」，`02-modules/world.md:50` 却写「掉落池结算（`loot` effect → giveItem）」。
 - **原因**：速览表手写、无机器校验；`EVENT_CATALOG` 编译期穷尽只管代码不管文档。
 - **方案组**：
@@ -39,7 +39,7 @@
 
 ### 4. 默认数据双载体
 
-- **位置**：`05-conventions/testing.md`（正式默认行为改 `src/arona-clicker/content/`，测试行为改 `src/data/base/datapack.ts` / `src/data/test-datapack.ts`；`datapack/` JSON 另存在）。
+- **位置**：`05-conventions/testing.md`（正式默认行为改 `src/arona-clicker/content/default-datapack.ts`，测试/示例包改 `src/data/test-datapack.ts`；`datapack/` 为可选导入资产）。
 - **原因**：同一套默认内容存在 TS 与 JSON 两种载体，外加测试同步断言——一处改动三处对齐。
 - **方案组**：
   - **A（推荐）**：明确定位——`datapack/` = 编辑器导出示例包（多包前提下的样例资产），**不要求**与 base 同步，写进 testing.md。

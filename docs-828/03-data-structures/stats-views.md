@@ -6,12 +6,12 @@
 
 | 层 | 键 | 生命周期 | 累加范围 |
 | --- | --- | --- | --- |
-| **Global** | `globalStats` | 跨世界线永久 | 全部运行 |
-| **per-Init** | `initStats` | 世界线生命周期 | 该世界线全部运行 |
-| **当前运行** | `currentRunStats` | 本次游玩 | 当前 runId |
+| **Global** | `StatsSnapshot.global` | 跨世界线永久 | 全部运行 |
+| **per-Init** | `StatsSnapshot.init[initId]` | 世界线生命周期 | 该世界线全部运行 |
+| **当前运行** | `StatsSnapshot.session` | 本次游玩 | 当前 runId |
 
 - 每个 `StatsBucket` 是统一计数累加器（`resourceProduced/consumed`、`itemsCollected/used`、`storiesCompleted`、`framesActive` 等）；
-- 每帧一次 `statsService.tick()` 累计帧数；每次 `StateMutationService` 写资源/物品/剧情同步记统计（纪律 1 的内建收益）。
+- 每帧一次 `statsService.recordTick()` 累计帧数；每次 `StateMutationService` 写资源/物品/剧情同步记统计（纪律 1 的内建收益）。
 
 ## 统计 DSL（`$GlobalProducedAmount base:resource:credit` 等）
 
@@ -32,9 +32,9 @@
 
 ## 可见性（VisibilityEngine）
 
-- `visibility` 快照：`{ spots, areas, inits }` 布尔掩码；
-- 计算依据：`revealTriggers` 的 `existence` 目标（reveal 部分见 [[docs-828/04-algorithms/trigger-effect]]）；
-- 读档 / 运行时标签变化 → `refresh()` 重建快照。注意 `RevealStage`（7 级）与 `AccessStage`（5 阶段）是两套概念，勿混淆（见 [[docs-828/02-modules/visibility]]）。
+- `visibility` 快照：`{ inits, areas, spots, enhancements, items, stories }` 布尔掩码；
+- 计算依据：`revealTriggers` 的 `existence` 目标（reveal 部分见 [[docs-828/04-mechanisms/trigger-effect]]）；
+- 注册表加载使用 `rebuild()`，读档使用 `recomputeAll()`；运行时事件通常只标脏并在读取时增量重算。注意 `RevealStage`（7 级）与 `AccessStage`（5 阶段）是两套概念，勿混淆（见 [[docs-828/02-modules/visibility]]）。
 
 ## 相关文档
 
