@@ -2,7 +2,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/affection-system.test.ts — 好感系统（§1 数值 / §2 轴 B 队列 / §3 尾巴挂靠推送）
 //
-// 覆盖 docs-828/06-adr/planning.md 测试清单（2026-08-29 修订：轴 A 消息成分移除）：
+// 覆盖 docs/docs-828/06-adr/planning.md 测试清单（2026-08-29 修订：轴 A 消息成分移除）：
 //   §1  默认阶梯（bondDict）、跨级推演、星级锁、save/load 往返、
 //       addAffectionExp effect、acquireCharacter 初始化、affectionLevel 条件
 //   §2B 就绪队列：达标入队、需求值升序、推送时机、闲聊回落、聊天空间壁垒、readyStepCount

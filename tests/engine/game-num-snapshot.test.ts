@@ -1,5 +1,5 @@
 // ============================================================
-// engine/game-num-snapshot.test.ts — 行为快照（todoTask/taskGameNum/TASK.md）
+// engine/game-num-snapshot.test.ts — 行为快照（docs/todoTask/taskGameNum/TASK.md）
 //
 // 作用：把 GameNum 区表 / 显式层级树 / flows 分发 / 失效的当前语义锁进测试，作为
 //   Phase 1（删 childMulMap 投影）、Phase 5（精确失效）与 Phase 6（显式四级层级树）

@@ -45,6 +45,7 @@ pnpm-debug.log*
 .env.*
 !.env.example
 !.env.*.example
+/$null
 *.tmp
 *.temp
 *.bak

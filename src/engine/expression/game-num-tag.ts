@@ -10,7 +10,7 @@
 //
 // 注意：本模块所有函数都信任调用方传入的 state 即当前 PlayerState。
 // GameNumSystem.state 若与 GameInstance._state 脱钩（startNewGame 后未重新 buildAll），
-// 会导致写入/清理落错对象——见 todoTask/taskProduction/HANDOFF.md「Phase 1 阻塞项」。
+// 会导致写入/清理落错对象——见 docs/todoTask/taskProduction/HANDOFF.md「Phase 1 阻塞项」。
 // ============================================================
 
 import type { ValueExpression } from '../types';

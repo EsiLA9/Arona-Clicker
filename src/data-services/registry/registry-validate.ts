@@ -20,7 +20,7 @@ export class RegistryError extends Error {
 }
 
 /**
- * 三段式 id 校验（docs-828/06-adr/0004 §2）：
+ * 三段式 id 校验（docs/docs-828/06-adr/0004 §2）：
  * formatOnly = true 时只查格式（story / character 表待 S1b/c 中段归位后收紧）。
  */
 const checkEntityIds = (
