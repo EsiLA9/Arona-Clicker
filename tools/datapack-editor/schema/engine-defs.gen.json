@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T13:39:51.335Z",
+  "generatedAt": "2026-09-08T05:20:36.572Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -929,13 +929,6 @@
                         "label": "宿主文字颜色模式。"
                       },
                       {
-                        "key": "systemColorLayerIgnored",
-                        "required": false,
-                        "kind": "bool",
-                        "tsType": "boolean",
-                        "label": "忽略系统颜色层。"
-                      },
-                      {
                         "key": "states",
                         "required": false,
                         "kind": "hand",
@@ -1758,13 +1751,6 @@
                         "kind": "hand",
                         "tsType": "PresentationTextColorMode",
                         "label": "宿主文字颜色模式。"
-                      },
-                      {
-                        "key": "systemColorLayerIgnored",
-                        "required": false,
-                        "kind": "bool",
-                        "tsType": "boolean",
-                        "label": "忽略系统颜色层。"
                       },
                       {
                         "key": "states",
@@ -2656,13 +2642,6 @@
                         "label": "宿主文字颜色模式。"
                       },
                       {
-                        "key": "systemColorLayerIgnored",
-                        "required": false,
-                        "kind": "bool",
-                        "tsType": "boolean",
-                        "label": "忽略系统颜色层。"
-                      },
-                      {
                         "key": "states",
                         "required": false,
                         "kind": "hand",
@@ -3482,13 +3461,6 @@
                         "kind": "hand",
                         "tsType": "PresentationTextColorMode",
                         "label": "宿主文字颜色模式。"
-                      },
-                      {
-                        "key": "systemColorLayerIgnored",
-                        "required": false,
-                        "kind": "bool",
-                        "tsType": "boolean",
-                        "label": "忽略系统颜色层。"
                       },
                       {
                         "key": "states",
@@ -4991,13 +4963,6 @@
                         "label": "宿主文字颜色模式。"
                       },
                       {
-                        "key": "systemColorLayerIgnored",
-                        "required": false,
-                        "kind": "bool",
-                        "tsType": "boolean",
-                        "label": "忽略系统颜色层。"
-                      },
-                      {
                         "key": "states",
                         "required": false,
                         "kind": "hand",
@@ -5907,13 +5872,6 @@
                         "label": "宿主文字颜色模式。"
                       },
                       {
-                        "key": "systemColorLayerIgnored",
-                        "required": false,
-                        "kind": "bool",
-                        "tsType": "boolean",
-                        "label": "忽略系统颜色层。"
-                      },
-                      {
                         "key": "states",
                         "required": false,
                         "kind": "hand",
@@ -6669,13 +6627,6 @@
                         "kind": "hand",
                         "tsType": "PresentationTextColorMode",
                         "label": "宿主文字颜色模式。"
-                      },
-                      {
-                        "key": "systemColorLayerIgnored",
-                        "required": false,
-                        "kind": "bool",
-                        "tsType": "boolean",
-                        "label": "忽略系统颜色层。"
                       },
                       {
                         "key": "states",

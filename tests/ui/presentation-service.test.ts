@@ -79,11 +79,11 @@ describe('PresentationService', () => {
     expect(view.hasHost('missing')).toBe(false);
   });
 
-  test('控件宿主保留自己的系统颜色层开关状态', () => {
+  test('控件宿主不再承载系统颜色层开关', () => {
     const view = buildPresentationView({
-      hosts: [{ id: 'leftPanel', systemColorLayerIgnored: true, layers: [{ id: 'panel', kind: 'solid', value: '#fff' }] }],
+      hosts: [{ id: 'leftPanel', layers: [{ id: 'panel', kind: 'solid', value: '#fff' }] }],
     }, pics);
-    expect(view.host('leftPanel').systemColorLayerIgnored).toBe(true);
+    expect(view.host('leftPanel').layers.map(layer => layer.id)).toEqual(['panel']);
   });
 
   test('控件宿主解析状态图层并保留状态顺序', () => {
@@ -95,12 +95,10 @@ describe('PresentationService', () => {
           { id: 'accent', kind: 'solid', value: '#acf' },
         ],
         layerOrder: ['accent', 'base'],
-        systemColorLayerIgnored: true,
       } },
     }] }, pics);
     const active = view.host('header.button').states?.get('active');
     expect(active?.layers.map(layer => layer.id)).toEqual(['accent', 'base']);
-    expect(active?.systemColorLayerIgnored).toBe(true);
   });
 
   test('控件宿主解析内嵌装饰线字段并夹取数值', () => {

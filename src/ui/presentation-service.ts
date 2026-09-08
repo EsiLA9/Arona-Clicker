@@ -69,7 +69,6 @@ export interface PresentationHostView {
   skewXDeg?: number;
   decoration?: BackgroundDecorationView;
   textColorMode?: PresentationTextColorMode;
-  systemColorLayerIgnored?: boolean;
   layerOrder?: readonly string[];
   states?: ReadonlyMap<PresentationHostState, PresentationHostStateView>;
 }
@@ -77,7 +76,6 @@ export interface PresentationHostView {
 export interface PresentationHostStateView {
   layers: readonly PresentationViewLayer[];
   decoration?: BackgroundDecorationView;
-  systemColorLayerIgnored?: boolean;
   layerOrder?: readonly string[];
   textColorMode?: PresentationTextColorMode;
 }
@@ -237,7 +235,6 @@ export function buildPresentationView(
       states.set(state, {
         layers: orderLayers(stateDef.layers, stateDef.layerOrder),
         decoration: buildBackgroundDecorationView(stateDef.decoration),
-        systemColorLayerIgnored: stateDef.systemColorLayerIgnored === true,
         layerOrder: stateDef.layerOrder,
         textColorMode: stateDef.textColorMode,
       });
@@ -250,7 +247,6 @@ export function buildPresentationView(
       skewXDeg: safeRange(host.skewXDeg, SKEW_X_DEG_MIN, SKEW_X_DEG_MAX),
       decoration: buildBackgroundDecorationView(host.decoration),
       textColorMode: host.textColorMode,
-      systemColorLayerIgnored: host.systemColorLayerIgnored === true,
       layerOrder: host.layerOrder ?? orderedLayers.map(layer => layer.id).filter((id): id is string => Boolean(id)),
       states,
     });

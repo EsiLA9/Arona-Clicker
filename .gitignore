@@ -6,6 +6,22 @@ dist/
 web-dist/
 src/ui/dist/
 
+# Tool-generated project metadata
+/.codebuddy/
+/.qoder/
+/.zcode/
+
+# Test and bundler caches
+coverage/
+.nyc_output/
+.vite/
+.cache/
+test-results/
+playwright-report/
+
+# TypeScript build metadata
+*.tsbuildinfo
+
 # Editor
 *.swp
 *.swo
@@ -19,6 +35,19 @@ Thumbs.db
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment and temporary files
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.tmp
+*.temp
+*.bak
 
 # Local save (runtime data)
 # localStorage is browser-side, no file to ignore

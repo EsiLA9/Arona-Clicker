@@ -74,6 +74,16 @@ describe('BackgroundService', () => {
     expect(renderBackground(view)).toContain('transform:scale(8) rotate(330deg)');
   });
 
+  test('忽略系统颜色层时只过滤该层，保留其他背景层与顺序', () => {
+    const view = buildBackgroundView([
+      { id: 'system-color-background', kind: 'gradient', value: 'linear-gradient(#111,#222)' },
+      { id: 'user', kind: 'solid', value: '#456' },
+    ], pics, {}, true);
+    const html = renderBackground(view);
+    expect(html).not.toContain('#111');
+    expect(html).toContain('background:#456');
+  });
+
   test('最外层背景宿主挂在 body 直系，不随 #app 页面重建', () => {
     document.body.innerHTML = '<div id="app"><div class="console-background"></div></div>';
     const view = buildBackgroundView([{ kind: 'solid', value: '#123' }], pics);

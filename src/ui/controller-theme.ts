@@ -230,8 +230,7 @@ function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, pa
       const configured = panelHost?.opacity
         ?? presentation.panels?.find(panel => panel.region === panelRegion)?.opacity;
       element.style.setProperty('--theme-cluster-opacity', String(Math.max(0, Math.min(1, configured ?? DEFAULT_PANEL_OPACITY))));
-      if (panelHost?.systemColorLayerIgnored) element.style.setProperty('--theme-cluster-background', 'transparent');
-      else element.style.removeProperty('--theme-cluster-background');
+      element.style.removeProperty('--theme-cluster-background');
     }
     for (const [key, value] of Object.entries(buildScopedThemeNodeVars(inherited))) {
       element.style.setProperty(key, value);
@@ -242,7 +241,7 @@ function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, pa
 
 export function backgroundView(ctrl: UIController) {
   const theme = ctrl.game.colorSystem.runtimeTheme();
-  return buildBackgroundView(theme.background, ctrl.game.pics, theme.tokens);
+  return buildBackgroundView(theme.background, ctrl.game.pics, theme.tokens, theme.systemColorLayerIgnored);
 }
 
 export function presentationView(ctrl: UIController) {

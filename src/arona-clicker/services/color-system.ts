@@ -275,7 +275,7 @@ export class ColorSystem {
       && user?.enabled !== false;
     const base = stored ? customThemeBase(this.registry, stored) : undefined;
     const applied = stored ? storedThemeDef(stored, base) : undefined;
-    const colorLayer = stored?.systemColorLayerIgnored ? {} : {
+    const colorLayer = {
       tokens: applied?.tokens,
       palette: normalizePalette(applied?.palette, stored?.paletteUiEnabled),
       nodeOverrides: applied?.nodes,
@@ -286,7 +286,7 @@ export class ColorSystem {
       scope: 'user',
       groupId: applied?.colorGroupId as ColorGroupId | undefined,
       ...colorLayer,
-      background: [systemColorBackground(stored?.systemColorLayerIgnored ? 0 : 1), ...(applied?.background ?? [])],
+      background: [systemColorBackground(), ...(applied?.background ?? [])],
       backgroundLayerOrder: stored?.backgroundLayerOrder,
       systemColorLayerIgnored: stored?.systemColorLayerIgnored === true,
       presentation: applied?.presentation,
@@ -295,7 +295,7 @@ export class ColorSystem {
 
   /** 编辑器草稿预览：高于已应用用户主题，低于剧情临时层。 */
   setUserThemePreview(draft: { palette?: string[]; paletteUiEnabled?: boolean[]; systemColorLayerIgnored?: boolean; backgroundLayerOrder?: string[]; tokens?: Partial<Record<ThemeToken, string>>; nodes?: import('../../engine/types/theme').ThemeDef['nodes']; scopes?: import('../types/user-theme').UserThemeDraft['scopes']; background?: import('../../engine/types/theme').ThemeDef['background']; presentation?: import('../../engine/types/theme').PresentationDef } | null): void {
-    const colorLayer = draft?.systemColorLayerIgnored ? {} : {
+    const colorLayer = {
       tokens: draft?.tokens,
       palette: normalizePalette(draft?.palette, draft?.paletteUiEnabled),
       nodeOverrides: draft?.nodes,
@@ -305,7 +305,7 @@ export class ColorSystem {
       id: 'user-theme-preview',
       scope: 'ephemeral',
       ...colorLayer,
-      background: [systemColorBackground(draft.systemColorLayerIgnored ? 0 : 1), ...(draft.background ?? [])],
+      background: [systemColorBackground(), ...(draft.background ?? [])],
       backgroundLayerOrder: draft.backgroundLayerOrder,
       systemColorLayerIgnored: draft.systemColorLayerIgnored === true,
       presentation: draft.presentation,

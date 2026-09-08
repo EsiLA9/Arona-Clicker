@@ -27,6 +27,7 @@ export interface BackgroundDecorationView {
 
 export interface BackgroundView {
   layers: readonly BackgroundViewLayer[];
+  systemColorLayerIgnored?: boolean;
   shape?: PresentationShape;
   cornerRadius?: number;
   skewXDeg?: number;
@@ -65,6 +66,7 @@ export function buildBackgroundView(
   layers: readonly BackgroundLayerDef[] | undefined,
   pics: PicQueryPort,
   tokens: ThemeTokens = {},
+  systemColorLayerIgnored = false,
 ): BackgroundView {
   const fallback = 'linear-gradient(135deg, ' + (tokens['bg'] ?? 'var(--canvas)') + ' 0%, ' + (tokens['bgAlt'] ?? 'var(--panel-light)') + ' 100%)';
   const resolved = (layers ?? []).flatMap(layer => {
@@ -84,7 +86,7 @@ export function buildBackgroundView(
       rotation: typeof layer.rotation === 'number' && Number.isFinite(layer.rotation) ? ((layer.rotation % 360) + 360) % 360 : 0,
     }];
   });
-  return { layers: resolved.length > 0 ? resolved : [{
+  return { systemColorLayerIgnored, layers: resolved.length > 0 ? resolved : [{
     kind: 'gradient', value: fallback, opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed', scale: 1, rotation: 0,
   }] };
 }
@@ -109,7 +111,7 @@ export function renderBackground(view: BackgroundView, className = 'console-back
       view.skewXDeg !== undefined ? `--presentation-skew-x:${view.skewXDeg}deg` : '',
     ].filter(Boolean).join(';')) + '\"'
     : '';
-  const renderLayers = (layers: readonly BackgroundViewLayer[], kind: 'base' | 'hover', zOffset = 0) => layers.map((layer, index) =>
+  const renderLayers = (layers: readonly BackgroundViewLayer[], kind: 'base' | 'hover', zOffset = 0) => layers.filter(layer => !(view.systemColorLayerIgnored && layer.id === 'system-color-background')).map((layer, index) =>
     '<div class=\"console-background-layer' + (kind === 'hover' ? ' presentation-host-hover-layer' : '') + '\" data-background-layer=\"' + index + '\" data-presentation-layer-kind=\"' + kind + '\" style=\"' + escapeHtmlAttribute('z-index:' + (zOffset + index + 1) + ';background:' + layer.value + ';opacity:' + layer.opacity + ';background-position:' + layer.position + ';background-size:' + layer.size + ';background-repeat:' + layer.repeat + ';background-blend-mode:' + layer.blendMode + ';background-attachment:' + layer.attachment + ';transform:scale(' + (layer.scale ?? 1) + ') rotate(' + (layer.rotation ?? 0) + 'deg)') + '\"></div>',
   ).join('');
   const renderDecoration = (decoration: BackgroundDecorationView | undefined, kind: 'base' | 'hover') => decoration && className !== 'console-background'

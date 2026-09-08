@@ -143,7 +143,7 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
       let host = presentationView.host(effectiveHostId);
       const stateView = () => {
         const exact = host.states?.get(state);
-        return exact && (exact.layers.length > 0 || exact.systemColorLayerIgnored || exact.decoration !== undefined)
+        return exact && (exact.layers.length > 0 || exact.decoration !== undefined)
           ? exact
           : undefined;
       };
@@ -166,46 +166,9 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
         : activeState?.layers.length
           ? mergeStateLayers(host.layers, activeState.layers)
           : host.layers;
-      const systemColorLayerIgnored = activeFallback
-        ? host.systemColorLayerIgnored
-        : activeState?.systemColorLayerIgnored ?? host.systemColorLayerIgnored;
       const geometry = presentationView.shapeParametersForHost(hostId);
-      if (hostLayers.length === 0 && !systemColorLayerIgnored && !activeFallback) {
-        return { layers: inheritGlobal ? globalLayers : shouldUseBaseFallback ? [baseFallbackLayer] : [], ...geometry, decoration };
-      }
-      if (systemColorLayerIgnored) {
-        return { layers: hostLayers.length > 0 ? hostLayers : [{
-          kind: 'empty' as const,
-          value: 'transparent',
-          opacity: 0,
-          position: 'center',
-          size: 'cover',
-          repeat: 'no-repeat',
-          blendMode: 'normal',
-          attachment: 'fixed',
-          scale: 1,
-          rotation: 0,
-        }], ...geometry, decoration };
-      }
-      const systemLayer = {
-        kind: state === 'active' && activeFallback ? 'solid' as const : 'gradient' as const,
-        value: state === 'active' && activeFallback
-          ? activeFallbackLayer.value
-          : 'linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)',
-        opacity: 1,
-        position: 'center',
-        size: 'cover',
-        repeat: 'no-repeat',
-        blendMode: 'normal',
-        attachment: 'fixed',
-        scale: 1,
-        rotation: 0,
-      };
-      const entries = [{ id: 'system-color-background', layer: systemLayer }, ...hostLayers.map(layer => ({ id: layer.id ?? '', layer }))];
-      const rank = new Map((activeState?.layerOrder ?? host.layerOrder ?? []).map((id, index) => [id, index + 1]));
-      if (!rank.has('system-color-background')) rank.set('system-color-background', 0);
-      entries.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER));
-      return { layers: entries.map(entry => entry.layer), ...geometry, decoration };
+      if (activeFallback) return { layers: [activeFallbackLayer], ...geometry, decoration };
+      return { layers: hostLayers.length > 0 ? hostLayers : inheritGlobal ? globalLayers : shouldUseBaseFallback ? [baseFallbackLayer] : [], ...geometry, decoration };
     },
     presentationHostState: (hostId, state: PresentationHostState = 'default') => ({
       background: context.backgroundForHost(hostId, false, state),

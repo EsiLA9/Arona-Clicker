@@ -79,8 +79,8 @@ describe('UIContext：簇与当前区域宿主', () => {
     ] }, pics);
     const ctx = createUIContext(game, background, presentation);
 
-    expect(ctx.backgroundForHost('leftPanel.area').layers.map(layer => layer.value)).toEqual(['linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)', '#ace']);
-    expect(ctx.backgroundForHost('leftPanel.contacts').layers.map(layer => layer.value)).toEqual(['linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)', '#abc']);
+    expect(ctx.backgroundForHost('leftPanel.area').layers.map(layer => layer.value)).toEqual(['#ace']);
+    expect(ctx.backgroundForHost('leftPanel.contacts').layers.map(layer => layer.value)).toEqual(['#abc']);
   });
 
   test('active 未覆盖时继承宿主默认态，有覆盖时优先使用 active 图层', () => {

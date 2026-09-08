@@ -386,6 +386,22 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
       .toBe('linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)');
   });
 
+  test('忽略系统颜色层不丢弃主题 token、palette 与节点覆盖', () => {
+    game = freshGame();
+    game.colorSystem.setUserThemePreview({
+      systemColorLayerIgnored: true,
+      palette: ['#123456'],
+      tokens: { bg: '#abcdef' },
+      nodes: { active: '#fedcba' },
+    });
+    const theme = game.colorSystem.runtimeTheme();
+    expect(theme.systemColorLayerIgnored).toBe(true);
+    expect(theme.palette).toEqual(['#123456']);
+    expect(theme.tokens.bg).toBe('#abcdef');
+    expect(theme.nodeOverrides.active).toBe('#fedcba');
+    expect(theme.background.find(layer => layer.id === 'system-color-background')?.opacity).toBe(1);
+  });
+
   test('多色彩组叠加：场景覆盖玩家、临时覆盖一切', () => {
     game = freshGame();
     game.mutations.acquireCharacter('Arona', 'gacha');

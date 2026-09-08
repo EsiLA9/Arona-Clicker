@@ -163,8 +163,6 @@ export interface PresentationHostDef {
   decoration?: PresentationDecorationDef;
   /** @label 宿主文字颜色模式。 */
   textColorMode?: PresentationTextColorMode;
-  /** @label 忽略系统颜色层。 */
-  systemColorLayerIgnored?: boolean;
   /** @label 状态表现覆盖；未设置时继承宿主默认态。 */
   states?: Partial<Record<PresentationHostState, PresentationHostStateDef>>;
 }
@@ -178,8 +176,6 @@ export interface PresentationHostStateDef {
   decoration?: Partial<PresentationDecorationDef>;
   /** @label 状态图层顺序。 */
   layerOrder?: string[];
-  /** @label 状态下忽略系统颜色层。 */
-  systemColorLayerIgnored?: boolean;
   /** @label 状态文字颜色模式。 */
   textColorMode?: PresentationTextColorMode;
 }

@@ -58,6 +58,7 @@
    position: relative;
    isolation: isolate;
    overflow: visible;
+   background: transparent;
 }
 
 .presentation-host-background {

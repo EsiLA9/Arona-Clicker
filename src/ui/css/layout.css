@@ -524,7 +524,7 @@ h3 {
    .pack-draft-actions { position: sticky; bottom: 0; }
 }
 
-.panel.ui-cluster--left-panel, .panel.ui-cluster--center-panel, .panel.ui-cluster--right-panel { border-color: var(--theme-node-line); background: var(--theme-cluster-background, color-mix(in srgb, #ffffff calc(var(--theme-cluster-opacity, .8) * 100%), transparent)); color: var(--theme-node-text); }
+.panel.ui-cluster--left-panel, .panel.ui-cluster--center-panel, .panel.ui-cluster--right-panel { border-color: var(--theme-node-line); background: transparent; color: var(--theme-node-text); }
 .ui-control--active, .switch-tab.active { color: var(--theme-node-active); border-color: var(--theme-node-active); }
 
 .panel {

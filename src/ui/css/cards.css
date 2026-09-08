@@ -138,7 +138,7 @@
 .mini-action {
    border: 1px solid var(--card-btn-border);
    padding: 5px 9px;
-   background: var(--ui-button-bg, transparent);
+   background: transparent;
    color: var(--ui-button-text, var(--card-btn-text));
    font-size: 10px;
    cursor: pointer;

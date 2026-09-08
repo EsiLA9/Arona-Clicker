@@ -168,7 +168,7 @@ export function openUserThemeEditor(ctrl: UIController): void {
 
 function reorderHostLayerOrder(host: import('../engine/types/theme').PresentationHostDef, id: string, direction: 'up' | 'down'): void {
   const layers = host.layers ?? [];
-  const ids = [ 'system-color-background', ...layers.map((layer, index) => layer.id ?? `${host.id}-layer-${index}`) ];
+  const ids = layers.map((layer, index) => layer.id ?? `${host.id}-layer-${index}`);
   const current = host.layerOrder?.filter(layerId => ids.includes(layerId)) ?? [];
   for (const layerId of ids) if (!current.includes(layerId)) current.push(layerId);
   const index = current.indexOf(id);
@@ -712,21 +712,6 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
   }));
-  card.querySelectorAll<HTMLInputElement>('[data-user-theme-host-system-color-ignore]').forEach(input => input.addEventListener('change', event => {
-    if (!active || !presentation.hosts) return;
-    const currentHost = presentation.hosts.find(item => item.id === hostId);
-    if (!currentHost) return;
-    const state = hostState();
-    const target = stateDef(currentHost, state, state !== 'default');
-    if (!target) return;
-    if (state === 'default') currentHost.systemColorLayerIgnored = !(event.currentTarget as HTMLInputElement).checked;
-    else target.systemColorLayerIgnored = !(event.currentTarget as HTMLInputElement).checked;
-    ctrl.game.colorSystem.setUserThemePreview(draft);
-    ctrl.refreshTheme();
-    refreshPresentationHostElements(ctrl, [hostId]);
-    const panel = hostId.startsWith('leftPanel') ? 'left' : hostId.startsWith('centerPanel') ? 'center' : hostId.startsWith('rightPanel') ? 'right' : undefined;
-    if (panel) ctrl.refreshPanels([panel]);
-  }));
   card.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-user-theme-host-field]').forEach(field => field.addEventListener(field instanceof HTMLSelectElement ? 'change' : 'input', () => {
     if (!active || !presentation.hosts) return;
     const host = presentation.hosts.find(item => item.id === hostId);
@@ -779,21 +764,6 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     else {
       const stateHost = { ...host, layers: target.layers, layerOrder: target.layerOrder } as typeof host;
       reorderHostLayerOrder(stateHost, layerId, button.dataset.direction as 'up' | 'down');
-      target.layerOrder = stateHost.layerOrder;
-    }
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostElements(ctrl, [hostId]); refreshPresentationHostCard(ctrl, modal, session, active, hostId);
-  }));
-  card.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-system-layer-move]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const currentHost = presentation.hosts.find(item => item.id === hostId);
-    if (!currentHost) return;
-    const state = hostState();
-    const target = stateDef(currentHost, state, state !== 'default');
-    if (!target) return;
-    if (state === 'default') reorderHostLayerOrder(currentHost, 'system-color-background', button.dataset.direction as 'up' | 'down');
-    else {
-      const stateHost = { ...currentHost, layers: target.layers ?? [], layerOrder: target.layerOrder } as typeof currentHost;
-      reorderHostLayerOrder(stateHost, 'system-color-background', button.dataset.direction as 'up' | 'down');
       target.layerOrder = stateHost.layerOrder;
     }
     ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostElements(ctrl, [hostId]); refreshPresentationHostCard(ctrl, modal, session, active, hostId);
