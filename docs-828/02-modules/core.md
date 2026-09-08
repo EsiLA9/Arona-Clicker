@@ -13,7 +13,7 @@
 | --- | --- |
 | `event-bus.ts` | 全局事件总线：`on / onAny / off / emit / flush / clear`；mutation 写状态后广播的通道，也是增量缓存失效的入口。派发先特定后通配；`flush` 期间 `emit` 入队（重入保护） |
 | `tag.ts` | Tag 匹配（`matchesTag`，按 id 前缀），供强化反向索引、产出查询、条件系统使用 |
-| `theme-runtime.ts` | `RuntimeThemeManager`：临时演出层恒最高；player/area/student 相对优先级玩家可自定义（`setLayerOrder`，落 `state.themeLayerOrder`） |
+| `theme-runtime.ts` | `RuntimeThemeManager`：临时演出层恒最高；player/init/area/student 四层相对优先级可由玩家自定义（`setLayerOrder`，落 `state.themeLayerOrder`），user/preview 为独立层 |
 | `entity-id.ts` / `anonymous-id.ts` | 实体 ID 工厂 / 匿名实体确定性派生 id（`anon:` 前缀） |
 | `resource.ts` | 资源 ID 常量（含 `GLOBAL_RESOURCE_IDS`，青辉石为唯一跨世界线全局资源） |
 | `display-name.ts` | 显示名解析（角色显示名等） |

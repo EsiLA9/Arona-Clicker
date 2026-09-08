@@ -32,9 +32,11 @@
 | active | [[0x-plan&work/active/roadmap-0018-button-state-unification]] | 控件状态统一 |
 | active | [[0x-plan&work/active/roadmap-0018-ui-host-registry]] | UI Host Registry |
 | active | [[0x-plan&work/active/task-0022-theme-definition-and-custom-theme-repair]] | 自定义主题修复 |
+| active | [[0x-plan&work/active/task-0025-selector-dynamic-theme]] | Init / GlobalEnh 选择页场景主题、背景变体与快照状态投影 |
+| active | [[0x-plan&work/active/task-0033-system-color-layer-scope]] | 系统颜色层职责收敛与重复背景清理 |
 | completed | [[0x-plan&work/completed/roadmap-0019-presentation-text-color]] | 表现宿主文字颜色 |
 | newPlan | [[0x-plan&work/newPlan/06-meta-loop-and-ui]] | 元循环与空间化 UI |
 
 ## 当前判断
 
-主题/表现是 active 计划最多的机制族。这里的路线图按子问题拆分，但共同事实源仍是 `docs-828/02-modules/color`、`ui` 和 `04-mechanisms/color-derivation`。
+主题/表现是 active 计划最多的机制族。这里的路线图按子问题拆分，但共同事实源仍是 `docs-828/02-modules/color`、`ui` 和 `04-mechanisms/color-derivation`；选择页动态主题另以 Task-0025 作为当前执行入口。

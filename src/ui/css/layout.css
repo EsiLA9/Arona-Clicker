@@ -47,24 +47,11 @@ footer {
    transition: background .15s, color .15s, border-color .15s;
 }
 
-/* 顶部工具按钮在浅色模式下保持白色，打开/激活时使用 highlight（主题色 3→2→1）。 */
+/* 顶部工具按钮的底色与状态表现统一交给 presentation-host-background。 */
 .topbar .toolbar-button {
-   background-color: var(--ui-button-bg, #ffffff);
+   background-color: transparent;
    color: var(--ui-button-text, var(--theme-node-text));
    border-color: #ebebeb;
-}
-
-.topbar .toolbar-button.is-active,
-.topbar .theme-palette:has([data-theme-float].open) > #theme-palette-btn,
-.topbar .toolbar-button:hover {
-   background-color: var(--theme-node-highlight);
-   color: var(--ink-on-highlight);
-   border-color: var(--theme-node-highlight);
-}
-
-.topbar .toolbar-button.is-active span,
-.topbar .toolbar-button:hover span {
-   color: var(--ink-on-highlight);
 }
 
 /* 顶部按钮中的文字、Unicode 图标与 SVG 图标共用同一前景色。 */
@@ -83,18 +70,10 @@ footer {
    color: inherit;
 }
 
-/* 初版装饰试验：把透明三角形作为独立背景图层叠到按钮底色上。 */
-.toolbar-button {
-   background-image: url('../../data/ba_triangles.svg');
-   background-position: center;
-   background-size: 420px auto;
-   background-repeat: no-repeat;
-}
-
 /* 三栏中的中性按钮沿用顶部工具按钮的白底与浅灰边框；active / 主要行动按钮保留各自语义色。 */
 .workspace button.nav-item:not(.active),
-.workspace button.switch-tab:not(.active),
-.workspace button.mini-action:not(.is-active),
+.workspace button.switch-tab:not(.active):not(.presentation-host-target),
+.workspace button.mini-action:not(.is-active):not(.presentation-host-target),
 .workspace button.use-item-button,
 .workspace button.manager-entry,
 .workspace button.story-trigger,
@@ -107,8 +86,8 @@ footer {
 }
 
 .workspace button.nav-item:not(.active):hover,
-.workspace button.switch-tab:not(.active):hover,
-.workspace button.mini-action:not(.is-active):hover,
+.workspace button.switch-tab:not(.active):not(.presentation-host-target):hover,
+.workspace button.mini-action:not(.is-active):not(.presentation-host-target):hover,
 .workspace button.use-item-button:hover,
 .workspace button.manager-entry:hover,
 .workspace button.story-trigger:hover,
@@ -126,9 +105,9 @@ footer {
    color: var(--ui-button-text-active, var(--ink-on-active));
 }
 
-.ui-control--active,
-.switch-tab.active,
-.mini-action.is-active {
+.ui-control--active:not(.presentation-host-target),
+.switch-tab.active:not(.presentation-host-target),
+.mini-action.is-active:not(.presentation-host-target) {
    background: var(--ui-button-bg-active, var(--theme-node-active));
    border-color: var(--ui-button-bg-active, var(--theme-node-active));
 }
@@ -138,13 +117,13 @@ footer {
    color: var(--muted-on-panel);
 }
 
-.toolbar-button:hover {
+.toolbar-button:not(.presentation-host-target):hover {
    background-color: var(--cyan);
    color: var(--ink-on-cyan);
    border-color: var(--cyan);
 }
 
-.toolbar-button:hover span {
+.toolbar-button:not(.presentation-host-target):hover span {
    color: color-mix(in srgb, var(--ink-on-cyan) 85%, transparent);
 }
 
@@ -153,20 +132,19 @@ footer {
    cursor: not-allowed;
 }
 
-/* 表现目标负责按钮底色；hover/打开只提供边框与轻量反馈，避免覆盖状态图层。 */
-.topbar .presentation-host-target:hover {
-   background-color: var(--theme-node-highlight);
-   color: var(--ink-on-highlight);
-   border-color: var(--theme-node-highlight);
-   box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-node-highlight) 30%, transparent);
-}
-
+/* hover 与点击保持 active 都只切换宿主内部状态层，外围边框保持透明。 */
+.topbar .presentation-host-target,
+.topbar .presentation-host-target:hover,
 .topbar .presentation-host-target.is-active,
 .topbar .theme-palette:has([data-theme-float].open) > #theme-palette-btn {
-   background-color: transparent;
-   color: inherit;
-   border-color: var(--theme-node-highlight);
-   box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-node-highlight) 30%, transparent);
+   border-color: transparent;
+   box-shadow: none;
+}
+
+.topbar .presentation-host-target:hover > .presentation-host-background,
+.topbar .presentation-host-target.is-active > .presentation-host-background,
+.topbar .theme-palette:has([data-theme-float].open) > #theme-palette-btn > .presentation-host-background {
+   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--theme-node-highlight) 58%, transparent));
 }
 
 .topbar .presentation-host-target:hover > .presentation-host-content,
@@ -331,7 +309,7 @@ h3 {
    isolation: isolate;
    min-height: 0;
    overflow-y: auto;
-   padding: 16px;
+   padding: 12px;
    border: 1px solid var(--theme-node-line, var(--line));
    border-radius: 14px;
    background: var(--theme-cluster-background, color-mix(in srgb, #ffffff calc(var(--theme-cluster-opacity, .8) * 100%), transparent));
@@ -350,14 +328,14 @@ h3 {
    justify-content: space-between;
    align-items: baseline;
    gap: 8px;
-   padding-bottom: 10px;
+   padding-bottom: 8px;
    border-bottom: 1px solid var(--line);
 }
 
 .service-main {
    display: flex;
    flex-direction: column;
-   gap: 14px;
+   gap: 10px;
    min-height: 0;
    overflow-y: auto;
 }
@@ -388,6 +366,8 @@ h3 {
    flex: 1 1 auto;
    min-height: 0;
    overflow-y: auto;
+   align-content: start;
+   grid-auto-rows: max-content;
    padding-right: 4px;
 }
 
@@ -438,8 +418,9 @@ h3 {
 }
 
 .service-heading h2 {
-   margin: 4px 0 8px;
-   font-size: clamp(24px, 4vw, 42px);
+   margin: 0;
+   font-size: 18px;
+   line-height: 1.25;
 }
 
 .service-heading p,
@@ -471,10 +452,24 @@ h3 {
 }
 
 .service-card {
-   padding: 14px;
+   padding: 10px;
    border: 1px solid var(--line);
    border-radius: 12px;
    background: color-mix(in srgb, var(--panel) 72%, transparent);
+}
+
+.service-card h3,
+.service-card h4 {
+   margin-top: 0;
+}
+
+.service-card h4 {
+   margin-bottom: 6px;
+   color: var(--muted-on-panel);
+   font-size: 10px;
+   font-weight: 600;
+   letter-spacing: .04em;
+   text-transform: uppercase;
 }
 
 .service-summary {

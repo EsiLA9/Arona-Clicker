@@ -19,6 +19,8 @@ describe('AronaClickerRuntime PackManager 接线', () => {
 
     expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
     expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.0']);
+    expect(game.state.activeInit).toBe('');
+    expect(game.running).toBe(false);
   });
 
   test('默认产品包包含卡池所引用的角色差分', () => {

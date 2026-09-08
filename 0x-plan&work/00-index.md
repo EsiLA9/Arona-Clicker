@@ -16,6 +16,14 @@
 | 任务 | 目标 | 状态 |
 | --- | --- | --- |
 | [[0x-plan&work/active/task-0023-project-documentation-normalization]] | 文档职责收敛、机制文件夹建立、逐篇核验与失效链接清理 | 🟡 进行中 |
+| [[0x-plan&work/active/roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Lobby Runtime 与通用界面服务 | 🟡 收尾验收 |
+| [[0x-plan&work/active/task-0025-selector-dynamic-theme]] | Init / GlobalEnh 选择页动态主题与 Init 状态背景 | ✅ 首版已实施并验证，体验项另列 |
+| [[0x-plan&work/active/task-0028-presentation-target-inherit-only]] | 新建表现目标在未编辑前保持原有默认外观 | ✅ 已完成 |
+| [[0x-plan&work/active/task-0029-button-sequence-rendering-audit]] | 按钮序列表现链路对照审查 | ✅ 调查完成 |
+| [[0x-plan&work/active/task-0030-button-rendering-convergence-solution]] | 按钮主题渲染统一与形状参数编辑方案 | 🟡 部分实施：形状参数编辑已落地 |
+| [[0x-plan&work/active/task-0031-svg-button-state-color-audit]] | 按钮内 SVG 状态颜色链路审查 | ✅ 已实施并验证 |
+| [[0x-plan&work/active/task-0032-passive-story-scheduling]] | PassiveStory P0/P1 与 Pool 分层权重 | 🟡 已裁定，待施工 |
+| [[0x-plan&work/active/task-0033-system-color-layer-scope]] | 控件系统颜色层职责收敛与重复背景清理 | 🟡 规划完成，待施工 |
 
 机制正文已从 `docs-828/04-algorithms` 迁移到 `docs-828/04-mechanisms`；旧目录仅保留迁移说明。
 
@@ -44,6 +52,7 @@
 | --- | --- | --- |
 | [[0x-plan&work/active/roadmap-0008-theme-color-system-refactor]] | ✅ 主要目标已完成 | 保留 CSS 渐进迁移记录 |
 | [[0x-plan&work/active/roadmap-0013-presentation-editor-ux]] | ✅ E0–E5 已完成首版 | 保留既存 UI 环境限制与后续增强 |
+| [[0x-plan&work/active/task-0025-selector-dynamic-theme]] | ✅ 首版已实施并验证 | 保留专项复核、背景预览、动态开关与归档整理 |
 | [[0x-plan&work/active/roadmap-0018-ui-host-registry]] | 🟡 H0–H2 完成，H3/H4 未完成 | 服务工作区宿主仍在施工 |
 
 ## 未完成：按语义分组
@@ -85,14 +94,22 @@
 - [[0x-plan&work/active/roadmap-0011-ui-component-layer-backgrounds]]：将背景图层服务扩展到面板、按钮、Tab、卡片、气泡与弹窗。
 - [[0x-plan&work/active/roadmap-0012-flat-presentation-targets]]：平级表现目标、级别筛选弹窗与统一图层编辑器。
 - [[0x-plan&work/active/roadmap-0013-presentation-editor-ux]]：自定义表现控件编辑器体验、目标卡片与颜色/图片变换参数（E0-E5 已完成，保留全量 UI 测试环境问题）。
-- [[0x-plan&work/active/roadmap-0014-theme-editor-convergence]]：主题编辑器信息架构、表现模型收束、来源可视化与预览画布重构（P0-P1 完成，P2 首版完成，P3-P4 待实施）。
-- [[0x-plan&work/active/roadmap-0015-ui-dom-recalculation]]：正常游玩过程 DOM 重算收敛，区分局部更新与必要结构刷新（待实施）。
-- [[0x-plan&work/active/roadmap-0016-cluster-region-context-overrides]]：簇默认与当前区域状态覆盖，统一三栏宿主表现关系（待实施）。
-- [[0x-plan&work/active/roadmap-0018-ui-host-registry]]：UI Host Registry、服务面板自动表现接入与主题编辑器发现机制（设计完成，待实施）。
-- [[0x-plan&work/active/roadmap-0020-service-workspaces]]：存档、数据包、图鉴与统计服务工作区交互目标（目标设计完成，待实施）。
+- [[0x-plan&work/active/roadmap-0014-theme-editor-convergence]]：主题编辑器信息架构、表现模型收束、来源可视化与预览画布重构（P0-P2 首版完成，P3-P4 待实施）。
+- [[0x-plan&work/active/roadmap-0015-ui-dom-recalculation]]：正常游玩过程 DOM 重算收敛，区分局部更新与必要结构刷新（✅ 首版已实施，保留后续专项回归）。
+- [[0x-plan&work/active/roadmap-0016-cluster-region-context-overrides]]：簇默认与当前区域状态覆盖，统一三栏宿主表现关系（🟡 首版已实施，P2 验收收尾）。
+- [[0x-plan&work/active/roadmap-0018-ui-host-registry]]：UI Host Registry、服务面板自动表现接入与主题编辑器发现机制（🟡 首版已接入，完整服务发现与验收待补）。
+- [[0x-plan&work/active/roadmap-0020-service-workspaces]]：存档、数据包、图鉴与统计服务工作区交互目标（🟡 工作区首版已接入，存档/统计/图鉴/完整失败恢复待补）。
+- [[0x-plan&work/active/roadmap-0024-lobby-pre-init-runtime]]：Lobby/Pre-Init Runtime、Init 选择与通用界面服务（🟡 运行时已落地，文档/浏览器验收收尾）。
+- [[0x-plan&work/active/task-0025-selector-dynamic-theme]]：Init / GlobalEnh 选择页动态主题、轮盘聚焦背景与 Init 返回状态表现（✅ 首版已实施并验证，体验项另列）。
+- [[0x-plan&work/active/roadmap-0026-presentation-inset-decoration]]：表现宿主删除外部包线，改用数据驱动的内嵌装饰线（✅ 已实施）。
+- [[0x-plan&work/active/task-0027-theme-switch-cleanup-and-user-theme-isolation]]：主题切换遗留清理与用户自定义主题独立选择（✅ 已实施）。
+- [[0x-plan&work/active/task-0029-button-sequence-rendering-audit]]：按钮序列表现链路对照审查（✅ 调查完成）。
+- [[0x-plan&work/active/task-0030-button-rendering-convergence-solution]]：按钮主题渲染统一与形状参数编辑方案（🟡 部分实施：形状参数编辑已落地）。
+- [[0x-plan&work/active/task-0031-svg-button-state-color-audit]]：按钮内 SVG 状态颜色链路审查（✅ 已实施并验证；全量检查受既有基线问题影响）。
+- [[0x-plan&work/active/task-0033-system-color-layer-scope]]：控件系统颜色层职责收敛、隐式重复背景清理与全局开关解耦（🟡 规划完成，待施工）。
 - [[0x-plan&work/completed/roadmap-0019-presentation-text-color]]：表现宿主文字颜色统一、四态解析与验收（✅ 已完成）。
 
-当前状态：B0–B3 已完成，B4 待实施。
+当前状态：B0–B4 的运行时、字段映射与编辑器接入已完成；剩余专用可视化预览与多设备视觉回归。
 
 ### 强化与服务权限
 
@@ -102,7 +119,7 @@
 
 ### 新策划汇总（待评审）
 
-- [[0x-plan&work/newPlan/00-index]]：学生获取与关系资产化方案总览。
+- [[0x-plan&work/newPlan/00-index]]：学生获取与关系资产化方案总览；PassiveStory 评审已裁定，施工任务见 [[0x-plan&work/active/task-0032-passive-story-scheduling]]。
 
 该目录按模块/玩法簇收录 Sol 策划回复，当前属于方案草案；评审后再分别沉淀为正式 ADR、Roadmap 与实现任务。
 

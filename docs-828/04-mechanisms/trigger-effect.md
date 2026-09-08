@@ -94,7 +94,7 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 - `characterAcquired { variantId, via, duplicate, shards, bonusResources }` · 订 color-unlock-reactor / tag-stats / trigger-system
 - `cultivated { variantId, kind: 'exp'|'star', newLevel?, newStars? }` · 订 trigger-system
 - `groupUnlocked { groupId }`（色彩组；旧名 `colorUnlocked` 已废）/ `equipmentCollected` / `equipmentEquipped`（均观测事件）
-- `themeChanged { groupId: string | null }` / `entityThemeChanged { entityKey }` / `entityDesignUnlocked { entityKey, designId }`（均观测）
+- `themeChanged { groupId: string | null, selection }` / `entityThemeChanged { entityKey }` / `entityDesignUnlocked { entityKey, designId }`（均观测）；`selection` 是当前 system / color-group / custom 全局来源。
 
 **抽卡 / 社交 / 被动 / 好感**
 - `gachaResolved { poolId, count }` · emit `gacha-service`（逐次结果以 characterAcquired 跟随）

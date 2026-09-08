@@ -10,6 +10,7 @@ import type { ResourceAmount } from '../../data-services/contracts/common';
 import { UIContext } from '../context';
 import { getEnhancementReveal } from './tooltip';
 import { enhMultiplierLabel } from './enhancements';
+import { projectSelectorTheme, selectorThemeStyle } from '../selector-theme';
 
 /** 选择页朝向：'init' = 世界线面；'global-enh' = 全局强化面。 */
 export type SelectionFace = 'init' | 'global-enh';
@@ -28,6 +29,8 @@ export interface GlobalEnhancementSummary {
   price: ResourceAmount[];
   /** 产出倍率展示文案（如 +100%（全局））。 */
   multiplierText: string;
+  /** 条目局部主题树，轮盘卡片与详情共用。 */
+  themeStyle: string;
 }
 
 function summarize(ctx: UIContext): GlobalEnhancementSummary[] {
@@ -47,6 +50,7 @@ function summarize(ctx: UIContext): GlobalEnhancementSummary[] {
         irreversible: !!enh.irreversible,
         price: enh.price ?? [],
         multiplierText: enhMultiplierLabel(ctx, enh),
+        themeStyle: selectorThemeStyle(projectSelectorTheme(ctx, 'global-enh', enh.id)),
       };
     });
 }
@@ -80,7 +84,7 @@ function rowHtml(ctx: UIContext, enh: GlobalEnhancementSummary): string {
   const name = enh.nameKnown || enh.owned ? enh.name : '???';
   const tilt = enh.utilityKnown && enh.multiplierText ? enh.multiplierText : (enh.owned ? enh.multiplierText || '—' : '???');
   return `
-    <button class="${classes.join(' ')}" data-global-enh-select="${enh.id}" data-tooltip="enh:${enh.id}">
+    <button class="${classes.join(' ')}" data-global-enh-select="${enh.id}" data-selector-theme-key="enhancement:${enh.id}" style="${ctx.escapeHtml(enh.themeStyle)}" data-tooltip="enh:${enh.id}">
       <span class="init-row-main">
         <strong>${ctx.escapeHtml(name)}</strong>
         <small>${rowStatus(enh)}</small>
@@ -126,7 +130,7 @@ function detailHtml(ctx: UIContext, enh: GlobalEnhancementSummary, showBackToGam
   })();
 
   return `
-    <div class="init-orb-copy enh-orb-copy">
+    <div class="init-orb-copy enh-orb-copy" data-selector-theme-key="enhancement:${enh.id}" style="${ctx.escapeHtml(enh.themeStyle)}">
       <span class="eyebrow">GLOBAL ENHANCEMENT / SCOPE</span>
       <span class="orb-big">GLOBAL · 全局作用域</span>
       <h2>${ctx.escapeHtml(name)}</h2>

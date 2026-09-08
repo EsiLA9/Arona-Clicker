@@ -84,7 +84,7 @@ export function renderEnhancements(ctx: UIContext): string {
           <span class="mini-yield">${ctx.escapeHtml(utilityText)}</span>
           <div class="mini-actions">
             ${purchaseable
-              ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-purchase-enh="${enh.id}">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">购买 ${priceText} <span>↗</span></span></button>`
+              ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-purchase-enh="${enh.id}">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">购买 ${priceText} <span>↗</span></span></button>`
               : ''}
           </div>
         </div>
@@ -129,7 +129,7 @@ export function renderEnhancementManager(ctx: UIContext): string {
         <div class="mini-card-foot">
           <span class="mini-yield">${ctx.escapeHtml(multiplier || '—')} · ${ctx.escapeHtml(attachLabel(ctx, enh))}</span>
           <div class="mini-actions">
-            <button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-remove-enh="${enh.id}" title="从当前游戏移除该强化">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">移除</span></button>
+            <button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-remove-enh="${enh.id}" title="从当前游戏移除该强化">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">移除</span></button>
           </div>
         </div>
       </article>`;

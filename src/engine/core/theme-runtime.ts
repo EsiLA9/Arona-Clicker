@@ -1,7 +1,7 @@
 // ============================================================
 // engine/theme-runtime.ts — 运行时主题管理框架（分层叠加）
 //
-// 将色彩组（ColorGroup）自身与游戏实际结构解耦：场景（Area/学生）与临时演出
+// 将色彩组（ColorGroup）自身与游戏实际结构解耦：场景（Init/Area/学生）与临时演出
 // 不再绑定「必须是某个组的完整主题」，而是可以：
 //   - 引用多个 ColorGroupDef（groupId）各取一套 token
 //   - 或自定义局部 token 覆盖（tokens）
@@ -9,9 +9,10 @@
 //
 // 叠加（优先级从高到低）：
 //   L1 ephemeral 临时演出：Talklet/Trigger 推入的临时层，可覆盖一切，可帧过期
-//   L2 scene      场景特色：当前 Area / 当前对话学生，进入设、离开清
-//   L3 player     玩家全局主题：state.activeGroupId 常驻基色
-// player/area/student 三层的相对优先级可由玩家自定义（setLayerOrder）；
+//   L2 scene      场景特色：当前 Init / Area / 当前对话学生，进入设、离开清
+//   L3 player     玩家全局 ColorGroup 主题
+//   L3 user       玩家独立自定义主题（被选中时才参与）
+// player/init/area/student 四层的相对优先级可由玩家自定义（setLayerOrder）；
 // 演出层不参与排序，始终最高。前端实际消费的 theme-tree =
 // 各层按优先级合并（高层 token 覆盖低层）。
 // ============================================================
@@ -22,15 +23,15 @@ import type { BackgroundLayerDef, PresentationDef, PresentationLayerDef, Compone
 
 export type { ThemeOrderScope } from '../types/theme';
 
-/** 参与玩家自定义排序的三层（低→高缺省顺序）。 */
-export const DEFAULT_LAYER_ORDER: ThemeOrderScope[] = ['player', 'area', 'student'];
+/** 参与玩家自定义排序的四层（低→高缺省顺序）。 */
+export const DEFAULT_LAYER_ORDER: ThemeOrderScope[] = ['player', 'init', 'area', 'student'];
 
 /** 单层主题来源：引用色彩组（整包 token）或自定义 token 覆盖，或混合。 */
 export interface ThemeLayer {
   /** 层的唯一标识（用于 pop/清除；缺省自动生成）。 */
   id?: string;
   /** 层类型：决定它与其它层叠加的槽位语义。 */
-  scope: ThemeOrderScope | 'ephemeral';
+  scope: ThemeOrderScope | 'user' | 'ephemeral';
   /** 引用 ColorGroupDef；存在时先取其整包 token 作为基底。 */
   groupId?: ColorGroupId;
   /** 有序主题色列表；高层有值时作为最终语义节点的色板。 */
@@ -97,10 +98,10 @@ export class RuntimeThemeManager {
   private user: ThemeLayer | null = null;
   /** 编辑器草稿预览层：高于已应用主题，低于剧情演出层。 */
   private preview: ThemeLayer | null = null;
-  /** 场景栈（后进先出）：进入 Area 压入 area 层，打开学生对话再压入 student 层，关闭时弹出回退。 */
+  /** 场景栈（后进先出）：进入 Init/Area 压入对应层，打开学生对话再压入 student 层，关闭时弹出回退。 */
   private readonly sceneStack: ThemeLayer[] = [];
   private readonly ephemeralStack: { layer: ThemeLayer; id: string }[] = [];
-  /** 玩家自定义的 player/area/student 相对优先级（低→高；缺省见 DEFAULT_LAYER_ORDER）。 */
+  /** 玩家自定义的 player/init/area/student 相对优先级（低→高；缺省见 DEFAULT_LAYER_ORDER）。 */
   private layerOrder: ThemeOrderScope[] = [...DEFAULT_LAYER_ORDER];
   private seq = 0;
 
@@ -113,10 +114,11 @@ export class RuntimeThemeManager {
     this.preview = null;
     this.sceneStack.length = 0;
     this.ephemeralStack.length = 0;
+    this.layerOrder = [...DEFAULT_LAYER_ORDER];
   }
 
   /**
-   * 设置 player/area/student 三层的相对优先级（低→高；演出层不受影响，始终最高）。
+   * 设置 player/init/area/student 四层的相对优先级（低→高；演出层不受影响，始终最高）。
    * 非完整排列（缺失/重复/非法 scope）时保持现有顺序。
    */
   setLayerOrder(order: ThemeOrderScope[] | null | undefined): void {
@@ -124,7 +126,16 @@ export class RuntimeThemeManager {
     for (const scope of order ?? []) {
       if (DEFAULT_LAYER_ORDER.includes(scope) && !cleaned.includes(scope)) cleaned.push(scope);
     }
-    if (cleaned.length === DEFAULT_LAYER_ORDER.length) this.layerOrder = cleaned;
+    if (cleaned.length === DEFAULT_LAYER_ORDER.length) {
+      this.layerOrder = cleaned;
+      return;
+    }
+    const legacyScopes: ThemeOrderScope[] = ['player', 'area', 'student'];
+    if (cleaned.length === legacyScopes.length && legacyScopes.every(scope => cleaned.includes(scope))) {
+      const expanded = [...cleaned];
+      expanded.splice(Math.max(0, expanded.indexOf('area')), 0, 'init');
+      this.layerOrder = expanded;
+    }
   }
 
   // --- 各层写入 ---
@@ -134,7 +145,7 @@ export class RuntimeThemeManager {
     this.player = layer;
   }
 
-  /** 用户主题层：高于场景、低于临时演出，不参与 player/area/student 排序。 */
+  /** 用户主题层：仅在 activeTheme 选择 custom 时存在，高于场景、低于临时演出，不参与 player/init/area/student 排序。 */
   setUser(layer: ThemeLayer | null): void {
     this.user = layer;
   }
@@ -145,7 +156,7 @@ export class RuntimeThemeManager {
   }
 
   /**
-   * 压入场景层（当前 Area / 当前对话学生）。同 scope 已存在时先移除再压入（避免重复）。
+   * 压入场景层（当前 Init / Area / 当前对话学生）。同 scope 已存在时先移除再压入（避免重复）。
    * 进入场景调用；离开时用 popScene 弹出。
    */
   pushScene(layer: ThemeLayer): void {
@@ -203,6 +214,9 @@ export class RuntimeThemeManager {
     if (scope === 'player') {
       return this.player ? this.resolveLayer(this.player) : {};
     }
+    if (scope === 'user') {
+      return this.user ? this.resolveLayer(this.user) : {};
+    }
     for (let i = this.sceneStack.length - 1; i >= 0; i--) {
       if (this.sceneStack[i].scope === scope) return this.resolveLayer(this.sceneStack[i]);
     }
@@ -210,13 +224,13 @@ export class RuntimeThemeManager {
   }
 
   /**
-   * 解析最终主题：按玩家配置的 player/area/student 相对优先级合并，演出层叠加在最上。
+   * 解析最终主题：按玩家配置的 player/init/area/student 相对优先级合并，演出层叠加在最上。
    * 以最底层（优先级最低）的非空层为基底求整包 token，其上各层逐 token 覆盖。
    */
   resolve(): ResolvedTheme {
     // 各槽位层（player 单层 + 场景栈按 scope 去重），再按配置顺序从低到高收集；
     // 演出层不参与排序，恒在顶层叠加
-    const byScope: Partial<Record<ThemeOrderScope | 'ephemeral', ThemeLayer>> = {};
+    const byScope: Partial<Record<ThemeOrderScope | 'user' | 'ephemeral', ThemeLayer>> = {};
     if (this.player) byScope.player = this.player;
     for (const scene of this.sceneStack) byScope[scene.scope] = scene;
     const ordered: ThemeLayer[] = [];

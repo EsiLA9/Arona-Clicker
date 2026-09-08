@@ -24,6 +24,17 @@ export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       ctrl.scheduleRender();
     });
   });
+  scope.querySelectorAll<HTMLButtonElement>('[data-activate-custom-theme]').forEach(button => {
+    button.addEventListener('click', () => {
+      const customThemeId = button.dataset.activateCustomTheme;
+      if (!customThemeId || !ctrl.commands.activateCustomTheme(customThemeId)) {
+        ctrl.toast.show('用户自定义主题不可用', 'error');
+        return;
+      }
+      ctrl.toast.show('已应用用户自定义主题', 'success');
+      ctrl.scheduleRender();
+    });
+  });
   // 层级优先级：拖拽行重排（HTML5 DnD；drop 时把新顺序落库并重渲染）
   const layerRows = scope.querySelector<HTMLElement>('[data-theme-layer-order-rows]');
   if (layerRows) {

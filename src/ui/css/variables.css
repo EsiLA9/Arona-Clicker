@@ -38,6 +38,10 @@
    --hero-gradient: linear-gradient(125deg, #e9f3ff 0%, #eef5ff 55%, #3b9eff 100%);
 }
 
+html {
+   background: #f8fbff;
+}
+
 * {
    box-sizing: border-box;
 }
@@ -45,10 +49,14 @@
 body {
    margin: 0;
    min-width: 320px;
-   background: var(--theme-bg-gradient, linear-gradient(180deg, var(--canvas, #dcebff) 0%, var(--panel-light, #eef6ff) 45%, #f8fbff 100%));
-   background-attachment: fixed;
-   color: var(--ink-on-canvas);
    font-family: Manrope, sans-serif;
+}
+
+#app {
+   position: relative;
+   z-index: 1;
+   min-height: 100vh;
+   color: var(--ink-on-canvas, #1e2a38);
 }
 
 button {

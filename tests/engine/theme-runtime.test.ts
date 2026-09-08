@@ -177,6 +177,17 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     expect(r.layers).toEqual(['area', 'player', 'fx']);
   });
 
+  test('Init 世界线层位于玩家与 Area 之间，并支持自定义优先级', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.pushScene({ scope: 'init', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', groupId: 'pink' });
+    expect(manager.resolve().tokens['primary']).toBe('#ec4899');
+
+    manager.setLayerOrder(['player', 'area', 'student', 'init']);
+    expect(manager.resolve().tokens['primary']).toBe('#3b82f6');
+  });
+
   test('RUNTIME-12A 编辑预览层高于用户主题且低于演出层', () => {
     const { manager } = makeManager();
     manager.setPlayer({ scope: 'player', tokens: { primary: '#101010' } });
@@ -363,6 +374,16 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     game = freshGame();
     const handled = game.colorSystem.handleThemeEffect({ op: 'addResource', target: 'x', value: 1 });
     expect(handled).toBe(false);
+  });
+
+  test('用户主题系统颜色层使用当前主题背景变量别名', () => {
+    game = freshGame();
+    game.colorSystem.setUserThemePreview({
+      palette: ['#123456'],
+      presentation: { hosts: [{ id: 'header.button', shape: 'rounded-parallelogram' }] },
+    });
+    expect(game.colorSystem.runtimeTheme().background.find(layer => layer.id === 'system-color-background')?.value)
+      .toBe('linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)');
   });
 
   test('多色彩组叠加：场景覆盖玩家、临时覆盖一切', () => {

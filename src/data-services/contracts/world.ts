@@ -38,6 +38,8 @@ export interface InitDef {
   worldTilt?: string;
   /** @label 倾斜值展示别名 */
   worldTiltAlias?: string;
+  /** @label 选择页主题 */
+  theme?: ThemeDef;
   /** @label 标签 */
   tags?: TagPath[];
   extra?: ExtraCompound;

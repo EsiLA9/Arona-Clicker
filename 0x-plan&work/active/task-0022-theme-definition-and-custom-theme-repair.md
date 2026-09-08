@@ -4,7 +4,7 @@
 >
 > 范围：颜色组、颜色装备、主题设计、Area / CharacterVariant 声明主题、运行时主题层、用户自定义主题，以及 Affector 提供的主题编辑能力。
 
-> 设计原则：收敛“解析方式”，不强行收敛“内容来源”。主题系统应允许数据包扩展和玩家创作，但任何来源都必须能够被识别、继承、预览和撤销。
+> 设计原则：收敛“解析方式”，不强行收敛“内容来源”。主题系统应允许数据包扩展和玩家创作，但任何来源都必须能够被识别、继承、预览和撤销。全局来源单选与用户主题应用边界由 [[0x-plan&work/active/task-0027-theme-switch-cleanup-and-user-theme-isolation]] 进一步收束。
 
 ## 当前核验状态
 
@@ -40,7 +40,7 @@ Affector 提供的“自定义主题”也不应继续表现为直接修改其�
 - `CharacterVariantDef.theme`：学生差分声明默认主题；
 - `ColorEquipmentDef.theme`：装备主题；
 - `ThemeDesignDef.theme`：可收集主题设计；
-- Runtime player / area / student 层；
+- Runtime player / init / area / student 层，以及独立 user / preview / ephemeral 层；
 - 剧情 `setTheme` 临时层；
 - 用户自定义主题层。
 
@@ -55,7 +55,7 @@ resolveEffectiveTheme(entityKey, state, runtimeLayers)
   1. 解析 entityKey 当前挂靠的来源
   2. 在同一实体内按 custom > design > equipment > declared-default 合并
   3. 使用 ColorGroup / baseThemeRef 补齐未声明字段
-  4. 按 player / area / student 的运行时层级合并
+  4. 按 player / init / area / student 的运行时层级合并，user / preview 独立插入
   5. ephemeral 始终作为临时最高层
 ```
 
@@ -102,7 +102,7 @@ export const SYSTEM_DEFAULT_THEME = {
 - ColorSystem、RuntimeThemeManager、ThemeTree、controller-theme、CSS 兼容 fallback 均从同一来源读取；
 - 不再在多个文件中散落 `#3b9eff` / `#4a7dff`；
 - `base:colorgroup:schale-solid` 是可拥有、可激活的正式颜色组，不等同于系统默认主题；
-- `activeGroupId = null` 时明确解析为系统默认主题，而不是隐式依赖空层；
+- `activeTheme.kind = 'system'` 时明确解析为系统默认主题，而不是隐式依赖空层；
 - CSS 中的 fallback 只作为加载失败时的最后保险，不再承担业务默认值的定义职责。
 
 ### P1-1：“默认”选项的语义没有统一
@@ -232,7 +232,7 @@ interface ThemeAttachment {
   > ColorGroup / 系统默认
 ```
 
-这是“同一实体内”的来源顺序，不取代 player / area / student 的层级排序；剧情临时主题仍然是运行时的最高层。自定义主题只能覆盖自身声明的字段。未声明的 token 必须沿 `baseThemeRef` 或实体默认主题继承，不能复制一份静态全量主题后独立漂移。
+这是“同一实体内”的来源顺序，不取代 player / init / area / student 的层级排序；user / preview 独立插入，剧情临时主题仍然是运行时的最高层。自定义主题只能覆盖自身声明的字段。未声明的 token 必须沿 `baseThemeRef` 或实体默认主题继承，不能复制一份静态全量主题后独立漂移。
 
 ### 3.3.1 推荐的用户操作流
 
@@ -291,7 +291,7 @@ interface ThemeAttachment {
 
 以下内容应保持可配置，而不是写死：
 
-- player / area / student 的层级顺序；
+- player / init / area / student 的层级顺序；
 - 数据包是否提供自己的 ColorGroup 或 ThemeDesign；
 - 自定义主题的基底类型；
 - 自定义主题可以挂靠的宿主范围；
@@ -311,7 +311,7 @@ interface ThemeAttachment {
 - `src/data-services/registry/registry-validate.ts`：实体 ID 和 Datapack 静态校验；
 - `src/data-services/registry/registry.ts`：ColorGroup / ColorEquipment / ThemeDesign 注册表；
 - `src/arona-clicker/services/color-system.ts`：主题解析、默认来源和实体主题选项；
-- `src/engine/core/theme-runtime.ts`：player / area / student / ephemeral 运行时层；
+- `src/engine/core/theme-runtime.ts`：player / init / area / student / user / preview / ephemeral 运行时层；
 - `src/ui/theme-tree.ts`：UI 主题树与 fallback；
 - `src/ui/components/header.ts`：全局“默认”颜色选择器；
 - `docs-828/04-mechanisms/color-derivation.md`：主题派生和合并规则。
@@ -324,7 +324,7 @@ interface ThemeAttachment {
 - 现有 Affector 编辑器保存时同步生成 `user:theme:default` 独立记录，并挂靠到 `base`；
 - 禁用用户主题只关闭 `base` 挂靠，保留自定义主题记录；
 - 实体主题解析增加来源链，并支持独立自定义主题以 ColorGroup 或 ThemeDesign 为基底；
-- 保留旧 `userTheme.applied` 作为兼容投影，避免旧存档在本阶段失效；
+- 后续由 task-0027 收束为 `customThemes` 唯一内容源与 `activeTheme` 全局来源；本条“保留 `userTheme.applied` 兼容投影”的阶段性方案已被替代。
 - 增加独立存储、base 挂靠、禁用不删除、实体自定义不污染 ColorGroup 的测试。
 
 后续仍需处理：自定义主题管理 UI、完整的实体挂靠操作、跨 Datapack 主题冲突的来源提示，以及旧 `EntityThemeSlot.customTheme` 向独立记录的逐步收束。

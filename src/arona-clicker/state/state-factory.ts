@@ -17,6 +17,7 @@ export function createDefaultState(): AronaClickerState {
     flags: {},
     triggersCompleted: [],
     unlockedInits: [],
+    activeTheme: { kind: 'system' },
     visitedAreas: [],
     initSnapshots: {},
     extras: extra.dict({}),

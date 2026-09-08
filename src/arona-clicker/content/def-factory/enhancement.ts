@@ -7,6 +7,7 @@ import type { ResourceAmount } from '../../../data-services/contracts/common';
 import type { AffectorPackRef } from '../../../engine/types/trigger';
 import type { SpotFunctionalityDef } from '../../../data-services/contracts/world';
 import type { EnhancementAttachment, EnhancementDef } from '../../../data-services/contracts/enhancement';
+import type { ThemeDef } from '../../../engine/types/theme';
 
 export class EnhancementBuilder {
   private readonly _id: EnhancementId;
@@ -23,6 +24,7 @@ export class EnhancementBuilder {
   private _affectorPackIds: AffectorPackRef[] = [];
   private _revealTriggers: RevealTrigger[] = [];
   private _extra?: ExtraCompound;
+  private _theme?: ThemeDef;
   constructor(id: EnhancementId) { this._id = id; }
   name(value: string): this { this._name = value; return this; }
   desc(value: string): this { this._description = value; return this; }
@@ -36,6 +38,7 @@ export class EnhancementBuilder {
   attachInit(initId: InitId): this { this._attachment = { kind: 'init', initId }; return this; }
   attachGlobal(): this { this._attachment = { kind: 'global' }; return this; }
   irreversible(): this { this._irreversible = true; return this; }
+  theme(value: ThemeDef): this { this._theme = value; return this; }
   addsFunctionality(...defs: SpotFunctionalityDef[]): this { this._addsFunctionalities.push(...defs); return this; }
   affectorPack(id: AffectorPackRef): this { this._affectorPackIds.push(id); return this; }
   affectorPacks(...ids: AffectorPackRef[]): this { this._affectorPackIds.push(...ids); return this; }
@@ -50,6 +53,7 @@ export class EnhancementBuilder {
     if (this._tags.length) def.tags = this._tags;
     if (this._attachment) def.attachment = this._attachment;
     if (this._irreversible) def.irreversible = true;
+    if (this._theme) def.theme = this._theme;
     if (this._addsFunctionalities.length) def.addsFunctionalities = this._addsFunctionalities;
     if (this._affectorPackIds.length) def.affectorPackIds = this._affectorPackIds;
     if (this._revealTriggers.length) def.revealTriggers = this._revealTriggers;

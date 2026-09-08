@@ -8,10 +8,20 @@ import { init, InitBuilder } from '../../../src/arona-clicker/content/def-factor
 import { Resource } from '../../../src/arona-clicker/types/ids';
 import type { InitDef } from '../../../src/data-services/contracts/world';
 import type { TriggerDef } from '../../../src/engine/types';
+import { baseInits } from '../../../src/arona-clicker/content/inits';
 
 const CREDIT = Resource.Credit;
 
 describe('InitBuilder', () => {
+  test('正式 Init 均声明独立主题表现', () => {
+    expect(baseInits).toHaveLength(5);
+    for (const item of baseInits) {
+      expect(item.theme?.palette?.length).toBeGreaterThanOrEqual(2);
+      expect(item.theme?.background?.[0]?.id).toBe('init-atmosphere');
+      expect(item.theme?.presentation?.hosts?.some(host => host.id === 'header.button')).toBe(true);
+    }
+  });
+
   test('init() 返回 InitBuilder 实例', () => {
     const b = init('base:init:test');
     expect(b).toBeInstanceOf(InitBuilder);

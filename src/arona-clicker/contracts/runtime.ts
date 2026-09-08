@@ -131,6 +131,7 @@ export interface GameCommands {
   addExp(variantId: VariantId, amount: number): { ok: boolean; newLevel: number; newExp: number };
   breakthroughStar(variantId: VariantId): { ok: boolean; reason?: string; newStars?: number };
   activateTheme(groupId: string | null): boolean;
+  activateCustomTheme(customThemeId: string): boolean;
   setThemeLayerOrder(order: ThemeOrderScope[]): boolean;
   setEntityThemeSlot(entityKey: string, slot: EntityThemeSlot | null): boolean;
   unlockInit(initId: string): void;

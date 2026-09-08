@@ -102,7 +102,7 @@
 
 ### 1.7 当前运行时状态会在包应用时丢失
 
-`applyEnabledPacks()` 最终调用 `game.reload()`，而 `reloadRuntime()` 会执行 `reset()`，重新创建默认 `PlayerState`。这会清除当前 `activeGroupId`、进度和其他运行时状态。
+`applyEnabledPacks()` 最终调用 `game.reload()`，而 `reloadRuntime()` 会执行 `reset()`，重新创建默认 `PlayerState`。这会清除当前 `activeTheme`、进度和其他运行时状态。
 
 该问题与数据包工作区修复强相关：应用按钮必须明确展示影响，并且不能把“浏览包库”误变成“立即重置游戏”。状态保留、残留和兼容策略应按 ADR-0004 的存档规则另行实现，但本任务至少要保证 UI 明确告知当前实现的影响，不能继续以静默方式发生。
 
@@ -348,12 +348,12 @@ interface DatapackValidationReport {
 
 当草案停用或替换提供 `ColorGroup` 的数据包时，校验报告应指出：
 
-- 当前 `activeGroupId` 是否来自该包；
+- 当前 `activeTheme` 是否引用该包中的色彩组或主题内容；
 - 当前主题是否会回退；
 - 哪些实体的 `colorGroupId` 可能失效；
 - 当前页面是否需要重新注入主题变量。
 
-当应用启用集会触发运行时重载时，页面必须明确展示当前实现会影响的运行时状态。若后续按 ADR-0004 实现状态保留，则应增加对应测试，确认仍有效的 `activeGroupId`、存档数据和残留数据按规则处理。
+当应用启用集会触发运行时重载时，页面必须明确展示当前实现会影响的运行时状态。若后续按 ADR-0004 实现状态保留，则应增加对应测试，确认仍有效的 `activeTheme`、存档数据和残留数据按规则处理。
 
 ## 7. 分阶段施工顺序
 

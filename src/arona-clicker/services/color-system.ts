@@ -34,8 +34,18 @@ function storedThemeDef(theme: StoredCustomTheme, base?: ThemeDef): ThemeDef {
   };
 }
 
+function customThemeBase(registry: Registry, theme: StoredCustomTheme): ThemeDef | undefined {
+  if (theme.baseThemeRef?.kind === 'color-group' && theme.baseThemeRef.id) {
+    return { colorGroupId: theme.baseThemeRef.id };
+  }
+  if (theme.baseThemeRef?.kind === 'theme-design' && theme.baseThemeRef.id) {
+    return registry.themeDesigns.get(theme.baseThemeRef.id)?.theme;
+  }
+  return undefined;
+}
+
 function systemColorBackground(opacity = 1): BackgroundLayerDef {
-  return { id: SYSTEM_COLOR_BACKGROUND_ID, kind: 'gradient', value: 'linear-gradient(135deg, var(--bg) 0%, var(--bgAlt) 100%)', opacity, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' };
+  return { id: SYSTEM_COLOR_BACKGROUND_ID, kind: 'gradient', value: 'linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)', opacity, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' };
 }
 
 // --- HSL 工具（纯函数，UI 可复用） ---
@@ -72,8 +82,8 @@ export function hexToRgbTriplet(hex: string): string {
   return `${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}`;
 }
 
-/** 实体键：`area:<id>` / `variant:<id>`（主题槽 / 配色设计归属的键）。 */
-export function entityKeyOf(kind: 'area' | 'variant', id: string): string {
+/** 实体键：实体主题槽 / 配色设计归属的稳定键。 */
+export function entityKeyOf(kind: 'area' | 'variant' | 'init' | 'enhancement', id: string): string {
   return `${kind}:${id}`;
 }
 
@@ -246,33 +256,39 @@ export class ColorSystem {
 
   // --- 运行时主题（RuntimeThemeManager 门面） ---
 
-  /** 从状态同步玩家全局主题层：activeGroupId 常驻基色（读档/激活主题后调用）。 */
+  /** 从状态同步全局主题来源：系统 / ColorGroup / 独立用户主题三选一。 */
   syncPlayerThemeFromState(state: PlayerState): void {
-    const id = state.activeGroupId ?? null;
+    const selection = state.activeTheme ?? { kind: 'system' as const };
+    const id = selection.kind === 'color-group' ? selection.id : null;
     this.runtime.setPlayer(id ? { scope: 'player', groupId: id, palette: this.paletteOfGroup(id) } : null);
     this.runtime.setLayerOrder(state.themeLayerOrder);
   }
 
   syncUserThemeFromState(state: PlayerState, active: boolean): void {
+    const selection = state.activeTheme ?? { kind: 'system' as const };
     const user = state.userTheme;
-    const customId = user?.customThemeId ?? 'user:theme:default';
-    const attachment = state.themeAttachments?.base;
-    const stored = attachment?.customThemeId === customId ? state.customThemes?.[customId] : undefined;
-    const applied = stored ?? user?.applied;
-    const enabled = active && (attachment?.enabled ?? user?.enabled) && !!applied;
-    const colorLayer = applied?.systemColorLayerIgnored ? {} : {
+    const customId = selection.kind === 'custom' ? selection.id : null;
+    const stored = customId ? state.customThemes?.[customId] : undefined;
+    const enabled = active
+      && selection.kind === 'custom'
+      && !!stored
+      && user?.enabled !== false;
+    const base = stored ? customThemeBase(this.registry, stored) : undefined;
+    const applied = stored ? storedThemeDef(stored, base) : undefined;
+    const colorLayer = stored?.systemColorLayerIgnored ? {} : {
       tokens: applied?.tokens,
-      palette: normalizePalette(applied?.palette, applied?.paletteUiEnabled),
+      palette: normalizePalette(applied?.palette, stored?.paletteUiEnabled),
       nodeOverrides: applied?.nodes,
-      scopeNodeOverrides: applied?.scopes,
+      scopeNodeOverrides: stored?.scopes,
     };
     this.runtime.setUser(enabled ? {
-      id: customId,
-      scope: 'player',
+      id: customId ?? undefined,
+      scope: 'user',
+      groupId: applied?.colorGroupId as ColorGroupId | undefined,
       ...colorLayer,
-      background: [systemColorBackground(applied?.systemColorLayerIgnored ? 0 : 1), ...(applied?.background ?? [])],
-      backgroundLayerOrder: applied?.backgroundLayerOrder,
-      systemColorLayerIgnored: applied?.systemColorLayerIgnored === true,
+      background: [systemColorBackground(stored?.systemColorLayerIgnored ? 0 : 1), ...(applied?.background ?? [])],
+      backgroundLayerOrder: stored?.backgroundLayerOrder,
+      systemColorLayerIgnored: stored?.systemColorLayerIgnored === true,
       presentation: applied?.presentation,
     } : null);
   }
@@ -632,9 +648,9 @@ export class ColorSystem {
 
   /** 变体已装备色彩装备的聚合效果声明已迁移至 ColorEquipmentSystem.effectsOf（单装备槽按 equippedEquipment 聚合）。 */
 
-  /** 当前激活主题的最终 token 表（activeGroupId 为 null 或未知/未拥有 → null，UI 用默认主题）。 */
+  /** 当前激活 ColorGroup 的最终 token 表；系统默认或用户主题返回 null。 */
   activeThemeTokens(state: PlayerState): Record<string, string> | null {
-    const id = state.activeGroupId;
+    const id = state.activeTheme?.kind === 'color-group' ? state.activeTheme.id : undefined;
     if (!id) return null;
     const def = this.getGroup(id);
     if (!def || !this.isGroupOwned(state, id)) return null;

@@ -17,6 +17,73 @@
    z-index: 1;
 }
 
+/* 选择页专用超级背景：当前/下一场景双缓冲承接轮盘聚焦切换；不进入视口与轮盘。 */
+.selector-super-background {
+   position: absolute;
+   z-index: 0;
+   inset: 0;
+   overflow: hidden;
+   isolation: isolate;
+   pointer-events: none;
+}
+
+.selector-scene-background-stack {
+   position: absolute;
+   z-index: 0;
+   inset: 0;
+   overflow: hidden;
+   pointer-events: none;
+}
+
+/* 选择页圆盘是独立的装饰与定位参照；轮盘仍是 shell 的独立兄弟层。 */
+.selector-disc {
+   overflow: hidden;
+   isolation: isolate;
+   background: color-mix(in srgb, var(--theme-node-bg, var(--canvas, #e2f1ff)) 20%, transparent);
+}
+
+.selector-disc::before,
+.selector-disc::after {
+   z-index: 3;
+   pointer-events: none;
+}
+
+.selector-scene-background {
+   position: absolute;
+   inset: 0;
+   overflow: hidden;
+   opacity: 0;
+   transition: opacity .42s ease;
+}
+
+.selector-scene-background-current {
+   z-index: 0;
+   opacity: 1;
+}
+
+.selector-scene-background-next {
+   z-index: 1;
+}
+
+.selector-scene-background-next.is-visible {
+   opacity: 1;
+}
+
+.selector-scene-background-current.is-hidden {
+   opacity: 0;
+}
+
+.selector-background {
+   position: absolute;
+   inset: 0;
+   overflow: hidden;
+   background: var(--theme-node-bg, var(--canvas, #e9f3ff));
+}
+
+.selector-background .console-background-layer {
+   transition: none;
+}
+
 /* 巨型倾斜值圆盘：贯穿整个页面高度的背景层 */
 .init-orb-disc {
    position: absolute;
@@ -74,6 +141,7 @@
    flex-direction: column;
    justify-content: center;
    gap: 13px;
+   color: var(--ink-on-canvas, var(--ink, #192536));
    max-width: 430px;
    min-height: 340px;
    height: 100%;
@@ -184,35 +252,35 @@
    gap: 12px;
    align-items: center;
    padding: 14px 17px;
-   background: rgba(255, 255, 255, .9);
-   border: 1px solid var(--line);
+   background: color-mix(in srgb, var(--theme-node-panel, #ffffff) 90%, transparent);
+   border: 1px solid var(--theme-node-line, var(--line));
    border-radius: 14px;
    color: var(--ink-on-panel);
    text-align: left;
    cursor: pointer;
-   box-shadow: 0 10px 26px rgba(var(--primary-rgb), .10);
+   box-shadow: 0 10px 26px rgba(var(--theme-node-primary-rgb, var(--primary-rgb)), .10);
    translate: calc(var(--par-x, 0) * 18px) calc(var(--par-y, 0) * 12px);
    transition: transform .6s cubic-bezier(.24, .9, .3, 1), opacity .45s ease, translate .35s ease-out, border-color .15s ease, box-shadow .15s ease;
    will-change: transform, opacity;
 }
 
 .init-row:hover {
-   border-color: var(--cyan);
+   border-color: var(--theme-node-primary, var(--cyan));
 }
 
 .init-row:focus-visible {
-   outline: 2px solid var(--cyan);
+   outline: 2px solid var(--theme-node-primary, var(--cyan));
    outline-offset: 2px;
 }
 
 .init-row.is-active {
-   border-color: var(--cyan);
-   background: #ffffff;
-   box-shadow: 0 16px 38px rgba(var(--primary-rgb), .22);
+   border-color: var(--theme-node-primary, var(--cyan));
+   background: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 14%, var(--theme-node-panel, #ffffff));
+   box-shadow: 0 16px 38px rgba(var(--theme-node-primary-rgb, var(--primary-rgb)), .22);
 }
 
 .init-row.is-locked .init-row-main strong {
-   color: var(--muted-on-panel);
+   color: var(--muted-on-panel, var(--theme-node-muted));
 }
 
 .init-row.is-locked {
@@ -235,7 +303,7 @@
 }
 
 .init-row-main small {
-   color: var(--muted-on-panel);
+   color: var(--muted-on-panel, var(--theme-node-muted));
    font: 500 8px 'DM Mono', monospace;
    letter-spacing: .08em;
 }
@@ -245,7 +313,7 @@
    overflow: hidden;
    text-overflow: ellipsis;
    white-space: nowrap;
-   color: var(--cyan);
+   color: var(--theme-node-primary, var(--cyan));
    font: 500 9px 'DM Mono', monospace;
    letter-spacing: .04em;
 }
@@ -273,7 +341,7 @@
    transform: translate(-50%, -50%);
    /* 鼠标视差：跟随光标偏移（与 transform 定位叠加），不改变选中 */
    translate: calc(var(--par-x, 0) * 12px) calc(var(--par-y, 0) * 8px);
-   background: radial-gradient(circle at 50% 50%, var(--panel-light, #f2f9ff) 0%, var(--canvas, #e2f1ff) 42%, color-mix(in srgb, var(--cyan, #cbe6ff) 22%, #ffffff) 100%);
+   background: color-mix(in srgb, var(--theme-node-bg, var(--canvas, #e2f1ff)) 20%, transparent);
    animation: selector-orb-fade .5s ease-out;
    transition: transform .42s cubic-bezier(.24, .9, .3, 1), translate .35s ease-out;
    will-change: transform;
@@ -335,3 +403,13 @@
    grid-template-columns: 380px minmax(0, 1fr);
 }
 
+@media (prefers-reduced-motion: reduce) {
+   .selector-scene-background,
+   .selector-face,
+   .init-orb-disc,
+   .init-row,
+   .init-wheel {
+      transition: none;
+      animation: none;
+   }
+}

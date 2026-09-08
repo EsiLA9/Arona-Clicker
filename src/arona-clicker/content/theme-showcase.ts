@@ -3,6 +3,7 @@ import { area, enhancement, init, passiveStory, spot } from './def-factory';
 import type { AreaDef, InitDef, SpotDef } from '../../data-services/contracts/world';
 import type { EnhancementDef } from '../../data-services/contracts/enhancement';
 import type { PassiveStoryEntry } from '../../data-services/contracts/story-entry';
+import type { ThemeDef } from '../../engine/types/theme';
 import { tagPath } from '../../engine/core/tag';
 
 export const THEME_SHOWCASE_INIT = 'base:init:theme_showcase' as const;
@@ -10,6 +11,59 @@ export const THEME_SHOWCASE_AREA = 'base:area:theme_showcase' as const;
 export const THEME_SHOWCASE_SPOTS = ['base:spot:theme_showcase_a', 'base:spot:theme_showcase_b'] as const;
 export const THEME_SHOWCASE_ENHANCEMENTS = ['base:enhancement:theme_showcase_a', 'base:enhancement:theme_showcase_b'] as const;
 export const THEME_SHOWCASE_VARIANTS = ['Arona', 'Hoshino'] as const;
+
+const THEME_SHOWCASE_THEME: ThemeDef = {
+  palette: ['#2563eb', '#06b6d4', '#8b5cf6'],
+  tokens: {
+    primary: '#2563eb',
+    bg: '#dbeafe',
+    bgAlt: '#ede9fe',
+    panel: '#ffffff',
+    text: '#172554',
+    border: '#93c5fd',
+    accent: '#8b5cf6',
+  },
+  background: [
+    {
+      id: 'theme-showcase-atmosphere',
+      kind: 'gradient',
+      value: 'linear-gradient(135deg, #dbeafe 0%, #cffafe 44%, #ede9fe 100%)',
+      opacity: 1,
+      position: 'center',
+      size: 'cover',
+      repeat: 'no-repeat',
+      blendMode: 'normal',
+      attachment: 'fixed',
+    },
+    {
+      id: 'theme-showcase-glow',
+      kind: 'gradient',
+      value: 'radial-gradient(circle at 78% 18%, #ffffff 0%, transparent 46%)',
+      opacity: 0.72,
+      position: 'center',
+      size: 'cover',
+      repeat: 'no-repeat',
+      blendMode: 'normal',
+      attachment: 'fixed',
+    },
+  ],
+  presentation: {
+    hosts: [
+      {
+        id: 'header.button',
+        shape: 'rounded-parallelogram',
+        decoration: { color: '#8b5cf6', width: 1, inset: 0, opacity: 0.84, style: 'solid' },
+        layers: [{ id: 'theme-showcase-header', kind: 'gradient', value: 'linear-gradient(135deg, #2563eb, #8b5cf6)', opacity: 0.96, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'local' }],
+        states: {
+          active: {
+            decoration: { color: '#06b6d4', width: 2 },
+            layers: [{ id: 'theme-showcase-header-active', kind: 'solid', value: '#06b6d4', opacity: 0.98, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'local' }],
+          },
+        },
+      },
+    ],
+  },
+};
 
 export const themeShowcaseAreas: AreaDef[] = [
   area(THEME_SHOWCASE_AREA, THEME_SHOWCASE_INIT)
@@ -59,6 +113,7 @@ export const themeShowcaseInits: InitDef[] = [
     .name('主题系统展示 Init')
     .desc('临时主题实验空间：进入后自动开放主题编辑器，并准备一组可复用的 Spot、Enhancement、角色与被动剧情展示内容。')
     .areas(THEME_SHOWCASE_AREA)
+    .theme(THEME_SHOWCASE_THEME)
     .onEnterFirst(
       { op: 'addEnhancement', target: '', value: THEME_SHOWCASE_ENHANCEMENTS[0] },
       { op: 'addEnhancement', target: '', value: THEME_SHOWCASE_ENHANCEMENTS[1] },

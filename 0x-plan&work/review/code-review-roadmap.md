@@ -37,9 +37,11 @@ createAppRuntime()
   → AronaClickerRuntime.init(datapacks)
   → Registry 建表与引用校验
   → GameNum / Reveal / Affector / Trigger 建立运行时索引
-  → 进入默认 Init
+  → 进入默认 Init（旧 Review 时序）
   → start() / tick()
 ```
+
+当前 UI 主链已改为 Lobby → 选择/恢复 Init → start；上面的链路仅保留为本轮 Review 的历史基线。当前事实以 `docs-828/01-architecture/overview.md` 为准。
 
 ## Phase 0：全局认知与基线（✅ 已完成）
 
@@ -233,4 +235,3 @@ createAppRuntime()
 - [[docs-828/01-architecture/run-logic]]
 - [[docs-828/03-data-structures/type-boundary-audit]]
 - [[docs-828/05-conventions/doc-maintenance]]
-

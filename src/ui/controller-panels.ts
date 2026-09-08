@@ -5,12 +5,16 @@
 // ============================================================
 
 import { createUIContext } from './context';
+import { backgroundView as backgroundViewImpl, presentationView as presentationViewImpl } from './controller-theme';
 import { renderSelectorPage as renderSelectorPageView } from './components/selector-page';
 import type { InitSelectMode } from './components/init-select';
 import type { SelectionFace } from './components/global-enhancement-select';
 import { SaveSystem } from '../data-services/persistence/storage';
 import type { SaveData } from '../arona-clicker/contracts/save-data';
 import type { UIController } from './controller';
+import { bindTopBarActions } from './controller-actions-topbar';
+import { bindThemeActions } from './controller-actions-theme';
+import { syncOuterBackground } from './outer-background';
 
 /** Init 选择界面模式：由当前流程决定（新建 vs 重启/重选），替代从 activeInit 推断。 */
 export function initSelectMode(ctrl: UIController): InitSelectMode {
@@ -29,7 +33,7 @@ export function renderSelectorPage(ctrl: UIController, initialFace: SelectionFac
   if (!SaveSystem.exists()) {
     SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
   }
-  const context = createUIContext(ctrl.game);
+  const context = createUIContext(ctrl.game, backgroundViewImpl(ctrl), presentationViewImpl(ctrl));
   ctrl.selectorPage.reset();
   ctrl.root.innerHTML = renderSelectorPageView(
     context,
@@ -39,11 +43,15 @@ export function renderSelectorPage(ctrl: UIController, initialFace: SelectionFac
     showBackToGame(ctrl),
     initialFace,
   );
+  syncOuterBackground(context.background);
   // #app 重建后原锚点（如 Spot hover 的卡片）已脱离文档 → 关闭残留悬浮层
   ctrl.popovers.retainIfAnchored();
   // 选择页也需要 Hover 弹层（同一套事件委托，首次进入即绑定）
   ctrl.popovers.bind();
   ctrl.selectorPage.bindStage(initialFace);
+  // Lobby 也提供与一般游戏相同的服务导航；进入服务后由 render() 切换到服务工作区。
+  bindTopBarActions(ctrl);
+  bindThemeActions(ctrl);
 }
 
 /** 全量渲染 Init 选择器（轨道默认停在 Init 面）。 */
@@ -161,11 +169,17 @@ export function bindSelectorCommonActions(ctrl: UIController): void {
     const data = SaveSystem.load<SaveData>();
     if (data) {
       ctrl.commands.load(data);
-      ctrl.started = true;
-      ctrl.commands.start();
       ctrl.resetSessionPanel();
       ctrl.restoreHistories(data);
       ctrl.game.devLog.record('本地存档已读取', { source: 'save', level: 'success' });
+      if (data.playerState.activeInit) {
+        ctrl.started = true;
+        ctrl.commands.start();
+      } else {
+        // Lobby 存档只恢复 Runtime/全局状态，不能启动 Tick 或伪造 Init 会话。
+        ctrl.started = false;
+        ctrl.panelState.service = 'game';
+      }
       ctrl.render();
     }
   });

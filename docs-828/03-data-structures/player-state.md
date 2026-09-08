@@ -34,9 +34,10 @@
 | `worldPool` | VariantId[] | 世界 Pool：已并入常驻集合的差分（`refreshWorldPool` 未接线） |
 | `protoStats` | Record<string, ProtoStat> | 原型聚合统计（派生视图，Trigger 维护） |
 | `tagEffects` / `entityEffects` | Record | 区表：命名乘区记录唯一真相（见 [[docs-828/04-mechanisms/production]]） |
-| `groupsOwned` / `activeGroupId` / `equipmentsOwned` | — | 色彩组/装备收集（见 [[docs-828/02-modules/color]]） |
+| `groupsOwned` / `activeTheme` / `equipmentsOwned` | — | 色彩组收集、全局主题来源（system / color-group / custom）与装备收集（见 [[docs-828/02-modules/color]]） |
 | `entityThemeSlots` / `entityThemeDesignsOwned` | Record | 实体配色槽 / 已解锁配色设计（global） |
-| `themeLayerOrder` | string[] | player/area/student 层优先级自定义 |
+| `customThemes` / `themeAttachments` | Record | 独立用户主题记录 / Area、学生等实体主题挂靠；全局当前来源只由 `activeTheme` 表达 |
+| `themeLayerOrder` | string[] | player/init/area/student 四层优先级自定义；user、preview、ephemeral 不进入该排列 |
 | `initSnapshots` | Record<string, InitSnapshot> | 各世界线快照 |
 | `StatsSnapshot.global` / `StatsSnapshot.init` / `StatsSnapshot.session` | StatsSnapshot | 三层统计（`completedStoryIdsThisRun` 在 session 层；见 [[docs-828/03-data-structures/stats-views]]） |
 

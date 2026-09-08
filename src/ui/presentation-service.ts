@@ -10,13 +10,22 @@ import type {
   StateAppearanceDef,
   PresentationHostState,
   PresentationTextColorMode,
+  PresentationShape,
 } from '../engine/types/theme';
 import type { Condition } from '../engine/types/expression';
 import type { PicQueryPort } from '../arona-clicker/contracts/pic-query';
-import type { BackgroundView } from './background-service';
-import { renderBackground } from './background-service';
+import type { BackgroundDecorationView, BackgroundView } from './background-service';
+import { buildBackgroundDecorationView, renderBackground } from './background-service';
 import type { UIContext } from './context';
-import { DEFAULT_PANEL_OPACITY } from './presentation-config';
+import {
+  CORNER_RADIUS_MAX,
+  CORNER_RADIUS_MIN,
+  DEFAULT_CORNER_RADIUS,
+  DEFAULT_PARALLELOGRAM_SKEW_X_DEG,
+  DEFAULT_PANEL_OPACITY,
+  SKEW_X_DEG_MAX,
+  SKEW_X_DEG_MIN,
+} from './presentation-config';
 
 export interface PresentationViewLayer {
   id?: string;
@@ -55,6 +64,10 @@ export interface PresentationRegionView {
 export interface PresentationHostView {
   layers: readonly PresentationViewLayer[];
   opacity: number;
+  shape?: PresentationShape;
+  cornerRadius?: number;
+  skewXDeg?: number;
+  decoration?: BackgroundDecorationView;
   textColorMode?: PresentationTextColorMode;
   systemColorLayerIgnored?: boolean;
   layerOrder?: readonly string[];
@@ -63,6 +76,7 @@ export interface PresentationHostView {
 
 export interface PresentationHostStateView {
   layers: readonly PresentationViewLayer[];
+  decoration?: BackgroundDecorationView;
   systemColorLayerIgnored?: boolean;
   layerOrder?: readonly string[];
   textColorMode?: PresentationTextColorMode;
@@ -71,6 +85,8 @@ export interface PresentationHostStateView {
 export interface PresentationView {
   region(region: PresentationRegion): PresentationRegionView;
   host(id: string): PresentationHostView;
+  shapeForHost(id: string): PresentationShape | undefined;
+  shapeParametersForHost(id: string): Pick<PresentationHostView, 'shape' | 'cornerRadius' | 'skewXDeg'>;
   hasHost(id: string): boolean;
   panelOpacity(region: PresentationRegion): number;
   asset(ref: string): ResolvedAssetView | undefined;
@@ -91,6 +107,7 @@ const SAFE_ANCHOR = new Set<PlacementAnchor>(['top-left', 'top-right', 'bottom-l
 const SAFE_UNIT = new Set(['percent', 'px', 'auto']);
 const SAFE_ATTACHMENT = new Set(['scroll', 'fixed', 'local']);
 const SAFE_MOTION = new Set<MotionPreset>(['none', 'fade', 'fade-up', 'soft-scale', 'slide-in', 'pulse']);
+const SAFE_SHAPES = new Set<PresentationShape>(['rounded-rectangle', 'rounded-parallelogram']);
 
 function safeCss(value: string | undefined, pattern: RegExp, fallback: string): string {
   return value && pattern.test(value.trim()) ? value.trim() : fallback;
@@ -98,6 +115,10 @@ function safeCss(value: string | undefined, pattern: RegExp, fallback: string): 
 
 function safeNumber(value: number | undefined, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(-10000, Math.min(10000, value)) : fallback;
+}
+
+function safeRange(value: number | undefined, min: number, max: number): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : undefined;
 }
 
 function safeAssetUrl(value: string): string | undefined {
@@ -213,8 +234,9 @@ export function buildPresentationView(
     for (const state of ['default', 'active', 'inactive', 'disabled'] as const) {
       const stateDef = host.states?.[state];
       if (!stateDef) continue;
-    states.set(state, {
+      states.set(state, {
         layers: orderLayers(stateDef.layers, stateDef.layerOrder),
+        decoration: buildBackgroundDecorationView(stateDef.decoration),
         systemColorLayerIgnored: stateDef.systemColorLayerIgnored === true,
         layerOrder: stateDef.layerOrder,
         textColorMode: stateDef.textColorMode,
@@ -223,6 +245,10 @@ export function buildPresentationView(
     hostMap.set(host.id, {
       layers: orderedLayers,
       opacity: Math.max(0, Math.min(1, host.opacity ?? DEFAULT_PANEL_OPACITY)),
+      shape: host.shape && SAFE_SHAPES.has(host.shape) ? host.shape : undefined,
+      cornerRadius: safeRange(host.cornerRadius, CORNER_RADIUS_MIN, CORNER_RADIUS_MAX),
+      skewXDeg: safeRange(host.skewXDeg, SKEW_X_DEG_MIN, SKEW_X_DEG_MAX),
+      decoration: buildBackgroundDecorationView(host.decoration),
       textColorMode: host.textColorMode,
       systemColorLayerIgnored: host.systemColorLayerIgnored === true,
       layerOrder: host.layerOrder ?? orderedLayers.map(layer => layer.id).filter((id): id is string => Boolean(id)),
@@ -254,9 +280,34 @@ export function buildPresentationView(
       }],
     });
   }
+  const shapeParametersForHost = (id: string): Pick<PresentationHostView, 'shape' | 'cornerRadius' | 'skewXDeg'> => {
+    let candidate = id;
+    let shape: PresentationShape | undefined;
+    let cornerRadius: number | undefined;
+    let skewXDeg: number | undefined;
+    while (candidate) {
+      const host = hostMap.get(candidate);
+      if (host) {
+        if (shape === undefined && host.shape !== undefined) shape = host.shape;
+        if (cornerRadius === undefined && host.cornerRadius !== undefined) cornerRadius = host.cornerRadius;
+        if (skewXDeg === undefined && host.skewXDeg !== undefined) skewXDeg = host.skewXDeg;
+        if (shape !== undefined && cornerRadius !== undefined && skewXDeg !== undefined) break;
+      }
+      const separator = candidate.lastIndexOf('.');
+      candidate = separator >= 0 ? candidate.slice(0, separator) : '';
+    }
+    return {
+      shape,
+      cornerRadius: cornerRadius ?? DEFAULT_CORNER_RADIUS,
+      skewXDeg: skewXDeg ?? (shape === 'rounded-parallelogram' ? DEFAULT_PARALLELOGRAM_SKEW_X_DEG : 0),
+    };
+  };
+
   return {
     region: region => regionMap.get(region) ?? { layers: [], components: [] },
     host: id => hostMap.get(id) ?? { layers: [], opacity: DEFAULT_PANEL_OPACITY },
+    shapeForHost: id => shapeParametersForHost(id).shape,
+    shapeParametersForHost,
     hasHost: id => hostMap.has(id),
     panelOpacity: region => hostMap.get(region)?.opacity ?? panelOpacity.get(region) ?? DEFAULT_PANEL_OPACITY,
     asset,
@@ -289,7 +340,7 @@ function renderComponent(component: ComponentView, children: ReadonlyMap<string,
 
 export function renderPresentationRegion(view: PresentationView, region: PresentationRegion): string {
   const resolved = view.region(region);
-  const layers = resolved.layers.map((layer, index) => `<div class="presentation-layer" data-presentation-layer="${index}" aria-hidden="true" style="${escapeAttribute(`z-index:${resolved.layers.length - index};background:${layer.value};opacity:${layer.opacity};background-position:${layer.position};background-size:${layer.size};background-repeat:${layer.repeat};background-blend-mode:${layer.blendMode};background-attachment:${layer.attachment};transform:scale(${layer.scale ?? 1}) rotate(${layer.rotation ?? 0}deg)`)}"></div>`).join('');
+  const layers = resolved.layers.map((layer, index) => `<div class="presentation-layer" data-presentation-layer="${index}" aria-hidden="true" style="${escapeAttribute(`z-index:${index + 1};background:${layer.value};opacity:${layer.opacity};background-position:${layer.position};background-size:${layer.size};background-repeat:${layer.repeat};background-blend-mode:${layer.blendMode};background-attachment:${layer.attachment};transform:scale(${layer.scale ?? 1}) rotate(${layer.rotation ?? 0}deg)`)}"></div>`).join('');
   const children = new Map<string, ComponentView[]>();
   for (const component of resolved.components) {
     const list = children.get(component.parent) ?? [];
@@ -302,8 +353,12 @@ export function renderPresentationRegion(view: PresentationView, region: Present
 }
 
 export function renderPresentationHostBackground(ctx: UIContext, hostId: string, className = 'presentation-host-background', state: PresentationHostState = 'default'): string {
-  if (!ctx.presentation?.hasHost?.(hostId) && state !== 'active') return '';
-  return renderBackground(ctx.backgroundForHost(hostId, false, state), className);
+  if (!ctx.presentation?.hasHost?.(hostId) && state === 'default') return '';
+  const background = ctx.backgroundForHost(hostId, false, state);
+  const hoverBackground = state === 'inactive'
+    ? ctx.backgroundForHost(hostId, false, 'active')
+    : undefined;
+  return renderBackground(background, className, hoverBackground);
 }
 
 export interface UIHostRenderOptions {
@@ -320,9 +375,11 @@ export function renderUIHost(ctx: UIContext, options: UIHostRenderOptions): stri
   const state = options.state ?? 'default';
   const resolved = ctx.presentationHostState(options.hostId, state);
   const textMode = options.textMode ?? resolved.textColorMode;
+  const hoverTextMode = state === 'inactive' ? ctx.hoverTextColorModeForHost(options.hostId) : undefined;
   const background = renderPresentationHostBackground(ctx, options.hostId, 'presentation-host-background', state);
   const hostId = escapeAttribute(options.hostId);
   const className = escapeAttribute(options.className ?? 'ui-host');
   const scope = options.themeScope ? ` data-theme-scope="${escapeAttribute(options.themeScope)}"` : '';
-  return `<section class="${className} presentation-host-target" data-theme-host-id="${hostId}" data-theme-state="${state}" data-theme-text-mode="${textMode}"${scope}>${background}<div class="presentation-host-content">${options.content}</div></section>`;
+  const hoverTextAttribute = hoverTextMode ? ` data-theme-hover-text-mode="${hoverTextMode}"` : '';
+  return `<section class="${className} presentation-host-target" data-theme-host-id="${hostId}" data-theme-state="${state}" data-theme-text-mode="${textMode}"${hoverTextAttribute}${scope}>${background}<div class="presentation-host-content">${options.content}</div></section>`;
 }

@@ -1,10 +1,11 @@
+/* body 直系最外层背景服务；主题层只渲染到这里，#app 是独立内容层。 */
 .console-background {
    position: fixed;
    inset: 0;
    z-index: 0;
    overflow: hidden;
    pointer-events: none;
-   background: var(--theme-bg-gradient, var(--canvas, #e9f3ff));
+   background: transparent;
 }
 
 .console-background-layer {
@@ -56,7 +57,7 @@
 .presentation-host-target {
    position: relative;
    isolation: isolate;
-   overflow: hidden;
+   overflow: visible;
 }
 
 .presentation-host-background {
@@ -68,12 +69,59 @@
    border-radius: inherit;
 }
 
+.presentation-host-decoration {
+   position: absolute;
+   /* 默认贴合背景形状边缘；只有主题显式配置 inset 时才向内留白。 */
+   inset: var(--presentation-decoration-inset, 0px);
+   z-index: 100;
+   box-sizing: border-box;
+   pointer-events: none;
+   border: var(--presentation-decoration-width, 1px) var(--presentation-decoration-style, solid) var(--presentation-decoration-color, var(--theme-node-line));
+   border-radius: inherit;
+   opacity: var(--presentation-decoration-opacity, 1);
+}
+
+button.presentation-host-target,
+button.presentation-host-target:hover,
+button.presentation-host-target.active,
+button.presentation-host-target.is-active {
+   border-color: transparent;
+}
+
+.presentation-host-target > :is(.presentation-host-background, .console-panel-background)[data-presentation-geometry="custom"] {
+   border-radius: var(--presentation-corner-radius, inherit);
+   transform: skewX(var(--presentation-skew-x, 0deg));
+   transform-origin: center;
+}
+
+.presentation-host-target > :is(.presentation-host-background, .console-panel-background)[data-presentation-shape="rounded-parallelogram"] {
+   border-radius: var(--presentation-corner-radius, inherit);
+   transform: skewX(var(--presentation-skew-x, -6deg));
+   transform-origin: center;
+}
+
+.presentation-host-target:has(> :is(.presentation-host-background, .console-panel-background)[data-presentation-shape="rounded-parallelogram"]) {
+   border-color: transparent;
+}
+
 .presentation-host-background .console-background-layer {
    position: absolute;
    inset: 0;
 }
 
-.presentation-host-target > :not(.presentation-host-background) {
+.presentation-host-background .presentation-host-hover-layer {
+   opacity: 0 !important;
+}
+
+.presentation-host-target:hover:has(> .presentation-host-background > .presentation-host-hover-layer) > .presentation-host-background [data-presentation-layer-kind="base"] {
+   opacity: 0 !important;
+}
+
+.presentation-host-target:hover:has(> .presentation-host-background > .presentation-host-hover-layer) > .presentation-host-background .presentation-host-hover-layer {
+   opacity: 1 !important;
+}
+
+.presentation-host-target > :not(.presentation-host-background):not(.console-panel-background) {
    position: relative;
    z-index: 1;
 }
@@ -85,36 +133,75 @@
 
 /* auto 保留现有语义色的经典判别；手动模式覆盖按钮、文字及 SVG 的 currentColor。 */
 .presentation-host-target[data-theme-text-mode="light"],
+.presentation-host-target:hover[data-theme-hover-text-mode="light"],
 .presentation-host-target[data-theme-text-mode="light"] > .presentation-host-content,
+.presentation-host-target:hover[data-theme-hover-text-mode="light"] > .presentation-host-content,
 .presentation-host-target[data-theme-text-mode="light"] > .presentation-host-content *,
-.presentation-host-target[data-theme-text-mode="light"] svg {
+.presentation-host-target:hover[data-theme-hover-text-mode="light"] > .presentation-host-content *,
+.presentation-host-target[data-theme-text-mode="light"] svg,
+.presentation-host-target:hover[data-theme-hover-text-mode="light"] svg {
    color: #ffffff !important;
 }
 
 .presentation-host-target[data-theme-text-mode="light"] svg *,
-.presentation-host-target[data-theme-text-mode="light"] svg path { fill: currentColor !important; stroke: currentColor !important; }
+.presentation-host-target[data-theme-text-mode="light"] svg path,
+.presentation-host-target:hover[data-theme-hover-text-mode="light"] svg *,
+.presentation-host-target:hover[data-theme-hover-text-mode="light"] svg path { fill: currentColor !important; stroke: currentColor !important; }
 
 .presentation-host-target.mini-card[data-theme-text-mode="light"] .mini-card-title,
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="light"] .mini-card-title,
 .presentation-host-target.mini-card[data-theme-text-mode="light"] .mini-card-title-row *,
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="light"] .mini-card-title-row *,
 .presentation-host-target.mini-card[data-theme-text-mode="light"] > p,
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="light"] > p,
 .presentation-host-target.mini-card[data-theme-text-mode="light"] > .mini-card-foot,
-.presentation-host-target.mini-card[data-theme-text-mode="light"] > .mini-card-foot * { color: #ffffff !important; }
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="light"] > .mini-card-foot,
+.presentation-host-target.mini-card[data-theme-text-mode="light"] > .mini-card-foot *,
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="light"] > .mini-card-foot * { color: #ffffff !important; }
 
 .presentation-host-target[data-theme-text-mode="dark"],
+.presentation-host-target:hover[data-theme-hover-text-mode="dark"],
 .presentation-host-target[data-theme-text-mode="dark"] > .presentation-host-content,
+.presentation-host-target:hover[data-theme-hover-text-mode="dark"] > .presentation-host-content,
 .presentation-host-target[data-theme-text-mode="dark"] > .presentation-host-content *,
-.presentation-host-target[data-theme-text-mode="dark"] svg {
+.presentation-host-target:hover[data-theme-hover-text-mode="dark"] > .presentation-host-content *,
+.presentation-host-target[data-theme-text-mode="dark"] svg,
+.presentation-host-target:hover[data-theme-hover-text-mode="dark"] svg {
    color: #172033 !important;
 }
 
 .presentation-host-target[data-theme-text-mode="dark"] svg *,
-.presentation-host-target[data-theme-text-mode="dark"] svg path { fill: currentColor !important; stroke: currentColor !important; }
+.presentation-host-target[data-theme-text-mode="dark"] svg path,
+.presentation-host-target:hover[data-theme-hover-text-mode="dark"] svg *,
+.presentation-host-target:hover[data-theme-hover-text-mode="dark"] svg path { fill: currentColor !important; stroke: currentColor !important; }
 
 .presentation-host-target.mini-card[data-theme-text-mode="dark"] .mini-card-title,
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="dark"] .mini-card-title,
 .presentation-host-target.mini-card[data-theme-text-mode="dark"] .mini-card-title-row *,
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="dark"] .mini-card-title-row *,
 .presentation-host-target.mini-card[data-theme-text-mode="dark"] > p,
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="dark"] > p,
 .presentation-host-target.mini-card[data-theme-text-mode="dark"] > .mini-card-foot,
-.presentation-host-target.mini-card[data-theme-text-mode="dark"] > .mini-card-foot * { color: #172033 !important; }
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="dark"] > .mini-card-foot,
+.presentation-host-target.mini-card[data-theme-text-mode="dark"] > .mini-card-foot *,
+.presentation-host-target.mini-card:hover[data-theme-hover-text-mode="dark"] > .mini-card-foot * { color: #172033 !important; }
+
+/* auto 采用 active 状态的按钮语义色；这样 hover 背景切到 active 时，文字也同步切换。 */
+.presentation-host-target[data-theme-state="active"][data-theme-text-mode="auto"],
+.presentation-host-target[data-theme-state="active"][data-theme-text-mode="auto"] > .presentation-host-content,
+.presentation-host-target[data-theme-state="active"][data-theme-text-mode="auto"] > .presentation-host-content *,
+.presentation-host-target[data-theme-state="active"][data-theme-text-mode="auto"] svg,
+.presentation-host-target:hover[data-theme-hover-text-mode="auto"],
+.presentation-host-target:hover[data-theme-hover-text-mode="auto"] > .presentation-host-content,
+.presentation-host-target:hover[data-theme-hover-text-mode="auto"] > .presentation-host-content *,
+.presentation-host-target:hover[data-theme-hover-text-mode="auto"] svg {
+   color: var(--ui-button-text-active, var(--ink-on-active)) !important;
+}
+
+.presentation-host-target[data-theme-state="active"][data-theme-text-mode="auto"] svg *,
+.presentation-host-target[data-theme-state="active"][data-theme-text-mode="auto"] svg path,
+.presentation-host-target:hover[data-theme-hover-text-mode="auto"] svg *,
+.presentation-host-target:hover[data-theme-hover-text-mode="auto"] svg path { fill: currentColor !important; stroke: currentColor !important; }
 
 .presentation-component {
    max-width: none;
@@ -196,6 +283,10 @@
 .user-theme-host-state-switch .switch-tab { flex:1; min-height:26px; padding:4px 8px; border:0; border-radius:5px; font-size:11px; }
 .user-theme-host-state-switch .switch-tab.active { color:var(--ink-on-active); background:var(--theme-node-active); }
 .user-theme-layer-inherited { margin:8px 10px; padding:7px 8px; border-left:2px solid var(--theme-node-active); color:var(--muted-on-panel-light); font-size:10px; }
+.user-theme-layer-inherited-list { margin:8px 10px; border:1px dashed color-mix(in srgb, var(--theme-node-line) 78%, transparent); border-radius:7px; }
+.user-theme-layer-inherited-list > summary { cursor:pointer; padding:7px 9px; color:var(--muted-on-panel-light); font-size:11px; }
+.user-theme-inherited-layer { display:flex; justify-content:space-between; gap:8px; padding:6px 9px; border-top:1px solid color-mix(in srgb, var(--theme-node-line) 45%, transparent); font-size:11px; }
+.user-theme-inherited-layer small { color:var(--muted-on-panel-light); }
 .user-theme-target-summary { display:grid; gap:4px; margin:8px 0 12px; }
 .user-theme-target-card { margin:10px 0; border:1px solid color-mix(in srgb, var(--theme-node-line) 78%, transparent); border-radius:8px; background:color-mix(in srgb, var(--theme-node-panel-light) 22%, transparent); overflow:hidden; }
 .user-theme-target-card > summary { display:flex; justify-content:space-between; align-items:center; gap:8px; cursor:pointer; list-style:none; padding:9px 10px; color:var(--ink-on-panel); font-size:12px; font-weight:600; background:color-mix(in srgb, var(--theme-node-active) 8%, transparent); }

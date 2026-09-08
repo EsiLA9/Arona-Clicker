@@ -35,19 +35,17 @@ export interface StoredCustomTheme extends UserThemeDraft {
   updatedAt: number;
 }
 
-/** 自定义主题的应用关系；target='base' 表示玩家全局主题宿主。 */
+/** 自定义主题的实体挂靠关系；target 使用 Area / 学生等实体稳定键。 */
 export interface ThemeAttachment {
-  target: 'base' | string;
+  target: string;
   customThemeId: string;
   enabled: boolean;
 }
 
 export interface UserThemeState {
   enabled: boolean;
-  draft?: UserThemeDraft;
-  applied?: UserThemeDraft;
   revision: number;
   updatedAtFrame?: number;
-  /** 兼容旧 userTheme 状态的索引；真实主题内容位于 PlayerState.customThemes。 */
+  /** 当前编辑/应用的独立用户主题索引；真实主题内容位于 PlayerState.customThemes。 */
   customThemeId?: string;
 }

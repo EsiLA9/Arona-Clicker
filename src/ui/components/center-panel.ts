@@ -68,7 +68,7 @@ export function renderCenterPanel(
     ? renderLogTab(ctx)
     : renderChatTab(ctx, chatEntries, chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   return `
-    <section class="ui-cluster ui-cluster--center-panel panel center-panel" data-theme-scope="center.${activeTab}">
+    <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.${activeTab}" data-theme-host-id="centerPanel.${activeTab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`centerPanel.${activeTab}`)}">
       ${renderBackground(ctx.backgroundForHost(`centerPanel.${activeTab}`), 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}

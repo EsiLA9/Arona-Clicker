@@ -72,6 +72,11 @@ import type { SaveBuildContext } from './contracts/save-codec';
 import type { GameInstanceOptions } from './runtime-options';
 export type { SaveData };
 
+export interface RuntimeInitOptions {
+  /** Whether loading the registry should also enter the first visible Init. */
+  enterDefaultInit?: boolean;
+}
+
 /**
  * GameInstance 是游戏的核心运行时管理器。
  * 它组装所有引擎子系统并暴露统一的 API 给 UI 层。
@@ -191,7 +196,7 @@ export class GameInstance {
   // --- 初始化 ---
 
   /** 加载数据包并初始化游戏 */
-  init(datapacks: Datapack[]): void {
+  init(datapacks: Datapack[], options: RuntimeInitOptions = {}): void {
     this.sessionService.touchLastTick();
     // 加载所有数据包
     for (const dp of datapacks) {
@@ -232,12 +237,14 @@ export class GameInstance {
     // 计算可见性（事件驱动：建立反向索引并全量重算）
     this.visibilityEngine.rebuild(this._state);
 
-    // 进入默认 Init
-    const defaultInit = [...this.registry.inits.values()].find(
-      i => !hasExistenceGate(i.revealTriggers),
-    );
-    if (defaultInit) {
-      this.initService.enterInit(defaultInit.id);
+    if (options.enterDefaultInit !== false) {
+      // 兼容非 UI 调用方：传统初始化默认进入第一个可见 Init。
+      const defaultInit = [...this.registry.inits.values()].find(
+        i => !hasExistenceGate(i.revealTriggers),
+      );
+      if (defaultInit) {
+        this.initService.enterInit(defaultInit.id);
+      }
     }
     this.devLog.record(`已加载数据包 ${datapacks.length} 个`, {
       source: 'registry',
@@ -251,14 +258,16 @@ export class GameInstance {
    * 清空注册表与各子系统，重置运行时状态后重新 init。
    * 注意：数据包更换后旧存档语义失效，调用方应自行清除存档。
    */
-  reload(datapacks: Datapack[]): void {
+  reload(datapacks: Datapack[], options: RuntimeInitOptions = {}): void {
+    // 重载保持调用前的运行阶段：Lobby 重载后仍停留 Lobby，Active Init 才恢复默认 Init 接线。
+    const enterDefaultInit = options.enterDefaultInit ?? Boolean(this._state.activeInit);
     reloadRuntime({
       stop: () => this.stop(),
       registry: this.registry,
       affectorEngine: this.affectorEngine,
       triggerSystem: this.triggerSystem,
       reset: () => this.reset(),
-      init: d => this.init(d),
+      init: d => this.init(d, { enterDefaultInit }),
     }, datapacks);
   }
 

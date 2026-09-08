@@ -53,21 +53,23 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
       expect(g.userThemeService.apply(first.id, { version: 1, tokens: { primary: '#123456' } }).ok).toBe(true);
       expect(g.userThemeService.apply(second.id, { version: 1, tokens: { primary: '#abcdef' } })).toMatchObject({ ok: false, code: 'revision-conflict' });
     }
-    expect(g.state.userTheme?.applied?.tokens?.primary).toBe('#123456');
+    expect(g.state.customThemes?.['user:theme:default']?.tokens?.primary).toBe('#123456');
     expect(g.state.userTheme?.customThemeId).toBe('user:theme:default');
     expect(g.state.customThemes?.['user:theme:default']?.tokens?.primary).toBe('#123456');
-    expect(g.state.themeAttachments?.base).toMatchObject({ target: 'base', customThemeId: 'user:theme:default', enabled: true });
+    expect(g.state.themeAttachments?.base).toBeUndefined();
+    expect(g.state.activeTheme).toEqual({ kind: 'custom', id: 'user:theme:default' });
     expect(g.state.initSnapshots).toEqual({});
   });
 
-  test('禁用用户主题只解除 base 挂靠，不删除独立主题记录', () => {
+  test('禁用用户主题只解除全局应用，不删除独立主题记录', () => {
     const g = fresh();
     g.enhancements.purchaseEnhancement(USER_THEME);
     const session = g.userThemeService.beginEdit();
     if ('readonly' in session) expect(g.userThemeService.apply(session.id, { version: 1, tokens: { primary: '#123456' } }).ok).toBe(true);
     expect(g.userThemeService.setEnabled(false).ok).toBe(true);
     expect(g.state.customThemes?.['user:theme:default']?.tokens?.primary).toBe('#123456');
-    expect(g.state.themeAttachments?.base?.enabled).toBe(false);
+    expect(g.state.themeAttachments?.base).toBeUndefined();
+    expect(g.state.activeTheme).toEqual({ kind: 'system' });
   });
 
   test('危险表现值被拒绝且不会覆盖已保存主题', () => {
@@ -80,7 +82,7 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
         tokens: { primary: 'red; background:url(javascript:alert(1))' as never },
       });
       expect(result).toMatchObject({ ok: false, code: 'invalid-draft' });
-      expect(g.state.userTheme?.applied).toBeUndefined();
+      expect(g.state.customThemes?.['user:theme:default']).toBeUndefined();
     }
   });
 
@@ -95,8 +97,30 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
         nodes: { active: '#fedcba' },
       });
       expect(result.ok).toBe(true);
-      expect(g.state.userTheme?.applied?.palette).toEqual(['#123456', '#abcdef']);
-      expect(g.state.userTheme?.applied?.nodes?.active).toBe('#fedcba');
+      expect(g.state.customThemes?.['user:theme:default']?.palette).toEqual(['#123456', '#abcdef']);
+      expect(g.state.customThemes?.['user:theme:default']?.nodes?.active).toBe('#fedcba');
+    }
+  });
+
+  test('用户主题接受合法内嵌装饰线并拒绝越界值', () => {
+    const g = fresh();
+    g.enhancements.purchaseEnhancement(USER_THEME);
+    const session = g.userThemeService.beginEdit();
+    if ('readonly' in session) {
+      const valid = g.userThemeService.apply(session.id, {
+        version: 1,
+        presentation: { hosts: [{ id: 'header.button', decoration: { color: '#123456', width: 2, inset: 4, opacity: .8, style: 'dashed' } }] },
+      });
+      expect(valid.ok).toBe(true);
+      expect(g.state.customThemes?.['user:theme:default']?.presentation?.hosts?.[0]).toMatchObject({ decoration: { color: '#123456', width: 2, inset: 4, opacity: .8, style: 'dashed' } });
+    }
+    const next = g.userThemeService.beginEdit();
+    if ('readonly' in next) {
+      const invalid = g.userThemeService.apply(next.id, {
+        version: 1,
+        presentation: { hosts: [{ id: 'header.button', decoration: { width: 13 } }] },
+      });
+      expect(invalid).toMatchObject({ ok: false, code: 'invalid-draft' });
     }
   });
 
@@ -113,9 +137,9 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
         },
       });
       expect(result.ok).toBe(true);
-      expect(g.state.userTheme?.applied?.presentation?.layers).toBeUndefined();
-      expect(g.state.userTheme?.applied?.presentation?.panels).toBeUndefined();
-      expect(g.state.userTheme?.applied?.presentation?.hosts).toEqual([
+      expect(g.state.customThemes?.['user:theme:default']?.presentation?.layers).toBeUndefined();
+      expect(g.state.customThemes?.['user:theme:default']?.presentation?.panels).toBeUndefined();
+      expect(g.state.customThemes?.['user:theme:default']?.presentation?.hosts).toEqual([
         { id: 'leftPanel', layers: [{ id: 'legacy', region: 'leftPanel', kind: 'solid', value: '#ffffff' }], layerOrder: ['legacy'], opacity: 0.65 },
       ]);
     }
@@ -133,8 +157,8 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
         },
       });
       expect(result.ok).toBe(true);
-      expect(g.state.userTheme?.applied?.background).toEqual([{ id: 'outer', kind: 'solid', value: '#ffffff' }]);
-      expect(g.state.userTheme?.applied?.presentation?.hosts).toEqual([]);
+      expect(g.state.customThemes?.['user:theme:default']?.background).toEqual([{ id: 'outer', kind: 'solid', value: '#ffffff' }]);
+      expect(g.state.customThemes?.['user:theme:default']?.presentation?.hosts).toEqual([]);
     }
   });
 

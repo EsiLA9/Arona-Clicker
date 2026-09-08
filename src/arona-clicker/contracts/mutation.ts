@@ -67,6 +67,7 @@ export interface UiMutationPort extends StateMutationHostPort {
   addExp(variantId: string, amount: number): { ok: boolean; newLevel: number; newExp: number };
   breakthroughStar(variantId: string): { ok: boolean; reason?: string; newStars?: number };
   activateTheme(groupId: string | null): boolean;
+  activateCustomTheme(customThemeId: string): boolean;
   setThemeLayerOrder(order: import('../../engine/types').ThemeOrderScope[]): boolean;
   setEntityThemeSlot(entityKey: string, slot: import('../../engine/types').EntityThemeSlot | null): boolean;
 }

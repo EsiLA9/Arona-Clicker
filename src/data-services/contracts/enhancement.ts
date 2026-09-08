@@ -1,6 +1,7 @@
 import type { TagPath } from '../../engine/core/tag';
 import type { ExtraCompound } from '../../engine/types/extra';
 import type { Condition, ConditionGroup, Effect } from '../../engine/types/expression';
+import type { ThemeDef } from '../../engine/types/theme';
 import type { AreaId, EnhancementId, InitId } from '../../engine/types/ids';
 import type { RevealTarget, RevealTrigger } from '../../engine/types/reveal';
 import type { ResourceAmount } from './common';
@@ -23,6 +24,8 @@ export interface EnhancementDef {
   tags?: TagPath[];
   attachment?: EnhancementAttachment;
   irreversible?: boolean;
+  /** @label 选择页主题 */
+  theme?: ThemeDef;
   addsFunctionalities?: SpotFunctionalityDef[];
   affectorPackIds?: AffectorPackRef[];
   revealTriggers?: RevealTrigger[];

@@ -22,6 +22,12 @@ describe('主题系统展示 Init', () => {
     expect(game.state.unlockedEnhancements).toContain('base:enhancement:user-theme-editor');
     expect(THEME_SHOWCASE_VARIANTS.every(id => Boolean(game.state.roster?.[id]))).toBe(true);
     expect(game.registry.passiveStories.has('base:passivestory:theme_showcase')).toBe(true);
+
+    const theme = game.registry.inits.get(THEME_SHOWCASE_INIT)?.theme;
+    expect(theme?.background?.[0]).toMatchObject({
+      id: 'theme-showcase-atmosphere',
+      kind: 'gradient',
+    });
+    expect(theme?.background?.[0]?.value).toContain('#cffafe');
   });
 });
-

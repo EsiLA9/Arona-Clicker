@@ -170,7 +170,7 @@ ConditionTarget（16 种）—— key 与 actual 语义：
 - `CompositionType`（ColorGroup 头像构成）：`solid` / `gradient` / `duotone` / `pie` / `radial`；
 - `ColorGroupRole`（色位角色）：`primary` / `secondary` / `accent` / `highlight` / `shadow` / `edge`；
 - `EntityThemeSlot.kind`（实体主题来源）：`default` / `equipment` / `design` / `custom`；
-- `ThemeOrderScope`（参与优先级排序的主题层，低→高）：`player` / `area` / `student`（ephemeral 临时层不参与排序、恒最高）；
+- `ThemeOrderScope`（参与优先级排序的主题层，低→高）：`player` / `init` / `area` / `student`（user/preview 独立插层，ephemeral 临时层不参与排序、恒最高）；
 - `ColorEquipmentDef.category`（UI 稀有度展示）：`common` / `rare` / `epic`；
 - `CharacterPersistScope`（三层归属声明各字段）：`global`（跨世界线保留）/ `init`（随世界线重置）。
 

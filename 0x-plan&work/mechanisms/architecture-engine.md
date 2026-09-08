@@ -13,6 +13,7 @@
 - [[docs-828/01-architecture/state-layers]]
 - [[docs-828/05-conventions/architecture-discipline]]
 - [[docs-828/04-mechanisms/state-mutation]]
+- [[docs-828/01-architecture/run-logic]]（含 Lobby / Pre-Init Runtime 生命周期）
 
 ## 计划与决策
 
@@ -23,6 +24,7 @@
 | completed | [[0x-plan&work/completed/adr-0005-engine-domain-boundaries]] | 引擎与领域边界 |
 | completed | [[0x-plan&work/completed/roadmap-0005-engine-domain-consolidation]] | 领域内聚施工记录 |
 | active | [[0x-plan&work/active/roadmap-0007-enhancement-reveal]] | 强化揭示与服务权限语义 |
+| active | [[0x-plan&work/active/roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Runtime 与通用界面服务 |
 
 ## 当前判断
 

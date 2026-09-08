@@ -11,7 +11,7 @@ import type {
   GachaPoolId,
   VariantId,
 } from '../../engine/types/character';
-import type { EntityThemeSlot, ThemeOrderScope } from '../../engine/types/theme';
+import type { ActiveThemeSelection, EntityThemeSlot, ThemeOrderScope } from '../../engine/types/theme';
 import type { SpotTagOverrideState } from '../../engine/contracts/state-query';
 import type { Character } from './ids';
 import type { StoredCustomTheme, ThemeAttachment, UserThemeState } from './user-theme';
@@ -46,7 +46,7 @@ export interface PlayerState {
   roster?: Record<VariantId, RosterEntry>;
   fragments?: Record<VariantId, number>;
   gachaState?: Record<GachaPoolId, GachaPoolState>;
-  activeGroupId?: ColorGroupId | null;
+  activeTheme?: ActiveThemeSelection;
   themeLayerOrder?: ThemeOrderScope[];
   groupsOwned?: ColorGroupId[];
   equipmentsOwned?: EquipmentId[];

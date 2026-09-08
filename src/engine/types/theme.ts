@@ -1,4 +1,5 @@
 import type { Condition } from './expression';
+import type { ColorGroupId } from './character';
 
 // ============================================================
 // engine/types/theme.ts — 声明式主题与实体主题槽
@@ -6,7 +7,11 @@ import type { Condition } from './expression';
 
 export type ThemeToken = string;
 export type ThemeMode = 'light' | 'dark';
-export type ThemeOrderScope = 'player' | 'area' | 'student';
+export type ThemeOrderScope = 'player' | 'init' | 'area' | 'student';
+export type ActiveThemeSelection =
+  | { kind: 'system' }
+  | { kind: 'color-group'; id: ColorGroupId }
+  | { kind: 'custom'; id: string };
 export type ThemeNodeName =
   | 'primary' | 'primaryStrong' | 'bg' | 'bgAlt' | 'panel' | 'panelLight'
   | 'text' | 'muted' | 'line' | 'active' | 'highlight'
@@ -14,6 +19,21 @@ export type ThemeNodeName =
 
 export type BackgroundLayerKind = 'empty' | 'solid' | 'gradient' | 'image';
 export type PresentationTextColorMode = 'auto' | 'light' | 'dark';
+export type PresentationShape = 'rounded-rectangle' | 'rounded-parallelogram';
+export type PresentationDecorationStyle = 'solid' | 'dashed' | 'dotted';
+
+export interface PresentationDecorationDef {
+  /** @label 装饰线颜色；支持主题变量或颜色值。 */
+  color?: string;
+  /** @label 装饰线粗细（像素）。 */
+  width?: number;
+  /** @label 装饰线与宿主形状边缘的间距（像素）；缺省为 0，显式增大后才向内缩。 */
+  inset?: number;
+  /** @label 装饰线透明度。 */
+  opacity?: number;
+  /** @label 装饰线样式。 @enum solid=实线 @enum dashed=虚线 @enum dotted=点线 */
+  style?: PresentationDecorationStyle;
+}
 
 export type PresentationRegion =
   | 'shell'
@@ -87,6 +107,13 @@ export interface BackgroundLayerDef {
   rotation?: number;
 }
 
+export interface ThemeBackgroundVariant {
+  /** @label 状态变体 ID；由选择页等只读投影使用受控语义值。 */
+  id: string;
+  /** @label 该状态的背景层。 */
+  layers: BackgroundLayerDef[];
+}
+
 export interface PresentationLayerDef extends BackgroundLayerDef {
   /** @label 表现区域 */
   region: PresentationRegion;
@@ -126,6 +153,14 @@ export interface PresentationHostDef {
   layerOrder?: string[];
   /** @label 宿主背景透明度；簇宿主使用时覆盖旧 panels 配置。 */
   opacity?: number;
+  /** @label 宿主形状；缺省为圆角矩形。 @enum rounded-rectangle=圆角矩形 @enum rounded-parallelogram=圆角平行四边形 */
+  shape?: PresentationShape;
+  /** @label 圆角半径（像素）；缺省为 8。 */
+  cornerRadius?: number;
+  /** @label X 轴倾斜角（deg）；圆角矩形缺省为 0，圆角平行四边形缺省为 -6。 */
+  skewXDeg?: number;
+  /** @label 宿主内嵌装饰线。 */
+  decoration?: PresentationDecorationDef;
   /** @label 宿主文字颜色模式。 */
   textColorMode?: PresentationTextColorMode;
   /** @label 忽略系统颜色层。 */
@@ -139,6 +174,8 @@ export type PresentationHostState = 'default' | 'active' | 'inactive' | 'disable
 export interface PresentationHostStateDef {
   /** @label 状态图层。 */
   layers?: BackgroundLayerDef[];
+  /** @label 状态内嵌装饰线；仅覆盖已填写字段。 */
+  decoration?: Partial<PresentationDecorationDef>;
   /** @label 状态图层顺序。 */
   layerOrder?: string[];
   /** @label 状态下忽略系统颜色层。 */
@@ -175,6 +212,8 @@ export interface ThemeDef {
   nodes?: Partial<Record<ThemeNodeName, string>>;
   /** @label 背景视觉层 */
   background?: BackgroundLayerDef[];
+  /** @label 背景状态变体；例如 new / active / advanced / completed。 */
+  backgroundVariants?: ThemeBackgroundVariant[];
   /** @label UI 表现配置 */
   presentation?: PresentationDef;
 }

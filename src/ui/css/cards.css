@@ -146,7 +146,7 @@
    white-space: nowrap;
 }
 
-.mini-action.is-active {
+.mini-action.is-active:not(.presentation-host-target) {
    background: var(--ui-button-bg-active, var(--theme-node-active));
    color: var(--ui-button-text-active, var(--ink-on-active));
    border-color: var(--ui-button-bg-active, var(--theme-node-active));

@@ -1,10 +1,12 @@
 import { UIContext } from '../context';
 import { DEFAULT_LAYER_ORDER, type ThemeOrderScope } from '../../engine/core/theme-runtime';
+import type { PresentationHostState } from '../../engine/types/theme';
 import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
 import { renderPresentationHostBackground } from '../presentation-service';
 
 const LAYER_LABELS: Record<ThemeOrderScope, string> = {
   player: '玩家层',
+  init: '世界线层',
   area: '场景层',
   student: '学生层',
 };
@@ -53,41 +55,102 @@ function renderAreaDesignsSection(ctx: UIContext): string {
 
 function renderUserThemeSection(ctx: UIContext): string {
   const capability = ctx.game.userThemeService.capability();
+  const customId = ctx.game.state.userTheme?.customThemeId;
+  const customTheme = customId ? ctx.game.state.customThemes?.[customId] : undefined;
+  const active = ctx.game.state.activeTheme?.kind === 'custom' && ctx.game.state.activeTheme.id === customId;
   return `
     <section class="theme-float-section user-theme-access">
-      <h4 class="theme-float-section-title">用户自定主题 <small>由 Active Affector 开放</small></h4>
+      <h4 class="theme-float-section-title">用户自定义主题 <small>${customTheme ? (active ? '当前使用中' : '已保存，可应用') : '尚未保存'}</small></h4>
       <button type="button" class="theme-editor-entry ${capability.active ? 'is-available' : 'is-locked'}" data-open-user-theme>
-        <span>${capability.active ? '打开主题编辑器' : '需要主题编辑权限'}</span><span>↗</span>
+        <span>${capability.active ? (customTheme ? '编辑用户自定义' : '创建用户自定义') : '需要主题编辑权限'}</span><span>↗</span>
       </button>
     </section>`;
 }
 
-export function renderHeader(ctx: UIContext): string {
+export interface HeaderRenderOptions {
+  extraActions?: string;
+  statusLabel?: string;
+  statusSubline?: string;
+  className?: string;
+  themeStyle?: string;
+  themeKey?: string;
+}
+
+export type HeaderServiceId = 'game' | 'datapack' | 'saves' | 'records';
+
+export interface HeaderButtonRenderOptions {
+  content: string;
+  id?: string;
+  title?: string;
+  className?: string;
+  service?: HeaderServiceId;
+  flipSelectionFace?: boolean;
+  backToGame?: boolean;
+  state?: PresentationHostState;
+  ariaExpanded?: boolean;
+}
+
+/** 顶栏普通按钮的统一表现入口；选择页操作与游戏页服务按钮共用 header.button。 */
+export function renderHeaderButton(ctx: UIContext, options: HeaderButtonRenderOptions): string {
+  const hostId = 'header.button';
+  const state = options.state ?? 'inactive';
+  const className = ['toolbar-button', 'presentation-host-target', options.className ?? '']
+    .filter(Boolean)
+    .join(' ');
+  const attributes = [
+    `class="${className}"`,
+    options.id ? `id="${ctx.escapeHtml(options.id)}"` : '',
+    options.title ? `title="${ctx.escapeHtml(options.title)}"` : '',
+    options.service ? `data-service="${options.service}"` : '',
+    options.flipSelectionFace ? 'data-flip-selection-face' : '',
+    options.backToGame ? 'data-back-to-game' : '',
+    `data-theme-host-id="${hostId}"`,
+    `data-theme-state="${state}"`,
+    `data-theme-text-mode="${ctx.textColorModeForHost(hostId, state)}"`,
+    state === 'inactive' ? `data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost(hostId)}"` : '',
+    options.ariaExpanded === undefined ? '' : `aria-expanded="${options.ariaExpanded}"`,
+  ].filter(Boolean).join(' ');
+  return `<button ${attributes}>${renderPresentationHostBackground(ctx, hostId, 'presentation-host-background', state)}<span class="presentation-host-content">${options.content}</span></button>`;
+}
+
+export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}): string {
   const { view, game } = ctx;
-  const activeGroupId = game.state.activeGroupId;
+  const activeTheme = game.state.activeTheme ?? { kind: 'system' as const };
   // 色板只展示已拥有的色彩组（未解锁的不渲染，避免"看得到用不了"）
   const ownedGroups = game.colorSystem.ownedGroups(game.state);
+  const customId = game.state.userTheme?.customThemeId;
+  const customTheme = customId ? game.state.customThemes?.[customId] : undefined;
+  const customSwatch = customTheme
+    ? game.colorSystem.themeSwatchColor(customTheme)
+      ?? (customTheme.baseThemeRef?.kind === 'color-group' && customTheme.baseThemeRef.id
+        ? game.colorSystem.themeSwatchColor({ colorGroupId: customTheme.baseThemeRef.id })
+        : undefined)
+      ?? '#888'
+    : undefined;
   const palette = `
-        <button class="theme-swatch default ${!activeGroupId ? 'active' : ''}" data-activate-group="" title="系统默认主题">系统默认</button>
+        <button class="theme-swatch default ${activeTheme.kind === 'system' ? 'active' : ''}" data-activate-group="" aria-pressed="${activeTheme.kind === 'system'}" title="系统默认主题">系统默认</button>
         ${ownedGroups.map(g => {
           const primary = game.colorSystem.themeSwatchColor({ colorGroupId: g.id }) ?? '#888';
-          const active = activeGroupId === g.id ? 'active' : '';
+          const active = activeTheme.kind === 'color-group' && activeTheme.id === g.id ? 'active' : '';
           return `
-          <button class="theme-swatch group ${active}" data-activate-group="${g.id}"
+          <button class="theme-swatch group ${active}" data-activate-group="${g.id}" aria-pressed="${Boolean(active)}"
             title="${ctx.escapeHtml(g.name)}" style="--swatch:${primary}">${ctx.escapeHtml(g.name)}</button>`;
-        }).join('')}`;
+        }).join('')}
+        ${customTheme ? `<button class="theme-swatch custom ${activeTheme.kind === 'custom' && activeTheme.id === customId ? 'active' : ''}" data-activate-custom-theme="${ctx.escapeHtml(customId!)}" aria-pressed="${activeTheme.kind === 'custom' && activeTheme.id === customId}" title="应用用户自定义主题" style="--swatch:${customSwatch}">自定义 · ${ctx.escapeHtml(customTheme.name)}</button>` : ''}`;
+  const className = ['topbar', options.className ?? ''].filter(Boolean).join(' ');
+  const themeStyle = options.themeStyle ? ` style="${ctx.escapeHtml(options.themeStyle)}"` : '';
+  const themeKey = options.themeKey ? ` data-selector-header-theme-key="${ctx.escapeHtml(options.themeKey)}"` : '';
   return `
-    <header class="topbar">
+    <header class="${className}"${themeKey}${themeStyle}>
       <div class="brand-lockup">
         <span class="signal-dot"></span>
         <div><h1>AronaClicker</h1></div>
       </div>
       <div class="topbar-right">
-        <div class="status-line"><span>WORLDLINE ${view.activeInit ? ctx.nameOf('init', view.activeInit) : '未进入'}</span></div>
+        ${options.extraActions ?? ''}
+        <div class="status-line"><span>${options.statusLabel ?? `WORLDLINE ${view.activeInit ? ctx.nameOf('init', view.activeInit) : '未进入'}`}</span>${options.statusSubline ? `<span class="live">${options.statusSubline}</span>` : ''}</div>
         <div class="theme-palette">
-          <button id="theme-palette-btn" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="切换界面主题色">
-            ${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">主题 <span>◑</span></span>
-          </button>
+          ${renderHeaderButton(ctx, { id: 'theme-palette-btn', title: '切换界面主题色', ariaExpanded: false, content: '主题 <span>◑</span>' })}
           <div class="theme-float" data-theme-float>
             <div class="theme-float-head" data-theme-float-head>
               <span>主题设置</span>
@@ -102,8 +165,8 @@ export function renderHeader(ctx: UIContext): string {
           </div>
         </div>
         <div class="save-actions service-nav-actions">
-          ${['game:游戏:⌂', 'datapack:数据包:▦', 'saves:存档:↓', 'records:记录:✦'].map(item => { const [id, label, icon] = item.split(':'); return `<button class="toolbar-button presentation-host-target" data-service="${id}" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="进入${label}服务">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">${label} <span>${icon}</span></span></button>`; }).join('')}
-          <button id="help-modal" class="toolbar-button presentation-host-target" data-theme-host-id="header.button" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('header.button', 'inactive') ?? 'auto'}" title="关于">${renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">?</span></button>
+          ${[['game', '游戏', '⌂'], ['datapack', '数据包', '▦'], ['saves', '存档', '↓'], ['records', '记录', '✦']].map(([service, label, icon]) => renderHeaderButton(ctx, { service: service as HeaderServiceId, title: `进入${label}服务`, content: `${label} <span>${icon}</span>` })).join('')}
+          ${renderHeaderButton(ctx, { id: 'help-modal', title: '关于', content: '?' })}
         </div>
       </div>
     </header>`;

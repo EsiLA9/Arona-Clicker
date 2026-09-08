@@ -1,5 +1,7 @@
+// @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
 import { buildBackgroundView, renderBackground } from '../../src/ui/background-service';
+import { OUTER_BACKGROUND_ID, renderOuterBackground, syncOuterBackground } from '../../src/ui/outer-background';
 
 const pics = {
   urlOf: (ref?: string) => ref === 'base:overlay(pic):triangles' ? 'data:image/svg+xml;base64,triangles' : undefined,
@@ -53,6 +55,16 @@ describe('BackgroundService', () => {
     expect(html).toContain('background:url(&quot;x&quot;)');
   });
 
+  test('按低到高声明顺序绘制背景层，后层覆盖前层', () => {
+    const html = renderBackground({ layers: [
+      { kind: 'solid', value: '#123', opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' },
+      { kind: 'solid', value: '#456', opacity: .8, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'screen', attachment: 'fixed' },
+    ] });
+
+    expect(html).toContain('z-index:1;background:#123');
+    expect(html).toContain('z-index:2;background:#456');
+  });
+
   test('背景层输出安全的缩放与旋转变换', () => {
     const view = buildBackgroundView([
       { kind: 'solid', value: '#fff', scale: 99, rotation: -30 },
@@ -60,5 +72,23 @@ describe('BackgroundService', () => {
     expect(view.layers[0].scale).toBe(8);
     expect(view.layers[0].rotation).toBe(330);
     expect(renderBackground(view)).toContain('transform:scale(8) rotate(330deg)');
+  });
+
+  test('最外层背景宿主挂在 body 直系，不随 #app 页面重建', () => {
+    document.body.innerHTML = '<div id="app"><div class="console-background"></div></div>';
+    const view = buildBackgroundView([{ kind: 'solid', value: '#123' }], pics);
+
+    syncOuterBackground(view);
+
+    const outer = document.body.firstElementChild as HTMLElement;
+    expect(outer.id).toBe(OUTER_BACKGROUND_ID);
+    expect(outer.classList.contains('console-background')).toBe(true);
+    expect(outer.parentElement).toBe(document.body);
+    expect(document.querySelector('#app > .console-background')).toBeNull();
+    expect(renderOuterBackground(view)).toContain('id="' + OUTER_BACKGROUND_ID + '"');
+
+    syncOuterBackground(buildBackgroundView([{ kind: 'solid', value: '#456' }], pics));
+    expect(document.querySelectorAll('body > #' + OUTER_BACKGROUND_ID)).toHaveLength(1);
+    expect(document.querySelector<HTMLElement>('body > #' + OUTER_BACKGROUND_ID + ' [data-background-layer="0"]')?.getAttribute('style')).toContain('background:#456');
   });
 });

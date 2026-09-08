@@ -1,9 +1,10 @@
-import type { BackgroundLayerDef } from '../engine/types/theme';
+import type { BackgroundLayerDef, PresentationDecorationDef, PresentationDecorationStyle, PresentationShape } from '../engine/types/theme';
 import type { ThemeTokens } from '../engine/core/theme-runtime';
 import type { PicQueryPort } from '../arona-clicker/contracts/pic-query';
 import { isDirectUrl } from '../data-services/contracts/pic';
 
 export interface BackgroundViewLayer {
+  id?: string;
   kind: BackgroundLayerDef['kind'];
   value: string;
   opacity: number;
@@ -16,8 +17,20 @@ export interface BackgroundViewLayer {
   rotation?: number;
 }
 
+export interface BackgroundDecorationView {
+  color?: string;
+  width?: number;
+  inset?: number;
+  opacity?: number;
+  style?: PresentationDecorationStyle;
+}
+
 export interface BackgroundView {
   layers: readonly BackgroundViewLayer[];
+  shape?: PresentationShape;
+  cornerRadius?: number;
+  skewXDeg?: number;
+  decoration?: BackgroundDecorationView;
 }
 
 const SAFE_VALUE = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla|linear-gradient|radial-gradient|repeating-linear-gradient|repeating-radial-gradient)\([^;<>]+\)|var\(--[a-z0-9-]+\))$/i;
@@ -25,6 +38,7 @@ const SAFE_POSITION = /^[a-z0-9% .-]+$/i;
 const SAFE_SIZE = /^[a-z0-9% .-]+$/i;
 const SAFE_REPEAT = /^(?:repeat|repeat-x|repeat-y|no-repeat|space|round)$/;
 const SAFE_BLEND = /^(?:normal|multiply|screen|overlay|soft-light|hard-light|color-dodge|color-burn|darken|lighten)$/;
+const SAFE_DECORATION_COLOR = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla)\([^;<>]+\)|var\(--[a-z0-9-]+\))$/i;
 
 function escapeHtmlAttribute(value: string): string {
   return value.replace(/[&<>\"]/g, character => ({
@@ -57,6 +71,7 @@ export function buildBackgroundView(
     const value = resolveValue(layer, pics);
     if (!value) return [];
     return [{
+      id: layer.id,
       kind: layer.kind,
       value,
       opacity: Math.max(0, Math.min(1, layer.opacity ?? 1)),
@@ -74,8 +89,35 @@ export function buildBackgroundView(
   }] };
 }
 
-export function renderBackground(view: BackgroundView, className = 'console-background'): string {
-  return '<div class=\"' + className + '\" aria-hidden=\"true\">' + view.layers.map((layer, index) =>
-    '<div class=\"console-background-layer\" data-background-layer=\"' + index + '\" style=\"' + escapeHtmlAttribute('z-index:' + (view.layers.length - index) + ';background:' + layer.value + ';opacity:' + layer.opacity + ';background-position:' + layer.position + ';background-size:' + layer.size + ';background-repeat:' + layer.repeat + ';background-blend-mode:' + layer.blendMode + ';background-attachment:' + layer.attachment + ';transform:scale(' + (layer.scale ?? 1) + ') rotate(' + (layer.rotation ?? 0) + 'deg)') + '\"></div>',
-  ).join('') + '</div>';
+export function buildBackgroundDecorationView(decoration: PresentationDecorationDef | undefined): BackgroundDecorationView | undefined {
+  if (!decoration) return undefined;
+  const view: BackgroundDecorationView = {};
+  if (decoration.color && SAFE_DECORATION_COLOR.test(decoration.color.trim())) view.color = decoration.color.trim();
+  if (typeof decoration.width === 'number' && Number.isFinite(decoration.width)) view.width = Math.max(0, Math.min(12, decoration.width));
+  if (typeof decoration.inset === 'number' && Number.isFinite(decoration.inset)) view.inset = Math.max(0, Math.min(24, decoration.inset));
+  if (typeof decoration.opacity === 'number' && Number.isFinite(decoration.opacity)) view.opacity = Math.max(0, Math.min(1, decoration.opacity));
+  if (decoration.style === 'dashed' || decoration.style === 'dotted' || decoration.style === 'solid') view.style = decoration.style;
+  return view;
+}
+
+export function renderBackground(view: BackgroundView, className = 'console-background', hoverView?: BackgroundView, id?: string): string {
+  const idAttribute = id ? ' id="' + escapeHtmlAttribute(id) + '"' : '';
+  const shape = view.shape ? ' data-presentation-shape=\"' + escapeHtmlAttribute(view.shape) + '\"' : '';
+  const geometry = view.cornerRadius !== undefined || view.skewXDeg !== undefined
+    ? ' data-presentation-geometry=\"custom\" style=\"' + escapeHtmlAttribute([
+      view.cornerRadius !== undefined ? `--presentation-corner-radius:${view.cornerRadius}px` : '',
+      view.skewXDeg !== undefined ? `--presentation-skew-x:${view.skewXDeg}deg` : '',
+    ].filter(Boolean).join(';')) + '\"'
+    : '';
+  const renderLayers = (layers: readonly BackgroundViewLayer[], kind: 'base' | 'hover', zOffset = 0) => layers.map((layer, index) =>
+    '<div class=\"console-background-layer' + (kind === 'hover' ? ' presentation-host-hover-layer' : '') + '\" data-background-layer=\"' + index + '\" data-presentation-layer-kind=\"' + kind + '\" style=\"' + escapeHtmlAttribute('z-index:' + (zOffset + index + 1) + ';background:' + layer.value + ';opacity:' + layer.opacity + ';background-position:' + layer.position + ';background-size:' + layer.size + ';background-repeat:' + layer.repeat + ';background-blend-mode:' + layer.blendMode + ';background-attachment:' + layer.attachment + ';transform:scale(' + (layer.scale ?? 1) + ') rotate(' + (layer.rotation ?? 0) + 'deg)') + '\"></div>',
+  ).join('');
+  const renderDecoration = (decoration: BackgroundDecorationView | undefined, kind: 'base' | 'hover') => decoration && className !== 'console-background'
+    ? `<div class=\"presentation-host-decoration${kind === 'hover' ? ' presentation-host-hover-layer' : ''}\" data-presentation-layer-kind=\"${kind}\" style=\"${escapeHtmlAttribute(`--presentation-decoration-color:${decoration.color ?? 'var(--theme-node-line)'};--presentation-decoration-width:${decoration.width ?? 1}px;--presentation-decoration-inset:${decoration.inset ?? 0}px;--presentation-decoration-opacity:${decoration.opacity ?? 1};--presentation-decoration-style:${decoration.style ?? 'solid'}`)}\"></div>`
+    : '';
+  return '<div' + idAttribute + ' class=\"' + className + '\"' + shape + geometry + ' aria-hidden=\"true\">'
+    + renderLayers(view.layers, 'base')
+    + renderDecoration(view.decoration, 'base')
+    + (hoverView ? renderLayers(hoverView.layers, 'hover', view.layers.length) + renderDecoration(hoverView.decoration, 'hover') : '')
+    + '</div>';
 }

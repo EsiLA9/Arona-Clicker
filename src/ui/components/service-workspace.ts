@@ -107,7 +107,7 @@ function renderPackEntry(pack: PackCatalogEntry, ctx: UIContext, state: PanelSta
 
 function renderDatapackInspector(ctx: UIContext, state: PanelState, entries: readonly PackCatalogEntry[], dependencyStatus: Map<string, string>): string {
   const selected = entries.find(entry => entry.id === state.datapackWorkspace?.selectedPackId);
-  if (!selected) return '<section class="service-card service-empty"><strong>请选择一个数据包</strong><p>选择后将在这里显示版本、来源、依赖和应用影响。</p></section>';
+  if (!selected) return '<section class="service-card service-empty"><strong>选择数据包查看详情</strong></section>';
   const draftEnabledIds = new Set(state.datapackWorkspace?.draftEnabledIds ?? entries.filter(entry => entry.enabled).map(entry => entry.id));
   const dependencyRows = selected.dependencies.map(dependency => {
     const formal = dependencyStatus.get(`${selected.id}:${dependency}`) ?? 'missing';
@@ -116,7 +116,7 @@ function renderDatapackInspector(ctx: UIContext, state: PanelState, entries: rea
   });
   const issues = dependencyRows.length && dependencyRows.some(row => row.includes('缺失'));
   const capabilities = packCapabilities(selected);
-  return `<section class="service-card"><div class="panel-heading"><h3>${escape(selected.name)}</h3><span class="index">${selected.enabled ? '正式启用' : '未启用'}</span></div><dl class="pack-detail-list"><div><dt>modName</dt><dd>${escape(selected.modName)}</dd></div><div><dt>版本</dt><dd>${escape(selected.version)}</dd></div><div><dt>来源</dt><dd>${capabilities.required ? '核心内置数据包' : selected.sourceKind === 'builtin' ? '内置数据包' : escape(selected.sourceKind)}</dd></div><div><dt>导入时间</dt><dd>${ctx.formatTime(selected.importedAt)}</dd></div></dl></section><section class="service-card"><h3>依赖与序列状态</h3>${dependencyRows.length ? `<ul class="service-dependency-list">${dependencyRows.join('')}</ul>` : '<p class="service-ok">此包没有声明依赖。</p>'}${issues ? '<p class="service-warning">当前草案无法满足全部依赖。</p>' : ''}</section><section class="service-card"><h3>当前选择</h3><p>${capabilities.required ? '核心包始终保留在启用集内。' : state.datapackWorkspace?.draftEnabledIds.includes(selected.id) ? '草案将保留此包在启用集内。' : '草案未将此包加入启用集。'}</p></section>`;
+  return `<section class="service-card"><div class="panel-heading"><h3>${escape(selected.name)}</h3><span class="index">${selected.enabled ? '正式启用' : '未启用'}</span></div><dl class="pack-detail-list"><div><dt>modName</dt><dd>${escape(selected.modName)}</dd></div><div><dt>版本</dt><dd>${escape(selected.version)}</dd></div><div><dt>来源</dt><dd>${capabilities.required ? '核心内置数据包' : selected.sourceKind === 'builtin' ? '内置数据包' : escape(selected.sourceKind)}</dd></div><div><dt>导入时间</dt><dd>${ctx.formatTime(selected.importedAt)}</dd></div></dl><h4>依赖</h4>${dependencyRows.length ? `<ul class="service-dependency-list">${dependencyRows.join('')}</ul>` : '<p class="service-ok">无依赖</p>'}${issues ? '<p class="service-warning">草案依赖不完整</p>' : ''}<h4>启用集</h4><p>${capabilities.required ? '核心包，始终启用' : state.datapackWorkspace?.draftEnabledIds.includes(selected.id) ? '草案：启用' : '草案：未启用'}</p></section>`;
 }
 
 function renderDatapackMain(ctx: UIContext, state: PanelState): string {
@@ -136,8 +136,8 @@ function renderDatapackMain(ctx: UIContext, state: PanelState): string {
         ? entries.filter(entry => hasPackIssue(entry, dependencyStatus))
         : entries;
   const changed = entries.some(entry => entry.enabled !== enabledIds.has(entry.id)) || order.some((id, index) => entries[index]?.id !== id);
-  if (section === 'import') return `<div class="service-heading"><div><span class="eyebrow">DATAPACK IMPORT</span><h2>导入数据包</h2><p>先解析和查看报告，再决定是否加入包库或启用。</p></div></div><section class="service-card import-guide"><h3>导入流程</h3><p>选择 ZIP 文件后，页面会显示 manifest、JSON 数量、图片数量、忽略文件和解析问题。导入本身不会改变当前运行内容。</p><button class="primary-button" id="import-datapack">选择 ZIP 文件</button></section>`;
-  const body = catalog ? (filtered.length ? `<div class="pack-catalog">${filtered.map(pack => renderPackEntry(pack, ctx, state, entries, order, enabledIds)).join('')}</div>` : '<div class="service-empty"><strong>这个分类还没有数据包</strong><p>可以切换其他分类，或从“导入”开始加入包库。</p></div>') : '<div class="service-empty"><strong>包库服务不可用</strong><p>当前运行时尚未提供数据包目录。</p></div>';
+  if (section === 'import') return `<div class="service-heading"><h2>导入数据包</h2></div><section class="service-card import-guide"><button class="primary-button" id="import-datapack">选择 ZIP 文件</button></section>`;
+  const body = catalog ? (filtered.length ? `<div class="pack-catalog">${filtered.map(pack => renderPackEntry(pack, ctx, state, entries, order, enabledIds)).join('')}</div>` : '<div class="service-empty"><strong>没有匹配的数据包</strong></div>') : '<div class="service-empty"><strong>包库服务不可用</strong></div>';
   const result = workspace?.lastResult ? `<div class="service-result ${workspace.lastResult.ok ? 'success' : 'error'}">${escape(workspace.lastResult.message)}</div>` : '';
   const validation = workspace?.validation && !workspace.validation.ok
     ? `<ul class="service-issue-list pack-validation-errors">${workspace.validation.errors.map(error => `<li>${escape(error)}</li>`).join('')}</ul>`
@@ -145,10 +145,10 @@ function renderDatapackMain(ctx: UIContext, state: PanelState): string {
       ? `<ul class="service-warning-list">${workspace.validation.warnings.map(warning => `<li>${escape(warning)}</li>`).join('')}</ul>`
       : '';
   return `
-    <div class="service-heading"><div><span class="eyebrow">DATAPACK WORKSPACE</span><h2>${sectionTitle(section)}</h2><p>浏览不会改变运行时；启用集修改会先保存为草案，校验通过后再应用。</p></div><span class="service-status">${enabledIds.size} 个启用 · ${entries.length} 个已导入</span></div>
+    <div class="service-heading"><h2>${sectionTitle(section)}</h2><span class="service-status">${enabledIds.size} 启用 · ${entries.length} 已导入</span></div>
     <div class="service-actions"><button class="primary-button" id="import-datapack">导入数据包</button>${changed ? '<span class="service-draft-status">有未应用变更</span>' : '<span class="service-draft-status">当前配置已应用</span>'}</div>
-    ${result}<section class="service-card service-pack-list"><div class="panel-heading"><h3>${section === 'all' ? '全部数据包' : sectionTitle(section)}</h3><span class="index">${filtered.length} 个结果</span></div>${body}</section>
-    <section class="service-card pack-draft-actions"><div class="panel-heading"><h3>启用集草案</h3><span class="index">${changed ? '待校验' : '无变更'}</span></div><p>${changed ? '当前修改尚未影响运行时。先校验，保存当前进度并确认后才会重载数据包序列。' : '当前草案与正式配置一致。'}</p>${validation}<div class="service-actions"><button class="toolbar-button" data-pack-discard ${changed ? '' : 'disabled'}>放弃修改</button><button class="toolbar-button" data-pack-validate ${changed ? '' : 'disabled'}>校验启用集</button><button class="primary-button" data-pack-apply ${changed ? '' : 'disabled'}>保存并确认应用</button></div></section>`;
+    ${result}<section class="service-card service-pack-list"><div class="panel-heading"><h3>${section === 'all' ? '全部数据包' : sectionTitle(section)}</h3><span class="index">${filtered.length} 个</span></div>${body}</section>
+    <section class="service-card pack-draft-actions"><div class="panel-heading"><h3>启用集草案</h3><span class="index">${changed ? '待校验' : '已应用'}</span></div>${validation}<div class="service-actions"><button class="toolbar-button" data-pack-discard ${changed ? '' : 'disabled'}>放弃</button><button class="toolbar-button" data-pack-validate ${changed ? '' : 'disabled'}>校验</button><button class="primary-button" data-pack-apply ${changed ? '' : 'disabled'}>保存并应用</button></div></section>`;
 }
 
 function renderSavesMain(ctx: UIContext): string {
@@ -173,12 +173,12 @@ function renderRecordsMain(ctx: UIContext): string {
 
 export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspaceId, state: PanelState): string {
   const main = service === 'datapack' ? renderDatapackMain(ctx, state) : service === 'saves' ? renderSavesMain(ctx) : renderRecordsMain(ctx);
-  const navigation = `<div class="service-column-title"><span class="eyebrow">SERVICE</span><strong>${serviceTitle(service)}</strong></div>${renderNavigation(ctx, service, state)}`;
+  const navigation = `<div class="service-column-title"><strong>${serviceTitle(service)}</strong></div>${renderNavigation(ctx, service, state)}`;
   const host = ctx.game as UIContext['game'] & Partial<PackCatalogReadModel>;
   const catalog = host.getPackCatalog?.();
   const dependencyStatus = new Map((catalog?.dependencies ?? []).map(hint => [`${hint.packId}:${hint.dependency}`, hint.status]));
   const inspector = service === 'datapack'
-    ? `<div class="service-column-title"><span class="eyebrow">INSPECTOR</span><strong>${state.datapackWorkspace?.selectedPackId ? '数据包详情' : '当前选择'}</strong></div>${renderDatapackInspector(ctx, state, catalog?.entries ?? [], dependencyStatus)}`
+    ? `<div class="service-column-title"><strong>${state.datapackWorkspace?.selectedPackId ? '数据包详情' : '当前选择'}</strong></div>${renderDatapackInspector(ctx, state, catalog?.entries ?? [], dependencyStatus)}`
     : `<div class="service-column-title"><span class="eyebrow">INSPECTOR</span><strong>当前选择</strong></div><section class="service-card"><h3>${service === 'saves' ? '安全提示' : '只读记录'}</h3><p>${service === 'saves' ? '读取、新游戏和删除等操作会影响进度，确认前必须查看覆盖范围。' : '图鉴与统计展示来源、范围和状态，不直接修改 PlayerState。'}</p></section><section class="service-card"><h3>下一步</h3><p>选择左侧分类或使用中部主要操作。操作结果会保留在当前页面并通过通知反馈。</p></section>`;
   return `<section class="service-workspace" data-service-workspace="${service}">${renderServiceColumn(ctx, service, 'navigation', 'service-navigation', navigation)}${renderServiceColumn(ctx, service, 'main', 'service-main', main)}${renderServiceColumn(ctx, service, 'inspector', 'service-inspector', inspector)}</section>`;
 }

@@ -163,15 +163,17 @@
 
 .pack-catalog {
    display: grid;
-   gap: 10px;
+   gap: 6px;
 }
 
 .pack-entry {
    display: grid;
-   gap: 6px;
-   padding: 12px;
+   grid-template-columns: minmax(0, 1fr) auto auto;
+   align-items: center;
+   gap: 10px;
+   padding: 7px 9px;
    border: 1px solid var(--line);
-   border-radius: 10px;
+   border-radius: 7px;
    background: color-mix(in srgb, var(--panel) 88%, var(--cyan));
 }
 
@@ -186,7 +188,10 @@
 
 .pack-entry-select {
    display: grid;
-   gap: 6px;
+   grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+   align-items: center;
+   gap: 10px;
+   min-width: 0;
    width: 100%;
    padding: 0;
    border: 0;
@@ -205,6 +210,7 @@
    display: flex;
    flex-wrap: wrap;
    gap: 6px;
+   justify-content: flex-end;
 }
 
 .pack-state,
@@ -254,13 +260,25 @@
 }
 
 .pack-entry-main {
-   justify-content: space-between;
+   min-width: 0;
+   flex-direction: column;
+   align-items: flex-start;
+   gap: 2px;
 }
 
 .pack-entry-main span,
 .pack-entry-meta {
    color: var(--muted-on-panel);
    font-size: 10px;
+}
+
+.pack-entry-main strong,
+.pack-entry-main span,
+.pack-entry-meta {
+   overflow: hidden;
+   max-width: 100%;
+   text-overflow: ellipsis;
+   white-space: nowrap;
 }
 
 .pack-entry-meta {
@@ -279,6 +297,25 @@
 }
 
 @media (max-width: 620px) {
+   .pack-entry {
+      grid-template-columns: minmax(0, 1fr) auto;
+   }
+
+   .pack-entry-select {
+      grid-column: 1 / -1;
+   }
+
+   .pack-entry-status {
+      grid-column: 1;
+      justify-content: flex-start;
+   }
+
+   .pack-entry-actions {
+      grid-column: 2;
+      grid-row: 2;
+      justify-content: flex-end;
+   }
+
    .modal-overlay {
       padding: 12px;
    }

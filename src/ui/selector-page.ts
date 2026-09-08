@@ -9,18 +9,22 @@
 // ============================================================
 
 import type { GameReadModel } from '../arona-clicker/contracts';
-import { createUIContext } from './context';
+import type { UIContext } from './context';
 import type { InitSelectMode } from './components/init-select';
 import { renderInitDetail, renderInitRow } from './components/init-select';
 import type { SelectionFace } from './components/global-enhancement-select';
 import { renderGlobalEnhancementDetail, renderGlobalEnhancementRow } from './components/global-enhancement-select';
 import type { PopoverManager } from './popovers';
+import { applyThemeTree } from './theme-tree';
+import { refreshPresentationHostElementsIn } from './controller-theme';
+import { createSelectorPresentationContext, preferredInitId, projectSelectorTheme, renderSelectorSceneLayer } from './selector-theme';
 
 /** controller 暴露给选择页的回调（避免反向依赖）。 */
 export interface SelectorHost {
   game: GameReadModel;
   root: HTMLElement;
   popovers: PopoverManager;
+  selectorContext(): UIContext;
   initSelectMode(): InitSelectMode;
   showBackToGame(): boolean;
   bindDetailActions(): void;
@@ -52,6 +56,7 @@ export class SelectorPage {
   private initWheel: WheelApi | null = null;
   private enhWheel: WheelApi | null = null;
   private flipSeq = 0;
+  private sceneSeq = 0;
 
   constructor(private readonly host: SelectorHost) {
     // ←/→ 方向键翻面（仅当选择页在 DOM 时生效）
@@ -73,6 +78,9 @@ export class SelectorPage {
     this.face = 'init';
     this.initWheel = null;
     this.enhWheel = null;
+    const preferred = preferredInitId(this.host.selectorContext());
+    if (preferred) this.initSelectedId = preferred;
+    this.sceneSeq += 1;
   }
 
   get currentFace(): SelectionFace { return this.face; }
@@ -93,6 +101,7 @@ export class SelectorPage {
     // 防连点：新切换令旧定时器失效，并清掉上次中断残留的中间态
     const seq = ++this.flipSeq;
     this.face = face;
+    this.syncFocusedTheme(true);
     root.querySelectorAll('.selector-face.is-fading, .init-wheel.is-fading').forEach(el => el.classList.remove('is-fading'));
 
     const isEnh = face === 'global-enh';
@@ -132,7 +141,7 @@ export class SelectorPage {
   replaceInitDetail(): void {
     const copy = this.host.root.querySelector('.face-init .init-orb-copy');
     if (copy) {
-      copy.outerHTML = renderInitDetail(createUIContext(this.host.game), this.host.initSelectMode(), this.initSelectedId);
+      copy.outerHTML = renderInitDetail(this.host.selectorContext(), this.host.initSelectMode(), this.initSelectedId);
     }
     this.host.bindDetailActions();
   }
@@ -141,7 +150,7 @@ export class SelectorPage {
   replaceEnhDetail(): void {
     const copy = this.host.root.querySelector('.face-enh .enh-orb-copy');
     if (copy) {
-      copy.outerHTML = renderGlobalEnhancementDetail(createUIContext(this.host.game), this.enhSelectedId, this.host.showBackToGame());
+      copy.outerHTML = renderGlobalEnhancementDetail(this.host.selectorContext(), this.enhSelectedId, this.host.showBackToGame());
     }
     this.host.bindGlobalEnhancementDetailActions();
   }
@@ -149,6 +158,9 @@ export class SelectorPage {
   /** 解锁/购买等状态变化后原位同步该卡片内容（controller 调用）。 */
   refreshInitRow(initId: string): void { this.initWheel?.refreshRow(initId); }
   refreshEnhRow(enhId: string): void { this.enhWheel?.refreshRow(enhId); }
+
+  /** 主题浮窗开合等顶栏状态变化后，只刷新选择页顶栏的宿主表现。 */
+  refreshTopbarPresentation(): void { this.syncFocusedTheme(false); }
 
   /** 装配两面向：各自轮盘定位 + 详情 CTA 与顶栏（一次只显示 initialFace）。 */
   bindStage(initialFace: SelectionFace): void {
@@ -159,6 +171,7 @@ export class SelectorPage {
     this.host.bindGlobalEnhancementDetailActions();
     this.host.bindSelectorCommonActions();
     this.bindParallax();
+    this.syncFocusedTheme(false);
   }
 
   /** 鼠标视差：光标相对圆盘中心的位置写入 --par-x/--par-y，条项与圆盘据此轻微偏移（仅视觉，不改选中）。 */
@@ -271,13 +284,14 @@ export class SelectorPage {
       const focus = apply();
       this.setSelected(isEnh, ids[focus]);
       if (refreshDetail) { if (isEnh) this.replaceEnhDetail(); else this.replaceInitDetail(); }
+      this.syncFocusedTheme(true);
     };
 
     /** 状态变化后原位同步该卡片内容：不替换节点，保留内联定位与事件绑定。 */
     const refreshRow = (id: string) => {
       const html = isEnh
-        ? renderGlobalEnhancementRow(createUIContext(this.host.game), id)
-        : renderInitRow(createUIContext(this.host.game), id);
+        ? renderGlobalEnhancementRow(this.host.selectorContext(), id)
+        : renderInitRow(this.host.selectorContext(), id);
       const old = getRows().find(row => row.dataset[isEnh ? 'globalEnhSelect' : 'initSelect'] === id);
       if (!html || !old) return;
       const template = document.createElement('template');
@@ -297,13 +311,81 @@ export class SelectorPage {
       const focus = apply();
       this.setSelected(isEnh, ids[focus]);
       if (isEnh) this.replaceEnhDetail(); else this.replaceInitDetail();
+      this.syncFocusedTheme(true);
     }, { passive: false });
 
     apply();
     return { refreshRow, relayout };
   }
 
+  /** 将当前聚焦项的局部主题投影到视口、圆盘、详情与背景双缓冲。 */
+  private syncFocusedTheme(animate: boolean): void {
+    const context = this.host.selectorContext();
+    const focusedId = this.face === 'global-enh' ? this.enhSelectedId : this.initSelectedId;
+    const projection = projectSelectorTheme(context, this.face, focusedId);
+    const { root } = this.host;
+    const topbar = root.querySelector<HTMLElement>('.selector-topbar');
+    if (topbar) {
+      applyThemeTree(topbar, projection.tree);
+      topbar.dataset.selectorHeaderThemeKey = projection.context.transitionKey;
+      refreshPresentationHostElementsIn(
+        topbar,
+        createSelectorPresentationContext(context, projection),
+        ['header.button'],
+      );
+    }
+    const viewport = root.querySelector<HTMLElement>('.selector-viewport');
+    const disc = root.querySelector<HTMLElement>('.selector-disc');
+    const detail = root.querySelector<HTMLElement>(`.selector-face.face-${faceClass(this.face)} [data-selector-theme-key]`);
+    if (viewport) {
+      applyThemeTree(viewport, projection.tree);
+      viewport.dataset.selectorThemeKey = projection.context.transitionKey;
+    }
+    const superBackground = root.querySelector<HTMLElement>('.selector-super-background');
+    if (superBackground) applyThemeTree(superBackground, projection.tree);
+    if (disc) applyThemeTree(disc, projection.tree);
+    if (detail) {
+      applyThemeTree(detail, projection.tree);
+      detail.dataset.selectorThemeKey = `${this.face}:${focusedId ?? ''}`;
+    }
+
+    const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]');
+    const next = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]');
+    if (!current || !next) return;
+    const seq = ++this.sceneSeq;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (!animate || reducedMotion) {
+      current.outerHTML = renderSelectorSceneLayer(context, projection, 'current');
+      root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]')?.replaceWith(
+        htmlToElement(renderSelectorSceneLayer(context, null, 'next')),
+      );
+      return;
+    }
+
+    next.outerHTML = renderSelectorSceneLayer(context, projection, 'next');
+    const incoming = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]');
+    const outgoing = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]');
+    window.setTimeout(() => {
+      if (seq !== this.sceneSeq) return;
+      incoming?.classList.add('is-visible');
+      outgoing?.classList.add('is-hidden');
+    }, 0);
+    window.setTimeout(() => {
+      if (seq !== this.sceneSeq) return;
+      const currentNow = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]');
+      if (currentNow) currentNow.outerHTML = renderSelectorSceneLayer(context, projection, 'current');
+      const nextNow = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]');
+      if (nextNow) nextNow.outerHTML = renderSelectorSceneLayer(context, null, 'next');
+    }, DISC_MS);
+  }
+
   private setSelected(isEnh: boolean, id: string): void {
     if (isEnh) this.enhSelectedId = id; else this.initSelectedId = id;
   }
+}
+
+function htmlToElement(html: string): HTMLElement {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.firstElementChild as HTMLElement;
 }

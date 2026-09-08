@@ -6,7 +6,7 @@
 // initialFace 决定默认进入的面与圆盘初始位置。
 // ============================================================
 
-import { UIContext } from '../context';
+import type { UIContext } from '../context';
 import { InitSelectMode, renderInitDetail, renderInitRow, visibleInitsByTilt } from './init-select';
 import {
   SelectionFace,
@@ -14,6 +14,8 @@ import {
   renderGlobalEnhancementRow,
   visibleGlobalEnhancements,
 } from './global-enhancement-select';
+import { renderHeader, renderHeaderButton } from './header';
+import { createSelectorPresentationContext, preferredInitId, projectSelectorTheme, renderSelectorSceneLayer } from '../selector-theme';
 
 /** 整页渲染：双面叠放 + 共享圆盘 + 顶栏翻面按钮。initialFace 决定默认进入的面。 */
 export function renderSelectorPage(
@@ -28,7 +30,10 @@ export function renderSelectorPage(
   const isEnh = initialFace === 'global-enh';
 
   const initList = visibleInitsByTilt(ctx);
-  const initSelected = initList.find(i => i.id === initSelectedId) ?? initList[0];
+  const initPreferredId = preferredInitId(ctx);
+  const initSelected = initList.find(i => i.id === initSelectedId)
+    ?? initList.find(i => i.id === initPreferredId)
+    ?? initList[0];
   const initDetail = initSelected
     ? renderInitDetail(ctx, mode, initSelected.id)
     : '<div class="init-orb-copy"><p>暂无可选的世界线。</p></div>';
@@ -40,6 +45,33 @@ export function renderSelectorPage(
     ? renderGlobalEnhancementDetail(ctx, enhSelected.id, showBackToGame)
     : '<div class="init-orb-copy enh-orb-copy"><p>暂无可选的全局强化。</p></div>';
   const enhRows = enhList.map(e => renderGlobalEnhancementRow(ctx, e.id) ?? '').join('');
+  const activeProjection = projectSelectorTheme(
+    ctx,
+    initialFace,
+    isEnh ? enhSelected?.id ?? null : initSelected?.id ?? null,
+  );
+  const headerContext = createSelectorPresentationContext(ctx, activeProjection);
+  const headerActions = [
+    ctx.saveExists && !restarting
+      ? renderHeaderButton(headerContext, {
+        id: 'load-game-init',
+        title: '读取本地存档',
+        content: 'LOAD SAVE <span>↗</span>',
+      })
+      : '',
+    renderHeaderButton(headerContext, {
+      title: isEnh ? '切换到世界线选择' : '切换到全局强化选择',
+      flipSelectionFace: true,
+      content: `<span data-flip-label>${isEnh ? '世界线' : '全局强化'}</span> <span>⇄</span>`,
+    }),
+    showBackToGame
+      ? renderHeaderButton(headerContext, {
+        title: '返回当前游戏',
+        backToGame: true,
+        content: '返回游戏 <span>↗</span>',
+      })
+      : '',
+  ].join('');
 
   const initFace = `
     <section class="selector-face face-init ${isEnh ? 'is-inactive' : ''}">
@@ -71,22 +103,25 @@ export function renderSelectorPage(
 
   return `
     <main class="console-shell init-select-shell selector-shell ${isEnh ? 'enh-mode' : 'init-mode'}">
-      <div class="init-orb-disc selector-disc"></div>
-
-      <header class="topbar">
-        <div class="brand-lockup">
-          <span class="signal-dot"></span>
-          <div><span class="eyebrow">SCHale / SYSTEM 01</span><h1>AronaClicker</h1></div>
+      <div class="selector-super-background" data-selector-super-background="true" style="${ctx.escapeHtml(activeProjection.inlineStyle)}">
+        <div class="selector-scene-background-stack" aria-hidden="true">
+          ${renderSelectorSceneLayer(ctx, activeProjection, 'current')}
+          ${renderSelectorSceneLayer(ctx, null, 'next')}
         </div>
-        <div class="topbar-right">
-          ${ctx.saveExists && !restarting ? `<button id="load-game-init" class="toolbar-button">LOAD SAVE<span>↗</span></button>` : ''}
-          <button class="toolbar-button" data-flip-selection-face><span data-flip-label>${isEnh ? '世界线' : '全局强化'}</span> <span>⇄</span></button>
-          ${showBackToGame ? '<button class="toolbar-button" data-back-to-game>返回游戏 <span>↗</span></button>' : ''}
-          <div class="status-line"><span data-face-status>${isEnh ? 'GLOBAL ENH' : `WORLD LINE · ${restarting ? 'RESTART' : 'NEW GAME'}`}</span><span class="live">● AWAITING INPUT</span></div>
-        </div>
-      </header>
+      </div>
 
-      <div class="selector-viewport">
+      <div class="init-orb-disc selector-disc" aria-hidden="true" style="${ctx.escapeHtml(activeProjection.inlineStyle)}"></div>
+
+      ${renderHeader(headerContext, {
+        className: 'selector-topbar',
+        themeStyle: activeProjection.inlineStyle,
+        themeKey: activeProjection.context.transitionKey,
+        extraActions: headerActions,
+        statusLabel: `<span data-face-status>${isEnh ? 'GLOBAL ENH' : `WORLD LINE · ${restarting ? 'RESTART' : 'NEW GAME'}`}</span>`,
+        statusSubline: '● AWAITING INPUT',
+      })}
+
+      <div class="selector-viewport" data-selector-theme-key="${ctx.escapeHtml(activeProjection.context.transitionKey)}" style="${ctx.escapeHtml(activeProjection.inlineStyle)}">
         ${initFace}
         ${enhFace}
       </div>

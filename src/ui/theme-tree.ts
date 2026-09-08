@@ -238,7 +238,7 @@ export function clearThemeTree(el: HTMLElement, tree?: ThemeTree): void {
 /** ThemeTree → 内联 style 字符串（供 HTML 模板直接填入，即"绕过参考树直接 fill styles"）。 */
 export function themeTreeToInlineStyle(tree: ThemeTree): string {
   return Object.entries(tree)
-    .map(([k, v]) => `${k}:${v}`)
+    .map(([k, v]) => `${k.startsWith('--') ? k : '--' + k}:${v}`)
     .join(';');
 }
 

@@ -92,9 +92,9 @@ src/data-services/persistence/storage.ts → 泛型 JSON 文档；具体 SaveDat
 
 该目标已完成：基础持久化服务不再依赖完整 Runtime 或产品 SaveData。
 
-### 5. 存在两个游戏启动路径
+### 5. 历史上存在两个游戏启动路径
 
-当前同时存在 `src/main.ts` 和 `src/ui/main.ts`。前者自行处理存档、默认 Init 和启动；后者创建 Runtime 后交由 UIController 处理启动流程。Vite 游戏 HTML 当前指向 `src/ui/main.ts`，但 `src/main.ts` 仍保留独立启动逻辑。
+历史上同时存在 `src/main.ts` 和 `src/ui/main.ts`，旧路径曾自行处理存档、默认 Init 和启动。当前 Vite 游戏入口是 `src/ui/main.ts`：它通过 Runtime bootstrap 创建运行时，再由 UIController 处理 Lobby、Init 选择与启动流程。`src/main.ts` 即使作为纯引擎或兼容入口保留，也不再是当前游戏 UI 主链的事实源。
 
 ### 6. 测试目前偏向完整 Runtime 集成
 

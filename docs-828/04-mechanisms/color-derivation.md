@@ -7,11 +7,12 @@
 | 层 | 来源 | 优先级 |
 | --- | --- | --- |
 | 玩家全局层 | `syncPlayerThemeFromState(state)` | 可自定义 |
+| 场景层 init | 当前/恢复中的 Init 的 theme | 可自定义 |
 | 场景层 area | 当前 Area 的 theme | 可自定义 |
 | 场景层 student | 当前对话学生差分 theme | 可自定义 |
 | 临时演出层 | `setTheme` effect（剧情演出） | 始终最高 |
 
-player/area/student 三层的相对优先级由玩家可自定义（`PlayerState.themeLayerOrder`，`RuntimeThemeManager.setLayerOrder`，缺省 `['player','area','student']`）；演出层不参与排序，始终最高。主题浮窗「层级优先级」段用 ◀/▶ 交换相邻位。
+player/init/area/student 四层的相对优先级由玩家可自定义（`PlayerState.themeLayerOrder`，`RuntimeThemeManager.setLayerOrder`，缺省 `['player','init','area','student']`）；user/preview 独立插入，演出层不参与排序，始终最高。主题浮窗「层级优先级」段用 ◀/▶ 交换相邻位。
 
 ## 合并规则
 
@@ -35,13 +36,13 @@ runtimeTheme() → 按优先级合并主题层：
 
 组件应优先使用 `--theme-node-<node>` 与专用 `ui-cluster--*` / `ui-control--*` 类名。旧的 `--cyan`、`--panel` 等变量目前由兼容别名提供，作为渐进迁移层。
 
-## 实体配色槽（Area / 学生的多来源配色）
+## 实体配色槽（Area / 学生 / Init / GlobalEnh 的多来源配色）
 
-每个 Area 与 CharacterVariant 有一个「主题槽」（`PlayerState.entityThemeSlots`，key = `area:<id>` / `variant:<id>`），当前生效主题可来自多个来源：
+每个可挂靠实体有一个「主题槽」（`PlayerState.entityThemeSlots`，key = `area:<id>` / `variant:<id>` / `init:<id>` / `enhancement:<id>`），当前生效主题可来自多个来源：
 
 | 来源 | 说明 |
 | --- | --- |
-| 声明默认 | `AreaDef.theme` / `CharacterVariantDef.theme`（兜底，无槽位时生效） |
+| 声明默认 | `AreaDef.theme` / `CharacterVariantDef.theme` / `InitDef.theme` / `EnhancementDef.theme`（兜底，无槽位时生效） |
 | equipment | 已装备的 `ColorEquipmentDef`（`theme` 完整主题优先，否则回退其引用的 `colorGroupId` 组预设） |
 | design | 已解锁的 `ThemeDesignDef`（全局表 `themeDesigns`，`entityKey` 声明目标实体） |
 | custom | 玩家/剧情写入的 `ThemeDef`（`setTheme` effect 的 `scope=area|student` + `entityKey`） |
@@ -51,7 +52,7 @@ runtimeTheme() → 按优先级合并主题层：
 获得途径：
 - `ThemeDesignDef.unlock` 条件满足 → `recheckDesignUnlocks()` 自动解锁（挂 `characterAcquired` / `flagChanged`，与 ColorEquipment 同一闭环）；
 - 获得后自动写入槽位（改默认色），玩家可手动换回；
-- `setTheme` effect 的 `scope=area|student` 直接改写实体主题槽（写入 `custom` 来源）。
+- `setTheme` effect 的 `scope=area|student` 直接改写实体主题槽（写入 `custom` 来源）；Init/GlobalEnh 目前以选择页只读投影消费声明主题，不把选择页聚焦写回运行时层。
 
 状态归属：`entityThemeSlots` / `entityThemeDesignsOwned` 均为收集类资产（global 层，入存档）。
 
@@ -69,7 +70,7 @@ runtimeTheme() → 按优先级合并主题层：
 ### 状态归属
 
 - `PlayerState.groupsOwned: ColorGroupId[]` —— 已解锁色彩组清单（幂等入库存）；
-- `PlayerState.activeGroupId: ColorGroupId | null` —— 当前激活全局主题（须已拥有）；
+- `PlayerState.activeTheme` —— 当前全局主题来源，三选一：`{ kind: 'system' }`、`{ kind: 'color-group', id }`、`{ kind: 'custom', id }`；ColorGroup 选择须已拥有，custom 选择须已保存；
 - `PlayerState.equipmentsOwned: EquipmentId[]` —— 已收集装备清单（幂等入库存）；
 - `RosterEntry.equippedEquipment: EquipmentId | null` —— 单装备槽（`null` = 未装备）。
 
@@ -78,7 +79,8 @@ runtimeTheme() → 按优先级合并主题层：
 - `unlockGroup(groupId)`：色彩组解锁（条件满足）→ `groupUnlocked` 事件；
 - `collectEquipment(equipmentId)`：装备收集入库存（幂等）；收集时会**级联解锁其引用的 ColorGroup**；
 - `equipEquipment(variantId, equipmentId)` / `unequipEquipment(variantId)`：单槽装备/卸下（未拥有 / 同装备 → 拒绝）；
-- `activateTheme(groupId)`：激活全局主题（未拥有拒绝；`null` 回默认）→ `themeChanged` 事件。
+- `activateTheme(groupId)`：激活系统默认或全局 ColorGroup（未拥有拒绝；`null` 回系统默认）→ `themeChanged` 事件；
+- `activateCustomTheme(customThemeId)`：激活已保存的独立用户主题；切换到内置主题只解除全局应用，不删除 `customThemes` 记录。
 
 ### 解析与渲染
 

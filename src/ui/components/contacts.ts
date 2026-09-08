@@ -67,21 +67,31 @@ export function renderContactsTab(
 
   // 主题切换：已解锁色彩组 swatch
   const ownedGroups = game.colorSystem.ownedGroups(game.state);
-  const activeGroupId = game.state.activeGroupId;
-  const themeRow = ownedGroups.length
+  const activeTheme = game.state.activeTheme ?? { kind: 'system' as const };
+  const customId = game.state.userTheme?.customThemeId;
+  const customTheme = customId ? game.state.customThemes?.[customId] : undefined;
+  const customSwatch = customTheme
+    ? game.colorSystem.themeSwatchColor(customTheme)
+      ?? (customTheme.baseThemeRef?.kind === 'color-group' && customTheme.baseThemeRef.id
+        ? game.colorSystem.themeSwatchColor({ colorGroupId: customTheme.baseThemeRef.id })
+        : undefined)
+      ?? '#888'
+    : undefined;
+  const themeRow = ownedGroups.length || customTheme
     ? `
       <div class="contact-themes">
         <h4 class="contact-school">主题色彩组</h4>
         <div class="theme-swatches">
-        <button class="theme-swatch default ${!activeGroupId ? 'active' : ''}" data-activate-group="" title="系统默认主题">系统默认</button>
+        <button class="theme-swatch default ${activeTheme.kind === 'system' ? 'active' : ''}" data-activate-group="" aria-pressed="${activeTheme.kind === 'system'}" title="系统默认主题">系统默认</button>
           ${ownedGroups.map(g => `
-            <button class="theme-swatch ${activeGroupId === g.id ? 'active' : ''}"
-              data-activate-group="${g.id}" title="${ctx.escapeHtml(g.name)}"
+            <button class="theme-swatch ${activeTheme.kind === 'color-group' && activeTheme.id === g.id ? 'active' : ''}"
+              data-activate-group="${g.id}" aria-pressed="${activeTheme.kind === 'color-group' && activeTheme.id === g.id}" title="${ctx.escapeHtml(g.name)}"
               style="--swatch:${game.colorSystem.themeSwatchColor({ colorGroupId: g.id }) ?? '#888'}">${ctx.escapeHtml(g.name)}</button>`).join('')}
+          ${customTheme ? `<button class="theme-swatch custom ${activeTheme.kind === 'custom' && activeTheme.id === customId ? 'active' : ''}" data-activate-custom-theme="${ctx.escapeHtml(customId!)}" aria-pressed="${activeTheme.kind === 'custom' && activeTheme.id === customId}" title="应用用户自定义主题" style="--swatch:${customSwatch}">自定义 · ${ctx.escapeHtml(customTheme.name)}</button>` : ''}
         </div>
       </div>`
     : '';
-  const userTheme = `<div class="contact-themes user-theme-access"><h4 class="contact-school">用户自定主题</h4><button class="theme-editor-entry ${game.userThemeService.capability().active ? 'is-available' : 'is-locked'}" data-open-user-theme>${game.userThemeService.capability().active ? '打开主题编辑器' : '需要主题编辑权限'}<span>↗</span></button></div>`;
+  const userTheme = `<div class="contact-themes user-theme-access"><h4 class="contact-school">用户自定义主题</h4><button class="theme-editor-entry ${game.userThemeService.capability().active ? 'is-available' : 'is-locked'}" data-open-user-theme>${game.userThemeService.capability().active ? (customTheme ? '编辑用户自定义' : '创建用户自定义') : '需要主题编辑权限'}<span>↗</span></button></div>`;
 
   return `
     <div class="contacts-pane">

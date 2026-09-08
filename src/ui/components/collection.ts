@@ -40,7 +40,7 @@ function palettePreview(desc: { tokens: { key: string; value: string }[] }): str
 function groupCard(ctx: UIContext, def: import('../../data-services/contracts/color').ColorGroupDef): string {
   const esc = ctx.escapeHtml;
   const owned = ctx.game.colorSystem.isGroupOwned(ctx.game.state, def.id);
-  const active = ctx.game.state.activeGroupId === def.id;
+  const active = ctx.game.state.activeTheme?.kind === 'color-group' && ctx.game.state.activeTheme.id === def.id;
   const desc = ctx.game.colorSystem.describeGroup(def);
   const primary = ctx.game.colorSystem.themeSwatchColor({ colorGroupId: def.id }) ?? '#888';
   const avatar = renderAvatarSvg(def.compositionType, def.slots.map(s => s.color), 56);

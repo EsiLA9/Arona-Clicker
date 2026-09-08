@@ -227,6 +227,8 @@ describe('theme-tree：ThemeTree 快照与快速映射', () => {
     const tree = buildThemeTree(tokens);
     const css = themeTreeToInlineStyle(tree);
     expect(css).toContain('--ac-primary:#3b82f6');
+    expect(css).toContain('--ink:');
+    expect(css).toContain('--canvas:');
     expect(css).toContain(';');
     expect(css.endsWith(';')).toBe(false); // 末位无多余分号
   });

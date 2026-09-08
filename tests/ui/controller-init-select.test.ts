@@ -64,6 +64,53 @@ describe('UIController Init 选择页', () => {
     expect(root.contains(row)).toBe(true);
   });
 
+  it('轮盘聚焦切换时更新局部主题与下一背景槽，不触碰运行状态', () => {
+    game.mutations.changeResource('base:resource:pyroxene', 100);
+    game.inits.unlockInit(MILLENNIUM);
+    showSelectPage();
+
+    const viewport = root.querySelector<HTMLElement>('.selector-viewport')!;
+    expect(root.querySelector('.selector-super-background > .selector-scene-background-stack')).not.toBeNull();
+    expect(root.querySelector('.selector-viewport > .selector-scene-background-stack')).toBeNull();
+    const currentBefore = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]')!;
+    const beforeState = { ...game.state };
+    const beforeKey = currentBefore.dataset.selectorTransitionKey;
+
+    root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!.click();
+
+    expect(controller.selectorPage.selectedInitId).toBe(MILLENNIUM);
+    expect(viewport.dataset.selectorThemeKey).toContain(`init:${MILLENNIUM}`);
+    expect(root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]')?.dataset.selectorTransitionKey)
+      .toContain(`init:${MILLENNIUM}`);
+    expect(currentBefore.dataset.selectorTransitionKey).toBe(beforeKey);
+    expect(game.state.activeInit).toBe(beforeState.activeInit);
+    expect(game.state.totalFrames).toBe(beforeState.totalFrames);
+  });
+
+  it('选择页上部按钮随聚焦主题刷新背景，主题浮窗开合保持同一表现链', () => {
+    game.mutations.changeResource('base:resource:pyroxene', 100);
+    game.inits.unlockInit(MILLENNIUM);
+    showSelectPage();
+
+    const topbar = root.querySelector<HTMLElement>('.selector-topbar')!;
+    const flip = topbar.querySelector<HTMLButtonElement>('[data-flip-selection-face]')!;
+    const themeButton = topbar.querySelector<HTMLButtonElement>('#theme-palette-btn')!;
+    const initialBackground = flip.querySelector<HTMLElement>(':scope > .presentation-host-background');
+    expect(flip.classList.contains('presentation-host-target')).toBe(true);
+    expect(flip.dataset.themeHostId).toBe('header.button');
+    expect(initialBackground?.innerHTML).toContain('#3b82f6');
+
+    root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!.click();
+    expect(flip.querySelector<HTMLElement>(':scope > .presentation-host-background')?.innerHTML).toContain('#4f46e5');
+
+    themeButton.click();
+    expect(themeButton.dataset.themeState).toBe('active');
+    expect(themeButton.querySelector<HTMLElement>(':scope > .presentation-host-background')?.innerHTML).toContain('#22d3ee');
+    themeButton.click();
+    expect(themeButton.dataset.themeState).toBe('inactive');
+    expect(themeButton.dataset.themeHostId).toBe('header.button');
+  });
+
   it('无存档进入 Init / GlobalEnhancement 轮盘时立即创建可读取的存档', () => {
     localStorage.clear();
 
@@ -104,8 +151,49 @@ describe('UIController Init 选择页', () => {
     expect(pendingController.started).toBe(false);
     expect(pendingRoot.querySelector('.selector-shell')).not.toBeNull();
 
+    // Lobby 存档重新读取后仍不得启动 Tick 或跳过 Init 选择。
+    pendingRoot.querySelector<HTMLButtonElement>('#load-game-init')!.click();
+    expect(pendingGame.state.activeInit).toBe('');
+    expect(pendingGame.running).toBe(false);
+    expect(pendingController.started).toBe(false);
+    expect(pendingRoot.querySelector('.selector-shell')).not.toBeNull();
+    expect(document.body.querySelector(':scope > #ui-background-layer')).not.toBeNull();
+    expect(pendingRoot.querySelector(':scope > .console-background')).toBeNull();
+
     pendingController.destroy();
     pendingGame.stop();
+  });
+
+  it('Lobby 可以进入数据包服务，返回游戏服务时仍回到 Init 选择页', () => {
+    localStorage.clear();
+
+    const lobbyGame = new GameInstance();
+    lobbyGame.init([baseDatapack]);
+    lobbyGame.reset();
+    const lobbyRoot = document.createElement('div');
+    document.body.appendChild(lobbyRoot);
+    const lobbyController = new UIController(lobbyGame, lobbyRoot);
+    lobbyController.mount();
+
+    expect(lobbyRoot.querySelector('#theme-palette-btn')).not.toBeNull();
+    expect(lobbyRoot.querySelector('#help-modal')).not.toBeNull();
+    lobbyRoot.querySelector<HTMLButtonElement>('#theme-palette-btn')!.click();
+    expect(lobbyRoot.querySelector('[data-theme-float]')?.classList.contains('open')).toBe(true);
+    lobbyRoot.querySelector<HTMLButtonElement>('#help-modal')!.click();
+    expect(document.querySelector('.app-modal')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>('.app-modal .modal-close')?.click();
+    lobbyRoot.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
+    expect(lobbyController.started).toBe(false);
+    expect(lobbyGame.running).toBe(false);
+    expect(lobbyRoot.querySelector('.service-workspace')).not.toBeNull();
+    expect(lobbyRoot.querySelector('.service-workspace h2')?.textContent).toBe('全部数据包');
+
+    lobbyRoot.querySelector<HTMLButtonElement>('[data-service="game"]')!.click();
+    expect(lobbyRoot.querySelector('.selector-shell')).not.toBeNull();
+    expect(lobbyController.started).toBe(false);
+
+    lobbyController.destroy();
+    lobbyGame.stop();
   });
 
   it('resetSessionPanel 彻底重置会话 UI：退出对话空间、清空学生聊天流与选中差分', () => {

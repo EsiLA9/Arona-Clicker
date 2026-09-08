@@ -3,6 +3,7 @@ import type { ResourceAmount } from '../../data-services/contracts/common';
 import { compareWorldTilt, normalizeWorldTilt } from '../../engine/stats/world-tilt';
 import { UIContext } from '../context';
 import { getInitReveal } from './tooltip';
+import { projectSelectorTheme, selectorThemeStyle } from '../selector-theme';
 
 export interface InitSummary {
   id: string;
@@ -21,6 +22,8 @@ export interface InitSummary {
   worldTilt: string;
   /** 伪装展示字符串：存在时代替数值展示。 */
   worldTiltAlias?: string;
+  /** 条目局部主题树，轮盘卡片与详情共用。 */
+  themeStyle: string;
 }
 
 /** Init 选择界面模式：new = 新建世界线（开始新的世界线）；restart = 重选世界线（回到世界线）。 */
@@ -48,6 +51,7 @@ function summarize(ctx: UIContext): InitSummary[] {
       purchaseCost: init.purchaseCost ?? [],
       worldTilt: normalizeWorldTilt(init.worldTilt),
       worldTiltAlias: init.worldTiltAlias,
+      themeStyle: selectorThemeStyle(projectSelectorTheme(ctx, 'init', init.id)),
     };
   });
 }
@@ -70,12 +74,12 @@ function rowStatus(init: InitSummary): string {
   return 'LOCKED · 未解锁';
 }
 
-function rowHtml(init: InitSummary): string {
+function rowHtml(ctx: UIContext, init: InitSummary): string {
   const classes = ['init-row'];
   if (!init.unlocked && init.stage !== 'purchaseable') classes.push('is-locked');
   const name = init.nameKnown || init.unlocked ? init.name : '???';
   return `
-    <button class="${classes.join(' ')}" data-init-select="${init.id}" data-tooltip="init:${init.id}">
+    <button class="${classes.join(' ')}" data-init-select="${init.id}" data-selector-theme-key="init:${init.id}" style="${ctx.escapeHtml(init.themeStyle)}" data-tooltip="init:${init.id}">
       <span class="init-row-main">
         <strong>${name}</strong>
         <small>${rowStatus(init)}</small>
@@ -122,7 +126,7 @@ function detailHtml(ctx: UIContext, init: InitSummary, restarting: boolean): str
   })();
 
   return `
-    <div class="init-orb-copy">
+    <div class="init-orb-copy" data-selector-theme-key="init:${init.id}" style="${ctx.escapeHtml(init.themeStyle)}">
       <span class="eyebrow">WORLD LINE / TILT</span>
       <span class="orb-big">TILT ${ctx.escapeHtml(tiltText(init))}</span>
       <h2>${ctx.escapeHtml(name)}</h2>
@@ -155,5 +159,5 @@ export function renderInitDetail(
 /** 单张轮盘卡片，供解锁等状态变化后的局部替换（避免整页重渲染）。 */
 export function renderInitRow(ctx: UIContext, initId: string): string | null {
   const init = visibleInitsByTilt(ctx).find(summary => summary.id === initId);
-  return init ? rowHtml(init) : null;
+  return init ? rowHtml(ctx, init) : null;
 }

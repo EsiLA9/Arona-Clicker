@@ -12,6 +12,11 @@ export interface UserThemeOk { ok: true; state: Readonly<UserThemeState> }
 export type UserThemeResult = UserThemeOk | UserThemeError;
 export interface UserThemeEditSession { id: string; baseRevision: number; draft: UserThemeDraft; readonly: boolean }
 
+function draftOfStoredTheme(theme: import('../types/user-theme').StoredCustomTheme): UserThemeDraft {
+  const { id: _id, name: _name, baseThemeRef: _baseThemeRef, createdAt: _createdAt, updatedAt: _updatedAt, ...draft } = structuredClone(theme);
+  return draft;
+}
+
 const PRESENTATION_REGIONS = ['shell', 'header', 'leftPanel', 'centerPanel', 'rightPanel', 'footer', 'story', 'modal'] as const;
 
 function normalizePresentationDraft(draft: UserThemeDraft): void {
@@ -60,8 +65,22 @@ const REGIONS = new Set(['shell', 'header', 'leftPanel', 'centerPanel', 'rightPa
 const ANCHORS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center']);
 const COLOR = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla)\([^;<>]+\)|var\(--[a-z0-9-]+\))$/i;
 const TEXT_COLOR_MODES = new Set(['auto', 'light', 'dark']);
+const DECORATION_STYLES = new Set(['solid', 'dashed', 'dotted']);
 
 function issue(issues: string[], message: string): void { if (issues.length < 100) issues.push(message); }
+
+function validateDecoration(decoration: unknown, path: string, issues: string[]): void {
+  if (!decoration || typeof decoration !== 'object' || Array.isArray(decoration)) {
+    issue(issues, `非法装饰线配置：${path}`);
+    return;
+  }
+  const value = decoration as Record<string, unknown>;
+  if (value.color !== undefined && (typeof value.color !== 'string' || value.color.length > 128 || !COLOR.test(value.color.trim()))) issue(issues, `非法装饰线颜色：${path}`);
+  if (value.width !== undefined && (typeof value.width !== 'number' || !Number.isFinite(value.width) || value.width < 0 || value.width > 12)) issue(issues, `非法装饰线粗细：${path}`);
+  if (value.inset !== undefined && (typeof value.inset !== 'number' || !Number.isFinite(value.inset) || value.inset < 0 || value.inset > 24)) issue(issues, `非法装饰线内缩：${path}`);
+  if (value.opacity !== undefined && (typeof value.opacity !== 'number' || !Number.isFinite(value.opacity) || value.opacity < 0 || value.opacity > 1)) issue(issues, `非法装饰线透明度：${path}`);
+  if (value.style !== undefined && (typeof value.style !== 'string' || !DECORATION_STYLES.has(value.style))) issue(issues, `非法装饰线样式：${path}`);
+}
 
 function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
   const issues: string[] = [];
@@ -110,6 +129,7 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
     if (host.parent && host.parent.length > 96) issue(issues, `控件宿主父级 ID 过长：${host.id}`);
     if (host.opacity !== undefined && (!Number.isFinite(host.opacity) || host.opacity < 0 || host.opacity > 1)) issue(issues, `非法控件宿主透明度：${host.id}`);
     if (host.textColorMode !== undefined && !TEXT_COLOR_MODES.has(host.textColorMode)) issue(issues, `非法宿主文字颜色模式：${host.id}`);
+    if (host.decoration !== undefined) validateDecoration(host.decoration, host.id, issues);
     if ((host.layers?.length ?? 0) > 24) issue(issues, `控件宿主图层最多 24 个：${host.id}`);
     if ((host.layerOrder?.length ?? 0) > 32) issue(issues, `控件宿主排序最多 32 项：${host.id}`);
     for (const layer of host.layers ?? []) {
@@ -124,6 +144,7 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
       if ((stateDef?.layers?.length ?? 0) > 24) issue(issues, `控件状态图层最多 24 个：${host.id}.${state}`);
       if ((stateDef?.layerOrder?.length ?? 0) > 32) issue(issues, `控件状态排序最多 32 项：${host.id}.${state}`);
       if (stateDef?.textColorMode !== undefined && !TEXT_COLOR_MODES.has(stateDef.textColorMode)) issue(issues, `非法状态文字颜色模式：${host.id}.${state}`);
+      if (stateDef?.decoration !== undefined) validateDecoration(stateDef.decoration, `${host.id}.${state}`, issues);
       for (const layer of stateDef?.layers ?? []) {
         if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法控件状态图层 ID：${host.id}.${state}.${layer.id}`);
         if (layer.kind !== 'empty' && layer.kind !== 'solid' && layer.kind !== 'gradient' && layer.kind !== 'image') issue(issues, `非法控件状态图层类型：${host.id}.${state}`);
@@ -200,8 +221,9 @@ export class UserThemeService {
   beginEdit(initialPalette?: readonly string[]): UserThemeEditSession | UserThemeError {
     const capability = this.capability();
     const current = this.get();
-    const draft: UserThemeDraft = current.applied
-      ? structuredClone(current.applied)
+    const stored = current.customThemeId ? this.getState().customThemes?.[current.customThemeId] : undefined;
+    const draft: UserThemeDraft = stored
+      ? draftOfStoredTheme(stored)
       : { version: 1, palette: [initialPalette?.[0] ?? SYSTEM_DEFAULT_PRIMARY], paletteUiEnabled: [true] };
     normalizePresentationDraft(draft);
     const session: UserThemeEditSession = { id: `user-theme-${++this.sequence}`, baseRevision: current.revision, draft, readonly: !capability.active };

@@ -41,12 +41,13 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   applyEnabledPacks(): void {
+    const shouldEnterDefaultInit = Boolean(this.state.activeInit);
     this.packManager.applyEnabled({
       validate: datapacks => {
         const registry = new Registry();
         for (const datapack of datapacks) registry.load(datapack);
       },
-      reload: datapacks => this.reload([...datapacks]),
+      reload: datapacks => this.reload([...datapacks], { enterDefaultInit: shouldEnterDefaultInit }),
       clearImages: () => this.imageStore.clear(),
       registerImages: (modName, images) => this.pics.register(modName, images),
     });
@@ -97,12 +98,13 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     const validation = this.validatePackConfiguration(draft);
     if (!validation.ok) return { ok: false, message: validation.errors[0] ?? '数据包配置校验失败。', validation };
     try {
+      const shouldEnterDefaultInit = Boolean(this.state.activeInit);
       this.packManager.applyConfiguration(draft, {
         validate: datapacks => {
           const registry = new Registry();
           for (const datapack of datapacks) registry.load(datapack);
         },
-        reload: datapacks => this.reload([...datapacks]),
+        reload: datapacks => this.reload([...datapacks], { enterDefaultInit: shouldEnterDefaultInit }),
         clearImages: () => this.imageStore.clear(),
         registerImages: (modName, images) => this.pics.register(modName, images),
       });

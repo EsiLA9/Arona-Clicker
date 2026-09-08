@@ -9,11 +9,12 @@ import { THEME_NODES, buildThemeVars, heroGradient, type ThemeVarName } from './
 import { entityKeyOf, hexToRgbTriplet } from '../arona-clicker/services/color-system';
 import type { UIController } from './controller';
 import { buildBackgroundView, renderBackground } from './background-service';
-import { buildPresentationView } from './presentation-service';
+import { buildPresentationView, renderPresentationHostBackground } from './presentation-service';
 import { DEFAULT_PANEL_OPACITY } from './presentation-config';
-import { createUIContext } from './context';
-import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, deriveBackgroundGradient, resolveScopedThemeNodes, resolveThemeNodes, type ThemeMode } from './theme-palette';
+import { createUIContext, type UIContext } from './context';
+import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, resolveScopedThemeNodes, resolveThemeNodes } from './theme-palette';
 import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
+import { syncOuterBackground } from './outer-background';
 
 /**
  * 主题浮窗跨 render 重建 #app 的存活：render 全量重建会销毁浮窗 DOM，
@@ -54,12 +55,22 @@ export function restoreThemeFloat(ctrl: UIController): void {
  */
 export function syncRuntimeTheme(ctrl: UIController): void {
   ctrl.game.colorSystem.popSceneTheme('area');
+  ctrl.game.colorSystem.popSceneTheme('init');
   ctrl.game.colorSystem.popSceneTheme('student');
   ctrl.game.colorSystem.syncPlayerThemeFromState(ctrl.game.state);
   ctrl.game.colorSystem.syncUserThemeFromState(ctrl.game.state, ctrl.game.userThemeService.capability().active);
   // 剧情未播放时清除剧情临时演出层（setTheme 仅在演出期间生效）
   if (!ctrl.game.getView().currentStory) {
     ctrl.game.colorSystem.clearStoryTheme();
+  }
+  const activeInitId = ctrl.game.getView().activeInit;
+  const activeInit = activeInitId ? ctrl.game.world.inits.get(activeInitId) : undefined;
+  if (activeInit) {
+    const resolution = ctrl.game.colorSystem.resolveEntityTheme(ctrl.game.state, entityKeyOf('init', activeInit.id), { declaredTheme: activeInit.theme });
+    const theme = resolution.theme;
+    if (theme) {
+      ctrl.game.colorSystem.pushSceneTheme({ scope: 'init', groupId: theme.colorGroupId, palette: theme.palette, tokens: theme.tokens, nodeOverrides: theme.nodes, background: theme.background, presentation: theme.presentation });
+    }
   }
   const areaId = ctrl.game.getView().currentAreaId;
   if (areaId) {
@@ -122,28 +133,25 @@ export function syncRuntimeTheme(ctrl: UIController): void {
   }
 }
 
+export function clearInjectedThemeVars(style: CSSStyleDeclaration): void {
+  const prefixes = ['--ac-', '--ink-on-', '--muted-on-', '--theme-node-', '--theme-palette-', '--ui-'];
+  // 从后向前删除，避免 CSSStyleDeclaration 删除后索引前移而跳过相邻变量。
+  for (let i = style.length - 1; i >= 0; i--) {
+    const key = style.item(i);
+    if (prefixes.some(prefix => key.startsWith(prefix))) style.removeProperty(key);
+  }
+  for (const name of Object.keys(THEME_NODES) as ThemeVarName[]) style.removeProperty(`--${name}`);
+  style.removeProperty('--hero-gradient');
+  style.removeProperty('--theme-bg-gradient');
+}
+
 /**
  * 激活主题 → CSS 变量注入。
  * 运行时主题：玩家全局层 + 场景层（当前 Area / 对话学生）按优先级合并。
  */
 export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   const style = document.documentElement.style;
-  const removeInjected = () => {
-    // 索引遍历而非展开（CSSStyleDeclaration 迭代器在 happy-dom 下不可用）
-    for (let i = 0; i < style.length; i++) {
-      const key = style.item(i);
-      // 清理所有引擎 / 语义层注入：--ac-*、背景节点自身、以及背景感知文字色（ink-on/muted-on）
-      if (key.startsWith('--ac-') || key.startsWith('--ink-on-') || key.startsWith('--muted-on-') || key.startsWith('--theme-node-') || key.startsWith('--theme-palette-')) {
-        style.removeProperty(key);
-      }
-    }
-    for (const name of Object.keys(THEME_NODES) as ThemeVarName[]) {
-      style.removeProperty(`--${name}`);
-    }
-    style.removeProperty('--hero-gradient');
-    style.removeProperty('--theme-bg-gradient');
-  };
-  removeInjected();
+  clearInjectedThemeVars(style);
   if (syncRuntime) syncRuntimeTheme(ctrl);
   const resolved = ctrl.game.colorSystem.runtimeTheme();
   const tokens = resolved.tokens;
@@ -161,7 +169,6 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   const palette = resolved.palette.length > 0 ? resolved.palette : [tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY];
   style.setProperty('--theme-palette-1', palette[0] ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY);
   style.setProperty('--theme-palette-2', palette[1] ?? palette[0] ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY);
-  const themeMode: ThemeMode = 'light';
   const nodeOverrides = new Map(Object.entries(resolved.nodeOverrides) as [import('./theme-palette').ThemeNodeName, string][]);
   for (const [key, value] of Object.entries(buildThemeNodeVars({ colors: palette }, tokens, nodeOverrides))) {
     style.setProperty(key, value);
@@ -179,7 +186,6 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   const rootNodes = resolveThemeNodes({ colors: palette }, tokens, nodeOverrides);
   for (const [key, value] of Object.entries(buildScopedThemeCompatibilityVars(rootNodes))) style.setProperty(key, value);
   applyThemeScopes(ctrl, tokens, palette, nodeOverrides, resolved.scopeNodeOverrides, resolved.presentation);
-  style.setProperty('--theme-bg-gradient', resolved.systemColorLayerIgnored ? 'transparent' : deriveBackgroundGradient(palette, themeMode));
   // area-hero 横幅渐变（跟随主题 primary 的光晕）
   style.setProperty('--hero-gradient', heroGradient(tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY, tokens));
   // 主题变量重算后同步表现目标状态与文字颜色模式，避免状态属性滞留在默认态。
@@ -248,8 +254,13 @@ export function presentationView(ctrl: UIController) {
 
 export function refreshPresentationHostElements(ctrl: UIController, hostIds?: readonly string[]): void {
   const context = createUIContext(ctrl.game, backgroundView(ctrl), presentationView(ctrl));
+  refreshPresentationHostElementsIn(ctrl.root, context, hostIds);
+}
+
+/** 在指定只读上下文中刷新表现宿主；选择页用它投影聚焦主题而不污染运行时主题。 */
+export function refreshPresentationHostElementsIn(root: ParentNode, context: UIContext, hostIds?: readonly string[]): void {
   const filter = hostIds ? new Set(hostIds) : undefined;
-  ctrl.root.querySelectorAll<HTMLElement>('[data-theme-host-id]').forEach(element => {
+  root.querySelectorAll<HTMLElement>('[data-theme-host-id]').forEach(element => {
     const hostId = element.dataset.themeHostId;
     if (!hostId || (filter && !filter.has(hostId))) return;
     const current = element.querySelector<HTMLElement>(':scope > .presentation-host-background');
@@ -262,9 +273,9 @@ export function refreshPresentationHostElements(ctrl: UIController, hostIds?: re
           : 'default';
     const resolved = context.presentationHostState(hostId, state);
     element.dataset.themeTextMode = resolved.textColorMode;
-    const next = resolved.background.layers.length
-      ? renderBackground(resolved.background, 'presentation-host-background')
-      : '';
+    if (state === 'inactive') element.dataset.themeHoverTextMode = context.hoverTextColorModeForHost(hostId);
+    else delete element.dataset.themeHoverTextMode;
+    const next = renderPresentationHostBackground(context, hostId, 'presentation-host-background', state);
     if (next) {
       if (current) current.outerHTML = next;
       else element.insertAdjacentHTML('afterbegin', next);
@@ -277,8 +288,7 @@ export function refreshPresentationHostElements(ctrl: UIController, hostIds?: re
 /** 仅更新已存在的背景节点，不重建游戏主体 DOM。 */
 export function refreshBackgroundElements(ctrl: UIController): void {
   const context = createUIContext(ctrl.game, backgroundView(ctrl), presentationView(ctrl));
-  const global = ctrl.root.querySelector<HTMLElement>(':scope > .console-background');
-  if (global) global.outerHTML = renderBackground(context.background, 'console-background');
+  syncOuterBackground(context.background);
   ctrl.root.querySelectorAll<HTMLElement>('.ui-cluster > .console-panel-background').forEach(current => {
     const cluster = current.parentElement;
     const scope = cluster?.dataset.themeScope;

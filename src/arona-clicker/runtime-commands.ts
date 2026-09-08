@@ -62,6 +62,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     addExp: (variantId, amount) => game.mutations.addExp(variantId, amount),
     breakthroughStar: variantId => game.mutations.breakthroughStar(variantId),
     activateTheme: groupId => game.mutations.activateTheme(groupId),
+    activateCustomTheme: customThemeId => game.mutations.activateCustomTheme(customThemeId),
     setThemeLayerOrder: order => game.mutations.setThemeLayerOrder(order),
     setEntityThemeSlot: (entityKey, slot) => game.mutations.setEntityThemeSlot(entityKey, slot),
     unlockInit: initId => game.inits.unlockInit(initId),

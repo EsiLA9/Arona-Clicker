@@ -267,6 +267,12 @@ const backgroundLayerObject = (): FieldDef =>
     e('attachment', [['fixed', '固定'], ['scroll', '随页面'], ['local', '随容器']], '附着'),
   ], '背景层');
 
+const backgroundVariantObject = (): FieldDef =>
+  o('$', [
+    s('id', '状态变体 ID', { required: true, description: '选择页使用的受控语义值，如 new / active / advanced / completed。' }),
+    alist('layers', backgroundLayerObject(), '背景层'),
+  ], '背景状态变体');
+
 const presentationLayerObject = (): FieldDef =>
   o('$', [
     s('id', '层 ID'),
@@ -293,11 +299,13 @@ const presentationComponentObject = (): FieldDef =>
     conditionExprField('visibleWhen', '显示条件'),
   ], '表现组件');
 
-/** ThemeDef：{ colorGroupId?, tokens?, background? } —— 场景/演出声明式主题。 */
+/** ThemeDef：{ colorGroupId?, palette?, tokens?, nodes?, background?, backgroundVariants? } —— 场景/演出声明式主题。 */
 const themeField = (key: string, label: string): FieldDef =>
   o(key, [
     s('colorGroupId', '引用色彩组', { description: '引用某个已定义 ColorGroupDef id（如 base:group:indigo）；缺省仅用局部覆盖。' }),
     { key: 'tokens', label: '局部覆盖', type: { kind: 'flexible' }, description: '引擎 token 键（primary / bg / player-bubble 等）→ 颜色值。' },
+    { key: 'nodes', label: '语义颜色节点', type: { kind: 'flexible' }, description: 'ThemeNodeName → 颜色值的显式覆盖。' },
+    alist('backgroundVariants', backgroundVariantObject(), '背景状态变体'),
     alist('background', backgroundLayerObject(), '背景视觉层'),
     o('presentation', [
       alist('layers', presentationLayerObject(), '区域图层'),
@@ -747,6 +755,7 @@ export const TABLE_META: TableMeta[] = [
     worldlineSplit: true,
     dividerAfter: { description: '揭示' },
     overrides: {
+      theme: () => themeField('theme', '选择页主题'),
       enterEffects: () => entryEffectsArray('enterEffects', '进入条目'),
       revealTriggers: () => revealTriggersField(),
       triggers: () => a('triggers', triggerObject(), '专属触发器'),
@@ -803,6 +812,7 @@ export const TABLE_META: TableMeta[] = [
       addsFunctionalities: () => a('addsFunctionalities', functionalityObject(), '注入功能'),
       affectorPackIds: () => a('affectorPackIds', r('$', 'affectorPacks'), 'Affector 包'),
       revealTriggers: () => revealTriggersField(),
+      theme: () => themeField('theme', '选择页主题'),
     },
   },
   { key: 'activeStories', label: '主动故事入口', custom: activeStoriesTable },

@@ -20,9 +20,11 @@
 ```text
 src/ui/main.ts（Vite 游戏入口）
   └─ createAppRuntime()          组合基础引擎、领域服务与数据服务
-       └─ init(datapacks)        加载数据包 → 校验 → 建索引 → 建产出树 → 进入默认世界线
-            └─ start()           启动 1 tick/秒 会话循环
-                 └─ tick()       每帧：生产结算 → 持续效果 → 剧情推进 → 阻断复检 → 统计
+       └─ applyEnabledPacks()    加载启用集 → 校验 → 建索引 → 建产出树
+            └─ Lobby              activeInit 为空；可进入 Init 选择和通用服务，不启动 Tick
+                 └─ choose / resume Init
+                      └─ start()  启动 1 tick/秒 会话循环
+                           └─ tick() 每帧：生产结算 → 持续效果 → 剧情推进 → 阻断复检 → 统计
 ```
 
 完整时序见 [[docs-828/01-architecture/run-logic]]。

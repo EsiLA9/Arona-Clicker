@@ -17,6 +17,8 @@ export function bindEvents(ctrl: UIController): void {
     refreshRevealIfChanged(ctrl);
     ctrl.refreshLogPanel();
   });
+  ctrl.game.eventBus.on('themeChanged', () => ctrl.scheduleRender());
+  ctrl.game.eventBus.on('userThemeChanged', () => ctrl.scheduleRender());
   // 剧情完结奖励结算 → 排队（不立即渲染）：等点击处理器推完玩家回复气泡、
   // render 内同步完最后一页台词后，再统一落账，保证聊天流顺序正确
   ctrl.game.eventBus.on('storyRewarded', event => {

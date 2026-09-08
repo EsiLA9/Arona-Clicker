@@ -19,6 +19,7 @@
 | [[0x-plan&work/newPlan/05-fragments-and-currency]] | Eleph、确定性角色获取、货币控制与 World Token |
 | [[0x-plan&work/newPlan/06-meta-loop-and-ui]] | Spot × 商店 × 学生闭环、空间化 UI 与完整样例 |
 | [[0x-plan&work/newPlan/07-mvp-scope]] | MVP 范围、切片顺序与验收重点 |
+| [[0x-plan&work/newPlan/08-passive-story-sol-review]] | PassiveStory / StoryChain 设计意见与逐条审阅 | 🟡 已裁定，施工见 task-0032 |
 
 ## 与现有计划的关系
 
@@ -30,4 +31,3 @@
 ## 总原则
 
 **抽卡只是遇见学生的一种方式，而拥有学生是一段长期关系的开始。**
-

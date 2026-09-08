@@ -5,6 +5,7 @@ import type { ChatTextKind, ChatTextStyle } from '../contracts/chat-presentation
 import type { Character } from './ids';
 import type { ExtraPath, ExtraValue } from './extra';
 import type { EngineTalklet } from '../contracts/talklet';
+import type { ActiveThemeSelection } from './theme';
 
 export type GameEvent =
   | { type: 'resourceChanged'; resource: string; delta: number; newValue: number }
@@ -38,7 +39,7 @@ export type GameEvent =
   | { type: 'groupUnlocked'; groupId: string }
   | { type: 'equipmentCollected'; equipmentId: string }
   | { type: 'equipmentEquipped'; variantId: string; equipmentId: string }
-  | { type: 'themeChanged'; groupId: string | null }
+  | { type: 'themeChanged'; groupId: string | null; selection: ActiveThemeSelection }
   | { type: 'entityThemeChanged'; entityKey: string }
   | { type: 'entityDesignUnlocked'; entityKey: string; designId: string }
   | { type: 'chatReadChanged'; messageId: string }

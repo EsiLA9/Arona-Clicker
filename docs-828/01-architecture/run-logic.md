@@ -8,8 +8,9 @@
 ```text
 src/ui/main.ts（Vite UI 启动）
   └─ createAppRuntime()            AronaClicker Runtime 装配全部子系统（依赖顺序 + 事件接线）
-       └─ init(datapacks)          加载数据包 → 校验 → 建索引 → 建产出树 → 进入默认 Init
-            └─ start()             启动会话循环（1 tick/秒）
+       └─ applyEnabledPacks()      加载当前启用集 → 校验 → 建索引 → 保持 Lobby（activeInit 为空）
+            ├─ Lobby               Init 选择 + 数据包/存档/记录/主题/帮助服务，不启动 Tick
+            └─ 选择或恢复 Init → start()  启动会话循环（1 tick/秒）
                  └─ tick()         每帧：生产结算 → Affector → 剧情 → 阻断复检 → 统计
                       │
                       ├─ getView()            UI 只读拉取快照
@@ -51,9 +52,15 @@ src/ui/main.ts（Vite UI 启动）
 init(datapacks)
  1. 组装 Registry：全部 Datapack → 表 + 关系索引 + 名称解析（表驱动 merge）
  2. 建产出树：gameNumSystem.buildAll()（四级层级树，见 [[docs-828/04-mechanisms/production]]）
- 3. 进入默认世界线：解锁 + 建 per-init 状态 + 挂载专属 Trigger（mountInitTriggers）+ 发 `initEntered`
+ 3. 按 `enterDefaultInit` 选项决定是否进入第一个可见 Init；UI 启动传 `false`，停留 Lobby
  4. affectorEngine.reconcileMounts()：按初始状态对账挂载物品/强化/功能的 Affector 实例
 ```
+
+### Lobby / Pre-Init Runtime
+
+`activeInit === ''` 是“Runtime 已加载但尚未进入世界线”的正式哨兵状态。它不是一个 `InitDef`，不会调用 `enterInit()`，因此不会发 `initEntered`、挂载 Init 专属 Trigger、设置 Area 或创建世界线运行会话。
+
+Lobby 仍可消费只读 Registry/ReadModel，并通过通用 UI 壳层进入 Init 选择、数据包、存档、记录、主题和帮助服务；只有选择 Init 或读取带 `activeInit` 的存档后才启动 Tick。Lobby 存档读取必须保持 `activeInit === ''`，不能补造默认 Init。
 
 - 新建状态：`createDefaultState()`（`arona-clicker/state/state-factory.ts`），per-Init 字段统一由 `arona-clicker/state/per-init-fields.ts` 的 `PER_INIT_FIELD_SPECS` 单一事实源管理（T3）。
 - 读档：`load(data)` 校验 version（不符抛错，**不做存档迁移**）→ 替换 `state` → `syncSubsystems()` → `rebuildRuntime()`（visibility 重算 + tag 索引重建 + runId 恢复）。

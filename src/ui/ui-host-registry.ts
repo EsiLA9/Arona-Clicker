@@ -95,6 +95,13 @@ export class UIHostRegistry {
 const CORE_HOSTS: readonly UIHostDefinition[] = [
   { id: 'global', label: '全局背景', level: 'global', kind: 'background', editable: false },
   { id: 'shell', label: '整体外壳', level: 'cluster', parent: 'global', kind: 'container' },
+  { id: 'selector', label: '选择页', level: 'cluster', parent: 'shell', kind: 'container' },
+  { id: 'selector.init', label: '选择页 · 世界线面', level: 'region', parent: 'selector', kind: 'container' },
+  { id: 'selector.init.detail', label: '选择页 · 世界线详情', level: 'control', parent: 'selector.init', kind: 'card' },
+  { id: 'selector.init.row', label: '选择页 · 世界线条目', level: 'control', parent: 'selector.init', kind: 'card' },
+  { id: 'selector.enh', label: '选择页 · 全局强化面', level: 'region', parent: 'selector', kind: 'container' },
+  { id: 'selector.enh.detail', label: '选择页 · 全局强化详情', level: 'control', parent: 'selector.enh', kind: 'card' },
+  { id: 'selector.enh.row', label: '选择页 · 全局强化条目', level: 'control', parent: 'selector.enh', kind: 'card' },
   { id: 'header', label: '顶部栏', level: 'cluster', parent: 'shell', kind: 'container', legacyRegion: 'header' },
   { id: 'leftPanel', label: '左侧栏', level: 'cluster', parent: 'shell', kind: 'container', legacyRegion: 'leftPanel' },
   { id: 'centerPanel', label: '中部栏', level: 'cluster', parent: 'shell', kind: 'container', legacyRegion: 'centerPanel' },

@@ -39,13 +39,16 @@
 | --- | --- |
 | `context.ts` | `UIContext` / `GameReadModel` 类型面 |
 | `theme-tree.ts` | 把引擎运行时主题 token 落成 CSS 变量（纯色彩树） |
-| `background-service.ts` | 背景层解析、Pic URL 校验、回退与 DOM 层渲染 |
+| `background-service.ts` | 背景层解析、Pic URL 校验、回退与 DOM 层渲染；支持 Host 形状、内嵌装饰线和 hover 层 |
+| `outer-background.ts` | `body` 直系最外层背景宿主的初始化与更新，不随 `#app` 重建 |
+| `presentation-service.ts` | 将 `PresentationDef` 解析为 Host/状态只读 View；负责父级回退、系统颜色层和宿主背景渲染 |
+| `ui-host-registry.ts` / `presentation-targets.ts` | 稳定 UI Host 注册表、父级层级校验、服务宿主发现与表现目标映射 |
 | `color-scheme.ts` | 配色派生（背景感知文字色等） |
 | `chat-stream.ts` | 聊天流打字机/滚动 + 开幕标题横幅状态（`showBanner` / `activeBanner`，记录 startedAt 供断点续播，3s 自动清除） |
-| `selector-page.ts` | 选择页交互：双轮盘装配、翻面/滑动、详情局部刷新 |
+| `selector-page.ts` | Lobby/Init 选择页交互：双轮盘装配、翻面/滑动、详情局部刷新；复用通用 Header 的服务、主题与帮助入口，并承载 Task-0025 的局部主题过渡 |
 | `import-export.ts` | 存档导入/导出（含图片注册链） |
 | `modal` / `popovers` / `scroll` / `player` | 弹窗 / 气泡 / 滚动 / 玩家视图 |
-| `css/` | 17 个主题分区样式（variables/layout/chat/cards/selectors/codex/…，`story-overlays.css` = 剧情浮层两族组件，组件级 `--story-gate-*` / `--story-banner-*` 变量为 theme-tree 预留覆写点） |
+| `css/` | 18 个主题分区样式（variables/layout/chat/cards/selectors/codex/…，`story-overlays.css` = 剧情浮层两族组件，组件级 `--story-gate-*` / `--story-banner-*` 变量为 theme-tree 预留覆写点） |
 
 ### 剧情入口确认浮层与开幕横幅（2026-08-29 落地）
 
@@ -54,21 +57,32 @@
 
 ## 核心概念
 
+### Lobby / Pre-Init UI
+
+当 Runtime 已加载数据包但 `activeInit` 为空时，UI 处于 Lobby，而不是一般游戏三栏。Lobby 不启动 Tick、不提供依赖当前 Init 的生产/移动/剧情操作，但复用通用 Header 与服务工作区，提供 Init 选择、数据包、存档、记录/图鉴、主题和帮助入口。读取 Lobby 存档后仍留在 Lobby；读取带 `activeInit` 的存档才进入一般游戏界面并启动会话。
+
 ### UI Host Registry
 
 UI 表现宿主由 `src/ui/ui-host-registry.ts` 统一登记。核心 UI 提供基础宿主，服务工作区通过 `UIServiceDefinition` 声明自己的宿主；用户主题编辑器、运行时表现刷新和预览使用同一份注册信息。新增数据包/存档服务时，应声明稳定的 Host ID，并通过 `renderUIHost` 接入，不要在主题编辑器内重复维护目标列表。
 
 宿主未配置专属表现时按父级回退；Registry 只描述目标和层级，不保存用户主题值，也不开放任意 CSS/DOM 注入。
 
+### 主题与选择页表现
+
+- 运行时可排序层为 `player → init → area → student`；`user`、`preview` 与 `ephemeral` 是独立插层，剧情临时层始终最高。
+- `InitDef.theme` / `EnhancementDef.theme` 为选择页提供场景声明；一般游戏中的 Init 主题才进入运行时 `init` 层，选择页聚焦主题只做局部只读投影。
+- Host 的 `default / active / inactive / disabled` 状态、形状与内嵌装饰线由 `PresentationView` 统一解析；编辑器和运行时共用 Host Registry。
+- 选择页动态背景、条目局部主题和 Init 快照阶段由 [[0x-plan&work/active/task-0025-selector-dynamic-theme]] 管理；场景 current/next 双缓冲挂在 `.selector-super-background` 专用超级背景宿主内，`.selector-viewport` 只承载详情面，`.init-orb-disc.selector-disc` 只做圆盘装饰与定位参照，轮盘作为 shell 独立高层兄弟节点；未声明主题使用稳定回退，不改变游戏状态。
+
 - **刷新双轨**：每帧 `refreshLight`（轻量数字）；揭示指纹变化 → `refreshRevealIfChanged` → 重建 DOM。
-- **背景视觉层**：`ThemeDef.background` 沿用运行时主题层级；按 id 覆盖、匿名层追加，UI 通过 `.console-background` 独立渲染，装饰层不接收指针事件。
+- **背景视觉层**：`ThemeDef.background` 沿用运行时主题层级；按 id 覆盖、匿名层追加，UI 通过 `body` 直系 `.console-background#ui-background-layer` 独立渲染，`#app` 只承载内容层与颜色继承，装饰层不接收指针事件。
 - **只读纪律**（纪律 4）：组件无 `game.state` 写引用、无 `as never`（T2/T6 清零）。
 - **聊天流通知次序**：`pendingTravelChats`（进入 Area「移动到了」通知）在 render 内**先于**剧情内容入流；`pendingRewardChats`（完结奖励/池解锁等）延迟 `REWARD_REVEAL_DELAY_MS`（0.8s）落账，且落账前校验活跃流演出已彻底结束（游标清空，如完结即推的尾巴播完）——未结束则顺延重试，存档前立即落账防丢。
 
 ## 测试入口
 
-`tests/ui/`（5 个 + 子目录）
+`tests/ui/`（组件、上下文、表现宿主、选择页与控制器回归；按文件分组）
 
 ## 相关文档
 
-[[0x-plan&work/completed/adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs-828/02-modules/color]]（theme-tree 数据源）
+[[0x-plan&work/completed/adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs-828/02-modules/color]]（theme-tree 数据源）· [[docs-828/07-audit/presentation-editor-consistency]]（编辑器/运行时一致性审计）

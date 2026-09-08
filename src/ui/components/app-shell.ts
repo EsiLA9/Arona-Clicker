@@ -4,7 +4,6 @@ import { renderLeftPanel } from './rail';
 import { renderCenterPanel } from './center-panel';
 import { renderRightPanel } from './right-panels';
 import { ChatEntry, ChatTextEntry } from './story';
-import { renderBackground } from '../background-service';
 import { renderServiceWorkspace } from './service-workspace';
 
 export type DatapackWorkspaceSection = 'all' | 'enabled' | 'disabled' | 'issues' | 'import';
@@ -97,7 +96,6 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
 
 function renderConsoleFrame(ctx: UIContext, body: string, footerNote: string): string {
   return `
-    ${renderBackground(ctx.background)}
     <main class="console-shell">
       ${renderHeader(ctx)}
       ${body}

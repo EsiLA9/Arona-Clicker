@@ -31,7 +31,7 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
     default: body = renderAreaTab(ctx); tab = 'area'; break;
   }
   return `
-    <aside class="ui-cluster ui-cluster--left-panel panel left-panel" data-theme-scope="left.${tab}">
+    <aside class="ui-cluster ui-cluster--left-panel panel left-panel presentation-host-target" data-theme-scope="left.${tab}" data-theme-host-id="leftPanel.${tab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`leftPanel.${tab}`)}">
       ${renderBackground(ctx.backgroundForHost(`leftPanel.${tab}`), 'console-panel-background')}
       ${renderTabs(ctx, 'left', LEFT_TABS, tab)}
       <div class="ui-cluster ui-cluster--left-${tab} panel-body">${body}</div>

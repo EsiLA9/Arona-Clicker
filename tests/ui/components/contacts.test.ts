@@ -205,7 +205,7 @@ describe('通讯录 UI（U 组）', () => {
     expect(events).toBe(1); // 幂等
   });
 
-  test('U-04 主题切换：activeGroupId → token 表输出', () => {
+  test('U-04 主题切换：activeTheme → token 表输出', () => {
     game.mutations.setFlag('unlock_a', '1');
     // setFlag 经 flagChanged 事件自动 recheck 解锁（行为闭环），手动再解锁为幂等
     expect(game.colorSystem.tryUnlockGroup('test:colorgroup:color-a')).toBe('already');
@@ -215,6 +215,19 @@ describe('通讯录 UI（U 组）', () => {
     const html = renderContactsTab(createUIContext(game), null);
     expect(html).toContain('data-activate-group="test:colorgroup:color-a"'); // swatch 可点
     expect(html).toMatch(/theme-swatch active/); // 激活态标记
+  });
+
+  test('U-04b 用户自定义主题作为独立选项显示并保持单一 active', () => {
+    game.mutations.setUserTheme({ version: 1, tokens: { primary: '#123456' } }, true);
+    const html = renderContactsTab(createUIContext(game), null);
+    expect(html).toContain('data-activate-custom-theme="user:theme:default"');
+    expect(html).toContain('自定义 · 自定义主题');
+    expect(html).toContain('aria-pressed="true"');
+
+    game.mutations.activateTheme(null);
+    const systemHtml = renderContactsTab(createUIContext(game), null);
+    expect(systemHtml).toContain('data-activate-custom-theme="user:theme:default"');
+    expect(systemHtml).toContain('aria-pressed="false"');
   });
 
   test('U-10 装备面板：收集后渲染装备卡片，装备后头像换为 SVG 圆', () => {

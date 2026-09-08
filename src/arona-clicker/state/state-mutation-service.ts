@@ -11,6 +11,7 @@ import {
   ExtraValue,
   StoryId,
   GameEvent,
+  ActiveThemeSelection,
   ThemeOrderScope,
   VariantId,
 } from '../../engine/types';
@@ -30,6 +31,23 @@ import type { StateMutationPort } from '../../engine/contracts/mutation';
 import type { EffectMutationPort } from '../contracts/effect-mutation';
 import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../../engine/extra/index';
 import { applyEffects as applyEffectsImpl, applyEffect as applyEffectImpl } from './effect-ops';
+
+function activeThemeOf(state: AronaClickerState): ActiveThemeSelection {
+  return state.activeTheme ?? { kind: 'system' };
+}
+
+function sameThemeSelection(a: ActiveThemeSelection | undefined, b: ActiveThemeSelection): boolean {
+  const current = a ?? { kind: 'system' as const };
+  if (current.kind !== b.kind) return false;
+  if (current.kind === 'system') return true;
+  return b.kind !== 'system' && current.id === b.id;
+}
+
+function clearLegacyGlobalThemeAttachment(state: AronaClickerState): void {
+  if (!state.themeAttachments?.base) return;
+  const { base: _legacyBase, ...entityAttachments } = state.themeAttachments;
+  state.themeAttachments = Object.keys(entityAttachments).length > 0 ? entityAttachments : undefined;
+}
 
 /**
  * 所有需要修改 PlayerState 的基础操作集中在这里。
@@ -320,32 +338,68 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     if (groupId !== null && !this.current.groupsOwned?.includes(groupId)) {
       return false;
     }
-    if (this.current.activeGroupId === groupId) return true;
-    this.current.activeGroupId = groupId;
-    this.emit({ type: 'themeChanged', groupId });
+    clearLegacyGlobalThemeAttachment(this.current);
+    const selection: ActiveThemeSelection = groupId === null
+      ? { kind: 'system' }
+      : { kind: 'color-group', id: groupId };
+    const alreadyActive = sameThemeSelection(this.current.activeTheme, selection);
+    this.current.activeTheme = selection;
+    if (alreadyActive) return true;
+    this.emit({ type: 'themeChanged', groupId, selection });
     return true;
   }
 
-  /** 设置玩家自定义的主题层优先级（低→高；仅 player/area/student 三层）。非法顺序回退默认。 */
+  /** 激活已保存的独立用户主题；不存在的记录不能被静默解释为旧主题。 */
+  activateCustomTheme(customThemeId: string): boolean {
+    if (!this.current.customThemes?.[customThemeId]) return false;
+    clearLegacyGlobalThemeAttachment(this.current);
+    const selection: ActiveThemeSelection = { kind: 'custom', id: customThemeId };
+    const alreadyActive = sameThemeSelection(this.current.activeTheme, selection)
+      && this.current.userTheme?.enabled === true
+      && this.current.userTheme.customThemeId === customThemeId;
+    if (alreadyActive) return true;
+    this.current.activeTheme = selection;
+    const current = this.current.userTheme ?? { enabled: false, revision: 0 };
+    this.current.userTheme = {
+      ...current,
+      enabled: true,
+      customThemeId,
+      revision: current.revision + 1,
+      updatedAtFrame: this.current.totalFrames,
+    };
+    this.emit({ type: 'themeChanged', groupId: null, selection });
+    this.emit({ type: 'userThemeChanged', enabled: true });
+    return true;
+  }
+
+  /** 设置玩家自定义的主题层优先级（低→高；包含 Init 场景层）。非法顺序回退默认。 */
   setThemeLayerOrder(order: ThemeOrderScope[]): boolean {
     const scopes: ThemeOrderScope[] = ['player', 'area', 'student'];
-    const valid = order.length === scopes.length && scopes.every(s => order.includes(s));
-    const next = valid ? [...order] : undefined;
+    const extendedScopes: ThemeOrderScope[] = ['player', 'init', 'area', 'student'];
+    const valid = (order.length === scopes.length && scopes.every(s => order.includes(s)))
+      || (order.length === extendedScopes.length && extendedScopes.every(s => order.includes(s)));
+    const next = valid
+      ? order.length === scopes.length
+        ? (() => { const expanded = [...order]; expanded.splice(Math.max(0, expanded.indexOf('area')), 0, 'init'); return expanded; })()
+        : [...order]
+      : undefined;
     if (this.current.themeLayerOrder === next) return true;
     this.current.themeLayerOrder = next;
-    this.emit({ type: 'themeChanged', groupId: null });
+    const selection = activeThemeOf(this.current);
+    this.emit({ type: 'themeChanged', groupId: selection.kind === 'color-group' ? selection.id : null, selection });
     return true;
   }
 
   /** 原子保存用户主题；仅由 UserThemeService 在能力和结构校验通过后调用。 */
-  setUserTheme(applied: UserThemeDraft, enabled = true): boolean {
+  setUserTheme(draft: UserThemeDraft, enabled = true): boolean {
     const state = this.current;
+    clearLegacyGlobalThemeAttachment(state);
     const current: UserThemeState = this.current.userTheme ?? { enabled: false, revision: 0 };
     const id = current.customThemeId ?? 'user:theme:default';
     const previous = state.customThemes?.[id];
     const now = state.totalFrames;
     const stored: StoredCustomTheme = {
-      ...structuredClone(applied),
+      ...structuredClone(draft),
       id,
       name: previous?.name ?? '自定义主题',
       baseThemeRef: previous?.baseThemeRef ?? { kind: 'system' },
@@ -353,17 +407,26 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
       updatedAt: now,
     };
     state.customThemes = { ...(state.customThemes ?? {}), [id]: stored };
-    state.themeAttachments = {
-      ...(state.themeAttachments ?? {}),
-      base: { target: 'base', customThemeId: id, enabled },
-    };
     this.current.userTheme = {
       enabled,
-      applied: structuredClone(applied),
       revision: current.revision + 1,
       updatedAtFrame: now,
       customThemeId: id,
     };
+    const previousSelection = activeThemeOf(state);
+    const nextSelection: ActiveThemeSelection = enabled
+      ? { kind: 'custom', id }
+      : previousSelection.kind === 'custom'
+        ? { kind: 'system' }
+        : previousSelection;
+    state.activeTheme = nextSelection;
+    if (!sameThemeSelection(previousSelection, nextSelection)) {
+      this.emit({
+        type: 'themeChanged',
+        groupId: nextSelection.kind === 'color-group' ? nextSelection.id : null,
+        selection: nextSelection,
+      });
+    }
     this.emit({ type: 'userThemeChanged', enabled });
     return true;
   }
@@ -371,21 +434,39 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   /** 切换用户主题应用状态，不改变已保存的主题内容。 */
   setUserThemeEnabled(enabled: boolean): boolean {
     const current = this.current.userTheme;
-    if (!current || current.enabled === enabled) return !!current;
-    current.enabled = enabled;
-    current.revision += 1;
-    current.updatedAtFrame = this.current.totalFrames;
+    if (!current) return false;
+    clearLegacyGlobalThemeAttachment(this.current);
     const id = current.customThemeId ?? 'user:theme:default';
-    this.current.themeAttachments = {
-      ...(this.current.themeAttachments ?? {}),
-      base: { target: 'base', customThemeId: id, enabled },
-    };
-    this.emit({ type: 'userThemeChanged', enabled });
+    if (enabled && !this.current.customThemes?.[id]) return false;
+    const previousSelection = activeThemeOf(this.current);
+    const nextSelection: ActiveThemeSelection = enabled
+      ? { kind: 'custom', id }
+      : previousSelection.kind === 'custom'
+        ? { kind: 'system' }
+        : previousSelection;
+    const metadataChanged = current.enabled !== enabled;
+    if (!metadataChanged && sameThemeSelection(previousSelection, nextSelection)) return true;
+    if (metadataChanged) {
+      current.enabled = enabled;
+      current.revision += 1;
+      current.updatedAtFrame = this.current.totalFrames;
+    }
+    this.current.activeTheme = nextSelection;
+    if (!sameThemeSelection(previousSelection, nextSelection)) {
+      this.emit({
+        type: 'themeChanged',
+        groupId: nextSelection.kind === 'color-group' ? nextSelection.id : null,
+        selection: nextSelection,
+      });
+    }
+    if (metadataChanged) this.emit({ type: 'userThemeChanged', enabled });
     return true;
   }
 
   /** 保存独立用户主题及其应用关系；供更通用的主题编辑入口使用。 */
   saveCustomTheme(theme: StoredCustomTheme, attachment: ThemeAttachment | null = null): boolean {
+    if (attachment?.target === 'base') return false;
+    clearLegacyGlobalThemeAttachment(this.current);
     this.current.customThemes = { ...(this.current.customThemes ?? {}), [theme.id]: structuredClone(theme) };
     if (attachment) {
       this.current.themeAttachments = { ...(this.current.themeAttachments ?? {}), [attachment.target]: structuredClone(attachment) };
@@ -396,6 +477,8 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
 
   /** 改变自定义主题挂靠，不修改主题本体。 */
   setThemeAttachment(target: string, attachment: ThemeAttachment | null): boolean {
+    if (target === 'base') return false;
+    clearLegacyGlobalThemeAttachment(this.current);
     const attachments = { ...(this.current.themeAttachments ?? {}) };
     if (attachment === null) delete attachments[target];
     else attachments[target] = structuredClone(attachment);

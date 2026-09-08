@@ -11,6 +11,14 @@ import type { UIController } from './controller';
 import { refreshPresentationHostElements } from './controller-theme';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
 
+function refreshHeaderPresentation(ctrl: UIController): void {
+  if (ctrl.root.querySelector('.selector-shell')) {
+    ctrl.selectorPage.refreshTopbarPresentation();
+    return;
+  }
+  refreshPresentationHostElements(ctrl, ['header.button']);
+}
+
 /** 绑定顶栏 / 全局工具条与 Tab 切换（render 后调用）。 */
 export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
   bindDatapackActions(ctrl, scope);
@@ -68,7 +76,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
     button.classList.toggle('is-active', ctrl.themeFloatOpen);
     button.dataset.themeState = ctrl.themeFloatOpen ? 'active' : 'inactive';
     button.setAttribute('aria-expanded', String(ctrl.themeFloatOpen));
-    refreshPresentationHostElements(ctrl, ['header.button']);
+    refreshHeaderPresentation(ctrl);
   });
   scope.querySelector('[data-theme-float-close]')?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -78,7 +86,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
     button?.classList.remove('is-active');
     if (button) button.dataset.themeState = 'inactive';
     button?.setAttribute('aria-expanded', 'false');
-    refreshPresentationHostElements(ctrl, ['header.button']);
+    refreshHeaderPresentation(ctrl);
   });
   // 主题浮窗：拖动标题栏移动（position: fixed，绕开顶栏拥挤）
   const themeFloat = scope.querySelector<HTMLElement>('[data-theme-float]');
@@ -127,6 +135,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
     ctrl.commands.reset();
     SaveSystem.delete();
     ctrl.started = false;
+    ctrl.panelState.service = 'game';
     ctrl.pendingRestart = false;
     ctrl.toast.show('已彻底重置，回到世界线选择', 'info');
     ctrl.themeFloatOpen = false;

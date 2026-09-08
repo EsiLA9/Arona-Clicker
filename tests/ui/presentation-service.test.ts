@@ -26,6 +26,17 @@ describe('PresentationService', () => {
     expect(html.indexOf('child')).toBeGreaterThan(html.indexOf('parent'));
   });
 
+  test('区域表现层按低到高声明顺序绘制', () => {
+    const view = buildPresentationView({ layers: [
+      { id: 'base', region: 'centerPanel', kind: 'solid', value: '#123' },
+      { id: 'overlay', region: 'centerPanel', kind: 'solid', value: '#456' },
+    ] }, pics);
+    const html = renderPresentationRegion(view, 'centerPanel');
+
+    expect(html).toContain('z-index:1;background:#123');
+    expect(html).toContain('z-index:2;background:#456');
+  });
+
   test('丢弃缺失资源、循环父级和不安全资源地址', () => {
     const unsafePics = {
       urlOf: (ref: string) => ref === 'bad' ? 'javascript:alert(1)' : undefined,
@@ -90,6 +101,34 @@ describe('PresentationService', () => {
     const active = view.host('header.button').states?.get('active');
     expect(active?.layers.map(layer => layer.id)).toEqual(['accent', 'base']);
     expect(active?.systemColorLayerIgnored).toBe(true);
+  });
+
+  test('控件宿主解析内嵌装饰线字段并夹取数值', () => {
+    const view = buildPresentationView({ hosts: [{
+      id: 'header.button',
+      decoration: { color: 'var(--theme-node-active)', width: 99, inset: -4, opacity: 2, style: 'dotted' },
+      states: { active: { decoration: { color: '#abc', width: 2 } } },
+    }] }, pics);
+    expect(view.host('header.button').decoration).toMatchObject({ color: 'var(--theme-node-active)', width: 12, inset: 0, opacity: 1, style: 'dotted' });
+    expect(view.host('header.button').states?.get('active')?.decoration).toMatchObject({ color: '#abc', width: 2 });
+  });
+
+  test('控件宿主解析并继承圆角半径与 X 轴倾斜角', () => {
+    const view = buildPresentationView({ hosts: [
+      { id: 'leftPanel', cornerRadius: 12, skewXDeg: 4 },
+      { id: 'leftPanel.area', shape: 'rounded-parallelogram' },
+      { id: 'leftPanel.contacts', cornerRadius: 99, skewXDeg: -99 },
+    ] }, pics);
+
+    expect(view.host('leftPanel').cornerRadius).toBe(12);
+    expect(view.host('leftPanel').skewXDeg).toBe(4);
+    expect(view.shapeParametersForHost('leftPanel.area')).toEqual({ shape: 'rounded-parallelogram', cornerRadius: 12, skewXDeg: 4 });
+    expect(view.shapeParametersForHost('leftPanel.contacts')).toEqual({ shape: undefined, cornerRadius: 64, skewXDeg: -30 });
+  });
+
+  test('未填写几何参数时使用统一默认值', () => {
+    const view = buildPresentationView({ hosts: [{ id: 'card' }] }, pics);
+    expect(view.shapeParametersForHost('card')).toEqual({ shape: undefined, cornerRadius: 8, skewXDeg: 0 });
   });
 
   test('控件宿主保留默认与四态文字颜色模式', () => {

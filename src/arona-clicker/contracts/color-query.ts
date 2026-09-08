@@ -32,4 +32,5 @@ export interface ColorQueryPort {
   ownedDesigns(state: PlayerState, entityKey: string): ThemeDesignDef[];
   isDesignOwned(state: PlayerState, entityKey: string, designId: string): boolean;
   entityThemeOverride(state: PlayerState, entityKey: string, equippedEquipmentId?: string | null): ThemeDef | null;
+  themeFromThemeDef(theme: ThemeDef | undefined): ThemeTokens;
 }

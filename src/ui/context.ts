@@ -2,7 +2,7 @@ import { SaveSystem } from '../data-services/persistence/storage';
 import type { GameView } from '../arona-clicker/contracts/view';
 import type { GameReadModel } from '../arona-clicker/contracts';
 import { displayName } from '../engine/core/display-name';
-import type { BackgroundView } from './background-service';
+import type { BackgroundDecorationView, BackgroundView } from './background-service';
 import type { PresentationView } from './presentation-service';
 import { DEFAULT_PANEL_OPACITY } from './presentation-config';
 import type { PresentationHostState, PresentationTextColorMode } from '../engine/types/theme';
@@ -11,6 +11,11 @@ export interface PresentationHostStateResult {
   background: BackgroundView;
   textColorMode: PresentationTextColorMode;
   source: 'state' | 'default' | 'parent' | 'auto';
+}
+
+function mergeDecoration(base: BackgroundDecorationView | undefined, overlay: BackgroundDecorationView | undefined): BackgroundDecorationView | undefined {
+  if (!base && !overlay) return undefined;
+  return { ...base, ...overlay };
 }
 
 /**
@@ -33,6 +38,7 @@ export interface UIContext {
   backgroundForHost(hostId: string, inheritGlobal?: boolean, state?: PresentationHostState): BackgroundView;
   presentationHostState(hostId: string, state?: PresentationHostState): PresentationHostStateResult;
   textColorModeForHost(hostId: string, state?: PresentationHostState): PresentationTextColorMode;
+  hoverTextColorModeForHost(hostId: string): PresentationTextColorMode;
 }
 
 const formatNumber = (value: number) => Math.floor(value).toLocaleString('en-US');
@@ -49,6 +55,8 @@ const emptyPresentation: PresentationView = {
   region: () => ({ layers: [], components: [] }),
   host: () => ({ layers: [], opacity: DEFAULT_PANEL_OPACITY, layerOrder: [] }),
   hasHost: () => false,
+  shapeForHost: () => undefined,
+  shapeParametersForHost: () => ({}),
   panelOpacity: () => DEFAULT_PANEL_OPACITY,
   asset: () => undefined,
   motion: () => undefined,
@@ -111,23 +119,35 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
         scale: 1,
         rotation: 0,
       };
+      const baseFallbackLayer = {
+        kind: 'solid' as const,
+        value: 'var(--ui-button-bg, var(--theme-node-panel-light, var(--theme-node-panel, #ffffff)))',
+        opacity: 1,
+        position: 'center' as const,
+        size: 'cover' as const,
+        repeat: 'no-repeat' as const,
+        blendMode: 'normal' as const,
+        attachment: 'fixed' as const,
+        scale: 1,
+        rotation: 0,
+      };
+      const shouldUseBaseFallback = state === 'inactive' || state === 'disabled';
       const resolvedHostId = resolveHostId(hostId);
       if (!resolvedHostId) {
-        return { layers: state === 'active' ? [activeFallbackLayer] : inheritGlobal ? globalLayers : [] };
+        return {
+          layers: state === 'active' ? [activeFallbackLayer] : shouldUseBaseFallback ? [baseFallbackLayer] : inheritGlobal ? globalLayers : [],
+          ...presentationView.shapeParametersForHost(hostId),
+        };
       }
       let effectiveHostId = resolvedHostId;
       let host = presentationView.host(effectiveHostId);
-      const requestedHost = host;
-      const requestedState = requestedHost.states?.get(state);
-      const hasRequestedStateOverride = state === 'default'
-        || Boolean(requestedState && (requestedState.layers.length > 0 || requestedState.systemColorLayerIgnored));
       const stateView = () => {
         const exact = host.states?.get(state);
-        return exact && (exact.layers.length > 0 || exact.systemColorLayerIgnored)
+        return exact && (exact.layers.length > 0 || exact.systemColorLayerIgnored || exact.decoration !== undefined)
           ? exact
           : undefined;
       };
-      while ((stateView()?.layers.length ?? host.layers.length) === 0 && !(stateView()?.systemColorLayerIgnored ?? host.systemColorLayerIgnored)) {
+      while (state !== 'default' && !stateView()) {
         const separator: number = effectiveHostId.lastIndexOf('.');
         const parentId: string = separator >= 0 ? effectiveHostId.slice(0, separator) : '';
         if (!parentId || !presentationView.hasHost(parentId)) break;
@@ -135,12 +155,24 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
         host = presentationView.host(parentId);
       }
       const activeState = stateView();
-      const activeFallback = state === 'active' && !hasRequestedStateOverride;
-      const hostLayers = activeFallback ? [] : activeState?.layers ?? host.layers;
+      const activeFallback = state === 'active' && !activeState;
+      const decoration = mergeDecoration(host.decoration, activeState?.decoration);
+      const mergeStateLayers = (base: readonly BackgroundView['layers'][number][], overlay: readonly BackgroundView['layers'][number][]) => {
+        const overlayIds = new Set(overlay.map(layer => layer.id).filter((id): id is string => Boolean(id)));
+        return [...base.filter(layer => !layer.id || !overlayIds.has(layer.id)), ...overlay];
+      };
+      const hostLayers = activeFallback
+        ? []
+        : activeState?.layers.length
+          ? mergeStateLayers(host.layers, activeState.layers)
+          : host.layers;
       const systemColorLayerIgnored = activeFallback
-        ? requestedHost.systemColorLayerIgnored
+        ? host.systemColorLayerIgnored
         : activeState?.systemColorLayerIgnored ?? host.systemColorLayerIgnored;
-      if (hostLayers.length === 0 && !systemColorLayerIgnored && !activeFallback) return { layers: globalLayers };
+      const geometry = presentationView.shapeParametersForHost(hostId);
+      if (hostLayers.length === 0 && !systemColorLayerIgnored && !activeFallback) {
+        return { layers: inheritGlobal ? globalLayers : shouldUseBaseFallback ? [baseFallbackLayer] : [], ...geometry, decoration };
+      }
       if (systemColorLayerIgnored) {
         return { layers: hostLayers.length > 0 ? hostLayers : [{
           kind: 'empty' as const,
@@ -153,13 +185,13 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
           attachment: 'fixed',
           scale: 1,
           rotation: 0,
-        }] };
+        }], ...geometry, decoration };
       }
       const systemLayer = {
         kind: state === 'active' && activeFallback ? 'solid' as const : 'gradient' as const,
         value: state === 'active' && activeFallback
           ? activeFallbackLayer.value
-          : 'linear-gradient(135deg, var(--bg) 0%, var(--bgAlt) 100%)',
+          : 'linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)',
         opacity: 1,
         position: 'center',
         size: 'cover',
@@ -173,13 +205,14 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
       const rank = new Map((activeState?.layerOrder ?? host.layerOrder ?? []).map((id, index) => [id, index + 1]));
       if (!rank.has('system-color-background')) rank.set('system-color-background', 0);
       entries.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER));
-      return { layers: entries.map(entry => entry.layer) };
+      return { layers: entries.map(entry => entry.layer), ...geometry, decoration };
     },
     presentationHostState: (hostId, state: PresentationHostState = 'default') => ({
       background: context.backgroundForHost(hostId, false, state),
       ...resolveTextColorMode(hostId, state),
     }),
     textColorModeForHost: (hostId, state: PresentationHostState = 'default') => resolveTextColorMode(hostId, state).textColorMode,
+    hoverTextColorModeForHost: hostId => resolveTextColorMode(hostId, 'active').textColorMode,
   };
   return context;
 }

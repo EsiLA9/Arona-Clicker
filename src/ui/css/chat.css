@@ -28,18 +28,10 @@
    color: var(--ink-on-panel);
 }
 
-.switch-tab.active {
+.switch-tab.active:not(.presentation-host-target) {
    background: var(--cyan);
    border-color: var(--cyan);
    color: var(--ink-on-primary);
-}
-
-/* 初版装饰试验：与顶部按钮共用透明三角形背景资产。 */
-.switch-tab {
-   background-image: url('../../data/ba_triangles.svg');
-   background-position: center;
-   background-size: 420px auto;
-   background-repeat: no-repeat;
 }
 
 /* 中栏一般聊天的顶部 Tab 栏与对话空间顶部栏统一：等高 46px + 底部分隔线 + 下方 14px 间距 */

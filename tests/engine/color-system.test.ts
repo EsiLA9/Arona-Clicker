@@ -160,11 +160,11 @@ describe('CL 色彩组获得与主题', () => {
     expect(events.filter(e => e.type === 'groupUnlocked' && e.groupId === 'test:colorgroup:color-flag')).toHaveLength(1);
   });
 
-  test('CL-05/06 激活主题全局单选，未拥有拒绝，切换只改 activeGroupId', () => {
+  test('CL-05/06 激活主题全局单选，未拥有拒绝，切换只改 activeTheme', () => {
     expect(game.mutations.activateTheme('test:colorgroup:color-free')).toBe(false); // 未拥有
     game.colorSystem.tryUnlockGroup('test:colorgroup:color-free');
     expect(game.mutations.activateTheme('test:colorgroup:color-free')).toBe(true);
-    expect(state().activeGroupId).toBe('test:colorgroup:color-free');
+    expect(state().activeTheme).toEqual({ kind: 'color-group', id: 'test:colorgroup:color-free' });
     // 不影响装备槽（equippedEquipment 维持 null）
     expect(state().roster['Hoshino'].equippedEquipment).toBeNull();
   });
@@ -174,6 +174,49 @@ describe('CL 色彩组获得与主题', () => {
     game.mutations.activateTheme('test:colorgroup:color-free');
     const tokens = game.colorSystem.activeThemeTokens(state());
     expect(tokens?.['primary']).toBe('#22c55e');
+  });
+
+  test('用户自定义主题是独立全局来源：切回色彩组后不再叠加自定义层且记录保留', () => {
+    game.colorSystem.tryUnlockGroup('test:colorgroup:color-free');
+    game.mutations.activateTheme('test:colorgroup:color-free');
+    game.colorSystem.syncPlayerThemeFromState(state());
+    game.colorSystem.syncUserThemeFromState(state(), true);
+
+    expect(game.mutations.setUserTheme({ version: 1, tokens: { primary: '#123456' } }, true)).toBe(true);
+    game.colorSystem.syncPlayerThemeFromState(state());
+    game.colorSystem.syncUserThemeFromState(state(), true);
+    expect(state().activeTheme).toEqual({ kind: 'custom', id: 'user:theme:default' });
+    expect(game.colorSystem.runtimeTheme().tokens.primary).toBe('#123456');
+    expect(game.colorSystem.runtimeTheme().layers).toContain('user:theme:default');
+
+    expect(game.mutations.activateTheme('test:colorgroup:color-free')).toBe(true);
+    game.colorSystem.syncPlayerThemeFromState(state());
+    game.colorSystem.syncUserThemeFromState(state(), true);
+    expect(state().activeTheme).toEqual({ kind: 'color-group', id: 'test:colorgroup:color-free' });
+    expect(game.colorSystem.runtimeTheme().tokens.primary).toBe('#22c55e');
+    expect(game.colorSystem.runtimeTheme().layers).not.toContain('user:theme:default');
+    expect(state().customThemes?.['user:theme:default']?.tokens?.primary).toBe('#123456');
+  });
+
+  test('可以从内置主题重新应用独立用户主题', () => {
+    game.colorSystem.tryUnlockGroup('test:colorgroup:color-free');
+    game.mutations.setUserTheme({ version: 1, tokens: { primary: '#123456' } }, false);
+    expect(game.mutations.activateTheme('test:colorgroup:color-free')).toBe(true);
+    expect(game.mutations.activateCustomTheme('user:theme:default')).toBe(true);
+    expect(state().activeTheme).toEqual({ kind: 'custom', id: 'user:theme:default' });
+    expect(state().themeAttachments?.base).toBeUndefined();
+  });
+
+  test('切换主题会清理旧版全局 base 挂靠，但保留实体挂靠', () => {
+    state().themeAttachments = {
+      base: { target: 'base', customThemeId: 'user:theme:default', enabled: true },
+      'area:test': { target: 'area:test', customThemeId: 'user:theme:default', enabled: true },
+    };
+    game.colorSystem.tryUnlockGroup('test:colorgroup:color-free');
+    expect(game.mutations.activateTheme('test:colorgroup:color-free')).toBe(true);
+    expect(state().themeAttachments).toEqual({
+      'area:test': { target: 'area:test', customThemeId: 'user:theme:default', enabled: true },
+    });
   });
 
   test('CL-09 获得变体经 characterAcquired 事件自动解锁满足条件色彩组', () => {

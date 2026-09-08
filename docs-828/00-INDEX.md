@@ -1,7 +1,7 @@
 # docs-828 — 总入口（00-INDEX）
 
 > 本文是文档库的**唯一入口**：只做路由，不写正文。想了解什么、想改什么，按表跳转到对应文档。
-> 本库取代 `docs-824/`（已归档）；内容以 2026-08-28 代码实况为准（引擎拆分 + T1-T7 架构整理完成后）。
+> 本库取代 `docs-824/`（已归档）；内容以 2026-09-07 代码实况为准（Lobby、主题表现宿主与主题编辑器首轮收敛后）。
 
 ## 系统一句话
 
@@ -10,8 +10,10 @@
 ## 主干调用链
 
 ```text
-main.ts → new GameInstance()（wiring 装配 28 个子系统）
-        → init(datapacks)（Registry 建表 → GameNum buildAll → 进入默认 Init）
+src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
+        → applyEnabledPacks()（加载启用数据包，保持 Lobby）
+        → Lobby（activeInit 为空；选择 Init / 服务工作区，不启动 Tick）
+        → choose / resume Init（写入 activeInit，恢复或建立快照）
         → start()（1 tick/秒）
         → tick()（生产结算 → Affector → 剧情 → 阻断复检 → 统计）
 ```
@@ -125,6 +127,7 @@ main.ts → new GameInstance()（wiring 装配 28 个子系统）
 | [[docs-828/07-audit/dual-track-state]] | 双轨与副本状态（剧情 id / 阅读记录 / equipmentId / SPECS 登记面） |
 | [[docs-828/07-audit/dormant-machinery]] | 休眠与预留机制（无调用点 / 无写入方 / no-op 群） |
 | [[docs-828/07-audit/presentation-fallbacks]] | 表现层回退链与 UI 防御密度 |
+| [[docs-828/07-audit/presentation-editor-consistency]] | 主题表现编辑器 / 运行时 / hover-active 一致性 |
 | [[docs-828/07-audit/enum-taxonomy]] | 枚举面与分类学超配（可见性阶梯 / 返回码 / EffectOp） |
 | [[docs-828/07-audit/stats-ledgers]] | 统计五套并记与 worldTilt 预留体系 |
 | [[docs-828/07-audit/sync-burden]] | 同步义务与流程负担（含漂移实证） |

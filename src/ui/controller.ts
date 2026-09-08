@@ -169,6 +169,7 @@ export class UIController {
       game: this.game,
       root: this.root,
       popovers: this.popovers,
+      selectorContext: () => createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this)),
       initSelectMode: () => initSelectModeImpl(this),
       showBackToGame: () => showBackToGameImpl(this),
       bindDetailActions: () => bindDetailActionsImpl(this),
@@ -444,6 +445,11 @@ export class UIController {
     this.syncRuntimeTheme();
     this.ensureDatapackWorkspaceState();
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    if (!this.started && this.panelState.service === 'game') {
+      // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
+      renderInitSelectImpl(this);
+      return;
+    }
     this.root.innerHTML = renderAppShell(context, this.panelState);
     this.popovers.bind();
     this.bindActions();
@@ -613,6 +619,7 @@ export class UIController {
       return;
     }
     this.started = true;
+    this.panelState.service = 'game';
     this.commands.start();
     resetSessionPanelImpl(this);
     const init = this.game.world.inits.get(initId);
@@ -632,6 +639,7 @@ export class UIController {
       return;
     }
     this.started = true;
+    this.panelState.service = 'game';
     this.commands.start();
     resetSessionPanelImpl(this);
     const init = this.game.world.inits.get(initId);

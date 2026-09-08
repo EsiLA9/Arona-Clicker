@@ -34,7 +34,7 @@
 | 现状 | 位置 | 影响 |
 | --- | --- | --- |
 | `ColorGroupDef` 以 `primary` 为核心派生完整 token | `src/arona-clicker/services/color-system.ts` | 单色主题可以工作，但多色用途依赖各处自行解释 |
-| 运行时主题按 player / area / student / user / preview / ephemeral 合并 | `src/engine/core/theme-runtime.ts` | 有主题层，但尚未按 UI 簇继续作用域化 |
+| 运行时主题按 player / init / area / student / user / preview / ephemeral 合并 | `src/engine/core/theme-runtime.ts` | 四层业务顺序与独立 user/preview/ephemeral 层已落地，UI 簇继续按 Host Registry 细化 |
 | `theme-tree.ts` 维护固定语义节点 | `src/ui/theme-tree.ts` | 节点集合和用户主题字段尚未完全一致 |
 | 用户主题编辑器提供 10 个字段 | `src/arona-clicker/types/user-theme.ts`、`src/ui/components/user-theme-editor.ts` | `primaryStrong`、`panelAlt`、`accent`、`danger` 等存在消费不完整问题 |
 | 卡片强调色有独立硬编码注册表 | `src/ui/color-scheme.ts` | 部分卡片不会随主题树变化 |

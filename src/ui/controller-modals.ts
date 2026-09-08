@@ -14,6 +14,7 @@ import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker
 import type { BackgroundLayerDef, ComponentPlacementDef, PresentationHostState, PresentationHostStateDef, PresentationLayerDef, PresentationRegion, PresentationTextColorMode } from '../engine/types/theme';
 import { getPresentationTargets } from './presentation-targets';
 import { refreshPresentationHostElements } from './controller-theme';
+import { CORNER_RADIUS_MAX, CORNER_RADIUS_MIN, SKEW_X_DEG_MAX, SKEW_X_DEG_MIN } from './presentation-config';
 
 /** 招募补给弹窗：卡池列表 + 抽取按钮（结果经 chat/toast 反馈）。 */
 export function openGachaModal(ctrl: UIController): void {
@@ -171,7 +172,7 @@ function reorderHostLayerOrder(host: import('../engine/types/theme').Presentatio
   const current = host.layerOrder?.filter(layerId => ids.includes(layerId)) ?? [];
   for (const layerId of ids) if (!current.includes(layerId)) current.push(layerId);
   const index = current.indexOf(id);
-  const target = index + (direction === 'up' ? -1 : 1);
+  const target = index + (direction === 'up' ? 1 : -1);
   if (index < 0 || target < 0 || target >= current.length) return;
   [current[index], current[target]] = [current[target], current[index]];
   host.layerOrder = current;
@@ -385,75 +386,6 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
   modal.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-user-theme-background-field]').forEach(field => {
     field.addEventListener(field instanceof HTMLSelectElement ? 'change' : 'input', () => updateBackgroundField(field));
   });
-  modal.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-user-theme-host-field]').forEach(field => field.addEventListener(field instanceof HTMLSelectElement ? 'change' : 'input', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === field.dataset.userThemeHostId);
-    const layer = host?.layers?.[Number(field.dataset.userThemeHostIndex)];
-    if (!host || !layer) return;
-    const key = field.dataset.userThemeHostField as 'kind' | 'id' | 'value' | 'color' | 'gradientStart' | 'gradientEnd' | 'gradientAngle' | 'opacity' | 'attachment' | 'position' | 'size' | 'repeat' | 'blendMode' | 'scale' | 'rotation';
-    if (key === 'opacity') layer.opacity = Math.max(0, Math.min(1, Number(field.value) || 0));
-    else if (key === 'scale') layer.scale = Math.max(0.05, Math.min(8, Number(field.value) || 1));
-    else if (key === 'rotation') layer.rotation = Number(field.value) || 0;
-    else if (key === 'id') layer.id = field.value || undefined;
-    else if (key === 'color') layer.value = field.value;
-    else if (key === 'gradientStart' || key === 'gradientEnd' || key === 'gradientAngle') {
-      const current = layer.value.match(/^linear-gradient\(\s*(-?\d+(?:\.\d+)?)deg,\s*(#[0-9a-f]{3,8}),\s*(#[0-9a-f]{3,8})\)$/i);
-      const angle = key === 'gradientAngle' ? Math.max(0, Math.min(360, Number(field.value) || 0)) : Number(current?.[1] ?? 135);
-      const start = key === 'gradientStart' ? field.value : (current?.[2] ?? '#6b8cff');
-      const end = key === 'gradientEnd' ? field.value : (current?.[3] ?? '#dbeafe');
-      layer.value = `linear-gradient(${angle}deg, ${start}, ${end})`;
-    }
-    else if (key === 'kind') {
-      const previousKind = layer.kind;
-      layer.kind = field.value as typeof layer.kind;
-      if (layer.kind === 'empty') layer.value = '';
-      else if (previousKind === 'empty' || !layer.value) layer.value = layer.kind === 'solid' ? '#6b8cff' : layer.kind === 'gradient' ? 'linear-gradient(135deg, #6b8cff, #dbeafe)' : (ctrl.game.pics.list?.()[0]?.id ?? '');
-      ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostElements(ctrl, [field.dataset.userThemeHostId!]); refreshPresentationHostCard(ctrl, modal, session, active, field.dataset.userThemeHostId!); return;
-    } else layer[key] = field.value as never;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
-    refreshPresentationHostElements(ctrl, [field.dataset.userThemeHostId!]);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-add]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === button.dataset.userThemeHostAdd);
-    if (!host) return;
-    const layers = host.layers ?? (host.layers = []);
-    layers.push({ id: `${host.id.replace(/\./g, '-')}-layer-${layers.length + 1}`, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostAdd!);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-delete]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const index = presentation.hosts.findIndex(item => item.id === button.dataset.userThemeHostDelete);
-    if (index < 0) return;
-    presentation.hosts.splice(index, 1);
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-move]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === button.dataset.userThemeHostMove);
-    const index = Number(button.dataset.userThemeHostIndex);
-    const hostId = button.dataset.userThemeHostMove;
-    const layerId = host?.layers?.[index]?.id ?? `${hostId}-layer-${index}`;
-    if (!host || !host.layers?.[index]) return;
-    reorderHostLayerOrder(host, layerId, button.dataset.direction as 'up' | 'down');
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostMove!);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-system-layer-move]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === button.dataset.userThemeHostSystemLayerMove);
-    if (!host) return;
-    reorderHostLayerOrder(host, 'system-color-background', button.dataset.direction as 'up' | 'down');
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostCard(ctrl, modal, session, active, host.id);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-remove]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === button.dataset.userThemeHostRemove);
-    const index = Number(button.dataset.userThemeHostIndex);
-    if (!host?.layers?.[index]) return;
-    host.layers.splice(index, 1);
-    host.layerOrder = host.layers.map(layer => layer.id).filter((id): id is string => Boolean(id));
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostCard(ctrl, modal, session, active, button.dataset.userThemeHostRemove!);
-  }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-background-remove]').forEach(button => button.addEventListener('click', () => {
     if (!active || !draft.background) return;
     draft.background.splice(Number(button.dataset.userThemeBackgroundRemove), 1);
@@ -492,7 +424,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const target = getPresentationTargets().find(item => item.id === button.dataset.userThemeTargetOption);
     if (!target) return;
     const hosts = presentation.hosts ?? (presentation.hosts = []);
-    hosts.push({ id: target.id, parent: target.parent, layers: [{ id: `${target.id.replace(/\./g, '-')}-layer-1`, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' }] });
+    hosts.push({ id: target.id, parent: target.parent, layers: [] });
     if (targetPicker) targetPicker.hidden = true;
     ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active, target.id);
   });
@@ -526,7 +458,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const order = [...(draft.backgroundLayerOrder ?? ['system-color-background', ...layerIds])];
     for (const id of ['system-color-background', ...layerIds]) if (!order.includes(id)) order.push(id);
     const current = order.indexOf(layerIds[index]);
-    const target = current + (button.dataset.direction === 'up' ? -1 : 1);
+    const target = current + (button.dataset.direction === 'up' ? 1 : -1);
     if (current < 0 || target < 0 || target >= order.length) return;
     [order[current], order[target]] = [order[target], order[current]];
     draft.backgroundLayerOrder = order;
@@ -539,7 +471,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     for (const id of ['system-color-background', ...layerIds]) if (!ids.includes(id)) ids.push(id);
     const index = ids.indexOf('system-color-background');
     if (index < 0) return;
-    const target = index + (button.dataset.userThemeSystemLayerMove === 'up' ? -1 : 1);
+    const target = index + (button.dataset.userThemeSystemLayerMove === 'up' ? 1 : -1);
     if (target < 0 || target >= ids.length) return;
     [ids[index], ids[target]] = [ids[target], ids[index]];
     draft.backgroundLayerOrder = ids;
@@ -591,7 +523,11 @@ function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: imp
   const scrollTop = inspector?.scrollTop ?? 0;
   const openTargets = new Set([...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-card]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostCard));
   const openLayers = new Set([...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-layer]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostLayer));
-  const openBackgroundLayers = [...modal.querySelectorAll<HTMLDetailsElement>('.user-theme-layer-collapsible:not([data-user-theme-host-layer])')].map(item => item.open);
+  const openBackgroundLayers = new Map<string, boolean>();
+  for (const item of [...modal.querySelectorAll<HTMLDetailsElement>('.user-theme-layer-collapsible:not([data-user-theme-host-layer])')]) {
+    const key = userThemeBackgroundLayerKey(item, session.draft);
+    if (key) openBackgroundLayers.set(key, item.open);
+  }
   const focused = document.activeElement instanceof HTMLElement ? { host: focusedHostField(document.activeElement), section: document.activeElement.closest<HTMLElement>('[data-theme-editor-panel]')?.dataset.themeEditorPanel } : undefined;
   const body = modal.querySelector<HTMLElement>('.modal-body');
   if (!body) return;
@@ -609,11 +545,22 @@ function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: imp
     item.open = item.dataset.userThemeHostCard === openHostId || openTargets.has(item.dataset.userThemeHostCard);
   });
   nextInspector?.querySelectorAll<HTMLDetailsElement>('[data-user-theme-host-layer]').forEach(item => { item.open = openLayers.has(item.dataset.userThemeHostLayer); });
-  nextInspector?.querySelectorAll<HTMLDetailsElement>('.user-theme-layer-collapsible:not([data-user-theme-host-layer])').forEach((item, index) => { item.open = openBackgroundLayers[index] ?? (index === openBackgroundLayers.length); });
+  nextInspector?.querySelectorAll<HTMLDetailsElement>('.user-theme-layer-collapsible:not([data-user-theme-host-layer])').forEach(item => {
+    const key = userThemeBackgroundLayerKey(item, session.draft);
+    item.open = key ? (openBackgroundLayers.get(key) ?? true) : true;
+  });
   if (focused?.host) {
     const field = nextInspector?.querySelector<HTMLElement>(`[data-user-theme-host-field="${focused.host.key}"][data-user-theme-host-id="${focused.host.id}"][data-user-theme-host-index="${focused.host.index}"]`);
     field?.focus();
   }
+}
+
+function userThemeBackgroundLayerKey(item: HTMLDetailsElement, draft: import('../arona-clicker/types/user-theme').UserThemeDraft): string | undefined {
+  if (item.querySelector('[data-user-theme-system-color-ignore]')) return 'system-color-background';
+  const field = item.querySelector<HTMLElement>('[data-user-theme-background-field]');
+  const index = Number(field?.dataset.userThemeBackgroundIndex);
+  if (!Number.isInteger(index) || index < 0) return undefined;
+  return draft.background?.[index]?.id ?? `user-background-${index}`;
 }
 
 function focusedHostField(element: HTMLElement): { id: string; index: string; key: string } | undefined {
@@ -678,6 +625,92 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
     refreshPresentationHostCard(ctrl, modal, session, active, hostId);
+  }));
+  card.querySelectorAll<HTMLSelectElement>('[data-user-theme-host-shape]').forEach(select => select.addEventListener('change', event => {
+    if (!active || !presentation.hosts) return;
+    const host = presentation.hosts.find(item => item.id === hostId);
+    if (!host) return;
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    host.shape = value === 'rounded-parallelogram' ? 'rounded-parallelogram' : undefined;
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+    refreshPresentationHostElements(ctrl, [hostId]);
+     refreshPresentationHostCard(ctrl, modal, session, active, hostId);
+   }));
+  card.querySelectorAll<HTMLInputElement>('[data-user-theme-host-corner-radius], [data-user-theme-host-skew-x-deg]').forEach(input => input.addEventListener('input', event => {
+    if (!active || !presentation.hosts) return;
+    const host = presentation.hosts.find(item => item.id === hostId);
+    if (!host) return;
+    const key = (event.currentTarget as HTMLElement).dataset.userThemeHostCornerRadius !== undefined ? 'cornerRadius' : 'skewXDeg';
+    const rawValue = (event.currentTarget as HTMLInputElement).value.trim();
+    if (!rawValue) {
+      delete host[key];
+    } else {
+      const value = Number(rawValue);
+      if (!Number.isFinite(value)) return;
+      const bounded = key === 'cornerRadius'
+        ? Math.max(CORNER_RADIUS_MIN, Math.min(CORNER_RADIUS_MAX, value))
+        : Math.max(SKEW_X_DEG_MIN, Math.min(SKEW_X_DEG_MAX, value));
+      host[key] = bounded;
+      (event.currentTarget as HTMLInputElement).value = String(bounded);
+    }
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+    refreshPresentationHostElements(ctrl, [hostId]);
+  }));
+  card.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-geometry-reset]').forEach(button => button.addEventListener('click', () => {
+    if (!active || !presentation.hosts) return;
+    const host = presentation.hosts.find(item => item.id === hostId);
+    if (!host) return;
+    delete host.cornerRadius;
+    delete host.skewXDeg;
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+    refreshPresentationHostElements(ctrl, [hostId]);
+    refreshPresentationHostCard(ctrl, modal, session, active, hostId);
+  }));
+  card.querySelectorAll<HTMLInputElement>('[data-user-theme-host-decoration-toggle]').forEach(input => input.addEventListener('change', event => {
+    if (!active || !presentation.hosts) return;
+    const host = presentation.hosts.find(item => item.id === hostId);
+    if (!host) return;
+    const state = hostState();
+    const target = stateDef(host, state, state !== 'default');
+    if (!target) return;
+    const enabled = (event.currentTarget as HTMLInputElement).checked;
+    if (!enabled) {
+      if (state === 'default') delete host.decoration;
+      else if (target !== host) delete target.decoration;
+    } else {
+      const inherited = state === 'default' ? undefined : host.decoration;
+      const current = state === 'default' ? host.decoration : target.decoration;
+      const decoration = { color: 'var(--theme-node-line)', width: 1, inset: 0, opacity: 1, style: 'solid' as const, ...inherited, ...current };
+      if (state === 'default') host.decoration = decoration;
+      else target.decoration = decoration;
+    }
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+    refreshPresentationHostElements(ctrl, [hostId]);
+    refreshPresentationHostCard(ctrl, modal, session, active, hostId);
+  }));
+  card.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-user-theme-host-decoration-field]').forEach(field => field.addEventListener(field instanceof HTMLSelectElement ? 'change' : 'input', event => {
+    if (!active || !presentation.hosts) return;
+    const host = presentation.hosts.find(item => item.id === hostId);
+    if (!host) return;
+    const state = hostState();
+    const target = stateDef(host, state, state !== 'default');
+    if (!target) return;
+    const decoration = state === 'default' ? host.decoration : target.decoration;
+    if (!decoration) return;
+    const key = (event.currentTarget as HTMLElement).dataset.userThemeHostDecorationField;
+    const value = (event.currentTarget as HTMLInputElement | HTMLSelectElement).value;
+    if (key === 'color') decoration.color = value;
+    else if (key === 'width') decoration.width = Math.max(0, Math.min(12, Number(value) || 0));
+    else if (key === 'inset') decoration.inset = Math.max(0, Math.min(24, Number(value) || 0));
+    else if (key === 'opacity') decoration.opacity = Math.max(0, Math.min(1, Number(value) || 0));
+    else if (key === 'style' && (value === 'solid' || value === 'dashed' || value === 'dotted')) decoration.style = value;
+    ctrl.game.colorSystem.setUserThemePreview(draft);
+    ctrl.refreshTheme();
+    refreshPresentationHostElements(ctrl, [hostId]);
   }));
   card.querySelectorAll<HTMLInputElement>('[data-user-theme-host-system-color-ignore]').forEach(input => input.addEventListener('change', event => {
     if (!active || !presentation.hosts) return;
