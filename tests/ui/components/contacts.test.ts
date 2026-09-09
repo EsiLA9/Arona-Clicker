@@ -117,6 +117,8 @@ describe('通讯录 UI（U 组）', () => {
     const sendState = game.story.getSendState();
     const conv = renderConversationView(ctx, 'Hoshino', [], [], sendState);
     expect(conv).toContain('小鸟游星野'); // 顶部栏标题
+    expect(conv).toContain('conversation-pane panel-body'); // 对话空间遵循统一 Panel 内容契约
+    expect(conv).toContain('conversation-header panel-header'); // 顶部结构区块独立于正文流
     expect(conv).toContain('data-conversation-back'); // App 式返回键
     expect(conv).toContain('data-send'); // 底部回复按钮（idle 态）
     expect(renderChatHistory([], ctx)).toContain('还没有对话记录'); // 空语境

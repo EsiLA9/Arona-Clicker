@@ -43,6 +43,12 @@ const initTheme = (colors: { primary: string; secondary: string; surface: string
         layers: [{ id: 'init-tab', kind: 'solid', value: colors.surface, opacity: 0.86, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'local' }],
         states: { active: { layers: [{ id: 'init-tab-active', kind: 'solid', value: colors.primary, opacity: 0.92, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'local' }] } },
       },
+      ...(['leftPanel.tabs', 'centerPanel.tabs', 'rightPanel.tabs'] as const).map(id => ({
+        id,
+        shape: colors.shape ?? 'rounded-rectangle' as const,
+        decoration: { color: colors.primary, width: 1, inset: 0, opacity: 0.62, style: 'solid' as const },
+        layers: [{ id: `${id.replace('.', '-')}-background`, kind: 'solid' as const, value: colors.surface, opacity: 0.42, position: 'center', size: 'cover', repeat: 'no-repeat' as const, blendMode: 'normal' as const, attachment: 'local' as const }],
+      })),
       {
         id: 'card.action', shape: colors.shape ?? 'rounded-rectangle',
         decoration: { color: colors.secondary, width: 1, inset: 0, opacity: 0.82, style: 'solid' },

@@ -1,6 +1,6 @@
 import { UIContext } from '../context';
 import { renderResourceStrip } from './header';
-import { renderTabs, TabDef } from './tabs';
+import { renderPanelTabsRegion, TabDef } from './tabs';
 import { renderProductionNodes } from './production';
 import { renderEnhancements } from './enhancements';
 import { renderCharacterPanel } from './contacts';
@@ -30,7 +30,7 @@ export function renderRightPanel(ctx: UIContext, activeTab: string, selectedVari
     <aside class="ui-cluster ui-cluster--right-panel panel right-panel presentation-host-target" data-theme-scope="right.${activeTab}" data-theme-host-id="rightPanel.${activeTab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`rightPanel.${activeTab}`)}">
       ${renderBackground(ctx.backgroundForHost(`rightPanel.${activeTab}`), 'console-panel-background')}
       ${renderResourceStrip(ctx)}
-      ${renderTabs(ctx, 'right', RIGHT_TABS, activeTab)}
+      ${renderPanelTabsRegion(ctx, 'right', RIGHT_TABS, activeTab)}
       <div class="ui-cluster ui-cluster--right-${activeTab} panel-body">${body}</div>
     </aside>`;
 }

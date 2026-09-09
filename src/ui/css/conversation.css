@@ -3,11 +3,23 @@
    （自 styles.css 拆出，区块顺序与原文件一致）
    ============================================================ */
 
-/* 对话空间：顶部栏（返回键 + 学生名 + 羁绊剧情入口） */
+/* 对话空间沿用 panel → panel-body 的内容契约；内部 chat-stream 承担唯一主滚动。 */
+.conversation-panel {
+   overflow: hidden;
+}
+
 .conversation-pane {
    display: flex;
    flex-direction: column;
    height: 100%;
+}
+
+.conversation-pane.panel-body {
+   flex: 1;
+   min-width: 0;
+   min-height: 0;
+   overflow: hidden;
+   padding: 0;
 }
 
 .conversation-pane .chat-pane {
@@ -27,6 +39,7 @@
 .conversation-header {
    display: flex;
    align-items: center;
+   flex: 0 0 46px;
    gap: 10px;
    height: 46px;
    padding: 0 12px;
@@ -173,4 +186,3 @@
 .conversation-stream .kizuna-card {
    margin-top: 6px;
 }
-

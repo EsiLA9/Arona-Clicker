@@ -1,5 +1,5 @@
 import { UIContext } from '../context';
-import { renderTabs, TabDef } from './tabs';
+import { renderPanelTabsRegion, TabDef } from './tabs';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderConversationView } from './contacts';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
@@ -40,7 +40,7 @@ export function renderCenterPanel(
       <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.contacts" data-theme-host-id="centerPanel.contacts" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost('centerPanel.contacts')}">
         ${renderBackground(ctx.backgroundForHost('centerPanel.contacts'), 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
-        ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
+        ${renderPanelTabsRegion(ctx, 'center', CENTER_TABS, 'chat')}
         <div class="ui-cluster ui-cluster--center-contacts-draft panel-body">
           <div class="chat-empty">
             <p>📒 通讯录临时页</p>
@@ -55,7 +55,7 @@ export function renderCenterPanel(
       <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.archive" data-theme-host-id="centerPanel.archive" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost('centerPanel.archive')}">
         ${renderBackground(ctx.backgroundForHost('centerPanel.archive'), 'console-panel-background')}
         ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
-        ${renderTabs(ctx, 'center', CENTER_TABS, 'chat')}
+        ${renderPanelTabsRegion(ctx, 'center', CENTER_TABS, 'chat')}
         <div class="ui-cluster ui-cluster--center-archive-draft panel-body">
           <div class="chat-empty">
             <p>🗄️ 档案临时页</p>
@@ -71,7 +71,7 @@ export function renderCenterPanel(
     <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.${activeTab}" data-theme-host-id="centerPanel.${activeTab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`centerPanel.${activeTab}`)}">
       ${renderBackground(ctx.backgroundForHost(`centerPanel.${activeTab}`), 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
-      ${renderTabs(ctx, 'center', CENTER_TABS, activeTab)}
+      ${renderPanelTabsRegion(ctx, 'center', CENTER_TABS, activeTab)}
       <div class="ui-cluster ui-cluster--center-${activeTab} panel-body">
         ${body}
       </div>

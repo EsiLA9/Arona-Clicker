@@ -1,5 +1,5 @@
 import { UIContext } from '../context';
-import { renderTabs, TabDef } from './tabs';
+import { renderPanelTabsRegion, TabDef } from './tabs';
 import { getAreaReveal, getStoryReveal, describeCondition } from './tooltip';
 import { renderContactsTab } from './contacts';
 import type { ActiveStoryEntry } from '../../data-services/contracts/story-entry';
@@ -33,7 +33,7 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
   return `
     <aside class="ui-cluster ui-cluster--left-panel panel left-panel presentation-host-target" data-theme-scope="left.${tab}" data-theme-host-id="leftPanel.${tab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`leftPanel.${tab}`)}">
       ${renderBackground(ctx.backgroundForHost(`leftPanel.${tab}`), 'console-panel-background')}
-      ${renderTabs(ctx, 'left', LEFT_TABS, tab)}
+      ${renderPanelTabsRegion(ctx, 'left', LEFT_TABS, tab)}
       <div class="ui-cluster ui-cluster--left-${tab} panel-body">${body}</div>
     </aside>`;
 }

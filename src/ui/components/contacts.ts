@@ -233,8 +233,8 @@ export function renderConversationView(
     <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-theme-scope="center.conversation">
       ${renderBackground(ctx.background, 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
-      <div class="conversation-pane" data-conversation="${ctx.escapeHtml(variantId)}">
-        <div class="conversation-header">
+      <div class="conversation-pane panel-body" data-conversation="${ctx.escapeHtml(variantId)}">
+        <div class="conversation-header panel-header">
           <button class="conversation-back" data-conversation-back aria-label="返回一般聊天" title="返回一般聊天">‹</button>
           <div class="conversation-title">
             <b>${ctx.escapeHtml(variant.displayName)}</b>

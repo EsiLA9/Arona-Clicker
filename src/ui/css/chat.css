@@ -6,10 +6,57 @@
 /* Switch tabs */
 .switch-tabs {
    display: flex;
-   gap: 6px;
+   gap: var(--tabs-gap, 6px);
+   min-width: 0;
+   margin: 0;
+   padding: 0;
+}
+
+/* 非 panel 的复用场景保留自己的分隔和正文间距，不把区域语义回灌到通用 TabGroup。 */
+.switch-tabs.coll-switch,
+.switch-tabs[data-gacha-scope-switch] {
    margin-bottom: 14px;
    padding-bottom: 12px;
    border-bottom: 1px solid var(--line);
+}
+
+/* Panel Tabs 的顶部结构区块：背景由区域宿主承载，底线只保留一套。 */
+.panel-tabs-region {
+   display: flex;
+   flex: 0 0 auto;
+   min-width: 0;
+   padding: var(--tabs-padding-block, 10px) var(--panel-content-padding-inline, 14px);
+   border-bottom: 1px solid var(--theme-node-line);
+}
+
+.panel-tabs-region.ui-cluster--left-tabs-region,
+.panel-tabs-region.ui-cluster--center-tabs-region,
+.panel-tabs-region.ui-cluster--right-tabs-region {
+   background: color-mix(in srgb, var(--theme-node-primary) 10%, var(--theme-node-panel) 90%);
+}
+
+.panel-tabs-region:has(> .presentation-host-background > .presentation-host-decoration) {
+   border-bottom-color: transparent;
+}
+
+.panel-tabs-region > .presentation-host-background > .presentation-host-decoration {
+   inset: auto 0 0;
+   border-width: 0 0 var(--presentation-decoration-width, 1px);
+   border-radius: 0;
+}
+
+.panel-tabs-region > .switch-tabs {
+   flex: 1 1 auto;
+}
+
+.switch-tabs-content {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   align-items: flex-start;
+   min-width: 0;
+   position: relative;
+   z-index: 1;
 }
 
 .switch-tab {
@@ -32,14 +79,6 @@
    background: var(--cyan);
    border-color: var(--cyan);
    color: var(--ink-on-primary);
-}
-
-/* 中栏一般聊天的顶部 Tab 栏与对话空间顶部栏统一：等高 46px + 底部分隔线 + 下方 14px 间距 */
-.center-panel > .switch-tabs {
-   height: auto;
-   align-items: flex-start;
-   margin-bottom: 14px;
-   padding-bottom: 12px;
 }
 
 /* Center chat stream：chat-pane 填满 panel-body（flex:1）而非固定高度，

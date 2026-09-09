@@ -2,6 +2,9 @@ import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../../src/ui/css/background.css', import.meta.url), 'utf8');
+const chatCss = readFileSync(new URL('../../src/ui/css/chat.css', import.meta.url), 'utf8');
+const layoutCss = readFileSync(new URL('../../src/ui/css/layout.css', import.meta.url), 'utf8');
+const conversationCss = readFileSync(new URL('../../src/ui/css/conversation.css', import.meta.url), 'utf8');
 
 describe('表现宿主文字颜色 CSS 契约', () => {
   test('手动模式覆盖宿主、嵌套文字和 inline SVG', () => {
@@ -59,10 +62,49 @@ describe('表现宿主文字颜色 CSS 契约', () => {
     }
   });
 
+  test('Tabs 区域与按钮分层，区域不再依赖固定底部横线', () => {
+    const tabs = readFileSync(new URL('../../src/ui/components/tabs.ts', import.meta.url), 'utf8');
+    expect(tabs).toContain('renderPanelTabsRegion');
+    expect(tabs).toContain('data-theme-host-id="${tabsHost}"');
+    expect(tabs).toContain('switch-tabs-content');
+    expect(chatCss).toContain('.switch-tabs-content');
+    expect(chatCss).toContain('var(--theme-node-primary) 10%');
+    expect(chatCss).toContain('.panel-tabs-region');
+    expect(chatCss).toContain('border-bottom: 1px solid var(--theme-node-line)');
+    expect(chatCss).toContain('.switch-tabs.coll-switch');
+    expect(chatCss).toContain('.switch-tabs[data-gacha-scope-switch]');
+    expect(chatCss).not.toContain('.left-panel > .switch-tabs');
+    expect(chatCss).not.toContain('.center-panel > .switch-tabs');
+    expect(chatCss).not.toContain('margin: -14px -14px 14px');
+    expect(chatCss).not.toContain('.switch-tabs.ui-cluster--left-tabs');
+    expect(chatCss).not.toContain('.switch-tabs.ui-cluster--center-tabs');
+    expect(layoutCss).toContain('.panel.presentation-host-target');
+    expect(layoutCss).toContain('overflow: hidden');
+    expect(layoutCss).toContain('padding: var(--panel-body-padding, 14px)');
+  });
+
   test('聊天气泡覆盖通用宿主的透明背景规则', () => {
     expect(css).toContain('.presentation-host-target.chat-bubble-npc');
     expect(css).toContain('background: var(--theme-node-npc-bubble, #4c5b70)');
     expect(css).toContain('.presentation-host-target.chat-bubble-player');
     expect(css).toContain('background: var(--theme-node-player-bubble, #4a8aca)');
+  });
+
+  test('通讯录对话 Panel 收敛外框裁剪与正文滚动责任', () => {
+    const contacts = readFileSync(new URL('../../src/ui/components/contacts.ts', import.meta.url), 'utf8');
+    expect(contacts).toContain('conversation-pane panel-body');
+    expect(contacts).toContain('conversation-header panel-header');
+    expect(conversationCss).toContain('.conversation-panel');
+    expect(conversationCss).toContain('overflow: hidden');
+    expect(conversationCss).toContain('.conversation-pane.panel-body');
+    expect(conversationCss).toContain('padding: 0');
+  });
+
+  test('表现宿主保持背景节点与正文节点的直接子层级契约', () => {
+    const service = readFileSync(new URL('../../src/ui/presentation-service.ts', import.meta.url), 'utf8');
+    const tabs = readFileSync(new URL('../../src/ui/components/tabs.ts', import.meta.url), 'utf8');
+    expect(service).toContain('>${background}<div class="presentation-host-content">');
+    expect(tabs).toContain('panel-tabs-region presentation-host-target');
+    expect(tabs).toContain('${renderPresentationHostBackground(ctx, tabsHost)}${renderTabs(ctx, panel, tabs, active)}');
   });
 });

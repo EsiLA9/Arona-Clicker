@@ -535,31 +535,39 @@ h3 {
    box-shadow: 0 10px 30px rgba(var(--primary-rgb), .08);
 }
 
-.left-panel,
-.center-panel,
-.right-panel {
-   display: flex;
-   flex-direction: column;
+.panel.presentation-host-target {
+   min-width: 0;
    min-height: 0;
    overflow: hidden;
 }
 
 .left-panel,
+.center-panel,
 .right-panel {
-   padding: 14px;
-}
-
-.center-panel {
-   padding: 14px;
+   display: flex;
+   flex-direction: column;
+   min-width: 0;
+   min-height: 0;
+   overflow: hidden;
+   --panel-content-padding-inline: 14px;
+   --panel-body-padding: 14px;
+   --tabs-padding-block: 10px;
+   --tabs-gap: 6px;
 }
 
 .panel-body {
    flex: 1;
+   min-width: 0;
    min-height: 0;
-   overflow-y: auto;
+   overflow: auto;
    display: flex;
    flex-direction: column;
    gap: 0px;
+   padding: var(--panel-body-padding, 14px);
+}
+
+.right-panel > .resource-bar {
+   margin-inline: var(--panel-content-padding-inline, 14px);
 }
 
 .panel-heading {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createUIContext } from '../../src/ui/context';
 import { buildPresentationView, renderPresentationHostBackground } from '../../src/ui/presentation-service';
-import { renderTabs } from '../../src/ui/components/tabs';
+import { renderPanelTabsRegion } from '../../src/ui/components/tabs';
 
 const game = { world: {}, registry: {}, getView: () => ({}) } as never;
 const pics = {
@@ -55,18 +55,26 @@ describe('UIContext：簇与当前区域宿主', () => {
   });
 
   test('Tab 渲染同时写入语义状态与解析后的文字模式', () => {
-    const presentation = buildPresentationView({ hosts: [{
-      id: 'leftPanel.tab',
-      textColorMode: 'dark',
-      states: { active: { textColorMode: 'light' } },
-    }] }, pics);
+    const presentation = buildPresentationView({ hosts: [
+      { id: 'leftPanel.tabs', layers: [{ kind: 'solid', value: '#abc' }] },
+      {
+        id: 'leftPanel.tab',
+        textColorMode: 'dark',
+        states: { active: { textColorMode: 'light' } },
+      },
+    ] }, pics);
     const ctx = createUIContext(game, { layers: [] }, presentation);
-    const html = renderTabs(ctx, 'left', [{ id: 'area', label: '区域' }, { id: 'contacts', label: '通讯录' }], 'area');
+    const html = renderPanelTabsRegion(ctx, 'left', [{ id: 'area', label: '区域' }, { id: 'contacts', label: '通讯录' }], 'area');
 
     expect(html).toContain('data-theme-state="active"');
     expect(html).toContain('data-theme-state="inactive"');
     expect(html).toContain('data-theme-text-mode="light"');
     expect(html).toContain('data-theme-text-mode="dark"');
+    expect(html).toContain('data-theme-host-id="leftPanel.tabs"');
+    expect(html).toContain('panel-tabs-region presentation-host-target');
+    expect(html).toContain('class="presentation-host-background"');
+    expect(html).not.toContain('switch-tabs presentation-host-target');
+    expect(html).toContain('class="switch-tabs-content" role="tablist"');
     const inactiveButton = html.match(/<button\b(?=[^>]*data-theme-state="inactive")[^>]*>/)?.[0];
     expect(inactiveButton).toContain('data-theme-hover-text-mode="light"');
   });

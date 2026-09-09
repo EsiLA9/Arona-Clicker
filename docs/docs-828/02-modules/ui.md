@@ -67,6 +67,8 @@ UI 表现宿主由 `src/ui/ui-host-registry.ts` 统一登记。核心 UI 提供�
 
 宿主未配置专属表现时按父级回退；Registry 只描述目标和层级，不保存用户主题值，也不开放任意 CSS/DOM 注入。
 
+三栏 panel 的顶部 Tabs 使用 `panel-tabs-region` 作为独立结构宿主：区域背景、主题装饰和底部分隔线挂在 `leftPanel.tabs` / `centerPanel.tabs` / `rightPanel.tabs`，`.switch-tabs` 仅负责 TabGroup 布局，单个按钮仍使用对应的 `*.tab` 宿主。panel 自身独占外框、圆角和 `overflow: hidden`，`panel-body` 独占正文滚动与内容 padding；普通弹窗、抽卡范围和主题编辑器内部的 `.switch-tabs` 不套用该结构。
+
 ### 主题与选择页表现
 
 - 运行时可排序层为 `player → init → area → student`；`user`、`preview` 与 `ephemeral` 是独立插层，剧情临时层始终最高。
