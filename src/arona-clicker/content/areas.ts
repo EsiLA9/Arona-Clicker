@@ -7,6 +7,18 @@ export const baseAreas: AreaDef[] = [
     { id: 'triangles-back', kind: 'image', value: 'base:overlay(pic):triangles', opacity: 0.68, position: '8% 8%', size: '42rem', blendMode: 'screen' },
     { id: 'triangles-front', kind: 'image', value: 'base:overlay(pic):triangles', opacity: 0.42, position: '86% 78%', size: '32rem', blendMode: 'multiply' },
   ).presentation({
+    panels: [
+      { region: 'leftPanel', opacity: 0.92, header: { icon: '◈', eyebrow: 'OPERATIONS', accent: 'var(--theme-node-primary)' } },
+      { region: 'centerPanel', opacity: 0.86, header: { icon: '◉', eyebrow: 'THEME LITE', accent: 'var(--theme-node-accent)' } },
+      { region: 'rightPanel', opacity: 0.92, emptyState: { icon: '◇', title: '等待演出', description: '启动主线后观察临时主题覆盖。' } },
+    ],
+    hosts: [
+      { id: 'left.panel', parent: 'leftPanel', shape: 'rounded-parallelogram', decoration: { color: '#3b9eff', width: 1, opacity: 0.72, style: 'solid' }, textColorMode: 'auto' },
+      { id: 'center.chat', parent: 'centerPanel', shape: 'rounded-rectangle', cornerRadius: 12, decoration: { color: '#8b5cf6', width: 1, inset: 2, opacity: 0.6, style: 'dashed' }, textColorMode: 'auto', states: { active: { textColorMode: 'light', decoration: { color: '#22d3ee', width: 2 } }, disabled: { textColorMode: 'dark', decoration: { opacity: 0.3 } } } },
+      { id: 'right.panel', parent: 'rightPanel', shape: 'rounded-rectangle', cornerRadius: 10, decoration: { color: '#38bdf8', width: 1, opacity: 0.68, style: 'dotted' }, textColorMode: 'auto' },
+      { id: 'footer.send', parent: 'footer', shape: 'rounded-parallelogram', cornerRadius: 6, skewXDeg: -6, textColorMode: 'auto', states: { active: { layers: [{ id: 'send-active', kind: 'solid', value: '#3b9eff', opacity: 0.9 }] }, inactive: { layers: [{ id: 'send-inactive', kind: 'solid', value: '#94a3b8', opacity: 0.5 }] } } },
+      { id: 'modal.choice', parent: 'modal', shape: 'rounded-rectangle', cornerRadius: 14, decoration: { color: '#f59e0b', width: 2, opacity: 0.7, style: 'solid' }, textColorMode: 'auto' },
+    ],
     components: [
       { id: 'center-hoshino-portrait', parent: 'centerPanel', asset: 'base:background(pic):hoshino', anchor: 'bottom-right', offset: { x: 4, y: 1, unit: 'percent' }, size: { height: 88, unit: 'percent' }, fit: 'contain' },
       { id: 'center-triangle-decoration', parent: 'centerPanel', asset: 'base:overlay(pic):triangles', anchor: 'top-left', offset: { x: 3, y: 3, unit: 'percent' }, size: { width: 38, unit: 'percent' }, fit: 'contain' },

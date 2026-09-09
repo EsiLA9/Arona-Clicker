@@ -5,6 +5,7 @@ import type { ActiveStoryEntry } from '../../data-services/contracts/story-entry
 export const baseActiveStories: ActiveStoryEntry[] = [
   activeStory('base:activestory:schale_welcome', 'base:story:schale_welcome').inits('base:init:schale_office').replayable().build(),
   activeStory('base:activestory:schale_flow_show', 'base:story:schale_flow_show').inits('base:init:schale_office').replayable().build(),
+  activeStory('base:activestory:schale_theme_lite_test', 'base:story:schale_theme_lite_test').inits('base:init:schale_office').replayable().build(),
   activeStory('base:activestory:abydos_welcome', 'base:story:abydos_welcome').inits('base:init:abydos').replayable().build(),
   activeStory('base:activestory:millennium_welcome', 'base:story:millennium_welcome').inits('base:init:millennium').replayable().build(),
   activeStory('base:activestory:millennium_game_crisis', 'base:story:millennium_game_crisis_intro')

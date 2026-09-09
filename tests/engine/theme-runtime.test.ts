@@ -418,3 +418,62 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe('#111111');
   });
 });
+
+describe('Talklet Theme Lite：Owner 与生命周期', () => {
+  test('同一 Owner + 生效 ID 重写为一份，并重置 seconds 生命周期', () => {
+    let now = 1_000;
+    const { manager } = (() => {
+      const manager = new RuntimeThemeManager(layer => {
+        const out: Record<string, string> = {};
+        for (const [key, value] of Object.entries(layer.tokens ?? {})) if (value != null) out[key] = value;
+        return out;
+      }, { now: () => now });
+      return { manager };
+    })();
+    manager.setTalkletTheme({ owner: 'story-a', effectId: 'mood', theme: { scope: 'ephemeral', tokens: { primary: '#111' } }, lifetime: 'seconds', seconds: 5, targets: ['story'] });
+    now = 2_000;
+    manager.setTalkletTheme({ owner: 'story-a', effectId: 'mood', theme: { scope: 'ephemeral', tokens: { primary: '#222' } }, lifetime: 'seconds', seconds: 5, targets: ['story'] });
+    expect(manager.getTalkletThemes('story-a')).toHaveLength(1);
+    expect(manager.resolve('story').tokens.primary).toBe('#222');
+    manager.tick(6_999);
+    expect(manager.resolve('story').tokens.primary).toBe('#222');
+    manager.tick(7_000);
+    expect(manager.resolve('story').tokens.primary).not.toBe('#222');
+  });
+
+  test('step 从设置后的下一次完成开始递减，Owner disposal 幂等且隔离', () => {
+    const manager = new RuntimeThemeManager(layer => ({ primary: layer.tokens?.primary ?? '#000', ...layer.tokens }));
+    manager.setTalkletTheme({ owner: 'a', effectId: 'mood', theme: { scope: 'ephemeral', tokens: { primary: '#111' } }, lifetime: 'step', steps: 2, targets: ['story'] });
+    manager.setTalkletTheme({ owner: 'b', effectId: 'mood', theme: { scope: 'ephemeral', tokens: { accent: '#222' } }, lifetime: 'fulltime', targets: ['story'] });
+    manager.completeTalklet('a');
+    expect(manager.resolve('story').tokens.primary).toBe('#111');
+    manager.completeTalklet('a');
+    expect(manager.resolve('story').tokens.primary).toBe('#000');
+    manager.disposeStoryExecution('a');
+    manager.disposeStoryExecution('a');
+    expect(manager.getTalkletThemes('b')).toHaveLength(1);
+  });
+
+  test('areatime 离开 Area 即清理；目标范围为空或缺 Area 时拒绝', () => {
+    const manager = new RuntimeThemeManager(layer => ({ primary: layer.tokens?.primary ?? '#000', ...layer.tokens }));
+    expect(manager.setTalkletTheme({ owner: 'a', effectId: 'bad', theme: { scope: 'ephemeral', tokens: { primary: '#111' } }, lifetime: 'fulltime', targets: [] })).toBeNull();
+    expect(manager.setTalkletTheme({ owner: 'a', effectId: 'bad-area', theme: { scope: 'ephemeral', tokens: { primary: '#111' } }, lifetime: 'areatime', targets: ['story'] })).toBeNull();
+    manager.setTalkletTheme({ owner: 'a', effectId: 'area', theme: { scope: 'ephemeral', tokens: { primary: '#111' } }, lifetime: 'areatime', areaId: 'area-1', targets: ['story'] });
+    manager.areaChanged('area-1');
+    expect(manager.resolve('story').tokens.primary).toBe('#111');
+    manager.areaChanged('area-2');
+    expect(manager.resolve('story').tokens.primary).not.toBe('#111');
+  });
+
+  test('不同 Owner 同名 ID 可并存，显式 revision 决定同层覆盖，按 target 隔离', () => {
+    const manager = new RuntimeThemeManager(layer => ({ primary: layer.tokens?.primary ?? '#000', ...layer.tokens }));
+    manager.setPlayer({ scope: 'player', tokens: { primary: '#000' } });
+    manager.setTalkletTheme({ owner: 'a', effectId: 'mood', theme: { scope: 'ephemeral', tokens: { primary: '#111' } }, lifetime: 'fulltime', targets: ['story'] });
+    manager.setTalkletTheme({ owner: 'b', effectId: 'mood', theme: { scope: 'ephemeral', tokens: { primary: '#222' } }, lifetime: 'fulltime', targets: ['story'] });
+    expect(manager.getTalkletThemes()).toHaveLength(2);
+    expect(manager.resolve('story').tokens.primary).toBe('#222');
+    expect(manager.resolve('other').tokens.primary).toBe('#000');
+    manager.removeTalkletTheme('a', 'mood');
+    expect(manager.getTalkletThemes()).toHaveLength(1);
+  });
+});

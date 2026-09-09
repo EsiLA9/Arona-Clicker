@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
+import { bindStoryActions } from '../../src/ui/controller-actions-story';
 import { finishWelcome } from '../engine/story-test-fixtures';
 
 const OFFICE = 'base:init:schale_office';
@@ -94,6 +95,31 @@ describe('聊天流通知次序（travel 先行 / 奖励延迟）', () => {
       controller.render();
       vi.advanceTimersByTime(UIController.REWARD_REVEAL_DELAY_MS);
       expect(controller.activeStream().some(e => e.kind === 'reward' && e.text.includes('测试奖励'))).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('快速进入下一段 Story：立即投送尚未落账的奖励，不等待原延迟计时器', () => {
+    vi.useFakeTimers();
+    try {
+      controller.pendingRewardChats.push('首次完成 · 快速点击奖励');
+      controller.render();
+      expect(controller.activeStream().some(e => e.text.includes('快速点击奖励'))).toBe(false);
+      controller.chat.reset();
+
+      panel.storyGate = { storyId: 'base:activestory:bond_hoshino_1', owner: 'Hoshino', mode: 'card' };
+      root.innerHTML = '<button data-story-gate-confirm></button>';
+      bindStoryActions(controller);
+      root.querySelector<HTMLButtonElement>('[data-story-gate-confirm]')!.click();
+
+      const stream = controller.activeStream();
+      const rewardIndex = stream.findIndex(e => e.kind === 'reward' && e.text.includes('快速点击奖励'));
+      expect(rewardIndex).toBeGreaterThanOrEqual(0);
+      expect(game.getStoryView('Hoshino')?.storyId).toBe('base:activestory:bond_hoshino_1');
+      expect(controller.pendingRewardChats).toHaveLength(0);
+      expect(controller.rewardTimer).toBeNull();
+      expect(rewardIndex).toBeGreaterThanOrEqual(0);
     } finally {
       vi.useRealTimers();
     }

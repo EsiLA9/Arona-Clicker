@@ -45,5 +45,53 @@ export const baseSchaleMainStories: StoryDef[] = [
     line('阿罗娜', '羁绊入口卡片也能这样定位。试试点它？', '我来点。').effects({ op: 'showChatText', target: 'perf:kizuna', value: { talklet: { speaker: '阿罗娜', text: '羁绊入口', kizuna: { storyId: 'base:activestory:run_chain_1', title: '羁绊剧情 · 深夜巡逻（一）', buttonText: '进入羁绊剧情' } }, x: 0.5, y: 0.35, align: 'center' } }),
     line('阿罗娜', '以上就是流剧场预演的全部内容。演出文本清场，谢幕。', '辛苦了。').effects({ op: 'clearAllChatFlow', target: '', value: 0 }),
   ).build(),
+  story('base:story:schale_theme_lite_test', '夏莱主厅·主题演出压力测试').scene(
+    narrate('—— 夏莱主厅 · 主题演出压力测试 ——', 'center').effects(
+      { op: 'setTheme', target: '', value: {
+        colorGroupId: 'base:colorgroup:coral',
+        palette: ['#ff7a59', '#ffd166', '#fff3ee'],
+        nodes: { primary: '#ff7a59', accent: '#d94841', active: '#f59e0b', highlight: '#ffe08a' },
+        background: [
+          { id: 'scene', kind: 'gradient', value: 'linear-gradient(135deg, #fff3ee 0%, #ffe0c7 48%, #fff7d6 100%)', opacity: 1, position: 'center', size: 'cover', attachment: 'fixed' },
+          { id: 'theme-test-glow', kind: 'gradient', value: 'radial-gradient(circle at 82% 20%, #ffffff 0%, transparent 42%)', opacity: 0.9, position: 'center', size: 'cover', attachment: 'fixed' },
+        ],
+      } },
+      { op: 'showChatText', target: 'theme-test:banner', value: { text: 'THEME LITE / OPEN', x: 0.5, y: 0.12, align: 'center', style: { font: 'mono', fontSize: '13px', color: '#8a3b12', backgroundColor: '#fff1df' } } },
+    ),
+    line('阿罗娜', '老师，欢迎来到主题演出压力测试。当前先覆盖夏莱主厅的全屏背景、聊天气泡和状态色。', '开始测试。'),
+    narrate('场景一：基础覆盖。主题临时层应高于主厅默认主题。', 'left'),
+    line('阿罗娜', '这一页会再次写入同一个剧情主题槽，检查重复设定是否完整重写，而不是偷偷叠加旧值。', '继续。').effects(
+      { op: 'setTheme', target: '', value: { colorGroupId: 'base:colorgroup:momotalk-pink', tokens: { primary: '#db2777', bg: '#fff1f7', playerBubble: '#9d174d' }, nodes: { active: '#be185d' } } },
+    ),
+    click('场景二：多击页面。用于观察主题覆盖期间的进度条、按钮 active 与禁用态。', 3, 2),
+    narrate('隐藏的配置页也完成了。它只推进演出，不应该改变跳转链和主题 Owner。', 'center').effects(
+      { op: 'showChatText', target: 'theme-test:hidden', value: { text: 'hidden talklet counted', x: 0.18, y: 0.76, align: 'left', style: { background: false, color: '#9d174d', font: 'mono', fontSize: '11px' } } },
+    ),
+    line('老师', '现在测试范围裁定：你想把临时主题送进哪条演出分支？')
+      .choiceJump('插入一段短演出，之后回到主线', 'base:story:schale_theme_lite_insert', 'insert', { op: 'setFlag', target: 'theme_test_route', value: 'insert' })
+      .choiceJump('直接切换到收束分支', 'base:story:schale_theme_lite_finish', 'goto', { op: 'setFlag', target: 'theme_test_route', value: 'goto' }),
+    line('阿罗娜', '插入返回或 goto 转移都不应重置主题计时；回到这里后我们继续验证剩余层的恢复。', '我记下了。').effects(
+      { op: 'setTheme', target: '', value: { colorGroupId: 'base:colorgroup:sky', background: [{ id: 'scene', kind: 'gradient', value: 'linear-gradient(135deg, #e0f2fe, #dbeafe)', opacity: 1, position: 'center', size: 'cover', attachment: 'fixed' }] } },
+    ),
+    narrate('场景三：覆盖层撤回后的恢复。主厅默认主题、区域主题与仍有效的演出层应重新解析。', 'center'),
+    line('阿罗娜', '最后清理演出专用文本。主题结果应该只剩夏莱主厅自己的声明，不写入玩家主题槽。', '测试完成。').effects(
+      { op: 'clearIdChatFlow', target: 'theme-test:banner', value: 0 },
+      { op: 'clearIdChatFlow', target: 'theme-test:hidden', value: 0 },
+      { op: 'clearAllChatText', target: '', value: 0 },
+    ),
+  ).build(),
+  story('base:story:schale_theme_lite_insert', '夏莱主题测试·插入支线').scene(
+    narrate('—— 插入支线：局部 Host / Region 检查 ——', 'center').effects(
+      { op: 'setTheme', target: '', value: { colorGroupId: 'base:colorgroup:ink', tokens: { panel: '#101828', text: '#eef2ff', bg: '#0f172a' }, nodes: { active: '#38bdf8', highlight: '#a5f3fc' } } },
+    ),
+    line('阿罗娜', '这是 insert 子剧情。深色临时主题只属于当前演出上下文，返回主线时应由剩余层重新解析。', '继续观察。'),
+    narrate('插入支线结束，返回主线。', 'center'),
+  ).build(),
+  story('base:story:schale_theme_lite_finish', '夏莱主题测试·直接收束').scene(
+    narrate('—— goto 分支：直接收束 ——', 'center').effects(
+      { op: 'setTheme', target: '', value: { colorGroupId: 'base:colorgroup:indigo', nodes: { primary: '#4f46e5', active: '#22d3ee', danger: '#fb7185' }, background: [{ id: 'scene', kind: 'gradient', value: 'linear-gradient(135deg, #eef2ff, #cffafe)', opacity: 1, position: 'center', size: 'cover', attachment: 'fixed' }] } },
+    ),
+    line('阿罗娜', 'goto 分支会直接结束原 Story 的剩余页面。请检查主题清理仍然走统一的 execution disposal。', '确认收束。'),
+  ).build(),
 ];
 import { Resource } from '../types/ids';

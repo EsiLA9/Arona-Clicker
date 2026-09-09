@@ -77,6 +77,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const gate = ctrl.panelState.storyGate;
       if (!gate) return;
       ctrl.panelState.storyGate = null;
+      ctrl.deliverPendingRewardsBeforeStory();
       const owner = gate.owner ?? undefined;
       let result: StoryStartResult;
       if (gate.mode === 'card') result = ctrl.commands.startCardStory(gate.storyId, owner);
@@ -124,6 +125,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
     if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
     // 壁垒：对话空间只抽归该学生的闲聊；一般聊天抽全局闲聊（owner = undefined）
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
+    ctrl.deliverPendingRewardsBeforeStory();
     const result = ctrl.commands.triggerPassiveStory(ctrl.game.getView().activeInit, owner);
     logStoryFailure(ctrl, result);
     ctrl.refreshChatPanel();
@@ -143,6 +145,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
     }
     // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
+    ctrl.deliverPendingRewardsBeforeStory();
     const result = ctrl.commands.clickSend(owner);
     if (result.type === 'completed') {
       // 回显决策由引擎给出（非 click 页 + 有 sendText + 未 muteReply）：

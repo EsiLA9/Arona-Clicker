@@ -252,7 +252,7 @@ export class UIController {
   }
 
   /** 立即落账待入流奖励（存档前调用防丢；计时中途调用先撤计时器）。 */
-  private flushRewardChatsNow(): void {
+  flushRewardChatsNow(): void {
     if (this.rewardTimer !== null) {
       clearTimeout(this.rewardTimer);
       this.rewardTimer = null;
@@ -261,6 +261,15 @@ export class UIController {
       this.pushChat({ kind: 'reward', text });
     }
     this.pendingRewardChats = [];
+  }
+
+  /**
+   * Story 即将开始时的奖励交接：不能让新演出把上一场奖励继续挡在延迟队列里。
+   * 调用方随后会刷新聊天面板，因此这里只负责撤销计时器并把奖励按顺序入流。
+   */
+  deliverPendingRewardsBeforeStory(): void {
+    if (this.pendingRewardChats.length === 0) return;
+    this.flushRewardChatsNow();
   }
 
   /** 揭示状态指纹：计算全部实体的当前揭示级别（委托 controller-core）。 */

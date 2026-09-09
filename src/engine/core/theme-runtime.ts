@@ -52,6 +52,32 @@ export interface ThemeLayer {
   presentation?: PresentationDef;
 }
 
+export type TalkletThemeLifetime = 'fulltime' | 'areatime' | 'seconds' | 'step';
+
+/** Talklet Theme Lite 的运行时输入；不代表未来 DSL 的数据结构。 */
+export interface TalkletThemeSpec {
+  owner: string;
+  effectId: string;
+  theme: ThemeLayer;
+  lifetime: TalkletThemeLifetime;
+  areaId?: string;
+  seconds?: number;
+  steps?: number;
+  /** 稳定的 Presentation Host / Region / 组件语义键；空范围会被拒绝。 */
+  targets: readonly string[];
+}
+
+export interface TalkletThemeRecord extends TalkletThemeSpec {
+  revision: number;
+  expiresAt?: number;
+  remainingSteps?: number;
+}
+
+export interface RuntimeThemeManagerOptions {
+  now?: () => number;
+  onChange?: () => void;
+}
+
 /** 某一层最终解析出的 token 表。 */
 export type ThemeTokens = Record<string, string>;
 
@@ -100,12 +126,16 @@ export class RuntimeThemeManager {
   private preview: ThemeLayer | null = null;
   /** 场景栈（后进先出）：进入 Init/Area 压入对应层，打开学生对话再压入 student 层，关闭时弹出回退。 */
   private readonly sceneStack: ThemeLayer[] = [];
-  private readonly ephemeralStack: { layer: ThemeLayer; id: string }[] = [];
+  private readonly ephemeralStack: { layer: ThemeLayer; id: string; revision: number; owner?: string; targets?: readonly string[] }[] = [];
+  private readonly talkletThemes = new Map<string, TalkletThemeRecord>();
   /** 玩家自定义的 player/init/area/student 相对优先级（低→高；缺省见 DEFAULT_LAYER_ORDER）。 */
   private layerOrder: ThemeOrderScope[] = [...DEFAULT_LAYER_ORDER];
   private seq = 0;
+  private revision = 0;
 
-  constructor(private readonly resolveLayer: ThemeLayerResolver) {}
+  constructor(private readonly resolveLayer: ThemeLayerResolver, private readonly options: RuntimeThemeManagerOptions = {}) {}
+
+  private changed(): void { this.options.onChange?.(); }
 
   /** 清空全部运行时层（新会话/读档时调用）。 */
   reset(): void {
@@ -114,7 +144,9 @@ export class RuntimeThemeManager {
     this.preview = null;
     this.sceneStack.length = 0;
     this.ephemeralStack.length = 0;
+    this.talkletThemes.clear();
     this.layerOrder = [...DEFAULT_LAYER_ORDER];
+    this.changed();
   }
 
   /**
@@ -182,9 +214,10 @@ export class RuntimeThemeManager {
   pushEphemeral(layer: ThemeLayer): string {
     const id = layer.id ?? `ephemeral-${++this.seq}`;
     const existing = this.ephemeralStack.findIndex(e => e.id === id);
-    const entry = { layer: { ...layer, id }, id };
+    const entry = { layer: { ...layer, id }, id, revision: ++this.revision };
     if (existing >= 0) this.ephemeralStack[existing] = entry;
     else this.ephemeralStack.push(entry);
+    this.changed();
     return id;
   }
 
@@ -192,6 +225,81 @@ export class RuntimeThemeManager {
   popEphemeral(id: string): void {
     const idx = this.ephemeralStack.findIndex(e => e.id === id);
     if (idx >= 0) this.ephemeralStack.splice(idx, 1);
+    if (idx >= 0) this.changed();
+  }
+
+  private talkletKey(owner: string, effectId: string): string { return `${owner}\u0000${effectId}`; }
+
+  /** 设定/完整重写一个 Owner 下的 Lite 配置。 */
+  setTalkletTheme(spec: TalkletThemeSpec): TalkletThemeRecord | null {
+    if (!spec.owner || !spec.effectId || spec.targets.length === 0) return null;
+    if (spec.lifetime === 'areatime' && !spec.areaId) return null;
+    if (spec.lifetime === 'seconds' && (!Number.isFinite(spec.seconds) || spec.seconds! <= 0)) return null;
+    if (spec.lifetime === 'step' && (!Number.isInteger(spec.steps) || spec.steps! <= 0)) return null;
+    const key = this.talkletKey(spec.owner, spec.effectId);
+    const revision = ++this.revision;
+    const record: TalkletThemeRecord = {
+      ...spec,
+      theme: { ...spec.theme, id: `talklet:${spec.owner}:${spec.effectId}`, scope: 'ephemeral' },
+      revision,
+      expiresAt: spec.lifetime === 'seconds' ? this.clock() + spec.seconds! * 1000 : undefined,
+      remainingSteps: spec.lifetime === 'step' ? spec.steps : undefined,
+    };
+    const old = this.talkletThemes.get(key);
+    if (old) this.removeTalkletLayer(old);
+    this.talkletThemes.set(key, record);
+    this.ephemeralStack.push({ layer: record.theme, id: record.theme.id!, revision, owner: spec.owner, targets: [...spec.targets] });
+    this.changed();
+    return { ...record, theme: { ...record.theme } };
+  }
+
+  getTalkletThemes(owner?: string): readonly TalkletThemeRecord[] {
+    return [...this.talkletThemes.values()].filter(record => owner === undefined || record.owner === owner).map(record => ({ ...record, theme: { ...record.theme } }));
+  }
+
+  removeTalkletTheme(owner: string, effectId: string): void {
+    const key = this.talkletKey(owner, effectId);
+    const record = this.talkletThemes.get(key);
+    if (!record) return;
+    this.removeTalkletLayer(record);
+    this.talkletThemes.delete(key);
+    this.changed();
+  }
+
+  clearTalkletThemes(owner: string): void {
+    for (const record of [...this.talkletThemes.values()]) if (record.owner === owner) this.removeTalkletTheme(owner, record.effectId);
+  }
+
+  disposeStoryExecution(owner: string): void { this.clearTalkletThemes(owner); }
+
+  /** 在一个 Talklet 实际完成后调用；设置主题的 Talklet 不应调用此方法。 */
+  completeTalklet(owner?: string): void {
+    const records = [...this.talkletThemes.values()].filter(record => record.lifetime === 'step' && (owner === undefined || record.owner === owner));
+    for (const record of records) {
+      record.remainingSteps = (record.remainingSteps ?? 1) - 1;
+      if (record.remainingSteps <= 0) this.removeTalkletTheme(record.owner, record.effectId);
+    }
+  }
+
+  /** 统一运行时时钟；不依赖 setTimeout 作为真相。 */
+  tick(now = this.clock()): void {
+    for (const record of [...this.talkletThemes.values()]) {
+      if (record.lifetime === 'seconds' && record.expiresAt! <= now) this.removeTalkletTheme(record.owner, record.effectId);
+    }
+  }
+
+  /** Area 切换后清理已不适用的 areatime 层。 */
+  areaChanged(areaId: string): void {
+    for (const record of [...this.talkletThemes.values()]) {
+      if (record.lifetime === 'areatime' && record.areaId !== areaId) this.removeTalkletTheme(record.owner, record.effectId);
+    }
+  }
+
+  private clock(): number { return this.options.now?.() ?? Date.now(); }
+
+  private removeTalkletLayer(record: TalkletThemeRecord): void {
+    const index = this.ephemeralStack.findIndex(entry => entry.owner === record.owner && entry.id === record.theme.id);
+    if (index >= 0) this.ephemeralStack.splice(index, 1);
   }
 
   // --- 查询 ---
@@ -227,7 +335,7 @@ export class RuntimeThemeManager {
    * 解析最终主题：按玩家配置的 player/init/area/student 相对优先级合并，演出层叠加在最上。
    * 以最底层（优先级最低）的非空层为基底求整包 token，其上各层逐 token 覆盖。
    */
-  resolve(): ResolvedTheme {
+  resolve(target?: string): ResolvedTheme {
     // 各槽位层（player 单层 + 场景栈按 scope 去重），再按配置顺序从低到高收集；
     // 演出层不参与排序，恒在顶层叠加
     const byScope: Partial<Record<ThemeOrderScope | 'user' | 'ephemeral', ThemeLayer>> = {};
@@ -240,7 +348,10 @@ export class RuntimeThemeManager {
     }
     if (this.user) ordered.push(this.user);
     if (this.preview) ordered.push(this.preview);
-    for (const e of this.ephemeralStack) ordered.push(e.layer);
+    for (const e of [...this.ephemeralStack].sort((a, b) => a.revision - b.revision)) {
+      if (e.targets && target !== undefined && !e.targets.includes(target)) continue;
+      ordered.push(e.layer);
+    }
     if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, palette: [], nodeOverrides: {}, scopeNodeOverrides: {}, layers: [], background: [], systemColorLayerIgnored: false, presentation: {} };
 
     let merged: ThemeTokens = {};
