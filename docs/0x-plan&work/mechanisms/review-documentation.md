@@ -11,6 +11,7 @@
 | 生命周期 | 文档 | 用途 |
 | --- | --- | --- |
 | active | [[docs/0x-plan&work/review/code-review-roadmap]] | 当前实现复核路线 |
+| active | [[docs/0x-plan&work/active/task-0034-affector-performance-review]] | Affector / GameNum 性能审查判别与整改排序 |
 | active | [[docs/0x-plan&work/active/task-0023-project-documentation-normalization]] | 文档与机制资料整理 |
 | completed | [[docs/0x-plan&work/completed/adr-0003-docs-restructure]] | 文档库重构决策 |
 | completed | [[docs/0x-plan&work/completed/roadmap-overview-history]] | 旧 Roadmap 总览历史 |

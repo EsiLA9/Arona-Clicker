@@ -27,4 +27,12 @@ export interface AffectorPackDef {
   extra?: ExtraCompound;
 }
 export type AffectorPackRef = string | AffectorPackDef;
-export interface AffectorInstance { instanceId: string; packId: string; mountEntityId: string; state: AffectorState; activeEntryIds: string[]; }
+export interface AffectorInstance {
+  instanceId: string;
+  packId: string;
+  mountEntityId: string;
+  state: AffectorState;
+  activeEntryIds: string[];
+  /** 非持久化查询索引；数组仍是序列化与展示的稳定顺序来源。 */
+  readonly activeEntryIdSet?: ReadonlySet<string>;
+}

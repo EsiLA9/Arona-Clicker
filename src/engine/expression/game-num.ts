@@ -18,7 +18,7 @@
 import type { ValueExpression } from '../types';
 import type { GameNumState } from '../contracts/state-query';
 import type { EventBus } from '../core/event-bus';
-import type { GameNumRegistryContext } from '../contracts/evaluation-context';
+import type { GameNumRegistryContext, GameNumFlowSource } from '../contracts/evaluation-context';
 import type { GameNumAffectorContext } from '../contracts/evaluation-context';
 import { ValueSystem } from './value-system';
 import type { GameNum, GameNumEvalDeps, BreakdownResult } from './game-num-eval';
@@ -84,6 +84,8 @@ export class GameNumSystem {
 
   /** 活跃 Affector 源集合，用于按 source 反查撤回区记录。 */
   syncedAffectorSources = new Set<string>();
+  /** source -> 其写入区表的位置，撤销时不扫描整张 state 表。 */
+  sourceEffectLocations = new Map<string, Set<{ table: 'tag' | 'entity'; key: string; recordId: string }>>();
 
   /** 每个 primitiveGain 的资源依赖集合（buildAll 静态扫描产物；resourceChanged 定向失效的数据基础）。 */
   gainResourceDeps = new Map<string, Set<string>>();
@@ -95,6 +97,8 @@ export class GameNumSystem {
   flowsResourceDeps = new Map<string, Set<string>>();
   /** resource -> flows 节点列表（flows 按挂载层级分发出多个节点，Phase 6）。 */
   affectorFlowsNodes = new Map<string, GameNum[]>();
+  /** `(resource, mount)` -> 当前活跃 flow 来源；仅由 Affector 同步过程重建。 */
+  affectorFlowSources = new Map<string, readonly GameNumFlowSource[]>();
 
   /** 已登记资源集合（spot 基础产出 + state.resources，含仅经 affectorFlows 产出的资源）。 */
   resourceSet = new Set<string>();
@@ -130,10 +134,7 @@ export class GameNumSystem {
     });
     // Affector 生命周期 / 激活 entry 集变化 → 重同步区表与 flows
     // （T7 事件化：替代 Affector 反向持 GameNum 的 notifyGameNum 通道）
-    this.bus?.on('affectorMounted', () => this.onAffectorInstancesChanged());
-    this.bus?.on('affectorUnmounted', () => this.onAffectorInstancesChanged());
-    this.bus?.on('affectorStateChanged', () => this.onAffectorInstancesChanged());
-    this.bus?.on('affectorEntriesChanged', () => this.onAffectorInstancesChanged());
+    this.bus?.on('affectorRuntimeChanged', () => this.onAffectorInstancesChanged());
   }
 
   /**
@@ -174,6 +175,7 @@ export class GameNumSystem {
       valueSystem: this.valueSystem,
       registry: this.registry,
       affectorEngine: this.affectorEngine,
+      affectorFlowSources: this.affectorFlowSources,
     };
   }
 

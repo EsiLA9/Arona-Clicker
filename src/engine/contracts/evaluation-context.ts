@@ -1,6 +1,6 @@
 import type { ExtraPath, ExtraValue } from './extra';
 import type { ValueExpression } from './expression';
-import type { AffectorInstance, AffectorPackDef } from './affector';
+import type { AffectorInstance, AffectorPackDef, AffectorFlow } from './affector';
 import type { FuncletDef } from '../types/expression';
 import type { TagPath } from '../core/tag';
 import type { SpotTagOverrideState } from './state-query';
@@ -58,4 +58,9 @@ export interface GameNumRegistryContext {
 export interface GameNumAffectorContext {
   getActiveInstances(): readonly AffectorInstance[];
   getPack(id: string): AffectorPackDef | undefined;
+}
+
+/** GameNum 内部维护的活跃 flow 来源；按 resource / mount bucket 查询。 */
+export interface GameNumFlowSource {
+  readonly flow: AffectorFlow;
 }

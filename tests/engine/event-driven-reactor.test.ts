@@ -132,6 +132,8 @@ describe('ConditionDepIndex 命中语义', () => {
     idx.register('tagged', { target: 'hasTag', key: 'office', comparator: '==', value: 1 } as never);
 
     expect(idx.affected({ type: 'spotLevelChanged', spotId: 'test:spot:s1', newLevel: 1 })).toEqual(new Set(['tagged']));
+    expect(idx.affected({ type: 'spotLevelChanged', spotId: 'test:spot:s1', oldLevel: 5, newLevel: 6 })).toEqual(new Set());
+    expect(idx.affected({ type: 'spotLevelChanged', spotId: 'test:spot:s1', oldLevel: 1, newLevel: 0 })).toEqual(new Set(['tagged']));
     expect(idx.affected({ type: 'spotTagChanged', spotId: 'test:spot:s1', tag: 'office', added: true })).toEqual(new Set(['tagged']));
     expect(idx.affected({ type: 'spotTagChanged', spotId: 'test:spot:s1', tag: 'field', added: true })).toEqual(new Set());
   });

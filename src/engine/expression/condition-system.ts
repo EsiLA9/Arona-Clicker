@@ -117,15 +117,15 @@ export class ConditionSystem implements ConditionEvaluationContext<ConditionStat
   }
 
   evaluateGroup(group: ConditionGroup, state: ConditionState): boolean {
-    const results = group.conditions.map(c => {
-      if ('conditions' in c && 'type' in c) {
-        return this.evaluateGroup(c as ConditionGroup, state);
-      }
-      return this.evaluate(c as Condition, state);
-    });
-
-    if (group.type === 'AND') return results.every(Boolean);
-    if (group.type === 'OR') return results.some(Boolean);
+    for (const condition of group.conditions) {
+      const result = 'conditions' in condition && 'type' in condition
+        ? this.evaluateGroup(condition as ConditionGroup, state)
+        : this.evaluate(condition as Condition, state);
+      if (group.type === 'AND' && !result) return false;
+      if (group.type === 'OR' && result) return true;
+    }
+    if (group.type === 'AND') return true;
+    if (group.type === 'OR') return false;
     return false;
   }
 

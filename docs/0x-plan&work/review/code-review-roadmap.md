@@ -104,6 +104,7 @@ createAppRuntime()
 - [ ] 区分 `flows`、`effects`、`zoneModifiers` 和 `perTickEffects`；
 - [ ] 确认 Condition、Value、Reveal 只依赖最小状态读取面；
 - [ ] 复核 `docs/docs-828/07-audit/` 中 GameNum/Affector 豁免是否仍合理；
+- [x] 记录 Affector → ConditionDepIndex → GameNum/flow → Tick 性能审查判别，见 [[docs/0x-plan&work/active/task-0034-affector-performance-review]]；
 - [ ] 记录至少一个“数据作者容易误用”的 DSL 组合，并提出文档或 Schema 反馈。
 
 ## Phase 3：状态写入口与事件联动（🟡 待人工复核）

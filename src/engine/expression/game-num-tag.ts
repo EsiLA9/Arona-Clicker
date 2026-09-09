@@ -18,9 +18,11 @@ import type { GameNumState } from '../contracts/state-query';
 import type { GameNumAffectorContext } from '../contracts/evaluation-context';
 import type { GameNumSystem } from './game-num';
 import type { GameNum } from './game-num-internal';
+import type { GameNumFlowSource } from '../contracts/evaluation-context';
 import { tagId } from '../core/tag';
 import { TagEffectRecord, EntityRef, entityKey, ZoneModifierDecl } from './tag-effect';
 import { exprResourceDepsOf, ensureFlowsNodes } from './game-num-build';
+import { flowBucketKey } from './game-num-eval';
 
 // ---- 区表写入 ----
 
@@ -43,8 +45,12 @@ function accumulateKeyResourceDeps(system: GameNumSystem, key: string, record: T
 export function registerTagEffect(system: GameNumSystem, state: GameNumState, tagKey: string, record: TagEffectRecord): void {
   const list = ((state.tagEffects ??= {})[tagKey] ??= []);
   const i = list.findIndex(r => r.id === record.id);
-  if (i >= 0) list[i] = record;
+  if (i >= 0) {
+    removeSourceLocation(system, list[i], 'tag', tagKey);
+    list[i] = record;
+  }
   else list.push(record);
+  addSourceLocation(system, record, 'tag', tagKey);
   accumulateKeyResourceDeps(system, tagKey, record);
   markZoneDirty(system, tagKey);
 }
@@ -52,8 +58,12 @@ export function registerTagEffect(system: GameNumSystem, state: GameNumState, ta
 export function registerEntityEffect(system: GameNumSystem, state: GameNumState, entityKeyStr: string, record: TagEffectRecord): void {
   const list = ((state.entityEffects ??= {})[entityKeyStr] ??= []);
   const i = list.findIndex(r => r.id === record.id);
-  if (i >= 0) list[i] = record;
+  if (i >= 0) {
+    removeSourceLocation(system, list[i], 'entity', entityKeyStr);
+    list[i] = record;
+  }
   else list.push(record);
+  addSourceLocation(system, record, 'entity', entityKeyStr);
   accumulateKeyResourceDeps(system, entityKeyStr, record);
   markZoneDirty(system, entityKeyStr);
 }
@@ -62,34 +72,63 @@ export function removeTagEffect(system: GameNumSystem, state: GameNumState, tagK
   const list = state.tagEffects?.[tagKey];
   if (list) {
     const i = list.findIndex(r => r.id === id);
-    if (i >= 0) list.splice(i, 1);
+    if (i >= 0) {
+      const [removed] = list.splice(i, 1);
+      removeSourceLocation(system, removed, 'tag', tagKey);
+    }
   }
   markZoneDirty(system, tagKey);
 }
 
 export function removeTagEffectsBySource(system: GameNumSystem, state: GameNumState, source: string): void {
   const affectedKeys = new Set<string>();
-  if (state.tagEffects) {
-    for (const [key, list] of Object.entries(state.tagEffects)) {
-      for (let i = list.length - 1; i >= 0; i--) {
-        if (list[i].source === source) {
-          list.splice(i, 1);
-          affectedKeys.add(key);
-        }
-      }
+  const locations = system.sourceEffectLocations.get(source);
+  if (!locations) return;
+  for (const location of locations) {
+    const table = location.table === 'tag' ? state.tagEffects : state.entityEffects;
+    const list = table?.[location.key];
+    if (!list) continue;
+    const index = list.findIndex(record => record.id === location.recordId && record.source === source);
+    if (index >= 0) {
+      list.splice(index, 1);
+      affectedKeys.add(location.key);
     }
   }
-  if (state.entityEffects) {
-    for (const [key, list] of Object.entries(state.entityEffects)) {
-      for (let i = list.length - 1; i >= 0; i--) {
-        if (list[i].source === source) {
-          list.splice(i, 1);
-          affectedKeys.add(key);
-        }
-      }
-    }
-  }
+  system.sourceEffectLocations.delete(source);
   for (const key of affectedKeys) markZoneDirty(system, key);
+}
+
+function addSourceLocation(
+  system: GameNumSystem,
+  record: TagEffectRecord,
+  table: 'tag' | 'entity',
+  key: string,
+): void {
+  if (!record.source) return;
+  const locations = system.sourceEffectLocations.get(record.source) ?? new Set();
+  for (const location of locations) {
+    if (location.table === table && location.key === key && location.recordId === record.id) return;
+  }
+  locations.add({ table, key, recordId: record.id });
+  system.sourceEffectLocations.set(record.source, locations);
+}
+
+function removeSourceLocation(
+  system: GameNumSystem,
+  record: TagEffectRecord | undefined,
+  table: 'tag' | 'entity',
+  key: string,
+): void {
+  if (!record?.source) return;
+  const locations = system.sourceEffectLocations.get(record.source);
+  if (!locations) return;
+  for (const location of locations) {
+    if (location.table === table && location.key === key && location.recordId === record.id) {
+      locations.delete(location);
+      break;
+    }
+  }
+  if (locations.size === 0) system.sourceEffectLocations.delete(record.source);
 }
 
 // ---- 定向失效（zoneIndex 反查） ----
@@ -113,7 +152,7 @@ export function syncAffectorZoneEffects(system: GameNumSystem, affector: GameNum
     const pack = affector.getPack(instance.packId);
     if (!pack) continue;
     for (const entry of pack.entries) {
-      if (!instance.activeEntryIds.includes(entry.id)) continue;
+      if (!isActiveEntry(instance, entry.id)) continue;
       for (const modifier of entry.zoneModifiers ?? []) {
         const packModName = pack.id.includes(':') ? pack.id.split(':')[0] : 'base';
         registerAffectorModifier(system, state, source, modifier, instance.mountEntityId, packModName);
@@ -125,18 +164,23 @@ export function syncAffectorZoneEffects(system: GameNumSystem, affector: GameNum
   }
   system.syncedAffectorSources = activeSources;
   ensureFlowsNodes(system, affector);
-  rebuildFlowsResourceDeps(system, affector);
+  rebuildActiveFlowIndex(system, affector);
 }
 
-/** 活跃 Affector flows 的资源依赖表（flows 节点 resource -> expr 所读资源集合），随活跃集重建。 */
-function rebuildFlowsResourceDeps(system: GameNumSystem, affector: GameNumAffectorContext): void {
+/** 同步活跃 flow 的 bucket 与资源依赖；求值阶段不再扫描所有 Active Affector。 */
+function rebuildActiveFlowIndex(system: GameNumSystem, affector: GameNumAffectorContext): void {
   const flowsDeps = new Map<string, Set<string>>();
+  const flowSources = new Map<string, GameNumFlowSource[]>();
   for (const instance of affector.getActiveInstances()) {
     const pack = affector.getPack(instance.packId);
     if (!pack) continue;
     for (const entry of pack.entries) {
-      if (!instance.activeEntryIds.includes(entry.id)) continue;
+      if (!isActiveEntry(instance, entry.id)) continue;
       for (const flow of entry.flows ?? []) {
+        const bucket = flowBucketKey(flow.resource, resolveFlowMount(system, instance.mountEntityId));
+        const sources = flowSources.get(bucket) ?? [];
+        sources.push({ flow });
+        flowSources.set(bucket, sources);
         if (typeof flow.value === 'number') continue;
         const deps = exprResourceDepsOf(flow.value);
         if (deps.size === 0) continue;
@@ -147,6 +191,18 @@ function rebuildFlowsResourceDeps(system: GameNumSystem, affector: GameNumAffect
     }
   }
   system.flowsResourceDeps = flowsDeps;
+  system.affectorFlowSources = flowSources;
+}
+
+function resolveFlowMount(system: GameNumSystem, mountEntityId: string): string | undefined {
+  if (system.registry.spots.has(mountEntityId)) return mountEntityId;
+  if (system.registry.areas?.has(mountEntityId)) return mountEntityId;
+  if (system.registry.inits?.has(mountEntityId)) return mountEntityId;
+  return undefined;
+}
+
+function isActiveEntry(instance: { activeEntryIds: readonly string[]; activeEntryIdSet?: ReadonlySet<string> }, entryId: string): boolean {
+  return instance.activeEntryIdSet?.has(entryId) ?? instance.activeEntryIds.includes(entryId);
 }
 
 function registerAffectorModifier(system: GameNumSystem, state: GameNumState, source: string, modifier: ZoneModifierDecl, mountEntityId: string, defaultModName: string): void {

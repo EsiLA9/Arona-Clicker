@@ -78,9 +78,10 @@ function isPrefix(a: string[], b: string[]): boolean {
  */
 export class ConditionDepIndex<K> {
   private byEvent = new Map<GameEvent['type'], Map<string, Set<K>>>();
-  private extraDeps = new Map<string, Set<K>>();
+  private extraDeps = new Map<string, { path: string[]; deps: Set<K> }>();
   private tagDeps = new Map<string, Set<K>>();
   private statDeps = new Set<K>();
+  private handles = new Map<K, DependencyHandle<K>[]>();
 
   /** 登记一条条件声明；返回是否落入 stat 宽依赖（调用方可据此做轮询降级）。 */
   register(key: K, condition: Condition | ConditionGroup | undefined): boolean {
@@ -92,12 +93,8 @@ export class ConditionDepIndex<K> {
   }
 
   unregister(key: K): void {
-    for (const byKey of this.byEvent.values()) {
-      for (const set of byKey.values()) set.delete(key);
-    }
-    for (const set of this.extraDeps.values()) set.delete(key);
-    for (const set of this.tagDeps.values()) set.delete(key);
-    this.statDeps.delete(key);
+    for (const handle of this.handles.get(key) ?? []) this.removeHandle(key, handle);
+    this.handles.delete(key);
   }
 
   clear(): void {
@@ -105,6 +102,7 @@ export class ConditionDepIndex<K> {
     this.extraDeps.clear();
     this.tagDeps.clear();
     this.statDeps.clear();
+    this.handles.clear();
   }
 
   /** 给定事件，返回需失效的全部依赖方 key。 */
@@ -123,18 +121,20 @@ export class ConditionDepIndex<K> {
 
     if (event.type === 'extraChanged') {
       const p = event.path as unknown as string[];
-      for (const [pk, set] of this.extraDeps) {
-        const dp = JSON.parse(pk) as string[];
-        if (isPrefix(dp, p) || isPrefix(p, dp)) {
-          for (const k of set) hit.add(k);
+      for (const { path, deps } of this.extraDeps.values()) {
+        if (isPrefix(path, p) || isPrefix(p, path)) {
+          for (const k of deps) hit.add(k);
         }
       }
     }
 
     // Spot 解锁/升级改变「拥有某 tag 的 spot 数」，hasTag/countTags 依赖需失效
     if (event.type === 'spotLevelChanged') {
-      for (const set of this.tagDeps.values()) {
-        for (const k of set) hit.add(k);
+      // 老调用方可不携带 oldLevel，保守维持原语义；写入口已提供精确边沿信息。
+      if (event.oldLevel === undefined || (event.oldLevel <= 0) !== (event.newLevel <= 0)) {
+        for (const set of this.tagDeps.values()) {
+          for (const k of set) hit.add(k);
+        }
       }
     }
 
@@ -178,13 +178,15 @@ export class ConditionDepIndex<K> {
         const set = this.tagDeps.get(tagIndexKey) ?? new Set<K>();
         set.add(key);
         this.tagDeps.set(tagIndexKey, set);
+        this.addHandle(key, { kind: 'tag', key: tagIndexKey });
         return false;
       }
       case 'extra': {
         const pk = JSON.stringify(leaf.key as unknown as string[]);
-        const set = this.extraDeps.get(pk) ?? new Set<K>();
-        set.add(key);
-        this.extraDeps.set(pk, set);
+        const entry = this.extraDeps.get(pk) ?? { path: [...leaf.key as unknown as string[]], deps: new Set<K>() };
+        entry.deps.add(key);
+        this.extraDeps.set(pk, entry);
+        this.addHandle(key, { kind: 'extra', key: pk });
         return false;
       }
       case 'tagCount': {
@@ -204,6 +206,7 @@ export class ConditionDepIndex<K> {
       default:
         // stat 及未知 target：保守归入宽依赖（非每帧事件触发）
         this.statDeps.add(key);
+        this.addHandle(key, { kind: 'stat' });
         return true;
     }
   }
@@ -221,5 +224,42 @@ export class ConditionDepIndex<K> {
       byKey.set(k, set);
     }
     set.add(dep);
+    this.addHandle(dep, { kind: 'event', eventType, key: k });
+  }
+
+  private addHandle(dep: K, handle: DependencyHandle<K>): void {
+    const handles = this.handles.get(dep) ?? [];
+    handles.push(handle);
+    this.handles.set(dep, handles);
+  }
+
+  private removeHandle(dep: K, handle: DependencyHandle<K>): void {
+    if (handle.kind === 'stat') {
+      this.statDeps.delete(dep);
+      return;
+    }
+    if (handle.kind === 'event') {
+      const byKey = this.byEvent.get(handle.eventType);
+      const set = byKey?.get(handle.key);
+      set?.delete(dep);
+      if (set?.size === 0) byKey?.delete(handle.key);
+      if (byKey?.size === 0) this.byEvent.delete(handle.eventType);
+      return;
+    }
+    if (handle.kind === 'tag') {
+      const set = this.tagDeps.get(handle.key);
+      set?.delete(dep);
+      if (set?.size === 0) this.tagDeps.delete(handle.key);
+      return;
+    }
+    const entry = this.extraDeps.get(handle.key);
+    entry?.deps.delete(dep);
+    if (entry?.deps.size === 0) this.extraDeps.delete(handle.key);
   }
 }
+
+type DependencyHandle<K> =
+  | { kind: 'event'; eventType: GameEvent['type']; key: string }
+  | { kind: 'extra'; key: string }
+  | { kind: 'tag'; key: string }
+  | { kind: 'stat'; _?: K };

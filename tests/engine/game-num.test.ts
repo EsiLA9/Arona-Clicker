@@ -320,6 +320,17 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(7);
   });
 
+  test('source 反向索引只撤销该 source 的多表记录，并在同 id 替换后保持一致', () => {
+    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'same', category: 'flat', value: { id: 'v', kind: 'const', value: 2 }, source: 'srcA' });
+    game.gameNumSystem.registerTagEffect(game.state, creditKey, { id: 'other', category: 'flat', value: { id: 'v', kind: 'const', value: 3 }, source: 'srcA' });
+    game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'same', category: 'flat', value: { id: 'v', kind: 'const', value: 4 }, source: 'srcB' });
+    expect(game.gameNumSystem.sourceEffectLocations.get('srcA')).toHaveLength(1);
+    game.gameNumSystem.removeTagEffectsBySource(game.state, 'srcA');
+    expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(11);
+    game.gameNumSystem.removeTagEffectsBySource(game.state, 'srcB');
+    expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(7);
+  });
+
   test('evaluateWithBreakdown 包含 zone 区贡献明细', () => {
     game.gameNumSystem.registerTagEffect(game.state, officeKey, { id: 'f', category: 'flat', value: { id: 'v', kind: 'const', value: 8 } });
     const flatNode = game.gameNumSystem.buildZoneNode({ kind: 'spot', id: 'base:spot:credit_printer' }, 'flat', 'base:resource:credit');
@@ -343,6 +354,17 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
     const records = Object.values(game.state.tagEffects ?? {}).flat();
     expect(records.some(r => r.source?.startsWith('affector:') && r.category === 'mul')).toBe(true);
     expect(game.gameNumSystem.evaluateResourceGain(CREDIT, game.state)).toBe(12); // 树内 5×2 + 树外 2
+  });
+
+  test('活跃 flow 在同步时按 resource/mount 建立求值来源索引', () => {
+    const fakeAffector = {
+      getActiveInstances: () => [
+        { instanceId: 'pack@spot', packId: 'pack', mountEntityId: 'spot', state: 'Active', activeEntryIds: ['e1'] },
+      ],
+      getPack: (id: string) => ({ id, entries: [{ id: 'e1', effects: [], flows: [{ resource: CREDIT, value: 6 }] }] }),
+    } as unknown as AffectorEngine;
+    game.gameNumSystem.syncAffectorZoneEffects(fakeAffector, game.state);
+    expect([...game.gameNumSystem.affectorFlowSources.values()].flat().map(source => source.flow.value)).toEqual([6]);
   });
 
   test('Affector tag modifier uses the pack namespace for a bare tag', () => {

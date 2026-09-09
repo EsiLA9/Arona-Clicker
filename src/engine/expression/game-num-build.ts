@@ -33,6 +33,7 @@ export function buildAll(system: GameNumSystem, state?: GameNumState): void {
   system.allNodes = [];
   system.zoneNodes = [];
   system.syncedAffectorSources.clear();
+  system.sourceEffectLocations.clear();
   system.spotProductNodes.clear();
   system.spotFullNodes.clear();
   system.spotExtraNodes.clear();
@@ -40,6 +41,7 @@ export function buildAll(system: GameNumSystem, state?: GameNumState): void {
   system.initExtraNodes.clear();
   system.flowsNodeById.clear();
   system.affectorFlowsNodes = new Map();
+  system.affectorFlowSources = new Map();
   zoneNodeMaps.set(system, new Map());
 
   const resourceSet = new Set<string>();
@@ -52,7 +54,7 @@ export function buildAll(system: GameNumSystem, state?: GameNumState): void {
   }
   system.gainResourceDeps = gainResourceDeps(system);
   system.mayReadResources = [...system.gainResourceDeps.values()].some(s => s.size > 0);
-  if (state) ensureFlowsNodes(system, system.affectorEngine);
+  if (state) system.syncAffectorZoneEffects(system.affectorEngine, state);
 }
 
 /**
@@ -280,12 +282,12 @@ function attachFlowsNode(system: GameNumSystem, mount: string | undefined, resou
 }
 
 /** 按当前活跃 Affector 实例补齐缺失的 flows 节点（buildAll 收尾与实例变化时调用；幂等）。 */
-export function ensureFlowsNodes(system: GameNumSystem, affector: { getActiveInstances(): readonly { mountEntityId: string; packId: string; activeEntryIds: readonly string[] }[]; getPack(id: string): { entries: readonly { id: string; flows?: readonly { resource: string }[] }[] } | undefined }): void {
+export function ensureFlowsNodes(system: GameNumSystem, affector: { getActiveInstances(): readonly { mountEntityId: string; packId: string; activeEntryIds: readonly string[]; activeEntryIdSet?: ReadonlySet<string> }[]; getPack(id: string): { entries: readonly { id: string; flows?: readonly { resource: string }[] }[] } | undefined }): void {
   for (const instance of affector.getActiveInstances()) {
     const pack = affector.getPack(instance.packId);
     if (!pack) continue;
     for (const entry of pack.entries) {
-      if (!instance.activeEntryIds.includes(entry.id)) continue;
+      if (!(instance.activeEntryIdSet?.has(entry.id) ?? instance.activeEntryIds.includes(entry.id))) continue;
       for (const flow of entry.flows ?? []) {
         attachFlowsNode(system, resolveFlowsMount(system, instance.mountEntityId), flow.resource);
       }

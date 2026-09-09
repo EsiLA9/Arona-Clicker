@@ -9,7 +9,7 @@ import type { ActiveThemeSelection } from './theme';
 
 export type GameEvent =
   | { type: 'resourceChanged'; resource: string; delta: number; newValue: number }
-  | { type: 'spotLevelChanged'; spotId: string; newLevel: number }
+  | { type: 'spotLevelChanged'; spotId: string; newLevel: number; oldLevel?: number }
   | { type: 'managerChanged'; spotId: string; newManager: Character }
   | { type: 'enhancementAdded'; enhancementId: string }
   | { type: 'enhancementRemoved'; enhancementId: string }
@@ -32,6 +32,7 @@ export type GameEvent =
   | { type: 'affectorStateChanged'; instanceId: string; oldState: AffectorState; newState: AffectorState }
   | { type: 'affectorUnmounted'; instanceId: string; reason: string }
   | { type: 'affectorEntriesChanged'; instanceId: string }
+  | { type: 'affectorRuntimeChanged'; instanceIds: string[] }
   | { type: 'userThemeChanged'; enabled: boolean }
   | { type: 'characterAcquired'; variantId: string; via: 'gacha' | 'story' | 'event'; duplicate: boolean; shards: number; bonusResources: Record<string, number> }
   | { type: 'cultivated'; variantId: string; kind: 'exp' | 'star'; newLevel?: number; newStars?: number }

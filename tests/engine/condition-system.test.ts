@@ -88,6 +88,24 @@ describe('ConditionSystem', () => {
     expect(cs.evaluateGroup(group, defaultState())).toBe(false);
   });
 
+  test('short-circuits AND and OR in declaration order', () => {
+    const calls: string[] = [];
+    const shortCircuitSystem = new ConditionSystem();
+    shortCircuitSystem.setStatReader(key => {
+      calls.push(key);
+      return key === 'true' ? 1 : 0;
+    });
+    expect(shortCircuitSystem.evaluateGroup(and(
+      cond('stat', 'false', '==', 1),
+      cond('stat', 'never-and', '==', 1),
+    ), defaultState())).toBe(false);
+    expect(shortCircuitSystem.evaluateGroup(or(
+      cond('stat', 'true', '==', 1),
+      cond('stat', 'never-or', '==', 1),
+    ), defaultState())).toBe(true);
+    expect(calls).toEqual(['false', 'true']);
+  });
+
   test('should support nested ConditionGroups', () => {
     const group = and(
       cond('resource', 'credit', '>=', 10),

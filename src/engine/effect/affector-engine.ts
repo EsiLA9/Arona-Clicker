@@ -32,6 +32,8 @@ import type { DevLog } from '../core/dev-log';
 export class AffectorEngine extends EventDrivenReactor {
   private readonly packs = new Map<string, AffectorPackDef>();
   private readonly instances = new Map<string, AffectorInstance>();
+  /** Active 子集供运行时热路径迭代；公开快照仍经 getActiveInstances() 隔离。 */
+  private readonly activeInstances = new Map<string, AffectorInstance>();
   /** 实例 id → 其 entry 条件的事件依赖（命中即定向 recheck，替代全量重估）。 */
   private readonly condDeps = new ConditionDepIndex<string>();
   /** 条件含 stat/未知 target 的实例：事件无法精确命中，保留每 Tick 轮询。 */
@@ -41,6 +43,8 @@ export class AffectorEngine extends EventDrivenReactor {
   devLog?: DevLog;
   /** getSpotMaxLevelOverrides 结果缓存（recheck/unmount 时失效）。 */
   private maxLevelOverridesCache: { lifted: Set<SpotId>; maxLevels: Map<SpotId, number> } | null = null;
+  private runtimeChangeDepth = 0;
+  private runtimeChangePending = new Set<string>();
 
   constructor(
     private readonly registry: AffectorRegistryContext,
@@ -153,10 +157,11 @@ export class AffectorEngine extends EventDrivenReactor {
       mountEntityId,
       state: 'Latent',
       activeEntryIds: [],
+      activeEntryIdSet: new Set(),
     };
     this.instances.set(instance.instanceId, instance);
     this.registerConditionDeps(instance.instanceId, packId);
-    this.recheck(instance.instanceId);
+    this.withRuntimeChangeBatch(() => this.recheck(instance.instanceId));
     this.eventBus?.emit({
       type: 'affectorMounted',
       instanceId: instance.instanceId,
@@ -173,6 +178,8 @@ export class AffectorEngine extends EventDrivenReactor {
     const oldState = instance.state;
     instance.state = 'Removed';
     instance.activeEntryIds = [];
+    (instance.activeEntryIdSet as Set<string> | undefined)?.clear();
+    this.activeInstances.delete(instanceId);
     this.condDeps.unregister(instanceId);
     this.pollingInstances.delete(instanceId);
     this.eventBus?.emit({
@@ -182,6 +189,7 @@ export class AffectorEngine extends EventDrivenReactor {
       newState: 'Removed',
     });
     this.eventBus?.emit({ type: 'affectorUnmounted', instanceId, reason });
+    this.noteRuntimeChange(instanceId);
     return true;
   }
 
@@ -198,14 +206,18 @@ export class AffectorEngine extends EventDrivenReactor {
     const oldState = instance.state;
     const oldEntryIds = instance.activeEntryIds;
     instance.activeEntryIds = activeEntryIds;
+    (instance.activeEntryIdSet as Set<string> | undefined)?.clear();
+    for (const entryId of activeEntryIds) (instance.activeEntryIdSet as Set<string> | undefined)?.add(entryId);
     instance.state = activeEntryIds.length > 0 ? 'Active' : 'Latent';
+    if (instance.state === 'Active') this.activeInstances.set(instanceId, instance);
+    else this.activeInstances.delete(instanceId);
     // 激活沿（Latent→Active）一次性执行 entry.effects 全量（Phase 4.3）：
     // addResource 一次性发放，setFlag/addItem 等一次性 op 同样只在此执行一次；
     // 持续产出走 flows，每 tick 逻辑走 perTickEffects（applyActiveEffects）；
     // setSpotMaxLevel/removeSpotMaxLevel 为声明类 op，由 getSpotMaxLevelOverrides 动态读取。
     if (oldState !== 'Active' && instance.state === 'Active') {
       const grants = pack.entries
-        .filter(entry => activeEntryIds.includes(entry.id))
+        .filter(entry => instance.activeEntryIdSet?.has(entry.id) ?? activeEntryIds.includes(entry.id))
         .flatMap(entry => entry.effects.filter(effect => !DECLARATIVE_EFFECT_OPS.has(effect.op)));
       if (grants.length > 0) {
         if (this.effectEngine) this.effectEngine.applyEffects(grants);
@@ -226,11 +238,14 @@ export class AffectorEngine extends EventDrivenReactor {
         newState: instance.state,
       });
     }
+    if (entriesChanged || oldState !== instance.state) this.noteRuntimeChange(instanceId);
     return instance.state;
   }
 
   recheckAll(): void {
-    for (const instance of this.instances.values()) this.recheck(instance.instanceId);
+    this.withRuntimeChangeBatch(() => {
+      for (const instance of this.instances.values()) this.recheck(instance.instanceId);
+    });
   }
 
   getInstance(instanceId: string): AffectorInstance | undefined {
@@ -243,13 +258,35 @@ export class AffectorEngine extends EventDrivenReactor {
   }
 
   getActiveInstances(): AffectorInstance[] {
-    return [...this.instances.values()].filter(instance => instance.state === 'Active');
+    return [...this.activeInstances.values()];
+  }
+
+  private withRuntimeChangeBatch(action: () => void): void {
+    this.runtimeChangeDepth += 1;
+    try {
+      action();
+    } finally {
+      this.runtimeChangeDepth -= 1;
+      if (this.runtimeChangeDepth === 0) this.flushRuntimeChanges();
+    }
+  }
+
+  private noteRuntimeChange(instanceId: string): void {
+    this.runtimeChangePending.add(instanceId);
+    if (this.runtimeChangeDepth === 0) this.flushRuntimeChanges();
+  }
+
+  private flushRuntimeChanges(): void {
+    if (this.runtimeChangePending.size > 0) {
+      this.eventBus?.emit({ type: 'affectorRuntimeChanged', instanceIds: [...this.runtimeChangePending] });
+    }
+    this.runtimeChangePending.clear();
   }
 
   /** 返回当前 Active Affector 提供的服务能力及来源，不暴露内部实例表。 */
   getActiveServiceCapabilities(): ReadonlyMap<string, readonly string[]> {
     const sources = new Map<string, string[]>();
-    for (const instance of this.getActiveInstances()) {
+    for (const instance of this.activeInstances.values()) {
       const pack = this.packs.get(instance.packId);
       for (const grant of pack?.capabilities ?? []) {
         if (grant.kind !== 'service' || grant.mode !== 'enable' || !grant.id) continue;
@@ -275,11 +312,11 @@ export class AffectorEngine extends EventDrivenReactor {
     const lifted = new Set<SpotId>();
     const maxLevels = new Map<SpotId, number>();
 
-    for (const instance of this.getActiveInstances()) {
+    for (const instance of this.activeInstances.values()) {
       const pack = this.packs.get(instance.packId);
       if (!pack) continue;
       for (const entry of pack.entries) {
-        if (!instance.activeEntryIds.includes(entry.id)) continue;
+        if (!instance.activeEntryIdSet?.has(entry.id)) continue;
         for (const effect of entry.effects) {
           if (effect.op === 'removeSpotMaxLevel') {
             lifted.add(effect.target);
@@ -339,19 +376,21 @@ export class AffectorEngine extends EventDrivenReactor {
     const expectedPackIds = new Set(
       funcs.filter(fn => fn.kind === 'linearYield').map(fn => `${fn.id}@${spotId}`),
     );
-    // 卸载已不再匹配的功能实例
-    for (const instance of [...this.instances.values()]) {
-      if (instance.mountEntityId !== spotId || instance.state === 'Removed') continue;
-      if (expectedPackIds.has(instance.packId)) continue;
-      this.unmount(instance.instanceId, 'functionality removed');
-    }
-    // 挂载缺失的线性功能（mount 幂等：Removed 旧实例会被重建）
-    for (const fn of funcs) {
-      if (fn.kind !== 'linearYield') continue;
-      const packId = `${fn.id}@${spotId}`;
-      if (!this.packs.has(packId)) this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
-      this.mount(packId, spotId);
-    }
+    this.withRuntimeChangeBatch(() => {
+      // 卸载已不再匹配的功能实例
+      for (const instance of [...this.instances.values()]) {
+        if (instance.mountEntityId !== spotId || instance.state === 'Removed') continue;
+        if (expectedPackIds.has(instance.packId)) continue;
+        this.unmount(instance.instanceId, 'functionality removed');
+      }
+      // 挂载缺失的线性功能（mount 幂等：Removed 旧实例会被重建）
+      for (const fn of funcs) {
+        if (fn.kind !== 'linearYield') continue;
+        const packId = `${fn.id}@${spotId}`;
+        if (!this.packs.has(packId)) this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
+        this.mount(packId, spotId);
+      }
+    });
   }
 
   /** 同步全部 Spot 的功能挂载（外源 Enhancement 变化 / Tag 变化时）。 */
@@ -394,11 +433,11 @@ export class AffectorEngine extends EventDrivenReactor {
     // 条件可能由统计驱动（stat 无专属事件），仅这类实例保留每 Tick 重估；
     // 其余实例的条件翻转由事件驱动定向 recheck 保证新鲜
     for (const instanceId of [...this.pollingInstances]) this.recheck(instanceId);
-    for (const instance of this.getActiveInstances()) {
+    for (const instance of this.activeInstances.values()) {
       const pack = this.packs.get(instance.packId);
       if (!pack) continue;
       for (const entry of pack.entries) {
-        if (!instance.activeEntryIds.includes(entry.id)) continue;
+        if (!instance.activeEntryIdSet?.has(entry.id)) continue;
         // effects 已在激活沿一次性执行（recheck）；每 tick 只执行显式声明的 perTickEffects
         const perTick = entry.perTickEffects ?? [];
         if (perTick.length === 0) continue;
@@ -441,12 +480,14 @@ export class AffectorEngine extends EventDrivenReactor {
         expected.set(`${packId}@${spotId}`, { ref: packId, mountEntityId: spotId });
       }
     }
-    for (const instance of [...this.instances.values()]) {
-      if (instance.state !== 'Removed' && !expected.has(instance.instanceId)) {
-        this.unmount(instance.instanceId, 'mount condition no longer holds');
+    this.withRuntimeChangeBatch(() => {
+      for (const instance of [...this.instances.values()]) {
+        if (instance.state !== 'Removed' && !expected.has(instance.instanceId)) {
+          this.unmount(instance.instanceId, 'mount condition no longer holds');
+        }
       }
-    }
-    for (const m of expected.values()) this.mount(m.ref, m.mountEntityId);
+      for (const m of expected.values()) this.mount(m.ref, m.mountEntityId);
+    });
     // 区表/flows 重同步由 mount/unmount 过程中的 affector 事件驱动（GameNum 自行订阅）
   }
 

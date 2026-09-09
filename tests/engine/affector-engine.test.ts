@@ -22,6 +22,20 @@ function emptyState(): PlayerState {
 }
 
 describe('AffectorEngine', () => {
+  test('runtime change coalesces entry and state events for one recheck', () => {
+    const bus = new EventBus();
+    const state = emptyState();
+    const engine = new AffectorEngine(new Registry(), new ConditionSystem(), new StateMutationService(bus), bus);
+    engine.load([{ id: 'pack', entries: [{ id: 'entry', effects: [] }] }]);
+    engine.setState(state);
+    const runtimeChanges: string[] = [];
+    bus.on('affectorRuntimeChanged', event => runtimeChanges.push(...event.instanceIds));
+    const instance = engine.mount('pack', 'spot');
+    expect(runtimeChanges).toEqual([instance!.instanceId]);
+    engine.unmount(instance!.instanceId);
+    expect(runtimeChanges).toEqual([instance!.instanceId, instance!.instanceId]);
+  });
+
   test('transitions from latent to active when condition is met', () => {
     const state = emptyState();
     const engine = new AffectorEngine(

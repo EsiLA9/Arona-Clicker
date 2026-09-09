@@ -18,7 +18,7 @@
 import { ValueExpression, AffectorFlow } from '../types';
 import type { GameNumState } from '../contracts/state-query';
 import { ValueSystem } from './value-system';
-import type { GameNumAffectorContext } from '../contracts/evaluation-context';
+import type { GameNumAffectorContext, GameNumFlowSource } from '../contracts/evaluation-context';
 import type { GameNumRegistryContext } from '../contracts/evaluation-context';
 import { qualifyTagPath, TagPath } from '../core/tag';
 import { EntityRef, TagEffectRecord, entityKey, tagPrefixesBottomUp } from './tag-effect';
@@ -70,6 +70,8 @@ export interface GameNumEvalDeps {
   valueSystem: ValueSystem;
   registry: GameNumRegistryContext;
   affectorEngine: GameNumAffectorContext;
+  /** GameNumSystem 的活跃 flow 索引；未提供时保留旧扫描路径，便于独立求值测试。 */
+  affectorFlowSources?: ReadonlyMap<string, readonly GameNumFlowSource[]>;
 }
 
 /** 取实体 tags（spot 按「有效 tags」= 声明 + 运行时增撤，docs-824/08 T6；其余读声明；自下而上聚合用）。 */
@@ -268,12 +270,17 @@ function isLevelEntity(registry: GameNumRegistryContext, entityId: string): bool
  */
 export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows' }, state: GameNumState, deps: GameNumEvalDeps): number {
   let sum = 0;
+  const indexed = deps.affectorFlowSources?.get(flowBucketKey(node.resource, node.mount));
+  if (indexed) {
+    for (const source of indexed) sum += resolveFlowValue(source.flow, state, deps.valueSystem);
+    return sum;
+  }
   for (const instance of deps.affectorEngine.getActiveInstances()) {
     if (node.mount !== undefined ? instance.mountEntityId !== node.mount : isLevelEntity(deps.registry, instance.mountEntityId)) continue;
     const pack = deps.affectorEngine.getPack(instance.packId);
     if (!pack) continue;
     for (const entry of pack.entries) {
-      if (!instance.activeEntryIds.includes(entry.id)) continue;
+      if (!(instance.activeEntryIdSet?.has(entry.id) ?? instance.activeEntryIds.includes(entry.id))) continue;
       for (const flow of entry.flows ?? []) {
         if (flow.resource !== node.resource) continue;
         sum += resolveFlowValue(flow, state, deps.valueSystem);
@@ -281,6 +288,11 @@ export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows
     }
   }
   return sum;
+}
+
+/** 稳定且无歧义的 `(resource, mount)` bucket key。 */
+export function flowBucketKey(resource: string, mount: string | undefined): string {
+  return JSON.stringify([resource, mount ?? null]);
 }
 
 export function resolveFlowValue(flow: AffectorFlow, state: GameNumState, valueSystem: ValueSystem): number {

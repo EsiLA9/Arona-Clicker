@@ -166,7 +166,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const oldLevel = this.current.spotLevels[spotId] ?? 0;
     this.current.spotLevels[spotId] = level;
     this.statsService?.recordSpotLevel(oldLevel, level);
-    this.emit({ type: 'spotLevelChanged', spotId, newLevel: level });
+    this.emit({ type: 'spotLevelChanged', spotId, oldLevel, newLevel: level });
   }
 
   addSpotLevel(spotId: string, delta: number): number {
