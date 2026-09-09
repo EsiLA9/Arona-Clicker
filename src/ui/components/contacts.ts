@@ -12,9 +12,10 @@ import { renderBackground } from '../background-service';
 import { renderPresentationRegion } from '../presentation-service';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
 import type { CharacterVariantDef } from '../../arona-clicker/types/character';
-import type { ConditionGroup, Condition, Effect } from '../../engine/types';
+import type { Effect } from '../../engine/types';
 import { renderAvatarSvg } from '../avatar-renderer';
 import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
+import { buildConditionView, renderConditionTree } from '../condition-presentation';
 
 /** 未读消息计数接口：后续接入未读系统时由调用方提供。 */
 export type UnreadResolver = (variantId: string) => number;
@@ -220,7 +221,10 @@ export function renderConversationView(
           <span class="send-text">🔒 对话空间已锁定</span>
         </span>
       </button>
-      <div class="blocked-condition">满足条件后继续：${ctx.escapeHtml(describeCondition(blockEntry!.block!))}</div>`
+      <div class="blocked-condition">满足条件后继续：${renderConditionTree(buildConditionView(blockEntry!.block!, {
+        nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',
+        evaluate: condition => ctx.game.conditionSystem.evaluateExpr(condition, ctx.game.state),
+      }), ctx.escapeHtml)}</div>`
     : renderSendButton(sendState, sendGate);
 
   const unreadCount = game.story.readyStepCount(variantId);
@@ -251,28 +255,6 @@ export function renderConversationView(
         </div>
       </div>
     </section>`;
-}
-
-function describeCondition(group: import('../../engine/types').ConditionGroup): string {
-  const walk = (g: import('../../engine/types').ConditionGroup): string => {
-    const sub = g.conditions.map(c =>
-      'target' in c ? describeLeaf(c) : '(' + walk(c as import('../../engine/types').ConditionGroup) + ')',
-    );
-    return sub.join(g.type === 'OR' ? ' 或 ' : ' 且 ');
-  };
-  const out = walk(group);
-  return out.length ? out : '满足条件';
-}
-
-/** 单条条件的中文描述。 */
-function describeLeaf(c: import('../../engine/types').Condition): string {
-  const cmp: Record<string, string> = { '==': '=', '!=': '≠', '>=': '≥', '<=': '≤', '>': '>', '<': '<' };
-  const targetName: Record<string, string> = {
-    resource: '资源', spotLevel: '地点等级', manager: '负责人', flag: '标记',
-    hasEnh: '强化', hasTag: '标签地点', area: '区域', init: '世界线', item: '物品', extra: '扩展字段', protoStat: '原型统计',
-  };
-  const name = targetName[c.target] ?? c.target;
-  return `${name}「${c.key}」${cmp[c.comparator] ?? c.comparator}${c.value}`;
 }
 
 /** 右栏：角色培养面板。 */

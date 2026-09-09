@@ -14,6 +14,7 @@ import type { ConditionQueryPort } from '../../arona-clicker/contracts';
 import { existenceMet, unlockCondition } from '../../engine/visibility/reveal';
 import { UIContext } from '../context';
 import { describeCondition } from './tooltip-enhancement';
+import { buildConditionView, renderConditionTree } from '../condition-presentation';
 
 /** 揭示求值所需的游戏只读面（conditionSystem 求值 + 只读状态）。 */
 interface RevealGame {
@@ -178,14 +179,18 @@ export function renderRevealTriggers(
   const rows = triggers.map(t => {
     const label = REVEAL_TARGET_LABEL[t.reveal] ?? t.reveal;
     const met = allKnown || conditionMet(t.condition, ctx.game);
-    const cond = t.condition ? describeCondition(t.condition, ctx.nameOf) : '无条件';
-    const text = met ? ctx.escapeHtml(cond) : OBFUSCATED;
+    const tree = buildConditionView(t.condition, {
+      nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',
+      evaluate: condition => conditionMet(condition, ctx.game),
+    });
+    const text = renderConditionTree(tree, ctx.escapeHtml, met);
     const mark = met ? '已满足' : '未满足';
     return `
-      <div class="info-row">
+      <div class="info-row condition-trigger-status">
         <span>${label}</span>
-        <span class="${met ? 'info-accent' : 'info-dim'}">${mark} · ${text}</span>
-      </div>`;
+        <span class="${met ? 'info-accent' : 'info-dim'}">${mark}</span>
+      </div>
+      <div class="condition-trigger-tree">${text}</div>`;
   });
   return `
     <div class="info-divider"></div>

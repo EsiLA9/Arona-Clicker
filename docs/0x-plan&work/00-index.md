@@ -25,6 +25,7 @@
 | [[docs/0x-plan&work/active/task-0032-passive-story-scheduling]] | PassiveStory P0/P1 与 Pool 分层权重 | 🟡 已裁定，待施工 |
 | [[docs/0x-plan&work/active/task-0033-system-color-layer-scope]] | 控件系统颜色层职责收敛与重复背景清理 | 🟡 规划完成，待施工 |
 | [[docs/0x-plan&work/active/task-0034-affector-performance-review]] | Affector / GameNum 性能判别与整改排序 | 🟡 静态核验完成，待施工 |
+| [[docs/0x-plan&work/active/task-0035-condition-presentation-tree]] | Condition Presentation Tree 条件展示树 | 🟡 方案核验完成，待施工 |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
 
@@ -84,6 +85,8 @@
 - [[docs/0x-plan&work/review/code-review-roadmap]]：按数据、数值、写入、领域、UI、Datapack 顺序完成全量 Review。
 
 - [[docs/0x-plan&work/active/task-0034-affector-performance-review]]：记录 Affector → ConditionDepIndex → GameNum/flow → Tick 性能审查的逐条真实性与紧迫性判定。
+
+- [[docs/0x-plan&work/active/task-0035-condition-presentation-tree]]：记录条件展示树建议的逐条真实性、可行性与 UI 施工边界。
 
 当前状态：路线已建立，但检查清单尚未全部打勾；应以当前源码路径重新执行，而不是沿用旧目录假设。
 

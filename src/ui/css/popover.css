@@ -30,6 +30,19 @@
    transition: opacity .1s ease;
 }
 
+.condition-tree { font-size: 10px; line-height: 1.45; text-align: left; }
+.condition-leaf { display: inline-flex; align-items: baseline; gap: 4px; text-align: left; }
+.info-row > span:last-child:has(> .condition-tree) { flex: 1 1 0; min-width: 0; text-align: left; }
+.condition-group { display: grid; grid-template-columns: 1em minmax(0, 1fr); margin: 3px 0; text-align: left; width: 100%; }
+.condition-group > .condition-mark { grid-column: 1; grid-row: 1; }
+.condition-group-head { grid-column: 2; grid-row: 1; color: var(--ui-text, currentColor); font-size: inherit; font-weight: 600; text-align: left; }
+.condition-group-body { grid-column: 2; grid-row: 2; display: grid; gap: 3px; margin: 3px 0 0 5px; padding-left: 9px; border-left: 1px solid var(--ui-border, color-mix(in srgb, currentColor 25%, transparent)); text-align: left; }
+.condition-mark { display: inline-block; width: 1em; margin-right: 4px; font-size: 9px; line-height: 1; vertical-align: middle; text-align: center; }
+.condition-trigger-tree { display: block; width: 100%; margin: 0 0 5px; text-align: left; }
+.condition-tree.is-met .condition-mark { color: var(--theme-node-primary, var(--green)); }
+.condition-tree.is-unmet { color: var(--text-dim, currentColor); }
+.condition-obfuscated { color: var(--text-dim, currentColor); letter-spacing: .08em; }
+
 .info-popover.is-open {
    opacity: 1;
    visibility: visible;
@@ -201,4 +214,3 @@
    flex: 0 0 auto;
    font-size: 10px;
 }
-

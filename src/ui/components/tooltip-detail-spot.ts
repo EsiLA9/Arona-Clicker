@@ -7,8 +7,9 @@ import { Character } from '../../arona-clicker/types/ids';
 import type { SpotDef } from '../../data-services/contracts/world';
 import { existenceCondition, unlockCondition } from '../../engine/visibility/reveal';
 import { UIContext } from '../context';
-import { getSpotReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
+import { conditionMet, getSpotReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
 import { describeCondition, getSpotYieldBreakdown } from './tooltip-enhancement';
+import { buildConditionView, renderConditionTree } from '../condition-presentation';
 
 /** 生成 Spot 的详情信息面板 HTML。 */
 export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): string {
@@ -82,16 +83,17 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
   const desc = known
     ? `<p class="info-desc">${ctx.escapeHtml(spot.description)}</p>`
     : '';
-  const condText = reveal.conditionKnown
-    ? describeCondition(unlockCondition(spot.revealTriggers) ?? existenceCondition(spot.revealTriggers), ctx.nameOf)
-    : OBFUSCATED;
+  const condText = renderConditionTree(buildConditionView(unlockCondition(spot.revealTriggers) ?? existenceCondition(spot.revealTriggers), {
+    nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',
+    evaluate: condition => conditionMet(condition, ctx.game),
+  }), ctx.escapeHtml, reveal.conditionKnown);
 
   return `
     <div class="info-popover">
       <div class="info-head"><span class="info-kind">SPOT</span><strong>${ctx.escapeHtml(name)}</strong></div>
       ${desc}
       <div class="info-divider"></div>
-      ${owned ? '' : `<div class="info-row"><span>获取条件</span><span>${ctx.escapeHtml(condText)}</span></div>`}
+      ${owned ? '' : `<div class="info-row"><span>获取条件</span><span>${condText}</span></div>`}
       <div class="info-row"><span>当前等级</span><span class="info-accent">${show(known, `Lv.${level}`)}</span></div>
       <div class="info-row"><span>基础产出</span><span>${show(known, `${ctx.formatNumber(yieldInfo.base)} ${resource} / tick`)}</span></div>
       ${managerBonusRow}

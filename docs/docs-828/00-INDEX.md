@@ -132,6 +132,7 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | [[docs/docs-828/07-audit/stats-ledgers]] | 统计五套并记与 worldTilt 预留体系 |
 | [[docs/docs-828/07-audit/sync-burden]] | 同步义务与流程负担（含漂移实证） |
 | [[docs/docs-828/07-audit/affector-performance]] | Affector / GameNum 性能热点真实性与紧迫性判别 |
+| [[docs/docs-828/07-audit/condition-presentation]] | 条件判断渲染建议真实性与可行性判别 |
 
 ## 08-roadmap 长期目标追踪
 

@@ -6,8 +6,9 @@
 import type { AreaDef } from '../../data-services/contracts/world';
 import { existenceCondition } from '../../engine/visibility/reveal';
 import { UIContext } from '../context';
-import { getAreaReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
+import { conditionMet, getAreaReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
 import { describeCondition, getSpotYieldBreakdown } from './tooltip-enhancement';
+import { buildConditionView, renderConditionTree } from '../condition-presentation';
 
 /** 生成 Area 的详情信息面板 HTML（按信息揭示阶梯遮挡）。 */
 export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
@@ -52,7 +53,7 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
       ${known ? `<div class="info-row"><span>所属世界线</span><span>${ctx.escapeHtml(ctx.nameOf('init', area.initId))}</span></div>` : ''}
       ${isLocked
         ? `<div class="info-row"><span>状态</span><span class="info-dim">尚未开放</span></div>
-           <div class="info-row"><span>解锁条件</span><span>${ctx.escapeHtml(describeCondition(existenceCondition(area.revealTriggers), ctx.nameOf))}</span></div>`
+           <div class="info-row"><span>解锁条件</span><span>${renderConditionTree(buildConditionView(existenceCondition(area.revealTriggers), { nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui', evaluate: condition => conditionMet(condition, ctx.game) }), ctx.escapeHtml, reveal.conditionKnown)}</span></div>`
         : known
           ? `<div class="info-row"><span>运营设施</span><span>${spotIds.length} 处 · ${spotIds.filter(id => (view.spotLevels[id] ?? 0) > 0).length} 已启用</span></div>
              <div class="info-sub">设施明细</div>

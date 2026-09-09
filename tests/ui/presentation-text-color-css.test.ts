@@ -58,4 +58,11 @@ describe('表现宿主文字颜色 CSS 契约', () => {
       expect(source).toContain('data-theme-text-mode');
     }
   });
+
+  test('聊天气泡覆盖通用宿主的透明背景规则', () => {
+    expect(css).toContain('.presentation-host-target.chat-bubble-npc');
+    expect(css).toContain('background: var(--theme-node-npc-bubble, #4c5b70)');
+    expect(css).toContain('.presentation-host-target.chat-bubble-player');
+    expect(css).toContain('background: var(--theme-node-player-bubble, #4a8aca)');
+  });
 });

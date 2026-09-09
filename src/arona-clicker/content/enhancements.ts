@@ -1,5 +1,6 @@
 import { enhancement } from './def-factory';
 import type { EnhancementDef } from '../../data-services/contracts/enhancement';
+import { and, cond, or } from '../../engine/types';
 
 const CREDIT = Resource.Credit;
 const PYROXENE = Resource.Pyroxene;
@@ -30,5 +31,55 @@ export const baseGlobalEnhancements: EnhancementDef[] = [
   enhancement('base:enhancement:foundation').name('全能基建').desc('全局信用点产出 ×2.0（基建奠基）。').tags(['core']).attachGlobal().affectorPack('base:affectorpack:foundation_mult').cost(PYROXENE, 50).build(),
   enhancement('base:enhancement:unified_logistics').name('全域物流').desc('每 tick 额外 +1 信用点（全域物流）。').tags(['core'], ['logistics']).attachGlobal().affectorPack('base:affectorpack:unified_logistics_flow').cost(CREDIT, 500).build(),
   enhancement('base:enhancement:eternal_contract').name('永恒契约').desc('全局产出 ×1.5（不可撤回）。').tags(['core']).attachGlobal().irreversible().affectorPack('base:affectorpack:eternal_contract_mult').cost(PYROXENE, 150).build(),
+  enhancement('base:enhancement:hangar_dispatch_protocol')
+    .name('机库调度协议')
+    .desc('为夏莱机库建立跨区域出勤调度。')
+    .tags(['logistics'], ['logistics', 'vehicle'])
+    .attachArea('base:area:schale_hangar')
+    .reveal('existence', or(
+      and(
+        cond('spotLevel', 'base:spot:hangar_dispatch_deck', '>=', 1),
+        cond('stat', '$CurrentRunProducedAmount base:resource:credit', '>=', 1200),
+      ),
+      and(
+        cond('hasEnh', 'base:enhancement:supply_chain', '==', 1),
+        cond('hasReadStory', 'base:story:schale_flow_show', '==', 1),
+      ),
+    ))
+    .reveal('unlock', and(
+      cond('countTags', 'vehicle', '>=', 2),
+      or(
+        cond('resource', CREDIT, '>=', 800),
+        cond('hasEnh', 'base:enhancement:area_hub', '==', 1),
+      ),
+    ))
+    .cost(CREDIT, 420).build(),
+  enhancement('base:enhancement:hangar_safety_grid')
+    .name('机库安全网')
+    .desc('将维护、情报与战术系统接入同一套出勤安全协议。')
+    .tags(['vehicle', 'tech'], ['tactical', 'defense'])
+    .attachArea('base:area:schale_hangar')
+    .reveal('existence', and(
+      cond('spotLevel', 'base:spot:hangar_maintenance_bay', '>=', 1),
+      or(
+        and(
+          cond('hasEnh', 'base:enhancement:combat_drone', '==', 1),
+          cond('hasEnh', 'base:enhancement:intel_network', '==', 1),
+        ),
+        and(
+          cond('hasReadStory', 'base:story:schale_welcome', '==', 1),
+          cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 3000),
+        ),
+      ),
+    ))
+    .reveal('unlock', and(
+      cond('countTags', 'tech', '>=', 2),
+      cond('countTags', 'tactical', '>=', 1),
+      or(
+        cond('spotLevel', 'base:spot:hangar_command_link', '>=', 1),
+        cond('hasEnh', 'base:enhancement:tactical_command', '==', 1),
+      ),
+    ))
+    .cost(CREDIT, 650).build(),
 ];
 import { Resource } from '../types/ids';

@@ -8,6 +8,7 @@ import { Condition, ConditionGroup } from '../../engine/types';
 import type { SpotDef } from '../../data-services/contracts/world';
 import { parseStatCall } from '../../engine/expression/stat-dsl';
 import { UIContext } from '../context';
+import { renderConditionText } from '../condition-presentation';
 
 /** 统计函数 DSL 的函数名 → 正式文体模板（{init}=世界线名，{key}=资源/物品名）。 */
 const STAT_TEXT: Record<string, string> = {
@@ -63,45 +64,12 @@ export function describeStatDsl(dsl: string, nameOf: (type: string, id: string) 
   return template.replace('{key}', key).replace('{init}', init);
 }
 
-/** 单条原子条件转文本（仅覆盖原型中使用的常见形式）。 */
-function describeConditionItem(c: Condition, nameOf: (type: string, id: string) => string): string {
-  const valueLabel = c.value.toString();
-  switch (c.target) {
-    case 'resource': return `${nameOf('resource', c.key)} ${c.comparator} ${valueLabel}`;
-    case 'spotLevel': return `${nameOf('spot', c.key)} 等级 ${c.comparator} ${valueLabel}`;
-    case 'manager': return `${nameOf('spot', c.key)} 已分配 Manager`;
-    case 'flag': return `标记 ${c.key}`;
-    case 'hasEnh': return `已拥有 ${nameOf('enh', c.key)}`;
-    case 'hasTag': return `拥有 "${c.key}" 标签`;
-    case 'countTags': return `"${c.key}" 标签数 ${c.comparator} ${valueLabel}`;
-    case 'stat': {
-      const statText = describeStatDsl(c.key, nameOf);
-      return `${statText} ${c.comparator} ${valueLabel}`;
-    }
-    case 'hasReadStory': return `已完成故事 ${nameOf('story', c.key)}`;
-    case 'hasReadStoryInRun': return `本次游玩已完成 ${nameOf('story', c.key)}`;
-    default: return `${c.target} ${c.key} ${c.comparator} ${valueLabel}`;
-  }
-}
-
 /** 条件文本描述：单条原子条件或条件组（仅覆盖原型中使用的常见形式）。 */
 export function describeCondition(
   cond: Condition | ConditionGroup | undefined,
   nameOf: (type: string, id: string) => string = (_, id) => id,
 ): string {
-  if (!cond) return '无条件';
-  if (!('conditions' in cond) || !('type' in cond)) {
-    return describeConditionItem(cond as Condition, nameOf);
-  }
-  const group = cond as ConditionGroup;
-  if (!group.conditions.length) return '无条件';
-  const parts = group.conditions.map(condition => {
-    if ('type' in condition && 'conditions' in condition) {
-      return `(${describeCondition(condition as ConditionGroup, nameOf)})`;
-    }
-    return describeConditionItem(condition as Condition, nameOf);
-  });
-  return parts.join(group.type === 'AND' ? ' 且 ' : ' 或 ');
+  return renderConditionText(cond, { nameOf, style: 'plain' });
 }
 
 /** 计算某 Spot 适用的产出倍率：精确读该 spot 自身 mul 区节点（显式层级树后不含上极乘区）。 */

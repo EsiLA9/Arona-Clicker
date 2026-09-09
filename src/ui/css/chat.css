@@ -213,12 +213,12 @@
 
 .chat-bubble-npc::before {
    left: -10px;
-   border-right-color: var(--npc-bubble, #4c5b70);
+   border-right-color: var(--theme-node-npc-bubble, #4c5b70);
 }
 
 .chat-bubble-player::before {
    right: -10px;
-   border-left-color: var(--player-bubble, #4a8aca);
+   border-left-color: var(--theme-node-player-bubble, #4a8aca);
 }
 
 /* 连发分组接续（§4）：无头像可指向，隐藏气泡小三角 */

@@ -190,6 +190,7 @@ createAppRuntime()
 - [ ] UI 组件只消费 `GameReadModel`；
 - [ ] controller 只通过 `GameCommands` 或产品 Runtime 公开命令写入；
 - [ ] UI 不持有可写 PlayerState 或具体底层服务引用；
+- [x] 核验条件展示从字符串化到 Presentation Tree 的建议，见 [[docs/0x-plan&work/active/task-0035-condition-presentation-tree]]；
 - [ ] 复核生产、通讯录、剧情三个代表面板从读取到命令的完整链路；
 - [ ] 确认 `src/ui/` 不直接依赖 `src/data/base/`，默认内容从 `src/arona-clicker/content/default-datapack.ts` 进入。
 

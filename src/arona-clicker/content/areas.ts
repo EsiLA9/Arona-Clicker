@@ -13,7 +13,12 @@ export const baseAreas: AreaDef[] = [
     ],
   }).build(),
   area('base:area:schale_library', 'base:init:schale_office').name('夏莱资料室').desc('堆满委托卷宗与旧档案的资料室。联邦的运作痕迹都沉淀在这里。').spots('base:spot:archive').adjacent('base:area:schale_main', 'base:area:schale_hangar').build(),
-  area('base:area:schale_hangar', 'base:init:schale_office').name('夏莱机库').desc('停放着夏莱专用车的机库。出勤的起点，也常被当作临时午休地。').spots().adjacent('base:area:schale_library').revealCredit('name', 80).build(),
+  area('base:area:schale_hangar', 'base:init:schale_office').name('夏莱机库').desc('停放着夏莱专用车的机库。出勤的起点，也常被当作临时午休地。').spots(
+    'base:spot:hangar_supply',
+    'base:spot:hangar_dispatch_deck',
+    'base:spot:hangar_maintenance_bay',
+    'base:spot:hangar_command_link',
+  ).adjacent('base:area:schale_library').revealCredit('name', 80).build(),
   area('base:area:schale_rooftop', 'base:init:schale_office').name('夏莱天台').desc('天台的风很清爽，能俯瞰整片夏莱街景。星野的邀约与晚霞都收在这里。').spots().adjacent('base:area:schale_main').theme('base:colorgroup:amber').build(),
   area('base:area:abydos_campus', 'base:init:abydos').name('阿比多斯旧校舍').desc('破旧却充满人情的校舍。对策委员会的据点，黄沙与日常并存。').spots('base:spot:abydos_rehab').adjacent('base:area:abydos_pool').theme('base:colorgroup:abydos-sand').build(),
   area('base:area:abydos_pool', 'base:init:abydos').name('废弃泳池').desc('早已干涸的露天泳池。如今堆满器材，偶尔被学生们当作训练场。').spots('base:spot:pool_train').adjacent('base:area:abydos_campus').theme('base:colorgroup:abydos-sand', { playerBubble: '#3ec6e0' }).build(),

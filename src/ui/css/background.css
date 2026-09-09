@@ -61,6 +61,15 @@
    background: transparent;
 }
 
+/* 聊天气泡保留自身的语义底色；通用宿主规则的 transparent 不能覆盖气泡主体。 */
+.presentation-host-target.chat-bubble-npc {
+   background: var(--theme-node-npc-bubble, #4c5b70);
+}
+
+.presentation-host-target.chat-bubble-player {
+   background: var(--theme-node-player-bubble, #4a8aca);
+}
+
 .presentation-host-background {
    position: absolute;
    inset: 0;

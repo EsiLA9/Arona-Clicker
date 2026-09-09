@@ -1,4 +1,4 @@
-import { and, cond } from '../../engine/types';
+import { and, cond, or } from '../../engine/types';
 import { spot } from './def-factory/spot';
 import type { SpotDef } from '../../data-services/contracts/world';
 import { tagPath } from '../../engine/core/tag';
@@ -15,6 +15,85 @@ export const baseSpots: SpotDef[] = [
   spot('base:spot:millennium_game', 'base:area:millennium_lab').name('游戏开发部终端').desc('散发奶茶味与代码香的开发终端。正在开发一部惊天巨作。').cost(20).yield(9).capacity(250).managerBonus(5).tags(tagPath('game'), tagPath('tech')).revealResource('name', Resource.Credit, 12).revealResource('utility', Resource.Credit, 40).levelUpTo(3).genericUpgrade(90, 1.8, 1).build(),
   spot('base:spot:archive', 'base:area:schale_library').name('卷宗整理台').desc('分类整理联邦委托卷宗的工作台。每份归档都是一笔稳定的信用点收入。').cost(25).yield(6).capacity(280).managerBonus(3).tags(tagPath('archive'), tagPath('office')).levelUpTo(3).genericUpgrade(100, 1.8, 1).build(),
   spot('base:spot:hangar_supply', 'base:area:schale_hangar').name('机库补给车').desc('为出勤车辆补充物资的小型补给车。运转起来，信用点也随之流动。').cost(35).yield(9).capacity(220).managerBonus(5).tags(tagPath('logistics'), tagPath('vehicle')).revealResource('name', Resource.Credit, 30).revealResource('utility', Resource.Credit, 80).levelUpTo(3).genericUpgrade(140, 1.8, 1).build(),
+  spot('base:spot:hangar_dispatch_deck', 'base:area:schale_hangar')
+    .name('出勤调度台')
+    .desc('统筹车辆、补给与出勤路线的调度台。只有机库形成稳定周转后，调度系统才会开放。')
+    .cost(90).yield(14).capacity(360).managerBonus(7)
+    .tags(tagPath('logistics'), tagPath('vehicle'), tagPath('tactical'))
+    .reveal('existence', or(
+      and(
+        cond('spotLevel', 'base:spot:hangar_supply', '>=', 2),
+        cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 1000),
+      ),
+      and(
+        cond('hasEnh', 'base:enhancement:supply_chain', '==', 1),
+        cond('hasReadStory', 'base:story:schale_flow_show', '==', 1),
+      ),
+    ))
+    .reveal('name', and(
+      cond('hasReadStory', 'base:story:schale_flow_show', '==', 1),
+      cond('countTags', 'vehicle', '>=', 1),
+    ))
+    .reveal('utility', or(
+      cond('spotLevel', 'base:spot:hangar_supply', '>=', 3),
+      cond('hasEnh', 'base:enhancement:tactical_command', '==', 1),
+    ))
+    .levelUpTo(3).genericUpgrade(220, 1.85, 2).build(),
+  spot('base:spot:hangar_maintenance_bay', 'base:area:schale_hangar')
+    .name('车辆维护坞')
+    .desc('检修夏莱专用车辆的维护坞。后勤规模与技术储备同时达标后，才能承担高强度出勤。')
+    .cost(120).yield(12).capacity(420).managerBonus(6)
+    .tags(tagPath('vehicle'), tagPath('tech'), tagPath('maintenance'))
+    .reveal('existence', and(
+      cond('countTags', 'vehicle', '>=', 2),
+      or(
+        cond('spotLevel', 'base:spot:data_wiper', '>=', 2),
+        cond('hasEnh', 'base:enhancement:field_logistics', '==', 1),
+      ),
+    ))
+    .reveal('condition', or(
+      and(
+        cond('resource', Resource.Credit, '>=', 600),
+        cond('stat', '$CurrentRunProducedAmount base:resource:credit', '>=', 1500),
+      ),
+      and(
+        cond('hasEnh', 'base:enhancement:combat_drone', '==', 1),
+        cond('hasEnh', 'base:enhancement:intel_network', '==', 1),
+      ),
+    ))
+    .reveal('utility', and(
+      cond('spotLevel', 'base:spot:hangar_dispatch_deck', '>=', 1),
+      cond('countTags', 'tech', '>=', 2),
+    ))
+    .levelUpTo(3).genericUpgrade(260, 1.9, 2).build(),
+  spot('base:spot:hangar_command_link', 'base:area:schale_hangar')
+    .name('联邦出勤联络台')
+    .desc('连接各学院出勤网络的联络台。它要求稳定的机库产能，也要求老师真正理解夏莱的日常调度。')
+    .cost(180).yield(18).capacity(500).managerBonus(9)
+    .tags(tagPath('tactical'), tagPath('intel'), tagPath('office'))
+    .reveal('existence', or(
+      and(
+        cond('hasReadStory', 'base:story:schale_welcome', '==', 1),
+        cond('spotLevel', 'base:spot:hangar_dispatch_deck', '>=', 2),
+        cond('resource', Resource.Credit, '>=', 1000),
+      ),
+      and(
+        cond('countTags', 'logistics', '>=', 2),
+        cond('hasEnh', 'base:enhancement:area_hub', '==', 1),
+      ),
+    ))
+    .reveal('name', and(
+      cond('hasReadStory', 'base:story:schale_flow_show', '==', 1),
+      or(
+        cond('hasEnh', 'base:enhancement:tactical_command', '==', 1),
+        cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 2500),
+      ),
+    ))
+    .reveal('utility', and(
+      cond('spotLevel', 'base:spot:hangar_maintenance_bay', '>=', 2),
+      cond('countTags', 'tactical', '>=', 2),
+    ))
+    .levelUpTo(3).genericUpgrade(360, 2, 3).build(),
   spot('base:spot:pool_train', 'base:area:abydos_pool').name('泳池训练棚').desc('在干涸的池底架起的简易训练棚。挥洒汗水，也沉淀信用点。').cost(18).yield(5).capacity(260).managerBonus(3).tags(tagPath('training'), tagPath('defense')).levelUpTo(3).genericUpgrade(85, 1.8, 1).build(),
   spot('base:spot:canteen_vendor', 'base:area:millennium_canteen').name('食堂自动售货机').desc('千禧年食堂的自动化售货机。投币、出货、信用点到账，一气呵成。').cost(28).yield(8).capacity(240).managerBonus(4).tags(tagPath('shop'), tagPath('tech')).gacha('base:funclet:canteen_gacha').gachaPools('base:gachapool:canteen_exclusive').revealResource('name', Resource.Credit, 20).revealResource('utility', Resource.Credit, 60).levelUpTo(3).genericUpgrade(110, 1.8, 1).build(),
   spot('base:spot:millennium_ai_cluster', 'base:area:millennium_server').name('AI 训练集群').desc('搭载专用 GPU 的分布式训练集群。海量数据从这里流经，信用点与算力等比产出。').cost(50).yield(12).capacity(400).managerBonus(6).tags(tagPath('tech'), tagPath('link'), tagPath('math')).restartInit('base:funclet:ai_restart').levelUpTo(3).genericUpgrade(200, 1.8, 1).build(),

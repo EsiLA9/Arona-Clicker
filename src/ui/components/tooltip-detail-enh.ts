@@ -7,8 +7,9 @@ import type { EnhancementDef } from '../../data-services/contracts/enhancement';
 import { unlockCondition } from '../../engine/visibility/reveal';
 import { describeAffectorPack } from '../../engine/effect/affector-text';
 import { UIContext } from '../context';
-import { getEnhancementReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
+import { conditionMet, getEnhancementReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
 import { describeCondition } from './tooltip-enhancement';
+import { buildConditionView, renderConditionTree } from '../condition-presentation';
 
 /** 生成 Enhancement 的详情信息面板 HTML。 */
 export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): string {
@@ -24,7 +25,10 @@ export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): st
   const desc = reveal.utilityKnown
     ? `<p class="info-desc">${ctx.escapeHtml(enh.description)}</p>`
     : '';
-  const condText = reveal.conditionKnown ? describeCondition(unlockCondition(enh.revealTriggers), ctx.nameOf) : OBFUSCATED;
+  const condText = renderConditionTree(buildConditionView(unlockCondition(enh.revealTriggers), {
+    nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',
+    evaluate: condition => conditionMet(condition, ctx.game),
+  }), ctx.escapeHtml, reveal.conditionKnown);
   const priceRow = purchaseable || reveal.utilityKnown
     ? `<div class="info-row"><span>购买花费</span><span>${ctx.escapeHtml(priceText)}</span></div>`
     : '';
@@ -71,7 +75,7 @@ export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): st
       ${desc}
       <div class="info-divider"></div>
       <div class="info-row"><span>状态</span><span class="${owned || purchaseable ? 'info-accent' : 'info-dim'}">${status}</span></div>
-      <div class="info-row"><span>解锁条件</span><span>${ctx.escapeHtml(condText)}</span></div>
+      <div class="info-row"><span>解锁条件</span><span>${condText}</span></div>
       ${priceRow}
       ${multRow}
       ${scopeRow}
