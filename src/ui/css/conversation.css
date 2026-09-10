@@ -3,7 +3,8 @@
    （自 styles.css 拆出，区块顺序与原文件一致）
    ============================================================ */
 
-/* 对话空间沿用 panel → panel-body 的内容契约；内部 chat-stream 承担唯一主滚动。 */
+/* 对话空间沿用 panel → panel-body 的内容契约；内部 chat-stream 承担唯一主滚动。
+   顶栏由统一结构区块 renderPanelHeaderRegion 产出（panel-tabs-region），正文内边距与一般聊天一致。 */
 .conversation-panel {
    overflow: hidden;
 }
@@ -19,7 +20,7 @@
    min-width: 0;
    min-height: 0;
    overflow: hidden;
-   padding: 0;
+   padding: var(--panel-body-padding, 14px);
 }
 
 .conversation-pane .chat-pane {
@@ -28,30 +29,19 @@
    height: auto;
 }
 
+/* 底部回复按钮与一般聊天共用同款容器语义：只排布间隔，内边距由 panel-body 统一提供。 */
 .conversation-footer {
    flex-shrink: 0;
-   padding: 14px 0;
    display: flex;
    flex-direction: column;
    gap: 4px;
 }
 
-.conversation-header {
-   display: flex;
-   align-items: center;
-   flex: 0 0 46px;
-   gap: 10px;
-   height: 46px;
-   padding: 0 12px;
-   border-bottom: 1px solid var(--line);
-   margin-bottom: 14px;
-}
-
 .conversation-back {
    display: grid;
    place-items: center;
-   width: 30px;
-   height: 30px;
+   width: var(--panel-tabs-control-height, 30px);
+   height: var(--panel-tabs-control-height, 30px);
    border: 1px solid var(--line);
    border-radius: 10px;
    background: transparent;
@@ -66,11 +56,21 @@
    color: var(--cyan);
 }
 
+/* 顶栏内容：返回键 + 标题行；宿主 presentation-host-content 内撑满并与控件等高居中。 */
+.conversation-heading {
+   display: flex;
+   align-items: center;
+   flex: 1 1 auto;
+   gap: 10px;
+   min-width: 0;
+}
+
 .conversation-title {
    flex: 1;
    display: flex;
    align-items: baseline;
    gap: 8px;
+   min-width: 0;
 }
 
 .conversation-title small {

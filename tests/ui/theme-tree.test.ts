@@ -3,7 +3,6 @@ import {
   buildThemeVars,
   deriveNode,
   heroGradient,
-  readableOn,
   THEME_NODES,
   buildThemeTree,
   themeTreeToInlineStyle,
@@ -14,7 +13,7 @@ import {
   type ThemeVarName,
   type ThemeTree,
 } from '../../src/ui/theme-tree';
-import { LIGHTNESS_THRESHOLD } from '../../src/arona-clicker/services/color-system';
+import { THEME_LIGHTNESS_THRESHOLD, readableOnColor } from '../../src/engine/core/color';
 import type { ColorGroupId } from '../../src/engine/types';
 import type { ColorGroupDef } from '../../src/data-services/contracts/color';
 
@@ -87,7 +86,7 @@ describe('theme-tree：色彩树设定工具', () => {
     expect(vars['panel']).toBe('#101828');
     expect(vars['ink-on-panel']).toBe('#ffffff');
     expect(vars['muted-on-panel']).toBe('color-mix(in srgb, #ffffff 58%, transparent)');
-    expect(readableOn('#101828')).toBe('#ffffff');
+    expect(readableOnColor('#101828')).toBe('#ffffff');
   });
 
   test('TREE-09 引擎真实 token 优先判定背景明暗（深色背景→白字）', () => {
@@ -95,33 +94,33 @@ describe('theme-tree：色彩树设定工具', () => {
     const tokens = { primary: '#3b9eff', bg: '#0d1220' };
     const vars = buildThemeVars(primary, {}, tokens);
     expect(vars['ink-on-canvas']).toBe('#ffffff');
-    expect(readableOn('#0d1220')).toBe('#ffffff');
+    expect(readableOnColor('#0d1220')).toBe('#ffffff');
   });
 
   test('TREE-10 readableOn 直接按背景色返回白/黑', () => {
-    expect(readableOn('#0d1220')).toBe('#ffffff');
-    expect(readableOn('#f5f9ff')).toBe('hsl(220 18% 12%)');
+    expect(readableOnColor('#0d1220')).toBe('#ffffff');
+    expect(readableOnColor('#f5f9ff')).toBe('hsl(220 18% 12%)');
   });
 
   test('TREE-10b 引擎 HSL 阈值保持原值（token 派生用），UI 感知亮度另设', () => {
-    // 引擎层 LIGHTNESS_THRESHOLD（HSL 明度模型）用于 primary→token 派生，保持原值
-    expect(LIGHTNESS_THRESHOLD).toBe(0.38);
+    // 引擎层 THEME_LIGHTNESS_THRESHOLD（HSL 明度模型）用于 primary→token 派生，保持原值
+    expect(THEME_LIGHTNESS_THRESHOLD).toBe(0.38);
   });
 
   test('TREE-10c 感知亮度判定：中等蓝色判为暗底 → 白字（#3d83f2）', () => {
     // #3d83f2 的 HSL 明度≈0.59（旧模型判亮底黑字），但感知亮度 Y≈0.24 偏低
     // → 应判为暗底，其上文本用白色（send-bubble/chat-bubble 需求）
-    expect(readableOn('#3d83f2')).toBe('#ffffff');
+    expect(readableOnColor('#3d83f2')).toBe('#ffffff');
     // 夏莱蓝 #3b82f6 感知亮度与 #3d83f2 几乎相同 → 同为白字（一致性）
-    expect(readableOn('#3b82f6')).toBe('#ffffff');
+    expect(readableOnColor('#3b82f6')).toBe('#ffffff');
     // 深底 → 白字；近白底 → 黑字
-    expect(readableOn('#101828')).toBe('#ffffff');
-    expect(readableOn('#f5f9ff')).toBe('hsl(220 18% 12%)');
+    expect(readableOnColor('#101828')).toBe('#ffffff');
+    expect(readableOnColor('#f5f9ff')).toBe('hsl(220 18% 12%)');
   });
 
   test('TREE-10d 感知亮度达到 0.75 后才切换为深色文字', () => {
-    expect(readableOn('#e0e0e0')).toBe('#ffffff');
-    expect(readableOn('#e1e1e1')).toBe('hsl(220 18% 12%)');
+    expect(readableOnColor('#e0e0e0')).toBe('#ffffff');
+    expect(readableOnColor('#e1e1e1')).toBe('hsl(220 18% 12%)');
   });
 
   test('TREE-11 resource-bar 使用的 panel-light 背景感知文字：暗化时翻白字', () => {

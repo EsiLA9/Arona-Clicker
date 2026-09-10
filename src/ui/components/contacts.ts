@@ -8,6 +8,7 @@
 import { UIContext } from '../context';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
 import { renderSendButton } from './center-panel';
+import { renderPanelHeaderRegion } from './tabs';
 import { renderBackground } from '../background-service';
 import { renderPresentationRegion } from '../presentation-service';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
@@ -229,18 +230,23 @@ export function renderConversationView(
 
   const unreadCount = game.story.readyStepCount(variantId);
 
+  // 顶部栏复用中心栏统一结构区块（renderPanelHeaderRegion）：与聊天/日志顶栏共享
+  // 宿主渲染色、等高 token 与内边距，不再手写独立 header。
+  const header = `
+    <div class="conversation-heading">
+      <button class="conversation-back" data-conversation-back aria-label="返回一般聊天" title="返回一般聊天">‹</button>
+      <div class="conversation-title">
+        <b>${ctx.escapeHtml(variant.displayName)}</b>
+        <small>对话空间${unreadCount > 0 ? ` · ${unreadCount} 条未读` : ''}</small>
+      </div>
+    </div>`;
+
   return `
     <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-theme-scope="center.conversation">
       ${renderBackground(ctx.background, 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
+      ${renderPanelHeaderRegion(ctx, 'center', header)}
       <div class="conversation-pane panel-body" data-conversation="${ctx.escapeHtml(variantId)}">
-        <div class="conversation-header panel-header">
-          <button class="conversation-back" data-conversation-back aria-label="返回一般聊天" title="返回一般聊天">‹</button>
-          <div class="conversation-title">
-            <b>${ctx.escapeHtml(variant.displayName)}</b>
-            <small>对话空间${unreadCount > 0 ? ` · ${unreadCount} 条未读` : ''}</small>
-          </div>
-        </div>
         <div class="chat-pane">
           <div class="chat-stream conversation-stream">
             ${renderChatHistory(entries, ctx)}
@@ -249,9 +255,9 @@ export function renderConversationView(
           ${renderChatTexts(ctx, chatTexts)}
           ${openingBanner ? renderOpeningBanner(ctx, openingBanner) : ''}
           ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
-        </div>
-        <div class="conversation-footer">
-          ${footer}
+          <div class="conversation-footer">
+            ${footer}
+          </div>
         </div>
       </div>
     </section>`;

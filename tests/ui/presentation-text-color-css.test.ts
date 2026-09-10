@@ -83,6 +83,18 @@ describe('表现宿主文字颜色 CSS 契约', () => {
     expect(layoutCss).toContain('padding: var(--panel-body-padding, 14px)');
   });
 
+  test('游戏与商店顶栏控件共用等高 token，保持顶栏高度一致', () => {
+    const regionStart = chatCss.indexOf('.panel-tabs-region {');
+    expect(regionStart).toBeGreaterThanOrEqual(0);
+    const regionRule = chatCss.slice(regionStart, chatCss.indexOf('}', regionStart));
+    expect(regionRule).toContain('--panel-tabs-control-height: 30px');
+    expect(chatCss).toContain('.panel-tabs-region .switch-tab');
+    expect(chatCss).toContain('min-height: var(--panel-tabs-control-height)');
+    // 商店标题与商店 Tab 都消费同一 token，不再写死高度。
+    expect(layoutCss).toContain('height: var(--panel-tabs-control-height, 30px)');
+    expect(layoutCss).not.toContain('height: 30px; padding: 5px 10px;');
+  });
+
   test('聊天气泡覆盖通用宿主的透明背景规则', () => {
     expect(css).toContain('.presentation-host-target.chat-bubble-npc');
     expect(css).toContain('background: var(--theme-node-npc-bubble, #4c5b70)');
@@ -90,14 +102,17 @@ describe('表现宿主文字颜色 CSS 契约', () => {
     expect(css).toContain('background: var(--theme-node-player-bubble, #4a8aca)');
   });
 
-  test('通讯录对话 Panel 收敛外框裁剪与正文滚动责任', () => {
+  test('通讯录对话 Panel 复用统一顶栏与正文内边距契约', () => {
     const contacts = readFileSync(new URL('../../src/ui/components/contacts.ts', import.meta.url), 'utf8');
     expect(contacts).toContain('conversation-pane panel-body');
-    expect(contacts).toContain('conversation-header panel-header');
+    // 顶栏不再是手写 header，而是统一结构区块（与聊天/日志顶栏同一宿主与渲染色）。
+    expect(contacts).toContain("renderPanelHeaderRegion(ctx, 'center'");
+    expect(contacts).not.toContain('conversation-header');
     expect(conversationCss).toContain('.conversation-panel');
     expect(conversationCss).toContain('overflow: hidden');
     expect(conversationCss).toContain('.conversation-pane.panel-body');
-    expect(conversationCss).toContain('padding: 0');
+    expect(conversationCss).toContain('padding: var(--panel-body-padding, 14px)');
+    expect(conversationCss).not.toContain('.conversation-header');
   });
 
   test('表现宿主保持背景节点与正文节点的直接子层级契约', () => {
@@ -105,6 +120,7 @@ describe('表现宿主文字颜色 CSS 契约', () => {
     const tabs = readFileSync(new URL('../../src/ui/components/tabs.ts', import.meta.url), 'utf8');
     expect(service).toContain('>${background}<div class="presentation-host-content">');
     expect(tabs).toContain('panel-tabs-region presentation-host-target');
-    expect(tabs).toContain('${renderPresentationHostBackground(ctx, tabsHost)}${renderTabs(ctx, panel, tabs, active)}');
+    expect(tabs).toContain('${renderPresentationHostBackground(ctx, tabsHost)}${inner}');
+    expect(tabs).toContain('renderPanelHeaderRegion');
   });
 });

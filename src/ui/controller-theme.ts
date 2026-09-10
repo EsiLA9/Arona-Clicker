@@ -5,14 +5,16 @@
 //    CSS 变量注入的运行时逻辑）
 // ============================================================
 
-import { THEME_NODES, buildThemeVars, heroGradient, type ThemeVarName } from './theme-tree';
-import { entityKeyOf, hexToRgbTriplet } from '../arona-clicker/services/color-system';
+import { THEME_NODES, buildThemeTree, buildThemeVars, heroGradient, type ThemeTree, type ThemeVarName } from './theme-tree';
+import { entityKeyOf } from '../arona-clicker/services/color-system';
+import { rgbTriplet } from '../engine/core/color';
 import type { UIController } from './controller';
 import { buildBackgroundView, renderBackground } from './background-service';
+import type { ResolvedTheme } from '../engine/core/theme-runtime';
 import { buildPresentationView, renderPresentationHostBackground } from './presentation-service';
 import { DEFAULT_PANEL_OPACITY } from './presentation-config';
 import { createUIContext, type UIContext } from './context';
-import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, resolveScopedThemeNodes, resolveThemeNodes } from './theme-palette';
+import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, resolveScopedThemeNodes, resolveThemeNodes, type ThemeNodeName } from './theme-palette';
 import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
 import { syncOuterBackground } from './outer-background';
 
@@ -159,7 +161,7 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   for (const [key, value] of Object.entries(tokens)) {
     style.setProperty(`--ac-${key}`, value);
   }
-  style.setProperty('--ac-primary-rgb', hexToRgbTriplet(tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY));
+  style.setProperty('--ac-primary-rgb', rgbTriplet(tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY));
   // 界面语义层：由色彩树展开，引擎 --ac-* 优先、否则自动衍生；
   // 传入真实 tokens 使背景节点上的文字色（--ink-on-*）按背景明暗正确选白/黑
   const vars = buildThemeVars(tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY, {}, tokens);
@@ -167,6 +169,13 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
     style.setProperty(`--${key}`, value);
   }
   const palette = resolved.palette.length > 0 ? resolved.palette : [tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY];
+  // 画布文字色按「多图层背景栈的实际合成色」判定，而非只看 tokens.bg：
+  // Area / 自定义主题常用深色图层（或半透明叠加）覆盖整页，只读 bg 会写反字色。
+  const ink = buildBackgroundView(resolved.background, ctrl.game.pics, tokens, resolved.systemColorLayerIgnored, palette, rootThemeVars(resolved)).ink;
+  if (ink) {
+    style.setProperty('--ink-on-canvas', ink.text);
+    style.setProperty('--muted-on-canvas', `color-mix(in srgb, ${ink.text} 58%, transparent)`);
+  }
   style.setProperty('--theme-palette-1', palette[0] ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY);
   style.setProperty('--theme-palette-2', palette[1] ?? palette[0] ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY);
   const nodeOverrides = new Map(Object.entries(resolved.nodeOverrides) as [import('./theme-palette').ThemeNodeName, string][]);
@@ -239,9 +248,27 @@ function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, pa
   });
 }
 
+/**
+ * :root 实际注入的变量表（与 applyTheme 同一构造路径）。
+ * 背景合成色服务用它求值 var()——只有这里才是 :root 作用域的真值。
+ */
+export function rootThemeVars(resolved: ResolvedTheme): ThemeTree {
+  const primary = resolved.tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY;
+  const palette = resolved.palette.length > 0 ? resolved.palette : [primary];
+  const nodeOverrides = new Map(Object.entries(resolved.nodeOverrides) as [ThemeNodeName, string][]);
+  return buildThemeTree(resolved.tokens, primary, palette, nodeOverrides);
+}
+
 export function backgroundView(ctrl: UIController) {
   const theme = ctrl.game.colorSystem.runtimeTheme();
-  return buildBackgroundView(theme.background, ctrl.game.pics, theme.tokens, theme.systemColorLayerIgnored);
+  return buildBackgroundView(
+    theme.background,
+    ctrl.game.pics,
+    theme.tokens,
+    theme.systemColorLayerIgnored,
+    theme.palette,
+    rootThemeVars(theme),
+  );
 }
 
 export function presentationView(ctrl: UIController) {

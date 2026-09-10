@@ -33,14 +33,14 @@ describe('服务工作区', () => {
         section: 'all', selectedPackId: null, draftEnabledIds: [], draftOrder: [], validation: null, lastResult: null,
       } : undefined,
     });
-    expect(html).toContain('class="service-workspace"');
+    expect(html).toContain('data-workspace-frame="service-');
     expect(html).toContain(`>${title}<`);
     expect(html).toContain(action);
     expect(html).toContain('service-navigation');
     expect(html).toContain('service-inspector');
-    expect(html).toContain(`data-theme-host-id="centerPanel.${service}.navigation"`);
-    expect(html).toContain(`data-theme-host-id="centerPanel.${service}.main"`);
-    expect(html).toContain(`data-theme-host-id="centerPanel.${service}.inspector"`);
+    expect(html).toContain(`data-theme-host-id="leftPanel.service.${service}.navigation"`);
+    expect(html).toContain(`data-theme-host-id="centerPanel.service.${service}.main"`);
+    expect(html).toContain(`data-theme-host-id="rightPanel.service.${service}.inspector"`);
     expect(html).toContain(`data-theme-scope="center.${service}.main"`);
   });
 
@@ -68,7 +68,7 @@ describe('服务工作区', () => {
 
   it('正常游戏模式仍渲染原有三栏', () => {
     const html = renderAppShell(createUIContext(game), baseState());
-    expect(html).toContain('class="workspace"');
-    expect(html).not.toContain('class="service-workspace"');
+    expect(html).toContain('data-workspace-frame="game"');
+    expect(html).not.toContain('data-workspace-frame="service-');
   });
 });

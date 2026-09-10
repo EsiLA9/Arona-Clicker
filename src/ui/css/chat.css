@@ -20,13 +20,26 @@
    border-bottom: 1px solid var(--line);
 }
 
-/* Panel Tabs 的顶部结构区块：背景由区域宿主承载，底线只保留一套。 */
+/* Panel Tabs 的顶部结构区块：背景由区域宿主承载，底线只保留一套。
+   --panel-tabs-control-height 是游戏与商店顶栏控件共用的等高 token；
+   顶栏总高固定为“纵向 padding * 2 + 该 token”，两个工作区因此天然等高。 */
 .panel-tabs-region {
-   display: flex;
-   flex: 0 0 auto;
-   min-width: 0;
-   padding: var(--tabs-padding-block, 10px) var(--panel-content-padding-inline, 14px);
-   border-bottom: 1px solid var(--theme-node-line);
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  --panel-tabs-control-height: 30px;
+  padding: var(--tabs-padding-block, 10px) var(--panel-content-padding-inline, 14px);
+  border-bottom: 1px solid var(--theme-node-line);
+}
+
+/* 顶栏内所有控件统一到同一高度，避免一边靠字体行高自然撑开、
+   另一边被写死高度，导致两种工作区顶栏高度漂移。 */
+.panel-tabs-region .switch-tab {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--panel-tabs-control-height);
 }
 
 .panel-tabs-region.ui-cluster--left-tabs-region,
@@ -46,6 +59,16 @@
 }
 
 .panel-tabs-region > .switch-tabs {
+   flex: 1 1 auto;
+}
+
+.panel-tabs-region > .presentation-host-content {
+   display: flex;
+   flex: 1 1 auto;
+   min-width: 0;
+}
+
+.panel-tabs-region > .presentation-host-content > .switch-tabs {
    flex: 1 1 auto;
 }
 

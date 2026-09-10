@@ -39,6 +39,14 @@ export class PopoverManager {
     this.lastWrap = null;
   }
 
+  /** 根节点即将重建时关闭根节点内的悬浮层；body 级弹窗锚点仍可保留。 */
+  dismissBeforeRootMutation(): void {
+    if (!this.lastWrap || !this.root.contains(this.lastWrap)) return;
+    const tooltipEl = document.getElementById('floating-tooltip');
+    tooltipEl?.classList.remove('is-open');
+    this.lastWrap = null;
+  }
+
   bind(): void {
     // #app 持久存在，事件委托监听器只需绑定一次（Init 选择页与游戏页共用同一 root）
     if (this.bound) return;

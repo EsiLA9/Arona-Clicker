@@ -11,18 +11,8 @@
 //   - 卡片结构/字体完全共享 .mini-card，强调卡仅注入 --card-* token
 // ============================================================
 
-import { hexToHsl } from '../arona-clicker/services/color-system';
 import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
-
-/** HSL(h s% l%) 序列化（h/s/l 均为 0~1）。 */
-function hslCss(h: number, s: number, l: number, a?: number): string {
-  const hDeg = Math.round(h * 360);
-  const sPct = Math.round(Math.max(0, Math.min(1, s)) * 100);
-  const lPct = Math.round(Math.max(0, Math.min(1, l)) * 100);
-  return a !== undefined
-    ? `hsla(${hDeg} ${sPct}% ${lPct}% / ${a})`
-    : `hsl(${hDeg} ${sPct}% ${lPct}%)`;
-}
+import { hslCss } from '../engine/core/color';
 
 /**
  * 语义颜色角色注册表（硬编码值）。
@@ -63,14 +53,13 @@ export function resolveColorScheme(scheme: string): string {
  *   - 阴影：accent 透明
  */
 export function accentPalette(hex: string): string {
-  const { h, s, l } = hexToHsl(hex);
-  const strong = hslCss(h, Math.min(s * 1.15, 0.78), Math.min(l * 0.45, 0.38));
-  const mid = hslCss(h, Math.min(s * 1.1, 0.72), Math.min(l * 0.58, 0.48));
-  const border = hslCss(h, Math.min(s * 0.8, 0.55), 0.70);
-  const bgLight = hslCss(h, Math.min(s * 0.22, 0.18), 0.97);
-  const bgMid = hslCss(h, Math.min(s * 0.12, 0.10), 0.95);
-  const textDark = hslCss(h, 0.10, 0.22);
-  const textDim = hslCss(h, 0.08, 0.45);
+  const strong = hslCss(hex, { saturationScale: 1.15, maxSaturation: 0.78, lightnessScale: 0.45, maxLightness: 0.38 }) ?? hex;
+  const mid = hslCss(hex, { saturationScale: 1.1, maxSaturation: 0.72, lightnessScale: 0.58, maxLightness: 0.48 }) ?? hex;
+  const border = hslCss(hex, { saturationScale: 0.8, maxSaturation: 0.55, lightness: 0.70 }) ?? hex;
+  const bgLight = hslCss(hex, { saturationScale: 0.22, maxSaturation: 0.18, lightness: 0.97 }) ?? hex;
+  const bgMid = hslCss(hex, { saturationScale: 0.12, maxSaturation: 0.10, lightness: 0.95 }) ?? hex;
+  const textDark = hslCss(hex, { saturation: 0.10, lightness: 0.22 }) ?? hex;
+  const textDim = hslCss(hex, { saturation: 0.08, lightness: 0.45 }) ?? hex;
   return [
     `--card-bg:linear-gradient(180deg, ${bgLight}, ${bgMid})`,
     `--card-border:${border}`,
@@ -79,7 +68,7 @@ export function accentPalette(hex: string): string {
     `--card-text-strong:${strong}`,
     `--card-text-dim:${textDim}`,
     `--card-accent:${mid}`,
-    `--card-shadow:0 4px 14px ${hslCss(h, s, l, 0.25)}`,
+    `--card-shadow:0 4px 14px ${hslCss(hex, {}, 0.25) ?? hex}`,
     `--card-btn-border:${border}`,
     `--card-btn-text:${strong}`,
     `--card-btn-border-hover:${hex}`,

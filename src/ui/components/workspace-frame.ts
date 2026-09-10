@@ -1,0 +1,36 @@
+import type { UIContext } from '../context';
+import { renderUIHost } from '../presentation-service';
+
+export type WorkspaceSlot = 'left' | 'center' | 'right';
+export interface WorkspaceColumnSpec {
+  slot: WorkspaceSlot;
+  hostId: string;
+  themeScope?: string;
+  className?: string;
+  visible?: boolean;
+  scroll?: 'auto' | 'content' | 'none';
+  header?: string;
+  content: string;
+}
+export interface WorkspaceLayoutSpec { preset?: 'default' | 'center-heavy'; }
+export interface WorkspaceFrameSpec {
+  id: string;
+  left: WorkspaceColumnSpec;
+  center: WorkspaceColumnSpec;
+  right: WorkspaceColumnSpec;
+  layout?: WorkspaceLayoutSpec;
+}
+
+export function renderWorkspaceColumn(ctx: UIContext, column: WorkspaceColumnSpec): string {
+  const visible = column.visible !== false;
+  const className = ['workspace-column', `workspace-column--${column.slot}`, column.className, visible ? '' : 'is-collapsed'].filter(Boolean).join(' ');
+  const header = column.header ? `<header class="workspace-column__header">${column.header}</header>` : '';
+  const body = `<div class="workspace-column__body" data-scroll="${column.scroll ?? 'auto'}">${header}${column.content}</div>`;
+  return renderUIHost(ctx, { hostId: column.hostId, themeScope: column.themeScope, className, content: body });
+}
+
+export function renderWorkspaceFrame(ctx: UIContext, spec: WorkspaceFrameSpec): string {
+  const preset = spec.layout?.preset ?? 'default';
+  const legacyClass = spec.id === 'game' ? 'workspace' : spec.id === 'shop' ? 'shop-workspace' : spec.id.startsWith('service-') ? 'service-workspace' : '';
+  return `<section class="workspace-frame workspace-frame--${spec.id} ${legacyClass}" data-workspace-frame="${spec.id}" data-layout="${preset}">${renderWorkspaceColumn(ctx, spec.left)}${renderWorkspaceColumn(ctx, spec.center)}${renderWorkspaceColumn(ctx, spec.right)}</section>`;
+}

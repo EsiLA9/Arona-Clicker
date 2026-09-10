@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { resolveTheme, contrastRatio, deriveThemeTokens, ColorSystem } from '../../src/arona-clicker/services/color-system';
+import { resolveTheme, deriveThemeTokens, ColorSystem } from '../../src/arona-clicker/services/color-system';
+import { contrastRatio, toHsl } from '../../src/engine/core/color';
 import type { ColorGroupDef } from '../../src/data-services/contracts/color';
 
 /** 从派生出的 hsl(...) 字符串中提取明度值（0~1）。 */
@@ -58,6 +59,19 @@ describe('主题派生：不同数量/色相下自动构造完整 token', () => 
     // bg / bgAlt 各自有效，且 bgAlt 派生值存在
     expect(t['bg']).toBeTruthy();
     expect(t['bgAlt']).toBeTruthy();
+  });
+
+  test('bgAlt 相对主色真实偏移 +12°（回归：色相单位混用导致偏移为空操作）', () => {
+    for (const primary of ['#3b82f6', '#10b981', '#ff5d8f', '#1e3a5f']) {
+      const t = deriveThemeTokens(primary);
+      const bg = toHsl(t['bg'])!;
+      const bgAlt = toHsl(t['bgAlt'])!;
+      const delta = Math.round((bgAlt.h - bg.h + 360) % 360);
+      expect(delta).toBe(12);
+      // 且色相始终落在合法区间内（历史实现会输出 hsl(4481 …) 这类越界值）
+      expect(bgAlt.h).toBeGreaterThanOrEqual(0);
+      expect(bgAlt.h).toBeLessThan(360);
+    }
   });
 
   test('明亮主色不再被误判为深底：夏莱蓝/晴空/泳装/青柠 派生浅底而非近黑', () => {

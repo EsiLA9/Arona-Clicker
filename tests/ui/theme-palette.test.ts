@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { INK_ON_DARK, INK_ON_LIGHT, readableOnColor } from '../../src/engine/core/color';
 import {
   normalizeThemePalette,
   paletteColor,
@@ -88,11 +89,15 @@ describe('theme-palette：主题色列表与语义节点解析', () => {
     expect(gradient).toContain('14%, transparent');
   });
 
-  test('主题色系统的文字判别遵循当前明度阈值', () => {
+  test('主题色系统的文字判别统一走框架契约（与 --ink-on-* 同源）', () => {
     const base = resolveThemeNodes({ colors: ['#4a7dff'] });
-    const below = buildScopedThemeCompatibilityVars({ ...base, panel: '#cccccc' });
-    const above = buildScopedThemeCompatibilityVars({ ...base, panel: '#cdcdcd' });
-    expect(below['--ink-on-panel']).toBe('#ffffff');
-    expect(above['--ink-on-panel']).toBe('#172033');
+    // 浅灰底 → 深字；深底 → 白字
+    const light = buildScopedThemeCompatibilityVars({ ...base, panel: '#f2f2f2' });
+    expect(light['--ink-on-panel']).toBe(INK_ON_LIGHT);
+    const dark = buildScopedThemeCompatibilityVars({ ...base, panel: '#1b1b1b' });
+    expect(dark['--ink-on-panel']).toBe(INK_ON_DARK);
+    // 同一背景在框架、theme-tree、作用域兼容变量三处只有一种答案
+    expect(readableOnColor('#f2f2f2')).toBe(light['--ink-on-panel']);
+    expect(readableOnColor('#1b1b1b')).toBe(dark['--ink-on-panel']);
   });
 });

@@ -5,10 +5,10 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { describe, test, expect, beforeEach } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import {
-  contrastRatio,
   deriveThemeTokens,
   resolveTheme,
 } from '../../src/arona-clicker/services/color-system';
+import { contrastRatio } from '../../src/engine/core/color';
 import type { ColorGroupDef, } from '../../src/data-services/contracts/color';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 

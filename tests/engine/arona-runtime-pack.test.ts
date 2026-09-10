@@ -13,6 +13,30 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(() => game.packManager.removePack('base@1.0.0')).toThrow('内置数据包不可删除');
   });
 
+  test('未启用包可从包库移除；已启用包、内置包与未知包被拒绝', () => {
+    const game = new AronaClickerRuntime();
+    const parsed = {
+      manifest: { modName: 'demo', name: 'Demo', version: '1.0.0', dependencies: [] },
+      datapack: {
+        name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [],
+        activeStories: [], passiveStories: [], stories: [], items: [], characters: [],
+        characterBonuses: [], funcletDefs: [],
+      },
+      images: [], jsonFileCount: 1, ignoredCount: 0,
+    };
+    game.registerParsedPack(parsed);
+    expect(game.getPackCatalog().entries.map(entry => entry.id)).toContain('demo@1.0.0');
+
+    game.removePack('demo@1.0.0');
+    expect(game.getPackCatalog().entries.map(entry => entry.id)).not.toContain('demo@1.0.0');
+
+    game.registerParsedPack(parsed);
+    game.setPackEnabled('demo@1.0.0', true);
+    expect(() => game.removePack('demo@1.0.0')).toThrow('请先将该数据包移出启用集');
+    expect(() => game.removePack('base@1.0.0')).toThrow('内置数据包不可删除');
+    expect(() => game.removePack('missing@1.0.0')).toThrow('不存在的数据包');
+  });
+
   test('默认启动通过启用集加载 base，而不是绕过 PackManager', () => {
     const game = new AronaClickerRuntime();
     game.applyEnabledPacks();

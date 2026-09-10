@@ -25,6 +25,8 @@ export interface ImportExportHost {
   setStarted(): void;
   /** 清除待重启标记（导入成功后清 false）。 */
   clearPendingRestart(): void;
+  /** 导入加入包库成功后回调（用于把工作区定位到新包）。 */
+  onPackImported?(packId: string): void;
   /** 全量重建 UI。 */
   render(): void;
 }
@@ -80,6 +82,7 @@ export class ImportExportService {
             onAction: action => {
               if (action !== 'confirm-import') return;
               game.registerParsedPack!({ manifest, datapack, images, jsonFileCount, ignoredCount });
+              this.host.onPackImported?.(`${manifest.modName}@${manifest.version}`);
               game.devLog.record(`已加入数据包库：${manifest.name} v${manifest.version}（尚未启用）`, { source: 'datapack', level: 'success' });
               toast.show(`已加入包库 <b>${escape(manifest.name)}</b> v${escape(manifest.version)}<br><small>当前运行内容未改变，可在数据包工作区中决定是否启用</small>`, 'success');
               this.host.modal.close();

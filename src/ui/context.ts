@@ -3,6 +3,7 @@ import type { GameView } from '../arona-clicker/contracts/view';
 import type { GameReadModel } from '../arona-clicker/contracts';
 import { displayName } from '../engine/core/display-name';
 import type { BackgroundDecorationView, BackgroundView } from './background-service';
+import { backgroundInkService, type BackgroundInk } from './background-color';
 import type { PresentationView } from './presentation-service';
 import { DEFAULT_PANEL_OPACITY } from './presentation-config';
 import type { PresentationHostState, PresentationTextColorMode } from '../engine/types/theme';
@@ -11,6 +12,8 @@ export interface PresentationHostStateResult {
   background: BackgroundView;
   textColorMode: PresentationTextColorMode;
   source: 'state' | 'default' | 'parent' | 'auto';
+  /** 宿主自身背景图层的合成代表色；无自有背景层时为 null（此时沿用 auto 语义色）。 */
+  ink: BackgroundInk | null;
 }
 
 function mergeDecoration(base: BackgroundDecorationView | undefined, overlay: BackgroundDecorationView | undefined): BackgroundDecorationView | undefined {
@@ -74,7 +77,28 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
     }
     return undefined;
   };
+  /**
+   * 宿主背景栈的合成代表色（含其下方的全局背景）。
+   * 仅当宿主自身声明了背景图层时返回非 null——无自有背景的宿主可能靠 CSS 直接上色
+   * （如 chat-bubble 用 --theme-node-npc-bubble），此时返回 null 让调用方维持 auto，
+   * 继续沿用各语义节点的 --ink-on-*，避免用页面底色误判。
+   */
+  const hostInk = (hostId: string, state: PresentationHostState): BackgroundInk | null => {
+    const hostLayers = context.backgroundForHost(hostId, false, state).layers;
+    if (hostLayers.length === 0) return null;
+    return backgroundInkService.ink(hostLayers, {
+      lookup: background?.themeVars,
+      // 宿主背景层多为半透明，须与其下方的全局背景合成后再判定
+      base: background?.ink?.color ?? null,
+    });
+  };
   const resolveTextColorMode = (hostId: string, state: PresentationHostState): Pick<PresentationHostStateResult, 'textColorMode' | 'source'> => {
+    // auto 的语义：宿主自带背景图层时按「多图层合成色」判定深浅，否则维持语义色。
+    const concrete = (mode: PresentationTextColorMode, source: PresentationHostStateResult['source']): Pick<PresentationHostStateResult, 'textColorMode' | 'source'> => {
+      if (mode !== 'auto') return { textColorMode: mode, source };
+      const ink = hostInk(hostId, state);
+      return ink ? { textColorMode: ink.textColorMode, source } : { textColorMode: 'auto', source };
+    };
     let candidate = hostId;
     let first = true;
     while (candidate) {
@@ -85,14 +109,14 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
       // explicit `auto`. Only after the exact state is absent do we inherit
       // the host's default-state configuration.
       const stateMode = state === 'default' ? undefined : host.states?.get(state)?.textColorMode;
-      if (stateMode !== undefined) return { textColorMode: stateMode, source: first ? 'state' : 'parent' };
+      if (stateMode !== undefined) return concrete(stateMode, first ? 'state' : 'parent');
       const defaultMode = host.states?.get('default')?.textColorMode ?? host.textColorMode;
-      if (defaultMode !== undefined) return { textColorMode: defaultMode, source: first ? 'default' : 'parent' };
+      if (defaultMode !== undefined) return concrete(defaultMode, first ? 'default' : 'parent');
       const separator = resolvedHostId.lastIndexOf('.');
       candidate = separator >= 0 ? resolvedHostId.slice(0, separator) : '';
       first = false;
     }
-    return { textColorMode: 'auto', source: 'auto' };
+    return concrete('auto', 'auto');
   };
   const context: UIContext = {
     game,
@@ -172,6 +196,7 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
     },
     presentationHostState: (hostId, state: PresentationHostState = 'default') => ({
       background: context.backgroundForHost(hostId, false, state),
+      ink: hostInk(hostId, state),
       ...resolveTextColorMode(hostId, state),
     }),
     textColorModeForHost: (hostId, state: PresentationHostState = 'default') => resolveTextColorMode(hostId, state).textColorMode,

@@ -209,6 +209,10 @@
    background: color-mix(in srgb, var(--panel) 82%, var(--gold));
 }
 
+.pack-entry.is-invalid {
+   border-color: var(--danger, #b43b48);
+}
+
 .pack-entry-select {
    display: grid;
    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
@@ -251,6 +255,7 @@
 .pack-state.disabled { color: var(--muted-on-panel); background: color-mix(in srgb, var(--line) 55%, transparent); }
 .pack-state.draft,
 .service-draft-status { color: var(--gold); background: color-mix(in srgb, var(--gold) 16%, transparent); }
+.pack-state.invalid { color: var(--danger, #b43b48); background: color-mix(in srgb, var(--danger, #b43b48) 14%, transparent); }
 
 .service-result.success { color: var(--success, #16805c); background: color-mix(in srgb, var(--success, #16805c) 12%, transparent); }
 .service-result.error { color: var(--danger, #b43b48); background: color-mix(in srgb, var(--danger, #b43b48) 12%, transparent); }

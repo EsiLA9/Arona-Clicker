@@ -71,6 +71,8 @@ export interface PackCatalogCommands {
   setPackEnabled(id: string, enabled: boolean): void;
   reorderPacks(ids: readonly string[]): void;
   applyEnabledPacks(): void;
+  /** 从包库移除数据包（仅允许非内置、未启用包；不触发 reload）。 */
+  removePack?(id: string): void;
   validatePackConfiguration?(draft: PackConfigurationDraft): PackValidationReport;
   applyPackConfiguration?(draft: PackConfigurationDraft): PackApplyResult;
 }

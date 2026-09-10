@@ -6,10 +6,14 @@
 
 import { SaveSystem } from '../data-services/persistence/storage';
 import { openCollectionModal } from './components/collection-modal';
-import { openPackManager } from './controller-modals';
+import { filterPacks, orderPacks } from './components/service-workspace';
 import type { UIController } from './controller';
 import { refreshPresentationHostElements } from './controller-theme';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] ?? character));
+}
 
 function refreshHeaderPresentation(ctrl: UIController): void {
   if (ctrl.root.querySelector('.selector-shell')) {
@@ -65,7 +69,6 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
   scope.querySelector('#import-datapack')?.addEventListener('click', () => {
     ctrl.io.importDatapack();
   });
-  scope.querySelector('#pack-manager')?.addEventListener('click', () => openPackManager(ctrl));
   scope.querySelector('#theme-palette-btn')?.addEventListener('click', (e) => {
     const float = (e.currentTarget as HTMLElement)
       .closest('.theme-palette')
@@ -188,14 +191,30 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
 }
 
 function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
-  const root = ctrl.panelState.datapackWorkspace;
-  if (!root) return;
+  const initialRoot = ctrl.panelState.datapackWorkspace;
+  if (!initialRoot) return;
+  let root = initialRoot;
   const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel & PackCatalogCommands>;
   const render = () => ctrl.render();
+  // resetDatapackDraft 会替换 panelState 上的工作区对象，必须重新取引用，
+  // 否则随后的 lastResult / validation 会写到已被丢弃的旧对象上（反馈丢失）。
+  const resetDraft = (): void => {
+    ctrl.resetDatapackDraft();
+    root = ctrl.panelState.datapackWorkspace ?? root;
+  };
+  const reorderable = (id: string): boolean => {
+    const entry = host.getPackCatalog?.().entries.find(item => item.id === id);
+    return entry ? (entry.capabilities?.reorderable ?? entry.sourceKind !== 'builtin') : false;
+  };
   scope.querySelectorAll<HTMLButtonElement>('[data-datapack-section]').forEach(button => {
     button.addEventListener('click', () => {
-      root.section = button.dataset.datapackSection as typeof root.section;
+      const section = button.dataset.datapackSection as typeof root.section;
+      root.section = section;
       ctrl.panelState.service = 'datapack';
+      const entries = host.getPackCatalog?.().entries ?? [];
+      const enabledIds = new Set(root.draftEnabledIds);
+      const visible = filterPacks(section, orderPacks(entries, root.draftOrder), entries, root.draftOrder, enabledIds);
+      if (root.selectedPackId && !visible.some(entry => entry.id === root.selectedPackId)) root.selectedPackId = null;
       render();
     });
   });
@@ -224,9 +243,15 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
     });
   });
   const move = (id: string, delta: number) => {
+    if (!reorderable(id)) return;
     const index = root.draftOrder.indexOf(id);
     const target = index + delta;
     if (index < 0 || target < 0 || target >= root.draftOrder.length) return;
+    if (!reorderable(root.draftOrder[target])) {
+      root.lastResult = { ok: false, message: '核心数据包固定在最前，不可被越过。' };
+      render();
+      return;
+    }
     const next = [...root.draftOrder];
     [next[index], next[target]] = [next[target], next[index]];
     root.draftOrder = next;
@@ -236,9 +261,43 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
   };
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-up]').forEach(button => button.addEventListener('click', () => move(button.dataset.packDraftUp!, -1)));
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-down]').forEach(button => button.addEventListener('click', () => move(button.dataset.packDraftDown!, 1)));
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-remove]').forEach(button => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.packRemove;
+      if (!id) return;
+      const entry = host.getPackCatalog?.().entries.find(item => item.id === id);
+      if (!entry) return;
+      ctrl.modal.open({
+        title: '从包库移除数据包',
+        body: `<p>确认将 <strong>${escapeHtml(entry.name)}</strong>（${escapeHtml(entry.modName)} v${escapeHtml(entry.version)}）从包库移除？</p><p class="muted">该操作只影响包库，未启用数据包不影响当前运行内容。</p>`,
+        footer: '<button class="modal-close">取消</button><button class="toolbar-button" data-modal-action="remove-datapack">确认移除</button>',
+        onAction: action => {
+          if (action !== 'remove-datapack') return;
+          try {
+            host.removePack?.(id);
+            root.lastResult = { ok: true, message: `已从包库移除：${entry.name}` };
+          } catch (error) {
+            root.lastResult = { ok: false, message: error instanceof Error ? error.message : String(error) };
+          }
+          ctrl.modal.close();
+          render();
+        },
+      });
+    });
+  });
   scope.querySelector('[data-pack-discard]')?.addEventListener('click', () => {
-    ctrl.resetDatapackDraft();
-    render();
+    ctrl.modal.open({
+      title: '放弃数据包草案',
+      body: '<p>将丢弃当前未应用的数据包启用集与加载顺序修改，恢复为已应用的正式配置。</p>',
+      footer: '<button class="modal-close">继续编辑</button><button class="toolbar-button" data-modal-action="discard-datapack-draft">放弃修改</button>',
+      onAction: action => {
+        if (action !== 'discard-datapack-draft') return;
+        resetDraft();
+        root.lastResult = { ok: true, message: '已放弃草案，恢复正式配置。' };
+        ctrl.modal.close();
+        render();
+      },
+    });
   });
   scope.querySelector('[data-pack-validate]')?.addEventListener('click', () => {
     if (!host.validatePackConfiguration) return;
@@ -257,22 +316,28 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       render();
       return;
     }
-    const saved = SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
-    if (!saved) {
-      root.lastResult = { ok: false, message: '应用已停止：当前进度保存失败，数据包序列未重载。' };
-      render();
-      return;
-    }
     ctrl.modal.open({
       title: '确认应用启用集',
-      body: '<p>当前进度已保存。确认后将重新加载数据包序列，并重建 Registry、图片索引和主题资源。</p><p class="muted">这可能重置本次运行中的临时状态。取消则保持旧序列继续运行。</p>',
-      footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="apply-datapack">确认应用</button>',
+      body: '<p>确认前会先保存当前进度；保存成功后才会重新加载数据包序列，并重建 Registry、图片索引和主题资源。</p><p class="muted">保存失败或取消时不会改变正式数据包序列。</p>',
+      footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="apply-datapack">保存并应用</button>',
       onAction: action => {
         if (action !== 'apply-datapack') return;
+        const saved = SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
+        if (!saved) {
+          root.lastResult = { ok: false, message: '应用已停止：当前进度保存失败，数据包序列未重载。' };
+          ctrl.modal.close();
+          render();
+          return;
+        }
         const result = host.applyPackConfiguration!(draft);
-        if (result.ok) ctrl.resetDatapackDraft();
-        root.validation = { ok: result.validation.ok, errors: [...result.validation.errors], warnings: [...result.validation.warnings] };
-        root.lastResult = { ok: result.ok, message: result.message };
+        if (result.ok) {
+          resetDraft();
+          root.lastResult = { ok: true, message: result.message };
+          root.validation = { ok: result.validation.ok, errors: [...result.validation.errors], warnings: [...result.validation.warnings] };
+        } else {
+          root.validation = { ok: result.validation.ok, errors: [...result.validation.errors], warnings: [...result.validation.warnings] };
+          root.lastResult = { ok: false, message: result.message };
+        }
         ctrl.modal.close();
         render();
       },

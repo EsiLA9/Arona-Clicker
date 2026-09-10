@@ -26,6 +26,10 @@ describe('Spot Shop workspace', () => {
     controller.openSpotShopModal(SPOT);
     expect(document.querySelector('.shop-workspace')).not.toBeNull();
     expect(document.querySelector('.shop-workspace__section')?.textContent).toContain('日常补给');
+    expect(document.querySelector('.shop-workspace .panel-tabs-region')).not.toBeNull();
+    expect(document.querySelectorAll('.shop-workspace .panel-tabs-region')).toHaveLength(3);
+    expect(document.querySelector('.shop-workspace .ui-cluster--center-tabs-region .shop-workspace__title')?.textContent).toContain('阿比多斯咖啡角');
+    expect(document.querySelector('.shop-product-card')).not.toBeNull();
     expect(game.colorSystem.runtimeThemeTokens().primary).toBe('#d97706');
 
     document.querySelector<HTMLButtonElement>('[data-shop-select="energy-drink"]')!.click();

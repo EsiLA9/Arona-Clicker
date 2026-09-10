@@ -62,7 +62,7 @@ import { bindThemeActions } from './controller-actions-theme';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 import type { GameCommands } from '../arona-clicker/contracts';
-import type { PackCatalogReadModel } from '../arona-clicker/contracts';
+import type { PackCatalogEntry, PackCatalogReadModel } from '../arona-clicker/contracts';
 import { renderLeftPanel } from './components/rail';
 import { renderCenterPanel, renderChatTab, renderLogTab } from './components/center-panel';
 import { renderRightPanel } from './components/right-panels';
@@ -185,6 +185,7 @@ export class UIController {
       resetSessionPanel: () => resetSessionPanelImpl(this),
       setStarted: () => { this.started = true; },
       clearPendingRestart: () => { this.pendingRestart = false; },
+      onPackImported: packId => this.selectDatapackPack(packId),
       render: () => this.render(),
     });
   }
@@ -376,6 +377,7 @@ export class UIController {
     this.popovers.retainIfAnchored();
     this.scroll.capturePanel(this.root);
     this.scroll.captureChat(this.root);
+    this.popovers.dismissBeforeRootMutation();
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     const uniquePanels = [...new Set(panels)];
     for (const panel of uniquePanels) {
@@ -454,6 +456,7 @@ export class UIController {
     this.scheduleRewardChats();
     // DOM 重建前先捕获各面板滚动位置（条件变化触发的揭示刷新不得把列表拽回顶层）
     this.scroll.capturePanel(this.root);
+    this.popovers.dismissBeforeRootMutation();
     // 聊天流滚动状态单独按比例捕获（跨流恢复）
     this.scroll.captureChat(this.root);
     // 先同步运行时主题层再生成 DOM：层级优先级色胶囊等依赖运行时层状态的 UI
@@ -512,18 +515,32 @@ export class UIController {
       for (const entry of catalog.entries) if (!order.includes(entry.id)) order.push(entry.id);
       workspace.draftOrder = order;
       workspace.draftEnabledIds = workspace.draftEnabledIds.filter(id => known.has(id));
-      if (workspace.selectedPackId && !known.has(workspace.selectedPackId)) workspace.selectedPackId = catalog.entries[0]?.id ?? null;
+      if (workspace.selectedPackId && !known.has(workspace.selectedPackId)) workspace.selectedPackId = this.defaultPackSelection(catalog.entries);
       return;
     }
     const configuration = host.getPackConfiguration?.();
     this.panelState.datapackWorkspace = {
       section: 'all',
-      selectedPackId: catalog.entries[0]?.id ?? null,
+      selectedPackId: this.defaultPackSelection(catalog.entries),
       draftEnabledIds: [...(configuration?.enabledIds ?? catalog.entries.filter(entry => entry.enabled).map(entry => entry.id))],
       draftOrder: [...(configuration?.order ?? catalog.entries.map(entry => entry.id))],
       validation: null,
       lastResult: null,
     };
+  }
+
+  /** 导入完成后将工作区定位到新包（存在工作区时）。 */
+  selectDatapackPack(packId: string): void {
+    const workspace = this.panelState.datapackWorkspace;
+    if (!workspace) return;
+    workspace.section = 'all';
+    workspace.selectedPackId = packId;
+  }
+
+  /** 默认选中可操作的数据包：优先非核心包，避免落到“始终启用”的内置包上。 */
+  private defaultPackSelection(entries: readonly PackCatalogEntry[]): string | null {
+    const preferred = entries.find(entry => !(entry.capabilities?.required ?? entry.sourceKind === 'builtin'));
+    return (preferred ?? entries[0])?.id ?? null;
   }
 
   resetDatapackDraft(): void {

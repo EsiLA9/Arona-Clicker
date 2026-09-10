@@ -11,8 +11,6 @@ import type { ShopWorkspaceState } from './components/app-shell';
 import { renderEnhancementManager } from './components/enhancements';
 import { nodeSource, renderPresentationHostTarget, renderPresentationTargetOptions, renderUserThemeEditor, scopeNodesFor, scopeSource, setPresentationHostState, tokenSource } from './components/user-theme-editor';
 import type { UIController } from './controller';
-import { openPackManagerModal } from './components/pack-manager-modal';
-import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
 import type { BackgroundLayerDef, ComponentPlacementDef, PresentationHostState, PresentationHostStateDef, PresentationLayerDef, PresentationRegion, PresentationTextColorMode } from '../engine/types/theme';
 import { getPresentationTargets } from './presentation-targets';
 import { refreshPresentationHostElements } from './controller-theme';
@@ -853,13 +851,4 @@ function bindUserThemeDrag(modal: Element): void {
 function showUserThemeError(modal: Element, message: string): void {
   const error = modal.querySelector<HTMLElement>('[data-user-theme-error]');
   if (error) { error.textContent = message; error.hidden = false; }
-}
-
-export function openPackManager(ctrl: UIController): void {
-  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel & PackCatalogCommands>;
-  if (!host.getPackCatalog || !host.setPackEnabled || !host.reorderPacks || !host.applyEnabledPacks) {
-    ctrl.toast.show('当前运行时不支持数据包库管理', 'error');
-    return;
-  }
-  openPackManagerModal(ctrl.modal, host as PackCatalogReadModel & PackCatalogCommands, () => ctrl.render());
 }

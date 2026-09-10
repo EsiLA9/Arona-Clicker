@@ -1,5 +1,9 @@
 // ============================================================
-// engine/color-system.ts — 色彩系统（色彩组库存查询/解锁编排/HSL 主题派生）
+// engine/color-system.ts — 色彩系统（色彩组库存查询/解锁编排/主题派生）
+//
+// 色彩数学与判定契约全部来自 engine/core/color（框架）：
+// 本模块只做「色彩组 → 整套 token 的派生规则」与库存/解锁编排，
+// 不再自带 hexToHsl / hslCss / 亮度 / 对比度实现。
 //
 // 主题派生规则：primary 缺省取色彩组主色位（role==='primary'，无则首个 slot）色值；
 // 其余 token 按 HSL 深/浅确定性派生，group.theme 显式配置覆盖派生值；
@@ -15,6 +19,17 @@ import type { Registry } from '../../data-services/registry/registry';
 import type { ColorMutationPort } from '../contracts/mutation';
 import { RuntimeThemeManager, type ThemeLayer, type ThemeTokens } from '../../engine/core/theme-runtime';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
+import {
+  MIN_CONTRAST,
+  THEME_LIGHTNESS_THRESHOLD,
+  adjustHsl,
+  contrastRatio,
+  hslCss,
+  themeSurfaceInk,
+  toHsl,
+  type Hsl,
+  type HslAdjust,
+} from '../../engine/core/color';
 import type { StoredCustomTheme } from '../types/user-theme';
 
 function normalizePalette(colors: readonly string[] | undefined, uiEnabled?: readonly boolean[]): string[] {
@@ -48,72 +63,10 @@ function systemColorBackground(opacity = 1): BackgroundLayerDef {
   return { id: SYSTEM_COLOR_BACKGROUND_ID, kind: 'gradient', value: 'linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)', opacity, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' };
 }
 
-// --- HSL 工具（纯函数，UI 可复用） ---
-
-export function hexToHsl(hex: string): { h: number; s: number; l: number } {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return { h: 220, s: 0.8, l: 0.55 };
-  const int = parseInt(m[1], 16);
-  const r = ((int >> 16) & 255) / 255;
-  const g = ((int >> 8) & 255) / 255;
-  const b = (int & 255) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return { h: 0, s: 0, l };
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h = 0;
-  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-  else if (max === g) h = ((b - r) / d + 2) / 6;
-  else h = ((r - g) / d + 4) / 6;
-  return { h, s, l };
-}
-
-function hslCss(h: number, s: number, l: number): string {
-  return `hsl(${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%)`;
-}
-
-/** hex → "r,g,b" 三元组，供 rgba(var(--ac-primary-rgb), a) 形式消费。 */
-export function hexToRgbTriplet(hex: string): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return '59,158,255';
-  const int = parseInt(m[1], 16);
-  return `${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}`;
-}
-
 /** 实体键：实体主题槽 / 配色设计归属的稳定键。 */
 export function entityKeyOf(kind: 'area' | 'variant' | 'init' | 'enhancement', id: string): string {
   return `${kind}:${id}`;
 }
-
-/** WCAG 相对亮度。 */
-function luminance(cssColor: string): number {
-  const hsl = typeof cssColor === 'string' && cssColor.startsWith('#')
-    ? hexToHsl(cssColor)
-    : parseHslCss(cssColor);
-  // 简化亮度模型：明度主导 + 少量饱和度修正（派生用途足够）
-  return 0.2126 * chan(hsl) + 0.7152 * chan({ ...hsl, l: Math.min(1, hsl.l + 0.02 * hsl.s) }) + 0.0722 * chan(hsl);
-}
-
-function chan({ s, l }: { s: number; l: number }): number {
-  return l < 0.03928 ? l / 12.92 : Math.pow((l + 0.055) / 1.055, 2.4) * (1 - 0.3 * s);
-}
-
-function parseHslCss(css: string): { h: number; s: number; l: number } {
-  const m = /hsl\(\s*(\d+)\s+(\d+)%\s+(\d+)%\s*\)/.exec(css);
-  if (!m) return { h: 0, s: 0, l: 0.5 };
-  return { h: Number(m[1]) / 360, s: Number(m[2]) / 100, l: Number(m[3]) / 100 };
-}
-
-export function contrastRatio(fg: string, bg: string): number {
-  const l1 = luminance(fg);
-  const l2 = luminance(bg);
-  const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
-  return (hi + 0.05) / (lo + 0.05);
-}
-
-const MIN_CONTRAST = 4.5;
 
 /** 实体主题槽的 UI 选项视图。 */
 export interface EntityThemeOption {
@@ -127,50 +80,32 @@ export interface EntityThemeOption {
 }
 
 /**
- * 引擎层「主题浅底/深底」判定的明度阈值（HSL 明度，0~1）。
- * 双层契约（有意为之，勿"统一"掉）：
- *  - 引擎层（本值 0.38 + HSL 明度）：决定整套主题派生走浅底还是深底。
- *    仅配 primary 的主题（夏莱蓝 #3b82f6、晴空 #38bdf8、泳装 #3ec6e0、青柠 #a3e635、
- *    翡翠 #10b981、青碧 #14b8a6、绯红 #e11d48、阿比多斯黄沙 #eab308 等）明度均高于
- *    此线，自动派生为浅底而非近黑；仅真正深色（如墨蓝 #1e3a5f 等）保持深底。
- *  - UI 层（theme-tree 的 PERCEIVED_LIGHT_THRESHOLD 0.30 + WCAG 相对亮度）：
- *    只决定「某个具体背景上文字用白还是黑」，感知亮度模型对中等饱和彩色更准，
- *    与主题整体深浅是两个不同的判定问题，阈值与模型允许不同。
- */
-export const LIGHTNESS_THRESHOLD = 0.38;
-
-/** 由底色推导其上的可读文字色：底亮→深字，底暗→浅字。确定性。 */
-function readableOn(h: number, s: number, l: number): string {
-  return l > LIGHTNESS_THRESHOLD ? hslCss(h, Math.max(s * 0.12, 0.06), 0.16) : '#ffffff';
-}
-
-/**
  * 由 primary 派生整套 UI token（确定性：同输入同输出）。
- * 浅色判定：primary 明度 > LIGHTNESS_THRESHOLD → 浅底深字；否则深底浅字。
- * 背景 bg→bgAlt 取主色到邻近色的轻微渐变（bgAlt 色相偏移 +12）。
+ * 主题面浅/深（HSL 明度 > THEME_LIGHTNESS_THRESHOLD）走框架契约 1：
+ * 浅底 → bg/bgAlt 近白 + text 近黑；深底 → 反之。
+ * bgAlt 相对主色做 +12° 色相偏移。
  * 聊天气泡左(NPC)/右(Player)底色不同且各带派生文字色，确保对比清晰。
  */
 export function deriveThemeTokens(primary: string): Record<string, string> {
-  const { h, s, l } = hexToHsl(primary);
-  const light = l > LIGHTNESS_THRESHOLD;
-  const playerBg = primary;
-  const playerText = readableOn(h, s, l);
-  const npcBg = hslCss(h, Math.max(s * 0.5, 0.14), light ? 0.34 : 0.26);
-  const npcText = readableOn(h, Math.max(s * 0.5, 0.14), light ? 0.34 : 0.26);
+  // 非法输入回退系统默认色，而不是假造一组 HSL
+  const base: Hsl = toHsl(primary) ?? toHsl(SYSTEM_DEFAULT_PRIMARY)!;
+  const light = base.l > THEME_LIGHTNESS_THRESHOLD;
+  const derive = (adjust: HslAdjust): string => hslCss(base, adjust) ?? SYSTEM_DEFAULT_PRIMARY;
+  const npcHsl = adjustHsl(base, { saturationScale: 0.5, minSaturation: 0.14, lightness: light ? 0.34 : 0.26 })!;
   return {
     primary,
-    primaryDim: hslCss(h, s * 0.7, light ? l * 0.85 : Math.min(1, l * 1.15)),
-    bg: hslCss(h, s * 0.12, light ? 0.96 : 0.12),
-    bgAlt: hslCss((h + 12) % 360, s * 0.15, light ? 0.90 : 0.17),
-    text: hslCss(h, s * 0.08, light ? 0.15 : 0.92),
-    textDim: hslCss(h, s * 0.08, light ? 0.40 : 0.65),
-    border: hslCss(h, s * 0.20, light ? 0.82 : 0.28),
+    primaryDim: derive({ saturationScale: 0.7, lightnessScale: light ? 0.85 : 1.15 }),
+    bg: derive({ saturationScale: 0.12, lightness: light ? 0.96 : 0.12 }),
+    bgAlt: derive({ hueShift: 12, saturationScale: 0.15, lightness: light ? 0.90 : 0.17 }),
+    text: derive({ saturationScale: 0.08, lightness: light ? 0.15 : 0.92 }),
+    textDim: derive({ saturationScale: 0.08, lightness: light ? 0.40 : 0.65 }),
+    border: derive({ saturationScale: 0.20, lightness: light ? 0.82 : 0.28 }),
     accent: primary,
     panel: '#ffffff',
-    playerBubble: playerBg,
-    playerBubbleText: playerText,
-    npcBubble: npcBg,
-    npcBubbleText: npcText,
+    playerBubble: primary,
+    playerBubbleText: themeSurfaceInk(base),
+    npcBubble: hslCss(npcHsl) ?? primary,
+    npcBubbleText: themeSurfaceInk(npcHsl),
   };
 }
 
@@ -197,8 +132,8 @@ export function resolveTheme(group: ColorGroupDef): Record<string, string> {
   const fg = tokens['text'];
   const bg = tokens['bg'];
   if (fg && bg && contrastRatio(fg, bg) < MIN_CONTRAST) {
-    const bgL = hexToHsl(bg.startsWith('#') ? bg : '#808080').l;
-    const flipped = bgL > LIGHTNESS_THRESHOLD ? 'hsl(0 8% 10%)' : 'hsl(0 0% 94%)';
+    const bgL = toHsl(bg)?.l ?? 0.5;
+    const flipped = bgL > THEME_LIGHTNESS_THRESHOLD ? 'hsl(0 8% 10%)' : 'hsl(0 0% 94%)';
     if (contrastRatio(flipped, bg) > contrastRatio(fg, bg)) tokens['text'] = flipped;
   }
   return tokens;

@@ -1,7 +1,7 @@
 import { GameInstance } from './runtime-game-instance';
 import { buildSaveData } from './runtime-save-codec';
 import type { GameInstanceOptions } from './runtime-options';
-import { PackManager, type PackConfigurationDraft, type StoredPack } from '../data-services/datapack/pack-manager';
+import { PackManager, PackManagerError, type PackConfigurationDraft, type StoredPack } from '../data-services/datapack/pack-manager';
 import type { ParsedPack } from '../data-services/datapack/pack-parser';
 import type { AsyncPackSnapshotStore, PackSnapshotStore } from '../data-services/datapack/pack-storage';
 import { Registry } from '../data-services/registry/registry';
@@ -123,6 +123,17 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   reorderPacks(ids: readonly string[]): void {
     this.packManager.reorder(ids);
     this.applyEnabledPacks();
+    this.persistPackManagerSnapshot();
+  }
+
+  removePack(id: string): void {
+    const pack = this.packManager.getPack(id);
+    if (!pack) throw new PackManagerError('不存在的数据包：' + id);
+    if (pack.sourceKind === 'builtin') throw new PackManagerError('内置数据包不可删除：' + id);
+    if (this.packManager.snapshot().enabledIds.includes(id)) {
+      throw new PackManagerError('请先将该数据包移出启用集并应用，再移除。');
+    }
+    this.packManager.removePack(id);
     this.persistPackManagerSnapshot();
   }
 

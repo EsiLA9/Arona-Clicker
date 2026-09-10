@@ -7,6 +7,7 @@ import { ChatEntry, ChatTextEntry } from './story';
 import { renderServiceWorkspace } from './service-workspace';
 import type { ShopSession } from '../../arona-clicker/services/shop-service';
 import { renderShopWorkspace } from './shop';
+import { renderWorkspaceFrame } from './workspace-frame';
 
 export type DatapackWorkspaceSection = 'all' | 'enabled' | 'disabled' | 'issues' | 'import';
 
@@ -108,8 +109,7 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
     return renderConsoleFrame(ctx, renderServiceWorkspace(ctx, service, state), '服务工作区 · 只读视图');
   }
   if (state.workspace?.type === 'shop') {
-    const shop = renderShopWorkspace(ctx, state.workspace);
-    return renderConsoleFrame(ctx, `<section class="workspace shop-workspace">${shop.left}${shop.center}${shop.right}</section>`, 'SPOT FUNCTION · SHOP WORKSPACE');
+    return renderConsoleFrame(ctx, renderShopWorkspace(ctx, state.workspace), 'SPOT FUNCTION · SHOP WORKSPACE');
   }
   const conversation = state.conversationVariantId
     ? {
@@ -118,13 +118,12 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
         chatTexts: state.studentChatTexts[state.conversationVariantId] ?? [],
       }
     : undefined;
-  return renderConsoleFrame(ctx, `
-      <section class="workspace">
-        ${renderLeftPanel(ctx, state)}
-        ${renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null)}
-        ${renderRightPanel(ctx, state.rightTab, state.selectedVariantId)}
-      </section>
-    `, 'TS-HTML ENGINE · NO NETWORK');
+  return renderConsoleFrame(ctx, renderWorkspaceFrame(ctx, {
+    id: 'game',
+    left: { slot: 'left', hostId: 'leftPanel', themeScope: 'left.game', className: 'game-workspace__left', content: renderLeftPanel(ctx, state), scroll: 'none' },
+    center: { slot: 'center', hostId: 'centerPanel', themeScope: 'center.game', className: 'game-workspace__center', content: renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null), scroll: 'none' },
+    right: { slot: 'right', hostId: 'rightPanel', themeScope: 'right.game', className: 'game-workspace__right', content: renderRightPanel(ctx, state.rightTab, state.selectedVariantId), scroll: 'none' },
+  }), 'TS-HTML ENGINE · NO NETWORK');
 }
 
 function renderConsoleFrame(ctx: UIContext, body: string, footerNote: string): string {

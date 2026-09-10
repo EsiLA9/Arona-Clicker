@@ -34,6 +34,7 @@ export function renderSelectorPage(ctrl: UIController, initialFace: SelectionFac
     SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
   }
   const context = createUIContext(ctrl.game, backgroundViewImpl(ctrl), presentationViewImpl(ctrl));
+  ctrl.popovers.dismissBeforeRootMutation();
   ctrl.selectorPage.reset();
   ctrl.root.innerHTML = renderSelectorPageView(
     context,

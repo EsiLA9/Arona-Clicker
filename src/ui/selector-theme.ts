@@ -9,10 +9,12 @@
 import type { EnhancementDef } from '../data-services/contracts/enhancement';
 import type { BackgroundLayerDef, ThemeDef, ThemeNodeName } from '../engine/types/theme';
 import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
-import { deriveThemeTokens, entityKeyOf, hexToRgbTriplet } from '../arona-clicker/services/color-system';
+import { deriveThemeTokens, entityKeyOf } from '../arona-clicker/services/color-system';
+import { rgbTriplet } from '../engine/core/color';
 import { getEnhancementReveal } from './components/tooltip-reveal';
 import { createUIContext, type UIContext } from './context';
 import { buildBackgroundView, renderBackground, type BackgroundView } from './background-service';
+import { backgroundInkService } from './background-color';
 import { buildThemeTree, themeTreeToInlineStyle, type ThemeTree } from './theme-tree';
 import { buildPresentationView, type PresentationView } from './presentation-service';
 import type { SelectionFace } from './components/global-enhancement-select';
@@ -231,6 +233,20 @@ function localTreeStyle(tree: ThemeTree): string {
   return themeTreeToInlineStyle(tree);
 }
 
+/**
+ * 给投影背景附上「选择页投影作用域」的真值：
+ * tree 就是写进顶栏/视口/圆盘的局部变量表，合成色与宿主文字色都以它为准。
+ */
+function withScopeVars(view: BackgroundView, vars: ThemeTree): BackgroundView {
+  return {
+    layers: view.layers,
+    themeVars: vars,
+    get ink() {
+      return backgroundInkService.ink(view.layers, { lookup: vars });
+    },
+  };
+}
+
 export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focusedEntityId: string | null): SelectorThemeProjection {
   const resumeId = activeInitId(ctx);
   const focusId = focusedEntityId ?? (face === 'init' ? resumeId : null);
@@ -299,14 +315,17 @@ export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focuse
     theme: selected.theme,
     tree,
     inlineStyle: localTreeStyle(tree),
-    background: mergeSelectorBackgrounds(baseBackground, focusBackground, areaBackground),
+    background: withScopeVars(mergeSelectorBackgrounds(baseBackground, focusBackground, areaBackground), tree),
     presentation,
   };
 }
 
 /** 为选择页顶栏建立局部只读上下文，不把聚焦主题写回运行时场景栈。 */
 export function createSelectorPresentationContext(ctx: UIContext, projection: SelectorThemeProjection): UIContext {
-  return createUIContext(ctx.game, ctx.background, projection.presentation);
+  // 必须用「选择页投影背景」而非 ctx.background（游戏页运行时背景）：
+  // 顶栏变量表是 projection.tree，按钮底色（--ui-button-bg → --theme-node-panel-light）
+  // 在这个局部作用域求值；拿运行时 token 判深浅会得出与渲染相反的文字色。
+  return createUIContext(ctx.game, projection.background, projection.presentation);
 }
 
 /** 选择页专用超级背景内的双缓冲 HTML 外壳；背景层仍由 background-service 统一安全渲染。 */
@@ -326,5 +345,5 @@ export function selectorThemeStyle(projection: SelectorThemeProjection): string 
 }
 
 export function selectorPrimaryRgb(primary: string): string {
-  return hexToRgbTriplet(primary);
+  return rgbTriplet(primary);
 }

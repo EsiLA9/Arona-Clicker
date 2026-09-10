@@ -27,6 +27,15 @@ export function renderTabs(
   return `<div class="ui-cluster ui-cluster--${panel}-tabs switch-tabs"><div class="switch-tabs-content" role="tablist">${buttons}</div></div>`;
 }
 
+/**
+ * panel 顶部结构区块的宿主外壳：Tabs 与非 Tabs 内容共用同一宿主、渲染色与等高 token。
+ * 所有顶栏都必须经此产出，避免手写 header 与统一顶栏不对齐、也不带渲染色。
+ */
+function renderPanelRegionShell(ctx: UIContext, panel: string, inner: string): string {
+  const tabsHost = `${panel}Panel.tabs`;
+  return `<div class="ui-cluster ui-cluster--${panel}-tabs-region panel-tabs-region presentation-host-target" data-theme-host-id="${tabsHost}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost?.(tabsHost) ?? 'auto'}">${renderPresentationHostBackground(ctx, tabsHost)}${inner}</div>`;
+}
+
 /** 渲染属于 panel 顶部结构区块的 Tabs 区域。 */
 export function renderPanelTabsRegion(
   ctx: UIContext,
@@ -34,6 +43,10 @@ export function renderPanelTabsRegion(
   tabs: TabDef[],
   active: string,
 ): string {
-  const tabsHost = `${panel}Panel.tabs`;
-  return `<div class="ui-cluster ui-cluster--${panel}-tabs-region panel-tabs-region presentation-host-target" data-theme-host-id="${tabsHost}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost?.(tabsHost) ?? 'auto'}">${renderPresentationHostBackground(ctx, tabsHost)}${renderTabs(ctx, panel, tabs, active)}</div>`;
+  return renderPanelRegionShell(ctx, panel, renderTabs(ctx, panel, tabs, active));
+}
+
+/** 渲染 panel 顶部结构区块的非 Tabs 内容（如对话空间返回栏），复用统一宿主与渲染色。 */
+export function renderPanelHeaderRegion(ctx: UIContext, panel: string, content: string): string {
+  return renderPanelRegionShell(ctx, panel, `<div class="presentation-host-content">${content}</div>`);
 }
