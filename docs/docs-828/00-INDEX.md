@@ -141,10 +141,12 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | 编号 | 目标 | 状态 |
 | --- | --- | --- |
 | [[docs/0x-plan&work/active/roadmap-0001-datapack-management]] | Datapack 多包管理落地（S1-S7） | 进行中（S1a/S1b 已落地） |
-| [[docs/0x-plan&work/active/roadmap-0002-spot-shop]] | Spot 商店（购买集 / 发现限制） | 待设计裁定 |
+| [[docs/0x-plan&work/active/roadmap-0002-spot-shop]] | Spot 商店（购买集 / 发现限制） | 进行中（P0 已裁定） |
 | [[docs/0x-plan&work/active/roadmap-0003-gacha-pool-model]] | 卡池模型规范化（banner ↔ 角色池解耦） | 待设计裁定 |
 | [[docs/0x-plan&work/active/roadmap-0004-chara-ownership]] | Chara 拥有体系 Init 化 + 追赶统计 | 待设计裁定 |
 | [[docs/0x-plan&work/completed/roadmap-0005-engine-domain-consolidation]] | 基础引擎、基础数据服务与 AronaClicker 领域内聚 | ✅ 已完成（2026-09-02） |
+
+| [[docs/0x-plan&work/active/adr-0007-shop-transaction-boundaries]] | Spot 商店的购买记录、原子提交与事件边界 | 🟡 已裁定，待实现 |
 
 ## 命令速查
 

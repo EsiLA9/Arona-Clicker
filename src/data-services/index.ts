@@ -16,6 +16,7 @@ export type { CultivateCurveDef } from './contracts/cultivate-curve';
 export type { AffectionConfigDef } from './contracts/affection-config';
 export type { ResourceDisplayDef, TagDef, CharacterBonusTable, ResourceAmount } from './contracts/common';
 export type { EntryEffectDef, InitDef, InitPurchaseError, InitPurchaseResult, AreaDef, SpotDef, SpotFunctionalityDef, LevelUpgradeDef } from './contracts/world';
+export type { ShopDef, ShopSectionDef, ShopEntryDef, ShopOffer, ShopPrice, ShopCost, ShopStock, ShopPurchasePolicy, ShopPurchaseScope, ShopPurchaseRecord, ShopId } from './contracts/shop';
 export type { PackEntry, PackSource } from './datapack/source';
 export { parsePackManifest, ManifestError } from './datapack/manifest';
 export type { PackManifest } from './datapack/manifest';

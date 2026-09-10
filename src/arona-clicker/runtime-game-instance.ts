@@ -65,6 +65,7 @@ import { PassivePoolSystem } from './services/passive-pool-system';
 import { CharaProfileService } from './services/chara-profile-service';
 import { PicService } from '../data-services/assets/pic-service';
 import { UserThemeService } from './services/user-theme-service';
+import { ShopService } from './services/shop-service';
 
 import type { SaveData } from './contracts/save-data';
 import { clearTagResidueByMod, summarizeTagResidue, type TagOverrideResidue } from './state/tag-residue';
@@ -123,6 +124,8 @@ export class GameInstance {
   /** 图片资产服务（game.pics 门面）。 */
   readonly picService!: PicService;
   readonly userThemeService!: UserThemeService;
+  /** Spot 商店交易门面。 */
+  readonly shopService!: ShopService;
 
   // 运行时状态
   private _state!: PlayerState;
@@ -210,6 +213,7 @@ export class GameInstance {
     this.funcletExecutor.setDefs(this.registry.funcletDefs as Map<string, import('../engine/types').FuncletDef>);
     // Character 引用完整性：全部数据包加载完成后统一校验（跨包引用允许）
     this.registry.validateCharacterRefs();
+    this.registry.validateShopRefs();
     this.registry.validateTagRefs();
     this.effectEngine.setState(this._state);
     this.tickSystem.setState(this._state);

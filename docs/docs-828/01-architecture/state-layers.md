@@ -15,7 +15,7 @@
 
 ## per-Init 字段单一事实源（T3）
 
-- `src/arona-clicker/state/per-init-fields.ts` 的 `PER_INIT_FIELD_SPECS` 是 per-Init 字段清单的**唯一登记处**（17 字段）：普通字段 `field()` / Spot 容器 `spotField()` / Character 归属容器 `characterContainer()`。
+- `src/arona-clicker/state/per-init-fields.ts` 的 `PER_INIT_FIELD_SPECS` 是 per-Init 字段清单的**唯一登记处**（18 字段）：普通字段 `field()` / Spot 容器 `spotField()` / Character 归属容器 `characterContainer()`。
 - `src/arona-clicker/state/init-savepoint.ts` 的 save / clear / restore 全部遍历 SPECS；`state-factory.createDefaultState` 负责产品运行时初始状态。
 - **编译期键守卫**（`PER_INIT_KEY_GUARD`）：SPECS 键集合与 `InitSnapshot` 键集合双向 `Exclude` 断言——新增 per-Init 字段漏登记直接编译错误。
 - 新增 per-Init 字段流程：`PlayerState` + `InitSnapshot` 加字段 → `PER_INIT_FIELD_SPECS` 登记（含 `scope` 归属，Character 容器字段声明 `characterPersistConfig` 三分支：roster/gacha/chatRead）。

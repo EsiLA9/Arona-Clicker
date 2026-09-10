@@ -37,4 +37,4 @@
 
 ## 状态
 
-**待设计裁定** → 裁定后产出 ADR 并拆实现切片。
+**进行中** → P0–P2 已完成：二维 PurchaseScope、事务边界、Shop Datapack/Registry/Schema、交易服务与 `shopPurchased` 事件均已落地。P3 的基础 Spot 弹层已接入，完整 Shop presentation 与浏览器验收仍在进行。

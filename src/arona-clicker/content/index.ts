@@ -6,6 +6,7 @@ export { baseItems } from './items';
 export { baseAreas } from './areas';
 export { baseInits } from './inits';
 export { baseSpots } from './spots';
+export { baseShops } from './shops';
 export { allCharacters } from './characters';
 export { baseEnhancements, baseGlobalEnhancements } from './enhancements';
 export { baseDropTables } from './drop-tables';

@@ -32,6 +32,13 @@ import type { EffectMutationPort } from '../contracts/effect-mutation';
 import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../../engine/extra/index';
 import { applyEffects as applyEffectsImpl, applyEffect as applyEffectImpl } from './effect-ops';
 
+export interface ShopTransactionCommit {
+  resourceDeltas: Record<string, number>;
+  itemDeltas: Record<string, number>;
+  purchaseRecords: Array<{ lifetime: 'global' | 'init'; key: string; quantity: number }>;
+  purchasedEvents: Extract<GameEvent, { type: 'shopPurchased' }>[];
+}
+
 function activeThemeOf(state: AronaClickerState): ActiveThemeSelection {
   return state.activeTheme ?? { kind: 'system' };
 }
@@ -611,6 +618,48 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
       newTotal: next,
     });
     return true;
+  }
+
+  /**
+   * 交易专用的一次提交点：调用方必须先解析与验证完整 plan。
+   * 所有状态和 Stats 先稳定落下，再统一派发事件，监听者不会观察到半完成交易。
+   */
+  commitShopTransaction(commit: ShopTransactionCommit): void {
+    const state = this.current;
+    for (const [resource, delta] of Object.entries(commit.resourceDeltas)) {
+      if (delta === 0) continue;
+      const bucket = this.resourceBucket(resource);
+      bucket[resource] = (bucket[resource] ?? 0) + delta;
+    }
+    for (const [itemId, delta] of Object.entries(commit.itemDeltas)) {
+      if (delta === 0) continue;
+      const next = (state.inventory[itemId] ?? 0) + delta;
+      if (next === 0) delete state.inventory[itemId];
+      else state.inventory[itemId] = next;
+    }
+    for (const record of commit.purchaseRecords) {
+      const bucket = record.lifetime === 'global'
+        ? (state.globalShopPurchaseRecords ??= {})
+        : (state.shopPurchaseRecords ??= {});
+      const current = bucket[record.key]?.purchasedQuantity ?? 0;
+      bucket[record.key] = { purchasedQuantity: current + record.quantity };
+    }
+    // Stats 先记录，后续事件携带的惰性 StatsContext 已是完整交易后的快照。
+    for (const [resource, delta] of Object.entries(commit.resourceDeltas)) {
+      if (delta !== 0) this.statsService?.recordResourceChange(resource, delta);
+    }
+    for (const [itemId, delta] of Object.entries(commit.itemDeltas)) {
+      if (delta !== 0) this.statsService?.recordItemChange(itemId, delta);
+    }
+    for (const [resource, delta] of Object.entries(commit.resourceDeltas)) {
+      if (delta === 0) continue;
+      this.emit({ type: 'resourceChanged', resource, delta, newValue: this.resourceBucket(resource)[resource] ?? 0 });
+    }
+    for (const [itemId, delta] of Object.entries(commit.itemDeltas)) {
+      if (delta === 0) continue;
+      this.emit({ type: 'itemCollected', itemId, count: delta, newTotal: state.inventory[itemId] ?? 0 });
+    }
+    for (const event of commit.purchasedEvents) this.emit(event);
   }
 
   unlockInit(initId: string): boolean {

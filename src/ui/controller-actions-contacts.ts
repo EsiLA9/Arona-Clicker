@@ -71,6 +71,9 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
   scope.querySelectorAll<HTMLButtonElement>('[data-open-spot-gacha]').forEach(button => {
     button.addEventListener('click', () => ctrl.openSpotGachaModal(button.dataset.openSpotGacha!));
   });
+  scope.querySelectorAll<HTMLButtonElement>('[data-open-spot-shop]').forEach(button => {
+    button.addEventListener('click', () => ctrl.openSpotShopModal(button.dataset.openSpotShop!));
+  });
   // 抽取按钮在 body 级弹窗内，由 openGachaModal 打开时单独绑定（bindGachaButtons）
   ctrl.bindGachaButtons(scope.querySelectorAll('[data-gacha]'));
   // 角色成长
@@ -91,4 +94,46 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
       ctrl.refreshPanels(['right']);
     });
   });
+  if (ctrl.panelState.workspace?.type === 'shop') {
+    const workspace = ctrl.panelState.workspace;
+    scope.querySelectorAll<HTMLButtonElement>('[data-shop-select]').forEach(button => button.addEventListener('click', () => {
+      const id = button.dataset.shopSelect;
+      if (!id) return;
+      const entry = ctrl.game.registry.shops.get(workspace.shopId)?.entries.find(item => item.id === id);
+      if (!entry) return;
+      ctrl.modal.open({
+        title: entry.name,
+        body: `<label class="shop-quantity-field">购买数量 <input id="shop-quantity" type="number" min="1" max="999" value="1" inputmode="numeric"></label>`,
+        footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="shop-add">加入清单</button>',
+        onAction: action => {
+          if (action !== 'shop-add') return;
+          const amount = Math.max(1, Math.floor(Number(document.querySelector<HTMLInputElement>('#shop-quantity')?.value) || 1));
+          const line = workspace.session.lines().find(item => item.entryId === id);
+          workspace.session.setQuantity(id, (line?.quantity ?? 0) + amount);
+          workspace.feed.push({ kind: 'add', text: `已加入 ${entry.name} ×${amount}。` });
+          ctrl.modal.close();
+          ctrl.render();
+        },
+      });
+    }));
+    scope.querySelector('[data-shop-cancel]')?.addEventListener('click', () => {
+      workspace.session.clear();
+      workspace.feed.push({ kind: 'cancel', text: '已撤销当前选择。' });
+      ctrl.render();
+    });
+    scope.querySelector('[data-shop-checkout]')?.addEventListener('click', () => {
+      const result = ctrl.game.shopService.checkout(workspace.shopId, workspace.spotId, workspace.session.lines());
+      if (!result.success) {
+        workspace.feed.push({ kind: 'error', text: `结算失败：${result.reason}` });
+        ctrl.toast.show(`结算失败：${result.reason}`, 'error');
+        ctrl.render();
+        return;
+      }
+      workspace.session.clear();
+      workspace.feed.push({ kind: 'checkout', text: '结算完成。' });
+      ctrl.toast.show('购买完成', 'success');
+      ctrl.render();
+    });
+    scope.querySelectorAll('[data-shop-leave]').forEach(button => button.addEventListener('click', () => ctrl.disposeShopWorkspace()));
+  }
 }

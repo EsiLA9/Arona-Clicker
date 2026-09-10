@@ -25,6 +25,7 @@ import { baseAffectorPacks } from './affector-packs';
 import { baseResourceDisplays } from './resource-displays';
 import { baseExtras } from './extras';
 import { themeShowcaseAreas, themeShowcaseEnhancements, themeShowcaseInits, themeShowcasePassiveStories, themeShowcaseSpots } from './theme-showcase';
+import { baseShops } from './shops';
 
 /** Product composition root; it is independent from the test datapack entry. */
 export const defaultDatapack: Datapack = {
@@ -44,6 +45,7 @@ export const defaultDatapack: Datapack = {
   colorGroups: baseColorGroups,
   colorEquipments: baseColorEquipments,
   gachaPools: baseGachaPools,
+  shops: baseShops,
   triggerDefs: baseTriggers,
   passivePools: basePassivePools,
   passiveStories: [...basePassiveStories, ...baseAffectionSteps, ...themeShowcasePassiveStories],

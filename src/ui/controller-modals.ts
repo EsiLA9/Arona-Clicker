@@ -6,6 +6,8 @@
 
 import { createUIContext } from './context';
 import { renderGachaBody, renderSpotGachaBody } from './components/contacts';
+import { ShopSession } from '../arona-clicker/services/shop-service';
+import type { ShopWorkspaceState } from './components/app-shell';
 import { renderEnhancementManager } from './components/enhancements';
 import { nodeSource, renderPresentationHostTarget, renderPresentationTargetOptions, renderUserThemeEditor, scopeNodesFor, scopeSource, setPresentationHostState, tokenSource } from './components/user-theme-editor';
 import type { UIController } from './controller';
@@ -109,6 +111,38 @@ export function openEnhancementManager(ctrl: UIController): void {
     });
   };
   render();
+}
+
+/** Spot Shop：进入三栏 workspace；Session 与主题由 controller 状态管理。 */
+export function openSpotShopModal(ctrl: UIController, spotId: string): void {
+  const spot = ctrl.game.world.spots.get(spotId);
+  const functionality = spot && ctrl.game.spotFunctionalitySystem.functionalitiesOf(spot, ctrl.game.state)
+    .find(fn => fn.kind === 'shop' && fn.shopId);
+  if (!spot || !functionality?.shopId) return;
+  const shop = ctrl.game.registry.shops.get(functionality.shopId);
+  if (ctrl.panelState.workspace?.type === 'shop') ctrl.disposeShopWorkspace();
+  const themeId = `shop-workspace:${spotId}:${functionality.shopId}`;
+  if (shop?.theme) {
+    ctrl.game.colorSystem.pushEphemeralTheme({
+      id: themeId,
+      scope: 'ephemeral',
+      groupId: shop.theme.colorGroupId,
+      palette: shop.theme.palette,
+      tokens: shop.theme.tokens,
+      nodeOverrides: shop.theme.nodes,
+      background: shop.theme.background,
+      presentation: shop.theme.presentation,
+    });
+    ctrl.refreshTheme();
+  }
+  const workspace: ShopWorkspaceState = {
+    type: 'shop', spotId, shopId: functionality.shopId!, session: new ShopSession(),
+    feed: [{ kind: 'enter', text: `进入 ${shop?.name ?? '商店'}。` }],
+    returnContext: { leftTab: ctrl.panelState.leftTab, centerTab: ctrl.panelState.centerTab, rightTab: ctrl.panelState.rightTab, selectedVariantId: ctrl.panelState.selectedVariantId, conversationVariantId: ctrl.panelState.conversationVariantId },
+    themeId,
+  };
+  ctrl.panelState.workspace = workspace;
+  ctrl.render();
 }
 
 export function openUserThemeEditor(ctrl: UIController): void {

@@ -19,13 +19,14 @@ import type { CharacterVariantDef } from '../contracts/character-variant';
 import type { CultivateCurveDef } from '../contracts/cultivate-curve';
 import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contracts/color';
 import type { GachaPoolDef } from '../contracts/gacha-pool';
+import type { ShopDef } from '../contracts/shop';
 
 export const DATAPACK_LIST_FIELDS = [
   'inits', 'areas', 'spots', 'enhancements', 'activeStories', 'passiveStories', 'stories',
   'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'funcletDefs', 'characters',
   'characterBonuses', 'resourceDisplays', 'pics', 'charaProfiles', 'passivePools',
   'characterVariants', 'cultivateCurves', 'colorGroups', 'colorEquipments', 'themeDesigns',
-  'gachaPools', 'tags',
+  'gachaPools', 'shops', 'tags',
 ] as const;
 export type DatapackListField = (typeof DATAPACK_LIST_FIELDS)[number];
 
@@ -120,6 +121,7 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
   if (lists.colorEquipments) datapack.colorEquipments = lists.colorEquipments as ColorEquipmentDef[];
   if (lists.themeDesigns) datapack.themeDesigns = lists.themeDesigns as ThemeDesignDef[];
   if (lists.gachaPools) datapack.gachaPools = lists.gachaPools as GachaPoolDef[];
+  if (lists.shops) datapack.shops = lists.shops as ShopDef[];
   if (lists.tags) datapack.tags = lists.tags as TagDef[];
   if (extras) datapack.extras = extras;
   return datapack;

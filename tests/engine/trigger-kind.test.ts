@@ -16,7 +16,7 @@ describe('Trigger 映射扩展（T4：character / cultivated）', () => {
   // 编译期穷尽：手列 kind 全集必须覆盖 TriggerEventKind（缺项/多项即编译错误）
   const kindList: Record<TriggerEventKind, true> = {
     tick: true, resource: true, spotLevel: true, item: true, story: true,
-    init: true, area: true, character: true, cultivated: true,
+    init: true, area: true, shop: true, character: true, cultivated: true,
   };
 
   let game: GameInstance;

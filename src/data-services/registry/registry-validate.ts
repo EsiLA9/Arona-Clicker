@@ -68,6 +68,7 @@ export function validateDatapack(dp: Datapack): void {
   checkDup(dp.activeStories, 'active story entry');
   checkDup(dp.passiveStories, 'passive story entry');
   checkDup(dp.items, 'item');
+  if (dp.shops) checkDup(dp.shops, 'shop');
   if (dp.dropTables) checkDup(dp.dropTables, 'drop table');
   if (dp.funcletDefs) checkDup(dp.funcletDefs, 'funclet');
   if (dp.characters) checkDup(dp.characters, 'character');
@@ -161,6 +162,7 @@ export function validateDatapack(dp: Datapack): void {
   checkEntityIds(dp.spots, 'spot', 'Spot');
   checkEntityIds(dp.enhancements, 'enhancement', 'Enhancement');
   checkEntityIds(dp.items, 'item', 'Item');
+  checkEntityIds(dp.shops, 'shop', 'Shop');
   checkEntityIds(dp.dropTables, 'droptable', 'Drop table');
   // 匿名 Trigger（id 缺省 / anon: 派生前缀）不参与三段式校验
   checkEntityIds(

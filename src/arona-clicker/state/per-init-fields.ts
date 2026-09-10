@@ -88,6 +88,7 @@ export const PER_INIT_FIELD_SPECS = [
   field('flags', () => ({})), field('triggersCompleted', () => []), field('currentAreaId', () => undefined), extrasSpec,
   characterContainer('roster', 'roster'), characterContainer('fragments', 'roster'),
   characterContainer('gachaState', 'gacha'), characterContainer('chatRead', 'chatRead'),
+  field('shopPurchaseRecords', () => ({})),
 ];
 
 type SpecKeys = (typeof PER_INIT_FIELD_SPECS)[number]['key'];

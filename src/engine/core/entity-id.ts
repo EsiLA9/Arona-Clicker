@@ -42,6 +42,7 @@ export const ENTITY_TYPES: ReadonlySet<string> = new Set([
   'cultivatecurve',
   'resourcedisplay',
   'affectionconfig',
+  'shop',
   'tag',
 ]);
 

@@ -70,6 +70,8 @@ export function renderProductionNodes(ctx: UIContext): string {
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'hardResetInit');
       const gacha = reveal.utilityKnown
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'gacha');
+      const shop = reveal.utilityKnown
+        && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'shop');
       const action = owned
         ? '升级'
         : purchaseable
@@ -114,6 +116,9 @@ export function renderProductionNodes(ctx: UIContext): string {
                 : ''}
               ${gacha
                 ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-open-spot-gacha="${spot.id}" title="在该设施招募角色">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">招募</span></button>`
+                : ''}
+              ${shop
+                ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-open-spot-shop="${spot.id}" title="打开商店">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">商店</span></button>`
                 : ''}
             </div>
           </div>

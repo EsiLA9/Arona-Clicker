@@ -11,6 +11,7 @@ import type { ResourceAmount } from '../../engine/contracts/resource';
 import type { RevealTrigger } from '../../engine/types/reveal';
 import type { TriggerDef } from '../../engine/types/trigger';
 import type { ExtraCompound } from '../../engine/types/extra';
+import type { ShopId } from './shop';
 
 export interface EntryEffectDef {
   first?: boolean;
@@ -116,7 +117,9 @@ export interface SpotDef {
 export interface SpotFunctionalityDef {
   id: string;
   condition?: ConditionGroup;
-  kind: 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha';
+  kind: 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop';
+  /** @ref shops */
+  shopId?: ShopId;
   resource?: string;
   amountPerLevel?: number;
   extra?: ExtraCompound;

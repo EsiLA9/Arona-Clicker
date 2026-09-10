@@ -37,6 +37,7 @@ import {
 import {
   openGachaModal as openGachaModalImpl,
   openSpotGachaModal as openSpotGachaModalImpl,
+  openSpotShopModal as openSpotShopModalImpl,
   bindGachaButtons as bindGachaButtonsImpl,
   openEnhancementManager as openEnhancementManagerImpl,
   openUserThemeEditor as openUserThemeEditorImpl,
@@ -252,7 +253,7 @@ export class UIController {
   }
 
   /** 立即落账待入流奖励（存档前调用防丢；计时中途调用先撤计时器）。 */
-  flushRewardChatsNow(): void {
+  private flushRewardChatsNow(): void {
     if (this.rewardTimer !== null) {
       clearTimeout(this.rewardTimer);
       this.rewardTimer = null;
@@ -360,6 +361,12 @@ export class UIController {
 
   /** 只替换发生变化的工作区面板，保留其它面板、焦点与事件状态。 */
   refreshPanels(panels: Array<'left' | 'center' | 'right'>): void {
+    // Workspace 接管三栏时，普通 panel renderer 不能局部覆盖 workspace。
+    // 当前 Shop 是首个 workspace；后续 Function workspace 统一从这里分流。
+    if (this.panelState.workspace?.type === 'shop') {
+      this.render();
+      return;
+    }
     if (!this.started || !this.root.querySelector('.workspace')) {
       this.render();
       return;
@@ -454,7 +461,7 @@ export class UIController {
     this.syncRuntimeTheme();
     this.ensureDatapackWorkspaceState();
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    if (!this.started && this.panelState.service === 'game') {
+    if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace) {
       // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
       renderInitSelectImpl(this);
       return;
@@ -598,6 +605,7 @@ export class UIController {
    * 都回到一致的默认页面（左=区域、中=聊天、右=Spot），聊天流清空。
    */
   resetSessionPanel(): void {
+    this.disposeShopWorkspace();
     this.themeFloatOpen = false;
     resetSessionPanelImpl(this);
   }
@@ -694,6 +702,25 @@ export class UIController {
   /** 打开"当前游戏 · 强化管理"弹窗：查看 + 移除已购买的 Enhancement（委托 controller-modals）。 */
   openEnhancementManager(): void {
     openEnhancementManagerImpl(this);
+  }
+
+  disposeShopWorkspace(): void {
+    const workspace = this.panelState.workspace;
+    if (!workspace) return;
+    workspace.session.clear();
+    this.game.colorSystem.popEphemeralTheme(workspace.themeId);
+    this.panelState.workspace = undefined;
+    this.panelState.leftTab = workspace.returnContext.leftTab;
+    this.panelState.centerTab = workspace.returnContext.centerTab;
+    this.panelState.rightTab = workspace.returnContext.rightTab;
+    this.panelState.selectedVariantId = workspace.returnContext.selectedVariantId;
+    this.panelState.conversationVariantId = workspace.returnContext.conversationVariantId;
+    this.refreshTheme();
+    this.render();
+  }
+
+  openSpotShopModal(spotId: string): void {
+    openSpotShopModalImpl(this, spotId);
   }
 
   openUserThemeEditor(): void { openUserThemeEditorImpl(this); }

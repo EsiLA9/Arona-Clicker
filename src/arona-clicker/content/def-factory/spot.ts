@@ -5,6 +5,7 @@ import type { Condition, ConditionGroup, ValueExpression } from '../../../engine
 import type { AreaId, SpotId } from '../../../engine/types/ids';
 import type { RevealTarget, RevealTrigger } from '../../../engine/types/reveal';
 import type { LevelUpgradeDef, SpotDef, SpotFunctionalityDef } from '../../../data-services/contracts/world';
+import type { ShopId } from '../../../data-services/contracts/shop';
 import { Expr } from '../../../engine/def-factory/expr';
 import { revealResource } from '../../../engine/def-factory/reveal';
 
@@ -36,6 +37,7 @@ export class SpotBuilder {
   restartInit(id: string): this { this._functionalities.push({ id, kind: 'restartInit' }); return this; }
   hardResetInit(id: string): this { this._functionalities.push({ id, kind: 'hardResetInit' }); return this; }
   gacha(id: string): this { this._functionalities.push({ id, kind: 'gacha' }); return this; }
+  shop(id: string, shopId: ShopId): this { this._functionalities.push({ id, kind: 'shop', shopId }); return this; }
   gachaPools(...poolIds: GachaPoolId[]): this { this._gachaPools.push(...poolIds); return this; }
   reveal(target: RevealTarget, condition?: Condition | ConditionGroup): this { this._revealTriggers.push(condition ? { reveal: target, condition } : { reveal: target }); return this; }
   revealResource(target: RevealTarget, resourceId: string, amount: number): this { this._revealTriggers.push(revealResource(target, resourceId, amount)); return this; }

@@ -5,6 +5,8 @@ import { renderCenterPanel } from './center-panel';
 import { renderRightPanel } from './right-panels';
 import { ChatEntry, ChatTextEntry } from './story';
 import { renderServiceWorkspace } from './service-workspace';
+import type { ShopSession } from '../../arona-clicker/services/shop-service';
+import { renderShopWorkspace } from './shop';
 
 export type DatapackWorkspaceSection = 'all' | 'enabled' | 'disabled' | 'issues' | 'import';
 
@@ -71,12 +73,43 @@ export interface PanelState {
   storyGate?: StoryGateState | null;
   /** 当前活跃流的开幕标题横幅（render 前由 ChatStream.activeBanner 计算；null = 无）。 */
   openingBanner?: ActiveBanner | null;
+  /** 当前接管三栏的临时功能工作区；Shop 是首个实现。 */
+  workspace?: WorkspaceState;
 }
+
+export interface ShopReturnContext {
+  leftTab: string;
+  centerTab: string;
+  rightTab: string;
+  selectedVariantId: string | null;
+  conversationVariantId: string | null;
+}
+
+export interface ShopFeedEntry {
+  kind: 'enter' | 'add' | 'remove' | 'checkout' | 'error' | 'cancel';
+  text: string;
+}
+
+export interface ShopWorkspaceState {
+  type: 'shop';
+  spotId: string;
+  shopId: string;
+  session: ShopSession;
+  feed: ShopFeedEntry[];
+  returnContext: ShopReturnContext;
+  themeId: string;
+}
+
+export type WorkspaceState = ShopWorkspaceState;
 
 export function renderAppShell(ctx: UIContext, state: PanelState): string {
   const service = state.service ?? 'game';
   if (service !== 'game') {
     return renderConsoleFrame(ctx, renderServiceWorkspace(ctx, service, state), '服务工作区 · 只读视图');
+  }
+  if (state.workspace?.type === 'shop') {
+    const shop = renderShopWorkspace(ctx, state.workspace);
+    return renderConsoleFrame(ctx, `<section class="workspace shop-workspace">${shop.left}${shop.center}${shop.right}</section>`, 'SPOT FUNCTION · SHOP WORKSPACE');
   }
   const conversation = state.conversationVariantId
     ? {

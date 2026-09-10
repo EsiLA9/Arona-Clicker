@@ -525,6 +525,33 @@ h3 {
 }
 
 .panel.ui-cluster--left-panel, .panel.ui-cluster--center-panel, .panel.ui-cluster--right-panel { border-color: var(--theme-node-line); background: transparent; color: var(--theme-node-text); }
+
+/* Spot Function workspace: scoped separately from modal and ordinary panel content. */
+.shop-workspace { grid-template-columns: minmax(170px, .8fr) minmax(300px, 1.6fr) minmax(220px, 1fr); }
+.shop-workspace .left-panel,
+.shop-workspace .center-panel,
+.shop-workspace .right-panel { min-width: 0; }
+.shop-workspace__panel-body { display: flex; flex-direction: column; gap: 0; min-height: 0; overflow: auto; padding: 0; }
+.shop-workspace__tab { flex: 0 0 auto; }
+.shop-workspace__catalog, .shop-workspace__settlement, .shop-workspace__feed { display: grid; gap: 12px; padding: 14px; }
+.shop-workspace__catalog > header p { color: var(--muted); margin: 0; }
+.shop-workspace__section { display: grid; gap: 8px; }
+.shop-workspace__section > header { border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent); padding-bottom: 6px; }
+.shop-workspace__section > header h3 { margin: 0; }
+.shop-workspace__section > header p { margin: 3px 0 0; color: var(--muted); font-size: .85rem; }
+.shop-workspace__entry { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.shop-workspace__entry > div { display: grid; gap: 3px; min-width: 0; }
+.shop-workspace__entry small { color: var(--muted); font-size: .78rem; }
+.shop-workspace__entry.closed { opacity: .68; }
+.shop-workspace__feed ul, .shop-workspace__settlement ul { display: grid; gap: 6px; margin: 0; padding-left: 18px; }
+.shop-workspace__feed h3, .shop-workspace__settlement h3, .shop-workspace__settlement h4 { margin: 0; }
+.shop-workspace__holdings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.shop-holding { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; border-radius: 6px; background: color-mix(in srgb, var(--panel-light) 70%, transparent); }
+.shop-holding small { color: var(--muted); }
+.shop-workspace__actions { display: flex; justify-content: flex-end; gap: 8px; }
+.shop-quantity-field { display: grid; gap: 8px; color: var(--text); }
+.shop-quantity-field input { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; }
+@media (max-width: 760px) { .shop-workspace { grid-template-columns: 1fr; overflow-y: auto; } .shop-workspace__entry { align-items: flex-start; } }
 .ui-control--active, .switch-tab.active { color: var(--theme-node-active); border-color: var(--theme-node-active); }
 
 .panel {

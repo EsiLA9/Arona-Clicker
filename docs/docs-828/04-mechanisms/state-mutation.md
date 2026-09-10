@@ -25,6 +25,7 @@
 | `setFlag` / `setExtra` / `addExtra` / `removeExtra` | 标记/扩展数据 | `flagChanged` / `extraChanged` |
 | `acquireCharacter` | 获得差分（重复转碎片） | 角色获得事件（Trigger kind `character` 侦测） |
 | `applyExp` / `breakthroughStar` | 培养推进 | `cultivated`（`kind: 'exp'` / `'star'`） |
+| `commitShopTransaction` | 已冻结的商店扣费、发货与限购记录一次提交 | 聚合资源/物品事件后逐 CartLine 发 `shopPurchased` |
 
 事件名以 `EVENT_CATALOG`（`src/arona-clicker/contracts/event-catalog.ts`）登记为准；事件联合类型位于 `src/engine/types/events.ts`。新增事件必须同时更新两者，编译期穷尽检查。
 
@@ -40,6 +41,13 @@
 
 - 校验只发生在门面层，但**写状态必须经管道**，保证：统计不错记、事件不漏发、GameNum 失效不遗漏、UI 只读一致性。
 - 直接改 `state` 的调用方会导致 GameNum 陈旧读（失效由事件驱动，见 [[docs/docs-828/04-mechanisms/production]]）。
+
+## Shop transaction
+
+- `ShopService` 先按 checkout 当刻状态解析所有 unit price、Offer 与安全 `onPurchase`，聚合资源/物品 delta，再统一验证余额、库存、容量和门控；preview 仅供 UI 显示，绝不作为扣款依据。
+- 成功时 `commitShopTransaction` 先完整写入 PlayerState 与购买记录，再记 Stats，最后释放资源/物品事件与每 CartLine 一条 `shopPurchased`。失败交易不会写 State、Stats 或 EventBus。
+- 限购事实只存 `globalShopPurchaseRecords` 或当前 Init 的 `shopPurchaseRecords`；scope 的 lifetime 与 owner（shop/spot）共同决定 key。`ShopDef` 本身不保存运行时库存。
+- `ShopSession` 仅持有 `entryId + quantity` 的临时 UI 意图；关闭商店立即销毁，不进入 Save。`onPurchase` 目前只开放可在 commit 前编译的静态 `addResource` / `addItem`，并按 CartLine 执行一次。
 
 ## 相关文档
 

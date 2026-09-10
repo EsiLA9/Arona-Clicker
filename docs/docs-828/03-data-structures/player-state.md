@@ -6,8 +6,8 @@
 
 | 层 | 字段前缀/载体 | 生命周期 | 代表字段 |
 | --- | --- | --- | --- |
-| **Global** | `global*` / 收集类顶层字段 | 跨世界线永久 | `globalResources`、`unlockedInits`、`visitedInits`、`groupsOwned`/`equipmentsOwned`、色彩/装备收集、`spotTagOverrides`、`roster`/`fragments`（归属层由 `characterPersistConfig` 逐块声明，声明为 global 时不进快照） |
-| **per-Init 快照** | `initSnapshots[initId]` | 离开时保存、回时恢复 | `InitSnapshot`：`{ resources, spotLevels, spotManagers, visitedAreas, totalFrames, inventory, 本地 unlockedEnhancements, storyLog, storyReadLogs, flags, triggersCompleted, currentAreaId, extras, roster?, fragments?, gachaState?, chatRead? }`（GlobalEnh 不进入快照） |
+| **Global** | `global*` / 收集类顶层字段 | 跨世界线永久 | `globalResources`、`globalShopPurchaseRecords`、`unlockedInits`、`visitedInits`、`groupsOwned`/`equipmentsOwned`、色彩/装备收集、`spotTagOverrides`、`roster`/`fragments`（归属层由 `characterPersistConfig` 逐块声明，声明为 global 时不进快照） |
+| **per-Init 快照** | `initSnapshots[initId]` | 离开时保存、回时恢复 | `InitSnapshot`：`{ resources, spotLevels, spotManagers, visitedAreas, totalFrames, inventory, 本地 unlockedEnhancements, storyLog, storyReadLogs, flags, triggersCompleted, currentAreaId, extras, shopPurchaseRecords, roster?, fragments?, gachaState?, chatRead? }`（GlobalEnh 不进入快照） |
 | **per-Init 当前** | 顶层字段 | 当前世界线运行时 | `resources`、`flags`、`initExtras`、`inventory`、`spotLevels`、`currentAreaId`、`storyLog`、`visitedAreas` |
 
 **关键约定**：读状态时「当前层有值用当前层，无值回退快照层」——由 `extraFromLayer` / `resourceBucket` 等访问器统一实现（`StateMutationService`）。
@@ -28,6 +28,7 @@
 | `triggersCompleted` | string[] | 已触发的一次性 Trigger（once）id 集合 |
 | `roster` / `fragments` | Record<VariantId, RosterEntry> / Record | 通讯录（持有差分实例）/ 碎片余额（归属随 characterPersistConfig.roster） |
 | `gachaState` | Record<GachaPoolId, GachaPoolState> | 各卡池保底/抽取计数（pity/pulls） |
+| `globalShopPurchaseRecords` / `shopPurchaseRecords` | Record<string, { purchasedQuantity }> | Shop 的 global / 当前 Init 限购事实；key 由 scope 的 owner 与 Shop/Spot 身份派生，余量不写回 Datapack |
 | `studentBlocks` | Record<VariantId, {entryId, setAtFrame}> | 学生对话空间阻断态 |
 | `chatRead` / `passiveCooldowns` | Record | 聊天已读（基础设施保留，消息成分已移除、当前无写入方）/ 被动闲聊冷却表 |
 | `charaCustom` | Record<Character, CharaCustomOverride> | 玩家头像-人名对覆写（见 [[docs/docs-828/02-modules/pics]]） |

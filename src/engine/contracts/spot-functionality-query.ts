@@ -7,6 +7,7 @@ export interface SpotFunctionalityView {
   readonly condition?: ConditionGroup;
   readonly resource?: string;
   readonly amountPerLevel?: number;
+  readonly shopId?: string;
 }
 
 export interface SpotFunctionalitySubject {

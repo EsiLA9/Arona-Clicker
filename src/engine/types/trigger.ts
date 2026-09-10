@@ -19,6 +19,7 @@ export type TriggerEventDef =
   | { kind: 'story'; storyId?: string }
   | { kind: 'init'; initId?: string }
   | { kind: 'area'; areaId?: string }
+  | { kind: 'shop'; shopId?: string; entryId?: string }
   /** 角色差分获得（含重复获得）。variantId 缺省 = 任意角色。 */
   | { kind: 'character'; variantId?: string }
   /** 培养变更。variantId / cultivation 缺省 = 任意差分 / 任意方式。 */

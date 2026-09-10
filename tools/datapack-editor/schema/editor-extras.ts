@@ -338,8 +338,11 @@ const functionalityObject = (): FieldDef =>
       ['linearYield', '线性产出'],
       ['restartInit', '重启世界线'],
       ['hardResetInit', '硬重置世界线'],
+      ['gacha', '招募'],
+      ['shop', '商店'],
     ], '类型', { required: true }),
     r('resource', 'resourceDisplays', '资源'),
+    r('shopId', 'shops', '商店'),
     n('amountPerLevel', '每级量'),
     extraF(),
   ], '功能');
@@ -941,6 +944,53 @@ export const TABLE_META: TableMeta[] = [
       id: () => s('id', '三段式索引（modName:typeName(pic):idName，如 base:avatar(pic):hoshino）', { required: true }),
       src: () => s('src', '来源（直连 URL 或 zip:包内路径）', { required: true }),
       focalPoint: () => o('focalPoint', [n('x', '横向焦点'), n('y', '纵向焦点')], '视觉焦点'),
+    },
+  },
+  {
+    key: 'shops',
+    label: '商店',
+    type: 'ShopDef',
+    idField: 'id',
+    worldlineSplit: true,
+    overrides: {
+      theme: () => themeField('theme', '商店主题'),
+      condition: () => cg('condition', '商店条件'),
+      sections: () => alist('sections', o('$', [
+        s('id', '分区 ID', { required: true }),
+        s('name', '名称', { required: true }),
+        s('description', '描述'),
+        cg('condition', '条件'),
+      ], '分区'), '分区'),
+      entries: () => alist('entries', o('$', [
+        s('id', '商品 ID', { required: true }),
+        s('name', '名称', { required: true }),
+        s('description', '描述'),
+        s('sectionId', '分区 ID'),
+        {
+          key: 'offer', label: '获得物', required: true,
+          type: { kind: 'union', tagField: 'type', variants: [
+            { tag: 'item', label: '物品', fields: [r('itemId', 'items', '物品', { required: true }), i('amount', '数量', { required: true })] },
+            { tag: 'resource', label: '资源', fields: [r('resourceId', 'resourceDisplays', '资源', { required: true }), valueExpressionField('amount', '数量', true)] },
+          ] },
+        },
+        o('price', [alist('unitCosts', {
+          key: '$', label: '单价支付物', required: true,
+          type: { kind: 'union', tagField: 'type', variants: [
+            { tag: 'item', label: '物品', fields: [r('itemId', 'items', '物品', { required: true }), valueExpressionField('amount', '数量', true)] },
+            { tag: 'resource', label: '资源', fields: [r('resourceId', 'resourceDisplays', '资源', { required: true }), valueExpressionField('amount', '数量', true)] },
+          ] },
+        }, '单价支付物')], '价格', { required: true }),
+        cg('condition', '购买条件'),
+        revealTriggersField(),
+        e('visibility', [['hidden-until-available', '未达成时隐藏'], ['show-locked', '显示锁定']], '展示策略'),
+        { key: 'stock', label: '库存', type: { kind: 'union', tagField: 'type', variants: [
+          { tag: 'unlimited', label: '无限', fields: [] },
+          { tag: 'once', label: '限购一次', fields: [] },
+          { tag: 'limited', label: '限量', fields: [i('max', '最大数量', { required: true })] },
+        ] } },
+        o('purchase', [i('min', '最小购买量'), i('maxPerCheckout', '单次上限'), e('quantity', [['single', '单件'], ['multiple', '多件']], '数量模式')], '购买策略'),
+        effectArray('onPurchase', '购买后效果'),
+      ], '商品'), '商品'),
     },
   },
   {

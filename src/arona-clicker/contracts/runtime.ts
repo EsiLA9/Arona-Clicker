@@ -24,6 +24,7 @@ import type { StoryQueryPort } from './story-query';
 import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } from '../../data-services/datapack/pack-manager';
 import type { WorldCatalogQueryPort } from './world-catalog';
 import type { UserThemeService } from '../services/user-theme-service';
+import type { ShopQueryPort } from '../services/shop-service';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -89,6 +90,7 @@ export interface GameReadModel {
   readonly colorEquipmentSystem: ColorEquipmentQueryPort;
   readonly gachaService: GachaQueryPort;
   readonly spotFunctionalitySystem: SpotFunctionalityQueryPort;
+  readonly shopService: ShopQueryPort;
   readonly statsService: StatsQueryContext;
   readonly pics: PicQueryPort;
   readonly userThemeService: UserThemeService;

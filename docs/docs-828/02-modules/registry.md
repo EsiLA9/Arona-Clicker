@@ -28,4 +28,6 @@
 
 ## 相关文档
 
+Shop 表位于 `src/data-services/contracts/shop.ts`，由 `Datapack.shops` 进入 Registry；`Registry.validateShopRefs()` 在完整启用集加载后校验 Spot Function、Section 与 Item 引用。运行时购买记录不写回该表。
+
 [[docs/docs-828/03-data-structures/registry]]（表与索引细节）· [[docs/docs-828/05-conventions/schema-sync]]（改实体字段必须跑的协议）

@@ -57,6 +57,7 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 - `resourceChanged { resource, delta, newValue }` — 生产失效驱动核心 · emit `state-mutation-service` · 订 condition-deps / game-num / trigger-system
 - `spotProduced { spotId, resource, amount }` · `tick-system`（无专属订阅方）
 - `tick { frame }` · `tick-system` · 订 trigger-system（every 分频）
+- `shopPurchased { shopId, spotId, entryId, quantity, resourceCosts, itemCosts, resourceGrants, itemGrants }` — 完整 Shop transaction 提交后按 CartLine 发出 · 订 trigger-system（kind `shop`）
 
 **设施 Spot**
 - `spotLevelChanged { spotId, newLevel }` · 订 affector-engine / condition-deps / game-num / tag-stats / trigger-system

@@ -8,6 +8,7 @@ import type { ActiveStoryEntry, PassiveStoryEntry, StoryEntryDef } from '../../d
 import type { GachaPoolDef } from '../../data-services/contracts/gacha-pool';
 import type { ColorEquipmentDef, ColorGroupDef } from '../../data-services/contracts/color';
 import type { TagPath } from '../../engine/core/tag';
+import type { ShopDef } from '../../data-services/contracts/shop';
 
 export interface CharacterCatalogEntry {
   readonly id: string;
@@ -27,6 +28,7 @@ export interface ContentCatalogQueryPort {
   readonly items: ReadonlyMap<string, ItemDef>;
   readonly characters: ReadonlyMap<string, CharacterCatalogEntry>;
   readonly gachaPools: ReadonlyMap<string, GachaPoolDef>;
+  readonly shops: ReadonlyMap<string, ShopDef>;
   readonly colorGroups: ReadonlyMap<string, ColorGroupDef>;
   readonly colorEquipments: ReadonlyMap<string, ColorEquipmentDef>;
   readonly storyEntries: ReadonlyMap<string, StoryEntryDef>;

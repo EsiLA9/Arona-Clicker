@@ -15,6 +15,7 @@ import type { CharacterPersistConfig, CharacterPersistScope } from '../contracts
 import { GachaMode } from '../contracts/gacha-pool';
 import type { GachaPoolDef } from '../contracts/gacha-pool';
 import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contracts/color';
+import type { ShopDef } from '../contracts/shop';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
 // ============================================================
@@ -78,6 +79,7 @@ export class Registry {
   private _characterVariants: Map<string, CharacterVariantDef> = new Map();
   private _cultivateCurves: Map<string, CultivateCurveDef> = new Map();
   private _gachaPools: Map<string, GachaPoolDef> = new Map();
+  private _shops: Map<string, ShopDef> = new Map();
   private _colorGroups: Map<string, ColorGroupDef> = new Map();
   private _colorEquipments: Map<string, ColorEquipmentDef> = new Map();
   private _themeDesigns: Map<string, ThemeDesignDef> = new Map();
@@ -231,6 +233,11 @@ export class Registry {
         clear: () => this._gachaPools.clear(),
       },
       {
+        table: 'shops',
+        merge: dp => { for (const shop of dp.shops ?? []) this._shops.set(shop.id, shop); },
+        clear: () => this._shops.clear(),
+      },
+      {
         table: 'colorGroups',
         merge: dp => {
           if (dp.colorGroups) for (const g of dp.colorGroups) this._colorGroups.set(g.id, g);
@@ -369,6 +376,7 @@ export class Registry {
   get cultivateCurves(): ReadonlyMap<string, CultivateCurveDef> { return this._cultivateCurves; }
   /** 卡池表（PoolId → Def）。 */
   get gachaPools(): ReadonlyMap<string, GachaPoolDef> { return this._gachaPools; }
+  get shops(): ReadonlyMap<string, ShopDef> { return this._shops; }
   /** 色彩组表（ColorGroupId → Def；唯一色彩实体）。 */
   get colorGroups(): ReadonlyMap<string, ColorGroupDef> { return this._colorGroups; }
   /** 色彩装备表（EquipmentId → Def）。 */
@@ -458,6 +466,35 @@ export class Registry {
    */
   tagDescription(path: TagPath): string | undefined {
     return this.resolveTagDef(path)?.description;
+  }
+
+  /** Shop / Item / Spot Function 的跨包引用完整性。 */
+  validateShopRefs(): void {
+    for (const spot of this._spots.values()) {
+      for (const functionality of spot.functionalities ?? []) {
+        if (functionality.kind === 'shop' && (!functionality.shopId || !this._shops.has(functionality.shopId))) {
+          throw new RegistryError(`Spot ${spot.id} 的 shop Function ${functionality.id} 引用了未定义的 Shop "${functionality.shopId ?? ''}"`);
+        }
+      }
+    }
+    for (const shop of this._shops.values()) {
+      const sections = new Set<string>();
+      for (const section of shop.sections ?? []) {
+        if (sections.has(section.id)) throw new RegistryError(`Shop ${shop.id} 含重复 Section id "${section.id}"`);
+        sections.add(section.id);
+      }
+      const entries = new Set<string>();
+      for (const entry of shop.entries) {
+        if (entries.has(entry.id)) throw new RegistryError(`Shop ${shop.id} 含重复 Entry id "${entry.id}"`);
+        entries.add(entry.id);
+        if (entry.sectionId && !sections.has(entry.sectionId)) throw new RegistryError(`Shop ${shop.id} 的 Entry ${entry.id} 引用了未定义的 Section "${entry.sectionId}"`);
+        const itemRefs = [
+          ...(entry.offer.type === 'item' ? [entry.offer.itemId] : []),
+          ...entry.price.unitCosts.filter(cost => cost.type === 'item').map(cost => cost.itemId),
+        ];
+        for (const itemId of itemRefs) if (!this._items.has(itemId)) throw new RegistryError(`Shop ${shop.id} 的 Entry ${entry.id} 引用了未定义的 Item "${itemId}"`);
+      }
+    }
   }
 
   tagNameForSpotTag(spotId: string, path: TagPath): string {

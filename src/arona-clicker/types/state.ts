@@ -17,6 +17,7 @@ import type { Character } from './ids';
 import type { StoredCustomTheme, ThemeAttachment, UserThemeState } from './user-theme';
 import type { CompletedStory, StoryReadLog } from './story-state';
 import type { GachaPoolState, ProtoStat, RosterEntry } from './character';
+import type { ShopPurchaseRecord } from '../../data-services/contracts/shop';
 
 export type SpotTagOverride = SpotTagOverrideState;
 
@@ -62,6 +63,10 @@ export interface PlayerState {
   themeAttachments?: Record<string, ThemeAttachment>;
   worldPool?: VariantId[];
   protoStats?: Record<string, ProtoStat>;
+  /** 跨世界线的 Shop 购买事实（key 经 ShopPurchaseRecord resolver 生成）。 */
+  globalShopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
+  /** 当前 Init 的 Shop 购买事实（随 InitSnapshot 保存）。 */
+  shopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
 }
 
 export interface InitSnapshot {
@@ -82,6 +87,7 @@ export interface InitSnapshot {
   fragments?: Record<VariantId, number>;
   gachaState?: Record<GachaPoolId, GachaPoolState>;
   chatRead?: Record<ChatMessageId, true>;
+  shopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
 }
 
 export type AronaClickerState = PlayerState;

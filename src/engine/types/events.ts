@@ -45,6 +45,7 @@ export type GameEvent =
   | { type: 'entityDesignUnlocked'; entityKey: string; designId: string }
   | { type: 'chatReadChanged'; messageId: string }
   | { type: 'gachaResolved'; poolId: string; count: number }
+  | { type: 'shopPurchased'; shopId: string; spotId: string; entryId: string; quantity: number; resourceCosts: Record<string, number>; itemCosts: Record<string, number>; resourceGrants: Record<string, number>; itemGrants: Record<string, number> }
   | { type: 'passiveCooldownsChanged'; cooldowns: Record<string, number> }
   | { type: 'studentBlockChanged'; variantId: string; blocked: boolean; entryId?: string }
   | { type: 'charaCustomChanged'; character: Character }

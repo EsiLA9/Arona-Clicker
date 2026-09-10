@@ -92,10 +92,11 @@ export const themeShowcaseSpots: SpotDef[] = [
     .tags(tagPath('theme', 'showcase'), tagPath('display'))
     .build(),
   spot(THEME_SHOWCASE_SPOTS[1], THEME_SHOWCASE_AREA)
-    .name('气泡与状态样本')
-    .desc('展示聊天气泡、状态色与对比度派生效果。')
+    .name('气泡、状态与商店样本')
+    .desc('展示聊天气泡、状态色、对比度派生效果，以及可直接验收的 Spot 商店入口。')
     .cost(0).yield(1).capacity(1).managerBonus(0)
     .tags(tagPath('theme', 'showcase'), tagPath('display'))
+    .shop('base:funclet:theme_showcase_shop', 'base:shop:abydos-cafe')
     .build(),
 ];
 

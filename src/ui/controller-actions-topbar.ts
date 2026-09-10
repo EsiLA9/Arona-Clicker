@@ -34,6 +34,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
         || JSON.stringify(workspace.draftOrder) !== JSON.stringify(formal.order)
       ));
       const switchService = () => {
+        if (ctrl.panelState.workspace?.type === 'shop') ctrl.disposeShopWorkspace();
         ctrl.panelState.service = service;
         ctrl.render();
       };
@@ -132,6 +133,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
   scope.querySelector('#new-game')?.addEventListener('click', () => {
     // 彻底重启：清空全部运行时状态（含 Global 资源 / 已解锁世界线 / 统计），
     // 并删除本地存档，回到首次启动的全新世界线选择。
+    if (ctrl.panelState.workspace?.type === 'shop') ctrl.disposeShopWorkspace();
     ctrl.commands.reset();
     SaveSystem.delete();
     ctrl.started = false;

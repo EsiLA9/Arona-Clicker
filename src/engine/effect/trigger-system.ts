@@ -40,6 +40,7 @@ export const ON_KIND_TO_EVENT: Record<TriggerEventKind, GameEvent['type']> = {
   story: 'storyCompleted',
   init: 'initEntered',
   area: 'areaEntered',
+  shop: 'shopPurchased',
   character: 'characterAcquired',
   cultivated: 'cultivated',
 };
@@ -180,6 +181,10 @@ export class TriggerSystem extends EventDrivenReactor {
       case 'area':
         return event.type === 'areaEntered'
           && (!on.areaId || event.areaId === on.areaId);
+      case 'shop':
+        return event.type === 'shopPurchased'
+          && (!on.shopId || event.shopId === on.shopId)
+          && (!on.entryId || event.entryId === on.entryId);
       case 'character':
         return event.type === 'characterAcquired'
           && (!on.variantId || event.variantId === on.variantId);

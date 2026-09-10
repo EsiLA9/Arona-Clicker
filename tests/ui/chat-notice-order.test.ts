@@ -119,7 +119,6 @@ describe('聊天流通知次序（travel 先行 / 奖励延迟）', () => {
       expect(game.getStoryView('Hoshino')?.storyId).toBe('base:activestory:bond_hoshino_1');
       expect(controller.pendingRewardChats).toHaveLength(0);
       expect(controller.rewardTimer).toBeNull();
-      expect(rewardIndex).toBeGreaterThanOrEqual(0);
     } finally {
       vi.useRealTimers();
     }

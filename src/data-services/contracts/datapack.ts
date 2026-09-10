@@ -37,6 +37,7 @@ import type { PicDef } from './pic';
 import type { CharaProfileDef } from './chara-profile';
 import type { CharacterPersistConfig } from './character-persist';
 import type { GachaPoolDef } from './gacha-pool';
+import type { ShopDef } from './shop';
 
 // --- Datapack 汇总 ---
 
@@ -99,6 +100,8 @@ export interface Datapack {
    * @label 卡池
    */
   gachaPools?: GachaPoolDef[];
+  /** Spot 商店表 */
+  shops?: ShopDef[];
   /**
    * 图片资产表：`mod:type(pic):id` 三段式索引 → URL / zip 包内图片
    * @label 图片

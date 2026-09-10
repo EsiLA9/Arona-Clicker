@@ -26,6 +26,7 @@
 | [[docs/0x-plan&work/active/task-0033-system-color-layer-scope]] | 控件系统颜色层职责收敛与重复背景清理 | 🟡 规划完成，待施工 |
 | [[docs/0x-plan&work/active/task-0034-affector-performance-review]] | Affector / GameNum 性能判别与整改排序 | 🟡 静态核验完成，待施工 |
 | [[docs/0x-plan&work/active/task-0035-condition-presentation-tree]] | Condition Presentation Tree 条件展示树 | 🟡 方案核验完成，待施工 |
+| [[docs/0x-plan&work/active/task-0039-spot-shop-transaction-system]] | Spot 商店与通用交易系统 | 🔵 设计待裁定，尚未施工 |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
 
