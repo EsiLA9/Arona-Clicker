@@ -37,7 +37,7 @@ function makeDatapack(): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     characterVariants: [
       v('Limited1', Character.Mika),
       v('Perm1', Character.Shiroko),

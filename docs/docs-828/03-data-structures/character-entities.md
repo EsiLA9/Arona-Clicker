@@ -14,7 +14,7 @@ Character（原型 id）     → 角色基础原型（name/rarity/school，Regis
 ```
 
 - 原型是角色的「全集」概念：`protoStats` 按原型记账（获得总量等）；
-- 差分是具体可持有实体：`state.roster`（Record<VariantId, RosterEntry>）按 variantId 存进度副本，碎片在 `state.fragments`——即典型「意义引用」（见 [[docs/docs-828/03-data-structures/id-reference-semantics]]）。
+- 差分是具体可持有实体：`state.roster`（Record<VariantId, VariantProgress>）按 variantId 存养成进度副本，碎片在 `state.fragments`——即典型「意义引用」（见 [[docs/docs-828/03-data-structures/id-reference-semantics]]）。
 
 ## 图鉴与通讯录（RosterSystem）
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T04:57:26.068Z",
+  "generatedAt": "2026-09-11T05:08:36.612Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -62,16 +62,28 @@
       "type": "CharacterData",
       "shape": "array"
     },
-    "characterBonuses": {
-      "type": "CharacterBonusTable",
-      "shape": "array"
-    },
     "characterVariants": {
       "type": "CharacterVariantDef",
       "shape": "array"
     },
     "cultivateCurves": {
       "type": "CultivateCurveDef",
+      "shape": "array"
+    },
+    "favoriteItems": {
+      "type": "FavoriteItemDef",
+      "shape": "array"
+    },
+    "uniqueWeapons": {
+      "type": "UniqueWeaponDef",
+      "shape": "array"
+    },
+    "traits": {
+      "type": "TraitDef",
+      "shape": "array"
+    },
+    "gears": {
+      "type": "GearDef",
       "shape": "array"
     },
     "colorGroups": {
@@ -1841,12 +1853,6 @@
           "kind": "float",
           "tsType": "number",
           "label": "基础容量"
-        },
-        {
-          "key": "managerBonusYield",
-          "required": true,
-          "kind": "hand",
-          "tsType": "ValueExpression"
         },
         {
           "key": "conditionText",
@@ -4108,26 +4114,6 @@
           "label": "描述"
         },
         {
-          "key": "spotTagBonus",
-          "required": true,
-          "kind": "record",
-          "tsType": "Record<string, number>",
-          "label": "标签产出加成",
-          "description": "对特定标签 Spot 的产出加成倍率 (1.0 = 无加成)。",
-          "value": {
-            "key": "$",
-            "kind": "float",
-            "tsType": "number"
-          }
-        },
-        {
-          "key": "passiveDescription",
-          "required": true,
-          "kind": "string",
-          "tsType": "string",
-          "label": "被动描述"
-        },
-        {
           "key": "tags",
           "required": false,
           "kind": "array",
@@ -4140,36 +4126,53 @@
           }
         },
         {
+          "key": "bond",
+          "required": false,
+          "kind": "object",
+          "tsType": "CharacterBondDef",
+          "label": "羁绊里程碑",
+          "fields": [
+            {
+              "key": "milestones",
+              "required": true,
+              "kind": "array",
+              "tsType": "CharacterBondMilestoneDef[]",
+              "label": "里程碑",
+              "item": {
+                "key": "$",
+                "kind": "object",
+                "fields": [
+                  {
+                    "key": "totalAffection",
+                    "required": true,
+                    "kind": "int",
+                    "tsType": "number",
+                    "label": "总好感门槛"
+                  },
+                  {
+                    "key": "effects",
+                    "required": true,
+                    "kind": "array",
+                    "tsType": "Effect[]",
+                    "label": "效果",
+                    "item": {
+                      "key": "$",
+                      "kind": "hand",
+                      "tsType": "Effect"
+                    }
+                  }
+                ],
+                "tsType": "CharacterBondMilestoneDef"
+              }
+            }
+          ]
+        },
+        {
           "key": "extra",
           "required": false,
           "kind": "extra",
           "tsType": "ExtraCompound",
           "description": "Extra 附加数据。"
-        }
-      ]
-    },
-    "CharacterBonusTable": {
-      "fields": [
-        {
-          "key": "characterId",
-          "required": true,
-          "kind": "string",
-          "tsType": "Character",
-          "label": "角色"
-        },
-        {
-          "key": "spotId",
-          "required": true,
-          "kind": "string",
-          "tsType": "string",
-          "label": "设施"
-        },
-        {
-          "key": "multiplier",
-          "required": true,
-          "kind": "float",
-          "tsType": "number",
-          "label": "倍率"
         }
       ]
     },
@@ -4247,18 +4250,6 @@
           "kind": "bool",
           "tsType": "boolean",
           "label": "默认差分"
-        },
-        {
-          "key": "spotTagBonus",
-          "required": false,
-          "kind": "record",
-          "tsType": "Record<string, number>",
-          "label": "标签产出加成",
-          "value": {
-            "key": "$",
-            "kind": "float",
-            "tsType": "number"
-          }
         },
         {
           "key": "curve",
@@ -4989,6 +4980,146 @@
           "label": "好感星级锁"
         },
         {
+          "key": "progression",
+          "required": false,
+          "kind": "object",
+          "tsType": "VariantProgressionDef",
+          "label": "养成声明",
+          "fields": [
+            {
+              "key": "skills",
+              "required": false,
+              "kind": "array",
+              "tsType": "SkillDef[]",
+              "label": "技能",
+              "item": {
+                "key": "$",
+                "kind": "object",
+                "fields": [
+                  {
+                    "key": "id",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "SkillId",
+                    "label": "ID"
+                  },
+                  {
+                    "key": "name",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "名称"
+                  },
+                  {
+                    "key": "description",
+                    "required": false,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "描述"
+                  },
+                  {
+                    "key": "maxLevel",
+                    "required": true,
+                    "kind": "int",
+                    "tsType": "number",
+                    "label": "等级上限"
+                  },
+                  {
+                    "key": "levelCosts",
+                    "required": false,
+                    "kind": "array",
+                    "tsType": "ProgressionCostDef[]",
+                    "label": "每级消耗",
+                    "item": {
+                      "key": "$",
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "key": "resource",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "string",
+                          "label": "引用资源"
+                        },
+                        {
+                          "key": "item",
+                          "required": false,
+                          "kind": "ref",
+                          "tsType": "ItemId",
+                          "label": "引用物品",
+                          "table": "items"
+                        },
+                        {
+                          "key": "amount",
+                          "required": true,
+                          "kind": "hand",
+                          "tsType": "ValueExpression",
+                          "label": "数量"
+                        }
+                      ],
+                      "tsType": "ProgressionCostDef"
+                    }
+                  },
+                  {
+                    "key": "levelEffects",
+                    "required": false,
+                    "kind": "array",
+                    "tsType": "Effect[]",
+                    "label": "每级效果",
+                    "item": {
+                      "key": "$",
+                      "kind": "hand",
+                      "tsType": "Effect"
+                    }
+                  },
+                  {
+                    "key": "extra",
+                    "required": false,
+                    "kind": "extra",
+                    "tsType": "ExtraCompound"
+                  }
+                ],
+                "tsType": "SkillDef"
+              }
+            },
+            {
+              "key": "gearSlots",
+              "required": false,
+              "kind": "hand",
+              "tsType": "[GearSlotDef, GearSlotDef, GearSlotDef]",
+              "label": "装备槽（三固定槽）"
+            },
+            {
+              "key": "favoriteItem",
+              "required": false,
+              "kind": "ref",
+              "tsType": "FavoriteItemId",
+              "label": "爱用品",
+              "table": "favoriteItems"
+            },
+            {
+              "key": "uniqueWeapon",
+              "required": false,
+              "kind": "ref",
+              "tsType": "UniqueWeaponId",
+              "label": "专武",
+              "table": "uniqueWeapons"
+            },
+            {
+              "key": "initialTraits",
+              "required": false,
+              "kind": "array",
+              "tsType": "TraitId[]",
+              "label": "初始特性",
+              "item": {
+                "key": "$",
+                "kind": "string",
+                "tsType": "TraitId"
+              }
+            }
+          ]
+        },
+        {
           "key": "extra",
           "required": false,
           "kind": "extra",
@@ -5046,18 +5177,425 @@
           }
         },
         {
-          "key": "levelCapPerStar",
-          "required": false,
-          "kind": "int",
-          "tsType": "number",
-          "label": "每星上限"
-        },
-        {
           "key": "levelBonusPerLevel",
           "required": false,
           "kind": "hand",
           "tsType": "ValueExpression",
           "label": "每级加成"
+        }
+      ]
+    },
+    "FavoriteItemDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "FavoriteItemId",
+          "label": "ID"
+        },
+        {
+          "key": "owner",
+          "required": true,
+          "kind": "ref",
+          "tsType": "VariantId",
+          "label": "所属差分",
+          "table": "characterVariants"
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "名称"
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "描述"
+        },
+        {
+          "key": "stages",
+          "required": true,
+          "kind": "array",
+          "tsType": "FavoriteStageDef[]",
+          "label": "阶段",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "tier",
+                "required": true,
+                "kind": "int",
+                "tsType": "number",
+                "label": "阶段"
+              },
+              {
+                "key": "unlock",
+                "required": false,
+                "kind": "hand",
+                "tsType": "Condition | ConditionGroup",
+                "label": "解锁条件"
+              },
+              {
+                "key": "cost",
+                "required": false,
+                "kind": "object",
+                "tsType": "ProgressionCostDef",
+                "label": "消耗",
+                "fields": [
+                  {
+                    "key": "resource",
+                    "required": false,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "引用资源"
+                  },
+                  {
+                    "key": "item",
+                    "required": false,
+                    "kind": "ref",
+                    "tsType": "ItemId",
+                    "label": "引用物品",
+                    "table": "items"
+                  },
+                  {
+                    "key": "amount",
+                    "required": true,
+                    "kind": "hand",
+                    "tsType": "ValueExpression",
+                    "label": "数量"
+                  }
+                ]
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "label": "效果",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              }
+            ],
+            "tsType": "FavoriteStageDef"
+          }
+        },
+        {
+          "key": "extra",
+          "required": false,
+          "kind": "extra",
+          "tsType": "ExtraCompound"
+        }
+      ]
+    },
+    "UniqueWeaponDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "UniqueWeaponId",
+          "label": "ID"
+        },
+        {
+          "key": "owner",
+          "required": true,
+          "kind": "ref",
+          "tsType": "VariantId",
+          "label": "所属差分",
+          "table": "characterVariants"
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "名称"
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "描述"
+        },
+        {
+          "key": "stars",
+          "required": true,
+          "kind": "array",
+          "tsType": "UniqueWeaponStarDef[]",
+          "label": "星级",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "star",
+                "required": true,
+                "kind": "int",
+                "tsType": "number",
+                "label": "星级"
+              },
+              {
+                "key": "cost",
+                "required": false,
+                "kind": "object",
+                "tsType": "ProgressionCostDef",
+                "label": "消耗",
+                "fields": [
+                  {
+                    "key": "resource",
+                    "required": false,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "引用资源"
+                  },
+                  {
+                    "key": "item",
+                    "required": false,
+                    "kind": "ref",
+                    "tsType": "ItemId",
+                    "label": "引用物品",
+                    "table": "items"
+                  },
+                  {
+                    "key": "amount",
+                    "required": true,
+                    "kind": "hand",
+                    "tsType": "ValueExpression",
+                    "label": "数量"
+                  }
+                ]
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "label": "效果",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              }
+            ],
+            "tsType": "UniqueWeaponStarDef"
+          }
+        },
+        {
+          "key": "extra",
+          "required": false,
+          "kind": "extra",
+          "tsType": "ExtraCompound"
+        }
+      ]
+    },
+    "TraitDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "TraitId",
+          "label": "ID"
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "名称"
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "描述"
+        },
+        {
+          "key": "effects",
+          "required": false,
+          "kind": "array",
+          "tsType": "Effect[]",
+          "label": "效果",
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "Effect"
+          }
+        },
+        {
+          "key": "learnCondition",
+          "required": false,
+          "kind": "hand",
+          "tsType": "Condition | ConditionGroup",
+          "label": "习得条件"
+        },
+        {
+          "key": "abandonCondition",
+          "required": false,
+          "kind": "hand",
+          "tsType": "Condition | ConditionGroup",
+          "label": "抛弃条件"
+        },
+        {
+          "key": "extra",
+          "required": false,
+          "kind": "extra",
+          "tsType": "ExtraCompound"
+        }
+      ]
+    },
+    "GearDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "GearId",
+          "label": "ID"
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "label": "名称"
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "label": "描述"
+        },
+        {
+          "key": "slot",
+          "required": true,
+          "kind": "enum",
+          "tsType": "GearSlotKind",
+          "label": "槽类别",
+          "options": [
+            "attack",
+            "defense",
+            "special"
+          ]
+        },
+        {
+          "key": "tiers",
+          "required": true,
+          "kind": "array",
+          "tsType": "GearTierDef[]",
+          "label": "层级",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "tier",
+                "required": true,
+                "kind": "int",
+                "tsType": "number",
+                "label": "层级"
+              },
+              {
+                "key": "levelCap",
+                "required": true,
+                "kind": "int",
+                "tsType": "number",
+                "label": "等级上限"
+              },
+              {
+                "key": "baseLevel",
+                "required": false,
+                "kind": "int",
+                "tsType": "number",
+                "label": "效果基准等级"
+              },
+              {
+                "key": "expPerLevel",
+                "required": true,
+                "kind": "int",
+                "tsType": "number",
+                "label": "每级所需经验"
+              },
+              {
+                "key": "upgradeCost",
+                "required": false,
+                "kind": "array",
+                "tsType": "GearCostDef[]",
+                "label": "达到本层的消耗",
+                "item": {
+                  "key": "$",
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "key": "itemId",
+                      "required": true,
+                      "kind": "ref",
+                      "tsType": "ItemId",
+                      "label": "物品",
+                      "table": "items"
+                    },
+                    {
+                      "key": "amount",
+                      "required": true,
+                      "kind": "int",
+                      "tsType": "number",
+                      "label": "数量"
+                    }
+                  ],
+                  "tsType": "GearCostDef"
+                }
+              },
+              {
+                "key": "baseEffects",
+                "required": false,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "label": "基础效果",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              },
+              {
+                "key": "perLevelEffects",
+                "required": false,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "label": "每级成长效果",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              },
+              {
+                "key": "extra",
+                "required": false,
+                "kind": "extra",
+                "tsType": "ExtraCompound"
+              }
+            ],
+            "tsType": "GearTierDef"
+          }
+        },
+        {
+          "key": "extra",
+          "required": false,
+          "kind": "extra",
+          "tsType": "ExtraCompound"
         }
       ]
     },
@@ -8019,7 +8557,8 @@
     "CharaProfileDef",
     "Character",
     "CharacterAcquireVia",
-    "CharacterBonusTable",
+    "CharacterBondDef",
+    "CharacterBondMilestoneDef",
     "CharacterData",
     "CharacterPersistConfig",
     "CharacterPersistScope",
@@ -8073,6 +8612,9 @@
     "ExtraCompound",
     "ExtraPath",
     "ExtraValue",
+    "FavoriteItemDef",
+    "FavoriteItemId",
+    "FavoriteStageDef",
     "FuncletCall",
     "FuncletDef",
     "FuncletId",
@@ -8092,6 +8634,13 @@
     "GameNumSpotSource",
     "GameNumState",
     "GameNumTaggedSource",
+    "GearConfigDef",
+    "GearCostDef",
+    "GearDef",
+    "GearId",
+    "GearSlotDef",
+    "GearSlotKind",
+    "GearTierDef",
     "InfoItemPresentationDef",
     "InitDef",
     "InitId",
@@ -8127,6 +8676,7 @@
     "PresentationShape",
     "PresentationTextColorMode",
     "ProductionResult",
+    "ProgressionCostDef",
     "ProtoStatState",
     "ResolvedTagDef",
     "ResourceAmount",
@@ -8150,6 +8700,8 @@
     "ShopPurchaseScope",
     "ShopSectionDef",
     "ShopStock",
+    "SkillDef",
+    "SkillId",
     "SpotDef",
     "SpotFunctionalityDef",
     "SpotFunctionalityQueryPort",
@@ -8184,16 +8736,22 @@
     "ThemeToken",
     "TickResult",
     "TickState",
+    "TraitDef",
+    "TraitId",
     "TriggerDef",
     "TriggerEventDef",
     "TriggerEventKind",
     "TriggerState",
+    "UniqueWeaponDef",
+    "UniqueWeaponId",
+    "UniqueWeaponStarDef",
     "Value",
     "ValueEvaluationContext",
     "ValueExpression",
     "ValueSource",
     "ValueState",
     "VariantId",
+    "VariantProgressionDef",
     "VisibilitySnapshot"
   ]
 }

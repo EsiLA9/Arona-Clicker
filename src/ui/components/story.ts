@@ -89,7 +89,7 @@ function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: strin
       v => v.displayName === speakerId || v.name === speakerId || v.id === speakerId,
     );
     if (variant) {
-      const equip = ctx.game.rosterSystem.getOwned(ctx.game.state, variant.id)?.equippedEquipment;
+      const equip = ctx.game.rosterSystem.getOwned(ctx.game.state, variant.id)?.colorEquipment;
       const group = equip
         ? ctx.game.colorEquipmentSystem.groupOf(equip)
         : (variant.colorGroupId ? ctx.game.registry.colorGroups.get(variant.colorGroupId) : undefined);

@@ -4,8 +4,7 @@
     "maxLevel": 10,
     "expTable": [10, 20, 35, 55, 80, 110, 145, 185, 230, 280],
     "starMax": 3,
-    "starCost": [1, 2, 4],
-    "levelCapPerStar": 4
+    "starCost": [1, 2, 4]
   }],
   "colorGroups": [{
     "id": "addition-test:colorgroup:violet",

@@ -76,12 +76,6 @@ describe('GameInstance (integration)', () => {
     expect(game.state.spotLevels['base:spot:credit_printer']).toBe(1);
   });
 
-  test('should assign manager', () => {
-    game.init([baseDatapack]);
-    game.spot.assignManager('base:spot:credit_printer', 'shiroko' as any);
-    expect(game.state.spotManagers['base:spot:credit_printer']).toBe('shiroko');
-  });
-
   test('should start and stop tick loop', () => {
     game.init([baseDatapack]);
     game.state.spotLevels['base:spot:credit_printer'] = 1;
@@ -105,7 +99,7 @@ describe('GameInstance (integration)', () => {
     expect(game.state.resources['base:resource:credit']).toBe(7);
   });
 
-  test('F-01: manager bonus frozen — assignment does not change tick output', () => {
+  test('F-01: manager 不参与生产 — 指派不改变 tick 产出', () => {
     game.init([baseDatapack]);
     for (const spotId of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[spotId];
     game.state.spotLevels['base:spot:credit_printer'] = 1;
@@ -113,11 +107,11 @@ describe('GameInstance (integration)', () => {
     game.state.resources['base:resource:credit'] = 0;
 
     game.tick();
-    // managerBonusYield 已冻结：仅 base 5 + 功能 2
+    // 仅 base 5 + 功能 2
     expect(game.state.resources['base:resource:credit']).toBe(7);
   });
 
-  test('F-01: manager tag multiplier frozen — output identical with/without manager', () => {
+  test('F-01: manager tag 加成已移除 — 有无 manager 产出一致', () => {
     game.init([baseDatapack]);
     for (const spotId of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[spotId];
     game.state.spotLevels['base:spot:credit_printer'] = 1;
@@ -125,10 +119,8 @@ describe('GameInstance (integration)', () => {
     game.state.resources['base:resource:credit'] = 0;
 
     game.tick();
-    // 冻结后 tag 加成不生效：与无 manager 一致（base 5 + 功能 2）
+    // tag 加成机制已移除：与无 manager 一致（base 5 + 功能 2）
     expect(game.state.resources['base:resource:credit']).toBe(7);
-    // 旧 getSpotYield 接口仅含 base（功能 Affector 不在其分解内）
-    expect(game.spot.getSpotYield('base:spot:credit_printer').total).toBe(5);
   });
 
   test('should run an active story with choice, effects, reward, and completion record', () => {
@@ -877,7 +869,7 @@ describe('GameInstance (integration)', () => {
       items: [],
       funcletDefs: [],
       characters: [],
-      characterBonuses: [],
+      
     };
     game.init([baseDatapack, clickPack]);
     finishWelcome(game);
@@ -932,7 +924,7 @@ describe('GameInstance (integration)', () => {
       items: [],
       funcletDefs: [],
       characters: [],
-      characterBonuses: [],
+      
     };
     game.init([baseDatapack, autoPack]);
     finishWelcome(game);
@@ -1005,7 +997,7 @@ describe('GameInstance (integration)', () => {
       items: [],
       funcletDefs: [],
       characters: [],
-      characterBonuses: [],
+      
     };
     game.init([baseDatapack, plainPack]);
     finishWelcome(game);
@@ -1203,7 +1195,7 @@ describe('Extra 运行时（M3）', () => {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     extras: {
       'base/k': extra.int(100),
       'both/k': extra.int(1),
@@ -1406,7 +1398,7 @@ describe('Extra 引擎消费（M4）', () => {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     extras: {
       meta: extra.dict({ constant: extra.int(1000) }),
     },
@@ -1506,7 +1498,7 @@ describe('Extra 引擎消费（M4）', () => {
       items: [],
       funcletDefs: [],
       characters: [],
-      characterBonuses: [],
+      
       extras: {
         meta: extra.dict({
           init_first_count: extra.int(0),

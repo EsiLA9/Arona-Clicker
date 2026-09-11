@@ -12,7 +12,6 @@ import type { SpotDef } from '../../data-services/contracts/world';
 import type { VisibilitySnapshot } from '../../engine/contracts/reveal';
 import type { PlayerState } from '../types/state';
 import type { SpotUpgradeResult, SpotUnlockResult } from '../contracts/results';
-import type { Character } from '../types/ids';
 import type { TagPath } from '../../engine/core/tag';
 import { Registry } from '../../data-services/registry/registry';
 import { ValueSystem } from '../../engine/expression/value-system';
@@ -128,28 +127,6 @@ export class SpotService {
       frame: this.state.totalFrames,
     });
     return { success: true, spotId, newLevel: nextLevel };
-  }
-
-  /** 分配 Manager */
-  assignManager(spotId: string, character: Character): boolean {
-    this.mutations.setManager(spotId, character);
-    this.opts.refreshVisibility();
-    return true;
-  }
-
-  /** 获取某个 Spot 当前 Manager 的标签加成倍率（冻结：恒 1.0，docs-818/12-character-rework.md §4.4） */
-  getManagerBonus(spotId: string): number {
-    void spotId;
-    return 1.0;
-  }
-
-  /** 计算某个 Spot 的总产出（manager 加成已冻结，仅 base × enhancement） */
-  getSpotYield(spotId: string): { base: number; managerBonus: number; tagMultiplier: number; total: number } {
-    const spotDef = this.registry.spots.get(spotId);
-    if (!spotDef) return { base: 0, managerBonus: 0, tagMultiplier: 1, total: 0 };
-
-    const base = this.valueSystem.evaluate(spotDef.baseYield, this.state);
-    return { base, managerBonus: 0, tagMultiplier: 1, total: base };
   }
 
   /**

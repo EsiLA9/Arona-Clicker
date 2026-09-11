@@ -12,6 +12,7 @@ import { baseCultivateCurves } from './cultivate-curves';
 import { baseCharacterVariants } from './character-variants';
 import { baseColorGroups } from './colors';
 import { baseColorEquipments } from './color-equipments';
+import { baseGearConfig, baseGearItems, baseGears } from './gears';
 import { baseGachaPools } from './gacha-pools';
 import { baseAffectionStepStories, baseAffectionSteps } from './affection-content';
 import { baseBondStoryEntries, baseBondStories } from './bond-content';
@@ -35,7 +36,7 @@ export const defaultDatapack: Datapack = {
   areas: [...baseAreas, ...themeShowcaseAreas],
   spots: [...baseSpots, ...themeShowcaseSpots],
   enhancements: [...baseEnhancements, ...baseGlobalEnhancements, ...themeShowcaseEnhancements],
-  items: baseItems,
+  items: [...baseItems, ...baseGearItems],
   characters: allCharacters,
   characterVariants: baseCharacterVariants,
   dropTables: baseDropTables,
@@ -44,6 +45,8 @@ export const defaultDatapack: Datapack = {
   cultivateCurves: baseCultivateCurves,
   colorGroups: baseColorGroups,
   colorEquipments: baseColorEquipments,
+  gears: baseGears,
+  gearConfig: baseGearConfig,
   gachaPools: baseGachaPools,
   shops: baseShops,
   triggerDefs: baseTriggers,
@@ -53,7 +56,6 @@ export const defaultDatapack: Datapack = {
   activeStories: [...baseActiveStories, ...baseBondStoryEntries],
   affectorPacks: baseAffectorPacks,
   funcletDefs: [],
-  characterBonuses: [],
   resourceDisplays: baseResourceDisplays,
   extras: baseExtras,
 };

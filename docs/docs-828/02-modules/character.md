@@ -15,7 +15,7 @@
 | `character-availability.ts` | 可抽取集合（`drawableOf`：世界 Pool 合并、排除已满收藏）。⚠️ `refreshWorldPool`（池关闭并入世界 Pool）已实现但无调用点（未接线） |
 | `roster-system.ts` | 通讯录/图鉴只读查询：`contactGroups`（按校分组）/ `codex`（全差分）/ `getVariant` / `getOwned` / `shardsOf` |
 | `gacha-service.ts` | 抽取模式注册表 + `ba-classic` 结算（稀有度权重 roll + featured UP + 天井）；发 `gachaResolved` / `characterAcquired` |
-| `cultivate-system.ts` | 培养纯计算：`resolveCurve` / `applyExp` 推演（累计经验结转）/ `checkBreakthrough`；发 `cultivated`（`kind: 'exp'` / `'star'`） |
+| `cultivate-system.ts` | 培养纯计算：`resolveCurve` / `resolveVariantLevelCap` / `applyExp` 推演（累计经验结转）/ `checkBreakthrough`；发 `characterProgressChanged`（`domain: 'level'` / `'star'`） |
 
 ## 核心概念
 

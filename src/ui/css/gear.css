@@ -1,0 +1,104 @@
+/* ============================================================
+   ui/css/gear.css — 装备（Gear）三槽卡片
+   ============================================================ */
+
+.gear-slots {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+}
+
+.gear-slot {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   padding: 8px 10px;
+   border: 1px solid var(--line);
+   border-radius: 12px;
+   background: var(--bg);
+}
+
+.gear-slot.is-equipped {
+   border-color: var(--accent, var(--line));
+}
+
+.gear-slot-head {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 8px;
+}
+
+.gear-slot-head b {
+   font-size: 13px;
+   color: var(--ink);
+}
+
+.gear-tier {
+   font-size: 11px;
+   color: var(--muted);
+   padding: 1px 6px;
+   border: 1px solid var(--line);
+   border-radius: 999px;
+}
+
+.gear-slot-empty {
+   display: flex;
+   flex-direction: column;
+   gap: 2px;
+}
+
+.gear-slot-empty small,
+.gear-slot-level small,
+.gear-reason {
+   font-size: 11px;
+   color: var(--muted);
+}
+
+.gear-slot-level {
+   display: flex;
+   align-items: baseline;
+   justify-content: space-between;
+   gap: 8px;
+   font-size: 12px;
+   color: var(--ink);
+}
+
+.gear-exp-bar {
+   height: 6px;
+   border-radius: 999px;
+   background: var(--line);
+   overflow: hidden;
+}
+
+.gear-exp-bar span {
+   display: block;
+   height: 100%;
+   background: var(--accent, var(--ink));
+}
+
+.gear-materials {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+}
+
+.gear-material {
+   padding: 4px 8px;
+   border: 1px solid var(--line);
+   border-radius: 999px;
+   background: transparent;
+   color: var(--ink);
+   font-size: 12px;
+   cursor: pointer;
+}
+
+.gear-material:hover:not(:disabled) {
+   border-color: var(--accent);
+}
+
+.gear-material:disabled,
+.gear-slot .primary-button:disabled {
+   opacity: .5;
+   cursor: not-allowed;
+}

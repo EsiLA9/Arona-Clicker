@@ -19,7 +19,7 @@ function registerDemo(runtime: AronaClickerRuntime, dependencies: string[] = [])
     datapack: {
       name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [],
       activeStories: [], passiveStories: [], stories: [], items: [], characters: [],
-      characterBonuses: [], funcletDefs: [],
+      funcletDefs: [],
       pics: [{ id: 'demo:avatar(pic):x', src: 'zip:x.png' }],
     },
     images: [{ path: 'x.png', url: 'data:image/png;base64,x' }],

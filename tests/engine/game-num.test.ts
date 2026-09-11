@@ -150,7 +150,6 @@ describe('GameNum (primitiveGain 懒求值)', () => {
       id: 's1',
       baseYieldResource: RES,
       baseYield: Expr.val(value('res', { resource: RES })),
-      managerBonusYield: Expr.const(0),
     };
     const ctx = {
       valueSystem: new ValueSystem(),

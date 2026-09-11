@@ -12,11 +12,12 @@ import type {
   TriggerDef,
 } from '../../engine/types';
 import type { CharaProfileDef } from '../contracts/chara-profile';
-import type { CharacterBonusTable, ResourceDisplayDef, TagDef } from '../contracts/common';
+import type { ResourceDisplayDef, TagDef } from '../contracts/common';
 import type { AreaDef, InitDef, SpotDef } from '../contracts/world';
 import type { PicDef } from '../contracts/pic';
 import type { CharacterVariantDef } from '../contracts/character-variant';
 import type { CultivateCurveDef } from '../contracts/cultivate-curve';
+import type { FavoriteItemDef, GearDef, TraitDef, UniqueWeaponDef } from '../contracts/character-progression-def';
 import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contracts/color';
 import type { GachaPoolDef } from '../contracts/gacha-pool';
 import type { ShopDef } from '../contracts/shop';
@@ -24,8 +25,9 @@ import type { ShopDef } from '../contracts/shop';
 export const DATAPACK_LIST_FIELDS = [
   'inits', 'areas', 'spots', 'enhancements', 'activeStories', 'passiveStories', 'stories',
   'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'funcletDefs', 'characters',
-  'characterBonuses', 'resourceDisplays', 'pics', 'charaProfiles', 'passivePools',
+  'resourceDisplays', 'pics', 'charaProfiles', 'passivePools',
   'characterVariants', 'cultivateCurves', 'colorGroups', 'colorEquipments', 'themeDesigns',
+  'favoriteItems', 'uniqueWeapons', 'traits', 'gears',
   'gachaPools', 'shops', 'tags',
 ] as const;
 export type DatapackListField = (typeof DATAPACK_LIST_FIELDS)[number];
@@ -106,7 +108,6 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
     items: (lists.items as ItemDef[] | undefined) ?? [],
     funcletDefs: (lists.funcletDefs as FuncletDef[] | undefined) ?? [],
     characters: (lists.characters as CharacterData[] | undefined) ?? [],
-    characterBonuses: (lists.characterBonuses as CharacterBonusTable[] | undefined) ?? [],
   };
   if (lists.dropTables) datapack.dropTables = lists.dropTables as DropTableDef[];
   if (lists.affectorPacks) datapack.affectorPacks = lists.affectorPacks as AffectorPackDef[];
@@ -117,6 +118,10 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
   if (lists.passivePools) datapack.passivePools = lists.passivePools as PassivePoolDef[];
   if (lists.characterVariants) datapack.characterVariants = lists.characterVariants as CharacterVariantDef[];
   if (lists.cultivateCurves) datapack.cultivateCurves = lists.cultivateCurves as CultivateCurveDef[];
+  if (lists.favoriteItems) datapack.favoriteItems = lists.favoriteItems as FavoriteItemDef[];
+  if (lists.uniqueWeapons) datapack.uniqueWeapons = lists.uniqueWeapons as UniqueWeaponDef[];
+  if (lists.traits) datapack.traits = lists.traits as TraitDef[];
+  if (lists.gears) datapack.gears = lists.gears as GearDef[];
   if (lists.colorGroups) datapack.colorGroups = lists.colorGroups as ColorGroupDef[];
   if (lists.colorEquipments) datapack.colorEquipments = lists.colorEquipments as ColorEquipmentDef[];
   if (lists.themeDesigns) datapack.themeDesigns = lists.themeDesigns as ThemeDesignDef[];

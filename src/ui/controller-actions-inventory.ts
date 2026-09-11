@@ -6,9 +6,182 @@
 
 import { enhPurchaseErrorText, travelErrorText, itemUseErrorText } from './components/errors';
 import type { UIController } from './controller';
+import { createInventoryWorkspaceState, deriveInventoryRows, type InventoryWorkspaceState } from './inventory-view';
+
+function inventoryWorkspace(ctrl: UIController): InventoryWorkspaceState {
+  return ctrl.panelState.inventoryWorkspace ??= createInventoryWorkspaceState();
+}
+
+function inventoryOrder(ctrl: UIController, state: InventoryWorkspaceState): string[] {
+  const rows = deriveInventoryRows(ctrl.game.registry.items, ctrl.game.getView().inventory, {
+    ...state,
+    typeFilter: 'all',
+    rarityFilter: 'all',
+    usabilityFilter: 'all',
+    ownedOnly: false,
+    query: '',
+    sortMode: 'name',
+    sortDirection: 'asc',
+    customOrder: [],
+    selectedItemId: null,
+  }, itemId => ctrl.game.getView().visibility.items[itemId] !== false);
+  const known = new Set(rows.allRows.map(row => row.id));
+  const order = state.customOrder.filter(id => known.has(id));
+  for (const row of rows.allRows) if (!order.includes(row.id)) order.push(row.id);
+  state.customOrder = order;
+  return order;
+}
+
+function moveInventoryItem(ctrl: UIController, itemId: string, direction: 'up' | 'down'): void {
+  const state = inventoryWorkspace(ctrl);
+  const order = inventoryOrder(ctrl, state);
+  const index = order.indexOf(itemId);
+  const target = direction === 'up' ? index - 1 : index + 1;
+  if (index < 0 || target < 0 || target >= order.length) return;
+  [order[index], order[target]] = [order[target], order[index]];
+  state.sortMode = 'custom';
+  state.sortDirection = 'asc';
+  ctrl.render();
+}
+
+function reorderInventoryItem(ctrl: UIController, fromId: string, toId: string): void {
+  if (fromId === toId) return;
+  const state = inventoryWorkspace(ctrl);
+  const order = inventoryOrder(ctrl, state);
+  const from = order.indexOf(fromId);
+  const to = order.indexOf(toId);
+  if (from < 0 || to < 0) return;
+  order.splice(from, 1);
+  order.splice(order.indexOf(toId), 0, fromId);
+  state.sortMode = 'custom';
+  state.sortDirection = 'asc';
+  ctrl.render();
+}
+
+function bindInventoryWorkspaceActions(ctrl: UIController, scope: ParentNode): void {
+  scope.querySelector('[data-open-inventory]')?.addEventListener('click', () => {
+    if (ctrl.panelState.workspace) ctrl.disposeWorkspace();
+    ctrl.panelState.service = 'inventory';
+    ctrl.render();
+  });
+
+  scope.querySelectorAll<HTMLButtonElement>('[data-inventory-type]').forEach(button => {
+    button.addEventListener('click', () => {
+      inventoryWorkspace(ctrl).typeFilter = (button.dataset.inventoryType ?? 'all') as InventoryWorkspaceState['typeFilter'];
+      inventoryWorkspace(ctrl).selectedItemId = null;
+      ctrl.render();
+    });
+  });
+  scope.querySelector<HTMLSelectElement>('[data-inventory-rarity]')?.addEventListener('change', event => {
+    inventoryWorkspace(ctrl).rarityFilter = (event.currentTarget as HTMLSelectElement).value as InventoryWorkspaceState['rarityFilter'];
+    inventoryWorkspace(ctrl).selectedItemId = null;
+    ctrl.render();
+  });
+  scope.querySelector<HTMLSelectElement>('[data-inventory-usability]')?.addEventListener('change', event => {
+    inventoryWorkspace(ctrl).usabilityFilter = (event.currentTarget as HTMLSelectElement).value as InventoryWorkspaceState['usabilityFilter'];
+    inventoryWorkspace(ctrl).selectedItemId = null;
+    ctrl.render();
+  });
+  scope.querySelector<HTMLInputElement>('[data-inventory-owned-only]')?.addEventListener('change', event => {
+    inventoryWorkspace(ctrl).ownedOnly = (event.currentTarget as HTMLInputElement).checked;
+    inventoryWorkspace(ctrl).selectedItemId = null;
+    ctrl.render();
+  });
+  scope.querySelector<HTMLInputElement>('[data-inventory-query]')?.addEventListener('input', event => {
+    const input = event.currentTarget as HTMLInputElement;
+    inventoryWorkspace(ctrl).query = input.value;
+    inventoryWorkspace(ctrl).selectedItemId = null;
+    const cursor = input.selectionStart ?? input.value.length;
+    ctrl.render();
+    const next = ctrl.root.querySelector<HTMLInputElement>('[data-inventory-query]');
+    next?.focus();
+    next?.setSelectionRange(cursor, cursor);
+  });
+  scope.querySelector('[data-inventory-clear]')?.addEventListener('click', () => {
+    const state = inventoryWorkspace(ctrl);
+    state.typeFilter = 'all';
+    state.rarityFilter = 'all';
+    state.usabilityFilter = 'all';
+    state.ownedOnly = true;
+    state.query = '';
+    state.selectedItemId = null;
+    ctrl.render();
+  });
+  scope.querySelector<HTMLSelectElement>('[data-inventory-sort]')?.addEventListener('change', event => {
+    inventoryWorkspace(ctrl).sortMode = (event.currentTarget as HTMLSelectElement).value as InventoryWorkspaceState['sortMode'];
+    ctrl.render();
+  });
+  scope.querySelector('[data-inventory-sort-direction]')?.addEventListener('click', () => {
+    const state = inventoryWorkspace(ctrl);
+    state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+    ctrl.render();
+  });
+  scope.querySelector('[data-inventory-reset-order]')?.addEventListener('click', () => {
+    const state = inventoryWorkspace(ctrl);
+    state.customOrder = [];
+    state.sortMode = 'custom';
+    state.sortDirection = 'asc';
+    ctrl.render();
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-inventory-select]').forEach(button => {
+    button.addEventListener('click', () => {
+      inventoryWorkspace(ctrl).selectedItemId = button.dataset.inventorySelect ?? null;
+      ctrl.render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-inventory-use]').forEach(button => {
+    button.addEventListener('click', () => {
+      const itemId = button.dataset.inventoryUse;
+      if (!itemId) return;
+      const result = ctrl.commands.useItem(itemId);
+      if (result.success) {
+        const item = ctrl.game.registry.items.get(itemId);
+        ctrl.toast.show(`已使用 <b>${item?.name ?? itemId}</b>`, 'success');
+      } else {
+        ctrl.toast.show(`使用失败：${itemUseErrorText[result.error] ?? result.error}`, 'error');
+      }
+      ctrl.render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-inventory-move]').forEach(button => {
+    button.addEventListener('click', () => {
+      const itemId = button.closest<HTMLElement>('[data-inventory-item-id]')?.dataset.inventoryItemId;
+      const direction = button.dataset.inventoryMove as 'up' | 'down' | undefined;
+      if (itemId && direction) moveInventoryItem(ctrl, itemId, direction);
+    });
+  });
+  let draggingId: string | null = null;
+  scope.querySelectorAll<HTMLElement>('[data-inventory-item-id]').forEach(row => {
+    row.addEventListener('dragstart', event => {
+      if (inventoryWorkspace(ctrl).sortMode !== 'custom') return;
+      draggingId = row.dataset.inventoryItemId ?? null;
+      if (draggingId && event instanceof DragEvent && event.dataTransfer) event.dataTransfer.setData('text/plain', draggingId);
+      row.classList.add('is-dragging');
+    });
+    row.addEventListener('dragend', () => {
+      draggingId = null;
+      row.classList.remove('is-dragging');
+    });
+    row.addEventListener('dragover', event => {
+      if (!draggingId || inventoryWorkspace(ctrl).sortMode !== 'custom') return;
+      event.preventDefault();
+      row.classList.add('is-drop-target');
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('is-drop-target'));
+    row.addEventListener('drop', event => {
+      event.preventDefault();
+      row.classList.remove('is-drop-target');
+      const fromId = draggingId ?? (event instanceof DragEvent ? event.dataTransfer?.getData('text/plain') : null);
+      const toId = row.dataset.inventoryItemId;
+      draggingId = null;
+      if (fromId && toId) reorderInventoryItem(ctrl, fromId, toId);
+    });
+  });
+}
 
 /** 绑定背包 / 区域 / 强化 / 升级 / 重启事件（render 后调用）。 */
 export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  bindInventoryWorkspaceActions(ctrl, scope);
   // 背包 / 区域 / 强化 / 升级
   scope.querySelectorAll<HTMLButtonElement>('[data-use-item]').forEach(button => {
     button.addEventListener('click', () => {

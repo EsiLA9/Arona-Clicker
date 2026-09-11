@@ -46,7 +46,6 @@ describe('AronaClickerCore JSON 数据包（打包读取）', () => {
     expect(datapack.affectorPacks).toHaveLength(2);
     expect(datapack.triggerDefs).toHaveLength(3);
     expect(datapack.characters).toHaveLength(3);
-    expect(datapack.characterBonuses).toHaveLength(3);
     expect(datapack.resourceDisplays).toHaveLength(2);
     expect(datapack.funcletDefs).toHaveLength(0);
   });

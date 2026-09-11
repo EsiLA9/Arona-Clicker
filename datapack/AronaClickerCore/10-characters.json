@@ -7,8 +7,6 @@
       "school": "夏莱",
       "rarity": "super_rare",
       "description": "什亭之匣的系统助理 AI，有些冒失但非常可靠。",
-      "spotTagBonus": { "production": 1.5 },
-      "passiveDescription": "「生产」类设施的产出 +50%。",
       "extra": {
         "t": "dict",
         "v": {
@@ -16,9 +14,6 @@
         }
       }
     }
-  ],
-  "characterBonuses": [
-    { "characterId": "arona", "spotId": "base:spot:credit_printer", "multiplier": 2 }
   ],
   "resourceDisplays": [
     { "resourceId": "base:resource:credit", "label": "信用点", "order": 0 },

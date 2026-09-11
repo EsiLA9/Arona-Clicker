@@ -28,6 +28,10 @@
 | [[docs/0x-plan&work/active/task-0035-condition-presentation-tree]] | Condition Presentation Tree 条件展示树 | 🟡 方案核验完成，待施工 |
 | [[docs/0x-plan&work/active/task-0039-spot-shop-transaction-system]] | Spot 商店与通用交易系统 | 🔵 设计待裁定，尚未施工 |
 | [[docs/0x-plan&work/active/task-0040-unified-workspace-frame]] | 统一三栏工作区物理骨架与表现接线 | 🔵 规划完成，待施工 |
+| [[docs/0x-plan&work/active/task-0041-character-progression-and-memory]] | 角色成长与记忆体系：Proto/Variant 边界、统一 Effect 投影、跨 Init 追赶 | 🟢 A 段已实施，B 段推迟（见 [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]]） |
+| [[docs/0x-plan&work/active/task-0042-character-workspace-ui-convergence]] | 通讯录学生 Workspace 与一般游戏态 / 商店态 UI 风格收敛 | ✅ 已完成 |
+| [[docs/0x-plan&work/active/task-0043-topbar-settings-workspace]] | 顶栏导航与设置 Workspace 统一管理 | ✅ 已完成 |
+| [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
 
@@ -79,8 +83,10 @@
 
 - [[docs/0x-plan&work/active/roadmap-0003-gacha-pool-model]]：Banner 与角色候选池解耦。
 - [[docs/0x-plan&work/active/roadmap-0004-chara-ownership]]：角色拥有体系 Init 化与追赶统计。
+- [[docs/0x-plan&work/active/task-0041-character-progression-and-memory]]：把 RosterEntry/培养/好感/色彩装备提升为统一角色成长领域，并新增跨世界线 CharacterMemory 追赶；是 roadmap-0004 归属翻转的配套答案（其 C0-2 依赖 0004 裁定）。
+- [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]]：0041 的 C0 裁定与分段（A 段状态/记忆骨架可施工；B 段投影/追赶/Chara-Spot 推迟，强依赖 roadmap-0004 与 S1c）。
 
-两项应联合裁定，因为池候选、拥有状态、保底和跨世界线统计互相影响。
+上述角色域目标应联合裁定，因为池候选、拥有状态、养成进度和跨世界线统计互相影响。
 
 ### 全量理解与审查
 

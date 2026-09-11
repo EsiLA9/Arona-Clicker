@@ -24,7 +24,6 @@ const sampleDatapack: Datapack = {
       baseYield: { type: 'const', value: 5 },
       baseYieldResource: 'credit',
       baseCapacity: 100,
-      managerBonusYield: { type: 'const', value: 2 },
       levelUpgrades: [],
       tags: [],
     },
@@ -36,7 +35,7 @@ const sampleDatapack: Datapack = {
   items: [],
   funcletDefs: [],
   characters: [],
-  characterBonuses: [],
+  
 };
 
 describe('Registry', () => {
@@ -131,7 +130,7 @@ describe('Registry', () => {
       items: [],
       funcletDefs: [],
       characters: [],
-      characterBonuses: [],
+      
     });
     expect(reg.inits.size).toBe(2);
   });

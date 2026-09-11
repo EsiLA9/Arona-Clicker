@@ -11,7 +11,8 @@
     "dev:editor": "vite tools/datapack-editor/ui",
     "build": "vite build",
     "gen:schema": "node scripts/gen-engine-schema.mjs --write",
-    "check:architecture": "node scripts/check-architecture-boundaries.mjs"
+    "check:architecture": "node scripts/check-architecture-boundaries.mjs",
+    "ui:callgraph": "node scripts/ui-callgraph.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

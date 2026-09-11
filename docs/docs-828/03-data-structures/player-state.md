@@ -26,7 +26,7 @@
 | `unlockedEnhancements` / `enhancementAttachments` | string[] / Record | 已解锁强化；GlobalEnh 跨 Init 保留，本地强化进入对应 Init 快照 / 挂靠元数据（仅 UI 展示） |
 | `storyLog` | CompletedStory[] | 剧情完成记录（按 StoryDef.id）；`storyReadLogs` 另存阅读日志（重读/分歧守卫） |
 | `triggersCompleted` | string[] | 已触发的一次性 Trigger（once）id 集合 |
-| `roster` / `fragments` | Record<VariantId, RosterEntry> / Record | 通讯录（持有差分实例）/ 碎片余额（归属随 characterPersistConfig.roster） |
+| `roster` / `fragments` | Record<VariantId, VariantProgress> / Record | 通讯录（持有差分养成进度副本）/ 碎片余额（归属随 characterPersistConfig.roster） |
 | `gachaState` | Record<GachaPoolId, GachaPoolState> | 各卡池保底/抽取计数（pity/pulls） |
 | `globalShopPurchaseRecords` / `shopPurchaseRecords` | Record<string, { purchasedQuantity }> | Shop 的 global / 当前 Init 限购事实；key 由 scope 的 owner 与 Shop/Spot 身份派生，余量不写回 Datapack |
 | `studentBlocks` | Record<VariantId, {entryId, setAtFrame}> | 学生对话空间阻断态 |
@@ -34,8 +34,10 @@
 | `charaCustom` | Record<Character, CharaCustomOverride> | 玩家头像-人名对覆写（见 [[docs/docs-828/02-modules/pics]]） |
 | `worldPool` | VariantId[] | 世界 Pool：已并入常驻集合的差分（`refreshWorldPool` 未接线） |
 | `protoStats` | Record<string, ProtoStat> | 原型聚合统计（派生视图，Trigger 维护） |
+| `characterMemory` | Record<Character, CharacterMemory> | 跨世界线角色记忆（历史最大值/事实）；永远 global，不进 Init 快照（见 [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]]） |
+| `accountLevelCap` | number? | 账号级角色等级开放上限（缺省 = 无上限）；提升机制后续接入 |
 | `tagEffects` / `entityEffects` | Record | 区表：命名乘区记录唯一真相（见 [[docs/docs-828/04-mechanisms/production]]） |
-| `groupsOwned` / `activeTheme` / `equipmentsOwned` | — | 色彩组收集、全局主题来源（system / color-group / custom）与装备收集（见 [[docs/docs-828/02-modules/color]]） |
+| `groupsOwned` / `activeTheme` / `equipmentsOwned` | — | 色彩组收集、全局主题来源（system / color-group / custom）与装备收集（`equipmentsOwned` 已登记 per-Init 快照，归属随 characterPersistConfig.equips，缺省 global；见 [[docs/docs-828/02-modules/color]]） |
 | `entityThemeSlots` / `entityThemeDesignsOwned` | Record | 实体配色槽 / 已解锁配色设计（global） |
 | `customThemes` / `themeAttachments` | Record | 独立用户主题记录 / Area、学生等实体主题挂靠；全局当前来源只由 `activeTheme` 表达 |
 | `themeLayerOrder` | string[] | player/init/area/student 四层优先级自定义；user、preview、ephemeral 不进入该排列 |

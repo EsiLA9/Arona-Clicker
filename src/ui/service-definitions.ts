@@ -10,6 +10,16 @@ function workspaceHosts(serviceId: string, label: string): UIServiceDefinition['
 
 export const UI_SERVICE_DEFINITIONS: readonly UIServiceDefinition[] = [
   {
+    id: 'settings',
+    label: '设置服务',
+    hosts: workspaceHosts('settings', '设置服务'),
+  },
+  {
+    id: 'inventory',
+    label: '背包服务',
+    hosts: workspaceHosts('inventory', '背包服务'),
+  },
+  {
     id: 'datapack',
     label: '数据包服务',
     hosts: [

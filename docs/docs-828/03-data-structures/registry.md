@@ -18,7 +18,7 @@ Registry 内部所有表经 `tableSteps: TableStep[]` 单一声明（table 名 +
 | `storyEntries`（合并视图 getter） | entryId | StoryEntryDef（同 id 时 passive 覆盖 active） |
 | `items` / `dropTables` | id | ItemDef / DropTableDef |
 | `funcletDefs` | funcletId | FuncletDef |
-| `characters` / `characterBonuses` | 原型 Character | CharacterData / 加成表 |
+| `characters` | 原型 Character | CharacterData |
 | `characterVariants` | variantId | CharacterVariantDef |
 | `cultivateCurves` | curveId | CultivateCurveDef |
 | `gachaPools` | poolId | GachaPoolDef |

@@ -18,7 +18,7 @@ const SNACK = 'test:item:snack';
 function datapack(): Datapack {
   const spot = (id: string) => ({
     id, areaId: AREA, name: id, description: '', baseCost: Expr.const(0), baseCostResource: CREDIT,
-    baseYield: Expr.const(0), baseYieldResource: CREDIT, baseCapacity: 0, managerBonusYield: Expr.const(0), tags: [],
+    baseYield: Expr.const(0), baseYieldResource: CREDIT, baseCapacity: 0, tags: [],
     functionalities: [{ id: `${id}:shop`, kind: 'shop' as const, shopId: SHOP }],
   });
   return {
@@ -26,7 +26,7 @@ function datapack(): Datapack {
     inits: [{ id: INIT, name: 'Init', description: '', defaultAreas: [AREA] }],
     areas: [{ id: AREA, initId: INIT, name: 'Area', description: '', defaultSpots: [SPOT_A, SPOT_B] }],
     spots: [spot(SPOT_A), spot(SPOT_B)], enhancements: [], activeStories: [], passiveStories: [], stories: [],
-    funcletDefs: [], characters: [], characterBonuses: [],
+    funcletDefs: [], characters: [], 
     items: [
       { id: TOKEN, name: '代币', description: '', maxStack: 99, rarity: 'common', type: 'material' },
       { id: SNACK, name: '零食', description: '', maxStack: 99, rarity: 'common', type: 'consumable' },

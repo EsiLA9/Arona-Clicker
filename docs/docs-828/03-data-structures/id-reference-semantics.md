@@ -49,7 +49,7 @@
 | `ThemeDef.colorGroupId` / `ThemeEffectValue.colorGroupId` | ColorGroupDef | 真 | 解析成完整 token 表；未给 token 由主色位色值派生。加载期强校验 |
 | `GachaPoolDef.featured`（rates 为稀有度权重，非实体引用） | CharacterVariantDef | 真 | 抽卡按 variant 的 rarity 等字段结算、featured（UP）在所属稀有度内优先命中。有校验（validateCharacterRefs）。注意：`refreshWorldPool`（池关闭成员并入世界 Pool）已实现但无调用点，未接线 |
 | `SpotDef.gachaPools` | GachaPoolDef | 真 | 取池定义渲染专有面板并跑 roll；无声明仅开全局通用池 |
-| `RosterEntry.equippedEquipment` | ColorEquipmentDef | 真 | 取 effects 应用（color-equipment-system） |
+| `VariantProgress.colorEquipment` | ColorEquipmentDef | 真 | 取 effects 应用（color-equipment-system） |
 | `ThemeDesignDef.entityKey` | Area / Variant | 意义 | 解锁时只作落点键：`entityThemeDesignsOwned[entityKey]` 与 setEntityThemeSlot 的键；设计自身携带 theme 内容 |
 | `EntityThemeSlot.designId / equipmentId` | ThemeDesignDef / ColorEquipmentDef | designId 真；equipmentId 特殊 | designId 解析出主题；equipmentId 写入但从不被读取——装备槽实际跟随当前已装备装备，是「身份存、实时解析」 |
 | `PassiveStoryEntry.owner` | CharacterVariantDef | 真 | 聊天空间壁垒：owner 声明者仅在该学生对话空间被抽取/推送（passive-pool-system 的 ownerOk 剪枝 + 就绪队列谓词） |
@@ -75,7 +75,7 @@
 | 各 Def 的 `tags: TagPath[]` | TagDef | 意义 | 标签是纯语义标记：匹配按 id 前缀（hasTag/countTags/tagCount/zoneModifiers），TagDef 的 name/description 仅 UI 展示 |
 | 资源 id（`baseCostResource`/`baseYieldResource`/AffectorFlow.resource/…） | 资源 | 意义（状态键） | 资源在 PlayerState 按 id 存数量副本，效果的操作目标就是该 id 本身；资源 Def 的显示名/图标不参与结算 |
 | `avatar` / `image` 的 PicId | PicDef | 真 | resolvePicSrc → registry.pics.get 解析成实际图片；缺图回退首字母占位 |
-| `RosterEntry.variantId` / `GachaPoolState` / `storyReadLogs` / `studentBlocks` 等 | 各 Def | 意义（状态键） | 玩家层按 id 持有进度副本（等级/经验/pity/阅读记录），Def 内容不参与——这就是「我拥有和该 id 一致的副本生效」的字面形态 |
+| `VariantProgress.variantId` / `GachaPoolState` / `storyReadLogs` / `studentBlocks` 等 | 各 Def | 意义（状态键） | 玩家层按 id 持有进度副本（等级/经验/pity/阅读记录），Def 内容不参与——这就是「我拥有和该 id 一致的副本生效」的字面形态 |
 
 ---
 
@@ -122,7 +122,7 @@
 
 - TriggerEventDef / Condition 按 id 匹配运行时状态——事件系统的正常形态。
 - tags 纯语义匹配——意义引用的正当用途。
-- 状态层按 id 持有副本（RosterEntry.variantId、资源数量、storyReadLogs）——「副本生效」的正确场景。
+- 状态层按 id 持有副本（VariantProgress.variantId、资源数量、storyReadLogs）——「副本生效」的正确场景。
 
 **一句话总结**：意义引用本身没有错；错在 ① 两个实体共用主键且无校验；② 引用校验无统一规则，缺口全在后期新增字段；③ 用「同 id」做隐式覆盖/去重。其中 ① 在推进「多 Entry 复用同一 Story」时会最先爆。
 

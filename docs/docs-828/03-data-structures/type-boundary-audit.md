@@ -126,7 +126,7 @@ src/arona-clicker/contracts/ + content/
 - `CultivateCurveDef` → `src/data-services/contracts/cultivate-curve.ts`；培养曲线 Builder 下沉至 `src/arona-clicker/content/def-factory/`，成长算法由 AronaClicker 服务解释。
 - `AffectionConfigDef` → `src/data-services/contracts/affection-config.ts`；好感数值解释与状态写入仍由 AronaClicker 好感服务负责。
 - `ThemeDef`、`ThemeToken`、`ThemeOrderScope`、`EntityThemeSlot` → `src/engine/types/theme.ts`；这些类型由世界线声明、主题运行时和 UI 主题映射共同消费，不再混在角色类型文件中。
-- `RosterEntry`、`ProtoStat`、`GachaPoolState` → `src/arona-clicker/types/character.ts`；它们是产品运行时状态子结构，不再混在角色 Datapack 声明模块中。
+- `VariantProgress`、`ProtoStat`、`GachaPoolState` → `src/arona-clicker/types/character.ts`；它们是产品运行时状态子结构，不再混在角色 Datapack 声明模块中。
 - 条件/Reveal 状态读取 → `src/engine/contracts/state-query.ts` 的 `ConditionState`；条件系统与可见性引擎只依赖资源、设施、旗标、剧情日志、原型统计和当前区域等最小只读面，好感读取由产品 wiring 注入。
 - 统计状态读取 → `src/engine/contracts/state-query.ts` 的 `StatsState`；StatsService 只读取当前 Init、区域、总帧数与资源，不再要求完整 PlayerState。
 - 数值表达式状态读取 → `src/engine/contracts/state-query.ts` 的 `ValueState`；ValueSystem 只读取资源、设施等级/管理者和 flags，Extra/Funclet 通过已有注入端口提供。
@@ -138,7 +138,7 @@ src/arona-clicker/contracts/ + content/
 - Condition 的原型统计读取 → `ProtoStatState`；基础条件只读取 `acquiredTotal`，不依赖产品侧派生统计实体。
 - 动态 Spot 标签覆盖 → `SpotTagOverrideState`；增撤标签的机制数据进入引擎状态契约，PlayerState 仅作为产品持久化容器。
 - AronaClicker 状态消费者入口 → `src/arona-clicker/types/state.ts`；完整 `PlayerState` / `InitSnapshot` 定义及状态工厂、统一写入服务与 Init 快照编排均归产品入口，旧 `engine/types/state.ts` 已删除。
-- 故事完成/阅读记录 → `src/arona-clicker/types/story-state.ts`；角色运行时 `RosterEntry` / `ProtoStat` / `GachaPoolState` → `src/arona-clicker/types/character.ts`，产品消费者已脱离 `engine/types/state.ts` 的这些定义。
+- 故事完成/阅读记录 → `src/arona-clicker/types/story-state.ts`；角色运行时 `VariantProgress` / `ProtoStat` / `GachaPoolState` → `src/arona-clicker/types/character.ts`，产品消费者已脱离 `engine/types/state.ts` 的这些定义。
 - Runtime、产品服务与产品 Contracts 的 `PlayerState` 引用已统一改从 `src/arona-clicker/types/state.ts` 进入；引擎侧仍保留必要的同步/存档兼容边界。
 - SaveData 组装逻辑 → `src/arona-clicker/runtime-save-codec.ts`；数据服务保留存储适配，产品 Runtime 负责 Story/聊天/可见性/状态快照组合。
 - `SaveBuildContext`、`SaveCodec` 与完整 `SaveData` → `src/arona-clicker/contracts/save-codec.ts` / `save-data.ts`；其中包含产品状态、Story/聊天游标和产品统计。data-services 只提供泛型 JSON 存储，engine 不再承载产品存档 DTO。

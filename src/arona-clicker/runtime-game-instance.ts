@@ -59,6 +59,7 @@ import { RosterSystem } from './services/roster-system';
 import { CharacterAvailabilityService } from './services/character-availability';
 import { ColorSystem } from './services/color-system';
 import { ColorEquipmentSystem } from './services/color-equipment-system';
+import { GearSystem } from './services/gear-system';
 import { GachaService } from './services/gacha-service';
 import { TagStatService } from '../engine/stats/tag-stats';
 import { PassivePoolSystem } from './services/passive-pool-system';
@@ -99,6 +100,7 @@ export class GameInstance {
   readonly availabilityService!: CharacterAvailabilityService;
   readonly colorSystem!: ColorSystem;
   readonly colorEquipmentSystem!: ColorEquipmentSystem;
+  readonly gearSystem!: GearSystem;
   readonly gachaService!: GachaService;
   readonly tagStatService!: TagStatService;
   readonly passivePoolSystem!: PassivePoolSystem;
@@ -229,13 +231,6 @@ export class GameInstance {
     this.characterSystem.clear();
     for (const dp of datapacks) {
       if (dp.characters) this.characterSystem.load(dp.characters);
-      // F-02：characterBonuses 已废弃（冻结），携带时警告并忽略
-      if (dp.characterBonuses?.length) {
-        this.devLog.record('数据包携带已废弃的 characterBonuses 表，已忽略', {
-          source: 'registry',
-          level: 'warning',
-        });
-      }
     }
 
     // 计算可见性（事件驱动：建立反向索引并全量重算）

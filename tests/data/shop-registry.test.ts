@@ -10,7 +10,7 @@ function datapack(): Datapack {
   return {
     name: 'shop-test', version: '0',
     inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [],
-    funcletDefs: [], characters: [], characterBonuses: [],
+    funcletDefs: [], characters: [],
     items: [{ id: ITEM, name: '票券', description: '', maxStack: 99, rarity: 'common', type: 'material' }],
     shops: [{
       id: SHOP, name: '柜台',

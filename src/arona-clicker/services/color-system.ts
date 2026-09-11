@@ -581,7 +581,7 @@ export class ColorSystem {
     return newly;
   }
 
-  /** 变体已装备色彩装备的聚合效果声明已迁移至 ColorEquipmentSystem.effectsOf（单装备槽按 equippedEquipment 聚合）。 */
+  /** 变体已装备色彩装备的聚合效果声明已迁移至 ColorEquipmentSystem.effectsOf（单装备槽按 colorEquipment 聚合）。 */
 
   /** 当前激活 ColorGroup 的最终 token 表；系统默认或用户主题返回 null。 */
   activeThemeTokens(state: PlayerState): Record<string, string> | null {

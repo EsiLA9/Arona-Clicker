@@ -36,6 +36,7 @@ export const ENTITY_TYPES: ReadonlySet<string> = new Set([
   'resource',
   'colorgroup',
   'colorequipment',
+  'gear',
   'themedesign',
   'gachapool',
   'passivepool',

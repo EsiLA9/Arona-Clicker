@@ -93,7 +93,7 @@ export type EffectOp =
   | 'grantCharacter'
   /**
    * 增加好感小值（好感系统统一写入口 addAffectionExp）：target = VariantId，
-   * value = 差分（未拥有/非法量拒绝）。走 affectionChanged 事件。
+   * value = 差分（未拥有/非法量拒绝）。走 characterProgressChanged(domain:'affection') 事件。
    */
   | 'addAffectionExp'
   /**

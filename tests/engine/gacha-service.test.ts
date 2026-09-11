@@ -37,7 +37,7 @@ function makeDatapack(): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     characterVariants: [
       v('Hoshino', Character.Hoshino, CharacterRarity.Rare),
       v('HoshinoSwimsuit', Character.Hoshino, CharacterRarity.SuperRare),

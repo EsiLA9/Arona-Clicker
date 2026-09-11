@@ -108,7 +108,7 @@ ConditionTarget（16 种）—— key 与 actual 语义：
 | `init` | `initId?` | initEntered |
 | `area` | `areaId?` | areaEntered |
 | `character` | `variantId?`（缺省=任意） | 角色差分获得（含重复获得） |
-| `cultivated` | `variantId?` / `cultivation?: 'exp'\|'star'` | 培养变更 |
+| `cultivated` | `variantId?` / `cultivation?: 'exp'\|'star'` | 培养变更（映射伞事件 `characterProgressChanged`，domain 限 level/star） |
 
 `TriggerDef`：`{ id?, on: TriggerEventDef, condition?, effects[], once?=true, extra? }`（缺省 id = 匿名，按分组+结构派生 `anon:` 前缀确定性 id）。
 

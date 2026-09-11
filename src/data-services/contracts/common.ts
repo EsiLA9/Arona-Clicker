@@ -2,7 +2,6 @@
 // data-services/contracts/common.ts — Datapack 通用声明
 // ============================================================
 
-import type { Character } from '../../engine/types/ids';
 import type { TagRef } from '../../engine/core/tag';
 
 export type { ResourceAmount } from '../../engine/contracts/resource';
@@ -35,13 +34,4 @@ export interface TagDef {
 export interface ResolvedTagDef extends Omit<TagDef, 'id' | 'parent'> {
   id: TagRef;
   parent?: TagRef;
-}
-
-export interface CharacterBonusTable {
-  /** @label 角色 */
-  characterId: Character;
-  /** @label 设施 */
-  spotId: string;
-  /** @label 倍率 */
-  multiplier: number;
 }

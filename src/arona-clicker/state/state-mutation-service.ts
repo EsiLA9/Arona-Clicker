@@ -30,6 +30,9 @@ import type { CharacterProgressionPort } from '../contracts/character-progressio
 import type { StateMutationPort } from '../../engine/contracts/mutation';
 import type { EffectMutationPort } from '../contracts/effect-mutation';
 import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../../engine/extra/index';
+import { addLifetime, memoryOf, recordGearProgress, recordVariantOwned, recordVariantProgress } from './character-memory';
+import type { GearActionReason } from '../contracts/gear-query';
+import type { GearCostDef, GearDef, VariantProgress } from '../types/character';
 import { applyEffects as applyEffectsImpl, applyEffect as applyEffectImpl } from './effect-ops';
 
 export interface ShopTransactionCommit {
@@ -97,6 +100,8 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     getColorGroup(id: string): import('../../data-services/contracts/color').ColorGroupDef | undefined;
     getColorEquipment(id: string): import('../../data-services/contracts/color').ColorEquipmentDef | undefined;
     getAffectionConfig(): import('../types/character').AffectionConfigDef | undefined;
+    getGear(id: string): import('../types/character').GearDef | undefined;
+    getGearConfig(): import('../types/character').GearConfigDef | undefined;
   } | null = null;
 
   setCharacterCatalog(reader: {
@@ -105,6 +110,8 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     getColorGroup(id: string): import('../../data-services/contracts/color').ColorGroupDef | undefined;
     getColorEquipment(id: string): import('../../data-services/contracts/color').ColorEquipmentDef | undefined;
     getAffectionConfig(): import('../types/character').AffectionConfigDef | undefined;
+    getGear(id: string): import('../types/character').GearDef | undefined;
+    getGearConfig(): import('../types/character').GearConfigDef | undefined;
   }): void {
     this.characterCatalog = reader;
   }
@@ -119,6 +126,16 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   private affectionConfigOf() {
     if (!this.progression) throw new Error('StateMutationService progression port is not initialized');
     return this.progression.resolveAffectionConfig(this.characterCatalog?.getAffectionConfig());
+  }
+
+  /** 重算并刷新某原型的「历史最高总好感」（只增不减；Memory 永远 global）。 */
+  private refreshAffectionTotalEver(state: AronaClickerState, character: Character): void {
+    let sum = 0;
+    for (const [vid, e] of Object.entries(state.roster ?? {})) {
+      if (this.characterCatalog?.getVariant(vid)?.proto === character) sum += e.affectionLevel ?? 1;
+    }
+    const mem = memoryOf(state, character);
+    if (sum > mem.affectionTotalEver) mem.affectionTotalEver = sum;
   }
 
   private get current(): AronaClickerState {
@@ -189,7 +206,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
 
   /**
    * 获得角色差分（一切获得途径的统一入口）。
-   * - 首次获得：创建 RosterEntry（level=1/exp=0/stars=0），不发碎片。
+   * - 首次获得：创建 VariantProgress（level=1/exp=0/stars=0），不发碎片。
    * - 重复获得：不改动培养，返还该变体自己的碎片 + 附加资源
    *   （rewards 缺省 = 1 碎片防呆；卡池调用时传池配置的 dupRewards）。
    * @returns 实际结算结果（重复标记与返还明细）。
@@ -216,7 +233,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
         level: 1,
         exp: 0,
         stars: 0,
-        equippedEquipment: null,
+        colorEquipment: null,
         acquiredCount: 1,
         affectionLevel: 1,
         affectionExp: 0,
@@ -231,6 +248,13 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
         if (amount !== 0) this.changeResource(resource, amount);
       }
     }
+
+    const mem = memoryOf(state, variant.proto);
+    if (!duplicate) {
+      recordVariantOwned(mem, variantId);
+      recordVariantProgress(mem, state.roster[variantId]);
+    }
+    this.refreshAffectionTotalEver(state, variant.proto);
 
     const stats = (state.protoStats ??= {});
     const ps = (stats[variant.proto] ??= { acquiredTotal: 0, cultTotal: 0 });
@@ -265,13 +289,17 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     if (!result.ok) return { ok: false, newLevel: entry.affectionLevel ?? 1, newExp: entry.affectionExp ?? 0 };
 
     this.current.roster![variantId] = result.entry;
+    const mem = memoryOf(this.current, variant.proto);
+    recordVariantProgress(mem, result.entry);
+    addLifetime(mem, { affectionGained: delta });
+    this.refreshAffectionTotalEver(this.current, variant.proto);
     this.emit({
-      type: 'affectionChanged',
+      type: 'characterProgressChanged',
       variantId,
-      delta,
-      newLevel: result.entry.affectionLevel ?? 1,
-      newExp: result.entry.affectionExp ?? 0,
-      leveledUp: result.leveledUp,
+      domain: 'affection',
+      before: entry.affectionLevel ?? 1,
+      after: result.entry.affectionLevel ?? 1,
+      source: 'addAffectionExp',
     });
     return { ok: true, newLevel: result.entry.affectionLevel ?? 1, newExp: result.entry.affectionExp ?? 0 };
   }
@@ -326,18 +354,118 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const entry = this.current.roster?.[variantId];
     if (!entry) return { ok: false, reason: 'no-entry' };
     if (!this.current.equipmentsOwned?.includes(equipmentId)) return { ok: false, reason: 'not-owned' };
-    if (entry.equippedEquipment === equipmentId) return { ok: false, reason: 'already-equipped' };
-    entry.equippedEquipment = equipmentId;
+    if (entry.colorEquipment === equipmentId) return { ok: false, reason: 'already-equipped' };
+    entry.colorEquipment = equipmentId;
     this.emit({ type: 'equipmentEquipped', variantId, equipmentId });
+    this.emit({ type: 'characterProgressChanged', variantId, domain: 'colorEquipment', source: 'equipEquipment' });
     return { ok: true };
   }
 
   /** 卸下变体装备的色彩装备。 */
   unequipEquipment(variantId: VariantId): boolean {
     const entry = this.current.roster?.[variantId];
-    if (!entry || entry.equippedEquipment === null) return false;
-    entry.equippedEquipment = null;
+    if (!entry || entry.colorEquipment === null) return false;
+    entry.colorEquipment = null;
     return true;
+  }
+
+  // --- 装备（Gear）：三固定槽 + 经验成长 + tier 升级 ---
+
+  /** 解析差分某槽的类型线定义与养成条目。 */
+  private gearContext(
+    variantId: VariantId,
+    slotIndex: number,
+  ): { gear?: GearDef; entry?: VariantProgress; reason?: GearActionReason } {
+    const variant = this.characterCatalog?.getVariant(variantId);
+    const entry = this.current.roster?.[variantId];
+    if (!variant || !entry) return { reason: 'no-entry' };
+    const gearId = variant.progression?.gearSlots?.[slotIndex]?.gear;
+    const gear = gearId ? this.characterCatalog?.getGear(gearId) : undefined;
+    if (!gear) return { reason: 'no-slot' };
+    return { gear, entry };
+  }
+
+  private gearCostsPayable(costs?: GearCostDef[]): boolean {
+    for (const cost of costs ?? []) {
+      if ((this.current.inventory[cost.itemId] ?? 0) < cost.amount) return false;
+    }
+    return true;
+  }
+
+  private payGearCosts(costs?: GearCostDef[]): void {
+    for (const cost of costs ?? []) this.removeItem(cost.itemId, cost.amount);
+  }
+
+  private recordGearMemory(variantId: VariantId, entry: VariantProgress): void {
+    const variant = this.characterCatalog?.getVariant(variantId);
+    if (!variant) return;
+    recordGearProgress(memoryOf(this.current, variant.proto), variantId, entry.gear ?? []);
+  }
+
+  /** 装配装备到空槽：消耗 T1 图纸 ×N 写入 tier 1 / level 1 / exp 0。不提供卸下。 */
+  equipGear(variantId: VariantId, slotIndex: number): { ok: boolean; reason?: GearActionReason } {
+    const ctx = this.gearContext(variantId, slotIndex);
+    if (!ctx.gear || !ctx.entry) return { ok: false, reason: ctx.reason ?? 'unknown' };
+    const { gear, entry } = ctx;
+    entry.gear ??= [];
+    if (entry.gear[slotIndex]) return { ok: false, reason: 'already-equipped' };
+    const tier1 = gear.tiers.find(t => t.tier === 1);
+    if (!tier1) return { ok: false, reason: 'no-tier' };
+    if (!this.gearCostsPayable(tier1.upgradeCost)) return { ok: false, reason: 'insufficient-material' };
+    this.payGearCosts(tier1.upgradeCost);
+    entry.gear[slotIndex] = { tier: 1, level: 1, exp: 0 };
+    this.recordGearMemory(variantId, entry);
+    this.emit({ type: 'characterProgressChanged', variantId, domain: 'gear', after: 1, source: 'equipGear' });
+    return { ok: true };
+  }
+
+  /** 消耗经验材料升级装备经验；溢出经验自动进位，等级不超过当前 tier 上限。 */
+  feedGearExp(
+    variantId: VariantId,
+    slotIndex: number,
+    itemId: string,
+    count: number,
+  ): { ok: boolean; reason?: GearActionReason } {
+    if (!Number.isInteger(count) || count <= 0) return { ok: false, reason: 'unknown' };
+    const ctx = this.gearContext(variantId, slotIndex);
+    if (!ctx.gear || !ctx.entry) return { ok: false, reason: ctx.reason ?? 'unknown' };
+    const progress = ctx.entry.gear?.[slotIndex];
+    if (!progress) return { ok: false, reason: 'not-equipped' };
+    const tierDef = ctx.gear.tiers.find(t => t.tier === progress.tier);
+    if (!tierDef) return { ok: false, reason: 'no-tier' };
+    if (progress.level >= tierDef.levelCap) return { ok: false, reason: 'max-level' };
+    const material = this.characterCatalog?.getGearConfig()?.expItems.find(m => m.itemId === itemId);
+    if (!material) return { ok: false, reason: 'invalid-material' };
+    if ((this.current.inventory[itemId] ?? 0) < count) return { ok: false, reason: 'insufficient-material' };
+    this.removeItem(itemId, count);
+    progress.exp += material.exp * count;
+    while (progress.level < tierDef.levelCap && progress.exp >= tierDef.expPerLevel) {
+      progress.exp -= tierDef.expPerLevel;
+      progress.level += 1;
+    }
+    if (progress.level >= tierDef.levelCap) progress.exp = 0;
+    this.recordGearMemory(variantId, ctx.entry);
+    this.emit({ type: 'characterProgressChanged', variantId, domain: 'gear', after: progress.level, source: 'feedGearExp' });
+    return { ok: true };
+  }
+
+  /** 当前 tier 满级后，消耗下一 tier 图纸升级 tier（等级/经验保留）。 */
+  upgradeGearTier(variantId: VariantId, slotIndex: number): { ok: boolean; reason?: GearActionReason } {
+    const ctx = this.gearContext(variantId, slotIndex);
+    if (!ctx.gear || !ctx.entry) return { ok: false, reason: ctx.reason ?? 'unknown' };
+    const progress = ctx.entry.gear?.[slotIndex];
+    if (!progress) return { ok: false, reason: 'not-equipped' };
+    const tierDef = ctx.gear.tiers.find(t => t.tier === progress.tier);
+    if (!tierDef) return { ok: false, reason: 'no-tier' };
+    if (progress.level < tierDef.levelCap) return { ok: false, reason: 'not-max-level' };
+    const nextTier = ctx.gear.tiers.find(t => t.tier === progress.tier + 1);
+    if (!nextTier) return { ok: false, reason: 'max-tier' };
+    if (!this.gearCostsPayable(nextTier.upgradeCost)) return { ok: false, reason: 'insufficient-material' };
+    this.payGearCosts(nextTier.upgradeCost);
+    progress.tier = nextTier.tier;
+    this.recordGearMemory(variantId, ctx.entry);
+    this.emit({ type: 'characterProgressChanged', variantId, domain: 'gear', after: progress.tier, source: 'upgradeGearTier' });
+    return { ok: true };
   }
 
   /** 激活界面主题（全局单选）。未拥有色彩组拒绝；同值幂等不发事件。 */
@@ -528,19 +656,25 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const entry = this.current.roster?.[variantId];
     if (!entry) return { ok: false, newLevel: 0, newExp: 0 };
 
-    const result = this.progression!.applyExp(this.curveOf(variant), entry, amount);
+    const curve = this.curveOf(variant);
+    const cap = this.progression!.resolveVariantLevelCap(curve, this.current.accountLevelCap);
+    const result = this.progression!.applyExp(curve, entry, amount, cap);
     if (!result.ok) return { ok: false, newLevel: entry.level, newExp: entry.exp };
 
     const state = this.current;
     state.roster![variantId] = result.entry;
+    const mem = memoryOf(state, variant.proto);
+    recordVariantProgress(mem, result.entry);
+    addLifetime(mem, { expGained: amount });
     const ps = (state.protoStats ??= {})[variant.proto] ??= { acquiredTotal: 0, cultTotal: 0 };
     ps.cultTotal += amount;
     if (result.leveledUp) {
       this.emit({
-        type: 'cultivated',
+        type: 'characterProgressChanged',
         variantId,
-        kind: 'exp',
-        newLevel: result.entry.level,
+        domain: 'level',
+        after: result.entry.level,
+        source: 'addExp',
       });
     }
     return { ok: true, newLevel: result.entry.level, newExp: result.entry.exp };
@@ -562,9 +696,12 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
 
     state.fragments![variantId] -= check.cost;
     entry.stars += 1;
+    const mem = memoryOf(state, variant.proto);
+    recordVariantProgress(mem, entry);
+    addLifetime(mem, { cultivateSpent: check.cost });
     (state.protoStats ??= {})[variant.proto] ??= { acquiredTotal: 0, cultTotal: 0 };
     state.protoStats[variant.proto].cultTotal += check.cost;
-    this.emit({ type: 'cultivated', variantId, kind: 'star', newStars: entry.stars });
+    this.emit({ type: 'characterProgressChanged', variantId, domain: 'star', after: entry.stars, source: 'breakthroughStar' });
     return { ok: true, newStars: entry.stars };
   }
 

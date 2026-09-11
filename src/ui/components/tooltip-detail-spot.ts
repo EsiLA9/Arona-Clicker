@@ -52,10 +52,6 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       ? `<div class="info-row"><span>升级 Lv.${nextLevel}</span><span>${upgradeCostText} ${ctx.nameOf('resource', spot.baseCostResource)}${nextUpgradeDef?.condition ? ' · 需条件' : ''}</span></div>`
       : `<div class="info-row"><span>升级</span><span class="info-dim">${capped ? `已达上限 Lv.${maxLevel}` : '已达当前上限'}</span></div>`;
 
-  const managerBonusRow = !known || manager === Character.None
-    ? ''
-    : `<div class="info-row"><span>Manager 加成</span><span>+${ctx.formatNumber(yieldInfo.managerBonus)} · ×${yieldInfo.tagMultiplier.toFixed(2)}</span></div>`;
-
   // Spot 功能（内源 + 外源）：线性产出 / 交互型功能；未揭示时遮挡。
   const funcRows = !known
     ? ''
@@ -96,7 +92,6 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       ${owned ? '' : `<div class="info-row"><span>获取条件</span><span>${condText}</span></div>`}
       <div class="info-row"><span>当前等级</span><span class="info-accent">${show(known, `Lv.${level}`)}</span></div>
       <div class="info-row"><span>基础产出</span><span>${show(known, `${ctx.formatNumber(yieldInfo.base)} ${resource} / tick`)}</span></div>
-      ${managerBonusRow}
       <div class="info-row"><span>强化倍率</span><span>${show(known, `×${yieldInfo.enhMultiplier.toFixed(2)}${yieldInfo.enhMultiplier === 1 ? '（未获得）' : ''}`)}</span></div>
       <div class="info-row"><span>实际入账</span><span class="info-accent">${show(known, `${ctx.formatNumber(yieldInfo.total)} ${resource} / tick`)}</span></div>
       ${funcRows}

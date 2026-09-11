@@ -71,4 +71,25 @@ describe('服务工作区', () => {
     expect(html).toContain('data-workspace-frame="game"');
     expect(html).not.toContain('data-workspace-frame="service-');
   });
+
+  it('角色工作区接管通讯录、故事和成长三栏，并暴露稳定 Host', () => {
+    game.mutations.acquireCharacter('Hoshino', 'story');
+    const html = renderAppShell(createUIContext(game), {
+      ...baseState(),
+      workspace: {
+        type: 'character',
+        variantId: 'Hoshino',
+        conversationVariantId: 'Hoshino',
+        returnContext: { leftTab: 'contacts', centerTab: 'chat', rightTab: 'character', selectedVariantId: null, conversationVariantId: null },
+      },
+      selectedVariantId: 'Hoshino',
+      conversationVariantId: 'Hoshino',
+    });
+    expect(html).toContain('data-workspace-frame="character"');
+    expect(html).toContain('data-theme-host-id="leftPanel.character.contacts"');
+    expect(html).toContain('data-theme-host-id="centerPanel.character.story"');
+    expect(html).toContain('data-theme-host-id="rightPanel.character.progression"');
+    expect(html).toContain('data-workspace-role="progression"');
+    expect(html).toContain('角色成长');
+  });
 });

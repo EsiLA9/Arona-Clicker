@@ -23,7 +23,7 @@ function makeDatapack(): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     cultivateCurves: [
       {
         id: CURVE_ID,
@@ -31,7 +31,6 @@ function makeDatapack(): Datapack {
         expTable: [100, 200, 150], // L1→2 需 100，L2→3 需 200，L3→4 需 150（星扩展后可达）
         starMax: 2,
         starCost: [1, 3], // 0→1 星需 1 碎片，1→2 星需 3 碎片
-        levelCapPerStar: 1, // 每星 +1 级上限
       },
     ],
     characterVariants: [
@@ -103,14 +102,18 @@ describe('addExp（C-01 ~ C-06）', () => {
     expect(r2.newLevel).toBe(3);
   });
 
-  test('C-05 星级突破提升上限：每星 +1 级', () => {
-    game.mutations.addExp('Hoshino', 300); // 封顶 L3
+  test('C-05 上限 = min(曲线上限, accountLevelCap)；星级不再抬升', () => {
+    // accountLevelCap 收紧到 2 → cap = min(3, 2) = 2
+    state().accountLevelCap = 2;
+    expect(game.mutations.addExp('Hoshino', 9999).newLevel).toBe(2);
+    // 放开账号上限 → cap = 3（曲线上限）
+    state().accountLevelCap = undefined;
+    expect(game.mutations.addExp('Hoshino', 9999).newLevel).toBe(3);
+    // 星级突破不再抬升等级上限：仍在 L3 封顶
     (state().fragments ??= {})['Hoshino'] = 5;
     expect(game.mutations.breakthroughStar('Hoshino')).toEqual({ ok: true, newStars: 1 });
-    // 上限变为 4
-    const r = game.mutations.addExp('Hoshino', 150);
-    expect(r.ok).toBe(true);
-    expect(state().roster['Hoshino'].level).toBe(4);
+    expect(game.mutations.addExp('Hoshino', 150).ok).toBe(false);
+    expect(state().roster['Hoshino'].level).toBe(3);
   });
 
   test('C-06 未拥有变体拒绝培养', () => {
@@ -137,14 +140,14 @@ describe('breakthroughStar（C-10 ~ C-13）', () => {
     (state().fragments ??= {})['HoshinoSwimsuit'] = 0;
   });
 
-  test('C-10 碎片足够 → 突破并扣碎片，发 cultivated(star) 事件', () => {
+  test('C-10 碎片足够 → 突破并扣碎片，发 characterProgressChanged(star) 事件', () => {
     const events: any[] = [];
-    game.eventBus.on('cultivated', e => events.push(e));
+    game.eventBus.on('characterProgressChanged', e => events.push(e));
     const r = game.mutations.breakthroughStar('Hoshino');
     expect(r).toEqual({ ok: true, newStars: 1 });
     expect(state().fragments['Hoshino']).toBe(3);
     expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ variantId: 'Hoshino', kind: 'star', newStars: 1 });
+    expect(events[0]).toMatchObject({ variantId: 'Hoshino', domain: 'star', after: 1 });
   });
 
   test('C-11 碎片不足拒绝，余额与星级不变', () => {

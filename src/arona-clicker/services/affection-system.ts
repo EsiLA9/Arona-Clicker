@@ -1,4 +1,4 @@
-import type { AffectionConfigDef, CharacterVariantDef, RosterEntry } from '../types/character';
+import type { AffectionConfigDef, CharacterVariantDef, VariantProgress } from '../types/character';
 
 export const DEFAULT_AFFECTION_EXP_CURVE: readonly number[] = [
   15, 30, 30, 35, 35, 35, 40, 40, 40, 60, 90, 105, 120, 140, 160, 180, 205, 230, 255, 285,
@@ -48,9 +48,9 @@ export function affectionLevelCapOf(config: AffectionConfigView, variant: Charac
   return Math.min(table[idx] ?? config.maxLevel, config.maxLevel);
 }
 
-export interface AffectionApplyResult { ok: boolean; entry: RosterEntry; leveledUp: boolean; }
+export interface AffectionApplyResult { ok: boolean; entry: VariantProgress; leveledUp: boolean; }
 
-export function applyAffectionExp(config: AffectionConfigView, entry: RosterEntry, cap: number, _variant: CharacterVariantDef | undefined, delta: number): AffectionApplyResult {
+export function applyAffectionExp(config: AffectionConfigView, entry: VariantProgress, cap: number, _variant: CharacterVariantDef | undefined, delta: number): AffectionApplyResult {
   let level = entry.affectionLevel ?? 1;
   let exp = entry.affectionExp ?? 0;
   if (delta <= 0 || level >= cap) return { ok: false, entry, leveledUp: false };

@@ -29,7 +29,7 @@
 | 组 | 文件 |
 | --- | --- |
 | 布局骨架 | `app-shell` / `header` / `rail` / `center-panel` / `right-panels` / `tabs` |
-| 业务面板 | `production`（生产/设施，含招募按钮）/ `contacts`（通讯录 + 招募弹窗）/ `story`（剧情演出）/ `story-gate`（剧情入口确认浮层 + 开幕标题横幅）/ `collection`（图鉴）/ `enhancements` / `init-select` / `selector-page` / `global-enhancement-select` |
+| 业务面板 | `production`（生产/设施，含招募按钮）/ `contacts`（通讯录 + 角色成长与学生故事）/ `character-workspace`（通讯录、学生故事、角色成长三栏工作区）/ `story`（剧情演出）/ `story-gate`（剧情入口确认浮层 + 开幕标题横幅）/ `collection`（图鉴）/ `enhancements` / `init-select` / `selector-page` / `global-enhancement-select` |
 | tooltip 系 | `tooltip`（门面 `getTooltipContent` 路由）+ `tooltip-reveal`（揭示阶段计算）+ `tooltip-enhancement`（强化诊断）+ `tooltip-detail-*`（area/spot/enh/init/item/resource/codex 分实体渲染） |
 | 其他 | `toast` / `errors` / `entity-theme-options` / `collection-modal` |
 
@@ -66,6 +66,12 @@
 UI 表现宿主由 `src/ui/ui-host-registry.ts` 统一登记。核心 UI 提供基础宿主，服务工作区通过 `UIServiceDefinition` 声明自己的宿主；用户主题编辑器、运行时表现刷新和预览使用同一份注册信息。新增数据包/存档服务时，应声明稳定的 Host ID，并通过 `renderUIHost` 接入，不要在主题编辑器内重复维护目标列表。
 
 宿主未配置专属表现时按父级回退；Registry 只描述目标和层级，不保存用户主题值，也不开放任意 CSS/DOM 注入。
+
+### 功能工作区
+
+Shop 与角色服务等需要同时接管多个面板的功能，使用 `WorkspaceFrame`，而不是继续修改普通 `leftTab / centerTab / rightTab`。每个工作区声明固定的 `left / center / right` 列、布局 preset、语义 `role` 和稳定 Host ID；渲染器额外输出 `data-workspace-frame`、`data-workspace-column`、`data-workspace-role`，供主题编辑器和后续布局工具定位。
+
+角色工作区的当前约定为：`leftPanel.character.contacts`（通讯录）、`centerPanel.character.story`（学生故事）、`rightPanel.character.progression`（角色成长）。选择学生或进入有学生归属的故事时接管三栏；退出后恢复进入前的普通游戏面板状态。无学生归属的全局故事仍使用普通游戏工作区。
 
 三栏 panel 的顶部 Tabs 使用 `panel-tabs-region` 作为独立结构宿主：区域背景、主题装饰和底部分隔线挂在 `leftPanel.tabs` / `centerPanel.tabs` / `rightPanel.tabs`，`.switch-tabs` 仅负责 TabGroup 布局，单个按钮仍使用对应的 `*.tab` 宿主。panel 自身独占外框、圆角和 `overflow: hidden`，`panel-body` 独占正文滚动与内容 padding；普通弹窗、抽卡范围和主题编辑器内部的 `.switch-tabs` 不套用该结构。
 

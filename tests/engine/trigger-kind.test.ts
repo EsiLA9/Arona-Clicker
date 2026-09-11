@@ -74,9 +74,9 @@ describe('Trigger 映射扩展（T4：character / cultivated）', () => {
       effects: [{ op: 'addResource', target: CREDIT, value: 7 }],
       once: false,
     });
-    game.eventBus.emit({ type: 'cultivated', variantId: 'Hoshino', kind: 'exp', newLevel: 2 });
+    game.eventBus.emit({ type: 'characterProgressChanged', variantId: 'Hoshino', domain: 'level', after: 2, source: 'test' });
     expect(game.state.resources[CREDIT] ?? 0).toBe(0);
-    game.eventBus.emit({ type: 'cultivated', variantId: 'Hoshino', kind: 'star', newStars: 1 });
+    game.eventBus.emit({ type: 'characterProgressChanged', variantId: 'Hoshino', domain: 'star', after: 1, source: 'test' });
     expect(game.state.resources[CREDIT] ?? 0).toBe(7);
   });
 

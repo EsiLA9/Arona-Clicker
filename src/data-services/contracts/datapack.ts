@@ -14,7 +14,6 @@ import type { PassivePoolDef } from './passive-pool';
 import type { StoryDef } from './story';
 import type { ActiveStoryEntry, PassiveStoryEntry } from './story-entry';
 import type {
-  CharacterBonusTable,
   ResourceDisplayDef,
   TagDef,
 } from './common';
@@ -38,6 +37,7 @@ import type { CharaProfileDef } from './chara-profile';
 import type { CharacterPersistConfig } from './character-persist';
 import type { GachaPoolDef } from './gacha-pool';
 import type { ShopDef } from './shop';
+import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from './character-progression-def';
 
 // --- Datapack 汇总 ---
 
@@ -66,11 +66,6 @@ export interface Datapack {
   funcletDefs: FuncletDef[];
   characters: CharacterData[];
   /**
-   * @deprecated 冻结：Character 重构后不再参与任何计算（见 docs-818/12-character-rework.md §4.4）。
-   * 加载期忽略并 devLog 警告；字段将在 M7 冻结回归时移除。
-   */
-  characterBonuses: CharacterBonusTable[];
-  /**
    * 角色差分（变体）表
    * @label 角色差分
    */
@@ -80,6 +75,32 @@ export interface Datapack {
    * @label 培养曲线
    */
   cultivateCurves?: CultivateCurveDef[];
+  /**
+   * 爱用品表
+   * @label 爱用品
+   */
+  favoriteItems?: FavoriteItemDef[];
+  /**
+   * 专武表
+   * @label 专武
+   */
+  uniqueWeapons?: UniqueWeaponDef[];
+  /**
+   * 特性表
+   * @label 特性
+   */
+  traits?: TraitDef[];
+  /**
+   * 装备类型线表（GearId → Def）
+   * @label 装备
+   */
+  gears?: GearDef[];
+  /**
+   * 装备成长全局配置（经验材料换算与通用升级消耗）
+   * @label 装备配置
+   * @collapsible
+   */
+  gearConfig?: GearConfigDef;
   /**
    * 色彩组表（唯一色彩实体：重点色彩组 + 头像渲染方案 + theme-tree 预设）
    * @label 色彩组

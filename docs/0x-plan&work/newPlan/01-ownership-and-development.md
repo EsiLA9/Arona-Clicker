@@ -1,5 +1,7 @@
 # Character / Variant / Development：拥有与培养
 
+> 修订注记（2026-09-11）：好感归属经 [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]] 裁定为 **Variant 级 + Proto 求和**，本文「关系状态分层」中『Character Affection：好感属于人、跨 Variant 共享』的口径已作废。
+
 ## 设计目标
 
 拆开“认识学生”“拥有差分”和“培养差分”三个语义，避免抽到 Variant 就同时承担所有长期状态。

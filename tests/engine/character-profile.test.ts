@@ -109,7 +109,7 @@ describe('Registry charaProfiles 校验', () => {
     name: 't', version: '1.0.0',
     inits: [], areas: [], spots: [], enhancements: [],
     activeStories: [], passiveStories: [], stories: [], items: [],
-    funcletDefs: [], characters: [], characterBonuses: [],
+    funcletDefs: [], characters: [], 
   });
 
   test('name 表为空 → RegistryError', () => {

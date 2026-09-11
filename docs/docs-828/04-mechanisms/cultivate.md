@@ -23,19 +23,19 @@ applyExp(variantId, exp)
  ├─ while 累计经验 >= 下一级门槛 && 等级 < maxLevel：
  │    ├─ 等级 +1
  │    └─ 经验 -= 门槛
- └─ 发 `cultivated`（kind:'exp'）事件 → Trigger kind `cultivated` 侦测、UI 刷新
+ └─ 发 `characterProgressChanged`（domain:'level'）事件 → Trigger kind `cultivated` 侦测、UI 刷新
 ```
 
 ## 突破（breakthroughStar）
 
 - 消耗该差分碎片（按 `starCost`）→ 星级 +1（上限 `starMax`）；
 - `checkBreakthrough(variantId)` 只读判定当前是否可突破；
-- 完成后发 `cultivated`（kind:'star'）。
+- 完成后发 `characterProgressChanged`（domain:'star'）。
 
 ## 统计 / 事件
 
 - 每级推进经单一写入口同步记统计；
-- `cultivated` 事件统一承载升级（`kind:'exp'`）与突破（`kind:'star'`），负载含 `variantId`——事件名以 `EVENT_CATALOG` 登记为准。
+- `characterProgressChanged` 伞事件统一承载升级（`domain:'level'`）与突破（`domain:'star'`），负载含 `variantId`——事件名以 `EVENT_CATALOG` 登记为准。
 
 ## 相关文档
 

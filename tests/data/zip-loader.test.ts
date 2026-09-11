@@ -33,7 +33,6 @@ const SPOT_FRAGMENT = {
       baseYield: { type: 'const', value: 5 },
       baseYieldResource: 'credit',
       baseCapacity: 100,
-      managerBonusYield: { type: 'const', value: 2 },
       levelUpgrades: [],
       tags: [],
     },

@@ -44,7 +44,7 @@ export class ColorEquipmentSystem {
 
   effectsOf(state: PlayerState, variantId: VariantId): Effect[] {
     const entry = state.roster?.[variantId];
-    return entry?.equippedEquipment ? this.getDef(entry.equippedEquipment)?.effects ?? [] : [];
+    return entry?.colorEquipment ? this.getDef(entry.colorEquipment)?.effects ?? [] : [];
   }
 
   tryUnlock(equipmentId: EquipmentId): 'unlocked' | 'already' | false {

@@ -1,6 +1,6 @@
 import { UIContext } from '../context';
 import { DEFAULT_LAYER_ORDER, type ThemeOrderScope } from '../../engine/core/theme-runtime';
-import type { PresentationHostState } from '../../engine/types/theme';
+import type { PresentationHostState, ThemeDef } from '../../engine/types/theme';
 import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
 import { renderPresentationHostBackground } from '../presentation-service';
 
@@ -11,8 +11,85 @@ const LAYER_LABELS: Record<ThemeOrderScope, string> = {
   student: '学生层',
 };
 
+const LAYER_REGIONS: Record<ThemeOrderScope, string> = {
+  player: '全局界面',
+  init: '当前世界线',
+  area: '当前区域',
+  student: '当前学生剧情',
+};
+
+interface LayerOrderMeta {
+  themeName: string;
+  region: string;
+}
+
+function themeNameOf(ctx: UIContext, theme: ThemeDef | undefined): string {
+  if (!theme) return '未设置';
+  if (theme.colorGroupId) {
+    return ctx.game.colorSystem.getGroup(theme.colorGroupId)?.name ?? `色彩组 · ${theme.colorGroupId}`;
+  }
+  return '局部主题';
+}
+
+function activeEntityThemeName(
+  ctx: UIContext,
+  entityKey: string | undefined,
+  declaredTheme: ThemeDef | undefined,
+  equippedEquipmentId?: string | null,
+): string {
+  if (!entityKey) return themeNameOf(ctx, declaredTheme);
+  const active = ctx.game.colorSystem.entityThemeOptions(ctx.game.state, entityKey, {
+    declaredTheme,
+    equippedEquipmentId,
+  }).find(option => option.active);
+  if (!active) return themeNameOf(ctx, declaredTheme);
+  return active.kind === 'default' ? themeNameOf(ctx, active.theme ?? declaredTheme) : active.name;
+}
+
+function playerThemeName(ctx: UIContext): string {
+  const activeTheme = ctx.game.state.activeTheme ?? { kind: 'system' as const };
+  if (activeTheme.kind === 'system') return '系统默认';
+  if (activeTheme.kind === 'color-group') {
+    return ctx.game.colorSystem.getGroup(activeTheme.id)?.name ?? `色彩组 · ${activeTheme.id}`;
+  }
+  const customTheme = ctx.game.state.customThemes?.[activeTheme.id];
+  return customTheme ? `自定义 · ${customTheme.name}` : '用户自定义主题';
+}
+
+function layerOrderMeta(ctx: UIContext, scope: ThemeOrderScope, studentVariantId: string | null): LayerOrderMeta {
+  if (scope === 'player') {
+    return { themeName: playerThemeName(ctx), region: LAYER_REGIONS.player };
+  }
+
+  if (scope === 'init') {
+    const init = ctx.view.activeInit ? ctx.world.inits.get(ctx.view.activeInit) : undefined;
+    return {
+      themeName: activeEntityThemeName(ctx, init ? entityKeyOf('init', init.id) : undefined, init?.theme),
+      region: init ? `${LAYER_REGIONS.init} · ${init.name}` : `${LAYER_REGIONS.init} · 未进入`,
+    };
+  }
+
+  if (scope === 'area') {
+    const area = ctx.view.currentAreaId ? ctx.world.areas.get(ctx.view.currentAreaId) : undefined;
+    return {
+      themeName: activeEntityThemeName(ctx, area ? entityKeyOf('area', area.id) : undefined, area?.theme),
+      region: area ? `${LAYER_REGIONS.area} · ${area.name}` : `${LAYER_REGIONS.area} · 未进入`,
+    };
+  }
+
+  const variant = studentVariantId ? ctx.game.rosterSystem.getVariant(studentVariantId) : undefined;
+  const equippedEquipmentId = studentVariantId
+    ? ctx.game.rosterSystem.getOwned(ctx.game.state, studentVariantId)?.colorEquipment
+    : null;
+  const declaredTheme = variant?.theme ?? (variant?.colorGroupId ? { colorGroupId: variant.colorGroupId } : undefined);
+  return {
+    themeName: activeEntityThemeName(ctx, variant ? entityKeyOf('variant', variant.id) : undefined, declaredTheme, equippedEquipmentId),
+    region: variant ? `${LAYER_REGIONS.student} · ${variant.displayName}` : `${LAYER_REGIONS.student} · 未打开`,
+  };
+}
+
 /** 主题浮窗内的层级优先级段：行可拖拽排序，上方优先（高 → 低）；右侧显示该层当前生效主题色。 */
-function renderLayerOrderSection(ctx: UIContext): string {
+function renderLayerOrderSection(ctx: UIContext, studentVariantId: string | null): string {
   const order = ctx.game.state.themeLayerOrder ?? DEFAULT_LAYER_ORDER;
   // 引擎序 = 低 → 高（后合并者覆盖）；展示序反转，使顶部为最高优先级
   const display = [...order].reverse();
@@ -22,11 +99,17 @@ function renderLayerOrderSection(ctx: UIContext): string {
       <div class="layer-order-rows" data-theme-layer-order-rows>
         ${display.map((scope, i) => {
           const primary = ctx.game.colorSystem.scopeThemeTokens(scope)['primary'] ?? null;
+          const meta = layerOrderMeta(ctx, scope, studentVariantId);
+          const themeName = ctx.escapeHtml(meta.themeName);
+          const region = ctx.escapeHtml(`${LAYER_LABELS[scope]} · ${meta.region}`);
           return `
-          <div class="layer-order-row" draggable="true" data-theme-layer-order-scope="${scope}">
+          <div class="layer-order-row" draggable="true" data-theme-layer-order-scope="${scope}" aria-label="${themeName}，作用区域：${region}">
             <span class="layer-order-handle" title="拖拽调整优先级">⋮⋮</span>
             <span class="layer-order-rank">${i + 1}</span>
-            <span class="layer-order-name">${LAYER_LABELS[scope]}</span>
+            <span class="layer-order-name">
+              <strong class="layer-order-theme-name">${themeName}</strong>
+              <small class="layer-order-region">${region}</small>
+            </span>
             <span class="layer-order-swatch ${primary ? '' : 'none'}" style="--swatch:${primary ?? '#c3ccdb'}" title="${primary ? '当前生效主题色' : '当前未生效'}"></span>
           </div>`;
         }).join('')}
@@ -71,12 +154,14 @@ export interface HeaderRenderOptions {
   extraActions?: string;
   statusLabel?: string;
   statusSubline?: string;
+  studentVariantId?: string | null;
   className?: string;
   themeStyle?: string;
   themeKey?: string;
 }
 
-export type HeaderServiceId = 'game' | 'datapack' | 'saves' | 'records';
+export type HeaderServiceId = 'game' | 'settings';
+export type HeaderActionId = 'inventory';
 
 export interface HeaderButtonRenderOptions {
   content: string;
@@ -84,6 +169,8 @@ export interface HeaderButtonRenderOptions {
   title?: string;
   className?: string;
   service?: HeaderServiceId;
+  action?: HeaderActionId;
+  disabled?: boolean;
   flipSelectionFace?: boolean;
   backToGame?: boolean;
   state?: PresentationHostState;
@@ -102,6 +189,8 @@ export function renderHeaderButton(ctx: UIContext, options: HeaderButtonRenderOp
     options.id ? `id="${ctx.escapeHtml(options.id)}"` : '',
     options.title ? `title="${ctx.escapeHtml(options.title)}"` : '',
     options.service ? `data-service="${options.service}"` : '',
+    options.action ? `data-topbar-action="${options.action}"` : '',
+    options.disabled ? 'disabled' : '',
     options.flipSelectionFace ? 'data-flip-selection-face' : '',
     options.backToGame ? 'data-back-to-game' : '',
     `data-theme-host-id="${hostId}"`,
@@ -159,14 +248,20 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
             <div class="theme-float-body">
               <div class="theme-swatches">${palette}</div>
               ${renderUserThemeSection(ctx)}
-              ${renderLayerOrderSection(ctx)}
+              ${renderLayerOrderSection(ctx, options.studentVariantId ?? null)}
               ${renderAreaDesignsSection(ctx)}
             </div>
           </div>
         </div>
         <div class="save-actions service-nav-actions">
-          ${[['game', '游戏', '⌂'], ['datapack', '数据包', '▦'], ['saves', '存档', '↓'], ['records', '记录', '✦']].map(([service, label, icon]) => renderHeaderButton(ctx, { service: service as HeaderServiceId, title: `进入${label}服务`, content: `${label} <span>${icon}</span>` })).join('')}
-          ${renderHeaderButton(ctx, { id: 'help-modal', title: '关于', content: '?' })}
+          ${renderHeaderButton(ctx, { service: 'game', title: '返回游戏', content: '游戏 <span>⌂</span>' })}
+          ${renderHeaderButton(ctx, {
+            action: 'inventory',
+            disabled: !view.activeInit,
+            title: view.activeInit ? '打开背包' : '进入游戏后可用',
+            content: '背包 <span>▤</span>',
+          })}
+          ${renderHeaderButton(ctx, { service: 'settings', title: '打开设置', content: '设置 <span>⚙</span>' })}
         </div>
       </div>
     </header>`;

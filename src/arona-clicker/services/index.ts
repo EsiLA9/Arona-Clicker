@@ -5,10 +5,11 @@ export { CharacterAvailabilityService } from './character-availability';
 export { CharaProfileService } from './chara-profile-service';
 export { ColorSystem } from './color-system';
 export { ColorEquipmentSystem } from './color-equipment-system';
+export { GearSystem } from './gear-system';
 export { GachaService } from './gacha-service';
 export {
   resolveCurve,
-  effectiveMaxLevel,
+  resolveVariantLevelCap,
   expToNext,
   applyExp,
   checkBreakthrough,

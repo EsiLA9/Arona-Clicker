@@ -33,7 +33,6 @@ describe('SpotBuilder', () => {
       baseYield: Expr.const(0),
       baseYieldResource: CREDIT,
       baseCapacity: 0,
-      managerBonusYield: Expr.const(0),
       tags: [],
     });
   });
@@ -50,7 +49,6 @@ describe('SpotBuilder', () => {
       .cost(20)
       .yield(8)
       .capacity(300)
-      .managerBonus(4)
       .tags(['field'], ['combat'])
       .revealResource('name', CREDIT, 10)
       .revealResource('utility', CREDIT, 40)
@@ -74,7 +72,6 @@ describe('SpotBuilder', () => {
       baseYield: Expr.const(8),
       baseYieldResource: CREDIT,
       baseCapacity: 300,
-      managerBonusYield: Expr.const(4),
       tags: [['field'], ['combat']],
       revealTriggers: [
         { reveal: 'name', condition: and(cond('resource', CREDIT, '>=', 10)) },
@@ -103,7 +100,7 @@ describe('SpotBuilder', () => {
     const def = spot('base:spot:archive', 'base:area:schale_library')
       .name('卷宗整理台')
       .desc('分类整理联邦委托卷宗的工作台。')
-      .cost(25).yield(6).capacity(280).managerBonus(3)
+      .cost(25).yield(6).capacity(280)
       .tags(['archive'], ['office'])
       .levelUpTo(3)
       .genericUpgrade(100, 1.8, 1)

@@ -25,6 +25,7 @@
 | 色彩派生 | `04-mechanisms/color-derivation.md` | `04-mechanisms/color-derivation.md` | ✅ |
 | 事件联动 | `04-mechanisms/trigger-effect.md` | `04-mechanisms/trigger-effect.md` | ✅ |
 | 通讯录/招募入口 | `04-mechanisms/roster.md` | `04-mechanisms/roster.md` | ✅ |
+| 装备成长 | `04-mechanisms/gear.md` | `04-mechanisms/gear.md` | ✅ |
 
 迁移完成条件已满足：正文只保留一份、两个总入口已更新、全库 WikiLink 检查通过。
 

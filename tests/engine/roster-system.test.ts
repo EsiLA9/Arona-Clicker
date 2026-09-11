@@ -22,7 +22,7 @@ function makeDatapack(): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     characterVariants: [
       {
         id: 'Hoshino',
@@ -95,7 +95,7 @@ describe('acquireCharacter（R-01 ~ R-06, P-01）', () => {
       level: 1,
       exp: 0,
       stars: 0,
-      equippedEquipment: null,
+      colorEquipment: null,
       acquiredCount: 1,
       affectionLevel: 1,
       affectionExp: 0,

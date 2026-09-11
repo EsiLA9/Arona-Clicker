@@ -64,6 +64,10 @@ export interface UiMutationPort extends StateMutationHostPort {
   markChatRead(messageId: string): void;
   equipEquipment(variantId: string, equipmentId: string): { ok: boolean; reason?: string };
   unequipEquipment(variantId: string): boolean;
+  /** 装备（Gear）：装配到空槽 / 喂经验 / 升 tier。不提供卸下。 */
+  equipGear(variantId: string, slotIndex: number): { ok: boolean; reason?: string };
+  feedGearExp(variantId: string, slotIndex: number, itemId: string, count: number): { ok: boolean; reason?: string };
+  upgradeGearTier(variantId: string, slotIndex: number): { ok: boolean; reason?: string };
   addExp(variantId: string, amount: number): { ok: boolean; newLevel: number; newExp: number };
   breakthroughStar(variantId: string): { ok: boolean; reason?: string; newStars?: number };
   activateTheme(groupId: string | null): boolean;

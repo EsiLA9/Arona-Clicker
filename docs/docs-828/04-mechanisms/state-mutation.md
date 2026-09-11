@@ -24,7 +24,7 @@
 | `unlockInit` / `addItem` / `addEnhancement` | 解锁世界线/物品/强化 | `initUnlocked` / `itemCollected` / `enhancementAdded` |
 | `setFlag` / `setExtra` / `addExtra` / `removeExtra` | 标记/扩展数据 | `flagChanged` / `extraChanged` |
 | `acquireCharacter` | 获得差分（重复转碎片） | 角色获得事件（Trigger kind `character` 侦测） |
-| `applyExp` / `breakthroughStar` | 培养推进 | `cultivated`（`kind: 'exp'` / `'star'`） |
+| `applyExp` / `breakthroughStar` | 培养推进 | `characterProgressChanged`（`domain: 'level'` / `'star'`） |
 | `commitShopTransaction` | 已冻结的商店扣费、发货与限购记录一次提交 | 聚合资源/物品事件后逐 CartLine 发 `shopPurchased` |
 
 事件名以 `EVENT_CATALOG`（`src/arona-clicker/contracts/event-catalog.ts`）登记为准；事件联合类型位于 `src/engine/types/events.ts`。新增事件必须同时更新两者，编译期穷尽检查。

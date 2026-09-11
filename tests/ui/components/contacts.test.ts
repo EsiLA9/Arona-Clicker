@@ -17,6 +17,7 @@ import { ChatStream } from '../../../src/ui/chat-stream';
 import { renderProductionNodes } from '../../../src/ui/components/production';
 import {
   renderContactsTab,
+  renderConversationBody,
   renderConversationView,
   renderCharacterPanel,
   renderGachaBody,
@@ -35,7 +36,6 @@ function makeDatapack(): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
     characterVariants: [
       { id: 'Hoshino', proto: Character.Hoshino, name: '星野', displayName: '小鸟游星野', school: CharacterSchool.Abydos, rarity: CharacterRarity.Rare, description: '' },
       { id: 'Serika', proto: Character.Serika, name: '芹香', displayName: '黑见芹香', school: CharacterSchool.Abydos, rarity: CharacterRarity.Common, description: '' },
@@ -122,6 +122,11 @@ describe('通讯录 UI（U 组）', () => {
     expect(conv).toContain('data-theme-host-id="centerPanel.tabs"'); // 与聊天/日志顶栏同一宿主
     expect(conv).toContain('data-conversation-back'); // App 式返回键
     expect(conv).toContain('data-send'); // 底部回复按钮（idle 态）
+    const embeddedConv = renderConversationBody(ctx, 'Hoshino', [], [], sendState);
+    expect(embeddedConv).toContain('ui-cluster ui-cluster--center-chat panel-body character-workspace__conversation');
+    expect(embeddedConv).not.toContain('panel-tabs-region'); // Workspace 外层已提供唯一顶栏
+    expect(embeddedConv).not.toContain('conversation-heading');
+    expect(embeddedConv).toContain('data-send');
     expect(renderChatHistory([], ctx)).toContain('还没有对话记录'); // 空语境
 
     // 未选择：占位文案

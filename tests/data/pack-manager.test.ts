@@ -6,7 +6,7 @@ function pack(id: string, modName: string): StoredPack {
   return {
     id,
     manifest: { modName, name: modName, version: '1.0.0', dependencies: [] },
-    datapack: { name: modName, version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], characters: [], characterBonuses: [], funcletDefs: [] },
+    datapack: { name: modName, version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], characters: [], funcletDefs: [] },
     images: [], sourceKind: 'zip', importedAt: 1,
   };
 }

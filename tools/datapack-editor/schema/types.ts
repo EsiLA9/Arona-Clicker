@@ -23,7 +23,6 @@ export type TableKey =
   | 'affectorPacks'
   | 'triggerDefs'
   | 'characters'
-  | 'characterBonuses'
   | 'resourceDisplays'
   | 'tags'
   | 'pics'
@@ -91,7 +90,7 @@ export type FieldType =
   | { kind: 'object'; fields: FieldDef[] }
   /** 数组，元素为 FieldDef 描述的标量/对象 */
   | { kind: 'array'; item: FieldDef; unique?: boolean; collapsible?: boolean }
-  /** Record<string, T>，如 spotTagBonus */
+  /** Record<string, T> 键值映射 */
   | { kind: 'record'; value: FieldDef }
   /** 判别联合，按 tagField 切换表单 */
   | { kind: 'union'; tagField: string; variants: VariantDef[] }

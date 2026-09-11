@@ -21,6 +21,7 @@ import './css/entity-theme.css';
 import './css/conversation.css';
 import './css/story-overlays.css';
 import './css/equipment.css';
+import './css/gear.css';
 import './css/background.css';
 
 const game = createAppRuntime();

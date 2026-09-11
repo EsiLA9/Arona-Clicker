@@ -21,7 +21,7 @@ function makeDatapack(persist: Datapack['characterPersistConfig']): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     characterVariants: [
       {
         id: 'Hoshino',
@@ -106,6 +106,37 @@ describe('快照归属行为（PS-02 ~ PS-04）', () => {
 
     savepoint.clear();
     expect(state.gachaState!['pool-1']).toEqual({ pity: 7, pulls: 9 });
+  });
+
+  test('C0-8 声明 equips=init：equipmentsOwned 进快照并在软重启重置', () => {
+    const game = new GameInstance();
+    game.init([makeDatapack({ equips: 'init' })]);
+    const savepoint = (game.initService as any).savepoint;
+    const state = (game as any)._state as PlayerState;
+    state.equipmentsOwned = ['test:colorequipment:x'];
+
+    savepoint.save('init-a');
+    expect(state.initSnapshots!['init-a'].equipmentsOwned).toEqual(['test:colorequipment:x']);
+
+    savepoint.clear();
+    expect(state.equipmentsOwned ?? []).toEqual([]);
+
+    savepoint.restore(state.initSnapshots!['init-a']);
+    expect(state.equipmentsOwned).toEqual(['test:colorequipment:x']);
+  });
+
+  test('C0-8 默认 equips=global：软重启保留 equipmentsOwned', () => {
+    const game = new GameInstance();
+    game.init([makeDatapack(undefined)]);
+    const savepoint = (game.initService as any).savepoint;
+    const state = (game as any)._state as PlayerState;
+    state.equipmentsOwned = ['test:colorequipment:y'];
+
+    savepoint.save('init-a');
+    expect(state.initSnapshots!['init-a'].equipmentsOwned).toBeUndefined();
+
+    savepoint.clear();
+    expect(state.equipmentsOwned).toEqual(['test:colorequipment:y']);
   });
 
   test('PS-04 快照往返内容一致', () => {

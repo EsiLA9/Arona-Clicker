@@ -81,21 +81,13 @@ export function getEnhancementMultiplier(ctx: UIContext, spot: SpotDef): number 
 
 export interface YieldBreakdown {
   base: number;
-  managerBonus: number;
-  tagMultiplier: number;
   enhMultiplier: number;
   total: number;
 }
 
-/** 与 TickSystem 一致的产出分解，供 hover 展示（manager 加成已冻结，恒 0/1）。 */
+/** 与 TickSystem 一致的产出分解，供 hover 展示。 */
 export function getSpotYieldBreakdown(ctx: UIContext, spot: SpotDef): YieldBreakdown {
   const base = ctx.game.valueSystem.evaluate(spot.baseYield, ctx.game.state);
   const enhMultiplier = getEnhancementMultiplier(ctx, spot);
-  return {
-    base,
-    managerBonus: 0,
-    tagMultiplier: 1,
-    enhMultiplier,
-    total: base * enhMultiplier,
-  };
+  return { base, enhMultiplier, total: base * enhMultiplier };
 }

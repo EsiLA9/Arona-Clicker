@@ -15,6 +15,7 @@ import type { CharacterPersistConfig, CharacterPersistScope } from '../contracts
 import { GachaMode } from '../contracts/gacha-pool';
 import type { GachaPoolDef } from '../contracts/gacha-pool';
 import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contracts/color';
+import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from '../contracts/character-progression-def';
 import type { ShopDef } from '../contracts/shop';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
@@ -31,7 +32,7 @@ import type { SpotTagOverrideState as SpotTagOverride } from '../../engine/contr
 import { TagPath, tagDisplay, tagKey, parseTagRef, isTagRef, qualifyTagPath, tagRef } from '../../engine/core/tag';
 import { expandFlatKeys, extra, getAtPath, mergeExtra } from '../../engine/extra/index';
 import { RegistryError, validateDatapack } from './registry-validate';
-import type { CharacterBonusTable, ResourceDisplayDef, ResolvedTagDef } from '../contracts/common';
+import type { ResourceDisplayDef, ResolvedTagDef } from '../contracts/common';
 import type { AreaDef, InitDef, SpotDef } from '../contracts/world';
 import type { PicDef, PicKind } from '../contracts/pic';
 import { parsePicId } from '../contracts/pic';
@@ -74,10 +75,17 @@ export class Registry {
   private _dropTables: Map<string, DropTableDef> = new Map();
   private _funcletDefs: Map<string, FuncletDef> = new Map();
   private _characters: Map<Character, CharacterData> = new Map();
-  private _characterBonuses: CharacterBonusTable[] = [];
   /** Character 重构表（docs-818/12-character-rework.md §2）。 */
   private _characterVariants: Map<string, CharacterVariantDef> = new Map();
   private _cultivateCurves: Map<string, CultivateCurveDef> = new Map();
+  /** 角色养成声明表（A 段只声明，无消费）。 */
+  private _favoriteItems: Map<string, FavoriteItemDef> = new Map();
+  private _uniqueWeapons: Map<string, UniqueWeaponDef> = new Map();
+  private _traits: Map<string, TraitDef> = new Map();
+  /** 装备类型线表（GearId → Def）。 */
+  private _gears: Map<string, GearDef> = new Map();
+  /** 装备成长全局配置（多包覆盖合并）。 */
+  private _gearConfig: GearConfigDef | undefined;
   private _gachaPools: Map<string, GachaPoolDef> = new Map();
   private _shops: Map<string, ShopDef> = new Map();
   private _colorGroups: Map<string, ColorGroupDef> = new Map();
@@ -197,12 +205,6 @@ export class Registry {
         clear: () => this._characters.clear(),
       },
       {
-        // F-02：characterBonuses 已废弃，不再存储（GameInstance.init 负责警告）
-        table: 'characterBonuses',
-        merge: () => {},
-        clear: () => { this._characterBonuses = []; },
-      },
-      {
         table: 'characterVariants',
         merge: dp => {
           if (dp.characterVariants) for (const v of dp.characterVariants) this._characterVariants.set(v.id, v);
@@ -215,6 +217,42 @@ export class Registry {
           if (dp.cultivateCurves) for (const c of dp.cultivateCurves) this._cultivateCurves.set(c.id, c);
         },
         clear: () => this._cultivateCurves.clear(),
+      },
+      {
+        table: 'favoriteItems',
+        merge: dp => {
+          if (dp.favoriteItems) for (const f of dp.favoriteItems) this._favoriteItems.set(f.id, f);
+        },
+        clear: () => this._favoriteItems.clear(),
+      },
+      {
+        table: 'uniqueWeapons',
+        merge: dp => {
+          if (dp.uniqueWeapons) for (const w of dp.uniqueWeapons) this._uniqueWeapons.set(w.id, w);
+        },
+        clear: () => this._uniqueWeapons.clear(),
+      },
+      {
+        table: 'traits',
+        merge: dp => {
+          if (dp.traits) for (const t of dp.traits) this._traits.set(t.id, t);
+        },
+        clear: () => this._traits.clear(),
+      },
+      {
+        table: 'gears',
+        merge: dp => {
+          if (dp.gears) for (const g of dp.gears) this._gears.set(g.id, g);
+        },
+        clear: () => this._gears.clear(),
+      },
+      {
+        table: 'gearConfig',
+        merge: dp => {
+          if (!dp.gearConfig) return;
+          this._gearConfig = { ...this._gearConfig, ...dp.gearConfig };
+        },
+        clear: () => { this._gearConfig = undefined; },
       },
       {
         table: 'gachaPools',
@@ -368,12 +406,20 @@ export class Registry {
   get dropTables(): ReadonlyMap<string, DropTableDef> { return this._dropTables; }
   get funcletDefs(): ReadonlyMap<string, FuncletDef> { return this._funcletDefs; }
   get characters(): ReadonlyMap<Character, CharacterData> { return this._characters; }
-  /** @deprecated F-02 冻结：恒为空数组，仅保留访问器兼容。 */
-  get characterBonuses(): readonly CharacterBonusTable[] { return this._characterBonuses; }
   /** 角色差分表（VariantId → Def）。 */
   get characterVariants(): ReadonlyMap<string, CharacterVariantDef> { return this._characterVariants; }
   /** 培养曲线表。 */
   get cultivateCurves(): ReadonlyMap<string, CultivateCurveDef> { return this._cultivateCurves; }
+  /** 爱用品表。 */
+  get favoriteItems(): ReadonlyMap<string, FavoriteItemDef> { return this._favoriteItems; }
+  /** 专武表。 */
+  get uniqueWeapons(): ReadonlyMap<string, UniqueWeaponDef> { return this._uniqueWeapons; }
+  /** 特性表。 */
+  get traits(): ReadonlyMap<string, TraitDef> { return this._traits; }
+  /** 装备类型线表（GearId → Def）。 */
+  get gears(): ReadonlyMap<string, GearDef> { return this._gears; }
+  /** 装备成长全局配置（数据包声明；未声明返回 undefined）。 */
+  get gearConfig(): GearConfigDef | undefined { return this._gearConfig; }
   /** 卡池表（PoolId → Def）。 */
   get gachaPools(): ReadonlyMap<string, GachaPoolDef> { return this._gachaPools; }
   get shops(): ReadonlyMap<string, ShopDef> { return this._shops; }
@@ -432,6 +478,40 @@ export class Registry {
     for (const d of this._themeDesigns.values()) {
       if (d.theme.colorGroupId && !this._colorGroups.has(d.theme.colorGroupId)) {
         throw new RegistryError(`配色设计 ${d.id} 引用了未定义的颜色组 "${d.theme.colorGroupId}"`);
+      }
+    }
+    for (const v of this._characterVariants.values()) {
+      const p = v.progression;
+      if (p?.favoriteItem && !this._favoriteItems.has(p.favoriteItem)) {
+        throw new RegistryError(`差分 ${v.id} 引用了未定义的爱用品 "${p.favoriteItem}"`);
+      }
+      if (p?.uniqueWeapon && !this._uniqueWeapons.has(p.uniqueWeapon)) {
+        throw new RegistryError(`差分 ${v.id} 引用了未定义的专武 "${p.uniqueWeapon}"`);
+      }
+      for (const t of p?.initialTraits ?? []) {
+        if (!this._traits.has(t)) throw new RegistryError(`差分 ${v.id} 引用了未定义的特性 "${t}"`);
+      }
+      for (const slot of p?.gearSlots ?? []) {
+        if (!this._gears.has(slot.gear)) {
+          throw new RegistryError(`差分 ${v.id} 的装备槽引用了未定义的装备 "${slot.gear}"`);
+        }
+      }
+    }
+    for (const gear of this._gears.values()) {
+      const tiers = new Set<number>();
+      for (const tier of gear.tiers) {
+        if (tiers.has(tier.tier)) throw new RegistryError(`装备 ${gear.id} 含重复层级 "${tier.tier}"`);
+        tiers.add(tier.tier);
+        for (const cost of tier.upgradeCost ?? []) {
+          if (!this._items.has(cost.itemId)) {
+            throw new RegistryError(`装备 ${gear.id} 的层级 ${tier.tier} 引用了未定义的物品 "${cost.itemId}"`);
+          }
+        }
+      }
+    }
+    for (const material of this._gearConfig?.expItems ?? []) {
+      if (!this._items.has(material.itemId)) {
+        throw new RegistryError(`gearConfig 引用了未定义的经验材料 "${material.itemId}"`);
       }
     }
   }

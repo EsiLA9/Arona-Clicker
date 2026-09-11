@@ -72,7 +72,7 @@ runtimeTheme() → 按优先级合并主题层：
 - `PlayerState.groupsOwned: ColorGroupId[]` —— 已解锁色彩组清单（幂等入库存）；
 - `PlayerState.activeTheme` —— 当前全局主题来源，三选一：`{ kind: 'system' }`、`{ kind: 'color-group', id }`、`{ kind: 'custom', id }`；ColorGroup 选择须已拥有，custom 选择须已保存；
 - `PlayerState.equipmentsOwned: EquipmentId[]` —— 已收集装备清单（幂等入库存）；
-- `RosterEntry.equippedEquipment: EquipmentId | null` —— 单装备槽（`null` = 未装备）。
+- `VariantProgress.colorEquipment: EquipmentId | null` —— 单装备槽（`null` = 未装备）。
 
 ### 写入口（全部经 StateMutationService）
 
@@ -85,7 +85,7 @@ runtimeTheme() → 按优先级合并主题层：
 ### 解析与渲染
 
 - `ColorSystem.resolveTheme(group)`：唯一主题解析路径 —— `theme` 显式覆盖 > primary（主色位色值）派生 > 默认；
-- `ColorEquipmentSystem.effectsOf(state, variantId)`：按 `equippedEquipment` 聚合装备 effects；
+- `ColorEquipmentSystem.effectsOf(state, variantId)`：按 `colorEquipment` 聚合装备 effects；
 - `ColorEquipmentSystem.avatarColors(equipmentId)`：按 slot 顺序返回组内各色位的内联 hex；
 - `src/ui/avatar-renderer.ts` `renderAvatarSvg(compositionType, colors)`：纯函数，按构成方式输出圆形头像 SVG。
 

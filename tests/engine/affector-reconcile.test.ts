@@ -226,7 +226,6 @@ describe('reconcileMounts 状态对账（Phase 4.1/4.2）', () => {
             .cost(0)
             .yield(1)
             .capacity(100)
-            .managerBonus(0)
             .linearYield('test:fn:linear', CREDIT, 2)
             .build(),
         ],

@@ -3,7 +3,7 @@
 import type {
   CharacterVariantDef,
   CultivateCurveDef,
-  RosterEntry,
+  VariantProgress,
 } from '../types/character';
 import type { PlayerState } from '../types/state';
 
@@ -15,7 +15,6 @@ export interface CurveView {
   starMax: number;
   /** starCost[s] = 从 s 星升 s+1 星所需该变体碎片。 */
   starCost: number[];
-  levelCapPerStar: number;
 }
 
 /** 全局缺省曲线：上限 10 级、线性 50×level 经验、不可突破。 */
@@ -24,7 +23,6 @@ export const DEFAULT_CURVE: CurveView = {
   expTable: Array.from({ length: 9 }, (_, i) => 50 * (i + 1)),
   starMax: 0,
   starCost: [],
-  levelCapPerStar: 0,
 };
 
 /** 解析曲线定义为运行时视图（未声明/未知 id 时用全局默认）。 */
@@ -35,13 +33,15 @@ export function resolveCurve(def: CultivateCurveDef | undefined): CurveView {
     expTable: def.expTable ?? DEFAULT_CURVE.expTable,
     starMax: def.starMax ?? 0,
     starCost: def.starCost ?? [],
-    levelCapPerStar: def.levelCapPerStar ?? 0,
   };
 }
 
-/** 当前星级下的有效等级上限。 */
-export function effectiveMaxLevel(curve: CurveView, stars: number): number {
-  return curve.maxLevel + stars * curve.levelCapPerStar;
+/**
+ * 当前有效等级上限 = min(曲线绝对上限, 账号开放上限)。
+ * 星级不再参与抬升上限；特殊 Condition 上限为后续扩展占位。
+ */
+export function resolveVariantLevelCap(curve: CurveView, accountLevelCap: number | undefined): number {
+  return Math.min(curve.maxLevel, accountLevelCap ?? Number.POSITIVE_INFINITY);
 }
 
 /** 升到下一级所需经验；expTable 未覆盖该级返回 Infinity。 */
@@ -52,14 +52,13 @@ export function expToNext(curve: CurveView, level: number): number {
 
 export interface ExpApplyResult {
   ok: boolean;
-  entry: RosterEntry;
+  entry: VariantProgress;
   leveledUp: boolean;
 }
 
 /** 经验推演：跨级逐级扣减，达到有效上限后溢出截断。 */
-export function applyExp(curve: CurveView, entry: RosterEntry, amount: number): ExpApplyResult {
+export function applyExp(curve: CurveView, entry: VariantProgress, amount: number, cap: number): ExpApplyResult {
   let { level, exp } = entry;
-  const cap = effectiveMaxLevel(curve, entry.stars);
   if (amount <= 0 || level >= cap) return { ok: false, entry, leveledUp: false };
 
   let leveledUp = false;
@@ -86,7 +85,7 @@ export function checkBreakthrough(
   curve: CurveView,
   state: PlayerState,
   variant: CharacterVariantDef,
-  entry: RosterEntry,
+  entry: VariantProgress,
 ): StarCheckResult {
   if (curve.starCost.length === 0 || curve.starMax <= 0) return { ok: false, reason: 'no-curve' };
   if (entry.stars >= curve.starMax) return { ok: false, reason: 'at-max' };

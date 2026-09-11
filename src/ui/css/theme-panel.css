@@ -153,8 +153,29 @@
 
 .layer-order-name {
   flex: 1;
-  font-size: 12px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   color: var(--ink-on-panel-light, #16203a);
+}
+
+.layer-order-theme-name,
+.layer-order-region {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-order-theme-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.layer-order-region {
+  color: var(--muted-on-panel-light, #6b7a99);
+  font-size: 10px;
+  font-weight: 400;
 }
 
 /* 行右侧：当前生效主题色胶囊（未生效 → 虚线斜纹占位） */
@@ -177,4 +198,3 @@
   font-size: 10px;
   color: var(--muted-on-panel-light, #6b7a99);
 }
-

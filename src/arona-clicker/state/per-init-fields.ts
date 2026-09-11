@@ -6,7 +6,7 @@ import { globalEnhancementEntries, localEnhancementEntries, globalSpotEntries, l
 
 export interface PerInitFieldSpec {
   readonly key: keyof AronaClickerInitSnapshot & string;
-  readonly scope?: 'roster' | 'gacha' | 'chatRead';
+  readonly scope?: 'roster' | 'gacha' | 'chatRead' | 'equips';
   clear(registry: Registry, state: AronaClickerState): void;
   capture(registry: Registry, state: AronaClickerState, into: AronaClickerInitSnapshot): void;
   restore(registry: Registry, state: AronaClickerState, snapshot: AronaClickerInitSnapshot): void;
@@ -60,17 +60,21 @@ const enhancementField: FieldSpec<'unlockedEnhancements'> = {
   },
 };
 
-function characterContainer<K extends 'roster' | 'fragments' | 'gachaState' | 'chatRead'>(key: K, scope: 'roster' | 'gacha' | 'chatRead'): FieldSpec<K> {
+function characterContainer<K extends 'roster' | 'fragments' | 'gachaState' | 'chatRead' | 'equipmentsOwned'>(
+  key: K,
+  scope: 'roster' | 'gacha' | 'chatRead' | 'equips',
+  empty: () => AronaClickerInitSnapshot[K],
+): FieldSpec<K> {
   return {
     key,
     scope,
-    clear: (registry, state) => { if (registry.characterScopeOf(scope) === 'init') patch(state)[key] = {}; },
+    clear: (registry, state) => { if (registry.characterScopeOf(scope) === 'init') patch(state)[key] = empty(); },
     capture: (registry, state, into) => {
       if (registry.characterScopeOf(scope) !== 'init') return;
       const value = patch(state)[key];
-      into[key] = (value ? { ...value } : {}) as AronaClickerInitSnapshot[K];
+      into[key] = (value === undefined ? empty() : shallowClone(value)) as AronaClickerInitSnapshot[K];
     },
-    restore: (registry, state, snapshot) => { if (registry.characterScopeOf(scope) === 'init') patch(state)[key] = snapshot[key] ?? {}; },
+    restore: (registry, state, snapshot) => { if (registry.characterScopeOf(scope) === 'init') patch(state)[key] = snapshot[key] ?? empty(); },
   };
 }
 
@@ -86,8 +90,9 @@ export const PER_INIT_FIELD_SPECS = [
   field('visitedAreas', () => []), field('totalFrames', () => 0), field('inventory', () => ({})),
   enhancementField, field('storyLog', () => []), field('storyReadLogs', () => ({})),
   field('flags', () => ({})), field('triggersCompleted', () => []), field('currentAreaId', () => undefined), extrasSpec,
-  characterContainer('roster', 'roster'), characterContainer('fragments', 'roster'),
-  characterContainer('gachaState', 'gacha'), characterContainer('chatRead', 'chatRead'),
+  characterContainer('roster', 'roster', () => ({})), characterContainer('fragments', 'roster', () => ({})),
+  characterContainer('gachaState', 'gacha', () => ({})), characterContainer('chatRead', 'chatRead', () => ({})),
+  characterContainer('equipmentsOwned', 'equips', () => []),
   field('shopPurchaseRecords', () => ({})),
 ];
 

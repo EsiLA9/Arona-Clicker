@@ -34,7 +34,7 @@ function makeDatapack(): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     characterVariants: [v('Hoshino', Character.Hoshino), v('Multi', Character.Mika)],
     colorGroups: [
       {
@@ -134,25 +134,25 @@ describe('色彩装备系统', () => {
     game.colorEquipmentSystem.tryUnlock('test:colorequipment:equip-flag');
 
     expect(game.mutations.equipEquipment('Hoshino', 'test:colorequipment:equip-free').ok).toBe(true);
-    expect(state().roster['Hoshino'].equippedEquipment).toBe('test:colorequipment:equip-free');
+    expect(state().roster['Hoshino'].colorEquipment).toBe('test:colorequipment:equip-free');
     // 同装备幂等拒绝
     expect(game.mutations.equipEquipment('Hoshino', 'test:colorequipment:equip-free').reason).toBe('already-equipped');
     // 未拥有拒绝
     expect(game.mutations.equipEquipment('Hoshino', 'test:colorequipment:equip-proto').reason).toBe('not-owned');
     // 换装：直接替换为另一件
     expect(game.mutations.equipEquipment('Hoshino', 'test:colorequipment:equip-flag').ok).toBe(true);
-    expect(state().roster['Hoshino'].equippedEquipment).toBe('test:colorequipment:equip-flag');
+    expect(state().roster['Hoshino'].colorEquipment).toBe('test:colorequipment:equip-flag');
   });
 
   test('EQ-06 卸下后装备槽回 null', () => {
     game.colorEquipmentSystem.tryUnlock('test:colorequipment:equip-free');
     game.mutations.equipEquipment('Hoshino', 'test:colorequipment:equip-free');
     expect(game.mutations.unequipEquipment('Hoshino')).toBe(true);
-    expect(state().roster['Hoshino'].equippedEquipment).toBeNull();
+    expect(state().roster['Hoshino'].colorEquipment).toBeNull();
     expect(game.mutations.unequipEquipment('Hoshino')).toBe(false); // 已空
   });
 
-  test('EQ-07 effectsOf 按 equippedEquipment 聚合，卸下后消失', () => {
+  test('EQ-07 effectsOf 按 colorEquipment 聚合，卸下后消失', () => {
     game.colorEquipmentSystem.tryUnlock('test:colorequipment:equip-free');
     expect(game.colorEquipmentSystem.effectsOf(state(), 'Hoshino')).toEqual([]);
     game.mutations.equipEquipment('Hoshino', 'test:colorequipment:equip-free');

@@ -88,7 +88,6 @@ export interface SpotDef {
   baseYieldResource: string;
   /** @label 基础容量 */
   baseCapacity: number;
-  managerBonusYield: ValueExpression;
   /** @label 条件文本 */
   conditionText?: string;
   levelUpgrades?: LevelUpgradeDef[];

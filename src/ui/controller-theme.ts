@@ -93,7 +93,7 @@ export function syncRuntimeTheme(ctrl: UIController): void {
     const variant = ctrl.game.rosterSystem.getVariant(convId);
     if (variant) {
       const entry = ctrl.game.state.roster?.[convId];
-      const equipped = entry?.equippedEquipment ?? null;
+      const equipped = entry?.colorEquipment ?? null;
       const resolution = ctrl.game.colorSystem.resolveEntityTheme(
         ctrl.game.state,
         entityKeyOf('variant', convId),

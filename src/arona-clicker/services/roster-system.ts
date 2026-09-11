@@ -1,6 +1,6 @@
 import type { VariantId } from '../../engine/types';
 import type { PlayerState } from '../types/state';
-import type { CharacterVariantDef, ProtoStat, RosterEntry } from '../types/character';
+import type { CharacterVariantDef, ProtoStat, VariantProgress } from '../types/character';
 import { Character, CharacterRarity, CharacterSchool } from '../types/ids';
 import type { Registry } from '../../data-services/registry/registry';
 import { affectionLevelCapOf, resolveAffectionConfig } from './affection-system';
@@ -30,7 +30,7 @@ export class RosterSystem implements RosterQueryPort {
   }
   getVariant(variantId: VariantId): CharacterVariantDef | undefined { return this.registry.characterVariants.get(variantId); }
   getAllVariants(): CharacterVariantDef[] { return [...this.registry.characterVariants.values()]; }
-  getOwned(state: PlayerState, variantId: VariantId): RosterEntry | undefined { return state.roster?.[variantId]; }
+  getOwned(state: PlayerState, variantId: VariantId): VariantProgress | undefined { return state.roster?.[variantId]; }
   isOwned(state: PlayerState, variantId: VariantId): boolean { return this.getOwned(state, variantId) !== undefined; }
   shardsOf(state: PlayerState, variantId: VariantId): number { return state.fragments?.[variantId] ?? 0; }
   acquiredCountOf(state: PlayerState, variantId: VariantId): number { return this.getOwned(state, variantId)?.acquiredCount ?? 0; }

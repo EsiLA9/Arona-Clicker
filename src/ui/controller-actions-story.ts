@@ -46,6 +46,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const storyId = button.dataset.startStory!;
       const entry = ctrl.game.registry.activeStories.get(storyId);
       const owner = entry?.owner ?? null;
+      if (owner) ctrl.openCharacterWorkspace(owner);
       ctrl.panelState.conversationVariantId = owner;
       ctrl.panelState.centerTab = 'chat';
       ctrl.panelState.leftTab = 'story';
@@ -62,6 +63,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const storyId = button.dataset.replayStory!;
       const entry = ctrl.game.registry.activeStories.get(storyId);
       const owner = entry?.owner ?? null;
+      if (owner) ctrl.openCharacterWorkspace(owner);
       ctrl.panelState.conversationVariantId = owner;
       ctrl.panelState.centerTab = 'chat';
       ctrl.panelState.leftTab = 'story';

@@ -119,7 +119,7 @@ describe('resolvePicSrc', () => {
       inits: [], areas: [], spots: [],
       enhancements: [], activeStories: [], passiveStories: [],
       stories: [], items: [], funcletDefs: [],
-      characters: [], characterBonuses: [],
+      characters: [], 
       pics: [
         { id: 'base:avatar(pic):hoshino', src: 'zip:avatar/hoshino.png' },
         { id: 'base:avatar(pic):serika', src: 'https://example.com/serika.png' },
@@ -174,7 +174,7 @@ describe('Registry pics 集成', () => {
       inits: [], areas: [], spots: [],
       enhancements: [], activeStories: [], passiveStories: [],
       stories: [], items: [], funcletDefs: [],
-      characters: [], characterBonuses: [],
+      characters: [], 
       pics: [{ id: 'modA:avatar(pic):x', src: 'zip:avatar.png' }],
     });
     expect(reg.pics.size).toBe(1);
@@ -188,7 +188,7 @@ describe('Registry pics 集成', () => {
       inits: [], areas: [], spots: [],
       enhancements: [], activeStories: [], passiveStories: [],
       stories: [], items: [], funcletDefs: [],
-      characters: [], characterBonuses: [],
+      characters: [], 
       pics: [
         { id: 'modA:avatar(pic):a', src: 'zip:a.png' },
         { id: 'modA:avatar(pic):b', src: 'zip:b.png' },
@@ -207,7 +207,7 @@ describe('Registry pics 集成', () => {
       inits: [], areas: [], spots: [],
       enhancements: [], activeStories: [], passiveStories: [],
       stories: [], items: [], funcletDefs: [],
-      characters: [], characterBonuses: [],
+      characters: [], 
       pics: [{ id: 'modA:avatar(pic):x', src: 'zip:x.png' }],
     });
     expect(reg.pics.size).toBe(1);
@@ -222,7 +222,7 @@ describe('Registry pics 集成', () => {
       inits: [], areas: [], spots: [],
       enhancements: [], activeStories: [], passiveStories: [],
       stories: [], items: [], funcletDefs: [],
-      characters: [], characterBonuses: [],
+      characters: [], 
       pics: [{ id: 'invalid-id', src: 'x.png' }],
     })).toThrow(RegistryError);
   });
@@ -234,7 +234,7 @@ describe('Registry pics 集成', () => {
       inits: [], areas: [], spots: [],
       enhancements: [], activeStories: [], passiveStories: [],
       stories: [], items: [], funcletDefs: [],
-      characters: [], characterBonuses: [],
+      characters: [], 
       pics: [{ id: 'modA:avatar(pic):x', src: '' }],
     })).toThrow(RegistryError);
   });
@@ -246,7 +246,7 @@ describe('Registry pics 集成', () => {
       inits: [], areas: [], spots: [],
       enhancements: [], activeStories: [], passiveStories: [],
       stories: [], items: [], funcletDefs: [],
-      characters: [], characterBonuses: [],
+      characters: [], 
       pics: [
         { id: 'modA:avatar(pic):x', src: 'a.png' },
         { id: 'modA:avatar(pic):x', src: 'b.png' },
@@ -263,7 +263,7 @@ describe('GameInstance 图片 API', () => {
       inits: [], areas: [], spots: [],
       enhancements: [], activeStories: [], passiveStories: [],
       stories: [], items: [], funcletDefs: [],
-      characters: [], characterBonuses: [],
+      characters: [], 
       pics: [
         { id: 'picmod:avatar(pic):hoshino', src: 'zip:avatar/hoshino.png' },
         { id: 'picmod:background(pic):office', src: 'https://example.com/office.png' },

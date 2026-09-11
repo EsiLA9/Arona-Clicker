@@ -176,9 +176,11 @@ describe('UIController Init 选择页', () => {
     lobbyController.mount();
 
     expect(lobbyRoot.querySelector('#theme-palette-btn')).not.toBeNull();
-    expect(lobbyRoot.querySelector('#help-modal')).not.toBeNull();
+    expect(lobbyRoot.querySelector('#help-modal')).toBeNull();
     lobbyRoot.querySelector<HTMLButtonElement>('#theme-palette-btn')!.click();
     expect(lobbyRoot.querySelector('[data-theme-float]')?.classList.contains('open')).toBe(true);
+    lobbyRoot.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
+    expect(lobbyRoot.querySelector('[data-workspace-frame="settings"]')).not.toBeNull();
     lobbyRoot.querySelector<HTMLButtonElement>('#help-modal')!.click();
     expect(document.querySelector('.app-modal')).not.toBeNull();
     document.querySelector<HTMLButtonElement>('.app-modal .modal-close')?.click();

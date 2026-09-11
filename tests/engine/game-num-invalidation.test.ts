@@ -46,7 +46,6 @@ const datapack = {
       .cost(0)
       .yield(Expr.add(Expr.const(5), Expr.val(value('res', { resource: CREDIT }))))
       .capacity(100)
-      .managerBonus(0)
       .tags(tagPath('test'))
       .build(),
     // baseYield = extra 三层合并视图 testprod.bonus（覆盖 extraChanged 失效）
@@ -56,7 +55,6 @@ const datapack = {
       .cost(0)
       .yield(Expr.val(value('data', { path: 'testprod.bonus' })))
       .capacity(100)
-      .managerBonus(0)
       .tags(tagPath('test'))
       .build(),
   ],

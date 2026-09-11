@@ -6,6 +6,7 @@ import type { Character, CharacterRarity, CharacterSchool } from '../../engine/t
 import type { ExtraCompound } from '../../engine/types/extra';
 import type { VariantId, ColorGroupId, CultivateCurveId } from '../../engine/types/character';
 import type { ThemeDef } from '../../engine/types/theme';
+import type { VariantProgressionDef } from './character-progression-def';
 
 export interface CharacterVariantDef {
   /** @label ID */
@@ -28,14 +29,14 @@ export interface CharacterVariantDef {
   colorGroupId?: ColorGroupId;
   /** @label 默认差分 */
   isDefault?: boolean;
-  /** @label 标签产出加成 */
-  spotTagBonus?: Record<string, number>;
   /** @label 培养曲线 @ref cultivateCurves */
   curve?: CultivateCurveId;
   /** @label 对话主题 */
   theme?: ThemeDef;
   /** @label 好感星级锁 @int */
   affectionLevelCapByStar?: number[];
+  /** @label 养成声明 */
+  progression?: VariantProgressionDef;
   /** Extra 附加数据。 */
   extra?: ExtraCompound;
 }

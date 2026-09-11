@@ -20,7 +20,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
       datapack: {
         name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [],
         activeStories: [], passiveStories: [], stories: [], items: [], characters: [],
-        characterBonuses: [], funcletDefs: [],
+         funcletDefs: [],
       },
       images: [], jsonFileCount: 1, ignoredCount: 0,
     };
@@ -61,7 +61,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
       datapack: {
         name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [],
         activeStories: [], passiveStories: [], stories: [], items: [], characters: [],
-        characterBonuses: [], funcletDefs: [],
+         funcletDefs: [],
         pics: [{ id: 'demo:avatar(pic):x', src: 'zip:x.png' }],
       },
       images: [{ path: 'x.png', url: 'data:image/png;base64,x' }],
@@ -85,7 +85,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     const source = new AronaClickerRuntime();
     source.registerParsedPack({
       manifest: { modName: 'demo', name: 'Demo', version: '1.0.0', dependencies: [] },
-      datapack: { name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], characters: [], characterBonuses: [], funcletDefs: [] },
+      datapack: { name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], characters: [],  funcletDefs: [] },
       images: [], jsonFileCount: 1, ignoredCount: 0,
     });
     await source.savePackManager(store);

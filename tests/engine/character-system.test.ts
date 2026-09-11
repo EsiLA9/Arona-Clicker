@@ -16,8 +16,7 @@ const testCharacters: CharacterData[] = [
     school: CharacterSchool.Abydos,
     rarity: CharacterRarity.SuperRare,
     description: '测试描述',
-    spotTagBonus: { 'field': 1.4 },
-    passiveDescription: '',
+
   },
   {
     id: Character.Yuuka,
@@ -26,8 +25,7 @@ const testCharacters: CharacterData[] = [
     school: CharacterSchool.Millennium,
     rarity: CharacterRarity.Rare,
     description: '测试描述',
-    spotTagBonus: {},
-    passiveDescription: '',
+
   },
   {
     id: Character.Miyu,
@@ -36,8 +34,7 @@ const testCharacters: CharacterData[] = [
     school: CharacterSchool.SRT,
     rarity: CharacterRarity.Common,
     description: '测试描述',
-    spotTagBonus: {},
-    passiveDescription: '',
+
   },
 ];
 

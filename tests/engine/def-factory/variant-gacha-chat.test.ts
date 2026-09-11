@@ -37,17 +37,15 @@ describe('CharacterVariantBuilder', () => {
     });
   });
 
-  test('default() 与 theme/bonus 输出', () => {
+  test('default() 与 theme 输出', () => {
     const def = variant('Yuuka', Character.Yuuka)
       .name('优香').displayName('优香')
       .school(CharacterSchool.Millennium).rarity(CharacterRarity.Rare)
       .desc('x')
       .default()
-      .bonus('credit', 1.5)
       .theme('base:colorgroup:violet', { primary: '#8b5cf6' })
       .build();
     expect(def.isDefault).toBe(true);
-    expect(def.spotTagBonus).toEqual({ credit: 1.5 });
     expect(def.theme).toEqual({ colorGroupId: 'base:colorgroup:violet', tokens: { primary: '#8b5cf6' } });
   });
 });

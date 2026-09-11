@@ -19,8 +19,6 @@ describe('CharacterBuilder', () => {
       .name('阿罗娜').displayName('阿罗娜')
       .school(CharacterSchool.Schale).rarity(CharacterRarity.SuperRare)
       .desc('什亭之匣的系统管理员AI，有些冒失但很关心老师。')
-      .bonus('office', 1.5).bonus('system', 1.3)
-      .passive('「办公室」和「系统」类 Spot 产出倍率 +50%/+30%')
       .build();
     expect(def).toEqual<CharacterData>({
       id: Character.Arona,
@@ -29,8 +27,6 @@ describe('CharacterBuilder', () => {
       school: CharacterSchool.Schale,
       rarity: CharacterRarity.SuperRare,
       description: '什亭之匣的系统管理员AI，有些冒失但很关心老师。',
-      spotTagBonus: { office: 1.5, system: 1.3 },
-      passiveDescription: '「办公室」和「系统」类 Spot 产出倍率 +50%/+30%',
     });
   });
 
@@ -81,7 +77,6 @@ describe('CultivateCurveBuilder', () => {
       .expTable(...Array.from({ length: 34 }, (_, i) => 100 * (i + 1)))
       .starMax(5)
       .starCost(1, 3, 10, 30, 60)
-      .levelCapPerStar(5)
       .build();
     expect(def).toEqual<CultivateCurveDef>({
       id: 'base:cultivatecurve:standard',
@@ -89,7 +84,6 @@ describe('CultivateCurveBuilder', () => {
       expTable: Array.from({ length: 34 }, (_, i) => 100 * (i + 1)),
       starMax: 5,
       starCost: [1, 3, 10, 30, 60],
-      levelCapPerStar: 5,
     });
   });
 

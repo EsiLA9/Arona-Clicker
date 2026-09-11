@@ -33,6 +33,7 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs/docs-828/03-data-structures/player-state]] 起（见下方分区表） |
 | 引擎契约与 AronaClicker 类型边界 | [[docs/docs-828/03-data-structures/type-boundary-audit]] |
 | 生产 / 抽卡 / 培养 / 色彩 / 事件联动的机制细节 | [[docs/docs-828/04-mechanisms/00-index]]（正文迁移中，当前文件见下方分区表） |
+| 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/0x-plan&work/active/task-0041-character-progression-and-memory]]（设计草案） |
 | 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[docs/0x-plan&work/00-index]] |
 
 ### 我想改……
@@ -93,6 +94,7 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | [[docs/docs-828/04-mechanisms/color-derivation]] | 色彩派生与主题 token |
 | [[docs/docs-828/04-mechanisms/trigger-effect]] | 事件联动 + GameEvent 事件目录 |
 | [[docs/docs-828/04-mechanisms/roster]] | 通讯录 / 图鉴 / 招募入口 |
+| [[docs/docs-828/04-mechanisms/gear]] | 装备（Gear）成长：三固定槽、经验与 tier 升级 |
 
 ## 05-conventions（纪律与规范）
 

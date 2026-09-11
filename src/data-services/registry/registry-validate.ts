@@ -154,6 +154,10 @@ export function validateDatapack(dp: Datapack): void {
 
   if (dp.colorGroups) checkDup(dp.colorGroups, 'color group');
   if (dp.colorEquipments) checkDup(dp.colorEquipments, 'color equipment');
+  if (dp.gears) checkDup(dp.gears, 'gear');
+  if (dp.favoriteItems) checkDup(dp.favoriteItems, 'favorite item');
+  if (dp.uniqueWeapons) checkDup(dp.uniqueWeapons, 'unique weapon');
+  if (dp.traits) checkDup(dp.traits, 'trait');
 
   // 三段式 id 规范校验（§2）：强校验表按表名核对 typeName；
   // story / character 域 S1b/c 归位前仅查格式。
@@ -177,6 +181,7 @@ export function validateDatapack(dp: Datapack): void {
   checkEntityIds(dp.cultivateCurves, 'cultivatecurve', 'Cultivate curve');
   checkEntityIds(dp.colorGroups, 'colorgroup', 'Color group');
   checkEntityIds(dp.colorEquipments, 'colorequipment', 'Color equipment');
+  checkEntityIds(dp.gears, 'gear', 'Gear');
   checkEntityIds(dp.themeDesigns, 'themedesign', 'Theme design');
   checkEntityIds(dp.resourceDisplays?.map(rd => ({ id: rd.resourceId })), 'resource', 'Resource display');
   // story 三表强校验（S1b 落地）：本体 / 主动投放位 / 被动投放位各自中段归位；

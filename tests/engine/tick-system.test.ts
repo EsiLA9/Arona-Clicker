@@ -32,7 +32,6 @@ const simpleDatapack: Datapack = {
       baseYield: { type: 'const', value: 5 },
       baseYieldResource: 'credit',
       baseCapacity: 0,       // 无容量限制
-      managerBonusYield: { type: 'const', value: 3 },
       levelUpgrades: [],
       tags: [],
     },
@@ -44,7 +43,7 @@ const simpleDatapack: Datapack = {
   items: [],
   funcletDefs: [],
   characters: [],
-  characterBonuses: [],
+  
 };
 
 function tickState(level: number = 1): PlayerState {
@@ -105,7 +104,7 @@ describe('TickSystem', () => {
     const ts = new TickSystem(vs, bus, gns, new StateMutationService(bus));
     ts.setState(state);
 
-    // managerBonusYield 声明 3，但已冻结：产出与无 manager 完全一致
+    // 旧 manager 加成机制已移除：manager 存在不影响产出
     ts.tick();
     expect(state.resources.credit).toBe(5);
   });

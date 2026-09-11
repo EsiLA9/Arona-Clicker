@@ -27,6 +27,7 @@ import { RosterSystem } from './services/roster-system';
 import { CharacterAvailabilityService } from './services/character-availability';
 import { ColorSystem } from './services/color-system';
 import { ColorEquipmentSystem } from './services/color-equipment-system';
+import { GearSystem } from './services/gear-system';
 import { GachaService } from './services/gacha-service';
 import { PassivePoolSystem } from './services/passive-pool-system';
 import { ColorUnlockReactor } from './services/color-unlock-reactor';
@@ -48,7 +49,7 @@ import { SessionService } from '../engine/runtime/session-service';
 import { ChatFlowService } from './services/chat-flow-service';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
 import { applyAffectionExp, affectionLevelCapOf, resolveAffectionConfig } from './services/affection-system';
-import { applyExp, checkBreakthrough, resolveCurve } from './services/cultivate-system';
+import { applyExp, checkBreakthrough, resolveCurve, resolveVariantLevelCap } from './services/cultivate-system';
 
 /** 装配期对宿主子系统字段的可写视图（readonly 仅约束使用期访问）。 */
 export type GameInstanceMutable = { -readonly [K in keyof GameInstance]: GameInstance[K] };
@@ -79,6 +80,7 @@ export function wireGameInstance(
   g.mutations = new StateMutationService(g.eventBus, g.statsService);
   g.mutations.setProgression({
     resolveCurve,
+    resolveVariantLevelCap,
     applyExp,
     checkBreakthrough,
     resolveAffectionConfig,
@@ -153,6 +155,7 @@ export function wireGameInstance(
     hooks.getState,
     (expr, state) => g.conditionSystem.evaluateExpr(expr, state),
   );
+  g.gearSystem = new GearSystem(g.registry, hooks.getState);
   // 聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatFlow 的运行时事件源）
   g.chatFlowService = new ChatFlowService(g.eventBus);
   g.gachaService = new GachaService(
@@ -170,6 +173,8 @@ export function wireGameInstance(
     getColorGroup: id => g.registry.colorGroups.get(id),
     getColorEquipment: id => g.registry.colorEquipments.get(id),
     getAffectionConfig: () => g.registry.affectionConfig,
+    getGear: id => g.registry.gears.get(id),
+    getGearConfig: () => g.registry.gearConfig,
   });
   g.affectorEngine = new AffectorEngine(
     g.registry,

@@ -49,7 +49,7 @@ function makeDatapack(): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     characterVariants: [v('Hoshino', Character.Hoshino), v('Multi', Character.Mika)],
     colorGroups: [
       g('test:colorgroup:color-flag', '旗标色', '#3b82f6', {
@@ -165,8 +165,8 @@ describe('CL 色彩组获得与主题', () => {
     game.colorSystem.tryUnlockGroup('test:colorgroup:color-free');
     expect(game.mutations.activateTheme('test:colorgroup:color-free')).toBe(true);
     expect(state().activeTheme).toEqual({ kind: 'color-group', id: 'test:colorgroup:color-free' });
-    // 不影响装备槽（equippedEquipment 维持 null）
-    expect(state().roster['Hoshino'].equippedEquipment).toBeNull();
+    // 不影响装备槽（colorEquipment 维持 null）
+    expect(state().roster['Hoshino'].colorEquipment).toBeNull();
   });
 
   test('activeThemeTokens 返回激活色彩组的最终 token 表', () => {

@@ -20,6 +20,7 @@ import type { SpotQueryPort } from './spot-query';
 import type { RosterQueryPort } from './roster-query';
 import type { ColorQueryPort } from './color-query';
 import type { ColorEquipmentQueryPort } from './color-equipment-query';
+import type { GearQueryPort } from './gear-query';
 import type { StoryQueryPort } from './story-query';
 import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } from '../../data-services/datapack/pack-manager';
 import type { WorldCatalogQueryPort } from './world-catalog';
@@ -90,6 +91,7 @@ export interface GameReadModel {
   readonly availabilityService: AvailabilityQueryPort;
   readonly colorSystem: ColorQueryPort;
   readonly colorEquipmentSystem: ColorEquipmentQueryPort;
+  readonly gearSystem: GearQueryPort;
   readonly gachaService: GachaQueryPort;
   readonly spotFunctionalitySystem: SpotFunctionalityQueryPort;
   readonly shopService: ShopQueryPort;
@@ -132,6 +134,9 @@ export interface GameCommands {
   markChatRead(messageId: string): void;
   equipEquipment(variantId: VariantId, equipmentId: string): { ok: boolean; reason?: string };
   unequipEquipment(variantId: VariantId): boolean;
+  equipGear(variantId: VariantId, slotIndex: number): { ok: boolean; reason?: string };
+  feedGearExp(variantId: VariantId, slotIndex: number, itemId: string, count: number): { ok: boolean; reason?: string };
+  upgradeGearTier(variantId: VariantId, slotIndex: number): { ok: boolean; reason?: string };
   addExp(variantId: VariantId, amount: number): { ok: boolean; newLevel: number; newExp: number };
   breakthroughStar(variantId: VariantId): { ok: boolean; reason?: string; newStars?: number };
   activateTheme(groupId: string | null): boolean;

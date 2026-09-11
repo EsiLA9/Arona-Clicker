@@ -85,7 +85,7 @@ function makePack(overrides: Partial<Datapack> = {}): Datapack {
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
     characterVariants: [
       ...makeVariant('Hoshino', Character.Hoshino),
       ...makeVariant('Serika', Character.Serika),
@@ -97,8 +97,8 @@ function makePack(overrides: Partial<Datapack> = {}): Datapack {
 /** 事件收集器。 */
 function collectEvents(game: GameInstance): GameEvent[] {
   const events: GameEvent[] = [];
-  game.eventBus.on('affectionChanged', e => {
-    if (e.type === 'affectionChanged') events.push(e);
+  game.eventBus.on('characterProgressChanged', e => {
+    if (e.type === 'characterProgressChanged' && e.domain === 'affection') events.push(e);
   });
   return events;
 }
@@ -209,7 +209,7 @@ describe('§1 addAffectionExp 推演', () => {
     expect(restored.rosterSystem.affectionExpOf(restored.state, 'Hoshino')).toBe(5);
   });
 
-  test('addAffectionExp effect 生效并发 affectionChanged（跨级）', () => {
+  test('addAffectionExp effect 生效并发 characterProgressChanged（跨级）', () => {
     const game = new GameInstance();
     game.init([makePack()]);
     game.mutations.acquireCharacter('Hoshino', 'gacha');
@@ -217,7 +217,7 @@ describe('§1 addAffectionExp 推演', () => {
     game.mutations.applyEffects([{ op: 'addAffectionExp', target: 'Hoshino', value: 15 }]);
     expect(game.rosterSystem.affectionLevelOf(game.state, 'Hoshino')).toBe(2);
     expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ variantId: 'Hoshino', delta: 15, newLevel: 2, newExp: 0, leveledUp: true });
+    expect(events[0]).toMatchObject({ variantId: 'Hoshino', domain: 'affection', before: 1, after: 2 });
   });
 
   test('affectionLevel 条件：达标前后翻转；未拥有 → 0', () => {
@@ -262,7 +262,7 @@ describe('§2 轴 B：好感台阶剧情', () => {
     // 完结奖励 +50：2→3(30) + 3→4(30) 不够 → 3 级 20 小值
     expect(game.rosterSystem.affectionLevelOf(game.state, 'Hoshino')).toBe(3);
     expect(game.rosterSystem.affectionExpOf(game.state, 'Hoshino')).toBe(20);
-    expect(events.some(e => e.type === 'affectionChanged' && e.newLevel === 3)).toBe(true);
+    expect(events.some(e => e.type === 'characterProgressChanged' && e.after === 3)).toBe(true);
   });
 
   test('多条同时达标按需求值升序逐条放出（并列按声明序）', () => {

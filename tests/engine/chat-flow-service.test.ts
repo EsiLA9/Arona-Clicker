@@ -79,7 +79,7 @@ function makeChatPack(): import('../../src/data-services/contracts/datapack').Da
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
   };
 }
 

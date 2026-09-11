@@ -5,6 +5,12 @@
 // ============================================================
 
 import type { UIController } from './controller';
+import { GEAR_REASON_TEXT } from './components/contacts';
+
+/** 装备动作失败提示（复用组件层文案表）。 */
+function gearReasonText(reason?: string): string {
+  return (reason && GEAR_REASON_TEXT[reason]) || '操作不可用';
+}
 
 /**
  * 打开对话空间即推：队列非空且无进行中演出时立即推送就绪队列顶
@@ -22,8 +28,9 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
   // --- 通讯录 / 角色（Character 重构 UI） ---
   scope.querySelectorAll<HTMLButtonElement>('[data-select-variant]').forEach(button => {
     button.addEventListener('click', () => {
-      ctrl.panelState.selectedVariantId = button.dataset.selectVariant ?? null;
-      ctrl.panelState.conversationVariantId = ctrl.panelState.selectedVariantId;
+      const selectedVariantId = button.dataset.selectVariant;
+      if (!selectedVariantId) return;
+      ctrl.openCharacterWorkspace(selectedVariantId);
       ctrl.panelState.leftTab = 'contacts';
       ctrl.panelState.rightTab = 'character';
       ctrl.panelState.storyGate = null; // 换流后浮层失效（owner 已不属于当前流）
@@ -33,6 +40,9 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
       if (variantId) pushReadyTop(ctrl, variantId);
       ctrl.refreshPanels(['left', 'center', 'right']);
     });
+  });
+  scope.querySelectorAll<HTMLElement>('[data-character-workspace-leave]').forEach(button => {
+    button.addEventListener('click', () => ctrl.disposeWorkspace());
   });
   // 对话空间返回键：回到一般聊天（并取消左侧该学生的 active 选中态）
   scope.querySelector('[data-conversation-back]')?.addEventListener('click', () => {
@@ -63,6 +73,36 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
       const variantId = ctrl.panelState.selectedVariantId;
       if (!variantId) return;
       ctrl.commands.unequipEquipment(variantId);
+      ctrl.refreshPanels(['right']);
+    });
+  });
+  // 装备（Gear）：放入装备 / 升级经验 / 升级 tier（BA 无取下，故无卸下入口）
+  scope.querySelectorAll<HTMLButtonElement>('[data-gear-equip]').forEach(button => {
+    button.addEventListener('click', () => {
+      const variantId = ctrl.panelState.selectedVariantId;
+      if (!variantId) return;
+      const r = ctrl.commands.equipGear(variantId, Number(button.dataset.gearEquip));
+      if (!r.ok) ctrl.toast.show(gearReasonText(r.reason), 'error');
+      ctrl.refreshPanels(['right']);
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-gear-feed]').forEach(button => {
+    button.addEventListener('click', () => {
+      const variantId = ctrl.panelState.selectedVariantId;
+      const itemId = button.dataset.gearMaterial;
+      if (!variantId || !itemId) return;
+      const r = ctrl.commands.feedGearExp(variantId, Number(button.dataset.gearFeed), itemId, 1);
+      if (!r.ok) ctrl.toast.show(gearReasonText(r.reason), 'error');
+      ctrl.refreshPanels(['right']);
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-gear-tierup]').forEach(button => {
+    button.addEventListener('click', () => {
+      const variantId = ctrl.panelState.selectedVariantId;
+      if (!variantId) return;
+      const r = ctrl.commands.upgradeGearTier(variantId, Number(button.dataset.gearTierup));
+      if (!r.ok) ctrl.toast.show(gearReasonText(r.reason), 'error');
+      else ctrl.toast.show('装备已升级', 'success');
       ctrl.refreshPanels(['right']);
     });
   });

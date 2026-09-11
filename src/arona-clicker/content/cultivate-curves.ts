@@ -8,6 +8,5 @@ export const baseCultivateCurves: CultivateCurveDef[] = [
     .expTable(...Array.from({ length: 34 }, (_, i) => 100 * (i + 1)))
     .starMax(5)
     .starCost(1, 3, 10, 30, 60)
-    .levelCapPerStar(5)
     .build(),
 ];

@@ -1,6 +1,7 @@
 # 06-adr/planning — 好感度系统设计（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）
 
 - **状态**：已实现（2026-08-29 落地；同日修订：聊天消息成分按用户裁定移除、§4 页级打字提示与按钮门控/想回复阶段落地并移除空间级大省略号，见各节修订记录）
+- **事件更名注记（2026-09-11）**：好感入账事件 `affectionChanged` 已由伞事件 `characterProgressChanged(domain:'affection')` 取代；`RosterEntry` 更名 `VariantProgress`（见 [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]]）。本文其余机制描述不变。
 - **来源**：docs-824 的 03g / 04i / 04j 三篇规划文档合并迁移
 - **依赖顺序**：好感数值（§1）→ 台阶推送（§2）→ 羁绊尾巴（§3），逐层叠加
 - **实现落定**（与原规划的差异，均为与用户对齐后的裁定）：

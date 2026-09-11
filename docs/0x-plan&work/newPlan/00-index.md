@@ -21,6 +21,8 @@
 | [[docs/0x-plan&work/docs/newPlan/07-mvp-scope]] | MVP 范围、切片顺序与验收重点 |
 | [[docs/0x-plan&work/docs/newPlan/08-passive-story-sol-review]] | PassiveStory / StoryChain 设计意见与逐条审阅 | 🟡 已裁定，施工见 task-0032 |
 | [[docs/0x-plan&work/newPlan/09-shop-transaction-draft]] | Spot 商店与通用交易系统策划草案 | 🔵 待评审，重点裁定交易原子性与购买记录 scope |
+| [[docs/0x-plan&work/newPlan/10-inventory-workspace]] | 背包三栏 Workspace 与物品整理服务 | 🟡 首版已实施，待体验评审 |
+| [[docs/0x-plan&work/newPlan/11-gear-equipment-system]] | 装备（Gear）三槽、经验成长与 tier 升级 MVP 策划 | 🟢 MVP 已实施，effects 消费随 B 段 |
 
 ## 与现有计划的关系
 

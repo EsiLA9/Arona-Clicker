@@ -29,12 +29,9 @@
       "school": "扩展实验室",
       "rarity": "rare",
       "description": "用于验证外部包角色、标签加成和图鉴来源。",
-      "spotTagBonus": { "experimental": 1.25 },
-      "passiveDescription": "实验标签设施产出 +25%。",
       "tags": [["experimental"], ["character", "test"]]
     }
   ],
-  "characterBonuses": [{ "characterId": "addition_test_mascot", "spotId": "addition-test:spot:scanner", "multiplier": 1.25 }],
   "characterVariants": [
     {
       "id": "addition-test:variant:observer",

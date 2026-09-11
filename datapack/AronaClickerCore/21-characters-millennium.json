@@ -7,8 +7,6 @@
       "school": "千禧年",
       "rarity": "rare",
       "description": "千年研讨会的会计，精打细算，对数字十分敏感。",
-      "spotTagBonus": { "millennium": 1.4 },
-      "passiveDescription": "「千年」类设施的产出 +40%。",
       "extra": {
         "t": "dict",
         "v": {
@@ -23,8 +21,6 @@
       "school": "千禧年",
       "rarity": "rare",
       "description": "千年研讨会的记录员，喜欢收集各种有趣的情报。",
-      "spotTagBonus": { "service": 1.3 },
-      "passiveDescription": "「服务」类设施的产出 +30%。",
       "extra": {
         "t": "dict",
         "v": {
@@ -32,9 +28,5 @@
         }
       }
     }
-  ],
-  "characterBonuses": [
-    { "characterId": "yuuka", "spotId": "base:spot:millennium_printer", "multiplier": 2.5 },
-    { "characterId": "noa", "spotId": "base:spot:dispenser", "multiplier": 2 }
   ]
 }

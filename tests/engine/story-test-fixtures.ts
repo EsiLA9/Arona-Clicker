@@ -241,7 +241,7 @@ export function makePack(entries: StoryEntryDef[], stories: StoryDef[]): Datapac
     items: [],
     funcletDefs: [],
     characters: [],
-    characterBonuses: [],
+    
   };
 }
 

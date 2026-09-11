@@ -17,6 +17,7 @@ export { baseCharacterVariants } from './character-variants';
 export { baseCharacterPersistConfig } from './character-persist';
 export { baseColorGroups } from './colors';
 export { baseColorEquipments } from './color-equipments';
+export { baseGears, baseGearConfig, baseGearItems } from './gears';
 export { baseGachaPools } from './gacha-pools';
 export { baseAffectionStepStories, baseAffectionSteps } from './affection-content';
 export { baseBondStoryEntries, baseBondStories } from './bond-content';

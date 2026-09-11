@@ -21,7 +21,8 @@ function defaultVariants(): CharacterVariantDef[] {
       : undefined;
     const b = variant(id, c.id)
       .name(c.name).displayName(c.displayName).school(c.school).rarity(c.rarity)
-      .desc(c.description).default().curve('base:cultivatecurve:standard');
+      .desc(c.description).default().curve('base:cultivatecurve:standard')
+      .gearSlots('base:gear:attack-hat', 'base:gear:defense-vest', 'base:gear:special-badge');
     if (theme) b.theme(theme.colorGroupId, theme.tokens);
     if (c.id === Character.Hoshino) b.avatar('base:avatar(pic):hoshino');
     else if (defaultColorGroups[c.id]) b.colorGroup(defaultColorGroups[c.id]);
@@ -35,6 +36,7 @@ const specialVariants: CharacterVariantDef[] = [
     .school(CharacterSchool.Abydos).rarity(CharacterRarity.SuperRare)
     .desc('换上泳装的星野学长。夏日限定，慵懒依旧。')
     .curve('base:cultivatecurve:standard')
+    .gearSlots('base:gear:attack-glove', 'base:gear:defense-shoes', 'base:gear:special-watch')
     .colorGroup('base:colorgroup:hoshino-gradient').build(),
 ];
 

@@ -15,14 +15,14 @@ import type {
   TriggerDef,
 } from '../../engine/types';
 import type { CharaProfileDef } from '../contracts/chara-profile';
-import type { CharacterBonusTable, ResourceDisplayDef } from '../contracts/common';
+import type { ResourceDisplayDef } from '../contracts/common';
 import type { AreaDef, InitDef, SpotDef } from '../contracts/world';
 import type { PicDef } from '../contracts/pic';
 
 export const DATAPACK_LIST_FIELDS = [
   'inits', 'areas', 'spots', 'enhancements', 'activeStories', 'passiveStories', 'stories',
   'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'funcletDefs', 'characters',
-  'characterBonuses', 'resourceDisplays', 'pics', 'charaProfiles',
+  'resourceDisplays', 'pics', 'charaProfiles',
 ] as const;
 export type DatapackListField = (typeof DATAPACK_LIST_FIELDS)[number];
 

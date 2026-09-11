@@ -27,6 +27,23 @@
 | Datapack 汇总契约 / Registry 组合边界 | `src/data-services/contracts/datapack.ts`、`src/data-services/registry/`；基础引擎只消费注入后的数据 |
 | 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[docs/0x-plan&work/00-index]]（设计决策、工作状态与历史记录统一入口） |
 
+### 策划、意见与工作计划归档
+
+所有非机制正文的策划、反馈、评审意见和施工计划，统一放在 `docs/0x-plan&work/`；新建文档前先阅读其 [[docs/0x-plan&work/00-index]]，不要在项目根目录或 `docs/` 下另建平行的计划目录。
+
+| 内容性质 | 存放位置 | 文档形态 |
+| --- | --- | --- |
+| 新的玩法策划、产品想法、用户意见、Sol 回复、尚未评审的方案草稿 | `docs/0x-plan&work/newPlan/` | 以主题拆分的草稿；需要时更新 `newPlan/00-index.md` |
+| 基于源码或设计的审查意见、问题清单、Review 路线 | `docs/0x-plan&work/review/` | 审查记录或 Review roadmap；不要伪装成已裁定方案 |
+| 已形成目标但仍在推进的长期路线 | `docs/0x-plan&work/active/roadmap-*.md` | 只写目标、切片、状态、验收结果 |
+| 已作出的架构/机制边界裁定 | `docs/0x-plan&work/active/adr-*.md` | 记录决策、理由、影响和后续施工；重大决策先 ADR 再拆 Roadmap |
+| 可直接执行的实现任务、专项修复或验收清单 | `docs/0x-plan&work/active/task-*.md` | 记录范围、依赖、验收口径和验证结果 |
+| 已完成的 ADR、Roadmap、Task 或策划决策 | `docs/0x-plan&work/completed/` | 保留历史记录，文首和 `00-index.md` 标记完成，不删除 |
+
+归档流转遵循：`newPlan/` 草案 → `review/` 评审（如需要）→ `active/adr-*`、`active/roadmap-*` 或 `active/task-*` → `completed/`。策划意见不能直接写入机制正文；只有裁定并实现后的稳定机制，才同步沉淀到 `docs/docs-828/`。`docs/0x-plan&work/mechanisms/` 仅用于按机制聚合链接，不复制计划正文、也不改变文档生命周期。
+
+`docs/newPlan/` 是旧位置（仅保留历史文件），禁止将新策划、意见或工作计划写入其中；若需要继续维护旧文件，应迁移到 `docs/0x-plan&work/newPlan/` 并同步索引。文件名优先使用已有的 `adr-NNNN-*`、`roadmap-NNNN-*`、`task-NNNN-*` 约定，中文主题可作为主题名但仍需归入上述生命周期目录。
+
 ## 命令
 
 | 命令 | 用途 |
@@ -36,6 +53,7 @@
 | `npm run dev:game` / `npm run dev` | UI / 引擎开发服务器 |
 | `npm run build` | 构建 |
 | `npm run gen:schema` | `src/engine/types/**` → `tools/datapack-editor/schema/engine-defs.gen.json` |
+| `npm run ui:callgraph` | UI 调用链 / 反向链静态分析（定位 DOM 过度刷新的入口；`--chains` / `--dom` / `--reverse` / `--forward` / `--hot`） |
 
 ## 架构纪律（不可破坏，详见 [[docs/docs-828/05-conventions/architecture-discipline]]）
 

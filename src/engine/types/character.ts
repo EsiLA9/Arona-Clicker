@@ -6,5 +6,10 @@ export type EquipmentId = string;
 export type GachaPoolId = string;
 export type ChatMessageId = string;
 export type CultivateCurveId = string;
+export type SkillId = string;
+export type TraitId = string;
+export type FavoriteItemId = string;
+export type UniqueWeaponId = string;
+export type GearId = string;
 
 export type CharacterAcquireVia = 'gacha' | 'story' | 'event';

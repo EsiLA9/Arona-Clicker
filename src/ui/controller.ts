@@ -364,7 +364,7 @@ export class UIController {
   refreshPanels(panels: Array<'left' | 'center' | 'right'>): void {
     // Workspace 接管三栏时，普通 panel renderer 不能局部覆盖 workspace。
     // 当前 Shop 是首个 workspace；后续 Function workspace 统一从这里分流。
-    if (this.panelState.workspace?.type === 'shop') {
+    if (this.panelState.workspace) {
       this.render();
       return;
     }
@@ -722,10 +722,17 @@ export class UIController {
   }
 
   disposeShopWorkspace(): void {
+    this.disposeWorkspace();
+  }
+
+  /** 退出当前临时工作区并恢复进入前的游戏面板。 */
+  disposeWorkspace(): void {
     const workspace = this.panelState.workspace;
     if (!workspace) return;
-    workspace.session.clear();
-    this.game.colorSystem.popEphemeralTheme(workspace.themeId);
+    if (workspace.type === 'shop') {
+      workspace.session.clear();
+      this.game.colorSystem.popEphemeralTheme(workspace.themeId);
+    }
     this.panelState.workspace = undefined;
     this.panelState.leftTab = workspace.returnContext.leftTab;
     this.panelState.centerTab = workspace.returnContext.centerTab;
@@ -734,6 +741,28 @@ export class UIController {
     this.panelState.conversationVariantId = workspace.returnContext.conversationVariantId;
     this.refreshTheme();
     this.render();
+  }
+
+  /** 进入角色服务工作区；角色列表、故事流与成长面板由该工作区统一接管。 */
+  openCharacterWorkspace(variantId: string): void {
+    const current = this.panelState.workspace;
+    const returnContext = current?.type === 'character'
+      ? current.returnContext
+      : {
+          leftTab: this.panelState.leftTab,
+          centerTab: this.panelState.centerTab,
+          rightTab: this.panelState.rightTab,
+          selectedVariantId: this.panelState.selectedVariantId,
+          conversationVariantId: this.panelState.conversationVariantId,
+        };
+    this.panelState.workspace = {
+      type: 'character',
+      variantId,
+      conversationVariantId: variantId,
+      returnContext,
+    };
+    this.panelState.selectedVariantId = variantId;
+    this.panelState.conversationVariantId = variantId;
   }
 
   openSpotShopModal(spotId: string): void {

@@ -10,7 +10,6 @@
       "baseYield": { "type": "const", "value": 3 },
       "baseYieldResource": "base:resource:credit",
       "baseCapacity": 300,
-      "managerBonusYield": { "type": "const", "value": 4 },
       "levelUpgrades": [],
       "tags": [["millennium"], ["production"]],
       "yieldPerLevel": 2,
@@ -48,7 +47,6 @@
       "baseYield": { "type": "const", "value": 1 },
       "baseYieldResource": "base:resource:pyroxene",
       "baseCapacity": 150,
-      "managerBonusYield": { "type": "const", "value": 2 },
       "levelUpgrades": [],
       "tags": [["millennium"], ["service"]],
       "yieldPerLevel": 1,
@@ -72,7 +70,6 @@
       "baseYield": { "type": "const", "value": 2 },
       "baseYieldResource": "base:resource:pyroxene",
       "baseCapacity": 200,
-      "managerBonusYield": { "type": "const", "value": 3 },
       "levelUpgrades": [
         {
           "level": 5,

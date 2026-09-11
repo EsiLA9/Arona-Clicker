@@ -39,7 +39,7 @@ function rewardLines(ctx: UIContext, entryId: string): string[] {
 function variantAvatar(ctx: UIContext, variantId: string, size = 96): string | null {
   const variant = ctx.game.rosterSystem.getVariant(variantId);
   if (!variant) return null;
-  const equip = ctx.game.rosterSystem.getOwned(ctx.game.state, variantId)?.equippedEquipment;
+  const equip = ctx.game.rosterSystem.getOwned(ctx.game.state, variantId)?.colorEquipment;
   const group = equip
     ? ctx.game.colorEquipmentSystem.groupOf(equip)
     : (variant.colorGroupId ? ctx.game.registry.colorGroups.get(variant.colorGroupId) : undefined);

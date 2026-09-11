@@ -42,7 +42,7 @@ export const ON_KIND_TO_EVENT: Record<TriggerEventKind, GameEvent['type']> = {
   area: 'areaEntered',
   shop: 'shopPurchased',
   character: 'characterAcquired',
-  cultivated: 'cultivated',
+  cultivated: 'characterProgressChanged',
 };
 
 /** 挂载后的 Trigger：id 必填（显式 id 或匿名派生 id 已归一化）。 */
@@ -189,9 +189,10 @@ export class TriggerSystem extends EventDrivenReactor {
         return event.type === 'characterAcquired'
           && (!on.variantId || event.variantId === on.variantId);
       case 'cultivated':
-        return event.type === 'cultivated'
+        return event.type === 'characterProgressChanged'
+          && (event.domain === 'level' || event.domain === 'star')
           && (!on.variantId || event.variantId === on.variantId)
-          && (!on.cultivation || event.kind === on.cultivation);
+          && (!on.cultivation || event.domain === (on.cultivation === 'star' ? 'star' : 'level'));
       default:
         return false;
     }

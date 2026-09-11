@@ -4,6 +4,7 @@ export * from './cultivate-curve';
 export * from './gacha-pool';
 export * from './color-group';
 export * from './color-equipment';
+export * from './gear';
 export * from './item';
 export * from './drop-table';
 export * from './enhancement';

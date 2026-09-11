@@ -3,6 +3,7 @@ export type { EffectMutationPort } from './effect-mutation';
 export type { RosterQueryPort, RosterContactGroup, RosterContactEntry } from './roster-query';
 export type { ColorQueryPort, ColorEntityThemeOption, ColorGroupDescription } from './color-query';
 export type { ColorEquipmentQueryPort } from './color-equipment-query';
+export type { GearActionReason, GearCostView, GearExpMaterialView, GearQueryPort, GearSlotRef, GearSlotView } from './gear-query';
 export type { StoryQueryPort } from './story-query';
 export type { AvailabilityMutationPort, CharacterProfileMutationPort, ColorEquipmentMutationPort, ColorMutationPort, EnhancementMutationPort, GachaMutationPort, InitMutationPort, InventoryMutationPort, RuntimeMutationPort, SpotMutationPort, StateMutationHostPort, StoryMutationPort, UiMutationPort } from './mutation';
 export type { AvailabilityQueryPort } from './availability-query';

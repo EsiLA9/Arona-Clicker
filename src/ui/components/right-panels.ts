@@ -66,6 +66,7 @@ function renderOtherTab(ctx: UIContext): string {
   return `
     <div class="mini-panel-head"><span class="eyebrow">背包</span></div>
     <ul class="inventory-list">${inventoryRows}</ul>
+    <button type="button" class="toolbar-button inventory-open-workspace" data-open-inventory>打开完整背包 ↗</button>
     <div class="mini-panel-head"><span class="eyebrow">效果追踪</span></div>
     <div class="trace"><span class="trace-line"></span><p><b>基础生产</b><small>Spot output pipeline</small></p><span class="trace-value">READY</span></div>
     ${affectors}`;

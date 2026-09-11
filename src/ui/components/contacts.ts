@@ -13,6 +13,7 @@ import { renderBackground } from '../background-service';
 import { renderPresentationRegion } from '../presentation-service';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
 import type { CharacterVariantDef } from '../../arona-clicker/types/character';
+import type { GearSlotView } from '../../arona-clicker/contracts/gear-query';
 import type { Effect } from '../../engine/types';
 import { renderAvatarSvg } from '../avatar-renderer';
 import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
@@ -25,6 +26,28 @@ const RARITY_LABEL: Record<string, string> = {
   super_rare: '★★★',
   rare: '★★',
   common: '★',
+};
+
+/** 装备槽类别中文标签。 */
+const GEAR_KIND_LABEL: Record<string, string> = {
+  attack: '攻击',
+  defense: '防御',
+  special: '特殊',
+};
+
+/** 装备动作被拒原因的中文提示（controller 复用同一文案表）。 */
+export const GEAR_REASON_TEXT: Record<string, string> = {
+  'insufficient-material': '材料不足',
+  'invalid-material': '材料无效',
+  'max-level': '本阶已满级',
+  'max-tier': '已达最高阶',
+  'not-max-level': '未满级',
+  'not-equipped': '未装配',
+  'already-equipped': '已装配',
+  'no-slot': '该角色无此槽位',
+  'no-tier': '缺少层级定义',
+  'no-entry': '尚未拥有该学生',
+  unknown: '暂不可用',
 };
 
 /** 左栏：通讯录 tab。
@@ -130,7 +153,7 @@ function renderContactRow(
   const active = selected === variant.id;
   const glyph = variant.name.slice(0, 1);
   // 头像优先级：装备的 ColorGroup > 差分声明的 colorGroupId > 图片/URL > 首字母占位
-  const equipmentId = entry.equippedEquipment;
+  const equipmentId = entry.colorEquipment;
   const equippedColors = equipmentId ? ctx.game.colorEquipmentSystem.avatarColors(equipmentId) : undefined;
   const equippedGroup = equipmentId ? ctx.game.colorEquipmentSystem.groupOf(equipmentId) : undefined;
   const declaredGroup = variant.colorGroupId ? ctx.game.registry.colorGroups.get(variant.colorGroupId) : undefined;
@@ -199,6 +222,61 @@ export function renderConversationView(
     return '<div class="char-chat-empty"><p>该学生尚未加入通讯录。</p></div>';
   }
 
+  const unreadCount = game.story.readyStepCount(variantId);
+  const header = `
+    <div class="conversation-heading">
+      <button class="conversation-back" data-conversation-back aria-label="返回一般聊天" title="返回一般聊天">‹</button>
+      <div class="conversation-title">
+        <b>${ctx.escapeHtml(variant.displayName)}</b>
+        <small>对话空间${unreadCount > 0 ? ` · ${unreadCount} 条未读` : ''}</small>
+      </div>
+    </div>`;
+
+  return `
+    <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-theme-scope="center.conversation">
+      ${renderBackground(ctx.background, 'console-panel-background')}
+      ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
+      ${renderPanelHeaderRegion(ctx, 'center', header)}
+      <div class="conversation-pane panel-body" data-conversation="${ctx.escapeHtml(variantId)}">
+        ${renderConversationFlow(ctx, variantId, entries, chatTexts, sendState, sendGate, storyGate, openingBanner)}
+      </div>
+    </section>`;
+}
+
+/** 角色 Workspace 中栏正文：复用普通聊天流的 panel-body，不再嵌套第二层顶栏。 */
+export function renderConversationBody(
+  ctx: UIContext,
+  variantId: string,
+  entries: ChatEntry[],
+  chatTexts: ChatTextEntry[],
+  sendState: import('../../arona-clicker/contracts/results').SendState,
+  sendGate: import('./app-shell').SendGatePhase | null = null,
+  storyGate: import('./app-shell').StoryGateState | null = null,
+  openingBanner: import('./app-shell').ActiveBanner | null = null,
+): string {
+  const { game } = ctx;
+  const variant = game.rosterSystem.getVariant(variantId);
+  if (!variant || !game.rosterSystem.isOwned(game.state, variantId)) {
+    return '<div class="char-chat-empty"><p>该学生尚未加入通讯录。</p></div>';
+  }
+
+  return `
+    <div class="ui-cluster ui-cluster--center-chat panel-body character-workspace__conversation" data-conversation="${ctx.escapeHtml(variantId)}">
+      ${renderConversationFlow(ctx, variantId, entries, chatTexts, sendState, sendGate, storyGate, openingBanner, true)}
+    </div>`;
+}
+
+function renderConversationFlow(
+  ctx: UIContext,
+  variantId: string,
+  entries: ChatEntry[],
+  chatTexts: ChatTextEntry[],
+  sendState: import('../../arona-clicker/contracts/results').SendState,
+  sendGate: import('./app-shell').SendGatePhase | null,
+  storyGate: import('./app-shell').StoryGateState | null,
+  openingBanner: import('./app-shell').ActiveBanner | null,
+  embedded = false,
+): string {
   // 聊天沙盒：读取该角色对话空间自己游标上的当前剧情（与全局/其他角色并行互不干扰）
   const story = ctx.game.getStoryView(variantId);
   // 剧情演出中：choice 确认后渲染选项卡片；kizuna 页渲染羁绊卡片（均在流内）
@@ -228,39 +306,17 @@ export function renderConversationView(
       }), ctx.escapeHtml)}</div>`
     : renderSendButton(sendState, sendGate);
 
-  const unreadCount = game.story.readyStepCount(variantId);
-
-  // 顶部栏复用中心栏统一结构区块（renderPanelHeaderRegion）：与聊天/日志顶栏共享
-  // 宿主渲染色、等高 token 与内边距，不再手写独立 header。
-  const header = `
-    <div class="conversation-heading">
-      <button class="conversation-back" data-conversation-back aria-label="返回一般聊天" title="返回一般聊天">‹</button>
-      <div class="conversation-title">
-        <b>${ctx.escapeHtml(variant.displayName)}</b>
-        <small>对话空间${unreadCount > 0 ? ` · ${unreadCount} 条未读` : ''}</small>
-      </div>
-    </div>`;
-
   return `
-    <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-theme-scope="center.conversation">
-      ${renderBackground(ctx.background, 'console-panel-background')}
-      ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
-      ${renderPanelHeaderRegion(ctx, 'center', header)}
-      <div class="conversation-pane panel-body" data-conversation="${ctx.escapeHtml(variantId)}">
-        <div class="chat-pane">
-          <div class="chat-stream conversation-stream">
-            ${renderChatHistory(entries, ctx)}
-            ${current}
-          </div>
-          ${renderChatTexts(ctx, chatTexts)}
-          ${openingBanner ? renderOpeningBanner(ctx, openingBanner) : ''}
-          ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
-          <div class="conversation-footer">
-            ${footer}
-          </div>
-        </div>
+    <div class="chat-pane">
+      <div class="chat-stream conversation-stream">
+        ${renderChatHistory(entries, ctx)}
+        ${current}
       </div>
-    </section>`;
+      ${renderChatTexts(ctx, chatTexts)}
+      ${openingBanner ? renderOpeningBanner(ctx, openingBanner) : ''}
+      ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
+      ${embedded ? footer : `<div class="conversation-footer">${footer}</div>`}
+    </div>`;
 }
 
 /** 右栏：角色培养面板。 */
@@ -273,7 +329,12 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
   const entry = game.rosterSystem.getOwned(game.state, variantId)!;
   const shards = game.rosterSystem.shardsOf(game.state, variantId);
 
-  const equippedId = entry.equippedEquipment;
+  const gearView = game.gearSystem.viewOf(game.state, variantId);
+  const gearHtml = gearView.length
+    ? `<h4>装备</h4><div class="gear-slots">${gearView.map(slot => renderGearSlotCard(ctx, variantId, slot)).join('')}</div>`
+    : '';
+
+  const equippedId = entry.colorEquipment;
   const equippedDef = equippedId ? game.colorEquipmentSystem.getDef(equippedId) : undefined;
   const equippedHtml = equippedDef
     ? renderEquipmentCard(ctx, equippedId!, equippedDef)
@@ -298,6 +359,7 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
         <button class="primary-button" data-add-exp="${ctx.escapeHtml(variantId)}">经验 +100</button>
         <button class="primary-button" data-breakthrough="${ctx.escapeHtml(variantId)}">星级突破</button>
       </div>
+      ${gearHtml}
       <h4>色彩装备</h4>
       <div class="equipment-slots">${equippedHtml}</div>
       ${equippable ? `<div class="equipment-equippable">${equippable}</div>` : ''}
@@ -305,7 +367,7 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
         const entityKey = entityKeyOf('variant', variantId);
         const themeOptions = game.colorSystem.entityThemeOptions(game.state, entityKey, {
           declaredTheme: variant.theme,
-          equippedEquipmentId: entry.equippedEquipment,
+          equippedEquipmentId: entry.colorEquipment,
         });
         return themeOptions.length
           ? `<h4>配色设计</h4>${renderEntityThemeOptions(ctx, entityKey, themeOptions)}`
@@ -344,6 +406,50 @@ function renderEquipmentOption(ctx: UIContext, def: import('../../data-services/
       <span class="equipment-avatar">${avatar}</span>
       <span class="equipment-option-name">${ctx.escapeHtml(def.name)}</span>
     </button>`;
+}
+
+/**
+ * 装备槽卡片（三态）：空槽显示装配消耗；已装配显示等级/经验与经验材料；
+ * 满级显示升 tier 消耗。BA 本体无取下，故不渲染卸下按钮。
+ */
+function renderGearSlotCard(ctx: UIContext, variantId: string, slot: GearSlotView): string {
+  const title = `${GEAR_KIND_LABEL[slot.kind] ?? slot.kind} · ${ctx.escapeHtml(slot.gearName)}`;
+  const variantAttr = ctx.escapeHtml(variantId);
+  if (!slot.equipped) {
+    const cost = slot.equipCost.map(c => `${ctx.escapeHtml(c.itemName)} ${c.owned}/${c.amount}`).join(' · ');
+    return `
+    <div class="gear-slot">
+      <div class="gear-slot-head"><b>${title}</b></div>
+      <div class="gear-slot-empty">
+        <small>未装配</small>
+        <small>消耗：${cost || '—'}</small>
+      </div>
+      <button class="primary-button" data-gear-equip="${slot.slotIndex}" data-gear-variant="${variantAttr}" ${slot.canEquip ? '' : 'disabled'}>放入装备</button>
+      ${!slot.canEquip && slot.reason ? `<small class="gear-reason">${GEAR_REASON_TEXT[slot.reason] ?? ''}</small>` : ''}
+    </div>`;
+  }
+  const maxed = slot.level >= slot.levelCap;
+  const pct = maxed
+    ? 100
+    : slot.expPerLevel > 0
+      ? Math.min(100, Math.floor((slot.exp / slot.expPerLevel) * 100))
+      : 0;
+  const materials = slot.expMaterials
+    .map(m => `<button class="gear-material" data-gear-feed="${slot.slotIndex}" data-gear-material="${ctx.escapeHtml(m.itemId)}" data-gear-variant="${variantAttr}" ${m.owned > 0 ? '' : 'disabled'} title="${ctx.escapeHtml(m.name)} +${m.exp} 经验">${ctx.escapeHtml(m.name)} ×${m.owned}</button>`)
+    .join('');
+  const upgradeCost = slot.upgradeCost.map(c => `${ctx.escapeHtml(c.itemName)} ${c.owned}/${c.amount}`).join(' · ');
+  return `
+    <div class="gear-slot is-equipped">
+      <div class="gear-slot-head"><b>${title}</b><span class="gear-tier">T${slot.tier}</span></div>
+      <div class="gear-slot-level"><span>Lv.${slot.level} / ${slot.levelCap}</span><small>exp ${slot.exp}/${slot.expPerLevel}</small></div>
+      <div class="gear-exp-bar"><span style="width:${pct}%"></span></div>
+      ${maxed
+        ? `<button class="primary-button" data-gear-tierup="${slot.slotIndex}" data-gear-variant="${variantAttr}" ${slot.canUpgradeTier ? '' : 'disabled'}>升级装备</button>`
+        : `<div class="gear-materials">${materials || '<small>无可用的装备经验材料</small>'}</div>`}
+      ${maxed && !slot.canUpgradeTier
+        ? `<small class="gear-reason">${slot.reason === 'max-tier' ? '已达最高阶' : `升级消耗：${upgradeCost || '—'}`}</small>`
+        : ''}
+    </div>`;
 }
 
 /** 效果的简短中文描述（仅覆盖常见 op，其余回退 op 名）。 */

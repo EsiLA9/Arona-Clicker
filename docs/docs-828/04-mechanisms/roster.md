@@ -9,7 +9,7 @@
 
 ## 图鉴（codex）
 
-- `codex(state)` → 全差分列表（含未持有），按稀有度降序，条目含持有记录（`RosterEntry | undefined`）；
+- `codex(state)` → 全差分列表（含未持有），按稀有度降序，条目含持有记录（`VariantProgress | undefined`）；
 - 单查：`getVariant` / `getOwned` / `shardsOf` / `acquiredCountOf` / `protoStatOf`；
 - 悬停详情走 tooltip 揭示阶梯（未揭示信息遮挡，见 [[docs/docs-828/02-modules/visibility]]）；
 - 收集类统计经 `TagStatService`（characters 维度）同步三层统计。

@@ -19,7 +19,7 @@
 ## 核心概念
 
 - **两个实体**：`ColorGroupDef`（色彩组 = slots 内联 hex + compositionType + theme 预设 + unlock）+ `ColorEquipmentDef`（收集品 = 捆绑色彩组 + effects）。原 `ColorDef` 已并入 `ColorGroupDef`。
-- **状态归属**（全经 mutations 写）：`groupsOwned` / `activeTheme` / `equipmentsOwned`（global 层）；`RosterEntry.equippedEquipment`（单装备槽）。`activeTheme` 是系统默认、ColorGroup、独立用户主题的唯一全局单选来源；用户主题内容存于 `customThemes`，实体挂靠存于 `themeAttachments`。
+- **状态归属**（全经 mutations 写）：`groupsOwned` / `activeTheme` / `equipmentsOwned`（global 层）；`VariantProgress.colorEquipment`（单装备槽）。`activeTheme` 是系统默认、ColorGroup、独立用户主题的唯一全局单选来源；用户主题内容存于 `customThemes`，实体挂靠存于 `themeAttachments`。
 - **实体配色槽**：`state.entityThemeSlots`（key = `area:<id>` / `variant:<id>` / `init:<id>` / `enhancement:<id>`），来源四选一：声明默认 / equipment / design / custom（当前交互入口仍主要覆盖 Area/学生；Init/GlobalEnh 选择页的局部投影由 Task-0025 接入）。
 - **声明主题**：`InitDef.theme` 与 `EnhancementDef.theme` 可提供选择页场景的 `ThemeDef`；`ThemeDef.background` 是默认背景，`backgroundVariants` 是受控离散状态变体。
 - **运行时层**：`player → init → area → student` 是可排序的四层；user/preview 独立于该排列，ephemeral 剧情层始终最高。

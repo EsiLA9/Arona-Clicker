@@ -108,7 +108,8 @@ describe('选择页动态主题投影', () => {
       topbar?.querySelector<HTMLButtonElement>('[data-flip-selection-face]'),
       topbar?.querySelector<HTMLButtonElement>('#theme-palette-btn'),
       topbar?.querySelector<HTMLButtonElement>('[data-service="game"]'),
-      topbar?.querySelector<HTMLButtonElement>('#help-modal'),
+      topbar?.querySelector<HTMLButtonElement>('[data-topbar-action="inventory"]'),
+      topbar?.querySelector<HTMLButtonElement>('[data-service="settings"]'),
       topbar?.querySelector<HTMLButtonElement>('[data-back-to-game]'),
     ];
     expect(buttons.every(button => button?.dataset.themeHostId === 'header.button')).toBe(true);

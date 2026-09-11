@@ -16,8 +16,6 @@ export interface CultivateCurveDef {
   starMax?: number;
   /** @label 突破消耗 */
   starCost?: number[];
-  /** @label 每星上限 @int */
-  levelCapPerStar?: number;
   /** @label 每级加成 */
   levelBonusPerLevel?: ValueExpression;
 }

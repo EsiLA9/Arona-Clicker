@@ -23,41 +23,56 @@ function refreshHeaderPresentation(ctrl: UIController): void {
   refreshPresentationHostElements(ctrl, ['header.button']);
 }
 
+type TopbarService = 'game' | 'settings' | 'datapack' | 'saves' | 'records';
+
+function hasUnappliedDatapackDraft(ctrl: UIController): boolean {
+  const workspace = ctrl.panelState.datapackWorkspace;
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
+  const formal = host.getPackConfiguration?.();
+  return Boolean(workspace && formal && (
+    JSON.stringify(workspace.draftEnabledIds) !== JSON.stringify(formal.enabledIds)
+    || JSON.stringify(workspace.draftOrder) !== JSON.stringify(formal.order)
+  ));
+}
+
+function navigateFromTopbar(ctrl: UIController, service: TopbarService, rightTab?: string): void {
+  const switchService = () => {
+    if (ctrl.panelState.workspace) ctrl.disposeWorkspace();
+    ctrl.panelState.service = service;
+    if (rightTab) ctrl.panelState.rightTab = rightTab;
+    ctrl.render();
+  };
+  // 设置是数据包编辑的安全暂存页：进入设置不应丢弃或阻断草案。
+  const leavingDatapack = ctrl.panelState.service === 'datapack' && service !== 'datapack' && service !== 'settings';
+  if (leavingDatapack && hasUnappliedDatapackDraft(ctrl)) {
+    ctrl.modal.open({
+      title: '还有未应用的数据包修改',
+      body: '<p>当前数据包草案尚未应用。离开后可以继续保留草案，也可以放弃这些修改。</p>',
+      footer: '<button class="modal-close">继续编辑</button><button class="toolbar-button" data-modal-action="discard-pack-draft">放弃修改并离开</button>',
+      onAction: action => {
+        if (action !== 'discard-pack-draft') return;
+        ctrl.resetDatapackDraft();
+        ctrl.modal.close();
+        switchService();
+      },
+    });
+    return;
+  }
+  switchService();
+}
+
 /** 绑定顶栏 / 全局工具条与 Tab 切换（render 后调用）。 */
 export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
   bindDatapackActions(ctrl, scope);
   scope.querySelectorAll<HTMLButtonElement>('[data-service]').forEach(button => {
     button.addEventListener('click', () => {
-      const service = button.dataset.service as 'game' | 'datapack' | 'saves' | 'records' | undefined;
+      const service = button.dataset.service as TopbarService | undefined;
       if (!service) return;
-      const workspace = ctrl.panelState.datapackWorkspace;
-      const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
-      const formal = host.getPackConfiguration?.();
-      const hasDraft = Boolean(workspace && formal && (
-        JSON.stringify(workspace.draftEnabledIds) !== JSON.stringify(formal.enabledIds)
-        || JSON.stringify(workspace.draftOrder) !== JSON.stringify(formal.order)
-      ));
-      const switchService = () => {
-        if (ctrl.panelState.workspace?.type === 'shop') ctrl.disposeShopWorkspace();
-        ctrl.panelState.service = service;
-        ctrl.render();
-      };
-      if (ctrl.panelState.service === 'datapack' && service !== 'datapack' && hasDraft) {
-        ctrl.modal.open({
-          title: '还有未应用的数据包修改',
-          body: '<p>当前数据包草案尚未应用。离开后可以继续保留草案，也可以放弃这些修改。</p>',
-          footer: '<button class="modal-close">继续编辑</button><button class="toolbar-button" data-modal-action="discard-pack-draft">放弃修改并离开</button>',
-          onAction: action => {
-            if (action !== 'discard-pack-draft') return;
-            ctrl.resetDatapackDraft();
-            ctrl.modal.close();
-            switchService();
-          },
-        });
-        return;
-      }
-      switchService();
+      navigateFromTopbar(ctrl, service);
     });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-topbar-action="inventory"]').forEach(button => {
+    button.addEventListener('click', () => navigateFromTopbar(ctrl, 'game', 'other'));
   });
   scope.querySelector('#tick-now')?.addEventListener('click', () => {
     ctrl.commands.tick();
@@ -136,7 +151,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
   scope.querySelector('#new-game')?.addEventListener('click', () => {
     // 彻底重启：清空全部运行时状态（含 Global 资源 / 已解锁世界线 / 统计），
     // 并删除本地存档，回到首次启动的全新世界线选择。
-    if (ctrl.panelState.workspace?.type === 'shop') ctrl.disposeShopWorkspace();
+    if (ctrl.panelState.workspace) ctrl.disposeWorkspace();
     ctrl.commands.reset();
     SaveSystem.delete();
     ctrl.started = false;

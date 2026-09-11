@@ -1,4 +1,4 @@
-import type { AffectionConfigDef, CharacterVariantDef, CultivateCurveDef, RosterEntry } from '../types/character';
+import type { AffectionConfigDef, CharacterVariantDef, CultivateCurveDef, VariantProgress } from '../types/character';
 import type { PlayerState } from '../types/state';
 
 export interface CurveView {
@@ -6,7 +6,6 @@ export interface CurveView {
   expTable: number[];
   starMax: number;
   starCost: number[];
-  levelCapPerStar: number;
 }
 
 export interface AffectionConfigView {
@@ -18,9 +17,10 @@ export interface AffectionConfigView {
 
 export interface CharacterProgressionPort {
   resolveCurve(def: CultivateCurveDef | undefined): CurveView;
-  applyExp(curve: CurveView, entry: RosterEntry, amount: number): { ok: boolean; entry: RosterEntry; leveledUp: boolean };
-  checkBreakthrough(curve: CurveView, state: PlayerState, variant: CharacterVariantDef, entry: RosterEntry): { ok: boolean; reason?: string; cost?: number };
+  resolveVariantLevelCap(curve: CurveView, accountLevelCap: number | undefined): number;
+  applyExp(curve: CurveView, entry: VariantProgress, amount: number, cap: number): { ok: boolean; entry: VariantProgress; leveledUp: boolean };
+  checkBreakthrough(curve: CurveView, state: PlayerState, variant: CharacterVariantDef, entry: VariantProgress): { ok: boolean; reason?: string; cost?: number };
   resolveAffectionConfig(def: AffectionConfigDef | undefined): AffectionConfigView;
   affectionLevelCapOf(config: AffectionConfigView, variant: CharacterVariantDef | undefined, stars: number): number;
-  applyAffectionExp(config: AffectionConfigView, entry: RosterEntry, cap: number, variant: CharacterVariantDef | undefined, delta: number): { ok: boolean; entry: RosterEntry; leveledUp: boolean };
+  applyAffectionExp(config: AffectionConfigView, entry: VariantProgress, cap: number, variant: CharacterVariantDef | undefined, delta: number): { ok: boolean; entry: VariantProgress; leveledUp: boolean };
 }

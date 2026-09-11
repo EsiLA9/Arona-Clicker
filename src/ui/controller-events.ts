@@ -51,12 +51,13 @@ export function bindEvents(ctrl: UIController): void {
     ctrl.pendingTravelChats.push(`移动到了 ${ctx.nameOf('area', event.areaId)}`);
   });
   // 好感跨级 → 该角色对话空间聊天流 reward 风格提示行（第一迭代唯一升级播报）
-  ctrl.game.eventBus.on('affectionChanged', event => {
-    if (event.type !== 'affectionChanged' || !event.leveledUp) return;
+  ctrl.game.eventBus.on('characterProgressChanged', event => {
+    if (event.type !== 'characterProgressChanged' || event.domain !== 'affection') return;
+    if (!((event.after ?? 0) > (event.before ?? 0))) return;
     const name = ctrl.game.rosterSystem.getVariant(event.variantId)?.displayName ?? event.variantId;
     ctrl.chat.pushToVariant(ctrl.panelState, event.variantId, {
       kind: 'reward',
-      text: `与 ${name} 的羁绊提升至 Lv.${event.newLevel}`,
+      text: `与 ${name} 的羁绊提升至 Lv.${event.after}`,
     });
   });
   // 聊天流演出服务（Talklet）：清理全部聊天内容

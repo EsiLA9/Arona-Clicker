@@ -7,6 +7,10 @@ import { ChatEntry, ChatTextEntry } from './story';
 import { renderServiceWorkspace } from './service-workspace';
 import type { ShopSession } from '../../arona-clicker/services/shop-service';
 import { renderShopWorkspace } from './shop';
+import { renderCharacterWorkspace } from './character-workspace';
+import { renderSettingsWorkspace } from './settings-workspace';
+import { renderInventoryWorkspace } from './inventory-workspace';
+import type { InventoryWorkspaceState } from '../inventory-view';
 import { renderWorkspaceFrame } from './workspace-frame';
 
 export type DatapackWorkspaceSection = 'all' | 'enabled' | 'disabled' | 'issues' | 'import';
@@ -41,8 +45,9 @@ export interface StoryGateState {
 
 export interface PanelState {
   /** 当前顶层服务工作区；game = 正常游玩三栏。 */
-  service?: 'game' | 'datapack' | 'saves' | 'records';
+  service?: 'game' | 'settings' | 'inventory' | 'datapack' | 'saves' | 'records';
   datapackWorkspace?: DatapackWorkspaceState;
+  inventoryWorkspace?: InventoryWorkspaceState;
   leftTab: string;
   centerTab: string;
   rightTab: string;
@@ -101,15 +106,34 @@ export interface ShopWorkspaceState {
   themeId: string;
 }
 
-export type WorkspaceState = ShopWorkspaceState;
+export interface CharacterWorkspaceState {
+  type: 'character';
+  variantId: string;
+  conversationVariantId: string | null;
+  returnContext: ShopReturnContext;
+}
+
+export type WorkspaceState = ShopWorkspaceState | CharacterWorkspaceState;
 
 export function renderAppShell(ctx: UIContext, state: PanelState): string {
   const service = state.service ?? 'game';
+  const studentVariantId = state.workspace?.type === 'character'
+    ? state.workspace.conversationVariantId
+    : state.conversationVariantId;
+  if (service === 'settings') {
+    return renderConsoleFrame(ctx, renderSettingsWorkspace(ctx, state), 'SETTINGS WORKSPACE · LOCAL SERVICES', studentVariantId);
+  }
+  if (service === 'inventory') {
+    return renderConsoleFrame(ctx, renderInventoryWorkspace(ctx, state), 'INVENTORY WORKSPACE · LOCAL SORTING', studentVariantId);
+  }
   if (service !== 'game') {
-    return renderConsoleFrame(ctx, renderServiceWorkspace(ctx, service, state), '服务工作区 · 只读视图');
+    return renderConsoleFrame(ctx, renderServiceWorkspace(ctx, service, state), '服务工作区 · 只读视图', studentVariantId);
   }
   if (state.workspace?.type === 'shop') {
-    return renderConsoleFrame(ctx, renderShopWorkspace(ctx, state.workspace), 'SPOT FUNCTION · SHOP WORKSPACE');
+    return renderConsoleFrame(ctx, renderShopWorkspace(ctx, state.workspace), 'SPOT FUNCTION · SHOP WORKSPACE', studentVariantId);
+  }
+  if (state.workspace?.type === 'character') {
+    return renderConsoleFrame(ctx, renderCharacterWorkspace(ctx, state.workspace, state), 'CHARACTER SERVICE · WORKSPACE', studentVariantId);
   }
   const conversation = state.conversationVariantId
     ? {
@@ -123,13 +147,13 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
     left: { slot: 'left', hostId: 'leftPanel', themeScope: 'left.game', className: 'game-workspace__left', content: renderLeftPanel(ctx, state), scroll: 'none' },
     center: { slot: 'center', hostId: 'centerPanel', themeScope: 'center.game', className: 'game-workspace__center', content: renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null), scroll: 'none' },
     right: { slot: 'right', hostId: 'rightPanel', themeScope: 'right.game', className: 'game-workspace__right', content: renderRightPanel(ctx, state.rightTab, state.selectedVariantId), scroll: 'none' },
-  }), 'TS-HTML ENGINE · NO NETWORK');
+  }), 'TS-HTML ENGINE · NO NETWORK', studentVariantId);
 }
 
-function renderConsoleFrame(ctx: UIContext, body: string, footerNote: string): string {
+function renderConsoleFrame(ctx: UIContext, body: string, footerNote: string, studentVariantId: string | null): string {
   return `
     <main class="console-shell">
-      ${renderHeader(ctx)}
+      ${renderHeader(ctx, { studentVariantId })}
       ${body}
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>${footerNote}</span></footer>
     </main>`;

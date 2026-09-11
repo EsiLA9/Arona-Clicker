@@ -16,7 +16,7 @@ import type { SpotTagOverrideState } from '../../engine/contracts/state-query';
 import type { Character } from './ids';
 import type { StoredCustomTheme, ThemeAttachment, UserThemeState } from './user-theme';
 import type { CompletedStory, StoryReadLog } from './story-state';
-import type { GachaPoolState, ProtoStat, RosterEntry } from './character';
+import type { CharacterMemory, GachaPoolState, ProtoStat, VariantProgress } from './character';
 import type { ShopPurchaseRecord } from '../../data-services/contracts/shop';
 
 export type SpotTagOverride = SpotTagOverrideState;
@@ -44,7 +44,7 @@ export interface PlayerState {
   initExtras?: ExtraCompound;
   initSnapshots?: Record<InitId, InitSnapshot>;
   extras?: ExtraCompound;
-  roster?: Record<VariantId, RosterEntry>;
+  roster?: Record<VariantId, VariantProgress>;
   fragments?: Record<VariantId, number>;
   gachaState?: Record<GachaPoolId, GachaPoolState>;
   activeTheme?: ActiveThemeSelection;
@@ -63,6 +63,10 @@ export interface PlayerState {
   themeAttachments?: Record<string, ThemeAttachment>;
   worldPool?: VariantId[];
   protoStats?: Record<string, ProtoStat>;
+  /** 跨世界线角色记忆（永远 global，不随 Init 重置；不进 PER_INIT_FIELD_SPECS）。 */
+  characterMemory?: Record<Character, CharacterMemory>;
+  /** 账号级角色等级开放上限（缺省 = 无上限）；提升机制后续接入。 */
+  accountLevelCap?: number;
   /** 跨世界线的 Shop 购买事实（key 经 ShopPurchaseRecord resolver 生成）。 */
   globalShopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
   /** 当前 Init 的 Shop 购买事实（随 InitSnapshot 保存）。 */
@@ -83,10 +87,11 @@ export interface InitSnapshot {
   triggersCompleted: string[];
   currentAreaId?: AreaId;
   extras?: ExtraCompound;
-  roster?: Record<VariantId, RosterEntry>;
+  roster?: Record<VariantId, VariantProgress>;
   fragments?: Record<VariantId, number>;
   gachaState?: Record<GachaPoolId, GachaPoolState>;
   chatRead?: Record<ChatMessageId, true>;
+  equipmentsOwned?: EquipmentId[];
   shopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
 }
 

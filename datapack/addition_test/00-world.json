@@ -44,7 +44,6 @@
       "baseYield": { "type": "const", "value": 1 },
       "baseYieldResource": "base:resource:credit",
       "baseCapacity": 50,
-      "managerBonusYield": { "type": "const", "value": 1 },
       "yieldPerLevel": 1,
       "upgradeCostBase": 1,
       "upgradeCostGrowth": 1.2,

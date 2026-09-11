@@ -790,7 +790,6 @@ export const TABLE_META: TableMeta[] = [
       baseCostResource: () => r('baseCostResource', 'resourceDisplays', '造价资源', { required: true }),
       baseYield: () => valueExpressionField('baseYield', '基础产出', true),
       baseYieldResource: () => r('baseYieldResource', 'resourceDisplays', '产出资源', { required: true }),
-      managerBonusYield: () => valueExpressionField('managerBonusYield', '经理加成产出'),
       levelUpgrades: () => levelUpgradeField(),
       maxLevel: () => i('maxLevel', '等级上限'),
       tags: () => tagPathField('tags'),
@@ -899,19 +898,9 @@ export const TABLE_META: TableMeta[] = [
       id: () => s('id', 'ID', { required: true }),
       school: () => ({ key: 'school', label: '学校', required: true, type: { kind: 'enum', optionsFrom: { table: 'characters' as TableKey, field: 'school' } } }),
       rarity: () => ({ key: 'rarity', label: '稀有度', required: true, type: { kind: 'enum', optionsFrom: { table: 'characters' as TableKey, field: 'rarity' } } }),
-    },
-  },
-  {
-    key: 'characterBonuses',
-    label: '角色加成表',
-    type: 'CharacterBonusTable',
-    idField: 'characterId',
-    idFormat: 'free',
-    worldlineSplit: true,
-    overrides: {
-      characterId: () => r('characterId', 'characters', '角色', { required: true }),
-      spotId: () => r('spotId', 'spots', '设施', { required: true }),
-      multiplier: () => n('multiplier', '倍率', { required: true }),
+      bond: () => o('bond', [
+        alist('milestones', o('$', [n('totalAffection', '总好感', { required: true }), effectArray('effects', '效果')]), '里程碑'),
+      ], '羁绊里程碑'),
     },
   },
   {
