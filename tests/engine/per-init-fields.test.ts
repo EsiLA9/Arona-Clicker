@@ -17,7 +17,7 @@ const EXPECTED_SNAPSHOT_KEYS = [
   'resources', 'spotLevels', 'spotManagers', 'visitedAreas', 'totalFrames',
   'inventory', 'unlockedEnhancements', 'storyLog', 'storyReadLogs', 'flags',
   'triggersCompleted', 'currentAreaId', 'extras', 'roster', 'fragments', 'gachaState', 'chatRead',
-  'equipmentsOwned', 'shopPurchaseRecords',
+  'equipmentsOwned', 'shopPurchaseRecords', 'storyCursors',
 ];
 
 function makeRegistry(persist?: Partial<Record<'roster' | 'gacha' | 'chatRead', CharacterPersistScope>>): Registry {

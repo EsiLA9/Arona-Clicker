@@ -56,6 +56,13 @@ export function refreshRevealIfChanged(ctrl: UIController): void {
   if (fp !== ctrl.revealFingerprint) {
     ctrl.revealFingerprint = fp;
     // 揭示变化只影响区域/故事列表与右侧设施/强化列表；顶部栏和聊天流保持不动。
+    if (ctrl.panelState.workspace?.type === 'shop') {
+      ctrl.requestShopWorkspaceRefresh([
+        'centerPanel.shop.catalog',
+        'rightPanel.shop.settlement',
+      ], 'reveal-changed');
+      return;
+    }
     ctrl.refreshPanels(['left', 'right']);
   }
 }
@@ -70,30 +77,14 @@ export function refreshLight(ctrl: UIController): void {
     ctrl.render();
     return;
   }
-  const view = ctrl.game.getView();
-  const set = (res: string, value: number) => {
-    const el = ctrl.root.querySelector<HTMLElement>(`[data-resource="${res}"]`);
-    if (el) el.textContent = Math.floor(value).toLocaleString('en-US');
-  };
-  const setGain = (res: string) => {
-    const el = ctrl.root.querySelector<HTMLElement>(`[data-gain="${res}"]`);
-    if (el) {
-      // 与 header.ts renderResourceStrip 的初始风格保持一致（+N/t），
-      // 否则全量 render 与每 Tick 轻量刷新会来回改写两种风格造成跳变
-      el.textContent = `+${Math.floor(ctrl.game.gameNumSystem.evaluateResourceGain(res, ctrl.game.state)).toLocaleString('en-US')}/t`;
-    }
-  };
-  // Spot 产出实时刷新（最终值：含倍率与功能 Affector）
-  ctrl.root.querySelectorAll<HTMLElement>('[data-spot-yield]').forEach(el => {
-    const spotId = el.dataset.spotYield!;
-    const yieldValue = Math.floor(ctrl.game.gameNumSystem.evaluateSpotYield(spotId, ctrl.game.state));
-    el.textContent = `产出 ${yieldValue.toLocaleString('en-US')} / tick`;
-  });
-  set('frame', view.totalFrames);
-  set(Resource.Credit, view.resources[Resource.Credit] ?? 0);
-  set(Resource.Pyroxene, view.resources[Resource.Pyroxene] ?? 0);
-  setGain(Resource.Credit);
-  setGain(Resource.Pyroxene);
+  // Spot 产出与资源行为都由 dispatcher 统一落到当前 Surface；若工作区刚切换，
+  // token/generation 校验会阻止旧 DOM 更新。
+  ctrl.applyUIBehavior('spot.yield', '*', 'tick.spot-yield');
+  ctrl.applyUIBehavior('resource.value', 'frame', 'tick.frame');
+  ctrl.applyUIBehavior('resource.value', Resource.Credit, 'tick.credit');
+  ctrl.applyUIBehavior('resource.value', Resource.Pyroxene, 'tick.pyroxene');
+  ctrl.applyUIBehavior('resource.gain', Resource.Credit, 'tick.credit-gain');
+  ctrl.applyUIBehavior('resource.gain', Resource.Pyroxene, 'tick.pyroxene-gain');
 }
 
 /** 销毁：停止定时刷新。 */

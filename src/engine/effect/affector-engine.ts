@@ -99,6 +99,7 @@ export class AffectorEngine extends EventDrivenReactor {
 
   /** 清空全部 pack 注册（整体替换数据包时使用）。 */
   clear(): void {
+    this.disposeRuntime();
     this.packs.clear();
   }
 
@@ -124,9 +125,25 @@ export class AffectorEngine extends EventDrivenReactor {
 
   setState(state: AffectorRuntimeState): void {
     this.state = state;
+    this.maxLevelOverridesCache = null;
     // 迁移兼容：旧宿主允许通过 setState 同步写入口；基础契约不再要求该能力。
     (this.mutations as StateMutationPort & { setState?: (state: object) => void }).setState?.(state);
     if (this.effectEngine) this.effectEngine.setState(state);
+  }
+
+  /** 清理所有由当前状态派生的运行时实例；下一次 reconcileMounts() 从状态重建。 */
+  disposeRuntime(): void {
+    this.withRuntimeChangeBatch(() => {
+      for (const instance of [...this.instances.values()]) {
+        if (instance.state !== 'Removed') this.unmount(instance.instanceId, 'runtime disposed');
+      }
+    });
+    this.instances.clear();
+    this.activeInstances.clear();
+    this.condDeps.clear();
+    this.pollingInstances.clear();
+    this.maxLevelOverridesCache = null;
+    this.runtimeChangePending.clear();
   }
 
   mount(packRef: AffectorPackRef, mountEntityId: string): AffectorInstance | null {

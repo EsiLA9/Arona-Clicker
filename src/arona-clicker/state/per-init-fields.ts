@@ -3,22 +3,30 @@ import type { Character } from '../types/ids';
 import type { Registry } from '../../data-services/registry/registry';
 import { extra, mergeExtra } from '../../engine/extra/index';
 import { globalEnhancementEntries, localEnhancementEntries, globalSpotEntries, localSpotEntries } from './snapshot';
+import type { StoryCursorCollection } from '../../engine/contracts/story-cursor';
+
+export interface PerInitFieldContext {
+  readonly storyCursors?: {
+    capture(): StoryCursorCollection;
+    clear(): void;
+    restore(collection: StoryCursorCollection | undefined): void;
+  };
+}
 
 export interface PerInitFieldSpec {
   readonly key: keyof AronaClickerInitSnapshot & string;
   readonly scope?: 'roster' | 'gacha' | 'chatRead' | 'equips';
-  clear(registry: Registry, state: AronaClickerState): void;
-  capture(registry: Registry, state: AronaClickerState, into: AronaClickerInitSnapshot): void;
-  restore(registry: Registry, state: AronaClickerState, snapshot: AronaClickerInitSnapshot): void;
+  clear(registry: Registry, state: AronaClickerState, context?: PerInitFieldContext): void;
+  capture(registry: Registry, state: AronaClickerState, into: AronaClickerInitSnapshot, context?: PerInitFieldContext): void;
+  restore(registry: Registry, state: AronaClickerState, snapshot: AronaClickerInitSnapshot, context?: PerInitFieldContext): void;
 }
 interface FieldSpec<K extends keyof AronaClickerInitSnapshot & string> extends PerInitFieldSpec { readonly key: K; }
 type StatePatch = Record<string, unknown>;
 const patch = (state: AronaClickerState): StatePatch => state as unknown as StatePatch;
 
-function shallowClone<T>(value: T): T {
-  if (Array.isArray(value)) return [...value] as T;
-  if (value !== null && typeof value === 'object') return { ...value } as T;
-  return value;
+function cloneSerializable<T>(value: T): T {
+  if (value === undefined) return value;
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 function field<K extends keyof AronaClickerInitSnapshot & string>(key: K, fresh: () => AronaClickerInitSnapshot[K]): FieldSpec<K> {
@@ -27,9 +35,12 @@ function field<K extends keyof AronaClickerInitSnapshot & string>(key: K, fresh:
     clear: (_registry, state) => { patch(state)[key] = fresh(); },
     capture: (_registry, state, into) => {
       const value = patch(state)[key];
-      into[key] = (value === undefined ? fresh() : shallowClone(value)) as AronaClickerInitSnapshot[K];
+      into[key] = (value === undefined ? fresh() : cloneSerializable(value)) as AronaClickerInitSnapshot[K];
     },
-    restore: (_registry, state, snapshot) => { patch(state)[key] = snapshot[key]; },
+    restore: (_registry, state, snapshot) => {
+      const value = snapshot[key];
+      patch(state)[key] = (value === undefined ? fresh() : cloneSerializable(value)) as AronaClickerInitSnapshot[K];
+    },
   };
 }
 
@@ -72,9 +83,13 @@ function characterContainer<K extends 'roster' | 'fragments' | 'gachaState' | 'c
     capture: (registry, state, into) => {
       if (registry.characterScopeOf(scope) !== 'init') return;
       const value = patch(state)[key];
-      into[key] = (value === undefined ? empty() : shallowClone(value)) as AronaClickerInitSnapshot[K];
+      into[key] = (value === undefined ? empty() : cloneSerializable(value)) as AronaClickerInitSnapshot[K];
     },
-    restore: (registry, state, snapshot) => { if (registry.characterScopeOf(scope) === 'init') patch(state)[key] = snapshot[key] ?? empty(); },
+    restore: (registry, state, snapshot) => {
+      if (registry.characterScopeOf(scope) !== 'init') return;
+      const value = snapshot[key];
+      patch(state)[key] = (value === undefined ? empty() : cloneSerializable(value)) as AronaClickerInitSnapshot[K];
+    },
   };
 }
 
@@ -83,6 +98,17 @@ const extrasSpec: FieldSpec<'extras'> = {
   clear: (_registry, state) => { state.initExtras = extra.dict({}); },
   capture: (_registry, state, into) => { into.extras = state.initExtras ? mergeExtra(extra.dict({}), state.initExtras) : undefined; },
   restore: (_registry, state, snapshot) => { state.initExtras = snapshot.extras ? mergeExtra(extra.dict({}), snapshot.extras) : extra.dict({}); },
+};
+
+const storyCursorsSpec: FieldSpec<'storyCursors'> = {
+  key: 'storyCursors',
+  clear: (_registry, _state, context) => { context?.storyCursors?.clear(); },
+  capture: (_registry, _state, into, context) => {
+    if (context?.storyCursors) into.storyCursors = context.storyCursors.capture();
+  },
+  restore: (_registry, _state, snapshot, context) => {
+    context?.storyCursors?.restore(snapshot.storyCursors);
+  },
 };
 
 export const PER_INIT_FIELD_SPECS = [
@@ -94,6 +120,7 @@ export const PER_INIT_FIELD_SPECS = [
   characterContainer('gachaState', 'gacha', () => ({})), characterContainer('chatRead', 'chatRead', () => ({})),
   characterContainer('equipmentsOwned', 'equips', () => []),
   field('shopPurchaseRecords', () => ({})),
+  storyCursorsSpec,
 ];
 
 type SpecKeys = (typeof PER_INIT_FIELD_SPECS)[number]['key'];

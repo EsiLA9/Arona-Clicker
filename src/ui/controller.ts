@@ -66,12 +66,37 @@ import type { PackCatalogEntry, PackCatalogReadModel } from '../arona-clicker/co
 import { renderLeftPanel } from './components/rail';
 import { renderCenterPanel, renderChatTab, renderLogTab } from './components/center-panel';
 import { renderRightPanel } from './components/right-panels';
+import { renderShopWorkspace } from './components/shop';
+import { createDefaultUIBehaviorRegistry, type UIBehaviorRegistry } from './update/ui-behaviors';
+import { UISurfaceRuntime, type UISurfaceToken } from './update/ui-surface';
+import { UIUpdateDispatcher, type UIUpdateSink } from './update/ui-update-dispatcher';
+import type { UIBehaviorId, UIUpdate, UIUpdateApplyResult, UIUpdateRequest } from './update/ui-update-types';
+
+const SHOP_REGION_HOST_IDS = [
+  'leftPanel.shop.feed',
+  'centerPanel.shop.catalog',
+  'rightPanel.shop.settlement',
+] as const;
 
 export interface UIRefreshStats {
   fullRenders: number;
   panelRefreshes: number;
   lightRefreshes: number;
   themeApplications: number;
+  workspaceRenders: number;
+  regionRefreshes: number;
+  behaviorPatches: number;
+  behaviorMisses: number;
+  droppedUpdates: number;
+}
+
+export interface UIRefreshObservation {
+  scope: 'behavior' | 'region' | 'workspace' | 'app';
+  reason: string;
+  surfaceKey: string;
+  generation: number;
+  outcome: UIUpdateApplyResult | 'dropped';
+  fallbackReason?: string;
 }
 
 export class UIController {
@@ -121,7 +146,18 @@ export class UIController {
   rewardTimer: ReturnType<typeof setTimeout> | null = null;
   /** @internal 合并同一事件循环内由 EventBus 与点击处理器产生的重复重建。 */
   private renderScheduled = false;
-  private refreshStats: UIRefreshStats = { fullRenders: 0, panelRefreshes: 0, lightRefreshes: 0, themeApplications: 0 };
+  private refreshStats: UIRefreshStats = {
+    fullRenders: 0,
+    panelRefreshes: 0,
+    lightRefreshes: 0,
+    themeApplications: 0,
+    workspaceRenders: 0,
+    regionRefreshes: 0,
+    behaviorPatches: 0,
+    behaviorMisses: 0,
+    droppedUpdates: 0,
+  };
+  private readonly refreshObservations: UIRefreshObservation[] = [];
   /** @internal 主题浮窗：跨 render 全量重建 #app 保留其开关键与位置（供 controller-theme / controller-actions-topbar 读写）。 */
   themeFloatOpen = false;
   /** @internal 主题浮窗位置（同上）。 */
@@ -136,6 +172,12 @@ export class UIController {
   readonly selectorPage: SelectorPage;
   /** 数据包导入 / 日志导出。 */
   readonly io: ImportExportService;
+  /** 当前逻辑 Surface 的稳定身份与挂载代数。 */
+  readonly surfaceRuntime: UISurfaceRuntime;
+  /** DOM 行为补丁注册表；只负责已挂载节点的最小更新。 */
+  readonly uiBehaviors: UIBehaviorRegistry;
+  /** UI 更新请求的去重、优先级与过期丢弃边界。 */
+  readonly updates: UIUpdateDispatcher;
 
   constructor(
     /** @internal 供 controller-core / controller-modals / controller-panels 使用。 */
@@ -144,6 +186,16 @@ export class UIController {
     readonly root: HTMLElement,
   ) {
     this.commands = createGameCommands(game);
+    this.surfaceRuntime = new UISurfaceRuntime(this.panelState);
+    this.uiBehaviors = createDefaultUIBehaviorRegistry();
+    const updateSink: UIUpdateSink = {
+      getCurrentSurfaceToken: () => this.getCurrentSurfaceToken(),
+      isSurfaceCurrent: token => this.isSurfaceCurrent(token),
+      apply: update => this.applyUIUpdate(update),
+      applyBatch: updates => this.applyUIUpdates(updates),
+      onDrop: update => this.onDroppedUIUpdate(update),
+    };
+    this.updates = new UIUpdateDispatcher(updateSink);
     // 未读计数（对话空间语义）：通讯录角色行气泡 = 该学生就绪队列条数（尾巴 + 台阶）
     this.panelState.getUnread = (variantId: string) =>
       this.game.rosterSystem.isOwned(this.game.state, variantId)
@@ -291,9 +343,50 @@ export class UIController {
     refreshLightImpl(this);
   }
 
+  /** 当前逻辑 Surface 的 token；读取前同步一次路由状态，避免状态已切换但尚未 render。 */
+  getCurrentSurfaceToken(): UISurfaceToken {
+    this.surfaceRuntime.sync(this.panelState);
+    return this.surfaceRuntime.current();
+  }
+
+  /** 只有 token、generation 与最近一次 DOM mount 均一致时，更新才允许落到当前 DOM。 */
+  isSurfaceCurrent(token: UISurfaceToken): boolean {
+    this.surfaceRuntime.sync(this.panelState);
+    return this.surfaceRuntime.isCurrent(token);
+  }
+
+  /** 请求一次行为/区域/结构更新；同一事件循环内会自动合并。 */
+  requestUIUpdate(request: UIUpdateRequest): void {
+    this.updates.request(request);
+  }
+
+  /** 立即执行单个行为补丁；Tick 等高频路径使用它避免重建 DOM。 */
+  applyUIBehavior(behavior: UIBehaviorId, key: string, reason: string, hostId?: string): UIUpdateApplyResult {
+    return this.updates.applyNow({ type: 'behavior', behavior, key, reason, hostId });
+  }
+
+  /** Shop 交互需要在动作返回前保持同步可见，同时仍通过统一 dispatcher 执行。 */
+  flushUIUpdates(): void {
+    this.updates.flushNow();
+  }
+
+  /** 请求 Shop 三栏中的指定区域更新；不跨越 workspace 根节点。 */
+  requestShopWorkspaceRefresh(hostIds: readonly string[], reason: string): void {
+    if (this.panelState.workspace?.type !== 'shop') return;
+    for (const hostId of [...new Set(hostIds)]) {
+      if (!SHOP_REGION_HOST_IDS.includes(hostId as typeof SHOP_REGION_HOST_IDS[number])) continue;
+      this.requestUIUpdate({ type: 'region', hostId, reason });
+    }
+  }
+
   /** 开发检查用刷新计数；只返回快照，不参与界面逻辑。 */
   getRefreshStats(): UIRefreshStats {
     return { ...this.refreshStats };
+  }
+
+  /** 最近的 UI 更新观测，供开发诊断使用；不代表浏览器 Layout / Paint 成本。 */
+  getRefreshObservations(): UIRefreshObservation[] {
+    return this.refreshObservations.map(observation => ({ ...observation }));
   }
 
   /** 同步当前聊天门控状态后，仅刷新中心聊天面板。 */
@@ -363,7 +456,13 @@ export class UIController {
   /** 只替换发生变化的工作区面板，保留其它面板、焦点与事件状态。 */
   refreshPanels(panels: Array<'left' | 'center' | 'right'>): void {
     // Workspace 接管三栏时，普通 panel renderer 不能局部覆盖 workspace。
-    // 当前 Shop 是首个 workspace；后续 Function workspace 统一从这里分流。
+    // Shop 已有自己的 Host 区域；其它 workspace 暂时保留全量 fallback。
+    if (this.panelState.workspace?.type === 'shop') {
+      const hostIds = panels.map(panel => `${panel}Panel.shop.${panel === 'left' ? 'feed' : panel === 'center' ? 'catalog' : 'settlement'}`);
+      this.requestShopWorkspaceRefresh(hostIds, 'refresh-panels');
+      this.flushUIUpdates();
+      return;
+    }
     if (this.panelState.workspace) {
       this.render();
       return;
@@ -431,7 +530,9 @@ export class UIController {
 
   /** 全量重建 #app DOM（供 controller-core / controller-modals 触发）。 */
   render(): void {
+    this.surfaceRuntime.sync(this.panelState);
     this.refreshStats.fullRenders += 1;
+    if (this.panelState.workspace) this.refreshStats.workspaceRenders += 1;
     this.publishRefreshStats();
     this.renderScheduled = false;
     // 交互触发重建前处理 hover 弹层：锚点被重建移除才关闭；
@@ -467,9 +568,11 @@ export class UIController {
     if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace) {
       // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
       renderInitSelectImpl(this);
+      this.surfaceRuntime.markMounted();
       return;
     }
     this.root.innerHTML = renderAppShell(context, this.panelState);
+    this.surfaceRuntime.markMounted();
     this.popovers.bind();
     this.bindActions();
     this.scroll.restoreChat(this.root, {
@@ -563,6 +666,118 @@ export class UIController {
     this.root.dataset.uiRefreshPanels = String(this.refreshStats.panelRefreshes);
     this.root.dataset.uiRefreshLight = String(this.refreshStats.lightRefreshes);
     this.root.dataset.uiRefreshTheme = String(this.refreshStats.themeApplications);
+    this.root.dataset.uiRefreshWorkspace = String(this.refreshStats.workspaceRenders);
+    this.root.dataset.uiRefreshRegion = String(this.refreshStats.regionRefreshes);
+    this.root.dataset.uiRefreshBehavior = String(this.refreshStats.behaviorPatches);
+    this.root.dataset.uiRefreshBehaviorMiss = String(this.refreshStats.behaviorMisses);
+    this.root.dataset.uiRefreshDropped = String(this.refreshStats.droppedUpdates);
+  }
+
+  private applyUIUpdate(update: UIUpdate): UIUpdateApplyResult {
+    if (update.type === 'behavior') {
+      const applied = this.uiBehaviors.apply(update.behavior, {
+        controller: this,
+        root: this.root,
+        token: update.token,
+        key: update.key,
+      });
+      if (applied) this.refreshStats.behaviorPatches += 1;
+      else this.refreshStats.behaviorMisses += 1;
+      this.publishRefreshStats();
+      const outcome = applied ? 'applied' : 'not-found';
+      this.recordUIUpdate(update, outcome, applied ? undefined : 'behavior-target-missing');
+      return outcome;
+    }
+    if (update.type === 'region') {
+      if (this.panelState.workspace?.type !== 'shop' || !SHOP_REGION_HOST_IDS.includes(update.hostId as typeof SHOP_REGION_HOST_IDS[number])) {
+        this.recordUIUpdate(update, 'unsupported', 'region-host-unsupported');
+        return 'unsupported';
+      }
+      const applied = this.refreshShopRegions([update.hostId]);
+      const outcome = applied ? 'applied' : 'not-found';
+      this.recordUIUpdate(update, outcome, applied ? undefined : 'region-host-missing');
+      return outcome;
+    }
+    this.render();
+    this.recordUIUpdate(update, 'applied');
+    return 'applied';
+  }
+
+  private applyUIUpdates(updates: readonly UIUpdate[]): readonly UIUpdateApplyResult[] {
+    const shopRegions = updates.filter((update): update is Extract<UIUpdate, { type: 'region' }> =>
+      update.type === 'region'
+      && this.panelState.workspace?.type === 'shop'
+      && SHOP_REGION_HOST_IDS.includes(update.hostId as typeof SHOP_REGION_HOST_IDS[number]),
+    );
+    const refreshedShopRegions = shopRegions.length > 0
+      ? this.refreshShopRegions([...new Set(shopRegions.map(update => update.hostId))])
+      : false;
+    return updates.map(update => {
+      if (shopRegions.includes(update as Extract<UIUpdate, { type: 'region' }>)) {
+        const outcome = refreshedShopRegions ? 'applied' : 'not-found';
+        this.recordUIUpdate(update, outcome, refreshedShopRegions ? undefined : 'region-host-missing');
+        return outcome;
+      }
+      return this.applyUIUpdate(update);
+    });
+  }
+
+  private onDroppedUIUpdate(update: UIUpdate): void {
+    this.refreshStats.droppedUpdates += 1;
+    this.publishRefreshStats();
+    this.recordUIUpdate(update, 'dropped', 'stale-surface');
+  }
+
+  private recordUIUpdate(update: UIUpdate, outcome: UIRefreshObservation['outcome'], fallbackReason?: string): void {
+    const scope = update.type === 'structure' ? update.scope : update.type;
+    this.refreshObservations.push({
+      scope,
+      reason: update.reason,
+      surfaceKey: update.token.key,
+      generation: update.token.generation,
+      outcome,
+      ...(fallbackReason ? { fallbackReason } : {}),
+    });
+    if (this.refreshObservations.length > 200) this.refreshObservations.shift();
+  }
+
+  private refreshShopRegions(hostIds: readonly string[]): boolean {
+    const workspace = this.panelState.workspace;
+    if (workspace?.type !== 'shop') return false;
+    const uniqueHostIds = [...new Set(hostIds)].filter(hostId =>
+      SHOP_REGION_HOST_IDS.includes(hostId as typeof SHOP_REGION_HOST_IDS[number]),
+    );
+    if (uniqueHostIds.length === 0) return false;
+
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const template = document.createElement('template');
+    template.innerHTML = renderShopWorkspace(context, workspace).trim();
+    let replaced = 0;
+    for (const hostId of uniqueHostIds) {
+      const current = this.findThemeHost(this.root, hostId);
+      const next = this.findThemeHost(template.content, hostId);
+      if (!current || !next) continue;
+      const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+      const scrollTop = scrollOwner?.scrollTop ?? 0;
+      current.outerHTML = next.outerHTML;
+      const replacement = this.findThemeHost(this.root, hostId);
+      if (replacement) {
+        bindContactsActions(this, replacement);
+        const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+        if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
+      }
+      replaced += 1;
+    }
+    if (replaced === 0) return false;
+    this.refreshStats.regionRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return replaced === uniqueHostIds.length;
+  }
+
+  private findThemeHost(root: ParentNode, hostId: string): HTMLElement | null {
+    return [...root.querySelectorAll<HTMLElement>('[data-theme-host-id]')]
+      .find(node => node.dataset.themeHostId === hostId) ?? null;
   }
 
   /** 同步运行时主题层（player/area/student）到当前状态：须在生成依赖它的 UI 之前调用（委托 controller-theme）。 */

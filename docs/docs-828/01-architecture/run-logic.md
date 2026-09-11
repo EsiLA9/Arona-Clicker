@@ -1,6 +1,6 @@
 # 01-architecture/run-logic — 运行逻辑与时序
 
-> 本文回答：**程序从启动到运行的主干时序——子系统如何装配、初始化做什么、每帧发生什么、业务操作与存档怎么走。**
+> 本文回答：**程序从启动到运行的主干时序——子系统如何装配、初始化做什么、每帧发生什么、业务操作与存档怎么走，以及 Init 切换如何重建运行时边界。**
 > 装配代码在 `src/arona-clicker/runtime-wiring.ts`；运行时门面在 `src/arona-clicker/runtime-game-instance.ts`，状态初始化在 `src/arona-clicker/state/state-factory.ts`，视图组装在 `src/arona-clicker/read-model/game-view-builder.ts`，由 AronaClicker Runtime 负责组合产品领域服务与基础引擎机制。
 
 ## 总体调用链
@@ -10,7 +10,7 @@ src/ui/main.ts（Vite UI 启动）
   └─ createAppRuntime()            AronaClicker Runtime 装配全部子系统（依赖顺序 + 事件接线）
        └─ applyEnabledPacks()      加载当前启用集 → 校验 → 建索引 → 保持 Lobby（activeInit 为空）
             ├─ Lobby               Init 选择 + 数据包/存档/记录/主题/帮助服务，不启动 Tick
-            └─ 选择或恢复 Init → start()  启动会话循环（1 tick/秒）
+            └─ 选择或恢复 Init → transition（保存/清理/重建）→ start()  启动会话循环（1 tick/秒）
                  └─ tick()         每帧：生产结算 → Affector → 剧情 → 阻断复检 → 统计
                       │
                       ├─ getView()            UI 只读拉取快照
@@ -63,7 +63,21 @@ init(datapacks)
 Lobby 仍可消费只读 Registry/ReadModel，并通过通用 UI 壳层进入 Init 选择、数据包、存档、记录、主题和帮助服务；只有选择 Init 或读取带 `activeInit` 的存档后才启动 Tick。Lobby 存档读取必须保持 `activeInit === ''`，不能补造默认 Init。
 
 - 新建状态：`createDefaultState()`（`arona-clicker/state/state-factory.ts`），per-Init 字段统一由 `arona-clicker/state/per-init-fields.ts` 的 `PER_INIT_FIELD_SPECS` 单一事实源管理（T3）。
-- 读档：`load(data)` 校验 version（不符抛错，**不做存档迁移**）→ 替换 `state` → `syncSubsystems()` → `rebuildRuntime()`（visibility 重算 + tag 索引重建 + runId 恢复）。
+- 读档：`load(data)` 校验 version（不符抛错，**不做存档迁移**）→ 清理旧运行时（EventBus 队列、Affector 实例、Story cursor）→ 替换 `state` → `syncSubsystems()` → `rebuildRuntime()`（visibility 重算 + tag 索引重建 + runId 恢复）。
+
+### Init 生命周期边界
+
+```text
+switch / restart / load / reset
+  └─ stop session
+      └─ save current Init snapshot（保存式路径）
+          └─ clear EventBus queue + Init Trigger + Affector runtime + Story runtime
+              └─ restore/seed target state
+                  └─ reconcile derived indexes
+                      └─ activate target Init
+```
+
+`resumeInit(target)` 即使由非 UI 调用，也会在当前仍有 `activeInit` 时先完成保存式退出；不活跃 Init 不继续 Tick 或离线补算。运行时服务对象不进入 `InitSnapshot`，每次 restart/switch/load/reset 递增 `runtimeGeneration`，后续异步任务可据此拒绝过期回调。
 
 ## 三、运行循环：start / tick
 

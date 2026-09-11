@@ -11,7 +11,7 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `effect/affector-engine.ts` | `AffectorEngine`：pack 注册（同 id 后注册覆盖）/ `mount`（幂等，已存在只 recheck 不重建）/ `recheck`（条件翻转执行激活沿 `effects`）/ `applyActiveEffects`（每帧只跑 `perTickEffects`）/ `reconcileMounts()`（按 inventory / enhancements / spotLevels 对账，接线 init / enterInit / restoreFromSave / reset）/ `getSpotMaxLevelOverrides`（缓存） |
+| `effect/affector-engine.ts` | `AffectorEngine`：pack 注册（同 id 后注册覆盖）/ `mount`（幂等，已存在只 recheck 不重建）/ `recheck`（条件翻转执行激活沿 `effects`）/ `applyActiveEffects`（每帧只跑 `perTickEffects`）/ `disposeRuntime()`（清理当前实例、条件依赖、轮询与派生同步记录）/ `reconcileMounts()`（按 inventory / enhancements / spotLevels 对账，接线 init / enterInit / restoreFromSave / reset）/ `getSpotMaxLevelOverrides`（缓存） |
 | `effect/affector-text.ts` | Affector 文本/描述解析（穷尽式 switch + `never` 守卫，值得推广的模式） |
 | `expression/game-num-tag.ts` | 桥接终点：`registerAffectorModifier` 把 zoneModifiers 并入区表 |
 

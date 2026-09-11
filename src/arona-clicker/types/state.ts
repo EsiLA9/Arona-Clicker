@@ -18,6 +18,7 @@ import type { StoredCustomTheme, ThemeAttachment, UserThemeState } from './user-
 import type { CompletedStory, StoryReadLog } from './story-state';
 import type { CharacterMemory, GachaPoolState, ProtoStat, VariantProgress } from './character';
 import type { ShopPurchaseRecord } from '../../data-services/contracts/shop';
+import type { StoryCursorCollection } from '../../engine/contracts/story-cursor';
 
 export type SpotTagOverride = SpotTagOverrideState;
 
@@ -93,6 +94,7 @@ export interface InitSnapshot {
   chatRead?: Record<ChatMessageId, true>;
   equipmentsOwned?: EquipmentId[];
   shopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
+  storyCursors?: StoryCursorCollection;
 }
 
 export type AronaClickerState = PlayerState;

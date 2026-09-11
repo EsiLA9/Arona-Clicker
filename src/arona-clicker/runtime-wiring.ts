@@ -278,6 +278,12 @@ export function wireGameInstance(
     createDefaultState: () => createDefaultPlayerState(),
     touchTickTimestamp: () => { g.sessionService.touchLastTick(); },
   });
+  g.mutations.setInitScopedTargetGuard(spotId => {
+    const spot = g.registry.spots.get(spotId);
+    if (spot?.global) return true;
+    const activeInit = hooks.getState().activeInit;
+    return Boolean(activeInit && g.registry.spotsOfInit(activeInit).includes(spotId));
+  });
 
   g.sessionService = new SessionService({
     doTick: () => g.tick(),

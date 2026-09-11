@@ -10,6 +10,7 @@ import type { BranchGuard, StoryEntryDef } from '../../data-services/contracts/s
 import type { StoryDef, Talklet } from '../../data-services/contracts/story';
 import type { SendResult, SendState, StoryAdvanceResult, StoryStartResult, StoryView } from '../contracts/results';
 import type { EventBus } from '../../engine/core/event-bus';
+import type { StoryCursorCollection } from '../../engine/contracts/story-cursor';
 import type { Registry } from '../../data-services/registry/registry';
 import type { ConditionSystem } from '../../engine/expression/condition-system';
 import type { EffectEngine } from '../../engine/effect/effect-engine';
@@ -151,6 +152,30 @@ export class StoryService {
       cur.restore(cursor);
       this.chatCursors.set(key, cur);
     }
+  }
+
+  saveCursors(): StoryCursorCollection {
+    return {
+      global: this.saveCursor(),
+      chats: this.saveChatCursors(),
+    };
+  }
+
+  restoreCursors(collection: StoryCursorCollection | undefined): void {
+    if (!collection) {
+      this.globalCursor.clear();
+      this.chatCursors.clear();
+      return;
+    }
+    this.restoreCursor(collection.global);
+    this.restoreChatCursors(collection.chats);
+  }
+
+  clearAllCurrentStories(): void {
+    this.globalCursor.clear();
+    this.chatCursors.clear();
+    this.flagsSetThisStory.clear();
+    this.lastRewarded.value = null;
   }
 
   clearCurrentStory(owner?: string | null): void {

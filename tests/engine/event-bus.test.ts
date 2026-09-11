@@ -77,6 +77,20 @@ describe('EventBus', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  test('should clear queued events without removing handlers', () => {
+    const bus = new EventBus();
+    const handler = vi.fn();
+    bus.on('tick', handler);
+    const internal = bus as unknown as { queue: GameEvent[] };
+    internal.queue.push({ type: 'tick', frame: 1 });
+    bus.clearQueue();
+    bus.flush();
+    expect(handler).not.toHaveBeenCalled();
+
+    bus.emit({ type: 'tick', frame: 2 });
+    expect(handler).toHaveBeenCalledWith({ type: 'tick', frame: 2 });
+  });
+
   test('should dispatch to multiple handlers of same type', () => {
     const bus = new EventBus();
     const h1 = vi.fn();

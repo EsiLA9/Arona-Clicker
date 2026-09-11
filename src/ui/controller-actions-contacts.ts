@@ -152,27 +152,46 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
           workspace.session.setQuantity(id, (line?.quantity ?? 0) + amount);
           workspace.feed.push({ kind: 'add', text: `已加入 ${entry.name} ×${amount}。` });
           ctrl.modal.close();
-          ctrl.render();
+          ctrl.requestShopWorkspaceRefresh([
+            'leftPanel.shop.feed',
+            'centerPanel.shop.catalog',
+            'rightPanel.shop.settlement',
+          ], 'shop.add');
+          ctrl.flushUIUpdates();
         },
       });
     }));
     scope.querySelector('[data-shop-cancel]')?.addEventListener('click', () => {
       workspace.session.clear();
       workspace.feed.push({ kind: 'cancel', text: '已撤销当前选择。' });
-      ctrl.render();
+      ctrl.requestShopWorkspaceRefresh([
+        'leftPanel.shop.feed',
+        'centerPanel.shop.catalog',
+        'rightPanel.shop.settlement',
+      ], 'shop.cancel');
+      ctrl.flushUIUpdates();
     });
     scope.querySelector('[data-shop-checkout]')?.addEventListener('click', () => {
       const result = ctrl.game.shopService.checkout(workspace.shopId, workspace.spotId, workspace.session.lines());
       if (!result.success) {
         workspace.feed.push({ kind: 'error', text: `结算失败：${result.reason}` });
         ctrl.toast.show(`结算失败：${result.reason}`, 'error');
-        ctrl.render();
+        ctrl.requestShopWorkspaceRefresh([
+          'leftPanel.shop.feed',
+          'rightPanel.shop.settlement',
+        ], 'shop.checkout-failed');
+        ctrl.flushUIUpdates();
         return;
       }
       workspace.session.clear();
       workspace.feed.push({ kind: 'checkout', text: '结算完成。' });
       ctrl.toast.show('购买完成', 'success');
-      ctrl.render();
+      ctrl.requestShopWorkspaceRefresh([
+        'leftPanel.shop.feed',
+        'centerPanel.shop.catalog',
+        'rightPanel.shop.settlement',
+      ], 'shop.checkout');
+      ctrl.flushUIUpdates();
     });
     scope.querySelectorAll('[data-shop-leave]').forEach(button => button.addEventListener('click', () => ctrl.disposeShopWorkspace()));
   }

@@ -393,6 +393,7 @@ export class GameInstance {
       storyService: this.storyService,
       initService: this.initService,
       sessionService: this.sessionService,
+      eventBus: this.eventBus,
       setState: next => {
         this._state = next;
         this.gameNumSystem.buildAll(this._state);
@@ -412,6 +413,7 @@ export class GameInstance {
         this.gameNumSystem.buildAll(this._state);
       },
       sessionService: this.sessionService,
+      eventBus: this.eventBus,
       mutations: this.mutations,
       statsService: this.statsService,
       affectorEngine: this.affectorEngine,

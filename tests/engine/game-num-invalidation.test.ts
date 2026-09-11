@@ -24,8 +24,7 @@ import { tagPath } from '../../src/engine/core/tag';
 import type { EnhancementDef } from '../../src/data-services/contracts/enhancement';
 
 const CREDIT = 'base:resource:credit';
-const OFFICE = 'base:init:schale_office';
-const PRINTER = 'base:spot:credit_printer';
+const PRINTER = 'test:spot:printer';
 const RES_SPOT = 'test:spot:res_reader';
 const EXTRA_SPOT = 'test:spot:extra_reader';
 const AREA = 'test:area:a';
@@ -37,8 +36,18 @@ const datapack = {
   name: 'test:dp:invalidation',
   version: '1',
   inits: [init(INIT).name('A').desc('测试').areas(AREA).build()],
-  areas: [area(AREA, INIT).name('A').desc('测试').spots(RES_SPOT, EXTRA_SPOT).build()],
+  areas: [area(AREA, INIT).name('A').desc('测试').spots(PRINTER, RES_SPOT, EXTRA_SPOT).build()],
   spots: [
+    spot(PRINTER, AREA)
+      .name('Printer')
+      .desc('测试')
+      .cost(0)
+      .yield(5)
+      .capacity(100)
+      .tags(tagPath('test'))
+      .linearYield('test:funclet:printer_linear', CREDIT, 2)
+      .genericUpgrade(50, 2, 2)
+      .build(),
     // baseYield = 5 + 持有信用点（读资源的 gain，覆盖 gainResourceDeps 定向失效）
     spot(RES_SPOT, AREA)
       .name('ResReader')
@@ -118,7 +127,7 @@ describe('Phase 5 陈旧读回归（事件驱动精确失效）', () => {
   beforeEach(() => {
     game = new GameInstance();
     game.init([baseDatapack, datapack]);
-    game.inits.startNewGame(OFFICE);
+    game.inits.startNewGame(INIT);
     // 干净起点：清空默认等级与余额（走 mutation 入口，事件即失效）
     for (const key of Object.keys(game.state.spotLevels)) game.mutations.setSpotLevel(key, 0);
     game.mutations.setResource(CREDIT, 0);

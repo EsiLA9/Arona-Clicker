@@ -71,6 +71,7 @@ function clearLegacyGlobalThemeAttachment(state: AronaClickerState): void {
  */
 export class StateMutationService implements StateMutationPort, EffectMutationPort {
   private state: AronaClickerState | null = null;
+  private initScopedTargetGuard: ((spotId: string) => boolean) | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -84,6 +85,14 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
 
   setState(state: AronaClickerState): void {
     this.state = state;
+  }
+
+  setInitScopedTargetGuard(guard: ((spotId: string) => boolean) | null): void {
+    this.initScopedTargetGuard = guard;
+  }
+
+  private canMutateSpot(spotId: string): boolean {
+    return !this.initScopedTargetGuard || this.initScopedTargetGuard(spotId);
   }
 
   /** Extra 三层合并视图读取器（供 addExtra 取生效值，由 GameInstance.getExtra 提供）。 */
@@ -187,6 +196,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   }
 
   setSpotLevel(spotId: string, level: number): void {
+    if (!this.canMutateSpot(spotId)) return;
     const oldLevel = this.current.spotLevels[spotId] ?? 0;
     this.current.spotLevels[spotId] = level;
     this.statsService?.recordSpotLevel(oldLevel, level);
@@ -194,12 +204,14 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   }
 
   addSpotLevel(spotId: string, delta: number): number {
+    if (!this.canMutateSpot(spotId)) return this.current.spotLevels[spotId] ?? 0;
     const next = (this.current.spotLevels[spotId] ?? 0) + delta;
     this.setSpotLevel(spotId, next);
     return next;
   }
 
   setManager(spotId: string, character: Character): void {
+    if (!this.canMutateSpot(spotId)) return;
     this.current.spotManagers[spotId] = character;
     this.emit({ type: 'managerChanged', spotId, newManager: character });
   }

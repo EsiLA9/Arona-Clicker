@@ -64,13 +64,33 @@ export class InitService {
   private readonly initTriggerGroup: InitTriggerGroupState = { group: null };
   /** per-Init 快照操作（保存/恢复/清除/播种）。 */
   private readonly savepoint: InitSavepoint;
+  private runtimeGeneration = 0;
 
   constructor(private readonly opts: InitServiceOptions) {
-    this.savepoint = new InitSavepoint(opts.registry, opts.getState);
+    this.savepoint = new InitSavepoint(opts.registry, opts.getState, {
+      storyCursors: {
+        capture: () => opts.storyService.saveCursors(),
+        clear: () => opts.storyService.clearAllCurrentStories(),
+        restore: collection => opts.storyService.restoreCursors(collection),
+      },
+    });
   }
 
   private get state(): PlayerState {
     return this.opts.getState();
+  }
+
+  getRuntimeGeneration(): number {
+    return this.runtimeGeneration;
+  }
+
+  isRuntimeGenerationCurrent(generation: number): boolean {
+    return generation === this.runtimeGeneration;
+  }
+
+  invalidateRuntimeGeneration(): number {
+    this.runtimeGeneration += 1;
+    return this.runtimeGeneration;
   }
 
   // --- 公开 API（GameInstance 门面委托） ---
@@ -294,7 +314,7 @@ export class InitService {
       return false;
     }
 
-    this.opts.stop();
+    this.disposeRuntimeForTransition();
     const next = this.opts.createDefaultState();
     // 选择大厅允许先购买 GlobalEnh；此时尚未进入任何 Init，进入首个 Init
     // 不应清除刚刚获得的全局资产。已有世界线重新开始仍保持完整清空语义。
@@ -316,7 +336,7 @@ export class InitService {
     this.opts.affectorEngine.setState(next);
     this.opts.triggerSystem.setState(next);
     this.opts.resetVisibility();
-    this.opts.storyService.clearCurrentStory();
+    this.opts.storyService.clearAllCurrentStories();
     this.opts.devLog.clear();
 
     // 新游戏不继承旧的 Global；当前选择的 Init 通过写入口成为新状态自身的起点登记。
@@ -332,7 +352,7 @@ export class InitService {
     const initId = this.state.activeInit;
     if (initId) this.savepoint.save(initId);
 
-    this.opts.stop();
+    this.disposeRuntimeForTransition();
     this.savepoint.clear();
     this.resetPerInitSubsystems();
 
@@ -345,6 +365,10 @@ export class InitService {
       this.opts.devLog.record(`恢复世界线失败：${initId}`, { source: 'init', level: 'error', details: 'NotFound' });
       return false;
     }
+
+    // 核心 API 不能依赖 UI 先调用 restartInit；直接从活动 Init 恢复时先保存并退出当前 Init。
+    if (this.state.activeInit) this.restartInit();
+    else this.invalidateRuntimeGeneration();
 
     const snapshots = this.state.initSnapshots ?? {};
     const snapshot = snapshots[initId];
@@ -377,7 +401,7 @@ export class InitService {
       delete this.state.initSnapshots[initId];
     }
 
-    this.opts.stop();
+    this.disposeRuntimeForTransition();
     this.savepoint.clear();
     const init = initId ? this.opts.registry.inits.get(initId) : undefined;
     if (init) this.savepoint.seed(init);
@@ -414,9 +438,19 @@ export class InitService {
     this.opts.affectorEngine.setState(this.state);
     this.opts.triggerSystem.setState(this.state);
     this.unmountInitTriggers();
+    this.opts.eventBus.clearQueue();
     this.opts.clearLocalVisibility();
-    this.opts.storyService.clearCurrentStory();
+    this.opts.storyService.clearAllCurrentStories();
     this.opts.devLog.clear();
+  }
+
+  private disposeRuntimeForTransition(): void {
+    this.invalidateRuntimeGeneration();
+    this.opts.stop();
+    this.unmountInitTriggers();
+    this.opts.affectorEngine.disposeRuntime();
+    this.opts.eventBus.clearQueue();
+    this.opts.storyService.clearAllCurrentStories();
   }
 
   /** 盘点所有世界线的可及性（解锁 + 可见），用于日志审计。 */

@@ -66,6 +66,11 @@ export class EventBus<TEvent extends EngineEventShape = GameEvent> {
     this.flushing = false;
   }
 
+  /** 只清除尚未派发的事件，不影响长寿命订阅者。 */
+  clearQueue(): void {
+    this.queue = [];
+  }
+
   /** 立即派发单个事件 */
   private dispatch(event: TEvent): void {
     const list = this.handlers.get(event.type);
@@ -79,6 +84,6 @@ export class EventBus<TEvent extends EngineEventShape = GameEvent> {
   clear(): void {
     this.handlers.clear();
     this.wildcardHandlers = [];
-    this.queue = [];
+    this.clearQueue();
   }
 }

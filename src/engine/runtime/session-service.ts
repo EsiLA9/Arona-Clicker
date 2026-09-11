@@ -23,6 +23,7 @@ export class SessionService {
   private tickInterval: ReturnType<typeof setInterval> | null = null;
   private _running = false;
   private lastTickTimestamp: number = Date.now();
+  private offlineBasePending = false;
 
   constructor(private readonly opts: SessionServiceOptions) {}
 
@@ -31,19 +32,26 @@ export class SessionService {
   getLastTick(): number { return this.lastTickTimestamp; }
 
   /** 记载本次会话起始/重置的基准时间（init/reset 后调用）。 */
-  touchLastTick(): void { this.lastTickTimestamp = Date.now(); }
+  touchLastTick(): void {
+    this.lastTickTimestamp = Date.now();
+    this.offlineBasePending = false;
+  }
 
   /** 存档恢复：以其 timestamp 作为离线收益基准。 */
-  setLastTick(timestamp: number): void { this.lastTickTimestamp = timestamp; }
+  setLastTick(timestamp: number): void {
+    this.lastTickTimestamp = timestamp;
+    this.offlineBasePending = true;
+  }
 
   /** 开始 Tick 循环 (1 tick/秒)。 */
   start(): void {
     if (this._running) return;
     this._running = true;
-    this.lastTickTimestamp = Date.now();
+    if (!this.offlineBasePending) this.lastTickTimestamp = Date.now();
 
     // 计算离线收益
     this.processOfflineProgress();
+    this.offlineBasePending = false;
 
     this.tickInterval = setInterval(() => {
       this.opts.doTick();
@@ -63,6 +71,7 @@ export class SessionService {
       this.tickInterval = null;
     }
     this.lastTickTimestamp = Date.now();
+    this.offlineBasePending = false;
     this.opts.devLog.record('自动生产循环已暂停', { source: 'runtime', level: 'warning' });
   }
 

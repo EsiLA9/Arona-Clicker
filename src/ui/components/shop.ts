@@ -59,5 +59,5 @@ export function renderShopWorkspace(ctx: UIContext, workspace: ShopWorkspaceStat
 }
 
 function renderHoldings(ctx: UIContext): string {
-  return [...ctx.game.registry.resourceDisplays.values()].slice(0, 8).map(def => `<span class="shop-holding"><small>${ctx.escapeHtml(def.label)}</small><strong>${ctx.formatNumber(ctx.game.getView().resources[def.resourceId] ?? 0)}</strong></span>`).join('') || '<span>暂无可用货币</span>';
+  return [...ctx.game.registry.resourceDisplays.values()].slice(0, 8).map(def => `<span class="shop-holding"><small>${ctx.escapeHtml(def.label)}</small><strong data-resource="${ctx.escapeHtml(def.resourceId)}">${ctx.formatNumber(ctx.game.getView().resources[def.resourceId] ?? 0)}</strong></span>`).join('') || '<span>暂无可用货币</span>';
 }

@@ -16,6 +16,7 @@ import { SessionService } from '../engine/runtime/session-service';
 import type { SaveData } from './contracts/save-data';
 import { mergeTagEffects, mergeTagOverrides } from './state/tag-residue';
 import { splitTagEffects, splitTagOverrides, type TagOverrideResidue } from './state/tag-residue';
+import type { EventBus } from '../engine/core/event-bus';
 
 export type { SaveData };
 
@@ -37,6 +38,7 @@ export interface RestoreContext {
   storyService: StoryService;
   initService: InitService;
   sessionService: SessionService;
+  eventBus: EventBus;
   setState: (next: PlayerState) => void;
   setTagResidue?: (residue: TagOverrideResidue) => void;
 }
@@ -54,6 +56,11 @@ export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   );
   state.tagEffects = tagEffects.active;
   ctx.setTagResidue?.({ ...tagOverrides.residue, ...(Object.keys(tagEffects.residue).length ? { tagEffects: tagEffects.residue } : {}) });
+  ctx.initService.invalidateRuntimeGeneration();
+  ctx.eventBus.clearQueue();
+  ctx.initService.unmountInitTriggers();
+  ctx.affectorEngine.disposeRuntime();
+  ctx.storyService.clearAllCurrentStories();
   ctx.setState(state);
   ctx.mutations.setState(state);
   ctx.statsService.setState(state);

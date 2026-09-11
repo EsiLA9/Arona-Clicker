@@ -17,12 +17,14 @@ import { VisibilityEngine } from '../engine/visibility/visibility-engine';
 import { StoryService } from './services/story-service';
 import { InitService } from './services/init-service';
 import { SessionService } from '../engine/runtime/session-service';
+import { EventBus } from '../engine/core/event-bus';
 
 export interface ResetContext {
   stop: () => void;
   createDefaultState: () => PlayerState;
   setState: (next: PlayerState) => void;
   sessionService: SessionService;
+  eventBus: EventBus;
   mutations: RuntimeMutationPort;
   statsService: StatsService;
   affectorEngine: AffectorEngine;
@@ -36,7 +38,12 @@ export interface ResetContext {
 
 /** 重置为默认状态并清空各子系统运行时缓存 */
 export function resetRuntime(ctx: ResetContext): void {
+  ctx.initService.invalidateRuntimeGeneration();
   ctx.stop();
+  ctx.eventBus.clearQueue();
+  ctx.initService.unmountInitTriggers();
+  ctx.affectorEngine.disposeRuntime();
+  ctx.storyService.clearAllCurrentStories();
   const state = ctx.createDefaultState();
   ctx.setState(state);
   ctx.sessionService.touchLastTick();
@@ -46,12 +53,10 @@ export function resetRuntime(ctx: ResetContext): void {
   ctx.affectorEngine.setState(state);
   ctx.triggerSystem.setState(state);
   ctx.tagStatService.setState(state);
-  // 重置后默认状态无物品/强化/Spot：对账清空旧世界线遗留实例
+  // 重置后默认状态无物品/强化/Spot：运行时已在换状态前显式清理
   ctx.affectorEngine.reconcileMounts();
-  // 移除已挂载的世界线专属 Trigger
-  ctx.initService.unmountInitTriggers();
   ctx.visibilityEngine.reset();
-  ctx.storyService.clearCurrentStory();
+  ctx.storyService.clearAllCurrentStories();
   ctx.devLog.clear();
   ctx.devLog.record('运行时状态已重置', { source: 'runtime', level: 'warning' });
 }
