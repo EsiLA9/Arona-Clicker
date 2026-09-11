@@ -25,6 +25,8 @@ describe('Spot Shop workspace', () => {
     const primaryBefore = game.colorSystem.runtimeThemeTokens().primary;
     controller.openSpotShopModal(SPOT);
     expect(document.querySelector('.shop-workspace')).not.toBeNull();
+    expect(document.querySelector('.shop-workspace')?.getAttribute('data-responsive')).toBe('single-column');
+    expect(document.querySelectorAll('.shop-workspace > .workspace-column.panel')).toHaveLength(3);
     expect(document.querySelector('.shop-workspace__section')?.textContent).toContain('日常补给');
     expect(document.querySelector('.shop-workspace .panel-tabs-region')).not.toBeNull();
     expect(document.querySelectorAll('.shop-workspace .panel-tabs-region')).toHaveLength(3);

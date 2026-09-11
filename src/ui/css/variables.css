@@ -36,6 +36,14 @@
    --muted-on-canvas: color-mix(in srgb, hsl(220 18% 12%) 58%, transparent);
    /* area-hero 渐变兜底（运行时由 theme-tree.heroGradient 注入主题光晕） */
    --hero-gradient: linear-gradient(125deg, #e9f3ff 0%, #eef5ff 55%, #3b9eff 100%);
+   --workspace-gap: 14px;
+   --workspace-left-width: 230px;
+   --workspace-center-width: minmax(0, 1fr);
+   --workspace-right-width: 300px;
+   --panel-radius: 14px;
+   --panel-shadow: 0 10px 30px rgba(var(--primary-rgb), .08);
+   --panel-content-padding: 14px;
+   --panel-region-gap: 8px;
 }
 
 html {

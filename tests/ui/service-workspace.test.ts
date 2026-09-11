@@ -34,10 +34,14 @@ describe('服务工作区', () => {
       } : undefined,
     });
     expect(html).toContain('data-workspace-frame="service-');
+    expect(html).toContain('data-responsive="two-column"');
     expect(html).toContain(`>${title}<`);
     expect(html).toContain(action);
     expect(html).toContain('service-navigation');
     expect(html).toContain('service-inspector');
+    expect(html).toContain('panel service-column service-navigation');
+    expect(html).toContain('panel service-column service-main');
+    expect(html).toContain('panel service-column service-inspector');
     expect(html).toContain(`data-theme-host-id="leftPanel.service.${service}.navigation"`);
     expect(html).toContain(`data-theme-host-id="centerPanel.service.${service}.main"`);
     expect(html).toContain(`data-theme-host-id="rightPanel.service.${service}.inspector"`);
@@ -91,5 +95,12 @@ describe('服务工作区', () => {
     expect(html).toContain('data-theme-host-id="rightPanel.character.progression"');
     expect(html).toContain('data-workspace-role="progression"');
     expect(html).toContain('角色成长');
+  });
+
+  it('设置与服务列使用单一 Panel surface，body 承担内容区 padding', () => {
+    const html = renderAppShell(createUIContext(game), { ...baseState(), service: 'settings' });
+    expect(html).toContain('panel service-column service-navigation settings-navigation');
+    expect(html).toContain('panel service-column service-main settings-main');
+    expect(html).toContain('panel service-column service-inspector settings-inspector');
   });
 });

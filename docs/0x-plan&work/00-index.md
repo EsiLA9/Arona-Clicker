@@ -31,6 +31,7 @@
 | [[docs/0x-plan&work/active/task-0041-character-progression-and-memory]] | 角色成长与记忆体系：Proto/Variant 边界、统一 Effect 投影、跨 Init 追赶 | 🟢 A 段已实施，B 段推迟（见 [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]]） |
 | [[docs/0x-plan&work/active/task-0042-character-workspace-ui-convergence]] | 通讯录学生 Workspace 与一般游戏态 / 商店态 UI 风格收敛 | ✅ 已完成 |
 | [[docs/0x-plan&work/active/task-0043-topbar-settings-workspace]] | 顶栏导航与设置 Workspace 统一管理 | ✅ 已完成 |
+| [[docs/0x-plan&work/completed/task-0044-ui-geometry-workspace-reshape]] | UI Geometry Contract、Workspace Frame 与视觉基础设施重塑 | ✅ 已完成 |
 | [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
@@ -121,6 +122,7 @@
 - [[docs/0x-plan&work/active/task-0030-button-rendering-convergence-solution]]：按钮主题渲染统一与形状参数编辑方案（🟡 部分实施：形状参数编辑已落地）。
 - [[docs/0x-plan&work/active/task-0031-svg-button-state-color-audit]]：按钮内 SVG 状态颜色链路审查（✅ 已实施并验证；全量检查受既有基线问题影响）。
 - [[docs/0x-plan&work/active/task-0033-system-color-layer-scope]]：控件系统颜色层职责收敛、隐式重复背景清理与全局开关解耦（🟡 规划完成，待施工）。
+- [[docs/0x-plan&work/completed/task-0044-ui-geometry-workspace-reshape]]：Workspace Frame 几何契约、Panel/Region/Host 边界、滚动与响应式收敛（✅ 已完成）。
 - [[docs/0x-plan&work/completed/roadmap-0019-presentation-text-color]]：表现宿主文字颜色统一、四态解析与验收（✅ 已完成）。
 
 当前状态：B0–B4 的运行时、字段映射与编辑器接入已完成；剩余专用可视化预览与多设备视觉回归。

@@ -291,8 +291,9 @@ export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspace
     : `<div class="service-column-title"><span class="eyebrow">INSPECTOR</span><strong>当前选择</strong></div><section class="service-card"><h3>${service === 'saves' ? '安全提示' : '只读记录'}</h3><p>${service === 'saves' ? '读取、新游戏和删除等操作会影响进度，确认前必须查看覆盖范围。' : '图鉴与统计展示来源、范围和状态，不直接修改 PlayerState。'}</p></section><section class="service-card"><h3>下一步</h3><p>选择左侧分类或使用中部主要操作。操作结果会保留在当前页面并通过通知反馈。</p></section>`;
   return renderWorkspaceFrame(ctx, {
     id: `service-${service}`,
-    left: { slot: 'left', hostId: hostId(service, 'navigation'), themeScope: `left.${service}.navigation`, className: 'service-column service-navigation', content: navigation },
-    center: { slot: 'center', hostId: hostId(service, 'main'), themeScope: `center.${service}.main`, className: 'service-column service-main', content: main, scroll: 'content' },
-    right: { slot: 'right', hostId: hostId(service, 'inspector'), themeScope: `right.${service}.inspector`, className: 'service-column service-inspector', content: inspector },
+    layout: { responsive: 'two-column' },
+    left: { slot: 'left', hostId: hostId(service, 'navigation'), themeScope: `left.${service}.navigation`, surface: 'panel', className: 'service-column service-navigation', content: navigation },
+    center: { slot: 'center', hostId: hostId(service, 'main'), themeScope: `center.${service}.main`, surface: 'panel', className: 'service-column service-main', content: main, scroll: 'content' },
+    right: { slot: 'right', hostId: hostId(service, 'inspector'), themeScope: `right.${service}.inspector`, surface: 'panel', className: 'service-column service-inspector', content: inspector },
   });
 }

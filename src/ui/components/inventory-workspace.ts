@@ -118,9 +118,9 @@ export function renderInventoryWorkspace(ctx: UIContext, state: PanelState): str
   );
   return renderWorkspaceFrame(ctx, {
     id: 'inventory',
-    layout: { preset: 'center-heavy' },
-    left: { slot: 'left', role: 'navigation', hostId: 'leftPanel.service.inventory.navigation', themeScope: 'left.inventory.navigation', className: 'inventory-workspace__left', content: renderNavigation(ctx, workspace, rows), scroll: 'none' },
-    center: { slot: 'center', role: 'primary', hostId: 'centerPanel.service.inventory.main', themeScope: 'center.inventory.main', className: 'inventory-workspace__center', content: renderMain(ctx, workspace, rows), scroll: 'none' },
-    right: { slot: 'right', role: 'inspector', hostId: 'rightPanel.service.inventory.inspector', themeScope: 'right.inventory.inspector', className: 'inventory-workspace__right', content: renderInspector(ctx, workspace, rows), scroll: 'none' },
+    layout: { responsive: 'two-column' },
+    left: { slot: 'left', role: 'navigation', hostId: 'leftPanel.service.inventory.navigation', themeScope: 'left.inventory.navigation', surface: 'panel', className: 'left-panel inventory-workspace__left', content: renderNavigation(ctx, workspace, rows), scroll: 'none' },
+    center: { slot: 'center', role: 'primary', hostId: 'centerPanel.service.inventory.main', themeScope: 'center.inventory.main', surface: 'panel', className: 'center-panel inventory-workspace__center', content: renderMain(ctx, workspace, rows), scroll: 'none' },
+    right: { slot: 'right', role: 'inspector', hostId: 'rightPanel.service.inventory.inspector', themeScope: 'right.inventory.inspector', surface: 'panel', className: 'right-panel inventory-workspace__right', content: renderInspector(ctx, workspace, rows), scroll: 'none' },
   });
 }

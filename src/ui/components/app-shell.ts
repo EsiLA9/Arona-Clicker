@@ -144,9 +144,9 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
     : undefined;
   return renderConsoleFrame(ctx, renderWorkspaceFrame(ctx, {
     id: 'game',
-    left: { slot: 'left', hostId: 'leftPanel', themeScope: 'left.game', className: 'game-workspace__left', content: renderLeftPanel(ctx, state), scroll: 'none' },
-    center: { slot: 'center', hostId: 'centerPanel', themeScope: 'center.game', className: 'game-workspace__center', content: renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null), scroll: 'none' },
-    right: { slot: 'right', hostId: 'rightPanel', themeScope: 'right.game', className: 'game-workspace__right', content: renderRightPanel(ctx, state.rightTab, state.selectedVariantId), scroll: 'none' },
+    left: { slot: 'left', hostId: 'leftPanel', themeScope: 'left.game', surface: 'none', className: 'game-workspace__left', content: renderLeftPanel(ctx, state), scroll: 'none' },
+    center: { slot: 'center', hostId: 'centerPanel', themeScope: 'center.game', surface: 'none', className: 'game-workspace__center', content: renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null), scroll: 'none' },
+    right: { slot: 'right', hostId: 'rightPanel', themeScope: 'right.game', surface: 'none', className: 'game-workspace__right', content: renderRightPanel(ctx, state.rightTab, state.selectedVariantId), scroll: 'none' },
   }), 'TS-HTML ENGINE · NO NETWORK', studentVariantId);
 }
 

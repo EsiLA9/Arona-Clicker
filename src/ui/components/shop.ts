@@ -51,9 +51,10 @@ export function renderShopWorkspace(ctx: UIContext, workspace: ShopWorkspaceStat
   const center = shopTabs('center', `<span class="shop-workspace__title">${ctx.escapeHtml(view?.shop.name ?? '商店')}</span>`) + (view ? `<div class="shop-workspace__catalog"><header><p>${ctx.escapeHtml(view.shop.description ?? '')}</p></header>${view.entries}</div>` : '<p class="modal-empty">无法加载商店。</p>');
   const right = shopTabs('right', '<span class="shop-workspace__title">持有与结算</span>') + (view ? `<section class="shop-workspace__settlement"><h3>持有与结算</h3>${renderResourceStrip(ctx)}<div class="shop-workspace__holdings">${renderHoldings(ctx)}</div><h4>已购买小项</h4><ul>${view.cart}</ul><p>预计消耗：${view.costs}</p><div class="shop-workspace__actions"><button data-shop-cancel ${view.canCheckout ? '' : 'disabled'}>撤销</button><button class="primary-button" data-shop-checkout ${view.canCheckout ? '' : 'disabled'}>结算</button></div></section>` : '<button data-shop-leave>返回 Spot</button>');
   return renderWorkspaceFrame(ctx, { id: 'shop',
-    left: { slot: 'left', hostId: 'leftPanel.shop.feed', themeScope: 'left.shop.feed', className: 'shop-workspace__left', content: left },
-    center: { slot: 'center', hostId: 'centerPanel.shop.catalog', themeScope: 'center.shop.catalog', className: 'shop-workspace__center', content: center, scroll: 'content' },
-    right: { slot: 'right', hostId: 'rightPanel.shop.settlement', themeScope: 'right.shop.settlement', className: 'shop-workspace__right', content: right },
+    layout: { responsive: 'single-column' },
+    left: { slot: 'left', hostId: 'leftPanel.shop.feed', themeScope: 'left.shop.feed', surface: 'panel', className: 'shop-workspace__left', content: left },
+    center: { slot: 'center', hostId: 'centerPanel.shop.catalog', themeScope: 'center.shop.catalog', surface: 'panel', className: 'shop-workspace__center', content: center, scroll: 'content' },
+    right: { slot: 'right', hostId: 'rightPanel.shop.settlement', themeScope: 'right.shop.settlement', surface: 'panel', className: 'shop-workspace__right', content: right },
   });
 }
 

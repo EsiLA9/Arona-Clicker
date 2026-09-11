@@ -69,11 +69,11 @@ UI 表现宿主由 `src/ui/ui-host-registry.ts` 统一登记。核心 UI 提供�
 
 ### 功能工作区
 
-Shop 与角色服务等需要同时接管多个面板的功能，使用 `WorkspaceFrame`，而不是继续修改普通 `leftTab / centerTab / rightTab`。每个工作区声明固定的 `left / center / right` 列、布局 preset、语义 `role` 和稳定 Host ID；渲染器额外输出 `data-workspace-frame`、`data-workspace-column`、`data-workspace-role`，供主题编辑器和后续布局工具定位。
+Shop、角色服务和完整背包等需要同时接管多个面板的功能，使用 `WorkspaceFrame`，而不是继续修改普通 `leftTab / centerTab / rightTab`。每个工作区声明固定的 `left / center / right` 列、布局 preset、响应式 profile、surface、语义 `role` 和稳定 Host ID；渲染器额外输出 `data-workspace-frame`、`data-workspace-column`、`data-workspace-role`、`data-workspace-surface`、`data-scroll` 与 `data-scroll-owner`，供主题编辑器和后续布局工具定位。Frame 统一承担三栏外层几何；`default`、`two-column`、`single-column` 只表达响应式骨架，页面内容仍可保留自己的高度和内部排列规则。
 
 角色工作区的当前约定为：`leftPanel.character.contacts`（通讯录）、`centerPanel.character.story`（学生故事）、`rightPanel.character.progression`（角色成长）。选择学生或进入有学生归属的故事时接管三栏；退出后恢复进入前的普通游戏面板状态。无学生归属的全局故事仍使用普通游戏工作区。
 
-三栏 panel 的顶部 Tabs 使用 `panel-tabs-region` 作为独立结构宿主：区域背景、主题装饰和底部分隔线挂在 `leftPanel.tabs` / `centerPanel.tabs` / `rightPanel.tabs`，`.switch-tabs` 仅负责 TabGroup 布局，单个按钮仍使用对应的 `*.tab` 宿主。panel 自身独占外框、圆角和 `overflow: hidden`，`panel-body` 独占正文滚动与内容 padding；普通弹窗、抽卡范围和主题编辑器内部的 `.switch-tabs` 不套用该结构。
+三栏 panel 的顶部 Tabs 使用 `panel-tabs-region` 作为独立结构宿主：区域背景、主题装饰和底部分隔线挂在 `leftPanel.tabs` / `centerPanel.tabs` / `rightPanel.tabs`，`.switch-tabs` 仅负责 TabGroup 布局，单个按钮仍使用对应的 `*.tab` 宿主。Game 的既有 panel 继续独占外框、圆角、`overflow: hidden`，并由 `panel-body` 独占正文滚动与内容 padding；Service/Settings/Shop/Character/Inventory 的列级外框由 `WorkspaceColumn.surface = panel` 产生，正文通过 `workspace-column__body` 的 scroll owner 属性或页面明确的 List/Inspector Region 承担。普通弹窗、抽卡范围和主题编辑器内部的 `.switch-tabs` 不套用该结构。Workspace 外层 Panel 不进入旧内容 Panel 的 ScrollManager 序号快照。
 
 ### 主题与选择页表现
 

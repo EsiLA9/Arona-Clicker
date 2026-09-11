@@ -28,6 +28,10 @@ function makeRoot(stream: any) {
   return { querySelector: (sel: string) => (sel === '.chat-stream' ? stream : null) } as any;
 }
 
+function makePanelRoot(panels: any[], allPanels = panels) {
+  return { querySelectorAll: (sel: string) => (sel === '.panel:not(.workspace-column)' ? panels : allPanels) } as any;
+}
+
 describe('ScrollManager 聊天流滚动状态', () => {
   let observerInstances: ObserverRec[];
 
@@ -152,5 +156,25 @@ describe('ScrollManager 聊天流滚动状态', () => {
     sm['resizeObserver'] = { disconnect, observe: vi.fn() } as any;
     sm.reset();
     expect(disconnect).toHaveBeenCalled();
+  });
+
+  test('工作区外层 Panel 不进入既有内容面板滚动快照', () => {
+    const sm = new ScrollManager();
+    const firstBody = { scrollTop: 42 };
+    const secondBody = { scrollTop: 108 };
+    const workspaceBody = { scrollTop: 999 };
+    const firstPanel = { querySelector: () => firstBody };
+    const secondPanel = { querySelector: () => secondBody };
+    const workspaceColumn = { querySelector: () => workspaceBody };
+    const root = makePanelRoot([firstPanel, secondPanel], [workspaceColumn, firstPanel, secondPanel]);
+
+    sm.capturePanel(root);
+    firstBody.scrollTop = 0;
+    secondBody.scrollTop = 0;
+    sm.restorePanel(root);
+
+    expect(firstBody.scrollTop).toBe(42);
+    expect(secondBody.scrollTop).toBe(108);
+    expect(workspaceBody.scrollTop).toBe(999);
   });
 });

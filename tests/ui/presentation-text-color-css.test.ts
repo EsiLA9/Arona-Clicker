@@ -5,6 +5,7 @@ const css = readFileSync(new URL('../../src/ui/css/background.css', import.meta.
 const chatCss = readFileSync(new URL('../../src/ui/css/chat.css', import.meta.url), 'utf8');
 const layoutCss = readFileSync(new URL('../../src/ui/css/layout.css', import.meta.url), 'utf8');
 const conversationCss = readFileSync(new URL('../../src/ui/css/conversation.css', import.meta.url), 'utf8');
+const modalCss = readFileSync(new URL('../../src/ui/css/modal.css', import.meta.url), 'utf8');
 
 describe('表现宿主文字颜色 CSS 契约', () => {
   test('手动模式覆盖宿主、嵌套文字和 inline SVG', () => {
@@ -122,5 +123,43 @@ describe('表现宿主文字颜色 CSS 契约', () => {
     expect(tabs).toContain('panel-tabs-region presentation-host-target');
     expect(tabs).toContain('${renderPresentationHostBackground(ctx, tabsHost)}${inner}');
     expect(tabs).toContain('renderPanelHeaderRegion');
+  });
+
+  test('页面级三栏几何只由 WorkspaceFrame 持有', () => {
+    const pageRoots = ['shop-workspace', 'character-workspace', 'inventory-workspace', 'service-workspace', 'settings-workspace'];
+    const rules = [...layoutCss.matchAll(/([^{}]+)\{([^{}]*grid-template-columns:[^{}]*)\}/g)]
+      .map(match => match[1].trim())
+      .filter(selector => pageRoots.some(root => new RegExp(`\\.${root}(?![-\\w])`).test(selector)));
+
+    expect(rules.length).toBeGreaterThan(0);
+    for (const selector of rules) expect(selector).toContain('.workspace-frame');
+    expect(layoutCss).toContain(".workspace-frame[data-responsive='default']");
+    expect(layoutCss).toContain(".workspace-frame[data-responsive='two-column']");
+    expect(layoutCss).toContain(".workspace-frame[data-responsive='single-column']");
+    expect(layoutCss).toContain('var(--workspace-left-width)');
+    expect(layoutCss).toContain('gap: var(--workspace-gap)');
+  });
+
+  test('旧弹窗样式不再抢占 WorkspaceFrame 的响应式几何', () => {
+    expect(modalCss).not.toMatch(/\.workspace\s*\{[^}]*grid-template-columns/);
+    expect(modalCss).not.toMatch(/\.workspace\s*\{[^}]*display\s*:\s*grid/);
+    expect(modalCss).not.toMatch(/\.center-panel\s*\{[^}]*grid-column/);
+    expect(modalCss).not.toMatch(/\.center-panel\s*\{[^}]*order\s*:\s*-1/);
+  });
+
+  test('窄屏 WorkspaceFrame 的嵌套宿主跟随外层列高，不被内容自然高度撑破', () => {
+    expect(layoutCss).toContain(".workspace-frame[data-responsive='single-column'] > .workspace-column { flex: 0 0 auto; }");
+    expect(layoutCss).toContain('.inventory-workspace > .workspace-column.inventory-workspace__left');
+    expect(layoutCss).toContain('height: var(--workspace-column-inner-height) !important');
+  });
+
+  test('迁移页面只保留内容语义 CSS，不重复声明 Frame 外框或 Panel surface', () => {
+    for (const root of ['shop-workspace', 'character-workspace', 'inventory-workspace']) {
+      expect(layoutCss).not.toMatch(new RegExp(`(?:^|[},])\\s*\\.${root}\\s*\\{[^}]*grid-template-columns`));
+    }
+    expect(layoutCss).not.toMatch(/\.shop-workspace,\s*\.character-workspace\s*\{[^}]*border:/s);
+    expect(layoutCss).not.toMatch(/\.inventory-workspace \.workspace-column\s*\{[^}]*border:/s);
+    expect(layoutCss).toContain('.shop-workspace__catalog { flex: 1 1 auto; min-height: 0; overflow: auto; }');
+    expect(layoutCss).toContain('.inventory-workspace__navigation { display: grid; gap: 12px; overflow: auto;');
   });
 });

@@ -23,7 +23,7 @@ function refreshHeaderPresentation(ctrl: UIController): void {
   refreshPresentationHostElements(ctrl, ['header.button']);
 }
 
-type TopbarService = 'game' | 'settings' | 'datapack' | 'saves' | 'records';
+type TopbarService = 'game' | 'settings' | 'inventory' | 'datapack' | 'saves' | 'records';
 
 function hasUnappliedDatapackDraft(ctrl: UIController): boolean {
   const workspace = ctrl.panelState.datapackWorkspace;
@@ -72,7 +72,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-topbar-action="inventory"]').forEach(button => {
-    button.addEventListener('click', () => navigateFromTopbar(ctrl, 'game', 'other'));
+    button.addEventListener('click', () => navigateFromTopbar(ctrl, 'inventory'));
   });
   scope.querySelector('#tick-now')?.addEventListener('click', () => {
     ctrl.commands.tick();

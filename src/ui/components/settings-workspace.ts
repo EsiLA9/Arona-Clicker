@@ -58,11 +58,13 @@ function renderSettingsInspector(ctx: UIContext, state: PanelState): string {
 export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): string {
   return renderWorkspaceFrame(ctx, {
     id: 'settings',
+    layout: { responsive: 'two-column' },
     left: {
       slot: 'left',
       role: 'navigation',
       hostId: 'leftPanel.service.settings.navigation',
       themeScope: 'left.settings.navigation',
+      surface: 'panel',
       className: 'service-column service-navigation settings-navigation',
       content: renderSettingsNavigation(),
       scroll: 'auto',
@@ -72,6 +74,7 @@ export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): stri
       role: 'primary',
       hostId: 'centerPanel.service.settings.main',
       themeScope: 'center.settings.main',
+      surface: 'panel',
       className: 'service-column service-main settings-main',
       content: renderSettingsMain(ctx),
       scroll: 'content',
@@ -81,6 +84,7 @@ export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): stri
       role: 'inspector',
       hostId: 'rightPanel.service.settings.inspector',
       themeScope: 'right.settings.inspector',
+      surface: 'panel',
       className: 'service-column service-inspector settings-inspector',
       content: renderSettingsInspector(ctx, state),
       scroll: 'auto',

@@ -38,7 +38,8 @@ describe('inventory workspace', () => {
     });
 
     expect(html).toContain('data-workspace-frame="inventory"');
-    expect(html).toContain('data-layout="center-heavy"');
+    expect(html).toContain('data-layout="default"');
+    expect(html).toContain('data-responsive="two-column"');
     expect(html.match(/inventory-workspace__tab/g)).toHaveLength(3);
     expect(html).toContain('data-theme-host-id="leftPanel.service.inventory.navigation"');
     expect(html).toContain('data-theme-host-id="centerPanel.service.inventory.main"');

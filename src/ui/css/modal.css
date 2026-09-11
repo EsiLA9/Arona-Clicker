@@ -394,20 +394,6 @@
 }
 
 @media (max-width: 950px) {
-   .workspace {
-      grid-template-columns: 1fr 1fr;
-   }
-
-   .center-panel {
-      grid-column: 1 / -1;
-      order: -1;
-   }
-
-   .left-panel,
-   .right-panel {
-      min-width: 0;
-   }
-
    .init-stage {
       grid-template-columns: 1fr;
    }
@@ -454,23 +440,6 @@
 
    .resource-bar .primary-button {
       margin-left: 0;
-   }
-
-   .workspace {
-      display: grid;
-      grid-template-columns: 1fr;
-   }
-
-   .left-panel,
-   .center-panel,
-   .right-panel {
-      grid-column: 1;
-      min-height: auto;
-      max-height: none;
-   }
-
-   .center-panel {
-      order: -1;
    }
 
    .story-actions {

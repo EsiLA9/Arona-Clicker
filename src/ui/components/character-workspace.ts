@@ -25,8 +25,9 @@ export function renderCharacterWorkspace(ctx: UIContext, workspace: CharacterWor
 
   return renderWorkspaceFrame(ctx, {
     id: 'character',
-    left: { slot: 'left', role: 'contacts', hostId: 'leftPanel.character.contacts', themeScope: 'left.character.contacts', className: 'character-workspace__left', content: left, scroll: 'content' },
-    center: { slot: 'center', role: 'story', hostId: 'centerPanel.character.story', themeScope: 'center.character.story', className: 'character-workspace__center', content: center, scroll: 'none' },
-    right: { slot: 'right', role: 'progression', hostId: 'rightPanel.character.progression', themeScope: 'right.character.progression', className: 'character-workspace__right', content: right, scroll: 'content' },
+    layout: { responsive: 'single-column' },
+      left: { slot: 'left', role: 'contacts', hostId: 'leftPanel.character.contacts', themeScope: 'left.character.contacts', surface: 'panel', className: 'character-workspace__left', content: left, scroll: 'content' },
+      center: { slot: 'center', role: 'story', hostId: 'centerPanel.character.story', themeScope: 'center.character.story', surface: 'panel', className: 'character-workspace__center', content: center, scroll: 'none' },
+      right: { slot: 'right', role: 'progression', hostId: 'rightPanel.character.progression', themeScope: 'right.character.progression', surface: 'panel', className: 'character-workspace__right', content: right, scroll: 'content' },
   });
 }

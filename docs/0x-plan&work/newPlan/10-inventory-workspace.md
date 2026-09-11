@@ -10,7 +10,7 @@
 - 物品数量来自只读 `GameView.inventory`；物品定义来自 `GameReadModel.registry.items`，当前已有 `type`、`rarity`、`maxStack`、`useEffects`、`sellPrice` 等字段。
 - 使用物品已有 `GameCommands.useItem(itemId)` → `ItemService.useItem()` → `StateMutationService` 的写入链路。
 - `PlayerState.inventory` 属于当前 Init 数据，并随 Init 快照保存；筛选、排序、选中项属于 UI 偏好，不应写入 `PlayerState`。
-- Task-0043 已将顶栏背包定义为“回到游戏 Workspace 并定位右栏 `other`”。本方案是其后续的完整背包服务设计，不直接改写该任务的已完成记录。
+- Task-0043 已提供顶栏背包入口与游戏右栏 `other` 紧凑投影。本方案补充独立的完整背包服务，不改写该任务的已完成记录。
 
 ## 目标
 
@@ -28,10 +28,10 @@
 
 | 表现 | 用途 | 路由 |
 | --- | --- | --- |
-| 紧凑投影 | 游戏中快速查看、使用物品和效果追踪 | `game` Workspace + `rightTab = other`，保持 Task-0043 现状 |
-| 完整服务 | 筛选、排序、自定义顺序、详情管理 | 独立 `inventory` Workspace；由紧凑投影中的“打开完整背包”进入 |
+| 紧凑投影 | 游戏中快速查看、使用物品和效果追踪 | `game` Workspace + `rightTab = other`；保留“打开完整背包”入口 |
+| 完整服务 | 筛选、排序、自定义顺序、详情管理 | 独立 `inventory` Workspace；顶栏背包直接进入，紧凑投影也可进入 |
 
-推荐先保留两者并行：顶栏背包继续保证快速回到游戏，完整背包作为 `other` 面板的升级入口。待完整 Workspace 通过浏览器验收后，再单独裁定是否让顶栏背包直接进入 `inventory` Workspace，避免破坏已完成的返回游戏语义。
+两者并行保留：顶栏背包负责直达完整管理界面，游戏右栏继续提供不打断当前游玩的紧凑投影；紧凑投影可通过“打开完整背包”进入完整服务。
 
 ### 三栏职责
 
@@ -197,7 +197,7 @@ interface InventoryWorkspaceState {
 
 - 验证普通游戏、Lobby、服务页、角色 Workspace、商店 Workspace 之间切换时不泄露背包临时状态。
 - 接入统一 Workspace Host、主题继承与响应式三栏规则。
-- 根据浏览器验收结果单独裁定顶栏背包是否改为直达完整 inventory Workspace。
+- 顶栏背包已按体验要求改为直达完整 `inventory` Workspace；普通游戏右栏仍保留紧凑投影。
 
 ## 测试与验收
 
@@ -231,12 +231,11 @@ interface InventoryWorkspaceState {
 
 ## 首版剩余工作
 
-- 仍需评审是否把顶栏背包从“游戏右栏快速入口”改为直达完整 inventory Workspace。
 - 跨浏览器会话保存自定义顺序、出售/丢弃、获取来源与标签筛选暂不实现，分别等待 UI preference、交易边界和内容契约裁定。
 
 ## 待评审问题
 
-1. 是否接受“顶栏背包先保持快速回游戏，完整背包从 `other` 进入”的两阶段路由？建议接受，以降低 Task-0043 回归风险。
+1. 是否接受“顶栏直达完整背包、游戏右栏保留紧凑投影”的双入口路由？当前实现按此方案执行。
 2. 自定义顺序是否需要跨浏览器会话保存？建议第一版只保留在 `PanelState`，后续若需要再设计独立 UI preference store。
 3. 是否显示未持有但已揭示的物品？建议第一版默认隐藏，仅在筛选区提供后续开关。
 4. 是否现在加入出售/丢弃？建议暂缓；虽然 `ItemDef.sellPrice` 已存在，但当前没有出售命令和交易原子性边界。

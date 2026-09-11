@@ -11,7 +11,7 @@ export class ScrollManager {
   private pendingChatForceScroll = false;
   /** 上一次重建时的活跃流条目数（判断是否有新内容到达）。 */
   private lastChatCount = 0;
-  /** 面板滚动位置快照：按面板序号记录 .panel-body 的 scrollTop。 */
+  /** 面板滚动位置快照：按面板序号记录内容 Panel 的 .panel-body scrollTop。 */
   private panelScrollTop: number[] = [];
   /** 聊天流图片观察器：<img> 加载撑开高度后自动贴底。 */
   private resizeObserver: ResizeObserver | null = null;
@@ -117,14 +117,14 @@ export class ScrollManager {
 
   /** 面板滚动位置快照：强化/通讯录等列表防刷新回滚。 */
   capturePanel(root: HTMLElement): void {
-    this.panelScrollTop = [...root.querySelectorAll<HTMLElement>('.panel')].map(
+    this.panelScrollTop = [...root.querySelectorAll<HTMLElement>('.panel:not(.workspace-column)')].map(
       panel => panel.querySelector<HTMLElement>('.panel-body')?.scrollTop ?? 0,
     );
   }
 
   restorePanel(root: HTMLElement): void {
     if (this.panelScrollTop.length === 0) return;
-    root.querySelectorAll<HTMLElement>('.panel').forEach((panel, i) => {
+    root.querySelectorAll<HTMLElement>('.panel:not(.workspace-column)').forEach((panel, i) => {
       const body = panel.querySelector<HTMLElement>('.panel-body');
       if (body && this.panelScrollTop[i] !== undefined) {
         body.scrollTop = this.panelScrollTop[i];

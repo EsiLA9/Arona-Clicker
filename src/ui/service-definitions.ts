@@ -84,6 +84,15 @@ export const UI_SERVICE_DEFINITIONS: readonly UIServiceDefinition[] = [
       { id: 'rightPanel.shop.settlement', label: '商店持有与结算', level: 'region', parent: 'rightPanel', kind: 'container', serviceId: 'shop' },
     ],
   },
+  {
+    id: 'character',
+    label: '角色服务',
+    hosts: [
+      { id: 'leftPanel.character.contacts', label: '角色通讯录', level: 'region', parent: 'leftPanel', kind: 'container', serviceId: 'character' },
+      { id: 'centerPanel.character.story', label: '角色学生故事', level: 'region', parent: 'centerPanel', kind: 'container', serviceId: 'character' },
+      { id: 'rightPanel.character.progression', label: '角色成长', level: 'region', parent: 'rightPanel', kind: 'container', serviceId: 'character' },
+    ],
+  },
 ];
 
 for (const service of UI_SERVICE_DEFINITIONS) registerUIService(service);

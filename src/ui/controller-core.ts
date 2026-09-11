@@ -112,6 +112,7 @@ export function resetSessionPanel(ctrl: UIController): void {
   ctrl.panelState.rightTab = 'spot';
   ctrl.panelState.chatEntries = [];
   ctrl.panelState.chatTexts = [];
+  ctrl.panelState.inventoryWorkspace = undefined;
   // 彻底重置会话级 UI 状态：退出对话空间、清空选中差分与各学生聊天流，
   // 避免新游戏 / 读档后残留上一会话的角色聊天记录或对话空间视图。
   ctrl.panelState.conversationVariantId = null;

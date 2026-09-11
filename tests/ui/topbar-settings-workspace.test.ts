@@ -75,7 +75,7 @@ describe('顶栏与设置工作区', () => {
     expect(UI_HOST_REGISTRY.get('rightPanel.service.settings.inspector')?.serviceId).toBe('settings');
   });
 
-  it('背包入口回到游戏 Workspace 并定位右栏 other Tab', () => {
+  it('顶栏背包入口直接打开完整 inventory Workspace', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);
     game.inits.startNewGame('base:init:schale_office');
@@ -87,10 +87,11 @@ describe('顶栏与设置工作区', () => {
 
     root.querySelector<HTMLButtonElement>('[data-topbar-action="inventory"]')!.click();
 
-    expect(controller.panelState.service).toBe('game');
-    expect(controller.panelState.rightTab).toBe('other');
-    expect(root.querySelector('[data-workspace-frame="game"]')).not.toBeNull();
-    expect(root.querySelector('.right-panel .inventory-list')).not.toBeNull();
+    expect(controller.panelState.service).toBe('inventory');
+    expect(root.querySelector('[data-workspace-frame="inventory"]')).not.toBeNull();
+    expect(root.querySelector('[data-theme-host-id="leftPanel.service.inventory.navigation"]')).not.toBeNull();
+    expect(root.querySelector('[data-theme-host-id="centerPanel.service.inventory.main"]')).not.toBeNull();
+    expect(root.querySelector('[data-theme-host-id="rightPanel.service.inventory.inspector"]')).not.toBeNull();
     controller.destroy();
     game.stop();
   });
