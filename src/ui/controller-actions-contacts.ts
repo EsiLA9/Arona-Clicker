@@ -30,22 +30,44 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
     button.addEventListener('click', () => {
       const selectedVariantId = button.dataset.selectVariant;
       if (!selectedVariantId) return;
-      ctrl.openCharacterWorkspace(selectedVariantId);
-      ctrl.panelState.leftTab = 'contacts';
-      ctrl.panelState.rightTab = 'character';
+      if (ctrl.panelState.workspace?.type === 'contacts') {
+        ctrl.selectContactsVariant(selectedVariantId);
+      } else {
+        ctrl.openCharacterWorkspace(selectedVariantId);
+        ctrl.panelState.leftTab = 'contacts';
+        ctrl.panelState.rightTab = 'character';
+      }
       ctrl.panelState.storyGate = null; // 换流后浮层失效（owner 已不属于当前流）
       ctrl.scroll.forceToBottom();
       // 未读即推：队列非空时立即送达队列顶（打字节奏由剧情首条 talk 页承担）
       const variantId = ctrl.panelState.conversationVariantId;
       if (variantId) pushReadyTop(ctrl, variantId);
-      ctrl.refreshPanels(['left', 'center', 'right']);
+      if (ctrl.panelState.workspace) ctrl.refreshWorkspace();
+      else ctrl.refreshPanels(['left', 'center', 'right']);
     });
   });
-  scope.querySelectorAll<HTMLElement>('[data-character-workspace-leave]').forEach(button => {
+  scope.querySelectorAll<HTMLElement>('[data-character-workspace-leave], [data-contacts-workspace-leave]').forEach(button => {
     button.addEventListener('click', () => ctrl.disposeWorkspace());
   });
   // 对话空间返回键：回到一般聊天（并取消左侧该学生的 active 选中态）
   scope.querySelector('[data-conversation-back]')?.addEventListener('click', () => {
+    if (ctrl.panelState.workspace?.type === 'contacts') {
+      ctrl.panelState.workspace.conversationVariantId = null;
+      ctrl.panelState.conversationVariantId = null;
+      ctrl.panelState.storyGate = null;
+      ctrl.scroll.forceToBottom();
+      ctrl.render();
+      return;
+    }
+    if (ctrl.panelState.workspace?.type === 'story') {
+      ctrl.panelState.workspace.conversationOwner = null;
+      ctrl.panelState.workspace.mode = 'overview';
+      ctrl.panelState.conversationVariantId = null;
+      ctrl.panelState.storyGate = null;
+      ctrl.scroll.forceToBottom();
+      ctrl.render();
+      return;
+    }
     ctrl.panelState.conversationVariantId = null;
     ctrl.panelState.selectedVariantId = null;
     ctrl.panelState.centerTab = 'chat';

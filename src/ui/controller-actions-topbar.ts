@@ -178,9 +178,19 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
   scope.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button => {
     button.addEventListener('click', () => {
       const [panel, tabId] = (button.dataset.tab ?? ':').split(':');
+      if (panel === 'left' && tabId === 'contacts') {
+        ctrl.openContactsWorkspace();
+        ctrl.render();
+        return;
+      }
+      if (panel === 'left' && tabId === 'story') {
+        ctrl.openStoryWorkspace();
+        ctrl.render();
+        return;
+      }
       if (panel === 'left') {
         ctrl.panelState.leftTab = tabId;
-        // 左 Tab 联动中栏：点击"区域"→ Init 的一般聊天流，点击"通讯录"→ 临时页
+        // 左侧只在 Game Workspace 内保留区域内容；通讯录 / 故事已在上方转为正式 Workspace。
         if (tabId === 'area') {
           // 对话空间优先级高于 centerTab：不退出就会停留在学生聊天流上（与对话空间返回键同款退出）
           const onInitChat = ctrl.panelState.centerTab === 'chat' && !ctrl.panelState.conversationVariantId;
@@ -190,7 +200,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
           }
           ctrl.panelState.centerTab = 'chat';
           if (!onInitChat) ctrl.scroll.forceToBottom();
-        } else if (tabId === 'contacts') ctrl.panelState.centerTab = 'contacts-draft';
+        }
       } else if (panel === 'center') {
         const wasChat = ctrl.panelState.centerTab === 'chat';
         ctrl.panelState.centerTab = tabId;

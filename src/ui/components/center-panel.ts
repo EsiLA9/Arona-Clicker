@@ -34,41 +34,11 @@ export function renderCenterPanel(
   if (conversation) {
     return renderConversationView(ctx, conversation.variantId, conversation.entries, conversation.chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   }
-  // 通讯录临时页：由左栏"通讯录"触发，等待详细设计
-  if (activeTab === 'contacts-draft') {
-    return `
-      <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.contacts" data-theme-host-id="centerPanel.contacts" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost('centerPanel.contacts')}">
-        ${renderBackground(ctx.backgroundForHost('centerPanel.contacts'), 'console-panel-background')}
-        ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
-        ${renderPanelTabsRegion(ctx, 'center', CENTER_TABS, 'chat')}
-        <div class="ui-cluster ui-cluster--center-contacts-draft panel-body">
-          <div class="chat-empty">
-            <p>📒 通讯录临时页</p>
-            <p style="margin-top: 8px; color: var(--muted);">此页面等待后续设计制作。</p>
-          </div>
-        </div>
-      </section>`;
-  }
-  // 档案临时页：由故事 Tab"档案"入口触发，等待记录内容设计
-  if (activeTab === 'archive-draft') {
-    return `
-      <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.archive" data-theme-host-id="centerPanel.archive" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost('centerPanel.archive')}">
-        ${renderBackground(ctx.backgroundForHost('centerPanel.archive'), 'console-panel-background')}
-        ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
-        ${renderPanelTabsRegion(ctx, 'center', CENTER_TABS, 'chat')}
-        <div class="ui-cluster ui-cluster--center-archive-draft panel-body">
-          <div class="chat-empty">
-            <p>🗄️ 档案临时页</p>
-            <p style="margin-top: 8px; color: var(--muted);">此页面等待后续设计制作。</p>
-          </div>
-        </div>
-      </section>`;
-  }
   const body = activeTab === 'log'
     ? renderLogTab(ctx)
     : renderChatTab(ctx, chatEntries, chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   return `
-    <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-theme-scope="center.${activeTab}" data-theme-host-id="centerPanel.${activeTab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`centerPanel.${activeTab}`)}">
+    <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-game-panel="center" data-theme-scope="center.${activeTab}" data-theme-host-id="centerPanel.${activeTab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`centerPanel.${activeTab}`)}">
       ${renderBackground(ctx.backgroundForHost(`centerPanel.${activeTab}`), 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       ${renderPanelTabsRegion(ctx, 'center', CENTER_TABS, activeTab)}

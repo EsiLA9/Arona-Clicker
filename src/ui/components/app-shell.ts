@@ -8,6 +8,8 @@ import { renderServiceWorkspace } from './service-workspace';
 import type { ShopSession } from '../../arona-clicker/services/shop-service';
 import { renderShopWorkspace } from './shop';
 import { renderCharacterWorkspace } from './character-workspace';
+import { renderContactsWorkspace } from './contacts-workspace';
+import { renderStoryWorkspace } from './story-workspace';
 import { renderSettingsWorkspace } from './settings-workspace';
 import { renderInventoryWorkspace } from './inventory-workspace';
 import type { InventoryWorkspaceState } from '../inventory-view';
@@ -41,6 +43,19 @@ export interface StoryGateState {
   owner: string | null;
   /** 确认后的启动方式：active = startActiveStory / replay = replayStory / card = startCardStory。 */
   mode: 'active' | 'replay' | 'card';
+}
+
+export type WorkspaceRoute = 'game' | 'contacts' | 'story' | 'shop' | 'service';
+
+export interface WorkspaceReturnContext {
+  route: WorkspaceRoute;
+  leftTab: string;
+  centerTab: string;
+  rightTab: string;
+  selectedVariantId: string | null;
+  conversationVariantId: string | null;
+  conversationOwner?: string | null;
+  service?: string;
 }
 
 export interface PanelState {
@@ -84,6 +99,7 @@ export interface PanelState {
 }
 
 export interface ShopReturnContext {
+  route?: WorkspaceRoute;
   leftTab: string;
   centerTab: string;
   rightTab: string;
@@ -113,13 +129,34 @@ export interface CharacterWorkspaceState {
   returnContext: ShopReturnContext;
 }
 
-export type WorkspaceState = ShopWorkspaceState | CharacterWorkspaceState;
+export interface ContactsWorkspaceState {
+  type: 'contacts';
+  selectedVariantId: string | null;
+  conversationVariantId: string | null;
+  returnContext: WorkspaceReturnContext;
+}
+
+export interface StoryWorkspaceState {
+  type: 'story';
+  navPath: string[];
+  subroute: 'overview' | 'archive';
+  selectedEntryId: string | null;
+  conversationOwner: string | null;
+  mode: 'overview' | 'playing';
+  returnContext: WorkspaceReturnContext;
+}
+
+export type WorkspaceState = ShopWorkspaceState | CharacterWorkspaceState | ContactsWorkspaceState | StoryWorkspaceState;
 
 export function renderAppShell(ctx: UIContext, state: PanelState): string {
   const service = state.service ?? 'game';
   const studentVariantId = state.workspace?.type === 'character'
     ? state.workspace.conversationVariantId
-    : state.conversationVariantId;
+    : state.workspace?.type === 'contacts'
+      ? state.workspace.conversationVariantId
+      : state.workspace?.type === 'story'
+        ? state.workspace.conversationOwner
+        : state.conversationVariantId;
   if (service === 'settings') {
     return renderConsoleFrame(ctx, renderSettingsWorkspace(ctx, state), 'SETTINGS WORKSPACE · LOCAL SERVICES', studentVariantId);
   }
@@ -134,6 +171,12 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
   }
   if (state.workspace?.type === 'character') {
     return renderConsoleFrame(ctx, renderCharacterWorkspace(ctx, state.workspace, state), 'CHARACTER SERVICE · WORKSPACE', studentVariantId);
+  }
+  if (state.workspace?.type === 'contacts') {
+    return renderConsoleFrame(ctx, renderContactsWorkspace(ctx, state.workspace, state), 'CONTACTS SERVICE · WORKSPACE', studentVariantId);
+  }
+  if (state.workspace?.type === 'story') {
+    return renderConsoleFrame(ctx, renderStoryWorkspace(ctx, state.workspace, state), 'STORY SERVICE · WORKSPACE', studentVariantId);
   }
   const conversation = state.conversationVariantId
     ? {

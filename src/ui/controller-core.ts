@@ -101,6 +101,7 @@ export function resetSessionPanel(ctrl: UIController): void {
   ctrl.panelState.leftTab = 'area';
   ctrl.panelState.centerTab = 'chat';
   ctrl.panelState.rightTab = 'spot';
+  ctrl.panelState.workspace = undefined;
   ctrl.panelState.chatEntries = [];
   ctrl.panelState.chatTexts = [];
   ctrl.panelState.inventoryWorkspace = undefined;
@@ -110,6 +111,7 @@ export function resetSessionPanel(ctrl: UIController): void {
   ctrl.panelState.selectedVariantId = null;
   ctrl.panelState.studentChats = {};
   ctrl.panelState.studentChatTexts = {};
+  ctrl.panelState.storyNavPath = [];
   ctrl.chat.reset();
   ctrl.scroll.reset();
 }

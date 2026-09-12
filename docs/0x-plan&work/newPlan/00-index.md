@@ -24,6 +24,8 @@
 | [[docs/0x-plan&work/newPlan/10-inventory-workspace]] | 背包三栏 Workspace 与物品整理服务 | 🟡 首版已实施，待体验评审 |
 | [[docs/0x-plan&work/newPlan/11-gear-equipment-system]] | 装备（Gear）三槽、经验成长与 tier 升级 MVP 策划 | 🟢 MVP 已实施，effects 消费随 B 段 |
 | [[docs/0x-plan&work/newPlan/12-ui-geometry-workspace-reshape]] | UI Geometry Contract、Workspace Frame 与视觉基础设施重塑 | ✅ 已转 Task-0044，实施完成 |
+| [[docs/0x-plan&work/newPlan/13-unified-workspace-refresh-boundaries]] | Workspace 刷新边界、路由隔离与 Reveal 失效草案 | 🔵 待评审，事实核验完成 |
+| [[docs/0x-plan&work/newPlan/14-contacts-story-workspace-ownership]] | 通讯录 / 故事独立 Workspace 所有权与路由草案 | ✅ 已转 [[docs/0x-plan&work/active/task-0047-contacts-story-workspace-ownership]]，Workspace 前置任务优先施工 |
 
 ## 与现有计划的关系
 

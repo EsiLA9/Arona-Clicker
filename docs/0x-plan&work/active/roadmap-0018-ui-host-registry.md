@@ -255,3 +255,5 @@ centerPanel.saves
 - H2：✅ 已完成首版（用户主题编辑器与控制器改读 Registry）
 - H3：🟡 部分完成（数据包 / 存档 / 通讯录 / 档案 / 记录 Host 与主要服务工作区已声明，完整服务内容仍在施工）
 - H4：🟡 部分完成（重复目标映射已收敛，联合测试已接入；服务工作区完整落地、调试视图与浏览器视觉回归待补）
+
+Contacts / Story 的 Host、父级关系和运行时发现由 [[docs/0x-plan&work/active/task-0047-contacts-story-workspace-ownership]] 作为 WS-P0 优先施工项承接；本路线仍保留 Host Registry 的通用设计与服务侧验收。

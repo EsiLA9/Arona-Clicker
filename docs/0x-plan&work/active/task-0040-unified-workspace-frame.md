@@ -1,6 +1,6 @@
 # Task 0040：统一三栏工作区物理骨架与表现接线
 
-状态：🟡 施工中（F0-F4 已完成，F5-F7 待后续阶段）
+状态：🟡 施工中（F0-F4 已完成；F5-F7 的 Contacts / Story 相关部分由 Task-0047 优先收口，其余通用 Router / 视觉 / Host 清理仍待后续）
 
 > 本任务统一游戏主界面、服务工作区与 Spot 商店重复使用的三栏物理布局。统一范围是 WorkspaceFrame、WorkspaceColumn、布局 Token、滚动/响应式原语和表现接线；业务状态、业务语义和各工作区 Presenter 保持独立。
 >
@@ -289,6 +289,8 @@ game：保留主要内容，左右栏按优先级折叠
 
 ### F5：统一 Router 状态
 
+Task-0047 已为 Contacts / Story 增加显式 Workspace 状态、带 route 的返回上下文和入口 / 退出闭环；本节关于全量 `service + workspace` 判别联合及 Shop 返回模型的通用收敛仍未完成。
+
 - [ ] 将 `service` 与 `workspace` 收敛为 `WorkspaceRoute` 判别联合；
 - [ ] 统一进入、离开、替换和重启路径；
 - [ ] Shop 的返回逻辑改为 Route + 保留的 Game 状态，不再复制完整 UI Snapshot；
@@ -297,6 +299,8 @@ game：保留主要内容，左右栏按优先级折叠
 
 ### F6：响应式 Profile 与视觉清理
 
+Task-0047 已完成 Contacts / Story 的 single-column 响应式契约和主要窄屏回归；普通 Game、Service、Shop 的统一断点与旧 class 清理仍按本任务后续阶段推进。
+
 - [ ] 合并普通、服务和商店的外层布局 CSS；
 - [ ] 抽出统一断点与布局变量；
 - [ ] 分别实现 game / service / shop responsive profile；
@@ -304,6 +308,8 @@ game：保留主要内容，左右栏按优先级折叠
 - [ ] 清理已无调用点的旧外层 class 和重复边距规则。
 
 ### F7：Host Registry 收尾
+
+Task-0047 已补齐 Contacts / Story 的物理列 Host、`workspaceOwner` 元数据和 Registry 所属校验；旧 Host alias 的整体清理及所有工作区联合回归仍未完成。
 
 - [ ] 将商店 Host 纳入 Registry；
 - [ ] 校正服务导航、主内容、检查器的物理列命名；
@@ -403,6 +409,7 @@ npm run check:architecture
 - [[docs/0x-plan&work/active/roadmap-0020-service-workspaces]]
 - [[docs/0x-plan&work/active/task-0037-panel-tabs-region-structure]]
 - [[docs/0x-plan&work/active/task-0039-spot-shop-transaction-system]]
+- [[docs/0x-plan&work/active/task-0047-contacts-story-workspace-ownership]]：F5–F7 中与 Contacts / Story 路由、Host 和响应式契约相关的优先后续施工。
 - `src/ui/components/app-shell.ts`
 - `src/ui/components/service-workspace.ts`
 - `src/ui/components/shop.ts`

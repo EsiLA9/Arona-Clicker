@@ -58,6 +58,9 @@ describe('UIController 剧情入口确认浮层', () => {
     expect(panel.storyGate).toBeNull();
     expect(root.querySelector('[data-story-gate]')).toBeNull();
     expect(game.getStoryView(HOSHINO)?.storyId).toBe(BOND);
+    expect(panel.workspace?.type).toBe('story');
+    expect(panel.workspace?.conversationOwner).toBe(HOSHINO);
+    expect(panel.workspace?.mode).toBe('playing');
   });
 
   it('kizuna 浮层取消（取消按钮）→ 关闭且剧情未启动', () => {
@@ -98,6 +101,8 @@ describe('UIController 剧情入口确认浮层', () => {
     expect(game.getView().currentStory).toBeNull();
     root.querySelector<HTMLButtonElement>('[data-story-gate-confirm]')!.click();
     expect(game.getView().currentStory?.storyId).toBe(FLOW_SHOW);
+    expect(panel.workspace?.type).toBe('story');
+    expect(panel.workspace?.mode).toBe('playing');
   });
 
   it('故事栏重读点击 → 浮层确认文案为「重新观看」；确认后 replayStory', () => {
@@ -152,7 +157,7 @@ describe('UIController 剧情入口确认浮层', () => {
       root.querySelector<HTMLButtonElement>('[data-send]')!.click();
       expect(game.getStoryView(HOSHINO)!.pageIndex).toBe(pageBefore);
       // 展示期结束：横幅移除、阻断解除，推进恢复
-      vi.advanceTimersByTime(30000);
+      vi.advanceTimersByTime(30001);
       expect(root.querySelector('[data-story-banner]')).toBeNull();
       expect(panel.sendGate).toBeNull();
       root.querySelector<HTMLButtonElement>('[data-send]')!.click();

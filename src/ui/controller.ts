@@ -12,7 +12,13 @@ import type { SaveData } from '../arona-clicker/contracts/save-data';
 import { SaveSystem } from '../data-services/persistence/storage';
 import { createUIContext } from './context';
 import { createGameCommands } from '../arona-clicker/runtime-commands';
-import { renderAppShell, PanelState } from './components/app-shell';
+import {
+  renderAppShell,
+  PanelState,
+  type ContactsWorkspaceState,
+  type StoryWorkspaceState,
+  type WorkspaceReturnContext,
+} from './components/app-shell';
 import type { InitSelectMode } from './components/init-select';
 import type { ChatEntry } from './components/story';
 import { ToastService } from './components/toast';
@@ -403,6 +409,10 @@ export class UIController {
       ?? (this.chat.bannerBlocking(this.panelState) ? 'typing' : null);
     this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
     this.scheduleRewardChats();
+    if (this.panelState.workspace?.type === 'contacts' || this.panelState.workspace?.type === 'story') {
+      this.refreshPanels(['center']);
+      return;
+    }
     const center = this.root.querySelector<HTMLElement>('.center-panel');
     const chatPane = center?.querySelector<HTMLElement>('.chat-pane');
     if (center && chatPane && this.panelState.centerTab === 'chat' && !this.panelState.conversationVariantId) {
@@ -467,7 +477,7 @@ export class UIController {
       this.render();
       return;
     }
-    if (!this.started || !this.root.querySelector('.workspace')) {
+    if (!this.started || this.panelState.service !== 'game') {
       this.render();
       return;
     }
@@ -480,7 +490,8 @@ export class UIController {
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     const uniquePanels = [...new Set(panels)];
     for (const panel of uniquePanels) {
-      const current = this.root.querySelector<HTMLElement>(`.${panel}-panel`);
+      const currentHost = this.findThemeHost(this.root, `${panel}Panel`);
+      const current = currentHost?.querySelector<HTMLElement>(`[data-game-panel="${panel}"]`);
       if (!current) continue;
       let html: string;
       if (panel === 'left') {
@@ -510,7 +521,8 @@ export class UIController {
       current.outerHTML = html;
     }
     for (const panel of uniquePanels) {
-      const next = this.root.querySelector<HTMLElement>(`.${panel}-panel`);
+      const nextHost = this.findThemeHost(this.root, `${panel}Panel`);
+      const next = nextHost?.querySelector<HTMLElement>(`[data-game-panel="${panel}"]`);
       if (!next) continue;
       bindTopBarActions(this, next);
       bindContactsActions(this, next);
@@ -526,6 +538,11 @@ export class UIController {
     this.scroll.observeChatStream(this.root);
     this.scroll.restorePanel(this.root);
     this.applyTheme(false);
+  }
+
+  /** 当前正式 Workspace 的结构刷新入口；不让业务动作借 Game 列查询来决定目标。 */
+  refreshWorkspace(): void {
+    this.render();
   }
 
   /** 全量重建 #app DOM（供 controller-core / controller-modals 触发）。 */
@@ -948,14 +965,135 @@ export class UIController {
       workspace.session.clear();
       this.game.colorSystem.popEphemeralTheme(workspace.themeId);
     }
-    this.panelState.workspace = undefined;
-    this.panelState.leftTab = workspace.returnContext.leftTab;
-    this.panelState.centerTab = workspace.returnContext.centerTab;
-    this.panelState.rightTab = workspace.returnContext.rightTab;
-    this.panelState.selectedVariantId = workspace.returnContext.selectedVariantId;
-    this.panelState.conversationVariantId = workspace.returnContext.conversationVariantId;
+    const returnContext = workspace.returnContext;
+    this.panelState.service = 'game';
+    if (returnContext.route === 'contacts') {
+      this.panelState.workspace = {
+        type: 'contacts',
+        selectedVariantId: returnContext.selectedVariantId,
+        conversationVariantId: returnContext.conversationVariantId,
+        returnContext: {
+          route: 'game',
+          leftTab: returnContext.leftTab,
+          centerTab: returnContext.centerTab,
+          rightTab: returnContext.rightTab,
+          selectedVariantId: returnContext.selectedVariantId,
+          conversationVariantId: returnContext.conversationVariantId,
+        },
+      };
+      this.panelState.leftTab = 'area';
+      this.panelState.centerTab = 'chat';
+      this.panelState.rightTab = 'character';
+      this.panelState.selectedVariantId = returnContext.selectedVariantId;
+      this.panelState.conversationVariantId = returnContext.conversationVariantId;
+    } else {
+      this.panelState.workspace = undefined;
+      this.panelState.leftTab = returnContext.leftTab;
+      this.panelState.centerTab = returnContext.centerTab;
+      this.panelState.rightTab = returnContext.rightTab;
+      this.panelState.selectedVariantId = returnContext.selectedVariantId;
+      this.panelState.conversationVariantId = returnContext.conversationVariantId;
+    }
+    this.panelState.storyGate = null;
     this.refreshTheme();
     this.render();
+  }
+
+  private createWorkspaceReturnContext(): WorkspaceReturnContext {
+    const current = this.panelState.workspace;
+    if (current?.type === 'contacts') {
+      return {
+        route: 'contacts',
+        leftTab: 'area',
+        centerTab: 'chat',
+        rightTab: 'character',
+        selectedVariantId: current.selectedVariantId,
+        conversationVariantId: current.conversationVariantId,
+      };
+    }
+    if (current?.type === 'story') {
+      return {
+        route: 'story',
+        leftTab: 'area',
+        centerTab: 'chat',
+        rightTab: 'spot',
+        selectedVariantId: this.panelState.selectedVariantId,
+        conversationVariantId: current.conversationOwner,
+        conversationOwner: current.conversationOwner,
+      };
+    }
+    return {
+      route: 'game',
+      leftTab: this.panelState.leftTab,
+      centerTab: this.panelState.centerTab,
+      rightTab: this.panelState.rightTab,
+      selectedVariantId: this.panelState.selectedVariantId,
+      conversationVariantId: this.panelState.conversationVariantId,
+    };
+  }
+
+  /** 进入正式 ContactsWorkspace；不选择学生也是合法状态。 */
+  openContactsWorkspace(selectedVariantId?: string | null): ContactsWorkspaceState {
+    const current = this.panelState.workspace?.type === 'contacts' ? this.panelState.workspace : undefined;
+    const selected = selectedVariantId === undefined ? current?.selectedVariantId ?? null : selectedVariantId;
+    const conversation = selectedVariantId === undefined ? current?.conversationVariantId ?? null : selectedVariantId;
+    const workspace: ContactsWorkspaceState = {
+      type: 'contacts',
+      selectedVariantId: selected,
+      conversationVariantId: conversation,
+      returnContext: current?.returnContext ?? this.createWorkspaceReturnContext(),
+    };
+    this.panelState.service = 'game';
+    this.panelState.workspace = workspace;
+    this.panelState.leftTab = 'area';
+    this.panelState.centerTab = 'chat';
+    this.panelState.rightTab = 'character';
+    this.panelState.selectedVariantId = selected;
+    this.panelState.conversationVariantId = conversation;
+    this.panelState.storyGate = null;
+    return workspace;
+  }
+
+  /** Contacts 内部选择学生；不会把页面升级为 CharacterWorkspace。 */
+  selectContactsVariant(variantId: string): void {
+    const workspace = this.panelState.workspace?.type === 'contacts'
+      ? this.panelState.workspace
+      : this.openContactsWorkspace();
+    workspace.selectedVariantId = variantId;
+    workspace.conversationVariantId = variantId;
+    this.panelState.selectedVariantId = variantId;
+    this.panelState.conversationVariantId = variantId;
+    this.panelState.rightTab = 'character';
+  }
+
+  /** 进入正式 StoryWorkspace；owner 只作为对话 sandbox key。 */
+  openStoryWorkspace(options: {
+    selectedEntryId?: string | null;
+    conversationOwner?: string | null;
+    mode?: StoryWorkspaceState['mode'];
+  } = {}): StoryWorkspaceState {
+    const current = this.panelState.workspace?.type === 'story' ? this.panelState.workspace : undefined;
+    const owner = options.conversationOwner === undefined
+      ? current?.conversationOwner ?? null
+      : options.conversationOwner;
+    const workspace: StoryWorkspaceState = {
+      type: 'story',
+      navPath: current?.navPath.slice() ?? [],
+      subroute: 'overview',
+      selectedEntryId: options.selectedEntryId === undefined ? current?.selectedEntryId ?? null : options.selectedEntryId,
+      conversationOwner: owner,
+      mode: options.mode ?? current?.mode ?? 'overview',
+      returnContext: current?.returnContext ?? this.createWorkspaceReturnContext(),
+    };
+    this.panelState.service = 'game';
+    this.panelState.workspace = workspace;
+    this.panelState.leftTab = 'area';
+    this.panelState.centerTab = 'chat';
+    this.panelState.rightTab = 'spot';
+    this.panelState.storyNavPath = workspace.navPath.slice();
+    this.panelState.conversationVariantId = owner;
+    this.panelState.storyGate = null;
+    return workspace;
   }
 
   /** 进入角色服务工作区；角色列表、故事流与成长面板由该工作区统一接管。 */

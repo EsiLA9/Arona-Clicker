@@ -518,6 +518,7 @@ npm run build 或 npx vite build --outDir <临时目录>
 - [[docs/0x-plan&work/active/task-0039-spot-shop-transaction-system]]
 - [[docs/0x-plan&work/active/task-0040-unified-workspace-frame]]
 - [[docs/0x-plan&work/completed/task-0044-ui-geometry-workspace-reshape]]
+- [[docs/0x-plan&work/active/task-0047-contacts-story-workspace-ownership]]：承接 P7 以及 P5 中与 Contacts / Story 刷新隔离相关的优先后续施工。
 - [[docs/docs-828/02-modules/ui]]
 - `src/ui/controller.ts`
 - `src/ui/controller-core.ts`

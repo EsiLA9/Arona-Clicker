@@ -10,8 +10,18 @@ export function surfaceKeyOf(state: PanelState): string {
   if (service !== 'game') return `service:${service}`;
   const workspace = state.workspace;
   if (!workspace) return 'game';
-  if (workspace.type === 'shop') return `shop:${workspace.spotId}:${workspace.shopId}`;
-  return `character:${workspace.variantId}`;
+  if (workspace.type === 'shop') return ['shop', workspace.spotId, workspace.shopId].join(':');
+  if (workspace.type === 'character') return ['character', workspace.variantId].join(':');
+  if (workspace.type === 'contacts') {
+    return ['contacts', workspace.selectedVariantId ?? '', workspace.conversationVariantId ?? ''].join(':');
+  }
+  return [
+    'story',
+    workspace.selectedEntryId ?? '',
+    workspace.conversationOwner ?? '',
+    workspace.mode,
+    workspace.navPath.join('/'),
+  ].join(':');
 }
 
 export function sameSurfaceToken(left: UISurfaceToken, right: UISurfaceToken): boolean {

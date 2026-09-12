@@ -37,6 +37,9 @@ export function logStoryFailure(ctrl: UIController, result: StoryStartResult | S
 
 /** 绑定剧情域事件（render 后调用）。 */
 export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  scope.querySelectorAll<HTMLElement>('[data-story-workspace-leave]').forEach(button => {
+    button.addEventListener('click', () => ctrl.disposeWorkspace());
+  });
   // 剧情：首次进入 Entry 时切到剧情所需聊天空间（owner = VariantId → 学生对话空间沙盒；
   // 无 owner → 一般聊天流全局沙盒），并切到聊天 tab 让浮层落在目标聊天窗格上；
   // 实际启动改由确认浮层触发（storyGate → data-story-gate-confirm）。
@@ -46,13 +49,10 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const storyId = button.dataset.startStory!;
       const entry = ctrl.game.registry.activeStories.get(storyId);
       const owner = entry?.owner ?? null;
-      if (owner) ctrl.openCharacterWorkspace(owner);
-      ctrl.panelState.conversationVariantId = owner;
-      ctrl.panelState.centerTab = 'chat';
-      ctrl.panelState.leftTab = 'story';
+      ctrl.openStoryWorkspace({ selectedEntryId: storyId, conversationOwner: owner, mode: 'overview' });
       ctrl.scroll.forceToBottom();
       ctrl.panelState.storyGate = { storyId, owner, mode: 'active' };
-      ctrl.refreshPanels(['left', 'center']);
+      ctrl.render();
     });
   });
   // 重阅读：故事栏已完成 + replayable 的内容项。
@@ -63,13 +63,10 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const storyId = button.dataset.replayStory!;
       const entry = ctrl.game.registry.activeStories.get(storyId);
       const owner = entry?.owner ?? null;
-      if (owner) ctrl.openCharacterWorkspace(owner);
-      ctrl.panelState.conversationVariantId = owner;
-      ctrl.panelState.centerTab = 'chat';
-      ctrl.panelState.leftTab = 'story';
+      ctrl.openStoryWorkspace({ selectedEntryId: storyId, conversationOwner: owner, mode: 'overview' });
       ctrl.scroll.forceToBottom();
       ctrl.panelState.storyGate = { storyId, owner, mode: 'replay' };
-      ctrl.refreshPanels(['left', 'center']);
+      ctrl.render();
     });
   });
   // 剧情入口确认浮层：进入（按 mode 分派原启动逻辑；卡片入口 = goto 重开，
@@ -86,6 +83,9 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       else if (gate.mode === 'replay') result = ctrl.commands.replayStory(gate.storyId, owner);
       else result = ctrl.commands.startActiveStory(gate.storyId, owner);
       logStoryFailure(ctrl, result);
+      if (result.success && ctrl.panelState.workspace?.type === 'story') {
+        ctrl.panelState.workspace.mode = 'playing';
+      }
       ctrl.refreshChatPanel();
     });
   });
@@ -101,25 +101,46 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
   scope.querySelectorAll<HTMLButtonElement>('[data-story-nav]').forEach(button => {
     button.addEventListener('click', () => {
       const path = (button.dataset.storyNav ?? '').split(':').filter(Boolean);
-      ctrl.panelState.storyNavPath = path;
-      ctrl.panelState.leftTab = 'story';
-      ctrl.refreshPanels(['left']);
+      if (ctrl.panelState.workspace?.type !== 'story') ctrl.openStoryWorkspace();
+      const workspace = ctrl.panelState.workspace;
+      if (workspace?.type !== 'story') return;
+      workspace.navPath = path;
+      workspace.subroute = 'overview';
+      ctrl.refreshWorkspace();
     });
   });
   // 故事层级导航：面包屑返回指定深度
   scope.querySelectorAll<HTMLButtonElement>('[data-story-back]').forEach(button => {
     button.addEventListener('click', () => {
       const depth = Number(button.dataset.storyBack ?? 0);
-      ctrl.panelState.storyNavPath = ctrl.panelState.storyNavPath.slice(0, depth);
-      ctrl.panelState.leftTab = 'story';
-      ctrl.refreshPanels(['left']);
+      if (ctrl.panelState.workspace?.type !== 'story') ctrl.openStoryWorkspace();
+      const workspace = ctrl.panelState.workspace;
+      if (workspace?.type !== 'story') return;
+      workspace.navPath = workspace.navPath.slice(0, depth);
+      workspace.subroute = 'overview';
+      ctrl.refreshWorkspace();
     });
   });
-  // 故事"档案"入口：中栏切换档案临时页
+  // 故事"档案"入口：进入 StoryWorkspace 的显式子路由
   scope.querySelectorAll<HTMLButtonElement>('[data-story-archive]').forEach(button => {
     button.addEventListener('click', () => {
-      ctrl.panelState.centerTab = 'archive-draft';
-      ctrl.refreshPanels(['left', 'center']);
+      if (ctrl.panelState.workspace?.type !== 'story') ctrl.openStoryWorkspace();
+      const workspace = ctrl.panelState.workspace;
+      if (workspace?.type !== 'story') return;
+      workspace.subroute = 'archive';
+      workspace.selectedEntryId = null;
+      workspace.conversationOwner = null;
+      workspace.mode = 'overview';
+      ctrl.panelState.conversationVariantId = null;
+      ctrl.panelState.storyGate = null;
+      ctrl.render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-story-archive-back]').forEach(button => {
+    button.addEventListener('click', () => {
+      if (ctrl.panelState.workspace?.type !== 'story') return;
+      ctrl.panelState.workspace.subroute = 'overview';
+      ctrl.render();
     });
   });
   scope.querySelector<HTMLButtonElement>('[data-trigger-passive-story]')?.addEventListener('click', () => {
@@ -183,8 +204,9 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
       const storyId = el.dataset.kizuna!;
       const owner = ctrl.panelState.conversationVariantId ?? null;
+      ctrl.openStoryWorkspace({ selectedEntryId: storyId, conversationOwner: owner, mode: 'overview' });
       ctrl.panelState.storyGate = { storyId, owner, mode: 'card' };
-      ctrl.refreshChatPanel();
+      ctrl.refreshWorkspace();
     });
   });
 }

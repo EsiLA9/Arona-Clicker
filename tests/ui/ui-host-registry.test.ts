@@ -48,4 +48,13 @@ describe('UI Host Registry', () => {
     expect(registry.validate().map(issue => issue.code)).toEqual(['missing-parent', 'parent-cycle', 'parent-cycle']);
     expect(() => registry.registerHost({ id: 'a', label: 'again', level: 'cluster', kind: 'container' })).toThrow('UI Host ID 重复');
   });
+
+  it('报告未注册的 Workspace owner', () => {
+    const registry = new UIHostRegistry([
+      { id: 'workspace-host', label: 'Workspace Host', level: 'region', kind: 'container', workspaceOwner: 'missing-workspace' },
+    ]);
+    expect(registry.validate()).toEqual([
+      expect.objectContaining({ hostId: 'workspace-host', code: 'unknown-workspace-owner' }),
+    ]);
+  });
 });

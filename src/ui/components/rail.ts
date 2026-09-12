@@ -1,7 +1,6 @@
 import { UIContext } from '../context';
 import { renderPanelTabsRegion, TabDef } from './tabs';
 import { getAreaReveal, getStoryReveal, describeCondition } from './tooltip';
-import { renderContactsTab } from './contacts';
 import type { ActiveStoryEntry } from '../../data-services/contracts/story-entry';
 import type { StoryDef } from '../../data-services/contracts/story';
 import type { PanelState } from './app-shell';
@@ -22,16 +21,13 @@ const LEFT_TABS: TabDef[] = [
 ];
 
 export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string {
-  const { leftTab: activeTab, selectedVariantId } = panelState;
-  let body: string;
-  let tab: string;
-  switch (activeTab) {
-    case 'story': body = renderStoryTab(ctx, panelState); tab = 'story'; break;
-    case 'contacts': body = renderContactsTab(ctx, selectedVariantId, panelState.studentChats, panelState.getUnread); tab = 'contacts'; break;
-    default: body = renderAreaTab(ctx); tab = 'area'; break;
-  }
+  // Contacts / Story are explicit Workspaces. The legacy Game rail keeps only
+  // the area body; their tab buttons remain route affordances handled by the
+  // controller, never a second page identity inside Game.
+  const tab = 'area';
+  const body = renderAreaTab(ctx);
   return `
-    <aside class="ui-cluster ui-cluster--left-panel panel left-panel presentation-host-target" data-theme-scope="left.${tab}" data-theme-host-id="leftPanel.${tab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`leftPanel.${tab}`)}">
+    <aside class="ui-cluster ui-cluster--left-panel panel left-panel presentation-host-target" data-game-panel="left" data-theme-scope="left.${tab}" data-theme-host-id="leftPanel.${tab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`leftPanel.${tab}`)}">
       ${renderBackground(ctx.backgroundForHost(`leftPanel.${tab}`), 'console-panel-background')}
       ${renderPanelTabsRegion(ctx, 'left', LEFT_TABS, tab)}
       <div class="ui-cluster ui-cluster--left-${tab} panel-body">${body}</div>
@@ -99,9 +95,9 @@ function renderAreaTab(ctx: UIContext): string {
     <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>${storyLocked ? '剧情演出中，暂不可移动区域。' : '点击可前往的区域即可移动；锁定区域需满足条件后才会开放。'}</p></div>`;
 }
 
-function renderStoryTab(ctx: UIContext, panelState: PanelState): string {
+/** StoryWorkspace 与 Game 旧左栏共用故事导航内容，但不共用 Workspace 身份。 */
+export function renderStoryNavigation(ctx: UIContext, path: string[]): string {
   const hierarchy = baseStoryHierarchy;
-  const path = panelState.storyNavPath;
   return `
     ${renderStoryBreadcrumb(ctx, hierarchy, path)}
     <div class="story-nav-body">${renderStoryLevel(ctx, hierarchy, path)}</div>`;

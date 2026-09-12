@@ -11,6 +11,8 @@ export interface WorkspaceColumnSpec {
   slot: WorkspaceSlot;
   /** 稳定的业务语义，供主题编辑器和后续工作区扩展识别；不参与布局。 */
   role?: string;
+  /** 当前列的 Workspace owner；用于 DOM 身份检查和刷新边界诊断。 */
+  workspaceOwner?: string;
   hostId: string;
   themeScope?: string;
   className?: string;
@@ -37,6 +39,8 @@ function legacyWorkspaceClass(id: string): string {
   if (id === 'game') return 'workspace';
   if (id === 'shop') return 'shop-workspace';
   if (id === 'character') return 'character-workspace';
+  if (id === 'contacts') return 'contacts-workspace';
+  if (id === 'story') return 'story-workspace';
   if (id === 'settings') return 'settings-workspace';
   if (id === 'inventory') return 'inventory-workspace';
   return id.startsWith('service-') ? 'service-workspace' : '';
@@ -56,7 +60,8 @@ export function renderWorkspaceColumn(ctx: UIContext, column: WorkspaceColumnSpe
   const scroll = column.scroll ?? 'auto';
   const body = `<div class="workspace-column__body" data-scroll="${scroll}" data-scroll-owner="${scrollOwner(scroll)}">${header}${column.content}</div>`;
   const role = column.role ? ` data-workspace-role="${ctx.escapeHtml(column.role)}"` : '';
-  const content = `<div class="workspace-column__slot" data-workspace-column="${column.slot}" data-workspace-surface="${surface}"${role}>${body}</div>`;
+  const owner = column.workspaceOwner ? ` data-workspace-owner="${ctx.escapeHtml(column.workspaceOwner)}"` : '';
+  const content = `<div class="workspace-column__slot" data-workspace-column="${column.slot}" data-workspace-surface="${surface}"${role}${owner}>${body}</div>`;
   return renderUIHost(ctx, { hostId: column.hostId, themeScope: column.themeScope, className, content });
 }
 

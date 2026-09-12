@@ -35,6 +35,7 @@
 | [[docs/0x-plan&work/active/task-0045-ui-incremental-update-workspace-isolation]] | UI 增量更新与 Workspace 隔离第一施工片段 | ✅ P0–P4 完成 |
 | [[docs/0x-plan&work/active/task-0046-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建 | 🟢 P0/P1 完成；P2 延期 |
 | [[docs/0x-plan&work/active/adr-0009-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建裁定 | 🟢 P0/P1 已实施；P2 延期 |
+| [[docs/0x-plan&work/active/task-0047-contacts-story-workspace-ownership]] | 通讯录 / 故事独立 Workspace 所有权与路由迁移 | 🟢 Contacts / Story 核心迁移完成；通用 Region 与 Character 兼容清理后续收口 |
 | [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。

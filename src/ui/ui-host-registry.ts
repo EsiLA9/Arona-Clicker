@@ -11,13 +11,14 @@ export interface UIHostDefinition {
   readonly parent?: string;
   readonly states?: readonly PresentationHostState[];
   readonly serviceId?: string;
+  readonly workspaceOwner?: string;
   readonly legacyRegion?: string;
   readonly editable?: boolean;
 }
 
 export interface UIHostRegistryIssue {
   readonly hostId?: string;
-  readonly code: 'missing-parent' | 'parent-cycle' | 'invalid-level' | 'invalid-service';
+  readonly code: 'missing-parent' | 'parent-cycle' | 'invalid-level' | 'invalid-service' | 'unknown-workspace-owner';
   readonly message: string;
 }
 
@@ -80,6 +81,7 @@ export class UIHostRegistry {
       if (parent && LEVEL_RANK[host.level] < LEVEL_RANK[parent.level]) issues.push({ hostId: host.id, code: 'invalid-level', message: `UI Host ${host.id} 的层级不能高于父级。` });
       if (host.states?.some(state => !HOST_STATES.has(state))) issues.push({ hostId: host.id, code: 'invalid-level', message: `UI Host ${host.id} 的状态非法。` });
       if (host.serviceId && !this.servicesById.has(host.serviceId)) issues.push({ hostId: host.id, code: 'invalid-service', message: `UI Host ${host.id} 所属服务不存在：${host.serviceId}` });
+      if (host.workspaceOwner && !this.servicesById.has(host.workspaceOwner)) issues.push({ hostId: host.id, code: 'unknown-workspace-owner', message: `UI Host ${host.id} 的 Workspace owner 未注册：${host.workspaceOwner}` });
     }
     return issues;
   }

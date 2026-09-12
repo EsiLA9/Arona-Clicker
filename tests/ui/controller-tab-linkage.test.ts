@@ -58,22 +58,20 @@ describe('UIController 左 Tab ↔ 中栏联动', () => {
     expect(root.querySelector('.center-panel .chat-pane')).not.toBeNull();
   });
 
-  it('点击 left:area 替换通讯录/档案临时页', () => {
+  it('点击通讯录和故事进入独立 Workspace，不再写入旧临时页 Tab', () => {
     clickLeftTab('contacts');
-    expect(panel.centerTab).toBe('contacts-draft');
-    expect(root.querySelector('.center-panel')?.textContent).toContain('通讯录临时页');
-
-    clickLeftTab('area');
+    expect(panel.workspace?.type).toBe('contacts');
+    expect(root.querySelector('[data-workspace-frame="contacts"]')).not.toBeNull();
     expect(panel.centerTab).toBe('chat');
-    expect(root.querySelector('.center-panel .chat-pane')).not.toBeNull();
 
-    // 故事 Tab 的"档案"入口 → 档案临时页 → left:area 回聊天
+    root.querySelector<HTMLButtonElement>('[data-contacts-workspace-leave]')!.click();
     clickLeftTab('story');
-    root.querySelector<HTMLButtonElement>('[data-story-archive]')!.click();
-    expect(panel.centerTab).toBe('archive-draft');
-    clickLeftTab('area');
+    expect(panel.workspace?.type).toBe('story');
+    expect(root.querySelector('[data-workspace-frame="story"]')).not.toBeNull();
     expect(panel.centerTab).toBe('chat');
-    expect(root.querySelector('.center-panel .chat-pane')).not.toBeNull();
+    expect(panel.leftTab).toBe('area');
+    expect(panel.centerTab).not.toBe('contacts-draft');
+    expect(panel.centerTab).not.toBe('archive-draft');
   });
 
   it('切换右栏只刷新右栏，不重建左栏与中栏', () => {

@@ -106,7 +106,9 @@ describe('Spot Shop workspace', () => {
     document.querySelector<HTMLButtonElement>('[data-shop-checkout]')!.click();
 
     expect(document.querySelector('.shop-workspace__feed')?.textContent).toContain('结算失败');
-    expect(document.querySelector('.shop-workspace__settlement')?.textContent).toContain('战术能量饮料 × 1');
+    const cartLine = document.querySelector('.shop-workspace__settlement li');
+    expect(cartLine?.textContent).toContain('战术能量饮料');
+    expect(cartLine?.textContent).toContain('× 1');
     expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
     expect(controller.getRefreshObservations().some(observation =>
       observation.reason === 'shop.checkout-failed' && observation.scope === 'region',

@@ -29,7 +29,7 @@
 | 组 | 文件 |
 | --- | --- |
 | 布局骨架 | `app-shell` / `header` / `rail` / `center-panel` / `right-panels` / `tabs` |
-| 业务面板 | `production`（生产/设施，含招募按钮）/ `contacts`（通讯录 + 角色成长与学生故事）/ `character-workspace`（通讯录、学生故事、角色成长三栏工作区）/ `story`（剧情演出）/ `story-gate`（剧情入口确认浮层 + 开幕标题横幅）/ `collection`（图鉴）/ `enhancements` / `init-select` / `selector-page` / `global-enhancement-select` |
+| 业务面板 | `production`（生产/设施，含招募按钮）/ `contacts`（通讯录 + 角色内容片段）/ `contacts-workspace`（通讯录三栏工作区）/ `character-workspace`（迁移期角色工作区兼容层）/ `story`（剧情演出）/ `story-workspace`（故事三栏工作区）/ `story-gate`（剧情入口确认浮层 + 开幕标题横幅）/ `collection`（图鉴）/ `enhancements` / `init-select` / `selector-page` / `global-enhancement-select` |
 | tooltip 系 | `tooltip`（门面 `getTooltipContent` 路由）+ `tooltip-reveal`（揭示阶段计算）+ `tooltip-enhancement`（强化诊断）+ `tooltip-detail-*`（area/spot/enh/init/item/resource/codex 分实体渲染） |
 | 其他 | `toast` / `errors` / `entity-theme-options` / `collection-modal` |
 
@@ -71,7 +71,13 @@ UI 表现宿主由 `src/ui/ui-host-registry.ts` 统一登记。核心 UI 提供�
 
 Shop、角色服务和完整背包等需要同时接管多个面板的功能，使用 `WorkspaceFrame`，而不是继续修改普通 `leftTab / centerTab / rightTab`。每个工作区声明固定的 `left / center / right` 列、布局 preset、响应式 profile、surface、语义 `role` 和稳定 Host ID；渲染器额外输出 `data-workspace-frame`、`data-workspace-column`、`data-workspace-role`、`data-workspace-surface`、`data-scroll` 与 `data-scroll-owner`，供主题编辑器和后续布局工具定位。Frame 统一承担三栏外层几何；`default`、`two-column`、`single-column` 只表达响应式骨架，页面内容仍可保留自己的高度和内部排列规则。
 
-角色工作区的当前约定为：`leftPanel.character.contacts`（通讯录）、`centerPanel.character.story`（学生故事）、`rightPanel.character.progression`（角色成长）。选择学生或进入有学生归属的故事时接管三栏；退出后恢复进入前的普通游戏面板状态。无学生归属的全局故事仍使用普通游戏工作区。
+角色工作区的当前约定为：`leftPanel.character.contacts`（通讯录）、`centerPanel.character.story`（学生故事）、`rightPanel.character.progression`（角色成长）；它保留为迁移期兼容层。正式通讯录和故事入口分别由 `ContactsWorkspace` 与 `StoryWorkspace` 接管：两者都直接输出自己的 `WorkspaceFrame`、三列 `Column` 和服务 Host，不再把 Game 的列 renderer 作为页面身份。
+
+`ContactsWorkspaceState.selectedVariantId = null` 是合法首页状态；选择学生只改变 Contacts 内部状态，角色详情 / 成长通过 `renderCharacterPanel()` 等内容片段复用，不能嵌入完整 `CharacterWorkspace`。Contacts 使用 `leftPanel.service.contacts.navigation`、`centerPanel.service.contacts.main`、`rightPanel.service.contacts.inspector`，三列均标记 `data-workspace-owner="contacts"`。
+
+`StoryWorkspaceState` 持有 `navPath`、`selectedEntryId`、`conversationOwner` 与 `mode: overview | playing`。owner 只决定 Story 对话 sandbox，不改变 Workspace；全局故事和学生归属故事都留在 Story。档案暂以 Story 的显式 `subroute = archive` 占位，避免回退成 Game 的 `centerTab`。Story 使用 `leftPanel.service.story.navigation`、`centerPanel.service.story.main`、`rightPanel.service.story.inspector`，三列均标记 `data-workspace-owner="story"`。
+
+Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Workspace 刷新；`refreshPanels()` 仅作为 Game 与迁移期兼容入口。`UISurfaceRuntime` 将 Workspace 实例、选择、故事路径与播放模式纳入 Surface key，路由或 Surface 改变会递增 generation，使旧异步更新失效。只有当前 Surface 且 Host 所属合法的 Region 更新才可继续细化；未知或未支持的 Region 记录诊断，不回写其它页面。
 
 三栏 panel 的顶部 Tabs 使用 `panel-tabs-region` 作为独立结构宿主：区域背景、主题装饰和底部分隔线挂在 `leftPanel.tabs` / `centerPanel.tabs` / `rightPanel.tabs`，`.switch-tabs` 仅负责 TabGroup 布局，单个按钮仍使用对应的 `*.tab` 宿主。Game 的既有 panel 继续独占外框、圆角、`overflow: hidden`，并由 `panel-body` 独占正文滚动与内容 padding；Service/Settings/Shop/Character/Inventory 的列级外框由 `WorkspaceColumn.surface = panel` 产生，正文通过 `workspace-column__body` 的 scroll owner 属性或页面明确的 List/Inspector Region 承担。普通弹窗、抽卡范围和主题编辑器内部的 `.switch-tabs` 不套用该结构。Workspace 外层 Panel 不进入旧内容 Panel 的 ScrollManager 序号快照。
 
@@ -82,7 +88,7 @@ Shop、角色服务和完整背包等需要同时接管多个面板的功能，�
 - Host 的 `default / active / inactive / disabled` 状态、形状与内嵌装饰线由 `PresentationView` 统一解析；编辑器和运行时共用 Host Registry。
 - 选择页动态背景、条目局部主题和 Init 快照阶段由 [[docs/0x-plan&work/active/task-0025-selector-dynamic-theme]] 管理；场景 current/next 双缓冲挂在 `.selector-super-background` 专用超级背景宿主内，`.selector-viewport` 只承载详情面，`.init-orb-disc.selector-disc` 只做圆盘装饰与定位参照，轮盘作为 shell 独立高层兄弟节点；未声明主题使用稳定回退，不改变游戏状态。
 
-- **刷新双轨**：每帧 `refreshLight`（轻量数字）；揭示指纹变化 → `refreshRevealIfChanged` → 重建 DOM。
+- **刷新双轨**：每帧 `refreshLight`（轻量数字）；揭示指纹变化 → `refreshRevealIfChanged` → 按当前 Workspace owner 重建 DOM。Contacts / Story 在 ownership 闭环稳定前允许完整 Workspace 刷新，不提前引入局部 DOM patch 或 keyed reconcile。
 - **背景视觉层**：`ThemeDef.background` 沿用运行时主题层级；按 id 覆盖、匿名层追加，UI 通过 `body` 直系 `.console-background#ui-background-layer` 独立渲染，`#app` 只承载内容层与颜色继承，装饰层不接收指针事件。
 - **只读纪律**（纪律 4）：组件无 `game.state` 写引用、无 `as never`（T2/T6 清零）。
 - **聊天流通知次序**：`pendingTravelChats`（进入 Area「移动到了」通知）在 render 内**先于**剧情内容入流；`pendingRewardChats`（完结奖励/池解锁等）延迟 `REWARD_REVEAL_DELAY_MS`（0.8s）落账，且落账前校验活跃流演出已彻底结束（游标清空，如完结即推的尾巴播完）——未结束则顺延重试，存档前立即落账防丢。

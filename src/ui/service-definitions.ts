@@ -2,9 +2,9 @@ import { registerUIService, type UIServiceDefinition } from './ui-host-registry'
 
 function workspaceHosts(serviceId: string, label: string): UIServiceDefinition['hosts'] {
   return [
-    { id: `leftPanel.service.${serviceId}.navigation`, label: `${label}导航`, level: 'region', parent: 'leftPanel', kind: 'container', serviceId },
-    { id: `centerPanel.service.${serviceId}.main`, label: `${label}主工作区`, level: 'region', parent: 'centerPanel', kind: 'container', serviceId },
-    { id: `rightPanel.service.${serviceId}.inspector`, label: `${label}检查区`, level: 'region', parent: 'rightPanel', kind: 'container', serviceId },
+    { id: `leftPanel.service.${serviceId}.navigation`, label: `${label}导航`, level: 'region', parent: 'leftPanel', kind: 'container', serviceId, workspaceOwner: serviceId },
+    { id: `centerPanel.service.${serviceId}.main`, label: `${label}主工作区`, level: 'region', parent: 'centerPanel', kind: 'container', serviceId, workspaceOwner: serviceId },
+    { id: `rightPanel.service.${serviceId}.inspector`, label: `${label}检查区`, level: 'region', parent: 'rightPanel', kind: 'container', serviceId, workspaceOwner: serviceId },
   ];
 }
 
@@ -52,6 +52,11 @@ export const UI_SERVICE_DEFINITIONS: readonly UIServiceDefinition[] = [
       { id: 'centerPanel.contacts.inspector', label: '通讯录检查区', level: 'control', parent: 'centerPanel.contacts', kind: 'container', serviceId: 'contacts' },
       ...workspaceHosts('contacts', '通讯录'),
     ],
+  },
+  {
+    id: 'story',
+    label: '故事服务',
+    hosts: workspaceHosts('story', '故事'),
   },
   {
     id: 'archive',

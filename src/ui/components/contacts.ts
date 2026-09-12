@@ -233,7 +233,7 @@ export function renderConversationView(
     </div>`;
 
   return `
-    <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-theme-scope="center.conversation">
+    <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-game-panel="center" data-theme-scope="center.conversation">
       ${renderBackground(ctx.background, 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       ${renderPanelHeaderRegion(ctx, 'center', header)}
