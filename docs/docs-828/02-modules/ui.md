@@ -53,7 +53,7 @@
 ### 剧情入口确认浮层与开幕横幅（2026-08-29 落地）
 
 - **storyGate**（`PanelState.storyGate`，状态驱动）：`data-kizuna` / `data-start-story` / `data-replay-story` 三入口点击 → 只记状态 + render，`data-story-gate-confirm` 按 mode 分派 `startCardStory`（goto 重开，已完结亦可正常重新开始，浮层文案「重新开始」）/ `startActiveStory` / `replayStory`（故事栏重读，文案「重新观看」），`data-story-gate-cancel`（X / 取消 / 遮罩空白，卡片冒泡不关闭）关闭；换流（`data-select-variant` / `data-conversation-back`）清空。
-- **开幕横幅**：`openingTitleShown` 事件（Talklet `showOpeningTitle` 效果呼出）→ `ChatStream.showBanner` 写当前活跃流 → render 时经 `PanelState.openingBanner` 渲染 `.chat-pane` 内横幅（非阻塞，CSS 动画模糊→清晰→淡出，JS 3s 计时清除）。机制详情见 [[docs/0x-plan&work/completed/affection-planning]] §3。
+- **开幕横幅**：`openingTitleShown` 事件（Talklet `showOpeningTitle` 效果呼出）→ `ChatStream.showBanner` 写当前活跃流 → render 时经 `PanelState.openingBanner` 渲染 `.chat-pane` 内横幅（非阻塞，CSS 动画模糊→清晰→淡出，JS 3s 计时清除）。机制详情见 [[docs/plan-work/completed/affection-planning]] §3。
 
 ## 核心概念
 
@@ -86,7 +86,7 @@ Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Worksp
 - 运行时可排序层为 `player → init → area → student`；`user`、`preview` 与 `ephemeral` 是独立插层，剧情临时层始终最高。
 - `InitDef.theme` / `EnhancementDef.theme` 为选择页提供场景声明；一般游戏中的 Init 主题才进入运行时 `init` 层，选择页聚焦主题只做局部只读投影。
 - Host 的 `default / active / inactive / disabled` 状态、形状与内嵌装饰线由 `PresentationView` 统一解析；编辑器和运行时共用 Host Registry。
-- 选择页动态背景、条目局部主题和 Init 快照阶段由 [[docs/0x-plan&work/active/task-0025-selector-dynamic-theme]] 管理；场景 current/next 双缓冲挂在 `.selector-super-background` 专用超级背景宿主内，`.selector-viewport` 只承载详情面，`.init-orb-disc.selector-disc` 只做圆盘装饰与定位参照，轮盘作为 shell 独立高层兄弟节点；未声明主题使用稳定回退，不改变游戏状态。
+- 选择页动态背景、条目局部主题和 Init 快照阶段由 [[docs/plan-work/active/task-0025-selector-dynamic-theme]] 管理；场景 current/next 双缓冲挂在 `.selector-super-background` 专用超级背景宿主内，`.selector-viewport` 只承载详情面，`.init-orb-disc.selector-disc` 只做圆盘装饰与定位参照，轮盘作为 shell 独立高层兄弟节点；未声明主题使用稳定回退，不改变游戏状态。
 
 - **刷新双轨**：每帧 `refreshLight`（轻量数字）；揭示指纹变化 → `refreshRevealIfChanged` → 按当前 Workspace owner 重建 DOM。Contacts / Story 在 ownership 闭环稳定前允许完整 Workspace 刷新，不提前引入局部 DOM patch 或 keyed reconcile。
 - **背景视觉层**：`ThemeDef.background` 沿用运行时主题层级；按 id 覆盖、匿名层追加，UI 通过 `body` 直系 `.console-background#ui-background-layer` 独立渲染，`#app` 只承载内容层与颜色继承，装饰层不接收指针事件。
@@ -99,4 +99,4 @@ Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Worksp
 
 ## 相关文档
 
-[[docs/0x-plan&work/completed/adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs/docs-828/02-modules/color]]（theme-tree 数据源）· [[docs/docs-828/07-audit/presentation-editor-consistency]]（编辑器/运行时一致性审计）
+[[docs/plan-work/completed/adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs/docs-828/02-modules/color]]（theme-tree 数据源）· [[docs/docs-828/07-audit/presentation-editor-consistency]]（编辑器/运行时一致性审计）

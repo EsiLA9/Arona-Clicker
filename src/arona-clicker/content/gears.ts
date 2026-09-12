@@ -2,7 +2,7 @@
 // arona-clicker/content/gears.ts — base 示例装备（Gear）内容
 //
 // 全部数值为占位示例，供 UI 联调与验收；正式数值由策划另给表，不放引擎。
-// 见 docs/0x-plan&work/newPlan/11-gear-equipment-system。
+// 见 docs/plan-work/newPlan/11-gear-equipment-system。
 // ============================================================
 
 import { gear, gearCost, item } from './def-factory';

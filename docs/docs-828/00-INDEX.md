@@ -33,8 +33,8 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs/docs-828/03-data-structures/player-state]] 起（见下方分区表） |
 | 引擎契约与 AronaClicker 类型边界 | [[docs/docs-828/03-data-structures/type-boundary-audit]] |
 | 生产 / 抽卡 / 培养 / 色彩 / 事件联动的机制细节 | [[docs/docs-828/04-mechanisms/00-index]]（正文迁移中，当前文件见下方分区表） |
-| 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/0x-plan&work/active/task-0041-character-progression-and-memory]]（设计草案） |
-| 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[docs/0x-plan&work/00-index]] |
+| 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/plan-work/active/task-0041-character-progression-and-memory]]（设计草案） |
+| 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[docs/plan-work/00-index]] |
 
 ### 我想改……
 
@@ -45,7 +45,7 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | 文件拆分 / 重构 | [[docs/docs-828/05-conventions/refactoring]] |
 | 正式默认游戏内容 | `src/arona-clicker/content/default-datapack.ts` + [[docs/docs-828/02-modules/registry]]；测试/示例包见 `src/data/test-datapack.ts` |
 | 新增跨世界线保留的数据 | [[docs/docs-828/01-architecture/state-layers]]（先想清楚放哪一层） |
-| Datapack 读取 / 多包管理 / mod 冲突 | [[docs/0x-plan&work/active/adr-0004-datapack-management]] |
+| Datapack 读取 / 多包管理 / mod 冲突 | [[docs/plan-work/active/adr-0004-datapack-management]] |
 | 测试 | [[docs/docs-828/05-conventions/testing]] |
 | 文档本身 | [[docs/docs-828/05-conventions/doc-maintenance]] |
 
@@ -108,15 +108,15 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 
 ## 计划与架构决策
 
-> 原 `06-adr/` 与 `08-roadmap/` 已聚合至 [[docs/0x-plan&work/00-index]]；以下保留主题路由，正文统一维护在 `docs/0x-plan&work/`。
+> 原 `06-adr/` 与 `08-roadmap/` 已聚合至 [[docs/plan-work/00-index]]；以下保留主题路由，正文统一维护在 `docs/plan-work/`。
 
 | 文档 | 决策 |
 | --- | --- |
-| [[docs/0x-plan&work/completed/adr-0001-architecture-consolidation]] | T1-T7 架构整理收官（装配外移 / 只读纪律 / 表驱动 / 环解扣） |
-| [[docs/0x-plan&work/completed/adr-0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
-| [[docs/0x-plan&work/completed/adr-0003-docs-restructure]] | 文档库重构：从日期戳手册到分层索引 |
-| [[docs/0x-plan&work/active/adr-0004-datapack-management]] | Datapack 多包读取与管理（三段式命名空间 / 包库与启用集 / 惰性存档；规划中） |
-| [[docs/0x-plan&work/completed/affection-planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送；§4 Talklet 输入中提示未实现；2026-08-29 落地，轴 A 消息成分同日裁定移除） |
+| [[docs/plan-work/completed/adr-0001-architecture-consolidation]] | T1-T7 架构整理收官（装配外移 / 只读纪律 / 表驱动 / 环解扣） |
+| [[docs/plan-work/completed/adr-0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
+| [[docs/plan-work/completed/adr-0003-docs-restructure]] | 文档库重构：从日期戳手册到分层索引 |
+| [[docs/plan-work/active/adr-0004-datapack-management]] | Datapack 多包读取与管理（三段式命名空间 / 包库与启用集 / 惰性存档；规划中） |
+| [[docs/plan-work/completed/affection-planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送；§4 Talklet 输入中提示未实现；2026-08-29 落地，轴 A 消息成分同日裁定移除） |
 
 ## 07-audit 设计审查（2026-08-30）
 
@@ -142,13 +142,13 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 
 | 编号 | 目标 | 状态 |
 | --- | --- | --- |
-| [[docs/0x-plan&work/active/roadmap-0001-datapack-management]] | Datapack 多包管理落地（S1-S7） | 进行中（S1a/S1b 已落地） |
-| [[docs/0x-plan&work/active/roadmap-0002-spot-shop]] | Spot 商店（购买集 / 发现限制） | 进行中（P0 已裁定） |
-| [[docs/0x-plan&work/active/roadmap-0003-gacha-pool-model]] | 卡池模型规范化（banner ↔ 角色池解耦） | 待设计裁定 |
-| [[docs/0x-plan&work/active/roadmap-0004-chara-ownership]] | Chara 拥有体系 Init 化 + 追赶统计 | 待设计裁定 |
-| [[docs/0x-plan&work/completed/roadmap-0005-engine-domain-consolidation]] | 基础引擎、基础数据服务与 AronaClicker 领域内聚 | ✅ 已完成（2026-09-02） |
+| [[docs/plan-work/active/roadmap-0001-datapack-management]] | Datapack 多包管理落地（S1-S7） | 进行中（S1a/S1b 已落地） |
+| [[docs/plan-work/active/roadmap-0002-spot-shop]] | Spot 商店（购买集 / 发现限制） | 进行中（P0 已裁定） |
+| [[docs/plan-work/active/roadmap-0003-gacha-pool-model]] | 卡池模型规范化（banner ↔ 角色池解耦） | 待设计裁定 |
+| [[docs/plan-work/active/roadmap-0004-chara-ownership]] | Chara 拥有体系 Init 化 + 追赶统计 | 待设计裁定 |
+| [[docs/plan-work/completed/roadmap-0005-engine-domain-consolidation]] | 基础引擎、基础数据服务与 AronaClicker 领域内聚 | ✅ 已完成（2026-09-02） |
 
-| [[docs/0x-plan&work/active/adr-0007-shop-transaction-boundaries]] | Spot 商店的购买记录、原子提交与事件边界 | 🟡 已裁定，待实现 |
+| [[docs/plan-work/active/adr-0007-shop-transaction-boundaries]] | Spot 商店的购买记录、原子提交与事件边界 | 🟡 已裁定，待实现 |
 
 ## 命令速查
 

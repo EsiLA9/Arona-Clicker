@@ -9,7 +9,7 @@
 | 子系统职责、代码入口、依赖关系 | `docs/docs-828/02-modules` |
 | 状态/实体/枚举/引用的数据形状 | `docs/docs-828/03-data-structures` |
 | 当前机制的规则、结算管道、联动和推导 | `docs/docs-828/04-mechanisms` |
-| 未实现设计、路线图、ADR、施工任务 | `docs/0x-plan&work/` |
+| 未实现设计、路线图、ADR、施工任务 | `docs/plan-work/` |
 | 历史审查与风险记录 | `docs/docs-828/07-audit` |
 
 ## 迁移状态

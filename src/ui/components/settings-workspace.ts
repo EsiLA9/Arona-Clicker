@@ -61,6 +61,7 @@ export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): stri
     layout: { responsive: 'two-column' },
     left: {
       slot: 'left',
+      workspaceOwner: 'settings',
       role: 'navigation',
       hostId: 'leftPanel.service.settings.navigation',
       themeScope: 'left.settings.navigation',
@@ -71,6 +72,7 @@ export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): stri
     },
     center: {
       slot: 'center',
+      workspaceOwner: 'settings',
       role: 'primary',
       hostId: 'centerPanel.service.settings.main',
       themeScope: 'center.settings.main',
@@ -81,6 +83,7 @@ export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): stri
     },
     right: {
       slot: 'right',
+      workspaceOwner: 'settings',
       role: 'inspector',
       hostId: 'rightPanel.service.settings.inspector',
       themeScope: 'right.settings.inspector',

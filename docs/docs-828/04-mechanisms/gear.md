@@ -1,6 +1,6 @@
 # 机制：装备（Gear）成长
 
-> 与「色彩装备 `ColorEquipment`」是两套独立系统：命名（`Gear` / `GearId` vs `EquipmentId`）、状态与 UI 全部分家。设计裁定见 [[docs/0x-plan&work/newPlan/11-gear-equipment-system]]。
+> 与「色彩装备 `ColorEquipment`」是两套独立系统：命名（`Gear` / `GearId` vs `EquipmentId`）、状态与 UI 全部分家。设计裁定见 [[docs/plan-work/newPlan/11-gear-equipment-system]]。
 
 ## 1. 概念与数据
 

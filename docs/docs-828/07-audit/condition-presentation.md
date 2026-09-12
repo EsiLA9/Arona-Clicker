@@ -24,4 +24,4 @@
 - `describeCondition()` 仍应保留为纯文本 fallback，供 Affector sentence、debug、日志和非 HTML 场景使用；不能把它改成 HTML。
 - 现有渲染体系通过模板字符串写入 `innerHTML`，因此叶节点文字、组标题和 data 属性必须继续经过 `escapeHtml`；不能直接拼接玩家可控名称。
 
-完整执行切片见 [[docs/0x-plan&work/active/task-0035-condition-presentation-tree]]。
+完整执行切片见 [[docs/plan-work/active/task-0035-condition-presentation-tree]]。

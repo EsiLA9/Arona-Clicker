@@ -31,4 +31,4 @@
 
 ## 相关文档
 
-[[docs/docs-828/04-mechanisms/production]]（构建/失效全细节）· [[docs/0x-plan&work/completed/adr-0002-gamenum-tree]]（决策记录）· [[docs/docs-828/02-modules/affector]]
+[[docs/docs-828/04-mechanisms/production]]（构建/失效全细节）· [[docs/plan-work/completed/adr-0002-gamenum-tree]]（决策记录）· [[docs/docs-828/02-modules/affector]]

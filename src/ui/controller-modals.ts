@@ -123,6 +123,7 @@ export function openSpotShopModal(ctrl: UIController, spotId: string): void {
   if (shop?.theme) {
     ctrl.game.colorSystem.pushEphemeralTheme({
       id: themeId,
+      owner: `workspace:shop:${spotId}:${functionality.shopId}`,
       scope: 'ephemeral',
       groupId: shop.theme.colorGroupId,
       palette: shop.theme.palette,
@@ -271,6 +272,12 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     editor?.setAttribute('data-theme-editor-current-filter', button.dataset.themeEditorFilter ?? 'all');
     modal.querySelectorAll<HTMLElement>('[data-theme-editor-filter]').forEach(item => item.classList.toggle('is-active', item === button));
     applyFilter(section, button.dataset.themeEditorFilter ?? 'all');
+  }));
+  modal.querySelectorAll<HTMLButtonElement>('[data-theme-editor-overview-filter]').forEach(button => button.addEventListener('click', () => {
+    const filter = button.dataset.themeEditorOverviewFilter ?? 'all';
+    const section = filter === 'layers' ? 'layers' : filter === 'placement' ? 'components' : 'colors';
+    modal.querySelector<HTMLButtonElement>(`[data-theme-editor-section="${section}"]`)?.click();
+    if (filter !== 'layers') modal.querySelector<HTMLButtonElement>(`[data-theme-editor-filter="${filter}"]`)?.click();
   }));
   applyFilter(editor?.dataset.themeEditorCurrentSection ?? 'colors', editor?.dataset.themeEditorCurrentFilter ?? 'all');
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-token]').forEach(input => input.addEventListener('input', () => {

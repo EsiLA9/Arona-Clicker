@@ -31,7 +31,7 @@
 
 ### 3. 开幕横幅链路（2026-08-29 落地，列为观察项）
 
-- **位置**：[[docs/0x-plan&work/completed/affection-planning]] §3（三级标题回退、事件中继、CSS 负 `animation-delay` 断点续播）；`02-modules/ui.md`。
+- **位置**：[[docs/plan-work/completed/affection-planning]] §3（三级标题回退、事件中继、CSS 负 `animation-delay` 断点续播）；`02-modules/ui.md`。
 - **原因**：一条 3 秒横幅穿越 EffectEngine → 请求事件 → Reactor → Service → UI 订阅共 6 跳；负延迟续播是对「每 0.4-0.9s 全量 render 重建 DOM」的补丁——用防御性补丁修补自身架构选择的副作用。
 - **方案组（长期，短期不动）**：
   - A：render 改增量更新（只重建变化节点）——续播补丁与 #5 的指纹重建一并消失。

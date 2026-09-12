@@ -4,7 +4,7 @@
 
 ## 职责边界
 
-- **管**：剧情启动/推进/选择/跳转链/重读守卫/完结奖励、聊天流演出事件、被动闲聊抽选、好感台阶/羁绊尾巴的就绪队列推送（见 [[docs/0x-plan&work/completed/affection-planning]]）。
+- **管**：剧情启动/推进/选择/跳转链/重读守卫/完结奖励、聊天流演出事件、被动闲聊抽选、好感台阶/羁绊尾巴的就绪队列推送（见 [[docs/plan-work/completed/affection-planning]]）。
 - **不管**：色彩演出层推送（由 ColorSystem 响应）。
 
 ## 关键文件（`src/arona-clicker/services/`）
@@ -42,4 +42,4 @@
 
 ## 相关文档
 
-[[docs/docs-828/03-data-structures/declarative-dsl]]（Talklet/Entry 枚举）· [[docs/0x-plan&work/completed/affection-planning]]（好感数值/台阶推送/羁绊尾巴）
+[[docs/docs-828/03-data-structures/declarative-dsl]]（Talklet/Entry 枚举）· [[docs/plan-work/completed/affection-planning]]（好感数值/台阶推送/羁绊尾巴）

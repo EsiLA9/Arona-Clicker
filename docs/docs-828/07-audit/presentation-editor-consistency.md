@@ -38,4 +38,4 @@
 
 最新 UI 实现已将 `UIContext`、`PresentationView`、`background-service.ts` 与 `ui-host-registry.ts` 收敛到同一套宿主、状态继承、形状和装饰线契约；编辑器与运行时的系统层、父级回退和 active 合并规则已有专项测试覆盖。选择页的 Init / GlobalEnh 动态主题属于局部只读投影：它在 `.selector-super-background` 的整页背景双缓冲和条目样式中消费主题，不把轮盘聚焦写回运行时场景栈，因此不改变游戏状态或主界面主题。
 
-本审查后续只保留两类验收：编辑器专用的背景层可视化预览，以及不同窗口尺寸下的浏览器视觉回归。具体选择页动态主题由 [[docs/0x-plan&work/active/task-0025-selector-dynamic-theme]] 跟踪。
+本审查后续只保留两类验收：编辑器专用的背景层可视化预览，以及不同窗口尺寸下的浏览器视觉回归。具体选择页动态主题由 [[docs/plan-work/active/task-0025-selector-dynamic-theme]] 跟踪。

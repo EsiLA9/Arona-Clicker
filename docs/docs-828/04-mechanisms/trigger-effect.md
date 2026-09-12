@@ -83,7 +83,7 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 - `extraChanged { path, value? }` · 订 condition-deps / game-num
 - `poolGateChanged { poolId, available }` — 闲聊池 gate 翻转 · 订 UI
 - `tagCollectedChanged { kind }` — TagStat 集合增删（读档全量重建不发）· 订 condition-deps
-- `conditionGroupMet`：**已删除**——原为全库无发射方/订阅方的死事件，T4 清理时移除（见 [[docs/0x-plan&work/completed/adr-0001-architecture-consolidation]]）
+- `conditionGroupMet`：**已删除**——原为全库无发射方/订阅方的死事件，T4 清理时移除（见 [[docs/plan-work/completed/adr-0001-architecture-consolidation]]）
 
 **Affector 生命周期**（均 emit `affector-engine`，订 game-num）
 - `affectorMounted { instanceId, packId, mountEntityId }`

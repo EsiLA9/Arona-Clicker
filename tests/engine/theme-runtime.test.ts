@@ -309,6 +309,27 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     expect(host?.states?.inactive?.textColorMode).toBe('light');
   });
 
+  test('RUNTIME-22 diagnostics：按有效层级返回来源，并保留 owner/target 隔离信息', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', id: 'player-theme', owner: 'global:player', groupId: 'blue' });
+    manager.pushScene({ scope: 'area', id: 'area-theme', owner: 'area:abydos', groupId: 'pink' });
+    manager.setPreview({ scope: 'ephemeral', id: 'preview-theme', owner: 'editor:session', tokens: { primary: '#303030' } });
+    manager.pushEphemeral({ id: 'story-theme', scope: 'ephemeral', owner: 'story:chapter-01', targets: ['story'], tokens: { primary: '#111111' } });
+    manager.setTalkletTheme({ owner: 'talklet:story:chapter-01', effectId: 'mood', theme: { scope: 'ephemeral', tokens: { primary: '#222222' } }, lifetime: 'fulltime', targets: ['story'] });
+
+    const story = manager.diagnostics('story');
+    expect(story.layers.map(layer => layer.id)).toEqual(['player-theme', 'area-theme', 'preview-theme', 'story-theme', 'talklet:talklet:story:chapter-01:mood']);
+    expect(story.layers.find(layer => layer.id === 'story-theme')).toMatchObject({
+      kind: 'ephemeral', owner: 'story:chapter-01', targets: ['story'], selected: true,
+    });
+    expect(story.layers.find(layer => layer.id === 'talklet:talklet:story:chapter-01:mood')).toMatchObject({
+      kind: 'ephemeral', owner: 'talklet:story:chapter-01', targets: ['story'], selected: true,
+    });
+    expect(manager.diagnostics('shop').layers.find(layer => layer.id === 'talklet:talklet:story:chapter-01:mood')?.selected).toBe(false);
+    manager.disposeStoryExecution('talklet:story:chapter-01');
+    expect(manager.diagnostics('story').layers.some(layer => layer.id === 'talklet:talklet:story:chapter-01:mood')).toBe(false);
+  });
+
   test('RUNTIME-15 背景层按优先级合并，同 id 覆盖、匿名层追加', () => {
     const { manager } = makeManager();
     manager.setPlayer({ scope: 'player', background: [

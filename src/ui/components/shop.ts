@@ -52,9 +52,9 @@ export function renderShopWorkspace(ctx: UIContext, workspace: ShopWorkspaceStat
   const right = shopTabs('right', '<span class="shop-workspace__title">持有与结算</span>') + (view ? `<section class="shop-workspace__settlement"><h3>持有与结算</h3>${renderResourceStrip(ctx)}<div class="shop-workspace__holdings">${renderHoldings(ctx)}</div><h4>已购买小项</h4><ul>${view.cart}</ul><p>预计消耗：${view.costs}</p><div class="shop-workspace__actions"><button data-shop-cancel ${view.canCheckout ? '' : 'disabled'}>撤销</button><button class="primary-button" data-shop-checkout ${view.canCheckout ? '' : 'disabled'}>结算</button></div></section>` : '<button data-shop-leave>返回 Spot</button>');
   return renderWorkspaceFrame(ctx, { id: 'shop',
     layout: { responsive: 'single-column' },
-    left: { slot: 'left', hostId: 'leftPanel.shop.feed', themeScope: 'left.shop.feed', surface: 'panel', className: 'shop-workspace__left', content: left },
-    center: { slot: 'center', hostId: 'centerPanel.shop.catalog', themeScope: 'center.shop.catalog', surface: 'panel', className: 'shop-workspace__center', content: center, scroll: 'content' },
-    right: { slot: 'right', hostId: 'rightPanel.shop.settlement', themeScope: 'right.shop.settlement', surface: 'panel', className: 'shop-workspace__right', content: right },
+    left: { slot: 'left', workspaceOwner: 'shop', hostId: 'leftPanel.shop.feed', themeScope: 'left.shop.feed', surface: 'panel', className: 'shop-workspace__left', content: left },
+    center: { slot: 'center', workspaceOwner: 'shop', hostId: 'centerPanel.shop.catalog', themeScope: 'center.shop.catalog', surface: 'panel', className: 'shop-workspace__center', content: center, scroll: 'content' },
+    right: { slot: 'right', workspaceOwner: 'shop', hostId: 'rightPanel.shop.settlement', themeScope: 'right.shop.settlement', surface: 'panel', className: 'shop-workspace__right', content: right },
   });
 }
 

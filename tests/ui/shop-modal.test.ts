@@ -33,6 +33,11 @@ describe('Spot Shop workspace', () => {
     expect(document.querySelector('.shop-workspace .ui-cluster--center-tabs-region .shop-workspace__title')?.textContent).toContain('阿比多斯咖啡角');
     expect(document.querySelector('.shop-product-card')).not.toBeNull();
     expect(game.colorSystem.runtimeThemeTokens().primary).toBe('#d97706');
+    expect(game.colorSystem.runtimeThemeDiagnostics().layers.find(layer => layer.id === `shop-workspace:${SPOT}:base:shop:abydos-cafe`)).toMatchObject({
+      kind: 'ephemeral',
+      owner: `workspace:shop:${SPOT}:base:shop:abydos-cafe`,
+      selected: true,
+    });
 
     const shellBefore = document.querySelector('.console-shell');
     const centerHostBefore = document.querySelector('[data-theme-host-id="centerPanel.shop.catalog"]');
@@ -54,6 +59,7 @@ describe('Spot Shop workspace', () => {
 
     expect(document.querySelector('.shop-workspace')).toBeNull();
     expect(game.colorSystem.runtimeThemeTokens().primary).toBe(primaryBefore);
+    expect(game.colorSystem.runtimeThemeDiagnostics().layers.some(layer => layer.id === `shop-workspace:${SPOT}:base:shop:abydos-cafe`)).toBe(false);
   });
 
   test('退出再进入会丢弃购物车，但保留成功购买记录', () => {

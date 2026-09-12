@@ -2,7 +2,7 @@ import type { ColorGroupDef, ThemeDesignDef } from '../../data-services/contract
 import type { ColorGroupId } from '../types/character';
 import type { ThemeDef } from '../../engine/types/theme';
 import type { PlayerState } from '../types/state';
-import type { ResolvedTheme, ThemeLayer, ThemeTokens } from '../../engine/core/theme-runtime';
+import type { ResolvedTheme, ThemeLayer, ThemeRuntimeDiagnostics, ThemeTokens } from '../../engine/core/theme-runtime';
 
 export interface ColorEntityThemeOption {
   kind: 'default' | 'equipment' | 'design' | 'custom';
@@ -21,6 +21,7 @@ export interface ColorGroupDescription {
 
 export interface ColorQueryPort {
   runtimeTheme(): ResolvedTheme;
+  runtimeThemeDiagnostics(target?: string): ThemeRuntimeDiagnostics;
   getGroup(groupId: ColorGroupId): ColorGroupDef | undefined;
   getAllGroups(): ColorGroupDef[];
   isGroupOwned(state: PlayerState, groupId: string): boolean;

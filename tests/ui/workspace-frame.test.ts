@@ -14,9 +14,9 @@ describe('WorkspaceFrame', () => {
     game.init([baseDatapack]);
     const html = renderWorkspaceFrame(createUIContext(game), {
       id: 'test',
-      left: { slot: 'left', hostId: 'leftPanel', content: 'L', header: '导航' },
-      center: { slot: 'center', hostId: 'centerPanel', content: 'C', scroll: 'content' },
-      right: { slot: 'right', hostId: 'rightPanel', content: 'R', visible: false },
+      left: { slot: 'left', workspaceOwner: 'test', hostId: 'leftPanel', content: 'L', header: '导航' },
+      center: { slot: 'center', workspaceOwner: 'test', hostId: 'centerPanel', content: 'C', scroll: 'content' },
+      right: { slot: 'right', workspaceOwner: 'test', hostId: 'rightPanel', content: 'R', visible: false },
     });
     expect(html).toContain('data-workspace-frame="test"');
     expect(html).toContain('data-layout="default"');
@@ -28,6 +28,7 @@ describe('WorkspaceFrame', () => {
     expect(html).toContain('workspace-column--right is-collapsed');
     expect(html).toContain('data-theme-host-id="leftPanel"');
     expect(html).toContain('data-workspace-column="left"');
+    expect(html).toContain('data-workspace-owner="test"');
     expect(html).toContain('data-workspace-surface="none"');
     expect(html).toContain('data-scroll-owner="workspace-body"');
   });

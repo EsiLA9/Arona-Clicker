@@ -26,8 +26,8 @@ export function renderCharacterWorkspace(ctx: UIContext, workspace: CharacterWor
   return renderWorkspaceFrame(ctx, {
     id: 'character',
     layout: { responsive: 'single-column' },
-      left: { slot: 'left', role: 'contacts', hostId: 'leftPanel.character.contacts', themeScope: 'left.character.contacts', surface: 'panel', className: 'character-workspace__left', content: left, scroll: 'content' },
-      center: { slot: 'center', role: 'story', hostId: 'centerPanel.character.story', themeScope: 'center.character.story', surface: 'panel', className: 'character-workspace__center', content: center, scroll: 'none' },
-      right: { slot: 'right', role: 'progression', hostId: 'rightPanel.character.progression', themeScope: 'right.character.progression', surface: 'panel', className: 'character-workspace__right', content: right, scroll: 'content' },
+      left: { slot: 'left', workspaceOwner: 'character', role: 'contacts', hostId: 'leftPanel.character.contacts', themeScope: 'left.character.contacts', surface: 'panel', className: 'character-workspace__left', content: left, scroll: 'content' },
+      center: { slot: 'center', workspaceOwner: 'character', role: 'story', hostId: 'centerPanel.character.story', themeScope: 'center.character.story', surface: 'panel', className: 'character-workspace__center', content: center, scroll: 'none' },
+      right: { slot: 'right', workspaceOwner: 'character', role: 'progression', hostId: 'rightPanel.character.progression', themeScope: 'right.character.progression', surface: 'panel', className: 'character-workspace__right', content: right, scroll: 'content' },
   });
 }

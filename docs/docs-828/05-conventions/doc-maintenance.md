@@ -12,9 +12,9 @@
 | `03-data-structures/` | 数据结构定义（类型权威仍在 `src/engine/types/`，文档只讲布局与语义） | 按主题 |
 | `04-mechanisms/` | 核心算法流程（结算/失效/派生） | 按主题 |
 | `05-conventions/` | 规范（纪律/重构/协议/测试/本文） | 每规范 1 篇 |
-| `docs/0x-plan&work/` | 架构决策、Roadmap、方案草稿、Code Review 与完成记录的统一工作区 | 按 `00-index` 路由 |
+| `docs/plan-work/` | 架构决策、Roadmap、方案草稿、Code Review 与完成记录的统一工作区 | 按 `00-index` 路由 |
 | `07-audit/` | 设计审查：繁简/兜底问题清单（位置/原因/方案组）；GameNum/Affector 多包基础设施豁免；整改完成后归档 | 每组 1 篇 + 总览 |
-| `08-roadmap/` | 已迁移至 `docs/0x-plan&work/active/` 或 `completed/`；旧目录不再承载计划正文 | 由 `docs/0x-plan&work/00-index.md` 统一索引 |
+| `08-roadmap/` | 已迁移至 `docs/plan-work/active/` 或 `completed/`；旧目录不再承载计划正文 | 由 `docs/plan-work/00-index.md` 统一索引 |
 
 ## 写作规则
 
@@ -25,7 +25,7 @@
 
 ## 计划文档最小模板
 
-`docs/0x-plan&work/active/` 中的 Task、Roadmap 与 ADR 必须能独立回答“现在做到哪里、下一步还缺什么”。新建或大幅修订计划时，至少保留以下字段；状态变化时只更新同一处，不在索引里复制施工细节：
+`docs/plan-work/active/` 中的 Task、Roadmap 与 ADR 必须能独立回答“现在做到哪里、下一步还缺什么”。新建或大幅修订计划时，至少保留以下字段；状态变化时只更新同一处，不在索引里复制施工细节：
 
 ```markdown
 # Task/Roadmap：标题
@@ -55,8 +55,8 @@
 | 改实体字段/枚举 | `03-data-structures/declarative-dsl` + [[docs/docs-828/05-conventions/schema-sync]] 流程 |
 | 新增/删除事件 | `04-mechanisms/trigger-effect` 速览表（权威仍为 `EVENT_CATALOG`） |
 | 新增 PlayerState 字段 | `03-data-structures/player-state` + `01-architecture/state-layers`（三层归属） |
-| 架构级变动（新系统/改纪律） | `docs/0x-plan&work/` 新增 ADR + `00-index` 路由 |
-| roadmap 切片状态变化（开工/完成/废弃） | `docs/0x-plan&work/active/` 或 `completed/` 对应目标篇 + `00-index` 状态表 |
+| 架构级变动（新系统/改纪律） | `docs/plan-work/` 新增 ADR + `00-index` 路由 |
+| roadmap 切片状态变化（开工/完成/废弃） | `docs/plan-work/active/` 或 `completed/` 对应目标篇 + `00-index` 状态表 |
 
 ## 归档规则
 
@@ -65,4 +65,4 @@
 
 ## 相关文档
 
-[[docs/docs-828/00-INDEX]] · [[docs/0x-plan&work/completed/adr-0003-docs-restructure]]
+[[docs/docs-828/00-INDEX]] · [[docs/plan-work/completed/adr-0003-docs-restructure]]

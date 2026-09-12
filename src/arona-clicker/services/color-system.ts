@@ -17,7 +17,7 @@ import type { BackgroundLayerDef, ThemeDef, ThemeToken } from '../../engine/type
 import type { PlayerState } from '../types/state';
 import type { Registry } from '../../data-services/registry/registry';
 import type { ColorMutationPort } from '../contracts/mutation';
-import { RuntimeThemeManager, type ThemeLayer, type ThemeTokens } from '../../engine/core/theme-runtime';
+import { RuntimeThemeManager, type ThemeLayer, type ThemeRuntimeDiagnostics, type ThemeTokens } from '../../engine/core/theme-runtime';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
 import {
   MIN_CONTRAST,
@@ -275,6 +275,11 @@ export class ColorSystem {
   /** 当前运行时主题（L1 临时 > L2 场景 > L3 玩家）合并后的最终结果。 */
   runtimeTheme(): ReturnType<RuntimeThemeManager['resolve']> {
     return this.runtime.resolve();
+  }
+
+  /** 当前运行时主题层的只读来源/生命周期诊断；不写入玩家状态。 */
+  runtimeThemeDiagnostics(target?: string): ThemeRuntimeDiagnostics {
+    return this.runtime.diagnostics(target);
   }
 
   /** 当前运行时主题合并后的最终 token 表。 */

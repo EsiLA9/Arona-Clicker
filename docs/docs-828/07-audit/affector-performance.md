@@ -13,7 +13,7 @@
 | P3 | ConditionGroup 失去短路、Enhancement/Story 线性查询 | 真实的微优化，暂无瓶颈证据 |
 | P2/P3 | Effect map/filter/spread 与 perTickEffects 事件链 | 分配事实真实；事件风暴取决于内容与订阅规模 |
 
-完整的逐条证据、紧迫性定义、代码落点和施工顺序见 [[docs/0x-plan&work/active/task-0034-affector-performance-review]]。
+完整的逐条证据、紧迫性定义、代码落点和施工顺序见 [[docs/plan-work/active/task-0034-affector-performance-review]]。
 
 ## 边界
 

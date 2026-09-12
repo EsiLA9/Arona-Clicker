@@ -63,4 +63,4 @@
 
 ## 相关文档
 
-[[docs/docs-828/01-architecture/run-logic]] · [[docs/0x-plan&work/completed/adr-0001-architecture-consolidation]]（T1/T3/T6 执行记录）
+[[docs/docs-828/01-architecture/run-logic]] · [[docs/plan-work/completed/adr-0001-architecture-consolidation]]（T1/T3/T6 执行记录）

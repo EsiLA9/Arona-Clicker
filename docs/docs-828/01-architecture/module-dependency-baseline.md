@@ -1,6 +1,6 @@
 # 01-architecture/module-dependency-baseline — 模块依赖基线
 
-> 本文回答：当前模块归属、依赖方向和主要交叉点是什么。本文记录代码实况，不定义最终设计；历史施工背景见 [[docs/0x-plan&work/completed/adr-0005-engine-domain-boundaries]]。
+> 本文回答：当前模块归属、依赖方向和主要交叉点是什么。本文记录代码实况，不定义最终设计；历史施工背景见 [[docs/plan-work/completed/adr-0005-engine-domain-boundaries]]。
 
 > 核对基准：2026-09-06 工作区代码。未提交改动可能使主题、Datapack 工作区和 UI Host Registry 相关文件继续变化。
 

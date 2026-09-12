@@ -292,8 +292,8 @@ export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspace
   return renderWorkspaceFrame(ctx, {
     id: `service-${service}`,
     layout: { responsive: 'two-column' },
-    left: { slot: 'left', hostId: hostId(service, 'navigation'), themeScope: `left.${service}.navigation`, surface: 'panel', className: 'service-column service-navigation', content: navigation },
-    center: { slot: 'center', hostId: hostId(service, 'main'), themeScope: `center.${service}.main`, surface: 'panel', className: 'service-column service-main', content: main, scroll: 'content' },
-    right: { slot: 'right', hostId: hostId(service, 'inspector'), themeScope: `right.${service}.inspector`, surface: 'panel', className: 'service-column service-inspector', content: inspector },
+    left: { slot: 'left', workspaceOwner: service, hostId: hostId(service, 'navigation'), themeScope: `left.${service}.navigation`, surface: 'panel', className: 'service-column service-navigation', content: navigation },
+    center: { slot: 'center', workspaceOwner: service, hostId: hostId(service, 'main'), themeScope: `center.${service}.main`, surface: 'panel', className: 'service-column service-main', content: main, scroll: 'content' },
+    right: { slot: 'right', workspaceOwner: service, hostId: hostId(service, 'inspector'), themeScope: `right.${service}.inspector`, surface: 'panel', className: 'service-column service-inspector', content: inspector },
   });
 }

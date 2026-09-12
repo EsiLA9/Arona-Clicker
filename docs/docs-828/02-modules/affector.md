@@ -33,4 +33,4 @@
 
 ## 相关文档
 
-[[docs/docs-828/04-mechanisms/trigger-effect]] · [[docs/docs-828/02-modules/game-num]] · 评审历史见 [[docs/0x-plan&work/completed/adr-0002-gamenum-tree]]
+[[docs/docs-828/04-mechanisms/trigger-effect]] · [[docs/docs-828/02-modules/game-num]] · 评审历史见 [[docs/plan-work/completed/adr-0002-gamenum-tree]]

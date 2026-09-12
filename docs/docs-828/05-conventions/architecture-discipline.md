@@ -23,4 +23,4 @@
 
 ## 相关文档
 
-[[docs/docs-828/01-architecture/overview]] · [[docs/0x-plan&work/completed/adr-0001-architecture-consolidation]]（纪律的最近一次系统性加固）
+[[docs/docs-828/01-architecture/overview]] · [[docs/plan-work/completed/adr-0001-architecture-consolidation]]（纪律的最近一次系统性加固）

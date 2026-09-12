@@ -30,6 +30,10 @@ export const DEFAULT_LAYER_ORDER: ThemeOrderScope[] = ['player', 'init', 'area',
 export interface ThemeLayer {
   /** 层的唯一标识（用于 pop/清除；缺省自动生成）。 */
   id?: string;
+  /** 运行时归属标识；仅用于生命周期诊断，不参与主题解析。 */
+  owner?: string;
+  /** 运行时目标键；仅用于临时层目标过滤和诊断，不参与 token 解析。 */
+  targets?: readonly string[];
   /** 层类型：决定它与其它层叠加的槽位语义。 */
   scope: ThemeOrderScope | 'user' | 'ephemeral';
   /** 引用 ColorGroupDef；存在时先取其整包 token 作为基底。 */
@@ -83,6 +87,23 @@ export type ThemeTokens = Record<string, string>;
 
 /** 提供给 RuntimeThemeManager 的「层 → token 表」解析器（由 ColorSystem 实现，封装 registry）。 */
 export type ThemeLayerResolver = (layer: ThemeLayer) => ThemeTokens;
+
+export type ThemeRuntimeLayerKind = 'player' | 'user' | 'preview' | 'scene' | 'ephemeral';
+
+export interface ThemeRuntimeLayerDiagnostic {
+  id: string;
+  scope: ThemeLayer['scope'];
+  kind: ThemeRuntimeLayerKind;
+  owner?: string;
+  targets?: readonly string[];
+  selected: boolean;
+}
+
+export interface ThemeRuntimeDiagnostics {
+  target?: string;
+  layerOrder: readonly ThemeOrderScope[];
+  layers: readonly ThemeRuntimeLayerDiagnostic[];
+}
 
 /** 合并后的最终主题结果。 */
 export interface ResolvedTheme {
@@ -214,7 +235,7 @@ export class RuntimeThemeManager {
   pushEphemeral(layer: ThemeLayer): string {
     const id = layer.id ?? `ephemeral-${++this.seq}`;
     const existing = this.ephemeralStack.findIndex(e => e.id === id);
-    const entry = { layer: { ...layer, id }, id, revision: ++this.revision };
+    const entry = { layer: { ...layer, id }, id, revision: ++this.revision, owner: layer.owner, targets: layer.targets ? [...layer.targets] : undefined };
     if (existing >= 0) this.ephemeralStack[existing] = entry;
     else this.ephemeralStack.push(entry);
     this.changed();
@@ -303,6 +324,44 @@ export class RuntimeThemeManager {
   }
 
   // --- 查询 ---
+
+  /**
+   * 返回当前运行时主题层的只读来源快照。
+   *
+   * 该快照供编辑器、调试面板和生命周期回归使用，不参与主题解析，也不写入存档。
+   * target 存在时，ephemeral 层会标记是否命中该目标，便于识别“当前层存在但不作用于此目标”的情况。
+   */
+  diagnostics(target?: string): ThemeRuntimeDiagnostics {
+    const layers: ThemeRuntimeLayerDiagnostic[] = [];
+    const selected = (targets: readonly string[] | undefined): boolean => target === undefined || !targets || targets.includes(target);
+    const add = (layer: ThemeLayer, kind: ThemeRuntimeLayerKind, fallbackId: string, targets?: readonly string[], owner?: string): void => {
+      layers.push({
+        id: layer.id ?? fallbackId,
+        scope: layer.scope,
+        kind,
+        owner: owner ?? layer.owner,
+        targets: targets ? [...targets] : undefined,
+        selected: selected(targets),
+      });
+    };
+
+    const sceneByScope = new Map<ThemeOrderScope, ThemeLayer>();
+    for (const layer of this.sceneStack) sceneByScope.set(layer.scope as ThemeOrderScope, layer);
+    for (const scope of this.layerOrder) {
+      if (scope === 'player') {
+        if (this.player) add(this.player, 'player', 'player');
+        continue;
+      }
+      const layer = sceneByScope.get(scope);
+      if (layer) add(layer, 'scene', scope);
+    }
+    if (this.user) add(this.user, 'user', 'user');
+    if (this.preview) add(this.preview, 'preview', 'preview');
+    for (const entry of [...this.ephemeralStack].sort((a, b) => a.revision - b.revision)) {
+      add(entry.layer, 'ephemeral', entry.id, entry.targets, entry.owner);
+    }
+    return { target, layerOrder: [...this.layerOrder], layers };
+  }
 
   /** 当前场景层（栈顶，即最内层场景；无场景返回 null）。 */
   currentScene(): ThemeLayer | null {

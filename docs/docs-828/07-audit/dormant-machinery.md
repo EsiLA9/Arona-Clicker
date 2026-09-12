@@ -12,11 +12,11 @@
 | 机制 | 位置 | 状态 | 推荐动作 |
 | --- | --- | --- | --- |
 | `refreshWorldPool` + `state.worldPool` | `02-modules/character.md:15`、`03-data-structures/player-state.md:34` | 已实现、无调用点 | 删 |
-| `chatRead` / `markChatRead` / `chatReadChanged` | `03-data-structures/player-state.md`、`04-mechanisms/trigger-effect.md`、[[docs/0x-plan&work/completed/affection-planning]] | 保留、无写入方（裁定供复用） | 限期接线或删 |
+| `chatRead` / `markChatRead` / `chatReadChanged` | `03-data-structures/player-state.md`、`04-mechanisms/trigger-effect.md`、[[docs/plan-work/completed/affection-planning]] | 保留、无写入方（裁定供复用） | 限期接线或删 |
 | EffectOp `loot` | `04-mechanisms/trigger-effect.md:16` ↔ `02-modules/world.md:50` | 文档矛盾（见下） | 先核代码，再接线或删 |
 | Trigger `maxRuns`（引擎支持） | `02-modules/effect-trigger.md:15`；DSL 无此字段（`declarative-dsl.md:112`） | 数据从不使用 | 删，保留 `once` |
 | `state.enhancementAttachments` | `03-data-structures/id-reference-semantics.md:65` | 引擎只写不读，UI 用 id 分组 | 标注「仅 UI」或删 |
-| 组件级 CSS 变量预留覆写点 | `02-modules/ui.md`、[[docs/0x-plan&work/completed/affection-planning]] §3 | 预留、有明确重肤用途 | 保留（低优先） |
+| 组件级 CSS 变量预留覆写点 | `02-modules/ui.md`、[[docs/plan-work/completed/affection-planning]] §3 | 预留、有明确重肤用途 | 保留（低优先） |
 
 ### 1. refreshWorldPool + worldPool
 

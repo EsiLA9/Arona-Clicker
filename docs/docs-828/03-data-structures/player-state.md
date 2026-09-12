@@ -35,7 +35,7 @@
 | `charaCustom` | Record<Character, CharaCustomOverride> | 玩家头像-人名对覆写（见 [[docs/docs-828/02-modules/pics]]） |
 | `worldPool` | VariantId[] | 世界 Pool：已并入常驻集合的差分（`refreshWorldPool` 未接线） |
 | `protoStats` | Record<string, ProtoStat> | 原型聚合统计（派生视图，Trigger 维护） |
-| `characterMemory` | Record<Character, CharacterMemory> | 跨世界线角色记忆（历史最大值/事实）；永远 global，不进 Init 快照（见 [[docs/0x-plan&work/active/adr-0008-character-progression-boundaries]]） |
+| `characterMemory` | Record<Character, CharacterMemory> | 跨世界线角色记忆（历史最大值/事实）；永远 global，不进 Init 快照（见 [[docs/plan-work/active/adr-0008-character-progression-boundaries]]） |
 | `accountLevelCap` | number? | 账号级角色等级开放上限（缺省 = 无上限）；提升机制后续接入 |
 | `tagEffects` / `entityEffects` | Record | 区表：命名乘区记录唯一真相（见 [[docs/docs-828/04-mechanisms/production]]） |
 | `groupsOwned` / `activeTheme` / `equipmentsOwned` | — | 色彩组收集、全局主题来源（system / color-group / custom）与装备收集（`equipmentsOwned` 已登记 per-Init 快照，归属随 characterPersistConfig.equips，缺省 global；见 [[docs/docs-828/02-modules/color]]） |
