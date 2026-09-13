@@ -210,6 +210,8 @@ export class ColorSystem {
       && user?.enabled !== false;
     const base = stored ? customThemeBase(this.registry, stored) : undefined;
     const applied = stored ? storedThemeDef(stored, base) : undefined;
+    const globalHost = applied?.presentation?.hosts?.find(host => host.id === 'global');
+    const globalLayers = globalHost?.layers ? [systemColorBackground(), ...globalHost.layers] : [systemColorBackground()];
     const colorLayer = {
       tokens: applied?.tokens,
       palette: normalizePalette(applied?.palette, stored?.paletteUiEnabled),
@@ -221,8 +223,8 @@ export class ColorSystem {
       scope: 'user',
       groupId: applied?.colorGroupId as ColorGroupId | undefined,
       ...colorLayer,
-      background: [systemColorBackground(), ...(applied?.background ?? [])],
-      backgroundLayerOrder: stored?.backgroundLayerOrder,
+      background: globalLayers,
+      backgroundLayerOrder: globalHost?.layerOrder,
       systemColorLayerIgnored: stored?.systemColorLayerIgnored === true,
       presentation: applied?.presentation,
     } : null);
@@ -236,12 +238,13 @@ export class ColorSystem {
       nodeOverrides: draft?.nodes,
       scopeNodeOverrides: draft?.scopes,
     };
+    const globalHost = draft?.presentation?.hosts?.find(host => host.id === 'global');
     this.runtime.setPreview(draft ? {
       id: 'user-theme-preview',
       scope: 'ephemeral',
       ...colorLayer,
-      background: [systemColorBackground(), ...(draft.background ?? [])],
-      backgroundLayerOrder: draft.backgroundLayerOrder,
+      background: globalHost?.layers ? [systemColorBackground(), ...globalHost.layers] : [systemColorBackground()],
+      backgroundLayerOrder: globalHost?.layerOrder,
       systemColorLayerIgnored: draft.systemColorLayerIgnored === true,
       presentation: draft.presentation,
     } : null);

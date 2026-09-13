@@ -15,6 +15,7 @@
 
 | 任务 | 目标 | 状态 |
 | --- | --- | --- |
+| [[docs/plan-work/active/task-0000-ai-context-infrastructure]] | Sol → Luna 的最小施工上下文、Patch Unit 与回执基础设施 | 🔵 计划已建立，尚未施工；明确排除 Task-0049/0050 |
 | [[docs/plan-work/active/task-0023-project-documentation-normalization]] | 文档职责收敛、机制文件夹建立、逐篇核验与失效链接清理 | 🟡 进行中 |
 | [[docs/plan-work/active/roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Lobby Runtime 与通用界面服务 | 🟡 收尾验收 |
 | [[docs/plan-work/active/task-0025-selector-dynamic-theme]] | Init / GlobalEnh 选择页动态主题与 Init 状态背景 | ✅ 首版已实施并验证，体验项另列 |
@@ -37,7 +38,8 @@
 | [[docs/plan-work/active/adr-0009-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建裁定 | 🟢 P0/P1 已实施；P2 延期 |
 | [[docs/plan-work/active/task-0047-contacts-story-workspace-ownership]] | 通讯录 / 故事独立 Workspace 所有权与路由迁移 | 🟢 Contacts / Story 核心迁移完成；通用 Region 与 Character 兼容清理后续收口 |
 | [[docs/plan-work/active/task-0048-workspace-theme-restructure-and-editor]] | Workspace Theme 体系重构、编辑器信息架构与主题生命周期收敛 | 🟡 P0 首轮诊断、P1 摘要卡、P2 owner 接线已完成；来源链与生命周期回归推进中 |
-| [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]] | 用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分与局部刷新 | 🔵 设计已整理，待施工 |
+| [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]] | 用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分与局部刷新 | 🟡 首轮施工完成；浮窗架构缺陷转 Task0050 |
+| [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]] | 图层 Manager/Dialog body-level overlay、编辑会话生命周期与 global 表现目标双管线收口 | 🟡 P0/P1 已完成；P2 运行时接线完成，Edge 视觉回归待补 |
 | [[docs/plan-work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
@@ -128,7 +130,8 @@
 - [[docs/plan-work/active/task-0030-button-rendering-convergence-solution]]：按钮主题渲染统一与形状参数编辑方案（🟡 部分实施：形状参数编辑已落地）。
 - [[docs/plan-work/active/task-0031-svg-button-state-color-audit]]：按钮内 SVG 状态颜色链路审查（✅ 已实施并验证；全量检查受既有基线问题影响）。
 - [[docs/plan-work/active/task-0033-system-color-layer-scope]]：控件系统颜色层职责收敛、隐式重复背景清理与全局开关解耦（🟡 规划完成，待施工）。
-- [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]]：用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分、稳定 ID、隐藏语义与局部刷新（🔵 设计已整理，待施工）。
+- [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]]：用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分、稳定 ID、隐藏语义与局部刷新（🟡 首轮施工完成；浮窗架构缺陷转 Task0050）。
+- [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]]：图层 Manager/Dialog 的 body-level overlay、编辑会话生命周期与 `global` 表现目标双管线收口（🟡 P0/P1 已完成；P2 运行时接线完成，Edge 视觉回归待补）。
 - [[docs/plan-work/completed/task-0044-ui-geometry-workspace-reshape]]：Workspace Frame 几何契约、Panel/Region/Host 边界、滚动与响应式收敛（✅ 已完成）。
 - [[docs/plan-work/completed/roadmap-0019-presentation-text-color]]：表现宿主文字颜色统一、四态解析与验收（✅ 已完成）。
 

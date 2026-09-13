@@ -95,7 +95,7 @@ export class UIHostRegistry {
 }
 
 const CORE_HOSTS: readonly UIHostDefinition[] = [
-  { id: 'global', label: '全局背景', level: 'global', kind: 'background', editable: false },
+  { id: 'global', label: '全局背景', level: 'global', kind: 'background' },
   { id: 'shell', label: '整体外壳', level: 'cluster', parent: 'global', kind: 'container' },
   { id: 'selector', label: '选择页', level: 'cluster', parent: 'shell', kind: 'container' },
   { id: 'selector.init', label: '选择页 · 世界线面', level: 'region', parent: 'selector', kind: 'container' },

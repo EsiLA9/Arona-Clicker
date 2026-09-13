@@ -18,12 +18,12 @@ const layer = (id: string | undefined, value: string) => ({ id, kind: 'solid' as
 
 describe('UserThemeLayerService', () => {
   test('匿名层进入 session 后获得稳定 ID，并同步 order', () => {
-    const draft: UserThemeDraft = { version: 1, background: [layer(undefined, '#111'), layer(undefined, '#222')], backgroundLayerOrder: ['system-color-background'] };
+    const draft: UserThemeDraft = { version: 1, presentation: { hosts: [{ id: 'global', layers: [layer(undefined, '#111'), layer(undefined, '#222')], layerOrder: ['system-color-background'] }] } };
     normalizeUserThemeLayerIds(draft);
-    const ids = draft.background!.map(item => item.id);
+    const ids = draft.presentation!.hosts![0].layers!.map(item => item.id);
     expect(ids[0]).toBeTruthy();
     expect(new Set(ids).size).toBe(2);
-    expect(draft.backgroundLayerOrder).toEqual(['system-color-background', ...ids]);
+    expect(draft.presentation?.hosts?.[0].layerOrder).toEqual(['system-color-background', ...ids]);
   });
 
   test('目标隔离、排序只改对应 order，稳定 ID 不随视觉顺序变化', () => {
@@ -48,8 +48,7 @@ describe('UserThemeLayerService', () => {
   test('没有本地目标时归一化只读，不创建全局覆盖或排序数据', () => {
     const draft: UserThemeDraft = { version: 1, presentation: { hosts: [] } };
     normalizeUserThemeLayerIds(draft);
-    expect(draft.background).toBeUndefined();
-    expect(draft.backgroundLayerOrder).toBeUndefined();
+    expect(draft.presentation?.hosts).toEqual([]);
   });
 
   test('校验器拒绝同一目标内的重复图层 ID', () => {
@@ -63,9 +62,9 @@ describe('UserThemeLayerService', () => {
     const id = addTargetLayer(draft, target, layer(undefined, '#111'));
     expect(updateTargetLayer(draft, target, id, layer('renamed', '#222'))).toBe(true);
     expect(setTargetLayerEnabled(draft, target, 'renamed', false)).toBe(true);
-    expect(draft.background?.[0]).toMatchObject({ id: 'renamed', value: '#222', enabled: false });
+    expect(draft.presentation?.hosts?.[0].layers?.[0]).toMatchObject({ id: 'renamed', value: '#222', enabled: false });
     expect(removeTargetLayer(draft, target, 'renamed')).toBe(true);
-    expect(draft.background).toEqual([]);
+    expect(draft.presentation?.hosts?.[0].layers).toEqual([]);
     expect(getTargetLayerOrder(draft, target)).toEqual(['system-color-background']);
     expect(removeTargetLayer(draft, target, 'system-color-background')).toBe(false);
   });

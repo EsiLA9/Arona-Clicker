@@ -6,7 +6,6 @@ import type { BackgroundLayerDef, ComponentPlacementDef, PresentationDecorationD
 import type { ThemeNodeName } from '../../engine/types/theme';
 import { getPresentationTargets, presentationTargetForLegacyRegion, type PresentationTargetLevel } from '../presentation-targets';
 import { getTargetLayers, type ThemeLayerTargetRef } from '../../arona-clicker/services/user-theme-layer-service';
-import { renderLayerManagerShell } from './user-theme-layer-manager';
 import {
   CORNER_RADIUS_MAX,
   CORNER_RADIUS_MIN,
@@ -101,14 +100,20 @@ export function renderUserThemeEditor(ctx: UIContext, session: UserThemeEditSess
   const presentation = draft.presentation ?? { layers: [], components: [], hosts: [] };
   const components = presentation.components ?? [];
   const sourceValue = (value: string | undefined, source: string, fallback: string): string => `<code>当前：${ctx.escapeHtml(value ?? source)} · 清除后：${ctx.escapeHtml(fallback)}</code>`;
-  return `<div class="user-theme-editor ${active ? '' : 'is-readonly'}" data-user-theme-session="${ctx.escapeHtml(session.id)}" data-theme-editor-current-section="colors" data-theme-editor-current-filter="all">
+  return stripLegacyGlobalCard(`<div class="user-theme-editor ${active ? '' : 'is-readonly'}" data-user-theme-session="${ctx.escapeHtml(session.id)}" data-theme-editor-current-section="colors" data-theme-editor-current-filter="all">
     <div class="user-theme-editor-status ${active ? 'is-active' : 'is-locked'}"><span class="status-dot"></span><span>${active ? '编辑权限：已开放' : '编辑器只读'}</span><small>${active ? `能力来源 ${sources.length} 个 · 实时预览中` : '需要 Active Affector 提供 user-theme.editor'}</small><div class="user-theme-mode-switch" role="tablist" aria-label="编辑内容类型"><button class="user-theme-mode-item is-active" type="button" role="tab" aria-selected="true" data-theme-editor-section="colors">颜色</button><button class="user-theme-mode-item" type="button" role="tab" aria-selected="false" data-theme-editor-section="layers">控件背景图层</button><button class="user-theme-mode-item" type="button" role="tab" aria-selected="false" data-theme-editor-section="components">其他内容</button></div></div>
     ${renderThemeOverview(ctx, draft, presentation, active)}
     <div class="user-theme-workspace">
       <aside class="user-theme-nav" aria-label="语义筛选器"><div class="user-theme-filter-head">当前内容</div><div data-theme-editor-filter-group="colors"><button class="user-theme-nav-item is-active" type="button" data-theme-editor-filter="all">全部颜色</button><button class="user-theme-nav-item" type="button" data-theme-editor-filter="palette">主题色</button><button class="user-theme-nav-item" type="button" data-theme-editor-filter="semantic">基础与状态语义</button><button class="user-theme-nav-item" type="button" data-theme-editor-filter="scope">作用范围</button></div><div data-theme-editor-filter-group="layers" hidden><button class="user-theme-nav-item is-active" type="button" data-theme-editor-filter="all">全部表现目标</button><button class="user-theme-nav-item" type="button" data-theme-editor-filter="background">外部背景</button><button class="user-theme-nav-item" type="button" data-theme-editor-filter="cluster">簇与区域</button><button class="user-theme-nav-item" type="button" data-theme-editor-filter="control">控件</button></div><div data-theme-editor-filter-group="components" hidden><button class="user-theme-nav-item is-active" type="button" data-theme-editor-filter="all">全部其他内容</button><button class="user-theme-nav-item" type="button" data-theme-editor-filter="placement">组件定位</button></div></aside>
       <aside class="user-theme-inspector"><section data-theme-editor-panel="colors"><div class="user-theme-section-head"><strong>颜色系统</strong><small>第 1 色默认启用；空色槽不参与 UI</small></div><div class="user-theme-palette-grid">${Array.from({ length: PALETTE_SIZE }, (_, index) => { const color = draft.palette?.[index]; const hasColor = Boolean(color); const uiEnabled = draft.paletteUiEnabled?.[index] !== false; return `<label class="user-theme-token"><span>主题色 ${index + 1}</span><input type="color" data-user-theme-palette="${index}" value="${colorValue(color)}" ${active && hasColor ? '' : 'disabled'}><button type="button" class="user-theme-token-clear" data-user-theme-palette-clear="${index}" ${active && hasColor ? '' : 'disabled'}>清空</button><button type="button" class="user-theme-palette-enable" data-user-theme-palette-enable="${index}" ${active ? '' : 'disabled'}>${hasColor ? (uiEnabled ? '参与 UI' : '仅头像') : '添加颜色'}</button><code>${ctx.escapeHtml(color ?? '无色')}</code></label>`; }).join('')}</div><div class="user-theme-token-grid">${TOKENS.map(token => `<label class="user-theme-token"><span>${TOKEN_LABELS[token]}</span><input type="color" data-user-theme-token="${token}" value="${colorValue(draft.tokens?.[token])}" ${active ? '' : 'disabled'}><button type="button" class="user-theme-token-clear" data-user-theme-token-clear="${token}" ${active ? '' : 'disabled'}>清空</button>${sourceValue(draft.tokens?.[token], tokenSource(token, draft), tokenFallbackSource(token))}</label>`).join('')}</div><div class="user-theme-section-head"><strong>语义节点覆盖</strong><small>清空后使用对应的主题色优先级</small></div><div class="user-theme-token-grid">${NODE_FIELDS.map(node => `<label class="user-theme-token"><span>${NODE_LABELS[node]}</span><input type="color" data-user-theme-node="${node}" value="${colorValue(draft.nodes?.[node])}" ${active ? '' : 'disabled'}><button type="button" class="user-theme-token-clear" data-user-theme-node-clear="${node}" ${active ? '' : 'disabled'}>清空</button>${sourceValue(draft.nodes?.[node], nodeSource(node, draft), nodeFallbackSource(node))}</label>`).join('')}</div><div class="user-theme-section-head"><strong>界面簇覆盖</strong><small>子簇未设置时继承父簇；透明度已归入簇宿主</small></div><div class="user-theme-token-grid user-theme-panel-opacity-grid">${PANEL_REGIONS.map(region => { const opacity = presentation.hosts?.find(host => host.id === region)?.opacity ?? DEFAULT_PANEL_OPACITY; return `<label class="user-theme-field"><span>${PANEL_LABELS[region]}背景透明度</span><input type="number" min="0" max="1" step="0.05" data-user-theme-panel-opacity="${region}" value="${opacity}" ${active ? '' : 'disabled'}><small>默认 ${DEFAULT_PANEL_OPACITY}；写入对应簇宿主</small></label>`; }).join('')}</div>${SCOPE_FIELDS.map(scope => `<fieldset class="user-theme-scope"><legend>${SCOPE_LABELS[scope]}</legend><div class="user-theme-token-grid">${NODE_FIELDS.map(node => `<label class="user-theme-token"><span>${NODE_LABELS[node]}</span><input type="color" data-user-theme-scope-node="${scope}" data-user-theme-scope-node-name="${node}" value="${colorValue(draft.scopes?.[scope]?.[node])}" ${active ? '' : 'disabled'}><button type="button" class="user-theme-token-clear" data-user-theme-scope-clear="${scope}" data-user-theme-scope-node-name="${node}" ${active ? '' : 'disabled'}>清空</button>${sourceValue(draft.scopes?.[scope]?.[node], scopeSource(scope, node, draft), scopeFallbackSource(scope))}</label>`).join('')}</div></fieldset>`).join('')}</section><section data-theme-editor-panel="layers" hidden><div class="user-theme-section-head"><strong>表现目标</strong><small>所有背景与控件目标平级管理；当前先显示已配置目标</small></div><div class="user-theme-target-summary">${renderTargetSummary(ctx, draft, presentation)}</div><details class="user-theme-target-card user-theme-global-card" open><summary><span>全局背景</span><span class="user-theme-target-card-actions"><small>外部背景</small></span></summary><div class="user-theme-target-meta">系统颜色层与用户背景图层，仅作用于最外部背景</div>${renderBackgroundLayers(ctx, draft.background ?? [], active)}</details><button type="button" class="user-theme-token-clear user-theme-target-add" data-user-theme-target-add ${active ? '' : 'disabled'}>加入个性化表现目标</button><div class="user-theme-target-picker" data-user-theme-target-picker hidden><div class="user-theme-target-picker-head"><strong>选择表现目标</strong><button type="button" class="user-theme-token-clear" data-user-theme-target-picker-close>关闭</button></div><div class="user-theme-target-levels">${(['cluster', 'region', 'control'] as const).map(level => `<button type="button" class="user-theme-token-clear ${level === 'region' ? 'is-active' : ''}" data-user-theme-target-level="${level}">${level === 'cluster' ? '簇' : level === 'region' ? '区域' : '控件'}</button>`).join('')}</div><div class="user-theme-target-options" data-user-theme-target-options></div></div></section><section data-theme-editor-panel="components" hidden><div class="user-theme-section-head"><strong>组件位置</strong><small>相对父区域定位</small></div>${renderComponents(ctx, components, active)}</section></aside>
     </div><div class="user-theme-editor-error" data-user-theme-error hidden></div>
-  </div>`;
+  </div>`);
+}
+
+function stripLegacyGlobalCard(html: string): string {
+  return html
+    .replace(/<details class="user-theme-target-card user-theme-global-card"[\s\S]*?<\/details>/, '')
+    .replace('<div class="user-theme-target-levels">', '<div class="user-theme-target-levels"><button type="button" class="user-theme-token-clear" data-theme-editor-target-level="global" data-user-theme-target-level="global">全局</button>');
 }
 
 function renderThemeOverview(ctx: UIContext, draft: UserThemeDraft, presentation: NonNullable<UserThemeDraft['presentation']>, active: boolean): string {
@@ -127,23 +132,23 @@ function renderBackgroundLayers(ctx: UIContext, layers: readonly BackgroundLayer
 }
 
 function renderTargetSummary(ctx: UIContext, draft: UserThemeDraft, presentation: NonNullable<UserThemeDraft['presentation']>): string {
-  const configured = (presentation.hosts ?? []).filter(host => host.id !== 'global');
+  const configured = presentation.hosts ?? [];
   const cards = configured.length ? renderHostTargets(ctx, presentation, true) : '<p class="modal-empty">暂无已配置的个性化表现目标。可从下方加入目标。</p>';
   const firstHost = configured[0];
   const initialTarget: ThemeLayerTargetRef = firstHost
     ? { kind: 'host', hostId: firstHost.id, state: hostStateForRender.get(firstHost.id) ?? 'default' }
     : { kind: 'global' };
-  return cards + renderLayerManagerShell(ctx, draft, true, initialTarget);
+  return cards;
 }
 
 export function renderPresentationTargetOptions(ctx: UIContext, draft: UserThemeDraft, level: PresentationTargetLevel): string {
-  const configured = new Set<string>(['global']);
+  const configured = new Set<string>();
   for (const layer of draft.presentation?.layers ?? []) {
     const target = presentationTargetForLegacyRegion(layer.region);
     if (target) configured.add(target.id);
   }
   for (const host of draft.presentation?.hosts ?? []) configured.add(host.id);
-  return getPresentationTargets().filter(target => target.id !== 'global' && target.level === level && target.editable !== false && !configured.has(target.id))
+  return getPresentationTargets().filter(target => target.level === level && target.editable !== false && !configured.has(target.id))
     .map(target => `<button type="button" class="user-theme-target-option" data-user-theme-target-option="${ctx.escapeHtml(target.id)}"><strong>${ctx.escapeHtml(target.label)}</strong><small>${target.parent ? `父级：${ctx.escapeHtml(target.parent)}` : '无父级'}</small></button>`).join('') || '<p class="modal-empty">该级别暂无可加入的表现目标。</p>';
 }
 

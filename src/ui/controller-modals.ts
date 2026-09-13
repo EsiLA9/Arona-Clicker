@@ -28,6 +28,7 @@ import {
   type ThemeLayerTargetRef,
 } from '../arona-clicker/services/user-theme-layer-service';
 import { renderLayerEditorForm, renderLayerManagerList, themeLayerTargetLabel } from './components/user-theme-layer-manager';
+import { cleanupUserThemeLayerOverlay, ensureUserThemeLayerOverlay } from './editor-overlay-host';
 
 /** 招募补给弹窗：卡池列表 + 抽取按钮（结果经 chat/toast 反馈）。 */
 export function openGachaModal(ctrl: UIController): void {
@@ -188,6 +189,7 @@ export function openUserThemeEditor(ctrl: UIController): void {
     }
   }
   ctrl.modal.open({ title: '用户自定主题', body: renderUserThemeEditor(createUIContext(ctrl.game), current, capability.active, capability.sources), width: 420, panelClass: 'user-theme-modal', footer: `<button class="modal-close">取消</button><button class="primary-button" data-user-theme-save ${capability.active ? '' : 'disabled'}>保存并应用</button>`, onClose: () => {
+    cleanupUserThemeLayerOverlay(current.id);
     ctrl.game.colorSystem.setUserThemePreview(null);
     ctrl.game.userThemeService.discard(current.id);
     ctrl.render();
@@ -407,14 +409,14 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const target = getPresentationTargets().find(item => item.id === button.dataset.userThemeTargetOption);
     if (!target) return;
     const hosts = presentation.hosts ?? (presentation.hosts = []);
-    hosts.push({ id: target.id, parent: target.parent, layers: [] });
+    if (!hosts.some(host => host.id === target.id)) hosts.push({ id: target.id, parent: target.parent });
     if (targetPicker) targetPicker.hidden = true;
     ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active, target.id);
   });
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-target-add]').forEach(button => button.addEventListener('click', () => {
     if (!active || !targetPicker) return;
     targetPicker.hidden = false;
-    renderTargetOptions('region');
+    renderTargetOptions('global');
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-target-picker-close]').forEach(button => button.addEventListener('click', () => {
     if (targetPicker) targetPicker.hidden = true;
@@ -459,7 +461,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
 
 function resolvedLayersForTarget(ctrl: UIController, target: ThemeLayerTargetRef): readonly BackgroundLayerDef[] {
   const runtime = ctrl.game.colorSystem.runtimeTheme();
-  if (target.kind === 'global') return runtime.background;
+  if (target.kind === 'global') return runtime.presentation?.hosts?.find(item => item.id === 'global')?.layers ?? runtime.background;
   const host = runtime.presentation?.hosts?.find(item => item.id === target.hostId);
   if (!host) return [];
   return target.state === 'default' || !target.state ? host.layers ?? [] : host.states?.[target.state]?.layers ?? host.layers ?? [];
@@ -476,13 +478,14 @@ function readTargetFromElement(element: HTMLElement): ThemeLayerTargetRef | null
 }
 
 function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean): void {
-  const shell = modal.querySelector<HTMLElement>('[data-theme-layer-manager-shell]');
+  const overlay = ensureUserThemeLayerOverlay(createUIContext(ctrl.game), session.id, session.draft, active);
+  const shell = overlay.querySelector<HTMLElement>('[data-theme-layer-manager-shell]');
   if (!shell || shell.dataset.layerManagerBound === 'true') return;
   shell.dataset.layerManagerBound = 'true';
   const ui: { target: ThemeLayerTargetRef | null; dialogTarget: ThemeLayerTargetRef | null; dialogLayerId: string | null; dialogDraft: BackgroundLayerDef | null; dirty: boolean } = { target: null, dialogTarget: null, dialogLayerId: null, dialogDraft: null, dirty: false };
   const list = shell.querySelector<HTMLElement>('[data-theme-layer-manager-list]');
-  const dialog = shell.querySelector<HTMLElement>('[data-theme-layer-editor-dialog]');
-  const form = shell.querySelector<HTMLElement>('[data-theme-layer-editor-form]');
+  const dialog = overlay.querySelector<HTMLElement>('[data-theme-layer-editor-dialog]');
+  const form = overlay.querySelector<HTMLElement>('[data-theme-layer-editor-form]');
   const title = shell.querySelector<HTMLElement>('[data-theme-layer-manager-title]');
   const source = shell.querySelector<HTMLElement>('[data-theme-layer-manager-source]');
   const reconcileList = (html: string): void => {
@@ -566,12 +569,13 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
   shell.querySelector<HTMLButtonElement>('[data-theme-layer-add]')?.addEventListener('click', () => { if (ui.target && active && !ui.dialogDraft) openDialog(ui.target, null, 'create'); });
   shell.querySelector<HTMLButtonElement>('[data-theme-layer-revert]')?.addEventListener('click', () => {
     if (!ui.target || !active || !hasLocalTarget(session.draft, ui.target) || !window.confirm('清除当前目标的本地覆盖并回退吗？')) return;
-    if (ui.target.kind === 'global') { delete session.draft.background; delete session.draft.backgroundLayerOrder; }
-    else {
-      const host = session.draft.presentation?.hosts?.find(item => item.id === ui.target?.hostId);
-      if (!host) return;
-      if ((ui.target.state ?? 'default') === 'default') { delete host.layers; delete host.layerOrder; }
-      else if (host.states) { delete host.states[ui.target.state!]; }
+    const target = ui.target;
+    const host = session.draft.presentation?.hosts?.find(item => item.id === (target.kind === 'global' ? 'global' : target.hostId));
+    if (!host) return;
+    if ((target.state ?? 'default') === 'default') { delete host.layers; delete host.layerOrder; }
+    else if (host.states) { delete host.states[target.state!]; }
+    if (!host.layers && !host.layerOrder && !host.opacity && !host.states && !host.decoration && !host.shape && !host.cornerRadius && !host.skewXDeg && !host.textColorMode) {
+      session.draft.presentation!.hosts = session.draft.presentation!.hosts?.filter(item => item !== host);
     }
     preview(); refreshList();
   });
@@ -606,7 +610,7 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     } else addTargetLayer(session.draft, ui.dialogTarget, ui.dialogDraft);
     preview(); closeDialog(); refreshList();
   });
-  document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.dialogDraft) { event.stopPropagation(); closeDialog(); } }, true);
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.dialogDraft && overlay.isConnected) { event.stopPropagation(); closeDialog(); } }, true);
 }
 
 function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean, openHostId?: string): void {

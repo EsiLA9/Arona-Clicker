@@ -145,7 +145,7 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
     }
   });
 
-  test('global 表现宿主只收束到外部背景，不参与内容宿主树', () => {
+  test('global 表现宿主保存在统一 presentation 宿主树中', () => {
     const g = fresh();
     g.enhancements.purchaseEnhancement(USER_THEME);
     const session = g.userThemeService.beginEdit();
@@ -157,8 +157,8 @@ describe('UserThemeService：Affector 能力闸门与全局保存', () => {
         },
       });
       expect(result.ok).toBe(true);
-      expect(g.state.customThemes?.['user:theme:default']?.background).toEqual([{ id: 'outer', kind: 'solid', value: '#ffffff' }]);
-      expect(g.state.customThemes?.['user:theme:default']?.presentation?.hosts).toEqual([]);
+      expect(g.state.customThemes?.['user:theme:default']?.background).toBeUndefined();
+      expect(g.state.customThemes?.['user:theme:default']?.presentation?.hosts).toEqual([{ id: 'global', layers: [{ id: 'outer', kind: 'solid', value: '#ffffff' }], layerOrder: ['system-color-background', 'outer'] }]);
     }
   });
 

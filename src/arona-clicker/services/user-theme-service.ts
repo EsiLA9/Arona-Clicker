@@ -24,14 +24,6 @@ function normalizePresentationDraft(draft: UserThemeDraft): void {
   const presentation = draft.presentation ?? (draft.presentation = { layers: [], components: [] });
   const hosts = [...(presentation.hosts ?? [])];
   const byId = new Map(hosts.map(host => [host.id, host]));
-  const globalHost = byId.get('global');
-  if (globalHost) {
-    draft.background = [...(draft.background ?? []), ...(globalHost.layers ?? []).map(layer => ({ ...layer }))];
-    draft.backgroundLayerOrder = [...(draft.backgroundLayerOrder ?? []), ...(globalHost.layerOrder ?? [])];
-    const index = hosts.indexOf(globalHost);
-    if (index >= 0) hosts.splice(index, 1);
-    byId.delete('global');
-  }
   const hostFor = (id: string) => {
     const existing = byId.get(id);
     if (existing) return existing;

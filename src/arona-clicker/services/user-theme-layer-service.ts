@@ -27,14 +27,15 @@ function stateOf(target: ThemeLayerTargetRef): PresentationHostState {
 }
 
 function hostOf(draft: UserThemeDraft, target: ThemeLayerTargetRef, create = false): PresentationHostDef | undefined {
-  if (target.kind !== 'host' || !target.hostId) return undefined;
+  const hostId = target.kind === 'global' ? 'global' : target.hostId;
+  if (!hostId) return undefined;
   const hosts = draft.presentation?.hosts ?? (create
     ? ((draft.presentation ??= { hosts: [] }).hosts ??= [])
     : undefined);
   if (!hosts) return undefined;
-  let host = hosts.find(item => item.id === target.hostId);
+  let host = hosts.find(item => item.id === hostId);
   if (!host && create) {
-    host = { id: target.hostId, layers: [] };
+    host = { id: hostId };
     hosts.push(host);
   }
   return host;
@@ -52,39 +53,28 @@ function stateDefOf(host: PresentationHostDef, state: PresentationHostState, cre
 }
 
 export function getTargetLayers(draft: UserThemeDraft, target: ThemeLayerTargetRef): readonly BackgroundLayerDef[] {
-  if (target.kind === 'global') return draft.background ?? [];
   const host = hostOf(draft, target);
   return stateDefOf(host!, stateOf(target))?.layers ?? [];
 }
 
 export function getTargetLayerOrder(draft: UserThemeDraft, target: ThemeLayerTargetRef): readonly string[] {
-  if (target.kind === 'global') return draft.backgroundLayerOrder ?? [];
   const host = hostOf(draft, target);
   return stateDefOf(host!, stateOf(target))?.layerOrder ?? [];
 }
 
 export function hasLocalTarget(draft: UserThemeDraft, target: ThemeLayerTargetRef): boolean {
-  if (target.kind === 'global') return draft.background !== undefined;
   const host = hostOf(draft, target);
   if (!host) return false;
   return stateOf(target) === 'default' ? host.layers !== undefined : host.states?.[stateOf(target)] !== undefined;
 }
 
 function setLayers(draft: UserThemeDraft, target: ThemeLayerTargetRef, layers: BackgroundLayerDef[]): void {
-  if (target.kind === 'global') {
-    draft.background = layers;
-    return;
-  }
   const host = hostOf(draft, target, true)!;
   const stateDef = stateDefOf(host, stateOf(target), true)!;
   stateDef.layers = layers;
 }
 
 function setOrder(draft: UserThemeDraft, target: ThemeLayerTargetRef, order: string[]): void {
-  if (target.kind === 'global') {
-    draft.backgroundLayerOrder = order;
-    return;
-  }
   const host = hostOf(draft, target, true)!;
   const stateDef = stateDefOf(host, stateOf(target), true)!;
   stateDef.layerOrder = order;

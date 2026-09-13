@@ -83,8 +83,11 @@ export function renderLayerManagerShell(ctx: UIContext, draft: UserThemeDraft, a
     <header class="theme-layer-manager-header" data-theme-layer-manager-header><div><span class="eyebrow">LAYER MANAGER</span><strong data-theme-layer-manager-title>${initialTarget ? esc(ctx, themeLayerTargetLabel(initialTarget)) : '选择表现目标'}</strong><small data-theme-layer-manager-source>${initialTarget && hasLocalTarget(draft, initialTarget) ? '当前目标的本地覆盖' : '只读解析；实际修改才建立本地覆盖'}</small></div><button type="button" class="user-theme-token-clear" data-theme-layer-manager-close>关闭</button></header>
     <div class="theme-layer-manager-toolbar"><button type="button" data-theme-layer-add ${active ? '' : 'disabled'}>新增图层</button><button type="button" data-theme-layer-revert ${active ? '' : 'disabled'}>清除本地覆盖</button></div>
     <div class="theme-layer-manager-list" data-theme-layer-manager-list>${renderLayerManagerList(ctx, draft, initialTarget, active, initialTarget ? [] : [])}</div>
-    <div class="theme-layer-editor-dialog" data-theme-layer-editor-dialog hidden role="dialog" aria-modal="false" aria-label="图层编辑"><div class="theme-layer-editor-dialog-head"><strong data-theme-layer-dialog-title>编辑图层</strong><button type="button" data-theme-layer-dialog-close aria-label="关闭图层编辑">×</button></div><div class="theme-layer-editor-form" data-theme-layer-editor-form></div><div class="theme-layer-editor-dialog-foot"><button type="button" data-theme-layer-dialog-cancel>取消</button><button type="button" class="primary-button" data-theme-layer-dialog-save ${active ? '' : 'disabled'}>保存图层</button></div></div>
   </section>`;
+}
+
+export function renderLayerEditorDialogShell(active: boolean): string {
+  return `<section class="theme-layer-editor-dialog" data-theme-layer-editor-dialog hidden role="dialog" aria-modal="true" aria-label="图层编辑"><div class="theme-layer-editor-dialog-head"><strong data-theme-layer-dialog-title>编辑图层</strong><button type="button" data-theme-layer-dialog-close aria-label="关闭图层编辑">×</button></div><div class="theme-layer-editor-form" data-theme-layer-editor-form></div><div class="theme-layer-editor-dialog-foot"><button type="button" data-theme-layer-dialog-cancel>取消</button><button type="button" class="primary-button" data-theme-layer-dialog-save ${active ? '' : 'disabled'}>保存图层</button></div></section>`;
 }
 
 export function renderLayerEditorForm(ctx: UIContext, layer: BackgroundLayerDef, active: boolean): string {

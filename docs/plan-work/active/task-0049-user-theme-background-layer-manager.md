@@ -1,8 +1,10 @@
 # task-0049 — 用户自定主题背景图层管理器
 
-状态：🟡 代码施工与工程验收完成，待 Edge 视觉回归
+状态：🟡 首轮代码施工完成，但浮窗架构验收未通过；剩余收口转入 [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]]
 
 > 本任务将 [[docs/plan-work/newPlan/15-user-theme-background-layer-manager]] 的方案草案转为可执行施工任务。目标是把用户主题 Inspector 中的图层内联展开编辑，改造成“目标总按钮 → 单目标 Layer Manager → 单层 Layer Editor Dialog”。具体主题解析、背景安全约束和 UI 刷新事实仍以源码与 `docs/docs-828/` 为准。
+
+> 复核结论（2026-09-13）：本任务的稳定 ID、隐藏语义、materialize、Manager/Dialog 首版和局部刷新基线已经落地；但首版把 Manager/Dialog 放在 `user-theme-inspector` 的 DOM 子树内，未形成真正的 body-level overlay。该结构性问题以及 `global` 的双管线统一不再伪装为 Edge 视觉回归项，统一转入 Task0050。
 
 核查基准：2026-09-13 当前工作树。
 
@@ -384,7 +386,7 @@ Manager 第一版可以继续使用上下按钮，不要求拖拽；但排序后
 - [x] 按 `kind` 显示相关字段，类型切换集中经过 `normalizeLayerForKind()`；
 - [x] 新增流程先创建 Dialog draft，只有 Save 才 `addTargetLayer()`；Cancel 不产生 mutation 或 materialize；
 - [x] 实现 Dialog draft、Save/Cancel、脏状态提示、焦点回收和 Escape 规则；
-- [x] 首版使用主题弹窗内部 overlay，不替换父级 `ModalManager` 会话。
+- [x] 首版使用主题弹窗内部 overlay，不替换父级 `ModalManager` 会话（首版位置仍是 Inspector 后代，结构性缺陷由 Task0050 P0 修正）。
 
 ### P3：局部刷新与旧路径清理
 
@@ -408,7 +410,7 @@ Manager 第一版可以继续使用上下按钮，不要求拖拽；但排序后
 
 ### P4：集成验收与任务收口
 
-- [ ] 完成全局背景、面板、按钮、Tab、卡片/气泡和状态图层的 Edge 视觉回归；
+- [ ] 完成全局背景、面板、按钮、Tab、卡片/气泡和状态图层的 Edge 视觉回归；需先完成 Task0050 P0 overlay 修正；
 - [x] 完成跨目标、跨状态、主题切换、取消/保存、删除回退和隐藏合成色的代码级回归；
 - [x] 未发现当前 resolved/local 模型不足；未在本任务中隐式扩展 Parent/Cluster；
 - [x] 回写本任务验证结果；相关 Roadmap 状态和新策划草案无需改变生命周期。
@@ -488,10 +490,11 @@ npm run build
 - [x] `npm run check:architecture` 通过；
 - [x] `npm run build` 通过；
 - [ ] Edge 视觉回归未完成：当前 CUA 浏览器枚举在多次重试与重置后仍返回 `Browsers: nodeRepl.fetch request failed`，无法取得可验证的游戏页面状态。
+- [x] 复核发现首版 Manager/Dialog 的挂载位置仍错误：`renderTargetSummary()` 将 shell 拼入 Inspector，Controller 从父级 modal 查询 shell，不能视为已完成的浮窗验收；详见 [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]]。
 
 ### 剩余工作
 
-剩余唯一验收项是 Edge 当前游戏页面的视觉回归；代码、测试、类型、架构和构建验收已完成。恢复 Edge 自动化通道后，应补做该项并将任务状态改为完成。
+剩余工作不再只有 Edge 视觉回归：首先必须完成 Task0050 P0 的 body-level overlay 与生命周期修正；随后完成 Task0050 P1/P2 对 `global` 表现目标和用户主题背景双管线的收口，最后再补 Edge 视觉回归。Task0049 的已完成切片保留为首轮施工记录，不回退或重复施工。
 
 ## 十、相关路由
 
