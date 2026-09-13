@@ -34,5 +34,10 @@ describe('用户主题编辑器：主题摘要', () => {
     expect(html).toContain('当前：#fedcba · 清除后：主题色 2（无色时回退主题色 1）');
     expect(html).toContain('当前：#00ff00 · 清除后：继承根主题节点');
     expect(html).toContain('实时预览中');
+    expect((html.match(/data-theme-layer-manager-shell/g) ?? [])).toHaveLength(1);
+    expect((html.match(/data-theme-layer-editor-dialog/g) ?? [])).toHaveLength(1);
+    expect(html).toContain('data-theme-layer-manager-target-host="centerPanel"');
+    expect(html).not.toContain('data-user-theme-background-field');
+    expect(html).not.toContain('data-user-theme-host-field');
   });
 });

@@ -37,6 +37,7 @@
 | [[docs/plan-work/active/adr-0009-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建裁定 | 🟢 P0/P1 已实施；P2 延期 |
 | [[docs/plan-work/active/task-0047-contacts-story-workspace-ownership]] | 通讯录 / 故事独立 Workspace 所有权与路由迁移 | 🟢 Contacts / Story 核心迁移完成；通用 Region 与 Character 兼容清理后续收口 |
 | [[docs/plan-work/active/task-0048-workspace-theme-restructure-and-editor]] | Workspace Theme 体系重构、编辑器信息架构与主题生命周期收敛 | 🟡 P0 首轮诊断、P1 摘要卡、P2 owner 接线已完成；来源链与生命周期回归推进中 |
+| [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]] | 用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分与局部刷新 | 🔵 设计已整理，待施工 |
 | [[docs/plan-work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
@@ -127,6 +128,7 @@
 - [[docs/plan-work/active/task-0030-button-rendering-convergence-solution]]：按钮主题渲染统一与形状参数编辑方案（🟡 部分实施：形状参数编辑已落地）。
 - [[docs/plan-work/active/task-0031-svg-button-state-color-audit]]：按钮内 SVG 状态颜色链路审查（✅ 已实施并验证；全量检查受既有基线问题影响）。
 - [[docs/plan-work/active/task-0033-system-color-layer-scope]]：控件系统颜色层职责收敛、隐式重复背景清理与全局开关解耦（🟡 规划完成，待施工）。
+- [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]]：用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分、稳定 ID、隐藏语义与局部刷新（🔵 设计已整理，待施工）。
 - [[docs/plan-work/completed/task-0044-ui-geometry-workspace-reshape]]：Workspace Frame 几何契约、Panel/Region/Host 边界、滚动与响应式收敛（✅ 已完成）。
 - [[docs/plan-work/completed/roadmap-0019-presentation-text-color]]：表现宿主文字颜色统一、四态解析与验收（✅ 已完成）。
 

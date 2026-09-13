@@ -11,10 +11,23 @@ import type { ShopWorkspaceState } from './components/app-shell';
 import { renderEnhancementManager } from './components/enhancements';
 import { nodeSource, renderPresentationHostTarget, renderPresentationTargetOptions, renderUserThemeEditor, scopeNodesFor, scopeSource, setPresentationHostState, tokenSource } from './components/user-theme-editor';
 import type { UIController } from './controller';
-import type { BackgroundLayerDef, ComponentPlacementDef, PresentationHostState, PresentationHostStateDef, PresentationLayerDef, PresentationRegion, PresentationTextColorMode } from '../engine/types/theme';
+import type { BackgroundLayerDef, ComponentPlacementDef, PresentationHostState, PresentationHostStateDef, PresentationRegion, PresentationTextColorMode } from '../engine/types/theme';
 import { getPresentationTargets } from './presentation-targets';
 import { refreshPresentationHostElements } from './controller-theme';
 import { CORNER_RADIUS_MAX, CORNER_RADIUS_MIN, SKEW_X_DEG_MAX, SKEW_X_DEG_MIN } from './presentation-config';
+import {
+  addTargetLayer,
+  getTargetLayers,
+  hasLocalTarget,
+  materializeTargetLayers,
+  moveTargetLayer,
+  removeTargetLayer,
+  setTargetLayerEnabled,
+  targetRefKey,
+  updateTargetLayer,
+  type ThemeLayerTargetRef,
+} from '../arona-clicker/services/user-theme-layer-service';
+import { renderLayerEditorForm, renderLayerManagerList, themeLayerTargetLabel } from './components/user-theme-layer-manager';
 
 /** 招募补给弹窗：卡池列表 + 抽取按钮（结果经 chat/toast 反馈）。 */
 export function openGachaModal(ctrl: UIController): void {
@@ -160,14 +173,6 @@ export function openUserThemeEditor(ctrl: UIController): void {
   }
   const capability = ctrl.game.userThemeService.capability();
   const current = session as import('../arona-clicker/services/user-theme-service').UserThemeEditSession;
-  if (!current.draft.background && runtimeTheme.background.length > 0) {
-    current.draft.background = runtimeTheme.background.filter(layer => layer.id !== 'system-color-background').map(layer => ({ ...layer }));
-  }
-  current.draft.background?.forEach((layer, index) => { if (!layer.id) layer.id = `user-background-${index}`; });
-  if (!current.draft.backgroundLayerOrder) {
-    const order = runtimeTheme.background.map(layer => layer.id).filter((id): id is string => Boolean(id));
-    if (order.length > 0) current.draft.backgroundLayerOrder = order;
-  }
   if (capability.active) {
     ctrl.game.colorSystem.setUserThemePreview(current.draft);
     ctrl.render();
@@ -391,67 +396,6 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const code = button.parentElement?.querySelector('code'); if (code) code.textContent = scopeSource(scope, node, draft);
     ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
   }));
-  const updateBackgroundField = (field: HTMLInputElement | HTMLSelectElement) => {
-    if (!active || !draft.background) return;
-    const index = Number(field.dataset.userThemeBackgroundIndex);
-    const key = field.dataset.userThemeBackgroundField as 'kind' | 'id' | 'value' | 'color' | 'gradientStart' | 'gradientEnd' | 'gradientAngle' | 'opacity' | 'position' | 'size' | 'repeat' | 'blendMode' | 'attachment' | 'scale' | 'rotation';
-    const layer = draft.background[index]; if (!layer) return;
-    if (key === 'opacity') layer.opacity = Math.max(0, Math.min(1, Number(field.value) || 0));
-    else if (key === 'scale') layer.scale = Math.max(0.05, Math.min(8, Number(field.value) || 1));
-    else if (key === 'rotation') layer.rotation = Number(field.value) || 0;
-    else if (key === 'id') layer.id = field.value || undefined;
-    else if (key === 'color') layer.value = field.value;
-    else if (key === 'gradientStart' || key === 'gradientEnd' || key === 'gradientAngle') {
-      const current = layer.value.match(/^linear-gradient\(\s*(-?\d+(?:\.\d+)?)deg,\s*(#[0-9a-f]{3,8}),\s*(#[0-9a-f]{3,8})\)$/i);
-      const angle = key === 'gradientAngle' ? Math.max(0, Math.min(360, Number(field.value) || 0)) : Number(current?.[1] ?? 135);
-      const start = key === 'gradientStart' ? field.value : (current?.[2] ?? '#6b8cff');
-      const end = key === 'gradientEnd' ? field.value : (current?.[3] ?? '#dbeafe');
-      layer.value = `linear-gradient(${angle}deg, ${start}, ${end})`;
-    }
-    else if (key === 'kind') {
-      const previousKind = layer.kind;
-      const nextKind = field.value as typeof layer.kind;
-      layer.kind = nextKind;
-      if (nextKind === 'empty') layer.value = '';
-      else if (previousKind === 'empty' || !layer.value) {
-        layer.value = nextKind === 'solid' ? '#6b8cff' : nextKind === 'gradient' ? 'linear-gradient(135deg, #6b8cff, #dbeafe)' : (ctrl.game.pics.list?.()[0]?.id ?? '');
-      }
-      ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
-      return;
-    }
-    else layer[key] = field.value as never;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
-  };
-  modal.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-user-theme-background-field]').forEach(field => {
-    field.addEventListener(field instanceof HTMLSelectElement ? 'change' : 'input', () => updateBackgroundField(field));
-  });
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-background-remove]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !draft.background) return;
-    draft.background.splice(Number(button.dataset.userThemeBackgroundRemove), 1);
-    if (draft.background.length === 0) delete draft.background;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-background-add]').forEach(button => button.addEventListener('click', () => {
-    if (!active) return;
-    const layers = draft.background ?? (draft.background = []);
-    let id = `user-background-${layers.length + 1}`;
-    while (layers.some(layer => layer.id === id)) id = `user-background-${Number(id.split('-').pop()) + 1}`;
-    layers.push({ id, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
-    draft.backgroundLayerOrder = [...(draft.backgroundLayerOrder ?? ['system-color-background']), id];
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-region-layer-add]').forEach(button => button.addEventListener('click', () => {
-    if (!active) return;
-    const region = button.dataset.userThemeRegionLayerAdd as PresentationRegion;
-    const hosts = presentation.hosts ?? (presentation.hosts = []);
-    const host = hosts.find(item => item.id === region) ?? { id: region, parent: undefined, layers: [] };
-    if (!hosts.includes(host)) hosts.push(host);
-    const layers = host.layers ?? (host.layers = []);
-    const count = layers.length + 1;
-    layers.push({ id: `${region}-layer-${count}`, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
-    host.layerOrder = layers.map(layer => layer.id).filter((id): id is string => Boolean(id));
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
-  }));
   const targetPicker = modal.querySelector<HTMLElement>('[data-user-theme-target-picker]');
   const targetOptions = modal.querySelector<HTMLElement>('[data-user-theme-target-options]');
   const renderTargetOptions = (level: import('./presentation-targets').PresentationTargetLevel) => {
@@ -479,46 +423,6 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (!active) return;
     modal.querySelectorAll('[data-user-theme-target-level]').forEach(item => item.classList.toggle('is-active', item === button));
     renderTargetOptions(button.dataset.userThemeTargetLevel as import('./presentation-targets').PresentationTargetLevel);
-  }));
-  const moveLayer = (index: number, direction: -1 | 1, layers: PresentationLayerDef[] | BackgroundLayerDef[]) => {
-    const target = index + direction;
-    if (!layers[index] || target < 0 || target >= layers.length) return;
-    [layers[index], layers[target]] = [layers[target], layers[index]];
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
-  };
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-layer-move]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.layers) return;
-    moveLayer(Number(button.dataset.userThemeLayerMove), button.dataset.direction === 'up' ? -1 : 1, presentation.layers);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-background-move]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !draft.background) return;
-    const index = Number(button.dataset.userThemeBackgroundMove);
-    const layerIds = draft.background.map((layer, itemIndex) => layer.id ?? `user-background-${itemIndex}`);
-    const order = [...(draft.backgroundLayerOrder ?? ['system-color-background', ...layerIds])];
-    for (const id of ['system-color-background', ...layerIds]) if (!order.includes(id)) order.push(id);
-    const current = order.indexOf(layerIds[index]);
-    const target = current + (button.dataset.direction === 'up' ? 1 : -1);
-    if (current < 0 || target < 0 || target >= order.length) return;
-    [order[current], order[target]] = [order[target], order[current]];
-    draft.backgroundLayerOrder = order;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
-  }));
-  modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-system-layer-move]').forEach(button => button.addEventListener('click', () => {
-    if (!active) return;
-    const layerIds = (draft.background ?? []).map((layer, itemIndex) => layer.id ?? `user-background-${itemIndex}`);
-    const ids = [...(draft.backgroundLayerOrder ?? ['system-color-background', ...layerIds])];
-    for (const id of ['system-color-background', ...layerIds]) if (!ids.includes(id)) ids.push(id);
-    const index = ids.indexOf('system-color-background');
-    if (index < 0) return;
-    const target = index + (button.dataset.userThemeSystemLayerMove === 'up' ? 1 : -1);
-    if (target < 0 || target >= ids.length) return;
-    [ids[index], ids[target]] = [ids[target], ids[index]];
-    draft.backgroundLayerOrder = ids;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
-  }));
-  modal.querySelectorAll<HTMLInputElement>('[data-user-theme-layer-opacity]').forEach(input => input.addEventListener('input', () => {
-    if (!active || !presentation.layers) return;
-    const layer = presentation.layers[Number(input.dataset.userThemeLayerOpacity)]; if (layer) { layer.opacity = Math.max(0, Math.min(1, Number(input.value) || 0)); ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); }
   }));
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-panel-opacity]').forEach(input => input.addEventListener('input', () => {
     if (!active) return;
@@ -550,6 +454,159 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     ctrl.render();
   }));
   modal.querySelectorAll<HTMLElement>('[data-user-theme-host-card]').forEach(card => bindPresentationHostCard(ctrl, modal, session, active, card));
+  bindUserThemeLayerManager(ctrl, modal, session, active);
+}
+
+function resolvedLayersForTarget(ctrl: UIController, target: ThemeLayerTargetRef): readonly BackgroundLayerDef[] {
+  const runtime = ctrl.game.colorSystem.runtimeTheme();
+  if (target.kind === 'global') return runtime.background;
+  const host = runtime.presentation?.hosts?.find(item => item.id === target.hostId);
+  if (!host) return [];
+  return target.state === 'default' || !target.state ? host.layers ?? [] : host.states?.[target.state]?.layers ?? host.layers ?? [];
+}
+
+function readTargetFromElement(element: HTMLElement): ThemeLayerTargetRef | null {
+  const kind = element.dataset.themeLayerManagerTargetKind;
+  if (kind === 'global') return { kind: 'global' };
+  if (kind === 'host' && element.dataset.themeLayerManagerTargetHost) {
+    const state = element.dataset.themeLayerManagerTargetState;
+    return { kind: 'host', hostId: element.dataset.themeLayerManagerTargetHost, state: state === 'active' || state === 'inactive' || state === 'disabled' ? state : 'default' };
+  }
+  return null;
+}
+
+function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean): void {
+  const shell = modal.querySelector<HTMLElement>('[data-theme-layer-manager-shell]');
+  if (!shell || shell.dataset.layerManagerBound === 'true') return;
+  shell.dataset.layerManagerBound = 'true';
+  const ui: { target: ThemeLayerTargetRef | null; dialogTarget: ThemeLayerTargetRef | null; dialogLayerId: string | null; dialogDraft: BackgroundLayerDef | null; dirty: boolean } = { target: null, dialogTarget: null, dialogLayerId: null, dialogDraft: null, dirty: false };
+  const list = shell.querySelector<HTMLElement>('[data-theme-layer-manager-list]');
+  const dialog = shell.querySelector<HTMLElement>('[data-theme-layer-editor-dialog]');
+  const form = shell.querySelector<HTMLElement>('[data-theme-layer-editor-form]');
+  const title = shell.querySelector<HTMLElement>('[data-theme-layer-manager-title]');
+  const source = shell.querySelector<HTMLElement>('[data-theme-layer-manager-source]');
+  const reconcileList = (html: string): void => {
+    if (!list) return;
+    const template = document.createElement('div');
+    template.innerHTML = html;
+    const nextNodes = [...template.children] as HTMLElement[];
+    const existing = new Map<string, HTMLElement>();
+    list.querySelectorAll<HTMLElement>('[data-theme-layer-row][data-theme-layer-key]').forEach(row => existing.set(row.dataset.themeLayerKey!, row));
+    const focused = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    const focusedRow = focused?.closest<HTMLElement>('[data-theme-layer-row]');
+    const focusedKey = focusedRow?.dataset.themeLayerKey;
+    const focusedAction = focused?.dataset.themeLayerEdit ? 'edit' : focused?.dataset.themeLayerToggle ? 'toggle' : focused?.dataset.themeLayerMove ? 'move' : focused?.dataset.themeLayerRemove ? 'remove' : undefined;
+    nextNodes.forEach((next, index) => {
+      const key = next.dataset.themeLayerKey;
+      const node = key ? existing.get(key) ?? next : next;
+      const current = list.children[index];
+      if (current !== node) list.insertBefore(node, current ?? null);
+      if (node !== next && node.innerHTML !== next.innerHTML) node.innerHTML = next.innerHTML;
+    });
+    while (list.children.length > nextNodes.length) list.lastElementChild?.remove();
+    if (focusedKey && focusedAction) {
+      const focusedRow = [...list.querySelectorAll<HTMLElement>('[data-theme-layer-row]')].find(row => row.dataset.themeLayerKey === focusedKey);
+      focusedRow?.querySelector<HTMLElement>(`[data-theme-layer-${focusedAction}]`)?.focus();
+    }
+  };
+  const refreshList = (): void => {
+    if (!list) return;
+    reconcileList(renderLayerManagerList(createUIContext(ctrl.game), session.draft, ui.target, active, ui.target ? resolvedLayersForTarget(ctrl, ui.target) : []));
+  };
+  const openManager = (target: ThemeLayerTargetRef): void => {
+    if (ui.dialogDraft && ui.dirty) {
+      if (!window.confirm('当前图层有未保存修改，放弃并切换吗？')) return;
+      closeDialog();
+    }
+    ui.target = target;
+    shell.hidden = false;
+    if (title) title.textContent = themeLayerTargetLabel(target);
+    if (source) source.textContent = hasLocalTarget(session.draft, target) ? '当前目标的本地覆盖' : '当前有效回退；实际修改才建立本地覆盖';
+    refreshList();
+  };
+  const closeDialog = (): void => {
+    if (ui.dialogDraft && ui.dirty && !window.confirm('放弃当前图层修改吗？')) return;
+    ui.dialogTarget = null; ui.dialogLayerId = null; ui.dialogDraft = null; ui.dirty = false;
+    if (dialog) dialog.hidden = true;
+    if (form) form.innerHTML = '';
+    shell.querySelector<HTMLButtonElement>('[data-theme-layer-manager-close]')?.focus();
+  };
+  const openDialog = (target: ThemeLayerTargetRef, layerId: string | null, mode: 'create' | 'edit'): void => {
+    const sourceLayers = hasLocalTarget(session.draft, target) ? getTargetLayers(session.draft, target) : resolvedLayersForTarget(ctrl, target);
+    const existing = layerId ? sourceLayers.find(layer => layer.id === layerId) : undefined;
+    const draft = existing ? structuredClone(existing) : { kind: 'solid' as const, value: '#6b8cff', opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' as const };
+    ui.dialogTarget = target; ui.dialogLayerId = layerId; ui.dialogDraft = draft; ui.dirty = false;
+    if (dialog) dialog.hidden = false;
+    shell.querySelector<HTMLElement>('[data-theme-layer-dialog-title]')?.replaceChildren(document.createTextNode(mode === 'create' ? '新增图层' : '编辑图层'));
+    if (form) form.innerHTML = renderLayerEditorForm(createUIContext(ctrl.game), draft, active);
+    form?.querySelector<HTMLElement>('[data-theme-layer-dialog-field="id"]')?.focus();
+  };
+  const preview = (): void => { ctrl.game.colorSystem.setUserThemePreview(session.draft); ctrl.refreshTheme(); if (ui.target?.kind === 'host' && ui.target.hostId) refreshPresentationHostElements(ctrl, [ui.target.hostId]); else refreshPresentationHostElements(ctrl); };
+  modal.querySelectorAll<HTMLElement>('[data-theme-layer-manager-target-kind]').forEach(button => button.addEventListener('click', event => {
+    event.preventDefault();
+    const target = readTargetFromElement(button);
+    if (target) openManager(target);
+  }));
+  shell.querySelector<HTMLButtonElement>('[data-theme-layer-manager-close]')?.addEventListener('click', () => { if (!ui.dialogDraft || !ui.dirty) shell.hidden = true; else if (window.confirm('放弃当前图层修改并关闭管理器吗？')) { closeDialog(); shell.hidden = true; } });
+  shell.addEventListener('click', event => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!button || !ui.target || !active) return;
+    const id = button.dataset.themeLayerEdit ?? button.dataset.themeLayerToggle ?? button.dataset.themeLayerMove ?? button.dataset.themeLayerRemove;
+    if (button.dataset.themeLayerSystemToggle) { session.draft.systemColorLayerIgnored = !session.draft.systemColorLayerIgnored; preview(); refreshList(); return; }
+    if (!id) return;
+    if (ui.dialogDraft && ui.dirty) return;
+    const layers = hasLocalTarget(session.draft, ui.target) ? getTargetLayers(session.draft, ui.target) : resolvedLayersForTarget(ctrl, ui.target);
+    if (button.dataset.themeLayerEdit) { openDialog(ui.target, id, 'edit'); return; }
+    if (!hasLocalTarget(session.draft, ui.target)) materializeTargetLayers(session.draft, ui.target, layers);
+    if (button.dataset.themeLayerToggle) setTargetLayerEnabled(session.draft, ui.target, id, button.textContent?.trim() === '显示');
+    else if (button.dataset.themeLayerMove) moveTargetLayer(session.draft, ui.target, id, button.dataset.direction === 'up' ? 'up' : 'down');
+    else if (button.dataset.themeLayerRemove) { if (!window.confirm('删除这个图层吗？')) return; removeTargetLayer(session.draft, ui.target, id); }
+    preview(); refreshList();
+  });
+  shell.querySelector<HTMLButtonElement>('[data-theme-layer-add]')?.addEventListener('click', () => { if (ui.target && active && !ui.dialogDraft) openDialog(ui.target, null, 'create'); });
+  shell.querySelector<HTMLButtonElement>('[data-theme-layer-revert]')?.addEventListener('click', () => {
+    if (!ui.target || !active || !hasLocalTarget(session.draft, ui.target) || !window.confirm('清除当前目标的本地覆盖并回退吗？')) return;
+    if (ui.target.kind === 'global') { delete session.draft.background; delete session.draft.backgroundLayerOrder; }
+    else {
+      const host = session.draft.presentation?.hosts?.find(item => item.id === ui.target?.hostId);
+      if (!host) return;
+      if ((ui.target.state ?? 'default') === 'default') { delete host.layers; delete host.layerOrder; }
+      else if (host.states) { delete host.states[ui.target.state!]; }
+    }
+    preview(); refreshList();
+  });
+  shell.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-close]')?.addEventListener('click', closeDialog);
+  shell.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-cancel]')?.addEventListener('click', closeDialog);
+  form?.addEventListener('input', event => {
+    const field = (event.target as HTMLElement).closest<HTMLInputElement | HTMLSelectElement>('[data-theme-layer-dialog-field]');
+    if (!field || !ui.dialogDraft) return;
+    ui.dirty = true;
+    const key = field.dataset.themeLayerDialogField;
+    if (key === 'id') ui.dialogDraft.id = field.value || undefined;
+    else if (key === 'kind') {
+      const kind = field.value as BackgroundLayerDef['kind']; ui.dialogDraft.kind = kind;
+      if (kind === 'empty') ui.dialogDraft.value = '';
+      else if (!ui.dialogDraft.value) ui.dialogDraft.value = kind === 'solid' ? '#6b8cff' : kind === 'gradient' ? 'linear-gradient(135deg, #6b8cff, #dbeafe)' : (ctrl.game.pics.list?.()[0]?.id ?? '');
+      if (form) form.innerHTML = renderLayerEditorForm(createUIContext(ctrl.game), ui.dialogDraft, active);
+    } else if (key === 'enabled') ui.dialogDraft.enabled = (field as HTMLInputElement).checked ? undefined : false;
+    else if (key === 'opacity') ui.dialogDraft.opacity = Math.max(0, Math.min(1, Number(field.value) || 0));
+    else if (key === 'scale') ui.dialogDraft.scale = Math.max(0.05, Math.min(8, Number(field.value) || 1));
+    else if (key === 'color') ui.dialogDraft.value = field.value;
+    else if (key === 'value') ui.dialogDraft.value = field.value;
+    else if (key === 'gradientStart' || key === 'gradientEnd' || key === 'gradientAngle') {
+      const match = /linear-gradient\(\s*(-?\d+(?:\.\d+)?)deg,\s*(#[0-9a-f]{3,8}),\s*(#[0-9a-f]{3,8})\)/i.exec(ui.dialogDraft.value);
+      const angle = key === 'gradientAngle' ? field.value : match?.[1] ?? '135'; const start = key === 'gradientStart' ? field.value : match?.[2] ?? '#6b8cff'; const end = key === 'gradientEnd' ? field.value : match?.[3] ?? '#dbeafe'; ui.dialogDraft.value = `linear-gradient(${angle}deg, ${start}, ${end})`;
+    } else if (key === 'position' || key === 'size' || key === 'repeat' || key === 'blendMode') ui.dialogDraft[key] = field.value as never;
+  });
+  shell.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-save]')?.addEventListener('click', () => {
+    if (!ui.dialogTarget || !ui.dialogDraft || !active) return;
+    if (ui.dialogLayerId) {
+      if (!hasLocalTarget(session.draft, ui.dialogTarget)) materializeTargetLayers(session.draft, ui.dialogTarget, resolvedLayersForTarget(ctrl, ui.dialogTarget));
+      updateTargetLayer(session.draft, ui.dialogTarget, ui.dialogLayerId, ui.dialogDraft);
+    } else addTargetLayer(session.draft, ui.dialogTarget, ui.dialogDraft);
+    preview(); closeDialog(); refreshList();
+  });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.dialogDraft) { event.stopPropagation(); closeDialog(); } }, true);
 }
 
 function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean, openHostId?: string): void {
@@ -561,13 +618,6 @@ function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: imp
     ?? 'colors';
   const scrollTop = inspector?.scrollTop ?? 0;
   const openTargets = new Set([...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-card]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostCard));
-  const openLayers = new Set([...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-layer]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostLayer));
-  const openBackgroundLayers = new Map<string, boolean>();
-  for (const item of [...modal.querySelectorAll<HTMLDetailsElement>('.user-theme-layer-collapsible:not([data-user-theme-host-layer])')]) {
-    const key = userThemeBackgroundLayerKey(item, session.draft);
-    if (key) openBackgroundLayers.set(key, item.open);
-  }
-  const focused = document.activeElement instanceof HTMLElement ? { host: focusedHostField(document.activeElement), section: document.activeElement.closest<HTMLElement>('[data-theme-editor-panel]')?.dataset.themeEditorPanel } : undefined;
   const body = modal.querySelector<HTMLElement>('.modal-body');
   if (!body) return;
   const capability = ctrl.game.userThemeService.capability();
@@ -583,29 +633,6 @@ function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: imp
   nextInspector?.querySelectorAll<HTMLDetailsElement>('[data-user-theme-host-card]').forEach(item => {
     item.open = item.dataset.userThemeHostCard === openHostId || openTargets.has(item.dataset.userThemeHostCard);
   });
-  nextInspector?.querySelectorAll<HTMLDetailsElement>('[data-user-theme-host-layer]').forEach(item => { item.open = openLayers.has(item.dataset.userThemeHostLayer); });
-  nextInspector?.querySelectorAll<HTMLDetailsElement>('.user-theme-layer-collapsible:not([data-user-theme-host-layer])').forEach(item => {
-    const key = userThemeBackgroundLayerKey(item, session.draft);
-    item.open = key ? (openBackgroundLayers.get(key) ?? true) : true;
-  });
-  if (focused?.host) {
-    const field = nextInspector?.querySelector<HTMLElement>(`[data-user-theme-host-field="${focused.host.key}"][data-user-theme-host-id="${focused.host.id}"][data-user-theme-host-index="${focused.host.index}"]`);
-    field?.focus();
-  }
-}
-
-function userThemeBackgroundLayerKey(item: HTMLDetailsElement, draft: import('../arona-clicker/types/user-theme').UserThemeDraft): string | undefined {
-  if (item.querySelector('[data-user-theme-system-color-ignore]')) return 'system-color-background';
-  const field = item.querySelector<HTMLElement>('[data-user-theme-background-field]');
-  const index = Number(field?.dataset.userThemeBackgroundIndex);
-  if (!Number.isInteger(index) || index < 0) return undefined;
-  return draft.background?.[index]?.id ?? `user-background-${index}`;
-}
-
-function focusedHostField(element: HTMLElement): { id: string; index: string; key: string } | undefined {
-  const field = element.closest<HTMLElement>('[data-user-theme-host-field]');
-  if (!field?.dataset.userThemeHostId || !field.dataset.userThemeHostIndex || !field.dataset.userThemeHostField) return undefined;
-  return { id: field.dataset.userThemeHostId, index: field.dataset.userThemeHostIndex, key: field.dataset.userThemeHostField };
 }
 
 function refreshPresentationHostCard(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean, hostId: string): void {
@@ -613,12 +640,10 @@ function refreshPresentationHostCard(ctrl: UIController, modal: Element, session
   const host = session.draft.presentation?.hosts?.find(item => item.id === hostId);
   if (!card || !host) return;
   const cardOpen = (card as HTMLDetailsElement).open;
-  const openLayers = new Set([...card.querySelectorAll<HTMLElement>('[data-user-theme-host-layer]')].filter(item => (item as HTMLDetailsElement).open).map(item => item.dataset.userThemeHostLayer));
   card.outerHTML = renderPresentationHostTarget(createUIContext(ctrl.game), host, active);
   const nextCard = [...modal.querySelectorAll<HTMLElement>('[data-user-theme-host-card]')].find(item => item.dataset.userThemeHostCard === hostId) as HTMLDetailsElement | undefined;
   if (!nextCard) return;
   nextCard.open = cardOpen;
-  nextCard.querySelectorAll<HTMLDetailsElement>('[data-user-theme-host-layer]').forEach(item => { item.open = openLayers.has(item.dataset.userThemeHostLayer); });
   bindPresentationHostCard(ctrl, modal, session, active, nextCard);
 }
 
@@ -750,73 +775,6 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     ctrl.game.colorSystem.setUserThemePreview(draft);
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
-  }));
-  card.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-user-theme-host-field]').forEach(field => field.addEventListener(field instanceof HTMLSelectElement ? 'change' : 'input', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === hostId);
-    const state = host ? hostState() : 'default';
-    const target = host ? stateDef(host, state, state !== 'default') : undefined;
-    const layer = target?.layers?.[Number(field.dataset.userThemeHostIndex)];
-    if (!host || !layer) return;
-    const key = field.dataset.userThemeHostField;
-    if (key === 'opacity') layer.opacity = Math.max(0, Math.min(1, Number(field.value) || 0));
-    else if (key === 'scale') layer.scale = Math.max(0.05, Math.min(8, Number(field.value) || 1));
-    else if (key === 'rotation') layer.rotation = Number(field.value) || 0;
-    else if (key === 'id') layer.id = field.value || undefined;
-    else if (key === 'color') layer.value = field.value;
-    else if (key === 'gradientStart' || key === 'gradientEnd' || key === 'gradientAngle') {
-      const current = layer.value.match(/^linear-gradient\(\s*(-?\d+(?:\.\d+)?)deg,\s*(#[0-9a-f]{3,8}),\s*(#[0-9a-f]{3,8})\)$/i);
-      const angle = key === 'gradientAngle' ? Math.max(0, Math.min(360, Number(field.value) || 0)) : Number(current?.[1] ?? 135);
-      const start = key === 'gradientStart' ? field.value : (current?.[2] ?? '#6b8cff');
-      const end = key === 'gradientEnd' ? field.value : (current?.[3] ?? '#dbeafe');
-      layer.value = `linear-gradient(${angle}deg, ${start}, ${end})`;
-    } else if (key === 'kind') {
-      const previousKind = layer.kind;
-      layer.kind = field.value as typeof layer.kind;
-      if (layer.kind === 'empty') layer.value = '';
-      else if (previousKind === 'empty' || !layer.value) layer.value = layer.kind === 'solid' ? '#6b8cff' : layer.kind === 'gradient' ? 'linear-gradient(135deg, #6b8cff, #dbeafe)' : (ctrl.game.pics.list?.()[0]?.id ?? '');
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostElements(ctrl, [hostId]); refreshPresentationHostCard(ctrl, modal, session, active, hostId); return;
-    } else layer[key as 'value' | 'attachment' | 'position' | 'size' | 'repeat' | 'blendMode'] = field.value as never;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
-    refreshPresentationHostElements(ctrl, [hostId]);
-  }));
-  card.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-add]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === hostId);
-    if (!host) return;
-    const state = hostState();
-    const target = stateDef(host, state, state !== 'default');
-    if (!target) return;
-    const stateLayers = target.layers ?? (target.layers = []);
-    stateLayers.push({ id: `${host.id.replace(/\./g, '-')}-${state}-layer-${stateLayers.length + 1}`, kind: 'empty', value: '', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostElements(ctrl, [hostId]); refreshPresentationHostCard(ctrl, modal, session, active, hostId);
-  }));
-  card.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-move]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === hostId);
-    const state = host ? hostState() : 'default';
-    const target = host ? stateDef(host, state, false) : undefined;
-    const index = Number(button.dataset.userThemeHostIndex);
-    const layerId = target?.layers?.[index]?.id ?? `${hostId}-layer-${index}`;
-    if (!host || !target?.layers?.[index]) return;
-    if (state === 'default') reorderHostLayerOrder(host, layerId, button.dataset.direction as 'up' | 'down');
-    else {
-      const stateHost = { ...host, layers: target.layers, layerOrder: target.layerOrder } as typeof host;
-      reorderHostLayerOrder(stateHost, layerId, button.dataset.direction as 'up' | 'down');
-      target.layerOrder = stateHost.layerOrder;
-    }
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostElements(ctrl, [hostId]); refreshPresentationHostCard(ctrl, modal, session, active, hostId);
-  }));
-  card.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-remove]').forEach(button => button.addEventListener('click', () => {
-    if (!active || !presentation.hosts) return;
-    const host = presentation.hosts.find(item => item.id === hostId);
-    const index = Number(button.dataset.userThemeHostIndex);
-    const state = host ? hostState() : 'default';
-    const target = host ? stateDef(host, state, false) : undefined;
-    if (!host || !target?.layers?.[index]) return;
-    target.layers.splice(index, 1);
-    target.layerOrder = target.layers.map(layer => layer.id).filter((id): id is string => Boolean(id));
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshPresentationHostElements(ctrl, [hostId]); refreshPresentationHostCard(ctrl, modal, session, active, hostId);
   }));
   card.querySelectorAll<HTMLButtonElement>('[data-user-theme-host-delete]').forEach(button => button.addEventListener('click', () => {
     if (!active || !presentation.hosts) return;

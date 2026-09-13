@@ -34,6 +34,7 @@ export interface ColorLayerInput {
   value: string;
   opacity?: number;
   blendMode?: string;
+  enabled?: boolean;
 }
 
 export interface BackgroundInkOptions {
@@ -80,6 +81,7 @@ export function compositeBackgroundInk(
   let current: Rgba = (options.base ? toRgba(options.base) : undefined) ?? { r: 0, g: 0, b: 0, a: 0 };
   let used = 0;
   for (const layer of layers) {
+    if (layer.enabled === false) continue;
     if (ignore && layer.id !== undefined && ignore.has(layer.id)) continue;
     const color = layerColorOf(layer, options.lookup);
     if (!color) continue;
@@ -108,7 +110,7 @@ function signatureOf(layers: readonly ColorLayerInput[], options: BackgroundInkO
   const base = typeof options.base === 'string' ? options.base : options.base ? toHex(options.base) + '@' + options.base.a.toFixed(3) : '';
   const ignore = options.ignoreLayerIds?.join(',') ?? '';
   return JSON.stringify([
-    layers.map(layer => [layer.id ?? '', layer.value, layer.opacity ?? null, layer.blendMode ?? null]),
+    layers.map(layer => [layer.id ?? '', layer.value, layer.opacity ?? null, layer.blendMode ?? null, layer.enabled !== false]),
     lookupKey,
     base,
     ignore,

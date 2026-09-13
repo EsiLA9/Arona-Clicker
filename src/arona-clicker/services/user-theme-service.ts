@@ -5,6 +5,7 @@ import type { UserThemeDraft, UserThemeState, UserThemeToken } from '../types/us
 import type { PlayerState } from '../types/state';
 import type { PicQueryPort } from '../contracts/pic-query';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
+import { normalizeUserThemeLayerIds } from './user-theme-layer-service';
 
 export type UserThemeErrorCode = 'capability-unavailable' | 'invalid-draft' | 'revision-conflict' | 'session-not-found';
 export interface UserThemeError { ok: false; code: UserThemeErrorCode; message: string; issues?: string[] }
@@ -132,12 +133,16 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
     if (host.decoration !== undefined) validateDecoration(host.decoration, host.id, issues);
     if ((host.layers?.length ?? 0) > 24) issue(issues, `控件宿主图层最多 24 个：${host.id}`);
     if ((host.layerOrder?.length ?? 0) > 32) issue(issues, `控件宿主排序最多 32 项：${host.id}`);
+    const hostLayerIds = new Set<string>();
     for (const layer of host.layers ?? []) {
       if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法控件图层 ID：${host.id}.${layer.id}`);
+      if (layer.id && hostLayerIds.has(layer.id)) issue(issues, `控件宿主图层 ID 重复：${host.id}.${layer.id}`);
+      if (layer.id) hostLayerIds.add(layer.id);
       if (layer.kind !== 'empty' && layer.kind !== 'solid' && layer.kind !== 'gradient' && layer.kind !== 'image') issue(issues, `非法控件图层类型：${host.id}`);
       if (layer.value.length > 256 || (layer.kind !== 'image' && /[<>;]|url\s*\(|expression\s*\(/i.test(layer.value))) issue(issues, `非法控件图层值：${host.id}`);
       if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `控件图片资源不存在：${host.id}.${layer.value}`);
       if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法控件图层透明度：${host.id}`);
+      if (layer.enabled !== undefined && typeof layer.enabled !== 'boolean') issue(issues, `非法控件图层隐藏标记：${host.id}`);
     }
     for (const [state, stateDef] of Object.entries(host.states ?? {})) {
       if (state !== 'default' && state !== 'active' && state !== 'inactive' && state !== 'disabled') issue(issues, `非法控件状态：${host.id}.${state}`);
@@ -145,12 +150,16 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
       if ((stateDef?.layerOrder?.length ?? 0) > 32) issue(issues, `控件状态排序最多 32 项：${host.id}.${state}`);
       if (stateDef?.textColorMode !== undefined && !TEXT_COLOR_MODES.has(stateDef.textColorMode)) issue(issues, `非法状态文字颜色模式：${host.id}.${state}`);
       if (stateDef?.decoration !== undefined) validateDecoration(stateDef.decoration, `${host.id}.${state}`, issues);
+      const stateLayerIds = new Set<string>();
       for (const layer of stateDef?.layers ?? []) {
         if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法控件状态图层 ID：${host.id}.${state}.${layer.id}`);
+        if (layer.id && stateLayerIds.has(layer.id)) issue(issues, `控件状态图层 ID 重复：${host.id}.${state}.${layer.id}`);
+        if (layer.id) stateLayerIds.add(layer.id);
         if (layer.kind !== 'empty' && layer.kind !== 'solid' && layer.kind !== 'gradient' && layer.kind !== 'image') issue(issues, `非法控件状态图层类型：${host.id}.${state}`);
         if (layer.value.length > 256 || (layer.kind !== 'image' && /[<>;]|url\s*\(|expression\s*\(/i.test(layer.value))) issue(issues, `非法控件状态图层值：${host.id}.${state}`);
         if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `控件状态图片资源不存在：${host.id}.${state}.${layer.value}`);
         if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法控件状态图层透明度：${host.id}.${state}`);
+        if (layer.enabled !== undefined && typeof layer.enabled !== 'boolean') issue(issues, `非法控件状态图层隐藏标记：${host.id}.${state}`);
       }
     }
   }
@@ -167,6 +176,7 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
     if (layer.kind === 'image' && !layer.value.includes(':')) issue(issues, `图片必须使用已注册 Pic 引用：${layer.value}`);
     if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `图片资源不存在：${layer.value}`);
     if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法图层透明度：${layer.id ?? '(anonymous)'}`);
+    if (layer.enabled !== undefined && typeof layer.enabled !== 'boolean') issue(issues, `非法图层隐藏标记：${layer.id ?? '(anonymous)'}`);
   }
   for (const layer of background) {
     if (layer.id && (layer.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(layer.id))) issue(issues, `非法背景图层 ID：${layer.id}`);
@@ -176,6 +186,12 @@ function validateDraft(draft: UserThemeDraft, pics?: PicQueryPort): string[] {
     if (layer.kind === 'image' && !layer.value.includes(':')) issue(issues, `图片必须使用已注册 Pic 引用：${layer.value}`);
     if (layer.kind === 'image' && pics && !pics.defOf(layer.value)) issue(issues, `图片资源不存在：${layer.value}`);
     if (layer.opacity !== undefined && (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) issue(issues, `非法背景图层透明度：${layer.id ?? '(anonymous)'}`);
+    if (layer.enabled !== undefined && typeof layer.enabled !== 'boolean') issue(issues, `非法背景图层隐藏标记：${layer.id ?? '(anonymous)'}`);
+  }
+  const backgroundIds = new Set<string>();
+  for (const layer of background) {
+    if (layer.id && backgroundIds.has(layer.id)) issue(issues, `全局背景图层 ID 重复：${layer.id}`);
+    if (layer.id) backgroundIds.add(layer.id);
   }
   for (const component of components) {
     if (!component.id || component.id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(component.id)) issue(issues, `非法组件 ID：${component.id}`);
@@ -226,6 +242,7 @@ export class UserThemeService {
       ? draftOfStoredTheme(stored)
       : { version: 1, palette: [initialPalette?.[0] ?? SYSTEM_DEFAULT_PRIMARY], paletteUiEnabled: [true] };
     normalizePresentationDraft(draft);
+    normalizeUserThemeLayerIds(draft);
     const session: UserThemeEditSession = { id: `user-theme-${++this.sequence}`, baseRevision: current.revision, draft, readonly: !capability.active };
     this.sessions.set(session.id, session);
     return session;
@@ -237,6 +254,7 @@ export class UserThemeService {
     if (!this.capability().active || session.readonly) return { ok: false, code: 'capability-unavailable', message: '没有 Active Affector 提供用户主题编辑能力' };
     if (this.get().revision !== session.baseRevision) return { ok: false, code: 'revision-conflict', message: '主题已被其他编辑会话更新，请重新载入' };
     normalizePresentationDraft(draft);
+    normalizeUserThemeLayerIds(draft);
     const issues = validateDraft(draft, this.pics);
     if (issues.length) return { ok: false, code: 'invalid-draft', message: '用户主题校验失败', issues };
     this.mutations.setUserTheme(draft, this.getState().userTheme ? this.get().enabled : true);
@@ -254,3 +272,17 @@ export class UserThemeService {
 }
 
 export { validateDraft as validateUserThemeDraft };
+export {
+  addTargetLayer,
+  getTargetLayerOrder,
+  getTargetLayers,
+  hasLocalTarget,
+  materializeTargetLayers,
+  moveTargetLayer,
+  normalizeUserThemeLayerIds,
+  removeTargetLayer,
+  setTargetLayerEnabled,
+  targetRefKey,
+  updateTargetLayer,
+} from './user-theme-layer-service';
+export type { ThemeLayerDirection, ThemeLayerTargetRef } from './user-theme-layer-service';

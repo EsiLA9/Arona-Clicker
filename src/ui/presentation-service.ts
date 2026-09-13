@@ -39,6 +39,7 @@ export interface PresentationViewLayer {
   attachment: string;
   scale?: number;
   rotation?: number;
+  enabled?: boolean;
 }
 
 export interface ResolvedAssetView {
@@ -140,6 +141,7 @@ function imageView(ref: string, pics: PicQueryPort): ResolvedAssetView | undefin
 }
 
 function layerView(layer: BackgroundLayerDef, value: string): PresentationViewLayer | undefined {
+  if (layer.enabled === false) return undefined;
   if (layer.kind === 'empty') return { kind: layer.kind, value: 'transparent', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed', scale: 1, rotation: 0 };
   if (layer.kind !== 'image' && !SAFE_VALUE.test(value.trim())) return undefined;
   return {
@@ -154,6 +156,7 @@ function layerView(layer: BackgroundLayerDef, value: string): PresentationViewLa
     attachment: layer.attachment && SAFE_ATTACHMENT.has(layer.attachment) ? layer.attachment : 'fixed',
     scale: Math.max(0.05, Math.min(8, typeof layer.scale === 'number' && Number.isFinite(layer.scale) ? layer.scale : 1)),
     rotation: typeof layer.rotation === 'number' && Number.isFinite(layer.rotation) ? ((layer.rotation % 360) + 360) % 360 : 0,
+    enabled: true,
   };
 }
 

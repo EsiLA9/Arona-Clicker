@@ -86,6 +86,16 @@ describe('PresentationService', () => {
     expect(view.host('leftPanel').layers.map(layer => layer.id)).toEqual(['panel']);
   });
 
+  test('宿主与状态的隐藏层保留定义但不进入运行时 View', () => {
+    const view = buildPresentationView({ hosts: [{
+      id: 'header.button',
+      layers: [{ id: 'hidden', kind: 'solid', value: '#111', enabled: false }, { id: 'visible', kind: 'solid', value: '#fff' }],
+      states: { active: { layers: [{ id: 'state-hidden', kind: 'solid', value: '#222', enabled: false }, { id: 'state-visible', kind: 'solid', value: '#acf' }] } },
+    }] }, pics);
+    expect(view.host('header.button').layers.map(layer => layer.id)).toEqual(['visible']);
+    expect(view.host('header.button').states?.get('active')?.layers.map(layer => layer.id)).toEqual(['state-visible']);
+  });
+
   test('控件宿主解析状态图层并保留状态顺序', () => {
     const view = buildPresentationView({ hosts: [{
       id: 'header.button',

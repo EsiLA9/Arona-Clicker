@@ -105,6 +105,8 @@ export interface BackgroundLayerDef {
   scale?: number;
   /** @label 旋转角度 */
   rotation?: number;
+  /** @label 是否参与渲染；缺省为 true，false 表示保留数据但隐藏。 */
+  enabled?: boolean;
 }
 
 export interface ThemeBackgroundVariant {

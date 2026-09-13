@@ -119,6 +119,10 @@ describe('BackgroundColor 多图层合成', () => {
     expect(withSystem.color).not.toBe('#ffffff');
   });
 
+  test('BC-09b enabled=false 不参与代表色合成', () => {
+    expect(compositeBackgroundInk([{ value: '#fff', enabled: false }, { value: '#101828' }])!.color).toBe('#101828');
+  });
+
   test('BC-10 base 表达「宿主背景叠在全局背景之上」', () => {
     const hostOnly = compositeBackgroundInk([{ value: '#ffffff', opacity: 0.5 }])!;
     const overGlobal = compositeBackgroundInk([{ value: '#ffffff', opacity: 0.5 }], { base: '#000000' })!;

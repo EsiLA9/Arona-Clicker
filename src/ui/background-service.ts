@@ -17,6 +17,7 @@ export interface BackgroundViewLayer {
   attachment: string;
   scale?: number;
   rotation?: number;
+  enabled?: boolean;
 }
 
 export interface BackgroundDecorationView {
@@ -87,6 +88,7 @@ export function buildBackgroundView(
 ): BackgroundView {
   const fallback = 'linear-gradient(135deg, ' + (tokens['bg'] ?? 'var(--canvas)') + ' 0%, ' + (tokens['bgAlt'] ?? 'var(--panel-light)') + ' 100%)';
   const resolved = (layers ?? []).flatMap(layer => {
+    if (layer.enabled === false) return [];
     const value = resolveValue(layer, pics);
     if (!value) return [];
     return [{
@@ -109,7 +111,7 @@ export function buildBackgroundView(
   // 只有拿到「作用域真实变量表」才暴露 lookup：token 反推只对 :root 且无节点覆盖时成立，
   // 拿它去判别的 var() 图层会得出与渲染相反的文字色（选择页顶栏深底深字即此因）。
   const themeVars = vars ? themeVarLookup(tokens, palette, vars) : undefined;
-  const inkLayers = viewLayers.map(layer => ({ id: layer.id, value: layer.value, opacity: layer.opacity, blendMode: layer.blendMode }));
+  const inkLayers = viewLayers.map(layer => ({ id: layer.id, value: layer.value, opacity: layer.opacity, blendMode: layer.blendMode, enabled: layer.enabled }));
   return {
     systemColorLayerIgnored,
     layers: viewLayers,
@@ -144,7 +146,7 @@ export function renderBackground(view: BackgroundView, className = 'console-back
       view.skewXDeg !== undefined ? `--presentation-skew-x:${view.skewXDeg}deg` : '',
     ].filter(Boolean).join(';')) + '\"'
     : '';
-  const renderLayers = (layers: readonly BackgroundViewLayer[], kind: 'base' | 'hover', zOffset = 0) => layers.filter(layer => !(view.systemColorLayerIgnored && layer.id === SYSTEM_COLOR_LAYER_ID)).map((layer, index) =>
+  const renderLayers = (layers: readonly BackgroundViewLayer[], kind: 'base' | 'hover', zOffset = 0) => layers.filter(layer => layer.enabled !== false && !(view.systemColorLayerIgnored && layer.id === SYSTEM_COLOR_LAYER_ID)).map((layer, index) =>
     '<div class=\"console-background-layer' + (kind === 'hover' ? ' presentation-host-hover-layer' : '') + '\" data-background-layer=\"' + index + '\" data-presentation-layer-kind=\"' + kind + '\" style=\"' + escapeHtmlAttribute('z-index:' + (zOffset + index + 1) + ';background:' + layer.value + ';opacity:' + layer.opacity + ';background-position:' + layer.position + ';background-size:' + layer.size + ';background-repeat:' + layer.repeat + ';background-blend-mode:' + layer.blendMode + ';background-attachment:' + layer.attachment + ';transform:scale(' + (layer.scale ?? 1) + ') rotate(' + (layer.rotation ?? 0) + 'deg)') + '\"></div>',
   ).join('');
   const renderDecoration = (decoration: BackgroundDecorationView | undefined, kind: 'base' | 'hover') => decoration && className !== 'console-background'

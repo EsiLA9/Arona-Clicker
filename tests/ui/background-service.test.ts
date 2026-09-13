@@ -84,6 +84,15 @@ describe('BackgroundService', () => {
     expect(html).toContain('background:#456');
   });
 
+  test('enabled=false 保留在定义中但不生成绘制节点', () => {
+    const view = buildBackgroundView([
+      { id: 'hidden', kind: 'solid', value: '#111', enabled: false },
+      { id: 'visible', kind: 'solid', value: '#456' },
+    ], pics);
+    expect(view.layers.map(layer => layer.id)).toEqual(['visible']);
+    expect(renderBackground(view)).not.toContain('#111');
+  });
+
   test('最外层背景宿主挂在 body 直系，不随 #app 页面重建', () => {
     document.body.innerHTML = '<div id="app"><div class="console-background"></div></div>';
     const view = buildBackgroundView([{ kind: 'solid', value: '#123' }], pics);

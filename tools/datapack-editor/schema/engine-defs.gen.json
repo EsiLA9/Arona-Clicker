@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T05:08:36.612Z",
+  "generatedAt": "2026-09-13T08:48:33.164Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -384,6 +384,13 @@
                     "kind": "float",
                     "tsType": "number",
                     "label": "旋转角度"
+                  },
+                  {
+                    "key": "enabled",
+                    "required": false,
+                    "kind": "bool",
+                    "tsType": "boolean",
+                    "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -492,6 +499,13 @@
                           "kind": "hand",
                           "tsType": "number",
                           "label": "旋转角度"
+                        },
+                        {
+                          "key": "enabled",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "boolean",
+                          "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                         }
                       ],
                       "tsType": "BackgroundLayerDef"
@@ -1208,6 +1222,13 @@
                     "kind": "float",
                     "tsType": "number",
                     "label": "旋转角度"
+                  },
+                  {
+                    "key": "enabled",
+                    "required": false,
+                    "kind": "bool",
+                    "tsType": "boolean",
+                    "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -1316,6 +1337,13 @@
                           "kind": "hand",
                           "tsType": "number",
                           "label": "旋转角度"
+                        },
+                        {
+                          "key": "enabled",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "boolean",
+                          "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                         }
                       ],
                       "tsType": "BackgroundLayerDef"
@@ -2091,6 +2119,13 @@
                     "kind": "float",
                     "tsType": "number",
                     "label": "旋转角度"
+                  },
+                  {
+                    "key": "enabled",
+                    "required": false,
+                    "kind": "bool",
+                    "tsType": "boolean",
+                    "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -2199,6 +2234,13 @@
                           "kind": "hand",
                           "tsType": "number",
                           "label": "旋转角度"
+                        },
+                        {
+                          "key": "enabled",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "boolean",
+                          "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                         }
                       ],
                       "tsType": "BackgroundLayerDef"
@@ -2912,6 +2954,13 @@
                     "kind": "float",
                     "tsType": "number",
                     "label": "旋转角度"
+                  },
+                  {
+                    "key": "enabled",
+                    "required": false,
+                    "kind": "bool",
+                    "tsType": "boolean",
+                    "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -3020,6 +3069,13 @@
                           "kind": "hand",
                           "tsType": "number",
                           "label": "旋转角度"
+                        },
+                        {
+                          "key": "enabled",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "boolean",
+                          "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                         }
                       ],
                       "tsType": "BackgroundLayerDef"
@@ -4397,6 +4453,13 @@
                     "kind": "float",
                     "tsType": "number",
                     "label": "旋转角度"
+                  },
+                  {
+                    "key": "enabled",
+                    "required": false,
+                    "kind": "bool",
+                    "tsType": "boolean",
+                    "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -4505,6 +4568,13 @@
                           "kind": "hand",
                           "tsType": "number",
                           "label": "旋转角度"
+                        },
+                        {
+                          "key": "enabled",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "boolean",
+                          "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                         }
                       ],
                       "tsType": "BackgroundLayerDef"
@@ -5853,6 +5923,13 @@
                     "kind": "float",
                     "tsType": "number",
                     "label": "旋转角度"
+                  },
+                  {
+                    "key": "enabled",
+                    "required": false,
+                    "kind": "bool",
+                    "tsType": "boolean",
+                    "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -5961,6 +6038,13 @@
                           "kind": "hand",
                           "tsType": "number",
                           "label": "旋转角度"
+                        },
+                        {
+                          "key": "enabled",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "boolean",
+                          "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                         }
                       ],
                       "tsType": "BackgroundLayerDef"
@@ -6610,6 +6694,13 @@
                     "kind": "float",
                     "tsType": "number",
                     "label": "旋转角度"
+                  },
+                  {
+                    "key": "enabled",
+                    "required": false,
+                    "kind": "bool",
+                    "tsType": "boolean",
+                    "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -6718,6 +6809,13 @@
                           "kind": "hand",
                           "tsType": "number",
                           "label": "旋转角度"
+                        },
+                        {
+                          "key": "enabled",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "boolean",
+                          "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                         }
                       ],
                       "tsType": "BackgroundLayerDef"
@@ -7505,6 +7603,13 @@
                     "kind": "float",
                     "tsType": "number",
                     "label": "旋转角度"
+                  },
+                  {
+                    "key": "enabled",
+                    "required": false,
+                    "kind": "bool",
+                    "tsType": "boolean",
+                    "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                   }
                 ],
                 "tsType": "BackgroundLayerDef"
@@ -7613,6 +7718,13 @@
                           "kind": "hand",
                           "tsType": "number",
                           "label": "旋转角度"
+                        },
+                        {
+                          "key": "enabled",
+                          "required": false,
+                          "kind": "hand",
+                          "tsType": "boolean",
+                          "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
                         }
                       ],
                       "tsType": "BackgroundLayerDef"
@@ -8718,6 +8830,7 @@
     "StatsState",
     "StoryChoice",
     "StoryCompletionState",
+    "StoryCursorCollection",
     "StoryCursorSnapshot",
     "StoryDef",
     "StoryEffectPort",
