@@ -407,7 +407,7 @@ npm run check:architecture
 - [[docs/plan-work/active/roadmap-0011-ui-component-layer-backgrounds]]
 - [[docs/plan-work/active/roadmap-0018-ui-host-registry]]
 - [[docs/plan-work/active/roadmap-0020-service-workspaces]]
-- [[docs/plan-work/active/task-0037-panel-tabs-region-structure]]
+- [[docs/plan-work/completed/task-0037-panel-tabs-region-structure]]
 - [[docs/plan-work/active/task-0039-spot-shop-transaction-system]]
 - [[docs/plan-work/active/task-0047-contacts-story-workspace-ownership]]：F5–F7 中与 Contacts / Story 路由、Host 和响应式契约相关的优先后续施工。
 - `src/ui/components/app-shell.ts`

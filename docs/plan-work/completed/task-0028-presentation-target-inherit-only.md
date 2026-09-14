@@ -49,3 +49,10 @@
 - `npx tsc --noEmit`：通过。
 - `npm run check:architecture`：通过。
 - 相关文件的 `git diff --check`：通过；仓库全量检查仍会报告既有 `adr-0006-ui-background-layering.md` 文档尾随空格。
+
+## 归档结果
+
+- 当前知识已蒸馏至：[[docs/docs-828/02-modules/ui]]（空宿主回退与首层覆盖语义）。
+- 设计理由保留于：本文。
+- 后续工作：无；普通表现宿主继续遵循同一回退规则。
+- 准出结论：原任务范围已完成，测试、类型检查和架构检查结果已明确。

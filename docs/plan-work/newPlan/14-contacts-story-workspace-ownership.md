@@ -501,7 +501,7 @@ Story 导航、选择 Entry、确认播放、owner 切换
 - [[docs/plan-work/newPlan/13-unified-workspace-refresh-boundaries]]
 - [[docs/plan-work/active/task-0040-unified-workspace-frame]]
 - [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]
-- [[docs/plan-work/active/task-0043-topbar-settings-workspace]]
+- [[docs/plan-work/completed/task-0043-topbar-settings-workspace]]
 - [[docs/plan-work/active/task-0045-ui-incremental-update-workspace-isolation]]
 - [[docs/plan-work/active/roadmap-0015-ui-dom-recalculation]]
 - [[docs/plan-work/active/roadmap-0018-ui-host-registry]]

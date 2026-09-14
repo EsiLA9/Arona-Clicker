@@ -35,7 +35,7 @@
 | active | [[docs/plan-work/active/task-0025-selector-dynamic-theme]] | Init / GlobalEnh 选择页场景主题、背景变体与快照状态投影 |
 | active | [[docs/plan-work/active/task-0033-system-color-layer-scope]] | 系统颜色层职责收敛与重复背景清理 |
 | completed | [[docs/plan-work/completed/roadmap-0019-presentation-text-color]] | 表现宿主文字颜色 |
-| docs/newPlan | [[docs/plan-work/docs/newPlan/06-meta-loop-and-ui]] | 元循环与空间化 UI |
+| docs/newPlan | [[docs/plan-work/newPlan/06-meta-loop-and-ui]] | 元循环与空间化 UI |
 
 ## 当前判断
 

@@ -10,7 +10,7 @@ import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, 
 import type { Datapack } from '../data-services/contracts/datapack';
 import type { SpotDef } from '../data-services/contracts/world';
 import { RuntimeContentCoordinator } from './services/runtime-content-coordinator';
-import { SpotContentService } from './services/spot-content-service';
+import { RuntimeDefinitionEditor, SpotContentService } from './services/spot-content-service';
 import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult } from './contracts/runtime-content';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
@@ -29,6 +29,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   private activeDatapacks: readonly Datapack[] = [];
   private runtimeMod: RuntimeModDraft | null = null;
   private readonly runtimeContent: RuntimeContentCoordinator;
+  readonly runtimeDefinitionEditor: RuntimeDefinitionEditor;
 
   constructor(options: AronaClickerRuntimeOptions = {}) {
     super({ ...options, saveCodec: options.saveCodec ?? buildSaveData });
@@ -51,6 +52,11 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       setModMetadata: metadata => this.setRuntimeModMetadata(metadata),
       applyMutation: mutation => this.applyRuntimeSpotMutation(mutation),
     }));
+    this.runtimeDefinitionEditor = new RuntimeDefinitionEditor({
+      getState: () => this.getRuntimeContentState(),
+      getEditingModName: () => this.runtimeMod?.modName ?? this.getRuntimeContentState().modName,
+      applyMutation: mutation => this.applyRuntimeSpotMutation(mutation),
+    });
   }
 
   override init(datapacks: Datapack[], options = {}): void {

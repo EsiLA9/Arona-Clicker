@@ -12,14 +12,14 @@
 
 | 文件 | 主题 |
 | --- | --- |
-| [[docs/plan-work/docs/newPlan/01-ownership-and-development]] | Character / Variant / Development、拥有状态、好感与培养分离 |
-| [[docs/plan-work/docs/newPlan/02-unified-acquisition]] | Acquisition / Offer、统一获取入口与重复处理 |
-| [[docs/plan-work/docs/newPlan/03-spot-shop]] | Spot 商店、Offer、库存、刷新与 Reveal |
-| [[docs/plan-work/docs/newPlan/04-recruitment-v2]] | Pool / Banner 解耦、Recruitment Point 与 Spark |
-| [[docs/plan-work/docs/newPlan/05-fragments-and-currency]] | Eleph、确定性角色获取、货币控制与 World Token |
-| [[docs/plan-work/docs/newPlan/06-meta-loop-and-ui]] | Spot × 商店 × 学生闭环、空间化 UI 与完整样例 |
-| [[docs/plan-work/docs/newPlan/07-mvp-scope]] | MVP 范围、切片顺序与验收重点 |
-| [[docs/plan-work/docs/newPlan/08-passive-story-sol-review]] | PassiveStory / StoryChain 设计意见与逐条审阅 | 🟡 已裁定，施工见 task-0032 |
+| [[docs/plan-work/newPlan/01-ownership-and-development]] | Character / Variant / Development、拥有状态、好感与培养分离 |
+| [[docs/plan-work/newPlan/02-unified-acquisition]] | Acquisition / Offer、统一获取入口与重复处理 |
+| [[docs/plan-work/newPlan/03-spot-shop]] | Spot 商店、Offer、库存、刷新与 Reveal |
+| [[docs/plan-work/newPlan/04-recruitment-v2]] | Pool / Banner 解耦、Recruitment Point 与 Spark |
+| [[docs/plan-work/newPlan/05-fragments-and-currency]] | Eleph、确定性角色获取、货币控制与 World Token |
+| [[docs/plan-work/newPlan/06-meta-loop-and-ui]] | Spot × 商店 × 学生闭环、空间化 UI 与完整样例 |
+| [[docs/plan-work/newPlan/07-mvp-scope]] | MVP 范围、切片顺序与验收重点 |
+| [[docs/plan-work/newPlan/08-passive-story-sol-review]] | PassiveStory / StoryChain 设计意见与逐条审阅 | 🟡 已裁定，施工见 task-0032 |
 | [[docs/plan-work/newPlan/09-shop-transaction-draft]] | Spot 商店与通用交易系统策划草案 | 🔵 待评审，重点裁定交易原子性与购买记录 scope |
 | [[docs/plan-work/newPlan/10-inventory-workspace]] | 背包三栏 Workspace 与物品整理服务 | 🟡 首版已实施，待体验评审 |
 | [[docs/plan-work/newPlan/11-gear-equipment-system]] | 装备（Gear）三槽、经验成长与 tier 升级 MVP 策划 | 🟢 MVP 已实施，effects 消费随 B 段 |

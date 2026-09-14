@@ -209,6 +209,13 @@ renderWorkspaceFrame / WorkspaceFrame
 - `npm test -- --reporter=dot`：135 个测试文件、1257 个测试通过。
 - `npx vite build --outDir <临时目录>`：通过；未写入受保护的 `web-dist/`。
 
+## 归档结果
+
+- 当前知识已蒸馏至：[[docs/docs-828/02-modules/ui]]（顶栏一级入口、设置 Workspace 与服务路由边界）。
+- 设计理由保留于：本文。
+- 后续工作：无；后续服务入口沿用稳定 Workspace Host 与返回语义。
+- 准出结论：顶栏导航与设置 Workspace 范围已完成，自动化、类型检查、架构检查、构建和浏览器冒烟验收结果已明确。
+
 ## 相关路由
 
 - [[docs/docs-828/02-modules/ui]]

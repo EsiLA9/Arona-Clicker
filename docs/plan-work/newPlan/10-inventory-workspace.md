@@ -246,7 +246,7 @@ interface InventoryWorkspaceState {
 - [[docs/docs-828/02-modules/ui]]
 - [[docs/docs-828/01-architecture/state-layers]]
 - [[docs/docs-828/05-conventions/architecture-discipline]]
-- [[docs/plan-work/active/task-0043-topbar-settings-workspace]]
+- [[docs/plan-work/completed/task-0043-topbar-settings-workspace]]
 - [[docs/plan-work/active/task-0040-unified-workspace-frame]]
 - `src/ui/components/right-panels.ts`
 - `src/data-services/contracts/item.ts`

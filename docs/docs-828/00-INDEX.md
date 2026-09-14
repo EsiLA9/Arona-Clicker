@@ -1,7 +1,7 @@
 # docs/docs-828 — 总入口（00-INDEX）
 
 > 本文是文档库的**唯一入口**：只做路由，不写正文。想了解什么、想改什么，按表跳转到对应文档。
-> 本库取代 `docs-824/`（已归档）；内容以 2026-09-07 代码实况为准（Lobby、主题表现宿主与主题编辑器首轮收敛后）。
+> 本库取代 `docs-824/`（已归档）；内容以 2026-09-15 本次核验前的代码实况为基线，后续以源码、测试和本库当前机制说明为准。
 
 ## 系统一句话
 
@@ -32,8 +32,8 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | 某个子系统（GameNum / Affector / 抽卡 / 色彩 / 剧情…） | [[#02-modules 模块卡片索引]] |
 | PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs/docs-828/03-data-structures/player-state]] 起（见下方分区表） |
 | 引擎契约与 AronaClicker 类型边界 | [[docs/docs-828/03-data-structures/type-boundary-audit]] |
-| 生产 / 抽卡 / 培养 / 色彩 / 事件联动的机制细节 | [[docs/docs-828/04-mechanisms/00-index]]（正文迁移中，当前文件见下方分区表） |
-| 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/plan-work/active/task-0041-character-progression-and-memory]]（设计草案） |
+| 生产 / 抽卡 / 培养 / 色彩 / 事件联动的机制细节 | [[docs/docs-828/04-mechanisms/00-index]]（当前机制正文入口） |
+| 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/plan-work/active/task-0041-character-progression-and-memory]]（A 段已实施，B 段推迟） |
 | 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[docs/plan-work/00-index]] |
 
 ### 我想改……
@@ -116,7 +116,7 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | [[docs/plan-work/completed/adr-0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
 | [[docs/plan-work/completed/adr-0003-docs-restructure]] | 文档库重构：从日期戳手册到分层索引 |
 | [[docs/plan-work/active/adr-0004-datapack-management]] | Datapack 多包读取与管理（三段式命名空间 / 包库与启用集 / 惰性存档；规划中） |
-| [[docs/plan-work/completed/affection-planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送；§4 Talklet 输入中提示未实现；2026-08-29 落地，轴 A 消息成分同日裁定移除） |
+| [[docs/plan-work/completed/affection-planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送 / §4 Talklet 输入中提示；轴 A 消息成分已移除） |
 
 ## 07-audit 设计审查（2026-08-30）
 

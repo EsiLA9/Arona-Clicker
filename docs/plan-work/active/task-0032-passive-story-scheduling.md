@@ -2,7 +2,7 @@
 
 状态：🟡 已裁定，待施工
 
-关联方案：[[docs/plan-work/docs/newPlan/08-passive-story-sol-review]]
+关联方案：[[docs/plan-work/newPlan/08-passive-story-sol-review]]
 
 本文回答：在暂不引入 StoryChain、DeliveryIntent 和正式 StoryRunId 的前提下，如何完成 PassiveStory 的 P0/P1 修正，并把 Pool 抽取改为真正的分层权重模型。
 
@@ -307,4 +307,4 @@ completionKey?: string
 - [[docs/docs-828/05-conventions/architecture-discipline]]
 - [[docs/docs-828/05-conventions/schema-sync]]
 - [[docs/docs-828/05-conventions/testing]]
-- [[docs/plan-work/docs/newPlan/08-passive-story-sol-review]]
+- [[docs/plan-work/newPlan/08-passive-story-sol-review]]

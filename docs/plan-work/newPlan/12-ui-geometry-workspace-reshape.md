@@ -4,7 +4,7 @@
 
 上游：用户提供的《Task 004x：UI Geometry Contract 与 Workspace 视觉基础设施重塑》
 
-本地基线：[[docs/plan-work/active/task-0040-unified-workspace-frame]]、[[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]、[[docs/plan-work/active/task-0043-topbar-settings-workspace]]、[[docs/plan-work/newPlan/10-inventory-workspace]]、[[docs/docs-828/02-modules/ui]]
+本地基线：[[docs/plan-work/active/task-0040-unified-workspace-frame]]、[[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]、[[docs/plan-work/completed/task-0043-topbar-settings-workspace]]、[[docs/plan-work/newPlan/10-inventory-workspace]]、[[docs/docs-828/02-modules/ui]]
 
 本文是结合当前 ACProgram 源码整理出的施工前草案，不代表已经形成 ADR，也不直接替代 `docs/docs-828/` 中的机制事实源。
 
@@ -359,7 +359,7 @@ npx vite build --outDir <临时目录>
 - [[docs/docs-828/05-conventions/testing]]
 - [[docs/plan-work/active/task-0040-unified-workspace-frame]]
 - [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]
-- [[docs/plan-work/active/task-0043-topbar-settings-workspace]]
+- [[docs/plan-work/completed/task-0043-topbar-settings-workspace]]
 - [[docs/plan-work/newPlan/10-inventory-workspace]]
 - [[docs/plan-work/active/roadmap-0015-ui-dom-recalculation]]
 - [[docs/plan-work/active/roadmap-0018-ui-host-registry]]

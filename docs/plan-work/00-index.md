@@ -16,24 +16,24 @@
 | 任务 | 目标 | 状态 |
 | --- | --- | --- |
 | [[docs/plan-work/active/task-0000-ai-context-infrastructure]] | 最小 AI 施工上下文协议：高层 AI → Patch Unit → Luna → Receipt，含协议入口登记 | 🟡 P0 已完成（`docs/ai/` 协议、模板与路由入口）；P1 待授权试点；明确排除 Task-0049/0050 |
-| [[docs/plan-work/active/task-0023-project-documentation-normalization]] | 文档职责收敛、机制文件夹建立、逐篇核验与失效链接清理 | 🟡 进行中 |
+| [[docs/plan-work/active/task-0023-project-documentation-normalization]] | 文档职责收敛、机制文件夹建立、逐篇核验与失效链接清理 | 🟡 归并至 Task-0064，待准出 |
 | [[docs/plan-work/active/roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Lobby Runtime 与通用界面服务 | 🟡 收尾验收 |
-| [[docs/plan-work/active/task-0025-selector-dynamic-theme]] | Init / GlobalEnh 选择页动态主题与 Init 状态背景 | ✅ 首版已实施并验证，体验项另列 |
-| [[docs/plan-work/active/task-0028-presentation-target-inherit-only]] | 新建表现目标在未编辑前保持原有默认外观 | ✅ 已完成 |
-| [[docs/plan-work/active/task-0029-button-sequence-rendering-audit]] | 按钮序列表现链路对照审查 | ✅ 调查完成 |
+| [[docs/plan-work/active/task-0025-selector-dynamic-theme]] | Init / GlobalEnh 选择页动态主题与 Init 状态背景 | 🟡 CLOSING，待准出 |
+| [[docs/plan-work/completed/task-0028-presentation-target-inherit-only]] | 新建表现目标在未编辑前保持原有默认外观 | ✅ 已完成 |
+| [[docs/plan-work/active/task-0029-button-sequence-rendering-audit]] | 按钮序列表现链路对照审查 | 🟡 CLOSING，待准出 |
 | [[docs/plan-work/active/task-0030-button-rendering-convergence-solution]] | 按钮主题渲染统一与形状参数编辑方案 | 🟡 部分实施：形状参数编辑已落地 |
-| [[docs/plan-work/active/task-0031-svg-button-state-color-audit]] | 按钮内 SVG 状态颜色链路审查 | ✅ 已实施并验证 |
+| [[docs/plan-work/completed/task-0031-svg-button-state-color-audit]] | 按钮内 SVG 状态颜色链路审查 | ✅ 已完成 |
 | [[docs/plan-work/active/task-0032-passive-story-scheduling]] | PassiveStory P0/P1 与 Pool 分层权重 | 🟡 已裁定，待施工 |
-| [[docs/plan-work/active/task-0033-system-color-layer-scope]] | 控件系统颜色层职责收敛与重复背景清理 | 🟡 规划完成，待施工 |
+| [[docs/plan-work/active/task-0033-system-color-layer-scope]] | 控件系统颜色层职责收敛与重复背景清理 | 🟡 CLOSING，待准出 |
 | [[docs/plan-work/active/task-0034-affector-performance-review]] | Affector / GameNum 性能判别与整改排序 | 🟡 静态核验完成，待施工 |
 | [[docs/plan-work/active/task-0035-condition-presentation-tree]] | Condition Presentation Tree 条件展示树 | 🟡 方案核验完成，待施工 |
-| [[docs/plan-work/active/task-0039-spot-shop-transaction-system]] | Spot 商店与通用交易系统 | 🔵 设计待裁定，尚未施工 |
-| [[docs/plan-work/active/task-0040-unified-workspace-frame]] | 统一三栏工作区物理骨架与表现接线 | 🔵 规划完成，待施工 |
+| [[docs/plan-work/active/task-0039-spot-shop-transaction-system]] | Spot 商店与通用交易系统 | 🟡 P3 验收中 |
+| [[docs/plan-work/active/task-0040-unified-workspace-frame]] | 统一三栏工作区物理骨架与表现接线 | 🟡 施工中 |
 | [[docs/plan-work/active/task-0041-character-progression-and-memory]] | 角色成长与记忆体系：Proto/Variant 边界、统一 Effect 投影、跨 Init 追赶 | 🟢 A 段已实施，B 段推迟（见 [[docs/plan-work/active/adr-0008-character-progression-boundaries]]） |
-| [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]] | 通讯录学生 Workspace 与一般游戏态 / 商店态 UI 风格收敛 | ✅ 已完成 |
-| [[docs/plan-work/active/task-0043-topbar-settings-workspace]] | 顶栏导航与设置 Workspace 统一管理 | ✅ 已完成 |
+| [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]] | 通讯录学生 Workspace 与一般游戏态 / 商店态 UI 风格收敛 | 🟡 CLOSING，待准出 |
+| [[docs/plan-work/completed/task-0043-topbar-settings-workspace]] | 顶栏导航与设置 Workspace 统一管理 | ✅ 已完成 |
 | [[docs/plan-work/completed/task-0044-ui-geometry-workspace-reshape]] | UI Geometry Contract、Workspace Frame 与视觉基础设施重塑 | ✅ 已完成 |
-| [[docs/plan-work/active/task-0045-ui-incremental-update-workspace-isolation]] | UI 增量更新与 Workspace 隔离第一施工片段 | ✅ P0–P4 完成 |
+| [[docs/plan-work/active/task-0045-ui-incremental-update-workspace-isolation]] | UI 增量更新与 Workspace 隔离第一施工片段 | 🟡 P0–P4 已完成，后续切片待拆分 |
 | [[docs/plan-work/active/task-0046-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建 | 🟢 P0/P1 完成；P2 延期 |
 | [[docs/plan-work/active/adr-0009-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建裁定 | 🟢 P0/P1 已实施；P2 延期 |
 | [[docs/plan-work/active/task-0047-contacts-story-workspace-ownership]] | 通讯录 / 故事独立 Workspace 所有权与路由迁移 | 🟢 Contacts / Story 核心迁移完成；通用 Region 与 Character 兼容清理后续收口 |
@@ -51,6 +51,8 @@
 | [[docs/plan-work/active/task-0060-multi-spot-runtime-editor]] | 单临时 Mod 的多 Spot 临时构建与编辑：Draft、批量物化、批量预览与安全回退 | 🟡 P1–P4 已实施；自动化验收通过，Edge 手工验收待补 |
 | [[docs/plan-work/active/task-0061-runtime-hot-content-crud-spot]] | Runtime 热内容 CRUD 与 Spot 服务接入：单内容提交、Registry 局部变更与定向失效 | 🟡 P0–P4 已实施；全量与 Edge 验收待补 |
 | [[docs/plan-work/active/task-0062-runtime-spot-editor-simple-flow]] | Runtime Spot 编辑器单项即时操作：新建/编辑保存即热提交，删除确认后消失，移除多 Draft 主流程 | 🟡 P0–P3 已实施；Edge 手工验收待补 |
+| [[docs/plan-work/active/task-0063-runtime-editor-command-facade]] | Runtime Editor Command Facade 与 Resolution / Materialization 边界收口 | 🟡 P0–P3 已实施；Edge 手工验收受 Computer Use 桥接阻断 |
+| [[docs/plan-work/active/task-0064-project-documentation-exit-governance]] | 项目过程文档与知识库准出治理：先盘点分类，再试点准出与知识蒸馏 | 🟡 第一阶段与首轮 5 份试点已完成，按停止点暂停扩大 |
 | [[docs/plan-work/active/task-0057-single-mod-editor-workbench]] | 单 Mod 全内容编辑工作台：Mod 编辑态、全表 Draft、Runtime 预览、增量更新与 Mod 输出 | 🟡 方案已裁定；P1A 基础模型已实施，完整工作台仍待施工 |
 | [[docs/plan-work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
 | [[docs/plan-work/active/adr-0010-definition-repository-editor-resolution]] | DefinitionRepository 最小只读接口、Editor 来源解析优先级与 Runtime Registry 边界 | 🟡 接口裁定完成，Repository / Overlay 实现待后续任务 |
@@ -118,6 +120,8 @@
 
 - [[docs/plan-work/review/def-resolution-withdrawal-sol-review]]：Sol 关于 Def 撤回、Tombstone、引用悬置与 Definition Resolution 的事实核查与修订建议。
 
+- [[docs/plan-work/review/runtime-editor-overlay-sol-review]]：Sol 关于 Runtime Editor 单 Mod / 单实体 Overlay 收缩建议的事实核查与后续边界。
+
 - [[docs/plan-work/active/task-0034-affector-performance-review]]：记录 Affector → ConditionDepIndex → GameNum/flow → Tick 性能审查的逐条真实性与紧迫性判定。
 
 - [[docs/plan-work/active/task-0035-condition-presentation-tree]]：记录条件展示树建议的逐条真实性、可行性与 UI 施工边界。
@@ -145,7 +149,7 @@
 - [[docs/plan-work/active/task-0027-theme-switch-cleanup-and-user-theme-isolation]]：主题切换遗留清理与用户自定义主题独立选择（✅ 已实施）。
 - [[docs/plan-work/active/task-0029-button-sequence-rendering-audit]]：按钮序列表现链路对照审查（✅ 调查完成）。
 - [[docs/plan-work/active/task-0030-button-rendering-convergence-solution]]：按钮主题渲染统一与形状参数编辑方案（🟡 部分实施：形状参数编辑已落地）。
-- [[docs/plan-work/active/task-0031-svg-button-state-color-audit]]：按钮内 SVG 状态颜色链路审查（✅ 已实施并验证；全量检查受既有基线问题影响）。
+- [[docs/plan-work/completed/task-0031-svg-button-state-color-audit]]：按钮内 SVG 状态颜色链路审查（✅ 已归档；全量检查中的既有基线问题保留在验证记录）。
 - [[docs/plan-work/active/task-0033-system-color-layer-scope]]：控件系统颜色层职责收敛、隐式重复背景清理与全局开关解耦（🟡 规划完成，待施工）。
 - [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]]：用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分、稳定 ID、隐藏语义与局部刷新（🟡 首轮施工完成；浮窗架构缺陷转 Task0050）。
 - [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]]：图层 Manager/Dialog 的 body-level overlay、编辑会话生命周期与 `global` 表现目标双管线收口（🟡 P0-A 结构已落地但 Dialog 与 global 入口功能不可用；P1 部分完成；P2 未收口）。
@@ -165,7 +169,7 @@
 
 ### 新策划汇总（待评审）
 
-- [[docs/plan-work/docs/newPlan/00-index]]：学生获取与关系资产化方案总览；PassiveStory 评审已裁定，施工任务见 [[docs/plan-work/active/task-0032-passive-story-scheduling]]。
+- [[docs/plan-work/newPlan/00-index]]：学生获取与关系资产化方案总览；PassiveStory 评审已裁定，施工任务见 [[docs/plan-work/active/task-0032-passive-story-scheduling]]。
 - [[docs/plan-work/newPlan/16-runtime-datapack-authoring]]：把数据包编写工具搬进真实游戏运行时（受控运行时主机模式 / 图形化编写 / 游戏时数据与数据包数据双向转换），待评审。
 
 该目录按模块/玩法簇收录 Sol 策划回复，当前属于方案草案；评审后再分别沉淀为正式 ADR、Roadmap 与实现任务。

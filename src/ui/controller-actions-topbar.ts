@@ -359,19 +359,12 @@ function removeRuntimeSpot(ctrl: UIController, preservePlayerData: boolean): voi
   if (!spot) return;
   const spotId = `${editor.modName}:spot:${spot.idName}`;
   const runtimeState = host.getRuntimeContentState?.();
+  const editorCommands = ctrl.commands.runtimeDefinitionEditor;
   const wasApplied = runtimeState?.spots.has(spotId) ?? Boolean(editor.applied);
-  const wasSuspended = editor.suspendedSpotIds.includes(spot.idName);
-  const backup = { ...spot };
   let result: { ok: boolean; message: string } = { ok: true, message: `Spot 草稿已删除：${spot.idName}。` };
   if (wasApplied) {
-    if (ctrl.commands.applyRuntimeSpotMutation && runtimeState) {
-      const hotResult = ctrl.commands.applyRuntimeSpotMutation({
-        operation: 'delete',
-        modName: editor.modName,
-        idName: spot.idName,
-        playerData: preservePlayerData ? 'retain' : 'purge',
-        expectedRevision: runtimeState.revision,
-      });
+    if (editorCommands && runtimeState) {
+      const hotResult = editorCommands.deleteSpot(spot.idName, preservePlayerData ? 'retain' : 'purge');
       if (!hotResult.ok) {
         ctrl.modal.close();
         ctrl.toast.show(hotResult.message, 'error');
@@ -382,34 +375,9 @@ function removeRuntimeSpot(ctrl: UIController, preservePlayerData: boolean): voi
       markRuntimeEditorApplied(editor, true);
       result = { ok: true, message: preservePlayerData ? `临时 Spot 已删除，PlayerData 已保留：${spot.idName}。` : `临时 Spot 与对应 PlayerData 已删除：${spot.idName}。` };
     } else {
-      if (!removeRuntimeEditorSpot(editor, spot.idName)) return;
-      const draft = toRuntimeModDraft(editor);
-      if (!draft || !host.applyRuntimeMod) {
-        setRuntimeEditorSpot(editor, backup);
-        if (wasSuspended) setRuntimeEditorSpotSuspended(editor, backup.idName, true);
-        ctrl.toast.show('无法生成删除后的临时 Mod 草稿。', 'error');
-        return;
-      }
-      result = host.applyRuntimeMod(draft);
-      if (!result.ok) {
-        setRuntimeEditorSpot(editor, backup);
-        if (wasSuspended) setRuntimeEditorSpotSuspended(editor, backup.idName, true);
-        ctrl.modal.close();
-        ctrl.toast.show(result.message, 'error');
-        openRuntimeSpotEditor(ctrl);
-        return;
-      }
-      markRuntimeEditorApplied(editor, true);
-      if (!preservePlayerData && host.removeRuntimeSpotData) {
-        const cleanup = host.removeRuntimeSpotData(spotId);
-        if (!cleanup.ok) {
-          ctrl.modal.close();
-          ctrl.toast.show(cleanup.message, 'error');
-          ctrl.render();
-          return;
-        }
-      }
-      result = { ok: true, message: preservePlayerData ? `临时 Spot 已删除，PlayerData 已保留：${spot.idName}。` : `临时 Spot 与对应 PlayerData 已删除：${spot.idName}。` };
+      ctrl.modal.close();
+      ctrl.toast.show('当前运行时不支持 Runtime Editor Command Facade。', 'error');
+      return;
     }
   } else {
     if (!removeRuntimeEditorSpot(editor, spot.idName)) return;
@@ -440,24 +408,11 @@ function applyRuntimeEditorDraft(ctrl: UIController): void {
     return;
   }
 
-  const hotApply = ctrl.commands.applyRuntimeSpotMutation;
+  const editorCommands = ctrl.commands.runtimeDefinitionEditor;
   const setMetadata = ctrl.commands.setRuntimeModMetadata;
-  if (!hotApply || !setMetadata) {
-    const draft = toRuntimeModDraft(editor);
-    if (!draft || !host.applyRuntimeMod) return;
-    const result = host.applyRuntimeMod(draft);
-    if (!result.ok) {
-      setRuntimeEditorError(editor, result.message);
-      openRuntimeSpotEditor(ctrl);
-      return;
-    }
-    markRuntimeEditorApplied(editor, true);
-    setRuntimeEditorError(editor, null);
-    ctrl.modal.close();
-    ctrl.toast.show(result.message, 'success');
-    ctrl.navigateToService('game');
-    ctrl.render();
-    syncRuntimeSpotCreateAction(ctrl);
+  if (!editorCommands || !setMetadata) {
+    setRuntimeEditorError(editor, '当前运行时不支持 Runtime Editor Command Facade。');
+    openRuntimeSpotEditor(ctrl);
     return;
   }
 
@@ -478,10 +433,9 @@ function applyRuntimeEditorDraft(ctrl: UIController): void {
   const loaded = runtimeState?.spots.has(spotId)
     ?? Boolean(host.getRuntimeMod?.()?.spots.some(spot => spot.idName === selected.idName));
   const input: RuntimeSpotInput = { ...selected };
-  const mutation = loaded
-    ? { operation: 'replace' as const, modName: editor.modName, idName: selected.idName, spot: input, expectedRevision: runtimeState?.revision ?? 0 }
-    : { operation: 'create' as const, modName: editor.modName, spot: input, expectedRevision: runtimeState?.revision ?? 0 };
-  const result: RuntimeSpotMutationResult = hotApply(mutation);
+  const result: RuntimeSpotMutationResult = loaded
+    ? editorCommands.replaceSpot(selected.idName, input)
+    : editorCommands.createSpot(input);
   if (!result.ok) {
     setRuntimeEditorError(editor, result.message);
     openRuntimeSpotEditor(ctrl);

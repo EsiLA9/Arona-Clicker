@@ -20,8 +20,8 @@
 | active | [[docs/plan-work/active/roadmap-0002-spot-shop]] | Spot 商店草案与待裁定 |
 | active | [[docs/plan-work/active/roadmap-0006-ui-background-layering]] | 世界/区域背景表现关联 |
 | active | [[docs/plan-work/active/roadmap-0007-enhancement-reveal]] | 强化揭示与服务权限 |
-| docs/newPlan | [[docs/plan-work/docs/newPlan/03-spot-shop]] | 新商店策划方案 |
-| docs/newPlan | [[docs/plan-work/docs/newPlan/07-mvp-scope]] | MVP 范围与世界经营取舍 |
+| docs/newPlan | [[docs/plan-work/newPlan/03-spot-shop]] | 新商店策划方案 |
+| docs/newPlan | [[docs/plan-work/newPlan/07-mvp-scope]] | MVP 范围与世界经营取舍 |
 
 ## 裁定边界
 

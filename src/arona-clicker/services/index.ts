@@ -18,8 +18,8 @@ export type { CurveView, ExpApplyResult, StarCheckResult } from './cultivate-sys
 
 export { StoryService } from './story-service';
 export { SpotService } from './spot-service';
-export { SpotContentService } from './spot-content-service';
-export type { SpotContentPort } from './spot-content-service';
+export { RuntimeDefinitionEditor, SpotContentService } from './spot-content-service';
+export type { RuntimeDefinitionEditorPort, SpotContentPort } from './spot-content-service';
 export { RuntimeContentCoordinator } from './runtime-content-coordinator';
 export type {
   RuntimeContentCoordinatorOptions,

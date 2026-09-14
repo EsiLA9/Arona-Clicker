@@ -26,7 +26,7 @@ import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } fro
 import type { WorldCatalogQueryPort } from './world-catalog';
 import type { UserThemeService } from '../services/user-theme-service';
 import type { ShopQueryPort } from './shop-query';
-import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult } from './runtime-content';
+import type { RuntimeDefinitionEditorCommands, RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult } from './runtime-content';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -110,6 +110,7 @@ export interface PackCatalogCommands {
   applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
   /** 设置临时 Mod 元信息；不触发数据包重载。 */
   setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
+  runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
   /** 删除临时 Mod 中单个 Spot 后清理其 PlayerData，不移除整个临时 Mod。 */
   removeRuntimeSpotData?(spotId: string): RuntimeModApplyResult;
   removeRuntimeMod?(preservePlayerData?: boolean): RuntimeModApplyResult;
@@ -187,4 +188,5 @@ export interface GameCommands {
   /** 运行时编辑能力：单个 Spot 热内容提交（不接收完整 Draft）。 */
   applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
   setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
+  runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
 }

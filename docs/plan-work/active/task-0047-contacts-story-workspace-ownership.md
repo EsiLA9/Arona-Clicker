@@ -68,7 +68,7 @@ StoryWorkspace
 - [[docs/plan-work/active/task-0040-unified-workspace-frame]]：三栏物理骨架与 WorkspaceFrame 契约；
 - [[docs/plan-work/active/task-0045-ui-incremental-update-workspace-isolation]]：Surface、Host 和增量更新隔离；
 - [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]：角色 Workspace 现有内容与视觉接线；
-- [[docs/plan-work/active/task-0043-topbar-settings-workspace]]：统一 Workspace 入口和返回习惯；
+- [[docs/plan-work/completed/task-0043-topbar-settings-workspace]]：统一 Workspace 入口和返回习惯；
 - [[docs/plan-work/active/roadmap-0018-ui-host-registry]]：Host Registry 与宿主发现；
 - [[docs/plan-work/active/roadmap-0020-service-workspaces]]：Records Service / Archive 归属候选。
 
@@ -82,7 +82,7 @@ StoryWorkspace
 | WS-P0 | [[docs/plan-work/active/task-0045-ui-incremental-update-workspace-isolation]] | P0–P4 已完成 Surface、Dispatcher、Behavior 和 Shop 增量试点 | P7 WorkspaceRoute / Shell seam 评估；P5 Reveal 分类与显式事件映射按新 Workspace 刷新需要前置或并行 | 路由切换和 stale callback 的基础 |
 | WS-P0 | [[docs/plan-work/active/roadmap-0018-ui-host-registry]] | H0–H2 已完成，H3 / H4 部分完成 | 核对并补齐 Contacts / Story 三栏 Host、父级、serviceId、主题编辑器发现和联合验收 | 新 Workspace Host 的注册基础 |
 | WS-P1 | [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]] | 已完成角色 Workspace 的 Frame / 视觉收敛 | 不重复实施；直接复用角色内容 renderer 和视觉契约，作为 Contacts selectedVariant 分支基线 | Contacts 角色迁移输入 |
-| WS-P1 | [[docs/plan-work/active/task-0043-topbar-settings-workspace]] | 已完成顶栏、设置和服务入口统一 | 不重复实施；复用 Workspace route action、返回、主题和服务导航约定 | 新入口与返回语义基线 |
+| WS-P1 | [[docs/plan-work/completed/task-0043-topbar-settings-workspace]] | 已完成顶栏、设置和服务入口统一 | 不重复实施；复用 Workspace route action、返回、主题和服务导航约定 | 新入口与返回语义基线 |
 | WS-P2 | [[docs/plan-work/active/roadmap-0020-service-workspaces]] | S0 已完成，S1 / S2 部分完成 | 仅在 P0 将 Archive 裁定为 Records Service 时纳入 S4；否则建立显式 Story 子路由 | Archive 的条件依赖 |
 
 纳入原则：
@@ -564,7 +564,7 @@ P6 完成条件：旧 Game 页面身份不再承担 Contacts / Story；机制文
 - [[docs/plan-work/active/task-0040-unified-workspace-frame]]
 - [[docs/plan-work/active/task-0045-ui-incremental-update-workspace-isolation]]
 - [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]
-- [[docs/plan-work/active/task-0043-topbar-settings-workspace]]
+- [[docs/plan-work/completed/task-0043-topbar-settings-workspace]]
 - [[docs/plan-work/active/roadmap-0018-ui-host-registry]]
 - [[docs/plan-work/active/roadmap-0020-service-workspaces]]
 - [[docs/docs-828/02-modules/ui]]

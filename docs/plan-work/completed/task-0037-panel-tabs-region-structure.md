@@ -293,8 +293,15 @@ git diff --check
 
 - [[docs/docs-828/02-modules/ui]]
 - [[docs/docs-828/05-conventions/architecture-discipline]]
-- [[docs/plan-work/active/task-0036-switch-tabs-background-module]]
+- [[docs/plan-work/completed/task-0036-switch-tabs-background-module]]
 - [[docs/plan-work/active/roadmap-0011-ui-component-layer-backgrounds]]
 - [[docs/plan-work/active/roadmap-0012-flat-presentation-targets]]
 - [[docs/plan-work/active/roadmap-0016-cluster-region-context-overrides]]
 - [[docs/plan-work/active/roadmap-0018-ui-host-registry]]
+
+## 归档结果
+
+- 当前知识已蒸馏至：[[docs/docs-828/02-modules/ui]]（三栏 `panel-tabs-region`、滚动边界和非 panel Tabs 隔离）。
+- 设计理由保留于：本文。
+- 后续工作：无阻塞后续；用户主题覆盖删除的端到端操作可作为未来专门测试增强。
+- 准出结论：Panel Tabs 结构重构范围已完成，自动化、构建和 Edge 验收结果已明确。

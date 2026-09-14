@@ -4,7 +4,7 @@
 
 上游：[[docs/plan-work/newPlan/12-ui-geometry-workspace-reshape]]（本地化结构重塑草案）
 
-依赖：[[docs/plan-work/active/task-0040-unified-workspace-frame]]、[[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]、[[docs/plan-work/active/task-0043-topbar-settings-workspace]]、[[docs/plan-work/newPlan/10-inventory-workspace]]
+依赖：[[docs/plan-work/active/task-0040-unified-workspace-frame]]、[[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]、[[docs/plan-work/completed/task-0043-topbar-settings-workspace]]、[[docs/plan-work/newPlan/10-inventory-workspace]]
 
 本文是可执行的 UI 结构施工任务表。它只负责 `src/ui/` 的 Workspace 几何、Panel/Region/Host 结构与视觉边界，不修改玩法机制、PlayerState、Datapack 机制或业务内容规则。
 
@@ -222,7 +222,7 @@ npx vite build --outDir <临时目录>
 - [[docs/docs-828/05-conventions/testing]]
 - [[docs/plan-work/active/task-0040-unified-workspace-frame]]
 - [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]]
-- [[docs/plan-work/active/task-0043-topbar-settings-workspace]]
+- [[docs/plan-work/completed/task-0043-topbar-settings-workspace]]
 - [[docs/plan-work/newPlan/10-inventory-workspace]]
 - [[docs/plan-work/active/roadmap-0015-ui-dom-recalculation]]
 - [[docs/plan-work/active/roadmap-0018-ui-host-registry]]

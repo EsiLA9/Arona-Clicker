@@ -11,6 +11,7 @@ import type { TickResult } from '../engine/contracts/tick';
 import type { TravelResult } from './contracts/results';
 import type { SaveData } from './contracts/save-data';
 import type { RuntimeSpotMutation, RuntimeSpotMutationResult } from './contracts/runtime-content';
+import type { RuntimeDefinitionEditorCommands } from './contracts/runtime-content';
 import type { RuntimeModDraft, RuntimeModApplyResult } from './contracts/runtime';
 
 export interface GameCommandSource {
@@ -31,6 +32,7 @@ export interface GameCommandSource {
   mutations: UiMutationPort;
   applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
   setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
+  runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
 }
 
 /** 将 AronaClicker Runtime 的公开命令适配为 UI 能力接口。 */
@@ -78,5 +80,6 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     resumeInit: initId => game.inits.resumeInit(initId),
     ...(game.applyRuntimeSpotMutation ? { applyRuntimeSpotMutation: mutation => game.applyRuntimeSpotMutation!(mutation) } : {}),
     ...(game.setRuntimeModMetadata ? { setRuntimeModMetadata: metadata => game.setRuntimeModMetadata!(metadata) } : {}),
+    ...(game.runtimeDefinitionEditor ? { runtimeDefinitionEditor: game.runtimeDefinitionEditor } : {}),
   };
 }

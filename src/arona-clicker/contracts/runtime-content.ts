@@ -117,3 +117,11 @@ export interface RuntimeSpotMutationResult {
   readonly diagnostics: readonly RuntimeContentDiagnostic[];
   readonly message: string;
 }
+
+export interface RuntimeDefinitionEditorCommands {
+  createSpot(spot: RuntimeSpotInput): RuntimeSpotMutationResult;
+  replaceSpot(idName: string, spot: RuntimeSpotInput): RuntimeSpotMutationResult;
+  deleteSpot(idName: string, playerData: 'retain' | 'purge'): RuntimeSpotMutationResult;
+  suspendSpot(idName: string): RuntimeSpotMutationResult;
+  resumeSpot(idName: string): RuntimeSpotMutationResult;
+}

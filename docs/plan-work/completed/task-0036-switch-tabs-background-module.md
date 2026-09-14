@@ -259,6 +259,13 @@ npm run build
 - 已检查左栏区域/通讯录/故事、中栏聊天/日志、主题色切换、图鉴 Tabs、Spot gacha scope 与用户主题编辑器入口；
 - task-0037 继续承担 panel section 结构化重构后的最终几何边界和滚动职责记录。
 
+## 归档结果
+
+- 当前知识已蒸馏至：[[docs/docs-828/02-modules/ui]]（`panel-tabs-region` 与 `.switch-tabs` 职责边界）。
+- 设计理由保留于：本文。
+- 后续工作：[[docs/plan-work/completed/task-0037-panel-tabs-region-structure]]（承接最终几何边界与滚动职责；已完成）。
+- 准出结论：区域背景模块范围已完成，后续结构收口已由 task-0037 承接。
+
 ## 剩余工作
 
 本目标已完成并由 task-0037 接续收敛几何边界；后续若扩展 header/toolbar/footer，应沿用 section 宿主分层，不恢复负边距横切方案。

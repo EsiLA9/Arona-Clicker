@@ -1,6 +1,6 @@
 # task-0037 执行清单：Panel 顶部 Tabs 区域结构化重构
 
-> 对应任务：[[docs/plan-work/active/task-0037-panel-tabs-region-structure]]
+> 对应任务：[[docs/plan-work/completed/task-0037-panel-tabs-region-structure]]
 >
 > 本文是施工清单与验收记录；机制设计仍以 task-0037 正文和 `docs/docs-828/` 为准。
 
@@ -83,9 +83,9 @@ panel.presentation-host-target
 - [x] 验证 collection modal 的 `.coll-switch` 不获得 panel Tabs 背景。
 - [x] 验证 contacts 中的 gacha scope Tabs 不获得 panel Tabs 背景。
 - [x] 验证 user-theme-editor 打开后其内部 Tabs 不获得 panel 横切 border/radius。
-- [ ] 删除旧的 `.left-panel > .switch-tabs`、`.center-panel > .switch-tabs` 几何补偿规则。
+- [x] 复核旧的 `.left-panel > .switch-tabs`、`.center-panel > .switch-tabs` 几何补偿规则已不存在；现行边界由 `.panel-tabs-region` 承担。
 - [x] 在 `docs/docs-828/02-modules/ui.md` 记录 `panel-tabs-region` 通用语义。
-- [x] 更新 task-0036 的状态/浏览器验收交接说明。
+- [x] 更新 [[docs/plan-work/completed/task-0036-switch-tabs-background-module]] 的状态/浏览器验收交接说明。
 
 ## 测试清单
 
@@ -145,3 +145,10 @@ git diff --check
 - 夏莱办公室：三栏主题背景、圆角和底部分隔线均被 panel 内边界裁剪；正文滚动时右栏 Tabs 仍固定在顶部。
 - 非 panel：图鉴内部 Tabs 与 Spot 招募 scope Tabs 正常显示；用户主题编辑器可打开，内部 Tabs 未继承 panel 横切边框/圆角。
 - 验收收尾：已将原 5174 页面临时切换的主题恢复为“系统默认”；5174/5175 临时 Vite 服务已停止。
+
+## 归档结果
+
+- 当前知识已蒸馏至：[[docs/docs-828/02-modules/ui]]。
+- 设计理由保留于：[[docs/plan-work/completed/task-0037-panel-tabs-region-structure]]。
+- 后续工作：无阻塞后续。
+- 准出结论：本执行清单与对应任务一并完成，历史验收证据保留，不再承担 active 工作。

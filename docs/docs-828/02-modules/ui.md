@@ -67,6 +67,8 @@ UI 表现宿主由 `src/ui/ui-host-registry.ts` 统一登记。核心 UI 提供�
 
 宿主未配置专属表现时按父级回退；Registry 只描述目标和层级，不保存用户主题值，也不开放任意 CSS/DOM 注入。
 
+表现宿主有两个稳定约束：新建宿主但 `layers` 为空时，背景结果等同于未创建宿主；只有插入第一层用户表现后才产生实际覆盖。绑定表现宿主的单色 SVG 在 `active` / `hover` 的 `auto` 文字模式下跟随最终文字色，覆盖路径自身的 `fill` / `stroke`；头像、爱心等多色或固定语义 SVG 不走这条单色覆盖路径。
+
 ### 功能工作区
 
 Shop、角色服务和完整背包等需要同时接管多个面板的功能，使用 `WorkspaceFrame`，而不是继续修改普通 `leftTab / centerTab / rightTab`。每个工作区声明固定的 `left / center / right` 列、布局 preset、响应式 profile、surface、语义 `role` 和稳定 Host ID；渲染器额外输出 `data-workspace-frame`、`data-workspace-column`、`data-workspace-role`、`data-workspace-surface`、`data-scroll` 与 `data-scroll-owner`，供主题编辑器和后续布局工具定位。Frame 统一承担三栏外层几何；`default`、`two-column`、`single-column` 只表达响应式骨架，页面内容仍可保留自己的高度和内部排列规则。
@@ -80,6 +82,8 @@ Shop、角色服务和完整背包等需要同时接管多个面板的功能，�
 Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Workspace 刷新；`refreshPanels()` 仅作为 Game 与迁移期兼容入口。`UISurfaceRuntime` 将 Workspace 实例、选择、故事路径与播放模式纳入 Surface key，路由或 Surface 改变会递增 generation，使旧异步更新失效。只有当前 Surface 且 Host 所属合法的 Region 更新才可继续细化；未知或未支持的 Region 记录诊断，不回写其它页面。
 
 三栏 panel 的顶部 Tabs 使用 `panel-tabs-region` 作为独立结构宿主：区域背景、主题装饰和底部分隔线挂在 `leftPanel.tabs` / `centerPanel.tabs` / `rightPanel.tabs`，`.switch-tabs` 仅负责 TabGroup 布局，单个按钮仍使用对应的 `*.tab` 宿主。Game 的既有 panel 继续独占外框、圆角、`overflow: hidden`，并由 `panel-body` 独占正文滚动与内容 padding；Service/Settings/Shop/Character/Inventory 的列级外框由 `WorkspaceColumn.surface = panel` 产生，正文通过 `workspace-column__body` 的 scroll owner 属性或页面明确的 List/Inspector Region 承担。普通弹窗、抽卡范围和主题编辑器内部的 `.switch-tabs` 不套用该结构。Workspace 外层 Panel 不进入旧内容 Panel 的 ScrollManager 序号快照。
+
+顶栏一级入口统一为主题、游戏、背包、设置；存档、数据包和记录等服务从设置 Workspace 进入，不再作为顶栏直达页面。设置、背包及其他服务页使用独立的 `WorkspaceFrame` 和稳定 UI Host，返回游戏时恢复普通游戏 Workspace；主题浮窗可跨 Workspace 使用而不改变当前路由。
 
 ### 主题与选择页表现
 

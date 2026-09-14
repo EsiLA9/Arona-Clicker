@@ -26,6 +26,20 @@ const input = (name = 'Desk') => ({
 });
 
 describe('AronaClickerRuntime Spot 热 CRUD', () => {
+  test('RuntimeDefinitionEditor 只翻译编辑意图并使用 Coordinator 当前上下文', () => {
+    const game = new AronaClickerRuntime();
+    game.init([defaultDatapack]);
+    expect(game.spot.content!.setModMetadata({ modName: 'draft-mod', displayName: 'Draft Mod', version: '1.0.0', author: '', description: '' }).ok).toBe(true);
+
+    const editor = game.runtimeDefinitionEditor;
+    const created = editor.createSpot(input());
+    expect(created).toMatchObject({ ok: true, operation: 'create', revision: 1 });
+
+    const replaced = editor.replaceSpot('desk', input('Renamed'));
+    expect(replaced).toMatchObject({ ok: true, operation: 'replace', revision: 2 });
+    expect(game.registry.spots.get('draft-mod:spot:desk')?.name).toBe('Renamed');
+  });
+
   test('SpotService.content create/replace/suspend/resume/delete 全程不走整包重载', () => {
     const game = new CountingRuntime();
     game.init([defaultDatapack]);

@@ -21,10 +21,10 @@
 | --- | --- | --- |
 | active | [[docs/plan-work/active/roadmap-0003-gacha-pool-model]] | Banner 与候选池解耦 |
 | active | [[docs/plan-work/active/roadmap-0004-chara-ownership]] | 拥有归属与追赶统计 |
-| docs/newPlan | [[docs/plan-work/docs/newPlan/01-ownership-and-development]] | 拥有与培养方案 |
-| docs/newPlan | [[docs/plan-work/docs/newPlan/02-unified-acquisition]] | 统一获取方案 |
-| docs/newPlan | [[docs/plan-work/docs/newPlan/04-recruitment-v2]] | Recruitment V2 |
-| docs/newPlan | [[docs/plan-work/docs/newPlan/05-fragments-and-currency]] | 碎片与货币 |
+| docs/newPlan | [[docs/plan-work/newPlan/01-ownership-and-development]] | 拥有与培养方案 |
+| docs/newPlan | [[docs/plan-work/newPlan/02-unified-acquisition]] | 统一获取方案 |
+| docs/newPlan | [[docs/plan-work/newPlan/04-recruitment-v2]] | Recruitment V2 |
+| docs/newPlan | [[docs/plan-work/newPlan/05-fragments-and-currency]] | 碎片与货币 |
 | completed | [[docs/plan-work/completed/affection-planning]] | 好感系统已落地的决策记录 |
 
 ## 当前判断

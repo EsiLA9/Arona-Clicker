@@ -139,3 +139,10 @@ active 时系统只需要设置 `data-theme-text-mode`。对于普通文本，�
 - `npm run check:architecture`：通过。
 - `npx tsc --noEmit`：未通过，现有 `tests/ui/selector-theme.test.ts:68` 使用了缺少完整 `BackgroundViewLayer` 字段的测试数据；不涉及本任务修改。
 - `npm test`：123 个测试文件中 122 个通过，1 个既有 `tests/ui/components/story-gate.test.ts` 断言失败；失败断言与本次 CSS 修改无关。
+
+## 归档结果
+
+- 当前知识已蒸馏至：[[docs/docs-828/02-modules/ui]]（表现宿主内单色 SVG 的 auto 前景色约束）。
+- 设计理由保留于：本文。
+- 后续工作：[[docs/plan-work/active/task-0030-button-rendering-convergence-solution]]（普通按钮继续接入统一表现宿主；不重复本任务已完成的 CSS 规则）。
+- 准出结论：原 SVG 审查与规则补齐范围已完成；类型检查和全量测试中的既有基线失败已在验证结果中明确，不阻塞本任务归档。

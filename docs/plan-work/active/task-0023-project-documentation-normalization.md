@@ -29,7 +29,7 @@
 | `docs/docs-828/07-audit` | 审查发现、风险、整改记录 | 取代当前规范的长期事实源 |
 | `docs/plan-work/active` | 当前 ADR、Roadmap、Task 和状态 | 复制机制正文 |
 | `docs/plan-work/completed` | 已完成决策和历史施工记录 | 继续追踪当前实现 |
-| `docs/plan-work/docs/newPlan` | 尚未裁定的方案草稿 | 当作已批准机制 |
+| `docs/plan-work/newPlan` | 尚未裁定的方案草稿 | 当作已批准机制 |
 
 ## 执行顺序
 
