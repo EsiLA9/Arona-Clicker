@@ -1,10 +1,12 @@
 # task-0050 — 用户主题图层浮层生命周期与全局表现目标统一收口
 
-状态：🟡 P0/P1 已完成；P2 global 运行时接线已完成，Edge 视觉回归待补
+状态：🟡 P0-A 结构已落地但 Dialog 与 global 图层入口功能不可用；P1 部分完成；P2 未收口。功能恢复转入 [[docs/plan-work/active/task-0051-user-theme-layer-editor-functional-recovery]]
 
 > 本文承接 [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]]。它不是对 Task0049 已完成基线的重复施工，而是针对首版实现暴露出的两个结构性问题建立的可执行修正任务：Layer Manager/Dialog 的挂载位置错误，以及 `global` 在用户主题数据、编辑器和运行时之间形成的双管线。执行必须按 P0 → P1 → P2 顺序推进；未完成前一阶段，不得提前扩展后一阶段。
 
 核查基准：2026-09-13，`main` 当前提交 `53d628f (wrong-ui-editor-edition)`。
+
+> 核查更正（2026-09-13，只读复核）：P0-A 只完成了 overlay 的 DOM 挂载拆分，Dialog 的保存/取消/关闭/标题与 global 图层入口在实际运行中不可用（根因见 [[docs/plan-work/active/task-0051-user-theme-layer-editor-functional-recovery]] §三）；§六 "P0 必测" 的 overlay 行为测试实际不存在，其勾选与验收不能作为功能可用依据。本任务的后续切片状态以下方更正后的勾选为准。
 
 ## 一、优先度裁定
 
@@ -273,7 +275,8 @@ npm run build
 - [x] 已确认 Sol 修正中的 overlay 根因、Modal 单槽约束、global 双管线、global 默认卡片和 `layers: []` materialize 问题；
 - [x] 已确认 Sol 建议中“保留 background-service”、复用已有 `enabled`/stable ID/materialize 基线的部分；
 - [x] 已完成优先级裁定：P0 浮窗结构阻断，P1 编辑器 global 语义，P2 runtime/storage 统一且需架构闸门；
-- [x] 已施工并执行专项测试、全量测试、类型检查、架构检查和构建；Edge 视觉回归仍待补。
+- [x] 已执行全量测试、类型检查、架构检查和构建；
+- [ ] 专项 overlay 行为测试实际不存在（`tests/` 中无 `*overlay*` 测试文件，也无 dialog 选择器断言），字符串断言不能作为功能可用证据，详见 [[docs/plan-work/active/task-0051-user-theme-layer-editor-functional-recovery]] §三 根因 E。
 
 ## 九、剩余工作
 

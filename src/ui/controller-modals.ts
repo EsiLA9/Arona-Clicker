@@ -17,6 +17,7 @@ import { refreshPresentationHostElements } from './controller-theme';
 import { CORNER_RADIUS_MAX, CORNER_RADIUS_MIN, SKEW_X_DEG_MAX, SKEW_X_DEG_MIN } from './presentation-config';
 import {
   addTargetLayer,
+  clearTargetOverride,
   getTargetLayers,
   hasLocalTarget,
   materializeTargetLayers,
@@ -25,10 +26,13 @@ import {
   setTargetLayerEnabled,
   targetRefKey,
   updateTargetLayer,
+  withPreviewLayer,
   type ThemeLayerTargetRef,
 } from '../arona-clicker/services/user-theme-layer-service';
 import { renderLayerEditorForm, renderLayerManagerList, themeLayerTargetLabel } from './components/user-theme-layer-manager';
 import { cleanupUserThemeLayerOverlay, ensureUserThemeLayerOverlay } from './editor-overlay-host';
+import { bindOverlayDrag } from './overlay-drag';
+import { parseGradient, updateGradient } from './theme-layer-value';
 
 /** 招募补给弹窗：卡池列表 + 抽取按钮（结果经 chat/toast 反馈）。 */
 export function openGachaModal(ctrl: UIController): void {
@@ -400,6 +404,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
   }));
   const targetPicker = modal.querySelector<HTMLElement>('[data-user-theme-target-picker]');
   const targetOptions = modal.querySelector<HTMLElement>('[data-user-theme-target-options]');
+  if (targetPicker) bindOverlayDrag(targetPicker, targetPicker.querySelector<HTMLElement>('.user-theme-target-picker-head'));
   const renderTargetOptions = (level: import('./presentation-targets').PresentationTargetLevel) => {
     if (targetOptions) targetOptions.innerHTML = renderPresentationTargetOptions(createUIContext(ctrl.game), draft, level);
   };
@@ -461,10 +466,25 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
 
 function resolvedLayersForTarget(ctrl: UIController, target: ThemeLayerTargetRef): readonly BackgroundLayerDef[] {
   const runtime = ctrl.game.colorSystem.runtimeTheme();
-  if (target.kind === 'global') return runtime.presentation?.hosts?.find(item => item.id === 'global')?.layers ?? runtime.background;
-  const host = runtime.presentation?.hosts?.find(item => item.id === target.hostId);
+  const hostId = target.kind === 'global' ? 'global' : target.hostId;
+  const globalLayers = runtime.presentation?.hosts?.find(item => item.id === 'global')?.layers;
+  if (hostId === 'global') {
+    return globalLayers?.length ? globalLayers : runtime.background;
+  }
+  let effectiveHostId = hostId;
+  let host = runtime.presentation?.hosts?.find(item => item.id === effectiveHostId);
+  while (!host && effectiveHostId) {
+    const separator = effectiveHostId.lastIndexOf('.');
+    effectiveHostId = separator >= 0 ? effectiveHostId.slice(0, separator) : '';
+    host = effectiveHostId ? runtime.presentation?.hosts?.find(item => item.id === effectiveHostId) : undefined;
+  }
   if (!host) return [];
-  return target.state === 'default' || !target.state ? host.layers ?? [] : host.states?.[target.state]?.layers ?? host.layers ?? [];
+  const state = target.state ?? 'default';
+  if (state === 'default') return host.layers?.length ? host.layers : runtime.background;
+  const stateLayers = host.states?.[state]?.layers;
+  if (!stateLayers?.length) return host.layers?.length ? host.layers : runtime.background;
+  const stateIds = new Set(stateLayers.map(layer => layer.id).filter((id): id is string => Boolean(id)));
+  return [...(host.layers ?? []).filter(layer => !layer.id || !stateIds.has(layer.id)), ...stateLayers];
 }
 
 function readTargetFromElement(element: HTMLElement): ThemeLayerTargetRef | null {
@@ -477,12 +497,43 @@ function readTargetFromElement(element: HTMLElement): ThemeLayerTargetRef | null
   return null;
 }
 
+interface LayerManagerState {
+  target: ThemeLayerTargetRef | null;
+  dialogTarget: ThemeLayerTargetRef | null;
+  dialogLayerId: string | null;
+  dialogDraft: BackgroundLayerDef | null;
+  dirty: boolean;
+  baselineLayers: Map<string, readonly BackgroundLayerDef[]>;
+}
+
+const layerManagerStates = new WeakMap<HTMLElement, LayerManagerState>();
+
+function layerManagerStateFor(overlay: HTMLElement, initialTarget: ThemeLayerTargetRef | null): LayerManagerState {
+  const existing = layerManagerStates.get(overlay);
+  if (existing) return existing;
+  const created: LayerManagerState = { target: initialTarget, dialogTarget: null, dialogLayerId: null, dialogDraft: null, dirty: false, baselineLayers: new Map() };
+  layerManagerStates.set(overlay, created);
+  return created;
+}
+
 function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean): void {
-  const overlay = ensureUserThemeLayerOverlay(createUIContext(ctrl.game), session.id, session.draft, active);
+  const firstHost = session.draft.presentation?.hosts?.[0];
+  const initialTarget: ThemeLayerTargetRef | null = firstHost
+    ? (firstHost.id === 'global' ? { kind: 'global' } : { kind: 'host', hostId: firstHost.id, state: 'default' })
+    : null;
+  const overlay = ensureUserThemeLayerOverlay(createUIContext(ctrl.game), session.id, session.draft, active, initialTarget, initialTarget ? resolvedLayersForTarget(ctrl, initialTarget) : []);
   const shell = overlay.querySelector<HTMLElement>('[data-theme-layer-manager-shell]');
-  if (!shell || shell.dataset.layerManagerBound === 'true') return;
-  shell.dataset.layerManagerBound = 'true';
-  const ui: { target: ThemeLayerTargetRef | null; dialogTarget: ThemeLayerTargetRef | null; dialogLayerId: string | null; dialogDraft: BackgroundLayerDef | null; dirty: boolean } = { target: null, dialogTarget: null, dialogLayerId: null, dialogDraft: null, dirty: false };
+  if (!shell) return;
+  const ui = layerManagerStateFor(overlay, initialTarget);
+  const baselineFor = (target: ThemeLayerTargetRef): readonly BackgroundLayerDef[] => {
+    const key = targetRefKey(target);
+    const existing = ui.baselineLayers.get(key);
+    if (existing) return existing;
+    const resolved = resolvedLayersForTarget(ctrl, target).map(layer => structuredClone(layer));
+    ui.baselineLayers.set(key, resolved);
+    return resolved;
+  };
+  if (initialTarget) baselineFor(initialTarget);
   const list = shell.querySelector<HTMLElement>('[data-theme-layer-manager-list]');
   const dialog = overlay.querySelector<HTMLElement>('[data-theme-layer-editor-dialog]');
   const form = overlay.querySelector<HTMLElement>('[data-theme-layer-editor-form]');
@@ -504,7 +555,10 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
       const node = key ? existing.get(key) ?? next : next;
       const current = list.children[index];
       if (current !== node) list.insertBefore(node, current ?? null);
-      if (node !== next && node.innerHTML !== next.innerHTML) node.innerHTML = next.innerHTML;
+      if (node !== next) {
+        if (node.className !== next.className) node.className = next.className;
+        if (node.innerHTML !== next.innerHTML) node.innerHTML = next.innerHTML;
+      }
     });
     while (list.children.length > nextNodes.length) list.lastElementChild?.remove();
     if (focusedKey && focusedAction) {
@@ -514,43 +568,74 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
   };
   const refreshList = (): void => {
     if (!list) return;
-    reconcileList(renderLayerManagerList(createUIContext(ctrl.game), session.draft, ui.target, active, ui.target ? resolvedLayersForTarget(ctrl, ui.target) : []));
+    reconcileList(renderLayerManagerList(createUIContext(ctrl.game), session.draft, ui.target, active, ui.target ? baselineFor(ui.target) : []));
   };
   const openManager = (target: ThemeLayerTargetRef): void => {
     if (ui.dialogDraft && ui.dirty) {
       if (!window.confirm('当前图层有未保存修改，放弃并切换吗？')) return;
-      closeDialog();
+      closeDialog(true);
     }
     ui.target = target;
+    baselineFor(target);
     shell.hidden = false;
     if (title) title.textContent = themeLayerTargetLabel(target);
     if (source) source.textContent = hasLocalTarget(session.draft, target) ? '当前目标的本地覆盖' : '当前有效回退；实际修改才建立本地覆盖';
     refreshList();
   };
-  const closeDialog = (): void => {
-    if (ui.dialogDraft && ui.dirty && !window.confirm('放弃当前图层修改吗？')) return;
+  const closeDialog = (skipConfirm = false): void => {
+    if (!skipConfirm && ui.dialogDraft && ui.dirty && !window.confirm('放弃当前图层修改吗？')) return;
+    cancelDialogPreview();
     ui.dialogTarget = null; ui.dialogLayerId = null; ui.dialogDraft = null; ui.dirty = false;
     if (dialog) dialog.hidden = true;
     if (form) form.innerHTML = '';
+    preview();
     shell.querySelector<HTMLButtonElement>('[data-theme-layer-manager-close]')?.focus();
   };
   const openDialog = (target: ThemeLayerTargetRef, layerId: string | null, mode: 'create' | 'edit'): void => {
-    const sourceLayers = hasLocalTarget(session.draft, target) ? getTargetLayers(session.draft, target) : resolvedLayersForTarget(ctrl, target);
+    const sourceLayers = hasLocalTarget(session.draft, target) ? getTargetLayers(session.draft, target) : baselineFor(target);
     const existing = layerId ? sourceLayers.find(layer => layer.id === layerId) : undefined;
     const draft = existing ? structuredClone(existing) : { kind: 'solid' as const, value: '#6b8cff', opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' as const };
     ui.dialogTarget = target; ui.dialogLayerId = layerId; ui.dialogDraft = draft; ui.dirty = false;
     if (dialog) dialog.hidden = false;
-    shell.querySelector<HTMLElement>('[data-theme-layer-dialog-title]')?.replaceChildren(document.createTextNode(mode === 'create' ? '新增图层' : '编辑图层'));
+    dialog?.querySelector<HTMLElement>('[data-theme-layer-dialog-title]')?.replaceChildren(document.createTextNode(mode === 'create' ? '新增图层' : '编辑图层'));
     if (form) form.innerHTML = renderLayerEditorForm(createUIContext(ctrl.game), draft, active);
     form?.querySelector<HTMLElement>('[data-theme-layer-dialog-field="id"]')?.focus();
   };
   const preview = (): void => { ctrl.game.colorSystem.setUserThemePreview(session.draft); ctrl.refreshTheme(); if (ui.target?.kind === 'host' && ui.target.hostId) refreshPresentationHostElements(ctrl, [ui.target.hostId]); else refreshPresentationHostElements(ctrl); };
+  let dialogPreviewFrame = 0;
+  const dialogPreview = (): void => {
+    if (!ui.dialogTarget || !ui.dialogDraft) return;
+    ctrl.game.colorSystem.setUserThemePreview(withPreviewLayer(
+      session.draft,
+      ui.dialogTarget,
+      ui.dialogLayerId,
+      ui.dialogDraft,
+      baselineFor(ui.dialogTarget),
+    ));
+    ctrl.refreshTheme();
+    if (ui.dialogTarget.kind === 'host' && ui.dialogTarget.hostId) refreshPresentationHostElements(ctrl, [ui.dialogTarget.hostId]);
+    else refreshPresentationHostElements(ctrl);
+  };
+  const scheduleDialogPreview = (): void => {
+    if (dialogPreviewFrame) return;
+    dialogPreviewFrame = window.requestAnimationFrame(() => { dialogPreviewFrame = 0; dialogPreview(); });
+  };
+  const cancelDialogPreview = (): void => {
+    if (!dialogPreviewFrame) return;
+    window.cancelAnimationFrame(dialogPreviewFrame);
+    dialogPreviewFrame = 0;
+  };
   modal.querySelectorAll<HTMLElement>('[data-theme-layer-manager-target-kind]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     const target = readTargetFromElement(button);
     if (target) openManager(target);
   }));
-  shell.querySelector<HTMLButtonElement>('[data-theme-layer-manager-close]')?.addEventListener('click', () => { if (!ui.dialogDraft || !ui.dirty) shell.hidden = true; else if (window.confirm('放弃当前图层修改并关闭管理器吗？')) { closeDialog(); shell.hidden = true; } });
+  if (shell.dataset.layerManagerBound === 'true') return;
+  shell.dataset.layerManagerBound = 'true';
+  bindOverlayDrag(shell, shell.querySelector<HTMLElement>('[data-theme-layer-manager-header]'));
+  const dialogPanel = overlay.querySelector<HTMLElement>('[data-theme-layer-editor-dialog]');
+  if (dialogPanel) bindOverlayDrag(dialogPanel, dialogPanel.querySelector<HTMLElement>('[data-theme-layer-dialog-handle]'));
+  shell.querySelector<HTMLButtonElement>('[data-theme-layer-manager-close]')?.addEventListener('click', () => { if (!ui.dialogDraft || !ui.dirty) shell.hidden = true; else if (window.confirm('放弃当前图层修改并关闭管理器吗？')) { closeDialog(true); shell.hidden = true; } });
   shell.addEventListener('click', event => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
     if (!button || !ui.target || !active) return;
@@ -558,30 +643,27 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     if (button.dataset.themeLayerSystemToggle) { session.draft.systemColorLayerIgnored = !session.draft.systemColorLayerIgnored; preview(); refreshList(); return; }
     if (!id) return;
     if (ui.dialogDraft && ui.dirty) return;
-    const layers = hasLocalTarget(session.draft, ui.target) ? getTargetLayers(session.draft, ui.target) : resolvedLayersForTarget(ctrl, ui.target);
+    const layers = hasLocalTarget(session.draft, ui.target) ? getTargetLayers(session.draft, ui.target) : baselineFor(ui.target);
     if (button.dataset.themeLayerEdit) { openDialog(ui.target, id, 'edit'); return; }
     if (!hasLocalTarget(session.draft, ui.target)) materializeTargetLayers(session.draft, ui.target, layers);
-    if (button.dataset.themeLayerToggle) setTargetLayerEnabled(session.draft, ui.target, id, button.textContent?.trim() === '显示');
+    if (button.dataset.themeLayerToggle) setTargetLayerEnabled(session.draft, ui.target, id, button.dataset.themeLayerNextEnabled === '1');
     else if (button.dataset.themeLayerMove) moveTargetLayer(session.draft, ui.target, id, button.dataset.direction === 'up' ? 'up' : 'down');
-    else if (button.dataset.themeLayerRemove) { if (!window.confirm('删除这个图层吗？')) return; removeTargetLayer(session.draft, ui.target, id); }
+    else if (button.dataset.themeLayerRemove) {
+      if (!window.confirm('删除这个图层吗？')) return;
+      const removed = removeTargetLayer(session.draft, ui.target, id);
+      if (removed && getTargetLayers(session.draft, ui.target).length === 0) clearTargetOverride(session.draft, ui.target);
+    }
     preview(); refreshList();
   });
   shell.querySelector<HTMLButtonElement>('[data-theme-layer-add]')?.addEventListener('click', () => { if (ui.target && active && !ui.dialogDraft) openDialog(ui.target, null, 'create'); });
   shell.querySelector<HTMLButtonElement>('[data-theme-layer-revert]')?.addEventListener('click', () => {
     if (!ui.target || !active || !hasLocalTarget(session.draft, ui.target) || !window.confirm('清除当前目标的本地覆盖并回退吗？')) return;
-    const target = ui.target;
-    const host = session.draft.presentation?.hosts?.find(item => item.id === (target.kind === 'global' ? 'global' : target.hostId));
-    if (!host) return;
-    if ((target.state ?? 'default') === 'default') { delete host.layers; delete host.layerOrder; }
-    else if (host.states) { delete host.states[target.state!]; }
-    if (!host.layers && !host.layerOrder && !host.opacity && !host.states && !host.decoration && !host.shape && !host.cornerRadius && !host.skewXDeg && !host.textColorMode) {
-      session.draft.presentation!.hosts = session.draft.presentation!.hosts?.filter(item => item !== host);
-    }
+    clearTargetOverride(session.draft, ui.target);
     preview(); refreshList();
   });
-  shell.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-close]')?.addEventListener('click', closeDialog);
-  shell.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-cancel]')?.addEventListener('click', closeDialog);
-  form?.addEventListener('input', event => {
+  dialog?.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-close]')?.addEventListener('click', () => closeDialog());
+  dialog?.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-cancel]')?.addEventListener('click', () => closeDialog());
+  const handleLayerField = (event: Event): void => {
     const field = (event.target as HTMLElement).closest<HTMLInputElement | HTMLSelectElement>('[data-theme-layer-dialog-field]');
     if (!field || !ui.dialogDraft) return;
     ui.dirty = true;
@@ -595,20 +677,39 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     } else if (key === 'enabled') ui.dialogDraft.enabled = (field as HTMLInputElement).checked ? undefined : false;
     else if (key === 'opacity') ui.dialogDraft.opacity = Math.max(0, Math.min(1, Number(field.value) || 0));
     else if (key === 'scale') ui.dialogDraft.scale = Math.max(0.05, Math.min(8, Number(field.value) || 1));
+    else if (key === 'rotation') ui.dialogDraft.rotation = Number.isFinite(Number(field.value)) ? Number(field.value) : 0;
     else if (key === 'color') ui.dialogDraft.value = field.value;
     else if (key === 'value') ui.dialogDraft.value = field.value;
-    else if (key === 'gradientStart' || key === 'gradientEnd' || key === 'gradientAngle') {
-      const match = /linear-gradient\(\s*(-?\d+(?:\.\d+)?)deg,\s*(#[0-9a-f]{3,8}),\s*(#[0-9a-f]{3,8})\)/i.exec(ui.dialogDraft.value);
-      const angle = key === 'gradientAngle' ? field.value : match?.[1] ?? '135'; const start = key === 'gradientStart' ? field.value : match?.[2] ?? '#6b8cff'; const end = key === 'gradientEnd' ? field.value : match?.[3] ?? '#dbeafe'; ui.dialogDraft.value = `linear-gradient(${angle}deg, ${start}, ${end})`;
-    } else if (key === 'position' || key === 'size' || key === 'repeat' || key === 'blendMode') ui.dialogDraft[key] = field.value as never;
-  });
-  shell.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-save]')?.addEventListener('click', () => {
+    else if (key === 'gradientStart' || key === 'gradientEnd' || key === 'gradientAngle' || key === 'gradientShape' || key === 'gradientCenterX' || key === 'gradientCenterY' || key === 'gradientStopColor' || key === 'gradientStopPosition') {
+      const parsed = parseGradient(ui.dialogDraft.value);
+      if (parsed) {
+        const stopIndex = Number(field.dataset.themeLayerGradientIndex);
+        const indexed = Number.isInteger(stopIndex) ? { stopIndex } : {};
+        const next = key === 'gradientStart' ? updateGradient(ui.dialogDraft.value, { startColor: field.value })
+          : key === 'gradientEnd' ? updateGradient(ui.dialogDraft.value, { endColor: field.value })
+            : key === 'gradientStopColor' ? updateGradient(ui.dialogDraft.value, { ...indexed, stopColor: field.value })
+              : key === 'gradientStopPosition' ? updateGradient(ui.dialogDraft.value, { ...indexed, stopPosition: field.value })
+                : key === 'gradientAngle' ? updateGradient(ui.dialogDraft.value, { direction: /deg$/i.test(field.value.trim()) ? field.value.trim() : `${field.value}deg` })
+              : key === 'gradientShape' ? updateGradient(ui.dialogDraft.value, { shape: field.value })
+                : key === 'gradientCenterX' ? updateGradient(ui.dialogDraft.value, { centerX: field.value })
+                  : updateGradient(ui.dialogDraft.value, { centerY: field.value });
+        ui.dialogDraft.value = next;
+      }
+    } else if (key === 'position' || key === 'size' || key === 'repeat' || key === 'blendMode' || key === 'attachment') ui.dialogDraft[key] = field.value as never;
+    scheduleDialogPreview();
+  };
+  form?.addEventListener('input', handleLayerField);
+  form?.addEventListener('change', handleLayerField);
+  dialog?.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-save]')?.addEventListener('click', () => {
     if (!ui.dialogTarget || !ui.dialogDraft || !active) return;
     if (ui.dialogLayerId) {
-      if (!hasLocalTarget(session.draft, ui.dialogTarget)) materializeTargetLayers(session.draft, ui.dialogTarget, resolvedLayersForTarget(ctrl, ui.dialogTarget));
+      if (!hasLocalTarget(session.draft, ui.dialogTarget)) materializeTargetLayers(session.draft, ui.dialogTarget, baselineFor(ui.dialogTarget));
       updateTargetLayer(session.draft, ui.dialogTarget, ui.dialogLayerId, ui.dialogDraft);
-    } else addTargetLayer(session.draft, ui.dialogTarget, ui.dialogDraft);
-    preview(); closeDialog(); refreshList();
+    } else {
+      if (!hasLocalTarget(session.draft, ui.dialogTarget)) materializeTargetLayers(session.draft, ui.dialogTarget, baselineFor(ui.dialogTarget));
+      addTargetLayer(session.draft, ui.dialogTarget, ui.dialogDraft);
+    }
+    preview(); closeDialog(true); refreshList();
   });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.dialogDraft && overlay.isConnected) { event.stopPropagation(); closeDialog(); } }, true);
 }

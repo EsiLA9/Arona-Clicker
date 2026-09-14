@@ -103,7 +103,7 @@ function renderLayerOrderSection(ctx: UIContext, studentVariantId: string | null
           const themeName = ctx.escapeHtml(meta.themeName);
           const region = ctx.escapeHtml(`${LAYER_LABELS[scope]} · ${meta.region}`);
           return `
-          <div class="layer-order-row" draggable="true" data-theme-layer-order-scope="${scope}" aria-label="${themeName}，作用区域：${region}">
+          <div class="layer-order-row" data-theme-layer-order-scope="${scope}" aria-label="${themeName}，作用区域：${region}">
             <span class="layer-order-handle" title="拖拽调整优先级">⋮⋮</span>
             <span class="layer-order-rank">${i + 1}</span>
             <span class="layer-order-name">
@@ -111,6 +111,10 @@ function renderLayerOrderSection(ctx: UIContext, studentVariantId: string | null
               <small class="layer-order-region">${region}</small>
             </span>
             <span class="layer-order-swatch ${primary ? '' : 'none'}" style="--swatch:${primary ?? '#c3ccdb'}" title="${primary ? '当前生效主题色' : '当前未生效'}"></span>
+            <span class="layer-order-actions">
+              <button type="button" data-theme-layer-order-move="up" data-theme-layer-order-move-scope="${scope}" title="提高优先级" aria-label="提高${themeName}的优先级" ${i === 0 ? 'disabled' : ''}>↑</button>
+              <button type="button" data-theme-layer-order-move="down" data-theme-layer-order-move-scope="${scope}" title="降低优先级" aria-label="降低${themeName}的优先级" ${i === display.length - 1 ? 'disabled' : ''}>↓</button>
+            </span>
           </div>`;
         }).join('')}
       </div>

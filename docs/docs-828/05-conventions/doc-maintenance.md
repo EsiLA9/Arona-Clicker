@@ -13,6 +13,7 @@
 | `04-mechanisms/` | 核心算法流程（结算/失效/派生） | 按主题 |
 | `05-conventions/` | 规范（纪律/重构/协议/测试/本文） | 每规范 1 篇 |
 | `docs/plan-work/` | 架构决策、Roadmap、方案草稿、Code Review 与完成记录的统一工作区 | 按 `00-index` 路由 |
+| `docs/ai/` | AI 施工协议与模板：Constitution（从属 `AGENTS.md`）、Patch Unit / Execution Receipt 模板；不含计划正文 | 每协议 1 篇 |
 | `07-audit/` | 设计审查：繁简/兜底问题清单（位置/原因/方案组）；GameNum/Affector 多包基础设施豁免；整改完成后归档 | 每组 1 篇 + 总览 |
 | `08-roadmap/` | 已迁移至 `docs/plan-work/active/` 或 `completed/`；旧目录不再承载计划正文 | 由 `docs/plan-work/00-index.md` 统一索引 |
 

@@ -10,8 +10,9 @@
   top: 60px;
   right: 16px;
   z-index: 60;
-  min-width: 240px;
-  max-width: 320px;
+  /* 固定宽度：不写死宽度时按内容 shrink-to-fit，浮窗宽度会在 240~320px 间浮动，
+     拖拽层级优先级时上方色板网格会重新换行，把下方整个列表顶得上下位移 */
+  width: min(320px, calc(100vw - 32px));
   background: var(--panel-light, #ffffff);
   color: var(--ink-on-panel-light, #16203a);
   border: 1px solid var(--line, #d8e2f0);
@@ -68,6 +69,15 @@
   padding: 12px;
   max-height: 60vh;
   overflow: auto;
+  /* 滚动条常驻占位 + 关闭滚动锚定：滚动条出现/消失不再改变可用宽度，
+     内容变化也不会让浏览器自动调整 scrollTop（拖拽时表现为整块列表位移） */
+  scrollbar-gutter: stable;
+  overflow-anchor: none;
+}
+
+/* 色板整行占位：避免它在 wrap 容器里与其它分组争行造成上方网格换行 */
+.theme-float-body > .theme-swatches {
+  flex: 0 0 100%;
 }
 
 .theme-float-body .theme-swatch {
@@ -131,12 +141,35 @@
   box-shadow: 0 2px 0 0 var(--cyan, #3b9eff);
 }
 
+.layer-order-actions {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+
+.layer-order-actions button {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 5px;
+}
+
+.layer-order-actions button[disabled] {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
 .layer-order-handle {
   color: var(--muted-on-panel-light, #6b7a99);
   font-size: 12px;
   letter-spacing: -2px;
   line-height: 1;
   cursor: grab;
+  touch-action: none;
 }
 
 .layer-order-rank {

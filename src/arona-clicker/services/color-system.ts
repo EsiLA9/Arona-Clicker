@@ -224,7 +224,7 @@ export class ColorSystem {
       groupId: applied?.colorGroupId as ColorGroupId | undefined,
       ...colorLayer,
       background: globalLayers,
-      backgroundLayerOrder: globalHost?.layerOrder,
+      backgroundLayerOrder: globalHost?.layerOrder?.length ? globalHost.layerOrder : [SYSTEM_COLOR_BACKGROUND_ID],
       systemColorLayerIgnored: stored?.systemColorLayerIgnored === true,
       presentation: applied?.presentation,
     } : null);
@@ -244,7 +244,7 @@ export class ColorSystem {
       scope: 'ephemeral',
       ...colorLayer,
       background: globalHost?.layers ? [systemColorBackground(), ...globalHost.layers] : [systemColorBackground()],
-      backgroundLayerOrder: globalHost?.layerOrder,
+      backgroundLayerOrder: globalHost?.layerOrder?.length ? globalHost.layerOrder : [SYSTEM_COLOR_BACKGROUND_ID],
       systemColorLayerIgnored: draft.systemColorLayerIgnored === true,
       presentation: draft.presentation,
     } : null);

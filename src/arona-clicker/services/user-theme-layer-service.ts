@@ -165,6 +165,41 @@ export function updateTargetLayer(draft: UserThemeDraft, target: ThemeLayerTarge
   return true;
 }
 
+/** 清除某个目标的本地覆盖；host 没有其他用户配置时连 host 记录一起移除。 */
+export function clearTargetOverride(draft: UserThemeDraft, target: ThemeLayerTargetRef): boolean {
+  const host = hostOf(draft, target);
+  if (!host) return false;
+  if (stateOf(target) === 'default') { delete host.layers; delete host.layerOrder; }
+  else if (host.states) { delete host.states[stateOf(target)]; }
+  if (!host.layers && !host.layerOrder && !host.opacity && !host.states && !host.decoration && !host.shape && !host.cornerRadius && !host.skewXDeg && !host.textColorMode) {
+    draft.presentation!.hosts = draft.presentation!.hosts?.filter(item => item !== host);
+  }
+  return true;
+}
+
+/** 构造一份仅用于预览的 draft：目标层被 layer 临时替换（layerId 为空则追加），不写回会话 draft。 */
+export function withPreviewLayer(
+  draft: UserThemeDraft,
+  target: ThemeLayerTargetRef,
+  layerId: string | null,
+  layer: BackgroundLayerDef,
+  resolvedLayers: readonly BackgroundLayerDef[] = [],
+): UserThemeDraft {
+  const next = structuredClone(draft);
+  const previewId = layerId ?? layer.id ?? `preview-${targetRefKey(target)}`;
+  const layers = hasLocalTarget(next, target) ? [...getTargetLayers(next, target)] : resolvedLayers.map(item => structuredClone(item));
+  const index = layerId ? layers.findIndex(item => item.id === layerId) : -1;
+  if (index >= 0) layers[index] = { ...layer, id: previewId };
+  else layers.push({ ...layer, id: previewId });
+  setLayers(next, target, layers);
+  const order = [...getTargetLayerOrder(next, target)];
+  const orderIndex = order.indexOf(previewId);
+  if (orderIndex < 0) order.push(previewId);
+  if (target.kind === 'global' && !order.includes(SYSTEM_COLOR_LAYER_ID)) order.unshift(SYSTEM_COLOR_LAYER_ID);
+  setOrder(next, target, order);
+  return next;
+}
+
 export function removeTargetLayer(draft: UserThemeDraft, target: ThemeLayerTargetRef, layerId: string): boolean {
   if (layerId === SYSTEM_COLOR_LAYER_ID) return false;
   normalizeTarget(draft, target);

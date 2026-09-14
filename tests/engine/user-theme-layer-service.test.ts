@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   addTargetLayer,
+  clearTargetOverride,
   getTargetLayerOrder,
   getTargetLayers,
   hasLocalTarget,
@@ -10,6 +11,7 @@ import {
   removeTargetLayer,
   setTargetLayerEnabled,
   updateTargetLayer,
+  withPreviewLayer,
 } from '../../src/arona-clicker/services/user-theme-layer-service';
 import { validateUserThemeDraft } from '../../src/arona-clicker/services/user-theme-service';
 import type { UserThemeDraft } from '../../src/arona-clicker/types/user-theme';
@@ -67,5 +69,40 @@ describe('UserThemeLayerService', () => {
     expect(draft.presentation?.hosts?.[0].layers).toEqual([]);
     expect(getTargetLayerOrder(draft, target)).toEqual(['system-color-background']);
     expect(removeTargetLayer(draft, target, 'system-color-background')).toBe(false);
+  });
+
+  test('清除本地覆盖移除 layers/order，无其他配置时连 host 记录一起删除', () => {
+    const draft: UserThemeDraft = { version: 1, presentation: { hosts: [{ id: 'global', layers: [layer('a', '#111')], layerOrder: ['system-color-background', 'a'] }] } };
+    expect(clearTargetOverride(draft, { kind: 'global' })).toBe(true);
+    expect(draft.presentation?.hosts).toEqual([]);
+  });
+
+  test('预览层不写回会话 draft，并按目标追加或替换单层', () => {
+    const draft: UserThemeDraft = { version: 1, presentation: { hosts: [{ id: 'global', layers: [layer('existing', '#111')], layerOrder: ['system-color-background', 'existing'] }] } };
+    const target = { kind: 'global' as const };
+
+    const appended = withPreviewLayer(draft, target, null, layer(undefined, '#222'));
+    expect(getTargetLayers(appended, target)).toHaveLength(2);
+    expect(getTargetLayerOrder(appended, target)[0]).toBe('system-color-background');
+    expect(draft.presentation?.hosts?.[0].layers).toHaveLength(1);
+
+    const replaced = withPreviewLayer(draft, target, 'existing', layer('existing', '#333'));
+    expect(getTargetLayers(replaced, target).map(item => item.value)).toEqual(['#333']);
+    expect(getTargetLayers(draft, target).map(item => item.value)).toEqual(['#111']);
+  });
+
+  test('预览替换已有图层时保留原有视觉顺序', () => {
+    const draft: UserThemeDraft = { version: 1, presentation: { hosts: [{ id: 'global', layers: [layer('bottom', '#111'), layer('middle', '#222'), layer('top', '#333')], layerOrder: ['bottom', 'middle', 'top'] }] } };
+    const next = withPreviewLayer(draft, { kind: 'global' }, 'middle', layer('middle', '#f00'));
+    expect(getTargetLayerOrder(next, { kind: 'global' })).toEqual(['system-color-background', 'bottom', 'middle', 'top']);
+  });
+
+  test('预览替换继承图层时先带入完整有效层，不丢失原图层', () => {
+    const draft: UserThemeDraft = { version: 1 };
+    const target = { kind: 'host' as const, hostId: 'header.button', state: 'default' as const };
+    const resolved = [layer('inherited-bottom', '#111'), layer('inherited-top', '#222')];
+    const next = withPreviewLayer(draft, target, 'inherited-bottom', layer('inherited-bottom', '#f00'), resolved);
+    expect(getTargetLayers(next, target).map(item => item.id)).toEqual(['inherited-bottom', 'inherited-top']);
+    expect(getTargetLayers(next, target)[0].value).toBe('#f00');
   });
 });

@@ -57,7 +57,7 @@ describe('用户主题编辑器：图层排序', () => {
 
     const html = renderLayerManagerList(ctx, session.draft, { kind: 'global' }, true);
 
-    expect(html).toMatch(/data-user-theme-background-move="1" data-direction="down"\s*>/);
+    expect(html).toMatch(/data-user-theme-background-move="1"[^>]*data-direction="down"[^>]*>/);
   });
 
   test('Manager 将系统层按完整 order 放在正确的视觉位置，并允许排序', () => {
@@ -68,8 +68,8 @@ describe('用户主题编辑器：图层排序', () => {
     };
     const html = renderLayerManagerList(ctx, draft, { kind: 'global' }, true);
 
-    expect(html.indexOf('<summary>top</summary>')).toBeLessThan(html.indexOf('系统颜色层'));
-    expect(html.indexOf('系统颜色层')).toBeLessThan(html.indexOf('<summary>bottom</summary>'));
+    expect(html.indexOf('theme-layer-row-name">top<')).toBeLessThan(html.indexOf('系统颜色层'));
+    expect(html.indexOf('系统颜色层')).toBeLessThan(html.indexOf('theme-layer-row-name">bottom<'));
     expect(html).toContain('data-theme-layer-move="system-color-background"');
   });
 });

@@ -423,6 +423,22 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     expect(theme.background.find(layer => layer.id === 'system-color-background')?.opacity).toBe(1);
   });
 
+  test('用户主题预览把系统颜色层固定在最底，不遮挡继承背景层', () => {
+    game = freshGame();
+    game.colorSystem.setUserThemePreview({ palette: ['#123456'], presentation: { hosts: [{ id: 'global', parent: undefined }] } });
+
+    expect(game.colorSystem.runtimeTheme().background[0]?.id).toBe('system-color-background');
+  });
+
+  test('用户主题预览含本地图层时，系统颜色层仍位于自定义层之下', () => {
+    game = freshGame();
+    game.colorSystem.setUserThemePreview({
+      presentation: { hosts: [{ id: 'global', layers: [{ id: 'user-layer', kind: 'solid', value: '#00ff00' }], layerOrder: ['system-color-background', 'user-layer'] }] },
+    });
+
+    expect(game.colorSystem.runtimeTheme().background.map(layer => layer.id)).toEqual(['system-color-background', 'user-layer']);
+  });
+
   test('多色彩组叠加：场景覆盖玩家、临时覆盖一切', () => {
     game = freshGame();
     game.mutations.acquireCharacter('Arona', 'gacha');

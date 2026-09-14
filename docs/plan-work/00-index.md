@@ -15,7 +15,7 @@
 
 | 任务 | 目标 | 状态 |
 | --- | --- | --- |
-| [[docs/plan-work/active/task-0000-ai-context-infrastructure]] | Sol → Luna 的最小施工上下文、Patch Unit 与回执基础设施 | 🔵 计划已建立，尚未施工；明确排除 Task-0049/0050 |
+| [[docs/plan-work/active/task-0000-ai-context-infrastructure]] | 最小 AI 施工上下文协议：高层 AI → Patch Unit → Luna → Receipt，含协议入口登记 | 🟡 P0 已完成（`docs/ai/` 协议、模板与路由入口）；P1 待授权试点；明确排除 Task-0049/0050 |
 | [[docs/plan-work/active/task-0023-project-documentation-normalization]] | 文档职责收敛、机制文件夹建立、逐篇核验与失效链接清理 | 🟡 进行中 |
 | [[docs/plan-work/active/roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Lobby Runtime 与通用界面服务 | 🟡 收尾验收 |
 | [[docs/plan-work/active/task-0025-selector-dynamic-theme]] | Init / GlobalEnh 选择页动态主题与 Init 状态背景 | ✅ 首版已实施并验证，体验项另列 |
@@ -39,7 +39,11 @@
 | [[docs/plan-work/active/task-0047-contacts-story-workspace-ownership]] | 通讯录 / 故事独立 Workspace 所有权与路由迁移 | 🟢 Contacts / Story 核心迁移完成；通用 Region 与 Character 兼容清理后续收口 |
 | [[docs/plan-work/active/task-0048-workspace-theme-restructure-and-editor]] | Workspace Theme 体系重构、编辑器信息架构与主题生命周期收敛 | 🟡 P0 首轮诊断、P1 摘要卡、P2 owner 接线已完成；来源链与生命周期回归推进中 |
 | [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]] | 用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分与局部刷新 | 🟡 首轮施工完成；浮窗架构缺陷转 Task0050 |
-| [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]] | 图层 Manager/Dialog body-level overlay、编辑会话生命周期与 global 表现目标双管线收口 | 🟡 P0/P1 已完成；P2 运行时接线完成，Edge 视觉回归待补 |
+| [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]] | 图层 Manager/Dialog body-level overlay、编辑会话生命周期与 global 表现目标双管线收口 | 🟡 P0-A 结构已落地但功能不可用；P1 部分完成；P2 未收口 |
+| [[docs/plan-work/active/task-0051-user-theme-layer-editor-functional-recovery]] | 恢复图层编辑 Dialog 的保存/取消/标题、Manager 初值与 global 入口，补 overlay 行为测试 | 🟡 代码与 7 项行为测试已完成；Edge 验收待补 |
+| [[docs/plan-work/active/task-0052-user-theme-layer-overlay-presentation]] | 图层浮层尺寸收紧、标题栏拖拽、行内常显信息与样式类名对齐 | 🟡 代码与测试已完成；Edge 验收待补 |
+| [[docs/plan-work/active/task-0053-user-theme-layer-interaction-fixes]] | 修复保存误弹确认、系统层顺序、新建丢失继承层、删除回退、行级状态同步、预览顺序与实时预览、层级优先级按钮入口 | 🟡 代码与测试已完成；Edge 验收待补 |
+| [[docs/plan-work/active/task-0054-user-theme-layer-type-aware-value-editor]] | 按图层类型提供差异化参数面板、CSS 解析/序列化与预览保存一致性，重点覆盖径向渐变 | 🔵 待评审，尚未施工 |
 | [[docs/plan-work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
@@ -131,7 +135,10 @@
 - [[docs/plan-work/active/task-0031-svg-button-state-color-audit]]：按钮内 SVG 状态颜色链路审查（✅ 已实施并验证；全量检查受既有基线问题影响）。
 - [[docs/plan-work/active/task-0033-system-color-layer-scope]]：控件系统颜色层职责收敛、隐式重复背景清理与全局开关解耦（🟡 规划完成，待施工）。
 - [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]]：用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分、稳定 ID、隐藏语义与局部刷新（🟡 首轮施工完成；浮窗架构缺陷转 Task0050）。
-- [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]]：图层 Manager/Dialog 的 body-level overlay、编辑会话生命周期与 `global` 表现目标双管线收口（🟡 P0/P1 已完成；P2 运行时接线完成，Edge 视觉回归待补）。
+- [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]]：图层 Manager/Dialog 的 body-level overlay、编辑会话生命周期与 `global` 表现目标双管线收口（🟡 P0-A 结构已落地但 Dialog 与 global 入口功能不可用；P1 部分完成；P2 未收口）。
+- [[docs/plan-work/active/task-0051-user-theme-layer-editor-functional-recovery]]：恢复图层编辑 Dialog 的保存/取消/标题、Manager 初值与 global 图层入口，补 overlay 行为测试（🟡 代码与行为测试完成；Edge 验收待补，承接 0050 的功能阻断）。
+- [[docs/plan-work/active/task-0052-user-theme-layer-overlay-presentation]]：图层浮层尺寸收紧、标题栏拖拽、LayerManager 行内常显信息与样式类名对齐（🟡 代码与测试完成；Edge 验收待补）。
+- [[docs/plan-work/active/task-0053-user-theme-layer-interaction-fixes]]：修复保存误弹放弃确认、回退视图系统颜色层顺序、新建图层丢失继承层、删除最后一层自动回退、行级状态同步、预览层遮蔽继承背景与 Dialog 实时预览，并为主题浮窗「层级优先级」补按钮排序入口（🟡 代码与测试完成；Edge 验收待补）。
 - [[docs/plan-work/completed/task-0044-ui-geometry-workspace-reshape]]：Workspace Frame 几何契约、Panel/Region/Host 边界、滚动与响应式收敛（✅ 已完成）。
 - [[docs/plan-work/completed/roadmap-0019-presentation-text-color]]：表现宿主文字颜色统一、四态解析与验收（✅ 已完成）。
 

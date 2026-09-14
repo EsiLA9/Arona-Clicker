@@ -22,6 +22,7 @@
 | 文件拆分 / 重构 | [[docs/docs-828/05-conventions/refactoring]] |
 | 写测试 | [[docs/docs-828/05-conventions/testing]] |
 | 维护文档本身 | [[docs/docs-828/05-conventions/doc-maintenance]] |
+| Luna 施工上下文 / Patch Unit / 施工纪律 | [[docs/ai/PROJECT-CONSTITUTION]]（从属索引，不复述架构纪律；Unit 与 Receipt 模板见 `docs/ai/templates/`） |
 | 好感系统（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）机制 | [[docs/plan-work/completed/affection-planning]]（机制单一事实源；聊天消息成分已移除） |
 | Datapack 读取 / 多包管理 / mod 冲突与命名空间 | [[docs/plan-work/active/adr-0004-datapack-management]]（规划中，裁定记录见文内） |
 | Datapack 汇总契约 / Registry 组合边界 | `src/data-services/contracts/datapack.ts`、`src/data-services/registry/`；基础引擎只消费注入后的数据 |
@@ -29,7 +30,7 @@
 
 ### 策划、意见与工作计划归档
 
-所有非机制正文的策划、反馈、评审意见和施工计划，统一放在 `docs/plan-work/`；新建文档前先阅读其 [[docs/plan-work/00-index]]，不要在项目根目录或 `docs/` 下另建平行的计划目录。
+所有非机制正文的策划、反馈、评审意见和施工计划，统一放在 `docs/plan-work/`；新建文档前先阅读其 [[docs/plan-work/00-index]]，不要在项目根目录或 `docs/` 下另建平行的计划目录。`docs/ai/` 只放 AI 施工协议与模板（非计划正文），入口见上方路由表。
 
 | 内容性质 | 存放位置 | 文档形态 |
 | --- | --- | --- |
