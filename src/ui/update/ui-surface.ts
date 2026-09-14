@@ -1,4 +1,5 @@
 import type { PanelState } from '../components/app-shell';
+import { resolveCurrentWorkspaceRoute } from '../workspace/workspace-router';
 
 export interface UISurfaceToken {
   readonly key: string;
@@ -6,21 +7,31 @@ export interface UISurfaceToken {
 }
 
 export function surfaceKeyOf(state: PanelState): string {
-  const service = state.service ?? 'game';
-  if (service !== 'game') return `service:${service}`;
   const workspace = state.workspace;
-  if (!workspace) return 'game';
-  if (workspace.type === 'shop') return ['shop', workspace.spotId, workspace.shopId].join(':');
-  if (workspace.type === 'character') return ['character', workspace.variantId].join(':');
-  if (workspace.type === 'contacts') {
+  const legacyWorkspace = workspace
+    ? workspace.type === 'shop'
+      ? { type: 'shop' as const, sessionId: `${workspace.spotId}:${workspace.shopId}` }
+      : workspace.type === 'character'
+        ? { type: 'character' as const, variantId: workspace.variantId }
+        : workspace.type === 'contacts'
+          ? { type: 'contacts' as const }
+          : { type: 'story' as const, sessionId: workspace.conversationOwner ?? undefined }
+    : null;
+  const route = resolveCurrentWorkspaceRoute(state.workspaceNavigation, { service: state.service, workspace: legacyWorkspace });
+  if (route.kind === 'service') return `service:${route.page}`;
+  if (route.kind === 'game') return 'game';
+  if (route.kind === 'shop') return ['shop', route.sessionId].join(':');
+  if (route.kind === 'character') return ['character', route.variantId].join(':');
+  if (route.kind === 'contacts' && workspace?.type === 'contacts') {
     return ['contacts', workspace.selectedVariantId ?? '', workspace.conversationVariantId ?? ''].join(':');
   }
+  if (route.kind !== 'story' || workspace?.type !== 'story') return route.kind;
   return [
     'story',
     workspace.selectedEntryId ?? '',
-    workspace.conversationOwner ?? '',
-    workspace.mode,
-    workspace.navPath.join('/'),
+    workspace?.conversationOwner ?? '',
+    workspace?.mode ?? 'overview',
+    workspace?.navPath.join('/') ?? '',
   ].join(':');
 }
 

@@ -36,8 +36,11 @@ import type { ResourceDisplayDef, ResolvedTagDef } from '../contracts/common';
 import type { AreaDef, InitDef, SpotDef } from '../contracts/world';
 import type { PicDef, PicKind } from '../contracts/pic';
 import { parsePicId } from '../contracts/pic';
+import { parseEntityId } from '../../engine/core/entity-id';
+import type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry-spot-mutation';
 
 export { RegistryError };
+export type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry-spot-mutation';
 
 /** 数据包表合并/清空步骤：merge 与 clear 共用的单一表清单（docs-824/08 T6）。 */
 interface TableStep {
@@ -59,6 +62,8 @@ export class Registry {
   private _inits: Map<string, InitDef> = new Map();
   private _areas: Map<string, AreaDef> = new Map();
   private _spots: Map<string, SpotDef> = new Map();
+  private _suspendedSpots = new Map<string, { spot: SpotDef; ownerModName: string }>();
+  private _spotSourceModNames = new Map<string, string>();
   private _spotTagModNames = new Map<string, string>();
   private _tagOwnerModNames = new Map<string, string>();
   private _enhancements: Map<string, EnhancementDef> = new Map();
@@ -116,6 +121,7 @@ export class Registry {
   /** 层级标签 → 拥有该标签（或其前缀匹配）的 Spot。key 为路径串（含所有前缀展开）。 */
   private _spotsByTag: Map<string, Set<string>> = new Map();
   private currentPackModName = 'base';
+  private _spotMutationRevision = 0;
 
   constructor() {
     this.tableSteps = [
@@ -141,17 +147,27 @@ export class Registry {
         table: 'spots',
         merge: dp => {
           for (const spot of dp.spots) {
-            this._spots.set(spot.id, spot);
-            this._spotTagModNames.set(spot.id, this.currentPackModName);
-            if (!this._spotsByArea.has(spot.areaId)) {
-              this._spotsByArea.set(spot.areaId, []);
+            const previous = this._spots.get(spot.id);
+            if (previous) {
+              this.removeSpotFromIndexes(previous, this._spotSourceModNames.get(spot.id) ?? this.currentPackModName);
             }
-            this._spotsByArea.get(spot.areaId)!.push(spot.id);
+            this._suspendedSpots.delete(spot.id);
+            this._spots.set(spot.id, spot);
+            this._spotSourceModNames.set(spot.id, this.currentPackModName);
+            this._spotTagModNames.set(spot.id, this.currentPackModName);
             // 层级标签索引：把每个声明标签的所有前缀都登记（父含子）
-            for (const tag of spot.tags ?? []) this.indexSpotTag(spot.id, tag, this.currentPackModName);
+            this.addSpotToIndexes(spot, this.currentPackModName);
           }
         },
-        clear: () => { this._spots.clear(); this._spotsByArea.clear(); this._spotsByTag.clear(); this._spotTagModNames.clear(); },
+        clear: () => {
+          this._spots.clear();
+          this._suspendedSpots.clear();
+          this._spotSourceModNames.clear();
+          this._spotsByArea.clear();
+          this._spotsByTag.clear();
+          this._spotTagModNames.clear();
+          this._spotMutationRevision = 0;
+        },
       },
       {
         table: 'enhancements',
@@ -389,6 +405,130 @@ export class Registry {
   get inits(): ReadonlyMap<string, InitDef> { return this._inits; }
   get areas(): ReadonlyMap<string, AreaDef> { return this._areas; }
   get spots(): ReadonlyMap<string, SpotDef> { return this._spots; }
+  /** 当前 Spot 的来源 Mod；不存在时返回 undefined。 */
+  spotOwnerOf(spotId: string): string | undefined { return this._spotSourceModNames.get(spotId); }
+  /** 当前解析结果之外仍保留的 Spot source record（仅供编辑/撤回协调层读取）。 */
+  spotIncludingSuspended(spotId: string): SpotDef | undefined {
+    return this._spots.get(spotId) ?? this._suspendedSpots.get(spotId)?.spot;
+  }
+  /** 当前 Spot 是否被 Registry 的 blocking record 挂起。 */
+  isSpotSuspended(spotId: string): boolean { return this._suspendedSpots.has(spotId); }
+
+  /**
+   * 对单个 Spot 执行受控局部变更，并返回可回滚 receipt。
+   * 校验在任何索引或主表写入前完成；本方法不触碰其他 Definition 或 Runtime 子系统。
+   */
+  applySpotMutation(mutation: RegistrySpotMutation): RegistrySpotMutationReceipt {
+    const ownerModName = mutation.ownerModName;
+    this.validateSpotOwner(ownerModName);
+
+    const spotId = mutation.operation === 'delete' || mutation.operation === 'suspend' || mutation.operation === 'resume'
+      ? mutation.spotId
+      : mutation.spot.id;
+    this.validateSpotId(spotId, ownerModName);
+    const previousSpot = this._spots.get(spotId);
+    const previousSuspended = this._suspendedSpots.get(spotId);
+    const previousSourceSpot = previousSpot ?? previousSuspended?.spot;
+    const previousOwner = this._spotSourceModNames.get(spotId) ?? previousSuspended?.ownerModName;
+
+    if (mutation.operation === 'create') {
+      if (previousSpot || previousSuspended) {
+        throw new RegistryError(`Spot "${spotId}" 已存在；局部变更应使用 replace`);
+      }
+      this.validateSpotCandidate(mutation.spot, ownerModName);
+    } else {
+      if (!previousSourceSpot) {
+        throw new RegistryError(`Spot "${spotId}" 不存在`);
+      }
+      if (previousOwner !== ownerModName) {
+        throw new RegistryError(`Spot "${spotId}" 属于 Mod "${previousOwner ?? 'unknown'}"，不能由 Mod "${ownerModName}" 修改`);
+      }
+      if (mutation.operation === 'replace') {
+        if (previousSuspended) throw new RegistryError(`Spot "${spotId}" 当前已挂起；请先 resume 后再 replace`);
+        this.validateSpotCandidate(mutation.spot, ownerModName);
+        if (mutation.spot.id !== spotId) {
+          throw new RegistryError(`replace 的 Spot id 必须保持为 "${spotId}"`);
+        }
+      }
+    }
+
+    const previousAreaIndex = previousSpot ? this.removeSpotFromIndexes(previousSpot, previousOwner ?? ownerModName) : -1;
+    if (mutation.operation === 'delete') {
+      this._spots.delete(spotId);
+      this._suspendedSpots.delete(spotId);
+      this._spotSourceModNames.delete(spotId);
+      this._spotTagModNames.delete(spotId);
+      this._tagOwnerModNames.delete(spotId);
+    } else if (mutation.operation === 'suspend') {
+      if (previousSuspended) throw new RegistryError(`Spot "${spotId}" 已经处于挂起状态`);
+      this._spots.delete(spotId);
+      this._suspendedSpots.set(spotId, { spot: previousSourceSpot!, ownerModName });
+    } else if (mutation.operation === 'resume') {
+      if (!previousSuspended) throw new RegistryError(`Spot "${spotId}" 当前未挂起`);
+      this._suspendedSpots.delete(spotId);
+      this._spots.set(spotId, previousSuspended.spot);
+      this.addSpotToIndexes(previousSuspended.spot, ownerModName);
+    } else {
+      this._spots.set(spotId, mutation.spot);
+      this._spotSourceModNames.set(spotId, ownerModName);
+      this._spotTagModNames.set(spotId, ownerModName);
+      this._tagOwnerModNames.set(spotId, ownerModName);
+      this.addSpotToIndexes(mutation.spot, ownerModName, mutation.operation === 'replace' && mutation.spot.areaId === previousSpot?.areaId ? previousAreaIndex : undefined);
+    }
+
+    const mutationRevision = ++this._spotMutationRevision;
+    let rolledBack = false;
+    return {
+      operation: mutation.operation,
+      ownerModName,
+      spotId,
+      previousSpot: previousSourceSpot,
+      currentSpot: mutation.operation === 'delete' || mutation.operation === 'suspend'
+        ? undefined
+        : mutation.operation === 'resume' ? previousSuspended?.spot : mutation.spot,
+      rollback: () => {
+        if (rolledBack) return;
+        if (this._spotMutationRevision !== mutationRevision) {
+          throw new RegistryError(`Spot "${spotId}" 在 receipt 创建后已再次变更，不能安全回滚`);
+        }
+        const currentSpot = this._spots.get(spotId);
+        const currentSuspended = this._suspendedSpots.get(spotId);
+        const currentOwner = this._spotSourceModNames.get(spotId);
+        const expectedCurrent = mutation.operation === 'delete'
+          ? undefined
+          : mutation.operation === 'suspend' ? undefined
+          : mutation.operation === 'resume' ? previousSuspended?.spot : mutation.spot;
+        const expectedSuspended = mutation.operation === 'suspend' ? previousSourceSpot : undefined;
+        if (currentSpot !== expectedCurrent || currentSuspended?.spot !== expectedSuspended || ((expectedCurrent || expectedSuspended) && currentOwner !== ownerModName)) {
+          throw new RegistryError(`Spot "${spotId}" 当前状态与 receipt 不一致，不能安全回滚`);
+        }
+
+        if (currentSpot) {
+          this.removeSpotFromIndexes(currentSpot, currentOwner ?? ownerModName);
+          this._spots.delete(spotId);
+        }
+        this._suspendedSpots.delete(spotId);
+        if (previousSourceSpot) {
+          if (previousSuspended) {
+            this._suspendedSpots.set(spotId, { spot: previousSourceSpot, ownerModName: previousOwner ?? 'base' });
+          } else {
+            this._spots.set(spotId, previousSourceSpot);
+            this.addSpotToIndexes(previousSourceSpot, previousOwner ?? 'base', previousAreaIndex >= 0 ? previousAreaIndex : undefined);
+          }
+          this._spotSourceModNames.set(spotId, previousOwner ?? 'base');
+          this._spotTagModNames.set(spotId, previousOwner ?? 'base');
+          this._tagOwnerModNames.set(spotId, previousOwner ?? 'base');
+        } else {
+          this._spots.delete(spotId);
+          this._spotSourceModNames.delete(spotId);
+          this._spotTagModNames.delete(spotId);
+          this._tagOwnerModNames.delete(spotId);
+        }
+        this._spotMutationRevision++;
+        rolledBack = true;
+      },
+    };
+  }
   get enhancements(): ReadonlyMap<string, EnhancementDef> { return this._enhancements; }
   get stories(): ReadonlyMap<string, StoryDef> { return this._stories; }
   /** 剧情入口（对外故事 id → Entry）。 */
@@ -655,9 +795,9 @@ export class Registry {
   getExtra(path: ExtraPath): ExtraValue | undefined { return getAtPath(this._extras, path); }
 
   /** 查询 Init 下的所有 Area ID */
-  areasOfInit(initId: string): string[] { return this._areasByInit.get(initId) ?? []; }
+  areasOfInit(initId: string): string[] { return [...(this._areasByInit.get(initId) ?? [])]; }
   /** 查询 Area 下的所有 Spot ID */
-  spotsOfArea(areaId: string): string[] { return this._spotsByArea.get(areaId) ?? []; }
+  spotsOfArea(areaId: string): string[] { return [...(this._spotsByArea.get(areaId) ?? [])]; }
   /** 查询 Init 下所有 Area 覆盖的 Spot ID（隔离于其他 Init） */
   spotsOfInit(initId: string): string[] {
     return this.areasOfInit(initId).flatMap(areaId => this.spotsOfArea(areaId));
@@ -702,12 +842,86 @@ export class Registry {
     return out;
   }
 
+  private validateSpotOwner(ownerModName: string): void {
+    if (!/^[a-z0-9-]+$/.test(ownerModName)) {
+      throw new RegistryError(`Spot owner Mod "${ownerModName}" 格式无效`);
+    }
+  }
+
+  private validateSpotId(spotId: string, ownerModName: string): void {
+    const parts = parseEntityId(spotId);
+    if (!parts || parts.type !== 'spot') {
+      throw new RegistryError(`Spot id "${spotId}" 不符合 mod:spot:id 格式`);
+    }
+    if (parts.mod !== ownerModName) {
+      throw new RegistryError(`Spot id "${spotId}" 不属于 Mod "${ownerModName}"`);
+    }
+  }
+
+  private validateSpotCandidate(spot: SpotDef, ownerModName: string): void {
+    this.validateSpotId(spot.id, ownerModName);
+    if (!this._areas.has(spot.areaId)) {
+      throw new RegistryError(`Spot "${spot.id}" references unknown area: "${spot.areaId}"`);
+    }
+    validateDatapack({
+      modName: ownerModName,
+      name: 'runtime-spot-mutation',
+      version: '0',
+      inits: [],
+      areas: [],
+      spots: [spot],
+      enhancements: [],
+      activeStories: [],
+      passiveStories: [],
+      stories: [],
+      items: [],
+      funcletDefs: [],
+      characters: [],
+    }, {
+      initIds: new Set(this._inits.keys()),
+      areaIds: new Set(this._areas.keys()),
+    });
+  }
+
   /** 登记某 Spot 的某 Tag 的所有前缀（父含子）——数据包加载时建立声明索引用。 */
   private indexSpotTag(spotId: string, tag: TagPath, defaultModName = this._spotTagModNames.get(spotId) ?? this.currentPackModName): void {
     for (const key of this.tagAncestorKeys(tag, defaultModName)) {
       if (!this._spotsByTag.has(key)) this._spotsByTag.set(key, new Set());
       this._spotsByTag.get(key)!.add(spotId);
     }
+  }
+
+  private addSpotToIndexes(spot: SpotDef, ownerModName: string, areaIndex?: number): void {
+    const spotIds = this._spotsByArea.get(spot.areaId);
+    if (!spotIds) {
+      this._spotsByArea.set(spot.areaId, [spot.id]);
+    } else if (areaIndex === undefined || areaIndex < 0 || areaIndex >= spotIds.length) {
+      spotIds.push(spot.id);
+    } else {
+      spotIds.splice(areaIndex, 0, spot.id);
+    }
+    for (const tag of spot.tags ?? []) this.indexSpotTag(spot.id, tag, ownerModName);
+  }
+
+  private removeSpotFromIndexes(spot: SpotDef, ownerModName: string): number {
+    const spotIds = this._spotsByArea.get(spot.areaId);
+    let areaIndex = -1;
+    if (spotIds) {
+      areaIndex = spotIds.indexOf(spot.id);
+      const remaining = spotIds.filter(id => id !== spot.id);
+      if (remaining.length === 0) this._spotsByArea.delete(spot.areaId);
+      else this._spotsByArea.set(spot.areaId, remaining);
+    }
+
+    for (const tag of spot.tags ?? []) {
+      for (const key of this.tagAncestorKeys(tag, ownerModName)) {
+        const spotSet = this._spotsByTag.get(key);
+        if (!spotSet) continue;
+        spotSet.delete(spot.id);
+        if (spotSet.size === 0) this._spotsByTag.delete(key);
+      }
+    }
+    return areaIndex;
   }
 
   private rebuildSpotTagIndex(): void {

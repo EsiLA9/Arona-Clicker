@@ -161,7 +161,7 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
     scope.querySelectorAll<HTMLButtonElement>('[data-shop-select]').forEach(button => button.addEventListener('click', () => {
       const id = button.dataset.shopSelect;
       if (!id) return;
-      const entry = ctrl.game.registry.shops.get(workspace.shopId)?.entries.find(item => item.id === id);
+      const entry = ctrl.game.shopService.getShop(workspace.shopId)?.entries.find(item => item.id === id);
       if (!entry) return;
       ctrl.modal.open({
         title: entry.name,

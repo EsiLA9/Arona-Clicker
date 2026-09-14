@@ -10,6 +10,8 @@ import type { AreaId } from '../engine/types';
 import type { TickResult } from '../engine/contracts/tick';
 import type { TravelResult } from './contracts/results';
 import type { SaveData } from './contracts/save-data';
+import type { RuntimeSpotMutation, RuntimeSpotMutationResult } from './contracts/runtime-content';
+import type { RuntimeModDraft, RuntimeModApplyResult } from './contracts/runtime';
 
 export interface GameCommandSource {
   travelToArea(areaId: AreaId, allowDuringStory?: boolean, checkAdjacency?: boolean): TravelResult;
@@ -27,6 +29,8 @@ export interface GameCommandSource {
   inits: Pick<InitService, 'purchaseInit' | 'hardRestartInit' | 'unlockInit' | 'startNewGame' | 'restartInit' | 'resumeInit'>;
   gachaService: Pick<GachaService, 'roll'>;
   mutations: UiMutationPort;
+  applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
+  setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
 }
 
 /** 将 AronaClicker Runtime 的公开命令适配为 UI 能力接口。 */
@@ -72,5 +76,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     startNewGame: initId => game.inits.startNewGame(initId),
     restartInit: () => game.inits.restartInit(),
     resumeInit: initId => game.inits.resumeInit(initId),
+    ...(game.applyRuntimeSpotMutation ? { applyRuntimeSpotMutation: mutation => game.applyRuntimeSpotMutation!(mutation) } : {}),
+    ...(game.setRuntimeModMetadata ? { setRuntimeModMetadata: metadata => game.setRuntimeModMetadata!(metadata) } : {}),
   };
 }

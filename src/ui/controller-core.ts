@@ -8,6 +8,7 @@ import type { SaveData } from '../arona-clicker/contracts/save-data';
 import { Resource } from '../arona-clicker/types/ids';
 import { createUIContext } from './context';
 import type { ChatEntry } from './components/story';
+import { createWorkspaceNavigation } from './workspace/workspace-router';
 
 /** 每个聊天沙盒（含一般聊天）持久化的历史条数上限。 */
 export const MAX_CHAT_HISTORY = 60;
@@ -98,6 +99,7 @@ export function destroy(ctrl: UIController): void {
  * 都回到一致的默认页面（左=区域、中=聊天、右=Spot），聊天流清空。
  */
 export function resetSessionPanel(ctrl: UIController): void {
+  ctrl.panelState.workspaceNavigation = createWorkspaceNavigation();
   ctrl.panelState.leftTab = 'area';
   ctrl.panelState.centerTab = 'chat';
   ctrl.panelState.rightTab = 'spot';

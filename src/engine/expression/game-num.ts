@@ -15,7 +15,7 @@
 // 纯求值见 ./game-num-eval.ts。
 // ============================================================
 
-import type { ValueExpression } from '../types';
+import type { GameEvent, ValueExpression } from '../types';
 import type { GameNumState } from '../contracts/state-query';
 import type { EventBus } from '../core/event-bus';
 import type { GameNumRegistryContext, GameNumFlowSource } from '../contracts/evaluation-context';
@@ -25,7 +25,13 @@ import type { GameNum, GameNumEvalDeps, BreakdownResult } from './game-num-eval'
 import { evaluateGameNum, evaluateGameNumBreakdown } from './game-num-eval';
 import { TagEffectRecord, EntityRef, ZoneModifierDecl } from './tag-effect';
 import type { ZoneNode, ZoneIndexEntry } from './game-num-internal';
-import { buildAll as buildAllImpl, buildZoneNode as buildZoneNodeImpl, rebuildZoneIndex as rebuildZoneIndexImpl } from './game-num-build';import {
+import {
+  applySpotDefinitionChange as applySpotDefinitionChangeImpl,
+  buildAll as buildAllImpl,
+  buildZoneNode as buildZoneNodeImpl,
+  rebuildZoneIndex as rebuildZoneIndexImpl,
+} from './game-num-build';
+import {
   registerTagEffect as registerTagEffectImpl,
   registerEntityEffect as registerEntityEffectImpl,
   removeTagEffect as removeTagEffectImpl,
@@ -39,6 +45,8 @@ import { buildAll as buildAllImpl, buildZoneNode as buildZoneNodeImpl, rebuildZo
 
 export { aggregateZone } from './game-num-eval';
 export type { GameNum } from './game-num-eval';
+
+type SpotDefinitionChangedEvent = Extract<GameEvent, { type: 'spotDefinitionChanged' }>;
 
 /** GameNumSystem 构造上下文（宿主注入系统与可选事件总线）。 */
 export interface GameNumContext {
@@ -127,6 +135,7 @@ export class GameNumSystem {
       this.invalidateProduction();
       if (this.affectorEngine && this.state) this.syncAffectorZoneEffects(this.affectorEngine, this.state);
     });
+    this.bus?.on('spotDefinitionChanged', event => this.onSpotDefinitionChanged(event));
     this.bus?.on('managerChanged', invalidate);
     this.bus?.on('extraChanged', invalidate);
     this.bus?.on('resourceChanged', event => {
@@ -168,6 +177,11 @@ export class GameNumSystem {
     for (const nodes of this.affectorFlowsNodes.values()) {
       for (const node of nodes) markDirty(this, node);
     }
+  }
+
+  /** Registry 已提交单个 Spot 后，定向替换其 GameNum 子树。 */
+  onSpotDefinitionChanged(event: SpotDefinitionChangedEvent): void {
+    applySpotDefinitionChangeImpl(this, event);
   }
 
   private evalDeps(): GameNumEvalDeps {

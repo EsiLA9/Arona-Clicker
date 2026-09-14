@@ -61,7 +61,7 @@ function reorderInventoryItem(ctrl: UIController, fromId: string, toId: string):
 function bindInventoryWorkspaceActions(ctrl: UIController, scope: ParentNode): void {
   scope.querySelector('[data-open-inventory]')?.addEventListener('click', () => {
     if (ctrl.panelState.workspace) ctrl.disposeWorkspace();
-    ctrl.panelState.service = 'inventory';
+    ctrl.navigateToService('inventory');
     ctrl.render();
   });
 

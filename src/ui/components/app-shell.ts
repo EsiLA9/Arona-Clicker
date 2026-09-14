@@ -1,52 +1,16 @@
 import { UIContext } from '../context';
-import { renderHeader } from './header';
-import { renderLeftPanel } from './rail';
-import { renderCenterPanel } from './center-panel';
-import { renderRightPanel } from './right-panels';
 import { ChatEntry, ChatTextEntry } from './story';
-import { renderServiceWorkspace } from './service-workspace';
 import type { ShopSession } from '../../arona-clicker/services/shop-service';
-import { renderShopWorkspace } from './shop';
-import { renderCharacterWorkspace } from './character-workspace';
-import { renderContactsWorkspace } from './contacts-workspace';
-import { renderStoryWorkspace } from './story-workspace';
-import { renderSettingsWorkspace } from './settings-workspace';
-import { renderInventoryWorkspace } from './inventory-workspace';
 import type { InventoryWorkspaceState } from '../inventory-view';
-import { renderWorkspaceFrame } from './workspace-frame';
+import type { DatapackWorkspaceState } from '../workspace/datapack-workspace-state';
+import type { RuntimeDatapackEditorState } from '../workspace/runtime-datapack-editor-state';
+import { renderWorkspace } from '../workspace/workspace-renderer';
+import { resolveCurrentWorkspaceRoute, type WorkspaceLocation, type WorkspaceNavigationState, type WorkspaceRoute } from '../workspace/workspace-router';
 
-export type DatapackWorkspaceSection = 'all' | 'enabled' | 'disabled' | 'issues' | 'import';
-
-export interface DatapackWorkspaceState {
-  section: DatapackWorkspaceSection;
-  selectedPackId: string | null;
-  draftEnabledIds: string[];
-  draftOrder: string[];
-  validation: { ok: boolean; errors: string[]; warnings: string[] } | null;
-  lastResult: { ok: boolean; message: string } | null;
-}
-
-export interface RuntimeDatapackEditorState {
-  enabled: boolean;
-  modName: string;
-  displayName: string;
-  version: string;
-  author: string;
-  description: string;
-  selectedAreaId: string | null;
-  spot: {
-    idName: string;
-    name: string;
-    description: string;
-    baseCost: number;
-    baseCostResource: string;
-    baseYield: number;
-    baseYieldResource: string;
-    baseCapacity: number;
-  } | null;
-  applied?: boolean;
-  error: string | null;
-}
+export type { DatapackWorkspaceSection } from '../../arona-clicker/services/datapack-workspace-view';
+export type { DatapackWorkspaceState } from '../workspace/datapack-workspace-state';
+export type { RuntimeDatapackEditorState } from '../workspace/runtime-datapack-editor-state';
+export type { WorkspaceLocation, WorkspaceNavigationState, WorkspaceRoute } from '../workspace/workspace-router';
 
 /** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 按钮"想回复"中。 */
 export type SendGatePhase = 'typing' | 'pause' | 'thinking';
@@ -67,24 +31,12 @@ export interface StoryGateState {
   mode: 'active' | 'replay' | 'card';
 }
 
-export type WorkspaceRoute = 'game' | 'contacts' | 'story' | 'shop' | 'service';
-
-export interface WorkspaceReturnContext {
-  route: WorkspaceRoute;
-  leftTab: string;
-  centerTab: string;
-  rightTab: string;
-  selectedVariantId: string | null;
-  conversationVariantId: string | null;
-  conversationOwner?: string | null;
-  service?: string;
-}
-
 export interface PanelState {
   /** 当前顶层服务工作区；game = 正常游玩三栏。 */
   service?: 'game' | 'settings' | 'inventory' | 'datapack' | 'saves' | 'records';
   datapackWorkspace?: DatapackWorkspaceState;
   runtimeDatapackEditor?: RuntimeDatapackEditorState;
+  workspaceNavigation?: WorkspaceNavigationState;
   inventoryWorkspace?: InventoryWorkspaceState;
   leftTab: string;
   centerTab: string;
@@ -121,14 +73,8 @@ export interface PanelState {
   workspace?: WorkspaceState;
 }
 
-export interface ShopReturnContext {
-  route?: WorkspaceRoute;
-  leftTab: string;
-  centerTab: string;
-  rightTab: string;
-  selectedVariantId: string | null;
-  conversationVariantId: string | null;
-}
+export type WorkspaceReturnContext = WorkspaceLocation;
+export type ShopReturnContext = WorkspaceLocation;
 
 export interface ShopFeedEntry {
   kind: 'enter' | 'add' | 'remove' | 'checkout' | 'error' | 'cancel';
@@ -172,55 +118,16 @@ export interface StoryWorkspaceState {
 export type WorkspaceState = ShopWorkspaceState | CharacterWorkspaceState | ContactsWorkspaceState | StoryWorkspaceState;
 
 export function renderAppShell(ctx: UIContext, state: PanelState): string {
-  const service = state.service ?? 'game';
-  const studentVariantId = state.workspace?.type === 'character'
-    ? state.workspace.conversationVariantId
-    : state.workspace?.type === 'contacts'
-      ? state.workspace.conversationVariantId
-      : state.workspace?.type === 'story'
-        ? state.workspace.conversationOwner
-        : state.conversationVariantId;
-  if (service === 'settings') {
-    return renderConsoleFrame(ctx, renderSettingsWorkspace(ctx, state), 'SETTINGS WORKSPACE · LOCAL SERVICES', studentVariantId);
-  }
-  if (service === 'inventory') {
-    return renderConsoleFrame(ctx, renderInventoryWorkspace(ctx, state), 'INVENTORY WORKSPACE · LOCAL SORTING', studentVariantId);
-  }
-  if (service !== 'game') {
-    return renderConsoleFrame(ctx, renderServiceWorkspace(ctx, service, state), '服务工作区 · 只读视图', studentVariantId);
-  }
-  if (state.workspace?.type === 'shop') {
-    return renderConsoleFrame(ctx, renderShopWorkspace(ctx, state.workspace), 'SPOT FUNCTION · SHOP WORKSPACE', studentVariantId);
-  }
-  if (state.workspace?.type === 'character') {
-    return renderConsoleFrame(ctx, renderCharacterWorkspace(ctx, state.workspace, state), 'CHARACTER SERVICE · WORKSPACE', studentVariantId);
-  }
-  if (state.workspace?.type === 'contacts') {
-    return renderConsoleFrame(ctx, renderContactsWorkspace(ctx, state.workspace, state), 'CONTACTS SERVICE · WORKSPACE', studentVariantId);
-  }
-  if (state.workspace?.type === 'story') {
-    return renderConsoleFrame(ctx, renderStoryWorkspace(ctx, state.workspace, state), 'STORY SERVICE · WORKSPACE', studentVariantId);
-  }
-  const conversation = state.conversationVariantId
-    ? {
-        variantId: state.conversationVariantId,
-        entries: state.studentChats[state.conversationVariantId] ?? [],
-        chatTexts: state.studentChatTexts[state.conversationVariantId] ?? [],
-      }
-    : undefined;
-  return renderConsoleFrame(ctx, renderWorkspaceFrame(ctx, {
-    id: 'game',
-    left: { slot: 'left', workspaceOwner: 'game', hostId: 'leftPanel', themeScope: 'left.game', surface: 'none', className: 'game-workspace__left', content: renderLeftPanel(ctx, state), scroll: 'none' },
-    center: { slot: 'center', workspaceOwner: 'game', hostId: 'centerPanel', themeScope: 'center.game', surface: 'none', className: 'game-workspace__center', content: renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null), scroll: 'none' },
-    right: { slot: 'right', workspaceOwner: 'game', hostId: 'rightPanel', themeScope: 'right.game', surface: 'none', className: 'game-workspace__right', content: renderRightPanel(ctx, state.rightTab, state.selectedVariantId), scroll: 'none' },
-  }), 'TS-HTML ENGINE · NO NETWORK', studentVariantId);
-}
-
-function renderConsoleFrame(ctx: UIContext, body: string, footerNote: string, studentVariantId: string | null): string {
-  return `
-    <main class="console-shell">
-      ${renderHeader(ctx, { studentVariantId })}
-      ${body}
-      <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>${footerNote}</span></footer>
-    </main>`;
+  const workspace = state.workspace;
+  const legacyWorkspace = workspace
+    ? workspace.type === 'shop'
+      ? { type: 'shop' as const, sessionId: `${workspace.spotId}:${workspace.shopId}` }
+      : workspace.type === 'character'
+        ? { type: 'character' as const, variantId: workspace.variantId }
+        : workspace.type === 'contacts'
+          ? { type: 'contacts' as const }
+          : { type: 'story' as const, sessionId: workspace.conversationOwner ?? undefined }
+    : null;
+  const route = resolveCurrentWorkspaceRoute(state.workspaceNavigation, { service: state.service, workspace: legacyWorkspace });
+  return renderWorkspace(ctx, route, state);
 }

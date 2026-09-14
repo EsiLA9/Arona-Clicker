@@ -33,6 +33,7 @@ export class VisibilityEngine extends EventDrivenReactor {
     // 分桶订阅条件依赖可能声明的全部事件类型（超集，构造期即生效，
     // 保证存档恢复等不经 rebuild 的路径也能持续标脏）
     this.subscribeTo(CONDITION_DEP_EVENT_TYPES);
+    this.subscribeTo(['spotDefinitionChanged']);
   }
 
   // --- 对外 API ---
@@ -119,6 +120,28 @@ export class VisibilityEngine extends EventDrivenReactor {
   // --- 事件订阅（仅自增标脏）---
 
   protected onEvent(_type: GameEvent['type'], e: GameEvent): void {
+    if (e.type === 'spotDefinitionChanged') {
+      this.applySpotDefinitionChange(e);
+      return;
+    }
     for (const key of this.index.collectAffected(e)) this.dirty.add(key);
+  }
+
+  private applySpotDefinitionChange(e: Extract<GameEvent, { type: 'spotDefinitionChanged' }>): void {
+    const key = `spots:${e.spotId}`;
+
+    if (e.operation === 'delete') {
+      this.index.removeSpot(e.spotId);
+      delete this.snapshot.spots[e.spotId];
+      this.dirty.delete(key);
+      return;
+    }
+
+    if (!this.index.replaceSpot(e.spotId)) {
+      delete this.snapshot.spots[e.spotId];
+      this.dirty.delete(key);
+      return;
+    }
+    this.dirty.add(key);
   }
 }

@@ -18,6 +18,21 @@ export type { CurveView, ExpApplyResult, StarCheckResult } from './cultivate-sys
 
 export { StoryService } from './story-service';
 export { SpotService } from './spot-service';
+export { SpotContentService } from './spot-content-service';
+export type { SpotContentPort } from './spot-content-service';
+export { RuntimeContentCoordinator } from './runtime-content-coordinator';
+export type {
+  RuntimeContentCoordinatorOptions,
+  RuntimeContentCoordinatorSettings,
+  RuntimeContentDiagnostic,
+  RuntimeContentDiagnosticCode,
+  RuntimeModStateSnapshot,
+  RuntimeSpotCommit,
+  RuntimeSpotInput,
+  RuntimeSpotMutation,
+  RuntimeSpotMutationResult,
+  RuntimeSpotRollbackContext,
+} from './runtime-content-coordinator';
 export { InitService } from './init-service';
 export { ItemService } from './item-service';
 export { EnhancementService } from './enhancement-service';
@@ -31,6 +46,25 @@ export { SpotFunctionalitySystem } from './spot-functionality';
 export { StoryCursorState } from './story-cursor-state';
 export type { StoryCursor } from './story-cursor-state';
 export { condLabel, triggerLabel } from './debug-labels';
+export {
+  buildDatapackWorkspaceView,
+  dependencyState,
+  filterPacks,
+  isReorderable,
+  orderPacks,
+  packCapabilities,
+  packMoveAvailability,
+  resolvePackIssues,
+} from './datapack-workspace-view';
+export type {
+  DatapackWorkspaceSection,
+  DatapackWorkspaceSectionView,
+  DatapackWorkspaceView,
+  DatapackWorkspaceViewInput,
+  PackDependencyState,
+  PackIssue,
+  PackMoveAvailability,
+} from './datapack-workspace-view';
 export * from './story-context';
 export * from './story-flow';
 export * from './story-jump';

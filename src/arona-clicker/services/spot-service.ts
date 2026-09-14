@@ -23,6 +23,7 @@ import { AffectorEngine } from '../../engine/effect/affector-engine';
 import { EventBus } from '../../engine/core/event-bus';
 import { DevLog } from '../../engine/core/dev-log';
 import { tagDisplay, tagKey } from '../../engine/core/tag';
+import { SpotContentService } from './spot-content-service';
 
 export interface SpotServiceOptions {
   registry: Registry;
@@ -43,7 +44,18 @@ export interface SpotServiceOptions {
 }
 
 export class SpotService {
+  private contentService: SpotContentService | undefined;
+
   constructor(private readonly opts: SpotServiceOptions) {}
+
+  /** Runtime 内容编辑门面；普通 GameInstance 未接入 Runtime 编辑时为空。 */
+  get content(): SpotContentService | undefined {
+    return this.contentService;
+  }
+
+  setContentService(contentService: SpotContentService): void {
+    this.contentService = contentService;
+  }
 
   private get state(): PlayerState {
     return this.opts.getState();

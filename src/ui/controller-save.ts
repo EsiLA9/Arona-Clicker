@@ -33,7 +33,7 @@ export function handleLoad(ctrl: UIController): void {
       // 尚未进入 Init 的存档属于 Lobby，不补造默认 Init，也不启动 Tick。
       ctrl.started = false;
     }
-    ctrl.panelState.service = 'game';
+    ctrl.navigateToService('game');
     ctrl.game.devLog.record('本地存档已读取', { source: 'save', level: 'success' });
     ctrl.toast.show('存档已加载', 'success');
   } else {

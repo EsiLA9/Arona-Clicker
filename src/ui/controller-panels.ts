@@ -179,7 +179,7 @@ export function bindSelectorCommonActions(ctrl: UIController): void {
       } else {
         // Lobby 存档只恢复 Runtime/全局状态，不能启动 Tick 或伪造 Init 会话。
         ctrl.started = false;
-        ctrl.panelState.service = 'game';
+        ctrl.navigateToService('game');
       }
       ctrl.render();
     }

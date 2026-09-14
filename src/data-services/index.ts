@@ -18,6 +18,48 @@ export type { ResourceDisplayDef, TagDef, ResourceAmount } from './contracts/com
 export type { EntryEffectDef, InitDef, InitPurchaseError, InitPurchaseResult, AreaDef, SpotDef, SpotFunctionalityDef, LevelUpgradeDef } from './contracts/world';
 export type { ShopDef, ShopSectionDef, ShopEntryDef, ShopOffer, ShopPrice, ShopCost, ShopStock, ShopPurchasePolicy, ShopPurchaseScope, ShopPurchaseRecord, ShopId } from './contracts/shop';
 export type { PackEntry, PackSource } from './datapack/source';
+export {
+  createDefinitionDelta,
+  createDraftLayer,
+  createSourceLayer,
+  definitionKeyId,
+  deleteLocalDefinition,
+  removeOverride,
+  resolveDefinition,
+  resumeDefinition,
+  setDefinitionRecord,
+  suspendDefinition,
+} from './definition/definition-resolution';
+export {
+  resolveDefinitionReference,
+  resolveOptional,
+  resolveRequired,
+} from './definition/definition-reference-resolution';
+export { collectDefinitionDiagnostics } from './definition/definition-diagnostics';
+export type {
+  DefinitionChange,
+  DefinitionDelta,
+  DefinitionKey,
+  DefinitionRecord,
+  DefinitionRef,
+  DefinitionResolution,
+  DefinitionResolutionStatus,
+  DefinitionSourceLayer,
+  DefinitionSourceRef,
+  DefinitionTable,
+  DefinitionTombstone,
+} from './definition/definition-types';
+export type {
+  DefinitionPolicyResolution,
+  DefinitionReferenceResolution,
+  ReferencePolicy,
+  SymbolicReferenceResolution,
+} from './definition/definition-reference-resolution';
+export type {
+  DefinitionReferenceDiagnosticInput,
+  DefinitionDiagnostic,
+  DefinitionDiagnosticCode,
+} from './definition/definition-diagnostics';
 export { parsePackManifest, ManifestError } from './datapack/manifest';
 export type { PackManifest } from './datapack/manifest';
 export { parseFragment, mergeFragments, FragmentParseError } from './datapack/fragment-parser';
@@ -38,4 +80,5 @@ export { resolvePicSrc, resolveDefSrc } from './assets/pic-resolver';
 export type { PicDefinitionMap } from './assets/pic-resolver';
 export { PicService } from './assets/pic-service';
 export { Registry, RegistryError } from './registry/registry';
+export type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry/registry';
 export { validateDatapack } from './registry/registry-validate';

@@ -14,7 +14,7 @@ interface ShopWorkspaceView {
 }
 
 function buildView(ctx: UIContext, workspace: ShopWorkspaceState): ShopWorkspaceView | null {
-  const shop = ctx.game.registry.shops.get(workspace.shopId);
+  const shop = ctx.game.shopService.getShop(workspace.shopId);
   if (!shop) return null;
   const cart = workspace.session.lines();
   const preview = ctx.game.shopService.preview(workspace.shopId, cart);
@@ -59,5 +59,5 @@ export function renderShopWorkspace(ctx: UIContext, workspace: ShopWorkspaceStat
 }
 
 function renderHoldings(ctx: UIContext): string {
-  return [...ctx.game.registry.resourceDisplays.values()].slice(0, 8).map(def => `<span class="shop-holding"><small>${ctx.escapeHtml(def.label)}</small><strong data-resource="${ctx.escapeHtml(def.resourceId)}">${ctx.formatNumber(ctx.game.getView().resources[def.resourceId] ?? 0)}</strong></span>`).join('') || '<span>暂无可用货币</span>';
+  return ctx.game.shopService.listResourceDisplays().slice(0, 8).map(def => `<span class="shop-holding"><small>${ctx.escapeHtml(def.label)}</small><strong data-resource="${ctx.escapeHtml(def.resourceId)}">${ctx.formatNumber(ctx.game.getView().resources[def.resourceId] ?? 0)}</strong></span>`).join('') || '<span>暂无可用货币</span>';
 }

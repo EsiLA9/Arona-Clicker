@@ -68,7 +68,7 @@ import { bindThemeActions } from './controller-actions-theme';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 import type { GameCommands } from '../arona-clicker/contracts';
-import type { PackCatalogEntry, PackCatalogReadModel } from '../arona-clicker/contracts';
+import type { PackCatalogReadModel } from '../arona-clicker/contracts';
 import { renderLeftPanel } from './components/rail';
 import { renderCenterPanel, renderChatTab, renderLogTab } from './components/center-panel';
 import { renderRightPanel } from './components/right-panels';
@@ -77,6 +77,24 @@ import { createDefaultUIBehaviorRegistry, type UIBehaviorRegistry } from './upda
 import { UISurfaceRuntime, type UISurfaceToken } from './update/ui-surface';
 import { UIUpdateDispatcher, type UIUpdateSink } from './update/ui-update-dispatcher';
 import type { UIBehaviorId, UIUpdate, UIUpdateApplyResult, UIUpdateRequest } from './update/ui-update-types';
+import {
+  createDatapackWorkspaceState,
+  resetDatapackWorkspaceState,
+  selectDatapackPack as selectDatapackPackState,
+  synchronizeDatapackWorkspaceState,
+} from './workspace/datapack-workspace-state';
+import {
+  backWorkspaceNavigation,
+  createWorkspaceNavigation,
+  enterWorkspaceNavigation,
+  normalizeWorkspaceRoute,
+  replaceWorkspaceNavigation,
+  routeFromLegacyState,
+  sameWorkspaceRoute,
+  type LegacyWorkspaceRef,
+  type WorkspaceLocation,
+  type WorkspaceRoute,
+} from './workspace/workspace-router';
 
 const SHOP_REGION_HOST_IDS = [
   'leftPanel.shop.feed',
@@ -131,6 +149,7 @@ export class UIController {
     storyNavPath: [],
     storyGate: null,
     openingBanner: null,
+    workspaceNavigation: createWorkspaceNavigation(),
   };
   /** 弹窗母版实例（body 级，独立于 #app 重建）。 */
   readonly modal = new ModalManager();
@@ -630,37 +649,18 @@ export class UIController {
     if (!catalog) return;
     if (this.panelState.datapackWorkspace) {
       const workspace = this.panelState.datapackWorkspace;
-      const known = new Set(catalog.entries.map(entry => entry.id));
-      const order = workspace.draftOrder.filter(id => known.has(id));
-      for (const entry of catalog.entries) if (!order.includes(entry.id)) order.push(entry.id);
-      workspace.draftOrder = order;
-      workspace.draftEnabledIds = workspace.draftEnabledIds.filter(id => known.has(id));
-      if (workspace.selectedPackId && !known.has(workspace.selectedPackId)) workspace.selectedPackId = this.defaultPackSelection(catalog.entries);
+      synchronizeDatapackWorkspaceState(workspace, catalog.entries);
       return;
     }
     const configuration = host.getPackConfiguration?.();
-    this.panelState.datapackWorkspace = {
-      section: 'all',
-      selectedPackId: this.defaultPackSelection(catalog.entries),
-      draftEnabledIds: [...(configuration?.enabledIds ?? catalog.entries.filter(entry => entry.enabled).map(entry => entry.id))],
-      draftOrder: [...(configuration?.order ?? catalog.entries.map(entry => entry.id))],
-      validation: null,
-      lastResult: null,
-    };
+    this.panelState.datapackWorkspace = createDatapackWorkspaceState(catalog.entries, configuration);
   }
 
   /** 导入完成后将工作区定位到新包（存在工作区时）。 */
   selectDatapackPack(packId: string): void {
     const workspace = this.panelState.datapackWorkspace;
     if (!workspace) return;
-    workspace.section = 'all';
-    workspace.selectedPackId = packId;
-  }
-
-  /** 默认选中可操作的数据包：优先非核心包，避免落到“始终启用”的内置包上。 */
-  private defaultPackSelection(entries: readonly PackCatalogEntry[]): string | null {
-    const preferred = entries.find(entry => !(entry.capabilities?.required ?? entry.sourceKind === 'builtin'));
-    return (preferred ?? entries[0])?.id ?? null;
+    selectDatapackPackState(workspace, packId);
   }
 
   resetDatapackDraft(): void {
@@ -668,14 +668,7 @@ export class UIController {
     const catalog = host.getPackCatalog?.();
     if (!catalog) return;
     const configuration = host.getPackConfiguration?.();
-    this.panelState.datapackWorkspace = {
-      section: this.panelState.datapackWorkspace?.section ?? 'all',
-      selectedPackId: this.panelState.datapackWorkspace?.selectedPackId ?? catalog.entries[0]?.id ?? null,
-      draftEnabledIds: [...(configuration?.enabledIds ?? catalog.entries.filter(entry => entry.enabled).map(entry => entry.id))],
-      draftOrder: [...(configuration?.order ?? catalog.entries.map(entry => entry.id))],
-      validation: null,
-      lastResult: null,
-    };
+    this.panelState.datapackWorkspace = resetDatapackWorkspaceState(catalog.entries, configuration, this.panelState.datapackWorkspace);
   }
 
   private publishRefreshStats(): void {
@@ -885,7 +878,7 @@ export class UIController {
       return;
     }
     this.started = true;
-    this.panelState.service = 'game';
+    this.navigateToService('game');
     this.commands.start();
     resetSessionPanelImpl(this);
     const init = this.game.world.inits.get(initId);
@@ -905,7 +898,7 @@ export class UIController {
       return;
     }
     this.started = true;
-    this.panelState.service = 'game';
+    this.navigateToService('game');
     this.commands.start();
     resetSessionPanelImpl(this);
     const init = this.game.world.inits.get(initId);
@@ -957,6 +950,56 @@ export class UIController {
     this.disposeWorkspace();
   }
 
+  private legacyWorkspaceRef(): LegacyWorkspaceRef | null {
+    const workspace = this.panelState.workspace;
+    if (!workspace) return null;
+    if (workspace.type === 'shop') return { type: 'shop', sessionId: `${workspace.spotId}:${workspace.shopId}` };
+    if (workspace.type === 'character') return { type: 'character', variantId: workspace.variantId };
+    if (workspace.type === 'contacts') return { type: 'contacts' };
+    return { type: 'story', sessionId: workspace.conversationOwner ?? undefined };
+  }
+
+  private currentWorkspaceRoute(): WorkspaceRoute {
+    return routeFromLegacyState({ service: this.panelState.service, workspace: this.legacyWorkspaceRef() });
+  }
+
+  workspaceLocation(): WorkspaceLocation {
+    return {
+      route: this.currentWorkspaceRoute(),
+      leftTab: this.panelState.leftTab,
+      centerTab: this.panelState.centerTab,
+      rightTab: this.panelState.rightTab,
+      selectedVariantId: this.panelState.selectedVariantId,
+      conversationVariantId: this.panelState.conversationVariantId,
+    };
+  }
+
+  private setWorkspaceRouteMirror(route: WorkspaceRoute): void {
+    this.panelState.service = route.kind === 'service' ? route.page : 'game';
+  }
+
+  /** 顶层服务路由切换：清除互斥 Workspace，避免 service + workspace 组合态残留。 */
+  navigateToService(service: NonNullable<PanelState['service']>): void {
+    const route = routeFromLegacyState({ service, workspace: null });
+    this.panelState.workspace = undefined;
+    this.panelState.service = service;
+    this.panelState.workspaceNavigation = createWorkspaceNavigation(route);
+  }
+
+  /** 进入新的 Workspace，并记录一个可选的单层返回位置。 */
+  enterWorkspaceRoute(route: WorkspaceRoute): void {
+    const previous = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
+    this.panelState.workspaceNavigation = enterWorkspaceNavigation(previous, route, this.workspaceLocation());
+    this.setWorkspaceRouteMirror(route);
+  }
+
+  /** 在当前 Workspace 内替换轻量定位，不新增返回层。 */
+  replaceWorkspaceRoute(route: WorkspaceRoute): void {
+    const previous = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
+    this.panelState.workspaceNavigation = replaceWorkspaceNavigation(previous, route);
+    this.setWorkspaceRouteMirror(route);
+  }
+
   /** 退出当前临时工作区并恢复进入前的游戏面板。 */
   disposeWorkspace(): void {
     const workspace = this.panelState.workspace;
@@ -965,15 +1008,19 @@ export class UIController {
       workspace.session.clear();
       this.game.colorSystem.popEphemeralTheme(workspace.themeId);
     }
-    const returnContext = workspace.returnContext;
-    this.panelState.service = 'game';
-    if (returnContext.route === 'contacts') {
+    const navigation = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
+    const returnContext = navigation.returnTo ?? workspace.returnContext;
+    const targetNavigation = navigation.returnTo
+      ? backWorkspaceNavigation(navigation)
+      : { current: normalizeWorkspaceRoute(returnContext.route) };
+    const targetRoute = targetNavigation.current;
+    if (targetRoute.kind === 'contacts') {
       this.panelState.workspace = {
         type: 'contacts',
         selectedVariantId: returnContext.selectedVariantId,
         conversationVariantId: returnContext.conversationVariantId,
         returnContext: {
-          route: 'game',
+          route: { kind: 'game' },
           leftTab: returnContext.leftTab,
           centerTab: returnContext.centerTab,
           rightTab: returnContext.rightTab,
@@ -981,11 +1028,38 @@ export class UIController {
           conversationVariantId: returnContext.conversationVariantId,
         },
       };
+      this.panelState.service = 'game';
       this.panelState.leftTab = 'area';
       this.panelState.centerTab = 'chat';
       this.panelState.rightTab = 'character';
       this.panelState.selectedVariantId = returnContext.selectedVariantId;
       this.panelState.conversationVariantId = returnContext.conversationVariantId;
+      this.panelState.workspaceNavigation = createWorkspaceNavigation(targetRoute);
+    } else if (targetRoute.kind === 'story') {
+      this.panelState.workspace = {
+        type: 'story',
+        navPath: [],
+        subroute: 'overview',
+        selectedEntryId: null,
+        conversationOwner: targetRoute.sessionId ?? null,
+        mode: 'overview',
+        returnContext: {
+          route: { kind: 'game' },
+          leftTab: returnContext.leftTab,
+          centerTab: returnContext.centerTab,
+          rightTab: returnContext.rightTab,
+          selectedVariantId: returnContext.selectedVariantId,
+          conversationVariantId: returnContext.conversationVariantId,
+        },
+      };
+      this.panelState.service = 'game';
+      this.panelState.leftTab = 'area';
+      this.panelState.centerTab = 'chat';
+      this.panelState.rightTab = 'spot';
+      this.panelState.storyNavPath = [];
+      this.panelState.selectedVariantId = returnContext.selectedVariantId;
+      this.panelState.conversationVariantId = targetRoute.sessionId ?? null;
+      this.panelState.workspaceNavigation = createWorkspaceNavigation(targetRoute);
     } else {
       this.panelState.workspace = undefined;
       this.panelState.leftTab = returnContext.leftTab;
@@ -993,6 +1067,8 @@ export class UIController {
       this.panelState.rightTab = returnContext.rightTab;
       this.panelState.selectedVariantId = returnContext.selectedVariantId;
       this.panelState.conversationVariantId = returnContext.conversationVariantId;
+      this.panelState.service = targetRoute.kind === 'service' ? targetRoute.page : 'game';
+      this.panelState.workspaceNavigation = createWorkspaceNavigation(targetRoute);
     }
     this.panelState.storyGate = null;
     this.refreshTheme();
@@ -1003,7 +1079,7 @@ export class UIController {
     const current = this.panelState.workspace;
     if (current?.type === 'contacts') {
       return {
-        route: 'contacts',
+        route: { kind: 'contacts' },
         leftTab: 'area',
         centerTab: 'chat',
         rightTab: 'character',
@@ -1013,17 +1089,16 @@ export class UIController {
     }
     if (current?.type === 'story') {
       return {
-        route: 'story',
+        route: { kind: 'story', sessionId: current.conversationOwner ?? undefined },
         leftTab: 'area',
         centerTab: 'chat',
         rightTab: 'spot',
         selectedVariantId: this.panelState.selectedVariantId,
         conversationVariantId: current.conversationOwner,
-        conversationOwner: current.conversationOwner,
       };
     }
     return {
-      route: 'game',
+      route: { kind: 'game' },
       leftTab: this.panelState.leftTab,
       centerTab: this.panelState.centerTab,
       rightTab: this.panelState.rightTab,
@@ -1043,7 +1118,8 @@ export class UIController {
       conversationVariantId: conversation,
       returnContext: current?.returnContext ?? this.createWorkspaceReturnContext(),
     };
-    this.panelState.service = 'game';
+    if (current) this.replaceWorkspaceRoute({ kind: 'contacts' });
+    else this.enterWorkspaceRoute({ kind: 'contacts' });
     this.panelState.workspace = workspace;
     this.panelState.leftTab = 'area';
     this.panelState.centerTab = 'chat';
@@ -1085,7 +1161,8 @@ export class UIController {
       mode: options.mode ?? current?.mode ?? 'overview',
       returnContext: current?.returnContext ?? this.createWorkspaceReturnContext(),
     };
-    this.panelState.service = 'game';
+    if (current) this.replaceWorkspaceRoute({ kind: 'story', sessionId: owner ?? undefined });
+    else this.enterWorkspaceRoute({ kind: 'story', sessionId: owner ?? undefined });
     this.panelState.workspace = workspace;
     this.panelState.leftTab = 'area';
     this.panelState.centerTab = 'chat';
@@ -1108,6 +1185,8 @@ export class UIController {
           selectedVariantId: this.panelState.selectedVariantId,
           conversationVariantId: this.panelState.conversationVariantId,
         };
+    if (current?.type === 'character') this.replaceWorkspaceRoute({ kind: 'character', variantId });
+    else this.enterWorkspaceRoute({ kind: 'character', variantId });
     this.panelState.workspace = {
       type: 'character',
       variantId,

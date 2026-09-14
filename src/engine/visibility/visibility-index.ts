@@ -26,6 +26,26 @@ export class VisibilityIndex {
     // stories 始终可见，不参与索引
   }
 
+  /**
+   * 重新登记一个 Spot 的 existence 依赖。
+   *
+   * Registry 已在事件派发前完成提交，因此这里始终从当前 registry 读取，
+   * 不保留旧 Definition 的副本。
+   */
+  replaceSpot(spotId: string): boolean {
+    const key = `spots:${spotId}`;
+    this.deps.unregister(key);
+    const spot = this.registry.spots.get(spotId);
+    if (!spot) return false;
+    this.indexEntry(key, spot);
+    return true;
+  }
+
+  /** 移除一个 Spot 的全部 existence 依赖。 */
+  removeSpot(spotId: string): void {
+    this.deps.unregister(`spots:${spotId}`);
+  }
+
   /** 给定事件，返回需标脏的全部实体 key。 */
   collectAffected(e: GameEvent): Set<EntityKey> {
     return this.deps.affected(e);
@@ -34,11 +54,13 @@ export class VisibilityIndex {
   private indexEntries(entries: ReadonlyMap<string, DefWithTriggers>, kind: EntityKind): void {
     for (const [id, def] of entries) {
       if (!def) continue;
-      const gates = (def.revealTriggers ?? []).filter(t => t.reveal === 'existence');
-      for (const g of gates) {
-        if (!g.condition) continue;
-        this.deps.register(`${kind}:${id}`, g.condition);
-      }
+      this.indexEntry(`${kind}:${id}`, def);
+    }
+  }
+
+  private indexEntry(key: EntityKey, def: DefWithTriggers): void {
+    for (const gate of (def.revealTriggers ?? []).filter(t => t.reveal === 'existence')) {
+      if (gate.condition) this.deps.register(key, gate.condition);
     }
   }
 }

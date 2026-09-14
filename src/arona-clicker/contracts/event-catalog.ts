@@ -9,6 +9,7 @@ export interface EventCatalogEntry {
 export const EVENT_CATALOG: Record<GameEvent['type'], EventCatalogEntry> = {
   resourceChanged: { purpose: '资源增减（生产失效驱动核心）', emit: ['state-mutation-service'], subscribe: ['condition-deps', 'game-num', 'trigger-system'] },
   spotLevelChanged: { purpose: '设施等级变化', emit: ['state-mutation-service'], subscribe: ['affector-engine', 'condition-deps', 'game-num', 'tag-stats', 'trigger-system'] },
+  spotDefinitionChanged: { purpose: 'Spot 内容定义或解析状态变化（热 CRUD）', emit: ['runtime-content-coordinator'], subscribe: ['game-num', 'visibility', 'spot-service'] },
   managerChanged: { purpose: '设施经理变更', emit: ['state-mutation-service'], subscribe: ['condition-deps', 'game-num'] },
   enhancementAdded: { purpose: '强化获得（Affector 挂载 + 区表失效）', emit: ['state-mutation-service'], subscribe: ['affector-engine', 'condition-deps', 'game-num', 'tag-stats'] },
   enhancementRemoved: { purpose: '强化移除（Affector 卸载 + 区表失效）', emit: ['state-mutation-service'], subscribe: ['affector-engine', 'condition-deps', 'game-num', 'tag-stats'] },

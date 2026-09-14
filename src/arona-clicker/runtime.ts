@@ -9,6 +9,9 @@ import { defaultDatapack } from './content/default-datapack';
 import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogReadModel, RuntimeModDraft, RuntimeModApplyResult } from './contracts';
 import type { Datapack } from '../data-services/contracts/datapack';
 import type { SpotDef } from '../data-services/contracts/world';
+import { RuntimeContentCoordinator } from './services/runtime-content-coordinator';
+import { SpotContentService } from './services/spot-content-service';
+import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult } from './contracts/runtime-content';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;
@@ -25,10 +28,29 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   private packAsyncStore: AsyncPackSnapshotStore | undefined;
   private activeDatapacks: readonly Datapack[] = [];
   private runtimeMod: RuntimeModDraft | null = null;
+  private readonly runtimeContent: RuntimeContentCoordinator;
 
   constructor(options: AronaClickerRuntimeOptions = {}) {
     super({ ...options, saveCodec: options.saveCodec ?? buildSaveData });
     this.packManager = new PackManager(undefined, options.packStore, [createBuiltinBasePack()]);
+    this.runtimeContent = new RuntimeContentCoordinator({
+      registry: this.registry,
+      sourceId: 'runtime-editor',
+      onCommitted: commit => {
+        this.eventBus.emit({
+          type: 'spotDefinitionChanged',
+          spotId: commit.spotId,
+          operation: commit.operation,
+          ...(commit.previousSpot ? { previousAreaId: commit.previousSpot.areaId, previousYieldResource: commit.previousSpot.baseYieldResource } : {}),
+          ...(commit.currentSpot ? { nextAreaId: commit.currentSpot.areaId, nextYieldResource: commit.currentSpot.baseYieldResource } : {}),
+        });
+      },
+    });
+    this.spotService.setContentService(new SpotContentService({
+      getState: () => this.getRuntimeContentState(),
+      setModMetadata: metadata => this.setRuntimeModMetadata(metadata),
+      applyMutation: mutation => this.applyRuntimeSpotMutation(mutation),
+    }));
   }
 
   override init(datapacks: Datapack[], options = {}): void {
@@ -61,6 +83,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       registerImages: (modName, images) => this.pics.register(modName, images),
     });
     this.runtimeMod = null;
+    this.runtimeContent.reset();
   }
 
   getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[] } {
@@ -124,6 +147,57 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     }
   }
 
+  /** 设置热 Spot 编辑会话使用的临时 Mod 元信息；不触发 Registry 或 Runtime 重载。 */
+  setRuntimeModMetadata(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult {
+    const modName = metadata.modName.trim();
+    const displayName = metadata.displayName.trim();
+    if (!/^[a-z0-9-]+$/.test(modName)) return { ok: false, message: 'modName 只能包含小写字母、数字和连字符。' };
+    if (!displayName) return { ok: false, message: '请填写 Mod 显示名称。' };
+    const contentState = this.runtimeContent.getRuntimeModState();
+    if (contentState.modName && contentState.modName !== modName) {
+      return { ok: false, message: `当前已有临时 Mod：${contentState.modName}，请先删除后再创建其他 Mod。` };
+    }
+    if (!contentState.modName && !this.runtimeMod && this.registry.loadedModNames.has(modName)) {
+      return { ok: false, message: `modName 已被当前运行时占用：${modName}` };
+    }
+    const current = this.runtimeMod;
+    this.runtimeMod = {
+      modName,
+      displayName,
+      version: metadata.version.trim(),
+      author: metadata.author.trim(),
+      description: metadata.description.trim(),
+      spots: current?.spots ?? [],
+      suspendedSpotIds: current?.suspendedSpotIds ?? [],
+    };
+    return { ok: true, message: `临时 Mod 元信息已保存：${displayName}。` };
+  }
+
+  /** 提交一个 Spot 内容 mutation；热路径只触及该 Spot 及其派生节点。 */
+  applyRuntimeSpotMutation(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult {
+    if (!this.runtimeMod && mutation.operation !== 'create') {
+      return {
+        ok: false,
+        revision: this.runtimeContent.getRevision(),
+        spotId: '',
+        operation: mutation.operation,
+        diagnostics: [{ code: 'spot-not-found', message: '当前没有可操作的临时 Mod Spot' }],
+        message: '当前没有可操作的临时 Mod Spot',
+      };
+    }
+    const result = this.runtimeContent.submit(mutation);
+    if (!result.ok) return result;
+    this.syncRuntimeModFromContent();
+    if (result.operation === 'delete' && mutation.operation === 'delete' && mutation.playerData === 'purge') {
+      this.mutations.purgeSpotData(result.spotId);
+    }
+    return result;
+  }
+
+  getRuntimeContentState(): RuntimeModStateSnapshot {
+    return this.runtimeContent.getRuntimeModState();
+  }
+
   applyRuntimeMod(draft: RuntimeModDraft): RuntimeModApplyResult {
     try {
       if (this.runtimeMod && this.runtimeMod.modName !== draft.modName) {
@@ -132,35 +206,56 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       if (!this.runtimeMod && this.registry.loadedModNames.has(draft.modName)) {
         throw new Error(`modName 已被当前运行时占用：${draft.modName}`);
       }
-      const spot: SpotDef = {
-        id: `${draft.modName}:spot:${draft.spot.idName}`,
-        areaId: draft.spot.areaId,
-        name: draft.spot.name,
-        description: draft.spot.description,
-        baseCost: { type: 'const', value: draft.spot.baseCost },
-        baseCostResource: draft.spot.baseCostResource,
-        baseYield: { type: 'const', value: draft.spot.baseYield },
-        baseYieldResource: draft.spot.baseYieldResource,
-        baseCapacity: draft.spot.baseCapacity,
-        tags: [],
-      };
+      const suspendedSpotIds = new Set(draft.suspendedSpotIds ?? []);
+      const seenSpotIds = new Set<string>();
+      const spots: SpotDef[] = [];
+      for (const draftSpot of draft.spots) {
+        if (seenSpotIds.has(draftSpot.idName)) {
+          throw new Error(`临时 Mod 中存在重复 Spot ID：${draftSpot.idName}`);
+        }
+        seenSpotIds.add(draftSpot.idName);
+        if (suspendedSpotIds.has(draftSpot.idName)) continue;
+        spots.push({
+          id: `${draft.modName}:spot:${draftSpot.idName}`,
+          areaId: draftSpot.areaId,
+          name: draftSpot.name,
+          description: draftSpot.description,
+          baseCost: { type: 'const', value: draftSpot.baseCost },
+          baseCostResource: draftSpot.baseCostResource,
+          baseYield: { type: 'const', value: draftSpot.baseYield },
+          baseYieldResource: draftSpot.baseYieldResource,
+          baseCapacity: draftSpot.baseCapacity,
+          tags: [],
+        });
+      }
       const runtimePack: Datapack = {
         modName: draft.modName,
         name: draft.displayName,
         version: draft.version,
-        inits: [], areas: [], spots: [spot], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], funcletDefs: [], characters: [],
+        inits: [], areas: [], spots, enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], funcletDefs: [], characters: [],
       };
-      const spotId = spot.id;
-      const previousSpotId = this.runtimeMod ? `${this.runtimeMod.modName}:spot:${this.runtimeMod.spot.idName}` : null;
-      if (this.registry.spots.has(spotId) && spotId !== previousSpotId) {
-        throw new Error(`Spot ID 已被当前运行时占用：${spotId}`);
+      const previousSpotIds = new Set((this.runtimeMod?.spots ?? []).map(spot => `${this.runtimeMod!.modName}:spot:${spot.idName}`));
+      for (const spot of spots) {
+        if (this.registry.spots.has(spot.id) && !previousSpotIds.has(spot.id)) {
+          throw new Error(`Spot ID 已被当前运行时占用：${spot.id}`);
+        }
       }
       this.registry.validate(runtimePack);
       const background = (this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks())
         .filter(datapack => !this.runtimeMod || datapack.modName !== this.runtimeMod.modName);
       this.reloadPreservingState([...background, runtimePack]);
-      this.runtimeMod = draft;
-      return { ok: true, message: `运行时 Mod 已载入：${draft.displayName}；Spot 已加入当前 Area。` };
+      this.runtimeMod = {
+        ...draft,
+        spots: draft.spots.map(spot => ({ ...spot })),
+        suspendedSpotIds: [...suspendedSpotIds].filter(id => seenSpotIds.has(id)),
+      };
+      this.runtimeContent.adoptRuntimeMod(
+        draft.modName,
+        draft.spots.map(spot => `${draft.modName}:spot:${spot.idName}`),
+        draft.suspendedSpotIds ?? [],
+      );
+      const activeCount = spots.length;
+      return { ok: true, message: `运行时 Mod 已载入：${draft.displayName}；已应用 ${activeCount} 个 Spot。` };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error) };
     }
@@ -168,6 +263,52 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
   getRuntimeMod(): RuntimeModDraft | null {
     return this.runtimeMod;
+  }
+
+  private syncRuntimeModFromContent(): void {
+    const state = this.runtimeContent.getRuntimeModState();
+    if (!state.modName) {
+      this.runtimeMod = null;
+      return;
+    }
+    const current = this.runtimeMod;
+    this.runtimeMod = {
+      modName: state.modName,
+      displayName: current?.displayName ?? state.modName,
+      version: current?.version ?? '1.0.0',
+      author: current?.author ?? '',
+      description: current?.description ?? '',
+      spots: [...state.spots.values()].map(spot => ({
+        idName: spot.id.split(':').slice(2).join(':'),
+        areaId: spot.areaId,
+        name: spot.name,
+        description: spot.description,
+        baseCost: constantOf(spot.baseCost),
+        baseCostResource: spot.baseCostResource,
+        baseYield: constantOf(spot.baseYield),
+        baseYieldResource: spot.baseYieldResource,
+        baseCapacity: spot.baseCapacity,
+      })),
+      suspendedSpotIds: [...state.suspendedSpotIds].map(id => id.split(':').slice(2).join(':')),
+    };
+  }
+
+  removeRuntimeSpotData(spotId: string): RuntimeModApplyResult {
+    if (!this.runtimeMod) return { ok: false, message: '当前没有可清理的临时 Mod。' };
+    try {
+      const saved = this.save();
+      delete saved.playerState.spotLevels[spotId];
+      delete saved.playerState.spotManagers[spotId];
+      for (const snapshot of Object.values(saved.playerState.initSnapshots ?? {})) {
+        delete snapshot.spotLevels[spotId];
+        delete snapshot.spotManagers[spotId];
+      }
+      if (saved.playerState.spotTagOverrides) delete saved.playerState.spotTagOverrides[spotId];
+      this.load(saved);
+      return { ok: true, message: `已清理 Spot 对应 PlayerData：${spotId}。` };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
   }
 
   removeRuntimeMod(preservePlayerData = true): RuntimeModApplyResult {
@@ -178,18 +319,21 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         .filter(datapack => datapack.modName !== modName);
       const saved = this.save();
       if (!preservePlayerData) {
-        const spotId = `${modName}:spot:${this.runtimeMod.spot.idName}`;
-        delete saved.playerState.spotLevels[spotId];
-        delete saved.playerState.spotManagers[spotId];
-        for (const snapshot of Object.values(saved.playerState.initSnapshots ?? {})) {
-          delete snapshot.spotLevels[spotId];
-          delete snapshot.spotManagers[spotId];
+        for (const draftSpot of this.runtimeMod.spots) {
+          const spotId = `${modName}:spot:${draftSpot.idName}`;
+          delete saved.playerState.spotLevels[spotId];
+          delete saved.playerState.spotManagers[spotId];
+          for (const snapshot of Object.values(saved.playerState.initSnapshots ?? {})) {
+            delete snapshot.spotLevels[spotId];
+            delete snapshot.spotManagers[spotId];
+          }
+          if (saved.playerState.spotTagOverrides) delete saved.playerState.spotTagOverrides[spotId];
         }
-        if (saved.playerState.spotTagOverrides) delete saved.playerState.spotTagOverrides[spotId];
       }
       this.reload([...background], { enterDefaultInit: false });
       this.load(saved);
       this.runtimeMod = null;
+      this.runtimeContent.reset();
       return { ok: true, message: preservePlayerData ? `临时 Mod 已删除，PlayerData 已保留：${modName}。` : `临时 Mod 与对应 PlayerData 已删除：${modName}。` };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error) };
@@ -235,6 +379,10 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       this.devLog.record(`包库快照保存失败：${error instanceof Error ? error.message : String(error)}`, { source: 'datapack', level: 'error' });
     });
   }
+}
+
+function constantOf(expression: SpotDef['baseCost']): number {
+  return expression.type === 'const' && typeof expression.value === 'number' ? expression.value : 0;
 }
 
 function createBuiltinBasePack(): StoredPack {

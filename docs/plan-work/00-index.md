@@ -45,7 +45,17 @@
 | [[docs/plan-work/active/task-0053-user-theme-layer-interaction-fixes]] | 修复保存误弹确认、系统层顺序、新建丢失继承层、删除回退、行级状态同步、预览顺序与实时预览、层级优先级按钮入口 | 🟡 代码与测试已完成；Edge 验收待补 |
 | [[docs/plan-work/active/task-0054-user-theme-layer-type-aware-value-editor]] | 按图层类型提供差异化参数面板、CSS 解析/序列化与预览保存一致性，重点覆盖径向渐变 | 🔵 待评审，尚未施工 |
 | [[docs/plan-work/active/task-0055-runtime-datapack-editor-mvp]] | 设置页数据包管理中的单 Mod 运行时编辑态、元信息、空 Spot 草稿与临时 Overlay 载入 | 🟢 MVP 已实施，正式持久化待后续 |
+| [[docs/plan-work/active/task-0056-workspace-datapack-boundary-convergence]] | Workspace / Datapack 边界收束：Datapack 规则抽取、Editor 状态隔离、Workspace Router/History 与查询边界 | 🟡 P0 / P1 / P2 / P3 已实施并验证；P4 ShopQuery 与 DefinitionRepository 接口裁定完成，Editor 来源实现与 UI Context 待施工 |
+| [[docs/plan-work/active/task-0058-definition-resolution-p1a]] | Definition Resolution P1A：来源解析、Draft-only Tombstone、三态结果与 Delta | 🟢 已实施并验证；P1B 已由 Task-0059 完成 |
+| [[docs/plan-work/active/task-0059-definition-resolution-p1b]] | Definition Resolution P1B：引用策略、DefinitionDiagnostics 与 DefinitionChange 消费 | 🟢 已实施并验证 |
+| [[docs/plan-work/active/task-0060-multi-spot-runtime-editor]] | 单临时 Mod 的多 Spot 临时构建与编辑：Draft、批量物化、批量预览与安全回退 | 🟡 P1–P4 已实施；自动化验收通过，Edge 手工验收待补 |
+| [[docs/plan-work/active/task-0061-runtime-hot-content-crud-spot]] | Runtime 热内容 CRUD 与 Spot 服务接入：单内容提交、Registry 局部变更与定向失效 | 🟡 P0–P4 已实施；全量与 Edge 验收待补 |
+| [[docs/plan-work/active/task-0062-runtime-spot-editor-simple-flow]] | Runtime Spot 编辑器单项即时操作：新建/编辑保存即热提交，删除确认后消失，移除多 Draft 主流程 | 🟡 P0–P3 已实施；Edge 手工验收待补 |
+| [[docs/plan-work/active/task-0057-single-mod-editor-workbench]] | 单 Mod 全内容编辑工作台：Mod 编辑态、全表 Draft、Runtime 预览、增量更新与 Mod 输出 | 🟡 方案已裁定；P1A 基础模型已实施，完整工作台仍待施工 |
 | [[docs/plan-work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
+| [[docs/plan-work/active/adr-0010-definition-repository-editor-resolution]] | DefinitionRepository 最小只读接口、Editor 来源解析优先级与 Runtime Registry 边界 | 🟡 接口裁定完成，Repository / Overlay 实现待后续任务 |
+| [[docs/plan-work/active/adr-0011-definition-resolution-withdrawal]] | Definition Resolution 撤回、引用悬置、Draft-only Tombstone 与 Runtime Delta 责任边界 | 🟢 已裁定生效；P1A/P1B 已实施 |
+| [[docs/plan-work/active/adr-0012-runtime-hot-content-crud]] | Runtime 热内容 CRUD 与 Spot 服务接入边界 | 🟢 已裁定生效；Task-0061 施工中 |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
 
@@ -105,6 +115,8 @@
 ### 全量理解与审查
 
 - [[docs/plan-work/review/code-review-roadmap]]：按数据、数值、写入、领域、UI、Datapack 顺序完成全量 Review。
+
+- [[docs/plan-work/review/def-resolution-withdrawal-sol-review]]：Sol 关于 Def 撤回、Tombstone、引用悬置与 Definition Resolution 的事实核查与修订建议。
 
 - [[docs/plan-work/active/task-0034-affector-performance-review]]：记录 Affector → ConditionDepIndex → GameNum/flow → Tick 性能审查的逐条真实性与紧迫性判定。
 

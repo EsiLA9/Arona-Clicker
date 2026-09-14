@@ -52,3 +52,6 @@ pnpm-debug.log*
 
 # Local save (runtime data)
 # localStorage is browser-side, no file to ignore
+
+# Local source line-counting utility
+/count-src-lines.mjs

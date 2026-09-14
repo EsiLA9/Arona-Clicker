@@ -51,6 +51,16 @@ describe('Workspace 页面生命周期', () => {
     expect(document.querySelector('[data-workspace-frame="game"]')).not.toBeNull();
   });
 
+  it('顶层服务导航清除临时 Workspace，避免保留非法组合', () => {
+    controller.openContactsWorkspace('Hoshino');
+    controller.navigateToService('settings');
+    controller.render();
+
+    expect(controller.panelState.workspace).toBeUndefined();
+    expect(controller.panelState.workspaceNavigation).toEqual({ current: { kind: 'service', page: 'settings' } });
+    expect(document.querySelector('[data-workspace-frame="settings"]')).not.toBeNull();
+  });
+
   it('Character Workspace 的局部刷新走完整 Workspace 渲染，返回后恢复 Game', () => {
     game.mutations.acquireCharacter('Hoshino', 'story');
     controller.openCharacterWorkspace('Hoshino');

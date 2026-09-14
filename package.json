@@ -10,6 +10,7 @@
     "dev:game": "vite src/ui",
     "dev:editor": "vite tools/datapack-editor/ui",
     "build": "vite build",
+    "count:src-lines": "node count-src-lines.mjs",
     "gen:schema": "node scripts/gen-engine-schema.mjs --write",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
     "ui:callgraph": "node scripts/ui-callgraph.mjs"

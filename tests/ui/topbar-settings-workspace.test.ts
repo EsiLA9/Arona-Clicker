@@ -124,7 +124,7 @@ describe('顶栏与设置工作区', () => {
     game.stop();
   });
 
-  it('数据包管理内开启编辑态并直接载入 Spot，且可从游戏侧编辑与删除', () => {
+  it('单 Mod 多 Spot 逐个即时新建、编辑与删除', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
     const root = document.createElement('div');
@@ -149,15 +149,24 @@ describe('顶栏与设置工作区', () => {
     document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-create]')!.click();
     expect(controller.panelState.runtimeDatapackEditor?.error).toBeNull();
 
-    expect(document.querySelector('[data-runtime-editor-create-spot]')).toBeNull();
-    expect(document.querySelector('#toast-layer .toast-action')).not.toBeNull();
-    document.querySelector<HTMLButtonElement>('#toast-layer .toast-action button')!.click();
+    expect(document.querySelector('[data-runtime-editor-create-spot]')).not.toBeNull();
+    expect(document.querySelector('.runtime-spot-list')).toBeNull();
     expect(document.querySelector('.runtime-datapack-modal .modal-head .eyebrow')?.textContent).toContain('创建 Spot');
     set('spotIdName', 'empty-spot');
     set('spotName', '空 Spot');
     document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-create-spot]')!.click();
 
-    expect(controller.panelState.runtimeDatapackEditor?.spot).toMatchObject({ idName: 'empty-spot', name: '空 Spot' });
+    expect(controller.panelState.runtimeDatapackEditor?.spots[0]).toMatchObject({ idName: 'empty-spot', name: '空 Spot' });
+    expect(game.registry.spots.has('draft-mod:spot:empty-spot')).toBe(true);
+    expect(document.querySelector('.app-modal.is-open')).toBeNull();
+    expect(controller.panelState.service).toBe('game');
+    expect(document.querySelector('#toast-layer .toast-action')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>('#toast-layer .toast-action button')!.click();
+    set('spotIdName', 'second-spot');
+    set('spotName', '第二个 Spot');
+    document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-create-spot]')!.click();
+    expect(controller.panelState.runtimeDatapackEditor?.spots).toHaveLength(2);
+    expect(game.registry.spots.has('draft-mod:spot:second-spot')).toBe(true);
     expect(game.registry.spots.has('draft-mod:spot:empty-spot')).toBe(true);
     const areaId = controller.panelState.runtimeDatapackEditor!.selectedAreaId!;
     expect(controller.panelState.runtimeDatapackEditor?.error).toBeNull();
@@ -168,9 +177,18 @@ describe('顶栏与设置工作区', () => {
     expect(controller.panelState.service).toBe('game');
     expect(root.querySelector('[data-runtime-spot-edit="draft-mod:spot:empty-spot"]')).not.toBeNull();
     expect(root.querySelector('[data-runtime-spot-delete="draft-mod:spot:empty-spot"]')).not.toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-runtime-spot-edit="draft-mod:spot:second-spot"]')!.click();
+    expect(document.querySelector<HTMLInputElement>('.app-modal [data-runtime-editor-field="spotIdName"]')?.value).toBe('second-spot');
+    controller.modal.close();
 
     root.querySelector<HTMLButtonElement>('[data-runtime-spot-edit="draft-mod:spot:empty-spot"]')!.click();
     expect(document.querySelector('.app-modal [data-runtime-editor-create-spot]')?.textContent).toContain('保存 Spot 修改');
+    set('spotIdName', 'second-spot');
+    document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-create-spot]')!.click();
+    expect(controller.panelState.runtimeDatapackEditor?.error).toContain('ID 不能修改');
+    expect(document.querySelector('.app-modal')).not.toBeNull();
+    expect(document.querySelector('.runtime-datapack-modal .modal-head .eyebrow')?.textContent).toContain('编辑 Spot');
+    set('spotIdName', 'empty-spot');
     set('spotName', '修改后的 Spot');
     document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-create-spot]')!.click();
     expect(game.registry.spots.get('draft-mod:spot:empty-spot')?.name).toBe('修改后的 Spot');
@@ -182,6 +200,7 @@ describe('顶栏与设置工作区', () => {
     expect(document.querySelector('[data-runtime-delete-clean]')).not.toBeNull();
     document.querySelector<HTMLButtonElement>('[data-runtime-delete-clean]')!.click();
     expect(game.registry.spots.has('draft-mod:spot:empty-spot')).toBe(false);
+    expect(game.registry.spots.has('draft-mod:spot:second-spot')).toBe(true);
     expect(game.state.spotLevels['draft-mod:spot:empty-spot']).toBeUndefined();
 
     controller.destroy();

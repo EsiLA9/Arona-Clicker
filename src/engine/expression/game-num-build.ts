@@ -16,11 +16,14 @@
 // ============================================================
 
 import type { Value, ValueExpression } from '../types';
+import type { GameEvent } from '../types';
 import type { GameNumState } from '../contracts/state-query';
 import type { GameNumSystem } from './game-num';
 import type { GameNum, ZoneNode } from './game-num-internal';
 import { qualifyTagPath, TagPath } from '../core/tag';
 import { EntityRef, entityKey, tagPrefixesBottomUp } from './tag-effect';
+
+type SpotDefinitionChangedEvent = Extract<GameEvent, { type: 'spotDefinitionChanged' }>;
 
 // ---- 构建 ----
 
@@ -61,7 +64,7 @@ export function buildAll(system: GameNumSystem, state?: GameNumState): void {
  * 每资源一棵层级树。spot 子树在所有资源树中统一构建（无跨树 DAG 共享）：
  * 非 baseYieldResource 树中 spotBase 恒 0，仅承载挂载到该 spot 的其他资源 flows。
  */
-function buildResourceGain(system: GameNumSystem, resource: string): GameNum {
+export function buildResourceGain(system: GameNumSystem, resource: string): GameNum {
   const root: GameNum = { id: `primitiveGain:${resource}`, kind: 'add', children: [] };
 
   const globalMulZone = buildZoneNode(system, { kind: 'global', id: '*' }, 'mul');
@@ -175,7 +178,7 @@ interface BuiltSpot {
   spotExtra: GameNum;
 }
 
-function buildSpotNode(system: GameNumSystem, spotId: string, resource: string): BuiltSpot {
+export function buildSpotNode(system: GameNumSystem, spotId: string, resource: string): BuiltSpot {
   const spot = system.registry.spots.get(spotId)!;
   const own = spot.baseYieldResource === resource;
 
@@ -332,6 +335,196 @@ export function buildZoneNode(system: GameNumSystem, scope: EntityRef, part: 'fl
 export function rebuildZoneIndex(system: GameNumSystem): void {
   system.zoneIndex.clear();
   for (const n of system.zoneNodes) registerZoneNode(system, n);
+}
+
+/**
+ * Registry 提交后的单 Spot GameNum 局部更新。
+ *
+ * 旧节点按对象身份摘除，避免相同 Spot 在多个资源树中的同名叶子互相误删；
+ * 新资源只创建自己的 gain 根，其余已有资源沿现有 area/init 链挂接新 Spot 子树。
+ */
+export function applySpotDefinitionChange(system: GameNumSystem, event: SpotDefinitionChangedEvent): void {
+  const nextSpot = system.registry.spots.get(event.spotId);
+  const nextResource = nextSpot?.baseYieldResource ?? event.nextYieldResource;
+
+  // 初始注册表可能没有资源显示、状态资源或 Spot，因此 buildAll 后没有 gain。
+  // Registry 已提交 create/replace 时仍须让第一个 Spot 立即进入数值树。
+  if (system.gains.size === 0) {
+    if (nextSpot && nextResource) {
+      system.resourceSet.add(nextResource);
+      system.gains.set(nextResource, buildResourceGain(system, nextResource));
+      system.gainResourceDeps = gainResourceDeps(system);
+      system.mayReadResources = [...system.gainResourceDeps.values()].some(deps => deps.size > 0);
+    }
+    return;
+  }
+
+  removeSpotNodes(system, event.spotId);
+
+  if (nextSpot) {
+    let builtResource: string | undefined;
+    if (nextResource && !system.gains.has(nextResource)) {
+      system.resourceSet.add(nextResource);
+      system.gains.set(nextResource, buildResourceGain(system, nextResource));
+      builtResource = nextResource;
+    } else if (nextResource) {
+      system.resourceSet.add(nextResource);
+    }
+
+    for (const resource of system.gains.keys()) {
+      if (resource === builtResource) continue;
+      const built = buildSpotNode(system, event.spotId, resource);
+      attachSpotToHierarchy(system, built, nextSpot.areaId, resource);
+    }
+    reattachSpotFlows(system, event.spotId);
+  }
+
+  system.gainResourceDeps = gainResourceDeps(system);
+  system.mayReadResources = [...system.gainResourceDeps.values()].some(deps => deps.size > 0);
+}
+
+function removeSpotNodes(system: GameNumSystem, spotId: string): void {
+  system.spotSubtrees.delete(spotId);
+  const keys = new Set<string>();
+  for (const key of system.spotFullNodes.keys()) {
+    if (key.startsWith(`${spotId}@`)) keys.add(key);
+  }
+  for (const key of system.spotProductNodes.keys()) {
+    if (key.startsWith(`${spotId}@`)) keys.add(key);
+  }
+  for (const key of system.spotExtraNodes.keys()) {
+    if (key.startsWith(`${spotId}@`)) keys.add(key);
+  }
+
+  for (const key of keys) {
+    const full = system.spotFullNodes.get(key);
+    if (full) {
+      detachGraph(system, full);
+    } else {
+      const product = system.spotProductNodes.get(key);
+      const extra = system.spotExtraNodes.get(key);
+      if (product) detachGraph(system, product);
+      if (extra) detachGraph(system, extra);
+    }
+    system.spotFullNodes.delete(key);
+    system.spotProductNodes.delete(key);
+    system.spotExtraNodes.delete(key);
+  }
+}
+
+function reattachSpotFlows(system: GameNumSystem, spotId: string): void {
+  for (const node of system.flowsNodeById.values()) {
+    if (node.kind !== 'affectorFlows' || node.mount !== spotId) continue;
+    const parent = system.spotExtraNodes.get(`${spotId}@${node.resource}`);
+    if (!parent || parent.kind !== 'add') continue;
+    appendChild(system, parent, node);
+  }
+}
+
+function attachSpotToHierarchy(system: GameNumSystem, built: BuiltSpot, areaId: string, resource: string): void {
+  const areaExtra = system.areaExtraNodes.get(`${areaId}@${resource}`);
+  const areaBase = areaExtra ? findAreaBase(system, areaExtra) : undefined;
+  if (areaBase) {
+    appendChild(system, areaBase, built.spotProduct);
+    appendChild(system, areaExtra!, built.spotExtra);
+    return;
+  }
+
+  const gain = system.gains.get(resource);
+  if (gain?.kind !== 'add') return;
+  appendChild(system, gain, built.spotProduct);
+  appendChild(system, gain, built.spotExtra);
+}
+
+function findAreaBase(system: GameNumSystem, areaExtra: GameNum): GameNum | undefined {
+  const areaFull = (system.parents.get(areaExtra.id) ?? []).find(child => child.id.startsWith('area:'));
+  const areaProduct = areaFull?.kind === 'add'
+    ? areaFull.children.find(child => child.id.startsWith('areaProduct:'))
+    : undefined;
+  return areaProduct?.kind === 'mul'
+    ? areaProduct.children.find(child => child.id.startsWith('areaBase:'))
+    : undefined;
+}
+
+function appendChild(system: GameNumSystem, parent: GameNum, child: GameNum): void {
+  if (parent.kind !== 'add') return;
+  if (!parent.children.includes(child)) parent.children.push(child);
+  setParent(system, child, parent);
+  markNodeAndParentsDirty(system, parent);
+}
+
+function detachGraph(system: GameNumSystem, root: GameNum): void {
+  const seen = new Set<GameNum>();
+  const visit = (node: GameNum): void => {
+    if (seen.has(node)) return;
+    seen.add(node);
+    if (node.kind === 'add' || node.kind === 'sub' || node.kind === 'mul') {
+      for (const child of [...node.children]) {
+        if (child.kind === 'affectorFlows') {
+          detachExternalChild(system, node, child);
+          continue;
+        }
+        visit(child);
+      }
+    }
+    detachNode(system, node);
+  };
+  visit(root);
+}
+
+function detachNode(system: GameNumSystem, node: GameNum): void {
+  markNodeAndParentsDirty(system, node);
+  const parents = [...(system.parents.get(node.id) ?? [])];
+  for (const parent of parents) detachChild(system, parent, node);
+  const remainingParents = (system.parents.get(node.id) ?? []).filter(parent => parent !== undefined && hasChildWithId(parent, node.id));
+  if (remainingParents.length === 0) system.parents.delete(node.id);
+  else system.parents.set(node.id, remainingParents);
+
+  const index = system.allNodes.indexOf(node);
+  if (index >= 0) system.allNodes.splice(index, 1);
+  if (node.kind !== 'zone') return;
+
+  const zoneIndex = system.zoneIndex;
+  for (const [key, entry] of zoneIndex) {
+    entry.flat.delete(node);
+    entry.mul.delete(node);
+    if (entry.flat.size === 0 && entry.mul.size === 0) zoneIndex.delete(key);
+  }
+  const zoneIndexPosition = system.zoneNodes.indexOf(node);
+  if (zoneIndexPosition >= 0) system.zoneNodes.splice(zoneIndexPosition, 1);
+  zoneNodeMap(system).delete(node.id);
+}
+
+function detachChild(system: GameNumSystem, parent: GameNum, child: GameNum): void {
+  if (parent.kind !== 'add' && parent.kind !== 'sub' && parent.kind !== 'mul') return;
+  const index = parent.children.indexOf(child);
+  if (index >= 0) parent.children.splice(index, 1);
+  markNodeAndParentsDirty(system, parent);
+}
+
+function detachExternalChild(system: GameNumSystem, parent: GameNum, child: GameNum): void {
+  detachChild(system, parent, child);
+  const remainingParents = (system.parents.get(child.id) ?? []).filter(candidate => candidate !== parent);
+  if (remainingParents.length === 0) system.parents.delete(child.id);
+  else system.parents.set(child.id, remainingParents);
+}
+
+function hasChildWithId(parent: GameNum, childId: string): boolean {
+  return (parent.kind === 'add' || parent.kind === 'sub' || parent.kind === 'mul')
+    && parent.children.some(child => child.id === childId);
+}
+
+function markNodeAndParentsDirty(system: GameNumSystem, node: GameNum): void {
+  const stack: GameNum[] = [node];
+  const seen = new Set<GameNum>();
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (seen.has(current)) continue;
+    seen.add(current);
+    current.dirty = true;
+    current.cached = undefined;
+    for (const parent of system.parents.get(current.id) ?? []) stack.push(parent);
+  }
 }
 
 function registerZoneNode(system: GameNumSystem, node: ZoneNode): void {

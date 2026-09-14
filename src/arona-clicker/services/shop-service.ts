@@ -1,14 +1,16 @@
 import type { Registry } from '../../data-services/registry/registry';
-import type { ShopEntryDef, ShopPurchaseScope } from '../../data-services/contracts/shop';
+import type { ResourceDisplayDef } from '../../data-services/contracts/common';
+import type { ShopDef, ShopEntryDef, ShopPurchaseScope } from '../../data-services/contracts/shop';
 import type { AronaClickerState } from '../types/state';
 import type { ConditionSystem } from '../../engine/expression/condition-system';
 import type { ValueSystem } from '../../engine/expression/value-system';
 import type { StateMutationService } from '../state/state-mutation-service';
 import type { SpotFunctionalitySystem } from './spot-functionality';
+import type { ShopCartLine, ShopEntryAvailability, ShopPreview, ShopQueryPort } from '../contracts/shop-query';
+export type { ShopCartLine, ShopEntryAvailability, ShopPreview, ShopQueryPort } from '../contracts/shop-query';
 import { existenceMet } from '../../engine/visibility/reveal';
 import { isGlobalResource } from '../types/ids';
 
-export interface ShopCartLine { entryId: string; quantity: number; }
 export type ShopCheckoutFailure = 'shop-not-found' | 'spot-not-found' | 'shop-unavailable' | 'entry-not-found' | 'hidden' | 'condition-failed' | 'quantity-invalid' | 'stock-insufficient' | 'insufficient-funds' | 'offer-not-executable';
 export type ShopCheckoutResult = { success: true; receipt: ShopCommitReceipt } | { success: false; reason: ShopCheckoutFailure; entryId?: string };
 export interface ShopCommitReceipt {
@@ -16,24 +18,6 @@ export interface ShopCommitReceipt {
   spotId: string;
   lines: ReadonlyArray<{ entryId: string; quantity: number; resourceCosts: Record<string, number>; itemCosts: Record<string, number>; resourceGrants: Record<string, number>; itemGrants: Record<string, number> }>;
 }
-export interface ShopEntryAvailability {
-  entryId: string;
-  revealed: boolean;
-  conditionSatisfied: boolean;
-  stockRemaining: number | null;
-  status: 'hidden' | 'locked' | 'available' | 'sold-out';
-}
-export interface ShopPreview {
-  resourceCosts: Record<string, number>;
-  itemCosts: Record<string, number>;
-  resourceGrants: Record<string, number>;
-  itemGrants: Record<string, number>;
-}
-export interface ShopQueryPort {
-  availability(shopId: string, spotId: string, entryId: string): ShopEntryAvailability | null;
-  preview(shopId: string, cart: readonly ShopCartLine[]): ShopPreview | null;
-}
-
 /** 不进入 Save 的 UI 意图容器；派生价格、库存与条件不在此缓存。 */
 export class ShopSession {
   private readonly quantities = new Map<string, number>();
@@ -48,7 +32,7 @@ export class ShopSession {
 const DEFAULT_SCOPE: ShopPurchaseScope = { lifetime: 'init', owner: 'shop' };
 
 /** 从 Cart intent 生成冻结 Plan，并交给单一写入口一次性提交。 */
-export class ShopService {
+export class ShopService implements ShopQueryPort {
   constructor(
     private readonly registry: Registry,
     private readonly conditions: ConditionSystem,
@@ -57,6 +41,14 @@ export class ShopService {
     private readonly functionalities: SpotFunctionalitySystem,
     private readonly getState: () => AronaClickerState,
   ) {}
+
+  getShop(shopId: string): Readonly<ShopDef> | null {
+    return this.registry.shops.get(shopId) ?? null;
+  }
+
+  listResourceDisplays(): readonly ResourceDisplayDef[] {
+    return [...this.registry.resourceDisplays.values()];
+  }
 
   availability(shopId: string, spotId: string, entryId: string): ShopEntryAvailability | null {
     const shop = this.registry.shops.get(shopId);

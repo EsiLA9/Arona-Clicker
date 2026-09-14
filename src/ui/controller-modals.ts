@@ -155,8 +155,11 @@ export function openSpotShopModal(ctrl: UIController, spotId: string): void {
   const functionality = spot && ctrl.game.spotFunctionalitySystem.functionalitiesOf(spot, ctrl.game.state)
     .find(fn => fn.kind === 'shop' && fn.shopId);
   if (!spot || !functionality?.shopId) return;
-  const shop = ctrl.game.registry.shops.get(functionality.shopId);
+  const shop = ctrl.game.shopService.getShop(functionality.shopId);
   if (ctrl.panelState.workspace?.type === 'shop') ctrl.disposeShopWorkspace();
+  const returnContext = ctrl.workspaceLocation();
+  const sessionId = `${spotId}:${functionality.shopId}`;
+  ctrl.enterWorkspaceRoute({ kind: 'shop', sessionId });
   const themeId = `shop-workspace:${spotId}:${functionality.shopId}`;
   if (shop?.theme) {
     ctrl.game.colorSystem.pushEphemeralTheme({
@@ -175,7 +178,7 @@ export function openSpotShopModal(ctrl: UIController, spotId: string): void {
   const workspace: ShopWorkspaceState = {
     type: 'shop', spotId, shopId: functionality.shopId!, session: new ShopSession(),
     feed: [{ kind: 'enter', text: `进入 ${shop?.name ?? '商店'}。` }],
-    returnContext: { leftTab: ctrl.panelState.leftTab, centerTab: ctrl.panelState.centerTab, rightTab: ctrl.panelState.rightTab, selectedVariantId: ctrl.panelState.selectedVariantId, conversationVariantId: ctrl.panelState.conversationVariantId },
+    returnContext,
     themeId,
   };
   ctrl.panelState.workspace = workspace;

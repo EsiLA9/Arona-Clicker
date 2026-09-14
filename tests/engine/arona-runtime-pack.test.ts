@@ -2,6 +2,16 @@ import { describe, expect, test } from 'vitest';
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
 import type { PackManagerSnapshot } from '../../src/data-services/datapack/pack-manager';
+import type { Datapack } from '../../src/data-services/contracts/datapack';
+
+class CountingRuntime extends AronaClickerRuntime {
+  reloadCount = 0;
+
+  override reloadPreservingState(datapacks: Datapack[]): void {
+    this.reloadCount += 1;
+    super.reloadPreservingState(datapacks);
+  }
+}
 
 describe('AronaClickerRuntime PackManager 接线', () => {
   test('base 作为内置数据包进入包库并始终参与启用集', () => {
@@ -52,6 +62,66 @@ describe('AronaClickerRuntime PackManager 接线', () => {
 
     expect(() => game.init([defaultDatapack])).not.toThrow();
     expect(game.registry.characterVariants.has('Arona')).toBe(true);
+  });
+
+  test('一个临时 Mod 可批量应用多个 Spot，并保留挂起 Spot 的 Draft 记录', () => {
+    const game = new CountingRuntime();
+    game.init([defaultDatapack]);
+    const draft = {
+      modName: 'draft-mod',
+      displayName: 'Draft Mod',
+      version: '1.0.0',
+      author: '',
+      description: '',
+      spots: [
+        {
+          idName: 'spot-a', areaId: 'base:area:schale_main', name: 'Spot A', description: '',
+          baseCost: 1, baseCostResource: 'base:resource:credit', baseYield: 2,
+          baseYieldResource: 'base:resource:credit', baseCapacity: 3,
+        },
+        {
+          idName: 'spot-b', areaId: 'base:area:schale_main', name: 'Spot B', description: '',
+          baseCost: 2, baseCostResource: 'base:resource:credit', baseYield: 4,
+          baseYieldResource: 'base:resource:credit', baseCapacity: 5,
+        },
+      ],
+      suspendedSpotIds: [],
+    };
+
+    expect(game.applyRuntimeMod(draft)).toMatchObject({ ok: true });
+    expect(game.reloadCount).toBe(1);
+    expect(game.registry.spots.has('draft-mod:spot:spot-a')).toBe(true);
+    expect(game.registry.spots.has('draft-mod:spot:spot-b')).toBe(true);
+    expect(game.getRuntimeMod()?.spots).toHaveLength(2);
+
+    expect(game.applyRuntimeMod({ ...draft, suspendedSpotIds: ['spot-a'] })).toMatchObject({ ok: true });
+    expect(game.reloadCount).toBe(2);
+    expect(game.registry.spots.has('draft-mod:spot:spot-a')).toBe(false);
+    expect(game.registry.spots.has('draft-mod:spot:spot-b')).toBe(true);
+    expect(game.getRuntimeMod()?.spots).toHaveLength(2);
+    expect(game.getRuntimeMod()?.suspendedSpotIds).toEqual(['spot-a']);
+
+    expect(game.applyRuntimeMod(draft)).toMatchObject({ ok: true });
+    expect(game.reloadCount).toBe(3);
+    expect(game.registry.spots.has('draft-mod:spot:spot-a')).toBe(true);
+  });
+
+  test('临时 Mod 的重复 Spot ID 在重载前失败并保留旧 Runtime', () => {
+    const game = new AronaClickerRuntime();
+    game.init([defaultDatapack]);
+    const spot = {
+      idName: 'spot-a', areaId: 'base:area:schale_main', name: 'Spot A', description: '',
+      baseCost: 1, baseCostResource: 'base:resource:credit', baseYield: 2,
+      baseYieldResource: 'base:resource:credit', baseCapacity: 3,
+    };
+    const valid = { modName: 'draft-mod', displayName: 'Draft Mod', version: '1.0.0', author: '', description: '', spots: [spot], suspendedSpotIds: [] };
+    expect(game.applyRuntimeMod(valid).ok).toBe(true);
+    const result = game.applyRuntimeMod({ ...valid, spots: [spot, { ...spot, name: 'Duplicate' }] });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('重复 Spot ID');
+    expect(game.registry.spots.get('draft-mod:spot:spot-a')?.name).toBe('Spot A');
+    expect(game.getRuntimeMod()?.spots).toHaveLength(1);
   });
 
   test('登记并应用启用包到 reload 与图片资源', () => {

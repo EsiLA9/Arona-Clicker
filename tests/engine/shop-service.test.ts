@@ -122,6 +122,14 @@ describe('ShopService（P2）', () => {
     session.clear();
     expect(session.lines()).toEqual([]);
   });
+
+test('只读查询端口提供 Shop 目录与资源展示配置，预览不修改状态', () => {
+    const query = game.shopService;
+    expect(query.getShop(SHOP)?.name).toBe('柜台');
+    expect(query.getShop('test:shop:missing')).toBeNull();
+    expect(Array.isArray(query.listResourceDisplays())).toBe(true);
+    expect(query.preview(SHOP, [])).toEqual({ resourceCosts: {}, itemCosts: {}, resourceGrants: {}, itemGrants: {} });
+  });
 });
 
 test('默认内容提供真实 Spot Shop 与四类交易样例', () => {

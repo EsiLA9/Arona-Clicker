@@ -38,6 +38,8 @@ describe('Contacts / Story Workspace ownership', () => {
     expect(root.querySelectorAll('[data-workspace-frame="contacts"] [data-workspace-owner="contacts"]')).toHaveLength(3);
     expect(root.querySelector('.contacts-empty, .workspace-placeholder')).not.toBeNull();
     expect(root.querySelector('.center-panel, .right-panel')).toBeNull();
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'contacts' });
+    expect(controller.panelState.workspaceNavigation?.returnTo?.route).toEqual({ kind: 'game' });
   });
 
   it('选择学生只改变 Contacts 内部状态，不嵌套 CharacterWorkspace', () => {
@@ -66,6 +68,7 @@ describe('Contacts / Story Workspace ownership', () => {
     controller.render();
 
     expect(root.querySelector('[data-workspace-frame="story"]')).not.toBeNull();
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'story', sessionId: 'Hoshino' });
     expect(root.querySelector('[data-workspace-frame="character"]')).toBeNull();
     expect(root.querySelectorAll('[data-workspace-frame="story"] [data-workspace-owner="story"]')).toHaveLength(3);
 
@@ -84,6 +87,7 @@ describe('Contacts / Story Workspace ownership', () => {
     controller.render();
 
     expect(controller.panelState.workspace?.type).toBe('story');
+    expect(controller.panelState.workspaceNavigation?.returnTo?.route).toEqual({ kind: 'contacts' });
     controller.disposeWorkspace();
 
     const workspace = controller.panelState.workspace;
@@ -91,6 +95,7 @@ describe('Contacts / Story Workspace ownership', () => {
     if (workspace?.type !== 'contacts') throw new Error('返回后未恢复 Contacts Workspace');
     expect(workspace.selectedVariantId).toBe('Hoshino');
     expect(workspace.conversationVariantId).toBe('Hoshino');
+    expect(controller.panelState.workspaceNavigation).toEqual({ current: { kind: 'contacts' } });
     expect(root.querySelector('[data-workspace-frame="contacts"]')).not.toBeNull();
   });
 
@@ -109,6 +114,7 @@ describe('Contacts / Story Workspace ownership', () => {
     controller.resetSessionPanel();
     expect(controller.panelState.storyNavPath).toEqual([]);
     expect(controller.panelState.workspace).toBeUndefined();
+    expect(controller.panelState.workspaceNavigation).toEqual({ current: { kind: 'game' } });
   });
 
   it('新 Workspace Host 使用物理列父级和明确 owner', () => {

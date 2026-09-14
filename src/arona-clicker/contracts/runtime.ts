@@ -25,7 +25,8 @@ import type { StoryQueryPort } from './story-query';
 import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } from '../../data-services/datapack/pack-manager';
 import type { WorldCatalogQueryPort } from './world-catalog';
 import type { UserThemeService } from '../services/user-theme-service';
-import type { ShopQueryPort } from '../services/shop-service';
+import type { ShopQueryPort } from './shop-query';
+import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult } from './runtime-content';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -55,6 +56,7 @@ export interface PackCatalogReadModel {
   getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[] };
   getPackConfiguration?(): PackConfigurationDraft;
   getRuntimeMod?(): RuntimeModDraft | null;
+  getRuntimeContentState?(): RuntimeModStateSnapshot;
 }
 
 export interface PackValidationReport {
@@ -75,7 +77,7 @@ export interface RuntimeModDraft {
   readonly version: string;
   readonly author: string;
   readonly description: string;
-  readonly spot: {
+  readonly spots: readonly {
     readonly idName: string;
     readonly areaId: string;
     readonly name: string;
@@ -85,7 +87,9 @@ export interface RuntimeModDraft {
     readonly baseYield: number;
     readonly baseYieldResource: string;
     readonly baseCapacity: number;
-  };
+  }[];
+  /** Draft 中保留但当前 Runtime Preview 不物化的 Spot。 */
+  readonly suspendedSpotIds?: readonly string[];
 }
 
 export interface RuntimeModApplyResult {
@@ -102,6 +106,12 @@ export interface PackCatalogCommands {
   validatePackConfiguration?(draft: PackConfigurationDraft): PackValidationReport;
   applyPackConfiguration?(draft: PackConfigurationDraft): PackApplyResult;
   applyRuntimeMod?(draft: RuntimeModDraft): RuntimeModApplyResult;
+  /** 以单个 Spot 为单位提交热内容 CRUD；不接收完整 RuntimeModDraft。 */
+  applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
+  /** 设置临时 Mod 元信息；不触发数据包重载。 */
+  setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
+  /** 删除临时 Mod 中单个 Spot 后清理其 PlayerData，不移除整个临时 Mod。 */
+  removeRuntimeSpotData?(spotId: string): RuntimeModApplyResult;
   removeRuntimeMod?(preservePlayerData?: boolean): RuntimeModApplyResult;
 }
 
@@ -174,4 +184,7 @@ export interface GameCommands {
   startNewGame(initId: string): boolean;
   restartInit(): void;
   resumeInit(initId: string): boolean;
+  /** 运行时编辑能力：单个 Spot 热内容提交（不接收完整 Draft）。 */
+  applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
+  setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
 }

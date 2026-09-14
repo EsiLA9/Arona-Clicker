@@ -203,6 +203,17 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     this.emit({ type: 'spotLevelChanged', spotId, oldLevel, newLevel: level });
   }
 
+  /** 清理一个已删除临时 Spot 的状态与各 Init 快照；不重载 Registry。 */
+  purgeSpotData(spotId: string): void {
+    delete this.current.spotLevels[spotId];
+    delete this.current.spotManagers[spotId];
+    for (const snapshot of Object.values(this.current.initSnapshots ?? {})) {
+      delete snapshot.spotLevels[spotId];
+      delete snapshot.spotManagers[spotId];
+    }
+    if (this.current.spotTagOverrides) delete this.current.spotTagOverrides[spotId];
+  }
+
   addSpotLevel(spotId: string, delta: number): number {
     if (!this.canMutateSpot(spotId)) return this.current.spotLevels[spotId] ?? 0;
     const next = (this.current.spotLevels[spotId] ?? 0) + delta;

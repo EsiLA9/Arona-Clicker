@@ -1,4 +1,14 @@
 export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult } from './runtime';
+export type {
+  RuntimeContentDiagnostic,
+  RuntimeContentDiagnosticCode,
+  RuntimeModStateSnapshot,
+  RuntimeSpotCommit,
+  RuntimeSpotInput,
+  RuntimeSpotMutation,
+  RuntimeSpotMutationResult,
+  RuntimeSpotRollbackContext,
+} from './runtime-content';
 export type { EffectMutationPort } from './effect-mutation';
 export type { RosterQueryPort, RosterContactGroup, RosterContactEntry } from './roster-query';
 export type { ColorQueryPort, ColorEntityThemeOption, ColorGroupDescription } from './color-query';
@@ -18,6 +28,7 @@ export type { SaveBuildContext, SaveCodec } from './save-codec';
 export type { SaveData } from './save-data';
 export type { WorldCatalogQueryPort } from './world-catalog';
 export type { PicQueryPort } from './pic-query';
+export type { ShopCartLine, ShopEntryAvailability, ShopPreview, ShopQueryPort } from './shop-query';
 export { EVENT_CATALOG } from './event-catalog';
 export type { EventCatalogEntry } from './event-catalog';
 export type { CompletedStory, StoryReadLog } from '../types/story-state';

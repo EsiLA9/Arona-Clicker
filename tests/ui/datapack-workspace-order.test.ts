@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
 import { createUIContext } from '../../src/ui/context';
 import { renderAppShell, type PanelState } from '../../src/ui/components/app-shell';
-import { filterPacks, orderPacks, resolvePackIssues } from '../../src/ui/components/service-workspace';
+import { buildDatapackWorkspaceView, filterPacks, orderPacks, resolvePackIssues } from '../../src/arona-clicker/services/datapack-workspace-view';
 import type { PackCatalogEntry } from '../../src/arona-clicker/contracts';
 
 const baseState = (): PanelState => ({
@@ -139,5 +139,30 @@ describe('数据包工作区排序与默认行为', () => {
     const disabled = filterPacks('disabled', entries, entries, ['a@1', 'b@1'], new Set(['a@1', 'b@1']));
     expect(enabled.map(entry => entry.id)).toEqual(['a@1', 'b@1']);
     expect(disabled).toEqual([]);
+  });
+
+  it('DatapackWorkspaceView 一次派生草案顺序、启用集、选中项与分区计数', () => {
+    const entries = [
+      entryOf('a@1', { modName: 'a', enabled: true }),
+      entryOf('b@1', { modName: 'b', enabled: false, dependencies: ['missing'] }),
+    ];
+    const view = buildDatapackWorkspaceView({
+      entries,
+      section: 'issues',
+      draftOrder: ['b@1', 'a@1'],
+      draftEnabledIds: ['a@1', 'b@1'],
+      selectedPackId: 'b@1',
+      validation: { ok: false, errors: ['b 有效性检查失败'], warnings: [] },
+    });
+
+    expect(view.orderedEntries.map(entry => entry.id)).toEqual(['b@1', 'a@1']);
+    expect(view.filteredEntries.map(entry => entry.id)).toEqual(['b@1']);
+    expect(view.selection?.id).toBe('b@1');
+    expect(view.draftEnabledIds).toEqual(new Set(['a@1', 'b@1']));
+    expect(view.issues.get('b@1')?.some(issue => issue.kind === 'missing-dependency')).toBe(true);
+    expect(view.invalidIds).toEqual(new Set(['b@1']));
+    expect(view.sections.find(section => section.id === 'issues')?.count).toBe(1);
+    expect(view.changed).toBe(true);
+    expect(view.canApply).toBe(true);
   });
 });

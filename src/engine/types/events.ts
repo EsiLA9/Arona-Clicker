@@ -10,6 +10,15 @@ import type { ActiveThemeSelection } from './theme';
 export type GameEvent =
   | { type: 'resourceChanged'; resource: string; delta: number; newValue: number }
   | { type: 'spotLevelChanged'; spotId: string; newLevel: number; oldLevel?: number }
+  | {
+      type: 'spotDefinitionChanged';
+      spotId: string;
+      operation: 'create' | 'replace' | 'delete' | 'suspend' | 'resume';
+      previousAreaId?: string;
+      nextAreaId?: string;
+      previousYieldResource?: string;
+      nextYieldResource?: string;
+    }
   | { type: 'managerChanged'; spotId: string; newManager: Character }
   | { type: 'enhancementAdded'; enhancementId: string }
   | { type: 'enhancementRemoved'; enhancementId: string }

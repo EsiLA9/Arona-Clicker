@@ -75,8 +75,8 @@ export function renderProductionNodes(ctx: UIContext): string {
       const shop = reveal.utilityKnown
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'shop');
       const isRuntimeSpot = runtimeMod != null
-        && runtimeMod.spot.idName === spot.id.split(':').pop()
-        && runtimeMod.spot.areaId === spot.areaId;
+        && runtimeMod.spots.some(runtimeSpot => `${runtimeMod!.modName}:spot:${runtimeSpot.idName}` === spot.id)
+        && !(runtimeMod.suspendedSpotIds ?? []).includes(spot.id.split(':').pop() ?? '');
       const action = owned
         ? '升级'
         : purchaseable

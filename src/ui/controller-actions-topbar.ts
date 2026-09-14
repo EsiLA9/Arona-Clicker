@@ -6,12 +6,36 @@
 
 import { SaveSystem } from '../data-services/persistence/storage';
 import { openCollectionModal } from './components/collection-modal';
-import { filterPacks, orderPacks } from './components/service-workspace';
+import { buildDatapackWorkspaceView } from '../arona-clicker/services/datapack-workspace-view';
 import { renderRuntimeEditorForm, renderRuntimeSpotForm } from './components/runtime-datapack-editor';
+import {
+  hasDatapackWorkspaceChanges,
+  moveDatapackDraft,
+  setDatapackResult,
+  setDatapackSection,
+  setDatapackSelection,
+  setDatapackValidation,
+  toggleDatapackDraftEnabled,
+} from './workspace/datapack-workspace-state';
+import {
+  createRuntimeDatapackEditorState,
+  getSelectedRuntimeEditorSpot,
+  hydrateRuntimeEditor,
+  markRuntimeEditorApplied,
+  prepareRuntimeEditorForNewSpot,
+  removeRuntimeEditorSpot,
+  selectRuntimeEditorSpot,
+  setRuntimeEditorError,
+  setRuntimeEditorSpot,
+  setRuntimeEditorSpotSuspended,
+  toRuntimeModDraft,
+  updateRuntimeEditorFields,
+} from './workspace/runtime-datapack-editor-state';
 import type { UIController } from './controller';
 import { createUIContext } from './context';
 import { refreshPresentationHostElements } from './controller-theme';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
+import type { RuntimeSpotInput, RuntimeSpotMutationResult } from '../arona-clicker/contracts/runtime-content';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] ?? character));
@@ -31,16 +55,13 @@ function hasUnappliedDatapackDraft(ctrl: UIController): boolean {
   const workspace = ctrl.panelState.datapackWorkspace;
   const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
   const formal = host.getPackConfiguration?.();
-  return Boolean(workspace && formal && (
-    JSON.stringify(workspace.draftEnabledIds) !== JSON.stringify(formal.enabledIds)
-    || JSON.stringify(workspace.draftOrder) !== JSON.stringify(formal.order)
-  ));
+  return Boolean(workspace && hasDatapackWorkspaceChanges(workspace, formal));
 }
 
 function navigateFromTopbar(ctrl: UIController, service: TopbarService, rightTab?: string): void {
   const switchService = () => {
     if (ctrl.panelState.workspace) ctrl.disposeWorkspace();
-    ctrl.panelState.service = service;
+    ctrl.navigateToService(service);
     if (rightTab) ctrl.panelState.rightTab = rightTab;
     ctrl.render();
   };
@@ -158,7 +179,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
     ctrl.commands.reset();
     SaveSystem.delete();
     ctrl.started = false;
-    ctrl.panelState.service = 'game';
+    ctrl.navigateToService('game');
     ctrl.pendingRestart = false;
     ctrl.toast.show('已彻底重置，回到世界线选择', 'info');
     ctrl.themeFloatOpen = false;
@@ -224,15 +245,12 @@ function syncRuntimeSpotCreateAction(ctrl: UIController): void {
   const areaId = ctrl.game.getView().currentAreaId;
   const area = areaId ? ctrl.game.registry.areas.get(areaId) : undefined;
   const key = 'runtime-spot-create';
-  if (!editor?.enabled || !editor.modName || !areaId || !area) {
+  if (!editor?.enabled || !editor.modName || !editor.displayName || !areaId || !area) {
     ctrl.toast.removeAction(key);
     return;
   }
   ctrl.toast.showAction(key, `当前 Area：${escapeHtml(area.name)}`, '创建 Spot', () => {
-    editor.selectedAreaId = areaId;
-    editor.spot = null;
-    editor.applied = false;
-    editor.error = null;
+    prepareRuntimeEditorForNewSpot(editor, areaId);
     ctrl.modal.open({
       title: `创建 Spot · ${area.name}`,
       body: renderRuntimeSpotForm(createUIContext(ctrl.game), ctrl.panelState),
@@ -257,12 +275,14 @@ function readRuntimeEditorFields(ctrl: UIController, scope: ParentNode): void {
   const author = value('author');
   const description = value('description');
   const selectedAreaId = value('selectedAreaId');
-  if (modName !== undefined) editor.modName = modName.trim();
-  if (displayName !== undefined) editor.displayName = displayName.trim();
-  if (version !== undefined) editor.version = version.trim();
-  if (author !== undefined) editor.author = author.trim();
-  if (description !== undefined) editor.description = description.trim();
-  if (selectedAreaId !== undefined) editor.selectedAreaId = selectedAreaId || null;
+  updateRuntimeEditorFields(editor, {
+    modName,
+    displayName,
+    version,
+    author,
+    description,
+    selectedAreaId: selectedAreaId ?? undefined,
+  });
 }
 
 function openRuntimeDatapackEditor(ctrl: UIController): void {
@@ -282,10 +302,12 @@ function openRuntimeDatapackEditor(ctrl: UIController): void {
 
 function openRuntimeSpotEditor(ctrl: UIController): void {
   const editor = ctrl.panelState.runtimeDatapackEditor;
-  const area = editor?.selectedAreaId ? ctrl.game.registry.areas.get(editor.selectedAreaId) : undefined;
+  const spot = editor ? getSelectedRuntimeEditorSpot(editor) : null;
+  const areaId = spot?.areaId ?? editor?.selectedAreaId;
+  const area = areaId ? ctrl.game.registry.areas.get(areaId) : undefined;
   if (!editor?.enabled || !area) return;
   ctrl.modal.open({
-    title: `创建 Spot · ${area.name}`,
+    title: `${spot ? '编辑' : '创建'} Spot · ${area.name}`,
     body: renderRuntimeSpotForm(createUIContext(ctrl.game), ctrl.panelState),
     footer: '<button type="button" class="modal-close toolbar-button">关闭编辑器</button>',
     width: 560,
@@ -296,30 +318,30 @@ function openRuntimeSpotEditor(ctrl: UIController): void {
   if (modal) bindRuntimeDatapackEditorActions(ctrl, modal);
 }
 
-function openLoadedRuntimeSpotEditor(ctrl: UIController): void {
+function openLoadedRuntimeSpotEditor(ctrl: UIController, runtimeSpotId?: string): void {
   const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands & PackCatalogReadModel>;
   const runtimeMod = host.getRuntimeMod?.();
   if (!runtimeMod || !ctrl.panelState.runtimeDatapackEditor?.enabled) return;
   const editor = ctrl.panelState.runtimeDatapackEditor;
-  editor.modName = runtimeMod.modName;
-  editor.displayName = runtimeMod.displayName;
-  editor.version = runtimeMod.version;
-  editor.author = runtimeMod.author;
-  editor.description = runtimeMod.description;
-  editor.selectedAreaId = runtimeMod.spot.areaId;
-  editor.spot = { ...runtimeMod.spot };
-  editor.applied = true;
-  editor.error = null;
+  hydrateRuntimeEditor(editor, runtimeMod);
+  const idName = runtimeSpotId?.split(':').pop();
+  if (idName) selectRuntimeEditorSpot(editor, idName);
   openRuntimeSpotEditor(ctrl);
 }
 
-function openRuntimeSpotDeleteConfirm(ctrl: UIController): void {
-  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
+function openRuntimeSpotDeleteConfirm(ctrl: UIController, runtimeSpotId?: string): void {
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands & PackCatalogReadModel>;
   const runtimeMod = host.getRuntimeMod?.();
-  if (!runtimeMod) return;
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  const idName = runtimeSpotId?.split(':').pop() ?? editor?.selectedSpotId ?? undefined;
+  if (idName && editor && !editor.spots.some(spot => spot.idName === idName) && runtimeMod) hydrateRuntimeEditor(editor, runtimeMod);
+  if (idName && editor) selectRuntimeEditorSpot(editor, idName);
+  const spot = idName ? editor?.spots.find(item => item.idName === idName) : undefined;
+  if (!spot) return;
+  const runtimeLoaded = Boolean(runtimeMod?.spots.some(item => item.idName === spot.idName));
   ctrl.modal.open({
     title: '删除临时 Spot',
-    body: `<div class="runtime-editor-form"><p>即将删除「${escapeHtml(runtimeMod.spot.name)}」。请选择是否保留该 Spot 的 PlayerData（等级、管理人等）。</p><p class="service-summary">保留：以后重新创建同 ID Spot 时恢复原状态。清理：同时移除当前状态与各 Init 快照中的对应记录。</p></div>`,
+    body: `<div class="runtime-editor-form"><p>即将删除「${escapeHtml(spot.name || spot.idName)}」。${runtimeLoaded ? '该 Spot 已经应用到 Runtime。' : '该 Spot 尚未应用到 Runtime。'}</p><p class="service-summary">保留：以后重新创建同 ID Spot 时恢复原状态。清理：同时移除当前状态与各 Init 快照中的对应记录。</p></div>`,
     footer: '<button type="button" class="modal-close toolbar-button">取消</button><button type="button" class="toolbar-button" data-runtime-delete-clean>删除并清理 PlayerData</button><button type="button" class="primary-button" data-runtime-delete-preserve>删除但保留 PlayerData</button>',
     width: 560,
     panelClass: 'runtime-datapack-modal',
@@ -330,28 +352,153 @@ function openRuntimeSpotDeleteConfirm(ctrl: UIController): void {
 }
 
 function removeRuntimeSpot(ctrl: UIController, preservePlayerData: boolean): void {
-  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands>;
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands & PackCatalogReadModel>;
   const editor = ctrl.panelState.runtimeDatapackEditor;
-  if (!host.removeRuntimeMod) return;
-  const result = host.removeRuntimeMod(preservePlayerData);
-  if (!result.ok) {
-    ctrl.modal.close();
-    ctrl.toast.show(result.message, 'error');
-    return;
+  if (!editor || !editor.selectedSpotId) return;
+  const spot = getSelectedRuntimeEditorSpot(editor);
+  if (!spot) return;
+  const spotId = `${editor.modName}:spot:${spot.idName}`;
+  const runtimeState = host.getRuntimeContentState?.();
+  const wasApplied = runtimeState?.spots.has(spotId) ?? Boolean(editor.applied);
+  const wasSuspended = editor.suspendedSpotIds.includes(spot.idName);
+  const backup = { ...spot };
+  let result: { ok: boolean; message: string } = { ok: true, message: `Spot 草稿已删除：${spot.idName}。` };
+  if (wasApplied) {
+    if (ctrl.commands.applyRuntimeSpotMutation && runtimeState) {
+      const hotResult = ctrl.commands.applyRuntimeSpotMutation({
+        operation: 'delete',
+        modName: editor.modName,
+        idName: spot.idName,
+        playerData: preservePlayerData ? 'retain' : 'purge',
+        expectedRevision: runtimeState.revision,
+      });
+      if (!hotResult.ok) {
+        ctrl.modal.close();
+        ctrl.toast.show(hotResult.message, 'error');
+        openRuntimeSpotEditor(ctrl);
+        return;
+      }
+      removeRuntimeEditorSpot(editor, spot.idName);
+      markRuntimeEditorApplied(editor, true);
+      result = { ok: true, message: preservePlayerData ? `临时 Spot 已删除，PlayerData 已保留：${spot.idName}。` : `临时 Spot 与对应 PlayerData 已删除：${spot.idName}。` };
+    } else {
+      if (!removeRuntimeEditorSpot(editor, spot.idName)) return;
+      const draft = toRuntimeModDraft(editor);
+      if (!draft || !host.applyRuntimeMod) {
+        setRuntimeEditorSpot(editor, backup);
+        if (wasSuspended) setRuntimeEditorSpotSuspended(editor, backup.idName, true);
+        ctrl.toast.show('无法生成删除后的临时 Mod 草稿。', 'error');
+        return;
+      }
+      result = host.applyRuntimeMod(draft);
+      if (!result.ok) {
+        setRuntimeEditorSpot(editor, backup);
+        if (wasSuspended) setRuntimeEditorSpotSuspended(editor, backup.idName, true);
+        ctrl.modal.close();
+        ctrl.toast.show(result.message, 'error');
+        openRuntimeSpotEditor(ctrl);
+        return;
+      }
+      markRuntimeEditorApplied(editor, true);
+      if (!preservePlayerData && host.removeRuntimeSpotData) {
+        const cleanup = host.removeRuntimeSpotData(spotId);
+        if (!cleanup.ok) {
+          ctrl.modal.close();
+          ctrl.toast.show(cleanup.message, 'error');
+          ctrl.render();
+          return;
+        }
+      }
+      result = { ok: true, message: preservePlayerData ? `临时 Spot 已删除，PlayerData 已保留：${spot.idName}。` : `临时 Spot 与对应 PlayerData 已删除：${spot.idName}。` };
+    }
+  } else {
+    if (!removeRuntimeEditorSpot(editor, spot.idName)) return;
   }
-  if (editor) { editor.spot = null; editor.applied = false; editor.error = null; }
   ctrl.modal.close();
   ctrl.toast.show(result.message, 'success');
-  ctrl.panelState.service = 'game';
+  if (wasApplied) {
+    ctrl.navigateToService('game');
+    ctrl.render();
+  } else {
+    openRuntimeDatapackEditor(ctrl);
+  }
+}
+
+function applyRuntimeEditorDraft(ctrl: UIController): void {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands & PackCatalogReadModel>;
+  if (!editor) return;
+  const selected = getSelectedRuntimeEditorSpot(editor);
+  if (!editor.modName || !editor.displayName) {
+    setRuntimeEditorError(editor, '请先完成 Mod 元信息。');
+    openRuntimeSpotEditor(ctrl);
+    return;
+  }
+  if (!selected) {
+    setRuntimeEditorError(editor, '请先选择一个要提交的 Spot。');
+    openRuntimeSpotEditor(ctrl);
+    return;
+  }
+
+  const hotApply = ctrl.commands.applyRuntimeSpotMutation;
+  const setMetadata = ctrl.commands.setRuntimeModMetadata;
+  if (!hotApply || !setMetadata) {
+    const draft = toRuntimeModDraft(editor);
+    if (!draft || !host.applyRuntimeMod) return;
+    const result = host.applyRuntimeMod(draft);
+    if (!result.ok) {
+      setRuntimeEditorError(editor, result.message);
+      openRuntimeSpotEditor(ctrl);
+      return;
+    }
+    markRuntimeEditorApplied(editor, true);
+    setRuntimeEditorError(editor, null);
+    ctrl.modal.close();
+    ctrl.toast.show(result.message, 'success');
+    ctrl.navigateToService('game');
+    ctrl.render();
+    syncRuntimeSpotCreateAction(ctrl);
+    return;
+  }
+
+  const metadata = setMetadata({
+    modName: editor.modName,
+    displayName: editor.displayName,
+    version: editor.version,
+    author: editor.author,
+    description: editor.description,
+  });
+  if (!metadata.ok) {
+    setRuntimeEditorError(editor, metadata.message);
+    openRuntimeSpotEditor(ctrl);
+    return;
+  }
+  const runtimeState = host.getRuntimeContentState?.();
+  const spotId = `${editor.modName}:spot:${selected.idName}`;
+  const loaded = runtimeState?.spots.has(spotId)
+    ?? Boolean(host.getRuntimeMod?.()?.spots.some(spot => spot.idName === selected.idName));
+  const input: RuntimeSpotInput = { ...selected };
+  const mutation = loaded
+    ? { operation: 'replace' as const, modName: editor.modName, idName: selected.idName, spot: input, expectedRevision: runtimeState?.revision ?? 0 }
+    : { operation: 'create' as const, modName: editor.modName, spot: input, expectedRevision: runtimeState?.revision ?? 0 };
+  const result: RuntimeSpotMutationResult = hotApply(mutation);
+  if (!result.ok) {
+    setRuntimeEditorError(editor, result.message);
+    openRuntimeSpotEditor(ctrl);
+    return;
+  }
+  markRuntimeEditorApplied(editor, true);
+  setRuntimeEditorError(editor, null);
+  ctrl.modal.close();
+  ctrl.toast.show(result.message, 'success');
+  ctrl.navigateToService('game');
   ctrl.render();
+  syncRuntimeSpotCreateAction(ctrl);
 }
 
 function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode): void {
   scope.querySelector('[data-runtime-editor-toggle]')?.addEventListener('click', () => {
-    ctrl.panelState.runtimeDatapackEditor = {
-      enabled: true, modName: '', displayName: '', version: '1.0.0', author: '', description: '',
-      selectedAreaId: [...ctrl.game.registry.areas.keys()][0] ?? null, spot: null, error: null,
-    };
+    ctrl.panelState.runtimeDatapackEditor = createRuntimeDatapackEditorState([...ctrl.game.registry.areas.keys()][0] ?? null);
     ctrl.toast.show('已开启运行时编辑态', 'info');
     ctrl.render();
     openRuntimeDatapackEditor(ctrl);
@@ -368,11 +515,43 @@ function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode)
     if (!editor) return;
     readRuntimeEditorFields(ctrl, scope);
     const loaded = ctrl.game.registry.loadedModNames;
-    if (!/^[a-z0-9-]+$/.test(editor.modName)) editor.error = 'modName 只能包含小写字母、数字和连字符。';
-    else if (loaded.has(editor.modName)) editor.error = `modName 已被已加载数据包占用：${editor.modName}`;
-    else if (!editor.displayName) editor.error = '请填写 Mod 显示名称。';
-    else editor.error = null;
-    openRuntimeDatapackEditor(ctrl);
+    const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
+    const currentRuntimeMod = host.getRuntimeMod?.();
+    const hadSpots = Boolean(currentRuntimeMod?.spots.length || editor.spots.length);
+    if (!/^[a-z0-9-]+$/.test(editor.modName)) setRuntimeEditorError(editor, 'modName 只能包含小写字母、数字和连字符。');
+    else if (loaded.has(editor.modName) && currentRuntimeMod?.modName !== editor.modName) setRuntimeEditorError(editor, `modName 已被已加载数据包占用：${editor.modName}`);
+    else if (!editor.displayName) setRuntimeEditorError(editor, '请填写 Mod 显示名称。');
+    else if (ctrl.commands.setRuntimeModMetadata) {
+      const result = ctrl.commands.setRuntimeModMetadata({
+        modName: editor.modName,
+        displayName: editor.displayName,
+        version: editor.version,
+        author: editor.author,
+        description: editor.description,
+      });
+      setRuntimeEditorError(editor, result.ok ? null : result.message);
+      if (!result.ok) {
+        openRuntimeDatapackEditor(ctrl);
+        syncRuntimeSpotCreateAction(ctrl);
+        return;
+      }
+    } else setRuntimeEditorError(editor, null);
+    ctrl.modal.close();
+    if (!hadSpots) {
+      const areaId = editor.selectedAreaId ?? ctrl.game.getView().currentAreaId ?? [...ctrl.game.registry.areas.keys()][0];
+      if (areaId) {
+        prepareRuntimeEditorForNewSpot(editor, areaId);
+        ctrl.toast.show('Mod 信息已保存，现在创建第一个 Spot。', 'success');
+        openRuntimeSpotEditor(ctrl);
+      } else {
+        ctrl.toast.show('Mod 信息已保存。', 'success');
+        ctrl.render();
+      }
+    } else {
+      ctrl.toast.show('Mod 信息已保存。', 'success');
+      ctrl.navigateToService('game');
+      ctrl.render();
+    }
     syncRuntimeSpotCreateAction(ctrl);
   });
   scope.querySelector('[data-runtime-editor-create-spot]')?.addEventListener('click', () => {
@@ -380,87 +559,43 @@ function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode)
     if (!editor) return;
     readRuntimeEditorFields(ctrl, scope);
     const value = (key: string): string => scope.querySelector<HTMLInputElement>(`[data-runtime-editor-field="${key}"]`)?.value ?? '';
-    if (editor.error || !editor.modName) { editor.error = editor.error ?? '请先创建合法的 Mod 草稿。'; openRuntimeSpotEditor(ctrl); syncRuntimeSpotCreateAction(ctrl); return; }
-    if (!editor.selectedAreaId || !ctrl.game.registry.areas.has(editor.selectedAreaId)) { editor.error = '请选择已有 Area。'; openRuntimeSpotEditor(ctrl); syncRuntimeSpotCreateAction(ctrl); return; }
+    if (!editor.modName) { setRuntimeEditorError(editor, '请先创建合法的 Mod 草稿。'); openRuntimeSpotEditor(ctrl); syncRuntimeSpotCreateAction(ctrl); return; }
+    if (!editor.selectedAreaId || !ctrl.game.registry.areas.has(editor.selectedAreaId)) { setRuntimeEditorError(editor, '请选择已有 Area。'); openRuntimeSpotEditor(ctrl); syncRuntimeSpotCreateAction(ctrl); return; }
     const idName = value('spotIdName').trim();
     const name = value('spotName').trim();
-    if (!/^[a-z0-9_-]+$/.test(idName)) editor.error = 'Spot ID 名只能包含小写字母、数字、下划线和连字符。';
-    else if (!name) editor.error = '请填写 Spot 名称。';
+    const previousId = editor.selectedSpotId;
+    const runtimeState = (ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>).getRuntimeContentState?.();
+    const editingLoadedSpot = Boolean(previousId && (runtimeState?.spots.has(`${editor.modName}:spot:${previousId}`) || editor.applied));
+    if (!/^[a-z0-9_-]+$/.test(idName)) setRuntimeEditorError(editor, 'Spot ID 名只能包含小写字母、数字、下划线和连字符。');
+    else if (!name) setRuntimeEditorError(editor, '请填写 Spot 名称。');
+    else if (editingLoadedSpot && idName !== previousId) setRuntimeEditorError(editor, '已应用 Spot 的 ID 不能修改；如需更换 ID，请删除后新建。');
+    else if (editor.spots.some(spot => spot.idName === idName && spot.idName !== editor.selectedSpotId)) setRuntimeEditorError(editor, `当前 Draft 已存在 Spot ID：${idName}`);
     else {
-      editor.spot = { idName, name, description: value('spotDescription').trim(), baseCost: Number(value('baseCost')) || 0, baseCostResource: value('baseCostResource').trim(), baseYield: Number(value('baseYield')) || 0, baseYieldResource: value('baseYieldResource').trim(), baseCapacity: Number(value('baseCapacity')) || 0 };
-      editor.error = null;
+      setRuntimeEditorSpot(editor, { idName, areaId: editor.selectedAreaId, name, description: value('spotDescription').trim(), baseCost: Number(value('baseCost')) || 0, baseCostResource: value('baseCostResource').trim(), baseYield: Number(value('baseYield')) || 0, baseYieldResource: value('baseYieldResource').trim(), baseCapacity: Number(value('baseCapacity')) || 0 });
+      setRuntimeEditorError(editor, null);
     }
-    const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands>;
-    if (!editor.error && editor.spot && host.applyRuntimeMod) {
-      const result = host.applyRuntimeMod({
-        modName: editor.modName,
-        displayName: editor.displayName,
-        version: editor.version,
-        author: editor.author,
-        description: editor.description,
-        spot: { ...editor.spot, areaId: editor.selectedAreaId ?? '' },
-      });
-      if (!result.ok) {
-        editor.error = result.message;
-        openRuntimeSpotEditor(ctrl);
-        syncRuntimeSpotCreateAction(ctrl);
-        return;
-      }
-      editor.applied = true;
-      editor.error = null;
-      ctrl.modal.close();
-      ctrl.toast.show(result.message, 'success');
-      ctrl.panelState.service = 'game';
-      ctrl.render();
-      syncRuntimeSpotCreateAction(ctrl);
-      return;
+    if (!editor.error) {
+      applyRuntimeEditorDraft(ctrl);
     }
-    openRuntimeSpotEditor(ctrl);
+    else openRuntimeSpotEditor(ctrl);
     syncRuntimeSpotCreateAction(ctrl);
-  });
-  scope.querySelector('[data-runtime-editor-apply]')?.addEventListener('click', () => {
-    const editor = ctrl.panelState.runtimeDatapackEditor;
-    const spot = editor?.spot;
-    const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands>;
-    if (!editor || !spot || !host.applyRuntimeMod) return;
-    readRuntimeEditorFields(ctrl, scope);
-    const result = host.applyRuntimeMod({
-      modName: editor.modName,
-      displayName: editor.displayName,
-      version: editor.version,
-      author: editor.author,
-      description: editor.description,
-      spot: { ...spot, areaId: editor.selectedAreaId ?? '' },
-    });
-    if (!result.ok) {
-      editor.error = result.message;
-      openRuntimeSpotEditor(ctrl);
-      syncRuntimeSpotCreateAction(ctrl);
-      return;
-    }
-    editor.applied = true;
-    editor.error = null;
-    ctrl.modal.close();
-    ctrl.toast.show(result.message, 'success');
-    ctrl.panelState.service = 'game';
-    ctrl.render();
   });
   scope.querySelector('[data-runtime-editor-delete-spot]')?.addEventListener('click', () => {
     openRuntimeSpotDeleteConfirm(ctrl);
   });
-  scope.querySelector('[data-runtime-editor-discard-spot]')?.addEventListener('click', () => {
+  scope.querySelector('[data-runtime-editor-new-spot]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
     if (!editor) return;
-    editor.spot = null;
-    editor.error = null;
+    const areaId = editor.selectedAreaId ?? ctrl.game.getView().currentAreaId ?? [...ctrl.game.registry.areas.keys()][0];
+    if (!areaId) return;
+    prepareRuntimeEditorForNewSpot(editor, areaId);
     openRuntimeSpotEditor(ctrl);
-    syncRuntimeSpotCreateAction(ctrl);
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-spot-edit]').forEach(button => {
-    button.addEventListener('click', () => openLoadedRuntimeSpotEditor(ctrl));
+    button.addEventListener('click', () => openLoadedRuntimeSpotEditor(ctrl, button.dataset.runtimeSpotEdit));
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-spot-delete]').forEach(button => {
-    button.addEventListener('click', () => openRuntimeSpotDeleteConfirm(ctrl));
+    button.addEventListener('click', () => openRuntimeSpotDeleteConfirm(ctrl, button.dataset.runtimeSpotDelete));
   });
   scope.querySelector('[data-runtime-delete-preserve]')?.addEventListener('click', () => removeRuntimeSpot(ctrl, true));
   scope.querySelector('[data-runtime-delete-clean]')?.addEventListener('click', () => removeRuntimeSpot(ctrl, false));
@@ -478,25 +613,27 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
     ctrl.resetDatapackDraft();
     root = ctrl.panelState.datapackWorkspace ?? root;
   };
-  const reorderable = (id: string): boolean => {
-    const entry = host.getPackCatalog?.().entries.find(item => item.id === id);
-    return entry ? (entry.capabilities?.reorderable ?? entry.sourceKind !== 'builtin') : false;
-  };
   scope.querySelectorAll<HTMLButtonElement>('[data-datapack-section]').forEach(button => {
     button.addEventListener('click', () => {
       const section = button.dataset.datapackSection as typeof root.section;
-      root.section = section;
-      ctrl.panelState.service = 'datapack';
+      setDatapackSection(root, section);
+      ctrl.replaceWorkspaceRoute({ kind: 'service', page: 'datapack' });
       const entries = host.getPackCatalog?.().entries ?? [];
-      const enabledIds = new Set(root.draftEnabledIds);
-      const visible = filterPacks(section, orderPacks(entries, root.draftOrder), entries, root.draftOrder, enabledIds);
-      if (root.selectedPackId && !visible.some(entry => entry.id === root.selectedPackId)) root.selectedPackId = null;
+      const view = buildDatapackWorkspaceView({
+        entries,
+        section,
+        draftOrder: root.draftOrder,
+        draftEnabledIds: root.draftEnabledIds,
+        selectedPackId: root.selectedPackId,
+        validation: root.validation,
+      });
+      if (root.selectedPackId && !view.filteredEntries.some(entry => entry.id === root.selectedPackId)) setDatapackSelection(root, null);
       render();
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-select]').forEach(button => {
     button.addEventListener('click', () => {
-      root.selectedPackId = button.dataset.packSelect ?? null;
+      setDatapackSelection(root, button.dataset.packSelect ?? null);
       render();
     });
   });
@@ -506,33 +643,22 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       if (!id) return;
       const entry = host.getPackCatalog?.().entries.find(item => item.id === id);
       if (entry && entry.capabilities && !entry.capabilities.enableable) {
-        root.lastResult = { ok: false, message: '核心数据包必须始终保留在启用集内。' };
+        setDatapackResult(root, { ok: false, message: '核心数据包必须始终保留在启用集内。' });
         render();
         return;
       }
-      root.draftEnabledIds = root.draftEnabledIds.includes(id)
-        ? root.draftEnabledIds.filter(item => item !== id)
-        : [...root.draftEnabledIds, id];
-      root.validation = null;
-      root.lastResult = null;
+      toggleDatapackDraftEnabled(root, id);
       render();
     });
   });
   const move = (id: string, delta: number) => {
-    if (!reorderable(id)) return;
-    const index = root.draftOrder.indexOf(id);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= root.draftOrder.length) return;
-    if (!reorderable(root.draftOrder[target])) {
-      root.lastResult = { ok: false, message: '核心数据包固定在最前，不可被越过。' };
+    const result = moveDatapackDraft(root, host.getPackCatalog?.().entries ?? [], id, delta);
+    if (result === 'blocked') {
+      setDatapackResult(root, { ok: false, message: '核心数据包固定在最前，不可被越过。' });
       render();
       return;
     }
-    const next = [...root.draftOrder];
-    [next[index], next[target]] = [next[target], next[index]];
-    root.draftOrder = next;
-    root.validation = null;
-    root.lastResult = null;
+    if (result !== 'moved') return;
     render();
   };
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-up]').forEach(button => button.addEventListener('click', () => move(button.dataset.packDraftUp!, -1)));
@@ -551,9 +677,9 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
           if (action !== 'remove-datapack') return;
           try {
             host.removePack?.(id);
-            root.lastResult = { ok: true, message: `已从包库移除：${entry.name}` };
+            setDatapackResult(root, { ok: true, message: `已从包库移除：${entry.name}` });
           } catch (error) {
-            root.lastResult = { ok: false, message: error instanceof Error ? error.message : String(error) };
+            setDatapackResult(root, { ok: false, message: error instanceof Error ? error.message : String(error) });
           }
           ctrl.modal.close();
           render();
@@ -569,7 +695,7 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       onAction: action => {
         if (action !== 'discard-datapack-draft') return;
         resetDraft();
-        root.lastResult = { ok: true, message: '已放弃草案，恢复正式配置。' };
+        setDatapackResult(root, { ok: true, message: '已放弃草案，恢复正式配置。' });
         ctrl.modal.close();
         render();
       },
@@ -578,8 +704,8 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
   scope.querySelector('[data-pack-validate]')?.addEventListener('click', () => {
     if (!host.validatePackConfiguration) return;
     const report = host.validatePackConfiguration({ enabledIds: root.draftEnabledIds, order: root.draftOrder });
-    root.validation = { ok: report.ok, errors: [...report.errors], warnings: [...report.warnings] };
-    root.lastResult = { ok: report.ok, message: report.ok ? '启用集校验通过，可以应用。' : report.errors[0] ?? '启用集校验失败。' };
+    setDatapackValidation(root, report);
+    setDatapackResult(root, { ok: report.ok, message: report.ok ? '启用集校验通过，可以应用。' : report.errors[0] ?? '启用集校验失败。' });
     render();
   });
   scope.querySelector('[data-pack-apply]')?.addEventListener('click', () => {
@@ -587,8 +713,8 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
     const draft = { enabledIds: [...root.draftEnabledIds], order: [...root.draftOrder] };
     const report = host.validatePackConfiguration?.(draft);
     if (report && !report.ok) {
-      root.validation = { ok: false, errors: [...report.errors], warnings: [...report.warnings] };
-      root.lastResult = { ok: false, message: report.errors[0] ?? '启用集校验失败。' };
+      setDatapackValidation(root, { ok: false, errors: report.errors, warnings: report.warnings });
+      setDatapackResult(root, { ok: false, message: report.errors[0] ?? '启用集校验失败。' });
       render();
       return;
     }
@@ -600,7 +726,7 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
         if (action !== 'apply-datapack') return;
         const saved = SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
         if (!saved) {
-          root.lastResult = { ok: false, message: '应用已停止：当前进度保存失败，数据包序列未重载。' };
+          setDatapackResult(root, { ok: false, message: '应用已停止：当前进度保存失败，数据包序列未重载。' });
           ctrl.modal.close();
           render();
           return;
@@ -608,11 +734,11 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
         const result = host.applyPackConfiguration!(draft);
         if (result.ok) {
           resetDraft();
-          root.lastResult = { ok: true, message: result.message };
-          root.validation = { ok: result.validation.ok, errors: [...result.validation.errors], warnings: [...result.validation.warnings] };
+          setDatapackResult(root, { ok: true, message: result.message });
+          setDatapackValidation(root, result.validation);
         } else {
-          root.validation = { ok: result.validation.ok, errors: [...result.validation.errors], warnings: [...result.validation.warnings] };
-          root.lastResult = { ok: false, message: result.message };
+          setDatapackValidation(root, result.validation);
+          setDatapackResult(root, { ok: false, message: result.message });
         }
         ctrl.modal.close();
         render();
