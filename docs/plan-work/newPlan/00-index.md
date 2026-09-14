@@ -27,6 +27,7 @@
 | [[docs/plan-work/newPlan/13-unified-workspace-refresh-boundaries]] | Workspace 刷新边界、路由隔离与 Reveal 失效草案 | 🔵 待评审，事实核验完成 |
 | [[docs/plan-work/newPlan/14-contacts-story-workspace-ownership]] | 通讯录 / 故事独立 Workspace 所有权与路由草案 | ✅ 已转 [[docs/plan-work/active/task-0047-contacts-story-workspace-ownership]]，Workspace 前置任务优先施工 |
 | [[docs/plan-work/newPlan/15-user-theme-background-layer-manager]] | 用户自定主题背景图层管理器改造指导 | ✅ 已转 [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]] |
+| [[docs/plan-work/newPlan/16-runtime-datapack-authoring]] | 运行时内嵌数据包创作：受控运行时主机模式、图形化编写与数据双向转换 | 🔵 待评审，三大工作线与 7 项架构裁定待确认 |
 
 ## 与现有计划的关系
 

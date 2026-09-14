@@ -153,6 +153,7 @@
 ### 新策划汇总（待评审）
 
 - [[docs/plan-work/docs/newPlan/00-index]]：学生获取与关系资产化方案总览；PassiveStory 评审已裁定，施工任务见 [[docs/plan-work/active/task-0032-passive-story-scheduling]]。
+- [[docs/plan-work/newPlan/16-runtime-datapack-authoring]]：把数据包编写工具搬进真实游戏运行时（受控运行时主机模式 / 图形化编写 / 游戏时数据与数据包数据双向转换），待评审。
 
 该目录按模块/玩法簇收录 Sol 策划回复，当前属于方案草案；评审后再分别沉淀为正式 ADR、Roadmap 与实现任务。
 
