@@ -193,8 +193,10 @@ export function withPreviewLayer(
   else layers.push({ ...layer, id: previewId });
   setLayers(next, target, layers);
   const order = [...getTargetLayerOrder(next, target)];
-  const orderIndex = order.indexOf(previewId);
-  if (orderIndex < 0) order.push(previewId);
+  // 目标还没有本地覆盖时 stored order 为空；必须用带入层的实际堆叠顺序补齐，
+  // 否则缺序的层在 theme-runtime 的顺序排序里会被推到最顶，遮住正在预览的层。
+  for (const item of layers) if (item.id && !order.includes(item.id)) order.push(item.id);
+  if (!order.includes(previewId)) order.push(previewId);
   if (target.kind === 'global' && !order.includes(SYSTEM_COLOR_LAYER_ID)) order.unshift(SYSTEM_COLOR_LAYER_ID);
   setOrder(next, target, order);
   return next;

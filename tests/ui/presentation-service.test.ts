@@ -37,6 +37,16 @@ describe('PresentationService', () => {
     expect(html).toContain('z-index:2;background:#456');
   });
 
+  test('区域图层与全局背景共用安全规则：color-dodge 不再被降级为 normal', () => {
+    const view = buildPresentationView({ layers: [
+      { id: 'mixed', region: 'centerPanel', kind: 'solid', value: '#456', blendMode: 'color-dodge', position: 'center; background:red' },
+    ] }, pics);
+    const [layer] = view.region('centerPanel').layers;
+
+    expect(layer.blendMode).toBe('color-dodge');
+    expect(layer.position).toBe('center');
+  });
+
   test('丢弃缺失资源、循环父级和不安全资源地址', () => {
     const unsafePics = {
       urlOf: (ref: string) => ref === 'bad' ? 'javascript:alert(1)' : undefined,

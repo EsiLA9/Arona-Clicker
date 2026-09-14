@@ -26,6 +26,15 @@ import {
   SKEW_X_DEG_MAX,
   SKEW_X_DEG_MIN,
 } from './presentation-config';
+import {
+  LAYER_ATTACHMENT_PATTERN,
+  LAYER_BLEND_PATTERN,
+  LAYER_POSITION_PATTERN,
+  LAYER_REPEAT_PATTERN,
+  LAYER_SIZE_PATTERN,
+  LAYER_VALUE_PATTERN,
+  safeCss,
+} from './layer-css-safety';
 
 export interface PresentationViewLayer {
   id?: string;
@@ -96,21 +105,11 @@ export interface PresentationView {
 const REGIONS: readonly PresentationRegion[] = [
   'shell', 'header', 'leftPanel', 'centerPanel', 'rightPanel', 'footer', 'story', 'modal',
 ];
-const SAFE_VALUE = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla|linear-gradient|radial-gradient|repeating-linear-gradient|repeating-radial-gradient)\([^;<>]+\)|var\(--[a-z0-9-]+\))$/i;
-const SAFE_POSITION = /^[a-z0-9% .-]+$/i;
-const SAFE_SIZE = /^[a-z0-9% .-]+$/i;
-const SAFE_REPEAT = /^(?:repeat|repeat-x|repeat-y|no-repeat|space|round)$/;
-const SAFE_BLEND = /^(?:normal|multiply|screen|overlay|soft-light|hard-light|darken|lighten)$/;
 const SAFE_FIT = new Set(['cover', 'contain', 'natural']);
 const SAFE_ANCHOR = new Set<PlacementAnchor>(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center']);
 const SAFE_UNIT = new Set(['percent', 'px', 'auto']);
-const SAFE_ATTACHMENT = new Set(['scroll', 'fixed', 'local']);
 const SAFE_MOTION = new Set<MotionPreset>(['none', 'fade', 'fade-up', 'soft-scale', 'slide-in', 'pulse']);
 const SAFE_SHAPES = new Set<PresentationShape>(['rounded-rectangle', 'rounded-parallelogram']);
-
-function safeCss(value: string | undefined, pattern: RegExp, fallback: string): string {
-  return value && pattern.test(value.trim()) ? value.trim() : fallback;
-}
 
 function safeNumber(value: number | undefined, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(-10000, Math.min(10000, value)) : fallback;
@@ -143,17 +142,17 @@ function imageView(ref: string, pics: PicQueryPort): ResolvedAssetView | undefin
 function layerView(layer: BackgroundLayerDef, value: string): PresentationViewLayer | undefined {
   if (layer.enabled === false) return undefined;
   if (layer.kind === 'empty') return { kind: layer.kind, value: 'transparent', opacity: 0, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed', scale: 1, rotation: 0 };
-  if (layer.kind !== 'image' && !SAFE_VALUE.test(value.trim())) return undefined;
+  if (layer.kind !== 'image' && !LAYER_VALUE_PATTERN.test(value.trim())) return undefined;
   return {
     id: layer.id,
     kind: layer.kind,
     value: value ?? '',
     opacity: Math.max(0, Math.min(1, layer.opacity ?? 1)),
-    position: safeCss(layer.position, SAFE_POSITION, 'center'),
-    size: safeCss(layer.size, SAFE_SIZE, 'cover'),
-    repeat: safeCss(layer.repeat, SAFE_REPEAT, 'no-repeat'),
-    blendMode: safeCss(layer.blendMode, SAFE_BLEND, 'normal'),
-    attachment: layer.attachment && SAFE_ATTACHMENT.has(layer.attachment) ? layer.attachment : 'fixed',
+    position: safeCss(layer.position, LAYER_POSITION_PATTERN, 'center'),
+    size: safeCss(layer.size, LAYER_SIZE_PATTERN, 'cover'),
+    repeat: safeCss(layer.repeat, LAYER_REPEAT_PATTERN, 'no-repeat'),
+    blendMode: safeCss(layer.blendMode, LAYER_BLEND_PATTERN, 'normal'),
+    attachment: layer.attachment && LAYER_ATTACHMENT_PATTERN.test(layer.attachment) ? layer.attachment : 'fixed',
     scale: Math.max(0.05, Math.min(8, typeof layer.scale === 'number' && Number.isFinite(layer.scale) ? layer.scale : 1)),
     rotation: typeof layer.rotation === 'number' && Number.isFinite(layer.rotation) ? ((layer.rotation % 360) + 360) % 360 : 0,
     enabled: true,

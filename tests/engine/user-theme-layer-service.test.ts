@@ -105,4 +105,17 @@ describe('UserThemeLayerService', () => {
     expect(getTargetLayers(next, target).map(item => item.id)).toEqual(['inherited-bottom', 'inherited-top']);
     expect(getTargetLayers(next, target)[0].value).toBe('#f00');
   });
+
+  test('首次预览补齐带入层的堆叠顺序，未编辑的层不会浮到被编辑层之上', () => {
+    const draft: UserThemeDraft = { version: 1 };
+    const target = { kind: 'global' as const };
+    const resolved = [layer('atmosphere', '#111'), layer('glow', '#222')];
+
+    const next = withPreviewLayer(draft, target, 'glow', layer('glow', '#f00'), resolved);
+
+    expect(getTargetLayerOrder(next, target)).toEqual(['system-color-background', 'atmosphere', 'glow']);
+    expect(getTargetLayers(next, target).map(item => item.id)).toEqual(['atmosphere', 'glow']);
+    expect(getTargetLayers(next, target)[1].value).toBe('#f00');
+    expect(getTargetLayerOrder(draft, target)).toEqual([]);
+  });
 });

@@ -4,6 +4,17 @@ import type { PicQueryPort } from '../arona-clicker/contracts/pic-query';
 import { isDirectUrl } from '../data-services/contracts/pic';
 import { backgroundInkService, themeVarLookup, type BackgroundInk } from './background-color';
 import type { VarLookup } from '../engine/core/color';
+import {
+  LAYER_BLEND_PATTERN,
+  LAYER_POSITION_PATTERN,
+  LAYER_REPEAT_PATTERN,
+  LAYER_SIZE_PATTERN,
+  LAYER_VALUE_PATTERN,
+  SYSTEM_COLOR_LAYER_ID,
+  safeCss,
+} from './layer-css-safety';
+
+export { SYSTEM_COLOR_LAYER_ID };
 
 export interface BackgroundViewLayer {
   id?: string;
@@ -47,23 +58,12 @@ export interface BackgroundView {
   readonly themeVars?: VarLookup;
 }
 
-const SAFE_VALUE = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla|linear-gradient|radial-gradient|repeating-linear-gradient|repeating-radial-gradient)\([^;<>]+\)|var\(--[a-z0-9-]+\))$/i;
-/** 引擎按主题色自动生成的全局底色层 id：渲染端与合成色服务都按它做过滤。 */
-export const SYSTEM_COLOR_LAYER_ID = 'system-color-background';
-const SAFE_POSITION = /^[a-z0-9% .-]+$/i;
-const SAFE_SIZE = /^[a-z0-9% .-]+$/i;
-const SAFE_REPEAT = /^(?:repeat|repeat-x|repeat-y|no-repeat|space|round)$/;
-const SAFE_BLEND = /^(?:normal|multiply|screen|overlay|soft-light|hard-light|color-dodge|color-burn|darken|lighten)$/;
 const SAFE_DECORATION_COLOR = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla)\([^;<>]+\)|var\(--[a-z0-9-]+\))$/i;
 
 function escapeHtmlAttribute(value: string): string {
   return value.replace(/[&<>\"]/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
   }[character] ?? character));
-}
-
-function safeCss(value: string | undefined, pattern: RegExp, fallback: string): string {
-  return value && pattern.test(value.trim()) ? value.trim() : fallback;
 }
 
 function resolveValue(layer: BackgroundLayerDef, pics: PicQueryPort): string | undefined {
@@ -74,7 +74,7 @@ function resolveValue(layer: BackgroundLayerDef, pics: PicQueryPort): string | u
     if (url) return 'url(\"' + url.replace(/\"/g, '%22') + '\")';
     return undefined;
   }
-  return SAFE_VALUE.test(layer.value.trim()) ? layer.value.trim() : undefined;
+  return LAYER_VALUE_PATTERN.test(layer.value.trim()) ? layer.value.trim() : undefined;
 }
 
 export function buildBackgroundView(
@@ -96,10 +96,10 @@ export function buildBackgroundView(
       kind: layer.kind,
       value,
       opacity: Math.max(0, Math.min(1, layer.opacity ?? 1)),
-      position: safeCss(layer.position, SAFE_POSITION, 'center'),
-      size: safeCss(layer.size, SAFE_SIZE, 'cover'),
-      repeat: safeCss(layer.repeat, SAFE_REPEAT, 'no-repeat'),
-      blendMode: safeCss(layer.blendMode, SAFE_BLEND, 'normal'),
+      position: safeCss(layer.position, LAYER_POSITION_PATTERN, 'center'),
+      size: safeCss(layer.size, LAYER_SIZE_PATTERN, 'cover'),
+      repeat: safeCss(layer.repeat, LAYER_REPEAT_PATTERN, 'no-repeat'),
+      blendMode: safeCss(layer.blendMode, LAYER_BLEND_PATTERN, 'normal'),
       attachment: layer.attachment ?? 'fixed',
       scale: Math.max(0.05, Math.min(8, typeof layer.scale === 'number' && Number.isFinite(layer.scale) ? layer.scale : 1)),
       rotation: typeof layer.rotation === 'number' && Number.isFinite(layer.rotation) ? ((layer.rotation % 360) + 360) % 360 : 0,

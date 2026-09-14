@@ -29,10 +29,30 @@ import {
   withPreviewLayer,
   type ThemeLayerTargetRef,
 } from '../arona-clicker/services/user-theme-layer-service';
-import { renderLayerEditorForm, renderLayerManagerList, themeLayerTargetLabel } from './components/user-theme-layer-manager';
+import { colorInputValue, renderLayerEditorForm, renderLayerManagerList, themeLayerTargetLabel } from './components/user-theme-layer-manager';
 import { cleanupUserThemeLayerOverlay, ensureUserThemeLayerOverlay } from './editor-overlay-host';
+import {
+  LAYER_ATTACHMENT_PATTERN,
+  LAYER_BLEND_PATTERN,
+  LAYER_POSITION_PATTERN,
+  LAYER_REPEAT_PATTERN,
+  LAYER_SIZE_PATTERN,
+  isRenderableLayerValue,
+  isUsableLayerId,
+} from './layer-css-safety';
 import { bindOverlayDrag } from './overlay-drag';
-import { parseGradient, updateGradient } from './theme-layer-value';
+import {
+  addGradientStop,
+  convertGradientType,
+  isGradientCenterToken,
+  isGradientColorToken,
+  isGradientDirection,
+  isGradientStopPosition,
+  parseGradient,
+  removeGradientStop,
+  updateGradient,
+  type GradientFunction,
+} from './theme-layer-value';
 
 /** 招募补给弹窗：卡池列表 + 抽取按钮（结果经 chat/toast 反馈）。 */
 export function openGachaModal(ctrl: UIController): void {
@@ -208,6 +228,34 @@ export function openUserThemeEditor(ctrl: UIController): void {
     if (!result.ok) { showUserThemeError(modal, result.issues?.join('；') ?? result.message); return; }
     ctrl.modal.close(); ctrl.render(); ctrl.toast.show('用户主题已保存并应用', 'success');
   });
+}
+
+/** 数值字段：空串或非数字返回 undefined，由调用方保留原值并提示，不静默改写。 */
+function readNumberField(raw: string): number | undefined {
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+/** 判断渐变参数字段当前是否写了会被解析器拒绝的内容；只用于标红提示，不写入 draft。 */
+function invalidGradientField(key: string | undefined, raw: string): boolean {
+  const trimmed = raw.trim();
+  switch (key) {
+    case 'gradientStart':
+    case 'gradientEnd':
+    case 'gradientStopColor':
+      return !isGradientColorToken(raw);
+    case 'gradientStopPosition':
+      return Boolean(trimmed) && !isGradientStopPosition(raw);
+    case 'gradientAngle':
+      return Boolean(trimmed) && !isGradientDirection(/^-?\d+(?:\.\d+)?$/.test(trimmed) ? `${trimmed}deg` : trimmed);
+    case 'gradientCenterX':
+    case 'gradientCenterY':
+      return Boolean(trimmed) && !isGradientCenterToken(raw);
+    default:
+      return false;
+  }
 }
 
 function reorderHostLayerOrder(host: import('../engine/types/theme').PresentationHostDef, id: string, direction: 'up' | 'down'): void {
@@ -567,6 +615,7 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     }
   };
   const refreshList = (): void => {
+    if (source && ui.target) source.textContent = hasLocalTarget(session.draft, ui.target) ? '当前目标的本地覆盖' : '当前有效回退；实际修改才建立本地覆盖';
     if (!list) return;
     reconcileList(renderLayerManagerList(createUIContext(ctrl.game), session.draft, ui.target, active, ui.target ? baselineFor(ui.target) : []));
   };
@@ -591,14 +640,22 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     preview();
     shell.querySelector<HTMLButtonElement>('[data-theme-layer-manager-close]')?.focus();
   };
-  const openDialog = (target: ThemeLayerTargetRef, layerId: string | null, mode: 'create' | 'edit'): void => {
+  const defaultLayer = (): BackgroundLayerDef => ({ kind: 'solid', value: '#6b8cff', opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' });
+  /** 写入图层草稿：目标还没有本地覆盖时先固化继承层，避免本地覆盖只剩新层。 */
+  const commitLayer = (layer: BackgroundLayerDef, layerId: string | null): void => {
+    const target = ui.target;
+    if (!target) return;
+    if (!hasLocalTarget(session.draft, target)) materializeTargetLayers(session.draft, target, baselineFor(target));
+    if (layerId) updateTargetLayer(session.draft, target, layerId, layer);
+    else addTargetLayer(session.draft, target, layer);
+  };
+  const openDialog = (target: ThemeLayerTargetRef, layerId: string): void => {
     const sourceLayers = hasLocalTarget(session.draft, target) ? getTargetLayers(session.draft, target) : baselineFor(target);
-    const existing = layerId ? sourceLayers.find(layer => layer.id === layerId) : undefined;
-    const draft = existing ? structuredClone(existing) : { kind: 'solid' as const, value: '#6b8cff', opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' as const };
-    ui.dialogTarget = target; ui.dialogLayerId = layerId; ui.dialogDraft = draft; ui.dirty = false;
+    const existing = sourceLayers.find(layer => layer.id === layerId);
+    if (!existing) return;
+    ui.dialogTarget = target; ui.dialogLayerId = layerId; ui.dialogDraft = structuredClone(existing); ui.dirty = false;
     if (dialog) dialog.hidden = false;
-    dialog?.querySelector<HTMLElement>('[data-theme-layer-dialog-title]')?.replaceChildren(document.createTextNode(mode === 'create' ? '新增图层' : '编辑图层'));
-    if (form) form.innerHTML = renderLayerEditorForm(createUIContext(ctrl.game), draft, active);
+    if (form) form.innerHTML = renderLayerEditorForm(createUIContext(ctrl.game), ui.dialogDraft, active);
     form?.querySelector<HTMLElement>('[data-theme-layer-dialog-field="id"]')?.focus();
   };
   const preview = (): void => { ctrl.game.colorSystem.setUserThemePreview(session.draft); ctrl.refreshTheme(); if (ui.target?.kind === 'host' && ui.target.hostId) refreshPresentationHostElements(ctrl, [ui.target.hostId]); else refreshPresentationHostElements(ctrl); };
@@ -644,7 +701,7 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     if (!id) return;
     if (ui.dialogDraft && ui.dirty) return;
     const layers = hasLocalTarget(session.draft, ui.target) ? getTargetLayers(session.draft, ui.target) : baselineFor(ui.target);
-    if (button.dataset.themeLayerEdit) { openDialog(ui.target, id, 'edit'); return; }
+    if (button.dataset.themeLayerEdit) { openDialog(ui.target, id); return; }
     if (!hasLocalTarget(session.draft, ui.target)) materializeTargetLayers(session.draft, ui.target, layers);
     if (button.dataset.themeLayerToggle) setTargetLayerEnabled(session.draft, ui.target, id, button.dataset.themeLayerNextEnabled === '1');
     else if (button.dataset.themeLayerMove) moveTargetLayer(session.draft, ui.target, id, button.dataset.direction === 'up' ? 'up' : 'down');
@@ -655,7 +712,12 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     }
     preview(); refreshList();
   });
-  shell.querySelector<HTMLButtonElement>('[data-theme-layer-add]')?.addEventListener('click', () => { if (ui.target && active && !ui.dialogDraft) openDialog(ui.target, null, 'create'); });
+  shell.querySelector<HTMLButtonElement>('[data-theme-layer-add]')?.addEventListener('click', () => {
+    if (!ui.target || !active || ui.dialogDraft) return;
+    commitLayer(defaultLayer(), null);
+    preview();
+    refreshList();
+  });
   shell.querySelector<HTMLButtonElement>('[data-theme-layer-revert]')?.addEventListener('click', () => {
     if (!ui.target || !active || !hasLocalTarget(session.draft, ui.target) || !window.confirm('清除当前目标的本地覆盖并回退吗？')) return;
     clearTargetOverride(session.draft, ui.target);
@@ -663,52 +725,153 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
   });
   dialog?.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-close]')?.addEventListener('click', () => closeDialog());
   dialog?.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-cancel]')?.addEventListener('click', () => closeDialog());
+  const rerenderForm = (): void => {
+    if (form && ui.dialogDraft) form.innerHTML = renderLayerEditorForm(createUIContext(ctrl.game), ui.dialogDraft, active);
+  };
+  const syncValueField = (): void => {
+    const input = form?.querySelector<HTMLInputElement>('[data-theme-layer-dialog-field="value"]');
+    if (input && ui.dialogDraft) input.value = ui.dialogDraft.value;
+  };
+  const syncGradientStopRow = (field: HTMLElement): void => {
+    const row = field.closest<HTMLElement>('[data-theme-layer-gradient-stop]');
+    const index = Number(field.dataset.themeLayerGradientIndex);
+    const stop = ui.dialogDraft && Number.isInteger(index) ? parseGradient(ui.dialogDraft.value)?.stops[index] : undefined;
+    if (!row || !stop) return;
+    const colorText = row.querySelector<HTMLInputElement>('[data-theme-layer-stop-color]');
+    const picker = row.querySelector<HTMLInputElement>('[data-theme-layer-stop-pick]');
+    const positionText = row.querySelector<HTMLInputElement>('[data-theme-layer-dialog-field="gradientStopPosition"]');
+    if (colorText) colorText.value = stop.color;
+    if (picker) picker.value = colorInputValue(stop.color, '#6b8cff');
+    if (positionText) positionText.value = stop.position ?? '';
+  };
+  /** 当前目标里除被编辑层之外的图层 ID，用于重名判定。 */
+  const siblingLayerIds = (): string[] => {
+    if (!ui.dialogTarget) return [];
+    const layers = hasLocalTarget(session.draft, ui.dialogTarget)
+      ? getTargetLayers(session.draft, ui.dialogTarget)
+      : baselineFor(ui.dialogTarget);
+    return layers.map(layer => layer.id).filter((id): id is string => Boolean(id) && id !== ui.dialogLayerId);
+  };
   const handleLayerField = (event: Event): void => {
     const field = (event.target as HTMLElement).closest<HTMLInputElement | HTMLSelectElement>('[data-theme-layer-dialog-field]');
     if (!field || !ui.dialogDraft) return;
     ui.dirty = true;
     const key = field.dataset.themeLayerDialogField;
-    if (key === 'id') ui.dialogDraft.id = field.value || undefined;
+    let rerender = false;
+    let invalid = false;
+    if (key === 'id') {
+      const nextId = field.value.trim();
+      if (!nextId) ui.dialogDraft.id = undefined;
+      else if (isUsableLayerId(nextId, siblingLayerIds())) ui.dialogDraft.id = nextId;
+      else invalid = true;
+    }
     else if (key === 'kind') {
-      const kind = field.value as BackgroundLayerDef['kind']; ui.dialogDraft.kind = kind;
-      if (kind === 'empty') ui.dialogDraft.value = '';
-      else if (!ui.dialogDraft.value) ui.dialogDraft.value = kind === 'solid' ? '#6b8cff' : kind === 'gradient' ? 'linear-gradient(135deg, #6b8cff, #dbeafe)' : (ctrl.game.pics.list?.()[0]?.id ?? '');
-      if (form) form.innerHTML = renderLayerEditorForm(createUIContext(ctrl.game), ui.dialogDraft, active);
+      const kind = field.value as BackgroundLayerDef['kind'];
+      ui.dialogDraft.kind = kind;
+      ui.dialogDraft.value = kind === 'empty' ? '' : kind === 'solid' ? '#6b8cff' : kind === 'gradient' ? 'linear-gradient(135deg, #6b8cff, #dbeafe)' : (ctrl.game.pics.list?.()[0]?.id ?? '');
+      rerender = true;
     } else if (key === 'enabled') ui.dialogDraft.enabled = (field as HTMLInputElement).checked ? undefined : false;
-    else if (key === 'opacity') ui.dialogDraft.opacity = Math.max(0, Math.min(1, Number(field.value) || 0));
-    else if (key === 'scale') ui.dialogDraft.scale = Math.max(0.05, Math.min(8, Number(field.value) || 1));
-    else if (key === 'rotation') ui.dialogDraft.rotation = Number.isFinite(Number(field.value)) ? Number(field.value) : 0;
+    else if (key === 'opacity' || key === 'scale' || key === 'rotation') {
+      const numeric = readNumberField(field.value);
+      if (numeric === undefined) invalid = true;
+      else {
+        const stored = key === 'opacity' ? Math.max(0, Math.min(1, numeric))
+          : key === 'scale' ? Math.max(0.05, Math.min(8, numeric))
+            : Math.max(-360, Math.min(360, numeric));
+        if (key === 'opacity') ui.dialogDraft.opacity = stored;
+        else if (key === 'scale') ui.dialogDraft.scale = stored;
+        else ui.dialogDraft.rotation = stored;
+        // 提交（change/blur）时把夹紧后的值写回输入框：面板显示的必须是真正保存的值。
+        if (event.type === 'change' && field.value.trim() !== String(stored)) field.value = String(stored);
+      }
+    }
     else if (key === 'color') ui.dialogDraft.value = field.value;
-    else if (key === 'value') ui.dialogDraft.value = field.value;
-    else if (key === 'gradientStart' || key === 'gradientEnd' || key === 'gradientAngle' || key === 'gradientShape' || key === 'gradientCenterX' || key === 'gradientCenterY' || key === 'gradientStopColor' || key === 'gradientStopPosition') {
+    else if (key === 'value') {
+      // 原始 CSS 入口只接受渲染端真正认得的写法：空值或会被整层丢弃的值一律不写入，
+      // 要清空请显式切到空层；图片走 Pic 选择，要求是带命名空间的资源引用。
+      const kind = ui.dialogDraft.kind;
+      const raw = field.value.trim();
+      if (!raw || raw.length > 256) invalid = true;
+      else if (kind === 'image') {
+        if (raw.includes(':')) ui.dialogDraft.value = raw;
+        else invalid = true;
+      } else if (isRenderableLayerValue({ kind, value: raw })) ui.dialogDraft.value = raw;
+      else invalid = true;
+    }
+    else if (key === 'gradientType') {
+      ui.dialogDraft.value = convertGradientType(ui.dialogDraft.value, field.value as GradientFunction);
+      rerender = true;
+    }
+    else if (key === 'gradientStart' || key === 'gradientEnd' || key === 'gradientStopColor' || key === 'gradientStopPick' || key === 'gradientStopPosition' || key === 'gradientAngle' || key === 'gradientShape' || key === 'gradientSize' || key === 'gradientCenterX' || key === 'gradientCenterY') {
       const parsed = parseGradient(ui.dialogDraft.value);
       if (parsed) {
         const stopIndex = Number(field.dataset.themeLayerGradientIndex);
         const indexed = Number.isInteger(stopIndex) ? { stopIndex } : {};
+        const rawDirection = field.value.trim();
+        const direction = rawDirection && /^-?\d+(?:\.\d+)?$/.test(rawDirection) ? `${rawDirection}deg` : rawDirection;
         const next = key === 'gradientStart' ? updateGradient(ui.dialogDraft.value, { startColor: field.value })
           : key === 'gradientEnd' ? updateGradient(ui.dialogDraft.value, { endColor: field.value })
-            : key === 'gradientStopColor' ? updateGradient(ui.dialogDraft.value, { ...indexed, stopColor: field.value })
+            : key === 'gradientStopColor' || key === 'gradientStopPick' ? updateGradient(ui.dialogDraft.value, { ...indexed, stopColor: field.value })
               : key === 'gradientStopPosition' ? updateGradient(ui.dialogDraft.value, { ...indexed, stopPosition: field.value })
-                : key === 'gradientAngle' ? updateGradient(ui.dialogDraft.value, { direction: /deg$/i.test(field.value.trim()) ? field.value.trim() : `${field.value}deg` })
-              : key === 'gradientShape' ? updateGradient(ui.dialogDraft.value, { shape: field.value })
-                : key === 'gradientCenterX' ? updateGradient(ui.dialogDraft.value, { centerX: field.value })
-                  : updateGradient(ui.dialogDraft.value, { centerY: field.value });
-        ui.dialogDraft.value = next;
+                : key === 'gradientAngle' ? updateGradient(ui.dialogDraft.value, { direction: direction || undefined })
+                  : key === 'gradientShape' ? updateGradient(ui.dialogDraft.value, { shape: field.value })
+                    : key === 'gradientSize' ? updateGradient(ui.dialogDraft.value, { size: field.value || undefined })
+                      : key === 'gradientCenterX' ? updateGradient(ui.dialogDraft.value, { centerX: field.value })
+                        : updateGradient(ui.dialogDraft.value, { centerY: field.value });
+        invalid = invalidGradientField(key, field.value);
+        if (next !== ui.dialogDraft.value) {
+          ui.dialogDraft.value = next;
+          if (!invalid && key !== 'gradientAngle' && key !== 'gradientShape' && key !== 'gradientSize' && key !== 'gradientCenterX' && key !== 'gradientCenterY') syncGradientStopRow(field);
+        }
       }
-    } else if (key === 'position' || key === 'size' || key === 'repeat' || key === 'blendMode' || key === 'attachment') ui.dialogDraft[key] = field.value as never;
+    } else if (key === 'position' || key === 'size') {
+      // 定位 / 尺寸是自由文本：与渲染端同规则校验，避免「面板显示错值、实际渲染回落到默认」。
+      const pattern = key === 'position' ? LAYER_POSITION_PATTERN : LAYER_SIZE_PATTERN;
+      const trimmed = field.value.trim();
+      if (!trimmed || !pattern.test(trimmed)) invalid = true;
+      else ui.dialogDraft[key] = trimmed;
+    } else if (key === 'repeat' || key === 'blendMode' || key === 'attachment') {
+      // 枚举字段同样只接受渲染端白名单里的值，非白名单（历史数据或人工注入）不写入。
+      const pattern = key === 'repeat' ? LAYER_REPEAT_PATTERN : key === 'blendMode' ? LAYER_BLEND_PATTERN : LAYER_ATTACHMENT_PATTERN;
+      if (pattern.test(field.value)) ui.dialogDraft[key] = field.value as never;
+      else invalid = true;
+    }
+    if (invalid) {
+      field.setAttribute('data-theme-layer-field-invalid', '1');
+      field.setAttribute('aria-invalid', 'true');
+    } else {
+      field.removeAttribute('data-theme-layer-field-invalid');
+      field.removeAttribute('aria-invalid');
+    }
+    if (rerender) rerenderForm();
+    syncValueField();
     scheduleDialogPreview();
   };
   form?.addEventListener('input', handleLayerField);
   form?.addEventListener('change', handleLayerField);
+  form?.addEventListener('click', event => {
+    const target = event.target as HTMLElement;
+    if (!ui.dialogDraft || !active) return;
+    if (target.closest('[data-theme-layer-stop-add]')) {
+      ui.dirty = true;
+      ui.dialogDraft.value = addGradientStop(ui.dialogDraft.value);
+      rerenderForm();
+      syncValueField();
+      scheduleDialogPreview();
+      return;
+    }
+    const remove = target.closest<HTMLElement>('[data-theme-layer-stop-remove]');
+    const index = Number(remove?.dataset.themeLayerStopRemove);
+    if (!remove || !Number.isInteger(index)) return;
+    ui.dirty = true;
+    ui.dialogDraft.value = removeGradientStop(ui.dialogDraft.value, index);
+    rerenderForm();
+    syncValueField();
+    scheduleDialogPreview();
+  });
   dialog?.querySelector<HTMLButtonElement>('[data-theme-layer-dialog-save]')?.addEventListener('click', () => {
     if (!ui.dialogTarget || !ui.dialogDraft || !active) return;
-    if (ui.dialogLayerId) {
-      if (!hasLocalTarget(session.draft, ui.dialogTarget)) materializeTargetLayers(session.draft, ui.dialogTarget, baselineFor(ui.dialogTarget));
-      updateTargetLayer(session.draft, ui.dialogTarget, ui.dialogLayerId, ui.dialogDraft);
-    } else {
-      if (!hasLocalTarget(session.draft, ui.dialogTarget)) materializeTargetLayers(session.draft, ui.dialogTarget, baselineFor(ui.dialogTarget));
-      addTargetLayer(session.draft, ui.dialogTarget, ui.dialogDraft);
-    }
+    commitLayer(ui.dialogDraft, ui.dialogLayerId);
     preview(); closeDialog(true); refreshList();
   });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && ui.dialogDraft && overlay.isConnected) { event.stopPropagation(); closeDialog(); } }, true);

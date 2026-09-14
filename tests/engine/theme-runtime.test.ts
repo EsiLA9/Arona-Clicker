@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { RuntimeThemeManager, type ThemeOrderScope } from '../../src/engine/core/theme-runtime';
 import { ColorSystem } from '../../src/arona-clicker/services/color-system';
+import { withPreviewLayer } from '../../src/arona-clicker/services/user-theme-layer-service';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 
@@ -437,6 +438,26 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     });
 
     expect(game.colorSystem.runtimeTheme().background.map(layer => layer.id)).toEqual(['system-color-background', 'user-layer']);
+  });
+
+  test('首次编辑回退图层：其余回退层不会浮到被编辑层之上', () => {
+    game = freshGame();
+    const resolved = [
+      { id: 'atmosphere', kind: 'gradient' as const, value: 'linear-gradient(#111111, #222222)' },
+      { id: 'glow', kind: 'gradient' as const, value: 'radial-gradient(circle at 78% 18%, #ffffff 0%, transparent 46%)' },
+    ];
+
+    game.colorSystem.setUserThemePreview(withPreviewLayer(
+      { version: 1 },
+      { kind: 'global' },
+      'glow',
+      { id: 'glow', kind: 'gradient', value: 'radial-gradient(circle at 30% 30%, #ffffff 0%, transparent 46%)' },
+      resolved,
+    ));
+
+    const ids = game.colorSystem.runtimeTheme().background.map(layer => layer.id);
+    expect(ids).toContain('glow');
+    expect(ids.indexOf('glow')).toBeGreaterThan(ids.indexOf('atmosphere'));
   });
 
   test('多色彩组叠加：场景覆盖玩家、临时覆盖一切', () => {

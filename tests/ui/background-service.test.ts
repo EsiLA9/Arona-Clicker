@@ -74,6 +74,16 @@ describe('BackgroundService', () => {
     expect(renderBackground(view)).toContain('transform:scale(8) rotate(330deg)');
   });
 
+  test('定位/尺寸/混合模式与区域图层共用同一套安全规则', () => {
+    const view = buildBackgroundView([
+      { kind: 'solid', value: '#fff', position: 'center; color:red', size: 'auto ()', blendMode: 'color-dodge' },
+    ], pics);
+
+    expect(view.layers[0].position).toBe('center');
+    expect(view.layers[0].size).toBe('cover');
+    expect(view.layers[0].blendMode).toBe('color-dodge');
+  });
+
   test('忽略系统颜色层时只过滤该层，保留其他背景层与顺序', () => {
     const view = buildBackgroundView([
       { id: 'system-color-background', kind: 'gradient', value: 'linear-gradient(#111,#222)' },
