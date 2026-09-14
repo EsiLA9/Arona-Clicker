@@ -28,6 +28,27 @@ export class ToastService {
     setTimeout(() => this.dismiss(toast.id), DISMISS_MS);
   }
 
+  showAction(key: string, text: string, label: string, action: () => void): void {
+    this.ensureContainer();
+    const selector = `[data-toast-action-key="${CSS.escape(key)}"]`;
+    let el = this.container!.querySelector<HTMLElement>(selector);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'toast-message toast-info toast-action';
+      el.dataset.toastActionKey = key;
+      this.container!.appendChild(el);
+    }
+    el.innerHTML = `<span>${text}</span><button type="button" class="toolbar-button">${label}</button>`;
+    el.querySelector('button')?.addEventListener('click', () => {
+      this.removeAction(key);
+      action();
+    }, { once: true });
+  }
+
+  removeAction(key: string): void {
+    this.container?.querySelector<HTMLElement>(`[data-toast-action-key="${CSS.escape(key)}"]`)?.remove();
+  }
+
   private ensureContainer(): void {
     if (this.container) return;
     this.container = document.createElement('div');

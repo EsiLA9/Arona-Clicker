@@ -35,7 +35,7 @@ function renderSettingsNavigation(): string {
     </section>`;
 }
 
-function renderSettingsMain(ctx: UIContext): string {
+function renderSettingsMain(ctx: UIContext, state: PanelState): string {
   return `
     <div class="service-heading"><div><span class="eyebrow">SETTINGS WORKSPACE</span><h2>设置</h2><p>选择一个服务工作区继续管理本地游戏内容。</p></div></div>
     <div class="settings-service-list">${SERVICE_ENTRIES.map(entry => renderServiceEntry(ctx, entry)).join('')}</div>`;
@@ -78,7 +78,7 @@ export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): stri
       themeScope: 'center.settings.main',
       surface: 'panel',
       className: 'service-column service-main settings-main',
-      content: renderSettingsMain(ctx),
+      content: renderSettingsMain(ctx, state),
       scroll: 'content',
     },
     right: {

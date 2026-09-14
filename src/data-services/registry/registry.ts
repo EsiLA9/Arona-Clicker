@@ -720,7 +720,7 @@ export class Registry {
 
   /** 加载并验证数据包 */
   load(datapack: Datapack): void {
-    validateDatapack(datapack);
+    validateDatapack(datapack, { initIds: new Set(this._inits.keys()), areaIds: new Set(this._areas.keys()) });
     this.currentPackModName = datapack.modName ?? 'base';
     const incomingTagKeys = new Set<string>();
     for (const tag of datapack.tags ?? []) {
@@ -733,6 +733,11 @@ export class Registry {
     this._loadedModNames.add(this.currentPackModName);
     this.merge(datapack);
     for (const tag of datapack.tags ?? []) this._tagDefSources.set(tagKey([tag.id], this.currentPackModName), this.currentPackModName);
+  }
+
+  /** 使用当前注册表的已知 Init / Area 校验一个待合并数据包，不改变注册表。 */
+  validate(datapack: Datapack): void {
+    validateDatapack(datapack, { initIds: new Set(this._inits.keys()), areaIds: new Set(this._areas.keys()) });
   }
 
   get loadedModNames(): ReadonlySet<string> { return this._loadedModNames; }

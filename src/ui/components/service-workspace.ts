@@ -2,6 +2,7 @@ import type { UIContext } from '../context';
 import type { PackCatalogReadModel, PackCatalogEntry } from '../../arona-clicker/contracts';
 import type { PanelState, DatapackWorkspaceSection } from './app-shell';
 import { renderWorkspaceFrame } from './workspace-frame';
+import { renderRuntimeEditorToggle } from './runtime-datapack-editor';
 
 export type ServiceWorkspaceId = 'datapack' | 'saves' | 'records';
 
@@ -256,7 +257,7 @@ function renderDatapackMain(ctx: UIContext, state: PanelState): string {
   return `
     <div class="service-heading"><h2>${sectionTitle(section)}</h2><span class="service-status">${enabledIds.size} 启用 · ${entries.length} 已导入</span></div>
     <div class="service-actions"><button class="primary-button" id="import-datapack">导入数据包</button>${changed ? '<span class="service-draft-status">有未应用变更</span>' : '<span class="service-draft-status">当前配置已应用</span>'}${reorderHint}</div>
-    ${result}<section class="service-card service-pack-list"><div class="panel-heading"><h3>${section === 'all' ? '全部数据包' : sectionTitle(section)}</h3><span class="index">${filtered.length} 个</span></div>${body}</section>
+    ${result}<section class="service-card service-pack-list"><div class="panel-heading"><h3>${section === 'all' ? '全部数据包' : sectionTitle(section)}</h3><span class="index">${filtered.length} 个</span></div>${body}</section>${section === 'all' ? renderRuntimeEditorToggle(ctx, state) : ''}
     <section class="service-card pack-draft-actions"><div class="panel-heading"><h3>启用集草案</h3><span class="index">${changed ? '待校验' : '已应用'}</span></div>${validation}<div class="service-actions"><button class="toolbar-button" data-pack-discard ${changed ? '' : 'disabled'}>放弃</button><button class="toolbar-button" data-pack-validate ${changed ? '' : 'disabled'}>校验</button><button class="primary-button" data-pack-apply ${changed ? '' : 'disabled'}>保存并应用</button></div></section>`;
 }
 

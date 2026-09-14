@@ -44,6 +44,7 @@
 | [[docs/plan-work/active/task-0052-user-theme-layer-overlay-presentation]] | 图层浮层尺寸收紧、标题栏拖拽、行内常显信息与样式类名对齐 | 🟡 代码与测试已完成；Edge 验收待补 |
 | [[docs/plan-work/active/task-0053-user-theme-layer-interaction-fixes]] | 修复保存误弹确认、系统层顺序、新建丢失继承层、删除回退、行级状态同步、预览顺序与实时预览、层级优先级按钮入口 | 🟡 代码与测试已完成；Edge 验收待补 |
 | [[docs/plan-work/active/task-0054-user-theme-layer-type-aware-value-editor]] | 按图层类型提供差异化参数面板、CSS 解析/序列化与预览保存一致性，重点覆盖径向渐变 | 🔵 待评审，尚未施工 |
+| [[docs/plan-work/active/task-0055-runtime-datapack-editor-mvp]] | 设置页数据包管理中的单 Mod 运行时编辑态、元信息、空 Spot 草稿与临时 Overlay 载入 | 🟢 MVP 已实施，正式持久化待后续 |
 | [[docs/plan-work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
 
 机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。

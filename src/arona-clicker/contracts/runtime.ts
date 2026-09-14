@@ -54,6 +54,7 @@ export interface PackCatalogDependencyHint {
 export interface PackCatalogReadModel {
   getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[] };
   getPackConfiguration?(): PackConfigurationDraft;
+  getRuntimeMod?(): RuntimeModDraft | null;
 }
 
 export interface PackValidationReport {
@@ -68,6 +69,30 @@ export interface PackApplyResult {
   readonly validation: PackValidationReport;
 }
 
+export interface RuntimeModDraft {
+  readonly modName: string;
+  readonly displayName: string;
+  readonly version: string;
+  readonly author: string;
+  readonly description: string;
+  readonly spot: {
+    readonly idName: string;
+    readonly areaId: string;
+    readonly name: string;
+    readonly description: string;
+    readonly baseCost: number;
+    readonly baseCostResource: string;
+    readonly baseYield: number;
+    readonly baseYieldResource: string;
+    readonly baseCapacity: number;
+  };
+}
+
+export interface RuntimeModApplyResult {
+  readonly ok: boolean;
+  readonly message: string;
+}
+
 export interface PackCatalogCommands {
   setPackEnabled(id: string, enabled: boolean): void;
   reorderPacks(ids: readonly string[]): void;
@@ -76,6 +101,8 @@ export interface PackCatalogCommands {
   removePack?(id: string): void;
   validatePackConfiguration?(draft: PackConfigurationDraft): PackValidationReport;
   applyPackConfiguration?(draft: PackConfigurationDraft): PackApplyResult;
+  applyRuntimeMod?(draft: RuntimeModDraft): RuntimeModApplyResult;
+  removeRuntimeMod?(preservePlayerData?: boolean): RuntimeModApplyResult;
 }
 
 /** UI 可读取的 AronaClicker 运行时快照与查询能力。 */

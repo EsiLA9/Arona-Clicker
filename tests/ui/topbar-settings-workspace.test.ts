@@ -111,7 +111,7 @@ describe('顶栏与设置工作区', () => {
 
     expect(controller.panelState.service).toBe('settings');
     expect(root.querySelector('[data-workspace-frame="settings"]')).not.toBeNull();
-    expect(document.querySelector('.app-modal')).toBeNull();
+    expect(document.querySelector('.app-modal.is-open')).toBeNull();
     expect(controller.panelState.datapackWorkspace).toBe(draft);
     expect(draft.draftEnabledIds).toEqual([]);
 
@@ -120,6 +120,70 @@ describe('顶栏与设置工作区', () => {
     expect(document.querySelector('.app-modal')).not.toBeNull();
 
     controller.modal.close();
+    controller.destroy();
+    game.stop();
+  });
+
+  it('数据包管理内开启编辑态并直接载入 Spot，且可从游戏侧编辑与删除', () => {
+    const game = new AronaClickerRuntime();
+    game.init([baseDatapack]);
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const controller = new UIController(game, root);
+    controller.started = true;
+    controller.render();
+
+    root.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-runtime-editor-toggle]')!.click();
+    expect(root.querySelector('.runtime-editor-form')).toBeNull();
+    expect(document.querySelector('.app-modal .runtime-editor-form')).not.toBeNull();
+    expect(root.querySelector('.pack-draft-actions')).not.toBeNull();
+
+    const set = (key: string, value: string) => {
+      const element = document.querySelector<HTMLInputElement>(`.app-modal [data-runtime-editor-field="${key}"]`)!;
+      element.value = value;
+    };
+    set('modName', 'draft-mod');
+    set('displayName', 'Draft Mod');
+    document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-create]')!.click();
+    expect(controller.panelState.runtimeDatapackEditor?.error).toBeNull();
+
+    expect(document.querySelector('[data-runtime-editor-create-spot]')).toBeNull();
+    expect(document.querySelector('#toast-layer .toast-action')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>('#toast-layer .toast-action button')!.click();
+    expect(document.querySelector('.runtime-datapack-modal .modal-head .eyebrow')?.textContent).toContain('创建 Spot');
+    set('spotIdName', 'empty-spot');
+    set('spotName', '空 Spot');
+    document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-create-spot]')!.click();
+
+    expect(controller.panelState.runtimeDatapackEditor?.spot).toMatchObject({ idName: 'empty-spot', name: '空 Spot' });
+    expect(game.registry.spots.has('draft-mod:spot:empty-spot')).toBe(true);
+    const areaId = controller.panelState.runtimeDatapackEditor!.selectedAreaId!;
+    expect(controller.panelState.runtimeDatapackEditor?.error).toBeNull();
+    expect(game.world.spotsOfArea(areaId)).toContain('draft-mod:spot:empty-spot');
+    expect(game.state.activeInit).toBe('base:init:schale_office');
+    expect(game.state.currentAreaId).toBe(areaId);
+    expect(document.querySelector('.app-modal.is-open')).toBeNull();
+    expect(controller.panelState.service).toBe('game');
+    expect(root.querySelector('[data-runtime-spot-edit="draft-mod:spot:empty-spot"]')).not.toBeNull();
+    expect(root.querySelector('[data-runtime-spot-delete="draft-mod:spot:empty-spot"]')).not.toBeNull();
+
+    root.querySelector<HTMLButtonElement>('[data-runtime-spot-edit="draft-mod:spot:empty-spot"]')!.click();
+    expect(document.querySelector('.app-modal [data-runtime-editor-create-spot]')?.textContent).toContain('保存 Spot 修改');
+    set('spotName', '修改后的 Spot');
+    document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-create-spot]')!.click();
+    expect(game.registry.spots.get('draft-mod:spot:empty-spot')?.name).toBe('修改后的 Spot');
+    expect(controller.panelState.service).toBe('game');
+
+    game.state.spotLevels['draft-mod:spot:empty-spot'] = 2;
+    root.querySelector<HTMLButtonElement>('[data-runtime-spot-delete="draft-mod:spot:empty-spot"]')!.click();
+    expect(document.querySelector('[data-runtime-delete-preserve]')).not.toBeNull();
+    expect(document.querySelector('[data-runtime-delete-clean]')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>('[data-runtime-delete-clean]')!.click();
+    expect(game.registry.spots.has('draft-mod:spot:empty-spot')).toBe(false);
+    expect(game.state.spotLevels['draft-mod:spot:empty-spot']).toBeUndefined();
+
     controller.destroy();
     game.stop();
   });

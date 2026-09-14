@@ -26,6 +26,28 @@ export interface DatapackWorkspaceState {
   lastResult: { ok: boolean; message: string } | null;
 }
 
+export interface RuntimeDatapackEditorState {
+  enabled: boolean;
+  modName: string;
+  displayName: string;
+  version: string;
+  author: string;
+  description: string;
+  selectedAreaId: string | null;
+  spot: {
+    idName: string;
+    name: string;
+    description: string;
+    baseCost: number;
+    baseCostResource: string;
+    baseYield: number;
+    baseYieldResource: string;
+    baseCapacity: number;
+  } | null;
+  applied?: boolean;
+  error: string | null;
+}
+
 /** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 按钮"想回复"中。 */
 export type SendGatePhase = 'typing' | 'pause' | 'thinking';
 
@@ -62,6 +84,7 @@ export interface PanelState {
   /** 当前顶层服务工作区；game = 正常游玩三栏。 */
   service?: 'game' | 'settings' | 'inventory' | 'datapack' | 'saves' | 'records';
   datapackWorkspace?: DatapackWorkspaceState;
+  runtimeDatapackEditor?: RuntimeDatapackEditorState;
   inventoryWorkspace?: InventoryWorkspaceState;
   leftTab: string;
   centerTab: string;

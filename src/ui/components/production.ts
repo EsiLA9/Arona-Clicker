@@ -5,6 +5,7 @@ import { themeTreeFromThemeDef, themeTreeFromGroup, themeTreeToInlineStyle } fro
 import { TagPath } from '../../engine/core/tag';
 import { renderPresentationHostBackground } from '../presentation-service';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
+import type { RuntimeModDraft } from '../../arona-clicker/contracts';
 
 /**
  * 设施标签 → 语义颜色角色（硬编码映射，不读数据包 extra）。
@@ -35,6 +36,7 @@ export function renderProductionNodes(ctx: UIContext): string {
   const world = game.world;
   // 只展示当前 Area 下的 Spot；移动 Area 后设施列表随之切换。
   const currentAreaId = view.currentAreaId;
+  const runtimeMod = (game as typeof game & { getRuntimeMod?: () => RuntimeModDraft | null }).getRuntimeMod?.();
   const areaSpotIds = currentAreaId ? new Set(world.spotsOfArea(currentAreaId)) : new Set<string>();
   const spotCards = [...world.spots.values()]
     .filter(spot => areaSpotIds.has(spot.id))
@@ -72,6 +74,9 @@ export function renderProductionNodes(ctx: UIContext): string {
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'gacha');
       const shop = reveal.utilityKnown
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'shop');
+      const isRuntimeSpot = runtimeMod != null
+        && runtimeMod.spot.idName === spot.id.split(':').pop()
+        && runtimeMod.spot.areaId === spot.areaId;
       const action = owned
         ? '升级'
         : purchaseable
@@ -119,6 +124,9 @@ export function renderProductionNodes(ctx: UIContext): string {
                 : ''}
               ${shop
                 ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-open-spot-shop="${spot.id}" title="打开商店">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">商店</span></button>`
+                : ''}
+              ${isRuntimeSpot
+                ? `<button class="mini-action" data-runtime-spot-edit="${spot.id}">编辑</button><button class="mini-action" data-runtime-spot-delete="${spot.id}">删除</button>`
                 : ''}
             </div>
           </div>

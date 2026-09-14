@@ -45,7 +45,12 @@ const checkEntityIds = (
 };
 
 /** 校验数据包；非法即抛 RegistryError。 */
-export function validateDatapack(dp: Datapack): void {
+export interface DatapackValidationContext {
+  readonly initIds?: ReadonlySet<string>;
+  readonly areaIds?: ReadonlySet<string>;
+}
+
+export function validateDatapack(dp: Datapack, context: DatapackValidationContext = {}): void {
   if (dp.modName !== undefined && !/^[a-z0-9-]+$/.test(dp.modName)) {
     throw new RegistryError(`Datapack modName "${dp.modName}" 格式无效`);
   }
@@ -191,8 +196,8 @@ export function validateDatapack(dp: Datapack): void {
   checkEntityIds(dp.passiveStories, 'passivestory', 'Passive story entry');
 
   // 检查引用完整性
-  const initIds = new Set(dp.inits.map(i => i.id));
-  const areaIds = new Set(dp.areas.map(a => a.id));
+  const initIds = new Set([...context.initIds ?? [], ...dp.inits.map(i => i.id)]);
+  const areaIds = new Set([...context.areaIds ?? [], ...dp.areas.map(a => a.id)]);
 
   for (const area of dp.areas) {
     if (!initIds.has(area.initId)) {

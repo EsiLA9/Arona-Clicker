@@ -1,4 +1,4 @@
-export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogDependencyHint } from './runtime';
+export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult } from './runtime';
 export type { EffectMutationPort } from './effect-mutation';
 export type { RosterQueryPort, RosterContactGroup, RosterContactEntry } from './roster-query';
 export type { ColorQueryPort, ColorEntityThemeOption, ColorGroupDescription } from './color-query';

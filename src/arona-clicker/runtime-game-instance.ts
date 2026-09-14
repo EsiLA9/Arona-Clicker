@@ -270,6 +270,13 @@ export class GameInstance {
     }, datapacks);
   }
 
+  /** 重载数据包并恢复当前存档状态，供运行时编辑等短生命周期 Overlay 使用。 */
+  reloadPreservingState(datapacks: Datapack[]): void {
+    const saved = this.save();
+    this.reload(datapacks, { enterDefaultInit: false });
+    this.load(saved);
+  }
+
   /** 手动推进一帧并返回本帧生产结果。 */
   tick(): TickResult {
     this.tickSystem.setState(this._state);

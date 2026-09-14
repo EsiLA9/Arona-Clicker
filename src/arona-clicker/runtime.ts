@@ -6,7 +6,9 @@ import type { ParsedPack } from '../data-services/datapack/pack-parser';
 import type { AsyncPackSnapshotStore, PackSnapshotStore } from '../data-services/datapack/pack-storage';
 import { Registry } from '../data-services/registry/registry';
 import { defaultDatapack } from './content/default-datapack';
-import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogReadModel } from './contracts';
+import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogReadModel, RuntimeModDraft, RuntimeModApplyResult } from './contracts';
+import type { Datapack } from '../data-services/contracts/datapack';
+import type { SpotDef } from '../data-services/contracts/world';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;
@@ -21,10 +23,17 @@ export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
 export class AronaClickerRuntime extends GameInstance implements PackCatalogReadModel, PackCatalogCommands {
   packManager: PackManager;
   private packAsyncStore: AsyncPackSnapshotStore | undefined;
+  private activeDatapacks: readonly Datapack[] = [];
+  private runtimeMod: RuntimeModDraft | null = null;
 
   constructor(options: AronaClickerRuntimeOptions = {}) {
     super({ ...options, saveCodec: options.saveCodec ?? buildSaveData });
     this.packManager = new PackManager(undefined, options.packStore, [createBuiltinBasePack()]);
+  }
+
+  override init(datapacks: Datapack[], options = {}): void {
+    this.activeDatapacks = [...datapacks];
+    super.init(datapacks, options);
   }
 
   registerParsedPack(parsed: ParsedPack, id = parsed.manifest.modName + '@' + parsed.manifest.version): void {
@@ -51,6 +60,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       clearImages: () => this.imageStore.clear(),
       registerImages: (modName, images) => this.pics.register(modName, images),
     });
+    this.runtimeMod = null;
   }
 
   getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[] } {
@@ -111,6 +121,78 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       return { ok: true, message: '数据包启用集已应用。', validation };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error), validation };
+    }
+  }
+
+  applyRuntimeMod(draft: RuntimeModDraft): RuntimeModApplyResult {
+    try {
+      if (this.runtimeMod && this.runtimeMod.modName !== draft.modName) {
+        throw new Error(`当前已有临时 Mod：${this.runtimeMod.modName}，请先删除后再创建其他 Mod。`);
+      }
+      if (!this.runtimeMod && this.registry.loadedModNames.has(draft.modName)) {
+        throw new Error(`modName 已被当前运行时占用：${draft.modName}`);
+      }
+      const spot: SpotDef = {
+        id: `${draft.modName}:spot:${draft.spot.idName}`,
+        areaId: draft.spot.areaId,
+        name: draft.spot.name,
+        description: draft.spot.description,
+        baseCost: { type: 'const', value: draft.spot.baseCost },
+        baseCostResource: draft.spot.baseCostResource,
+        baseYield: { type: 'const', value: draft.spot.baseYield },
+        baseYieldResource: draft.spot.baseYieldResource,
+        baseCapacity: draft.spot.baseCapacity,
+        tags: [],
+      };
+      const runtimePack: Datapack = {
+        modName: draft.modName,
+        name: draft.displayName,
+        version: draft.version,
+        inits: [], areas: [], spots: [spot], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], funcletDefs: [], characters: [],
+      };
+      const spotId = spot.id;
+      const previousSpotId = this.runtimeMod ? `${this.runtimeMod.modName}:spot:${this.runtimeMod.spot.idName}` : null;
+      if (this.registry.spots.has(spotId) && spotId !== previousSpotId) {
+        throw new Error(`Spot ID 已被当前运行时占用：${spotId}`);
+      }
+      this.registry.validate(runtimePack);
+      const background = (this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks())
+        .filter(datapack => !this.runtimeMod || datapack.modName !== this.runtimeMod.modName);
+      this.reloadPreservingState([...background, runtimePack]);
+      this.runtimeMod = draft;
+      return { ok: true, message: `运行时 Mod 已载入：${draft.displayName}；Spot 已加入当前 Area。` };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  getRuntimeMod(): RuntimeModDraft | null {
+    return this.runtimeMod;
+  }
+
+  removeRuntimeMod(preservePlayerData = true): RuntimeModApplyResult {
+    if (!this.runtimeMod) return { ok: false, message: '当前没有可删除的临时 Mod。' };
+    try {
+      const modName = this.runtimeMod.modName;
+      const background = (this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks())
+        .filter(datapack => datapack.modName !== modName);
+      const saved = this.save();
+      if (!preservePlayerData) {
+        const spotId = `${modName}:spot:${this.runtimeMod.spot.idName}`;
+        delete saved.playerState.spotLevels[spotId];
+        delete saved.playerState.spotManagers[spotId];
+        for (const snapshot of Object.values(saved.playerState.initSnapshots ?? {})) {
+          delete snapshot.spotLevels[spotId];
+          delete snapshot.spotManagers[spotId];
+        }
+        if (saved.playerState.spotTagOverrides) delete saved.playerState.spotTagOverrides[spotId];
+      }
+      this.reload([...background], { enterDefaultInit: false });
+      this.load(saved);
+      this.runtimeMod = null;
+      return { ok: true, message: preservePlayerData ? `临时 Mod 已删除，PlayerData 已保留：${modName}。` : `临时 Mod 与对应 PlayerData 已删除：${modName}。` };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
     }
   }
 

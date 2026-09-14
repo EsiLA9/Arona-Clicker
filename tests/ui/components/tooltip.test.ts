@@ -99,4 +99,20 @@ describe('renderSpotDetail', () => {
     expect(html).toContain('100 信用点');
     expect(html).not.toContain('base:resource:credit');
   });
+
+  it('获取条件包含 Spot 实际解锁费用，而不是误报无条件', () => {
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    game.inits.startNewGame(OFFICE);
+    const ctx = createUIContext(game);
+    const spot = {
+      ...game.registry.spots.get('base:spot:field_work')!,
+      id: 'custom:spot:paid-test',
+      revealTriggers: undefined,
+    };
+    const html = renderSpotDetail(ctx, spot, 0);
+    expect(html).toContain('获取条件');
+    expect(html).toContain('花费 20 信用点');
+    expect(html).not.toContain('condition-empty');
+  });
 });

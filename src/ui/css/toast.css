@@ -38,6 +38,17 @@
    font-weight: 700
 }
 
+.toast-action {
+   align-items: center;
+   justify-content: space-between;
+   gap: 14px;
+}
+
+.toast-action .toolbar-button {
+   flex: 0 0 auto;
+   white-space: nowrap;
+}
+
 .toast-success {
    border-left: 3px solid var(--lime)
 }
@@ -66,4 +77,3 @@
       transform: translateX(0)
    }
 }
-

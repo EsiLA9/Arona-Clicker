@@ -79,17 +79,25 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
   const desc = known
     ? `<p class="info-desc">${ctx.escapeHtml(spot.description)}</p>`
     : '';
-  const condText = renderConditionTree(buildConditionView(unlockCondition(spot.revealTriggers) ?? existenceCondition(spot.revealTriggers), {
+  const acquisitionCondition = unlockCondition(spot.revealTriggers) ?? existenceCondition(spot.revealTriggers);
+  const condText = renderConditionTree(buildConditionView(acquisitionCondition, {
     nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',
     evaluate: condition => conditionMet(condition, ctx.game),
   }), ctx.escapeHtml, reveal.conditionKnown);
+  const acquisitionCost = known ? game.valueSystem.evaluate(spot.baseCost, game.state) : undefined;
+  const costText = acquisitionCost !== undefined && acquisitionCost > 0
+    ? `花费 ${ctx.formatNumber(acquisitionCost)} ${ctx.nameOf('resource', spot.baseCostResource)}`
+    : '';
+  const acquisitionText = acquisitionCondition
+    ? `${condText}${costText ? ` · ${ctx.escapeHtml(costText)}` : ''}`
+    : costText || condText;
 
   return `
     <div class="info-popover">
       <div class="info-head"><span class="info-kind">SPOT</span><strong>${ctx.escapeHtml(name)}</strong></div>
       ${desc}
       <div class="info-divider"></div>
-      ${owned ? '' : `<div class="info-row"><span>获取条件</span><span>${condText}</span></div>`}
+      ${owned ? '' : `<div class="info-row"><span>获取条件</span><span>${acquisitionText}</span></div>`}
       <div class="info-row"><span>当前等级</span><span class="info-accent">${show(known, `Lv.${level}`)}</span></div>
       <div class="info-row"><span>基础产出</span><span>${show(known, `${ctx.formatNumber(yieldInfo.base)} ${resource} / tick`)}</span></div>
       <div class="info-row"><span>强化倍率</span><span>${show(known, `×${yieldInfo.enhMultiplier.toFixed(2)}${yieldInfo.enhMultiplier === 1 ? '（未获得）' : ''}`)}</span></div>
