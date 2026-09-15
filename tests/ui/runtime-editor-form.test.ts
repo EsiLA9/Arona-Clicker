@@ -11,7 +11,9 @@ import {
 } from '../../src/ui/workspace/runtime-datapack-editor-state';
 import {
   problemFieldKey,
+  readRuntimeEditorAffectorRows,
   readRuntimeEditorFields,
+  renderRuntimeEditorAffectorList,
   renderRuntimeEditorFields,
   runtimeEditorDiff,
   runtimeEditorFieldViews,
@@ -21,7 +23,15 @@ import {
 const AREA = 'base:area:main';
 
 const ctx = {
-  game: { registry: { areas: new Map([[AREA, { id: AREA, name: '主厅' }]]) } },
+  game: {
+    registry: {
+      areas: new Map([[AREA, { id: AREA, name: '主厅' }]]),
+      resourceDisplays: new Map([
+        ['base:resource:credit', { resourceId: 'base:resource:credit', label: '信用点', order: 1 }],
+        ['base:resource:energy', { resourceId: 'base:resource:energy', label: '能量', order: 2 }],
+      ]),
+    },
+  },
   view: { currentAreaId: AREA },
   escapeHtml: (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] ?? character)),
 } as unknown as UIContext;
@@ -31,7 +41,6 @@ const draftValues = (overrides: Record<string, unknown> = {}): Record<string, un
   idName: 'printer',
   name: '打印机',
   baseCost: 12,
-  baseYield: 2,
   ...overrides,
 });
 
@@ -42,8 +51,6 @@ const runtimeSpot = (overrides: Record<string, unknown> = {}): Record<string, un
   description: '',
   baseCost: { type: 'const', value: 12 },
   baseCostResource: 'base:resource:credit',
-  baseYield: { type: 'const', value: 2 },
-  baseYieldResource: 'base:resource:credit',
   baseCapacity: 0,
   ...overrides,
 });
@@ -59,7 +66,7 @@ describe('策略驱动的编辑器表单', () => {
       value: AREA,
       options: [{ value: AREA, label: '主厅' }],
     });
-    expect(views.find(view => view.key === 'baseYield')).toMatchObject({ control: 'number' });
+    expect(views.find(view => view.key === 'baseYield')).toBeUndefined();
     expect(views.find(view => view.key === 'baseCostResource')?.value).toBe('base:resource:credit');
   });
 
@@ -91,6 +98,23 @@ describe('策略驱动的编辑器表单', () => {
     expect(readRuntimeEditorFields(SPOT_CONTENT_POLICY, lockedScope).idName).toBe('printer');
   });
 
+  test('持续资源 Affector 列表支持多行读写，并隐藏底层 Pack 字段', () => {
+    const affectors = [
+      { id: 'credit', type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 2 },
+      { id: 'energy', type: 'resource-flow', mode: 'per-level', resource: 'base:resource:energy', amount: 3 },
+    ] as const;
+    const scope = document.createElement('div');
+    scope.innerHTML = renderRuntimeEditorAffectorList(ctx, affectors);
+
+    expect(scope.querySelectorAll('[data-runtime-editor-affector-row]')).toHaveLength(2);
+    expect(scope.textContent).toContain('固定持续');
+    expect(scope.textContent).toContain('按 Spot 等级');
+    expect(scope.textContent).not.toContain('effects');
+    expect(scope.textContent).not.toContain('zoneModifiers');
+    expect(scope.textContent).not.toContain('Affector Pack');
+    expect(readRuntimeEditorAffectorRows(scope)).toEqual(affectors);
+  });
+
   test('差异只列出被改动的字段，并按编码值比较', () => {
     const rows = runtimeEditorDiff(SPOT_CONTENT_POLICY, draftValues({ name: '改名后的打印机' }), runtimeSpot());
 
@@ -100,8 +124,19 @@ describe('策略驱动的编辑器表单', () => {
     expect(runtimeEditorDiff(SPOT_CONTENT_POLICY, draftValues(), undefined)).toEqual([]);
   });
 
+  test('Affector 列表参与 Draft/Runtime 差异比较', () => {
+    const affectors = [{ id: 'credit', type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 2 }] as const;
+    const rows = runtimeEditorDiff(SPOT_CONTENT_POLICY, draftValues({ affectors }), { ...runtimeSpot(), affectors });
+    expect(rows.find(row => row.key === 'affectors')).toMatchObject({ changed: false });
+    expect(runtimeEditorDiff(
+      SPOT_CONTENT_POLICY,
+      draftValues({ affectors: [{ ...affectors[0], amount: 5 }] }),
+      { ...runtimeSpot(), affectors },
+    )).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'affectors', changed: true })]));
+  });
+
   test('诊断路径映射回字段键，供表单高亮与定位', () => {
-    expect(problemFieldKey(SPOT_CONTENT_POLICY, { path: 'spot.baseYield', message: '' })).toBe('baseYield');
+    expect(problemFieldKey(SPOT_CONTENT_POLICY, { path: 'spot.baseYield', message: '' })).toBeUndefined();
     expect(problemFieldKey(SPOT_CONTENT_POLICY, { path: 'idName', message: '' })).toBe('idName');
     expect(problemFieldKey(SPOT_CONTENT_POLICY, { path: 'spot.functionalities', message: '' })).toBeUndefined();
     expect(problemFieldKey(SPOT_CONTENT_POLICY, { message: '' })).toBeUndefined();
@@ -116,8 +151,6 @@ describe('草稿条目编辑状态', () => {
     description: '',
     baseCost: 12,
     baseCostResource: 'base:resource:credit',
-    baseYield: 2,
-    baseYieldResource: 'base:resource:credit',
     baseCapacity: 0,
   };
 

@@ -294,18 +294,11 @@ describe('GameInstance (integration)', () => {
     game.tick();
 
     // 开局仅赠送 schale_main 的 credit_printer（其余 spot 需购买/进入 Area/完成剧情获得）
-    // 含 Spot 功能：level 1 时无条件 linearYield 功能每级 +amountPerLevel
+    // Spot 的所有持续产出都通过 Affector flow 结算。
     const expected = [...game.registry.spotsOfInit('base:init:schale_office')]
       .filter(spotId => (game.state.spotLevels[spotId] ?? 0) > 0)
-      .reduce((sum, spotId) => {
-        const spot = game.registry.spots.get(spotId)!;
-        let total = game.valueSystem.evaluate(spot.baseYield, game.state);
-        for (const fn of spot.functionalities ?? []) {
-          if (fn.condition) continue; // 条件功能：测试初始条件不满足
-          if (fn.kind === 'linearYield') total += 1 * (fn.amountPerLevel ?? 0);
-        }
-        return sum + total;
-      }, 0);
+      .reduce((sum, spotId) => sum + Object.values(game.gameNumSystem.evaluateSpotYields(spotId, game.state))
+        .reduce((spotSum, amount) => spotSum + amount, 0), 0);
     expect(game.state.resources['base:resource:credit']).toBe(expected);
   });
 

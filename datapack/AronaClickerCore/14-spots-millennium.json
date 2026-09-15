@@ -7,12 +7,9 @@
       "description": "千年研发的第三代信用点制造机，效率远超沙勒的老古董。",
       "baseCost": { "type": "const", "value": 40 },
       "baseCostResource": "base:resource:credit",
-      "baseYield": { "type": "const", "value": 3 },
-      "baseYieldResource": "base:resource:credit",
       "baseCapacity": 300,
       "levelUpgrades": [],
       "tags": [["millennium"], ["production"]],
-      "yieldPerLevel": 2,
       "upgradeCostBase": 40,
       "upgradeCostGrowth": 1.6,
       "maxLevel": 30,
@@ -28,7 +25,9 @@
               { "target": "stat", "key": "$GlobalProducedAmount base:resource:credit", "comparator": ">=", "value": 100 }
             ]
           }
-        }
+        },
+        { "id": "base_flow", "kind": "flow", "resource": "base:resource:credit", "amount": 3 },
+        { "id": "linear_upgrade", "kind": "linearYield", "resource": "base:resource:credit", "amountPerLevel": 2, "startLevel": 1 }
       ],
       "extra": {
         "t": "dict",
@@ -44,12 +43,13 @@
       "description": "为实验机器人提供充电与维护的托管所，附带少量青辉石产出。",
       "baseCost": { "type": "const", "value": 60 },
       "baseCostResource": "base:resource:credit",
-      "baseYield": { "type": "const", "value": 1 },
-      "baseYieldResource": "base:resource:pyroxene",
       "baseCapacity": 150,
       "levelUpgrades": [],
       "tags": [["millennium"], ["service"]],
-      "yieldPerLevel": 1,
+      "functionalities": [
+        { "id": "base_flow", "kind": "flow", "resource": "base:resource:pyroxene", "amount": 1 },
+        { "id": "linear_pyroxene", "kind": "linearYield", "resource": "base:resource:pyroxene", "amountPerLevel": 1, "startLevel": 1 }
+      ],
       "upgradeCostBase": 60,
       "upgradeCostGrowth": 1.6,
       "maxLevel": 20,
@@ -67,8 +67,6 @@
       "description": "校园走廊的自动售货机，据说塞进信用点就能吐出奇怪的道具。",
       "baseCost": { "type": "const", "value": 80 },
       "baseCostResource": "base:resource:credit",
-      "baseYield": { "type": "const", "value": 2 },
-      "baseYieldResource": "base:resource:pyroxene",
       "baseCapacity": 200,
       "levelUpgrades": [
         {
@@ -77,7 +75,10 @@
         }
       ],
       "tags": [["millennium"], ["loot"]],
-      "yieldPerLevel": 1,
+      "functionalities": [
+        { "id": "base_flow", "kind": "flow", "resource": "base:resource:pyroxene", "amount": 2 },
+        { "id": "linear_pyroxene", "kind": "linearYield", "resource": "base:resource:pyroxene", "amountPerLevel": 1, "startLevel": 1 }
+      ],
       "upgradeCostBase": 80,
       "upgradeCostGrowth": 1.6,
       "maxLevel": 15,

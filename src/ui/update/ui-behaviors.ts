@@ -1,6 +1,7 @@
 import type { UIController } from '../controller';
 import type { UIBehaviorId } from './ui-update-types';
 import type { UISurfaceToken } from './ui-surface';
+import { displayName } from '../../engine/core/display-name';
 
 export interface UIBehaviorContext {
   controller: UIController;
@@ -25,6 +26,14 @@ function matchingNodes(root: HTMLElement, attribute: string, key: string): HTMLE
 
 function formatNumber(value: number): string {
   return Math.floor(value).toLocaleString('en-US');
+}
+
+function formatSpotYields(controller: UIController, spotId: string): string {
+  const outputs = Object.entries(controller.game.gameNumSystem.evaluateSpotYields(spotId, controller.game.state));
+  if (outputs.length === 0) return '无持续产出';
+  return outputs
+    .map(([resource, amount]) => `${formatNumber(amount)} ${displayName(controller.game.registry, 'resource', resource)}/t`)
+    .join(' · ');
 }
 
 export class UIBehaviorRegistry {
@@ -67,8 +76,7 @@ export function createDefaultUIBehaviorRegistry(): UIBehaviorRegistry {
     for (const node of matchingNodes(root, 'data-spot-yield', key)) {
       const spotId = node.dataset.spotYield;
       if (!spotId) continue;
-      const value = controller.game.gameNumSystem.evaluateSpotYield(spotId, controller.game.state);
-      node.textContent = `产出 ${formatNumber(value)} / tick`;
+      node.textContent = `产出 ${formatSpotYields(controller, spotId)}`;
       changed = true;
     }
     return changed;

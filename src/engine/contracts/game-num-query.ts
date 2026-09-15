@@ -9,4 +9,5 @@ export interface GameNumQueryPort {
   buildZoneNode(scope: EntityRef, part: 'flat' | 'mul', resource?: string): ZoneNode;
   evaluateResourceGain(resource: string, state: GameNumState): number;
   evaluateSpotYield(spotId: string, state: GameNumState): number;
+  evaluateSpotYields(spotId: string, state: GameNumState): Readonly<Record<string, number>>;
 }

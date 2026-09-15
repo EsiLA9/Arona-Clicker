@@ -78,8 +78,6 @@ const spotInput = (overrides: Record<string, unknown> = {}): Record<string, unkn
   description: 'A temporary printer',
   baseCost: 10,
   baseCostResource: 'base:resource:credit',
-  baseYield: 2,
-  baseYieldResource: 'base:resource:credit',
   baseCapacity: 100,
   ...overrides,
 });
@@ -118,7 +116,10 @@ describe('字段级失效台账', () => {
       const declared = policy.materialization.map(entry => entry.field);
       expect(new Set(declared).size).toBe(declared.length);
 
-      const writable = policy.fields.map(field => field.key);
+      const writable = [
+        ...policy.fields.map(field => field.key),
+        ...(policy.extensions ?? []).map(extension => extension.inputKey),
+      ];
       expect([...declared].sort()).toEqual([...writable].sort());
 
       for (const field of policy.fields) {
@@ -141,14 +142,15 @@ describe('字段级失效台账', () => {
   test('Spot 的失效台账与现有热路径一致', () => {
     const policy = requireContentPolicy('spots');
 
-    expect(getFieldMaterialization(policy, 'baseYield')).toMatchObject({
-      invalidate: 'subtree',
-      trigger: 'spotDefinitionChanged → GameNum.applySpotDefinitionChange',
-    });
-    expect(getFieldMaterialization(policy, 'yieldPerLevel')).toMatchObject({ consumers: ['game-num'], invalidate: 'subtree' });
+    expect(getFieldMaterialization(policy, 'baseYield')).toBeUndefined();
+    expect(getFieldMaterialization(policy, 'yieldPerLevel')).toBeUndefined();
     expect(getFieldMaterialization(policy, 'areaId')).toMatchObject({ invalidate: 'index' });
     expect(getFieldMaterialization(policy, 'name')).toMatchObject({ consumers: ['ui-dynamic'], invalidate: 'none' });
     expect(getFieldMaterialization(policy, 'maxLevel')).toMatchObject({ consumers: ['spot-service', 'ui-dynamic'], invalidate: 'none' });
+    expect(getFieldMaterialization(policy, 'affectors')).toMatchObject({
+      consumers: ['registry-record', 'affector', 'game-num', 'ui-dynamic'],
+      invalidate: 'remount',
+    });
     expect(policyFieldConsumers(policy)).toEqual(expect.arrayContaining(['game-num', 'area-index', 'spot-service', 'ui-dynamic']));
   });
 });
@@ -184,9 +186,9 @@ describe('内容策略表：字段授权', () => {
   test('字段值语义由 kind 决定：数值、非空字符串、实体 ID、局部名', () => {
     const policy = requireContentPolicy('spots');
 
-    expect(validateAuthoringInput(policy, spotInput({ baseYield: Number.NaN }))).toMatchObject({
+    expect(validateAuthoringInput(policy, spotInput({ baseCapacity: Number.NaN }))).toMatchObject({
       code: 'invalid-field',
-      path: 'spot.baseYield',
+      path: 'spot.baseCapacity',
     });
     expect(validateAuthoringInput(policy, spotInput({ baseCost: -1 }))).toMatchObject({
       code: 'invalid-field',
@@ -215,7 +217,7 @@ describe('内容策略表：字段授权', () => {
     const policy = requireContentPolicy('spots');
 
     expect(validateAuthoringInput(policy, spotInput({ maxLevel: '' }))).toBeUndefined();
-    expect(validateAuthoringInput(policy, spotInput({ maxLevel: 5, yieldPerLevel: 2, upgradeCostGrowth: 1.5 }))).toBeUndefined();
+    expect(validateAuthoringInput(policy, spotInput({ maxLevel: 5, upgradeCostGrowth: 1.5 }))).toBeUndefined();
     expect(validateAuthoringInput(policy, spotInput({ maxLevel: -1 }))).toMatchObject({
       code: 'invalid-field',
       path: 'spot.maxLevel',
@@ -228,6 +230,36 @@ describe('内容策略表：字段授权', () => {
       code: 'invalid-field',
       path: 'spot.baseYield',
     });
+  });
+
+  test('resource-flow 支持多资源、固定与按等级两种编码，空列表不生成虚假功能', () => {
+    const policy = requireContentPolicy('spots');
+    const input = spotInput({
+      affectors: [
+        { id: 'credit', type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 2 },
+        { id: 'energy', type: 'resource-flow', mode: 'per-level', resource: 'base:resource:energy', amount: 3 },
+      ],
+    });
+    expect(validateAuthoringInput(policy, input, {
+      resourceIds: new Set(['base:resource:credit', 'base:resource:energy']),
+    })).toBeUndefined();
+    expect(buildAuthoringDef(policy, MOD, input)).toMatchObject({
+      functionalities: [
+        { id: 'runtime:resource:credit', kind: 'flow', resource: 'base:resource:credit', amount: 2 },
+        { id: 'runtime:resource:energy', kind: 'linearYield', resource: 'base:resource:energy', amountPerLevel: 3 },
+      ],
+    });
+    expect(buildAuthoringDef(policy, MOD, spotInput({ affectors: [] }))).not.toHaveProperty('functionalities');
+  });
+
+  test('resource-flow 对未知类型、未知资源、重复 ID 和非法数值 fail closed', () => {
+    const policy = requireContentPolicy('spots');
+    const base = { id: 'a', type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 1 };
+    expect(validateAuthoringInput(policy, spotInput({ affectors: [{ ...base, type: 'activation-effect' }] }))).toMatchObject({ path: 'spot.affectors[0].type' });
+    expect(validateAuthoringInput(policy, spotInput({ affectors: [{ ...base, resource: 'unknown' }] }), { resourceIds: new Set(['base:resource:credit']) })).toMatchObject({ path: 'spot.affectors[0].resource' });
+    expect(validateAuthoringInput(policy, spotInput({ affectors: [base, { ...base }] }))).toMatchObject({ path: 'spot.affectors[1].id' });
+    expect(validateAuthoringInput(policy, spotInput({ affectors: [{ ...base, amount: 0 }] }))).toMatchObject({ path: 'spot.affectors[0].amount' });
+    expect(validateAuthoringInput(policy, spotInput({ affectors: [{ ...base, extra: 1 }] }))).toMatchObject({ path: 'spot.affectors[0].extra' });
   });
 });
 
@@ -242,8 +274,6 @@ describe('内容策略表：Def 构建与受控提交', () => {
       description: 'A temporary printer',
       baseCost: { type: 'const', value: 10 },
       baseCostResource: 'base:resource:credit',
-      baseYield: { type: 'const', value: 2 },
-      baseYieldResource: 'base:resource:credit',
       baseCapacity: 100,
       levelUpgrades: [],
       tags: [],
@@ -258,11 +288,10 @@ describe('内容策略表：Def 构建与受控提交', () => {
 
     const withOptional = buildAuthoringDef(policy, MOD, spotInput({
       maxLevel: 5,
-      yieldPerLevel: 2,
       upgradeCostBase: 10,
       upgradeCostGrowth: 1.5,
     })) as Record<string, unknown>;
-    expect(withOptional).toMatchObject({ maxLevel: 5, yieldPerLevel: 2, upgradeCostBase: 10, upgradeCostGrowth: 1.5 });
+    expect(withOptional).toMatchObject({ maxLevel: 5, upgradeCostBase: 10, upgradeCostGrowth: 1.5 });
   });
 
   test('applyAuthoringMutation 委托 Registry 提交并返回可回滚 receipt', () => {

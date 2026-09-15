@@ -7,12 +7,13 @@
       "description": "一台老旧但可靠的信用点制造设备，每个 Tick 都会产出信用点。",
       "baseCost": { "type": "const", "value": 10 },
       "baseCostResource": "base:resource:credit",
-      "baseYield": { "type": "const", "value": 1 },
-      "baseYieldResource": "base:resource:credit",
       "baseCapacity": 100,
       "levelUpgrades": [],
       "tags": [["office"], ["production"]],
-      "yieldPerLevel": 1,
+      "functionalities": [
+        { "id": "base_flow", "kind": "flow", "resource": "base:resource:credit", "amount": 1 },
+        { "id": "linear_credit", "kind": "linearYield", "resource": "base:resource:credit", "amountPerLevel": 1, "startLevel": 1 }
+      ],
       "upgradeCostBase": 10,
       "upgradeCostGrowth": 1.5,
       "maxLevel": 20,
@@ -31,12 +32,13 @@
       "description": "沙勒的前台，负责接待来访的学生与市民。",
       "baseCost": { "type": "const", "value": 25 },
       "baseCostResource": "base:resource:credit",
-      "baseYield": { "type": "const", "value": 2 },
-      "baseYieldResource": "base:resource:credit",
       "baseCapacity": 200,
       "levelUpgrades": [],
       "tags": [["service"], ["reception"]],
-      "yieldPerLevel": 2,
+      "functionalities": [
+        { "id": "base_flow", "kind": "flow", "resource": "base:resource:credit", "amount": 2 },
+        { "id": "linear_credit", "kind": "linearYield", "resource": "base:resource:credit", "amountPerLevel": 2, "startLevel": 1 }
+      ],
       "upgradeCostBase": 25,
       "upgradeCostGrowth": 1.5,
       "maxLevel": 15,

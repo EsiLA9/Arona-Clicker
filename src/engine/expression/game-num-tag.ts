@@ -177,7 +177,7 @@ function rebuildActiveFlowIndex(system: GameNumSystem, affector: GameNumAffector
     for (const entry of pack.entries) {
       if (!isActiveEntry(instance, entry.id)) continue;
       for (const flow of entry.flows ?? []) {
-        const bucket = flowBucketKey(flow.resource, resolveFlowMount(system, instance.mountEntityId));
+        const bucket = flowBucketKey(flow.resource, resolveFlowMount(system, instance.mountEntityId), flow.applySpotMultiplier === true);
         const sources = flowSources.get(bucket) ?? [];
         sources.push({ flow });
         flowSources.set(bucket, sources);

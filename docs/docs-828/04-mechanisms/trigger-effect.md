@@ -21,11 +21,11 @@
 - entry 的效果分四条通道：
   - `effects`：**激活沿（Latent→Active 翻转）一次性执行**——`addResource` 一次性发放，setFlag/addItem 等一次性 op 同样只执行一次；声明类 op（setSpotMaxLevel/removeSpotMaxLevel）由 `getSpotMaxLevelOverrides` 动态读取，不经执行；
   - `perTickEffects`：Active 期间每帧执行（仅限幂等/维持类 op）；
-  - `flows`：**唯一持续产出通道**，激活期间每帧经 GameNum `primitiveGain` 懒求值入账（Spot 功能的 linearYield 即转译为 flow）；按 `mountEntityId` **层级分发**：挂 spot → 该 spot 的 spotExtra；挂 area/init → 各自 Extra；挂 enhancement/item 等非层级实体 → 资源树根 global 兜底节点；
+  - `flows`：**唯一持续产出通道**，激活期间每帧经 GameNum `primitiveGain` 懒求值入账（Spot 功能的 `flow` / `linearYield` 即转译为 flow）；按 `mountEntityId` **层级分发**：Spot 主产出 flow → 该 Spot 的 `spotBase` 并进入 Spot/Area/Init 乘区链，普通 Spot flow → `spotExtra`；挂 area/init → 各自 Extra；挂 enhancement/item 等非层级实体 → 资源树根 global 兜底节点。挂在 Spot 的 flow 只在该 Spot 已拥有时生效；
   - `zoneModifiers`：区效果，`syncAffectorZoneEffects` 并入 GameNumSystem 区表（按 source=`affector:<instanceId>` 反查撤回）；**不每 tick 全量重建**——仅在实例集合/激活 entry 翻转（mount/unmount/recheck）、enhancementRemoved、spotTagChanged、spotLevelChanged 及 `reconcileMounts` 时同步；
 - 每帧 `affectorEngine.applyActiveEffects()`：先重估轮询实例（stat 宽依赖），再执行 Active 实例的 `perTickEffects`；
 - **双通道警告**：`flows` 与 `effects[addResource]` 并存时语义不同但会叠加——激活沿发放一次 + 每帧持续入账 = **双倍**。数据作者应二选一；
-- **实例生命周期**：实例不落存档；`reconcileMounts()` 按当前 PlayerState（inventory / unlockedEnhancements / spotLevels 的 linearYield 功能）对账重挂载，在 init / enterInit / restoreFromSave / reset 时调用；`mount` 幂等（已存在实例只 recheck 不重建，激活沿不重复发放）。
+- **实例生命周期**：实例不落存档；`reconcileMounts()` 按当前 PlayerState（inventory / unlockedEnhancements / spotLevels 的 Spot flow / linearYield 功能）对账重挂载，在 init / enterInit / restoreFromSave / reset 时调用；`mount` 幂等（已存在实例只 recheck 不重建，激活沿不重复发放）。
 - 激活 entry 集在 Active 内变化（状态未翻转）发 `affectorEntriesChanged` → GameNum 重同步（单向依赖，T7）。
 
 ## ZoneModifier（区效果）

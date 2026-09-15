@@ -20,8 +20,6 @@ const input = (name = 'Desk') => ({
   description: 'Temporary desk',
   baseCost: 1,
   baseCostResource: 'base:resource:credit',
-  baseYield: 2,
-  baseYieldResource: 'base:resource:credit',
   baseCapacity: 3,
 });
 
@@ -95,7 +93,7 @@ describe('AronaClickerRuntime Spot 热 CRUD', () => {
     const game = new AronaClickerRuntime();
     game.init([defaultDatapack]);
     const content = game.spot.content!;
-    const invalid = content.create('draft-mod', { ...input(), baseYield: Number.NaN }, 0);
+    const invalid = content.create('draft-mod', { ...input(), baseCost: Number.NaN }, 0);
 
     expect(invalid.ok).toBe(false);
     expect(game.getRuntimeMod()).toBeNull();
@@ -131,7 +129,7 @@ describe('AronaClickerRuntime Spot 热 CRUD', () => {
     expect(state.spotTagOverrides?.[spotId]).toBeUndefined();
   });
 
-  test('现有 SpotService 直接使用热创建定义完成解锁并反映产出', () => {
+  test('热创建 Spot 不再从缺少 Affector functionality 的定义产生持续产出', () => {
     const game = new AronaClickerRuntime();
     game.init([defaultDatapack]);
     const content = game.spot.content!;
@@ -145,7 +143,47 @@ describe('AronaClickerRuntime Spot 热 CRUD', () => {
 
     expect(unlocked).toMatchObject({ success: true, spotId: 'draft-mod:spot:desk' });
     expect(state.spotLevels['draft-mod:spot:desk']).toBe(1);
-    expect(after - before).toBe(2);
+    expect(after - before).toBe(0);
     expect(state.resources['base:resource:credit']).toBe(99);
+  });
+
+  test('Runtime Editor 的一个 Spot 可原子应用多类持续资源 Affector，并按等级线性增长', () => {
+    const game = new AronaClickerRuntime();
+    game.init([defaultDatapack]);
+    const content = game.spot.content!;
+    const spotInput = {
+      ...input('Multi Resource Desk'),
+      affectors: [
+        { id: 'credit', type: 'resource-flow' as const, mode: 'fixed' as const, resource: 'base:resource:credit', amount: 2 },
+        { id: 'pyroxene', type: 'resource-flow' as const, mode: 'per-level' as const, resource: 'base:resource:pyroxene', amount: 3 },
+      ],
+    };
+    expect(content.create('draft-mod', spotInput, 0)).toMatchObject({ ok: true, revision: 1 });
+
+    const state = game.state as unknown as PlayerState;
+    state.resources['base:resource:credit'] = 100;
+    const unlocked = game.spot.unlockSpot('draft-mod:spot:desk');
+    expect(unlocked).toMatchObject({ success: true, spotId: 'draft-mod:spot:desk' });
+    expect(game.gameNumSystem.evaluateSpotYields('draft-mod:spot:desk', state)).toEqual({
+      'base:resource:credit': 2,
+      'base:resource:pyroxene': 3,
+    });
+
+    game.mutations.setSpotLevel('draft-mod:spot:desk', 3);
+    expect(game.gameNumSystem.evaluateSpotYields('draft-mod:spot:desk', state)).toEqual({
+      'base:resource:credit': 2,
+      'base:resource:pyroxene': 9,
+    });
+
+    const changed = content.replace('draft-mod', 'desk', {
+      ...spotInput,
+      affectors: spotInput.affectors.map(affector => affector.id === 'credit' ? { ...affector, amount: 5 } : affector),
+    }, content.getState().revision);
+    expect(changed).toMatchObject({ ok: true, revision: 2 });
+    expect(game.gameNumSystem.evaluateSpotYields('draft-mod:spot:desk', state)).toEqual({
+      'base:resource:credit': 5,
+      'base:resource:pyroxene': 9,
+    });
+    expect(game.affectorEngine.getActiveInstances().filter(instance => instance.mountEntityId === 'draft-mod:spot:desk')).toHaveLength(2);
   });
 });

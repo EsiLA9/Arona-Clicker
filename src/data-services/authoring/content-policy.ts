@@ -3,9 +3,11 @@ import { Expr } from '../../engine/types';
 import type { Registry } from '../registry/registry';
 import { CONTENT_POLICIES } from './content-policies';
 import type {
+  AuthoringExtension,
   AuthoringMutationReceipt,
   AuthoringMutationRequest,
   AuthoringProblem,
+  AuthoringValidationContext,
   ContentAuthoringPolicy,
   ContentKey,
   FieldConsumer,
@@ -18,6 +20,7 @@ const ENTITY_NAME_PATTERN = /^[a-z0-9_-]+$/;
 export { CONTENT_POLICIES, SPOT_CONTENT_POLICY } from './content-policies';
 
 export type {
+  AuthoringExtension,
   AuthoringMutationReceipt,
   AuthoringMutationRequest,
   AuthoringProblem,
@@ -29,6 +32,9 @@ export type {
   FieldConsumer,
   FieldInvalidation,
   FieldMaterialization,
+  SpotAffectorMode,
+  SpotResourceAffectorDraft,
+  AuthoringValidationContext,
   WritableFieldDef,
   WritableFieldKind,
 } from './content-policy-types';
@@ -53,6 +59,10 @@ export function requireContentPolicy(key: ContentKey): ContentAuthoringPolicy {
 
 export function getWritableField(policy: ContentAuthoringPolicy, fieldKey: string): WritableFieldDef | undefined {
   return policy.fields.find(field => field.key === fieldKey);
+}
+
+export function getAuthoringExtension(policy: ContentAuthoringPolicy, inputKey: string): AuthoringExtension | undefined {
+  return policy.extensions?.find(extension => extension.inputKey === inputKey);
 }
 
 export function getFieldMaterialization(policy: ContentAuthoringPolicy, fieldKey: string): FieldMaterialization | undefined {
@@ -91,9 +101,15 @@ export function validateAuthoringFieldValue(
   policy: ContentAuthoringPolicy,
   fieldKey: string,
   value: unknown,
+  context?: AuthoringValidationContext,
 ): AuthoringProblem | undefined {
   const field = getWritableField(policy, fieldKey);
   if (!field) {
+    const extension = getAuthoringExtension(policy, fieldKey);
+    if (extension) {
+      if (value === undefined || value === null) return undefined;
+      return extension.validate(value, context);
+    }
     const hint = policy.unsupportedFieldHint ? `；${policy.unsupportedFieldHint}` : '';
     return problem('invalid-field', inputFieldPath(policy, fieldKey), `${policy.label} 字段未授权：${fieldKey}${hint}`);
   }
@@ -142,14 +158,25 @@ export function validateAuthoringFieldValue(
 }
 
 /** 整表校验：未授权字段优先报告，与「先拒绝未知能力、再报字段错误」的 UI 顺序一致。 */
-export function validateAuthoringInput(policy: ContentAuthoringPolicy, input: object): AuthoringProblem | undefined {
+export function validateAuthoringInput(
+  policy: ContentAuthoringPolicy,
+  input: object,
+  context?: AuthoringValidationContext,
+): AuthoringProblem | undefined {
   const raw = input as Record<string, unknown>;
   const allowed = new Set(policy.fields.map(field => field.key));
+  for (const extension of policy.extensions ?? []) allowed.add(extension.inputKey);
   const extra = Object.keys(raw).find(key => !allowed.has(key));
-  if (extra !== undefined) return validateAuthoringFieldValue(policy, extra, raw[extra]);
+  if (extra !== undefined) return validateAuthoringFieldValue(policy, extra, raw[extra], context);
 
   for (const field of policy.fields) {
-    const issue = validateAuthoringFieldValue(policy, field.key, raw[field.key]);
+    const issue = validateAuthoringFieldValue(policy, field.key, raw[field.key], context);
+    if (issue) return issue;
+  }
+  for (const extension of policy.extensions ?? []) {
+    const value = raw[extension.inputKey];
+    if (value === undefined || value === null) continue;
+    const issue = extension.validate(value, context);
     if (issue) return issue;
   }
   return undefined;
@@ -178,6 +205,13 @@ export function buildAuthoringDef(policy: ContentAuthoringPolicy, modName: strin
     if (isAbsentAuthoringValue(field, raw[field.key])) continue;
     def[field.key] = encodeFieldValue(field, raw[field.key]);
   }
+  for (const extension of policy.extensions ?? []) {
+    const value = raw[extension.inputKey];
+    if (value === undefined || value === null) continue;
+    const encoded = extension.encode(value);
+    if (Array.isArray(encoded) && encoded.length === 0) continue;
+    def[extension.definitionKey] = encoded;
+  }
   return def;
 }
 
@@ -190,6 +224,17 @@ export function encodedAuthoringFieldValue(
   const field = getWritableField(policy, fieldKey);
   if (!field || isAbsentAuthoringValue(field, value)) return undefined;
   return encodeFieldValue(field, value);
+}
+
+export function encodedAuthoringExtensionValue(
+  policy: ContentAuthoringPolicy,
+  inputKey: string,
+  value: unknown,
+): unknown {
+  const extension = getAuthoringExtension(policy, inputKey);
+  if (!extension || value === undefined || value === null) return undefined;
+  const encoded = extension.encode(value);
+  return Array.isArray(encoded) && encoded.length === 0 ? undefined : encoded;
 }
 
 export function cloneAuthoringDef<T>(def: T): T {

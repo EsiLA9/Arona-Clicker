@@ -16,8 +16,6 @@ const spotInput = (overrides: Partial<RuntimeSpotInput> = {}): RuntimeSpotInput 
   description: 'Temporary desk',
   baseCost: 0,
   baseCostResource: CREDIT,
-  baseYield: 5,
-  baseYieldResource: CREDIT,
   baseCapacity: 3,
   ...overrides,
 });
@@ -86,18 +84,14 @@ describe('Spot 字段级 Authoring：Apply 后由对应消费者生效', () => {
     expect(game.spot.upgradeSpot(SPOT_ID)).toMatchObject({ success: true, newLevel: 2 });
   });
 
-  test('yieldPerLevel：热改后产出增量按新值生效', () => {
+  test('旧的 Spot 直接产出字段不再被 Runtime Editor 接受', () => {
     const { game, content, state } = makeGame();
-    expect(content.create(MOD, spotInput({ baseYield: 5 }), 0).ok).toBe(true);
-    state().spotLevels[SPOT_ID] = 2;
-    const before = game.gameNumSystem.evaluateResourceGain(CREDIT, state());
-    expect(game.gameNumSystem.evaluateSpotYield(SPOT_ID, state())).toBe(5);
-
-    const applied = content.replace(MOD, 'desk', spotInput({ baseYield: 5, yieldPerLevel: 3 }), content.getState().revision);
-    expect(applied.ok).toBe(true);
-
-    expect(game.gameNumSystem.evaluateSpotYield(SPOT_ID, state())).toBe(8);
-    expect(game.gameNumSystem.evaluateResourceGain(CREDIT, state()) - before).toBe(3);
+    const legacy = { ...spotInput(), baseYield: 5, baseYieldResource: CREDIT, yieldPerLevel: 3 } as RuntimeSpotInput & Record<string, unknown>;
+    const rejected = content.create(MOD, legacy, 0);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.baseYield' });
+    expect(game.registry.spots.has(SPOT_ID)).toBe(false);
+    expect(state().spotLevels[SPOT_ID]).toBeUndefined();
   });
 
   test('未设置的可选字段不写入 Def', () => {
@@ -106,7 +100,6 @@ describe('Spot 字段级 Authoring：Apply 后由对应消费者生效', () => {
 
     const def = game.registry.spots.get(SPOT_ID)!;
     expect('maxLevel' in def).toBe(false);
-    expect('yieldPerLevel' in def).toBe(false);
     expect('upgradeCostBase' in def).toBe(false);
     expect('upgradeCostGrowth' in def).toBe(false);
   });

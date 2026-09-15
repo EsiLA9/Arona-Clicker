@@ -16,16 +16,16 @@ const RESOURCE_B = `${OWNER}:resource:hot_b`;
 const childrenOf = (node: GameNum | undefined): GameNum[] =>
   node && (node.kind === 'add' || node.kind === 'sub' || node.kind === 'mul') ? node.children : [];
 
-const makeSpot = (template: SpotDef, areaId: string, resource: string, baseYield: number, yieldPerLevel: number): SpotDef => ({
+const makeSpot = (template: SpotDef, areaId: string, resource: string, baseAmount: number, linearAmount: number): SpotDef => ({
   ...template,
   id: SPOT_ID,
   areaId,
   name: 'Hot Spot',
   description: '',
-  baseYield: Expr.const(baseYield),
-  baseYieldResource: resource,
-  yieldPerLevel,
-  functionalities: [],
+  functionalities: [
+    { id: `${SPOT_ID}:base`, kind: 'flow', resource, amount: baseAmount },
+    { id: `${SPOT_ID}:linear`, kind: 'linearYield', resource, amountPerLevel: linearAmount, startLevel: 1 },
+  ],
   tags: [],
 });
 
@@ -37,7 +37,7 @@ describe('GameNum Spot definition hot update', () => {
     game = undefined;
   });
 
-  test('create builds one new resource root without calling buildAll', () => {
+  test('create rebuilds the resource root from the new Spot Affector definitions', () => {
     game = new GameInstance();
     game.init([baseDatapack]);
     game.inits.startNewGame(OFFICE);
@@ -54,10 +54,8 @@ describe('GameNum Spot definition hot update', () => {
       spotId: SPOT_ID,
       operation: 'create',
       nextAreaId: spot.areaId,
-      nextYieldResource: spot.baseYieldResource,
     });
 
-    expect(buildAll).not.toHaveBeenCalled();
     expect(game.gameNumSystem.getGainNode(RESOURCE_A)).toBeDefined();
     expect(game.gameNumSystem.spotSubtrees.has(SPOT_ID)).toBe(true);
     expect(game.gameNumSystem.evaluateSpotYield(SPOT_ID, game.state)).toBe(4);
@@ -78,7 +76,6 @@ describe('GameNum Spot definition hot update', () => {
       spotId: SPOT_ID,
       operation: 'create',
       nextAreaId: initial.areaId,
-      nextYieldResource: initial.baseYieldResource,
     });
     game.state.spotLevels[SPOT_ID] = 2;
     const oldProduct = game.gameNumSystem.spotProductNodes.get(`${SPOT_ID}@${RESOURCE_A}`)!;
@@ -101,12 +98,9 @@ describe('GameNum Spot definition hot update', () => {
       operation: 'replace',
       previousAreaId: initial.areaId,
       nextAreaId: replacement.areaId,
-      previousYieldResource: initial.baseYieldResource,
-      nextYieldResource: replacement.baseYieldResource,
     });
 
     expect(game.gameNumSystem.allNodes).not.toContain(oldProduct);
-    expect(childrenOf(oldAreaBase)).not.toContain(oldProduct);
     const newProduct = game.gameNumSystem.spotProductNodes.get(`${SPOT_ID}@${RESOURCE_B}`)!;
     const newAreaExtra = game.gameNumSystem.areaExtraNodes.get(`${replacement.areaId}@${RESOURCE_B}`)!;
     const newAreaFull = (game.gameNumSystem.parents.get(newAreaExtra.id) ?? []).find(node => node.id.startsWith('area:'))!;
@@ -121,7 +115,7 @@ describe('GameNum Spot definition hot update', () => {
     expect(game.gameNumSystem.evaluateResourceGain(RESOURCE_A, game.state)).toBe(0);
     expect(game.gameNumSystem.evaluateSpotYield(SPOT_ID, game.state)).toBe(9);
     expect(game.gameNumSystem.evaluateResourceGain(RESOURCE_B, game.state)).toBe(9);
-    expect(game.gameNumSystem.spotProductNodes.has(`${SPOT_ID}@${RESOURCE_A}`)).toBe(true);
+    expect(game.gameNumSystem.spotProductNodes.has(`${SPOT_ID}@${RESOURCE_A}`)).toBe(false);
     expect(game.gameNumSystem.spotProductNodes.has(`${SPOT_ID}@${RESOURCE_B}`)).toBe(true);
     expect(new Set([...game.gameNumSystem.spotProductNodes.keys()].filter(key => key.startsWith(`${SPOT_ID}@`))).size)
       .toBe(game.gameNumSystem.getResources().length);
@@ -141,7 +135,6 @@ describe('GameNum Spot definition hot update', () => {
       spotId: SPOT_ID,
       operation: 'create',
       nextAreaId: spot.areaId,
-      nextYieldResource: spot.baseYieldResource,
     });
     game.state.spotLevels[SPOT_ID] = 1;
     const full = game.gameNumSystem.spotSubtrees.get(SPOT_ID)!;
@@ -153,7 +146,6 @@ describe('GameNum Spot definition hot update', () => {
       spotId: SPOT_ID,
       operation: 'delete',
       previousAreaId: receipt.previousSpot!.areaId,
-      previousYieldResource: receipt.previousSpot!.baseYieldResource,
     });
 
     expect(game.gameNumSystem.spotSubtrees.has(SPOT_ID)).toBe(false);
@@ -179,13 +171,19 @@ describe('GameNum Spot definition hot update', () => {
       effectiveSpotTags: () => [],
     };
     const bus = new EventBus();
+    const state = { resources: {}, spotLevels: { [SPOT_ID]: 1 }, spotManagers: {}, flags: {} };
+    const affector = {
+      getActiveInstances: () => registry.spots.has(SPOT_ID) ? [{ instanceId: `hot@${SPOT_ID}`, packId: 'hot-pack', mountEntityId: SPOT_ID, state: 'Active', activeEntryIds: ['flow'] }] : [],
+      getPack: () => ({ id: 'hot-pack', entries: [{ id: 'flow', effects: [], flows: [{ resource: RESOURCE_A, value: 6 }] }] }),
+      getFlowResources: () => registry.spots.has(SPOT_ID) ? [RESOURCE_A] : [],
+    };
     const system = new GameNumSystem({
       valueSystem: new ValueSystem(),
       registry,
-      affectorEngine: { getActiveInstances: () => [], getPack: () => undefined },
+      affectorEngine: affector as never,
       eventBus: bus,
     });
-    system.buildAll();
+    system.buildAll(state);
     expect(system.getResources()).toEqual([]);
 
     const spot: SpotDef = {
@@ -195,9 +193,8 @@ describe('GameNum Spot definition hot update', () => {
       description: '',
       baseCost: Expr.const(1),
       baseCostResource: RESOURCE_A,
-      baseYield: Expr.const(6),
-      baseYieldResource: RESOURCE_A,
       baseCapacity: 1,
+      functionalities: [{ id: `${SPOT_ID}:base`, kind: 'flow', resource: RESOURCE_A, amount: 6 }],
       tags: [],
     };
     registry.spots.set(SPOT_ID, spot);
@@ -206,10 +203,8 @@ describe('GameNum Spot definition hot update', () => {
       spotId: SPOT_ID,
       operation: 'create',
       nextAreaId: areaId,
-      nextYieldResource: RESOURCE_A,
     });
 
-    const state = { resources: {}, spotLevels: { [SPOT_ID]: 1 }, spotManagers: {}, flags: {} };
     expect(system.getResources()).toEqual([RESOURCE_A]);
     expect(system.evaluateSpotYield(SPOT_ID, state)).toBe(6);
     expect(system.evaluateResourceGain(RESOURCE_A, state)).toBe(6);

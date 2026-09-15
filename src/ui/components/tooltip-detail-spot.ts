@@ -19,7 +19,9 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
   const known = reveal.utilityKnown;   // 效用已揭示才展示运行数值
   const show = (k: boolean, text: string): string => (k ? text : OBFUSCATED);
   const yieldInfo = getSpotYieldBreakdown(ctx, spot);
-  const resource = ctx.nameOf('resource', spot.baseYieldResource);
+  const yieldRows = yieldInfo.outputs.length > 0
+    ? yieldInfo.outputs.map(output => `${ctx.formatNumber(output.amount)} ${ctx.nameOf('resource', output.resource)} / tick`).join('、')
+    : '无持续产出';
   const manager = view.spotManagers[spot.id] ?? Character.None;
   const managerName = ctx.nameOf('character', manager);
 
@@ -99,9 +101,7 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       <div class="info-divider"></div>
       ${owned ? '' : `<div class="info-row"><span>获取条件</span><span>${acquisitionText}</span></div>`}
       <div class="info-row"><span>当前等级</span><span class="info-accent">${show(known, `Lv.${level}`)}</span></div>
-      <div class="info-row"><span>基础产出</span><span>${show(known, `${ctx.formatNumber(yieldInfo.base)} ${resource} / tick`)}</span></div>
-      <div class="info-row"><span>强化倍率</span><span>${show(known, `×${yieldInfo.enhMultiplier.toFixed(2)}${yieldInfo.enhMultiplier === 1 ? '（未获得）' : ''}`)}</span></div>
-      <div class="info-row"><span>实际入账</span><span class="info-accent">${show(known, `${ctx.formatNumber(yieldInfo.total)} ${resource} / tick`)}</span></div>
+      <div class="info-row"><span>持续产出</span><span>${show(known, yieldRows)}</span></div>
       ${funcRows}
       <div class="info-row"><span>容量上限</span><span>${show(known, spot.baseCapacity > 0 ? ctx.formatNumber(spot.baseCapacity) : '无限制')}</span></div>
       ${upgradeRow}

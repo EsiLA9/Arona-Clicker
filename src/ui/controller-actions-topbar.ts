@@ -39,7 +39,11 @@ import {
   type RuntimeEditorProblem,
   type RuntimeEditorSpotDraft,
 } from './workspace/runtime-datapack-editor-state';
-import { readRuntimeEditorFields } from './workspace/runtime-editor-form';
+import {
+  readRuntimeEditorAffectorRows,
+  readRuntimeEditorFields,
+  renderRuntimeEditorAffectorList,
+} from './workspace/runtime-editor-form';
 import type { UIController } from './controller';
 import { createUIContext } from './context';
 import { refreshPresentationHostElements } from './controller-theme';
@@ -458,8 +462,16 @@ function applyRuntimeEditorDraft(ctrl: UIController, idNames?: readonly string[]
       appliedCount += 1;
       continue;
     }
+    if (spot.unsupportedFunctionalityIds?.length) {
+      fail(`Spot 含 Demo 编辑器无法 round-trip 的资源功能：${spot.unsupportedFunctionalityIds.join('、')}`, [{
+        code: 'invalid-field',
+        path: 'spot.affectors',
+        message: '请先在 Datapack 中处理该资源功能，Runtime Editor 不会静默覆盖它。',
+      }]);
+      return;
+    }
     // 字段集由策略表保证；此处只是 DOM 值到命令输入的静态类型边界。
-    const input = spot as unknown as RuntimeSpotInput;
+    const { unsupportedFunctionalityIds: _unsupported, ...input } = spot;
     const result: RuntimeSpotMutationResult = applied
       ? editorCommands.replaceSpot(spot.idName, input)
       : editorCommands.createSpot(input);
@@ -488,7 +500,10 @@ function saveRuntimeSpotDraft(ctrl: UIController, scope: ParentNode): void {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor) return;
   const values = readRuntimeEditorFields(SPOT_CONTENT_POLICY, scope);
-  const problem = validateAuthoringInput(SPOT_CONTENT_POLICY, values);
+  values.affectors = readRuntimeEditorAffectorRows(scope);
+  const problem = validateAuthoringInput(SPOT_CONTENT_POLICY, values, {
+    resourceIds: new Set(ctrl.game.registry.resourceDisplays.keys()),
+  });
   const previousId = editor.selectedSpotId;
   if (problem) {
     setRuntimeEditorProblems(editor, [problem]);
@@ -497,6 +512,7 @@ function saveRuntimeSpotDraft(ctrl: UIController, scope: ParentNode): void {
     return;
   }
   const idName = String(values.idName);
+  const previous = previousId ? editor.spots.find(spot => spot.idName === previousId) : undefined;
   const applied = findRuntimeEditorAppliedSpot(editor, idName);
   const duplicate = editor.spots.some(spot => spot.idName === idName && spot.idName !== previousId);
   if (applied && idName !== previousId) {
@@ -511,7 +527,10 @@ function saveRuntimeSpotDraft(ctrl: UIController, scope: ParentNode): void {
     openRuntimeSpotEditor(ctrl);
     return;
   }
-  setRuntimeEditorSpot(editor, values as unknown as RuntimeEditorSpotDraft);
+  setRuntimeEditorSpot(editor, {
+    ...values,
+    ...(previous?.unsupportedFunctionalityIds ? { unsupportedFunctionalityIds: previous.unsupportedFunctionalityIds } : {}),
+  } as unknown as RuntimeEditorSpotDraft);
   setRuntimeEditorProblems(editor, []);
   setRuntimeEditorError(editor, null);
   openRuntimeDatapackEditor(ctrl);
@@ -587,6 +606,7 @@ function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode)
     }
     saveRuntimeSpotDraft(ctrl, scope);
   });
+  bindRuntimeAffectorActions(ctrl, scope);
   scope.querySelector('[data-runtime-editor-apply]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
     if (!editor) return;
@@ -648,6 +668,43 @@ function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode)
   });
   scope.querySelector('[data-runtime-delete-preserve]')?.addEventListener('click', () => removeRuntimeSpot(ctrl, true));
   scope.querySelector('[data-runtime-delete-clean]')?.addEventListener('click', () => removeRuntimeSpot(ctrl, false));
+}
+
+function bindRuntimeAffectorActions(ctrl: UIController, scope: ParentNode): void {
+  scope.querySelector('[data-runtime-editor-affector-add]')?.addEventListener('click', () => {
+    const panel = scope.querySelector<HTMLElement>('[data-runtime-editor-affectors]');
+    if (!panel) return;
+    const rows = readRuntimeEditorAffectorRows(panel);
+    const ids = new Set(rows.map(row => row.id));
+    let index = 1;
+    while (ids.has(`affector-${index}`)) index += 1;
+    rows.push({
+      id: `affector-${index}`,
+      type: 'resource-flow',
+      mode: 'fixed',
+      resource: [...ctrl.game.registry.resourceDisplays.keys()][0] ?? '',
+      amount: 1,
+    });
+    panel.outerHTML = renderRuntimeEditorAffectorList(createUIContext(ctrl.game), rows, ctrl.panelState.runtimeDatapackEditor?.problems ?? []);
+    bindRuntimeAffectorActions(ctrl, scope);
+  });
+  scope.querySelectorAll<HTMLElement>('[data-runtime-editor-affector-delete]').forEach(button => {
+    button.addEventListener('click', () => {
+      const panel = scope.querySelector<HTMLElement>('[data-runtime-editor-affectors]');
+      const row = button.closest<HTMLElement>('[data-runtime-editor-affector-row]');
+      if (!panel || !row) return;
+      const id = row.dataset.runtimeEditorAffectorId;
+      const rows = readRuntimeEditorAffectorRows(panel).filter(item => item.id !== id);
+      panel.outerHTML = renderRuntimeEditorAffectorList(createUIContext(ctrl.game), rows, ctrl.panelState.runtimeDatapackEditor?.problems ?? []);
+      bindRuntimeAffectorActions(ctrl, scope);
+    });
+  });
+  scope.querySelectorAll<HTMLSelectElement>('[data-runtime-editor-affector-field="mode"]').forEach(select => {
+    select.addEventListener('change', () => {
+      const label = select.closest<HTMLElement>('[data-runtime-editor-affector-row]')?.querySelector<HTMLElement>('[data-runtime-editor-affector-amount-label]');
+      if (label) label.textContent = select.value === 'per-level' ? '每级产出' : '持续产出';
+    });
+  });
 }
 
 function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {

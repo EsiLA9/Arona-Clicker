@@ -1,4 +1,4 @@
-import type { ConditionGroup } from '../types';
+import type { ConditionGroup, ValueExpression } from '../types';
 import type { FunctionalityState } from './state-query';
 
 export interface SpotFunctionalityView {
@@ -6,7 +6,9 @@ export interface SpotFunctionalityView {
   readonly kind: string;
   readonly condition?: ConditionGroup;
   readonly resource?: string;
+  readonly amount?: number | ValueExpression;
   readonly amountPerLevel?: number;
+  readonly startLevel?: number;
   readonly shopId?: string;
 }
 

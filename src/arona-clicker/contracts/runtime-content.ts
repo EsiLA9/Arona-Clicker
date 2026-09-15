@@ -1,6 +1,9 @@
 import type { DefinitionChange } from '../../data-services/definition/definition-types';
 import type { SpotDef } from '../../data-services/contracts/world';
+import type { SpotResourceAffectorDraft } from '../../data-services/authoring/content-policy-types';
 import type { Registry } from '../../data-services/registry/registry';
+
+export type RuntimeSpotAffectorDraft = SpotResourceAffectorDraft;
 
 export interface RuntimeSpotInput {
   readonly idName: string;
@@ -9,14 +12,11 @@ export interface RuntimeSpotInput {
   readonly description: string;
   readonly baseCost: number;
   readonly baseCostResource: string;
-  readonly baseYield: number;
-  readonly baseYieldResource: string;
   readonly baseCapacity: number;
-  /** 可选数值字段：未设置时省略该键，不写入 Def。 */
-  readonly yieldPerLevel?: number;
   readonly maxLevel?: number;
   readonly upgradeCostBase?: number;
   readonly upgradeCostGrowth?: number;
+  readonly affectors?: readonly RuntimeSpotAffectorDraft[];
 }
 
 export type RuntimeSpotMutation =

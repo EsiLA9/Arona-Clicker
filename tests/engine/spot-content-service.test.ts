@@ -10,8 +10,6 @@ const spot: RuntimeSpotInput = {
   description: '',
   baseCost: 1,
   baseCostResource: 'base:resource:credit',
-  baseYield: 2,
-  baseYieldResource: 'base:resource:credit',
   baseCapacity: 3,
 };
 

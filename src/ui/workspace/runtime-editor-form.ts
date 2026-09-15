@@ -1,10 +1,12 @@
 import {
+  encodedAuthoringExtensionValue,
   encodedAuthoringFieldValue,
   getWritableField,
   isNumericAuthoringKind,
   type ContentAuthoringPolicy,
   type WritableFieldDef,
 } from '../../data-services/authoring/content-policy';
+import type { SpotResourceAffectorDraft } from '../../data-services/authoring/content-policy-types';
 import type { UIContext } from '../context';
 
 export interface RuntimeEditorFieldOption {
@@ -29,6 +31,14 @@ export interface RuntimeEditorDiffRow {
   readonly draft: string;
   readonly runtime: string;
   readonly changed: boolean;
+}
+
+export interface RuntimeEditorAffectorRowView {
+  readonly id: string;
+  readonly mode: 'fixed' | 'per-level';
+  readonly resource: string;
+  readonly amount: string;
+  readonly resourceOptions: readonly RuntimeEditorFieldOption[];
 }
 
 /** 可写字段 → 表单控件。引用候选来自当前 Registry，不由 UI 维护候选表。 */
@@ -128,6 +138,33 @@ export function readRuntimeEditorFields(
   return values;
 }
 
+export function readRuntimeEditorAffectorRows(scope: ParentNode): SpotResourceAffectorDraft[] {
+  return [...scope.querySelectorAll<HTMLElement>('[data-runtime-editor-affector-row]')].map(row => {
+    const value = (key: string): string => row.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-editor-affector-field="${key}"]`)?.value ?? '';
+    const rawAmount = value('amount').trim();
+    return {
+      id: value('id') || row.dataset.runtimeEditorAffectorId || '',
+      type: 'resource-flow',
+      mode: value('mode') === 'per-level' ? 'per-level' : 'fixed',
+      resource: value('resource'),
+      amount: rawAmount === '' ? Number.NaN : Number(rawAmount),
+    };
+  });
+}
+
+export function renderRuntimeEditorAffectorList(
+  ctx: UIContext,
+  affectors: unknown,
+  problems: readonly RuntimeEditorProblemInput[] = [],
+): string {
+  const esc = ctx.escapeHtml;
+  const rows = Array.isArray(affectors) ? affectors.map((value, index) => toAffectorRowView(ctx, value, index)) : [];
+  const body = rows.length === 0
+    ? '<p class="runtime-editor-affector-empty">还没有持续资源。添加一行后选择资源与产出数值。</p>'
+    : `<div class="runtime-editor-affector-list">${rows.map((row, index) => renderAffectorRow(ctx, row, index, problems)).join('')}</div>`;
+  return `<section class="runtime-editor-affectors" data-runtime-editor-affectors><div class="runtime-editor-affector-heading"><div><h5>持续资源 Affector</h5><p class="runtime-editor-hint">固定持续按 Spot 已解锁状态生效；按等级持续随 Spot 等级线性增长。</p></div><button type="button" class="toolbar-button" data-runtime-editor-affector-add>添加持续资源</button></div>${body}</section>`;
+}
+
 /** Draft 与 Runtime Effective 的字段级差异，只比较已编码值，避免两种表示法互相误判。 */
 export function runtimeEditorDiff(
   policy: ContentAuthoringPolicy,
@@ -136,7 +173,7 @@ export function runtimeEditorDiff(
 ): RuntimeEditorDiffRow[] {
   if (!runtime) return [];
   const runtimeRecord = runtime as Record<string, unknown>;
-  return policy.fields
+  const fieldRows = policy.fields
     .filter(field => field.kind !== 'entityName')
     .map(field => {
       const draftValue = encodedAuthoringFieldValue(policy, field.key, (draft as Record<string, unknown>)[field.key]);
@@ -149,6 +186,18 @@ export function runtimeEditorDiff(
         changed: JSON.stringify(draftValue) !== JSON.stringify(runtimeValue),
       };
     });
+  const extensionRows = (policy.extensions ?? []).map(extension => {
+    const draftValue = encodedAuthoringExtensionValue(policy, extension.inputKey, (draft as Record<string, unknown>)[extension.inputKey]);
+    const runtimeValue = encodedAuthoringExtensionValue(policy, extension.inputKey, runtimeRecord[extension.inputKey]);
+    return {
+      key: extension.inputKey,
+      label: extension.inputKey === 'affectors' ? '持续资源 Affector' : extension.inputKey,
+      draft: displayValue(draftValue),
+      runtime: displayValue(runtimeValue),
+      changed: JSON.stringify(draftValue) !== JSON.stringify(runtimeValue),
+    };
+  });
+  return [...fieldRows, ...extensionRows];
 }
 
 export function renderRuntimeEditorDiff(rows: readonly RuntimeEditorDiffRow[]): string {
@@ -185,6 +234,48 @@ export function problemFieldKey(policy: ContentAuthoringPolicy, problem: Runtime
   return stripped && getWritableField(policy, stripped) ? stripped : undefined;
 }
 
+function toAffectorRowView(ctx: UIContext, value: unknown, index: number): RuntimeEditorAffectorRowView {
+  const raw = value && typeof value === 'object' ? value as Partial<SpotResourceAffectorDraft> : {};
+  const resource = typeof raw.resource === 'string' ? raw.resource : '';
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : `affector-${index + 1}`,
+    mode: raw.mode === 'per-level' ? 'per-level' : 'fixed',
+    resource,
+    amount: typeof raw.amount === 'number' && Number.isFinite(raw.amount) ? String(raw.amount) : '',
+    resourceOptions: resourceOptions(ctx, resource),
+  };
+}
+
+function renderAffectorRow(
+  ctx: UIContext,
+  row: RuntimeEditorAffectorRowView,
+  index: number,
+  problems: readonly RuntimeEditorProblemInput[],
+): string {
+  const esc = ctx.escapeHtml;
+  const rowProblems = problems.filter(problem => problem.path?.startsWith(`spot.affectors[${index}]`));
+  const errors = rowProblems.length === 0 ? '' : `<ul class="runtime-editor-affector-errors">${rowProblems.map(problem => `<li>${esc(problem.message)}</li>`).join('')}</ul>`;
+  return `<div class="runtime-editor-affector-row" data-runtime-editor-affector-row data-runtime-editor-affector-id="${esc(row.id)}">
+    <input type="hidden" data-runtime-editor-affector-field="id" value="${esc(row.id)}">
+    <input type="hidden" data-runtime-editor-affector-field="type" value="resource-flow">
+    <div class="runtime-editor-affector-row-heading"><strong>持续资源 ${index + 1}</strong><button type="button" class="mini-action danger" data-runtime-editor-affector-delete>删除</button></div>
+    <label class="user-theme-field"><span>模式</span><select data-runtime-editor-affector-field="mode"><option value="fixed"${row.mode === 'fixed' ? ' selected' : ''}>固定持续</option><option value="per-level"${row.mode === 'per-level' ? ' selected' : ''}>按 Spot 等级</option></select></label>
+    <label class="user-theme-field"><span>资源</span><select data-runtime-editor-affector-field="resource">${renderOptions(esc, row.resourceOptions, row.resource, true)}</select></label>
+    <label class="user-theme-field"><span data-runtime-editor-affector-amount-label>${row.mode === 'per-level' ? '每级产出' : '持续产出'}</span><input data-runtime-editor-affector-field="amount" type="number" min="0" step="any" value="${esc(row.amount)}"></label>
+    ${errors}
+  </div>`;
+}
+
+function resourceOptions(ctx: UIContext, current = ''): RuntimeEditorFieldOption[] {
+  const options = [...ctx.game.registry.resourceDisplays.values()]
+    .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+    .map(resource => ({ value: resource.resourceId, label: resource.label || resource.resourceId }));
+  if (current && !options.some(option => option.value === current)) {
+    options.unshift({ value: current, label: `${current}（当前资源未注册）` });
+  }
+  return options;
+}
+
 function refOptions(ctx: UIContext, field: WritableFieldDef): RuntimeEditorFieldOption[] {
   if (field.refType === 'area') {
     return [...ctx.game.registry.areas.values()].map(area => ({ value: area.id, label: area.name || area.id }));
@@ -201,7 +292,7 @@ function renderOptions(
   const known = options.some(option => option.value === value);
   const head = value && !known
     ? `<option value="${esc(value)}" selected>${esc(value)}（当前 Registry 中不存在）</option>`
-    : required ? '<option value="">请选择…</option>' : '<option value="">（未设置）</option>';
+    : value ? '' : required ? '<option value="">请选择…</option>' : '<option value="">（未设置）</option>';
   return head + options.map(option => `<option value="${esc(option.value)}"${option.value === value ? ' selected' : ''}>${esc(option.label)}</option>`).join('');
 }
 

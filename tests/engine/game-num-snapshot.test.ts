@@ -41,12 +41,12 @@ interface Fixture {
 }
 
 /** 最小合成世界：s1/s2 在 areaA（initI），s3 在 areaB（initI），s4 在 areaC（initOther）。
- *  baseYield：s1=5, s2=10, s3=20, s4=40；s1/s2 带 office 标签，s1 另带 credit 标签。 */
-function makeFixture(affector: unknown = { getActiveInstances: () => [], getPack: () => undefined }): Fixture {
+ *  Spot flow：s1=5, s2=10, s3=20, s4=40；s1/s2 带 office 标签，s1 另带 credit 标签。 */
+function makeFixture(affector?: unknown): Fixture {
   const bus = new EventBus();
   const vs = new ValueSystem();
-  const spot = (id: string, areaId: string, baseYield: number, tags: string[][]) => ({
-    id, areaId, baseYieldResource: CREDIT, baseYield: { type: 'const', value: baseYield }, tags,
+  const spot = (id: string, areaId: string, baseAmount: number, tags: string[][]) => ({
+    id, areaId, functionalities: [{ id: `${id}:base`, kind: 'flow', resource: CREDIT, amount: baseAmount }], tags,
   });
   const registry = {
     spots: new Map([
@@ -71,10 +71,26 @@ function makeFixture(affector: unknown = { getActiveInstances: () => [], getPack
     const s = registry.spots.get(id);
     return s?.tags ?? [];
   };
+  const baseInstances = [...registry.spots.keys()].map(spotId => ({
+    instanceId: `${spotId}:base@${spotId}`,
+    packId: `${spotId}:base`,
+    mountEntityId: spotId,
+    activeEntryIds: ['base'],
+  }));
+  const baseAffector = {
+    getActiveInstances: () => baseInstances,
+    getPack: (id: string) => ({ id, entries: [{ id: 'base', effects: [], flows: [{ resource: CREDIT, value: registry.spots.get(id.replace(/:base$/, ''))?.functionalities?.[0]?.amount ?? 0, applySpotMultiplier: true }] }] }),
+  };
+  const selectedAffector = affector
+    ? {
+        getActiveInstances: () => [...baseAffector.getActiveInstances(), ...(affector as { getActiveInstances: () => readonly unknown[] }).getActiveInstances()],
+        getPack: (id: string) => id.endsWith(':base') ? baseAffector.getPack(id) : (affector as { getPack: (id: string) => unknown }).getPack(id),
+      }
+    : baseAffector;
   const system = new GameNumSystem({
     valueSystem: vs,
     registry: registry as never,
-    affectorEngine: affector as never,
+    affectorEngine: selectedAffector as never,
     eventBus: bus,
   });
   const state = {
@@ -336,12 +352,12 @@ describe('Phase 6 快照：flows 层级分发（按 mountEntityId）', () => {
     }),
   } as unknown as AffectorEngine;
 
-  test('spot 挂载的 flows 分发到对应 spot 的 spotExtra 节点', () => {
+  test('spot 挂载的 flows 分发到对应资源树的 spotExtra 节点', () => {
     const { system, state } = makeFixture(flowsAffector);
     // s1 视图 = base 5 + flows(3+7)=10 → 15；s2 = 10+3=13；s3/s4 无挂载
-    expect(system.evaluate(system.spotSubtrees.get('test:spot:s1')!, state)).toBe(15);
-    expect(system.evaluate(system.spotSubtrees.get('test:spot:s2')!, state)).toBe(13);
-    expect(system.evaluate(system.spotSubtrees.get('test:spot:s3')!, state)).toBe(20);
+    expect(system.evaluate(system.spotResourceSubtrees.get('test:spot:s1@credit')!, state)).toBe(15);
+    expect(system.evaluate(system.spotResourceSubtrees.get('test:spot:s2@credit')!, state)).toBe(13);
+    expect(system.evaluate(system.spotResourceSubtrees.get('test:spot:s3@credit')!, state)).toBe(20);
     expect(system.evaluateResourceGain(CREDIT, state)).toBe(15 + 13 + 20 + 40);
   });
 
@@ -354,15 +370,15 @@ describe('Phase 6 快照：flows 层级分发（按 mountEntityId）', () => {
   test('未激活 entry 不参与 flows 求值', () => {
     const { system, state } = makeFixture(flowsAffector);
     // e3（100 credit）未激活：s1 视图不含 100
-    expect(system.evaluate(system.spotSubtrees.get('test:spot:s1')!, state)).toBe(15);
+    expect(system.evaluate(system.spotResourceSubtrees.get('test:spot:s1@credit')!, state)).toBe(15);
   });
 
-  test('未拥有 spot 的 flows 仍产出（flows 不受 owned 门控）', () => {
+  test('未拥有 spot 的 flows 不产出（Spot-mounted flow 受 owned 门控）', () => {
     const { system, state } = makeFixture(flowsAffector);
     for (const key of Object.keys(state.spotLevels)) (state as any).spotLevels[key] = 0;
     system.invalidateProduction();
-    expect(system.evaluateResourceGain(CREDIT, state)).toBe(13); // 无 spot 产出，仅 flows
-    expect(system.evaluateResourceGain(GOLD, state)).toBe(10);
+    expect(system.evaluateResourceGain(CREDIT, state)).toBe(0);
+    expect(system.evaluateResourceGain(GOLD, state)).toBe(0);
   });
 });
 

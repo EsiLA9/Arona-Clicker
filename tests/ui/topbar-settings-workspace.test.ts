@@ -160,10 +160,29 @@ describe('顶栏与设置工作区', () => {
     expect(document.querySelector('.runtime-datapack-modal .modal-head .eyebrow')?.textContent).toContain('创建 Spot');
     setField('idName', 'empty-spot');
     setField('name', '空 Spot');
+    click('.app-modal [data-runtime-editor-affector-add]');
+    click('.app-modal [data-runtime-editor-affector-add]');
+    const affectorRows = () => [...document.querySelectorAll<HTMLElement>('.app-modal [data-runtime-editor-affector-row]')];
+    const setAffectorField = (row: HTMLElement, key: string, value: string) => {
+      const field = row.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-editor-affector-field="${key}"]`)!;
+      field.value = value;
+    };
+    setAffectorField(affectorRows()[0], 'resource', 'base:resource:credit');
+    setAffectorField(affectorRows()[0], 'amount', '2');
+    setAffectorField(affectorRows()[1], 'mode', 'per-level');
+    setAffectorField(affectorRows()[1], 'resource', 'base:resource:pyroxene');
+    setAffectorField(affectorRows()[1], 'amount', '3');
     click('.app-modal [data-runtime-editor-create-spot]');
 
     // 保存只写草稿：运行时未改变，浏览器能看到新建条目
-    expect(editor().spots[0]).toMatchObject({ idName: 'empty-spot', name: '空 Spot' });
+    expect(editor().spots[0]).toMatchObject({
+      idName: 'empty-spot',
+      name: '空 Spot',
+      affectors: [
+        { type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 2 },
+        { type: 'resource-flow', mode: 'per-level', resource: 'base:resource:pyroxene', amount: 3 },
+      ],
+    });
     expect(game.registry.spots.has('draft-mod:spot:empty-spot')).toBe(false);
     expect(document.querySelector('.runtime-spot-list')).not.toBeNull();
     expect(entryState('empty-spot')).toBe('created');
@@ -171,6 +190,10 @@ describe('顶栏与设置工作区', () => {
     // 显式 Apply 才进入运行时
     click('.app-modal [data-runtime-editor-apply]');
     expect(game.registry.spots.has('draft-mod:spot:empty-spot')).toBe(true);
+    expect(game.registry.spots.get('draft-mod:spot:empty-spot')?.functionalities).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'flow', resource: 'base:resource:credit', amount: 2 }),
+      expect.objectContaining({ kind: 'linearYield', resource: 'base:resource:pyroxene', amountPerLevel: 3 }),
+    ]));
     expect(entryState('empty-spot')).toBe('unchanged');
     expect(document.querySelector('#toast-layer .toast-action')).not.toBeNull();
 

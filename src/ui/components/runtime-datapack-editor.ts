@@ -13,6 +13,7 @@ import {
 import {
   readRuntimeEditorFields,
   renderRuntimeEditorDiff,
+  renderRuntimeEditorAffectorList,
   renderRuntimeEditorFields,
   renderRuntimeEditorProblems,
   runtimeEditorDiff,
@@ -100,7 +101,7 @@ export function renderRuntimeSpotForm(ctx: UIContext, state: PanelState): string
   const notice = areas.length === 0
     ? '<p class="service-result error">当前 Registry 没有 Area，无法创建 Spot。</p>'
     : '';
-  return `<div class="runtime-editor-form">${notice}${renderError(esc, editor)}<h4>${spot ? '编辑 Spot' : '新建 Spot'}</h4><p class="service-summary">${spot ? '保存只写入草稿；差异确认后再应用到运行时。' : '保存后加入草稿，不会立刻改变游戏。'}</p>${renderRuntimeEditorFields(ctx, views, editor.problems, POLICY)}${renderRuntimeEditorProblems(ctx, POLICY, editor.problems)}${diff ? `<div class="runtime-editor-diff-panel"><span class="eyebrow">与运行中版本的差异</span>${diff}</div>` : ''}<div class="service-actions"><button type="button" class="primary-button" data-runtime-editor-create-spot>${spot ? '保存 Spot 修改' : '加入草稿'}</button><button type="button" class="primary-button" data-runtime-editor-apply>应用到运行时</button>${spot ? '<button type="button" class="toolbar-button danger" data-runtime-editor-delete-spot>删除 Spot</button>' : ''}</div></div>`;
+  return `<div class="runtime-editor-form">${notice}${renderError(esc, editor)}<h4>${spot ? '编辑 Spot' : '新建 Spot'}</h4><p class="service-summary">${spot ? '保存只写入草稿；差异确认后再应用到运行时。' : '保存后加入草稿，不会立刻改变游戏。'}</p>${renderRuntimeEditorFields(ctx, views, editor.problems, POLICY)}${renderRuntimeEditorAffectorList(ctx, values.affectors ?? [], editor.problems)}${renderRuntimeEditorProblems(ctx, POLICY, editor.problems)}${diff ? `<div class="runtime-editor-diff-panel"><span class="eyebrow">与运行中版本的差异</span>${diff}</div>` : ''}<div class="service-actions"><button type="button" class="primary-button" data-runtime-editor-create-spot>${spot ? '保存 Spot 修改' : '加入草稿'}</button><button type="button" class="primary-button" data-runtime-editor-apply>应用到运行时</button>${spot ? '<button type="button" class="toolbar-button danger" data-runtime-editor-delete-spot>删除 Spot</button>' : ''}</div></div>`;
 }
 
 function renderRuntimeSpotEntry(ctx: UIContext, editor: RuntimeDatapackEditorState, spot: RuntimeEditorSpotDraft): string {

@@ -305,7 +305,9 @@ export class RuntimeContentCoordinator {
         return failure('invalid-field', 'Spot 输入必须是对象', policy.inputPrefix);
       }
       const input = mutation.spot;
-      const problem = validateAuthoringInput(policy, input);
+      const problem = validateAuthoringInput(policy, input, {
+        resourceIds: new Set(this.registry.resourceDisplays.keys()),
+      });
       if (problem) {
         const idName = typeof input.idName === 'string' ? input.idName : '';
         return policyFailure(policy, problem, mutation.modName, idName);
@@ -322,7 +324,10 @@ export class RuntimeContentCoordinator {
       if (operation === 'replace' && !currentSpot) {
         return failure('spot-not-found', `当前临时 Mod 不拥有 Spot：${spotId}`, undefined, spotId);
       }
-      const nextSpot = buildAuthoringDef(policy, mutation.modName, input) as SpotDef;
+      const nextSpot = preserveUnsupportedSpotFunctionalities(
+        currentSpot,
+        buildAuthoringDef(policy, mutation.modName, input) as SpotDef,
+      );
       return {
         mutation,
         request: { table: SPOT_CONTENT_KEY, operation, ownerModName: mutation.modName, defId: spotId, def: nextSpot },
@@ -394,4 +399,13 @@ export class RuntimeContentCoordinator {
     }
     this.revision++;
   }
+}
+
+function preserveUnsupportedSpotFunctionalities(previous: SpotDef | undefined, next: SpotDef): SpotDef {
+  const preserved = (previous?.functionalities ?? []).filter(functionality => functionality.kind !== 'flow' && functionality.kind !== 'linearYield');
+  if (preserved.length === 0) return next;
+  const nextIds = new Set((next.functionalities ?? []).map(functionality => functionality.id));
+  const withoutCollisions = preserved.filter(functionality => !nextIds.has(functionality.id));
+  if (withoutCollisions.length === 0) return next;
+  return { ...next, functionalities: [...(next.functionalities ?? []), ...withoutCollisions] };
 }

@@ -84,15 +84,11 @@ export interface SpotDef {
   description: string;
   baseCost: ValueExpression;
   baseCostResource: string;
-  baseYield: ValueExpression;
-  baseYieldResource: string;
   /** @label 基础容量 */
   baseCapacity: number;
   /** @label 条件文本 */
   conditionText?: string;
   levelUpgrades?: LevelUpgradeDef[];
-  /** @label 每级产出 */
-  yieldPerLevel?: number;
   /** @label 升级基价 */
   upgradeCostBase?: number;
   /** @label 升级增长 */
@@ -116,11 +112,14 @@ export interface SpotDef {
 export interface SpotFunctionalityDef {
   id: string;
   condition?: ConditionGroup;
-  kind: 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop';
+  kind: 'flow' | 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop';
   /** @ref shops */
   shopId?: ShopId;
   resource?: string;
+  amount?: number | ValueExpression;
   amountPerLevel?: number;
+  /** 可选起算等级；0 表示 Lv.1 即按等级计入，1 表示从 Lv.2 开始增加。 */
+  startLevel?: number;
   extra?: ExtraCompound;
 }
 

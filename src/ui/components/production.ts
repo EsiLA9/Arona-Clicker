@@ -1,5 +1,5 @@
 import { UIContext } from '../context';
-import { getSpotReveal, describeCondition } from './tooltip';
+import { getSpotReveal, describeCondition, getSpotYieldBreakdown } from './tooltip';
 import { cardAccent, accentPalette } from '../color-scheme';
 import { themeTreeFromThemeDef, themeTreeFromGroup, themeTreeToInlineStyle } from '../theme-tree';
 import { TagPath } from '../../engine/core/tag';
@@ -29,6 +29,13 @@ function spotColorScheme(tags: TagPath[] | undefined): string {
   }
   return 'primary';
 }
+
+function formatSpotYields(ctx: UIContext, spot: Parameters<typeof getSpotYieldBreakdown>[1]): string {
+  const outputs = getSpotYieldBreakdown(ctx, spot).outputs;
+  return outputs.length > 0
+    ? outputs.map(output => `${ctx.formatNumber(output.amount)} ${ctx.escapeHtml(ctx.nameOf('resource', output.resource))}/t`).join(' · ')
+    : '无持续产出';
+}
 import { existenceCondition, unlockCondition } from '../../engine/visibility/reveal';
 
 export function renderProductionNodes(ctx: UIContext): string {
@@ -47,12 +54,9 @@ export function renderProductionNodes(ctx: UIContext): string {
       const purchaseable = reveal.stage === 'purchaseable';
       const level = view.spotLevels[spot.id] ?? 0;
       const visible = view.visibility.spots[spot.id] ?? false;
-      // 最终产出值：GameNum 懒求值（base + 倍率 + 挂载的功能 Affector），随状态实时变化
-      const finalYield = reveal.utilityKnown
-        ? game.gameNumSystem.evaluateSpotYield(spot.id, game.state)
-        : 0;
+      // 最终产出：GameNum 懒求值（按资源拆分），随状态实时变化
       const yieldText = reveal.utilityKnown
-        ? `产出 ${ctx.formatNumber(finalYield)} / tick`
+        ? `产出 ${formatSpotYields(ctx, spot)}`
         : '产出 ???';
       const title = reveal.nameKnown ? spot.name : '???';
       const effectiveTags = world.effectiveSpotTags(spot.id, game.state.spotTagOverrides);

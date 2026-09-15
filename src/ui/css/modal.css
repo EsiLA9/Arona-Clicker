@@ -147,6 +147,51 @@
    margin: 4px 0;
 }
 
+.runtime-editor-affectors {
+   display: grid;
+   gap: 8px;
+   margin-top: 10px;
+   padding-top: 8px;
+   border-top: 1px solid var(--line);
+}
+
+.runtime-editor-affector-heading,
+.runtime-editor-affector-row-heading {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 8px;
+}
+
+.runtime-editor-affector-heading h5 {
+   margin: 0;
+}
+
+.runtime-editor-affector-heading p,
+.runtime-editor-affector-empty {
+   margin: 2px 0 0;
+}
+
+.runtime-editor-affector-list {
+   display: grid;
+   gap: 8px;
+}
+
+.runtime-editor-affector-row {
+   display: grid;
+   gap: 2px;
+   padding: 8px;
+   border: 1px solid var(--line);
+   border-radius: 4px;
+}
+
+.runtime-editor-affector-errors {
+   margin: 2px 0 0;
+   padding-left: 18px;
+   color: var(--danger, #d9534f);
+   font-size: 10px;
+}
+
 .runtime-editor-workspace {
    display: grid;
    gap: 8px;
@@ -308,8 +353,16 @@
 }
 
 .runtime-editor-hint,
-.runtime-editor-locked {
+.runtime-editor-locked,
+.runtime-editor-affector-empty {
    color: var(--muted-on-panel);
+}
+
+@media (max-width: 520px) {
+   .runtime-editor-affector-heading {
+      align-items: stretch;
+      flex-direction: column;
+   }
 }
 
 .modal-foot {

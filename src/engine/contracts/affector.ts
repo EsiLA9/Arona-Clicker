@@ -15,6 +15,8 @@ export interface AffectorFlow {
   resource: string;
   /** 每 tick 数量（数值或表达式，如 spotLevel × amountPerLevel）。 */
   value: number | ValueExpression;
+  /** Spot 功能生成的主产出进入 Spot/Area/Init 乘区；普通 Affector flow 默认不进入。 */
+  applySpotMultiplier?: boolean;
 }
 export interface AffectorEffect { id: string; condition?: ConditionGroup; effects: Effect[]; perTickEffects?: Effect[]; flows?: AffectorFlow[]; zoneModifiers?: ZoneModifierDecl[]; }
 export interface AffectorPackDef {

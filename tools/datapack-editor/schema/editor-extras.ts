@@ -335,6 +335,7 @@ const functionalityObject = (): FieldDef =>
     s('id', '功能 ID', { required: true }),
     cg('condition', '生效条件'),
     e('kind', [
+      ['flow', '持续产出'],
       ['linearYield', '线性产出'],
       ['restartInit', '重启世界线'],
       ['hardResetInit', '硬重置世界线'],
@@ -343,7 +344,9 @@ const functionalityObject = (): FieldDef =>
     ], '类型', { required: true }),
     r('resource', 'resourceDisplays', '资源'),
     r('shopId', 'shops', '商店'),
+    { key: 'amount', label: '每 Tick 量', type: { kind: 'flexible' } },
     n('amountPerLevel', '每级量'),
+    i('startLevel', '起算等级'),
     extraF(),
   ], '功能');
 
@@ -788,8 +791,6 @@ export const TABLE_META: TableMeta[] = [
     overrides: {
       baseCost: () => valueExpressionField('baseCost', '基础造价', true),
       baseCostResource: () => r('baseCostResource', 'resourceDisplays', '造价资源', { required: true }),
-      baseYield: () => valueExpressionField('baseYield', '基础产出', true),
-      baseYieldResource: () => r('baseYieldResource', 'resourceDisplays', '产出资源', { required: true }),
       levelUpgrades: () => levelUpgradeField(),
       maxLevel: () => i('maxLevel', '等级上限'),
       tags: () => tagPathField('tags'),

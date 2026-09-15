@@ -1,6 +1,6 @@
 // ============================================================
 // engine/game-num-eval.ts — GameNum 节点纯求值
-// evaluateGameNum：按节点语义递归求值（const/expr/add/sub/mul/owned/levelLinear/
+// evaluateGameNum：按节点语义递归求值（const/expr/add/sub/mul/owned/
 // zone/affectorFlows）。从 game-num.ts 抽出，便于对最末端求值语义独立测试。
 //
 // 节点级运行时字段（挂载在 GameNum 上，由宿主 GameNumSystem 维护）：
@@ -39,7 +39,7 @@ export interface GNAttrs {
 
 /** GameNum 节点类型。
  * 组合算子：add/sub/mul（多叉，从左到右折叠）。
- * 叶子：const/expr/owned/levelLinear/affectorFlows/
+ * 叶子：const/expr/owned/affectorFlows/
  * zone（按作用目标聚合的 flat 区 / mul 区，求值统一走 state 表 aggregateZone）。
  * 整棵树必须为无环图（节点仅持子节点引用，无反向引用）。 */
 export type GameNum =
@@ -47,8 +47,7 @@ export type GameNum =
   | (GNAttrs & { id: string; kind: 'expr'; expr: ValueExpression })
   | (GNAttrs & { id: string; kind: 'add' | 'sub' | 'mul'; children: GameNum[] })
   | (GNAttrs & { id: string; kind: 'owned'; spotId: string })
-  | (GNAttrs & { id: string; kind: 'levelLinear'; spotId: string })
-  | (GNAttrs & { id: string; kind: 'affectorFlows'; resource: string; mount?: string })
+  | (GNAttrs & { id: string; kind: 'affectorFlows'; resource: string; mount?: string; applySpotMultiplier?: boolean })
   | (GNAttrs & { id: string; kind: 'zone'; scope: EntityRef; part: 'flat' | 'mul'; resource?: string });
 
 /** 贡献明细（溯源分解 API 输出）。children 仅组合节点存在，与子节点顺序一致。 */
@@ -198,12 +197,6 @@ function switchEval(node: GameNum, state: GameNumState, deps: GameNumEvalDeps, u
     }
     case 'owned':
       return (state.spotLevels[node.spotId] ?? 0) > 0 ? 1 : 0;
-    case 'levelLinear': {
-      const level = state.spotLevels[node.spotId] ?? 0;
-      const spot = deps.registry.spots.get(node.spotId);
-      const perLevel = spot?.yieldPerLevel ?? 0;
-      return Math.floor(Math.max(0, level - 1) * perLevel);
-    }
     case 'zone':
       return zoneValue(node, state, deps, useCache);
     case 'affectorFlows':
@@ -239,12 +232,6 @@ export function evaluateGameNumBreakdown(node: GameNum, state: GameNumState, dep
     }
     case 'owned':
       return { id: node.id, kind: 'owned', value: (state.spotLevels[node.spotId] ?? 0) > 0 ? 1 : 0, label: node.spotId };
-    case 'levelLinear': {
-      const level = state.spotLevels[node.spotId] ?? 0;
-      const spot = deps.registry.spots.get(node.spotId);
-      const perLevel = spot?.yieldPerLevel ?? 0;
-      return { id: node.id, kind: 'levelLinear', value: Math.floor(Math.max(0, level - 1) * perLevel), label: node.spotId };
-    }
     case 'zone': {
       const scope = node.scope;
       const label = `zone:${scope.kind}:${scope.id}:${node.part}${node.resource ? `:${node.resource}` : ''}`;
@@ -269,8 +256,11 @@ function isLevelEntity(registry: GameNumRegistryContext, entityId: string): bool
  * - mount 缺省（global 兜底节点）：只累计挂在非层级实体（enhancement/item 等）上的实例。
  */
 export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows' }, state: GameNumState, deps: GameNumEvalDeps): number {
+  // Spot-mounted flows are owned production: the mount may remain alive while a
+  // test/save state is being rebuilt, so ownership is checked at evaluation time.
+  if (node.mount !== undefined && deps.registry.spots.has(node.mount) && (state.spotLevels[node.mount] ?? 0) <= 0) return 0;
   let sum = 0;
-  const indexed = deps.affectorFlowSources?.get(flowBucketKey(node.resource, node.mount));
+  const indexed = deps.affectorFlowSources?.get(flowBucketKey(node.resource, node.mount, node.applySpotMultiplier));
   if (indexed) {
     for (const source of indexed) sum += resolveFlowValue(source.flow, state, deps.valueSystem);
     return sum;
@@ -283,6 +273,7 @@ export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows
       if (!(instance.activeEntryIdSet?.has(entry.id) ?? instance.activeEntryIds.includes(entry.id))) continue;
       for (const flow of entry.flows ?? []) {
         if (flow.resource !== node.resource) continue;
+        if (Boolean(flow.applySpotMultiplier) !== Boolean(node.applySpotMultiplier)) continue;
         sum += resolveFlowValue(flow, state, deps.valueSystem);
       }
     }
@@ -291,8 +282,8 @@ export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows
 }
 
 /** 稳定且无歧义的 `(resource, mount)` bucket key。 */
-export function flowBucketKey(resource: string, mount: string | undefined): string {
-  return JSON.stringify([resource, mount ?? null]);
+export function flowBucketKey(resource: string, mount: string | undefined, applySpotMultiplier = false): string {
+  return JSON.stringify([resource, mount ?? null, applySpotMultiplier]);
 }
 
 export function resolveFlowValue(flow: AffectorFlow, state: GameNumState, valueSystem: ValueSystem): number {

@@ -19,7 +19,7 @@
 | `AreaDef.initId` | InitDef | 意义 | 归属键：进入判定、可见性挂载按 id 匹配运行时 `activeInit`，不读 InitDef 内容。有加载期校验 |
 | `SpotDef.areaId` | AreaDef | 意义 | 归属键：Spot 挂载/展示按 id 匹配当前 Area。有加载期校验 |
 | `InitDef.defaultAreas` | AreaDef | 真 | 进入 Init 时挂载这些 Area 并展开其子树（读 `area.defaultSpots` 等实际内容）。有校验 |
-| `AreaDef.defaultSpots` | SpotDef | 真 | 挂载 Spot 本体（baseCost/baseYield 等全部字段参与结算）。有校验 |
+| `AreaDef.defaultSpots` | SpotDef | 真 | 挂载 Spot 本体（成本、容量、功能等字段参与运行时行为）。有校验 |
 | `AreaDef.adjacentAreaIds` | AreaDef | 意义 | 移动可达性：`adjacentAreaIds.includes(areaId)` 纯身份匹配。无加载期校验 |
 | `InitDef.startStoryId` | StoryEntry | 真 | 进入 Init 时启动该剧情入口，经 entry → storyId 取 StoryDef 的 talklets 播放。无加载期校验（悬空引用运行时软失败 NotFound） |
 
@@ -73,7 +73,7 @@
 | `TriggerDef.id` | —（自身生命周期） | 内部身份 | 全局 triggerDefs 按 id 挂载/卸载/once 持久化，无任何跨 Def 引用；匿名 Trigger 派 `anon:` 派生 id |
 | `AffectorEffect.id` | —（包内条目） | 内部身份 | 仅用于 AffectorInstance.activeEntryIds 追踪 |
 | 各 Def 的 `tags: TagPath[]` | TagDef | 意义 | 标签是纯语义标记：匹配按 id 前缀（hasTag/countTags/tagCount/zoneModifiers），TagDef 的 name/description 仅 UI 展示 |
-| 资源 id（`baseCostResource`/`baseYieldResource`/AffectorFlow.resource/…） | 资源 | 意义（状态键） | 资源在 PlayerState 按 id 存数量副本，效果的操作目标就是该 id 本身；资源 Def 的显示名/图标不参与结算 |
+| 资源 id（`baseCostResource`/Spot functionality.resource/AffectorFlow.resource/…） | 资源 | 意义（状态键） | 资源在 PlayerState 按 id 存数量副本，效果的操作目标就是该 id 本身；资源 Def 的显示名/图标不参与结算 |
 | `avatar` / `image` 的 PicId | PicDef | 真 | resolvePicSrc → registry.pics.get 解析成实际图片；缺图回退首字母占位 |
 | `VariantProgress.variantId` / `GachaPoolState` / `storyReadLogs` / `studentBlocks` 等 | 各 Def | 意义（状态键） | 玩家层按 id 持有进度副本（等级/经验/pity/阅读记录），Def 内容不参与——这就是「我拥有和该 id 一致的副本生效」的字面形态 |
 

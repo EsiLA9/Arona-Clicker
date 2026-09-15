@@ -32,6 +32,17 @@ export interface WritableFieldDef {
   readonly initialValue?: unknown;
 }
 
+/** Spot Runtime Editor 当前暴露的资源 Affector 行；实现细节留在 authoring 层。 */
+export type SpotAffectorMode = 'fixed' | 'per-level';
+
+export interface SpotResourceAffectorDraft {
+  readonly id: string;
+  readonly type: 'resource-flow';
+  readonly mode: SpotAffectorMode;
+  readonly resource: string;
+  readonly amount: number;
+}
+
 export type ContentApplyStrategy = 'local-mutation' | 'reload';
 
 /** 字段的运行时消费者：用于登记「谁读这个字段」。 */
@@ -61,6 +72,11 @@ export interface FieldMaterialization {
   readonly trigger?: string;
 }
 
+export interface AuthoringValidationContext {
+  /** 由 Registry 的 resourceDisplays 投影而来，禁止编辑器自由注入未知资源。 */
+  readonly resourceIds?: ReadonlySet<string>;
+}
+
 export type ContentStatePolicy = 'retain';
 
 export interface AuthoringMutationRequest {
@@ -83,15 +99,26 @@ export interface AuthoringMutationReceipt {
   rollback(): void;
 }
 
+export interface AuthoringExtension {
+  /** 作者输入中的键；不要求与引擎 Def 键相同。 */
+  readonly inputKey: string;
+  /** 物化到 Def 时使用的键。 */
+  readonly definitionKey: string;
+  validate(value: unknown, context?: AuthoringValidationContext): AuthoringProblem | undefined;
+  encode(value: unknown): unknown;
+}
+
 /** 单条内容授权：一张表一行，`mutate` 是该表接入受控物化的唯一钩子。 */
 export interface ContentAuthoringPolicy {
   readonly key: ContentKey;
   readonly label: string;
   /** 实体 ID 的 type 段（mod:type:id），如 spot。 */
   readonly idType: string;
-  /** 诊断路径前缀，如 spot → spot.baseYield。 */
+  /** 诊断路径前缀，如 spot → spot.baseCost。 */
   readonly inputPrefix: string;
   readonly fields: readonly WritableFieldDef[];
+  /** 结构化字段扩展：保持普通字段渲染器只处理标量，避免复杂能力泄漏到 UI。 */
+  readonly extensions?: readonly AuthoringExtension[];
   /** 不可编辑但必须写入 Def 的字段。 */
   readonly defaults?: Readonly<Record<string, unknown>>;
   readonly apply: ContentApplyStrategy;

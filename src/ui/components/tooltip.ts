@@ -18,7 +18,7 @@ import { renderPoolDetail, renderPassiveEntryDetail } from './tooltip-detail-cod
 
 export { conditionMet, resolveReveal, getEnhancementReveal, getSpotReveal, getInitReveal, getAreaReveal, getStoryReveal, OBFUSCATED, REVEAL_TARGET_LABEL, renderRevealTriggers } from './tooltip-reveal';
 export type { RevealLevel, RevealResult, RevealInput } from './tooltip-reveal';
-export { describeStatDsl, describeCondition, getEnhancementMultiplier, getSpotYieldBreakdown } from './tooltip-enhancement';
+export { describeStatDsl, describeCondition, getSpotYieldBreakdown } from './tooltip-enhancement';
 export type { YieldBreakdown } from './tooltip-enhancement';
 export { renderAreaDetail } from './tooltip-detail-area';
 export { renderSpotDetail } from './tooltip-detail-spot';

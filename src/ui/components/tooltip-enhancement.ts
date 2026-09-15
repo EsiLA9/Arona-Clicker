@@ -1,7 +1,7 @@
 // ============================================================
-// ui/components/tooltip-enhancement.ts — 强化诊断：条件/统计/产出倍率描述
+// ui/components/tooltip-enhancement.ts — 强化诊断：条件/统计/产出描述
 // 从 tooltip.ts 拆出：STAT_TEXT / describeStatDsl / describeConditionItem /
-//   describeCondition / getEnhancementMultiplier / getSpotYieldBreakdown
+//   describeCondition / getSpotYieldBreakdown
 // ============================================================
 
 import { Condition, ConditionGroup } from '../../engine/types';
@@ -72,22 +72,14 @@ export function describeCondition(
   return renderConditionText(cond, { nameOf, style: 'plain' });
 }
 
-/** 计算某 Spot 适用的产出倍率：精确读该 spot 自身 mul 区节点（显式层级树后不含上极乘区）。 */
-export function getEnhancementMultiplier(ctx: UIContext, spot: SpotDef): number {
-  const system = ctx.game.gameNumSystem;
-  const zone = system.buildZoneNode({ kind: 'spot', id: spot.id }, 'mul', spot.baseYieldResource);
-  return system.evaluate(zone, ctx.game.state);
-}
-
 export interface YieldBreakdown {
-  base: number;
-  enhMultiplier: number;
+  outputs: readonly { resource: string; amount: number }[];
   total: number;
 }
 
-/** 与 TickSystem 一致的产出分解，供 hover 展示。 */
+/** 与 TickSystem 一致地读取 Spot 各资源产出，供 hover 展示。 */
 export function getSpotYieldBreakdown(ctx: UIContext, spot: SpotDef): YieldBreakdown {
-  const base = ctx.game.valueSystem.evaluate(spot.baseYield, ctx.game.state);
-  const enhMultiplier = getEnhancementMultiplier(ctx, spot);
-  return { base, enhMultiplier, total: base * enhMultiplier };
+  const outputs = Object.entries(ctx.game.gameNumSystem.evaluateSpotYields(spot.id, ctx.game.state))
+    .map(([resource, amount]) => ({ resource, amount }));
+  return { outputs, total: outputs.reduce((sum, output) => sum + output.amount, 0) };
 }

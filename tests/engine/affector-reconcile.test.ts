@@ -224,7 +224,7 @@ describe('reconcileMounts 状态对账（Phase 4.1/4.2）', () => {
             .name('Printer')
             .desc('测试')
             .cost(0)
-            .yield(1)
+            .flow('test:fn:base', CREDIT, 1)
             .capacity(100)
             .linearYield('test:fn:linear', CREDIT, 2)
             .build(),
@@ -297,7 +297,7 @@ describe('存档往返恢复 Affector（Phase 4.1）', () => {
   let gameB: GameInstance | undefined;
 
   test('读档后 flows / zoneModifiers / 实例全部恢复', () => {
-    // base 7 = spot 子树 5（baseYield）+ linearYield 功能 flows 2（根级加法，不进乘区）
+    // base 7 = Spot flow 5 + linearYield 功能 flow 2（根级加法，不进乘区）
     expect(base).toBe(7);
     expect(gameA.mutations.addEnhancement(ENH_X)).toBe(true);
     const after = gameA.gameNumSystem.evaluateResourceGain(CREDIT, gameA.state);

@@ -11,7 +11,7 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `game-num.ts` | `GameNumSystem` 门面：构造注入 + 事件订阅（含构造期自订阅 4 个 affector 事件，T7 后单向依赖）+ 求值入口 `evaluateResourceGain` / `evaluateSpotYield` |
+| `game-num.ts` | `GameNumSystem` 门面：构造注入 + 事件订阅（含构造期自订阅 4 个 affector 事件，T7 后单向依赖）+ 求值入口 `evaluateResourceGain` / `evaluateSpotYield` / `evaluateSpotYields` |
 | `game-num-build.ts` | `buildAll`：显式四级层级树构建（`primitiveGain → initFull → areaFull → spotFull`）+ flows 按 `mountEntityId` 层级分发 + zone 节点共享去重（模块内 `WeakMap`）+ `gainResourceDeps` 静态扫描 |
 | `game-num-eval.ts` | `evaluateGameNum`：递归求值（两级缓存 + `dirty/cached` 脏位）+ `scanActiveFlows` |
 | `game-num-tag.ts` | 区表维护：TagEffect/EntityEffect 路由、Affector modifier 桥接（`registerAffectorModifier`）、脏位传播（`markDirty`/`markSubtreeDirty`/`markZoneDirty`） |
@@ -21,7 +21,8 @@
 ## 核心概念
 
 - **四级树公式**：`primitiveGain = globalProduct×globalMulZone + globalFlat + globalFlows`；`initFull = (Σ areaProduct) × initMulZone + initExtra`；area / spot 同构。乘区只乘下一级 base 链，逐级连乘。
-- **节点 kind**（9 种）：`add / sub / mul / const / expr / owned / levelLinear / zone / affectorFlows`；通用算术经 `expr` 下沉 `ValueExpression`。
+- **节点 kind**（9 种）：`add / sub / mul / const / expr / owned / zone / affectorFlows`；通用算术经 `expr` 下沉 `ValueExpression`。
+- **Spot 产出**：Spot functionality 先由 AffectorEngine 转为带 `mountEntityId=spotId` 的 flow；一个 Spot 可在多个资源树拥有独立子树。主产出 flow 进入 Spot 乘区链，普通 Affector flow 进入 Extra；Spot 未拥有时其 flow 求值为 0。
 - **事件驱动失效**：`resourceChanged` 三路定向（依赖子树向下 + 区表 + flows 向上）；其余变化全树 `invalidateProduction()`；tick 不再每帧失效。
 - **区表真相在 state**：`state.tagEffects` / `state.entityEffects`；Affector 的 `zoneModifiers` 由事件驱动 `syncAffectorZoneEffects` 并入（不再每帧全量重建）。
 

@@ -28,11 +28,13 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
     const level = view.spotLevels[spotId] ?? 0;
     const owned = level > 0;
     const yieldInfo = getSpotYieldBreakdown(ctx, spot);
-    const resource = ctx.nameOf('resource', spot.baseYieldResource);
+    const outputs = yieldInfo.outputs
+      .map(output => `${ctx.formatNumber(output.amount)} ${ctx.nameOf('resource', output.resource)}/t`)
+      .join('、');
     return `
       <div class="info-spot">
         <span class="info-spot-name">${ctx.escapeHtml(spot.name)}</span>
-        <span class="${owned ? 'info-accent' : 'info-dim'}">${owned ? `Lv.${level} · ${ctx.formatNumber(yieldInfo.total)} ${resource}/t` : '未获取'}</span>
+        <span class="${owned ? 'info-accent' : 'info-dim'}">${owned ? `Lv.${level} · ${outputs || '无持续产出'}` : '未获取'}</span>
       </div>`;
   }).join('');
   const adjacentRows = (area.adjacentAreaIds ?? [])

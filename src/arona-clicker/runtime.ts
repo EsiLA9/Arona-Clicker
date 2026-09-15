@@ -5,13 +5,14 @@ import { PackManager, PackManagerError, type PackConfigurationDraft, type Stored
 import type { ParsedPack } from '../data-services/datapack/pack-parser';
 import type { AsyncPackSnapshotStore, PackSnapshotStore } from '../data-services/datapack/pack-storage';
 import { Registry } from '../data-services/registry/registry';
+import { buildAuthoringDef, requireContentPolicy } from '../data-services/authoring/content-policy';
 import { defaultDatapack } from './content/default-datapack';
 import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogReadModel, RuntimeModDraft, RuntimeModApplyResult } from './contracts';
 import type { Datapack } from '../data-services/contracts/datapack';
 import type { SpotDef } from '../data-services/contracts/world';
 import { RuntimeContentCoordinator } from './services/runtime-content-coordinator';
 import { RuntimeDefinitionEditor, SpotContentService } from './services/spot-content-service';
-import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult } from './contracts/runtime-content';
+import type { RuntimeModStateSnapshot, RuntimeSpotAffectorDraft, RuntimeSpotMutation, RuntimeSpotMutationResult } from './contracts/runtime-content';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;
@@ -42,8 +43,8 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
           type: 'spotDefinitionChanged',
           spotId: commit.spotId,
           operation: commit.operation,
-          ...(commit.previousSpot ? { previousAreaId: commit.previousSpot.areaId, previousYieldResource: commit.previousSpot.baseYieldResource } : {}),
-          ...(commit.currentSpot ? { nextAreaId: commit.currentSpot.areaId, nextYieldResource: commit.currentSpot.baseYieldResource } : {}),
+          ...(commit.previousSpot ? { previousAreaId: commit.previousSpot.areaId } : {}),
+          ...(commit.currentSpot ? { nextAreaId: commit.currentSpot.areaId } : {}),
         });
       },
     });
@@ -221,18 +222,10 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         }
         seenSpotIds.add(draftSpot.idName);
         if (suspendedSpotIds.has(draftSpot.idName)) continue;
-        spots.push({
-          id: `${draft.modName}:spot:${draftSpot.idName}`,
-          areaId: draftSpot.areaId,
-          name: draftSpot.name,
-          description: draftSpot.description,
-          baseCost: { type: 'const', value: draftSpot.baseCost },
-          baseCostResource: draftSpot.baseCostResource,
-          baseYield: { type: 'const', value: draftSpot.baseYield },
-          baseYieldResource: draftSpot.baseYieldResource,
-          baseCapacity: draftSpot.baseCapacity,
-          tags: [],
-        });
+        spots.push(buildAuthoringDef(requireContentPolicy('spots'), draft.modName, {
+          ...draftSpot,
+          affectors: draftSpot.affectors ?? [],
+        }) as SpotDef);
       }
       const runtimePack: Datapack = {
         modName: draft.modName,
@@ -284,17 +277,20 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       version: current?.version ?? '1.0.0',
       author: current?.author ?? '',
       description: current?.description ?? '',
-      spots: [...state.spots.values()].map(spot => ({
-        idName: spot.id.split(':').slice(2).join(':'),
-        areaId: spot.areaId,
-        name: spot.name,
-        description: spot.description,
-        baseCost: constantOf(spot.baseCost),
-        baseCostResource: spot.baseCostResource,
-        baseYield: constantOf(spot.baseYield),
-        baseYieldResource: spot.baseYieldResource,
-        baseCapacity: spot.baseCapacity,
-      })),
+      spots: [...state.spots.values()].map(spot => {
+        const projection = spotAffectors(spot);
+        return {
+          idName: spot.id.split(':').slice(2).join(':'),
+          areaId: spot.areaId,
+          name: spot.name,
+          description: spot.description,
+          baseCost: constantOf(spot.baseCost),
+          baseCostResource: spot.baseCostResource,
+          baseCapacity: spot.baseCapacity,
+          ...(projection.affectors ? { affectors: projection.affectors } : {}),
+          ...(projection.unsupportedFunctionalityIds ? { unsupportedFunctionalityIds: projection.unsupportedFunctionalityIds } : {}),
+        };
+      }),
       suspendedSpotIds: [...state.suspendedSpotIds].map(id => id.split(':').slice(2).join(':')),
     };
   }
@@ -389,6 +385,39 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
 function constantOf(expression: SpotDef['baseCost']): number {
   return expression.type === 'const' && typeof expression.value === 'number' ? expression.value : 0;
+}
+
+function spotAffectors(spot: SpotDef): {
+  affectors?: RuntimeSpotAffectorDraft[];
+  unsupportedFunctionalityIds?: string[];
+} {
+  const functionalities = (spot.functionalities ?? []).filter(functionality => functionality.kind === 'flow' || functionality.kind === 'linearYield');
+  const rows: RuntimeSpotAffectorDraft[] = [];
+  const unsupportedFunctionalityIds: string[] = [];
+  for (let index = 0; index < functionalities.length; index += 1) {
+    const functionality = functionalities[index];
+    const amount = functionality.kind === 'flow' ? functionality.amount : functionality.amountPerLevel;
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || !functionality.resource
+      || functionality.condition !== undefined
+      || (functionality.kind === 'linearYield' && functionality.startLevel !== undefined && functionality.startLevel !== 0)) {
+      unsupportedFunctionalityIds.push(functionality.id);
+      continue;
+    }
+    const id = functionality.id.startsWith('runtime:resource:')
+      ? functionality.id.slice('runtime:resource:'.length)
+      : `legacy-${index + 1}`;
+    rows.push({
+      id: /^[a-z0-9_-]+$/.test(id) ? id : `legacy-${index + 1}`,
+      type: 'resource-flow',
+      mode: functionality.kind === 'linearYield' ? 'per-level' : 'fixed',
+      resource: functionality.resource,
+      amount,
+    });
+  }
+  return {
+    ...(rows.length > 0 ? { affectors: rows } : {}),
+    ...(unsupportedFunctionalityIds.length > 0 ? { unsupportedFunctionalityIds } : {}),
+  };
 }
 
 function createBuiltinBasePack(): StoredPack {

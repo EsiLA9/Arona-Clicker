@@ -18,7 +18,7 @@ const SNACK = 'test:item:snack';
 function datapack(): Datapack {
   const spot = (id: string) => ({
     id, areaId: AREA, name: id, description: '', baseCost: Expr.const(0), baseCostResource: CREDIT,
-    baseYield: Expr.const(0), baseYieldResource: CREDIT, baseCapacity: 0, tags: [],
+    baseCapacity: 0, tags: [],
     functionalities: [{ id: `${id}:shop`, kind: 'shop' as const, shopId: SHOP }],
   });
   return {

@@ -51,6 +51,40 @@ describe('SpotFunctionalitySystem', () => {
     expect(game.gameNumSystem.evaluateSpotYield('base:spot:credit_printer', game.state)).toBe(15);
   });
 
+  test('one Spot can produce multiple Affector resources with independent linear scaling', () => {
+    const spotId = 'test:spot:multi_resource';
+    const areaId = 'base:area:schale_main';
+    const template = game.registry.spots.get('base:spot:credit_printer')!;
+    game.registry.applySpotMutation({
+      operation: 'create',
+      ownerModName: 'test',
+      spot: {
+        ...template,
+        id: spotId,
+        areaId,
+        functionalities: [
+          { id: 'test:credit_flow', kind: 'flow', resource: CREDIT, amount: 5 },
+          { id: 'test:pyroxene_flow', kind: 'flow', resource: 'base:resource:pyroxene', amount: 3 },
+          { id: 'test:pyroxene_linear', kind: 'linearYield', resource: 'base:resource:pyroxene', amountPerLevel: 2, startLevel: 1 },
+        ],
+        tags: [],
+      },
+    });
+    game.eventBus.emit({ type: 'spotDefinitionChanged', spotId, operation: 'create', nextAreaId: areaId });
+
+    game.mutations.setSpotLevel(spotId, 1);
+    expect(game.gameNumSystem.evaluateSpotYields(spotId, game.state)).toEqual({
+      [CREDIT]: 5,
+      'base:resource:pyroxene': 3,
+    });
+
+    game.mutations.setSpotLevel(spotId, 3);
+    expect(game.gameNumSystem.evaluateSpotYields(spotId, game.state)).toEqual({
+      [CREDIT]: 5,
+      'base:resource:pyroxene': 7,
+    });
+  });
+
   test('conditioned functionality is ignored while its condition is unmet', () => {
     // field_work 功能条件：全局累计产出 > 100 信用点（stat 宽依赖 → 每 tick 轮询重估）
     for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
@@ -59,7 +93,8 @@ describe('SpotFunctionalitySystem', () => {
     game.tick();
     // 条件未满足：功能 Affector 保持 Latent，仅 base 8 入账（flow 不生效）
     expect(game.state.resources[CREDIT]).toBe(8);
-    expect(game.affectorEngine.getActiveInstances().some(i => i.mountEntityId === 'base:spot:field_work')).toBe(false);
+    const fieldInstances = game.affectorEngine.getActiveInstances().filter(i => i.mountEntityId === 'base:spot:field_work');
+    expect(fieldInstances.some(i => i.packId === 'base:funclet:field_work_conditioned@base:spot:field_work')).toBe(false);
   });
 
   test('tick settles functionality output alongside base yield', () => {
@@ -105,8 +140,12 @@ describe('SpotFunctionalitySystem', () => {
   test('spot functionality is mounted as a real Affector instance', () => {
     const creditInstances = game.affectorEngine.getActiveInstances()
       .filter(i => i.mountEntityId === 'base:spot:credit_printer');
-    expect(creditInstances).toHaveLength(1);
-    expect(creditInstances[0].packId).toBe('base:funclet:credit_printer_linear@base:spot:credit_printer');
+    expect(creditInstances).toHaveLength(3);
+    expect(creditInstances.map(instance => instance.packId)).toEqual(expect.arrayContaining([
+      'base:flow:base@base:spot:credit_printer',
+      'base:funclet:credit_printer_linear@base:spot:credit_printer',
+      'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer',
+    ]));
 
     // field_work 的条件功能初始不满足 → 挂载但保持 Latent（不在 active 列表）
     const fieldInstances = game.affectorEngine.getActiveInstances()
@@ -146,7 +185,7 @@ describe('SpotFunctionalitySystem', () => {
 
     const field = game.affectorEngine.getActiveInstances()
       .filter(i => i.mountEntityId === 'base:spot:field_work');
-    expect(field).toHaveLength(1);
+    expect(field.some(i => i.packId === 'base:funclet:field_work_conditioned@base:spot:field_work')).toBe(true);
   });
 
   test('external functionalities are injected from an unlocked enhancement by tag match', () => {

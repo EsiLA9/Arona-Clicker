@@ -21,8 +21,6 @@ const sampleDatapack: Datapack = {
       id: 'test:spot:spot_1', areaId: 'test:area:area_1', name: 'Test Spot', description: '',
       baseCost: { type: 'const', value: 10 },
       baseCostResource: 'credit',
-      baseYield: { type: 'const', value: 5 },
-      baseYieldResource: 'credit',
       baseCapacity: 100,
       levelUpgrades: [],
       tags: [],

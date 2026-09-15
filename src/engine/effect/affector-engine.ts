@@ -66,6 +66,13 @@ export class AffectorEngine extends EventDrivenReactor {
       if (event.newLevel > 0) this.syncSpotFunctionalities(event.spotId);
       else this.unmountEntity(event.spotId, 'spot level zero');
     });
+    eventBus.on('spotDefinitionChanged', event => {
+      if (event.operation === 'delete' || event.operation === 'suspend') {
+        this.unmountEntity(event.spotId, 'spot definition removed');
+      } else {
+        this.syncSpotFunctionalities(event.spotId);
+      }
+    });
     // 外源功能 + 自有 Affector：Enhancement 获得/移除时同步
     eventBus.on('enhancementAdded', event => {
       this.mountEnhancementAffectors(event.enhancementId);
@@ -381,7 +388,7 @@ export class AffectorEngine extends EventDrivenReactor {
   }
 
   /**
-   * 同步某 Spot 的 linearYield 功能 Affector（内源 + 外源）：挂载缺失的、卸载失效的。
+   * 同步某 Spot 的 flow / linearYield 功能 Affector（内源 + 外源）：挂载缺失的、卸载失效的。
    * pack 注册键按 fn.id@spotId 命名空间化：同一功能定义挂到多个 Spot 时各自独立，
    * flow 内嵌的 spotLevel 引用各自 Spot（避免首个注册者的等级串号）。
    */
@@ -391,7 +398,7 @@ export class AffectorEngine extends EventDrivenReactor {
     const funcs = this.functionalitySystem?.functionalitiesOf(spot, this.state) ?? spot.functionalities ?? [];
 
     const expectedPackIds = new Set(
-      funcs.filter(fn => fn.kind === 'linearYield').map(fn => `${fn.id}@${spotId}`),
+      funcs.filter(fn => fn.kind === 'flow' || fn.kind === 'linearYield').map(fn => `${fn.id}@${spotId}`),
     );
     this.withRuntimeChangeBatch(() => {
       // 卸载已不再匹配的功能实例
@@ -400,11 +407,13 @@ export class AffectorEngine extends EventDrivenReactor {
         if (expectedPackIds.has(instance.packId)) continue;
         this.unmount(instance.instanceId, 'functionality removed');
       }
-      // 挂载缺失的线性功能（mount 幂等：Removed 旧实例会被重建）
+      // 挂载缺失的产出功能（mount 幂等：Removed 旧实例会被重建）
       for (const fn of funcs) {
-        if (fn.kind !== 'linearYield') continue;
+        if (fn.kind !== 'flow' && fn.kind !== 'linearYield') continue;
         const packId = `${fn.id}@${spotId}`;
-        if (!this.packs.has(packId)) this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
+        // Definition hot-replace may keep the same functionality id while changing
+        // its amount, condition, or resource; refresh the derived pack in place.
+        this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
         this.mount(packId, spotId);
       }
     });
@@ -416,19 +425,26 @@ export class AffectorEngine extends EventDrivenReactor {
   }
 
   private buildSpotFunctionalityPack(spotId: string, fn: SpotFunctionalityView): AffectorPackDef {
+    const flow = fn.kind === 'flow'
+      ? { resource: fn.resource ?? '', value: fn.amount ?? 0, applySpotMultiplier: true }
+      : {
+          resource: fn.resource ?? '',
+          value: (() => {
+            const level = Expr.val(value('spotLevel', { spot: spotId }));
+            const effectiveLevel = fn.startLevel === undefined
+              ? level
+              : Expr.max(Expr.sub(level, Expr.const(fn.startLevel)), Expr.const(0));
+            return Expr.mul(effectiveLevel, Expr.const(fn.amountPerLevel ?? 0));
+          })(),
+          ...(fn.startLevel === 1 ? { applySpotMultiplier: true } : {}),
+        };
     return {
       id: `${fn.id}@${spotId}`,
       entries: [{
         id: fn.id,
         condition: fn.condition,
         effects: [],
-        flows: [{
-          resource: fn.resource ?? '',
-          value: Expr.mul(
-            Expr.val(value('spotLevel', { spot: spotId })),
-            Expr.const(fn.amountPerLevel ?? 0),
-          ),
-        }],
+        flows: [flow],
       }],
     };
   }
@@ -467,7 +483,7 @@ export class AffectorEngine extends EventDrivenReactor {
   /**
    * 状态 ↔ 实例对账重挂载（Phase 4.1/4.2）：按当前 PlayerState 计算期望挂载集合
    * （inventory 中已拥有物品 / unlockedEnhancements 的 affectorPackIds + 已解锁 Spot 的
-   * linearYield 功能），卸载不再成立的实例、补挂缺失的实例。用于不经
+   * flow / linearYield 功能），卸载不再成立的实例、补挂缺失的实例。用于不经
    * itemCollected / enhancementAdded / spotLevelChanged 事件的状态重建路径：
    * init / enterInit（世界线切换）/ restoreFromSave / reset。
    */
@@ -491,7 +507,7 @@ export class AffectorEngine extends EventDrivenReactor {
     for (const spotId of Object.keys(state.spotLevels)) {
       if ((state.spotLevels[spotId] ?? 0) <= 0) continue;
       for (const fn of this.spotFunctionalitiesOf(spotId)) {
-        if (fn.kind !== 'linearYield') continue;
+        if (fn.kind !== 'flow' && fn.kind !== 'linearYield') continue;
         const packId = `${fn.id}@${spotId}`;
         if (!this.packs.has(packId)) this.registerPack(this.buildSpotFunctionalityPack(spotId, fn));
         expected.set(`${packId}@${spotId}`, { ref: packId, mountEntityId: spotId });
@@ -513,10 +529,29 @@ export class AffectorEngine extends EventDrivenReactor {
     if (!spot || !this.state) return [];
     return this.functionalitySystem?.functionalitiesOf(spot, this.state) ?? spot.functionalities ?? [];
   }
+
+  getFlowResources(): readonly string[] {
+    const resources = new Set<string>();
+    const collect = (fn: SpotFunctionalityView): void => {
+      if ((fn.kind === 'flow' || fn.kind === 'linearYield') && fn.resource) resources.add(fn.resource);
+    };
+    for (const spot of this.registry.spots.values()) {
+      for (const fn of spot.functionalities ?? []) collect(fn);
+    }
+    for (const enhancement of this.registry.enhancements.values()) {
+      for (const fn of enhancement.addsFunctionalities ?? []) collect(fn);
+    }
+    for (const pack of this.packs.values()) {
+      for (const entry of pack.entries) {
+        for (const flow of entry.flows ?? []) if (flow.resource) resources.add(flow.resource);
+      }
+    }
+    return [...resources];
+  }
 }
 
 export interface AffectorRegistryContext {
   readonly items: ReadonlyMap<string, { affectorPackIds?: readonly AffectorPackRef[] }>;
-  readonly enhancements: ReadonlyMap<string, { affectorPackIds?: readonly AffectorPackRef[] }>;
+  readonly enhancements: ReadonlyMap<string, { affectorPackIds?: readonly AffectorPackRef[]; addsFunctionalities?: readonly SpotFunctionalityView[] }>;
   readonly spots: ReadonlyMap<string, { id: string; functionalities?: SpotFunctionalityView[] }>;
 }

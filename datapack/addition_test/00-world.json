@@ -41,15 +41,16 @@
       "description": "同时使用基础包信用点与扩展包 Tag 的测试设施。",
       "baseCost": { "type": "const", "value": 1 },
       "baseCostResource": "base:resource:credit",
-      "baseYield": { "type": "const", "value": 1 },
-      "baseYieldResource": "base:resource:credit",
       "baseCapacity": 50,
-      "yieldPerLevel": 1,
       "upgradeCostBase": 1,
       "upgradeCostGrowth": 1.2,
       "maxLevel": 5,
       "tags": [["experimental"], ["experimental", "scanner"]],
-      "functionalities": [{ "id": "scanner_yield", "kind": "linearYield", "resource": "base:resource:credit", "amountPerLevel": 1 }],
+      "functionalities": [
+        { "id": "base_flow", "kind": "flow", "resource": "base:resource:credit", "amount": 1 },
+        { "id": "scanner_yield", "kind": "linearYield", "resource": "base:resource:credit", "amountPerLevel": 1 },
+        { "id": "linear_upgrade", "kind": "linearYield", "resource": "base:resource:credit", "amountPerLevel": 1, "startLevel": 1 }
+      ],
       "theme": { "colorGroupId": "addition-test:colorgroup:violet" },
       "extra": { "t": "dict", "v": { "purpose": { "t": "str", "v": "registry-and-save-smoke-test" } } }
     }

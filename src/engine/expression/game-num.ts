@@ -64,8 +64,10 @@ export class GameNumSystem {
 
   /** 资源 -> 该资源 primitiveGain 根节点（add 树）。 */
   gains = new Map<string, GameNum>();
-  /** spot -> 其产出子树根（spotFull = spotProduct + spotExtra；evaluateSpotYield 用）。 */
+  /** spot -> 其多资源产出子树聚合根（spotFull = spotProduct + spotExtra；evaluateSpotYields 用）。 */
   spotSubtrees = new Map<string, GameNum>();
+  /** `<spotId>@<resource>` -> Spot 在该资源树中的子树。 */
+  spotResourceSubtrees = new Map<string, GameNum>();
 
   /** zoneIndex：tagKey / entityKey -> 命中的 flat/mul 区节点集合（注册来源路由用）。 */
   zoneIndex = new Map<string, ZoneIndexEntry>();
@@ -81,7 +83,7 @@ export class GameNumSystem {
   spotFullNodes = new Map<string, GameNum>();
   /** spotId@res -> spotProduct（进上级 areaBase 的 base 链节点）。 */
   spotProductNodes = new Map<string, GameNum>();
-  /** spotId@res -> spotExtra（spotFlat + spotFlows）。 */
+  /** spotId@res -> spotExtra（spotFlat + 不进入乘区的 Spot flows）。 */
   spotExtraNodes = new Map<string, GameNum>();
   /** areaId@res -> areaExtra（areaFlat + areaFlows + Σ spotExtra）。 */
   areaExtraNodes = new Map<string, GameNum>();
@@ -105,10 +107,10 @@ export class GameNumSystem {
   flowsResourceDeps = new Map<string, Set<string>>();
   /** resource -> flows 节点列表（flows 按挂载层级分发出多个节点，Phase 6）。 */
   affectorFlowsNodes = new Map<string, GameNum[]>();
-  /** `(resource, mount)` -> 当前活跃 flow 来源；仅由 Affector 同步过程重建。 */
+  /** `(resource, mount, applySpotMultiplier)` -> 当前活跃 flow 来源；仅由 Affector 同步过程重建。 */
   affectorFlowSources = new Map<string, readonly GameNumFlowSource[]>();
 
-  /** 已登记资源集合（spot 基础产出 + state.resources，含仅经 affectorFlows 产出的资源）。 */
+  /** 已登记资源集合（Datapack/Affector 产出 + state.resources）。 */
   resourceSet = new Set<string>();
   state?: GameNumState;
 
@@ -164,6 +166,10 @@ export class GameNumSystem {
     }
     for (const node of this.affectorFlowsNodes.get(resource) ?? []) {
       markDirty(this, node);
+    }
+    for (const [flowResource, deps] of this.flowsResourceDeps) {
+      if (!deps.has(resource)) continue;
+      for (const node of this.affectorFlowsNodes.get(flowResource) ?? []) markDirty(this, node);
     }
   }
 
@@ -268,6 +274,17 @@ export class GameNumSystem {
     const node = this.spotSubtrees.get(spotId);
     if (!node) return 0;
     return this.evaluate(node, state);
+  }
+
+  evaluateSpotYields(spotId: string, state: GameNumState): Readonly<Record<string, number>> {
+    const result: Record<string, number> = {};
+    for (const [key, node] of this.spotResourceSubtrees) {
+      if (!key.startsWith(`${spotId}@`)) continue;
+      const resource = key.slice(spotId.length + 1);
+      const value = this.evaluate(node, state);
+      if (value !== 0) result[resource] = value;
+    }
+    return result;
   }
 
   }

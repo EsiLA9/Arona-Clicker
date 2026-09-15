@@ -55,28 +55,24 @@ describe('GameNum (primitiveGain 懒求值)', () => {
     ]);
   });
 
-  test('spot subtree expands down to owned/baseSum/zone leaves', () => {
+  test('spot subtree contains the owned gate and Affector flow mount', () => {
     const system = game.gameNumSystem;
-    const spotNode = system.spotSubtrees.get('base:spot:credit_printer')!;
+    const spotNode = system.spotResourceSubtrees.get('base:spot:credit_printer@base:resource:credit')!;
     expect(spotNode).toMatchObject({ id: 'spot:base:spot:credit_printer:base:resource:credit', kind: 'add' });
-    // spotFull = spotProduct(mul) + spotExtra(flat/flows 直加，不进乘区)
+    // spotFull = spotProduct(零旧基础值) + spotExtra(flat/flows 直加)
     expect(childrenOf(spotNode).map(c => c.id)).toEqual([
       'spotProduct:base:spot:credit_printer:base:resource:credit',
       'spotExtra:base:spot:credit_printer:base:resource:credit',
     ]);
-    // spotProduct = spotBase(mul[owned, baseSum]) × zone(mul 区节点)
+    // spotProduct 保留乘区节点，Spot 持续产出由 Affector flow 提供。
     const spotProduct = childrenOf(spotNode)[0];
     expect(spotProduct.kind).toBe('mul');
-    const spotBase = childrenOf(spotProduct).find(c => c.kind === 'mul')!;
-    expect(childrenOf(spotBase).map(c => c.id)).toEqual([
-      'owned:base:spot:credit_printer',
-      'baseSum:base:spot:credit_printer:base:resource:credit',
-    ]);
-    // baseSum → baseYield(add[expr, levelLinear])
-    const baseSum = childrenOf(spotBase).find(c => c.id === 'baseSum:base:spot:credit_printer:base:resource:credit')!;
-    expect(childrenOf(baseSum).map(c => c.kind)).toEqual(['add']);
-    const baseYield = childrenOf(baseSum)[0];
-    expect(childrenOf(baseYield).map(c => c.kind)).toEqual(['expr', 'levelLinear']);
+    const spotBase = childrenOf(spotProduct).find(c => c.id === 'spotBase:base:spot:credit_printer:base:resource:credit')!;
+    expect(spotBase).toMatchObject({ kind: 'add' });
+    expect(childrenOf(spotBase).some(c => c.kind === 'affectorFlows')).toBe(true);
+    const spotExtra = childrenOf(spotNode)[1];
+    expect(childrenOf(spotExtra).map(c => c.id)).toContain('spotFlatGated:base:spot:credit_printer:base:resource:credit');
+    expect(childrenOf(spotExtra).some(c => c.kind === 'affectorFlows')).toBe(true);
     // DAG 共享：spotProduct 同为上级 areaBase 的子节点（base 链逐级连乘）
     const sharedProduct = system.spotProductNodes.get('base:spot:credit_printer@base:resource:credit')!;
     const areaBase = (system.parents.get(sharedProduct.id) ?? []).find(p => p.id.startsWith('areaBase:'))!;
@@ -148,8 +144,7 @@ describe('GameNum (primitiveGain 懒求值)', () => {
     const RES = 'r1';
     const spot = {
       id: 's1',
-      baseYieldResource: RES,
-      baseYield: Expr.val(value('res', { resource: RES })),
+      functionalities: [{ id: 's1:flow', kind: 'flow', resource: RES, amount: Expr.val(value('res', { resource: RES })) }],
     };
     const ctx = {
       valueSystem: new ValueSystem(),
@@ -158,16 +153,19 @@ describe('GameNum (primitiveGain 懒求值)', () => {
         enhancements: new Map(),
         effectiveSpotTags: () => [],
       },
-      affectorEngine: { getActiveInstances: () => [], getPack: () => undefined },
+      affectorEngine: {
+        getActiveInstances: () => [{ instanceId: 'pack@s1', packId: 'pack', mountEntityId: 's1', state: 'Active', activeEntryIds: ['entry'] }],
+        getPack: () => ({ id: 'pack', entries: [{ id: 'entry', effects: [], flows: [{ resource: RES, value: Expr.val(value('res', { resource: RES })) }] }] }),
+      },
       eventBus: bus,
     } as unknown as ConstructorParameters<typeof GameNumSystem>[0];
-    const system = new GameNumSystem(ctx);
-    system.buildAll();
     const state = {
       resources: { [RES]: 10 },
       spotLevels: { s1: 1 },
       spotManagers: {},
     } as unknown as PlayerState;
+    const system = new GameNumSystem(ctx);
+    system.buildAll(state);
 
     // 首次求值缓存 base=10；资源余额变化后 resourceChanged 必须打掉缓存
     expect(system.evaluateResourceGain(RES, state)).toBe(10);

@@ -1,4 +1,5 @@
 import type { RuntimeModDraft } from '../../arona-clicker/contracts';
+import type { RuntimeSpotAffectorDraft } from '../../arona-clicker/contracts/runtime-content';
 import {
   createDraftLayer,
   resolveDefinition,
@@ -22,14 +23,12 @@ export interface RuntimeEditorSpotDraft {
   description: string;
   baseCost: number;
   baseCostResource: string;
-  baseYield: number;
-  baseYieldResource: string;
   baseCapacity: number;
-  /** 可选数值字段：未设置时为 undefined，与策略表的缺席语义一致。 */
-  yieldPerLevel?: number;
   maxLevel?: number;
   upgradeCostBase?: number;
   upgradeCostGrowth?: number;
+  affectors?: RuntimeSpotAffectorDraft[];
+  unsupportedFunctionalityIds?: readonly string[];
 }
 
 export interface RuntimeDatapackEditorState {
@@ -139,8 +138,12 @@ export function setRuntimeEditorSpot(editor: RuntimeDatapackEditorState, spot: R
     ? selectedIndex
     : editor.spots.findIndex(item => item.idName === spot.idName);
   const previousId = existingIndex >= 0 ? editor.spots[existingIndex].idName : null;
-  if (existingIndex >= 0) editor.spots[existingIndex] = { ...spot };
-  else editor.spots.push({ ...spot });
+  const nextSpot = {
+    ...spot,
+    ...(spot.affectors ? { affectors: spot.affectors.map(affector => ({ ...affector })) } : {}),
+  };
+  if (existingIndex >= 0) editor.spots[existingIndex] = nextSpot;
+  else editor.spots.push(nextSpot);
   if (previousId && previousId !== spot.idName) {
     editor.suspendedSpotIds = editor.suspendedSpotIds.filter(id => id !== previousId);
   }
@@ -200,7 +203,10 @@ export function setRuntimeEditorError(editor: RuntimeDatapackEditorState, error:
 
 export function markRuntimeEditorApplied(editor: RuntimeDatapackEditorState, applied: boolean): void {
   editor.applied = applied;
-  if (applied) editor.appliedSpots = editor.spots.map(spot => ({ ...spot }));
+  if (applied) editor.appliedSpots = editor.spots.map(spot => ({
+    ...spot,
+    ...(spot.affectors ? { affectors: spot.affectors.map(affector => ({ ...affector })) } : {}),
+  }));
 }
 
 export function toRuntimeModDraft(editor: RuntimeDatapackEditorState): RuntimeModDraft | null {
@@ -212,13 +218,13 @@ export function toRuntimeModDraft(editor: RuntimeDatapackEditorState): RuntimeMo
     version: editor.version,
     author: editor.author,
     description: editor.description,
-    spots: resolutions.flatMap(resolution => resolution.status === 'resolved' && resolution.record.value ? [{ ...resolution.record.value }] : []),
+    spots: resolutions.flatMap(resolution => resolution.status === 'resolved' && resolution.record.value ? [cloneRuntimeEditorSpot(resolution.record.value)] : []),
     suspendedSpotIds: resolutions.flatMap(resolution => resolution.status === 'suspended' ? [resolution.key.id] : []),
   };
 }
 
 export function hydrateRuntimeEditor(editor: RuntimeDatapackEditorState, runtimeMod: RuntimeModDraft): void {
-  const spots = runtimeMod.spots.map(spot => ({ ...spot }));
+  const spots = runtimeMod.spots.map(spot => cloneRuntimeEditorSpot(spot));
   updateRuntimeEditorFields(editor, {
     modName: runtimeMod.modName,
     displayName: runtimeMod.displayName,
@@ -228,13 +234,25 @@ export function hydrateRuntimeEditor(editor: RuntimeDatapackEditorState, runtime
     selectedAreaId: spots[0]?.areaId ?? null,
   });
   editor.spots = spots;
-  editor.appliedSpots = spots.map(spot => ({ ...spot }));
+  editor.appliedSpots = spots.map(spot => cloneRuntimeEditorSpot(spot));
+  const unsupported = spots.flatMap(spot => spot.unsupportedFunctionalityIds ?? []);
+  editor.problems = unsupported.length > 0
+    ? [{ code: 'invalid-field', path: 'spot.affectors', message: `当前 Spot 含无法由 Demo 编辑器回写的资源功能：${unsupported.join('、')}` }]
+    : [];
   editor.suspendedSpotIds = [...(runtimeMod.suspendedSpotIds ?? [])].filter(id => spots.some(spot => spot.idName === id));
   editor.selectedSpotId = spots.find(spot => !editor.suspendedSpotIds.includes(spot.idName))?.idName ?? spots[0]?.idName ?? null;
   const selected = getSelectedRuntimeEditorSpot(editor);
   if (selected) editor.selectedAreaId = selected.areaId;
   markRuntimeEditorApplied(editor, true);
   setRuntimeEditorError(editor, null);
+}
+
+function cloneRuntimeEditorSpot(spot: Omit<RuntimeEditorSpotDraft, 'affectors'> & { affectors?: readonly RuntimeSpotAffectorDraft[] }): RuntimeEditorSpotDraft {
+  const { affectors, ...fields } = spot;
+  return {
+    ...fields,
+    ...(affectors ? { affectors: affectors.map(affector => ({ ...affector })) } : {}),
+  };
 }
 
 export function prepareRuntimeEditorForNewSpot(editor: RuntimeDatapackEditorState, areaId: string): void {

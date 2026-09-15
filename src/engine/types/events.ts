@@ -16,8 +16,6 @@ export type GameEvent =
       operation: 'create' | 'replace' | 'delete' | 'suspend' | 'resume';
       previousAreaId?: string;
       nextAreaId?: string;
-      previousYieldResource?: string;
-      nextYieldResource?: string;
     }
   | { type: 'managerChanged'; spotId: string; newManager: Character }
   | { type: 'enhancementAdded'; enhancementId: string }

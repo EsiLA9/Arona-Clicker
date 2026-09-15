@@ -120,14 +120,16 @@ ConditionTarget（16 种）—— key 与 actual 语义：
 
 ## 7. 世界实体功能
 
-`SpotFunctionalityDef.kind`（4 种）：
+`SpotFunctionalityDef.kind`（6 种）：
 
 | kind | 语义 |
 | --- | --- |
-| `linearYield` | 升级提供线性额外产出（`resource` + `amountPerLevel`），结算时按等级生效（类比 Affector flow） |
+| `flow` | 持续产出一个资源（`resource` + `amount`，amount 可为数值表达式），运行时转为挂在该 Spot 的 Affector flow |
+| `linearYield` | 按 Spot 等级提供线性产出（`resource` + `amountPerLevel`，可选 `startLevel`），运行时转为读取该 Spot 等级的 Affector flow |
 | `restartInit` | 软重启（保留快照 + 统计），UI 操作入口 |
 | `hardResetInit` | 硬重置（删快照，下次进入该 Init 崭新，保留统计），UI 操作入口 |
 | `gacha` | 招募功能入口（可带 `gachaPools` 专有卡池） |
+| `shop` | Spot 商店入口（`shopId` 指向 Shop 定义） |
 
 `InitPurchaseError`：`NotFound` / `AlreadyUnlocked` / `InsufficientResource`。
 

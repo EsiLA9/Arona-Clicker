@@ -11,8 +11,7 @@ const spot = (id: string, name: string) => ({
   description: '测试设施',
   baseCost: { type: 'const', value: 10 },
   baseCostResource: 'base:resource:credit',
-  baseYield: { type: 'const', value: 5 },
-  baseYieldResource: 'base:resource:credit',
+  functionalities: [{ id: 'base:flow:test', kind: 'flow', resource: 'base:resource:credit', amount: 5 }],
   baseCapacity: 1,
 });
 

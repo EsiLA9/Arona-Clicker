@@ -18,6 +18,7 @@ const datapack: Datapack = {
   passiveStories: [],
   stories: [],
   items: [],
+  resourceDisplays: [{ resourceId: 'base:resource:credit', label: 'Credit' }],
   funcletDefs: [],
   characters: [],
 };
@@ -29,8 +30,6 @@ const input = (idName = 'printer', overrides: Partial<RuntimeSpotInput> = {}): R
   description: 'A temporary printer',
   baseCost: 10,
   baseCostResource: 'base:resource:credit',
-  baseYield: 2,
-  baseYieldResource: 'base:resource:credit',
   baseCapacity: 100,
   ...overrides,
 });
@@ -59,8 +58,6 @@ describe('RuntimeContentCoordinator', () => {
       description: 'A temporary printer',
       baseCost: { type: 'const', value: 10 },
       baseCostResource: 'base:resource:credit',
-      baseYield: { type: 'const', value: 2 },
-      baseYieldResource: 'base:resource:credit',
       baseCapacity: 100,
       levelUpgrades: [],
       tags: [],
@@ -122,10 +119,46 @@ describe('RuntimeContentCoordinator', () => {
     expect(extra.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.functionalities' });
     expect(registry.spots.size).toBe(0);
 
-    const invalidNumber = coordinator.submit({ operation: 'create', modName: MOD, spot: input('bad', { baseYield: Number.NaN }), expectedRevision: 0 });
+    const invalidNumber = coordinator.submit({ operation: 'create', modName: MOD, spot: input('bad', { baseCost: Number.NaN }), expectedRevision: 0 });
     expect(invalidNumber.ok).toBe(false);
-    expect(invalidNumber.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.baseYield' });
+    expect(invalidNumber.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.baseCost' });
     expect(coordinator.getRevision()).toBe(0);
+  });
+
+  test('replaces resource Affector rows while preserving unsupported Spot functionality', () => {
+    const { registry, coordinator } = makeCoordinator();
+    expect(coordinator.submit({
+      operation: 'create',
+      modName: MOD,
+      spot: input('printer', {
+        affectors: [{ id: 'credit', type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 2 }],
+      }),
+      expectedRevision: 0,
+    })).toMatchObject({ ok: true, revision: 1 });
+
+    const spotId = `${MOD}:spot:printer`;
+    const current = registry.spots.get(spotId)!;
+    registry.applySpotMutation({
+      operation: 'replace',
+      ownerModName: MOD,
+      spot: { ...current, functionalities: [...(current.functionalities ?? []), { id: 'legacy:gacha', kind: 'gacha' }] },
+    });
+    coordinator.adoptRuntimeMod(MOD, [spotId]);
+
+    const replaced = coordinator.submit({
+      operation: 'replace',
+      modName: MOD,
+      idName: 'printer',
+      spot: input('printer', {
+        affectors: [{ id: 'credit', type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 5 }],
+      }),
+      expectedRevision: 0,
+    });
+    expect(replaced).toMatchObject({ ok: true, revision: 1 });
+    expect(registry.spots.get(spotId)?.functionalities).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'runtime:resource:credit', kind: 'flow', amount: 5 }),
+      expect.objectContaining({ id: 'legacy:gacha', kind: 'gacha' }),
+    ]));
   });
 
   test('delete carries retain or purge signal without touching PlayerState', () => {

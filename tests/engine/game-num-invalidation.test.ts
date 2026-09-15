@@ -5,7 +5,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // 每条生产相关 mutation 写路径：先求值（建立跨帧缓存）→ 变更 → 立即断言
 // evaluateResourceGain 反映新值（不经整树失效、不经 tick）。覆盖：
 //   changeResource / setResource（读资源的 gain，Phase 3 依赖定向失效）
-//   setSpotLevel / addSpotLevel（owned / levelLinear / 功能 flows）
+//   setSpotLevel / addSpotLevel（owned / 功能 flows）
 //   setExtra / addExtra（data 源 gain）
 //   addEnhancement / removeEnhancement（zone mul 桥接）
 //   zone 记录 expr 读资源（zoneKeyResourceDeps 定向失效）
@@ -42,27 +42,27 @@ const datapack = {
       .name('Printer')
       .desc('测试')
       .cost(0)
-      .yield(5)
+      .flow('test:flow:printer', CREDIT, 5)
       .capacity(100)
       .tags(tagPath('test'))
       .linearYield('test:funclet:printer_linear', CREDIT, 2)
       .genericUpgrade(50, 2, 2)
       .build(),
-    // baseYield = 5 + 持有信用点（读资源的 gain，覆盖 gainResourceDeps 定向失效）
+    // Spot flow = 5 + 持有信用点（读资源的 gain，覆盖 flowsResourceDeps 定向失效）
     spot(RES_SPOT, AREA)
       .name('ResReader')
       .desc('测试')
       .cost(0)
-      .yield(Expr.add(Expr.const(5), Expr.val(value('res', { resource: CREDIT }))))
+      .flow('test:flow:res-reader', CREDIT, Expr.add(Expr.const(5), Expr.val(value('res', { resource: CREDIT }))))
       .capacity(100)
       .tags(tagPath('test'))
       .build(),
-    // baseYield = extra 三层合并视图 testprod.bonus（覆盖 extraChanged 失效）
+    // Spot flow = extra 三层合并视图 testprod.bonus（覆盖 extraChanged 失效）
     spot(EXTRA_SPOT, AREA)
       .name('ExtraReader')
       .desc('测试')
       .cost(0)
-      .yield(Expr.val(value('data', { path: 'testprod.bonus' })))
+      .flow('test:flow:extra-reader', CREDIT, Expr.val(value('data', { path: 'testprod.bonus' })))
       .capacity(100)
       .tags(tagPath('test'))
       .build(),
@@ -148,7 +148,7 @@ describe('Phase 5 陈旧读回归（事件驱动精确失效）', () => {
     expect(gain()).toBe(12);
   });
 
-  test('setSpotLevel/addSpotLevel → owned/levelLinear/功能 flows 立即反映', () => {
+  test('setSpotLevel/addSpotLevel → owned/功能 flows 立即反映', () => {
     game.mutations.setSpotLevel(PRINTER, 1);
     expect(gain()).toBe(7); // base 5 + 功能 2
     game.mutations.setSpotLevel(PRINTER, 2);
@@ -170,7 +170,7 @@ describe('Phase 5 陈旧读回归（事件驱动精确失效）', () => {
     game.mutations.setSpotLevel(PRINTER, 1);
     expect(gain()).toBe(7);
     expect(game.mutations.addEnhancement('base:enhancement:credit_system')).toBe(true);
-    // zone mul 只乘 spot 子树（5×1.5），功能 flows 在根级加法不受乘区影响
+    // zone mul 只乘 Spot product（flow 在根级加法不受乘区影响）
     expect(gain()).toBeCloseTo(9.5, 6);
     expect(game.mutations.removeEnhancement('base:enhancement:credit_system')).toBe(true);
     expect(gain()).toBe(7);
@@ -183,7 +183,7 @@ describe('Phase 5 陈旧读回归（事件驱动精确失效）', () => {
     // flat zone = res(CREDIT) = 0：值不变，但 zone 节点已缓存
     expect(gain()).toBe(5);
     game.mutations.setResource(CREDIT, 30);
-    // baseYield(5+30) + zone flat(30)：zone 节点必须随 resourceChanged 重算
+    // Spot flow(5+30) + zone flat(30)：两个动态节点都必须随 resourceChanged 重算
     expect(gain()).toBe(65);
   });
 

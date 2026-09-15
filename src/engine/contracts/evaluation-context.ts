@@ -1,7 +1,6 @@
 import type { ExtraPath, ExtraValue } from './extra';
-import type { ValueExpression } from './expression';
 import type { AffectorInstance, AffectorPackDef, AffectorFlow } from './affector';
-import type { FuncletDef } from '../types/expression';
+import type { FuncletDef, ValueExpression } from '../types/expression';
 import type { TagPath } from '../core/tag';
 import type { SpotTagOverrideState } from './state-query';
 
@@ -25,9 +24,13 @@ export interface ConditionEvaluationContext<State = unknown> {
 export interface GameNumSpotSource {
   readonly id: string;
   readonly areaId: string;
-  readonly baseYieldResource: string;
-  readonly baseYield: ValueExpression;
-  readonly yieldPerLevel?: number;
+  readonly functionalities?: readonly {
+    readonly kind: string;
+    readonly resource?: string;
+    readonly amount?: number | ValueExpression;
+    readonly amountPerLevel?: number;
+    readonly startLevel?: number;
+  }[];
 }
 
 export interface GameNumAreaSource {
@@ -41,6 +44,13 @@ export interface GameNumInitSource {
 
 export interface GameNumTaggedSource {
   readonly tags?: readonly TagPath[];
+  readonly addsFunctionalities?: readonly {
+    readonly kind: string;
+    readonly resource?: string;
+    readonly amount?: number | ValueExpression;
+    readonly amountPerLevel?: number;
+    readonly startLevel?: number;
+  }[];
 }
 
 /** GameNum 建树/求值所需的 Registry 最小只读端口。 */
@@ -58,6 +68,7 @@ export interface GameNumRegistryContext {
 export interface GameNumAffectorContext {
   getActiveInstances(): readonly AffectorInstance[];
   getPack(id: string): AffectorPackDef | undefined;
+  getFlowResources?(): readonly string[];
 }
 
 /** GameNum 内部维护的活跃 flow 来源；按 resource / mount bucket 查询。 */

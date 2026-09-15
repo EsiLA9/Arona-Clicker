@@ -76,13 +76,11 @@ describe('AronaClickerRuntime PackManager 接线', () => {
       spots: [
         {
           idName: 'spot-a', areaId: 'base:area:schale_main', name: 'Spot A', description: '',
-          baseCost: 1, baseCostResource: 'base:resource:credit', baseYield: 2,
-          baseYieldResource: 'base:resource:credit', baseCapacity: 3,
+          baseCost: 1, baseCostResource: 'base:resource:credit', baseCapacity: 3,
         },
         {
           idName: 'spot-b', areaId: 'base:area:schale_main', name: 'Spot B', description: '',
-          baseCost: 2, baseCostResource: 'base:resource:credit', baseYield: 4,
-          baseYieldResource: 'base:resource:credit', baseCapacity: 5,
+          baseCost: 2, baseCostResource: 'base:resource:credit', baseCapacity: 5,
         },
       ],
       suspendedSpotIds: [],
@@ -111,8 +109,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     game.init([defaultDatapack]);
     const spot = {
       idName: 'spot-a', areaId: 'base:area:schale_main', name: 'Spot A', description: '',
-      baseCost: 1, baseCostResource: 'base:resource:credit', baseYield: 2,
-      baseYieldResource: 'base:resource:credit', baseCapacity: 3,
+      baseCost: 1, baseCostResource: 'base:resource:credit', baseCapacity: 3,
     };
     const valid = { modName: 'draft-mod', displayName: 'Draft Mod', version: '1.0.0', author: '', description: '', spots: [spot], suspendedSpotIds: [] };
     expect(game.applyRuntimeMod(valid).ok).toBe(true);

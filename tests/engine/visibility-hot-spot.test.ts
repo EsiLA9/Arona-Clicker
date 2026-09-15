@@ -31,8 +31,6 @@ const spot = (revealTriggers?: SpotDef['revealTriggers']): SpotDef => ({
   description: '',
   baseCost: { type: 'const', value: 1 },
   baseCostResource: 'credit',
-  baseYield: { type: 'const', value: 1 },
-  baseYieldResource: 'credit',
   baseCapacity: 1,
   tags: [],
   revealTriggers,

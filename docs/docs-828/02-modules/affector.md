@@ -7,6 +7,8 @@
 - **管**：`AffectorPackDef` 注册、实例生命周期（Latent→Active→Removed）、四通道执行、与 GameNum 区表的桥接信号。
 - **不管**：数值求值（GameNum 惰性查询）、状态写入（经 mutations）。
 
+Spot 的 `flow`（常量或数值表达式）与 `linearYield`（`amountPerLevel`，可选 `startLevel`）都会在运行时转译为自己的 Affector pack，并以 `mountEntityId=spotId` 挂载。这样一个 Spot 可以同时提供多种资源、各自不同的数量；`linearYield` 的表达式读取该 Spot 自身等级。Spot-mounted flow 在等级为 0 时由 GameNum 门控，不会因为残留实例而产出。
+
 ## 关键文件
 
 | 文件 | 职责 |
@@ -21,7 +23,7 @@
 | ---------------- | ------------------------------ | -------------------------------------------------------------------------- |
 | `effects`        | **仅激活沿**（Latent→Active 翻转）执行一次 | 一次性奖励（`addResource` 发放、setFlag/addItem 等）；声明类 op 不执行                       |
 | `perTickEffects` | Active 期间每帧                    | 仅限幂等/维持类 op                                                                |
-| `flows`          | 激活期间每帧经 GameNum 懒求值            | **唯一持续产出通道**（Spot `linearYield` 即转译为 flow）；Phase 6 起按 `mountEntityId` 层级分发 |
+| `flows`          | 激活期间每帧经 GameNum 懒求值            | **唯一持续产出通道**（Spot `flow` / `linearYield` 均转译为 flow）；Phase 6 起按 `mountEntityId` 层级分发 |
 | `zoneModifiers`  | 事件驱动同步进区表                      | 命名乘区（flat/mul/custom/bound），见 [[docs/docs-828/04-mechanisms/trigger-effect]]    |
 
 - ⚠️ **双通道警告**：`flows` 与 `effects[addResource]` 并存 = 激活沿发一次 + 每帧持续入账 = **双倍**。数据作者二选一。

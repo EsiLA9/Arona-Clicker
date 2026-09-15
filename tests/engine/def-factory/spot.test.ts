@@ -30,8 +30,6 @@ describe('SpotBuilder', () => {
       description: '最小设施',
       baseCost: Expr.const(0),
       baseCostResource: CREDIT,
-      baseYield: Expr.const(0),
-      baseYieldResource: CREDIT,
       baseCapacity: 0,
       tags: [],
     });
@@ -47,7 +45,7 @@ describe('SpotBuilder', () => {
       .name('野外调查站')
       .desc('阿比多斯风格的小型户外作业点，适合野外探索型学生。')
       .cost(20)
-      .yield(8)
+      .flow('base:flow:field_work', CREDIT, 8)
       .capacity(300)
       .tags(['field'], ['combat'])
       .revealResource('name', CREDIT, 10)
@@ -69,8 +67,6 @@ describe('SpotBuilder', () => {
       description: '阿比多斯风格的小型户外作业点，适合野外探索型学生。',
       baseCost: Expr.const(20),
       baseCostResource: CREDIT,
-      baseYield: Expr.const(8),
-      baseYieldResource: CREDIT,
       baseCapacity: 300,
       tags: [['field'], ['combat']],
       revealTriggers: [
@@ -79,11 +75,24 @@ describe('SpotBuilder', () => {
       ],
       functionalities: [
         {
+          id: 'base:flow:field_work',
+          kind: 'flow',
+          resource: CREDIT,
+          amount: 8,
+        },
+        {
           id: 'base:funclet:field_work_conditioned',
           kind: 'linearYield',
           resource: CREDIT,
           amountPerLevel: 1,
           condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>', 100)),
+        },
+        {
+          id: 'base:spot:field_work:generic-level-linear',
+          kind: 'linearYield',
+          resource: CREDIT,
+          amountPerLevel: 1,
+          startLevel: 1,
         },
       ],
       levelUpgrades: [
@@ -92,7 +101,6 @@ describe('SpotBuilder', () => {
       ],
       upgradeCostBase: 80,
       upgradeCostGrowth: 1.8,
-      yieldPerLevel: 1,
     });
   });
 
@@ -100,7 +108,7 @@ describe('SpotBuilder', () => {
     const def = spot('base:spot:archive', 'base:area:schale_library')
       .name('卷宗整理台')
       .desc('分类整理联邦委托卷宗的工作台。')
-      .cost(25).yield(6).capacity(280)
+      .cost(25).flow('base:flow:archive', CREDIT, 6).capacity(280)
       .tags(['archive'], ['office'])
       .levelUpTo(3)
       .genericUpgrade(100, 1.8, 1)
@@ -127,17 +135,18 @@ describe('SpotBuilder', () => {
     ]);
   });
 
-  test('cost/yield 支持表达式与显式资源覆盖', () => {
+  test('cost/flow 支持表达式与显式资源覆盖', () => {
     const expr = Expr.add(Expr.const(1), Expr.const(2));
     const def = spot('base:spot:x', 'base:area:a')
       .name('x').desc('x')
       .cost(expr, 'base:resource:pyroxene')
-      .yield(5, 'base:resource:pyroxene')
+      .flow('base:flow:pyroxene', 'base:resource:pyroxene', 5)
       .build();
     expect(def.baseCost).toBe(expr);
     expect(def.baseCostResource).toBe('base:resource:pyroxene');
-    expect(def.baseYield).toEqual(Expr.const(5));
-    expect(def.baseYieldResource).toBe('base:resource:pyroxene');
+    expect(def.functionalities).toEqual([
+      { id: 'base:flow:pyroxene', kind: 'flow', resource: 'base:resource:pyroxene', amount: 5 },
+    ]);
   });
 
   test('gachaPools() 追加', () => {

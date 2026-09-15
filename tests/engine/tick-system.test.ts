@@ -29,8 +29,7 @@ const simpleDatapack: Datapack = {
       description: '',
       baseCost: { type: 'const', value: 10 },
       baseCostResource: 'credit',
-      baseYield: { type: 'const', value: 5 },
-      baseYieldResource: 'credit',
+      functionalities: [{ id: 'base:flow:test', kind: 'flow', resource: 'credit', amount: 5 }],
       baseCapacity: 0,       // 无容量限制
       levelUpgrades: [],
       tags: [],
@@ -66,7 +65,11 @@ function makeGameNumSystem(reg: Registry, vs: ValueSystem, bus: EventBus, state:
   const gns = new GameNumSystem({
     registry: reg,
     valueSystem: vs,
-    affectorEngine: { getActiveInstances: () => [], getPack: () => undefined } as any,
+    affectorEngine: {
+      getActiveInstances: () => [{ instanceId: 'test:flow@spot', packId: 'test:flow', mountEntityId: 'test:spot:spot_t', state: 'Active', activeEntryIds: ['flow'] }],
+      getPack: (id: string) => ({ id, entries: [{ id: 'flow', effects: [], flows: [{ resource: 'credit', value: 5, applySpotMultiplier: true }] }] }),
+      getFlowResources: () => ['credit'],
+    } as any,
     eventBus: bus,
   });
   gns.buildAll(state);
@@ -86,7 +89,7 @@ describe('TickSystem', () => {
     const ts = new TickSystem(vs, bus, gns, new StateMutationService(bus));
     ts.setState(state);
 
-    // baseYield=5 is the output for one unified tick.
+    // Spot 的持续产出 flow=5 是统一 tick 的产出。
     ts.tick();
     expect(state.resources.credit).toBe(5);
     ts.tick();

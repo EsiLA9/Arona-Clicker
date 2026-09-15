@@ -44,8 +44,6 @@ const spot = {
   description: 'A mine',
   baseCost: 2,
   baseCostResource: 'coin',
-  baseYield: 3,
-  baseYieldResource: 'ore',
   baseCapacity: 4,
 };
 

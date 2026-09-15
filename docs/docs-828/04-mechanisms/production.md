@@ -4,13 +4,13 @@
 
 ## GameNum 数值树
 
-- 节点种类 9 种：`add/sub/mul/const/expr/owned/levelLinear/zone/affectorFlows`（收敛双表达式系统：算术运算统一由 `ValueExpression` 经 `expr` 叶子承载）；
+- 节点种类 9 种：`add/sub/mul/const/expr/owned/zone/affectorFlows`（收敛双表达式系统：算术运算统一由 `ValueExpression` 经 `expr` 叶子承载）；
 - `valueSystem.evaluate(node, state)` 纯递归求值（`game-num-eval.ts`）；
 - 节点带 `dirty/cached`：父节点失效沿 `parents` 反查表向上传播（局部失效）。
 
 ## 构建（buildAll，显式四级层级树）
 
-每资源一棵树，`game-num-build.ts` 构造（旧「baseYield + tagMultiplier + 全局累加」隐式上抛结构已废止）：
+每资源一棵树，`game-num-build.ts` 构造。Spot 的持续资源只由其功能生成的 Affector flow 提供；Spot 子树先为每个资源建立零初值的 `spotBase`，再由挂载的 flow 填入：
 
 ```text
 primitiveGain:<res> = globalProduct(×globalMulZone) + globalFlat + globalFlows
@@ -20,9 +20,10 @@ spotFull  = spotBase × spotMulZone + spotExtra
 ```
 
 - **乘区只乘下一级 base 链**：spotProduct / areaProduct 进上级 base 和，逐级连乘；
-- **flat/flows 不进乘区**：spotFlat 经 `spotFlatGated`（owned 门控）进 spotExtra；flows 不受 owned 门控；
-- **spot 子树在所有资源树统一构建**：非本资源树 spotBase 恒 0（const），仅承载跨资源 flows；孤儿 spot（registry 无 area/init 链）base 链直挂根；
-- **flows 按 mountEntityId 层级分发**（`ensureFlowsNodes` 幂等创建）：spot → spotExtra；area/init → 各自 Extra；enhancement/item 等非层级实体 → 资源树根 global 兜底节点；
+- **Spot 主产出 flow 进入乘区**：由 Spot functionality 生成、带 `applySpotMultiplier` 的 flow 进入 `spotBase`，随 Spot → Area → Init 的乘区链结算；普通 Affector flow 仍进入对应 Extra，不自动进入乘区；
+- **Spot flow 受拥有状态门控**：挂载在 Spot 的 flow 在 Spot 等级为 0 时求值为 0；Spot 的 flat 区仍经 `spotFlatGated` 门控；
+- **spot 子树在所有资源树统一构建**：非本资源树 spotBase 恒为 0，仅承载跨资源 flows；一个 Spot 可有多个 `<spotId>@<resource>` 子树；孤儿 Spot（registry 无 area/init 链）base 链直挂根；
+- **flows 按 mountEntityId 层级分发**（`ensureFlowsNodes` 幂等创建）：Spot 主产出 → 该 Spot 的 `spotBase`，Spot 普通 flow → `spotExtra`；area/init → 各自 Extra；enhancement/item 等非层级实体 → 资源树根 global 兜底节点；
 - zone 节点：scope × part（flat/mul）；无 resource 限定的 zone 节点（global/area/init scope）跨资源树共享（build 模块内部 `WeakMap` 去重）；spot scope 节点带 resource 限定按树独立；
 - 构建收尾静态扫描 `gainResourceDeps`（resourceChanged 定向失效的数据基础）。
 
@@ -47,7 +48,7 @@ spotFull  = spotBase × spotMulZone + spotExtra
 
 ## 求值入口
 
-- `evaluateResourceGain(res)` / `evaluateSpotYield(spotId)`（层级视图含自身 flat/flows）；
+- `evaluateResourceGain(res)` / `evaluateSpotYield(spotId)`（多资源 Spot 的聚合层级视图）/ `evaluateSpotYields(spotId)`（按资源拆分的 Spot 产出）；
 - UI 读 spot 自身 mul 区：`buildZoneNode({kind:'spot',id},'mul',resource)` + `evaluate` 精确读（`getSpotMultiplier` 已删）；
 - 每帧 TickSystem 调用 `evaluateResourceGain` 结算。
 

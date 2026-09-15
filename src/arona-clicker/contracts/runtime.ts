@@ -26,7 +26,7 @@ import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } fro
 import type { WorldCatalogQueryPort } from './world-catalog';
 import type { UserThemeService } from '../services/user-theme-service';
 import type { ShopQueryPort } from './shop-query';
-import type { RuntimeDefinitionEditorCommands, RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult } from './runtime-content';
+import type { RuntimeDefinitionEditorCommands, RuntimeModStateSnapshot, RuntimeSpotAffectorDraft, RuntimeSpotMutation, RuntimeSpotMutationResult } from './runtime-content';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -84,9 +84,10 @@ export interface RuntimeModDraft {
     readonly description: string;
     readonly baseCost: number;
     readonly baseCostResource: string;
-    readonly baseYield: number;
-    readonly baseYieldResource: string;
     readonly baseCapacity: number;
+    readonly affectors?: readonly RuntimeSpotAffectorDraft[];
+    /** 不能由当前 MVP 进行 round-trip 的资源功能；编辑器仅用于显示诊断并阻止覆盖。 */
+    readonly unsupportedFunctionalityIds?: readonly string[];
   }[];
   /** Draft 中保留但当前 Runtime Preview 不物化的 Spot。 */
   readonly suspendedSpotIds?: readonly string[];

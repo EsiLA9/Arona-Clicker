@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T08:48:33.164Z",
+  "generatedAt": "2026-09-15T06:46:50.274Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -1864,18 +1864,6 @@
           "tsType": "string"
         },
         {
-          "key": "baseYield",
-          "required": true,
-          "kind": "hand",
-          "tsType": "ValueExpression"
-        },
-        {
-          "key": "baseYieldResource",
-          "required": true,
-          "kind": "string",
-          "tsType": "string"
-        },
-        {
           "key": "baseCapacity",
           "required": true,
           "kind": "float",
@@ -1899,13 +1887,6 @@
             "kind": "hand",
             "tsType": "LevelUpgradeDef"
           }
-        },
-        {
-          "key": "yieldPerLevel",
-          "required": false,
-          "kind": "float",
-          "tsType": "number",
-          "label": "每级产出"
         },
         {
           "key": "upgradeCostBase",
