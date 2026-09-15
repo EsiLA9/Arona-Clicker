@@ -25,6 +25,7 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | 想了解 | 看这篇 |
 | --- | --- |
 | 系统全貌 / 核心思想 / 目录职责速览 | [[docs/docs-828/01-architecture/overview]] |
+| 新会话最小架构上下文 / Luna 阅读入口 | [[docs/docs-828/01-architecture/current-context-card]] |
 | 启动 → 装配 → tick 的完整时序 | [[docs/docs-828/01-architecture/run-logic]] |
 | 三层状态（global / per-Init 快照 / per-Init 当前）与写入口 | [[docs/docs-828/01-architecture/state-layers]] |
 | Datapack → Registry → PlayerState → GameView 数据流 | [[docs/docs-828/01-architecture/data-flow]] |
@@ -33,8 +34,10 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs/docs-828/03-data-structures/player-state]] 起（见下方分区表） |
 | 引擎契约与 AronaClicker 类型边界 | [[docs/docs-828/03-data-structures/type-boundary-audit]] |
 | 生产 / 抽卡 / 培养 / 色彩 / 事件联动的机制细节 | [[docs/docs-828/04-mechanisms/00-index]]（当前机制正文入口） |
-| 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/plan-work/active/task-0041-character-progression-and-memory]]（A 段已实施，B 段推迟） |
-| 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[docs/plan-work/00-index]] |
+| **有哪些不可违反的设计约束**（含尚未落地的纸面约束） | [[docs/docs-828/01-architecture/design-constraints]] |
+| 某个机制为什么这样设计 / 它的历史来源 | [[docs/plan-work/mechanisms/00-index]] → 再跳 `docs/plan-work/archive/` 原文 |
+| 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/docs-828/01-architecture/design-constraints]]（A 段约束）+ [[docs/plan-work/00-index]]（B 段属未决方向） |
+| 还有什么没做（未决方向，**非当前计划**） | [[docs/plan-work/00-index]] |
 
 ### 我想改……
 
@@ -45,9 +48,10 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | 文件拆分 / 重构 | [[docs/docs-828/05-conventions/refactoring]] |
 | 正式默认游戏内容 | `src/arona-clicker/content/default-datapack.ts` + [[docs/docs-828/02-modules/registry]]；测试/示例包见 `src/data/test-datapack.ts` |
 | 新增跨世界线保留的数据 | [[docs/docs-828/01-architecture/state-layers]]（先想清楚放哪一层） |
-| Datapack 读取 / 多包管理 / mod 冲突 | [[docs/plan-work/active/adr-0004-datapack-management]] |
+| Datapack 读取 / 多包管理 / mod 冲突 | [[docs/docs-828/01-architecture/design-constraints]]（命名与包约束）+ [[docs/plan-work/00-index]]（未落地部分） |
 | 测试 | [[docs/docs-828/05-conventions/testing]] |
 | 文档本身 | [[docs/docs-828/05-conventions/doc-maintenance]] |
+| 任务 Read Set / 上下文预算 | [[docs/ai/task-read-set-routing]] |
 
 ## 02-modules 模块卡片索引
 
@@ -108,15 +112,23 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 
 ## 计划与架构决策
 
-> 原 `06-adr/` 与 `08-roadmap/` 已聚合至 [[docs/plan-work/00-index]]；以下保留主题路由，正文统一维护在 `docs/plan-work/`。
+> ADR 与其他计划文档已**整体冻结**至 `docs/plan-work/archive/`（非当前事实源）。当前仍生效的设计约束统一收敛在 [[docs/docs-828/01-architecture/design-constraints]]；下表只保留「哪条决策记在哪份 ADR」的检索路由。
 
 | 文档 | 决策 |
 | --- | --- |
-| [[docs/plan-work/completed/adr-0001-architecture-consolidation]] | T1-T7 架构整理收官（装配外移 / 只读纪律 / 表驱动 / 环解扣） |
-| [[docs/plan-work/completed/adr-0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
-| [[docs/plan-work/completed/adr-0003-docs-restructure]] | 文档库重构：从日期戳手册到分层索引 |
-| [[docs/plan-work/active/adr-0004-datapack-management]] | Datapack 多包读取与管理（三段式命名空间 / 包库与启用集 / 惰性存档；规划中） |
-| [[docs/plan-work/completed/affection-planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送 / §4 Talklet 输入中提示；轴 A 消息成分已移除） |
+| [[docs/docs-828/01-architecture/design-constraints]] | **仍生效的设计约束汇编**（含尚未落地的纸面约束） |
+| [[adr-0001-architecture-consolidation]] | T1-T7 架构整理收官（装配外移 / 只读纪律 / 表驱动 / 环解扣） |
+| [[adr-0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
+| [[adr-0003-docs-restructure]] | 文档库重构：从日期戳手册到分层索引 |
+| [[adr-0004-datapack-management]] | Datapack 多包读取与管理（三段式命名空间 / 包库与启用集 / 惰性存档；规划中） |
+| [[affection-planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送 / §4 Talklet 输入中提示；轴 A 消息成分已移除） |
+| [[adr-0006-ui-background-layering]] | 背景层数据结构、合并规则与安全边界 |
+| [[adr-0007-shop-transaction-boundaries]] | Spot 商店的购买记录、原子提交与事件边界 |
+| [[adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（B 段推迟） |
+| [[adr-0009-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建 |
+| [[adr-0010-definition-repository-editor-resolution]] | DefinitionRepository 只读接口与 Editor 来源解析优先级 |
+| [[adr-0011-definition-resolution-withdrawal]] | Definition Resolution 撤回、引用悬置与 Runtime Delta 责任边界 |
+| [[adr-0012-runtime-hot-content-crud]] | Runtime 热内容 CRUD 与 Spot 服务接入边界 |
 
 ## 07-audit 设计审查（2026-08-30）
 
@@ -138,17 +150,8 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 
 ## 08-roadmap 长期目标追踪
 
-> 每个长期目标 1 篇（编号递增）：目标陈述 / 里程碑切片 / 状态 / 验收口径。设计权威在对应 ADR，本分区只管进度。
-
-| 编号 | 目标 | 状态 |
-| --- | --- | --- |
-| [[docs/plan-work/active/roadmap-0001-datapack-management]] | Datapack 多包管理落地（S1-S7） | 进行中（S1a/S1b 已落地） |
-| [[docs/plan-work/active/roadmap-0002-spot-shop]] | Spot 商店（购买集 / 发现限制） | 进行中（P0 已裁定） |
-| [[docs/plan-work/active/roadmap-0003-gacha-pool-model]] | 卡池模型规范化（banner ↔ 角色池解耦） | 待设计裁定 |
-| [[docs/plan-work/active/roadmap-0004-chara-ownership]] | Chara 拥有体系 Init 化 + 追赶统计 | 待设计裁定 |
-| [[docs/plan-work/completed/roadmap-0005-engine-domain-consolidation]] | 基础引擎、基础数据服务与 AronaClicker 领域内聚 | ✅ 已完成（2026-09-02） |
-
-| [[docs/plan-work/active/adr-0007-shop-transaction-boundaries]] | Spot 商店的购买记录、原子提交与事件边界 | 🟡 已裁定，待实现 |
+> 全部 roadmap 已冻结至 `docs/plan-work/archive/`，**不再是当前计划**。
+> 完整的未完成方向清单（含各 roadmap 的剩余切片）见 [[docs/plan-work/00-index]] 的「未决方向」；本分区不再维护状态表，避免出现第三处状态副本。
 
 ## 命令速查
 
@@ -159,3 +162,6 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | `npm run dev:game` / `npm run dev` | UI / 引擎开发服务器 |
 | `npm run build` | 构建 |
 | `npm run gen:schema` | `src/engine/types/` → 编辑器 Schema 协议 |
+| `npm run check:architecture` | 数据服务单向依赖边界检查 |
+| `npm run check:docs` | 文档库结构检查（链接目标 / 文件名唯一 / 源码路径） |
+| `npm run report:doc-context` | 文档分区规模与粗略上下文预算报告 |

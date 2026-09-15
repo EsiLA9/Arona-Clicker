@@ -10,20 +10,18 @@
 
 - [[docs/docs-828/02-modules/registry]]
 - [[docs/docs-828/03-data-structures/registry]]
-- [[docs/plan-work/registry&saves/00-index]]
-- [[docs/plan-work/active/adr-0004-datapack-management]]
 
-## 计划与决策
+## 历史来源与设计理由
 
-| 生命周期 | 文档 | 用途 |
-| --- | --- | --- |
-| active | [[docs/plan-work/active/roadmap-0001-datapack-management]] | S1-S7 实施切片 |
-| active | [[docs/plan-work/registry&saves/01-registry-plan]] | Registry 与跨包校验 |
-| active | [[docs/plan-work/registry&saves/02-save-plan]] | 存档、残留与恢复 |
-| active | [[docs/plan-work/registry&saves/03-rollout-and-acceptance]] | 施工路线与验收矩阵 |
-| active | [[docs/plan-work/registry&saves/04-service-workspace-plan]] | 数据包/存档工作区交互 |
-| active | [[docs/plan-work/active/task-0021-datapack-workspace-repair]] | 数据包工作区修复 |
-| active | [[docs/plan-work/active/roadmap-0020-service-workspaces]] | 服务工作区总目标 |
+| 文档 | 用途 |
+| --- | --- |
+| [[roadmap-0001-datapack-management]] | S1-S7 实施切片 |
+| [[01-registry-plan]] | Registry 与跨包校验 |
+| [[02-save-plan]] | 存档、残留与恢复 |
+| [[03-rollout-and-acceptance]] | 施工路线与验收矩阵 |
+| [[04-service-workspace-plan]] | 数据包/存档工作区交互 |
+| [[task-0021-datapack-workspace-repair]] | 数据包工作区修复 |
+| [[roadmap-0020-service-workspaces]] | 服务工作区总目标 |
 
 ## 当前未完成
 

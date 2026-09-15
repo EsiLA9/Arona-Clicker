@@ -15,16 +15,16 @@
 - [[docs/docs-828/04-mechanisms/state-mutation]]
 - [[docs/docs-828/01-architecture/run-logic]]（含 Lobby / Pre-Init Runtime 生命周期）
 
-## 计划与决策
+## 历史来源与设计理由
 
-| 生命周期 | 文档 | 用途 |
-| --- | --- | --- |
-| completed | [[docs/plan-work/completed/adr-0001-architecture-consolidation]] | T1-T7 架构整理决策 |
-| completed | [[docs/plan-work/completed/adr-0002-gamenum-tree]] | GameNum 树与 Affector 修复 |
-| completed | [[docs/plan-work/completed/adr-0005-engine-domain-boundaries]] | 引擎与领域边界 |
-| completed | [[docs/plan-work/completed/roadmap-0005-engine-domain-consolidation]] | 领域内聚施工记录 |
-| active | [[docs/plan-work/active/roadmap-0007-enhancement-reveal]] | 强化揭示与服务权限语义 |
-| active | [[docs/plan-work/active/roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Runtime 与通用界面服务 |
+| 文档 | 用途 |
+| --- | --- |
+| [[adr-0001-architecture-consolidation]] | T1-T7 架构整理决策 |
+| [[adr-0002-gamenum-tree]] | GameNum 树与 Affector 修复 |
+| [[adr-0005-engine-domain-boundaries]] | 引擎与领域边界 |
+| [[roadmap-0005-engine-domain-consolidation]] | 领域内聚施工记录 |
+| [[roadmap-0007-enhancement-reveal]] | 强化揭示与服务权限语义 |
+| [[roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Runtime 与通用界面服务 |
 
 ## 当前判断
 

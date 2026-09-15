@@ -13,6 +13,8 @@
     "count:src-lines": "node count-src-lines.mjs",
     "gen:schema": "node scripts/gen-engine-schema.mjs --write",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
+    "report:doc-context": "node scripts/report-doc-context.mjs",
     "ui:callgraph": "node scripts/ui-callgraph.mjs"
   },
   "devDependencies": {

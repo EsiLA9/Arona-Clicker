@@ -1,3 +1,17 @@
+---
+scope: current-fact
+authority: semantic-explanation
+read_when:
+  - 新增或修改 PlayerState 字段
+  - 修改 Init、存档或状态写入口
+avoid_when:
+  - 只改不持久化的表现层代码
+related_modules:
+  - player-state
+  - state-mutation
+  - lifecycle
+---
+
 # 01-architecture/state-layers — 三层状态与写入口
 
 > 本文回答：**运行时状态分几层、各层放什么、新增数据该放哪一层。**

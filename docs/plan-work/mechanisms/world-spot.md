@@ -13,15 +13,15 @@
 - [[docs/docs-828/04-mechanisms/production]]
 - [[docs/docs-828/03-data-structures/player-state]]
 
-## 计划与决策
+## 历史来源与设计理由
 
-| 生命周期 | 文档 | 用途 |
-| --- | --- | --- |
-| active | [[docs/plan-work/active/roadmap-0002-spot-shop]] | Spot 商店草案与待裁定 |
-| active | [[docs/plan-work/active/roadmap-0006-ui-background-layering]] | 世界/区域背景表现关联 |
-| active | [[docs/plan-work/active/roadmap-0007-enhancement-reveal]] | 强化揭示与服务权限 |
-| docs/newPlan | [[docs/plan-work/newPlan/03-spot-shop]] | 新商店策划方案 |
-| docs/newPlan | [[docs/plan-work/newPlan/07-mvp-scope]] | MVP 范围与世界经营取舍 |
+| 文档 | 用途 |
+| --- | --- |
+| [[roadmap-0002-spot-shop]] | Spot 商店草案与待裁定 |
+| [[roadmap-0006-ui-background-layering]] | 世界/区域背景表现关联 |
+| [[roadmap-0007-enhancement-reveal]] | 强化揭示与服务权限 |
+| [[03-spot-shop]] | 新商店策划方案 |
+| [[07-mvp-scope]] | MVP 范围与世界经营取舍 |
 
 ## 裁定边界
 

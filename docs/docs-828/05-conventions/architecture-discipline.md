@@ -1,3 +1,18 @@
+---
+scope: current-fact
+authority: normative
+read_when:
+  - 修改引擎机制、状态、事件、Datapack 或 UI 边界
+  - 开始任何跨模块施工
+avoid_when:
+  - 仅修改文档排版且不改变约束说明
+related_modules:
+  - architecture
+  - state-mutation
+  - datapack
+  - ui
+---
+
 # 05-conventions/architecture-discipline — 架构纪律（不可破坏）
 
 > 本文是 8 条架构纪律的权威定义与代码落点。任何改动违反任一条都视为破坏架构。
@@ -23,4 +38,4 @@
 
 ## 相关文档
 
-[[docs/docs-828/01-architecture/overview]] · [[docs/plan-work/completed/adr-0001-architecture-consolidation]]（纪律的最近一次系统性加固）
+[[docs/docs-828/01-architecture/overview]] · [[adr-0001-architecture-consolidation]]（纪律的最近一次系统性加固）

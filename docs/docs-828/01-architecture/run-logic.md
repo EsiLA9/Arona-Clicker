@@ -1,3 +1,17 @@
+---
+scope: current-fact
+authority: semantic-explanation
+read_when:
+  - 修改 Runtime 装配、Init 生命周期或 Tick
+  - 调查生产、Affector、剧情和统计时序
+avoid_when:
+  - 只改静态 UI 表现
+related_modules:
+  - runtime
+  - lifecycle
+  - tick
+---
+
 # 01-architecture/run-logic — 运行逻辑与时序
 
 > 本文回答：**程序从启动到运行的主干时序——子系统如何装配、初始化做什么、每帧发生什么、业务操作与存档怎么走，以及 Init 切换如何重建运行时边界。**

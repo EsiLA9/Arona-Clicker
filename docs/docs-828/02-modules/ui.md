@@ -41,7 +41,7 @@
 | `theme-tree.ts` | 把引擎运行时主题 token 落成 CSS 变量（纯色彩树） |
 | `background-service.ts` | 背景层解析、Pic URL 校验、回退与 DOM 层渲染；支持 Host 形状、内嵌装饰线和 hover 层 |
 | `outer-background.ts` | `body` 直系最外层背景宿主的初始化与更新，不随 `#app` 重建 |
-| `presentation-service.ts` | 将 `PresentationDef` 解析为 Host/状态只读 View；负责父级回退、系统颜色层和宿主背景渲染 |
+| `presentation-service.ts` | 将 `PresentationDef` 解析为 Host/状态只读 View；负责父级回退、宿主背景与状态解析（系统颜色层只由全局目标持有） |
 | `ui-host-registry.ts` / `presentation-targets.ts` | 稳定 UI Host 注册表、父级层级校验、服务宿主发现与表现目标映射 |
 | `color-scheme.ts` | 配色派生（背景感知文字色等） |
 | `chat-stream.ts` | 聊天流打字机/滚动 + 开幕标题横幅状态（`showBanner` / `activeBanner`，记录 startedAt 供断点续播，3s 自动清除） |
@@ -53,7 +53,7 @@
 ### 剧情入口确认浮层与开幕横幅（2026-08-29 落地）
 
 - **storyGate**（`PanelState.storyGate`，状态驱动）：`data-kizuna` / `data-start-story` / `data-replay-story` 三入口点击 → 只记状态 + render，`data-story-gate-confirm` 按 mode 分派 `startCardStory`（goto 重开，已完结亦可正常重新开始，浮层文案「重新开始」）/ `startActiveStory` / `replayStory`（故事栏重读，文案「重新观看」），`data-story-gate-cancel`（X / 取消 / 遮罩空白，卡片冒泡不关闭）关闭；换流（`data-select-variant` / `data-conversation-back`）清空。
-- **开幕横幅**：`openingTitleShown` 事件（Talklet `showOpeningTitle` 效果呼出）→ `ChatStream.showBanner` 写当前活跃流 → render 时经 `PanelState.openingBanner` 渲染 `.chat-pane` 内横幅（非阻塞，CSS 动画模糊→清晰→淡出，JS 3s 计时清除）。机制详情见 [[docs/plan-work/completed/affection-planning]] §3。
+- **开幕横幅**：`openingTitleShown` 事件（Talklet `showOpeningTitle` 效果呼出）→ `ChatStream.showBanner` 写当前活跃流 → render 时经 `PanelState.openingBanner` 渲染 `.chat-pane` 内横幅（非阻塞，CSS 动画模糊→清晰→淡出，JS 3s 计时清除）。机制详情见 [[affection-planning]] §3。
 
 ## 核心概念
 
@@ -90,7 +90,12 @@ Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Worksp
 - 运行时可排序层为 `player → init → area → student`；`user`、`preview` 与 `ephemeral` 是独立插层，剧情临时层始终最高。
 - `InitDef.theme` / `EnhancementDef.theme` 为选择页提供场景声明；一般游戏中的 Init 主题才进入运行时 `init` 层，选择页聚焦主题只做局部只读投影。
 - Host 的 `default / active / inactive / disabled` 状态、形状与内嵌装饰线由 `PresentationView` 统一解析；编辑器和运行时共用 Host Registry。
-- 选择页动态背景、条目局部主题和 Init 快照阶段由 [[docs/plan-work/active/task-0025-selector-dynamic-theme]] 管理；场景 current/next 双缓冲挂在 `.selector-super-background` 专用超级背景宿主内，`.selector-viewport` 只承载详情面，`.init-orb-disc.selector-disc` 只做圆盘装饰与定位参照，轮盘作为 shell 独立高层兄弟节点；未声明主题使用稳定回退，不改变游戏状态。
+- 选择页动态背景、条目局部主题和 Init 快照阶段由 [[task-0025-selector-dynamic-theme]] 管理；场景 current/next 双缓冲挂在 `.selector-super-background` 专用超级背景宿主内，`.selector-viewport` 只承载详情面，`.init-orb-disc.selector-disc` 只做圆盘装饰与定位参照，轮盘作为 shell 独立高层兄弟节点；未声明主题使用稳定回退，不改变游戏状态。
+- **全局主题来源**：`PlayerState.activeTheme`（`system` / `color-group` / `custom`）是运行时与 UI 唯一的全局主题选择依据；用户自定义主题内容只存于 `customThemes`，`userTheme` 只保留元数据与启停，未被选中的全局自定义主题不进入最终解析结果。
+- **系统颜色层归属**：`system-color-background` 只由全局目标持有，控件目标不自动复制同义层；控件无显式层时按父级 / 全局继承或独立的状态 fallback。系统层开关只影响该层绘制，不改变 token、palette、文字色与实体状态。
+- **图层管理器**：`src/ui/components/user-theme-layer-manager.ts` 以稳定 ID `system-color-background` 标识全局系统层，`describeThemeLayer` 输出只读层描述；`BackgroundLayerDef.enabled` 表达隐藏语义并保留序位与配置；图层浮层编辑会话由 `src/ui/editor-overlay-host.ts` 提供 body 级 overlay。
+- **表现目标编辑器**：目标卡片（名称 / 级别 / 父级 / 折叠 / 删除）与其图层列表同属一个可折叠单元；图层增删、排序与类型切换只刷新当前目标卡片，不重建整个 `user-theme-modal`；删除目标只清用户自定义配置并回退系统层 / 父级。
+- **Host 覆盖边界**：只有登记 UI Host 的控件走统一状态 / 背景 / 文字判别；未接入 Host 的控件仍由组件 class 与局部 CSS 决定表现，属待收敛项（见 [[task-0030-button-rendering-convergence-solution]]）。
 
 - **刷新双轨**：每帧 `refreshLight`（轻量数字）；揭示指纹变化 → `refreshRevealIfChanged` → 按当前 Workspace owner 重建 DOM。Contacts / Story 在 ownership 闭环稳定前允许完整 Workspace 刷新，不提前引入局部 DOM patch 或 keyed reconcile。
 - **背景视觉层**：`ThemeDef.background` 沿用运行时主题层级；按 id 覆盖、匿名层追加，UI 通过 `body` 直系 `.console-background#ui-background-layer` 独立渲染，`#app` 只承载内容层与颜色继承，装饰层不接收指针事件。
@@ -103,4 +108,4 @@ Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Worksp
 
 ## 相关文档
 
-[[docs/plan-work/completed/adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs/docs-828/02-modules/color]]（theme-tree 数据源）· [[docs/docs-828/07-audit/presentation-editor-consistency]]（编辑器/运行时一致性审计）
+[[adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs/docs-828/02-modules/color]]（theme-tree 数据源）· [[docs/docs-828/07-audit/presentation-editor-consistency]]（编辑器/运行时一致性审计）

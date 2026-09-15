@@ -1,194 +1,119 @@
-# docs/plan-work — 计划、路线图与工作记录总入口
+# docs/plan-work — 冻结考古层入口
 
-> 本目录是项目所有计划、Roadmap、ADR、方案草稿与 Code Review 工作的唯一入口。
-> 代码与机制文档仍以 `src/`、`docs/docs-828/01-05` 为准；本目录只管理决策、工作范围、状态和后续行动。
+状态：done — 2026-09-15 冻结为非核心历史层
 
-## 当前状态
+> **本目录不是当前事实源，也不代表仍在推进的工作。** 项目当前事实一律以 `src/` 与 `docs/docs-828/` 为准。
+> 这里保存的是过程文档：ADR 裁定、Roadmap 切片、Task 施工记录与设计草案。它们的用途只有一个——**回答「为什么当初这么做」，以及在需要时重新激活某个未完成方向**。
 
-| 状态 | 含义 | 当前内容 |
-| --- | --- | --- |
-| ✅ 已完成 | 设计或施工已经完成，文档作为决策/历史记录保留 | 架构整理、GameNum、文档重构、引擎领域内聚、好感、色彩系统 |
-| 🟡 进行中 | 已有部分实现或准备工作，仍有明确未完成切片 | Datapack 多包管理、Code Review |
-| 🔵 待裁定 | 有目标和设计草案，但尚未形成最终 ADR | Spot 商店、卡池模型、角色拥有体系 |
+## 冻结约定
 
-## 当前整理任务
+- 本目录整体冻结为**单一考古层**：原 `active/`、`completed/`、`newPlan/`、`review/`、`registry&saves/` 已全部合并进 `archive/`，不再按生命周期分目录维护；
+- **不再进行准出、不再维护索引状态、不再做批量归档**。文档只允许按需追加「更正（日期）」标注；
+- 每份文档文首的 `状态：` 行保留**冻结时的最后已知状态**（`done` 已完成 / `closing` 仅差准出 / `active` 在推进 / `proposed` 待开工 / `draft` 未裁定）。这些取值现在只用于阅读时区分「做完了」与「没做完」，**不再被任何检查器强制**；
+- 目录内文件只做链接完整性检查（`npm run check:docs`）。
 
-| 任务 | 目标 | 状态 |
-| --- | --- | --- |
-| [[docs/plan-work/active/task-0000-ai-context-infrastructure]] | 最小 AI 施工上下文协议：高层 AI → Patch Unit → Luna → Receipt，含协议入口登记 | 🟡 P0 已完成（`docs/ai/` 协议、模板与路由入口）；P1 待授权试点；明确排除 Task-0049/0050 |
-| [[docs/plan-work/active/task-0023-project-documentation-normalization]] | 文档职责收敛、机制文件夹建立、逐篇核验与失效链接清理 | 🟡 归并至 Task-0064，待准出 |
-| [[docs/plan-work/active/roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Lobby Runtime 与通用界面服务 | 🟡 收尾验收 |
-| [[docs/plan-work/active/task-0025-selector-dynamic-theme]] | Init / GlobalEnh 选择页动态主题与 Init 状态背景 | 🟡 CLOSING，待准出 |
-| [[docs/plan-work/completed/task-0028-presentation-target-inherit-only]] | 新建表现目标在未编辑前保持原有默认外观 | ✅ 已完成 |
-| [[docs/plan-work/active/task-0029-button-sequence-rendering-audit]] | 按钮序列表现链路对照审查 | 🟡 CLOSING，待准出 |
-| [[docs/plan-work/active/task-0030-button-rendering-convergence-solution]] | 按钮主题渲染统一与形状参数编辑方案 | 🟡 部分实施：形状参数编辑已落地 |
-| [[docs/plan-work/completed/task-0031-svg-button-state-color-audit]] | 按钮内 SVG 状态颜色链路审查 | ✅ 已完成 |
-| [[docs/plan-work/active/task-0032-passive-story-scheduling]] | PassiveStory P0/P1 与 Pool 分层权重 | 🟡 已裁定，待施工 |
-| [[docs/plan-work/active/task-0033-system-color-layer-scope]] | 控件系统颜色层职责收敛与重复背景清理 | 🟡 CLOSING，待准出 |
-| [[docs/plan-work/active/task-0034-affector-performance-review]] | Affector / GameNum 性能判别与整改排序 | 🟡 静态核验完成，待施工 |
-| [[docs/plan-work/active/task-0035-condition-presentation-tree]] | Condition Presentation Tree 条件展示树 | 🟡 方案核验完成，待施工 |
-| [[docs/plan-work/active/task-0039-spot-shop-transaction-system]] | Spot 商店与通用交易系统 | 🟡 P3 验收中 |
-| [[docs/plan-work/active/task-0040-unified-workspace-frame]] | 统一三栏工作区物理骨架与表现接线 | 🟡 施工中 |
-| [[docs/plan-work/active/task-0041-character-progression-and-memory]] | 角色成长与记忆体系：Proto/Variant 边界、统一 Effect 投影、跨 Init 追赶 | 🟢 A 段已实施，B 段推迟（见 [[docs/plan-work/active/adr-0008-character-progression-boundaries]]） |
-| [[docs/plan-work/active/task-0042-character-workspace-ui-convergence]] | 通讯录学生 Workspace 与一般游戏态 / 商店态 UI 风格收敛 | 🟡 CLOSING，待准出 |
-| [[docs/plan-work/completed/task-0043-topbar-settings-workspace]] | 顶栏导航与设置 Workspace 统一管理 | ✅ 已完成 |
-| [[docs/plan-work/completed/task-0044-ui-geometry-workspace-reshape]] | UI Geometry Contract、Workspace Frame 与视觉基础设施重塑 | ✅ 已完成 |
-| [[docs/plan-work/active/task-0045-ui-incremental-update-workspace-isolation]] | UI 增量更新与 Workspace 隔离第一施工片段 | 🟡 P0–P4 已完成，后续切片待拆分 |
-| [[docs/plan-work/active/task-0046-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建 | 🟢 P0/P1 完成；P2 延期 |
-| [[docs/plan-work/active/adr-0009-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建裁定 | 🟢 P0/P1 已实施；P2 延期 |
-| [[docs/plan-work/active/task-0047-contacts-story-workspace-ownership]] | 通讯录 / 故事独立 Workspace 所有权与路由迁移 | 🟢 Contacts / Story 核心迁移完成；通用 Region 与 Character 兼容清理后续收口 |
-| [[docs/plan-work/active/task-0048-workspace-theme-restructure-and-editor]] | Workspace Theme 体系重构、编辑器信息架构与主题生命周期收敛 | 🟡 P0 首轮诊断、P1 摘要卡、P2 owner 接线已完成；来源链与生命周期回归推进中 |
-| [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]] | 用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分与局部刷新 | 🟡 首轮施工完成；浮窗架构缺陷转 Task0050 |
-| [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]] | 图层 Manager/Dialog body-level overlay、编辑会话生命周期与 global 表现目标双管线收口 | 🟡 P0-A 结构已落地但功能不可用；P1 部分完成；P2 未收口 |
-| [[docs/plan-work/active/task-0051-user-theme-layer-editor-functional-recovery]] | 恢复图层编辑 Dialog 的保存/取消/标题、Manager 初值与 global 入口，补 overlay 行为测试 | 🟡 代码与 7 项行为测试已完成；Edge 验收待补 |
-| [[docs/plan-work/active/task-0052-user-theme-layer-overlay-presentation]] | 图层浮层尺寸收紧、标题栏拖拽、行内常显信息与样式类名对齐 | 🟡 代码与测试已完成；Edge 验收待补 |
-| [[docs/plan-work/active/task-0053-user-theme-layer-interaction-fixes]] | 修复保存误弹确认、系统层顺序、新建丢失继承层、删除回退、行级状态同步、预览顺序与实时预览、层级优先级按钮入口 | 🟡 代码与测试已完成；Edge 验收待补 |
-| [[docs/plan-work/active/task-0054-user-theme-layer-type-aware-value-editor]] | 按图层类型提供差异化参数面板、CSS 解析/序列化与预览保存一致性，重点覆盖径向渐变 | 🔵 待评审，尚未施工 |
-| [[docs/plan-work/active/task-0055-runtime-datapack-editor-mvp]] | 设置页数据包管理中的单 Mod 运行时编辑态、元信息、空 Spot 草稿与临时 Overlay 载入 | 🟢 MVP 已实施，正式持久化待后续 |
-| [[docs/plan-work/active/task-0056-workspace-datapack-boundary-convergence]] | Workspace / Datapack 边界收束：Datapack 规则抽取、Editor 状态隔离、Workspace Router/History 与查询边界 | 🟡 P0 / P1 / P2 / P3 已实施并验证；P4 ShopQuery 与 DefinitionRepository 接口裁定完成，Editor 来源实现与 UI Context 待施工 |
-| [[docs/plan-work/active/task-0058-definition-resolution-p1a]] | Definition Resolution P1A：来源解析、Draft-only Tombstone、三态结果与 Delta | 🟢 已实施并验证；P1B 已由 Task-0059 完成 |
-| [[docs/plan-work/active/task-0059-definition-resolution-p1b]] | Definition Resolution P1B：引用策略、DefinitionDiagnostics 与 DefinitionChange 消费 | 🟢 已实施并验证 |
-| [[docs/plan-work/active/task-0060-multi-spot-runtime-editor]] | 单临时 Mod 的多 Spot 临时构建与编辑：Draft、批量物化、批量预览与安全回退 | 🟡 P1–P4 已实施；自动化验收通过，Edge 手工验收待补 |
-| [[docs/plan-work/active/task-0061-runtime-hot-content-crud-spot]] | Runtime 热内容 CRUD 与 Spot 服务接入：单内容提交、Registry 局部变更与定向失效 | 🟡 P0–P4 已实施；全量与 Edge 验收待补 |
-| [[docs/plan-work/active/task-0062-runtime-spot-editor-simple-flow]] | Runtime Spot 编辑器单项即时操作：新建/编辑保存即热提交，删除确认后消失，移除多 Draft 主流程 | 🟡 P0–P3 已实施；Edge 手工验收待补 |
-| [[docs/plan-work/active/task-0063-runtime-editor-command-facade]] | Runtime Editor Command Facade 与 Resolution / Materialization 边界收口 | 🟡 P0–P3 已实施；Edge 手工验收受 Computer Use 桥接阻断 |
-| [[docs/plan-work/active/task-0064-project-documentation-exit-governance]] | 项目过程文档与知识库准出治理：先盘点分类，再试点准出与知识蒸馏 | 🟡 第一阶段与首轮 5 份试点已完成，按停止点暂停扩大 |
-| [[docs/plan-work/active/task-0057-single-mod-editor-workbench]] | 单 Mod 全内容编辑工作台：Mod 编辑态、全表 Draft、Runtime 预览、增量更新与 Mod 输出 | 🟡 方案已裁定；P1A 基础模型已实施，完整工作台仍待施工 |
-| [[docs/plan-work/active/adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（C0 九项收口；B 段投影/追赶/Chara-Spot 推迟） | 🟢 A 段已实施（133 文件/1248 测试绿） |
-| [[docs/plan-work/active/adr-0010-definition-repository-editor-resolution]] | DefinitionRepository 最小只读接口、Editor 来源解析优先级与 Runtime Registry 边界 | 🟡 接口裁定完成，Repository / Overlay 实现待后续任务 |
-| [[docs/plan-work/active/adr-0011-definition-resolution-withdrawal]] | Definition Resolution 撤回、引用悬置、Draft-only Tombstone 与 Runtime Delta 责任边界 | 🟢 已裁定生效；P1A/P1B 已实施 |
-| [[docs/plan-work/active/adr-0012-runtime-hot-content-crud]] | Runtime 热内容 CRUD 与 Spot 服务接入边界 | 🟢 已裁定生效；Task-0061 施工中 |
+## 目录结构
 
-机制正文已从 `docs/docs-828/04-algorithms` 迁移到 `docs/docs-828/04-mechanisms`；旧目录仅保留迁移说明。
+| 路径 | 内容 |
+| --- | --- |
+| `archive/` | 全部冻结的过程文档（ADR / Roadmap / Task / 草案 / 审查记录 / 数据包施工计划） |
+| `mechanisms/` | 按机制的**反向索引**：从当前机制出发找它的设计理由与历史来源 |
+| `00-index.md` | 本文 |
 
-## 按机制阅读
+## 怎么用这一层
 
-计划文档原位按生命周期存放；若需要按功能机制连续阅读，请从 [[docs/plan-work/mechanisms/00-index]] 进入。该层只聚合链接，不复制计划正文或改变 active/completed/docs/newPlan 状态。
+```text
+想知道系统现在是什么        → docs/docs-828（唯一当前事实源）
+想知道某个机制为什么这样设计 → docs/plan-work/mechanisms/<机制> → 再跳 archive 原文
+想知道还有什么没做          → 本文「未决方向」（下列）
+想恢复某个方向              → 从 archive 原文重新激活，另立 ADR / Task，不要就地续写
+```
 
-## 已完成
+**不要**从本目录判断系统现状。ADR 中写「应如此」但源码未实现的地方，见 [[docs/docs-828/01-architecture/design-constraints]] 末节「尚未落地的纸面约束」。
 
-| 文件 | 内容 | 状态 |
-| --- | --- | --- |
-| [[docs/plan-work/completed/adr-0001-architecture-consolidation]] | T1-T7 架构整理 | ✅ 已完成 |
-| [[docs/plan-work/completed/adr-0002-gamenum-tree]] | GameNum 生产树与 Affector 修复 | ✅ 已完成 |
-| [[docs/plan-work/completed/adr-0003-docs-restructure]] | docs-824 → docs/docs-828 文档体系重构 | ✅ 已完成 |
-| [[docs/plan-work/completed/adr-0005-engine-domain-boundaries]] | 基础引擎与 AronaClicker 领域内聚决策 | ✅ 已完成 |
-| [[docs/plan-work/completed/roadmap-0005-engine-domain-consolidation]] | 引擎/数据服务/领域层/UI 内聚施工记录 | ✅ 已完成 |
-| [[docs/plan-work/completed/affection-planning]] | 好感数值、台阶剧情、羁绊尾巴 | ✅ 已实现 |
-| [[docs/plan-work/completed/color-system-plan]] | ColorGroup / ColorEquipment 系统 | ✅ 已实现 |
-| [[docs/plan-work/completed/roadmap-overview-history]] | 原 Roadmap 总览 | 📦 已归档，由本文取代 |
+## 未决方向（冻结时的未完成项）
 
-### 已完成但待归档的活动路线
+> 以下方向在冻结时**既未完成、也未被正式撤销**。列出仅为避免意图丢失；它们**不在当前计划中**。需要推进时，从对应原文重新裁定。
 
-以下文档已经完成主要施工，但仍保留在 `active/` 记录渐进迁移或后续非阻塞清理；在归档前不得把它们当作未实施方案：
+### 数据包与多包管理
 
-| 文件 | 当前状态 | 保留原因 |
-| --- | --- | --- |
-| [[docs/plan-work/active/roadmap-0008-theme-color-system-refactor]] | ✅ 主要目标已完成 | 保留 CSS 渐进迁移记录 |
-| [[docs/plan-work/active/roadmap-0013-presentation-editor-ux]] | ✅ E0–E5 已完成首版 | 保留既存 UI 环境限制与后续增强 |
-| [[docs/plan-work/active/task-0025-selector-dynamic-theme]] | ✅ 首版已实施并验证 | 保留专项复核、背景预览、动态开关与归档整理 |
-| [[docs/plan-work/active/roadmap-0018-ui-host-registry]] | 🟡 H0–H2 完成，H3/H4 未完成 | 服务工作区宿主仍在施工 |
+- 单文件 / 文件夹来源适配器（与 zip 同构解析）。
+- 按扩展名注册的通用分片解析器（`.dsl` 等）。
+- **惰性存档的全量语义**：除 Tag 外 roster / 背包 / `storyReadLogs` / flags / 好感的存在性过滤，以及残留检查与清除界面。
+- 残留数据跨 mod 合并语义、manifest 缺省降级、version 区间匹配、依赖拓扑排序。
+- character / variant id 三段化（S1c）与相应校验收紧。
+- `affectionConfig` 改特化表 + 角色级 `affectionConfigId`。
+- mod 管理 UI 补全：文件夹 / 单文件导入、完整草案确认流程、残留管理。
 
-## 未完成：按语义分组
+原文：[[adr-0004-datapack-management]]、[[roadmap-0001-datapack-management]]、[[registry-saves-00-index]]、[[01-registry-plan]]、[[02-save-plan]]、[[03-rollout-and-acceptance]]
 
-### 数据包生态
+### 商店与卡池
 
-- [[docs/plan-work/active/adr-0004-datapack-management]]：多包读取、启用集、惰性存档和包管理决策权威。
-- [[docs/plan-work/active/roadmap-0001-datapack-management]]：对应实现切片与状态追踪。
-- [[docs/plan-work/registry&saves/00-index]]：Registry、启用集与多包存档的完整施工计划。
+- Spot 商店的完整 `ShopOffer` union（role / upgrade / spot / affector / effect）、`refresh` 库存类型、实例物品货币。
+- 卡池 banner ↔ 候选集解耦、声明式候选来源、基础池随 Init 扩充、限定池隔离、`refreshWorldPool` 去留。
 
-当前重点：完成跨包启用集统一校验与正式应用回滚边界，再实现惰性存档和通用残留管理；包库快照恢复接线已完成。
+原文：[[roadmap-0002-spot-shop]]、[[roadmap-0003-gacha-pool-model]]、[[adr-0007-shop-transaction-boundaries]]
 
-### 世界经营玩法
+### 角色拥有与成长
 
-- [[docs/plan-work/active/roadmap-0002-spot-shop]]：Spot 商店、货架发现与购买集。
+- Chara 拥有体系 Init 化（roster / characters / fragments 默认翻转 init），图鉴发现记录与当前拥有分离。
+- 追赶统计项与追赶机制（pity 修正、权重倾斜、好感补偿）。
+- 角色成长 B 段：`ProgressionEffectResolver`、单源 zone 注入、跨世界线 catch-up、Chara-Spot 消费者。
+- 技能 / 装备写入口与 UI、Proto milestone effects 消费端。
 
-当前状态：待设计裁定，尚无独立 ADR。
+原文：[[roadmap-0004-chara-ownership]]、[[adr-0008-character-progression-boundaries]]、[[task-0041-character-progression-and-memory]]、[[11-gear-equipment-system]]
 
-### 招募与角色成长
+### 强化揭示与服务权限
 
-- [[docs/plan-work/active/roadmap-0003-gacha-pool-model]]：Banner 与角色候选池解耦。
-- [[docs/plan-work/active/roadmap-0004-chara-ownership]]：角色拥有体系 Init 化与追赶统计。
-- [[docs/plan-work/active/task-0041-character-progression-and-memory]]：把 RosterEntry/培养/好感/色彩装备提升为统一角色成长领域，并新增跨世界线 CharacterMemory 追赶；是 roadmap-0004 归属翻转的配套答案（其 C0-2 依赖 0004 裁定）。
-- [[docs/plan-work/active/adr-0008-character-progression-boundaries]]：0041 的 C0 裁定与分段（A 段状态/记忆骨架可施工；B 段投影/追赶/Chara-Spot 推迟，强依赖 roadmap-0004 与 S1c）。
+- 分离「资源观察状态 / 强化揭示状态 / 资源支付判定 / 服务能力状态」；修未观察青辉石时 GlobalEnh 可见性与 NotVisible 路径。
 
-上述角色域目标应联合裁定，因为池候选、拥有状态、养成进度和跨世界线统计互相影响。
+原文：[[roadmap-0007-enhancement-reveal]]
 
-### 全量理解与审查
+### UI / 主题表现层
 
-- [[docs/plan-work/review/code-review-roadmap]]：按数据、数值、写入、领域、UI、Datapack 顺序完成全量 Review。
+- 编辑器专用背景可视化预览与预览画布、目标反向选择。
+- 表现层调试视图（来源 / 顺序 / 透明度 / 忽略状态）。
+- 主题编辑器信息架构重构（三层折叠、来源链与空值表达、局部刷新、可访问性、窄屏）。
+- 控件背景完整四态接入与按钮 / Tab 的 Edge 视觉回归。
+- 簇—区域深合并（图层、系统层开关、透明度、排序）与回归测试。
+- 表现层旧路径收束（`presentation.layers` 迁移、`backgroundLayerOrder`、`panels` 透明度归一）。
+- 历史硬编码组件背景清理、窄屏视觉回归。
+- 主题色语义节点 CSS 渐进迁移；UI 更新调度第二阶段（Reveal 分类与最小 Region 映射）。
 
-- [[docs/plan-work/review/def-resolution-withdrawal-sol-review]]：Sol 关于 Def 撤回、Tombstone、引用悬置与 Definition Resolution 的事实核查与修订建议。
+原文：[[roadmap-0006-ui-background-layering]]、[[roadmap-0009-theme-control-backgrounds]]、[[roadmap-0010-presentation-layer-service]]、[[roadmap-0011-ui-component-layer-backgrounds]]、[[roadmap-0012-flat-presentation-targets]]、[[roadmap-0014-theme-editor-convergence]]、[[roadmap-0016-cluster-region-context-overrides]]、[[roadmap-0017-theme-state-and-semantic-storage]]、[[task-0065-ui-presentation-residual-and-visual-regression]]、[[task-0066-theme-css-progressive-migration]]、[[task-0067-ui-update-dispatcher-stage2]]
 
-- [[docs/plan-work/review/runtime-editor-overlay-sol-review]]：Sol 关于 Runtime Editor 单 Mod / 单实体 Overlay 收缩建议的事实核查与后续边界。
+### 服务 / 工作区
 
-- [[docs/plan-work/active/task-0034-affector-performance-review]]：记录 Affector → ConditionDepIndex → GameNum/flow → Tick 性能审查的逐条真实性与紧迫性判定。
+- 存档工作区（列表 / 详情 / 读写 / 新游戏确认 / 数据包环境差异 / 残留按 mod 清除）。
+- 记录工作区（图鉴总览分类 + 统计按数据包贡献 / 世界线 / 标签筛选）。
+- 数据包工作区完善（导入预览、启用集草案、Registry dry-run 与失败回滚、影响报告）。
+- 统一体验验收（危险命令影响预览、草案拦截、跨服务返回栈、可访问性、失败恢复）。
+- 通讯录 / 档案工作区完整内容；宿主接入全量落地（服务内部子宿主、服务筛选目标）。
 
-- [[docs/plan-work/active/task-0035-condition-presentation-tree]]：记录条件展示树建议的逐条真实性、可行性与 UI 施工边界。
+原文：[[roadmap-0020-service-workspaces]]、[[roadmap-0018-ui-host-registry]]、[[task-0047-contacts-story-workspace-ownership]]、[[04-service-workspace-plan]]
 
-当前状态：路线已建立，但检查清单尚未全部打勾；应以当前源码路径重新执行，而不是沿用旧目录假设。
+### Lobby / Pre-Init
 
-### UI 表现层
+- Lobby 文案区分「当前世界线 / 全局内容」；服务权限守卫（禁止依赖当前 Init 的写入口）；浏览器级视觉验收。
 
-- [[docs/plan-work/active/roadmap-0006-ui-background-layering]]：背景图片、渐变与 SVG 装饰叠层服务。
-- [[docs/plan-work/active/adr-0006-ui-background-layering]]：背景层数据结构、合并规则与安全边界裁定。
-- [[docs/plan-work/active/roadmap-0008-theme-color-system-refactor]]：主题色双轨、语义节点、UI 作用域继承与颜色迁移。
-- [[docs/plan-work/active/roadmap-0009-theme-control-backgrounds]]：按钮与控件的多背景层、定位、状态和作用域继承。
-- [[docs/plan-work/active/roadmap-0010-presentation-layer-service]]：统一表现层服务、系统颜色层排序与来源模型。
-- [[docs/plan-work/active/roadmap-0011-ui-component-layer-backgrounds]]：将背景图层服务扩展到面板、按钮、Tab、卡片、气泡与弹窗。
-- [[docs/plan-work/active/roadmap-0012-flat-presentation-targets]]：平级表现目标、级别筛选弹窗与统一图层编辑器。
-- [[docs/plan-work/active/roadmap-0013-presentation-editor-ux]]：自定义表现控件编辑器体验、目标卡片与颜色/图片变换参数（E0-E5 已完成，保留全量 UI 测试环境问题）。
-- [[docs/plan-work/active/roadmap-0014-theme-editor-convergence]]：主题编辑器信息架构、表现模型收束、来源可视化与预览画布重构（P0-P2 首版完成，P3-P4 待实施）。
-- [[docs/plan-work/active/roadmap-0015-ui-dom-recalculation]]：正常游玩过程 DOM 重算收敛，区分局部更新与必要结构刷新（✅ 首版已实施，保留后续专项回归）。
-- [[docs/plan-work/active/roadmap-0016-cluster-region-context-overrides]]：簇默认与当前区域状态覆盖，统一三栏宿主表现关系（🟡 首版已实施，P2 验收收尾）。
-- [[docs/plan-work/active/roadmap-0018-ui-host-registry]]：UI Host Registry、服务面板自动表现接入与主题编辑器发现机制（🟡 首版已接入，完整服务发现与验收待补）。
-- [[docs/plan-work/active/roadmap-0020-service-workspaces]]：存档、数据包、图鉴与统计服务工作区交互目标（🟡 工作区首版已接入，存档/统计/图鉴/完整失败恢复待补）。
-- [[docs/plan-work/active/roadmap-0024-lobby-pre-init-runtime]]：Lobby/Pre-Init Runtime、Init 选择与通用界面服务（🟡 运行时已落地，文档/浏览器验收收尾）。
-- [[docs/plan-work/active/task-0025-selector-dynamic-theme]]：Init / GlobalEnh 选择页动态主题、轮盘聚焦背景与 Init 返回状态表现（✅ 首版已实施并验证，体验项另列）。
-- [[docs/plan-work/active/roadmap-0026-presentation-inset-decoration]]：表现宿主删除外部包线，改用数据驱动的内嵌装饰线（✅ 已实施）。
-- [[docs/plan-work/active/task-0027-theme-switch-cleanup-and-user-theme-isolation]]：主题切换遗留清理与用户自定义主题独立选择（✅ 已实施）。
-- [[docs/plan-work/active/task-0029-button-sequence-rendering-audit]]：按钮序列表现链路对照审查（✅ 调查完成）。
-- [[docs/plan-work/active/task-0030-button-rendering-convergence-solution]]：按钮主题渲染统一与形状参数编辑方案（🟡 部分实施：形状参数编辑已落地）。
-- [[docs/plan-work/completed/task-0031-svg-button-state-color-audit]]：按钮内 SVG 状态颜色链路审查（✅ 已归档；全量检查中的既有基线问题保留在验证记录）。
-- [[docs/plan-work/active/task-0033-system-color-layer-scope]]：控件系统颜色层职责收敛、隐式重复背景清理与全局开关解耦（🟡 规划完成，待施工）。
-- [[docs/plan-work/active/task-0049-user-theme-background-layer-manager]]：用户自定主题背景图层管理器：Inspector / Manager / Dialog 拆分、稳定 ID、隐藏语义与局部刷新（🟡 首轮施工完成；浮窗架构缺陷转 Task0050）。
-- [[docs/plan-work/active/task-0050-user-theme-layer-overlay-and-global-target-convergence]]：图层 Manager/Dialog 的 body-level overlay、编辑会话生命周期与 `global` 表现目标双管线收口（🟡 P0-A 结构已落地但 Dialog 与 global 入口功能不可用；P1 部分完成；P2 未收口）。
-- [[docs/plan-work/active/task-0051-user-theme-layer-editor-functional-recovery]]：恢复图层编辑 Dialog 的保存/取消/标题、Manager 初值与 global 图层入口，补 overlay 行为测试（🟡 代码与行为测试完成；Edge 验收待补，承接 0050 的功能阻断）。
-- [[docs/plan-work/active/task-0052-user-theme-layer-overlay-presentation]]：图层浮层尺寸收紧、标题栏拖拽、LayerManager 行内常显信息与样式类名对齐（🟡 代码与测试完成；Edge 验收待补）。
-- [[docs/plan-work/active/task-0053-user-theme-layer-interaction-fixes]]：修复保存误弹放弃确认、回退视图系统颜色层顺序、新建图层丢失继承层、删除最后一层自动回退、行级状态同步、预览层遮蔽继承背景与 Dialog 实时预览，并为主题浮窗「层级优先级」补按钮排序入口（🟡 代码与测试完成；Edge 验收待补）。
-- [[docs/plan-work/completed/task-0044-ui-geometry-workspace-reshape]]：Workspace Frame 几何契约、Panel/Region/Host 边界、滚动与响应式收敛（✅ 已完成）。
-- [[docs/plan-work/completed/roadmap-0019-presentation-text-color]]：表现宿主文字颜色统一、四态解析与验收（✅ 已完成）。
+原文：[[roadmap-0024-lobby-pre-init-runtime]]
 
-当前状态：B0–B4 的运行时、字段映射与编辑器接入已完成；剩余专用可视化预览与多设备视觉回归。
+### 由 Task 承载的其他未决方向
 
-### 强化与服务权限
+- 按钮序列统一接入 Host 的剩余部分：[[task-0030-button-rendering-convergence-solution]]
+- PassiveStory P0/P1 与池分层权重：[[task-0032-passive-story-scheduling]]
+- Affector / GameNum 性能整改：[[task-0034-affector-performance-review]]
+- Condition Presentation Tree：[[task-0035-condition-presentation-tree]]
+- 图层类型化参数面板：[[task-0054-user-theme-layer-type-aware-value-editor]]
+- 运行时数据包编辑工作台：[[task-0055-runtime-datapack-editor-mvp]]、[[task-0056-workspace-datapack-boundary-convergence]]、[[task-0057-single-mod-editor-workbench]]
+- 背包剩余能力（整理持久化、出售丢弃、来源筛选）：[[task-0068-inventory-workspace-remaining-capabilities]]
+- 未裁定的设计草案：[[01-ownership-and-development]]、[[02-unified-acquisition]]、[[03-spot-shop]]、[[04-recruitment-v2]]、[[05-fragments-and-currency]]、[[06-meta-loop-and-ui]]、[[07-mvp-scope]]、[[16-runtime-datapack-authoring]]
+- 运行时数据包创作方向：[[16-runtime-datapack-authoring]]、[[runtime-editor-overlay-sol-review]]、[[def-resolution-withdrawal-sol-review]]
 
-- [[docs/plan-work/active/roadmap-0007-enhancement-reveal]]：GlobalEnh 揭示、资源观察与 0 成本服务权限语义。
+## 相关路由
 
-当前状态：主题编辑权限暂时免费赠送；未观察青辉石时的可见性异常待后续修复。
-
-### 新策划汇总（待评审）
-
-- [[docs/plan-work/newPlan/00-index]]：学生获取与关系资产化方案总览；PassiveStory 评审已裁定，施工任务见 [[docs/plan-work/active/task-0032-passive-story-scheduling]]。
-- [[docs/plan-work/newPlan/16-runtime-datapack-authoring]]：把数据包编写工具搬进真实游戏运行时（受控运行时主机模式 / 图形化编写 / 游戏时数据与数据包数据双向转换），待评审。
-
-该目录按模块/玩法簇收录 Sol 策划回复，当前属于方案草案；评审后再分别沉淀为正式 ADR、Roadmap 与实现任务。
-
-## 工作规则
-
-1. 新的架构级决策先写入本目录的 ADR，再拆成 Roadmap 切片。
-2. Roadmap 只记录目标、切片、状态和验收结果，不复制机制正文。
-3. 方案已实现后保留在 `completed/`，在文首和索引中标记完成，不删除历史决策。
-4. 未完成方案按主题拆分为独立文件，避免一个总计划同时承载多个不相干问题。
-5. 每个代码切片完成后至少更新对应 Roadmap 状态，并记录类型检查、专项测试和全量测试结果。
-
-## 其他文档分区
-
-- `docs/docs-828/01-architecture`：当前系统架构与运行逻辑。
-- `docs/docs-828/02-modules`：当前模块卡片。
-- `docs/docs-828/03-data-structures`：当前数据结构与边界审计。
-- `docs/docs-828/04-mechanisms`：当前机制正文与总入口。
-- `docs/docs-828/04-algorithms`：旧目录，仅保留迁移说明。
-- `docs/docs-828/05-conventions`：协作与代码规范。
-- `docs/docs-828/07-audit`：设计审查问题与整改记录。
-- `abstract.md`：面向玩法策划聊天的游戏概念摘要。
+- 最近完成的计划：[[task-0070-documentation-context-service]]
+- [[docs/docs-828/00-INDEX]]（唯一当前事实入口）
+- [[docs/docs-828/01-architecture/design-constraints]]（仍生效的设计约束）
+- [[docs/docs-828/05-conventions/doc-maintenance]]（文档维护与归档规则）
+- [[docs/plan-work/mechanisms/00-index]]（按机制的反向索引）

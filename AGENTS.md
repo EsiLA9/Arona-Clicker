@@ -21,29 +21,36 @@
 | 改核心算法（生产/抽卡/培养/色彩/事件联动） | [[docs/docs-828/04-mechanisms/state-mutation]] 起（分区表见 00-INDEX） |
 | 文件拆分 / 重构 | [[docs/docs-828/05-conventions/refactoring]] |
 | 写测试 | [[docs/docs-828/05-conventions/testing]] |
-| 维护文档本身 | [[docs/docs-828/05-conventions/doc-maintenance]] |
+| 维护文档本身 | [[docs/docs-828/05-conventions/doc-maintenance]]；文档准出四项条件、蒸馏分类与归档模板见 [[task-0064-project-documentation-exit-governance]] |
 | Luna 施工上下文 / Patch Unit / 施工纪律 | [[docs/ai/PROJECT-CONSTITUTION]]（从属索引，不复述架构纪律；Unit 与 Receipt 模板见 `docs/ai/templates/`） |
-| 好感系统（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）机制 | [[docs/plan-work/completed/affection-planning]]（机制单一事实源；聊天消息成分已移除） |
-| Datapack 读取 / 多包管理 / mod 冲突与命名空间 | [[docs/plan-work/active/adr-0004-datapack-management]]（规划中，裁定记录见文内） |
+| Luna 任务 Read Set / 上下文预算 | [[docs/ai/task-read-set-routing]] → [[docs/docs-828/01-architecture/current-context-card]] |
+| 好感系统（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）机制 | [[affection-planning]]（机制单一事实源；聊天消息成分已移除） |
+| Datapack 读取 / 多包管理 / mod 冲突与命名空间 | [[adr-0004-datapack-management]]（规划中，裁定记录见文内） |
 | Datapack 汇总契约 / Registry 组合边界 | `src/data-services/contracts/datapack.ts`、`src/data-services/registry/`；基础引擎只消费注入后的数据 |
-| 长期目标 / roadmap / 里程碑进度 / ADR / 工作计划 | [[docs/plan-work/00-index]]（设计决策、工作状态与历史记录统一入口） |
+| 仍生效的设计约束（已被代码实现的裁定） | [[docs/docs-828/01-architecture/design-constraints]] |
+| 历史计划 / 过程文档 / 未决方向（**非当前事实源**） | [[docs/plan-work/00-index]]（冻结考古层入口） |
 
-### 策划、意见与工作计划归档
+### 计划与过程文档（冻结考古层）
 
-所有非机制正文的策划、反馈、评审意见和施工计划，统一放在 `docs/plan-work/`；新建文档前先阅读其 [[docs/plan-work/00-index]]，不要在项目根目录或 `docs/` 下另建平行的计划目录。`docs/ai/` 只放 AI 施工协议与模板（非计划正文），入口见上方路由表。
+`docs/plan-work/` 保存全部历史 ADR / Roadmap / Task / 设计草案 / 审查记录，**整体处于冻结状态**：
 
-| 内容性质 | 存放位置 | 文档形态 |
+| 路径 | 内容 | 维护方式 |
 | --- | --- | --- |
-| 新的玩法策划、产品想法、用户意见、Sol 回复、尚未评审的方案草稿 | `docs/plan-work/newPlan/` | 以主题拆分的草稿；需要时更新 `newPlan/00-index.md` |
-| 基于源码或设计的审查意见、问题清单、Review 路线 | `docs/plan-work/review/` | 审查记录或 Review roadmap；不要伪装成已裁定方案 |
-| 已形成目标但仍在推进的长期路线 | `docs/plan-work/active/roadmap-*.md` | 只写目标、切片、状态、验收结果 |
-| 已作出的架构/机制边界裁定 | `docs/plan-work/active/adr-*.md` | 记录决策、理由、影响和后续施工；重大决策先 ADR 再拆 Roadmap |
-| 可直接执行的实现任务、专项修复或验收清单 | `docs/plan-work/active/task-*.md` | 记录范围、依赖、验收口径和验证结果 |
-| 已完成的 ADR、Roadmap、Task 或策划决策 | `docs/plan-work/completed/` | 保留历史记录，文首和 `00-index.md` 标记完成，不删除 |
+| `archive/` | 全部冻结的过程文档 | 不再准出、不再维护状态；只允许追加「更正（日期）」标注 |
+| `mechanisms/` | 按机制的反向索引（当前机制 → 设计理由 → 历史来源） | 只在需要定位设计理由时更新 |
+| `00-index.md` | 入口，含**未决方向**清单 | 新方向出现时追加 |
+| 根目录 `*.md` | 新的、确实要推进的计划文档 | 只在开工时创建，完成后移入 `archive/` |
 
-归档流转遵循：`newPlan/` 草案 → `review/` 评审（如需要）→ `active/adr-*`、`active/roadmap-*` 或 `active/task-*` → `completed/`。策划意见不能直接写入机制正文；只有裁定并实现后的稳定机制，才同步沉淀到 `docs/docs-828/`。`docs/plan-work/mechanisms/` 仅用于按机制聚合链接，不复制计划正文、也不改变文档生命周期。
+规则：
 
-`docs/newPlan/` 是旧位置（仅保留历史文件），禁止将新策划、意见或工作计划写入其中；若需要继续维护旧文件，应迁移到 `docs/plan-work/newPlan/` 并同步索引。文件名优先使用已有的 `adr-NNNN-*`、`roadmap-NNNN-*`、`task-NNNN-*` 约定，中文主题可作为主题名但仍需归入上述生命周期目录。
+- **不要从 `archive/` 判断系统现状**；ADR 里写了「应如此」但源码未实现的地方，以 [[docs/docs-828/01-architecture/design-constraints]] 末节的「尚未落地的纸面约束」为准；
+- 恢复某个未决方向时，从原文**重新激活**（另立 ADR / Task），不要就地续写历史文档；
+- 新计划文档一律按**裸文件名**互相引用（形如 `[[task-0070-xxx]]`，不带目录路径），移动目录不会产生连锁改名；
+- 策划意见不能直接写入机制正文；只有裁定并实现后的稳定机制，才沉淀到 `docs/docs-828/`；
+- `docs/ai/` 只放 AI 施工协议与模板（非计划正文），入口见上方路由表；
+- `docs/newPlan/` 是旧位置，仅保留历史文件，**禁止写入**。
+
+文档完整性（链接目标、文件名唯一、源码路径有效性）由 `npm run check:docs` 检查。
 
 ### 文档范围与拆分纪律
 
@@ -61,6 +68,9 @@
 | `npm run build` | 构建 |
 | `npm run gen:schema` | `src/engine/types/**` → `tools/datapack-editor/schema/engine-defs.gen.json` |
 | `npm run ui:callgraph` | UI 调用链 / 反向链静态分析（定位 DOM 过度刷新的入口；`--chains` / `--dom` / `--reverse` / `--forward` / `--hot`） |
+| `npm run check:architecture` | 数据服务单向依赖边界静态检查 |
+| `npm run check:docs` | 文档库结构检查（链接目标、裸名引用、文件名唯一、状态词表、归档结果） |
+| `npm run report:doc-context` | 文档分区规模与粗略上下文预算报告 |
 
 ## 架构纪律（不可破坏，详见 [[docs/docs-828/05-conventions/architecture-discipline]]）
 

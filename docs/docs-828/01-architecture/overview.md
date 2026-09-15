@@ -1,3 +1,16 @@
+---
+scope: current-fact
+authority: semantic-explanation
+read_when:
+  - 第一次理解项目架构
+  - 需要确认目录职责和核心思想
+avoid_when:
+  - 只改单一 UI 样式或局部文档
+related_modules:
+  - architecture
+  - engine
+---
+
 # 01-architecture/overview — 系统全貌
 
 > 本文回答：**这个系统是什么、核心思想是什么、仓库有哪些目录。**

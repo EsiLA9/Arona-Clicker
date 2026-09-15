@@ -1,3 +1,18 @@
+---
+scope: current-fact
+authority: semantic-explanation
+read_when:
+  - 修改 Datapack、Registry、PlayerState 或 UI 数据边界
+  - 调查数据如何进入只读视图
+avoid_when:
+  - 只改单个组件的局部样式
+related_modules:
+  - datapack
+  - registry
+  - player-state
+  - ui
+---
+
 # 01-architecture/data-flow — 数据四层流动
 
 > 本文回答：**一条数据从声明到 UI 呈现，经过哪些层、各层形态是什么。**

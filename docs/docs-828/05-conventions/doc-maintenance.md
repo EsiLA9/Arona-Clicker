@@ -12,26 +12,27 @@
 | `03-data-structures/` | 数据结构定义（类型权威仍在 `src/engine/types/`，文档只讲布局与语义） | 按主题 |
 | `04-mechanisms/` | 核心算法流程（结算/失效/派生） | 按主题 |
 | `05-conventions/` | 规范（纪律/重构/协议/测试/本文） | 每规范 1 篇 |
-| `docs/plan-work/` | 架构决策、Roadmap、方案草稿、Code Review 与完成记录的统一工作区 | 按 `00-index` 路由 |
-| `docs/ai/` | AI 施工协议与模板：Constitution（从属 `AGENTS.md`）、Patch Unit / Execution Receipt 模板；不含计划正文 | 每协议 1 篇 |
+| `docs/plan-work/` | **冻结考古层**：历史 ADR / Roadmap / Task / 草案 / 审查记录（`archive/`）+ 按机制的反向索引（`mechanisms/`）；**非当前事实源** | 由 `00-index.md` 统一索引 |
+| `docs/ai/` | AI 施工协议、上下文路由与模板：Constitution（从属 `AGENTS.md`）、任务 Read Set、领域上下文包、Patch Unit / Execution Receipt 模板；不含计划正文 | 按协议 / 路由 / 领域拆分 |
 | `07-audit/` | 设计审查：繁简/兜底问题清单（位置/原因/方案组）；GameNum/Affector 多包基础设施豁免；整改完成后归档 | 每组 1 篇 + 总览 |
-| `08-roadmap/` | 已迁移至 `docs/plan-work/active/` 或 `completed/`；旧目录不再承载计划正文 | 由 `docs/plan-work/00-index.md` 统一索引 |
+| `08-roadmap/` | 已迁移至 `docs/plan-work/archive/`；旧目录不再承载计划正文 | 由 `docs/plan-work/00-index.md` 统一索引 |
 
 ## 写作规则
 
 - **单一事实源**：代码是真相，文档只做索引与语义解释；同内容只写一处，其余用 `[[docs/docs-828/...]]` 链接；
 - **引用代码用路径**（可带行号快照），不复制代码块超过必要示意；
 - 中文正文 + 术语保留英文；表格优先，避免长段落；
-- 卡片首行格式固定：`# 分区/文件名 — 标题`，引言行固定回答「本文回答什么」。
+- 卡片正文标题格式固定：`# 分区/文件名 — 标题`，引言行固定回答「本文回答什么」；若使用 YAML 元信息，标题位于元信息之后。
+- 高频架构、模块和机制文档可在正文前使用轻量 YAML 元信息：`scope`、`authority`、`read_when`、`avoid_when`、`related_modules`；元信息只用于路由，不复制正文，也不改变源码的最终权威地位。
 
 ## 计划文档最小模板
 
-`docs/plan-work/active/` 中的 Task、Roadmap 与 ADR 必须能独立回答“现在做到哪里、下一步还缺什么”。新建或大幅修订计划时，至少保留以下字段；状态变化时只更新同一处，不在索引里复制施工细节：
+`docs/plan-work/` 根目录中的**新**计划文档（仅在确实要推进时创建）沿用以下字段，必须能独立回答“现在做到哪里、下一步还缺什么”。`archive/` 中的历史文档保持原样，不再套用本模板：
 
 ```markdown
 # Task/Roadmap：标题
 
-状态：🟡 进行中
+状态：active — 🟡 进行中
 
 ## 目标
 ## 设计边界
@@ -48,6 +49,67 @@
 - `当前核验` 记录实际执行过的命令、专项测试和浏览器验收；未执行的项目写“待验收”，不以设计完成代替验证完成。
 - 代码改动较大时，先更新对应计划文档的状态与切片，再继续实现，避免索引和计划长期落后于代码。
 
+### 状态词表（阅读图例）
+
+`archive/` 中的文档文首保留冻结时的**最后已知状态**，取值如下。这只是阅读图例，**不再强制、不再由检查器校验**：
+
+| 取值 | 含义 |
+| --- | --- |
+| `draft` | 未裁定的设计草案 |
+| `proposed` | 已裁定或已核验，等待开工 / 授权 / 评审 |
+| `active` | 有明确施工或验收在推进 |
+| `closing` | 主范围已完成，仅剩准出必需事项 |
+| `done` | 已完成并归档 |
+
+新计划文档仍应在文首写 `状态：`，取值范围相同，并可用 `—` 跟自由说明。
+
+### 链接策略
+
+| 引用目标 | 写法 |
+| --- | --- |
+| `docs/plan-work/**`（含 `archive/`、`mechanisms/`） | **裸文件名**，如 `[[task-0064-project-documentation-exit-governance]]`；目录会变动，路径不能进入身份 |
+| `docs/docs-828/**` | 全路径，保留可读层级 |
+| 名为 `00-index.md` 的导航文件 | 全路径（该名字在多个目录重名，裸名会歧义） |
+
+硬约束：`docs/plan-work/` 下的文件名必须**唯一**（`00-index.md` 除外），否则裸名链接无定义。
+
+### 历史失效的标注
+
+历史正文不改写、不删除。描述已失效时，在该文档末尾追加：
+
+```markdown
+- 更正（YYYY-MM-DD）：
+  - 本文 §X 的「……」已失效；当前事实为 ……。以源码为准，不再改写本文历史正文。
+```
+
+这样既保留历史快照价值，又能阻止后来者按旧事实行事。
+
+### 拆分 Task 的判据（重新启用计划层时适用）
+
+剩余工作只有在**能独立给出一条可验收的完成定义**时才拆成新 Task；否则留在原任务或记为明确 deferred。判据不满足就拆，会让工作计划碎成一批无法收敛的小任务。
+
+### 静态检查
+
+```text
+npm run check:docs
+```
+
+```text
+npm run report:doc-context
+```
+
+后者只报告各文档分区的文件数、字符数和粗略 token 估算，用于发现上下文包过大；它不判断语义，也不自动加载文档。
+
+只做可机械核实、且对当前文档模型仍有意义的检查：
+
+1. WikiLink 目标存在（裸名按文件名解析，全路径按路径解析；模板占位符跳过）；
+2. `docs/plan-work/` 下文件名唯一，保证裸名链接无歧义；
+3. 文档引用的源码路径存在（`plan-work/archive/` 作为历史层豁免）；
+4. 已使用的 YAML 路由元信息包含规定字段；
+5. `docs/newPlan/` 不包含 Markdown 文件，当前文档不使用该目录的 WikiLink。
+
+**不检查语义是否过期**——这需要判断力，误报会让人开始忽略这个命令。
+
 ## 维护触发器（何时更新文档）
 
 | 代码变动 | 必须同步 |
@@ -56,14 +118,18 @@
 | 改实体字段/枚举 | `03-data-structures/declarative-dsl` + [[docs/docs-828/05-conventions/schema-sync]] 流程 |
 | 新增/删除事件 | `04-mechanisms/trigger-effect` 速览表（权威仍为 `EVENT_CATALOG`） |
 | 新增 PlayerState 字段 | `03-data-structures/player-state` + `01-architecture/state-layers`（三层归属） |
-| 架构级变动（新系统/改纪律） | `docs/plan-work/` 新增 ADR + `00-index` 路由 |
-| roadmap 切片状态变化（开工/完成/废弃） | `docs/plan-work/active/` 或 `completed/` 对应目标篇 + `00-index` 状态表 |
+| 架构级变动（新系统/改纪律） | [[docs/docs-828/01-architecture/design-constraints]]；若该约束尚未实现，另立计划文档并登记到 `plan-work/00-index.md` 的未决方向 |
+| 仍生效的 ADR 约束被代码违反 | 修正代码，或在 `design-constraints` 中把它降级为「尚未落地的纸面约束」 |
+| 计划文档完成后 | 移入 `docs/plan-work/archive/` 并把文首状态改为 `done` |
 
 ## 归档规则
 
 - 大规模变动后整体重建新库（如 docs-824 → docs/docs-828）：核对实况迁移内容，旧库 `00-README` 加归档标注指向新库，**不改写旧库正文**（保留历史快照价值）；
-- 单篇过期：在文首加「已被目标文档取代」标注，并链接到实际替代文档，下轮重建时移除占位说明。
+- 单篇过期：在文首加「已被目标文档取代」标注，并链接到实际替代文档，下轮重建时移除占位说明；
+- 计划文档冻结：完成后直接移入 `docs/plan-work/archive/`，把文首状态改为 `done`；**引用方一律不需改动**（由裸名链接保证），也不再需要按批次做准出；
+- 历史层只允许追加「更正（日期）」；不要为了让旧文档「继续成立」而改写正文；
+- 计划层的准出四项条件（实现 / 验证 / 知识蒸馏 / 剩余工作拆分）与 `归档结果` 模板保留在 [[task-0064-project-documentation-exit-governance]]，供将来重新启用活跃计划层时参考。
 
 ## 相关文档
 
-[[docs/docs-828/00-INDEX]] · [[docs/plan-work/completed/adr-0003-docs-restructure]]
+[[docs/docs-828/00-INDEX]] · [[adr-0003-docs-restructure]]

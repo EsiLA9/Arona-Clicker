@@ -10,14 +10,14 @@
 | --- | --- | --- |
 | 架构 / 机制 / 命令 / 禁改清单 | `AGENTS.md`、`docs/docs-828/` | 直接读原文；Unit 只给链接，不复制正文 |
 | 当前代码事实 | 源码与测试 | 写入 `Confirmed Facts` 时必须带路径与符号 |
-| 已裁定的未来设计 | `docs/plan-work/active/adr-*` 或对应 Task | 仅在需要时进入 `Constraints`，附链接 |
+| 已裁定的未来设计 | `docs/plan-work/archive/adr-*` 或对应 Task | 仅在需要时进入 `Constraints`，附链接 |
 | 本次实际进展 | Patch、测试结果、Receipt | 仅对当前 Unit 有效，不自动升级为项目规则 |
 
 摘要（含本文、Architecture Card、Unit 的 `Confirmed Facts`）与源码冲突时，以源码与测试为准并停止施工上报，不得自行推导替代设计。
 
 ## 施工纪律
 
-- **C1 产物位置**：协议与模板位于 `docs/ai/`；Patch Unit 与 Execution Receipt 默认内联在所属 Task 文档（`docs/plan-work/active/task-*.md`）的对应小节，不另建与 `docs/plan-work/` 平行的计划目录。仅当单个 Task 的 Unit 超过 3 个时，才拆出 `docs/plan-work/active/<task-id>-units/<unit-id>.md` 与同目录 `receipts/`，Task 文档只保留链接。（依据：Task-0000 §2.1）
+- **C1 产物位置**：协议与模板位于 `docs/ai/`；Patch Unit 与 Execution Receipt 默认内联在所属 Task 文档（`docs/plan-work/archive/task-*.md`）的对应小节，不另建与 `docs/plan-work/` 平行的计划目录。仅当单个 Task 的 Unit 超过 3 个时，才拆出 `docs/plan-work/archive/<task-id>-units/<unit-id>.md` 与同目录 `receipts/`，Task 文档只保留链接。（依据：Task-0000 §2.1）
 - **C2 Unit 预算**：一个 Unit 限制在 3–5 个文件、约 300–500 行净改动，可独立验证。超出预算时先拆分或交回高层 AI，不得靠追加上下文硬塞。（依据：Task-0000 §2.4）
 - **C3 Allowed Files 白名单**：Unit 列出的 `Allowed Files` 是修改白名单。需要改白名单外文件时，Luna 必须停止并上交，不得“顺手”修改。（依据：Task-0000 §2.4）
 - **C4 Completion Criteria 是最大边界**：它是当前 Unit 允许的最大施工范围，不是最低完成要求。未列入的工作不得顺手完成；确有必要时停止并申请扩大范围。（依据：Task-0000 §2.4）
@@ -72,4 +72,4 @@
 
 ## 相关
 
-[[AGENTS.md]] · [[docs/docs-828/05-conventions/architecture-discipline]] · [[docs/plan-work/active/task-0000-ai-context-infrastructure]] · [[docs/plan-work/00-index]]
+[[AGENTS.md]] · [[docs/docs-828/05-conventions/architecture-discipline]] · [[task-0000-ai-context-infrastructure]] · [[docs/plan-work/00-index]]
