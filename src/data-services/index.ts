@@ -81,4 +81,39 @@ export type { PicDefinitionMap } from './assets/pic-resolver';
 export { PicService } from './assets/pic-service';
 export { Registry, RegistryError } from './registry/registry';
 export type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry/registry';
+export {
+  applyAuthoringMutation,
+  authoringDefId,
+  authoringEntityId,
+  buildAuthoringDef,
+  cloneAuthoringDef,
+  encodedAuthoringFieldValue,
+  getContentPolicy,
+  getFieldMaterialization,
+  getWritableField,
+  inputFieldPath,
+  isAbsentAuthoringValue,
+  isContentAuthorable,
+  isNumericAuthoringKind,
+  listContentPolicies,
+  policyFieldConsumers,
+  validateAuthoringFieldValue,
+  validateAuthoringInput,
+} from './authoring/content-policy';
+export { CONTENT_POLICIES, SPOT_CONTENT_POLICY } from './authoring/content-policies';
+export type {
+  AuthoringMutationReceipt,
+  AuthoringMutationRequest,
+  AuthoringProblem,
+  AuthoringProblemCode,
+  ContentApplyStrategy,
+  ContentAuthoringPolicy,
+  ContentKey,
+  ContentStatePolicy,
+  FieldConsumer,
+  FieldInvalidation,
+  FieldMaterialization,
+  WritableFieldDef,
+  WritableFieldKind,
+} from './authoring/content-policy-types';
 export { validateDatapack } from './registry/registry-validate';

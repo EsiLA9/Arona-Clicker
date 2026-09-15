@@ -12,6 +12,11 @@ export interface RuntimeSpotInput {
   readonly baseYield: number;
   readonly baseYieldResource: string;
   readonly baseCapacity: number;
+  /** 可选数值字段：未设置时省略该键，不写入 Def。 */
+  readonly yieldPerLevel?: number;
+  readonly maxLevel?: number;
+  readonly upgradeCostBase?: number;
+  readonly upgradeCostGrowth?: number;
 }
 
 export type RuntimeSpotMutation =
@@ -54,6 +59,7 @@ export type RuntimeContentDiagnosticCode =
   | 'stale-revision'
   | 'invalid-mod-name'
   | 'mod-conflict'
+  | 'invalid-content-id'
   | 'invalid-spot-id'
   | 'invalid-field'
   | 'spot-not-owned'

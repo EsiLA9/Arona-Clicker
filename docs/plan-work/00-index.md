@@ -108,7 +108,7 @@
 - 运行时数据包编辑工作台：[[task-0055-runtime-datapack-editor-mvp]]、[[task-0056-workspace-datapack-boundary-convergence]]、[[task-0057-single-mod-editor-workbench]]
 - 背包剩余能力（整理持久化、出售丢弃、来源筛选）：[[task-0068-inventory-workspace-remaining-capabilities]]
 - 未裁定的设计草案：[[01-ownership-and-development]]、[[02-unified-acquisition]]、[[03-spot-shop]]、[[04-recruitment-v2]]、[[05-fragments-and-currency]]、[[06-meta-loop-and-ui]]、[[07-mvp-scope]]、[[16-runtime-datapack-authoring]]
-- 运行时数据包创作方向：[[16-runtime-datapack-authoring]]、[[runtime-editor-overlay-sol-review]]、[[def-resolution-withdrawal-sol-review]]
+- 运行时数据包创作方向：[[task-0073-spot-field-authoring-ladder]]（当前切片：以 Spot 为测试对象打满字段编辑能力并沉淀可移植结构）、[[task-0072-runtime-mod-editor-authoring-spine]]（编辑器骨架优先，重新裁定 [[task-0071-runtime-editor-p0-capability-baseline]] 的交付顺序）、[[task-0071-runtime-editor-p0-capability-baseline]]、[[16-runtime-datapack-authoring]]、[[runtime-editor-overlay-sol-review]]、[[def-resolution-withdrawal-sol-review]]
 
 ## 相关路由
 

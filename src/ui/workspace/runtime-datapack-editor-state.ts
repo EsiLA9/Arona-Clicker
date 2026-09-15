@@ -8,6 +8,13 @@ import {
 } from '../../data-services';
 import type { DefinitionResolution, DefinitionSourceLayer } from '../../data-services';
 
+/** 编辑器诊断：结构上兼容策略表校验问题与运行时提交诊断，UI 只消费 path/message。 */
+export interface RuntimeEditorProblem {
+  readonly code: string;
+  readonly path?: string;
+  readonly message: string;
+}
+
 export interface RuntimeEditorSpotDraft {
   idName: string;
   areaId: string;
@@ -18,6 +25,11 @@ export interface RuntimeEditorSpotDraft {
   baseYield: number;
   baseYieldResource: string;
   baseCapacity: number;
+  /** 可选数值字段：未设置时为 undefined，与策略表的缺席语义一致。 */
+  yieldPerLevel?: number;
+  maxLevel?: number;
+  upgradeCostBase?: number;
+  upgradeCostGrowth?: number;
 }
 
 export interface RuntimeDatapackEditorState {
@@ -33,8 +45,17 @@ export interface RuntimeDatapackEditorState {
   selectedSpotId: string | null;
   suspendedSpotIds: string[];
   applied?: boolean;
+  /** 最近一次成功 Apply 的版本：Draft 与 Runtime Effective 的差异以此为准。 */
+  appliedSpots: RuntimeEditorSpotDraft[];
+  /** 内容浏览器筛选：按编辑状态过滤 Draft 条目。 */
+  browserFilter: RuntimeEditorFilter;
+  /** 最近一次校验 / 提交产生的结构诊断，供表单与诊断列表定位。 */
+  problems: RuntimeEditorProblem[];
   error: string | null;
 }
+
+export type RuntimeEditorEntryState = 'created' | 'modified' | 'unchanged';
+export type RuntimeEditorFilter = 'all' | 'pending' | 'applied' | 'removed';
 
 export function createRuntimeDatapackEditorState(defaultAreaId: string | null, draftSourceId = 'runtime-editor'): RuntimeDatapackEditorState {
   return {
@@ -49,8 +70,34 @@ export function createRuntimeDatapackEditorState(defaultAreaId: string | null, d
     spots: [],
     selectedSpotId: null,
     suspendedSpotIds: [],
+    appliedSpots: [],
+    browserFilter: 'all',
+    problems: [],
     error: null,
   };
+}
+
+export function setRuntimeEditorProblems(editor: RuntimeDatapackEditorState, problems: readonly RuntimeEditorProblem[]): void {
+  editor.problems = [...problems];
+}
+
+export function setRuntimeEditorFilter(editor: RuntimeDatapackEditorState, filter: RuntimeEditorFilter): void {
+  editor.browserFilter = filter;
+}
+
+/** Draft 条目的编辑状态：与最近一次成功 Apply 的版本比较，不回写 Definition 生命周期。 */
+export function runtimeEditorEntryState(editor: RuntimeDatapackEditorState, spot: RuntimeEditorSpotDraft): RuntimeEditorEntryState {
+  const applied = editor.appliedSpots.find(item => item.idName === spot.idName);
+  if (!applied) return 'created';
+  return JSON.stringify(applied) === JSON.stringify(spot) ? 'unchanged' : 'modified';
+}
+
+export function runtimeEditorPendingSpots(editor: RuntimeDatapackEditorState): RuntimeEditorSpotDraft[] {
+  return editor.spots.filter(spot => runtimeEditorEntryState(editor, spot) !== 'unchanged');
+}
+
+export function findRuntimeEditorAppliedSpot(editor: RuntimeDatapackEditorState, idName: string): RuntimeEditorSpotDraft | undefined {
+  return editor.appliedSpots.find(spot => spot.idName === idName);
 }
 
 export function runtimeEditorDraftLayer(editor: RuntimeDatapackEditorState): DefinitionSourceLayer<RuntimeEditorSpotDraft> {
@@ -128,6 +175,7 @@ export function removeRuntimeEditorSpot(editor: RuntimeDatapackEditorState, idNa
   const index = editor.spots.findIndex(spot => spot.idName === idName);
   if (index < 0) return false;
   editor.spots.splice(index, 1);
+  editor.appliedSpots = editor.appliedSpots.filter(spot => spot.idName !== idName);
   editor.suspendedSpotIds = editor.suspendedSpotIds.filter(id => id !== idName);
   editor.selectedSpotId = null;
   editor.applied = false;
@@ -152,6 +200,7 @@ export function setRuntimeEditorError(editor: RuntimeDatapackEditorState, error:
 
 export function markRuntimeEditorApplied(editor: RuntimeDatapackEditorState, applied: boolean): void {
   editor.applied = applied;
+  if (applied) editor.appliedSpots = editor.spots.map(spot => ({ ...spot }));
 }
 
 export function toRuntimeModDraft(editor: RuntimeDatapackEditorState): RuntimeModDraft | null {
@@ -179,6 +228,7 @@ export function hydrateRuntimeEditor(editor: RuntimeDatapackEditorState, runtime
     selectedAreaId: spots[0]?.areaId ?? null,
   });
   editor.spots = spots;
+  editor.appliedSpots = spots.map(spot => ({ ...spot }));
   editor.suspendedSpotIds = [...(runtimeMod.suspendedSpotIds ?? [])].filter(id => spots.some(spot => spot.idName === id));
   editor.selectedSpotId = spots.find(spot => !editor.suspendedSpotIds.includes(spot.idName))?.idName ?? spots[0]?.idName ?? null;
   const selected = getSelectedRuntimeEditorSpot(editor);

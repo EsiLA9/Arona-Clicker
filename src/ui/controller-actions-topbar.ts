@@ -7,7 +7,8 @@
 import { SaveSystem } from '../data-services/persistence/storage';
 import { openCollectionModal } from './components/collection-modal';
 import { buildDatapackWorkspaceView } from '../arona-clicker/services/datapack-workspace-view';
-import { renderRuntimeEditorForm, renderRuntimeSpotForm } from './components/runtime-datapack-editor';
+import { renderRuntimeEditorForm, renderRuntimeEditorWorkspace, renderRuntimeSpotForm } from './components/runtime-datapack-editor';
+import { SPOT_CONTENT_POLICY, validateAuthoringInput } from '../data-services/authoring/content-policy';
 import {
   hasDatapackWorkspaceChanges,
   moveDatapackDraft,
@@ -19,18 +20,26 @@ import {
 } from './workspace/datapack-workspace-state';
 import {
   createRuntimeDatapackEditorState,
+  findRuntimeEditorAppliedSpot,
   getSelectedRuntimeEditorSpot,
   hydrateRuntimeEditor,
   markRuntimeEditorApplied,
   prepareRuntimeEditorForNewSpot,
   removeRuntimeEditorSpot,
+  runtimeEditorPendingSpots,
   selectRuntimeEditorSpot,
   setRuntimeEditorError,
+  setRuntimeEditorFilter,
+  setRuntimeEditorProblems,
   setRuntimeEditorSpot,
   setRuntimeEditorSpotSuspended,
   toRuntimeModDraft,
   updateRuntimeEditorFields,
+  type RuntimeEditorFilter,
+  type RuntimeEditorProblem,
+  type RuntimeEditorSpotDraft,
 } from './workspace/runtime-datapack-editor-state';
+import { readRuntimeEditorFields } from './workspace/runtime-editor-form';
 import type { UIController } from './controller';
 import { createUIContext } from './context';
 import { refreshPresentationHostElements } from './controller-theme';
@@ -265,10 +274,10 @@ function syncRuntimeSpotCreateAction(ctrl: UIController): void {
   });
 }
 
-function readRuntimeEditorFields(ctrl: UIController, scope: ParentNode): void {
+function readRuntimeEditorModFields(ctrl: UIController, scope: ParentNode): void {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor) return;
-  const value = (key: string): string | undefined => scope.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-editor-field="${key}"]`)?.value;
+  const value = (key: string): string | undefined => scope.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-editor-mod-field="${key}"]`)?.value;
   const modName = value('modName');
   const displayName = value('displayName');
   const version = value('version');
@@ -288,11 +297,12 @@ function readRuntimeEditorFields(ctrl: UIController, scope: ParentNode): void {
 function openRuntimeDatapackEditor(ctrl: UIController): void {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor?.enabled) return;
+  const ctx = createUIContext(ctrl.game);
   ctrl.modal.open({
     title: `运行时数据包编辑 · ${editor.displayName || '新建 Mod'}`,
-    body: renderRuntimeEditorForm(createUIContext(ctrl.game), ctrl.panelState),
+    body: `${renderRuntimeEditorForm(ctx, ctrl.panelState)}${renderRuntimeEditorWorkspace(ctx, ctrl.panelState)}`,
     footer: '<button type="button" class="modal-close toolbar-button">关闭编辑器</button>',
-    width: 560,
+    width: 640,
     panelClass: 'runtime-datapack-modal',
     dismissable: false,
   });
@@ -392,19 +402,20 @@ function removeRuntimeSpot(ctrl: UIController, preservePlayerData: boolean): voi
   }
 }
 
-function applyRuntimeEditorDraft(ctrl: UIController): void {
+function applyRuntimeEditorDraft(ctrl: UIController, idNames?: readonly string[]): void {
   const editor = ctrl.panelState.runtimeDatapackEditor;
-  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands & PackCatalogReadModel>;
   if (!editor) return;
-  const selected = getSelectedRuntimeEditorSpot(editor);
+  const targets = idNames
+    ? editor.spots.filter(spot => idNames.includes(spot.idName))
+    : runtimeEditorPendingSpots(editor);
   if (!editor.modName || !editor.displayName) {
     setRuntimeEditorError(editor, '请先完成 Mod 元信息。');
-    openRuntimeSpotEditor(ctrl);
+    openRuntimeDatapackEditor(ctrl);
     return;
   }
-  if (!selected) {
-    setRuntimeEditorError(editor, '请先选择一个要提交的 Spot。');
-    openRuntimeSpotEditor(ctrl);
+  if (targets.length === 0) {
+    setRuntimeEditorError(editor, '没有需要应用的草稿改动。');
+    openRuntimeDatapackEditor(ctrl);
     return;
   }
 
@@ -412,10 +423,9 @@ function applyRuntimeEditorDraft(ctrl: UIController): void {
   const setMetadata = ctrl.commands.setRuntimeModMetadata;
   if (!editorCommands || !setMetadata) {
     setRuntimeEditorError(editor, '当前运行时不支持 Runtime Editor Command Facade。');
-    openRuntimeSpotEditor(ctrl);
+    openRuntimeDatapackEditor(ctrl);
     return;
   }
-
   const metadata = setMetadata({
     modName: editor.modName,
     displayName: editor.displayName,
@@ -425,28 +435,86 @@ function applyRuntimeEditorDraft(ctrl: UIController): void {
   });
   if (!metadata.ok) {
     setRuntimeEditorError(editor, metadata.message);
-    openRuntimeSpotEditor(ctrl);
+    openRuntimeDatapackEditor(ctrl);
     return;
   }
-  const runtimeState = host.getRuntimeContentState?.();
-  const spotId = `${editor.modName}:spot:${selected.idName}`;
-  const loaded = runtimeState?.spots.has(spotId)
-    ?? Boolean(host.getRuntimeMod?.()?.spots.some(spot => spot.idName === selected.idName));
-  const input: RuntimeSpotInput = { ...selected };
-  const result: RuntimeSpotMutationResult = loaded
-    ? editorCommands.replaceSpot(selected.idName, input)
-    : editorCommands.createSpot(input);
-  if (!result.ok) {
-    setRuntimeEditorError(editor, result.message);
-    openRuntimeSpotEditor(ctrl);
-    return;
+
+  const fail = (message: string, diagnostics: readonly RuntimeEditorProblem[]): void => {
+    setRuntimeEditorError(editor, message);
+    setRuntimeEditorProblems(editor, diagnostics);
+    openRuntimeDatapackEditor(ctrl);
+  };
+  let appliedCount = 0;
+  for (const spot of targets) {
+    const applied = findRuntimeEditorAppliedSpot(editor, spot.idName);
+    const suspended = editor.suspendedSpotIds.includes(spot.idName);
+    if (suspended) {
+      if (!applied) continue;
+      const suspendedResult = editorCommands.suspendSpot(spot.idName);
+      if (!suspendedResult.ok) {
+        fail(suspendedResult.message, suspendedResult.diagnostics);
+        return;
+      }
+      appliedCount += 1;
+      continue;
+    }
+    // 字段集由策略表保证；此处只是 DOM 值到命令输入的静态类型边界。
+    const input = spot as unknown as RuntimeSpotInput;
+    const result: RuntimeSpotMutationResult = applied
+      ? editorCommands.replaceSpot(spot.idName, input)
+      : editorCommands.createSpot(input);
+    if (!result.ok) {
+      fail(result.message, result.diagnostics);
+      return;
+    }
+    appliedCount += 1;
   }
+
   markRuntimeEditorApplied(editor, true);
   setRuntimeEditorError(editor, null);
-  ctrl.modal.close();
-  ctrl.toast.show(result.message, 'success');
-  ctrl.navigateToService('game');
+  setRuntimeEditorProblems(editor, []);
+  openRuntimeDatapackEditor(ctrl);
+  ctrl.toast.showAction('runtime-editor-applied', `${appliedCount} 项已应用到运行时`, '查看游戏', () => {
+    ctrl.modal.close();
+    ctrl.navigateToService('game');
+    ctrl.render();
+  });
   ctrl.render();
+  syncRuntimeSpotCreateAction(ctrl);
+}
+
+/** 保存当前表单到草稿：只产生 Draft revision，不触碰运行时。 */
+function saveRuntimeSpotDraft(ctrl: UIController, scope: ParentNode): void {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  if (!editor) return;
+  const values = readRuntimeEditorFields(SPOT_CONTENT_POLICY, scope);
+  const problem = validateAuthoringInput(SPOT_CONTENT_POLICY, values);
+  const previousId = editor.selectedSpotId;
+  if (problem) {
+    setRuntimeEditorProblems(editor, [problem]);
+    setRuntimeEditorError(editor, problem.message);
+    openRuntimeSpotEditor(ctrl);
+    return;
+  }
+  const idName = String(values.idName);
+  const applied = findRuntimeEditorAppliedSpot(editor, idName);
+  const duplicate = editor.spots.some(spot => spot.idName === idName && spot.idName !== previousId);
+  if (applied && idName !== previousId) {
+    setRuntimeEditorProblems(editor, []);
+    setRuntimeEditorError(editor, '已应用 Spot 的 ID 不能修改；如需更换 ID，请删除后新建。');
+    openRuntimeSpotEditor(ctrl);
+    return;
+  }
+  if (duplicate) {
+    setRuntimeEditorProblems(editor, []);
+    setRuntimeEditorError(editor, `当前 Draft 已存在 Spot ID：${idName}`);
+    openRuntimeSpotEditor(ctrl);
+    return;
+  }
+  setRuntimeEditorSpot(editor, values as unknown as RuntimeEditorSpotDraft);
+  setRuntimeEditorProblems(editor, []);
+  setRuntimeEditorError(editor, null);
+  openRuntimeDatapackEditor(ctrl);
   syncRuntimeSpotCreateAction(ctrl);
 }
 
@@ -467,7 +535,7 @@ function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode)
   scope.querySelector('[data-runtime-editor-create]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
     if (!editor) return;
-    readRuntimeEditorFields(ctrl, scope);
+    readRuntimeEditorModFields(ctrl, scope);
     const loaded = ctrl.game.registry.loadedModNames;
     const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
     const currentRuntimeMod = host.getRuntimeMod?.();
@@ -511,28 +579,55 @@ function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode)
   scope.querySelector('[data-runtime-editor-create-spot]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
     if (!editor) return;
-    readRuntimeEditorFields(ctrl, scope);
-    const value = (key: string): string => scope.querySelector<HTMLInputElement>(`[data-runtime-editor-field="${key}"]`)?.value ?? '';
-    if (!editor.modName) { setRuntimeEditorError(editor, '请先创建合法的 Mod 草稿。'); openRuntimeSpotEditor(ctrl); syncRuntimeSpotCreateAction(ctrl); return; }
-    if (!editor.selectedAreaId || !ctrl.game.registry.areas.has(editor.selectedAreaId)) { setRuntimeEditorError(editor, '请选择已有 Area。'); openRuntimeSpotEditor(ctrl); syncRuntimeSpotCreateAction(ctrl); return; }
-    const idName = value('spotIdName').trim();
-    const name = value('spotName').trim();
-    const previousId = editor.selectedSpotId;
-    const runtimeState = (ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>).getRuntimeContentState?.();
-    const editingLoadedSpot = Boolean(previousId && (runtimeState?.spots.has(`${editor.modName}:spot:${previousId}`) || editor.applied));
-    if (!/^[a-z0-9_-]+$/.test(idName)) setRuntimeEditorError(editor, 'Spot ID 名只能包含小写字母、数字、下划线和连字符。');
-    else if (!name) setRuntimeEditorError(editor, '请填写 Spot 名称。');
-    else if (editingLoadedSpot && idName !== previousId) setRuntimeEditorError(editor, '已应用 Spot 的 ID 不能修改；如需更换 ID，请删除后新建。');
-    else if (editor.spots.some(spot => spot.idName === idName && spot.idName !== editor.selectedSpotId)) setRuntimeEditorError(editor, `当前 Draft 已存在 Spot ID：${idName}`);
-    else {
-      setRuntimeEditorSpot(editor, { idName, areaId: editor.selectedAreaId, name, description: value('spotDescription').trim(), baseCost: Number(value('baseCost')) || 0, baseCostResource: value('baseCostResource').trim(), baseYield: Number(value('baseYield')) || 0, baseYieldResource: value('baseYieldResource').trim(), baseCapacity: Number(value('baseCapacity')) || 0 });
-      setRuntimeEditorError(editor, null);
+    if (!editor.modName || !editor.displayName) {
+      setRuntimeEditorError(editor, '请先完成 Mod 元信息。');
+      openRuntimeDatapackEditor(ctrl);
+      syncRuntimeSpotCreateAction(ctrl);
+      return;
     }
-    if (!editor.error) {
-      applyRuntimeEditorDraft(ctrl);
+    saveRuntimeSpotDraft(ctrl, scope);
+  });
+  scope.querySelector('[data-runtime-editor-apply]')?.addEventListener('click', () => {
+    const editor = ctrl.panelState.runtimeDatapackEditor;
+    if (!editor) return;
+    if (scope.querySelector('[data-runtime-editor-field="idName"]')) {
+      saveRuntimeSpotDraft(ctrl, scope);
+      if (editor.error) return;
     }
-    else openRuntimeSpotEditor(ctrl);
-    syncRuntimeSpotCreateAction(ctrl);
+    applyRuntimeEditorDraft(ctrl, editor.selectedSpotId ? [editor.selectedSpotId] : undefined);
+  });
+  scope.querySelectorAll<HTMLElement>('[data-runtime-editor-filter]').forEach(button => {
+    button.addEventListener('click', () => {
+      const editor = ctrl.panelState.runtimeDatapackEditor;
+      if (!editor) return;
+      setRuntimeEditorFilter(editor, (button.dataset.runtimeEditorFilter ?? 'all') as RuntimeEditorFilter);
+      openRuntimeDatapackEditor(ctrl);
+    });
+  });
+  scope.querySelectorAll<HTMLElement>('[data-runtime-editor-entry-edit]').forEach(button => {
+    button.addEventListener('click', () => {
+      const editor = ctrl.panelState.runtimeDatapackEditor;
+      if (!editor) return;
+      const idName = button.dataset.runtimeEditorEntryEdit;
+      if (!idName || !selectRuntimeEditorSpot(editor, idName)) return;
+      openRuntimeSpotEditor(ctrl);
+    });
+  });
+  scope.querySelectorAll<HTMLElement>('[data-runtime-editor-entry-remove]').forEach(button => {
+    button.addEventListener('click', () => {
+      const editor = ctrl.panelState.runtimeDatapackEditor;
+      const idName = button.dataset.runtimeEditorEntryRemove;
+      if (!editor || !idName) return;
+      selectRuntimeEditorSpot(editor, idName);
+      openRuntimeSpotDeleteConfirm(ctrl, `${editor.modName}:spot:${idName}`);
+    });
+  });
+  scope.querySelectorAll<HTMLElement>('[data-runtime-editor-diagnostic]').forEach(item => {
+    item.addEventListener('click', () => {
+      const key = item.dataset.runtimeEditorDiagnostic;
+      if (!key) return;
+      scope.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-editor-field="${key}"]`)?.focus();
+    });
   });
   scope.querySelector('[data-runtime-editor-delete-spot]')?.addEventListener('click', () => {
     openRuntimeSpotDeleteConfirm(ctrl);

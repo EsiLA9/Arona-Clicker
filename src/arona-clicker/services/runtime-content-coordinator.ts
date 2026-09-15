@@ -1,8 +1,19 @@
+import {
+  applyAuthoringMutation,
+  authoringEntityId,
+  buildAuthoringDef,
+  cloneAuthoringDef,
+  requireContentPolicy,
+  validateAuthoringFieldValue,
+  validateAuthoringInput,
+  type AuthoringMutationReceipt,
+  type AuthoringMutationRequest,
+  type AuthoringProblem,
+  type ContentAuthoringPolicy,
+} from '../../data-services/authoring/content-policy';
 import type { DefinitionChange, DefinitionResolutionStatus } from '../../data-services/definition/definition-types';
 import type { SpotDef } from '../../data-services/contracts/world';
 import { Registry } from '../../data-services/registry/registry';
-import type { RegistrySpotMutation, RegistrySpotMutationReceipt } from '../../data-services/registry/registry-spot-mutation';
-import { parseEntityId } from '../../engine/core/entity-id';
 import type {
   RuntimeContentCoordinatorOptions,
   RuntimeContentCoordinatorSettings,
@@ -10,7 +21,6 @@ import type {
   RuntimeContentDiagnosticCode,
   RuntimeModStateSnapshot,
   RuntimeSpotCommit,
-  RuntimeSpotInput,
   RuntimeSpotMutation,
   RuntimeSpotMutationResult,
   RuntimeSpotRollbackContext,
@@ -30,22 +40,16 @@ export type {
 } from '../contracts/runtime-content';
 
 const RUNTIME_MOD_PATTERN = /^[a-z0-9-]+$/;
-const SPOT_NAME_PATTERN = /^[a-z0-9_-]+$/;
-const RUNTIME_SPOT_FIELDS = [
-  'idName',
-  'areaId',
-  'name',
-  'description',
-  'baseCost',
-  'baseCostResource',
-  'baseYield',
-  'baseYieldResource',
-  'baseCapacity',
-] as const;
+const SPOT_CONTENT_KEY = 'spots' as const;
+const SPOT_POLICY = requireContentPolicy(SPOT_CONTENT_KEY);
+
+function spotEntityId(modName: string, idName: string): string {
+  return authoringEntityId(SPOT_POLICY, modName, idName);
+}
 
 interface PreparedMutation {
   readonly mutation: RuntimeSpotMutation;
-  readonly registryMutation: RegistrySpotMutation;
+  readonly request: AuthoringMutationRequest;
   readonly modName: string;
   readonly spotId: string;
   readonly previousSpot: SpotDef | undefined;
@@ -53,26 +57,13 @@ interface PreparedMutation {
   readonly transition: DefinitionChange;
 }
 
+interface PreparedFailure {
+  readonly diagnostic: RuntimeContentDiagnostic;
+  readonly spotId: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-function cloneSpot(spot: SpotDef): SpotDef {
-  return {
-    ...spot,
-    baseCost: { ...spot.baseCost },
-    baseYield: { ...spot.baseYield },
-    tags: [...spot.tags],
-    levelUpgrades: spot.levelUpgrades?.map(upgrade => ({ ...upgrade, effects: [...upgrade.effects] })),
-  };
-}
-
-function constantExpression(value: number): SpotDef['baseCost'] {
-  return { type: 'const', value };
-}
-
-function fullSpotId(modName: string, idName: string): string {
-  return `${modName}:spot:${idName}`;
 }
 
 function definitionChange(spotId: string, before: DefinitionResolutionStatus, after: DefinitionResolutionStatus): DefinitionChange {
@@ -89,6 +80,20 @@ function diagnostic(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function failure(
+  code: RuntimeContentDiagnosticCode,
+  message: string,
+  path?: string,
+  spotId = '',
+): PreparedFailure {
+  return { diagnostic: diagnostic(code, message, path), spotId };
+}
+
+/** 由策略表产生的问题直接派生失败结果：路径与文案都归策略表所有。 */
+function policyFailure(policy: ContentAuthoringPolicy, problem: AuthoringProblem, modName: string, idName = ''): PreparedFailure {
+  return { diagnostic: diagnostic(problem.code, problem.message, problem.path), spotId: authoringEntityId(policy, modName, idName) };
 }
 
 export class RuntimeContentCoordinator {
@@ -136,7 +141,7 @@ export class RuntimeContentCoordinator {
     return {
       modName: this.modName,
       sourceId: this.sourceId,
-      spots: new Map([...this.spots].map(([id, spot]) => [id, cloneSpot(spot)])),
+      spots: new Map([...this.spots].map(([id, spot]) => [id, cloneAuthoringDef(spot)])),
       suspendedSpotIds: new Set(this.suspendedSpotIds),
       revision: this.revision,
     };
@@ -160,12 +165,12 @@ export class RuntimeContentCoordinator {
     this.reset();
     this.modName = modName;
     for (const rawId of spotIds) {
-      const spotId = rawId.includes(':') ? rawId : fullSpotId(modName, rawId);
+      const spotId = rawId.includes(':') ? rawId : spotEntityId(modName, rawId);
       const spot = this.registry.spotIncludingSuspended(spotId);
-      if (spot && this.registry.spotOwnerOf(spotId) === modName) this.spots.set(spotId, cloneSpot(spot));
+      if (spot && this.registry.spotOwnerOf(spotId) === modName) this.spots.set(spotId, cloneAuthoringDef(spot));
     }
     for (const rawId of suspendedSpotIds) {
-      const spotId = rawId.includes(':') ? rawId : fullSpotId(modName, rawId);
+      const spotId = rawId.includes(':') ? rawId : spotEntityId(modName, rawId);
       if (this.spots.has(spotId)) this.suspendedSpotIds.add(spotId);
     }
   }
@@ -181,7 +186,7 @@ export class RuntimeContentCoordinator {
       ? rawMutation.operation as RuntimeSpotMutation['operation']
       : 'create';
     const spotId = typeof rawMutation.modName === 'string'
-      ? fullSpotId(rawMutation.modName, typeof rawMutation.idName === 'string' ? rawMutation.idName : typeof rawSpot?.idName === 'string' ? rawSpot.idName : '')
+      ? spotEntityId(rawMutation.modName, typeof rawMutation.idName === 'string' ? rawMutation.idName : typeof rawSpot?.idName === 'string' ? rawSpot.idName : '')
       : '';
 
     const prepared = this.prepare(mutation);
@@ -196,9 +201,9 @@ export class RuntimeContentCoordinator {
       };
     }
 
-    let receipt: RegistrySpotMutationReceipt;
+    let receipt: AuthoringMutationReceipt;
     try {
-      receipt = this.registry.applySpotMutation(prepared.registryMutation);
+      receipt = applyAuthoringMutation(this.registry, prepared.request);
     } catch (error) {
       const message = `Spot 热内容提交被 Registry 拒绝：${errorMessage(error)}`;
       return {
@@ -216,8 +221,8 @@ export class RuntimeContentCoordinator {
       operation: prepared.mutation.operation,
       modName: prepared.modName,
       spotId: prepared.spotId,
-      previousSpot: prepared.previousSpot ? cloneSpot(prepared.previousSpot) : undefined,
-      currentSpot: prepared.currentSpot ? cloneSpot(prepared.currentSpot) : undefined,
+      previousSpot: prepared.previousSpot ? cloneAuthoringDef(prepared.previousSpot) : undefined,
+      currentSpot: prepared.currentSpot ? cloneAuthoringDef(prepared.currentSpot) : undefined,
       playerData: prepared.mutation.operation === 'delete' ? prepared.mutation.playerData : undefined,
       revisionBefore: this.revision,
       revisionAfter: this.revision + 1,
@@ -265,61 +270,62 @@ export class RuntimeContentCoordinator {
     };
   }
 
-  private prepare(mutation: RuntimeSpotMutation): PreparedMutation | { readonly diagnostic: RuntimeContentDiagnostic; readonly spotId: string } {
+  private prepare(mutation: RuntimeSpotMutation): PreparedMutation | PreparedFailure {
+    const policy = SPOT_POLICY;
     if (!isRecord(mutation) || typeof mutation.operation !== 'string') {
-      return { diagnostic: diagnostic('invalid-operation', 'Spot 热内容命令必须包含合法 operation'), spotId: '' };
+      return failure('invalid-operation', 'Spot 热内容命令必须包含合法 operation');
     }
 
     const operation = mutation.operation;
     if (!['create', 'replace', 'delete', 'suspend', 'resume'].includes(operation)) {
-      return { diagnostic: diagnostic('invalid-operation', `不支持的 Spot 热内容操作：${operation}`), spotId: '' };
+      return failure('invalid-operation', `不支持的 Spot 热内容操作：${operation}`);
     }
     if (typeof mutation.modName !== 'string' || !RUNTIME_MOD_PATTERN.test(mutation.modName)) {
-      return { diagnostic: diagnostic('invalid-mod-name', '临时 Mod 名称必须匹配 [a-z0-9-]+', 'modName'), spotId: '' };
+      return failure('invalid-mod-name', '临时 Mod 名称必须匹配 [a-z0-9-]+', 'modName');
     }
     if (!Number.isInteger(mutation.expectedRevision) || mutation.expectedRevision < 0) {
-      return { diagnostic: diagnostic('invalid-revision', 'expectedRevision 必须是非负整数', 'expectedRevision'), spotId: fullSpotId(mutation.modName, '') };
+      return failure('invalid-revision', 'expectedRevision 必须是非负整数', 'expectedRevision', authoringEntityId(policy, mutation.modName, ''));
     }
     if (mutation.expectedRevision !== this.revision) {
-      return { diagnostic: diagnostic('stale-revision', `Spot 热内容提交已过期：期望 revision ${mutation.expectedRevision}，当前为 ${this.revision}`, 'expectedRevision'), spotId: fullSpotId(mutation.modName, '') };
+      return failure('stale-revision', `Spot 热内容提交已过期：期望 revision ${mutation.expectedRevision}，当前为 ${this.revision}`, 'expectedRevision', authoringEntityId(policy, mutation.modName, ''));
     }
 
     if (this.modName !== null && mutation.modName !== this.modName) {
-      return { diagnostic: diagnostic('mod-conflict', `当前已有临时 Mod：${this.modName}，不能提交 ${mutation.modName}`), spotId: fullSpotId(mutation.modName, '') };
+      return failure('mod-conflict', `当前已有临时 Mod：${this.modName}，不能提交 ${mutation.modName}`, undefined, authoringEntityId(policy, mutation.modName, ''));
     }
     if (this.modName === null && operation !== 'create') {
-      return { diagnostic: diagnostic('spot-not-found', '当前没有可操作的临时 Mod Spot'), spotId: fullSpotId(mutation.modName, '') };
+      return failure('spot-not-found', '当前没有可操作的临时 Mod Spot', undefined, authoringEntityId(policy, mutation.modName, ''));
     }
     if (this.revision === 0 && this.registry.loadedModNames.has(mutation.modName)) {
-      return { diagnostic: diagnostic('mod-conflict', `modName 已被当前 Registry 占用：${mutation.modName}`), spotId: fullSpotId(mutation.modName, '') };
+      return failure('mod-conflict', `modName 已被当前 Registry 占用：${mutation.modName}`, undefined, authoringEntityId(policy, mutation.modName, ''));
     }
 
     if (operation === 'create' || operation === 'replace') {
       if (!isRecord(mutation.spot)) {
-        return { diagnostic: diagnostic('invalid-field', 'Spot 输入必须是对象', 'spot'), spotId: fullSpotId(mutation.modName, '') };
+        return failure('invalid-field', 'Spot 输入必须是对象', policy.inputPrefix);
       }
-      const inputDiagnostic = this.validateSpotInput(mutation.spot);
-      if (inputDiagnostic) {
-        return { diagnostic: inputDiagnostic, spotId: fullSpotId(mutation.modName, typeof mutation.spot.idName === 'string' ? mutation.spot.idName : '') };
+      const input = mutation.spot;
+      const problem = validateAuthoringInput(policy, input);
+      if (problem) {
+        const idName = typeof input.idName === 'string' ? input.idName : '';
+        return policyFailure(policy, problem, mutation.modName, idName);
       }
-      if (operation === 'replace' && mutation.idName !== mutation.spot.idName) {
-        return { diagnostic: diagnostic('invalid-spot-id', 'replace 的 idName 必须与 spot.idName 一致', 'idName'), spotId: fullSpotId(mutation.modName, mutation.spot.idName) };
+      const idName = String(input.idName);
+      if (operation === 'replace' && mutation.idName !== idName) {
+        return failure('invalid-spot-id', 'replace 的 idName 必须与 spot.idName 一致', 'idName', authoringEntityId(policy, mutation.modName, idName));
       }
-      const idName = mutation.spot.idName;
-      const spotId = fullSpotId(mutation.modName, idName);
+      const spotId = authoringEntityId(policy, mutation.modName, idName);
       const currentSpot = this.spots.get(spotId);
       if (operation === 'create' && currentSpot) {
-        return { diagnostic: diagnostic('spot-not-owned', `临时 Mod 中已存在 Spot：${spotId}`), spotId };
+        return failure('spot-not-owned', `临时 Mod 中已存在 Spot：${spotId}`, undefined, spotId);
       }
       if (operation === 'replace' && !currentSpot) {
-        return { diagnostic: diagnostic('spot-not-found', `当前临时 Mod 不拥有 Spot：${spotId}`), spotId };
+        return failure('spot-not-found', `当前临时 Mod 不拥有 Spot：${spotId}`, undefined, spotId);
       }
-      const nextSpot = this.toSpotDef(mutation.spot, mutation.modName);
+      const nextSpot = buildAuthoringDef(policy, mutation.modName, input) as SpotDef;
       return {
         mutation,
-        registryMutation: operation === 'create'
-          ? { operation: 'create', ownerModName: mutation.modName, spot: nextSpot }
-          : { operation: 'replace', ownerModName: mutation.modName, spot: nextSpot },
+        request: { table: SPOT_CONTENT_KEY, operation, ownerModName: mutation.modName, defId: spotId, def: nextSpot },
         modName: mutation.modName,
         spotId,
         previousSpot: currentSpot,
@@ -329,23 +335,25 @@ export class RuntimeContentCoordinator {
     }
 
     const idName = mutation.idName;
-    const idDiagnostic = this.validateIdName(idName);
-    if (idDiagnostic) return { diagnostic: idDiagnostic, spotId: fullSpotId(mutation.modName, typeof idName === 'string' ? idName : '') };
-    const spotId = fullSpotId(mutation.modName, idName);
+    const idProblem = validateAuthoringFieldValue(policy, 'idName', idName);
+    if (idProblem) {
+      return policyFailure(policy, idProblem, mutation.modName, typeof idName === 'string' ? idName : '');
+    }
+    const spotId = authoringEntityId(policy, mutation.modName, idName);
     if (operation === 'suspend' || operation === 'resume') {
       const previousSpot = this.spots.get(spotId);
       if (!previousSpot) {
-        return { diagnostic: diagnostic('spot-not-found', `当前临时 Mod 不拥有 Spot：${spotId}`), spotId };
+        return failure('spot-not-found', `当前临时 Mod 不拥有 Spot：${spotId}`, undefined, spotId);
       }
       if (operation === 'suspend' && this.suspendedSpotIds.has(spotId)) {
-        return { diagnostic: diagnostic('spot-not-owned', `Spot 已经挂起：${spotId}`), spotId };
+        return failure('spot-not-owned', `Spot 已经挂起：${spotId}`, undefined, spotId);
       }
       if (operation === 'resume' && !this.suspendedSpotIds.has(spotId)) {
-        return { diagnostic: diagnostic('spot-not-found', `Spot 当前未挂起：${spotId}`), spotId };
+        return failure('spot-not-found', `Spot 当前未挂起：${spotId}`, undefined, spotId);
       }
       return {
         mutation,
-        registryMutation: { operation, ownerModName: mutation.modName, spotId },
+        request: { table: SPOT_CONTENT_KEY, operation, ownerModName: mutation.modName, defId: spotId },
         modName: mutation.modName,
         spotId,
         previousSpot,
@@ -354,76 +362,20 @@ export class RuntimeContentCoordinator {
       };
     }
     if (mutation.playerData !== 'retain' && mutation.playerData !== 'purge') {
-      return { diagnostic: diagnostic('invalid-field', 'delete 的 playerData 必须是 retain 或 purge', 'playerData'), spotId };
+      return failure('invalid-field', 'delete 的 playerData 必须是 retain 或 purge', 'playerData', spotId);
     }
     if (!this.spots.has(spotId)) {
-      return { diagnostic: diagnostic('spot-not-found', `当前临时 Mod 不拥有 Spot：${spotId}`), spotId };
+      return failure('spot-not-found', `当前临时 Mod 不拥有 Spot：${spotId}`, undefined, spotId);
     }
     const previousSpot = this.spots.get(spotId);
     return {
       mutation,
-      registryMutation: { operation: 'delete', ownerModName: mutation.modName, spotId },
+      request: { table: SPOT_CONTENT_KEY, operation: 'delete', ownerModName: mutation.modName, defId: spotId },
       modName: mutation.modName,
       spotId,
       previousSpot,
       currentSpot: undefined,
       transition: definitionChange(spotId, this.suspendedSpotIds.has(spotId) ? 'suspended' : 'resolved', 'missing'),
-    };
-  }
-
-  private validateSpotInput(input: Record<string, unknown>): RuntimeContentDiagnostic | undefined {
-    const allowed = new Set<string>(RUNTIME_SPOT_FIELDS);
-    const extraField = Object.keys(input).find(key => !allowed.has(key));
-    if (extraField) {
-      return diagnostic('invalid-field', `Spot 字段不在首阶段白名单中：${extraField}；不接受 functionalities、gachaPools、color/theme 或复杂引用`, `spot.${extraField}`);
-    }
-    for (const field of RUNTIME_SPOT_FIELDS) {
-      if (!(field in input)) return diagnostic('invalid-field', `Spot 缺少字段：${field}`, `spot.${field}`);
-    }
-    const idDiagnostic = this.validateIdName(input.idName);
-    if (idDiagnostic) return idDiagnostic;
-    for (const field of ['areaId', 'baseCostResource', 'baseYieldResource'] as const) {
-      if (typeof input[field] !== 'string' || !input[field].trim()) {
-        return diagnostic('invalid-field', `${field} 必须是非空字符串`, `spot.${field}`);
-      }
-    }
-    const area = parseEntityId(input.areaId as string);
-    if (!area || area.type !== 'area') {
-      return diagnostic('invalid-field', `areaId 必须是完整 Area ID：${input.areaId}`, 'spot.areaId');
-    }
-    for (const field of ['name', 'description'] as const) {
-      if (typeof input[field] !== 'string' || (field === 'name' && !input[field].trim())) {
-        return diagnostic('invalid-field', `${field} 必须是${field === 'name' ? '非空' : ''}字符串`, `spot.${field}`);
-      }
-    }
-    for (const field of ['baseCost', 'baseYield', 'baseCapacity'] as const) {
-      if (typeof input[field] !== 'number' || !Number.isFinite(input[field]) || input[field] < 0) {
-        return diagnostic('invalid-field', `${field} 必须是非负有限数字`, `spot.${field}`);
-      }
-    }
-    return undefined;
-  }
-
-  private validateIdName(idName: unknown): RuntimeContentDiagnostic | undefined {
-    if (typeof idName !== 'string' || !SPOT_NAME_PATTERN.test(idName)) {
-      return diagnostic('invalid-spot-id', 'Spot idName 必须是非空 [a-z0-9_-]+ 名称，不能传入完整实体 ID', 'idName');
-    }
-    return undefined;
-  }
-
-  private toSpotDef(input: RuntimeSpotInput, modName: string): SpotDef {
-    return {
-      id: fullSpotId(modName, input.idName),
-      areaId: input.areaId.trim(),
-      name: input.name.trim(),
-      description: input.description.trim(),
-      baseCost: constantExpression(input.baseCost),
-      baseCostResource: input.baseCostResource.trim(),
-      baseYield: constantExpression(input.baseYield),
-      baseYieldResource: input.baseYieldResource.trim(),
-      baseCapacity: input.baseCapacity,
-      levelUpgrades: [],
-      tags: [],
     };
   }
 
@@ -437,7 +389,7 @@ export class RuntimeContentCoordinator {
     } else if (prepared.mutation.operation === 'resume') {
       this.suspendedSpotIds.delete(prepared.spotId);
     } else {
-      this.spots.set(prepared.spotId, cloneSpot(prepared.currentSpot!));
+      this.spots.set(prepared.spotId, cloneAuthoringDef(prepared.currentSpot!));
       this.suspendedSpotIds.delete(prepared.spotId);
     }
     this.revision++;
