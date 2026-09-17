@@ -9,8 +9,7 @@ const spot = (id: string, name: string) => ({
   areaId: 'base:area:test',
   name,
   description: '测试设施',
-  baseCost: { type: 'const', value: 10 },
-  baseCostResource: 'base:resource:credit',
+  purchaseOptions: [{ id: 'purchase', costs: [{ type: 'resource', resourceId: 'base:resource:credit', amount: { type: 'const', value: 10 } }] }],
   functionalities: [{ id: 'base:flow:test', kind: 'flow', resource: 'base:resource:credit', amount: 5 }],
   baseCapacity: 1,
 });
@@ -81,8 +80,8 @@ describe('EditorModel', () => {
   it('嵌套路径写入（不影响其他字段）', () => {
     const m = new EditorModel();
     m.loadDatapack(sample);
-    m.setValue('spots', 0, ['baseCost', 'value'], 99);
-    expect(m.rowAt('spots', 0).baseCost).toEqual({ type: 'const', value: 99 });
+    m.setValue('spots', 0, ['purchaseOptions', 0, 'costs', 0, 'amount', 'value'], 99);
+    expect(m.rowAt('spots', 0).purchaseOptions[0].costs[0].amount).toEqual({ type: 'const', value: 99 });
     expect(m.rowAt('spots', 0).name).toBe('A');
   });
 

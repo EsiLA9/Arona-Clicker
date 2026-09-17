@@ -17,7 +17,7 @@ const datapack: Datapack = {
   activeStories: [],
   passiveStories: [],
   stories: [],
-  items: [],
+  items: [{ id: 'base:item:ticket', name: 'Ticket', description: '', maxStack: 99, rarity: 'common', type: 'material' }],
   resourceDisplays: [{ resourceId: 'base:resource:credit', label: 'Credit' }],
   funcletDefs: [],
   characters: [],
@@ -28,9 +28,7 @@ const input = (idName = 'printer', overrides: Partial<RuntimeSpotInput> = {}): R
   areaId: AREA,
   name: 'Printer',
   description: 'A temporary printer',
-  baseCost: 10,
-  baseCostResource: 'base:resource:credit',
-  baseCapacity: 100,
+  purchaseOptions: [{ id: 'free', costs: [] }],
   ...overrides,
 });
 
@@ -53,12 +51,11 @@ describe('RuntimeContentCoordinator', () => {
     });
     expect(registry.spots.get(`${MOD}:spot:printer`)).toEqual({
       id: `${MOD}:spot:printer`,
+      metadata: { createdAt: expect.any(Number), updatedAt: expect.any(Number) },
       areaId: AREA,
       name: 'Printer',
       description: 'A temporary printer',
-      baseCost: { type: 'const', value: 10 },
-      baseCostResource: 'base:resource:credit',
-      baseCapacity: 100,
+      purchaseOptions: [{ id: 'free', costs: [] }],
       levelUpgrades: [],
       tags: [],
     });
@@ -66,6 +63,45 @@ describe('RuntimeContentCoordinator', () => {
     expect(state.modName).toBe(MOD);
     expect([...state.spots.keys()]).toEqual([`${MOD}:spot:printer`]);
     expect(state.suspendedSpotIds.size).toBe(0);
+  });
+
+  test('accepts multi-asset payment options and encodes them into the runtime SpotDef', () => {
+    const { registry, coordinator } = makeCoordinator();
+    const result = coordinator.submit({
+      operation: 'create',
+      modName: MOD,
+      spot: input('payment-desk', {
+        purchaseOptions: [{
+          id: 'credit-ticket',
+          label: '信用点与票券',
+          costs: [
+            { type: 'resource', resourceId: 'base:resource:credit', amount: 10 },
+            { type: 'item', itemId: 'base:item:ticket', amount: 2 },
+          ],
+        }],
+        levelUpgrades: [{
+          level: 2,
+          paymentOptions: [{ id: 'ticket', costs: [{ type: 'item', itemId: 'base:item:ticket', amount: 1 }] }],
+          effects: [],
+        }],
+      }),
+      expectedRevision: 0,
+    });
+
+    expect(result).toMatchObject({ ok: true, revision: 1 });
+    expect(registry.spots.get(`${MOD}:spot:payment-desk`)).toMatchObject({
+      purchaseOptions: [{
+        id: 'credit-ticket',
+        costs: [
+          { type: 'resource', resourceId: 'base:resource:credit', amount: { type: 'const', value: 10 } },
+          { type: 'item', itemId: 'base:item:ticket', amount: { type: 'const', value: 2 } },
+        ],
+      }],
+      levelUpgrades: [{
+        level: 2,
+        paymentOptions: [{ id: 'ticket' }],
+      }],
+    });
   });
 
   test('rejects stale revision before touching Registry or RuntimeModState', () => {
@@ -113,15 +149,27 @@ describe('RuntimeContentCoordinator', () => {
 
   test('rejects complex or malformed input before Registry mutation', () => {
     const { registry, coordinator } = makeCoordinator();
-    const withComplexField = { ...input(), functionalities: [] } as RuntimeSpotInput & { functionalities: never[] };
-    const extra = coordinator.submit({ operation: 'create', modName: MOD, spot: withComplexField, expectedRevision: 0 });
-    expect(extra.ok).toBe(false);
-    expect(extra.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.functionalities' });
+    // 未授权字段（theme）仍被拒绝：编辑器只开放策略表登记过的字段与扩展。
+    const withUnknownField = { ...input(), theme: {} } as unknown as RuntimeSpotInput;
+    const unknown = coordinator.submit({ operation: 'create', modName: MOD, spot: withUnknownField, expectedRevision: 0 });
+    expect(unknown.ok).toBe(false);
+    expect(unknown.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.theme' });
     expect(registry.spots.size).toBe(0);
 
-    const invalidNumber = coordinator.submit({ operation: 'create', modName: MOD, spot: input('bad', { baseCost: Number.NaN }), expectedRevision: 0 });
+    // 已授权的扩展同样逐项校验：shop 功能必须给出商店。
+    const invalidFunctionality = coordinator.submit({
+      operation: 'create',
+      modName: MOD,
+      spot: input('bad-fn', { functionalities: [{ id: 'counter', kind: 'shop' }] }),
+      expectedRevision: 0,
+    });
+    expect(invalidFunctionality.ok).toBe(false);
+    expect(invalidFunctionality.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.functionalities[0].shopId' });
+    expect(registry.spots.size).toBe(0);
+
+    const invalidNumber = coordinator.submit({ operation: 'create', modName: MOD, spot: input('bad', { maxLevel: Number.NaN }), expectedRevision: 0 });
     expect(invalidNumber.ok).toBe(false);
-    expect(invalidNumber.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.baseCost' });
+    expect(invalidNumber.diagnostics[0]).toMatchObject({ code: 'invalid-field', path: 'spot.maxLevel' });
     expect(coordinator.getRevision()).toBe(0);
   });
 
@@ -131,7 +179,7 @@ describe('RuntimeContentCoordinator', () => {
       operation: 'create',
       modName: MOD,
       spot: input('printer', {
-        affectors: [{ id: 'credit', type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 2 }],
+        functionalities: [{ id: 'credit', kind: 'flow', resource: 'base:resource:credit', amount: 2 }],
       }),
       expectedRevision: 0,
     })).toMatchObject({ ok: true, revision: 1 });
@@ -150,7 +198,7 @@ describe('RuntimeContentCoordinator', () => {
       modName: MOD,
       idName: 'printer',
       spot: input('printer', {
-        affectors: [{ id: 'credit', type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 5 }],
+        functionalities: [{ id: 'credit', kind: 'flow', resource: 'base:resource:credit', amount: 5 }],
       }),
       expectedRevision: 0,
     });

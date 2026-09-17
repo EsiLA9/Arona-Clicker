@@ -1,4 +1,5 @@
 import type { ConditionGroup, Effect, ValueExpression } from '../types/expression';
+import type { AreaId } from '../types/ids';
 import type { ZoneModifierDecl } from '../expression/tag-effect';
 import type { ExtraCompound } from './extra';
 
@@ -18,7 +19,22 @@ export interface AffectorFlow {
   /** Spot 功能生成的主产出进入 Spot/Area/Init 乘区；普通 Affector flow 默认不进入。 */
   applySpotMultiplier?: boolean;
 }
-export interface AffectorEffect { id: string; condition?: ConditionGroup; effects: Effect[]; perTickEffects?: Effect[]; flows?: AffectorFlow[]; zoneModifiers?: ZoneModifierDecl[]; }
+/** Affector 激活期间追加的 Area 连通边。默认单向；twoWay 同时提供反向边。 */
+export interface AreaConnectionDef {
+  fromAreaId: AreaId;
+  toAreaId: AreaId;
+  direction?: 'oneWay' | 'twoWay';
+}
+/** 当前活跃连接及其提供来源；同一条边可有多个来源。 */
+export interface ActiveAreaConnection extends AreaConnectionDef {
+  source: {
+    instanceId: string;
+    packId: string;
+    entryId: string;
+    mountEntityId: string;
+  };
+}
+export interface AffectorEffect { id: string; condition?: ConditionGroup; effects: Effect[]; perTickEffects?: Effect[]; flows?: AffectorFlow[]; zoneModifiers?: ZoneModifierDecl[]; areaConnections?: AreaConnectionDef[]; }
 export interface AffectorPackDef {
   /** @label ID */
   id: string;

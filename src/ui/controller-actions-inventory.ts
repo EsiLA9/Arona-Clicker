@@ -7,6 +7,8 @@
 import { enhPurchaseErrorText, travelErrorText, itemUseErrorText } from './components/errors';
 import type { UIController } from './controller';
 import { createInventoryWorkspaceState, deriveInventoryRows, type InventoryWorkspaceState } from './inventory-view';
+import { createUIContext } from './context';
+import type { PaymentOptionView } from '../arona-clicker/services/payment-service';
 
 function inventoryWorkspace(ctrl: UIController): InventoryWorkspaceState {
   return ctrl.panelState.inventoryWorkspace ??= createInventoryWorkspaceState();
@@ -42,6 +44,84 @@ function moveInventoryItem(ctrl: UIController, itemId: string, direction: 'up' |
   state.sortMode = 'custom';
   state.sortDirection = 'asc';
   ctrl.render();
+}
+
+type SpotPaymentAction = 'unlock' | 'upgrade';
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] ?? character));
+}
+
+function renderPaymentCost(ctx: ReturnType<typeof createUIContext>, cost: PaymentOptionView['costs'][number]): string {
+  const name = ctx.nameOf(cost.type, cost.id);
+  const owned = ctx.formatNumber(cost.owned);
+  const required = ctx.formatNumber(cost.required);
+  const shortage = cost.missing > 0 ? ` · 缺 ${ctx.formatNumber(cost.missing)}` : '';
+  return `${required} ${escapeHtml(name)} <small>（持有 ${owned}${shortage}）</small>`;
+}
+
+function openSpotPaymentModal(ctrl: UIController, spotId: string, action: SpotPaymentAction, optionIds: readonly string[]): void {
+  const spot = ctrl.game.world.spots.get(spotId);
+  const options = ctrl.game.spot.getPaymentOptions(spotId, action)
+    .filter(option => optionIds.includes(option.id));
+  const ctx = createUIContext(ctrl.game);
+  const actionText = action === 'unlock' ? '解锁' : '升级';
+  ctrl.modal.open({
+    title: `选择支付方式 · ${spot?.name ?? spotId}`,
+    body: `<p>该操作有多种可用支付方式，请选择一种进行${actionText}。</p><div class="spot-payment-options">${options.map(option => `
+      <button type="button" class="spot-payment-option" data-spot-payment-option="${escapeHtml(option.id)}" ${option.status === 'available' ? '' : 'disabled'}>
+        <strong>${escapeHtml(option.label)}</strong>
+        <span>${option.costs.length > 0 ? option.costs.map(cost => renderPaymentCost(ctx, cost)).join(' · ') : '免费'}</span>
+      </button>`).join('')}</div>`,
+    footer: '<button class="modal-close">取消</button>',
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-spot-payment-option]').forEach(button => {
+    button.addEventListener('click', () => {
+      const optionId = button.dataset.spotPaymentOption;
+      if (!optionId) return;
+      ctrl.modal.close();
+      executeSpotPayment(ctrl, spotId, action, optionId);
+    });
+  });
+}
+
+function executeSpotPayment(ctrl: UIController, spotId: string, action: SpotPaymentAction, paymentOptionId?: string): void {
+  const spotName = ctrl.game.world.spots.get(spotId)?.name ?? spotId;
+  if (action === 'unlock') {
+    const result = ctrl.commands.unlockSpot(spotId, paymentOptionId);
+    if (result.success) ctrl.toast.show(`已解锁 <b>${spotName}</b>`, 'success');
+    else if (result.error === 'PaymentOptionRequired' && result.paymentOptionIds?.length) {
+      openSpotPaymentModal(ctrl, spotId, action, result.paymentOptionIds);
+      return;
+    } else ctrl.toast.show(`解锁失败：${spotPaymentErrorText(result.error)}`, 'error');
+  } else {
+    const result = ctrl.commands.upgradeSpot(spotId, paymentOptionId);
+    if (result.success) ctrl.toast.show(`<b>${spotName}</b> 已升级至 Lv.${result.newLevel}`, 'success');
+    else if (result.error === 'PaymentOptionRequired' && result.paymentOptionIds?.length) {
+      openSpotPaymentModal(ctrl, spotId, action, result.paymentOptionIds);
+      return;
+    } else ctrl.toast.show(`升级失败：${spotPaymentErrorText(result.error)}`, 'error');
+  }
+  ctrl.refreshPanels(['right']);
+}
+
+function spotPaymentErrorText(error: string): string {
+  const errorText: Record<string, string> = {
+      NotFound: '未找到该设施',
+      NotVisible: '设施尚不可见',
+      AlreadyOwned: '已拥有该设施',
+      NotOwned: '尚未拥有该设施',
+      InsufficientResource: '支付材料不足',
+      MaxLevel: '已达等级上限',
+      ConditionNotMet: '条件未满足',
+      PaymentNotDeclared: '尚未声明支付方案',
+      NoPurchaseRoute: '该设施没有购买途径',
+      PaymentOptionRequired: '请选择支付方式',
+      PaymentConditionNotMet: '该支付方式的条件未满足',
+      PaymentOptionNotFound: '支付方式不存在或已失效',
+      InvalidPayment: '支付方式定义无效',
+  };
+  return errorText[error] ?? error;
 }
 
 function reorderInventoryItem(ctrl: UIController, fromId: string, toId: string): void {
@@ -237,43 +317,8 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
   scope.querySelectorAll<HTMLButtonElement>('[data-upgrade]').forEach(button => {
     button.addEventListener('click', () => {
       const spotId = button.dataset.upgrade!;
-      // 未拥有（level 0）→ 购买解锁；已拥有 → 升级
       const level = ctrl.game.getView().spotLevels[spotId] ?? 0;
-      const spotDef = ctrl.game.world.spots.get(spotId);
-      const spotName = spotDef?.name ?? spotId;
-
-      if (level <= 0) {
-        const result = ctrl.commands.unlockSpot(spotId);
-        if (result.success) {
-          ctrl.toast.show(`已解锁 <b>${spotName}</b>`, 'success');
-        } else {
-          const errMap: Record<string, string> = {
-            NotFound: '未找到该设施',
-            NotVisible: '设施尚不可见',
-            AlreadyOwned: '已拥有该设施',
-            InsufficientResource: '资源不足',
-            MaxLevel: '已达等级上限',
-          };
-          ctrl.toast.show(`解锁失败：${errMap[result.error] ?? result.error}`, 'error');
-        }
-      } else {
-        const result = ctrl.commands.upgradeSpot(spotId);
-        if (result.success) {
-          ctrl.toast.show(`<b>${spotName}</b> 已升级至 Lv.${result.newLevel}`, 'success');
-        } else {
-          const errMap: Record<string, string> = {
-            NotFound: '未找到该设施',
-            NotOwned: '尚未拥有该设施',
-            InsufficientResource: '资源不足',
-            MaxLevel: ctrl.game.spot.getEffectiveMaxLevel(spotId) !== undefined
-              ? `已达等级上限 Lv.${ctrl.game.spot.getEffectiveMaxLevel(spotId)}`
-              : '已达等级上限',
-            ConditionNotMet: '条件未满足',
-          };
-          ctrl.toast.show(`升级失败：${errMap[result.error] ?? result.error}`, 'error');
-        }
-      }
-      ctrl.refreshPanels(['right']);
+      executeSpotPayment(ctrl, spotId, level <= 0 ? 'unlock' : 'upgrade');
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-restart-init]').forEach(button => {

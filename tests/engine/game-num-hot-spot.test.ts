@@ -191,9 +191,7 @@ describe('GameNum Spot definition hot update', () => {
       areaId,
       name: 'First Hot Spot',
       description: '',
-      baseCost: Expr.const(1),
-      baseCostResource: RESOURCE_A,
-      baseCapacity: 1,
+      purchaseOptions: [{ id: 'free', costs: [] }],
       functionalities: [{ id: `${SPOT_ID}:base`, kind: 'flow', resource: RESOURCE_A, amount: 6 }],
       tags: [],
     };

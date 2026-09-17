@@ -223,9 +223,8 @@ describe('reconcileMounts 状态对账（Phase 4.1/4.2）', () => {
           spot(SPOT, 'test:area:a')
             .name('Printer')
             .desc('测试')
-            .cost(0)
+            .purchaseCost(0)
             .flow('test:fn:base', CREDIT, 1)
-            .capacity(100)
             .linearYield('test:fn:linear', CREDIT, 2)
             .build(),
         ],

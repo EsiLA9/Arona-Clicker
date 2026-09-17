@@ -107,7 +107,6 @@ describe('renderSpotDetail', () => {
     const ctx = createUIContext(game);
     const spot = {
       ...game.registry.spots.get('base:spot:field_work')!,
-      id: 'custom:spot:paid-test',
       revealTriggers: undefined,
     };
     const html = renderSpotDetail(ctx, spot, 0);

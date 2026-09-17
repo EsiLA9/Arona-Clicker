@@ -17,6 +17,7 @@ import type { GachaPoolDef } from '../contracts/gacha-pool';
 import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contracts/color';
 import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from '../contracts/character-progression-def';
 import type { ShopDef } from '../contracts/shop';
+import type { PaymentOptionDef } from '../contracts/cost';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
 // ============================================================
@@ -32,15 +33,28 @@ import type { SpotTagOverrideState as SpotTagOverride } from '../../engine/contr
 import { TagPath, tagDisplay, tagKey, parseTagRef, isTagRef, qualifyTagPath, tagRef } from '../../engine/core/tag';
 import { expandFlatKeys, extra, getAtPath, mergeExtra } from '../../engine/extra/index';
 import { RegistryError, validateDatapack } from './registry-validate';
-import type { ResourceDisplayDef, ResolvedTagDef } from '../contracts/common';
+import { effectiveDefMetadata } from '../contracts/common';
+import type { EffectiveDefMetadata, ResourceDisplayDef, ResolvedTagDef } from '../contracts/common';
 import type { AreaDef, InitDef, SpotDef } from '../contracts/world';
 import type { PicDef, PicKind } from '../contracts/pic';
 import { parsePicId } from '../contracts/pic';
 import { parseEntityId } from '../../engine/core/entity-id';
 import type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry-spot-mutation';
+import type {
+  RegistryAreaMutation,
+  RegistryAreaMutationReceipt,
+  RegistryInitMutation,
+  RegistryInitMutationReceipt,
+} from './registry-world-mutation';
 
 export { RegistryError };
 export type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry-spot-mutation';
+export type {
+  RegistryAreaMutation,
+  RegistryAreaMutationReceipt,
+  RegistryInitMutation,
+  RegistryInitMutationReceipt,
+} from './registry-world-mutation';
 
 /** 数据包表合并/清空步骤：merge 与 clear 共用的单一表清单（docs-824/08 T6）。 */
 interface TableStep {
@@ -529,6 +543,118 @@ export class Registry {
       },
     };
   }
+
+  /**
+   * 对 Init 执行局部热 CRUD。归属由实体 ID 的 mod 段和 ownerModName 双重约束，
+   * 因而基础包 / 其他 Mod 的定义不能被 Runtime Editor 越权覆盖。
+   */
+  applyInitMutation(mutation: RegistryInitMutation): RegistryInitMutationReceipt {
+    const initId = mutation.operation === 'delete' ? mutation.initId : mutation.init.id;
+    this.validateWorldId(initId, 'init', mutation.ownerModName, 'Init');
+    const previousInit = this._inits.get(initId);
+
+    if (mutation.operation === 'create') {
+      if (previousInit) throw new RegistryError(`Init "${initId}" 已存在；局部变更应使用 replace`);
+      this.validateInitCandidate(mutation.init, mutation.ownerModName);
+      this._inits.set(initId, mutation.init);
+    } else if (mutation.operation === 'replace') {
+      if (!previousInit) throw new RegistryError(`Init "${initId}" 不存在`);
+      this.validateInitCandidate(mutation.init, mutation.ownerModName);
+      this._inits.set(initId, mutation.init);
+    } else {
+      if (!previousInit) throw new RegistryError(`Init "${initId}" 不存在`);
+      const areas = [...this._areas.values()].filter(area => area.initId === initId);
+      if (areas.length > 0) {
+        throw new RegistryError(`Init "${initId}" 仍被 Area 引用：${areas.map(area => area.id).join('、')}`);
+      }
+      this._inits.delete(initId);
+    }
+
+    let rolledBack = false;
+    const currentInit = mutation.operation === 'delete' ? undefined : mutation.init;
+    return {
+      operation: mutation.operation,
+      ownerModName: mutation.ownerModName,
+      initId,
+      previousInit,
+      currentInit,
+      rollback: () => {
+        if (rolledBack) return;
+        const current = this._inits.get(initId);
+        const expected = currentInit;
+        if (current !== expected) {
+          throw new RegistryError(`Init "${initId}" 当前状态与 receipt 不一致，不能安全回滚`);
+        }
+        if (previousInit) this._inits.set(initId, previousInit);
+        else this._inits.delete(initId);
+        rolledBack = true;
+      },
+    };
+  }
+
+  /**
+   * 对 Area 执行局部热 CRUD，并同步 `_areasByInit`。Area 的 initId 在 replace 中保持不变，
+   * 避免单条热编辑隐式改变世界线归属和 per-Init 状态边界。
+   */
+  applyAreaMutation(mutation: RegistryAreaMutation): RegistryAreaMutationReceipt {
+    const areaId = mutation.operation === 'delete' ? mutation.areaId : mutation.area.id;
+    this.validateWorldId(areaId, 'area', mutation.ownerModName, 'Area');
+    const previousArea = this._areas.get(areaId);
+
+    if (mutation.operation === 'create') {
+      if (previousArea) throw new RegistryError(`Area "${areaId}" 已存在；局部变更应使用 replace`);
+      this.validateAreaCandidate(mutation.area, mutation.ownerModName);
+      this._areas.set(areaId, mutation.area);
+      this.addAreaToIndex(mutation.area);
+    } else if (mutation.operation === 'replace') {
+      if (!previousArea) throw new RegistryError(`Area "${areaId}" 不存在`);
+      if (previousArea.initId !== mutation.area.initId) {
+        throw new RegistryError(`Area "${areaId}" 的所属 Init 不能在热 CRUD 中变更`);
+      }
+      this.validateAreaCandidate(mutation.area, mutation.ownerModName);
+      const index = this.removeAreaFromIndex(previousArea);
+      this._areas.set(areaId, mutation.area);
+      this.addAreaToIndex(mutation.area, index);
+    } else {
+      if (!previousArea) throw new RegistryError(`Area "${areaId}" 不存在`);
+      const spots = this.spotsOfArea(areaId);
+      if (spots.length > 0) throw new RegistryError(`Area "${areaId}" 仍被 Spot 引用：${spots.join('、')}`);
+      const defaultAreas = [...this._inits.values()].filter(init => init.defaultAreas.includes(areaId));
+      if (defaultAreas.length > 0) {
+        throw new RegistryError(`Area "${areaId}" 仍是 Init 默认区域：${defaultAreas.map(init => init.id).join('、')}`);
+      }
+      const adjacentAreas = [...this._areas.values()].filter(area => area.id !== areaId && area.adjacentAreaIds?.includes(areaId));
+      if (adjacentAreas.length > 0) {
+        throw new RegistryError(`Area "${areaId}" 仍被邻接关系引用：${adjacentAreas.map(area => area.id).join('、')}`);
+      }
+      this.removeAreaFromIndex(previousArea);
+      this._areas.delete(areaId);
+    }
+
+    let rolledBack = false;
+    const currentArea = mutation.operation === 'delete' ? undefined : mutation.area;
+    return {
+      operation: mutation.operation,
+      ownerModName: mutation.ownerModName,
+      areaId,
+      previousArea,
+      currentArea,
+      rollback: () => {
+        if (rolledBack) return;
+        const current = this._areas.get(areaId);
+        if (current !== currentArea) {
+          throw new RegistryError(`Area "${areaId}" 当前状态与 receipt 不一致，不能安全回滚`);
+        }
+        if (current) this.removeAreaFromIndex(current);
+        this._areas.delete(areaId);
+        if (previousArea) {
+          this._areas.set(areaId, previousArea);
+          this.addAreaToIndex(previousArea);
+        }
+        rolledBack = true;
+      },
+    };
+  }
   get enhancements(): ReadonlyMap<string, EnhancementDef> { return this._enhancements; }
   get stories(): ReadonlyMap<string, StoryDef> { return this._stories; }
   /** 剧情入口（对外故事 id → Entry）。 */
@@ -658,6 +784,11 @@ export class Registry {
   /** 资源条显示条目（数据包声明，驱动 UI 资源条渲染）。 */
   get resourceDisplays(): ReadonlyMap<string, ResourceDisplayDef> { return this._resourceDisplays; }
 
+  /** Spot 审计时间查询；缺失时间只在查询结果中按极早值表达，不改写 Def。 */
+  getEffectiveSpotMetadata(spotId: string): EffectiveDefMetadata {
+    return effectiveDefMetadata(this._spots.get(spotId)?.metadata);
+  }
+
   /** 标签表现定义（完整 TagRef → 名称、简介，驱动 UI 中 Tag 的展示）。 */
   get tagDefs(): ReadonlyMap<string, ResolvedTagDef> { return this._tagDefs; }
 
@@ -688,9 +819,25 @@ export class Registry {
     return this.resolveTagDef(path)?.description;
   }
 
-  /** Shop / Item / Spot Function 的跨包引用完整性。 */
+  /** Shop / Spot 支付项 / Item / Spot Function 的跨包引用完整性。 */
   validateShopRefs(): void {
     for (const spot of this._spots.values()) {
+      const checkPaymentOptions = (options: readonly PaymentOptionDef[], label: string): void => {
+        const paymentOptionIds = new Set<string>();
+        for (const option of options) {
+          if (!option.id || paymentOptionIds.has(option.id)) {
+            throw new RegistryError(`Spot ${spot.id} 的${label}支付方案 ID 重复或为空："${option.id}"`);
+          }
+          paymentOptionIds.add(option.id);
+          for (const cost of option.costs) {
+            if (cost.type === 'item' && !this._items.has(cost.itemId)) {
+              throw new RegistryError(`Spot ${spot.id} 的支付方案 ${option.id} 引用了未定义的 Item "${cost.itemId}"`);
+            }
+          }
+        }
+      };
+      checkPaymentOptions(spot.purchaseOptions, '购买');
+      for (const upgrade of spot.levelUpgrades ?? []) checkPaymentOptions(upgrade.paymentOptions, `Lv.${upgrade.level} `);
       for (const functionality of spot.functionalities ?? []) {
         if (functionality.kind === 'shop' && (!functionality.shopId || !this._shops.has(functionality.shopId))) {
           throw new RegistryError(`Spot ${spot.id} 的 shop Function ${functionality.id} 引用了未定义的 Shop "${functionality.shopId ?? ''}"`);
@@ -840,6 +987,98 @@ export class Registry {
       if (!removed.has(tagKey(t))) out.push(t);
     }
     return out;
+  }
+
+  private validateWorldId(id: string, expectedType: 'init' | 'area', ownerModName: string, label: string): void {
+    if (!/^[a-z0-9-]+$/.test(ownerModName)) {
+      throw new RegistryError(`${label} owner Mod "${ownerModName}" 格式无效`);
+    }
+    const parts = parseEntityId(id);
+    if (!parts || parts.type !== expectedType) {
+      throw new RegistryError(`${label} id "${id}" 不符合 mod:${expectedType}:id 格式`);
+    }
+    if (parts.mod !== ownerModName) {
+      throw new RegistryError(`${label} id "${id}" 不属于 Mod "${ownerModName}"`);
+    }
+  }
+
+  private validateInitCandidate(init: InitDef, ownerModName: string): void {
+    this.validateWorldId(init.id, 'init', ownerModName, 'Init');
+    validateDatapack({
+      modName: ownerModName,
+      name: 'runtime-init-mutation',
+      version: '0',
+      inits: [{ ...init, defaultAreas: [] }],
+      areas: [],
+      spots: [],
+      enhancements: [],
+      activeStories: [],
+      passiveStories: [],
+      stories: [],
+      items: [],
+      funcletDefs: [],
+      characters: [],
+    });
+    for (const areaId of init.defaultAreas) {
+      const area = this._areas.get(areaId);
+      if (!area) throw new RegistryError(`Init "${init.id}" references unknown default area: "${areaId}"`);
+      if (area.initId !== init.id) {
+        throw new RegistryError(`Init "${init.id}" 的默认区域 "${areaId}" 不属于该 Init`);
+      }
+    }
+  }
+
+  private validateAreaCandidate(area: AreaDef, ownerModName: string): void {
+    this.validateWorldId(area.id, 'area', ownerModName, 'Area');
+    validateDatapack({
+      modName: ownerModName,
+      name: 'runtime-area-mutation',
+      version: '0',
+      inits: [],
+      areas: [{ ...area, defaultSpots: [], adjacentAreaIds: [] }],
+      spots: [],
+      enhancements: [],
+      activeStories: [],
+      passiveStories: [],
+      stories: [],
+      items: [],
+      funcletDefs: [],
+      characters: [],
+    }, { initIds: new Set(this._inits.keys()) });
+    const init = this._inits.get(area.initId);
+    if (!init) throw new RegistryError(`Area "${area.id}" references unknown init: "${area.initId}"`);
+    for (const spotId of area.defaultSpots) {
+      const spot = this._spots.get(spotId);
+      if (!spot) throw new RegistryError(`Area "${area.id}" references unknown default spot: "${spotId}"`);
+      if (spot.areaId !== area.id) throw new RegistryError(`Area "${area.id}" 的默认 Spot "${spotId}" 不属于该 Area`);
+    }
+    for (const adjacentId of area.adjacentAreaIds ?? []) {
+      if (adjacentId === area.id) throw new RegistryError(`Area "${area.id}" 不能与自身相邻`);
+      const adjacent = this._areas.get(adjacentId);
+      if (!adjacent) throw new RegistryError(`Area "${area.id}" references unknown adjacent area: "${adjacentId}"`);
+      if (adjacent.initId !== area.initId) throw new RegistryError(`Area "${area.id}" 的邻接区域必须属于同一 Init`);
+    }
+    void init;
+  }
+
+  private addAreaToIndex(area: AreaDef, index?: number): void {
+    const areaIds = this._areasByInit.get(area.initId);
+    if (!areaIds) {
+      this._areasByInit.set(area.initId, [area.id]);
+      return;
+    }
+    if (index === undefined || index < 0 || index >= areaIds.length) areaIds.push(area.id);
+    else areaIds.splice(index, 0, area.id);
+  }
+
+  private removeAreaFromIndex(area: AreaDef): number {
+    const areaIds = this._areasByInit.get(area.initId);
+    if (!areaIds) return -1;
+    const index = areaIds.indexOf(area.id);
+    const remaining = areaIds.filter(id => id !== area.id);
+    if (remaining.length === 0) this._areasByInit.delete(area.initId);
+    else this._areasByInit.set(area.initId, remaining);
+    return index;
   }
 
   private validateSpotOwner(ownerModName: string): void {

@@ -3,6 +3,7 @@ import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
+import type { RuntimeSpotInput } from '../../src/arona-clicker/contracts/runtime-content';
 
 class CountingRuntime extends AronaClickerRuntime {
   reloadCount = 0;
@@ -13,14 +14,12 @@ class CountingRuntime extends AronaClickerRuntime {
   }
 }
 
-const input = (name = 'Desk') => ({
+const input = (name = 'Desk'): RuntimeSpotInput => ({
   idName: 'desk',
   areaId: 'base:area:schale_main',
   name,
   description: 'Temporary desk',
-  baseCost: 1,
-  baseCostResource: 'base:resource:credit',
-  baseCapacity: 3,
+  purchaseOptions: [{ id: 'purchase', costs: [{ type: 'resource', resourceId: 'base:resource:credit', amount: 1 }] }],
 });
 
 describe('AronaClickerRuntime Spot 热 CRUD', () => {
@@ -93,7 +92,7 @@ describe('AronaClickerRuntime Spot 热 CRUD', () => {
     const game = new AronaClickerRuntime();
     game.init([defaultDatapack]);
     const content = game.spot.content!;
-    const invalid = content.create('draft-mod', { ...input(), baseCost: Number.NaN }, 0);
+    const invalid = content.create('draft-mod', { ...input(), name: '' }, 0);
 
     expect(invalid.ok).toBe(false);
     expect(game.getRuntimeMod()).toBeNull();
@@ -153,9 +152,9 @@ describe('AronaClickerRuntime Spot 热 CRUD', () => {
     const content = game.spot.content!;
     const spotInput = {
       ...input('Multi Resource Desk'),
-      affectors: [
-        { id: 'credit', type: 'resource-flow' as const, mode: 'fixed' as const, resource: 'base:resource:credit', amount: 2 },
-        { id: 'pyroxene', type: 'resource-flow' as const, mode: 'per-level' as const, resource: 'base:resource:pyroxene', amount: 3 },
+      functionalities: [
+        { id: 'credit', kind: 'flow' as const, resource: 'base:resource:credit', amount: 2 },
+        { id: 'pyroxene', kind: 'linearYield' as const, resource: 'base:resource:pyroxene', amountPerLevel: 3 },
       ],
     };
     expect(content.create('draft-mod', spotInput, 0)).toMatchObject({ ok: true, revision: 1 });
@@ -177,7 +176,7 @@ describe('AronaClickerRuntime Spot 热 CRUD', () => {
 
     const changed = content.replace('draft-mod', 'desk', {
       ...spotInput,
-      affectors: spotInput.affectors.map(affector => affector.id === 'credit' ? { ...affector, amount: 5 } : affector),
+      functionalities: spotInput.functionalities.map(row => row.id === 'credit' ? { ...row, amount: 5 } : row),
     }, content.getState().revision);
     expect(changed).toMatchObject({ ok: true, revision: 2 });
     expect(game.gameNumSystem.evaluateSpotYields('draft-mod:spot:desk', state)).toEqual({

@@ -28,10 +28,8 @@ const SPOT_FRAGMENT = {
   spots: [
     {
       id: 'test:spot:spot_1', areaId: 'test:area:area_1', name: 'Test Spot', description: '',
-      baseCost: { type: 'const', value: 10 },
-      baseCostResource: 'credit',
+      purchaseOptions: [{ id: 'free', costs: [] }],
       functionalities: [{ id: 'base:flow:test', kind: 'flow', resource: 'credit', amount: 5 }],
-      baseCapacity: 100,
       levelUpgrades: [],
       tags: [],
     },

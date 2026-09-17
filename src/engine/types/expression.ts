@@ -16,6 +16,8 @@ import type { Value, ValueExpression } from '../contracts/expression';
 
 export type Comparator = '==' | '!=' | '>=' | '<=' | '>' | '<';
 export type ConditionTarget =
+  /** 恒真条件；编辑器用于创建默认叶条件，求值永远返回 1。 */
+  | 'alwaysTrue'
   | 'resource'
   | 'spotLevel'
   | 'manager'

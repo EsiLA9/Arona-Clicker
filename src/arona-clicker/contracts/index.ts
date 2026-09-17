@@ -1,13 +1,21 @@
-export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult } from './runtime';
+export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult, RuntimeInitDraft, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeResourceAmountDraft } from './runtime';
 export type {
   RuntimeContentDiagnostic,
   RuntimeContentDiagnosticCode,
   RuntimeModStateSnapshot,
   RuntimeSpotCommit,
   RuntimeSpotInput,
+  RuntimePaymentCostDraft,
+  RuntimePaymentOptionDraft,
   RuntimeSpotMutation,
   RuntimeSpotMutationResult,
   RuntimeSpotRollbackContext,
+  RuntimeAreaInput,
+  RuntimeInitInput,
+  RuntimeWorldApplyResult,
+  RuntimeWorldCommit,
+  RuntimeWorldDraft,
+  RuntimeWorldStateSnapshot,
 } from './runtime-content';
 export type { EffectMutationPort } from './effect-mutation';
 export type { RosterQueryPort, RosterContactGroup, RosterContactEntry } from './roster-query';
@@ -15,10 +23,10 @@ export type { ColorQueryPort, ColorEntityThemeOption, ColorGroupDescription } fr
 export type { ColorEquipmentQueryPort } from './color-equipment-query';
 export type { GearActionReason, GearCostView, GearExpMaterialView, GearQueryPort, GearSlotRef, GearSlotView } from './gear-query';
 export type { StoryQueryPort } from './story-query';
-export type { AvailabilityMutationPort, CharacterProfileMutationPort, ColorEquipmentMutationPort, ColorMutationPort, EnhancementMutationPort, GachaMutationPort, InitMutationPort, InventoryMutationPort, RuntimeMutationPort, SpotMutationPort, StateMutationHostPort, StoryMutationPort, UiMutationPort } from './mutation';
+export type { AvailabilityMutationPort, CharacterProfileMutationPort, ColorEquipmentMutationPort, ColorMutationPort, EnhancementMutationPort, GachaMutationPort, InitMutationPort, InventoryMutationPort, RuntimeMutationPort, SpotMutationPort, SpotTransactionCommit, StateMutationHostPort, StoryMutationPort, UiMutationPort } from './mutation';
 export type { AvailabilityQueryPort } from './availability-query';
 export type { GachaQueryPort } from './gacha-query';
-export type { SpotQueryPort } from './spot-query';
+export type { SpotPaymentAction, SpotQueryPort } from './spot-query';
 export type { ValueQueryPort } from './value-query';
 export type { ConditionQueryPort } from './condition-query';
 export type { AffectorQueryPort } from './affector-query';

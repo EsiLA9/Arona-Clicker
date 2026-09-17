@@ -93,6 +93,77 @@ export class InitService {
     return this.runtimeGeneration;
   }
 
+  /**
+   * Init / Area 热 CRUD 后修复当前定位。
+   * 这里只做运行时依赖重挂载和位置修复，不重放 Init 进入效果，也不重置玩家进度。
+   */
+  reconcileAfterWorldDefinitionChange(): void {
+    const state = this.state;
+    const activeInitId = state.activeInit;
+    if (!activeInitId) {
+      this.opts.refreshVisibility();
+      return;
+    }
+
+    const init = this.opts.registry.inits.get(activeInitId);
+    if (!init) {
+      this.returnToInitSelection('当前世界线已被编辑删除，请重新选择世界线');
+      return;
+    }
+
+    const currentArea = state.currentAreaId ? this.opts.registry.areas.get(state.currentAreaId) : undefined;
+    if (!currentArea || currentArea.initId !== activeInitId) {
+      const fallbackArea = init.defaultAreas
+        .map(areaId => this.opts.registry.areas.get(areaId))
+        .find(area => area?.initId === activeInitId);
+      if (!fallbackArea) {
+        this.returnToInitSelection('当前世界线没有可用默认区域，请重新选择世界线');
+        return;
+      }
+      state.currentAreaId = fallbackArea.id;
+      const visitedAreas = state.visitedAreas ?? [];
+      if (!visitedAreas.includes(fallbackArea.id)) state.visitedAreas = [...visitedAreas, fallbackArea.id];
+      for (const spotId of fallbackArea.defaultSpots ?? []) {
+        if ((state.spotLevels[spotId] ?? 0) === 0) this.opts.mutations.setSpotLevel(spotId, 1);
+      }
+      this.opts.mutations.setState(state);
+      this.unmountInitTriggers();
+      this.mountInitTriggers(activeInitId);
+      this.opts.refreshVisibility();
+      this.opts.affectorEngine.recheckAll();
+      this.opts.devLog.record(`当前位置已失效，已回到 ${fallbackArea.name}`, {
+        source: 'area',
+        level: 'warning',
+        details: 'runtime-world-hot-crud-fallback',
+      });
+      return;
+    }
+
+    // 当前定位仍有效：重新挂载定义驱动的 Init Trigger，刷新派生表，但保留位置和 PlayerState。
+    this.unmountInitTriggers();
+    this.mountInitTriggers(activeInitId);
+    this.opts.refreshVisibility();
+    this.opts.affectorEngine.recheckAll();
+  }
+
+  private returnToInitSelection(reason: string): void {
+    const state = this.state;
+    this.unmountInitTriggers();
+    this.opts.storyService.clearAllCurrentStories();
+    this.opts.clearLocalVisibility();
+    state.activeInit = '';
+    state.currentAreaId = undefined;
+    this.opts.mutations.setState(state);
+    this.opts.affectorEngine.setState(state);
+    this.opts.affectorEngine.reconcileMounts();
+    this.opts.refreshVisibility();
+    this.opts.devLog.record(reason, {
+      source: 'init',
+      level: 'warning',
+      details: 'runtime-world-hot-crud-fallback',
+    });
+  }
+
   // --- 公开 API（GameInstance 门面委托） ---
 
   /** 读取资源持有量：全局资源 + 当前世界线局部资源（局部优先覆盖同名）。 */
@@ -235,7 +306,12 @@ export class InitService {
     if (checkAdjacency && fromAreaId !== null) {
       const fromArea = this.opts.registry.areas.get(fromAreaId);
       const adjacent = fromArea?.adjacentAreaIds ?? [];
-      if (!adjacent.includes(areaId)) {
+      const dynamicAdjacent = this.opts.affectorEngine.getActiveAreaConnections()
+        .some(connection =>
+          (connection.fromAreaId === fromAreaId && connection.toAreaId === areaId) ||
+          (connection.direction === 'twoWay' && connection.fromAreaId === areaId && connection.toAreaId === fromAreaId),
+        );
+      if (!adjacent.includes(areaId) && !dynamicAdjacent) {
         this.opts.devLog.record(`移动失败：${area.name} 与当前位置不相邻`, { source: 'area', level: 'warning', details: 'NotAdjacent' });
         return { success: false, areaId, error: 'NotAdjacent' };
       }

@@ -19,9 +19,7 @@ const sampleDatapack: Datapack = {
   spots: [
     {
       id: 'test:spot:spot_1', areaId: 'test:area:area_1', name: 'Test Spot', description: '',
-      baseCost: { type: 'const', value: 10 },
-      baseCostResource: 'credit',
-      baseCapacity: 100,
+      purchaseOptions: [{ id: 'free', costs: [] }],
       levelUpgrades: [],
       tags: [],
     },
@@ -73,6 +71,27 @@ describe('Registry', () => {
       areas: [],
     };
     expect(() => reg.load(dp)).toThrow(/unknown area/);
+  });
+
+  test('should accept an explicit Spot with no purchase route', () => {
+    const reg = new Registry();
+    const dp = {
+      ...sampleDatapack,
+      spots: [{ ...sampleDatapack.spots[0], purchaseOptions: [] }],
+    } satisfies Datapack;
+    expect(() => reg.load(dp)).not.toThrow();
+  });
+
+  test('should reject an upgrade without an explicit payment group', () => {
+    const reg = new Registry();
+    const dp = {
+      ...sampleDatapack,
+      spots: [{
+        ...sampleDatapack.spots[0],
+        levelUpgrades: [{ level: 2, paymentOptions: [], effects: [] }],
+      }],
+    } satisfies Datapack;
+    expect(() => reg.load(dp)).toThrow(/paymentOptions.*至少需要一个支付方案/);
   });
 
   test('should build relationship indices', () => {

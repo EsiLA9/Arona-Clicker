@@ -26,7 +26,9 @@ import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } fro
 import type { WorldCatalogQueryPort } from './world-catalog';
 import type { UserThemeService } from '../services/user-theme-service';
 import type { ShopQueryPort } from './shop-query';
-import type { RuntimeDefinitionEditorCommands, RuntimeModStateSnapshot, RuntimeSpotAffectorDraft, RuntimeSpotMutation, RuntimeSpotMutationResult } from './runtime-content';
+import type { RuntimeDefinitionEditorCommands, RuntimeModStateSnapshot, RuntimePaymentOptionDraft, RuntimeSpotFunctionalityDraft, RuntimeSpotLevelUpgradeDraft, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './runtime-content';
+import type { DefMetadata } from '../../data-services/contracts/common';
+import type { EnhancementAttachment } from '../../data-services/contracts/enhancement';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -57,6 +59,7 @@ export interface PackCatalogReadModel {
   getPackConfiguration?(): PackConfigurationDraft;
   getRuntimeMod?(): RuntimeModDraft | null;
   getRuntimeContentState?(): RuntimeModStateSnapshot;
+  getRuntimeWorldState?(): RuntimeWorldStateSnapshot;
 }
 
 export interface PackValidationReport {
@@ -77,20 +80,81 @@ export interface RuntimeModDraft {
   readonly version: string;
   readonly author: string;
   readonly description: string;
-  readonly spots: readonly {
-    readonly idName: string;
-    readonly areaId: string;
-    readonly name: string;
-    readonly description: string;
-    readonly baseCost: number;
-    readonly baseCostResource: string;
-    readonly baseCapacity: number;
-    readonly affectors?: readonly RuntimeSpotAffectorDraft[];
-    /** 不能由当前 MVP 进行 round-trip 的资源功能；编辑器仅用于显示诊断并阻止覆盖。 */
-    readonly unsupportedFunctionalityIds?: readonly string[];
-  }[];
+  readonly spots: readonly RuntimeSpotDraftSnapshot[];
+  /** Runtime Editor 的 reload 型内容：仅保存临时 Mod 自有的草稿记录。 */
+  readonly inits?: readonly RuntimeInitDraft[];
+  readonly areas?: readonly RuntimeAreaDraft[];
+  readonly enhancements?: readonly RuntimeEnhancementDraft[];
   /** Draft 中保留但当前 Runtime Preview 不物化的 Spot。 */
   readonly suspendedSpotIds?: readonly string[];
+  readonly suspendedInitIds?: readonly string[];
+  readonly suspendedAreaIds?: readonly string[];
+  readonly suspendedEnhancementIds?: readonly string[];
+}
+
+export interface RuntimeResourceAmountDraft {
+  readonly resourceId: string;
+  readonly amount: number;
+}
+
+export interface RuntimeInitDraft {
+  readonly idName: string;
+  readonly name: string;
+  readonly description: string;
+  readonly defaultAreas: readonly string[];
+  readonly startStoryId?: string;
+  readonly purchaseCost?: readonly RuntimeResourceAmountDraft[];
+  readonly worldTilt?: string;
+  readonly worldTiltAlias?: string;
+  readonly tags?: readonly string[];
+  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+}
+
+export interface RuntimeAreaDraft {
+  readonly idName: string;
+  readonly initId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly defaultSpots: readonly string[];
+  readonly adjacentAreaIds?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+}
+
+export interface RuntimeEnhancementDraft {
+  readonly idName: string;
+  readonly name: string;
+  readonly description: string;
+  readonly autoApply?: boolean;
+  readonly maxStacks?: number;
+  readonly irreversible?: boolean;
+  readonly attachment?: EnhancementAttachment;
+  readonly price?: readonly RuntimeResourceAmountDraft[];
+  readonly tags?: readonly string[];
+  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+}
+
+/** 运行时侧可编辑 Spot 快照：键与 `ContentAuthoringPolicy` 的输入键对齐（round-trip 投影）。 */
+export interface RuntimeSpotDraftSnapshot {
+  readonly idName: string;
+  readonly metadata?: DefMetadata;
+  readonly areaId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly purchaseOptions: readonly RuntimePaymentOptionDraft[];
+  readonly maxLevel?: number;
+  readonly conditionText?: string;
+  readonly global?: boolean;
+  readonly functionalities?: readonly RuntimeSpotFunctionalityDraft[];
+  readonly levelUpgrades?: readonly RuntimeSpotLevelUpgradeDraft[];
+  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+  /** 层级标签以 `a/b` 路径形式传出。 */
+  readonly tags?: readonly string[];
+  readonly gachaPools?: readonly string[];
+  /** 不能由编辑器 round-trip 的功能 id：仅用于展示诊断并阻止静默覆盖。 */
+  readonly unsupportedFunctionalityIds?: readonly string[];
+  /** 不能由编辑器无损 round-trip 的支付方案路径；存在时阻止静默覆盖。 */
+  readonly unsupportedPaymentOptionPaths?: readonly string[];
 }
 
 export interface RuntimeModApplyResult {
@@ -109,6 +173,8 @@ export interface PackCatalogCommands {
   applyRuntimeMod?(draft: RuntimeModDraft): RuntimeModApplyResult;
   /** 以单个 Spot 为单位提交热内容 CRUD；不接收完整 RuntimeModDraft。 */
   applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
+  /** Init / Area 的局部热 CRUD；不触发整包 reload。 */
+  applyRuntimeWorldDraft?(draft: RuntimeWorldDraft): RuntimeWorldApplyResult;
   /** 设置临时 Mod 元信息；不触发数据包重载。 */
   setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
   runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
@@ -165,8 +231,8 @@ export interface GameCommands {
   useItem(itemId: string): UseItemResult;
   purchaseEnhancement(enhancementId: string): EnhancementPurchaseResult;
   removeEnhancement(enhancementId: string): boolean;
-  unlockSpot(spotId: SpotId): SpotUnlockResult;
-  upgradeSpot(spotId: SpotId): SpotUpgradeResult;
+  unlockSpot(spotId: SpotId, paymentOptionId?: string): SpotUnlockResult;
+  upgradeSpot(spotId: SpotId, paymentOptionId?: string): SpotUpgradeResult;
   purchaseInit(initId: string): InitPurchaseResult;
   hardRestartInit(): void;
   roll(poolId: string, count: number): RollSummary;
@@ -188,6 +254,7 @@ export interface GameCommands {
   resumeInit(initId: string): boolean;
   /** 运行时编辑能力：单个 Spot 热内容提交（不接收完整 Draft）。 */
   applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
+  applyRuntimeWorldDraft?(draft: RuntimeWorldDraft): RuntimeWorldApplyResult;
   setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
   runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
 }

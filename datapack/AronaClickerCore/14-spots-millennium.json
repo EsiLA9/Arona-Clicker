@@ -5,13 +5,9 @@
       "areaId": "base:area:millennium_lab",
       "name": "高速制造机",
       "description": "千年研发的第三代信用点制造机，效率远超沙勒的老古董。",
-      "baseCost": { "type": "const", "value": 40 },
-      "baseCostResource": "base:resource:credit",
-      "baseCapacity": 300,
+      "purchaseOptions": [{ "id": "purchase", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 40 } }] }],
       "levelUpgrades": [],
       "tags": [["millennium"], ["production"]],
-      "upgradeCostBase": 40,
-      "upgradeCostGrowth": 1.6,
       "maxLevel": 30,
       "functionalities": [
         {
@@ -41,17 +37,13 @@
       "areaId": "base:area:millennium_lab",
       "name": "机器人托管所",
       "description": "为实验机器人提供充电与维护的托管所，附带少量青辉石产出。",
-      "baseCost": { "type": "const", "value": 60 },
-      "baseCostResource": "base:resource:credit",
-      "baseCapacity": 150,
+      "purchaseOptions": [{ "id": "purchase", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 60 } }] }],
       "levelUpgrades": [],
       "tags": [["millennium"], ["service"]],
       "functionalities": [
         { "id": "base_flow", "kind": "flow", "resource": "base:resource:pyroxene", "amount": 1 },
         { "id": "linear_pyroxene", "kind": "linearYield", "resource": "base:resource:pyroxene", "amountPerLevel": 1, "startLevel": 1 }
       ],
-      "upgradeCostBase": 60,
-      "upgradeCostGrowth": 1.6,
       "maxLevel": 20,
       "extra": {
         "t": "dict",
@@ -65,12 +57,11 @@
       "areaId": "base:area:millennium_lab",
       "name": "自动售货机",
       "description": "校园走廊的自动售货机，据说塞进信用点就能吐出奇怪的道具。",
-      "baseCost": { "type": "const", "value": 80 },
-      "baseCostResource": "base:resource:credit",
-      "baseCapacity": 200,
+      "purchaseOptions": [{ "id": "purchase", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 80 } }] }],
       "levelUpgrades": [
         {
           "level": 5,
+          "paymentOptions": [{ "id": "purchase", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 80 } }] }],
           "effects": [{ "op": "setFlag", "target": "millennium_dispenser_vip", "value": "1" }]
         }
       ],
@@ -79,8 +70,6 @@
         { "id": "base_flow", "kind": "flow", "resource": "base:resource:pyroxene", "amount": 2 },
         { "id": "linear_pyroxene", "kind": "linearYield", "resource": "base:resource:pyroxene", "amountPerLevel": 1, "startLevel": 1 }
       ],
-      "upgradeCostBase": 80,
-      "upgradeCostGrowth": 1.6,
       "maxLevel": 15,
       "extra": {
         "t": "dict",

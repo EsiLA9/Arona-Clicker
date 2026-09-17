@@ -24,6 +24,11 @@ function defaultState(overrides: Partial<PlayerState> = {}): PlayerState {
 }
 
 describe('ConditionSystem', () => {
+  test('alwaysTrue 条件始终成立且不产生状态依赖', () => {
+    const system = new ConditionSystem();
+    const condition = { target: 'alwaysTrue' as const, key: '', comparator: '==' as const, value: 1 };
+    expect(system.evaluate(condition, {} as never)).toBe(true);
+  });
   const cs = new ConditionSystem();
 
   test('should evaluate resource condition ==', () => {

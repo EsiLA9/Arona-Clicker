@@ -23,7 +23,7 @@ import {
   selectRuntimeEditorSpot,
   toRuntimeModDraft,
   updateRuntimeEditorFields,
-} from '../../src/ui/workspace/runtime-datapack-editor-state';
+} from '../../src/ui/runtime-editor/state';
 
 const entry = (id: string, overrides: Partial<PackCatalogEntry> = {}): PackCatalogEntry => ({
   id,
@@ -42,9 +42,7 @@ const spot = {
   areaId: 'area-1',
   name: 'Mine',
   description: 'A mine',
-  baseCost: 2,
-  baseCostResource: 'coin',
-  baseCapacity: 4,
+  purchaseOptions: [{ id: 'free', costs: [] }],
 };
 
 describe('Datapack Workspace 状态边界', () => {

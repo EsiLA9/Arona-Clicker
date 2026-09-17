@@ -1482,6 +1482,7 @@ describe('Extra 引擎消费（M4）', () => {
             { effects: [{ op: 'addExtra', target: 'meta/area_entries', value: 1 }] },
           ],
         },
+        { id: 'test:area:area_c', initId: 'test:init:init_gate', name: 'C', description: '', defaultSpots: [] },
       ],
       spots: [],
       enhancements: [],
@@ -1491,6 +1492,14 @@ describe('Extra 引擎消费（M4）', () => {
       items: [],
       funcletDefs: [],
       characters: [],
+      affectorPacks: [{
+        id: 'test:affectorpack:area-link',
+        entries: [{
+          id: 'test:affector:area-link',
+          effects: [],
+          areaConnections: [{ fromAreaId: 'test:area:area_b', toAreaId: 'test:area:area_c' }],
+        }],
+      }],
       
       extras: {
         meta: extra.dict({
@@ -1526,6 +1535,12 @@ describe('Extra 引擎消费（M4）', () => {
     expect(game.travelToArea('test:area:area_b')).toMatchObject({ success: true });
     expect(game.getExtra('meta/area_first_count')).toEqual(extra.int(1));
     expect(game.getExtra('meta/area_entries')).toEqual(extra.int(2));
+
+    // Active Affector 临时追加单向边；反向移动仍不成立。
+    const link = game.affectorEngine.mount('test:affectorpack:area-link', 'test:enhancement:link')!;
+    expect(game.travelToArea('test:area:area_c')).toMatchObject({ success: true });
+    expect(game.travelToArea('test:area:area_b')).toMatchObject({ success: false, error: 'NotAdjacent' });
+    game.affectorEngine.unmount(link.instanceId);
   });
 });
 

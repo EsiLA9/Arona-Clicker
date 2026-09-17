@@ -10,7 +10,7 @@ import type { AreaId } from '../engine/types';
 import type { TickResult } from '../engine/contracts/tick';
 import type { TravelResult } from './contracts/results';
 import type { SaveData } from './contracts/save-data';
-import type { RuntimeSpotMutation, RuntimeSpotMutationResult } from './contracts/runtime-content';
+import type { RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeWorldApplyResult, RuntimeWorldDraft } from './contracts/runtime-content';
 import type { RuntimeDefinitionEditorCommands } from './contracts/runtime-content';
 import type { RuntimeModDraft, RuntimeModApplyResult } from './contracts/runtime';
 
@@ -31,6 +31,7 @@ export interface GameCommandSource {
   gachaService: Pick<GachaService, 'roll'>;
   mutations: UiMutationPort;
   applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
+  applyRuntimeWorldDraft?(draft: RuntimeWorldDraft): RuntimeWorldApplyResult;
   setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
   runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
 }
@@ -57,8 +58,8 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     useItem: itemId => game.items.useItem(itemId),
     purchaseEnhancement: enhancementId => game.enhancements.purchaseEnhancement(enhancementId),
     removeEnhancement: enhancementId => game.enhancements.removeEnhancement(enhancementId),
-    unlockSpot: spotId => game.spot.unlockSpot(spotId),
-    upgradeSpot: spotId => game.spot.upgradeSpot(spotId),
+    unlockSpot: (spotId, paymentOptionId) => game.spot.unlockSpot(spotId, paymentOptionId),
+    upgradeSpot: (spotId, paymentOptionId) => game.spot.upgradeSpot(spotId, paymentOptionId),
     purchaseInit: initId => game.inits.purchaseInit(initId),
     hardRestartInit: () => game.inits.hardRestartInit(),
     roll: (poolId, count) => game.gachaService.roll(poolId, count),
@@ -79,6 +80,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     restartInit: () => game.inits.restartInit(),
     resumeInit: initId => game.inits.resumeInit(initId),
     ...(game.applyRuntimeSpotMutation ? { applyRuntimeSpotMutation: mutation => game.applyRuntimeSpotMutation!(mutation) } : {}),
+    ...(game.applyRuntimeWorldDraft ? { applyRuntimeWorldDraft: draft => game.applyRuntimeWorldDraft!(draft) } : {}),
     ...(game.setRuntimeModMetadata ? { setRuntimeModMetadata: metadata => game.setRuntimeModMetadata!(metadata) } : {}),
     ...(game.runtimeDefinitionEditor ? { runtimeDefinitionEditor: game.runtimeDefinitionEditor } : {}),
   };

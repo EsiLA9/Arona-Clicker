@@ -17,8 +17,8 @@ const SNACK = 'test:item:snack';
 
 function datapack(): Datapack {
   const spot = (id: string) => ({
-    id, areaId: AREA, name: id, description: '', baseCost: Expr.const(0), baseCostResource: CREDIT,
-    baseCapacity: 0, tags: [],
+    id, areaId: AREA, name: id, description: '', tags: [],
+    purchaseOptions: [{ id: 'free', costs: [] }],
     functionalities: [{ id: `${id}:shop`, kind: 'shop' as const, shopId: SHOP }],
   });
   return {
@@ -37,6 +37,10 @@ function datapack(): Datapack {
       { id: 'rewarded', name: '附赠商品', offer: { type: 'item', itemId: SNACK, amount: 1 }, price: { unitCosts: [] }, onPurchase: [{ op: 'addResource', target: CREDIT, value: 3 }] },
       { id: 'once', name: '一次性商品', offer: { type: 'item', itemId: SNACK, amount: 1 }, price: { unitCosts: [] }, stock: { type: 'once' } },
       { id: 'global-per-spot', name: '地点限定', offer: { type: 'item', itemId: SNACK, amount: 1 }, price: { unitCosts: [] }, stock: { type: 'limited', max: 1 }, purchase: { scope: { lifetime: 'global', owner: 'spot' } } },
+      { id: 'combo', name: '混合支付商品', offer: { type: 'item', itemId: SNACK, amount: 1 }, price: { unitCosts: [
+        { type: 'resource', resourceId: CREDIT, amount: Expr.const(4) },
+        { type: 'item', itemId: TOKEN, amount: Expr.const(1) },
+      ] } },
     ] }],
   };
 }
@@ -107,6 +111,15 @@ describe('ShopService（P2）', () => {
     expect(result).toMatchObject({ success: true, receipt: { lines: [{ entryId: 'rewarded', resourceGrants: { [CREDIT]: 3 }, itemGrants: { [SNACK]: 2 } }] } });
     expect(game.state.resources[CREDIT]).toBe(3);
     expect(game.state.inventory[SNACK]).toBe(2);
+  });
+
+  test('Shop 继续支持单个商品的多 Resource / Item 并列消费，不引入支付途径选择', () => {
+    game.mutations.changeResource(CREDIT, 4);
+    game.mutations.addItem(TOKEN, 1);
+    const result = game.shopService.checkout(SHOP, SPOT_A, [{ entryId: 'combo', quantity: 1 }]);
+    expect(result).toMatchObject({ success: true, receipt: { lines: [{ entryId: 'combo', resourceCosts: { [CREDIT]: 4 }, itemCosts: { [TOKEN]: 1 } }] } });
+    expect(game.state.resources[CREDIT]).toBe(0);
+    expect(game.state.inventory[TOKEN]).toBeUndefined();
   });
 
   test('preview 是临时快照；checkout 重新求值动态价格，Session 不写入 Save', () => {

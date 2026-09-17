@@ -137,4 +137,32 @@ describe('AffectorEngine', () => {
     engine.recheck(instance.instanceId);
     expect(engine.getInstance(instance.instanceId)?.state).toBe('Removed');
   });
+
+  test('only active entries provide Area connections', () => {
+    const state = emptyState();
+    const engine = new AffectorEngine(new Registry(), new ConditionSystem(), new StateMutationService(new EventBus()));
+    engine.load([{
+      id: 'pack_links',
+      entries: [{
+        id: 'link',
+        condition: { type: 'AND', conditions: [{ target: 'resource', key: 'credit', comparator: '>=', value: 1 }] },
+        effects: [],
+        areaConnections: [{ fromAreaId: 'test:area:a', toAreaId: 'test:area:b', direction: 'twoWay' }],
+      }],
+    }]);
+    engine.setState(state);
+    const instance = engine.mount('pack_links', 'enhancement')!;
+    expect(engine.getActiveAreaConnections()).toEqual([]);
+    state.resources.credit = 1;
+    engine.recheck(instance.instanceId);
+    expect(engine.getActiveAreaConnections()).toEqual([
+      {
+        fromAreaId: 'test:area:a', toAreaId: 'test:area:b', direction: 'twoWay',
+        source: { instanceId: 'pack_links@enhancement', packId: 'pack_links', entryId: 'link', mountEntityId: 'enhancement' },
+      },
+    ]);
+    state.resources.credit = 0;
+    engine.recheck(instance.instanceId);
+    expect(engine.getActiveAreaConnections()).toEqual([]);
+  });
 });

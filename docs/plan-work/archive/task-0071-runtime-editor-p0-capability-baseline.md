@@ -1,6 +1,6 @@
 # Task：Runtime Editor P0 能力矩阵与 Draft/Runtime 查询契约
 
-状态：proposed — 需求基线已冻结，等待 P0 施工
+状态：proposed — 2026-09-15 暂停推进，随活跃计划层清退移入冻结考古层
 
 > **更正（2026-09-15）**：本 Task 的交付顺序与 P1 首刀目标已由 [[task-0072-runtime-mod-editor-authoring-spine]] 重新裁定。
 > 具体变更：① P0-A 全量能力矩阵的前置冻结取消，改为在代码中落地内容策略表，本文矩阵降级为它的阅读投影；② P0-B 的三套状态维度与 Apply 历史降为两个只读投影 + UI 三值；③ 逐 Content Key 裁定 State Policy 与逐能力立法的流程取消；④ P1 首刀 `spots.revealTriggers` 降为 S2 复杂字段适配器首例。
@@ -445,3 +445,15 @@ npm run check:architecture
 - [[16-runtime-datapack-authoring]]
 - [[runtime-editor-overlay-sol-review]]
 - [[def-resolution-withdrawal-sol-review]]
+
+## 归档结果
+
+- 准出结论：
+  - **非完成归档（暂停搁置）**：2026-09-15 活跃计划层清退，本 Task 暂停推进并移入冻结考古层；原 P0 施工未开工，本文不作为任何后续任务的开工闸门。
+- 当前知识与能力台账保留于：
+  - 本文（33 个顶层 Content Key 的授权矩阵、Draft / Runtime 查询契约、RTE-001～008 验收场景）。该矩阵已由 [[task-0072-runtime-mod-editor-authoring-spine]] 降级为阅读投影，实际授权真源是源码中的内容策略表（`src/data-services/authoring/content-policies.ts`）。
+- 设计理由保留于：
+  - 本文；交付顺序的替代裁定见 [[task-0072-runtime-mod-editor-authoring-spine]]。
+- 后续工作：
+  - 本文「剩余工作」中的 P0.1～P0.3 正式文档产物不再需要（其开工闸门地位已由 0072 取消）；
+  - 未完成方向统一下沉到 [[docs/plan-work/00-index]] 的「未决方向」，恢复时从原文重新裁定。

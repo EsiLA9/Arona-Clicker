@@ -1,6 +1,6 @@
 # Task：Spot 字段编辑阶梯与可复用 Authoring 结构
 
-状态：proposed — 重裁 [[task-0072-runtime-mod-editor-authoring-spine]] 的 S1-B（先打满 Spot 字段，再谈内容表扩展）
+状态：proposed — 2026-09-15 暂停推进，随活跃计划层清退移入冻结考古层
 
 ## 目标
 
@@ -204,3 +204,20 @@ npm run check:docs
 - [[docs/docs-828/00-INDEX]]
 - [[docs/docs-828/01-architecture/state-layers]]
 - [[docs/docs-828/05-conventions/testing]]
+
+## 归档结果
+
+- 准出结论：
+  - **非完成归档（暂停搁置）**：2026-09-15 活跃计划层清退，本 Task 暂停推进并移入冻结考古层。
+  - 已交付：S1-B1（`int` kind、可选数值语义、字段级失效台账与契约测试）。
+  - 未完成：S1-B2（`tags` 与 `global` 边界）、S1-B3（引用字段）。
+  - 已被取代：S1-B4（`functionalities` 失效路径）已由 [[task-0075-spot-runtime-affector-editor-demo]] 以受限形态实现（仅 `flow` / `linearYield`；`restartInit` / `hardResetInit` / `gacha` / `shop` 仍不可编辑）。
+- 设计理由保留于：
+  - 本文（字段级失效台账、`kind` 五处闭合判据、死字段约定、统一引用解析接口的接口形状）。
+- 后续工作：
+  - S1-B2 / S1-B3 与剩余 Affector kind 的下沉方向见 [[docs/plan-work/00-index]]「未决方向」。
+
+- 更正（2026-09-15）：
+  - 本文 S1-B1 中「策略表新增可写字段：……`yieldPerLevel`」及其验收检查点 3 已失效：`yieldPerLevel` 已由 [[task-0074-spot-affector-resource-convergence]] 从 Spot 合同移除，持续产出改由 Affector `flow` / `linearYield` 表达；当前 `SPOT_CONTENT_POLICY.fields` 为 `idName` / `areaId` / `name` / `description` / `baseCost` / `baseCostResource` / `baseCapacity` / `maxLevel` / `upgradeCostBase` / `upgradeCostGrowth`，持续产出经 `extensions.affectors` 编辑。
+  - 本文 §3.3 声称「必须在 S1-B1 一并落地」的 `ContentReferenceResolver` 未落地：当前引用解析仍是 `src/ui/workspace/runtime-editor-form.ts` 内的 `refOptions`，仅识别 `refType === 'area'`，其余 refType 返回空候选。该接口应视为 S1-B3 的目标，而非既成约束。
+  - 本文 §4.2 对 `global` 的「只读展示 + Deferred」未落地：策略表与表单均未登记 `global`，当前为完全缺席。以源码为准，不再改写本文历史正文。

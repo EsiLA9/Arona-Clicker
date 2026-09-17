@@ -3,6 +3,7 @@ import type { ExtraCompound } from '../../engine/types/extra';
 import type { ThemeDef } from '../../engine/types/theme';
 import type { ItemId } from '../../engine/types/ids';
 import type { RevealTrigger } from '../../engine/types/reveal';
+import type { CostItem } from './cost';
 
 export type ShopId = string;
 
@@ -59,9 +60,7 @@ export interface ShopPrice {
   unitCosts: ShopCost[];
 }
 
-export type ShopCost =
-  | { type: 'item'; itemId: ItemId; amount: ValueExpression }
-  | { type: 'resource'; resourceId: string; amount: ValueExpression };
+export type ShopCost = CostItem;
 
 export type ShopStock =
   | { type: 'unlimited' }

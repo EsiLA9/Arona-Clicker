@@ -17,6 +17,7 @@ import { toNumber } from '../extra/index';
 type TargetEvaluator = (sys: ConditionSystem, cond: Condition, state: ConditionState) => number;
 
 const TARGET_EVALUATORS: Record<ConditionTarget, TargetEvaluator> = {
+  alwaysTrue: () => 1,
   resource: (_sys, cond, state) => state.resources[cond.key] ?? 0,
   spotLevel: (_sys, cond, state) => state.spotLevels[cond.key] ?? 0,
   manager: (_sys, cond, state) => {

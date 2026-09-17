@@ -54,7 +54,10 @@
 ## 核心概念
 
 - **世界结构三层**：`InitDef`（世界线）→ `AreaDef`（区域，相邻移动）→ `SpotDef`（设施）。
+- **Area 连通性**：静态连接来自 `AreaDef.adjacentAreaIds`；Active Affector 可通过 entry 的 `areaConnections` 临时追加单向/双向连接。动态连接不写回 AreaDef，失活或卸载后消失；普通移动仍受当前 Init 与 Area 可见性门槛约束。
 - **门槛链**：业务操作 = 门面只读判定（canXxx / reveal 阶段）+ mutations 写入，见 [[docs/docs-828/01-architecture/run-logic]] 四。
+- **Spot 支付**：解锁必须声明 `purchaseOptions`，升级必须在目标 `levelUpgrades[].paymentOptions` 中声明；每个价格组可由多个 `Resource` / `Item` 费用项组成，费用项为 AND，价格组为 OR。这里的价格组是 Spot 自身的默认价格层；未来外部 Affector 追加的价格组属于独立运行时层，不写回 SpotDef 或 RuntimeEditor 草稿。显式免费使用 `[{ id: 'free', costs: [] }]`；顶层 `purchaseOptions: []` 表示当前没有购买途径，不等同于免费。缺失价格组不会回退为默认支付；升级条目仍必须至少有一个价格组。单方案可直接执行，多方案必须由命令携带 `paymentOptionId`，UI 负责弹窗选择。
+- **Def 审计时间**：可扩展 Def 可携带 `metadata.createdAt` / `metadata.updatedAt`（Unix milliseconds）。历史内容缺失时间时，Registry 查询结果使用 `Number.MIN_SAFE_INTEGER` 参与排序与筛选，但不回写原始 Def；同时保留 known 标记供 UI 显示“时间未知”。
 - 重置路径三条 + 彻底重置，见 [[docs/docs-828/01-architecture/run-logic]] 五。
 
 ## 测试入口

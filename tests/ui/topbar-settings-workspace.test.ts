@@ -8,6 +8,7 @@ import { createUIContext } from '../../src/ui/context';
 import { renderAppShell, type PanelState } from '../../src/ui/components/app-shell';
 import { UI_HOST_REGISTRY } from '../../src/ui/ui-host-registry';
 import { UIController } from '../../src/ui/controller';
+import { DEBUG_EDITING_DEFAULTS, IS_DEBUG_EDITING } from '../../src/ui/runtime-editor/config';
 import '../../src/ui/service-definitions';
 
 const baseState = (): PanelState => ({
@@ -124,6 +125,29 @@ describe('顶栏与设置工作区', () => {
     game.stop();
   });
 
+  it('IS_DEBUG_EDITING=1 时进入数据包管理页自动开启编辑态并预填默认数据', () => {
+    const game = new AronaClickerRuntime();
+    game.init([baseDatapack]);
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const controller = new UIController(game, root);
+    controller.started = true;
+    controller.render();
+
+    root.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
+
+    const editor = controller.panelState.runtimeDatapackEditor;
+    if (IS_DEBUG_EDITING !== 1) {
+      expect(editor).toBeUndefined();
+      return;
+    }
+    expect(editor?.enabled).toBe(true);
+    expect(editor?.modName).toBe(DEBUG_EDITING_DEFAULTS.modName);
+    expect(editor?.displayName).toBe(DEBUG_EDITING_DEFAULTS.displayName);
+    expect(root.querySelector('[data-runtime-editor-open]')).not.toBeNull();
+  });
+
   it('单 Mod 多 Spot 逐个即时新建、编辑与删除', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
@@ -135,7 +159,10 @@ describe('顶栏与设置工作区', () => {
 
     root.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
     root.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
-    root.querySelector<HTMLButtonElement>('[data-runtime-editor-toggle]')!.click();
+    // IS_DEBUG_EDITING=1 时编辑态已在进入数据包页时自动开启，此时直接打开编辑器。
+    const editorToggle = root.querySelector<HTMLButtonElement>('[data-runtime-editor-toggle]');
+    if (editorToggle) editorToggle.click();
+    else root.querySelector<HTMLButtonElement>('[data-runtime-editor-open]')!.click();
     expect(root.querySelector('.runtime-editor-form')).toBeNull();
     expect(document.querySelector('.app-modal .runtime-editor-form')).not.toBeNull();
     expect(root.querySelector('.pack-draft-actions')).not.toBeNull();
@@ -156,36 +183,69 @@ describe('顶栏与设置工作区', () => {
     click('.app-modal [data-runtime-editor-create]');
     expect(editor().error).toBeNull();
 
+    // 保存 Mod 设定后仍停留在 Mod 设定页；进入 Spot 页必须由用户主动选择。
+    expect(document.querySelector('[data-runtime-editor-create-spot]')).toBeNull();
+    expect(document.querySelector('[data-runtime-editor-mod-field="displayName"]')).not.toBeNull();
+    click('.app-modal [data-runtime-editor-new-spot]');
     expect(document.querySelector('[data-runtime-editor-create-spot]')).not.toBeNull();
     expect(document.querySelector('.runtime-datapack-modal .modal-head .eyebrow')?.textContent).toContain('创建 Spot');
+    // 页互相隔离：字段只在所属页，切页前会自动暂存已填内容。
+    click('.app-modal [data-runtime-editor-section-tab="basics"]');
     setField('idName', 'empty-spot');
     setField('name', '空 Spot');
-    click('.app-modal [data-runtime-editor-affector-add]');
-    click('.app-modal [data-runtime-editor-affector-add]');
-    const affectorRows = () => [...document.querySelectorAll<HTMLElement>('.app-modal [data-runtime-editor-affector-row]')];
-    const setAffectorField = (row: HTMLElement, key: string, value: string) => {
-      const field = row.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-editor-affector-field="${key}"]`)!;
-      field.value = value;
+    click('.app-modal [data-runtime-editor-section-tab="functionalities"]');
+    const collectionRows = () => [...document.querySelectorAll<HTMLElement>('.app-modal [data-runtime-collection-row]')];
+    // 新建只产出最小原型行，字段在条目子弹窗里补全。
+    click('.app-modal [data-runtime-collection-add]');
+    click('.app-modal [data-runtime-collection-add]');
+    expect(collectionRows()).toHaveLength(2);
+    const setItemField = (key: string, value: string) => {
+      document.querySelector<HTMLInputElement | HTMLSelectElement>(`.runtime-subdialog [data-runtime-item-field="${key}"]`)!.value = value;
     };
-    setAffectorField(affectorRows()[0], 'resource', 'base:resource:credit');
-    setAffectorField(affectorRows()[0], 'amount', '2');
-    setAffectorField(affectorRows()[1], 'mode', 'per-level');
-    setAffectorField(affectorRows()[1], 'resource', 'base:resource:pyroxene');
-    setAffectorField(affectorRows()[1], 'amount', '3');
+    collectionRows()[0].querySelector<HTMLElement>('[data-runtime-collection-edit]')!.click();
+    setItemField('amount', '2');
+    click('.runtime-subdialog [data-runtime-item-condition]');
+    click('.runtime-subdialog [data-runtime-condition-add="condition"]');
+    expect(document.querySelector('.runtime-subdialog [data-runtime-atomic-condition-editor]')).toBeNull();
+    expect(document.querySelector('.runtime-subdialog [data-runtime-condition-summary-text]')?.textContent).toBe('True');
+    click('.runtime-subdialog [data-runtime-condition-edit]');
+    expect(document.querySelector('.runtime-subdialog [data-runtime-atomic-condition-editor]')).not.toBeNull();
+    const targetSelect = document.querySelector<HTMLSelectElement>('.runtime-subdialog [data-runtime-condition-editor-field="target"]')!;
+    targetSelect.value = 'resource';
+    targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector<HTMLInputElement>('.runtime-subdialog [data-runtime-condition-editor-field="key"]')!.value = 'credit-ready';
+    document.querySelector<HTMLSelectElement>('.runtime-subdialog [data-runtime-condition-editor-field="comparator"]')!.value = '>=';
+    document.querySelector<HTMLInputElement>('.runtime-subdialog [data-runtime-condition-editor-field="value"]')!.value = '10';
+    click('.runtime-subdialog [data-subdialog-save]');
+    expect(document.querySelector('.runtime-subdialog [data-runtime-condition-edit]')).not.toBeNull();
+    click('.runtime-subdialog [data-runtime-item-condition]');
+    click('.runtime-subdialog [data-runtime-item-condition]');
+    expect(document.querySelector('.runtime-subdialog [data-runtime-item-condition-host]')?.hasAttribute('hidden')).toBe(false);
+    expect(document.querySelectorAll('.runtime-subdialog [data-runtime-condition]').length).toBe(2);
+    expect(document.querySelector('.runtime-subdialog [data-runtime-condition-outer-relation]')?.textContent).toBe('OR');
+    click('.runtime-subdialog [data-runtime-condition-toggle]');
+    expect(document.querySelector<HTMLElement>('.runtime-subdialog [data-runtime-condition-toggle]')?.dataset.runtimeConditionType).toBe('OR');
+    click('.runtime-subdialog [data-subdialog-save]');
+    collectionRows()[1].querySelector<HTMLElement>('[data-runtime-collection-edit]')!.click();
+    const secondKind = document.querySelector<HTMLSelectElement>('.runtime-subdialog [data-runtime-item-field="kind"]')!;
+    secondKind.value = 'linearYield';
+    secondKind.dispatchEvent(new Event('change', { bubbles: true }));
+    setItemField('resource', 'base:resource:pyroxene');
+    setItemField('amountPerLevel', '3');
+    click('.runtime-subdialog [data-subdialog-save]');
     click('.app-modal [data-runtime-editor-create-spot]');
 
-    // 保存只写草稿：运行时未改变，浏览器能看到新建条目
+    // 保存只写草稿：运行时未改变，且仍停留在 Spot 编辑页
     expect(editor().spots[0]).toMatchObject({
       idName: 'empty-spot',
       name: '空 Spot',
-      affectors: [
-        { type: 'resource-flow', mode: 'fixed', resource: 'base:resource:credit', amount: 2 },
-        { type: 'resource-flow', mode: 'per-level', resource: 'base:resource:pyroxene', amount: 3 },
+      functionalities: [
+        { kind: 'flow', resource: 'base:resource:credit', amount: 2, condition: { type: 'OR', conditions: [{ target: 'resource', key: 'credit-ready', comparator: '>=', value: 10 }] } },
+        { kind: 'linearYield', resource: 'base:resource:pyroxene', amountPerLevel: 3 },
       ],
     });
     expect(game.registry.spots.has('draft-mod:spot:empty-spot')).toBe(false);
-    expect(document.querySelector('.runtime-spot-list')).not.toBeNull();
-    expect(entryState('empty-spot')).toBe('created');
+    expect(document.querySelector('[data-runtime-editor-spot-form]')).not.toBeNull();
 
     // 显式 Apply 才进入运行时
     click('.app-modal [data-runtime-editor-apply]');
@@ -194,17 +254,29 @@ describe('顶栏与设置工作区', () => {
       expect.objectContaining({ kind: 'flow', resource: 'base:resource:credit', amount: 2 }),
       expect.objectContaining({ kind: 'linearYield', resource: 'base:resource:pyroxene', amountPerLevel: 3 }),
     ]));
-    expect(entryState('empty-spot')).toBe('unchanged');
     expect(document.querySelector('#toast-layer .toast-action')).not.toBeNull();
+
+    const openBrowser = () => {
+      controller.modal.close();
+      controller.render();
+      root.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
+      root.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
+      root.querySelector<HTMLButtonElement>('[data-runtime-editor-open]')!.click();
+    };
+    openBrowser();
+    expect(document.querySelector('.runtime-spot-list')).not.toBeNull();
+    expect(entryState('empty-spot')).toBe('unchanged');
 
     // 第二个 Spot 仍从浏览器入口创建，并在浏览器里逐个应用
     click('.app-modal [data-runtime-editor-new-spot]');
+    click('.app-modal [data-runtime-editor-section-tab="basics"]');
     setField('idName', 'second-spot');
     setField('name', '第二个 Spot');
-    click('.app-modal [data-runtime-editor-create-spot]');
-    expect(editor().spots).toHaveLength(2);
-    expect(game.registry.spots.has('draft-mod:spot:second-spot')).toBe(false);
+    click('.app-modal [data-runtime-editor-section-tab="functionalities"]');
+    // Spot 编辑页允许直接应用：Apply 会先读取当前表单，再提交到 Runtime。
     click('.app-modal [data-runtime-editor-apply]');
+    expect(editor().spots).toHaveLength(2);
+    expect(game.registry.spots.has('draft-mod:spot:second-spot')).toBe(true);
 
     const areaId = editor().selectedAreaId!;
     expect(editor().error).toBeNull();
@@ -222,6 +294,7 @@ describe('顶栏与设置工作区', () => {
     expect(root.querySelector('[data-runtime-spot-edit="draft-mod:spot:empty-spot"]')).not.toBeNull();
     expect(root.querySelector('[data-runtime-spot-delete="draft-mod:spot:empty-spot"]')).not.toBeNull();
     root.querySelector<HTMLButtonElement>('[data-runtime-spot-edit="draft-mod:spot:second-spot"]')!.click();
+    click('.app-modal [data-runtime-editor-section-tab="basics"]');
     expect(document.querySelector<HTMLInputElement>('.app-modal [data-runtime-editor-field="idName"]')?.value).toBe('second-spot');
     controller.modal.close();
 
@@ -233,13 +306,16 @@ describe('顶栏与设置工作区', () => {
     setField('name', '修改后的 Spot');
     click('.app-modal [data-runtime-editor-create-spot]');
 
-    // 草稿已改、运行时未变，差异面板可见
+    // 保存仍留在 Spot 编辑页；主动返回浏览器后可见差异面板
+    expect(document.querySelector('[data-runtime-editor-spot-form]')).not.toBeNull();
+    openBrowser();
     expect(game.registry.spots.get('draft-mod:spot:empty-spot')?.name).toBe('空 Spot');
     expect(entryState('empty-spot')).toBe('modified');
     expect(document.querySelector('.runtime-editor-diff')?.textContent).toContain('修改后的 Spot');
 
     click('.app-modal [data-runtime-editor-apply]');
     expect(game.registry.spots.get('draft-mod:spot:empty-spot')?.name).toBe('修改后的 Spot');
+    openBrowser();
     expect(entryState('empty-spot')).toBe('unchanged');
 
     game.state.spotLevels['draft-mod:spot:empty-spot'] = 2;

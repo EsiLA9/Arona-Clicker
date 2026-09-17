@@ -29,9 +29,7 @@ const spot = (revealTriggers?: SpotDef['revealTriggers']): SpotDef => ({
   areaId: AREA_ID,
   name: 'Temporary Spot',
   description: '',
-  baseCost: { type: 'const', value: 1 },
-  baseCostResource: 'credit',
-  baseCapacity: 1,
+  purchaseOptions: [{ id: 'free', costs: [] }],
   tags: [],
   revealTriggers,
 });

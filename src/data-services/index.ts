@@ -14,7 +14,9 @@ export { parsePicId, isPicRef, buildPicId, isDirectUrl, isZipPicSrc, zipPathOf }
 export type { CharacterVariantDef } from './contracts/character-variant';
 export type { CultivateCurveDef } from './contracts/cultivate-curve';
 export type { AffectionConfigDef } from './contracts/affection-config';
-export type { ResourceDisplayDef, TagDef, ResourceAmount } from './contracts/common';
+export { effectiveDefMetadata, MISSING_DEF_TIME } from './contracts/common';
+export type { DefMetadata, EffectiveDefMetadata, ResourceDisplayDef, TagDef, ResourceAmount } from './contracts/common';
+export type { CostItem, PaymentOptionDef } from './contracts/cost';
 export type { EntryEffectDef, InitDef, InitPurchaseError, InitPurchaseResult, AreaDef, SpotDef, SpotFunctionalityDef, LevelUpgradeDef } from './contracts/world';
 export type { ShopDef, ShopSectionDef, ShopEntryDef, ShopOffer, ShopPrice, ShopCost, ShopStock, ShopPurchasePolicy, ShopPurchaseScope, ShopPurchaseRecord, ShopId } from './contracts/shop';
 export type { PackEntry, PackSource } from './datapack/source';
@@ -81,6 +83,7 @@ export type { PicDefinitionMap } from './assets/pic-resolver';
 export { PicService } from './assets/pic-service';
 export { Registry, RegistryError } from './registry/registry';
 export type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry/registry';
+export type { RegistryAreaMutation, RegistryAreaMutationReceipt, RegistryInitMutation, RegistryInitMutationReceipt } from './registry/registry';
 export {
   applyAuthoringMutation,
   authoringDefId,
@@ -113,6 +116,8 @@ export type {
   FieldConsumer,
   FieldInvalidation,
   FieldMaterialization,
+  PaymentCostDraft,
+  PaymentOptionDraft,
   WritableFieldDef,
   WritableFieldKind,
 } from './authoring/content-policy-types';

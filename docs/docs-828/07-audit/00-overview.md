@@ -34,6 +34,7 @@
 | [[docs/docs-828/07-audit/enum-taxonomy]] | 枚举面与分类学超配：阶梯 / 错误码 / EffectOp 语义混一 |
 | [[docs/docs-828/07-audit/stats-ledgers]] | 统计五套并记与 worldTilt 预留体系 |
 | [[docs/docs-828/07-audit/sync-burden]] | 同步义务与流程负担（schema / 事件 / 文档 / 双数据源），含漂移实证 |
+| [[docs/docs-828/07-audit/dom-refresh-chains]] | UI DOM 刷新链条、刷新范围与 hover / 交互状态边界 |
 
 ## 相关文档
 

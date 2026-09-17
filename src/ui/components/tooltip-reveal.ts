@@ -106,7 +106,9 @@ export function getSpotReveal(ctx: UIContext, spot: SpotDef): RevealResult {
   return resolveReveal(ctx, {
     owned: (view.spotLevels[spot.id] ?? 0) > 0,
     triggers: spot.revealTriggers,
-    isAccessible: info => !spot.revealTriggers?.length || (info.nameKnown && info.utilityKnown),
+    isAccessible: info =>
+      (!spot.revealTriggers?.length || (info.nameKnown && info.utilityKnown))
+      && ctx.game.spot.getPaymentOptions(spot.id, 'unlock').length > 0,
   });
 }
 

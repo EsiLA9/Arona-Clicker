@@ -27,10 +27,8 @@ const simpleDatapack: Datapack = {
       areaId: 'test:area:area_t',
       name: 'Test Producer',
       description: '',
-      baseCost: { type: 'const', value: 10 },
-      baseCostResource: 'credit',
-      functionalities: [{ id: 'base:flow:test', kind: 'flow', resource: 'credit', amount: 5 }],
-      baseCapacity: 0,       // 无容量限制
+      functionalities: [{ id: 'base:flow:test', kind: 'flow', resource: 'credit', amount: 5 }],       // 无容量限制
+      purchaseOptions: [{ id: 'free', costs: [] }],
       levelUpgrades: [],
       tags: [],
     },

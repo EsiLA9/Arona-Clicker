@@ -73,7 +73,7 @@
 | `TriggerDef.id` | —（自身生命周期） | 内部身份 | 全局 triggerDefs 按 id 挂载/卸载/once 持久化，无任何跨 Def 引用；匿名 Trigger 派 `anon:` 派生 id |
 | `AffectorEffect.id` | —（包内条目） | 内部身份 | 仅用于 AffectorInstance.activeEntryIds 追踪 |
 | 各 Def 的 `tags: TagPath[]` | TagDef | 意义 | 标签是纯语义标记：匹配按 id 前缀（hasTag/countTags/tagCount/zoneModifiers），TagDef 的 name/description 仅 UI 展示 |
-| 资源 id（`baseCostResource`/Spot functionality.resource/AffectorFlow.resource/…） | 资源 | 意义（状态键） | 资源在 PlayerState 按 id 存数量副本，效果的操作目标就是该 id 本身；资源 Def 的显示名/图标不参与结算 |
+| 资源 id（`CostItem.resourceId`/Spot functionality.resource/AffectorFlow.resource/…） | 资源 | 意义（状态键） | 资源在 PlayerState 按 id 存数量副本，效果的操作目标就是该 id 本身；资源 Def 的显示名/图标不参与结算 |
 | `avatar` / `image` 的 PicId | PicDef | 真 | resolvePicSrc → registry.pics.get 解析成实际图片；缺图回退首字母占位 |
 | `VariantProgress.variantId` / `GachaPoolState` / `storyReadLogs` / `studentBlocks` 等 | 各 Def | 意义（状态键） | 玩家层按 id 持有进度副本（等级/经验/pity/阅读记录），Def 内容不参与——这就是「我拥有和该 id 一致的副本生效」的字面形态 |
 

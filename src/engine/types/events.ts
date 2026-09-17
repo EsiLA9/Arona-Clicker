@@ -17,6 +17,8 @@ export type GameEvent =
       previousAreaId?: string;
       nextAreaId?: string;
     }
+  | { type: 'initDefinitionChanged'; initId: string }
+  | { type: 'areaDefinitionChanged'; areaId: string }
   | { type: 'managerChanged'; spotId: string; newManager: Character }
   | { type: 'enhancementAdded'; enhancementId: string }
   | { type: 'enhancementRemoved'; enhancementId: string }

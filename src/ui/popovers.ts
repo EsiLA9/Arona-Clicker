@@ -39,9 +39,9 @@ export class PopoverManager {
     this.lastWrap = null;
   }
 
-  /** 根节点即将重建时关闭根节点内的悬浮层；body 级弹窗锚点仍可保留。 */
-  dismissBeforeRootMutation(): void {
-    if (!this.lastWrap || !this.root.contains(this.lastWrap)) return;
+  /** 即将替换指定范围时，关闭该范围内的悬浮层；未受影响的锚点保持。 */
+  dismissBeforeRootMutation(scope: ParentNode = this.root): void {
+    if (!this.lastWrap || !scope.contains(this.lastWrap)) return;
     const tooltipEl = document.getElementById('floating-tooltip');
     tooltipEl?.classList.remove('is-open');
     this.lastWrap = null;

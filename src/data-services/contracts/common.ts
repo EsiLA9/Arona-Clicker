@@ -6,6 +6,29 @@ import type { TagRef } from '../../engine/core/tag';
 
 export type { ResourceAmount } from '../../engine/contracts/resource';
 
+/** Def 审计元数据；缺省表示历史内容尚未记录时间。 */
+export interface DefMetadata {
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface EffectiveDefMetadata extends DefMetadata {
+  createdAtKnown: boolean;
+  updatedAtKnown: boolean;
+}
+
+/** Registry 查询层对缺失时间采用的排序底值；不回写原始 Def。 */
+export const MISSING_DEF_TIME = Number.MIN_SAFE_INTEGER;
+
+export function effectiveDefMetadata(metadata?: Partial<DefMetadata>): EffectiveDefMetadata {
+  return {
+    createdAt: metadata?.createdAt ?? MISSING_DEF_TIME,
+    updatedAt: metadata?.updatedAt ?? MISSING_DEF_TIME,
+    createdAtKnown: metadata?.createdAt !== undefined,
+    updatedAtKnown: metadata?.updatedAt !== undefined,
+  };
+}
+
 export interface ResourceDisplayDef {
   /** @label 资源 ID */
   resourceId: string;

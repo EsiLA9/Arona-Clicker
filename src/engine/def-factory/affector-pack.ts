@@ -6,7 +6,7 @@
 import type { TagPath } from '../core/tag';
 import type { ExtraCompound } from '../types/extra';
 import type { ConditionGroup, Effect, ValueExpression } from '../types/expression';
-import type { AffectorCapabilityGrant, AffectorEffect, AffectorPackDef, AffectorFlow, ServiceCapabilityId } from '../types/trigger';
+import type { AffectorCapabilityGrant, AffectorEffect, AffectorPackDef, AffectorFlow, ServiceCapabilityId, AreaConnectionDef } from '../types/trigger';
 import type { TagEffectCategory, ZoneModifierDecl } from '../expression/tag-effect';
 
 export class AffectorPackBuilder {
@@ -51,6 +51,12 @@ export class AffectorPackBuilder {
     return this;
   }
 
+  /** 追加一条运行时 Area 连通边；默认单向，twoWay 同时开放反向移动。 */
+  areaConnection(fromAreaId: AreaConnectionDef['fromAreaId'], toAreaId: AreaConnectionDef['toAreaId'], direction: AreaConnectionDef['direction'] = 'oneWay'): this {
+    (this.last().areaConnections ??= []).push({ fromAreaId, toAreaId, direction });
+    return this;
+  }
+
   /** 区修饰：按 tag 目标（自下而上命中）。 */
   modTag(tag: TagPath, category: TagEffectCategory, value: number | ValueExpression): this {
     this.last().zoneModifiers!.push({ target: { kind: 'tag', tag }, category, value });
@@ -91,6 +97,7 @@ export class AffectorPackBuilder {
         if (e.perTickEffects && e.perTickEffects.length) out.perTickEffects = e.perTickEffects;
         if (e.flows && e.flows.length) out.flows = e.flows;
         if (e.zoneModifiers && e.zoneModifiers.length) out.zoneModifiers = e.zoneModifiers;
+        if (e.areaConnections && e.areaConnections.length) out.areaConnections = e.areaConnections;
         return out;
       }),
     };

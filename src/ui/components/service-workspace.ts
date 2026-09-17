@@ -10,7 +10,7 @@ import {
   type DatapackWorkspaceView,
 } from '../../arona-clicker/services/datapack-workspace-view';
 import { renderWorkspaceFrame } from './workspace-frame';
-import { renderRuntimeEditorToggle } from './runtime-datapack-editor';
+import { renderRuntimeEditorToggle } from '../runtime-editor/view';
 
 export type ServiceWorkspaceId = 'datapack' | 'saves' | 'records';
 

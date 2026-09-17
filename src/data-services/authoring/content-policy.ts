@@ -17,7 +17,13 @@ import type {
 
 const ENTITY_NAME_PATTERN = /^[a-z0-9_-]+$/;
 
-export { CONTENT_POLICIES, SPOT_CONTENT_POLICY } from './content-policies';
+export {
+  CONTENT_POLICIES,
+  INIT_CONTENT_POLICY,
+  AREA_CONTENT_POLICY,
+  SPOT_CONTENT_POLICY,
+  ENHANCEMENT_CONTENT_POLICY,
+} from './content-policies';
 
 export type {
   AuthoringExtension,
@@ -32,8 +38,13 @@ export type {
   FieldConsumer,
   FieldInvalidation,
   FieldMaterialization,
-  SpotAffectorMode,
-  SpotResourceAffectorDraft,
+  ContentSectionDef,
+  PaymentCostDraft,
+  PaymentOptionDraft,
+  SpotFunctionalityDraft,
+  SpotFunctionalityKind,
+  SpotLevelUpgradeDraft,
+  SpotRevealTriggerDraft,
   AuthoringValidationContext,
   WritableFieldDef,
   WritableFieldKind,
@@ -154,6 +165,10 @@ export function validateAuthoringFieldValue(
       return Number.isInteger(value) && (value as number) >= 0
         ? undefined
         : problem('invalid-field', inputFieldPath(policy, field.key), `${field.key} 必须是非负整数`);
+    case 'boolean':
+      return typeof value === 'boolean'
+        ? undefined
+        : problem('invalid-field', inputFieldPath(policy, field.key), `${field.key} 必须是布尔值`);
   }
 }
 
@@ -175,7 +190,10 @@ export function validateAuthoringInput(
   }
   for (const extension of policy.extensions ?? []) {
     const value = raw[extension.inputKey];
-    if (value === undefined || value === null) continue;
+    if (value === undefined || value === null) {
+      if (extension.required) return problem('invalid-field', inputFieldPath(policy, extension.inputKey), `缺少字段：${extension.inputKey}`);
+      continue;
+    }
     const issue = extension.validate(value, context);
     if (issue) return issue;
   }
@@ -209,7 +227,7 @@ export function buildAuthoringDef(policy: ContentAuthoringPolicy, modName: strin
     const value = raw[extension.inputKey];
     if (value === undefined || value === null) continue;
     const encoded = extension.encode(value);
-    if (Array.isArray(encoded) && encoded.length === 0) continue;
+    if (Array.isArray(encoded) && encoded.length === 0 && !extension.preserveEmpty) continue;
     def[extension.definitionKey] = encoded;
   }
   return def;
@@ -234,7 +252,7 @@ export function encodedAuthoringExtensionValue(
   const extension = getAuthoringExtension(policy, inputKey);
   if (!extension || value === undefined || value === null) return undefined;
   const encoded = extension.encode(value);
-  return Array.isArray(encoded) && encoded.length === 0 ? undefined : encoded;
+  return Array.isArray(encoded) && encoded.length === 0 && !extension.preserveEmpty ? undefined : encoded;
 }
 
 export function cloneAuthoringDef<T>(def: T): T {
@@ -242,7 +260,9 @@ export function cloneAuthoringDef<T>(def: T): T {
 }
 
 export function applyAuthoringMutation(registry: Registry, request: AuthoringMutationRequest): AuthoringMutationReceipt {
-  return requireContentPolicy(request.table).mutate(registry, request);
+  const mutate = requireContentPolicy(request.table).mutate;
+  if (!mutate) throw new Error(`内容表 ${request.table} 需要通过 Runtime reload 物化，不能走局部 mutation`);
+  return mutate(registry, request);
 }
 
 function encodeFieldValue(field: WritableFieldDef, value: unknown): unknown {
@@ -259,6 +279,8 @@ function encodeFieldValue(field: WritableFieldDef, value: unknown): unknown {
       return value;
     case 'constNumberExpression':
       return Expr.const(value as number);
+    case 'boolean':
+      return value;
   }
 }
 

@@ -11,6 +11,8 @@ import {
   AffectorPackDef,
   AffectorPackRef,
   AffectorState,
+  AreaConnectionDef,
+  ActiveAreaConnection,
   GameEvent,
   SpotId,
   Expr,
@@ -320,6 +322,30 @@ export class AffectorEngine extends EventDrivenReactor {
       }
     }
     return sources;
+  }
+
+  /** 返回当前 Active Affector entry 追加的 Area 连通边；每次查询均从活跃 entry 重建。 */
+  getActiveAreaConnections(): ActiveAreaConnection[] {
+    const result: ActiveAreaConnection[] = [];
+    for (const instance of this.activeInstances.values()) {
+      const pack = this.packs.get(instance.packId);
+      if (!pack) continue;
+      for (const entry of pack.entries) {
+        if (!instance.activeEntryIdSet?.has(entry.id)) continue;
+        for (const connection of entry.areaConnections ?? []) {
+          result.push({
+            ...connection,
+            source: {
+              instanceId: instance.instanceId,
+              packId: instance.packId,
+              entryId: entry.id,
+              mountEntityId: instance.mountEntityId,
+            },
+          });
+        }
+      }
+    }
+    return result;
   }
 
   /**

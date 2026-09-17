@@ -5,6 +5,8 @@
 > **本目录不是当前事实源，也不代表仍在推进的工作。** 项目当前事实一律以 `src/` 与 `docs/docs-828/` 为准。
 > 这里保存的是过程文档：ADR 裁定、Roadmap 切片、Task 施工记录与设计草案。它们的用途只有一个——**回答「为什么当初这么做」，以及在需要时重新激活某个未完成方向**。
 
+> **当前活跃计划层状态（2026-09-17）**：根目录当前任务包括 [[task-0076-unified-def-editor-service]]、[[task-0077-runtime-editor-condition-tree]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0080-spot-cost-and-payment-extensibility]] 与 [[task-0088-init-area-hot-crud-and-location-fallback]]。0087 已被重新收敛的 0088 取代，不再作为当前实施范围。
+
 ## 冻结约定
 
 - 本目录整体冻结为**单一考古层**：原 `active/`、`completed/`、`newPlan/`、`review/`、`registry&saves/` 已全部合并进 `archive/`，不再按生命周期分目录维护；
@@ -100,7 +102,6 @@
 
 ### 由 Task 承载的其他未决方向
 
-- Spot 资源产出统一收敛至 Affector（已完成，已归档）：[[task-0074-spot-affector-resource-convergence]]
 - 按钮序列统一接入 Host 的剩余部分：[[task-0030-button-rendering-convergence-solution]]
 - PassiveStory P0/P1 与池分层权重：[[task-0032-passive-story-scheduling]]
 - Affector / GameNum 性能整改：[[task-0034-affector-performance-review]]
@@ -109,11 +110,33 @@
 - 运行时数据包编辑工作台：[[task-0055-runtime-datapack-editor-mvp]]、[[task-0056-workspace-datapack-boundary-convergence]]、[[task-0057-single-mod-editor-workbench]]
 - 背包剩余能力（整理持久化、出售丢弃、来源筛选）：[[task-0068-inventory-workspace-remaining-capabilities]]
 - 未裁定的设计草案：[[01-ownership-and-development]]、[[02-unified-acquisition]]、[[03-spot-shop]]、[[04-recruitment-v2]]、[[05-fragments-and-currency]]、[[06-meta-loop-and-ui]]、[[07-mvp-scope]]、[[16-runtime-datapack-authoring]]
-- 运行时数据包创作方向：[[task-0075-spot-runtime-affector-editor-demo]]（Spot Affector 可变列表与持续资源 Demo，已实现）、[[task-0073-spot-field-authoring-ladder]]（当前切片：以 Spot 为测试对象打满字段编辑能力并沉淀可移植结构）、[[task-0072-runtime-mod-editor-authoring-spine]]（编辑器骨架优先，重新裁定 [[task-0071-runtime-editor-p0-capability-baseline]] 的交付顺序）、[[task-0071-runtime-editor-p0-capability-baseline]]、[[16-runtime-datapack-authoring]]、[[runtime-editor-overlay-sol-review]]、[[def-resolution-withdrawal-sol-review]]
+- 运行时数据包创作方向（2026-09-15 全部暂停，是本轮清退后新一轮策划的起点）：
+  - 已交付并归档：[[task-0075-spot-runtime-affector-editor-demo]]（Spot Affector 可变列表与持续资源 Demo）、[[task-0074-spot-affector-resource-convergence]]（Spot 产出统一收敛至 Affector）；
+  - 已暂停（移入 `archive/`）：[[task-0072-runtime-mod-editor-authoring-spine]]（S0 / S1-A 已交付；S2 `revealTriggers` 递归条件组、S3 工作区持久化与导出未完成）、[[task-0073-spot-field-authoring-ladder]]（S1-B1 已交付；S1-B2 `tags`/`global`、S1-B3 引用字段未完成；S1-B4 已由 0075 以受限形态覆盖）、[[task-0071-runtime-editor-p0-capability-baseline]]（需求基线与 33 键能力台账，交付顺序已被 0072 取代）；
+  - 相关设计来源：[[16-runtime-datapack-authoring]]、[[runtime-editor-overlay-sol-review]]、[[def-resolution-withdrawal-sol-review]]
+  - 新一轮策划（2026-09-15 起）：[[task-0076-unified-def-editor-service]]（前台统一编辑器服务：Def 编辑构建接口 / 全宽承载 + 左侧 Switch 分页 / 子编辑弹窗；含 Spot 层级样例楼层设计与 B1–B5 内容阶梯；策划完成，待裁定与开工）
+  - Init / Area / Enhancement 编辑态 CRUD（2026-09-17，已被重新收敛）：[[task-0087-init-area-enhancement-editor-crud]]（原三类 Definition 方案，因 candidate reload 与 Enhancement 范围过大而中断）
+  - Init / Area 热 CRUD 与当前位置兜底（2026-09-17）：[[task-0088-init-area-hot-crud-and-location-fallback]]（当前实施任务；共享 Spot 编辑框架，不做 Enhancement）
+  - 条件编辑器专项任务（2026-09-16）：[[task-0077-runtime-editor-condition-tree]]（条件树、AND/OR 点击切换、原子条件摘要与弹窗编辑；主体已落地，待浏览器验收）
+  - 原子条件目标编辑器（2026-09-16）：[[task-0078-runtime-editor-condition-target-editors]]（目标驱动字段、引用候选、摘要与校验；P0/P1 已落地，P2 施工中）
+  - Manager 旧语义删除（2026-09-16）：[[task-0079-chara-spot-link-retirement-and-redesign]]（删除旧 Manager 状态、条件、Effect、事件与兼容路径；不涉及新的 Chara—Spot 关系设计）
+  - Spot 默认支付退役（2026-09-16，已完成并归档）：[[task-0081-spot-payment-default-removal]]（删除 `baseCost` / `baseCostResource` 与升级旧价格回退，所有 Spot 解锁 / 升级改由显式价格组声明）
+  - Runtime Editor 非法条目注记（2026-09-16，已完成并归档）：[[task-0082-runtime-editor-invalid-entry-annotations]]（为 Spot 集合条目与所属 Switch 增加轻量问题注记；不做调用链追踪）
+  - 数据包加载策略持久化与启动自动恢复（2026-09-16，已完成并归档）：[[task-0083-datapack-load-policy-persistence-and-startup-restore]]（应用启用集后持久化，启动时自动恢复并加载已启用数据包）
+  - Spot 价格传导链与初始价格可编辑性（2026-09-16，已完成并归档）：[[task-0084-spot-price-propagation-and-runtime-editability]]（RuntimeEditor 仅处理 Spot 默认价格 / 条件组，Affector 追加价格另立系统）
+  - Def 审计时间元数据与无时间内容兼容（2026-09-16，已完成并归档）：[[task-0085-def-audit-metadata-and-missing-time-ordering]]（统一创建 / 修改时间，并在 Registry 中将缺失时间视为极早值）
+
+## 当前活跃任务
+
+- [[task-0086-ui-dom-refresh-boundaries-and-hover-preservation]]：降低 UI 不必要的激进 DOM 刷新，收敛局部刷新与 hover 生命周期边界。
+- [[task-0088-init-area-hot-crud-and-location-fallback]]：在共享 Spot 编辑框架中实现 Init / Area 热 CRUD，并在当前位置丢失时回到默认 Area 或 Init 选择界面。
 
 ## 相关路由
 
-- 最近完成的计划：[[task-0070-documentation-context-service]]
+- 当前任务：[[task-0087-init-area-enhancement-editor-crud]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0076-unified-def-editor-service]]
+- 收束中的任务：[[task-0077-runtime-editor-condition-tree]]
+- 最近完成的计划：[[task-0085-def-audit-metadata-and-missing-time-ordering]]、[[task-0084-spot-price-propagation-and-runtime-editability]]、[[task-0083-datapack-load-policy-persistence-and-startup-restore]]、[[task-0082-runtime-editor-invalid-entry-annotations]]、[[task-0081-spot-payment-default-removal]]、[[task-0075-spot-runtime-affector-editor-demo]]、[[task-0074-spot-affector-resource-convergence]]
+- 最近一次清退（2026-09-15，暂停移入 `archive/`）：[[task-0071-runtime-editor-p0-capability-baseline]]、[[task-0072-runtime-mod-editor-authoring-spine]]、[[task-0073-spot-field-authoring-ladder]]
 - [[docs/docs-828/00-INDEX]]（唯一当前事实入口）
 - [[docs/docs-828/01-architecture/design-constraints]]（仍生效的设计约束）
 - [[docs/docs-828/05-conventions/doc-maintenance]]（文档维护与归档规则）

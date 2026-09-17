@@ -54,6 +54,7 @@ export function describeConditionLeaf(condition: Condition, options: ConditionPr
   const value = (options.formatNumber ?? String)(condition.value);
   const comparator = options.style === 'ui' ? (COMPARATOR_TEXT[condition.comparator] ?? condition.comparator) : condition.comparator;
   switch (condition.target) {
+    case 'alwaysTrue': return 'True';
     case 'resource': return `${nameOf('resource', condition.key)} ${comparator} ${value}`;
     case 'spotLevel': return `${nameOf('spot', condition.key)} 等级 ${comparator} ${value}`;
     case 'manager': return `${nameOf('spot', condition.key)} 已分配 Manager`;

@@ -14,9 +14,7 @@ const spot = (id: string, areaId: string, name: string, tags: string[][] = []): 
   areaId,
   name,
   description: `${name} description`,
-  baseCost: { type: 'const', value: 10 },
-  baseCostResource: 'base:resource:credit',
-  baseCapacity: 100,
+  purchaseOptions: [{ id: 'free', costs: [] }],
   levelUpgrades: [],
   tags,
 });

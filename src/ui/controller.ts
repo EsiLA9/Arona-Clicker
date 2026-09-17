@@ -83,6 +83,7 @@ import {
   selectDatapackPack as selectDatapackPackState,
   synchronizeDatapackWorkspaceState,
 } from './workspace/datapack-workspace-state';
+import { seedDebugEditing } from './runtime-editor/debug';
 import {
   backWorkspaceNavigation,
   createWorkspaceNavigation,
@@ -151,6 +152,8 @@ export class UIController {
     openingBanner: null,
     workspaceNavigation: createWorkspaceNavigation(),
   };
+  /** @internal IS_DEBUG_EDITING=1 时调试编辑态是否已播种：只播种一次，用户主动关闭后不再自动重开。 */
+  debugEditingSeeded = false;
   /** 弹窗母版实例（body 级，独立于 #app 重建）。 */
   readonly modal = new ModalManager();
   /** 全局 Toast 通知（body 级，独立于 #app 重建）。 */
@@ -437,6 +440,7 @@ export class UIController {
     if (center && chatPane && this.panelState.centerTab === 'chat' && !this.panelState.conversationVariantId) {
       this.scroll.captureChat(this.root);
       const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      this.popovers.dismissBeforeRootMutation(chatPane);
       chatPane.outerHTML = renderChatTab(
         context,
         this.panelState.chatEntries,
@@ -467,6 +471,7 @@ export class UIController {
     const log = center?.querySelector<HTMLElement>('.log-panel');
     if (!center || !log) return;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    this.popovers.dismissBeforeRootMutation(log);
     log.outerHTML = renderLogTab(context);
     bindTopBarActions(this, center);
   }
@@ -512,6 +517,7 @@ export class UIController {
       const currentHost = this.findThemeHost(this.root, `${panel}Panel`);
       const current = currentHost?.querySelector<HTMLElement>(`[data-game-panel="${panel}"]`);
       if (!current) continue;
+      this.popovers.dismissBeforeRootMutation(current);
       let html: string;
       if (panel === 'left') {
         html = renderLeftPanel(context, this.panelState);
@@ -600,6 +606,7 @@ export class UIController {
     // 若晚于 DOM 生成（applyTheme 内），会读到上一帧的层 → 换色后落后一拍
     this.syncRuntimeTheme();
     this.ensureDatapackWorkspaceState();
+    this.ensureDebugEditingState();
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace) {
       // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
@@ -654,6 +661,16 @@ export class UIController {
     }
     const configuration = host.getPackConfiguration?.();
     this.panelState.datapackWorkspace = createDatapackWorkspaceState(catalog.entries, configuration);
+  }
+
+  /**
+   * IS_DEBUG_EDITING=1 时，首次渲染自动开启编辑态并预填默认数据；
+   * 只播种一次，用户主动关闭编辑态后不再自动重开。
+   */
+  ensureDebugEditingState(): void {
+    if (this.debugEditingSeeded) return;
+    this.debugEditingSeeded = true;
+    seedDebugEditing(this);
   }
 
   /** 导入完成后将工作区定位到新包（存在工作区时）。 */
@@ -769,6 +786,7 @@ export class UIController {
       if (!current || !next) continue;
       const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
       const scrollTop = scrollOwner?.scrollTop ?? 0;
+      this.popovers.dismissBeforeRootMutation(current);
       current.outerHTML = next.outerHTML;
       const replacement = this.findThemeHost(this.root, hostId);
       if (replacement) {

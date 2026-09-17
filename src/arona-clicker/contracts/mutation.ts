@@ -19,8 +19,16 @@ export interface InventoryMutationPort extends StateMutationHostPort {
 
 export interface SpotMutationPort extends StateMutationHostPort {
   setSpotLevel(spotId: string, level: number): void;
+  commitSpotTransaction(commit: SpotTransactionCommit): void;
   setManager(spotId: string, character: import('../../engine/types').Character): void;
   applySpotTagChange(spotId: string, tag: import('../../engine/core/tag').TagPath, added: boolean): void;
+}
+
+export interface SpotTransactionCommit {
+  spotId: string;
+  newLevel: number;
+  resourceDeltas: Record<string, number>;
+  itemDeltas: Record<string, number>;
 }
 
 export interface InitMutationPort extends StateMutationHostPort {

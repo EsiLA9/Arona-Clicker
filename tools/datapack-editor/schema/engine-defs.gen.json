@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T06:46:50.274Z",
+  "generatedAt": "2026-09-16T16:05:37.817Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -1830,6 +1830,27 @@
           "table": "spots"
         },
         {
+          "key": "metadata",
+          "required": false,
+          "kind": "object",
+          "tsType": "DefMetadata",
+          "description": "创建 / 修改时间；历史内容可缺省，由 Registry 查询层按极早值处理。",
+          "fields": [
+            {
+              "key": "createdAt",
+              "required": true,
+              "kind": "float",
+              "tsType": "number"
+            },
+            {
+              "key": "updatedAt",
+              "required": true,
+              "kind": "float",
+              "tsType": "number"
+            }
+          ]
+        },
+        {
           "key": "areaId",
           "required": true,
           "kind": "ref",
@@ -1852,23 +1873,51 @@
           "label": "描述"
         },
         {
-          "key": "baseCost",
+          "key": "purchaseOptions",
           "required": true,
-          "kind": "hand",
-          "tsType": "ValueExpression"
-        },
-        {
-          "key": "baseCostResource",
-          "required": true,
-          "kind": "string",
-          "tsType": "string"
-        },
-        {
-          "key": "baseCapacity",
-          "required": true,
-          "kind": "float",
-          "tsType": "number",
-          "label": "基础容量"
+          "kind": "array",
+          "tsType": "PaymentOptionDef[]",
+          "description": "Spot 解锁支付方案；多个方案之间为 OR，同一方案的 costs 为 AND。",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "description": "在同一操作内稳定且唯一，不能依赖数组位置。"
+              },
+              {
+                "key": "label",
+                "required": false,
+                "kind": "string",
+                "tsType": "string",
+                "description": "UI 展示名；缺省由调用方按方案序号生成。"
+              },
+              {
+                "key": "condition",
+                "required": false,
+                "kind": "hand",
+                "tsType": "ConditionGroup",
+                "description": "方案可用条件；余额/库存仍在 checkout 时独立检查。"
+              },
+              {
+                "key": "costs",
+                "required": true,
+                "kind": "array",
+                "tsType": "CostItem[]",
+                "description": "同时支付的资源/物品列表。",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "CostItem"
+                }
+              }
+            ],
+            "tsType": "PaymentOptionDef"
+          }
         },
         {
           "key": "conditionText",
@@ -1887,20 +1936,6 @@
             "kind": "hand",
             "tsType": "LevelUpgradeDef"
           }
-        },
-        {
-          "key": "upgradeCostBase",
-          "required": false,
-          "kind": "float",
-          "tsType": "number",
-          "label": "升级基价"
-        },
-        {
-          "key": "upgradeCostGrowth",
-          "required": false,
-          "kind": "float",
-          "tsType": "number",
-          "label": "升级增长"
         },
         {
           "key": "maxLevel",
@@ -8640,6 +8675,7 @@
     "AffectorPackRef",
     "AffectorRuntimeState",
     "AffectorState",
+    "AreaConnectionDef",
     "AreaDef",
     "AreaId",
     "BackgroundLayerDef",
@@ -8681,9 +8717,11 @@
     "ConditionState",
     "ConditionTarget",
     "ConditionalReward",
+    "CostItem",
     "CultivateCurveDef",
     "CultivateCurveId",
     "Datapack",
+    "DefMetadata",
     "DropTableDef",
     "DropTableEntry",
     "DupRewards",
@@ -8691,6 +8729,7 @@
     "EffectOp",
     "EffectRuntimeHandler",
     "EffectRuntimeState",
+    "EffectiveDefMetadata",
     "EngineEventShape",
     "EngineTalklet",
     "EnhancementAttachment",
@@ -8751,6 +8790,7 @@
     "PassivePoolChild",
     "PassivePoolDef",
     "PassiveStoryEntry",
+    "PaymentOptionDef",
     "PersistedSession",
     "PersistedStats",
     "PicDef",

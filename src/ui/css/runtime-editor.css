@@ -1,0 +1,806 @@
+/* ============================================================
+   ui/css/runtime-editor.css — 运行时数据包编辑器
+   自包含界面服务：配色使用本文件局部变量（--re-*），
+   不读取主题树的节点 / 场景变量（--theme-node-* / --ac-*）。
+   ============================================================ */
+
+.modal-panel.runtime-datapack-modal {
+   --re-ink: #1e2a38;
+   --re-muted: #64748b;
+   --re-line: rgba(61, 124, 200, .22);
+   --re-panel: #ffffff;
+   --re-field: #ffffff;
+   --re-accent: #2f80ed;
+   --re-danger: #d9534f;
+
+   /* 取消最大宽度：撑满可用区域，外部间距由遮罩层的 padding 提供。 */
+   width: 100%;
+   max-width: none;
+   height: 100%;
+   max-height: 100%;
+   background: var(--re-panel);
+   color: var(--re-ink);
+   border-color: var(--re-line);
+}
+
+.modal-panel.runtime-datapack-modal .modal-head,
+.modal-panel.runtime-datapack-modal .modal-foot {
+   border-color: var(--re-line);
+}
+
+.modal-panel.runtime-datapack-modal .modal-body {
+   flex: 1 1 auto;
+   min-height: 0;
+   max-height: none;
+   overflow: hidden;
+   color: inherit;
+}
+
+/* 编辑器内表单控件沿用简单固定配色，不参与主题换肤。 */
+.runtime-datapack-modal .user-theme-field {
+   color: var(--re-muted);
+}
+
+.runtime-datapack-modal .user-theme-field input,
+.runtime-datapack-modal .user-theme-field select,
+.runtime-datapack-modal .user-theme-field textarea {
+   color: var(--re-ink);
+   background: var(--re-field);
+   border: 1px solid var(--re-line);
+   border-radius: 5px;
+   padding: 6px;
+}
+
+.runtime-datapack-modal .user-theme-field textarea {
+   min-height: 72px;
+   resize: vertical;
+   font: inherit;
+}
+
+.runtime-editor-form {
+   display: grid;
+   gap: 4px;
+}
+
+.runtime-editor-form h4 {
+   margin: 12px 0 2px;
+   padding-bottom: 4px;
+   border-bottom: 1px solid var(--re-line);
+}
+
+.runtime-editor-form .user-theme-field {
+   margin: 4px 0;
+}
+
+/* --- 集合：原型驱动（摘要行 + 条目子编辑弹窗） --- */
+.runtime-collection {
+   display: grid;
+   gap: 8px;
+   margin-top: 10px;
+   padding-top: 8px;
+   border-top: 1px solid var(--re-line);
+}
+
+.runtime-collection-head {
+   display: flex;
+   align-items: flex-start;
+   justify-content: space-between;
+   gap: 12px;
+}
+
+.runtime-collection-head h5 {
+   margin: 0;
+}
+
+.runtime-collection-head p {
+   margin: 2px 0 0;
+}
+
+.runtime-collection-empty {
+   margin: 0;
+   color: var(--re-muted);
+   font-size: 10px;
+}
+
+.runtime-collection-list {
+   display: grid;
+   gap: 4px;
+   margin: 0;
+   padding: 0;
+   list-style: none;
+}
+
+.runtime-collection-row {
+   display: grid;
+   grid-template-columns: auto minmax(0, 1fr) auto auto;
+   align-items: center;
+   gap: 8px;
+   padding: 6px 8px;
+   border: 1px solid var(--re-line);
+   border-radius: 4px;
+}
+
+.runtime-collection-type {
+   flex: none;
+   padding: 1px 6px;
+   border: 1px solid var(--re-accent);
+   border-radius: 999px;
+   color: var(--re-accent);
+   font-size: 10px;
+   white-space: nowrap;
+}
+
+.runtime-collection-note {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+   font-size: 11px;
+}
+
+.runtime-collection-row.has-runtime-editor-problem {
+   border-color: var(--re-danger);
+   background: color-mix(in srgb, var(--re-danger) 6%, var(--re-field));
+}
+
+.runtime-collection-error {
+   grid-column: 2 / -1;
+   overflow: hidden;
+   color: var(--re-danger);
+   font-size: 10px;
+   font-style: normal;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.runtime-collection-input {
+   min-width: 0;
+   color: var(--re-ink);
+   background: var(--re-field);
+   border: 1px solid var(--re-line);
+   border-radius: 4px;
+   padding: 3px 6px;
+   font-size: 11px;
+}
+
+.runtime-item-condition,
+.runtime-item-effects {
+   margin-top: 6px;
+   padding: 8px;
+   border: 1px dashed var(--re-line);
+   border-radius: 6px;
+}
+
+/* --- 外壳：顶部条 + 左侧 Switch + 右侧页内容 --- */
+.runtime-editor-shell {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   height: 100%;
+   min-height: 0;
+}
+
+.runtime-editor-topbar {
+   display: flex;
+   align-items: flex-start;
+   justify-content: space-between;
+   gap: 16px;
+   flex-wrap: wrap;
+   padding-bottom: 10px;
+   border-bottom: 1px solid var(--re-line);
+}
+
+.runtime-editor-topbar h4 {
+   margin: 0;
+}
+
+.runtime-editor-topbar .service-summary {
+   margin: 2px 0 0;
+}
+
+.runtime-editor-body {
+   display: grid;
+   grid-template-columns: 168px minmax(0, 1fr);
+   gap: 16px;
+   flex: 1 1 auto;
+   min-height: 0;
+}
+
+.runtime-editor-switch {
+   display: flex;
+   flex-direction: column;
+   gap: 4px;
+   align-content: start;
+   padding-right: 10px;
+   border-right: 1px solid var(--re-line);
+}
+
+.runtime-editor-tab {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+   width: 100%;
+   padding: 7px 10px;
+   border: 1px solid transparent;
+   border-radius: 6px;
+   background: transparent;
+   color: var(--re-ink);
+   font-size: 12px;
+   text-align: left;
+   cursor: pointer;
+}
+
+.runtime-editor-tab:hover {
+   border-color: var(--re-line);
+}
+
+.runtime-editor-tab.is-active {
+   border-color: var(--re-accent);
+   color: var(--re-accent);
+   background: color-mix(in srgb, var(--re-accent) 8%, transparent);
+}
+
+.runtime-editor-panes {
+   min-width: 0;
+   min-height: 0;
+   overflow-y: auto;
+   padding-right: 4px;
+}
+
+.runtime-editor-page {
+   display: grid;
+   gap: 8px;
+   align-content: start;
+}
+
+.runtime-editor-overview {
+   display: grid;
+   gap: 6px;
+   margin: 0;
+}
+
+.runtime-editor-overview div {
+   display: flex;
+   justify-content: space-between;
+   gap: 12px;
+   padding: 6px 8px;
+   border: 1px solid var(--re-line);
+   border-radius: 4px;
+}
+
+.runtime-editor-overview dt {
+   color: var(--re-muted);
+   font-size: 11px;
+}
+
+.runtime-editor-overview dd {
+   margin: 0;
+   font-size: 12px;
+}
+
+@media (max-width: 720px) {
+   .runtime-editor-body {
+      grid-template-columns: 1fr;
+   }
+
+   .runtime-editor-switch {
+      flex-direction: row;
+      flex-wrap: wrap;
+      border-right: 0;
+      border-bottom: 1px solid var(--re-line);
+      padding: 0 0 8px;
+   }
+
+   .runtime-editor-tab {
+      width: auto;
+   }
+}
+
+.runtime-editor-notice {
+   margin: 4px 0;
+   padding: 6px 8px;
+   border: 1px solid color-mix(in srgb, var(--re-accent) 35%, transparent);
+   border-radius: 4px;
+   background: color-mix(in srgb, var(--re-accent) 10%, transparent);
+   color: var(--re-accent);
+   font-size: 10px;
+}
+
+.runtime-editor-affectors {
+   display: grid;
+   gap: 8px;
+   margin-top: 10px;
+   padding-top: 8px;
+   border-top: 1px solid var(--re-line);
+}
+
+.runtime-editor-affector-heading,
+.runtime-editor-affector-row-heading {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 8px;
+}
+
+.runtime-editor-affector-heading h5 {
+   margin: 0;
+}
+
+.runtime-editor-affector-heading p,
+.runtime-editor-affector-empty {
+   margin: 2px 0 0;
+}
+
+.runtime-editor-affector-list {
+   display: grid;
+   gap: 8px;
+}
+
+.runtime-editor-affector-row {
+   display: grid;
+   gap: 2px;
+   padding: 8px;
+   border: 1px solid var(--re-line);
+   border-radius: 4px;
+}
+
+.runtime-editor-affector-errors {
+   margin: 2px 0 0;
+   padding-left: 18px;
+   color: var(--re-danger);
+   font-size: 10px;
+}
+
+.runtime-editor-workspace {
+   display: grid;
+   gap: 8px;
+   margin-top: 14px;
+   padding-top: 10px;
+   border-top: 1px solid var(--re-line);
+}
+
+.runtime-editor-workspace .panel-heading {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+}
+
+.runtime-editor-workspace h4 {
+   margin: 0;
+}
+
+.runtime-editor-filters {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+}
+
+.runtime-editor-filters .is-active {
+   border-color: var(--re-accent);
+   color: var(--re-accent);
+}
+
+.runtime-spot-list {
+   display: grid;
+   gap: 4px;
+   margin: 0;
+   padding: 0;
+   list-style: none;
+   max-height: 220px;
+   overflow-y: auto;
+}
+
+.runtime-spot-item {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   padding: 6px 8px;
+   border: 1px solid var(--re-line);
+   border-radius: 4px;
+}
+
+.runtime-spot-item[data-selected='1'] {
+   border-color: var(--re-accent);
+}
+
+.runtime-spot-item-main {
+   display: grid;
+   gap: 2px;
+   flex: 1;
+   text-align: left;
+   background: none;
+   border: none;
+   color: inherit;
+   cursor: pointer;
+}
+
+.runtime-spot-item-name {
+   font-weight: 600;
+}
+
+.runtime-spot-item em {
+   color: var(--re-muted);
+   font-size: 10px;
+   font-style: normal;
+}
+
+.runtime-editor-entry-state {
+   flex: none;
+   padding: 1px 6px;
+   border-radius: 999px;
+   border: 1px solid var(--re-line);
+   font-size: 10px;
+   color: var(--re-muted);
+}
+
+.runtime-editor-entry-state[data-entry-state='created'],
+.runtime-editor-entry-state[data-entry-state='modified'] {
+   border-color: var(--re-accent);
+   color: var(--re-accent);
+}
+
+.runtime-editor-entry-state[data-entry-state='removed'] {
+   border-color: var(--re-danger);
+   color: var(--re-danger);
+}
+
+.runtime-editor-apply-bar {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+}
+
+.runtime-editor-diff-panel {
+   display: grid;
+   gap: 4px;
+   padding: 8px;
+   border: 1px solid var(--re-line);
+   border-radius: 4px;
+}
+
+.runtime-editor-diff {
+   display: grid;
+   gap: 2px;
+   margin: 0;
+   padding: 0;
+   list-style: none;
+}
+
+.runtime-editor-diff li {
+   display: grid;
+   grid-template-columns: 1fr auto auto;
+   gap: 8px;
+   align-items: baseline;
+}
+
+.runtime-editor-diff em {
+   color: var(--re-muted);
+   font-style: normal;
+   text-decoration: line-through;
+}
+
+.runtime-editor-diff b {
+   color: var(--re-accent);
+}
+
+.runtime-editor-diff-empty {
+   margin: 0;
+   color: var(--re-muted);
+}
+
+.runtime-editor-diagnostics ul {
+   margin: 4px 0 0;
+   padding-left: 18px;
+}
+
+.runtime-editor-diagnostics li {
+   color: var(--re-danger);
+   cursor: pointer;
+}
+
+.runtime-editor-field-error,
+.runtime-editor-hint,
+.runtime-editor-locked {
+   display: block;
+   margin-top: 2px;
+   font-size: 10px;
+   font-style: normal;
+}
+
+.runtime-editor-field-error {
+   color: var(--re-danger);
+}
+
+.runtime-editor-hint,
+.runtime-editor-locked,
+.runtime-editor-affector-empty {
+   color: var(--re-muted);
+}
+
+/* --- 子编辑弹窗（条件 / 效果）：独立于弹窗母版的二级窗口 --- */
+.runtime-subdialog {
+   position: fixed;
+   inset: 0;
+   z-index: 1200;
+}
+
+.runtime-subdialog-overlay {
+   position: fixed;
+   inset: 0;
+   display: grid;
+   place-items: center;
+   padding: 24px;
+   background: rgba(15, 30, 48, .45);
+}
+
+.runtime-subdialog-panel {
+   --re-ink: #1e2a38;
+   --re-muted: #64748b;
+   --re-line: rgba(61, 124, 200, .22);
+   --re-panel: #ffffff;
+   --re-field: #ffffff;
+   --re-accent: #2f80ed;
+   --re-danger: #d9534f;
+
+   display: flex;
+   flex-direction: column;
+   width: min(720px, 100%);
+   max-height: min(86vh, 760px);
+   background: var(--re-panel);
+   color: var(--re-ink);
+   border: 1px solid var(--re-line);
+   border-radius: 12px;
+   box-shadow: 0 24px 60px rgba(15, 30, 48, .35);
+}
+
+.runtime-subdialog-head {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 12px;
+   padding: 12px 16px;
+   border-bottom: 1px solid var(--re-line);
+}
+
+.runtime-subdialog-body {
+   flex: 1 1 auto;
+   min-height: 0;
+   overflow-y: auto;
+   padding: 16px;
+   font-size: 12px;
+   line-height: 1.7;
+}
+
+.runtime-subdialog-body .user-theme-field {
+   color: var(--re-muted);
+}
+
+.runtime-subdialog-body .user-theme-field input,
+.runtime-subdialog-body .user-theme-field select {
+   color: var(--re-ink);
+   background: var(--re-field);
+   border: 1px solid var(--re-line);
+   border-radius: 5px;
+   padding: 5px 6px;
+}
+
+.runtime-subdialog-foot {
+   display: flex;
+   justify-content: flex-end;
+   gap: 8px;
+   padding: 12px 16px;
+   border-top: 1px solid var(--re-line);
+}
+
+/* --- 条件编辑器 --- */
+.runtime-condition-list {
+   display: grid;
+   gap: 8px;
+}
+
+.runtime-editor-content-switch {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   margin-top: 14px;
+}
+
+.runtime-editor-content-switch .is-active {
+   border-color: var(--re-accent);
+   color: var(--re-accent);
+}
+
+.runtime-editor-tab.has-runtime-editor-problem {
+   color: var(--re-danger);
+}
+
+.runtime-editor-tab-error {
+   display: inline-flex;
+   min-width: 16px;
+   height: 16px;
+   align-items: center;
+   justify-content: center;
+   margin-left: auto;
+   border-radius: 999px;
+   color: var(--re-danger);
+   background: color-mix(in srgb, var(--re-danger) 12%, transparent);
+   font-size: 10px;
+   font-style: normal;
+}
+
+.runtime-condition-outer {
+   display: grid;
+   gap: 6px;
+}
+
+.runtime-condition-outer-relation {
+   justify-self: start;
+   margin-left: 18px;
+   padding: 2px 8px;
+   border: 1px solid color-mix(in srgb, var(--re-accent, #3d7cc8) 40%, var(--re-line));
+   border-radius: 999px;
+   color: var(--re-accent, #3d7cc8);
+   background: color-mix(in srgb, var(--re-accent, #3d7cc8) 8%, var(--re-field));
+   font-size: 10px;
+   font-weight: 700;
+   letter-spacing: .08em;
+}
+
+.runtime-condition {
+   position: relative;
+   display: grid;
+   gap: 8px;
+   padding: 8px;
+   border: 1px dashed var(--re-line);
+   border-radius: 6px;
+   background: color-mix(in srgb, var(--re-field) 78%, var(--re-line));
+}
+
+.runtime-condition-heading {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+}
+
+.runtime-condition-toggle {
+   appearance: none;
+   border: 1px solid color-mix(in srgb, var(--re-accent, #3d7cc8) 52%, var(--re-line));
+   border-radius: 999px;
+   padding: 5px 10px;
+   color: var(--re-ink);
+   background: color-mix(in srgb, var(--re-accent, #3d7cc8) 11%, var(--re-field));
+   font: inherit;
+   font-weight: 700;
+   letter-spacing: .02em;
+   cursor: pointer;
+   transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.runtime-condition-toggle:hover {
+   border-color: var(--re-accent, #3d7cc8);
+   background: color-mix(in srgb, var(--re-accent, #3d7cc8) 18%, var(--re-field));
+}
+
+.runtime-condition-toggle:active {
+   transform: translateY(1px);
+}
+
+.runtime-condition-toggle:focus-visible,
+.runtime-condition-summary:focus-visible {
+   outline: 2px solid var(--re-accent, #3d7cc8);
+   outline-offset: 2px;
+}
+
+.runtime-condition-heading-note {
+   color: var(--re-muted);
+   font-size: 11px;
+}
+
+.runtime-condition-items {
+   display: grid;
+   gap: 6px;
+   margin-left: 8px;
+   padding-left: 12px;
+   border-left: 1px solid var(--re-line);
+}
+
+.runtime-condition-row {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) 48px;
+   gap: 6px;
+   align-items: center;
+   min-height: 42px;
+   padding: 6px;
+   border: 1px solid var(--re-line);
+   border-radius: 4px;
+   background: var(--re-field);
+}
+
+.runtime-condition-summary {
+   display: flex;
+   width: 100%;
+   min-height: 30px;
+   min-width: 0;
+   align-items: center;
+   justify-content: space-between;
+   gap: 10px;
+   padding: 7px 8px;
+   border: 0;
+   border-radius: 4px;
+   color: var(--re-ink);
+   background: transparent;
+   text-align: left;
+   font: inherit;
+   cursor: pointer;
+}
+
+.runtime-condition-summary:hover {
+   background: color-mix(in srgb, var(--re-accent, #3d7cc8) 9%, var(--re-field));
+}
+
+.runtime-condition-summary-text {
+   min-width: 0;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.runtime-condition-summary-edit {
+   flex: 0 0 auto;
+   width: 32px;
+   color: var(--re-accent, #3d7cc8);
+   font-size: 11px;
+   text-align: right;
+}
+
+.runtime-condition-row > .mini-action {
+   justify-self: end;
+   min-width: 42px;
+   text-align: center;
+}
+
+.runtime-condition-row .user-theme-field,
+.runtime-effect-row .user-theme-field {
+   margin: 0;
+}
+
+.runtime-condition-group {
+   display: grid;
+   gap: 4px;
+   padding-left: 8px;
+   border-left: 2px solid color-mix(in srgb, var(--re-accent, #3d7cc8) 35%, var(--re-line));
+}
+
+.runtime-condition-actions {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 8px;
+}
+
+.runtime-atomic-condition-editor {
+   display: grid;
+   gap: 10px;
+}
+
+/* --- 效果编辑器 --- */
+.runtime-effects {
+   display: grid;
+   gap: 8px;
+}
+
+.runtime-effect-row {
+   display: grid;
+   grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+   gap: 6px;
+   align-items: end;
+   padding: 6px;
+   border: 1px solid var(--re-line);
+   border-radius: 4px;
+}
+
+@media (max-width: 520px) {
+   .runtime-editor-affector-heading {
+      align-items: stretch;
+      flex-direction: column;
+   }
+}

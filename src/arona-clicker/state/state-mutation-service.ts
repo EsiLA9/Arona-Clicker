@@ -28,6 +28,7 @@ import { EventBus } from '../../engine/core/event-bus';
 import { StatsService } from '../../engine/stats/stats';
 import type { CharacterProgressionPort } from '../contracts/character-progression';
 import type { StateMutationPort } from '../../engine/contracts/mutation';
+import type { SpotTransactionCommit } from '../contracts/mutation';
 import type { EffectMutationPort } from '../contracts/effect-mutation';
 import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../../engine/extra/index';
 import { addLifetime, memoryOf, recordGearProgress, recordVariantOwned, recordVariantProgress } from './character-memory';
@@ -820,6 +821,41 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
       this.emit({ type: 'itemCollected', itemId, count: delta, newTotal: state.inventory[itemId] ?? 0 });
     }
     for (const event of commit.purchasedEvents) this.emit(event);
+  }
+
+  /** Spot 费用与等级的一次提交点；调用方必须先完成完整的只读校验。 */
+  commitSpotTransaction(commit: SpotTransactionCommit): void {
+    if (!this.canMutateSpot(commit.spotId)) return;
+    const state = this.current;
+    const oldLevel = state.spotLevels[commit.spotId] ?? 0;
+    for (const [resource, delta] of Object.entries(commit.resourceDeltas)) {
+      if (delta === 0) continue;
+      const bucket = this.resourceBucket(resource);
+      bucket[resource] = (bucket[resource] ?? 0) + delta;
+    }
+    for (const [itemId, delta] of Object.entries(commit.itemDeltas)) {
+      if (delta === 0) continue;
+      const next = (state.inventory[itemId] ?? 0) + delta;
+      if (next === 0) delete state.inventory[itemId];
+      else state.inventory[itemId] = next;
+    }
+    state.spotLevels[commit.spotId] = commit.newLevel;
+    for (const [resource, delta] of Object.entries(commit.resourceDeltas)) {
+      if (delta !== 0) this.statsService?.recordResourceChange(resource, delta);
+    }
+    for (const [itemId, delta] of Object.entries(commit.itemDeltas)) {
+      if (delta !== 0) this.statsService?.recordItemChange(itemId, delta);
+    }
+    this.statsService?.recordSpotLevel(oldLevel, commit.newLevel);
+    for (const [resource, delta] of Object.entries(commit.resourceDeltas)) {
+      if (delta === 0) continue;
+      this.emit({ type: 'resourceChanged', resource, delta, newValue: this.resourceBucket(resource)[resource] ?? 0 });
+    }
+    for (const [itemId, delta] of Object.entries(commit.itemDeltas)) {
+      if (delta === 0) continue;
+      this.emit({ type: 'itemCollected', itemId, count: delta, newTotal: state.inventory[itemId] ?? 0 });
+    }
+    this.emit({ type: 'spotLevelChanged', spotId: commit.spotId, oldLevel, newLevel: commit.newLevel });
   }
 
   unlockInit(initId: string): boolean {

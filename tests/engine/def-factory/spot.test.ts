@@ -28,10 +28,8 @@ describe('SpotBuilder', () => {
       areaId: 'base:area:a',
       name: '测试',
       description: '最小设施',
-      baseCost: Expr.const(0),
-      baseCostResource: CREDIT,
-      baseCapacity: 0,
       tags: [],
+      purchaseOptions: [{ id: 'free', label: '免费', costs: [] }],
     });
   });
 
@@ -44,9 +42,8 @@ describe('SpotBuilder', () => {
     const built = spot('base:spot:field_work', 'base:area:schale_main')
       .name('野外调查站')
       .desc('阿比多斯风格的小型户外作业点，适合野外探索型学生。')
-      .cost(20)
+      .purchaseCost(20)
       .flow('base:flow:field_work', CREDIT, 8)
-      .capacity(300)
       .tags(['field'], ['combat'])
       .revealResource('name', CREDIT, 10)
       .revealResource('utility', CREDIT, 40)
@@ -57,7 +54,7 @@ describe('SpotBuilder', () => {
         and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>', 100)),
       )
       .levelUpTo(3)
-      .genericUpgrade(80, 1.8, 1)
+      .genericUpgrade(CREDIT, 80, 1.8, 1)
       .build();
 
     expect(built).toEqual<SpotDef>({
@@ -65,10 +62,8 @@ describe('SpotBuilder', () => {
       areaId: 'base:area:schale_main',
       name: '野外调查站',
       description: '阿比多斯风格的小型户外作业点，适合野外探索型学生。',
-      baseCost: Expr.const(20),
-      baseCostResource: CREDIT,
-      baseCapacity: 300,
       tags: [['field'], ['combat']],
+      purchaseOptions: [{ id: 'purchase', label: '购买', costs: [{ type: 'resource', resourceId: CREDIT, amount: Expr.const(20) }] }],
       revealTriggers: [
         { reveal: 'name', condition: and(cond('resource', CREDIT, '>=', 10)) },
         { reveal: 'utility', condition: and(cond('resource', CREDIT, '>=', 40)) },
@@ -96,11 +91,9 @@ describe('SpotBuilder', () => {
         },
       ],
       levelUpgrades: [
-        { level: 2, effects: [{ op: 'setSpotLevel', target: 'base:spot:field_work', value: '2' }] },
-        { level: 3, effects: [{ op: 'setSpotLevel', target: 'base:spot:field_work', value: '3' }] },
+        { level: 2, paymentOptions: [{ id: 'upgrade-2', label: '升级 Lv.2', costs: [{ type: 'resource', resourceId: CREDIT, amount: Expr.const(144) }] }], effects: [{ op: 'setSpotLevel', target: 'base:spot:field_work', value: '2' }] },
+        { level: 3, paymentOptions: [{ id: 'upgrade-3', label: '升级 Lv.3', costs: [{ type: 'resource', resourceId: CREDIT, amount: Expr.const(259) }] }], effects: [{ op: 'setSpotLevel', target: 'base:spot:field_work', value: '3' }] },
       ],
-      upgradeCostBase: 80,
-      upgradeCostGrowth: 1.8,
     });
   });
 
@@ -108,14 +101,14 @@ describe('SpotBuilder', () => {
     const def = spot('base:spot:archive', 'base:area:schale_library')
       .name('卷宗整理台')
       .desc('分类整理联邦委托卷宗的工作台。')
-      .cost(25).flow('base:flow:archive', CREDIT, 6).capacity(280)
+      .purchaseCost(25).flow('base:flow:archive', CREDIT, 6)
       .tags(['archive'], ['office'])
       .levelUpTo(3)
-      .genericUpgrade(100, 1.8, 1)
+      .genericUpgrade(CREDIT, 100, 1.8, 1)
       .build();
     expect(def.levelUpgrades).toEqual([
-      { level: 2, effects: [{ op: 'setSpotLevel', target: 'base:spot:archive', value: '2' }] },
-      { level: 3, effects: [{ op: 'setSpotLevel', target: 'base:spot:archive', value: '3' }] },
+      { level: 2, paymentOptions: [{ id: 'upgrade-2', label: '升级 Lv.2', costs: [{ type: 'resource', resourceId: CREDIT, amount: Expr.const(180) }] }], effects: [{ op: 'setSpotLevel', target: 'base:spot:archive', value: '2' }] },
+      { level: 3, paymentOptions: [{ id: 'upgrade-3', label: '升级 Lv.3', costs: [{ type: 'resource', resourceId: CREDIT, amount: Expr.const(324) }] }], effects: [{ op: 'setSpotLevel', target: 'base:spot:archive', value: '3' }] },
     ]);
   });
 
@@ -139,13 +132,28 @@ describe('SpotBuilder', () => {
     const expr = Expr.add(Expr.const(1), Expr.const(2));
     const def = spot('base:spot:x', 'base:area:a')
       .name('x').desc('x')
-      .cost(expr, 'base:resource:pyroxene')
+      .purchaseCost(expr, 'base:resource:pyroxene')
       .flow('base:flow:pyroxene', 'base:resource:pyroxene', 5)
       .build();
-    expect(def.baseCost).toBe(expr);
-    expect(def.baseCostResource).toBe('base:resource:pyroxene');
+    expect(def.purchaseOptions).toEqual([{ id: 'purchase', label: '购买', costs: [{ type: 'resource', resourceId: 'base:resource:pyroxene', amount: expr }] }]);
     expect(def.functionalities).toEqual([
       { id: 'base:flow:pyroxene', kind: 'flow', resource: 'base:resource:pyroxene', amount: 5 },
+    ]);
+  });
+
+  test('purchaseOptions / paymentOptions 构造多支付方案', () => {
+    const def = spot('base:spot:x', 'base:area:a')
+      .name('x').desc('x')
+      .purchaseOptions(
+        { id: 'credit', label: '信用点', costs: [{ type: 'resource', resourceId: CREDIT, amount: Expr.const(10) }] },
+        { id: 'token', costs: [{ type: 'item', itemId: 'base:item:token', amount: Expr.const(2) }] },
+      )
+      .levelUpTo(2)
+      .paymentOptions(2, { id: 'upgrade-token', costs: [{ type: 'item', itemId: 'base:item:token', amount: Expr.const(1) }] })
+      .build();
+    expect(def.purchaseOptions).toHaveLength(2);
+    expect(def.levelUpgrades?.[0].paymentOptions).toEqual([
+      { id: 'upgrade-token', costs: [{ type: 'item', itemId: 'base:item:token', amount: Expr.const(1) }] },
     ]);
   });
 

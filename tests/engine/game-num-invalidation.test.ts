@@ -43,7 +43,6 @@ const datapack = {
       .desc('测试')
       .cost(0)
       .flow('test:flow:printer', CREDIT, 5)
-      .capacity(100)
       .tags(tagPath('test'))
       .linearYield('test:funclet:printer_linear', CREDIT, 2)
       .genericUpgrade(50, 2, 2)
@@ -54,7 +53,6 @@ const datapack = {
       .desc('测试')
       .cost(0)
       .flow('test:flow:res-reader', CREDIT, Expr.add(Expr.const(5), Expr.val(value('res', { resource: CREDIT }))))
-      .capacity(100)
       .tags(tagPath('test'))
       .build(),
     // Spot flow = extra 三层合并视图 testprod.bonus（覆盖 extraChanged 失效）
@@ -63,7 +61,6 @@ const datapack = {
       .desc('测试')
       .cost(0)
       .flow('test:flow:extra-reader', CREDIT, Expr.val(value('data', { path: 'testprod.bonus' })))
-      .capacity(100)
       .tags(tagPath('test'))
       .build(),
   ],

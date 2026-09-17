@@ -357,6 +357,24 @@ const resourceAmountObject = (): FieldDef =>
     n('amount', '数量', { required: true }),
   ], '资源量');
 
+/** PaymentOptionDef：同一方案内的支付项全部满足；方案之间由 UI 选择。 */
+const paymentCostObject = (): FieldDef => ({
+  key: '$',
+  label: '支付项',
+  required: true,
+  type: { kind: 'union', tagField: 'type', variants: [
+    { tag: 'resource', label: '资源', fields: [r('resourceId', 'resourceDisplays', '资源', { required: true }), valueExpressionField('amount', '数量', true)] },
+    { tag: 'item', label: '物品', fields: [r('itemId', 'items', '物品', { required: true }), valueExpressionField('amount', '数量', true)] },
+  ] },
+});
+
+const paymentOptionsField = (key: string, label: string): FieldDef => alist(key, o('$', [
+  s('id', '方案 ID', { required: true }),
+  s('label', '方案名称'),
+  cg('condition', '可用条件'),
+  a('costs', paymentCostObject(), '支付项', { required: true }),
+], '支付方案'), label);
+
 /** ValueExpression：const / value / mul 三变体 */
 function valueExpressionField(key: string, label: string, required = false): FieldDef {
   return {
@@ -463,6 +481,7 @@ const levelUpgradeField = (): FieldDef =>
       fields: [
         i('level', '等级', { required: true }),
         o('cost', [r('resourceId', 'resourceDisplays', '资源'), n('amount', '数量')], '费用'),
+        paymentOptionsField('paymentOptions', '支付方案'),
         cg('condition', '条件'),
         effectArray('effects', '效果'),
       ],
@@ -591,6 +610,11 @@ const affectorEntryObject = (): FieldDef =>
         s('id', 'ID', { required: true }),
         cg('condition', '条件'),
         effectArray('effects', '效果', true),
+        alist('areaConnections', o('$', [
+          r('fromAreaId', 'areas', '起点区域', { required: true }),
+          r('toAreaId', 'areas', '终点区域', { required: true }),
+          e('direction', [['oneWay', '单向'], ['twoWay', '双向']], '方向'),
+        ], '区域连通'), '区域连通'),
         alist('flows', o('$', [
           s('resource', '资源', { required: true }),
           { key: 'value', label: '值', type: { kind: 'flexible' } },
@@ -789,8 +813,7 @@ export const TABLE_META: TableMeta[] = [
     worldlineSplit: true,
     dividerAfter: { conditionText: '揭示' },
     overrides: {
-      baseCost: () => valueExpressionField('baseCost', '基础造价', true),
-      baseCostResource: () => r('baseCostResource', 'resourceDisplays', '造价资源', { required: true }),
+      purchaseOptions: () => paymentOptionsField('purchaseOptions', '购买方案'),
       levelUpgrades: () => levelUpgradeField(),
       maxLevel: () => i('maxLevel', '等级上限'),
       tags: () => tagPathField('tags'),

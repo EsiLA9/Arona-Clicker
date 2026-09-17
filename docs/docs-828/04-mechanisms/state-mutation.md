@@ -26,6 +26,7 @@
 | `acquireCharacter` | 获得差分（重复转碎片） | 角色获得事件（Trigger kind `character` 侦测） |
 | `applyExp` / `breakthroughStar` | 培养推进 | `characterProgressChanged`（`domain: 'level'` / `'star'`） |
 | `commitShopTransaction` | 已冻结的商店扣费、发货与限购记录一次提交 | 聚合资源/物品事件后逐 CartLine 发 `shopPurchased` |
+| `commitSpotTransaction` | Spot 支付扣费与等级变更一次提交 | 资源/物品事件后发 `spotLevelChanged` |
 
 事件名以 `EVENT_CATALOG`（`src/arona-clicker/contracts/event-catalog.ts`）登记为准；事件联合类型位于 `src/engine/types/events.ts`。新增事件必须同时更新两者，编译期穷尽检查。
 
@@ -48,6 +49,12 @@
 - 成功时 `commitShopTransaction` 先完整写入 PlayerState 与购买记录，再记 Stats，最后释放资源/物品事件与每 CartLine 一条 `shopPurchased`。失败交易不会写 State、Stats 或 EventBus。
 - 限购事实只存 `globalShopPurchaseRecords` 或当前 Init 的 `shopPurchaseRecords`；scope 的 lifetime 与 owner（shop/spot）共同决定 key。`ShopDef` 本身不保存运行时库存。
 - `ShopSession` 仅持有 `entryId + quantity` 的临时 UI 意图；关闭商店立即销毁，不进入 Save。`onPurchase` 目前只开放可在 commit 前编译的静态 `addResource` / `addItem`，并按 CartLine 执行一次。
+
+## Spot transaction
+
+- `SpotService` 在提交前通过只读 `PaymentService` 解析当前等级的支付方案，聚合 Resource / Item 费用并计算缺口；单一可用方案可直接选中，多方案必须显式提供 `paymentOptionId`。
+- `commitSpotTransaction` 在一次写入中扣除所有支付项并更新 Spot 等级；失败路径不进入写入口，因此不会产生部分 State、Stats 或 EventBus 变化。成功后按资源、物品、Spot 等级顺序释放事件。
+- Spot 解锁必须从 `purchaseOptions` 读取显式价格组，升级必须从目标等级的 `paymentOptions` 读取显式价格组；缺失价格组不会回退为免费或默认信用点支付。Shop 只复用 `CostItem` 的多 Resource / Item 费用项，不引入多方案选择。
 
 ## 相关文档
 

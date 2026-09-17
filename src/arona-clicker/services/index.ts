@@ -21,6 +21,7 @@ export { SpotService } from './spot-service';
 export { RuntimeDefinitionEditor, SpotContentService } from './spot-content-service';
 export type { RuntimeDefinitionEditorPort, SpotContentPort } from './spot-content-service';
 export { RuntimeContentCoordinator } from './runtime-content-coordinator';
+export { RuntimeWorldContentCoordinator } from './runtime-world-content-coordinator';
 export type {
   RuntimeContentCoordinatorOptions,
   RuntimeContentCoordinatorSettings,
@@ -29,6 +30,8 @@ export type {
   RuntimeModStateSnapshot,
   RuntimeSpotCommit,
   RuntimeSpotInput,
+  RuntimePaymentCostDraft,
+  RuntimePaymentOptionDraft,
   RuntimeSpotMutation,
   RuntimeSpotMutationResult,
   RuntimeSpotRollbackContext,

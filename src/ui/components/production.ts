@@ -52,6 +52,7 @@ export function renderProductionNodes(ctx: UIContext): string {
       if (reveal.stage === 'invisible') return '';
       const owned = reveal.stage === 'owned';
       const purchaseable = reveal.stage === 'purchaseable';
+      const hasPurchaseRoute = game.spot.getPaymentOptions(spot.id, 'unlock').length > 0;
       const level = view.spotLevels[spot.id] ?? 0;
       const visible = view.visibility.spots[spot.id] ?? false;
       // 最终产出：GameNum 懒求值（按资源拆分），随状态实时变化
@@ -85,7 +86,7 @@ export function renderProductionNodes(ctx: UIContext): string {
         ? '升级'
         : purchaseable
           ? '获取'
-          : '未解锁';
+          : hasPurchaseRoute ? '未解锁' : '无购买途径';
       const accentStyle = cardAccent(spotColorScheme(effectiveTags));
       // 设施自有主题：声明 theme 或 colorGroupId 时，构建其 ThemeTree 并作用域化落到卡片
       // （绕过全局参考树，直接 fill styles），使 Spot 卡片自带主题色而不影响整页。
@@ -108,7 +109,7 @@ export function renderProductionNodes(ctx: UIContext): string {
           ${renderPresentationHostBackground(ctx, 'card')}
           <div class="mini-card-title-row">
             <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
-            <strong class="mini-status">${owned ? `Lv.${level}` : purchaseable ? '可获取' : '未解锁'}</strong>
+            <strong class="mini-status">${owned ? `Lv.${level}` : purchaseable ? '可获取' : hasPurchaseRoute ? '未解锁' : '无购买途径'}</strong>
           </div>
           ${desc}
           <div class="mini-card-foot">

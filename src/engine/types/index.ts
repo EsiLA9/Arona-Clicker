@@ -18,5 +18,5 @@ export * from './trigger';
 // 通用角色/内容引用 ID；具体角色实体与配置在 data-services / AronaClicker
 export * from './character';
 export * from './theme';
-// 运行时事件
-export * from './events';
+// 运行时事件仅提供类型，不生成浏览器运行时模块请求
+export type * from './events';

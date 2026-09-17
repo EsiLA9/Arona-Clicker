@@ -20,6 +20,8 @@ import type {
   RuntimeContentDiagnostic,
   RuntimeContentDiagnosticCode,
   RuntimeModStateSnapshot,
+  RuntimePaymentCostDraft,
+  RuntimePaymentOptionDraft,
   RuntimeSpotCommit,
   RuntimeSpotMutation,
   RuntimeSpotMutationResult,
@@ -32,6 +34,8 @@ export type {
   RuntimeContentDiagnostic,
   RuntimeContentDiagnosticCode,
   RuntimeModStateSnapshot,
+  RuntimePaymentCostDraft,
+  RuntimePaymentOptionDraft,
   RuntimeSpotCommit,
   RuntimeSpotInput,
   RuntimeSpotMutation,
@@ -307,6 +311,7 @@ export class RuntimeContentCoordinator {
       const input = mutation.spot;
       const problem = validateAuthoringInput(policy, input, {
         resourceIds: new Set(this.registry.resourceDisplays.keys()),
+        itemIds: new Set(this.registry.items.keys()),
       });
       if (problem) {
         const idName = typeof input.idName === 'string' ? input.idName : '';
@@ -328,6 +333,11 @@ export class RuntimeContentCoordinator {
         currentSpot,
         buildAuthoringDef(policy, mutation.modName, input) as SpotDef,
       );
+      const now = Date.now();
+      nextSpot.metadata = {
+        ...(currentSpot?.metadata?.createdAt !== undefined ? { createdAt: currentSpot.metadata.createdAt } : { createdAt: now }),
+        updatedAt: now,
+      };
       return {
         mutation,
         request: { table: SPOT_CONTENT_KEY, operation, ownerModName: mutation.modName, defId: spotId, def: nextSpot },

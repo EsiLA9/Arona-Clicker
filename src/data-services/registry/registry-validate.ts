@@ -208,6 +208,7 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
     if (!areaIds.has(spot.areaId)) {
       throw new RegistryError(`Spot "${spot.id}" references unknown area: "${spot.areaId}"`);
     }
+    validateSpotPayments(spot);
   }
   for (const init of dp.inits) {
     for (const aid of init.defaultAreas) {
@@ -221,6 +222,21 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
       const spotExists = dp.spots.some(s => s.id === sid);
       if (!spotExists) {
         throw new RegistryError(`Area "${area.id}" references unknown default spot: "${sid}"`);
+      }
+    }
+  }
+  for (const pack of dp.affectorPacks ?? []) {
+    for (const entry of pack.entries) {
+      for (const connection of entry.areaConnections ?? []) {
+        if (!areaIds.has(connection.fromAreaId)) {
+          throw new RegistryError(`Affector pack "${pack.id}" entry "${entry.id}" references unknown source area: "${connection.fromAreaId}"`);
+        }
+        if (!areaIds.has(connection.toAreaId)) {
+          throw new RegistryError(`Affector pack "${pack.id}" entry "${entry.id}" references unknown target area: "${connection.toAreaId}"`);
+        }
+        if (connection.fromAreaId === connection.toAreaId) {
+          throw new RegistryError(`Affector pack "${pack.id}" entry "${entry.id}" cannot connect an Area to itself`);
+        }
       }
     }
   }
@@ -273,6 +289,27 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
       throw e;
     }
   }
+}
+
+function validateSpotPayments(spot: Datapack['spots'][number]): void {
+  const check = (options: unknown, path: string, allowEmpty = false): void => {
+    if (!Array.isArray(options)) {
+      throw new RegistryError(`Spot "${spot.id}" 的 ${path} 必须显式声明为支付方案数组`);
+    }
+    if (!allowEmpty && options.length === 0) {
+      throw new RegistryError(`Spot "${spot.id}" 的 ${path} 至少需要一个支付方案；免费支付请声明 costs: []`);
+    }
+    const ids = new Set<string>();
+    for (const [index, option] of options.entries()) {
+      if (!option || typeof option !== 'object') throw new RegistryError(`Spot "${spot.id}" 的 ${path}[${index}] 必须是支付方案对象`);
+      const id = (option as { id?: unknown }).id;
+      if (typeof id !== 'string' || !id || ids.has(id)) throw new RegistryError(`Spot "${spot.id}" 的 ${path}[${index}] 支付方案 ID 重复或为空`);
+      ids.add(id);
+      if (!Array.isArray((option as { costs?: unknown }).costs)) throw new RegistryError(`Spot "${spot.id}" 的 ${path}[${index}].costs 必须是数组`);
+    }
+  };
+  check(spot.purchaseOptions, 'purchaseOptions', true);
+  for (const upgrade of spot.levelUpgrades ?? []) check(upgrade.paymentOptions, `Lv.${upgrade.level}.paymentOptions`);
 }
 
 function checkTagPath(path: TagPath, label: string): void {

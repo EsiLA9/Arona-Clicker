@@ -38,13 +38,15 @@
       "id": "addition-test:spot:scanner",
       "areaId": "addition-test:area:observatory",
       "name": "跨包数据扫描仪",
-      "description": "同时使用基础包信用点与扩展包 Tag 的测试设施。",
-      "baseCost": { "type": "const", "value": 1 },
-      "baseCostResource": "base:resource:credit",
-      "baseCapacity": 50,
-      "upgradeCostBase": 1,
-      "upgradeCostGrowth": 1.2,
+      "description": "同时使用基础包信用点与扩展包 Tag 的测试设施；解锁和逐级升级都通过显式价格组声明。",
+      "purchaseOptions": [{ "id": "purchase", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 1 } }] }],
       "maxLevel": 5,
+      "levelUpgrades": [
+        { "level": 2, "paymentOptions": [{ "id": "upgrade-2", "label": "升级 Lv.2", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 1 } }] }], "effects": [] },
+        { "level": 3, "paymentOptions": [{ "id": "upgrade-3", "label": "升级 Lv.3", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 1 } }] }], "effects": [] },
+        { "level": 4, "paymentOptions": [{ "id": "upgrade-4", "label": "升级 Lv.4", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 1 } }] }], "effects": [] },
+        { "level": 5, "paymentOptions": [{ "id": "upgrade-5", "label": "升级 Lv.5", "costs": [{ "type": "resource", "resourceId": "base:resource:credit", "amount": { "type": "const", "value": 2 } }] }], "effects": [] }
+      ],
       "tags": [["experimental"], ["experimental", "scanner"]],
       "functionalities": [
         { "id": "base_flow", "kind": "flow", "resource": "base:resource:credit", "amount": 1 },

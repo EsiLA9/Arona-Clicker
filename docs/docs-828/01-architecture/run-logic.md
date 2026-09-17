@@ -22,7 +22,7 @@ related_modules:
 ```text
 src/ui/main.ts（Vite UI 启动）
   └─ createAppRuntime()            AronaClicker Runtime 装配全部子系统（依赖顺序 + 事件接线）
-       └─ applyEnabledPacks()      加载当前启用集 → 校验 → 建索引 → 保持 Lobby（activeInit 为空）
+       └─ applyEnabledPacks()      加载当前启用集 → 校验；非 base 包失效则自动停用并重载 → 建索引 → 保持 Lobby（activeInit 为空）
             ├─ Lobby               Init 选择 + 数据包/存档/记录/主题/帮助服务，不启动 Tick
             └─ 选择或恢复 Init → transition（保存/清理/重建）→ start()  启动会话循环（1 tick/秒）
                  └─ tick()         每帧：生产结算 → Affector → 剧情 → 阻断复检 → 统计

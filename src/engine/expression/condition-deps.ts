@@ -152,6 +152,8 @@ export class ConditionDepIndex<K> {
   /** 返回 true 表示该叶子归入 stat 宽依赖（含未知 target 的保守回退）。 */
   private addLeaf(key: K, leaf: Condition): boolean {
     switch (leaf.target) {
+      case 'alwaysTrue':
+        return false;
       case 'resource':
         this.indexAdd('resourceChanged', leaf.key, key);
         return false;

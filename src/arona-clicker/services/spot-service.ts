@@ -9,6 +9,7 @@ import type {
   SpotId,
 } from '../../engine/types';
 import type { SpotDef } from '../../data-services/contracts/world';
+import type { PaymentOptionDef } from '../../data-services/contracts/cost';
 import type { VisibilitySnapshot } from '../../engine/contracts/reveal';
 import type { PlayerState } from '../types/state';
 import type { SpotUpgradeResult, SpotUnlockResult } from '../contracts/results';
@@ -24,6 +25,7 @@ import { EventBus } from '../../engine/core/event-bus';
 import { DevLog } from '../../engine/core/dev-log';
 import { tagDisplay, tagKey } from '../../engine/core/tag';
 import { SpotContentService } from './spot-content-service';
+import { PaymentService, type PaymentOptionView, type PaymentSelection } from './payment-service';
 
 export interface SpotServiceOptions {
   registry: Registry;
@@ -46,7 +48,15 @@ export interface SpotServiceOptions {
 export class SpotService {
   private contentService: SpotContentService | undefined;
 
-  constructor(private readonly opts: SpotServiceOptions) {}
+  private readonly paymentService: PaymentService;
+
+  constructor(private readonly opts: SpotServiceOptions) {
+    this.paymentService = new PaymentService({
+      values: opts.valueSystem,
+      conditions: opts.conditionSystem,
+      getResourceAmount: opts.getResourceAmount,
+    });
+  }
 
   /** Runtime 内容编辑门面；普通 GameInstance 未接入 Runtime 编辑时为空。 */
   get content(): SpotContentService | undefined {
@@ -61,8 +71,16 @@ export class SpotService {
     return this.opts.getState();
   }
 
+  /** 查询当前 Spot 操作的支付方案；只读，不写状态。 */
+  getPaymentOptions(spotId: string, action: 'unlock' | 'upgrade'): readonly PaymentOptionView[] {
+    const spotDef = this.registry.spots.get(spotId);
+    if (!spotDef) return [];
+    const options = this.paymentOptionDefs(spotDef, action);
+    return this.paymentService.evaluate(options, this.state);
+  }
+
   /** 升级 Spot：通用公式 + levelUpgrades 效果叠加。 */
-  upgradeSpot(spotId: string): SpotUpgradeResult {
+  upgradeSpot(spotId: string, paymentOptionId?: string): SpotUpgradeResult {
     const spotDef = this.registry.spots.get(spotId);
     if (!spotDef) {
       this.devLog.record(`升级失败：${spotId}`, { source: 'spot', level: 'error', details: 'NotFound' });
@@ -96,33 +114,22 @@ export class SpotService {
       }
     }
 
-    // ── 花费：优先用 levelUpgrades 的 cost，否则用通用公式 ──
-    const costRes = spotDef.baseCostResource;
-    let cost: number;
-    if (upgrade && upgrade.cost !== undefined) {
-      cost = this.valueSystem.evaluate(upgrade.cost, this.state);
-    } else if (spotDef.upgradeCostBase !== undefined) {
-      const growth = spotDef.upgradeCostGrowth ?? 1;
-      cost = Math.floor(spotDef.upgradeCostBase! * Math.pow(growth, nextLevel - 1));
-    } else {
+    const selection = this.selectPayment(spotDef, 'upgrade', paymentOptionId);
+    if (!selection.ok) {
       // 无通用公式 且 无下一级定义 → 无法升级
       this.devLog.record(`升级失败：${spotDef.name}`, {
-        source: 'spot', level: 'warning', details: '再升级所需定义不存在',
+        source: 'spot', level: 'warning', details: selection.error,
       });
-      return { success: false, spotId, error: 'ConditionNotMet' };
+      return this.paymentFailure(spotId, selection);
     }
 
-    if (this.opts.getResourceAmount(costRes) < cost) {
-      this.devLog.record(`升级失败：${spotDef.name}`, {
-        source: 'spot', level: 'warning',
-        details: `需要 ${cost} ${costRes}`,
-      });
-      return { success: false, spotId, error: 'InsufficientResource' };
-    }
-
-    // ── 扣费 + 升级 ──
-    this.mutations.changeResource(costRes, -cost);
-    this.mutations.setSpotLevel(spotId, nextLevel);
+    // ── 扣费 + 升级：同一原子提交，避免多项成本出现部分写入 ──
+    this.mutations.commitSpotTransaction({
+      spotId,
+      newLevel: nextLevel,
+      resourceDeltas: this.negate(selection.option.resourceCosts),
+      itemDeltas: this.negate(selection.option.itemCosts),
+    });
 
     // ── 执行升级效果（levelUpgrades 中定义） ──
     if (upgrade && upgrade.effects.length > 0) {
@@ -135,7 +142,7 @@ export class SpotService {
     this.devLog.record(`${spotDef.name} 已升级至 Lv.${nextLevel}`, {
       source: 'spot',
       level: 'success',
-      details: `消耗 ${cost} ${costRes}${maxLevel ? ` (上限 Lv.${maxLevel})` : ''}`,
+      details: `消耗 ${this.paymentDescription(selection.option)}${maxLevel ? ` (上限 Lv.${maxLevel})` : ''}`,
       frame: this.state.totalFrames,
     });
     return { success: true, spotId, newLevel: nextLevel };
@@ -168,7 +175,7 @@ export class SpotService {
   /**
    * 手动解锁 Spot（购买，可达性层）：可见 → 资源足够 → 拥有（level = 1）。
    */
-  unlockSpot(spotId: string): SpotUnlockResult {
+  unlockSpot(spotId: string, paymentOptionId?: string): SpotUnlockResult {
     const spotDef = this.registry.spots.get(spotId);
     if (!spotDef) return { success: false, spotId, error: 'NotFound' };
 
@@ -184,15 +191,16 @@ export class SpotService {
     if (maxLevel !== undefined && maxLevel < 1)
       return { success: false, spotId, error: 'MaxLevel' };
 
-    // 扣费
-    const cost = this.valueSystem.evaluate(spotDef.baseCost, this.state);
-    const costRes = spotDef.baseCostResource;
-    if (this.opts.getResourceAmount(costRes) < cost)
-      return { success: false, spotId, error: 'InsufficientResource' };
-    this.mutations.changeResource(costRes, -cost);
+    const selection = this.selectPayment(spotDef, 'unlock', paymentOptionId);
+    if (!selection.ok) return this.paymentFailure(spotId, selection);
 
-    // 解锁 (设置 level = 1)
-    this.mutations.setSpotLevel(spotId, 1);
+    // 扣费 + 解锁 (设置 level = 1)：同一原子提交
+    this.mutations.commitSpotTransaction({
+      spotId,
+      newLevel: 1,
+      resourceDeltas: this.negate(selection.option.resourceCosts),
+      itemDeltas: this.negate(selection.option.itemCosts),
+    });
 
     this.opts.refreshVisibility();
     return { success: true, spotId };
@@ -240,4 +248,54 @@ export class SpotService {
   private get affectorEngine() { return this.opts.affectorEngine; }
   private get eventBus() { return this.opts.eventBus; }
   private get devLog() { return this.opts.devLog; }
+
+  private paymentOptionDefs(spotDef: SpotDef, action: 'unlock' | 'upgrade'): readonly PaymentOptionDef[] {
+    if (action === 'unlock') return spotDef.purchaseOptions;
+    const nextLevel = (this.state.spotLevels[spotDef.id] ?? 0) + 1;
+    const upgrade = (spotDef.levelUpgrades ?? []).find(item => item.level === nextLevel);
+    return upgrade?.paymentOptions ?? [];
+  }
+
+  private selectPayment(spotDef: SpotDef, action: 'unlock' | 'upgrade', paymentOptionId?: string): PaymentSelection {
+    return this.paymentService.select(this.paymentOptionDefs(spotDef, action), this.state, paymentOptionId, action === 'unlock' && spotDef.purchaseOptions.length === 0 ? 'no-route' : 'not-declared');
+  }
+
+  private paymentFailure(spotId: string, selection: Extract<PaymentSelection, { ok: false }>): {
+    success: false;
+    spotId: string;
+    error: 'InsufficientResource' | 'PaymentNotDeclared' | 'NoPurchaseRoute' | 'PaymentOptionRequired' | 'PaymentOptionNotFound' | 'PaymentConditionNotMet' | 'InvalidPayment';
+    paymentOptionIds?: string[];
+  } {
+    const error = selection.error === 'not-declared'
+      ? 'PaymentNotDeclared'
+      : selection.error === 'no-route'
+        ? 'NoPurchaseRoute'
+        : selection.error === 'option-required'
+        ? 'PaymentOptionRequired'
+        : selection.error === 'option-not-found'
+          ? 'PaymentOptionNotFound'
+          : selection.error === 'condition-failed'
+            ? 'PaymentConditionNotMet'
+            : selection.error === 'invalid'
+              ? 'InvalidPayment'
+              : 'InsufficientResource';
+    return {
+      success: false,
+      spotId,
+      error,
+      ...(selection.error === 'option-required'
+        ? { paymentOptionIds: selection.options.filter(option => option.status === 'available').map(option => option.id) }
+        : {}),
+    };
+  }
+
+  private negate(costs: Readonly<Record<string, number>>): Record<string, number> {
+    return Object.fromEntries(Object.entries(costs).map(([id, amount]) => [id, -amount]));
+  }
+
+  private paymentDescription(option: PaymentOptionView): string {
+    return option.costs.length > 0
+      ? option.costs.map(cost => `${cost.required} ${cost.id}`).join('、')
+      : '免费';
+  }
 }

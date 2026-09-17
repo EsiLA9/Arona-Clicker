@@ -83,6 +83,10 @@ Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Worksp
 
 三栏 panel 的顶部 Tabs 使用 `panel-tabs-region` 作为独立结构宿主：区域背景、主题装饰和底部分隔线挂在 `leftPanel.tabs` / `centerPanel.tabs` / `rightPanel.tabs`，`.switch-tabs` 仅负责 TabGroup 布局，单个按钮仍使用对应的 `*.tab` 宿主。Game 的既有 panel 继续独占外框、圆角、`overflow: hidden`，并由 `panel-body` 独占正文滚动与内容 padding；Service/Settings/Shop/Character/Inventory 的列级外框由 `WorkspaceColumn.surface = panel` 产生，正文通过 `workspace-column__body` 的 scroll owner 属性或页面明确的 List/Inspector Region 承担。普通弹窗、抽卡范围和主题编辑器内部的 `.switch-tabs` 不套用该结构。Workspace 外层 Panel 不进入旧内容 Panel 的 ScrollManager 序号快照。
 
+### Runtime Spot Editor
+
+Runtime Editor 的 Spot 表单由 `SPOT_CONTENT_POLICY` 驱动；“支付”页编辑解锁 `purchaseOptions`，升级条目内复用同一支付方案子编辑器，方案内可增删 Resource / Item 费用项。编辑器输入常量金额并编码为 `ValueExpression`，回读遇到动态金额或不支持结构时保留诊断并阻止静默覆盖；保存前同时校验 Registry 中的 Resource / Item 引用，Apply 仍经 Runtime Editor Command Facade。
+
 顶栏一级入口统一为主题、游戏、背包、设置；存档、数据包和记录等服务从设置 Workspace 进入，不再作为顶栏直达页面。设置、背包及其他服务页使用独立的 `WorkspaceFrame` 和稳定 UI Host，返回游戏时恢复普通游戏 Workspace；主题浮窗可跨 Workspace 使用而不改变当前路由。
 
 ### 主题与选择页表现
@@ -108,4 +112,4 @@ Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Worksp
 
 ## 相关文档
 
-[[adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs/docs-828/02-modules/color]]（theme-tree 数据源）· [[docs/docs-828/07-audit/presentation-editor-consistency]]（编辑器/运行时一致性审计）
+[[adr-0001-architecture-consolidation]]（T2 执行记录）· [[docs/docs-828/02-modules/color]]（theme-tree 数据源）· [[docs/docs-828/02-modules/runtime-editor]]（游戏内 Runtime Editor）· [[docs/docs-828/07-audit/presentation-editor-consistency]]（编辑器/运行时一致性审计）

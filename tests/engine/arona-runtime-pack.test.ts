@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
-import type { PackManagerSnapshot } from '../../src/data-services/datapack/pack-manager';
+import type { PackManagerSnapshot, StoredPack } from '../../src/data-services/datapack/pack-manager';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 
 class CountingRuntime extends AronaClickerRuntime {
@@ -11,6 +11,21 @@ class CountingRuntime extends AronaClickerRuntime {
     this.reloadCount += 1;
     super.reloadPreservingState(datapacks);
   }
+}
+
+function legacyInvalidPack(): StoredPack {
+  return {
+    id: 'addition-test@0.1.0',
+    manifest: { modName: 'addition-test', name: 'Addition Test', version: '0.1.0', dependencies: [] },
+    datapack: {
+      name: 'Addition Test', version: '0.1.0', inits: [], areas: [],
+      spots: [{
+        id: 'addition-test:spot:scanner', areaId: 'base:area:schale_main', name: 'Scanner', description: '',
+      } as never],
+      enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], characters: [], funcletDefs: [],
+    },
+    images: [], sourceKind: 'zip', importedAt: 1,
+  };
 }
 
 describe('AronaClickerRuntime PackManager 接线', () => {
@@ -28,7 +43,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     const parsed = {
       manifest: { modName: 'demo', name: 'Demo', version: '1.0.0', dependencies: [] },
       datapack: {
-        name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [],
+        modName: 'demo', name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [],
         activeStories: [], passiveStories: [], stories: [], items: [], characters: [],
          funcletDefs: [],
       },
@@ -57,6 +72,50 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(game.running).toBe(false);
   });
 
+  test('启用集含失效非 base 包时自动停用该包并保留包库记录', () => {
+    const invalidPack = legacyInvalidPack();
+    let saved: PackManagerSnapshot | null = null;
+    const initial: PackManagerSnapshot = {
+      packs: [invalidPack],
+      enabledIds: ['base@1.0.0', 'addition-test@0.1.0'],
+      order: ['base@1.0.0', 'addition-test@0.1.0'],
+    };
+    const game = new AronaClickerRuntime({
+      packStore: {
+        load: () => initial,
+        save: snapshot => { saved = snapshot; },
+        clear: () => { saved = null; },
+      },
+    });
+
+    expect(() => game.applyEnabledPacks()).not.toThrow();
+    expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
+    expect(game.registry.spots.has('addition-test:spot:scanner')).toBe(false);
+    expect(game.getPackCatalog().entries.find(entry => entry.id === invalidPack.id)?.enabled).toBe(false);
+    expect(game.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.0', invalidPack.id]);
+    expect((saved as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0']);
+  });
+
+  test('异步恢复后也会持久化自动停用结果', async () => {
+    const invalidPack = legacyInvalidPack();
+    let snapshot: PackManagerSnapshot = {
+      packs: [invalidPack],
+      enabledIds: ['base@1.0.0', invalidPack.id],
+      order: ['base@1.0.0', invalidPack.id],
+    };
+    const store = {
+      load: async () => snapshot,
+      save: async (next: PackManagerSnapshot) => { snapshot = next; },
+      clear: async () => undefined,
+    };
+    const game = new AronaClickerRuntime();
+    await game.restorePackManager(store);
+
+    expect(() => game.applyEnabledPacks()).not.toThrow();
+    expect(snapshot.enabledIds).toEqual(['base@1.0.0']);
+    expect(game.getPackCatalog().entries.find(entry => entry.id === invalidPack.id)?.enabled).toBe(false);
+  });
+
   test('默认产品包包含卡池所引用的角色差分', () => {
     const game = new AronaClickerRuntime();
 
@@ -75,12 +134,10 @@ describe('AronaClickerRuntime PackManager 接线', () => {
       description: '',
       spots: [
         {
-          idName: 'spot-a', areaId: 'base:area:schale_main', name: 'Spot A', description: '',
-          baseCost: 1, baseCostResource: 'base:resource:credit', baseCapacity: 3,
+          idName: 'spot-a', areaId: 'base:area:schale_main', name: 'Spot A', description: '', purchaseOptions: [{ id: 'free', costs: [] }],
         },
         {
-          idName: 'spot-b', areaId: 'base:area:schale_main', name: 'Spot B', description: '',
-          baseCost: 2, baseCostResource: 'base:resource:credit', baseCapacity: 5,
+          idName: 'spot-b', areaId: 'base:area:schale_main', name: 'Spot B', description: '', purchaseOptions: [{ id: 'free', costs: [] }],
         },
       ],
       suspendedSpotIds: [],
@@ -108,8 +165,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     const game = new AronaClickerRuntime();
     game.init([defaultDatapack]);
     const spot = {
-      idName: 'spot-a', areaId: 'base:area:schale_main', name: 'Spot A', description: '',
-      baseCost: 1, baseCostResource: 'base:resource:credit', baseCapacity: 3,
+      idName: 'spot-a', areaId: 'base:area:schale_main', name: 'Spot A', description: '', purchaseOptions: [{ id: 'free', costs: [] }],
     };
     const valid = { modName: 'draft-mod', displayName: 'Draft Mod', version: '1.0.0', author: '', description: '', spots: [spot], suspendedSpotIds: [] };
     expect(game.applyRuntimeMod(valid).ok).toBe(true);
@@ -162,5 +218,42 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     restored.setPackEnabled('demo@1.0.0', true);
     await Promise.resolve();
     expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0', 'demo@1.0.0']);
+  });
+
+  test('异步恢复后应用启用集会持久化策略且下一次启动自动加载', async () => {
+    const demoId = 'demo@1.0.0';
+    const demoPack = {
+      id: demoId,
+      manifest: { modName: 'demo', name: 'Demo', version: '1.0.0', dependencies: [] },
+      datapack: {
+        modName: 'demo', name: 'Demo', version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [],
+        activeStories: [], passiveStories: [], stories: [], items: [], characters: [], funcletDefs: [],
+      },
+      images: [], sourceKind: 'zip' as const, importedAt: 1,
+    };
+    let snapshot: PackManagerSnapshot = {
+      packs: [demoPack],
+      enabledIds: ['base@1.0.0'],
+      order: ['base@1.0.0', demoId],
+    };
+    const store = {
+      load: async () => snapshot,
+      save: async (next: PackManagerSnapshot) => { snapshot = next; },
+      clear: async () => undefined,
+    };
+    const restored = new AronaClickerRuntime();
+    await restored.restorePackManager(store);
+
+    expect(restored.applyPackConfiguration({
+      enabledIds: ['base@1.0.0', demoId],
+      order: ['base@1.0.0', demoId],
+    }).ok).toBe(true);
+    await Promise.resolve();
+    expect(snapshot.enabledIds).toEqual(['base@1.0.0', demoId]);
+
+    const nextBoot = new AronaClickerRuntime();
+    await nextBoot.restorePackManager(store);
+    nextBoot.applyEnabledPacks();
+    expect(nextBoot.registry.loadedModNames.has('demo')).toBe(true);
   });
 });

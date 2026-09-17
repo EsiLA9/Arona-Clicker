@@ -3,13 +3,13 @@ import { ChatEntry, ChatTextEntry } from './story';
 import type { ShopSession } from '../../arona-clicker/services/shop-service';
 import type { InventoryWorkspaceState } from '../inventory-view';
 import type { DatapackWorkspaceState } from '../workspace/datapack-workspace-state';
-import type { RuntimeDatapackEditorState } from '../workspace/runtime-datapack-editor-state';
+import type { RuntimeDatapackEditorState } from '../runtime-editor/state';
 import { renderWorkspace } from '../workspace/workspace-renderer';
 import { resolveCurrentWorkspaceRoute, type WorkspaceLocation, type WorkspaceNavigationState, type WorkspaceRoute } from '../workspace/workspace-router';
 
 export type { DatapackWorkspaceSection } from '../../arona-clicker/services/datapack-workspace-view';
 export type { DatapackWorkspaceState } from '../workspace/datapack-workspace-state';
-export type { RuntimeDatapackEditorState } from '../workspace/runtime-datapack-editor-state';
+export type { RuntimeDatapackEditorState } from '../runtime-editor/state';
 export type { WorkspaceLocation, WorkspaceNavigationState, WorkspaceRoute } from '../workspace/workspace-router';
 
 /** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 按钮"想回复"中。 */

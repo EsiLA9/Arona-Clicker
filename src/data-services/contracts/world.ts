@@ -12,6 +12,8 @@ import type { RevealTrigger } from '../../engine/types/reveal';
 import type { TriggerDef } from '../../engine/types/trigger';
 import type { ExtraCompound } from '../../engine/types/extra';
 import type { ShopId } from './shop';
+import type { PaymentOptionDef } from './cost';
+import type { DefMetadata } from './common';
 
 export interface EntryEffectDef {
   first?: boolean;
@@ -76,23 +78,19 @@ export interface AreaDef {
 export interface SpotDef {
   /** @label ID */
   id: SpotId;
+  /** 创建 / 修改时间；历史内容可缺省，由 Registry 查询层按极早值处理。 */
+  metadata?: DefMetadata;
   /** @label 所属区域 */
   areaId: AreaId;
   /** @label 名称 */
   name: string;
   /** @label 描述 */
   description: string;
-  baseCost: ValueExpression;
-  baseCostResource: string;
-  /** @label 基础容量 */
-  baseCapacity: number;
+  /** Spot 解锁支付方案；多个方案之间为 OR，同一方案的 costs 为 AND。 */
+  purchaseOptions: PaymentOptionDef[];
   /** @label 条件文本 */
   conditionText?: string;
   levelUpgrades?: LevelUpgradeDef[];
-  /** @label 升级基价 */
-  upgradeCostBase?: number;
-  /** @label 升级增长 */
-  upgradeCostGrowth?: number;
   /** @label 等级上限 */
   maxLevel?: number;
   /** @label 标签 */
@@ -125,7 +123,8 @@ export interface SpotFunctionalityDef {
 
 export interface LevelUpgradeDef {
   level: number;
-  cost?: ValueExpression;
+  /** 该等级的支付方案；多个方案之间为 OR，同一方案的 costs 为 AND。 */
+  paymentOptions: PaymentOptionDef[];
   condition?: ConditionGroup;
   effects: Effect[];
 }

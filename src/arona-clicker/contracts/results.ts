@@ -36,11 +36,11 @@ export type EnhancementPurchaseResult =
 
 export type SpotUnlockResult =
   | { success: true; spotId: SpotId }
-  | { success: false; spotId: SpotId; error: 'NotFound' | 'NotVisible' | 'InsufficientResource' | 'AlreadyOwned' | 'MaxLevel' };
+  | { success: false; spotId: SpotId; error: 'NotFound' | 'NotVisible' | 'InsufficientResource' | 'AlreadyOwned' | 'MaxLevel' | 'PaymentNotDeclared' | 'NoPurchaseRoute' | 'PaymentOptionRequired' | 'PaymentOptionNotFound' | 'PaymentConditionNotMet' | 'InvalidPayment'; paymentOptionIds?: string[] };
 
 export type SpotUpgradeResult =
   | { success: true; spotId: SpotId; newLevel: number }
-  | { success: false; spotId: SpotId; error: 'NotFound' | 'NotOwned' | 'InsufficientResource' | 'MaxLevel' | 'ConditionNotMet' };
+  | { success: false; spotId: SpotId; error: 'NotFound' | 'NotOwned' | 'InsufficientResource' | 'MaxLevel' | 'ConditionNotMet' | 'PaymentNotDeclared' | 'NoPurchaseRoute' | 'PaymentOptionRequired' | 'PaymentOptionNotFound' | 'PaymentConditionNotMet' | 'InvalidPayment'; paymentOptionIds?: string[] };
 
 // --- 剧情视图与结果 ---
 

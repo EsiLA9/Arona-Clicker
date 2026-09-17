@@ -1,6 +1,6 @@
 # Task：Runtime Mod Editor — 编辑器骨架优先切片
 
-状态：proposed — 重新裁定 [[task-0071-runtime-editor-p0-capability-baseline]] 的交付顺序与首刀目标
+状态：proposed — 2026-09-15 暂停推进，随活跃计划层清退移入冻结考古层
 
 ## 一句话
 
@@ -231,3 +231,21 @@ P0 阶段的旧验收口径（只跑 `check:docs`）不再适用：本 Task 从 
 - [[docs/docs-828/00-INDEX]]
 - [[docs/docs-828/01-architecture/design-constraints]]
 - [[docs/docs-828/05-conventions/schema-sync]]
+
+## 归档结果
+
+- 准出结论：
+  - **非完成归档（暂停搁置）**：2026-09-15 活跃计划层清退，本 Task 暂停推进并移入冻结考古层。
+  - 已交付：S0（内容策略表与通用写通道）、S1-A（编辑器骨架：策略驱动表单、内容浏览器、Draft ↔ Runtime 差异、显式 Apply、诊断定位）。
+  - 未完成：S2（`spots.revealTriggers` 递归条件组）、S3（工作区持久化与导出）。
+  - 已推迟：S1-B 首批内容类型授权，由 [[task-0073-spot-field-authoring-ladder]] 承接（该文档同样已暂停）。
+- 当前知识与代码落点保留于：
+  - 源码：`src/data-services/authoring/`（策略表与通用写通道）、`src/ui/workspace/runtime-editor-form.ts`、`src/ui/components/runtime-datapack-editor.ts`。
+  - 本轮未新增 `docs/docs-828/` 蒸馏；Runtime Editor 的当前能力以源码为准。
+- 设计理由保留于：
+  - 本文（内容策略表作为唯一授权真源、`apply === 'local-mutation'` 的失效声明契约、Draft / Runtime 分离与原子提交边界）。
+- 后续工作：
+  - S2 / S3 与 S1-B 的下沉方向见 [[docs/plan-work/00-index]]「未决方向」。
+
+- 更正（2026-09-15）：
+  - 本文「当前事实与代码落点」中「可写字段**硬编码**为 9 个常量：白名单、字段类型校验、`toSpotDef` 默认值填充、`cloneSpot` 深拷贝四处彼此独立」与「`toSpotDef` 目前把 `levelUpgrades`、`tags` 硬填为空数组……当前**根本无法通过提交通道**」均为**立项基线**，已由 S0 补齐；当前由策略表驱动、默认值由 `defaults` 承担。以源码为准，不再改写本文历史正文。

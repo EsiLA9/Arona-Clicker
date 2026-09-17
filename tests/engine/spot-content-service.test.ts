@@ -8,9 +8,7 @@ const spot: RuntimeSpotInput = {
   areaId: 'base:area:main',
   name: 'Desk',
   description: '',
-  baseCost: 1,
-  baseCostResource: 'base:resource:credit',
-  baseCapacity: 3,
+  purchaseOptions: [{ id: 'free', costs: [] }],
 };
 
 const state = {

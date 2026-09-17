@@ -1,22 +1,33 @@
 import type { DefinitionChange } from '../../data-services/definition/definition-types';
-import type { SpotDef } from '../../data-services/contracts/world';
-import type { SpotResourceAffectorDraft } from '../../data-services/authoring/content-policy-types';
+import type { AreaDef, InitDef, SpotDef } from '../../data-services/contracts/world';
+import type { PaymentCostDraft, PaymentOptionDraft, SpotFunctionalityDraft, SpotLevelUpgradeDraft, SpotRevealTriggerDraft } from '../../data-services/authoring/content-policy-types';
 import type { Registry } from '../../data-services/registry/registry';
 
-export type RuntimeSpotAffectorDraft = SpotResourceAffectorDraft;
+export type RuntimeSpotFunctionalityDraft = SpotFunctionalityDraft;
+export type RuntimePaymentCostDraft = PaymentCostDraft;
+export type RuntimePaymentOptionDraft = PaymentOptionDraft;
+export type RuntimeSpotLevelUpgradeDraft = SpotLevelUpgradeDraft;
+export type RuntimeSpotRevealTriggerDraft = SpotRevealTriggerDraft;
 
+/**
+ * 编辑器提交的 Spot 输入：键与 `SPOT_CONTENT_POLICY` 的字段 / 扩展 inputKey 对齐，
+ * 由策略表负责校验与物化（见 `buildAuthoringDef`）。
+ */
 export interface RuntimeSpotInput {
   readonly idName: string;
   readonly areaId: string;
   readonly name: string;
   readonly description: string;
-  readonly baseCost: number;
-  readonly baseCostResource: string;
-  readonly baseCapacity: number;
+  readonly purchaseOptions: readonly RuntimePaymentOptionDraft[];
   readonly maxLevel?: number;
-  readonly upgradeCostBase?: number;
-  readonly upgradeCostGrowth?: number;
-  readonly affectors?: readonly RuntimeSpotAffectorDraft[];
+  readonly conditionText?: string;
+  readonly global?: boolean;
+  readonly functionalities?: readonly RuntimeSpotFunctionalityDraft[];
+  readonly levelUpgrades?: readonly RuntimeSpotLevelUpgradeDraft[];
+  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+  /** 层级标签以 `a/b` 路径形式提交，由扩展编码为 TagPath[]。 */
+  readonly tags?: readonly string[];
+  readonly gachaPools?: readonly string[];
 }
 
 export type RuntimeSpotMutation =
@@ -64,6 +75,11 @@ export type RuntimeContentDiagnosticCode =
   | 'invalid-field'
   | 'spot-not-owned'
   | 'spot-not-found'
+  | 'init-not-owned'
+  | 'area-not-owned'
+  | 'init-not-found'
+  | 'area-not-found'
+  | 'reference-blocked'
   | 'unsupported-operation'
   | 'registry-rejected'
   | 'commit-failed'
@@ -130,4 +146,79 @@ export interface RuntimeDefinitionEditorCommands {
   deleteSpot(idName: string, playerData: 'retain' | 'purge'): RuntimeSpotMutationResult;
   suspendSpot(idName: string): RuntimeSpotMutationResult;
   resumeSpot(idName: string): RuntimeSpotMutationResult;
+}
+
+/** Init / Area 的热 CRUD 输入；字段与对应 authoring policy 的 inputKey 对齐。 */
+export interface RuntimeInitInput {
+  readonly idName: string;
+  readonly name: string;
+  readonly description: string;
+  readonly defaultAreas: readonly string[];
+  readonly startStoryId?: string;
+  readonly purchaseCost?: readonly { readonly resourceId: string; readonly amount: number }[];
+  readonly worldTilt?: string;
+  readonly worldTiltAlias?: string;
+  readonly tags?: readonly string[];
+  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+}
+
+export interface RuntimeAreaInput {
+  readonly idName: string;
+  readonly initId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly defaultSpots: readonly string[];
+  readonly adjacentAreaIds?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+}
+
+export interface RuntimeWorldDraft {
+  readonly modName: string;
+  readonly inits: readonly RuntimeInitInput[];
+  readonly areas: readonly RuntimeAreaInput[];
+}
+
+export type RuntimeWorldDiagnosticCode =
+  | RuntimeContentDiagnosticCode
+  | 'init-not-owned'
+  | 'area-not-owned'
+  | 'init-not-found'
+  | 'area-not-found'
+  | 'reference-blocked';
+
+export interface RuntimeWorldApplyResult {
+  readonly ok: boolean;
+  readonly revision: number;
+  readonly diagnostics: readonly RuntimeContentDiagnostic[];
+  readonly message: string;
+}
+
+export interface RuntimeWorldStateSnapshot {
+  readonly modName: string | null;
+  readonly sourceId: string;
+  readonly inits: ReadonlyMap<string, InitDef>;
+  readonly areas: ReadonlyMap<string, AreaDef>;
+  readonly revision: number;
+}
+
+export interface RuntimeWorldCommit {
+  readonly modName: string;
+  readonly changedInitIds: readonly string[];
+  readonly changedAreaIds: readonly string[];
+  readonly revisionBefore: number;
+  readonly revisionAfter: number;
+}
+
+export interface RuntimeWorldCoordinatorSettings {
+  readonly sourceId?: string;
+  readonly onCommitted?: (commit: RuntimeWorldCommit) => void;
+}
+
+export interface RuntimeWorldCoordinatorOptions extends RuntimeWorldCoordinatorSettings {
+  readonly registry: Registry;
+}
+
+export interface RuntimeWorldDefinitionEditorCommands {
+  applyWorldDraft(draft: RuntimeWorldDraft): RuntimeWorldApplyResult;
 }

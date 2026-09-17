@@ -208,8 +208,78 @@ export class PackManager {
     this.applyConfiguration(this.configuration(), target);
   }
 
+  /**
+   * 在完整启用集校验失败后，按单个可选包及其依赖闭包复核内容，找出可安全停用的失效包。
+   * 校验只读，不改变当前启用集；调用方确认恢复后再执行 disableOptionalPacks。
+   */
+  findInvalidOptionalPackIds(validate: (datapacks: readonly Datapack[]) => void): readonly string[] {
+    const enabledIds = new Set(this.enabledIds);
+    const optionalIds = this.order.filter(id => enabledIds.has(id) && this.packs.get(id)?.sourceKind !== 'builtin');
+    const invalid = new Set<string>();
+
+    for (const id of optionalIds) {
+      const closure = this.dependencyClosure(id, enabledIds);
+      const candidateEnabled = new Set<string>();
+      for (const candidateId of this.order) {
+        if (this.packs.get(candidateId)?.sourceKind === 'builtin' || closure.has(candidateId)) {
+          candidateEnabled.add(candidateId);
+        }
+      }
+      const draft: PackConfigurationDraft = {
+        enabledIds: this.order.filter(candidateId => candidateEnabled.has(candidateId)),
+        order: [...this.order],
+      };
+
+      try {
+        this.validateConfiguration(draft);
+        validate(this.datapacksFor(draft));
+      } catch {
+        for (const candidateId of closure) {
+          if (this.packs.get(candidateId)?.sourceKind !== 'builtin') invalid.add(candidateId);
+        }
+      }
+    }
+
+    return this.order.filter(id => invalid.has(id));
+  }
+
+  /** 停用可选包但保留包库记录，方便用户更新或重新启用。 */
+  disableOptionalPacks(ids: readonly string[]): readonly string[] {
+    const requested = new Set(ids);
+    const disabled = this.order.filter(id => requested.has(id) && this.enabledIds.has(id) && this.packs.get(id)?.sourceKind !== 'builtin');
+    if (disabled.length === 0) return [];
+    for (const id of disabled) this.enabledIds.delete(id);
+    this.persist();
+    return disabled;
+  }
+
   private orderedPacks(): StoredPack[] {
     return this.order.map(id => this.packs.get(id)!).filter(Boolean);
+  }
+
+  private datapacksFor(draft: PackConfigurationDraft): readonly Datapack[] {
+    const enabled = new Set(draft.enabledIds);
+    return draft.order.filter(id => enabled.has(id)).map(id => this.packs.get(id)!.datapack);
+  }
+
+  private dependencyClosure(rootId: string, enabledIds: ReadonlySet<string>): Set<string> {
+    const byModName = new Map<string, string>();
+    for (const id of this.order) {
+      if (enabledIds.has(id)) byModName.set(this.packs.get(id)!.manifest.modName, id);
+    }
+    const closure = new Set<string>();
+    const visit = (id: string): void => {
+      if (closure.has(id)) return;
+      closure.add(id);
+      const pack = this.packs.get(id);
+      if (!pack) return;
+      for (const dependency of pack.manifest.dependencies) {
+        const dependencyId = byModName.get(dependency);
+        if (dependencyId) visit(dependencyId);
+      }
+    };
+    visit(rootId);
+    return closure;
   }
 
   private normalizeOrder(order: readonly string[]): string[] {

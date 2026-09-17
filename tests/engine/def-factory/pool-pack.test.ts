@@ -94,4 +94,16 @@ describe('AffectorPackBuilder', () => {
   test('缺 entry 抛错', () => {
     expect(() => affectorPack('base:affectorpack:x').build()).toThrow(/entry/);
   });
+
+  test('areaConnection 构造单向 / 双向 Area 连通边', () => {
+    const def = affectorPack('base:affectorpack:area-link')
+      .entry('base:affector:area-link')
+      .areaConnection('base:area:a', 'base:area:b')
+      .areaConnection('base:area:b', 'base:area:c', 'twoWay')
+      .build();
+    expect(def.entries[0].areaConnections).toEqual([
+      { fromAreaId: 'base:area:a', toAreaId: 'base:area:b', direction: 'oneWay' },
+      { fromAreaId: 'base:area:b', toAreaId: 'base:area:c', direction: 'twoWay' },
+    ]);
+  });
 });

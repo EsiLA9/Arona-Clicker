@@ -25,9 +25,11 @@ Spot 的 `flow`（常量或数值表达式）与 `linearYield`（`amountPerLevel
 | `perTickEffects` | Active 期间每帧                    | 仅限幂等/维持类 op                                                                |
 | `flows`          | 激活期间每帧经 GameNum 懒求值            | **唯一持续产出通道**（Spot `flow` / `linearYield` 均转译为 flow）；Phase 6 起按 `mountEntityId` 层级分发 |
 | `zoneModifiers`  | 事件驱动同步进区表                      | 命名乘区（flat/mul/custom/bound），见 [[docs/docs-828/04-mechanisms/trigger-effect]]    |
+| `areaConnections` | Active 期间提供动态 Area 连通边          | 追加单向或双向 Area→Area 移动边；entry 失活/实例卸载后立即失效                         |
 
 - ⚠️ **双通道警告**：`flows` 与 `effects[addResource]` 并存 = 激活沿发一次 + 每帧持续入账 = **双倍**。数据作者二选一。
 - **依赖方向**（T7）：Affector 只发事件（`affectorMounted/StateChanged/Unmounted/EntriesChanged`），GameNum 构造期自订阅重同步区表——不再互持。
+- **动态连通性**：`entry.areaConnections` 是 Affector 的声明通道，不修改 `AreaDef.adjacentAreaIds`。默认 `oneWay`，`twoWay` 同时开放反向边；移动仍要求目标 Area 存在、属于当前 Init 且满足 `existence` 可见性。多个活跃 Affector 的边取并集。
 
 ## 测试入口
 

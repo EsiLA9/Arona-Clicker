@@ -11,6 +11,15 @@ import { conditionMet, getSpotReveal, OBFUSCATED, renderRevealTriggers } from '.
 import { describeCondition, getSpotYieldBreakdown } from './tooltip-enhancement';
 import { buildConditionView, renderConditionTree } from '../condition-presentation';
 
+function paymentText(ctx: UIContext, options: ReturnType<UIContext['game']['spot']['getPaymentOptions']>): string {
+  return options.map(option => {
+    const costs = option.costs.length > 0
+      ? option.costs.map(cost => `${ctx.formatNumber(cost.required)} ${ctx.nameOf(cost.type, cost.id)}`).join(' + ')
+      : '免费';
+    return options.length > 1 ? `${option.label}：${costs}` : costs;
+  }).join(' / ');
+}
+
 /** 生成 Spot 的详情信息面板 HTML。 */
 export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): string {
   const { game, view } = ctx;
@@ -25,33 +34,21 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
   const manager = view.spotManagers[spot.id] ?? Character.None;
   const managerName = ctx.nameOf('character', manager);
 
-  // 下一级升级信息（通用升级：指数花费；否则 levelUpgrades 逐级）
+  // 下一级升级信息：只读取当前等级条目的显式支付方案。
   const nextLevel = level + 1;
   const maxLevel = game.spot.getEffectiveMaxLevel(spot.id);
   const capped = maxLevel !== undefined && nextLevel > maxLevel;
 
-  const upgradeCostText: string | null = capped
-    ? null
-    : (() => {
-        // 优先用 levelUpgrades 的显式 cost
-        const nextUpgrade = (spot.levelUpgrades ?? []).find(u => u.level === nextLevel);
-        if (nextUpgrade?.cost !== undefined) {
-          return ctx.formatNumber(game.valueSystem.evaluate(nextUpgrade.cost, game.state));
-        }
-        // 通用公式
-        if (spot.upgradeCostBase !== undefined) {
-          return ctx.formatNumber(Math.floor(spot.upgradeCostBase * Math.pow(spot.upgradeCostGrowth ?? 1, nextLevel - 1)));
-        }
-        // 无下一级定义
-        if (nextUpgrade) return null;
-        return null;
-      })();
-
   const nextUpgradeDef = (spot.levelUpgrades ?? []).find(u => u.level === nextLevel);
+  const registeredSpot = game.registry.spots.get(spot.id);
+  const upgradeOptions = !capped && known && registeredSpot ? game.spot.getPaymentOptions(spot.id, 'upgrade') : [];
+  const upgradeCostText = upgradeOptions.length > 0
+    ? paymentText(ctx, upgradeOptions)
+    : null;
   const upgradeRow = !known
     ? `<div class="info-row"><span>升级</span><span>${OBFUSCATED}</span></div>`
-    : upgradeCostText !== null
-      ? `<div class="info-row"><span>升级 Lv.${nextLevel}</span><span>${upgradeCostText} ${ctx.nameOf('resource', spot.baseCostResource)}${nextUpgradeDef?.condition ? ' · 需条件' : ''}</span></div>`
+      : upgradeCostText !== null
+      ? `<div class="info-row"><span>升级 Lv.${nextLevel}</span><span>${ctx.escapeHtml(upgradeCostText)}${nextUpgradeDef?.condition ? ' · 需条件' : ''}</span></div>`
       : `<div class="info-row"><span>升级</span><span class="info-dim">${capped ? `已达上限 Lv.${maxLevel}` : '已达当前上限'}</span></div>`;
 
   // Spot 功能（内源 + 外源）：线性产出 / 交互型功能；未揭示时遮挡。
@@ -86,10 +83,11 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
     nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',
     evaluate: condition => conditionMet(condition, ctx.game),
   }), ctx.escapeHtml, reveal.conditionKnown);
-  const acquisitionCost = known ? game.valueSystem.evaluate(spot.baseCost, game.state) : undefined;
-  const costText = acquisitionCost !== undefined && acquisitionCost > 0
-    ? `花费 ${ctx.formatNumber(acquisitionCost)} ${ctx.nameOf('resource', spot.baseCostResource)}`
-    : '';
+  const acquisitionOptions = known && registeredSpot ? game.spot.getPaymentOptions(spot.id, 'unlock') : [];
+  const noPurchaseRoute = known && registeredSpot?.purchaseOptions.length === 0;
+  const costText = acquisitionOptions.length > 0
+    ? `花费 ${paymentText(ctx, acquisitionOptions)}`
+    : noPurchaseRoute ? '无购买途径' : '';
   const acquisitionText = acquisitionCondition
     ? `${condText}${costText ? ` · ${ctx.escapeHtml(costText)}` : ''}`
     : costText || condText;
@@ -103,7 +101,6 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       <div class="info-row"><span>当前等级</span><span class="info-accent">${show(known, `Lv.${level}`)}</span></div>
       <div class="info-row"><span>持续产出</span><span>${show(known, yieldRows)}</span></div>
       ${funcRows}
-      <div class="info-row"><span>容量上限</span><span>${show(known, spot.baseCapacity > 0 ? ctx.formatNumber(spot.baseCapacity) : '无限制')}</span></div>
       ${upgradeRow}
       ${maxLevel !== undefined ? `<div class="info-row"><span>等级上限</span><span class="info-dim">Lv.${maxLevel}</span></div>` : ''}
       <div class="info-row"><span>Manager</span><span>${ctx.escapeHtml(managerName)}</span></div>
