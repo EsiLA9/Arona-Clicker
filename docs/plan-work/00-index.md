@@ -2,15 +2,16 @@
 
 状态：done — 2026-09-15 冻结为非核心历史层
 
-> **本目录不是当前事实源，也不代表仍在推进的工作。** 项目当前事实一律以 `src/` 与 `docs/docs-828/` 为准。
-> 这里保存的是过程文档：ADR 裁定、Roadmap 切片、Task 施工记录与设计草案。它们的用途只有一个——**回答「为什么当初这么做」，以及在需要时重新激活某个未完成方向**。
+> **本目录不是当前事实源。** 项目当前事实一律以 `src/` 与 `docs/docs-828/` 为准。
+> 这里的根目录承载当前确实推进的 Task / ADR / Draft；`archive/` 与 `mechanisms/` 保存冻结过程文档。它们的用途分别是记录当前施工边界，以及回答「为什么当初这么做」或在需要时重新激活未完成方向。
 
-> **当前活跃计划层状态（2026-09-17）**：根目录当前任务包括 [[task-0076-unified-def-editor-service]]、[[task-0077-runtime-editor-condition-tree]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0088-init-area-hot-crud-and-location-fallback]] 与 [[task-0089-runtime-area-topology-overlay]]。0087 已被重新收敛的 0088 取代，不再作为当前实施范围；AOCI-CODE 接入任务已完成并归档。
+> **当前活跃计划层状态（2026-09-17）**：根目录当前任务包括 [[task-0076-unified-def-editor-service]]、[[task-0077-runtime-editor-condition-tree]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0088-init-area-hot-crud-and-location-fallback]] 与 [[task-0089-runtime-area-topology-overlay]]。0087 已被重新收敛的 0088 取代，不再作为当前实施范围；AOCI-CODE 接入和任务系统结构对齐已完成并归档。
 
 ## 冻结约定
 
-- 本目录整体冻结为**单一考古层**：原 `active/`、`completed/`、`newPlan/`、`review/`、`registry&saves/` 已全部合并进 `archive/`，不再按生命周期分目录维护；
-- **不再进行准出、不再维护索引状态、不再做批量归档**。文档只允许按需追加「更正（日期）」标注；
+- `archive/` 与 `mechanisms/` 冻结为**单一考古层**：原 `active/`、`completed/`、`newPlan/`、`review/`、`registry&saves/` 已全部合并进 `archive/`，不再按生命周期分目录维护；
+- 根目录 `task-*.md` / `adr-*.md` / `draft-*.md` 是当前施工入口，只保留确实要推进的工作；完成后移入 `archive/`，不得在根目录长期保留已完成文档；
+- `00-index.md` 继续维护活跃任务、未决方向和历史路由；`archive/` 与 `mechanisms/` 内的历史正文不做状态准出，只允许按需追加「更正（日期）」标注；
 - 每份文档文首的 `状态：` 行保留**冻结时的最后已知状态**（`done` 已完成 / `closing` 仅差准出 / `active` 在推进 / `proposed` 待开工 / `draft` 未裁定）。这些取值现在只用于阅读时区分「做完了」与「没做完」，**不再被任何检查器强制**；
 - 目录内文件只做链接完整性检查（`npm run check:docs`）。
 
@@ -20,12 +21,14 @@
 | --- | --- |
 | `archive/` | 全部冻结的过程文档（ADR / Roadmap / Task / 草案 / 审查记录 / 数据包施工计划） |
 | `mechanisms/` | 按机制的**反向索引**：从当前机制出发找它的设计理由与历史来源 |
+| 根目录 `task-*.md` / `adr-*.md` / `draft-*.md` | 当前正在推进的任务或裁定，完成后移入 `archive/` |
 | `00-index.md` | 本文 |
 
 ## 怎么用这一层
 
 ```text
 想知道系统现在是什么        → docs/docs-828（唯一当前事实源）
+想开始一个新方向            → 在 docs/plan-work/ 根目录新建 Task / ADR / Draft，并同步本文
 想知道某个机制为什么这样设计 → docs/plan-work/mechanisms/<机制> → 再跳 archive 原文
 想知道还有什么没做          → 本文「未决方向」（下列）
 想恢复某个方向              → 从 archive 原文重新激活，另立 ADR / Task，不要就地续写
@@ -132,6 +135,7 @@
 - [[task-0088-init-area-hot-crud-and-location-fallback]]：在共享 Spot 编辑框架中实现 Init / Area 热 CRUD，并在当前位置丢失时回到默认 Area 或 Init 选择界面。
 - [[task-0089-runtime-area-topology-overlay]]：分离静态 Area Def 拓扑与 Runtime 可用拓扑，支持 Runtime Mod 对外部 Area 建立双向连接。
 - [[task-0090-aoci-code-codex-integration]]：完成 AOCI-CODE 的 Codex 接入、首轮仓库认知索引、对齐验证与面板交付（已归档）。
+- [[task-0091-aoci-task-system-structure-alignment]]：完成 AGENTS、任务入口与旧空目录骨架向 AOCI 分层的对齐（已归档）。
 
 ## 相关路由
 

@@ -58,6 +58,16 @@
 - 旧文档只继续维护其原定范围、状态和历史结论；新文档应通过“前置 / 关联 / 后续入口”链接旧文档，不能用追加章节的方式掩盖任务范围扩张。
 - 只有同一目标下的澄清、验收记录或非扩展性修订才留在原文档；若出现新的独立标题、实现阶段、责任边界或延期事项，应拆为新文档并同步 docs/plan-work/00-index.md。
 
+## AOCI 与任务系统协作
+
+- `AGENTS.md` 只承载稳定的项目规则与路由；`aoci.txt`、`aoci.meta.txt`、`aoci.code.txt` 和可选的 `aoci.database.txt` 承载仓库认知，不在此复制认知正文或 FRAS 机制。
+- `docs/plan-work/00-index.md` 是任务与历史入口；`docs/plan-work/` 根目录只放当前确实推进的 Task / ADR / Draft，`archive/` 与 `mechanisms/` 是冻结考古层。
+- Codex Goal 只负责当前会话的持续执行，不是项目事实源；长期状态、边界、决策、验收和剩余工作必须写入对应 Task 文档。
+- 新任务开始时先建立或更新根目录 Task，并同步 `00-index.md`；范围扩展必须拆新文档，不把旧 Task 变成多主题容器。
+- 代码或文档达到最终稳定状态后，按当前 AOCI Guide 处理受影响 Entry，依次完成 Verify、Check、Guide；不得手工编辑 AOCI Volume。
+- Task 完成后先写入最终核验，再将文档移入 `docs/plan-work/archive/`、更新 `00-index.md`，最后重新维护受影响 Entry 并再次完成终态核验。
+- `.codex/config.toml` 等机器绑定宿主配置保持 Git 忽略；认知资产、必要的 `.aoci/` 治理状态和 Task 文档应在审阅后纳入本地 Git 提交。
+
 ## 命令
 
 | 命令 | 用途 |

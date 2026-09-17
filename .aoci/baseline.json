@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-09-17T05:08:34Z",
-  "updated_at": "2026-09-17T09:30:33Z",
+  "updated_at": "2026-09-17T14:58:16Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -19,14 +19,14 @@
       "normalized_sha256": "dbf21f615286da1beda8be6682c59435a6d24947c270dcde85be5c00fad40d40"
     },
     "AGENTS.md": {
-      "sha256": "5405e26d5243a75a8031bd0c1496583c2f46ecb61b06fe9f45b85eb6f4f6be28",
-      "size": 23091,
-      "normalized_sha256": "12613a915e952c5a30bbd8b7248ca00b159e06681880c3bba7dfba6cd709c53e"
+      "sha256": "bf79662fdb95067de083f522b6e15d0ac8e77d6c6445c27f6e1942a8f82f16ae",
+      "size": 24338,
+      "normalized_sha256": "fac7b33d146d7b2e4e250f979454cc609c2e5b031721078e5b12385cbd8d012e"
     },
     "aoci.code.txt": {
-      "sha256": "4b9016d45c103a81f542ca3e0dd1b4717c5f3a381b947426dff96d4aa5c6b234",
-      "size": 412669,
-      "normalized_sha256": "4b9016d45c103a81f542ca3e0dd1b4717c5f3a381b947426dff96d4aa5c6b234"
+      "sha256": "682f9e96e9dc4bfa80aa692e2026117479604e739c31bb4d0b1c30ef0d1632f2",
+      "size": 413547,
+      "normalized_sha256": "682f9e96e9dc4bfa80aa692e2026117479604e739c31bb4d0b1c30ef0d1632f2"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -546,9 +546,9 @@
       "normalized_sha256": "f90deb36f23940ec18c3b51544dfc5c5af370404281ecf45782713c40e4307ed"
     },
     "docs/plan-work/00-index.md": {
-      "sha256": "e1d5859572fb193112552ca7c32595032d5436448c8b3f2602a910169a9abe3d",
-      "size": 14008,
-      "normalized_sha256": "a3cedd7899a3675546d6de756eb55a9191984d893527aaade044a0fa604ee1e3"
+      "sha256": "3eaf80bbe0750914ab420756a7318f421fbba43543e34c9945044015a91cd665",
+      "size": 14660,
+      "normalized_sha256": "82e970e7c4addec6810510e87ae63117041160215ed0b6a9426c731a5e8abffc"
     },
     "docs/plan-work/archive/01-ownership-and-development.md": {
       "sha256": "c4fe861643ad530bc3cf8221fd0c414530bc2f8145f2f323d4ad4753257e2a74",
@@ -1189,6 +1189,11 @@
       "sha256": "01620e68f648f1e940ed740635ce07abcb6881cee0a955a31beb4d2f5aee68e3",
       "size": 8519,
       "normalized_sha256": "01620e68f648f1e940ed740635ce07abcb6881cee0a955a31beb4d2f5aee68e3"
+    },
+    "docs/plan-work/archive/task-0091-aoci-task-system-structure-alignment.md": {
+      "sha256": "ce40fb08be375dae8f628b9728d953a1122bcba4724a93c9dddd4aa847c7f48d",
+      "size": 2000,
+      "normalized_sha256": "ce40fb08be375dae8f628b9728d953a1122bcba4724a93c9dddd4aa847c7f48d"
     },
     "docs/plan-work/archive/theme-color-system-refinement-roadmap.md": {
       "sha256": "49751c4c2674389d12f59415c7924cf4b748a5ce1f457343ada0653b0409551f",
