@@ -6,7 +6,7 @@
 // ============================================================
 
 import { getContentPolicy, SPOT_CONTENT_POLICY, validateAuthoringInput, type ContentAuthoringPolicy, type SpotFunctionalityKind } from '../../data-services/authoring/content-policy';
-import { renderRuntimeDefinitionForm, renderRuntimeEditorForm, renderRuntimeEditorWorkspace, renderRuntimeSpotForm, runtimeEditorPreferredAreaInitId } from './view';
+import { renderRuntimeDefinitionForm, renderRuntimeEditorForm, renderRuntimeEditorWorkspace, renderRuntimeSpotForm, runtimeEditorInitProblems, runtimeEditorPreferredAreaInitId } from './view';
 import {
   createRuntimeDatapackEditorState,
   findRuntimeEditorAppliedSpot,
@@ -136,6 +136,11 @@ function readRuntimeDefinitionExtensions(policy: ContentAuthoringPolicy, scope: 
   const values: Record<string, unknown> = {};
   for (const extension of policy.extensions ?? []) {
     if (extension.editor === 'reference-list') {
+      if (extension.inputKey === 'defaultAreas') {
+        const rows = [...scope.querySelectorAll<HTMLElement>('[data-runtime-init-area-row]')];
+        values[extension.inputKey] = rows.map(row => row.dataset.areaId ?? '').filter(Boolean);
+        continue;
+      }
       const text = scope.querySelector<HTMLTextAreaElement>(`[data-runtime-editor-extension="${extension.inputKey}"]`)?.value ?? '';
       values[extension.inputKey] = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
       continue;
@@ -311,9 +316,11 @@ function saveRuntimeDefinitionDraft(ctrl: UIController, scope: ParentNode, reope
   const values: Record<string, unknown> = { ...(editor.formDraft ?? {}) };
   const normalizedIds = normalizeEntityNameValues(policy, values);
   setRuntimeEditorNotice(editor, normalizedIds.length > 0 ? `ID 含大写字母，已自动转为小写：${normalizedIds.join('、')}` : null);
-  const problem = validateAuthoringInput(policy, values, runtimeAuthoringContext(ctrl));
+  const policyProblem = validateAuthoringInput(policy, values, runtimeAuthoringContext(ctrl));
+  const initProblems = kind === 'inits' ? runtimeEditorInitProblems(createUIContext(ctrl.game), editor, values) : [];
+  const problem = policyProblem ?? initProblems[0];
   if (problem) {
-    setRuntimeEditorProblems(editor, [problem]);
+    setRuntimeEditorProblems(editor, policyProblem ? [policyProblem, ...initProblems] : initProblems);
     setRuntimeEditorError(editor, problem.message);
     if (reopenEditor) openRuntimeDefinitionEditor(ctrl, kind);
     return false;
@@ -354,6 +361,13 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
   }
   if (!ctrl.commands.applyRuntimeWorldDraft) {
     setRuntimeEditorError(editor, '当前运行时不支持 Init / Area 热 CRUD。');
+    openRuntimeDatapackEditor(ctrl);
+    return;
+  }
+  const initProblems = editor.inits.flatMap(init => runtimeEditorInitProblems(createUIContext(ctrl.game), editor, init));
+  if (initProblems.length > 0) {
+    setRuntimeEditorProblems(editor, initProblems);
+    setRuntimeEditorError(editor, initProblems[0].message);
     openRuntimeDatapackEditor(ctrl);
     return;
   }
@@ -409,7 +423,7 @@ function applyRuntimeEditorDraft(
 ): void {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor) return;
-  if (hasRuntimeWorldContent(editor)) {
+  if (editor.selectedContentKind === 'inits' || editor.selectedContentKind === 'areas' || hasRuntimeWorldContent(editor)) {
     applyRuntimeWorldEditorDraft(ctrl);
     return;
   }
@@ -592,9 +606,10 @@ function openRuntimeDefinitionDeleteConfirm(ctrl: UIController, kind: RuntimeEdi
   const label = kind === 'inits' ? 'Init' : kind === 'areas' ? 'Area' : 'Enhancement';
   const name = definition && 'name' in definition ? definition.name : idName;
   const applied = runtimeEditorAppliedDefinitions(editor, kind).some(item => item.idName === idName);
+  const impact = kind === 'inits' ? renderRuntimeInitDeletionImpact(ctrl, idName) : '';
   ctrl.modal.open({
     title: `删除临时 ${label}`,
-    body: `<div class="runtime-editor-form"><p>即将删除「${escapeHtml(name || idName)}」。</p><p class="service-summary">${applied ? `该 ${label} 已应用到 Runtime；确认后会从 Draft 移除，点击“应用到运行时”才会真正移除。` : `该 ${label} 尚未应用到 Runtime，只会从当前 Draft 移除。`}</p>${policy?.unsupportedFieldHint ? `<p class="runtime-editor-hint">${escapeHtml(policy.unsupportedFieldHint)}</p>` : ''}</div>`,
+    body: `<div class="runtime-editor-form"><p>即将删除「${escapeHtml(name || idName)}」。</p><p class="service-summary">${applied ? `该 ${label} 已应用到 Runtime；确认后会从 Draft 移除，点击“应用到运行时”才会真正移除。` : `该 ${label} 尚未应用到 Runtime，只会从当前 Draft 移除。`}</p>${impact}${policy?.unsupportedFieldHint ? `<p class="runtime-editor-hint">${escapeHtml(policy.unsupportedFieldHint)}</p>` : ''}</div>`,
     footer: '<button type="button" class="modal-close toolbar-button">取消</button><button type="button" class="primary-button danger" data-runtime-definition-delete-confirm>确认删除</button>',
     width: 560,
     panelClass: 'runtime-datapack-modal',
@@ -610,6 +625,24 @@ function openRuntimeDefinitionDeleteConfirm(ctrl: UIController, kind: RuntimeEdi
       openRuntimeDatapackEditor(ctrl);
     });
   }
+}
+
+function renderRuntimeInitDeletionImpact(ctrl: UIController, idName: string): string {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  if (!editor?.modName) return '';
+  const initId = `${editor.modName}:init:${idName}`;
+  const areas = [...ctrl.game.registry.areas.values()].filter(area => area.initId === initId);
+  const spotIds = areas.flatMap(area => ctrl.game.registry.spotsOfArea(area.id));
+  const view = ctrl.game.getView();
+  const active = view.activeInit === initId;
+  const areaText = areas.length > 0
+    ? areas.map(area => `${area.name || area.id} (${area.id})`).join('、')
+    : '无已注册 Area';
+  const spotText = spotIds.length > 0 ? `${spotIds.length} 个 Spot` : '无已注册 Spot';
+  const activeText = active
+    ? `当前 activeInit：${initId}；currentAreaId：${view.currentAreaId ?? '未设置'}。Apply 后会回到 Init 选择界面。`
+    : '当前不是 activeInit；不会改变当前玩家位置。';
+  return `<section class="runtime-editor-delete-impact" aria-label="删除影响"><h5>删除影响预览</h5><ul><li><span>所属 Area</span><strong>${escapeHtml(areaText)}</strong></li><li><span>关联 Spot</span><strong>${escapeHtml(spotText)}（不会级联删除）</strong></li><li><span>当前定位</span><strong>${escapeHtml(activeText)}</strong></li><li><span>per-Init 快照</span><strong>保留，不自动清理</strong></li></ul><p class="runtime-editor-warning">若仍有 Area 引用该 Init，Apply 会被阻断；请先在同一批次处理引用，系统不会留下半删除状态。</p></section>`;
 }
 
 export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode): void {
@@ -705,6 +738,7 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     });
   });
   bindRuntimeCollectionActions(ctrl, scope);
+  bindRuntimeInitAreaActions(ctrl, scope);
   bindRuntimeAreaTopologyActions(ctrl, scope);
   scope.querySelector('[data-runtime-editor-apply]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
@@ -774,10 +808,30 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     });
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-diagnostic]').forEach(item => {
-    item.addEventListener('click', () => {
+    const focusDiagnostic = (): void => {
+      const editor = ctrl.panelState.runtimeDatapackEditor;
+      if (!editor) return;
       const key = item.dataset.runtimeEditorDiagnostic;
-      if (!key) return;
-      scope.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-editor-field="${key}"]`)?.focus();
+      const sectionId = item.dataset.runtimeEditorDiagnosticSection;
+      const kind = (scope.querySelector<HTMLElement>('[data-runtime-editor-definition-form]')?.dataset.runtimeEditorContentKind ?? editor.selectedContentKind) as RuntimeEditorContentKind;
+      if (sectionId && editor.activeSection !== sectionId) {
+        if (kind === 'spots') stashSpotForm(ctrl, scope);
+        else stashRuntimeDefinitionForm(ctrl, scope);
+        editor.activeSection = sectionId;
+        if (kind === 'spots') openRuntimeSpotEditor(ctrl);
+        else openRuntimeDefinitionEditor(ctrl, kind);
+        return;
+      }
+      if (key) scope.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-editor-field="${key}"]`)?.focus();
+      const index = item.dataset.runtimeEditorDiagnosticPath?.match(/defaultAreas\[(\d+)\]/)?.[1];
+      if (index) scope.querySelector<HTMLElement>(`[data-runtime-init-area-row][data-runtime-init-area-index="${index}"] button`)?.focus();
+    };
+    item.addEventListener('click', focusDiagnostic);
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        focusDiagnostic();
+      }
     });
   });
   scope.querySelector('[data-runtime-editor-delete-spot]')?.addEventListener('click', () => {
@@ -840,6 +894,132 @@ function stashSpotForm(ctrl: UIController, scope: ParentNode): void {
     }
   }
   editor.formDraft = values;
+}
+
+function bindRuntimeInitAreaActions(ctrl: UIController, scope: ParentNode): void {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  if (!editor || editor.selectedContentKind !== 'inits') return;
+  const picker = scope.querySelector<HTMLElement>('[data-runtime-init-area-picker]');
+  const input = picker?.querySelector<HTMLInputElement>('[data-runtime-init-area-query]');
+  const menu = picker?.querySelector<HTMLElement>('[data-runtime-init-area-options]');
+  const options = menu ? [...menu.querySelectorAll<HTMLButtonElement>('[data-runtime-init-area-option]')] : [];
+  let activeIndex = -1;
+  const closePicker = (): void => {
+    if (!menu || !input) return;
+    menu.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+    options.forEach(option => option.removeAttribute('aria-selected'));
+    activeIndex = -1;
+  };
+  const openPicker = (): void => {
+    if (!menu || !input) return;
+    const query = input.value.trim().toLocaleLowerCase();
+    let firstVisible = -1;
+    options.forEach((option, index) => {
+      const haystack = `${option.dataset.areaLabel ?? ''} ${option.dataset.areaId ?? ''}`.toLocaleLowerCase();
+      const visible = !query || haystack.includes(query);
+      option.hidden = !visible;
+      option.style.display = visible ? '' : 'none';
+      option.removeAttribute('aria-selected');
+      if (visible && firstVisible < 0) firstVisible = index;
+    });
+    menu.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    activeIndex = firstVisible;
+    if (activeIndex >= 0) options[activeIndex].setAttribute('aria-selected', 'true');
+  };
+  const chooseOption = (option: HTMLButtonElement | undefined): void => {
+    if (!option || !input || option.getAttribute('aria-disabled') === 'true') return;
+    input.value = option.dataset.areaLabel ?? option.dataset.areaId ?? '';
+    input.dataset.selectedAreaId = option.dataset.areaId ?? '';
+    closePicker();
+  };
+  input?.addEventListener('focus', openPicker);
+  input?.addEventListener('input', () => {
+    delete input.dataset.selectedAreaId;
+    openPicker();
+  });
+  input?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closePicker();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      openPicker();
+      const visible = options.filter(option => !option.hidden);
+      if (visible.length === 0) return;
+      const current = activeIndex >= 0 ? options[activeIndex] : undefined;
+      const currentVisible = current && !current.hidden ? visible.indexOf(current) : -1;
+      const offset = event.key === 'ArrowDown' ? 1 : -1;
+      const next = Math.max(0, Math.min(visible.length - 1, currentVisible + offset));
+      activeIndex = options.indexOf(visible[next]);
+      options.forEach(option => option.removeAttribute('aria-selected'));
+      visible[next].setAttribute('aria-selected', 'true');
+      visible[next].scrollIntoView?.({ block: 'nearest' });
+      return;
+    }
+    if (event.key === 'Enter' && menu && !menu.hidden) {
+      event.preventDefault();
+      chooseOption(activeIndex >= 0 ? options[activeIndex] : options.find(option => !option.hidden));
+    }
+  });
+  options.forEach(option => {
+    option.addEventListener('mousedown', event => event.preventDefault());
+    option.addEventListener('click', () => chooseOption(option));
+  });
+  input?.addEventListener('blur', () => setTimeout(() => {
+    if (!picker?.contains(document.activeElement)) closePicker();
+  }, 0));
+
+  scope.querySelector('[data-runtime-init-area-add]')?.addEventListener('click', () => {
+    stashRuntimeDefinitionForm(ctrl, scope);
+    const values = editor.formDraft ?? {};
+    const selectedId = input?.dataset.selectedAreaId ?? '';
+    const option = options.find(item => item.dataset.areaId === selectedId);
+    const areas = Array.isArray(values.defaultAreas) ? values.defaultAreas.map(item => String(item)) : [];
+    const initId = `${editor.modName}:init:${String(values.idName ?? '')}`;
+    if (!option || option.getAttribute('aria-disabled') === 'true') {
+      setRuntimeEditorError(editor, '请从候选列表中选择一个尚未加入的 Area。');
+    } else if (areas.includes(selectedId)) {
+      setRuntimeEditorError(editor, `默认区域不能重复：${selectedId}`);
+    } else if (option.dataset.areaInitId && option.dataset.areaInitId !== initId) {
+      setRuntimeEditorError(editor, `默认区域归属不一致：${selectedId} 属于 ${option.dataset.areaInitId}。`);
+      setRuntimeEditorProblems(editor, [{ code: 'wrong-owner', path: 'init.defaultAreas', sectionId: 'areas', message: `默认区域归属不一致：${selectedId} 属于 ${option.dataset.areaInitId}。` }]);
+    } else {
+      editor.formDraft = { ...values, defaultAreas: [...areas, selectedId] };
+      setRuntimeEditorError(editor, null);
+      setRuntimeEditorProblems(editor, runtimeEditorInitProblems(createUIContext(ctrl.game), editor, editor.formDraft));
+    }
+    openRuntimeDefinitionEditor(ctrl, 'inits');
+  });
+
+  const reorder = (index: number, delta: number): void => {
+    stashRuntimeDefinitionForm(ctrl, scope);
+    const values = editor.formDraft ?? {};
+    const areas = Array.isArray(values.defaultAreas) ? values.defaultAreas.map(item => String(item)) : [];
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= areas.length) return;
+    [areas[index], areas[target]] = [areas[target], areas[index]];
+    editor.formDraft = { ...values, defaultAreas: areas };
+    setRuntimeEditorError(editor, null);
+    setRuntimeEditorProblems(editor, runtimeEditorInitProblems(createUIContext(ctrl.game), editor, editor.formDraft));
+    openRuntimeDefinitionEditor(ctrl, 'inits');
+  };
+  scope.querySelectorAll<HTMLElement>('[data-runtime-init-area-up]').forEach(button => button.addEventListener('click', () => reorder(Number(button.dataset.runtimeInitAreaUp), -1)));
+  scope.querySelectorAll<HTMLElement>('[data-runtime-init-area-down]').forEach(button => button.addEventListener('click', () => reorder(Number(button.dataset.runtimeInitAreaDown), 1)));
+  scope.querySelectorAll<HTMLElement>('[data-runtime-init-area-remove]').forEach(button => button.addEventListener('click', () => {
+    stashRuntimeDefinitionForm(ctrl, scope);
+    const values = editor.formDraft ?? {};
+    const areas = Array.isArray(values.defaultAreas) ? values.defaultAreas.map(item => String(item)) : [];
+    const index = Number(button.dataset.runtimeInitAreaRemove);
+    if (!Number.isInteger(index) || index < 0 || index >= areas.length) return;
+    areas.splice(index, 1);
+    editor.formDraft = { ...values, defaultAreas: areas };
+    setRuntimeEditorError(editor, null);
+    setRuntimeEditorProblems(editor, runtimeEditorInitProblems(createUIContext(ctrl.game), editor, editor.formDraft));
+    openRuntimeDefinitionEditor(ctrl, 'inits');
+  }));
 }
 
 /** 集合的增删与条目子编辑：原型驱动；新增一类可变列表无需修改这里。 */
@@ -1102,8 +1282,34 @@ export function syncRuntimeAreaCreateAction(ctrl: UIController): void {
 }
 
 export function syncRuntimeEditorCreateActions(ctrl: UIController): void {
+  syncRuntimeInitCreateAction(ctrl);
   syncRuntimeSpotCreateAction(ctrl);
   syncRuntimeAreaCreateAction(ctrl);
+}
+
+/** 编辑态常驻快捷入口：即使当前停留在 Init 选择页，也能创建新的 Init。 */
+export function syncRuntimeInitCreateAction(ctrl: UIController): void {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  const key = 'runtime-init-create';
+  if (!editor?.enabled) {
+    ctrl.toast.removeAction(key);
+    return;
+  }
+  const configured = Boolean(editor.modName && editor.displayName);
+  ctrl.toast.showAction(
+    key,
+    configured ? '创建新的 Runtime Init' : '先配置 Runtime Mod，再创建 Init',
+    '新建 Init',
+    () => {
+      if (!configured) {
+        ctrl.navigateToService('datapack');
+        ctrl.render();
+        return;
+      }
+      prepareRuntimeEditorForNewDefinition(editor, 'inits');
+      openRuntimeDefinitionEditor(ctrl, 'inits');
+    },
+  );
 }
 
 /** 条目弹窗内交互（事件委托，只绑定一次）：类型切换、条件 / 效果的展开与增删。 */

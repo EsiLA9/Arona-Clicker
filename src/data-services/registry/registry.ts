@@ -77,6 +77,8 @@ export class Registry {
   private _areas: Map<string, AreaDef> = new Map();
   private _spots: Map<string, SpotDef> = new Map();
   private _suspendedSpots = new Map<string, { spot: SpotDef; ownerModName: string }>();
+  private _initSourceModNames = new Map<string, string>();
+  private _areaSourceModNames = new Map<string, string>();
   private _spotSourceModNames = new Map<string, string>();
   private _spotTagModNames = new Map<string, string>();
   private _tagOwnerModNames = new Map<string, string>();
@@ -141,21 +143,27 @@ export class Registry {
     this.tableSteps = [
       {
         table: 'inits',
-        merge: dp => { for (const init of dp.inits) this._inits.set(init.id, init); },
-        clear: () => this._inits.clear(),
+        merge: dp => {
+          for (const init of dp.inits) {
+            this._inits.set(init.id, init);
+            this._initSourceModNames.set(init.id, this.currentPackModName);
+          }
+        },
+        clear: () => { this._inits.clear(); this._initSourceModNames.clear(); },
       },
       {
         table: 'areas',
         merge: dp => {
           for (const area of dp.areas) {
             this._areas.set(area.id, area);
+            this._areaSourceModNames.set(area.id, this.currentPackModName);
             if (!this._areasByInit.has(area.initId)) {
               this._areasByInit.set(area.initId, []);
             }
             this._areasByInit.get(area.initId)!.push(area.id);
           }
         },
-        clear: () => { this._areas.clear(); this._areasByInit.clear(); },
+        clear: () => { this._areas.clear(); this._areaSourceModNames.clear(); this._areasByInit.clear(); },
       },
       {
         table: 'spots',
@@ -419,6 +427,9 @@ export class Registry {
   get inits(): ReadonlyMap<string, InitDef> { return this._inits; }
   get areas(): ReadonlyMap<string, AreaDef> { return this._areas; }
   get spots(): ReadonlyMap<string, SpotDef> { return this._spots; }
+  /** 当前 Init / Area 定义的来源 Mod；不存在时返回 undefined。 */
+  initOwnerOf(initId: string): string | undefined { return this._initSourceModNames.get(initId); }
+  areaOwnerOf(areaId: string): string | undefined { return this._areaSourceModNames.get(areaId); }
   /** 当前 Spot 的来源 Mod；不存在时返回 undefined。 */
   spotOwnerOf(spotId: string): string | undefined { return this._spotSourceModNames.get(spotId); }
   /** 当前解析结果之外仍保留的 Spot source record（仅供编辑/撤回协调层读取）。 */
@@ -552,15 +563,22 @@ export class Registry {
     const initId = mutation.operation === 'delete' ? mutation.initId : mutation.init.id;
     this.validateWorldId(initId, 'init', mutation.ownerModName, 'Init');
     const previousInit = this._inits.get(initId);
+    const previousOwner = this._initSourceModNames.get(initId);
+
+    if (previousInit && previousOwner !== undefined && previousOwner !== mutation.ownerModName) {
+      throw new RegistryError(`Init "${initId}" 属于 Mod "${previousOwner}"，不能由 Mod "${mutation.ownerModName}" 修改`);
+    }
 
     if (mutation.operation === 'create') {
       if (previousInit) throw new RegistryError(`Init "${initId}" 已存在；局部变更应使用 replace`);
       this.validateInitCandidate(mutation.init, mutation.ownerModName);
       this._inits.set(initId, mutation.init);
+      this._initSourceModNames.set(initId, mutation.ownerModName);
     } else if (mutation.operation === 'replace') {
       if (!previousInit) throw new RegistryError(`Init "${initId}" 不存在`);
       this.validateInitCandidate(mutation.init, mutation.ownerModName);
       this._inits.set(initId, mutation.init);
+      this._initSourceModNames.set(initId, mutation.ownerModName);
     } else {
       if (!previousInit) throw new RegistryError(`Init "${initId}" 不存在`);
       const areas = [...this._areas.values()].filter(area => area.initId === initId);
@@ -568,6 +586,7 @@ export class Registry {
         throw new RegistryError(`Init "${initId}" 仍被 Area 引用：${areas.map(area => area.id).join('、')}`);
       }
       this._inits.delete(initId);
+      this._initSourceModNames.delete(initId);
     }
 
     let rolledBack = false;
@@ -587,6 +606,8 @@ export class Registry {
         }
         if (previousInit) this._inits.set(initId, previousInit);
         else this._inits.delete(initId);
+        if (previousInit && previousOwner !== undefined) this._initSourceModNames.set(initId, previousOwner);
+        else this._initSourceModNames.delete(initId);
         rolledBack = true;
       },
     };
@@ -600,12 +621,19 @@ export class Registry {
     const areaId = mutation.operation === 'delete' ? mutation.areaId : mutation.area.id;
     this.validateWorldId(areaId, 'area', mutation.ownerModName, 'Area');
     const previousArea = this._areas.get(areaId);
+    const previousOwner = this._areaSourceModNames.get(areaId);
+    let previousAreaIndex = -1;
+
+    if (previousArea && previousOwner !== undefined && previousOwner !== mutation.ownerModName) {
+      throw new RegistryError(`Area "${areaId}" 属于 Mod "${previousOwner}"，不能由 Mod "${mutation.ownerModName}" 修改`);
+    }
 
     if (mutation.operation === 'create') {
       if (previousArea) throw new RegistryError(`Area "${areaId}" 已存在；局部变更应使用 replace`);
       this.validateAreaCandidate(mutation.area, mutation.ownerModName);
       this._areas.set(areaId, mutation.area);
       this.addAreaToIndex(mutation.area);
+      this._areaSourceModNames.set(areaId, mutation.ownerModName);
     } else if (mutation.operation === 'replace') {
       if (!previousArea) throw new RegistryError(`Area "${areaId}" 不存在`);
       if (previousArea.initId !== mutation.area.initId) {
@@ -613,8 +641,10 @@ export class Registry {
       }
       this.validateAreaCandidate(mutation.area, mutation.ownerModName);
       const index = this.removeAreaFromIndex(previousArea);
+      previousAreaIndex = index;
       this._areas.set(areaId, mutation.area);
       this.addAreaToIndex(mutation.area, index);
+      this._areaSourceModNames.set(areaId, mutation.ownerModName);
     } else {
       if (!previousArea) throw new RegistryError(`Area "${areaId}" 不存在`);
       const spots = this.spotsOfArea(areaId);
@@ -627,8 +657,9 @@ export class Registry {
       if (adjacentAreas.length > 0) {
         throw new RegistryError(`Area "${areaId}" 仍被邻接关系引用：${adjacentAreas.map(area => area.id).join('、')}`);
       }
-      this.removeAreaFromIndex(previousArea);
+      previousAreaIndex = this.removeAreaFromIndex(previousArea);
       this._areas.delete(areaId);
+      this._areaSourceModNames.delete(areaId);
     }
 
     let rolledBack = false;
@@ -649,7 +680,10 @@ export class Registry {
         this._areas.delete(areaId);
         if (previousArea) {
           this._areas.set(areaId, previousArea);
-          this.addAreaToIndex(previousArea);
+          this.addAreaToIndex(previousArea, previousAreaIndex >= 0 ? previousAreaIndex : undefined);
+          if (previousOwner !== undefined) this._areaSourceModNames.set(areaId, previousOwner);
+        } else {
+          this._areaSourceModNames.delete(areaId);
         }
         rolledBack = true;
       },
@@ -1004,6 +1038,10 @@ export class Registry {
 
   private validateInitCandidate(init: InitDef, ownerModName: string): void {
     this.validateWorldId(init.id, 'init', ownerModName, 'Init');
+    const startStoryEntry = init.startStoryId ? this._activeStories.get(init.startStoryId) : undefined;
+    if (init.startStoryId && !this._stories.has(init.startStoryId) && !startStoryEntry?.storyId) {
+      throw new RegistryError(`Init "${init.id}" references unknown start story: "${init.startStoryId}"`);
+    }
     validateDatapack({
       modName: ownerModName,
       name: 'runtime-init-mutation',

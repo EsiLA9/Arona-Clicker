@@ -198,13 +198,13 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     if (currentModName && currentModName !== modName) {
       return { ok: false, message: `当前已有临时 Mod：${currentModName}，请先删除后再创建其他 Mod。` };
     }
+    if (!contentState.modName && !this.runtimeMod && this.registry.loadedModNames.has(modName)) {
+      return { ok: false, message: `modName 已被当前运行时占用：${modName}` };
+    }
     try {
       this.runtimeWorldContent.setModName(modName);
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error) };
-    }
-    if (!contentState.modName && !this.runtimeMod && this.registry.loadedModNames.has(modName)) {
-      return { ok: false, message: `modName 已被当前运行时占用：${modName}` };
     }
     const current = this.runtimeMod;
     this.runtimeMod = {

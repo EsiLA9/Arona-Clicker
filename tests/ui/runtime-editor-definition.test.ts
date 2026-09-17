@@ -13,7 +13,9 @@ import {
   setRuntimeEditorDefinition,
   toRuntimeModDraft,
 } from '../../src/ui/runtime-editor/state';
-import { renderRuntimeDefinitionForm, renderRuntimeEditorWorkspace } from '../../src/ui/runtime-editor/view';
+import { ToastService } from '../../src/ui/components/toast';
+import { syncRuntimeInitCreateAction } from '../../src/ui/runtime-editor/actions';
+import { renderRuntimeDefinitionForm, renderRuntimeEditorWorkspace, runtimeEditorInitProblems, runtimeEditorInitUnsupportedFields } from '../../src/ui/runtime-editor/view';
 
 const ctx = {
   game: {
@@ -32,6 +34,23 @@ const ctx = {
 } as unknown as UIContext;
 
 describe('Runtime Editor shared Init / Area framework', () => {
+  test('Init 选择页通过常驻 Toast 提供新建 Init 入口', () => {
+    document.body.innerHTML = '';
+    const editor = createRuntimeDatapackEditorState(null);
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    const ctrl = {
+      panelState: { runtimeDatapackEditor: editor },
+      toast: new ToastService(),
+    } as never;
+
+    syncRuntimeInitCreateAction(ctrl);
+
+    const action = document.querySelector<HTMLElement>('[data-toast-action-key="runtime-init-create"]');
+    expect(action?.textContent).toContain('新建 Init');
+    expect(action?.textContent).toContain('创建新的 Runtime Init');
+  });
+
   test('Init / Area 使用同一 Draft CRUD 状态并映射到 RuntimeModDraft', () => {
     const editor = createRuntimeDatapackEditorState(null);
     editor.modName = 'runtime';
@@ -109,6 +128,51 @@ describe('Runtime Editor shared Init / Area framework', () => {
     area.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor, service: 'datapack' } as unknown as PanelState, 'areas');
 
     expect(area.querySelector<HTMLSelectElement>('[data-runtime-editor-field="initId"]')?.value).toBe('');
+  });
+
+  test('Init 使用五个专属 Switch，并以候选顺序编辑 defaultAreas', () => {
+    const editor = createRuntimeDatapackEditorState(null);
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    setRuntimeEditorDefinition(editor, 'inits', {
+      idName: 'main', name: 'Main', description: '', defaultAreas: ['runtime:area:lobby', 'base:area:main'],
+    });
+    editor.areas.push({ idName: 'lobby', initId: 'runtime:init:main', name: '入口大厅', description: '', defaultSpots: [] });
+    editor.activeSection = 'areas';
+
+    const scope = document.createElement('div');
+    scope.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'inits');
+
+    expect([...scope.querySelectorAll('[data-runtime-editor-section-tab]')].map(item => item.textContent?.trim().replace(/\d+$/, ''))).toEqual(['概览', '基础', '区域', '揭示', '诊断']);
+    expect(scope.querySelector('textarea[data-runtime-editor-extension="defaultAreas"]')).toBeNull();
+    expect(scope.querySelectorAll('[data-runtime-init-area-row]')).toHaveLength(2);
+    expect(scope.querySelector('[data-runtime-init-area-row]')?.textContent).toContain('入口大厅');
+    expect(scope.querySelector('[data-runtime-init-area-row]')?.textContent).toContain('待提交');
+    expect(scope.querySelector('[data-runtime-init-area-row].has-runtime-editor-problem')).not.toBeNull();
+    expect(scope.querySelector('[data-runtime-init-area-option][data-area-id="runtime:area:lobby"]')).not.toBeNull();
+  });
+
+  test('Init 关系错误与未开放字段会进入诊断，且空 defaultAreas 保持合法警告', () => {
+    const editor = createRuntimeDatapackEditorState(null);
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    setRuntimeEditorDefinition(editor, 'inits', { idName: 'main', name: 'Main', description: '', defaultAreas: [] });
+    (ctx.game.registry.inits as unknown as Map<string, Record<string, unknown>>).set('runtime:init:main', { id: 'runtime:init:main', name: 'Main', enterEffects: [] });
+
+    expect(runtimeEditorInitUnsupportedFields(ctx, editor, editor.inits[0])).toEqual(['进入效果']);
+    expect(runtimeEditorInitProblems(ctx, editor, editor.inits[0]).map(problem => problem.code)).toContain('unsupported-field');
+
+    editor.activeSection = 'overview';
+    const overview = document.createElement('div');
+    overview.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'inits');
+    expect(overview.textContent).toContain('没有默认区域');
+
+    editor.activeSection = 'diagnostics';
+    const diagnostics = document.createElement('div');
+    diagnostics.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'inits');
+    expect(diagnostics.textContent).toContain('能力问题');
+    expect(diagnostics.textContent).toContain('替换会被阻断');
+    (ctx.game.registry.inits as unknown as Map<string, unknown>).delete('runtime:init:main');
   });
 
   test('Area 拓扑使用可搜索目标与连接类型列表，而不是原始 ID 文本框', () => {

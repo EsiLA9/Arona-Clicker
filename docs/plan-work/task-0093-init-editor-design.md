@@ -1,12 +1,12 @@
 # Task：Init 编辑器设计与实施规划
 
-状态：proposed — 🟡 已完成首版策划，待裁定与开工
+状态：active — 🟡 引擎与 UI 已落地，待浏览器验收与最终准出
 
 ## 目标
 
 完成游戏内 Runtime Editor 的 Init 编辑器设计，使 Init 不再只是一个普通 Definition 表单，而是一个可理解、可校验、可安全提交的世界线入口编辑器。首版设计复用现有统一编辑器外壳、Draft、Policy、Init / Area 热 CRUD 与位置兜底，不改造 `tools/datapack-editor/`。
 
-本 Task 只做设计与实施边界，不修改业务源码。开工后应另按切片实现并补齐测试。
+本 Task 负责设计、实现边界与验收记录；当前实现仍限定在游戏内 `src/ui/` Runtime Editor，不恢复独立数据包编辑器。
 
 ## 设计基线
 
@@ -134,21 +134,30 @@ Init Draft
 
 ### D1：Init 专属交互落地
 
-- [ ] 将 Init 概览、基础、区域、揭示、诊断按本设计收敛。
-- [ ] 把 `defaultAreas` 从自由引用输入收敛为有序候选列表，并支持当前 Draft Area。
+- [x] 将 Init 概览、基础、区域、揭示、诊断按本设计收敛。
+- [x] 把 `defaultAreas` 从自由引用输入收敛为有序候选列表，并支持当前 Draft Area。
 - [ ] 在列表和表单中区分来源、Draft 状态、未支持字段和引用错误。
 
 ### D2：安全回写与影响预览
 
-- [ ] 为已有复杂字段建立阻断或不透明载荷保留的明确实现，不允许静默丢字段。
-- [ ] 补齐 Init 删除、当前 Init / Area 失效和批量 Init / Area 引用影响诊断。
-- [ ] 确认 Apply 失败时 Draft、Applied、Registry 和运行时位置的回滚边界。
+- [x] 为已有复杂字段建立阻断或不透明载荷保留的明确实现，不允许静默丢字段。
+- [x] 补齐 Init 删除、当前 Init / Area 失效和批量 Init / Area 引用影响诊断。
+- [x] 确认 Apply 失败时 Draft、Applied、Registry 和运行时位置的回滚边界。
 
 ### D3：验证与浏览器验收
 
-- [ ] 增加 Policy、Draft round-trip、`defaultAreas` 排序 / 引用和诊断测试。
-- [ ] 增加 Init / Area 热 CRUD、删除阻断、位置兜底和状态保留回归测试。
-- [ ] 完成类型、专项测试、架构、文档、构建与浏览器验收。
+- [x] 增加 Policy、Draft round-trip、`defaultAreas` 排序 / 引用和诊断测试。
+- [x] 增加 Init / Area 热 CRUD、删除阻断、位置兜底和状态保留回归测试。
+- [ ] 完成类型、专项测试、架构、文档、构建与浏览器验收（类型、全量测试、架构、文档已通过；构建与浏览器验收仍待完成）。
+
+## 当前实施记录（2026-09-18）
+
+- 引擎侧已完成 Init / Area 来源归属记录、`startStoryId` 的 Story / ActiveStory 校验、`defaultAreas` 顺序保持、失败草稿不污染临时 Mod、opaque 字段存在时阻断替换，以及 Area / Init mutation 的索引回滚。
+- UI 侧已完成五个 Init Switch、结构化 `defaultAreas` 候选 / 搜索 / 上移 / 下移 / 移除、空入口警告、诊断定位、来源提示、Apply 草稿汇总、窄屏和键盘焦点样式；Init 删除确认已增加 Area / Spot / 当前定位 / per-Init 快照影响摘要。
+- 编辑态现在在 Init 选择界面也提供“新建 Init” Toast 入口；已配置 Runtime Mod 时直接打开 Init 表单，未配置时引导先进入数据包编辑器完成 Mod 元信息。
+- 回归证据：`npx tsc --noEmit` 通过；全量 `npm test -- --run` 为 168 个测试文件、1568 个测试通过；`npm run check:architecture` 与 `npm run check:docs` 通过；`git diff --check` 通过。
+- 采用的人工裁定：复杂字段首版阻断替换；空 `defaultAreas` 合法但警告；排序先用按钮；当前 Init 删除由运行时回到 Init 选择界面，并在仍有 Area 引用时 fail closed。
+- 尚未完成：基础包 / 其他 Mod Init 的只读浏览与复制工作流仍未接入当前 Runtime Mod 来源契约；真实 Edge 视觉验收因桌面浏览器通道无法可靠确认当前 URL 而被环境阻断；未运行会写入禁止产物目录的 `npm run build`。
 
 ## 验收口径
 

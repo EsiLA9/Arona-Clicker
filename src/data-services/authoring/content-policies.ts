@@ -51,7 +51,7 @@ function resourceAmountExtension(inputKey: string, section: string, inputPrefix:
     definitionKey: inputKey === 'purchaseCost' ? 'purchaseCost' : 'price',
     section,
     editor: 'resource-amount-list',
-    ...(required ? { required: true, preserveEmpty: true, initialValue: [] } : {}),
+    ...(required || inputKey === 'purchaseCost' ? { ...(required ? { required: true, initialValue: [] } : {}), preserveEmpty: true } : {}),
     validate: (value, context) => validateResourceAmountList(value, `${inputPrefix}.${inputKey}`, context),
     encode: encodeResourceAmountList,
   };

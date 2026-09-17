@@ -3,6 +3,8 @@ import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { RuntimeWorldDraft } from '../../src/arona-clicker/contracts/runtime-content';
+import { Registry } from '../../src/data-services/registry/registry';
+import { RuntimeWorldContentCoordinator } from '../../src/arona-clicker/services/runtime-world-content-coordinator';
 
 class CountingRuntime extends AronaClickerRuntime {
   reloadCount = 0;
@@ -165,5 +167,96 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
     expect(game.state.currentAreaId).toBe(HOME);
     expect(game.travelToArea(NEW_AREA)).toMatchObject({ success: true, areaId: NEW_AREA });
     expect(game.state.currentAreaId).toBe(NEW_AREA);
+  });
+
+  test('defaultAreas 的声明顺序在热替换后保持为运行时语义', () => {
+    const game = setupGame();
+    expect(game.applyRuntimeWorldDraft(worldDraft()).ok).toBe(true);
+
+    const reordered = game.applyRuntimeWorldDraft(worldDraft(
+      [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [SECOND, HOME] }],
+      [
+        { idName: 'home', initId: INIT, name: 'Home', description: '', defaultSpots: [], adjacentAreaIds: [SECOND] },
+        { idName: 'second', initId: INIT, name: 'Second', description: '', defaultSpots: [], adjacentAreaIds: [HOME] },
+      ],
+    ));
+
+    expect(reordered.ok).toBe(true);
+    expect(game.registry.inits.get(INIT)?.defaultAreas).toEqual([SECOND, HOME]);
+  });
+
+  test('首个失败草稿不会锁定临时 Mod 或推进版本', () => {
+    const game = new CountingRuntime();
+    game.init([defaultDatapack]);
+    const result = game.applyRuntimeWorldDraft({
+      modName: MOD,
+      inits: [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [`${MOD}:area:missing`] }],
+      areas: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(game.getRuntimeWorldState()).toMatchObject({ modName: null, revision: 0 });
+    expect(game.registry.inits.has(INIT)).toBe(false);
+  });
+
+  test('Init 的 startStoryId 必须指向已注册 Story 或 ActiveStory，并在失败时原子回滚', () => {
+    const game = new CountingRuntime();
+    game.init([defaultDatapack]);
+    const result = game.applyRuntimeWorldDraft({
+      modName: MOD,
+      inits: [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [], startStoryId: `${MOD}:story:missing` }],
+      areas: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('start story');
+    expect(game.getRuntimeWorldState()).toMatchObject({ modName: null, revision: 0 });
+    expect(game.registry.inits.has(INIT)).toBe(false);
+  });
+
+  test('Init 可以引用 ActiveStory 投放位', () => {
+    const game = new CountingRuntime();
+    game.init([defaultDatapack]);
+    const entry = [...game.registry.activeStories.values()][0];
+    expect(entry).toBeDefined();
+    const result = game.applyRuntimeWorldDraft({
+      modName: MOD,
+      inits: [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [], startStoryId: entry.id }],
+      areas: [],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(game.registry.inits.get(`${MOD}:init:demo`)?.startStoryId).toBe(entry.id);
+  });
+
+  test('替换含未支持 opaque 字段的 Init 会被拒绝，避免静默丢失', () => {
+    const registry = new Registry();
+    const initWithExtra = {
+      id: INIT,
+      name: 'Opaque Init',
+      description: '',
+      defaultAreas: [HOME],
+      extra: { t: 'dict' as const, v: { retained: { t: 'str' as const, v: 'yes' } } },
+    };
+    const area = { id: HOME, initId: INIT, name: 'Home', description: '', defaultSpots: [] };
+    registry.load({
+      ...defaultDatapack,
+      modName: MOD,
+      inits: [...defaultDatapack.inits, initWithExtra],
+      areas: [...defaultDatapack.areas, area],
+    });
+    const coordinator = new RuntimeWorldContentCoordinator(registry);
+    coordinator.adoptRuntimeMod(MOD, [INIT], [HOME]);
+
+    const result = coordinator.applyWorldDraft({
+      modName: MOD,
+      inits: [{ idName: 'demo', name: 'Renamed Init', description: '', defaultAreas: [HOME] }],
+      areas: [{ idName: 'home', initId: INIT, name: 'Home', description: '', defaultSpots: [] }],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('未支持字段');
+    expect(registry.inits.get(INIT)).toBe(initWithExtra);
+    expect(coordinator.getState().revision).toBe(0);
   });
 });

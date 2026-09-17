@@ -16,6 +16,7 @@ import {
   type RuntimeEditorContentKind,
   type RuntimeEditorDefinitionDraft,
   type RuntimeEditorEntryState,
+  type RuntimeEditorProblem,
   type RuntimeEditorSpotDraft,
 } from './state';
 import {
@@ -56,6 +57,13 @@ const CONTENT_KIND_LABEL: Record<RuntimeEditorContentKind, string> = {
   enhancements: 'Enhancement',
 };
 const EDITABLE_CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'spots'];
+
+const INIT_UNSUPPORTED_FIELDS: readonly { key: string; label: string }[] = [
+  { key: 'enterEffects', label: '进入效果' },
+  { key: 'triggers', label: '触发器' },
+  { key: 'theme', label: '主题' },
+  { key: 'extra', label: 'Extra' },
+];
 
 export { readRuntimeEditorFields };
 
@@ -151,11 +159,12 @@ function renderRuntimeDefinitionWorkspace(ctx: UIContext, editor: RuntimeDatapac
   const rows = filtered.map(definition => {
     const state = runtimeEditorDefinitionEntryState(editor, kind, definition);
     const removed = suspended.includes(definition.idName) || !definitions.some(item => item.idName === definition.idName);
-    const tone = removed ? 'removed' : state;
-    const label = removed ? '已移除' : ENTRY_STATE_LABEL[state];
+    const issues = kind === 'inits' ? runtimeEditorInitProblems(ctx, editor, definition) : [];
+    const tone = removed ? 'removed' : issues.length > 0 ? 'error' : state;
+    const label = removed ? '已移除' : issues.length > 0 ? `有 ${issues.length} 个问题` : ENTRY_STATE_LABEL[state];
     const name = definition.name;
     return `<li class="runtime-spot-item" data-runtime-editor-entry="${esc(definition.idName)}" data-entry-state="${tone}">
-      <button type="button" class="runtime-spot-item-main" data-runtime-editor-definition-edit data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}"><span class="runtime-spot-item-name">${esc(name || definition.idName)}</span><em>${esc(definition.idName)}</em></button>
+      <button type="button" class="runtime-spot-item-main" data-runtime-editor-definition-edit data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}"><span class="runtime-spot-item-name">${esc(name || definition.idName)}</span><em>${esc(definition.idName)}${kind === 'inits' ? ' · Runtime Mod' : ''}</em></button>
       <span class="runtime-editor-entry-state" data-entry-state="${tone}">${label}</span>
       ${removed ? `<button type="button" class="mini-action" data-runtime-editor-definition-restore data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}">撤销删除</button>` : `<button type="button" class="mini-action" data-runtime-editor-definition-remove data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}">删除</button>`}
     </li>`;
@@ -165,11 +174,15 @@ function renderRuntimeDefinitionWorkspace(ctx: UIContext, editor: RuntimeDatapac
     ? `<p class="service-summary">${policy.label} 草稿为空。点击“新建 ${policy.label}”开始。</p>`
     : filtered.length === 0 ? '<p class="service-summary">当前筛选下没有条目。</p>' : `<ul class="runtime-spot-list">${rows}</ul>`;
   const canCreate = Boolean(editor.modName && editor.displayName);
+  const sourceNote = kind === 'inits'
+    ? '<p class="runtime-editor-source-note"><strong>来源：</strong>当前 Runtime Mod 自有内容可编辑；基础包和其他 Mod 的 Init 只读，不能被同 ID 覆盖。</p>'
+    : '';
   const selected = getSelectedRuntimeEditorDefinition(editor);
   const applied = selected ? appliedDefinitions.find(definition => definition.idName === selected.idName) : undefined;
   const diff = selected ? renderRuntimeEditorDiff(runtimeEditorDiff(policy, selected, applied)) : '';
   return `<div class="runtime-editor-workspace" data-runtime-editor-definition-workspace="${kind}">
     <div class="panel-heading"><h4>内容浏览器 · ${esc(policy.label)}</h4><span class="index">${definitions.length} 草稿 / ${appliedDefinitions.length} 已生效</span>${canCreate ? `<button type="button" class="toolbar-button" data-runtime-editor-new-definition="${kind}">新建 ${esc(policy.label)}</button>` : ''}</div>
+    ${sourceNote}
     <div class="runtime-editor-filters">${filterButton('all', '全部')}${filterButton('pending', `待应用 ${pending.length}`)}${filterButton('applied', '已生效')}${filterButton('removed', `已移除 ${suspended.length}`)}</div>
     ${list}
     ${renderError(esc, editor)}
@@ -248,15 +261,16 @@ export function renderRuntimeDefinitionForm(ctx: UIContext, state: PanelState, k
     ? runtimeEditorAppliedDefinitions(editor, kind).find(item => item.idName === definition.idName)
     : undefined;
   const views = runtimeEditorFieldViews(ctx, policy, values, { lockedFields: applied ? ['idName'] : [] });
+  const problems = kind === 'inits' ? runtimeEditorInitViewProblems(ctx, editor, values) : editor.problems;
   const sections = editorSections(policy);
   const active = sections.some(section => section.id === editor.activeSection) ? editor.activeSection! : sections[0]?.id ?? 'default';
   const tabs = sections.map(section => {
-    const count = editor.problems.filter(problem => problemSectionId(policy, problem) === section.id).length;
+    const count = problems.filter(problem => problemSectionId(policy, problem) === section.id).length;
     return `<button type="button" class="runtime-editor-tab${section.id === active ? ' is-active' : ''}${count > 0 ? ' has-runtime-editor-problem' : ''}" data-runtime-editor-section-tab="${section.id}" aria-current="${section.id === active ? 'page' : 'false'}"><span class="nav-marker"></span>${esc(section.label)}${count > 0 ? `<em class="runtime-editor-tab-error">${count}</em>` : ''}</button>`;
   }).join('');
   const current = sections.find(section => section.id === active) ?? sections[0];
   const diff = definition && applied ? renderRuntimeEditorDiff(runtimeEditorDiff(policy, values, applied)) : '';
-  const pages = current ? renderDefinitionSection(ctx, editor, policy, current, active, views, values, diff) : '';
+  const pages = current ? renderDefinitionSection(ctx, editor, policy, current, active, views, values, diff, problems) : '';
   const label = CONTENT_KIND_LABEL[kind];
   return `<div class="runtime-editor-form runtime-editor-shell" data-runtime-editor-definition-form data-runtime-editor-content-kind="${kind}">
     <header class="runtime-editor-topbar"><div class="runtime-editor-topbar-title"><h4>${definition ? `编辑 ${label}` : `新建 ${label}`}</h4><p class="service-summary">${definition ? '保存只写入草稿；确认差异后再应用到运行时。' : '保存后加入临时 Mod 草稿，不会立刻改变游戏。'}</p></div><div class="service-actions"><button type="button" class="primary-button" data-runtime-editor-save-definition="${kind}">${definition ? `保存 ${label} 修改` : `加入 ${label} 草稿`}</button><button type="button" class="primary-button" data-runtime-editor-apply>应用到运行时</button>${definition ? `<button type="button" class="toolbar-button danger" data-runtime-editor-delete-definition="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}">删除 ${label}</button>` : ''}</div></header>
@@ -274,17 +288,21 @@ function renderDefinitionSection(
   views: readonly RuntimeEditorFieldView[],
   values: Record<string, unknown>,
   diff: string,
+  problems: readonly RuntimeEditorProblem[],
 ): string {
   const pageViews = views.filter(view => section.fields.some(field => field.key === view.key));
   const blocks: string[] = [];
-  if (section.id === 'overview') blocks.push(renderDefinitionOverview(ctx, policy.label, values));
-  if (pageViews.length > 0) blocks.push(renderRuntimeEditorFields(ctx, pageViews, editor.problems, policy));
+  if (section.id === 'overview') blocks.push(policy.key === 'inits' ? renderInitOverview(ctx, editor, values) : renderDefinitionOverview(ctx, policy.label, values));
+  if (pageViews.length > 0) blocks.push(renderRuntimeEditorFields(ctx, pageViews, problems, policy));
   for (const extension of section.extensions) {
-    const block = renderDefinitionExtension(ctx, extension, values, editor);
+    const block = policy.key === 'inits' && extension.inputKey === 'defaultAreas'
+      ? renderInitDefaultAreasEditor(ctx, editor, values, problems)
+      : renderDefinitionExtension(ctx, extension, values, editor, problems);
     if (block) blocks.push(block);
   }
   if (section.id === 'diagnostics') {
-    blocks.push(renderRuntimeEditorProblems(ctx, policy, editor.problems));
+    blocks.push(policy.key === 'inits' ? renderInitDiagnosticSummary(ctx, editor, values) : '');
+    blocks.push(renderRuntimeEditorProblems(ctx, policy, problems));
     blocks.push(diff ? `<div class="runtime-editor-diff-panel"><span class="eyebrow">与运行中版本的差异</span>${diff}</div>` : '<p class="runtime-editor-hint">Draft 与 Runtime 一致。</p>');
   }
   return `<section class="runtime-editor-page" data-runtime-editor-section="${section.id}"${section.id === active ? '' : ' hidden'}>${blocks.filter(Boolean).join('') || '<p class="runtime-editor-hint">本页暂无可编辑内容。</p>'}</section>`;
@@ -310,7 +328,148 @@ function renderDefinitionOverview(ctx: UIContext, label: string, values: Record<
   return `<dl class="runtime-editor-overview">${rows.map(([name, value]) => `<div><dt>${esc(name)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>`;
 }
 
-function renderDefinitionExtension(ctx: UIContext, extension: AuthoringExtension, values: Record<string, unknown>, editor: RuntimeDatapackEditorState): string {
+function initEntityId(editor: RuntimeDatapackEditorState, idName: string): string {
+  return `${editor.modName}:init:${idName}`;
+}
+
+function initAreaEntityId(editor: RuntimeDatapackEditorState, idName: string): string {
+  return `${editor.modName}:area:${idName}`;
+}
+
+function initAreaCandidate(ctx: UIContext, editor: RuntimeDatapackEditorState, areaId: string): {
+  readonly name: string;
+  readonly initId: string;
+  readonly source: 'Registry' | '当前 Draft';
+} | undefined {
+  const draft = editor.areas.find(area => initAreaEntityId(editor, area.idName) === areaId);
+  const registry = ctx.game.registry.areas.get(areaId);
+  if (!draft && !registry) return undefined;
+  return {
+    name: draft?.name ?? registry?.name ?? areaId,
+    initId: draft?.initId ?? registry?.initId ?? '',
+    source: draft ? '当前 Draft' : 'Registry',
+  };
+}
+
+function initAreaCandidates(ctx: UIContext, editor: RuntimeDatapackEditorState, currentId: string): Array<{ id: string; name: string; initId: string; source: 'Registry' | '当前 Draft' }> {
+  const ids = new Set<string>();
+  for (const id of ctx.game.registry.areas.keys()) ids.add(id);
+  for (const area of editor.areas) ids.add(initAreaEntityId(editor, area.idName));
+  return [...ids]
+    .filter(id => id !== currentId)
+    .map(id => ({ id, ...(initAreaCandidate(ctx, editor, id) ?? { name: id, initId: '', source: 'Registry' as const }) }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+}
+
+export function runtimeEditorInitUnsupportedFields(ctx: UIContext, editor: RuntimeDatapackEditorState, values: object): string[] {
+  const record = values as Record<string, unknown>;
+  const idName = typeof record.idName === 'string' ? record.idName : '';
+  if (!idName || !editor.modName) return [];
+  const source = ctx.game.registry.inits.get(initEntityId(editor, idName)) as unknown as Record<string, unknown> | undefined;
+  if (!source) return [];
+  return INIT_UNSUPPORTED_FIELDS
+    .filter(field => field.key in source && source[field.key] !== undefined)
+    .map(field => field.label);
+}
+
+export function runtimeEditorInitProblems(ctx: UIContext, editor: RuntimeDatapackEditorState, values: object): RuntimeEditorProblem[] {
+  const record = values as Record<string, unknown>;
+  const areas = Array.isArray(record.defaultAreas) ? record.defaultAreas.map(item => String(item)) : [];
+  const currentInitId = initEntityId(editor, typeof record.idName === 'string' ? record.idName : '');
+  const problems: RuntimeEditorProblem[] = [];
+  const seen = new Set<string>();
+  areas.forEach((areaId, index) => {
+    if (seen.has(areaId)) {
+      problems.push({ code: 'duplicate-reference', path: `init.defaultAreas[${index}]`, sectionId: 'areas', message: `默认区域重复：${areaId}` });
+      return;
+    }
+    seen.add(areaId);
+    const candidate = initAreaCandidate(ctx, editor, areaId);
+    if (!candidate) {
+      problems.push({ code: 'missing-reference', path: `init.defaultAreas[${index}]`, sectionId: 'areas', message: `默认区域不存在：${areaId}` });
+    } else if (candidate.initId !== currentInitId) {
+      problems.push({ code: 'wrong-owner', path: `init.defaultAreas[${index}]`, sectionId: 'areas', message: `默认区域归属不一致：${areaId} 属于 ${candidate.initId || '未知 Init'}` });
+    }
+  });
+  const startStoryId = typeof record.startStoryId === 'string' ? record.startStoryId : '';
+  const startStoryEntry = startStoryId ? ctx.game.registry.activeStories?.get(startStoryId) : undefined;
+  if (startStoryId && !ctx.game.registry.stories.get(startStoryId) && !startStoryEntry?.storyId) {
+    problems.push({ code: 'missing-reference', path: 'init.startStoryId', sectionId: 'basics', message: `起始剧情不存在：${startStoryId}` });
+  }
+  const unsupported = runtimeEditorInitUnsupportedFields(ctx, editor, record);
+  if (unsupported.length > 0) {
+    problems.push({ code: 'unsupported-field', path: 'init.unsupported', sectionId: 'diagnostics', message: `当前 Init 含未开放字段：${unsupported.join('、')}。为避免丢失内容，暂不能替换。` });
+  }
+  return problems;
+}
+
+function runtimeEditorInitViewProblems(ctx: UIContext, editor: RuntimeDatapackEditorState, values: object): RuntimeEditorProblem[] {
+  const derived = runtimeEditorInitProblems(ctx, editor, values);
+  const known = new Set(editor.problems.map(problem => `${problem.code}|${problem.path}|${problem.message}`));
+  return [...editor.problems, ...derived.filter(problem => !known.has(`${problem.code}|${problem.path}|${problem.message}`))];
+}
+
+function renderInitOverview(ctx: UIContext, editor: RuntimeDatapackEditorState, values: Record<string, unknown>): string {
+  const esc = ctx.escapeHtml;
+  const state = runtimeEditorDefinitionEntryState(editor, 'inits', values as unknown as RuntimeEditorDefinitionDraft);
+  const areaIds = Array.isArray(values.defaultAreas) ? values.defaultAreas.map(item => String(item)) : [];
+  const view = ctx.game.getView();
+  const active = view.activeInit === initEntityId(editor, String(values.idName ?? ''));
+  const currentArea = active && view.currentAreaId ? ctx.game.registry.areas.get(view.currentAreaId)?.name ?? view.currentAreaId : '未在此世界线中';
+  const unsupported = runtimeEditorInitUnsupportedFields(ctx, editor, values);
+  const rows: Array<[string, string]> = [
+    ['世界线 ID', String(values.idName || '（未填写）')],
+    ['来源', '当前 Runtime Mod · 可编辑'],
+    ['编辑状态', ENTRY_STATE_LABEL[state]],
+    ['默认区域', areaIds.length > 0 ? `${areaIds.length} 个，顺序可调整` : '0 个 · 没有默认区域'],
+    ['起始剧情', String(values.startStoryId || '未设置')],
+    ['当前玩家位置', currentArea],
+  ];
+  if (unsupported.length > 0) rows.push(['未开放字段', `${unsupported.length} 项 · Apply 将阻断`]);
+  const warning = areaIds.length === 0
+    ? '<p class="runtime-editor-warning" role="status">没有默认区域：该 Init 无有效进入位置，运行时会回到 Init 选择界面。</p>'
+    : '';
+  return `<div class="runtime-init-overview"><dl class="runtime-editor-overview">${rows.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>${warning}</div>`;
+}
+
+function renderInitDefaultAreasEditor(ctx: UIContext, editor: RuntimeDatapackEditorState, values: Record<string, unknown>, problems: readonly RuntimeEditorProblem[]): string {
+  const esc = ctx.escapeHtml;
+  const currentId = initEntityId(editor, typeof values.idName === 'string' ? values.idName : '');
+  const selected = Array.isArray(values.defaultAreas) ? values.defaultAreas.map(item => String(item)) : [];
+  const candidates = initAreaCandidates(ctx, editor, currentId);
+  const issueByIndex = new Map<number, RuntimeEditorProblem>();
+  problems.forEach(problem => {
+    const match = problem.path?.match(/defaultAreas\[(\d+)\]/);
+    if (match) issueByIndex.set(Number(match[1]), problem);
+  });
+  const rows = selected.map((areaId, index) => {
+    const candidate = initAreaCandidate(ctx, editor, areaId);
+    const issue = issueByIndex.get(index);
+    const state = candidate?.source === '当前 Draft' ? '待提交' : candidate ? 'Registry' : '缺失';
+    const name = candidate?.name ?? areaId;
+    return `<li class="runtime-init-area-row${issue ? ' has-runtime-editor-problem' : ''}" data-runtime-init-area-row data-runtime-init-area-index="${index}" data-area-id="${esc(areaId)}"><span class="runtime-init-area-order">${index + 1}</span><span class="runtime-init-area-main"><strong>${esc(name)}</strong><em>${esc(areaId)}</em><small>${esc(candidate ? `${candidate.initId || '未知归属'} · ${state}` : '目标不存在 · Apply 会阻断')}</small>${issue ? `<b class="runtime-editor-field-error">${esc(issue.message)}</b>` : ''}</span><span class="runtime-init-area-actions"><button type="button" class="mini-action" data-runtime-init-area-up="${index}" aria-label="上移 ${esc(name)}"${index === 0 ? ' disabled' : ''}>↑</button><button type="button" class="mini-action" data-runtime-init-area-down="${index}" aria-label="下移 ${esc(name)}"${index === selected.length - 1 ? ' disabled' : ''}>↓</button><button type="button" class="mini-action danger" data-runtime-init-area-remove="${index}" aria-label="移除 ${esc(name)}">移除</button></span></li>`;
+  }).join('');
+  const options = candidates.map(candidate => `<button type="button" role="option" class="runtime-init-area-option" data-runtime-init-area-option data-area-id="${esc(candidate.id)}" data-area-label="${esc(candidate.name)}" data-area-init-id="${esc(candidate.initId)}"${selected.includes(candidate.id) ? ' aria-disabled="true"' : ''}><strong>${esc(candidate.name)}</strong><em>${esc(candidate.id)}</em><small>${esc(candidate.initId || '未知归属')} · ${esc(candidate.source)}${selected.includes(candidate.id) ? ' · 已加入' : ''}</small></button>`).join('');
+  const noAreas = selected.length === 0 ? '<p class="runtime-editor-warning" role="status">当前为空是合法输入，但它不会提供有效进入位置。</p>' : '';
+  return `<div class="runtime-init-areas" data-runtime-init-areas><div class="runtime-editor-collection-heading"><div><h5>默认区域顺序</h5><p class="runtime-editor-hint">这是世界线的声明式入口顺序，不等同于玩家当前所在区域。可加入 Registry 或当前 Draft 的 Area；归属不一致的项会立即标红。</p></div><span class="runtime-editor-collection-count">${selected.length} 个</span></div><div class="runtime-init-area-picker" data-runtime-init-area-picker><input type="search" role="combobox" aria-controls="runtime-init-area-options" aria-expanded="false" data-runtime-init-area-query placeholder="搜索 Area 名称或完整 ID" autocomplete="off"><div id="runtime-init-area-options" class="runtime-init-area-options" role="listbox" data-runtime-init-area-options hidden>${options || '<span class="runtime-init-area-empty">没有可用 Area</span>'}</div></div><button type="button" class="toolbar-button" data-runtime-init-area-add>加入默认区域</button>${noAreas}${rows ? `<ol class="runtime-init-area-list">${rows}</ol>` : '<p class="runtime-editor-hint">还没有默认区域。使用上方搜索添加第一个入口。</p>'}</div>`;
+}
+
+function renderInitDiagnosticSummary(ctx: UIContext, editor: RuntimeDatapackEditorState, values: Record<string, unknown>): string {
+  const esc = ctx.escapeHtml;
+  const problems = runtimeEditorInitViewProblems(ctx, editor, values);
+  const unsupported = runtimeEditorInitUnsupportedFields(ctx, editor, values);
+  const areaCount = Array.isArray(values.defaultAreas) ? values.defaultAreas.length : 0;
+  const lines = [
+    `<li><span>字段问题</span><strong>${problems.filter(problem => problem.path?.startsWith('init.') && !problem.path.includes('defaultAreas') && problem.code !== 'unsupported-field').length}</strong></li>`,
+    `<li><span>关系问题</span><strong>${problems.filter(problem => problem.path?.includes('defaultAreas') || problem.path === 'init.startStoryId').length}</strong></li>`,
+    `<li><span>能力问题</span><strong>${unsupported.length}</strong></li>`,
+    `<li><span>运行时影响</span><strong>${areaCount === 0 || editor.suspendedInitIds.includes(String(values.idName ?? '')) ? '需要注意' : '可预览'}</strong></li>`,
+  ];
+  const hint = unsupported.length > 0 ? `<p class="runtime-editor-warning" role="alert">${esc(`未开放字段：${unsupported.join('、')}。当前 Init 的替换会被阻断，避免静默丢失内容。`)}</p>` : '';
+  return `<div class="runtime-init-diagnostic-summary"><span class="eyebrow">准出摘要</span><ul>${lines.join('')}</ul>${hint}</div>`;
+}
+
+function renderDefinitionExtension(ctx: UIContext, extension: AuthoringExtension, values: Record<string, unknown>, editor: RuntimeDatapackEditorState, problems: readonly RuntimeEditorProblem[] = editor.problems): string {
   const esc = ctx.escapeHtml;
   const value = values[extension.inputKey];
   if (extension.editor === 'area-topology') return renderAreaTopologyEditor(ctx, values, editor);
@@ -331,8 +490,8 @@ function renderDefinitionExtension(ctx: UIContext, extension: AuthoringExtension
     const reference = attachment.kind === 'init' ? attachment.initId ?? '' : attachment.kind === 'area' ? attachment.areaId ?? '' : '';
     return `<div class="runtime-editor-field"><label class="user-theme-field"><span>归属范围</span><select data-runtime-editor-attachment-kind name="attachmentKind" aria-label="归属范围">${options}</select></label><label class="user-theme-field"><span>归属 ID（global 不填）</span><input data-runtime-editor-attachment-id name="attachmentId" aria-label="归属 ID" autocomplete="off" value="${esc(reference)}" placeholder="选择指定范围时填写完整 ID"></label><em class="runtime-editor-hint">强化效果先以归属声明编辑；复杂 effects 仍需在 Datapack 中维护。</em></div>`;
   }
-  if (extension.editor === 'reveal-trigger') return renderRevealTriggerList(ctx, (value ?? []) as never[], editor.problems);
-  if (extension.editor === 'tag-list') return renderTagList(ctx, (value ?? []) as string[], editor.problems);
+  if (extension.editor === 'reveal-trigger') return renderRevealTriggerList(ctx, (value ?? []) as never[], problems);
+  if (extension.editor === 'tag-list') return renderTagList(ctx, (value ?? []) as string[], problems);
   return '';
 }
 

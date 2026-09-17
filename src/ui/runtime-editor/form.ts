@@ -234,8 +234,11 @@ export function renderRuntimeEditorProblems(
   if (problems.length === 0) return '';
   const items = problems.map(problem => {
     const fieldKey = problemFieldKey(policy, problem);
+    const sectionId = problemSectionId(policy, problem);
     const target = fieldKey ? ` data-runtime-editor-diagnostic="${fieldKey}"` : '';
-    return `<li${target}>${ctx.escapeHtml(problem.message)}</li>`;
+    const section = sectionId ? ` data-runtime-editor-diagnostic-section="${sectionId}"` : '';
+    const path = problem.path ? ` data-runtime-editor-diagnostic-path="${ctx.escapeHtml(problem.path)}"` : '';
+    return `<li${target}${section}${path} tabindex="0" role="button">${ctx.escapeHtml(problem.message)}</li>`;
   }).join('');
   return `<div class="runtime-editor-diagnostics"><span class="eyebrow">诊断</span><ul>${items}</ul></div>`;
 }
@@ -266,6 +269,15 @@ export function problemPathWithoutPrefix(policy: ContentAuthoringPolicy, path: s
 }
 
 function refOptions(ctx: UIContext, field: WritableFieldDef): RuntimeEditorFieldOption[] {
+  if (field.key === 'startStoryId') {
+    const activeStories = [...(ctx.game.registry.activeStories?.values() ?? [])];
+    if (activeStories.length > 0) {
+      return activeStories.map(entry => ({
+        value: entry.id,
+        label: ctx.game.registry.stories.get(entry.storyId)?.name || entry.id,
+      }));
+    }
+  }
   if (field.refType === 'area' || field.refType === 'init' || field.refType === 'story') {
     return runtimeEditorReferenceOptions(ctx, field.refType);
   }

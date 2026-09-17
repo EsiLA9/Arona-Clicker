@@ -131,7 +131,7 @@
 
 ## 当前活跃任务
 
-- [[task-0093-init-editor-design]]：完成 Init 编辑器的页面、字段授权、默认区域关系、来源权限、Apply 影响和验收设计，待裁定与开工。
+- [[task-0093-init-editor-design]]：完成 Init 编辑器的页面、字段授权、默认区域关系、来源权限、Apply 影响和验收设计；引擎与 UI 已落地，待浏览器验收与最终准出。
 - [[task-0092-agents-routing-slimdown]]：精简 `AGENTS.md` 的非托管入口与项目护栏，保留 AOCI 托管区块原样。
 - [[task-0086-ui-dom-refresh-boundaries-and-hover-preservation]]：降低 UI 不必要的激进 DOM 刷新，收敛局部刷新与 hover 生命周期边界。
 - [[task-0088-init-area-hot-crud-and-location-fallback]]：在共享 Spot 编辑框架中实现 Init / Area 热 CRUD，并在当前位置丢失时回到默认 Area 或 Init 选择界面。

@@ -54,6 +54,10 @@ function sameDefinition(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function unsupportedFields(definition: object, fields: readonly string[]): string[] {
+  return fields.filter(field => Object.prototype.hasOwnProperty.call(definition, field));
+}
+
 function initId(modName: string, idName: string): string {
   return authoringEntityId(INIT_POLICY, modName, idName);
 }
@@ -179,11 +183,11 @@ export class RuntimeWorldContentCoordinator {
       }
       if (this.modName === null) {
         if (this.registry.loadedModNames.has(draft.modName)) throw new Error(`modName 已被当前 Registry 占用：${draft.modName}`);
-        this.modName = draft.modName;
       }
 
       const desiredInits = this.prepareInits(draft.modName, draft.inits);
       const desiredAreas = this.prepareAreas(draft.modName, draft.areas);
+      this.validateUnsupportedReplacements(desiredInits, desiredAreas);
       this.validateFinalReferences(desiredInits, desiredAreas);
       this.assertOwnedOrFree(desiredInits, desiredAreas);
       const desiredTopology = this.prepareTopology(draft.modName, draft.areas, desiredAreas);
@@ -198,8 +202,8 @@ export class RuntimeWorldContentCoordinator {
       };
 
       try {
-        this.stageInits(desiredInits, deletedAreaIds, deletedInitIds, mutate);
-        this.stageAreas(desiredAreas, deletedAreaIds, mutate);
+        this.stageInits(desiredInits, deletedAreaIds, deletedInitIds, draft.modName, mutate);
+        this.stageAreas(desiredAreas, deletedAreaIds, draft.modName, mutate);
 
         for (const id of deletedAreaIds) {
           mutate({ table: 'areas', operation: 'delete', ownerModName: draft.modName, defId: id });
@@ -227,6 +231,7 @@ export class RuntimeWorldContentCoordinator {
           revisionAfter: this.revision + 1,
         };
         this.onCommitted?.(commit);
+        this.modName = draft.modName;
         this.inits.clear();
         for (const [id, value] of desiredInits) this.inits.set(id, cloneAuthoringDef(value));
         this.areas.clear();
@@ -304,6 +309,29 @@ export class RuntimeWorldContentCoordinator {
     }
   }
 
+  private validateUnsupportedReplacements(
+    desiredInits: ReadonlyMap<string, InitDef>,
+    desiredAreas: ReadonlyMap<string, AreaDef>,
+  ): void {
+    const check = (
+      current: ReadonlyMap<string, InitDef | AreaDef>,
+      desired: ReadonlyMap<string, InitDef | AreaDef>,
+      fields: readonly string[],
+      label: string,
+    ): void => {
+      for (const [id, currentDefinition] of current) {
+        const desiredDefinition = desired.get(id);
+        if (!desiredDefinition || sameDefinition(currentDefinition, desiredDefinition)) continue;
+        const unsupported = unsupportedFields(currentDefinition, fields);
+        if (unsupported.length > 0) {
+          throw new Error(`${label} "${id}" 含编辑器未支持字段（${unsupported.join('、')}），本次替换将丢失数据，已拒绝`);
+        }
+      }
+    };
+    check(this.inits, desiredInits, ['enterEffects', 'triggers', 'theme', 'extra'], 'Init');
+    check(this.areas, desiredAreas, ['enterEffects', 'theme', 'extra'], 'Area');
+  }
+
   private validateFinalReferences(desiredInits: Map<string, InitDef>, desiredAreas: Map<string, AreaDef>): void {
     const finalArea = (id: string): AreaDef | undefined => {
       if (desiredAreas.has(id)) return desiredAreas.get(id);
@@ -316,6 +344,10 @@ export class RuntimeWorldContentCoordinator {
       return this.registry.inits.get(id);
     };
     for (const init of desiredInits.values()) {
+      const startStoryEntry = init.startStoryId ? this.registry.activeStories.get(init.startStoryId) : undefined;
+      if (init.startStoryId && !this.registry.stories.has(init.startStoryId) && !startStoryEntry?.storyId) {
+        throw new Error(`Init "${init.id}" references missing start story：${init.startStoryId}`);
+      }
       for (const id of init.defaultAreas) {
         const area = finalArea(id);
         if (!area) throw new Error(`Init "${init.id}" references missing default Area：${id}`);
@@ -342,6 +374,7 @@ export class RuntimeWorldContentCoordinator {
     desiredInits: Map<string, InitDef>,
     deletedAreaIds: Set<string>,
     deletedInitIds: Set<string>,
+    modName: string,
     mutate: (request: Parameters<typeof applyAuthoringMutation>[1]) => void,
   ): void {
     const stage = (init: InitDef): InitDef => ({
@@ -351,27 +384,28 @@ export class RuntimeWorldContentCoordinator {
     for (const [id, init] of desiredInits) {
       const current = this.inits.get(id);
       const staged = stage(init);
-      if (!current) mutate({ table: 'inits', operation: 'create', ownerModName: this.modName!, defId: id, def: staged });
-      else if (!sameDefinition(current, staged)) mutate({ table: 'inits', operation: 'replace', ownerModName: this.modName!, defId: id, def: staged });
+      if (!current) mutate({ table: 'inits', operation: 'create', ownerModName: modName, defId: id, def: staged });
+      else if (!sameDefinition(current, staged)) mutate({ table: 'inits', operation: 'replace', ownerModName: modName, defId: id, def: staged });
     }
     for (const id of deletedInitIds) {
       const current = this.inits.get(id);
       if (!current) continue;
       const staged = { ...current, defaultAreas: current.defaultAreas.filter(areaId => !deletedAreaIds.has(areaId)) };
-      if (!sameDefinition(current, staged)) mutate({ table: 'inits', operation: 'replace', ownerModName: this.modName!, defId: id, def: staged });
+      if (!sameDefinition(current, staged)) mutate({ table: 'inits', operation: 'replace', ownerModName: modName, defId: id, def: staged });
     }
   }
 
   private stageAreas(
     desiredAreas: Map<string, AreaDef>,
     deletedAreaIds: Set<string>,
+    modName: string,
     mutate: (request: Parameters<typeof applyAuthoringMutation>[1]) => void,
   ): void {
     for (const [id, area] of desiredAreas) {
       const current = this.areas.get(id);
       const staged = { ...area, adjacentAreaIds: (area.adjacentAreaIds ?? []).filter(adjacentId => this.registry.areas.has(adjacentId) && !deletedAreaIds.has(adjacentId)) };
       if (current && !sameDefinition(current, staged)) {
-        mutate({ table: 'areas', operation: 'replace', ownerModName: this.modName!, defId: id, def: staged });
+        mutate({ table: 'areas', operation: 'replace', ownerModName: modName, defId: id, def: staged });
       }
     }
     for (const area of this.registry.areas.values()) {
@@ -382,7 +416,7 @@ export class RuntimeWorldContentCoordinator {
           adjacentAreaIds: area.adjacentAreaIds.filter(id => !deletedAreaIds.has(id)),
         };
         if (!sameDefinition(area, staged)) {
-          mutate({ table: 'areas', operation: 'replace', ownerModName: this.modName!, defId: area.id, def: staged });
+          mutate({ table: 'areas', operation: 'replace', ownerModName: modName, defId: area.id, def: staged });
         }
         continue;
       }

@@ -139,7 +139,8 @@ export function validateAuthoringFieldValue(
         return problem('invalid-field', inputFieldPath(policy, field.key), `${field.key} 必须是非空字符串`);
       }
       const parts = parseEntityId(value);
-      if (!parts || (field.refType !== undefined && parts.type !== field.refType)) {
+      const validStoryRef = field.refType === 'story' && (parts?.type === 'story' || parts?.type === 'activestory');
+      if (!parts || (field.refType !== undefined && parts.type !== field.refType && !validStoryRef)) {
         return problem('invalid-field', inputFieldPath(policy, field.key), `${field.key} 必须是完整 ${field.refType ?? '内容'} ID：${value}`);
       }
       return undefined;

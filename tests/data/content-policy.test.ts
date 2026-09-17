@@ -175,6 +175,21 @@ describe('内容策略表：字段授权', () => {
     expect(validateAuthoringInput(policy, spotInput({ maxLevel: undefined, conditionText: undefined }))).toBeUndefined();
   });
 
+  test('Init 起始剧情接受 ActiveStory 投放位，购买费用显式空数组保持存在', () => {
+    const policy = requireContentPolicy('inits');
+    const input = {
+      idName: 'demo',
+      name: 'Demo',
+      description: '',
+      defaultAreas: [],
+      startStoryId: 'base:activestory:intro',
+      purchaseCost: [],
+    };
+
+    expect(validateAuthoringInput(policy, input)).toBeUndefined();
+    expect(buildAuthoringDef(policy, MOD, input)).toMatchObject({ purchaseCost: [] });
+  });
+
   test('Spot 支付方案必须显式声明；空数组表示无购买途径', () => {
     const policy = requireContentPolicy('spots');
     const { purchaseOptions: _omitted, ...withoutPayments } = spotInput();
