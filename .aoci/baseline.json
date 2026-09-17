@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-09-17T05:08:34Z",
-  "updated_at": "2026-09-17T16:46:40Z",
+  "updated_at": "2026-09-17T17:24:36Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -24,9 +24,9 @@
       "normalized_sha256": "ee99df011bad7eddec8a817070e92d4e17f3633608021042bc117412d3c724c3"
     },
     "aoci.code.txt": {
-      "sha256": "67e1be4b77afaa42e6571510741292dac0005c9337ea6ba26af1481c900571a6",
-      "size": 416320,
-      "normalized_sha256": "67e1be4b77afaa42e6571510741292dac0005c9337ea6ba26af1481c900571a6"
+      "sha256": "9f4ac9c8bdb6f32d936fa6e595adb9b2a97d781b36d012dfb67767aed0d38859",
+      "size": 417139,
+      "normalized_sha256": "9f4ac9c8bdb6f32d936fa6e595adb9b2a97d781b36d012dfb67767aed0d38859"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -546,9 +546,9 @@
       "normalized_sha256": "f90deb36f23940ec18c3b51544dfc5c5af370404281ecf45782713c40e4307ed"
     },
     "docs/plan-work/00-index.md": {
-      "sha256": "73b391a7e01bc63574c3fb88163e543fdef1781b8b00bc2e0e93d24512a890db",
-      "size": 15304,
-      "normalized_sha256": "132168ece12935da5b9f7f27d4e7469828c08356e88119fccc450ccbaad309b5"
+      "sha256": "e56a767a06379c1a00f504d7969e863d3b9cf9cc1cb88b2e5a60d67e54a0f63a",
+      "size": 15607,
+      "normalized_sha256": "e45afb8fbfd42ad0bc2d27a67d35a0f2bad55dc9a444a43a314abd7dbf1262a8"
     },
     "docs/plan-work/archive/01-ownership-and-development.md": {
       "sha256": "c4fe861643ad530bc3cf8221fd0c414530bc2f8145f2f323d4ad4753257e2a74",
@@ -1324,6 +1324,11 @@
       "sha256": "5c1f0936a0cb0959c6a0865860a3dbd383238486c3727aefd75e01b979437810",
       "size": 7608,
       "normalized_sha256": "5c1f0936a0cb0959c6a0865860a3dbd383238486c3727aefd75e01b979437810"
+    },
+    "docs/plan-work/task-0095-runtime-editor-mini-launcher-and-init-default-area.md": {
+      "sha256": "d0ca92f943f0889761817a7c7aa4a12016130fdf1e3af7f4e0b87cf3c188ff34",
+      "size": 12590,
+      "normalized_sha256": "d0ca92f943f0889761817a7c7aa4a12016130fdf1e3af7f4e0b87cf3c188ff34"
     },
     "index.html": {
       "sha256": "8bdab50da0c29f2c5cedb4916a82221b3208b0331f2b4fea4b7ef92bed9cecc3",

@@ -5,7 +5,7 @@
 > **本目录不是当前事实源。** 项目当前事实一律以 `src/` 与 `docs/docs-828/` 为准。
 > 这里的根目录承载当前确实推进的 Task / ADR / Draft；`archive/` 与 `mechanisms/` 保存冻结过程文档。它们的用途分别是记录当前施工边界，以及回答「为什么当初这么做」或在需要时重新激活未完成方向。
 
-> **当前活跃计划层状态（2026-09-18）**：根目录当前任务包括 [[task-0076-unified-def-editor-service]]、[[task-0077-runtime-editor-condition-tree]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0088-init-area-hot-crud-and-location-fallback]]、[[task-0089-runtime-area-topology-overlay]]、[[task-0092-agents-routing-slimdown]]、[[task-0093-init-editor-design]] 与 [[task-0094-runtime-editor-floating-pane-launcher]]。0087 已被重新收敛的 0088 取代，不再作为当前实施范围；AOCI-CODE 接入和任务系统结构对齐已完成并归档。
+> **当前活跃计划层状态（2026-09-18）**：根目录当前任务包括 [[task-0076-unified-def-editor-service]]、[[task-0077-runtime-editor-condition-tree]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0088-init-area-hot-crud-and-location-fallback]]、[[task-0089-runtime-area-topology-overlay]]、[[task-0092-agents-routing-slimdown]]、[[task-0093-init-editor-design]]、[[task-0094-runtime-editor-floating-pane-launcher]] 与 [[task-0095-runtime-editor-mini-launcher-and-init-default-area]]。0087 已被重新收敛的 0088 取代，不再作为当前实施范围；AOCI-CODE 接入和任务系统结构对齐已完成并归档。
 
 ## 冻结约定
 
@@ -131,6 +131,7 @@
 
 ## 当前活跃任务
 
+- [[task-0095-runtime-editor-mini-launcher-and-init-default-area]]：将 Runtime Editor 入口收敛为真-迷你可拖拽单列浮窗，并在新建 Init 时协同创建可自定义 `defaultArea`；已完成任务拆解，待执行。
 - [[task-0093-init-editor-design]]：完成 Init 编辑器的页面、字段授权、默认区域关系、来源权限、Apply 影响和验收设计；引擎与 UI 已落地，待浏览器验收与最终准出。
 - [[task-0094-runtime-editor-floating-pane-launcher]]：将 Runtime Editor 从 Toast 迁移到全局浮动工作区，解除对设置页和 Toast 生命周期的依赖。
 - [[task-0092-agents-routing-slimdown]]：精简 `AGENTS.md` 的非托管入口与项目护栏，保留 AOCI 托管区块原样。
