@@ -49,7 +49,80 @@
       "entry_removal_count": 25,
       "entry_removal_percent": 25
     },
-    "rules": []
+    "rules": [
+      {
+        "rule_id": "aoci0090-addition-test-duplicate",
+        "action": "exclude",
+        "pattern": "datapack/addition_test.zip",
+        "pattern_kind": "file",
+        "reason": "压缩包与另一份 addition-test 包重复，排除重复打包字节以避免认知重复。",
+        "decision_basis": "duplicate_semantics",
+        "source": "user",
+        "created_by": "codex",
+        "order": 200,
+        "enabled": true
+      },
+      {
+        "rule_id": "aoci0090-addition-test-release",
+        "action": "exclude",
+        "pattern": "datapack/addition-test-0.1.0.zip",
+        "pattern_kind": "file",
+        "reason": "压缩包是可由已索引数据目录重建的发布产物，不承载独立于目录内容的认知语义。",
+        "decision_basis": "generated_asset",
+        "source": "user",
+        "created_by": "codex",
+        "order": 200,
+        "enabled": true
+      },
+      {
+        "rule_id": "aoci0090-arona-core-legacy",
+        "action": "exclude",
+        "pattern": "datapack/arona-clicker-core2.zip",
+        "pattern_kind": "file",
+        "reason": "该旧压缩包属于数据包产物，未发现独立于数据目录的有效运行时语义。",
+        "decision_basis": "generated_asset",
+        "source": "user",
+        "created_by": "codex",
+        "order": 200,
+        "enabled": true
+      },
+      {
+        "rule_id": "aoci0090-arona-core-release",
+        "action": "exclude",
+        "pattern": "datapack/arona-clicker-core.zip",
+        "pattern_kind": "file",
+        "reason": "压缩包由已纳入索引的 AronaClickerCore 数据目录生成，独立包字节不增加源码语义。",
+        "decision_basis": "generated_asset",
+        "source": "user",
+        "created_by": "codex",
+        "order": 200,
+        "enabled": true
+      },
+      {
+        "rule_id": "aoci0090-ba-triangles-asset",
+        "action": "exclude",
+        "pattern": "src/data/ba_triangles.png",
+        "pattern_kind": "file",
+        "reason": "当前未发现有效代码引用，且图片像素本身没有可独立验证的仓库认知契约。",
+        "decision_basis": "maintainer_direction",
+        "source": "user",
+        "created_by": "codex",
+        "order": 200,
+        "enabled": true
+      },
+      {
+        "rule_id": "aoci0090-hoshino-asset",
+        "action": "observe",
+        "pattern": "src/data/Hoshino.png",
+        "pattern_kind": "file",
+        "reason": "图片资源由 UI 使用；不创建像素语义 Entry，但保留资源替换的变化观察。",
+        "decision_basis": "semantic_density",
+        "source": "user",
+        "created_by": "codex",
+        "order": 200,
+        "enabled": true
+      }
+    ]
   },
   "cognition_budget": {
     "version": "cognition-budget-policy/v1",
