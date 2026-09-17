@@ -5,68 +5,32 @@
 
 ## 快速上手
 
-### “编辑器”术语约定
+接到任务先读 [[docs/docs-828/00-INDEX]]，再按其中的路由表读取对应机制、架构或约定文档；源码、测试与 `docs/docs-828/` 共同构成当前事实。
 
-- 当前项目语义中，未特别说明的“编辑器”默认指 **游戏内 UI 编辑器**，即 `src/ui/` 中随游戏页面运行的编辑能力。
-- `tools/datapack-editor/` 是暂时弃用的独立数据包编辑器，仅作为历史工具、Schema 同步产物和后续恢复时的参考；除非任务明确点名，否则不要把它作为当前 UI 问题的默认调查或修改目标。
-- 当问题描述“游戏内编辑器”“UI 编辑器”“主题 UI 控件”时，优先检查 `src/ui/`、游戏内路由和当前 Edge 中的游戏页面。
-- 只有明确提到“独立数据包编辑器”“tools/datapack-editor”或 Schema 编辑器时，才切换到 `tools/datapack-editor/` 路由。
+### 术语与路由
 
-| 场景 | 路由 |
-| --- | --- |
-| 第一次接触项目 / 任务定位 | [[docs/docs-828/00-INDEX]]（唯一入口，双路由表） |
-| 改引擎机制 / 新增子系统 | [[docs/docs-828/00-INDEX]] 模块卡片索引 → 对应卡片 + [[docs/docs-828/05-conventions/architecture-discipline]] |
-| 改实体字段 / 枚举（`src/engine/types/`） | 必读 [[docs/docs-828/05-conventions/schema-sync]]（含 `gen:schema` 协议） |
-| 改数据结构 / 状态分层 | [[docs/docs-828/03-data-structures/player-state]] + [[docs/docs-828/01-architecture/state-layers]] |
-| 改核心算法（生产/抽卡/培养/色彩/事件联动） | [[docs/docs-828/04-mechanisms/state-mutation]] 起（分区表见 00-INDEX） |
-| 文件拆分 / 重构 | [[docs/docs-828/05-conventions/refactoring]] |
-| 写测试 | [[docs/docs-828/05-conventions/testing]] |
-| 维护文档本身 | [[docs/docs-828/05-conventions/doc-maintenance]]；文档准出四项条件、蒸馏分类与归档模板见 [[task-0064-project-documentation-exit-governance]] |
-| Luna 施工上下文 / Patch Unit / 施工纪律 | [[docs/ai/PROJECT-CONSTITUTION]]（从属索引，不复述架构纪律；Unit 与 Receipt 模板见 `docs/ai/templates/`） |
-| Luna 任务 Read Set / 上下文预算 | [[docs/ai/task-read-set-routing]] → [[docs/docs-828/01-architecture/current-context-card]] |
-| 好感系统（数值 / 台阶推送 / 羁绊尾巴 / 输入中提示）机制 | [[affection-planning]]（机制单一事实源；聊天消息成分已移除） |
-| Datapack 读取 / 多包管理 / mod 冲突与命名空间 | [[adr-0004-datapack-management]]（规划中，裁定记录见文内） |
-| Datapack 汇总契约 / Registry 组合边界 | `src/data-services/contracts/datapack.ts`、`src/data-services/registry/`；基础引擎只消费注入后的数据 |
-| 仍生效的设计约束（已被代码实现的裁定） | [[docs/docs-828/01-architecture/design-constraints]] |
-| 历史计划 / 过程文档 / 未决方向（**非当前事实源**） | [[docs/plan-work/00-index]]（冻结考古层入口） |
+- 未特别说明的“编辑器”指游戏内 UI 编辑器（`src/ui/`）；只有明确点名独立数据包编辑器或 Schema 编辑器时，才调查 `tools/datapack-editor/`。
+- 引擎机制 / 子系统：[[docs/docs-828/00-INDEX]] 的模块卡片 + [[docs/docs-828/05-conventions/architecture-discipline]]。
+- 实体字段 / 枚举：[[docs/docs-828/05-conventions/schema-sync]]；状态分层：[[docs/docs-828/03-data-structures/player-state]] + [[docs/docs-828/01-architecture/state-layers]]。
+- 生产、抽卡、培养、色彩、事件联动：[[docs/docs-828/04-mechanisms/00-index]]；文件拆分：[[docs/docs-828/05-conventions/refactoring]]；测试：[[docs/docs-828/05-conventions/testing]]。
+- 文档维护：[[docs/docs-828/05-conventions/doc-maintenance]]；Luna 施工协议：[[docs/ai/PROJECT-CONSTITUTION]]；Read Set：[[docs/ai/task-read-set-routing]]。
+- 好感机制：[[affection-planning]]；Datapack 管理规划：[[adr-0004-datapack-management]]；Datapack 汇总边界：`src/data-services/contracts/datapack.ts` 与 `src/data-services/registry/`。
+- 历史计划与未决方向：[[docs/plan-work/00-index]]；它不是当前系统事实源。
 
-### 计划与过程文档（冻结考古层）
+## 任务与文档结构
 
-`docs/plan-work/` 保存全部历史 ADR / Roadmap / Task / 设计草案 / 审查记录，**整体处于冻结状态**：
-
-| 路径 | 内容 | 维护方式 |
-| --- | --- | --- |
-| `archive/` | 全部冻结的过程文档 | 不再准出、不再维护状态；只允许追加「更正（日期）」标注 |
-| `mechanisms/` | 按机制的反向索引（当前机制 → 设计理由 → 历史来源） | 只在需要定位设计理由时更新 |
-| `00-index.md` | 入口，含**未决方向**清单 | 新方向出现时追加 |
-| 根目录 `*.md` | 新的、确实要推进的计划文档 | 只在开工时创建，完成后移入 `archive/` |
-
-规则：
-
-- **不要从 `archive/` 判断系统现状**；ADR 里写了「应如此」但源码未实现的地方，以 [[docs/docs-828/01-architecture/design-constraints]] 末节的「尚未落地的纸面约束」为准；
-- 恢复某个未决方向时，从原文**重新激活**（另立 ADR / Task），不要就地续写历史文档；
-- 新计划文档一律按**裸文件名**互相引用（形如 `[[task-0070-xxx]]`，不带目录路径），移动目录不会产生连锁改名；
-- 策划意见不能直接写入机制正文；只有裁定并实现后的稳定机制，才沉淀到 `docs/docs-828/`；
-- `docs/ai/` 只放 AI 施工协议与模板（非计划正文），入口见上方路由表；
-- `docs/newPlan/` 是旧位置，仅保留历史文件，**禁止写入**。
-
-文档完整性（链接目标、文件名唯一、源码路径有效性）由 `npm run check:docs` 检查。
-
-### 文档范围与拆分纪律
-
-- 当新需求、评审意见或施工范围的标题或主体已经超出当前 Draft / Task 的目标、边界或验收口径时，必须优先创建新的 ADR、Draft 或 Task 文档，不得反复借调旧文档承载新增主题。
-- 旧文档只继续维护其原定范围、状态和历史结论；新文档应通过“前置 / 关联 / 后续入口”链接旧文档，不能用追加章节的方式掩盖任务范围扩张。
-- 只有同一目标下的澄清、验收记录或非扩展性修订才留在原文档；若出现新的独立标题、实现阶段、责任边界或延期事项，应拆为新文档并同步 docs/plan-work/00-index.md。
+- `docs/plan-work/` 根目录只放当前推进的 Task / ADR / Draft；完成后移入 `archive/`。`archive/` 与 `mechanisms/` 是冻结考古层，不能据此判断系统现状。
+- 新任务先在根目录建文档并同步 `00-index.md`；范围扩展、独立阶段或责任边界变化必须拆新文档。恢复历史方向时另立 ADR / Task，不就地续写。
+- `docs/plan-work/` 内互相引用使用裸文件名；`docs/ai/` 只放 AI 施工协议与模板；`docs/newPlan/` 禁止写入。链接、文件名唯一性和源码路径由 `npm run check:docs` 检查。
+- 策划意见不直接写入机制正文；只有已裁定且实现稳定的机制才沉淀到 `docs/docs-828/`。
 
 ## AOCI 与任务系统协作
 
-- `AGENTS.md` 只承载稳定的项目规则与路由；`aoci.txt`、`aoci.meta.txt`、`aoci.code.txt` 和可选的 `aoci.database.txt` 承载仓库认知，不在此复制认知正文或 FRAS 机制。
-- `docs/plan-work/00-index.md` 是任务与历史入口；`docs/plan-work/` 根目录只放当前确实推进的 Task / ADR / Draft，`archive/` 与 `mechanisms/` 是冻结考古层。
-- Codex Goal 只负责当前会话的持续执行，不是项目事实源；长期状态、边界、决策、验收和剩余工作必须写入对应 Task 文档。
-- 新任务开始时先建立或更新根目录 Task，并同步 `00-index.md`；范围扩展必须拆新文档，不把旧 Task 变成多主题容器。
-- 代码或文档达到最终稳定状态后，按当前 AOCI Guide 处理受影响 Entry，依次完成 Verify、Check、Guide；不得手工编辑 AOCI Volume。
-- Task 完成后先写入最终核验，再将文档移入 `docs/plan-work/archive/`、更新 `00-index.md`，最后重新维护受影响 Entry 并再次完成终态核验。
-- `.codex/config.toml` 等机器绑定宿主配置保持 Git 忽略；认知资产、必要的 `.aoci/` 治理状态和 Task 文档应在审阅后纳入本地 Git 提交。
+- `AGENTS.md` 只做入口与稳定护栏；`aoci.txt`、`aoci.meta.txt`、`aoci.code.txt` 和可选数据库卷承载仓库认知，不在此复制 FRAS 正文。
+- Codex Goal 只负责当前会话的持续执行；长期状态、边界、决策、验收和剩余工作写入对应 Task。
+- 受管理对象达到最终稳定状态后，按实时 Guide 完成 Maintain / Update / Verify / Check / Guide；不得手工编辑 AOCI Volume。
+- Task 完成后先记录最终核验，再归档、更新 `00-index.md`，最后重新维护受影响 Entry 并完成终态核验。
+- `.codex/config.toml` 等机器绑定配置保持 Git 忽略；认知资产、必要 `.aoci/` 状态和 Task 文档纳入本地提交。
 
 ## 命令
 
@@ -82,24 +46,19 @@
 | `npm run check:docs` | 文档库结构检查（链接目标、裸名引用、文件名唯一、状态词表、归档结果） |
 | `npm run report:doc-context` | 文档分区规模与粗略上下文预算报告 |
 
-## 架构纪律（不可破坏，详见 [[docs/docs-828/05-conventions/architecture-discipline]]）
+## 不可破坏的稳定护栏
 
-1. **单一写入口**：所有状态变更走 `StateMutationService`，禁止直接改 PlayerState
-2. **事件驱动**：新增联动逻辑优先做成 Trigger/Affector，不要塞进 GameInstance 方法体；新事件登记进 `EVENT_CATALOG`
-3. **数据包声明式**：新机制优先设计成 Datapack 字段（Schema 协议同步），而非硬编码
-4. **只读 UI**：UI 只消费 `getView()` / `createUIContext()`（`UIFacingGame` 只读面），不持有写引用
-5. **三层状态**：新增"跨世界线保留"数据时想清楚放 global / per-Init 快照 / per-Init 当前哪一层；per-Init 字段必须在 `PER_INIT_FIELD_SPECS` 登记
-6. **测试先行**：机制改动必须带 vitest 测试（`npm test` 通过才算完成）
-7. **数据服务单向依赖**：`src/data-services/` 不得依赖 `src/arona-clicker/`、`src/ui/`、`src/data/` 或 `src/save/`；由 `npm run check:architecture` 强制检查
-8. **不做存档迁移**：项目处于长期开发阶段，PlayerState / Datapack 结构可随时破坏性变更，**禁止编写任何存档迁移/版本兼容代码**；旧存档失效直接清档重来。改状态结构时同步更新相关测试与文档即可
+- 所有状态变更走 `StateMutationService`；新增联动优先使用 Trigger / Affector，新事件登记 `EVENT_CATALOG`。
+- 新机制优先声明为 Datapack 字段；UI 只消费 `getView()` / `createUIContext()` 的只读面，不持有写引用。
+- 新增跨世界线数据先明确 global、per-Init 快照或 per-Init 当前归属；per-Init 字段登记 `PER_INIT_FIELD_SPECS`。
+- 机制改动必须带 vitest 测试；`src/data-services/` 不得反向依赖 UI、内容层、测试数据或存档层，使用 `npm run check:architecture` 验证。
+- 禁止编写存档迁移或版本兼容代码；状态结构破坏性变更同步更新测试与文档，旧存档直接清档。
 
-## 实体类型 → 数据包编辑器 同步协议（防漂移）
+## Schema 同步
 
-- 改 `src/engine/types/` 的实体字段/枚举后，**必须** `npm run gen:schema`（重新生成 `engine-defs.gen.json`）。
-- 简单字段（string/int/float/enum/ref/array）自动进编辑器；想带中文标签/枚举含义，在字段 TSDoc 写 `@label` / `@enum 值=中文` / `@ref <表>` / `@int`。
-- 复杂/仅编辑需要的字段（条件/效果/表达式 tagged 联动、optionsFrom、collapsible 等）在 `tools/datapack-editor/schema/editor-extras.ts` 的 `TABLE_META.overrides` 兜底。
-- `tools/datapack-editor/schema/engine-schema.sync.test.ts` 做三向一致检查：引擎字段↔协议↔editor 表，新增未同步即 error。
-- 完整流程见 [[docs/docs-828/05-conventions/schema-sync]]。
+- 改 `src/engine/types/` 的字段或枚举后必须运行 `npm run gen:schema`；禁止手改生成的 `engine-defs.gen.json`。
+- 字段标签、枚举含义和引用表通过 TSDoc；复杂编辑器字段在 `tools/datapack-editor/schema/editor-extras.ts` 的 `TABLE_META.overrides` 维护。
+- `engine-schema.sync.test.ts` 负责引擎字段、协议和编辑器表的三向一致性；完整流程见 [[docs/docs-828/05-conventions/schema-sync]]。
 
 ## 禁止修改
 
@@ -109,9 +68,8 @@
 
 ## 代码风格
 
-- 默认不写注释；只在 WHY 非显而易见时写
-- 引用文件用路径而非复制代码，让 AI 用 Read 定向读
-- 建议拆解较大的代码文件：引擎/关键数据结构本体与关键循环、集成完毕的服务放单文件，较大的底层服务与枚举功能各自拆出为多个文件到对应文件夹内（规范见 [[docs/docs-828/05-conventions/refactoring]]）
+- 默认不写注释，只为非显而易见的 WHY 写注释；引用文件路径，不复制大段代码。
+- 大文件按职责拆分，遵循 [[docs/docs-828/05-conventions/refactoring]]。
 
 ## 默认数据与 Spot 招募
 

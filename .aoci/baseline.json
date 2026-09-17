@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-09-17T05:08:34Z",
-  "updated_at": "2026-09-17T14:58:16Z",
+  "updated_at": "2026-09-17T15:16:13Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -19,14 +19,14 @@
       "normalized_sha256": "dbf21f615286da1beda8be6682c59435a6d24947c270dcde85be5c00fad40d40"
     },
     "AGENTS.md": {
-      "sha256": "bf79662fdb95067de083f522b6e15d0ac8e77d6c6445c27f6e1942a8f82f16ae",
-      "size": 24338,
-      "normalized_sha256": "fac7b33d146d7b2e4e250f979454cc609c2e5b031721078e5b12385cbd8d012e"
+      "sha256": "563cd292dea6ec17272e72744c7ac94820f8c7a3050f70efa808189f50d031f2",
+      "size": 19690,
+      "normalized_sha256": "ee99df011bad7eddec8a817070e92d4e17f3633608021042bc117412d3c724c3"
     },
     "aoci.code.txt": {
-      "sha256": "682f9e96e9dc4bfa80aa692e2026117479604e739c31bb4d0b1c30ef0d1632f2",
-      "size": 413547,
-      "normalized_sha256": "682f9e96e9dc4bfa80aa692e2026117479604e739c31bb4d0b1c30ef0d1632f2"
+      "sha256": "fd8baffdffaf28b91a74caf036c6d404ef3be704ec20ae1e2042afba2f82d043",
+      "size": 414186,
+      "normalized_sha256": "fd8baffdffaf28b91a74caf036c6d404ef3be704ec20ae1e2042afba2f82d043"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -546,9 +546,9 @@
       "normalized_sha256": "f90deb36f23940ec18c3b51544dfc5c5af370404281ecf45782713c40e4307ed"
     },
     "docs/plan-work/00-index.md": {
-      "sha256": "3eaf80bbe0750914ab420756a7318f421fbba43543e34c9945044015a91cd665",
-      "size": 14660,
-      "normalized_sha256": "82e970e7c4addec6810510e87ae63117041160215ed0b6a9426c731a5e8abffc"
+      "sha256": "029603af94e00970600699dd79970aa59ea8aebb027ea22b1de33da440f01b50",
+      "size": 14831,
+      "normalized_sha256": "b77374f0cdc746ddb3927791c5f5cea2bbfcadbb6a27131229316c2438af5ff7"
     },
     "docs/plan-work/archive/01-ownership-and-development.md": {
       "sha256": "c4fe861643ad530bc3cf8221fd0c414530bc2f8145f2f323d4ad4753257e2a74",
@@ -1309,6 +1309,11 @@
       "sha256": "883f85ec4f9d79e9f21567ce398ef292c014c1e0248ff94c3798abeaaf67f0b3",
       "size": 7976,
       "normalized_sha256": "883f85ec4f9d79e9f21567ce398ef292c014c1e0248ff94c3798abeaaf67f0b3"
+    },
+    "docs/plan-work/task-0092-agents-routing-slimdown.md": {
+      "sha256": "cc4c79f365f17381e355cbc1d8a943458b21f39b4b731d14a78c626bf0866948",
+      "size": 2207,
+      "normalized_sha256": "cc4c79f365f17381e355cbc1d8a943458b21f39b4b731d14a78c626bf0866948"
     },
     "index.html": {
       "sha256": "8bdab50da0c29f2c5cedb4916a82221b3208b0331f2b4fea4b7ef92bed9cecc3",
