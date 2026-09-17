@@ -28,7 +28,26 @@ describe('顶栏与设置工作区', () => {
     localStorage.clear();
   });
 
-  it('顶栏只保留主题、游戏、背包、设置四个一级入口', () => {
+  it('Init 选择大厅可直接打开 Runtime Editor 浮动面板，不依赖设置页', () => {
+    const game = new AronaClickerRuntime();
+    game.init([baseDatapack]);
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const controller = new UIController(game, root);
+    controller.render();
+
+    expect(root.querySelector('.selector-shell')).not.toBeNull();
+    root.querySelector<HTMLButtonElement>('#runtime-editor-launch')!.click();
+
+    expect(controller.panelState.service).toBe('game');
+    expect(document.querySelector('.runtime-editor-panel')).not.toBeNull();
+    expect(document.querySelector('.runtime-editor-panel [data-runtime-editor-toggle], .runtime-editor-panel [data-runtime-editor-mod-field="modName"]')).not.toBeNull();
+    expect(document.querySelector('#toast-layer .toast-action')).toBeNull();
+    controller.destroy();
+    game.stop();
+  });
+
+  it('顶栏保留主题、编辑器、游戏、背包、设置一级入口', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);
     const wrapper = document.createElement('div');
@@ -37,7 +56,8 @@ describe('顶栏与设置工作区', () => {
     const topbar = wrapper.querySelector('.topbar')!;
     const nav = topbar.querySelector('.service-nav-actions')!;
     expect(topbar.querySelector('#theme-palette-btn')).not.toBeNull();
-    expect(nav.querySelectorAll(':scope > button')).toHaveLength(3);
+    expect(nav.querySelectorAll(':scope > button')).toHaveLength(4);
+    expect(nav.querySelector('#runtime-editor-launch')).not.toBeNull();
     expect(nav.querySelector('[data-service="game"]')).not.toBeNull();
     expect(nav.querySelector('[data-topbar-action="inventory"]')).not.toBeNull();
     expect(nav.querySelector('[data-service="settings"]')).not.toBeNull();
@@ -164,11 +184,11 @@ describe('顶栏与设置工作区', () => {
     if (editorToggle) editorToggle.click();
     else root.querySelector<HTMLButtonElement>('[data-runtime-editor-open]')!.click();
     expect(root.querySelector('.runtime-editor-form')).toBeNull();
-    expect(document.querySelector('.app-modal .runtime-editor-form')).not.toBeNull();
+    expect(document.querySelector('.runtime-editor-panel .runtime-editor-form')).not.toBeNull();
     expect(root.querySelector('.pack-draft-actions')).not.toBeNull();
 
     const setMod = (key: string, value: string) => {
-      document.querySelector<HTMLInputElement>(`.app-modal [data-runtime-editor-mod-field="${key}"]`)!.value = value;
+      document.querySelector<HTMLInputElement>(`.runtime-editor-panel [data-runtime-editor-mod-field="${key}"]`)!.value = value;
     };
     const setField = (key: string, value: string) => {
       document.querySelector<HTMLInputElement>(`.app-modal [data-runtime-editor-field="${key}"]`)!.value = value;
@@ -180,13 +200,13 @@ describe('顶栏与设置工作区', () => {
 
     setMod('modName', 'draft-mod');
     setMod('displayName', 'Draft Mod');
-    click('.app-modal [data-runtime-editor-create]');
+    click('.runtime-editor-panel [data-runtime-editor-create]');
     expect(editor().error).toBeNull();
 
     // 保存 Mod 设定后仍停留在 Mod 设定页；进入 Spot 页必须由用户主动选择。
     expect(document.querySelector('[data-runtime-editor-create-spot]')).toBeNull();
     expect(document.querySelector('[data-runtime-editor-mod-field="displayName"]')).not.toBeNull();
-    click('.app-modal [data-runtime-editor-new-spot]');
+    click('.runtime-editor-panel [data-runtime-editor-new-spot]');
     expect(document.querySelector('[data-runtime-editor-create-spot]')).not.toBeNull();
     expect(document.querySelector('.runtime-datapack-modal .modal-head .eyebrow')?.textContent).toContain('创建 Spot');
     // 页互相隔离：字段只在所属页，切页前会自动暂存已填内容。
@@ -254,7 +274,7 @@ describe('顶栏与设置工作区', () => {
       expect.objectContaining({ kind: 'flow', resource: 'base:resource:credit', amount: 2 }),
       expect.objectContaining({ kind: 'linearYield', resource: 'base:resource:pyroxene', amountPerLevel: 3 }),
     ]));
-    expect(document.querySelector('#toast-layer .toast-action')).not.toBeNull();
+    expect(document.querySelector('#toast-layer .toast-action')).toBeNull();
 
     const openBrowser = () => {
       controller.modal.close();
@@ -268,7 +288,7 @@ describe('顶栏与设置工作区', () => {
     expect(entryState('empty-spot')).toBe('unchanged');
 
     // 第二个 Spot 仍从浏览器入口创建，并在浏览器里逐个应用
-    click('.app-modal [data-runtime-editor-new-spot]');
+    click('.runtime-editor-panel [data-runtime-editor-new-spot]');
     click('.app-modal [data-runtime-editor-section-tab="basics"]');
     setField('idName', 'second-spot');
     setField('name', '第二个 Spot');
@@ -285,10 +305,8 @@ describe('顶栏与设置工作区', () => {
     expect(game.state.activeInit).toBe('base:init:schale_office');
     expect(game.state.currentAreaId).toBe(areaId);
 
-    const viewGame = [...document.querySelectorAll<HTMLButtonElement>('#toast-layer .toast-action button')]
-      .find(button => button.textContent?.includes('查看游戏'));
-    expect(viewGame).toBeDefined();
-    viewGame!.click();
+    controller.modal.close();
+    root.querySelector<HTMLButtonElement>('.topbar [data-service="game"]')!.click();
     expect(document.querySelector('.app-modal.is-open')).toBeNull();
     expect(controller.panelState.service).toBe('game');
     expect(root.querySelector('[data-runtime-spot-edit="draft-mod:spot:empty-spot"]')).not.toBeNull();
@@ -313,13 +331,13 @@ describe('顶栏与设置工作区', () => {
     expect(entryState('empty-spot')).toBe('modified');
     expect(document.querySelector('.runtime-editor-diff')?.textContent).toContain('修改后的 Spot');
 
-    click('.app-modal [data-runtime-editor-apply]');
+    click('.runtime-editor-panel [data-runtime-editor-apply]');
     expect(game.registry.spots.get('draft-mod:spot:empty-spot')?.name).toBe('修改后的 Spot');
     openBrowser();
     expect(entryState('empty-spot')).toBe('unchanged');
 
     game.state.spotLevels['draft-mod:spot:empty-spot'] = 2;
-    click('.app-modal [data-runtime-editor-entry-remove="empty-spot"]');
+    click('.runtime-editor-panel [data-runtime-editor-entry-remove="empty-spot"]');
     expect(document.querySelector('[data-runtime-delete-preserve]')).not.toBeNull();
     expect(document.querySelector('[data-runtime-delete-clean]')).not.toBeNull();
     click('.app-modal [data-runtime-delete-clean]');

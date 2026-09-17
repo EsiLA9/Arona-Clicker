@@ -13,9 +13,7 @@ import {
   setRuntimeEditorDefinition,
   toRuntimeModDraft,
 } from '../../src/ui/runtime-editor/state';
-import { ToastService } from '../../src/ui/components/toast';
-import { syncRuntimeInitCreateAction } from '../../src/ui/runtime-editor/actions';
-import { renderRuntimeDefinitionForm, renderRuntimeEditorWorkspace, runtimeEditorInitProblems, runtimeEditorInitUnsupportedFields } from '../../src/ui/runtime-editor/view';
+import { renderRuntimeDefinitionForm, renderRuntimeEditorPanel, renderRuntimeEditorWorkspace, runtimeEditorInitProblems, runtimeEditorInitUnsupportedFields } from '../../src/ui/runtime-editor/view';
 
 const ctx = {
   game: {
@@ -34,21 +32,17 @@ const ctx = {
 } as unknown as UIContext;
 
 describe('Runtime Editor shared Init / Area framework', () => {
-  test('Init 选择页通过常驻 Toast 提供新建 Init 入口', () => {
+  test('Runtime Editor 通过独立浮动面板承载入口，不依赖 Toast', () => {
     document.body.innerHTML = '';
     const editor = createRuntimeDatapackEditorState(null);
     editor.modName = 'runtime';
     editor.displayName = 'Runtime';
-    const ctrl = {
-      panelState: { runtimeDatapackEditor: editor },
-      toast: new ToastService(),
-    } as never;
+    const panel = document.createElement('div');
+    panel.innerHTML = renderRuntimeEditorPanel(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState);
 
-    syncRuntimeInitCreateAction(ctrl);
-
-    const action = document.querySelector<HTMLElement>('[data-toast-action-key="runtime-init-create"]');
-    expect(action?.textContent).toContain('新建 Init');
-    expect(action?.textContent).toContain('创建新的 Runtime Init');
+    expect(panel.querySelector('.runtime-editor-panel')).not.toBeNull();
+    expect(panel.querySelector('.runtime-editor-panel [data-runtime-editor-kind-tab="inits"]')).not.toBeNull();
+    expect(panel.querySelector('[data-toast-action-key]')).toBeNull();
   });
 
   test('Init / Area 使用同一 Draft CRUD 状态并映射到 RuntimeModDraft', () => {

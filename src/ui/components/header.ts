@@ -239,9 +239,9 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
         <span class="signal-dot"></span>
         <div><h1>AronaClicker</h1></div>
       </div>
-      <div class="topbar-right">
-        ${options.extraActions ?? ''}
-        <div class="status-line"><span>${options.statusLabel ?? `WORLDLINE ${view.activeInit ? ctx.nameOf('init', view.activeInit) : '未进入'}`}</span>${options.statusSubline ? `<span class="live">${options.statusSubline}</span>` : ''}</div>
+        <div class="topbar-right">
+          ${options.extraActions ?? ''}
+          <div class="status-line"><span>${options.statusLabel ?? `WORLDLINE ${view.activeInit ? ctx.nameOf('init', view.activeInit) : '未进入'}`}</span>${options.statusSubline ? `<span class="live">${options.statusSubline}</span>` : ''}</div>
         <div class="theme-palette">
           ${renderHeaderButton(ctx, { id: 'theme-palette-btn', title: '切换界面主题色', ariaExpanded: false, content: '主题 <span>◑</span>' })}
           <div class="theme-float" data-theme-float>
@@ -258,6 +258,7 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
           </div>
         </div>
         <div class="save-actions service-nav-actions">
+          ${renderHeaderButton(ctx, { id: 'runtime-editor-launch', title: '打开 Runtime Editor', content: '编辑器 <span>✎</span>', ariaExpanded: false })}
           ${renderHeaderButton(ctx, { service: 'game', title: '返回游戏', content: '游戏 <span>⌂</span>' })}
           ${renderHeaderButton(ctx, {
             action: 'inventory',

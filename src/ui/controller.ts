@@ -190,6 +190,8 @@ export class UIController {
   themeFloatOpen = false;
   /** @internal 主题浮窗位置（同上）。 */
   themeFloatPos: { x: number; y: number } | null = null;
+  /** @internal Runtime Editor body-level floating workspace visibility. */
+  runtimeEditorPanelOpen = false;
 
   // --- 疏散出去的领域模块 ---
   /** 聊天流（ID 计数 / 剧情指纹 / 路由 / 同步）。 */

@@ -154,7 +154,7 @@ Init Draft
 
 - 引擎侧已完成 Init / Area 来源归属记录、`startStoryId` 的 Story / ActiveStory 校验、`defaultAreas` 顺序保持、失败草稿不污染临时 Mod、opaque 字段存在时阻断替换，以及 Area / Init mutation 的索引回滚。
 - UI 侧已完成五个 Init Switch、结构化 `defaultAreas` 候选 / 搜索 / 上移 / 下移 / 移除、空入口警告、诊断定位、来源提示、Apply 草稿汇总、窄屏和键盘焦点样式；Init 删除确认已增加 Area / Spot / 当前定位 / per-Init 快照影响摘要。
-- 编辑态现在在 Init 选择界面也提供“新建 Init” Toast 入口；已配置 Runtime Mod 时直接打开 Init 表单，未配置时引导先进入数据包编辑器完成 Mod 元信息。
+- Runtime Editor 入口已由后续 [[task-0094-runtime-editor-floating-pane-launcher]] 收敛为全局浮动面板；Init 选择界面通过顶栏编辑器入口打开，不再依赖“新建 Init” Toast。
 - 回归证据：`npx tsc --noEmit` 通过；全量 `npm test -- --run` 为 168 个测试文件、1568 个测试通过；`npm run check:architecture` 与 `npm run check:docs` 通过；`git diff --check` 通过。
 - 采用的人工裁定：复杂字段首版阻断替换；空 `defaultAreas` 合法但警告；排序先用按钮；当前 Init 删除由运行时回到 Init 选择界面，并在仍有 Area 引用时 fail closed。
 - 尚未完成：基础包 / 其他 Mod Init 的只读浏览与复制工作流仍未接入当前 Runtime Mod 来源契约；真实 Edge 视觉验收因桌面浏览器通道无法可靠确认当前 URL 而被环境阻断；未运行会写入禁止产物目录的 `npm run build`。
