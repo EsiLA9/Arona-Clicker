@@ -6,7 +6,7 @@
 // ============================================================
 
 import { getContentPolicy, SPOT_CONTENT_POLICY, validateAuthoringInput, type ContentAuthoringPolicy, type SpotFunctionalityKind } from '../../data-services/authoring/content-policy';
-import { renderRuntimeDefinitionForm, renderRuntimeEditorForm, renderRuntimeEditorWorkspace, renderRuntimeSpotForm } from './view';
+import { renderRuntimeDefinitionForm, renderRuntimeEditorForm, renderRuntimeEditorWorkspace, renderRuntimeSpotForm, runtimeEditorPreferredAreaInitId } from './view';
 import {
   createRuntimeDatapackEditorState,
   findRuntimeEditorAppliedSpot,
@@ -105,7 +105,7 @@ export function syncRuntimeSpotCreateAction(ctrl: UIController): void {
     });
     const modal = document.querySelector<HTMLElement>('.app-modal');
     if (modal) bindRuntimeDatapackEditorActions(ctrl, modal);
-    syncRuntimeSpotCreateAction(ctrl);
+    syncRuntimeEditorCreateActions(ctrl);
   });
 }
 
@@ -138,6 +138,13 @@ function readRuntimeDefinitionExtensions(policy: ContentAuthoringPolicy, scope: 
     if (extension.editor === 'reference-list') {
       const text = scope.querySelector<HTMLTextAreaElement>(`[data-runtime-editor-extension="${extension.inputKey}"]`)?.value ?? '';
       values[extension.inputKey] = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      continue;
+    }
+    if (extension.editor === 'area-topology') {
+      values[extension.inputKey] = [...scope.querySelectorAll<HTMLElement>('[data-runtime-area-topology-row]')].map(row => ({
+        areaId: row.dataset.areaId ?? '',
+        type: row.dataset.topologyType === 'twoWay' ? 'twoWay' : 'oneWay',
+      }));
       continue;
     }
     if (extension.editor === 'resource-amount-list') {
@@ -390,7 +397,7 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
     ctrl.render();
   });
   ctrl.render();
-  syncRuntimeSpotCreateAction(ctrl);
+  syncRuntimeEditorCreateActions(ctrl);
 }
 
 type RuntimeApplyFailureView = 'datapack' | 'spot';
@@ -504,7 +511,7 @@ function applyRuntimeEditorDraft(
     ctrl.render();
   });
   ctrl.render();
-  syncRuntimeSpotCreateAction(ctrl);
+  syncRuntimeEditorCreateActions(ctrl);
 }
 
 /** 保存当前表单到草稿：只产生 Draft revision，不触碰运行时。 */
@@ -556,7 +563,7 @@ function saveRuntimeSpotDraft(ctrl: UIController, scope: ParentNode, reopenEdito
   setRuntimeEditorProblems(editor, []);
   setRuntimeEditorError(editor, null);
   if (reopenEditor) openRuntimeSpotEditor(ctrl);
-  syncRuntimeSpotCreateAction(ctrl);
+  syncRuntimeEditorCreateActions(ctrl);
   return true;
 }
 
@@ -670,14 +677,14 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
       setRuntimeEditorError(editor, result.ok ? null : result.message);
       if (!result.ok) {
         openRuntimeDatapackEditor(ctrl);
-        syncRuntimeSpotCreateAction(ctrl);
+        syncRuntimeEditorCreateActions(ctrl);
         return;
       }
     } else setRuntimeEditorError(editor, null);
     ctrl.toast.show('Mod 信息已保存。', 'success');
     // 重新渲染同一页面即可，不能把 Mod 设定保存自动转成 Spot 创建页。
     openRuntimeDatapackEditor(ctrl);
-    syncRuntimeSpotCreateAction(ctrl);
+    syncRuntimeEditorCreateActions(ctrl);
   });
   scope.querySelector('[data-runtime-editor-create-spot]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
@@ -685,7 +692,7 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     if (!editor.modName || !editor.displayName) {
       setRuntimeEditorError(editor, '请先完成 Mod 元信息。');
       openRuntimeDatapackEditor(ctrl);
-      syncRuntimeSpotCreateAction(ctrl);
+      syncRuntimeEditorCreateActions(ctrl);
       return;
     }
     saveRuntimeSpotDraft(ctrl, scope);
@@ -698,6 +705,7 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     });
   });
   bindRuntimeCollectionActions(ctrl, scope);
+  bindRuntimeAreaTopologyActions(ctrl, scope);
   scope.querySelector('[data-runtime-editor-apply]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
     if (!editor) return;
@@ -835,6 +843,121 @@ function stashSpotForm(ctrl: UIController, scope: ParentNode): void {
 }
 
 /** 集合的增删与条目子编辑：原型驱动；新增一类可变列表无需修改这里。 */
+function bindRuntimeAreaTopologyActions(ctrl: UIController, scope: ParentNode): void {
+  const picker = scope.querySelector<HTMLElement>('[data-runtime-area-topology-picker]');
+  const input = picker?.querySelector<HTMLInputElement>('[data-runtime-area-topology-area]');
+  const menu = picker?.querySelector<HTMLElement>('[data-runtime-area-topology-options]');
+  const options = menu ? [...menu.querySelectorAll<HTMLButtonElement>('[data-runtime-area-topology-option]')] : [];
+  const empty = menu?.querySelector<HTMLElement>('[data-runtime-area-topology-empty]');
+  let activeIndex = -1;
+  const closePicker = () => {
+    if (!menu || !input) return;
+    menu.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+    options.forEach(option => option.removeAttribute('aria-selected'));
+    activeIndex = -1;
+  };
+  const openPicker = () => {
+    if (!menu || !input) return;
+    const query = input.value.trim().toLocaleLowerCase();
+    let firstVisible = -1;
+    options.forEach((option, index) => {
+      const haystack = `${option.dataset.areaLabel ?? ''} ${option.dataset.areaId ?? ''}`.toLocaleLowerCase();
+      const visible = !query || haystack.includes(query);
+      option.hidden = !visible;
+      option.style.display = visible ? '' : 'none';
+      if (visible && firstVisible < 0) firstVisible = index;
+      option.removeAttribute('aria-selected');
+    });
+    menu.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    if (empty) empty.hidden = firstVisible < 0;
+    activeIndex = firstVisible;
+    if (activeIndex >= 0) options[activeIndex].setAttribute('aria-selected', 'true');
+  };
+  const chooseOption = (option: HTMLButtonElement | undefined) => {
+    if (!option || !input) return;
+    input.value = option.dataset.areaId ?? '';
+    input.dataset.selectedAreaId = option.dataset.areaId ?? '';
+    closePicker();
+  };
+  input?.addEventListener('focus', openPicker);
+  input?.addEventListener('input', () => {
+    if (input.dataset.selectedAreaId && input.value !== input.dataset.selectedAreaId) delete input.dataset.selectedAreaId;
+    openPicker();
+  });
+  input?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closePicker();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      openPicker();
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      const visible = options.filter(option => !option.hidden);
+      if (visible.length === 0) return;
+      const current = activeIndex >= 0 ? options[activeIndex] : undefined;
+      const next = Math.max(0, Math.min(visible.length - 1, Math.max(0, visible.indexOf(current!) + direction)));
+      activeIndex = options.indexOf(visible[next]);
+      options.forEach(option => option.removeAttribute('aria-selected'));
+      visible[next].setAttribute('aria-selected', 'true');
+      visible[next].scrollIntoView?.({ block: 'nearest' });
+      return;
+    }
+    if (event.key === 'Enter' && menu && !menu.hidden) {
+      event.preventDefault();
+      chooseOption(activeIndex >= 0 ? options[activeIndex] : options.find(option => !option.hidden));
+    }
+  });
+  options.forEach(option => {
+    option.addEventListener('mousedown', event => event.preventDefault());
+    option.addEventListener('click', () => chooseOption(option));
+  });
+  input?.addEventListener('blur', () => setTimeout(() => {
+    if (!picker?.contains(document.activeElement)) closePicker();
+  }, 0));
+  scope.querySelector('[data-runtime-area-topology-add]')?.addEventListener('click', () => {
+    const editor = ctrl.panelState.runtimeDatapackEditor;
+    if (!editor || editor.selectedContentKind !== 'areas') return;
+    stashRuntimeDefinitionForm(ctrl, scope);
+    const areaId = scope.querySelector<HTMLInputElement>('[data-runtime-area-topology-area]')?.value.trim() ?? '';
+    const type = scope.querySelector<HTMLSelectElement>('[data-runtime-area-topology-type]')?.value === 'twoWay' ? 'twoWay' : 'oneWay';
+    const topology = Array.isArray(editor.formDraft?.topology) ? [...editor.formDraft.topology as Array<{ areaId: string; type: 'oneWay' | 'twoWay' }>] : [];
+    if (!areaId) setRuntimeEditorError(editor, '请先搜索并选择一个 Area。');
+    else if (areaId === `${editor.modName}:area:${String(editor.formDraft?.idName ?? '')}`) setRuntimeEditorError(editor, '不能把当前 Area 连接到自身。');
+    else if (topology.some(item => item.areaId === areaId)) setRuntimeEditorError(editor, `拓扑中已经存在 Area：${areaId}`);
+    else {
+      const currentInitId = typeof editor.formDraft?.initId === 'string' ? editor.formDraft.initId : '';
+      const registryArea = ctrl.game.registry.areas.get(areaId);
+      const draftArea = editor.areas.find(area => `${editor.modName}:area:${area.idName}` === areaId);
+      const targetInitId = registryArea?.initId ?? draftArea?.initId ?? '';
+      if (currentInitId && targetInitId && currentInitId !== targetInitId) {
+        setRuntimeEditorError(editor, `拓扑连接必须属于同一 Init：当前为 ${currentInitId}，目标属于 ${targetInitId}。`);
+      } else {
+        topology.push({ areaId, type });
+        editor.formDraft = { ...editor.formDraft, topology };
+        setRuntimeEditorError(editor, null);
+      }
+    }
+    openRuntimeDefinitionEditor(ctrl, 'areas');
+  });
+  scope.querySelectorAll<HTMLElement>('[data-runtime-area-topology-remove]').forEach(button => {
+    button.addEventListener('click', () => {
+      const editor = ctrl.panelState.runtimeDatapackEditor;
+      if (!editor || editor.selectedContentKind !== 'areas') return;
+      stashRuntimeDefinitionForm(ctrl, scope);
+      const index = Number(button.dataset.runtimeAreaTopologyRemove);
+      const topology = Array.isArray(editor.formDraft?.topology) ? [...editor.formDraft.topology as Array<{ areaId: string; type: 'oneWay' | 'twoWay' }>] : [];
+      if (!Number.isInteger(index) || index < 0 || index >= topology.length) return;
+      topology.splice(index, 1);
+      editor.formDraft = { ...editor.formDraft, topology };
+      setRuntimeEditorError(editor, null);
+      openRuntimeDefinitionEditor(ctrl, 'areas');
+    });
+  });
+}
+
 function bindRuntimeCollectionActions(ctrl: UIController, scope: ParentNode): void {
   const context = (): ReturnType<typeof createUIContext> => createUIContext(ctrl.game);
   const dialogMode = scope instanceof HTMLElement && scope.classList.contains('runtime-subdialog') ? 'push' : 'replace';
@@ -949,6 +1072,38 @@ function openConditionItemDialog(
     closeSubDialog(false);
     openCollectionItemDialog(ctrl, row, prototype, { ...current, condition: updated }, parentMode);
   });
+}
+
+/** 编辑态常驻快捷入口：在当前游戏位置直接创建 Area。 */
+export function syncRuntimeAreaCreateAction(ctrl: UIController): void {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  const key = 'runtime-area-create';
+  if (!editor?.enabled || !editor.modName || !editor.displayName) {
+    ctrl.toast.removeAction(key);
+    return;
+  }
+  const activeInitId = runtimeEditorPreferredAreaInitId(createUIContext(ctrl.game), ctrl.panelState);
+  const activeInit = activeInitId ? ctrl.game.registry.inits.get(activeInitId) : undefined;
+  const text = activeInit ? `当前 Init：${escapeHtml(activeInit.name)}` : '创建一个新的 Area';
+  ctrl.toast.showAction(key, text, '创建 Area', () => {
+    prepareRuntimeEditorForNewDefinition(editor, 'areas');
+    ctrl.modal.open({
+      title: activeInit ? `创建 Area · ${activeInit.name}` : '创建 Area',
+      body: renderRuntimeDefinitionForm(createUIContext(ctrl.game), ctrl.panelState, 'areas'),
+      footer: '<button type="button" class="modal-close toolbar-button">取消</button>',
+      panelClass: 'runtime-datapack-modal',
+      dismissable: false,
+      onClose: clearSubDialogs,
+    });
+    const modal = document.querySelector<HTMLElement>('.app-modal');
+    if (modal) bindRuntimeDatapackEditorActions(ctrl, modal);
+    syncRuntimeAreaCreateAction(ctrl);
+  });
+}
+
+export function syncRuntimeEditorCreateActions(ctrl: UIController): void {
+  syncRuntimeSpotCreateAction(ctrl);
+  syncRuntimeAreaCreateAction(ctrl);
 }
 
 /** 条目弹窗内交互（事件委托，只绑定一次）：类型切换、条件 / 效果的展开与增删。 */

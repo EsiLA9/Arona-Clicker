@@ -55,3 +55,7 @@ pnpm-debug.log*
 
 # Local source line-counting utility
 /count-src-lines.mjs
+
+# AOCI agent host integration (machine-bound; do not commit)
+.codex/config.toml
+.codex/config.toml.backup.*

@@ -26,7 +26,7 @@ import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } fro
 import type { WorldCatalogQueryPort } from './world-catalog';
 import type { UserThemeService } from '../services/user-theme-service';
 import type { ShopQueryPort } from './shop-query';
-import type { RuntimeDefinitionEditorCommands, RuntimeModStateSnapshot, RuntimePaymentOptionDraft, RuntimeSpotFunctionalityDraft, RuntimeSpotLevelUpgradeDraft, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './runtime-content';
+import type { RuntimeAreaTopologyDraft, RuntimeDefinitionEditorCommands, RuntimeModStateSnapshot, RuntimePaymentOptionDraft, RuntimeSpotFunctionalityDraft, RuntimeSpotLevelUpgradeDraft, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './runtime-content';
 import type { DefMetadata } from '../../data-services/contracts/common';
 import type { EnhancementAttachment } from '../../data-services/contracts/enhancement';
 
@@ -117,6 +117,7 @@ export interface RuntimeAreaDraft {
   readonly description: string;
   readonly defaultSpots: readonly string[];
   readonly adjacentAreaIds?: readonly string[];
+  readonly topology?: readonly RuntimeAreaTopologyDraft[];
   readonly tags?: readonly string[];
   readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
 }
@@ -206,6 +207,7 @@ export interface GameReadModel {
   readonly story: StoryQueryPort;
   readonly spot: SpotQueryPort;
   getView(): GameView;
+  availableAreaIds(areaId: string): string[];
   getStoryView(owner: string): StoryView | null;
   getDevLogs(): readonly DevLogEntry[];
 }

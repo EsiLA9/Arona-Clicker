@@ -277,6 +277,7 @@ export function wireGameInstance(
     stop: () => g.stop(),
     createDefaultState: () => createDefaultPlayerState(),
     touchTickTimestamp: () => { g.sessionService.touchLastTick(); },
+    getReachableAreaIds: areaId => g.availableAreaIds(areaId),
   });
   g.mutations.setInitScopedTargetGuard(spotId => {
     const spot = g.registry.spots.get(spotId);

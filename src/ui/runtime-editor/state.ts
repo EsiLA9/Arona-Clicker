@@ -1,4 +1,4 @@
-import type { RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft } from '../../arona-clicker/contracts';
+import type { RuntimeAreaDraft, RuntimeAreaTopologyDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft } from '../../arona-clicker/contracts';
 import type { RuntimeSpotDraftSnapshot } from '../../arona-clicker/contracts/runtime';
 import type { RuntimePaymentOptionDraft, RuntimeSpotFunctionalityDraft, RuntimeSpotLevelUpgradeDraft, RuntimeSpotRevealTriggerDraft } from '../../arona-clicker/contracts/runtime-content';
 import {
@@ -434,7 +434,7 @@ export function toRuntimeModDraft(editor: RuntimeDatapackEditorState): RuntimeMo
   return {
     ...baseDraft,
     ...(editor.inits.length > 0 ? { inits: editor.inits.map(init => cloneRuntimeEditorDefinition(init) as RuntimeEditorInitDraft) } : {}),
-    ...(editor.areas.length > 0 ? { areas: editor.areas.map(area => cloneRuntimeEditorDefinition(area) as RuntimeEditorAreaDraft) } : {}),
+    ...(editor.areas.length > 0 ? { areas: editor.areas.map(area => toRuntimeAreaDraft(area)) } : {}),
     ...(editor.enhancements.length > 0 ? { enhancements: editor.enhancements.map(enhancement => cloneRuntimeEditorDefinition(enhancement) as RuntimeEditorEnhancementDraft) } : {}),
     ...(editor.suspendedInitIds.length > 0 ? { suspendedInitIds: [...editor.suspendedInitIds] } : {}),
     ...(editor.suspendedAreaIds.length > 0 ? { suspendedAreaIds: [...editor.suspendedAreaIds] } : {}),
@@ -445,7 +445,7 @@ export function toRuntimeModDraft(editor: RuntimeDatapackEditorState): RuntimeMo
 export function hydrateRuntimeEditor(editor: RuntimeDatapackEditorState, runtimeMod: RuntimeModDraft): void {
   const spots = runtimeMod.spots.map(spot => cloneRuntimeEditorSpot(spot));
   const inits = (runtimeMod.inits ?? []).map(init => cloneRuntimeEditorDefinition(init) as RuntimeEditorInitDraft);
-  const areas = (runtimeMod.areas ?? []).map(area => cloneRuntimeEditorDefinition(area) as RuntimeEditorAreaDraft);
+  const areas = (runtimeMod.areas ?? []).map(area => toRuntimeAreaEditorDraft(area));
   const enhancements = (runtimeMod.enhancements ?? []).map(enhancement => cloneRuntimeEditorDefinition(enhancement) as RuntimeEditorEnhancementDraft);
   updateRuntimeEditorFields(editor, {
     modName: runtimeMod.modName,
@@ -506,6 +506,21 @@ function cloneRuntimeEditorSpot(spot: RuntimeSpotDraftSnapshot | RuntimeEditorSp
     ...(spot.unsupportedFunctionalityIds ? { unsupportedFunctionalityIds: [...spot.unsupportedFunctionalityIds] } : {}),
     ...(spot.unsupportedPaymentOptionPaths ? { unsupportedPaymentOptionPaths: [...spot.unsupportedPaymentOptionPaths] } : {}),
   };
+}
+
+function toRuntimeAreaTopology(area: RuntimeAreaDraft): RuntimeAreaTopologyDraft[] {
+  if (area.topology) return area.topology.map(item => ({ ...item }));
+  return (area.adjacentAreaIds ?? []).map(areaId => ({ areaId, type: 'oneWay' as const }));
+}
+
+function toRuntimeAreaEditorDraft(area: RuntimeAreaDraft): RuntimeEditorAreaDraft {
+  const { adjacentAreaIds: _legacyAdjacentAreaIds, ...rest } = cloneRuntimeEditorDefinition(area);
+  return { ...rest, topology: toRuntimeAreaTopology(area) } as RuntimeEditorAreaDraft;
+}
+
+function toRuntimeAreaDraft(area: RuntimeEditorAreaDraft): RuntimeAreaDraft {
+  const { adjacentAreaIds: _legacyAdjacentAreaIds, ...rest } = cloneRuntimeEditorDefinition(area);
+  return { ...rest, topology: toRuntimeAreaTopology(area) } as RuntimeAreaDraft;
 }
 
 function cloneRuntimeEditorDefinition<T extends RuntimeEditorDefinitionDraft>(definition: T): T {

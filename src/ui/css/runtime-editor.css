@@ -170,6 +170,140 @@
    border-radius: 6px;
 }
 
+/* --- Area 拓扑：可搜索目标 + 连接类型 + 已加入列表 --- */
+.runtime-area-topology-editor {
+   display: grid;
+   gap: 8px;
+   margin-top: 10px;
+   padding-top: 8px;
+   border-top: 1px solid var(--re-line);
+}
+
+.runtime-area-topology-add {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) auto auto;
+   gap: 6px;
+   align-items: center;
+}
+
+.runtime-area-topology-picker {
+   position: relative;
+   min-width: 0;
+}
+
+.runtime-area-topology-picker > input {
+   width: 100%;
+   box-sizing: border-box;
+}
+
+.runtime-area-topology-options {
+   position: absolute;
+   z-index: 20;
+   top: calc(100% + 4px);
+   right: 0;
+   left: 0;
+   max-height: 240px;
+   overflow-y: auto;
+   padding: 4px;
+   border: 1px solid var(--re-line);
+   border-radius: 6px;
+   background: var(--re-panel);
+   box-shadow: 0 10px 24px rgba(30, 42, 56, .16);
+}
+
+.runtime-area-topology-option {
+   display: grid;
+   width: 100%;
+   gap: 2px;
+   padding: 7px 8px;
+   border: 0;
+   border-radius: 4px;
+   color: var(--re-ink);
+   background: transparent;
+   text-align: left;
+   cursor: pointer;
+}
+
+.runtime-area-topology-option:hover,
+.runtime-area-topology-option[aria-selected="true"] {
+   background: color-mix(in srgb, var(--re-accent) 10%, var(--re-field));
+}
+
+.runtime-area-topology-option strong,
+.runtime-area-topology-option em {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.runtime-area-topology-option em,
+.runtime-area-topology-empty {
+   color: var(--re-muted);
+   font-size: 10px;
+   font-style: normal;
+}
+
+.runtime-area-topology-empty {
+   display: block;
+   padding: 8px;
+}
+
+.runtime-area-topology-add input,
+.runtime-area-topology-add select {
+   min-width: 0;
+   color: var(--re-ink);
+   background: var(--re-field);
+   border: 1px solid var(--re-line);
+   border-radius: 5px;
+   padding: 6px;
+}
+
+.runtime-area-topology-list {
+   display: grid;
+   gap: 4px;
+   margin: 0;
+   padding: 0;
+   list-style: none;
+}
+
+.runtime-area-topology-row {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) auto auto;
+   gap: 8px;
+   align-items: center;
+   padding: 7px 8px;
+   border: 1px solid var(--re-line);
+   border-radius: 5px;
+}
+
+.runtime-area-topology-row > span:first-child {
+   display: grid;
+   min-width: 0;
+}
+
+.runtime-area-topology-row strong,
+.runtime-area-topology-row em {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.runtime-area-topology-row em {
+   color: var(--re-muted);
+   font-size: 10px;
+   font-style: normal;
+}
+
+@media (max-width: 640px) {
+   .runtime-area-topology-add {
+      grid-template-columns: minmax(0, 1fr) auto;
+   }
+
+   .runtime-area-topology-add button {
+      grid-column: 1 / -1;
+   }
+}
+
 /* --- 外壳：顶部条 + 左侧 Switch + 右侧页内容 --- */
 .runtime-editor-shell {
    display: flex;

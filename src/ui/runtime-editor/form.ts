@@ -8,11 +8,9 @@ import {
 } from '../../data-services/authoring/content-policy';
 import type { UIContext } from '../context';
 import type { RuntimeEditorProblemLocation } from './state';
+import { runtimeEditorReferenceOptions, type RuntimeEditorReferenceOption } from './reference-options';
 
-export interface RuntimeEditorFieldOption {
-  readonly value: string;
-  readonly label: string;
-}
+export type RuntimeEditorFieldOption = RuntimeEditorReferenceOption;
 
 export interface RuntimeEditorFieldView {
   readonly key: string;
@@ -66,7 +64,7 @@ export function runtimeEditorFieldViews(
 export function runtimeEditorInitialValues(
   ctx: UIContext,
   policy: ContentAuthoringPolicy,
-  options: { readonly preferredRefValue?: string | null } = {},
+  options: { readonly preferredRefValue?: string | null; readonly preferredRefOnly?: boolean } = {},
 ): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const field of policy.fields) {
@@ -90,7 +88,7 @@ export function runtimeEditorInitialValues(
         const candidates = refOptions(ctx, field);
         const preferred = options.preferredRefValue && candidates.some(option => option.value === options.preferredRefValue)
           ? options.preferredRefValue
-          : candidates[0]?.value ?? '';
+          : options.preferredRefOnly ? '' : candidates[0]?.value ?? '';
         values[field.key] = preferred;
         break;
       }
@@ -268,14 +266,8 @@ export function problemPathWithoutPrefix(policy: ContentAuthoringPolicy, path: s
 }
 
 function refOptions(ctx: UIContext, field: WritableFieldDef): RuntimeEditorFieldOption[] {
-  if (field.refType === 'area') {
-    return [...ctx.game.registry.areas.values()].map(area => ({ value: area.id, label: area.name || area.id }));
-  }
-  if (field.refType === 'init') {
-    return [...ctx.game.registry.inits.values()].map(init => ({ value: init.id, label: init.name || init.id }));
-  }
-  if (field.refType === 'story') {
-    return [...ctx.game.registry.stories.values()].map(story => ({ value: story.id, label: story.name || story.id }));
+  if (field.refType === 'area' || field.refType === 'init' || field.refType === 'story') {
+    return runtimeEditorReferenceOptions(ctx, field.refType);
   }
   return [];
 }

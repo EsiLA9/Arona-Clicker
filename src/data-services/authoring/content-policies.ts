@@ -7,6 +7,7 @@ import type {
   AuthoringProblem,
   ContentAuthoringPolicy,
 } from './content-policy-types';
+import { parseEntityId } from '../../engine/core/entity-id';
 import {
   encodeFunctionalityList,
   encodeGachaPoolList,
@@ -81,7 +82,30 @@ const INIT_REVEAL_EXTENSION: AuthoringExtension = {
 };
 
 const AREA_DEFAULT_SPOTS_EXTENSION = refListExtension('defaultSpots', 'defaultSpots', 'spots', 'spot', 'area', true);
-const AREA_ADJACENT_EXTENSION = refListExtension('adjacentAreaIds', 'adjacentAreaIds', 'topology', 'area', 'area');
+function validateAreaTopology(value: unknown, path: string): AuthoringProblem | undefined {
+  if (!Array.isArray(value)) return { code: 'invalid-field', path, message: `${path} 必须是拓扑元素数组` };
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return { code: 'invalid-field', path, message: `${path} 的元素必须包含 Area 和拓扑类型` };
+    const record = item as { areaId?: unknown; type?: unknown };
+    if (typeof record.areaId !== 'string' || !parseEntityId(record.areaId)?.type || parseEntityId(record.areaId)?.type !== 'area') {
+      return { code: 'invalid-field', path, message: `${path} 的目标必须是完整 Area ID` };
+    }
+    if (record.type !== 'oneWay' && record.type !== 'twoWay') {
+      return { code: 'invalid-field', path, message: `${path} 的拓扑类型必须是 oneWay 或 twoWay` };
+    }
+    if (seen.has(record.areaId)) return { code: 'invalid-field', path, message: `${path} 不能重复添加同一 Area` };
+    seen.add(record.areaId);
+  }
+  return undefined;
+}
+
+const AREA_TOPOLOGY_EXTENSION: AuthoringExtension = {
+  inputKey: 'topology', definitionKey: 'adjacentAreaIds', section: 'topology', editor: 'area-topology',
+  initialValue: [], preserveEmpty: true,
+  validate: value => validateAreaTopology(value, 'area.topology'),
+  encode: value => Array.isArray(value) ? value.map(item => (item as { areaId: string }).areaId) : [],
+};
 const AREA_TAG_EXTENSION: AuthoringExtension = {
   inputKey: 'tags', definitionKey: 'tags', section: 'basics', editor: 'tag-list',
   initialValue: [], preserveEmpty: true, validate: value => validateTagList(value, 'area.tags'), encode: encodeTagList,
@@ -158,11 +182,11 @@ export const AREA_CONTENT_POLICY: ContentAuthoringPolicy = {
     { key: 'name', label: '名称', kind: 'nonEmptyString', section: 'basics' },
     { key: 'description', label: '描述', kind: 'string', section: 'basics' },
   ],
-  extensions: [AREA_DEFAULT_SPOTS_EXTENSION, AREA_ADJACENT_EXTENSION, AREA_TAG_EXTENSION, AREA_REVEAL_EXTENSION],
+  extensions: [AREA_DEFAULT_SPOTS_EXTENSION, AREA_TOPOLOGY_EXTENSION, AREA_TAG_EXTENSION, AREA_REVEAL_EXTENSION],
   defaults: { defaultSpots: [] }, apply: 'local-mutation', materialization: [
     reloadMaterialization('idName', ['registry-record'], 'none'), reloadMaterialization('initId', ['registry-record', 'area-index', 'init-scope']),
     reloadMaterialization('name', ['ui-dynamic'], 'none'), reloadMaterialization('description', ['ui-dynamic'], 'none'),
-    reloadMaterialization('defaultSpots', ['registry-record', 'spot-service']), reloadMaterialization('adjacentAreaIds', ['registry-record', 'ui-dynamic'], 'index'),
+    reloadMaterialization('defaultSpots', ['registry-record', 'spot-service']), reloadMaterialization('topology', ['registry-record', 'ui-dynamic'], 'index'),
     reloadMaterialization('tags', ['registry-record', 'game-num']), reloadMaterialization('revealTriggers', ['registry-record', 'visibility'], 'index'),
   ], state: 'retain', unsupportedFieldHint: 'enterEffects、theme 与 extra 暂不开放编辑；它们需要独立的 DSL / 表现层回写协议',
   mutate(registry, request): AuthoringMutationReceipt {

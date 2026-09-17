@@ -16,7 +16,7 @@ import {
   setDatapackValidation,
   toggleDatapackDraftEnabled,
 } from './workspace/datapack-workspace-state';
-import { bindRuntimeDatapackEditorActions, syncRuntimeSpotCreateAction } from './runtime-editor/actions';
+import { bindRuntimeDatapackEditorActions, syncRuntimeEditorCreateActions } from './runtime-editor/actions';
 import type { UIController } from './controller';
 import { refreshPresentationHostElements } from './controller-theme';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
@@ -221,7 +221,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
       ctrl.refreshPanels(panels as Array<'left' | 'center' | 'right'>);
     });
   });
-  syncRuntimeSpotCreateAction(ctrl);
+  syncRuntimeEditorCreateActions(ctrl);
 }
 
 function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {

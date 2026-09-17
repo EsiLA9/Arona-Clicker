@@ -17,8 +17,9 @@ import { renderRuntimeDefinitionForm, renderRuntimeEditorWorkspace } from '../..
 
 const ctx = {
   game: {
+    getView: () => ({ activeInit: 'base:init:main', currentAreaId: 'base:area:main' }),
     registry: {
-      areas: new Map([['base:area:main', { id: 'base:area:main', name: '主厅' }]]),
+      areas: new Map([['base:area:main', { id: 'base:area:main', name: '主厅', initId: 'base:init:main' }]]),
       inits: new Map([['base:init:main', { id: 'base:init:main', name: '主世界' }]]),
       stories: new Map([['base:story:intro', { id: 'base:story:intro', name: '开场' }]]),
       resourceDisplays: new Map(),
@@ -66,7 +67,7 @@ describe('Runtime Editor shared Init / Area framework', () => {
 
     prepareRuntimeEditorForNewDefinition(editor, 'areas');
     const area = document.createElement('div');
-    area.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'areas');
+    area.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor, service: 'game' } as unknown as PanelState, 'areas');
     expect(area.querySelector('.runtime-editor-shell')).not.toBeNull();
     expect(area.querySelector('[data-runtime-editor-content-kind="areas"]')).not.toBeNull();
     expect(getContentPolicy('areas')?.sections).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'topology' })]));
@@ -77,5 +78,76 @@ describe('Runtime Editor shared Init / Area framework', () => {
     expect(workspace.querySelector('[data-runtime-editor-kind-tab="areas"]')?.classList.contains('is-active')).toBe(true);
     expect(workspace.querySelector('[data-runtime-editor-kind-tab="enhancements"]')).toBeNull();
     expect(getSelectedRuntimeEditorDefinition(editor)).toBeNull();
+  });
+
+  test('游戏 Init 页面新建 Area 时使用当前 Init，并在概览显示关系摘要', () => {
+    const editor = createRuntimeDatapackEditorState(null);
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    prepareRuntimeEditorForNewDefinition(editor, 'areas');
+    editor.activeSection = 'basics';
+
+    const area = document.createElement('div');
+    area.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor, service: 'game' } as unknown as PanelState, 'areas');
+
+    expect(area.querySelector<HTMLSelectElement>('[data-runtime-editor-field="initId"]')?.value).toBe('base:init:main');
+
+    editor.activeSection = 'overview';
+    area.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'areas');
+    expect(area.querySelector('.runtime-editor-overview')?.textContent).toContain('默认设施');
+    expect(area.querySelector('.runtime-editor-overview')?.textContent).toContain('相邻区域');
+  });
+
+  test('非 Init 内容页新建 Area 不预填所属 Init', () => {
+    const editor = createRuntimeDatapackEditorState(null);
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    prepareRuntimeEditorForNewDefinition(editor, 'areas');
+    editor.activeSection = 'basics';
+
+    const area = document.createElement('div');
+    area.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor, service: 'datapack' } as unknown as PanelState, 'areas');
+
+    expect(area.querySelector<HTMLSelectElement>('[data-runtime-editor-field="initId"]')?.value).toBe('');
+  });
+
+  test('Area 拓扑使用可搜索目标与连接类型列表，而不是原始 ID 文本框', () => {
+    const editor = createRuntimeDatapackEditorState(null);
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    setRuntimeEditorDefinition(editor, 'areas', {
+      idName: 'lobby', initId: 'base:init:main', name: 'Lobby', description: '', defaultSpots: [],
+      topology: [{ areaId: 'base:area:main', type: 'twoWay' }],
+    });
+    editor.activeSection = 'topology';
+
+    const area = document.createElement('div');
+    area.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'areas');
+
+    expect(area.querySelector('[data-runtime-area-topology-editor]')).not.toBeNull();
+    expect(area.querySelector('[data-runtime-area-topology-area]')?.getAttribute('aria-controls')).toBe('runtime-area-topology-options');
+    expect(area.querySelector('[data-runtime-area-topology-options]')).not.toBeNull();
+    expect(area.querySelector('[data-runtime-area-topology-type]')).not.toBeNull();
+    expect(area.querySelector('[data-runtime-area-topology-row]')?.getAttribute('data-topology-type')).toBe('twoWay');
+    expect(area.querySelector('textarea[data-runtime-editor-extension="adjacentAreaIds"]')).toBeNull();
+  });
+
+  test('Area 拓扑搜索源包含 Registry 中其它数据包的 Area', () => {
+    const editor = createRuntimeDatapackEditorState(null);
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    setRuntimeEditorDefinition(editor, 'areas', {
+      idName: 'lobby', initId: 'base:init:main', name: 'Lobby', description: '', defaultSpots: [], topology: [],
+    });
+    editor.activeSection = 'topology';
+    (ctx.game.registry.areas as unknown as Map<string, { id: string; name: string; initId?: string }>).set('addition-test:area:observatory', {
+      id: 'addition-test:area:observatory', name: '观测台', initId: 'addition-test:init:observatory',
+    });
+
+    const area = document.createElement('div');
+    area.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'areas');
+
+    expect(area.querySelector('[role="option"][data-area-id="addition-test:area:observatory"]')?.textContent).toContain('观测台');
+    (ctx.game.registry.areas as unknown as Map<string, unknown>).delete('addition-test:area:observatory');
   });
 });

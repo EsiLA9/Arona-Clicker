@@ -57,12 +57,16 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       registry: this.registry,
       sourceId: 'runtime-editor-world',
       onCommitted: commit => {
+        this.setRuntimeAreaTopology(commit.topology);
         this.initService.reconcileAfterWorldDefinitionChange();
         for (const initId of commit.changedInitIds) {
           this.eventBus.emit({ type: 'initDefinitionChanged', initId });
         }
         for (const areaId of commit.changedAreaIds) {
           this.eventBus.emit({ type: 'areaDefinitionChanged', areaId });
+        }
+        if (commit.topologyAreaIds.length > 0) {
+          this.eventBus.emit({ type: 'areaTopologyChanged', areaIds: [...commit.topologyAreaIds] });
         }
       },
     });
@@ -82,6 +86,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     this.activeDatapacks = [...datapacks];
     super.init(datapacks, options);
     this.runtimeWorldContent.reset();
+    this.clearRuntimeAreaTopology();
   }
 
   registerParsedPack(parsed: ParsedPack, id = parsed.manifest.modName + '@' + parsed.manifest.version): void {
@@ -260,7 +265,12 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       }),
       modName: draft.modName,
       inits: draft.inits.map(init => ({ ...init, defaultAreas: [...init.defaultAreas] })),
-      areas: draft.areas.map(area => ({ ...area, defaultSpots: [...area.defaultSpots], ...(area.adjacentAreaIds ? { adjacentAreaIds: [...area.adjacentAreaIds] } : {}) })),
+      areas: draft.areas.map(area => ({
+        ...area,
+        defaultSpots: [...area.defaultSpots],
+        ...(area.adjacentAreaIds ? { adjacentAreaIds: [...area.adjacentAreaIds] } : {}),
+        ...(area.topology ? { topology: area.topology.map(item => ({ ...item })) } : {}),
+      })),
     };
     return result;
   }

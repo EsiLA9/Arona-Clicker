@@ -49,8 +49,10 @@ function renderAreaTab(ctx: UIContext): string {
       <p>${ctx.escapeHtml(currentArea?.description ?? init?.description ?? '')}</p>
     </div>`;
 
-  // 可前往区域 = 严格按当前 Area 的可达性（相邻区域）
-  const adjacent = currentArea?.adjacentAreaIds ?? [];
+  // 可前往区域 = 统一可达性查询：静态拓扑 + Runtime Overlay + Affector 动态连接
+  const adjacent = currentArea
+    ? game.availableAreaIds(currentArea.id).filter(areaId => game.world.areas.get(areaId)?.initId === view.activeInit)
+    : [];
   // 非 passive 剧情演出进行中禁止移动（演出锁定）
   const storyLocked = view.currentStory !== null && view.currentStory.type !== 'passive';
   const reachableRows = adjacent.map(areaId => {

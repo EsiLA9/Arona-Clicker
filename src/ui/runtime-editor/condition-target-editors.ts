@@ -7,6 +7,7 @@
 
 import type { Condition, ConditionTarget, Comparator } from '../../engine/types/expression';
 import type { UIContext } from '../context';
+import { renderRuntimeEditorReferenceOptions, runtimeEditorReferenceOptions, type RuntimeEditorReferenceKind } from './reference-options';
 
 export interface ConditionTargetOption {
   readonly value: ConditionTarget;
@@ -85,8 +86,7 @@ export function renderConditionTargetFields(ctx: UIContext, condition: Condition
   const reference = referenceOptions(ctx, condition.target);
   const keyLabel = condition.target === 'resource' ? '资源' : condition.target === 'spotLevel' ? 'Spot' : condition.target === 'area' ? '区域' : '键';
   const keyInput = reference
-    ? `<input data-runtime-condition-editor-field="key" list="runtime-condition-options-${condition.target}" value="${esc(condition.key)}"><datalist id="runtime-condition-options-${condition.target}">${reference
-      .map(option => `<option value="${esc(option.value)}">${esc(option.label)}</option>`).join('')}</datalist>`
+    ? `<input data-runtime-condition-editor-field="key" list="runtime-condition-options-${condition.target}" value="${esc(condition.key)}"><datalist id="runtime-condition-options-${condition.target}">${renderRuntimeEditorReferenceOptions(esc, reference)}</datalist>`
     : `<input data-runtime-condition-editor-field="key" value="${esc(condition.key)}">`;
   const valueStep = condition.target === 'spotLevel' ? ' step="1"' : '';
   return `<label class="user-theme-field"><span>${keyLabel}</span>${keyInput}</label>
@@ -113,25 +113,27 @@ export function summarizeCondition(ctx: UIContext, condition: Condition): string
 }
 
 function referenceOptions(ctx: UIContext, target: ConditionTarget): readonly { value: string; label: string }[] | undefined {
+  const kind: RuntimeEditorReferenceKind | undefined = (() => {
+    switch (target) {
+      case 'resource': return 'resource';
+      case 'spotLevel':
+      case 'manager': return 'spot';
+      case 'area': return 'area';
+      case 'hasEnh': return 'enhancement';
+      case 'hasReadStory':
+      case 'hasReadStoryInRun':
+      case 'visitedStoryInChain': return 'story';
+      default: return undefined;
+    }
+  })();
+  if (kind) return runtimeEditorReferenceOptions(ctx, kind);
   switch (target) {
-    case 'resource':
-      return [...ctx.game.registry.resourceDisplays.values()].map(resource => ({ value: resource.resourceId, label: resource.label || resource.resourceId }));
-    case 'spotLevel':
-      return [...ctx.game.registry.spots.values()].map(spot => ({ value: spot.id, label: spot.name || spot.id }));
-    case 'area':
-      return [...ctx.game.registry.areas.values()].map(area => ({ value: area.id, label: area.name || area.id }));
-    case 'hasEnh':
-      return [...ctx.game.registry.enhancements.values()].map(enhancement => ({ value: enhancement.id, label: enhancement.name || enhancement.id }));
     case 'hasTag':
     case 'countTags':
       return [...new Set([
         ...[...ctx.game.registry.spots.values()].flatMap(spot => spot.tags ?? []).map(tag => tag.join('/')),
         ...[...ctx.game.registry.enhancements.values()].flatMap(enhancement => enhancement.tags ?? []).map(tag => tag.join('/')),
       ])].map(tag => ({ value: tag, label: tag }));
-    case 'hasReadStory':
-    case 'hasReadStoryInRun':
-    case 'visitedStoryInChain':
-      return [...ctx.game.registry.stories.values()].map(story => ({ value: story.id, label: story.name || story.id }));
     default:
       return undefined;
   }

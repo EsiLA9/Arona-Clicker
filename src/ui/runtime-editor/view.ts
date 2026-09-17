@@ -39,6 +39,7 @@ import {
   renderRevealTriggerList,
   renderTagList,
 } from './collections';
+import { mergeRuntimeEditorReferenceOptions, renderRuntimeEditorReferenceOptions, runtimeEditorReferenceOptions } from './reference-options';
 
 const POLICY = SPOT_CONTENT_POLICY;
 
@@ -57,6 +58,16 @@ const CONTENT_KIND_LABEL: Record<RuntimeEditorContentKind, string> = {
 const EDITABLE_CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'spots'];
 
 export { readRuntimeEditorFields };
+
+/** 只有实际处于游戏 Init 页面时，Area 新建表单才继承当前 Init。 */
+export function runtimeEditorPreferredAreaInitId(ctx: UIContext, state: PanelState): string | null {
+  if (state.service !== 'game' || state.workspace) return null;
+  const view = ctx.view ?? ctx.game.getView();
+  const initId = view.activeInit;
+  const areaId = view.currentAreaId;
+  if (!initId || !areaId) return null;
+  return ctx.game.registry.areas.get(areaId)?.initId === initId ? initId : null;
+}
 
 export function renderRuntimeEditorToggle(ctx: UIContext, state: PanelState): string {
   const editor = state.runtimeDatapackEditor;
@@ -225,8 +236,12 @@ export function renderRuntimeDefinitionForm(ctx: UIContext, state: PanelState, k
   if (!policy) return '<p class="service-result error">当前内容类型尚未接入编辑策略。</p>';
   const esc = ctx.escapeHtml;
   const definition = getSelectedRuntimeEditorDefinition(editor);
+  const preferredRefValue = kind === 'areas' ? runtimeEditorPreferredAreaInitId(ctx, state) : null;
   const values: Record<string, unknown> = editor.formDraft ?? {
-    ...runtimeEditorInitialValues(ctx, policy),
+    ...runtimeEditorInitialValues(ctx, policy, {
+      preferredRefValue,
+      preferredRefOnly: kind === 'areas',
+    }),
     ...(definition ?? {}),
   };
   const applied = definition
@@ -283,6 +298,14 @@ function renderDefinitionOverview(ctx: UIContext, label: string, values: Record<
     ['名称', String(values.name ?? '（未填写）')],
   ];
   if (values.initId !== undefined) rows.push(['所属 Init', String(values.initId || '未设置')]);
+  if (label === 'Area') {
+    const initId = typeof values.initId === 'string' ? values.initId : '';
+    const initName = initId ? ctx.game.registry.inits.get(initId)?.name : undefined;
+    if (initName) rows[rows.length - 1] = ['所属 Init', `${initName} (${initId})`];
+    const defaultSpots = Array.isArray(values.defaultSpots) ? values.defaultSpots.length : 0;
+    const adjacentAreas = Array.isArray(values.adjacentAreaIds) ? values.adjacentAreaIds.length : 0;
+    rows.push(['默认设施', `${defaultSpots} 个`], ['相邻区域', `${adjacentAreas} 个`]);
+  }
   if (values.attachment !== undefined) rows.push(['归属', String((values.attachment as { kind?: string } | undefined)?.kind ?? '未设置')]);
   return `<dl class="runtime-editor-overview">${rows.map(([name, value]) => `<div><dt>${esc(name)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>`;
 }
@@ -290,6 +313,7 @@ function renderDefinitionOverview(ctx: UIContext, label: string, values: Record<
 function renderDefinitionExtension(ctx: UIContext, extension: AuthoringExtension, values: Record<string, unknown>, editor: RuntimeDatapackEditorState): string {
   const esc = ctx.escapeHtml;
   const value = values[extension.inputKey];
+  if (extension.editor === 'area-topology') return renderAreaTopologyEditor(ctx, values, editor);
   if (extension.editor === 'reference-list') {
     const lines = Array.isArray(value) ? value.map(item => String(item)).join('\n') : '';
     return `<label class="user-theme-field runtime-editor-field"><span>${esc(extension.inputKey === 'defaultAreas' ? '默认区域' : extension.inputKey === 'defaultSpots' ? '默认设施' : extension.inputKey === 'adjacentAreaIds' ? '相邻区域' : extension.inputKey)}${extension.required ? '' : '（可选）'}</span><textarea data-runtime-editor-extension="${extension.inputKey}" name="${extension.inputKey}" aria-label="${esc(extension.inputKey)}" rows="4" placeholder="每行一个完整实体 ID">${esc(lines)}</textarea><em class="runtime-editor-hint">每行填写一个完整 ID，例如 base:area:plaza；空白行会忽略。</em></label>`;
@@ -310,6 +334,30 @@ function renderDefinitionExtension(ctx: UIContext, extension: AuthoringExtension
   if (extension.editor === 'reveal-trigger') return renderRevealTriggerList(ctx, (value ?? []) as never[], editor.problems);
   if (extension.editor === 'tag-list') return renderTagList(ctx, (value ?? []) as string[], editor.problems);
   return '';
+}
+
+function renderAreaTopologyEditor(ctx: UIContext, values: Record<string, unknown>, editor: RuntimeDatapackEditorState): string {
+  const esc = ctx.escapeHtml;
+  const currentId = typeof values.idName === 'string' ? `${editor.modName}:area:${values.idName}` : '';
+  // 搜索源展示完整 Registry，不因表单 initId 暂时为空或尚未同步而静默隐藏
+  // 其它数据包的 Area；是否允许连接由加入动作按 Init 归属明确校验。
+  const registryCandidates = runtimeEditorReferenceOptions(ctx, 'area');
+  const draftCandidates = editor.areas.filter(area => {
+    const areaId = `${editor.modName}:area:${area.idName}`;
+    return areaId !== currentId;
+  }).map(area => ({ value: `${editor.modName}:area:${area.idName}`, label: area.name }));
+  const candidates = mergeRuntimeEditorReferenceOptions(registryCandidates, draftCandidates);
+  const candidateLabels = new Map(candidates.map(option => [option.value, option.label]));
+  const topology = Array.isArray(values.topology) ? values.topology as Array<{ areaId?: unknown; type?: unknown }> : [];
+  const rows = topology.map((item, index) => {
+    const areaId = typeof item.areaId === 'string' ? item.areaId : '';
+    const name = candidateLabels.get(areaId) ?? ctx.game.registry.areas.get(areaId)?.name ?? areaId;
+    const type = item.type === 'twoWay' ? 'twoWay' : 'oneWay';
+    const typeLabel = type === 'twoWay' ? '双向' : '单向';
+    return `<li class="runtime-area-topology-row" data-runtime-area-topology-row data-area-id="${esc(areaId)}" data-topology-type="${type}"><span><strong>${esc(name || areaId)}</strong><em>${esc(areaId)}</em></span><span class="runtime-editor-entry-state">${typeLabel}</span><button type="button" class="mini-action" data-runtime-area-topology-remove="${index}">移除</button></li>`;
+  }).join('');
+  const options = candidates.map(option => `<button type="button" role="option" class="runtime-area-topology-option" data-runtime-area-topology-option data-area-id="${esc(option.value)}" data-area-label="${esc(option.label)}"><strong>${esc(option.label)}</strong><em>${esc(option.value)}</em></button>`).join('');
+  return `<div class="runtime-area-topology-editor" data-runtime-area-topology-editor><div class="runtime-editor-collection-heading"><div><h5>拓扑连接</h5><p class="runtime-editor-hint">查找全部 Registry / 草稿中的 Area，并选择单向或双向连接。连接最终必须属于同一 Init；双向连接会在提交时补齐反向边。</p></div></div><div class="runtime-area-topology-add"><div class="runtime-area-topology-picker" data-runtime-area-topology-picker><input type="search" data-runtime-area-topology-area role="combobox" aria-controls="runtime-area-topology-options" aria-expanded="false" placeholder="搜索 Area 名称或完整 ID" autocomplete="off"><div id="runtime-area-topology-options" data-runtime-area-topology-options class="runtime-area-topology-options" role="listbox" hidden>${options}<span class="runtime-area-topology-empty" data-runtime-area-topology-empty${options ? ' hidden' : ''}>${options ? '没有匹配的 Area' : '没有可用 Area'}</span></div></div><select data-runtime-area-topology-type aria-label="拓扑类型"><option value="oneWay">单向</option><option value="twoWay">双向</option></select><button type="button" class="toolbar-button" data-runtime-area-topology-add>加入拓扑</button></div>${rows ? `<ul class="runtime-area-topology-list">${rows}</ul>` : '<p class="runtime-editor-hint">还没有拓扑连接。</p>'}</div>`;
 }
 
 function renderSpotSection(

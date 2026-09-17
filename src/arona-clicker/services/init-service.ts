@@ -57,6 +57,8 @@ export interface InitServiceOptions {
   createDefaultState: () => PlayerState;
   /** 刷新 lastTickTimestamp（离线上限计时基准）。 */
   touchTickTimestamp: () => void;
+  /** 查询静态、Runtime Overlay 与 Affector 合并后的 Area 可达性。 */
+  getReachableAreaIds: (areaId: AreaId) => readonly AreaId[];
 }
 
 export class InitService {
@@ -304,14 +306,7 @@ export class InitService {
       return { success: false, areaId, error: 'AlreadyThere' };
     }
     if (checkAdjacency && fromAreaId !== null) {
-      const fromArea = this.opts.registry.areas.get(fromAreaId);
-      const adjacent = fromArea?.adjacentAreaIds ?? [];
-      const dynamicAdjacent = this.opts.affectorEngine.getActiveAreaConnections()
-        .some(connection =>
-          (connection.fromAreaId === fromAreaId && connection.toAreaId === areaId) ||
-          (connection.direction === 'twoWay' && connection.fromAreaId === areaId && connection.toAreaId === fromAreaId),
-        );
-      if (!adjacent.includes(areaId) && !dynamicAdjacent) {
+      if (!this.opts.getReachableAreaIds(fromAreaId).includes(areaId)) {
         this.opts.devLog.record(`移动失败：${area.name} 与当前位置不相邻`, { source: 'area', level: 'warning', details: 'NotAdjacent' });
         return { success: false, areaId, error: 'NotAdjacent' };
       }

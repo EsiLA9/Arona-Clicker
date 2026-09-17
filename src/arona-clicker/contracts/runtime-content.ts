@@ -169,8 +169,23 @@ export interface RuntimeAreaInput {
   readonly description: string;
   readonly defaultSpots: readonly string[];
   readonly adjacentAreaIds?: readonly string[];
+  readonly topology?: readonly RuntimeAreaTopologyDraft[];
   readonly tags?: readonly string[];
   readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+}
+
+export type RuntimeAreaTopologyType = 'oneWay' | 'twoWay';
+
+export interface RuntimeAreaTopologyDraft {
+  readonly areaId: string;
+  readonly type: RuntimeAreaTopologyType;
+}
+
+export interface RuntimeAreaTopologyConnection {
+  readonly fromAreaId: string;
+  readonly toAreaId: string;
+  readonly type: RuntimeAreaTopologyType;
+  readonly ownerModName: string;
 }
 
 export interface RuntimeWorldDraft {
@@ -199,6 +214,7 @@ export interface RuntimeWorldStateSnapshot {
   readonly sourceId: string;
   readonly inits: ReadonlyMap<string, InitDef>;
   readonly areas: ReadonlyMap<string, AreaDef>;
+  readonly topology: readonly RuntimeAreaTopologyConnection[];
   readonly revision: number;
 }
 
@@ -206,6 +222,8 @@ export interface RuntimeWorldCommit {
   readonly modName: string;
   readonly changedInitIds: readonly string[];
   readonly changedAreaIds: readonly string[];
+  readonly topologyAreaIds: readonly string[];
+  readonly topology: readonly RuntimeAreaTopologyConnection[];
   readonly revisionBefore: number;
   readonly revisionAfter: number;
 }

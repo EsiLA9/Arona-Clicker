@@ -11,6 +11,7 @@ import type { AreaDef, InitDef } from '../../data-services/contracts/world';
 import { Registry } from '../../data-services/registry/registry';
 import type {
   RuntimeAreaInput,
+  RuntimeAreaTopologyConnection,
   RuntimeContentDiagnostic,
   RuntimeInitInput,
   RuntimeWorldCommit,
@@ -23,6 +24,7 @@ import type {
 
 export type {
   RuntimeAreaInput,
+  RuntimeAreaTopologyConnection,
   RuntimeInitInput,
   RuntimeWorldCommit,
   RuntimeWorldCoordinatorOptions,
@@ -85,7 +87,7 @@ function areaInputDef(modName: string, input: RuntimeAreaInput): AreaDef {
   return buildAuthoringDef(AREA_POLICY, modName, {
     ...input,
     defaultSpots: [...input.defaultSpots],
-    adjacentAreaIds: input.adjacentAreaIds ? [...input.adjacentAreaIds] : undefined,
+    topology: input.topology ? input.topology.map(item => ({ ...item })) : [],
     tags: input.tags ? [...input.tags] : undefined,
     revealTriggers: input.revealTriggers ? [...input.revealTriggers] : undefined,
   }) as AreaDef;
@@ -103,6 +105,7 @@ export class RuntimeWorldContentCoordinator {
   private readonly onCommitted: ((commit: RuntimeWorldCommit) => void) | undefined;
   private readonly inits = new Map<string, InitDef>();
   private readonly areas = new Map<string, AreaDef>();
+  private topology: RuntimeAreaTopologyConnection[] = [];
   private modName: string | null = null;
   private revision = 0;
 
@@ -130,6 +133,7 @@ export class RuntimeWorldContentCoordinator {
       sourceId: this.sourceId,
       inits: new Map([...this.inits].map(([id, value]) => [id, cloneAuthoringDef(value)])),
       areas: new Map([...this.areas].map(([id, value]) => [id, cloneAuthoringDef(value)])),
+      topology: this.topology.map(connection => ({ ...connection })),
       revision: this.revision,
     };
   }
@@ -145,6 +149,7 @@ export class RuntimeWorldContentCoordinator {
   reset(): void {
     this.inits.clear();
     this.areas.clear();
+    this.topology = [];
     this.modName = null;
     this.revision = 0;
   }
@@ -181,10 +186,12 @@ export class RuntimeWorldContentCoordinator {
       const desiredAreas = this.prepareAreas(draft.modName, draft.areas);
       this.validateFinalReferences(desiredInits, desiredAreas);
       this.assertOwnedOrFree(desiredInits, desiredAreas);
+      const desiredTopology = this.prepareTopology(draft.modName, draft.areas, desiredAreas);
 
       const receipts: AppliedReceipt[] = [];
       const deletedAreaIds = new Set([...this.areas.keys()].filter(id => !desiredAreas.has(id)));
       const deletedInitIds = new Set([...this.inits.keys()].filter(id => !desiredInits.has(id)));
+      const previousTopology = this.topology;
 
       const mutate = (request: Parameters<typeof applyAuthoringMutation>[1]): void => {
         receipts.push({ receipt: applyAuthoringMutation(this.registry, request) });
@@ -206,10 +213,16 @@ export class RuntimeWorldContentCoordinator {
 
         const changedInitIds = [...new Set([...desiredInits.keys(), ...deletedInitIds])];
         const changedAreaIds = [...new Set([...desiredAreas.keys(), ...deletedAreaIds])];
+        const topologyAreaIds = [...new Set([
+          ...previousTopology.flatMap(connection => [connection.fromAreaId, connection.toAreaId]),
+          ...desiredTopology.flatMap(connection => [connection.fromAreaId, connection.toAreaId]),
+        ])];
         const commit: RuntimeWorldCommit = {
           modName: draft.modName,
           changedInitIds,
           changedAreaIds,
+          topologyAreaIds,
+          topology: desiredTopology.map(connection => ({ ...connection })),
           revisionBefore: this.revision,
           revisionAfter: this.revision + 1,
         };
@@ -218,6 +231,7 @@ export class RuntimeWorldContentCoordinator {
         for (const [id, value] of desiredInits) this.inits.set(id, cloneAuthoringDef(value));
         this.areas.clear();
         for (const [id, value] of desiredAreas) this.areas.set(id, cloneAuthoringDef(value));
+        this.topology = desiredTopology.map(connection => ({ ...connection }));
         this.revision += 1;
         return { ok: true, revision: this.revision, diagnostics: [], message: `Init / Area 已热应用：${changedInitIds.length + changedAreaIds.length} 项。` };
       } catch (error) {
@@ -249,12 +263,36 @@ export class RuntimeWorldContentCoordinator {
   private prepareAreas(modName: string, inputs: readonly RuntimeAreaInput[]): Map<string, AreaDef> {
     const result = new Map<string, AreaDef>();
     for (const input of inputs) {
-      validateRecord(AREA_POLICY, input, this.registry);
-      const definition = areaInputDef(modName, input);
+      const topology = input.topology ?? (input.adjacentAreaIds ?? []).map(areaId => ({ areaId, type: 'oneWay' as const }));
+      const { adjacentAreaIds: _legacyAdjacentAreaIds, ...authoringInput } = input;
+      const normalizedInput = { ...authoringInput, topology };
+      validateRecord(AREA_POLICY, normalizedInput, this.registry);
+      const definition = areaInputDef(modName, normalizedInput);
       if (result.has(definition.id)) throw new Error(`Draft 中 Area ID 重复：${definition.id}`);
       result.set(definition.id, definition);
     }
     return result;
+  }
+
+  private prepareTopology(
+    modName: string,
+    inputs: readonly RuntimeAreaInput[],
+    areas: ReadonlyMap<string, AreaDef>,
+  ): RuntimeAreaTopologyConnection[] {
+    const finalArea = (id: string): AreaDef | undefined => areas.get(id) ?? this.registry.areas.get(id);
+    const topology: RuntimeAreaTopologyConnection[] = [];
+    for (const input of inputs) {
+      const fromAreaId = areaId(modName, input.idName);
+      const fromArea = finalArea(fromAreaId);
+      for (const edge of input.topology ?? []) {
+        const target = finalArea(edge.areaId);
+        if (!target) throw new Error(`Area "${fromAreaId}" 的拓扑目标不存在：${edge.areaId}`);
+        if (!fromArea || target.initId !== fromArea.initId) throw new Error(`Area "${fromAreaId}" 的拓扑目标必须属于同一 Init：${edge.areaId}`);
+        if (edge.areaId === fromAreaId) throw new Error(`Area "${fromAreaId}" 不能与自身建立拓扑`);
+        topology.push({ fromAreaId, toAreaId: edge.areaId, type: edge.type, ownerModName: modName });
+      }
+    }
+    return topology;
   }
 
   private assertOwnedOrFree(desiredInits: Map<string, InitDef>, desiredAreas: Map<string, AreaDef>): void {

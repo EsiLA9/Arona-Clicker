@@ -17,6 +17,7 @@ const MOD = 'runtime-world';
 const INIT = `${MOD}:init:demo`;
 const HOME = `${MOD}:area:home`;
 const SECOND = `${MOD}:area:second`;
+const NEW_AREA = `${MOD}:area:new-area`;
 
 function worldDraft(
   inits: RuntimeWorldDraft['inits'] = [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [HOME, SECOND] }],
@@ -103,5 +104,66 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
     expect(game.registry.inits.get(INIT)?.name).toBe('Demo Init');
     expect(game.registry.areas.has(HOME)).toBe(true);
     expect(game.registry.spots.has(`${MOD}:spot:desk`)).toBe(true);
+  });
+
+  test('双向拓扑通过 Runtime Overlay 提供反向边，不修改目标 Area Def', () => {
+    const game = setupGame();
+    const result = game.applyRuntimeWorldDraft(worldDraft(
+      [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [HOME, SECOND] }],
+      [
+        { idName: 'home', initId: INIT, name: 'Home', description: '', defaultSpots: [], topology: [{ areaId: SECOND, type: 'twoWay' }] },
+        { idName: 'second', initId: INIT, name: 'Second', description: '', defaultSpots: [], topology: [] },
+      ],
+    ));
+
+    expect(result.ok).toBe(true);
+    expect(game.registry.areas.get(HOME)?.adjacentAreaIds).toEqual([SECOND]);
+    expect(game.registry.areas.get(SECOND)?.adjacentAreaIds).toEqual([]);
+    expect(game.availableAreaIds(SECOND)).toContain(HOME);
+  });
+
+  test('Runtime Area 可以对外部 Area 建立双向拓扑', () => {
+    const game = setupGame();
+    expect(game.inits.startNewGame('base:init:schale_office')).toBe(true);
+    const externalTarget = 'base:area:schale_main';
+    const runtimeArea = `${MOD}:area:portal`;
+
+    const result = game.applyRuntimeWorldDraft(worldDraft([], [{
+      idName: 'portal',
+      initId: 'base:init:schale_office',
+      name: 'Portal',
+      description: '',
+      defaultSpots: [],
+      topology: [{ areaId: externalTarget, type: 'twoWay' }],
+    }]));
+
+    expect(result.ok).toBe(true);
+    expect(game.registry.areas.get(externalTarget)?.adjacentAreaIds).not.toContain(runtimeArea);
+    expect(game.availableAreaIds(externalTarget)).toContain(runtimeArea);
+    expect(game.travelToArea(runtimeArea, true)).toMatchObject({ success: true, areaId: runtimeArea });
+    expect(game.state.currentAreaId).toBe(runtimeArea);
+  });
+
+  test('热创建并应用 Area 后，当前玩家可以立即移动到新 Area', () => {
+    const game = setupGame();
+    expect(game.applyRuntimeWorldDraft(worldDraft(
+      [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [HOME] }],
+      [{ idName: 'home', initId: INIT, name: 'Home', description: '', defaultSpots: [], adjacentAreaIds: [] }],
+    )).ok).toBe(true);
+    expect(game.inits.startNewGame(INIT)).toBe(true);
+
+    const applied = game.applyRuntimeWorldDraft(worldDraft(
+      [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [HOME, NEW_AREA] }],
+      [
+        { idName: 'home', initId: INIT, name: 'Home', description: '', defaultSpots: [], topology: [{ areaId: NEW_AREA, type: 'twoWay' }] },
+        { idName: 'new-area', initId: INIT, name: 'New Area', description: '', defaultSpots: [], topology: [] },
+      ],
+    ));
+
+    expect(applied.ok).toBe(true);
+    expect(game.registry.areas.has(NEW_AREA)).toBe(true);
+    expect(game.state.currentAreaId).toBe(HOME);
+    expect(game.travelToArea(NEW_AREA)).toMatchObject({ success: true, areaId: NEW_AREA });
+    expect(game.state.currentAreaId).toBe(NEW_AREA);
   });
 });

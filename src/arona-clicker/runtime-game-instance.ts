@@ -17,6 +17,7 @@ import {
 import type { VisibilitySnapshot } from '../engine/contracts/reveal';
 import type { PlayerState } from './types/state';
 import type { GameView, StoryView } from './contracts';
+import type { RuntimeAreaTopologyConnection } from './contracts/runtime-content';
 import type { TickResult } from '../engine/contracts/tick';
 import type { TravelResult } from './contracts/results';
 import { StoryService } from './services/story-service';
@@ -132,6 +133,7 @@ export class GameInstance {
   // 运行时状态
   private _state!: PlayerState;
   private _tagResidue: TagOverrideResidue = { spotTagOverrides: {} };
+  private runtimeAreaTopology: readonly RuntimeAreaTopologyConnection[] = [];
 
   private readonly saveCodec: (ctx: SaveBuildContext) => SaveData;
 
@@ -196,6 +198,29 @@ export class GameInstance {
    */
   getStoryView(owner: string): StoryView | null {
     return this.storyService.getCurrentStoryView(owner);
+  }
+
+  setRuntimeAreaTopology(connections: readonly RuntimeAreaTopologyConnection[]): void {
+    this.runtimeAreaTopology = connections.map(connection => ({ ...connection }));
+  }
+
+  clearRuntimeAreaTopology(): void {
+    this.runtimeAreaTopology = [];
+  }
+
+  /** 静态 AreaDef、Runtime Editor Overlay 与 Affector 动态连接的统一可达性查询。 */
+  availableAreaIds(areaId: string): string[] {
+    if (!this.registry.areas.has(areaId)) return [];
+    const result = new Set<string>(this.registry.areas.get(areaId)?.adjacentAreaIds ?? []);
+    for (const connection of this.runtimeAreaTopology) {
+      if (connection.fromAreaId === areaId) result.add(connection.toAreaId);
+      if (connection.type === 'twoWay' && connection.toAreaId === areaId) result.add(connection.fromAreaId);
+    }
+    for (const connection of this.affectorEngine.getActiveAreaConnections()) {
+      if (connection.fromAreaId === areaId) result.add(connection.toAreaId);
+      if (connection.direction === 'twoWay' && connection.toAreaId === areaId) result.add(connection.fromAreaId);
+    }
+    return [...result];
   }
 
   // --- 初始化 ---

@@ -19,6 +19,18 @@ export function bindEvents(ctrl: UIController): void {
   });
   ctrl.game.eventBus.on('themeChanged', () => ctrl.scheduleRender());
   ctrl.game.eventBus.on('userThemeChanged', () => ctrl.scheduleRender());
+  // 当前 Area 的拓扑热更新后，左侧「可前往区域」必须立即重新读取最新邻接关系。
+  // 其它 Area 的定义变化不影响当前导航，避免无关变更触发面板刷新。
+  ctrl.game.eventBus.on('areaDefinitionChanged', event => {
+    if (event.type !== 'areaDefinitionChanged' || !ctrl.started) return;
+    if (ctrl.game.getView().currentAreaId !== event.areaId) return;
+    ctrl.refreshPanels(['left']);
+  });
+  ctrl.game.eventBus.on('areaTopologyChanged', event => {
+    if (event.type !== 'areaTopologyChanged' || !ctrl.started) return;
+    if (!event.areaIds.includes(ctrl.game.getView().currentAreaId ?? '')) return;
+    ctrl.refreshPanels(['left']);
+  });
   // 剧情完结奖励结算 → 排队（不立即渲染）：等点击处理器推完玩家回复气泡、
   // render 内同步完最后一页台词后，再统一落账，保证聊天流顺序正确
   ctrl.game.eventBus.on('storyRewarded', event => {

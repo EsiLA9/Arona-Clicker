@@ -5,7 +5,7 @@
 > **本目录不是当前事实源，也不代表仍在推进的工作。** 项目当前事实一律以 `src/` 与 `docs/docs-828/` 为准。
 > 这里保存的是过程文档：ADR 裁定、Roadmap 切片、Task 施工记录与设计草案。它们的用途只有一个——**回答「为什么当初这么做」，以及在需要时重新激活某个未完成方向**。
 
-> **当前活跃计划层状态（2026-09-17）**：根目录当前任务包括 [[task-0076-unified-def-editor-service]]、[[task-0077-runtime-editor-condition-tree]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0080-spot-cost-and-payment-extensibility]] 与 [[task-0088-init-area-hot-crud-and-location-fallback]]。0087 已被重新收敛的 0088 取代，不再作为当前实施范围。
+> **当前活跃计划层状态（2026-09-17）**：根目录当前任务包括 [[task-0076-unified-def-editor-service]]、[[task-0077-runtime-editor-condition-tree]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0088-init-area-hot-crud-and-location-fallback]] 与 [[task-0089-runtime-area-topology-overlay]]。0087 已被重新收敛的 0088 取代，不再作为当前实施范围。
 
 ## 冻结约定
 
@@ -130,10 +130,11 @@
 
 - [[task-0086-ui-dom-refresh-boundaries-and-hover-preservation]]：降低 UI 不必要的激进 DOM 刷新，收敛局部刷新与 hover 生命周期边界。
 - [[task-0088-init-area-hot-crud-and-location-fallback]]：在共享 Spot 编辑框架中实现 Init / Area 热 CRUD，并在当前位置丢失时回到默认 Area 或 Init 选择界面。
+- [[task-0089-runtime-area-topology-overlay]]：分离静态 Area Def 拓扑与 Runtime 可用拓扑，支持 Runtime Mod 对外部 Area 建立双向连接。
 
 ## 相关路由
 
-- 当前任务：[[task-0087-init-area-enhancement-editor-crud]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0076-unified-def-editor-service]]
+- 当前任务：[[task-0089-runtime-area-topology-overlay]]、[[task-0088-init-area-hot-crud-and-location-fallback]]、[[task-0087-init-area-enhancement-editor-crud]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0076-unified-def-editor-service]]
 - 收束中的任务：[[task-0077-runtime-editor-condition-tree]]
 - 最近完成的计划：[[task-0085-def-audit-metadata-and-missing-time-ordering]]、[[task-0084-spot-price-propagation-and-runtime-editability]]、[[task-0083-datapack-load-policy-persistence-and-startup-restore]]、[[task-0082-runtime-editor-invalid-entry-annotations]]、[[task-0081-spot-payment-default-removal]]、[[task-0075-spot-runtime-affector-editor-demo]]、[[task-0074-spot-affector-resource-convergence]]
 - 最近一次清退（2026-09-15，暂停移入 `archive/`）：[[task-0071-runtime-editor-p0-capability-baseline]]、[[task-0072-runtime-mod-editor-authoring-spine]]、[[task-0073-spot-field-authoring-ladder]]

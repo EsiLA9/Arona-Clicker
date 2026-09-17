@@ -19,6 +19,7 @@ export type GameEvent =
     }
   | { type: 'initDefinitionChanged'; initId: string }
   | { type: 'areaDefinitionChanged'; areaId: string }
+  | { type: 'areaTopologyChanged'; areaIds: string[] }
   | { type: 'managerChanged'; spotId: string; newManager: Character }
   | { type: 'enhancementAdded'; enhancementId: string }
   | { type: 'enhancementRemoved'; enhancementId: string }
