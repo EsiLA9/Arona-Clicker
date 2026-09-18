@@ -65,6 +65,7 @@
 
 - [x] 将 Debug seed 拆分为“已初始化 / 已 hydrate / UI 是否打开”，避免 `debugEditingSeeded` 抢先置位导致无法恢复。
 - [x] `IS_DEBUG_EDITING=1` 时预先建立 Debug Mod 编辑态，并在 Runtime Mod 可用时加载可编辑内容。
+- [x] 所有直接打开入口（含迷你浮窗与“开启编辑态”按钮）先执行 Debug 编辑态保障，不再把默认编辑内容覆盖为空白状态。
 - [x] 关闭面板只隐藏 Workspace；显式放弃编辑才清理 Draft。
 - [x] 内容点击、筛选、保存、Apply、跨路由重建均不得隐式清除 Workspace 宿主。
 - [x] 明确 Launcher、Editor Workspace、局部子弹窗和 Toast 的层级与关闭契约。
@@ -123,6 +124,7 @@
 - 已新增“打开内容浏览器”入口；Apply 和保存操作保留当前编辑页面。
 - 已通过：`npx tsc --noEmit`；Runtime Editor / 顶栏专项测试（20 tests）。
 - 自动化核验已完成：`npx tsc --noEmit`、Runtime Editor 定向 22 tests、全量 `npm test -- --run`（170 files / 1582 tests）、`npm run check:architecture`、`npm run check:docs` 与 `git diff --check` 均通过。
+- 回归核验补充通过：`tests/ui/topbar-settings-workspace.test.ts` 11 tests，覆盖直接从迷你入口打开时自动建立并填充 Debug Mod 信息。
 - 尚未完成：浏览器级视觉验收；本轮未启动浏览器交互验收，因此不把它标记为已完成。
 - task-0096 的未提交刷新边界改动及其任务文档属于独立工作，不纳入本 Task 的实现范围。
 

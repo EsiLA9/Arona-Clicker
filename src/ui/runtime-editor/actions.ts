@@ -164,6 +164,7 @@ function runtimeAuthoringContext(ctrl: UIController) {
 }
 
 export function openRuntimeEditorPanel(ctrl: UIController, surface: UIController['runtimeEditorSurface'] = 'mod'): void {
+  ctrl.ensureDebugEditingState();
   ctrl.runtimeEditorSurface = surface;
   ctrl.runtimeEditorPanelOpen = true;
   syncRuntimeEditorPanel(ctrl);
@@ -828,7 +829,10 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     } else openRuntimeEditorLauncher(ctrl);
   });
   scope.querySelector('[data-runtime-editor-toggle]')?.addEventListener('click', () => {
-    ctrl.panelState.runtimeDatapackEditor = createRuntimeDatapackEditorState([...ctrl.game.registry.areas.keys()][0] ?? null);
+    ctrl.ensureDebugEditingState();
+    if (!ctrl.panelState.runtimeDatapackEditor) {
+      ctrl.panelState.runtimeDatapackEditor = createRuntimeDatapackEditorState([...ctrl.game.registry.areas.keys()][0] ?? null);
+    }
     openRuntimeEditorPanel(ctrl);
     ctrl.render();
   });

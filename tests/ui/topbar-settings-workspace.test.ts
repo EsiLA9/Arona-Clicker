@@ -235,6 +235,35 @@ describe('顶栏与设置工作区', () => {
     game.stop();
   });
 
+  it('IS_DEBUG_EDITING=1 时直接从迷你入口打开也会先建立编辑态', () => {
+    const game = new AronaClickerRuntime();
+    game.init([baseDatapack]);
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const controller = new UIController(game, root);
+    controller.started = true;
+    controller.render();
+
+    if (IS_DEBUG_EDITING !== 1) {
+      controller.destroy();
+      game.stop();
+      return;
+    }
+
+    // 模拟编辑态尚未由页面 render 建立，直接走浮动入口。
+    controller.panelState.runtimeDatapackEditor = undefined;
+    root.querySelector<HTMLButtonElement>('#runtime-editor-launch')!.click();
+    document.querySelector<HTMLButtonElement>('[data-runtime-editor-launcher-entry="mod-info"]')!.click();
+
+    const modName = document.querySelector<HTMLInputElement>('.runtime-editor-panel [data-runtime-editor-mod-field="modName"]');
+    const displayName = document.querySelector<HTMLInputElement>('.runtime-editor-panel [data-runtime-editor-mod-field="displayName"]');
+    expect(modName?.value).toBe(DEBUG_EDITING_DEFAULTS.modName);
+    expect(displayName?.value).toBe(DEBUG_EDITING_DEFAULTS.displayName);
+
+    controller.destroy();
+    game.stop();
+  });
+
   it('单 Mod 多 Spot 逐个即时新建、编辑与删除', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
