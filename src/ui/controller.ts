@@ -152,7 +152,7 @@ export class UIController {
     openingBanner: null,
     workspaceNavigation: createWorkspaceNavigation(),
   };
-  /** @internal IS_DEBUG_EDITING=1 时调试编辑态是否已播种：只播种一次，用户主动关闭后不再自动重开。 */
+  /** @internal IS_DEBUG_EDITING=1 时调试编辑态是否已建立；与 Workspace 显隐状态分离。 */
   debugEditingSeeded = false;
   /** 弹窗母版实例（body 级，独立于 #app 重建）。 */
   readonly modal = new ModalManager();
@@ -174,6 +174,8 @@ export class UIController {
   rewardTimer: ReturnType<typeof setTimeout> | null = null;
   /** @internal 合并同一事件循环内由 EventBus 与点击处理器产生的重复重建。 */
   private renderScheduled = false;
+  /** @internal Runtime Editor 批量提交期间暂缓揭示驱动的 UI 刷新。 */
+  private contentRefreshBatchDepth = 0;
   private refreshStats: UIRefreshStats = {
     fullRenders: 0,
     panelRefreshes: 0,
@@ -196,6 +198,10 @@ export class UIController {
   runtimeEditorLauncherOpen = false;
   /** @internal Runtime Editor mini launcher position; null uses the CSS safe default. */
   runtimeEditorLauncherPos: { x: number; y: number } | null = null;
+  /** @internal 当前通用 Editor Workspace 页面，不等同于编辑态是否存在。 */
+  runtimeEditorSurface: 'mod' | 'browser' | 'definition' | 'spot' = 'mod';
+  /** @internal IS_DEBUG_EDITING=1 时是否已把 Runtime Mod 内容 hydrate 到编辑态。 */
+  debugEditingHydrated = false;
 
   // --- 疏散出去的领域模块 ---
   /** 聊天流（ID 计数 / 剧情指纹 / 路由 / 同步）。 */
@@ -669,13 +675,8 @@ export class UIController {
     this.panelState.datapackWorkspace = createDatapackWorkspaceState(catalog.entries, configuration);
   }
 
-  /**
-   * IS_DEBUG_EDITING=1 时，首次渲染自动开启编辑态并预填默认数据；
-   * 只播种一次，用户主动关闭编辑态后不再自动重开。
-   */
+  /** IS_DEBUG_EDITING=1 时预先建立编辑态，并在 Runtime Mod 出现后补充 hydrate。 */
   ensureDebugEditingState(): void {
-    if (this.debugEditingSeeded) return;
-    this.debugEditingSeeded = true;
     seedDebugEditing(this);
   }
 

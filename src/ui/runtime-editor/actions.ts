@@ -163,7 +163,8 @@ function runtimeAuthoringContext(ctrl: UIController) {
   };
 }
 
-export function openRuntimeEditorPanel(ctrl: UIController): void {
+export function openRuntimeEditorPanel(ctrl: UIController, surface: UIController['runtimeEditorSurface'] = 'mod'): void {
+  ctrl.runtimeEditorSurface = surface;
   ctrl.runtimeEditorPanelOpen = true;
   syncRuntimeEditorPanel(ctrl);
 }
@@ -204,7 +205,7 @@ export function syncRuntimeEditorPanel(ctrl: UIController): void {
   }
   const host = existing ?? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'runtime-editor-panel-host' }));
   host.dataset.runtimeEditorPanelHost = 'true';
-  host.innerHTML = renderRuntimeEditorPanel(createUIContext(ctrl.game), ctrl.panelState);
+  host.innerHTML = renderRuntimeEditorPanel(createUIContext(ctrl.game), ctrl.panelState, ctrl.runtimeEditorSurface);
   const panel = host.querySelector<HTMLElement>('.runtime-editor-panel');
   if (panel) bindRuntimeDatapackEditorActions(ctrl, panel);
 }
@@ -237,7 +238,11 @@ function activateRuntimeEditorLauncherEntry(ctrl: UIController, action: RuntimeE
     return;
   }
   if (action === 'mod-info') {
-    openRuntimeEditorPanel(ctrl);
+    openRuntimeEditorPanel(ctrl, 'mod');
+    return;
+  }
+  if (action === 'content-browser') {
+    openRuntimeDatapackEditor(ctrl);
     return;
   }
   const editor = ctrl.panelState.runtimeDatapackEditor;
@@ -303,7 +308,7 @@ function bindRuntimeEditorLauncherActions(ctrl: UIController, scope: ParentNode)
 }
 
 function openRuntimeDatapackEditor(ctrl: UIController): void {
-  openRuntimeEditorPanel(ctrl);
+  openRuntimeEditorPanel(ctrl, 'browser');
 }
 
 function openRuntimeSpotEditor(ctrl: UIController): void {
@@ -312,16 +317,10 @@ function openRuntimeSpotEditor(ctrl: UIController): void {
   const areaId = spot?.areaId ?? editor?.selectedAreaId;
   const area = areaId ? ctrl.game.registry.areas.get(areaId) : undefined;
   if (!editor?.enabled || !area) return;
-  ctrl.modal.open({
-    title: `${spot ? '编辑' : '创建'} Spot · ${area.name}`,
-    body: renderRuntimeSpotForm(createUIContext(ctrl.game), ctrl.panelState),
-    footer: '<button type="button" class="modal-close toolbar-button">关闭编辑器</button>',
-    panelClass: 'runtime-datapack-modal',
-    dismissable: false,
-    onClose: clearSubDialogs,
-  });
-  const modal = document.querySelector<HTMLElement>('.app-modal');
-  if (modal) bindRuntimeDatapackEditorActions(ctrl, modal);
+  clearSubDialogs();
+  ctrl.runtimeEditorSurface = 'spot';
+  ctrl.runtimeEditorPanelOpen = true;
+  syncRuntimeEditorPanel(ctrl);
 }
 
 function openLoadedRuntimeSpotEditor(ctrl: UIController, runtimeSpotId?: string): void {
@@ -520,25 +519,25 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
   if (!editor) return;
   if (!editor.modName || !editor.displayName) {
     setRuntimeEditorError(editor, '请先完成 Mod 元信息。');
-    openRuntimeDatapackEditor(ctrl);
+    syncRuntimeEditorPanel(ctrl);
     return;
   }
   if (!ctrl.commands.applyRuntimeWorldDraft) {
     setRuntimeEditorError(editor, '当前运行时不支持 Init / Area 热 CRUD。');
-    openRuntimeDatapackEditor(ctrl);
+    syncRuntimeEditorPanel(ctrl);
     return;
   }
   const initProblems = editor.inits.flatMap(init => runtimeEditorInitProblems(createUIContext(ctrl.game), editor, init));
   if (initProblems.length > 0) {
     setRuntimeEditorProblems(editor, initProblems);
     setRuntimeEditorError(editor, initProblems[0].message);
-    openRuntimeDatapackEditor(ctrl);
+    syncRuntimeEditorPanel(ctrl);
     return;
   }
   const setMetadata = ctrl.commands.setRuntimeModMetadata;
   if (!setMetadata) {
     setRuntimeEditorError(editor, '当前运行时不支持临时 Mod 命名空间。');
-    openRuntimeDatapackEditor(ctrl);
+    syncRuntimeEditorPanel(ctrl);
     return;
   }
   const metadata = setMetadata({
@@ -550,7 +549,7 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
   });
   if (!metadata.ok) {
     setRuntimeEditorError(editor, metadata.message);
-    openRuntimeDatapackEditor(ctrl);
+    syncRuntimeEditorPanel(ctrl);
     return;
   }
   const draft: RuntimeWorldDraft = {
@@ -562,13 +561,13 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
   if (!result.ok) {
     setRuntimeEditorError(editor, result.message);
     setRuntimeEditorProblems(editor, result.diagnostics.map(item => ({ code: item.code, path: item.path, message: item.message })));
-    openRuntimeDatapackEditor(ctrl);
+    syncRuntimeEditorPanel(ctrl);
     return;
   }
   markRuntimeEditorWorldApplied(editor);
   setRuntimeEditorError(editor, null);
   setRuntimeEditorProblems(editor, []);
-  openRuntimeDatapackEditor(ctrl);
+  syncRuntimeEditorPanel(ctrl);
   ctrl.toast.show(result.message, 'success');
   ctrl.render();
   syncRuntimeEditorCreateActions(ctrl);
@@ -741,16 +740,10 @@ function openRuntimeDefinitionEditor(ctrl: UIController, kind: RuntimeEditorCont
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor?.enabled) return;
   editor.selectedContentKind = kind;
-  ctrl.modal.open({
-    title: `${editor.selectedDefinitionId ? '编辑' : '新建'} ${kind === 'inits' ? 'Init' : kind === 'areas' ? 'Area' : 'Enhancement'}`,
-    body: renderRuntimeDefinitionForm(createUIContext(ctrl.game), ctrl.panelState, kind),
-    footer: '<button type="button" class="modal-close toolbar-button">关闭编辑器</button>',
-    panelClass: 'runtime-datapack-modal',
-    dismissable: false,
-    onClose: clearSubDialogs,
-  });
-  const modal = document.querySelector<HTMLElement>('.app-modal');
-  if (modal) bindRuntimeDatapackEditorActions(ctrl, modal);
+  clearSubDialogs();
+  ctrl.runtimeEditorSurface = 'definition';
+  ctrl.runtimeEditorPanelOpen = true;
+  syncRuntimeEditorPanel(ctrl);
 }
 
 function openRuntimeDefinitionDeleteConfirm(ctrl: UIController, kind: RuntimeEditorContentKind, idName: string): void {
@@ -819,6 +812,15 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     clearSubDialogs();
     syncRuntimeEditorPanel(ctrl);
   });
+  scope.querySelectorAll<HTMLElement>('[data-runtime-editor-surface]').forEach(button => {
+    button.addEventListener('click', () => {
+      const surface = button.dataset.runtimeEditorSurface as UIController['runtimeEditorSurface'] | undefined;
+      if (!surface) return;
+      if (surface === 'browser' && !ctrl.panelState.runtimeDatapackEditor?.enabled) return;
+      ctrl.runtimeEditorSurface = surface;
+      syncRuntimeEditorPanel(ctrl);
+    });
+  });
   scope.querySelector('#runtime-editor-launch')?.addEventListener('click', () => {
     if (ctrl.runtimeEditorLauncherOpen) {
       ctrl.runtimeEditorLauncherOpen = false;
@@ -830,7 +832,7 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     openRuntimeEditorPanel(ctrl);
     ctrl.render();
   });
-  scope.querySelector('[data-runtime-editor-open]')?.addEventListener('click', () => openRuntimeDatapackEditor(ctrl));
+  scope.querySelector('[data-runtime-editor-open]')?.addEventListener('click', () => openRuntimeEditorPanel(ctrl, 'mod'));
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-kind-tab]').forEach(tab => {
     tab.addEventListener('click', () => {
       const kind = tab.dataset.runtimeEditorKindTab as RuntimeEditorContentKind | undefined;
@@ -861,10 +863,9 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     });
   });
   scope.querySelector('[data-runtime-editor-close]')?.addEventListener('click', () => {
-    ctrl.modal.close();
-    ctrl.panelState.runtimeDatapackEditor = undefined;
-    ctrl.toast.show('已关闭运行时编辑态，草稿已放弃', 'info');
-    ctrl.render();
+    ctrl.runtimeEditorPanelOpen = false;
+    clearSubDialogs();
+    syncRuntimeEditorPanel(ctrl);
   });
   scope.querySelector('[data-runtime-editor-create]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
@@ -887,14 +888,14 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
       });
       setRuntimeEditorError(editor, result.ok ? null : result.message);
       if (!result.ok) {
-        openRuntimeDatapackEditor(ctrl);
+        openRuntimeEditorPanel(ctrl, 'mod');
         syncRuntimeEditorCreateActions(ctrl);
         return;
       }
     } else setRuntimeEditorError(editor, null);
     ctrl.toast.show('Mod 信息已保存。', 'success');
     // 重新渲染同一页面即可，不能把 Mod 设定保存自动转成 Spot 创建页。
-    openRuntimeDatapackEditor(ctrl);
+    openRuntimeEditorPanel(ctrl, 'mod');
     syncRuntimeEditorCreateActions(ctrl);
   });
   scope.querySelector('[data-runtime-editor-create-spot]')?.addEventListener('click', () => {

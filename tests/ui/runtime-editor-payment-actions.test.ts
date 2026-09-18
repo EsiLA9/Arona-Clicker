@@ -158,9 +158,9 @@ describe('Runtime Editor 支付方案嵌套编辑', () => {
     document.querySelector<HTMLButtonElement>('[data-runtime-editor-apply]')!.click();
 
     expect(editor.error).toContain('无法无损回写');
-    expect(document.querySelector('.app-modal .runtime-editor-shell')).not.toBeNull();
-    expect(document.querySelector('.app-modal [data-runtime-editor-mod-field]')).toBeNull();
-    expect(document.querySelector('.app-modal')?.textContent).toContain('无法无损回写');
+    expect(document.querySelector('.runtime-editor-panel .runtime-editor-shell')).not.toBeNull();
+    expect(document.querySelector('.runtime-editor-panel [data-runtime-editor-mod-field]')).toBeNull();
+    expect(document.querySelector('.runtime-editor-panel')?.textContent).toContain('无法无损回写');
     expect(runtime.registry.spots.has('draft-mod:spot:printer')).toBe(false);
 
     spotController.modal.close();

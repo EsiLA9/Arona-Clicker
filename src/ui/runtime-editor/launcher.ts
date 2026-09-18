@@ -17,6 +17,7 @@ export const RUNTIME_EDITOR_LAUNCHER_ENTRIES: readonly RuntimeEditorLauncherEntr
   { id: 'create-init', label: '新建 Init', action: 'create-init', order: 20 },
   { id: 'create-area', label: '新建 Area', action: 'create-area', order: 30 },
   { id: 'create-spot', label: '新建 Spot', action: 'create-spot', order: 40 },
+  { id: 'content-browser', label: '打开内容浏览器', action: 'content-browser', order: 50 },
 ];
 
 const registeredEntries = new Map<string, RuntimeEditorLauncherEntry>();

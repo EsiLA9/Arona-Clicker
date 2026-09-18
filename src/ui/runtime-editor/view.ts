@@ -110,15 +110,29 @@ export function renderRuntimeEditorToggle(ctx: UIContext, state: PanelState): st
 }
 
 /** body 级 Runtime Editor 浮动工作区：不随 #app 路由重建，作为独立编辑宿主。 */
-export function renderRuntimeEditorPanel(ctx: UIContext, state: PanelState): string {
+export function renderRuntimeEditorPanel(
+  ctx: UIContext,
+  state: PanelState,
+  surface: 'mod' | 'browser' | 'definition' | 'spot' = 'mod',
+): string {
   const editor = state.runtimeDatapackEditor;
   const status = editor?.enabled
     ? editor.displayName || 'Runtime Mod 待配置'
     : '尚未开启编辑态';
-  const body = editor?.enabled
-    ? `${renderRuntimeEditorForm(ctx, state)}${renderRuntimeEditorWorkspace(ctx, state)}`
-    : renderRuntimeEditorToggle(ctx, state);
-  return `<aside class="runtime-editor-panel" role="dialog" aria-modal="false" aria-labelledby="runtime-editor-panel-title"><header class="runtime-editor-panel-head" data-runtime-editor-panel-head><div><span class="eyebrow">RUNTIME EDITOR</span><h2 id="runtime-editor-panel-title">运行时编辑器</h2><p>${ctx.escapeHtml(status)}</p></div><button type="button" class="icon-button" data-runtime-editor-panel-close aria-label="关闭编辑器面板" title="关闭">×</button></header><div class="runtime-editor-panel-body">${body}</div></aside>`;
+  const body = !editor?.enabled
+    ? renderRuntimeEditorToggle(ctx, state)
+    : surface === 'mod'
+      ? renderRuntimeEditorForm(ctx, state)
+      : surface === 'browser'
+        ? renderRuntimeEditorWorkspace(ctx, state)
+        : surface === 'definition'
+          ? renderRuntimeDefinitionForm(ctx, state, editor.selectedContentKind === 'spots' ? 'inits' : editor.selectedContentKind)
+          : renderRuntimeSpotForm(ctx, state);
+  const nav = editor?.enabled
+    ? `<nav class="runtime-editor-surface-nav" aria-label="编辑器页面"><button type="button" class="runtime-editor-surface-link${surface === 'mod' ? ' is-active' : ''}" data-runtime-editor-surface="mod">编辑中 Mod</button><button type="button" class="runtime-editor-surface-link${surface === 'browser' ? ' is-active' : ''}" data-runtime-editor-surface="browser">内容浏览器</button></nav>`
+    : '';
+  const back = surface === 'definition' || surface === 'spot' ? '<button type="button" class="toolbar-button runtime-editor-back" data-runtime-editor-surface="browser">返回内容浏览器</button>' : '';
+  return `<aside class="runtime-editor-panel" data-runtime-editor-surface-current="${surface}" role="dialog" aria-modal="false" aria-labelledby="runtime-editor-panel-title"><header class="runtime-editor-panel-head" data-runtime-editor-panel-head><div><span class="eyebrow">RUNTIME EDITOR</span><h2 id="runtime-editor-panel-title">${surface === 'browser' ? '内容浏览器' : surface === 'definition' ? '内容编辑器' : surface === 'spot' ? 'Spot 编辑器' : '编辑中 Mod'}</h2><p>${ctx.escapeHtml(status)}</p></div><div class="runtime-editor-panel-head-actions">${back}${nav}<button type="button" class="icon-button" data-runtime-editor-panel-close aria-label="关闭编辑器面板" title="关闭">×</button></div></header><div class="runtime-editor-panel-body">${body}</div></aside>`;
 }
 
 export function renderRuntimeEditorForm(ctx: UIContext, state: PanelState): string {

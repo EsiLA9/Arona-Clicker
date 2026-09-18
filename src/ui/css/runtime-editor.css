@@ -46,7 +46,7 @@
    --re-accent: #2f80ed;
    --re-danger: #d9534f;
    position: fixed;
-   z-index: 850;
+   z-index: 1000;
    top: 72px;
    right: 18px;
    bottom: 18px;
@@ -64,12 +64,51 @@
 .runtime-editor-panel-head {
    display: flex;
    flex: none;
-   align-items: flex-start;
+   align-items: center;
    justify-content: space-between;
    gap: 16px;
    padding: 14px 16px;
    border-bottom: 1px solid var(--re-line);
    background: linear-gradient(120deg, rgba(47, 128, 237, .08), rgba(255, 255, 255, .96));
+}
+
+.runtime-editor-panel-head-actions {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+}
+
+.runtime-editor-surface-nav {
+   display: flex;
+   align-items: center;
+   gap: 2px;
+   padding: 2px;
+   border: 1px solid var(--re-line);
+   border-radius: 5px;
+   background: rgba(47, 128, 237, .05);
+}
+
+.runtime-editor-surface-link {
+   padding: 5px 8px;
+   border: 0;
+   border-radius: 3px;
+   background: transparent;
+   color: var(--re-muted);
+   cursor: pointer;
+   font: inherit;
+   font-size: 11px;
+}
+
+.runtime-editor-surface-link:hover,
+.runtime-editor-surface-link:focus-visible,
+.runtime-editor-surface-link.is-active {
+   background: #e7f0ff;
+   color: var(--re-accent);
+   outline: none;
+}
+
+.runtime-editor-back {
+   white-space: nowrap;
 }
 
 .runtime-editor-panel-head h2,
@@ -102,17 +141,17 @@
 .runtime-editor-launcher-host {
    position: fixed;
    inset: 0;
-   z-index: 900;
+   z-index: 1100;
    pointer-events: none;
 }
 
 .runtime-editor-launcher {
-   --re-launcher-ink: #e9f0ff;
-   --re-launcher-muted: #9db0cc;
-   --re-launcher-panel: #0d1423;
-   --re-launcher-field: #16233a;
-   --re-launcher-line: rgba(92, 225, 230, .36);
-   --re-launcher-accent: #5ce1e6;
+   --re-launcher-ink: #14233d;
+   --re-launcher-muted: #60728d;
+   --re-launcher-panel: #ffffff;
+   --re-launcher-field: #f3f7fc;
+   --re-launcher-line: #b7d0e6;
+   --re-launcher-accent: #0b99a8;
    position: fixed;
    top: 86px;
    right: 18px;
@@ -135,7 +174,7 @@
    min-height: 34px;
    padding: 0 8px 0 12px;
    border-bottom: 1px solid var(--re-launcher-line);
-   background: linear-gradient(100deg, rgba(92, 225, 230, .16), rgba(22, 35, 58, .75));
+   background: linear-gradient(100deg, rgba(11, 153, 168, .10), rgba(246, 248, 252, .98));
    cursor: grab;
    user-select: none;
 }
@@ -191,7 +230,7 @@
 .runtime-editor-launcher-entry:focus-visible {
    border-color: var(--re-launcher-accent);
    background: rgba(92, 225, 230, .13);
-   color: #fff;
+   color: var(--re-launcher-ink);
    outline: none;
 }
 

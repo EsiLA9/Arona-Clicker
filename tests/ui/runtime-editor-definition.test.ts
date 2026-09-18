@@ -38,9 +38,10 @@ describe('Runtime Editor shared Init / Area framework', () => {
     editor.modName = 'runtime';
     editor.displayName = 'Runtime';
     const panel = document.createElement('div');
-    panel.innerHTML = renderRuntimeEditorPanel(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState);
+    panel.innerHTML = renderRuntimeEditorPanel(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'browser');
 
     expect(panel.querySelector('.runtime-editor-panel')).not.toBeNull();
+    expect(panel.querySelector('[data-runtime-editor-surface="mod"]')).not.toBeNull();
     expect(panel.querySelector('.runtime-editor-panel [data-runtime-editor-kind-tab="inits"]')).not.toBeNull();
     expect(panel.querySelector('[data-toast-action-key]')).toBeNull();
   });
