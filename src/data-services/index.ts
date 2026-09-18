@@ -12,6 +12,14 @@ export type { CharacterData } from './contracts/character-data';
 export type { PicDef, PicId, PicKind, PicRefParts } from './contracts/pic';
 export { parsePicId, isPicRef, buildPicId, isDirectUrl, isZipPicSrc, zipPathOf } from './contracts/pic';
 export type { CharacterVariantDef } from './contracts/character-variant';
+export type {
+  EntityPresentationDef,
+  EntityPresentationEntityType,
+  EntityPresentationKey,
+  EntityPresentationOption,
+  EntityPresentationOverride,
+  EntityPresentationValue,
+} from './contracts/entity-presentation';
 export type { CultivateCurveDef } from './contracts/cultivate-curve';
 export type { AffectionConfigDef } from './contracts/affection-config';
 export { effectiveDefMetadata, MISSING_DEF_TIME } from './contracts/common';

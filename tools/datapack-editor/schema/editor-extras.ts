@@ -241,6 +241,8 @@ const effectObject = (): FieldDef =>
       ['removeExtra', '移除 Extra'],
       ['addAffectionExp', '增加好感'],
       ['setTheme', '临时主题（演出变色）'],
+      ['setEntityPresentation', '临时实体表现'],
+      ['clearEntityPresentation', '清理实体表现覆盖'],
       ['clearAllChatFlow', '清理聊天流'],
       ['showChatText', '演出专用文本（定位显示）'],
       ['clearIdChatFlow', '擦除演出文本（按临时 id）'],
@@ -316,6 +318,28 @@ const themeField = (key: string, label: string): FieldDef =>
       alist('states', presentationStateObject(), '状态外观'),
     ], 'UI 表现配置'),
   ], label);
+
+const entityPresentationOptionObject = (): FieldDef =>
+  o('$', [
+    s('id', '附加内容 ID', { required: true, description: '实体内唯一，只允许小写字母、数字、短横线和下划线。' }),
+    s('label', '选择标签', { required: true }),
+    o('override', [
+      s('name', '名称覆盖'),
+      s('description', '描述覆盖'),
+      themeField('theme', '主题覆盖'),
+    ], '内容覆盖', { required: true }),
+    conditionExprField('availableWhen', '可用条件'),
+  ], '附加内容');
+
+const entityPresentationField = (): FieldDef =>
+  o('presentation', [
+    o('default', [
+      s('name', '默认名称', { required: true }),
+      s('description', '默认描述', { required: true }),
+      themeField('theme', '默认主题'),
+    ], '默认内容', { required: true }),
+    alist('additions', entityPresentationOptionObject(), '附加内容'),
+  ], '实体表现内容');
 
 /** EntryEffectDef：进入条目（first / condition / effects）。 */
 const entryObject = (): FieldDef =>
@@ -786,6 +810,7 @@ export const TABLE_META: TableMeta[] = [
     dividerAfter: { description: '揭示' },
     overrides: {
       theme: () => themeField('theme', '选择页主题'),
+      presentation: () => entityPresentationField(),
       enterEffects: () => entryEffectsArray('enterEffects', '进入条目'),
       revealTriggers: () => revealTriggersField(),
       triggers: () => a('triggers', triggerObject(), '专属触发器'),
@@ -803,6 +828,7 @@ export const TABLE_META: TableMeta[] = [
       enterEffects: () => entryEffectsArray('enterEffects', '进入条目'),
       revealTriggers: () => revealTriggersField(),
       theme: () => themeField('theme', '场景主题'),
+      presentation: () => entityPresentationField(),
     },
   },
   {
@@ -820,6 +846,7 @@ export const TABLE_META: TableMeta[] = [
       revealTriggers: () => revealTriggersField(),
       functionalities: () => a('functionalities', functionalityObject(), '功能'),
       theme: () => themeField('theme', '设施主题'),
+      presentation: () => entityPresentationField(),
       colorGroupId: () => s('colorGroupId', '默认色组', { description: 'ColorGroupDef id（如 base:color-group:xxx）；声明后设施卡片以该色组主色构建自身 ThemeTree。' }),
     },
   },
@@ -839,6 +866,7 @@ export const TABLE_META: TableMeta[] = [
       affectorPackIds: () => a('affectorPackIds', r('$', 'affectorPacks'), 'Affector 包'),
       revealTriggers: () => revealTriggersField(),
       theme: () => themeField('theme', '选择页主题'),
+      presentation: () => entityPresentationField(),
     },
   },
   { key: 'activeStories', label: '主动故事入口', custom: activeStoriesTable },

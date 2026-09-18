@@ -88,4 +88,24 @@ describe('UI Surface token and update dispatcher', () => {
     dispatcher.flushNow();
     expect(applied).toEqual(['structure:workspace']);
   });
+
+  it('keeps element updates narrower than regions and coalesces the same target', () => {
+    const applied: string[] = [];
+    const token = { key: 'game', generation: 0 };
+    const dispatcher = new UIUpdateDispatcher({
+      getCurrentSurfaceToken: () => token,
+      isSurfaceCurrent: candidate => candidate.key === token.key && candidate.generation === token.generation,
+      apply: update => {
+        if (update.type === 'element') applied.push(`element:${update.target}:${update.key}`);
+        else applied.push(update.type);
+        return 'applied';
+      },
+    });
+    dispatcher.request({ type: 'element', target: 'spot.card', key: 'spot-a', hostId: 'rightPanel.spot', reason: 'a' });
+    dispatcher.request({ type: 'element', target: 'spot.card', key: 'spot-a', hostId: 'rightPanel.spot', reason: 'b' });
+    dispatcher.request({ type: 'element', target: 'spot.card', key: 'spot-b', hostId: 'rightPanel.spot', reason: 'c' });
+    dispatcher.request({ type: 'region', hostId: 'rightPanel.spot', reason: 'region' });
+    dispatcher.flushNow();
+    expect(applied).toEqual(['region']);
+  });
 });

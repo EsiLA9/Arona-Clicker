@@ -14,6 +14,7 @@ import type { ExtraCompound } from '../../engine/types/extra';
 import type { ShopId } from './shop';
 import type { PaymentOptionDef } from './cost';
 import type { DefMetadata } from './common';
+import type { EntityPresentationDef } from './entity-presentation';
 
 export interface EntryEffectDef {
   first?: boolean;
@@ -43,6 +44,8 @@ export interface InitDef {
   worldTiltAlias?: string;
   /** @label 选择页主题 */
   theme?: ThemeDef;
+  /** @label 实体表现内容 */
+  presentation?: EntityPresentationDef;
   /** @label 标签 */
   tags?: TagPath[];
   extra?: ExtraCompound;
@@ -72,6 +75,8 @@ export interface AreaDef {
   /** @label 标签 */
   tags?: TagPath[];
   theme?: ThemeDef;
+  /** @label 实体表现内容 */
+  presentation?: EntityPresentationDef;
   extra?: ExtraCompound;
 }
 
@@ -102,6 +107,8 @@ export interface SpotDef {
   gachaPools?: GachaPoolId[];
   /** @label 设施主题 */
   theme?: ThemeDef;
+  /** @label 实体表现内容 */
+  presentation?: EntityPresentationDef;
   /** @label 默认色组 @ref colorGroups */
   colorGroupId?: ColorGroupId;
   extra?: ExtraCompound;

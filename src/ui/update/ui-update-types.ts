@@ -18,6 +18,17 @@ export interface UIRegionUpdateRequest {
   reason?: string;
 }
 
+export type UIElementTarget = 'spot.card' | 'enhancement.card' | 'area.nav';
+
+export interface UIElementUpdateRequest {
+  type: 'element';
+  target: UIElementTarget;
+  key: string;
+  hostId?: string;
+  token?: UISurfaceToken;
+  reason?: string;
+}
+
 export interface UIStructureUpdateRequest {
   type: 'structure';
   scope: 'workspace' | 'app';
@@ -27,11 +38,13 @@ export interface UIStructureUpdateRequest {
 
 export type UIUpdateRequest =
   | UIBehaviorUpdateRequest
+  | UIElementUpdateRequest
   | UIRegionUpdateRequest
   | UIStructureUpdateRequest;
 
 export type UIUpdate =
   | (UIBehaviorUpdateRequest & { token: UISurfaceToken; reason: string })
+  | (UIElementUpdateRequest & { token: UISurfaceToken; reason: string })
   | (UIRegionUpdateRequest & { token: UISurfaceToken; reason: string })
   | (UIStructureUpdateRequest & { token: UISurfaceToken; reason: string });
 

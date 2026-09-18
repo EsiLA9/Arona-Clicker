@@ -18,6 +18,7 @@ import type { Effect } from '../../engine/types';
 import { renderAvatarSvg } from '../avatar-renderer';
 import { entityKeyOf, renderEntityThemeOptions } from './entity-theme-options';
 import { buildConditionView, renderConditionTree } from '../condition-presentation';
+import { resolveEntityPresentation, renderEntityPresentationOptions } from './entity-presentation';
 
 /** 未读消息计数接口：后续接入未读系统时由调用方提供。 */
 export type UnreadResolver = (variantId: string) => number;
@@ -151,6 +152,8 @@ function renderContactRow(
 ): string {
   const entry = ctx.game.rosterSystem.getOwned(ctx.game.state, variant.id)!;
   const active = selected === variant.id;
+  const resolvedPresentation = resolveEntityPresentation(ctx, 'variant', variant.id);
+  const displayName = resolvedPresentation?.name ?? variant.displayName;
   const glyph = variant.name.slice(0, 1);
   // 头像优先级：装备的 ColorGroup > 差分声明的 colorGroupId > 图片/URL > 首字母占位
   const equipmentId = entry.colorEquipment;
@@ -166,7 +169,7 @@ function renderContactRow(
     // avatar 可为直连 URL 或 `mod:type(pic):id` 三段式图片索引；解析失败回退首字母占位
     const avatarUrl = variant.avatar ? ctx.game.pics.urlOf(variant.avatar) : undefined;
     avatar = avatarUrl
-      ? `<img class="contact-avatar" src="${ctx.escapeHtml(avatarUrl)}" alt="${ctx.escapeHtml(variant.displayName)}">`
+      ? `<img class="contact-avatar" src="${ctx.escapeHtml(avatarUrl)}" alt="${ctx.escapeHtml(displayName)}">`
       : `<span class="contact-avatar">${ctx.escapeHtml(glyph)}</span>`;
   }
   const unreadBadge = unread > 0
@@ -179,7 +182,7 @@ function renderContactRow(
       <span class="contact-avatar-wrap">${avatar}${unreadBadge}</span>
       <span class="contact-info">
         <span class="contact-line1">
-          <span class="contact-name">${ctx.escapeHtml(variant.displayName)}</span>
+          <span class="contact-name">${ctx.escapeHtml(displayName)}</span>
           <span class="contact-meta">Lv.${entry.level} · ${RARITY_LABEL[variant.rarity] ?? ''}</span>
         </span>
         <span class="contact-line2">${ctx.escapeHtml(preview)}</span>
@@ -223,11 +226,12 @@ export function renderConversationView(
   }
 
   const unreadCount = game.story.readyStepCount(variantId);
+  const displayName = resolveEntityPresentation(ctx, 'variant', variant.id)?.name ?? variant.displayName;
   const header = `
     <div class="conversation-heading">
       <button class="conversation-back" data-conversation-back aria-label="返回一般聊天" title="返回一般聊天">‹</button>
       <div class="conversation-title">
-        <b>${ctx.escapeHtml(variant.displayName)}</b>
+        <b>${ctx.escapeHtml(displayName)}</b>
         <small>对话空间${unreadCount > 0 ? ` · ${unreadCount} 条未读` : ''}</small>
       </div>
     </div>`;
@@ -326,6 +330,7 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
   }
   const { game } = ctx;
   const variant = game.rosterSystem.getVariant(variantId)!;
+  const displayName = resolveEntityPresentation(ctx, 'variant', variant.id)?.name ?? variant.displayName;
   const entry = game.rosterSystem.getOwned(game.state, variantId)!;
   const shards = game.rosterSystem.shardsOf(game.state, variantId);
 
@@ -347,8 +352,15 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
 
   return `
     <div class="char-panel">
-      <h3>${ctx.escapeHtml(variant.displayName)}</h3>
+      <h3>${ctx.escapeHtml(displayName)}</h3>
       <small class="char-proto">${ctx.escapeHtml(variant.school)} · ${RARITY_LABEL[variant.rarity] ?? ''}</small>
+      ${(() => {
+        const presentation = resolveEntityPresentation(ctx, 'variant', variant.id);
+        return presentation?.description
+          ? `<p class="char-description">${ctx.escapeHtml(presentation.description)}</p>`
+          : '';
+      })()}
+      ${renderEntityPresentationOptions(ctx, 'variant', variant.id)}
       <dl class="char-stats">
         <dt>等级</dt><dd>Lv.${entry.level} <small>（exp ${Math.floor(entry.exp)}）</small></dd>
         <dt>星级</dt><dd>${'★'.repeat(entry.stars) || '—'}</dd>

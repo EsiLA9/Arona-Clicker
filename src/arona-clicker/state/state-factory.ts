@@ -22,6 +22,7 @@ export function createDefaultState(): AronaClickerState {
     initSnapshots: {},
     extras: extra.dict({}),
     initExtras: extra.dict({}),
+    entityPresentationSelections: {},
     globalShopPurchaseRecords: {},
     shopPurchaseRecords: {},
   };

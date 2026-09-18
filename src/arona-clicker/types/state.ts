@@ -15,6 +15,7 @@ import type { ActiveThemeSelection, EntityThemeSlot, ThemeOrderScope } from '../
 import type { SpotTagOverrideState } from '../../engine/contracts/state-query';
 import type { Character } from './ids';
 import type { StoredCustomTheme, ThemeAttachment, UserThemeState } from './user-theme';
+import type { EntityPresentationKey } from '../../data-services/contracts/entity-presentation';
 import type { CompletedStory, StoryReadLog } from './story-state';
 import type { CharacterMemory, GachaPoolState, ProtoStat, VariantProgress } from './character';
 import type { ShopPurchaseRecord } from '../../data-services/contracts/shop';
@@ -62,6 +63,8 @@ export interface PlayerState {
   userTheme?: UserThemeState;
   customThemes?: Record<string, StoredCustomTheme>;
   themeAttachments?: Record<string, ThemeAttachment>;
+  /** Global 表现偏好：只保存实体附加内容 ID，不保存最终文本或主题。 */
+  entityPresentationSelections?: Record<EntityPresentationKey, string>;
   worldPool?: VariantId[];
   protoStats?: Record<string, ProtoStat>;
   /** 跨世界线角色记忆（永远 global，不随 Init 重置；不进 PER_INIT_FIELD_SPECS）。 */

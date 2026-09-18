@@ -56,6 +56,18 @@ runtimeTheme() → 按优先级合并主题层：
 
 状态归属：`entityThemeSlots` / `entityThemeDesignsOwned` 均为收集类资产（global 层，入存档）。
 
+## 实体表现语义单元
+
+`Init / Area / Spot / Enhancement / CharacterVariant` 可声明 `EntityPresentationDef`。其 `default` 与 `additions[].override` 同时承载名称、描述和可选主题，Resolver 输出完整值；正式默认 Datapack 在组合入口把旧 `name / description / theme` 投影到 `presentation.default`，外部旧 Datapack 保留 legacy fallback。
+
+实体表现的选择优先级为：
+
+```text
+runtime owner/lifetime override > PlayerState.entityPresentationSelections optionId > presentation.default > legacy fields
+```
+
+玩家只选择 addition 的 `optionId`，通过 `StateMutationService` 写入 Global map；运行时覆盖不写 PlayerState，按 story / area / init 生命周期清理。`EntityPresentationService` 仍委托 `ColorSystem.resolveEntityTheme()` 处理 equipment、design、custom 等既有颜色来源，因此表现内容选择与“仅改变颜色来源”的 `entityThemeOptions` 是两个有明确边界的入口。
+
 ## 色彩体系（ColorGroup / ColorEquipment）
 
 学生头像与效用由两个实体构成，主题（UI）与头像（学生）由同一实体承载：

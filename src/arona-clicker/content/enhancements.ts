@@ -24,6 +24,24 @@ export const baseEnhancements: EnhancementDef[] = [
   enhancement('base:enhancement:energy_supply').name('能源供给').desc('全局产出 ×1.25；并额外 +1 信用点/分钟。').tags(['core']).affectorPacks('base:affectorpack:energy_drink', 'base:affectorpack:energy_supply_mult').cost(CREDIT, 150).build(),
   enhancement('base:enhancement:sanctuary_field').name('庇护所协议').desc('全局产出 ×1.5（庇护所加成）。').tags(['core']).affectorPack('base:affectorpack:sanctuary_field_mult').cost(CREDIT, 280).build(),
   enhancement('base:enhancement:test_pyroxene_cheat').name('代号：燧石·改').desc('每 tick +2500 青辉石（测试专用）。').tags(['core']).affectorPack('base:affectorpack:pyroxene_flow').build(),
+  enhancement('base:enhancement:schale_night_mode')
+    .name('夏莱夜间照明')
+    .desc('获得后，将夏莱主厅的默认主题切换为墨蓝夜间配色。')
+    .tags(['theme'])
+    .attachArea('base:area:schale_main')
+    .effects({
+      op: 'setTheme',
+      target: '',
+      value: {
+        scope: 'area',
+        entityKey: 'area:base:area:schale_main',
+        colorGroupId: 'base:colorgroup:ink',
+      },
+    })
+    .autoApply()
+    .cost(CREDIT, 240)
+    .irreversible()
+    .build(),
 ];
 
 export const baseGlobalEnhancements: EnhancementDef[] = [

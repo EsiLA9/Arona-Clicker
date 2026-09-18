@@ -631,48 +631,56 @@ function applyRuntimeEditorDraft(
   const fail = (message: string, diagnostics: readonly RuntimeEditorProblem[]): void => {
     setRuntimeEditorError(editor, message);
     setRuntimeEditorProblems(editor, diagnostics);
+    // 批次中途失败时，前面已成功提交的内容仍需一次明确 render；
+    // 批次事件本身被抑制，避免逐项刷新覆盖当前编辑器状态。
+    if (appliedCount > 0) ctrl.render();
     reopenAfterFailure();
   };
   let appliedCount = 0;
-  for (const spot of targets) {
-    const applied = findRuntimeEditorAppliedSpot(editor, spot.idName);
-    const suspended = editor.suspendedSpotIds.includes(spot.idName);
-    if (suspended) {
-      if (!applied) continue;
-      const suspendedResult = editorCommands.suspendSpot(spot.idName);
-      if (!suspendedResult.ok) {
-        fail(suspendedResult.message, suspendedResult.diagnostics);
+  ctrl.beginContentRefreshBatch();
+  try {
+    for (const spot of targets) {
+      const applied = findRuntimeEditorAppliedSpot(editor, spot.idName);
+      const suspended = editor.suspendedSpotIds.includes(spot.idName);
+      if (suspended) {
+        if (!applied) continue;
+        const suspendedResult = editorCommands.suspendSpot(spot.idName);
+        if (!suspendedResult.ok) {
+          fail(suspendedResult.message, suspendedResult.diagnostics);
+          return;
+        }
+        appliedCount += 1;
+        continue;
+      }
+      if (spot.unsupportedFunctionalityIds?.length) {
+        fail(`Spot 含 Demo 编辑器无法 round-trip 的资源功能：${spot.unsupportedFunctionalityIds.join('、')}`, [{
+          code: 'invalid-field',
+          path: 'spot.affectors',
+          message: '请先在 Datapack 中处理该资源功能，Runtime Editor 不会静默覆盖它。',
+        }]);
+        return;
+      }
+      if (spot.unsupportedPaymentOptionPaths?.length) {
+        fail(`Spot 含 Runtime Editor 无法无损回写的支付方案：${spot.unsupportedPaymentOptionPaths.join('、')}`, [{
+          code: 'invalid-field',
+          path: 'spot.purchaseOptions',
+          message: '当前支付金额不是常量或结构不受支持；请先在 Datapack 中处理，Runtime Editor 不会静默覆盖它。',
+        }]);
+        return;
+      }
+      // 字段集由策略表保证；此处只是 DOM 值到命令输入的静态类型边界。
+      const { unsupportedFunctionalityIds: _unsupported, unsupportedPaymentOptionPaths: _unsupportedPayments, ...input } = spot;
+      const result: RuntimeSpotMutationResult = applied
+        ? editorCommands.replaceSpot(spot.idName, input)
+        : editorCommands.createSpot(input);
+      if (!result.ok) {
+        fail(result.message, result.diagnostics);
         return;
       }
       appliedCount += 1;
-      continue;
     }
-    if (spot.unsupportedFunctionalityIds?.length) {
-      fail(`Spot 含 Demo 编辑器无法 round-trip 的资源功能：${spot.unsupportedFunctionalityIds.join('、')}`, [{
-        code: 'invalid-field',
-        path: 'spot.affectors',
-        message: '请先在 Datapack 中处理该资源功能，Runtime Editor 不会静默覆盖它。',
-      }]);
-      return;
-    }
-    if (spot.unsupportedPaymentOptionPaths?.length) {
-      fail(`Spot 含 Runtime Editor 无法无损回写的支付方案：${spot.unsupportedPaymentOptionPaths.join('、')}`, [{
-        code: 'invalid-field',
-        path: 'spot.purchaseOptions',
-        message: '当前支付金额不是常量或结构不受支持；请先在 Datapack 中处理，Runtime Editor 不会静默覆盖它。',
-      }]);
-      return;
-    }
-    // 字段集由策略表保证；此处只是 DOM 值到命令输入的静态类型边界。
-    const { unsupportedFunctionalityIds: _unsupported, unsupportedPaymentOptionPaths: _unsupportedPayments, ...input } = spot;
-    const result: RuntimeSpotMutationResult = applied
-      ? editorCommands.replaceSpot(spot.idName, input)
-      : editorCommands.createSpot(input);
-    if (!result.ok) {
-      fail(result.message, result.diagnostics);
-      return;
-    }
-    appliedCount += 1;
+  } finally {
+    ctrl.endContentRefreshBatch();
   }
 
   markRuntimeEditorApplied(editor, true);

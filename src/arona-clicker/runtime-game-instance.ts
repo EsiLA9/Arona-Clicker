@@ -59,6 +59,7 @@ import { CharacterSystem } from './services/character-system';
 import { RosterSystem } from './services/roster-system';
 import { CharacterAvailabilityService } from './services/character-availability';
 import { ColorSystem } from './services/color-system';
+import type { EntityPresentationQueryPort } from './contracts/entity-presentation-query';
 import { ColorEquipmentSystem } from './services/color-equipment-system';
 import { GearSystem } from './services/gear-system';
 import { GachaService } from './services/gacha-service';
@@ -100,6 +101,7 @@ export class GameInstance {
   readonly rosterSystem!: RosterSystem;
   readonly availabilityService!: CharacterAvailabilityService;
   readonly colorSystem!: ColorSystem;
+  readonly entityPresentation!: EntityPresentationQueryPort;
   readonly colorEquipmentSystem!: ColorEquipmentSystem;
   readonly gearSystem!: GearSystem;
   readonly gachaService!: GachaService;

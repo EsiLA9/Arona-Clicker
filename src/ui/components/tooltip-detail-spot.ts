@@ -10,6 +10,7 @@ import { UIContext } from '../context';
 import { conditionMet, getSpotReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
 import { describeCondition, getSpotYieldBreakdown } from './tooltip-enhancement';
 import { buildConditionView, renderConditionTree } from '../condition-presentation';
+import { resolveEntityPresentation } from './entity-presentation';
 
 function paymentText(ctx: UIContext, options: ReturnType<UIContext['game']['spot']['getPaymentOptions']>): string {
   return options.map(option => {
@@ -74,9 +75,10 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       return '';
     }).join('');
 
-  const name = reveal.nameKnown ? spot.name : OBFUSCATED;
+  const resolvedPresentation = resolveEntityPresentation(ctx, 'spot', spot.id);
+  const name = reveal.nameKnown ? (resolvedPresentation?.name ?? spot.name) : OBFUSCATED;
   const desc = known
-    ? `<p class="info-desc">${ctx.escapeHtml(spot.description)}</p>`
+    ? `<p class="info-desc">${ctx.escapeHtml(resolvedPresentation?.description ?? spot.description)}</p>`
     : '';
   const acquisitionCondition = unlockCondition(spot.revealTriggers) ?? existenceCondition(spot.revealTriggers);
   const condText = renderConditionTree(buildConditionView(acquisitionCondition, {

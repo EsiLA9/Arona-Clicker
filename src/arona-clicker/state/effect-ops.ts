@@ -1,6 +1,6 @@
 import type { Effect, ExtraValue, ValueExpression } from '../../engine/types';
 import type { ChatTextEffectValue } from '../../engine/contracts/chat-presentation';
-import type { ThemeEffectValue } from '../../engine/types/expression';
+import type { EntityPresentationEffectValue, ThemeEffectValue } from '../../engine/types/expression';
 import { assertValidExtra, extraFromJson } from '../../engine/extra/index';
 import type { EffectMutationPort } from '../contracts/effect-mutation';
 
@@ -28,6 +28,8 @@ export function applyEffect(this: EffectMutationPort, effect: Effect): void {
     case 'grantCharacter': this.acquireCharacter(effect.target, 'story'); break;
     case 'addAffectionExp': this.addAffectionExp(effect.target, Number(effect.value)); break;
     case 'setTheme':
+    case 'setEntityPresentation':
+    case 'clearEntityPresentation':
     case 'clearAllChatFlow':
     case 'showChatText':
     case 'clearIdChatFlow':
@@ -37,7 +39,7 @@ export function applyEffect(this: EffectMutationPort, effect: Effect): void {
   }
 }
 
-function toExtraValue(raw: number | string | boolean | ValueExpression | ExtraValue | ThemeEffectValue | ChatTextEffectValue): ExtraValue {
+function toExtraValue(raw: number | string | boolean | ValueExpression | ExtraValue | ThemeEffectValue | EntityPresentationEffectValue | ChatTextEffectValue): ExtraValue {
   if (typeof raw === 'object' && raw !== null && 't' in raw) {
     const node = raw as ExtraValue;
     assertValidExtra(node);

@@ -29,6 +29,7 @@ import type { ShopQueryPort } from './shop-query';
 import type { RuntimeAreaTopologyDraft, RuntimeDefinitionEditorCommands, RuntimeModStateSnapshot, RuntimePaymentOptionDraft, RuntimeSpotFunctionalityDraft, RuntimeSpotLevelUpgradeDraft, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './runtime-content';
 import type { DefMetadata } from '../../data-services/contracts/common';
 import type { EnhancementAttachment } from '../../data-services/contracts/enhancement';
+import type { EntityPresentationQueryPort } from './entity-presentation-query';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -196,6 +197,7 @@ export interface GameReadModel {
   readonly rosterSystem: RosterQueryPort;
   readonly availabilityService: AvailabilityQueryPort;
   readonly colorSystem: ColorQueryPort;
+  readonly entityPresentation?: EntityPresentationQueryPort;
   readonly colorEquipmentSystem: ColorEquipmentQueryPort;
   readonly gearSystem: GearQueryPort;
   readonly gachaService: GachaQueryPort;
@@ -250,6 +252,8 @@ export interface GameCommands {
   activateCustomTheme(customThemeId: string): boolean;
   setThemeLayerOrder(order: ThemeOrderScope[]): boolean;
   setEntityThemeSlot(entityKey: string, slot: EntityThemeSlot | null): boolean;
+  setEntityPresentationSelection(entityKey: string, optionId: string | null): boolean;
+  clearEntityPresentationSelection(entityKey: string): boolean;
   unlockInit(initId: string): void;
   startNewGame(initId: string): boolean;
   restartInit(): void;

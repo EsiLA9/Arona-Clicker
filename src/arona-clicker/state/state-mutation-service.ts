@@ -33,6 +33,7 @@ import type { EffectMutationPort } from '../contracts/effect-mutation';
 import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../../engine/extra/index';
 import { addLifetime, memoryOf, recordGearProgress, recordVariantOwned, recordVariantProgress } from './character-memory';
 import type { GearActionReason } from '../contracts/gear-query';
+import type { EntityPresentationKey } from '../../data-services/contracts/entity-presentation';
 import type { GearCostDef, GearDef, VariantProgress } from '../types/character';
 import { applyEffects as applyEffectsImpl, applyEffect as applyEffectImpl } from './effect-ops';
 
@@ -73,6 +74,7 @@ function clearLegacyGlobalThemeAttachment(state: AronaClickerState): void {
 export class StateMutationService implements StateMutationPort, EffectMutationPort {
   private state: AronaClickerState | null = null;
   private initScopedTargetGuard: ((spotId: string) => boolean) | null = null;
+  private entityPresentationSelectionValidator: ((state: AronaClickerState, entityKey: string, optionId: string) => boolean) | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -90,6 +92,10 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
 
   setInitScopedTargetGuard(guard: ((spotId: string) => boolean) | null): void {
     this.initScopedTargetGuard = guard;
+  }
+
+  setEntityPresentationSelectionValidator(validator: ((state: AronaClickerState, entityKey: string, optionId: string) => boolean) | null): void {
+    this.entityPresentationSelectionValidator = validator;
   }
 
   private canMutateSpot(spotId: string): boolean {
@@ -671,6 +677,29 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     else state.entityThemeSlots[entityKey] = next;
     this.emit({ type: 'entityThemeChanged', entityKey });
     return true;
+  }
+
+  /** 设置 Global 实体表现偏好；只持久化声明的 addition ID。 */
+  setEntityPresentationSelection(entityKey: EntityPresentationKey, optionId: string | null): boolean {
+    const state = this.current;
+    if (optionId !== null && (!this.entityPresentationSelectionValidator || !this.entityPresentationSelectionValidator(state, entityKey, optionId))) {
+      return false;
+    }
+    const selections = (state.entityPresentationSelections ??= {});
+    const current = selections[entityKey];
+    if (optionId === null) {
+      if (current === undefined) return true;
+      delete selections[entityKey];
+    } else {
+      if (current === optionId) return true;
+      selections[entityKey] = optionId;
+    }
+    this.emit({ type: 'entityPresentationChanged', entityKey, optionId });
+    return true;
+  }
+
+  clearEntityPresentationSelection(entityKey: EntityPresentationKey): boolean {
+    return this.setEntityPresentationSelection(entityKey, null);
   }
 
   /** 培养入口：加经验（支持一次跨多级；达有效上限后溢出截断）。未拥有/非法量拒绝。 */

@@ -3,7 +3,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // engine/story-entry-split.test.ts
 // Story 三层拆分回归：StoryEntryDef（触发入口）/ StoryDef（纯演出）/ Talklet
 // ============================================================
-import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { Registry } from '../../src/data-services/registry/registry';
@@ -62,16 +62,21 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
   });
 
   test('passive 抽选与完结奖励经 Entry 消费；完成记录仍按 Story.id', () => {
-    game.init([baseDatapack]);
-    finishStory(game); // 先完成主动 welcome，腾出 passive 抽选窗口
-    game.story.clickSend();
-    const current = game.getView().currentStory;
-    if (current?.type !== 'passive') return; // 池内无可用 passive 时跳过
-    finishStory(game);
-    // 完成记录按 Story.id 记（1:1 时与 Entry.id 同值）
-    expect(game.state.storyLog.some(c => c.storyId.startsWith('base:story:'))).toBe(true);
-    // 奖励从 Entry.completionReward 读取（青辉石为全局资源 → globalResources 桶）
-    expect(game.state.globalResources?.['base:resource:pyroxene'] ?? 0).toBeGreaterThan(0);
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      game.init([baseDatapack]);
+      finishStory(game); // 先完成主动 welcome，腾出 passive 抽选窗口
+      game.story.clickSend();
+      const current = game.getView().currentStory;
+      if (current?.type !== 'passive') return; // 池内无可用 passive 时跳过
+      finishStory(game);
+      // 完成记录按 Story.id 记（1:1 时与 Entry.id 同值）
+      expect(game.state.storyLog.some(c => c.storyId.startsWith('base:story:'))).toBe(true);
+      // 奖励从 Entry.completionReward 读取（青辉石为全局资源 → globalResources 桶）
+      expect(game.state.globalResources?.['base:resource:pyroxene'] ?? 0).toBeGreaterThan(0);
+    } finally {
+      random.mockRestore();
+    }
   });
 
   test('storyReadLogs：启动记录首条 Talklet，推进记录已读索引与所选选项', () => {

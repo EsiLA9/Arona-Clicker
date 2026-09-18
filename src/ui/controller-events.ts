@@ -14,10 +14,21 @@ export function bindEvents(ctrl: UIController): void {
   ctrl.game.eventBus.onAny(event => {
     // 生产类高频事件由 refreshLight 覆盖数值，不参与揭示评估
     if (event.type === 'tick' || event.type === 'spotProduced') return;
+    // Area 定义 / 拓扑有专门的当前 Area 判断；不在通用揭示入口重复刷新，
+    // 否则非当前 Area 的事件也会先触发一次全局揭示比对。
+    if (event.type === 'areaDefinitionChanged' || event.type === 'areaTopologyChanged') {
+      ctrl.refreshLogPanel(false);
+      return;
+    }
     refreshRevealIfChanged(ctrl);
-    ctrl.refreshLogPanel();
+    ctrl.refreshLogPanel(false);
   });
   ctrl.game.eventBus.on('themeChanged', () => ctrl.scheduleRender());
+  ctrl.game.eventBus.on('entityThemeChanged', () => ctrl.scheduleRender());
+  ctrl.game.eventBus.on('entityPresentationChanged', event => {
+    if (event.type !== 'entityPresentationChanged') return;
+    ctrl.refreshEntityPresentation(event.entityKey);
+  });
   ctrl.game.eventBus.on('userThemeChanged', () => ctrl.scheduleRender());
   // 当前 Area 的拓扑热更新后，左侧「可前往区域」必须立即重新读取最新邻接关系。
   // 其它 Area 的定义变化不影响当前导航，避免无关变更触发面板刷新。

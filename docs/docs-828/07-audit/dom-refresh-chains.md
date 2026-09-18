@@ -2,7 +2,11 @@
 
 > 本文回答：**哪些 UI 刷新链会重建 DOM、它们会影响哪些交互状态，以及当前实现在哪些边界上可能误伤或遗留 hover。** 本文是 2026-09-17 的源码审查快照；代码是真相，整改后须重新核验。
 
-> 整改记录（2026-09-17）：`PopoverManager` 已支持按实际替换范围关闭 tooltip；panel、chat、log、Shop region 的第一批局部替换入口已接入该能力。Runtime Editor 提交去重与全量刷新收敛仍未完成，以下对应风险继续有效。
+> 整改记录（2026-09-17）：`PopoverManager` 已支持按实际替换范围关闭 tooltip；panel、chat、log、Shop region 的第一批局部替换入口已接入该能力。Runtime Editor 提交去重与全量刷新收敛在 2026-09-18 完成首批边界收敛；以下风险链保留为整改前调查证据，当前结论以最新源码与测试为准。
+
+> 当前实现补充（2026-09-18）：`refreshPanels()` 已移除 root 级无条件 dismiss，Panel 刷新只关闭实际 mutation range；`UIUpdateDispatcher` 的 `element` 层当前覆盖 `spot.card`、`enhancement.card`、`area.nav`，集合不变时只替换对应元素；chat、log、Shop region 的直接替换入口已传入局部范围。Runtime Editor 批量 Spot Apply 已增加 UI 刷新抑制边界，pending reward / travel fallback 已按队列状态去重。主题正式提交仍保留 full render 作为安全降级，主题编辑预览使用 `refreshTheme()` 更新 CSS / background；主题背景当前不承载 tooltip anchor，未来接入交互锚点前必须补齐 mutation range 生命周期。下文 2026-09-17 的风险链保留为调查证据，当前状态以源码、`task-0096-panel-granular-refresh-api-and-hover-continuity` 和最新测试为准。
+
+> 外部刷新补充（2026-09-18，task-0101）：已修复 Popover 延迟显示竞态。待显示 tooltip 现在受 mutation 取消、generation 与当前 root / `isConnected` 校验保护；`entityPresentationChanged` 按实体映射到可见元素、Region 或 Panel，不可见实体不再触发 `#app` 重建；同组揭示更新在输出未变化时保留节点身份；`onAny` 的日志替换增加最新 entry revision 判定。真实 Chrome 已复现并验证“hover 后 10ms 刷新、等待超过 80ms”不会打开断开锚点的旧 tooltip。主题正式事件仍按安全策略保留 full render。
 
 ## 结论摘要
 
@@ -164,7 +168,8 @@ Spot 批量提交应避免每个定义变更都立即触发一次 UI 重建。�
 - 已读取：`docs/docs-828/00-INDEX.md`、`docs/docs-828/02-modules/ui.md`、`docs/docs-828/02-modules/runtime-editor.md`、`docs/docs-828/05-conventions/doc-maintenance.md`。
 - 已执行：`npm run ui:callgraph -- --hot`。
 - 已核对：`src/ui/controller.ts`、`controller-core.ts`、`controller-events.ts`、`controller-theme.ts`、`popovers.ts`、`ui/update/*`、Runtime Editor actions、Runtime Content Coordinator 与 Runtime 装配。
-- 尚未执行：实现修复、浏览器复现、专项回归测试；本文只记录调查结果。
+- 2026-09-17 快照时尚未执行实现修复；2026-09-18 已完成首批实现、专项回归测试与真实 Chrome CDP 浏览器验收。主题背景仍按安全降级策略保留 full render，语义节点扩展及 Runtime Editor 批量精确计数另列入 `task-0100`。
+- 2026-09-18 Task-0101 最终核验：全量测试 173 files / 1607 tests 通过；`npx tsc --noEmit`、`npm run check:architecture`、`npm run check:docs`（231 篇，0 errors）和 `npm run ui:callgraph -- --hot` 通过。Chrome CDP 验收结果：tooltip closed，旧 Spot anchor disconnected，未残留旧内容。
 
 ## 相关路由
 

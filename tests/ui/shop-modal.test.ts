@@ -103,6 +103,35 @@ describe('Spot Shop workspace', () => {
     expect(controller.getRefreshStats().behaviorPatches).toBeGreaterThan(0);
   });
 
+  test('Shop Region 局部替换只关闭自身范围内的 tooltip', () => {
+    controller.openSpotShopModal(SPOT);
+    const catalog = document.querySelector<HTMLElement>('[data-theme-host-id="centerPanel.shop.catalog"]')!;
+    const anchor = document.createElement('span');
+    anchor.className = 'hover-wrap';
+    catalog.append(anchor);
+    const tooltip = document.querySelector<HTMLElement>('#floating-tooltip')!;
+    tooltip.classList.add('is-open');
+    (controller.popovers as unknown as { lastWrap: HTMLElement }).lastWrap = anchor;
+
+    controller.requestShopWorkspaceRefresh(['centerPanel.shop.catalog'], 'test.shop-region');
+    controller.flushUIUpdates();
+
+    expect(tooltip.classList.contains('is-open')).toBe(false);
+  });
+
+  test('待落账通知的 Tick fallback 在队列未变化时只触发一次 full render', () => {
+    controller.openSpotShopModal(SPOT);
+    controller.panelState.workspace = undefined;
+    controller.panelState.service = 'game';
+    controller.pendingRewardChats.push('待显示通知');
+    const fullBefore = controller.getRefreshStats().fullRenders;
+
+    controller.refreshLight();
+    controller.refreshLight();
+
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBefore + 1);
+  });
+
   test('结算失败保留购物车，并只更新 Feed / settlement 区域', () => {
     controller.openSpotShopModal(SPOT);
     const fullBefore = controller.getRefreshStats().fullRenders;

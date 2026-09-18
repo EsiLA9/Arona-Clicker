@@ -4,6 +4,7 @@ import { getEnhancementReveal, describeCondition } from './tooltip';
 import { unlockCondition } from '../../engine/visibility/reveal';
 import type { EnhancementDef } from '../../data-services/contracts/enhancement';
 import { AffectorPackDef } from '../../engine/types';
+import { resolveEntityPresentation, renderEntityPresentationOptions } from './entity-presentation';
 
 /** 从 Enhancement 挂载的 Affector 包派生其产出倍率展示文案（统一 zone 模型）。 */
 export function enhMultiplierLabel(ctx: UIContext, enh: EnhancementDef): string {
@@ -41,56 +42,71 @@ function attachLabel(ctx: UIContext, enh: EnhancementDef): string {
 /** 信息揭示占位。 */
 const HIDDEN_TEXT = '???';
 
-export function renderEnhancements(ctx: UIContext): string {
-  const { game, view } = ctx;
-  const registry = game.registry;
-  // 已购买的 enhancement 收入管理弹窗，此处不再显示；挂靠（仅 UI 位置）过滤可购项。
-  // global 挂靠强化只在「全局强化选择页」购买/管理，不在右侧面板出现。
-  const visibleHere = (enh: EnhancementDef): boolean => {
-    const att = enh.attachment;
-    if (att?.kind === 'global') return false;
-    if (!att) return true;
-    if (att.kind === 'init') return view.activeInit === att.initId;
-    return view.currentAreaId === att.areaId;
-  };
-  const cards = [...game.registry.enhancements.values()].map(enh => {
-    const reveal = getEnhancementReveal(ctx, enh);
-    if (reveal.stage === 'invisible' || reveal.stage === 'owned' || !visibleHere(enh)) return '';
-    const purchaseable = reveal.stage === 'purchaseable';
+function enhancementVisibleHere(ctx: UIContext, enh: EnhancementDef): boolean {
+  const att = enh.attachment;
+  if (att?.kind === 'global') return false;
+  if (!att) return true;
+  if (att.kind === 'init') return ctx.view.activeInit === att.initId;
+  return ctx.view.currentAreaId === att.areaId;
+}
 
-    // 按揭示阶梯遮挡信息
-    const title = reveal.nameKnown ? enh.name : HIDDEN_TEXT;
-    const unlock = unlockCondition(enh.revealTriggers);
-    const condText = reveal.conditionKnown
-      ? (unlock ? describeCondition(unlock, ctx.nameOf) : '无前置条件')
-      : HIDDEN_TEXT;
-    const multiplierText = enhMultiplierLabel(ctx, enh);
-    const utilityText = reveal.utilityKnown ? (multiplierText || '—') : HIDDEN_TEXT;
-    const priceText = enh.price?.length
-      ? enh.price.map(cost => `${ctx.formatNumber(cost.amount)} ${ctx.nameOf('resource', cost.resourceId)}`).join(' · ')
-      : '无花费';
-    const description = reveal.utilityKnown
-      ? `<p>${ctx.escapeHtml(enh.description)}</p>`
-      : '';
-    return `
-      <article class="mini-card hover-wrap presentation-host-target" data-theme-host-id="card" data-theme-text-mode="${ctx.textColorModeForHost?.('card') ?? 'auto'}" data-tooltip="enh:${enh.id}">
+/** 当前右侧强化面板中可作为独立元素更新的卡片集合。 */
+export function visibleEnhancementCardIds(ctx: UIContext): string[] {
+  return [...ctx.game.registry.enhancements.values()]
+    .filter(enh => {
+      const reveal = getEnhancementReveal(ctx, enh);
+      return reveal.stage !== 'invisible'
+        && reveal.stage !== 'owned'
+        && enhancementVisibleHere(ctx, enh);
+    })
+    .map(enh => enh.id);
+}
+
+/** 只生成一张已存在的 Enhancement 卡片；状态结构变化时交给 Panel fallback。 */
+export function renderEnhancementCard(ctx: UIContext, enhancementId: string): string {
+  const enh = ctx.game.registry.enhancements.get(enhancementId);
+  if (!enh || !enhancementVisibleHere(ctx, enh)) return '';
+  const reveal = getEnhancementReveal(ctx, enh);
+  if (reveal.stage === 'invisible' || reveal.stage === 'owned') return '';
+  const purchaseable = reveal.stage === 'purchaseable';
+  const resolvedPresentation = resolveEntityPresentation(ctx, 'enhancement', enh.id);
+  const title = reveal.nameKnown ? (resolvedPresentation?.name ?? enh.name) : HIDDEN_TEXT;
+  const unlock = unlockCondition(enh.revealTriggers);
+  const condText = reveal.conditionKnown
+    ? (unlock ? describeCondition(unlock, ctx.nameOf) : '无前置条件')
+    : HIDDEN_TEXT;
+  const multiplierText = enhMultiplierLabel(ctx, enh);
+  const utilityText = reveal.utilityKnown ? (multiplierText || '—') : HIDDEN_TEXT;
+  const priceText = enh.price?.length
+    ? enh.price.map(cost => `${ctx.formatNumber(cost.amount)} ${ctx.nameOf('resource', cost.resourceId)}`).join(' · ')
+    : '无花费';
+  const description = reveal.utilityKnown
+    ? `<p>${ctx.escapeHtml(resolvedPresentation?.description ?? enh.description)}</p>`
+    : '';
+  return `
+      <article class="mini-card hover-wrap presentation-host-target" data-ui-enhancement-card="${ctx.escapeHtml(enh.id)}" data-theme-host-id="card" data-theme-text-mode="${ctx.textColorModeForHost?.('card') ?? 'auto'}" data-tooltip="enh:${enh.id}">
         ${renderPresentationHostBackground(ctx, 'card')}
         <div class="mini-card-title-row">
           <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
           <strong class="mini-status">${purchaseable ? '可购买' : '未解锁'}</strong>
         </div>
         ${description}
+        ${reveal.utilityKnown ? renderEntityPresentationOptions(ctx, 'enhancement', enh.id) : ''}
         <div class="mini-card-foot">
           <span class="mini-yield">${ctx.escapeHtml(utilityText)}</span>
           <div class="mini-actions">
             ${purchaseable
-              ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-purchase-enh="${enh.id}">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">购买 ${priceText} <span>↗</span></span></button>`
+              ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-purchase-enh="${ctx.escapeHtml(enh.id)}">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">购买 ${priceText} <span>↗</span></span></button>`
               : ''}
           </div>
         </div>
         <small class="mini-note">条件：${ctx.escapeHtml(condText)}</small>
       </article>`;
-  }).join('');
+}
+
+export function renderEnhancements(ctx: UIContext): string {
+  const { game, view } = ctx;
+  const cards = visibleEnhancementCardIds(ctx).map(id => renderEnhancementCard(ctx, id)).join('');
 
   const ownedCount = [...game.registry.enhancements.values()]
     .filter(enh => view.unlockedEnhancements.includes(enh.id)).length;
@@ -119,13 +135,15 @@ export function renderEnhancementManager(ctx: UIContext): string {
   }
   const cards = owned.map(enh => {
     const multiplier = enhMultiplierLabel(ctx, enh);
+    const resolvedPresentation = resolveEntityPresentation(ctx, 'enhancement', enh.id);
     return `
       <article class="mini-card hover-wrap owned">
         <div class="mini-card-title-row">
-          <h3 class="mini-card-title">${ctx.escapeHtml(enh.name)}</h3>
+          <h3 class="mini-card-title">${ctx.escapeHtml(resolvedPresentation?.name ?? enh.name)}</h3>
           <strong class="mini-status owned-tag">已激活</strong>
         </div>
-        <p>${ctx.escapeHtml(enh.description)}</p>
+        <p>${ctx.escapeHtml(resolvedPresentation?.description ?? enh.description)}</p>
+        ${renderEntityPresentationOptions(ctx, 'enhancement', enh.id)}
         <div class="mini-card-foot">
           <span class="mini-yield">${ctx.escapeHtml(multiplier || '—')} · ${ctx.escapeHtml(attachLabel(ctx, enh))}</span>
           <div class="mini-actions">

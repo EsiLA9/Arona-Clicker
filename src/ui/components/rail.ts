@@ -13,6 +13,7 @@ import {
   StoryContentChapterDef,
   StoryContentItem,
 } from '../../arona-clicker/content/story-hierarchy';
+import { resolveEntityPresentation, renderEntityPresentationOptions } from './entity-presentation';
 
 const LEFT_TABS: TabDef[] = [
   { id: 'area', label: '区域' },
@@ -39,14 +40,18 @@ function renderAreaTab(ctx: UIContext): string {
   const init = game.world.inits.get(view.activeInit);
   const currentAreaId = view.currentAreaId;
   const currentArea = currentAreaId ? game.world.areas.get(currentAreaId) : undefined;
-  const initName = init?.name ?? '未进入';
-  const areaName = currentArea?.name ?? '—';
+  const currentPresentation = currentArea ? resolveEntityPresentation(ctx, 'area', currentArea.id) : undefined;
+  const areaName = currentPresentation?.name ?? currentArea?.name ?? '—';
+  const areaDescription = currentPresentation?.description ?? currentArea?.description ?? init?.description ?? '';
 
   // hero 横幅
   const hero = `
     <div class="area-hero">
       <h2>${ctx.escapeHtml(areaName)}</h2>
-      <p>${ctx.escapeHtml(currentArea?.description ?? init?.description ?? '')}</p>
+      <p>${ctx.escapeHtml(areaDescription)}</p>
+      ${currentArea && getAreaReveal(ctx, currentArea).utilityKnown
+        ? renderEntityPresentationOptions(ctx, 'area', currentArea.id)
+        : ''}
     </div>`;
 
   // 可前往区域 = 统一可达性查询：静态拓扑 + Runtime Overlay + Affector 动态连接
@@ -55,37 +60,9 @@ function renderAreaTab(ctx: UIContext): string {
     : [];
   // 非 passive 剧情演出进行中禁止移动（演出锁定）
   const storyLocked = view.currentStory !== null && view.currentStory.type !== 'passive';
-  const reachableRows = adjacent.map(areaId => {
-    const area = game.world.areas.get(areaId);
-    const spotCount = game.world.spotsOfArea(areaId).length;
-    const visible = view.visibility.areas[areaId] ?? false;
-    if (!area) return '';
-    const reveal = getAreaReveal(ctx, area);
-    const name = reveal.nameKnown ? area.name : '未知区域';
-    const isLocked = !visible || storyLocked;
-    // 不用 disabled（会阻断 mouseenter，导致 hover tooltip 失效），
-    // 改用 aria-disabled + is-locked 类；点击由 controller 拦截。
-    const marker = isLocked ? '<span class="nav-lock">🔒</span>' : '<span class="nav-marker"></span>';
-    const state = storyLocked
-      ? '<small>演出中</small>'
-      : isLocked
-        ? '<small>LOCKED</small>'
-        : `<small>${spotCount} SPOT</small>`;
-    return `
-      <button class="nav-item area-nav hover-wrap ${isLocked ? 'is-locked' : ''}" data-area="${areaId}" data-tooltip="area:${areaId}" aria-disabled="${isLocked}" ${isLocked ? 'data-locked' : ''}>
-        ${marker}<span>${ctx.escapeHtml(name)}</span>${state}
-      </button>`;
-  }).join('');
-
-  const currentSpotCount = currentArea ? game.world.spotsOfArea(currentArea.id).length : 0;
-  const currentOwned = currentArea
-    ? game.world.spotsOfArea(currentArea.id).filter(id => (view.spotLevels[id] ?? 0) > 0).length
-    : 0;
+  const reachableRows = adjacent.map(areaId => renderAreaNavItem(ctx, areaId, 'reachable')).join('');
   const currentRow = currentArea
-    ? `
-      <button class="nav-item area-nav active hover-wrap" data-tooltip="area:${currentArea.id}" aria-disabled="true">
-        <span class="nav-marker"></span><span>${ctx.escapeHtml(currentArea.name)}</span><small>${currentOwned}/${currentSpotCount} 启用</small>
-      </button>`
+    ? renderAreaNavItem(ctx, currentArea.id, 'current')
     : '<div class="nav-item"><span class="nav-marker"></span><span>未进入</span><small>—</small></div>';
 
   return `
@@ -103,6 +80,41 @@ export function renderStoryNavigation(ctx: UIContext, path: string[]): string {
   return `
     ${renderStoryBreadcrumb(ctx, hierarchy, path)}
     <div class="story-nav-body">${renderStoryLevel(ctx, hierarchy, path)}</div>`;
+}
+
+export type AreaNavKind = 'current' | 'reachable';
+
+/** 生成单个区域导航项，供元素级揭示刷新复用。 */
+export function renderAreaNavItem(ctx: UIContext, areaId: string, kind: AreaNavKind): string {
+  const { game, view } = ctx;
+  const area = game.world.areas.get(areaId);
+  if (!area) return '';
+  if (kind === 'current') {
+    const spotCount = game.world.spotsOfArea(area.id).length;
+    const owned = game.world.spotsOfArea(area.id).filter(id => (view.spotLevels[id] ?? 0) > 0).length;
+    const presentation = resolveEntityPresentation(ctx, 'area', area.id);
+    return `
+      <button class="nav-item area-nav active hover-wrap" data-ui-area-nav="current:${area.id}" data-ui-area-nav-kind="current" data-area="${area.id}" data-tooltip="area:${area.id}" aria-disabled="true">
+        <span class="nav-marker"></span><span>${ctx.escapeHtml(presentation?.name ?? area.name)}</span><small>${owned}/${spotCount} 启用</small>
+      </button>`;
+  }
+  const visible = view.visibility.areas[area.id] ?? false;
+  const storyLocked = view.currentStory !== null && view.currentStory.type !== 'passive';
+  const reveal = getAreaReveal(ctx, area);
+  const presentation = resolveEntityPresentation(ctx, 'area', area.id);
+  const name = reveal.nameKnown ? (presentation?.name ?? area.name) : '未知区域';
+  const isLocked = !visible || storyLocked;
+  const spotCount = game.world.spotsOfArea(area.id).length;
+  const marker = isLocked ? '<span class="nav-lock">🔒</span>' : '<span class="nav-marker"></span>';
+  const state = storyLocked
+    ? '<small>演出中</small>'
+    : isLocked
+      ? '<small>LOCKED</small>'
+      : `<small>${spotCount} SPOT</small>`;
+  return `
+      <button class="nav-item area-nav hover-wrap ${isLocked ? 'is-locked' : ''}" data-ui-area-nav="reachable:${area.id}" data-ui-area-nav-kind="reachable" data-area="${area.id}" data-tooltip="area:${area.id}" aria-disabled="${isLocked}" ${isLocked ? 'data-locked' : ''}>
+        ${marker}<span>${ctx.escapeHtml(name)}</span>${state}
+      </button>`;
 }
 
 /** 面包屑导航：点击任一级返回对应深度（0 = 分类页）。 */

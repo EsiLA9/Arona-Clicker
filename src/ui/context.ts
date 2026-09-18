@@ -38,6 +38,7 @@ export interface UIContext {
   nameOf(type: string, id: string): string;
   background: BackgroundView;
   presentation: PresentationView;
+  entityPresentation?: GameReadModel['entityPresentation'];
   backgroundForHost(hostId: string, inheritGlobal?: boolean, state?: PresentationHostState): BackgroundView;
   presentationHostState(hostId: string, state?: PresentationHostState): PresentationHostStateResult;
   textColorModeForHost(hostId: string, state?: PresentationHostState): PresentationTextColorMode;
@@ -129,6 +130,7 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
     nameOf: (type, id) => displayName(game.registry, type, id),
     background: background ?? { layers: [] },
     presentation: presentation ?? emptyPresentation,
+    entityPresentation: game.entityPresentation,
     backgroundForHost: (hostId, inheritGlobal = true, state: PresentationHostState = 'default') => {
       const globalLayers = (background ?? { layers: [] }).layers;
       const activeFallbackLayer = {

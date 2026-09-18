@@ -41,7 +41,84 @@
 }
 
 .entity-design-lock {
-  font-size: 10px;
+   font-size: 10px;
+}
+
+/* 名称、描述、主题一体化的实体表现选择；与仅改变颜色来源的主题设计入口并列，避免语义混淆。 */
+.entity-presentation-options {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   margin: 4px 0 8px;
+   padding: 8px;
+   border: 1px solid var(--line, #d8e2f0);
+   border-radius: 10px;
+   background: color-mix(in srgb, var(--panel-light, #fff) 72%, transparent);
+}
+
+.entity-presentation-heading {
+   display: flex;
+   align-items: baseline;
+   justify-content: space-between;
+   gap: 8px;
+   color: var(--ink, #16203a);
+   font-size: 11px;
+   font-weight: 700;
+}
+
+.entity-presentation-heading small,
+.entity-presentation-runtime-note {
+   color: var(--muted, #6d7890);
+   font-size: 10px;
+   font-weight: 400;
+}
+
+.entity-presentation-option-list {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 5px;
+}
+
+.entity-presentation-option {
+   display: inline-flex;
+   align-items: center;
+   gap: 5px;
+   min-width: 0;
+   padding: 4px 8px;
+   border: 1px solid var(--line, #d8e2f0);
+   border-radius: 8px;
+   background: transparent;
+   color: var(--ink-on-panel-light, #16203a);
+   font-size: 11px;
+   cursor: pointer;
+   text-align: left;
+}
+
+.entity-presentation-option .entity-presentation-swatch {
+   width: 9px;
+   height: 9px;
+   flex: 0 0 auto;
+   border-radius: 50%;
+   background: var(--swatch, var(--line, #d8e2f0));
+}
+
+.entity-presentation-option .entity-presentation-description {
+   max-width: 18em;
+   overflow: hidden;
+   color: var(--muted, #6d7890);
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.entity-presentation-option.active {
+   border-color: var(--cyan, #3b9eff);
+   background: rgba(var(--primary-rgb, 59, 126, 255), .14);
+}
+
+.entity-presentation-option.locked,
+.entity-presentation-option.blocked {
+   opacity: .55;
+   cursor: not-allowed;
 }
 
 .char-chat-empty,
@@ -243,4 +320,3 @@
    display: flex;
    gap: 8px;
 }
-

@@ -77,6 +77,120 @@ describe('Workspace 页面生命周期', () => {
     expect(document.querySelector('[data-workspace-frame="game"]')).not.toBeNull();
   });
 
+  it('Panel 局部刷新只关闭被替换范围内的 tooltip', () => {
+    controller.render();
+    const tooltip = document.querySelector<HTMLElement>('#floating-tooltip')!;
+    const center = document.querySelector<HTMLElement>('.center-panel')!;
+    const centerAnchor = document.createElement('span');
+    centerAnchor.className = 'hover-wrap';
+    center.append(centerAnchor);
+    tooltip.classList.add('is-open');
+    (controller.popovers as unknown as { lastWrap: HTMLElement }).lastWrap = centerAnchor;
+
+    controller.refreshPanels(['left', 'right']);
+
+    expect(tooltip.classList.contains('is-open')).toBe(true);
+
+    const left = document.querySelector<HTMLElement>('.left-panel')!;
+    const leftAnchor = document.createElement('span');
+    leftAnchor.className = 'hover-wrap';
+    left.append(leftAnchor);
+    tooltip.classList.add('is-open');
+    (controller.popovers as unknown as { lastWrap: HTMLElement }).lastWrap = leftAnchor;
+
+    controller.refreshPanels(['left']);
+
+    expect(tooltip.classList.contains('is-open')).toBe(false);
+  });
+
+  it('Chat pane 局部替换只关闭聊天范围内的 tooltip', () => {
+    controller.render();
+    const chatPane = document.querySelector<HTMLElement>('.chat-pane')!;
+    const anchor = document.createElement('span');
+    anchor.className = 'hover-wrap';
+    chatPane.append(anchor);
+    const tooltip = document.querySelector<HTMLElement>('#floating-tooltip')!;
+    tooltip.classList.add('is-open');
+    (controller.popovers as unknown as { lastWrap: HTMLElement }).lastWrap = anchor;
+
+    controller.refreshChatPanel();
+
+    expect(tooltip.classList.contains('is-open')).toBe(false);
+  });
+
+  it('Log pane 局部替换只关闭日志范围内的 tooltip', () => {
+    controller.panelState.centerTab = 'log';
+    controller.render();
+    const log = document.querySelector<HTMLElement>('.log-panel')!;
+    const anchor = document.createElement('span');
+    anchor.className = 'hover-wrap';
+    log.append(anchor);
+    const tooltip = document.querySelector<HTMLElement>('#floating-tooltip')!;
+    tooltip.classList.add('is-open');
+    (controller.popovers as unknown as { lastWrap: HTMLElement }).lastWrap = anchor;
+
+    controller.refreshLogPanel();
+
+    expect(tooltip.classList.contains('is-open')).toBe(false);
+  });
+
+  it('揭示变化可按 Spot 卡片元素刷新，不增加 Panel / full render 计数', () => {
+    controller.render();
+    const before = controller.getRefreshStats();
+    const beforeCards = new Map(
+      [...document.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
+        .map(card => [card.dataset.uiSpotCard!, card] as const),
+    );
+
+    expect(controller.refreshCurrentSpotCards('test.element-refresh')).toBe(true);
+
+    const after = controller.getRefreshStats();
+    expect(after.elementRefreshes).toBeGreaterThan(0);
+    expect(after.panelRefreshes).toBe(before.panelRefreshes);
+    expect(after.fullRenders).toBe(before.fullRenders);
+    for (const [spotId, card] of beforeCards) {
+      expect(document.querySelector<HTMLElement>(`[data-ui-spot-card="${spotId}"]`)).toBe(card);
+    }
+  });
+
+  it('区域导航揭示状态可按按钮元素刷新，并保留无关中心 tooltip', () => {
+    controller.render();
+    const before = controller.getRefreshStats();
+    const currentNav = document.querySelector<HTMLElement>('[data-ui-area-nav-kind="current"]');
+    expect(currentNav).not.toBeNull();
+    const center = document.querySelector<HTMLElement>('.center-panel')!;
+    const centerAnchor = document.createElement('span');
+    centerAnchor.className = 'hover-wrap';
+    center.append(centerAnchor);
+    const tooltip = document.querySelector<HTMLElement>('#floating-tooltip')!;
+    tooltip.classList.add('is-open');
+    (controller.popovers as unknown as { lastWrap: HTMLElement }).lastWrap = centerAnchor;
+
+    expect(controller.refreshCurrentAreaNav('test.area-nav-element')).toBe(true);
+
+    const after = controller.getRefreshStats();
+    expect(after.elementRefreshes).toBeGreaterThan(before.elementRefreshes);
+    expect(after.panelRefreshes).toBe(before.panelRefreshes);
+    expect(after.fullRenders).toBe(before.fullRenders);
+    expect(tooltip.classList.contains('is-open')).toBe(true);
+    expect(document.querySelector<HTMLElement>('[data-ui-area-nav-kind="current"]')).toBe(currentNav);
+  });
+
+  it('强化卡片揭示状态可按元素刷新，不增加右侧 Panel 刷新计数', () => {
+    controller.panelState.rightTab = 'enh';
+    controller.render();
+    const cards = document.querySelectorAll('[data-ui-enhancement-card]');
+    expect(cards.length).toBeGreaterThan(0);
+    const before = controller.getRefreshStats();
+
+    expect(controller.refreshCurrentEnhancementCards('test.enhancement-element')).toBe(true);
+
+    const after = controller.getRefreshStats();
+    expect(after.elementRefreshes).toBeGreaterThan(before.elementRefreshes);
+    expect(after.panelRefreshes).toBe(before.panelRefreshes);
+    expect(after.fullRenders).toBe(before.fullRenders);
+  });
+
   it('Shop 缺失数据仍生成结构化错误态并保留返回入口', () => {
     const html = renderShopWorkspace(createUIContext(game), {
       type: 'shop',

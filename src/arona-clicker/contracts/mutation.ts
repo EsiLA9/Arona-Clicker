@@ -82,6 +82,8 @@ export interface UiMutationPort extends StateMutationHostPort {
   activateCustomTheme(customThemeId: string): boolean;
   setThemeLayerOrder(order: import('../../engine/types').ThemeOrderScope[]): boolean;
   setEntityThemeSlot(entityKey: string, slot: import('../../engine/types').EntityThemeSlot | null): boolean;
+  setEntityPresentationSelection(entityKey: string, optionId: string | null): boolean;
+  clearEntityPresentationSelection(entityKey: string): boolean;
 }
 
 export interface RuntimeMutationPort extends StateMutationHostPort {

@@ -6,6 +6,7 @@
 import type { InitDef } from '../../data-services/contracts/world';
 import { UIContext } from '../context';
 import { getInitReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
+import { resolveEntityPresentation } from './entity-presentation';
 
 /** 生成 Init（世界线）的详情信息面板 HTML。 */
 export function renderInitDetail(ctx: UIContext, init: InitDef): string {
@@ -14,9 +15,10 @@ export function renderInitDetail(ctx: UIContext, init: InitDef): string {
   const purchaseable = reveal.stage === 'purchaseable';
   const isActive = ctx.view.activeInit === init.id;
 
-  const name = reveal.nameKnown ? init.name : OBFUSCATED;
+  const resolvedPresentation = resolveEntityPresentation(ctx, 'init', init.id);
+  const name = reveal.nameKnown ? (resolvedPresentation?.name ?? init.name) : OBFUSCATED;
   const desc = reveal.utilityKnown
-    ? `<p class="info-desc">${ctx.escapeHtml(init.description)}</p>`
+    ? `<p class="info-desc">${ctx.escapeHtml(resolvedPresentation?.description ?? init.description)}</p>`
     : '';
 
   const areas = ctx.world.areasOfInit(init.id);

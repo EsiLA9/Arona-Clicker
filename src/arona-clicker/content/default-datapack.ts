@@ -27,18 +27,49 @@ import { baseResourceDisplays } from './resource-displays';
 import { baseExtras } from './extras';
 import { themeShowcaseAreas, themeShowcaseEnhancements, themeShowcaseInits, themeShowcasePassiveStories, themeShowcaseSpots } from './theme-showcase';
 import { baseShops } from './shops';
+import type { EntityPresentationDef } from '../../data-services/contracts/entity-presentation';
+
+/**
+ * 正式内容的组合入口：把仍以旧字段编写的默认内容投影为规范 presentation.default。
+ * 这样默认 Datapack 从进入 Registry 起就拥有统一语义，Resolver 仍可兼容外部旧包。
+ */
+function withDefaultPresentation<T extends {
+  name: string;
+  description: string;
+  theme?: unknown;
+  presentation?: EntityPresentationDef;
+}>(def: T, displayName = def.name): T {
+  if (def.presentation) return def;
+  return {
+    ...def,
+    presentation: {
+      default: {
+        name: displayName,
+        description: def.description,
+        ...(def.theme ? { theme: def.theme as EntityPresentationDef['default']['theme'] } : {}),
+      },
+    },
+  };
+}
+
+const defaultInits = [...baseInits, ...themeShowcaseInits].map(def => withDefaultPresentation(def));
+const defaultAreas = [...baseAreas, ...themeShowcaseAreas].map(def => withDefaultPresentation(def));
+const defaultSpots = [...baseSpots, ...themeShowcaseSpots].map(def => withDefaultPresentation(def));
+const defaultEnhancements = [...baseEnhancements, ...baseGlobalEnhancements, ...themeShowcaseEnhancements]
+  .map(def => withDefaultPresentation(def));
+const defaultVariants = baseCharacterVariants.map(def => withDefaultPresentation(def, def.displayName || def.name));
 
 /** Product composition root; it is independent from the test datapack entry. */
 export const defaultDatapack: Datapack = {
   name: 'AronaClicker',
   version: '1.0.0',
-  inits: [...baseInits, ...themeShowcaseInits],
-  areas: [...baseAreas, ...themeShowcaseAreas],
-  spots: [...baseSpots, ...themeShowcaseSpots],
-  enhancements: [...baseEnhancements, ...baseGlobalEnhancements, ...themeShowcaseEnhancements],
+  inits: defaultInits,
+  areas: defaultAreas,
+  spots: defaultSpots,
+  enhancements: defaultEnhancements,
   items: [...baseItems, ...baseGearItems],
   characters: allCharacters,
-  characterVariants: baseCharacterVariants,
+  characterVariants: defaultVariants,
   dropTables: baseDropTables,
   pics: basePics,
   charaProfiles: baseCharaProfiles,

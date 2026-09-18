@@ -10,6 +10,5 @@
 
 # AOCI 正式认知与治理资产。
 !baseline.json
-!database-baseline.json
 !config.json
 !curation.json

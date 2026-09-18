@@ -18,6 +18,10 @@ const HIDE_DELAY = 60;  // 移出后快速隐藏（便于查看下方内容）
  */
 export class PopoverManager {
   private bound = false;
+  private showTimer: ReturnType<typeof setTimeout> | null = null;
+  private hideTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingWrap: HTMLElement | null = null;
+  private timerGeneration = 0;
   /** 当前显示中浮层的锚点元素（retainIfAnchored 判断用）。 */
   private lastWrap: HTMLElement | null = null;
 
@@ -32,6 +36,7 @@ export class PopoverManager {
    * 锚点已被重建移除（#app 内的 hover-wrap）→ 关闭，避免残留陈旧浮层。
    */
   retainIfAnchored(): void {
+    if (this.pendingWrap && !this.isLiveAnchor(this.pendingWrap)) this.cancelPendingShow();
     const tooltipEl = document.getElementById('floating-tooltip');
     if (!tooltipEl || !tooltipEl.classList.contains('is-open')) return;
     if (this.lastWrap?.isConnected) return;
@@ -41,10 +46,22 @@ export class PopoverManager {
 
   /** 即将替换指定范围时，关闭该范围内的悬浮层；未受影响的锚点保持。 */
   dismissBeforeRootMutation(scope: ParentNode = this.root): void {
+    if (this.pendingWrap && scope.contains(this.pendingWrap)) this.cancelPendingShow();
     if (!this.lastWrap || !scope.contains(this.lastWrap)) return;
     const tooltipEl = document.getElementById('floating-tooltip');
     tooltipEl?.classList.remove('is-open');
     this.lastWrap = null;
+  }
+
+  private isLiveAnchor(wrap: HTMLElement): boolean {
+    return wrap.isConnected && this.root.contains(wrap);
+  }
+
+  private cancelPendingShow(): void {
+    if (this.showTimer !== null) clearTimeout(this.showTimer);
+    this.showTimer = null;
+    this.pendingWrap = null;
+    this.timerGeneration += 1;
   }
 
   bind(): void {
@@ -59,31 +76,31 @@ export class PopoverManager {
       document.body.appendChild(tooltipEl);
     }
 
-    let showTimer: ReturnType<typeof setTimeout> | null = null;
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
-
     const hide = (delay = HIDE_DELAY) => {
-      if (showTimer) {
-        clearTimeout(showTimer);
-        showTimer = null;
-      }
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => {
+      this.cancelPendingShow();
+      if (this.hideTimer) clearTimeout(this.hideTimer);
+      this.hideTimer = setTimeout(() => {
+        this.hideTimer = null;
         tooltipEl!.classList.remove('is-open');
         this.lastWrap = null;
       }, delay);
     };
     const cancelHide = () => {
-      if (hideTimer) {
-        clearTimeout(hideTimer);
-        hideTimer = null;
+      if (this.hideTimer) {
+        clearTimeout(this.hideTimer);
+        this.hideTimer = null;
       }
     };
 
     const show = (wrap: HTMLElement) => {
       // 防抖：鼠标在 wrap 上停留 SHOW_DELAY 毫秒才生成内容
-      if (showTimer) clearTimeout(showTimer);
-      showTimer = setTimeout(() => {
+      this.cancelPendingShow();
+      const generation = this.timerGeneration;
+      this.pendingWrap = wrap;
+      this.showTimer = setTimeout(() => {
+        this.showTimer = null;
+        if (this.pendingWrap === wrap) this.pendingWrap = null;
+        if (generation !== this.timerGeneration || !this.isLiveAnchor(wrap)) return;
         const key = wrap.dataset.tooltip;
         if (!key) return;
         cancelHide();

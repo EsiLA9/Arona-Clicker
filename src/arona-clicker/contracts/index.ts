@@ -35,6 +35,7 @@ export type { ConditionQueryPort } from './condition-query';
 export type { AffectorQueryPort } from './affector-query';
 export type { AffectionConfigView, CharacterProgressionPort, CurveView } from './character-progression';
 export type { GameView } from './view';
+export type { EntityPresentationOptionView, EntityPresentationQueryPort, EntityPresentationResolution, EntityPresentationResolveOptions } from './entity-presentation-query';
 export type { SaveBuildContext, SaveCodec } from './save-codec';
 export type { SaveData } from './save-data';
 export type { WorldCatalogQueryPort } from './world-catalog';

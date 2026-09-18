@@ -9,6 +9,7 @@ import { UIContext } from '../context';
 import { conditionMet, getAreaReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
 import { describeCondition, getSpotYieldBreakdown } from './tooltip-enhancement';
 import { buildConditionView, renderConditionTree } from '../condition-presentation';
+import { resolveEntityPresentation } from './entity-presentation';
 
 /** 生成 Area 的详情信息面板 HTML（按信息揭示阶梯遮挡）。 */
 export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
@@ -18,8 +19,9 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
   const isCurrent = view.currentAreaId === area.id;
   const visible = view.visibility.areas[area.id] ?? false;
   const isLocked = !visible;
-  const name = reveal.nameKnown ? area.name : OBFUSCATED;
-  const desc = known ? area.description : '';
+  const resolvedPresentation = resolveEntityPresentation(ctx, 'area', area.id);
+  const name = reveal.nameKnown ? (resolvedPresentation?.name ?? area.name) : OBFUSCATED;
+  const desc = known ? (resolvedPresentation?.description ?? area.description) : '';
   const init = game.world.inits.get(area.initId);
   const spotIds = game.world.spotsOfArea(area.id);
   const spotRows = spotIds.map(spotId => {
@@ -42,7 +44,8 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
     .filter((adj): adj is AreaDef => !!adj)
     .map(adj => {
       const adjReveal = getAreaReveal(ctx, adj);
-      return `<span class="info-tag">${ctx.escapeHtml(adjReveal.nameKnown ? adj.name : OBFUSCATED)}</span>`;
+      const adjPresentation = resolveEntityPresentation(ctx, 'area', adj.id);
+      return `<span class="info-tag">${ctx.escapeHtml(adjReveal.nameKnown ? (adjPresentation?.name ?? adj.name) : OBFUSCATED)}</span>`;
     })
     .join('');
   const spotSummary = spotRows || '<div class="info-dim">尚无设施</div>';

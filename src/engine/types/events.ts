@@ -51,6 +51,8 @@ export type GameEvent =
   | { type: 'equipmentEquipped'; variantId: string; equipmentId: string }
   | { type: 'themeChanged'; groupId: string | null; selection: ActiveThemeSelection }
   | { type: 'entityThemeChanged'; entityKey: string }
+  | { type: 'entityPresentationChanged'; entityKey: string; optionId: string | null }
+  | { type: 'entityPresentationEffectRequested'; effect: Effect }
   | { type: 'entityDesignUnlocked'; entityKey: string; designId: string }
   | { type: 'chatReadChanged'; messageId: string }
   | { type: 'gachaResolved'; poolId: string; count: number }

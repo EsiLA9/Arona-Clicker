@@ -10,6 +10,7 @@ import { UIContext } from '../context';
 import { conditionMet, getEnhancementReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
 import { describeCondition } from './tooltip-enhancement';
 import { buildConditionView, renderConditionTree } from '../condition-presentation';
+import { resolveEntityPresentation } from './entity-presentation';
 
 /** 生成 Enhancement 的详情信息面板 HTML。 */
 export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): string {
@@ -21,9 +22,10 @@ export function renderEnhancementDetail(ctx: UIContext, enh: EnhancementDef): st
     : '无花费';
 
   // 按信息揭示阶梯遮挡：名称/解锁条件/效用 各自可见才展示，否则 ???。
-  const name = reveal.nameKnown ? enh.name : OBFUSCATED;
+  const resolvedPresentation = resolveEntityPresentation(ctx, 'enhancement', enh.id);
+  const name = reveal.nameKnown ? (resolvedPresentation?.name ?? enh.name) : OBFUSCATED;
   const desc = reveal.utilityKnown
-    ? `<p class="info-desc">${ctx.escapeHtml(enh.description)}</p>`
+    ? `<p class="info-desc">${ctx.escapeHtml(resolvedPresentation?.description ?? enh.description)}</p>`
     : '';
   const condText = renderConditionTree(buildConditionView(unlockCondition(enh.revealTriggers), {
     nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',

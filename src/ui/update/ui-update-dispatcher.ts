@@ -16,6 +16,7 @@ export interface UIUpdateSink {
 function updateIdentity(update: UIUpdate): string {
   const prefix = `${update.token.key}@${update.token.generation}:${update.type}`;
   if (update.type === 'behavior') return `${prefix}:${update.behavior}:${update.key}:${update.hostId ?? ''}`;
+  if (update.type === 'element') return `${prefix}:${update.target}:${update.key}:${update.hostId ?? ''}`;
   if (update.type === 'region') return `${prefix}:${update.hostId}`;
   return `${prefix}:${update.scope}`;
 }
@@ -23,7 +24,8 @@ function updateIdentity(update: UIUpdate): string {
 function priority(update: UIUpdate): number {
   if (update.type === 'structure') return 0;
   if (update.type === 'region') return 1;
-  return 2;
+  if (update.type === 'element') return 2;
+  return 3;
 }
 
 export class UIUpdateDispatcher {
@@ -91,7 +93,7 @@ export class UIUpdateDispatcher {
     const regions = updates.filter((update): update is Extract<UIUpdate, { type: 'region' }> => update.type === 'region');
     if (regions.length === 0) return updates;
     return updates.filter(update => {
-      if (update.type !== 'behavior' || !update.hostId) return true;
+      if ((update.type !== 'behavior' && update.type !== 'element') || !update.hostId) return true;
       const hostId = update.hostId;
       return !regions.some(region =>
         sameSurfaceToken(region.token, update.token)

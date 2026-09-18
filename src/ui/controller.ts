@@ -65,18 +65,22 @@ import { bindSaveActions } from './controller-save';
 import { bindTopBarActions } from './controller-actions-topbar';
 import { bindContactsActions } from './controller-actions-contacts';
 import { bindThemeActions } from './controller-actions-theme';
+import { bindEntityPresentationActions } from './controller-actions-presentation';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 import type { GameCommands } from '../arona-clicker/contracts';
 import type { PackCatalogReadModel } from '../arona-clicker/contracts';
-import { renderLeftPanel } from './components/rail';
+import { renderAreaNavItem, renderLeftPanel, type AreaNavKind } from './components/rail';
 import { renderCenterPanel, renderChatTab, renderLogTab } from './components/center-panel';
 import { renderRightPanel } from './components/right-panels';
+import { renderSpotCard } from './components/production';
+import { getSpotReveal } from './components/tooltip';
+import { renderEnhancementCard, visibleEnhancementCardIds } from './components/enhancements';
 import { renderShopWorkspace } from './components/shop';
 import { createDefaultUIBehaviorRegistry, type UIBehaviorRegistry } from './update/ui-behaviors';
 import { UISurfaceRuntime, type UISurfaceToken } from './update/ui-surface';
 import { UIUpdateDispatcher, type UIUpdateSink } from './update/ui-update-dispatcher';
-import type { UIBehaviorId, UIUpdate, UIUpdateApplyResult, UIUpdateRequest } from './update/ui-update-types';
+import type { UIBehaviorId, UIElementTarget, UIUpdate, UIUpdateApplyResult, UIUpdateRequest } from './update/ui-update-types';
 import {
   createDatapackWorkspaceState,
   resetDatapackWorkspaceState,
@@ -103,6 +107,21 @@ const SHOP_REGION_HOST_IDS = [
   'rightPanel.shop.settlement',
 ] as const;
 
+function elementMatchesMarkup(current: HTMLElement, html: string): boolean {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  const next = template.content.firstElementChild;
+  if (!next) return false;
+  const currentComparable = current.cloneNode(true) as HTMLElement;
+  const nextComparable = next.cloneNode(true) as HTMLElement;
+  for (const node of [currentComparable, nextComparable]) {
+    node.querySelectorAll<HTMLElement>('[data-theme-hover-text-mode]').forEach(element => {
+      element.removeAttribute('data-theme-hover-text-mode');
+    });
+  }
+  return currentComparable.isEqualNode(nextComparable);
+}
+
 export interface UIRefreshStats {
   fullRenders: number;
   panelRefreshes: number;
@@ -110,13 +129,15 @@ export interface UIRefreshStats {
   themeApplications: number;
   workspaceRenders: number;
   regionRefreshes: number;
+  elementRefreshes: number;
+  elementMisses: number;
   behaviorPatches: number;
   behaviorMisses: number;
   droppedUpdates: number;
 }
 
 export interface UIRefreshObservation {
-  scope: 'behavior' | 'region' | 'workspace' | 'app';
+  scope: 'behavior' | 'element' | 'region' | 'workspace' | 'app';
   reason: string;
   surfaceKey: string;
   generation: number;
@@ -170,6 +191,8 @@ export class UIController {
   pendingRewardChats: string[] = [];
   /** @internal 待落账的进入 Area 通知（render 时先于剧情内容入流）。 */
   pendingTravelChats: string[] = [];
+  /** @internal 待落账通知存在时，避免连续 Tick 重复触发 full render。 */
+  notificationFallbackRendered = false;
   /** @internal 奖励通知延迟入流计时器（Story 末尾留一拍）。 */
   rewardTimer: ReturnType<typeof setTimeout> | null = null;
   /** @internal 合并同一事件循环内由 EventBus 与点击处理器产生的重复重建。 */
@@ -183,11 +206,14 @@ export class UIController {
     themeApplications: 0,
     workspaceRenders: 0,
     regionRefreshes: 0,
+    elementRefreshes: 0,
+    elementMisses: 0,
     behaviorPatches: 0,
     behaviorMisses: 0,
     droppedUpdates: 0,
   };
   private readonly refreshObservations: UIRefreshObservation[] = [];
+  private lastLogEntryId = -1;
   /** @internal 主题浮窗：跨 render 全量重建 #app 保留其开关键与位置（供 controller-theme / controller-actions-topbar 读写）。 */
   themeFloatOpen = false;
   /** @internal 主题浮窗位置（同上）。 */
@@ -405,6 +431,130 @@ export class UIController {
     return this.updates.applyNow({ type: 'behavior', behavior, key, reason, hostId });
   }
 
+  /** 立即执行单个元素级更新；内容揭示变化使用它替换单张 Spot 卡片。 */
+  applyUIElement(target: UIElementTarget, key: string, reason: string, hostId?: string): UIUpdateApplyResult {
+    return this.updates.applyNow({ type: 'element', target, key, reason, hostId });
+  }
+
+  /** Runtime Editor 批量提交开始：事件仍可广播，但揭示 UI 不在批次中间重复刷新。 */
+  beginContentRefreshBatch(): void {
+    this.contentRefreshBatchDepth += 1;
+  }
+
+  /** Runtime Editor 批量提交结束；成功方随后执行一次明确的 render。 */
+  endContentRefreshBatch(): void {
+    this.contentRefreshBatchDepth = Math.max(0, this.contentRefreshBatchDepth - 1);
+  }
+
+  /** @internal 供 controller-core 避免批量内容提交中的重复刷新。 */
+  isContentRefreshBatchActive(): boolean {
+    return this.contentRefreshBatchDepth > 0;
+  }
+
+  /** 将当前区域内的 Spot 卡片按元素范围刷新；卡片集合变化时返回 false，交给 Panel fallback。 */
+  refreshCurrentSpotCards(reason: string): boolean {
+    if (!this.started || this.panelState.service !== 'game' || this.panelState.rightTab !== 'spot') return false;
+    const currentAreaId = this.game.getView().currentAreaId;
+    if (!currentAreaId) return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const expectedIds = this.game.world.spotsOfArea(currentAreaId)
+      .filter(spotId => {
+        const spot = this.game.world.spots.get(spotId);
+        return Boolean(spot && getSpotReveal(context, spot).stage !== 'invisible');
+      });
+    const currentIds = [...this.root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
+      .map(node => node.dataset.uiSpotCard)
+      .filter((spotId): spotId is string => Boolean(spotId));
+    if (expectedIds.length !== currentIds.length || expectedIds.some(spotId => !currentIds.includes(spotId))) return false;
+    return expectedIds.every(spotId => this.applyUIElement('spot.card', spotId, reason, 'rightPanel.spot') === 'applied');
+  }
+
+  /** 将当前区域导航的揭示/锁定状态按单个按钮刷新；可达集合变化时回退左 Panel。 */
+  refreshCurrentAreaNav(reason: string): boolean {
+    if (!this.started || this.panelState.service !== 'game' || this.panelState.leftTab !== 'area') return false;
+    const view = this.game.getView();
+    const currentAreaId = view.currentAreaId;
+    if (!currentAreaId || !this.game.world.areas.has(currentAreaId)) return false;
+    const adjacent = this.game.availableAreaIds(currentAreaId)
+      .filter(areaId => this.game.world.areas.get(areaId)?.initId === view.activeInit);
+    const expected = [`current:${currentAreaId}`, ...adjacent.map(areaId => `reachable:${areaId}`)].sort();
+    const actual = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
+      .map(node => node.dataset.uiAreaNav)
+      .filter((key): key is string => Boolean(key))
+      .sort();
+    if (expected.length !== actual.length || expected.some((key, index) => key !== actual[index])) return false;
+    return expected.every(key => this.applyUIElement('area.nav', key, reason, 'leftPanel.area') === 'applied');
+  }
+
+  /** 将强化卡片按元素刷新；可见卡片集合变化时回退右 Panel。 */
+  refreshCurrentEnhancementCards(reason: string): boolean {
+    if (!this.started || this.panelState.service !== 'game' || this.panelState.rightTab !== 'enh') return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const expected = visibleEnhancementCardIds(context).sort();
+    const actual = [...this.root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
+      .map(node => node.dataset.uiEnhancementCard)
+      .filter((key): key is string => Boolean(key))
+      .sort();
+    if (expected.length !== actual.length || expected.some((key, index) => key !== actual[index])) return false;
+    return expected.every(key => this.applyUIElement('enhancement.card', key, reason, 'rightPanel.enh') === 'applied');
+  }
+
+  /** 外部实体表现变化的最小可见范围刷新；不可见实体不触发全量 render。 */
+  refreshEntityPresentation(entityKey: string, reason = 'entity-presentation-changed'): boolean {
+    const separator = entityKey.indexOf(':');
+    if (separator <= 0) return false;
+    const kind = entityKey.slice(0, separator);
+    const id = entityKey.slice(separator + 1);
+    const workspace = this.panelState.workspace;
+    if (workspace) {
+      const visibleVariant = kind === 'variant'
+        && ((workspace.type === 'character' && workspace.variantId === id)
+          || (workspace.type === 'contacts' && (workspace.selectedVariantId === id || workspace.conversationVariantId === id))
+          || (workspace.type === 'story' && workspace.conversationOwner === id));
+      if (visibleVariant) this.render();
+      return true;
+    }
+    if (!this.started || this.panelState.service !== 'game') return true;
+
+    if (kind === 'spot') {
+      if (this.panelState.rightTab !== 'spot') return true;
+      const card = [...this.root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
+        .find(node => node.dataset.uiSpotCard === id);
+      return !card || this.applyUIElement('spot.card', id, reason, 'rightPanel.spot') === 'applied';
+    }
+    if (kind === 'enhancement') {
+      if (this.panelState.rightTab !== 'enh') return true;
+      const card = [...this.root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
+        .find(node => node.dataset.uiEnhancementCard === id);
+      return !card || this.applyUIElement('enhancement.card', id, reason, 'rightPanel.enh') === 'applied';
+    }
+    if (kind === 'area') {
+      if (this.panelState.leftTab !== 'area') return true;
+      if (this.game.getView().currentAreaId === id) {
+        this.refreshPanels(['left']);
+        return true;
+      }
+      const nav = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
+        .find(node => node.dataset.area === id);
+      return !nav || this.applyUIElement(
+        'area.nav',
+        nav.dataset.uiAreaNav ?? '',
+        reason,
+        'leftPanel.area',
+      ) === 'applied';
+    }
+    if (kind === 'variant') {
+      if (this.panelState.conversationVariantId === id) {
+        this.refreshPanels(['center']);
+        return true;
+      }
+      if (this.panelState.rightTab === 'character' && this.panelState.selectedVariantId === id) {
+        this.refreshPanels(['right']);
+      }
+    }
+    return true;
+  }
+
   /** Shop 交互需要在动作返回前保持同步可见，同时仍通过统一 dispatcher 执行。 */
   flushUIUpdates(): void {
     this.updates.flushNow();
@@ -477,14 +627,17 @@ export class UIController {
   }
 
   /** 日志流所在面板可见时，只替换日志列表区域。 */
-  refreshLogPanel(): void {
+  refreshLogPanel(force = true): void {
     if (!this.started || this.panelState.centerTab !== 'log') return;
     const center = this.root.querySelector<HTMLElement>('.center-panel');
     const log = center?.querySelector<HTMLElement>('.log-panel');
     if (!center || !log) return;
+    const newestLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
+    if (!force && newestLogEntryId === this.lastLogEntryId) return;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     this.popovers.dismissBeforeRootMutation(log);
     log.outerHTML = renderLogTab(context);
+    this.lastLogEntryId = newestLogEntryId;
     bindTopBarActions(this, center);
   }
 
@@ -522,7 +675,6 @@ export class UIController {
     this.popovers.retainIfAnchored();
     this.scroll.capturePanel(this.root);
     this.scroll.captureChat(this.root);
-    this.popovers.dismissBeforeRootMutation();
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     const uniquePanels = [...new Set(panels)];
     for (const panel of uniquePanels) {
@@ -564,6 +716,7 @@ export class UIController {
       bindTopBarActions(this, next);
       bindContactsActions(this, next);
       bindThemeActions(this, next);
+      bindEntityPresentationActions(this, next);
       bindStoryActions(this, next);
       bindInventoryActions(this, next);
     }
@@ -628,6 +781,7 @@ export class UIController {
     }
     this.root.innerHTML = renderAppShell(context, this.panelState);
     this.surfaceRuntime.markMounted();
+    this.lastLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
     this.popovers.bind();
     this.bindActions();
     this.scroll.restoreChat(this.root, {
@@ -702,6 +856,8 @@ export class UIController {
     this.root.dataset.uiRefreshTheme = String(this.refreshStats.themeApplications);
     this.root.dataset.uiRefreshWorkspace = String(this.refreshStats.workspaceRenders);
     this.root.dataset.uiRefreshRegion = String(this.refreshStats.regionRefreshes);
+    this.root.dataset.uiRefreshElement = String(this.refreshStats.elementRefreshes);
+    this.root.dataset.uiRefreshElementMiss = String(this.refreshStats.elementMisses);
     this.root.dataset.uiRefreshBehavior = String(this.refreshStats.behaviorPatches);
     this.root.dataset.uiRefreshBehaviorMiss = String(this.refreshStats.behaviorMisses);
     this.root.dataset.uiRefreshDropped = String(this.refreshStats.droppedUpdates);
@@ -720,6 +876,21 @@ export class UIController {
       this.publishRefreshStats();
       const outcome = applied ? 'applied' : 'not-found';
       this.recordUIUpdate(update, outcome, applied ? undefined : 'behavior-target-missing');
+      return outcome;
+    }
+    if (update.type === 'element') {
+      const applied = update.target === 'spot.card'
+        ? this.refreshSpotCard(update.key)
+        : update.target === 'enhancement.card'
+          ? this.refreshEnhancementCard(update.key)
+          : update.target === 'area.nav'
+            ? this.refreshAreaNavItem(update.key)
+            : false;
+      if (applied) this.refreshStats.elementRefreshes += 1;
+      else this.refreshStats.elementMisses += 1;
+      this.publishRefreshStats();
+      const outcome = applied ? 'applied' : 'not-found';
+      this.recordUIUpdate(update, outcome, applied ? undefined : 'element-target-missing');
       return outcome;
     }
     if (update.type === 'region') {
@@ -775,6 +946,70 @@ export class UIController {
     if (this.refreshObservations.length > 200) this.refreshObservations.shift();
   }
 
+  private refreshSpotCard(spotId: string): boolean {
+    const current = this.findSpotCard(spotId);
+    if (!current) return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const html = renderSpotCard(context, spotId);
+    if (!html) return false;
+    if (elementMatchesMarkup(current, html)) return true;
+    this.popovers.dismissBeforeRootMutation(current);
+    current.outerHTML = html;
+    const replacement = this.findSpotCard(spotId);
+    if (!replacement) return false;
+    bindInventoryActions(this, replacement);
+    bindContactsActions(this, replacement);
+    bindEntityPresentationActions(this, replacement);
+    this.applyTheme(false);
+    return true;
+  }
+
+  private findSpotCard(spotId: string): HTMLElement | null {
+    return [...this.root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
+      .find(node => node.dataset.uiSpotCard === spotId) ?? null;
+  }
+
+  private refreshEnhancementCard(enhancementId: string): boolean {
+    const current = this.findEnhancementCard(enhancementId);
+    if (!current) return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const html = renderEnhancementCard(context, enhancementId);
+    if (!html) return false;
+    if (elementMatchesMarkup(current, html)) return true;
+    this.popovers.dismissBeforeRootMutation(current);
+    current.outerHTML = html;
+    const replacement = this.findEnhancementCard(enhancementId);
+    if (!replacement) return false;
+    bindContactsActions(this, replacement);
+    bindInventoryActions(this, replacement);
+    bindEntityPresentationActions(this, replacement);
+    this.applyTheme(false);
+    return true;
+  }
+
+  private findEnhancementCard(enhancementId: string): HTMLElement | null {
+    return [...this.root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
+      .find(node => node.dataset.uiEnhancementCard === enhancementId) ?? null;
+  }
+
+  private refreshAreaNavItem(key: string): boolean {
+    const separator = key.indexOf(':');
+    if (separator <= 0) return false;
+    const kind = key.slice(0, separator) as AreaNavKind;
+    if (kind !== 'current' && kind !== 'reachable') return false;
+    const areaId = key.slice(separator + 1);
+    const current = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
+      .find(node => node.dataset.uiAreaNav === key);
+    if (!current) return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const html = renderAreaNavItem(context, areaId, kind);
+    if (!html) return false;
+    if (elementMatchesMarkup(current, html)) return true;
+    this.popovers.dismissBeforeRootMutation(current);
+    current.outerHTML = html;
+    return true;
+  }
+
   private refreshShopRegions(hostIds: readonly string[]): boolean {
     const workspace = this.panelState.workspace;
     if (workspace?.type !== 'shop') return false;
@@ -798,6 +1033,7 @@ export class UIController {
       const replacement = this.findThemeHost(this.root, hostId);
       if (replacement) {
         bindContactsActions(this, replacement);
+        bindEntityPresentationActions(this, replacement);
         const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
         if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
       }
@@ -946,6 +1182,7 @@ export class UIController {
     bindTopBarActions(this);
     bindContactsActions(this);
     bindThemeActions(this);
+    bindEntityPresentationActions(this);
     bindStoryActions(this);
     bindInventoryActions(this);
     bindSaveActions(this);

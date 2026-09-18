@@ -40,6 +40,7 @@
 | `tagEffects` / `entityEffects` | Record | 区表：命名乘区记录唯一真相（见 [[docs/docs-828/04-mechanisms/production]]） |
 | `groupsOwned` / `activeTheme` / `equipmentsOwned` | — | 色彩组收集、全局主题来源（system / color-group / custom）与装备收集（`equipmentsOwned` 已登记 per-Init 快照，归属随 characterPersistConfig.equips，缺省 global；见 [[docs/docs-828/02-modules/color]]） |
 | `entityThemeSlots` / `entityThemeDesignsOwned` | Record | 实体配色槽 / 已解锁配色设计（global） |
+| `entityPresentationSelections` | `Record<EntityPresentationKey, string>` | 实体表现内容的 Global 玩家偏好；只保存 addition `optionId`，不保存最终名称、描述或主题 |
 | `customThemes` / `themeAttachments` | Record | 独立用户主题记录 / Area、学生等实体主题挂靠；全局当前来源只由 `activeTheme` 表达 |
 | `themeLayerOrder` | string[] | player/init/area/student 四层优先级自定义；user、preview、ephemeral 不进入该排列 |
 | `initSnapshots` | Record<string, InitSnapshot> | 各世界线快照 |
@@ -50,3 +51,9 @@
 - **任何字段只经 `StateMutationService` 写**；写方法内部同时：改值 → 发事件 → 记统计。
 - 新增字段前先想清楚放三层哪一层（[[docs/docs-828/01-architecture/state-layers]]）；per-Init 字段必须登记 `PER_INIT_FIELD_SPECS`。
 - 不写存档迁移代码（架构纪律 8）。
+
+## 实体表现内容选择
+
+`EntityPresentationDef` 将 `name + description + theme` 视为一个完整语义单元：`default` 是规范基线，`additions` 是局部覆盖。`PlayerState.entityPresentationSelections` 属于 Global 偏好，缺少 key 表示使用 default；恢复 default 时删除 key。最终值由 `EntityPresentationService` 按运行时覆盖 > 玩家 optionId > default > legacy 字段回退派生。
+
+该字段不登记 `PER_INIT_FIELD_SPECS`，也不进入 `InitSnapshot`。`availableWhen` 只阻止当前选择生效/写入，不静默改写玩家偏好；条件恢复后原 optionId 可再次生效。

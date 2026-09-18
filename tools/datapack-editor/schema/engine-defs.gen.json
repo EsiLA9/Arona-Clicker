@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T16:05:37.817Z",
+  "generatedAt": "2026-09-18T04:10:48.356Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -974,6 +974,417 @@
           ]
         },
         {
+          "key": "presentation",
+          "required": false,
+          "kind": "object",
+          "tsType": "EntityPresentationDef",
+          "label": "实体表现内容",
+          "fields": [
+            {
+              "key": "default",
+              "required": true,
+              "kind": "object",
+              "tsType": "EntityPresentationValue",
+              "label": "默认内容",
+              "fields": [
+                {
+                  "key": "name",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "名称"
+                },
+                {
+                  "key": "description",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "描述"
+                },
+                {
+                  "key": "theme",
+                  "required": false,
+                  "kind": "object",
+                  "tsType": "ThemeDef",
+                  "label": "主题",
+                  "fields": [
+                    {
+                      "key": "colorGroupId",
+                      "required": false,
+                      "kind": "ref",
+                      "tsType": "string",
+                      "label": "引用色彩组",
+                      "table": "colorGroups"
+                    },
+                    {
+                      "key": "palette",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "string[]",
+                      "label": "有序主题色列表（最多六个）",
+                      "item": {
+                        "key": "$",
+                        "kind": "string",
+                        "tsType": "string"
+                      }
+                    },
+                    {
+                      "key": "tokens",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeToken, string>>",
+                      "label": "局部覆盖"
+                    },
+                    {
+                      "key": "nodes",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeNodeName, string>>",
+                      "label": "语义颜色节点覆盖"
+                    },
+                    {
+                      "key": "background",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "BackgroundLayerDef[]",
+                      "label": "背景视觉层",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                          },
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerKind",
+                            "label": "背景类型"
+                          },
+                          {
+                            "key": "value",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                          },
+                          {
+                            "key": "opacity",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "透明度"
+                          },
+                          {
+                            "key": "position",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景位置"
+                          },
+                          {
+                            "key": "size",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景尺寸"
+                          },
+                          {
+                            "key": "repeat",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "重复方式"
+                          },
+                          {
+                            "key": "blendMode",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "混合模式"
+                          },
+                          {
+                            "key": "attachment",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "'scroll' | 'fixed' | 'local'",
+                            "label": "附着方式"
+                          },
+                          {
+                            "key": "scale",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "缩放比例"
+                          },
+                          {
+                            "key": "rotation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "旋转角度"
+                          },
+                          {
+                            "key": "enabled",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                          }
+                        ],
+                        "tsType": "BackgroundLayerDef"
+                      }
+                    },
+                    {
+                      "key": "backgroundVariants",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "ThemeBackgroundVariant[]",
+                      "label": "背景状态变体；例如 new / active / advanced / completed。",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "状态变体 ID；由选择页等只读投影使用受控语义值。"
+                          },
+                          {
+                            "key": "layers",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "该状态的背景层。"
+                          }
+                        ],
+                        "tsType": "ThemeBackgroundVariant"
+                      }
+                    },
+                    {
+                      "key": "presentation",
+                      "required": false,
+                      "kind": "object",
+                      "tsType": "PresentationDef",
+                      "label": "UI 表现配置",
+                      "fields": [
+                        {
+                          "key": "layers",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationLayerDef[]",
+                          "label": "区域图层",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationLayerDef"
+                          }
+                        },
+                        {
+                          "key": "components",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "ComponentPlacementDef[]",
+                          "label": "区域组件",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "ComponentPlacementDef"
+                          }
+                        },
+                        {
+                          "key": "panels",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PanelPresentationDef[]",
+                          "label": "面板语义表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PanelPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "infoItems",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "InfoItemPresentationDef[]",
+                          "label": "信息项表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "InfoItemPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "motions",
+                          "required": false,
+                          "kind": "record",
+                          "tsType": "Record<string, MotionDef>",
+                          "label": "命名动效预设",
+                          "value": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "MotionDef"
+                          }
+                        },
+                        {
+                          "key": "states",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "StateAppearanceDef[]",
+                          "label": "状态外观",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "StateAppearanceDef"
+                          }
+                        },
+                        {
+                          "key": "hosts",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationHostDef[]",
+                          "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationHostDef"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "additions",
+              "required": false,
+              "kind": "array",
+              "tsType": "EntityPresentationOption[]",
+              "label": "附加内容",
+              "item": {
+                "key": "$",
+                "kind": "object",
+                "fields": [
+                  {
+                    "key": "id",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "ID"
+                  },
+                  {
+                    "key": "label",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "选择标签"
+                  },
+                  {
+                    "key": "override",
+                    "required": true,
+                    "kind": "object",
+                    "tsType": "EntityPresentationOverride",
+                    "label": "内容覆盖",
+                    "fields": [
+                      {
+                        "key": "name",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "名称覆盖"
+                      },
+                      {
+                        "key": "description",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "描述覆盖"
+                      },
+                      {
+                        "key": "theme",
+                        "required": false,
+                        "kind": "object",
+                        "tsType": "ThemeDef",
+                        "label": "主题覆盖",
+                        "fields": [
+                          {
+                            "key": "colorGroupId",
+                            "required": false,
+                            "kind": "ref",
+                            "tsType": "string",
+                            "label": "引用色彩组",
+                            "table": "colorGroups"
+                          },
+                          {
+                            "key": "palette",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string[]",
+                            "label": "有序主题色列表（最多六个）"
+                          },
+                          {
+                            "key": "tokens",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeToken, string>>",
+                            "label": "局部覆盖"
+                          },
+                          {
+                            "key": "nodes",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeNodeName, string>>",
+                            "label": "语义颜色节点覆盖"
+                          },
+                          {
+                            "key": "background",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "背景视觉层"
+                          },
+                          {
+                            "key": "backgroundVariants",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "ThemeBackgroundVariant[]",
+                            "label": "背景状态变体；例如 new / active / advanced / completed。"
+                          },
+                          {
+                            "key": "presentation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "PresentationDef",
+                            "label": "UI 表现配置"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "key": "availableWhen",
+                    "required": false,
+                    "kind": "hand",
+                    "tsType": "Condition | ConditionGroup",
+                    "label": "可用条件"
+                  }
+                ],
+                "tsType": "EntityPresentationOption"
+              }
+            }
+          ]
+        },
+        {
           "key": "tags",
           "required": false,
           "kind": "array",
@@ -1808,6 +2219,417 @@
                   }
                 }
               ]
+            }
+          ]
+        },
+        {
+          "key": "presentation",
+          "required": false,
+          "kind": "object",
+          "tsType": "EntityPresentationDef",
+          "label": "实体表现内容",
+          "fields": [
+            {
+              "key": "default",
+              "required": true,
+              "kind": "object",
+              "tsType": "EntityPresentationValue",
+              "label": "默认内容",
+              "fields": [
+                {
+                  "key": "name",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "名称"
+                },
+                {
+                  "key": "description",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "描述"
+                },
+                {
+                  "key": "theme",
+                  "required": false,
+                  "kind": "object",
+                  "tsType": "ThemeDef",
+                  "label": "主题",
+                  "fields": [
+                    {
+                      "key": "colorGroupId",
+                      "required": false,
+                      "kind": "ref",
+                      "tsType": "string",
+                      "label": "引用色彩组",
+                      "table": "colorGroups"
+                    },
+                    {
+                      "key": "palette",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "string[]",
+                      "label": "有序主题色列表（最多六个）",
+                      "item": {
+                        "key": "$",
+                        "kind": "string",
+                        "tsType": "string"
+                      }
+                    },
+                    {
+                      "key": "tokens",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeToken, string>>",
+                      "label": "局部覆盖"
+                    },
+                    {
+                      "key": "nodes",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeNodeName, string>>",
+                      "label": "语义颜色节点覆盖"
+                    },
+                    {
+                      "key": "background",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "BackgroundLayerDef[]",
+                      "label": "背景视觉层",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                          },
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerKind",
+                            "label": "背景类型"
+                          },
+                          {
+                            "key": "value",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                          },
+                          {
+                            "key": "opacity",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "透明度"
+                          },
+                          {
+                            "key": "position",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景位置"
+                          },
+                          {
+                            "key": "size",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景尺寸"
+                          },
+                          {
+                            "key": "repeat",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "重复方式"
+                          },
+                          {
+                            "key": "blendMode",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "混合模式"
+                          },
+                          {
+                            "key": "attachment",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "'scroll' | 'fixed' | 'local'",
+                            "label": "附着方式"
+                          },
+                          {
+                            "key": "scale",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "缩放比例"
+                          },
+                          {
+                            "key": "rotation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "旋转角度"
+                          },
+                          {
+                            "key": "enabled",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                          }
+                        ],
+                        "tsType": "BackgroundLayerDef"
+                      }
+                    },
+                    {
+                      "key": "backgroundVariants",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "ThemeBackgroundVariant[]",
+                      "label": "背景状态变体；例如 new / active / advanced / completed。",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "状态变体 ID；由选择页等只读投影使用受控语义值。"
+                          },
+                          {
+                            "key": "layers",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "该状态的背景层。"
+                          }
+                        ],
+                        "tsType": "ThemeBackgroundVariant"
+                      }
+                    },
+                    {
+                      "key": "presentation",
+                      "required": false,
+                      "kind": "object",
+                      "tsType": "PresentationDef",
+                      "label": "UI 表现配置",
+                      "fields": [
+                        {
+                          "key": "layers",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationLayerDef[]",
+                          "label": "区域图层",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationLayerDef"
+                          }
+                        },
+                        {
+                          "key": "components",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "ComponentPlacementDef[]",
+                          "label": "区域组件",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "ComponentPlacementDef"
+                          }
+                        },
+                        {
+                          "key": "panels",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PanelPresentationDef[]",
+                          "label": "面板语义表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PanelPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "infoItems",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "InfoItemPresentationDef[]",
+                          "label": "信息项表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "InfoItemPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "motions",
+                          "required": false,
+                          "kind": "record",
+                          "tsType": "Record<string, MotionDef>",
+                          "label": "命名动效预设",
+                          "value": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "MotionDef"
+                          }
+                        },
+                        {
+                          "key": "states",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "StateAppearanceDef[]",
+                          "label": "状态外观",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "StateAppearanceDef"
+                          }
+                        },
+                        {
+                          "key": "hosts",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationHostDef[]",
+                          "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationHostDef"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "additions",
+              "required": false,
+              "kind": "array",
+              "tsType": "EntityPresentationOption[]",
+              "label": "附加内容",
+              "item": {
+                "key": "$",
+                "kind": "object",
+                "fields": [
+                  {
+                    "key": "id",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "ID"
+                  },
+                  {
+                    "key": "label",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "选择标签"
+                  },
+                  {
+                    "key": "override",
+                    "required": true,
+                    "kind": "object",
+                    "tsType": "EntityPresentationOverride",
+                    "label": "内容覆盖",
+                    "fields": [
+                      {
+                        "key": "name",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "名称覆盖"
+                      },
+                      {
+                        "key": "description",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "描述覆盖"
+                      },
+                      {
+                        "key": "theme",
+                        "required": false,
+                        "kind": "object",
+                        "tsType": "ThemeDef",
+                        "label": "主题覆盖",
+                        "fields": [
+                          {
+                            "key": "colorGroupId",
+                            "required": false,
+                            "kind": "ref",
+                            "tsType": "string",
+                            "label": "引用色彩组",
+                            "table": "colorGroups"
+                          },
+                          {
+                            "key": "palette",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string[]",
+                            "label": "有序主题色列表（最多六个）"
+                          },
+                          {
+                            "key": "tokens",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeToken, string>>",
+                            "label": "局部覆盖"
+                          },
+                          {
+                            "key": "nodes",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeNodeName, string>>",
+                            "label": "语义颜色节点覆盖"
+                          },
+                          {
+                            "key": "background",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "背景视觉层"
+                          },
+                          {
+                            "key": "backgroundVariants",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "ThemeBackgroundVariant[]",
+                            "label": "背景状态变体；例如 new / active / advanced / completed。"
+                          },
+                          {
+                            "key": "presentation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "PresentationDef",
+                            "label": "UI 表现配置"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "key": "availableWhen",
+                    "required": false,
+                    "kind": "hand",
+                    "tsType": "Condition | ConditionGroup",
+                    "label": "可用条件"
+                  }
+                ],
+                "tsType": "EntityPresentationOption"
+              }
             }
           ]
         },
@@ -2725,6 +3547,417 @@
           ]
         },
         {
+          "key": "presentation",
+          "required": false,
+          "kind": "object",
+          "tsType": "EntityPresentationDef",
+          "label": "实体表现内容",
+          "fields": [
+            {
+              "key": "default",
+              "required": true,
+              "kind": "object",
+              "tsType": "EntityPresentationValue",
+              "label": "默认内容",
+              "fields": [
+                {
+                  "key": "name",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "名称"
+                },
+                {
+                  "key": "description",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "描述"
+                },
+                {
+                  "key": "theme",
+                  "required": false,
+                  "kind": "object",
+                  "tsType": "ThemeDef",
+                  "label": "主题",
+                  "fields": [
+                    {
+                      "key": "colorGroupId",
+                      "required": false,
+                      "kind": "ref",
+                      "tsType": "string",
+                      "label": "引用色彩组",
+                      "table": "colorGroups"
+                    },
+                    {
+                      "key": "palette",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "string[]",
+                      "label": "有序主题色列表（最多六个）",
+                      "item": {
+                        "key": "$",
+                        "kind": "string",
+                        "tsType": "string"
+                      }
+                    },
+                    {
+                      "key": "tokens",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeToken, string>>",
+                      "label": "局部覆盖"
+                    },
+                    {
+                      "key": "nodes",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeNodeName, string>>",
+                      "label": "语义颜色节点覆盖"
+                    },
+                    {
+                      "key": "background",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "BackgroundLayerDef[]",
+                      "label": "背景视觉层",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                          },
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerKind",
+                            "label": "背景类型"
+                          },
+                          {
+                            "key": "value",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                          },
+                          {
+                            "key": "opacity",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "透明度"
+                          },
+                          {
+                            "key": "position",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景位置"
+                          },
+                          {
+                            "key": "size",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景尺寸"
+                          },
+                          {
+                            "key": "repeat",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "重复方式"
+                          },
+                          {
+                            "key": "blendMode",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "混合模式"
+                          },
+                          {
+                            "key": "attachment",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "'scroll' | 'fixed' | 'local'",
+                            "label": "附着方式"
+                          },
+                          {
+                            "key": "scale",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "缩放比例"
+                          },
+                          {
+                            "key": "rotation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "旋转角度"
+                          },
+                          {
+                            "key": "enabled",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                          }
+                        ],
+                        "tsType": "BackgroundLayerDef"
+                      }
+                    },
+                    {
+                      "key": "backgroundVariants",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "ThemeBackgroundVariant[]",
+                      "label": "背景状态变体；例如 new / active / advanced / completed。",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "状态变体 ID；由选择页等只读投影使用受控语义值。"
+                          },
+                          {
+                            "key": "layers",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "该状态的背景层。"
+                          }
+                        ],
+                        "tsType": "ThemeBackgroundVariant"
+                      }
+                    },
+                    {
+                      "key": "presentation",
+                      "required": false,
+                      "kind": "object",
+                      "tsType": "PresentationDef",
+                      "label": "UI 表现配置",
+                      "fields": [
+                        {
+                          "key": "layers",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationLayerDef[]",
+                          "label": "区域图层",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationLayerDef"
+                          }
+                        },
+                        {
+                          "key": "components",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "ComponentPlacementDef[]",
+                          "label": "区域组件",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "ComponentPlacementDef"
+                          }
+                        },
+                        {
+                          "key": "panels",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PanelPresentationDef[]",
+                          "label": "面板语义表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PanelPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "infoItems",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "InfoItemPresentationDef[]",
+                          "label": "信息项表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "InfoItemPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "motions",
+                          "required": false,
+                          "kind": "record",
+                          "tsType": "Record<string, MotionDef>",
+                          "label": "命名动效预设",
+                          "value": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "MotionDef"
+                          }
+                        },
+                        {
+                          "key": "states",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "StateAppearanceDef[]",
+                          "label": "状态外观",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "StateAppearanceDef"
+                          }
+                        },
+                        {
+                          "key": "hosts",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationHostDef[]",
+                          "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationHostDef"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "additions",
+              "required": false,
+              "kind": "array",
+              "tsType": "EntityPresentationOption[]",
+              "label": "附加内容",
+              "item": {
+                "key": "$",
+                "kind": "object",
+                "fields": [
+                  {
+                    "key": "id",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "ID"
+                  },
+                  {
+                    "key": "label",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "选择标签"
+                  },
+                  {
+                    "key": "override",
+                    "required": true,
+                    "kind": "object",
+                    "tsType": "EntityPresentationOverride",
+                    "label": "内容覆盖",
+                    "fields": [
+                      {
+                        "key": "name",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "名称覆盖"
+                      },
+                      {
+                        "key": "description",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "描述覆盖"
+                      },
+                      {
+                        "key": "theme",
+                        "required": false,
+                        "kind": "object",
+                        "tsType": "ThemeDef",
+                        "label": "主题覆盖",
+                        "fields": [
+                          {
+                            "key": "colorGroupId",
+                            "required": false,
+                            "kind": "ref",
+                            "tsType": "string",
+                            "label": "引用色彩组",
+                            "table": "colorGroups"
+                          },
+                          {
+                            "key": "palette",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string[]",
+                            "label": "有序主题色列表（最多六个）"
+                          },
+                          {
+                            "key": "tokens",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeToken, string>>",
+                            "label": "局部覆盖"
+                          },
+                          {
+                            "key": "nodes",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeNodeName, string>>",
+                            "label": "语义颜色节点覆盖"
+                          },
+                          {
+                            "key": "background",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "背景视觉层"
+                          },
+                          {
+                            "key": "backgroundVariants",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "ThemeBackgroundVariant[]",
+                            "label": "背景状态变体；例如 new / active / advanced / completed。"
+                          },
+                          {
+                            "key": "presentation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "PresentationDef",
+                            "label": "UI 表现配置"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "key": "availableWhen",
+                    "required": false,
+                    "kind": "hand",
+                    "tsType": "Condition | ConditionGroup",
+                    "label": "可用条件"
+                  }
+                ],
+                "tsType": "EntityPresentationOption"
+              }
+            }
+          ]
+        },
+        {
           "key": "colorGroupId",
           "required": false,
           "kind": "ref",
@@ -3556,6 +4789,417 @@
                   }
                 }
               ]
+            }
+          ]
+        },
+        {
+          "key": "presentation",
+          "required": false,
+          "kind": "object",
+          "tsType": "EntityPresentationDef",
+          "label": "实体表现内容",
+          "fields": [
+            {
+              "key": "default",
+              "required": true,
+              "kind": "object",
+              "tsType": "EntityPresentationValue",
+              "label": "默认内容",
+              "fields": [
+                {
+                  "key": "name",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "名称"
+                },
+                {
+                  "key": "description",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "描述"
+                },
+                {
+                  "key": "theme",
+                  "required": false,
+                  "kind": "object",
+                  "tsType": "ThemeDef",
+                  "label": "主题",
+                  "fields": [
+                    {
+                      "key": "colorGroupId",
+                      "required": false,
+                      "kind": "ref",
+                      "tsType": "string",
+                      "label": "引用色彩组",
+                      "table": "colorGroups"
+                    },
+                    {
+                      "key": "palette",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "string[]",
+                      "label": "有序主题色列表（最多六个）",
+                      "item": {
+                        "key": "$",
+                        "kind": "string",
+                        "tsType": "string"
+                      }
+                    },
+                    {
+                      "key": "tokens",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeToken, string>>",
+                      "label": "局部覆盖"
+                    },
+                    {
+                      "key": "nodes",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeNodeName, string>>",
+                      "label": "语义颜色节点覆盖"
+                    },
+                    {
+                      "key": "background",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "BackgroundLayerDef[]",
+                      "label": "背景视觉层",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                          },
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerKind",
+                            "label": "背景类型"
+                          },
+                          {
+                            "key": "value",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                          },
+                          {
+                            "key": "opacity",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "透明度"
+                          },
+                          {
+                            "key": "position",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景位置"
+                          },
+                          {
+                            "key": "size",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景尺寸"
+                          },
+                          {
+                            "key": "repeat",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "重复方式"
+                          },
+                          {
+                            "key": "blendMode",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "混合模式"
+                          },
+                          {
+                            "key": "attachment",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "'scroll' | 'fixed' | 'local'",
+                            "label": "附着方式"
+                          },
+                          {
+                            "key": "scale",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "缩放比例"
+                          },
+                          {
+                            "key": "rotation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "旋转角度"
+                          },
+                          {
+                            "key": "enabled",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                          }
+                        ],
+                        "tsType": "BackgroundLayerDef"
+                      }
+                    },
+                    {
+                      "key": "backgroundVariants",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "ThemeBackgroundVariant[]",
+                      "label": "背景状态变体；例如 new / active / advanced / completed。",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "状态变体 ID；由选择页等只读投影使用受控语义值。"
+                          },
+                          {
+                            "key": "layers",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "该状态的背景层。"
+                          }
+                        ],
+                        "tsType": "ThemeBackgroundVariant"
+                      }
+                    },
+                    {
+                      "key": "presentation",
+                      "required": false,
+                      "kind": "object",
+                      "tsType": "PresentationDef",
+                      "label": "UI 表现配置",
+                      "fields": [
+                        {
+                          "key": "layers",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationLayerDef[]",
+                          "label": "区域图层",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationLayerDef"
+                          }
+                        },
+                        {
+                          "key": "components",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "ComponentPlacementDef[]",
+                          "label": "区域组件",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "ComponentPlacementDef"
+                          }
+                        },
+                        {
+                          "key": "panels",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PanelPresentationDef[]",
+                          "label": "面板语义表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PanelPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "infoItems",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "InfoItemPresentationDef[]",
+                          "label": "信息项表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "InfoItemPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "motions",
+                          "required": false,
+                          "kind": "record",
+                          "tsType": "Record<string, MotionDef>",
+                          "label": "命名动效预设",
+                          "value": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "MotionDef"
+                          }
+                        },
+                        {
+                          "key": "states",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "StateAppearanceDef[]",
+                          "label": "状态外观",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "StateAppearanceDef"
+                          }
+                        },
+                        {
+                          "key": "hosts",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationHostDef[]",
+                          "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationHostDef"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "additions",
+              "required": false,
+              "kind": "array",
+              "tsType": "EntityPresentationOption[]",
+              "label": "附加内容",
+              "item": {
+                "key": "$",
+                "kind": "object",
+                "fields": [
+                  {
+                    "key": "id",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "ID"
+                  },
+                  {
+                    "key": "label",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "选择标签"
+                  },
+                  {
+                    "key": "override",
+                    "required": true,
+                    "kind": "object",
+                    "tsType": "EntityPresentationOverride",
+                    "label": "内容覆盖",
+                    "fields": [
+                      {
+                        "key": "name",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "名称覆盖"
+                      },
+                      {
+                        "key": "description",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "描述覆盖"
+                      },
+                      {
+                        "key": "theme",
+                        "required": false,
+                        "kind": "object",
+                        "tsType": "ThemeDef",
+                        "label": "主题覆盖",
+                        "fields": [
+                          {
+                            "key": "colorGroupId",
+                            "required": false,
+                            "kind": "ref",
+                            "tsType": "string",
+                            "label": "引用色彩组",
+                            "table": "colorGroups"
+                          },
+                          {
+                            "key": "palette",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string[]",
+                            "label": "有序主题色列表（最多六个）"
+                          },
+                          {
+                            "key": "tokens",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeToken, string>>",
+                            "label": "局部覆盖"
+                          },
+                          {
+                            "key": "nodes",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeNodeName, string>>",
+                            "label": "语义颜色节点覆盖"
+                          },
+                          {
+                            "key": "background",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "背景视觉层"
+                          },
+                          {
+                            "key": "backgroundVariants",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "ThemeBackgroundVariant[]",
+                            "label": "背景状态变体；例如 new / active / advanced / completed。"
+                          },
+                          {
+                            "key": "presentation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "PresentationDef",
+                            "label": "UI 表现配置"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "key": "availableWhen",
+                    "required": false,
+                    "kind": "hand",
+                    "tsType": "Condition | ConditionGroup",
+                    "label": "可用条件"
+                  }
+                ],
+                "tsType": "EntityPresentationOption"
+              }
             }
           ]
         },
@@ -5055,6 +6699,417 @@
                   }
                 }
               ]
+            }
+          ]
+        },
+        {
+          "key": "presentation",
+          "required": false,
+          "kind": "object",
+          "tsType": "EntityPresentationDef",
+          "label": "实体表现内容",
+          "fields": [
+            {
+              "key": "default",
+              "required": true,
+              "kind": "object",
+              "tsType": "EntityPresentationValue",
+              "label": "默认内容",
+              "fields": [
+                {
+                  "key": "name",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "名称"
+                },
+                {
+                  "key": "description",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string",
+                  "label": "描述"
+                },
+                {
+                  "key": "theme",
+                  "required": false,
+                  "kind": "object",
+                  "tsType": "ThemeDef",
+                  "label": "主题",
+                  "fields": [
+                    {
+                      "key": "colorGroupId",
+                      "required": false,
+                      "kind": "ref",
+                      "tsType": "string",
+                      "label": "引用色彩组",
+                      "table": "colorGroups"
+                    },
+                    {
+                      "key": "palette",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "string[]",
+                      "label": "有序主题色列表（最多六个）",
+                      "item": {
+                        "key": "$",
+                        "kind": "string",
+                        "tsType": "string"
+                      }
+                    },
+                    {
+                      "key": "tokens",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeToken, string>>",
+                      "label": "局部覆盖"
+                    },
+                    {
+                      "key": "nodes",
+                      "required": false,
+                      "kind": "hand",
+                      "tsType": "Partial<Record<ThemeNodeName, string>>",
+                      "label": "语义颜色节点覆盖"
+                    },
+                    {
+                      "key": "background",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "BackgroundLayerDef[]",
+                      "label": "背景视觉层",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                          },
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerKind",
+                            "label": "背景类型"
+                          },
+                          {
+                            "key": "value",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                          },
+                          {
+                            "key": "opacity",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "透明度"
+                          },
+                          {
+                            "key": "position",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景位置"
+                          },
+                          {
+                            "key": "size",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "背景尺寸"
+                          },
+                          {
+                            "key": "repeat",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "重复方式"
+                          },
+                          {
+                            "key": "blendMode",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "混合模式"
+                          },
+                          {
+                            "key": "attachment",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "'scroll' | 'fixed' | 'local'",
+                            "label": "附着方式"
+                          },
+                          {
+                            "key": "scale",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "缩放比例"
+                          },
+                          {
+                            "key": "rotation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "number",
+                            "label": "旋转角度"
+                          },
+                          {
+                            "key": "enabled",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                          }
+                        ],
+                        "tsType": "BackgroundLayerDef"
+                      }
+                    },
+                    {
+                      "key": "backgroundVariants",
+                      "required": false,
+                      "kind": "array",
+                      "tsType": "ThemeBackgroundVariant[]",
+                      "label": "背景状态变体；例如 new / active / advanced / completed。",
+                      "item": {
+                        "key": "$",
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "key": "id",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "string",
+                            "label": "状态变体 ID；由选择页等只读投影使用受控语义值。"
+                          },
+                          {
+                            "key": "layers",
+                            "required": true,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "该状态的背景层。"
+                          }
+                        ],
+                        "tsType": "ThemeBackgroundVariant"
+                      }
+                    },
+                    {
+                      "key": "presentation",
+                      "required": false,
+                      "kind": "object",
+                      "tsType": "PresentationDef",
+                      "label": "UI 表现配置",
+                      "fields": [
+                        {
+                          "key": "layers",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationLayerDef[]",
+                          "label": "区域图层",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationLayerDef"
+                          }
+                        },
+                        {
+                          "key": "components",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "ComponentPlacementDef[]",
+                          "label": "区域组件",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "ComponentPlacementDef"
+                          }
+                        },
+                        {
+                          "key": "panels",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PanelPresentationDef[]",
+                          "label": "面板语义表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PanelPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "infoItems",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "InfoItemPresentationDef[]",
+                          "label": "信息项表现",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "InfoItemPresentationDef"
+                          }
+                        },
+                        {
+                          "key": "motions",
+                          "required": false,
+                          "kind": "record",
+                          "tsType": "Record<string, MotionDef>",
+                          "label": "命名动效预设",
+                          "value": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "MotionDef"
+                          }
+                        },
+                        {
+                          "key": "states",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "StateAppearanceDef[]",
+                          "label": "状态外观",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "StateAppearanceDef"
+                          }
+                        },
+                        {
+                          "key": "hosts",
+                          "required": false,
+                          "kind": "array",
+                          "tsType": "PresentationHostDef[]",
+                          "label": "控件宿主表现；用于面板、按钮、Tab、卡片等 UI 宿主。",
+                          "item": {
+                            "key": "$",
+                            "kind": "hand",
+                            "tsType": "PresentationHostDef"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "additions",
+              "required": false,
+              "kind": "array",
+              "tsType": "EntityPresentationOption[]",
+              "label": "附加内容",
+              "item": {
+                "key": "$",
+                "kind": "object",
+                "fields": [
+                  {
+                    "key": "id",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "ID"
+                  },
+                  {
+                    "key": "label",
+                    "required": true,
+                    "kind": "string",
+                    "tsType": "string",
+                    "label": "选择标签"
+                  },
+                  {
+                    "key": "override",
+                    "required": true,
+                    "kind": "object",
+                    "tsType": "EntityPresentationOverride",
+                    "label": "内容覆盖",
+                    "fields": [
+                      {
+                        "key": "name",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "名称覆盖"
+                      },
+                      {
+                        "key": "description",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "描述覆盖"
+                      },
+                      {
+                        "key": "theme",
+                        "required": false,
+                        "kind": "object",
+                        "tsType": "ThemeDef",
+                        "label": "主题覆盖",
+                        "fields": [
+                          {
+                            "key": "colorGroupId",
+                            "required": false,
+                            "kind": "ref",
+                            "tsType": "string",
+                            "label": "引用色彩组",
+                            "table": "colorGroups"
+                          },
+                          {
+                            "key": "palette",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "string[]",
+                            "label": "有序主题色列表（最多六个）"
+                          },
+                          {
+                            "key": "tokens",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeToken, string>>",
+                            "label": "局部覆盖"
+                          },
+                          {
+                            "key": "nodes",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "Partial<Record<ThemeNodeName, string>>",
+                            "label": "语义颜色节点覆盖"
+                          },
+                          {
+                            "key": "background",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "BackgroundLayerDef[]",
+                            "label": "背景视觉层"
+                          },
+                          {
+                            "key": "backgroundVariants",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "ThemeBackgroundVariant[]",
+                            "label": "背景状态变体；例如 new / active / advanced / completed。"
+                          },
+                          {
+                            "key": "presentation",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "PresentationDef",
+                            "label": "UI 表现配置"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "key": "availableWhen",
+                    "required": false,
+                    "kind": "hand",
+                    "tsType": "Condition | ConditionGroup",
+                    "label": "可用条件"
+                  }
+                ],
+                "tsType": "EntityPresentationOption"
+              }
             }
           ]
         },
@@ -8664,6 +10719,7 @@
   },
   "indexedTypes": [
     "AccessStage",
+    "ActiveAreaConnection",
     "ActiveStoryEntry",
     "ActiveThemeSelection",
     "AffectionConfigDef",
@@ -8736,6 +10792,14 @@
     "EnhancementDef",
     "EnhancementId",
     "EnhancementRevealCondition",
+    "EntityPresentationDef",
+    "EntityPresentationEffectValue",
+    "EntityPresentationEntityType",
+    "EntityPresentationKey",
+    "EntityPresentationOption",
+    "EntityPresentationOverride",
+    "EntityPresentationOverrideLifetime",
+    "EntityPresentationValue",
     "EntityThemeSlot",
     "EntryEffectDef",
     "EquipmentId",

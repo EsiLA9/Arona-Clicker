@@ -7,6 +7,7 @@ import type { ExtraCompound } from '../../engine/types/extra';
 import type { VariantId, ColorGroupId, CultivateCurveId } from '../../engine/types/character';
 import type { ThemeDef } from '../../engine/types/theme';
 import type { VariantProgressionDef } from './character-progression-def';
+import type { EntityPresentationDef } from './entity-presentation';
 
 export interface CharacterVariantDef {
   /** @label ID */
@@ -33,6 +34,8 @@ export interface CharacterVariantDef {
   curve?: CultivateCurveId;
   /** @label 对话主题 */
   theme?: ThemeDef;
+  /** @label 实体表现内容 */
+  presentation?: EntityPresentationDef;
   /** @label 好感星级锁 @int */
   affectionLevelCapByStar?: number[];
   /** @label 养成声明 */

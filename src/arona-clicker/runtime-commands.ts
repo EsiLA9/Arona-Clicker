@@ -75,6 +75,8 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     activateCustomTheme: customThemeId => game.mutations.activateCustomTheme(customThemeId),
     setThemeLayerOrder: order => game.mutations.setThemeLayerOrder(order),
     setEntityThemeSlot: (entityKey, slot) => game.mutations.setEntityThemeSlot(entityKey, slot),
+    setEntityPresentationSelection: (entityKey, optionId) => game.mutations.setEntityPresentationSelection(entityKey, optionId),
+    clearEntityPresentationSelection: entityKey => game.mutations.clearEntityPresentationSelection(entityKey),
     unlockInit: initId => game.inits.unlockInit(initId),
     startNewGame: initId => game.inits.startNewGame(initId),
     restartInit: () => game.inits.restartInit(),

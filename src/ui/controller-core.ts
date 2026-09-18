@@ -50,6 +50,7 @@ export function computeRevealFingerprint(ctrl: UIController): string {
  */
 export function refreshRevealIfChanged(ctrl: UIController): void {
   if (!ctrl.started) return;
+  if (ctrl.isContentRefreshBatchActive()) return;
   const now = Date.now();
   if (now - ctrl.lastRevealCheck < 200) return; // 节流：tick 内多次事件只评估一次
   ctrl.lastRevealCheck = now;
@@ -64,7 +65,14 @@ export function refreshRevealIfChanged(ctrl: UIController): void {
       ], 'reveal-changed');
       return;
     }
-    ctrl.refreshPanels(['left', 'right']);
+    // 左侧区域导航、右侧设施/强化卡片在集合未变化时只替换单元素，
+    // 这样其它卡片的 hover / tooltip 不会因揭示状态更新而被打断。
+    if (!ctrl.refreshCurrentAreaNav('reveal-changed')) ctrl.refreshPanels(['left']);
+    if (ctrl.panelState.rightTab === 'spot') {
+      if (!ctrl.refreshCurrentSpotCards('reveal-changed')) ctrl.refreshPanels(['right']);
+    } else if (ctrl.panelState.rightTab === 'enh') {
+      if (!ctrl.refreshCurrentEnhancementCards('reveal-changed')) ctrl.refreshPanels(['right']);
+    }
   }
 }
 
@@ -75,9 +83,13 @@ export function refreshRevealIfChanged(ctrl: UIController): void {
 export function refreshLight(ctrl: UIController): void {
   // 兜底：奖励/移动通知排队后若没有后续全量 render，由下一 Tick 补一次
   if (ctrl.pendingRewardChats.length > 0 || ctrl.pendingTravelChats.length > 0) {
-    ctrl.render();
+    if (!ctrl.notificationFallbackRendered) {
+      ctrl.notificationFallbackRendered = true;
+      ctrl.render();
+    }
     return;
   }
+  ctrl.notificationFallbackRendered = false;
   // Spot 产出与资源行为都由 dispatcher 统一落到当前 Surface；若工作区刚切换，
   // token/generation 校验会阻止旧 DOM 更新。
   ctrl.applyUIBehavior('spot.yield', '*', 'tick.spot-yield');

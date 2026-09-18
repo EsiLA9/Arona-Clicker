@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { baseDatapack } from '../../src/data/test-datapack';
 import { PopoverManager } from '../../src/ui/popovers';
 
 describe('PopoverManager 刷新范围', () => {
@@ -52,5 +54,31 @@ describe('PopoverManager 刷新范围', () => {
     manager.dismissBeforeRootMutation();
 
     expect(tooltip.classList.contains('is-open')).toBe(false);
+  });
+
+  it('DOM 刷新会取消尚未显示的旧锚点 tooltip', () => {
+    vi.useFakeTimers();
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    game.inits.startNewGame('base:init:schale_office');
+    document.body.innerHTML = `
+      <div id="app"><span class="hover-wrap" data-tooltip="spot:base:spot:credit_printer"></span></div>
+    `;
+    const root = document.querySelector<HTMLElement>('#app')!;
+    const anchor = root.querySelector<HTMLElement>('.hover-wrap')!;
+    const manager = new PopoverManager(document.body, game);
+    manager.bind();
+
+    try {
+      anchor.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: null }));
+      manager.dismissBeforeRootMutation(root);
+      anchor.remove();
+      vi.advanceTimersByTime(100);
+
+      expect(document.querySelector('#floating-tooltip')?.classList.contains('is-open')).toBe(false);
+    } finally {
+      game.stop();
+      vi.useRealTimers();
+    }
   });
 });

@@ -6,6 +6,7 @@
 
 import type { GameInstance } from './runtime-game-instance';
 import type { PlayerState } from './types/state';
+import type { EntityPresentationKey } from '../data-services/contracts/entity-presentation';
 import type { TagStatKind } from '../engine/stats/tag-stats';
 import { Registry } from '../data-services/registry/registry';
 import { EventBus } from '../engine/core/event-bus';
@@ -26,6 +27,7 @@ import { CharacterSystem } from './services/character-system';
 import { RosterSystem } from './services/roster-system';
 import { CharacterAvailabilityService } from './services/character-availability';
 import { ColorSystem } from './services/color-system';
+import { EntityPresentationService } from './services/entity-presentation-service';
 import { ColorEquipmentSystem } from './services/color-equipment-system';
 import { GearSystem } from './services/gear-system';
 import { GachaService } from './services/gacha-service';
@@ -115,6 +117,10 @@ export function wireGameInstance(
       case 'setTheme':
         g.eventBus.emit({ type: 'themeEffectRequested', effect });
         return true;
+      case 'setEntityPresentation':
+      case 'clearEntityPresentation':
+        g.eventBus.emit({ type: 'entityPresentationEffectRequested', effect });
+        return true;
       case 'triggerStory':
         g.eventBus.emit({ type: 'storyEffectRequested', effect });
         return true;
@@ -201,6 +207,9 @@ export function wireGameInstance(
   g.triggerSystem = new TriggerSystem(g.eventBus, g.conditionSystem, g.effectEngine);
   g.lootSystem = new LootSystem(g.registry, g.conditionSystem);
   g.visibilityEngine = new VisibilityEngine(g.registry, g.conditionSystem, g.eventBus);
+  g.entityPresentation = new EntityPresentationService(g.registry, g.colorSystem, g.conditionSystem, g.visibilityEngine, g.eventBus);
+  g.mutations.setEntityPresentationSelectionValidator((state, entityKey, optionId) =>
+    g.entityPresentation.options(state, entityKey as EntityPresentationKey).some(option => option.id === optionId && option.available));
   g.tagStatService = new TagStatService(
     g.registry,
     g.eventBus,
@@ -320,7 +329,7 @@ export function wireGameInstance(
   g.userThemeService = new UserThemeService(g.mutations, g.affectorEngine, g.picService, hooks.getState);
   g.shopService = new ShopService(g.registry, g.conditionSystem, g.valueSystem, g.mutations, g.spotFunctionalitySystem, hooks.getState);
   // 演出类 op 请求事件 → 领域服务分派（替代 EffectEngine 反向 handler，docs-824/08 T7）
-  new RuntimeEffectReactor(g.eventBus, g.registry, g.colorSystem, g.storyService, g.chatFlowService);
+  new RuntimeEffectReactor(g.eventBus, g.registry, g.colorSystem, g.entityPresentation as EntityPresentationService, g.storyService, g.chatFlowService);
 
   const initialState = createDefaultPlayerState();
   hooks.setState(initialState);

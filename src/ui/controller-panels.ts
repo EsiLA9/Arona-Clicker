@@ -14,6 +14,7 @@ import type { SaveData } from '../arona-clicker/contracts/save-data';
 import type { UIController } from './controller';
 import { bindTopBarActions } from './controller-actions-topbar';
 import { bindThemeActions } from './controller-actions-theme';
+import { bindEntityPresentationActions } from './controller-actions-presentation';
 import { syncOuterBackground } from './outer-background';
 
 /** Init 选择界面模式：由当前流程决定（新建 vs 重启/重选），替代从 activeInit 推断。 */
@@ -53,6 +54,7 @@ export function renderSelectorPage(ctrl: UIController, initialFace: SelectionFac
   // Lobby 也提供与一般游戏相同的服务导航；进入服务后由 render() 切换到服务工作区。
   bindTopBarActions(ctrl);
   bindThemeActions(ctrl);
+  bindEntityPresentationActions(ctrl);
 }
 
 /** 全量渲染 Init 选择器（轨道默认停在 Init 面）。 */

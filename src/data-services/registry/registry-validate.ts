@@ -11,6 +11,7 @@ import { isTagRef } from '../../engine/core/tag';
 import type { TagPath } from '../../engine/core/tag';
 import { validateEntityId } from '../../engine/core/entity-id';
 import { assertValidExtra, expandFlatKeys, ExtraError } from '../../engine/extra/index';
+import type { EntityPresentationDef } from '../contracts/entity-presentation';
 
 export class RegistryError extends Error {
   constructor(message: string) {
@@ -43,6 +44,80 @@ const checkEntityIds = (
     );
   }
 };
+
+const PRESENTATION_OPTION_ID = /^[a-z0-9][a-z0-9_-]*$/;
+const CONDITION_COMPARATORS = new Set(['==', '!=', '>=', '<=', '>', '<']);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isCondition(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.target === 'string'
+    && typeof value.key === 'string'
+    && typeof value.comparator === 'string'
+    && CONDITION_COMPARATORS.has(value.comparator)
+    && typeof value.value === 'number'
+    && Number.isFinite(value.value);
+}
+
+function isConditionExpression(value: unknown): boolean {
+  if (isCondition(value)) return true;
+  if (!isRecord(value) || (value.type !== 'AND' && value.type !== 'OR') || !Array.isArray(value.conditions)) return false;
+  return value.conditions.length > 0 && value.conditions.every(isConditionExpression);
+}
+
+function checkEntityPresentation(items: Array<{ id: string; presentation?: EntityPresentationDef }> | undefined, label: string): void {
+  for (const item of items ?? []) {
+    const presentation = item.presentation;
+    if (presentation === undefined) continue;
+    const base = presentation.default as unknown as Record<string, unknown> | undefined;
+    if (!isRecord(base) || typeof base.name !== 'string' || base.name.length === 0 || typeof base.description !== 'string') {
+      throw new RegistryError(`${label} "${item.id}" 的 presentation.default 必须包含非空 name 与 description`);
+    }
+    if (base.theme !== undefined && !isRecord(base.theme)) {
+      throw new RegistryError(`${label} "${item.id}" 的 presentation.default.theme 必须是对象`);
+    }
+    if (presentation.additions === undefined) continue;
+    if (!Array.isArray(presentation.additions)) {
+      throw new RegistryError(`${label} "${item.id}" 的 presentation.additions 必须是数组`);
+    }
+    const ids = new Set<string>();
+    for (const [index, option] of presentation.additions.entries()) {
+      const optionValue = option as unknown as Record<string, unknown>;
+      if (!isRecord(optionValue)) throw new RegistryError(`${label} "${item.id}" 的 presentation.additions[${index}] 必须是对象`);
+      const optionId = optionValue.id;
+      if (typeof optionId !== 'string' || !PRESENTATION_OPTION_ID.test(optionId)) {
+        throw new RegistryError(`${label} "${item.id}" 的 presentation option ID "${String(optionId)}" 非法`);
+      }
+      if (ids.has(optionId)) throw new RegistryError(`${label} "${item.id}" 的 presentation option ID 重复："${optionId}"`);
+      ids.add(optionId);
+      if (typeof optionValue.label !== 'string' || optionValue.label.length === 0) {
+        throw new RegistryError(`${label} "${item.id}" 的 presentation option "${optionId}" 缺少非空 label`);
+      }
+      const override = optionValue.override;
+      if (!isRecord(override)) throw new RegistryError(`${label} "${item.id}" 的 presentation option "${optionId}" 缺少 override 对象`);
+      const overrideKeys = Object.keys(override);
+      const allowedKeys = new Set(['name', 'description', 'theme']);
+      if (overrideKeys.length === 0 || overrideKeys.some(key => !allowedKeys.has(key))) {
+        throw new RegistryError(`${label} "${item.id}" 的 presentation option "${optionId}" override 只能覆盖 name、description、theme，且至少一项`);
+      }
+      if (override.name !== undefined && typeof override.name !== 'string') {
+        throw new RegistryError(`${label} "${item.id}" 的 presentation option "${optionId}" name 覆盖必须是字符串`);
+      }
+      if (override.description !== undefined && typeof override.description !== 'string') {
+        throw new RegistryError(`${label} "${item.id}" 的 presentation option "${optionId}" description 覆盖必须是字符串`);
+      }
+      if (override.theme !== undefined && !isRecord(override.theme)) {
+        throw new RegistryError(`${label} "${item.id}" 的 presentation option "${optionId}" theme 覆盖必须是对象`);
+      }
+      if (optionValue.availableWhen !== undefined && !isConditionExpression(optionValue.availableWhen)) {
+        throw new RegistryError(`${label} "${item.id}" 的 presentation option "${optionId}" availableWhen 非法`);
+      }
+    }
+  }
+}
 
 /** 校验数据包；非法即抛 RegistryError。 */
 export interface DatapackValidationContext {
@@ -77,6 +152,7 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   if (dp.dropTables) checkDup(dp.dropTables, 'drop table');
   if (dp.funcletDefs) checkDup(dp.funcletDefs, 'funclet');
   if (dp.characters) checkDup(dp.characters, 'character');
+  if (dp.characterVariants) checkDup(dp.characterVariants, 'character variant');
   if (dp.resourceDisplays) {
     checkDup(
       dp.resourceDisplays.map(rd => ({ id: rd.resourceId })),
@@ -110,6 +186,11 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   checkTaggedItems(dp.passiveStories, 'Passive story entry');
   checkTaggedItems(dp.passivePools, 'Passive pool');
   checkTaggedItems(dp.characters, 'Character');
+  checkEntityPresentation(dp.inits, 'Init');
+  checkEntityPresentation(dp.areas, 'Area');
+  checkEntityPresentation(dp.spots, 'Spot');
+  checkEntityPresentation(dp.enhancements, 'Enhancement');
+  checkEntityPresentation(dp.characterVariants, 'CharacterVariant');
   for (const pack of dp.affectorPacks ?? []) for (const entry of pack.entries) {
     for (const modifier of entry.zoneModifiers ?? []) if (modifier.target.kind === 'tag') {
       checkTagPath(modifier.target.tag, `Affector pack "${pack.id}" zone modifier tag`);

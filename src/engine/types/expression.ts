@@ -103,6 +103,10 @@ export type EffectOp =
    * 由 effect-engine 转发给 ColorSystem.handleThemeEffect，mutations 保持 no-op。
    */
   | 'setTheme'
+  /** 临时切换实体表现内容；由 RuntimeEffectReactor 写入内存覆盖层。 */
+  | 'setEntityPresentation'
+  /** 清理实体表现内容的临时覆盖；不修改玩家持久选择。 */
+  | 'clearEntityPresentation'
   /**
    * 清理聊天流（Talklet 演出服务）：清空目标流的全部聊天内容（含演出专用文本）。
    * target = 对话空间 VariantId（空字符串 = 当前/一般聊天流），value 忽略。
@@ -169,11 +173,19 @@ export interface ThemeEffectValue {
   entityKey?: string;
 }
 
+export type EntityPresentationOverrideLifetime = 'story' | 'area' | 'init' | 'manual';
+
+export interface EntityPresentationEffectValue {
+  optionId?: string;
+  owner?: string;
+  lifetime?: EntityPresentationOverrideLifetime;
+}
+
 export interface Effect {
   op: EffectOp;
   target: string;
-  /** 数值、字符串、布尔、ValueExpression（引擎结算时按当前状态求值）、ExtraValue（setExtra）、ThemeEffectValue（setTheme）或 ChatTextEffectValue（showChatText）。 */
-  value: number | string | boolean | ValueExpression | ExtraValue | ThemeEffectValue | ChatTextEffectValue;
+  /** 数值、字符串、布尔、ValueExpression（引擎结算时按当前状态求值）、ExtraValue（setExtra）、ThemeEffectValue（setTheme）、EntityPresentationEffectValue 或 ChatTextEffectValue（showChatText）。 */
+  value: number | string | boolean | ValueExpression | ExtraValue | ThemeEffectValue | EntityPresentationEffectValue | ChatTextEffectValue;
   /**
    * 沙盒归属（仅 triggerStory / startStory 使用）：决定剧情启动到哪个游标。
    * 缺省 = 全局游标（active 主线 / 一般闲聊）；设为 VariantId 则启动到该角色聊天沙盒游标。

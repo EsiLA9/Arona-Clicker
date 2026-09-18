@@ -115,6 +115,8 @@ export function describeEffect(effect: Effect, nameOf: NameResolver): string {
     case 'grantCharacter': return `获得学生「${valueText}」`;
     case 'addAffectionExp': return `好感 +${valueText}`;
     case 'setTheme': return `临时主题：${valueText}`;
+    case 'setEntityPresentation': return `临时实体表现：${target}`;
+    case 'clearEntityPresentation': return `清理实体表现覆盖：${target}`;
     case 'clearAllChatFlow': return `清理聊天流`;
     case 'showChatText': return `演出文本「${valueText}」@${target}`;
     case 'clearIdChatFlow': return `擦除演出文本 ${target}`;

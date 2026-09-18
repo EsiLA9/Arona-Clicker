@@ -20,7 +20,7 @@
 | `controller-events.ts` | EventBus 订阅：揭示刷新 / 奖励排队 / 池 gate / 聊天流清理与演出文本 |
 | `controller-theme.ts` | 主题注入：场景栈合并 + CSS 变量与背景层落 UI |
 | `controller-save.ts` | 存档 / 读档 / 导入导出绑定 |
-| `controller-actions-*.ts` | #app 内各域事件绑定：topbar / contacts / theme / story / inventory |
+| `controller-actions-*.ts` | #app 内各域事件绑定：topbar / contacts / theme / entity presentation / story / inventory |
 
 > controller 层持 AronaClicker Runtime 与 `GameCommands`（命令编排层）；**组件层**只持 `GameReadModel`（只读视图：state / registry / 查询结果，无写方法）。
 
@@ -31,7 +31,7 @@
 | 布局骨架 | `app-shell` / `header` / `rail` / `center-panel` / `right-panels` / `tabs` |
 | 业务面板 | `production`（生产/设施，含招募按钮）/ `contacts`（通讯录 + 角色内容片段）/ `contacts-workspace`（通讯录三栏工作区）/ `character-workspace`（迁移期角色工作区兼容层）/ `story`（剧情演出）/ `story-workspace`（故事三栏工作区）/ `story-gate`（剧情入口确认浮层 + 开幕标题横幅）/ `collection`（图鉴）/ `enhancements` / `init-select` / `selector-page` / `global-enhancement-select` |
 | tooltip 系 | `tooltip`（门面 `getTooltipContent` 路由）+ `tooltip-reveal`（揭示阶段计算）+ `tooltip-enhancement`（强化诊断）+ `tooltip-detail-*`（area/spot/enh/init/item/resource/codex 分实体渲染） |
-| 其他 | `toast` / `errors` / `entity-theme-options` / `collection-modal` |
+| 其他 | `toast` / `errors` / `entity-theme-options` / `entity-presentation` / `collection-modal` |
 
 ### 其他文件
 
@@ -90,6 +90,8 @@ Runtime Editor 的 Spot 表单由 `SPOT_CONTENT_POLICY` 驱动；“支付”页
 顶栏一级入口统一为主题、游戏、背包、设置；存档、数据包和记录等服务从设置 Workspace 进入，不再作为顶栏直达页面。设置、背包及其他服务页使用独立的 `WorkspaceFrame` 和稳定 UI Host，返回游戏时恢复普通游戏 Workspace；主题浮窗可跨 Workspace 使用而不改变当前路由。
 
 ### 主题与选择页表现
+
+- **实体表现选择**：`entity-presentation.ts` 只读渲染 `name + description + theme` 的 default/addition 组合；Area、Spot、Enhancement、CharacterVariant 的按钮由 `controller-actions-presentation.ts` 解析 payload 后调用 `GameCommands`。不可用 option 不读取其 value，运行时覆盖期间入口锁定。
 
 - 运行时可排序层为 `player → init → area → student`；`user`、`preview` 与 `ephemeral` 是独立插层，剧情临时层始终最高。
 - `InitDef.theme` / `EnhancementDef.theme` 为选择页提供场景声明；一般游戏中的 Init 主题才进入运行时 `init` 层，选择页聚焦主题只做局部只读投影。

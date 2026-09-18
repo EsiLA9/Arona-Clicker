@@ -59,3 +59,8 @@ pnpm-debug.log*
 # AOCI agent host integration (machine-bound; do not commit)
 .codex/config.toml
 .codex/config.toml.backup.*
+
+# AOCI database cognition (local-only; do not commit)
+/aoci.database.txt
+/.aoci/database-baseline.json
+/.aoci/database-*.json

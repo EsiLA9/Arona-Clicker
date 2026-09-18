@@ -12,7 +12,7 @@
 ## Effect（op 分发）
 
 - `EffectOp` 25 种分发见 [[docs/docs-828/03-data-structures/declarative-dsl]] §4；
-- 转发类演出 op **不落状态、经请求事件转发**（effect-engine 发、`RuntimeEffectReactor` 订）：`setTheme` → `themeEffectRequested`（ColorSystem 临时主题层）；`triggerStory` → `storyEffectRequested`（StoryService.startStory force）；聊天流族 5 种 → `chatFlowEffectRequested`（ChatFlowService）；
+- 转发类演出 op **不落状态、经请求事件转发**（effect-engine 发、`RuntimeEffectReactor` 订）：`setTheme` → `themeEffectRequested`（ColorSystem 临时主题层）；`setEntityPresentation` / `clearEntityPresentation` → `entityPresentationEffectRequested`（实体表现 runtime override）；`triggerStory` → `storyEffectRequested`（StoryService.startStory force）；聊天流族 5 种 → `chatFlowEffectRequested`（ChatFlowService）；
 - `loot` 当前为 no-op 预留（effect-ops 中既不落状态也不转发，未接线）。
 
 ## Affector（挂载持续效果）
@@ -101,9 +101,11 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 - `gachaResolved { poolId, count }` · emit `gacha-service`（逐次结果以 characterAcquired 跟随）
 - `passiveCooldownsChanged` / `studentBlockChanged` / `charaCustomChanged` / `chatReadChanged`（均 emit `state-mutation-service`，观测；chatReadChanged 当前无写入方）
 - 好感小值入账同走 `characterProgressChanged(domain:'affection')`（condition-deps 按 variantId 失效 + UI 跨级提示）
+- `entityPresentationChanged { entityKey, optionId: string | null }` — 玩家持久选择或运行时覆盖改变；订 UI 定向刷新
 
 **运行时效果请求**（EffectEngine 转发演出类 op → RuntimeEffectReactor 消费，不落状态）
 - `themeEffectRequested { effect }` — setTheme → ColorSystem 临时主题层
+- `entityPresentationEffectRequested { effect }` — set/clearEntityPresentation → EntityPresentationService owner/lifetime 覆盖层；只引用 datapack 已声明的 option，不接受任意文本、HTML 或 CSS
 - `storyEffectRequested { effect }` — triggerStory → StoryService.startStory（force）
 - `chatFlowEffectRequested { effect }` — 聊天流族 5 种 → ChatFlowService
 

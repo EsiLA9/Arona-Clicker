@@ -7,6 +7,7 @@ import type { RevealTarget, RevealTrigger } from '../../engine/types/reveal';
 import type { ResourceAmount } from './common';
 import type { AffectorPackRef } from '../../engine/types/trigger';
 import type { SpotFunctionalityDef } from './world';
+import type { EntityPresentationDef } from './entity-presentation';
 
 export type EnhancementAttachment =
   | { kind: 'area'; areaId: AreaId }
@@ -26,6 +27,8 @@ export interface EnhancementDef {
   irreversible?: boolean;
   /** @label 选择页主题 */
   theme?: ThemeDef;
+  /** @label 实体表现内容 */
+  presentation?: EntityPresentationDef;
   addsFunctionalities?: SpotFunctionalityDef[];
   affectorPackIds?: AffectorPackRef[];
   revealTriggers?: RevealTrigger[];

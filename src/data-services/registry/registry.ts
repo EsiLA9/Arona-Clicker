@@ -18,6 +18,7 @@ import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contra
 import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from '../contracts/character-progression-def';
 import type { ShopDef } from '../contracts/shop';
 import type { PaymentOptionDef } from '../contracts/cost';
+import type { EntityPresentationDef } from '../contracts/entity-presentation';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
 // ============================================================
@@ -755,6 +756,23 @@ export class Registry {
    * 在全部数据包加载完成后调用（跨包引用允许后加载补齐）。
    */
   validateCharacterRefs(): void {
+    const checkPresentationThemes = (id: string, presentation: EntityPresentationDef | undefined, label: string): void => {
+      if (!presentation) return;
+      const themes = [
+        { source: 'default', theme: presentation.default.theme },
+        ...(presentation.additions ?? []).map(option => ({ source: `option:${option.id}`, theme: option.override.theme })),
+      ];
+      for (const { source, theme } of themes) {
+        if (theme?.colorGroupId && !this._colorGroups.has(theme.colorGroupId)) {
+          throw new RegistryError(`${label} ${id} 的 presentation ${source} 引用了未定义的颜色组 "${theme.colorGroupId}"`);
+        }
+      }
+    };
+    for (const init of this._inits.values()) checkPresentationThemes(init.id, init.presentation, 'Init');
+    for (const area of this._areas.values()) checkPresentationThemes(area.id, area.presentation, 'Area');
+    for (const spot of this._spots.values()) checkPresentationThemes(spot.id, spot.presentation, 'Spot');
+    for (const enhancement of this._enhancements.values()) checkPresentationThemes(enhancement.id, enhancement.presentation, 'Enhancement');
+    for (const variant of this._characterVariants.values()) checkPresentationThemes(variant.id, variant.presentation, 'CharacterVariant');
     for (const pool of this._gachaPools.values()) {
       for (const id of [...pool.members, ...(pool.featured ?? [])]) {
         if (!this._characterVariants.has(id)) {

@@ -6,6 +6,7 @@ import { TagPath } from '../../engine/core/tag';
 import { renderPresentationHostBackground } from '../presentation-service';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
 import type { RuntimeModDraft } from '../../arona-clicker/contracts';
+import { resolveEntityPresentation, renderEntityPresentationOptions } from './entity-presentation';
 
 /**
  * 设施标签 → 语义颜色角色（硬编码映射，不读数据包 extra）。
@@ -38,7 +39,7 @@ function formatSpotYields(ctx: UIContext, spot: Parameters<typeof getSpotYieldBr
 }
 import { existenceCondition, unlockCondition } from '../../engine/visibility/reveal';
 
-export function renderProductionNodes(ctx: UIContext): string {
+export function renderProductionNodes(ctx: UIContext, spotId?: string): string {
   const { game, view } = ctx;
   const world = game.world;
   // 只展示当前 Area 下的 Spot；移动 Area 后设施列表随之切换。
@@ -46,7 +47,7 @@ export function renderProductionNodes(ctx: UIContext): string {
   const runtimeMod = (game as typeof game & { getRuntimeMod?: () => RuntimeModDraft | null }).getRuntimeMod?.();
   const areaSpotIds = currentAreaId ? new Set(world.spotsOfArea(currentAreaId)) : new Set<string>();
   const spotCards = [...world.spots.values()]
-    .filter(spot => areaSpotIds.has(spot.id))
+    .filter(spot => areaSpotIds.has(spot.id) && (!spotId || spot.id === spotId))
     .map(spot => {
       const reveal = getSpotReveal(ctx, spot);
       if (reveal.stage === 'invisible') return '';
@@ -55,17 +56,18 @@ export function renderProductionNodes(ctx: UIContext): string {
       const hasPurchaseRoute = game.spot.getPaymentOptions(spot.id, 'unlock').length > 0;
       const level = view.spotLevels[spot.id] ?? 0;
       const visible = view.visibility.spots[spot.id] ?? false;
+      const resolvedPresentation = resolveEntityPresentation(ctx, 'spot', spot.id);
       // 最终产出：GameNum 懒求值（按资源拆分），随状态实时变化
       const yieldText = reveal.utilityKnown
         ? `产出 ${formatSpotYields(ctx, spot)}`
         : '产出 ???';
-      const title = reveal.nameKnown ? spot.name : '???';
+      const title = reveal.nameKnown ? (resolvedPresentation?.name ?? spot.name) : '???';
       const effectiveTags = world.effectiveSpotTags(spot.id, game.state.spotTagOverrides);
       const tags = reveal.utilityKnown
         ? (effectiveTags.map(tag => world.tagNameForSpotTag?.(spot.id, tag) ?? world.tagName(tag)).join(' / ') || 'SPOT')
         : '未解锁设施';
       const desc = reveal.utilityKnown
-        ? `<p>${ctx.escapeHtml(spot.description)}</p>`
+        ? `<p>${ctx.escapeHtml(resolvedPresentation?.description ?? spot.description)}</p>`
         : '';
       const conditionNote = !owned && !purchaseable && reveal.conditionKnown
         ? `<small class="mini-note">条件：${ctx.escapeHtml(describeCondition(unlockCondition(spot.revealTriggers) ?? existenceCondition(spot.revealTriggers), ctx.nameOf))}</small>`
@@ -91,10 +93,10 @@ export function renderProductionNodes(ctx: UIContext): string {
       // 设施自有主题：声明 theme 或 colorGroupId 时，构建其 ThemeTree 并作用域化落到卡片
       // （绕过全局参考树，直接 fill styles），使 Spot 卡片自带主题色而不影响整页。
       let spotStyleAttr = accentStyle;
-      if (spot.theme || spot.colorGroupId) {
+      if (resolvedPresentation?.theme || spot.theme || spot.colorGroupId) {
         const getGroup = (id: string) => ctx.game.registry.colorGroups.get(id);
-        const tree = spot.theme
-          ? themeTreeFromThemeDef(spot.theme, getGroup)
+        const tree = resolvedPresentation?.theme || spot.theme
+          ? themeTreeFromThemeDef(resolvedPresentation?.theme ?? spot.theme!, getGroup)
           : (() => {
               const group = spot.colorGroupId ? ctx.game.registry.colorGroups.get(spot.colorGroupId) : undefined;
               return group ? themeTreeFromGroup(group) : undefined;
@@ -105,13 +107,14 @@ export function renderProductionNodes(ctx: UIContext): string {
         }
       }
       return `
-        <article class="mini-card hover-wrap presentation-host-target ${visible ? '' : 'is-muted'}" data-theme-host-id="card" data-theme-text-mode="${ctx.textColorModeForHost?.('card') ?? 'auto'}" ${spotStyleAttr} data-tooltip="spot:${spot.id}">
+        <article class="mini-card hover-wrap presentation-host-target ${visible ? '' : 'is-muted'}" data-ui-spot-card="${spot.id}" data-theme-host-id="card" data-theme-text-mode="${ctx.textColorModeForHost?.('card') ?? 'auto'}" ${spotStyleAttr} data-tooltip="spot:${spot.id}">
           ${renderPresentationHostBackground(ctx, 'card')}
           <div class="mini-card-title-row">
             <h3 class="mini-card-title">${ctx.escapeHtml(title)}</h3>
             <strong class="mini-status">${owned ? `Lv.${level}` : purchaseable ? '可获取' : hasPurchaseRoute ? '未解锁' : '无购买途径'}</strong>
           </div>
           ${desc}
+          ${reveal.utilityKnown ? renderEntityPresentationOptions(ctx, 'spot', spot.id) : ''}
           <div class="mini-card-foot">
             ${reveal.utilityKnown
               ? `<span class="mini-yield" data-spot-yield="${spot.id}">${yieldText}</span>`
@@ -143,4 +146,13 @@ export function renderProductionNodes(ctx: UIContext): string {
   return `
     <div class="mini-panel-head"><span class="eyebrow">运营设施</span><span class="count">${activeInArea} ACTIVE</span></div>
     <div class="mini-card-grid">${spotCards || '<div class="empty">当前区域没有设施</div>'}</div>`;
+}
+
+/** 只生成一张已存在的 Spot 卡片；找不到或当前不可见时返回空串，交给 Panel fallback。 */
+export function renderSpotCard(ctx: UIContext, spotId: string): string {
+  if (!ctx.game.world.spots.has(spotId)) return '';
+  const template = document.createElement('template');
+  template.innerHTML = renderProductionNodes(ctx, spotId);
+  return [...template.content.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
+    .find(node => node.dataset.uiSpotCard === spotId)?.outerHTML ?? '';
 }
