@@ -94,6 +94,11 @@ export interface RuntimeDatapackEditorState {
 export type RuntimeEditorEntryState = 'created' | 'modified' | 'unchanged';
 export type RuntimeEditorFilter = 'all' | 'pending' | 'applied' | 'removed';
 
+export function suggestedRuntimeDefaultAreaIdName(initIdName: string): string {
+  const normalized = initIdName.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  return `${normalized || 'new-init'}-default-area`;
+}
+
 export function createRuntimeDatapackEditorState(defaultAreaId: string | null, draftSourceId = 'runtime-editor'): RuntimeDatapackEditorState {
   return {
     enabled: true,

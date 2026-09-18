@@ -98,6 +98,147 @@
    margin: 0;
 }
 
+/* 真-迷你入口层：只负责把用户送进完整工作区，不复制编辑器内容。 */
+.runtime-editor-launcher-host {
+   position: fixed;
+   inset: 0;
+   z-index: 900;
+   pointer-events: none;
+}
+
+.runtime-editor-launcher {
+   --re-launcher-ink: #e9f0ff;
+   --re-launcher-muted: #9db0cc;
+   --re-launcher-panel: #0d1423;
+   --re-launcher-field: #16233a;
+   --re-launcher-line: rgba(92, 225, 230, .36);
+   --re-launcher-accent: #5ce1e6;
+   position: fixed;
+   top: 86px;
+   right: 18px;
+   display: flex;
+   flex-direction: column;
+   width: 248px;
+   overflow: hidden;
+   pointer-events: auto;
+   border: 1px solid var(--re-launcher-line);
+   border-radius: 7px;
+   background: var(--re-launcher-panel);
+   color: var(--re-launcher-ink);
+   box-shadow: 0 16px 44px rgba(4, 10, 22, .38), 0 0 0 1px rgba(92, 225, 230, .06);
+}
+
+.runtime-editor-launcher-head {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   min-height: 34px;
+   padding: 0 8px 0 12px;
+   border-bottom: 1px solid var(--re-launcher-line);
+   background: linear-gradient(100deg, rgba(92, 225, 230, .16), rgba(22, 35, 58, .75));
+   cursor: grab;
+   user-select: none;
+}
+
+.runtime-editor-launcher-head:active {
+   cursor: grabbing;
+}
+
+.runtime-editor-launcher-head strong {
+   font-size: 12px;
+   letter-spacing: .08em;
+}
+
+.runtime-editor-launcher-close {
+   display: inline-grid;
+   width: 24px;
+   height: 24px;
+   place-items: center;
+   border: 0;
+   background: transparent;
+   color: var(--re-launcher-muted);
+   cursor: pointer;
+   font-size: 17px;
+   line-height: 1;
+}
+
+.runtime-editor-launcher-close:hover,
+.runtime-editor-launcher-close:focus-visible {
+   color: var(--re-launcher-accent);
+}
+
+.runtime-editor-launcher-list {
+   display: grid;
+   gap: 4px;
+   padding: 8px;
+}
+
+.runtime-editor-launcher-entry {
+   min-height: 34px;
+   padding: 7px 10px;
+   border: 1px solid transparent;
+   border-radius: 4px;
+   background: var(--re-launcher-field);
+   color: var(--re-launcher-ink);
+   cursor: pointer;
+   font: inherit;
+   font-size: 12px;
+   text-align: left;
+   transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+
+.runtime-editor-launcher-entry:hover,
+.runtime-editor-launcher-entry:focus-visible {
+   border-color: var(--re-launcher-accent);
+   background: rgba(92, 225, 230, .13);
+   color: #fff;
+   outline: none;
+}
+
+.runtime-editor-launcher-entry::before {
+   display: inline-block;
+   width: 14px;
+   margin-right: 5px;
+   color: var(--re-launcher-accent);
+   content: '›';
+   font-weight: 700;
+}
+
+.runtime-init-creation-assist {
+   display: grid;
+   gap: 8px;
+   margin: 8px 0 10px;
+   padding: 10px 12px;
+   border: 1px solid var(--re-line);
+   border-left: 3px solid var(--re-accent);
+   border-radius: 6px;
+   background: rgba(47, 128, 237, .06);
+}
+
+.runtime-init-creation-assist h5,
+.runtime-init-creation-assist p {
+   margin: 0;
+}
+
+.runtime-init-creation-assist h5 {
+   margin-top: 2px;
+   font-size: 13px;
+}
+
+@media (max-width: 640px) {
+   .runtime-editor-launcher {
+      top: 76px;
+      right: 8px;
+      width: min(248px, calc(100vw - 16px));
+   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+   .runtime-editor-launcher-entry {
+      transition: none;
+   }
+}
+
 .runtime-editor-panel .runtime-editor-toggle {
    margin: 0;
    border: 0;

@@ -5,8 +5,8 @@
 // 只编排 UI 与命令层，不持有业务规则与渲染细节。
 // ============================================================
 
-import { getContentPolicy, SPOT_CONTENT_POLICY, validateAuthoringInput, type ContentAuthoringPolicy, type SpotFunctionalityKind } from '../../data-services/authoring/content-policy';
-import { renderRuntimeDefinitionForm, renderRuntimeEditorPanel, renderRuntimeSpotForm, runtimeEditorInitProblems } from './view';
+import { AREA_CONTENT_POLICY, getContentPolicy, SPOT_CONTENT_POLICY, validateAuthoringInput, type ContentAuthoringPolicy, type SpotFunctionalityKind } from '../../data-services/authoring/content-policy';
+import { renderRuntimeDefinitionForm, renderRuntimeEditorLauncher, renderRuntimeEditorPanel, renderRuntimeSpotForm, runtimeEditorInitProblems } from './view';
 import {
   createRuntimeDatapackEditorState,
   findRuntimeEditorAppliedSpot,
@@ -34,13 +34,16 @@ import {
   setRuntimeEditorNotice,
   setRuntimeEditorProblems,
   setRuntimeEditorSpot,
+  suggestedRuntimeDefaultAreaIdName,
   updateRuntimeEditorFields,
   type RuntimeEditorFilter,
   type RuntimeEditorContentKind,
+  type RuntimeEditorAreaDraft,
   type RuntimeEditorDefinitionDraft,
   type RuntimeEditorProblem,
   type RuntimeEditorSpotDraft,
 } from './state';
+import { type RuntimeEditorLauncherAction, runtimeEditorLauncherEntries } from './launcher';
 import { normalizeEntityNameValues, readRuntimeEditorFields, runtimeEditorInitialValues } from './form';
 import {
   conditionAtPath,
@@ -165,14 +168,38 @@ export function openRuntimeEditorPanel(ctrl: UIController): void {
   syncRuntimeEditorPanel(ctrl);
 }
 
+export function openRuntimeEditorLauncher(ctrl: UIController): void {
+  ctrl.runtimeEditorLauncherOpen = true;
+  syncRuntimeEditorLauncher(ctrl);
+}
+
+function syncRuntimeEditorLauncherButton(ctrl: UIController): void {
+  document.querySelectorAll<HTMLElement>('#runtime-editor-launch').forEach(button => {
+    button.setAttribute('aria-expanded', String(ctrl.runtimeEditorLauncherOpen));
+    button.classList.toggle('is-active', ctrl.runtimeEditorLauncherOpen);
+  });
+}
+
+export function syncRuntimeEditorLauncher(ctrl: UIController): void {
+  const existing = document.querySelector<HTMLElement>('[data-runtime-editor-launcher-host]');
+  if (!ctrl.runtimeEditorLauncherOpen) {
+    existing?.remove();
+    syncRuntimeEditorLauncherButton(ctrl);
+    return;
+  }
+  const host = existing ?? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'runtime-editor-launcher-host' }));
+  host.dataset.runtimeEditorLauncherHost = 'true';
+  const entries = runtimeEditorLauncherEntries();
+  const unavailableActions = new Set(entries.filter(entry => entry.isAvailable && !entry.isAvailable(ctrl)).map(entry => entry.action));
+  host.innerHTML = renderRuntimeEditorLauncher(createUIContext(ctrl.game), ctrl.runtimeEditorLauncherPos, entries, unavailableActions);
+  bindRuntimeEditorLauncherActions(ctrl, host);
+  syncRuntimeEditorLauncherButton(ctrl);
+}
+
 export function syncRuntimeEditorPanel(ctrl: UIController): void {
   const existing = document.querySelector<HTMLElement>('[data-runtime-editor-panel-host]');
   if (!ctrl.runtimeEditorPanelOpen) {
     existing?.remove();
-    document.querySelectorAll<HTMLElement>('#runtime-editor-launch').forEach(button => {
-      button.setAttribute('aria-expanded', 'false');
-      button.classList.remove('is-active');
-    });
     return;
   }
   const host = existing ?? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'runtime-editor-panel-host' }));
@@ -180,9 +207,98 @@ export function syncRuntimeEditorPanel(ctrl: UIController): void {
   host.innerHTML = renderRuntimeEditorPanel(createUIContext(ctrl.game), ctrl.panelState);
   const panel = host.querySelector<HTMLElement>('.runtime-editor-panel');
   if (panel) bindRuntimeDatapackEditorActions(ctrl, panel);
-  document.querySelectorAll<HTMLElement>('#runtime-editor-launch').forEach(button => {
-    button.setAttribute('aria-expanded', 'true');
-    button.classList.add('is-active');
+}
+
+function launcherPosition(ctrl: UIController, launcher: HTMLElement, x: number, y: number): { x: number; y: number } {
+  const rect = launcher.getBoundingClientRect();
+  const width = rect.width || 240;
+  const height = rect.height || 220;
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1280;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 720;
+  const next = {
+    x: Math.min(Math.max(8, x), Math.max(8, viewportWidth - width - 8)),
+    y: Math.min(Math.max(8, y), Math.max(8, viewportHeight - height - 8)),
+  };
+  ctrl.runtimeEditorLauncherPos = next;
+  launcher.style.left = `${next.x}px`;
+  launcher.style.top = `${next.y}px`;
+  launcher.style.right = 'auto';
+  launcher.style.bottom = 'auto';
+  return next;
+}
+
+function activateRuntimeEditorLauncherEntry(ctrl: UIController, action: RuntimeEditorLauncherAction): void {
+  ctrl.runtimeEditorLauncherOpen = false;
+  syncRuntimeEditorLauncher(ctrl);
+  const registered = runtimeEditorLauncherEntries().find(entry => entry.action === action);
+  if (registered?.isAvailable && !registered.isAvailable(ctrl)) return;
+  if (registered?.onSelect) {
+    registered.onSelect(ctrl);
+    return;
+  }
+  if (action === 'mod-info') {
+    openRuntimeEditorPanel(ctrl);
+    return;
+  }
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  if (!editor?.enabled) {
+    openRuntimeEditorPanel(ctrl);
+    return;
+  }
+  if (!editor.modName || !editor.displayName) {
+    setRuntimeEditorError(editor, '请先完成 Mod 信息，再创建内容。');
+    openRuntimeEditorPanel(ctrl);
+    return;
+  }
+  ctrl.modal.close();
+  openRuntimeEditorPanel(ctrl);
+  if (action === 'create-init') {
+    prepareRuntimeEditorForNewDefinition(editor, 'inits');
+    openRuntimeDefinitionEditor(ctrl, 'inits');
+  } else if (action === 'create-area') {
+    prepareRuntimeEditorForNewDefinition(editor, 'areas');
+    openRuntimeDefinitionEditor(ctrl, 'areas');
+  } else {
+    const areaId = editor.selectedAreaId ?? ctrl.game.getView().currentAreaId ?? [...ctrl.game.registry.areas.keys()][0];
+    if (!areaId) {
+      setRuntimeEditorError(editor, '请先创建或选择一个 Area，再创建 Spot。');
+      openRuntimeEditorPanel(ctrl);
+      return;
+    }
+    prepareRuntimeEditorForNewSpot(editor, areaId);
+    openRuntimeSpotEditor(ctrl);
+  }
+}
+
+function bindRuntimeEditorLauncherActions(ctrl: UIController, scope: ParentNode): void {
+  scope.querySelector('[data-runtime-editor-launcher-close]')?.addEventListener('click', () => {
+    ctrl.runtimeEditorLauncherOpen = false;
+    syncRuntimeEditorLauncher(ctrl);
+  });
+  scope.querySelectorAll<HTMLElement>('[data-runtime-editor-launcher-entry]').forEach(button => {
+    button.addEventListener('click', () => {
+      const action = button.dataset.runtimeEditorLauncherEntry as RuntimeEditorLauncherAction | undefined;
+      if (action && runtimeEditorLauncherEntries().some(entry => entry.action === action)) activateRuntimeEditorLauncherEntry(ctrl, action);
+    });
+  });
+  const launcher = scope.querySelector<HTMLElement>('[data-runtime-editor-launcher]');
+  const handle = scope.querySelector<HTMLElement>('[data-runtime-editor-launcher-drag-handle]');
+  if (!launcher || !handle) return;
+  handle.addEventListener('pointerdown', event => {
+    if ((event.target as Element).closest('button')) return;
+    const pointer = event as PointerEvent;
+    const rect = launcher.getBoundingClientRect();
+    const offsetX = pointer.clientX - rect.left;
+    const offsetY = pointer.clientY - rect.top;
+    const move = (nextEvent: PointerEvent): void => {
+      launcherPosition(ctrl, launcher, nextEvent.clientX - offsetX, nextEvent.clientY - offsetY);
+    };
+    const stop = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop, { once: true });
   });
 }
 
@@ -295,6 +411,11 @@ function stashRuntimeDefinitionForm(ctrl: UIController, scope: ParentNode): void
     ...(editor.formDraft ?? {}),
   };
   Object.assign(values, readRuntimeEditorFields(policy, scope), readRuntimeDefinitionExtensions(policy, scope));
+  const defaultAreaField = scope.querySelector<HTMLInputElement>('[data-runtime-editor-default-area-id-name]');
+  if (defaultAreaField) {
+    values.__defaultAreaIdName = defaultAreaField.value.trim();
+    values.__defaultAreaTouched = editor.formDraft?.__defaultAreaTouched === true;
+  }
   editor.formDraft = values;
 }
 
@@ -306,11 +427,56 @@ function saveRuntimeDefinitionDraft(ctrl: UIController, scope: ParentNode, reope
   if (!policy) return false;
   const previousId = editor.selectedDefinitionId;
   stashRuntimeDefinitionForm(ctrl, scope);
-  const values: Record<string, unknown> = { ...(editor.formDraft ?? {}) };
+  const rawValues: Record<string, unknown> = { ...(editor.formDraft ?? {}) };
+  const values: Record<string, unknown> = { ...rawValues };
+  delete values.__defaultAreaIdName;
+  delete values.__defaultAreaTouched;
   const normalizedIds = normalizeEntityNameValues(policy, values);
   setRuntimeEditorNotice(editor, normalizedIds.length > 0 ? `ID 含大写字母，已自动转为小写：${normalizedIds.join('、')}` : null);
+  let bootstrapArea: RuntimeEditorAreaDraft | null = null;
+  if (kind === 'inits' && !previousId) {
+    if (!editor.modName || !editor.displayName) {
+      setRuntimeEditorError(editor, '请先完成 Mod 信息，再创建 Init。');
+      if (reopenEditor) openRuntimeDefinitionEditor(ctrl, kind);
+      return false;
+    }
+    const defaultAreaIdName = String(rawValues.__defaultAreaIdName ?? suggestedRuntimeDefaultAreaIdName(String(values.idName ?? ''))).trim().toLowerCase();
+    if (!defaultAreaIdName) {
+      setRuntimeEditorError(editor, '请填写 defaultArea ID 名。');
+      if (reopenEditor) openRuntimeDefinitionEditor(ctrl, kind);
+      return false;
+    }
+    const initId = `${editor.modName}:init:${String(values.idName ?? '')}`;
+    const areaInput: RuntimeEditorAreaDraft = {
+      idName: defaultAreaIdName,
+      initId,
+      name: '默认区域',
+      description: '',
+      defaultSpots: [],
+      topology: [],
+    };
+    normalizeEntityNameValues(AREA_CONTENT_POLICY, areaInput as unknown as Record<string, unknown>);
+    const areaId = `${editor.modName}:area:${areaInput.idName}`;
+    const duplicateArea = runtimeEditorDefinitions(editor, 'areas').some(area => area.idName === areaInput.idName)
+      || runtimeEditorAppliedDefinitions(editor, 'areas').some(area => area.idName === areaInput.idName);
+    if (duplicateArea) {
+      setRuntimeEditorError(editor, `当前 Draft 已存在 Area ID：${areaInput.idName}`);
+      if (reopenEditor) openRuntimeDefinitionEditor(ctrl, kind);
+      return false;
+    }
+    const areaProblem = validateAuthoringInput(AREA_CONTENT_POLICY, areaInput, runtimeAuthoringContext(ctrl));
+    if (areaProblem) {
+      setRuntimeEditorProblems(editor, [{ code: areaProblem.code, path: areaProblem.path, message: areaProblem.message }]);
+      setRuntimeEditorError(editor, areaProblem.message);
+      if (reopenEditor) openRuntimeDefinitionEditor(ctrl, kind);
+      return false;
+    }
+    values.defaultAreas = [areaId];
+    bootstrapArea = areaInput;
+  }
   const policyProblem = validateAuthoringInput(policy, values, runtimeAuthoringContext(ctrl));
-  const initProblems = kind === 'inits' ? runtimeEditorInitProblems(createUIContext(ctrl.game), editor, values) : [];
+  const initValidationValues = bootstrapArea ? { ...values, defaultAreas: [] } : values;
+  const initProblems = kind === 'inits' ? runtimeEditorInitProblems(createUIContext(ctrl.game), editor, initValidationValues) : [];
   const problem = policyProblem ?? initProblems[0];
   if (problem) {
     setRuntimeEditorProblems(editor, policyProblem ? [policyProblem, ...initProblems] : initProblems);
@@ -332,7 +498,12 @@ function saveRuntimeDefinitionDraft(ctrl: UIController, scope: ParentNode, reope
     if (reopenEditor) openRuntimeDefinitionEditor(ctrl, kind);
     return false;
   }
-  setRuntimeEditorDefinition(editor, kind, values as unknown as RuntimeEditorDefinitionDraft);
+  if (bootstrapArea) {
+    setRuntimeEditorDefinition(editor, 'areas', bootstrapArea);
+    setRuntimeEditorDefinition(editor, kind, values as unknown as RuntimeEditorDefinitionDraft);
+  } else {
+    setRuntimeEditorDefinition(editor, kind, values as unknown as RuntimeEditorDefinitionDraft);
+  }
   setRuntimeEditorProblems(editor, []);
   setRuntimeEditorError(editor, null);
   if (reopenEditor) openRuntimeDefinitionEditor(ctrl, kind);
@@ -631,12 +802,29 @@ function renderRuntimeInitDeletionImpact(ctrl: UIController, idName: string): st
 }
 
 export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode): void {
+  const defaultAreaInput = scope.querySelector<HTMLInputElement>('[data-runtime-editor-default-area-id-name]');
+  const initIdInput = scope.querySelector<HTMLInputElement>('[data-runtime-editor-field="idName"]');
+  defaultAreaInput?.addEventListener('input', () => {
+    const editor = ctrl.panelState.runtimeDatapackEditor;
+    if (!editor) return;
+    editor.formDraft = { ...(editor.formDraft ?? {}), __defaultAreaIdName: defaultAreaInput.value, __defaultAreaTouched: true };
+  });
+  initIdInput?.addEventListener('input', () => {
+    const editor = ctrl.panelState.runtimeDatapackEditor;
+    if (!editor || editor.formDraft?.__defaultAreaTouched === true || !defaultAreaInput) return;
+    defaultAreaInput.value = suggestedRuntimeDefaultAreaIdName(initIdInput.value);
+  });
   scope.querySelector('[data-runtime-editor-panel-close]')?.addEventListener('click', () => {
     ctrl.runtimeEditorPanelOpen = false;
     clearSubDialogs();
     syncRuntimeEditorPanel(ctrl);
   });
-  scope.querySelector('#runtime-editor-launch')?.addEventListener('click', () => openRuntimeEditorPanel(ctrl));
+  scope.querySelector('#runtime-editor-launch')?.addEventListener('click', () => {
+    if (ctrl.runtimeEditorLauncherOpen) {
+      ctrl.runtimeEditorLauncherOpen = false;
+      syncRuntimeEditorLauncher(ctrl);
+    } else openRuntimeEditorLauncher(ctrl);
+  });
   scope.querySelector('[data-runtime-editor-toggle]')?.addEventListener('click', () => {
     ctrl.panelState.runtimeDatapackEditor = createRuntimeDatapackEditorState([...ctrl.game.registry.areas.keys()][0] ?? null);
     openRuntimeEditorPanel(ctrl);
@@ -1253,6 +1441,7 @@ export function syncRuntimeEditorCreateActions(ctrl: UIController): void {
   ctrl.toast.removeAction('runtime-init-create');
   ctrl.toast.removeAction('runtime-area-create');
   ctrl.toast.removeAction('runtime-spot-create');
+  syncRuntimeEditorLauncher(ctrl);
   syncRuntimeEditorPanel(ctrl);
 }
 

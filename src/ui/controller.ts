@@ -192,6 +192,10 @@ export class UIController {
   themeFloatPos: { x: number; y: number } | null = null;
   /** @internal Runtime Editor body-level floating workspace visibility. */
   runtimeEditorPanelOpen = false;
+  /** @internal Runtime Editor mini launcher visibility. */
+  runtimeEditorLauncherOpen = false;
+  /** @internal Runtime Editor mini launcher position; null uses the CSS safe default. */
+  runtimeEditorLauncherPos: { x: number; y: number } | null = null;
 
   // --- 疏散出去的领域模块 ---
   /** 聊天流（ID 计数 / 剧情指纹 / 路由 / 同步）。 */

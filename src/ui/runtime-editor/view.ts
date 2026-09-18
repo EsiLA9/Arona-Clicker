@@ -12,6 +12,7 @@ import {
   runtimeEditorPendingDefinitions,
   runtimeEditorEntryState,
   runtimeEditorPendingSpots,
+  suggestedRuntimeDefaultAreaIdName,
   type RuntimeDatapackEditorState,
   type RuntimeEditorContentKind,
   type RuntimeEditorDefinitionDraft,
@@ -41,6 +42,7 @@ import {
   renderTagList,
 } from './collections';
 import { mergeRuntimeEditorReferenceOptions, renderRuntimeEditorReferenceOptions, runtimeEditorReferenceOptions } from './reference-options';
+import { runtimeEditorLauncherEntries, type RuntimeEditorLauncherEntry } from './launcher';
 
 const POLICY = SPOT_CONTENT_POLICY;
 
@@ -66,6 +68,20 @@ const INIT_UNSUPPORTED_FIELDS: readonly { key: string; label: string }[] = [
 ];
 
 export { readRuntimeEditorFields };
+
+export function renderRuntimeEditorLauncher(
+  ctx: UIContext,
+  position: { readonly x: number; readonly y: number } | null = null,
+  entries: readonly RuntimeEditorLauncherEntry[] = runtimeEditorLauncherEntries(),
+  unavailableActions: ReadonlySet<string> = new Set(),
+): string {
+  const style = position ? ` style="left:${position.x}px;top:${position.y}px;right:auto;bottom:auto"` : '';
+  const buttons = entries.map(entry => {
+    const disabled = unavailableActions.has(entry.action);
+    return `<button type="button" class="runtime-editor-launcher-entry" data-runtime-editor-launcher-entry="${ctx.escapeHtml(entry.action)}"${disabled ? ' disabled aria-disabled="true"' : ''}>${ctx.escapeHtml(entry.label)}</button>`;
+  }).join('');
+  return `<aside class="runtime-editor-launcher" role="dialog" aria-modal="false" aria-labelledby="runtime-editor-launcher-title" data-runtime-editor-launcher${style}><header class="runtime-editor-launcher-head" data-runtime-editor-launcher-drag-handle><strong id="runtime-editor-launcher-title">编辑器</strong><button type="button" class="runtime-editor-launcher-close" data-runtime-editor-launcher-close aria-label="关闭编辑器入口" title="关闭">×</button></header><nav class="runtime-editor-launcher-list" aria-label="编辑器入口">${buttons}</nav></aside>`;
+}
 
 /** 只有实际处于游戏 Init 页面时，Area 新建表单才继承当前 Init。 */
 export function runtimeEditorPreferredAreaInitId(ctx: UIContext, state: PanelState): string | null {
@@ -284,11 +300,20 @@ export function renderRuntimeDefinitionForm(ctx: UIContext, state: PanelState, k
   const diff = definition && applied ? renderRuntimeEditorDiff(runtimeEditorDiff(policy, values, applied)) : '';
   const pages = current ? renderDefinitionSection(ctx, editor, policy, current, active, views, values, diff, problems) : '';
   const label = CONTENT_KIND_LABEL[kind];
+  const initCreationAssist = kind === 'inits' && !definition ? renderRuntimeInitCreationAssist(ctx, editor, values) : '';
   return `<div class="runtime-editor-form runtime-editor-shell" data-runtime-editor-definition-form data-runtime-editor-content-kind="${kind}">
     <header class="runtime-editor-topbar"><div class="runtime-editor-topbar-title"><h4>${definition ? `编辑 ${label}` : `新建 ${label}`}</h4><p class="service-summary">${definition ? '保存只写入草稿；确认差异后再应用到运行时。' : '保存后加入临时 Mod 草稿，不会立刻改变游戏。'}</p></div><div class="service-actions"><button type="button" class="primary-button" data-runtime-editor-save-definition="${kind}">${definition ? `保存 ${label} 修改` : `加入 ${label} 草稿`}</button><button type="button" class="primary-button" data-runtime-editor-apply>应用到运行时</button>${definition ? `<button type="button" class="toolbar-button danger" data-runtime-editor-delete-definition="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}">删除 ${label}</button>` : ''}</div></header>
-    ${renderError(esc, editor)}${renderNotice(esc, editor)}
+    ${renderError(esc, editor)}${renderNotice(esc, editor)}${initCreationAssist}
     <div class="runtime-editor-body"><nav class="runtime-editor-switch" data-runtime-editor-switch>${tabs}</nav><div class="runtime-editor-panes">${pages}</div></div>
   </div>`;
+}
+
+function renderRuntimeInitCreationAssist(ctx: UIContext, editor: RuntimeDatapackEditorState, values: Record<string, unknown>): string {
+  const esc = ctx.escapeHtml;
+  const initIdName = String(values.idName ?? '');
+  const stored = editor.formDraft?.__defaultAreaIdName;
+  const defaultAreaIdName = typeof stored === 'string' && stored ? stored : suggestedRuntimeDefaultAreaIdName(initIdName);
+  return `<section class="runtime-init-creation-assist" aria-label="新建 Init 默认区域"><div><span class="eyebrow">INIT BOOTSTRAP</span><h5>同时创建默认区域</h5><p class="runtime-editor-hint">保存 Init 时会一起创建一个属于它的 Area，之后仍可从 Area 入口继续编辑。</p></div><label class="user-theme-field"><span>defaultArea ID 名</span><input type="text" data-runtime-editor-default-area-id-name value="${esc(defaultAreaIdName)}" placeholder="例如 ${esc(suggestedRuntimeDefaultAreaIdName(initIdName))}" autocomplete="off"><em class="runtime-editor-hint">这是局部 ID 名，不要填写完整实体 ID。</em></label></section>`;
 }
 
 function renderDefinitionSection(

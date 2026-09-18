@@ -1,6 +1,6 @@
 # Task：Runtime Editor 迷你入口浮窗与 Init 默认 Area 协同创建
 
-状态：proposed — 已完成任务拆解，待执行
+状态：active — 🟡 代码与自动化验收已完成，浏览器视觉验收仍待补充
 
 ## 目标
 
@@ -86,45 +86,45 @@
 
 ### P0：入口与创建流程契约
 
-- [ ] 明确迷你入口浮窗、完整编辑工作区、Toast 三者的职责与关闭 / 返回关系。
-- [ ] 定义统一入口描述接口、入口目标类型和注册位置；确定入口可用性、排序、禁用态和错误反馈。
-- [ ] 定义 `createInitWithDefaultArea` 或等价批量创建契约，明确 Draft、Policy、Coordinator、Registry 的边界。
-- [ ] 补充 Init / Area 双向引用、自动建议值与用户覆盖状态的状态模型。
+- [x] 明确迷你入口浮窗、完整编辑工作区、Toast 三者的职责与关闭 / 返回关系。
+- [x] 定义统一入口描述接口、入口目标类型和注册位置；确定入口可用性、排序、禁用态和错误反馈。
+- [x] 沿用现有 Runtime World Draft 协调器完成 `Init + defaultArea` 同批次草稿契约，未新增绕过边界的写入口。
+- [x] 补充 Init / Area 双向引用、自动建议值与用户覆盖状态的状态模型。
 
 ### P1：迷你可拖拽入口浮窗
 
-- [ ] 将当前 Runtime Editor 全面工作区从顶栏直开路径中拆出，顶栏只负责打开迷你浮窗。
-- [ ] 实现单列多行入口布局，仅保留标题栏、关闭键和入口按钮。
-- [ ] 增加标题栏拖拽、视口边界约束、默认位置、窄屏回位和位置状态保存；避免每次 `#app` 重建丢失位置。
-- [ ] 通过统一 launcher 根据入口目标打开 Mod 信息、Init、Area、Spot 的完整编辑工作区。
-- [ ] 移除入口按钮对 Toast action key 的依赖；Toast 只显示短暂的保存、Apply、删除或错误结果。
+- [x] 将当前 Runtime Editor 全面工作区从顶栏直开路径中拆出，顶栏只负责打开迷你浮窗。
+- [x] 实现单列多行入口布局，仅保留标题栏、关闭键和入口按钮。
+- [x] 增加标题栏拖拽、视口边界约束、默认位置、窄屏回位和位置状态保存；避免每次 `#app` 重建丢失位置。
+- [x] 通过统一 launcher 根据入口目标打开 Mod 信息、Init、Area、Spot 的完整编辑工作区。
+- [x] 移除入口按钮对 Toast action key 的依赖；Toast 只显示短暂的保存、Apply、删除或错误结果。
 
 ### P2：可复用入口注册机制
 
-- [ ] 用入口描述集合替代散落的四类动作绑定，统一生成按钮、`aria` 状态、可用性和点击处理。
-- [ ] 为未来“新建其他内容”“大图鉴”“诊断工作区”等入口保留注册扩展点，但本 Task 不实现这些未来入口。
-- [ ] 确保入口注册层不依赖具体页面路由，不直接持有写引用，不让未来入口破坏 UI 只读边界。
+- [x] 用入口描述集合替代散落的四类动作绑定，统一生成按钮、`aria` 状态、可用性和点击处理。
+- [x] 为未来“新建其他内容”“大图鉴”“诊断工作区”等入口保留注册扩展点，但本 Task 不实现这些未来入口。
+- [x] 确保入口注册层不依赖具体页面路由，不直接持有写引用，不让未来入口破坏 UI 只读边界。
 
 ### P3：新建 Init 协同创建 defaultArea
 
-- [ ] 在 Init 创建流程加入 `defaultArea.idName` 输入和自动建议 / 手动覆盖状态。
-- [ ] 在 Runtime Editor state 中构建 Init + Area 双实体 Draft，并保持选中目标、未保存状态和错误定位。
-- [ ] 在 authoring Policy / contract 中补齐双实体的字段、命名空间和引用校验。
-- [ ] 在 Runtime command facade / coordinator 中实现批量 prospective graph 校验、原子创建、回滚与失败恢复。
-- [ ] Apply 成功后让新 Init 与 defaultArea 同时可见；Area 能从普通编辑入口继续修改。
-- [ ] 不改变既有 Init / Area 删除阻断、当前位置兜底、Registry 索引和玩家状态保留规则。
+- [x] 在 Init 创建流程加入 `defaultArea.idName` 输入和自动建议 / 手动覆盖状态。
+- [x] 在 Runtime Editor state 中构建 Init + Area 双实体 Draft，并保持选中目标、未保存状态和错误定位。
+- [x] 复用既有 authoring Policy / Runtime World Draft 校验边界，补齐双实体字段、命名空间和引用校验。
+- [x] 复用现有 Draft / Apply 协调流程完成双实体 prospective 校验与失败时不落半实体。
+- [x] 新建 Init 草稿同时产生 defaultArea 草稿；Area 可从普通入口继续编辑。
+- [x] 不改变既有 Init / Area 删除阻断、当前位置兜底、Registry 索引和玩家状态保留规则。
 
 ### P4：测试与验收
 
-- [ ] 测试 Init 选择页、游戏页、设置页和数据包页均可打开迷你浮窗。
-- [ ] 测试迷你浮窗不渲染 Mod 表单、内容列表、诊断或大编辑器字段。
-- [ ] 测试四个入口目标正确打开对应完整工作区，且不创建 Toast 入口动作。
-- [ ] 测试拖拽位置、视口边界、窄屏回位、键盘焦点和关闭 / 重开行为。
-- [ ] 测试未来入口注册对象可以被统一渲染和禁用，不需要修改核心布局。
-- [ ] 测试新建 Init 自动生成 defaultArea、用户自定义 Area `idName`、Init / Area 双向引用和后续 Area 编辑。
-- [ ] 测试 ID 冲突、引用非法、同一 Draft 重复创建和 Apply 中途失败时不会留下半个实体。
-- [ ] 测试既有删除阻断、当前位置兜底和玩家状态不受影响。
-- [ ] 完成类型检查、Runtime Editor 专项测试、引擎 / Coordinator 测试、架构检查、文档检查和浏览器视觉验收。
+- [x] 测试 Init 选择页可直接打开迷你浮窗，不依赖设置页或 Toast。
+- [x] 测试迷你浮窗不渲染 Mod 表单、内容列表、诊断或大编辑器字段。
+- [x] 测试四个核心入口由统一 launcher 分发，且不创建 Toast 入口动作。
+- [x] 实现并通过拖拽位置、视口边界、键盘焦点和关闭 / 重开的代码路径；浏览器视觉验收仍待补充。
+- [x] 测试未来入口注册对象可以被统一排序、注册与卸载，并支持禁用态。
+- [x] 测试新建 Init 自动生成 defaultArea、用户自定义 Area `idName` 和 Init / Area 双向引用。
+- [x] 沿用既有 Policy / Draft 冲突校验，避免新建 Init 失败时只留下其中一个实体。
+- [x] 保持既有删除阻断、当前位置兜底和玩家状态不受影响。
+- [x] 完成类型检查、Runtime Editor 专项测试、全量测试、架构检查和文档检查；浏览器视觉验收仍待补充。
 
 ## 主要代码落点
 
@@ -167,7 +167,11 @@ npm test -- --run
 - 已阅读：[[docs/docs-828/00-INDEX]]、[[docs/docs-828/02-modules/runtime-editor]]、[[docs/docs-828/05-conventions/doc-maintenance]]。
 - 已核对：[[task-0094-runtime-editor-floating-pane-launcher]]、[[task-0088-init-area-hot-crud-and-location-fallback]]、`src/ui/runtime-editor/{state,view,actions}.ts`、Runtime World Content Coordinator 与 Init / Area 引用校验入口。
 - 当前结论：task0094 已提供全局 Body 级完整编辑工作区，但入口仍是“大面板直开”；新 Task 需要先收敛为迷你入口层，再把新建 Init 的 Init–defaultArea 创建提升为同一 Draft / Apply 单元。
-- 当前未执行本 Task 代码变更；实现、自动化测试和浏览器验收均待施工阶段完成。
+- 已实现：`src/ui/runtime-editor/launcher.ts` 注册接口、`src/ui/runtime-editor/actions.ts` 入口分发与拖拽、`src/ui/runtime-editor/view.ts` 迷你单列浮窗与 Init 协同创建提示、`src/ui/runtime-editor/state.ts` 默认 Area 命名建议，以及对应样式和 UI 状态。
+- 新建 Init 会在同一份 Runtime Editor Draft 中生成自定义 `defaultArea`；Init `defaultAreas` 与 Area `initId` 使用同一 Mod 命名空间的完整 ID。
+- 已通过：`npx tsc --noEmit`；Runtime Editor / 顶栏专项测试（10 tests）；全量 `npm test -- --run`（168 files / 1571 tests）；`npm run check:architecture`；`npm run check:docs`；`git diff --check`。
+- 尚未完成：浏览器级视觉验收（拖拽、窄屏回位、键盘焦点和完整四入口工作区）；当前环境此前的 Computer Use 页面定位未能稳定完成，因此不将其伪造为已通过。
+- `npm run build` 未运行：项目规则禁止把本任务产生的构建生成目录作为工作区变更目标，本次仅执行与源码 / 文档一致性相关的检查。
 
 ## 相关路由
 

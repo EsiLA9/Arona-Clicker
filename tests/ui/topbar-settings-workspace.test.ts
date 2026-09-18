@@ -9,6 +9,7 @@ import { renderAppShell, type PanelState } from '../../src/ui/components/app-she
 import { UI_HOST_REGISTRY } from '../../src/ui/ui-host-registry';
 import { UIController } from '../../src/ui/controller';
 import { DEBUG_EDITING_DEFAULTS, IS_DEBUG_EDITING } from '../../src/ui/runtime-editor/config';
+import { createRuntimeDatapackEditorState, updateRuntimeEditorFields } from '../../src/ui/runtime-editor/state';
 import '../../src/ui/service-definitions';
 
 const baseState = (): PanelState => ({
@@ -28,7 +29,7 @@ describe('顶栏与设置工作区', () => {
     localStorage.clear();
   });
 
-  it('Init 选择大厅可直接打开 Runtime Editor 浮动面板，不依赖设置页', () => {
+  it('Init 选择大厅可直接打开 Runtime Editor 迷你入口，不依赖设置页', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
     const root = document.createElement('div');
@@ -40,9 +41,44 @@ describe('顶栏与设置工作区', () => {
     root.querySelector<HTMLButtonElement>('#runtime-editor-launch')!.click();
 
     expect(controller.panelState.service).toBe('game');
-    expect(document.querySelector('.runtime-editor-panel')).not.toBeNull();
-    expect(document.querySelector('.runtime-editor-panel [data-runtime-editor-toggle], .runtime-editor-panel [data-runtime-editor-mod-field="modName"]')).not.toBeNull();
+    expect(document.querySelector('.runtime-editor-launcher')).not.toBeNull();
+    expect(document.querySelectorAll('.runtime-editor-launcher-entry')).toHaveLength(4);
+    expect(document.querySelector('.runtime-editor-panel')).toBeNull();
+    expect(document.querySelector('.runtime-editor-launcher [data-runtime-editor-default-area-id-name]')).toBeNull();
     expect(document.querySelector('#toast-layer .toast-action')).toBeNull();
+    controller.destroy();
+    game.stop();
+  });
+
+  it('新建 Init 会在同一份 Draft 中协同创建可自定义 ID 的 defaultArea', () => {
+    const game = new AronaClickerRuntime();
+    game.init([baseDatapack]);
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const controller = new UIController(game, root);
+    const editor = createRuntimeDatapackEditorState(null);
+    updateRuntimeEditorFields(editor, { modName: 'mini-mod', displayName: 'Mini Mod' });
+    controller.panelState.runtimeDatapackEditor = editor;
+    controller.render();
+
+    root.querySelector<HTMLButtonElement>('#runtime-editor-launch')!.click();
+    document.querySelector<HTMLButtonElement>('[data-runtime-editor-launcher-entry="create-init"]')!.click();
+    expect(document.querySelector('.runtime-editor-panel')).not.toBeNull();
+    expect(document.querySelector('.app-modal')).not.toBeNull();
+
+    document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-section-tab="basics"]')!.click();
+    document.querySelector<HTMLInputElement>('.app-modal [data-runtime-editor-field="idName"]')!.value = 'academy';
+    document.querySelector<HTMLInputElement>('.app-modal [data-runtime-editor-field="name"]')!.value = '学院世界线';
+    const defaultArea = document.querySelector<HTMLInputElement>('.app-modal [data-runtime-editor-default-area-id-name]')!;
+    defaultArea.value = 'academy-lobby';
+    defaultArea.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector<HTMLButtonElement>('.app-modal [data-runtime-editor-save-definition="inits"]')!.click();
+
+    expect(editor.inits).toHaveLength(1);
+    expect(editor.areas).toHaveLength(1);
+    expect(editor.inits[0]).toMatchObject({ idName: 'academy', defaultAreas: ['mini-mod:area:academy-lobby'] });
+    expect(editor.areas[0]).toMatchObject({ idName: 'academy-lobby', initId: 'mini-mod:init:academy' });
+    controller.modal.close();
     controller.destroy();
     game.stop();
   });
