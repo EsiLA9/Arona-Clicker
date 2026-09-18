@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { getContentPolicy } from '../../src/data-services/authoring/content-policy';
 import type { UIContext } from '../../src/ui/context';
 import type { PanelState } from '../../src/ui/components/app-shell';
@@ -32,6 +34,20 @@ const ctx = {
 } as unknown as UIContext;
 
 describe('Runtime Editor shared Init / Area framework', () => {
+  test('右侧 panes 使用独立滚动高度，不由左侧 Switch 的内容高度决定', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/ui/css/runtime-editor.css'), 'utf8');
+    const panelBody = css.match(/\.runtime-editor-panel-body\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+    const editorBody = css.match(/\.runtime-editor-body\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+    const panes = css.match(/\.runtime-editor-panes\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+
+    expect(panelBody).toContain('display: flex;');
+    expect(panelBody).toContain('overflow: hidden;');
+    expect(editorBody).toContain('min-height: 0;');
+    expect(editorBody).toContain('overflow: hidden;');
+    expect(panes).toContain('height: 100%;');
+    expect(panes).toContain('overflow-y: auto;');
+  });
+
   test('Runtime Editor 通过独立浮动面板承载入口，不依赖 Toast', () => {
     document.body.innerHTML = '';
     const editor = createRuntimeDatapackEditorState(null);

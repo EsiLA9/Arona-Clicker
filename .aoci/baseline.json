@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-09-17T05:08:34Z",
-  "updated_at": "2026-09-18T04:06:03Z",
+  "updated_at": "2026-09-18T04:27:57Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -24,9 +24,9 @@
       "normalized_sha256": "ee99df011bad7eddec8a817070e92d4e17f3633608021042bc117412d3c724c3"
     },
     "aoci.code.txt": {
-      "sha256": "da9b661bbc10e18f2fdccbd2f7a102230cf1f980e5a0ab9a4aee3180660a382d",
-      "size": 422309,
-      "normalized_sha256": "da9b661bbc10e18f2fdccbd2f7a102230cf1f980e5a0ab9a4aee3180660a382d"
+      "sha256": "4bf66ef738a1c6c2a3d61e74ee3c9700f2f66a7649738232b5dde7c06f14a4cf",
+      "size": 423937,
+      "normalized_sha256": "4bf66ef738a1c6c2a3d61e74ee3c9700f2f66a7649738232b5dde7c06f14a4cf"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -501,9 +501,9 @@
       "normalized_sha256": "4cf6ce4585b58ccbd3e5b6aa336dcc9b5e3adbfb14484f69bfe80a7cba1405b4"
     },
     "docs/docs-828/07-audit/dom-refresh-chains.md": {
-      "sha256": "7069b765162711b20f2bd3cd55529ed783af00a4d40e73bb04baabe92e998a3e",
-      "size": 11984,
-      "normalized_sha256": "7069b765162711b20f2bd3cd55529ed783af00a4d40e73bb04baabe92e998a3e"
+      "sha256": "fd6031893c91c9677a93593a8aa99ba653679e74551c1b65ff300e8bd30a16d6",
+      "size": 12152,
+      "normalized_sha256": "fd6031893c91c9677a93593a8aa99ba653679e74551c1b65ff300e8bd30a16d6"
     },
     "docs/docs-828/07-audit/dormant-machinery.md": {
       "sha256": "8fe62b40a3ef8f450518355681f62f98cc64c441d2fcc5e590be7c5d073d12a8",
@@ -546,9 +546,9 @@
       "normalized_sha256": "f90deb36f23940ec18c3b51544dfc5c5af370404281ecf45782713c40e4307ed"
     },
     "docs/plan-work/00-index.md": {
-      "sha256": "5725f6b41551c5cb2929701723d9651b62748c1a1d0b1f429cd06b454845d6a8",
-      "size": 16622,
-      "normalized_sha256": "554149ec0d0fda2df698c475d3c7cf4a907e7df4f0cc2a59031398d86ced7095"
+      "sha256": "7747cc5a72cf43f0bc3b166e20f97e3fa0c992da9936569d7a0561a358eeddd4",
+      "size": 16990,
+      "normalized_sha256": "5838763e681ac25a6a5f8efebe0c3efa723c1f1375debc870cd3b1437ec11bab"
     },
     "docs/plan-work/archive/01-ownership-and-development.md": {
       "sha256": "c4fe861643ad530bc3cf8221fd0c414530bc2f8145f2f323d4ad4753257e2a74",
@@ -1331,19 +1331,29 @@
       "normalized_sha256": "3b147bc50b65d1a6e749ecc059f093a42dfbd6d2016dd5d4395de6b356b55e65"
     },
     "docs/plan-work/task-0096-panel-granular-refresh-api-and-hover-continuity.md": {
-      "sha256": "fbbf26042145c7df660d8c705e4696caf405c65cc809ff693fcbfd34c5b7282f",
-      "size": 11842,
-      "normalized_sha256": "fbbf26042145c7df660d8c705e4696caf405c65cc809ff693fcbfd34c5b7282f"
+      "sha256": "32eace61da6566c511dcfea76a0359702ae9cc2ebce04c9a6ffa12ff0ea99585",
+      "size": 12540,
+      "normalized_sha256": "32eace61da6566c511dcfea76a0359702ae9cc2ebce04c9a6ffa12ff0ea99585"
     },
     "docs/plan-work/task-0097-entity-presentation-content-selection.md": {
-      "sha256": "6c26dcf315be44c5328b7b329aa3c75b5583f92c0f067762c92151d99a83326a",
-      "size": 18786,
-      "normalized_sha256": "6c26dcf315be44c5328b7b329aa3c75b5583f92c0f067762c92151d99a83326a"
+      "sha256": "c5e17a843f3a68473fdadbeca9be1943a46c3caed7c1eb53a4103d85e078f1a5",
+      "size": 19314,
+      "normalized_sha256": "c5e17a843f3a68473fdadbeca9be1943a46c3caed7c1eb53a4103d85e078f1a5"
     },
     "docs/plan-work/task-0098-runtime-editor-workspace-decoupling-and-light-theme.md": {
-      "sha256": "ff1e70393dc72473f2f552aa02e39bef838b6384a68da1b13cb12cccb2048f5a",
-      "size": 10012,
-      "normalized_sha256": "ff1e70393dc72473f2f552aa02e39bef838b6384a68da1b13cb12cccb2048f5a"
+      "sha256": "93d7ec497bd4b3063b9d2aae3eba8c723ef35859a0ea0359204332bc40472b0c",
+      "size": 10325,
+      "normalized_sha256": "93d7ec497bd4b3063b9d2aae3eba8c723ef35859a0ea0359204332bc40472b0c"
+    },
+    "docs/plan-work/task-0100-ui-semantic-region-mapping-follow-up.md": {
+      "sha256": "966fcbae12ad96c38f166cda4c7511cfaf508b5eaafb34b5d841711992071ebb",
+      "size": 1560,
+      "normalized_sha256": "966fcbae12ad96c38f166cda4c7511cfaf508b5eaafb34b5d841711992071ebb"
+    },
+    "docs/plan-work/task-0101-external-refresh-hover-race-and-invalidation.md": {
+      "sha256": "ddce175091ff1c2cb5fd5e47ae0807f189225163ac0a5fd987ca699f812da85b",
+      "size": 4920,
+      "normalized_sha256": "ddce175091ff1c2cb5fd5e47ae0807f189225163ac0a5fd987ca699f812da85b"
     },
     "index.html": {
       "sha256": "8bdab50da0c29f2c5cedb4916a82221b3208b0331f2b4fea4b7ef92bed9cecc3",
@@ -3161,9 +3171,9 @@
       "normalized_sha256": "7d1af4eebb96c8f3c09b2292b4a08c83b4c70562933339eae80cb42d4021bca1"
     },
     "src/ui/controller.ts": {
-      "sha256": "7f72a28dce1d61009fe80567ba1c17296d8dd12f9b9fa6f481bdc8f46f449c1f",
-      "size": 63571,
-      "normalized_sha256": "98f17dc3f4ab91cafb3bbab514169f21246539489044d9b368286aea28de5265"
+      "sha256": "636d9021e0769e5b3fdf467947d52fc3fd193af30396f42b53853d2a84664d18",
+      "size": 63718,
+      "normalized_sha256": "f05a598bdff5111af628a3d25f2dc4e22ebbc2dec0bf36e65b3c84c053b315eb"
     },
     "src/ui/css/background.css": {
       "sha256": "a0d95dd40b09b13ac6ba5384d36a8f6d55ef4f4acb7df6a5649defaa92b4445f",
@@ -3231,9 +3241,9 @@
       "normalized_sha256": "32e58957af821cd6011d2f94f33f1f2425dcd8de82fe24ee2a6928b5e8fd5650"
     },
     "src/ui/css/runtime-editor.css": {
-      "sha256": "07c64987a20e9f14e470e4f9908fa196fe9a822a3d2f4880cfc3915ccdc97596",
-      "size": 31642,
-      "normalized_sha256": "499a8b21ee1c3619c9a0f559615d520191dd362b9fee3c6ee8081d3a05995508"
+      "sha256": "fb50ca51a4f8879d3499b0737507a169802f079b396ee6087e171c6a43ae4ac0",
+      "size": 31808,
+      "normalized_sha256": "f69bbf21f9c9b9d05eef7961c4bbf0227813f4afa416852e20ddf0e1e99a1ff1"
     },
     "src/ui/css/selectors.css": {
       "sha256": "cfa859d9c0b1d14b1cfa4620653459369648583f34cbc14d0a94c3187fc456b9",
@@ -3316,9 +3326,9 @@
       "normalized_sha256": "82339c894fb60df56d135cfaf6ecf51d13a797b84f283a35b5b8f0361441de1e"
     },
     "src/ui/popovers.ts": {
-      "sha256": "869d0b8e787895125156105415f0a687467436f336cb3b6cdd0eb2abc751e14a",
-      "size": 5510,
-      "normalized_sha256": "c7df4ea78eaba497870aa9f2fef2dc8111b201d876aab6dbb27808864edbbdbe"
+      "sha256": "9b338963b8ec4915746405688c150f2366eeb26aeeec5cff556067430e10c1e8",
+      "size": 6299,
+      "normalized_sha256": "101a0194347e86fe534f10fc3f061e882347937c02d2e36756144da11a4e73ba"
     },
     "src/ui/presentation-config.ts": {
       "sha256": "5a660e3164530a7a51e0570959e3fb6d8d49e8dbe7d4fc1e3fe32b632263cff9",
@@ -4344,9 +4354,9 @@
     },
     "tests/ui/runtime-editor-definition.test.ts": {
       "role": "observe",
-      "sha256": "36d474bd0f6547832e3ef66422ed8203fe775168be6be14b4f747484e504a08f",
-      "size": 12630,
-      "normalized_sha256": "36d474bd0f6547832e3ef66422ed8203fe775168be6be14b4f747484e504a08f"
+      "sha256": "567699b699d9b6e0c3d55ddea5af5d0f18816b4308e529aa2c11f40e72b482f5",
+      "size": 13480,
+      "normalized_sha256": "567699b699d9b6e0c3d55ddea5af5d0f18816b4308e529aa2c11f40e72b482f5"
     },
     "tests/ui/runtime-editor-form.test.ts": {
       "role": "observe",
@@ -4514,9 +4524,9 @@
       "normalized_sha256": "36c8c2db5d5fd6310b860e6c4256d540df50507fcf0e8754367c6874110755d2"
     },
     "tools/datapack-editor/schema/engine-defs.gen.json": {
-      "sha256": "74a0aac418684e25505dab327eb4a3b17970ed870307da96cb0d55126e20a629",
+      "sha256": "9d7dbc266638c2c39d34c9c96033c30bcfa579dcb8d46db30bf25480c1cc8f92",
       "size": 383661,
-      "normalized_sha256": "74a0aac418684e25505dab327eb4a3b17970ed870307da96cb0d55126e20a629"
+      "normalized_sha256": "9d7dbc266638c2c39d34c9c96033c30bcfa579dcb8d46db30bf25480c1cc8f92"
     },
     "tools/datapack-editor/schema/engine-defs.ts": {
       "sha256": "08456bdf1d9f49c04e7abfc7a547240b3748302a13a037a6133d403e6e6279bb",

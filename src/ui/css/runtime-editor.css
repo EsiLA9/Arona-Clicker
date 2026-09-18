@@ -128,12 +128,17 @@
 }
 
 .runtime-editor-panel-body {
+   display: flex;
+   flex: 1 1 auto;
+   flex-direction: column;
    min-height: 0;
-   overflow-y: auto;
+   overflow: hidden;
    padding: 14px 16px 20px;
 }
 
 .runtime-editor-panel .runtime-editor-form {
+   flex: 1 1 auto;
+   min-height: 0;
    margin: 0;
 }
 
@@ -649,7 +654,9 @@
    grid-template-columns: 168px minmax(0, 1fr);
    gap: 16px;
    flex: 1 1 auto;
+   min-width: 0;
    min-height: 0;
+   overflow: hidden;
 }
 
 .runtime-editor-switch {
@@ -689,7 +696,9 @@
 .runtime-editor-panes {
    min-width: 0;
    min-height: 0;
+   height: 100%;
    overflow-y: auto;
+   overflow-x: hidden;
    padding-right: 4px;
 }
 

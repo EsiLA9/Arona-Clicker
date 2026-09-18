@@ -77,6 +77,7 @@
 - [x] 移除 Mod 信息与内容表单的右侧出栏差异；统一宽度、间距、按钮、焦点和错误呈现。
 - [x] 统一亮色 Token，移除 Launcher 与完整编辑器之间的暗亮主题分裂。
 - [x] 保留键盘焦点、窄屏布局和 `prefers-reduced-motion` 支持。
+- [x] 将右栏正文设为独立纵向工作区，使右侧 `runtime-editor-panes` 自行滚动，不受左侧 Switch 内容高度约束。
 
 ### P2：内容浏览器独立页面
 
@@ -125,6 +126,7 @@
 - 已通过：`npx tsc --noEmit`；Runtime Editor / 顶栏专项测试（20 tests）。
 - 自动化核验已完成：`npx tsc --noEmit`、Runtime Editor 定向 22 tests、全量 `npm test -- --run`（170 files / 1582 tests）、`npm run check:architecture`、`npm run check:docs` 与 `git diff --check` 均通过。
 - 回归核验补充通过：`tests/ui/topbar-settings-workspace.test.ts` 11 tests，覆盖直接从迷你入口打开时自动建立并填充 Debug Mod 信息。
+- 右栏高度回归通过：面板正文、工作区与 `runtime-editor-panes` 的独立高度/滚动 CSS 契约已锁定；Runtime Editor 定向回归 44 tests 通过。
 - 尚未完成：浏览器级视觉验收；本轮未启动浏览器交互验收，因此不把它标记为已完成。
 - task-0096 的未提交刷新边界改动及其任务文档属于独立工作，不纳入本 Task 的实现范围。
 
