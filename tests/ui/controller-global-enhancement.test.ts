@@ -70,6 +70,22 @@ describe('UIController 选择页翻面（Init ⇄ GlobalEnhancement）', () => {
     expect(root.querySelector('.selector-shell')?.classList.contains('init-mode')).toBe(true);
   });
 
+  it('选择页重建时使旧翻面动画失效，避免 Apply 后回写旧轮盘面向', () => {
+    showSelectPage();
+    root.querySelector<HTMLButtonElement>('[data-flip-selection-face]')!.click();
+
+    // 模拟 Runtime Editor Apply 新建 Init 后触发的整页选择器重建：
+    // 旧翻面还没完成时，新页面必须从 Init 面重新开始。
+    vi.advanceTimersByTime(90);
+    (controller as unknown as { renderInitSelect(): void }).renderInitSelect();
+    vi.advanceTimersByTime(600);
+
+    expect(controller.selectorPage.currentFace).toBe('init');
+    expect(root.querySelector('.selector-shell')?.classList.contains('init-mode')).toBe(true);
+    expect(root.querySelector('.face-init')?.classList.contains('is-inactive')).toBe(false);
+    expect(root.querySelector('.face-enh')?.classList.contains('is-inactive')).toBe(true);
+  });
+
   it('GlobalEnhancement 面购买后行与详情立即刷新，不触发整页重渲染', () => {
     game.mutations.changeResource('base:resource:pyroxene', 100);
     showSelectPage();

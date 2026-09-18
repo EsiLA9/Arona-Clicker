@@ -75,6 +75,9 @@ export class SelectorPage {
 
   /** 重置轮盘状态（进入选择页前调用）；选中项跨翻面保留。 */
   reset(): void {
+    // 选择页会被 Runtime Editor Apply 以及服务切换整页重建。旧页面上的
+    // 翻面定时器不能再触碰新页面，否则会把新页面切回旧的面向/轮盘状态。
+    this.flipSeq += 1;
     this.face = 'init';
     this.initWheel = null;
     this.enhWheel = null;
@@ -102,6 +105,7 @@ export class SelectorPage {
     const seq = ++this.flipSeq;
     this.face = face;
     this.syncFocusedTheme(true);
+    const scene = this.sceneSeq;
     root.querySelectorAll('.selector-face.is-fading, .init-wheel.is-fading').forEach(el => el.classList.remove('is-fading'));
 
     const isEnh = face === 'global-enh';
@@ -109,7 +113,7 @@ export class SelectorPage {
     oldEl.classList.add('is-fading');
     oldWheel?.classList.add('is-fading');
     window.setTimeout(() => {
-      if (seq !== this.flipSeq) return;
+      if (seq !== this.flipSeq || scene !== this.sceneSeq) return;
       // 2) 只滑动圆盘，交换可见面
       shell.classList.toggle('init-mode', !isEnh);
       shell.classList.toggle('enh-mode', isEnh);
@@ -118,7 +122,7 @@ export class SelectorPage {
       oldWheel?.classList.remove('is-fading');
       oldWheel?.classList.add('is-inactive');
       window.setTimeout(() => {
-        if (seq !== this.flipSeq) return;
+        if (seq !== this.flipSeq || scene !== this.sceneSeq) return;
         // 3) 圆盘落位后按新坐标重排目标面条项，再淡入
         (isEnh ? this.enhWheel : this.initWheel)?.relayout();
         newEl.classList.remove('is-inactive');

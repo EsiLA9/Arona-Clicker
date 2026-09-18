@@ -69,6 +69,7 @@
 - [x] 关闭面板只隐藏 Workspace；显式放弃编辑才清理 Draft。
 - [x] 内容点击、筛选、保存、Apply、跨路由重建均不得隐式清除 Workspace 宿主。
 - [x] 明确 Launcher、Editor Workspace、局部子弹窗和 Toast 的层级与关闭契约。
+- [x] 选择页整页重建时使旧 Init / GlobalEnhancement 翻面定时器失效，避免 Runtime Editor Apply 后旧轮盘面向回写到新页面。
 
 ### P1：通用亮色 Editor Workspace
 
@@ -127,6 +128,7 @@
 - 自动化核验已完成：`npx tsc --noEmit`、Runtime Editor 定向 22 tests、全量 `npm test -- --run`（170 files / 1582 tests）、`npm run check:architecture`、`npm run check:docs` 与 `git diff --check` 均通过。
 - 回归核验补充通过：`tests/ui/topbar-settings-workspace.test.ts` 11 tests，覆盖直接从迷你入口打开时自动建立并填充 Debug Mod 信息。
 - 右栏高度回归通过：面板正文、工作区与 `runtime-editor-panes` 的独立高度/滚动 CSS 契约已锁定；Runtime Editor 定向回归 44 tests 通过。
+- 选择页生命周期回归通过：Runtime Editor Apply 触发重建时，不再让旧翻面动画把主体界面切回创建前的 Init 转轮面向。
 - 尚未完成：浏览器级视觉验收；本轮未启动浏览器交互验收，因此不把它标记为已完成。
 - task-0096 的未提交刷新边界改动及其任务文档属于独立工作，不纳入本 Task 的实现范围。
 
