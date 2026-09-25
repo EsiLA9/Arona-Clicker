@@ -36,6 +36,8 @@ export interface PanelState {
   service?: 'game' | 'settings' | 'inventory' | 'datapack' | 'saves' | 'records';
   datapackWorkspace?: DatapackWorkspaceState;
   runtimeDatapackEditor?: RuntimeDatapackEditorState;
+  /** Runtime Editor 面板是否实际打开；仅用于服务页表现当前编辑目标。 */
+  runtimeEditorPanelOpen?: boolean;
   workspaceNavigation?: WorkspaceNavigationState;
   inventoryWorkspace?: InventoryWorkspaceState;
   leftTab: string;

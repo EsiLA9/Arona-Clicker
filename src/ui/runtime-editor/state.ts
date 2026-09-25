@@ -48,10 +48,45 @@ export type RuntimeEditorAreaDraft = RuntimeAreaDraft;
 export type RuntimeEditorEnhancementDraft = RuntimeEnhancementDraft;
 export type RuntimeEditorContentKind = 'inits' | 'areas' | 'spots' | 'enhancements';
 export type RuntimeEditorDefinitionDraft = RuntimeEditorInitDraft | RuntimeEditorAreaDraft | RuntimeEditorSpotDraft | RuntimeEditorEnhancementDraft;
+export type RuntimeEditorFilter = 'all' | 'pending' | 'applied' | 'removed';
+
+/**
+ * 可跨页面 / 浏览器会话保存的编辑态投影。
+ *
+ * Applied 与诊断字段刻意不在这里：恢复后必须重新面对当前 Runtime，
+ * 不能把上一次 Apply 的结果误当成本次会话的 Effective 状态。
+ */
+export interface RuntimeEditorDraftSnapshot {
+  enabled: boolean;
+  draftSourceId: string;
+  /** 当前编辑态数据包的 Catalog 记录身份；旧草稿缺失时表示尚未绑定包记录。 */
+  packRecordId?: string | null;
+  modName: string;
+  displayName: string;
+  version: string;
+  author: string;
+  description: string;
+  selectedAreaId: string | null;
+  spots: RuntimeEditorSpotDraft[];
+  inits: RuntimeEditorInitDraft[];
+  areas: RuntimeEditorAreaDraft[];
+  enhancements: RuntimeEditorEnhancementDraft[];
+  selectedSpotId: string | null;
+  selectedContentKind: RuntimeEditorContentKind;
+  selectedDefinitionId: string | null;
+  suspendedSpotIds: string[];
+  suspendedInitIds: string[];
+  suspendedAreaIds: string[];
+  suspendedEnhancementIds: string[];
+  browserFilter: RuntimeEditorFilter;
+  activeSection: string | null;
+  formDraft: Record<string, unknown> | null;
+}
 
 export interface RuntimeDatapackEditorState {
   enabled: boolean;
   draftSourceId: string;
+  packRecordId: string | null;
   modName: string;
   displayName: string;
   version: string;
@@ -92,17 +127,79 @@ export interface RuntimeDatapackEditorState {
 }
 
 export type RuntimeEditorEntryState = 'created' | 'modified' | 'unchanged';
-export type RuntimeEditorFilter = 'all' | 'pending' | 'applied' | 'removed';
+
+export function snapshotRuntimeEditor(editor: RuntimeDatapackEditorState): RuntimeEditorDraftSnapshot {
+  return {
+    enabled: editor.enabled,
+    draftSourceId: editor.draftSourceId,
+    packRecordId: editor.packRecordId,
+    modName: editor.modName,
+    displayName: editor.displayName,
+    version: editor.version,
+    author: editor.author,
+    description: editor.description,
+    selectedAreaId: editor.selectedAreaId,
+    spots: editor.spots.map(cloneRuntimeEditorSpot),
+    inits: editor.inits.map(cloneRuntimeEditorDefinition),
+    areas: editor.areas.map(cloneRuntimeEditorDefinition),
+    enhancements: editor.enhancements.map(cloneRuntimeEditorDefinition),
+    selectedSpotId: editor.selectedSpotId,
+    selectedContentKind: editor.selectedContentKind,
+    selectedDefinitionId: editor.selectedDefinitionId,
+    suspendedSpotIds: [...editor.suspendedSpotIds],
+    suspendedInitIds: [...editor.suspendedInitIds],
+    suspendedAreaIds: [...editor.suspendedAreaIds],
+    suspendedEnhancementIds: [...editor.suspendedEnhancementIds],
+    browserFilter: editor.browserFilter,
+    activeSection: editor.activeSection,
+    formDraft: editor.formDraft === null ? null : structuredClone(editor.formDraft),
+  };
+}
+
+export function restoreRuntimeEditorSnapshot(editor: RuntimeDatapackEditorState, snapshot: RuntimeEditorDraftSnapshot): void {
+  editor.enabled = snapshot.enabled;
+  editor.draftSourceId = snapshot.draftSourceId;
+  editor.packRecordId = snapshot.packRecordId ?? null;
+  editor.modName = snapshot.modName;
+  editor.displayName = snapshot.displayName;
+  editor.version = snapshot.version;
+  editor.author = snapshot.author;
+  editor.description = snapshot.description;
+  editor.selectedAreaId = snapshot.selectedAreaId;
+  editor.spots = snapshot.spots.map(cloneRuntimeEditorSpot);
+  editor.inits = snapshot.inits.map(cloneRuntimeEditorDefinition);
+  editor.areas = snapshot.areas.map(cloneRuntimeEditorDefinition);
+  editor.enhancements = snapshot.enhancements.map(cloneRuntimeEditorDefinition);
+  editor.selectedSpotId = snapshot.selectedSpotId;
+  editor.selectedContentKind = snapshot.selectedContentKind;
+  editor.selectedDefinitionId = snapshot.selectedDefinitionId;
+  editor.suspendedSpotIds = [...snapshot.suspendedSpotIds];
+  editor.suspendedInitIds = [...snapshot.suspendedInitIds];
+  editor.suspendedAreaIds = [...snapshot.suspendedAreaIds];
+  editor.suspendedEnhancementIds = [...snapshot.suspendedEnhancementIds];
+  editor.browserFilter = snapshot.browserFilter;
+  editor.activeSection = snapshot.activeSection;
+  editor.formDraft = snapshot.formDraft === null ? null : structuredClone(snapshot.formDraft);
+  editor.applied = false;
+  editor.appliedSpots = [];
+  editor.appliedInits = [];
+  editor.appliedAreas = [];
+  editor.appliedEnhancements = [];
+  editor.problems = [];
+  editor.error = null;
+  editor.notice = '已恢复上次编辑态草稿，尚未同步到当前运行时。';
+}
 
 export function suggestedRuntimeDefaultAreaIdName(initIdName: string): string {
   const normalized = initIdName.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
   return `${normalized || 'new-init'}-default-area`;
 }
 
-export function createRuntimeDatapackEditorState(defaultAreaId: string | null, draftSourceId = 'runtime-editor'): RuntimeDatapackEditorState {
+export function createRuntimeDatapackEditorState(defaultAreaId: string | null, draftSourceId = 'runtime-editor', packRecordId: string | null = null): RuntimeDatapackEditorState {
   return {
     enabled: true,
     draftSourceId,
+    packRecordId,
     modName: '',
     displayName: '',
     version: '1.0.0',
@@ -424,10 +521,16 @@ export function markRuntimeEditorWorldApplied(editor: RuntimeDatapackEditorState
   editor.appliedAreas = editor.areas.map(area => cloneRuntimeEditorDefinition(area) as RuntimeEditorAreaDraft);
 }
 
+/** 删除包或离开管理页时使用：只把已绑定编辑态且尚未同步的会话视为 dirty。 */
+export function runtimeEditorHasUnsavedChanges(editor: RuntimeDatapackEditorState | undefined): boolean {
+  return Boolean(editor?.packRecordId && editor.applied === false);
+}
+
 export function toRuntimeModDraft(editor: RuntimeDatapackEditorState): RuntimeModDraft | null {
   if (!editor.modName || !editor.displayName) return null;
   const resolutions = editor.spots.map(spot => resolveRuntimeEditorSpot(editor, spot.idName));
   const baseDraft = {
+    ...(editor.packRecordId ? { targetPackRecordId: editor.packRecordId } : {}),
     modName: editor.modName,
     displayName: editor.displayName,
     version: editor.version,
@@ -460,6 +563,7 @@ export function hydrateRuntimeEditor(editor: RuntimeDatapackEditorState, runtime
     description: runtimeMod.description,
     selectedAreaId: spots[0]?.areaId ?? null,
   });
+  if (runtimeMod.targetPackRecordId) editor.packRecordId = runtimeMod.targetPackRecordId;
   editor.spots = spots;
   editor.inits = inits;
   editor.areas = areas;

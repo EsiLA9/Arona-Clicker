@@ -54,10 +54,6 @@ function sameDefinition(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function unsupportedFields(definition: object, fields: readonly string[]): string[] {
-  return fields.filter(field => Object.prototype.hasOwnProperty.call(definition, field));
-}
-
 function initId(modName: string, idName: string): string {
   return authoringEntityId(INIT_POLICY, modName, idName);
 }
@@ -187,7 +183,6 @@ export class RuntimeWorldContentCoordinator {
 
       const desiredInits = this.prepareInits(draft.modName, draft.inits);
       const desiredAreas = this.prepareAreas(draft.modName, draft.areas);
-      this.validateUnsupportedReplacements(desiredInits, desiredAreas);
       this.validateFinalReferences(desiredInits, desiredAreas);
       this.assertOwnedOrFree(desiredInits, desiredAreas);
       const desiredTopology = this.prepareTopology(draft.modName, draft.areas, desiredAreas);
@@ -196,6 +191,13 @@ export class RuntimeWorldContentCoordinator {
       const deletedAreaIds = new Set([...this.areas.keys()].filter(id => !desiredAreas.has(id)));
       const deletedInitIds = new Set([...this.inits.keys()].filter(id => !desiredInits.has(id)));
       const previousTopology = this.topology;
+      const previousState = {
+        modName: this.modName,
+        inits: new Map([...this.inits].map(([id, value]) => [id, cloneAuthoringDef(value)])),
+        areas: new Map([...this.areas].map(([id, value]) => [id, cloneAuthoringDef(value)])),
+        topology: this.topology.map(connection => ({ ...connection })),
+        revision: this.revision,
+      };
 
       const mutate = (request: Parameters<typeof applyAuthoringMutation>[1]): void => {
         receipts.push({ receipt: applyAuthoringMutation(this.registry, request) });
@@ -230,7 +232,6 @@ export class RuntimeWorldContentCoordinator {
           revisionBefore: this.revision,
           revisionAfter: this.revision + 1,
         };
-        this.onCommitted?.(commit);
         this.modName = draft.modName;
         this.inits.clear();
         for (const [id, value] of desiredInits) this.inits.set(id, cloneAuthoringDef(value));
@@ -238,6 +239,7 @@ export class RuntimeWorldContentCoordinator {
         for (const [id, value] of desiredAreas) this.areas.set(id, cloneAuthoringDef(value));
         this.topology = desiredTopology.map(connection => ({ ...connection }));
         this.revision += 1;
+        this.onCommitted?.(commit);
         return { ok: true, revision: this.revision, diagnostics: [], message: `Init / Area 已热应用：${changedInitIds.length + changedAreaIds.length} 项。` };
       } catch (error) {
         for (const item of receipts.reverse()) {
@@ -245,6 +247,13 @@ export class RuntimeWorldContentCoordinator {
             diagnostics.push(diagnostic('rollback-failed', `Init / Area 回滚失败：${errorMessage(rollbackError)}`));
           }
         }
+        this.modName = previousState.modName;
+        this.inits.clear();
+        for (const [id, value] of previousState.inits) this.inits.set(id, cloneAuthoringDef(value));
+        this.areas.clear();
+        for (const [id, value] of previousState.areas) this.areas.set(id, cloneAuthoringDef(value));
+        this.topology = previousState.topology.map(connection => ({ ...connection }));
+        this.revision = previousState.revision;
         throw error;
       }
     } catch (error) {
@@ -258,7 +267,10 @@ export class RuntimeWorldContentCoordinator {
     const result = new Map<string, InitDef>();
     for (const input of inputs) {
       validateRecord(INIT_POLICY, input, this.registry);
-      const definition = initInputDef(modName, input);
+      const definition = {
+        ...(this.inits.get(initId(modName, input.idName)) ?? {}),
+        ...initInputDef(modName, input),
+      } as InitDef;
       if (result.has(definition.id)) throw new Error(`Draft 中 Init ID 重复：${definition.id}`);
       result.set(definition.id, definition);
     }
@@ -272,7 +284,10 @@ export class RuntimeWorldContentCoordinator {
       const { adjacentAreaIds: _legacyAdjacentAreaIds, ...authoringInput } = input;
       const normalizedInput = { ...authoringInput, topology };
       validateRecord(AREA_POLICY, normalizedInput, this.registry);
-      const definition = areaInputDef(modName, normalizedInput);
+      const definition = {
+        ...(this.areas.get(areaId(modName, input.idName)) ?? {}),
+        ...areaInputDef(modName, normalizedInput),
+      } as AreaDef;
       if (result.has(definition.id)) throw new Error(`Draft 中 Area ID 重复：${definition.id}`);
       result.set(definition.id, definition);
     }
@@ -307,29 +322,6 @@ export class RuntimeWorldContentCoordinator {
     for (const id of desiredAreas.keys()) {
       if (!this.areas.has(id) && this.registry.areas.has(id)) throw new Error(`Area "${id}" 不属于当前临时 Mod，不能覆盖`);
     }
-  }
-
-  private validateUnsupportedReplacements(
-    desiredInits: ReadonlyMap<string, InitDef>,
-    desiredAreas: ReadonlyMap<string, AreaDef>,
-  ): void {
-    const check = (
-      current: ReadonlyMap<string, InitDef | AreaDef>,
-      desired: ReadonlyMap<string, InitDef | AreaDef>,
-      fields: readonly string[],
-      label: string,
-    ): void => {
-      for (const [id, currentDefinition] of current) {
-        const desiredDefinition = desired.get(id);
-        if (!desiredDefinition || sameDefinition(currentDefinition, desiredDefinition)) continue;
-        const unsupported = unsupportedFields(currentDefinition, fields);
-        if (unsupported.length > 0) {
-          throw new Error(`${label} "${id}" 含编辑器未支持字段（${unsupported.join('、')}），本次替换将丢失数据，已拒绝`);
-        }
-      }
-    };
-    check(this.inits, desiredInits, ['enterEffects', 'triggers', 'theme', 'extra'], 'Init');
-    check(this.areas, desiredAreas, ['enterEffects', 'theme', 'extra'], 'Area');
   }
 
   private validateFinalReferences(desiredInits: Map<string, InitDef>, desiredAreas: Map<string, AreaDef>): void {

@@ -1,7 +1,7 @@
 export { AronaClickerRuntime } from './runtime';
 export type { AronaClickerRuntimeOptions } from './runtime';
 export type { GameInstanceOptions, GameInstanceWiring } from './runtime-options';
-export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogDependencyHint } from './contracts';
+export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogPane, PackCatalogDependencyHint } from './contracts';
 export type { SaveData } from './contracts/save-data';
 export type { AffectionConfigView, CharacterProgressionPort, CurveView } from './contracts';
 export type { GameView, UseItemResult, TravelError, TravelResult, EnhancementPurchaseError, EnhancementPurchaseResult, SpotUnlockResult, SpotUpgradeResult, StoryView, StoryError, StoryStartResult, StoryAdvanceResult, SendState, SendResult } from './contracts';

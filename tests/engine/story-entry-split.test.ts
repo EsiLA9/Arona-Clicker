@@ -61,6 +61,55 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     expect(() => reg.load(broken)).toThrow(/references unknown story: "x:story:missing"/);
   });
 
+  test('registry：FollowUp 校验目标 StoryEntry 与 Area 引用', () => {
+    const reg = new Registry();
+    const source = baseDatapack.passiveStories.find(entry => entry.id === 'base:passivestory:hoshino_conv_2')!;
+    const dp: Datapack = {
+      ...baseDatapack,
+      passiveStories: [{
+        ...source,
+        followUps: [{
+          id: 'test-follow-up',
+          waitFor: { kind: 'next-enter-area', areaId: 'base:area:schale_rooftop' },
+          outcome: { kind: 'start-story-entry', storyEntryId: 'base:activestory:hoshino_rooftop_meet' },
+        }],
+      }],
+    };
+    expect(() => reg.load(dp)).not.toThrow();
+  });
+
+  test('registry：FollowUp 拒绝缺失目标与错误 Area', () => {
+    const reg = new Registry();
+    const source = baseDatapack.passiveStories.find(entry => entry.id === 'base:passivestory:hoshino_conv_2')!;
+    const broken: Datapack = {
+      ...baseDatapack,
+      passiveStories: [{
+        ...source,
+        followUps: [{
+          id: 'broken-follow-up',
+          waitFor: { kind: 'next-enter-area', areaId: 'test:area:missing' },
+          outcome: { kind: 'start-story-entry', storyEntryId: 'test:activestory:missing' },
+        }],
+      }],
+    };
+    expect(() => reg.load(broken)).toThrow(/references an invalid area/);
+  });
+
+  test('registry：FollowUp id 在同一 StoryEntry 内必须唯一', () => {
+    const reg = new Registry();
+    const source = baseDatapack.passiveStories.find(entry => entry.id === 'base:passivestory:hoshino_conv_2')!;
+    const duplicate = {
+      id: 'duplicate',
+      waitFor: { kind: 'next-enter-area' as const, areaId: 'base:area:schale_rooftop' },
+      outcome: { kind: 'start-story-entry' as const, storyEntryId: 'base:activestory:hoshino_rooftop_meet' },
+    };
+    const broken: Datapack = {
+      ...baseDatapack,
+      passiveStories: [{ ...source, followUps: [duplicate, duplicate] }],
+    };
+    expect(() => reg.load(broken)).toThrow(/duplicate or missing FollowUp id/);
+  });
+
   test('passive 抽选与完结奖励经 Entry 消费；完成记录仍按 Story.id', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0);
     try {

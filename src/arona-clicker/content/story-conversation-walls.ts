@@ -27,6 +27,11 @@ export const hoshinoConversationStories: PassiveStoryEntry[] = [
     .block(and(cond('area', 'base:area:schale_rooftop', '==', 1)))
     .leaveArea(false)
     .interruptible(false)
+    .followUp({
+      id: 'rooftop-meet',
+      waitFor: { kind: 'next-enter-area', areaId: 'base:area:schale_rooftop' },
+      outcome: { kind: 'start-story-entry', storyEntryId: 'base:activestory:hoshino_rooftop_meet' },
+    })
     .build(),
   passiveStory('base:passivestory:hoshino_bond_invite', 'base:story:hoshino_bond_invite')
     .owner('Hoshino')

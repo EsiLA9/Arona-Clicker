@@ -55,6 +55,7 @@ function variantAvatar(ctx: UIContext, variantId: string, size = 96): string | n
 /** 入口确认浮层：标题栏（X / 遮罩空白 / 取消均可关闭）+ 头像 + 名字 + 标题横带 + 奖励 + 进入。 */
 export function renderStoryGate(ctx: UIContext, gate: StoryGateState): string {
   const title = ctx.escapeHtml(storyDisplayTitle(ctx, gate.storyId));
+  const titleId = `story-gate-title-${gate.storyId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
   const label = gate.owner ? '羁绊剧情' : '剧情';
   // 确认文案三态：重读入口 = 重看（isReplay 受 branchGuards 约束）；
   // 已完结剧情卡片 = 正常重开（goto、分支自由探索）；未完结 = 进入
@@ -85,14 +86,14 @@ export function renderStoryGate(ctx: UIContext, gate: StoryGateState): string {
 
   return `
     <div class="story-gate-overlay" data-story-gate data-story-gate-cancel>
-      <div class="story-gate-card">
+      <div class="story-gate-card" role="dialog" aria-modal="true" aria-labelledby="${titleId}" tabindex="-1">
         <div class="story-gate-head">
           <span class="story-gate-label">${label}</span>
           <button class="story-gate-close" data-story-gate-cancel aria-label="关闭" title="关闭">×</button>
         </div>
         <div class="story-gate-body">
           ${avatarBlock}
-          <div class="story-gate-band"><span>${title}</span></div>
+          <div class="story-gate-band"><span id="${titleId}">${title}</span></div>
           ${rewardBlock}
           <button class="story-gate-confirm" data-story-gate-confirm>${confirmText}</button>
           <button class="story-gate-cancel" data-story-gate-cancel>取消</button>

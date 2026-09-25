@@ -51,6 +51,7 @@ describe('Runtime Editor shared Init / Area framework', () => {
   test('Runtime Editor 通过独立浮动面板承载入口，不依赖 Toast', () => {
     document.body.innerHTML = '';
     const editor = createRuntimeDatapackEditorState(null);
+    editor.packRecordId = 'editing:test';
     editor.modName = 'runtime';
     editor.displayName = 'Runtime';
     const panel = document.createElement('div');
@@ -106,7 +107,7 @@ describe('Runtime Editor shared Init / Area framework', () => {
     workspace.innerHTML = renderRuntimeEditorWorkspace(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState);
     expect(workspace.querySelector('[data-runtime-editor-kind-tab="inits"]')).not.toBeNull();
     expect(workspace.querySelector('[data-runtime-editor-kind-tab="areas"]')?.classList.contains('is-active')).toBe(true);
-    expect(workspace.querySelector('[data-runtime-editor-kind-tab="enhancements"]')).toBeNull();
+    expect(workspace.querySelector('[data-runtime-editor-kind-tab="enhancements"]')).not.toBeNull();
     expect(getSelectedRuntimeEditorDefinition(editor)).toBeNull();
   });
 

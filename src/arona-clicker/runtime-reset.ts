@@ -38,6 +38,7 @@ export interface ResetContext {
 
 /** 重置为默认状态并清空各子系统运行时缓存 */
 export function resetRuntime(ctx: ResetContext): void {
+  ctx.initService.withdrawInformationRevealWatches();
   ctx.initService.invalidateRuntimeGeneration();
   ctx.stop();
   ctx.eventBus.clearQueue();

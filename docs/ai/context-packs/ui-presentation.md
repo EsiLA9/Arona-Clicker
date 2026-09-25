@@ -4,11 +4,15 @@
 
 ## Required Read Set
 
-- [[docs/docs-828/05-conventions/architecture-discipline]]
-- [[docs/docs-828/02-modules/ui]]
-- [[docs/docs-828/02-modules/color]]
-- [[docs/docs-828/01-architecture/data-flow]]
-- `src/ui/` 目标 controller / component / host 与测试
+先读 [[docs/docs-828/02-modules/ui]]。按实际子题补充：
+
+| 子题 | 再读 |
+| --- | --- |
+| 只读数据边界 / Controller 与 Runtime 协作 | [[docs/docs-828/01-architecture/data-flow]]、[[docs/docs-828/05-conventions/architecture-discipline]] |
+| 主题色 / 背景 / Presentation | [[docs/docs-828/02-modules/color]] |
+| DOM 刷新 / 交互连续性 | [[docs/docs-828/07-audit/dom-refresh-chains]]；使用 `frontend-design` skill 时叠加 [[docs/ai/frontend-design-project-overlay]] |
+
+每次还要读取 `src/ui/` 的目标 controller、component 或 host 及相关测试；只定位实际受影响的文件。
 
 ## Optional Read Set
 

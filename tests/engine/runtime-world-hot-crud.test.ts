@@ -39,6 +39,47 @@ function setupGame(): CountingRuntime {
 }
 
 describe('Init / Area Runtime Editor 热 CRUD', () => {
+  test('提交回调观察到完整的 Coordinator 新快照', () => {
+    const game = new CountingRuntime();
+    game.init([defaultDatapack]);
+    const observed: { value: ReturnType<RuntimeWorldContentCoordinator['getState']> | null } = { value: null };
+    const coordinator = new RuntimeWorldContentCoordinator({
+      registry: game.registry,
+      sourceId: 'runtime-world-test',
+      onCommitted: () => { observed.value = coordinator.getState(); },
+    });
+
+    const result = coordinator.applyWorldDraft(worldDraft());
+
+    expect(result).toMatchObject({ ok: true, revision: 1 });
+    if (!observed.value) throw new Error('World commit callback was not invoked');
+    expect(observed.value.modName).toBe(MOD);
+    expect(observed.value.revision).toBe(1);
+    expect(observed.value.inits.has(INIT)).toBe(true);
+    expect(observed.value.areas.has(HOME)).toBe(true);
+    expect(observed.value.areas.has(SECOND)).toBe(true);
+    expect(coordinator.getState()).toMatchObject({ modName: MOD, revision: 1 });
+    game.stop();
+  });
+
+  test('提交回调失败时 Registry 与 Coordinator 一并回滚', () => {
+    const game = new CountingRuntime();
+    game.init([defaultDatapack]);
+    const coordinator = new RuntimeWorldContentCoordinator({
+      registry: game.registry,
+      sourceId: 'runtime-world-test',
+      onCommitted: () => { throw new Error('test commit notification failure'); },
+    });
+
+    const result = coordinator.applyWorldDraft(worldDraft());
+
+    expect(result.ok).toBe(false);
+    expect(game.registry.inits.has(INIT)).toBe(false);
+    expect(game.registry.areas.has(HOME)).toBe(false);
+    expect(coordinator.getState()).toMatchObject({ modName: null, revision: 0 });
+    game.stop();
+  });
+
   test('局部提交 create / replace 不触发整包 reload，并维护 Area 索引', () => {
     const game = setupGame();
     expect(game.applyRuntimeWorldDraft(worldDraft())).toMatchObject({ ok: true, revision: 1 });
@@ -56,6 +97,35 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
     expect(game.registry.inits.get(INIT)?.name).toBe('Renamed Init');
     expect(game.registry.areas.get(HOME)?.description).toBe('updated');
     expect(game.registry.areasOfInit(INIT)).toEqual([HOME, SECOND]);
+  });
+
+  test('打开并修改编辑态副本时保留未接入的顶层数据表', () => {
+    const game = new AronaClickerRuntime();
+    game.init([defaultDatapack]);
+    const source = game.getPackCatalog().entries.find(entry => entry.editingMode === 'normal');
+    if (!source) throw new Error('缺少基础普通态数据包');
+    const created = game.createEditingPack(source.packRecordId ?? source.id);
+    if (!created.ok || !created.packRecordId) throw new Error(created.message);
+    const before = game.getPackRecord(created.packRecordId);
+    if (!before) throw new Error('编辑态副本创建后无法读取记录');
+
+    expect(game.openEditingPack(created.packRecordId).ok).toBe(true);
+    const current = game.getRuntimeMod();
+    if (!current) throw new Error('编辑态副本打开后没有 Runtime Overlay');
+    const applied = game.applyRuntimeWorldDraft({
+      modName: current.modName,
+      targetPackRecordId: created.packRecordId,
+      inits: [...(current.inits ?? []), { idName: 'authoring-check', name: 'Authoring Check', description: '', defaultAreas: [] }],
+      areas: [...(current.areas ?? [])],
+    });
+
+    expect(applied.ok).toBe(true);
+    const after = game.getPackRecord(created.packRecordId);
+    expect(after?.datapack.items).toEqual(before.datapack.items);
+    expect(after?.datapack.stories).toEqual(before.datapack.stories);
+    expect(after?.datapack.characters).toEqual(before.datapack.characters);
+    expect(after?.datapack.inits.some(init => init.id.endsWith(':init:authoring-check'))).toBe(true);
+    game.stop();
   });
 
   test('当前 Area 被删除后回到当前 Init 的第一个有效默认 Area，并保留玩家资源', () => {
@@ -229,7 +299,7 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
     expect(game.registry.inits.get(`${MOD}:init:demo`)?.startStoryId).toBe(entry.id);
   });
 
-  test('替换含未支持 opaque 字段的 Init 会被拒绝，避免静默丢失', () => {
+  test('替换含未支持 opaque 字段的 Init 会保留原字段', () => {
     const registry = new Registry();
     const initWithExtra = {
       id: INIT,
@@ -254,9 +324,8 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
       areas: [{ idName: 'home', initId: INIT, name: 'Home', description: '', defaultSpots: [] }],
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain('未支持字段');
-    expect(registry.inits.get(INIT)).toBe(initWithExtra);
-    expect(coordinator.getState().revision).toBe(0);
+    expect(result.ok).toBe(true);
+    expect(registry.inits.get(INIT)).toMatchObject({ name: 'Renamed Init', extra: initWithExtra.extra });
+    expect(coordinator.getState().revision).toBe(1);
   });
 });

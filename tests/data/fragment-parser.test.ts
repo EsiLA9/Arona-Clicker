@@ -12,6 +12,18 @@ describe('Datapack fragment parser', () => {
     expect(datapack.extras).toEqual({ theme: { bg: 'red' } });
   });
 
+  test('解析并保留 Datapack 单例字段', () => {
+    const fragment = parseFragment('singletons.json', JSON.stringify({
+      gearConfig: { expItems: [], upgradeCosts: [] },
+      characterPersistConfig: { globalFields: [], perInitFields: [] },
+      affectionConfig: { steps: [] },
+    }));
+    const datapack = mergeFragments([fragment]);
+    expect(datapack.gearConfig).toEqual({ expItems: [], upgradeCosts: [] });
+    expect(datapack.characterPersistConfig).toEqual({ globalFields: [], perInitFields: [] });
+    expect(datapack.affectionConfig).toEqual({ steps: [] });
+  });
+
   test('错误包含分片路径', () => {
     expect(() => parseFragment('broken.json', '{')).toThrow(FragmentParseError);
     expect(() => parseFragment('broken.json', '{')).toThrow('[broken.json]');

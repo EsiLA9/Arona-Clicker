@@ -2,6 +2,29 @@ import { getContentPolicy, SPOT_CONTENT_POLICY } from '../../data-services/autho
 import type { UIContext } from '../context';
 import type { PanelState } from '../components/app-shell';
 import {
+  codexEntryKey,
+  renderCodexShell,
+  renderCodexDetailPane,
+  renderCodexEntryPane,
+  getSelectedCodexEntry,
+  reconcileCodexShellState,
+  type CodexEntryView,
+  type CodexShellState,
+  type RuntimeContentBrowserShellView,
+} from './codex';
+import {
+  renderDefinitionInspector,
+  labelInspectorReference,
+  profileSummaryFields,
+  type DefinitionInspectorViewModel,
+  type InspectorReference,
+  type InspectorTab,
+} from './codex-details';
+import type {
+  RuntimeContentDefinitionDetail,
+  RuntimeContentReferenceDiagnostic,
+} from '../../data-services/contracts/runtime-content-browser';
+import {
   findRuntimeEditorAppliedSpot,
   getSelectedRuntimeEditorSpot,
   getSelectedRuntimeEditorDefinition,
@@ -58,7 +81,7 @@ const CONTENT_KIND_LABEL: Record<RuntimeEditorContentKind, string> = {
   spots: 'Spot',
   enhancements: 'Enhancement',
 };
-const EDITABLE_CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'spots'];
+const EDITABLE_CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'spots', 'enhancements'];
 
 const INIT_UNSUPPORTED_FIELDS: readonly { key: string; label: string }[] = [
   { key: 'enterEffects', label: '进入效果' },
@@ -68,6 +91,188 @@ const INIT_UNSUPPORTED_FIELDS: readonly { key: string; label: string }[] = [
 ];
 
 export { readRuntimeEditorFields };
+
+const RUNTIME_SCOPE_ID = '__runtime-effective__';
+const SINGLETON_ID = '<singleton>';
+
+function runtimeCodexModId(
+  entry: { readonly sourceMod?: string },
+  loadedMods: ReadonlySet<string>,
+): string | null {
+  // namespace 只描述 ID 字段，不能在没有 Registry owner 证明时充当 Mod 来源。
+  // 无 owner 的有效内容必须留在 Runtime 范围内，避免被错误归属或过滤掉。
+  return entry.sourceMod && loadedMods.has(entry.sourceMod)
+    ? entry.sourceMod
+    : RUNTIME_SCOPE_ID;
+}
+
+export function getRuntimeEditorCodexView(ctx: UIContext): RuntimeContentBrowserShellView {
+  const runtimeView = ctx.game.runtimeContentBrowser.getView();
+  const loadedModIds = new Set(runtimeView.loadedMods.map(mod => mod.modName));
+  const entries = runtimeView.entries.flatMap(entry => {
+    const modId = runtimeCodexModId(entry, loadedModIds);
+    if (!modId) return [];
+    return [{
+      definitionKind: entry.ref.definitionKind,
+      fullId: entry.ref.fullId ?? SINGLETON_ID,
+      modId,
+      label: entry.label,
+      summary: entry.description,
+      searchText: entry.searchableText,
+      ...(entry.diagnosticCount > 0 ? { statusLabel: `${entry.diagnosticCount} 个关系问题` } : {}),
+    } satisfies CodexEntryView];
+  });
+  const hasRuntimeScope = entries.some(entry => entry.modId === RUNTIME_SCOPE_ID);
+  const loadedMods = [
+    ...runtimeView.loadedMods.map(mod => ({
+      id: mod.modName,
+      label: mod.modName,
+      entryCount: entries.filter(entry => entry.modId === mod.modName).length,
+      statusLabel: '已加载',
+    })),
+    ...(hasRuntimeScope ? [{
+      id: RUNTIME_SCOPE_ID,
+      label: 'Runtime 有效配置',
+      entryCount: entries.filter(entry => entry.modId === RUNTIME_SCOPE_ID).length,
+      statusLabel: '来自当前 Registry',
+    }] : []),
+  ];
+  const kinds = runtimeView.kinds
+    .map(kind => ({
+      definitionKind: kind.kind,
+      label: kind.label,
+      groupLabel: kind.group,
+      entryCount: entries.filter(entry => entry.definitionKind === kind.kind).length,
+    }))
+    .filter(kind => kind.entryCount > 0);
+  return { loadedMods, kinds, entries };
+}
+
+function inspectorReference(
+  reference: RuntimeContentReferenceDiagnostic,
+  labels: ReadonlyMap<string, string>,
+): InspectorReference {
+  const target = reference.target ?? {
+    definitionKind: reference.targetKind ?? 'unknown',
+    fullId: reference.value,
+  };
+  const targetKey = `${target.definitionKind}\u0000${target.fullId ?? SINGLETON_ID}`;
+  return {
+    path: reference.path,
+    relation: reference.relation ?? reference.value,
+    confidence: reference.confidence ?? 'inferred',
+    status: reference.status,
+    target: {
+      definitionKind: target.definitionKind,
+      fullId: target.fullId ?? SINGLETON_ID,
+      label: labels.get(targetKey),
+      entryKey: codexEntryKey({ definitionKind: target.definitionKind, fullId: target.fullId ?? SINGLETON_ID }),
+    },
+    ...(reference.candidates.length > 0 ? {
+      candidates: reference.candidates.map(candidate => ({
+        definitionKind: candidate.definitionKind,
+        fullId: candidate.fullId ?? SINGLETON_ID,
+        label: labels.get(`${candidate.definitionKind}\u0000${candidate.fullId ?? SINGLETON_ID}`),
+        entryKey: codexEntryKey({ definitionKind: candidate.definitionKind, fullId: candidate.fullId ?? SINGLETON_ID }),
+      })),
+    } : {}),
+  };
+}
+
+function inspectorView(
+  detail: RuntimeContentDefinitionDetail,
+  allEntries: RuntimeContentBrowserShellView['entries'],
+  relationQuery: {
+    readonly outgoing: readonly RuntimeContentReferenceDiagnostic[];
+    readonly incoming: readonly RuntimeContentReferenceDiagnostic[];
+  },
+): DefinitionInspectorViewModel {
+  const labels = new Map(allEntries.map(entry => [
+    `${entry.definitionKind}\u0000${entry.fullId}`,
+    entry.label,
+  ]));
+  const source = detail.summary.sourceMod;
+  return {
+    definitionKind: detail.summary.ref.definitionKind,
+    definitionLabel: detail.summary.kind.label,
+    fullId: detail.summary.ref.fullId ?? SINGLETON_ID,
+    title: detail.summary.label,
+    description: detail.summary.description,
+    source: {
+      modId: source,
+      label: source ? undefined : '来源未知',
+    },
+    status: detail.summary.diagnosticCount > 0 ? `${detail.summary.diagnosticCount} 个关系问题` : '已解析',
+    summaryFields: profileSummaryFields(detail),
+    definition: detail.raw,
+    references: relationQuery.outgoing.map(reference => labelInspectorReference(inspectorReference(reference, labels))),
+    reverseReferences: relationQuery.incoming.map(reference => labelInspectorReference(inspectorReference(reference, labels))),
+  };
+}
+
+function renderRuntimeCodexDetail(
+  ctx: UIContext,
+  entry: CodexEntryView,
+  tab: InspectorTab,
+  view: RuntimeContentBrowserShellView,
+): string {
+  const ref = {
+    definitionKind: entry.definitionKind,
+    fullId: entry.fullId === SINGLETON_ID ? null : entry.fullId,
+  };
+  const query = ctx.game.runtimeContentBrowser;
+  const detail = query.getDefinition(ref);
+  if (!detail) return '<p class="codex-inspector-empty">该 Def 已不在当前 Runtime 有效视图中。</p>';
+  const relations = ref.definitionKind === 'resourceDisplays'
+    ? query.getResourceRelations(ref.fullId ?? '')
+    : query.getEntityRelations(ref);
+  const codexNameOf = (type: string, id: string): string => {
+    const storyEntry = type === 'story'
+      ? view.entries.find(candidate => candidate.fullId === id && ['stories', 'activeStories', 'passiveStories', 'storyEntries'].includes(candidate.definitionKind))
+      : undefined;
+    return storyEntry?.label ?? ctx.nameOf(type, id);
+  };
+  return renderDefinitionInspector(inspectorView(detail, view.entries, relations), tab, {
+    nameOf: codexNameOf,
+    formatNumber: ctx.formatNumber,
+  });
+}
+
+export function renderRuntimeEditorCodexParts(
+  ctx: UIContext,
+  state: CodexShellState,
+  inspectorTab: InspectorTab = 'overview',
+): {
+  readonly view: RuntimeContentBrowserShellView;
+  readonly state: CodexShellState;
+  readonly entriesPane: string;
+  readonly detailPane: string;
+} {
+  const view = getRuntimeEditorCodexView(ctx);
+  const safeState = reconcileCodexShellState(view, state);
+  return {
+    view,
+    state: safeState,
+    entriesPane: renderCodexEntryPane(view, safeState),
+    detailPane: renderCodexDetailPane(
+      getSelectedCodexEntry(view, safeState),
+      view.loadedMods,
+      entry => renderRuntimeCodexDetail(ctx, entry, inspectorTab, view),
+      safeState,
+    ),
+  };
+}
+
+export function renderRuntimeEditorCodex(
+  ctx: UIContext,
+  state: CodexShellState,
+  inspectorTab: InspectorTab = 'overview',
+): string {
+  const view = getRuntimeEditorCodexView(ctx);
+  return renderCodexShell(view, state, {
+    renderDetail: entry => renderRuntimeCodexDetail(ctx, entry, inspectorTab, view),
+  });
+}
 
 export function renderRuntimeEditorLauncher(
   ctx: UIContext,
@@ -93,46 +298,48 @@ export function runtimeEditorPreferredAreaInitId(ctx: UIContext, state: PanelSta
   return ctx.game.registry.areas.get(areaId)?.initId === initId ? initId : null;
 }
 
-export function renderRuntimeEditorToggle(ctx: UIContext, state: PanelState): string {
-  const editor = state.runtimeDatapackEditor;
-  const active = Boolean(editor?.enabled);
-  const canCreateSpot = Boolean(editor?.modName && editor.displayName);
-  const pending = editor
-    ? runtimeEditorPendingSpots(editor).length
-      + runtimeEditorPendingDefinitions(editor, 'inits').length
-      + runtimeEditorPendingDefinitions(editor, 'areas').length
-    : 0;
-  const pendingBadge = active && pending > 0 ? `<span class="index">${pending} 项待应用</span>` : '';
-  const activeActions = active
-    ? `<button type="button" class="primary-button" data-runtime-editor-open>打开编辑器</button>${canCreateSpot ? '<button type="button" class="toolbar-button" data-runtime-editor-new-definition="inits">新建 Init</button><button type="button" class="toolbar-button" data-runtime-editor-new-definition="areas">新建 Area</button><button type="button" class="toolbar-button" data-runtime-editor-new-spot>新建 Spot</button>' : ''}<button type="button" class="toolbar-button" data-runtime-editor-close>关闭编辑态</button>`
-    : '<button type="button" class="primary-button" data-runtime-editor-toggle>开启编辑态</button>';
-  return `<section class="service-card runtime-editor-toggle"><div class="panel-heading"><h3>运行时数据包编辑</h3><span class="index">${active ? '编辑中' : '实验功能'}</span>${pendingBadge}</div><p>在草稿中编辑内容，确认差异后再应用到运行时；未应用前游戏画面保持不变。</p><div class="service-actions">${activeActions}</div></section>`;
+function renderRuntimeEditorEmptyState(): string {
+  return '<div class="runtime-editor-empty-state"><span class="eyebrow">EDITOR ENTRY</span><strong>请先在数据包管理页选择编辑态</strong><p>首次点击编辑态用于选择；再次点击已选编辑态后，才会进入该 Mod 的编辑模式。</p></div>';
 }
 
 /** body 级 Runtime Editor 浮动工作区：不随 #app 路由重建，作为独立编辑宿主。 */
 export function renderRuntimeEditorPanel(
   ctx: UIContext,
   state: PanelState,
-  surface: 'mod' | 'browser' | 'definition' | 'spot' = 'mod',
+  surface: 'mod' | 'browser' | 'codex' | 'definition' | 'spot' = 'mod',
+  codexState?: CodexShellState,
+  codexInspectorTab: InspectorTab = 'overview',
 ): string {
   const editor = state.runtimeDatapackEditor;
-  const status = editor?.enabled
-    ? editor.displayName || 'Runtime Mod 待配置'
+  const hasTarget = Boolean(editor?.enabled && editor.packRecordId);
+  const status = surface === 'codex'
+    ? '当前 Runtime 有效内容 · 只读'
+    : hasTarget
+    ? editor?.displayName || 'Runtime Mod 待配置'
     : '尚未开启编辑态';
-  const body = !editor?.enabled
-    ? renderRuntimeEditorToggle(ctx, state)
+  const body = surface === 'codex'
+    ? renderRuntimeEditorCodex(ctx, codexState ?? { query: '', selectedModId: null, selectedKind: null, selectedEntryKey: null, mobilePane: 'mods', kindFilterOpen: false, backStack: [], forwardStack: [] }, codexInspectorTab)
+    : !hasTarget
+    ? renderRuntimeEditorEmptyState()
     : surface === 'mod'
       ? renderRuntimeEditorForm(ctx, state)
       : surface === 'browser'
         ? renderRuntimeEditorWorkspace(ctx, state)
         : surface === 'definition'
-          ? renderRuntimeDefinitionForm(ctx, state, editor.selectedContentKind === 'spots' ? 'inits' : editor.selectedContentKind)
+          ? renderRuntimeDefinitionForm(ctx, state, editor!.selectedContentKind === 'spots' ? 'inits' : editor!.selectedContentKind)
           : renderRuntimeSpotForm(ctx, state);
-  const nav = editor?.enabled
-    ? `<nav class="runtime-editor-surface-nav" aria-label="编辑器页面"><button type="button" class="runtime-editor-surface-link${surface === 'mod' ? ' is-active' : ''}" data-runtime-editor-surface="mod">编辑中 Mod</button><button type="button" class="runtime-editor-surface-link${surface === 'browser' ? ' is-active' : ''}" data-runtime-editor-surface="browser">内容浏览器</button></nav>`
+  const nav = hasTarget || surface === 'codex'
+    ? `<nav class="runtime-editor-surface-nav" aria-label="编辑器页面">${hasTarget ? `<button type="button" class="runtime-editor-surface-link${surface === 'mod' ? ' is-active' : ''}" data-runtime-editor-surface="mod">编辑中 Mod</button><button type="button" class="runtime-editor-surface-link${surface === 'browser' ? ' is-active' : ''}" data-runtime-editor-surface="browser">内容浏览器</button>` : ''}<button type="button" class="runtime-editor-surface-link${surface === 'codex' ? ' is-active' : ''}" data-runtime-editor-surface="codex">超级图鉴</button></nav>`
+    : '';
+  const canExport = Boolean(hasTarget && editor?.modName && editor?.displayName);
+  const exportAction = hasTarget
+    ? `<button type="button" class="toolbar-button" data-runtime-editor-export${canExport ? '' : ' disabled'} title="${canExport ? '导出当前 Draft 为数据包压缩包' : '请先完成 Mod 元信息'}">导出数据包</button>`
+    : '';
+  const closeEditingAction = hasTarget
+    ? '<button type="button" class="toolbar-button" data-runtime-editor-close>退出编辑态</button>'
     : '';
   const back = surface === 'definition' || surface === 'spot' ? '<button type="button" class="toolbar-button runtime-editor-back" data-runtime-editor-surface="browser">返回内容浏览器</button>' : '';
-  return `<aside class="runtime-editor-panel" data-runtime-editor-surface-current="${surface}" role="dialog" aria-modal="false" aria-labelledby="runtime-editor-panel-title"><header class="runtime-editor-panel-head" data-runtime-editor-panel-head><div><span class="eyebrow">RUNTIME EDITOR</span><h2 id="runtime-editor-panel-title">${surface === 'browser' ? '内容浏览器' : surface === 'definition' ? '内容编辑器' : surface === 'spot' ? 'Spot 编辑器' : '编辑中 Mod'}</h2><p>${ctx.escapeHtml(status)}</p></div><div class="runtime-editor-panel-head-actions">${back}${nav}<button type="button" class="icon-button" data-runtime-editor-panel-close aria-label="关闭编辑器面板" title="关闭">×</button></div></header><div class="runtime-editor-panel-body">${body}</div></aside>`;
+  return `<aside class="runtime-editor-panel" data-runtime-editor-surface-current="${surface}" role="dialog" aria-modal="false" aria-labelledby="runtime-editor-panel-title"><header class="runtime-editor-panel-head" data-runtime-editor-panel-head><div><span class="eyebrow">RUNTIME EDITOR</span><h2 id="runtime-editor-panel-title">${surface === 'browser' ? '内容浏览器' : surface === 'codex' ? '超级图鉴' : surface === 'definition' ? '内容编辑器' : surface === 'spot' ? 'Spot 编辑器' : '编辑中 Mod'}</h2><p>${ctx.escapeHtml(status)}</p></div><div class="runtime-editor-panel-head-actions">${back}${nav}${exportAction}${closeEditingAction}<button type="button" class="icon-button" data-runtime-editor-panel-close aria-label="关闭编辑器面板" title="关闭">×</button></div></header><div class="runtime-editor-panel-body">${body}</div></aside>`;
 }
 
 export function renderRuntimeEditorForm(ctx: UIContext, state: PanelState): string {
@@ -168,7 +375,7 @@ export function renderRuntimeEditorWorkspace(ctx: UIContext, state: PanelState):
     <div class="panel-heading"><h4>内容浏览器 · ${esc(POLICY.label)}</h4><span class="index">${editor.spots.length} 草稿 / ${editor.appliedSpots.length} 已生效</span>${canCreate ? '<button type="button" class="toolbar-button" data-runtime-editor-new-spot>新建 Spot</button>' : ''}</div>
     <div class="runtime-editor-filters">${filterButton('all', '全部')}${filterButton('pending', `待应用 ${pending.length}`)}${filterButton('applied', '已生效')}${filterButton('removed', `已移除 ${editor.suspendedSpotIds.length}`)}</div>
     ${list}
-    ${renderError(esc, editor)}
+    ${renderError(esc, editor)}${renderNotice(esc, editor)}
     ${renderRuntimeEditorProblems(ctx, POLICY, editor.problems)}
     <div class="runtime-editor-apply-bar">
       <button type="button" class="primary-button" data-runtime-editor-apply${pending.length === 0 ? ' disabled' : ''}>应用到运行时</button>
@@ -227,7 +434,7 @@ function renderRuntimeDefinitionWorkspace(ctx: UIContext, editor: RuntimeDatapac
     ${sourceNote}
     <div class="runtime-editor-filters">${filterButton('all', '全部')}${filterButton('pending', `待应用 ${pending.length}`)}${filterButton('applied', '已生效')}${filterButton('removed', `已移除 ${suspended.length}`)}</div>
     ${list}
-    ${renderError(esc, editor)}
+    ${renderError(esc, editor)}${renderNotice(esc, editor)}
     ${renderRuntimeEditorProblems(ctx, policy, editor.problems)}
     <div class="runtime-editor-apply-bar"><button type="button" class="primary-button" data-runtime-editor-apply${pending.length === 0 ? ' disabled' : ''}>应用到运行时</button><span class="service-draft-status">${pending.length === 0 ? 'Draft 与 Runtime 一致' : `${pending.length} 项待应用`}</span></div>
     ${selected ? `<div class="runtime-editor-diff-panel"><span class="eyebrow">${esc(selected.name || selected.idName)} 的差异</span><p class="service-summary">运行中版本：${esc(applied ? applied.name : '尚未应用')}</p>${diff}</div>` : ''}
@@ -448,7 +655,9 @@ export function runtimeEditorInitProblems(ctx: UIContext, editor: RuntimeDatapac
     problems.push({ code: 'missing-reference', path: 'init.startStoryId', sectionId: 'basics', message: `起始剧情不存在：${startStoryId}` });
   }
   const unsupported = runtimeEditorInitUnsupportedFields(ctx, editor, record);
-  if (unsupported.length > 0) {
+  const original = runtimeEditorAppliedDefinitions(editor, 'inits').find(item => item.idName === record.idName);
+  const unchanged = Boolean(original && JSON.stringify(original) === JSON.stringify(record));
+  if (unsupported.length > 0 && !unchanged) {
     problems.push({ code: 'unsupported-field', path: 'init.unsupported', sectionId: 'diagnostics', message: `当前 Init 含未开放字段：${unsupported.join('、')}。为避免丢失内容，暂不能替换。` });
   }
   return problems;

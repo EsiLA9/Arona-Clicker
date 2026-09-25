@@ -42,7 +42,8 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
       // 未读即推：队列非空时立即送达队列顶（打字节奏由剧情首条 talk 页承担）
       const variantId = ctrl.panelState.conversationVariantId;
       if (variantId) pushReadyTop(ctrl, variantId);
-      if (ctrl.panelState.workspace) ctrl.refreshWorkspace();
+      if (ctrl.panelState.workspace?.type === 'contacts') ctrl.refreshPanels(['left', 'center', 'right']);
+      else if (ctrl.panelState.workspace) ctrl.refreshWorkspace();
       else ctrl.refreshPanels(['left', 'center', 'right']);
     });
   });
@@ -56,7 +57,7 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
       ctrl.panelState.conversationVariantId = null;
       ctrl.panelState.storyGate = null;
       ctrl.scroll.forceToBottom();
-      ctrl.render();
+      ctrl.refreshPanels(['left', 'center']);
       return;
     }
     if (ctrl.panelState.workspace?.type === 'story') {

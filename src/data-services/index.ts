@@ -4,6 +4,16 @@ export {
   loadDatapackFromZipFile,
   ZipLoadError,
 } from './datapack/zip-loader';
+export {
+  ArchiveWriteError,
+  ZipArchiveWriter,
+  jsonArchiveEntry,
+  normalizeArchivePath,
+  serializeArchiveJson,
+  validateArchivePlan,
+  writeZipArchive,
+} from './archive/archive-writer';
+export type { ArchiveEntry, ArchiveEntryContent, ArchivePlan, ArchiveWriter } from './archive/archive-writer';
 export { ZipPackSource } from './datapack/source';
 export type { Datapack } from './contracts/datapack';
 export type { TagRef } from '../engine/core/tag';
@@ -78,7 +88,26 @@ export { DATAPACK_LIST_FIELDS } from './datapack/fragment-parser';
 export { parsePack, parsePackFromZipBuffer, parsePackFromZipFile, PackParseError } from './datapack/pack-parser';
 export type { ParsedPack } from './datapack/pack-parser';
 export { PackManager, PackManagerError } from './datapack/pack-manager';
-export type { StoredPack, PackManagerSnapshot, PackApplyTarget, PackDependencyStatus, PackDependencyHint, PackSourceKind } from './datapack/pack-manager';
+export { datapackPaneKey, packSlotKind, storedPackIdentity, toDatapackRecord, projectDatapackPanes } from './datapack/pack-manager';
+export type {
+  StoredPack,
+  DatapackRecord,
+  DatapackIdentity,
+  DatapackPane,
+  DatapackSelection,
+  DatapackSlotKind,
+  DatapackSelectionSlot,
+  RuntimeApplyPlan,
+  RuntimeApplyPlanEntry,
+  PackManagerSnapshot,
+  PackApplyTarget,
+  PackDependencyStatus,
+  PackDependencyHint,
+  PackSourceKind,
+  PackConflictCode,
+} from './datapack/pack-manager';
+export { PackManagerRepository, PackManagerCopyService, PackManagerExportService } from './datapack/datapack-services';
+export type { DatapackRepository, DatapackCopyService, DatapackImportService, DatapackExportService, PackageInspection, PackageDiagnostic } from './datapack/datapack-services';
 export { JsonPackSnapshotStore, IndexedDbPackSnapshotStore } from './datapack/pack-storage';
 export type { PackSnapshotStore, AsyncPackSnapshotStore } from './datapack/pack-storage';
 export { SaveSystem } from './persistence/storage';
@@ -90,6 +119,8 @@ export { resolvePicSrc, resolveDefSrc } from './assets/pic-resolver';
 export type { PicDefinitionMap } from './assets/pic-resolver';
 export { PicService } from './assets/pic-service';
 export { Registry, RegistryError } from './registry/registry';
+export { createRuntimeContentBrowser, filterRuntimeContentDefinitions } from './registry/runtime-content-browser';
+export type { RuntimeContentBrowserQueryPort, RuntimeContentBrowserView, RuntimeContentDefinitionDetail, RuntimeContentDefinitionSummary, RuntimeContentKindDescriptor, RuntimeContentLoadedMod, RuntimeContentReferenceDiagnostic, RuntimeDefinitionRef } from './contracts/runtime-content-browser';
 export type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry/registry';
 export type { RegistryAreaMutation, RegistryAreaMutationReceipt, RegistryInitMutation, RegistryInitMutationReceipt } from './registry/registry';
 export {

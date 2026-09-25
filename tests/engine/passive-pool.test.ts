@@ -424,14 +424,113 @@ describe('基础数据包池树（schale_office）', () => {
     expect(g.getView().currentStory).toBeNull();
     // 播完聊天空间邀约 → hoshino_rooftop_hint 已读 → 天台 Trigger 激活
     readRooftopInvite(g);
+    expect(g.storyFollowUps.getDiagnostics().find(d => d.followUpId === 'rooftop-meet')?.state).toBe('waiting');
     // 确认天台在夏莱 Init 可达
     const move = g.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
     expect(g.state.currentAreaId).toBe('base:area:schale_rooftop');
     // 触发天台相遇剧情
-    expect(g.state.triggersCompleted).toContain('base:trigger:hoshino_rooftop_story');
+    expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(g.storyFollowUps.getDiagnostics().find(d => d.followUpId === 'rooftop-meet')?.state).toBe('fulfilled');
     expect(g.getView().currentStory).not.toBeNull();
     expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+  });
+
+  test('FollowUp·存档恢复：来源完成但尚未进入目标 Area 时重建等待监听', () => {
+    const g = new GameInstance();
+    const restored = new GameInstance();
+    g.init([baseDatapack]);
+    restored.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    readRooftopInvite(g);
+    expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+
+    restored.load(g.save());
+    const move = restored.travelToArea('base:area:schale_rooftop');
+    expect(move.success).toBe(true);
+    expect(restored.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(restored.getView().currentStory?.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+    g.stop();
+    restored.stop();
+  });
+
+  test('FollowUp·非目标区域不消费：先进入资料室后仍可在天台兑现', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    readRooftopInvite(g);
+    expect(g.travelToArea('base:area:schale_library').success).toBe(true);
+    expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(g.travelToArea('base:area:schale_main').success).toBe(true);
+    expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
+    expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+  });
+
+  test('FollowUp·当前已在目标区域不 catch-up：等待下一次匹配进入事件', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
+    readRooftopInvite(g);
+    expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(g.getView().currentStory).toBeNull();
+    expect(g.travelToArea('base:area:schale_main').success).toBe(true);
+    expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
+    expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+  });
+
+  test('FollowUp·Init 监听可重建：卸载后不响应，重新挂载后恢复等待', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    readRooftopInvite(g);
+    g.inits.unmountInitTriggers();
+    expect(g.storyFollowUps.getDiagnostics().find(d => d.followUpId === 'rooftop-meet')?.state).toBe('inactive');
+    g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
+    expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+
+    g.inits.mountInitTriggers('base:init:schale_office');
+    expect(g.storyFollowUps.getDiagnostics().find(d => d.followUpId === 'rooftop-meet')?.state).toBe('waiting');
+    g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
+    expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+  });
+
+  test('FollowUp·启动暂时失败不 fulfilled：清除占用后下一次匹配可重试', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    readRooftopInvite(g);
+    expect(g.story.startStory('base:activestory:schale_flow_show', 'active').success).toBe(true);
+    g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
+    expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    g.story.clearAllCurrentStories();
+    g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
+    expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
   });
 
   // 关键复现：玩家前往天台时全局游标已有被动闲聊在播放，天台 Trigger 仍应抢占触发
@@ -456,7 +555,7 @@ describe('基础数据包池树（schale_office）', () => {
     // 前往天台 → 天台 Trigger（force）抢占该闲聊并启动天台剧情
     const move = g.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
-    expect(g.state.triggersCompleted).toContain('base:trigger:hoshino_rooftop_story');
+    expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
     expect(g.getView().currentStory).not.toBeNull();
     expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
   });
@@ -477,7 +576,7 @@ describe('基础数据包池树（schale_office）', () => {
     // 前往天台 → 天台 Trigger（force 跳过已读）仍应触发独立的天台相遇
     const move = g.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
-    expect(g.state.triggersCompleted).toContain('base:trigger:hoshino_rooftop_story');
+    expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
     expect(g.getView().currentStory).not.toBeNull();
     expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
   });

@@ -26,7 +26,8 @@
 | `unlockedEnhancements` / `enhancementAttachments` | string[] / Record | 已解锁强化；GlobalEnh 跨 Init 保留，本地强化进入对应 Init 快照 / 挂靠元数据（仅 UI 展示） |
 | `storyLog` | CompletedStory[] | 剧情完成记录（按 StoryDef.id）；`storyReadLogs` 另存阅读日志（重读/分歧守卫） |
 | `storyCursors`（InitSnapshot） | StoryCursorCollection | 当前 Init 的 global/chat Story 执行游标；切换时保存并清理运行时游标，恢复时重建，不保存 StoryService 对象图 |
-| `triggersCompleted` | string[] | 已触发的一次性 Trigger（once）id 集合 |
+| `triggersCompleted` | string[] | 已提交的一次性 Trigger（once）及 StoryFollowUp fulfilled id 集合；FollowUp 使用独立成功提交边界，不继承普通 Trigger 的 pre-consume 语义 |
+| `informationRevealProgress` | `{ revealed: {entityKind, entityId, target}[] }` | 当前 Save 内已揭示信息事实；按三元身份幂等追加，跨 Init/Run 保留，不进 InitSnapshot；`existence`/`unlock` 不写入 |
 | `roster` / `fragments` | Record<VariantId, VariantProgress> / Record | 通讯录（持有差分养成进度副本）/ 碎片余额（归属随 characterPersistConfig.roster） |
 | `gachaState` | Record<GachaPoolId, GachaPoolState> | 各卡池保底/抽取计数（pity/pulls） |
 | `globalShopPurchaseRecords` / `shopPurchaseRecords` | Record<string, { purchasedQuantity }> | Shop 的 global / 当前 Init 限购事实；key 由 scope 的 owner 与 Shop/Spot 身份派生，余量不写回 Datapack |

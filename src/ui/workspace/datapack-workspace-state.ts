@@ -111,6 +111,10 @@ export function toggleDatapackDraftEnabled(workspace: DatapackWorkspaceState, pa
 
 export type DatapackMoveResult = 'moved' | 'ignored' | 'blocked';
 
+function paneKeyForEntry(entry: Pick<PackCatalogEntry, 'modName' | 'version'>): string {
+  return `${entry.modName}@${entry.version}`;
+}
+
 export function moveDatapackDraft(
   workspace: DatapackWorkspaceState,
   entries: readonly PackCatalogEntry[],
@@ -125,6 +129,46 @@ export function moveDatapackDraft(
   const next = [...workspace.draftOrder];
   [next[index], next[target]] = [next[target], next[index]];
   workspace.draftOrder = next;
+  clearDatapackFeedback(workspace);
+  return 'moved';
+}
+
+/** 将同一 ModId + VersionId 的全部记录作为一个连续块移动。 */
+export function moveDatapackPaneDraft(
+  workspace: DatapackWorkspaceState,
+  entries: readonly PackCatalogEntry[],
+  paneKey: string,
+  delta: number,
+): DatapackMoveResult {
+  const entryById = new Map(entries.map(entry => [entry.id, entry] as const));
+  const order = workspace.draftOrder.filter(id => entryById.has(id));
+  const knownIds = new Set(order);
+  for (const entry of entries) if (!knownIds.has(entry.id)) order.push(entry.id);
+
+  const idsByPane = new Map<string, string[]>();
+  const paneOrder: string[] = [];
+  for (const id of order) {
+    const entry = entryById.get(id);
+    if (!entry) continue;
+    const key = paneKeyForEntry(entry);
+    if (!idsByPane.has(key)) {
+      idsByPane.set(key, []);
+      paneOrder.push(key);
+    }
+    idsByPane.get(key)!.push(id);
+  }
+
+  const currentIndex = paneOrder.indexOf(paneKey);
+  const currentIds = idsByPane.get(paneKey);
+  if (currentIndex < 0 || !currentIds || !currentIds.every(id => isReorderable(entryById.get(id)))) return 'ignored';
+  const targetIndex = currentIndex + delta;
+  if (targetIndex < 0 || targetIndex >= paneOrder.length) return 'ignored';
+  const targetIds = idsByPane.get(paneOrder[targetIndex]) ?? [];
+  if (!targetIds.every(id => isReorderable(entryById.get(id)))) return 'blocked';
+
+  const nextPaneOrder = [...paneOrder];
+  [nextPaneOrder[currentIndex], nextPaneOrder[targetIndex]] = [nextPaneOrder[targetIndex], nextPaneOrder[currentIndex]];
+  workspace.draftOrder = nextPaneOrder.flatMap(key => idsByPane.get(key) ?? []);
   clearDatapackFeedback(workspace);
   return 'moved';
 }

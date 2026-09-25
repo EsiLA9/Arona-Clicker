@@ -2,11 +2,11 @@ import { describe, expect, test } from 'vitest';
 import { PackManager, PackManagerError, type StoredPack } from '../../src/data-services/datapack/pack-manager';
 import { JsonPackSnapshotStore } from '../../src/data-services/datapack/pack-storage';
 
-function pack(id: string, modName: string): StoredPack {
+function pack(id: string, modName: string, version = '1.0.0'): StoredPack {
   return {
     id,
-    manifest: { modName, name: modName, version: '1.0.0', dependencies: [] },
-    datapack: { name: modName, version: '1.0.0', inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], characters: [], funcletDefs: [] },
+    manifest: { modName, name: modName, version, dependencies: [] },
+    datapack: { name: modName, version, inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], characters: [], funcletDefs: [] },
     images: [], sourceKind: 'zip', importedAt: 1,
   };
 }
@@ -85,7 +85,7 @@ describe('PackManager', () => {
   test('草案校验失败时不改变正式启用集', () => {
     const manager = new PackManager();
     manager.importPack(pack('a', 'same-mod'));
-    manager.importPack(pack('b', 'same-mod'));
+    manager.importPack(pack('b', 'same-mod', '2.0.0'));
     const before = manager.configuration();
     expect(() => manager.validateConfiguration({ enabledIds: ['a', 'b'], order: ['a', 'b'] })).toThrow('modName 冲突');
     expect(manager.configuration()).toEqual(before);

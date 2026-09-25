@@ -81,11 +81,11 @@ export function refreshRevealIfChanged(ctrl: UIController): void {
  * 这样聊天流等区域的滚动位置与交互不受 Tick 干扰。
  */
 export function refreshLight(ctrl: UIController): void {
-  // 兜底：奖励/移动通知排队后若没有后续全量 render，由下一 Tick 补一次
+  // 兜底：奖励/移动通知排队后若没有后续聊天刷新，由下一 Tick 补一次聊天范围刷新
   if (ctrl.pendingRewardChats.length > 0 || ctrl.pendingTravelChats.length > 0) {
     if (!ctrl.notificationFallbackRendered) {
       ctrl.notificationFallbackRendered = true;
-      ctrl.render();
+      ctrl.refreshChatPanel();
     }
     return;
   }

@@ -74,7 +74,6 @@ export function renderGroupCodex(ctx: UIContext): string {
   const cards = all.map(g => groupCard(ctx, g)).join('');
   const summary = `
     <div class="coll-summary">
-      <span class="eyebrow">COLOR GROUP CODEX</span>
       <strong>${ownedCount} / ${all.length} 已收集${definedCount > 0 ? ` · ${definedCount} 份自定义配色` : ''}</strong>
     </div>`;
   return `${summary}<div class="codex-grid">${cards}</div>`;
@@ -117,7 +116,6 @@ export function renderEquipmentCodex(ctx: UIContext): string {
   }).join('');
   const summary = `
     <div class="coll-summary">
-      <span class="eyebrow">EQUIPMENT CODEX</span>
       <strong>${ownedCount} / ${all.length} 已收集</strong>
     </div>`;
   return `${summary}<div class="codex-grid">${cards}</div>`;

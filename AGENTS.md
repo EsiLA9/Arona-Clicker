@@ -14,6 +14,7 @@
 - 实体字段 / 枚举：[[docs/docs-828/05-conventions/schema-sync]]；状态分层：[[docs/docs-828/03-data-structures/player-state]] + [[docs/docs-828/01-architecture/state-layers]]。
 - 生产、抽卡、培养、色彩、事件联动：[[docs/docs-828/04-mechanisms/00-index]]；文件拆分：[[docs/docs-828/05-conventions/refactoring]]；测试：[[docs/docs-828/05-conventions/testing]]。
 - 文档维护：[[docs/docs-828/05-conventions/doc-maintenance]]；Luna 施工协议：[[docs/ai/PROJECT-CONSTITUTION]]；Read Set：[[docs/ai/task-read-set-routing]]。
+- 游戏内 UI 使用通用 `frontend-design` skill 时，必须叠加 [[docs/ai/frontend-design-project-overlay]]；该协议约束 DOM budget、behavior / region / structure 刷新等级、scroll / focus / hover 连续性和装饰性结构边界。
 - 好感机制：[[affection-planning]]；Datapack 管理规划：[[adr-0004-datapack-management]]；Datapack 汇总边界：`src/data-services/contracts/datapack.ts` 与 `src/data-services/registry/`。
 - 历史计划与未决方向：[[docs/plan-work/00-index]]；它不是当前系统事实源。
 
@@ -70,6 +71,7 @@
 
 - 默认不写注释，只为非显而易见的 WHY 写注释；引用文件路径，不复制大段代码。
 - 大文件按职责拆分，遵循 [[docs/docs-828/05-conventions/refactoring]]。
+- UI 视觉签名优先用 CSS、主题 token、既有表现宿主或稳定语义节点实现；新增 wrapper 必须有真实布局、语义、交互或可访问性职责。scroll、hover、focus、普通 click 默认不得触发 `render()`，批量 mutation 必须合并到单一 UI 收敛点。
 
 ## 默认数据与 Spot 招募
 

@@ -5,7 +5,7 @@
 > **本目录不是当前事实源。** 项目当前事实一律以 `src/` 与 `docs/docs-828/` 为准。
 > 这里的根目录承载当前确实推进的 Task / ADR / Draft；`archive/` 与 `mechanisms/` 保存冻结过程文档。它们的用途分别是记录当前施工边界，以及回答「为什么当初这么做」或在需要时重新激活未完成方向。
 
-> **当前活跃计划层状态（2026-09-18）**：根目录当前任务包括 [[task-0076-unified-def-editor-service]]、[[task-0077-runtime-editor-condition-tree]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0088-init-area-hot-crud-and-location-fallback]]、[[task-0089-runtime-area-topology-overlay]]、[[task-0092-agents-routing-slimdown]]、[[task-0093-init-editor-design]]、[[task-0094-runtime-editor-floating-pane-launcher]]、[[task-0095-runtime-editor-mini-launcher-and-init-default-area]]、[[task-0098-runtime-editor-workspace-decoupling-and-light-theme]] 与 [[task-0100-ui-semantic-region-mapping-follow-up]]。task-0096 已完成核心刷新边界并转为完成记录；0087 已被重新收敛的 0088 取代，不再作为当前实施范围；AOCI-CODE 接入和任务系统结构对齐已完成并归档。
+> 当前推进项统一从下方「当前活跃任务」「新立项 / 待裁定」进入；文首不复制任务状态。
 
 ## 冻结约定
 
@@ -131,6 +131,13 @@
 
 ## 当前活跃任务
 
+- [[task-0151-milestone-persistent-arrival-facts-p0]]：Milestone P0；P0-A 只读核验已完成，发现 global resource Condition 读取边界待裁定；P0-B/C/D 尚未批准施工。
+- [[task-0147-ai-read-set-routing-efficiency]]：按具体子题收敛项目 AI Read Set，消除领域包重复，并说明 AOCI 读取成本边界。
+- [[task-0140-story-follow-up-v1]]：StoryFollowUp v1 业务实现与验证已完成；AOCI 终态维护待既有治理漂移处理。
+- [[task-0135-runtime-editor-semantic-summary-readable-projection]]：调查并规划超级图鉴语义摘要的可读化投影。
+- [[task-0133-runtime-editor-codex-reference-trace-and-unified-rendering]]：统一超级图鉴相关组分的引用路径、聚合显示、跨包观测样本、查看栈和局部 DOM 刷新边界；当前已完成关系聚合与路径属性，继续进行真实 addition-test 端到端验收。
+- [[task-0134-runtime-content-static-reverse-query-and-milestones]]：为资源与实体提供统一静态正向 / 反向查询，并规划轻量实体获得与里程碑记录；不做高频 Event 因果链。
+- [[task-0120-def-editor-design-masterplan]]：统领各类 Datapack Def 的编辑器分级、字段授权、页签 / 子编辑器、引用影响、Apply 顺序与全量验收设计；当前为总纲裁定，尚未进入全量 Def 施工。
 - [[task-0104-init-editor-apply-interaction-convergence]]：收敛 Init Editor Apply 后选择页的真实交互链路与提交快照时序。
 - [[task-0103-init-selector-freeze-after-runtime-apply]]：Runtime Editor 新建 Init 后 Init 转轮仍冻结；当前为下一次对话的调查与修复交接。
 - [[task-0098-runtime-editor-workspace-decoupling-and-light-theme]]：建立统一亮色 Editor Workspace，修复 Debug 编辑态生命周期，并将内容浏览器从编辑中 Mod 解耦为独立页面。
@@ -139,23 +146,31 @@
 - [[task-0094-runtime-editor-floating-pane-launcher]]：将 Runtime Editor 从 Toast 迁移到全局浮动工作区，解除对设置页和 Toast 生命周期的依赖。
 - [[task-0092-agents-routing-slimdown]]：精简 `AGENTS.md` 的非托管入口与项目护栏，保留 AOCI 托管区块原样。
 - [[task-0086-ui-dom-refresh-boundaries-and-hover-preservation]]：降低 UI 不必要的激进 DOM 刷新，收敛局部刷新与 hover 生命周期边界。
-- [[task-0096-panel-granular-refresh-api-and-hover-continuity]]：已完成 Panel 内字段 / 元素组 / Region 级刷新 API、tooltip 范围、Runtime Editor 批量刷新合并和浏览器级验收。
+- [[task-0080-spot-cost-and-payment-extensibility]]：Spot 支付扩展的 P0/P1 与 Runtime Editor 支持已完成；后续 Provider 已另立任务。
+- [[task-0079-chara-spot-link-retirement-and-redesign]]：删除旧 Manager 状态、条件、Effect 与事件，等待施工。
+- [[task-0078-runtime-editor-condition-target-editors]]：原子条件目标编辑器 P0/P1 已落地，P2 施工中。
+- [[task-0077-runtime-editor-condition-tree]]：条件树主体已落地，待浏览器体验验收。
+- [[task-0076-unified-def-editor-service]]：统一 Def 编辑服务 P0–P2 已落地，余项见 Task。
+- [[task-0088-init-area-hot-crud-and-location-fallback]]：在共享 Spot 编辑框架中实现 Init / Area 热 CRUD，并处理当前位置丢失时的回退。
+- [[task-0089-runtime-area-topology-overlay]]：分离静态 Area Def 拓扑与 Runtime 可用拓扑；代码已完成，待浏览器交互验收。
 
 ## 新立项 / 待裁定
 
-- [[task-0097-entity-presentation-content-selection]]：规划 `name + description + theme` 统一表现内容单元、外部原因覆盖与玩家自主选择；状态为 proposed，待完成 P0 语义裁定后开工。
+- [[draft-0144-eventbus-trigger-millstone]]：Milestone P0 主体设计裁定，施工计划已转入 [[task-0151-milestone-persistent-arrival-facts-p0]]。
+- [[draft-0143-trigger-runtime-registration-withdrawal]]：EB-T Registration/撤出语义草案；首切片 Task A 已完成，后续切片另立范围。
+- [[draft-0142-trigger-gameplay-packaging]]：分类监听变化后作出反应的常见玩法，并草拟通用 Trigger 与领域专用包装的职责边界；状态为 draft，未授权实现。
+- [[draft-0139-story-follow-up-packaging]]：以星野天台邀约为案例，讨论将底层 Trigger 包装为用户可理解的剧情后续安排；状态为 draft，交由上层模型裁定。
+- [[draft-0138-comprehensive-data-structure-audit]]：核验游戏数据结构、Builder / JSON / Registry / Runtime 投影的一致性，并记录内容源漂移、嵌套引用校验和重复关系投影风险；状态为 draft。
+- [[draft-0137-story-entry-reactions-sol-review-and-decision]]：记录 Sol 对 StoryEntry Reaction、Trigger 生命周期、跨包追加和行为优先级的建议，以及本项目的采纳 / 暂缓裁定；文首状态为 active。
+- [[draft-0136-story-trigger-catalog-and-scoped-mounting]]：将 StoryEntry 关联的 Trigger 独立存放、按作用域挂载，并保持静态注册与运行时监听分离；当前为设计草案，尚未开工。
+- [[task-0131-runtime-editor-codex-detail-navigation-and-density]]：收敛超级图鉴详情密度、相关组分快捷入口与查看栈；实现与全量测试已完成，浏览器目视验收待环境可用；硬性约束为局部 DOM 刷新、内容克制和紧凑尺寸。
 - [[task-0100-ui-semantic-region-mapping-follow-up]]：承接 Init 文案、ARIA / 主题语义节点和 Runtime Editor 批量计数的更高熵局部映射；状态为 proposed。
-- [[task-0088-init-area-hot-crud-and-location-fallback]]：在共享 Spot 编辑框架中实现 Init / Area 热 CRUD，并在当前位置丢失时回到默认 Area 或 Init 选择界面。
-- [[task-0089-runtime-area-topology-overlay]]：分离静态 Area Def 拓扑与 Runtime 可用拓扑，支持 Runtime Mod 对外部 Area 建立双向连接。
-- [[task-0090-aoci-code-codex-integration]]：完成 AOCI-CODE 的 Codex 接入、首轮仓库认知索引、对齐验证与面板交付（已归档）。
-- [[task-0091-aoci-task-system-structure-alignment]]：完成 AGENTS、任务入口与旧空目录骨架向 AOCI 分层的对齐（已归档）。
 
 ## 相关路由
 
-- 当前任务：[[task-0098-runtime-editor-workspace-decoupling-and-light-theme]]、[[task-0096-panel-granular-refresh-api-and-hover-continuity]]、[[task-0089-runtime-area-topology-overlay]]、[[task-0088-init-area-hot-crud-and-location-fallback]]、[[task-0087-init-area-enhancement-editor-crud]]、[[task-0080-spot-cost-and-payment-extensibility]]、[[task-0079-chara-spot-link-retirement-and-redesign]]、[[task-0078-runtime-editor-condition-target-editors]]、[[task-0076-unified-def-editor-service]]
-- 新立项：[[task-0097-entity-presentation-content-selection]]
-- 收束中的任务：[[task-0077-runtime-editor-condition-tree]]
-- 最近完成的计划：[[task-0101-external-refresh-hover-race-and-invalidation]]、[[task-0102-entity-theme-immediate-refresh]]、[[task-0085-def-audit-metadata-and-missing-time-ordering]]、[[task-0084-spot-price-propagation-and-runtime-editability]]、[[task-0083-datapack-load-policy-persistence-and-startup-restore]]、[[task-0082-runtime-editor-invalid-entry-annotations]]、[[task-0081-spot-payment-default-removal]]、[[task-0075-spot-runtime-affector-editor-demo]]、[[task-0074-spot-affector-resource-convergence]]
+- 最近完成：[[task-0149-information-reveal-runtime-lifecycle]]（Information Reveal 的 Init、读档、重置与热内容对账，194 文件 / 1777 测试通过，2026-09-25）、[[task-0148-information-reveal-adapter-v1]]（Save Progress、Reveal 域与 EB-T Adapter，2026-09-25）、[[task-0146-reveal-domain-model-v1]]（Information Reveal v1 领域事实、Scope、prerequisite 与 WakePlan 裁定；仅设计与源码核验，2026-09-25）、[[task-0145-reveal-condition-event-coverage-audit]]（Reveal Condition / Event 覆盖只读审计，17 个目标矩阵、activation/invalidation 分析与首期建议，2026-09-24）、[[task-0144-trigger-runtime-registration-withdrawal]]（Trigger Runtime Registration & Withdrawal，188 files / 1748 tests 通过，2026-09-24）、[[task-0133-ui-refresh-repair-slices]]（依据 task-0132 逐切片完成 UI 刷新、焦点/滚动连续性与 Tabs 语义修复，2026-09-20 完成）、[[task-0132-ui-refresh-and-structural-density-audit]]（四 Workstream 多 agent 只读审计完成，2026-09-20 完成）、[[task-0130-runtime-editor-codex-def-inspector-plan]]（超级图鉴 Def 概览、关系与原始数据详览，2026-09-20 完成）。
+- 本轮归档：[[task-0150-aoci-governance-and-runtime-alignment]]、[[task-0149-information-reveal-runtime-lifecycle]]、[[task-0148-information-reveal-adapter-v1]]、[[task-0146-reveal-domain-model-v1]]、[[task-0145-reveal-condition-event-coverage-audit]]、[[task-0144-trigger-runtime-registration-withdrawal]]、[[task-0141-document-workflow-simplification]]、[[task-0087-init-area-enhancement-editor-crud]]（由 0088 取代）、[[task-0096-panel-granular-refresh-api-and-hover-continuity]]、[[task-0097-entity-presentation-content-selection]]、[[task-0128-runtime-editor-loaded-content-codex]]、[[task-0129-runtime-editor-codex-workspace-optimization]]。
+- 最近完成的计划：[[task-0119-runtime-editor-base-full-export]]、[[task-0118-datapack-editing-creation-target-indicator]]、[[task-0117-datapack-editing-visible-label]]、[[task-0116-datapack-editing-active-gold-theme-token]]、[[task-0115-datapack-editing-active-gold-state]]、[[task-0114-datapack-edit-entry-and-apply-gate]]、[[task-0113-datapack-pane-control-density]]、[[task-0112-datapack-pane-group-order-and-mode-switch]]、[[task-0111-datapack-pane-slots-selection-and-atomic-apply]]、[[task-0110-datapack-editing-state-and-targeted-authoring]]、[[task-0107-runtime-editor-pack-export-service]]、[[task-0106-runtime-editor-draft-persistence]]、[[task-0105-init-selector-invalid-worldtilt-compatibility]]、[[task-0101-external-refresh-hover-race-and-invalidation]]、[[task-0102-entity-theme-immediate-refresh]]、[[task-0085-def-audit-metadata-and-missing-time-ordering]]、[[task-0084-spot-price-propagation-and-runtime-editability]]、[[task-0083-datapack-load-policy-persistence-and-startup-restore]]、[[task-0082-runtime-editor-invalid-entry-annotations]]、[[task-0081-spot-payment-default-removal]]、[[task-0075-spot-runtime-affector-editor-demo]]、[[task-0074-spot-affector-resource-convergence]]
 - 最近一次清退（2026-09-15，暂停移入 `archive/`）：[[task-0071-runtime-editor-p0-capability-baseline]]、[[task-0072-runtime-mod-editor-authoring-spine]]、[[task-0073-spot-field-authoring-ladder]]
 - [[docs/docs-828/00-INDEX]]（唯一当前事实入口）
 - [[docs/docs-828/01-architecture/design-constraints]]（仍生效的设计约束）

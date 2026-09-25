@@ -142,6 +142,44 @@ export interface PackMoveAvailability {
   readonly canMoveDown: boolean;
 }
 
+function paneKeyForEntry(entry: Pick<PackCatalogEntry, 'modName' | 'version'>): string {
+  return `${entry.modName}@${entry.version}`;
+}
+
+export function paneMoveAvailability(
+  paneKey: string,
+  entries: readonly PackCatalogEntry[],
+  order: readonly string[],
+  allowReorder: boolean,
+): PackMoveAvailability {
+  if (!allowReorder) return { canMoveUp: false, canMoveDown: false };
+  const byId = new Map(entries.map(entry => [entry.id, entry] as const));
+  const knownOrder = order.filter(id => byId.has(id));
+  const knownIds = new Set(knownOrder);
+  for (const entry of entries) if (!knownIds.has(entry.id)) knownOrder.push(entry.id);
+  const groups = new Map<string, string[]>();
+  const groupOrder: string[] = [];
+  for (const id of knownOrder) {
+    const entry = byId.get(id);
+    if (!entry) continue;
+    const key = paneKeyForEntry(entry);
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      groupOrder.push(key);
+    }
+    groups.get(key)!.push(id);
+  }
+  const index = groupOrder.indexOf(paneKey);
+  const current = groups.get(paneKey);
+  if (index < 0 || !current || !current.every(id => isReorderable(byId.get(id)))) {
+    return { canMoveUp: false, canMoveDown: false };
+  }
+  const movable = (target: number): boolean => target >= 0
+    && target < groupOrder.length
+    && (groups.get(groupOrder[target]) ?? []).every(id => isReorderable(byId.get(id)));
+  return { canMoveUp: movable(index - 1), canMoveDown: movable(index + 1) };
+}
+
 export function packMoveAvailability(
   packId: string,
   entries: readonly PackCatalogEntry[],

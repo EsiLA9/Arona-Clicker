@@ -119,7 +119,7 @@ describe('Spot Shop workspace', () => {
     expect(tooltip.classList.contains('is-open')).toBe(false);
   });
 
-  test('待落账通知的 Tick fallback 在队列未变化时只触发一次 full render', () => {
+  test('未启动状态的待落账通知仍只触发一次 full fallback', () => {
     controller.openSpotShopModal(SPOT);
     controller.panelState.workspace = undefined;
     controller.panelState.service = 'game';
@@ -130,6 +130,23 @@ describe('Spot Shop workspace', () => {
     controller.refreshLight();
 
     expect(controller.getRefreshStats().fullRenders).toBe(fullBefore + 1);
+    expect(controller.notificationFallbackRendered).toBe(true);
+  });
+
+  test('已启动游戏的待落账通知只触发一次聊天范围刷新', () => {
+    controller.openSpotShopModal(SPOT);
+    controller.panelState.workspace = undefined;
+    controller.panelState.service = 'game';
+    controller.started = true;
+    controller.render();
+    controller.pendingRewardChats.push('待显示通知');
+    const fullBefore = controller.getRefreshStats().fullRenders;
+
+    controller.refreshLight();
+    controller.refreshLight();
+
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
+    expect(controller.notificationFallbackRendered).toBe(true);
   });
 
   test('结算失败保留购物车，并只更新 Feed / settlement 区域', () => {

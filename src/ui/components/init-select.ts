@@ -1,6 +1,6 @@
 import type { RevealStage } from '../../engine/contracts/reveal';
 import type { ResourceAmount } from '../../data-services/contracts/common';
-import { compareWorldTilt, normalizeWorldTilt } from '../../engine/stats/world-tilt';
+import { compareWorldTilt, normalizeWorldTilt, tryNormalizeWorldTilt } from '../../engine/stats/world-tilt';
 import { UIContext } from '../context';
 import { getInitReveal } from './tooltip';
 import { projectSelectorTheme, selectorThemeStyle } from '../selector-theme';
@@ -20,6 +20,10 @@ export interface InitSummary {
   purchaseCost: ResourceAmount[];
   /** 规范化「首.尾15」世界倾斜数值。 */
   worldTilt: string;
+  /** 选择页排序使用的规范值；非法原文使用官方世界作为稳定回退键。 */
+  worldTiltSortKey: string;
+  /** 原始 worldTilt 是否符合规范数值格式。 */
+  worldTiltValid: boolean;
   /** 伪装展示字符串：存在时代替数值展示。 */
   worldTiltAlias?: string;
   /** 条目局部主题树，轮盘卡片与详情共用。 */
@@ -37,6 +41,9 @@ function summarize(ctx: UIContext): InitSummary[] {
       0,
     );
     const reveal = getInitReveal(ctx, init);
+    const rawWorldTilt = typeof init.worldTilt === 'string' ? init.worldTilt.trim() : '';
+    const normalizedWorldTilt = tryNormalizeWorldTilt(init.worldTilt);
+    const worldTiltValid = normalizedWorldTilt !== undefined;
     return {
       id: init.id,
       name: init.name,
@@ -49,7 +56,9 @@ function summarize(ctx: UIContext): InitSummary[] {
       utilityKnown: reveal.utilityKnown,
       unlocked: ctx.view.unlockedInits.includes(init.id),
       purchaseCost: init.purchaseCost ?? [],
-      worldTilt: normalizeWorldTilt(init.worldTilt),
+      worldTilt: worldTiltValid ? normalizedWorldTilt : rawWorldTilt || normalizeWorldTilt(undefined),
+      worldTiltSortKey: normalizedWorldTilt ?? normalizeWorldTilt(undefined),
+      worldTiltValid,
       worldTiltAlias: init.worldTiltAlias,
       themeStyle: selectorThemeStyle(projectSelectorTheme(ctx, 'init', init.id)),
     };
@@ -140,7 +149,10 @@ function detailHtml(ctx: UIContext, init: InitSummary, restarting: boolean): str
 /** 按 TILT 降序排列的可见世界线（invisible 不入列）。 */
 export function visibleInitsByTilt(ctx: UIContext): InitSummary[] {
   return summarize(ctx)
-    .sort((a, b) => compareWorldTilt(b.worldTilt, a.worldTilt))
+    .sort((a, b) => {
+      if (a.worldTiltValid !== b.worldTiltValid) return a.worldTiltValid ? -1 : 1;
+      return compareWorldTilt(b.worldTiltSortKey, a.worldTiltSortKey);
+    })
     .filter(init => init.stage !== 'invisible');
 }
 

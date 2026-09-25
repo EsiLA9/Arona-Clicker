@@ -10,13 +10,15 @@ import { buildDatapackWorkspaceView } from '../arona-clicker/services/datapack-w
 import {
   hasDatapackWorkspaceChanges,
   moveDatapackDraft,
+  moveDatapackPaneDraft,
   setDatapackResult,
   setDatapackSection,
   setDatapackSelection,
   setDatapackValidation,
   toggleDatapackDraftEnabled,
 } from './workspace/datapack-workspace-state';
-import { bindRuntimeDatapackEditorActions, syncRuntimeEditorCreateActions } from './runtime-editor/actions';
+import { bindRuntimeDatapackEditorActions, openRuntimeEditingPack, syncRuntimeEditorCreateActions } from './runtime-editor/actions';
+import { runtimeEditorHasUnsavedChanges } from './runtime-editor/state';
 import type { UIController } from './controller';
 import { refreshPresentationHostElements } from './controller-theme';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
@@ -260,6 +262,93 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       render();
     });
   });
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-selection-pane]').forEach(button => {
+    button.addEventListener('click', () => {
+      const paneKey = button.dataset.packSelectionPane;
+      const selectedSlot = button.dataset.packSelectionSlot as 'fixed' | 'editing' | undefined;
+      if (!paneKey || !selectedSlot || !host.setPackSelection) return;
+      const selectedRecordId = button.dataset.packSelectionRecord;
+      const reenterEditing = selectedSlot === 'editing'
+        && button.getAttribute('aria-pressed') === 'true'
+        && Boolean(selectedRecordId);
+      if (reenterEditing && selectedRecordId) {
+        if (hasDatapackWorkspaceChanges(root, host.getPackConfiguration?.())) {
+          setDatapackResult(root, { ok: false, message: '请先应用启用集草案，再进入编辑模式。' });
+          render();
+          return;
+        }
+        setDatapackSelection(root, selectedRecordId);
+        if (!openRuntimeEditingPack(ctrl, selectedRecordId)) render();
+        return;
+      }
+      try {
+        host.setPackSelection(paneKey, selectedSlot);
+        if (selectedRecordId) setDatapackSelection(root, selectedRecordId);
+        setDatapackResult(root, {
+          ok: true,
+          message: selectedSlot === 'editing'
+            ? '已选择编辑态；再次点击进入该 Mod 的编辑模式。'
+            : '已选择普通态；返回数据包管理页后再统一 Apply。',
+        });
+      } catch (error) {
+        setDatapackResult(root, { ok: false, message: error instanceof Error ? error.message : String(error) });
+      }
+      render();
+    });
+  });
+  const openCreateEmptyEditingModal = (values: { modId?: string; versionId?: string; error?: string } = {}): void => {
+    const modId = values.modId ?? '';
+    const versionId = values.versionId ?? '';
+    ctrl.modal.open({
+      title: '创建新编辑态数据包',
+      width: 440,
+      body: `<div class="pack-create-empty-form"><p>创建一个只存在于编辑态的空数据包。输入身份后会先核实，再写入包库；不会加入启用集或改变当前 Runtime。</p><label>ModId<input id="pack-create-mod-id" data-pack-create-mod-id type="text" value="${escapeHtml(modId)}" placeholder="例如 my-mod" autocomplete="off" spellcheck="false"></label><label>VersionId<input id="pack-create-version-id" data-pack-create-version-id type="text" value="${escapeHtml(versionId)}" placeholder="例如 0.1.0" autocomplete="off" spellcheck="false"></label>${values.error ? `<p class="pack-form-error" role="alert">${escapeHtml(values.error)}</p>` : ''}</div>`,
+      footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="verify-empty-editing-pack">核实身份</button>',
+      onAction: action => {
+        if (action !== 'verify-empty-editing-pack') return;
+        const rawModId = document.querySelector<HTMLInputElement>('[data-pack-create-mod-id]')?.value ?? '';
+        const rawVersionId = document.querySelector<HTMLInputElement>('[data-pack-create-version-id]')?.value ?? '';
+        const nextModId = rawModId.trim();
+        const nextVersionId = rawVersionId.trim();
+        if (!/^[a-z0-9-]+$/.test(nextModId)) {
+          openCreateEmptyEditingModal({ modId: rawModId, versionId: rawVersionId, error: 'ModId 只能包含小写字母、数字和连字符。' });
+          return;
+        }
+        if (!nextVersionId || /\s/.test(nextVersionId)) {
+          openCreateEmptyEditingModal({ modId: nextModId, versionId: rawVersionId, error: 'VersionId 不能为空且不能包含空白字符。' });
+          return;
+        }
+        const existingPane = host.getPackCatalog?.().panes?.find(pane => pane.modName === nextModId && pane.version === nextVersionId);
+        if (existingPane) {
+          openCreateEmptyEditingModal({ modId: nextModId, versionId: nextVersionId, error: `数据包 ${nextModId}@${nextVersionId} 已存在，请换一个身份。` });
+          return;
+        }
+        ctrl.modal.open({
+          title: '核实新编辑态数据包',
+          width: 440,
+          body: `<div class="pack-create-empty-confirm"><p>请确认以下身份无误。确认后将创建一个仅有编辑态的空数据包：</p><dl><div><dt>ModId</dt><dd>${escapeHtml(nextModId)}</dd></div><div><dt>VersionId</dt><dd>${escapeHtml(nextVersionId)}</dd></div></dl><p class="muted">创建后仍需在编辑器中填充内容；它不会加入启用集。</p></div>`,
+          footer: '<button class="modal-close">返回修改</button><button class="primary-button" data-modal-action="create-empty-editing-pack">确认创建</button>',
+          onAction: confirmAction => {
+            if (confirmAction !== 'create-empty-editing-pack') return;
+            const result = host.createEmptyEditingPack?.({ modId: nextModId, versionId: nextVersionId });
+            if (result) setDatapackResult(root, { ok: result.ok, message: result.message });
+            ctrl.modal.close();
+            render();
+          },
+        });
+      },
+    });
+  };
+  scope.querySelector('[data-pack-create-empty-editing]')?.addEventListener('click', () => openCreateEmptyEditingModal());
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-create-editing]').forEach(button => {
+    button.addEventListener('click', () => {
+      const sourceId = button.dataset.packCreateEditing;
+      if (!sourceId || !host.createEditingPack) return;
+      const result = host.createEditingPack(sourceId);
+      setDatapackResult(root, { ok: result.ok, message: result.message });
+      render();
+    });
+  });
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-toggle]').forEach(button => {
     button.addEventListener('click', () => {
       const id = button.dataset.packDraftToggle;
@@ -286,6 +375,17 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
   };
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-up]').forEach(button => button.addEventListener('click', () => move(button.dataset.packDraftUp!, -1)));
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-down]').forEach(button => button.addEventListener('click', () => move(button.dataset.packDraftDown!, 1)));
+  const movePane = (paneKey: string, delta: number) => {
+    const result = moveDatapackPaneDraft(root, host.getPackCatalog?.().entries ?? [], paneKey, delta);
+    if (result === 'blocked') {
+      setDatapackResult(root, { ok: false, message: '核心数据包固定在最前，不可被越过。' });
+      render();
+      return;
+    }
+    if (result === 'moved') render();
+  };
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-pane-up]').forEach(button => button.addEventListener('click', () => movePane(button.dataset.packDraftPaneUp!, -1)));
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-pane-down]').forEach(button => button.addEventListener('click', () => movePane(button.dataset.packDraftPaneDown!, 1)));
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-remove]').forEach(button => {
     button.addEventListener('click', () => {
       const id = button.dataset.packRemove;
@@ -299,7 +399,9 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
         onAction: action => {
           if (action !== 'remove-datapack') return;
           try {
-            host.removePack?.(id);
+            const editorDirty = ctrl.panelState.runtimeDatapackEditor?.packRecordId === id
+              && runtimeEditorHasUnsavedChanges(ctrl.panelState.runtimeDatapackEditor);
+            host.removePack?.(id, { editorDirty });
             setDatapackResult(root, { ok: true, message: `已从包库移除：${entry.name}` });
           } catch (error) {
             setDatapackResult(root, { ok: false, message: error instanceof Error ? error.message : String(error) });
@@ -330,6 +432,29 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
     setDatapackValidation(root, report);
     setDatapackResult(root, { ok: report.ok, message: report.ok ? '启用集校验通过，可以应用。' : report.errors[0] ?? '启用集校验失败。' });
     render();
+  });
+  scope.querySelector('[data-pack-selection-apply]')?.addEventListener('click', () => {
+    if (!host.applyPackSelection) return;
+    ctrl.modal.open({
+      title: '确认应用数据包选择',
+      body: '<p>将按每个 Pane 当前选择一次性重载 Runtime。未保存的编辑器内容不会被自动保存。</p><p class="muted">选择本身已经保存；取消不会改变当前 Runtime。</p>',
+      footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="apply-pack-selection">确认 Apply</button>',
+      onAction: action => {
+        if (action !== 'apply-pack-selection') return;
+        const saved = SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
+        if (!saved) {
+          setDatapackResult(root, { ok: false, message: 'Apply 已停止：当前进度保存失败，Runtime 未重载。' });
+          ctrl.modal.close();
+          render();
+          return;
+        }
+        const result = host.applyPackSelection!();
+        setDatapackResult(root, { ok: result.ok, message: result.message });
+        if (result.ok) resetDraft();
+        ctrl.modal.close();
+        render();
+      },
+    });
   });
   scope.querySelector('[data-pack-apply]')?.addEventListener('click', () => {
     if (!host.applyPackConfiguration) return;

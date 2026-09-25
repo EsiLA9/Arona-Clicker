@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { ShopSession } from '../../src/arona-clicker/services/shop-service';
 import { baseDatapack } from '../../src/data/test-datapack';
@@ -61,20 +61,96 @@ describe('Workspace 页面生命周期', () => {
     expect(document.querySelector('[data-workspace-frame="settings"]')).not.toBeNull();
   });
 
-  it('Character Workspace 的局部刷新走完整 Workspace 渲染，返回后恢复 Game', () => {
+  it('Character Workspace 的多面板刷新保留 Workspace 根节点，返回后恢复 Game', () => {
     game.mutations.acquireCharacter('Hoshino', 'story');
     controller.openCharacterWorkspace('Hoshino');
     controller.render();
     expect(document.querySelector('[data-workspace-frame="character"]')).not.toBeNull();
 
     const before = controller.getRefreshStats().fullRenders;
+    const frame = document.querySelector('[data-workspace-frame="character"]');
     controller.refreshPanels(['left', 'center', 'right']);
-    expect(controller.getRefreshStats().fullRenders).toBeGreaterThan(before);
+    expect(controller.getRefreshStats().fullRenders).toBe(before);
+    expect(document.querySelector('[data-workspace-frame="character"]')).toBe(frame);
     expect(document.querySelector('[data-workspace-frame="character"]')).not.toBeNull();
 
     document.querySelector<HTMLButtonElement>('[data-character-workspace-leave]')!.click();
     expect(controller.panelState.workspace).toBeUndefined();
     expect(document.querySelector('[data-workspace-frame="game"]')).not.toBeNull();
+  });
+
+  it('Character 右侧成长面板刷新不重建 Workspace 根节点，并保留焦点与滚动', () => {
+    game.mutations.acquireCharacter('Hoshino', 'story');
+    controller.openCharacterWorkspace('Hoshino');
+    controller.render();
+
+    const frame = document.querySelector('[data-workspace-frame="character"]');
+    const right = document.querySelector<HTMLElement>('[data-theme-host-id="rightPanel.character.progression"]')!;
+    const focused = right.querySelector<HTMLButtonElement>('button');
+    expect(focused).not.toBeNull();
+    focused!.focus();
+    const scrollOwner = right.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')!;
+    scrollOwner.scrollTop = 83;
+    const before = controller.getRefreshStats();
+
+    controller.refreshPanels(['right']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(document.querySelector('[data-workspace-frame="character"]')).toBe(frame);
+    expect(document.activeElement?.tagName).toBe('BUTTON');
+    expect(document.querySelector<HTMLElement>('[data-theme-host-id="rightPanel.character.progression"] [data-scroll-owner="content-region"]')?.scrollTop).toBe(83);
+  });
+
+  it('Workspace 全量 fallback 保留各列内容滚动位置', () => {
+    controller.panelState.service = 'settings';
+    controller.render();
+    const center = document.querySelector<HTMLElement>('[data-workspace-column="center"] .workspace-column__body')!;
+    center.scrollTop = 137;
+
+    controller.refreshPanels(['left', 'center', 'right']);
+
+    expect(document.querySelector<HTMLElement>('[data-workspace-column="center"] .workspace-column__body')?.scrollTop).toBe(137);
+  });
+
+  it('Inventory 右侧检查面板刷新不重建 Workspace 根节点，并保留焦点与滚动', () => {
+    controller.panelState.service = 'inventory';
+    controller.panelState.inventoryWorkspace = createInventoryWorkspaceState();
+    controller.render();
+
+    const frame = document.querySelector('[data-workspace-frame="inventory"]');
+    const right = document.querySelector<HTMLElement>('[data-theme-host-id="rightPanel.service.inventory.inspector"]')!;
+    const focused = right.querySelector<HTMLButtonElement>('[data-service="game"]')!;
+    focused.focus();
+    const scrollOwner = right.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')!;
+    scrollOwner.scrollTop = 91;
+    const before = controller.getRefreshStats();
+
+    controller.refreshPanels(['right']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(document.querySelector('[data-workspace-frame="inventory"]')).toBe(frame);
+    expect(document.activeElement?.textContent).toContain('返回游戏');
+    expect(document.querySelector<HTMLElement>('[data-theme-host-id="rightPanel.service.inventory.inspector"] [data-scroll-owner="content-region"]')?.scrollTop).toBe(91);
+  });
+
+  it('Settings 右侧说明面板刷新不重建 Workspace 根节点，并保留焦点', () => {
+    controller.panelState.service = 'settings';
+    controller.render();
+
+    const frame = document.querySelector('[data-workspace-frame="settings"]');
+    const right = document.querySelector<HTMLElement>('[data-theme-host-id="rightPanel.service.settings.inspector"]')!;
+    const focused = right.querySelector<HTMLButtonElement>('#help-modal')!;
+    focused.focus();
+    const before = controller.getRefreshStats();
+
+    controller.refreshPanels(['right']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(document.querySelector('[data-workspace-frame="settings"]')).toBe(frame);
+    expect(document.activeElement?.id).toBe('help-modal');
   });
 
   it('Panel 局部刷新只关闭被替换范围内的 tooltip', () => {
@@ -101,6 +177,20 @@ describe('Workspace 页面生命周期', () => {
     controller.refreshPanels(['left']);
 
     expect(tooltip.classList.contains('is-open')).toBe(false);
+  });
+
+  it('Panel 局部替换恢复被替换节点内的焦点', () => {
+    controller.render();
+    const left = document.querySelector<HTMLElement>('.left-panel')!;
+    const focused = left.querySelector<HTMLButtonElement>('button');
+    expect(focused).not.toBeNull();
+    focused!.focus();
+    expect(document.activeElement).toBe(focused);
+
+    controller.refreshPanels(['left']);
+
+    expect(document.activeElement?.tagName).toBe('BUTTON');
+    expect(document.activeElement?.textContent).toBe(focused!.textContent);
   });
 
   it('Chat pane 局部替换只关闭聊天范围内的 tooltip', () => {
@@ -189,6 +279,17 @@ describe('Workspace 页面生命周期', () => {
     expect(after.elementRefreshes).toBeGreaterThan(before.elementRefreshes);
     expect(after.panelRefreshes).toBe(before.panelRefreshes);
     expect(after.fullRenders).toBe(before.fullRenders);
+  });
+
+  it('Runtime Spot 批量 Apply 只刷新当前 Game 的 Spot 视图，不重建 App', () => {
+    controller.render();
+    const render = vi.spyOn(controller, 'render');
+    const spotCards = vi.spyOn(controller, 'refreshCurrentSpotCards').mockReturnValue(true);
+
+    controller.refreshRuntimeSpotContent();
+
+    expect(spotCards).toHaveBeenCalledWith('runtime-editor-spot-apply');
+    expect(render).not.toHaveBeenCalled();
   });
 
   it('Shop 缺失数据仍生成结构化错误态并保留返回入口', () => {

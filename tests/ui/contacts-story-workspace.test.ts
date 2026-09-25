@@ -46,6 +46,7 @@ describe('Contacts / Story Workspace ownership', () => {
     game.mutations.acquireCharacter('Hoshino', 'story');
     controller.openContactsWorkspace();
     controller.render();
+    const before = controller.getRefreshStats();
     root.querySelector<HTMLButtonElement>('[data-select-variant="Hoshino"]')!.click();
 
     const workspace = controller.panelState.workspace;
@@ -56,6 +57,30 @@ describe('Contacts / Story Workspace ownership', () => {
     expect(root.querySelector('[data-workspace-frame="character"]')).toBeNull();
     expect(root.querySelectorAll('[data-workspace-frame="contacts"] [data-workspace-frame]')).toHaveLength(0);
     expect(root.querySelector('.char-panel')).not.toBeNull();
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+  });
+
+  it('Contacts 右侧检查面板刷新不重建 Workspace 根节点，并保留焦点与滚动', () => {
+    game.mutations.acquireCharacter('Hoshino', 'story');
+    controller.openContactsWorkspace('Hoshino');
+    controller.render();
+
+    const frame = root.querySelector('[data-workspace-frame="contacts"]');
+    const right = root.querySelector<HTMLElement>('[data-theme-host-id="rightPanel.service.contacts.inspector"]')!;
+    const focused = right.querySelector<HTMLButtonElement>('button');
+    expect(focused).not.toBeNull();
+    focused!.focus();
+    const scrollOwner = right.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')!;
+    scrollOwner.scrollTop = 79;
+    const before = controller.getRefreshStats();
+
+    controller.refreshPanels(['right']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(root.querySelector('[data-workspace-frame="contacts"]')).toBe(frame);
+    expect(document.activeElement?.tagName).toBe('BUTTON');
+    expect(root.querySelector<HTMLElement>('[data-theme-host-id="rightPanel.service.contacts.inspector"] [data-scroll-owner="content-region"]')?.scrollTop).toBe(79);
   });
 
   it('有 owner 的故事仍留在 StoryWorkspace，Archive 是显式子路由', () => {
@@ -77,6 +102,94 @@ describe('Contacts / Story Workspace ownership', () => {
     expect(root.querySelector('[data-workspace-frame="story"]')).not.toBeNull();
     expect(root.querySelector('[data-story-archive-back]')).not.toBeNull();
     expect(root.querySelector('.center-panel')).toBeNull();
+  });
+
+  it('Story 中心聊天刷新不重建 Workspace 根节点，并保留焦点', () => {
+    game.mutations.acquireCharacter('Hoshino', 'story');
+    controller.openStoryWorkspace({ selectedEntryId: 'story:demo', conversationOwner: 'Hoshino' });
+    controller.render();
+
+    const frame = root.querySelector('[data-workspace-frame="story"]');
+    const center = root.querySelector<HTMLElement>('[data-theme-host-id="centerPanel.service.story.main"]')!;
+    const focused = center.querySelector<HTMLButtonElement>('button');
+    expect(focused).not.toBeNull();
+    focused!.focus();
+    const before = controller.getRefreshStats();
+
+    controller.refreshPanels(['center']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(root.querySelector('[data-workspace-frame="story"]')).toBe(frame);
+    expect(document.activeElement?.tagName).toBe('BUTTON');
+  });
+
+  it('Story 左侧导航刷新不重建 Workspace 根节点，并保留焦点', () => {
+    controller.openStoryWorkspace();
+    controller.render();
+
+    const frame = root.querySelector('[data-workspace-frame="story"]');
+    const left = root.querySelector<HTMLElement>('[data-theme-host-id="leftPanel.service.story.navigation"]')!;
+    const focused = left.querySelector<HTMLButtonElement>('button');
+    expect(focused).not.toBeNull();
+    focused!.focus();
+    const before = controller.getRefreshStats();
+
+    controller.refreshPanels(['left']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(root.querySelector('[data-workspace-frame="story"]')).toBe(frame);
+    expect(document.activeElement?.tagName).toBe('BUTTON');
+  });
+
+  it('Story 对话返回同时刷新左侧与中心 Host，不重建 Workspace 根节点', () => {
+    game.mutations.acquireCharacter('Hoshino', 'story');
+    controller.openStoryWorkspace({ selectedEntryId: 'story:demo', conversationOwner: 'Hoshino' });
+    controller.render();
+
+    const frame = root.querySelector('[data-workspace-frame="story"]');
+    const before = controller.getRefreshStats();
+    controller.refreshPanels(['left', 'center']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(root.querySelector('[data-workspace-frame="story"]')).toBe(frame);
+  });
+
+  it('Contacts 中心聊天刷新不重建 Workspace 根节点，并保留焦点', () => {
+    game.mutations.acquireCharacter('Hoshino', 'story');
+    controller.openContactsWorkspace('Hoshino');
+    controller.render();
+
+    const frame = root.querySelector('[data-workspace-frame="contacts"]');
+    const center = root.querySelector<HTMLElement>('[data-theme-host-id="centerPanel.service.contacts.main"]')!;
+    const focused = center.querySelector<HTMLButtonElement>('button');
+    expect(focused).not.toBeNull();
+    focused!.focus();
+    const before = controller.getRefreshStats();
+
+    controller.refreshPanels(['center']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(root.querySelector('[data-workspace-frame="contacts"]')).toBe(frame);
+    expect(document.activeElement?.tagName).toBe('BUTTON');
+  });
+
+  it('Contacts 多面板刷新一次性替换请求的 Host，不重建 Workspace 根节点', () => {
+    game.mutations.acquireCharacter('Hoshino', 'story');
+    controller.openContactsWorkspace('Hoshino');
+    controller.render();
+
+    const frame = root.querySelector('[data-workspace-frame="contacts"]');
+    const before = controller.getRefreshStats();
+
+    controller.refreshPanels(['left', 'center']);
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(before.regionRefreshes);
+    expect(root.querySelector('[data-workspace-frame="contacts"]')).toBe(frame);
   });
 
   it('Story 返回 Contacts 时保留 Contacts 的学生选择', () => {

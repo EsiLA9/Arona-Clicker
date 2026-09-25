@@ -57,6 +57,7 @@ export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   state.tagEffects = tagEffects.active;
   ctx.setTagResidue?.({ ...tagOverrides.residue, ...(Object.keys(tagEffects.residue).length ? { tagEffects: tagEffects.residue } : {}) });
   ctx.initService.invalidateRuntimeGeneration();
+  ctx.initService.withdrawInformationRevealWatches();
   ctx.eventBus.clearQueue();
   ctx.initService.unmountInitTriggers();
   ctx.affectorEngine.disposeRuntime();
@@ -89,6 +90,7 @@ export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   ctx.tickSystem.setState(state);
   ctx.tagStatService.setState(state);
   ctx.affectorEngine.reconcileMounts();
+  ctx.initService.reconcileInformationRevealWatches();
   const init = ctx.registry.inits.get(state.activeInit);
   ctx.initService.logInitReachability('世界线可及性：读取存档');
   ctx.devLog.record(`读取存档：恢复世界线 ${init?.name ?? state.activeInit}`, {

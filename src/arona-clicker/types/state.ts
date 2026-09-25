@@ -23,6 +23,27 @@ import type { StoryCursorCollection } from '../../engine/contracts/story-cursor'
 
 export type SpotTagOverride = SpotTagOverrideState;
 
+export type InformationRevealEntityKind =
+  | 'init'
+  | 'area'
+  | 'spot'
+  | 'enhancement'
+  | 'item'
+  | 'activeStoryEntry'
+  | 'passiveStoryEntry';
+
+export type InformationRevealTarget = string;
+
+export interface RevealedInformationTarget {
+  entityKind: InformationRevealEntityKind;
+  entityId: string;
+  target: InformationRevealTarget;
+}
+
+export interface InformationRevealProgress {
+  revealed: RevealedInformationTarget[];
+}
+
 export interface PlayerState {
   resources: Record<string, number>;
   globalResources?: Record<string, number>;
@@ -75,6 +96,8 @@ export interface PlayerState {
   globalShopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
   /** 当前 Init 的 Shop 购买事实（随 InitSnapshot 保存）。 */
   shopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
+  /** Save 范围内单调增长的 Information Reveal 已知事实。 */
+  informationRevealProgress?: InformationRevealProgress;
 }
 
 export interface InitSnapshot {

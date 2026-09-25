@@ -1,4 +1,5 @@
 import type { Datapack } from '../contracts/datapack';
+import type { AffectionConfigDef } from '../contracts/affection-config';
 import type { CharacterData } from '../contracts/character-data';
 import type { DropTableDef } from '../contracts/drop-table';
 import type { ItemDef } from '../contracts/item';
@@ -17,7 +18,8 @@ import type { AreaDef, InitDef, SpotDef } from '../contracts/world';
 import type { PicDef } from '../contracts/pic';
 import type { CharacterVariantDef } from '../contracts/character-variant';
 import type { CultivateCurveDef } from '../contracts/cultivate-curve';
-import type { FavoriteItemDef, GearDef, TraitDef, UniqueWeaponDef } from '../contracts/character-progression-def';
+import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from '../contracts/character-progression-def';
+import type { CharacterPersistConfig } from '../contracts/character-persist';
 import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contracts/color';
 import type { GachaPoolDef } from '../contracts/gacha-pool';
 import type { ShopDef } from '../contracts/shop';
@@ -31,6 +33,9 @@ export const DATAPACK_LIST_FIELDS = [
   'gachaPools', 'shops', 'tags',
 ] as const;
 export type DatapackListField = (typeof DATAPACK_LIST_FIELDS)[number];
+
+export const DATAPACK_SINGLETON_FIELDS = ['gearConfig', 'characterPersistConfig', 'affectionConfig'] as const;
+export type DatapackSingletonField = (typeof DATAPACK_SINGLETON_FIELDS)[number];
 
 export class FragmentParseError extends Error {
   readonly path: string;
@@ -46,10 +51,15 @@ export interface DatapackFragment {
   version?: string;
   extras?: Record<string, ExtraValue>;
   lists: Partial<Record<DatapackListField, unknown[]>>;
+  singletons: Partial<Pick<Datapack, DatapackSingletonField>>;
 }
 
 function isListField(key: string): key is DatapackListField {
   return (DATAPACK_LIST_FIELDS as readonly string[]).includes(key);
+}
+
+function isSingletonField(key: string): key is DatapackSingletonField {
+  return (DATAPACK_SINGLETON_FIELDS as readonly string[]).includes(key);
 }
 
 export function parseFragment(path: string, content: string): DatapackFragment {
@@ -60,7 +70,7 @@ export function parseFragment(path: string, content: string): DatapackFragment {
     throw new FragmentParseError('顶层是数组，无法推断所属字段。请改写为对象分片，例如 {"spots": [...]}，或完整 Datapack 对象。', path);
   }
   if (raw === null || typeof raw !== 'object') throw new FragmentParseError('顶层既非对象也非数组，无法构造成 Datapack。', path);
-  const fragment: DatapackFragment = { lists: {} };
+  const fragment: DatapackFragment = { lists: {}, singletons: {} };
   let recognized = false;
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (key === 'name') {
@@ -76,9 +86,15 @@ export function parseFragment(path: string, content: string): DatapackFragment {
       if (!Array.isArray(value)) throw new FragmentParseError('字段 "' + key + '" 应为数组，实际为 ' + typeof value + '。', path);
       fragment.lists[key] = value;
       recognized = true;
+    } else if (isSingletonField(key)) {
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+        throw new FragmentParseError('字段 "' + key + '" 应为对象，实际为 ' + (value === null ? 'null' : typeof value) + '。', path);
+      }
+      (fragment.singletons as Record<string, unknown>)[key] = value;
+      recognized = true;
     }
   }
-  if (!recognized) throw new FragmentParseError('未包含任何 Datapack 字段。可用列表字段：' + DATAPACK_LIST_FIELDS.join(' / ') + '；另有 name / version / extras。', path);
+  if (!recognized) throw new FragmentParseError('未包含任何 Datapack 字段。可用列表字段：' + DATAPACK_LIST_FIELDS.join(' / ') + '；另有单例字段：' + DATAPACK_SINGLETON_FIELDS.join(' / ') + '；以及 name / version / extras。', path);
   return fragment;
 }
 
@@ -87,10 +103,15 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
   let extras: Record<string, ExtraValue> | undefined;
   let name: string | undefined;
   let version: string | undefined;
+  const singletons: Partial<Pick<Datapack, DatapackSingletonField>> = {};
   for (const frag of fragments) {
     if (frag.name !== undefined && name === undefined) name = frag.name;
     if (frag.version !== undefined && version === undefined) version = frag.version;
     if (frag.extras) extras = { ...(extras ?? {}), ...frag.extras };
+    for (const field of DATAPACK_SINGLETON_FIELDS) {
+      const value = frag.singletons[field];
+      if (value !== undefined) (singletons as Record<string, unknown>)[field] = value;
+    }
     for (const field of DATAPACK_LIST_FIELDS) {
       const items = frag.lists[field];
       if (items && items.length > 0) (lists[field] ??= []).push(...items);
@@ -128,6 +149,9 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
   if (lists.gachaPools) datapack.gachaPools = lists.gachaPools as GachaPoolDef[];
   if (lists.shops) datapack.shops = lists.shops as ShopDef[];
   if (lists.tags) datapack.tags = lists.tags as TagDef[];
+  if (singletons.gearConfig !== undefined) datapack.gearConfig = singletons.gearConfig as GearConfigDef;
+  if (singletons.characterPersistConfig !== undefined) datapack.characterPersistConfig = singletons.characterPersistConfig as CharacterPersistConfig;
+  if (singletons.affectionConfig !== undefined) datapack.affectionConfig = singletons.affectionConfig as AffectionConfigDef;
   if (extras) datapack.extras = extras;
   return datapack;
 }

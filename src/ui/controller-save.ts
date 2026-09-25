@@ -44,7 +44,7 @@ export function handleLoad(ctrl: UIController): void {
 }
 
 /** 绑定主页面存档 / 读档按钮。 */
-export function bindSaveActions(ctrl: UIController): void {
-  ctrl.root.querySelector('#save-game')?.addEventListener('click', () => handleSave(ctrl));
-  ctrl.root.querySelector('#load-game')?.addEventListener('click', () => handleLoad(ctrl));
+export function bindSaveActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  scope.querySelector('#save-game')?.addEventListener('click', () => handleSave(ctrl));
+  scope.querySelector('#load-game')?.addEventListener('click', () => handleLoad(ctrl));
 }

@@ -17,6 +17,7 @@ export function bindEvents(ctrl: UIController): void {
     // Area 定义 / 拓扑有专门的当前 Area 判断；不在通用揭示入口重复刷新，
     // 否则非当前 Area 的事件也会先触发一次全局揭示比对。
     if (event.type === 'areaDefinitionChanged' || event.type === 'areaTopologyChanged') {
+      if (ctrl.isContentRefreshBatchActive()) return;
       ctrl.refreshLogPanel(false);
       return;
     }
@@ -34,11 +35,13 @@ export function bindEvents(ctrl: UIController): void {
   // 其它 Area 的定义变化不影响当前导航，避免无关变更触发面板刷新。
   ctrl.game.eventBus.on('areaDefinitionChanged', event => {
     if (event.type !== 'areaDefinitionChanged' || !ctrl.started) return;
+    if (ctrl.isContentRefreshBatchActive()) return;
     if (ctrl.game.getView().currentAreaId !== event.areaId) return;
     ctrl.refreshPanels(['left']);
   });
   ctrl.game.eventBus.on('areaTopologyChanged', event => {
     if (event.type !== 'areaTopologyChanged' || !ctrl.started) return;
+    if (ctrl.isContentRefreshBatchActive()) return;
     if (!event.areaIds.includes(ctrl.game.getView().currentAreaId ?? '')) return;
     ctrl.refreshPanels(['left']);
   });

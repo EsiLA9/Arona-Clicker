@@ -2,6 +2,7 @@ import { gachaPool } from './def-factory/gacha-pool';
 import { CharacterRarity } from '../types/ids';
 import type { GachaPoolDef } from '../../data-services/contracts/gacha-pool';
 import { baseCharacterVariants } from './character-variants';
+import { Resource } from '../types/ids';
 
 export const baseGachaPools: GachaPoolDef[] = [
   gachaPool('base:gachapool:regular')
@@ -18,4 +19,3 @@ export const baseGachaPools: GachaPoolDef[] = [
     .dupRewards(10, { [Resource.Credit]: 500 })
     .members('HoshinoSwimsuit', 'Shiroko', 'Hoshino', 'Serika').build(),
 ];
-import { Resource } from '../types/ids';

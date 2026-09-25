@@ -1,21 +1,21 @@
 import { GameInstance } from './runtime-game-instance';
 import { buildSaveData } from './runtime-save-codec';
 import type { GameInstanceOptions } from './runtime-options';
-import { PackManager, PackManagerError, type PackConfigurationDraft, type StoredPack } from '../data-services/datapack/pack-manager';
+import { PackManager, PackManagerError, packEditingMode, packLogicalId, storedPackContentDigest, type DatapackSelectionSlot, type PackConfigurationDraft, type StoredPack } from '../data-services/datapack/pack-manager';
 import type { ParsedPack } from '../data-services/datapack/pack-parser';
 import type { AsyncPackSnapshotStore, PackSnapshotStore } from '../data-services/datapack/pack-storage';
 import { Registry } from '../data-services/registry/registry';
 import { buildAuthoringDef, requireContentPolicy, validateAuthoringInput } from '../data-services/authoring/content-policy';
 import type { AuthoringValidationContext, ContentAuthoringPolicy } from '../data-services/authoring/content-policy';
 import { defaultDatapack } from './content/default-datapack';
-import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogReadModel, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft, RuntimeModApplyResult } from './contracts';
+import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogPane, PackCatalogReadModel, PackCatalogRecord, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft, RuntimeModApplyResult } from './contracts';
 import type { Datapack } from '../data-services/contracts/datapack';
 import type { AreaDef, InitDef, SpotDef } from '../data-services/contracts/world';
 import type { EnhancementDef } from '../data-services/contracts/enhancement';
 import { RuntimeContentCoordinator } from './services/runtime-content-coordinator';
 import { RuntimeWorldContentCoordinator } from './services/runtime-world-content-coordinator';
 import { RuntimeDefinitionEditor, SpotContentService } from './services/spot-content-service';
-import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './contracts/runtime-content';
+import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './contracts/runtime-content';
 import { decodeSpotContent } from '../data-services/authoring/content-policy-dsl';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
@@ -33,6 +33,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   private packAsyncStore: AsyncPackSnapshotStore | undefined;
   private activeDatapacks: readonly Datapack[] = [];
   private runtimeMod: RuntimeModDraft | null = null;
+  private runtimeEditorPackRecordId: string | null = null;
   private readonly runtimeContent: RuntimeContentCoordinator;
   private readonly runtimeWorldContent: RuntimeWorldContentCoordinator;
   readonly runtimeDefinitionEditor: RuntimeDefinitionEditor;
@@ -58,7 +59,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       sourceId: 'runtime-editor-world',
       onCommitted: commit => {
         this.setRuntimeAreaTopology(commit.topology);
-        this.initService.reconcileAfterWorldDefinitionChange();
+        this.initService.reconcileAfterWorldDefinitionChange(true);
         for (const initId of commit.changedInitIds) {
           this.eventBus.emit({ type: 'initDefinitionChanged', initId });
         }
@@ -78,6 +79,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     this.runtimeDefinitionEditor = new RuntimeDefinitionEditor({
       getState: () => this.getRuntimeContentState(),
       getEditingModName: () => this.runtimeMod?.modName ?? this.getRuntimeContentState().modName,
+      getEditingPackRecordId: () => this.runtimeEditorPackRecordId,
       applyMutation: mutation => this.applyRuntimeSpotMutation(mutation),
     });
   }
@@ -85,6 +87,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   override init(datapacks: Datapack[], options = {}): void {
     this.activeDatapacks = [...datapacks];
     super.init(datapacks, options);
+    this.packManager.adoptRuntimeDatapacks(datapacks);
     this.runtimeWorldContent.reset();
     this.clearRuntimeAreaTopology();
   }
@@ -92,13 +95,15 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   registerParsedPack(parsed: ParsedPack, id = parsed.manifest.modName + '@' + parsed.manifest.version): void {
     const stored: StoredPack = {
       id,
+      packRecordId: id,
       manifest: parsed.manifest,
       datapack: parsed.datapack,
       images: parsed.images,
       sourceKind: 'zip',
       importedAt: Date.now(),
+      editingMode: 'normal',
     };
-    this.packManager.importPack(stored);
+    this.packManager.importFixed(stored);
     this.persistPackManagerSnapshot();
   }
 
@@ -129,32 +134,150 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     // （包括 base 补入与失效可选包停用）也必须落回同一份策略快照。
     this.persistPackManagerSnapshot();
     this.runtimeMod = null;
+    this.runtimeEditorPackRecordId = null;
     this.runtimeContent.reset();
     this.runtimeWorldContent.reset();
   }
 
-  getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[] } {
+  getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[]; panes: readonly PackCatalogPane[] } {
     const enabled = new Set(this.packManager.snapshot().enabledIds);
+    const entries = this.packManager.listPacks().map(pack => ({
+      id: pack.id,
+      packRecordId: pack.packRecordId ?? pack.id,
+      modName: pack.manifest.modName,
+      name: pack.manifest.name,
+      version: pack.manifest.version,
+      editingMode: packEditingMode(pack),
+      ...(pack.sourcePackRecordId ? { sourcePackRecordId: pack.sourcePackRecordId } : {}),
+      ...(pack.sourceDigest ? { sourceDigest: pack.sourceDigest } : {}),
+      contentDigest: pack.contentDigest ?? storedPackContentDigest(pack),
+      author: pack.manifest.author,
+      dependencies: [...pack.manifest.dependencies],
+      sourceKind: pack.sourceKind,
+      importedAt: pack.importedAt,
+      enabled: enabled.has(pack.id),
+      capabilities: {
+        required: pack.sourceKind === 'builtin',
+        removable: pack.sourceKind !== 'builtin',
+        reorderable: pack.sourceKind !== 'builtin',
+        enableable: pack.sourceKind !== 'builtin' && packEditingMode(pack) === 'normal',
+      },
+    } satisfies PackCatalogEntry));
+    const entryByRecordId = new Map(entries.map(entry => [entry.packRecordId ?? entry.id, entry] as const));
+    const selections = new Map(this.packManager.selections().map(selection => [selection.paneKey, selection.selectedSlot] as const));
+    const runtimeState = this.packManager.runtimeState();
+    const panes: PackCatalogPane[] = this.packManager.panes().map(pane => ({
+      paneKey: pane.paneKey,
+      modName: pane.identity.modId,
+      version: pane.identity.versionId,
+      ...(pane.fixedSlot ? { fixed: entryByRecordId.get(pane.fixedSlot.packRecordId ?? pane.fixedSlot.id) } : {}),
+      ...(pane.editingSlot ? { editing: entryByRecordId.get(pane.editingSlot.packRecordId ?? pane.editingSlot.id) } : {}),
+      selectedSlot: selections.get(pane.paneKey) ?? 'none',
+      ...(runtimeState.get(pane.paneKey) ? { runtimePackRecordId: runtimeState.get(pane.paneKey) } : {}),
+    }));
     return {
-      entries: this.packManager.listPacks().map(pack => ({
-        id: pack.id,
+      entries,
+      dependencies: this.packManager.dependencyHints(),
+      panes,
+    };
+  }
+
+  createEditingPack(sourcePackRecordId: string): { ok: boolean; packRecordId?: string; message: string } {
+    try {
+      const result = this.packManager.createEditingPack(sourcePackRecordId);
+      this.persistPackManagerSnapshot();
+      return {
+        ok: true,
+        packRecordId: result.pack.id,
+        message: result.kind === 'existing' ? '已打开现有编辑态数据包。' : '已从普通态数据包创建编辑态副本。',
+      };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  createEmptyEditingPack(identity: { readonly modId: string; readonly versionId: string }): { ok: boolean; packRecordId?: string; message: string } {
+    try {
+      const result = this.packManager.createEmptyEditing(identity);
+      this.persistPackManagerSnapshot();
+      return { ok: true, packRecordId: result.pack.id, message: '已创建空编辑态数据包；当前选择与 Runtime 未改变。' };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  clonePackAsEditing(sourcePackRecordId: string, targetIdentity?: { readonly modId: string; readonly versionId: string }): { ok: boolean; packRecordId?: string; message: string } {
+    try {
+      const result = this.packManager.cloneAsEditing(sourcePackRecordId, targetIdentity);
+      this.persistPackManagerSnapshot();
+      return { ok: true, packRecordId: result.pack.id, message: result.kind === 'existing' ? '目标编辑态数据包已存在；当前选择与 Runtime 未改变。' : '已复制为编辑态数据包；当前选择与 Runtime 未改变。' };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  exportPackRecord(packRecordId: string, options: { readonly versionId?: string } = {}): { ok: boolean; pack?: StoredPack; message: string } {
+    try {
+      return { ok: true, pack: this.packManager.exportPack(packRecordId, options), message: '已生成普通态数据包导出快照。' };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  getPackRecord(packRecordId: string): PackCatalogRecord | null {
+    const pack = this.packManager.getPack(packRecordId);
+    if (!pack) return null;
+    return {
+      packRecordId: pack.packRecordId ?? pack.id,
+      editingMode: packEditingMode(pack),
+      ...(pack.sourcePackRecordId ? { sourcePackRecordId: pack.sourcePackRecordId } : {}),
+      manifest: {
         modName: pack.manifest.modName,
         name: pack.manifest.name,
         version: pack.manifest.version,
-        author: pack.manifest.author,
+        ...(pack.manifest.author ? { author: pack.manifest.author } : {}),
         dependencies: [...pack.manifest.dependencies],
-        sourceKind: pack.sourceKind,
-        importedAt: pack.importedAt,
-        enabled: enabled.has(pack.id),
-        capabilities: {
-          required: pack.sourceKind === 'builtin',
-          removable: pack.sourceKind !== 'builtin',
-          reorderable: pack.sourceKind !== 'builtin',
-          enableable: pack.sourceKind !== 'builtin',
-        },
-      })),
-      dependencies: this.packManager.dependencyHints(),
+      },
+      datapack: cloneJson(pack.datapack),
     };
+  }
+
+  getEditingPackDraft(packRecordId: string): RuntimeModDraft | null {
+    const pack = this.packManager.getPack(packRecordId);
+    if (!pack || packEditingMode(pack) !== 'editing') return null;
+    return datapackToRuntimeModDraft(pack);
+  }
+
+  openEditingPack(packRecordId: string): RuntimeModApplyResult {
+    const pack = this.packManager.getPack(packRecordId);
+    if (!pack || packEditingMode(pack) !== 'editing') return { ok: false, message: '目标记录不存在，或不是编辑态数据包。' };
+    const draft = datapackToRuntimeModDraft(pack);
+    const previousTarget = this.runtimeEditorPackRecordId;
+    const previousRuntimeMod = this.runtimeMod;
+    try {
+      const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
+      const background = active.filter(datapack => datapack.modName !== pack.manifest.modName);
+      const datapacks = [...background, cloneJson(pack.datapack)];
+      this.validatePackDatapacks(datapacks);
+      this.reloadPreservingState(datapacks);
+      this.runtimeMod = draft;
+      this.runtimeEditorPackRecordId = packRecordId;
+      this.runtimeContent.adoptRuntimeMod(
+        draft.modName,
+        draft.spots.map(spot => `${draft.modName}:spot:${spot.idName}`),
+        draft.suspendedSpotIds ?? [],
+      );
+      this.runtimeWorldContent.adoptRuntimeMod(
+        draft.modName,
+        pack.datapack.inits.map(init => init.id),
+        pack.datapack.areas.map(area => area.id),
+      );
+      return { ok: true, message: `已打开编辑态数据包：${draft.displayName}。` };
+    } catch (error) {
+      this.runtimeMod = previousRuntimeMod;
+      this.runtimeEditorPackRecordId = previousTarget;
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
   }
 
   getPackConfiguration(): PackConfigurationDraft {
@@ -186,8 +309,37 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     }
   }
 
+  setPackSelection(paneKey: string, selectedSlot: DatapackSelectionSlot): void {
+    this.packManager.setSelectedSlot(paneKey, selectedSlot);
+    this.persistPackManagerSnapshot();
+  }
+
+  applyPackSelection(): { ok: boolean; message: string; validation: { ok: boolean; errors: readonly string[]; warnings: readonly string[] }; plan?: import('../data-services/datapack/pack-manager').RuntimeApplyPlan } {
+    let plan: import('../data-services/datapack/pack-manager').RuntimeApplyPlan;
+    try {
+      plan = this.packManager.buildRuntimeApplyPlan();
+      const registry = new Registry();
+      for (const entry of plan.entries) registry.load(this.packManager.getPack(entry.packRecordId)!.datapack);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, message, validation: { ok: false, errors: [message], warnings: [] } };
+    }
+    const validation = { ok: true, errors: [], warnings: [] } as const;
+    try {
+      plan = this.packManager.applySelection(this.createPackApplyTarget());
+      this.persistPackManagerSnapshot();
+      this.runtimeMod = null;
+      this.runtimeEditorPackRecordId = null;
+      this.runtimeContent.reset();
+      this.runtimeWorldContent.reset();
+      return { ok: true, message: '已按 Pane 选择原子应用数据包。', validation, plan };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error), validation };
+    }
+  }
+
   /** 设置热 Spot 编辑会话使用的临时 Mod 元信息；不触发 Registry 或 Runtime 重载。 */
-  setRuntimeModMetadata(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult {
+  setRuntimeModMetadata(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'> & { readonly targetPackRecordId?: string }): RuntimeModApplyResult {
     const modName = metadata.modName.trim();
     const displayName = metadata.displayName.trim();
     if (!/^[a-z0-9-]+$/.test(modName)) return { ok: false, message: 'modName 只能包含小写字母、数字和连字符。' };
@@ -198,7 +350,12 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     if (currentModName && currentModName !== modName) {
       return { ok: false, message: `当前已有临时 Mod：${currentModName}，请先删除后再创建其他 Mod。` };
     }
-    if (!contentState.modName && !this.runtimeMod && this.registry.loadedModNames.has(modName)) {
+    const targetPackRecordId = metadata.targetPackRecordId ?? this.runtimeEditorPackRecordId;
+    const targetPack = targetPackRecordId ? this.requireEditingPack(targetPackRecordId) : undefined;
+    if (targetPack && (targetPack.manifest.modName !== modName || targetPack.manifest.version !== metadata.version.trim())) {
+      return { ok: false, message: '编辑态数据包的 ModId 与版本不可在编辑器内修改；请复制为新的数据包记录。' };
+    }
+    if (!contentState.modName && !this.runtimeMod && !targetPack && this.registry.loadedModNames.has(modName)) {
       return { ok: false, message: `modName 已被当前运行时占用：${modName}` };
     }
     try {
@@ -215,13 +372,28 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       author: metadata.author.trim(),
       description: metadata.description.trim(),
       spots: current?.spots ?? [],
+      ...(targetPackRecordId ? { targetPackRecordId } : {}),
       ...(current?.suspendedSpotIds !== undefined ? { suspendedSpotIds: current.suspendedSpotIds } : {}),
     };
+    if (targetPackRecordId) this.runtimeEditorPackRecordId = targetPackRecordId;
+    const persisted = this.persistRuntimeEditingPack();
+    if (!persisted.ok) return persisted;
     return { ok: true, message: `临时 Mod 元信息已保存：${displayName}。` };
   }
 
   /** 提交一个 Spot 内容 mutation；热路径只触及该 Spot 及其派生节点。 */
   applyRuntimeSpotMutation(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult {
+    const target = this.resolveRuntimeEditorTarget(mutation.targetPackRecordId);
+    if (target.error) {
+      return {
+        ok: false,
+        revision: this.runtimeContent.getRevision(),
+        spotId: 'idName' in mutation ? mutation.idName : mutation.spot.idName,
+        operation: mutation.operation,
+        diagnostics: [{ code: target.error.code, message: target.error.message }],
+        message: target.error.message,
+      };
+    }
     if (!this.runtimeMod && mutation.operation !== 'create') {
       return {
         ok: false,
@@ -234,7 +406,10 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     }
     const result = this.runtimeContent.submit(mutation);
     if (!result.ok) return result;
+    this.initService.reconcileInformationRevealWatches();
     this.syncRuntimeModFromContent();
+    const persisted = this.persistRuntimeEditingPack();
+    if (!persisted.ok) return { ...result, ok: false, message: persisted.message };
     if (result.operation === 'delete' && mutation.operation === 'delete' && mutation.playerData === 'purge') {
       this.mutations.purgeSpotData(result.spotId);
     }
@@ -251,8 +426,18 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
   /** Init / Area 的局部热 Apply；不会调用 reloadPreservingState。 */
   applyRuntimeWorldDraft(draft: RuntimeWorldDraft): RuntimeWorldApplyResult {
+    const target = this.resolveRuntimeEditorTarget(draft.targetPackRecordId);
+    if (target.error) {
+      return {
+        ok: false,
+        revision: this.runtimeWorldContent.getState().revision,
+        diagnostics: [{ code: target.error.code, message: target.error.message }],
+        message: target.error.message,
+      };
+    }
     const result = this.runtimeWorldContent.applyWorldDraft(draft);
     if (!result.ok) return result;
+    this.initService.reconcileInformationRevealWatches();
     const current = this.runtimeMod;
     this.runtimeMod = {
       ...(current ?? {
@@ -271,19 +456,30 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         ...(area.adjacentAreaIds ? { adjacentAreaIds: [...area.adjacentAreaIds] } : {}),
         ...(area.topology ? { topology: area.topology.map(item => ({ ...item })) } : {}),
       })),
+      ...(this.runtimeEditorPackRecordId ? { targetPackRecordId: this.runtimeEditorPackRecordId } : {}),
     };
+    const persisted = this.persistRuntimeEditingPack();
+    if (!persisted.ok) return { ...result, ok: false, message: persisted.message };
     return result;
   }
 
   applyRuntimeMod(draft: RuntimeModDraft): RuntimeModApplyResult {
     try {
+      const targetPackRecordId = draft.targetPackRecordId ?? this.runtimeEditorPackRecordId;
+      const targetPack = targetPackRecordId ? this.requireEditingPack(targetPackRecordId) : undefined;
+      if (targetPack && (targetPack.manifest.modName !== draft.modName || targetPack.manifest.version !== draft.version)) {
+        throw new Error('编辑态数据包的 ModId 与版本不可在编辑器内修改；请复制为新的数据包记录。');
+      }
       if (this.runtimeMod && this.runtimeMod.modName !== draft.modName) {
         throw new Error(`当前已有临时 Mod：${this.runtimeMod.modName}，请先删除后再创建其他 Mod。`);
       }
-      if (!this.runtimeMod && this.registry.loadedModNames.has(draft.modName)) {
+      if (!this.runtimeMod && !targetPack && this.registry.loadedModNames.has(draft.modName)) {
         throw new Error(`modName 已被当前运行时占用：${draft.modName}`);
       }
-      const context = runtimeAuthoringValidationContext(this.registry);
+      const context = addDatapackValidationRefs(
+        runtimeAuthoringValidationContext(this.registry),
+        targetPack?.datapack,
+      );
       const suspendedSpotIds = new Set(draft.suspendedSpotIds ?? []);
       const suspendedInitIds = new Set(draft.suspendedInitIds ?? []);
       const suspendedAreaIds = new Set(draft.suspendedAreaIds ?? []);
@@ -298,7 +494,12 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       const enhancements: EnhancementDef[] = [];
 
       for (const draftSpot of draft.spots) {
-        const { unsupportedFunctionalityIds: _unsupportedFunctionalityIds, unsupportedPaymentOptionPaths: _unsupportedPaymentOptionPaths, ...authoringSpot } = draftSpot;
+        const {
+          metadata: _metadata,
+          unsupportedFunctionalityIds: _unsupportedFunctionalityIds,
+          unsupportedPaymentOptionPaths: _unsupportedPaymentOptionPaths,
+          ...authoringSpot
+        } = draftSpot;
         const input = {
           ...authoringSpot,
           functionalities: authoringSpot.functionalities ?? [],
@@ -325,19 +526,38 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         validateRuntimeDraftRecord(requireContentPolicy('enhancements'), input, context, seenEnhancementIds);
         if (!suspendedEnhancementIds.has(draftEnhancement.idName)) enhancements.push(buildAuthoringDef(requireContentPolicy('enhancements'), draft.modName, input) as EnhancementDef);
       }
+      const previousDatapack = targetPack?.datapack;
       const runtimePack: Datapack = {
+        ...(previousDatapack ? cloneJson(previousDatapack) : {
+          inits: [],
+          areas: [],
+          spots: [],
+          enhancements: [],
+          activeStories: [],
+          passiveStories: [],
+          stories: [],
+          items: [],
+          funcletDefs: [],
+          characters: [],
+        }),
         modName: draft.modName,
         name: draft.displayName,
         version: draft.version,
-        inits, areas, spots, enhancements, activeStories: [], passiveStories: [], stories: [], items: [], funcletDefs: [], characters: [],
+        inits: previousDatapack ? mergeAuthoringRecords(previousDatapack.inits, inits) : inits,
+        areas: previousDatapack ? mergeAuthoringRecords(previousDatapack.areas, areas) : areas,
+        spots: previousDatapack ? mergeAuthoringRecords(previousDatapack.spots, spots) : spots,
+        enhancements: previousDatapack ? mergeAuthoringRecords(previousDatapack.enhancements, enhancements) : enhancements,
       };
       const background = (this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks())
-        .filter(datapack => !this.runtimeMod || datapack.modName !== this.runtimeMod.modName);
-      assertRuntimeDefinitionConflicts(this.registry, draft, this.runtimeMod);
+        .filter(datapack => datapack.modName !== draft.modName && (!this.runtimeMod || datapack.modName !== this.runtimeMod.modName));
+      const backgroundRegistry = new Registry();
+      for (const datapack of background) backgroundRegistry.load(datapack);
+      assertRuntimeDefinitionConflicts(backgroundRegistry, draft, this.runtimeMod);
       this.validatePackDatapacks([...background, runtimePack]);
       this.reloadPreservingState([...background, runtimePack]);
       this.runtimeMod = {
         ...draft,
+        ...(targetPackRecordId ? { targetPackRecordId } : {}),
         spots: draft.spots.map(spot => ({ ...spot })),
         suspendedSpotIds: [...suspendedSpotIds].filter(id => seenSpotIds.has(id)),
         ...(draft.inits !== undefined ? { inits: draft.inits.map(init => ({ ...init, defaultAreas: [...init.defaultAreas] })) } : {}),
@@ -357,6 +577,9 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         inits.map(init => init.id),
         areas.map(area => area.id),
       );
+      this.runtimeEditorPackRecordId = targetPackRecordId ?? null;
+      const persisted = this.persistRuntimeEditingPack();
+      if (!persisted.ok) return persisted;
       const activeCount = inits.length + areas.length + spots.length + enhancements.length;
       return { ok: true, message: `运行时 Mod 已载入：${draft.displayName}；已应用 ${activeCount} 条内容。` };
     } catch (error) {
@@ -368,10 +591,52 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     return this.runtimeMod;
   }
 
+  private requireEditingPack(packRecordId: string): StoredPack {
+    const pack = this.packManager.getPack(packRecordId);
+    if (!pack) throw new Error(`目标数据包记录不存在：${packRecordId}`);
+    if (packEditingMode(pack) !== 'editing') throw new Error('新建或修改内容必须指定编辑态数据包。');
+    return pack;
+  }
+
+  private resolveRuntimeEditorTarget(packRecordId?: string): { pack?: StoredPack; error?: { code: 'target-datapack-required' | 'target-must-be-editing'; message: string } } {
+    const targetId = packRecordId ?? this.runtimeEditorPackRecordId;
+    if (!targetId) return {};
+    const pack = this.packManager.getPack(targetId);
+    if (!pack) return { error: { code: 'target-datapack-required', message: `指定的编辑态数据包不存在：${targetId}` } };
+    if (packEditingMode(pack) !== 'editing') return { error: { code: 'target-must-be-editing', message: '新建或修改内容必须指定编辑态数据包。' } };
+    this.runtimeEditorPackRecordId = targetId;
+    return { pack };
+  }
+
+  private persistRuntimeEditingPack(): RuntimeModApplyResult {
+    const targetId = this.runtimeEditorPackRecordId;
+    const draft = this.runtimeMod;
+    if (!targetId || !draft) return { ok: true, message: '' };
+    try {
+      const existing = this.requireEditingPack(targetId);
+      const datapack = runtimeModToDatapack(draft, existing.datapack, this.registry);
+      this.packManager.savePack({
+        ...existing,
+        manifest: {
+          ...existing.manifest,
+          name: draft.displayName,
+          author: draft.author || existing.manifest.author,
+        },
+        datapack,
+        contentDigest: undefined,
+      });
+      this.persistPackManagerSnapshot();
+      return { ok: true, message: '' };
+    } catch (error) {
+      return { ok: false, message: `编辑态数据包保存失败：${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
   private syncRuntimeModFromContent(): void {
     const state = this.runtimeContent.getRuntimeModState();
     if (!state.modName) {
       this.runtimeMod = null;
+      this.runtimeEditorPackRecordId = null;
       return;
     }
     const current = this.runtimeMod;
@@ -436,6 +701,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       this.reload([...background], { enterDefaultInit: false });
       this.load(saved);
       this.runtimeMod = null;
+      this.runtimeEditorPackRecordId = null;
       this.runtimeContent.reset();
       this.runtimeWorldContent.reset();
       return { ok: true, message: preservePlayerData ? `临时 Mod 已删除，PlayerData 已保留：${modName}。` : `临时 Mod 与对应 PlayerData 已删除：${modName}。` };
@@ -456,10 +722,16 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     this.persistPackManagerSnapshot();
   }
 
-  removePack(id: string): void {
+  removePack(id: string, options: { readonly editorDirty?: boolean } = {}): void {
     const pack = this.packManager.getPack(id);
     if (!pack) throw new PackManagerError('不存在的数据包：' + id);
     if (pack.sourceKind === 'builtin') throw new PackManagerError('内置数据包不可删除：' + id);
+    if (options.editorDirty) {
+      throw new PackManagerError('该编辑态存在未保存修改；请先放弃编辑或保存后再删除。', 'editor-dirty');
+    }
+    if ([...this.packManager.runtimeState().values()].includes(pack.packRecordId ?? pack.id)) {
+      throw new PackManagerError('请先将该数据包移出启用集并应用；当前 Runtime 正在使用该数据包，请先切换选择并 Apply 后再删除。', 'datapack-in-use');
+    }
     if (this.packManager.snapshot().enabledIds.includes(id)) {
       throw new PackManagerError('请先将该数据包移出启用集并应用，再移除。');
     }
@@ -491,6 +763,8 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
   private createPackApplyTarget(): {
     validate: (datapacks: readonly Datapack[]) => void;
+    capture: () => unknown;
+    restore: (snapshot: unknown) => void;
     reload: (datapacks: readonly Datapack[]) => void;
     clearImages: () => void;
     registerImages: (modName: string, images: readonly { path: string; url: string }[]) => void;
@@ -498,6 +772,17 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     const shouldEnterDefaultInit = Boolean(this.state.activeInit);
     return {
       validate: datapacks => this.validatePackDatapacks(datapacks),
+      capture: () => ({
+        datapacks: [...this.activeDatapacks],
+        saveData: this.state ? this.save() : null,
+      }),
+      restore: snapshot => {
+        const checkpoint = snapshot as { readonly datapacks?: readonly Datapack[]; readonly saveData?: ReturnType<GameInstance['save']> | null };
+        const datapacks = checkpoint.datapacks ?? [];
+        if (datapacks.length > 0) this.reload([...datapacks], { enterDefaultInit: false });
+        else this.imageStore.clear();
+        if (checkpoint.saveData) this.load(checkpoint.saveData);
+      },
       reload: datapacks => this.reload([...datapacks], { enterDefaultInit: shouldEnterDefaultInit }),
       clearImages: () => this.imageStore.clear(),
       registerImages: (modName, images) => this.pics.register(modName, images),
@@ -512,6 +797,26 @@ function runtimeAuthoringValidationContext(registry: Registry): AuthoringValidat
     gachaPoolIds: new Set(registry.gachaPools.keys()),
     shopIds: new Set(registry.shops.keys()),
   };
+}
+
+/**
+ * 已存在数据包中的引用即使暂未被 Registry 注册，也必须允许原样回流；
+ * 编辑器只对新增或实际替换的字段做能力校验，不能因未开放表阻断整包编辑。
+ */
+function addDatapackValidationRefs(context: AuthoringValidationContext, datapack?: Datapack): AuthoringValidationContext {
+  if (!datapack) return context;
+  const resourceIds = new Set(context.resourceIds ?? []);
+  const itemIds = new Set(context.itemIds ?? []);
+  const gachaPoolIds = new Set(context.gachaPoolIds ?? []);
+  const shopIds = new Set(context.shopIds ?? []);
+  for (const resource of datapack.resourceDisplays ?? []) resourceIds.add(resource.resourceId);
+  for (const item of datapack.items ?? []) itemIds.add(item.id);
+  for (const pool of datapack.gachaPools ?? []) gachaPoolIds.add(pool.id);
+  for (const shop of datapack.shops ?? []) shopIds.add(shop.id);
+  for (const spot of datapack.spots) {
+    for (const poolId of spot.gachaPools ?? []) gachaPoolIds.add(poolId);
+  }
+  return { ...context, resourceIds, itemIds, gachaPoolIds, shopIds };
 }
 
 function validateRuntimeDraftRecord(
@@ -568,6 +873,136 @@ function createBuiltinBasePack(): StoredPack {
     images: [],
     sourceKind: 'builtin',
     importedAt: 0,
+  };
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function localDefinitionId(id: string, modName: string, type: string): string {
+  const prefix = `${modName}:${type}:`;
+  return id.startsWith(prefix) ? id.slice(prefix.length) : id.split(':').slice(2).join(':');
+}
+
+function tagDraft(tags: readonly string[][] | undefined): string[] | undefined {
+  return tags?.map(tag => tag.join('/'));
+}
+
+function revealDraft(reveals: readonly { readonly reveal: RuntimeSpotRevealTriggerDraft['reveal']; readonly condition?: unknown }[] | undefined): RuntimeSpotRevealTriggerDraft[] | undefined {
+  if (!reveals) return undefined;
+  return reveals.map(item => ({
+    reveal: item.reveal,
+    ...(item.condition && typeof item.condition === 'object' && 'conditions' in item.condition ? { condition: item.condition as RuntimeSpotRevealTriggerDraft['condition'] } : {}),
+  }));
+}
+
+function numericResourceDraft(costs: readonly { readonly resourceId: string; readonly amount: unknown }[] | undefined): RuntimeInitDraft['purchaseCost'] | undefined {
+  if (!costs) return undefined;
+  const result = costs.flatMap(cost => typeof cost.amount === 'number' && Number.isFinite(cost.amount)
+    ? [{ resourceId: cost.resourceId, amount: cost.amount }]
+    : []);
+  return result.length === costs.length ? result : undefined;
+}
+
+function datapackToRuntimeModDraft(pack: StoredPack): RuntimeModDraft {
+  const datapack = pack.datapack;
+  const modName = datapack.modName ?? pack.manifest.modName;
+  return {
+    targetPackRecordId: pack.packRecordId ?? pack.id,
+    modName,
+    displayName: datapack.name || pack.manifest.name,
+    version: datapack.version || pack.manifest.version,
+    author: pack.manifest.author ?? '',
+    description: '',
+    spots: datapack.spots.map(spot => ({
+      idName: localDefinitionId(spot.id, modName, 'spot'),
+      metadata: spot.metadata,
+      areaId: spot.areaId,
+      name: spot.name,
+      description: spot.description,
+      ...(spot.maxLevel !== undefined ? { maxLevel: spot.maxLevel } : {}),
+      ...(spot.conditionText !== undefined ? { conditionText: spot.conditionText } : {}),
+      ...(spot.global !== undefined ? { global: spot.global } : {}),
+      ...decodeSpotContent(spot),
+    })),
+    inits: datapack.inits.map(init => ({
+      idName: localDefinitionId(init.id, modName, 'init'),
+      name: init.name,
+      description: init.description,
+      defaultAreas: [...init.defaultAreas],
+      ...(init.startStoryId ? { startStoryId: init.startStoryId } : {}),
+      ...(numericResourceDraft(init.purchaseCost) ? { purchaseCost: numericResourceDraft(init.purchaseCost) } : {}),
+      ...(init.worldTilt !== undefined ? { worldTilt: init.worldTilt } : {}),
+      ...(init.worldTiltAlias !== undefined ? { worldTiltAlias: init.worldTiltAlias } : {}),
+      ...(tagDraft(init.tags) ? { tags: tagDraft(init.tags) } : {}),
+      ...(revealDraft(init.revealTriggers) ? { revealTriggers: revealDraft(init.revealTriggers) } : {}),
+    })),
+    areas: datapack.areas.map(area => ({
+      idName: localDefinitionId(area.id, modName, 'area'),
+      initId: area.initId,
+      name: area.name,
+      description: area.description,
+      defaultSpots: [...area.defaultSpots],
+      ...(area.adjacentAreaIds ? { adjacentAreaIds: [...area.adjacentAreaIds] } : {}),
+      ...(area.adjacentAreaIds ? { topology: area.adjacentAreaIds.map(areaId => ({ areaId, type: 'oneWay' as const })) } : {}),
+      ...(tagDraft(area.tags) ? { tags: tagDraft(area.tags) } : {}),
+      ...(revealDraft(area.revealTriggers) ? { revealTriggers: revealDraft(area.revealTriggers) } : {}),
+    })),
+    enhancements: datapack.enhancements.map(enhancement => ({
+      idName: localDefinitionId(enhancement.id, modName, 'enhancement'),
+      name: enhancement.name,
+      description: enhancement.description,
+      autoApply: enhancement.autoApply,
+      ...(enhancement.maxStacks !== undefined ? { maxStacks: enhancement.maxStacks } : {}),
+      ...(enhancement.irreversible !== undefined ? { irreversible: enhancement.irreversible } : {}),
+      ...(enhancement.attachment ? { attachment: cloneJson(enhancement.attachment) } : {}),
+      ...(numericResourceDraft(enhancement.price) ? { price: numericResourceDraft(enhancement.price) } : {}),
+      ...(tagDraft(enhancement.tags) ? { tags: tagDraft(enhancement.tags) } : {}),
+      ...(revealDraft(enhancement.revealTriggers) ? { revealTriggers: revealDraft(enhancement.revealTriggers) } : {}),
+    })),
+  };
+}
+
+function mergeAuthoringRecords<T extends { id: string }>(
+  previous: readonly T[],
+  next: readonly T[],
+): T[] {
+  const byId = new Map(previous.map(record => [record.id, record]));
+  return next.map(record => ({ ...(byId.get(record.id) ?? {}), ...record } as T));
+}
+
+function runtimeModToDatapack(draft: RuntimeModDraft, previous: Datapack, registry: Registry): Datapack {
+  const context = addDatapackValidationRefs(runtimeAuthoringValidationContext(registry), previous);
+  const active = <T extends { idName: string }>(records: readonly T[], suspended: readonly string[] | undefined): T[] => {
+    const ignored = new Set(suspended ?? []);
+    return records.filter(record => !ignored.has(record.idName));
+  };
+  const spots = active(draft.spots, draft.suspendedSpotIds).map(spot => {
+    const { metadata: _metadata, unsupportedFunctionalityIds: _unsupportedFunctionalityIds, unsupportedPaymentOptionPaths: _unsupportedPaymentOptionPaths, ...input } = spot;
+    const built = buildAuthoringDef(requireContentPolicy('spots'), draft.modName, {
+      ...input,
+      functionalities: input.functionalities ?? [],
+      levelUpgrades: input.levelUpgrades ?? [],
+      revealTriggers: input.revealTriggers ?? [],
+      tags: input.tags ?? [],
+      gachaPools: input.gachaPools ?? [],
+    }) as SpotDef;
+    validateAuthoringInput(requireContentPolicy('spots'), { ...input, functionalities: input.functionalities ?? [], levelUpgrades: input.levelUpgrades ?? [], revealTriggers: input.revealTriggers ?? [], tags: input.tags ?? [], gachaPools: input.gachaPools ?? [] }, context);
+    return built;
+  });
+  const inits = draft.inits === undefined ? previous.inits : active(draft.inits, draft.suspendedInitIds).map(init => buildAuthoringDef(requireContentPolicy('inits'), draft.modName, init) as InitDef);
+  const areas = draft.areas === undefined ? previous.areas : active(draft.areas, draft.suspendedAreaIds).map(area => buildAuthoringDef(requireContentPolicy('areas'), draft.modName, area) as AreaDef);
+  const enhancements = draft.enhancements === undefined ? previous.enhancements : active(draft.enhancements, draft.suspendedEnhancementIds).map(enhancement => buildAuthoringDef(requireContentPolicy('enhancements'), draft.modName, enhancement) as EnhancementDef);
+  return {
+    ...cloneJson(previous),
+    modName: draft.modName,
+    name: draft.displayName,
+    version: draft.version,
+    spots: mergeAuthoringRecords(previous.spots, spots),
+    inits: mergeAuthoringRecords(previous.inits, inits),
+    areas: mergeAuthoringRecords(previous.areas, areas),
+    enhancements: mergeAuthoringRecords(previous.enhancements, enhancements),
   };
 }
 

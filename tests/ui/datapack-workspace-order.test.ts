@@ -42,7 +42,7 @@ describe('数据包工作区排序与默认行为', () => {
 
   beforeEach(() => {
     runtime = new AronaClickerRuntime();
-    registerDemo(runtime);
+    registerDemo(runtime, ['ghost']);
   });
 
   it('列表按草案顺序渲染，而不是正式顺序', () => {
@@ -54,14 +54,14 @@ describe('数据包工作区排序与默认行为', () => {
       draftEnabledIds: [base, demo], draftOrder: [demo, base],
       validation: null, lastResult: null,
     });
-    expect(reversed.indexOf(`data-pack-id="${demo}"`)).toBeLessThan(reversed.indexOf(`data-pack-id="${base}"`));
+    expect(reversed.indexOf(`data-pack-pane="demo@1.0.0"`)).toBeLessThan(reversed.indexOf(`data-pack-pane="base@1.0.0"`));
 
     const formal = renderDatapack(runtime, {
       section: 'all', selectedPackId: null,
       draftEnabledIds: [base, demo], draftOrder: [base, demo],
       validation: null, lastResult: null,
     });
-    expect(formal.indexOf(`data-pack-id="${base}"`)).toBeLessThan(formal.indexOf(`data-pack-id="${demo}"`));
+    expect(formal.indexOf(`data-pack-pane="base@1.0.0"`)).toBeLessThan(formal.indexOf(`data-pack-pane="demo@1.0.0"`));
   });
 
   it('仅在「全部数据包」分区允许调整加载顺序', () => {
@@ -87,11 +87,10 @@ describe('数据包工作区排序与默认行为', () => {
       validation: null, lastResult: null,
     });
     // demo 位于 base 之后，其上移目标是非可排序的核心包 → 禁用
-    expect(html).toContain(`data-pack-draft-up="${demo}" title="前方是核心数据包，不可越过" disabled`);
+    expect(html).toContain('data-pack-draft-pane-up="demo@1.0.0" title="已经是第一个数据包或前方是核心数据包" disabled');
   });
 
   it('导航计数与「有问题」分区使用草案口径', () => {
-    registerDemo(runtime, ['ghost']);
     const base = runtime.getPackCatalog().entries.find(entry => entry.sourceKind === 'builtin')!.id;
     const demo = runtime.getPackCatalog().entries.find(entry => entry.modName === 'demo')!.id;
 
@@ -101,7 +100,7 @@ describe('数据包工作区排序与默认行为', () => {
       validation: null, lastResult: null,
     });
     expect(html).toContain('2 启用 · 2 已导入');
-    expect(html).toContain(`data-pack-id="${demo}"`);
+    expect(html).toContain('data-pack-pane="demo@1.0.0"');
   });
 
   it('resolvePackIssues 覆盖缺失依赖、modName 冲突与顺序异常', () => {

@@ -152,5 +152,21 @@ export class PopoverManager {
       }
       hide();
     });
+    this.root.addEventListener('focusin', (event) => {
+      const target = event.target as HTMLElement;
+      const wrap = target.closest<HTMLElement>('.hover-wrap[data-tooltip]');
+      if (wrap) show(wrap);
+    });
+    this.root.addEventListener('focusout', (event) => {
+      const target = event.target as HTMLElement;
+      const related = event.relatedTarget as HTMLElement | null;
+      const wrap = target.closest<HTMLElement>('.hover-wrap[data-tooltip]');
+      if (!wrap) return;
+      if (related && (wrap.contains(related) || related.closest('.hover-wrap[data-tooltip]'))) {
+        cancelHide();
+        return;
+      }
+      hide();
+    });
   }
 }

@@ -38,6 +38,8 @@ import { extra, getAtPath, mergeExtra, setAtPath } from '../engine/extra/index';
 import { ImageStore } from '../data-services/assets/image-store';
 import { hasExistenceGate } from '../engine/visibility/reveal';
 import { Registry } from '../data-services/registry/registry';
+import { createRuntimeContentBrowser } from '../data-services/registry/runtime-content-browser';
+import type { RuntimeContentBrowserQueryPort } from '../data-services/contracts/runtime-content-browser';
 import type { WorldCatalogQueryPort } from './contracts/world-catalog';
 import { EventBus } from '../engine/core/event-bus';
 import { ValueSystem } from '../engine/expression/value-system';
@@ -69,6 +71,7 @@ import { CharaProfileService } from './services/chara-profile-service';
 import { PicService } from '../data-services/assets/pic-service';
 import { UserThemeService } from './services/user-theme-service';
 import { ShopService } from './services/shop-service';
+import type { StoryFollowUpMount } from './services/story-follow-up-mount';
 
 import type { SaveData } from './contracts/save-data';
 import { clearTagResidueByMod, summarizeTagResidue, type TagOverrideResidue } from './state/tag-residue';
@@ -89,6 +92,8 @@ export class GameInstance {
   // 子系统（构造期由 game/wiring.ts 装配赋值）
   readonly eventBus!: EventBus;
   readonly registry!: Registry;
+  /** Read-only snapshot/query facade over the currently loaded effective Registry. */
+  readonly runtimeContentBrowser: RuntimeContentBrowserQueryPort;
   get world(): WorldCatalogQueryPort { return this.registry; }
   readonly valueSystem!: ValueSystem;
   readonly conditionSystem!: ConditionSystem;
@@ -115,6 +120,8 @@ export class GameInstance {
   readonly gameNumSystem!: GameNumSystem;
   readonly triggerSystem!: TriggerSystem;
   readonly storyService!: StoryService;
+  /** StoryFollowUp 只读运行时诊断投影。 */
+  readonly storyFollowUps!: StoryFollowUpMount;
   readonly spotService!: SpotService;
   readonly initService!: InitService;
   readonly itemService!: ItemService;
@@ -146,6 +153,16 @@ export class GameInstance {
       setState: next => { this._state = next; },
       refreshVisibility: () => this.refreshVisibility(),
     }, options);
+    this.runtimeContentBrowser = createRuntimeContentBrowser(this.registry, {
+      affectorPacks: {
+        getEntries: () => this.affectorEngine.getPacks(),
+        getRevision: () => this.affectorEngine.getPacksRevision(),
+      },
+      triggerDefs: {
+        getEntries: () => this.triggerSystem.getDefinitions(),
+        getRevision: () => this.triggerSystem.getDefinitionsRevision(),
+      },
+    });
   }
 
   // --- 访问器 ---

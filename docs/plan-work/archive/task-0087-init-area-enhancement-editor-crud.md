@@ -1,6 +1,6 @@
 # Task：Init / Area / Enhancement 编辑态 CRUD
 
-状态：superseded — 2026-09-17 被 [[task-0088-init-area-hot-crud-and-location-fallback]] 取代；保留为中断方案记录
+状态：done — 2026-09-17 被 [[task-0088-init-area-hot-crud-and-location-fallback]] 取代；本文件作为中断方案记录归档
 
 ## 目标
 
@@ -329,6 +329,8 @@ npm run check:docs
 完成三类内容的运行时接入后，再补跑 `npm test`、`npm run build` 与浏览器验收。
 
 ## 当前核验（2026-09-17）
+
+- 归档核验（2026-09-23）：本方案已明确由 task-0088 收敛取代，原 P0–P3 不再作为本 Task 的实施义务；以下剩余工作保留为历史方案内容。
 
 - 已读：`docs/docs-828/00-INDEX`、`docs/docs-828/02-modules/runtime-editor`、`docs/docs-828/05-conventions/doc-maintenance`、`docs/plan-work/task-0076-unified-def-editor-service`。
 - 已核对：`Datapack` / `InitDef` / `AreaDef` / `EnhancementDef`、Registry 表与 Spot mutation、三个 Def Builder、`init-service` / `enhancement-service` 现有消费者、Definition Resolution / Draft tombstone、PackManager、`reloadPreservingState` 与 Visibility rebuild 链。

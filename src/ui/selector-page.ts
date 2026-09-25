@@ -82,13 +82,20 @@ export class SelectorPage {
     this.initWheel = null;
     this.enhWheel = null;
     const preferred = preferredInitId(this.host.selectorContext());
-    if (preferred) this.initSelectedId = preferred;
+    if (!this.initSelectedId || !this.host.game.registry.inits.has(this.initSelectedId)) {
+      if (preferred) this.initSelectedId = preferred;
+    }
     this.sceneSeq += 1;
   }
 
   get currentFace(): SelectionFace { return this.face; }
   get selectedInitId(): string | null { return this.initSelectedId; }
   get selectedEnhId(): string | null { return this.enhSelectedId; }
+
+  /** Runtime 编辑器 Apply 重建选择页后恢复用户原先聚焦的 Init。 */
+  restoreInitSelection(initId: string | null): void {
+    if (initId && this.host.game.registry.inits.has(initId)) this.initSelectedId = initId;
+  }
 
   /** 切换到指定面：淡出当前面 → 滑动圆盘 → 重排目标面并淡入。 */
   slideTo(face: SelectionFace): void {
@@ -309,6 +316,7 @@ export class SelectorPage {
     getRows().forEach(bindRowClick);
 
     wheelEl.parentElement?.addEventListener('wheel', event => {
+      if (this.face !== face) return;
       event.preventDefault();
       // 连续旋转一格：整组卡片绕盘心转动，相对位置保持；spin 环形，边缘继续滚则聚焦跳到另一侧
       spin = ((spin + ((event as WheelEvent).deltaY > 0 ? 1 : -1)) % count + count) % count;

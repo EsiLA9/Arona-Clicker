@@ -1,4 +1,5 @@
-export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult, RuntimeInitDraft, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeResourceAmountDraft } from './runtime';
+export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogPane, PackCatalogRecord, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult, RuntimeInitDraft, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeResourceAmountDraft } from './runtime';
+export type { RuntimeContentBrowserQueryPort, RuntimeContentBrowserView, RuntimeContentDefinitionDetail, RuntimeContentDefinitionSummary, RuntimeContentKindDescriptor, RuntimeContentLoadedMod, RuntimeContentReferenceDiagnostic, RuntimeDefinitionRef } from '../../data-services/contracts/runtime-content-browser';
 export type {
   RuntimeContentDiagnostic,
   RuntimeContentDiagnosticCode,

@@ -63,6 +63,7 @@ export class UISurfaceRuntime {
   }
 
   markMounted(): UISurfaceToken {
+    if (this.mounted && this.mounted.key === this.key) this.generation += 1;
     this.mounted = this.current();
     return this.current();
   }

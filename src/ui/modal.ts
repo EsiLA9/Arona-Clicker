@@ -63,12 +63,14 @@ export class ModalManager {
   private el: HTMLElement | null = null;
   private closeHandler: (() => void) | undefined;
   private actionHandler: ((action: string) => void) | undefined;
+  private dismissable = true;
 
   /** 打开弹窗（重复 open 会替换内容）。 */
   open(opts: ModalOptions): void {
     this.ensureContainer();
     this.el!.innerHTML = renderModalShell(opts);
     this.el!.classList.add('is-open');
+    this.dismissable = opts.dismissable ?? true;
     this.closeHandler = opts.onClose;
     this.actionHandler = opts.onAction;
   }
@@ -80,6 +82,7 @@ export class ModalManager {
     const handler = this.closeHandler;
     this.closeHandler = undefined;
     this.actionHandler = undefined;
+    this.dismissable = true;
     handler?.();
   }
 
@@ -108,7 +111,7 @@ export class ModalManager {
       if (target.matches('[data-modal-overlay]')) this.close();
     });
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') this.close();
+      if (event.key === 'Escape' && this.dismissable) this.close();
     });
   }
 }

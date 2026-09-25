@@ -38,6 +38,13 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(() => game.packManager.removePack('base@1.0.0')).toThrow('内置数据包不可删除');
   });
 
+  test('默认内容中的 Spot 卡池引用全部可解析', () => {
+    const poolIds = new Set(defaultDatapack.gachaPools?.map(pool => pool.id) ?? []);
+    for (const spot of defaultDatapack.spots) {
+      for (const poolId of spot.gachaPools ?? []) expect(poolIds.has(poolId), `${spot.id} -> ${poolId}`).toBe(true);
+    }
+  });
+
   test('未启用包可从包库移除；已启用包、内置包与未知包被拒绝', () => {
     const game = new AronaClickerRuntime();
     const parsed = {

@@ -34,7 +34,7 @@
 | Effect `triggerStory` 的 target | StoryEntry | 真 | effect-engine 转发 → 查 entry 并启动 |
 | `BranchGuard.storyId` / prerequisites[].storyId | StoryEntry | 意义 | 重读守卫：按 id 比较跳转目标、按 id 查 storyReadLogs 阅读记录。唯一用到 StoryDef 的仅是 talkletIndex=-1 时枚举 talklets 结构判「全部已读」，不读内容字段。无加载期校验 |
 | Condition `hasReadStory` / `hasReadStoryInRun` / `visitedStoryInChain`（key=StoryId） | StoryDef | 意义 | 纯日志/游标记录身份匹配，不读 StoryDef 内容 |
-| `TriggerEventDef` on:{…}（9 种 kind，见 [[docs/docs-828/03-data-structures/declarative-dsl]] §5） | 各实体 | 意义 | 事件载荷 id 相等比较（trigger-system）；载荷 id 来自 StateMutationService 运行时快照，完全不读 Def 内容 |
+| `TriggerEventDef` on:{…}（10 种 kind，见 [[docs/docs-828/03-data-structures/declarative-dsl]] §5） | 各实体 | 意义 | 事件载荷 id 相等比较（trigger-system）；载荷 id 来自 StateMutationService 运行时快照，完全不读 Def 内容 |
 | `PassivePoolChild.id` | 子池 / Entry | 真 | 解析后取目标池/entry 的**完整内容**递归抽取（children/condition/owner/weight/cooldownFrames）；「未被引用 entry 自动归默认根池」。无加载期校验 |
 | `StoryEntryDef.owner` / `PassivePoolDef.owner` | CharacterVariantDef | 意义 | 聊天空间壁垒：`effectiveOwner === owner` 字符串比较，对话沙盒 key = `variant:${owner}`。全引擎无 `characterVariants.get(owner)` 取内容的路径 |
 | `ActiveStoryEntry.availableInits` | InitDef | 意义 | 只比较运行时 `activeInit` 是否在列表里。加载期不校验存在性 |

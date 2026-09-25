@@ -24,9 +24,9 @@ const TABS: { id: CollectionTab; label: string }[] = [
 /** Switch 头部：当前类型高亮。 */
 function tabBar(tab: CollectionTab): string {
   return `
-    <div class="switch-tabs coll-switch">
+    <div class="switch-tabs coll-switch" role="tablist" aria-label="图鉴分类">
       ${TABS.map(t => `
-        <button class="switch-tab ${t.id === tab ? 'active' : ''}" data-collection-tab="${t.id}">${t.label}</button>
+        <button type="button" role="tab" aria-selected="${t.id === tab}" aria-controls="collection-tabpanel-${t.id}" tabindex="${t.id === tab ? '0' : '-1'}" class="switch-tab ${t.id === tab ? 'active' : ''}" data-collection-tab="${t.id}">${t.label}</button>
       `).join('')}
     </div>`;
 }
@@ -59,7 +59,7 @@ function bodyHtml(ctx: UIContext, tab: CollectionTab): string {
 
 /** 组装整个弹窗内容体：Switch + 正文容器。 */
 export function renderCollectionModalBody(ctx: UIContext, tab: CollectionTab): string {
-  return `${tabBar(tab)}<div class="collection-body">${bodyHtml(ctx, tab)}</div>`;
+  return `${tabBar(tab)}<div class="collection-body" id="collection-tabpanel-${tab}" role="tabpanel" aria-label="${TABS.find(item => item.id === tab)?.label ?? '图鉴内容'}">${bodyHtml(ctx, tab)}</div>`;
 }
 
 /**

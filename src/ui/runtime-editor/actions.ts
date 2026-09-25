@@ -6,7 +6,9 @@
 // ============================================================
 
 import { AREA_CONTENT_POLICY, getContentPolicy, SPOT_CONTENT_POLICY, validateAuthoringInput, type ContentAuthoringPolicy, type SpotFunctionalityKind } from '../../data-services/authoring/content-policy';
-import { renderRuntimeDefinitionForm, renderRuntimeEditorLauncher, renderRuntimeEditorPanel, renderRuntimeSpotForm, runtimeEditorInitProblems } from './view';
+import { getRuntimeEditorCodexView, renderRuntimeDefinitionForm, renderRuntimeEditorCodexParts, renderRuntimeEditorLauncher, renderRuntimeEditorPanel, renderRuntimeSpotForm, runtimeEditorInitProblems } from './view';
+import { getSelectedCodexEntry, reduceCodexShellState, type CodexPane, type CodexShellAction } from './codex';
+import type { InspectorTab } from './codex-details';
 import {
   createRuntimeDatapackEditorState,
   findRuntimeEditorAppliedSpot,
@@ -35,6 +37,7 @@ import {
   setRuntimeEditorProblems,
   setRuntimeEditorSpot,
   suggestedRuntimeDefaultAreaIdName,
+  toRuntimeModDraft,
   updateRuntimeEditorFields,
   type RuntimeEditorFilter,
   type RuntimeEditorContentKind,
@@ -43,7 +46,8 @@ import {
   type RuntimeEditorProblem,
   type RuntimeEditorSpotDraft,
 } from './state';
-import { type RuntimeEditorLauncherAction, runtimeEditorLauncherEntries } from './launcher';
+import { type RuntimeEditorLauncherAction, type RuntimeEditorLauncherEntry, runtimeEditorLauncherEntries } from './launcher';
+import { compileRuntimeEditorPack, writeRuntimeEditorPack } from './pack-export';
 import { normalizeEntityNameValues, readRuntimeEditorFields, runtimeEditorInitialValues } from './form';
 import {
   conditionAtPath,
@@ -79,9 +83,11 @@ import {
   type CollectionPrototype,
 } from './collection-prototypes';
 import type { UIController } from '../controller';
+import { downloadBytes } from '../file-download';
 import { createUIContext } from '../context';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../../arona-clicker/contracts';
 import type { RuntimeSpotMutationResult, RuntimeWorldDraft } from '../../arona-clicker/contracts/runtime-content';
+import { hasDatapackWorkspaceChanges } from '../workspace/datapack-workspace-state';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] ?? character));
@@ -89,6 +95,79 @@ function escapeHtml(value: string): string {
 
 export function syncRuntimeSpotCreateAction(ctrl: UIController): void {
   syncRuntimeEditorPanel(ctrl);
+}
+
+export function scheduleRuntimeEditorDraft(ctrl: UIController): void {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  if (editor) ctrl.runtimeEditorPersistence.schedule(editor);
+}
+
+function requireDatapackConfigurationApplied(ctrl: UIController): boolean {
+  const workspace = ctrl.panelState.datapackWorkspace;
+  if (!workspace) return true;
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
+  if (!hasDatapackWorkspaceChanges(workspace, host.getPackConfiguration?.())) return true;
+  ctrl.toast.show('请先应用启用集草案，再进入编辑模式。', 'info');
+  return false;
+}
+
+const EXIT_EDITING_LAUNCHER_ENTRY: RuntimeEditorLauncherEntry = {
+  id: 'close-editing',
+  label: '退出编辑态',
+  action: 'close-editing',
+  order: 5,
+};
+
+function closeRuntimeEditingState(ctrl: UIController): void {
+  ctrl.runtimeEditorPersistence.clear();
+  ctrl.panelState.runtimeDatapackEditor = undefined;
+  ctrl.runtimeEditorDraftRestored = false;
+  ctrl.runtimeEditorExplicitlyClosed = true;
+  ctrl.debugEditingSeeded = false;
+  ctrl.debugEditingHydrated = false;
+  ctrl.runtimeEditorPanelOpen = false;
+  clearSubDialogs();
+  ctrl.render();
+}
+
+/** 页面隐藏 / 面板关闭 / 销毁前先把 DOM 中尚未点击保存的字段并入 formDraft。 */
+export function flushRuntimeEditorDraft(ctrl: UIController): void {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  if (!editor) return;
+  const host = document.querySelector<HTMLElement>('[data-runtime-editor-panel-host]');
+  if (host) {
+    if (host.querySelector('[data-runtime-editor-mod-field]')) readRuntimeEditorModFields(ctrl, host);
+    if (host.querySelector('[data-runtime-editor-spot-form]')) stashSpotForm(ctrl, host);
+    else if (host.querySelector('[data-runtime-editor-definition-form]')) stashRuntimeDefinitionForm(ctrl, host);
+  }
+  const result = ctrl.runtimeEditorPersistence.flush(editor);
+  if (!result.ok && result.message) setRuntimeEditorNotice(editor, result.message);
+}
+
+export async function downloadRuntimeEditorPack(ctrl: UIController, scope: ParentNode = document): Promise<void> {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  if (!editor) return;
+  if (scope.querySelector('[data-runtime-editor-mod-field]')) readRuntimeEditorModFields(ctrl, scope);
+  if (scope.querySelector('[data-runtime-editor-spot-form]') && !saveRuntimeSpotDraft(ctrl, scope, false)) return;
+  if (scope.querySelector('[data-runtime-editor-definition-form]') && !saveRuntimeDefinitionDraft(ctrl, scope, false)) return;
+
+  const result = compileRuntimeEditorPack(editor, runtimeAuthoringContext(ctrl));
+  if (!result.ok) {
+    setRuntimeEditorProblems(editor, result.diagnostics);
+    setRuntimeEditorError(editor, result.diagnostics[0]?.message ?? '编辑态 Mod 无法导出。');
+    syncRuntimeEditorPanel(ctrl);
+    return;
+  }
+  try {
+    const bytes = await writeRuntimeEditorPack(result.archive);
+    downloadBytes(bytes, result.archive.filename, 'application/zip');
+    scheduleRuntimeEditorDraft(ctrl);
+    const count = Object.values(result.archive.counts).reduce((total, value) => total + value, 0);
+    ctrl.toast.show(`已导出 ${result.archive.filename}（${count} 条内容，${result.archive.manifest.dependencies.length} 个依赖）`, 'success');
+  } catch (error) {
+    setRuntimeEditorError(editor, `数据包导出失败：${error instanceof Error ? error.message : String(error)}`);
+    syncRuntimeEditorPanel(ctrl);
+  }
 }
 
 /** 读取 Mod 元信息字段；modName 读入大写时自动转小写，返回是否发生归一化。 */
@@ -155,19 +234,62 @@ function readRuntimeDefinitionExtensions(policy: ContentAuthoringPolicy, scope: 
 }
 
 function runtimeAuthoringContext(ctrl: UIController) {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
+  const sourceDatapack = editor?.packRecordId ? host.getPackRecord?.(editor.packRecordId)?.datapack : undefined;
   return {
     resourceIds: new Set(ctrl.game.registry.resourceDisplays.keys()),
     itemIds: new Set(ctrl.game.registry.items.keys()),
     gachaPoolIds: new Set(ctrl.game.registry.gachaPools.keys()),
     shopIds: new Set(ctrl.game.registry.shops.keys()),
+    initIds: new Set(ctrl.game.registry.inits.keys()),
+    areaIds: new Set(ctrl.game.registry.areas.keys()),
+    sourceDatapack,
   };
 }
 
 export function openRuntimeEditorPanel(ctrl: UIController, surface: UIController['runtimeEditorSurface'] = 'mod'): void {
-  ctrl.ensureDebugEditingState();
+  if (surface !== 'codex' && !requireDatapackConfigurationApplied(ctrl)) return;
+  ctrl.runtimeEditorExplicitlyClosed = false;
+  if (surface !== 'codex') ctrl.ensureDebugEditingState();
   ctrl.runtimeEditorSurface = surface;
   ctrl.runtimeEditorPanelOpen = true;
   syncRuntimeEditorPanel(ctrl);
+}
+
+/** 以包库记录为边界打开编辑器；编辑器不再凭空创建全局编辑态。 */
+export function openRuntimeEditingPack(ctrl: UIController, packRecordId: string): boolean {
+  if (!requireDatapackConfigurationApplied(ctrl)) return false;
+  const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogCommands & PackCatalogReadModel>;
+  if (!host.openEditingPack || !host.getEditingPackDraft) {
+    ctrl.toast.show('当前运行时不支持打开编辑态数据包。', 'error');
+    return false;
+  }
+  const opened = host.openEditingPack(packRecordId);
+  if (!opened.ok) {
+    ctrl.toast.show(opened.message, 'error');
+    return false;
+  }
+  const draft = host.getEditingPackDraft(packRecordId);
+  if (!draft) {
+    ctrl.toast.show('编辑态数据包内容读取失败。', 'error');
+    return false;
+  }
+  flushRuntimeEditorDraft(ctrl);
+  const editor = createRuntimeDatapackEditorState(
+    draft.areas?.[0]?.idName ?? ctrl.game.getView().currentAreaId ?? [...ctrl.game.registry.areas.keys()][0] ?? null,
+    'runtime-editor',
+    packRecordId,
+  );
+  hydrateRuntimeEditor(editor, draft);
+  editor.packRecordId = packRecordId;
+  ctrl.panelState.runtimeDatapackEditor = editor;
+  ctrl.runtimeEditorDraftRestored = false;
+  ctrl.runtimeEditorExplicitlyClosed = false;
+  ctrl.runtimeEditorPanelOpen = true;
+  ctrl.runtimeEditorSurface = 'mod';
+  ctrl.render();
+  return true;
 }
 
 export function openRuntimeEditorLauncher(ctrl: UIController): void {
@@ -191,7 +313,9 @@ export function syncRuntimeEditorLauncher(ctrl: UIController): void {
   }
   const host = existing ?? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'runtime-editor-launcher-host' }));
   host.dataset.runtimeEditorLauncherHost = 'true';
-  const entries = runtimeEditorLauncherEntries();
+  const entries = runtimeEditorLauncherEntries(
+    ctrl.panelState.runtimeDatapackEditor?.enabled ? [EXIT_EDITING_LAUNCHER_ENTRY] : [],
+  );
   const unavailableActions = new Set(entries.filter(entry => entry.isAvailable && !entry.isAvailable(ctrl)).map(entry => entry.action));
   host.innerHTML = renderRuntimeEditorLauncher(createUIContext(ctrl.game), ctrl.runtimeEditorLauncherPos, entries, unavailableActions);
   bindRuntimeEditorLauncherActions(ctrl, host);
@@ -206,9 +330,202 @@ export function syncRuntimeEditorPanel(ctrl: UIController): void {
   }
   const host = existing ?? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'runtime-editor-panel-host' }));
   host.dataset.runtimeEditorPanelHost = 'true';
-  host.innerHTML = renderRuntimeEditorPanel(createUIContext(ctrl.game), ctrl.panelState, ctrl.runtimeEditorSurface);
+  host.innerHTML = renderRuntimeEditorPanel(
+    createUIContext(ctrl.game),
+    ctrl.panelState,
+    ctrl.runtimeEditorSurface,
+    ctrl.runtimeEditorCodexState,
+    ctrl.runtimeEditorCodexInspectorTab,
+  );
   const panel = host.querySelector<HTMLElement>('.runtime-editor-panel');
-  if (panel) bindRuntimeDatapackEditorActions(ctrl, panel);
+  if (panel) {
+    if (ctrl.runtimeEditorSurface === 'codex') bindRuntimeEditorCodexActions(ctrl, panel);
+    else bindRuntimeDatapackEditorActions(ctrl, panel);
+  }
+  if (ctrl.runtimeEditorSurface !== 'codex') scheduleRuntimeEditorDraft(ctrl);
+}
+
+function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): void {
+  const view = (): ReturnType<typeof getRuntimeEditorCodexView> => getRuntimeEditorCodexView(createUIContext(ctrl.game));
+  const reduce = (action: CodexShellAction, patch: { readonly entries?: boolean; readonly detail?: boolean } = {}): void => {
+    ctrl.runtimeEditorCodexState = reduceCodexShellState(view(), ctrl.runtimeEditorCodexState, action);
+    refreshRuntimeEditorCodexPanel(ctrl, scope, patch);
+  };
+  scope.addEventListener('input', event => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.matches('[data-codex-query]')) return;
+    const selectionStart = target.selectionStart;
+    reduce({ type: 'set-query', query: target.value });
+    const nextInput = scope.querySelector<HTMLInputElement>('[data-codex-query]');
+    if (!nextInput) return;
+    nextInput.focus();
+    if (selectionStart !== null) nextInput.setSelectionRange(selectionStart, selectionStart);
+  });
+  scope.addEventListener('toggle', event => {
+    const target = event.target;
+    if (!(target instanceof HTMLDetailsElement) || !target.matches('[data-codex-kind-filter]')) return;
+    ctrl.runtimeEditorCodexState = { ...ctrl.runtimeEditorCodexState, kindFilterOpen: target.open };
+  }, true);
+  scope.addEventListener('click', event => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const close = target.closest<HTMLElement>('[data-runtime-editor-panel-close]');
+    if (close) {
+      ctrl.runtimeEditorPanelOpen = false;
+      ctrl.panelState.runtimeEditorPanelOpen = false;
+      syncRuntimeEditorPanel(ctrl);
+      ctrl.refreshWorkspace();
+      return;
+    }
+    const surfaceButton = target.closest<HTMLElement>('[data-runtime-editor-surface]');
+    if (surfaceButton) {
+      const surface = surfaceButton.dataset.runtimeEditorSurface as UIController['runtimeEditorSurface'] | undefined;
+      if (!surface) return;
+      if (surface === 'browser' && !ctrl.panelState.runtimeDatapackEditor?.enabled) return;
+      ctrl.runtimeEditorSurface = surface;
+      if (surface !== 'codex') openRuntimeEditorPanel(ctrl, surface);
+      return;
+    }
+    const modButton = target.closest<HTMLElement>('[data-codex-mod]');
+    if (modButton) {
+      reduce({ type: 'select-mod', modId: modButton.dataset.codexMod ?? null });
+      return;
+    }
+    const kindButton = target.closest<HTMLElement>('[data-codex-kind]');
+    if (kindButton) {
+      reduce({ type: 'select-kind', definitionKind: kindButton.dataset.codexKind || null });
+      return;
+    }
+    const entryButton = target.closest<HTMLElement>('[data-codex-entry]');
+    if (entryButton) {
+      reduce(
+        { type: 'select-entry', entryKey: entryButton.dataset.codexEntry ?? null },
+        { entries: false },
+      );
+      return;
+    }
+    const referenceButton = target.closest<HTMLButtonElement>('button[data-codex-reference-target]');
+    if (referenceButton) {
+      const entryKey = referenceButton.dataset.codexReferenceTarget;
+      if (entryKey) reduce({ type: 'open-entry', entryKey }, { entries: false });
+      return;
+    }
+    const navigationButton = target.closest<HTMLButtonElement>('[data-codex-navigation]');
+    if (navigationButton && !navigationButton.disabled) {
+      const direction = navigationButton.dataset.codexNavigation;
+      if (direction === 'back') reduce({ type: 'go-back' }, { entries: false });
+      if (direction === 'forward') reduce({ type: 'go-forward' }, { entries: false });
+      return;
+    }
+    if (target.closest('[data-codex-copy-raw]')) {
+      void copyRuntimeCodexRaw(ctrl);
+      return;
+    }
+    const mobileButton = target.closest<HTMLElement>('button[data-codex-mobile-pane]');
+    if (mobileButton) {
+      const pane = mobileButton.dataset.codexMobilePane as CodexPane | undefined;
+      if (pane === 'mods' || pane === 'entries' || pane === 'detail') reduce({ type: 'select-pane', pane }, { entries: false, detail: false });
+      return;
+    }
+    const inspectorButton = target.closest<HTMLElement>('button[data-codex-inspector-tab]');
+    if (inspectorButton) {
+      const tab = inspectorButton.dataset.codexInspectorTab as InspectorTab | undefined;
+      if (tab === 'overview' || tab === 'relations' || tab === 'raw') {
+        ctrl.runtimeEditorCodexInspectorTab = tab;
+        refreshRuntimeEditorCodexPanel(ctrl, scope, { entries: false, detail: true });
+      }
+    }
+  });
+}
+
+function refreshRuntimeEditorCodexPanel(
+  ctrl: UIController,
+  scope: HTMLElement,
+  patch: { readonly entries?: boolean; readonly detail?: boolean } = {},
+): void {
+  const codex = scope.querySelector<HTMLElement>('[data-runtime-editor-codex]');
+  if (!codex) return;
+  const parts = renderRuntimeEditorCodexParts(
+    createUIContext(ctrl.game),
+    ctrl.runtimeEditorCodexState,
+    ctrl.runtimeEditorCodexInspectorTab,
+  );
+  ctrl.runtimeEditorCodexState = parts.state;
+  if (patch.entries !== false) {
+    replaceRuntimeCodexPane(codex, 'entries', parts.entriesPane);
+  } else {
+    syncRuntimeCodexEntrySelection(codex, parts.state.selectedEntryKey);
+  }
+  if (patch.detail !== false) replaceRuntimeCodexPane(codex, 'detail', parts.detailPane);
+  codex.dataset.codexMobilePane = parts.state.mobilePane;
+  codex.querySelectorAll<HTMLButtonElement>('button[data-codex-mobile-pane]').forEach(button => {
+    const active = button.dataset.codexMobilePane === parts.state.mobilePane;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+}
+
+function syncRuntimeCodexEntrySelection(scope: HTMLElement, selectedEntryKey: string | null): void {
+  const selectedButton = scope.querySelector<HTMLElement>('[data-codex-entry].is-selected');
+  if (selectedButton && selectedButton.dataset.codexEntry !== selectedEntryKey) {
+    selectedButton.classList.remove('is-selected');
+    selectedButton.setAttribute('aria-selected', 'false');
+  }
+
+  if (!selectedEntryKey) return;
+  const nextButton = [...scope.querySelectorAll<HTMLElement>('[data-codex-entry]')]
+    .find(button => button.dataset.codexEntry === selectedEntryKey);
+  if (!nextButton) return;
+  nextButton.classList.add('is-selected');
+  nextButton.setAttribute('aria-selected', 'true');
+}
+
+function replaceRuntimeCodexPane(scope: HTMLElement, pane: CodexPane, html: string): void {
+  const current = scope.querySelector<HTMLElement>(`[data-codex-pane="${pane}"]`);
+  if (!current) return;
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  const next = template.content.firstElementChild;
+  if (next instanceof HTMLElement) current.replaceWith(next);
+}
+
+async function copyRuntimeCodexRaw(ctrl: UIController): Promise<void> {
+  const runtimeView = getRuntimeEditorCodexView(createUIContext(ctrl.game));
+  const selected = getSelectedCodexEntry(runtimeView, ctrl.runtimeEditorCodexState);
+  if (!selected) {
+    ctrl.toast.show('当前没有选中的 Def', 'info');
+    return;
+  }
+
+  const detail = ctrl.game.runtimeContentBrowser.getDefinition({
+    definitionKind: selected.definitionKind,
+    fullId: selected.fullId === '<singleton>' ? null : selected.fullId,
+  });
+  if (!detail) {
+    ctrl.toast.show('当前 Def 已不在 Runtime 有效视图中', 'error');
+    return;
+  }
+
+  let rawJson: string;
+  try {
+    rawJson = JSON.stringify(detail.raw, null, 2);
+  } catch {
+    ctrl.toast.show('原始数据无法序列化', 'error');
+    return;
+  }
+
+  const writeText = typeof navigator !== 'undefined' ? navigator.clipboard?.writeText : undefined;
+  if (!writeText) {
+    ctrl.toast.show('当前环境不支持复制原始数据', 'info');
+    return;
+  }
+
+  try {
+    await writeText.call(navigator.clipboard, rawJson);
+    ctrl.toast.show('原始 JSON 已复制', 'success');
+  } catch {
+    ctrl.toast.show('复制失败，请检查剪贴板权限', 'error');
+  }
 }
 
 function launcherPosition(ctrl: UIController, launcher: HTMLElement, x: number, y: number): { x: number; y: number } {
@@ -232,6 +549,10 @@ function launcherPosition(ctrl: UIController, launcher: HTMLElement, x: number, 
 function activateRuntimeEditorLauncherEntry(ctrl: UIController, action: RuntimeEditorLauncherAction): void {
   ctrl.runtimeEditorLauncherOpen = false;
   syncRuntimeEditorLauncher(ctrl);
+  if (action === 'close-editing') {
+    closeRuntimeEditingState(ctrl);
+    return;
+  }
   const registered = runtimeEditorLauncherEntries().find(entry => entry.action === action);
   if (registered?.isAvailable && !registered.isAvailable(ctrl)) return;
   if (registered?.onSelect) {
@@ -246,8 +567,17 @@ function activateRuntimeEditorLauncherEntry(ctrl: UIController, action: RuntimeE
     openRuntimeDatapackEditor(ctrl);
     return;
   }
+  if (action === 'runtime-codex') {
+    openRuntimeEditorPanel(ctrl, 'codex');
+    return;
+  }
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor?.enabled) {
+    openRuntimeEditorPanel(ctrl);
+    return;
+  }
+  if (!editor.packRecordId) {
+    setRuntimeEditorError(editor, '请先从普通数据包复制一个编辑态数据包。');
     openRuntimeEditorPanel(ctrl);
     return;
   }
@@ -257,7 +587,6 @@ function activateRuntimeEditorLauncherEntry(ctrl: UIController, action: RuntimeE
     return;
   }
   ctrl.modal.close();
-  openRuntimeEditorPanel(ctrl);
   if (action === 'create-init') {
     prepareRuntimeEditorForNewDefinition(editor, 'inits');
     openRuntimeDefinitionEditor(ctrl, 'inits');
@@ -284,7 +613,10 @@ function bindRuntimeEditorLauncherActions(ctrl: UIController, scope: ParentNode)
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-launcher-entry]').forEach(button => {
     button.addEventListener('click', () => {
       const action = button.dataset.runtimeEditorLauncherEntry as RuntimeEditorLauncherAction | undefined;
-      if (action && runtimeEditorLauncherEntries().some(entry => entry.action === action)) activateRuntimeEditorLauncherEntry(ctrl, action);
+      const entries = runtimeEditorLauncherEntries(
+        ctrl.panelState.runtimeDatapackEditor?.enabled ? [EXIT_EDITING_LAUNCHER_ENTRY] : [],
+      );
+      if (action && entries.some(entry => entry.action === action)) activateRuntimeEditorLauncherEntry(ctrl, action);
     });
   });
   const launcher = scope.querySelector<HTMLElement>('[data-runtime-editor-launcher]');
@@ -411,6 +743,10 @@ function stashRuntimeDefinitionForm(ctrl: UIController, scope: ParentNode): void
     ...(editor.formDraft ?? {}),
   };
   Object.assign(values, readRuntimeEditorFields(policy, scope), readRuntimeDefinitionExtensions(policy, scope));
+  for (const field of policy.fields) {
+    if (field.required !== false || typeof values[field.key] !== 'string') continue;
+    if (String(values[field.key]).trim() === '') delete values[field.key];
+  }
   const defaultAreaField = scope.querySelector<HTMLInputElement>('[data-runtime-editor-default-area-id-name]');
   if (defaultAreaField) {
     values.__defaultAreaIdName = defaultAreaField.value.trim();
@@ -422,6 +758,11 @@ function stashRuntimeDefinitionForm(ctrl: UIController, scope: ParentNode): void
 function saveRuntimeDefinitionDraft(ctrl: UIController, scope: ParentNode, reopenEditor = true): boolean {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor || editor.selectedContentKind === 'spots') return false;
+  if (!editor.packRecordId) {
+    setRuntimeEditorError(editor, '请先选择要写入的编辑态数据包。');
+    if (reopenEditor) openRuntimeEditorPanel(ctrl, 'browser');
+    return false;
+  }
   const kind = editor.selectedContentKind;
   const policy = getContentPolicy(kind);
   if (!policy) return false;
@@ -518,6 +859,12 @@ function hasRuntimeWorldContent(editor: ReturnType<typeof createRuntimeDatapackE
 function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor) return;
+  const selectedInitId = ctrl.selectorPage.selectedInitId;
+  if (!editor.packRecordId) {
+    setRuntimeEditorError(editor, '请先选择要写入的编辑态数据包。');
+    syncRuntimeEditorPanel(ctrl);
+    return;
+  }
   if (!editor.modName || !editor.displayName) {
     setRuntimeEditorError(editor, '请先完成 Mod 元信息。');
     syncRuntimeEditorPanel(ctrl);
@@ -547,6 +894,7 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
     version: editor.version,
     author: editor.author,
     description: editor.description,
+    targetPackRecordId: editor.packRecordId,
   });
   if (!metadata.ok) {
     setRuntimeEditorError(editor, metadata.message);
@@ -555,6 +903,7 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
   }
   const draft: RuntimeWorldDraft = {
     modName: editor.modName,
+    targetPackRecordId: editor.packRecordId,
     inits: editor.inits,
     areas: editor.areas,
   };
@@ -568,6 +917,7 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
   markRuntimeEditorWorldApplied(editor);
   setRuntimeEditorError(editor, null);
   setRuntimeEditorProblems(editor, []);
+  ctrl.selectorPage.restoreInitSelection(selectedInitId);
   syncRuntimeEditorPanel(ctrl);
   ctrl.toast.show(result.message, 'success');
   ctrl.render();
@@ -583,8 +933,38 @@ function applyRuntimeEditorDraft(
 ): void {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor) return;
+  if (!editor.packRecordId) {
+    setRuntimeEditorError(editor, '请先选择要写入的编辑态数据包。');
+    openRuntimeEditorPanel(ctrl, failureView === 'spot' ? 'spot' : 'browser');
+    return;
+  }
   if (editor.selectedContentKind === 'inits' || editor.selectedContentKind === 'areas' || hasRuntimeWorldContent(editor)) {
     applyRuntimeWorldEditorDraft(ctrl);
+    return;
+  }
+  if (editor.selectedContentKind === 'enhancements') {
+    if (!ctrl.commands.applyRuntimeMod) {
+      setRuntimeEditorError(editor, '当前运行时不支持 Enhancement 数据包 Apply。');
+      openRuntimeDatapackEditor(ctrl);
+      return;
+    }
+    const draft = toRuntimeModDraft(editor);
+    if (!draft) {
+      setRuntimeEditorError(editor, '请先完成 Mod 元信息。');
+      openRuntimeDatapackEditor(ctrl);
+      return;
+    }
+    const result = ctrl.commands.applyRuntimeMod(draft);
+    if (!result.ok) {
+      setRuntimeEditorError(editor, result.message);
+      openRuntimeDatapackEditor(ctrl);
+      return;
+    }
+    markRuntimeEditorApplied(editor, true);
+    setRuntimeEditorError(editor, null);
+    setRuntimeEditorProblems(editor, []);
+    ctrl.toast.show(result.message, 'success');
+    ctrl.render();
     return;
   }
   const reopenAfterFailure = (): void => {
@@ -621,6 +1001,7 @@ function applyRuntimeEditorDraft(
     version: editor.version,
     author: editor.author,
     description: editor.description,
+    targetPackRecordId: editor.packRecordId,
   });
   if (!metadata.ok) {
     setRuntimeEditorError(editor, metadata.message);
@@ -631,9 +1012,9 @@ function applyRuntimeEditorDraft(
   const fail = (message: string, diagnostics: readonly RuntimeEditorProblem[]): void => {
     setRuntimeEditorError(editor, message);
     setRuntimeEditorProblems(editor, diagnostics);
-    // 批次中途失败时，前面已成功提交的内容仍需一次明确 render；
+    // 批次中途失败时，前面已成功提交的内容仍需一次明确内容刷新；
     // 批次事件本身被抑制，避免逐项刷新覆盖当前编辑器状态。
-    if (appliedCount > 0) ctrl.render();
+    if (appliedCount > 0) ctrl.refreshRuntimeSpotContent('runtime-editor-spot-partial-failure');
     reopenAfterFailure();
   };
   let appliedCount = 0;
@@ -688,7 +1069,7 @@ function applyRuntimeEditorDraft(
   setRuntimeEditorProblems(editor, []);
   openRuntimeSpotEditor(ctrl);
   ctrl.toast.show(`${appliedCount} 项已应用到运行时`, 'success');
-  ctrl.render();
+  ctrl.refreshRuntimeSpotContent('runtime-editor-spot-apply');
   syncRuntimeEditorCreateActions(ctrl);
 }
 
@@ -696,6 +1077,11 @@ function applyRuntimeEditorDraft(
 function saveRuntimeSpotDraft(ctrl: UIController, scope: ParentNode, reopenEditor = true): boolean {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   if (!editor) return false;
+  if (!editor.packRecordId) {
+    setRuntimeEditorError(editor, '请先选择要写入的编辑态数据包。');
+    if (reopenEditor) openRuntimeEditorPanel(ctrl, 'browser');
+    return false;
+  }
   const previousId = editor.selectedSpotId;
   const previous = previousId ? editor.spots.find(spot => spot.idName === previousId) : undefined;
   // 页隔离渲染：先并入当前页，再与暂存汇总成一次提交。
@@ -804,6 +1190,19 @@ function renderRuntimeInitDeletionImpact(ctrl: UIController, idName: string): st
 }
 
 export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode): void {
+  if (scope instanceof HTMLElement && scope.dataset.runtimeEditorPersistenceBound !== '1') {
+    scope.dataset.runtimeEditorPersistenceBound = '1';
+    const captureDraft = (): void => {
+      const editor = ctrl.panelState.runtimeDatapackEditor;
+      if (!editor) return;
+      if (scope.querySelector('[data-runtime-editor-mod-field]')) readRuntimeEditorModFields(ctrl, scope);
+      if (scope.querySelector('[data-runtime-editor-spot-form]')) stashSpotForm(ctrl, scope);
+      else if (scope.querySelector('[data-runtime-editor-definition-form]')) stashRuntimeDefinitionForm(ctrl, scope);
+      scheduleRuntimeEditorDraft(ctrl);
+    };
+    scope.addEventListener('input', captureDraft);
+    scope.addEventListener('change', captureDraft);
+  }
   const defaultAreaInput = scope.querySelector<HTMLInputElement>('[data-runtime-editor-default-area-id-name]');
   const initIdInput = scope.querySelector<HTMLInputElement>('[data-runtime-editor-field="idName"]');
   defaultAreaInput?.addEventListener('input', () => {
@@ -817,9 +1216,15 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     defaultAreaInput.value = suggestedRuntimeDefaultAreaIdName(initIdInput.value);
   });
   scope.querySelector('[data-runtime-editor-panel-close]')?.addEventListener('click', () => {
+    flushRuntimeEditorDraft(ctrl);
     ctrl.runtimeEditorPanelOpen = false;
+    ctrl.panelState.runtimeEditorPanelOpen = false;
     clearSubDialogs();
     syncRuntimeEditorPanel(ctrl);
+    ctrl.refreshWorkspace();
+  });
+  scope.querySelector('[data-runtime-editor-export]')?.addEventListener('click', () => {
+    void downloadRuntimeEditorPack(ctrl, scope);
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-surface]').forEach(button => {
     button.addEventListener('click', () => {
@@ -836,15 +1241,6 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
       syncRuntimeEditorLauncher(ctrl);
     } else openRuntimeEditorLauncher(ctrl);
   });
-  scope.querySelector('[data-runtime-editor-toggle]')?.addEventListener('click', () => {
-    ctrl.ensureDebugEditingState();
-    if (!ctrl.panelState.runtimeDatapackEditor) {
-      ctrl.panelState.runtimeDatapackEditor = createRuntimeDatapackEditorState([...ctrl.game.registry.areas.keys()][0] ?? null);
-    }
-    openRuntimeEditorPanel(ctrl);
-    ctrl.render();
-  });
-  scope.querySelector('[data-runtime-editor-open]')?.addEventListener('click', () => openRuntimeEditorPanel(ctrl, 'mod'));
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-kind-tab]').forEach(tab => {
     tab.addEventListener('click', () => {
       const kind = tab.dataset.runtimeEditorKindTab as RuntimeEditorContentKind | undefined;
@@ -875,9 +1271,7 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     });
   });
   scope.querySelector('[data-runtime-editor-close]')?.addEventListener('click', () => {
-    ctrl.runtimeEditorPanelOpen = false;
-    clearSubDialogs();
-    syncRuntimeEditorPanel(ctrl);
+    closeRuntimeEditingState(ctrl);
   });
   scope.querySelector('[data-runtime-editor-create]')?.addEventListener('click', () => {
     const editor = ctrl.panelState.runtimeDatapackEditor;
@@ -897,6 +1291,7 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
         version: editor.version,
         author: editor.author,
         description: editor.description,
+        ...(editor.packRecordId ? { targetPackRecordId: editor.packRecordId } : {}),
       });
       setRuntimeEditorError(editor, result.ok ? null : result.message);
       if (!result.ok) {

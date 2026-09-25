@@ -81,4 +81,31 @@ describe('PopoverManager 刷新范围', () => {
       vi.useRealTimers();
     }
   });
+
+  it('键盘 focus 进入和离开 tooltip 锚点时同步显示与关闭', () => {
+    vi.useFakeTimers();
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    game.inits.startNewGame('base:init:schale_office');
+    document.body.innerHTML = `
+      <div id="app"><button class="hover-wrap" data-tooltip="spot:base:spot:credit_printer">查看</button></div>
+    `;
+    const root = document.querySelector<HTMLElement>('#app')!;
+    const anchor = root.querySelector<HTMLElement>('.hover-wrap')!;
+    const manager = new PopoverManager(root, game);
+    manager.bind();
+
+    try {
+      anchor.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      vi.advanceTimersByTime(80);
+      expect(document.querySelector('#floating-tooltip')?.classList.contains('is-open')).toBe(true);
+
+      anchor.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }));
+      vi.advanceTimersByTime(60);
+      expect(document.querySelector('#floating-tooltip')?.classList.contains('is-open')).toBe(false);
+    } finally {
+      game.stop();
+      vi.useRealTimers();
+    }
+  });
 });

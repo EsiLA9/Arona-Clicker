@@ -31,8 +31,29 @@ import { CONDITION_DEP_EVENT_TYPES, ConditionDepIndex } from '../expression/cond
 import { deriveAnonymousId } from '../core/anonymous-id';
 import type { DevLog } from '../core/dev-log';
 
+function cloneReadonly<T>(value: T, seen = new Map<object, unknown>()): T {
+  if (value === null || typeof value !== 'object') return value;
+  const objectValue = value as object;
+  const existing = seen.get(objectValue);
+  if (existing !== undefined) return existing as T;
+  if (Array.isArray(value)) {
+    const clone: unknown[] = [];
+    seen.set(objectValue, clone);
+    for (const entry of value) clone.push(cloneReadonly(entry, seen));
+    return Object.freeze(clone) as T;
+  }
+  const clone: Record<string, unknown> = {};
+  seen.set(objectValue, clone);
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    clone[key] = cloneReadonly(entry, seen);
+  }
+  return Object.freeze(clone) as T;
+}
+
 export class AffectorEngine extends EventDrivenReactor {
   private readonly packs = new Map<string, AffectorPackDef>();
+  private packsSnapshot: readonly AffectorPackDef[] | null = null;
+  private packsRevision = 0;
   private readonly instances = new Map<string, AffectorInstance>();
   /** Active 子集供运行时热路径迭代；公开快照仍经 getActiveInstances() 隔离。 */
   private readonly activeInstances = new Map<string, AffectorInstance>();
@@ -104,18 +125,21 @@ export class AffectorEngine extends EventDrivenReactor {
       this.warnDuplicateEntryIds(pack);
       this.packs.set(pack.id, pack);
     }
+    if (packs.length > 0) this.invalidatePacksSnapshot();
   }
 
   /** 清空全部 pack 注册（整体替换数据包时使用）。 */
   clear(): void {
     this.disposeRuntime();
     this.packs.clear();
+    this.invalidatePacksSnapshot();
   }
 
   /** 运行时注册数据包之外的 Affector pack（如由 Spot 功能动态构造）。 */
   registerPack(pack: AffectorPackDef): void {
     this.warnDuplicateEntryIds(pack);
     this.packs.set(pack.id, pack);
+    this.invalidatePacksSnapshot();
   }
 
   /** entry id 重复 → 同 id 会被 activeEntryIds 隐式视为同时激活（04h §3.2），数据包作者需知悉。 */
@@ -167,7 +191,10 @@ export class AffectorEngine extends EventDrivenReactor {
     } else {
       pack = packRef;
       packId = pack.id?.trim() ? pack.id : deriveAnonymousId('anon:pack', pack);
-      if (!this.packs.has(packId)) this.packs.set(packId, pack); // 内联包先注册（同 id 不重复覆盖）
+      if (!this.packs.has(packId)) {
+        this.packs.set(packId, pack);
+        this.invalidatePacksSnapshot();
+      } // 内联包先注册（同 id 不重复覆盖）
     }
     const instanceId = `${packId}@${mountEntityId}`;
     // 幂等（04h §3.3）：实例已存在（如重复获得同一物品再次触发 itemCollected）→
@@ -283,8 +310,28 @@ export class AffectorEngine extends EventDrivenReactor {
     return ref; // 内联完整包直接返回
   }
 
+  /** 返回当前有效 Affector 定义的冻结快照，不暴露内部 pack 引用。 */
+  getPacks(): readonly AffectorPackDef[] {
+    if (!this.packsSnapshot) {
+      this.packsSnapshot = Object.freeze(
+        [...this.packs.values()].map(pack => cloneReadonly(pack)),
+      );
+    }
+    return this.packsSnapshot;
+  }
+
+  /** 查询层用于在不重建快照的情况下判断规则源是否发生变化。 */
+  getPacksRevision(): number {
+    return this.packsRevision;
+  }
+
   getActiveInstances(): AffectorInstance[] {
     return [...this.activeInstances.values()];
+  }
+
+  private invalidatePacksSnapshot(): void {
+    this.packsSnapshot = null;
+    this.packsRevision += 1;
   }
 
   private withRuntimeChangeBatch(action: () => void): void {

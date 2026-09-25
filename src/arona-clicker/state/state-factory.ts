@@ -25,5 +25,6 @@ export function createDefaultState(): AronaClickerState {
     entityPresentationSelections: {},
     globalShopPurchaseRecords: {},
     shopPurchaseRecords: {},
+    informationRevealProgress: { revealed: [] },
   };
 }

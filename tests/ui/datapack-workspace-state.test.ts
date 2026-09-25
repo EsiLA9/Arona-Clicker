@@ -4,6 +4,7 @@ import {
   createDatapackWorkspaceState,
   hasDatapackWorkspaceChanges,
   moveDatapackDraft,
+  moveDatapackPaneDraft,
   resetDatapackWorkspaceState,
   selectDatapackPack,
   setDatapackValidation,
@@ -107,6 +108,23 @@ describe('Datapack Workspace 状态边界', () => {
     expect(state.draftOrder).toEqual(['core', 'b', 'a']);
     expect(state.validation).toBeNull();
     expect(state.lastResult).toBeNull();
+  });
+
+  it('移动 Pane 时将普通态与编辑态作为一个连续块移动', () => {
+    const entries = [
+      entry('core', { modName: 'core', sourceKind: 'builtin' }),
+      entry('demo-fixed', { modName: 'demo' }),
+      entry('other', { modName: 'other' }),
+      entry('demo-editing', { modName: 'demo', sourceKind: 'editing', editingMode: 'editing' }),
+    ];
+    const state = createDatapackWorkspaceState(entries, { enabledIds: [], order: entries.map(item => item.id) });
+
+    expect(moveDatapackPaneDraft(state, entries, 'demo@1.0.0', 1)).toBe('moved');
+    expect(state.draftOrder).toEqual(['core', 'other', 'demo-fixed', 'demo-editing']);
+    expect(moveDatapackPaneDraft(state, entries, 'demo@1.0.0', -1)).toBe('moved');
+    expect(state.draftOrder).toEqual(['core', 'demo-fixed', 'demo-editing', 'other']);
+    expect(moveDatapackPaneDraft(state, entries, 'demo@1.0.0', -1)).toBe('blocked');
+    expect(state.draftOrder).toEqual(['core', 'demo-fixed', 'demo-editing', 'other']);
   });
 });
 

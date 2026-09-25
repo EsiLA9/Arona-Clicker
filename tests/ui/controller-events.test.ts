@@ -43,6 +43,20 @@ describe('UI Controller Area 事件刷新', () => {
     expect(refreshPanels).toHaveBeenCalledWith(['left']);
   });
 
+  it('Runtime World Draft 批次中的 Area 事件不重复刷新日志或导航', () => {
+    const refreshPanels = vi.spyOn(controller, 'refreshPanels').mockImplementation(() => undefined);
+    const refreshLogPanel = vi.spyOn(controller, 'refreshLogPanel').mockImplementation(() => undefined);
+    const currentAreaId = game.getView().currentAreaId!;
+
+    controller.beginContentRefreshBatch();
+    game.eventBus.emit({ type: 'areaDefinitionChanged', areaId: currentAreaId });
+    game.eventBus.emit({ type: 'areaTopologyChanged', areaIds: [currentAreaId] });
+
+    expect(refreshPanels).not.toHaveBeenCalled();
+    expect(refreshLogPanel).not.toHaveBeenCalled();
+    controller.endContentRefreshBatch();
+  });
+
   it('当前 Area 主题槽变化时无需离开 Area 即更新主题，并可立即恢复声明默认', async () => {
     controller.render();
     const areaId = game.getView().currentAreaId!;

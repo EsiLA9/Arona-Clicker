@@ -20,7 +20,11 @@ import type { StatsContext } from '../../engine/contracts/stats';
 import type { CharaCustomOverride } from '../types/chara-profile';
 import type { DupRewards } from '../../data-services/contracts/gacha-pool';
 import type { CompletedStory } from '../types/story-state';
-import type { AronaClickerState } from '../types/state';
+import type {
+  AronaClickerState,
+  InformationRevealEntityKind,
+  RevealedInformationTarget,
+} from '../types/state';
 import type { StoredCustomTheme, ThemeAttachment, UserThemeDraft, UserThemeState } from '../types/user-theme';
 import { isGlobalResource } from '../types/ids';
 import { TagPath, tagDisplay, tagKey } from '../../engine/core/tag';
@@ -75,6 +79,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   private state: AronaClickerState | null = null;
   private initScopedTargetGuard: ((spotId: string) => boolean) | null = null;
   private entityPresentationSelectionValidator: ((state: AronaClickerState, entityKey: string, optionId: string) => boolean) | null = null;
+  private informationRevealTargetValidator: ((state: AronaClickerState, key: RevealedInformationTarget) => boolean) | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -96,6 +101,37 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
 
   setEntityPresentationSelectionValidator(validator: ((state: AronaClickerState, entityKey: string, optionId: string) => boolean) | null): void {
     this.entityPresentationSelectionValidator = validator;
+  }
+
+  setInformationRevealTargetValidator(
+    validator: ((state: AronaClickerState, key: RevealedInformationTarget) => boolean) | null,
+  ): void {
+    this.informationRevealTargetValidator = validator;
+  }
+
+  /** Commit a declared Information Reveal fact once; definitions and gate truth remain Reveal-domain inputs. */
+  revealInformationTarget(key: RevealedInformationTarget): boolean {
+    const kinds: readonly InformationRevealEntityKind[] = [
+      'init', 'area', 'spot', 'enhancement', 'item', 'activeStoryEntry', 'passiveStoryEntry',
+    ];
+    if (!key || !kinds.includes(key.entityKind)
+      || typeof key.target !== 'string' || key.target.trim().length === 0
+      || key.target === 'existence' || key.target === 'unlock'
+      || typeof key.entityId !== 'string' || key.entityId.trim().length === 0) return false;
+
+    const state = this.current;
+    const canonical: RevealedInformationTarget = {
+      entityKind: key.entityKind,
+      entityId: key.entityId,
+      target: key.target,
+    };
+    if (!this.informationRevealTargetValidator?.(state, canonical)) return false;
+
+    const progress = (state.informationRevealProgress ??= { revealed: [] });
+    if (progress.revealed.some(item => item.entityKind === canonical.entityKind
+      && item.entityId === canonical.entityId && item.target === canonical.target)) return false;
+    progress.revealed.push(canonical);
+    return true;
   }
 
   private canMutateSpot(spotId: string): boolean {

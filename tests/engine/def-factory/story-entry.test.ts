@@ -99,6 +99,29 @@ describe('StoryEntry builders', () => {
     });
   });
 
+  test('StoryEntry reaction：保留作者声明并使用局部稳定 id', () => {
+    const def = passiveStory('base:passivestory:invite', 'base:story:invite')
+      .reactions({
+        id: 'enter-rooftop',
+        activation: 'after-completion',
+        lifetime: 'until-consumed',
+        on: { kind: 'area', areaId: 'base:area:rooftop' },
+        effects: [{ op: 'triggerStory', target: 'base:activestory:meet', value: 0 }],
+        once: true,
+      })
+      .build();
+    expect(def.reactions).toEqual([
+      {
+        id: 'enter-rooftop',
+        activation: 'after-completion',
+        lifetime: 'until-consumed',
+        on: { kind: 'area', areaId: 'base:area:rooftop' },
+        effects: [{ op: 'triggerStory', target: 'base:activestory:meet', value: 0 }],
+        once: true,
+      },
+    ]);
+  });
+
   test('passive：壁垒/冷却/阻断（owner / cooldown / block / 演出锁定）', () => {
     const def = passiveStory('base:passivestory:hoshino_conv_2', 'base:story:hoshino_rooftop_hint')
       .owner('Hoshino')

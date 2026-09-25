@@ -9,6 +9,8 @@ export type AreaId = string;
 export type SpotId = string;
 export type EnhancementId = string;
 export type StoryId = string;
+/** StoryEntry 投放位 ID；与 StoryDef 的正文 StoryId 保持语义区分。 */
+export type StoryEntryId = string;
 export type ItemId = string;
 export type FuncletId = string;
 

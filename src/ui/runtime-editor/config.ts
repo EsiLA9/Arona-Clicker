@@ -3,17 +3,16 @@
 // ============================================================
 
 /**
- * 调试编辑开关：置 1 时，进入数据包管理页默认开启编辑态，
- * 并以 DEBUG_EDITING_DEFAULTS 预填 Mod 元信息；置 0 时恢复
- * 「手动点击开启编辑态」。仅用于本地调试，交付前应改回 0。
+ * 调试编辑开关：置 1 时，在包库已有编辑态数据包的前提下自动打开
+ * 第一个编辑态记录；不会创建无包归属的全局编辑态。仅用于本地调试。
  */
 export const IS_DEBUG_EDITING: 0 | 1 = 1;
 
-/** IS_DEBUG_EDITING = 1 时预填的默认编辑数据参数。 */
+/** 兼容旧调试入口的默认字段；正式目标始终来自编辑态包记录。 */
 export const DEBUG_EDITING_DEFAULTS = {
   modName: 'debug-mod',
   displayName: '调试数据包',
   version: '1.0.0',
   author: 'debug',
-  description: 'IS_DEBUG_EDITING=1 时自动开启的调试编辑态。',
+  description: '调试编辑态数据包。',
 } as const;

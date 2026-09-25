@@ -73,13 +73,6 @@ const schaleTriggers: TriggerDef[] = [
     effects: [{ op: 'addResource', target: Resource.Credit, value: 10 }],
     once: true,
   },
-  {
-    id: 'base:trigger:hoshino_rooftop_story',
-    on: { kind: 'area', areaId: 'base:area:schale_rooftop' },
-    condition: and(cond('hasReadStory', 'base:story:hoshino_rooftop_hint', '==', 1)),
-    effects: [{ op: 'triggerStory', target: 'base:activestory:hoshino_rooftop_meet', value: 0 }],
-    once: true,
-  },
 ];
 
 export const baseInits: InitDef[] = [

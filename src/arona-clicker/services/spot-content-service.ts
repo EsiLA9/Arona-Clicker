@@ -15,6 +15,7 @@ export interface SpotContentPort {
 export interface RuntimeDefinitionEditorPort {
   getState(): RuntimeModStateSnapshot;
   getEditingModName(): string | null;
+  getEditingPackRecordId?(): string | null;
   applyMutation(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
 }
 
@@ -22,9 +23,14 @@ export interface RuntimeDefinitionEditorPort {
 export class RuntimeDefinitionEditor {
   constructor(private readonly port: RuntimeDefinitionEditorPort) {}
 
-  private context(): { modName: string; expectedRevision: number } {
+  private context(): { modName: string; expectedRevision: number; targetPackRecordId?: string } {
     const state = this.port.getState();
-    return { modName: this.port.getEditingModName() ?? state.modName ?? '', expectedRevision: state.revision };
+    const targetPackRecordId = this.port.getEditingPackRecordId?.() ?? null;
+    return {
+      modName: this.port.getEditingModName() ?? state.modName ?? '',
+      expectedRevision: state.revision,
+      ...(targetPackRecordId ? { targetPackRecordId } : {}),
+    };
   }
 
   createSpot(spot: RuntimeSpotInput): RuntimeSpotMutationResult {

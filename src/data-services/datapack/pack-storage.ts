@@ -44,9 +44,16 @@ export class JsonPackSnapshotStore implements PackSnapshotStore {
 function isSnapshot(value: unknown): value is PackManagerSnapshot {
   if (!value || typeof value !== 'object') return false;
   const snapshot = value as Record<string, unknown>;
+  const selectedSlots = snapshot.selectedSlots;
+  const selectionValid = selectedSlots === undefined
+    || (selectedSlots !== null
+      && typeof selectedSlots === 'object'
+      && !Array.isArray(selectedSlots)
+      && Object.values(selectedSlots as Record<string, unknown>).every(slot => slot === 'fixed' || slot === 'editing' || slot === 'none'));
   return Array.isArray(snapshot.packs)
     && Array.isArray(snapshot.enabledIds)
-    && Array.isArray(snapshot.order);
+    && Array.isArray(snapshot.order)
+    && selectionValid;
 }
 
 /** IndexedDB 后端；异步生命周期由应用启动层负责，PackManager 本身保持同步纯逻辑。 */

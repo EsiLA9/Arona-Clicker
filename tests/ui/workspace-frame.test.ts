@@ -6,6 +6,7 @@ import { createUIContext } from '../../src/ui/context';
 import { renderWorkspaceFrame } from '../../src/ui/components/workspace-frame';
 import { renderCharacterWorkspace } from '../../src/ui/components/character-workspace';
 import { renderPanelTabsRegion } from '../../src/ui/components/tabs';
+import { renderCollectionModalBody } from '../../src/ui/components/collection-modal';
 import type { PanelState } from '../../src/ui/components/app-shell';
 
 describe('WorkspaceFrame', () => {
@@ -153,5 +154,28 @@ describe('WorkspaceFrame', () => {
     expect(html).not.toContain('leftPanel.character.left');
     expect(html).not.toContain('centerPanel.character.center');
     expect(html).not.toContain('rightPanel.character.right');
+  });
+
+  it('图鉴分类输出 tablist、tab 与关联 tabpanel 语义', () => {
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    const html = renderCollectionModalBody(createUIContext(game), 'groups');
+    const root = document.createElement('div');
+    root.innerHTML = html;
+
+    expect(root.querySelector('[role="tablist"]')?.getAttribute('aria-label')).toBe('图鉴分类');
+    expect(root.querySelectorAll('[role="tab"]')).toHaveLength(3);
+    expect(root.querySelector('[role="tab"][aria-selected="true"]')?.getAttribute('aria-controls')).toBe('collection-tabpanel-groups');
+    expect(root.querySelector('[role="tabpanel"]')?.id).toBe('collection-tabpanel-groups');
+  });
+
+  it('图鉴分类不重复渲染外层已经提供的 Codex 标题 eyebrow', () => {
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    const ctx = createUIContext(game);
+
+    expect(renderCollectionModalBody(ctx, 'groups')).not.toContain('COLOR GROUP CODEX');
+    expect(renderCollectionModalBody(ctx, 'equipments')).not.toContain('EQUIPMENT CODEX');
+    expect(renderCollectionModalBody(ctx, 'stories')).toContain('COLLECTION PROGRESS');
   });
 });

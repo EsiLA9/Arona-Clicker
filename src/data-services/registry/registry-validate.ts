@@ -123,6 +123,7 @@ function checkEntityPresentation(items: Array<{ id: string; presentation?: Entit
 export interface DatapackValidationContext {
   readonly initIds?: ReadonlySet<string>;
   readonly areaIds?: ReadonlySet<string>;
+  readonly storyEntryIds?: ReadonlySet<string>;
 }
 
 export function validateDatapack(dp: Datapack, context: DatapackValidationContext = {}): void {
@@ -279,6 +280,11 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   // 检查引用完整性
   const initIds = new Set([...context.initIds ?? [], ...dp.inits.map(i => i.id)]);
   const areaIds = new Set([...context.areaIds ?? [], ...dp.areas.map(a => a.id)]);
+  const storyEntryIds = new Set([
+    ...context.storyEntryIds ?? [],
+    ...dp.activeStories.map(entry => entry.id),
+    ...dp.passiveStories.map(entry => entry.id),
+  ]);
 
   for (const area of dp.areas) {
     if (!initIds.has(area.initId)) {
@@ -326,6 +332,19 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   for (const entry of [...dp.activeStories, ...dp.passiveStories]) {
     if (!storyIds.has(entry.storyId)) {
       throw new RegistryError(`Story entry "${entry.id}" references unknown story: "${entry.storyId}"`);
+    }
+    const followUpIds = new Set<string>();
+    for (const followUp of entry.followUps ?? []) {
+      if (!followUp.id || followUpIds.has(followUp.id)) {
+        throw new RegistryError(`Story entry "${entry.id}" contains duplicate or missing FollowUp id: "${followUp.id ?? ''}"`);
+      }
+      followUpIds.add(followUp.id);
+      if (followUp.waitFor?.kind !== 'next-enter-area' || !areaIds.has(followUp.waitFor.areaId)) {
+        throw new RegistryError(`Story entry "${entry.id}" FollowUp "${followUp.id}" references an invalid area: "${followUp.waitFor?.areaId ?? ''}"`);
+      }
+      if (followUp.outcome?.kind !== 'start-story-entry' || !storyEntryIds.has(followUp.outcome.storyEntryId)) {
+        throw new RegistryError(`Story entry "${entry.id}" FollowUp "${followUp.id}" references an invalid StoryEntry: "${followUp.outcome?.storyEntryId ?? ''}"`);
+      }
     }
   }
 

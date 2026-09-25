@@ -16,37 +16,47 @@ import type { ChatTextEffectValue } from '../contracts/chat-presentation';
 
 export type NameResolver = (type: string, id: string) => string;
 
-/** ValueExpression → 紧凑展示文本。 */
-export function describeValueExpression(expr: ValueExpression, nameOf: NameResolver): string {
-  const wrap = (e: ValueExpression) => describeValueExpression(e, nameOf);
+const VALUE_PRECEDENCE: Readonly<Record<ValueExpression['type'], number>> = {
+  add: 1, sub: 1, mul: 2, div: 2, min: 4, max: 4, pow: 3,
+  const: 4, value: 4, floor: 4, ceil: 4, round: 4, clamp: 4,
+};
+
+function valueExpressionText(
+  expr: ValueExpression,
+  nameOf: NameResolver,
+  parentType?: ValueExpression['type'],
+  side?: 'left' | 'right',
+): string {
+  const wrap = (child: ValueExpression, childSide: 'left' | 'right') => valueExpressionText(child, nameOf, expr.type, childSide);
+  let text: string;
   switch (expr.type) {
-    case 'const':
-      return String(expr.value);
-    case 'value':
-      return describeValue(expr.value, nameOf);
-    case 'mul':
-      return `${wrap(expr.left)}×${wrap(expr.right)}`;
-    case 'div':
-      return `${wrap(expr.left)}÷${wrap(expr.right)}`;
-    case 'add':
-      return `${wrap(expr.left)}+${wrap(expr.right)}`;
-    case 'sub':
-      return `${wrap(expr.left)}-${wrap(expr.right)}`;
-    case 'min':
-      return `min(${wrap(expr.left)}, ${wrap(expr.right)})`;
-    case 'max':
-      return `max(${wrap(expr.left)}, ${wrap(expr.right)})`;
-    case 'pow':
-      return `${wrap(expr.left)}^${wrap(expr.right)}`;
-    case 'floor':
-      return `⌊${wrap(expr.expr)}⌋`;
-    case 'ceil':
-      return `⌈${wrap(expr.expr)}⌉`;
-    case 'round':
-      return `round(${wrap(expr.expr)})`;
-    case 'clamp':
-      return `clamp(${wrap(expr.expr)}, ${wrap(expr.min)}, ${wrap(expr.max)})`;
+    case 'const': text = String(expr.value); break;
+    case 'value': text = describeValue(expr.value, nameOf); break;
+    case 'mul': text = `${wrap(expr.left, 'left')}×${wrap(expr.right, 'right')}`; break;
+    case 'div': text = `${wrap(expr.left, 'left')}÷${wrap(expr.right, 'right')}`; break;
+    case 'add': text = `${wrap(expr.left, 'left')}+${wrap(expr.right, 'right')}`; break;
+    case 'sub': text = `${wrap(expr.left, 'left')}-${wrap(expr.right, 'right')}`; break;
+    case 'min': text = `min(${valueExpressionText(expr.left, nameOf)}, ${valueExpressionText(expr.right, nameOf)})`; break;
+    case 'max': text = `max(${valueExpressionText(expr.left, nameOf)}, ${valueExpressionText(expr.right, nameOf)})`; break;
+    case 'pow': text = `${wrap(expr.left, 'left')}^${wrap(expr.right, 'right')}`; break;
+    case 'floor': text = `⌊${valueExpressionText(expr.expr, nameOf)}⌋`; break;
+    case 'ceil': text = `⌈${valueExpressionText(expr.expr, nameOf)}⌉`; break;
+    case 'round': text = `round(${valueExpressionText(expr.expr, nameOf)})`; break;
+    case 'clamp': text = `clamp(${valueExpressionText(expr.expr, nameOf)}, ${valueExpressionText(expr.min, nameOf)}, ${valueExpressionText(expr.max, nameOf)})`; break;
   }
+  if (!parentType || VALUE_PRECEDENCE[expr.type] >= VALUE_PRECEDENCE[parentType]) {
+    if (!parentType) return text;
+    const samePrecedence = VALUE_PRECEDENCE[expr.type] === VALUE_PRECEDENCE[parentType];
+    const needsRightGrouping = side === 'right' && ['sub', 'div', 'pow'].includes(parentType);
+    const needsLeftGrouping = side === 'left' && parentType === 'pow';
+    return samePrecedence && (needsRightGrouping || needsLeftGrouping) ? `(${text})` : text;
+  }
+  return `(${text})`;
+}
+
+/** ValueExpression → 保留运算结构的紧凑展示文本。 */
+export function describeValueExpression(expr: ValueExpression, nameOf: NameResolver): string {
+  return valueExpressionText(expr, nameOf);
 }
 
 /** 单个 Value → 展示文本（覆盖全部 ValueSource）。 */
@@ -102,23 +112,43 @@ export function describeEffect(effect: Effect, nameOf: NameResolver): string {
     case 'setManager': return `指派 ${nameOf('character', valueText)} 至 ${nameOf('spot', target)}`;
     case 'addEnhancement': return `获得强化「${nameOf('enh', valueText)}」`;
     case 'addItem': return `获得物品 ${nameOf('item', target)} ×${valueText}`;
-    case 'loot': return `触发掉落表 ${target}`;
+    case 'loot': return `掉落表 ${target}（当前未接入执行）`;
     case 'unlockInit': return `解锁世界线 ${nameOf('init', valueText)}`;
     case 'setFlag': return `标记 ${target} = ${valueText}`;
-    case 'triggerStory': return `触发剧情 ${nameOf('story', valueText)}`;
+    case 'triggerStory': return `触发剧情 ${nameOf('story', target)}`;
     case 'travelToArea': return `移动至区域 ${nameOf('area', target)}`;
     case 'setSpotMaxLevel': return `${nameOf('spot', target)} 等级上限 → ${valueText}`;
     case 'removeSpotMaxLevel': return `解除 ${nameOf('spot', target)} 等级上限`;
     case 'setExtra': return `设置数据 ${target} = ${valueText}`;
     case 'addExtra': return `数据 ${target} +${valueText}`;
     case 'removeExtra': return `移除数据 ${target}`;
-    case 'grantCharacter': return `获得学生「${valueText}」`;
-    case 'addAffectionExp': return `好感 +${valueText}`;
-    case 'setTheme': return `临时主题：${valueText}`;
-    case 'setEntityPresentation': return `临时实体表现：${target}`;
+    case 'grantCharacter': return `获得学生「${nameOf('character', target)}」`;
+    case 'addAffectionExp': return `${nameOf('character', target)} 好感 +${valueText}`;
+    case 'setTheme': {
+      const theme = effect.value;
+      if (typeof theme === 'object' && theme !== null && !Array.isArray(theme)) {
+        const group = 'colorGroupId' in theme && typeof theme.colorGroupId === 'string' ? `色彩组 ${theme.colorGroupId}` : '自定义覆盖';
+        return `临时主题：${group}`;
+      }
+      return '临时主题';
+    }
+    case 'setEntityPresentation': {
+      const value = effect.value;
+      const optionId = typeof value === 'object' && value !== null && !Array.isArray(value) && 'optionId' in value && typeof value.optionId === 'string'
+        ? value.optionId
+        : '未指定选项';
+      return `切换实体表现：${target} → ${optionId}`;
+    }
     case 'clearEntityPresentation': return `清理实体表现覆盖：${target}`;
     case 'clearAllChatFlow': return `清理聊天流`;
-    case 'showChatText': return `演出文本「${valueText}」@${target}`;
+    case 'showChatText': {
+      const value = effect.value;
+      if (typeof value === 'object' && value !== null && !Array.isArray(value) && 'talklet' in value && value.talklet && typeof value.talklet === 'object') {
+        const talklet = value.talklet as { speaker?: unknown; text?: unknown };
+        return `演出对话「${String(talklet.speaker ?? '')}：${String(talklet.text ?? '')}」@${target}`;
+      }
+      return `演出文本「${valueText}」@${target}`;
+    }
     case 'clearIdChatFlow': return `擦除演出文本 ${target}`;
     case 'clearAllChatText': return `清空全部演出文本`;
     case 'showOpeningTitle': return `呼出开幕标题「${valueText}」`;

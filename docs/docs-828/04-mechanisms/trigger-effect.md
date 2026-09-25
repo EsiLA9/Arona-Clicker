@@ -4,10 +4,23 @@
 
 ## Trigger（一次性/持续性条件触发）
 
-- `TriggerDef`：{ id?, on, condition?, effects[], once?, extra? }；`on` 的 `TriggerEventDef.kind`（9 种）与 `Condition`/`Effect` 全枚举见 [[docs/docs-828/03-data-structures/declarative-dsl]] §3-5；
+- `TriggerDef`：{ id?, on, condition?, effects[], once?, extra? }；`on` 的 `TriggerEventDef.kind`（10 种）与 `Condition`/`Effect` 全枚举见 [[docs/docs-828/03-data-structures/declarative-dsl]] §3-5；
 - kind 全集与 `TriggerSystem.ON_KIND_TO_EVENT` 双向锁合（新增侦测面 = 类型联合 + 映射表各 1 处）；
-- 运行时订阅事件 → 条件满足（`evaluateGroup`）→ 执行 `effects`（经 [[docs/docs-828/04-mechanisms/state-mutation]]）；
-- 触发状态（once 完成）持久化在 PlayerState（`triggerState`），匿名 Trigger 按派生 `anon:` id 持久。
+- 运行时以 `TriggerRegistrationRequest` 准入：request 持有 RegistrationKey、逻辑 TriggerId、定义、runtime tags 和可选 group；token 只由 TriggerSystem 在真正创建 Registration 时分配。
+- RegistrationKey 当前唯一，TriggerId 可有多条 Registration；相同规范 request 重复提交幂等，载荷冲突拒绝隐式替换。withdraw 按 key 撤出；tag 按不透明字符串精确匹配；group 是单值生命周期归组。
+- dispatch 对候选快照记录 `(key, token)`，每个候选运行前复核当前 Registration。撤出后即使同 key 重新注册，新 token 也不能复活本轮旧候选；本轮新增 Registration 等下一次事件。
+- `mount/load/unmount/unmountGroup` 保留兼容入口；新领域 adapter 使用 `register/withdraw/withdrawByTag(s)`。EventBus listener 仍由 TriggerSystem 按事件类型静态订阅，不按 Registration 创建。
+- Reveal 专用 runtime action 只在 Registration 请求中携带 opaque handle，由受控 handler 返回 success/not-committed；普通 `TriggerDef` 和 Datapack 无 action 字段。Reveal Registration 使用 `once:false`，其成功事实由 `informationRevealProgress` 而非 `triggersCompleted` 表达。
+- 事件命中 → 条件满足（`evaluateExpr`）→ 执行 `effects`（经 [[docs/docs-828/04-mechanisms/state-mutation]]）；Registration 改造不改变 Effect 调用与 once 提交时序。
+- once 完成按逻辑 TriggerId 持久化于 PlayerState（`triggersCompleted`）。多个 Registration 可共享此身份，同一 dispatch 第一条提交 once 后，其余同 ID 候选跳过。匿名 Trigger 的 `anon:` ID 仍由既有挂载适配派生。
+
+## StoryFollowUp（StoryEntry 后续语义）
+
+- `StoryEntry.followUps` 是面向剧情作者的受限声明：第一阶段只支持 `next-enter-area → start-story-entry`；它不是作者可见的 `TriggerDef`。
+- FollowUp 的 eligibility 事实来自所属 StoryEntry 的 completion commit；`current-init` 只表示当前运行时监听作用域，离开 Init 卸载，重新进入有效 Init 后按已提交 PlayerState 重建。
+- 当前监听与等待状态是派生物，不进入独立存档或 Runtime Binding Registry；fulfilled 使用稳定派生 ID 写入既有 `triggersCompleted`。
+- FollowUp 不直接继承普通 Trigger 的 pre-consume once：目标 StoryEntry 通过正式启动入口建立执行游标并返回成功后，才提交 fulfilled；失败保持可重试等待。
+- 只读诊断状态按 `fulfilled > waiting > inactive` 推导，不改变 PlayerState。
 
 ## Effect（op 分发）
 
@@ -45,9 +58,10 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 
 ## Reveal（信息可知阶梯）
 
-- `revealTriggers`：{ reveal: 'existence'|'name'|'condition'|'utility', condition }；
-- 阶梯：invisible → presence → partial → known → utility → purchaseable → owned；
-- `get*Reveal`（tooltip-reveal 模块）统一求值，UI 按 stage 遮挡显示（`???`）。`AccessStage` 是另一套（见 [[docs/docs-828/02-modules/visibility]]）。
+- `revealTriggers` 的 `existence` 仍驱动动态 Visibility，`unlock` 仍属于实时可达性；`name` / `condition` / `utility` 是 Information Reveal target。
+- 并行新路径：Reveal 域按当前 Registry、Save Progress、active Init 推导完整 gate 与 desired Watch；同 target 多声明按 OR。Adapter 先物化精确 resource/spotLevel/story 唤醒源，再用 ConditionSystem 对当前完整条件准入求值；成功经 StateMutationService 提交 Progress 后撤出 Watch。
+- `stat`、`hasEnh`、`countTags` 首期 AdmissionOnly：只在 Init admission、读档、内容更新等显式 reconcile 时求值，不承诺同一 Init 内实时唤醒；不使用 tick 或 ConditionDepIndex 作兜底。
+- Progress 是当前 Save 内单调增长的三元身份集合，跨 Init/Run 保留；Watch/Registration 可丢弃重建。`get*Reveal`（tooltip-reveal 模块）仍按旧 UI 路径即时求值，阶段 `invisible → presence → partial → known → utility → purchaseable → owned` 尚非持久事实消费者。
 
 ## GameEvent 事件目录（EventBus 订阅面）
 

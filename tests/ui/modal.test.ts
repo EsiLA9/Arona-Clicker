@@ -1,8 +1,13 @@
+// @vitest-environment happy-dom
 // ============================================================
 // ui/modal.test.ts — 弹窗母版骨架
 // ============================================================
-import { describe, test, expect } from 'vitest';
-import { renderModalShell } from '../../src/ui/modal';
+import { afterEach, describe, test, expect } from 'vitest';
+import { ModalManager, renderModalShell } from '../../src/ui/modal';
+
+afterEach(() => {
+  document.body.innerHTML = '';
+});
 
 describe('renderModalShell (弹窗母版)', () => {
   test('renders overlay, panel, close button, title and body', () => {
@@ -37,5 +42,24 @@ describe('renderModalShell (弹窗母版)', () => {
     expect(html).toContain('modal-overlay-user-theme');
     expect(html).toContain('user-theme-modal');
     expect(html).toContain('data-user-theme-drag');
+  });
+
+  test('dismissable 为 false 时 Escape 不关闭弹窗', () => {
+    const modal = new ModalManager();
+    modal.open({ body: '不可取消', dismissable: false });
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(modal.isOpen()).toBe(true);
+    modal.close();
+  });
+
+  test('dismissable 默认为 true 时 Escape 关闭弹窗', () => {
+    const modal = new ModalManager();
+    modal.open({ body: '可取消' });
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(modal.isOpen()).toBe(false);
   });
 });

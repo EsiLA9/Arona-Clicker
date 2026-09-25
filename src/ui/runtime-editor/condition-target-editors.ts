@@ -69,12 +69,18 @@ const EDITORS: ReadonlyMap<ConditionTarget, ConditionTargetEditor> = new Map(
   EDITOR_LIST.map(editor => [editor.target, editor]),
 );
 
-export function conditionTargetEditorOf(target: ConditionTarget): ConditionTargetEditor | undefined {
-  return EDITORS.get(target);
+const CONDITION_TARGET_SET: ReadonlySet<string> = new Set(CONDITION_TARGET_OPTIONS.map(option => option.value));
+
+export function isKnownConditionTarget(value: unknown): value is ConditionTarget {
+  return typeof value === 'string' && CONDITION_TARGET_SET.has(value);
 }
 
-export function conditionTargetLabelOf(target: ConditionTarget): string {
-  return conditionTargetEditorOf(target)?.label ?? `${target}（未知目标）`;
+export function conditionTargetEditorOf(target: unknown): ConditionTargetEditor | undefined {
+  return typeof target === 'string' ? EDITORS.get(target as ConditionTarget) : undefined;
+}
+
+export function conditionTargetLabelOf(target: unknown): string {
+  return conditionTargetEditorOf(target)?.label ?? `${String(target)}（未知目标）`;
 }
 
 export function renderConditionTargetFields(ctx: UIContext, condition: Condition): string {
@@ -83,33 +89,50 @@ export function renderConditionTargetFields(ctx: UIContext, condition: Condition
     return '<p class="runtime-condition-target-note">该条件始终成立，不需要额外输入。</p>';
   }
   const esc = ctx.escapeHtml;
+  const unknownTarget = !isKnownConditionTarget(condition.target);
+  if (unknownTarget) {
+    return `<p class="runtime-editor-warning" data-runtime-condition-unknown-target>未知条件目标「${esc(String(condition.target))}」；当前仅保留原始节点，Apply 将阻断。选择已知目标后才能安全编辑。</p>
+      <div data-runtime-condition-opaque-target>
+        <label class="user-theme-field"><span>原始键</span><input data-runtime-condition-editor-field="key" value="${esc(String(condition.key))}" readonly></label>
+        <label class="user-theme-field"><span>原始比较</span><input data-runtime-condition-editor-field="comparator" value="${esc(String(condition.comparator))}" readonly></label>
+        <label class="user-theme-field"><span>原始值</span><input data-runtime-condition-editor-field="value" value="${esc(String(condition.value))}" readonly></label>
+      </div>`;
+  }
   const reference = referenceOptions(ctx, condition.target);
   const keyLabel = condition.target === 'resource' ? '资源' : condition.target === 'spotLevel' ? 'Spot' : condition.target === 'area' ? '区域' : '键';
   const keyInput = reference
     ? `<input data-runtime-condition-editor-field="key" list="runtime-condition-options-${condition.target}" value="${esc(condition.key)}"><datalist id="runtime-condition-options-${condition.target}">${renderRuntimeEditorReferenceOptions(esc, reference)}</datalist>`
     : `<input data-runtime-condition-editor-field="key" value="${esc(condition.key)}">`;
   const valueStep = condition.target === 'spotLevel' ? ' step="1"' : '';
-  return `<label class="user-theme-field"><span>${keyLabel}</span>${keyInput}</label>
-    <label class="user-theme-field"><span>比较</span><select data-runtime-condition-editor-field="comparator">${[condition.comparator, ...CONDITION_COMPARATORS.filter(value => value !== condition.comparator)]
-      .map(value => `<option value="${value}"${value === condition.comparator ? ' selected="selected"' : ''}>${value}</option>`)
-      .join('')}</select></label>
+  const unknownComparator = !CONDITION_COMPARATORS.includes(condition.comparator);
+  const comparatorOptions = [condition.comparator, ...CONDITION_COMPARATORS.filter(value => value !== condition.comparator)]
+    .map(value => `<option value="${esc(value)}"${value === condition.comparator ? ' selected="selected"' : ''}>${esc(value)}</option>`)
+    .join('');
+  const warning = unknownComparator
+    ? `<p class="runtime-editor-warning" data-runtime-condition-unknown-comparator>未知比较符「${esc(String(condition.comparator))}」；当前仅保留原值，选择已知比较符后才能编辑。</p>`
+    : '';
+  return `${warning}<label class="user-theme-field"><span>${keyLabel}</span>${keyInput}</label>
+    <label class="user-theme-field"><span>比较</span><select data-runtime-condition-editor-field="comparator"${unknownComparator ? ' disabled' : ''}>${comparatorOptions}</select></label>
     <label class="user-theme-field"><span>值</span><input data-runtime-condition-editor-field="value" type="number" step="any"${valueStep} value="${esc(String(condition.value))}"></label>`;
 }
 
-export function readConditionTargetFields(scope: ParentNode, target: ConditionTarget, fallback: Condition): Condition {
+export function readConditionTargetFields(scope: ParentNode, target: ConditionTarget | string, fallback: Condition): Condition {
   const editor = conditionTargetEditorOf(target);
   if (editor?.target === 'alwaysTrue') return editor.createDefault();
+  if (!isKnownConditionTarget(target)) return fallback;
   const value = (name: string): string => scope.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-runtime-condition-editor-field="${name}"]`)?.value ?? '';
+  const rawValue = value('value');
+  const parsedValue = Number(rawValue);
   return {
-    target,
+    target: target as ConditionTarget,
     key: value('key') || fallback.key,
     comparator: (value('comparator') || fallback.comparator) as Comparator,
-    value: Number(value('value') || fallback.value),
+    value: rawValue === '' || !Number.isFinite(parsedValue) ? fallback.value : parsedValue,
   };
 }
 
 export function summarizeCondition(ctx: UIContext, condition: Condition): string {
-  return conditionTargetEditorOf(condition.target)?.summarize(ctx, condition) ?? `${condition.target} · ${condition.key} ${condition.comparator} ${String(condition.value)}`;
+  return conditionTargetEditorOf(condition.target)?.summarize(ctx, condition) ?? `未知目标 · ${String(condition.target)} · ${String(condition.key)} ${String(condition.comparator)} ${String(condition.value)}`;
 }
 
 function referenceOptions(ctx: UIContext, target: ConditionTarget): readonly { value: string; label: string }[] | undefined {

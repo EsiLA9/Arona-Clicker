@@ -67,6 +67,22 @@ describe('addition_test 综合数据包', () => {
     expect(game.registry.items.has('addition-test:item:signal-chip')).toBe(true);
     expect(game.registry.gachaPools.has('addition-test:gachapool:observer')).toBe(true);
     expect(game.registry.tagDefs.has('addition-test:experimental')).toBe(true);
+
+    const detail = game.runtimeContentBrowser.getDefinition({
+      definitionKind: 'inits',
+      fullId: 'addition-test:init:observatory',
+    });
+    expect(detail).not.toBeNull();
+    expect(detail?.outgoingReferences).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '$.defaultAreas[0]', value: 'addition-test:area:observatory', status: 'resolved' }),
+      expect.objectContaining({ path: '$.startStoryId', value: 'addition-test:story:welcome', status: 'resolved' }),
+      expect.objectContaining({ path: '$.purchaseCost[0].resourceId', value: 'base:resource:pyroxene', status: 'resolved', confidence: 'declared' }),
+      expect.objectContaining({ path: '$.revealTriggers[0].condition.conditions[0].key', value: 'base:resource:pyroxene', status: 'resolved', confidence: 'inferred' }),
+    ]));
+    expect(detail?.incomingReferences).toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: 'addition-test:init:observatory', status: 'resolved' }),
+    ]));
+    expect(detail?.incomingReferences.filter(reference => reference.value === 'addition-test:init:observatory').length).toBeGreaterThanOrEqual(4);
   });
 
   it('两个发布 ZIP 都使用新的 Spot 价格组结构', async () => {

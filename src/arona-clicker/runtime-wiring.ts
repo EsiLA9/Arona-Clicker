@@ -42,6 +42,9 @@ import { ImageStore } from '../data-services/assets/image-store';
 import { StoryService } from './services/story-service';
 import { SpotService } from './services/spot-service';
 import { InitService } from './services/init-service';
+import { StoryEntryReactionMount } from './services/story-entry-reaction-mount';
+import { StoryFollowUpMount } from './services/story-follow-up-mount';
+import { InformationRevealAdapter } from './services/information-reveal-adapter';
 import { ItemService } from './services/item-service';
 import { EnhancementService } from './services/enhancement-service';
 import { UserThemeService } from './services/user-theme-service';
@@ -241,6 +244,26 @@ export function wireGameInstance(
     getState: hooks.getState,
     travelToArea: (areaId, allowDuringStory) => g.travelToArea(areaId, allowDuringStory),
   });
+  const storyEntryReactions = new StoryEntryReactionMount(
+    g.registry,
+    g.triggerSystem,
+    g.eventBus,
+    hooks.getState,
+  );
+  const storyFollowUps = new StoryFollowUpMount(
+    g.registry,
+    g.triggerSystem,
+    g.eventBus,
+    hooks.getState,
+    storyEntryId => {
+      const entry = g.registry.storyEntries.get(storyEntryId);
+      if (!entry) return false;
+      // v1 使用正式 StoryService 启动入口；force 保留当前系统剧情对被动闲聊的抢占兼容，
+      // 但 FollowUp 只在该同步调用返回 success 后提交 fulfilled。
+      return g.storyService.startStory(storyEntryId, entry.type, null, { force: true }).success;
+    },
+  );
+  g.storyFollowUps = storyFollowUps;
   // visitedStoryInChain 条件：查询当前 Entry 跳转链是否经过某 Story（由 StoryService 提供运行时上下文）
   g.conditionSystem.setStoryChainChecker(id => g.storyService.isVisitedInChain(id));
   g.spotService = new SpotService({
@@ -258,6 +281,9 @@ export function wireGameInstance(
     refreshVisibility: hooks.refreshVisibility,
     getResourceAmount: resourceId => g.initService.getResourceAmount(resourceId),
   });
+  const informationRevealAdapter = new InformationRevealAdapter(
+    g.triggerSystem, g.conditionSystem, g.mutations, hooks.getState, g.registry, {}, 'information-reveal-runtime',
+  );
   g.initService = new InitService({
     registry: g.registry,
     conditionSystem: g.conditionSystem,
@@ -268,6 +294,9 @@ export function wireGameInstance(
     devLog: g.devLog,
     storyService: g.storyService,
     triggerSystem: g.triggerSystem,
+    storyEntryReactions,
+    storyFollowUps,
+    informationRevealAdapter,
     affectorEngine: g.affectorEngine,
     visibilityEngine: g.visibilityEngine,
     getState: hooks.getState,

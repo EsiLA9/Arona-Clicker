@@ -424,12 +424,7 @@ h3 {
 }
 
 .pack-draft-actions {
-   position: sticky;
-   bottom: 0;
-   z-index: 2;
-   margin-top: auto;
-   background: color-mix(in srgb, var(--panel) 96%, transparent);
-   box-shadow: 0 -8px 18px color-mix(in srgb, var(--panel) 45%, transparent);
+   flex: 0 0 auto;
 }
 
 .pack-fixed-state {
@@ -632,7 +627,6 @@ h3 {
    .service-main > .presentation-host-content { flex: 0 0 auto; }
    .service-main > .presentation-host-content > .service-pack-list { flex: 0 0 auto; }
    .service-pack-list .pack-catalog { overflow: visible; }
-   .pack-draft-actions { position: sticky; bottom: 0; }
 }
 
 .panel.ui-cluster--left-panel, .panel.ui-cluster--center-panel, .panel.ui-cluster--right-panel { border-color: var(--theme-node-line); background: transparent; color: var(--theme-node-text); }

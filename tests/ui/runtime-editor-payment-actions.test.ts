@@ -136,7 +136,12 @@ describe('Runtime Editor 支付方案嵌套编辑', () => {
     const spotController = new UIController(runtime, root);
     const runtimeArea = 'base:area:schale_main';
     const editor = createRuntimeDatapackEditorState(runtimeArea);
-    editor.modName = 'draft-mod';
+    const source = runtime.getPackCatalog().entries.find(entry => entry.editingMode === 'normal');
+    if (!source) throw new Error('测试需要一个普通态数据包作为编辑态副本来源。');
+    const target = runtime.createEditingPack(source.packRecordId ?? source.id);
+    if (!target.ok || !target.packRecordId) throw new Error(target.message);
+    editor.packRecordId = target.packRecordId;
+    editor.modName = 'base';
     editor.displayName = 'Draft Mod';
     editor.activeSection = 'overview';
     setRuntimeEditorSpot(editor, {
@@ -161,7 +166,7 @@ describe('Runtime Editor 支付方案嵌套编辑', () => {
     expect(document.querySelector('.runtime-editor-panel .runtime-editor-shell')).not.toBeNull();
     expect(document.querySelector('.runtime-editor-panel [data-runtime-editor-mod-field]')).toBeNull();
     expect(document.querySelector('.runtime-editor-panel')?.textContent).toContain('无法无损回写');
-    expect(runtime.registry.spots.has('draft-mod:spot:printer')).toBe(false);
+    expect(runtime.registry.spots.has('base:spot:printer')).toBe(false);
 
     spotController.modal.close();
     spotController.destroy();

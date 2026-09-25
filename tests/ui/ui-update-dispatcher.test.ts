@@ -44,6 +44,18 @@ describe('UI Surface token and update dispatcher', () => {
     expect(runtime.isCurrent(runtime.current())).toBe(true);
   });
 
+  it('increments generation when the same surface is mounted again', () => {
+    const runtime = new UISurfaceRuntime(panelState());
+    runtime.markMounted();
+    const firstMount = runtime.current();
+
+    runtime.markMounted();
+
+    expect(runtime.current()).toEqual({ key: 'game', generation: 1 });
+    expect(runtime.isCurrent(firstMount)).toBe(false);
+    expect(runtime.isCurrent(runtime.current())).toBe(true);
+  });
+
   it('coalesces duplicates, applies narrow updates before behavior, and drops stale requests', () => {
     const applied: string[] = [];
     const dropped: UIUpdate[] = [];

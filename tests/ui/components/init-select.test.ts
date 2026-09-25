@@ -63,4 +63,22 @@ describe('renderSelectorPage Init 面世界倾斜数值', () => {
     const html = renderSelectorPage(createUIContext(game), 'new', 'base:init:nonexistent', null, false, 'init');
     expect(html).toContain(`data-init-select="${OFFICE}"`);
   });
+
+  it('Init 面兼容非规范 worldTilt 字符串并将其排在合法值之后', () => {
+    const original = game.registry.inits.get(OFFICE);
+    if (!original) throw new Error('缺少测试 Init');
+    const receipt = game.registry.applyInitMutation({
+      operation: 'replace',
+      ownerModName: 'base',
+      init: { ...original, worldTilt: 'ddd', worldTiltAlias: undefined },
+    });
+    try {
+      const html = renderSelectorPage(createUIContext(game), 'new', OFFICE, null, false, 'init');
+      expect(html).toContain('TILT ddd');
+      expect(() => renderSelectorPage(createUIContext(game), 'new', OFFICE, null, false, 'init')).not.toThrow();
+      expect(railOrder(html).at(-1)).toBe(OFFICE);
+    } finally {
+      receipt.rollback();
+    }
+  });
 });

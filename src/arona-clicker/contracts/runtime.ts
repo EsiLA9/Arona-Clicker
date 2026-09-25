@@ -7,6 +7,7 @@ import type { RollSummary } from '../services/gacha-service';
 import type { SaveData } from './save-data';
 import type { DevLogEntry } from '../../engine/core/dev-log';
 import type { ContentCatalogQueryPort } from './content-catalog';
+import type { RuntimeContentBrowserQueryPort } from '../../data-services/contracts/runtime-content-browser';
 import type { ValueQueryPort } from './value-query';
 import type { ConditionQueryPort } from './condition-query';
 import type { GameNumQueryPort } from '../../engine/contracts/game-num-query';
@@ -22,7 +23,7 @@ import type { ColorQueryPort } from './color-query';
 import type { ColorEquipmentQueryPort } from './color-equipment-query';
 import type { GearQueryPort } from './gear-query';
 import type { StoryQueryPort } from './story-query';
-import type { PackConfigurationDraft, PackDependencyStatus, PackSourceKind } from '../../data-services/datapack/pack-manager';
+  import type { DatapackIdentity, DatapackSelectionSlot, EditingMode, PackConfigurationDraft, PackDependencyStatus, PackSourceKind, RuntimeApplyPlan, StoredPack } from '../../data-services/datapack/pack-manager';
 import type { WorldCatalogQueryPort } from './world-catalog';
 import type { UserThemeService } from '../services/user-theme-service';
 import type { ShopQueryPort } from './shop-query';
@@ -30,12 +31,18 @@ import type { RuntimeAreaTopologyDraft, RuntimeDefinitionEditorCommands, Runtime
 import type { DefMetadata } from '../../data-services/contracts/common';
 import type { EnhancementAttachment } from '../../data-services/contracts/enhancement';
 import type { EntityPresentationQueryPort } from './entity-presentation-query';
+import type { Datapack } from '../../data-services/contracts/datapack';
 
 export interface PackCatalogEntry {
   readonly id: string;
+  readonly packRecordId?: string;
   readonly modName: string;
   readonly name: string;
   readonly version: string;
+  readonly editingMode?: EditingMode;
+  readonly sourcePackRecordId?: string;
+  readonly sourceDigest?: string;
+  readonly contentDigest?: string;
   readonly author?: string;
   readonly dependencies: readonly string[];
   readonly sourceKind: PackSourceKind;
@@ -49,14 +56,41 @@ export interface PackCatalogEntry {
   };
 }
 
-export interface PackCatalogDependencyHint {
+/** 包库记录的只读内容面；编辑器通过记录身份读取，不依赖全局临时 Mod。 */
+export interface PackCatalogRecord {
+  readonly packRecordId: string;
+  readonly editingMode: EditingMode;
+  readonly sourcePackRecordId?: string;
+  readonly manifest: {
+    readonly modName: string;
+    readonly name: string;
+    readonly version: string;
+    readonly author?: string;
+    readonly dependencies: readonly string[];
+  };
+  readonly datapack: Datapack;
+}
+
+  export interface PackCatalogDependencyHint {
   readonly packId: string;
   readonly dependency: string;
   readonly status: PackDependencyStatus;
-}
+  }
 
-export interface PackCatalogReadModel {
-  getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[] };
+  export interface PackCatalogPane {
+    readonly paneKey: string;
+    readonly modName: string;
+    readonly version: string;
+    readonly fixed?: PackCatalogEntry;
+    readonly editing?: PackCatalogEntry;
+    readonly selectedSlot: DatapackSelectionSlot;
+    readonly runtimePackRecordId?: string;
+  }
+
+  export interface PackCatalogReadModel {
+  getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[]; panes?: readonly PackCatalogPane[] };
+  getPackRecord?(packRecordId: string): PackCatalogRecord | null;
+  getEditingPackDraft?(packRecordId: string): RuntimeModDraft | null;
   getPackConfiguration?(): PackConfigurationDraft;
   getRuntimeMod?(): RuntimeModDraft | null;
   getRuntimeContentState?(): RuntimeModStateSnapshot;
@@ -69,13 +103,16 @@ export interface PackValidationReport {
   readonly warnings: readonly string[];
 }
 
-export interface PackApplyResult {
+  export interface PackApplyResult {
   readonly ok: boolean;
   readonly message: string;
-  readonly validation: PackValidationReport;
+    readonly validation: PackValidationReport;
+    readonly plan?: RuntimeApplyPlan;
 }
 
 export interface RuntimeModDraft {
+  /** 新建/修改内容必须明确归属的编辑态数据包记录。 */
+  readonly targetPackRecordId?: string;
   readonly modName: string;
   readonly displayName: string;
   readonly version: string;
@@ -164,21 +201,28 @@ export interface RuntimeModApplyResult {
   readonly message: string;
 }
 
-export interface PackCatalogCommands {
+  export interface PackCatalogCommands {
   setPackEnabled(id: string, enabled: boolean): void;
   reorderPacks(ids: readonly string[]): void;
   applyEnabledPacks(): void;
   /** 从包库移除数据包（仅允许非内置、未启用包；不触发 reload）。 */
-  removePack?(id: string): void;
+    removePack?(id: string, options?: { readonly editorDirty?: boolean }): void;
+  createEditingPack?(sourcePackRecordId: string): { ok: boolean; packRecordId?: string; message: string };
+  openEditingPack?(packRecordId: string): RuntimeModApplyResult;
   validatePackConfiguration?(draft: PackConfigurationDraft): PackValidationReport;
-  applyPackConfiguration?(draft: PackConfigurationDraft): PackApplyResult;
+    applyPackConfiguration?(draft: PackConfigurationDraft): PackApplyResult;
+    setPackSelection?(paneKey: string, selectedSlot: DatapackSelectionSlot): void;
+    applyPackSelection?(): PackApplyResult;
+    createEmptyEditingPack?(identity: DatapackIdentity): { ok: boolean; packRecordId?: string; message: string };
+    clonePackAsEditing?(sourcePackRecordId: string, targetIdentity?: DatapackIdentity): { ok: boolean; packRecordId?: string; message: string };
+    exportPackRecord?(packRecordId: string, options?: { readonly versionId?: string }): { ok: boolean; pack?: StoredPack; message: string };
   applyRuntimeMod?(draft: RuntimeModDraft): RuntimeModApplyResult;
   /** 以单个 Spot 为单位提交热内容 CRUD；不接收完整 RuntimeModDraft。 */
   applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
   /** Init / Area 的局部热 CRUD；不触发整包 reload。 */
   applyRuntimeWorldDraft?(draft: RuntimeWorldDraft): RuntimeWorldApplyResult;
   /** 设置临时 Mod 元信息；不触发数据包重载。 */
-  setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
+  setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'> & { readonly targetPackRecordId?: string }): RuntimeModApplyResult;
   runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
   /** 删除临时 Mod 中单个 Spot 后清理其 PlayerData，不移除整个临时 Mod。 */
   removeRuntimeSpotData?(spotId: string): RuntimeModApplyResult;
@@ -189,6 +233,8 @@ export interface PackCatalogCommands {
 export interface GameReadModel {
   readonly state: Readonly<PlayerState>;
   readonly registry: ContentCatalogQueryPort;
+  /** 当前 Registry 的只读有效内容图鉴；不包含 PackCatalog / 编辑态 Draft。 */
+  readonly runtimeContentBrowser: RuntimeContentBrowserQueryPort;
   readonly world: WorldCatalogQueryPort;
   readonly valueSystem: ValueQueryPort;
   readonly conditionSystem: ConditionQueryPort;
@@ -261,6 +307,7 @@ export interface GameCommands {
   /** 运行时编辑能力：单个 Spot 热内容提交（不接收完整 Draft）。 */
   applyRuntimeSpotMutation?(mutation: RuntimeSpotMutation): RuntimeSpotMutationResult;
   applyRuntimeWorldDraft?(draft: RuntimeWorldDraft): RuntimeWorldApplyResult;
-  setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'>): RuntimeModApplyResult;
+  applyRuntimeMod?(draft: RuntimeModDraft): RuntimeModApplyResult;
+  setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'> & { readonly targetPackRecordId?: string }): RuntimeModApplyResult;
   runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
 }

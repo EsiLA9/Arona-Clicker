@@ -48,6 +48,12 @@ function statText(dsl: string, nameOf: NonNullable<ConditionPresentationOptions[
   return template.replace('{key}', key).replace('{init}', parsed.initId ? nameOf('init', parsed.initId) : '');
 }
 
+function booleanConditionText(subject: string, condition: Condition, value: string): string {
+  if (condition.comparator === '==' && condition.value === 1) return subject;
+  if (condition.comparator === '==' && condition.value === 0) return `非${subject}`;
+  return `${subject} ${condition.comparator} ${value}`;
+}
+
 /** 玩家界面的单原子条件文案；比较符与数字格式属于 UI 表现而非引擎契约。 */
 export function describeConditionLeaf(condition: Condition, options: ConditionPresentationOptions = {}): string {
   const nameOf = options.nameOf ?? ((_: string, id: string) => id);
@@ -57,16 +63,22 @@ export function describeConditionLeaf(condition: Condition, options: ConditionPr
     case 'alwaysTrue': return 'True';
     case 'resource': return `${nameOf('resource', condition.key)} ${comparator} ${value}`;
     case 'spotLevel': return `${nameOf('spot', condition.key)} 等级 ${comparator} ${value}`;
-    case 'manager': return `${nameOf('spot', condition.key)} 已分配 Manager`;
+    case 'manager': return booleanConditionText(`${nameOf('spot', condition.key)} 已分配管理者`, condition, value);
     case 'flag': return options.style === 'ui'
       ? `标记「${condition.key}」${comparator}${value}`
       : `标记 ${condition.key}`;
-    case 'hasEnh': return `已拥有 ${nameOf('enh', condition.key)}`;
-    case 'hasTag': return `拥有「${condition.key}」标签`;
+    case 'hasEnh': return booleanConditionText(`已拥有 ${nameOf('enh', condition.key)}`, condition, value);
+    case 'hasTag': return booleanConditionText(`拥有「${condition.key}」标签`, condition, value);
     case 'countTags': return `「${condition.key}」标签数 ${comparator} ${value}`;
     case 'stat': return `${statText(condition.key, nameOf)} ${comparator} ${value}`;
-    case 'hasReadStory': return `已完成故事 ${nameOf('story', condition.key)}`;
-    case 'hasReadStoryInRun': return `本次游玩已完成 ${nameOf('story', condition.key)}`;
+    case 'hasReadStory': return booleanConditionText(`已完成故事 ${nameOf('story', condition.key)}`, condition, value);
+    case 'hasReadStoryInRun': return booleanConditionText(`本次游玩已完成 ${nameOf('story', condition.key)}`, condition, value);
+    case 'visitedStoryInChain': return booleanConditionText(`当前剧情链经过 ${nameOf('story', condition.key)}`, condition, value);
+    case 'tagCount': return `「${condition.key}」标签收集数 ${comparator} ${value}`;
+    case 'extra': return `数据 ${condition.key} ${comparator} ${value}`;
+    case 'protoStat': return `${nameOf('character', condition.key)} 获得次数 ${comparator} ${value}`;
+    case 'affectionLevel': return `${nameOf('character', condition.key)} 好感等级 ${comparator} ${value}`;
+    case 'area': return `当前所在区域 ${comparator} ${nameOf('area', condition.key)}`;
     default: return `${condition.target} ${condition.key} ${comparator} ${value}`;
   }
 }
@@ -89,9 +101,13 @@ export function buildConditionView(condition: Condition | ConditionGroup | undef
 export function renderConditionText(condition: Condition | ConditionGroup | undefined, options: ConditionPresentationOptions = {}): string {
   const view = buildConditionView(condition, options);
   if (!view) return '无条件';
-  const render = (node: ConditionViewNode, nested = false): string => node.kind === 'leaf'
-    ? node.text
-    : node.children.length === 0 ? '无条件' : node.children.map(child => render(child, child.kind === 'group')).join(node.mode === 'AND' ? ' 且 ' : ' 或 ');
+  const render = (node: ConditionViewNode, nested = false): string => {
+    if (node.kind === 'leaf') return node.text;
+    const text = node.children.length === 0
+      ? '无条件'
+      : node.children.map(child => render(child, child.kind === 'group' && child.mode !== node.mode)).join(node.mode === 'AND' ? ' 且 ' : ' 或 ');
+    return nested && text !== '无条件' ? `（${text}）` : text;
+  };
   return render(view);
 }
 

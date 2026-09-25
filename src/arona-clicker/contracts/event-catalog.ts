@@ -22,7 +22,7 @@ export const EVENT_CATALOG: Record<GameEvent['type'], EventCatalogEntry> = {
   areaEntered: { purpose: '进入区域', emit: ['init-service'], subscribe: ['condition-deps', 'tag-stats', 'trigger-system'] },
   storyAreaTraveled: { purpose: 'Story 的 travelToArea 成功（notice=true）', emit: ['story-flow'], subscribe: ['ui-controller-events'] },
   storyTriggered: { purpose: '剧情开始', emit: ['story-flow'], subscribe: ['condition-deps', 'ui-controller-events'] },
-  storyCompleted: { purpose: '剧情完成', emit: ['state-mutation-service'], subscribe: ['condition-deps', 'tag-stats', 'trigger-system', 'ui-controller-events'] },
+  storyCompleted: { purpose: '剧情完成', emit: ['state-mutation-service'], subscribe: ['condition-deps', 'tag-stats', 'trigger-system', 'story-entry-reaction-mount', 'ui-controller-events'] },
   storyRewarded: { purpose: '完结奖励已结算', emit: ['story-jump'], subscribe: ['ui-controller-events'] },
   poolGateChanged: { purpose: '闲聊池 gate 翻转', emit: ['passive-pool-system'], subscribe: ['ui-controller-events'] },
   tick: { purpose: '每帧', emit: ['tick-system'], subscribe: ['trigger-system'] },

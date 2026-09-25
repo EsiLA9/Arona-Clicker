@@ -3,7 +3,7 @@ import type { ExtraCompound } from '../../../engine/types/extra';
 import type { Condition, ConditionGroup, Effect } from '../../../engine/types/expression';
 import type { InitId, StoryId } from '../../../engine/types/ids';
 import type { RevealTarget, RevealTrigger } from '../../../engine/types/reveal';
-import type { ActiveStoryEntry, BranchGuard, ConditionalReward, PassiveStoryEntry, StoryEntryBase } from '../../../data-services/contracts/story-entry';
+import type { ActiveStoryEntry, BranchGuard, ConditionalReward, PassiveStoryEntry, StoryEntryBase, StoryEntryReaction, StoryFollowUp } from '../../../data-services/contracts/story-entry';
 import { and } from '../../../engine/def-factory/condition';
 
 abstract class StoryEntryBaseBuilder {
@@ -11,6 +11,8 @@ abstract class StoryEntryBaseBuilder {
   protected _availableInits: InitId[] = []; protected _tags: TagPath[] = []; protected _revealTriggers: RevealTrigger[] = [];
   protected _replayable = false; protected _completionStrategy?: 'simple' | 'conditional'; protected _conditionalRewards: ConditionalReward[] = [];
   protected _branchGuards: BranchGuard[] = []; protected _openingTitle?: string; protected _extra?: ExtraCompound;
+  protected _reactions: StoryEntryReaction[] = [];
+  protected _followUps: StoryFollowUp[] = [];
   constructor(id: StoryId, storyId?: StoryId) { this._id = id; this._storyId = storyId ?? id; }
   story(storyId: StoryId): this { this._storyId = storyId; return this; }
   inits(...ids: InitId[]): this { this._availableInits = ids; return this; }
@@ -22,12 +24,17 @@ abstract class StoryEntryBaseBuilder {
   reveal(target: RevealTarget, condition?: Condition | ConditionGroup): this { this._revealTriggers.push(condition ? { reveal: target, condition } : { reveal: target }); return this; }
   openingTitle(value: string): this { this._openingTitle = value; return this; }
   extra(value: ExtraCompound): this { this._extra = value; return this; }
+  reactions(...values: StoryEntryReaction[]): this { this._reactions.push(...values); return this; }
+  followUp(value: StoryFollowUp): this { this._followUps.push(value); return this; }
   protected toBase(): StoryEntryBase {
     const def: StoryEntryBase = { id: this._id, storyId: this._storyId, triggerCondition: this._triggerCondition, availableInits: this._availableInits };
     if (this._tags.length) def.tags = this._tags; if (this._revealTriggers.length) def.revealTriggers = this._revealTriggers;
     if (this._replayable) def.replayable = true; if (this._completionStrategy) def.completionStrategy = this._completionStrategy;
     if (this._conditionalRewards.length) def.conditionalRewards = this._conditionalRewards; if (this._branchGuards.length) def.branchGuards = this._branchGuards;
-    if (this._openingTitle) def.openingTitle = this._openingTitle; if (this._extra) def.extra = this._extra; return def;
+    if (this._openingTitle) def.openingTitle = this._openingTitle; if (this._extra) def.extra = this._extra;
+    if (this._reactions.length) def.reactions = this._reactions;
+    if (this._followUps.length) def.followUps = this._followUps;
+    return def;
   }
 }
 export class ActiveStoryBuilder extends StoryEntryBaseBuilder {

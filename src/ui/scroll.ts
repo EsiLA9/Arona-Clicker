@@ -13,6 +13,8 @@ export class ScrollManager {
   private lastChatCount = 0;
   /** 面板滚动位置快照：按面板序号记录内容 Panel 的 .panel-body scrollTop。 */
   private panelScrollTop: number[] = [];
+  /** Workspace 三列滚动快照：按 left / center / right 槽位保存。 */
+  private workspaceScrollTop = new Map<string, number>();
   /** 聊天流图片观察器：<img> 加载撑开高度后自动贴底。 */
   private resizeObserver: ResizeObserver | null = null;
   /** 当前被观察的聊天流容器（用于移除 scroll 监听）。 */
@@ -129,6 +131,22 @@ export class ScrollManager {
       if (body && this.panelScrollTop[i] !== undefined) {
         body.scrollTop = this.panelScrollTop[i];
       }
+    });
+  }
+
+  captureWorkspace(root: HTMLElement): void {
+    this.workspaceScrollTop = new Map(
+      [...root.querySelectorAll<HTMLElement>('.workspace-column__body')]
+        .map(body => [body.closest<HTMLElement>('[data-workspace-column]')?.dataset.workspaceColumn, body.scrollTop] as const)
+        .filter((entry): entry is [string, number] => Boolean(entry[0])),
+    );
+  }
+
+  restoreWorkspace(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('.workspace-column__body').forEach(body => {
+      const slot = body.closest<HTMLElement>('[data-workspace-column]')?.dataset.workspaceColumn;
+      const scrollTop = slot ? this.workspaceScrollTop.get(slot) : undefined;
+      if (scrollTop !== undefined) body.scrollTop = scrollTop;
     });
   }
 }

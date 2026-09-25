@@ -25,6 +25,8 @@ related_modules:
 | **per-Init 快照** | `PlayerState.initSnapshots[initId]` | 离开世界线时保存、回来时恢复 | flag / extra / resources / items / 本地 enhancements / spotLevels / stats / storyReadLogs / Story cursor 等 |
 | **per-Init 当前** | `PlayerState` 顶层字段 | 当前世界线运行时 | `resources`、`flags`、`initExtras`、`inventory`、`spotLevels`、`currentAreaId`、`storyLog` |
 
+`informationRevealProgress` 位于 Save 内的 PlayerState 顶层，不进入 `InitSnapshot`：已知信息跨 Init 切换和 Run 重启保留，但不跨不同 Save 或账号共享。当前 Init 的 Reveal Watch 是可重建运行时投影，不属于该持久字段。
+
 **关键约定**：读状态时「当前层有值用当前层，无值回退快照层」——由 `StateMutationService` 的访问器（`extraFromLayer` / `resourceBucket` 等）统一实现。
 
 ## per-Init 字段单一事实源（T3）

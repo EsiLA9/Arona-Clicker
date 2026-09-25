@@ -18,6 +18,15 @@ export function normalizeWorldTilt(raw: string | number | undefined): string {
   return `${head}.${tailRaw.padEnd(WORLD_TILT_TAIL_DIGITS, '0')}`;
 }
 
+/** 探测可排序的 worldTilt；非法内容交由表现层按原文兼容展示。 */
+export function tryNormalizeWorldTilt(raw: string | number | undefined): string | undefined {
+  try {
+    return normalizeWorldTilt(raw);
+  } catch {
+    return undefined;
+  }
+}
+
 function expandExponent(text: string): string {
   const [mantissa, exponent] = text.split('e');
   const exp = Number(exponent);

@@ -5,6 +5,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { and, TriggerDef } from '../../src/engine/types';
+import { TriggerSystem } from '../../src/engine/effect/trigger-system';
+import type { EffectEngine } from '../../src/engine/effect/effect-engine';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';
@@ -202,5 +204,202 @@ describe('TriggerSystem (对外 DSL)', () => {
     expect(game.state.flags['p0_tick_fired']).toBeUndefined();
     game.tick();
     expect(game.state.flags['p0_tick_fired']).toBe('1');
+  });
+
+  test('typed runtime actions are ignored without a handler and never enter the Effect pipeline', () => {
+    const resource = 'test:runtime-action';
+    game.triggerSystem.setRuntimeActionHandler(null);
+    const def: TriggerDef = {
+      id: 'test:trigger:runtime-action',
+      on: { kind: 'resource', resource },
+      effects: [{ op: 'setFlag', target: 'runtime_action_effect', value: 'unexpected' }],
+      once: false,
+    };
+    const request = {
+      key: 'test:registration:runtime-action', triggerId: def.id!, def, tags: new Set<string>(),
+      action: { kind: 'reveal' as const, handle: 'opaque:test' },
+    };
+    game.triggerSystem.register(request);
+    game.mutations.changeResource(resource, 1);
+    expect(game.state.flags.runtime_action_effect).toBeUndefined();
+
+    const seen: string[] = [];
+    game.triggerSystem.setRuntimeActionHandler(action => {
+      seen.push(action.handle);
+      return { kind: 'not-committed' };
+    });
+    game.mutations.changeResource(resource, 1);
+    expect(seen).toEqual(['opaque:test']);
+    expect(game.state.flags.runtime_action_effect).toBeUndefined();
+  });
+
+  test('同一规范 RegistrationRequest 重复提交幂等，冲突载荷拒绝隐式替换', () => {
+    const request = {
+      key: 'test:registration:idempotent',
+      triggerId: 'test:trigger:shared',
+      def: {
+        id: 'test:trigger:shared',
+        on: { kind: 'resource' as const, resource: CREDIT },
+        effects: [{ op: 'setFlag' as const, target: 'idempotent', value: '1' }],
+        once: false,
+      },
+      tags: new Set(['tag:b', 'tag:a']),
+      group: 'test:group',
+    };
+    const firstToken = game.triggerSystem.register(request);
+    const secondToken = game.triggerSystem.register({ ...request, tags: new Set(['tag:a', 'tag:b']) });
+    expect(secondToken).toBe(firstToken);
+    expect(game.triggerSystem.getDefinitions().filter(def => def.id === request.triggerId)).toHaveLength(1);
+
+    expect(() => game.triggerSystem.register({
+      ...request,
+      def: { ...request.def, effects: [{ op: 'setFlag', target: 'different', value: '1' }] },
+    })).toThrow(/registration key conflict/i);
+    expect(game.triggerSystem.getDefinitions().find(def => def.id === request.triggerId)?.effects[0]).toEqual(request.def.effects[0]);
+  });
+
+  test('同一逻辑 TriggerId 的多条 Registration 共享 once 身份', () => {
+    const logicalId = 'test:trigger:shared-once';
+    const effect = (target: string): TriggerDef['effects'][number] => ({ op: 'setFlag', target, value: '1' });
+    for (const [key, target] of [['registration:a', 'once_a'], ['registration:b', 'once_b']]) {
+      game.triggerSystem.register({
+        key: `test:${key}`,
+        triggerId: logicalId,
+        tags: new Set(),
+        def: { id: logicalId, on: { kind: 'shop' }, effects: [effect(target)], once: true },
+      });
+    }
+    expect(game.triggerSystem.unmount(logicalId)).toBe(false);
+    expect(game.triggerSystem.has(logicalId)).toBe(true);
+    game.eventBus.emit({
+      type: 'shopPurchased', shopId: 'test:shop', spotId: 'test:spot', entryId: 'entry', quantity: 1,
+      resourceCosts: {}, itemCosts: {}, resourceGrants: {}, itemGrants: {},
+    });
+
+    expect(Number(Boolean(game.state.flags.once_a)) + Number(Boolean(game.state.flags.once_b))).toBe(1);
+    expect((game.state.triggersCompleted ?? []).filter(id => id === logicalId)).toHaveLength(1);
+  });
+
+  test('tag withdrawal invalidates same-dispatch candidates even after same-key re-registration', () => {
+    const executionOrder: string[] = [];
+    let replaced = false;
+    let registrationSystem!: TriggerSystem;
+    const replacement = {
+      key: 'test:registration:b',
+      triggerId: 'test:trigger:b',
+      def: { id: 'test:trigger:b', on: { kind: 'shop' as const }, effects: [{ op: 'setFlag' as const, target: 'b', value: '1' }], once: false },
+      tags: new Set(['cancel-together']),
+    };
+    const effectEngine = {
+      applyEffects(effects: TriggerDef['effects']) {
+        const target = effects[0]?.op === 'setFlag' ? effects[0].target : 'unknown';
+        executionOrder.push(String(target));
+        if (target === 'a' && !replaced) {
+          replaced = true;
+          registrationSystem.withdrawByTag('cancel-together');
+          registrationSystem.register(replacement);
+        }
+      },
+    } as unknown as EffectEngine;
+    registrationSystem = new TriggerSystem(game.eventBus, game.conditionSystem, effectEngine);
+    registrationSystem.setState(game.state);
+    registrationSystem.register({
+      key: 'test:registration:a',
+      triggerId: 'test:trigger:a',
+      def: { id: 'test:trigger:a', on: { kind: 'shop' }, effects: [{ op: 'setFlag', target: 'a', value: '1' }], once: false },
+      tags: new Set(['cancel-together']),
+    });
+    registrationSystem.register(replacement);
+    const emitShop = () => game.eventBus.emit({
+      type: 'shopPurchased', shopId: 'test:shop', spotId: 'test:spot', entryId: 'entry', quantity: 1,
+      resourceCosts: {}, itemCosts: {}, resourceGrants: {}, itemGrants: {},
+    });
+
+    emitShop();
+    expect(executionOrder).toEqual(['a']);
+    emitShop();
+    expect(executionOrder).toEqual(['a', 'b']);
+  });
+
+  test('clear 不复用 token，且按 group/tag 撤出保持索引一致', () => {
+    const request = {
+      key: 'test:registration:token',
+      triggerId: 'test:trigger:token',
+      def: { id: 'test:trigger:token', on: { kind: 'shop' as const }, effects: [], once: false },
+      group: 'test:group:token',
+      tags: new Set(['test:tag:token']),
+    };
+    const first = game.triggerSystem.register(request);
+    expect(game.triggerSystem.withdraw('test:registration:missing')).toBe(false);
+    expect(game.triggerSystem.withdraw('test:registration:missing')).toBe(false);
+    game.triggerSystem.clear();
+    const second = game.triggerSystem.register(request);
+    expect(second).toBeGreaterThan(first);
+    expect(game.triggerSystem.withdrawByTag('test:tag:token')).toBe(1);
+    expect(game.triggerSystem.withdrawByTag('test:tag:token')).toBe(0);
+    game.triggerSystem.register(request);
+    game.triggerSystem.unmountGroup('test:group:token');
+    expect(game.triggerSystem.has(request.triggerId)).toBe(false);
+  });
+
+  test('runtime tag 严格相等匹配，group 只撤出所属 Registration', () => {
+    const baseRequest = {
+      triggerId: 'test:trigger:indexed',
+      def: { id: 'test:trigger:indexed', on: { kind: 'shop' as const }, effects: [], once: false },
+    };
+    game.triggerSystem.register({
+      ...baseRequest, key: 'test:registration:tag-parent', group: 'test:group:parent',
+      tags: new Set(['scope']),
+    });
+    game.triggerSystem.register({
+      ...baseRequest, key: 'test:registration:tag-child', group: 'test:group:child',
+      tags: new Set(['scope/child']),
+    });
+    game.triggerSystem.register({
+      ...baseRequest, key: 'test:registration:other-group', group: 'test:group:other',
+      tags: new Set(['unrelated']),
+    });
+
+    expect(game.triggerSystem.withdrawByTag('scope')).toBe(1);
+    expect(game.triggerSystem.has(baseRequest.triggerId)).toBe(true);
+    game.triggerSystem.unmountGroup('test:group:child');
+    expect(game.triggerSystem.withdrawByTag('scope/child')).toBe(0);
+    expect(game.triggerSystem.has(baseRequest.triggerId)).toBe(true);
+    expect(game.triggerSystem.withdrawByTag('unrelated')).toBe(1);
+    expect(game.triggerSystem.has(baseRequest.triggerId)).toBe(false);
+  });
+
+  test('同一 legacy key 换事件桶时清除旧桶索引', () => {
+    for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
+    game.triggerSystem.mount({
+      id: 'test:trigger:legacy-replace', on: { kind: 'tick' },
+      effects: [{ op: 'setFlag', target: 'legacy_replaced', value: 'resource' }], once: false,
+    });
+    game.triggerSystem.mount({
+      id: 'test:trigger:legacy-replace', on: { kind: 'resource', resource: CREDIT },
+      effects: [{ op: 'setFlag', target: 'legacy_replaced', value: 'resource' }], once: false,
+    });
+    game.tick();
+    expect(game.state.flags.legacy_replaced).toBeUndefined();
+    game.mutations.changeResource(CREDIT, 1);
+    expect(game.state.flags.legacy_replaced).toBe('resource');
+  });
+
+  test('Registration 准入和撤出不增减 EventBus 按类型订阅者', () => {
+    const handlers = (game.eventBus as unknown as { handlers: Map<string, unknown[]> }).handlers;
+    const before = handlers.get('shopPurchased')?.length ?? 0;
+    const keys: string[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      const key = `test:registration:listener:${index}`;
+      keys.push(key);
+      game.triggerSystem.register({
+        key,
+        triggerId: `test:trigger:listener:${index}`,
+        tags: new Set(),
+        def: { id: `test:trigger:listener:${index}`, on: { kind: 'shop' }, effects: [], once: false },
+      });
+    }
+    for (const key of keys) game.triggerSystem.withdraw(key);
+    expect(handlers.get('shopPurchased')?.length ?? 0).toBe(before);
   });
 });

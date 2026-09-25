@@ -34,12 +34,14 @@ export type RuntimeSpotMutation =
   | {
       readonly operation: 'create';
       readonly modName: string;
+      readonly targetPackRecordId?: string;
       readonly spot: RuntimeSpotInput;
       readonly expectedRevision: number;
     }
   | {
       readonly operation: 'replace';
       readonly modName: string;
+      readonly targetPackRecordId?: string;
       readonly idName: string;
       readonly spot: RuntimeSpotInput;
       readonly expectedRevision: number;
@@ -47,6 +49,7 @@ export type RuntimeSpotMutation =
   | {
       readonly operation: 'delete';
       readonly modName: string;
+      readonly targetPackRecordId?: string;
       readonly idName: string;
       readonly playerData: 'retain' | 'purge';
       readonly expectedRevision: number;
@@ -54,12 +57,14 @@ export type RuntimeSpotMutation =
   | {
       readonly operation: 'suspend';
       readonly modName: string;
+      readonly targetPackRecordId?: string;
       readonly idName: string;
       readonly expectedRevision: number;
     }
   | {
       readonly operation: 'resume';
       readonly modName: string;
+      readonly targetPackRecordId?: string;
       readonly idName: string;
       readonly expectedRevision: number;
     };
@@ -73,6 +78,8 @@ export type RuntimeContentDiagnosticCode =
   | 'invalid-content-id'
   | 'invalid-spot-id'
   | 'invalid-field'
+  | 'target-datapack-required'
+  | 'target-must-be-editing'
   | 'spot-not-owned'
   | 'spot-not-found'
   | 'init-not-owned'
@@ -190,6 +197,7 @@ export interface RuntimeAreaTopologyConnection {
 
 export interface RuntimeWorldDraft {
   readonly modName: string;
+  readonly targetPackRecordId?: string;
   readonly inits: readonly RuntimeInitInput[];
   readonly areas: readonly RuntimeAreaInput[];
 }

@@ -37,6 +37,8 @@ export function logStoryFailure(ctrl: UIController, result: StoryStartResult | S
 
 /** 绑定剧情域事件（render 后调用）。 */
 export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  const storyGateCard = scope.querySelector<HTMLElement>('[data-story-gate] .story-gate-card');
+  if (storyGateCard && document.activeElement === document.body) storyGateCard.focus({ preventScroll: true });
   scope.querySelectorAll<HTMLElement>('[data-story-workspace-leave]').forEach(button => {
     button.addEventListener('click', () => ctrl.disposeWorkspace());
   });
@@ -106,7 +108,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       if (workspace?.type !== 'story') return;
       workspace.navPath = path;
       workspace.subroute = 'overview';
-      ctrl.refreshWorkspace();
+      ctrl.refreshPanels(['left', 'center']);
     });
   });
   // 故事层级导航：面包屑返回指定深度
@@ -118,7 +120,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       if (workspace?.type !== 'story') return;
       workspace.navPath = workspace.navPath.slice(0, depth);
       workspace.subroute = 'overview';
-      ctrl.refreshWorkspace();
+      ctrl.refreshPanels(['left', 'center']);
     });
   });
   // 故事"档案"入口：进入 StoryWorkspace 的显式子路由
@@ -206,7 +208,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const owner = ctrl.panelState.conversationVariantId ?? null;
       ctrl.openStoryWorkspace({ selectedEntryId: storyId, conversationOwner: owner, mode: 'overview' });
       ctrl.panelState.storyGate = { storyId, owner, mode: 'card' };
-      ctrl.refreshWorkspace();
+      ctrl.refreshPanels(['center']);
     });
   });
 }

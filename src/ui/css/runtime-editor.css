@@ -1,3 +1,5 @@
+@import url('../runtime-editor/codex/codex.css');
+
 /* ============================================================
    ui/css/runtime-editor.css — 运行时数据包编辑器
    自包含界面服务：配色使用本文件局部变量（--re-*），
@@ -59,6 +61,34 @@
    background: var(--re-panel);
    color: var(--re-ink);
    box-shadow: 0 18px 60px rgba(19, 47, 78, .28);
+}
+
+/* 超级图鉴是查询工作区，不沿用编辑器的窄侧窗尺寸。 */
+.runtime-editor-panel[data-runtime-editor-surface-current="codex"] {
+   top: 18px;
+   right: 18px;
+   bottom: 18px;
+   left: 18px;
+   width: auto;
+   max-width: none;
+   border-radius: 12px;
+}
+
+.runtime-editor-panel[data-runtime-editor-surface-current="codex"] .runtime-editor-panel-body {
+   display: flex;
+   flex: 1 1 auto;
+   flex-direction: column;
+   min-height: 0;
+   overflow: hidden;
+   padding: 0;
+}
+
+.runtime-editor-panel[data-runtime-editor-surface-current="codex"] .runtime-editor-codex {
+   height: 100%;
+   min-height: 0;
+   border: 0;
+   border-radius: 0;
+   box-shadow: none;
 }
 
 .runtime-editor-panel-head {
@@ -283,10 +313,23 @@
    }
 }
 
-.runtime-editor-panel .runtime-editor-toggle {
+.runtime-editor-empty-state {
+   display: grid;
+   gap: 8px;
+   padding: 18px;
+   border: 1px dashed var(--re-line);
+   border-radius: 8px;
+   color: var(--re-ink);
+}
+
+.runtime-editor-empty-state .eyebrow {
+   color: var(--re-muted);
+}
+
+.runtime-editor-empty-state p {
    margin: 0;
-   border: 0;
-   box-shadow: none;
+   color: var(--re-muted);
+   line-height: 1.5;
 }
 
 .runtime-editor-panel .user-theme-field {
@@ -340,6 +383,16 @@
       width: auto;
       max-height: calc(100vh - 16px);
       border-radius: 10px 10px 6px 6px;
+   }
+
+   .runtime-editor-panel[data-runtime-editor-surface-current="codex"] {
+      top: 8px;
+      right: 8px;
+      bottom: 8px;
+      left: 8px;
+      width: auto;
+      max-height: none;
+      border-radius: 10px;
    }
 }
 

@@ -26,6 +26,7 @@ import { ModalManager } from './modal';
 import { PopoverManager } from './popovers';
 import { ChatStream } from './chat-stream';
 import { ScrollManager } from './scroll';
+import { captureFocusWithin, restoreFocusWithin, type FocusSnapshot } from './focus';
 import { SelectorPage } from './selector-page';
 import type { SelectionFace } from './components/global-enhancement-select';
 import { ImportExportService } from './import-export';
@@ -77,7 +78,15 @@ import { renderSpotCard } from './components/production';
 import { getSpotReveal } from './components/tooltip';
 import { renderEnhancementCard, visibleEnhancementCardIds } from './components/enhancements';
 import { renderShopWorkspace } from './components/shop';
+import { renderInventoryWorkspace } from './components/inventory-workspace';
+import { renderCharacterWorkspace } from './components/character-workspace';
+import { renderContactsWorkspace } from './components/contacts-workspace';
+import { renderStoryWorkspace } from './components/story-workspace';
+import { renderSettingsWorkspace } from './components/settings-workspace';
+import { renderServiceWorkspace, type ServiceWorkspaceId } from './components/service-workspace';
 import { createDefaultUIBehaviorRegistry, type UIBehaviorRegistry } from './update/ui-behaviors';
+import { createCodexShellState, type CodexShellState } from './runtime-editor/codex';
+import type { InspectorTab } from './runtime-editor/codex-details';
 import { UISurfaceRuntime, type UISurfaceToken } from './update/ui-surface';
 import { UIUpdateDispatcher, type UIUpdateSink } from './update/ui-update-dispatcher';
 import type { UIBehaviorId, UIElementTarget, UIUpdate, UIUpdateApplyResult, UIUpdateRequest } from './update/ui-update-types';
@@ -87,7 +96,9 @@ import {
   selectDatapackPack as selectDatapackPackState,
   synchronizeDatapackWorkspaceState,
 } from './workspace/datapack-workspace-state';
-import { seedDebugEditing } from './runtime-editor/debug';
+import { flushRuntimeEditorDraft } from './runtime-editor/actions';
+import { restoreRuntimeEditorDraft, seedDebugEditing } from './runtime-editor/debug';
+import { RuntimeEditorDraftPersistence } from './runtime-editor/persistence';
 import {
   backWorkspaceNavigation,
   createWorkspaceNavigation,
@@ -173,7 +184,7 @@ export class UIController {
     openingBanner: null,
     workspaceNavigation: createWorkspaceNavigation(),
   };
-  /** @internal IS_DEBUG_EDITING=1 时调试编辑态是否已建立；与 Workspace 显隐状态分离。 */
+  /** @internal 调试入口是否已打开某条编辑态包记录；与 Workspace 显隐状态分离。 */
   debugEditingSeeded = false;
   /** 弹窗母版实例（body 级，独立于 #app 重建）。 */
   readonly modal = new ModalManager();
@@ -225,9 +236,27 @@ export class UIController {
   /** @internal Runtime Editor mini launcher position; null uses the CSS safe default. */
   runtimeEditorLauncherPos: { x: number; y: number } | null = null;
   /** @internal 当前通用 Editor Workspace 页面，不等同于编辑态是否存在。 */
-  runtimeEditorSurface: 'mod' | 'browser' | 'definition' | 'spot' = 'mod';
-  /** @internal IS_DEBUG_EDITING=1 时是否已把 Runtime Mod 内容 hydrate 到编辑态。 */
+  runtimeEditorSurface: 'mod' | 'browser' | 'codex' | 'definition' | 'spot' = 'mod';
+  /** Runtime 图鉴交互状态；仅属于 UI，不进入 Runtime、PlayerState 或编辑态 Draft。 */
+  runtimeEditorCodexState: CodexShellState = createCodexShellState();
+  runtimeEditorCodexInspectorTab: InspectorTab = 'overview';
+  /** @internal 调试入口是否已把目标编辑态包内容 hydrate 到编辑器。 */
   debugEditingHydrated = false;
+  /** @internal 当前编辑态是否来自本地恢复；恢复态不能被调试 Runtime hydrate 覆盖。 */
+  runtimeEditorDraftRestored = false;
+  /** 用户明确关闭编辑态后，调试开关也不得在下一次 render 立即重建它。 */
+  runtimeEditorExplicitlyClosed = false;
+  /** Runtime Editor 编辑态的独立长效保存，不进入玩家 SaveData。 */
+  readonly runtimeEditorPersistence = new RuntimeEditorDraftPersistence(undefined, message => {
+    const editor = this.panelState.runtimeDatapackEditor;
+    if (editor) editor.notice = message;
+  });
+  private runtimeEditorPersistenceBound = false;
+  private readonly runtimeEditorPageHideHandler = (): void => { flushRuntimeEditorDraft(this); };
+  private readonly runtimeEditorBeforeUnloadHandler = (): void => { flushRuntimeEditorDraft(this); };
+  private readonly runtimeEditorVisibilityHandler = (): void => {
+    if (document.visibilityState === 'hidden') flushRuntimeEditorDraft(this);
+  };
 
   // --- 疏散出去的领域模块 ---
   /** 聊天流（ID 计数 / 剧情指纹 / 路由 / 同步）。 */
@@ -311,6 +340,13 @@ export class UIController {
   mount(): void {
     // EventBus 广播 → 揭示条件判断 → 变化则反射到 UI（无需玩家交互才刷新）
     bindEvents(this);
+    restoreRuntimeEditorDraft(this);
+    if (!this.runtimeEditorPersistenceBound) {
+      window.addEventListener('pagehide', this.runtimeEditorPageHideHandler);
+      window.addEventListener('beforeunload', this.runtimeEditorBeforeUnloadHandler);
+      document.addEventListener('visibilitychange', this.runtimeEditorVisibilityHandler);
+      this.runtimeEditorPersistenceBound = true;
+    }
     // 无存档或存档尚未选择 Init 时展示世界线选择；只有已进入 Init 的存档才恢复游戏。
     if (!SaveSystem.exists()) {
       // GameInstance.init 会先进入默认 Init；选择大厅不应把它误认为已进入世界线。
@@ -345,6 +381,14 @@ export class UIController {
   }
 
   destroy(): void {
+    flushRuntimeEditorDraft(this);
+    if (this.runtimeEditorPersistenceBound) {
+      window.removeEventListener('pagehide', this.runtimeEditorPageHideHandler);
+      window.removeEventListener('beforeunload', this.runtimeEditorBeforeUnloadHandler);
+      document.removeEventListener('visibilitychange', this.runtimeEditorVisibilityHandler);
+      this.runtimeEditorPersistenceBound = false;
+    }
+    this.runtimeEditorPersistence.dispose();
     if (this.refreshTimer !== null) clearInterval(this.refreshTimer);
     this.refreshTimer = null;
     if (this.rewardTimer !== null) clearTimeout(this.rewardTimer);
@@ -499,6 +543,13 @@ export class UIController {
     return expected.every(key => this.applyUIElement('enhancement.card', key, reason, 'rightPanel.enh') === 'applied');
   }
 
+  /** Runtime Spot 批量 Apply 后只刷新当前 Game 中受影响的可见 Spot 区域。 */
+  refreshRuntimeSpotContent(reason = 'runtime-editor-spot-apply'): void {
+    if (!this.started || this.panelState.service !== 'game' || this.panelState.workspace) return;
+    if (this.panelState.rightTab !== 'spot') return;
+    if (!this.refreshCurrentSpotCards(reason)) this.refreshPanels(['right']);
+  }
+
   /** 外部实体表现变化的最小可见范围刷新；不可见实体不触发全量 render。 */
   refreshEntityPresentation(entityKey: string, reason = 'entity-presentation-changed'): boolean {
     const separator = entityKey.indexOf(':');
@@ -602,6 +653,7 @@ export class UIController {
     if (center && chatPane && this.panelState.centerTab === 'chat' && !this.panelState.conversationVariantId) {
       this.scroll.captureChat(this.root);
       const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      const focusSnapshot = captureFocusWithin(chatPane);
       this.popovers.dismissBeforeRootMutation(chatPane);
       chatPane.outerHTML = renderChatTab(
         context,
@@ -613,7 +665,10 @@ export class UIController {
         this.panelState.openingBanner ?? null,
       );
       const nextPane = center.querySelector<HTMLElement>('.chat-pane');
-      if (nextPane) bindStoryActions(this, nextPane);
+      if (nextPane) {
+        bindStoryActions(this, nextPane);
+        restoreFocusWithin(nextPane, focusSnapshot);
+      }
       this.scroll.restoreChat(this.root, {
         centerTab: this.panelState.centerTab,
         conversationVariantId: this.panelState.conversationVariantId,
@@ -635,8 +690,10 @@ export class UIController {
     const newestLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
     if (!force && newestLogEntryId === this.lastLogEntryId) return;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const focusSnapshot = captureFocusWithin(log);
     this.popovers.dismissBeforeRootMutation(log);
     log.outerHTML = renderLogTab(context);
+    restoreFocusWithin(center.querySelector<HTMLElement>('.log-panel')!, focusSnapshot);
     this.lastLogEntryId = newestLogEntryId;
     bindTopBarActions(this, center);
   }
@@ -662,9 +719,37 @@ export class UIController {
       this.flushUIUpdates();
       return;
     }
+    if (this.panelState.workspace?.type === 'character' && panels.length === 1 && panels[0] === 'right') {
+      const refreshed = this.refreshCharacterWorkspaceRegion('right');
+      if (refreshed) return;
+    }
+    if (this.panelState.workspace?.type === 'character' && panels.length > 0) {
+      const refreshed = this.refreshCharacterWorkspaceRegions(panels);
+      if (refreshed) return;
+    }
+    if (this.panelState.workspace?.type === 'contacts' && panels.length > 0) {
+      const refreshed = this.refreshContactsWorkspaceRegions(panels);
+      if (refreshed) return;
+    }
+    if (this.panelState.workspace?.type === 'story' && panels.length === 1 && (panels[0] === 'left' || panels[0] === 'center')) {
+      const refreshed = this.refreshStoryWorkspaceRegion(panels[0]);
+      if (refreshed) return;
+    }
+    if (this.panelState.workspace?.type === 'story' && panels.length > 1) {
+      const refreshed = this.refreshStoryWorkspaceRegions(panels);
+      if (refreshed) return;
+    }
     if (this.panelState.workspace) {
       this.render();
       return;
+    }
+    if (this.panelState.service === 'inventory' && panels.length === 1 && panels[0] === 'right') {
+      const refreshed = this.refreshInventoryWorkspaceRegion('right');
+      if (refreshed) return;
+    }
+    if (!this.panelState.workspace && panels.length === 1) {
+      const refreshed = this.refreshSettingsServiceRegion(panels[0]);
+      if (refreshed) return;
     }
     if (!this.started || this.panelState.service !== 'game') {
       this.render();
@@ -677,10 +762,12 @@ export class UIController {
     this.scroll.captureChat(this.root);
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     const uniquePanels = [...new Set(panels)];
+    const focusSnapshots = new Map<'left' | 'center' | 'right', FocusSnapshot | null>();
     for (const panel of uniquePanels) {
       const currentHost = this.findThemeHost(this.root, `${panel}Panel`);
       const current = currentHost?.querySelector<HTMLElement>(`[data-game-panel="${panel}"]`);
       if (!current) continue;
+      focusSnapshots.set(panel, captureFocusWithin(current));
       this.popovers.dismissBeforeRootMutation(current);
       let html: string;
       if (panel === 'left') {
@@ -719,6 +806,7 @@ export class UIController {
       bindEntityPresentationActions(this, next);
       bindStoryActions(this, next);
       bindInventoryActions(this, next);
+      restoreFocusWithin(next, focusSnapshots.get(panel) ?? null);
     }
     this.scroll.restoreChat(this.root, {
       centerTab: this.panelState.centerTab,
@@ -764,6 +852,7 @@ export class UIController {
     this.scheduleRewardChats();
     // DOM 重建前先捕获各面板滚动位置（条件变化触发的揭示刷新不得把列表拽回顶层）
     this.scroll.capturePanel(this.root);
+    this.scroll.captureWorkspace(this.root);
     this.popovers.dismissBeforeRootMutation();
     // 聊天流滚动状态单独按比例捕获（跨流恢复）
     this.scroll.captureChat(this.root);
@@ -779,6 +868,7 @@ export class UIController {
       this.surfaceRuntime.markMounted();
       return;
     }
+    this.panelState.runtimeEditorPanelOpen = this.runtimeEditorPanelOpen;
     this.root.innerHTML = renderAppShell(context, this.panelState);
     this.surfaceRuntime.markMounted();
     this.lastLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
@@ -792,6 +882,7 @@ export class UIController {
     // 贴底时观察流尺寸：最新条目里的图片异步加载撑开后自动再滚到底
     this.scroll.observeChatStream(this.root);
     this.scroll.restorePanel(this.root);
+    this.scroll.restoreWorkspace(this.root);
     this.applyTheme(false);
     // 主题浮窗跨 render 重建存活（开关 + 位置）
     this.restoreThemeFloat();
@@ -829,9 +920,296 @@ export class UIController {
     this.panelState.datapackWorkspace = createDatapackWorkspaceState(catalog.entries, configuration);
   }
 
-  /** IS_DEBUG_EDITING=1 时预先建立编辑态，并在 Runtime Mod 出现后补充 hydrate。 */
+  /** 调试入口只预先打开已有编辑态包，不创建无记录归属的全局编辑态。 */
   ensureDebugEditingState(): void {
     seedDebugEditing(this);
+  }
+
+  private refreshInventoryWorkspaceRegion(panel: 'right'): boolean {
+    const hostId = `${panel}Panel.service.inventory.inspector`;
+    const current = this.findThemeHost(this.root, hostId);
+    if (!current) return false;
+
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const template = document.createElement('template');
+    template.innerHTML = renderInventoryWorkspace(context, this.panelState).trim();
+    const next = this.findThemeHost(template.content, hostId);
+    if (!next) return false;
+
+    const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+    const scrollTop = scrollOwner?.scrollTop ?? 0;
+    const focusSnapshot = captureFocusWithin(current);
+    this.popovers.dismissBeforeRootMutation(current);
+    current.outerHTML = next.outerHTML;
+    const replacement = this.findThemeHost(this.root, hostId);
+    if (!replacement) return false;
+
+    bindInventoryActions(this, replacement);
+    bindTopBarActions(this, replacement);
+    const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+    if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
+    restoreFocusWithin(replacement, focusSnapshot);
+    this.refreshStats.regionRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return true;
+  }
+
+  private refreshSettingsServiceRegion(panel: 'left' | 'center' | 'right'): boolean {
+    const service = this.panelState.service;
+    if (service !== 'settings' && service !== 'datapack' && service !== 'saves' && service !== 'records') return false;
+    const column = panel === 'left' ? 'navigation' : panel === 'center' ? 'main' : 'inspector';
+    const hostId = `${panel}Panel.service.${service}.${column}`;
+    const current = this.findThemeHost(this.root, hostId);
+    if (!current) return false;
+
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const html = service === 'settings'
+      ? renderSettingsWorkspace(context, this.panelState)
+      : renderServiceWorkspace(context, service as ServiceWorkspaceId, this.panelState);
+    const template = document.createElement('template');
+    template.innerHTML = html.trim();
+    const next = this.findThemeHost(template.content, hostId);
+    if (!next) return false;
+
+    const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+    const scrollTop = scrollOwner?.scrollTop ?? 0;
+    const focusSnapshot = captureFocusWithin(current);
+    this.popovers.dismissBeforeRootMutation(current);
+    current.outerHTML = next.outerHTML;
+    const replacement = this.findThemeHost(this.root, hostId);
+    if (!replacement) return false;
+
+    bindTopBarActions(this, replacement);
+    bindSaveActions(this, replacement);
+    bindInventoryActions(this, replacement);
+    bindEntityPresentationActions(this, replacement);
+    const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+    if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
+    restoreFocusWithin(replacement, focusSnapshot);
+    this.refreshStats.regionRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return true;
+  }
+
+  private refreshCharacterWorkspaceRegion(panel: 'right'): boolean {
+    const workspace = this.panelState.workspace;
+    if (workspace?.type !== 'character') return false;
+    const hostId = `${panel}Panel.character.progression`;
+    const current = this.findThemeHost(this.root, hostId);
+    if (!current) return false;
+
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const template = document.createElement('template');
+    template.innerHTML = renderCharacterWorkspace(context, workspace, this.panelState).trim();
+    const next = this.findThemeHost(template.content, hostId);
+    if (!next) return false;
+
+    const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+    const scrollTop = scrollOwner?.scrollTop ?? 0;
+    const focusSnapshot = captureFocusWithin(current);
+    this.popovers.dismissBeforeRootMutation(current);
+    current.outerHTML = next.outerHTML;
+    const replacement = this.findThemeHost(this.root, hostId);
+    if (!replacement) return false;
+
+    bindTopBarActions(this, replacement);
+    bindContactsActions(this, replacement);
+    bindInventoryActions(this, replacement);
+    bindEntityPresentationActions(this, replacement);
+    const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+    if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
+    restoreFocusWithin(replacement, focusSnapshot);
+    this.refreshStats.regionRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return true;
+  }
+
+  private refreshCharacterWorkspaceRegions(panels: ReadonlyArray<'left' | 'center' | 'right'>): boolean {
+    const workspace = this.panelState.workspace;
+    if (workspace?.type !== 'character') return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const template = document.createElement('template');
+    template.innerHTML = renderCharacterWorkspace(context, workspace, this.panelState).trim();
+    const hostIds = panels.map(panel => `${panel}Panel.character.${panel === 'left' ? 'contacts' : panel === 'center' ? 'story' : 'progression'}`);
+    const targets = hostIds.map(hostId => ({
+      hostId,
+      current: this.findThemeHost(this.root, hostId),
+      next: this.findThemeHost(template.content, hostId),
+    }));
+    if (targets.some(target => !target.current || !target.next)) return false;
+    const focusSnapshots = new Map<string, FocusSnapshot | null>();
+    const scrollTops = new Map<string, number>();
+    for (const target of targets) {
+      focusSnapshots.set(target.hostId, captureFocusWithin(target.current!));
+      scrollTops.set(target.hostId, target.current!.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')?.scrollTop ?? 0);
+      this.popovers.dismissBeforeRootMutation(target.current!);
+    }
+    if (panels.includes('center')) this.scroll.captureChat(this.root);
+    for (const target of targets) target.current!.outerHTML = target.next!.outerHTML;
+    for (const target of targets) {
+      const replacement = this.findThemeHost(this.root, target.hostId);
+      if (!replacement) return false;
+      bindTopBarActions(this, replacement);
+      bindContactsActions(this, replacement);
+      bindInventoryActions(this, replacement);
+      bindStoryActions(this, replacement);
+      bindEntityPresentationActions(this, replacement);
+      const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+      if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTops.get(target.hostId) ?? 0;
+      restoreFocusWithin(replacement, focusSnapshots.get(target.hostId) ?? null);
+    }
+    if (panels.includes('center')) {
+      this.scroll.restoreChat(this.root, {
+        centerTab: this.panelState.centerTab,
+        conversationVariantId: this.panelState.conversationVariantId,
+        activeStreamLength: this.activeStream().length,
+      });
+      this.scroll.observeChatStream(this.root);
+    }
+    this.refreshStats.regionRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return true;
+  }
+
+  private refreshContactsWorkspaceRegions(panels: ReadonlyArray<'left' | 'center' | 'right'>): boolean {
+    const workspace = this.panelState.workspace;
+    if (workspace?.type !== 'contacts') return false;
+
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const template = document.createElement('template');
+    template.innerHTML = renderContactsWorkspace(context, workspace, this.panelState).trim();
+    const hostIds = panels.map(panel => `${panel}Panel.service.contacts.${panel === 'left' ? 'navigation' : panel === 'center' ? 'main' : 'inspector'}`);
+    const targets = hostIds.map(hostId => ({
+      hostId,
+      current: this.findThemeHost(this.root, hostId),
+      next: this.findThemeHost(template.content, hostId),
+    }));
+    if (targets.some(target => !target.current || !target.next)) return false;
+    const focusSnapshots = new Map<string, FocusSnapshot | null>();
+    const scrollTops = new Map<string, number>();
+    for (const target of targets) {
+      focusSnapshots.set(target.hostId, captureFocusWithin(target.current!));
+      scrollTops.set(target.hostId, target.current!.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')?.scrollTop ?? 0);
+      this.popovers.dismissBeforeRootMutation(target.current!);
+    }
+    if (panels.includes('center')) this.scroll.captureChat(this.root);
+    for (const target of targets) target.current!.outerHTML = target.next!.outerHTML;
+    for (const target of targets) {
+      const replacement = this.findThemeHost(this.root, target.hostId);
+      if (!replacement) return false;
+      bindTopBarActions(this, replacement);
+      bindContactsActions(this, replacement);
+      bindInventoryActions(this, replacement);
+      bindStoryActions(this, replacement);
+      bindEntityPresentationActions(this, replacement);
+      const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+      if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTops.get(target.hostId) ?? 0;
+      restoreFocusWithin(replacement, focusSnapshots.get(target.hostId) ?? null);
+    }
+    if (panels.includes('center')) {
+      this.scroll.restoreChat(this.root, {
+        centerTab: this.panelState.centerTab,
+        conversationVariantId: this.panelState.conversationVariantId,
+        activeStreamLength: this.activeStream().length,
+      });
+      this.scroll.observeChatStream(this.root);
+    }
+    this.refreshStats.regionRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return true;
+  }
+
+  private refreshStoryWorkspaceRegion(panel: 'left' | 'center'): boolean {
+    const workspace = this.panelState.workspace;
+    if (workspace?.type !== 'story') return false;
+    const hostId = `${panel}Panel.service.story.${panel === 'left' ? 'navigation' : 'main'}`;
+    const current = this.findThemeHost(this.root, hostId);
+    if (!current) return false;
+
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const template = document.createElement('template');
+    template.innerHTML = renderStoryWorkspace(context, workspace, this.panelState).trim();
+    const next = this.findThemeHost(template.content, hostId);
+    if (!next) return false;
+
+    const focusSnapshot = captureFocusWithin(current);
+    if (panel === 'center') this.scroll.captureChat(this.root);
+    this.popovers.dismissBeforeRootMutation(current);
+    current.outerHTML = next.outerHTML;
+    const replacement = this.findThemeHost(this.root, hostId);
+    if (!replacement) return false;
+
+    bindTopBarActions(this, replacement);
+    bindContactsActions(this, replacement);
+    bindInventoryActions(this, replacement);
+    bindStoryActions(this, replacement);
+    bindEntityPresentationActions(this, replacement);
+    restoreFocusWithin(replacement, focusSnapshot);
+    if (panel === 'center') {
+      this.scroll.restoreChat(this.root, {
+        centerTab: this.panelState.centerTab,
+        conversationVariantId: this.panelState.conversationVariantId,
+        activeStreamLength: this.activeStream().length,
+      });
+      this.scroll.observeChatStream(this.root);
+    }
+    this.refreshStats.regionRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return true;
+  }
+
+  private refreshStoryWorkspaceRegions(panels: ReadonlyArray<'left' | 'center' | 'right'>): boolean {
+    const workspace = this.panelState.workspace;
+    if (workspace?.type !== 'story') return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const template = document.createElement('template');
+    template.innerHTML = renderStoryWorkspace(context, workspace, this.panelState).trim();
+    const hostIds = panels.map(panel => `${panel}Panel.service.story.${panel === 'left' ? 'navigation' : panel === 'center' ? 'main' : 'inspector'}`);
+    const targets = hostIds.map(hostId => ({
+      hostId,
+      current: this.findThemeHost(this.root, hostId),
+      next: this.findThemeHost(template.content, hostId),
+    }));
+    if (targets.some(target => !target.current || !target.next)) return false;
+    const focusSnapshots = new Map<string, FocusSnapshot | null>();
+    const scrollTops = new Map<string, number>();
+    for (const target of targets) {
+      focusSnapshots.set(target.hostId, captureFocusWithin(target.current!));
+      scrollTops.set(target.hostId, target.current!.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')?.scrollTop ?? 0);
+      this.popovers.dismissBeforeRootMutation(target.current!);
+    }
+    if (panels.includes('center')) this.scroll.captureChat(this.root);
+    for (const target of targets) target.current!.outerHTML = target.next!.outerHTML;
+    for (const target of targets) {
+      const replacement = this.findThemeHost(this.root, target.hostId);
+      if (!replacement) return false;
+      bindTopBarActions(this, replacement);
+      bindContactsActions(this, replacement);
+      bindInventoryActions(this, replacement);
+      bindStoryActions(this, replacement);
+      bindEntityPresentationActions(this, replacement);
+      const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+      if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTops.get(target.hostId) ?? 0;
+      restoreFocusWithin(replacement, focusSnapshots.get(target.hostId) ?? null);
+    }
+    if (panels.includes('center')) {
+      this.scroll.restoreChat(this.root, {
+        centerTab: this.panelState.centerTab,
+        conversationVariantId: this.panelState.conversationVariantId,
+        activeStreamLength: this.activeStream().length,
+      });
+      this.scroll.observeChatStream(this.root);
+    }
+    this.refreshStats.regionRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return true;
   }
 
   /** 导入完成后将工作区定位到新包（存在工作区时）。 */
@@ -953,6 +1331,7 @@ export class UIController {
     const html = renderSpotCard(context, spotId);
     if (!html) return false;
     if (elementMatchesMarkup(current, html)) return true;
+    const focusSnapshot = captureFocusWithin(current);
     this.popovers.dismissBeforeRootMutation(current);
     current.outerHTML = html;
     const replacement = this.findSpotCard(spotId);
@@ -960,6 +1339,7 @@ export class UIController {
     bindInventoryActions(this, replacement);
     bindContactsActions(this, replacement);
     bindEntityPresentationActions(this, replacement);
+    restoreFocusWithin(replacement, focusSnapshot);
     this.applyTheme(false);
     return true;
   }
@@ -976,6 +1356,7 @@ export class UIController {
     const html = renderEnhancementCard(context, enhancementId);
     if (!html) return false;
     if (elementMatchesMarkup(current, html)) return true;
+    const focusSnapshot = captureFocusWithin(current);
     this.popovers.dismissBeforeRootMutation(current);
     current.outerHTML = html;
     const replacement = this.findEnhancementCard(enhancementId);
@@ -983,6 +1364,7 @@ export class UIController {
     bindContactsActions(this, replacement);
     bindInventoryActions(this, replacement);
     bindEntityPresentationActions(this, replacement);
+    restoreFocusWithin(replacement, focusSnapshot);
     this.applyTheme(false);
     return true;
   }
@@ -1005,8 +1387,12 @@ export class UIController {
     const html = renderAreaNavItem(context, areaId, kind);
     if (!html) return false;
     if (elementMatchesMarkup(current, html)) return true;
+    const focusSnapshot = captureFocusWithin(current);
     this.popovers.dismissBeforeRootMutation(current);
     current.outerHTML = html;
+    const replacement = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
+      .find(node => node.dataset.uiAreaNav === key);
+    if (replacement) restoreFocusWithin(replacement, focusSnapshot);
     return true;
   }
 
@@ -1028,6 +1414,7 @@ export class UIController {
       if (!current || !next) continue;
       const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
       const scrollTop = scrollOwner?.scrollTop ?? 0;
+      const focusSnapshot = captureFocusWithin(current);
       this.popovers.dismissBeforeRootMutation(current);
       current.outerHTML = next.outerHTML;
       const replacement = this.findThemeHost(this.root, hostId);
@@ -1036,6 +1423,7 @@ export class UIController {
         bindEntityPresentationActions(this, replacement);
         const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
         if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
+        restoreFocusWithin(replacement, focusSnapshot);
       }
       replaced += 1;
     }

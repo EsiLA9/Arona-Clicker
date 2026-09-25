@@ -28,6 +28,9 @@ describe('renderStoryGate / renderOpeningBanner', () => {
     expect(html).toContain('星野');
     expect(html).toContain('星野 · 午后的堤防');
     expect(html).toContain('data-story-gate-confirm');
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
+    expect(html).toContain('aria-labelledby="story-gate-title-base-activestory-bond_hoshino_1"');
     expect(html).toContain('>进入</button>');
     expect((html.match(/data-story-gate-cancel/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });

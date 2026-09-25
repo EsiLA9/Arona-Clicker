@@ -27,6 +27,9 @@ import { StoryService } from './story-service';
 import { InitSavepoint } from '../state/init-savepoint';
 import { extra, mergeExtra } from '../../engine/extra/index';
 import { mountInitTriggers, unmountInitTriggers, type InitTriggerGroupState } from './init-mount';
+import type { StoryEntryReactionMount } from './story-entry-reaction-mount';
+import type { StoryFollowUpMount } from './story-follow-up-mount';
+import type { InformationRevealAdapter } from './information-reveal-adapter';
 
 export interface InitServiceOptions {
   registry: Registry;
@@ -38,6 +41,9 @@ export interface InitServiceOptions {
   devLog: DevLog;
   storyService: StoryService;
   triggerSystem: TriggerSystem;
+  storyEntryReactions: StoryEntryReactionMount;
+  storyFollowUps: StoryFollowUpMount;
+  informationRevealAdapter: InformationRevealAdapter;
   affectorEngine: AffectorEngine;
   visibilityEngine: VisibilityEngine;
   /** 读取当前 PlayerState。 */
@@ -95,21 +101,30 @@ export class InitService {
     return this.runtimeGeneration;
   }
 
+  withdrawInformationRevealWatches(): void {
+    this.opts.informationRevealAdapter.withdrawAll();
+  }
+
+  reconcileInformationRevealWatches(): void {
+    this.opts.informationRevealAdapter.reconcileCurrent();
+  }
+
   /**
    * Init / Area 热 CRUD 后修复当前定位。
    * 这里只做运行时依赖重挂载和位置修复，不重放 Init 进入效果，也不重置玩家进度。
    */
-  reconcileAfterWorldDefinitionChange(): void {
+  reconcileAfterWorldDefinitionChange(deferInformationReveal = false): void {
     const state = this.state;
     const activeInitId = state.activeInit;
     if (!activeInitId) {
+      if (!deferInformationReveal) this.opts.informationRevealAdapter.withdrawAll();
       this.opts.refreshVisibility();
       return;
     }
 
     const init = this.opts.registry.inits.get(activeInitId);
     if (!init) {
-      this.returnToInitSelection('当前世界线已被编辑删除，请重新选择世界线');
+      this.returnToInitSelection('当前世界线已被编辑删除，请重新选择世界线', deferInformationReveal);
       return;
     }
 
@@ -119,7 +134,7 @@ export class InitService {
         .map(areaId => this.opts.registry.areas.get(areaId))
         .find(area => area?.initId === activeInitId);
       if (!fallbackArea) {
-        this.returnToInitSelection('当前世界线没有可用默认区域，请重新选择世界线');
+        this.returnToInitSelection('当前世界线没有可用默认区域，请重新选择世界线', deferInformationReveal);
         return;
       }
       state.currentAreaId = fallbackArea.id;
@@ -133,6 +148,7 @@ export class InitService {
       this.mountInitTriggers(activeInitId);
       this.opts.refreshVisibility();
       this.opts.affectorEngine.recheckAll();
+      if (!deferInformationReveal) this.opts.informationRevealAdapter.reconcileCurrent();
       this.opts.devLog.record(`当前位置已失效，已回到 ${fallbackArea.name}`, {
         source: 'area',
         level: 'warning',
@@ -146,10 +162,12 @@ export class InitService {
     this.mountInitTriggers(activeInitId);
     this.opts.refreshVisibility();
     this.opts.affectorEngine.recheckAll();
+    if (!deferInformationReveal) this.opts.informationRevealAdapter.reconcileCurrent();
   }
 
-  private returnToInitSelection(reason: string): void {
+  private returnToInitSelection(reason: string, deferInformationReveal = false): void {
     const state = this.state;
+    if (!deferInformationReveal) this.opts.informationRevealAdapter.withdrawAll();
     this.unmountInitTriggers();
     this.opts.storyService.clearAllCurrentStories();
     this.opts.clearLocalVisibility();
@@ -189,6 +207,7 @@ export class InitService {
       this.opts.devLog.record(`进入世界线失败：${initId}`, { source: 'init', level: 'error', details: 'NotFound' });
       return;
     }
+    this.opts.informationRevealAdapter.withdrawAll();
 
     // 世界线隔离：清理不属于当前 Init 的 Spot 持有状态与 Manager。
     // global Spot（SpotDef.global=true）是跨世界线共享设施，等级/管理角色不随世界线隔离。
@@ -249,6 +268,7 @@ export class InitService {
     this.opts.affectorEngine.reconcileMounts();
 
     this.opts.refreshVisibility();
+    this.opts.informationRevealAdapter.reconcileCurrent();
     this.opts.devLog.record(`进入 ${init.name}：解锁内容`, {
       source: 'init',
       level: 'info',
@@ -516,6 +536,7 @@ export class InitService {
   }
 
   private disposeRuntimeForTransition(): void {
+    this.opts.informationRevealAdapter.withdrawAll();
     this.invalidateRuntimeGeneration();
     this.opts.stop();
     this.unmountInitTriggers();

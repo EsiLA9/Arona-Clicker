@@ -22,6 +22,7 @@ const nameOf = (type: string, id: string): string => {
     'item:base:item:x': '能量饮料',
     'init:base:init:abydos': '阿比多斯',
     'story:base:story:x': '深夜的夏莱',
+    'story:base:activestory:x': '深夜的夏莱（入口）',
     'area:base:area:x': '教室',
   };
   return table[`${type}:${id}`] ?? id;
@@ -47,11 +48,19 @@ describe('describeEffect 全 op 覆盖', () => {
   test('获取/解锁/剧情/标记/掉落/移动', () => {
     expect(describeEffect(eff('addEnhancement', '', 'base:enhancement:x'), nameOf)).toBe('获得强化「神秘强化」');
     expect(describeEffect(eff('addItem', 'base:item:x', 3), nameOf)).toBe('获得物品 能量饮料 ×3');
+    expect(describeEffect(eff('grantCharacter', 'arona', 1), nameOf)).toBe('获得学生「阿罗娜」');
     expect(describeEffect(eff('unlockInit', '', 'base:init:abydos'), nameOf)).toBe('解锁世界线 阿比多斯');
-    expect(describeEffect(eff('triggerStory', '', 'base:story:x'), nameOf)).toBe('触发剧情 深夜的夏莱');
+    expect(describeEffect(eff('triggerStory', 'base:activestory:x', 0), nameOf)).toBe('触发剧情 深夜的夏莱（入口）');
     expect(describeEffect(eff('setFlag', 'night_mode', '1'), nameOf)).toBe('标记 night_mode = 1');
-    expect(describeEffect(eff('loot', 'base:droptable:x'), nameOf)).toBe('触发掉落表 base:droptable:x');
+    expect(describeEffect(eff('loot', 'base:droptable:x'), nameOf)).toBe('掉落表 base:droptable:x（当前未接入执行）');
     expect(describeEffect(eff('travelToArea', 'base:area:x'), nameOf)).toBe('移动至区域 教室');
+  });
+
+  test('角色成长与演出效果使用实际 target/value 语义', () => {
+    expect(describeEffect(eff('addAffectionExp', 'arona', 5), nameOf)).toBe('阿罗娜 好感 +5');
+    expect(describeEffect(eff('showChatText', 'perf:talklet', { talklet: { speaker: '阿罗娜', text: '你好' } }), nameOf)).toBe('演出对话「阿罗娜：你好」@perf:talklet');
+    expect(describeEffect(eff('setEntityPresentation', 'variant:Arona', { optionId: 'alternate' }), nameOf)).toBe('切换实体表现：variant:Arona → alternate');
+    expect(describeEffect(eff('setTheme', '', { colorGroupId: 'base:colorgroup:coral' }), nameOf)).toBe('临时主题：色彩组 base:colorgroup:coral');
   });
 
   test('Extra 类（字面量与结构化值）', () => {
@@ -87,6 +96,11 @@ describe('describeValueExpression / describeExtraValue', () => {
       .toBe('数据 meta/rank');
     expect(describeValueExpression(val('funclet' as never, { funclet: 'f1' }), nameOf))
       .toBe('函数 f1(...)');
+    expect(describeValueExpression({
+      type: 'mul',
+      left: { type: 'add', left: { type: 'const', value: 1 }, right: { type: 'const', value: 2 } },
+      right: { type: 'const', value: 3 },
+    }, nameOf)).toBe('(1+2)×3');
 
     expect(describeExtraValue({ t: 'float', v: 1.5 })).toBe('1.5');
     expect(describeExtraValue({ t: 'str', v: 'hi' })).toBe('hi');

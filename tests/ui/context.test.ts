@@ -130,6 +130,9 @@ describe('UIContext：簇与当前区域宿主', () => {
     expect(html).toContain('class="presentation-host-background"');
     expect(html).not.toContain('switch-tabs presentation-host-target');
     expect(html).toContain('class="switch-tabs-content" role="tablist"');
+    expect(html).toContain('role="tab"');
+    expect(html).toContain('aria-selected="true"');
+    expect(html).toContain('aria-selected="false"');
     const inactiveButton = html.match(/<button\b(?=[^>]*data-theme-state="inactive")[^>]*>/)?.[0];
     expect(inactiveButton).toContain('data-theme-hover-text-mode="light"');
   });

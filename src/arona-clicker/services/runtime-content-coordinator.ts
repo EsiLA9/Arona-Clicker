@@ -108,6 +108,7 @@ export class RuntimeContentCoordinator {
   private readonly spots = new Map<string, SpotDef>();
   private readonly suspendedSpotIds = new Set<string>();
   private modName: string | null;
+  private adoptedRuntimeMod = false;
   private revision = 0;
 
   constructor(options: RuntimeContentCoordinatorOptions);
@@ -160,6 +161,7 @@ export class RuntimeContentCoordinator {
     this.spots.clear();
     this.suspendedSpotIds.clear();
     this.modName = null;
+    this.adoptedRuntimeMod = false;
     this.revision = 0;
   }
 
@@ -168,6 +170,7 @@ export class RuntimeContentCoordinator {
     if (!RUNTIME_MOD_PATTERN.test(modName)) throw new Error(`临时 Mod 名称格式无效：${modName}`);
     this.reset();
     this.modName = modName;
+    this.adoptedRuntimeMod = true;
     for (const rawId of spotIds) {
       const spotId = rawId.includes(':') ? rawId : spotEntityId(modName, rawId);
       const spot = this.registry.spotIncludingSuspended(spotId);
@@ -300,7 +303,7 @@ export class RuntimeContentCoordinator {
     if (this.modName === null && operation !== 'create') {
       return failure('spot-not-found', '当前没有可操作的临时 Mod Spot', undefined, authoringEntityId(policy, mutation.modName, ''));
     }
-    if (this.revision === 0 && this.registry.loadedModNames.has(mutation.modName)) {
+    if (!this.adoptedRuntimeMod && this.revision === 0 && this.registry.loadedModNames.has(mutation.modName)) {
       return failure('mod-conflict', `modName 已被当前 Registry 占用：${mutation.modName}`, undefined, authoringEntityId(policy, mutation.modName, ''));
     }
 

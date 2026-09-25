@@ -4,13 +4,13 @@ import type { PanelState } from './app-shell';
 import {
   buildDatapackWorkspaceView,
   dependencyState,
+  paneMoveAvailability,
   packCapabilities,
   packMoveAvailability,
   type DatapackWorkspaceSection,
   type DatapackWorkspaceView,
 } from '../../arona-clicker/services/datapack-workspace-view';
 import { renderWorkspaceFrame } from './workspace-frame';
-import { renderRuntimeEditorToggle } from '../runtime-editor/view';
 
 export type ServiceWorkspaceId = 'datapack' | 'saves' | 'records';
 
@@ -81,19 +81,78 @@ function renderPackEntry(pack: NonNullable<DatapackWorkspaceView['selection']>, 
     : canMoveDown ? '下移'
       : orderIndex < 0 || orderIndex >= view.order.length - 1 ? '已经是最后一个数据包' : '后方是核心数据包，不可越过';
   const removableNow = capabilities.removable && !formalEnabled && !draftEnabled;
+  const editingMode = pack.editingMode === 'editing';
   return `<article class="pack-entry ${selected ? 'is-selected' : ''} ${draftChanged ? 'is-draft-changed' : ''} ${invalid ? 'is-invalid' : ''}" data-pack-id="${escape(pack.id)}">
     <button type="button" class="pack-entry-select" data-pack-select="${escape(pack.id)}" aria-pressed="${selected ? 'true' : 'false'}">
       <span class="pack-entry-main"><strong>${escape(pack.name)}</strong><span>${escape(pack.modName)} · v${escape(pack.version)}</span></span>
-    <span class="pack-entry-meta">${pack.author ? `作者：${escape(pack.author)} · ` : ''}${capabilities.required ? '核心包 · 始终启用' : pack.sourceKind === 'builtin' ? '内置数据包' : escape(pack.sourceKind)} · ${dependencyText}</span>
+    <span class="pack-entry-meta">${pack.author ? `作者：${escape(pack.author)} · ` : ''}${editingMode ? '编辑态数据包' : capabilities.required ? '核心包 · 始终启用' : pack.sourceKind === 'builtin' ? '内置数据包' : escape(pack.sourceKind)} · ${dependencyText}</span>
     </button>
     <div class="pack-entry-status"><span class="pack-state ${formalEnabled ? 'enabled' : 'disabled'}">${formalEnabled ? '正式启用' : '未启用'}</span>${draftChanged ? `<span class="pack-state draft">草案${draftEnabled ? '启用' : '停用'}</span>` : ''}${invalid ? '<span class="pack-state invalid">校验未通过</span>' : ''}</div>
     <div class="pack-entry-actions">
-      ${capabilities.enableable ? `<button class="toolbar-button" data-pack-draft-toggle="${escape(pack.id)}">${draftEnabled ? '移出启用集' : '加入启用集'}</button>` : '<span class="pack-fixed-state">始终启用</span>'}
+      ${editingMode ? '<span class="pack-fixed-state">编辑态可编辑</span>' : capabilities.enableable ? `<button class="toolbar-button" data-pack-draft-toggle="${escape(pack.id)}">${draftEnabled ? '移出启用集' : '加入启用集'}</button>` : '<span class="pack-fixed-state">始终启用</span>'}
+      ${!editingMode ? `<button class="toolbar-button" data-pack-create-editing="${escape(pack.id)}">复制为编辑态</button>` : ''}
       <button class="toolbar-button" data-pack-draft-up="${escape(pack.id)}" title="${upTitle}" ${canMoveUp ? '' : 'disabled'}>上移</button>
       <button class="toolbar-button" data-pack-draft-down="${escape(pack.id)}" title="${downTitle}" ${canMoveDown ? '' : 'disabled'}>下移</button>
       ${removableNow ? `<button class="toolbar-button" data-pack-remove="${escape(pack.id)}" title="从包库移除">移除</button>` : ''}
     </div>
   </article>`;
+}
+
+function renderPackPane(
+  pane: NonNullable<ReturnType<NonNullable<PackCatalogReadModel['getPackCatalog']>>['panes']>[number],
+  state: PanelState,
+  view: DatapackWorkspaceView,
+  allowReorder: boolean,
+): string {
+  const records = [pane.fixed, pane.editing].filter((entry): entry is NonNullable<typeof pane.fixed> => Boolean(entry));
+  if (records.length === 0) return '';
+  const selected = records.some(entry => state.datapackWorkspace?.selectedPackId === entry.id);
+  const invalid = records.some(entry => view.invalidIds.has(entry.id));
+  const move = paneMoveAvailability(pane.paneKey, view.entries, view.order, allowReorder);
+  const upTitle = !allowReorder
+    ? '请在「全部数据包」中调整加载顺序'
+    : move.canMoveUp ? '上移整个 ModId · VersionId Pane'
+      : '已经是第一个数据包或前方是核心数据包';
+  const downTitle = !allowReorder
+    ? '请在「全部数据包」中调整加载顺序'
+    : move.canMoveDown ? '下移整个 ModId · VersionId Pane'
+      : '已经是最后一个数据包或后方是核心数据包';
+  const slotButton = (slot: 'fixed' | 'editing', entry: typeof pane.fixed): string => {
+    if (!entry) {
+      if (slot === 'editing' && pane.fixed) {
+        return `<button class="toolbar-button pack-slot-select pack-slot-create" data-pack-create-editing="${escape(pane.fixed.id)}">创建编辑态</button>`;
+      }
+      return `<button class="toolbar-button pack-slot-select" disabled>${slot === 'fixed' ? '普通态未创建' : '编辑态未创建'}</button>`;
+    }
+    const selectedSlot = pane.selectedSlot === slot;
+    const viewed = state.datapackWorkspace?.selectedPackId === entry.id;
+    const runtime = pane.runtimePackRecordId === entry.packRecordId;
+    const creationTarget = slot === 'editing'
+      && state.runtimeDatapackEditor?.enabled
+      && state.runtimeDatapackEditor.packRecordId === entry.packRecordId;
+    const editingTarget = creationTarget && state.runtimeEditorPanelOpen;
+    const pending = selectedSlot && !runtime;
+    const stateText = slot === 'fixed' ? '普通态' : '编辑态';
+    const visibleStateText = editingTarget
+      ? '编辑中'
+      : creationTarget
+        ? `新建：${entry.modName}`
+        : stateText;
+    const stateDescription = [
+      visibleStateText,
+      runtime ? '当前 Runtime' : '',
+      pending ? '待 Apply' : '',
+      viewed ? '当前查看' : '',
+      !editingTarget && creationTarget ? '新建内容目标' : '',
+    ].filter(Boolean).join(' · ');
+    return `<button class="toolbar-button pack-slot-select${selectedSlot ? ' is-selected' : ''}${viewed ? ' is-viewed' : ''}${creationTarget ? ' is-create-target' : ''}${editingTarget ? ' is-editing-target' : ''}" data-pack-selection-pane="${escape(pane.paneKey)}" data-pack-selection-slot="${slot}" data-pack-selection-record="${escape(entry.id)}" aria-label="${escape(stateDescription)}" title="${escape(stateDescription)}" aria-pressed="${selectedSlot ? 'true' : 'false'}">${visibleStateText}</button>`;
+  };
+  const fixedActions = pane.fixed
+    ? packCapabilities(pane.fixed).required
+      ? '<span class="pack-fixed-state">始终启用</span>'
+      : `<button class="toolbar-button" data-pack-draft-toggle="${escape(pane.fixed.id)}">${view.draftEnabledIds.has(pane.fixed.id) ? '移出启用集' : '加入启用集'}</button>`
+    : '';
+  return `<section class="pack-pane${selected ? ' is-selected' : ''}${invalid ? ' is-invalid' : ''}" data-pack-pane="${escape(pane.paneKey)}"><div class="pack-pane-heading"><div class="pack-pane-identity"><strong>${escape(pane.modName)} · v${escape(pane.version)}</strong></div><div class="pack-pane-reorder"><button class="toolbar-button" data-pack-draft-pane-up="${escape(pane.paneKey)}" title="${upTitle}" ${move.canMoveUp ? '' : 'disabled'}>上移</button><button class="toolbar-button" data-pack-draft-pane-down="${escape(pane.paneKey)}" title="${downTitle}" ${move.canMoveDown ? '' : 'disabled'}>下移</button></div></div><div class="pack-pane-state-row"><div class="pack-pane-selection" aria-label="选择数据包状态">${slotButton('fixed', pane.fixed)}${slotButton('editing', pane.editing)}${fixedActions}</div></div></section>`;
 }
 
 function renderDatapackInspector(ctx: UIContext, state: PanelState, view: DatapackWorkspaceView, dependencyStatus: Map<string, string>): string {
@@ -115,7 +174,13 @@ function renderDatapackInspector(ctx: UIContext, state: PanelState, view: Datapa
   const issueList = issues.length
     ? `<ul class="service-issue-list pack-validation-errors">${issues.map(issue => `<li>${escape(issue.detail)}</li>`).join('')}</ul>`
     : '';
-  return `<section class="service-card"><div class="panel-heading"><h3>${escape(selected.name)}</h3><span class="index">${formalEnabled ? '正式启用' : '未启用'}</span></div><dl class="pack-detail-list"><div><dt>modName</dt><dd>${escape(selected.modName)}</dd></div><div><dt>版本</dt><dd>${escape(selected.version)}</dd></div><div><dt>来源</dt><dd>${capabilities.required ? '核心内置数据包' : selected.sourceKind === 'builtin' ? '内置数据包' : escape(selected.sourceKind)}</dd></div><div><dt>导入时间</dt><dd>${ctx.formatTime(selected.importedAt)}</dd></div></dl><h4>依赖</h4>${dependencyRows.length ? `<ul class="service-dependency-list">${dependencyRows.join('')}</ul>` : '<p class="service-ok">无依赖</p>'}${issueList}<h4>启用集</h4><p>${capabilities.required ? '核心包，始终启用' : view.draftEnabledIds.has(selected.id) ? '草案：启用' : '草案：未启用'}</p></section>`;
+  const editing = selected.editingMode === 'editing';
+  const stateLabel = editing ? '编辑态' : formalEnabled ? '正式启用' : '未启用';
+  const enablementText = editing
+    ? '编辑态不直接加入启用集；请在列表中选择编辑态，再次点击进入编辑模式。'
+    : capabilities.required ? '核心包，始终启用'
+      : view.draftEnabledIds.has(selected.id) ? '草案：启用' : '草案：未启用';
+  return `<section class="service-card"><div class="panel-heading"><h3>${escape(selected.name)}</h3><span class="index">${stateLabel}</span></div><dl class="pack-detail-list"><div><dt>modName</dt><dd>${escape(selected.modName)}</dd></div><div><dt>版本</dt><dd>${escape(selected.version)}</dd></div><div><dt>状态</dt><dd>${editing ? '可编辑副本' : '普通态数据包'}</dd></div><div><dt>来源</dt><dd>${capabilities.required ? '核心内置数据包' : selected.sourceKind === 'builtin' ? '内置数据包' : escape(selected.sourceKind)}</dd></div><div><dt>导入时间</dt><dd>${ctx.formatTime(selected.importedAt)}</dd></div></dl><h4>依赖</h4>${dependencyRows.length ? `<ul class="service-dependency-list">${dependencyRows.join('')}</ul>` : '<p class="service-ok">无依赖</p>'}${issueList}<h4>启用集</h4><p>${enablementText}</p>${editing ? '' : `<div class="service-actions"><button class="toolbar-button" data-pack-create-editing="${escape(selected.id)}">复制为编辑态</button></div>`}</section>`;
 }
 
 function renderDatapackMain(ctx: UIContext, state: PanelState, catalog: ReturnType<NonNullable<PackCatalogReadModel['getPackCatalog']>> | undefined, view: DatapackWorkspaceView): string {
@@ -125,7 +190,35 @@ function renderDatapackMain(ctx: UIContext, state: PanelState, catalog: ReturnTy
   const filtered = view.filteredEntries;
   const changed = view.changed;
   if (section === 'import') return `<div class="service-heading"><h2>导入数据包</h2></div><section class="service-card import-guide"><button class="primary-button" id="import-datapack">选择 ZIP 文件</button></section>`;
-  const body = catalog ? (filtered.length ? `<div class="pack-catalog">${filtered.map(pack => renderPackEntry(pack, state, view, section === 'all')).join('')}</div>` : '<div class="service-empty"><strong>没有匹配的数据包</strong></div>') : '<div class="service-empty"><strong>包库服务不可用</strong></div>';
+  const orderedPanes = catalog?.panes
+    ? [...catalog.panes].sort((left, right) => {
+      const firstIndex = (pane: typeof left): number => Math.min(
+        ...[pane.fixed, pane.editing]
+          .filter((entry): entry is NonNullable<typeof pane.fixed> => Boolean(entry))
+          .map(entry => view.orderedEntries.findIndex(item => item.id === entry.id))
+          .filter(index => index >= 0),
+        Number.MAX_SAFE_INTEGER,
+      );
+      return firstIndex(left) - firstIndex(right);
+    })
+    : [];
+  const visibleIds = new Set(filtered.map(entry => entry.id));
+  const visiblePanes = orderedPanes.filter(pane => [pane.fixed, pane.editing].some(entry => Boolean(entry && visibleIds.has(entry.id))));
+  const paneBody = catalog?.panes?.length
+    ? visiblePanes.map(pane => renderPackPane(pane, state, view, section === 'all')).join('')
+    : filtered.map(pack => renderPackEntry(pack, state, view, section === 'all')).join('');
+  const createEmptyEditingAction = section === 'all'
+    ? '<div class="pack-catalog-create"><button class="toolbar-button" data-pack-create-empty-editing>创建新编辑态数据包</button></div>'
+    : '';
+  const body = catalog
+    ? paneBody
+      ? `<div class="pack-catalog">${paneBody}${createEmptyEditingAction}</div>`
+      : `<div class="service-empty"><strong>没有匹配的数据包</strong></div>${createEmptyEditingAction}`
+    : '<div class="service-empty"><strong>包库服务不可用</strong></div>';
+  const runtimeSelectionPending = Boolean(catalog?.panes?.some(pane => {
+    const target = pane.selectedSlot === 'fixed' ? pane.fixed : pane.editing;
+    return Boolean(target && pane.runtimePackRecordId !== target.packRecordId);
+  }));
   const result = workspace?.lastResult ? `<div class="service-result ${workspace.lastResult.ok ? 'success' : 'error'}">${escape(workspace.lastResult.message)}</div>` : '';
   const validation = workspace?.validation && !workspace.validation.ok
     ? `<ul class="service-issue-list pack-validation-errors">${workspace.validation.errors.map(error => `<li>${escape(error)}</li>`).join('')}</ul>`
@@ -135,9 +228,9 @@ function renderDatapackMain(ctx: UIContext, state: PanelState, catalog: ReturnTy
   const reorderHint = section === 'all' ? '' : '<span class="service-draft-status">加载顺序只能在「全部数据包」中调整</span>';
   return `
     <div class="service-heading"><h2>${sectionTitle(section)}</h2><span class="service-status">${view.draftEnabledIds.size} 启用 · ${entries.length} 已导入</span></div>
-    <div class="service-actions"><button class="primary-button" id="import-datapack">导入数据包</button>${changed ? '<span class="service-draft-status">有未应用变更</span>' : '<span class="service-draft-status">当前配置已应用</span>'}${reorderHint}</div>
-    ${result}<section class="service-card service-pack-list"><div class="panel-heading"><h3>${section === 'all' ? '全部数据包' : sectionTitle(section)}</h3><span class="index">${filtered.length} 个</span></div>${body}</section>${section === 'all' ? renderRuntimeEditorToggle(ctx, state) : ''}
-    <section class="service-card pack-draft-actions"><div class="panel-heading"><h3>启用集草案</h3><span class="index">${changed ? '待校验' : '已应用'}</span></div>${validation}<div class="service-actions"><button class="toolbar-button" data-pack-discard ${changed ? '' : 'disabled'}>放弃</button><button class="toolbar-button" data-pack-validate ${changed ? '' : 'disabled'}>校验</button><button class="primary-button" data-pack-apply ${changed ? '' : 'disabled'}>保存并应用</button></div></section>`;
+    <div class="service-actions"><button class="primary-button" id="import-datapack">导入数据包</button><button class="primary-button" data-pack-selection-apply>应用到 Runtime</button>${changed ? '<span class="service-draft-status">启用集草案未应用</span>' : runtimeSelectionPending ? '<span class="service-draft-status">Runtime 来源待 Apply</span>' : '<span class="service-draft-status">Runtime 来源已同步</span>'}${reorderHint}</div>
+    ${result}<section class="service-card service-pack-list"><div class="panel-heading"><h3>${section === 'all' ? '全部数据包' : sectionTitle(section)}</h3><span class="index">${catalog?.panes?.length ? visiblePanes.length : filtered.length} 个 Pane</span></div>${body}</section>
+    <section class="service-card pack-draft-actions"><div class="panel-heading"><div><h3>启用集与加载顺序</h3><p>只调整普通态数据包的启用状态与加载顺序；编辑态槽位请使用上方“应用到 Runtime”。</p></div><span class="index">${changed ? '待校验' : '已应用'}</span></div>${validation}<div class="service-actions"><button class="toolbar-button" data-pack-discard ${changed ? '' : 'disabled'}>放弃草案</button><button class="toolbar-button" data-pack-validate ${changed ? '' : 'disabled'}>校验启用集</button><button class="primary-button" data-pack-apply ${changed ? '' : 'disabled'}>应用启用集草案</button></div></section>`;
 }
 
 function renderSavesMain(ctx: UIContext): string {

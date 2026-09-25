@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeWorldTilt, compareWorldTilt, WORLD_TILT_TAIL_DIGITS } from '../../src/engine/stats/world-tilt';
+import { normalizeWorldTilt, compareWorldTilt, tryNormalizeWorldTilt, WORLD_TILT_TAIL_DIGITS } from '../../src/engine/stats/world-tilt';
 
 describe('normalizeWorldTilt', () => {
   it('尾数不足 15 位补 0', () => {
@@ -38,6 +38,11 @@ describe('normalizeWorldTilt', () => {
 
   it('尾数非数字报错', () => {
     expect(() => normalizeWorldTilt('0.9a')).toThrow(/格式/);
+  });
+
+  it('容错探测非法字符串而不改变严格解析器', () => {
+    expect(tryNormalizeWorldTilt('ddd')).toBeUndefined();
+    expect(tryNormalizeWorldTilt('0.9')).toBe('0.900000000000000');
   });
 });
 
