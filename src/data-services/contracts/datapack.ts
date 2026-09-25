@@ -2,7 +2,7 @@
 // data-services/contracts/datapack.ts — Datapack 汇总类型
 // ============================================================
 
-import type { FuncletDef } from '../../engine/types/expression';
+import type { Condition, ConditionGroup, FuncletDef } from '../../engine/types/expression';
 import type { CharacterData } from './character-data';
 import type { CharacterVariantDef } from './character-variant';
 import type { CultivateCurveDef } from './cultivate-curve';
@@ -41,6 +41,14 @@ import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef
 
 // --- Datapack 汇总 ---
 
+/** 持久里程碑定义：首次观察到条件成立后，由运行时固化完成事实。 */
+export interface MilestoneDef {
+  /** 稳定的数据包定义身份。 */
+  id: string;
+  /** 首次观察时需要成立的现有条件或条件组。 */
+  condition: Condition | ConditionGroup;
+}
+
 export interface Datapack {
   /** manifest 提供的 Tag 默认命名空间；内置/测试包缺省为 base。 */
   modName?: string;
@@ -63,6 +71,8 @@ export interface Datapack {
   dropTables?: DropTableDef[];
   affectorPacks?: AffectorPackDef[];
   triggerDefs?: TriggerDef[];
+  /** 持久里程碑定义。 */
+  milestones?: MilestoneDef[];
   funcletDefs: FuncletDef[];
   characters: CharacterData[];
   /**

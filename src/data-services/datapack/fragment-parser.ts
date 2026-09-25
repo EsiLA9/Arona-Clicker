@@ -26,7 +26,7 @@ import type { ShopDef } from '../contracts/shop';
 
 export const DATAPACK_LIST_FIELDS = [
   'inits', 'areas', 'spots', 'enhancements', 'activeStories', 'passiveStories', 'stories',
-  'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'funcletDefs', 'characters',
+  'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'milestones', 'funcletDefs', 'characters',
   'resourceDisplays', 'pics', 'charaProfiles', 'passivePools',
   'characterVariants', 'cultivateCurves', 'colorGroups', 'colorEquipments', 'themeDesigns',
   'favoriteItems', 'uniqueWeapons', 'traits', 'gears',
@@ -133,6 +133,7 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
   if (lists.dropTables) datapack.dropTables = lists.dropTables as DropTableDef[];
   if (lists.affectorPacks) datapack.affectorPacks = lists.affectorPacks as AffectorPackDef[];
   if (lists.triggerDefs) datapack.triggerDefs = lists.triggerDefs as TriggerDef[];
+  if (lists.milestones) datapack.milestones = lists.milestones as Datapack['milestones'];
   if (lists.resourceDisplays) datapack.resourceDisplays = lists.resourceDisplays as ResourceDisplayDef[];
   if (lists.pics) datapack.pics = lists.pics as PicDef[];
   if (lists.charaProfiles) datapack.charaProfiles = lists.charaProfiles as CharaProfileDef[];

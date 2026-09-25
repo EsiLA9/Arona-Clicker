@@ -9,7 +9,7 @@ import { ExtraValue } from '../../engine/types';
 import { parsePicId } from '../contracts/pic';
 import { isTagRef } from '../../engine/core/tag';
 import type { TagPath } from '../../engine/core/tag';
-import { validateEntityId } from '../../engine/core/entity-id';
+import { parseEntityId, validateEntityId } from '../../engine/core/entity-id';
 import { assertValidExtra, expandFlatKeys, ExtraError } from '../../engine/extra/index';
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
 
@@ -151,6 +151,7 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   checkDup(dp.items, 'item');
   if (dp.shops) checkDup(dp.shops, 'shop');
   if (dp.dropTables) checkDup(dp.dropTables, 'drop table');
+  if (dp.milestones) checkDup(dp.milestones, 'milestone');
   if (dp.funcletDefs) checkDup(dp.funcletDefs, 'funclet');
   if (dp.characters) checkDup(dp.characters, 'character');
   if (dp.characterVariants) checkDup(dp.characterVariants, 'character variant');
@@ -255,6 +256,12 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   checkEntityIds(dp.items, 'item', 'Item');
   checkEntityIds(dp.shops, 'shop', 'Shop');
   checkEntityIds(dp.dropTables, 'droptable', 'Drop table');
+  checkEntityIds(dp.milestones, 'milestone', 'Milestone');
+  for (const milestone of dp.milestones ?? []) {
+    if (parseEntityId(milestone.id)?.type !== 'milestone') {
+      throw new RegistryError(`Milestone id "${milestone.id}" 的 typeName 段须为 "milestone"`);
+    }
+  }
   // 匿名 Trigger（id 缺省 / anon: 派生前缀）不参与三段式校验
   checkEntityIds(
     dp.triggerDefs?.filter(t => t.id !== undefined && !t.id.startsWith('anon:')) as { id: string }[] | undefined,

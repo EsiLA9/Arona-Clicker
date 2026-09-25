@@ -80,6 +80,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   private initScopedTargetGuard: ((spotId: string) => boolean) | null = null;
   private entityPresentationSelectionValidator: ((state: AronaClickerState, entityKey: string, optionId: string) => boolean) | null = null;
   private informationRevealTargetValidator: ((state: AronaClickerState, key: RevealedInformationTarget) => boolean) | null = null;
+  private milestoneCompletionValidator: ((state: AronaClickerState, milestoneId: string) => boolean) | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -107,6 +108,23 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     validator: ((state: AronaClickerState, key: RevealedInformationTarget) => boolean) | null,
   ): void {
     this.informationRevealTargetValidator = validator;
+  }
+
+  setMilestoneCompletionValidator(
+    validator: ((state: AronaClickerState, milestoneId: string) => boolean) | null,
+  ): void {
+    this.milestoneCompletionValidator = validator;
+  }
+
+  completeMilestone(milestoneId: string): boolean {
+    if (typeof milestoneId !== 'string' || milestoneId.trim().length === 0) return false;
+    const state = this.current;
+    if (state.milestoneProgress?.completed.includes(milestoneId)) return false;
+    if (!this.milestoneCompletionValidator?.(state, milestoneId)) return false;
+    const progress = (state.milestoneProgress ??= { completed: [] });
+    if (progress.completed.includes(milestoneId)) return false;
+    progress.completed.push(milestoneId);
+    return true;
   }
 
   /** Commit a declared Information Reveal fact once; definitions and gate truth remain Reveal-domain inputs. */

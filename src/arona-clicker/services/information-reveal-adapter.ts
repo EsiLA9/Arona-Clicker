@@ -46,6 +46,10 @@ export class InformationRevealAdapter {
     this.mutations.setInformationRevealTargetValidator((state, key) => this.validateCommit(state, key));
   }
 
+  handleRuntimeAction(action: TriggerRuntimeAction): TriggerRuntimeActionResult {
+    return this.handleAction(action);
+  }
+
   /** Registers every reactive source before any current-state admission check. */
   reconcile(watches: readonly RevealWatch[], immediateTargets: readonly ImmediateRevealTarget[] = []): void {
     if (this.reconciling) { this.refreshPending = true; return; }

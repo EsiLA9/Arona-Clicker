@@ -45,6 +45,7 @@ import { InitService } from './services/init-service';
 import { StoryEntryReactionMount } from './services/story-entry-reaction-mount';
 import { StoryFollowUpMount } from './services/story-follow-up-mount';
 import { InformationRevealAdapter } from './services/information-reveal-adapter';
+import { MilestoneAdapter } from './services/milestone-adapter';
 import { ItemService } from './services/item-service';
 import { EnhancementService } from './services/enhancement-service';
 import { UserThemeService } from './services/user-theme-service';
@@ -284,6 +285,12 @@ export function wireGameInstance(
   const informationRevealAdapter = new InformationRevealAdapter(
     g.triggerSystem, g.conditionSystem, g.mutations, hooks.getState, g.registry, {}, 'information-reveal-runtime',
   );
+  const milestoneAdapter = new MilestoneAdapter(
+    g.triggerSystem, g.conditionSystem, g.mutations, hooks.getState, g.registry, 'milestone-runtime',
+  );
+  g.triggerSystem.setRuntimeActionHandler(action => action.kind === 'reveal'
+    ? informationRevealAdapter.handleRuntimeAction(action)
+    : milestoneAdapter.handleRuntimeAction(action));
   g.initService = new InitService({
     registry: g.registry,
     conditionSystem: g.conditionSystem,
@@ -297,6 +304,7 @@ export function wireGameInstance(
     storyEntryReactions,
     storyFollowUps,
     informationRevealAdapter,
+    milestoneAdapter,
     affectorEngine: g.affectorEngine,
     visibilityEngine: g.visibilityEngine,
     getState: hooks.getState,

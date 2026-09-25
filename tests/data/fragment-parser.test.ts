@@ -24,6 +24,28 @@ describe('Datapack fragment parser', () => {
     expect(datapack.affectionConfig).toEqual({ steps: [] });
   });
 
+  test('解析并合并 Milestone 定义列表', () => {
+    const first = parseFragment('milestones-a.json', JSON.stringify({
+      milestones: [{
+        id: 'base:milestone:credit_1000',
+        condition: { target: 'resource', key: 'credit', comparator: '>=', value: 1000 },
+      }],
+    }));
+    const second = parseFragment('milestones-b.json', JSON.stringify({
+      milestones: [{
+        id: 'base:milestone:story_1',
+        condition: { type: 'AND', conditions: [{ target: 'alwaysTrue', key: '', comparator: '==', value: 1 }] },
+      }],
+    }));
+
+    const datapack = mergeFragments([first, second]);
+
+    expect(datapack.milestones).toEqual([
+      { id: 'base:milestone:credit_1000', condition: { target: 'resource', key: 'credit', comparator: '>=', value: 1000 } },
+      { id: 'base:milestone:story_1', condition: { type: 'AND', conditions: [{ target: 'alwaysTrue', key: '', comparator: '==', value: 1 }] } },
+    ]);
+  });
+
   test('错误包含分片路径', () => {
     expect(() => parseFragment('broken.json', '{')).toThrow(FragmentParseError);
     expect(() => parseFragment('broken.json', '{')).toThrow('[broken.json]');

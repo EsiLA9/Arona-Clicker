@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T15:08:36.417Z",
+  "generatedAt": "2026-09-25T14:51:48.817Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -52,6 +52,10 @@
     },
     "triggerDefs": {
       "type": "TriggerDef",
+      "shape": "array"
+    },
+    "milestones": {
+      "type": "MilestoneDef",
       "shape": "array"
     },
     "funcletDefs": {
@@ -5744,6 +5748,24 @@
         }
       ]
     },
+    "MilestoneDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "稳定的数据包定义身份。"
+        },
+        {
+          "key": "condition",
+          "required": true,
+          "kind": "hand",
+          "tsType": "Condition | ConditionGroup",
+          "description": "首次观察时需要成立的现有条件或条件组。"
+        }
+      ]
+    },
     "FuncletDef": {
       "fields": [
         {
@@ -10848,6 +10870,7 @@
     "ItemId",
     "ItemRevealCondition",
     "LevelUpgradeDef",
+    "MilestoneDef",
     "MotionDef",
     "MotionPreset",
     "PanelPresentationDef",

@@ -12,8 +12,8 @@
 | `03-data-structures/` | 数据结构定义（类型权威仍在 `src/engine/types/`，文档只讲布局与语义） | 按主题 |
 | `04-mechanisms/` | 核心算法流程（结算/失效/派生） | 按主题 |
 | `05-conventions/` | 规范（纪律/重构/协议/测试/本文） | 每规范 1 篇 |
-| `docs/plan-work/` | **冻结考古层**：历史 ADR / Roadmap / Task / 草案 / 审查记录（`archive/`）+ 按机制的反向索引（`mechanisms/`）；**非当前事实源** | 由 `00-index.md` 统一索引 |
-| `docs/ai/` | AI 施工协议、上下文路由与模板：Constitution（从属 `AGENTS.md`）、任务 Read Set、领域上下文包、Patch Unit / Execution Receipt 模板；不含计划正文 | 按协议 / 路由 / 领域拆分 |
+| `docs/plan-work/` | 当前 Draft / Task / ADR 入口、可删除 Goal Set（`goalsets/`）、冻结历史（`archive/`）及机制反向索引（`mechanisms/`）；**非当前事实源** | 由 `00-index.md` 统一路由；具体 Goal Set 不逐项登记 |
+| `docs/ai/` | AI 协作协议、上下文路由、提示词与模板：Goal 工作流、Constitution、Read Set、领域上下文包、Patch Unit / Execution Receipt 模板；不含计划正文 | 按协议 / 路由 / 领域拆分 |
 | `07-audit/` | 设计审查：繁简/兜底问题清单（位置/原因/方案组）；GameNum/Affector 多包基础设施豁免；整改完成后归档 | 每组 1 篇 + 总览 |
 | `08-roadmap/` | 已迁移至 `docs/plan-work/archive/`；旧目录不再承载计划正文 | 由 `docs/plan-work/00-index.md` 统一索引 |
 
@@ -28,6 +28,8 @@
 ## 计划文档最小模板
 
 `docs/plan-work/` 根目录中的**新**计划文档（仅在确实要推进时创建）沿用以下字段，必须能独立回答“现在做到哪里、下一步还缺什么”。`archive/` 中的历史文档保持原样，不再套用本模板：
+
+从玩法意图进入计划层时，先按 [[docs/ai/goal-workflow]] 判断 Goal Set、Goal Card、滚动 Draft 和 Task 的归属；具体模板见 [[docs/ai/templates/goal-set]]、[[docs/ai/templates/goal-card]]、[[docs/ai/templates/discussion-draft]] 与 [[docs/ai/templates/execution-task]]。下方是正式 Task 的最小字段速览，模板中的事实表与准入说明负责补足写作方法。
 
 ```markdown
 # Task/Roadmap：标题
@@ -70,10 +72,11 @@
 | 引用目标 | 写法 |
 | --- | --- |
 | `docs/plan-work/**`（含 `archive/`、`mechanisms/`） | **裸文件名**，如 `[[task-0064-project-documentation-exit-governance]]`；目录会变动，路径不能进入身份 |
+| 具体 `docs/plan-work/goalsets/<set-id>/**` | 只允许 Goal Set 内部链接；目录外持久文档不链接，以便整组删除。稳定入口 [[docs/plan-work/goalsets/README]] 可引用 |
 | `docs/docs-828/**` | 全路径，保留可读层级 |
 | 名为 `00-index.md` 的导航文件 | 全路径（该名字在多个目录重名，裸名会歧义） |
 
-硬约束：`docs/plan-work/` 下的文件名必须**唯一**（`00-index.md` 除外），否则裸名链接无定义。
+硬约束：`docs/plan-work/` 下的文件名必须**唯一**（`00-index.md` 除外），否则裸名链接无定义。Goal Set 文件名须带 set-id 前缀；`check:docs` 拒绝目录外 WikiLink 指向具体 Goal Set 文件。
 
 ### 历史失效的标注
 
@@ -89,6 +92,8 @@
 ### 拆分 Task 的判据（重新启用计划层时适用）
 
 剩余工作只有在**能独立给出一条可验收的完成定义**时才拆成新 Task；否则留在原任务或记为明确 deferred。判据不满足就拆，会让工作计划碎成一批无法收敛的小任务。
+
+讨论阶段按 [[docs/ai/goal-workflow]] 把事实问题与产品 Goal 区分：只有审计本身独立可验收且结果可复用时，才另立只读 Task；一般源码核对记在同一 Draft。进入施工 Task 前须完成语义、事实、验收、施工和最终方向追踪五项准入。
 
 ### 静态检查
 
@@ -109,6 +114,7 @@ npm run report:doc-context
 3. 文档引用的源码路径存在（`plan-work/archive/` 作为历史层豁免）；
 4. 已使用的 YAML 路由元信息包含规定字段；
 5. `docs/newPlan/` 不包含 Markdown 文件，当前文档不使用该目录的 WikiLink。
+6. `goalsets/` 目录外的文档没有指向具体 Goal Set 文件的 WikiLink，保证整组删除不会留下失效依赖。
 
 **不检查语义是否过期**——这需要判断力，误报会让人开始忽略这个命令。
 
@@ -129,6 +135,7 @@ npm run report:doc-context
 - 大规模变动后整体重建新库（如 docs-824 → docs/docs-828）：核对实况迁移内容，旧库 `00-README` 加归档标注指向新库，**不改写旧库正文**（保留历史快照价值）；
 - 单篇过期：在文首加「已被目标文档取代」标注，并链接到实际替代文档，下轮重建时移除占位说明；
 - 计划文档冻结：完成后直接移入 `docs/plan-work/archive/`，把文首状态改为 `done`；**引用方一律不需改动**（由裸名链接保证），也不再需要按批次做准出；
+- 按用户要求清空当前工作区时，未完成的 Draft / Task 也可移入 `archive/`；保留原状态并建立冻结清单记录未决事项，不改写成 `done`。恢复时另立文档，先核对当前源码与机制说明；
 - 历史层只允许追加「更正（日期）」；不要为了让旧文档「继续成立」而改写正文；
 - 计划层的准出四项条件（实现 / 验证 / 知识蒸馏 / 剩余工作拆分）与 `归档结果` 模板保留在 [[task-0064-project-documentation-exit-governance]]，供将来重新启用活跃计划层时参考。
 

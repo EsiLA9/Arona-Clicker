@@ -108,6 +108,22 @@ describe('loadDatapackFromZip', () => {
     expect(datapack.pics![0].id).toBe('modA:avatar(pic):hoshino');
   });
 
+  test('milestones 列表字段并入 Datapack', async () => {
+    const { datapack } = await loadDatapackFromZip(makeZip({
+      'milestones.json': {
+        milestones: [{
+          id: 'base:milestone:credit_1000',
+          condition: { target: 'resource', key: 'credit', comparator: '>=', value: 1000 },
+        }],
+      },
+    }));
+
+    expect(datapack.milestones).toEqual([{
+      id: 'base:milestone:credit_1000',
+      condition: { target: 'resource', key: 'credit', comparator: '>=', value: 1000 },
+    }]);
+  });
+
   test('extras 分片合并，name/version 取首个出现的文件', async () => {
     const zip = makeZip({
       'a.json': { name: 'First', version: '2.0.0', extras: { 'theme.bg': 'red' } },

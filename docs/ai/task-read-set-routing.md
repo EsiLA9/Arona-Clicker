@@ -4,6 +4,7 @@ authority: routing
 read_when:
   - 为施工任务选择 Read Set
   - 编写或审查 Patch Unit
+  - 为 Draft 核对会改变方案的源码事实
 avoid_when:
   - 需要机制正文或源码实现细节
 related_modules:
@@ -36,6 +37,7 @@ related_modules:
 | 游戏内 UI / 主题 / 表现 | [[docs/ai/context-packs/ui-presentation]] 中命中的子题 | UI 定向测试、类型检查；涉及交互时浏览器验收 |
 | 世界线 / Init / Spot / Lobby / 存档 | [[docs/ai/context-packs/world-lifecycle]] 中命中的子题 | 生命周期 / 存档定向测试、类型检查 |
 | 文档维护 / 上下文治理 | 本文、[[docs/docs-828/05-conventions/doc-maintenance]]；施工协议变更再读 [[docs/ai/PROJECT-CONSTITUTION]] | `npm run check:docs`、`git --no-pager diff --check` |
+| 玩法需求讨论 / Draft 准入 | [[docs/ai/goal-workflow]]、目标 Draft、命中领域的最小 Read Set；仅在事实门槛需要时读目标源码与测试 | 逐项记录事实依据；不以测试通过替代玩法裁定 |
 
 表中“类型检查”指 `npx tsc --noEmit`。机制改动还须遵守 `AGENTS.md` 的测试和 Schema 同步要求；表格只提供查找入口，不降低这些护栏。
 
@@ -56,3 +58,4 @@ related_modules:
 - [[docs/docs-828/00-INDEX]]
 - [[docs/ai/PROJECT-CONSTITUTION]]
 - [[docs/ai/templates/patch-unit]]
+- [[docs/ai/goal-workflow]]

@@ -17,7 +17,7 @@
 
 ## 施工纪律
 
-- **C1 产物位置**：协议与模板位于 `docs/ai/`；Patch Unit 与 Execution Receipt 默认内联在所属 Task 文档（`docs/plan-work/archive/task-*.md`）的对应小节，不另建与 `docs/plan-work/` 平行的计划目录。仅当单个 Task 的 Unit 超过 3 个时，才拆出 `docs/plan-work/archive/<task-id>-units/<unit-id>.md` 与同目录 `receipts/`，Task 文档只保留链接。（依据：Task-0000 §2.1）
+- **C1 产物位置**：协议、提示词与模板位于 `docs/ai/`；具体目标集位于 `docs/plan-work/goalsets/`，正式 Draft / Task 位于 `docs/plan-work/` 根目录。Patch Unit 与 Execution Receipt 默认内联在所属 Task 的对应小节；仅当单个 Task 的 Unit 超过 3 个时，才拆出所属 Task 对应的 `<task-id>-units/<unit-id>.md` 与同目录 `receipts/`，Task 文档只保留链接。Task 完成后连同拆出的 Unit 移入 `archive/`。（依据：Task-0000 §2.1；[[docs/ai/goal-workflow]]）
 - **C2 Unit 预算**：一个 Unit 限制在 3–5 个文件、约 300–500 行净改动，可独立验证。超出预算时先拆分或交回高层 AI，不得靠追加上下文硬塞。（依据：Task-0000 §2.4）
 - **C3 Allowed Files 白名单**：Unit 列出的 `Allowed Files` 是修改白名单。需要改白名单外文件时，Luna 必须停止并上交，不得“顺手”修改。（依据：Task-0000 §2.4）
 - **C4 Completion Criteria 是最大边界**：它是当前 Unit 允许的最大施工范围，不是最低完成要求。未列入的工作不得顺手完成；确有必要时停止并申请扩大范围。（依据：Task-0000 §2.4）
@@ -32,6 +32,7 @@
 - **Luna**：执行单个 Patch Unit 的本地施工代理，只读 Unit 指定的 `Read Set`。
 - **高层 AI**：负责跨模块调查、裁定、拆分 Unit、指定 `Read Set` 与 `Allowed Files`，并审查 Patch 与 Receipt。
 - **人类**：决定优先级、批准架构级裁定，处理产品选择与超出范围的问题。
+- **SolChat**：提供完整终点、阶段建议与待核对问题；建议须在 Draft 中经过本项目裁定，不直接成为源码事实或施工授权。
 - 以上只是本文档内的角色标签；Unit 是唯一施工入口，没有 Unit 不得开工，Unit 未写明的阈值使用本文默认值。
 
 ## 停止条件（必须停止并上交）

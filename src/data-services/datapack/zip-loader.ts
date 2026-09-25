@@ -21,7 +21,7 @@ import type { PicDef } from '../contracts/pic';
 
 export const DATAPACK_LIST_FIELDS = [
   'inits', 'areas', 'spots', 'enhancements', 'activeStories', 'passiveStories', 'stories',
-  'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'funcletDefs', 'characters',
+  'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'milestones', 'funcletDefs', 'characters',
   'resourceDisplays', 'pics', 'charaProfiles',
 ] as const;
 export type DatapackListField = (typeof DATAPACK_LIST_FIELDS)[number];

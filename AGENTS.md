@@ -14,15 +14,16 @@
 - 实体字段 / 枚举：[[docs/docs-828/05-conventions/schema-sync]]；状态分层：[[docs/docs-828/03-data-structures/player-state]] + [[docs/docs-828/01-architecture/state-layers]]。
 - 生产、抽卡、培养、色彩、事件联动：[[docs/docs-828/04-mechanisms/00-index]]；文件拆分：[[docs/docs-828/05-conventions/refactoring]]；测试：[[docs/docs-828/05-conventions/testing]]。
 - 文档维护：[[docs/docs-828/05-conventions/doc-maintenance]]；Luna 施工协议：[[docs/ai/PROJECT-CONSTITUTION]]；Read Set：[[docs/ai/task-read-set-routing]]。
+- 玩法需求从最终目标到施工：[[docs/ai/goal-workflow]]；可删除 Goal Set 入口：[[docs/plan-work/goalsets/README]]；模板与 SolChat / 本地 AI 提示词由该工作流路由。
 - 游戏内 UI 使用通用 `frontend-design` skill 时，必须叠加 [[docs/ai/frontend-design-project-overlay]]；该协议约束 DOM budget、behavior / region / structure 刷新等级、scroll / focus / hover 连续性和装饰性结构边界。
 - 好感机制：[[affection-planning]]；Datapack 管理规划：[[adr-0004-datapack-management]]；Datapack 汇总边界：`src/data-services/contracts/datapack.ts` 与 `src/data-services/registry/`。
 - 历史计划与未决方向：[[docs/plan-work/00-index]]；它不是当前系统事实源。
 
 ## 任务与文档结构
 
-- `docs/plan-work/` 根目录只放当前推进的 Task / ADR / Draft；完成后移入 `archive/`。`archive/` 与 `mechanisms/` 是冻结考古层，不能据此判断系统现状。
+- `docs/plan-work/` 根目录只放当前推进的 Task / ADR / Draft；完成或按用户要求冻结后移入 `archive/`，保留最后已知状态。`goalsets/` 只放可整组删除的最终目标与阶段讨论地图；`archive/` 与 `mechanisms/` 是冻结考古层，不能据此判断系统现状。
 - 新任务先在根目录建文档并同步 `00-index.md`；范围扩展、独立阶段或责任边界变化必须拆新文档。恢复历史方向时另立 ADR / Task，不就地续写。
-- `docs/plan-work/` 内互相引用使用裸文件名；`docs/ai/` 只放 AI 施工协议与模板；`docs/newPlan/` 禁止写入。链接、文件名唯一性和源码路径由 `npm run check:docs` 检查。
+- `docs/plan-work/` 内正式文档互相引用使用裸文件名；正式文档不得链接具体 Goal Set 文件。`docs/ai/` 只放 AI 协作协议、提示词与模板；`docs/newPlan/` 禁止写入。链接、文件名唯一性和源码路径由 `npm run check:docs` 检查。
 - 策划意见不直接写入机制正文；只有已裁定且实现稳定的机制才沉淀到 `docs/docs-828/`。
 
 ## AOCI 与任务系统协作

@@ -24,6 +24,7 @@ export const ENTITY_TYPES: ReadonlySet<string> = new Set([
   'activestory',
   'passivestory',
   'item',
+  'milestone',
   'droptable',
   'trigger',
   'affector',

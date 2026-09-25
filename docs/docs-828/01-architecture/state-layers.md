@@ -27,6 +27,8 @@ related_modules:
 
 `informationRevealProgress` 位于 Save 内的 PlayerState 顶层，不进入 `InitSnapshot`：已知信息跨 Init 切换和 Run 重启保留，但不跨不同 Save 或账号共享。当前 Init 的 Reveal Watch 是可重建运行时投影，不属于该持久字段。
 
+`milestoneProgress` 同样位于 Save 内 PlayerState 顶层，不进入 `InitSnapshot`：已完成 Milestone 是跨 Init / Run 保留的单调历史事实；对应 EB-T Watch / Registration 是可重建投影，不能作为历史事实来源。
+
 **关键约定**：读状态时「当前层有值用当前层，无值回退快照层」——由 `StateMutationService` 的访问器（`extraFromLayer` / `resourceBucket` 等）统一实现。
 
 ## per-Init 字段单一事实源（T3）

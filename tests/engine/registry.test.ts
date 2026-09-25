@@ -43,6 +43,31 @@ describe('Registry', () => {
     expect(reg.spots.get('test:spot:spot_1')).toBeDefined();
   });
 
+  test('should merge, query, and clear milestone definitions', () => {
+    const reg = new Registry();
+    const milestone = {
+      id: 'test:milestone:credit_1000',
+      condition: { target: 'resource' as const, key: 'credit', comparator: '>=' as const, value: 1000 },
+    };
+    reg.load({ ...sampleDatapack, milestones: [milestone] });
+
+    expect(reg.milestones.get(milestone.id)).toEqual(milestone);
+
+    reg.clear();
+    expect(reg.milestones.size).toBe(0);
+  });
+
+  test('should reject duplicate milestone IDs and IDs with a different entity type', () => {
+    const reg = new Registry();
+    const milestone = {
+      id: 'test:milestone:credit_1000',
+      condition: { target: 'resource' as const, key: 'credit', comparator: '>=' as const, value: 1000 },
+    };
+    expect(() => reg.load({ ...sampleDatapack, milestones: [milestone, milestone] })).toThrow(/Duplicate milestone id/);
+    expect(() => reg.load({ ...sampleDatapack, milestones: [{ ...milestone, id: 'test:trigger:credit_1000' }] }))
+      .toThrow(/Milestone id .*typeName.*milestone/);
+  });
+
   test('should reject duplicate IDs', () => {
     const reg = new Registry();
     const dp: Datapack = {

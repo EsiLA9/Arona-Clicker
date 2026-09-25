@@ -26,6 +26,7 @@ const estimateTokens = (chars) => Math.ceil(chars / 4);
 const groups = [
   ['docs/docs-828', 'docs/docs-828'],
   ['docs/ai', 'docs/ai'],
+  ['docs/plan-work/goalsets', 'docs/plan-work/goalsets'],
   ['docs/plan-work/mechanisms', 'docs/plan-work/mechanisms'],
   ['docs/plan-work/archive', 'docs/plan-work/archive'],
   ['docs/newPlan', 'docs/newPlan'],

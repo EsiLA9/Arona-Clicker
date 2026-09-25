@@ -1,4 +1,4 @@
-import type { Datapack } from '../contracts/datapack';
+import type { Datapack, MilestoneDef } from '../contracts/datapack';
 import type { CharacterData } from '../contracts/character-data';
 import type { CharacterVariantDef } from '../contracts/character-variant';
 import type { CultivateCurveDef } from '../contracts/cultivate-curve';
@@ -95,6 +95,7 @@ export class Registry {
   private _passivePools: Map<string, PassivePoolDef> = new Map();
   private _items: Map<string, ItemDef> = new Map();
   private _dropTables: Map<string, DropTableDef> = new Map();
+  private _milestones: Map<string, MilestoneDef> = new Map();
   private _funcletDefs: Map<string, FuncletDef> = new Map();
   private _characters: Map<Character, CharacterData> = new Map();
   /** Character 重构表（docs-818/12-character-rework.md §2）。 */
@@ -228,6 +229,11 @@ export class Registry {
           if (dp.dropTables) for (const table of dp.dropTables) this._dropTables.set(table.id, table);
         },
         clear: () => this._dropTables.clear(),
+      },
+      {
+        table: 'milestones',
+        merge: dp => { for (const milestone of dp.milestones ?? []) this._milestones.set(milestone.id, milestone); },
+        clear: () => this._milestones.clear(),
       },
       {
         table: 'funcletDefs',
@@ -705,6 +711,7 @@ export class Registry {
   }
   get items(): ReadonlyMap<string, ItemDef> { return this._items; }
   get dropTables(): ReadonlyMap<string, DropTableDef> { return this._dropTables; }
+  get milestones(): ReadonlyMap<string, MilestoneDef> { return this._milestones; }
   get funcletDefs(): ReadonlyMap<string, FuncletDef> { return this._funcletDefs; }
   get characters(): ReadonlyMap<Character, CharacterData> { return this._characters; }
   /** 角色差分表（VariantId → Def）。 */

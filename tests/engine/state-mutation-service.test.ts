@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
+import { createDefaultState } from '../../src/arona-clicker/state/state-factory';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 
@@ -20,6 +21,10 @@ function emptyState(): PlayerState {
 }
 
 describe('StateMutationService', () => {
+  test('initializes empty Save-scope milestone progress', () => {
+    expect(createDefaultState().milestoneProgress).toEqual({ completed: [] });
+  });
+
   test('mutates state and emits one resource event', () => {
     const bus = new EventBus();
     const service = new StateMutationService(bus);
@@ -42,6 +47,30 @@ describe('StateMutationService', () => {
 
     expect(service.removeItem('ticket', 2)).toBe(false);
     expect(state.inventory.ticket).toBe(1);
+  });
+
+  test('commits a milestone once through its validator and keeps completed identities across state binding', () => {
+    const service = new StateMutationService(new EventBus());
+    const state = emptyState();
+    state.milestoneProgress = { completed: ['orphan:milestone:retired'] };
+    service.setState(state);
+
+    expect(service.completeMilestone('test:milestone:credit_1000')).toBe(false);
+    expect(state.milestoneProgress.completed).toEqual(['orphan:milestone:retired']);
+
+    service.setMilestoneCompletionValidator((_current, id) => id === 'test:milestone:credit_1000');
+    expect(service.completeMilestone('')).toBe(false);
+    expect(service.completeMilestone('test:trigger:wrong_type')).toBe(false);
+    expect(service.completeMilestone('test:milestone:credit_1000')).toBe(true);
+    expect(service.completeMilestone('test:milestone:credit_1000')).toBe(false);
+    expect(state.milestoneProgress.completed).toEqual([
+      'orphan:milestone:retired', 'test:milestone:credit_1000',
+    ]);
+
+    service.setState(state);
+    expect(state.milestoneProgress.completed).toEqual([
+      'orphan:milestone:retired', 'test:milestone:credit_1000',
+    ]);
   });
 
   test('applies effect lists through the same mutation entry point', () => {

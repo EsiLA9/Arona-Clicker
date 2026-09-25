@@ -2,17 +2,20 @@
 //
 // 模型背景（2026-09-15 起）：
 //   - docs/docs-828/   当前事实源（核心）
-//   - docs/plan-work/  冻结考古层（archive/ + mechanisms/ + 00-index），不再有生命周期目录，
+//   - docs/plan-work/  活跃计划、可删除 goalsets 与冻结历史，不再按生命周期分目录，
 //                      因此不再检查准出、状态词表与目录一致性。
 //
 // 保留并扩展为机械检查：链接目标存在、plan-work 内文件名唯一（裸名链接可解析）、
-// 引用的源码路径存在、已使用的 YAML 路由元信息结构完整、旧计划目录不再承载 WikiLink。
+// 引用的源码路径存在、已使用的 YAML 路由元信息结构完整、旧计划目录不再承载 WikiLink，
+// 持久文档不指向可删除的 Goal Set 文件。
 import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
 const docsRoot = path.join(root, 'docs');
 const PLAN_DIR = 'docs/plan-work/';
+const GOALSETS_DIR = PLAN_DIR + 'goalsets/';
+const GOALSETS_GUIDE = GOALSETS_DIR + 'README.md';
 const NAV_BASE = '00-index';
 
 const errors = [];
@@ -103,16 +106,35 @@ for (const file of allMd.concat([path.join(root, 'AGENTS.md')])) {
     if (!term || term.includes('...')) continue;
 
     const direct = path.join(root, term + '.md');
-    if (fs.existsSync(direct)) continue;
-    if (fs.existsSync(path.join(root, term)) || fs.existsSync(path.join(root, term, 'index.md'))) continue;
-
-    const hits = byBase.get(path.basename(term, '.md'));
-    if (!hits) {
-      errors.push('[R1 目标缺失] ' + r + ' -> [[' + inner + ']]');
-    } else if (hits.length > 1 && !term.includes('/')) {
-      errors.push(
-        '[R1 链接歧义] ' + r + ' -> [[' + inner + ']] 命中多个文件: ' + hits.map(rel).join(', ')
-      );
+    const directPath = path.join(root, term);
+    let target;
+    if (fs.existsSync(direct)) {
+      target = direct;
+    } else if (fs.existsSync(directPath)) {
+      target = directPath;
+    } else if (fs.existsSync(path.join(directPath, 'index.md'))) {
+      target = path.join(directPath, 'index.md');
+    } else {
+      const hits = byBase.get(path.basename(term, '.md'));
+      if (!hits) {
+        errors.push('[R1 目标缺失] ' + r + ' -> [[' + inner + ']]');
+      } else if (hits.length > 1 && !term.includes('/')) {
+        errors.push(
+          '[R1 链接歧义] ' + r + ' -> [[' + inner + ']] 命中多个文件: ' + hits.map(rel).join(', ')
+        );
+      } else if (hits.length === 1) {
+        target = hits[0];
+      }
+    }
+    if (target) {
+      const targetRel = rel(target);
+      if (
+        targetRel.startsWith(GOALSETS_DIR) &&
+        targetRel !== GOALSETS_GUIDE &&
+        !r.startsWith(GOALSETS_DIR)
+      ) {
+        errors.push('[R6 可删除目标集依赖] ' + r + ' -> [[' + inner + ']]');
+      }
     }
   }
 

@@ -44,6 +44,10 @@ export interface InformationRevealProgress {
   revealed: RevealedInformationTarget[];
 }
 
+export interface MilestoneProgress {
+  completed: string[];
+}
+
 export interface PlayerState {
   resources: Record<string, number>;
   globalResources?: Record<string, number>;
@@ -98,6 +102,8 @@ export interface PlayerState {
   shopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
   /** Save 范围内单调增长的 Information Reveal 已知事实。 */
   informationRevealProgress?: InformationRevealProgress;
+  /** Save 范围内单调增长的 Milestone 完成事实。 */
+  milestoneProgress?: MilestoneProgress;
 }
 
 export interface InitSnapshot {

@@ -72,7 +72,7 @@ export type RegistrationKey = string;
 export type RegistrationToken = number;
 export type RegistrationGroup = string;
 export type TriggerRuntimeTag = string;
-export type TriggerRuntimeAction = { kind: 'reveal'; handle: string };
+export type TriggerRuntimeAction = { kind: 'reveal' | 'milestone'; handle: string };
 export type TriggerRuntimeActionResult = { kind: 'success' } | { kind: 'not-committed' };
 export type TriggerRuntimeActionHandler = (action: TriggerRuntimeAction) => TriggerRuntimeActionResult;
 

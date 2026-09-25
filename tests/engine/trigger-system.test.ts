@@ -233,6 +233,31 @@ describe('TriggerSystem (对外 DSL)', () => {
     expect(game.state.flags.runtime_action_effect).toBeUndefined();
   });
 
+  test('dispatches milestone runtime actions without running the Effect pipeline', () => {
+    const resource = 'test:milestone-runtime-action';
+    const def: TriggerDef = {
+      id: 'test:trigger:milestone-runtime-action',
+      on: { kind: 'resource', resource },
+      effects: [{ op: 'setFlag', target: 'milestone_action_effect', value: 'unexpected' }],
+      once: false,
+    };
+    game.triggerSystem.register({
+      key: 'test:registration:milestone-runtime-action',
+      triggerId: def.id!, def, tags: new Set(),
+      action: { kind: 'milestone', handle: 'milestone:test:action' },
+    });
+    const seen: string[] = [];
+    game.triggerSystem.setRuntimeActionHandler(action => {
+      if (action.kind === 'milestone') seen.push(action.handle);
+      return { kind: 'not-committed' };
+    });
+
+    game.mutations.changeResource(resource, 1);
+
+    expect(seen).toEqual(['milestone:test:action']);
+    expect(game.state.flags.milestone_action_effect).toBeUndefined();
+  });
+
   test('同一规范 RegistrationRequest 重复提交幂等，冲突载荷拒绝隐式替换', () => {
     const request = {
       key: 'test:registration:idempotent',

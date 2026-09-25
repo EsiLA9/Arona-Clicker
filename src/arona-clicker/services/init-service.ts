@@ -30,6 +30,7 @@ import { mountInitTriggers, unmountInitTriggers, type InitTriggerGroupState } fr
 import type { StoryEntryReactionMount } from './story-entry-reaction-mount';
 import type { StoryFollowUpMount } from './story-follow-up-mount';
 import type { InformationRevealAdapter } from './information-reveal-adapter';
+import type { MilestoneAdapter } from './milestone-adapter';
 
 export interface InitServiceOptions {
   registry: Registry;
@@ -44,6 +45,7 @@ export interface InitServiceOptions {
   storyEntryReactions: StoryEntryReactionMount;
   storyFollowUps: StoryFollowUpMount;
   informationRevealAdapter: InformationRevealAdapter;
+  milestoneAdapter: MilestoneAdapter;
   affectorEngine: AffectorEngine;
   visibilityEngine: VisibilityEngine;
   /** 读取当前 PlayerState。 */
@@ -103,10 +105,12 @@ export class InitService {
 
   withdrawInformationRevealWatches(): void {
     this.opts.informationRevealAdapter.withdrawAll();
+    this.opts.milestoneAdapter.withdrawAll();
   }
 
   reconcileInformationRevealWatches(): void {
     this.opts.informationRevealAdapter.reconcileCurrent();
+    this.opts.milestoneAdapter.reconcileCurrent();
   }
 
   /**
@@ -117,7 +121,7 @@ export class InitService {
     const state = this.state;
     const activeInitId = state.activeInit;
     if (!activeInitId) {
-      if (!deferInformationReveal) this.opts.informationRevealAdapter.withdrawAll();
+      if (!deferInformationReveal) this.withdrawInformationRevealWatches();
       this.opts.refreshVisibility();
       return;
     }
@@ -148,7 +152,7 @@ export class InitService {
       this.mountInitTriggers(activeInitId);
       this.opts.refreshVisibility();
       this.opts.affectorEngine.recheckAll();
-      if (!deferInformationReveal) this.opts.informationRevealAdapter.reconcileCurrent();
+      if (!deferInformationReveal) this.reconcileInformationRevealWatches();
       this.opts.devLog.record(`当前位置已失效，已回到 ${fallbackArea.name}`, {
         source: 'area',
         level: 'warning',
@@ -162,12 +166,12 @@ export class InitService {
     this.mountInitTriggers(activeInitId);
     this.opts.refreshVisibility();
     this.opts.affectorEngine.recheckAll();
-    if (!deferInformationReveal) this.opts.informationRevealAdapter.reconcileCurrent();
+    if (!deferInformationReveal) this.reconcileInformationRevealWatches();
   }
 
   private returnToInitSelection(reason: string, deferInformationReveal = false): void {
     const state = this.state;
-    if (!deferInformationReveal) this.opts.informationRevealAdapter.withdrawAll();
+    if (!deferInformationReveal) this.withdrawInformationRevealWatches();
     this.unmountInitTriggers();
     this.opts.storyService.clearAllCurrentStories();
     this.opts.clearLocalVisibility();
@@ -207,7 +211,7 @@ export class InitService {
       this.opts.devLog.record(`进入世界线失败：${initId}`, { source: 'init', level: 'error', details: 'NotFound' });
       return;
     }
-    this.opts.informationRevealAdapter.withdrawAll();
+    this.withdrawInformationRevealWatches();
 
     // 世界线隔离：清理不属于当前 Init 的 Spot 持有状态与 Manager。
     // global Spot（SpotDef.global=true）是跨世界线共享设施，等级/管理角色不随世界线隔离。
@@ -268,7 +272,7 @@ export class InitService {
     this.opts.affectorEngine.reconcileMounts();
 
     this.opts.refreshVisibility();
-    this.opts.informationRevealAdapter.reconcileCurrent();
+    this.reconcileInformationRevealWatches();
     this.opts.devLog.record(`进入 ${init.name}：解锁内容`, {
       source: 'init',
       level: 'info',
@@ -536,7 +540,7 @@ export class InitService {
   }
 
   private disposeRuntimeForTransition(): void {
-    this.opts.informationRevealAdapter.withdrawAll();
+    this.withdrawInformationRevealWatches();
     this.invalidateRuntimeGeneration();
     this.opts.stop();
     this.unmountInitTriggers();

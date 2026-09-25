@@ -39,6 +39,7 @@ src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
 | 某个机制为什么这样设计 / 它的历史来源 | [[docs/plan-work/mechanisms/00-index]] → 再跳 `docs/plan-work/archive/` 原文 |
 | 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/docs-828/01-architecture/design-constraints]]（A 段约束）+ [[docs/plan-work/00-index]]（B 段属未决方向） |
 | 还有什么没做（未决方向，**非当前计划**） | [[docs/plan-work/00-index]] |
+| 从玩法需求讨论到阶段 Task / Goal Set | [[docs/ai/goal-workflow]] |
 
 ### 我想改……
 

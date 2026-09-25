@@ -10,7 +10,7 @@
 - RegistrationKey 当前唯一，TriggerId 可有多条 Registration；相同规范 request 重复提交幂等，载荷冲突拒绝隐式替换。withdraw 按 key 撤出；tag 按不透明字符串精确匹配；group 是单值生命周期归组。
 - dispatch 对候选快照记录 `(key, token)`，每个候选运行前复核当前 Registration。撤出后即使同 key 重新注册，新 token 也不能复活本轮旧候选；本轮新增 Registration 等下一次事件。
 - `mount/load/unmount/unmountGroup` 保留兼容入口；新领域 adapter 使用 `register/withdraw/withdrawByTag(s)`。EventBus listener 仍由 TriggerSystem 按事件类型静态订阅，不按 Registration 创建。
-- Reveal 专用 runtime action 只在 Registration 请求中携带 opaque handle，由受控 handler 返回 success/not-committed；普通 `TriggerDef` 和 Datapack 无 action 字段。Reveal Registration 使用 `once:false`，其成功事实由 `informationRevealProgress` 而非 `triggersCompleted` 表达。
+- 领域 runtime action 只在内部 Registration 请求中携带 opaque handle，由组合 handler 路由给 Reveal 或 Milestone Adapter；普通 `TriggerDef` 和 Datapack 无 action 字段。两种领域 Registration 使用 `once:false`，其成功事实各自由自己的 PlayerState Progress 表达，而非 `triggersCompleted`。
 - 事件命中 → 条件满足（`evaluateExpr`）→ 执行 `effects`（经 [[docs/docs-828/04-mechanisms/state-mutation]]）；Registration 改造不改变 Effect 调用与 once 提交时序。
 - once 完成按逻辑 TriggerId 持久化于 PlayerState（`triggersCompleted`）。多个 Registration 可共享此身份，同一 dispatch 第一条提交 once 后，其余同 ID 候选跳过。匿名 Trigger 的 `anon:` ID 仍由既有挂载适配派生。
 
@@ -62,6 +62,13 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 - 并行新路径：Reveal 域按当前 Registry、Save Progress、active Init 推导完整 gate 与 desired Watch；同 target 多声明按 OR。Adapter 先物化精确 resource/spotLevel/story 唤醒源，再用 ConditionSystem 对当前完整条件准入求值；成功经 StateMutationService 提交 Progress 后撤出 Watch。
 - `stat`、`hasEnh`、`countTags` 首期 AdmissionOnly：只在 Init admission、读档、内容更新等显式 reconcile 时求值，不承诺同一 Init 内实时唤醒；不使用 tick 或 ConditionDepIndex 作兜底。
 - Progress 是当前 Save 内单调增长的三元身份集合，跨 Init/Run 保留；Watch/Registration 可丢弃重建。`get*Reveal`（tooltip-reveal 模块）仍按旧 UI 路径即时求值，阶段 `invisible → presence → partial → known → utility → purchaseable → owned` 尚非持久事实消费者。
+
+## Milestone（Persistent Arrival Fact）
+
+- `MilestoneDef` 只声明稳定 `id` 与既有 `Condition` / `ConditionGroup`；Milestone 表达“Condition 曾被观察为成立”，不要求 Condition 单调。`completed` 是单调 Save 事实，定义缺失不会清除已完成 ID。
+- Domain 按当前 Definition、PlayerState Progress 与覆盖能力派生 desired Watches。P0 reactive target 为 per-Init `resource`、`spotLevel`、`hasReadStory`、`hasReadStoryInRun`；`alwaysTrue` 可 admission-only，global resource 与无可靠 activation wake 的 Condition 不准入。
+- `ConditionGroup` 保守要求所有非恒定状态叶都有精确唤醒源；唤醒后重验完整表达式。Admission 先建立 Registration，再求当前 Condition；提交经 StateMutationService 幂等写入，随后撤出目标所有 Registration。
+- `milestoneProgress.completed` 是权威 Save 事实；Watch/Registration 是可重建投影。Milestone 不拥有统计计数，不发 `milestoneCompleted`，不处理奖励、领取或展示。
 
 ## GameEvent 事件目录（EventBus 订阅面）
 
