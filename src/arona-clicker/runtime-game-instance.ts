@@ -28,6 +28,8 @@ import { EnhancementService } from './services/enhancement-service';
 import { SessionService } from '../engine/runtime/session-service';
 import { ChatFlowService } from './services/chat-flow-service';
 import { buildGameView } from './read-model/game-view-builder';
+import { buildAchievementView } from './read-model/achievement-view';
+import type { AchievementViewItem } from './read-model/achievement-view';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
 import { buildSaveData } from './runtime-save-codec';
 import { restoreFromSave } from './runtime-save';
@@ -209,6 +211,10 @@ export class GameInstance {
       activeAffectors: this.affectorEngine.getActiveInstances(),
       stats: this.statsService.getSnapshot(),
     });
+  }
+
+  getAchievementView(): readonly AchievementViewItem[] {
+    return buildAchievementView(this.registry, this._state, this.statsService.getSnapshot());
   }
 
   /**

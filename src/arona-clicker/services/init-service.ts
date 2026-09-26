@@ -357,6 +357,7 @@ export class InitService {
     this.applyEntryEffects(area.enterEffects, isFirstEnter);
     this.opts.refreshVisibility();
     this.opts.affectorEngine.recheckAll();
+    this.opts.milestoneAdapter.reconcileCurrent();
     this.opts.devLog.record(`已移动到 ${area.name}`, { source: 'area', level: 'success' });
     return { success: true, areaId, fromAreaId };
   }

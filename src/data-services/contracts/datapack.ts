@@ -2,7 +2,7 @@
 // data-services/contracts/datapack.ts — Datapack 汇总类型
 // ============================================================
 
-import type { Condition, ConditionGroup, FuncletDef } from '../../engine/types/expression';
+import type { Condition, ConditionGroup, Effect, FuncletDef } from '../../engine/types/expression';
 import type { CharacterData } from './character-data';
 import type { CharacterVariantDef } from './character-variant';
 import type { CultivateCurveDef } from './cultivate-curve';
@@ -49,6 +49,23 @@ export interface MilestoneDef {
   condition: Condition | ConditionGroup;
 }
 
+/** Area 首访准入的里程碑监听声明；执行语义由运行时定义。 */
+export interface MilestoneListenerDef {
+  id: string;
+  milestoneId: string;
+  areaId: string;
+  then: Effect[];
+}
+
+/** 玩家可见的成就内容，完成条件由其唯一关联的监听与里程碑提供。 */
+export interface AchievementDef {
+  id: string;
+  listenerId: string;
+  title: string;
+  clue: string;
+  rewardDescription: string;
+}
+
 export interface Datapack {
   /** manifest 提供的 Tag 默认命名空间；内置/测试包缺省为 base。 */
   modName?: string;
@@ -73,6 +90,10 @@ export interface Datapack {
   triggerDefs?: TriggerDef[];
   /** 持久里程碑定义。 */
   milestones?: MilestoneDef[];
+  /** 按 Area 首访准入的里程碑监听声明。 */
+  milestoneListeners?: MilestoneListenerDef[];
+  /** 玩家可见成就声明。 */
+  achievements?: AchievementDef[];
   funcletDefs: FuncletDef[];
   characters: CharacterData[];
   /**

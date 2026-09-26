@@ -46,6 +46,28 @@ describe('Datapack fragment parser', () => {
     ]);
   });
 
+  test('解析并合并 Listener 与 Achievement 声明列表', () => {
+    const first = parseFragment('achievement-listener.json', JSON.stringify({
+      milestones: [{ id: 'demo:milestone:first_visit', condition: { target: 'alwaysTrue', key: '', comparator: '==', value: 1 } }],
+      milestoneListeners: [{
+        id: 'demo:milestone-listener:first_visit', milestoneId: 'demo:milestone:first_visit',
+        areaId: 'demo:area:roof', then: [{ op: 'addResource', target: 'credit', value: 10 }],
+      }],
+    }));
+    const second = parseFragment('achievement.json', JSON.stringify({
+      achievements: [{
+        id: 'demo:achievement:first_visit', listenerId: 'demo:milestone-listener:first_visit',
+        title: '初次到访', clue: '前往天台', rewardDescription: '获得 10 信用点',
+      }],
+    }));
+
+    const datapack = mergeFragments([first, second]);
+
+    expect(datapack.milestones).toEqual(first.lists.milestones);
+    expect(datapack.milestoneListeners).toEqual(first.lists.milestoneListeners);
+    expect(datapack.achievements).toEqual(second.lists.achievements);
+  });
+
   test('错误包含分片路径', () => {
     expect(() => parseFragment('broken.json', '{')).toThrow(FragmentParseError);
     expect(() => parseFragment('broken.json', '{')).toThrow('[broken.json]');

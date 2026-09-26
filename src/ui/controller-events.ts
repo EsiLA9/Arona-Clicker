@@ -5,13 +5,31 @@
 // ============================================================
 
 import { createUIContext } from './context';
-import { refreshRevealIfChanged } from './controller-core';
+import { refreshAchievementRows, refreshRevealIfChanged } from './controller-core';
 import type { UIController } from './controller';
 
 /** 绑定引擎 EventBus 事件 → UI 响应（mount 时调用一次）。 */
 export function bindEvents(ctrl: UIController): void {
+  let achievementRefreshQueued = false;
+  const scheduleAchievementRefresh = (): void => {
+    if (!ctrl.started || ctrl.panelState.service !== 'records' || achievementRefreshQueued) return;
+    achievementRefreshQueued = true;
+    queueMicrotask(() => {
+      achievementRefreshQueued = false;
+      refreshAchievementRows(ctrl);
+    });
+  };
+
   // EventBus 广播 → 揭示条件判断 → 变化则反射到 UI（无需玩家交互才刷新）
   ctrl.game.eventBus.onAny(event => {
+    if (event.type === 'resourceChanged'
+      || event.type === 'spotProduced'
+      || event.type === 'itemCollected'
+      || event.type === 'tick') {
+      // EventBus typed handlers (including milestone completion) run before wildcard handlers;
+      // defer the DOM patch until the full synchronous dispatch and nested effects have settled.
+      scheduleAchievementRefresh();
+    }
     // 生产类高频事件由 refreshLight 覆盖数值，不参与揭示评估
     if (event.type === 'tick' || event.type === 'spotProduced') return;
     // Area 定义 / 拓扑有专门的当前 Area 判断；不在通用揭示入口重复刷新，

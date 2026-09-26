@@ -1,17 +1,25 @@
 import type { Registry } from '../../data-services/registry/registry';
+import type { DevLog } from '../../engine/core/dev-log';
 import type { ConditionState } from '../../engine/contracts/state-query';
+import type { EffectEngine } from '../../engine/effect/effect-engine';
 import type { ConditionSystem } from '../../engine/expression/condition-system';
 import type { RegistrationKey, TriggerRegistrationRequest, TriggerRuntimeAction, TriggerRuntimeActionResult, TriggerSystem } from '../../engine/effect/trigger-system';
 import type { TriggerEventDef } from '../../engine/types/trigger';
 import type { PlayerState } from '../types/state';
 import type { StateMutationService } from '../state/state-mutation-service';
-import { deriveDesiredMilestoneWatches, type DesiredMilestoneWatch, type MilestoneWakeSource } from './milestone-domain';
+import {
+  deriveDesiredMilestoneWatches,
+  firstUnsupportedMilestoneLeaf,
+  type DesiredMilestoneWatch,
+  type MilestoneWakeSource,
+} from './milestone-domain';
 
 type WatchRecord = { watch: DesiredMilestoneWatch; handle: string; registrationKeys: RegistrationKey[]; descriptor: string };
 
 function eventOf(source: MilestoneWakeSource): TriggerEventDef {
   switch (source.kind) {
     case 'resource': return { kind: 'resource', resource: source.resourceId };
+    case 'item': return { kind: 'item', itemId: source.itemId };
     case 'spotLevel': return { kind: 'spotLevel', spotId: source.spotId };
     case 'story': return { kind: 'story', storyId: source.storyId };
   }
@@ -22,6 +30,7 @@ export class MilestoneAdapter {
   private readonly handles = new Map<string, WatchRecord>();
   private readonly inFlight = new Set<string>();
   private readonly allowedCommits = new Set<string>();
+  private readonly reportedUnsupported = new Map<string, string>();
   private reconciling = false;
   private refreshPending = false;
 
@@ -32,6 +41,8 @@ export class MilestoneAdapter {
     private readonly getState: () => PlayerState,
     private readonly registry: Registry,
     private readonly registrationNamespace = 'milestone',
+    private readonly effectEngine?: EffectEngine,
+    private readonly devLog?: DevLog,
   ) {
     this.mutations.setMilestoneCompletionValidator((state, id) => this.validateCommit(state, id));
   }
@@ -61,7 +72,9 @@ export class MilestoneAdapter {
   }
 
   private applyDesired(): void {
-    const desired = new Map(deriveDesiredMilestoneWatches(this.registry, this.getState()).map(watch => [watch.milestoneId, watch]));
+    const state = this.getState();
+    const desired = new Map(deriveDesiredMilestoneWatches(this.registry, state).map(watch => [watch.milestoneId, watch]));
+    this.reportUnsupportedWatches(state, new Set(desired.keys()));
     for (const [id, record] of [...this.records]) {
       const next = desired.get(id);
       if (!next || JSON.stringify(next) !== record.descriptor) this.withdrawRecord(id, record);
@@ -80,6 +93,38 @@ export class MilestoneAdapter {
       }
     }
     for (const [id, record] of [...this.records]) this.attemptCompletion(record);
+  }
+
+  private reportUnsupportedWatches(state: PlayerState, desiredIds: ReadonlySet<string>): void {
+    if (!this.devLog) return;
+    const completed = new Set(state.milestoneProgress?.completed ?? []);
+    const listeners = new Map(
+      [...this.registry.milestoneListeners.values()].map(listener => [listener.milestoneId, listener]),
+    );
+    for (const definition of this.registry.milestones.values()) {
+      const listener = listeners.get(definition.id);
+      if (completed.has(definition.id) || !listener) continue;
+      const area = this.registry.areas.get(listener.areaId);
+      if (!area || area.initId !== state.activeInit || !state.visitedAreas?.includes(area.id)) continue;
+      if (desiredIds.has(definition.id)) {
+        this.reportedUnsupported.delete(definition.id);
+        continue;
+      }
+      const leaf = firstUnsupportedMilestoneLeaf(definition.condition, area.initId);
+      if (!leaf) continue;
+      const descriptor = JSON.stringify({
+        listenerId: listener.id,
+        areaId: area.id,
+        condition: definition.condition,
+      });
+      if (this.reportedUnsupported.get(definition.id) === descriptor) continue;
+      this.reportedUnsupported.set(definition.id, descriptor);
+      this.devLog.record(`Milestone ${definition.id} Listener ${listener.id} Area ${area.id} cannot establish a reliable Watch`, {
+        source: 'milestone',
+        level: 'error',
+        details: `unsupported leaf: target=${leaf.target}; key=${leaf.key}; comparator=${leaf.comparator}`,
+      });
+    }
   }
 
   private registerSources(record: WatchRecord): void {
@@ -115,6 +160,7 @@ export class MilestoneAdapter {
       try { committed = this.mutations.completeMilestone(id); }
       finally { this.allowedCommits.delete(id); }
       if (committed || this.getState().milestoneProgress?.completed.includes(id)) this.withdrawRecord(id, record);
+      if (committed) this.executeListenerThen(id);
       return committed;
     } finally {
       this.inFlight.delete(id);
@@ -132,6 +178,20 @@ export class MilestoneAdapter {
 
   private currentWatch(id: string): DesiredMilestoneWatch | undefined {
     return deriveDesiredMilestoneWatches(this.registry, this.getState()).find(watch => watch.milestoneId === id);
+  }
+
+  private executeListenerThen(milestoneId: string): void {
+    const listener = [...this.registry.milestoneListeners.values()].find(item => item.milestoneId === milestoneId);
+    if (!listener?.then.length || !this.effectEngine) return;
+    try {
+      this.effectEngine.applyEffects(listener.then);
+    } catch (error) {
+      this.devLog?.record(`Milestone ${milestoneId} Listener ${listener.id} then failed`, {
+        source: 'milestone',
+        level: 'error',
+        details: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private withdrawRecord(id: string, record: WatchRecord): void {

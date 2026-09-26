@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
 import { baseDatapack } from '../../src/data/test-datapack';
+import type { AchievementViewItem } from '../../src/arona-clicker/read-model/achievement-view';
 import { createUIContext } from '../../src/ui/context';
 import { renderAppShell, type PanelState } from '../../src/ui/components/app-shell';
 import { createRuntimeDatapackEditorState } from '../../src/ui/runtime-editor/state';
@@ -58,6 +59,64 @@ describe('服务工作区', () => {
     expect(html).toContain(`data-theme-host-id="centerPanel.service.${service}.main"`);
     expect(html).toContain(`data-theme-host-id="rightPanel.service.${service}.inspector"`);
     expect(html).toContain(`data-theme-scope="center.${service}.main"`);
+  });
+
+  it('Records 按投影顺序分组展示已发现成就、状态与简单进度', () => {
+    const achievements: AchievementViewItem[] = [
+      { id: 'achievement-current-1', initId: 'base:init:office', areaId: 'base:area:office', title: 'Credit', clue: 'Produce credit', rewardDescription: 'A note', completed: false, progress: { current: 3, target: 5, comparator: '>=' } },
+      { id: 'achievement-current-2', initId: 'base:init:office', areaId: 'base:area:office', title: 'Combined', clue: 'Two steps', rewardDescription: 'A mark', completed: true },
+      { id: 'achievement-other-area', initId: 'base:init:office', areaId: 'base:area:archive', title: 'Archive', clue: 'Visit archive', rewardDescription: 'A memory', completed: false },
+      { id: 'achievement-old-init', initId: 'base:init:legacy', areaId: 'base:area:legacy', title: 'Legacy', clue: 'Return later', rewardDescription: 'A token', completed: true, progress: { current: 2, target: 3, comparator: '>' } },
+    ];
+    vi.spyOn(game, 'getAchievementView').mockReturnValue(achievements);
+
+    const html = renderAppShell(createUIContext(game), { ...baseState(), service: 'records' });
+
+    expect(html.match(/data-achievement-group/g)).toHaveLength(3);
+    const itemOrder = [
+      'achievement-current-1', 'achievement-current-2', 'achievement-other-area', 'achievement-old-init',
+    ].map(id => html.indexOf(`data-achievement-id="${id}"`));
+    expect(itemOrder.every(index => index >= 0)).toBe(true);
+    expect(itemOrder).toEqual([...itemOrder].sort((a, b) => a - b));
+    expect(html).toContain('data-achievement-progress-current>3<');
+    expect(html).toContain('data-achievement-progress-comparison>≥<');
+    expect(html).toContain('data-achievement-progress-target>5<');
+    expect(html).toContain('data-achievement-status>已完成</span>');
+    expect(html).toContain('data-achievement-status>未完成</span>');
+    expect(html).not.toContain('data-achievement-progress-current>Two steps');
+    expect(html).not.toContain('achievement-unvisited');
+  });
+
+  it('Records 转义作者文案、显示名和 ID 属性，并为无已发现项显示空状态', () => {
+    const achievement: AchievementViewItem = {
+      id: 'achievement" data-extra="<unsafe>',
+      initId: 'init" data-extra="<unsafe>',
+      areaId: 'area" data-extra="<unsafe>',
+      title: '<img src=x onerror="run()">',
+      clue: 'A & B < C',
+      rewardDescription: "Reward's <detail>",
+      completed: false,
+    };
+    vi.spyOn(game, 'getAchievementView').mockReturnValue([achievement]);
+    const context = createUIContext(game);
+    const unsafeIds = new Set([achievement.initId, achievement.areaId]);
+    context.nameOf = (_type, id) => unsafeIds.has(id) ? '<script>name()</script>' : id;
+    context.formatNumber = value => String(value);
+
+    const html = renderAppShell(context, { ...baseState(), service: 'records' });
+    expect(html).toContain('data-achievement-id="achievement&quot; data-extra=&quot;&lt;unsafe&gt;"');
+    expect(html).toContain('&lt;img src=x onerror=&quot;run()&quot;&gt;');
+    expect(html).toContain('A &amp; B &lt; C');
+    expect(html).toContain('Reward&#39;s &lt;detail&gt;');
+    expect(html).toContain('&lt;script&gt;name()&lt;/script&gt;');
+    expect(html).not.toContain('<script>name()');
+    expect(html).not.toContain('<img src=x onerror=');
+
+    vi.spyOn(game, 'getAchievementView').mockReturnValue([]);
+    const emptyHtml = renderAppShell(createUIContext(game), { ...baseState(), service: 'records' });
+    expect(emptyHtml).toContain('data-achievement-empty-state');
+    expect(emptyHtml).toContain('data-achievement-empty>目前没有已发现的区域成就');
+    expect(emptyHtml).not.toContain('data-achievement-id=');
   });
 
   it('数据包工作区显示分类语义、正式状态与草案操作', () => {

@@ -32,6 +32,7 @@ import type { DefMetadata } from '../../data-services/contracts/common';
 import type { EnhancementAttachment } from '../../data-services/contracts/enhancement';
 import type { EntityPresentationQueryPort } from './entity-presentation-query';
 import type { Datapack } from '../../data-services/contracts/datapack';
+import type { AchievementViewItem } from '../read-model/achievement-view';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -255,6 +256,7 @@ export interface GameReadModel {
   readonly story: StoryQueryPort;
   readonly spot: SpotQueryPort;
   getView(): GameView;
+  getAchievementView(): readonly AchievementViewItem[];
   availableAreaIds(areaId: string): string[];
   getStoryView(owner: string): StoryView | null;
   getDevLogs(): readonly DevLogEntry[];

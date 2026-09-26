@@ -66,9 +66,14 @@ bound   → 夹取 min/max（可收紧不可放宽，折叠入 mul 区求值）
 ## Milestone（Persistent Arrival Fact）
 
 - `MilestoneDef` 只声明稳定 `id` 与既有 `Condition` / `ConditionGroup`；Milestone 表达“Condition 曾被观察为成立”，不要求 Condition 单调。`completed` 是单调 Save 事实，定义缺失不会清除已完成 ID。
-- Domain 按当前 Definition、PlayerState Progress 与覆盖能力派生 desired Watches。P0 reactive target 为 per-Init `resource`、`spotLevel`、`hasReadStory`、`hasReadStoryInRun`；`alwaysTrue` 可 admission-only，global resource 与无可靠 activation wake 的 Condition 不准入。
-- `ConditionGroup` 保守要求所有非恒定状态叶都有精确唤醒源；唤醒后重验完整表达式。Admission 先建立 Registration，再求当前 Condition；提交经 StateMutationService 幂等写入，随后撤出目标所有 Registration。
-- `milestoneProgress.completed` 是权威 Save 事实；Watch/Registration 是可重建投影。Milestone 不拥有统计计数，不发 `milestoneCompleted`，不处理奖励、领取或展示。
+- `MilestoneListenerDef` 把 Milestone 关联到一个 Area，并声明完成后要执行的 `then: Effect[]`；`AchievementDef` 关联 Listener，保存玩家可见的标题、线索与奖励说明。Registry 校验 Listener 对 Milestone／Area 的引用、Achievement 对 Listener 的引用及一对一关系，结构见 [[docs/docs-828/03-data-structures/registry]]。
+- 首期仅 Area Listener 有运行时准入：到访事实写入后，只有 Area 所属 Init 为当前 Init 时才建立 Watch。已访问 Area 在同一 Init 内仍保持准入；切换出该 Init 或目标完成后撤出。未访问目标不监听、不完成，也不进入 Achievement 投影。
+- Domain 按当前定义、完成 Progress 与 Condition capability 派生 desired Watches。Listener 条件沿用精确 resource、`spotLevel`、`hasReadStory`、`hasReadStoryInRun` 唤醒源；另支持同一 Area Init 下数值 `>=`／`>` 的 `$InitProducedAmount <initId> <resourceId>` 与 `$InitCollectedAmount <initId> <itemId>`，分别由精确 resourceChanged／itemCollected 唤醒。`alwaysTrue` 可只在准入时检查；其它 `ConditionGroup` 状态叶都必须有精确唤醒源，且每次唤醒后重验完整表达式。未能建立可靠 Watch 的 Listener 条件不准入；首次在已访问 Area 对账时记带 Milestone、Listener、Area ID 与首个不支持叶的 error DevLog。
+- Watch 命中后先由 ConditionSystem 重验，再经 StateMutationService 提交 `milestoneProgress.completed` 并撤出 Registration。只有首次成功提交后才执行 Listener `then`；EffectEngine 抛出的异常写 error DevLog，不回滚、不自动重试。旧 completed ID 不因读档、返回 Init 或定义更新重放效果。
+- 未关联 Listener 的旧 Milestone 保持原来的 Watch 与完成事实行为；它没有 `then`，也不进入 Achievement 投影。Milestone 本身不拥有奖励领取流程；效果由关联 Listener 的 `then` 提供，展示由 Achievement 只读投影提供。
+- `buildAchievementView` 只投影已到访 Area 仍有关联定义的 Achievement：当前 Init 读当前访问记录，其它 Init 从存档快照回看；已完成项目继续显示。仅单叶的两种 Init 累计 stat 条件附带当前／目标数值进度。Records 的渲染和定点更新见 [[docs/docs-828/02-modules/ui]]。
+- `milestoneProgress.completed` 是权威 Save 事实；Watch／Registration 是可重建投影。此链路不发 `milestoneCompleted` 事件，也没有成就领取状态。
+- 当前范围仅支持 Area Listener；Init／全局作者范围、附加 `when`、前置成就与作者编辑器尚未实现。
 
 ## GameEvent 事件目录（EventBus 订阅面）
 

@@ -1,5 +1,6 @@
 import type { UIContext } from '../context';
 import type { PackCatalogReadModel } from '../../arona-clicker/contracts';
+import type { AchievementViewItem } from '../../arona-clicker/read-model/achievement-view';
 import type { PanelState } from './app-shell';
 import {
   buildDatapackWorkspaceView,
@@ -241,6 +242,39 @@ function renderSavesMain(ctx: UIContext): string {
     <section class="service-card"><h3>读取前检查</h3><p>读取会替换当前运行状态。实际覆盖范围与数据包环境差异将在后续存档检查面板中展开。</p></section>`;
 }
 
+function renderAchievementGroups(ctx: UIContext): string {
+  const groups = new Map<string, { initId: string; areaId: string; items: AchievementViewItem[] }>();
+  for (const item of ctx.game.getAchievementView()) {
+    const key = JSON.stringify([item.initId, item.areaId]);
+    let group = groups.get(key);
+    if (!group) {
+      group = { initId: item.initId, areaId: item.areaId, items: [] };
+      groups.set(key, group);
+    }
+    group.items.push(item);
+  }
+
+  if (groups.size === 0) {
+    return `<section class="service-card" data-achievement-empty-state><div class="panel-heading"><h3>区域成就</h3></div><p data-achievement-empty>目前没有已发现的区域成就。到访相关区域后，成就会出现在这里。</p></section>`;
+  }
+
+  return [...groups.values()].map(group => `
+    <section class="service-card" data-achievement-group data-achievement-init="${escape(group.initId)}" data-achievement-area="${escape(group.areaId)}">
+      <div class="panel-heading"><h3>${escape(ctx.nameOf('init', group.initId))} · ${escape(ctx.nameOf('area', group.areaId))}</h3><span class="index">${group.items.length} 项</span></div>
+      ${group.items.map(item => {
+        const progress = item.progress
+          ? `<p data-achievement-progress>进度 <span data-achievement-progress-current>${escape(ctx.formatNumber(item.progress.current))}</span> / <span data-achievement-progress-comparison>${item.progress.comparator === '>=' ? '≥' : '>'}</span> <span data-achievement-progress-target>${escape(ctx.formatNumber(item.progress.target))}</span></p>`
+          : '';
+        return `<article data-achievement-id="${escape(item.id)}">
+          <div class="panel-heading"><h4>${escape(item.title)}</h4><span class="service-status" data-achievement-status>${item.completed ? '已完成' : '未完成'}</span></div>
+          <p>${escape(item.clue)}</p>
+          <p>奖励说明：${escape(item.rewardDescription)}</p>
+          ${progress}
+        </article>`;
+      }).join('')}
+    </section>`).join('');
+}
+
 function renderRecordsMain(ctx: UIContext): string {
   const registry = ctx.game.registry;
   const counts = [
@@ -250,7 +284,8 @@ function renderRecordsMain(ctx: UIContext): string {
     <div class="service-heading"><div><span class="eyebrow">RECORDS WORKSPACE</span><h2>${serviceTitle('records')}</h2><p>统一查看已发现内容与统计口径；条目本身保持只读。</p></div><span class="service-status">当前世界线</span></div>
     <div class="service-actions"><button class="primary-button" id="collection-modal">打开完整图鉴</button></div>
     <section class="service-card"><div class="panel-heading"><h3>内容总览</h3><span class="index">当前 Registry</span></div><div class="service-stat-grid">${counts.map(([label, count]) => `<div><strong>${count}</strong><span>${label}</span></div>`).join('')}</div></section>
-    <section class="service-card"><h3>统计口径</h3><p>当前页显示当前 Registry 的内容规模；玩家发现、累计值、本世界线和全局值将在统计分类页分别展示。</p></section>`;
+    ${renderAchievementGroups(ctx)}
+    <section class="service-card"><h3>统计口径</h3><p>区域成就仅展示已发现目标；简单累计条件显示当前值与目标，组合条件保留线索。更完整的本世界线和全局统计将在分类页展示。</p></section>`;
 }
 
 export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspaceId, state: PanelState): string {

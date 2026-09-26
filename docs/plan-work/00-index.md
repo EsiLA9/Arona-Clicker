@@ -9,6 +9,14 @@
 
 玩法需求由 [[docs/ai/goal-workflow]] 路由：可删除的最终目标集与阶段 Goal 放在 [[docs/plan-work/goalsets/README]] 所述目录；进入正式讨论后建立滚动 Draft，满足准入再建独立可验收的 Task。具体 Goal Set 不登记到本索引，也不作为正式文档的依赖。
 
+## 当前推进
+
+目前没有已开工的正式 Task；Milestone／Achievement 的后续作者能力由 [[docs/plan-work/goalsets/README]] 进入下一轮 Draft／Task。
+
+## 本次完成（2026-09-26）
+
+- [[task-0157-area-achievement-demo-v1]]：双区域独立数据包、Area 首访成就、累计进度、一次性效果与玩家可见 Records 页已交付；玩法裁定见 [[draft-0156-area-achievement-demo]]。
+
 ## 冻结约定
 
 - `archive/` 与 `mechanisms/` 冻结为**单一考古层**：原 `active/`、`completed/`、`newPlan/`、`review/`、`registry&saves/` 已全部合并进 `archive/`，不再按生命周期分目录维护；
@@ -137,7 +145,7 @@
 
 - [[task-0155-active-work-documents-freeze]]：本轮盘点、核验与归档执行记录（已完成）。
 - [[active-work-freeze-2026-09-25]]：31 份工作文档（8 Draft、23 Task）的逐项摘要、最后已知进展与待续边界。
-- 当前根目录仅保留本索引；归档保留各文档冻结前的状态，不代表全部完成。
+- 该次冻结后的新工作入口见上方「当前推进」；归档保留各文档冻结前的状态，不代表全部完成。
 
 ## 相关路由
 

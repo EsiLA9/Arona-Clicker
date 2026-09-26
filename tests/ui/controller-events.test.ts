@@ -114,4 +114,75 @@ describe('UI Controller Area 事件刷新', () => {
 
     expect(document.querySelector<HTMLElement>('.log-panel')).toBe(log);
   });
+
+  it('Records 对已挂载成就行定点刷新，并在事件处理完后保留节点身份', async () => {
+    const areaId = game.getView().currentAreaId!;
+    const makeProjection = (resource: number, item: number, completed: boolean) => [
+      {
+        id: 'test:achievement:resource', initId: 'base:init:schale_office', areaId,
+        title: 'Resource', clue: 'Produce', rewardDescription: 'A mark', completed,
+        progress: { current: resource, target: 5, comparator: '>=' as const },
+      },
+      {
+        id: 'test:achievement:item', initId: 'base:init:schale_office', areaId,
+        title: 'Item', clue: 'Collect', rewardDescription: 'A note', completed: false,
+        progress: { current: item, target: 3, comparator: '>=' as const },
+      },
+    ];
+    let projection = makeProjection(1, 0, false);
+    const getAchievementView = vi.spyOn(game, 'getAchievementView').mockImplementation(() => projection);
+    controller.panelState.service = 'records';
+    controller.render();
+
+    const recordsRoot = controller.root.querySelector<HTMLElement>('[data-workspace-frame="service-records"]')!;
+    const resourceRow = recordsRoot.querySelector<HTMLElement>('[data-achievement-id="test:achievement:resource"]')!;
+    const itemRow = recordsRoot.querySelector<HTMLElement>('[data-achievement-id="test:achievement:item"]')!;
+    const resourceCurrent = resourceRow.querySelector<HTMLElement>('[data-achievement-progress-current]')!;
+    const resourceStatus = resourceRow.querySelector<HTMLElement>('[data-achievement-status]')!;
+    const itemCurrent = itemRow.querySelector<HTMLElement>('[data-achievement-progress-current]')!;
+    const render = vi.spyOn(controller, 'render');
+    controller.lastRevealCheck = Date.now();
+
+    game.eventBus.on('resourceChanged', () => { projection = makeProjection(2, 0, true); });
+    game.mutations.changeResource('test:resource:achievement-refresh', 1);
+    await Promise.resolve();
+
+    expect(resourceCurrent.textContent).toBe('2');
+    expect(resourceStatus.textContent).toBe('已完成');
+    expect(recordsRoot.querySelector('[data-achievement-id="test:achievement:resource"]')).toBe(resourceRow);
+    expect(render).not.toHaveBeenCalled();
+
+    game.eventBus.on('itemCollected', () => { projection = makeProjection(2, 1, true); });
+    game.mutations.addItem('test:item:achievement-refresh', 1);
+    await Promise.resolve();
+
+    expect(itemCurrent.textContent).toBe('1');
+    expect(recordsRoot.querySelector('[data-achievement-id="test:achievement:item"]')).toBe(itemRow);
+
+    let sawSpotProduced = false;
+    game.eventBus.on('spotProduced', () => {
+      sawSpotProduced = true;
+      projection = makeProjection(4, 2, true);
+    });
+    game.eventBus.on('tick', () => { projection = makeProjection(5, 2, true); });
+    game.tick();
+    await Promise.resolve();
+
+    expect(sawSpotProduced).toBe(true);
+    expect(resourceCurrent.textContent).toBe('5');
+    expect(itemCurrent.textContent).toBe('2');
+    expect(recordsRoot.querySelector('[data-achievement-id="test:achievement:resource"]')).toBe(resourceRow);
+    expect(recordsRoot.querySelector('[data-achievement-id="test:achievement:item"]')).toBe(itemRow);
+    expect(render).not.toHaveBeenCalled();
+
+    const callsBeforeLeavingRecords = getAchievementView.mock.calls.length;
+    const displayedResource = resourceCurrent.textContent;
+    controller.panelState.service = 'game';
+    projection = makeProjection(5, 3, true);
+    game.mutations.changeResource('test:resource:achievement-refresh', 1);
+    await Promise.resolve();
+
+    expect(getAchievementView).toHaveBeenCalledTimes(callsBeforeLeavingRecords);
+    expect(resourceCurrent.textContent).toBe(displayedResource);
+  });
 });

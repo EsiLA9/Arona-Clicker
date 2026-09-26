@@ -124,6 +124,38 @@ describe('loadDatapackFromZip', () => {
     }]);
   });
 
+  test('milestoneListeners 与 achievements 列表字段并入 Datapack', async () => {
+    const { datapack } = await loadDatapackFromZip(makeZip({
+      'milestones.json': {
+        milestones: [{ id: 'demo:milestone:first_visit', condition: { target: 'alwaysTrue', key: '', comparator: '==', value: 1 } }],
+      },
+      'listeners.json': {
+        milestoneListeners: [{
+          id: 'demo:milestone-listener:first_visit', milestoneId: 'demo:milestone:first_visit',
+          areaId: 'demo:area:roof', then: [{ op: 'addResource', target: 'credit', value: 10 }],
+        }],
+      },
+      'achievements.json': {
+        achievements: [{
+          id: 'demo:achievement:first_visit', listenerId: 'demo:milestone-listener:first_visit',
+          title: '初次到访', clue: '前往天台', rewardDescription: '获得 10 信用点',
+        }],
+      },
+    }));
+
+    expect(datapack.milestones).toEqual([{
+      id: 'demo:milestone:first_visit', condition: { target: 'alwaysTrue', key: '', comparator: '==', value: 1 },
+    }]);
+    expect(datapack.milestoneListeners).toEqual([{
+      id: 'demo:milestone-listener:first_visit', milestoneId: 'demo:milestone:first_visit',
+      areaId: 'demo:area:roof', then: [{ op: 'addResource', target: 'credit', value: 10 }],
+    }]);
+    expect(datapack.achievements).toEqual([{
+      id: 'demo:achievement:first_visit', listenerId: 'demo:milestone-listener:first_visit',
+      title: '初次到访', clue: '前往天台', rewardDescription: '获得 10 信用点',
+    }]);
+  });
+
   test('extras 分片合并，name/version 取首个出现的文件', async () => {
     const zip = makeZip({
       'a.json': { name: 'First', version: '2.0.0', extras: { 'theme.bg': 'red' } },

@@ -25,6 +25,13 @@
 - **EffectOp 25 种**：状态层 14 种落数据（经 mutations），转发类 9 种（`loot` → LootSystem、`triggerStory` / `travelToArea`、`setTheme`、聊天流族 5 种——演出类发请求事件），声明类 2 种（`setSpotMaxLevel` / `removeSpotMaxLevel`，登记在 `DECLARATIVE_EFFECT_OPS`，由 `getSpotMaxLevelOverrides` 动态读取、不进执行流）。
 - **扩展纪律**：新增 op = 类型联合 + 注册 1 处（T5）。
 
+### Milestone Listener 与 Achievement
+
+- `MilestoneDef` 保存待观察的 Condition；关联的 `MilestoneListenerDef` 指定 Area，并承载完成后执行的 `then: Effect[]`。Listener 目标只在该 Area 已访问且其 Init 为当前 Init 时进入准入；切换出该 Init 或完成后撤出 Watch。未关联 Listener 的旧 Milestone 保持原有 Watch／完成行为，不执行 `then`。
+- Domain 为 Listener 关联目标支持既有精确 resource、spotLevel、story 唤醒源，以及同一 Area Init 下数值 `>=`／`>` 的 `$InitProducedAmount <initId> <resourceId>` 和 `$InitCollectedAmount <initId> <itemId>`；后两者分别由精确 resourceChanged／itemCollected 唤醒，并重验完整 Condition。`alwaysTrue` 可只在准入时检查；其它不能建立可靠 Watch 的条件不准入，首次已访问 Area 对账时记录包含 ID 与不支持叶的 error DevLog。
+- 只有 `completeMilestone()` 首次成功提交后，Adapter 才执行 Listener `then`；异常记 error DevLog，不回滚或自动重试。已完成 ID 不因读档、返回 Init 或定义更新重放效果。
+- `AchievementDef` 关联 Listener 并提供玩家文案。`buildAchievementView` 只读投影已访问 Area 的目标（当前 Init 用当前访问记录，其它 Init 用存档快照），保留已完成项；单叶的两种 Init 累计 stat 可附带当前／目标进度。未关联 Listener 的旧 Milestone 不进入该 Achievement 投影。
+
 ## 测试入口
 
 `tests/engine/effect-engine.test.ts`、`tests/engine/trigger-kind.test.ts`、`tests/engine/anonymous-affector-trigger.test.ts`、`tests/engine/event-driven-reactor.test.ts`

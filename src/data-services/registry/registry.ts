@@ -1,4 +1,4 @@
-import type { Datapack, MilestoneDef } from '../contracts/datapack';
+import type { AchievementDef, Datapack, MilestoneDef, MilestoneListenerDef } from '../contracts/datapack';
 import type { CharacterData } from '../contracts/character-data';
 import type { CharacterVariantDef } from '../contracts/character-variant';
 import type { CultivateCurveDef } from '../contracts/cultivate-curve';
@@ -96,6 +96,8 @@ export class Registry {
   private _items: Map<string, ItemDef> = new Map();
   private _dropTables: Map<string, DropTableDef> = new Map();
   private _milestones: Map<string, MilestoneDef> = new Map();
+  private _milestoneListeners: Map<string, MilestoneListenerDef> = new Map();
+  private _achievements: Map<string, AchievementDef> = new Map();
   private _funcletDefs: Map<string, FuncletDef> = new Map();
   private _characters: Map<Character, CharacterData> = new Map();
   /** Character 重构表（docs-818/12-character-rework.md §2）。 */
@@ -234,6 +236,16 @@ export class Registry {
         table: 'milestones',
         merge: dp => { for (const milestone of dp.milestones ?? []) this._milestones.set(milestone.id, milestone); },
         clear: () => this._milestones.clear(),
+      },
+      {
+        table: 'milestoneListeners',
+        merge: dp => { for (const listener of dp.milestoneListeners ?? []) this._milestoneListeners.set(listener.id, listener); },
+        clear: () => this._milestoneListeners.clear(),
+      },
+      {
+        table: 'achievements',
+        merge: dp => { for (const achievement of dp.achievements ?? []) this._achievements.set(achievement.id, achievement); },
+        clear: () => this._achievements.clear(),
       },
       {
         table: 'funcletDefs',
@@ -712,6 +724,8 @@ export class Registry {
   get items(): ReadonlyMap<string, ItemDef> { return this._items; }
   get dropTables(): ReadonlyMap<string, DropTableDef> { return this._dropTables; }
   get milestones(): ReadonlyMap<string, MilestoneDef> { return this._milestones; }
+  get milestoneListeners(): ReadonlyMap<string, MilestoneListenerDef> { return this._milestoneListeners; }
+  get achievements(): ReadonlyMap<string, AchievementDef> { return this._achievements; }
   get funcletDefs(): ReadonlyMap<string, FuncletDef> { return this._funcletDefs; }
   get characters(): ReadonlyMap<Character, CharacterData> { return this._characters; }
   /** 角色差分表（VariantId → Def）。 */
@@ -1236,7 +1250,14 @@ export class Registry {
 
   /** 加载并验证数据包 */
   load(datapack: Datapack): void {
-    validateDatapack(datapack, { initIds: new Set(this._inits.keys()), areaIds: new Set(this._areas.keys()), storyEntryIds: new Set(this.storyEntries.keys()) });
+    validateDatapack(datapack, {
+      initIds: new Set(this._inits.keys()),
+      areaIds: new Set(this._areas.keys()),
+      storyEntryIds: new Set(this.storyEntries.keys()),
+      milestoneIds: new Set(this._milestones.keys()),
+      milestoneListeners: this._milestoneListeners,
+      achievements: this._achievements,
+    });
     this.currentPackModName = datapack.modName ?? 'base';
     const incomingTagKeys = new Set<string>();
     for (const tag of datapack.tags ?? []) {
@@ -1253,7 +1274,14 @@ export class Registry {
 
   /** 使用当前注册表的已知 Init / Area 校验一个待合并数据包，不改变注册表。 */
   validate(datapack: Datapack): void {
-    validateDatapack(datapack, { initIds: new Set(this._inits.keys()), areaIds: new Set(this._areas.keys()), storyEntryIds: new Set(this.storyEntries.keys()) });
+    validateDatapack(datapack, {
+      initIds: new Set(this._inits.keys()),
+      areaIds: new Set(this._areas.keys()),
+      storyEntryIds: new Set(this.storyEntries.keys()),
+      milestoneIds: new Set(this._milestones.keys()),
+      milestoneListeners: this._milestoneListeners,
+      achievements: this._achievements,
+    });
   }
 
   get loadedModNames(): ReadonlySet<string> { return this._loadedModNames; }

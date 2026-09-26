@@ -286,7 +286,7 @@ export function wireGameInstance(
     g.triggerSystem, g.conditionSystem, g.mutations, hooks.getState, g.registry, {}, 'information-reveal-runtime',
   );
   const milestoneAdapter = new MilestoneAdapter(
-    g.triggerSystem, g.conditionSystem, g.mutations, hooks.getState, g.registry, 'milestone-runtime',
+    g.triggerSystem, g.conditionSystem, g.mutations, hooks.getState, g.registry, 'milestone-runtime', g.effectEngine, g.devLog,
   );
   g.triggerSystem.setRuntimeActionHandler(action => action.kind === 'reveal'
     ? informationRevealAdapter.handleRuntimeAction(action)

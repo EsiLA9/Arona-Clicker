@@ -1,4 +1,4 @@
-import type { Datapack } from '../../src/data-services/contracts/datapack';
+import type { AchievementDef, Datapack, MilestoneDef, MilestoneListenerDef } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/registry.test.ts
 // ============================================================
@@ -34,6 +34,33 @@ const sampleDatapack: Datapack = {
   
 };
 
+const makeMilestone = (id = 'test:milestone:credit_1000'): MilestoneDef => ({
+  id,
+  condition: { target: 'resource', key: 'credit', comparator: '>=', value: 1000 },
+});
+
+const makeListener = (
+  id = 'test:milestone-listener:credit_1000',
+  milestoneId = 'test:milestone:credit_1000',
+  areaId = 'test:area:area_1',
+): MilestoneListenerDef => ({
+  id,
+  milestoneId,
+  areaId,
+  then: [{ op: 'addResource', target: 'credit', value: 1000 }],
+});
+
+const makeAchievement = (
+  id = 'test:achievement:credit_1000',
+  listenerId = 'test:milestone-listener:credit_1000',
+): AchievementDef => ({
+  id,
+  listenerId,
+  title: '积累资源',
+  clue: '继续经营。',
+  rewardDescription: '获得资源。',
+});
+
 describe('Registry', () => {
   test('should load a valid datapack', () => {
     const reg = new Registry();
@@ -66,6 +93,168 @@ describe('Registry', () => {
     expect(() => reg.load({ ...sampleDatapack, milestones: [milestone, milestone] })).toThrow(/Duplicate milestone id/);
     expect(() => reg.load({ ...sampleDatapack, milestones: [{ ...milestone, id: 'test:trigger:credit_1000' }] }))
       .toThrow(/Milestone id .*typeName.*milestone/);
+  });
+
+  test('should merge, query, and clear milestone listeners and achievements', () => {
+    const reg = new Registry();
+    const listener = makeListener();
+    const achievement = makeAchievement();
+    reg.load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [achievement],
+    });
+
+    expect(reg.milestoneListeners.get(listener.id)).toEqual(listener);
+    expect(reg.achievements.get(achievement.id)).toEqual(achievement);
+
+    reg.clear();
+    expect(reg.milestoneListeners.size).toBe(0);
+    expect(reg.achievements.size).toBe(0);
+  });
+
+  test('should reject duplicate IDs and invalid entity types for new definitions', () => {
+    const listener = makeListener();
+    const achievement = makeAchievement();
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener, listener],
+    })).toThrow(/Duplicate milestone listener id/);
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [{ ...listener, id: 'test:achievement:wrong_type' }],
+    })).toThrow(/MilestoneListener id .*typeName.*milestone-listener/);
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [achievement, achievement],
+    })).toThrow(/Duplicate achievement id/);
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [{ ...achievement, id: 'test:milestone:wrong_type' }],
+    })).toThrow(/Achievement id .*typeName.*achievement/);
+  });
+
+  test('should accept same-pack and previously loaded milestone references', () => {
+    const reg = new Registry();
+    const milestone = makeMilestone();
+    reg.load({ ...sampleDatapack, milestones: [milestone] });
+    const listener = makeListener();
+    const achievement = makeAchievement();
+    expect(() => reg.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      milestones: [],
+      milestoneListeners: [listener],
+      achievements: [achievement],
+    })).not.toThrow();
+    expect(reg.milestoneListeners.has(listener.id)).toBe(true);
+    expect(reg.achievements.has(achievement.id)).toBe(true);
+
+    const samePackRegistry = new Registry();
+    expect(() => samePackRegistry.load({
+      ...sampleDatapack,
+      milestones: [milestone],
+      milestoneListeners: [listener],
+      achievements: [achievement],
+    })).not.toThrow();
+  });
+
+  test('should reject missing milestone, area, and listener references with definition IDs', () => {
+    const missingMilestone = makeListener('test:milestone-listener:missing_milestone', 'test:milestone:missing');
+    expect(() => new Registry().load({ ...sampleDatapack, milestoneListeners: [missingMilestone] }))
+      .toThrow(/MilestoneListener "test:milestone-listener:missing_milestone" references unknown milestone/);
+
+    const missingArea = makeListener('test:milestone-listener:missing_area', 'test:milestone:credit_1000', 'test:area:missing');
+    expect(() => new Registry().load({ ...sampleDatapack, milestones: [makeMilestone()], milestoneListeners: [missingArea] }))
+      .toThrow(/MilestoneListener "test:milestone-listener:missing_area" references unknown area/);
+
+    const missingListener = makeAchievement('test:achievement:missing_listener', 'test:milestone-listener:missing');
+    expect(() => new Registry().load({ ...sampleDatapack, achievements: [missingListener] }))
+      .toThrow(/Achievement "test:achievement:missing_listener" references unknown MilestoneListener/);
+  });
+
+  test('should reject multiple listeners per milestone and achievements per listener', () => {
+    const listener = makeListener();
+    const anotherListener = makeListener('extension:milestone-listener:credit_1000');
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener, anotherListener],
+    })).toThrow(/MilestoneListeners .*reference the same Milestone/);
+
+    const achievement = makeAchievement();
+    const anotherAchievement = makeAchievement('extension:achievement:credit_1000');
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [achievement, anotherAchievement],
+    })).toThrow(/Achievements .*reference the same MilestoneListener/);
+  });
+
+  test('should enforce one-to-one references across loaded datapacks', () => {
+    const listener = makeListener();
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, milestones: [makeMilestone()], milestoneListeners: [listener] });
+    const conflictingListener = makeListener('extension:milestone-listener:credit_1000');
+    expect(() => reg.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      milestones: [],
+      milestoneListeners: [conflictingListener],
+    })).toThrow(/MilestoneListeners .*reference the same Milestone/);
+
+    const achievementRegistry = new Registry();
+    achievementRegistry.load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [makeAchievement()],
+    });
+    expect(() => achievementRegistry.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      milestones: [],
+      milestoneListeners: [],
+      achievements: [makeAchievement('extension:achievement:credit_1000')],
+    })).toThrow(/Achievements .*reference the same MilestoneListener/);
+  });
+
+  test.each(['unknownOp', 'loot', 'travelToArea', 'setSpotMaxLevel', 'removeSpotMaxLevel'])(
+    'should reject non-executable Listener then op %s from runtime JSON',
+    op => {
+      const listener = {
+        ...makeListener(),
+        then: [{ op, target: 'credit', value: 1 }],
+      };
+      const datapack = {
+        ...sampleDatapack,
+        milestones: [makeMilestone()],
+        milestoneListeners: [listener],
+      } as unknown as Datapack;
+      expect(() => new Registry().load(datapack)).toThrow(
+        new RegExp(`MilestoneListener "${listener.id}" then\\[0\\] op "${op}" is not executable`),
+      );
+    },
+  );
+
+  test('should reject a non-array Listener then value from runtime JSON', () => {
+    const listener = { ...makeListener(), then: { op: 'addResource' } };
+    const datapack = {
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+    } as unknown as Datapack;
+    expect(() => new Registry().load(datapack)).toThrow(
+      /MilestoneListener "test:milestone-listener:credit_1000" then 必须是效果数组/,
+    );
   });
 
   test('should reject duplicate IDs', () => {

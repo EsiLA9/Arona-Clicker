@@ -76,11 +76,39 @@ export function refreshRevealIfChanged(ctrl: UIController): void {
   }
 }
 
+/** 更新 Records 中已挂载成就行的文字，不重建行或其父级。 */
+export function refreshAchievementRows(ctrl: UIController): void {
+  if (!ctrl.started || ctrl.panelState.service !== 'records') return;
+  const recordsRoot = ctrl.root.querySelector<HTMLElement>('[data-workspace-frame="service-records"]');
+  if (!recordsRoot?.isConnected) return;
+  const rows = [...recordsRoot.querySelectorAll<HTMLElement>('[data-achievement-id]')];
+  if (rows.length === 0) return;
+
+  const byId = new Map(ctrl.game.getAchievementView().map(item => [item.id, item]));
+  const ctx = createUIContext(ctrl.game);
+  for (const row of rows) {
+    const item = byId.get(row.dataset.achievementId ?? '');
+    if (!item) continue;
+
+    const status = row.querySelector<HTMLElement>('[data-achievement-status]');
+    if (status) status.textContent = item.completed ? '已完成' : '未完成';
+
+    if (!item.progress) continue;
+    const current = row.querySelector<HTMLElement>('[data-achievement-progress-current]');
+    const comparison = row.querySelector<HTMLElement>('[data-achievement-progress-comparison]');
+    const target = row.querySelector<HTMLElement>('[data-achievement-progress-target]');
+    if (current) current.textContent = ctx.formatNumber(item.progress.current);
+    if (comparison) comparison.textContent = item.progress.comparator === '>=' ? '≥' : '>';
+    if (target) target.textContent = ctx.formatNumber(item.progress.target);
+  }
+}
+
 /**
  * 轻量刷新：每 Tick 只更新资源数字节点，不重建 #app DOM。
  * 这样聊天流等区域的滚动位置与交互不受 Tick 干扰。
  */
 export function refreshLight(ctrl: UIController): void {
+  refreshAchievementRows(ctrl);
   // 兜底：奖励/移动通知排队后若没有后续聊天刷新，由下一 Tick 补一次聊天范围刷新
   if (ctrl.pendingRewardChats.length > 0 || ctrl.pendingTravelChats.length > 0) {
     if (!ctrl.notificationFallbackRendered) {

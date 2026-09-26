@@ -79,6 +79,8 @@ Shop、角色服务和完整背包等需要同时接管多个面板的功能，�
 
 `StoryWorkspaceState` 持有 `navPath`、`selectedEntryId`、`conversationOwner` 与 `mode: overview | playing`。owner 只决定 Story 对话 sandbox，不改变 Workspace；全局故事和学生归属故事都留在 Story。档案暂以 Story 的显式 `subroute = archive` 占位，避免回退成 Game 的 `centerTab`。Story 使用 `leftPanel.service.story.navigation`、`centerPanel.service.story.main`、`rightPanel.service.story.inspector`，三列均标记 `data-workspace-owner="story"`。
 
+Records 的区域成就只读消费 `GameReadModel.getAchievementView()`，按投影顺序分 Init／Area 展示已发现目标，并显示状态与简单累计进度。已挂载行带稳定的成就 ID、状态和进度节点；Records 页面打开时，资源变化、设施产出、物品收集与 Tick 在事件同步处理结束后合并为定点文本更新，不重建整页或替换成就行。新发现目标在下一次打开或渲染 Records 时进入列表；`tests/ui/area-achievement-demo.test.ts` 覆盖产出完成、Area 首访发现、收集进度和节点身份稳定。
+
 Contacts / Story 首期使用 `UIController.refreshWorkspace()` 做完整 Workspace 刷新；`refreshPanels()` 仅作为 Game 与迁移期兼容入口。`UISurfaceRuntime` 将 Workspace 实例、选择、故事路径与播放模式纳入 Surface key，路由或 Surface 改变会递增 generation，使旧异步更新失效。只有当前 Surface 且 Host 所属合法的 Region 更新才可继续细化；未知或未支持的 Region 记录诊断，不回写其它页面。
 
 三栏 panel 的顶部 Tabs 使用 `panel-tabs-region` 作为独立结构宿主：区域背景、主题装饰和底部分隔线挂在 `leftPanel.tabs` / `centerPanel.tabs` / `rightPanel.tabs`，`.switch-tabs` 仅负责 TabGroup 布局，单个按钮仍使用对应的 `*.tab` 宿主。Game 的既有 panel 继续独占外框、圆角、`overflow: hidden`，并由 `panel-body` 独占正文滚动与内容 padding；Service/Settings/Shop/Character/Inventory 的列级外框由 `WorkspaceColumn.surface = panel` 产生，正文通过 `workspace-column__body` 的 scroll owner 属性或页面明确的 List/Inspector Region 承担。普通弹窗、抽卡范围和主题编辑器内部的 `.switch-tabs` 不套用该结构。Workspace 外层 Panel 不进入旧内容 Panel 的 ScrollManager 序号快照。

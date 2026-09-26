@@ -17,6 +17,9 @@ Registry 内部所有表经 `tableSteps: TableStep[]` 单一声明（table 名 +
 | `passivePools` | poolId | PassivePoolDef |
 | `storyEntries`（合并视图 getter） | entryId | StoryEntryDef（同 id 时 passive 覆盖 active） |
 | `items` / `dropTables` | id | ItemDef / DropTableDef |
+| `milestones` | milestoneId | MilestoneDef |
+| `milestoneListeners` | listenerId | MilestoneListenerDef |
+| `achievements` | achievementId | AchievementDef |
 | `funcletDefs` | funcletId | FuncletDef |
 | `characters` | 原型 Character | CharacterData |
 | `characterVariants` | variantId | CharacterVariantDef |
@@ -42,6 +45,7 @@ Registry 内部所有表经 `tableSteps: TableStep[]` 单一声明（table 名 +
 ## 构建与校验
 
 - 装载流程：`clear()` → 逐包 `merge(dp)`（tableSteps 统一驱动）→ 完整性校验；
+- Milestone 关系在合并后的 Registry 上校验：Listener 必须引用存在的 Milestone 和 Area，Achievement 必须引用存在的 Listener；同一 Milestone 至多被一个 Listener 引用，同一 Listener 至多被一个 Achievement 引用。旧 Milestone 可保持未关联。
 - 校验失败即抛错（缺引用 / 重复 ID / 非法枚举），保证运行时「拿到的引用必有效」；校验覆盖面并非全量——真/意义引用的校验差异见 [[docs/docs-828/03-data-structures/id-reference-semantics]] §六。
 
 ## 运行时不可变

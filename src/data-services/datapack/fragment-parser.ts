@@ -23,10 +23,11 @@ import type { CharacterPersistConfig } from '../contracts/character-persist';
 import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contracts/color';
 import type { GachaPoolDef } from '../contracts/gacha-pool';
 import type { ShopDef } from '../contracts/shop';
+import type { AchievementDef, MilestoneListenerDef } from '../contracts/datapack';
 
 export const DATAPACK_LIST_FIELDS = [
   'inits', 'areas', 'spots', 'enhancements', 'activeStories', 'passiveStories', 'stories',
-  'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'milestones', 'funcletDefs', 'characters',
+  'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'milestones', 'milestoneListeners', 'achievements', 'funcletDefs', 'characters',
   'resourceDisplays', 'pics', 'charaProfiles', 'passivePools',
   'characterVariants', 'cultivateCurves', 'colorGroups', 'colorEquipments', 'themeDesigns',
   'favoriteItems', 'uniqueWeapons', 'traits', 'gears',
@@ -134,6 +135,8 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
   if (lists.affectorPacks) datapack.affectorPacks = lists.affectorPacks as AffectorPackDef[];
   if (lists.triggerDefs) datapack.triggerDefs = lists.triggerDefs as TriggerDef[];
   if (lists.milestones) datapack.milestones = lists.milestones as Datapack['milestones'];
+  if (lists.milestoneListeners) datapack.milestoneListeners = lists.milestoneListeners as MilestoneListenerDef[];
+  if (lists.achievements) datapack.achievements = lists.achievements as AchievementDef[];
   if (lists.resourceDisplays) datapack.resourceDisplays = lists.resourceDisplays as ResourceDisplayDef[];
   if (lists.pics) datapack.pics = lists.pics as PicDef[];
   if (lists.charaProfiles) datapack.charaProfiles = lists.charaProfiles as CharaProfileDef[];

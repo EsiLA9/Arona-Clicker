@@ -1,4 +1,4 @@
-import type { Datapack } from '../contracts/datapack';
+import type { AchievementDef, Datapack, MilestoneListenerDef } from '../contracts/datapack';
 // ============================================================
 // data-services/registry-validate.ts — 数据包静态校验（纯函数）
 // 从 registry.ts 拆出：只读检查 Datapack，不触碰注册表实例状态。
@@ -12,6 +12,7 @@ import type { TagPath } from '../../engine/core/tag';
 import { parseEntityId, validateEntityId } from '../../engine/core/entity-id';
 import { assertValidExtra, expandFlatKeys, ExtraError } from '../../engine/extra/index';
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
+import type { EffectOp } from '../../engine/types/expression';
 
 export class RegistryError extends Error {
   constructor(message: string) {
@@ -47,9 +48,47 @@ const checkEntityIds = (
 
 const PRESENTATION_OPTION_ID = /^[a-z0-9][a-z0-9_-]*$/;
 const CONDITION_COMPARATORS = new Set(['==', '!=', '>=', '<=', '>', '<']);
+const MILESTONE_LISTENER_EXECUTABLE_OPS: ReadonlySet<EffectOp> = new Set([
+  'setResource',
+  'addResource',
+  'setSpotLevel',
+  'addSpotLevel',
+  'setManager',
+  'addEnhancement',
+  'addItem',
+  'unlockInit',
+  'setFlag',
+  'triggerStory',
+  'setExtra',
+  'addExtra',
+  'removeExtra',
+  'grantCharacter',
+  'addAffectionExp',
+  'setTheme',
+  'setEntityPresentation',
+  'clearEntityPresentation',
+  'clearAllChatFlow',
+  'showChatText',
+  'clearIdChatFlow',
+  'clearAllChatText',
+  'showOpeningTitle',
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function validateMilestoneListenerEffects(listener: MilestoneListenerDef): void {
+  const effects: unknown = listener.then;
+  if (!Array.isArray(effects)) {
+    throw new RegistryError(`MilestoneListener "${listener.id}" then 必须是效果数组`);
+  }
+  for (const [index, effect] of effects.entries()) {
+    const op = isRecord(effect) ? effect.op : undefined;
+    if (typeof op !== 'string' || !MILESTONE_LISTENER_EXECUTABLE_OPS.has(op as EffectOp)) {
+      throw new RegistryError(`MilestoneListener "${listener.id}" then[${index}] op "${String(op)}" is not executable in milestone listener context`);
+    }
+  }
 }
 
 function isCondition(value: unknown): boolean {
@@ -124,6 +163,9 @@ export interface DatapackValidationContext {
   readonly initIds?: ReadonlySet<string>;
   readonly areaIds?: ReadonlySet<string>;
   readonly storyEntryIds?: ReadonlySet<string>;
+  readonly milestoneIds?: ReadonlySet<string>;
+  readonly milestoneListeners?: ReadonlyMap<string, MilestoneListenerDef>;
+  readonly achievements?: ReadonlyMap<string, AchievementDef>;
 }
 
 export function validateDatapack(dp: Datapack, context: DatapackValidationContext = {}): void {
@@ -152,6 +194,8 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   if (dp.shops) checkDup(dp.shops, 'shop');
   if (dp.dropTables) checkDup(dp.dropTables, 'drop table');
   if (dp.milestones) checkDup(dp.milestones, 'milestone');
+  if (dp.milestoneListeners) checkDup(dp.milestoneListeners, 'milestone listener');
+  if (dp.achievements) checkDup(dp.achievements, 'achievement');
   if (dp.funcletDefs) checkDup(dp.funcletDefs, 'funclet');
   if (dp.characters) checkDup(dp.characters, 'character');
   if (dp.characterVariants) checkDup(dp.characterVariants, 'character variant');
@@ -262,6 +306,18 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
       throw new RegistryError(`Milestone id "${milestone.id}" 的 typeName 段须为 "milestone"`);
     }
   }
+  checkEntityIds(dp.milestoneListeners, 'milestone-listener', 'MilestoneListener');
+  for (const listener of dp.milestoneListeners ?? []) {
+    if (parseEntityId(listener.id)?.type !== 'milestone-listener') {
+      throw new RegistryError(`MilestoneListener id "${listener.id}" 的 typeName 段须为 "milestone-listener"`);
+    }
+  }
+  checkEntityIds(dp.achievements, 'achievement', 'Achievement');
+  for (const achievement of dp.achievements ?? []) {
+    if (parseEntityId(achievement.id)?.type !== 'achievement') {
+      throw new RegistryError(`Achievement id "${achievement.id}" 的 typeName 段须为 "achievement"`);
+    }
+  }
   // 匿名 Trigger（id 缺省 / anon: 派生前缀）不参与三段式校验
   checkEntityIds(
     dp.triggerDefs?.filter(t => t.id !== undefined && !t.id.startsWith('anon:')) as { id: string }[] | undefined,
@@ -292,6 +348,11 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
     ...dp.activeStories.map(entry => entry.id),
     ...dp.passiveStories.map(entry => entry.id),
   ]);
+  const milestoneIds = new Set([...context.milestoneIds ?? [], ...(dp.milestones ?? []).map(milestone => milestone.id)]);
+  const listenersById = new Map(context.milestoneListeners ?? []);
+  for (const listener of dp.milestoneListeners ?? []) listenersById.set(listener.id, listener);
+  const achievementsById = new Map(context.achievements ?? []);
+  for (const achievement of dp.achievements ?? []) achievementsById.set(achievement.id, achievement);
 
   for (const area of dp.areas) {
     if (!initIds.has(area.initId)) {
@@ -318,6 +379,32 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
         throw new RegistryError(`Area "${area.id}" references unknown default spot: "${sid}"`);
       }
     }
+  }
+  const listenerByMilestone = new Map<string, string>();
+  for (const listener of listenersById.values()) {
+    if (!milestoneIds.has(listener.milestoneId)) {
+      throw new RegistryError(`MilestoneListener "${listener.id}" references unknown milestone: "${listener.milestoneId}"`);
+    }
+    if (!areaIds.has(listener.areaId)) {
+      throw new RegistryError(`MilestoneListener "${listener.id}" references unknown area: "${listener.areaId}"`);
+    }
+    const otherListenerId = listenerByMilestone.get(listener.milestoneId);
+    if (otherListenerId && otherListenerId !== listener.id) {
+      throw new RegistryError(`MilestoneListeners "${otherListenerId}" and "${listener.id}" reference the same Milestone "${listener.milestoneId}"`);
+    }
+    listenerByMilestone.set(listener.milestoneId, listener.id);
+    validateMilestoneListenerEffects(listener);
+  }
+  const achievementByListener = new Map<string, string>();
+  for (const achievement of achievementsById.values()) {
+    if (!listenersById.has(achievement.listenerId)) {
+      throw new RegistryError(`Achievement "${achievement.id}" references unknown MilestoneListener: "${achievement.listenerId}"`);
+    }
+    const otherAchievementId = achievementByListener.get(achievement.listenerId);
+    if (otherAchievementId && otherAchievementId !== achievement.id) {
+      throw new RegistryError(`Achievements "${otherAchievementId}" and "${achievement.id}" reference the same MilestoneListener "${achievement.listenerId}"`);
+    }
+    achievementByListener.set(achievement.listenerId, achievement.id);
   }
   for (const pack of dp.affectorPacks ?? []) {
     for (const entry of pack.entries) {
