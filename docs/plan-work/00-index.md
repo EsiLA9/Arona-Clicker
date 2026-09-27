@@ -9,9 +9,13 @@
 
 玩法需求由 [[docs/ai/goal-workflow]] 路由：可删除的最终目标集与阶段 Goal 放在 [[docs/plan-work/goalsets/README]] 所述目录；进入正式讨论后建立滚动 Draft，满足准入再建独立可验收的 Task。具体 Goal Set 不登记到本索引，也不作为正式文档的依赖。
 
+当前讨论：[[draft-0159-agent-observability-query-contract]]（Agent 观测工程 G01：操作后状态结果切片）。
+
 ## 当前推进
 
-目前没有已开工的正式 Task；Milestone／Achievement 的后续作者能力由 [[docs/plan-work/goalsets/README]] 进入下一轮 Draft／Task。
+新建待施工 Task：[[task-0160-agent-operation-result-slice]]（经 Spot 升级命令捕获有界操作结果、状态差异和现存日志）。
+
+待后续处理的 UI 主题切换调查记录：[[task-0158-ui-theme-workspace-transition-refresh-audit]]（主题工作区、Lobby/Init 与 GlobalEnh 间的图层主题刷新问题）。
 
 ## 本次完成（2026-09-26）
 

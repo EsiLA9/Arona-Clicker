@@ -33,6 +33,7 @@ import type { EnhancementAttachment } from '../../data-services/contracts/enhanc
 import type { EntityPresentationQueryPort } from './entity-presentation-query';
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type { AchievementViewItem } from '../read-model/achievement-view';
+import type { OperationObservation } from './operation-observation';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -260,6 +261,8 @@ export interface GameReadModel {
   availableAreaIds(areaId: string): string[];
   getStoryView(owner: string): StoryView | null;
   getDevLogs(): readonly DevLogEntry[];
+  getOperationObservations(options?: { readonly limit?: number }): readonly OperationObservation[];
+  getOperationObservation(captureId: string): OperationObservation | null;
 }
 
 /** UI 控制器最终应依赖的运行时命令集合；迁移期由 Runtime 直接实现。 */

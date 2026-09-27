@@ -30,6 +30,8 @@ import { ChatFlowService } from './services/chat-flow-service';
 import { buildGameView } from './read-model/game-view-builder';
 import { buildAchievementView } from './read-model/achievement-view';
 import type { AchievementViewItem } from './read-model/achievement-view';
+import { OperationObservationStore } from './operation-observation';
+import type { OperationObservation, OperationObservationInput } from './contracts/operation-observation';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
 import { buildSaveData } from './runtime-save-codec';
 import { restoreFromSave } from './runtime-save';
@@ -145,6 +147,7 @@ export class GameInstance {
   private _state!: PlayerState;
   private _tagResidue: TagOverrideResidue = { spotTagOverrides: {} };
   private runtimeAreaTopology: readonly RuntimeAreaTopologyConnection[] = [];
+  private readonly operationObservationStore = new OperationObservationStore();
 
   private readonly saveCodec: (ctx: SaveBuildContext) => SaveData;
 
@@ -196,6 +199,15 @@ export class GameInstance {
 
   getDevLogs(): readonly DevLogEntry[] { return this.devLog.getEntries(); }
   clearDevLogs(): void { this.devLog.clear(); }
+  getOperationObservations(options?: { readonly limit?: number }): readonly OperationObservation[] {
+    return this.operationObservationStore.list(options?.limit);
+  }
+  getOperationObservation(captureId: string): OperationObservation | null {
+    return this.operationObservationStore.get(captureId);
+  }
+  recordOperationObservation(input: OperationObservationInput): OperationObservation {
+    return this.operationObservationStore.capture(input);
+  }
 
   /** 强制重算可见性快照（服务/门面共用）。 */
   private refreshVisibility(): void {
@@ -252,6 +264,7 @@ export class GameInstance {
 
   /** 加载数据包并初始化游戏 */
   init(datapacks: Datapack[], options: RuntimeInitOptions = {}): void {
+    this.operationObservationStore.clear();
     this.sessionService.touchLastTick();
     // 加载所有数据包
     for (const dp of datapacks) {
@@ -436,6 +449,7 @@ export class GameInstance {
 
   /** 从存档数据恢复 */
   load(saveData: SaveData): void {
+    this.operationObservationStore.clear();
     restoreFromSave({
       registry: this.registry,
       devLog: this.devLog,
@@ -461,6 +475,7 @@ export class GameInstance {
 
   /** 重置为默认状态 */
   reset(): void {
+    this.operationObservationStore.clear();
     this._tagResidue = { spotTagOverrides: {} };
     resetRuntime({
       stop: () => this.stop(),

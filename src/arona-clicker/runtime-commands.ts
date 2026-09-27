@@ -13,8 +13,14 @@ import type { SaveData } from './contracts/save-data';
 import type { RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeWorldApplyResult, RuntimeWorldDraft } from './contracts/runtime-content';
 import type { RuntimeDefinitionEditorCommands } from './contracts/runtime-content';
 import type { RuntimeModDraft, RuntimeModApplyResult } from './contracts/runtime';
+import type { PlayerState } from './types/state';
+import type { DevLogEntry } from '../engine/core/dev-log';
+import type { OperationObservation, OperationObservationInput } from './contracts/operation-observation';
 
 export interface GameCommandSource {
+  readonly state: Readonly<PlayerState>;
+  getDevLogs(): readonly DevLogEntry[];
+  recordOperationObservation(input: OperationObservationInput): OperationObservation;
   travelToArea(areaId: AreaId, allowDuringStory?: boolean, checkAdjacency?: boolean): TravelResult;
   tick(): TickResult;
   start(): void;
@@ -38,6 +44,17 @@ export interface GameCommandSource {
 
 /** 将 AronaClicker Runtime 的公开命令适配为 UI 能力接口。 */
 export function createGameCommands(game: GameCommandSource): GameCommands {
+  const snapshotSpotUpgradeState = (spotId: string) => ({
+    spotLevel: game.state.spotLevels[spotId] ?? null,
+    resources: {
+      global: { ...(game.state.globalResources ?? {}) },
+      currentInit: { ...game.state.resources },
+    },
+    inventory: { ...game.state.inventory },
+  });
+
+  const highestLogId = (entries: readonly DevLogEntry[]) => entries.reduce((maxId, entry) => Math.max(maxId, entry.id), 0);
+
   return {
     travelToArea: (areaId, allowDuringStory, checkAdjacency) => game.travelToArea(areaId, allowDuringStory, checkAdjacency),
     tick: () => game.tick(),
@@ -59,7 +76,37 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     purchaseEnhancement: enhancementId => game.enhancements.purchaseEnhancement(enhancementId),
     removeEnhancement: enhancementId => game.enhancements.removeEnhancement(enhancementId),
     unlockSpot: (spotId, paymentOptionId) => game.spot.unlockSpot(spotId, paymentOptionId),
-    upgradeSpot: (spotId, paymentOptionId) => game.spot.upgradeSpot(spotId, paymentOptionId),
+    upgradeSpot: (spotId, paymentOptionId) => {
+      const stateBefore = game.state;
+      const before = snapshotSpotUpgradeState(spotId);
+      const beforeLogId = highestLogId(game.getDevLogs());
+      const result = game.spot.upgradeSpot(spotId, paymentOptionId);
+      const stateAfter = game.state;
+      const after = snapshotSpotUpgradeState(spotId);
+      const logsAfter = game.getDevLogs();
+      const afterLogId = highestLogId(logsAfter);
+      const entries = logsAfter.filter(entry => entry.id > beforeLogId);
+      const expectedNewLogs = Math.max(0, afterLogId - beforeLogId);
+
+      game.recordOperationObservation({
+        operation: { kind: 'spot-upgrade', spotId, ...(paymentOptionId === undefined ? {} : { paymentOptionId }) },
+        result,
+        identity: {
+          activeInit: stateBefore.activeInit ?? 'none',
+          contentRevision: 'unknown',
+          reason: 'runtime-content-revision-not-exposed',
+        },
+        frame: { before: stateBefore.totalFrames, after: stateAfter.totalFrames },
+        before,
+        after,
+        logs: {
+          association: 'captured-during-command',
+          entries,
+          omitted: Math.max(0, expectedNewLogs - entries.length),
+        },
+      });
+      return result;
+    },
     purchaseInit: initId => game.inits.purchaseInit(initId),
     hardRestartInit: () => game.inits.hardRestartInit(),
     roll: (poolId, count) => game.gachaService.roll(poolId, count),
