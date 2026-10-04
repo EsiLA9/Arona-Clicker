@@ -32,6 +32,11 @@
 - 不重构现有所有 Datapack 表、独立编辑器或内容打包流程。
 - 不把 EventState 轨道硬编码成 PlayerState 字段，不把 Location 合并进 Area/Spot。
 
+## Gameplay UI Deferred Scope
+
+- 本 Task 只定义 Operation 内容合同、Registry 校验与 Operation 内容兼容标识；不施工 Gameplay B 的玩家界面、聊天流交互或路线/场景选择控件。
+- 可为 Task 0222 暴露目录、View 数据和内容诊断 API；三栏布局与玩家交互表现不在本 Task 冻结。
+
 ## Current AC facts
 
 | 已核实事实 | 证据 | 设计影响 |
@@ -76,7 +81,7 @@ Datapack 来源解析 → Operation 定义 Builder/Validation → Registry 汇�
 - **Unit：**各定义字段验证与 Builder 默认值。
 - **Runtime：**已验证 Definition 构造 Run、动作/状态配置能被 Resolver 消费。
 - **Integration：**Datapack fragments→Registry→完整事件；不合法包稳定失败。
-- **UI：**无需 Operation Editor；界面消费 Registry/View 投影。
+- **API：**无需 Operation Editor；验证 Registry/View 的只读合同可供后续 UI 消费，不实现 Gameplay B 操作界面。
 
 ## Dependencies
 
@@ -85,8 +90,8 @@ Datapack 来源解析 → Operation 定义 Builder/Validation → Registry 汇�
 
 ## Documentation / GALHCG
 
-- 稳定后更新 `docs/docs-829/03-data-structures/datapack-contracts.md`、Registry/Pack Loading 路由和新玩法 Authoring 机制页。
-- Schema 对应的稳定定义概念进入 GALHCG 并 maps_to 到合同/Registry/默认内容；字段分支、Builder helper、Registry 私有表不分拆成语义节点。
+- 在本 Task Receipt 收集合同、Registry、内容兼容标识的候选证据，不在单 Task 收尾时写 GALHCG。
+- Task 0221 完成后，一次性委派子 Agent 汇总 Task 0220、0219、0221 的内容合同、存档和作者流程关系，批量更新机制文档/GALHCG 并验证 freshness；字段分支、Builder helper、Registry 私有表不分拆成语义节点。
 - Read Set：`docs/docs-829/03-data-structures/datapack-contracts.md`、`registry.md`、`docs/docs-829/04-mechanisms/data-services/pack-loading.md`、`docs/docs-829/05-conventions/schema-sync.md`、目标合同/Registry 源码与测试。
 
 ## 当前核验与剩余工作

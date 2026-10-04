@@ -6,7 +6,7 @@
 
 本文定义一款以学生自主行动和老师有限指挥为核心的现场事件策略游戏，并把该玩法翻译为 AC 内可逐步建设的 Runtime、状态、内容和 UI 能力。本文是产品与架构提案，不是当前 AC 运行时事实。
 
-本轮交付只包含玩法内容蒸馏、AC 语义映射与 Task 文档。代码、测试实现和引擎机制文档均不在本轮施工范围。下列施工 Task 全部为 `proposed`，用于之后逐项启动。
+Task 0213–0216 已完成并形成单地点核心机制原型；0217–0225 的后续任务仍按各自 Task 状态逐项推进。规划层设计不得覆盖源码、测试和当前机制文档中的事实。
 
 ## 裁定来源与状态
 
@@ -17,6 +17,9 @@
 | 学生行动理由、对手 Intent、结算记录需要可解释 | 本次产品要求 | 列为 v1 信息与验收要求，不代表已有完整规则实现。 |
 | 每个 Beat 只有一个 Sensei 指挥位，且只能修改一名学生的计划 | **新提案**，不是既有确认规则 | 用于凸显学生自主性并限制逐个操控；Task 0216/0222 必须验证干预存在真实取舍。 |
 | 路线选择是单独事件命令，不产生战术 Beat/Resolution | **新裁定** | 解决战术提交单位与地点转场输入的口径歧义；只有一个出口时自动转场，多出口时才等待玩家选择。 |
+| 正式玩法 B 界面采用左/中/右三栏：我方 / 信息 / 敌方 | 用户本轮确认 | Task 0222 按此重构 Gameplay B Surface；不要求全 AC 全局 UI 改版，也不以窄屏内容移位为本阶段前置。 |
+| 固定场景内容与结算叙述进入中央信息聊天流；学生计划/行为以我方角色卡承载，不拆成多列计划表或重复消息条目 | 用户本轮确认的方向 | Task 0216 的单地点聊天流原型可复用其 Runtime/View 接口，但不是最终布局模板；Task 0222 冻结角色卡表现细节。角色卡 UI 与有限玩家 SceneCard 牌区是两个概念。 |
+| 其余信息流内的玩家交互暂缓到下一大施工阶段 | 用户本轮裁定 | Task 0217–0221、0224–0225 可先实现服务、状态、投影与命令接口；不实现聊天流内的选择/出牌/路线交互 UI，也不提前裁定交互形式。统一在 Task 0222 设计并验收。 |
 | 首期路线条件叶节点只检查持有物，可用 `all/any/not` 组合；地图有向且允许环，但每地点访问有界 | 用户已在早期玩法 B Draft 确认（[[draft-0204-gameplay-b-map-and-player-actions]]；这是设计来源，不是 AC 实现事实） | RouteEdge 只读取 EventRun 的局内持有物；访问上限独立于出口条件。事件目标仍可读取 EventState 的轨道/事实。 |
 | 随机只在 Commit 后消费 | **新裁定** | 让预览、改选和撤销不会重抽结果；按运行 Seed/Cursor 保持可复现。 |
 | 非战斗场景行为可逐角色分别选择，或由玩家选择一个全局行为；玩家拥有共用路线 Cost、有限场景卡组，场景可增加 Cost 并设离场携带上限 | 用户已在早期玩法 B Draft 确认（[[draft-0204-gameplay-b-map-and-player-actions]]；这是设计来源，不是 AC 实现事实） | 纳入 AC-native 设计，细则见“场景行为、路线 Cost 与角色技能兼容”；由新增 Task 0224/0225 落地。场景选择与战斗 Intervention 分开，但共用 EventRun、费用校验和 Resolution。 |
@@ -127,7 +130,7 @@ v1 用作者明确配置的有向图，不自动生成地图；图允许环路�
 | RNG | 角色技能与行动效果的随机仅在 Commit 结算；预备/编辑不抽取新结果；场景卡牌序由 EventRun Seed 确定并随牌堆保存，不推进 Commit 结算随机游标 | 可视化概率、重播、内容版本兼容回放 |
 | Save / Resume | V1 发布切片必须恢复当前 EventRun、地点、局部 Actor/事件状态、准备与已修订计划、日志游标和 RNG 状态；核心可玩切片 0216 可先以内存运行 | 跨内容版本迁移、云同步、操作回放 |
 | 内容扩展 | 事件、地点、动作、参与者配置、目标和路线以声明式内容进入 Datapack/Registry，并进行 ID/引用/边界校验 | 游戏内即时编辑、图形化地图编辑、外部脚本和社区模组工具 |
-| UI / ViewModel | detached 的只读 Operation View；交互经 Controller/Runtime 命令；准备、指挥、Commit 和结果分区清楚 | 独立 Workspace、复盘视图与高阶策略分析 |
+| UI / ViewModel | detached 的只读 Operation View；正式 Gameplay B 使用我方/信息/敌方三栏；我方角色卡承载学生当前计划/行为，固定场景与结算信息进入中央信息流 | 其余信息流交互、复盘视图与高阶策略分析 |
 
 ### 可解释性和随机原则
 
@@ -241,20 +244,25 @@ Task 0219 用上限内合成 Run 固化 EventRunSnapshot 字节 cap；Task 0222 
 
 ## 四、UI / ViewModel 信息架构
 
-每次 Commit 前，玩家要能同时判断“局面如何、学生将做什么、谁威胁谁、我这次能改什么、预计改变了什么”。OperationView 至少提供：
+### 正式 Gameplay B Surface
 
-- Event/Location 标题、当前目标与成功/失败指标；事件轨道及已知事实。
-- 学生参与者状态、当前行动、行动原因、目标、资源与合法替代项。
-- 非战斗场景的 Individual/Global 模式与本批选择、共享 PlayerCost、当前手牌及抽牌/已用状态。
-- 对手 Intent 和环境压力的目标、可预见效果与约束。
-- 一次指挥位剩余情况、当前修订前后对照、费用校验和协同结果预览。
-- Commit 可用性、不能提交/不能选择的原因。
-- Resolution 日志：行动、组合、随机结果、状态变化及触发的地点/事件结局。
-- 路线视图：可用地点、缺少的局内持有物、地点访问上限、门槛未满足原因及跳过的现场问题可能造成的变化。
+Task 0222 的正式操作界面采用稳定的左/中/右三栏，职责固定为：
 
-信息区域可组织为 Event Overview、Location、Prepared Beat、Actor、Action/Intent、Intervention、Resolution Log、Route/Transition。它们是内容职责，不预设屏幕分栏或具体美术。
+| 栏位 | 职责 | 主要内容 |
+| --- | --- | --- |
+| 左：我方 | 学生与 Sensei 操作锚点 | 以角色卡逐人呈现学生身份、状态、当前计划/行为、行动理由及可用操作；不得另建与角色卡重复的并列学生计划/行为长列表。 |
+| 中：信息 | 现场理解与时间顺序 | AC 风格聊天流承载固定事件/地点内容、已知线索、状态简报与 Resolution 叙述；它是主要阅读面并占工作区过半宽度，不预先塞入待裁定的互动按钮、选项气泡或卡牌菜单。 |
+| 右：敌方 | 对立压力与威胁来源 | 以敌方/环境卡呈现参与者状态、Intent、目标和可预见压力。 |
 
-UI 只读 OperationView，通过 Controller 命令修改 InterventionDraft 或选择 RouteEdge。小范围状态更新应保留焦点、滚动与目标选择；普通 hover、scroll、selection 和 click 不重建整个 Workspace。首次纵向切片只需要一处现场与一个 Beat 工作区，不要求一次重做全 AC 导航。
+固定内容进入中央信息流是已确认方向；角色计划和行为归属我方角色卡是正式表现约束。角色卡中的计划/行为是该学生的局内状态表达，不等于 Task 0225 的玩家有限场景卡牌实例；二者不能因都采用卡片视觉而合并成同一 Runtime 区域。
+
+### OperationView 与交互冻结边界
+
+OperationView 是 detached 只读投影，应按服务需要提供 Event/Location/Objective、EventState 轨道/事实、我方 Actor 与计划、敌方/环境 Intent、Cost/SceneCard 状态、路线候选/阻塞原因、Commit 可用性和有界 Resolution 摘要。提供数据投影不等于承诺当前阶段把每项数据做成 UI 控件或聊天消息。
+
+Task 0217–0221、0224–0225 可定义与实现 EventRun 命令、SceneAction 批次、Route 选择、PlayerCost、SceneCard、存档及内容校验服务；这些阶段不得引入 Gameplay B 的新选择界面，也不得决定交互放入聊天消息还是侧栏。Operation 固定内容/结算内容在信息流的呈现可由 0216 原型验证，但其现有操作区只作为纵切原型，不构成正式三栏布局先例。
+
+所有其余信息流内的玩家交互，包含 Individual/Global SceneAction 选择、场景卡出牌、路线选择和局内确认，统一延期到下一个大型体验施工阶段 Task 0222；由该 Task 在检查服务接口和 OperationView 后再设计与实现。普通 hover、scroll、焦点和阅读仍须保持局部刷新；这类连续性是工程约束，不提前冻结交互形式。
 
 ## 五、核心可玩切片（Task 0216）
 
@@ -297,9 +305,20 @@ UI 只读 OperationView，通过 Controller 命令修改 InterventionDraft 或�
 | 9 | [[task-0220-gameplay-b-datapack-contracts-and-registry]] | 事件/地点/行动与嵌入场景卡组可由声明式 Datapack 定义并验证，并提供逐事件内容兼容标识 | 0213–0218、0224–0225 |
 | 10 | [[task-0219-gameplay-b-event-save-and-resume]] | EventRun 可精确暂停和恢复，包含 PlayerCost、卡组分区及各自 RNG 状态 | 0213–0218、0220、0224–0225 |
 | 11 | [[task-0221-gameplay-b-authoring-and-content-validation-workflow]] | 作者能创建、检查、加载并迭代完整事件内容 | 0217–0220、0224–0225 |
-| 12 | [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] | **V1 产品切片**：玩家可从正式 AC 入口启动并完成含场景选择、PlayerCost、有限场景卡组与三类结局的多地点事件 | 0216–0221、0224–0225 |
+| 12 | [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] | **下一大型体验施工阶段 / V1 产品切片**：把稳定服务与内容接成正式 AC 入口，并采用我方角色卡 / 中央信息流 / 敌方三栏设计、裁定和验收全部 Gameplay B 玩家交互 | 0216–0221、0224–0225 |
 
-0213–0216 先交付自治计划、有限指挥和统一结算的核心切片；0217–0218 补齐事件目标与持有物门槛路线。新增的 Task 0224/0225 在存档、Datapack 合同和作者工作流定型前，补齐早期已确认的场景行为模式、共享路线 Cost、有限场景卡组和角色技能兼容规则。Task 0220 冻结声明合同及事件内容兼容标识；Task 0219 再据此精确保存/恢复 Run；Task 0221 完成作者验证流程，0222 将正式游乐园样例放入 AC 默认内容并从 `base:init:schale_office` 入口走完整事件。旧原型仅提供设计来源，不视为 AC 机制或可直接复用实现。
+0213–0216 交付 Runtime 基础与单地点原型；0217–0218 完成目标和地图语义；0224–0225 完成非战斗行为、共享 Cost 与玩家卡牌的服务/状态机制；0220/0219/0221 完成内容合同、续局和作者校验。以上阶段可提供稳定 OperationView 与命令接口，但不延展玩法界面交互。Task 0222 是下一大型体验施工阶段：基于实际服务能力重做三栏 Gameplay B Surface，以角色卡表现我方计划/行为、以中央聊天流表现固定场景/结算信息，再决定需要哪些流内/栏内交互并完成正式游乐园多地点切片。旧原型仅提供机制来源和接口，不视为最终 UI 布局。
+
+### GALHCG 批次维护节奏
+
+每个 Task 仍按项目协议对未知领域做必要的 GALHCG 发现、交叉核证，并在 Receipt 记录已核验路径、待更新 owner 与变更摘要；不要求每个 Task 完成时都刷新或写入语义地图。玩法 B 按下列大阶段点一次性委派子 Agent 整理并复核积累项，再批量更新并验证 freshness：
+
+1. Task 0218 完成后：合并 0217–0218 的目标、EventState、Location/Route 语义。
+2. Task 0225 完成后：合并 0224–0225 的 SceneAction、PlayerCost、玩家场景卡语义。
+3. Task 0221 完成后：合并 0220、0219、0221 的声明内容、兼容标识、存档与作者流程。
+4. Task 0222 完成后：维护正式三栏 UI、产品入口、默认内容、View/命令和测试关系。
+
+仅当实现变化使当前地图立即误导后续施工、出现需要被其他工作发现的新稳定 Concept，或 Task 明确要求当前阶段的映射验收时，才提前维护。该批次策略降低重复刷新/写图，不取消任务期间的源码核证与路径发现。
 
 ## 八、开放问题（不阻止推进）
 
@@ -312,11 +331,11 @@ UI 只读 OperationView，通过 Controller 命令修改 InterventionDraft 或�
 
 ## 九、事实依据与置信边界
 
-当前 AC 机制事实以 `src/`、`tests/` 与 `docs/docs-829/` 为准。GALHCG 用于导航；本轮地图查询没有发现玩法 B 的稳定 Concept。用户已确认的操作边界、被观察到的可用模式和本文新增裁定分列于上方“裁定来源与状态”，不能把新设计当成已实现机制。
+当前 AC 机制事实以 `src/`、`tests/` 与 `docs/docs-829/` 为准。GALHCG 用于导航；本 Draft 首次事实核查时尚未发现玩法 B 稳定 Concept，Task 0213–0216 实施后已建立 Operation Runtime、UI Workspace、Controller/Runtime 与测试设施等稳定关系。用户已确认的操作边界、被观察到的可用模式和本文新增裁定分列于上方“裁定来源与状态”，不能把新设计当成已实现机制。
 
-本轮只读核对了 AC 产品 Runtime、Character / Variant、PlayerState / Mutation / Save、Condition / Effect / Trigger / EventBus、GameNum、Registry / Datapack、View / UI、Story 与 Init / Area / Spot 的现有边界。GALHCG latest saved freshness observation 是 2026-10-03：213 个 owner 曾被记录为 fresh、28 个为 unknown、941 个尚未检查；查询未做全图实时 freshness 核验。所有实现 Task 仍要求开始施工时按 `docs/ai/task-read-set-routing` 读取源码和测试。
+首次规划核查覆盖 AC 产品 Runtime、Character / Variant、PlayerState / Mutation / Save、Condition / Effect / Trigger / EventBus、GameNum、Registry / Datapack、View / UI、Story 与 Init / Area / Spot 的边界。当时记录的 2026-10-03 全图 freshness 计数（213 fresh、28 unknown、941 未检查）仅为历史快照，不代表当前地图总体状态。U6 于 2026-10-04 对 Gameplay B 更新涉及的节点/关系完成定向 freshness 核验，但未做全图实时核验。后续施工 Task 仍按 `docs/ai/task-read-set-routing` 核对源码和测试。
 
-由于本轮只构建规划文档，不更新 `docs/docs-829/` 机制正文、不修改 GALHCG 图谱。待实现稳定以后，负责该 Task 的施工者再按文档维护流程更新当前机制页和稳定语义图。
+本轮只调整 Draft / Task 的方案和阶段边界，不更新 `docs/docs-829/` 机制正文或 GALHCG 图谱。后续语义图写入按本 Draft 的大阶段批次进行；机制稳定后再维护当前机制页与图谱关系。
 
 ## 十、独立复核与评估结论（2026-10-04）
 
@@ -329,7 +348,7 @@ UI 只读 OperationView，通过 Controller 命令修改 InterventionDraft 或�
 
 ## 下一步
 
-从 Task 0213 开始逐阶段施工。每个 Task 仍需在其范围内选择最小 Read Set、完成行为验收、记录 Receipt，并按项目工作流归档；本 Draft 作为玩法与架构裁定来源持续维护。
+Task 0213–0216 已完成并提供单地点机制原型；后续从 Task 0217 的目标/地图 Runtime 服务阶段继续。Task 0217–0221 与 0224–0225 不施工玩家侧 Gameplay B 交互 UI；Task 0222 才进入三栏正式界面和端到端玩家体验阶段。各 Task 仍按项目工作流选择最小 Read Set、完成对应服务验收、记录 Receipt；GALHCG 按本 Draft 的大阶段批次安排维护。
 
 ## 相关路由
 

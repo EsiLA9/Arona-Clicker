@@ -26,6 +26,11 @@
 - 不改造 Runtime Editor 为 Datapack 的通用 CRUD 工具。
 - 不写入 `docs/newPlan/`，不创建独立的专用编辑器产品。
 
+## Gameplay UI Deferred Scope
+
+- 本 Task 的内容作者入口与诊断按 Datapack/Registry 当前合同处理；不得顺手施工玩家侧 Gameplay B Surface、行动卡交互或聊天流控件。
+- Task 0222 才基于最终内容/View/命令 API 设计并验收玩家体验。内容作者的校验流程不属于玩家信息流 UI。
+
 ## Current AC facts
 
 | 已核实事实 | 证据 | 设计影响 |
@@ -70,8 +75,8 @@
 
 ## Documentation / GALHCG
 
-- 完成后按 `docs/docs-829/05-conventions/doc-maintenance.md` 更新 Authoring、Pack Loading、运行时校验与创作入口路由。
-- GALHCG 记录稳定的 Operation 内容作者流程及对应合同/Registry/验证器/测试 maps_to；具体事件、ID 和诊断字符串不建 Concept。
+- 按 `docs/docs-829/05-conventions/doc-maintenance.md` 收集 Authoring、Pack Loading、运行时校验与创作入口文档候选及证据路径；本 Task 单独收尾时不写 GALHCG。
+- Task 0221 是内容/存档/作者流程大阶段收尾点；届时委派子 Agent 汇总 Task 0220、0219、0221 的稳定关系，批量维护文档/GALHCG 并验证 freshness。具体事件、ID 和诊断字符串不建 Concept。
 - Read Set：`docs/docs-829/05-conventions/doc-maintenance.md`、`docs/docs-829/05-conventions/schema-sync.md`、`docs/docs-829/06-wiki/20-data-services/definition-authoring.md`、`docs/docs-829/06-wiki/60-engineering-support/schema-editor.md`、`src/data-services/contracts/datapack.ts`、Runtime Editor 协调器与验证测试。
 
 ## 当前核验与剩余工作

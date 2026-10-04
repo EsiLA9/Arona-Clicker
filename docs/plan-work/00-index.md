@@ -12,24 +12,24 @@
 
 - [[draft-0212-gameplay-b-ac-native-design-roadmap]]：玩法 B 接入 AC 的设计路线与分阶段提案。
 - [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution]]：PreparedBeat、Intent、有限指挥与确定性结算。
-- [[task-0216-gameplay-b-command-loop-vertical-slice-ui]]：核心可玩切片与只读 OperationView。
+- [[task-0216-gameplay-b-command-loop-vertical-slice-ui]]：单地点核心切片与 OperationView 原型；其版式不是正式三栏 UI 规范。
 
-### 玩法 B 接入 AC：事件目标与因果地图
+### 玩法 B 接入 AC：目标、地图与服务机制（暂不扩展玩家 UI）
 
-- [[task-0217-gameplay-b-objectives-and-partial-outcomes]]：事件目标及成功、部分成功、失败结局。
-- [[task-0218-gameplay-b-causal-locations-and-route-selection]]：支持持有物门槛、分支、有界回环与路线选择的多地点地图。
+- [[task-0217-gameplay-b-objectives-and-partial-outcomes]]：事件目标、Runtime 结果与只读投影；不施工玩家交互 UI。
+- [[task-0218-gameplay-b-causal-locations-and-route-selection]]：持有物门槛、分支、有界回环与 Route 命令/View；地图交互 UI 延至 0222。
 
-### 玩法 B 接入 AC：场景行为与玩家路线经济
+### 玩法 B 接入 AC：场景行为与玩家路线经济服务（暂不施工信息流交互）
 
-- [[task-0224-gameplay-b-scene-actions-and-route-cost]]：逐人/全局场景行为、共享 PlayerCost 与地点入场增量/离场携带上限。
-- [[task-0225-gameplay-b-finite-player-scene-card-deck]]：有界玩家场景卡组、Seed 抽牌与跨地点牌区状态。
+- [[task-0224-gameplay-b-scene-actions-and-route-cost]]：Individual/Global 批次 API、共享 PlayerCost 与地点入场增量/离场携带上限。
+- [[task-0225-gameplay-b-finite-player-scene-card-deck]]：有界玩家场景卡组服务、Seed 抽牌与跨地点牌区状态；交互表现延至 0222。
 
 ### 玩法 B 接入 AC：内容合同、续局与正式交付
 
 - [[task-0220-gameplay-b-datapack-contracts-and-registry]]：事件内容的 Datapack / Registry 契约。
 - [[task-0219-gameplay-b-event-save-and-resume]]：保存并恢复 EventRun、场景费用/卡组状态、待提交计划与随机流。
 - [[task-0221-gameplay-b-authoring-and-content-validation-workflow]]：事件内容创建、诊断、加载与迭代流程。
-- [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]]：从夏莱办公室入口启动游乐园主题多地点事件的正式产品切片。
+- [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]]：下一大型体验阶段；从夏莱办公室启动正式多地点事件，并设计我方/信息/敌方三栏和角色卡交互。
 
 ## 近期完成
 

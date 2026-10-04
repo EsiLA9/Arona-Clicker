@@ -29,6 +29,12 @@
 - 不实现玩家持有物条件、出口消耗或路线环；这些由 Task 0218 定义。
 - 不新增角色消耗 PlayerCost 的主动技能，不把 PlayerCost 存入 PlayerState 或 InitSnapshot。
 
+## Gameplay UI Deferred Scope
+
+- 本 Task 允许定义并施工 SceneActionSelection、individual/global 批次、费用汇总、命令与只读投影；这些是服务/API 合同，不授权实现玩家侧选择界面。
+- 不把逐人选择做成独立多栏计划列表，也不把选择、Cost 或确认按钮嵌入聊天消息。角色卡及信息流的正式布局/输入由 Task 0222 决定。
+- 本 Task 只用 Runtime/Projection 测试验证服务行为；浏览器交互验收延后至 Task 0222。
+
 ## 设计依据与 AC 现状边界
 
 - Individual / Global、共用玩家 Cost、逐场景 costGain 与离场 maxCarryCost 是 Draft 0204 已确认的玩法输入。
@@ -66,7 +72,7 @@
 - **Unit：**actionMode 输入完整性、个人与全局目标资格、有限批次数、费用汇总和离场上限。
 - **Runtime：**余额不足时的拒绝原子性、一次提交一次扣费/Resolution/批次递减、costGain 的访问幂等、离场上限与下一地点入场顺序。
 - **Integration：**SceneAction 与统一 Task 0215 Resolution、Task 0218 单/多出口转场协作；验证外部费用输入能合并到批次。真实玩家卡效果/牌区联动由 Task 0225 验收，战斗资源不受影响。
-- **UI：**核验只读投影与命令结果；正式浏览器交互由 Task 0222 验收。
+- **Projection/API：**核验只读投影、命令结果与错误回执；正式浏览器交互由 Task 0222 验收。
 
 ## Dependencies
 
@@ -76,8 +82,8 @@
 
 ## Documentation / GALHCG
 
-- Runtime 稳定后更新 Operation SceneAction、PlayerCost 与 Resolution 的当前机制页；说明它们属于 EventRun，不属于 PlayerState 或战斗资源。
-- GALHCG 只在实现稳定后维护 SceneAction / 路线 PlayerCost 的语义映射；单项行为、数值和路线配置不建节点。
+- 本 Task Receipt 收集 Operation SceneAction、PlayerCost 与 Resolution 机制页候选及证据路径；单独收尾时不写 GALHCG。
+- Task 0225 完成后，一次性委派子 Agent 汇总 0224–0225 的 SceneAction、共享 PlayerCost 和有限场景卡牌机制，批量更新当前机制文档/GALHCG 并验证 freshness；单项行为、数值和路线配置不建节点。
 - Read Set：Task 0213–0218、对应实现与测试、[[docs/ai/task-read-set-routing]]、[[docs/ai/galhcg-project-map]]。
 
 ## 当前核验与剩余工作

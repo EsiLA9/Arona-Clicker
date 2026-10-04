@@ -10,10 +10,17 @@
 
 Runtime、Authoring 和局部 UI 各自可通过测试，并不能证明玩家能从 AC 正式产品入口完成一场事件。此 Task 将已验收能力装配为一个正式发布的可玩内容切片。
 
+本 Task 同时是玩法 B 下一大型体验施工阶段：前序 Task 优先建设并稳定服务/内容接口，不再逐项试做聊天流交互。Task 0222 基于实际 OperationView、命令和 Runtime 重新裁定玩家交互，并形成正式三栏 UI；Task 0216 的单地点界面只证明机制可观察与接口可用，不作为最终布局。
+
 ## Scope
 
 - 在现有 AC UI 中提供清楚的 Operation 入口/可用事件列表、学生阵容选择或可用阵容摘要、启动与终局返回路径。
-- Event 入口使用 Task 0220 的默认 Registry 查询、Task 0216 的 OperationView/Controller 和 Task 0218 的路线 View；不把 Event Location 当 Area/Spot。
+- 依据前序服务/投影/命令接口设计并施工 Gameplay B 正式 Operation Surface。版式必须是左/中/右三栏：左为我方，中心为信息聊天流，右为敌方；只改玩法 B 工作区，不做全 AC UI 重设计。
+- 中心信息栏是主阅读区并占可用工作区宽度过半，承载固定事件/地点介绍、已知内容、状态简报和 Resolution 叙述；左/右为较窄但可读的角色/敌方卡片区。
+- 左栏以一张我方角色卡对应一名学生，卡内呈现身份、状态、当前计划/行为、行动理由、目标与可用操作；不得把学生计划/行为同时复制成独立多列、平行长列表或一名学生一条聊天消息。
+- 右栏以敌方/环境参与者卡呈现状态、Intent、目标和压力。角色计划所用的“角色卡”是其行为与身份的呈现容器，不等于玩家有限 SceneCard 牌组中的卡牌实例。
+- 依据 Task 0224/0225 的接口，在本 Task 首次设计并引入 Individual/Global SceneAction、路线选择、Cost 支付、玩家 SceneCard 与确认等玩家交互；可决定哪些固定信息作为聊天流消息、哪些交互控件属于角色卡/信息栏/栏内面板。不得把未经设计的交互提前带入前序 Task。
+- Event 入口使用 Task 0220 的默认 Registry 查询、Task 0216 可复用的 OperationView/Controller/Runtime 边界和 Task 0218 的 RouteView/命令；只复用机制合同，不沿用 0216 的双栏/学生计划条目布局。Event Location 不映射成 Area/Spot。
 - 在 AronaClicker 默认内容中正式发布以游乐园巡查/失控设施为主题的多地点事件；沿用早期 Gameplay B 主题并扩展为同一张有向地图（可按区域/楼层分组），不另造随机地图生成器。
 - 正式事件仅挂靠 `base:init:schale_office`；Task 0216 的临时 TypeScript 样例在本 Task 迁入 default Datapack/Registry，UI 只在夏莱办公室世界线提供入口。
 - 地图至少包含三地点、一个允许回访的有界环、一条由 EventRun 局内持有物开启的捷径、一个因果路线选择；每地点访问中的状态会跨地点传播，并产生成功、部分成功和失败结果。
@@ -34,6 +41,7 @@ Runtime、Authoring 和局部 UI 各自可通过测试，并不能证明玩家�
 - 不新增核心 Runtime 机制、通用剧情引擎、程序化地图或额外成长系统。
 - 不创建专用 Runtime Editor、地图画布或全局 UI 重设计。
 - 不以单一通关率或美术完整度替代玩家可理解的现场判断与状态因果。
+- 不为窄屏内容移位单独扩大验收；三栏信息在目标桌面尺寸内同时可读即可。
 
 ## Current AC facts
 
@@ -52,7 +60,7 @@ Runtime、Authoring 和局部 UI 各自可通过测试，并不能证明玩家�
 
 ## Runtime Flow
 
-默认 Datapack 加载并验证 → Registry 生成可启动事件目录 → 玩家进入 Operation 入口并选 Event/学生 → OperationRuntime.start 建立 EventRun → 通过 Task 0216 的 Beat UI 和 Task 0218 的 Route UI 完成多个地点 → Event Outcome View 展示结果 → 明确奖励经 StateMutationService 写入 → 返回事件目录。
+默认 Datapack 加载并验证 → Registry 生成可启动事件目录 → 玩家进入 Operation 入口并选 Event/学生 → OperationRuntime.start 建立 EventRun → 本 Task 的三栏 Surface 消费 OperationView/SceneAction/Route/Card 命令完成多个地点 → Event Outcome View 展示结果 → 明确奖励经 StateMutationService 写入 → 返回事件目录。
 
 ## Acceptance
 
@@ -68,6 +76,10 @@ Runtime、Authoring 和局部 UI 各自可通过测试，并不能证明玩家�
 - [ ] 结局画面及事件日志与 EventRun/Resolution 一致；长期奖励写入只发生一次，未完成事件不发终局奖励。
 - [ ] 固定 Seed/输入序列重玩结果一致；保存后恢复仍继续同一地点/路线与准备计划。
 - [ ] 1280×720 下事件目标、学生计划、Intent、指挥位、Commit 状态、地点出口与结局均可理解，不触发全 Workspace 无关区域重建。
+- [ ] 桌面试玩中左/中/右三栏分别承担我方 / 信息 / 敌方；中心聊天信息流占可用工作区宽度过半且为主要阅读区，左/右角色卡与敌方卡同时可见。
+- [ ] 每名学生的当前计划/行为、行动理由与操作入口只在其我方角色卡内形成主要表达；没有重复学生行动聊天消息或平行多列计划/行为长列表。
+- [ ] 固定场景介绍、地点已知信息与结算记录在中心聊天流中按时间顺序可读；本 Task 明确设计的玩家选择不会把学生计划正文复制成消息条目。
+- [ ] Individual/Global SceneAction、路线选择、Cost/SceneCard 支付的真实 UI 交互仅在本 Task 完成设计和可用性验收；它们调用前序稳定 API，不在此扩大底层规则。
 - [ ] 分别记录正式默认事件和有效 `at-cap` 夹具的 prepare、intervention preview、resolve、route projection、OperationView 和 save/load p50/p95、EventRun snapshot 大小及固定基础存档上的 SaveData 增量；超出预先选定的用户感知目标时必须先定位瓶颈再扩大上限。
 - [ ] `2x-overflow` 仅验证 Registry 拒绝与诊断，不启动 Runtime、不计入性能 benchmark。
 - [ ] 诊断确认用户命令每次只构建需要的 OperationView，并由 UI Dispatcher 合并单一相关区域更新；hover、scroll 不调用 Resolver、不做全量 render。
@@ -77,23 +89,23 @@ Runtime、Authoring 和局部 UI 各自可通过测试，并不能证明玩家�
 - **Unit：**OperationCatalog 查询、阵容门槛、Outcome 摘要与奖励幂等。
 - **Runtime：**正式 Registry 定义下启动、路线分支、Event Outcome 和 Mutation 提交。
 - **Integration：**Workspace → Controller → Event/Route 命令 → OperationRuntime → OperationView → StateMutationService。
-- **UI：**浏览器完成三地点路径和三类结局；检查零/单/多合法出口、锁定路线、返回入口、focus/scroll 连续性。
+- **UI：**浏览器完成三地点路径和三类结局；检查三栏职责与角色卡表达、固定信息流、Individual/Global 场景选择、玩家卡、零/单/多合法出口、锁定路线、返回入口和 focus/scroll 连续性。
 - **Performance：**预热同一 reference 浏览器后分别运行正式默认事件和有效 `at-cap` 夹具；报告规模、p50/p95、EventRun snapshot 大小、固定基础存档上的 SaveData 增量、全局 render 次数和区域刷新命中。`2x-overflow` 只用于 Registry 拒绝测试。不以未标设备的单次耗时作 SLA。
 
 ## Dependencies
 
-- 依赖 Task 0216 的单地点 Operation UI、Task 0218 的因果路线、Task 0219 的 Save/Resume、Task 0220 的 Datapack/Registry、Task 0221 的内容校验流程，以及 Task 0224/0225 的 SceneAction、PlayerCost 与有限场景卡组。
+- 依赖 Task 0216 的 OperationView/Controller/Runtime 边界（不沿用其界面布局）、Task 0218 的因果路线、Task 0219 的 Save/Resume、Task 0220 的 Datapack/Registry、Task 0221 的内容校验流程，以及 Task 0224/0225 的 SceneAction、PlayerCost 与有限场景卡组服务。
 - 这些能力分别依赖 Task 0213–0215 与 Task 0217。
 
 ## Documentation / GALHCG
 
-- 稳定后更新 `docs/docs-829/02-modules/ui.md`、Operation/Route/Outcome 机制页、AronaClicker 默认内容和 UI 入口路由。
-- 在 GALHCG 为稳定产品入口、默认事件内容、Operation Runtime、UI 投影和验证测试建立适当 maps_to；具体事件节点/人物/数值不建稳定 Concept。
+- Task 0222 是最后一个 Gameplay B 大阶段；稳定后可委派子 Agent 汇总前序 Task 累积证据，统一更新 `docs/docs-829/02-modules/ui.md`、Operation/Route/Outcome 机制页、AronaClicker 默认内容、UI 入口路由和 GALHCG，并完整验证 freshness。
+- GALHCG 只为稳定产品入口、默认事件内容、Operation Runtime、三栏 UI 投影和验证测试建立适当 maps_to；具体事件节点/人物/数值不建稳定 Concept。
 - Read Set：`docs/docs-829/02-modules/ui.md`、`docs/docs-829/01-architecture/data-flow.md`、`docs/docs-829/06-wiki/50-ui/controller-commands.md`、`read-model-context.md`、`refresh-update.md`、`docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle.md`、`docs/docs-829/05-conventions/testing.md`、`docs/ai/frontend-design-project-overlay.md`、Task 0213–0221 与目标源码/测试。
 
 ## 当前核验与剩余工作
 
-当前已核对 UI/Workspace、默认 Datapack、Area/Spot 和 Runtime Editor 边界；未实现正式内容或产品入口、未进行浏览器验收。此 Task 负责将前序稳定能力组合成可交付的游戏内事件切片。
+当前已核对 UI/Workspace、默认 Datapack、Area/Spot 和 Runtime Editor 边界；未实现正式内容或产品入口、未进行浏览器验收。此 Task 负责将前序稳定能力组合成可交付的游戏内事件切片，并首次正式裁定、施工 Gameplay B 三栏和玩家交互。
 
 ## 相关路由
 

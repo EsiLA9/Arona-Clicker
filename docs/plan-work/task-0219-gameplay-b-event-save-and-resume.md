@@ -32,6 +32,11 @@
 - 不做云同步、回放格式、跨版本迁移或多设备冲突合并。
 - 不重复实现 StorageAdapter 或 SaveSystem。
 
+## Gameplay UI Deferred Scope
+
+- 本 Task 只实现 Save/Resume Runtime 与存档入口 API；可以保存/恢复待提交的 SceneAction、卡牌选择和计划，但不设计暂停菜单、信息流提示或恢复交互界面。
+- View/状态恢复能力可提供给 Task 0222；玩家侧暂停、继续和异常恢复体验统一由该 Task 设计与验收。
+
 ## Current AC facts
 
 | 已核实事实 | 证据 | 设计影响 |
@@ -68,7 +73,7 @@
 - **Unit：**snapshot codec 往返、字段省略/非法引用诊断、PlayerCost/卡组分区与独立随机流 round-trip。
 - **Runtime：**Commit 前/后、地点之间与事件终局恢复；对比 uninterrupted replay。
 - **Integration：**SaveSystem 存取与 Runtime 重建，奖励提交幂等。
-- **UI：**暂停/恢复界面反馈和恢复位置说明。
+- **API/Integration：**暂停点、恢复结果和拒绝原因可由 Runtime/Save facade 查询；不做玩家侧界面或信息流交互。
 
 ## Dependencies
 
@@ -76,8 +81,8 @@
 
 ## Documentation / GALHCG
 
-- 稳定后更新 `docs/docs-829/03-data-structures/player-state.md` 所属边界或新增 Operation 存档机制页，并更新 Save/Runtime Wiki。
-- GALHCG 记录 Run snapshot 的稳定 owner/恢复职责；codec 字段与 StorageAdapter helper 不建独立 Concept。
+- 在本 Task Receipt 记录候选机制页、Owner 与证据路径；不在单 Task 收尾时写 GALHCG。
+- Task 0221 完成后，与 Task 0220、0219 一并委派子 Agent 汇总内容兼容标识、EventRun 存档与作者流程，再批量更新机制文档/GALHCG 并验证 freshness；codec 字段与 StorageAdapter helper 不建独立 Concept。
 - Read Set：`docs/docs-829/03-data-structures/player-state.md`、`docs/docs-829/06-wiki/20-data-services/persistence-assets.md`、SaveSystem/Runtime save 源码与测试、Task 0213–0218。
 
 ## 当前核验与剩余工作

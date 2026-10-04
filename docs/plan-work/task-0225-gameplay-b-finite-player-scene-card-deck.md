@@ -28,6 +28,12 @@
 - 不单独实现卡牌费用扣除器、卡牌 Resolver 或第二种结算记录；费用与结果复用 Task 0224 / Task 0215。
 - 不扩展任意脚本效果、通用卡牌框架或独立卡牌编辑器。
 
+## Gameplay UI Deferred Scope
+
+- 本 Task 实现 EventRun 有限牌堆、抽牌/区域转移、场景费用与 Resolution API；可定义供后续 UI 使用的只读牌区投影。
+- 不设计牌区如何占用左/中/右栏、不将学生行动拆成卡牌多列，也不加入信息聊天流内出牌/选目标控件；Task 0222 再将 Runtime 的 SceneCard 实例与角色卡视觉区分并设计正式交互。
+- 玩家有限 SceneCard 牌组状态与我方角色卡上显示的学生当前计划/行为不是同一 Runtime 对象或同一牌区。
+
 ## 设计依据与 AC 现状边界
 
 - 固定有限卡组、Seed 抽牌、draw / hand / discard / played、已用牌不洗回及仅场景使用，是 Draft 0204 已确认的玩法输入。
@@ -63,7 +69,7 @@
 - **Runtime：**Seed 重放、SceneAction 联合费用提交、拒绝原子性、战斗时机拒绝与卡组状态隔离。
 - **Integration：**Task 0224 SceneAction → 一次费用扣除 → 单一 Resolution → 区域转移。Task 0219 再单独验收 Save/Resume 往返不重抽、不重放。
 - **Content：**Task 0220 验证有界 at-cap 卡组与超限拒绝；Task 0221 覆盖作者诊断；Task 0222 正式内容覆盖抽牌、留牌和耗尽路径。
-- **UI：**提供 hand、抽牌与已用状态的只读投影契约；浏览器流程由 Task 0222 验收。
+- **Projection/API：**提供 hand、抽牌与已用状态的只读投影契约；不实现牌区/聊天 UI，浏览器流程由 Task 0222 验收。
 
 ## Dependencies
 
@@ -72,8 +78,8 @@
 
 ## Documentation / GALHCG
 
-- Runtime 稳定后更新 Operation 场景卡组的状态归属、抽牌时机、区域流转与存档边界；说明该卡组属于单个 EventRun。
-- GALHCG 仅在卡组语义稳定并有源码、文档和测试证据后维护玩家场景卡组映射；单张卡牌、卡组实例和数值不建节点。
+- 本 Task Receipt 收集 Operation 场景卡组的机制页候选、Owner 与证据路径；单独收尾时不写 GALHCG。
+- Task 0225 完成后，一次性委派子 Agent 汇总 Task 0224–0225 的 SceneAction/PlayerCost/SceneCard 语义，批量更新相关当前机制文档/GALHCG 并验证 freshness；单张卡牌、卡组实例和数值不建节点。
 - Read Set：Task 0215、0219、0224 与 0220–0222、目标 Runtime / Registry / Save 源码和测试、[[docs/ai/task-read-set-routing]]、[[docs/ai/galhcg-project-map]]。
 
 ## 当前核验与剩余工作

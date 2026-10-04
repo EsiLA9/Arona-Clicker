@@ -28,6 +28,12 @@
 - 不把 Event Location 映射成 AC Area/Spot。
 - 不以奖励挑选代替至少一种可观察的事件状态后果。
 
+## Gameplay UI Deferred Scope
+
+- 本 Task 实现地图拓扑、持有物门槛、Route 命令与 RouteView，不设计或施工路线图 UI、聊天流选项或确认控件。
+- RouteView 可提供可用出口、锁定原因、访问记录和已知风险/收益，供 Task 0222 的三栏 UI 消费。
+- 最终 UI 中固定地点信息可进入中央信息流；路线选择交互形式留给 Task 0222，与我方角色卡 / 敌方信息三栏一并设计。
+
 ## Current AC facts
 
 | 已核实事实 | 证据 | 设计影响 |
@@ -50,7 +56,7 @@ Location 终止 → 应用离场影响并评估当前地点 RouteEdge → 0 条�
 
 ## Acceptance
 
-- [ ] 至少一处有两个首选出口，二者都可取但不互相支配；UI 在选择前呈现已知利益和遗留风险/未处理问题，之后状态按所选分支兑现。
+- [ ] 至少一处有两个首选出口，二者都可取但不互相支配；RouteView 在提交选择前提供已知利益和遗留风险/未处理问题，之后状态按所选分支兑现。UI 呈现与交互由 Task 0222 验收。
 - [ ] 多出口需要一个独立 Route 命令；单出口自动推进。两者都不创建 Resolution、扣战术资源或增加 Beat/Click 计数。
 - [ ] 无合法出口时不等待无法完成的 Route 输入、不创建 Resolution 或额外 Beat；调用 Event 终止判定并显示结果依据。
 - [ ] 锁定路线说明缺少的持有物或访问资格；首期 Gate 叶节点只检查 EventRun 持有物，组合只使用有界 `all` / `any` / `not`；不读写 AC PlayerState.inventory。
@@ -67,7 +73,7 @@ Location 终止 → 应用离场影响并评估当前地点 RouteEdge → 0 条�
 - **Unit：**边条件、访问/Beat 上限、锁定原因、O(V+E) 拓扑死路/回路检查。
 - **Runtime：**单出口自动转场与多出口显式选择；至少两条不同路线的完整结果快照与相同 Seed 可复现。
 - **Integration：**Route 命令→EventRun→新 Location View；无战术 Resolution 产生。
-- **UI：**地点完成、出口确认、锁定原因、回访/跳过提示。
+- **Projection/API：**地点完成状态、可用/锁定出口、锁定原因与回访/跳过影响能由 RouteView/Runtime 命令读写；不做浏览器地图或聊天交互 UI。
 
 ## Dependencies
 
@@ -76,13 +82,13 @@ Location 终止 → 应用离场影响并评估当前地点 RouteEdge → 0 条�
 
 ## Documentation / GALHCG
 
-- 稳定后更新新的 Location/Route 机制页，并在 `docs/docs-829/06-wiki/30-arona-clicker-domain/` 下补充 Operation 与 Area/Spot 的语义边界说明。
-- GALHCG 只记录 Operation Location/Route 作为独立稳定语义；单个路线边与地点配置不建立 Concept。
+- 本 Task Receipt 收集 Location/Route 机制页和 Concept 候选及证据路径，不在单 Task 收尾时写 GALHCG。
+- Task 0218 完成后，一次性委派子 Agent 汇总 Task 0217–0218 的 Objective/Outcome 与 Location/Route 语义，批量更新机制文档/GALHCG 并验证 freshness；只记录稳定语义，单个路线边与地点配置不建 Concept。
 - Read Set：`docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle.md`、`docs/docs-829/03-data-structures/registry.md`、`docs/docs-829/04-mechanisms/engine/effect-trigger.md`、Task 0217 源码与测试。
 
 ## 当前核验与剩余工作
 
-当前只核对 Area/Spot、Registry 与运行条件的职责；未实现、未运行测试。首期 Route Gate 读取 EventRun 局内持有物，Boolean 组合只用于组织这些检查；将来若需接入数值轨道/事实/玩家全局条件，须另行裁定，不能由本 Task 隐式扩展。
+当前只核对 Area/Spot、Registry 与运行条件的职责；未实现、未运行测试。首期 Route Gate 读取 EventRun 局内持有物，Boolean 组合只用于组织这些检查；将来若需接入数值轨道/事实/玩家全局条件，须另行裁定，不能由本 Task 隐式扩展。玩法交互 UI 暂缓至 Task 0222。
 
 ## 相关路由
 

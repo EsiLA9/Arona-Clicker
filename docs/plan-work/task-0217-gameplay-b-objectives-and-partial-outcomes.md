@@ -28,6 +28,12 @@
 - 不强制每个事件有相同计量项；数值轨道与事实由事件定义选择。
 - 不实现路线图和存档，分别由 Task 0218 与 Task 0219 负责。
 
+## Gameplay UI Deferred Scope
+
+- 本 Task 建立 Objective/Outcome 的 Runtime、命令和只读投影，不改 Gameplay B 页面、栏位或聊天流交互。
+- 可为 Task 0222 提供结果/进度 View 数据与服务 API；不在本 Task 把目标/日志渲染成多条学生或行动列表。
+- 最终呈现遵循 Draft 0212 的我方角色卡 / 中央信息流 / 敌方三栏，并只在 Task 0222 统一设计与验收。
+
 ## Current AC facts
 
 | 已核实事实 | 证据 | 设计影响 |
@@ -48,7 +54,7 @@ Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限�
 
 ## Acceptance
 
-- [ ] 同一条规则可由战斗 Action 和非战斗/环境 Action 改变 EventState，并展示相同的目标与日志信息结构。
+- [ ] 同一条规则可由战斗 Action 和非战斗/环境 Action 改变 EventState；Runtime 只读投影提供统一的目标进度、结果和日志数据结构，UI 展示延至 Task 0222。
 - [ ] Location 部分完成只结算当前问题并更新 EventState；只要仍有合法路线就继续 Event，不触发 Event-level Partial Outcome。
 - [ ] 硬失败门槛任意 Beat 成立时立即终止；否则仅在 Event 终止边界按“主目标全满足的成功 → 明确部分条件 → 失败”裁定；硬失败与主目标同 Beat 成立时结果为失败。
 - [ ] 部分成功必须满足事件明示条件且有可列举成果；不将所有未归类终局兜底为部分成功。
@@ -63,7 +69,7 @@ Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限�
 - **Unit：**Predicate、效果限幅、终局 Outcome 优先级/同 Beat 冲突、奖励白名单。
 - **Runtime：**硬失败即时终止；地点局部部分结果在有合法路线时继续；仅在事件终止时判成功/部分/失败；全局与地点局部结算边界。
 - **Integration：**终局奖励经 StateMutationService 提交一次；局内轨道仍不出现在 PlayerState。
-- **UI：**OperationView 目标进度、状态变化与结果摘要同步。
+- **Projection/API：**OperationView 目标进度、状态变化与结果摘要同步；不做浏览器 gameplay UI 或信息流交互。
 
 ## Dependencies
 
@@ -72,13 +78,13 @@ Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限�
 
 ## Documentation / GALHCG
 
-- 实现后更新 Operation 目标、效果和结果机制页，以及涉及持久奖励时的 StateMutation 路由。
-- Objective、EventPredicate 与 OperationEffect 作为稳定内容语义可进入 GALHCG；内部比较 helper 和每个事件轨道值不单独建节点。
+- 本 Task Receipt 收集实现稳定后的机制页候选、Concept 与证据路径；不在单 Task 收尾时刷新或写 GALHCG。
+- Task 0218 完成后，一次性委派子 Agent 汇总 0217–0218 的 Objective/Outcome、Route/Location 稳定语义并更新 GALHCG；只维护稳定 Concept 与有依据的路径，不为 helper 或单条配置建节点。
 - Read Set：`docs/docs-829/03-data-structures/engine-contracts.md`、`docs/docs-829/04-mechanisms/arona-clicker/state-mutation.md`、`docs/docs-829/04-mechanisms/engine/effect-trigger.md`、`docs/docs-829/05-conventions/architecture-discipline.md`。
 
 ## 当前核验与剩余工作
 
-当前只核对 Condition、Effect 和 Mutation 的语义边界；未实现、未运行测试。终局条件的并发冲突规则需在第一组事件定义前写入机制文档。
+当前只核对 Condition、Effect 和 Mutation 的语义边界；未实现、未运行测试。终局条件的并发冲突规则需在第一组事件定义前写入机制文档；Gameplay B 浏览器交互不属于本 Task。
 
 ## 相关路由
 
