@@ -1,4 +1,4 @@
-import type { OperationActorKind } from './operation';
+import type { OperationActorKind, OperationObjectiveDef, OperationOutcomeConditionDef } from './operation';
 
 export type OperationActionTargetRelation = 'self' | 'sameTeam' | 'otherTeam' | 'any';
 
@@ -16,7 +16,9 @@ export type OperationActionEffectDef =
   | { readonly kind: 'actorHpDelta'; readonly recipient: 'actor' | 'target'; readonly amount: number }
   | { readonly kind: 'actorResourceDelta'; readonly recipient: 'actor' | 'target'; readonly resourceId: string; readonly amount: number }
   | { readonly kind: 'teamResourceDelta'; readonly recipient: 'actorTeam' | 'targetTeam'; readonly resourceId: string; readonly amount: number }
-  | { readonly kind: 'eventTrackDelta'; readonly trackId: string; readonly amount: number };
+  | { readonly kind: 'eventTrackDelta'; readonly trackId: string; readonly amount: number }
+  | { readonly kind: 'eventFact'; readonly factId: string; readonly op: 'reveal' | 'forget' }
+  | { readonly kind: 'heldItem'; readonly itemId: string; readonly op: 'grant' | 'remove' };
 
 /** Trusted action content used by one or more Operation participant profiles. */
 export interface OperationActionDef {
@@ -65,4 +67,8 @@ export interface OperationLocationTacticsDef {
   readonly locationId: string;
   readonly enabledActionIds: readonly string[];
   readonly combinationRules: readonly OperationCombinationRuleDef[];
+  readonly objectives?: readonly OperationObjectiveDef[];
+  readonly partialOutcomes?: readonly OperationOutcomeConditionDef[];
+  readonly failureConditions?: readonly OperationOutcomeConditionDef[];
+  readonly maxBeats?: number;
 }

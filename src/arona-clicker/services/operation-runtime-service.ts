@@ -8,6 +8,7 @@ import type {
   OperationLifecycleEvent,
   OperationMembershipChange,
   OperationInterventionCommand,
+  OperationLocationResultKind,
   OperationResultKind,
   OperationRunVersionCommand,
   OperationRunStartInput,
@@ -28,6 +29,7 @@ import type {
 import type {
   OperationResolution,
   OperationResolutionBatch,
+  OperationResolutionMembershipChange,
   OperationResolutionNumericChange,
   OperationResolutionPlannerSnapshot,
   OperationResolutionTrustedContent,
@@ -47,6 +49,12 @@ import { prepareOperationBeat } from './operation-plan-preparation';
 import { previewOperationIntervention, OperationInterventionPreviewError } from './operation-intervention-preview';
 import { planOperationResolution, OperationResolutionPlannerError } from './operation-resolution-planner';
 import { projectOperationView } from './operation-view-projector';
+import {
+  evaluateOperationEventOutcome,
+  evaluateOperationLocationOutcome,
+  getCurrentLocationDefinition,
+  hasOperationHardFailure,
+} from './operation-progress-evaluator';
 import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../contracts/operation';
 
 interface MutableActorState {
@@ -77,7 +85,7 @@ interface MutableRun {
     playerCost: number;
     cards: { drawPile: string[]; hand: string[]; discard: string[]; played: string[] };
   };
-  locationProgress: Record<string, { visitCount: number; completed: boolean }>;
+  locationProgress: Record<string, { visitCount: number; completed: boolean; beatCount: number; result: 'success' | 'partialSuccess' | 'failure' | null }>;
   planVersion: number;
   beatIndex: number;
   preparedBeat: PreparedBeat | null;
@@ -154,7 +162,7 @@ function createRun(
   const definition = rules.definition;
   const locations = Object.fromEntries(definition.locationIds.map(id => [
     id,
-    { visitCount: id === definition.initialLocationId ? 1 : 0, completed: false },
+    { visitCount: id === definition.initialLocationId ? 1 : 0, completed: false, beatCount: 0, result: null },
   ]));
   return {
     runId,
@@ -237,6 +245,10 @@ function preparationSnapshot(run: MutableRun): OperationPreparationSnapshot {
 }
 
 function refreshPreparedBeat(run: MutableRun, rules: RunRules): void {
+  if (run.status !== 'inProgress' || run.locationProgress[run.currentLocationId]?.completed) {
+    run.preparedBeat = null;
+    return;
+  }
   const content = rules.tacticalContent;
   if (!content) {
     run.preparedBeat = null;
@@ -252,6 +264,33 @@ function refreshPreparedBeat(run: MutableRun, rules: RunRules): void {
   } catch (error) {
     throw new OperationRuntimeError([error instanceof Error ? error.message : 'could not prepare the current Beat']);
   }
+}
+
+function hasLocationOutcomeRules(definition: NonNullable<ReturnType<typeof getCurrentLocationDefinition>> | undefined): boolean {
+  return definition !== undefined && (
+    (definition.objectives?.length ?? 0) > 0
+    || (definition.partialOutcomes?.length ?? 0) > 0
+    || (definition.failureConditions?.length ?? 0) > 0
+    || definition.maxBeats !== undefined
+  );
+}
+
+function evaluateLocationProgress(run: MutableRun, rules: RunRules): boolean {
+  const progress = run.locationProgress[run.currentLocationId];
+  if (!progress || progress.completed) return false;
+  const result = evaluateOperationLocationOutcome(
+    getCurrentLocationDefinition(rules.definition, run.currentLocationId),
+    run.eventState,
+    progress.beatCount,
+  );
+  if (result === null) return false;
+  progress.completed = true;
+  progress.result = result;
+  return true;
+}
+
+function freezeEventResult(run: MutableRun, kind: OperationResultKind): EventResult {
+  return frozenCopy({ eventId: run.eventId, runId: run.runId, kind, finalRun: run }) as EventResult;
 }
 
 function resolutionPlannerSnapshot(run: MutableRun): OperationResolutionPlannerSnapshot {
@@ -273,6 +312,8 @@ function resolutionPlannerSnapshot(run: MutableRun): OperationResolutionPlannerS
     }),
     teams: run.teamStates.map(team => ({ id: team.id, resources: team.resources })),
     tracks: run.eventState.tracks,
+    knownFactIds: run.eventState.knownFactIds,
+    heldItemIds: run.eventState.heldItemIds,
     randomState: run.random,
   };
 }
@@ -387,6 +428,40 @@ function applyResolutionChanges(
   }
 }
 
+function applyResolutionMembershipChanges(
+  run: MutableRun,
+  changes: readonly OperationResolutionMembershipChange[],
+  rules: RunRules,
+): void {
+  if (!Array.isArray(changes)) throw new OperationRuntimeError(['Resolution membershipChanges must be an array']);
+  const seen = new Set<string>();
+  const facts = new Set(run.eventState.knownFactIds);
+  const items = new Set(run.eventState.heldItemIds);
+  for (const candidate of changes) {
+    if (!isRecord(candidate) || !isRecord(candidate.target)
+      || !nonEmptyId(candidate.target.id) || typeof candidate.before !== 'boolean' || typeof candidate.after !== 'boolean') {
+      throw new OperationRuntimeError(['Resolution contains a malformed membership change']);
+    }
+    const change = candidate as unknown as OperationResolutionMembershipChange;
+    const { kind, id } = change.target;
+    const key = kind + ':' + id;
+    if (seen.has(key)) throw new OperationRuntimeError(['Resolution repeats a membership target: ' + key]);
+    seen.add(key);
+    const collection = kind === 'knownFact' ? facts : kind === 'heldItem' ? items : null;
+    const declarations = kind === 'knownFact' ? rules.facts : kind === 'heldItem' ? rules.items : null;
+    if (!collection || !declarations?.has(id)) {
+      throw new OperationRuntimeError(['Resolution references an undeclared membership target: ' + key]);
+    }
+    if (collection.has(id) !== change.before) {
+      throw new OperationRuntimeError(['Resolution membership change no longer matches its commit-start value: ' + key]);
+    }
+    if (change.after) collection.add(id);
+    else collection.delete(id);
+  }
+  run.eventState.knownFactIds = [...facts];
+  run.eventState.heldItemIds = [...items];
+}
+
 function validateMembershipChanges(
   changes: unknown,
   declarations: ReadonlySet<string>,
@@ -492,10 +567,25 @@ export class OperationRuntimeService {
       ? new Map(rules.tacticalContent.actorInitializations.map(actor => [actor.actorId, actor]))
       : undefined;
     const run = createRun(runId, rules, actorInitializationsById);
+    const initialHardFailure = hasOperationHardFailure(rules.definition, run.eventState);
+    const initialLocationProgress = run.locationProgress[run.currentLocationId];
+    let initialLocationCompleted = false;
+    if (initialHardFailure) {
+      initialLocationProgress.completed = true;
+      initialLocationProgress.result = 'failure';
+      run.status = 'failure';
+    } else {
+      initialLocationCompleted = evaluateLocationProgress(run, rules);
+    }
     if (rules.tacticalContent) refreshPreparedBeat(run, rules);
-    this.slot = { rules, run, result: null };
+    const result = initialHardFailure ? freezeEventResult(run, 'failure') : null;
+    this.slot = { rules, run, result };
     this.publish({ type: 'runStarted', runId, eventId: run.eventId });
     this.publish({ type: 'locationEntered', runId, eventId: run.eventId, locationId: run.currentLocationId });
+    if (initialLocationCompleted || initialHardFailure) {
+      this.publish({ type: 'locationCompleted', runId, eventId: run.eventId, locationId: run.currentLocationId });
+    }
+    if (result) this.publish({ type: 'runFinished', runId, eventId: run.eventId, kind: result.kind });
     return this.getSnapshot()!;
   }
 
@@ -619,8 +709,15 @@ export class OperationRuntimeService {
     }
 
     applyResolutionChanges(next, batch.numericChanges, slot.rules);
+    applyResolutionMembershipChanges(next, batch.membershipChanges, slot.rules);
     next.random = deepCopy(batch.nextRandomState);
     next.beatIndex += 1;
+    const nextLocationProgress = next.locationProgress[next.currentLocationId];
+    if (!nextLocationProgress) throw new OperationRuntimeError(['current Location progress is missing']);
+    nextLocationProgress.beatCount += 1;
+    if (!Number.isSafeInteger(nextLocationProgress.beatCount)) {
+      throw new OperationRuntimeError(['Location beatCount cannot advance safely']);
+    }
     if (!Number.isSafeInteger(next.beatIndex)) throw new OperationRuntimeError(['beatIndex cannot advance safely']);
     if (next.resolutionSequence >= Number.MAX_SAFE_INTEGER) {
       throw new OperationRuntimeError(['resolutionSequence cannot advance safely']);
@@ -630,9 +727,21 @@ export class OperationRuntimeService {
     next.resolutions = [...next.resolutions, resolution].slice(-32);
     next.planVersion = advancePlanVersion(run);
     next.interventionDraft = null;
-    refreshPreparedBeat(next, slot.rules);
+    const hardFailure = hasOperationHardFailure(slot.rules.definition, next.eventState);
+    let locationCompleted = false;
+    if (hardFailure) {
+      nextLocationProgress.completed = true;
+      nextLocationProgress.result = 'failure';
+      next.status = 'failure';
+      next.preparedBeat = null;
+    } else {
+      locationCompleted = evaluateLocationProgress(next, slot.rules);
+      refreshPreparedBeat(next, slot.rules);
+    }
+    const eventResult = hardFailure ? freezeEventResult(next, 'failure') : null;
 
     slot.run = next;
+    if (eventResult) slot.result = eventResult;
     this.publish({
       type: 'beatResolved',
       runId: run.runId,
@@ -641,6 +750,12 @@ export class OperationRuntimeService {
       basePlanVersion: run.planVersion,
       resolutionSequence: resolution.resolutionSequence,
     });
+    if (locationCompleted || hardFailure) {
+      this.publish({ type: 'locationCompleted', runId: next.runId, eventId: next.eventId, locationId: next.currentLocationId });
+    }
+    if (eventResult) {
+      this.publish({ type: 'runFinished', runId: eventResult.runId, eventId: eventResult.eventId, kind: eventResult.kind });
+    }
     return resolution;
   }
 
@@ -688,8 +803,27 @@ export class OperationRuntimeService {
     if (issues.length > 0) throw new OperationRuntimeError(issues);
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
-    refreshPreparedBeat(next, slot.rules);
+    const hardFailure = hasOperationHardFailure(slot.rules.definition, next.eventState);
+    let locationCompleted = false;
+    if (hardFailure) {
+      const progress = next.locationProgress[next.currentLocationId];
+      progress.completed = true;
+      progress.result = 'failure';
+      next.status = 'failure';
+      next.preparedBeat = null;
+    } else {
+      locationCompleted = evaluateLocationProgress(next, slot.rules);
+      refreshPreparedBeat(next, slot.rules);
+    }
+    const eventResult = hardFailure ? freezeEventResult(next, 'failure') : null;
     slot.run = next;
+    if (eventResult) slot.result = eventResult;
+    if (locationCompleted || hardFailure) {
+      this.publish({ type: 'locationCompleted', runId: next.runId, eventId: next.eventId, locationId: next.currentLocationId });
+    }
+    if (eventResult) {
+      this.publish({ type: 'runFinished', runId: eventResult.runId, eventId: eventResult.eventId, kind: eventResult.kind });
+    }
     return this.getSnapshot()!;
   }
 
@@ -702,6 +836,9 @@ export class OperationRuntimeService {
     const next = deepCopy(slot.run);
     next.currentLocationId = locationId;
     next.locationProgress[locationId].visitCount += 1;
+    next.locationProgress[locationId].beatCount = 0;
+    next.locationProgress[locationId].completed = false;
+    next.locationProgress[locationId].result = null;
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
     refreshPreparedBeat(next, slot.rules);
@@ -716,7 +853,14 @@ export class OperationRuntimeService {
     const locationId = slot.run.currentLocationId;
     if (slot.run.locationProgress[locationId].completed) return this.getSnapshot()!;
     const next = deepCopy(slot.run);
-    next.locationProgress[locationId].completed = true;
+    const progress = next.locationProgress[locationId];
+    const locationDefinition = getCurrentLocationDefinition(slot.rules.definition, locationId);
+    const result = evaluateOperationLocationOutcome(locationDefinition, next.eventState, progress.beatCount);
+    if (result === null && hasLocationOutcomeRules(locationDefinition)) {
+      throw new OperationRuntimeError(['current Location objectives are not complete']);
+    }
+    progress.completed = true;
+    progress.result = result ?? 'success';
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
     refreshPreparedBeat(next, slot.rules);
@@ -725,25 +869,21 @@ export class OperationRuntimeService {
     return this.getSnapshot()!;
   }
 
-  finish(kind: OperationResultKind): EventResult {
+  finish(): EventResult {
     this.assertCanMutate();
     const slot = this.slot;
     if (slot?.result) return slot.result;
     const active = this.requireActiveRun();
-    if (!['success', 'partialSuccess', 'failure'].includes(kind)) {
-      throw new OperationRuntimeError(['result kind is invalid']);
+    if (!active.run.locationProgress[active.run.currentLocationId].completed) {
+      throw new OperationRuntimeError(['Event outcome can only be evaluated after the current Location is complete']);
     }
     const next = deepCopy(active.run);
+    const kind = evaluateOperationEventOutcome(active.rules.definition, next.eventState);
     next.status = kind as OperationRunStatus;
     next.planVersion = advancePlanVersion(active.run);
     next.preparedBeat = null;
     next.interventionDraft = null;
-    const result = frozenCopy({
-      eventId: next.eventId,
-      runId: next.runId,
-      kind,
-      finalRun: next,
-    }) as EventResult;
+    const result = freezeEventResult(next, kind);
     active.run = next;
     active.result = result;
     this.publish({ type: 'runFinished', runId: result.runId, eventId: result.eventId, kind });

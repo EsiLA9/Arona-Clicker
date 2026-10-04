@@ -32,25 +32,38 @@ function validateOperationActionEffect(value: unknown, path: string, issues: str
     issues.push(path + ' must be an effect object');
     return;
   }
-  if (typeof value.amount !== 'number' || !Number.isFinite(value.amount)) issues.push(path + '.amount must be a finite number');
   switch (value.kind) {
     case 'actorHpDelta':
       rejectUnsupportedFields(value, ['kind', 'recipient', 'amount'], path, issues);
+      if (typeof value.amount !== 'number' || !Number.isFinite(value.amount)) issues.push(path + '.amount must be a finite number');
       if (value.recipient !== 'actor' && value.recipient !== 'target') issues.push(path + '.recipient must be actor or target');
       break;
     case 'actorResourceDelta':
       rejectUnsupportedFields(value, ['kind', 'recipient', 'resourceId', 'amount'], path, issues);
+      if (typeof value.amount !== 'number' || !Number.isFinite(value.amount)) issues.push(path + '.amount must be a finite number');
       if (value.recipient !== 'actor' && value.recipient !== 'target') issues.push(path + '.recipient must be actor or target');
       if (!isNonEmptyId(value.resourceId)) issues.push(path + '.resourceId must be a non-empty ID');
       break;
     case 'teamResourceDelta':
       rejectUnsupportedFields(value, ['kind', 'recipient', 'resourceId', 'amount'], path, issues);
+      if (typeof value.amount !== 'number' || !Number.isFinite(value.amount)) issues.push(path + '.amount must be a finite number');
       if (value.recipient !== 'actorTeam' && value.recipient !== 'targetTeam') issues.push(path + '.recipient must be actorTeam or targetTeam');
       if (!isNonEmptyId(value.resourceId)) issues.push(path + '.resourceId must be a non-empty ID');
       break;
     case 'eventTrackDelta':
       rejectUnsupportedFields(value, ['kind', 'trackId', 'amount'], path, issues);
+      if (typeof value.amount !== 'number' || !Number.isFinite(value.amount)) issues.push(path + '.amount must be a finite number');
       if (!isNonEmptyId(value.trackId)) issues.push(path + '.trackId must be a non-empty ID');
+      break;
+    case 'eventFact':
+      rejectUnsupportedFields(value, ['kind', 'factId', 'op'], path, issues);
+      if (!isNonEmptyId(value.factId)) issues.push(path + '.factId must be a non-empty ID');
+      if (value.op !== 'reveal' && value.op !== 'forget') issues.push(path + '.op must be reveal or forget');
+      break;
+    case 'heldItem':
+      rejectUnsupportedFields(value, ['kind', 'itemId', 'op'], path, issues);
+      if (!isNonEmptyId(value.itemId)) issues.push(path + '.itemId must be a non-empty ID');
+      if (value.op !== 'grant' && value.op !== 'remove') issues.push(path + '.op must be grant or remove');
       break;
     default:
       issues.push(path + '.kind is not a supported Operation Action effect');

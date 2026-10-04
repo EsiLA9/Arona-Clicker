@@ -280,6 +280,14 @@ describe('Operation participant admission', () => {
       },
       {
         source: content({
+          actionDefinitions: baseActions.map((action, index) => index === 0
+            ? { ...action, effects: [{ kind: 'heldItem', itemId: 'missing-key', op: 'grant' }] }
+            : action),
+        }),
+        message: /references an undeclared held item/,
+      },
+      {
+        source: content({
           eventDefinition: {
             ...eventDef(),
             locationTactics: [{ locationId: 'test:location:office', enabledActionIds: ['missing'], combinationRules: [] }],
@@ -466,7 +474,8 @@ describe('Operation participant admission', () => {
       expect(Object.isFrozen(opponent.candidateActionIds)).toBe(true);
     }
 
-    owner.finish('success');
+    owner.completeCurrentLocation();
+    owner.finish();
     const invalid: OperationResolvedContent = {
       ...source,
       actionDefinitions: source.actionDefinitions.map(action => action.id === 'opponent-fire'
@@ -554,7 +563,8 @@ describe('Operation participant admission', () => {
 
     validEntry.facade.start(validEvent.id, [Character.Hoshino]);
     expect(start).toHaveBeenCalledTimes(1);
-    owner.finish('success');
+    owner.completeCurrentLocation();
+    owner.finish();
 
     const noTeamMembership: OperationEventDef = {
       ...validEvent,

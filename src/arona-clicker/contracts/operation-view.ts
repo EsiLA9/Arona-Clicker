@@ -32,6 +32,19 @@ export type OperationViewResolution = Omit<OperationResolution, 'randomCursorBef
   readonly studentSkillChecks: readonly OperationViewStudentSkillCheck[];
 };
 
+export interface OperationViewObjectiveProgress {
+  readonly id: string;
+  readonly description: string;
+  readonly kind: 'primary' | 'secondary';
+  readonly achieved: boolean;
+}
+
+export interface OperationViewOutcomeCondition {
+  readonly id: string;
+  readonly description: string;
+  readonly met: boolean;
+}
+
 export interface OperationViewActor {
   readonly id: string;
   readonly type: string;
@@ -62,6 +75,10 @@ export interface OperationView {
   readonly tracks: Readonly<Record<string, number>>;
   readonly knownFactIds: readonly string[];
   readonly heldItemIds: readonly string[];
+  readonly objectives: readonly OperationViewObjectiveProgress[];
+  readonly currentLocationObjectives: readonly OperationViewObjectiveProgress[];
+  readonly partialOutcomes: readonly OperationViewOutcomeCondition[];
+  readonly hardFailureConditions: readonly OperationViewOutcomeCondition[];
   readonly actorStates: readonly OperationViewActor[];
   readonly teamStates: EventRun['teamStates'];
   readonly locationProgress: EventRun['locationProgress'];

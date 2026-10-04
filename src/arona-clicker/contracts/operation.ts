@@ -6,7 +6,28 @@ import type { OperationResolution } from './operation-resolution';
 
 export type OperationResultKind = 'success' | 'partialSuccess' | 'failure';
 export type OperationRunStatus = 'inProgress' | OperationResultKind;
+export type OperationLocationResultKind = OperationResultKind;
 export type OperationCardZone = 'drawPile' | 'hand' | 'discard' | 'played';
+
+export type OperationPredicateOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
+export type OperationPredicateLeafDef =
+  | { readonly kind: 'track'; readonly trackId: string; readonly operator: OperationPredicateOperator; readonly value: number }
+  | { readonly kind: 'knownFact'; readonly factId: string; readonly present: boolean };
+export type OperationPredicateDef = OperationPredicateLeafDef
+  | { readonly kind: 'all' | 'any'; readonly terms: readonly OperationPredicateLeafDef[] };
+
+export interface OperationObjectiveDef {
+  readonly id: string;
+  readonly description: string;
+  readonly kind: 'primary' | 'secondary';
+  readonly predicate: OperationPredicateDef;
+}
+
+export interface OperationOutcomeConditionDef {
+  readonly id: string;
+  readonly description: string;
+  readonly predicate: OperationPredicateDef;
+}
 
 export const OPERATION_WAIT_ACTION_ID = 'operation:action:wait' as const;
 export const OPERATION_NO_ELIGIBLE_ACTION_REASON_ID = 'operation:profile:no-eligible-action' as const;
@@ -65,6 +86,9 @@ export interface OperationEventDef {
   readonly knownFactIds: readonly string[];
   readonly itemIds: readonly string[];
   readonly heldItemIds: readonly string[];
+  readonly objectives?: readonly OperationObjectiveDef[];
+  readonly partialOutcomes?: readonly OperationOutcomeConditionDef[];
+  readonly hardFailureConditions?: readonly OperationOutcomeConditionDef[];
   readonly actors: readonly OperationActorDef[];
   readonly teams?: readonly OperationTeamDef[];
   /** Temporary tactical definitions keyed by existing Location IDs until Task 0218. */
@@ -187,6 +211,8 @@ export interface OperationPlayerRouteState {
 export interface OperationLocationProgress {
   readonly visitCount: number;
   readonly completed: boolean;
+  readonly beatCount: number;
+  readonly result: OperationLocationResultKind | null;
 }
 
 /** Read-only detached view; the service retains the only mutable Run. */

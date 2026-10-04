@@ -244,7 +244,7 @@ describe('StudentOperationProfileResolver and EventRun snapshots', () => {
     const snapshot = service.getSnapshot()!;
     expect(Object.isFrozen(snapshot.actorStates[0].profile)).toBe(true);
     expect(Object.isFrozen(snapshot.actorStates[0].profile?.actionCandidates[0])).toBe(true);
-    expect(snapshot.random).toEqual({ seed: 19, cursor: 0 });
+    expect(snapshot.random).toEqual({ algorithm: 'splitmix64-counter-v1', seed: 19, tacticalCursor: 0 });
 
     service.applyStateDelta({ actors: [{ actorId: ACTOR_IDS[0], hp: 1, resources: { focus: 0 } }] });
     expect(service.getSnapshot()?.actorStates[0]).toMatchObject({
@@ -267,7 +267,8 @@ describe('StudentOperationProfileResolver and EventRun snapshots', () => {
     const service = new OperationRuntimeService();
     const first = service.start(resolveOperationRunStart(admission()));
     service.applyStateDelta({ actors: [{ actorId: ACTOR_IDS[0], hp: 1, resources: { focus: 0 } }] });
-    const firstResult = service.finish('success');
+    service.completeCurrentLocation();
+    const firstResult = service.finish();
 
     const secondEvent: OperationEventDef = {
       ...eventDef(),

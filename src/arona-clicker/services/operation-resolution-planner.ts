@@ -22,6 +22,7 @@ import type {
   OperationResolutionActorSnapshot,
   OperationResolutionBatch,
   OperationResolutionEffectSource,
+  OperationResolutionMembershipChange,
   OperationResolutionNumericChange,
   OperationResolutionPayment,
   OperationResolutionPlannerErrorCode,
@@ -54,8 +55,12 @@ interface PlannerIndexes {
   readonly teamsById: ReadonlyMap<string, OperationTeamDef>;
   readonly teamStatesById: ReadonlyMap<string, OperationResolutionTeamSnapshot>;
   readonly tracksById: ReadonlyMap<string, OperationBoundedValueDef>;
+  readonly factsById: ReadonlySet<string>;
+  readonly itemsById: ReadonlySet<string>;
   readonly actionDefinitionsById: ReadonlyMap<string, OperationActionDef>;
 }
+
+type MembershipTarget = OperationResolutionMembershipChange['target'];
 
 export class OperationResolutionPlannerError extends Error {
   constructor(readonly code: OperationResolutionPlannerErrorCode, detail: string) {
@@ -237,6 +242,7 @@ function buildIndexes(input: OperationResolutionPlannerInput): PlannerIndexes {
     fail('operation:resolution:invalid-content', 'snapshot Event does not match trusted Event definitions');
   }
   if (!Array.isArray(event.locationIds) || !Array.isArray(event.actors) || !Array.isArray(event.tracks)
+    || !Array.isArray(event.factIds) || !Array.isArray(event.itemIds)
     || (event.teams !== undefined && !Array.isArray(event.teams))
     || (event.locationTactics !== undefined && !Array.isArray(event.locationTactics))) {
     fail('operation:resolution:invalid-content', 'Event content has malformed Location, Actor, Track, Team, or tactics collections');
@@ -252,6 +258,8 @@ function buildIndexes(input: OperationResolutionPlannerInput): PlannerIndexes {
   const actorsById = indexUnique(event.actors, actor => actor.id, 'Event actors', 'operation:resolution:invalid-content');
   const teamsById = indexUnique(event.teams ?? [], team => team.id, 'Event teams', 'operation:resolution:invalid-content');
   const tracksById = indexUnique(event.tracks, track => track.id, 'Event tracks', 'operation:resolution:invalid-content');
+  const factsById = new Set(event.factIds);
+  const itemsById = new Set(event.itemIds);
   const actorStatesById = indexUnique(snapshot.actors, actor => actor.actorId, 'snapshot actors', 'operation:resolution:invalid-snapshot');
   const teamStatesById = indexUnique(snapshot.teams, team => team.id, 'snapshot teams', 'operation:resolution:invalid-snapshot');
   if (actorsById.size !== actorStatesById.size || teamsById.size !== teamStatesById.size) {
@@ -290,6 +298,17 @@ function buildIndexes(input: OperationResolutionPlannerInput): PlannerIndexes {
   for (const trackId of Object.keys(snapshot.tracks)) {
     if (!tracksById.has(trackId)) fail('operation:resolution:invalid-snapshot', 'snapshot contains undeclared Track: ' + trackId);
   }
+  for (const [label, ids, declared] of [
+    ['known facts', snapshot.knownFactIds, factsById],
+    ['held items', snapshot.heldItemIds, itemsById],
+  ] as const) {
+    if (!Array.isArray(ids) || new Set(ids).size !== ids.length) {
+      fail('operation:resolution:invalid-snapshot', 'snapshot ' + label + ' must be a unique ID array');
+    }
+    for (const id of ids) {
+      if (!isNonEmptyId(id) || !declared.has(id)) fail('operation:resolution:invalid-snapshot', 'snapshot contains undeclared ' + label + ': ' + id);
+    }
+  }
   const actionDefinitionsById = indexUnique(
     trustedContent.actionDefinitions,
     action => action.id,
@@ -307,7 +326,7 @@ function buildIndexes(input: OperationResolutionPlannerInput): PlannerIndexes {
   for (const skillRule of trustedContent.studentSkillRules) {
     if (!isRecord(skillRule)) fail('operation:resolution:invalid-content', 'Student Skill rules contain a non-object entry');
   }
-  return { actorsById, actorStatesById, teamsById, teamStatesById, tracksById, actionDefinitionsById };
+  return { actorsById, actorStatesById, teamsById, teamStatesById, tracksById, factsById, itemsById, actionDefinitionsById };
 }
 
 function preparationSnapshot(input: OperationResolutionPlannerInput): OperationPreparationSnapshot {
@@ -518,7 +537,8 @@ function effectTarget(
   sourceActorId: string,
   targetActorId: string | null,
   indexes: PlannerIndexes,
-): OperationResolutionValueTarget {
+): OperationResolutionValueTarget | null {
+  if (effect.kind === 'eventFact' || effect.kind === 'heldItem') return null;
   if (effect.kind === 'eventTrackDelta') {
     if (!isNonEmptyId(effect.trackId)) fail('operation:resolution:invalid-effect', 'Event Track effect has an invalid Track ID');
     return { kind: 'track', trackId: effect.trackId };
@@ -554,12 +574,40 @@ function effectTarget(
   fail('operation:resolution:invalid-effect', 'Effect kind is not supported by the tactical Runtime');
 }
 
+function addMembershipEffect(
+  effect: Extract<OperationActionEffectDef, { readonly kind: 'eventFact' | 'heldItem' }>,
+  changes: Map<string, OperationResolutionMembershipChange>,
+  indexes: PlannerIndexes,
+  snapshot: OperationResolutionPlannerInput['snapshot'],
+): void {
+  const target: MembershipTarget = effect.kind === 'eventFact'
+    ? { kind: 'knownFact', id: effect.factId }
+    : { kind: 'heldItem', id: effect.itemId };
+  const declaration = effect.kind === 'eventFact' ? indexes.factsById : indexes.itemsById;
+  if (!isNonEmptyId(target.id) || !declaration.has(target.id)) {
+    fail('operation:resolution:invalid-effect', 'Membership effect references an undeclared ID: ' + target.id);
+  }
+  if (effect.kind === 'eventFact' && effect.op !== 'reveal' && effect.op !== 'forget') {
+    fail('operation:resolution:invalid-effect', 'Event fact operation must be reveal or forget');
+  }
+  if (effect.kind === 'heldItem' && effect.op !== 'grant' && effect.op !== 'remove') {
+    fail('operation:resolution:invalid-effect', 'Held item operation must be grant or remove');
+  }
+  const key = target.kind + ':' + target.id;
+  const existing = changes.get(key);
+  const startingIds = target.kind === 'knownFact' ? snapshot.knownFactIds : snapshot.heldItemIds;
+  const before = existing?.before ?? startingIds.includes(target.id);
+  const after = effect.kind === 'eventFact' ? effect.op === 'reveal' : effect.op === 'grant';
+  changes.set(key, { target, before, after });
+}
+
 function addEffectList(
   effects: readonly OperationActionEffectDef[],
   sourceActorId: string,
   targetActorId: string | null,
   sourceForIndex: (effectIndex: number) => OperationResolutionEffectSource,
   buckets: Map<string, ValueBucket>,
+  membershipChanges: Map<string, OperationResolutionMembershipChange>,
   indexes: PlannerIndexes,
   snapshot: OperationResolutionPlannerInput['snapshot'],
 ): void {
@@ -567,7 +615,12 @@ function addEffectList(
   effects.forEach((effect, effectIndex) => {
     if (!isRecord(effect)) fail('operation:resolution:invalid-effect', 'Effect must be an object');
     const typedEffect = effect as unknown as OperationActionEffectDef;
+    if (typedEffect.kind === 'eventFact' || typedEffect.kind === 'heldItem') {
+      addMembershipEffect(typedEffect, membershipChanges, indexes, snapshot);
+      return;
+    }
     const target = effectTarget(typedEffect, sourceActorId, targetActorId, indexes);
+    if (!target || !('amount' in typedEffect)) fail('operation:resolution:invalid-effect', 'Numeric effect is malformed');
     addContribution(buckets, target, typedEffect.amount, sourceForIndex(effectIndex), indexes, snapshot);
   });
 }
@@ -583,10 +636,25 @@ function validateEffectList(
   for (const effect of effects) {
     if (!isRecord(effect)) fail('operation:resolution:invalid-effect', 'Effect must be an object');
     const typedEffect = effect as unknown as OperationActionEffectDef;
+    if (typedEffect.kind === 'eventFact' || typedEffect.kind === 'heldItem') {
+      const id = typedEffect.kind === 'eventFact' ? typedEffect.factId : typedEffect.itemId;
+      const declared = typedEffect.kind === 'eventFact' ? indexes.factsById : indexes.itemsById;
+      if (!isNonEmptyId(id) || !declared.has(id)) {
+        fail('operation:resolution:invalid-effect', 'Membership effect references an undeclared ID: ' + id);
+      }
+      if (typedEffect.kind === 'eventFact' && typedEffect.op !== 'reveal' && typedEffect.op !== 'forget') {
+        fail('operation:resolution:invalid-effect', 'Event fact operation must be reveal or forget');
+      }
+      if (typedEffect.kind === 'heldItem' && typedEffect.op !== 'grant' && typedEffect.op !== 'remove') {
+        fail('operation:resolution:invalid-effect', 'Held item operation must be grant or remove');
+      }
+      continue;
+    }
     if (typeof typedEffect.amount !== 'number' || !Number.isFinite(typedEffect.amount)) {
       fail('operation:resolution:invalid-effect', 'Effect amount must be finite');
     }
     const target = effectTarget(typedEffect, sourceActorId, targetActorId, indexes);
+    if (!target) fail('operation:resolution:invalid-effect', 'Numeric effect has no numeric target');
     valueBucket(target, indexes, snapshot);
   }
 }
@@ -674,6 +742,7 @@ function addActionEffects(
   selectedActions: ReadonlyMap<string, OperationActionDef>,
   consumedActorIds: ReadonlySet<string>,
   buckets: Map<string, ValueBucket>,
+  membershipChanges: Map<string, OperationResolutionMembershipChange>,
   indexes: PlannerIndexes,
   input: OperationResolutionPlannerInput,
 ): void {
@@ -683,13 +752,14 @@ function addActionEffects(
     if (!action) fail('operation:resolution:invalid-content', 'Selected Action disappeared for Actor ' + plan.actorId);
     addEffectList(action.effects, plan.actorId, plan.targetActorId, effectIndex => ({
       kind: 'action', actorId: plan.actorId, actionId: action.id, effectIndex,
-    }), buckets, indexes, input.snapshot);
-  }
+    }), buckets, membershipChanges, indexes, input.snapshot);
+}
 }
 
 function addCombinationEffects(
   matches: readonly OperationCombinationMatch[],
   buckets: Map<string, ValueBucket>,
+  membershipChanges: Map<string, OperationResolutionMembershipChange>,
   indexes: PlannerIndexes,
   input: OperationResolutionPlannerInput,
 ): void {
@@ -703,14 +773,15 @@ function addCombinationEffects(
     if (!rule) fail('operation:resolution:invalid-content', 'Combination match references a missing rule: ' + match.ruleId);
     addEffectList(rule.effects, match.actorAId, match.targetActorId, effectIndex => ({
       kind: 'combination', ruleId: match.ruleId, actorAId: match.actorAId, actorBId: match.actorBId, effectIndex,
-    }), buckets, indexes, input.snapshot);
-  }
+    }), buckets, membershipChanges, indexes, input.snapshot);
+}
 }
 
 function addSkillEffects(
   checks: OperationResolutionBatch['studentSkillChecks'],
   plans: readonly OperationPreparedActorPlan[],
   buckets: Map<string, ValueBucket>,
+  membershipChanges: Map<string, OperationResolutionMembershipChange>,
   indexes: PlannerIndexes,
   input: OperationResolutionPlannerInput,
 ): void {
@@ -730,8 +801,14 @@ function addSkillEffects(
     addEffectList(rule.effects, check.actorId, plan.targetActorId, effectIndex => ({
       kind: 'studentSkill', actorId: check.actorId, skillRuleId: check.skillRuleId,
       actionId: check.actionId, effectIndex,
-    }), buckets, indexes, input.snapshot);
+    }), buckets, membershipChanges, indexes, input.snapshot);
   }
+}
+
+function resolveMembershipChanges(
+  changes: ReadonlyMap<string, OperationResolutionMembershipChange>,
+): OperationResolutionMembershipChange[] {
+  return [...changes.values()].filter(change => change.before !== change.after);
 }
 
 function skillRandomState(input: OperationResolutionPlannerInput): OperationTacticalRandomState {
@@ -814,11 +891,12 @@ export function planOperationResolution(input: OperationResolutionPlannerInput):
   }
 
   const buckets = new Map<string, ValueBucket>();
+  const membershipChanges = new Map<string, OperationResolutionMembershipChange>();
   addPayments(payments, buckets, indexes, input.snapshot);
   const consumedActorIds = new Set(combinations.matches.flatMap(match => [match.actorAId, match.actorBId]));
-  addActionEffects(finalBeat.actorPlans, selectedActions, consumedActorIds, buckets, indexes, input);
-  addCombinationEffects(combinations.matches, buckets, indexes, input);
-  addSkillEffects(skillBatch.checks, finalBeat.actorPlans, buckets, indexes, input);
+  addActionEffects(finalBeat.actorPlans, selectedActions, consumedActorIds, buckets, membershipChanges, indexes, input);
+  addCombinationEffects(combinations.matches, buckets, membershipChanges, indexes, input);
+  addSkillEffects(skillBatch.checks, finalBeat.actorPlans, buckets, membershipChanges, indexes, input);
   const randomState = skillRandomState(input);
 
   return freezeTree({
@@ -834,6 +912,7 @@ export function planOperationResolution(input: OperationResolutionPlannerInput):
     randomCursorBefore: randomState.tacticalCursor,
     randomCursorAfter: skillBatch.nextRandomState.tacticalCursor,
     numericChanges: resolveChanges(buckets, indexes, input),
+    membershipChanges: resolveMembershipChanges(membershipChanges),
     nextRandomState: skillBatch.nextRandomState,
   });
 }

@@ -170,6 +170,8 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
       ],
       teams: [{ id: TEAM_BLUE, resources: { energy: 0.3 } }],
       tracks: { 'track:momentum': 0 },
+      knownFactIds: [],
+      heldItemIds: [],
       randomState: { algorithm: OPERATION_TACTICAL_RNG_ALGORITHM, seed: 77, tacticalCursor: 5 },
     },
     trustedContent,

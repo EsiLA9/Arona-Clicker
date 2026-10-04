@@ -210,6 +210,44 @@ describe('validateOperationEventDef', () => {
     expect(diagnostics).toMatch(/undeclared track/);
   });
 
+  test('validates bounded objective predicates and their declared Event references', () => {
+    const definition: OperationEventDef = {
+      ...eventDef(),
+      objectives: [{
+        id: 'test:objective:door-and-danger',
+        description: 'Open the archive before danger rises',
+        kind: 'primary',
+        predicate: {
+          kind: 'all',
+          terms: [
+            { kind: 'knownFact', factId: 'door_open', present: true },
+            { kind: 'track', trackId: 'danger', operator: 'lt', value: 4 },
+          ],
+        },
+      }],
+      partialOutcomes: [{
+        id: 'test:outcome:door-open',
+        description: 'Open the archive without resolving the danger',
+        predicate: { kind: 'knownFact', factId: 'door_open', present: true },
+      }],
+      hardFailureConditions: [{
+        id: 'test:failure:danger',
+        description: 'Danger reached the limit',
+        predicate: { kind: 'track', trackId: 'danger', operator: 'gte', value: 5 },
+      }],
+    };
+    expect(validateOperationEventDef(definition)).toEqual([]);
+
+    const invalid = {
+      ...definition,
+      objectives: [{
+        ...definition.objectives![0],
+        predicate: { kind: 'any', terms: [{ kind: 'track', trackId: 'missing', operator: 'gt', value: 1 }] },
+      }],
+    } as OperationEventDef;
+    expect(validateOperationEventDef(invalid).join('\n')).toMatch(/references an undeclared track/);
+  });
+
   test('validates the closed OperationAction contract without executing it', () => {
     const valid = {
       id: 'test:action:assist',
@@ -222,17 +260,22 @@ describe('validateOperationEventDef', () => {
       effects: [
         { kind: 'actorHpDelta', recipient: 'target', amount: 1 },
         { kind: 'eventTrackDelta', trackId: 'danger', amount: -1 },
+        { kind: 'eventFact', factId: 'door_open', op: 'reveal' },
+        { kind: 'heldItem', itemId: 'archive_key', op: 'grant' },
       ],
     };
     expect(validateOperationActionDef(valid)).toEqual([]);
 
     const invalid = {
       ...valid,
+      effects: [
+        { kind: 'actorResourceDelta', recipient: 'unknown', resourceId: '', amount: Number.POSITIVE_INFINITY, script: 'nope' },
+        { kind: 'heldItem', itemId: 'archive_key', op: 'consume' },
+      ],
       script: 'this must not be executable content',
       allowedParticipantKinds: ['student', 'student', 'ghost'],
       cost: { scope: 'team', resourceId: '', amount: 0 },
       target: { kind: 'actor', relation: 'opposite' },
-      effects: [{ kind: 'actorResourceDelta', recipient: 'unknown', resourceId: '', amount: Number.POSITIVE_INFINITY, script: 'nope' }],
     };
     const diagnostics = validateOperationActionDef(invalid).join('\n');
     expect(diagnostics).toMatch(/duplicate ID/);
@@ -242,6 +285,7 @@ describe('validateOperationEventDef', () => {
     expect(diagnostics).toMatch(/target.relation/);
     expect(diagnostics).toMatch(/effects\[0\].amount/);
     expect(diagnostics).toMatch(/effects\[0\].recipient/);
+    expect(diagnostics).toMatch(/effects\[1\].op must be grant or remove/);
     expect(diagnostics).toMatch(/unsupported field: script/);
   });
 });
@@ -411,9 +455,18 @@ describe('OperationRuntimeService', () => {
     const service = new OperationRuntimeService();
     const listener = vi.fn();
     service.subscribe(listener);
-    service.start(eventDef());
+    service.start({
+      ...eventDef(),
+      partialOutcomes: [{
+        id: 'test:outcome:found-door',
+        description: 'The archive door was opened',
+        predicate: { kind: 'knownFact', factId: 'door_open', present: true },
+      }],
+    });
+    service.applyStateDelta({ knownFacts: [{ id: 'door_open', present: true }] });
+    service.completeCurrentLocation();
 
-    const result = service.finish('partialSuccess');
+    const result = service.finish();
     expect(result).toMatchObject({
       eventId: 'test:operation:office',
       kind: 'partialSuccess',
@@ -421,7 +474,7 @@ describe('OperationRuntimeService', () => {
     });
     expect(Object.isFrozen(result)).toBe(true);
     expect(Object.isFrozen(result.finalRun.eventState.tracks)).toBe(true);
-    expect(service.finish('failure')).toBe(result);
+    expect(service.finish()).toBe(result);
     expect(listener.mock.calls.filter(([event]) => event.type === 'runFinished')).toHaveLength(1);
     expect(() => service.applyStateDelta({ tracks: { danger: 2 } })).toThrow(/terminal/);
     expect(() => service.enterLocation('test:location:archive')).toThrow(/terminal/);
@@ -435,9 +488,18 @@ describe('OperationRuntimeService', () => {
     });
     service.subscribe(event => received.push(event.type));
 
-    expect(service.start(eventDef()).status).toBe('inProgress');
-    expect(service.finish('success').kind).toBe('success');
-    expect(received).toEqual(['runStarted', 'locationEntered', 'runFinished']);
+    expect(service.start({
+      ...eventDef(),
+      objectives: [{
+        id: 'test:objective:initial-danger',
+        description: 'Keep danger below the track limit',
+        kind: 'primary',
+        predicate: { kind: 'track', trackId: 'danger', operator: 'lte', value: 5 },
+      }],
+    }).status).toBe('inProgress');
+    service.completeCurrentLocation();
+    expect(service.finish().kind).toBe('success');
+    expect(received).toEqual(['runStarted', 'locationEntered', 'locationCompleted', 'runFinished']);
   });
 
   test('commits one Beat atomically, notifies after the swap, and retries without another write', () => {
@@ -493,12 +555,144 @@ describe('OperationRuntimeService', () => {
     expect(owner.getSnapshot()).toEqual(committed);
     expect(notifications).toHaveLength(1);
     expect(() => entry.commitBeat({ runId: started.runId, planVersion: 0, extra: true } as never)).toThrow(OperationRuntimeError);
-    owner.finish('success');
+    owner.completeCurrentLocation();
+    owner.finish();
     const terminal = owner.getSnapshot();
     expect(entry.commitBeat({ runId: started.runId, planVersion: 0 })).toEqual(resolution);
     expect(owner.getSnapshot()).toEqual(terminal);
     expect(notifications).toHaveLength(1);
     expect(() => entry.commitBeat({ runId: 'other-run', planVersion: 0 })).toThrow(/terminal/);
+  });
+
+  test('commits fact and held-item Action effects once and marks the Location objective from that result', () => {
+    const owner = new OperationRuntimeService();
+    const entry = operationEntryFor(owner);
+    const startInput = tacticalRunStartInput([
+      { kind: 'eventFact', factId: 'door_open', op: 'reveal' },
+      { kind: 'heldItem', itemId: 'archive_key', op: 'grant' },
+      { kind: 'heldItem', itemId: 'archive_key', op: 'grant' },
+    ]);
+    const tactics = startInput.eventDefinition.locationTactics![0];
+    const eventDefinition: OperationEventDef = {
+      ...startInput.eventDefinition,
+      locationTactics: [{
+        ...tactics,
+        objectives: [{
+          id: 'test:objective:open-archive',
+          description: 'Open the archive door',
+          kind: 'primary',
+          predicate: { kind: 'knownFact', factId: 'door_open', present: true },
+        }],
+      }],
+    };
+    const started = owner.start({ ...startInput, eventDefinition });
+
+    const resolution = entry.commitBeat({ runId: started.runId, planVersion: started.planVersion });
+    expect(resolution.membershipChanges).toEqual([
+      { target: { kind: 'knownFact', id: 'door_open' }, before: false, after: true },
+      { target: { kind: 'heldItem', id: 'archive_key' }, before: false, after: true },
+    ]);
+    expect(owner.getSnapshot()).toMatchObject({
+      eventState: { knownFactIds: ['door_open'], heldItemIds: ['archive_key'] },
+      locationProgress: {
+        'test:location:office': { visitCount: 1, beatCount: 1, completed: true, result: 'success' },
+      },
+      preparedBeat: null,
+    });
+    expect(owner.getView()).toMatchObject({
+      heldItemIds: ['archive_key'],
+      currentLocationObjectives: [{ id: 'test:objective:open-archive', achieved: true }],
+    });
+  });
+
+  test('computes Event outcomes from declared predicates and hard failure interrupts the Run', () => {
+    const success = new OperationRuntimeService();
+    success.start({
+      ...eventDef(),
+      objectives: [{
+        id: 'test:objective:danger-contained',
+        description: 'Keep danger under control',
+        kind: 'primary',
+        predicate: { kind: 'track', trackId: 'danger', operator: 'lte', value: 1 },
+      }],
+    });
+    success.completeCurrentLocation();
+    expect(success.finish().kind).toBe('success');
+
+    const failed = new OperationRuntimeService();
+    failed.start({
+      ...eventDef(),
+      objectives: [{
+        id: 'test:objective:door-open',
+        description: 'Open the door',
+        kind: 'primary',
+        predicate: { kind: 'track', trackId: 'danger', operator: 'lt', value: 1 },
+      }],
+      partialOutcomes: [{
+        id: 'test:outcome:clue-found',
+        description: 'Recover the clue',
+        predicate: { kind: 'knownFact', factId: 'door_open', present: true },
+      }],
+    });
+    failed.completeCurrentLocation();
+    expect(failed.finish().kind).toBe('failure');
+
+    const partial = new OperationRuntimeService();
+    partial.start({
+      ...eventDef(),
+      objectives: [{
+        id: 'test:objective:door-open',
+        description: 'Open the door',
+        kind: 'primary',
+        predicate: { kind: 'track', trackId: 'danger', operator: 'lt', value: 1 },
+      }],
+      partialOutcomes: [{
+        id: 'test:outcome:clue-found',
+        description: 'Recover the clue',
+        predicate: { kind: 'knownFact', factId: 'door_open', present: true },
+      }],
+    });
+    partial.applyStateDelta({ knownFacts: [{ id: 'door_open', present: true }] });
+    partial.completeCurrentLocation();
+    expect(partial.finish().kind).toBe('partialSuccess');
+
+    const hardFailure = new OperationRuntimeService();
+    const startInput = tacticalRunStartInput([{ kind: 'eventTrackDelta', trackId: 'danger', amount: 4 }]);
+    const eventDefinition: OperationEventDef = {
+      ...startInput.eventDefinition,
+      hardFailureConditions: [{
+        id: 'test:failure:danger-overflow',
+        description: 'Danger reaches the limit',
+        predicate: { kind: 'track', trackId: 'danger', operator: 'gte', value: 5 },
+      }],
+    };
+    const started = hardFailure.start({ ...startInput, eventDefinition });
+    const entry = operationEntryFor(hardFailure);
+    entry.commitBeat({ runId: started.runId, planVersion: started.planVersion });
+    expect(hardFailure.getSnapshot()).toMatchObject({ status: 'failure', eventState: { tracks: { danger: 5 } } });
+    expect(hardFailure.getResult()?.kind).toBe('failure');
+    expect(() => hardFailure.applyStateDelta({ tracks: { danger: 4 } })).toThrow(/terminal/);
+  });
+
+  test('Location Beat cap records a local failure without ending the Event', () => {
+    const owner = new OperationRuntimeService();
+    const entry = operationEntryFor(owner);
+    const startInput = tacticalRunStartInput();
+    const tactics = startInput.eventDefinition.locationTactics![0];
+    const started = owner.start({
+      ...startInput,
+      eventDefinition: { ...startInput.eventDefinition, locationTactics: [{ ...tactics, maxBeats: 1 }] },
+    });
+
+    entry.commitBeat({ runId: started.runId, planVersion: started.planVersion });
+    expect(owner.getSnapshot()).toMatchObject({
+      status: 'inProgress',
+      locationProgress: {
+        'test:location:office': { visitCount: 1, beatCount: 1, completed: true, result: 'failure' },
+      },
+      preparedBeat: null,
+    });
+    expect(owner.getResult()).toBeNull();
   });
 
   test('keeps every Run field and suppresses beatResolved notification when pure planning fails', () => {
@@ -509,6 +703,7 @@ describe('OperationRuntimeService', () => {
     const start = tacticalRunStartInput([
       { kind: 'eventTrackDelta', trackId: 'danger', amount: Number.MAX_VALUE },
       { kind: 'eventTrackDelta', trackId: 'danger', amount: Number.MAX_VALUE },
+      { kind: 'heldItem', itemId: 'archive_key', op: 'grant' },
     ]);
     const initial = owner.start(start);
     const before = owner.getSnapshot();
@@ -549,8 +744,8 @@ describe('OperationRuntimeService', () => {
     const entered = service.enterLocation('test:location:archive');
     expect(entered).toMatchObject({ planVersion: 2, preparedBeat: { planVersion: 2, locationId: 'test:location:archive' } });
     const completed = service.completeCurrentLocation();
-    expect(completed).toMatchObject({ planVersion: 3, preparedBeat: { planVersion: 3, locationId: 'test:location:archive' } });
-    const finished = service.finish('partialSuccess');
+    expect(completed).toMatchObject({ planVersion: 3, preparedBeat: null });
+    const finished = service.finish();
     expect(finished.finalRun).toMatchObject({ planVersion: 4, preparedBeat: null, interventionDraft: null });
   });
 
@@ -566,7 +761,7 @@ describe('OperationRuntimeService', () => {
       expect(() => service.applyStateDelta({ tracks: { danger: 2 } })).toThrow(OperationRuntimeError);
       expect(() => service.enterLocation('test:location:archive')).toThrow(OperationRuntimeError);
       expect(() => service.completeCurrentLocation()).toThrow(OperationRuntimeError);
-      expect(() => service.finish('failure')).toThrow(OperationRuntimeError);
+      expect(() => service.finish()).toThrow(OperationRuntimeError);
     });
     const laterEvents: string[] = [];
     service.subscribe(event => laterEvents.push(event.type));

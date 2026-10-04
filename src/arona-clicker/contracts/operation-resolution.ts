@@ -58,6 +58,12 @@ export interface OperationResolutionNumericChange {
   readonly contributions: readonly OperationResolutionDeltaContribution[];
 }
 
+export interface OperationResolutionMembershipChange {
+  readonly target: { readonly kind: 'knownFact' | 'heldItem'; readonly id: string };
+  readonly before: boolean;
+  readonly after: boolean;
+}
+
 export interface OperationResolutionIntervention {
   readonly actorId: string;
   readonly before: OperationPreparedActorPlan;
@@ -79,6 +85,7 @@ export interface OperationResolutionBatch {
   readonly randomCursorBefore: number;
   readonly randomCursorAfter: number;
   readonly numericChanges: readonly OperationResolutionNumericChange[];
+  readonly membershipChanges: readonly OperationResolutionMembershipChange[];
   readonly nextRandomState: OperationTacticalRandomState;
 }
 
@@ -99,6 +106,8 @@ export interface OperationResolutionPlannerSnapshot {
   readonly actors: readonly OperationResolutionActorSnapshot[];
   readonly teams: readonly OperationResolutionTeamSnapshot[];
   readonly tracks: Readonly<Record<string, number>>;
+  readonly knownFactIds: readonly string[];
+  readonly heldItemIds: readonly string[];
   readonly randomState: OperationTacticalRandomState;
 }
 

@@ -13,6 +13,7 @@ import {
 import type { OperationView, OperationViewActionOption, OperationViewActor, OperationViewResolution } from '../contracts/operation-view';
 import { previewOperationIntervention, OperationInterventionPreviewError } from './operation-intervention-preview';
 import { resolveOperationCombinations } from './operation-combination-resolver';
+import { isOperationObjectiveSatisfied, isOperationOutcomeConditionSatisfied } from './operation-progress-evaluator';
 
 function freezeTree<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -261,6 +262,8 @@ export function projectOperationView(
       preparationContent.actionDefinitions,
     )
     : null;
+  const currentLocationTactics = content.eventDefinition.locationTactics
+    ?.find(row => row.locationId === run.currentLocationId);
   const view: OperationView = {
     runId: run.runId,
     eventId: run.eventId,
@@ -271,6 +274,28 @@ export function projectOperationView(
     tracks: { ...run.eventState.tracks },
     knownFactIds: [...run.eventState.knownFactIds],
     heldItemIds: [...run.eventState.heldItemIds],
+    objectives: (content.eventDefinition.objectives ?? []).map(objective => ({
+      id: objective.id,
+      description: objective.description,
+      kind: objective.kind,
+      achieved: isOperationObjectiveSatisfied(run.eventState, objective),
+    })),
+    currentLocationObjectives: (currentLocationTactics?.objectives ?? []).map(objective => ({
+      id: objective.id,
+      description: objective.description,
+      kind: objective.kind,
+      achieved: isOperationObjectiveSatisfied(run.eventState, objective),
+    })),
+    partialOutcomes: (content.eventDefinition.partialOutcomes ?? []).map(condition => ({
+      id: condition.id,
+      description: condition.description,
+      met: isOperationOutcomeConditionSatisfied(run.eventState, condition),
+    })),
+    hardFailureConditions: (content.eventDefinition.hardFailureConditions ?? []).map(condition => ({
+      id: condition.id,
+      description: condition.description,
+      met: isOperationOutcomeConditionSatisfied(run.eventState, condition),
+    })),
     actorStates: run.actorStates.map(actor => projectActor(run, preparationContent, snapshot, actor, effectiveBeat)),
     teamStates: run.teamStates.map(team => ({ id: team.id, resources: { ...team.resources } })),
     locationProgress: { ...run.locationProgress },

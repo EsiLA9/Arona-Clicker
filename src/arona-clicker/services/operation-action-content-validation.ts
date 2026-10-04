@@ -179,11 +179,17 @@ export function validateOperationActionContent(
   const trackIds = new Set((Array.isArray(event.tracks) ? event.tracks : [])
     .map(track => track?.id)
     .filter(isNonEmptyId));
+  const factIds = new Set(Array.isArray(event.factIds) ? event.factIds.filter(isNonEmptyId) : []);
+  const itemIds = new Set(Array.isArray(event.itemIds) ? event.itemIds.filter(isNonEmptyId) : []);
 
   for (const [index, action] of actionDefinitions.entries()) {
     for (const [effectIndex, effect] of action.effects.entries()) {
       if (effect.kind === 'eventTrackDelta' && !trackIds.has(effect.trackId)) {
         issues.push('actionDefinitions[' + index + '].effects[' + effectIndex + '].trackId references an undeclared track: ' + effect.trackId);
+      } else if (effect.kind === 'eventFact' && !factIds.has(effect.factId)) {
+        issues.push('actionDefinitions[' + index + '].effects[' + effectIndex + '].factId references an undeclared fact: ' + effect.factId);
+      } else if (effect.kind === 'heldItem' && !itemIds.has(effect.itemId)) {
+        issues.push('actionDefinitions[' + index + '].effects[' + effectIndex + '].itemId references an undeclared held item: ' + effect.itemId);
       }
     }
   }
@@ -200,6 +206,10 @@ export function validateOperationActionContent(
     for (const [effectIndex, effect] of rule.effects.entries()) {
       if (effect.kind === 'eventTrackDelta' && !trackIds.has(effect.trackId)) {
         issues.push('studentSkillRules[' + index + '].effects[' + effectIndex + '].trackId references an undeclared track: ' + effect.trackId);
+      } else if (effect.kind === 'eventFact' && !factIds.has(effect.factId)) {
+        issues.push('studentSkillRules[' + index + '].effects[' + effectIndex + '].factId references an undeclared fact: ' + effect.factId);
+      } else if (effect.kind === 'heldItem' && !itemIds.has(effect.itemId)) {
+        issues.push('studentSkillRules[' + index + '].effects[' + effectIndex + '].itemId references an undeclared held item: ' + effect.itemId);
       }
     }
   }

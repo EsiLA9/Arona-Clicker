@@ -119,10 +119,111 @@ function validateCombinationRule(value: unknown, path: string, issues: string[])
   validateOperationActionEffects(value.effects, path + '.effects', issues);
 }
 
+function validatePredicate(
+  value: unknown,
+  trackIds: ReadonlySet<string>,
+  factIds: ReadonlySet<string>,
+  path: string,
+  issues: string[],
+): void {
+  if (!isOperationRecord(value)) {
+    issues.push(path + ' must be a predicate object');
+    return;
+  }
+  if (value.kind === 'track') {
+    rejectUnsupportedFields(value, ['kind', 'trackId', 'operator', 'value'], path, issues);
+    if (!isNonEmptyOperationId(value.trackId) || !trackIds.has(value.trackId)) issues.push(path + '.trackId references an undeclared track');
+    if (!['eq', 'neq', 'gt', 'gte', 'lt', 'lte'].includes(String(value.operator))) issues.push(path + '.operator is unsupported');
+    if (typeof value.value !== 'number' || !Number.isFinite(value.value)) issues.push(path + '.value must be finite');
+    return;
+  }
+  if (value.kind === 'knownFact') {
+    rejectUnsupportedFields(value, ['kind', 'factId', 'present'], path, issues);
+    if (!isNonEmptyOperationId(value.factId) || !factIds.has(value.factId)) issues.push(path + '.factId references an undeclared fact');
+    if (typeof value.present !== 'boolean') issues.push(path + '.present must be boolean');
+    return;
+  }
+  if (value.kind === 'all' || value.kind === 'any') {
+    rejectUnsupportedFields(value, ['kind', 'terms'], path, issues);
+    if (!Array.isArray(value.terms) || value.terms.length === 0) {
+      issues.push(path + '.terms must contain at least one predicate');
+      return;
+    }
+    value.terms.forEach((term, index) => {
+      if (!isOperationRecord(term) || (term.kind !== 'track' && term.kind !== 'knownFact')) {
+        issues.push(path + '.terms[' + index + '] must be a simple track or fact predicate');
+      } else {
+        validatePredicate(term, trackIds, factIds, path + '.terms[' + index + ']', issues);
+      }
+    });
+    return;
+  }
+  issues.push(path + '.kind is unsupported');
+}
+
+function validateObjectives(
+  value: unknown,
+  trackIds: ReadonlySet<string>,
+  factIds: ReadonlySet<string>,
+  path: string,
+  issues: string[],
+): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    issues.push(path + ' must be an array');
+    return;
+  }
+  const ids = new Set<string>();
+  value.forEach((objective, index) => {
+    const rowPath = path + '[' + index + ']';
+    if (!isOperationRecord(objective)) {
+      issues.push(rowPath + ' must be an objective object');
+      return;
+    }
+    rejectUnsupportedFields(objective, ['id', 'description', 'kind', 'predicate'], rowPath, issues);
+    if (!isNonEmptyOperationId(objective.id)) issues.push(rowPath + '.id must be a non-empty ID');
+    else if (ids.has(objective.id)) issues.push(path + ' contains duplicate ID: ' + objective.id);
+    else ids.add(objective.id);
+    if (typeof objective.description !== 'string' || objective.description.trim().length === 0) issues.push(rowPath + '.description must be non-empty');
+    if (objective.kind !== 'primary' && objective.kind !== 'secondary') issues.push(rowPath + '.kind must be primary or secondary');
+    validatePredicate(objective.predicate, trackIds, factIds, rowPath + '.predicate', issues);
+  });
+}
+
+function validateOutcomeConditions(
+  value: unknown,
+  trackIds: ReadonlySet<string>,
+  factIds: ReadonlySet<string>,
+  path: string,
+  issues: string[],
+): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    issues.push(path + ' must be an array');
+    return;
+  }
+  const ids = new Set<string>();
+  value.forEach((condition, index) => {
+    const rowPath = path + '[' + index + ']';
+    if (!isOperationRecord(condition)) {
+      issues.push(rowPath + ' must be a condition object');
+      return;
+    }
+    rejectUnsupportedFields(condition, ['id', 'description', 'predicate'], rowPath, issues);
+    if (!isNonEmptyOperationId(condition.id)) issues.push(rowPath + '.id must be a non-empty ID');
+    else if (ids.has(condition.id)) issues.push(path + ' contains duplicate ID: ' + condition.id);
+    else ids.add(condition.id);
+    if (typeof condition.description !== 'string' || condition.description.trim().length === 0) issues.push(rowPath + '.description must be non-empty');
+    validatePredicate(condition.predicate, trackIds, factIds, rowPath + '.predicate', issues);
+  });
+}
+
 function validateLocationTactics(
   value: unknown,
   locations: ReadonlySet<string>,
   trackIds: ReadonlySet<string>,
+  factIds: ReadonlySet<string>,
+  itemIds: ReadonlySet<string>,
   issues: string[],
 ): void {
   if (value === undefined) return;
@@ -137,12 +238,18 @@ function validateLocationTactics(
       issues.push(path + '.locationId must be a non-empty ID');
       return;
     }
-    rejectUnsupportedFields(entry, ['locationId', 'enabledActionIds', 'combinationRules'], path, issues);
+    rejectUnsupportedFields(entry, ['locationId', 'enabledActionIds', 'combinationRules', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats'], path, issues);
     if (!locations.has(entry.locationId)) issues.push(path + '.locationId references an undeclared Location: ' + entry.locationId);
     if (seenLocations.has(entry.locationId)) issues.push('locationTactics contains duplicate locationId: ' + entry.locationId);
     seenLocations.add(entry.locationId);
 
     collectIds(entry.enabledActionIds, path + '.enabledActionIds', issues);
+    validateObjectives(entry.objectives, trackIds, factIds, path + '.objectives', issues);
+    validateOutcomeConditions(entry.partialOutcomes, trackIds, factIds, path + '.partialOutcomes', issues);
+    validateOutcomeConditions(entry.failureConditions, trackIds, factIds, path + '.failureConditions', issues);
+    if (entry.maxBeats !== undefined && (!Number.isSafeInteger(entry.maxBeats) || Number(entry.maxBeats) <= 0)) {
+      issues.push(path + '.maxBeats must be a positive safe integer');
+    }
     if (!Array.isArray(entry.combinationRules)) {
       issues.push(path + '.combinationRules must be an array');
       return;
@@ -157,9 +264,13 @@ function validateLocationTactics(
       validateCombinationRule(rule, rulePath, issues);
       if (isOperationRecord(rule) && Array.isArray(rule.effects)) {
         rule.effects.forEach((effect, effectIndex) => {
-          if (isOperationRecord(effect) && effect.kind === 'eventTrackDelta'
-            && isNonEmptyOperationId(effect.trackId) && !trackIds.has(effect.trackId)) {
+          if (!isOperationRecord(effect)) return;
+          if (effect.kind === 'eventTrackDelta' && isNonEmptyOperationId(effect.trackId) && !trackIds.has(effect.trackId)) {
             issues.push(rulePath + '.effects[' + effectIndex + '].trackId references an undeclared track: ' + effect.trackId);
+          } else if (effect.kind === 'eventFact' && isNonEmptyOperationId(effect.factId) && !factIds.has(effect.factId)) {
+            issues.push(rulePath + '.effects[' + effectIndex + '].factId references an undeclared fact: ' + effect.factId);
+          } else if (effect.kind === 'heldItem' && isNonEmptyOperationId(effect.itemId) && !itemIds.has(effect.itemId)) {
+            issues.push(rulePath + '.effects[' + effectIndex + '].itemId references an undeclared item: ' + effect.itemId);
           }
         });
       }
@@ -205,6 +316,10 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   const items = collectIds(raw.itemIds, 'itemIds', issues);
   const heldItems = collectIds(raw.heldItemIds, 'heldItemIds', issues);
   for (const id of heldItems) if (!items.has(id)) issues.push('heldItemIds contains undeclared item: ' + id);
+
+  validateObjectives(raw.objectives, trackIds, facts, 'objectives', issues);
+  validateOutcomeConditions(raw.partialOutcomes, trackIds, facts, 'partialOutcomes', issues);
+  validateOutcomeConditions(raw.hardFailureConditions, trackIds, facts, 'hardFailureConditions', issues);
 
   const teamIds = new Set<string>();
   if (raw.teams !== undefined) {
@@ -276,7 +391,7 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
     });
   }
 
-  validateLocationTactics(raw.locationTactics, locations, trackIds, issues);
+  validateLocationTactics(raw.locationTactics, locations, trackIds, facts, items, issues);
 
   if (!isOperationRecord(raw.playerRouteState)) {
     issues.push('playerRouteState must be an object');

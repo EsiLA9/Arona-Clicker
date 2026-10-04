@@ -1,6 +1,6 @@
 # Task 0217 — 玩法 B 事件目标与多类结局
 
-状态：proposed — 等待 Task 0213–0216 完成
+状态：in-progress — EventRun 目标/结局与局内 Action 效果已实现并通过定向验证；持有物 Gate、SceneAction/Card 调用与 AC 奖励提交由后续 0218、0224/0225、0222 接入。
 
 ## 目标
 
@@ -46,8 +46,9 @@
 
 - LocationObjective/LocationResult 与 EventObjective/EventOutcome 规则：局部 ID、轨道/事实条件、主次标签、部分条件、结果说明和允许提交到 AC 的奖励白名单；嵌入 Event/Location，不建立独立 Registry 表。
 - `EventPredicate`：有限比较与 all/any；无任意函数、表达式求值或跨 PlayerState 副作用。
-- `OperationEffect`：Actor/资源/轨道/事实/已声明持有物的封闭变更集合，进入 `Resolution` 后批量应用。`heldItem` 的 `grant` 将 ID 加入 Run 集合，`remove` 将其移除；重复 grant 或移除未持有项不产生重复实例。
-- 一个 Beat 从统一冻结快照计算变化，按稳定顺序合并并限幅后一次原子写回 EventRun。
+- `OperationActionEffectDef`：Actor/资源/轨道/事实/已声明持有物的封闭变更集合，进入 `Resolution` 后批量应用。`heldItem` 的 `grant` 将 ID 加入 Run 集合，`remove` 将其移除；重复 grant 或移除未持有项不产生重复实例。
+- 事实与持有物效果由同一 `OperationActionDef` 声明；SceneAction 和玩家卡后续只包装/引用该定义，不复制效果。
+- 一个 Beat 从统一冻结快照计算变化，数值贡献合并限幅；事实/持有物按学生 Action、Combination、技能效果的固定次序应用，同一成员的最后一次声明生效；所有变化一次原子写回 EventRun。
 
 ## Runtime Flow
 
@@ -70,7 +71,7 @@ Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限�
 
 - **Unit：**Predicate、heldItem grant/remove、效果限幅、终局 Outcome 优先级/同 Beat 冲突、奖励白名单。
 - **Runtime：**硬失败即时终止；地点局部部分结果在有合法路线时继续；仅在事件终止时判成功/部分/失败；全局与地点局部结算边界。
-- **Integration：**终局奖励经 StateMutationService 提交一次；局内轨道仍不出现在 PlayerState。
+- **Integration：**Action 效果只改变 EventRun；局内轨道、事实与持有物仍不出现在 PlayerState。SceneAction/Card 包装复用 ActionDef 的接入分别由 0224/0225 验收；长期奖励只在 0222 的产品入口经 StateMutationService 提交一次。
 - **Projection/API：**OperationView 目标进度、状态变化与结果摘要同步；不做浏览器 gameplay UI 或信息流交互。
 
 ## Dependencies
@@ -86,7 +87,7 @@ Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限�
 
 ## 当前核验与剩余工作
 
-当前只核对 Condition、Effect 和 Mutation 的语义边界；未实现、未运行测试。终局条件的并发冲突规则需在第一组事件定义前写入机制文档；Gameplay B 浏览器交互不属于本 Task。
+已实现闭合 Predicate、Location/Event 结局、OperationView 目标进度，以及事实/持有物 Action 效果的纯规划与原子提交；定向 TypeScript 与 Runtime 测试通过。跨 SceneAction/Card 包装和长期奖励提交保留给对应后续 Task，浏览器交互不属于本 Task。
 
 ## 相关路由
 
