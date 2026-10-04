@@ -1,6 +1,8 @@
 import type { OperationLocationTacticsDef } from './operation-action';
 import type { OperationActionDef } from './operation-action';
 import type { OperationStudentSkillRuleDef } from './operation-skill';
+import type { OperationInterventionDraft, PreparedBeat } from './operation-beat';
+import type { OperationResolution } from './operation-resolution';
 
 export type OperationResultKind = 'success' | 'partialSuccess' | 'failure';
 export type OperationRunStatus = 'inProgress' | OperationResultKind;
@@ -148,6 +150,16 @@ export interface OperationStudentSkillRollBatch {
   readonly nextRandomState: OperationTacticalRandomState;
 }
 
+/** Expected owner revision for one narrow Beat command. */
+export interface OperationRunVersionCommand {
+  readonly runId: string;
+  readonly planVersion: number;
+}
+
+export interface OperationInterventionCommand extends OperationRunVersionCommand {
+  readonly draft: OperationInterventionDraft;
+}
+
 export interface OperationEventState {
   readonly tracks: Readonly<Record<string, number>>;
   readonly knownFactIds: readonly string[];
@@ -188,10 +200,14 @@ export interface EventRun {
   readonly teamStates: readonly OperationTeamState[];
   readonly playerRouteState: OperationPlayerRouteState;
   readonly locationProgress: Readonly<Record<string, OperationLocationProgress>>;
-  readonly random: {
-    readonly seed: number;
-    readonly cursor: number;
-  };
+  readonly planVersion: number;
+  readonly beatIndex: number;
+  readonly preparedBeat: PreparedBeat | null;
+  readonly interventionDraft: OperationInterventionDraft | null;
+  readonly resolutions: readonly OperationResolution[];
+  /** Monotone across history trimming; equal to the newest Resolution sequence or zero. */
+  readonly resolutionSequence: number;
+  readonly random: OperationTacticalRandomState;
 }
 
 export interface EventResult {
@@ -205,6 +221,14 @@ export type OperationLifecycleEvent =
   | { readonly type: 'runStarted'; readonly runId: string; readonly eventId: string }
   | { readonly type: 'locationEntered'; readonly runId: string; readonly eventId: string; readonly locationId: string }
   | { readonly type: 'locationCompleted'; readonly runId: string; readonly eventId: string; readonly locationId: string }
+  | {
+      readonly type: 'beatResolved';
+      readonly runId: string;
+      readonly eventId: string;
+      readonly locationId: string;
+      readonly basePlanVersion: number;
+      readonly resolutionSequence: number;
+    }
   | { readonly type: 'runFinished'; readonly runId: string; readonly eventId: string; readonly kind: OperationResultKind };
 
 export interface OperationMembershipChange {

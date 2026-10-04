@@ -7,13 +7,31 @@ import type {
   OperationEventDef,
   OperationLifecycleEvent,
   OperationMembershipChange,
+  OperationInterventionCommand,
   OperationResultKind,
+  OperationRunVersionCommand,
   OperationRunStartInput,
   OperationRunStatus,
   OperationStateDelta,
   OperationStudentProfileSnapshot,
+  OperationTacticalRandomState,
   OperationTeamDef,
 } from '../contracts/operation';
+import type {
+  OperationInterventionPreview,
+  OperationInterventionDraft,
+  OperationPreparationContent,
+  OperationPreparationSnapshot,
+  OperationPreparedActorPlan,
+  PreparedBeat,
+} from '../contracts/operation-beat';
+import type {
+  OperationResolution,
+  OperationResolutionBatch,
+  OperationResolutionNumericChange,
+  OperationResolutionPlannerSnapshot,
+  OperationResolutionTrustedContent,
+} from '../contracts/operation-resolution';
 import {
   isNonEmptyOperationId as nonEmptyId,
   isOperationRecord as isRecord,
@@ -24,6 +42,10 @@ import {
   validateOperationEventDef,
 } from './operation-definition-validation';
 import { validateOperationActionActorReferences, validateOperationActionContent } from './operation-action-content-validation';
+import { prepareOperationBeat } from './operation-plan-preparation';
+import { previewOperationIntervention, OperationInterventionPreviewError } from './operation-intervention-preview';
+import { planOperationResolution, OperationResolutionPlannerError } from './operation-resolution-planner';
+import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../contracts/operation';
 
 interface MutableActorState {
   id: string;
@@ -54,7 +76,13 @@ interface MutableRun {
     cards: { drawPile: string[]; hand: string[]; discard: string[]; played: string[] };
   };
   locationProgress: Record<string, { visitCount: number; completed: boolean }>;
-  random: { seed: number; cursor: number };
+  planVersion: number;
+  beatIndex: number;
+  preparedBeat: PreparedBeat | null;
+  interventionDraft: OperationInterventionDraft | null;
+  resolutions: OperationResolution[];
+  resolutionSequence: number;
+  random: OperationTacticalRandomState;
 }
 
 interface RunRules {
@@ -66,6 +94,7 @@ interface RunRules {
   readonly actors: ReadonlyMap<string, OperationActorDef>;
   readonly teams: ReadonlyMap<string, OperationTeamDef>;
   readonly deckCounts: ReadonlyMap<string, number>;
+  readonly tacticalContent: OperationResolutionTrustedContent | null;
 }
 
 interface RunSlot {
@@ -94,8 +123,14 @@ function frozenCopy<T>(value: T): T {
   return deepFreeze(deepCopy(value));
 }
 
-function defineRules(definition: OperationEventDef): RunRules {
+function defineRules(
+  definition: OperationEventDef,
+  tacticalContent?: Omit<OperationResolutionTrustedContent, 'eventDefinition'>,
+): RunRules {
   const cloned = deepFreeze(deepCopy(definition));
+  const frozenTacticalContent = tacticalContent
+    ? deepFreeze({ eventDefinition: cloned, ...deepCopy(tacticalContent) })
+    : null;
   return {
     definition: cloned,
     locations: new Set(cloned.locationIds),
@@ -105,6 +140,7 @@ function defineRules(definition: OperationEventDef): RunRules {
     actors: new Map(cloned.actors.map(actor => [actor.id, actor])),
     teams: new Map((cloned.teams ?? []).map(team => [team.id, team])),
     deckCounts: cardCounts(cloned.playerRouteState.cards),
+    tacticalContent: frozenTacticalContent,
   };
 }
 
@@ -162,8 +198,191 @@ function createRun(
       },
     },
     locationProgress: locations,
-    random: { seed: definition.randomSeed ?? 0, cursor: 0 },
+    planVersion: 0,
+    beatIndex: 0,
+    preparedBeat: null,
+    interventionDraft: null,
+    resolutions: [],
+    resolutionSequence: 0,
+    random: {
+      algorithm: OPERATION_TACTICAL_RNG_ALGORITHM,
+      seed: definition.randomSeed ?? 0,
+      tacticalCursor: 0,
+    },
   };
+}
+
+function advancePlanVersion(run: MutableRun): number {
+  if (!Number.isSafeInteger(run.planVersion) || run.planVersion >= Number.MAX_SAFE_INTEGER) {
+    throw new OperationRuntimeError(['planVersion cannot advance without overflowing a safe integer']);
+  }
+  return run.planVersion + 1;
+}
+
+function preparationSnapshot(run: MutableRun): OperationPreparationSnapshot {
+  return {
+    eventId: run.eventId,
+    planVersion: run.planVersion,
+    currentLocationId: run.currentLocationId,
+    actors: run.actorStates.map(actor => {
+      if (!actor.participantKind) {
+        throw new OperationRuntimeError(['tactical Run Actor lacks its admitted participant kind: ' + actor.id]);
+      }
+      return { actorId: actor.id, participantKind: actor.participantKind, resources: actor.resources };
+    }),
+    teams: run.teamStates.map(team => ({ id: team.id, resources: team.resources })),
+  };
+}
+
+function refreshPreparedBeat(run: MutableRun, rules: RunRules): void {
+  const content = rules.tacticalContent;
+  if (!content) {
+    run.preparedBeat = null;
+    return;
+  }
+  const preparationContent: OperationPreparationContent = {
+    eventDefinition: content.eventDefinition,
+    actors: content.actorInitializations,
+    actionDefinitions: content.actionDefinitions,
+  };
+  try {
+    run.preparedBeat = prepareOperationBeat(preparationSnapshot(run), preparationContent);
+  } catch (error) {
+    throw new OperationRuntimeError([error instanceof Error ? error.message : 'could not prepare the current Beat']);
+  }
+}
+
+function resolutionPlannerSnapshot(run: MutableRun): OperationResolutionPlannerSnapshot {
+  return {
+    runId: run.runId,
+    eventId: run.eventId,
+    planVersion: run.planVersion,
+    currentLocationId: run.currentLocationId,
+    actors: run.actorStates.map(actor => {
+      if (!actor.participantKind) {
+        throw new OperationRuntimeError(['tactical Run Actor lacks its admitted participant kind: ' + actor.id]);
+      }
+      return {
+        actorId: actor.id,
+        participantKind: actor.participantKind,
+        hp: actor.hp,
+        resources: actor.resources,
+      };
+    }),
+    teams: run.teamStates.map(team => ({ id: team.id, resources: team.resources })),
+    tracks: run.eventState.tracks,
+    randomState: run.random,
+  };
+}
+
+function parseVersionCommand(value: unknown): OperationRunVersionCommand {
+  if (!isRecord(value)
+    || Object.keys(value).some(key => key !== 'runId' && key !== 'planVersion')
+    || !nonEmptyId(value.runId)
+    || !Number.isSafeInteger(value.planVersion)
+    || (value.planVersion as number) < 0) {
+    throw new OperationRuntimeError(['command must contain only a valid runId and non-negative planVersion']);
+  }
+  return { runId: value.runId, planVersion: value.planVersion as number };
+}
+
+function assertCommandMatchesRun(command: OperationRunVersionCommand, run: MutableRun): void {
+  if (command.runId !== run.runId || command.planVersion !== run.planVersion) {
+    throw new OperationRuntimeError(['operation command is stale for this Run or planVersion']);
+  }
+}
+
+function parseInterventionCommand(value: unknown): OperationInterventionCommand {
+  if (!isRecord(value)
+    || Object.keys(value).some(key => key !== 'runId' && key !== 'planVersion' && key !== 'draft')
+    || !Object.prototype.hasOwnProperty.call(value, 'draft')) {
+    throw new OperationRuntimeError(['intervention command must contain only runId, planVersion, and draft']);
+  }
+  const base = parseVersionCommand({ runId: value.runId, planVersion: value.planVersion });
+  return { ...base, draft: value.draft as OperationInterventionCommand['draft'] };
+}
+
+function toResolution(batch: OperationResolutionBatch, sequence: number): OperationResolution {
+  const { nextRandomState: _nextRandomState, ...persisted } = batch;
+  return frozenCopy({ ...persisted, resolutionSequence: sequence });
+}
+
+function resolutionTargetKey(change: OperationResolutionNumericChange): string {
+  return JSON.stringify(change.target);
+}
+
+function applyResolutionChanges(
+  run: MutableRun,
+  changes: readonly OperationResolutionNumericChange[],
+  rules: RunRules,
+): void {
+  if (!Array.isArray(changes)) throw new OperationRuntimeError(['Resolution numericChanges must be an array']);
+  const seen = new Set<string>();
+  for (const candidate of changes) {
+    if (!isRecord(candidate) || !isRecord(candidate.target)
+      || !Number.isFinite(candidate.before) || !Number.isFinite(candidate.after)
+      || !Number.isFinite(candidate.delta) || !Number.isFinite(candidate.requestedDelta)) {
+      throw new OperationRuntimeError(['Resolution contains a malformed numeric change']);
+    }
+    const change = candidate as unknown as OperationResolutionNumericChange;
+    const target = change.target;
+    const key = resolutionTargetKey(change);
+    if (seen.has(key)) throw new OperationRuntimeError(['Resolution repeats a numeric target: ' + key]);
+    seen.add(key);
+    let current: number | undefined;
+    let bounds: OperationBoundedValueDef | undefined;
+    switch (target.kind) {
+      case 'actorHp': {
+        const actor = rules.actors.get(target.actorId);
+        const state = run.actorStates.find(item => item.id === target.actorId);
+        current = state?.hp;
+        bounds = actor?.hp;
+        if (!state || !actor) throw new OperationRuntimeError(['Resolution references an undeclared Actor: ' + target.actorId]);
+        break;
+      }
+      case 'actorResource': {
+        const actor = rules.actors.get(target.actorId);
+        const state = run.actorStates.find(item => item.id === target.actorId);
+        current = state?.resources[target.resourceId];
+        bounds = actor?.resources?.[target.resourceId];
+        if (!state || !actor || !bounds) throw new OperationRuntimeError(['Resolution references an undeclared Actor resource']);
+        break;
+      }
+      case 'teamResource': {
+        const team = rules.teams.get(target.teamId);
+        const state = run.teamStates.find(item => item.id === target.teamId);
+        current = state?.resources[target.resourceId];
+        bounds = team?.resources?.[target.resourceId];
+        if (!state || !team || !bounds) throw new OperationRuntimeError(['Resolution references an undeclared Team resource']);
+        break;
+      }
+      case 'track': {
+        current = run.eventState.tracks[target.trackId];
+        bounds = rules.tracks.get(target.trackId);
+        if (current === undefined || !bounds) throw new OperationRuntimeError(['Resolution references an undeclared Event Track']);
+        break;
+      }
+      default:
+        throw new OperationRuntimeError(['Resolution contains an unsupported numeric target']);
+    }
+    if (current === undefined || current !== change.before || !bounds || !isInBounds(change.after, bounds)) {
+      throw new OperationRuntimeError(['Resolution numeric change no longer matches its commit-start value or bounds']);
+    }
+    switch (target.kind) {
+      case 'actorHp':
+        run.actorStates.find(item => item.id === target.actorId)!.hp = change.after;
+        break;
+      case 'actorResource':
+        run.actorStates.find(item => item.id === target.actorId)!.resources[target.resourceId] = change.after;
+        break;
+      case 'teamResource':
+        run.teamStates.find(item => item.id === target.teamId)!.resources[target.resourceId] = change.after;
+        break;
+      case 'track':
+        run.eventState.tracks[target.trackId] = change.after;
+        break;
+    }
+  }
 }
 
 function validateMembershipChanges(
@@ -225,6 +444,7 @@ export class OperationRuntimeService {
     const diagnostics = validateOperationEventDef(definition);
     if (diagnostics.length > 0) throw new OperationRuntimeError(diagnostics);
     const actorInitializations = runStartInput?.actors;
+    let normalizedTacticalContent: Omit<OperationResolutionTrustedContent, 'eventDefinition'> | undefined;
     if (hasActorInitializations) {
       const actorIssues = validateOperationActorInitializations(
         definition,
@@ -248,6 +468,11 @@ export class OperationRuntimeService {
         actorInitializations!,
       );
       if (referenceIssues.length > 0) throw new OperationRuntimeError(referenceIssues);
+      normalizedTacticalContent = {
+        actorInitializations: actorInitializations!,
+        actionDefinitions: content.actionDefinitions,
+        studentSkillRules: content.studentSkillRules,
+      };
     }
     this.assertUsable();
     if (this.slot?.run.status === 'inProgress') {
@@ -255,18 +480,17 @@ export class OperationRuntimeService {
     }
 
     let rules: RunRules;
-    let detachedActorInitializations: ReadonlyMap<string, OperationActorInitialization> | undefined;
     try {
-      rules = defineRules(definition);
-      if (actorInitializations) {
-        const cloned = deepFreeze(deepCopy(actorInitializations));
-        detachedActorInitializations = new Map(cloned.map(actor => [actor.actorId, actor]));
-      }
+      rules = defineRules(definition, normalizedTacticalContent);
     } catch {
-      throw new OperationRuntimeError(['event definition must contain only cloneable data']);
+      throw new OperationRuntimeError(['event definition and trusted tactical rules must contain only cloneable data']);
     }
     const runId = 'operation-run-' + (++runSequence);
-    const run = createRun(runId, rules, detachedActorInitializations);
+    const actorInitializationsById = rules.tacticalContent
+      ? new Map(rules.tacticalContent.actorInitializations.map(actor => [actor.actorId, actor]))
+      : undefined;
+    const run = createRun(runId, rules, actorInitializationsById);
+    if (rules.tacticalContent) refreshPreparedBeat(run, rules);
     this.slot = { rules, run, result: null };
     this.publish({ type: 'runStarted', runId, eventId: run.eventId });
     this.publish({ type: 'locationEntered', runId, eventId: run.eventId, locationId: run.currentLocationId });
@@ -279,6 +503,132 @@ export class OperationRuntimeService {
 
   getResult(): EventResult | null {
     return this.slot?.result ?? null;
+  }
+
+  previewIntervention(input: OperationInterventionCommand): OperationInterventionPreview {
+    this.assertUsable();
+    const command = parseInterventionCommand(input);
+    const slot = this.slot;
+    if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
+    if (slot.run.status !== 'inProgress') throw new OperationRuntimeError(['the EventRun is already terminal']);
+    assertCommandMatchesRun(command, slot.run);
+    if (!slot.rules.tacticalContent || !slot.run.preparedBeat) {
+      throw new OperationRuntimeError(['this EventRun has no admitted tactical content']);
+    }
+    const candidateDraft = isRecord(command.draft) ? { ...command.draft } : command.draft;
+    try {
+      return previewOperationIntervention({
+        snapshot: preparationSnapshot(slot.run),
+        trustedContent: {
+          eventDefinition: slot.rules.tacticalContent.eventDefinition,
+          actors: slot.rules.tacticalContent.actorInitializations,
+          actionDefinitions: slot.rules.tacticalContent.actionDefinitions,
+        },
+        preparedBeat: slot.run.preparedBeat,
+        currentDraft: slot.run.interventionDraft,
+        draft: candidateDraft as OperationInterventionCommand['draft'],
+      });
+    } catch (error) {
+      const details = error instanceof OperationInterventionPreviewError
+        ? [error.message]
+        : [error instanceof Error ? error.message : 'intervention preview failed'];
+      throw new OperationRuntimeError(details);
+    }
+  }
+
+  reviseIntervention(input: OperationInterventionCommand): EventRun {
+    this.assertCanMutate();
+    const command = parseInterventionCommand(input);
+    const preview = this.previewIntervention(command);
+    const slot = this.requireActiveRun();
+    const next = deepCopy(slot.run);
+    next.planVersion = advancePlanVersion(slot.run);
+    next.interventionDraft = deepCopy(preview.draft);
+    refreshPreparedBeat(next, slot.rules);
+    slot.run = next;
+    return this.getSnapshot()!;
+  }
+
+  clearIntervention(input: OperationRunVersionCommand): EventRun {
+    this.assertCanMutate();
+    const command = parseVersionCommand(input);
+    const slot = this.requireActiveRun();
+    assertCommandMatchesRun(command, slot.run);
+    if (slot.run.interventionDraft === null) return this.getSnapshot()!;
+    const next = deepCopy(slot.run);
+    next.planVersion = advancePlanVersion(slot.run);
+    next.interventionDraft = null;
+    refreshPreparedBeat(next, slot.rules);
+    slot.run = next;
+    return this.getSnapshot()!;
+  }
+
+  commitBeat(input: OperationRunVersionCommand): OperationResolution {
+    this.assertCanMutate();
+    const command = parseVersionCommand(input);
+    const slot = this.slot;
+    if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
+    const run = slot.run;
+    const latestResolution = run.resolutions[run.resolutions.length - 1];
+    if (command.runId === run.runId && latestResolution?.basePlanVersion === command.planVersion) {
+      return latestResolution;
+    }
+    if (run.status !== 'inProgress') throw new OperationRuntimeError(['the EventRun is already terminal']);
+    assertCommandMatchesRun(command, run);
+    const tacticalContent = slot.rules.tacticalContent;
+    if (!tacticalContent || !run.preparedBeat) {
+      throw new OperationRuntimeError(['this EventRun has no admitted tactical content']);
+    }
+
+    const next = deepCopy(run);
+    let batch: OperationResolutionBatch;
+    try {
+      batch = planOperationResolution({
+        snapshot: resolutionPlannerSnapshot(run),
+        trustedContent: tacticalContent,
+        preparedBeat: run.preparedBeat,
+        interventionDraft: run.interventionDraft,
+      });
+    } catch (error) {
+      const diagnostics = error instanceof OperationResolutionPlannerError
+        ? [error.message]
+        : [error instanceof Error ? error.message : 'tactical Beat planning failed'];
+      throw new OperationRuntimeError(diagnostics);
+    }
+    if (batch.runId !== run.runId || batch.eventId !== run.eventId
+      || batch.basePlanVersion !== run.planVersion || batch.locationId !== run.currentLocationId
+      || batch.randomCursorBefore !== run.random.tacticalCursor
+      || batch.randomCursorAfter !== batch.nextRandomState.tacticalCursor
+      || batch.randomCursorAfter < batch.randomCursorBefore
+      || batch.nextRandomState.seed !== run.random.seed
+      || batch.nextRandomState.algorithm !== run.random.algorithm) {
+      throw new OperationRuntimeError(['Resolution batch does not match its commit-start Run snapshot']);
+    }
+
+    applyResolutionChanges(next, batch.numericChanges, slot.rules);
+    next.random = deepCopy(batch.nextRandomState);
+    next.beatIndex += 1;
+    if (!Number.isSafeInteger(next.beatIndex)) throw new OperationRuntimeError(['beatIndex cannot advance safely']);
+    if (next.resolutionSequence >= Number.MAX_SAFE_INTEGER) {
+      throw new OperationRuntimeError(['resolutionSequence cannot advance safely']);
+    }
+    next.resolutionSequence += 1;
+    const resolution = toResolution(batch, next.resolutionSequence);
+    next.resolutions = [...next.resolutions, resolution].slice(-32);
+    next.planVersion = advancePlanVersion(run);
+    next.interventionDraft = null;
+    refreshPreparedBeat(next, slot.rules);
+
+    slot.run = next;
+    this.publish({
+      type: 'beatResolved',
+      runId: run.runId,
+      eventId: run.eventId,
+      locationId: run.currentLocationId,
+      basePlanVersion: run.planVersion,
+      resolutionSequence: resolution.resolutionSequence,
+    });
+    return resolution;
   }
 
   /** Atomically applies checked local state changes; it emits no per-field events. */
@@ -323,6 +673,9 @@ export class OperationRuntimeService {
     this.applyActorChanges(next, delta.actors, slot.rules.actors, issues);
     this.applyRouteChange(next, delta.playerRouteState, slot.rules.deckCounts, issues);
     if (issues.length > 0) throw new OperationRuntimeError(issues);
+    next.planVersion = advancePlanVersion(slot.run);
+    next.interventionDraft = null;
+    refreshPreparedBeat(next, slot.rules);
     slot.run = next;
     return this.getSnapshot()!;
   }
@@ -336,6 +689,9 @@ export class OperationRuntimeService {
     const next = deepCopy(slot.run);
     next.currentLocationId = locationId;
     next.locationProgress[locationId].visitCount += 1;
+    next.planVersion = advancePlanVersion(slot.run);
+    next.interventionDraft = null;
+    refreshPreparedBeat(next, slot.rules);
     slot.run = next;
     this.publish({ type: 'locationEntered', runId: next.runId, eventId: next.eventId, locationId });
     return this.getSnapshot()!;
@@ -348,6 +704,9 @@ export class OperationRuntimeService {
     if (slot.run.locationProgress[locationId].completed) return this.getSnapshot()!;
     const next = deepCopy(slot.run);
     next.locationProgress[locationId].completed = true;
+    next.planVersion = advancePlanVersion(slot.run);
+    next.interventionDraft = null;
+    refreshPreparedBeat(next, slot.rules);
     slot.run = next;
     this.publish({ type: 'locationCompleted', runId: next.runId, eventId: next.eventId, locationId });
     return this.getSnapshot()!;
@@ -361,13 +720,18 @@ export class OperationRuntimeService {
     if (!['success', 'partialSuccess', 'failure'].includes(kind)) {
       throw new OperationRuntimeError(['result kind is invalid']);
     }
-    active.run.status = kind as OperationRunStatus;
+    const next = deepCopy(active.run);
+    next.status = kind as OperationRunStatus;
+    next.planVersion = advancePlanVersion(active.run);
+    next.preparedBeat = null;
+    next.interventionDraft = null;
     const result = frozenCopy({
-      eventId: active.run.eventId,
-      runId: active.run.runId,
+      eventId: next.eventId,
+      runId: next.runId,
       kind,
-      finalRun: active.run,
+      finalRun: next,
     }) as EventResult;
+    active.run = next;
     active.result = result;
     this.publish({ type: 'runFinished', runId: result.runId, eventId: result.eventId, kind });
     return result;

@@ -1,8 +1,11 @@
 import { describe, expect, test, vi } from 'vitest';
-import type { OperationEventDef, OperationStateDelta } from '../../src/arona-clicker/contracts/operation';
+import type { OperationEventDef, OperationRunStartInput, OperationStateDelta } from '../../src/arona-clicker/contracts/operation';
+import type { OperationActionDef, OperationActionEffectDef } from '../../src/arona-clicker/contracts/operation-action';
+import type { OperationContentResolver } from '../../src/arona-clicker/contracts/operation-content-resolver';
 import { validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
 import { validateOperationActionDef } from '../../src/arona-clicker/services/operation-tactical-definition-validation';
 import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
+import { createOperationEntry } from '../../src/arona-clicker/services/operation-entry-service';
 
 function eventDef(): OperationEventDef {
   return {
@@ -31,6 +34,60 @@ function eventDef(): OperationEventDef {
     },
     randomSeed: 17,
   };
+}
+
+function tacticalRunStartInput(effects: readonly OperationActionEffectDef[] = [
+  { kind: 'eventTrackDelta', trackId: 'danger', amount: -1 },
+]): OperationRunStartInput {
+  const actionId = 'test:action:inspect';
+  const eventDefinition: OperationEventDef = {
+    ...eventDef(),
+    locationTactics: [{
+      locationId: 'test:location:office',
+      enabledActionIds: [actionId],
+      combinationRules: [],
+    }],
+  };
+  const action: OperationActionDef = {
+    id: actionId,
+    allowedParticipantKinds: ['student'],
+    requiredCapabilityIds: [],
+    reasonIds: ['test:reason:inspect'],
+    tagIds: [],
+    target: { kind: 'none' },
+    effects,
+  };
+  return {
+    eventDefinition,
+    actors: [{
+      actorId: 'test:actor:student',
+      participantKind: 'student',
+      characterId: 'test:character:student',
+      profile: {
+        id: 'test:profile:student',
+        characterId: 'test:character:student',
+        candidateActionIds: [actionId],
+        actionPriorityIds: [actionId],
+        capabilityIds: [],
+        reasonIds: [],
+        actionCandidates: [{
+          actionId,
+          eligible: true,
+          requiredCapabilityIds: [],
+          missingCapabilityIds: [],
+          reasonIds: ['test:reason:inspect'],
+        }],
+        eligibleActionIds: [actionId],
+      },
+    }],
+    actionDefinitions: [action],
+    studentSkillRules: [],
+  };
+}
+
+function operationEntryFor(owner: OperationRuntimeService) {
+  const resolver: OperationContentResolver = { resolve: () => null };
+  return createOperationEntry({ owner, resolver }).facade;
 }
 
 describe('validateOperationEventDef', () => {
@@ -381,6 +438,120 @@ describe('OperationRuntimeService', () => {
     expect(service.start(eventDef()).status).toBe('inProgress');
     expect(service.finish('success').kind).toBe('success');
     expect(received).toEqual(['runStarted', 'locationEntered', 'runFinished']);
+  });
+
+  test('commits one Beat atomically, notifies after the swap, and retries without another write', () => {
+    const owner = new OperationRuntimeService();
+    const entry = operationEntryFor(owner);
+    const notifications: { readonly event: unknown; readonly snapshot: ReturnType<OperationRuntimeService['getSnapshot']> }[] = [];
+    let reentryWasRejected = false;
+    owner.subscribe(event => {
+      if (event.type !== 'beatResolved') return;
+      notifications.push({ event, snapshot: owner.getSnapshot() });
+      expect(() => owner.applyStateDelta({ tracks: { danger: 2 } })).toThrow(OperationRuntimeError);
+      reentryWasRejected = true;
+      throw new Error('observer failure cannot undo a committed Beat');
+    });
+    const startInput = tacticalRunStartInput();
+    const started = owner.start(startInput);
+    (startInput.actionDefinitions as OperationActionDef[])[0] = {
+      ...startInput.actionDefinitions[0],
+      effects: [{ kind: 'eventTrackDelta', trackId: 'danger', amount: 3 }],
+    };
+    expect(Object.isFrozen(startInput.actionDefinitions[0])).toBe(false);
+    expect(started).toMatchObject({
+      planVersion: 0,
+      beatIndex: 0,
+      preparedBeat: { planVersion: 0, actorPlans: [{ kind: 'studentAction', actionId: 'test:action:inspect' }] },
+      resolutions: [],
+    });
+
+    const resolution = entry.commitBeat({ runId: started.runId, planVersion: 0 });
+    const committed = owner.getSnapshot()!;
+    expect(resolution).toMatchObject({
+      basePlanVersion: 0,
+      resolutionSequence: 1,
+      numericChanges: [{ target: { kind: 'track', trackId: 'danger' }, before: 1, after: 0, delta: -1 }],
+    });
+    expect(committed).toMatchObject({
+      planVersion: 1,
+      beatIndex: 1,
+      eventState: { tracks: { danger: 0 } },
+      resolutions: [resolution],
+      resolutionSequence: 1,
+      preparedBeat: { planVersion: 1 },
+      random: { seed: 17, tacticalCursor: 0 },
+    });
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].event).toMatchObject({ type: 'beatResolved', basePlanVersion: 0, resolutionSequence: 1 });
+    expect(notifications[0].snapshot).toEqual(committed);
+    expect(reentryWasRejected).toBe(true);
+
+    const retry = entry.commitBeat({ runId: started.runId, planVersion: 0 });
+    expect(retry).toBe(resolution);
+    expect(retry).toEqual(resolution);
+    expect(owner.getSnapshot()).toEqual(committed);
+    expect(notifications).toHaveLength(1);
+    expect(() => entry.commitBeat({ runId: started.runId, planVersion: 0, extra: true } as never)).toThrow(OperationRuntimeError);
+    owner.finish('success');
+    const terminal = owner.getSnapshot();
+    expect(entry.commitBeat({ runId: started.runId, planVersion: 0 })).toEqual(resolution);
+    expect(owner.getSnapshot()).toEqual(terminal);
+    expect(notifications).toHaveLength(1);
+    expect(() => entry.commitBeat({ runId: 'other-run', planVersion: 0 })).toThrow(/terminal/);
+  });
+
+  test('keeps every Run field and suppresses beatResolved notification when pure planning fails', () => {
+    const owner = new OperationRuntimeService();
+    const entry = operationEntryFor(owner);
+    const listener = vi.fn();
+    owner.subscribe(event => { if (event.type === 'beatResolved') listener(event); });
+    const start = tacticalRunStartInput([
+      { kind: 'eventTrackDelta', trackId: 'danger', amount: Number.MAX_VALUE },
+      { kind: 'eventTrackDelta', trackId: 'danger', amount: Number.MAX_VALUE },
+    ]);
+    const initial = owner.start(start);
+    const before = owner.getSnapshot();
+
+    expect(() => entry.commitBeat({ runId: initial.runId, planVersion: initial.planVersion })).toThrow(OperationRuntimeError);
+    expect(owner.getSnapshot()).toEqual(before);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  test('retains only the newest 32 Beat resolutions while sequence and beat index keep advancing', () => {
+    const owner = new OperationRuntimeService();
+    const entry = operationEntryFor(owner);
+    const initial = owner.start(tacticalRunStartInput());
+    let latestRun = initial;
+
+    for (let index = 0; index < 33; index += 1) {
+      entry.commitBeat({ runId: latestRun.runId, planVersion: latestRun.planVersion });
+      latestRun = owner.getSnapshot()!;
+    }
+
+    expect(latestRun).toMatchObject({ beatIndex: 33, planVersion: 33, resolutionSequence: 33 });
+    expect(latestRun.resolutions).toHaveLength(32);
+    expect(latestRun.resolutions[0].resolutionSequence).toBe(2);
+    expect(latestRun.resolutions.at(-1)?.resolutionSequence).toBe(33);
+    expect('nextRandomState' in latestRun.resolutions.at(-1)!).toBe(false);
+    expect(() => entry.commitBeat({ runId: latestRun.runId, planVersion: 0 })).toThrow(/stale/);
+  });
+
+  test('accepted state and Location writes advance the plan version and rebuild the base plan', () => {
+    const service = new OperationRuntimeService();
+    const entry = operationEntryFor(service);
+    const initial = service.start(tacticalRunStartInput());
+
+    const changed = service.applyStateDelta({ tracks: { danger: 4 } });
+    expect(changed).toMatchObject({ planVersion: 1, preparedBeat: { planVersion: 1, locationId: 'test:location:office' } });
+    expect(() => entry.commitBeat({ runId: initial.runId, planVersion: 0 })).toThrow(/stale/);
+
+    const entered = service.enterLocation('test:location:archive');
+    expect(entered).toMatchObject({ planVersion: 2, preparedBeat: { planVersion: 2, locationId: 'test:location:archive' } });
+    const completed = service.completeCurrentLocation();
+    expect(completed).toMatchObject({ planVersion: 3, preparedBeat: { planVersion: 3, locationId: 'test:location:archive' } });
+    const finished = service.finish('partialSuccess');
+    expect(finished.finalRun).toMatchObject({ planVersion: 4, preparedBeat: null, interventionDraft: null });
   });
 
   test('rejects runtime mutations during lifecycle callbacks without changing the Run', () => {
