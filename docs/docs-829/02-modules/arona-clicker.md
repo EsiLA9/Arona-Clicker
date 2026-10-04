@@ -14,6 +14,7 @@
 | --- | --- | --- |
 | `runtime*.ts`、`runtime/` | 组合 GameInstance、服务与外部端口 | `createAppRuntime()`、`GameInstance` |
 | `services/` | 世界线、抽卡、培养、剧情、聊天等业务用例 | 各领域 Service/System |
+| `services/operation-runtime-service.ts`、`contracts/operation.ts` | 持有独立的 Gameplay B 局内 EventRun，并校验局部转移 | `OperationRuntimeService`、`GameInstance.operationRuntime` |
 | `state/`、`types/state.ts` | PlayerState、快照和集中写入实现 | `StateMutationService`、`InitSavepoint` |
 | `read-model/`、`contracts/view.ts` | 将状态与派生查询投影成只读 GameView | `buildGameView()` |
 | `content/` | 正式产品默认 Datapack | `default-datapack.ts` |
@@ -26,9 +27,12 @@
 
 `GameView` 是面向 UI 的投影，构建时复制若干集合和映射，并合入可见性、剧情、Affector、统计快照。扩展 UI 展示应确认应进入 PlayerState、派生系统还是只读投影。
 
+`OperationRuntimeService` 管理的 EventRun 属于另一份易失局内状态，不属于 `PlayerState`、`InitSnapshot` 或 `GameView`。每个 `GameInstance` 都有自己的服务；Operation Runtime 的字段和生命周期见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
+
 ## 深入阅读
 
 - [[docs/docs-829/03-data-structures/player-state]]：状态分层与字段。
 - [[docs/docs-829/03-data-structures/game-view]]：ReadModel 的输入输出边界。
 - [[docs/docs-829/04-mechanisms/arona-clicker/state-mutation]]：业务命令到状态变更的路径。
+- [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]：Gameplay B 的 EventRun 状态 owner 与生命周期。
 - [[docs/docs-829/06-wiki/30-arona-clicker-domain/00-index]]：领域概念导航。

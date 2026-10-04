@@ -1,6 +1,6 @@
 # Task 0214 — 玩法 B 学生参与与自主行动 Profile
 
-状态：proposed — 等待 Task 0213 完成
+状态：proposed — Task 0213 已完成；准备开始施工
 
 ## 目标
 

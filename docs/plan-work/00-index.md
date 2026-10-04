@@ -11,7 +11,6 @@
 ### 玩法 B 接入 AC：Runtime、角色自治与战术指挥
 
 - [[draft-0212-gameplay-b-ac-native-design-roadmap]]：玩法 B 接入 AC 的设计路线与分阶段提案。
-- [[task-0213-gameplay-b-event-runtime-and-session-state]]：EventRun / EventState 生命周期与状态归属（当前施工中）。
 - [[task-0214-gameplay-b-student-participation-and-autonomy]]：连接角色身份与局内 Actor/Profile，形成可解释的学生自主行动。
 - [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution]]：PreparedBeat、Intent、有限指挥与确定性结算。
 - [[task-0216-gameplay-b-command-loop-vertical-slice-ui]]：核心可玩切片与只读 OperationView。
@@ -35,6 +34,7 @@
 
 ## 近期完成
 
+- [[archive/task-0213-gameplay-b-event-runtime-and-session-state]]：EventRun 状态 owner、GameInstance 生命周期与机制文档/GALHCG 闭环完成；为 Task 0214 提供稳定 Runtime 基础。
 - [[task-0223-ai-collaboration-docs-and-galhcg-discovery]]：整理 AI 协作文档入口及 GALHCG 查询、维护协议。
 - [[task-0211-gameplay-b-cost-consumption-slot-preview]]：完成玩家 Cost 消耗槽的预览表现。
 - [[task-0210-gameplay-b-player-cost-action-dock-meter]]：在 Action Dock 展示玩家 Cost 持有量。

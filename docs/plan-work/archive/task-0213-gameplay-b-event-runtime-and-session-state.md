@@ -1,6 +1,6 @@
 # Task 0213 — 玩法 B Event Runtime 与局内状态边界
 
-状态：active — 首个实施阶段；按下列 Patch Unit 逐步交付
+状态：completed — 0213-U1/U2/U3 已完成；EventRun Runtime、GameInstance 生命周期、机制文档与 GALHCG 证据闭环通过（2026-10-04）
 
 ## 目标
 
@@ -50,13 +50,13 @@
 
 ## Acceptance
 
-- [ ] 两个 GameInstance 使用同一个 EventDefinition 启动会得到相互隔离的 EventRun；修改其中一局的轨道、事实或参与者局部状态不会影响另一局。
-- [ ] 未声明的状态 key、越界数值和无效地点引用在入口校验时得到可读诊断，不会留下半初始化运行。
-- [ ] 终局 EventResult 明确区分事件 ID、运行 ID、结果种类和局部状态摘要；终局运行不可再次推进。
-- [ ] 创建、推进和结束 EventRun 不修改 PlayerState、InitSnapshot 或全局 GameNum。
-- [ ] GameInstance/RuntimeWiring 为每个 Runtime 创建独立操作服务；Runtime reset/load/reload 清除不再有效的当前 Run，整体 dispose 会终止服务并释放其局内对象；其他 Runtime 不会复用这些对象。
-- [ ] EventRun 是运行期唯一可变事实源；缓存或投影可丢弃重建，不复制为第二套写模型。
-- [ ] 一个 Beat/Location/Run 转移只产生对应边界事件；Actor/track/fact 的多个局内 delta 汇总后写回，不为每项状态变化通知 EventBus。
+- [x] 两个 GameInstance 使用同一个 EventDefinition 启动会得到相互隔离的 EventRun；修改其中一局的轨道、事实或参与者局部状态不会影响另一局。
+- [x] 未声明的状态 key、越界数值和无效地点引用在入口校验时得到可读诊断，不会留下半初始化运行。
+- [x] 终局 EventResult 明确区分事件 ID、运行 ID、结果种类和最终 Run 状态；终局运行不可再次推进。
+- [x] 创建、推进和结束 EventRun 不修改 PlayerState、InitSnapshot 或全局 GameNum。
+- [x] GameInstance/RuntimeWiring 为每个 Runtime 创建独立操作服务；Runtime init/reset/load/reload 清除当前 Run，stop 保留 Run，dispose 关闭该局内服务；其他 Runtime 不会复用这些对象。
+- [x] EventRun 是运行期唯一可变事实源；缓存或投影可丢弃重建，不复制为第二套写模型。
+- [x] 当前实现的 Run/Location 转移只产生对应生命周期边界事件；Actor/track/fact 的局部 delta 不逐项通知 Engine EventBus。Beat 结算事件由 Task 0215 验收。
 
 ## Tests
 
@@ -78,7 +78,7 @@
 
 ## 当前核验与剩余工作
 
-此前只核对 AC 文档和 Runtime/状态边界；本 Goal 已进入实施。地点表、局部 Actor 基础字段和路线玩家状态当前作为 Run owner 的最小骨架；Task 0214/0215/0217/0218/0224/0225 逐步添加角色、结算、目标、路线与卡牌行为。每个 Patch Unit 均须记录行为验收和实际验证结果。
+0213-U1/U2 已建立并接入每实例 OperationRuntimeService；0213-U3 已更新稳定机制文档并完成 GALHCG 映射。Task 0213 的验收均已由源码、定向测试、类型/架构/文档检查和地图复核覆盖；后续由 Task 0214 扩展角色身份与 Profile，不改变当前 EventRun owner 边界。
 
 ## Patch Units
 
@@ -375,11 +375,11 @@
 
 #### Completion Criteria
 
-- [ ] 当前架构页说明 GameInstance/Wiring 到 OperationRuntime 的 owner 边界。
-- [ ] 新机制页说明 EventRun 唯一事实源、EventState/ActorState/LocationProgress、生命周期边界和重置方式。
-- [ ] 模块卡、机制索引可从 docs-829 入口路由到新机制页。
-- [ ] GALHCG 仅为已实现稳定概念建立节点/关系，Evidence 的当前路径与版本 token 经核对。
-- [ ] `npm run check:docs` 与定向 GALHCG `review_changes` 无未处理项。
+- [x] 当前架构页说明 GameInstance/Wiring 到 OperationRuntime 的 owner 边界。
+- [x] 新机制页说明 EventRun 唯一事实源、EventState/ActorState/LocationProgress、生命周期边界和重置方式。
+- [x] 模块卡、机制索引可从 docs-829 入口路由到新机制页。
+- [x] GALHCG 仅为已实现稳定概念建立节点/关系，Evidence 的当前路径与版本 token 经核对。
+- [x] `npm run check:docs` 与定向 GALHCG `review_changes` 无未处理项。
 
 #### Verification
 
@@ -387,6 +387,35 @@
 | --- | --- | --- |
 | 文档检查 | `npm run check:docs` | 无错误 |
 | GALHCG | 对本 Unit 直接修改的路径运行 `review_changes`，必要时 `update_map` | 受影响关系有依据；无无关大范围刷新 |
+
+#### Receipt 0213-U3
+
+| 项 | 内容 |
+| --- | --- |
+| 状态 | 完成 |
+| 实际修改 | 更新 `docs/docs-829/01-architecture/data-flow.md`、`docs/docs-829/02-modules/arona-clicker.md` 与机制索引；新增 `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md`。仅记录已实施的 EventRun owner、局部状态转移、生命周期通知与 GameInstance 清理，不把后续地图、SceneAction、抽牌或存档规则写成当前事实。 |
+| 未完成内容 | 无 |
+| 范围外变更 | 未修改 Datapack、Save、UI 或 SceneAction / Route / Deck 行为。 |
+| GALHCG 影响闭环 | 项目 `acprogram` 已核对。lookup（Operation Runtime、EventRun）和 map search 无既有概念；path/source 搜索在完整范围内找到当前服务、接入点与测试。定向刷新 `src/arona-clicker`、`tests/engine` 和机制页目录后解析 11 个受影响路径；建立 `concept:operation-event-run-runtime`（implemented），映射实现、测试、架构/模块文档和机制索引。对受影响的 GameInstance、Wiring、数据流及模块既有 Evidence 复核并更新 token。最终所有 11 个路径 `review_changes` 均为 unchanged / needs_attention=false；多页 owner 均续读至 complete。 |
+
+##### 测试与验证结果
+
+| 项 | 命令 / 方式 | 结果 | 备注 |
+| --- | --- | --- | --- |
+| 文档检查 | `npm run check:docs` | 通过 | errors: 0；597 篇 Markdown |
+| 差异核对 | `git diff --check` | 通过 | 无空白错误 |
+| GALHCG 概念检索 | `lookup`、`search(mode=map)`、`search(mode=path/source)` | 完成 | 查无既有 Operation Runtime / EventRun Concept；源码路径查询完整 |
+| GALHCG 证据预览 | 定向 `refresh`、`resolve_paths`、`preview_many` | 通过 | 11 个文件已索引；所有提交 token 可用且未截断 |
+| GALHCG 变更复核 | 11 条 `review_changes(path=...)` 及 owner 分页 | 通过 | 所有 owner 已续读完整；无待处理变更 |
+| GALHCG 写后复核 | `search(mode=map)`、`context` | 通过 | 新 Concept 唯一命中，11 条映射和 10 项节点 Evidence 完整可读 |
+
+##### 遇到问题
+
+- 首批节点 Evidence dry-run 发现旧 `src/arona-clicker/runtime.ts` token 已失效；重新预览该路径、替换 token 并重新 plan / dry-run 后提交。未删减 Evidence，也未跳过失败项。
+
+##### 事实更新建议
+
+- 当前架构、模块卡与机制页已经同步；地图将 Operation EventRun Runtime 作为 AronaClicker 产品层 implemented Concept 路由。
 
 ## 相关路由
 

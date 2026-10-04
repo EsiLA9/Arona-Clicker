@@ -16,5 +16,6 @@
 - [[docs/docs-829/04-mechanisms/arona-clicker/state-mutation]] — 玩家业务状态提交与事件。
 - [[docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]] — Init、Area、Spot 生命周期。
 - [[docs/docs-829/04-mechanisms/arona-clicker/gacha-cultivation]] — 招募和角色培养入口。
+- [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]] — Gameplay B 的 EventRun 局内状态 owner、局部转移与清理边界。
 
 各页记录可观察行为与具体源代码；状态类型布局见 [[docs/docs-829/03-data-structures/00-index]]，跨模块概览见 [[docs/docs-829/06-wiki/00-index]]。
