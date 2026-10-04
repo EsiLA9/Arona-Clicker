@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { OperationEventDef, OperationStateDelta } from '../../src/arona-clicker/contracts/operation';
-import { validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
+import { validateOperationActionDef, validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
 import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
 
 function eventDef(): OperationEventDef {
@@ -67,6 +67,125 @@ describe('validateOperationEventDef', () => {
       cards: { drawPile: ['test:card:inspect'], hand: ['test:card:assist'], discard: [], played: [] },
     });
   });
+
+  test('validates Team definitions, Actor membership, and target preference references', () => {
+    const definition: OperationEventDef = {
+      ...eventDef(),
+      teams: [{
+        id: 'test:team:students',
+        resources: { coordination: { initial: 2, min: 0, max: 4 } },
+      }],
+      actors: [{
+        ...eventDef().actors[0],
+        teamId: 'test:team:students',
+        targetPriorityActorIds: ['test:actor:student'],
+      }],
+    };
+    expect(validateOperationEventDef(definition)).toEqual([]);
+
+    const invalid = {
+      ...definition,
+      teams: [
+        ...definition.teams!,
+        { id: 'test:team:students', resources: { coordination: { initial: 8, min: 0, max: 4 } } },
+      ],
+      actors: [{
+        ...definition.actors[0],
+        teamId: 'test:team:missing',
+        targetPriorityActorIds: ['test:actor:missing', 'test:actor:missing'],
+      }],
+    } as OperationEventDef;
+    const diagnostics = validateOperationEventDef(invalid).join('\n');
+    expect(diagnostics).toMatch(/duplicate ID/);
+    expect(diagnostics).toMatch(/undeclared Team/);
+    expect(diagnostics).toMatch(/undeclared Actor ID/);
+    expect(diagnostics).toMatch(/duplicate ID/);
+  });
+
+  test('validates temporary Location tactical structure and ordered Combination slots', () => {
+    const valid: OperationEventDef = {
+      ...eventDef(),
+      locationTactics: [{
+        locationId: 'test:location:office',
+        enabledActionIds: ['test:action:assist', 'test:action:repair'],
+        combinationRules: [{
+          id: 'test:combination:assist-repair',
+          priority: 1,
+          inputTagIds: ['assist', 'repair'],
+          targetMatch: 'same-target',
+          effects: [{ kind: 'eventTrackDelta', trackId: 'danger', amount: -1 }],
+        }],
+      }],
+    };
+    expect(validateOperationEventDef(valid)).toEqual([]);
+
+    const invalid = {
+      ...valid,
+      locationTactics: [
+        ...valid.locationTactics!,
+        {
+          locationId: 'test:location:office',
+          enabledActionIds: ['test:action:assist', 'test:action:assist'],
+          combinationRules: [{
+            id: 'test:combination:invalid',
+            priority: 1.5,
+            inputTagIds: ['assist', 'assist'],
+            targetMatch: 'any-target',
+            effects: [{ kind: 'eventTrackDelta', trackId: 'test:track:missing', amount: Number.NaN }],
+          }],
+        },
+        {
+          locationId: 'test:location:missing',
+          enabledActionIds: [],
+          combinationRules: [],
+        },
+      ],
+    } as OperationEventDef;
+    const diagnostics = validateOperationEventDef(invalid).join('\n');
+    expect(diagnostics).toMatch(/duplicate locationId/);
+    expect(diagnostics).toMatch(/undeclared Location/);
+    expect(diagnostics).toMatch(/duplicate ID/);
+    expect(diagnostics).toMatch(/safe integer/);
+    expect(diagnostics).toMatch(/two distinct ordered tag IDs/);
+    expect(diagnostics).toMatch(/targetMatch/);
+    expect(diagnostics).toMatch(/finite number/);
+    expect(diagnostics).toMatch(/undeclared track/);
+  });
+
+  test('validates the closed OperationAction contract without executing it', () => {
+    const valid = {
+      id: 'test:action:assist',
+      allowedParticipantKinds: ['student'],
+      requiredCapabilityIds: ['field_support'],
+      reasonIds: ['help_injured'],
+      tagIds: ['support'],
+      cost: { scope: 'team', resourceId: 'coordination', amount: 1 },
+      target: { kind: 'actor', relation: 'sameTeam' },
+      effects: [
+        { kind: 'actorHpDelta', recipient: 'target', amount: 1 },
+        { kind: 'eventTrackDelta', trackId: 'danger', amount: -1 },
+      ],
+    };
+    expect(validateOperationActionDef(valid)).toEqual([]);
+
+    const invalid = {
+      ...valid,
+      script: 'this must not be executable content',
+      allowedParticipantKinds: ['student', 'student', 'ghost'],
+      cost: { scope: 'team', resourceId: '', amount: 0 },
+      target: { kind: 'actor', relation: 'opposite' },
+      effects: [{ kind: 'actorResourceDelta', recipient: 'unknown', resourceId: '', amount: Number.POSITIVE_INFINITY, script: 'nope' }],
+    };
+    const diagnostics = validateOperationActionDef(invalid).join('\n');
+    expect(diagnostics).toMatch(/duplicate ID/);
+    expect(diagnostics).toMatch(/unsupported participant kind/);
+    expect(diagnostics).toMatch(/cost.resourceId/);
+    expect(diagnostics).toMatch(/cost.amount/);
+    expect(diagnostics).toMatch(/target.relation/);
+    expect(diagnostics).toMatch(/effects\[0\].amount/);
+    expect(diagnostics).toMatch(/effects\[0\].recipient/);
+    expect(diagnostics).toMatch(/unsupported field: script/);
+  });
 });
 
 describe('OperationRuntimeService', () => {
@@ -115,6 +234,40 @@ describe('OperationRuntimeService', () => {
     expect(Object.isFrozen(snapshot.eventState.tracks)).toBe(true);
     expect(Object.isFrozen(snapshot.eventState.knownFactIds)).toBe(true);
     expect(() => (snapshot.eventState.knownFactIds as string[]).push('external_write')).toThrow();
+  });
+
+  test('initializes bounded Team resources in the detached Run and keeps Team membership explicit', () => {
+    const service = new OperationRuntimeService();
+    const definition: OperationEventDef = {
+      ...eventDef(),
+      teams: [{
+        id: 'test:team:students',
+        resources: { coordination: { initial: 2, min: 0, max: 4 } },
+      }],
+      actors: [{ ...eventDef().actors[0], teamId: 'test:team:students' }],
+    };
+    const snapshot = service.start(definition);
+
+    expect(snapshot.teamStates).toEqual([{ id: 'test:team:students', resources: { coordination: 2 } }]);
+    expect(snapshot.actorStates[0].teamId).toBe('test:team:students');
+    expect(Object.isFrozen(snapshot.teamStates[0].resources)).toBe(true);
+    expect(() => (snapshot.teamStates[0].resources as Record<string, number>).coordination = 4).toThrow();
+    expect(service.getSnapshot()?.teamStates[0].resources.coordination).toBe(2);
+  });
+
+  test('rejects an undeclared Team reference before creating or replacing a Run', () => {
+    const invalid: OperationEventDef = {
+      ...eventDef(),
+      actors: [{ ...eventDef().actors[0], teamId: 'test:team:missing' }],
+    };
+    const empty = new OperationRuntimeService();
+    expect(() => empty.start(invalid)).toThrow(/undeclared Team/);
+    expect(empty.getSnapshot()).toBeNull();
+
+    const active = new OperationRuntimeService();
+    const before = active.start(eventDef());
+    expect(() => active.start(invalid)).toThrow(/undeclared Team/);
+    expect(active.getSnapshot()).toEqual(before);
   });
 
   test('validates a whole state delta before committing any field', () => {

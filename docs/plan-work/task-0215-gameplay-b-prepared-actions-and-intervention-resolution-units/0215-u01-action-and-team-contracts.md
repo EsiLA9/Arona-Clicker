@@ -56,7 +56,7 @@
 - `src/arona-clicker/services/operation-definition-validation.ts`
 - `src/arona-clicker/services/operation-runtime-service.ts`
 - `tests/engine/operation-runtime-service.test.ts`
-- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u01-action-and-team-contracts.md
+- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u01-action-and-team-contracts-receipt.md
 
 ## Explicit Non-goals
 
@@ -72,7 +72,7 @@
 
 - [ ] 独立 Action 合同表达能力门槛、理由、tag、参与者 kind、可选单一 actor/team 费用、目标关系与有限效果字段，不包含可执行脚本；不作为 EventDef 的第二份来源。
 - [ ] Team definitions 与 Actor.teamId 被完整验证；Team resources 成为 detached EventRun state，并由唯一 Run owner 初始化。
-- [ ] Team/Actor 初始资源边界、重复 ID、缺失 Team/resource 引用得到诊断；无效定义不创建/替换 Run。
+- [ ] Team/Actor 初始资源边界、重复 ID 与 Actor 引用缺失 Team 得到诊断；无效定义不创建/替换 Run。Action cost 资源声明的跨定义存在性由 U2 admission 校验。
 - [ ] locationTactics 不重复绑定同一 Location；未知 Location、重复 enabled Action ID、无效/重复 Combination ID、非整数 priority、重复/空 tag slot 与未知 targetMatch 被结构校验拒绝。
 - [ ] targetPriorityActorIds 中的未知/重复 Actor ID 被拒绝；目标关系运行时语义由 U4 的目标选择器实现和验证。
 - [ ] PlayerCost、Character/Variant 和 PlayerState 状态没有改变。

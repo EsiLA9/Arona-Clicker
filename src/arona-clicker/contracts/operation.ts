@@ -1,3 +1,5 @@
+import type { OperationLocationTacticsDef } from './operation-action';
+
 export type OperationResultKind = 'success' | 'partialSuccess' | 'failure';
 export type OperationRunStatus = 'inProgress' | OperationResultKind;
 export type OperationCardZone = 'drawPile' | 'hand' | 'discard' | 'played';
@@ -28,6 +30,19 @@ export interface OperationActorDef {
   readonly type: string;
   readonly hp: OperationBoundedValueDef;
   readonly resources?: Readonly<Record<string, OperationBoundedValueDef>>;
+  readonly teamId?: string;
+  /** Event-local target preference; IDs are not stored on reusable Action definitions. */
+  readonly targetPriorityActorIds?: readonly string[];
+}
+
+export interface OperationTeamDef {
+  readonly id: string;
+  readonly resources?: Readonly<Record<string, OperationBoundedValueDef>>;
+}
+
+export interface OperationTeamState {
+  readonly id: string;
+  readonly resources: Readonly<Record<string, number>>;
 }
 
 export interface OperationCardZones {
@@ -53,6 +68,9 @@ export interface OperationEventDef {
   readonly itemIds: readonly string[];
   readonly heldItemIds: readonly string[];
   readonly actors: readonly OperationActorDef[];
+  readonly teams?: readonly OperationTeamDef[];
+  /** Temporary tactical definitions keyed by existing Location IDs until Task 0218. */
+  readonly locationTactics?: readonly OperationLocationTacticsDef[];
   /** Event-scoped actions and their capability eligibility gates. */
   readonly actionRequirements?: readonly OperationActionRequirementDef[];
   readonly playerRouteState: OperationPlayerRouteStateDef;
@@ -121,6 +139,7 @@ export interface OperationActorState {
   readonly characterId?: string;
   readonly profile?: OperationStudentProfileSnapshot;
   readonly factionId?: string;
+  readonly teamId?: string;
 }
 
 export interface OperationPlayerRouteState {
@@ -141,6 +160,7 @@ export interface EventRun {
   readonly currentLocationId: string;
   readonly eventState: OperationEventState;
   readonly actorStates: readonly OperationActorState[];
+  readonly teamStates: readonly OperationTeamState[];
   readonly playerRouteState: OperationPlayerRouteState;
   readonly locationProgress: Readonly<Record<string, OperationLocationProgress>>;
   readonly random: {

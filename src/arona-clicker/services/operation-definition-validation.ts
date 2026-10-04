@@ -14,6 +14,17 @@ export function isNonEmptyOperationId(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function rejectUnsupportedFields(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  path: string,
+  issues: string[],
+): void {
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) issues.push(path + ' contains unsupported field: ' + key);
+  }
+}
+
 function collectIds(value: unknown, path: string, issues: string[]): Set<string> {
   const result = new Set<string>();
   if (!Array.isArray(value)) {
@@ -89,6 +100,168 @@ export function sameOperationCardCounts(
   return true;
 }
 
+function validateOperationActionEffect(value: unknown, path: string, issues: string[]): void {
+  if (!isOperationRecord(value)) {
+    issues.push(path + ' must be an effect object');
+    return;
+  }
+  if (typeof value.amount !== 'number' || !Number.isFinite(value.amount)) {
+    issues.push(path + '.amount must be a finite number');
+  }
+  switch (value.kind) {
+    case 'actorHpDelta':
+      rejectUnsupportedFields(value, ['kind', 'recipient', 'amount'], path, issues);
+      if (value.recipient !== 'actor' && value.recipient !== 'target') {
+        issues.push(path + '.recipient must be actor or target');
+      }
+      break;
+    case 'actorResourceDelta':
+      rejectUnsupportedFields(value, ['kind', 'recipient', 'resourceId', 'amount'], path, issues);
+      if (value.recipient !== 'actor' && value.recipient !== 'target') {
+        issues.push(path + '.recipient must be actor or target');
+      }
+      if (!isNonEmptyOperationId(value.resourceId)) issues.push(path + '.resourceId must be a non-empty ID');
+      break;
+    case 'teamResourceDelta':
+      rejectUnsupportedFields(value, ['kind', 'recipient', 'resourceId', 'amount'], path, issues);
+      if (value.recipient !== 'actorTeam' && value.recipient !== 'targetTeam') {
+        issues.push(path + '.recipient must be actorTeam or targetTeam');
+      }
+      if (!isNonEmptyOperationId(value.resourceId)) issues.push(path + '.resourceId must be a non-empty ID');
+      break;
+    case 'eventTrackDelta':
+      rejectUnsupportedFields(value, ['kind', 'trackId', 'amount'], path, issues);
+      if (!isNonEmptyOperationId(value.trackId)) issues.push(path + '.trackId must be a non-empty ID');
+      break;
+    default:
+      issues.push(path + '.kind is not a supported Operation Action effect');
+  }
+}
+
+function validateOperationActionEffects(value: unknown, path: string, issues: string[]): void {
+  if (!Array.isArray(value)) {
+    issues.push(path + ' must be an array');
+    return;
+  }
+  value.forEach((effect, index) => validateOperationActionEffect(effect, path + '[' + index + ']', issues));
+}
+
+/** Validates the closed, data-only Action contract before it enters an Operation resolver. */
+export function validateOperationActionDef(value: unknown): readonly string[] {
+  const issues: string[] = [];
+  if (!isOperationRecord(value)) return ['action definition must be an object'];
+  rejectUnsupportedFields(value, [
+    'id', 'allowedParticipantKinds', 'requiredCapabilityIds', 'reasonIds', 'tagIds', 'cost', 'target', 'effects',
+  ], 'action', issues);
+  if (!isNonEmptyOperationId(value.id)) issues.push('id must be a non-empty Action ID');
+
+  const allowedKinds = collectIds(value.allowedParticipantKinds, 'allowedParticipantKinds', issues);
+  if (allowedKinds.size === 0) issues.push('allowedParticipantKinds must contain at least one participant kind');
+  for (const kind of allowedKinds) {
+    if (!['student', 'opponent', 'environment'].includes(kind)) {
+      issues.push('allowedParticipantKinds contains an unsupported participant kind: ' + kind);
+    }
+  }
+  collectIds(value.requiredCapabilityIds, 'requiredCapabilityIds', issues);
+  collectIds(value.reasonIds, 'reasonIds', issues);
+  collectIds(value.tagIds, 'tagIds', issues);
+
+  if (value.cost !== undefined) {
+    if (!isOperationRecord(value.cost)) {
+      issues.push('cost must be an object');
+    } else {
+      rejectUnsupportedFields(value.cost, ['scope', 'resourceId', 'amount'], 'cost', issues);
+      if (value.cost.scope !== 'actor' && value.cost.scope !== 'team') issues.push('cost.scope must be actor or team');
+      if (!isNonEmptyOperationId(value.cost.resourceId)) issues.push('cost.resourceId must be a non-empty ID');
+      if (typeof value.cost.amount !== 'number' || !Number.isFinite(value.cost.amount) || value.cost.amount <= 0) {
+        issues.push('cost.amount must be a positive finite number');
+      }
+    }
+  }
+
+  if (!isOperationRecord(value.target)) {
+    issues.push('target must be an object');
+  } else if (value.target.kind === 'none') {
+    rejectUnsupportedFields(value.target, ['kind'], 'target', issues);
+    if (value.target.relation !== undefined) issues.push('target.relation must be omitted when target.kind is none');
+  } else if (value.target.kind === 'actor') {
+    rejectUnsupportedFields(value.target, ['kind', 'relation'], 'target', issues);
+    if (!['self', 'sameTeam', 'otherTeam', 'any'].includes(String(value.target.relation))) {
+      issues.push('target.relation must be self, sameTeam, otherTeam, or any');
+    }
+  } else {
+    issues.push('target.kind must be none or actor');
+  }
+
+  validateOperationActionEffects(value.effects, 'effects', issues);
+  return issues;
+}
+
+function validateCombinationRule(value: unknown, path: string, issues: string[]): void {
+  if (!isOperationRecord(value) || !isNonEmptyOperationId(value.id)) {
+    issues.push(path + '.id must be a non-empty ID');
+    return;
+  }
+  rejectUnsupportedFields(value, ['id', 'priority', 'inputTagIds', 'targetMatch', 'effects'], path, issues);
+  if (!Number.isSafeInteger(value.priority)) issues.push(path + '.priority must be a safe integer');
+  const tags = collectIds(value.inputTagIds, path + '.inputTagIds', issues);
+  if (!Array.isArray(value.inputTagIds) || value.inputTagIds.length !== 2 || tags.size !== 2) {
+    issues.push(path + '.inputTagIds must contain two distinct ordered tag IDs');
+  }
+  if (value.targetMatch !== 'same-target' && value.targetMatch !== 'no-target') {
+    issues.push(path + '.targetMatch must be same-target or no-target');
+  }
+  validateOperationActionEffects(value.effects, path + '.effects', issues);
+}
+
+function validateLocationTactics(
+  value: unknown,
+  locations: ReadonlySet<string>,
+  trackIds: ReadonlySet<string>,
+  issues: string[],
+): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    issues.push('locationTactics must be an array');
+    return;
+  }
+  const seenLocations = new Set<string>();
+  value.forEach((entry, index) => {
+    const path = 'locationTactics[' + index + ']';
+    if (!isOperationRecord(entry) || !isNonEmptyOperationId(entry.locationId)) {
+      issues.push(path + '.locationId must be a non-empty ID');
+      return;
+    }
+    rejectUnsupportedFields(entry, ['locationId', 'enabledActionIds', 'combinationRules'], path, issues);
+    if (!locations.has(entry.locationId)) issues.push(path + '.locationId references an undeclared Location: ' + entry.locationId);
+    if (seenLocations.has(entry.locationId)) issues.push('locationTactics contains duplicate locationId: ' + entry.locationId);
+    seenLocations.add(entry.locationId);
+
+    collectIds(entry.enabledActionIds, path + '.enabledActionIds', issues);
+    if (!Array.isArray(entry.combinationRules)) {
+      issues.push(path + '.combinationRules must be an array');
+      return;
+    }
+    const ruleIds = new Set<string>();
+    entry.combinationRules.forEach((rule, ruleIndex) => {
+      const rulePath = path + '.combinationRules[' + ruleIndex + ']';
+      if (isOperationRecord(rule) && isNonEmptyOperationId(rule.id)) {
+        if (ruleIds.has(rule.id)) issues.push(path + '.combinationRules contains duplicate ID: ' + rule.id);
+        ruleIds.add(rule.id);
+      }
+      validateCombinationRule(rule, rulePath, issues);
+      if (isOperationRecord(rule) && Array.isArray(rule.effects)) {
+        rule.effects.forEach((effect, effectIndex) => {
+          if (isOperationRecord(effect) && effect.kind === 'eventTrackDelta'
+            && isNonEmptyOperationId(effect.trackId) && !trackIds.has(effect.trackId)) {
+            issues.push(rulePath + '.effects[' + effectIndex + '].trackId references an undeclared track: ' + effect.trackId);
+          }
+        });
+      }
+    });
+  });
+}
+
 /** Pure definition/reference validation. A non-empty result is a complete diagnostic list. */
 export function validateOperationEventDef(definition: OperationEventDef): readonly string[] {
   const issues: string[] = [];
@@ -125,6 +298,34 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   const heldItems = collectIds(raw.heldItemIds, 'heldItemIds', issues);
   for (const id of heldItems) if (!items.has(id)) issues.push('heldItemIds contains undeclared item: ' + id);
 
+  const teamIds = new Set<string>();
+  if (raw.teams !== undefined) {
+    if (!Array.isArray(raw.teams)) {
+      issues.push('teams must be an array');
+    } else {
+      raw.teams.forEach((team, index) => {
+        const path = 'teams[' + index + ']';
+        if (!isOperationRecord(team) || !isNonEmptyOperationId(team.id)) {
+          issues.push(path + '.id must be a non-empty ID');
+          return;
+        }
+        rejectUnsupportedFields(team, ['id', 'resources'], path, issues);
+        if (teamIds.has(team.id)) issues.push('teams contains duplicate ID: ' + team.id);
+        teamIds.add(team.id);
+        if (team.resources !== undefined) {
+          if (!isOperationRecord(team.resources)) {
+            issues.push(path + '.resources must be a record');
+          } else {
+            for (const [resourceId, resource] of Object.entries(team.resources)) {
+              if (!isNonEmptyOperationId(resourceId)) issues.push(path + '.resources contains an invalid ID');
+              validateBoundedValue(resource, path + '.resources.' + resourceId, issues);
+            }
+          }
+        }
+      });
+    }
+  }
+
   if (raw.actionRequirements !== undefined) {
     if (!Array.isArray(raw.actionRequirements)) {
       issues.push('actionRequirements must be an array');
@@ -145,10 +346,10 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
     }
   }
 
+  const actorIds = new Set<string>();
   if (!Array.isArray(raw.actors)) {
     issues.push('actors must be an array');
   } else {
-    const actorIds = new Set<string>();
     raw.actors.forEach((actor, index) => {
       const path = 'actors[' + index + ']';
       if (!isOperationRecord(actor) || !isNonEmptyOperationId(actor.id)) {
@@ -158,6 +359,10 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
       if (actorIds.has(actor.id)) issues.push('actors contains duplicate ID: ' + actor.id);
       actorIds.add(actor.id);
       if (!isNonEmptyOperationId(actor.type)) issues.push(path + '.type must be a non-empty value');
+      if (actor.teamId !== undefined) {
+        if (!isNonEmptyOperationId(actor.teamId)) issues.push(path + '.teamId must be a non-empty ID');
+        else if (!teamIds.has(actor.teamId)) issues.push(path + '.teamId references an undeclared Team: ' + actor.teamId);
+      }
       validateBoundedValue(actor.hp, path + '.hp', issues);
       if (actor.resources !== undefined) {
         if (!isOperationRecord(actor.resources)) {
@@ -171,6 +376,19 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
       }
     });
   }
+
+  if (Array.isArray(raw.actors)) {
+    raw.actors.forEach((actor, index) => {
+      if (!isOperationRecord(actor) || actor.targetPriorityActorIds === undefined) return;
+      const path = 'actors[' + index + '].targetPriorityActorIds';
+      const targetIds = collectIds(actor.targetPriorityActorIds, path, issues);
+      for (const targetId of targetIds) {
+        if (!actorIds.has(targetId)) issues.push(path + ' contains an undeclared Actor ID: ' + targetId);
+      }
+    });
+  }
+
+  validateLocationTactics(raw.locationTactics, locations, trackIds, issues);
 
   if (!isOperationRecord(raw.playerRouteState)) {
     issues.push('playerRouteState must be an object');

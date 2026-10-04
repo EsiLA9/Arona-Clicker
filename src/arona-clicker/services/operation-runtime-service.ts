@@ -12,6 +12,7 @@ import type {
   OperationRunStatus,
   OperationStateDelta,
   OperationStudentProfileSnapshot,
+  OperationTeamDef,
 } from '../contracts/operation';
 import {
   isNonEmptyOperationId as nonEmptyId,
@@ -32,6 +33,7 @@ interface MutableActorState {
   characterId?: string;
   profile?: OperationStudentProfileSnapshot;
   factionId?: string;
+  teamId?: string;
 }
 
 interface MutableRun {
@@ -45,6 +47,7 @@ interface MutableRun {
     heldItemIds: string[];
   };
   actorStates: MutableActorState[];
+  teamStates: { id: string; resources: Record<string, number> }[];
   playerRouteState: {
     playerCost: number;
     cards: { drawPile: string[]; hand: string[]; discard: string[]; played: string[] };
@@ -60,6 +63,7 @@ interface RunRules {
   readonly facts: ReadonlySet<string>;
   readonly items: ReadonlySet<string>;
   readonly actors: ReadonlyMap<string, OperationActorDef>;
+  readonly teams: ReadonlyMap<string, OperationTeamDef>;
   readonly deckCounts: ReadonlyMap<string, number>;
 }
 
@@ -98,6 +102,7 @@ function defineRules(definition: OperationEventDef): RunRules {
     facts: new Set(cloned.factIds),
     items: new Set(cloned.itemIds),
     actors: new Map(cloned.actors.map(actor => [actor.id, actor])),
+    teams: new Map((cloned.teams ?? []).map(team => [team.id, team])),
     deckCounts: cardCounts(cloned.playerRouteState.cards),
   };
 }
@@ -122,12 +127,17 @@ function createRun(
       knownFactIds: [...definition.knownFactIds],
       heldItemIds: [...definition.heldItemIds],
     },
+    teamStates: (definition.teams ?? []).map(team => ({
+      id: team.id,
+      resources: Object.fromEntries(Object.entries(team.resources ?? {}).map(([id, value]) => [id, value.initial])),
+    })),
     actorStates: definition.actors.map(actor => {
       const base: MutableActorState = {
         id: actor.id,
         type: actor.type,
         hp: actor.hp.initial,
         resources: Object.fromEntries(Object.entries(actor.resources ?? {}).map(([id, value]) => [id, value.initial])),
+        ...(actor.teamId ? { teamId: actor.teamId } : {}),
       };
       const identity = actorInitializations?.get(actor.id);
       if (!identity) return base;
