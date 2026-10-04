@@ -18,14 +18,17 @@ Task 0213–0216 已完成并形成单地点核心机制原型；0217–0225 的
 | 每个 Beat 只有一个 Sensei 指挥位，且只能修改一名学生的计划 | **新提案**，不是既有确认规则 | 用于凸显学生自主性并限制逐个操控；Task 0216/0222 必须验证干预存在真实取舍。 |
 | 路线选择是单独事件命令，不产生战术 Beat/Resolution | **新裁定** | 解决战术提交单位与地点转场输入的口径歧义；只有一个出口时自动转场，多出口时才等待玩家选择。 |
 | 正式玩法 B 界面采用左/中/右三栏：我方 / 信息 / 敌方 | 用户本轮确认 | Task 0222 按此重构 Gameplay B Surface；不要求全 AC 全局 UI 改版，也不以窄屏内容移位为本阶段前置。 |
-| 固定场景内容与结算叙述进入中央信息聊天流；学生计划/行为以我方角色卡承载，不拆成多列计划表或重复消息条目 | 用户本轮确认的方向 | Task 0216 的单地点聊天流原型可复用其 Runtime/View 接口，但不是最终布局模板；Task 0222 冻结角色卡表现细节。角色卡 UI 与有限玩家 SceneCard 牌区是两个概念。 |
+| 固定场景内容与结算叙述进入中央信息聊天流；左右用角色身份卡承载我方/敌方实体，学生计划/行为和敌方意图作为各自卡内的附着行动卡表现，不拆成中栏多列表或重复消息条目 | 用户本轮确认的方向，细节以独立 Demo 参照核对 | Task 0222 必须精读 Draft 0183 与 Demo 行动卡源码，再为 AC `OperationView` 裁定沿用/改造/不沿用。角色身份卡、附着行动/意图卡与独立有限玩家 SceneCard 牌区是三类对象。 |
 | 其余信息流内的玩家交互暂缓到下一大施工阶段 | 用户本轮裁定 | Task 0217–0221、0224–0225 可先实现服务、状态、投影与命令接口；不实现聊天流内的选择/出牌/路线交互 UI，也不提前裁定交互形式。统一在 Task 0222 设计并验收。 |
-| 首期路线条件叶节点只检查持有物，可用 `all/any/not` 组合；地图有向且允许环，但每地点访问有界 | 用户已在早期玩法 B Draft 确认（[[draft-0204-gameplay-b-map-and-player-actions]]；这是设计来源，不是 AC 实现事实） | RouteEdge 只读取 EventRun 的局内持有物；访问上限独立于出口条件。事件目标仍可读取 EventState 的轨道/事实。 |
+| 首期路线只检查单个局内持有物；地图是简单有向图且允许环，Event 总访问次数有上限 | 用户已在早期玩法 B Draft 确认（[[draft-0204-gameplay-b-map-and-player-actions]]；这是设计来源，不是 AC 实现事实） | RouteEdge 只读取 EventRun 的局内持有物；不引入复合 Gate 表达式或全图拓扑分析。 |
 | 随机只在 Commit 后消费 | **新裁定** | 让预览、改选和撤销不会重抽结果；按运行 Seed/Cursor 保持可复现。 |
 | 非战斗场景行为可逐角色分别选择，或由玩家选择一个全局行为；玩家拥有共用路线 Cost、有限场景卡组，场景可增加 Cost 并设离场携带上限 | 用户已在早期玩法 B Draft 确认（[[draft-0204-gameplay-b-map-and-player-actions]]；这是设计来源，不是 AC 实现事实） | 纳入 AC-native 设计，细则见“场景行为、路线 Cost 与角色技能兼容”；由新增 Task 0224/0225 落地。场景选择与战斗 Intervention 分开，但共用 EventRun、费用校验和 Resolution。 |
 | 保留角色专属随机技能触发；角色技能不消耗玩家路线 Cost | 用户已在早期玩法 B Draft 确认（[[draft-0204-gameplay-b-map-and-player-actions]]；旧原型的现有实现不视为 AC 实现） | 指角色行动之外按条件进行的额外技能触发检查，不是玩家场景卡抽牌。Profile 专属现场能力与之并行；为符合本 Draft 新裁定的 Commit-only RNG，AC-native 把触发检查推迟到有效 Commit 结算。 |
 | EventState 使用少量数值轨道和事实集合，事件以成功/部分成功/失败结束 | **新概念/新需求** | 以小型封闭 Predicate 和 Effect 支持事件因果，不假定既有通用状态模型可直接承担。 |
 | 精确 Save/Resume 是完整 V1 发布切片门槛 | **范围选择** | 核心可玩切片 0216 不要求存档；多地点正式 V1 切片 0222 要求恢复当前地点、行动计划与随机游标。 |
+| Route 转场使用唯一 `transitionRoute(routeId)`；Action 是行为定义，Card/SceneAction 是引用 ActionDef 的薄包装 | 本轮方案裁定 | 自动/手动转场共用一次先计算后提交；不建事务框架，不重复保存效果定义。 |
+| Save 内容兼容使用 EventDef 显式 `resumeVersion` | 本轮方案裁定 | 快照保存 `eventId + resumeVersion + EventRun`；作者手动递增不兼容版本，不计算 Datapack graph Hash。 |
+| V1 使用事件固定学生阵容和一个正式游乐园 Datapack 样例 | 本轮范围裁定 | 不做选人界面；0221 建立最小作者循环，0222 复用同一事件跑通游戏闭环。 |
 | 具体人数、行动数值、资源名称、角色专属技能内容与配方输出 | 内容/平衡数据 | 具体数值与内容由事件定义和体验验收决定；不改变上列已经确认的场景模式、路线 Cost/卡组和角色随机技能边界。 |
 
 ## 一、玩法定义
@@ -36,7 +39,7 @@ Task 0213–0216 已完成并形成单地点核心机制原型；0217–0225 的
 
 ### 玩家职责
 
-玩家扮演 Sensei，是队伍的**判断者与有限指挥者**。玩家选择学生阵容、决定事件的处置顺序，并且每个战术节拍最多修订一个学生行动。玩家不逐个替所有学生指定动作；未经干预的计划由学生自己的能力和行动倾向决定。
+玩家扮演 Sensei，是队伍的**判断者与有限指挥者**。V1 使用 EventDef 固定学生阵容；玩家决定事件的处置顺序，并且每个战术节拍最多修订一个学生行动。玩家不逐个替所有学生指定动作；未经干预的计划由学生自己的能力和行动倾向决定。
 
 战斗 Beat 给玩家一个有限指挥位：可把一名学生的计划改为其当前可执行的另一项行动并确认合法目标，或只修订目标；不能执行的改动要给出具体原因。非战斗地点的 `SceneAction` 按地点模式由玩家选择：`individual` 为每名符合条件的角色各选一个行为，`global` 只选一个全局行为。场景选择不占用战斗指挥位；其批次仍通过统一 Commit 和 Resolution 处理。指挥位在下一次战斗 Beat 准备时恢复；角色专长和事件规则可以改变某些行动的可选项，但 v1 不引入永久的指挥点经济。
 
@@ -77,15 +80,15 @@ v1 采用可读、可预测的行动优先级与明确的角色能力，不模�
 
 战斗与非战斗地点共用 Beat 的冻结输入、费用校验、Commit、Resolution 和 EventState 更新，但选择入口不同：战斗使用 `Actor → Prepared Action / Intent → Target → Intervention → Commit → Resolution`；非战斗场景使用 `SceneActionSelection → Scene Intent/Target → Commit → Resolution`。具体动作效果由少量明确的效果种类表达。
 
-战斗专属内容包括伤害、恢复、护盾、击倒与敌方攻击目标等效果和失败条件。现场专属内容包括处理事件轨道、发现或消费事实、设施/人员状态改变等效果。非战斗地点仍会有参与者、对立行动或环境 Intent、目标与结算；它不会变成另一套即时点击规则。
+战斗专属内容包括伤害、恢复、护盾、击倒与敌方攻击目标等效果和失败条件。现场专属内容包括处理事件轨道、事实、持有物、设施/人员状态等效果。`OperationEffect` 仅增加 `{ type: 'heldItem', itemId, op: 'grant' | 'remove' }`，只改 EventRun 的持有物集合；战斗 Action、SceneAction 和玩家卡引用同一 OperationActionDef，无背包/装备系统。非战斗地点仍会有参与者、对立行动或环境 Intent、目标与结算；它不会变成另一套即时点击规则。
 
 非战斗地点可声明 `individual` 或 `global` 行为模式。`individual` 要求玩家为每名符合条件的角色各选一个场景行为；同一批可选不同类型。`global` 要求玩家只选一个场景行为，并按动作规则指定单人、多人或全队目标。它们形成独立的 `SceneAction` 选择批次，不受战斗 Beat 的“至多修订一名学生”限制；同批行为与场景卡仍只做一次费用校验、一次 Commit 和一个 Resolution。战斗地点保持原有自治规则：学生按 Profile 自动准备战斗行动，Sensei 每 Beat 至多修订一名学生，不存在全局战斗行为槽。
 
 ### 场景行为、路线 Cost 与角色技能兼容
 
-- `PlayerCost` 是 EventRun 内跨地点共享的路线资源，与任何学生 Actor/Team 战术行动资源分开；它不是 PlayerState 长期资源。玩家选择的非战斗 `SceneAction` 与玩家场景卡共用 PlayerCost，一批选择在 Commit 前合计校验并一次支付。学生、敌方或环境的 Prepared Action/Intent 成本若由内容声明，按独立的 EventRun 战术资源解释；不得默认为扣除 PlayerCost。
+- `PlayerCost` 是 EventRun 内跨地点共享的路线资源，与任何学生 Actor/Team 战术行动资源分开；它不是 PlayerState 长期资源。玩家选择的非战斗 `SceneAction` 与玩家场景卡共用 PlayerCost，一批选择在 Commit 前合计校验并一次支付。SceneAction/Card 只引用 OperationActionDef；费用和时机留在薄包装定义中，ActionDef 是目标、条件和效果的唯一来源。学生、敌方或环境的 Prepared Action/Intent 成本若由内容声明，按独立的 EventRun 战术资源解释。
 - 每个 Location 可配置 `costGain` 与 `maxCarryCost`。每次进入（包括有界回访）尝试增加 `costGain`；玩家可在该地点使用增加后的余额。离开该地点时才按该 Location 的 `maxCarryCost` 压低可携带余额，场景内暂时持有量不受该离场上限限制。
-- 每个 Event 可配置一副固定、有限的玩家场景卡组；v1 不提供构筑或购买。卡牌顺序由 EventRun Seed 确定并保存在 Run，开局抽牌；每次进入地点按配置补牌且不超过手牌上限。抽牌不推进角色技能/行动效果的 Commit 随机游标。打出的卡进入已用区，不洗回抽牌堆；牌堆耗尽后不再补牌。卡牌费用与同一 Beat 场景行为费用一起校验、支付。
+- 每个 Event 可配置一副固定、有限的玩家场景卡组；v1 不提供构筑或购买。物理卡实例 ID 由 deck seed、cardDefId 和副本序号确定。开局和进入地点时按配置抽牌且不超过手牌上限；抽牌不推进战术随机流。打出的卡从 hand 进入 discard，discard 不回洗，不另设 played 区或玩家弃牌命令。
 - 玩家场景卡只在非战斗场景行动中使用，不进入战斗 Click，不作为学生战斗行动或 CardTag 协同输入。它们消费共享 PlayerCost；角色技能不消费 PlayerCost。
 - 新 StudentOperationProfile 的专属现场能力负责提供可预测、能改变可行解法的角色差异；早期确认的角色随机抽取技能作为独立能力与之并行保留，不替代 Profile 专属能力。符合内容条件时，角色技能的触发/效果随机仅在 Commit 执行阶段从 EventRun Seeded Stream 消耗；准备、预览、目标编辑和 Intervention 不掷技能结果，也不推进随机游标。具体触发条件与效果仍由角色/事件内容定义。
 
@@ -95,7 +98,7 @@ v1 不引入格子移动、实时反应窗口、任意脚本语言或复杂异�
 
 事件运行状态是少量**有限数值轨道**和**已知事实集合**，由具体事件声明。例如现场危险、人员安全、调查进度、设施稳定度都只是事件内容选择的命名轨道，不是所有事件强制拥有的全局字段。
 
-每条数值轨道声明初值及上下限；事实用于表示已确认的信息或事件标记。地点目标与事件终局 Predicate 可读取 EventState 轨道/事实并使用有限比较、存在性和组合规则。路线出口 Gate 单独受早期裁定约束：条件叶节点只检查 EventRun 局内持有物，允许 `all/any/not` 组合；不读取轨道、事实、计时器或 PlayerState 条件，也不读取/修改 AC `PlayerState.inventory`。
+每条数值轨道声明初值及上下限；事实用于表示已确认的信息或事件标记。地点目标与事件终局 Predicate 可读取 EventState 轨道/事实并使用有限比较、存在性和组合规则。行动可用封闭 `heldItem` 效果取得/移除本局持有物。路线出口 Gate 只检查一个可选的 EventRun 局内持有物 ID；不读取轨道、事实、计时器或 PlayerState 条件，也不读取/修改 AC `PlayerState.inventory`。
 
 Location 可完成、失败或以部分成果结束；地点的部分结果只结算局部问题并更新 EventState，可以继续前往其他 Location。EventOutcome 只在事件终止边界评估；硬失败门槛可在任何 Beat 触发并立即终止，其他 EventOutcome 等待事件完成、达到路线/Beat 上限或无合法出口时再判断。是否全队失能即失败由事件规则决定，HP 不是全局胜利目标。
 
@@ -105,28 +108,28 @@ Event 终止边界的结果优先级固定为：**硬失败 → 全部主目标�
 
 Location 表示一个仍会变化、能处理或放弃的现场问题。地图用于安排队伍先后处理哪些问题：一处的行动结果可以降低另一处压力、揭示事实、解锁新处理手段或改变最终判断；跳过的地点也可以留下代价。轨道与事实可影响地点目标、可用行动和事件结果；RouteEdge 的门槛仍只读取 EventRun 局内持有物。
 
-v1 用作者明确配置的有向图，不自动生成地图；图允许环路。RouteEdge 的条件叶节点只检查 EventRun 局内持有物，支持 `all/any/not` 组合；不得把数值轨道、事实、计时或任意 EventPredicate 用作路线 Gate。每个 Location 配置有限访问上限，Runtime 单独据此限制回访；路线持有物也只存在 EventRun 内，不读写 AC `PlayerState.inventory`。地点终止时，0 条合法出口会触发 Event 终止结果，1 条合法出口自动转场，2 条以上合法出口等待玩家单独选择；转场均不推进战术 Beat。多出口应形成可解释、互不支配的取舍：每条路线都有已知收益与遗留代价，至少一种代价会在后续状态中兑现。地图节点不以奖励选择器为唯一作用。
+v1 用作者明确配置的简单有向图，不自动生成地图；图允许环路，以 Event 总访问次数限制回访。RouteEdge 可检查一个局内持有物；地点终止时，0 条合法出口触发 Event 终止，1 条自动转场，2 条以上等待玩家选择；自动和手动转场都调用唯一 `transitionRoute(routeId)`。该入口复用 0215 的“先计算、后提交”原则，一次处理出口验证、物品消费、旧地点结果、maxCarryCost、地点切换、costGain 和入场抽牌；任一步失败则 Run 不变。0224/0225 仅将 Cost 与抽牌步骤接入该入口，不另建事务框架。
 
 ## 二、Gameplay Requirement
 
 | 领域 | v1 必须存在 | 未来可扩展 |
 | --- | --- | --- |
 | 游戏定位 | Sensei 带领自主学生队伍处理多阶段现场事件；节奏为可暂停、非实时的节拍制 | 叙事类型、合作/挑战模式与不同事件主题 |
-| 玩家职责 | 选择阵容与路线；每个 Beat 至多一次指挥修订；可解释地 Commit | 通过任务、学生成长或事件规则改变少数指挥机会 |
+| 玩家职责 | 使用事件固定阵容；选择路线；每个 Beat 至多一次指挥修订；可解释地 Commit | 后续再考虑阵容选择与学生成长 |
 | 学生自主性 | 每位学生使用确定的能力/倾向优先级准备一项行动；计划展示原因；至少一项学生专属现场能力改变可行解法；行动位无法使用时有可读回退 | 更复杂的性格反应、社团联动、长期训练与关系触发 |
 | 信息可见性 | Commit 前显示主要目标、事件轨道、学生计划及目标、敌方/环境 Intent、资源/费用、协同预览、指挥机会和不可改原因 | 隐藏信息、情报来源、预测区间和多阶段预告 |
 | Command / Intervention | 战斗 Beat 一个指挥位；至多改一名学生的合法行动和/或目标；未干预行动维持原计划 | 有场景特定的协助、延迟或跨学生指令 |
 | Action / Intent / Target | 动作声明标签、费用、适用参与者、合法目标与效果；Actor 的 Prepared Action 和敌对/环境 Intent 都冻结在 Commit 快照 | 位置、连锁动作、事件脚本编排 |
 | Resource | 同时保留 EventRun 内有限 Actor/Team 战术资源与共享路线 `PlayerCost`；场景行为、玩家场景卡共用后者；每个 Location 配 `costGain` 与离场 `maxCarryCost`；费用在 Commit 前合计校验、提交时只扣一次 | 更多资源种类、资源转化和奖励商店 |
 | Scene behavior mode | 每个非战斗 Location 声明 `individual` 或 `global`；前者由玩家为每名符合条件角色各选一个行为，后者由玩家只选一个可指定目标范围的全局行为；都不占用战斗 Intervention 位 | 多层场景投票、串行小队指令 |
-| Player scene deck | 固定有限牌组、Seed 排序、开局/地点入场抽牌、手牌上限、已用区且不洗回；与场景行为共用 PlayerCost；卡牌不参与战斗 Click | 构筑、购买、弃牌选择和洗回 |
+| Player scene deck | 固定有限牌组、Seed 排序、开局/地点入场抽牌、手牌上限；打出后 hand→discard 且不回洗；与场景行为共用 PlayerCost；卡牌不参与战斗 Click | 构筑、购买、弃牌命令、独立 played 区和洗回 |
 | Character skills | 保留角色随机抽取技能；与 Profile 专属现场能力并行；随机只在 Commit 消耗 Seed，技能不扣 PlayerCost | 更复杂的触发树与跨事件角色成长 |
 | Tag / Combination | 标签为动作的轻量属性；v1 支持少量按标签与目标匹配的协同行动，输入动作只能被消费一次 | 内容包定义的多步骤配方、环境/社团组合 |
 | Resolution | 对冻结计划按确定顺序执行；相同 Seed 和输入重现相同结果；输出可解释的结果日志和状态差异 | 预览概率曲线、战斗回放、可中断动画 |
 | Encounter / Location | 一个 Location 由一组决策节拍处理；战斗与场景共用结算管线，专属效果有限且明确 | 多阶段 Location、组合式 Encounter 复用 |
 | Event State / Objective | 每个事件可声明数值轨道、事实、目标、失败条件及成功/部分成功/失败结果 | 关系网络、计时器、全局天气、跨事件共享内容状态 |
-| Route | 支持允许环路的有向地点图；出口叶节点只读取 EventRun 局内持有物并支持 `all/any/not`；每地点有界访问上限独立限制回访；路线选择与取舍不读写 PlayerState.inventory | 事实/轨道/计时或任意 Predicate 路线门槛、随机路线图、地图编辑器、动态路线生成 |
-| Character participation | 运行时通过现有 Character 身份选择学生；现场 HP/资源/行动与长期进度隔离 | Variant 专属操作构型、长期阵容成长、学生关系影响 |
+| Route | 支持允许环路的有向地点图；每个出口至多检查一个 EventRun 局内持有物；Event 总访问上限阻止无限循环 | 复合 Gate 表达式、事实/轨道/计时或任意 Predicate 路线门槛、随机路线图、地图编辑器、动态路线生成 |
+| Character participation | EventDef 固定 roster 并按现有 Character 身份做准入；入口展示参与者摘要；现场 HP/资源/行动与长期进度隔离 | V1 选人 UI、Variant 专属操作构型、长期阵容成长、学生关系影响 |
 | RNG | 角色技能与行动效果的随机仅在 Commit 结算；预备/编辑不抽取新结果；场景卡牌序由 EventRun Seed 确定并随牌堆保存，不推进 Commit 结算随机游标 | 可视化概率、重播、内容版本兼容回放 |
 | Save / Resume | V1 发布切片必须恢复当前 EventRun、地点、局部 Actor/事件状态、准备与已修订计划、日志游标和 RNG 状态；核心可玩切片 0216 可先以内存运行 | 跨内容版本迁移、云同步、操作回放 |
 | 内容扩展 | 事件、地点、动作、参与者配置、目标和路线以声明式内容进入 Datapack/Registry，并进行 ID/引用/边界校验 | 游戏内即时编辑、图形化地图编辑、外部脚本和社区模组工具 |
@@ -144,20 +147,21 @@ v1 用作者明确配置的有向图，不自动生成地图；图允许环路�
 
 | 概念 / 职责 | ID / 关键字段 / 引用 | Owner / 生命周期 | Authorable / Registry / Datapack | Save / Runtime-only | PlayerState 边界 | Runtime Editor | GALHCG | Domain Event | UI 是否可见 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `OperationEventDef` — 定义事件入口、状态变量、终局与玩家场景卡组 | event ID、入口 Location ID、初始轨道/事实、嵌入目标/结果、固定有限场景卡组与抽牌参数 | Datapack；Registry 内容包生命周期 | authorable 顶层定义；卡牌定义嵌入 Event，不新增顶层 Registry 表 | 不存档 | 不持有玩家运行状态 | v1 不进游戏内 Runtime Editor | Event 定义稳定后建 Concept | 定义本身不发；开始/终止时有生命周期事件 | 目录/摘要/目标可见 |
-| `OperationLocationDef` — 定义可处理的局部现场问题 | location ID、participant/action 引用、`individual/global` 行为模式、有限 SceneAction 批次数、`costGain`、离场 `maxCarryCost`、有限 `maxVisits`、持有物 RouteGate 与嵌入目标 | Datapack；Registry 内容包生命周期 | authorable 顶层定义；Registry 校验引用 | 不存档 | 无 | v1 不进游戏内 Runtime Editor | Location/Route 稳定语义可建 Concept | 进入/完成地点时各发一次 | 当前地点、目标和出口可见 |
-| `OperationActionDef` — 定义可准备的学生/对手/环境行动 | action ID、标签、资源归属明确的费用、TargetSpec、允许 Profile 与有限效果；玩家选取的 SceneAction 费用属于 PlayerCost | Datapack；Registry 内容包生命周期 | authorable 顶层定义；Registry 校验 Actor/Target 引用 | 不存档 | 不直接写 PlayerState | v1 不进游戏内 Runtime Editor | Action 稳定语义可建 Concept | 定义/单项结果不发全局事件 | Prepared Action/Intent 被选用时可见 |
-| `PlayerSceneCardDef` — 定义一张玩家路线场景卡 | 卡牌/实体 ID、PlayerCost 费用、合法目标、场景时机与有限效果 | 嵌入 Event 的固定有限卡组 | authorable 嵌入值；不新增顶层 Registry 表 | 定义不存档；抽牌/手牌/已用状态随 Run 保存 | 只改 EventRun | 由 Datapack 定义 | 不为单张卡建 Concept | 出牌结果记入该批 Resolution | 手牌、费用、目标与效果可见 |
+| `OperationEventDef` — 定义事件入口、状态变量、终局与玩家场景卡组 | event ID、显式 `resumeVersion`、入口 Location ID、`maxLocationVisits`、初始轨道/事实、嵌入目标/结果、固定有限场景卡组与抽牌参数 | Datapack；Registry 内容包生命周期 | authorable 顶层定义；卡牌定义嵌入 Event，不新增顶层 Registry 表 | `eventId + resumeVersion + EventRun` 随主 SaveData 快照保存 | 不持有玩家运行状态 | v1 不进游戏内 Runtime Editor | Event 定义稳定后建 Concept | 定义本身不发；开始/终止时有生命周期事件 | 目录/摘要/目标可见 |
+| `OperationLocationDef` — 定义可处理的局部现场问题 | location ID、participant/action 引用、`individual/global` 行为模式、有限 SceneAction 批次数、`costGain`、离场 `maxCarryCost`、可选 RouteEdge 与嵌入目标 | Datapack；Registry 内容包生命周期 | authorable 顶层定义；Registry 校验引用 | 不存档 | 无 | v1 不进游戏内 Runtime Editor | Location/Route 稳定语义可建 Concept | 进入/完成地点时各发一次 | 当前地点、目标和出口可见 |
+| `OperationActionDef` — 定义可执行的学生/对手/环境行动 | action ID、资格条件、目标、有限效果与需要的行动资源费用 | Datapack；Registry 内容包生命周期 | authorable 顶层定义；Registry 校验 Actor/Target 引用 | 不存档 | 不直接写 PlayerState | v1 不进游戏内 Runtime Editor | Action 稳定语义可建 Concept | 结果进入所属 Commit Resolution | 行动结果可见 |
+| `SceneActionDef` — 将一个 OperationAction 用作非战斗玩家选择 | ID、`actionId`、`individual/global` scope、PlayerCost | 嵌入 Location | 包装定义只引用 OperationActionDef；不复制目标或效果 | 定义不存档；批次随 Run 保存 | 只改 EventRun | 由 Datapack 定义 | 不单独建 Concept | 结果进入所属 Resolution | 行为与费用可见 |
+| `PlayerSceneCardDef` — 将一个 OperationAction 包装为有限玩家卡 | `id`、`actionId`、PlayerCost、场景时机、`copies` | 嵌入 Event 的固定有限卡组 | 包装定义只引用 OperationActionDef；不复制目标或效果 | 定义不存档；`cardInstanceId` 和 draw/hand/discard 位置随 Run 保存 | 只改 EventRun | 由 Datapack 定义 | 不为单张卡建 Concept | 出牌结果记入该批 Resolution | 手牌和费用可见 |
 | `ParticipantSpec` — 把行动者安排到某个 Location | participant ID、阵营、可选 Character ID、Profile/Action 引用 | 嵌入 Location 定义 | authorable 嵌入值；非独立 Registry 表 | 不存档 | 角色引用长期定义，局部状态另存 | 由 Datapack 定义 | 不为单个 Actor 建 Concept | 参与者字段变化不单独发事件 | Actor 卡与当前计划可见 |
 | `StudentOperationProfileDef` — 解释学生如何自主计划和处理问题 | Character ID、行动优先级、专长、替代行动、理由与角色随机技能规则引用 | Datapack；事件开始时读取 | authorable 顶层定义；Registry 校验 Character/Action 引用 | 不存档 | 不改 Character 持久进度或消费 PlayerCost | v1 不进游戏内 Runtime Editor | Profile 稳定时建 Concept；单个学生配置不建 | 技能结果仅进入 Commit Resolution | 专长、行动理由、技能结果可见 |
 | `CombinationRule` — 让两个行动的协作改变一次结算 | 两个 Action 的标签/目标匹配、确定优先序与组合效果 | 嵌入 Location 定义；Beat 结算时读 | authorable 嵌入值；v1 不设独立 Registry 表 | 不存档 | 只改变当前 EventRun | 由 Datapack 定义 | 稳定协同语义可建 Concept | 匹配是 Runtime 内部步骤 | 可预览匹配与日志结果 |
 | 目标/结局规则 — 说明当前问题进展和何时终止 | 局部 ID、轨道/事实 Predicate、类型、说明和奖励白名单 | 嵌入 Event/Location 定义；状态变化时评估 | authorable 嵌入值；不独立建表 | 不存档 | 进度归 EventRun；奖励经 Mutation | 由 Datapack 定义 | 目标/结果稳定后建 Concept | 地点/事件终止时发一次 | 进度、锁定原因和结果可见 |
-| `EventRun` 聚合 — 作为本局唯一权威状态源 | run/event ID、当前地点、轨道/事实、局内持有物集合、局部状态、共享 PlayerCost、有限卡组 draw/hand/discard/played 区、地点/批次进度与独立 RNG 游标 | AronaClicker 操作运行时；开始至终局 | Runtime 创建；不进 Datapack/Registry | 是，独立存档子域 | 不混入 PlayerState 或 InitSnapshot；路线条件不读写 PlayerState.inventory | 不适用 | Run/State 边界稳定后建 Concept | 只在开始、地点转移/完成、终局发领域事件 | Event 概览、Actor 状态、Cost/手牌、持有物与路线可见 |
+| `EventRun` 聚合 — 作为本局唯一权威状态源 | run/event ID、当前地点、轨道/事实、局内持有物集合、局部状态、共享 PlayerCost、有限卡组 draw/hand/discard 区、地点/批次进度与独立 RNG 游标 | AronaClicker 操作运行时；开始至终局 | Runtime 创建；不进 Datapack/Registry | `eventId + resumeVersion + Run` 保存于主 SaveData.operationRun | 不混入 PlayerState 或 InitSnapshot；路线条件不读写 PlayerState.inventory | 不适用 | Run/State 边界稳定后建 Concept | 只在开始、地点转移/完成、终局发领域事件 | Event 概览、Actor 状态、Cost/手牌、持有物与路线可见 |
 | `PreparedBeat` — 固定本轮所有计划供玩家审阅/提交 | beat ID、Actor→Action/Intent、Target、费用、理由、计划版本 | EventRun 内的待提交事实；Commit 后重建 | Runtime-only；引用 Registry 定义 | 随 Run 保存 | 无 | 不适用 | 通常是 Resolution 流程细节 | 不向 EventBus 逐项发布 | 只读计划投影可见 |
 | `InterventionDraft` — 暂存 Sensei 对战斗计划的一项修订 | Actor ID、改选 Action/Target、指挥理由 | EventRun 内的待提交事实；Commit 后清理 | Runtime-only 待提交值 | 随 Run 保存，保证中断可续 | 无 | 不适用 | 不单独建 Concept | 不发布领域事件 | 改动前后差异可见 |
 | `SceneActionSelection` — 暂存非战斗地点的玩家行为选择批次 | Location ID、`individual/global` 模式、角色→行为映射或一个全局行为及目标、玩家场景卡选择、费用快照和剩余批次数 | EventRun 内的待提交事实；Commit 后清理 | Runtime-only；引用 Location/Action/PlayerSceneCard 定义 | 随 Run 保存，保证中断可续 | 只改 EventRun | 不适用 | 不单独建 Concept | 通过该批 Resolution 记录结果 | 场景选项、逐人选择和费用合计可见 |
 | `Resolution` / `EventResult` — 解释已提交行动和事件后果 | beat/run ID、实际动作/协同、随机结果、状态差异、终局类型 | EventRun 的结算记录；按上限保留 | Runtime 生成；不进 Registry | 有界日志随 Run 保存 | 长期结果由白名单另经 Mutation | 不适用 | 稳定 Resolution 语义可建 Concept；单份结果不建 | Beat 记录留在 Run；地点/事件边界再发事件 | 结果日志和终局摘要可见 |
-| `RouteEdge` — 表达事件地点之间的去向和取舍 | source/destination Location ID、EventRun 局内持有物条件（`all/any/not`）、锁定原因 | 嵌入 Location；访问/选择记录归 Run | authorable 嵌入值；非独立 Registry 表 | 访问历史随 Run 保存 | 只读写 EventRun 局内持有物；不访问 PlayerState.inventory | v1 不进游戏内 Runtime Editor | Route 稳定语义可建 Concept | 选择只改 Run；地点转移发一次事件 | 当前可用出口、缺少的持有物及已知代价可见 |
+| `RouteEdge` — 表达事件地点之间的去向和取舍 | Location 内 `routeId`、target Location ID、可选的 `requiredHeldItemId` 与成功后是否消费 | 嵌入 Location；访问/选择记录归 Run | authorable 嵌入值；非独立 Registry 表 | 访问历史随 Run 保存 | 只读写 EventRun 局内持有物；不访问 PlayerState.inventory | v1 不进游戏内 Runtime Editor | Route 稳定语义可建 Concept | 选择只改 Run；地点转移发一次事件 | 当前可用出口、缺少的持有物及已知代价可见 |
 | `OperationView` — 把当前运行投影成可操作信息 | 当前 Event/Location/Beat/Actor/Route 的 detached snapshot | OperationRuntime 派生；每次有效 UI 命令重建 | Runtime 投影；不进 Datapack/Registry | 不存档 | 不构成状态写入 | 不适用 | UI ReadModel 稳定后建 Concept | 不发领域事件 | 只读 UI 主输入 |
 
 v1 只设少量顶层 Registry 表：Event、Location、Action 与可跨事件复用的学生操作 Profile。Participant、Route、Combination、Objective/Outcome 与 PlayerSceneCard 都嵌入所属定义；TargetSpec 和 ActionTag 是字段值，不建表。`Encounter` 是一段 Location 的连续 Beats；`OperationView` 是投影，不成为第二份写模型。若之后的复用/查找/作者生命周期证明确有独立需要，再拆顶层定义。
@@ -167,7 +171,7 @@ v1 只设少量顶层 Registry 表：Event、Location、Action 与可跨事件�
 ```text
 Datapack definitions
   → Registry validation / lookup
-  → OperationRuntime.start(EventId, selected Character IDs, seed)
+  → OperationRuntime.start(EventId, event-fixed roster, seed)
   → EventRun + EventState + initial Location actors
   → enter Location: apply costGain; draw scene cards within hand cap
   → prepare by Location kind: battle student Profile plans + opponent/environment Intents; or non-combat player SceneActionSelection by Individual/Global mode
@@ -176,7 +180,7 @@ Datapack definitions
   → validate the selected action costs and Commit one immutable snapshot
   → match eligible Combinations and resolve all actions once
   → update EventRun/ActorState/EventState + append Resolution
-  → on location exit: clamp shared PlayerCost to source maxCarryCost
+  → after Location completion, every route uses transitionRoute(routeId): validate Gate, consume the required held item if configured, record old result, clamp maxCarryCost, change Location, apply costGain, draw cards, then commit once
   → project next OperationView or location/event result
   → on terminal result, apply explicitly allowed persistent rewards via StateMutationService
 ```
@@ -185,26 +189,13 @@ Prepared state is stable from first presentation to Commit. A view projection ne
 
 ### 写模型与计算边界
 
-`EventRun` 是唯一权威写模型，内含 EventState、ActorState、共享 PlayerCost、有限场景牌堆/手牌/已用区、LocationProgress、当前 PreparedBeat、至多一个战斗 Intervention 和至多一份非战斗 SceneActionSelection。`OperationView` 是按需构建的只读派生投影；ID 查表/地点出口索引是可丢弃缓存；Resolution 是有界事件记录。它们不互相复制成多份可独立修改的状态。
+`EventRun` 是唯一权威写模型，内含 EventState、ActorState、共享 PlayerCost、有限 drawPile/hand/discard、LocationProgress、当前 PreparedBeat、至多一个战斗 Intervention 和至多一份非战斗 SceneActionSelection。`OperationView` 是按需构建的只读派生投影；ID 查表/地点出口索引是可丢弃缓存；Resolution 是有界事件记录。它们不互相复制成多份可独立修改的状态。
 
-学生计划与敌方/环境 Intent 可共用一个带参与方 kind 的 `PlanEntry` 结构。v1 协同规则限为两项行动配对；不构造任意多输入配方搜索。OperationRuntime 不通过 Tick 或全局状态轮询驱动 Beat，只响应明确的 Start、Intervention、Commit、Route 与 Resume 命令。
+学生计划与敌方/环境 Intent 可共用一个带参与方 kind 的 `PlanEntry` 结构。v1 协同规则限为两项行动配对；不构造任意多输入配方搜索。OperationRuntime 不通过 Tick 或全局状态轮询驱动 Beat，只响应明确的 Start、Intervention、Commit、Route 与 Resume 命令。所有自动或手动出点统一调用 `transitionRoute(routeId)`，复用 0215 先计算再一次写回的做法，不引入通用事务框架。
 
-### 性能与规模评估（静态推算）
+### V1 实现范围
 
-**没有 Operation Runtime 实现或基准数据。** 下列复杂度是从设计流程推算，不是实测耗时、内存或扩展曲线。首个核心可玩切片包含 3 名学生、2 名对手、1 个环境参与者、最多 2 个 Beat；这只是校准样例，不是发布规模上限。
-
-| 工作 | 规模变量与静态复杂度 | 设计护栏 |
-| --- | --- | --- |
-| 准备计划 | Actor 数 `N`、每人的 Profile 候选动作 `A`、合法目标 `T`、条件叶 `P`；未经约束时约 `O(N·A·T·P)` | 只遍历 Profile 声明的候选动作及其合法目标，不扫描整个 Registry；同一 Beat 只准备一次，改选只重算受影响 Actor 与协同预览。 |
-| Action Combination | `N` 个 PreparedAction 全量两两比较上界 `O(N²)`；检查当前 Location 内嵌的候选规则 `R` | v1 只支持二输入；按标签/目标分桶，只检查有候选的规则；确定优先级，输入 Action 每 Beat 最多消费一次。 |
-| EventState / Resolution | `H` 个效果更新 `N` 个 Actor、`S` 个 track、`F` 个 fact；逐效果复制完整状态会产生 `O(H·(N+S+F))` 分配 | 从同一冻结快照读取，以稀疏 delta 合并、限幅后一次原子写回 EventRun；只递增一次 Run 版本，不逐项触发全局事件。 |
-| Objective / Route | Event Objective Predicate 有 `P` 个节点；Route 有 `Q` 个持有物 Gate 项；当前地点出口检查约 `O(outDegree·Q)`，静态图检查 `O(V+E)` | Registry 建 ID 和 `sourceLocation→outgoingEdges` 索引；Route 只查 EventRun 局内持有物与独立的地点访问上限，不评估 EventPredicate；任意 Objective Predicate 的全状态可满足性不放入无界 Registry 加载求解。 |
-| OperationView / UI | 一次投影约 `O(viewPayload)`，包含 Actor、候选行动/目标、协同预览、事件轨道和出口 | 每个有效命令构建一次当前地点的 detached View，不投影整包/整张图；复用 UI Dispatcher 合并一个区域刷新；hover、scroll、选择不重跑 Resolver 或全量 render。 |
-| Save / Resume | 整份存档 JSON 往返成本约 `O(existing SaveData + EventRunSnapshot)`，峰值临时内存也随新增 snapshot 增长 | 只存权威局内状态、待提交计划、随机游标与有界 Resolution 摘要；Task 0219 为 Run snapshot 设字节上限；不存 Datapack 定义副本、可重建索引、OperationView 或 DOM。只在有效状态命令后保存，不因 hover/预览写盘。 |
-
-**风险判断：**按小队、单个现场、少量目标的回合式负载，Runtime 本身没有显著的设计级算力风险。风险来自内容上限缺失导致的候选/目标/组合爆长，以及误把局部提交接成全 PlayerState/EventBus/UI 全局刷新链。Task 0220 建立可运行的 `at-cap` 内容上限/fixture，另用 `2x-overflow` 验证超限内容会被拒绝；Task 0222 分别测正式默认事件和合法 `at-cap` 工作负载的 Runtime 性能。
-
-Task 0219 用上限内合成 Run 固化 EventRunSnapshot 字节 cap；Task 0222 的性能回执在正式默认事件与合法 `at-cap` 工作负载分别记录 `prepare`、Intervention preview、Commit/resolve、Route projection、OperationView 构建和 Save/load 的 p50/p95、EventRun 快照大小、固定基础存档上的 SaveData 增量、对应内容规模及 reference 浏览器/设备。`2x-overflow` fixture 只测 Registry 拒绝与诊断，不进入 Runtime benchmark。先对比真实互动中是否有可感知卡顿，再决定具体时延 SLA。
+V1 只使用固定 roster、一个正式 Datapack 示例、有限地点访问/批次/牌组和有界 Resolution。无需单独创建 at-cap/overflow 压测、SaveData 字节 benchmark 或浏览器硬件矩阵；如果实际试玩出现可复现的性能瓶颈，再以 post-v1 Task 处理。
 
 ### AC 概念翻译
 
@@ -222,7 +213,7 @@ Task 0219 用上限内合成 Run 固化 EventRunSnapshot 字节 cap；Task 0222 
 | per-Init 持久字段 | `PER_INIT_FIELD_SPECS` | **Do Not Use by default** | 仅在事件进度明确随 Init 快照保存时增加字段；Run 默认归事件存档子域。 |
 | 资源产出 | `GameNumSystem` | **Do Not Use for tactical values** | 现场费用、危险、队员努力值是运行局部状态；GameNum 的语义是产出和 Spot 求值。 |
 | 实时/离线帧推进 | `SessionService` / `TickSystem` | **Do Not Use for Beat progression** | Operation 由玩家 Commit/Route 命令推进；秒级 Tick、离线补算和生产资源流程不属于战术时序。 |
-| PlayerState 条件 | `ConditionSystem` | **Reuse for AC admission only; Separate for Run state** | 内容解锁若直接读现有玩家/Registry 条件可用现有 Condition；事件 Objective/Outcome 可读取 EventRun 轨道/事实；RouteEdge 只查 EventRun 局内持有物（`all/any/not`），不读写 `PlayerState.inventory`。 |
+| PlayerState 条件 | `ConditionSystem` | **Reuse for AC admission only; Separate for Run state** | 内容解锁若直接读现有玩家/Registry 条件可用现有 Condition；事件 Objective/Outcome 可读取 EventRun 轨道/事实；RouteEdge 只查一个 EventRun 局内持有物，不读写 `PlayerState.inventory`。 |
 | Event-local discovered facts | `Reveal` / Information Reveal | **Separate** | Reveal 派生 AC 内容可见性与 watches；现场线索/事实属于 EventState。事件结果若需公开长期内容，再在终局映射到 AC 可见性状态。 |
 | 效果 | Engine `EffectDef` / StateMutation | **Separate for local results; Reuse at terminal edge** | 战术效果改 EventRun；事件完成后长期效果可经既有 Effect/Mutation 管线应用。不能将临时事件变量伪装成玩家效果。 |
 | Trigger / EventBus | TriggerSystem / EventBus | **Reuse selectively** | 只发布开始、地点完成、事件终局等值得跨系统订阅的领域事件；准备步骤与结算子阶段保留在 OperationRuntime 内。 |
@@ -236,9 +227,9 @@ Task 0219 用上限内合成 Run 固化 EventRunSnapshot 字节 cap；Task 0222 
 
 ### 运行时 / 长期状态 / 存档边界
 
-- Character 定义与 roster 决定哪些学生能参加；选择学生时将所需的稳定角色引用和已校验基础数据复制到 EventRun ActorState。
+- Character 定义与 EventDef 固定 roster 决定哪些学生参加；开始事件时核验准入并将稳定角色引用和已校验基础数据复制到 EventRun ActorState，不显示选人 UI。
 - EventRun 内保存临时 HP、资源、已准备行动、事件轨道/事实、地点访问、终局判定、随机种子/游标和日志位置。
-- EventRun 还保存共享 PlayerCost 与场景卡堆/手牌/已用区；PlayerCost 不进入 PlayerState。仅在 Commit 消耗随机流；角色随机技能与行动检定均不得在预览/编辑阶段掷骰。
+- EventRun 还保存共享 PlayerCost 与场景卡 drawPile/hand/discard；PlayerCost 不进入 PlayerState。仅在 Commit 消耗战术随机流；角色随机技能与行动检定均不得在预览/编辑阶段掷骰。
 - EventRun 终局时只将定义允许的结果映射到 PlayerState；每一次本地行动都不触发玩家档案写入。
 - 续局存档属于 SaveSystem 的 EventRun 子域，不把整局压入 `PlayerState` 或 `InitSnapshot`。不写旧版存档迁移；破坏性结构变更遵守项目清档护栏。
 
@@ -255,6 +246,8 @@ Task 0222 的正式操作界面采用稳定的左/中/右三栏，职责固定�
 | 右：敌方 | 对立压力与威胁来源 | 以敌方/环境卡呈现参与者状态、Intent、目标和可预见压力。 |
 
 固定内容进入中央信息流是已确认方向；角色计划和行为归属我方角色卡是正式表现约束。角色卡中的计划/行为是该学生的局内状态表达，不等于 Task 0225 的玩家有限场景卡牌实例；二者不能因都采用卡片视觉而合并成同一 Runtime 区域。
+
+左右栏的角色身份卡应参考玩法 B Demo 已实现的角色卡与附着行动/意图卡关系：我方计划和敌方 Intent 作为各自角色身份卡上的小卡/附着表现，不得在中栏再复制成计划表、Intent 列表或逐人聊天消息。环境/设施需要与 opponent 明确区分；独立有限 PlayerSceneCard 牌组仍是第三种对象。Task 0222 必须逐项阅读历史设计、Demo 的视图/模型/CSS/测试和当前 AC Operation 源码，填写 Demo→AC 卡片映射审查表后才能施工；详细 Read Set、具体符号和验收约束见 [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]]。
 
 ### OperationView 与交互冻结边界
 
@@ -296,37 +289,30 @@ Task 0217–0221、0224–0225 可定义与实现 EventRun 命令、SceneAction 
 | --- | --- | --- | --- |
 | 1 | [[task-0213-gameplay-b-event-runtime-and-session-state]] | 可启动、推进与终止一个独立 EventRun，拥有局部状态边界 | 无 |
 | 2 | [[task-0214-gameplay-b-student-participation-and-autonomy]] | AC Character 可作为学生参加事件并依据可解释 Profile 形成计划 | 0213 |
-| 3 | [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution]] | 行动/Intent 快照、有限指挥、协同与一次性 Resolution 闭环 | 0213–0214 |
+| 3 | [[archive/task-0215-gameplay-b-prepared-actions-and-intervention-resolution]] | 行动/Intent 快照、有限指挥、协同与一次性 Resolution 闭环（已完成并归档） | 0213–0214 |
 | 4 | [[task-0216-gameplay-b-command-loop-vertical-slice-ui]] | **核心可玩切片**：玩家可在一个地点完成准备、竞争性修订、提交和结算闭环 | 0213–0215 |
 | 5 | [[task-0217-gameplay-b-objectives-and-partial-outcomes]] | 场景与战斗共享事件目标，能产生成功/部分成功/失败 | 0213–0216 |
-| 6 | [[task-0218-gameplay-b-causal-locations-and-route-selection]] | 多地点选择会改变后续压力、事实或处理方案；Route Gate 只检查 EventRun 局内持有物，允许 `all/any/not`，每地点访问有界 | 0217 |
+| 6 | [[task-0218-gameplay-b-causal-locations-and-route-selection]] | 多地点选择会改变后续压力、事实或处理方案；Route Gate 只检查局内持有物，地图允许回环并由 Event 总访问上限收束 | 0217 |
 | 7 | [[task-0224-gameplay-b-scene-actions-and-route-cost]] | Individual/Global 非战斗 SceneAction 玩家选择、共享路线 PlayerCost、每地点 `costGain` / `maxCarryCost` 纳入统一 Commit/Resolution 与 EventRun | 0213–0218 |
 | 8 | [[task-0225-gameplay-b-finite-player-scene-card-deck]] | 有限玩家场景卡组、确定性抽牌与场景支付接入；卡牌不进入战斗 Click | 0224 |
-| 9 | [[task-0220-gameplay-b-datapack-contracts-and-registry]] | 事件/地点/行动与嵌入场景卡组可由声明式 Datapack 定义并验证，并提供逐事件内容兼容标识 | 0213–0218、0224–0225 |
-| 10 | [[task-0219-gameplay-b-event-save-and-resume]] | EventRun 可精确暂停和恢复，包含 PlayerCost、卡组分区及各自 RNG 状态 | 0213–0218、0220、0224–0225 |
+| 9 | [[task-0220-gameplay-b-datapack-contracts-and-registry]] | 事件/地点/行动与嵌入场景卡组可由声明式 Datapack 定义并验证，并提供显式 `resumeVersion` | 0213–0218、0224–0225 |
+| 10 | [[task-0219-gameplay-b-event-save-and-resume]] | EventRun 可精确暂停和恢复，包含 PlayerCost、三分区卡组及各自 RNG 状态 | 0213–0218、0220、0224–0225 |
 | 11 | [[task-0221-gameplay-b-authoring-and-content-validation-workflow]] | 作者能创建、检查、加载并迭代完整事件内容 | 0217–0220、0224–0225 |
-| 12 | [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] | **下一大型体验施工阶段 / V1 产品切片**：把稳定服务与内容接成正式 AC 入口，并采用我方角色卡 / 中央信息流 / 敌方三栏设计、裁定和验收全部 Gameplay B 玩家交互 | 0216–0221、0224–0225 |
+| 12 | [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] | **下一大型体验施工阶段 / V1 产品切片**：把稳定服务与内容接成正式 AC 入口，并用我方角色卡 / 中央信息流 / 敌方三栏跑通已裁定的最小玩法闭环 | 0216–0221、0224–0225 |
 
-0213–0216 交付 Runtime 基础与单地点原型；0217–0218 完成目标和地图语义；0224–0225 完成非战斗行为、共享 Cost 与玩家卡牌的服务/状态机制；0220/0219/0221 完成内容合同、续局和作者校验。以上阶段可提供稳定 OperationView 与命令接口，但不延展玩法界面交互。Task 0222 是下一大型体验施工阶段：基于实际服务能力重做三栏 Gameplay B Surface，以角色卡表现我方计划/行为、以中央聊天流表现固定场景/结算信息，再决定需要哪些流内/栏内交互并完成正式游乐园多地点切片。旧原型仅提供机制来源和接口，不视为最终 UI 布局。
+0213–0216 已交付 Runtime 基础与单地点原型；0215 已归档。后续按 0217 → 0218 → 0224 → 0225 → 0220 → 0219 → 0221 → 0222 推进。0221 与 0222 复用同一正式游乐园 Datapack 示例；0222 使用固定 roster 和左/中/右三栏，跑通最小的行动、Cost/卡牌、持有物路线、结局、奖励与续局闭环。选人 UI、泛化 Widget、编辑器、at-cap p50/p95 基准和 GALHCG 深度维护为 post-v1，不阻塞交付。
 
 ### GALHCG 批次维护节奏
 
-每个 Task 仍按项目协议对未知领域做必要的 GALHCG 发现、交叉核证，并在 Receipt 记录已核验路径、待更新 owner 与变更摘要；不要求每个 Task 完成时都刷新或写入语义地图。玩法 B 按下列大阶段点一次性委派子 Agent 整理并复核积累项，再批量更新并验证 freshness：
-
-1. Task 0218 完成后：合并 0217–0218 的目标、EventState、Location/Route 语义。
-2. Task 0225 完成后：合并 0224–0225 的 SceneAction、PlayerCost、玩家场景卡语义。
-3. Task 0221 完成后：合并 0220、0219、0221 的声明内容、兼容标识、存档与作者流程。
-4. Task 0222 完成后：维护正式三栏 UI、产品入口、默认内容、View/命令和测试关系。
-
-仅当实现变化使当前地图立即误导后续施工、出现需要被其他工作发现的新稳定 Concept，或 Task 明确要求当前阶段的映射验收时，才提前维护。该批次策略降低重复刷新/写图，不取消任务期间的源码核证与路径发现。
+施工时仍按项目协议对陌生内容做必要的 GALHCG 发现和源码核证，并记录直接受影响的文件与机制页。V1 只更新闭环所必需的当前机制事实；全图 freshness 扫描、额外 Concept 扩展和多阶段集中写图均为 post-v1，不作为任何玩法 B Task 的验收阻塞项。
 
 ## 八、开放问题（不阻止推进）
 
 - v1 中学生/敌方战术行动费用采用哪些 Actor/Team EventRun 资源、上限与回充节奏：由纵向切片体验定量，与共享路线 PlayerCost 分开。场景行为与玩家场景卡的 PlayerCost 费用归属已确认；具体每个事件的 Cost 增量、离场上限、抽牌量和手牌上限由内容配置。
 - 事件结果提交哪些长期奖励/旗标：每份 EventDefinition 显式白名单，首个切片只选一个可复核结果。
-- 参与角色是否受 Init 限制：默认由 roster 与事件入场规则决定；出现稳定产品要求后再连到 Init 生命周期。
+- 参与角色使用 EventDef 固定 roster；v1 不做选人 UI，也不新增阵容编辑流程。
 - 哪些内容需要在游戏内即时编辑：当前 v1 不用 Runtime Editor 编辑 Operation 定义；若 data pack authoring 验收不能覆盖作者工作流，另立 Task 裁定。
-- 内容校验的具体数量上限与完整日志保留字节：由 Task 0220 固化；Task 0222 测量正式默认事件与有效 `at-cap` 夹具，不得在无实测时宣称已有时延 SLA。
+- V1 不承诺 p50/p95 性能数据或 SaveData 字节基准；如试玩出现真实瓶颈，再立 post-v1 验证任务。
 - 角色随机技能的具体触发条件、概率和效果由事件/角色内容定义；随机只在 Commit 消耗 Seed，技能不消耗 PlayerCost，并与 Profile 的确定性专属现场能力并行。
 
 ## 九、事实依据与置信边界
@@ -342,8 +328,7 @@ Task 0217–0221、0224–0225 可定义与实现 EventRun 命令、SceneAction 
 - **内容/追溯复核：**没有发现新设计依赖特定角色、地点、文件或旧 Runtime 的引用；Task 依赖无循环。复核发现已确认约束、新决策与实验模式需要分层记录，已加入“裁定来源与状态”表；实体表也逐行回答 Datapack、Save、EventBus 和 UI 归属。
 - **玩法评估：**核心身份连贯，但属于待证实产品假设。Task 0214/0216/0217/0218/0222 已加入专属学生解法、竞争性干预机会、可解释路线取舍、结局优先序及非随机结局验收。
 - **引擎边界评估：**Operation 属于 AronaClicker 产品 Runtime；EventRun 是唯一写模型；OperationView 和索引可重建；局部状态不进入 PlayerState、GameNum、通用 Condition/Effect 或 TickService；Mutation 只处理终局长期奖励。
-- **静态性能结论：**当前没有 Operation Runtime 实现，无法报告运行耗时、内存或伸缩曲线。小队/有限地点的预计成本可控；主要风险是作者内容无界、二输入组合搜索、动态 Goal 的无界可满足性求解、每个子效果全量复制和 UI/存档过宽更新。Draft 与 Task 0215/0218/0219/0220/0222 已规定候选遍历、二输入配对、局部索引、批量 delta、有界 Run/日志，以及默认事件与有效 `at-cap` 的测量边界。
-- **性能门槛：**数值上限由 Task 0220 固化；运行时 p50/p95 与 SaveData 增量由 Task 0222 在已标记的 reference browser/设备上形成数据后确定。本 Draft 不把复杂度推断或静态审查写成 benchmark 通过；`2x-overflow` 只验证 Registry 拒绝。
+- **性能范围：**V1 只保留有限地点/批次/牌组和有界 Resolution，不建立 at-cap/overflow benchmark 或设备矩阵。真实试玩出现瓶颈后再单独验证和优化；静态推断不作为性能通过证据。
 - **复核方式：**三条并行只读审查分别覆盖内容来源、玩法质量与 AC Runtime/性能边界；本次没有修改代码或 GALHCG，也没有运行代码测试。
 
 ## 下一步

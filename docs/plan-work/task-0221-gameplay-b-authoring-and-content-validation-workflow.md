@@ -8,17 +8,16 @@
 
 ## Why
 
-新的数据合同只有成为可用创作流程才形成可扩展内容能力。作者需要知道哪些字段必填、路线拓扑是否闭合、引用是否有效；带 EventState 的动态目标能否达到由有界运行测试判断。
+新的数据合同只有成为可用创作流程才形成可扩展内容能力。作者需要知道哪些字段必填、Route 指向的 Location 是否存在、引用是否有效；固定示例是否可通关由运行验收判断。
 
 ## Scope
 
-- 用 Task 0220 的合同与 Builder 定义作者写入位置、最小完整示例、ID 和引用约定、验证反馈。
-- 作者合同与验证覆盖 Task 0224 的逐人/全局 SceneAction、共享 PlayerCost、逐地点 Cost 增量/离场上限，以及 Task 0225 的固定有限玩家场景卡组和卡牌时机/目标/效果引用。
-- 用测试/验证内容包交付一份由多个地点构成的中性事件，展示至少一次有因果后果的路线选择；正式默认发行内容由 Task 0222 交付。
-- 静态校验每个事件至少有合法入口、合法终态、拓扑可达地点和有界回访；动态 Predicate/Effect 组合下的目标可满足性由固定 Seed/有界 Runtime 样例验证，不做全状态穷举。
-- 确定包作者看到的静态诊断和 Runtime 诊断分工；加载错误不晚于事件选择/开始前呈现。
-- 游戏内 Runtime Editor 的现有责任限于其当前世界内容编辑边界；v1 事件作者工作流走 Datapack 内容。若未来需要运行中创建/编辑事件图，须以作者任务另立范围和 Task。
-- 验证 fixture 留在测试/验证内容包；正式默认应用内容按 `src/arona-clicker/content/default-datapack.ts` 路由由 Task 0222 维护。
+- 用 Task 0220 的合同维护一个正式 Gameplay-B Datapack 示例事件；Task 0222 直接使用这份内容，不复制第二份样例。
+- 只验收一条最小作者循环：编辑正式内容 → `validate` → `load` → 启动事件 → 修改内容 → `reload` → 看到新结果或定位明确的校验错误。
+- 验证覆盖事件 ID、行动引用、Location/Route、SceneAction、PlayerCost、有限卡组与 `resumeVersion`；复用 Task 0220 的 Registry 校验，不另建作者规则系统。
+- 固定 Seed 运行正式示例，确认内容可启动、可推进，改动后能重新加载。
+- 错误诊断指出 Event、Location 和字段路径；无效 reload 不部分替换 Registry，也不改写已运行 Run。
+- 不做图形编辑器、图形地图、编辑器 CRUD 或 Runtime Editor 扩展。Datapack 源文件和现有命令就是 v1 作者入口。
 
 ## Non-goals
 
@@ -40,33 +39,30 @@
 
 ## Data / API
 
-- 作者可见定义：事件目标与轨道、地点参与者/行为、逐人/全局选择模式、可见 Intent、持有物 RouteEdge 条件、路线 Cost、有限场景卡组、局部和终局结果。
+- 作者可见定义：一个完整示例事件所需的 Event、Location、参与者、Action、Route、SceneAction、Cost、PlayerSceneCard 和结局字段。
 - 内容诊断：pack/事件/地点/引用 ID/字段路径、错误级别和修复方向；重试加载不留下半注册定义。
-- 多地点示例只作为测试/验证内容；产品默认发布事件由 Task 0222 明确归属到 AronaClicker 内容。
-- Authoring API 保持在 Datapack/Registry contract 层；运行命令与活动 Run 编辑不是内容作者接口。
+- 正式 Gameplay-B 示例内容由 Task 0221 维护；Task 0222 将同一内容接入产品入口并完成试玩，不创建重复副本。
+- 沿用 Datapack/Registry 的 validate/load 入口；不另建作者 API、编辑器或活动 Run 编辑流程。
 
 ## Runtime Flow
 
-作者编辑 Datapack 定义 → 内容加载器和 Builder 字段/引用/拓扑校验 → Registry 返回静态诊断 → 固定 Seed 的有限 Runtime 样例核验动态目标 → 作者读取定位诊断 → 修正并重载 → OperationRuntime 开始已验证事件。
+作者编辑正式 Gameplay-B Datapack → `validate` → `load` → OperationRuntime 启动同一示例事件 → 作者修改内容 → `reload` → 显示新定义或字段路径诊断；无效内容不会部分替换 Registry。
 
 ## Acceptance
 
-- [ ] 作者无需修改 OperationRuntime 源码即可建立新 Event、新 Location、新 Action、新学生 Profile 和有出口的地点图。
-- [ ] 作者能声明 Individual/Global SceneAction，配置每 Location 的 `costGain` / `maxCarryCost`、Event 级共享 PlayerCost 和有界场景卡组；卡牌只能被 SceneAction 引用，不会被配置进战斗 Click。
-- [ ] 校验能定位缺失选择模式、越界 Cost、无效卡牌/目标、重复卡实例及违反卡组/地点/日志硬上限的定义。
-- [ ] 静态校验能发现拓扑孤立/不可达的必需地点、未使用动作、无效学生/动作/目标引用、无终止结果和无界回访。
-- [ ] 校验报告明确静态验证不证明含动态 Predicate 的目标一定可满足；目标可满足性由有限 Runtime fixtures 覆盖。
-- [ ] 诊断明确定位到 pack、Event、Location 与字段；正确内容经过导入/加载后与源定义保持一致。
-- [ ] 多地点验证样例可在 Runtime 集成层以固定 Seed 启动、提交、选择路线并达到至少两类不同事件结果；该项不代替玩家入口的浏览器验收。
-- [ ] 加载无效内容时合法 Registry 与已运行 EventRun 不出现部分替换。
-- [ ] 作者可以使用现有 Datapack 定义入口维护内容；Runtime Editor 不获得未裁定的通用事件图 CRUD 职责。
+- [ ] 作者可直接编辑一个正式 Gameplay-B Datapack，不改 OperationRuntime 源码；同一示例通过 `validate`、`load` 并能启动。
+- [ ] 示例事件包含有界回环、一个持有物 Gate、一个 SceneAction、PlayerCost 和有限玩家卡组；该内容由 Task 0222 直接复用。
+- [ ] 作者修改一个有效字段后执行 `reload`，后续新 Run 读取修改结果；不复制出第二个事件样例。
+- [ ] 作者制造一个无效引用后执行 `validate/reload`，诊断指出 pack、Event/Location 与字段路径，且无效内容不部分替换 Registry 或污染活动 Run。
+- [ ] 示例以固定 Seed 可运行；静态校验确认基本引用、值域和终止路线，不穷举动态 Predicate。
+- [ ] Runtime Editor 不获得通用事件图编辑职责；v1 工作流只依赖 Datapack 文件、现有校验/加载入口和 Runtime。
 
 ## Tests
 
-- **Unit：**ID/值域/引用、拓扑可达性与诊断路径。
-- **Runtime：**内容重载前后运行中 Run 快照不被部分覆盖；定义变更后的 Run 恢复遵守版本校验。
-- **Integration：**完整验证 pack 从作者输入到 Registry 到可启动 EventRun；固定 Seed 样例验证动态目标与结局；失败包能定位错误。
-- **UI：**只验收内容选择/诊断进入现有 AC 工作流的结果；不要求新建专属编辑器。
+- **Unit：**示例内容的 ID/引用/值域诊断。
+- **Runtime：**有效 reload 供新 Run 使用；无效 reload 不部分替换 Registry 或改写活动 Run；resumeVersion 变更拒绝旧快照。
+- **Integration：**编辑 → validate → load → 启动 → 修改 → reload 的单事件流程。
+- **UI：**不建设编辑器 UI；只核对错误和加载结果可被现有入口读到。
 
 ## Dependencies
 
@@ -75,13 +71,12 @@
 
 ## Documentation / GALHCG
 
-- 按 `docs/docs-829/05-conventions/doc-maintenance.md` 收集 Authoring、Pack Loading、运行时校验与创作入口文档候选及证据路径；本 Task 单独收尾时不写 GALHCG。
-- Task 0221 是内容/存档/作者流程大阶段收尾点；届时委派子 Agent 汇总 Task 0220、0219、0221 的稳定关系，批量维护文档/GALHCG 并验证 freshness。具体事件、ID 和诊断字符串不建 Concept。
+- Receipt 记录作者入口与诊断的直接源码证据；更新实际受影响的机制事实即可。全图 freshness 扫描和额外 Concept 扩展为 post-v1，不阻塞示例事件作者循环。
 - Read Set：`docs/docs-829/05-conventions/doc-maintenance.md`、`docs/docs-829/05-conventions/schema-sync.md`、`docs/docs-829/06-wiki/20-data-services/definition-authoring.md`、`docs/docs-829/06-wiki/60-engineering-support/schema-editor.md`、`src/data-services/contracts/datapack.ts`、Runtime Editor 协调器与验证测试。
 
 ## 当前核验与剩余工作
 
-当前核对了 AuthoringPolicy、Builder、默认内容入口及两种编辑器职责；未建立正式作者界面、未实现内容、未运行测试。若 Datapack 路径不足以支持目标作者，先补作者任务证据再立运行时编辑 Task。
+当前核对了 AuthoringPolicy、Builder、默认内容入口及编辑器职责；未实现正式示例与编辑循环。Task 0221 以 Datapack 源文件和现有 validate/load/reload 入口完成最小工作流，不追加作者工具体系。
 
 ## 相关路由
 

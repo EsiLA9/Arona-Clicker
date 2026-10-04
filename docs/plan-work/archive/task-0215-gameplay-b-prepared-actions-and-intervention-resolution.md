@@ -1,6 +1,6 @@
 # Task 0215 — 玩法 B 行动准备、有限指挥与统一结算
 
-状态：active — U1–U9 实现与验证已完成；待 Task Owner 确认后归档
+状态：completed — U1–U9 实现、验证与收据均已完成；按 Task Owner 指示于 2026-10-05 归档。本次只修正文档状态，不重新施工。
 
 ## 目标
 
@@ -88,7 +88,7 @@
 
 本 Task 超过三个 Unit，按职责拆分至下列目录；每个 Unit 的 Read Set 与 `Allowed Files` 见对应文件，施工结束或中断均填写对应 Receipt。**优先保持文件职责清楚；不要为满足代码行数预算拆散职责。每个 Unit 通常围绕 3–5 个相关文件组织，确需跨越时由 Receipt 解释。**
 
-U1–U8 在各自收尾时只写入白名单内的对应 Receipt；U9 负责机制文档、GALHCG 与最终 Task Receipt/归档检查。Receipt 路径为 `docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/`。
+U1–U8 在各自收尾时只写入白名单内的对应 Receipt；U9 负责机制文档、GALHCG 与最终 Task Receipt/归档检查。Task 完成后，Task 文件与单位目录一并移至 `docs/plan-work/archive/`；Receipt 路径为 `docs/plan-work/archive/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/`。
 
 1. [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/0215-u01-action-and-team-contracts]] — Action/Team 基础合同与 Team Run 状态。
 2. [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/0215-u02-action-catalog-and-profile-gates]] — 受信 Action Catalog 与学生 Profile 门槛迁移。
@@ -99,6 +99,8 @@ U1–U8 在各自收尾时只写入白名单内的对应 Receipt；U9 负责机�
 7. [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/0215-u07-pure-resolution-planning]] — 同一冻结快照上的费用、技能与局部效果计划。
 8. [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/0215-u08-atomic-run-commit]] — Run owner 原子提交、幂等/stale、有限历史与窄命令接线。
 9. [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/0215-u09-mechanism-docs-and-galhcg]] — 当前机制文档、定向 GALHCG 证据与 Task 收尾。
+
+归档状态修正（2026-10-05）：Task Owner 已确认 U1–U9 全部完成并直接归档。本次只修正文档状态和归档位置，不增加施工或验收步骤。
 
 ## Dependencies
 

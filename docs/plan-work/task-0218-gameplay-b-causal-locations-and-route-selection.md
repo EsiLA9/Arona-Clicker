@@ -13,14 +13,17 @@
 ## Scope
 
 - `OperationLocationDef` 之间建立统一有向 RouteEdge，支持分支、回环及可选的区域/楼层展示分组；分组只影响地图呈现，不改变图语义。
-- 首期 RouteEdge 条件叶节点只检查 EventRun 的局内持有物；可用 `all` / `any` / `not` 组合，不读 AC PlayerState.inventory、数值轨道、事实表达式或通用 ConditionSystem。此范围来自早期用户确认的 mini-demo 条件边界。
-- 出口可声明需消费的局内持有物；只在对应 Route 命令成功提交时原子检查与移除。
+- 首期 Route Gate 只允许检查一个可选的 `requiredHeldItemId`，读 EventRun 的局内持有物；不建设布尔表达式、AC PlayerState.inventory、数值轨道、事实表达式或通用 ConditionSystem。
+- 出口可声明是否在成功转场时消费该持有物；校验和消费只发生在统一转场提交中。
+- 路线转场只有一个公共提交入口 `transitionRoute(routeId)`。多出口由玩家传入所选 ID；单出口自动推进时也由 Runtime 将唯一出口 ID 交给同一入口，不得另写自动转场分支。
+- `transitionRoute` 先依据当前 Run 计算完整的新状态，再复用 0215 已有的“先计算、后一次写回”原则提交；不新增通用事务框架。Task 0224 将 Cost 截断/地点 Cost 增量接入此转场，Task 0225 将新地点抽牌接入此转场。
+- 转场的单次提交顺序为：验证出口与 Gate → 计算持有物消费 → 记录旧地点结果 → 应用离场 `maxCarryCost`（由 0224 接入）→ 切换地点并登记访问 → 应用新地点 `costGain`（由 0224 接入）→ 抽新地点卡牌（由 0225 接入）→ 一次性写回。任一步校验失败，Run、持有物、Cost、地点与牌区均不变化。
 - 当前 Location 完成后展示可用出口、未开放原因、访问记录和简要的已知风险/收益。
 - 0 条合法出口时进入 Task 0217 的 Event 终止判定；1 条合法出口时自动转场；2 条以上合法出口时玩家发出独立 Route 命令选一条。
 - 单出口自动转场和多出口选择都不创建 PreparedBeat/Resolution、不扣行动资源、不推进 Beat/Click 计数。
-- 至少一个三地点事件样本有两条首选路线：各有明确收益和遗留代价，选择前显示已知取舍，后续状态兑现不同后果。
-- 每个 Location 有目标/失败终态或有限 Beat 上限；事件有地点访问/回路上限，保证行动历史有界。
-- 校验未知目标地点、必经死路、访问上限和不安全回路；允许内容有明确上限的回访。
+- 正式示例包含分支、至少一条回环，以及一条由持有物打开的路线；玩家能看到两条路线的简短已知取舍。
+- 每个 Location 有目标/失败终态或有限 Beat 上限；Event 的 `maxLocationVisits` 限制本局累计进入地点的次数，使回环最终停止。
+- 静态内容校验只需确认入口和 Route 目标 Location 存在；不做全图可达性、死路证明或循环拓扑分析。固定示例与运行验收负责证明可通关。
 
 ## Non-goals
 
@@ -43,35 +46,36 @@
 
 ## Data / API
 
-- `RouteEdge`：目标 Location ID、由持有物叶节点构成的有界 `all` / `any` / `not` 条件、可读锁定原因、访问上限及成功离开时消费的局内物品声明；作为 Location 内容的嵌入值。
+- `RouteEdge`：Location 内唯一的 `routeId`、目标 Location ID、可选的 `requiredHeldItemId`、是否在成功转场时消费该物品、简短路线说明；作为 Location 内容的嵌入值。
 - `LocationProgress`：访问次数、已完成 Beat 数、状态、局部结果与离开原因，属于 EventRun。
-- `OperationLocationDef`：声明目标/失败条件或有限 Beat 上限，并可带不具机制含义的区域/楼层分组标签；Event 内容另设总访问上限以界定路线循环。
-- `RouteView`：只包含当前 Location 的出口、条件结果、状态影响摘要和不可用原因，不含可写内容引用或整张图副本。
+- `OperationLocationDef`：声明目标/失败条件或有限 Beat 上限，并可选带不具机制含义的区域/楼层分组标签；Event 内容声明 `maxLocationVisits`。
+- `RouteView`：只包含当前 Location 的出口、持有物检查结果、简短路线说明和不可用原因，不含可写内容引用或整张图副本。唯一写入口为 `transitionRoute(routeId)`；自动与手动转场都调用它。
 - EventRun 保存当前地点、访问历史与独立持有物集合；Area/Spot 不新增关联字段，AC 长期 inventory 不参与路线条件。
-- Registry 加载时建立 `sourceLocation→outgoing RouteEdge[]` 索引；当前地点终态或相关 EventState 版本改变时只评估本地点出口。
+- 运行时直接检查当前 Location 声明的出口；本版不增加路线索引或全图缓存。
 
 ## Runtime Flow
 
-Location 终止 → 应用离场影响并评估当前地点 RouteEdge → 0 条可用时评估 Event 终局 → 1 条可用时自动转场 → 2 条以上时投影路线取舍并等待选择 → 记录 LocationProgress 并初始化目标地点 → 开始下一 Beat。任何转场都不调用 Beat Resolver。
+Location 终止 → 评估当前地点出口 → 0 条可用时评估 Event 终局 → 1 条可用时将唯一出口交给 `transitionRoute(routeId)` → 2 条以上时投影路线取舍并等待玩家选择后调用同一入口 → 入口先计算验证与整份新 Run，再一次提交地点结果、出口物品消费及转场；Task 0224/0225 分别把 Cost 和抽牌步骤接入这条提交路径 → 开始下一 Beat。任何转场都不调用 Beat Resolver，也不创建 Resolution。
 
 ## Acceptance
 
 - [ ] 至少一处有两个首选出口，二者都可取但不互相支配；RouteView 在提交选择前提供已知利益和遗留风险/未处理问题，之后状态按所选分支兑现。UI 呈现与交互由 Task 0222 验收。
 - [ ] 多出口需要一个独立 Route 命令；单出口自动推进。两者都不创建 Resolution、扣战术资源或增加 Beat/Click 计数。
+- [ ] 自动单出口与显式多出口只通过 `transitionRoute(routeId)` 改变地点；地点状态、出口物品消费、Route 日志及后续 Task 接入的 Cost/抽牌都由该入口计算并一次提交，不另建第二条转场写入路径。
+- [ ] 任一步转场校验失败时，EventRun、LocationProgress、持有物和路线状态不变；Task 0224/0225 的 Cost 与卡牌抽取失败也服从同一原子边界。
 - [ ] 无合法出口时不等待无法完成的 Route 输入、不创建 Resolution 或额外 Beat；调用 Event 终止判定并显示结果依据。
-- [ ] 锁定路线说明缺少的持有物或访问资格；首期 Gate 叶节点只检查 EventRun 持有物，组合只使用有界 `all` / `any` / `not`；不读写 AC PlayerState.inventory。
-- [ ] 消费型出口只在成功选中时原子移除要求物品；条件不满足或出口选择过期时持有物保持不变。
-- [ ] 至少一条循环路径与一条持有物捷径同图运行；各节点访问有界，回环不会刷出无限地点次数。
-- [ ] Registry 静态检查能以图拓扑发现从入口不可达的必需地点、无终态/兜底的死路、无界访问环；状态 Predicate 的完整可满足性不在加载路径中无界搜索。
-- [ ] 每地点 Beat 上限和总访问上限会在运行时阻止无限续环，达到上限时产生明确定义的 Location/Event 结果。
-- [ ] 出口视图/条件评估只遍历当前地点的 indexed outgoing edges，不扫描全 Event 图或全 Registry。
+- [ ] 锁定路线说明缺少的 `requiredHeldItemId`；Gate 只检查 EventRun 持有物，不读写 AC PlayerState.inventory，也不解析通用条件表达式。
+- [ ] 消费型出口只在成功转场时原子移除要求物品；条件不满足或出口选择过期时持有物保持不变。
+- [ ] 固定示例能走过一条回环，并用行动取得的持有物打开另一条路线；达到 Event 总访问上限后正常进入终止结果。
+- [ ] 静态校验确认入口与每条 Route 的目标 Location 存在；不实现全图拓扑分析。运行时只检查当前 Location 声明的出口。
+- [ ] Event 总访问上限会阻止无限续环；到达上限时产生明确的终止结果。
 - [ ] 回访上限、跳过地点代价和事件终局结果在 Runtime/View/日志中一致。
 - [ ] OperationLocation 与 Area/Spot 可并存且各自保留原有语义。
 
 ## Tests
 
-- **Unit：**边条件、访问/Beat 上限、锁定原因、O(V+E) 拓扑死路/回路检查。
-- **Runtime：**单出口自动转场与多出口显式选择；至少两条不同路线的完整结果快照与相同 Seed 可复现。
+- **Unit：**持有物 Gate、路线目标引用、访问/Beat 上限与锁定原因。
+- **Runtime：**单出口自动转场与多出口显式选择均经 `transitionRoute`；注入出口、持有物及后续 Cost/抽牌校验失败，确认整份 Run 保持不变；至少两条不同路线的结果可复现。
 - **Integration：**Route 命令→EventRun→新 Location View；无战术 Resolution 产生。
 - **Projection/API：**地点完成状态、可用/锁定出口、锁定原因与回访/跳过影响能由 RouteView/Runtime 命令读写；不做浏览器地图或聊天交互 UI。
 
@@ -88,7 +92,7 @@ Location 终止 → 应用离场影响并评估当前地点 RouteEdge → 0 条�
 
 ## 当前核验与剩余工作
 
-当前只核对 Area/Spot、Registry 与运行条件的职责；未实现、未运行测试。首期 Route Gate 读取 EventRun 局内持有物，Boolean 组合只用于组织这些检查；将来若需接入数值轨道/事实/玩家全局条件，须另行裁定，不能由本 Task 隐式扩展。玩法交互 UI 暂缓至 Task 0222。
+当前只核对 Area/Spot、Registry 与运行条件的职责；未实现、未运行测试。首期 Route Gate 只检查单个 EventRun 局内持有物；将来若需支持复合 Predicate 或玩家全局条件，另立任务裁定，不在本 Task 扩展。玩法交互 UI 暂缓至 Task 0222。
 
 ## 相关路由
 

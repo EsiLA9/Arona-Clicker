@@ -14,32 +14,72 @@ Runtime、Authoring 和局部 UI 各自可通过测试，并不能证明玩家�
 
 ## Scope
 
-- 在现有 AC UI 中提供清楚的 Operation 入口/可用事件列表、学生阵容选择或可用阵容摘要、启动与终局返回路径。
+- 在现有 AC UI 中提供清楚的 Operation 入口、事件列表、启动和终局返回路径。v1 事件使用内容固定阵容；入口只显示参与者准入摘要与缺失原因，不做选人 UI。
 - 依据前序服务/投影/命令接口设计并施工 Gameplay B 正式 Operation Surface。版式必须是左/中/右三栏：左为我方，中心为信息聊天流，右为敌方；只改玩法 B 工作区，不做全 AC UI 重设计。
 - 中心信息栏是主阅读区并占可用工作区宽度过半，承载固定事件/地点介绍、已知内容、状态简报和 Resolution 叙述；左/右为较窄但可读的角色/敌方卡片区。
 - 左栏以一张我方角色卡对应一名学生，卡内呈现身份、状态、当前计划/行为、行动理由、目标与可用操作；不得把学生计划/行为同时复制成独立多列、平行长列表或一名学生一条聊天消息。
 - 右栏以敌方/环境参与者卡呈现状态、Intent、目标和压力。角色计划所用的“角色卡”是其行为与身份的呈现容器，不等于玩家有限 SceneCard 牌组中的卡牌实例。
-- 依据 Task 0224/0225 的接口，在本 Task 首次设计并引入 Individual/Global SceneAction、路线选择、Cost 支付、玩家 SceneCard 与确认等玩家交互；可决定哪些固定信息作为聊天流消息、哪些交互控件属于角色卡/信息栏/栏内面板。不得把未经设计的交互提前带入前序 Task。
-- Event 入口使用 Task 0220 的默认 Registry 查询、Task 0216 可复用的 OperationView/Controller/Runtime 边界和 Task 0218 的 RouteView/命令；只复用机制合同，不沿用 0216 的双栏/学生计划条目布局。Event Location 不映射成 Area/Spot。
-- 在 AronaClicker 默认内容中正式发布以游乐园巡查/失控设施为主题的多地点事件；沿用早期 Gameplay B 主题并扩展为同一张有向地图（可按区域/楼层分组），不另造随机地图生成器。
-- 正式事件仅挂靠 `base:init:schale_office`；Task 0216 的临时 TypeScript 样例在本 Task 迁入 default Datapack/Registry，UI 只在夏莱办公室世界线提供入口。
-- 地图至少包含三地点、一个允许回访的有界环、一条由 EventRun 局内持有物开启的捷径、一个因果路线选择；每地点访问中的状态会跨地点传播，并产生成功、部分成功和失败结果。
-- 至少一个非战斗 Location 使用 Individual SceneAction（玩家给每名可行动学生各选一项），至少一个使用 Global SceneAction（玩家只选一项并选择其合法目标范围）。
-- EventRun 使用共享 PlayerCost；样例展示地点进入 Cost 增量、实际离场携带上限以及场景行为与玩家卡共同支付的费用。Cost 与 AC 长期资源/战斗资源保持分离。
-- 样例包含固定有限玩家场景卡组，展示起始抽牌、跨地点留手、同场景行为合并支付、打出后不回洗及牌堆耗尽；场景卡不进入战斗 Click。
-- 至少一名学生的专属能力改变关键问题的可行解法；同一 Beat 至少出现两项合理但互相冲突的干预机会，玩家可选择不干预或干预其中一项。
-- 一个地点至少有两条均可取但不互相支配的首选路线；路线选择前显示已知利益和遗留代价，并在后续状态兑现差异。
-- 事件包含一个战斗/敌对行动地点和一个现场处置地点；全事件采用同一 Beat/Intent/Intervention/Resolution 语义。
-- 角色 Profile 专属现场能力改变至少一个解法；角色随机技能与其并行且只在 Commit 结算，不能消费共享 PlayerCost。
-- 事件结束后展示结果摘要与长期奖励提交；奖励通过 StateMutationService 且只提交一次。
-- 使用固定 Seed/可复现输入完成 UI 端到端走查；检查 1280×720 下主信息与路线选择可读。
-- 性能回执分别记录正式默认事件的代表性工作负载与 Task 0220 有效 `at-cap` 夹具在 prepare、干预预览、Commit/resolve、route/view、save/load 上的 p50/p95；`2x-overflow` 仅核验 Registry 拒绝和诊断，不进入 Runtime benchmark。记录浏览器、硬件、输入规模、EventRun snapshot 大小，以及带相同基础存档内容时 SaveData 增量。
-- UI 施工声明 DOM budget、刷新等级与 interaction preservation；hover/scroll/单项选择仅触发 behavior/region 更新。
+- 复用 Task 0221 的同一份正式游乐园 Datapack 示例，在 `base:init:schale_office` 提供入口；不复制临时 TypeScript 样例、不另造地图生成器，Event Location 不映射成 Area/Spot。
+- 用固定阵容的三地点事件演示一个完整路径：战斗地点出现学生自主行动和一次有限干预；非战斗地点同时覆盖 Individual 与 Global SceneAction、共享 PlayerCost 和一张场景卡；同一 `OperationActionDef` 获得“员工证”持有物；完成地点后通过 Route Gate 进入后续地点，转场统一应用物品消费、maxCarryCost、下一地点 costGain 和抽牌。
+- 终点根据已累积的 Event 轨道/事实稳定得到成功或部分成功；随机不独占结果。展示一次终局奖励写入，使用 StateMutationService 且只提交一次。
+- 支持在路线中途保存和恢复；恢复后的地点、Cost、持有物、待提交选择、牌区和随机流保持一致，不重抽、不重复发放 Cost。
+- 正式 Surface 必须是左/中/右三栏：左为我方角色卡/当前计划/可干预对象，中为聊天流/地点/目标/路线/SceneAction/玩家手牌，右为敌方角色卡/当前 Intent。只改玩法 B Surface，不抽象通用 Widget，不做全 AC 重设计。
+- `OperationViewActor` 增加最小 detached 展示字段 `displayName`、`avatarRef`、`hp`、`maxHp`；字段从已冻结到 Run 的参与者展示数据生成，UI 不反查可变 Runtime。
+- 固定 Seed 在 1280×720 桌面尺寸完成上述路径；保留卡片 identity、键盘焦点和聊天流阅读连续性。完整 at-cap p50/p95、SaveData 字节基准与扩展设备矩阵标记为 post-v1。
+
+## Gameplay B Demo 卡牌设计审查与 AC 迁移门槛
+
+本节是本 Task 的强制施工前 Read Set 与设计交付，不是可选灵感参考。开始改 Operation UI 前，先逐项阅读原型文档/源码和当前 AC 对应实现，完成下方“卡牌映射审查表”，据此更新 UI 方案、OperationView 缺口和测试断言；审查表未完成前不得直接照搬 Demo 布局或开始卡片施工。原型只提供行为与生命周期参照，`prototypes/gameplay-b/` 的模型、Runtime、CSS 和规则不能直接变成 AC 的长期数据契约。
+
+### 必读的玩法 B 设计记录
+
+| 必读来源 | 必须核对的设计内容 | 本 Task 的使用边界 |
+| --- | --- | --- |
+| `docs/plan-work/archive/draft-0183-gameplay-b-ui.md`：`桌面主布局`、`左栏：我方 Chara 数据`、`中栏：场所、预览、聊天与 Click`、`右栏：敌方数量变化` | 三栏职责、角色身份卡信息、卡片稳定顺序、场景/战斗信息分栏，以及原型何种内容应留在中栏 | 只作为三栏和身份卡历史背景；Click 单推进、固定线性路线等旧 UI 假设不覆盖当前 Task 的路线/玩家交互设计 |
+| `docs/plan-work/archive/task-0192-gameplay-b-three-column-ui-acceptance.md`：`Patch Unit 0192-U1` 与完成收据 | Demo 已有稳定三栏、角色卡节点 identity 和独立侧栏更新的验收口径 | 参考稳定 roster 节点和连续性；不可据此推定当前 AC 已有三栏 Operation 实现 |
+| `docs/plan-work/archive/task-0198-gameplay-b-action-cards-and-hover-targets.md`：`设计边界`、`当前事实与代码落点`、`DOM Budget`、`Interaction Preservation`、`Completion Criteria` | 冻结行动/技能/敌方 Intent 作为所属角色卡内的附着小卡；目标可指向角色卡或其他行动卡；卡片批次、关系来源与清理生命周期 | 参考“行动卡属于行动者身份卡”的对象关系、悬停/键盘焦点关联和旧批次回收；AC 只读取自身 detached OperationView，不消费 Demo 的 FrozenBattleRound 类型 |
+| `docs/plan-work/archive/task-0199-gameplay-b-location-cards-and-line-anchors.md`：`目标`、`设计边界`、完成收据 | 个人探索结果挂角色卡；当时的全队场所效果卡放在敌方空区并连向队员 | 属于旧原型的位置选择；当前确定的固定地点信息和 Resolution 进入中心聊天流，不能把其旧侧栏位置方案原样移植。若 AC 有真实作用对象关系，可评估沿用关系表达 |
+| `docs/plan-work/archive/task-0200-gameplay-b-card-relation-top-layer.md`：`Constraints`、`Completion Criteria` | 角色卡、行动卡、场所卡之间的关系线、层级、高亮和批次清理 | 仅当 AC 正式交互确实需要关联表达时采用；不能仅为视觉效果新增关系或把 Hover 变成状态重算 |
+
+以下为解释历史分支的补充来源：`docs/plan-work/archive/task-0201-gameplay-b-player-card-targeting-and-reselection.md`、`docs/plan-work/archive/task-0205-gameplay-b-map-and-player-actions.md` 的 Patch Unit 0205-U4B、`docs/plan-work/archive/draft-0207-gameplay-b-low-cognitive-load-ui-and-core-play-acceptance.md`。这些描述了玩家卡选目标/重选、有限玩家 SceneCard 牌区和早期体验约束；只用于辨清概念及其演变，不表示这些交互必须照旧实现。特别是 Task 0201 的拖拽重选不作为默认要求。
+
+### 必读的 Demo 源码与当前 AC 替换点
+
+| 目的 | Demo 参照（必须实际阅读的路径/符号） | 当前 AC 源码（必须实际阅读的路径/符号） |
+| --- | --- | --- |
+| 三栏及卡片宿主 | `prototypes/gameplay-b/src/style.css`：`.desk-layout`、`.side-panel`、`.character-card`；`prototypes/gameplay-b/src/view.ts`：`mountRouteGameView`、`createCharacterCard`、`createRoutePartyCard`、`syncParty` | `src/ui/components/workspace-frame.ts`：`WorkspaceComposition`、`renderWorkspaceColumn`、`renderWorkspaceFrame`；`src/ui/components/operation-workspace.ts`：`renderOperationWorkspace`。当前 Operation 设置 `composition: 'center-right'`，该 composition 实际只保留 `left + center` 两个传入列；三栏实现应改用渲染全部 `left/center/right` 的 `'columns'` composition，并给每列稳定且语义明确的 slot/role。不要误用当前 helper 中只返回左列的 `'all'` 分支。 |
+| 行动/意图附着卡及关联 | `prototypes/gameplay-b/src/view.ts`：`showPreparedBatch`、`showRouteActivityBatch`、`resolveCardElement`、`drawRelations`、`refreshActiveRelation`；`prototypes/gameplay-b/src/style.css`：`.prepared-action-card`、`.field-effect-zone`、`.battle-relation-layer`；`prototypes/gameplay-b/tests/battle-cards.test.ts`、`route-cards.test.ts` | `src/ui/components/operation-workspace.ts`：`renderStudentPlan`、`renderIntent`、`renderMain`。目前学生计划卡集合与敌方/设施 Intent 均在 `renderMain` 的中心流里组为独立列表；这是本 Task 的明确迁移目标。`src/ui/css/operation-workspace.css`：`.operation-student-list`、`.operation-student-card`、`.operation-intents`、`.operation-intent` 是相应结构/样式替换点。 |
+| actor 分类与展示数据 | `prototypes/gameplay-b/src/model.ts`：`RoutePartyView`、`PreparedBattleRound`、`PreparedPlayerAction`、`PreparedEnemyIntent`、`RouteEventRecord`；`prototypes/gameplay-b/tests/route-cards.test.ts`、`battle-cards.test.ts` | `src/arona-clicker/contracts/operation-view.ts`：`OperationViewActor`、`OperationView.actorStates`；`src/arona-clicker/content/operation-samples/carousel-safety-slice.ts`：`eventDefinition.actors`、`participants`、`studentProfiles`；`src/arona-clicker/content/operation-samples/carousel-safety-copy.ts`：当前试玩展示文案/角色名映射。使用正式投影信息区分 student、opponent、environment，环境实体不可误计作敌方。`OperationViewActor` 增加 detached 展示字段 `displayName`、`avatarRef`、`hp`、`maxHp`，由已冻结到 Run 的参与者资料生成；实施时按这一决定补最小字段，不再重新评估 UI lookup。禁止 UI 穿透读取可变 Runtime/EventRun。
+| 当前测试/连续性 | Demo：`prototypes/gameplay-b/tests/battle-cards.test.ts`、`route-cards.test.ts`、`route-ui.test.ts` | AC：`tests/ui/operation-workspace-view.test.ts`、`tests/ui/gameplay-b-operation-controller.test.ts`、`tests/engine/gameplay-b-operation-sample.test.ts`、`tests/engine/gameplay-b-event-runtime-integration.test.ts`。当前 UI View 测试仍断言 `data-composition="center-right"`，必须更新并增加三列职责/卡片归属断言；Controller 测试依赖 `data-operation-student` 节点 identity 和 region 更新，改造后继续保留或提供等价稳定身份标记。 |
+
+### 卡片映射审查表（开工前填写并随 Task Receipt 留证）
+
+每行都记录“Demo 中实际语义 → AC 当前数据/DOM → 沿用、改造或不沿用的决定 → 目标宿主与生命周期 → 对应验收”。不能只写“参考玩法 B”；若发现原型语义无法由 AC 数据准确表示，应先补最小只读投影/测试，不得在 UI 猜测。
+
+| 对象/关系 | Demo 要核对的行为 | AC 本 Task 的明确方向 | 必须记录的实现裁定 |
+| --- | --- | --- | --- |
+| 我方身份卡 | `createCharacterCard` / `createRoutePartyCard` 的稳定角色宿主、身份和状态字段、`syncParty` 对 ID 的复用 | 左栏一名学生对应一张稳定身份卡；状态、身份和本回合计划都从 OperationView/只读展示投影读；保留稳定 actor ID 与局部更新 | 说明哪些身份/HP/resource/profile/头像字段可直接取用，缺字段是否增加只读投影，以及 roster 变化时如何保住未变化卡片节点和焦点 |
+| 我方附着计划/行动卡 | `showPreparedBatch` 中冻结普通行动、观察/等待、特殊技能卡的卡主、费用、效果短句、目标和批次时序 | 学生当前计划及可用干预控件归属对应身份卡，作为卡内附着行动表现；禁止在中栏保留第二份学生计划列表/长条目或将每人计划复制成聊天消息 | 定义身份卡与附着行动卡的 DOM owner、当前计划/修订/理由如何分层、玩家控件位置、更新范围和稳定 key；不得把玩家有限 SceneCard 当学生行动卡 |
+| 敌方 Intent 卡 | `showPreparedBatch` 中每个行动者的单独 Intent 卡及真实 target 关系 | 右栏一名 opponent 一张稳定身份卡；当前 Intent/目标附着在所属 opponent 卡上，不留中心 Intent 清单 | 写明 actor 分类规则、卡片所属 opponent ID、无 Intent/失能状态、目标信息来源和清理时机 |
+| Environment/Facility | Demo `.field-effect-zone`、`showRouteActivityBatch` 与 Task 0199 的环境/地点效果及受影响对象 | 与 opponent 分开呈现为右栏独立的“场景/设施”区或具备明确 owner 的场景卡；环境 actor 不计入敌方人数，也不得伪装成敌方身份卡。固定地点介绍和已发生 Resolution 仍在中心流 | 记录哪些环境实体有独立身份卡、哪些只是中心场景叙述、各自的真实作用目标来源；标明 Task 0199 的旧“敌方空区”位置方案是沿用、改造还是舍弃 |
+| 固定信息与 Resolution | Demo 场所叙述、Click 结果与路线事件如何进入事件流；与 Task 0199 侧栏结果卡区分 | 中栏是主要阅读面，按时间承载固定事件/地点信息、线索、状态简报、玩家决定摘要与 Resolution；不得重复左右卡已承载的完整计划/Intent | 定义哪些数据成为中心消息、如何排序/去重、摘要长度及新增 Resolution 后保留日志滚动位置的方式 |
+| 有限 PlayerSceneCard | `prototypes/gameplay-b/src/model.ts`：`RoutePlayerCardDefinition`、`RoutePlayerDeckDefinition`、`RoutePlayerDeckView`、`RouteSceneChoiceView`；`prototypes/gameplay-b/src/view.ts`：`syncSceneChoices`、`playerCardInstanceLabel`、`playerCardSelectionSummary`；Task 0205-U3/U4B | 它是玩家有限场景牌组里的独立卡牌实例，不是学生/敌方身份卡，也不是身份卡上附着的当前行动卡。AC V1 的卡牌包装只引用 OperationActionDef；打出牌 hand→discard。 | 记录其命令/API、drawPile/hand/discard 投影、费用与合法目标展示位置，以及为何不会被误认成所属角色的计划卡；使用 `route-cards.test.ts`/`route-ui.test.ts` 追踪其 UI 语义。Task 0201 和 `battle/player-card-edit.ts` 是战斗行动目标重选，不可误读为 PlayerSceneCard 数据契约 |
+| 关系、Hover 与焦点 | Demo `resolveCardElement`/`drawRelations`/`refreshActiveRelation` 和关系目标实际从冻结数据或场所事件解析；Task 0200 的层级/清理口径 | 只有当前投影明确给出的 target 才显示连线/高亮；身份卡与行动卡层级可读，键盘 focus 等价于 hover。若新 OperationView 没有可证明的关联数据，则本 Task 不补造视觉关系 | 标注关系的只读来源、端点 ID 映射、behavior/region 刷新等级、批次/地点切换/终局清理和键盘可访问测试；明确沿用、改造或本阶段不采用关系线 |
+
+### 本 Task 卡片验收约束
+
+- 最终 Operation 工作区必须实际渲染左、中心、右三个 slot；左列只承载我方学生身份卡及其计划/行动，右列承载 opponent 身份卡及其 Intent，并将环境/设施清楚独立分类；中心承载 AC 风格聊天信息流。测试需断言三个 slot/role 都存在，而不能只检查三栏 CSS class。
+- `renderStudentPlan` 的内容必须迁入并归属单个学生卡；`renderIntent` 的内容必须迁入并归属对应 opponent/环境 owner。中心不得继续输出 `.operation-student-list` 或 `.operation-intents` 作为角色计划/Intent 的第二份表达；行动摘要确需进入日志时只陈述已发生决定/结果，不重复卡片上的完整计划内容。
+- 给当前角色卡/Intent 卡使用的名字、短描述、HP 上限、头像等字段必须能从当前正式内容 copy 或 detached read projection 稳定解析；若本 Task 扩展 OperationView，测试其 detach/分类映射，并禁止由 UI 直接读 `OperationRuntime`/`EventRun`。
+- 环境/设施 actor 按环境展示且从 opponent 总数中排除。确需表现统一场景效果时，场景卡只连向 Runtime/OperationView 明确声明的实际目标；固定场景描述和结算仍遵从中心信息流方向。
+- 每个 actor 卡与每个附着计划/Intent 卡均有稳定且无歧义的 actor/action 标识；更新计划、改目标、Commit、Roster/地点更新后，未变角色卡不因重排到三栏而丢失 DOM identity。卡片消失、地点切换或终局时，清理其事件委托/目标引用/关系层状态；普通 hover/focus/scroll 不触发 Resolver 或全量 render。
+- `tests/ui/operation-workspace-view.test.ts` 更新现有 `center-right` 断言：覆盖 `columns` 三 slot、我方/信息/敌方 roles、学生行动卡归属学生、敌方 Intent 归属 opponent、environment 不误计入敌方、中心不存在重复计划/Intent 清单且 Resolution 仍在中心。`tests/ui/gameplay-b-operation-controller.test.ts` 保持当前稳定学生卡 ID、计划修改与单个相关 region 更新语义；新增投影字段时同步覆盖相应 engine/integration 测试。
 
 ## Non-goals
 
 - 不新增核心 Runtime 机制、通用剧情引擎、程序化地图或额外成长系统。
 - 不创建专用 Runtime Editor、地图画布或全局 UI 重设计。
+- 不制作阵容选择器、泛化卡片/Widget 框架或新的作者编辑器。
 - 不以单一通关率或美术完整度替代玩家可理解的现场判断与状态因果。
 - 不为窄屏内容移位单独扩大验收；三栏信息在目标桌面尺寸内同时可读即可。
 
@@ -53,44 +93,35 @@ Runtime、Authoring 和局部 UI 各自可通过测试，并不能证明玩家�
 
 ## Data / API
 
-- `OperationCatalogView`：可启动事件摘要、阵容要求、锁定原因与入口状态；来源于 Registry/产品规则的只读投影。
-- UI 命令：选择可用 Event、确认学生阵容、开始 Event、返回事件目录或主 Workspace。
-- 正式示例的 Event/Location/Action/Profile、SceneAction、PlayerCost、有限卡组及其嵌入式 Combination/Objective/Outcome/Route 数据位于 default Datapack；Task 0216 临时 TypeScript 切片不作为第二份长期内容维护。
+- `OperationCatalogView`：可启动事件摘要、固定参与者准入摘要、锁定原因与入口状态；来源于 Registry/产品规则的只读投影。
+- UI 命令：选择可用 Event、开始固定阵容 Event、返回事件目录或主 Workspace。
+- Task 0221 的正式示例是唯一内容来源；本 Task 只将其接入默认 Datapack/产品入口，不复制另一份 Event/Location/Action/Profile。
+- 角色卡所需 `displayName`、`avatarRef`、`hp`、`maxHp` 均来自已冻结的 Run 参与者展示快照并进入 detached OperationView；UI 不读取 Runtime owner。
 - 不增加平行的 UI 写模型或单独的 Spot/Area 关联字段。
 
 ## Runtime Flow
 
-默认 Datapack 加载并验证 → Registry 生成可启动事件目录 → 玩家进入 Operation 入口并选 Event/学生 → OperationRuntime.start 建立 EventRun → 本 Task 的三栏 Surface 消费 OperationView/SceneAction/Route/Card 命令完成多个地点 → Event Outcome View 展示结果 → 明确奖励经 StateMutationService 写入 → 返回事件目录。
+默认 Datapack 加载并验证 → Registry 生成事件目录与固定参与者摘要 → 玩家启动 Event → OperationRuntime 建立 EventRun → 三栏 Surface 消费 OperationView、SceneAction、Route 与玩家卡命令 → 通过唯一 `transitionRoute(routeId)` 完成地点/Cost/抽牌转场 → 主 SaveData 中途保存并恢复 → 成功或部分成功结局 → StateMutationService 写入一次奖励 → 返回事件目录。
 
 ## Acceptance
 
-- [ ] 玩家可从现有 AC UI 进入 Operation 目录，查看可启动事件、锁定原因并启动默认内容中的正式事件。
-- [ ] 三地点事件可从头到尾在浏览器中完成；玩家实际看到学生专属能力、竞争性行动计划、一个战斗/敌对 Intent、一个环境/场景目标和路线取舍。
-- [ ] 从 `base:init:schale_office` 可启动游乐园主题正式事件；路线含有界回环、持有物门槛与因果分支，EventRun 状态不写入 PlayerState/InitSnapshot。
-- [ ] 事件各含 Individual 与 Global 非战斗 SceneAction；Individual 要求玩家为每名合格学生分别选择，Global 仅作一次选择且按合法目标范围影响对象。
-- [ ] PlayerCost 在场景内共享；场景进入增量恰好一次，只有成功离场才应用携带上限，单出口自动和多出口显式路径结果一致。
-- [ ] 固定有限场景卡组可跨地点留牌；打牌与 SceneAction 同批汇总费用且一次 Resolution 提交，已用牌不回洗，玩家卡不参与战斗 Click，角色技能不消耗 PlayerCost。
-- [ ] 改变路线或关键 Beat 决定会沿事件轨道/事实影响后续地点；玩家决定可稳定达到成功、部分成功、失败三种终局，随机不独占结果。
-- [ ] 多出口时 Route 命令独立选择；单一出口自动转场；两者都不创建 Resolution、扣行动资源或增加 Beat/Click 计数。零合法出口时不等待 Route 输入、不创建转场命令，直接进入 Event 终止判定并展示依据。
-- [ ] 硬失败除外，若仍有合法路线则 Event 继续；到达终止边界后按硬失败 → 全部主目标满足时成功 → 显式部分成功 → 失败的顺序裁定。结局摘要解释目标与代价。
-- [ ] 结局画面及事件日志与 EventRun/Resolution 一致；长期奖励写入只发生一次，未完成事件不发终局奖励。
-- [ ] 固定 Seed/输入序列重玩结果一致；保存后恢复仍继续同一地点/路线与准备计划。
-- [ ] 1280×720 下事件目标、学生计划、Intent、指挥位、Commit 状态、地点出口与结局均可理解，不触发全 Workspace 无关区域重建。
-- [ ] 桌面试玩中左/中/右三栏分别承担我方 / 信息 / 敌方；中心聊天信息流占可用工作区宽度过半且为主要阅读区，左/右角色卡与敌方卡同时可见。
-- [ ] 每名学生的当前计划/行为、行动理由与操作入口只在其我方角色卡内形成主要表达；没有重复学生行动聊天消息或平行多列计划/行为长列表。
-- [ ] 固定场景介绍、地点已知信息与结算记录在中心聊天流中按时间顺序可读；本 Task 明确设计的玩家选择不会把学生计划正文复制成消息条目。
-- [ ] Individual/Global SceneAction、路线选择、Cost/SceneCard 支付的真实 UI 交互仅在本 Task 完成设计和可用性验收；它们调用前序稳定 API，不在此扩大底层规则。
-- [ ] 分别记录正式默认事件和有效 `at-cap` 夹具的 prepare、intervention preview、resolve、route projection、OperationView 和 save/load p50/p95、EventRun snapshot 大小及固定基础存档上的 SaveData 增量；超出预先选定的用户感知目标时必须先定位瓶颈再扩大上限。
-- [ ] `2x-overflow` 仅验证 Registry 拒绝与诊断，不启动 Runtime、不计入性能 benchmark。
-- [ ] 诊断确认用户命令每次只构建需要的 OperationView，并由 UI Dispatcher 合并单一相关区域更新；hover、scroll 不调用 Resolver、不做全量 render。
+- [ ] 固定阵容可从夏莱办公室启动；入口显示参与者准入摘要，不出现选人界面；未满足准入时说明缺失角色。
+- [ ] 同一正式 Datapack 样例可从头到尾运行：战斗中可干预一名学生；场景中可完成 Individual/Global 行为和玩家卡；场景行动或卡牌通过同一 ActionDef 获得员工证。
+- [ ] 员工证开启后续 Route Gate，转场可消费员工证；自动单出口与显式多出口都走 `transitionRoute(routeId)`，Cost 截断、下一地点 costGain 和入场抽牌一次提交，任何失败不改变 Run。
+- [ ] PlayerSceneCard 与 SceneAction 共用 PlayerCost 且费用只校验/扣除一次；场景卡仅用于非战斗；打出后 hand→discard、不回洗、不再引入 played 分区。
+- [ ] 正式 Surface 三栏职责符合左/中/右定义；学生计划/敌方 Intent 附着于所属角色卡，固定地点内容与结算留在中心聊天流，没有重复的中央计划/Intent 清单。
+- [ ] 角色卡使用 detached `displayName/avatarRef/hp/maxHp` 展示快照；操作 UI 不读取可变 Runtime。
+- [ ] 固定 Seed 的输入可稳定到达成功和部分成功两种结局；结果与目标/事实/轨道相符，不由随机单独决定。
+- [ ] 路线中途保存再恢复后，地点、EventRun、持有物、PlayerCost、牌区、RNG 和待提交状态一致；兼容版本不符时拒绝恢复，不重复抽牌或入场 Cost。
+- [ ] 终局摘要清楚说明结果，允许的长期奖励只经 StateMutationService 提交一次。
+- [ ] 浏览器在 1280×720 下完成上述流程；焦点、日志滚动和未变化角色卡节点保持连续。hover/scroll 不调用 Resolver 或全量 render。
 
 ## Tests
 
-- **Unit：**OperationCatalog 查询、阵容门槛、Outcome 摘要与奖励幂等。
-- **Runtime：**正式 Registry 定义下启动、路线分支、Event Outcome 和 Mutation 提交。
-- **Integration：**Workspace → Controller → Event/Route 命令 → OperationRuntime → OperationView → StateMutationService。
-- **UI：**浏览器完成三地点路径和三类结局；检查三栏职责与角色卡表达、固定信息流、Individual/Global 场景选择、玩家卡、零/单/多合法出口、锁定路线、返回入口和 focus/scroll 连续性。
-- **Performance：**预热同一 reference 浏览器后分别运行正式默认事件和有效 `at-cap` 夹具；报告规模、p50/p95、EventRun snapshot 大小、固定基础存档上的 SaveData 增量、全局 render 次数和区域刷新命中。`2x-overflow` 只用于 Registry 拒绝测试。不以未标设备的单次耗时作 SLA。
+- **Unit：**固定阵容准入、ActionDef/CardDef 引用、resumeVersion 校验和奖励幂等。
+- **Runtime/Integration：**正式 Datapack 示例经 Registry、Run、SceneAction/卡牌、`transitionRoute`、Save/Resume 到 Mutation 的单条路径。
+- **UI：**浏览器完成最小固定 Seed 路径；检查三栏角色卡、中心聊天流、两类 SceneAction、Cost/卡牌/Route、保存恢复和焦点/滚动连续性。
+- 不把 at-cap p50/p95、硬件矩阵或全局基准报告列为 V1 发布阻塞项；保留 Task 0220 的基本内容上限校验。
 
 ## Dependencies
 
@@ -99,8 +130,7 @@ Runtime、Authoring 和局部 UI 各自可通过测试，并不能证明玩家�
 
 ## Documentation / GALHCG
 
-- Task 0222 是最后一个 Gameplay B 大阶段；稳定后可委派子 Agent 汇总前序 Task 累积证据，统一更新 `docs/docs-829/02-modules/ui.md`、Operation/Route/Outcome 机制页、AronaClicker 默认内容、UI 入口路由和 GALHCG，并完整验证 freshness。
-- GALHCG 只为稳定产品入口、默认事件内容、Operation Runtime、三栏 UI 投影和验证测试建立适当 maps_to；具体事件节点/人物/数值不建稳定 Concept。
+- Task Receipt 记录本次实际改变的入口、View 和 UI 事实；维护直接受影响的权威机制页。全图 freshness 扫描、额外 Concept 扩展和完整 GALHCG 批次维护为 post-v1，不阻塞最小可玩闭环。
 - Read Set：`docs/docs-829/02-modules/ui.md`、`docs/docs-829/01-architecture/data-flow.md`、`docs/docs-829/06-wiki/50-ui/controller-commands.md`、`read-model-context.md`、`refresh-update.md`、`docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle.md`、`docs/docs-829/05-conventions/testing.md`、`docs/ai/frontend-design-project-overlay.md`、Task 0213–0221 与目标源码/测试。
 
 ## 当前核验与剩余工作

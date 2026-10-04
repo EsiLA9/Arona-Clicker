@@ -49,7 +49,7 @@
 - src/arona-clicker/services/operation-resolution-planner.ts（新增）
 - src/arona-clicker/contracts/operation-resolution.ts（新增）
 - tests/engine/operation-resolution-planner.test.ts（新增）
-- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u07-pure-resolution-planning.md
+- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u07-pure-resolution-planning-receipt.md
 
 ## Explicit Non-goals
 

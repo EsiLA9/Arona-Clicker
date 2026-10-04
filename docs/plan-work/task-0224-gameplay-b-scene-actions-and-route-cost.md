@@ -15,11 +15,12 @@
 - 为场景处置定义 actionMode：individual 或 global。选择属于非战斗 SceneAction 批次，不受战斗 Beat 的 Sensei 单人干预额度限制。
 - 每个非战斗 Location 配置有限的 SceneAction 批次数；一次有效批次只消耗一个额度，额度用尽后按 Task 0217 的目标/地点终止规则完成地点。地点访问上限由 Task 0218 约束，避免回环无限重复获得批次。
 - Individual：玩家对每名在场且可行动的角色分别选一种场景行为。Global：玩家只选一项场景行为，并按该行为的合法目标范围作用于一名、多人或全队。
-- 场景行为选择先形成待提交批次；同批可接收由后续场景卡输入提供的额外 PlayerCost 费用项，并与行为费用合并只校验/扣除一次。本 Task 不创建卡牌区域、抽牌或效果，Task 0225 将真实卡牌映射到该费用与 Resolution 边界。
+- `SceneActionDef` 是薄包装：`id`、`actionId`、`scope`、`playerCost`。目标、资格条件和效果只在被引用的 `OperationActionDef` 中定义；SceneAction 不复制第二份 Action 规则。
+- 场景行为选择先形成待提交批次；同批卡牌通过当前手牌 `cardInstanceId` 接入。Runtime 从已验证的 SceneActionDef / PlayerSceneCardDef 读取 PlayerCost，并与行为费用汇总校验、扣除一次；命令不得接收调用方任意指定的费用数值或效果。Task 0225 将牌组实例接入同一费用与 Resolution 边界。
 - 接入 Task 0215 的唯一 Resolution 容器与统一 Runtime 提交边界；不另建场景专用结算或费用扣除流程。
 - 在 EventRun 中维护路线级共享 PlayerCost，与学生 HP、角色局部资源及战斗 Beat 资源分开。新 EventRun 使用事件配置的起始余额，缺省为 0；不从 PlayerState 读取或写回。
-- Location 可配置每次进入的 costGain 与成功离开时的 maxCarryCost。每次访问最多应用一次 costGain；成功提交实际离开时，将余额限制为 min(当前余额, maxCarryCost)，再进入下一地点并应用其 costGain。
-- maxCarryCost 同时适用于单出口自动转场与多出口玩家选择；出口预览、无效或过期选择、Event 终止都不改变余额。持有物门槛、出口图与回环访问上限仍由 Task 0218 负责。
+- Location 可配置每次进入的 costGain 与成功离开时的 maxCarryCost。每次访问最多应用一次 costGain；成功离开时将余额限制为 min(当前余额, maxCarryCost)，再进入下一地点并应用其 costGain。
+- Cost 变化作为 Task 0218 唯一 `transitionRoute(routeId)` 提交路径的一部分；本 Task 不新增另一条自动/手动转场路径。出口预览、无效/过期选择、Event 终止或转场任一步失败都不改变 Cost。持有物门槛、出口图与回环访问上限仍由 Task 0218 负责。
 - 提供只读投影所需的 actionMode、合法行为与目标、批次费用明细、Cost 余额及离场上限；正式 UI 端到端验收由 Task 0222 覆盖。
 
 ## Non-goals
@@ -43,15 +44,15 @@
 
 ## Data / API
 
-- Location 声明 actionMode、可用 SceneAction、每次访问的有限批次数、目标规则、costGain 与 maxCarryCost。
+- Location 声明 actionMode、可用 `SceneActionDef`、每次访问的有限批次数、costGain 与 maxCarryCost；SceneActionDef 只引用 `OperationActionDef` 并声明 PlayerCost。
 - EventRun 持有 PlayerCost 余额与按访问区分的入场收益记录。
-- SceneActionBatch 汇总逐人或全局行为选择及可选的额外 PlayerCost 费用项；各输入项保留费用和目标，整批形成单一费用总额。Task 0225 后续将当前手牌实例与效果接入。
+- SceneActionBatch 汇总逐人/全局行为选择及被选玩家卡的 `cardInstanceId`；费用和效果都从已验证内容定义读取，调用方不能注入任意费用/效果。整批形成单一 PlayerCost 总额。Task 0225 将卡牌实例接入。
 - Resolution 记录已校验的行为、卡牌效果、PlayerCost 扣除及局部结果；结果容器沿用 Task 0215 当前 Runtime 契约。
 - EventRun 的起始 PlayerCost 与本 Event 的安全值域来自事件输入，起始余额缺省 0；本 Task 可先由 TypeScript/fixture 定义验证规则。Task 0220 随后把该声明正规化为 Datapack 字段并冻结作者内容硬上限，因此 Task 0224 不等待 Task 0220 才能实现。
 
 ## Runtime Flow
 
-进入 Location 并为该次访问应用一次 costGain → 在剩余批次额度内按 actionMode 形成 SceneActionBatch → 汇总行为与随批费用项并整体校验 → 拒绝时保留 Run、额度、随机游标与费用输入状态不变；接受时一次扣除、应用局部结果、递减一个批次额度并追加一个 Resolution → 达成地点目标或额度用尽后计算出口 → 实际转场提交时应用 maxCarryCost，再进入下一地点并应用其 costGain。
+进入 Location 时由 Task 0218 的统一转场提交应用一次 costGain → 在剩余批次额度内按 actionMode 形成 SceneActionBatch → 汇总被引用 ActionDef 与当前手牌卡牌的费用并整体校验 → 拒绝时 Run、额度、随机游标、Cost 和卡牌状态不变；接受时一次扣费、应用局部效果、递减一个批次额度并追加一个 Resolution → 达成地点目标或额度用尽后计算出口 → 自动或显式选择都调用 `transitionRoute(routeId)`；该入口先将 maxCarryCost 与新地点 costGain 一并纳入新 Run，再原子提交。
 
 ## Acceptance
 
@@ -59,11 +60,13 @@
 - [ ] 每个 Location 访问的 SceneAction 批次数有显式有限值；有效提交恰好减少一次，拒绝/无效命令不消耗额度，达到目标或额度上限后进入地点完成/出口判断。
 - [ ] Global 批次只包含一项场景行为；动作定义可限定单人、多目标或全队，目标超出范围时拒绝整批。
 - [ ] SceneAction 批次不消耗、不占用也不受战斗 Beat 的单人 Sensei 干预额度限制；战斗 Beat 仍沿 Task 0215 原规则处理。
-- [ ] 一批内全部 SceneAction 与随批传入的 PlayerCost 费用项合并为一个总额；余额不足时整批原子拒绝，不扣费、不应用部分效果、不改变输入状态、不推进随机流或场景行动次数。
+- [ ] 一批内所选 SceneAction 和玩家卡的费用只从已验证的定义读取并合并为一个总额；不接受调用方传入任意费用。余额不足时整批原子拒绝，不扣费、不应用部分效果、不改变输入状态、不推进随机流或场景行动次数。
 - [ ] 合法提交只扣 PlayerCost 一次，并通过统一 Resolution 记录该批行为及所有可观察变化；同一批次不能重复提交造成二次扣费或重复效果。
+- [ ] SceneActionDef 与 PlayerSceneCardDef 均只引用 OperationActionDef；费用由被引用的薄包装提供，效果/目标只来自 OperationActionDef，命令不能注入任意费用或效果。
 - [ ] SceneAction 与战斗资源分别读写；场景卡不进入战斗。
 - [ ] 每次 Location 访问的 costGain 恰好应用一次；恢复同一 EventRun 不重复发放，允许回访时每个新访问可再次发放。
 - [ ] maxCarryCost 只在成功离开 Location 时应用，单出口自动转场与显式路线选择结果一致；下一地点的 costGain 在离场上限生效后应用。
+- [ ] 单出口自动转场与多出口显式选择均通过 Task 0218 的 `transitionRoute(routeId)`；Cost 截断、地点切换和下一地点 costGain 一次计算并提交，任一步失败时整份 EventRun 不变化。
 - [ ] 出口预览、过期出口、无效选择和 Event 终止不会提前截断余额或产生战术 Resolution。
 - [ ] 固定 Seed 与相同输入得到相同费用、场景结果及 Resolution 顺序；费用失败不会消耗随机数。
 
@@ -71,7 +74,7 @@
 
 - **Unit：**actionMode 输入完整性、个人与全局目标资格、有限批次数、费用汇总和离场上限。
 - **Runtime：**余额不足时的拒绝原子性、一次提交一次扣费/Resolution/批次递减、costGain 的访问幂等、离场上限与下一地点入场顺序。
-- **Integration：**SceneAction 与统一 Task 0215 Resolution、Task 0218 单/多出口转场协作；验证外部费用输入能合并到批次。真实玩家卡效果/牌区联动由 Task 0225 验收，战斗资源不受影响。
+- **Integration：**SceneAction 与统一 Task 0215 Resolution、Task 0218 单/多出口转场协作；确认费用仅从已验证的 SceneActionDef 与 hand 中的 cardInstanceId 得出。真实卡牌牌区联动由 Task 0225 验收，战斗资源不受影响。
 - **Projection/API：**核验只读投影、命令结果与错误回执；正式浏览器交互由 Task 0222 验收。
 
 ## Dependencies

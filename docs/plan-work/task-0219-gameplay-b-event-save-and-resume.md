@@ -1,6 +1,6 @@
 # Task 0219 — 玩法 B EventRun 存档与精确续局
 
-状态：proposed — 等待 Task 0213–0218 完成
+状态：proposed — 等待 Task 0213–0218、0224、0225 与 0220 完成
 
 ## 目标
 
@@ -12,17 +12,16 @@
 
 ## Scope
 
-- 为 EventRun 定义单一可序列化快照及恢复校验。它是与 PlayerState / InitSnapshot 分离的存档子域；快照 schema version 与主 `SaveData.version` 各自描述不同边界，SaveSystem 只负责介质，OperationRuntime 负责 Runtime 对象重建。
-- 开始实现前裁定快照放入主 SaveData，还是使用独立存档 key/slot。当前 SaveSystem 只有固定主存档键；若选择独立槽位，须在该 Task 明确隔离写入、清理与超限失败的行为，不改变主存档版本语义。
+- EventRun 快照放入主 `SaveData` 的可选 `operationRun` 字段，继续使用现有唯一存档键；不新增 key/slot、第二套存档介质或快照专属版本号。`SaveData.version` 管存档格式，事件内容兼容只由 `eventId + resumeVersion` 管理。
+- 快照保存 `eventId`、`resumeVersion` 与 EventRun 权威状态；OperationRuntime 负责恢复 Runtime 对象，SaveSystem 只读写主存档。
 - 在玩家可暂停的位置保存 current Location、地点访问、轨道/事实、Actor 临时状态、PreparedBeat、InterventionDraft、RNG seed/cursor、终局/日志信息。
-- 保存路线共享 PlayerCost、每次地点访问的 `costGain` 是否已应用，以及有限卡组的 draw/hand/discard/played 分区、抽牌顺序和抽牌流位置；恢复不得重复发放入场 Cost 或重抽已抽卡。
+- 保存路线共享 PlayerCost、每次地点访问的 `costGain` 是否已应用，以及有限卡组 drawPile/hand/discard 区域、抽牌顺序和抽牌流状态；恢复不得重复发放入场 Cost 或重抽已抽卡。
 - 若在 SceneAction 批次待提交时允许暂停，保存完整逐人/全局选择、卡牌选择与费用快照；拒绝/撤销后保存的 Run 必须维持原 PlayerCost 与卡牌区。
 - 区分战术随机流与玩家卡组抽取流，分别保存可继续的状态；任一流的预览不得消费随机数。
 - PreparedBeat/InterventionDraft 是已向玩家展示的待提交事实，存档直接保留；OperationView 和索引可从 Run/Registry 重建，不存档。
 - 只在有效状态命令或明确存档点形成 checkpoint；hover、滚动、只读预览不触发全存档序列化。
-- Resolution/事件日志有明确数量或字节上限；每地点 Beat 与地点访问上限保证 Run 和存档体积有界。
-- 用合成上限 Run 定出 `EventRunSnapshot` 字节 cap；超限 Run 拒绝保存并给出诊断，具体 cap 在实施测量后进入机制文档。
-- 恢复时重建对内容定义与 Character ID 的引用，并用 Task 0220 提供的事件内容兼容标识确认引用仍对应同一规则内容；该标识与快照 schema version、主 `SaveData.version` 分开。
+- Resolution/事件日志保持有界；地点访问、批次数与卡组上限保证 Run 和存档体积有限，不另做字节 cap benchmark。
+- 恢复时重建对内容定义与 Character ID 的引用，并比较 `eventId + resumeVersion`；作者对不兼容内容改动手动递增事件版本。不计算自动内容 Hash。
 - 对内容版本不兼容的 Run 清楚拒绝恢复并提供重新开始路径；遵守项目规则，不写旧存档迁移。
 - 事件完成/失败后清理活动 Run，但保留明确需要展示或提交的 EventResult。
 
@@ -41,53 +40,54 @@
 
 | 已核实事实 | 证据 | 设计影响 |
 | --- | --- | --- |
-| SaveSystem 使用固定的 `acprogram_save` 键，并按主 DTO 顶层 `version` 检查 `1.0.0`；StorageAdapter 只有 get/set/remove，当前没有独立槽位 API。 | `src/data-services/persistence/storage.ts`；`src/data-services/persistence/storage-adapter.ts`；`src/arona-clicker/contracts/save-data.ts`；`src/arona-clicker/runtime-save-codec.ts` | EventRun 子域版本不得覆盖主 `SaveData.version`；持久化落点在同一主 DTO 或独立 key/slot 仍需在实现前裁定。 |
+| SaveSystem 使用固定的 `acprogram_save` 键并按主 DTO 顶层 `version` 检查格式；StorageAdapter 只有 get/set/remove，没有独立槽位 API。 | `src/data-services/persistence/storage.ts`；`src/data-services/persistence/storage-adapter.ts`；`src/arona-clicker/contracts/save-data.ts`；`src/arona-clicker/runtime-save-codec.ts` | V1 将活动 EventRun 放入主 SaveData 的可选 `operationRun` 字段，不增加第二个 key/slot。 |
 | Save/load 会重建运行态；per-Init 快照与其他 PlayerState 字段由专门规范区分。 | `docs/docs-829/03-data-structures/player-state.md`；`src/arona-clicker/state/per-init-fields.ts` | EventRun 作为独立存档子域，不混入 Init 恢复规则。 |
-| Datapack 有 package `version`，PackManager 的 StoredPack 也有语义 `contentDigest`；Registry 当前只保留 `loadedModNames`，不提供版本或内容指纹。 | `src/data-services/contracts/datapack.ts`；`src/data-services/datapack/pack-manager.ts`；`src/data-services/registry/registry.ts` | 0219 不从 Registry 或主存档版本推断内容兼容性；Task 0220 为 EventRun 提供稳定的内容兼容标识。 |
+| 主 SaveData 有格式版本；事件内容使用 EventDef 的显式 `resumeVersion`。 | `src/arona-clicker/contracts/save-data.ts`；Task 0220 EventDef 契约 | `SaveData.version` 管存档格式，`eventId + resumeVersion` 管事件内容兼容；不计算 Datapack graph Hash。 |
 
 ## Data / API
 
-- `EventRunSnapshot`：独立快照 schema version、Task 0220 提供的事件内容兼容标识、唯一权威 Run 状态、地点状态/访问收益标记、ActorState、共享 PlayerCost、玩家卡组四区与抽牌状态、PreparedBeat、InterventionDraft、独立随机流位置、有限 Resolution 摘要。
-- `SaveSystem` 扩展边界只承载该快照的存取；主 DTO 内的可选子域或独立 key/slot 的持久化位置须在实施前裁定，业务恢复/校验由操作 Runtime 完成。
+- `SaveData.operationRun`：`eventId`、`resumeVersion`、地点状态/访问收益标记、ActorState、EventState、共享 PlayerCost、玩家卡组三分区与抽牌状态、PreparedBeat、InterventionDraft、随机流位置、有限 Resolution 摘要。
+- 恢复顺序固定为：加载主 Save → 让 0213 生命周期先清除内存 Run → 找到 EventDef 并校验 `eventId + resumeVersion` → 重建 EventRun、随机流和待提交状态 → 再创建 OperationView。版本或引用校验失败时不创建半恢复 Run。
+- 不引入独立存档 key/slot 或自动解析 Datapack graph 计算内容 Hash。
 - 定义副本、Registry lookup 索引、OperationView、DOM/UI 状态不进入 snapshot；缓存均从现有 Datapack/Registry 重建。
 
 ## Runtime Flow
 
-暂停点请求存档 → OperationRuntime 生成一致快照 → SaveSystem 持久化 → 之后读取并分别校验快照 schema、Task 0220 内容兼容标识及角色引用 → 重建 EventRun 和 PreparedBeat → 生成相同 OperationView 并继续 Commit。
+暂停点请求存档 → OperationRuntime 生成一致快照 → 写入主 SaveData.operationRun → 读取主 Save 后清空旧内存 Run → 按 `eventId + resumeVersion` 验证 → 重建 EventRun、PreparedBeat、牌区和随机流 → 生成相同 OperationView 并继续。
 
 ## Acceptance
 
 - [ ] 在 Commit 前保存包含一次学生行动修订的 Run，恢复后看到相同 PreparedBeat/InterventionDraft；Commit 结果与不中断时相同。
 - [ ] 在路线切换后保存并恢复，当前 Location、访问次数和 EventState 保持一致。
-- [ ] 恢复后 PlayerCost、地点 `costGain` 访问标记、有限卡组四区/抽牌顺序及卡组 RNG 流与保存前一致；恢复不重领 Cost、不重抽卡。
+- [ ] 恢复后 PlayerCost、地点 `costGain` 访问标记、有限卡组 drawPile/hand/discard、抽牌顺序及卡组 RNG 与保存前一致；恢复不重领 Cost、不重抽卡。
 - [ ] SceneAction 或玩家卡批次待提交时保存/恢复，继续提交与无中断执行结果一致；拒绝批次不改变已保存的费用、卡牌分区或随机流。
 - [ ] RNG seed/cursor 恢复后，不重掷既有预备结果，也不跳过下一次应发生的随机结算。
-- [ ] 损坏 snapshot、未知事件/角色引用或定义版本不兼容均返回完整诊断，不生成半恢复 Runtime。
-- [ ] EventRun 子域 schema version、主 `SaveData.version` 与 Task 0220 内容兼容标识各自独立；版本不兼容时不会把一种版本误判为另一种。
+- [ ] 损坏 snapshot、未知事件/角色引用或 `resumeVersion` 不兼容均返回清楚诊断，不生成半恢复 Runtime。
+- [ ] 主 `SaveData.version` 只校验存档格式；事件内容兼容只比较 `eventId + resumeVersion`，不运行自动内容 Hash。
 - [ ] 保存和恢复不改写 PlayerState/InitSnapshot；终局奖励仍只提交一次。
-- [ ] 存档不包含 Registry 定义副本、可重建索引、OperationView、DOM 或无界日志；EventRunSnapshot 有明确字节 cap，超限快照不写入且不会留下部分更新。
+- [ ] 存档不包含 Registry 定义副本、可重建索引、OperationView、DOM 或无界日志；地点/卡组/Resolution 上限保证快照有限，写入失败不留下部分 SaveData。
 - [ ] 现有存档升级不通过迁移兼容实现；破坏性运行结构变更遵守“旧存档清档”护栏。
 
 ## Tests
 
-- **Unit：**snapshot codec 往返、字段省略/非法引用诊断、PlayerCost/卡组分区与独立随机流 round-trip。
+- **Unit：**主 SaveData.operationRun 往返、字段/角色引用诊断、resumeVersion 变化拒绝、PlayerCost/三分区卡组与随机流恢复。
 - **Runtime：**Commit 前/后、地点之间与事件终局恢复；对比 uninterrupted replay。
-- **Integration：**SaveSystem 存取与 Runtime 重建，奖励提交幂等。
+- **Integration：**主 SaveSystem 存取、0213 load 清理后显式恢复 Runtime，奖励提交幂等。
 - **API/Integration：**暂停点、恢复结果和拒绝原因可由 Runtime/Save facade 查询；不做玩家侧界面或信息流交互。
 
 ## Dependencies
 
-- 依赖 Task 0213–0218 的完整 EventRun、Actor、PreparedBeat、Resolution 和路线状态；依赖 Task 0224/0225 的 PlayerCost、地点入场收益与玩家场景卡组状态；依赖 Task 0220 提供稳定事件内容兼容标识。
+- 依赖 Task 0213–0218 的 EventRun、Actor、PreparedBeat、Resolution 和路线状态；依赖 Task 0224/0225 的 PlayerCost、地点入场收益与三分区牌组状态；依赖 Task 0220 的 EventDef.resumeVersion。
 
 ## Documentation / GALHCG
 
 - 在本 Task Receipt 记录候选机制页、Owner 与证据路径；不在单 Task 收尾时写 GALHCG。
-- Task 0221 完成后，与 Task 0220、0219 一并委派子 Agent 汇总内容兼容标识、EventRun 存档与作者流程，再批量更新机制文档/GALHCG 并验证 freshness；codec 字段与 StorageAdapter helper 不建独立 Concept。
+- Receipt 记录 Save/Resume 直接受影响的机制事实；全图 freshness 扫描和额外 Concept 扩展为 post-v1，不阻塞恢复闭环。
 - Read Set：`docs/docs-829/03-data-structures/player-state.md`、`docs/docs-829/06-wiki/20-data-services/persistence-assets.md`、SaveSystem/Runtime save 源码与测试、Task 0213–0218。
 
 ## 当前核验与剩余工作
 
-当前核对到 SaveSystem 只检查固定主 DTO 版本，Registry 只保留已加载 Mod 名称；没有现成的 Registry 内容版本字段。主 DTO 内嵌或独立 key/slot 尚待本 Task 实施前裁定；事件内容兼容标识由 Task 0220 定义并提供，不复用 `SaveData.version`。玩家路线 Cost、入场收益幂等标记、有限卡组与独立抽牌流均属于必须往返验证的 EventRun 子域。
+当前核对到 SaveSystem 使用固定主存档键；V1 选择在主 SaveData 增加可选 `operationRun`。`SaveData.version` 管格式，EventDef 的 `resumeVersion` 管内容兼容；不建设内容 Hash。保存/恢复覆盖路线 Cost、入场收益标记、三分区卡组、抽牌状态和待提交计划。
 
 ## 相关路由
 

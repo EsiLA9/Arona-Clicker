@@ -58,7 +58,7 @@
 - `src/arona-clicker/services/operation-entry-service.ts`
 - `tests/engine/operation-runtime-service.test.ts`
 - `tests/engine/gameplay-b-event-runtime-integration.test.ts`
-- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u08-atomic-run-commit.md
+- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u08-atomic-run-commit-receipt.md
 
 ## Explicit Non-goals
 

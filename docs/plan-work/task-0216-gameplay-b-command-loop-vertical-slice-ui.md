@@ -1,6 +1,6 @@
 # Task 0216 — 玩法 B 核心可玩切片与只读 UI
 
-状态：complete — U1–U6、浏览器试玩与文档/GALHCG 收尾完成。Task 0215 归档确认仍单独等待 Task Owner，不影响本切片验收。
+状态：complete — U1–U6、浏览器试玩与文档/GALHCG 收尾完成。Task 0215 已于 2026-10-05 按 Task Owner 确认归档，不影响本切片验收。
 
 ## 目标
 

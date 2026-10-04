@@ -50,7 +50,7 @@
 - src/arona-clicker/contracts/operation-beat.ts
 - src/arona-clicker/services/operation-intervention-preview.ts（新增）
 - tests/engine/operation-intervention-preview.test.ts（新增）
-- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u05-intervention-draft-and-preview.md
+- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u05-intervention-draft-and-preview-receipt.md
 
 ## Explicit Non-goals
 
