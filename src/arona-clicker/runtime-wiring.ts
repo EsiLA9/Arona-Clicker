@@ -53,6 +53,7 @@ import { ShopService } from './services/shop-service';
 import { qualifyTagPath } from '../engine/core/tag';
 import { SessionService } from '../engine/runtime/session-service';
 import { ChatFlowService } from './services/chat-flow-service';
+import { OperationRuntimeService } from './services/operation-runtime-service';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
 import { applyAffectionExp, affectionLevelCapOf, resolveAffectionConfig } from './services/affection-system';
 import { applyExp, checkBreakthrough, resolveCurve, resolveVariantLevelCap } from './services/cultivate-system';
@@ -73,6 +74,8 @@ export function wireGameInstance(
   hooks: WiringHooks,
   options: { devLog?: DevLogOptions } = {},
 ): void {
+  // EventRun 归每个产品 Runtime 自己所有，不与通用 Engine EventBus 或 PlayerState 共用。
+  g.operationRuntime = new OperationRuntimeService();
   g.imageStore = new ImageStore();
   g.eventBus = new EventBus();
   g.registry = new Registry();

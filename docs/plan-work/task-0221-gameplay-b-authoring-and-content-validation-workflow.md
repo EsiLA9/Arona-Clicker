@@ -13,6 +13,7 @@
 ## Scope
 
 - 用 Task 0220 的合同与 Builder 定义作者写入位置、最小完整示例、ID 和引用约定、验证反馈。
+- 作者合同与验证覆盖 Task 0224 的逐人/全局 SceneAction、共享 PlayerCost、逐地点 Cost 增量/离场上限，以及 Task 0225 的固定有限玩家场景卡组和卡牌时机/目标/效果引用。
 - 用测试/验证内容包交付一份由多个地点构成的中性事件，展示至少一次有因果后果的路线选择；正式默认发行内容由 Task 0222 交付。
 - 静态校验每个事件至少有合法入口、合法终态、拓扑可达地点和有界回访；动态 Predicate/Effect 组合下的目标可满足性由固定 Seed/有界 Runtime 样例验证，不做全状态穷举。
 - 确定包作者看到的静态诊断和 Runtime 诊断分工；加载错误不晚于事件选择/开始前呈现。
@@ -34,7 +35,7 @@
 
 ## Data / API
 
-- 作者可见定义：事件目标与轨道、地点参与者/行为、可见 Intent、RouteEdge 条件、局部和终局结果。
+- 作者可见定义：事件目标与轨道、地点参与者/行为、逐人/全局选择模式、可见 Intent、持有物 RouteEdge 条件、路线 Cost、有限场景卡组、局部和终局结果。
 - 内容诊断：pack/事件/地点/引用 ID/字段路径、错误级别和修复方向；重试加载不留下半注册定义。
 - 多地点示例只作为测试/验证内容；产品默认发布事件由 Task 0222 明确归属到 AronaClicker 内容。
 - Authoring API 保持在 Datapack/Registry contract 层；运行命令与活动 Run 编辑不是内容作者接口。
@@ -46,6 +47,8 @@
 ## Acceptance
 
 - [ ] 作者无需修改 OperationRuntime 源码即可建立新 Event、新 Location、新 Action、新学生 Profile 和有出口的地点图。
+- [ ] 作者能声明 Individual/Global SceneAction，配置每 Location 的 `costGain` / `maxCarryCost`、Event 级共享 PlayerCost 和有界场景卡组；卡牌只能被 SceneAction 引用，不会被配置进战斗 Click。
+- [ ] 校验能定位缺失选择模式、越界 Cost、无效卡牌/目标、重复卡实例及违反卡组/地点/日志硬上限的定义。
 - [ ] 静态校验能发现拓扑孤立/不可达的必需地点、未使用动作、无效学生/动作/目标引用、无终止结果和无界回访。
 - [ ] 校验报告明确静态验证不证明含动态 Predicate 的目标一定可满足；目标可满足性由有限 Runtime fixtures 覆盖。
 - [ ] 诊断明确定位到 pack、Event、Location 与字段；正确内容经过导入/加载后与源定义保持一致。
@@ -63,7 +66,7 @@
 ## Dependencies
 
 - 依赖 Task 0220 的稳定 Datapack/Registry 合同。
-- 依赖 Task 0217–0219 的目标、路线与存档定义用于完整样例/诊断。
+- 依赖 Task 0217–0219 的目标、路线与存档定义，以及 Task 0224/0225 的 SceneAction、PlayerCost 和玩家卡组语义用于完整样例/诊断。
 
 ## Documentation / GALHCG
 
@@ -79,4 +82,6 @@
 
 - [[draft-0212-gameplay-b-ac-native-design-roadmap]]
 - [[task-0220-gameplay-b-datapack-contracts-and-registry]]
+- [[task-0224-gameplay-b-scene-actions-and-route-cost]]
+- [[task-0225-gameplay-b-finite-player-scene-card-deck]]
 - [[docs/docs-829/05-conventions/schema-sync]]

@@ -14,6 +14,7 @@
 
 - 事件入场时按 Character ID 解析学生身份，并为本局创建独立 ActorState。
 - 定义学生的 `StudentOperationProfile` 语义：行动优先级、能力标签、专属行动候选和无合法计划时的安全回退。
+- 保留角色各自的随机抽取技能作为 Profile 的独立规则：仅在 Commit 冻结后按 EventRun Seed 检查触发和结果；准备、预览、撤销与目标编辑不掷技能随机数。
 - 至少一种专属现场能力必须改变处理问题的可行方案；数值倍率或普通标签差异不能单独满足此条件。
 - Profile 与 CharacterVariant 保持松耦合；不把现场战术规则作为每个 Character 的基础持久字段。
 - 角色因基础属性、战斗受伤或局内资源发生的变化保存在 EventRun；事件终局只返回结果，不自行写长期进度。
@@ -35,9 +36,13 @@
 ## Data / API
 
 - `ParticipantSpec`：Location 中的 participant ID、阵营、身份引用、Profile 引用和基础状态覆盖；优先作为 Location 的嵌入值。
-- `StudentOperationProfileDef`：Character ID、排序后的行动候选/偏好、能力标签和可读理由键。
+- `StudentOperationProfileDef`：Character ID、排序后的行动候选/偏好、能力标签、可读理由键及可选的角色随机技能规则引用。Profile 专属现场能力与随机技能各自表达，不互相替代。
 - `ActorState`：EventRun 内的 HP、操作资源、已应用的局部状态与本 Beat 计划；只保留该玩法实际使用的字段。
 - 不复用主游戏 CharacterState 或 CharacterVariantProgress 结构作为 Run Actor。
+
+## 保留的设计输入
+
+早期用户裁定要求保留角色自己的随机技能，并且不新增消耗路线级 PlayerCost 的角色主动技能（[[draft-0204-gameplay-b-map-and-player-actions]]）。旧原型将其实现为满足条件后的额外随机触发检查（见归档 [[draft-0209-gameplay-b-current-loop-and-identity-review]]），不是玩家场景卡组的随机抽牌；这是 AC-native 玩法设计输入，不代表 AC 当前已有该 Runtime。Profile 专属能力为本 Roadmap 新增的可解释角色差异；两者并行。为符合 Draft 0212 的 Commit-only RNG 裁定，AC-native 的随机触发推迟到 Task 0215 有效 Commit 结算阶段消费 EventRun 随机流，不沿用旧原型预览前冻结结果的时序。
 
 ## Runtime Flow
 
@@ -51,12 +56,13 @@
 - [ ] 对手和环境 Actor 可被同一准备/结算管线读取，但不要求其存在玩家角色档案或 roster 记录。
 - [ ] 缺省/无可用行动时得到明确的观察/待机计划，并可由后续规则覆盖。
 - [ ] 至少一个核心切片问题有 Profile 专属的有效解法；换下该学生或移除该能力后，合法行动、目标进度或可达结果有可观察变化。
+- [ ] StudentOperationProfile 可声明角色随机抽取技能；技能不消耗 PlayerCost，重复 seed 与输入得到相同技能触发/结果，预览与改选不推进技能随机流。
 - [ ] 行动理由解释“该学生为何在当前局势选择此行动”，并能追溯到优先级、能力或可见条件。
 
 ## Tests
 
-- **Unit：**Profile 排序、能力资格、回退计划和引用校验。
-- **Runtime：**roster 入场、角色状态快照隔离、敌方/环境 participant 无 Character 引用路径。
+- **Unit：**Profile 排序、能力资格、回退计划、随机技能触发规则引用和角色入场校验。
+- **Runtime：**roster 入场、角色状态快照隔离、敌方/环境 participant 无 Character 引用路径、角色技能仅在 Commit 消费随机流。
 - **Integration：**CharacterSystem/Roster 查询与操作 Run 创建协作；不对 Character 持久状态写入。
 - **UI：**确认 OperationView 有足够理由字段；实际界面由 Task 0216 验收。
 

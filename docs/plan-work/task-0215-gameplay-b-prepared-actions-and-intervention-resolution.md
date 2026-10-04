@@ -16,9 +16,11 @@
 - 定义 `Intent`、`PreparedBeat`、`InterventionDraft` 与 `Resolution` 的职责和生命周期。
 - 每个 Beat 最多一项 Sensei 指挥：替换一名学生的行动和/或合法目标；没有指挥时保留学生原计划。
 - Commit 前对资源、行动、目标和计划版本做完整校验；Commit 后只按冻结快照扣费/结算一次。
+- 战术 Action 的费用只从对应 Actor/Team 的局内战术资源支付；它不隐式消费跨 Location 的共享 PlayerCost。PlayerCost 仅供非战斗 SceneAction 与玩家场景卡使用，由 Task 0224/0225 接入同一个 Resolution 边界。
 - v1 协同规则只配对两个 Action；规则嵌入 Location 内容，按标签/目标建立候选桶并按确定优先序匹配。每个输入 Action 至多被消费一次，不执行多输入组合搜索。
 - 准备只遍历 Profile/Location 声明的动作候选和合法目标，不扫描整个 Registry；一次 Intervention 只重算受影响 Actor 及相关协同预览。
 - 确定性随机仅在 Commit 后消费 Seeded Stream；准备和编辑不改变随机游标。
+- 角色随机抽取技能只在冻结计划后的 Commit 结算中检查；输出写入同一个 Resolution，不在准备/预览中重抽，也不消费 PlayerCost。
 - 为战斗伤害/治疗与场景轨道变化提供同一个 Resolution 容器；具体目标判定由 Task 0217 丰富。
 
 ## Non-goals
@@ -36,7 +38,8 @@
 
 ## Data / API
 
-- `OperationActionDef`：稳定动作 ID、合法 Actor Profile/能力、target contract、费用、标签和有限的局部效果声明。
+- `OperationActionDef`：稳定动作 ID、合法 Actor Profile/能力、target contract、Actor/Team 战术资源费用、标签和有限的局部效果声明；场景玩家行为与玩家卡的 PlayerCost 属于 Task 0224/0225 的独立支付来源。
+- `StudentSkillRoll`：由角色操作 Profile 声明的可复现随机触发/结果；只在 Commit 消费 EventRun 随机流并写入 Resolution。
 - `PreparedBeat`：当前 Beat、各 Actor 行动/Intent、目标、费用快照、解释原因、可替代项和计划版本。
 - `InterventionDraft`：0 或 1 项学生计划修订及选择原因；只作为待提交输入。
 - `PlanEntry`：一个待结算行动计划；共享 Actor/Action/Target/费用/解释字段，并以参与方 kind 区分学生计划与敌对/环境 Intent。
@@ -54,6 +57,8 @@ EventRun 准备每个 Actor 的候选计划与 Intent → 产出稳定 PreparedB
 - [ ] 对不存在的 Actor、非法 Target、超额费用或第二项指挥，Commit 拒绝且不扣资源、不推进随机流、不写部分结果。
 - [ ] 同一准备版本只产生一个 Resolution；重复 Commit 不会二次扣费或重复伤害。
 - [ ] 同一 Seed、内容定义与输入序列得到相同 Preparation/Resolution；预览与编辑不会消耗随机流。
+- [ ] 战术行动只检查/扣除 Actor 或 Team 局内资源，不读写 PlayerCost；角色随机技能仅在 Commit 结算触发，并记入同一 Resolution。
+- [ ] 准备、干预预览、撤销和非法提交均不推进技能 RNG；只有有效 Commit 才消费对应随机抽取。
 - [ ] 满足组合规则时一组输入只产生一次组合结果，不再重复执行其原始结果；未配对的 Action 正常结算。
 - [ ] 组合限定为二输入，多个候选同时匹配时结果按稳定优先级确定；不运行多输入组合搜索。
 - [ ] Actor/候选/目标/规则规模均由内容合同给出有限上限；Resolver 只处理当前 PreparedBeat 和匹配桶，不遍历全 Registry 或整张 Event 图。

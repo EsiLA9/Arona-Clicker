@@ -32,6 +32,7 @@ import { buildAchievementView } from './read-model/achievement-view';
 import type { AchievementViewItem } from './read-model/achievement-view';
 import { OperationObservationStore } from './operation-observation';
 import type { OperationObservation, OperationObservationInput } from './contracts/operation-observation';
+import { OperationRuntimeService } from './services/operation-runtime-service';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
 import { buildSaveData } from './runtime-save-codec';
 import { restoreFromSave } from './runtime-save';
@@ -142,6 +143,8 @@ export class GameInstance {
   readonly userThemeService!: UserThemeService;
   /** Spot 商店交易门面。 */
   readonly shopService!: ShopService;
+  /** Gameplay B 的局内 EventRun owner；Run 快照为 detached read-only copy。 */
+  readonly operationRuntime!: OperationRuntimeService;
 
   // 运行时状态
   private _state!: PlayerState;
@@ -158,6 +161,8 @@ export class GameInstance {
       setState: next => { this._state = next; },
       refreshVisibility: () => this.refreshVisibility(),
     }, options);
+    // 保持 no-op / 自定义 Wiring 的既有可注入用法；默认 Wiring 会在组合根创建实例。
+    if (!this.operationRuntime) this.operationRuntime = new OperationRuntimeService();
     this.runtimeContentBrowser = createRuntimeContentBrowser(this.registry, {
       affectorPacks: {
         getEntries: () => this.affectorEngine.getPacks(),
@@ -265,6 +270,7 @@ export class GameInstance {
   /** 加载数据包并初始化游戏 */
   init(datapacks: Datapack[], options: RuntimeInitOptions = {}): void {
     this.operationObservationStore.clear();
+    this.operationRuntime.reset();
     this.sessionService.touchLastTick();
     // 加载所有数据包
     for (const dp of datapacks) {
@@ -383,6 +389,12 @@ export class GameInstance {
     this.sessionService.stop();
   }
 
+  /** 结束该 Runtime 持有的局内服务，并停止 Tick 循环。 */
+  dispose(): void {
+    this.stop();
+    this.operationRuntime.dispose();
+  }
+
   /**
    * 移动到 Area（玩家入口）——可达性层。
    * 门槛链：存在 → 同 Init → 非演出锁定 → 相邻（checkAdjacency=true）→ 可见。
@@ -450,6 +462,7 @@ export class GameInstance {
   /** 从存档数据恢复 */
   load(saveData: SaveData): void {
     this.operationObservationStore.clear();
+    this.operationRuntime.reset();
     restoreFromSave({
       registry: this.registry,
       devLog: this.devLog,
@@ -476,6 +489,7 @@ export class GameInstance {
   /** 重置为默认状态 */
   reset(): void {
     this.operationObservationStore.clear();
+    this.operationRuntime.reset();
     this._tagResidue = { spotTagOverrides: {} };
     resetRuntime({
       stop: () => this.stop(),

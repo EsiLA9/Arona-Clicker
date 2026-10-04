@@ -21,11 +21,14 @@
 - 确保至少一次合法干预、一次标签协同、一次事件轨道变化以及可观察的成功/失败两种局部结果。
 - 通过局部更新呈现准备变化和结算结果，保持焦点、滚动、目标选择与日志阅读连续性。
 - 开始 UI 施工前声明 DOM budget、稳定节点、behavior/region/structure 刷新范围、full render 条件，以及 focus/scroll/hover 连续性方案。
+- 使用按内容职责单独组织的 TypeScript 临时事件定义模块；该纵切只在当前 `activeInit === 'base:init:schale_office'` 时提供入口，借用夏莱办公室作为体验挂载世界线，不把 EventRun 状态写进该 Init 的 PlayerState/Snapshot。具体目录由实施时依据实际内容边界确定。
+- 在同一纵切验证角色随机技能只于 Commit 后结算；不加入非战斗 SceneAction/PlayerCost/场景卡，后者由 Task 0224/0225 承接。
 
 ## Non-goals
 
 - 不制作视觉稿驱动的新工作区导航，不对 UI 进行全局改版。
 - 不实现多地点路线、存档续局、长线剧情或全部事件目标种类。
+- 临时 TypeScript 定义不进入正式 default Datapack/Registry；Task 0220/0222 将内容合同稳定后再迁移正式样例。
 - 不以动画、实时输入速度或隐藏概率作为核心验收。
 
 ## Current AC facts
@@ -51,6 +54,7 @@ Workspace 请求当前 OperationView → 展示 PreparedBeat 与 Intent → 用�
 - [ ] 用户能识别每名学生的行动及原因、可修改范围、不可选原因和修订后的差异；未干预学生保持原计划。
 - [ ] 同一 Beat 同时显示至少两项有代价冲突的合理干预机会；不干预和两种不同干预都能经玩家选择稳定到达不同结果，不由随机单独决定。
 - [ ] 替换/移除专属 Profile 能力会改变一个有效方案或目标结果；学生卡/理由说明该能力的实际作用。
+- [ ] 角色随机技能只在有效 Commit 结算后显示其实际结果；改选、hover 与预览不先掷骰，重复固定 Seed 可复现。
 - [ ] Commit 后每个行动/协同只结算一次，事件轨道、Actor 状态和日志与 Resolver 结果一致。
 - [ ] 未完成选择、非法目标、费用不足与终局状态清楚禁用 Commit 并解释原因。
 - [ ] 改选/hover/scroll 不触发全 Workspace 重建；提交结果后焦点和滚动位置保持可预期。

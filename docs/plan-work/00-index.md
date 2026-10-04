@@ -8,22 +8,30 @@
 
 ## 当前推进
 
-### 玩法 B 接入 AC：运行时基础与核心指挥循环
+### 玩法 B 接入 AC：Runtime、角色自治与战术指挥
 
 - [[draft-0212-gameplay-b-ac-native-design-roadmap]]：玩法 B 接入 AC 的设计路线与分阶段提案。
-- [[task-0213-gameplay-b-event-runtime-and-session-state]]：EventRun / EventState 生命周期与状态归属。
+- [[task-0213-gameplay-b-event-runtime-and-session-state]]：EventRun / EventState 生命周期与状态归属（当前施工中）。
 - [[task-0214-gameplay-b-student-participation-and-autonomy]]：连接角色身份与局内 Actor/Profile，形成可解释的学生自主行动。
 - [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution]]：PreparedBeat、Intent、有限指挥与确定性结算。
 - [[task-0216-gameplay-b-command-loop-vertical-slice-ui]]：核心可玩切片与只读 OperationView。
 
-### 玩法 B 接入 AC：目标结局、多地点与产品化
+### 玩法 B 接入 AC：事件目标与因果地图
 
 - [[task-0217-gameplay-b-objectives-and-partial-outcomes]]：事件目标及成功、部分成功、失败结局。
-- [[task-0218-gameplay-b-causal-locations-and-route-selection]]：多地点因果路线与路线选择。
-- [[task-0219-gameplay-b-event-save-and-resume]]：保存并恢复 EventRun、待提交计划与随机流。
+- [[task-0218-gameplay-b-causal-locations-and-route-selection]]：支持持有物门槛、分支、有界回环与路线选择的多地点地图。
+
+### 玩法 B 接入 AC：场景行为与玩家路线经济
+
+- [[task-0224-gameplay-b-scene-actions-and-route-cost]]：逐人/全局场景行为、共享 PlayerCost 与地点入场增量/离场携带上限。
+- [[task-0225-gameplay-b-finite-player-scene-card-deck]]：有界玩家场景卡组、Seed 抽牌与跨地点牌区状态。
+
+### 玩法 B 接入 AC：内容合同、续局与正式交付
+
 - [[task-0220-gameplay-b-datapack-contracts-and-registry]]：事件内容的 Datapack / Registry 契约。
+- [[task-0219-gameplay-b-event-save-and-resume]]：保存并恢复 EventRun、场景费用/卡组状态、待提交计划与随机流。
 - [[task-0221-gameplay-b-authoring-and-content-validation-workflow]]：事件内容创建、诊断、加载与迭代流程。
-- [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]]：正式玩家入口与端到端产品切片。
+- [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]]：从夏莱办公室入口启动游乐园主题多地点事件的正式产品切片。
 
 ## 近期完成
 
