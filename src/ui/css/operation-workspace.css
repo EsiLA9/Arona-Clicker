@@ -57,8 +57,17 @@
    box-shadow: var(--panel-shadow);
 }
 
-.operation-chat-heading { flex: 0 0 auto; padding: 14px 18px 11px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--cyan) 7%, var(--panel)); }
+.operation-chat-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px 11px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--cyan) 7%, var(--panel)); }
 .operation-chat-heading h1 { margin: 4px 0 0; font-size: 18px; line-height: 1.35; }
+.operation-back-button,
+.operation-clear-intervention { flex: 0 0 auto; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--muted-on-panel); font-size: 10px; cursor: pointer; }
+.operation-back-button:hover,
+.operation-clear-intervention:hover { border-color: var(--theme-node-primary, var(--cyan)); color: var(--ink-on-panel); }
+.operation-back-button:focus-visible,
+.operation-clear-intervention:focus-visible { outline: 2px solid var(--theme-node-primary, var(--cyan)); outline-offset: 2px; }
+.operation-clear-intervention { align-self: flex-start; border-style: dashed; }
+.operation-command-notice { width: min(700px, 100%); align-self: center; margin: 0; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--orange) 45%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--orange) 10%, var(--panel)); color: var(--ink-on-panel); font-size: 10px; line-height: 1.5; }
+.operation-command-notice:focus { outline: 2px solid var(--orange); outline-offset: 2px; }
 .operation-chat-stream { display: flex; flex: 1 1 auto; flex-direction: column; gap: 16px; min-height: 0; overflow: auto; padding: 18px clamp(14px, 3vw, 32px); scroll-behavior: smooth; }
 .operation-opening-message { max-width: min(760px, 96%); }
 .operation-planning,

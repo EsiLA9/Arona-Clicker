@@ -70,8 +70,10 @@ import { bindThemeActions } from './controller-actions-theme';
 import { bindEntityPresentationActions } from './controller-actions-presentation';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
+import { bindOperationActions, type OperationFocusTarget } from './controller-actions-operation';
 import type { GameCommands } from '../arona-clicker/contracts';
 import type { PackCatalogReadModel } from '../arona-clicker/contracts';
+import type { OperationView } from '../arona-clicker/contracts/operation-view';
 import { renderAreaNavItem, renderLeftPanel, type AreaNavKind } from './components/rail';
 import { renderCenterPanel, renderChatTab, renderLogTab } from './components/center-panel';
 import { renderRightPanel } from './components/right-panels';
@@ -83,6 +85,7 @@ import { renderInventoryWorkspace } from './components/inventory-workspace';
 import { renderCharacterWorkspace } from './components/character-workspace';
 import { renderContactsWorkspace } from './components/contacts-workspace';
 import { renderStoryWorkspace } from './components/story-workspace';
+import { renderOperationWorkspace } from './components/operation-workspace';
 import { renderSettingsWorkspace } from './components/settings-workspace';
 import { renderServiceWorkspace, type ServiceWorkspaceId } from './components/service-workspace';
 import { createDefaultUIBehaviorRegistry, type UIBehaviorRegistry } from './update/ui-behaviors';
@@ -118,6 +121,7 @@ const SHOP_REGION_HOST_IDS = [
   'centerPanel.shop.catalog',
   'rightPanel.shop.settlement',
 ] as const;
+const OPERATION_WORKSPACE_REGION_HOST_ID = 'workspace.operation';
 
 function elementMatchesMarkup(current: HTMLElement, html: string): boolean {
   const template = document.createElement('template');
@@ -132,6 +136,62 @@ function elementMatchesMarkup(current: HTMLElement, html: string): boolean {
     });
   }
   return currentComparable.isEqualNode(nextComparable);
+}
+
+function operationMorphKey(node: Node): string | null {
+  if (!(node instanceof HTMLElement)) return null;
+  if (node.hasAttribute('data-operation-student')) return `student:${node.dataset.operationStudent}`;
+  if (node.hasAttribute('data-operation-action-list')) return `action-list:${node.dataset.operationActionList}`;
+  if (node.hasAttribute('data-operation-action')) return `action:${node.dataset.actorId}:${node.dataset.actionId}`;
+  if (node.hasAttribute('data-operation-target')) return `target:${node.dataset.actorId}:${node.dataset.actionId}:${node.dataset.targetActorId}`;
+  if (node.hasAttribute('data-operation-clear')) return `clear:${node.dataset.actorId}`;
+  if (node.hasAttribute('data-operation-intent')) return `intent:${node.dataset.operationIntent}`;
+  if (node.hasAttribute('data-operation-resolution')) return `resolution:${node.dataset.operationResolution}`;
+  if (node.hasAttribute('data-operation-commit')) return 'commit';
+  if (node.hasAttribute('data-operation-back')) return 'back';
+  if (node.hasAttribute('data-operation-command-notice')) return 'command-notice';
+  if (node.hasAttribute('data-operation-log-empty')) return 'log-empty';
+  return null;
+}
+
+function operationMorphCompatible(current: Node, next: Node): boolean {
+  if (current.nodeType !== next.nodeType) return false;
+  if (current instanceof Element && next instanceof Element) return current.tagName === next.tagName;
+  return current.nodeType === Node.TEXT_NODE || current.nodeType === Node.COMMENT_NODE;
+}
+
+function morphOperationNode(current: Node, next: Node): void {
+  if (current.nodeType === Node.TEXT_NODE) {
+    if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+    return;
+  }
+  if (!(current instanceof HTMLElement) || !(next instanceof HTMLElement)) return;
+  for (const attribute of [...current.attributes]) {
+    if (!next.hasAttribute(attribute.name)) current.removeAttribute(attribute.name);
+  }
+  for (const attribute of [...next.attributes]) {
+    if (current.getAttribute(attribute.name) !== attribute.value) current.setAttribute(attribute.name, attribute.value);
+  }
+  const originalChildren = [...current.childNodes];
+  const used = new Set<Node>();
+  [...next.childNodes].forEach((nextChild, index) => {
+    const key = operationMorphKey(nextChild);
+    const keyed = key ? originalChildren.find(child => !used.has(child) && operationMorphKey(child) === key) : undefined;
+    const positional = originalChildren[index];
+    const candidate = keyed ?? (positional && !used.has(positional) && operationMorphCompatible(positional, nextChild) ? positional : undefined);
+    if (candidate && operationMorphCompatible(candidate, nextChild)) {
+      morphOperationNode(candidate, nextChild);
+      current.appendChild(candidate);
+      used.add(candidate);
+    } else {
+      const clone = nextChild.cloneNode(true);
+      current.appendChild(clone);
+      used.add(clone);
+    }
+  });
+  for (const child of originalChildren) {
+    if (!used.has(child) && child.parentNode === current) current.removeChild(child);
+  }
 }
 
 export interface UIRefreshStats {
@@ -225,6 +285,12 @@ export class UIController {
     droppedUpdates: 0,
   };
   private readonly refreshObservations: UIRefreshObservation[] = [];
+  private pendingOperationRefresh: {
+    view: OperationView | null;
+    focus: OperationFocusTarget | null;
+    notice: string | null;
+  } | null = null;
+  private operationFocusAfterRender: 'commit' | 'entry' | null = null;
   private lastLogEntryId = -1;
   /** @internal 主题浮窗：跨 render 全量重建 #app 保留其开关键与位置（供 controller-theme / controller-actions-topbar 读写）。 */
   themeFloatOpen = false;
@@ -474,6 +540,23 @@ export class UIController {
   /** 请求一次行为/区域/结构更新；同一事件循环内会自动合并。 */
   requestUIUpdate(request: UIUpdateRequest): void {
     this.updates.request(request);
+  }
+
+  /** 已挂载 Operation 内的单次命令提交一份 detached View，并只更新该工作区区域。 */
+  requestOperationWorkspaceRefresh(
+    view: OperationView | null,
+    focus: OperationFocusTarget | null,
+    notice: string | null = null,
+  ): void {
+    const workspace = this.panelState.workspace;
+    if (workspace?.type !== 'operation' || (view && view.runId !== workspace.runId)) return;
+    this.pendingOperationRefresh = { view, focus, notice };
+    this.requestUIUpdate({
+      type: 'region',
+      hostId: OPERATION_WORKSPACE_REGION_HOST_ID,
+      reason: 'operation-command',
+    });
+    this.flushUIUpdates();
   }
 
   /** 立即执行单个行为补丁；Tick 等高频路径使用它避免重建 DOM。 */
@@ -893,6 +976,18 @@ export class UIController {
     this.scroll.observeChatStream(this.root);
     this.scroll.restorePanel(this.root);
     this.scroll.restoreWorkspace(this.root);
+    const focusAfterRender = this.operationFocusAfterRender;
+    this.operationFocusAfterRender = null;
+    const operationFocus = focusAfterRender === 'commit'
+      ? this.root.querySelector<HTMLElement>('[data-operation-commit]:not(:disabled)')
+        ?? this.root.querySelector<HTMLElement>('[data-operation-commit-dock]')
+      : focusAfterRender === 'entry'
+        ? this.root.querySelector<HTMLElement>('[data-operation-start], [data-operation-resume-run]')
+        : null;
+    if (operationFocus) {
+      if (!operationFocus.hasAttribute('tabindex') && operationFocus.matches('[data-operation-commit-dock]')) operationFocus.tabIndex = -1;
+      operationFocus.focus({ preventScroll: true });
+    }
     this.applyTheme(false);
     // 主题浮窗跨 render 重建存活（开关 + 位置）
     this.restoreThemeFloat();
@@ -1284,6 +1379,21 @@ export class UIController {
       return outcome;
     }
     if (update.type === 'region') {
+      if (this.panelState.workspace?.type === 'operation' && update.hostId === OPERATION_WORKSPACE_REGION_HOST_ID) {
+        const applied = this.refreshOperationWorkspaceRegion();
+        if (applied) this.refreshStats.regionRefreshes += 1;
+        this.publishRefreshStats();
+        const outcome = applied ? 'applied' : 'not-found';
+        this.recordUIUpdate(update, outcome, applied ? undefined : 'operation-region-missing');
+        return outcome;
+      }
+      if (!this.panelState.workspace && this.panelState.service === 'game' && update.hostId === 'centerPanel.chat') {
+        this.refreshChatPanel();
+        this.refreshStats.regionRefreshes += 1;
+        this.publishRefreshStats();
+        this.recordUIUpdate(update, 'applied');
+        return 'applied';
+      }
       if (this.panelState.workspace?.type !== 'shop' || !SHOP_REGION_HOST_IDS.includes(update.hostId as typeof SHOP_REGION_HOST_IDS[number])) {
         this.recordUIUpdate(update, 'unsupported', 'region-host-unsupported');
         return 'unsupported';
@@ -1446,6 +1556,66 @@ export class UIController {
     return replaced === uniqueHostIds.length;
   }
 
+  private refreshOperationWorkspaceRegion(): boolean {
+    const pending = this.pendingOperationRefresh;
+    const workspace = this.panelState.workspace;
+    if (!pending || workspace?.type !== 'operation' || (pending.view && pending.view.runId !== workspace.runId)) return false;
+    const current = this.root.querySelector<HTMLElement>('[data-workspace-frame="operation"]');
+    if (!current) return false;
+
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const template = document.createElement('template');
+    template.innerHTML = renderOperationWorkspace(context, pending.view, pending.notice).trim();
+    const next = template.content.querySelector<HTMLElement>('[data-workspace-frame="operation"]');
+    if (!next) return false;
+
+    const oldStream = current.querySelector<HTMLElement>('[data-operation-log]');
+    const oldScrollTop = oldStream?.scrollTop ?? 0;
+    const oldAtBottom = oldStream
+      ? oldStream.scrollHeight - oldStream.clientHeight <= 0
+        || oldStream.scrollTop + oldStream.clientHeight >= oldStream.scrollHeight - 24
+      : true;
+    this.popovers.dismissBeforeRootMutation(current);
+    morphOperationNode(current, next);
+    if (!current.isConnected) return false;
+
+    const nextStream = current.querySelector<HTMLElement>('[data-operation-log]');
+    if (nextStream) {
+      const max = Math.max(0, nextStream.scrollHeight - nextStream.clientHeight);
+      nextStream.scrollTop = oldAtBottom ? max : Math.min(oldScrollTop, max);
+    }
+
+    let focusTarget: HTMLElement | null = null;
+    const focus = pending.focus;
+    if (focus?.type === 'action') {
+      focusTarget = [...current.querySelectorAll<HTMLButtonElement>('[data-operation-action]')]
+        .find(button => button.dataset.actorId === focus.actorId && button.dataset.actionId === focus.actionId) ?? null;
+    } else if (focus?.type === 'target') {
+      focusTarget = [...current.querySelectorAll<HTMLButtonElement>('[data-operation-target]')]
+        .find(button => button.dataset.actorId === focus.actorId
+          && button.dataset.actionId === focus.actionId
+          && button.dataset.targetActorId === focus.targetActorId) ?? null;
+    } else if (focus?.type === 'clear') {
+      focusTarget = [...current.querySelectorAll<HTMLButtonElement>('[data-operation-clear]')]
+        .find(button => button.dataset.actorId === focus.actorId) ?? null;
+      focusTarget ??= [...current.querySelectorAll<HTMLButtonElement>('[data-operation-action]')]
+        .find(button => button.dataset.actorId === focus.actorId) ?? null;
+    } else if (focus?.type === 'commit') {
+      focusTarget = current.querySelector<HTMLButtonElement>('[data-operation-commit]') ?? null;
+    }
+    if (focusTarget instanceof HTMLButtonElement && focusTarget.disabled) focusTarget = null;
+    focusTarget ??= current.querySelector<HTMLElement>('[data-operation-command-notice]');
+    focusTarget ??= current.querySelector<HTMLElement>('[data-operation-commit-dock]');
+    if (focusTarget) {
+      if (focusTarget.matches('[data-operation-commit-dock]')) focusTarget.tabIndex = -1;
+      focusTarget.focus({ preventScroll: true });
+    }
+
+    this.pendingOperationRefresh = null;
+    this.applyTheme(false);
+    return true;
+  }
+
   private findThemeHost(root: ParentNode, hostId: string): HTMLElement | null {
     return [...root.querySelectorAll<HTMLElement>('[data-theme-host-id]')]
       .find(node => node.dataset.themeHostId === hostId) ?? null;
@@ -1586,6 +1756,7 @@ export class UIController {
     bindStoryActions(this);
     bindInventoryActions(this);
     bindSaveActions(this);
+    bindOperationActions(this);
   }
 
   /** 招募补给弹窗：卡池列表 + 抽取按钮（委托 controller-modals）。 */
@@ -1667,6 +1838,7 @@ export class UIController {
   disposeWorkspace(): void {
     const workspace = this.panelState.workspace;
     if (!workspace) return;
+    if (workspace.type === 'operation') this.operationFocusAfterRender = 'entry';
     if (workspace.type === 'shop') {
       workspace.session.clear();
       this.game.colorSystem.popEphemeralTheme(workspace.themeId);
@@ -1852,6 +2024,7 @@ export class UIController {
     this.panelState.centerTab = 'chat';
     this.panelState.rightTab = 'spot';
     this.panelState.storyGate = null;
+    this.operationFocusAfterRender = 'commit';
     return workspace;
   }
 

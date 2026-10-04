@@ -22,11 +22,16 @@
 - command 调用路径是 UI → Controller → Runtime facade；组件只发命令，不直接持有 Runtime 写入口。
 - `operationEntry` 窄 facade 提供 start、getView、合法 revision/clear/commit；禁止组件直接读写 EventRun。
 - App runtime bootstrap 由 `src/app/runtime-bootstrap.ts` 组装；UI mount 前需核验 `activeInit`。
+- Gameplay B `OperationView` query 已作为 `GameReadModel.operationEntry.getView(runId)` 暴露；Runtime owner 可能在返回聊天后继续保留当前易失 Run。
+- UIUpdateDispatcher region 更新需由 Controller 明确声明可处理的稳定 host；route 进出则使用 workspace structure 刷新。
+- Operation Workspace 的 keyed DOM morph 保留 frame、学生卡、候选按钮、主日志滚动容器和 Commit dock；离开时用现有 chat scroll snapshot 恢复来源位置。
 - 主题改动已有未提交文件 `src/ui/context.ts`、`src/ui/controller-theme.ts` 等；不得覆盖或重置用户变化。
 
 ## Allowed Files
 
 - `src/ui/components/center-panel.ts`
+- `src/ui/components/operation-workspace.ts`
+- `src/ui/css/operation-workspace.css`
 - src/ui/controller-actions-operation.ts (new file)
 - `src/ui/controller.ts`
 - tests/ui/gameplay-b-operation-controller.test.ts (new file)
@@ -36,7 +41,7 @@
 
 - 非 `base:init:schale_office` 隐藏入口；Roster admission 错误明确呈现，不添加学生。
 - Operation 命令与主题 dirty 文件职责分离；若确须修改 `src/ui/context.ts`、`runtime-commands.ts` 等白名单外文件先上报并更新 Unit。
-- 每个用户操作最多构造一次最新 OperationView，并发出一个合并 region 更新；hover/scroll/普通候选选择不得触发 Runtime 重建、resolver 或全量 render。
+- 每个用户操作最多构造一次最新 OperationView，并发出一个合并更新：route 进出使用 workspace structure，已挂载 Operation 内的命令使用单一 region；hover/scroll/普通候选选择不得触发 Runtime 重建、resolver 或全量 render。
 - commit 结果以 Runtime Resolution 为准；两 Beat 后 UI 本地判读“安全处置 / 处置失败”，禁用继续 commit，明确非正式 EventOutcome。
 - 返回聊天流保留列表、tab、焦点与滚动状态。
 
@@ -52,10 +57,12 @@
 ## Completion Criteria
 
 - [ ] 入口只在 Office Init 中可见，点击后新建 Run 并进入 U3 Operation Surface。
-- [ ] 修订、取消与 Commit 有明确命令结果、错误状态和可预期焦点恢复。
-- [ ] 单次用户命令对应一个 OperationView 读取与一个合并 surface 更新。
-- [ ] 两个 Beat 后停止接受 Commit 并展示样例本地结论，不污染 Runtime formal status。
-- [ ] UI tests 覆盖非 Office 隐藏、Admission failure、revision、clear、commit、refresh observation。
+- [x] 入口只在 Office Init 中可见，点击后新建 Run 并进入 U3 Operation Surface。
+- [x] 返回聊天后当前易失 Run 可由同一中心入口继续进入，不重复准入或创建第二个 Run。
+- [x] 修订、取消与 Commit 有明确命令结果、错误状态和可预期焦点恢复。
+- [x] 单次用户命令对应一个 OperationView 读取与一个合并 surface 更新。
+- [x] 两个 Beat 后停止接受 Commit 并展示样例本地结论，不污染 Runtime formal status。
+- [x] UI tests 覆盖非 Office 隐藏、Admission failure、revision、clear、commit、refresh observation。
 
 ## Verification
 

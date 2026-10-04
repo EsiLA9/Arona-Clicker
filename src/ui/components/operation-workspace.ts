@@ -96,7 +96,7 @@ function renderTargets(ctx: UIContext, view: OperationView, actor: OperationView
   if (!selected || option.legalTargetActorIds.length < 2) return '';
   const chosen = actor.currentPlan?.targetActorId ?? option.defaultTargetActorId;
   return `<span class="operation-action-targets" aria-label="选择目标">${option.legalTargetActorIds.map(targetId => `
-    <button type="button" class="operation-target-choice${targetId === chosen ? ' is-selected' : ''}" data-operation-target data-actor-id="${safeText(ctx, actor.id)}" data-action-id="${safeText(ctx, option.actionId)}" data-target-actor-id="${safeText(ctx, targetId)}" aria-pressed="${String(targetId === chosen)}"${disabled ? ' disabled' : ''}>${safeText(ctx, targetName(view, targetId))}</button>`).join('')}
+    <button type="button" class="operation-target-choice${targetId === chosen ? ' is-selected' : ''}" data-operation-target data-run-id="${safeText(ctx, view.runId)}" data-plan-version="${safeText(ctx, String(view.planVersion))}" data-actor-id="${safeText(ctx, actor.id)}" data-action-id="${safeText(ctx, option.actionId)}" data-target-actor-id="${safeText(ctx, targetId)}" aria-pressed="${String(targetId === chosen)}"${disabled ? ' disabled' : ''}>${safeText(ctx, targetName(view, targetId))}</button>`).join('')}
   </span>`;
 }
 
@@ -104,13 +104,14 @@ function renderActionOption(ctx: UIContext, view: OperationView, actor: Operatio
   const plan = actor.currentPlan;
   const selected = plan?.actionId === option.actionId;
   const reasons = [...new Set([...option.missingCapabilityIds, ...optionDisabledReasons(option)])];
-  const disabled = !option.selectable || view.status !== 'inProgress';
+  const demoComplete = view.resolutions.length >= presentation.event.maximumBeats;
+  const disabled = !option.selectable || view.status !== 'inProgress' || demoComplete;
   const cost = costLabel(view, actor, option);
   const actionDescription = actionCopy[option.actionId]?.description;
   const hasReasonText = reasons.some(id => Boolean(reasonText(id)));
   const note = hasReasonText ? displayReasons(reasons, ctx) : actionDescription ? `<small>${safeText(ctx, actionDescription)}</small>` : '';
   return `<div class="operation-action-choice${selected ? ' is-selected' : ''}${disabled ? ' is-disabled' : ''}">
-    <button type="button" class="operation-action-button" data-operation-action data-actor-id="${safeText(ctx, actor.id)}" data-action-id="${safeText(ctx, option.actionId)}" aria-pressed="${String(selected)}"${disabled ? ' disabled' : ''}>
+    <button type="button" class="operation-action-button" data-operation-action data-run-id="${safeText(ctx, view.runId)}" data-plan-version="${safeText(ctx, String(view.planVersion))}" data-actor-id="${safeText(ctx, actor.id)}" data-action-id="${safeText(ctx, option.actionId)}" data-default-target-actor-id="${safeText(ctx, option.defaultTargetActorId ?? '')}" aria-pressed="${String(selected)}"${disabled ? ' disabled' : ''}>
       <span class="operation-action-button__copy"><strong>${safeText(ctx, actionName(option.actionId))}</strong>${cost ? `<small class="operation-action-cost">${safeText(ctx, cost)}</small>` : ''}</span>
       <span class="operation-action-button__mark" aria-hidden="true">${selected ? '✓' : '＋'}</span>
     </button>
@@ -127,8 +128,11 @@ function renderStudentPlan(ctx: UIContext, view: OperationView, actor: Operation
   ));
   const options = actor.profile?.actionOptions ?? [];
   const currentReason = displayReasons(effectivePlan?.reasonIds ?? [], ctx);
+  const clearIntervention = view.interventionDraft?.actorId === actor.id
+    ? `<button type="button" class="operation-clear-intervention" data-operation-clear data-run-id="${safeText(ctx, view.runId)}" data-plan-version="${safeText(ctx, String(view.planVersion))}" data-actor-id="${safeText(ctx, actor.id)}">取消本回合修订</button>`
+    : '';
   const content = options.length
-    ? `<div class="operation-action-list">${options.map(option => renderActionOption(ctx, view, actor, option)).join('')}</div>`
+    ? `<div class="operation-action-list" data-operation-action-list="${safeText(ctx, actor.id)}">${options.map(option => renderActionOption(ctx, view, actor, option)).join('')}</div>`
     : '<p class="operation-muted">当前没有可修改的行动。</p>';
   return `<article class="operation-student-card" data-operation-student="${safeText(ctx, actor.id)}">
     <header class="operation-student-card__header"><span class="operation-student-card__avatar" aria-hidden="true">${safeText(ctx, actorName(actor.id, actor.participantKind).slice(0, 1))}</span><span><strong>${safeText(ctx, actorName(actor.id, actor.participantKind))}</strong><small>${safeText(ctx, actorDescription(actor.id))}</small></span></header>
@@ -137,6 +141,7 @@ function renderStudentPlan(ctx: UIContext, view: OperationView, actor: Operation
       ${changed ? `<p class="is-revised"><span>本回合修订</span><strong>${safeText(ctx, describePlan(view, actor, effectivePlan))}</strong></p>` : ''}
       ${currentReason}
     </div>
+    ${clearIntervention}
     ${content}
   </article>`;
 }
@@ -177,10 +182,10 @@ function renderResolution(ctx: UIContext, view: OperationView): string {
   }).join('');
 }
 
-function renderUnavailable(): string {
+function renderUnavailable(ctx: UIContext, notice: string | null): string {
   return `<section class="operation-unavailable" data-operation-unavailable role="status">
     <span class="operation-unavailable__mark" aria-hidden="true">!</span>
-    <div><h1>这次行动暂时无法读取</h1><p>请从夏莱办公室重新开始试玩，并确认账号已持有且解锁星野、芹香与白子。</p></div>
+    <div><h1>这次行动暂时无法读取</h1><p>请从夏莱办公室重新开始试玩，并确认账号已持有且解锁星野、芹香与白子。</p>${notice ? `<p class="operation-command-notice" data-operation-command-notice tabindex="-1">${safeText(ctx, notice)}</p>` : ''}<button type="button" class="operation-back-button" data-operation-back>返回聊天流</button></div>
   </section>`;
 }
 
@@ -208,22 +213,30 @@ function renderSidebar(ctx: UIContext, view: OperationView): string {
   </aside>`;
 }
 
-function renderMain(ctx: UIContext, view: OperationView): string {
+function renderMain(ctx: UIContext, view: OperationView, notice: string | null): string {
   const event = presentation.event;
   const students = view.actorStates.filter(actor => actor.participantKind === 'student');
   const intents = view.actorStates.map(actor => renderIntent(ctx, view, actor)).filter(Boolean).join('');
-  const finished = view.status !== 'inProgress';
-  const resultLabel = view.status === 'success' ? '行动成功' : view.status === 'partialSuccess' ? '行动部分达成' : '行动未能完成';
+  const localFinished = view.status === 'inProgress' && view.resolutions.length >= event.maximumBeats;
+  const finished = view.status !== 'inProgress' || localFinished;
+  const locallySafe = view.tracks[CAROUSEL_SAFETY_IDS.track] !== undefined
+    && view.tracks[CAROUSEL_SAFETY_IDS.track] <= event.localOutcome.safeAtOrBelow;
+  const resultLabel = localFinished
+    ? locallySafe ? '安全处置' : '处置失败'
+    : view.status === 'success' ? '行动成功' : view.status === 'partialSuccess' ? '行动部分达成' : '行动未能完成';
   const beat = Math.min(view.beatIndex + 1, event.maximumBeats);
   const blockerText = view.commitBlockedReasonIds.map(reasonText).filter((value): value is string => Boolean(value)).join(' ');
   const dockTitle = finished ? resultLabel : view.canCommit ? '本回合方案已就绪' : '还需要处理计划问题';
   const dockDescription = finished
-    ? `试玩已经结算。${view.tracks[CAROUSEL_SAFETY_IDS.track] !== undefined && view.tracks[CAROUSEL_SAFETY_IDS.track] <= event.localOutcome.safeAtOrBelow ? '设施危险已降到目标范围。' : '设施风险仍高于目标范围。'}`
+    ? localFinished
+      ? `两回合本地试玩已结束。${locallySafe ? '设施危险已降到目标范围。' : '设施风险仍高于目标范围。'}这只是试玩判读，不会改写正式事件结局。`
+      : `Runtime 已结束本次行动。${locallySafe ? '设施危险已降到目标范围。' : '设施风险仍高于目标范围。'}`
     : blockerText || `第 ${beat} 回合等待确认；可以调整一位学生的行动。`;
   const commitDisabled = finished || !view.canCommit;
   return `<main class="operation-chat" aria-label="行动对话与决策">
-    <header class="operation-chat-heading"><span class="operation-eyebrow">夏莱行动记录 · 旋转木马安全事件</span><h1>${safeText(ctx, event.title)}</h1></header>
+    <header class="operation-chat-heading"><div><span class="operation-eyebrow">夏莱行动记录 · 旋转木马安全事件</span><h1>${safeText(ctx, event.title)}</h1></div><button type="button" class="operation-back-button" data-operation-back>返回聊天流</button></header>
     <div class="operation-chat-stream" data-scroll="content-region" data-operation-log role="log" aria-live="polite" aria-relevant="additions text">
+      ${notice ? `<p class="operation-command-notice" data-operation-command-notice role="alert" tabindex="-1">${safeText(ctx, notice)}</p>` : ''}
       <div class="chat-talk chat-talk-npc operation-opening-message">
         <span class="chat-avatar" aria-hidden="true"><span class="chat-avatar-fallback">安</span></span>
         <div class="chat-talk-main"><div class="chat-name"><span>游乐园安全员</span></div><div class="chat-bubble chat-bubble-npc"><p>${safeText(ctx, event.introduction)}</p></div></div>
@@ -237,15 +250,15 @@ function renderMain(ctx: UIContext, view: OperationView): string {
     </div>
     <footer class="operation-commit-dock" data-operation-commit-dock>
       <div class="operation-commit-status" role="status"><strong>${safeText(ctx, dockTitle)}</strong><span>${safeText(ctx, dockDescription.replace(/<[^>]*>/g, ''))}</span></div>
-      <button type="button" class="operation-commit-button" data-operation-commit${commitDisabled ? ' disabled' : ''}><span>${finished ? '本次试玩已结束' : `提交第 ${beat} 回合`}</span><span aria-hidden="true">→</span></button>
+      <button type="button" class="operation-commit-button" data-operation-commit data-run-id="${safeText(ctx, view.runId)}" data-plan-version="${safeText(ctx, String(view.planVersion))}" data-resolved-beats="${safeText(ctx, String(view.resolutions.length))}"${commitDisabled ? ' disabled' : ''}><span>${finished ? '本次试玩已结束' : `提交第 ${beat} 回合`}</span><span aria-hidden="true">→</span></button>
     </footer>
   </main>`;
 }
 
-export function renderOperationWorkspace(ctx: UIContext, view: OperationView | null): string {
-  const unavailable = view ? '' : renderUnavailable();
+export function renderOperationWorkspace(ctx: UIContext, view: OperationView | null, notice: string | null = null): string {
+  const unavailable = view ? '' : renderUnavailable(ctx, notice);
   const sidebar = view ? renderSidebar(ctx, view) : '<aside class="operation-sidebar" aria-hidden="true"></aside>';
-  const main = view ? renderMain(ctx, view) : unavailable;
+  const main = view ? renderMain(ctx, view, notice) : unavailable;
   return renderWorkspaceFrame(ctx, {
     id: 'operation',
     layout: { composition: 'center-right', responsive: 'default' },

@@ -7,6 +7,8 @@ import type { SendState } from '../../arona-clicker/contracts/results';
 import type { ActiveBanner, SendGatePhase, StoryGateState } from './app-shell';
 import { renderBackground } from '../background-service';
 import { renderPresentationRegion } from '../presentation-service';
+import { CAROUSEL_SAFETY_IDS } from '../../arona-clicker/content/operation-samples/carousel-safety-ids';
+import { CAROUSEL_SAFETY_PRESENTATION } from '../../arona-clicker/content/operation-samples/carousel-safety-copy';
 
 const CENTER_TABS: TabDef[] = [
   { id: 'chat', label: '聊天' },
@@ -71,6 +73,7 @@ export function renderChatTab(
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
   const launcher = story ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
+  const operationEntry = renderOperationEntry(ctx);
   const send = renderSendButton(sendState, sendGate);
 
   // 聊天流与回复按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧，
@@ -82,6 +85,7 @@ export function renderChatTab(
       <div class="chat-stream">
         ${history}
         ${current}
+        ${operationEntry}
         ${launcher}
       </div>
       ${renderChatTexts(ctx, chatTexts)}
@@ -89,6 +93,25 @@ export function renderChatTab(
       ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
       ${send}
     </div>`;
+}
+
+function renderOperationEntry(ctx: UIContext): string {
+  if (ctx.view.activeInit !== 'base:init:schale_office') return '';
+  const current = ctx.game.operationEntry.getView();
+  const resumable = current?.status === 'inProgress' ? current : null;
+  const localResultReady = resumable !== null
+    && resumable.resolutions.length >= CAROUSEL_SAFETY_PRESENTATION.event.maximumBeats;
+  const action = resumable
+    ? `<button type="button" class="primary-button" data-operation-resume-run="${ctx.escapeHtml(resumable.runId)}"><span>${localResultReady ? '查看试玩结论' : '继续安全试玩'}</span><span>↗</span></button>`
+    : '<button type="button" class="primary-button" data-operation-start><span>查看游乐园警报</span><span>↗</span></button>';
+  return `
+    <section class="chat-launcher operation-entry-card" data-operation-entry>
+      <span class="operation-eyebrow">游乐园 · 设施安全事件</span>
+      <strong>${ctx.escapeHtml(CAROUSEL_SAFETY_PRESENTATION.event.title)}</strong>
+      <p>${ctx.escapeHtml(CAROUSEL_SAFETY_PRESENTATION.event.introduction)}</p>
+      <p>需要先持有并解锁星野、芹香与白子；试玩不会自动补发角色。</p>
+      <div class="story-actions">${action}</div>
+    </section>`;
 }
 
 function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeCompleted: boolean): string {
