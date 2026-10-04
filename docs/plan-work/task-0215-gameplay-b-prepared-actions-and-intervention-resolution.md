@@ -1,6 +1,6 @@
 # Task 0215 — 玩法 B 行动准备、有限指挥与统一结算
 
-状态：active — U1–U3 完成；U4 纯准备与目标处理待施工
+状态：active — U1–U4 完成；U5 单槽干预草稿与预览待施工
 
 ## 目标
 
@@ -40,6 +40,7 @@
 
 - `PreparedBeat` 是 EventRun 内冻结且可 detached 读取的计划。U4 纯准备器只计算该值，不写 Run、发事件或消费 RNG；U8 的唯一 Run owner 在启动、有效提交和合法状态变更后保存/替换当前 PreparedBeat。0219 随 Run 保存该当前值。相同 Run 快照与同一份 Run-start frozen rules 必得相同 plans、target、cost 和 reason。
 - 学生行动优先顺序为 Profile `actionPriorityIds` 的合法候选，再按 `candidateActionIds` 次序补足；每项还必须在当前 Location 启用、满足 ActionDef 能力门槛、允许该参与者并通过预算/目标检查。对手/环境仅按其 ParticipantSpec `candidateActionIds` 顺序尝试；不引入 AI 策略语言。
+- 当前 Location 缺少 `locationTactics` 块时，视作 `enabledActionIds=[]`，关闭该地点全部行动并产生 Wait；不回退为启用整个 Action catalog，也不查找其他地点。自动目标不可用或成本不足只淘汰当前候选并继续尝试下一项；只有候选最终可执行时才预留成本，Wait 永不扣费。动态 Wait reasons 以 `operation:plan:no-candidate-action`、`operation:plan:no-enabled-action`、`operation:plan:no-legal-target`、`operation:plan:insufficient-resource` 区分并按候选顺序聚合；学生静态能力无合格候选时保留 Profile fallback reason。
 - Actor 遍历顺序以 `OperationEventDef.actors` 声明顺序为唯一规范顺序；所有 Team 共享资源预留、Action/Intent 选择、Combination pair 搜索和 Student Skill roll 均按该顺序执行。成本不足时尝试同一候选序列的下一项；无可执行项时生成无成本 Wait 与稳定原因 ID。
 - 目标合同仅支持无目标或单个 Actor 目标。ActionDef 声明是否需要目标及 team relation（self/sameTeam/otherTeam/any）；来源 Actor slot 的 `targetPriorityActorIds` 提供场景偏好并只能引用本 Event 声明的 Actor。`self` 只匹配行动者自身；`sameTeam` 要求双方 teamId 都已声明且相同；`otherTeam` 要求双方都属于已声明且不同的 Team；`any` 包含无 Team 的 Actor。自动目标先取来源 Actor slot 明确优先且仍合法的 ID，之后按 Event Actor 声明顺序取第一个；不得把具体 Actor ID 放入可复用 ActionDef，也不得用对象迭代偶然顺序、随机数或动态全图查询破同分。玩家可干预时必须传入一个当前合法 Actor ID。
 - Team 与 Actor 资源均按 Actor 声明顺序预留；同一 Beat 的新资源效果不能资助该 Beat 的 Action。Intervention 后只替换该学生的计划；若该修改使任何计划无法支付或目标不再合法，则拒绝修改，不暗中改写其他 Actor 原计划。
