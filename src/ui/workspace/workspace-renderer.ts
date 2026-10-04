@@ -8,6 +8,7 @@ import { renderShopWorkspace } from '../components/shop';
 import { renderCharacterWorkspace } from '../components/character-workspace';
 import { renderContactsWorkspace } from '../components/contacts-workspace';
 import { renderStoryWorkspace } from '../components/story-workspace';
+import { renderOperationWorkspace } from '../components/operation-workspace';
 import { renderSettingsWorkspace } from '../components/settings-workspace';
 import { renderInventoryWorkspace } from '../components/inventory-workspace';
 import { renderWorkspaceFrame } from '../components/workspace-frame';
@@ -47,6 +48,13 @@ function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: Panel
   if (route.kind === 'character' && state.workspace?.type === 'character') return { body: renderCharacterWorkspace(ctx, state.workspace, state), footerNote: 'CHARACTER SERVICE · WORKSPACE' };
   if (route.kind === 'contacts' && state.workspace?.type === 'contacts') return { body: renderContactsWorkspace(ctx, state.workspace, state), footerNote: 'CONTACTS SERVICE · WORKSPACE' };
   if (route.kind === 'story' && state.workspace?.type === 'story') return { body: renderStoryWorkspace(ctx, state.workspace, state), footerNote: 'STORY SERVICE · WORKSPACE' };
+  if (route.kind === 'operation') {
+    const workspace = state.workspace?.type === 'operation' && state.workspace.runId === route.runId
+      ? state.workspace
+      : null;
+    const operationView = workspace ? ctx.game.operationEntry.getView(route.runId) : null;
+    return { body: renderOperationWorkspace(ctx, operationView), footerNote: '游乐园试玩 · 本地行动记录' };
+  }
   return { body: renderGameWorkspace(ctx, state), footerNote: 'TS-HTML ENGINE · NO NETWORK' };
 }
 

@@ -15,12 +15,15 @@
 - `src/ui/components/workspace-frame.ts`
 - 当前 AC CSS theme tokens：`src/ui/css/variables.css`、`chat.css`、`layout.css`
 - `src/arona-clicker/contracts/operation-view.ts`（U1）
+- `src/arona-clicker/contracts/runtime.ts`（只读 OperationView 查询口）
 
 ## Confirmed Facts
 
 - 现有 Workspace Frame 支持 center/right 双栏宿主；AC 主界面主题以蓝/青 token、浅色面板和既有字体为主。
 - UI 组件使用只读 context，不持有 Operation owner；behavior / region / structure 刷新等级按 Overlay 协议。
 - Operation Surface 由 U3 提供，静态样例展示文案由 U2 的样例定义提供。
+- `GameReadModel.operationEntry` 只公开 `OperationViewQuery.getView(runId)`；视图不含 Runtime 写入口或原始内容规则。
+- 两列 geometry 使用 `center-right`，Operation 专属比例 `.78fr / 2.22fr`；中心聊天列约占可用工作区 74%。
 
 ## DOM Budget 与连续性
 
@@ -37,6 +40,8 @@
 ## Allowed Files
 
 - `src/ui/workspace/workspace-renderer.ts`
+- `src/arona-clicker/contracts/operation-view.ts`
+- `src/arona-clicker/contracts/runtime.ts`
 - src/ui/components/operation-workspace.ts (new file)
 - src/ui/css/operation-workspace.css (new file)
 - `src/ui/main.ts`
@@ -61,10 +66,10 @@
 
 ## Completion Criteria
 
-- [ ] 同屏可读当前地点、track、学生准备行动、对手/环境 Intent、干预余量、Commit 状态。
-- [ ] 当前计划与修订计划的差异、不能改的理由、危险轨道影响清楚。
-- [ ] 日志与主要决策位于中心对话流；侧栏不能挤占其 60% 最小宽度。
-- [ ] 组件测试验证安全文本、缺失 admission、等待/已结算状态以及无 raw rule leak。
+- [x] 同屏可读当前地点、track、学生准备行动、对手/环境 Intent、干预余量、Commit 状态。
+- [x] 当前计划与修订计划的差异、不能改的理由、危险轨道影响清楚。
+- [x] 日志与主要决策位于中心对话流；CSS 网格比例使中心列占可用工作区 74%。
+- [x] 组件测试验证安全文本、缺失 admission/run、等待/已结算状态以及无 raw rule leak。
 
 ## Verification
 

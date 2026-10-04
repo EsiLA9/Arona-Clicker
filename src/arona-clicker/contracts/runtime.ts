@@ -34,6 +34,7 @@ import type { EntityPresentationQueryPort } from './entity-presentation-query';
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type { AchievementViewItem } from '../read-model/achievement-view';
 import type { OperationObservation } from './operation-observation';
+import type { OperationViewQuery } from './operation-view';
 import type { PackManifestColor } from '../../data-services/datapack/manifest';
 
 export interface PackCatalogEntry {
@@ -261,6 +262,8 @@ export interface GameReadModel {
   readonly userThemeService: UserThemeService;
   readonly story: StoryQueryPort;
   readonly spot: SpotQueryPort;
+  /** Read-only Gameplay B projection; excludes EventRun and all mutation commands. */
+  readonly operationEntry: OperationViewQuery;
   getView(): GameView;
   getAchievementView(): readonly AchievementViewItem[];
   availableAreaIds(areaId: string): string[];

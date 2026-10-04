@@ -21,6 +21,7 @@ import './css/contacts.css';
 import './css/theme-panel.css';
 import './css/entity-theme.css';
 import './css/conversation.css';
+import './css/operation-workspace.css';
 import './css/story-overlays.css';
 import './css/equipment.css';
 import './css/gear.css';

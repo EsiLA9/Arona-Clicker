@@ -75,3 +75,8 @@ export interface OperationView {
   readonly resolutions: readonly OperationViewResolution[];
   readonly resolutionSequence: number;
 }
+
+/** Narrow UI query port; exposes detached projections without Runtime mutation commands. */
+export interface OperationViewQuery {
+  getView(expectedRunId?: string): OperationView | null;
+}
