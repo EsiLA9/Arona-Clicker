@@ -173,7 +173,7 @@ function validateBeatOrder(event: OperationEventDef, preparedBeat: PreparedBeat)
   if (!Number.isSafeInteger(preparedBeat.planVersion) || preparedBeat.planVersion < 0) {
     fail('PreparedBeat planVersion must be a non-negative safe integer');
   }
-  if (!event.locationIds.includes(preparedBeat.locationId)) {
+  if (!event.locations.some(location => location.id === preparedBeat.locationId)) {
     fail('PreparedBeat locationId references an undeclared Event Location');
   }
   if (!Array.isArray(preparedBeat.actorPlans) || preparedBeat.actorPlans.length !== event.actors.length) {

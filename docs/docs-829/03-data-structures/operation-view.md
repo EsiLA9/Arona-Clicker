@@ -11,7 +11,7 @@
 
 ## 投影内容
 
-投影包括当前 Event / Location、版本与 Beat、轨道/事实/持有物、Actor 与 Team、基础计划和干预后计划、合法 Action / Target 候选及阻塞理由、协同预览、Commit 状态、Resolution 历史和序号。角色技能结果只保留是否成功；tactical RNG cursor、roll 测量、原始规则对象和完整 Run 不出现在 UI DTO。
+投影包括当前 Event / Location、版本与 Beat、轨道/事实/持有物、事件与地点目标进度、Actor 与 Team、基础计划和干预后计划、合法 Action / Target 候选及阻塞理由、协同预览、Commit 状态、Resolution 历史和序号。RouteView 投影当前地点出口、可用性/锁定原因、持有物要求、转场历史、总访问数与事件访问上限；它不包含可写规则或整张地图副本。角色技能结果只保留是否成功；tactical RNG cursor、roll 测量、原始规则对象和完整 Run 不出现在 UI DTO。
 
 写命令重算候选时，projector 复用冻结规则上的纯干预预览与 Combination resolver；读取 View 不调用内容 resolver、不写 EventRun、不推进随机游标。返回结构深度脱离 owner 当前状态。
 

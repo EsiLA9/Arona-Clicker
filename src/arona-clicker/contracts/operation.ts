@@ -1,5 +1,4 @@
-import type { OperationLocationTacticsDef } from './operation-action';
-import type { OperationActionDef } from './operation-action';
+import type { OperationActionDef, OperationLocationDef } from './operation-action';
 import type { OperationStudentSkillRuleDef } from './operation-skill';
 import type { OperationInterventionDraft, PreparedBeat } from './operation-beat';
 import type { OperationResolution } from './operation-resolution';
@@ -79,8 +78,9 @@ export interface OperationPlayerRouteStateDef {
 /** U1 的最小事件输入契约；行为和 Datapack 合同由后续 Task 扩展。 */
 export interface OperationEventDef {
   readonly id: string;
-  readonly locationIds: readonly string[];
+  readonly locations: readonly OperationLocationDef[];
   readonly initialLocationId: string;
+  readonly maxLocationVisits: number;
   readonly tracks: readonly OperationTrackDef[];
   readonly factIds: readonly string[];
   readonly knownFactIds: readonly string[];
@@ -91,8 +91,6 @@ export interface OperationEventDef {
   readonly hardFailureConditions?: readonly OperationOutcomeConditionDef[];
   readonly actors: readonly OperationActorDef[];
   readonly teams?: readonly OperationTeamDef[];
-  /** Temporary tactical definitions keyed by existing Location IDs until Task 0218. */
-  readonly locationTactics?: readonly OperationLocationTacticsDef[];
   readonly playerRouteState: OperationPlayerRouteStateDef;
   readonly randomSeed?: number;
 }
@@ -180,6 +178,11 @@ export interface OperationRunVersionCommand {
   readonly planVersion: number;
 }
 
+/** The only public command that may move an EventRun between Locations. */
+export interface OperationRouteCommand extends OperationRunVersionCommand {
+  readonly routeId: string;
+}
+
 export interface OperationInterventionCommand extends OperationRunVersionCommand {
   readonly draft: OperationInterventionDraft;
 }
@@ -215,6 +218,14 @@ export interface OperationLocationProgress {
   readonly result: OperationLocationResultKind | null;
 }
 
+export interface OperationRouteTransitionRecord {
+  readonly fromLocationId: string;
+  readonly fromLocationResult: OperationLocationResultKind;
+  readonly routeId: string;
+  readonly toLocationId: string;
+  readonly consumedHeldItemId?: string;
+}
+
 /** Read-only detached view; the service retains the only mutable Run. */
 export interface EventRun {
   readonly runId: string;
@@ -226,6 +237,7 @@ export interface EventRun {
   readonly teamStates: readonly OperationTeamState[];
   readonly playerRouteState: OperationPlayerRouteState;
   readonly locationProgress: Readonly<Record<string, OperationLocationProgress>>;
+  readonly routeHistory: readonly OperationRouteTransitionRecord[];
   readonly planVersion: number;
   readonly beatIndex: number;
   readonly preparedBeat: PreparedBeat | null;

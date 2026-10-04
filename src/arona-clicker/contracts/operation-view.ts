@@ -3,6 +3,7 @@ import type { OperationCombinationPreview } from './operation-action';
 import type { OperationActionCostDef } from './operation-action';
 import type { OperationInterventionDraft, OperationPreparedActorPlan, PreparedBeat } from './operation-beat';
 import type { OperationResolution } from './operation-resolution';
+import type { OperationRouteTransitionRecord } from './operation';
 
 /** UI-safe candidate row: stable IDs and reasons, without exposing the Action definition. */
 export interface OperationViewActionOption {
@@ -45,6 +46,17 @@ export interface OperationViewOutcomeCondition {
   readonly met: boolean;
 }
 
+export interface OperationViewRouteOption {
+  readonly routeId: string;
+  readonly targetLocationId: string;
+  readonly label: string;
+  readonly description: string;
+  readonly available: boolean;
+  readonly lockedReason: string | null;
+  readonly requiredHeldItemId: string | null;
+  readonly consumesHeldItem: boolean;
+}
+
 export interface OperationViewActor {
   readonly id: string;
   readonly type: string;
@@ -82,6 +94,10 @@ export interface OperationView {
   readonly actorStates: readonly OperationViewActor[];
   readonly teamStates: EventRun['teamStates'];
   readonly locationProgress: EventRun['locationProgress'];
+  readonly routeHistory: readonly OperationRouteTransitionRecord[];
+  readonly currentRoutes: readonly OperationViewRouteOption[];
+  readonly totalLocationVisits: number;
+  readonly maxLocationVisits: number;
   readonly basePreparedBeat: PreparedBeat | null;
   /** Includes the current intervention draft when one is active. */
   readonly effectivePreparedBeat: PreparedBeat | null;

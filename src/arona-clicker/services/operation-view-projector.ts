@@ -14,6 +14,7 @@ import type { OperationView, OperationViewActionOption, OperationViewActor, Oper
 import { previewOperationIntervention, OperationInterventionPreviewError } from './operation-intervention-preview';
 import { resolveOperationCombinations } from './operation-combination-resolver';
 import { isOperationObjectiveSatisfied, isOperationOutcomeConditionSatisfied } from './operation-progress-evaluator';
+import { evaluateOperationRoutes } from './operation-route-evaluator';
 
 function freezeTree<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -65,8 +66,8 @@ function candidateOptions(
 ): readonly OperationViewActionOption[] {
   const eventActor = event.actors.find(actor => actor.id === actorId);
   if (!eventActor) return [];
-  const enabledActionIds = new Set(event.locationTactics
-    ?.find(row => row.locationId === preparedBeat.locationId)?.enabledActionIds ?? []);
+  const enabledActionIds = new Set(event.locations
+    .find(row => row.id === preparedBeat.locationId)?.enabledActionIds ?? []);
   const planByActorId = new Map(preparedBeat.actorPlans.map(plan => [plan.actorId, plan]));
 
   return profile.actionCandidates.map(candidate => {
@@ -262,8 +263,9 @@ export function projectOperationView(
       preparationContent.actionDefinitions,
     )
     : null;
-  const currentLocationTactics = content.eventDefinition.locationTactics
-    ?.find(row => row.locationId === run.currentLocationId);
+  const currentLocation = content.eventDefinition.locations
+    .find(row => row.id === run.currentLocationId);
+  const routeAvailability = evaluateOperationRoutes(content.eventDefinition, run);
   const view: OperationView = {
     runId: run.runId,
     eventId: run.eventId,
@@ -280,7 +282,7 @@ export function projectOperationView(
       kind: objective.kind,
       achieved: isOperationObjectiveSatisfied(run.eventState, objective),
     })),
-    currentLocationObjectives: (currentLocationTactics?.objectives ?? []).map(objective => ({
+    currentLocationObjectives: (currentLocation?.objectives ?? []).map(objective => ({
       id: objective.id,
       description: objective.description,
       kind: objective.kind,
@@ -299,6 +301,19 @@ export function projectOperationView(
     actorStates: run.actorStates.map(actor => projectActor(run, preparationContent, snapshot, actor, effectiveBeat)),
     teamStates: run.teamStates.map(team => ({ id: team.id, resources: { ...team.resources } })),
     locationProgress: { ...run.locationProgress },
+    routeHistory: run.routeHistory.map(entry => ({ ...entry })),
+    currentRoutes: routeAvailability.options.map(({ route, available, lockedReason }) => ({
+      routeId: route.id,
+      targetLocationId: route.targetLocationId,
+      label: route.label,
+      description: route.description,
+      available,
+      lockedReason,
+      requiredHeldItemId: route.requiredHeldItemId ?? null,
+      consumesHeldItem: route.consumeRequiredHeldItem === true,
+    })),
+    totalLocationVisits: routeAvailability.totalLocationVisits,
+    maxLocationVisits: content.eventDefinition.maxLocationVisits,
     basePreparedBeat: run.preparedBeat,
     effectivePreparedBeat: effectiveBeat && plans ? { ...effectiveBeat, actorPlans: [...plans] } : null,
     interventionDraft: run.interventionDraft,

@@ -22,7 +22,16 @@ function deepFreeze<T>(value: T): T {
 
 const eventDefinition: OperationEventDef = {
   id: IDS.event,
-  locationIds: [IDS.location],
+  locations: [{ id: IDS.location, enabledActionIds: Object.values(IDS.actions), combinationRules: [{
+      id: 'demo:operation-combination:carousel-brake-signal',
+      priority: 10,
+      inputTagIds: ['demo:operation-tag:brake', 'demo:operation-tag:signal'],
+      targetMatch: 'same-target',
+      effects: [
+        { kind: 'actorHpDelta', recipient: 'target', amount: 1 },
+        { kind: 'eventTrackDelta', trackId: IDS.track, amount: -2 },
+      ],
+    }], routeEdges: [] } ], maxLocationVisits: 20,
   initialLocationId: IDS.location,
   tracks: [{ id: IDS.track, initial: 3, min: 0, max: 6 }],
   factIds: [],
@@ -74,20 +83,6 @@ const eventDefinition: OperationEventDef = {
       hp: { initial: 2, min: 0, max: 4 },
     },
   ],
-  locationTactics: [{
-    locationId: IDS.location,
-    enabledActionIds: Object.values(IDS.actions),
-    combinationRules: [{
-      id: 'demo:operation-combination:carousel-brake-signal',
-      priority: 10,
-      inputTagIds: ['demo:operation-tag:brake', 'demo:operation-tag:signal'],
-      targetMatch: 'same-target',
-      effects: [
-        { kind: 'actorHpDelta', recipient: 'target', amount: 1 },
-        { kind: 'eventTrackDelta', trackId: IDS.track, amount: -2 },
-      ],
-    }],
-  }],
   playerRouteState: {
     playerCost: 0,
     cards: { drawPile: [], hand: [], discard: [], played: [] },

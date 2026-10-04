@@ -1,6 +1,6 @@
 import type { Character } from '../types/ids';
 import type { PlayerState } from '../types/state';
-import type { EventRun, OperationInterventionCommand, OperationRunVersionCommand } from '../contracts/operation';
+import type { EventRun, OperationInterventionCommand, OperationRouteCommand, OperationRunVersionCommand } from '../contracts/operation';
 import type { OperationInterventionPreview } from '../contracts/operation-beat';
 import type { OperationResolution } from '../contracts/operation-resolution';
 import type { OperationView } from '../contracts/operation-view';
@@ -26,6 +26,7 @@ export interface OperationEntryFacade {
   reviseIntervention(input: OperationInterventionCommand): EventRun;
   clearIntervention(input: OperationRunVersionCommand): EventRun;
   commitBeat(input: OperationRunVersionCommand): OperationResolution;
+  transitionRoute(input: OperationRouteCommand): EventRun;
 }
 
 export interface CreateOperationEntryOptions extends OperationEntryContext {
@@ -46,6 +47,7 @@ export function createOperationEntry(options: CreateOperationEntryOptions): {
     reviseIntervention: service.reviseIntervention.bind(service),
     clearIntervention: service.clearIntervention.bind(service),
     commitBeat: service.commitBeat.bind(service),
+    transitionRoute: service.transitionRoute.bind(service),
   });
   return { facade };
 }
@@ -92,5 +94,9 @@ class OperationEntryService {
 
   commitBeat(input: OperationRunVersionCommand): OperationResolution {
     return this.#owner.commitBeat(input);
+  }
+
+  transitionRoute(input: OperationRouteCommand): EventRun {
+    return this.#owner.transitionRoute(input);
   }
 }

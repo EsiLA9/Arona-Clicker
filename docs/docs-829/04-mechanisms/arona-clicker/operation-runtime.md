@@ -14,6 +14,7 @@
 | `reviseIntervention({ runId, planVersion, draft })` | 校验预览后写入唯一干预槽，递增版本并重建基础计划。 |
 | `clearIntervention({ runId, planVersion })` | 清除已存草稿并递增版本；槽位已空时返回未变化快照。 |
 | `commitBeat({ runId, planVersion })` | 由当前 Run 中已存的计划与草稿执行一次战术结算。 |
+| `transitionRoute({ runId, planVersion, routeId })` | 完成地点后按当前出口 Gate 转场；这是自动单出口和玩家多出口共用的唯一地点转场命令。 |
 
 Facade 不暴露 raw owner、任意 `applyStateDelta()`、`finish()`、`reset()`、`dispose()`、订阅接口或冻结的 Run rules。战术命令只接受当前 `runId` 和 `planVersion`；Commit 不接收行动、效果、支付、技能抽取或 Resolution 内容作为调用方输入。
 
@@ -34,6 +35,7 @@ owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`Opera
 | `teamStates` | 每个声明 Team 的局部战术 resources。Team membership 只由 `OperationActorDef.teamId` 决定。 |
 | `playerRouteState` | 独立的 `playerCost` 数值和固定多重集的 drawPile、hand、discard、played 卡牌 ID 区。 |
 | `locationProgress` | 已声明 Location 的访问次数及完成标记；初始地点从一次访问开始。 |
+| `routeHistory` | 每次转场记录来源/目标地点、Route ID、离开结果及可选的已消费持有物。 |
 | `preparedBeat` / `interventionDraft` | 当前版本的规范基础计划，以及最多一名学生的一槽干预草稿。低层结构测试 Run 可能没有战术内容，因此两者可为 `null`。 |
 | `resolutions` / `resolutionSequence` | 最近最多 32 条结算记录及单调递增序号。 |
 | `random` | `splitmix64-counter-v1`、事件 seed 和 `tacticalCursor`。 |
@@ -45,7 +47,7 @@ EventRun 是每个 `GameInstance` 独立的易失状态，不写入 `PlayerState
 
 `OperationResolvedContent.actionDefinitions` 是本局 ActionDef 的唯一可信来源；`OperationEventDef.actionRequirements` 已删除。学生候选来自已入场 Profile 的 `actionPriorityIds` 和 `candidateActionIds`；对手/环境候选按其 `OperationParticipantSpec.candidateActionIds` 声明顺序读取。候选 ID 必须解析到完整 `OperationActionDef`，定义有限地声明参与者类型、能力、理由、标签、可选 Actor/Team 单项资源费、无目标或单 Actor 目标合同，以及 Actor HP/resource、Team resource 或事件数值轨道的有限 delta 效果。
 
-在当前还没有完整 `LocationDef` 时，`OperationEventDef.locationTactics[]` 以已有 Location ID 临时保存已启用 Action ID 和 Combination 规则。没有该地点规则块时，该地点不启用行动。Location 仅过滤候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
+`OperationEventDef.locations[]` 同时保存每个 Location 的 ID、启用 Action、Combination、局部结局规则与 `routeEdges[]`。入口由 `initialLocationId` 指定，`maxLocationVisits` 限制单局总访问次数。RouteGate 只读取单个可选 `requiredHeldItemId`；内容验证要求所有 Route 目标和门禁物品已声明。Location 仍只过滤候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
 
 纯准备器 `prepareOperationBeat()` 接收最小 EventRun 快照与冻结内容，不接收 RNG、PlayerCost 或可变 owner。它按事件 Actor 声明顺序，为每位 Actor 生成一个 `studentAction`、`intent` 或 `wait`：学生按 Profile 候选次序，对手/环境按 ParticipantSpec 次序；每项需通过地点启用、能力、参与者类型、目标和当前资源检查。非学生没有 capability 来源，因此 Admission 拒绝其引用带能力门槛的 Action，不会忽略门槛。Action 仅支持无目标或单 Actor 目标；显式 `targetPriorityActorIds` 优先，其后按 Event Actor 声明顺序选取首个合法目标。准备期间按 Actor 顺序预留共享 Team 与个人 Actor 资源；本 Beat 产生的资源不会支付本 Beat 的行动费用。
 
@@ -69,11 +71,13 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 `commitBeat({ runId, planVersion })` 先校验当前 in-progress Run 与版本，再运行纯 planner。owner 校验候选批次与当前 Run、Location、计划版本和 RNG cursor 一致，把结算 delta 应用到 detached 候选 Run，并完成随机状态、Beat/Resolution 序号、草稿清除、历史 append 与下一 Beat 准备。所有步骤成功后只替换一次 Run slot，再发布 `beatResolved`。任何规划、校验、数值合并或下一 Beat 准备失败均不写 Run、cursor、历史或通知。
 
-每次成功状态变更都会推进 `planVersion`：Commit、有效 `applyStateDelta()`、Location enter/complete 和 finish。状态/Location 变化会清除过期草稿并重建当前规范计划；终局状态没有下一 Beat。最近一次已消费 `basePlanVersion` 的 Commit 重试在 stale/terminal 检查前返回同一条冻结 Resolution，不重复扣费、抽样、写入或通知；更早版本不重放，返回 stale。历史最多保留最近 32 条，`resolutionSequence` 不随裁剪回退。
+每次成功状态变更都会推进 `planVersion`：Commit、有效 `applyStateDelta()`、Location complete/route transition 和 finish。Route 命令必须匹配当前 `runId` 与 `planVersion`。状态/Location 变化会清除过期草稿并重建当前规范计划；终局状态没有下一 Beat。最近一次已消费 `basePlanVersion` 的 Commit 重试在 stale/terminal 检查前返回同一条冻结 Resolution，不重复扣费、抽样、写入或通知；更早版本不重放，返回 stale。历史最多保留最近 32 条，`resolutionSequence` 不随裁剪回退。
 
 ## 其他状态转移与生命周期
 
-`applyStateDelta()` 对数值轨道、事实、持有物、Actor 和玩家路线状态先整体校验再写入。拒绝的批次无部分写入；玩家牌区 ID 多重集须保持初始牌组不变。`enterLocation()` 只接受事件声明的地点并增加访问次数；`completeCurrentLocation()` 标记当前地点完成。`finish()` 生成 `success`、`partialSuccess` 或 `failure` 的冻结 `EventResult`；终局 Run 不接受后续状态转移，重复结束返回已有结果。Run owner 的本地通知包括 `runStarted`、Location 进入/完成、`beatResolved` 和 `runFinished`，不扩展通用 Engine EventBus，也不从 facade 暴露订阅接口。
+`applyStateDelta()` 对数值轨道、事实、持有物、Actor 和玩家路线状态先整体校验再写入。拒绝的批次无部分写入；玩家牌区 ID 多重集须保持初始牌组不变。`completeCurrentLocation()` 标记当前地点完成并评估出口：没有合法出口时调用事件终局判定，一个合法出口自动通过 `transitionRoute()` 前进，多个出口则等待玩家提交 Route ID。`transitionRoute()` 在 detached 候选 Run 上验证完成状态、版本、出口、访问上限和所需持有物，再消费门禁物品、保存来源结果、重置目标地点的本次进度、递增访问数并准备新地点；全部步骤成功后只替换一次 Run slot。任何转场错误都保留原 Run。Task 0224/0225 将把 Cost 携带/增量与地点抽牌依序接入同一入口。
+
+`finish()` 只在当前 Location 已完成且没有合法出口时生成 `success`、`partialSuccess` 或 `failure` 的冻结 `EventResult`；终局 Run 不接受后续状态转移，重复结束返回已有结果。Run owner 的本地通知包括 `runStarted`、Location 进入/完成、`beatResolved` 和 `runFinished`，不扩展通用 Engine EventBus，也不从 facade 暴露订阅接口。
 
 | GameInstance 操作 | Operation Runtime 行为 |
 | --- | --- |
@@ -84,7 +88,7 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 ## 尚未覆盖的范围
 
-当前地点仍是简单 ID 集合；尚无地点出口、地图分支、持有物 gate、地点转场、访问上限或场景结局机制。当前 Action 效果只覆盖有限 Actor/Team/数值轨道变化；事实 Predicate、完整目标和事件结局由后续 Task 承接。玩家场景卡、玩家 PlayerCost 消耗、抽牌/打牌、Datapack / Registry 作者表，以及 Run 保存/恢复都不在当前 Runtime。Profile 中 `randomSkillRuleId` 只在本局规则提供对应有限技能定义并成功 Commit 时触发，不是随机抽取 AC 角色技能系统的运行入口。
+当前已有有界地图分支、回环、单持有物 Gate、Location/Event 目标与终局判定。当前 Action 效果可改 Actor/Team/数值轨道/事实/局内持有物；SceneAction、玩家场景卡、PlayerCost 携带与抽牌仍由 Task 0224/0225 接入。Datapack / Registry 作者表与 Run 保存/恢复分别由 Task 0220/0219 承接。Profile 中 `randomSkillRuleId` 只在本局规则提供对应有限技能定义并成功 Commit 时触发，不是随机抽取 AC 角色技能系统的运行入口。
 
 ## 代码与测试
 
@@ -94,6 +98,6 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 - `operation-plan-preparation.ts`、`operation-target-selection.ts`、`operation-intervention-preview.ts`、`operation-combination-resolver.ts`、`operation-tactical-rng.ts`、`operation-resolution-planner.ts`：纯计划、干预、协同、局部随机与结算规划。
 - `src/arona-clicker/services/operation-runtime-service.ts`：Run owner、版本检查、原子提交、有限历史与生命周期通知。
 - `src/arona-clicker/runtime-options.ts`、`runtime-wiring.ts`、`runtime-game-instance.ts`：resolver 装配、私有 owner 和 GameInstance 生命周期清理。
-- 定向测试：`tests/engine/operation-runtime-service.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。
+- 定向测试：`tests/engine/operation-runtime-service.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。
 
 相关边界：[[docs/docs-829/01-architecture/data-flow]]、[[docs/docs-829/02-modules/arona-clicker]]、[[docs/docs-829/03-data-structures/player-state]]。

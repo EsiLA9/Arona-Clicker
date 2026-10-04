@@ -35,7 +35,7 @@ const SERIKA_PROFILE: StudentOperationProfileDef = {
 function eventDef(): OperationEventDef {
   return {
     id: EVENT_ID,
-    locationIds: ['test:location:office'],
+    locations: [{ id: 'test:location:office', enabledActionIds: ['observe', 'protect', 'organize'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [{ id: 'danger', initial: 1, min: 0, max: 5 }],
     factIds: ['door_open'],
@@ -46,11 +46,6 @@ function eventDef(): OperationEventDef {
       { id: 'test:actor:student-slot', type: 'student', hp: { initial: 4, min: 0, max: 4 } },
       { id: 'test:actor:opponent', type: 'opponent', hp: { initial: 5, min: 0, max: 5 } },
     ],
-    locationTactics: [{
-      locationId: 'test:location:office',
-      enabledActionIds: ['observe', 'protect', 'organize'],
-      combinationRules: [],
-    }],
     playerRouteState: {
       playerCost: 2,
       cards: { drawPile: ['test:card:inspect'], hand: [], discard: [], played: [] },
@@ -123,7 +118,7 @@ describe('Gameplay B Operation entry integration', () => {
 
     expect('operationRuntime' in first).toBe(false);
     expect(Object.keys(first.operationEntry).sort()).toEqual([
-      'clearIntervention', 'commitBeat', 'getSnapshot', 'getView', 'previewIntervention', 'reviseIntervention', 'start',
+      'clearIntervention', 'commitBeat', 'getSnapshot', 'getView', 'previewIntervention', 'reviseIntervention', 'start', 'transitionRoute',
     ]);
     expect('reset' in first.operationEntry).toBe(false);
     expect('dispose' in first.operationEntry).toBe(false);
@@ -259,17 +254,13 @@ describe('Gameplay B Operation entry integration', () => {
         { id: serikaActorId, type: 'student', hp: { initial: 4, min: 0, max: 4 }, teamId, targetPriorityActorIds: [opponentActorId, hoshinoActorId] },
         { id: opponentActorId, type: 'opponent', hp: { initial: 5, min: 0, max: 5 } },
       ],
-      locationTactics: [{
-        locationId: 'test:location:office',
-        enabledActionIds: ['protect', 'observe', 'organize'],
-        combinationRules: [{
+      locations: [{ id: 'test:location:office', enabledActionIds: ['protect', 'observe', 'organize'], combinationRules: [{
           id: 'test:combination:protect-signal',
           priority: 10,
           inputTagIds: ['brace', 'signal'],
           targetMatch: 'same-target',
           effects: [{ kind: 'eventTrackDelta', trackId: 'danger', amount: -1 }],
-        }],
-      }],
+        }], routeEdges: [] } ], maxLocationVisits: 20,
     };
     const actionDefinitions: OperationActionDef[] = [
       {

@@ -19,7 +19,7 @@ const ACTOR_IDS = ['test:actor:a', 'test:actor:b', 'test:actor:c', 'test:actor:b
 function eventDef(): OperationEventDef {
   return {
     id: 'test:operation:profile-runtime',
-    locationIds: ['test:location:office'],
+    locations: [{ id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [],
     factIds: [],
@@ -131,11 +131,7 @@ describe('StudentOperationProfileResolver and EventRun snapshots', () => {
       ...source,
       eventDefinition: {
         ...source.eventDefinition,
-        locationTactics: [{
-          locationId: 'test:location:office',
-          enabledActionIds: ['operation:action:observe', 'operation:action:inspect'],
-          combinationRules: [{ id: 'test:combination:rule', priority: 1, inputTagIds: ['combination:slot-a', 'combination:slot-b'], targetMatch, effects }],
-        }],
+        locations: [{ id: 'test:location:office', enabledActionIds: ['operation:action:observe', 'operation:action:inspect'], combinationRules: [{ id: 'test:combination:rule', priority: 1, inputTagIds: ['combination:slot-a', 'combination:slot-b'], targetMatch, effects }], routeEdges: [] } ], maxLocationVisits: 20,
       },
       actionDefinitions: taggedActions.map(action => targetKind === 'actor'
         ? { ...action, target: { kind: 'actor', relation: 'any' } }

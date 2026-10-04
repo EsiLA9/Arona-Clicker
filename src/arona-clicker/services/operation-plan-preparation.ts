@@ -167,7 +167,7 @@ function indexPreparationInputs(
   if (!isNonEmptyId(snapshot.currentLocationId)) fail('currentLocationId must be a non-empty Location ID');
   if (!isNonEmptyId(content.eventDefinition.id)) fail('eventDefinition.id must be non-empty');
   if (snapshot.eventId !== content.eventDefinition.id) fail('snapshot eventId does not match trusted Event definition');
-  if (!content.eventDefinition.locationIds.includes(snapshot.currentLocationId)) {
+  if (!content.eventDefinition.locations.some(location => location.id === snapshot.currentLocationId)) {
     fail('currentLocationId references an undeclared Location: ' + snapshot.currentLocationId);
   }
 
@@ -449,11 +449,8 @@ export function prepareOperationBeat(
   content: OperationPreparationContent,
 ): PreparedBeat {
   const indexes = indexPreparationInputs(snapshot, content);
-  const tacticRows = (content.eventDefinition.locationTactics ?? [])
-    .filter(row => row.locationId === snapshot.currentLocationId);
-  if (tacticRows.length > 1) fail('locationTactics contains duplicate current Location: ' + snapshot.currentLocationId);
-  const currentTactics = tacticRows[0];
-  const enabledActionIds = new Set(currentTactics?.enabledActionIds ?? []);
+  const currentLocation = content.eventDefinition.locations.find(location => location.id === snapshot.currentLocationId);
+  const enabledActionIds = new Set(currentLocation?.enabledActionIds ?? []);
 
   const actorBalances = new Map<string, Map<string, DecimalParts>>();
   for (const [actorId, actor] of indexes.actorsById) {

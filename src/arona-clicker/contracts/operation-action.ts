@@ -62,13 +62,23 @@ export interface OperationCombinationPreview {
   readonly matches: readonly OperationCombinationMatch[];
 }
 
-/** Temporary tactical rules for an existing Event location ID; routes remain a later Task. */
-export interface OperationLocationTacticsDef {
-  readonly locationId: string;
+/** Route graph and local tactical rules authored together for one Event Location. */
+export interface OperationRouteEdgeDef {
+  readonly id: string;
+  readonly targetLocationId: string;
+  readonly label: string;
+  readonly description: string;
+  readonly requiredHeldItemId?: string;
+  readonly consumeRequiredHeldItem?: boolean;
+}
+
+export interface OperationLocationDef {
+  readonly id: string;
   readonly enabledActionIds: readonly string[];
   readonly combinationRules: readonly OperationCombinationRuleDef[];
   readonly objectives?: readonly OperationObjectiveDef[];
   readonly partialOutcomes?: readonly OperationOutcomeConditionDef[];
   readonly failureConditions?: readonly OperationOutcomeConditionDef[];
   readonly maxBeats?: number;
+  readonly routeEdges: readonly OperationRouteEdgeDef[];
 }

@@ -54,7 +54,7 @@ function validatePlanSequence(event: OperationEventDef, beat: PreparedBeat): voi
   if (!Number.isSafeInteger(beat.planVersion) || beat.planVersion < 0) {
     fail('PreparedBeat planVersion must be a non-negative safe integer');
   }
-  if (!isNonEmptyId(beat.locationId) || !event.locationIds.includes(beat.locationId)) {
+  if (!isNonEmptyId(beat.locationId) || !event.locations.some(location => location.id === beat.locationId)) {
     fail('PreparedBeat locationId must reference a declared Event Location');
   }
   if (!Array.isArray(beat.actorPlans) || beat.actorPlans.length !== event.actors.length) {
@@ -145,20 +145,17 @@ export function resolveOperationCombinations(
 ): OperationCombinationPreview {
   validatePlanSequence(eventDefinition, preparedBeat);
   const actionsById = indexActions(actionDefinitions);
-  const locationRows = (eventDefinition.locationTactics ?? [])
-    .filter(row => row.locationId === preparedBeat.locationId);
-  if (locationRows.length > 1) fail('Event has duplicate locationTactics rows for the PreparedBeat Location');
-  const locationTactics = locationRows[0];
-  if (!locationTactics) {
+  const location = eventDefinition.locations.find(row => row.id === preparedBeat.locationId);
+  if (!location) {
     return freezeTree({ planVersion: preparedBeat.planVersion, locationId: preparedBeat.locationId, matches: [] });
   }
-  if (!Array.isArray(locationTactics.combinationRules)) {
+  if (!Array.isArray(location.combinationRules)) {
     fail('current Location combinationRules must be an array');
   }
 
   const seenRuleIds = new Set<string>();
   const candidates: CombinationCandidate[] = [];
-  for (const rule of locationTactics.combinationRules) {
+  for (const rule of location.combinationRules) {
     validateCombinationRule(rule, seenRuleIds);
     for (let actorAIndex = 0; actorAIndex < preparedBeat.actorPlans.length; actorAIndex += 1) {
       const planA = preparedBeat.actorPlans[actorAIndex];

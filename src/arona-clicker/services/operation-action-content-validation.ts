@@ -275,19 +275,18 @@ export function validateOperationActionContent(
     }
   }
 
-  const locationTactics = Array.isArray(event.locationTactics) ? event.locationTactics : [];
-  for (const [locationIndex, tactics] of locationTactics.entries()) {
-    if (!isRecord(tactics) || !Array.isArray(tactics.enabledActionIds) || !Array.isArray(tactics.combinationRules)) continue;
-    const enabledIds = new Set(tactics.enabledActionIds);
-    for (const actionId of tactics.enabledActionIds) {
+  for (const [locationIndex, location] of event.locations.entries()) {
+    if (!Array.isArray(location.enabledActionIds) || !Array.isArray(location.combinationRules)) continue;
+    const enabledIds = new Set(location.enabledActionIds);
+    for (const actionId of location.enabledActionIds) {
       if (!actionsById.has(actionId)) {
-        issues.push('locationTactics[' + locationIndex + '].enabledActionIds references a missing Action: ' + actionId);
+        issues.push('locations[' + locationIndex + '].enabledActionIds references a missing Action: ' + actionId);
       }
     }
     const enabledStudentActions = [...enabledIds]
       .map(id => actionsById.get(id))
       .filter((action): action is OperationActionDef => action?.allowedParticipantKinds.includes('student') === true);
-    for (const [ruleIndex, rule] of tactics.combinationRules.entries()) {
+    for (const [ruleIndex, rule] of location.combinationRules.entries()) {
       if (!isRecord(rule) || !Array.isArray(rule.inputTagIds)) continue;
       const inputTagIds = rule.inputTagIds as unknown[];
       const slotActions = inputTagIds.map(tagId => typeof tagId === 'string'
@@ -295,7 +294,7 @@ export function validateOperationActionContent(
         : []);
       slotActions.forEach((candidates, slotIndex) => {
         if (candidates.length === 0) {
-          issues.push('locationTactics[' + locationIndex + '].combinationRules[' + ruleIndex + '].inputTagIds[' + slotIndex + '] does not match an enabled student Action tag: ' + String(inputTagIds[slotIndex]));
+          issues.push('locations[' + locationIndex + '].combinationRules[' + ruleIndex + '].inputTagIds[' + slotIndex + '] does not match an enabled student Action tag: ' + String(inputTagIds[slotIndex]));
         }
       });
       if (slotActions.length === 2 && slotActions.every(candidates => candidates.length > 0)) {
@@ -304,7 +303,7 @@ export function validateOperationActionContent(
           actionA.target.kind === expectedTargetKind && actionB.target.kind === expectedTargetKind,
         ));
         if (!compatible) {
-          issues.push('locationTactics[' + locationIndex + '].combinationRules[' + ruleIndex + '] tag slots do not have enabled student Actions compatible with targetMatch ' + String(rule.targetMatch));
+          issues.push('locations[' + locationIndex + '].combinationRules[' + ruleIndex + '] tag slots do not have enabled student Actions compatible with targetMatch ' + String(rule.targetMatch));
         }
       }
     }
@@ -365,11 +364,11 @@ export function validateOperationActionActorReferences(
     }
   }
 
-  for (const [locationIndex, tactics] of (event.locationTactics ?? []).entries()) {
-    const enabledActions = tactics.enabledActionIds
+  for (const [locationIndex, location] of event.locations.entries()) {
+    const enabledActions = location.enabledActionIds
       .map(id => actionsById.get(id))
       .filter((action): action is OperationActionDef => action !== undefined && action.allowedParticipantKinds.includes('student'));
-    for (const [ruleIndex, rule] of tactics.combinationRules.entries()) {
+    for (const [ruleIndex, rule] of location.combinationRules.entries()) {
       const slotAActions = enabledActions.filter(action => action.tagIds.includes(rule.inputTagIds[0]));
       const slotBActions = enabledActions.filter(action => action.tagIds.includes(rule.inputTagIds[1]));
       for (const slotA of actorInitializations) {
@@ -384,7 +383,7 @@ export function validateOperationActionActorReferences(
             if (!sourceB) continue;
             for (const actionB of slotBActions) {
               if (!slotB.profile.eligibleActionIds.includes(actionB.id)) continue;
-              const path = 'locationTactics[' + locationIndex + '].combinationRules[' + ruleIndex + ']';
+              const path = 'locations[' + locationIndex + '].combinationRules[' + ruleIndex + ']';
               if (rule.targetMatch === 'no-target') {
                 if (actionA.target.kind === 'none' && actionB.target.kind === 'none') {
                   validateEffectResourceReferences(event, sourceA, [], false, rule.effects, path, issues);

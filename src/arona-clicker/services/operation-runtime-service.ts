@@ -11,6 +11,7 @@ import type {
   OperationLocationResultKind,
   OperationResultKind,
   OperationRunVersionCommand,
+  OperationRouteCommand,
   OperationRunStartInput,
   OperationRunStatus,
   OperationStateDelta,
@@ -55,6 +56,7 @@ import {
   getCurrentLocationDefinition,
   hasOperationHardFailure,
 } from './operation-progress-evaluator';
+import { evaluateOperationRoutes } from './operation-route-evaluator';
 import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../contracts/operation';
 
 interface MutableActorState {
@@ -86,6 +88,7 @@ interface MutableRun {
     cards: { drawPile: string[]; hand: string[]; discard: string[]; played: string[] };
   };
   locationProgress: Record<string, { visitCount: number; completed: boolean; beatCount: number; result: 'success' | 'partialSuccess' | 'failure' | null }>;
+  routeHistory: EventRun['routeHistory'][number][];
   planVersion: number;
   beatIndex: number;
   preparedBeat: PreparedBeat | null;
@@ -97,7 +100,6 @@ interface MutableRun {
 
 interface RunRules {
   readonly definition: OperationEventDef;
-  readonly locations: ReadonlySet<string>;
   readonly tracks: ReadonlyMap<string, OperationBoundedValueDef>;
   readonly facts: ReadonlySet<string>;
   readonly items: ReadonlySet<string>;
@@ -143,7 +145,6 @@ function defineRules(
     : null;
   return {
     definition: cloned,
-    locations: new Set(cloned.locationIds),
     tracks: new Map(cloned.tracks.map(track => [track.id, { initial: track.initial, min: track.min, max: track.max }])),
     facts: new Set(cloned.factIds),
     items: new Set(cloned.itemIds),
@@ -160,9 +161,9 @@ function createRun(
   actorInitializations?: ReadonlyMap<string, OperationActorInitialization>,
 ): MutableRun {
   const definition = rules.definition;
-  const locations = Object.fromEntries(definition.locationIds.map(id => [
-    id,
-    { visitCount: id === definition.initialLocationId ? 1 : 0, completed: false, beatCount: 0, result: null },
+  const locations = Object.fromEntries(definition.locations.map(location => [
+    location.id,
+    { visitCount: location.id === definition.initialLocationId ? 1 : 0, completed: false, beatCount: 0, result: null },
   ]));
   return {
     runId,
@@ -208,6 +209,7 @@ function createRun(
       },
     },
     locationProgress: locations,
+    routeHistory: [],
     planVersion: 0,
     beatIndex: 0,
     preparedBeat: null,
@@ -343,6 +345,15 @@ function parseInterventionCommand(value: unknown): OperationInterventionCommand 
   }
   const base = parseVersionCommand({ runId: value.runId, planVersion: value.planVersion });
   return { ...base, draft: value.draft as OperationInterventionCommand['draft'] };
+}
+
+function parseRouteCommand(value: unknown): OperationRouteCommand {
+  if (!isRecord(value)
+    || Object.keys(value).some(key => key !== 'runId' && key !== 'planVersion' && key !== 'routeId')
+    || !nonEmptyId(value.routeId)) {
+    throw new OperationRuntimeError(['route command must contain only runId, planVersion, and routeId']);
+  }
+  return { ...parseVersionCommand({ runId: value.runId, planVersion: value.planVersion }), routeId: value.routeId };
 }
 
 function toResolution(batch: OperationResolutionBatch, sequence: number): OperationResolution {
@@ -505,6 +516,7 @@ export class OperationRuntimeService {
   private slot: RunSlot | null = null;
   private disposed = false;
   private notifying = false;
+  private advancingCompletedLocation = false;
   private readonly listeners = new Set<OperationLifecycleListener>();
 
   subscribe(listener: OperationLifecycleListener): () => void {
@@ -586,6 +598,7 @@ export class OperationRuntimeService {
       this.publish({ type: 'locationCompleted', runId, eventId: run.eventId, locationId: run.currentLocationId });
     }
     if (result) this.publish({ type: 'runFinished', runId, eventId: run.eventId, kind: result.kind });
+    if (initialLocationCompleted && !result) this.advanceCompletedLocation();
     return this.getSnapshot()!;
   }
 
@@ -756,6 +769,7 @@ export class OperationRuntimeService {
     if (eventResult) {
       this.publish({ type: 'runFinished', runId: eventResult.runId, eventId: eventResult.eventId, kind: eventResult.kind });
     }
+    if (locationCompleted && !eventResult) this.advanceCompletedLocation();
     return resolution;
   }
 
@@ -824,26 +838,16 @@ export class OperationRuntimeService {
     if (eventResult) {
       this.publish({ type: 'runFinished', runId: eventResult.runId, eventId: eventResult.eventId, kind: eventResult.kind });
     }
+    if (locationCompleted && !eventResult) this.advanceCompletedLocation();
     return this.getSnapshot()!;
   }
 
-  enterLocation(locationId: string): EventRun {
+  /** The sole Location transition write path for manual and automatic routing. */
+  transitionRoute(input: OperationRouteCommand): EventRun {
     this.assertCanMutate();
-    const slot = this.requireActiveRun();
-    if (!slot.rules.locations.has(locationId)) {
-      throw new OperationRuntimeError(['locationId references an undeclared location: ' + locationId]);
-    }
-    const next = deepCopy(slot.run);
-    next.currentLocationId = locationId;
-    next.locationProgress[locationId].visitCount += 1;
-    next.locationProgress[locationId].beatCount = 0;
-    next.locationProgress[locationId].completed = false;
-    next.locationProgress[locationId].result = null;
-    next.planVersion = advancePlanVersion(slot.run);
-    next.interventionDraft = null;
-    refreshPreparedBeat(next, slot.rules);
-    slot.run = next;
-    this.publish({ type: 'locationEntered', runId: next.runId, eventId: next.eventId, locationId });
+    const command = parseRouteCommand(input);
+    this.commitRouteTransition(command);
+    if (!this.advancingCompletedLocation) this.advanceCompletedLocation();
     return this.getSnapshot()!;
   }
 
@@ -866,6 +870,7 @@ export class OperationRuntimeService {
     refreshPreparedBeat(next, slot.rules);
     slot.run = next;
     this.publish({ type: 'locationCompleted', runId: next.runId, eventId: next.eventId, locationId });
+    this.advanceCompletedLocation();
     return this.getSnapshot()!;
   }
 
@@ -876,6 +881,9 @@ export class OperationRuntimeService {
     const active = this.requireActiveRun();
     if (!active.run.locationProgress[active.run.currentLocationId].completed) {
       throw new OperationRuntimeError(['Event outcome can only be evaluated after the current Location is complete']);
+    }
+    if (evaluateOperationRoutes(active.rules.definition, active.run).options.some(option => option.available)) {
+      throw new OperationRuntimeError(['a Route must be selected before the Event outcome can be evaluated']);
     }
     const next = deepCopy(active.run);
     const kind = evaluateOperationEventOutcome(active.rules.definition, next.eventState);
@@ -903,6 +911,88 @@ export class OperationRuntimeService {
     this.slot = null;
     this.listeners.clear();
     this.disposed = true;
+  }
+
+  private commitRouteTransition(command: OperationRouteCommand): void {
+    const slot = this.requireActiveRun();
+    assertCommandMatchesRun(command, slot.run);
+    const availability = evaluateOperationRoutes(slot.rules.definition, slot.run);
+    const selected = availability.options.find(option => option.route.id === command.routeId);
+    if (!selected) throw new OperationRuntimeError(['routeId is not an exit from the current Location: ' + command.routeId]);
+    if (!selected.available) {
+      throw new OperationRuntimeError(['selected Route is unavailable: ' + selected.lockedReason]);
+    }
+
+    const route = selected.route;
+    const targetProgress = slot.run.locationProgress[route.targetLocationId];
+    const sourceProgress = slot.run.locationProgress[slot.run.currentLocationId];
+    if (!targetProgress) throw new OperationRuntimeError(['Route target Location progress is missing']);
+    if (!sourceProgress?.completed || !sourceProgress.result) {
+      throw new OperationRuntimeError(['completed source Location must have a result before transition']);
+    }
+    if (targetProgress.visitCount >= Number.MAX_SAFE_INTEGER) {
+      throw new OperationRuntimeError(['Location visitCount cannot advance safely']);
+    }
+
+    // Build and validate the entire destination Run before publishing the sole owner write.
+    const next = deepCopy(slot.run);
+    const fromLocationId = next.currentLocationId;
+    let consumedHeldItemId: string | undefined;
+    if (route.consumeRequiredHeldItem && route.requiredHeldItemId) {
+      const itemIndex = next.eventState.heldItemIds.indexOf(route.requiredHeldItemId);
+      if (itemIndex < 0) throw new OperationRuntimeError(['required held item disappeared during route planning']);
+      next.eventState.heldItemIds.splice(itemIndex, 1);
+      consumedHeldItemId = route.requiredHeldItemId;
+    }
+    next.routeHistory.push({
+      fromLocationId,
+      fromLocationResult: sourceProgress.result,
+      routeId: route.id,
+      toLocationId: route.targetLocationId,
+      ...(consumedHeldItemId ? { consumedHeldItemId } : {}),
+    });
+    next.currentLocationId = route.targetLocationId;
+    const nextProgress = next.locationProgress[route.targetLocationId];
+    nextProgress.visitCount += 1;
+    nextProgress.beatCount = 0;
+    nextProgress.completed = false;
+    nextProgress.result = null;
+    next.planVersion = advancePlanVersion(slot.run);
+    next.interventionDraft = null;
+
+    const locationCompleted = evaluateLocationProgress(next, slot.rules);
+    refreshPreparedBeat(next, slot.rules);
+    slot.run = next;
+    this.publish({ type: 'locationEntered', runId: next.runId, eventId: next.eventId, locationId: next.currentLocationId });
+    if (locationCompleted) {
+      this.publish({ type: 'locationCompleted', runId: next.runId, eventId: next.eventId, locationId: next.currentLocationId });
+    }
+  }
+
+  /** Automatically takes a sole exit and closes terminal Locations; branches wait for player input. */
+  private advanceCompletedLocation(): void {
+    if (this.advancingCompletedLocation) return;
+    this.advancingCompletedLocation = true;
+    try {
+      while (this.slot?.run.status === 'inProgress') {
+        const slot = this.slot;
+        if (!slot.run.locationProgress[slot.run.currentLocationId]?.completed) return;
+        const available = evaluateOperationRoutes(slot.rules.definition, slot.run).options
+          .filter(option => option.available);
+        if (available.length === 0) {
+          this.finish();
+          return;
+        }
+        if (available.length > 1) return;
+        this.transitionRoute({
+          runId: slot.run.runId,
+          planVersion: slot.run.planVersion,
+          routeId: available[0].route.id,
+        });
+      }
+    } finally {
+      this.advancingCompletedLocation = false;
+    }
   }
 
   private applyActorChanges(

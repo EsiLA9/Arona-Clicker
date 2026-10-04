@@ -20,7 +20,7 @@ function actor(
 function event(actors: readonly OperationActorDef[], teams: readonly string[] = ['team:red', 'team:blue']): OperationEventDef {
   return {
     id: 'test:operation:target-selection',
-    locationIds: ['test:location:office'],
+    locations: [{ id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [],
     factIds: [],

@@ -10,7 +10,7 @@ import { createOperationEntry } from '../../src/arona-clicker/services/operation
 function eventDef(): OperationEventDef {
   return {
     id: 'test:operation:office',
-    locationIds: ['test:location:office', 'test:location:archive'],
+    locations: [{ id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] }, { id: 'test:location:archive', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [{ id: 'danger', initial: 1, min: 0, max: 5 }],
     factIds: ['door_open'],
@@ -36,17 +36,28 @@ function eventDef(): OperationEventDef {
   };
 }
 
+function eventDefWithArchiveRoute(): OperationEventDef {
+  const definition = eventDef();
+  return {
+    ...definition,
+    locations: definition.locations.map(location => location.id === 'test:location:office'
+      ? { ...location, routeEdges: [{
+        id: 'test:route:office-archive',
+        targetLocationId: 'test:location:archive',
+        label: 'Open the archive',
+        description: 'Continue into the archive.',
+      }] }
+      : location),
+  };
+}
+
 function tacticalRunStartInput(effects: readonly OperationActionEffectDef[] = [
   { kind: 'eventTrackDelta', trackId: 'danger', amount: -1 },
 ]): OperationRunStartInput {
   const actionId = 'test:action:inspect';
   const eventDefinition: OperationEventDef = {
     ...eventDef(),
-    locationTactics: [{
-      locationId: 'test:location:office',
-      enabledActionIds: [actionId],
-      combinationRules: [],
-    }],
+    locations: [{ id: 'test:location:office', enabledActionIds: [actionId], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
   };
   const action: OperationActionDef = {
     id: actionId,
@@ -163,26 +174,22 @@ describe('validateOperationEventDef', () => {
   test('validates temporary Location tactical structure and ordered Combination slots', () => {
     const valid: OperationEventDef = {
       ...eventDef(),
-      locationTactics: [{
-        locationId: 'test:location:office',
-        enabledActionIds: ['test:action:assist', 'test:action:repair'],
-        combinationRules: [{
+      locations: [{ id: 'test:location:office', enabledActionIds: ['test:action:assist', 'test:action:repair'], combinationRules: [{
           id: 'test:combination:assist-repair',
           priority: 1,
           inputTagIds: ['assist', 'repair'],
           targetMatch: 'same-target',
           effects: [{ kind: 'eventTrackDelta', trackId: 'danger', amount: -1 }],
-        }],
-      }],
+        }], routeEdges: [] } ], maxLocationVisits: 20,
     };
     expect(validateOperationEventDef(valid)).toEqual([]);
 
     const invalid = {
       ...valid,
-      locationTactics: [
-        ...valid.locationTactics!,
+      locations: [
+        ...valid.locations!,
         {
-          locationId: 'test:location:office',
+          id: 'test:location:office',
           enabledActionIds: ['test:action:assist', 'test:action:assist'],
           combinationRules: [{
             id: 'test:combination:invalid',
@@ -191,23 +198,65 @@ describe('validateOperationEventDef', () => {
             targetMatch: 'any-target',
             effects: [{ kind: 'eventTrackDelta', trackId: 'test:track:missing', amount: Number.NaN }],
           }],
+          routeEdges: [],
         },
         {
-          locationId: 'test:location:missing',
+          id: 'test:location:missing',
           enabledActionIds: [],
           combinationRules: [],
+          routeEdges: [],
         },
       ],
     } as OperationEventDef;
     const diagnostics = validateOperationEventDef(invalid).join('\n');
-    expect(diagnostics).toMatch(/duplicate locationId/);
-    expect(diagnostics).toMatch(/undeclared Location/);
+    expect(diagnostics).toMatch(/duplicate ID/);
     expect(diagnostics).toMatch(/duplicate ID/);
     expect(diagnostics).toMatch(/safe integer/);
     expect(diagnostics).toMatch(/two distinct ordered tag IDs/);
     expect(diagnostics).toMatch(/targetMatch/);
     expect(diagnostics).toMatch(/finite number/);
     expect(diagnostics).toMatch(/undeclared track/);
+  });
+
+  test('validates Route targets and the single held-item gate contract', () => {
+    const definition = eventDef();
+    const valid: OperationEventDef = {
+      ...definition,
+      locations: definition.locations.map(location => location.id === 'test:location:office'
+        ? {
+          ...location,
+          routeEdges: [{
+            id: 'test:route:staff-only',
+            targetLocationId: 'test:location:archive',
+            label: 'Staff access',
+            description: 'Use the archive key.',
+            requiredHeldItemId: 'archive_key',
+            consumeRequiredHeldItem: true,
+          }],
+        }
+        : location),
+    };
+    expect(validateOperationEventDef(valid)).toEqual([]);
+
+    const invalid: OperationEventDef = {
+      ...valid,
+      locations: valid.locations.map(location => location.id === 'test:location:office'
+        ? {
+          ...location,
+          routeEdges: [{
+            id: 'test:route:broken',
+            targetLocationId: 'test:location:missing',
+            label: 'Broken route',
+            description: 'References undeclared content.',
+            requiredHeldItemId: 'test:item:missing',
+            consumeRequiredHeldItem: true,
+          }],
+        }
+        : location),
+    };
+    const diagnostics = validateOperationEventDef(invalid).join('\n');
+    expect(diagnostics).toMatch(/targetLocationId references an undeclared Location/);
+    expect(diagnostics).toMatch(/requiredHeldItemId references an undeclared item/);
   });
 
   test('validates bounded objective predicates and their declared Event references', () => {
@@ -318,13 +367,11 @@ describe('OperationRuntimeService', () => {
         cards: { drawPile: [], hand: [], discard: ['test:card:inspect'], played: ['test:card:assist'] },
       },
     });
-    first.enterLocation('test:location:archive');
-
     expect(first.getSnapshot()).toMatchObject({
       eventState: { tracks: { danger: 4 }, knownFactIds: ['door_open'], heldItemIds: ['archive_key'] },
       actorStates: [{ hp: 1, resources: { focus: 0 } }],
       playerRouteState: { playerCost: 4 },
-      locationProgress: { 'test:location:archive': { visitCount: 1, completed: false } },
+      locationProgress: { 'test:location:archive': { visitCount: 0, completed: false } },
     });
     expect(second.getSnapshot()).toMatchObject({
       eventState: { tracks: { danger: 1 }, knownFactIds: [], heldItemIds: [] },
@@ -437,10 +484,10 @@ describe('OperationRuntimeService', () => {
     const events: string[] = [];
     const unsubscribe = service.subscribe(event => events.push(event.type));
 
-    service.start(eventDef());
+    service.start(eventDefWithArchiveRoute());
     service.applyStateDelta({ tracks: { danger: 2 }, knownFacts: [{ id: 'door_open', present: true }] });
     service.completeCurrentLocation();
-    service.enterLocation('test:location:archive');
+    expect(service.getSnapshot()?.currentLocationId).toBe('test:location:archive');
     unsubscribe();
     service.completeCurrentLocation();
 
@@ -477,7 +524,99 @@ describe('OperationRuntimeService', () => {
     expect(service.finish()).toBe(result);
     expect(listener.mock.calls.filter(([event]) => event.type === 'runFinished')).toHaveLength(1);
     expect(() => service.applyStateDelta({ tracks: { danger: 2 } })).toThrow(/terminal/);
-    expect(() => service.enterLocation('test:location:archive')).toThrow(/terminal/);
+    const terminalRun = service.getSnapshot()!;
+    expect(() => service.transitionRoute({ runId: terminalRun.runId, planVersion: terminalRun.planVersion, routeId: 'test:route:office-archive' })).toThrow(/terminal/);
+  });
+
+  test('routes through one versioned entry, consumes held items, loops, and respects the visit cap', () => {
+    const definition = eventDef();
+    const routed: OperationEventDef = {
+      ...definition,
+      maxLocationVisits: 4,
+      locations: [
+        {
+          ...definition.locations[0],
+          routeEdges: [
+            {
+              id: 'test:route:office-archive',
+              targetLocationId: 'test:location:archive',
+              label: 'Staff entrance',
+              description: 'Use the archive key to enter.',
+              requiredHeldItemId: 'archive_key',
+              consumeRequiredHeldItem: true,
+            },
+            {
+              id: 'test:route:office-exit',
+              targetLocationId: 'test:location:exit',
+              label: 'Public exit',
+              description: 'Leave through the public path.',
+            },
+          ],
+        },
+        {
+          ...definition.locations[1],
+          routeEdges: [{
+            id: 'test:route:archive-loop',
+            targetLocationId: 'test:location:office',
+            label: 'Return to the office',
+            description: 'Loop back to the central location.',
+          }],
+        },
+        {
+          id: 'test:location:exit', enabledActionIds: [], combinationRules: [],
+          routeEdges: [{
+            id: 'test:route:exit-loop',
+            targetLocationId: 'test:location:office',
+            label: 'Walk back',
+            description: 'Return to the start.',
+          }],
+        },
+      ],
+    };
+    const service = new OperationRuntimeService();
+    const tacticalStart = tacticalRunStartInput();
+    const started = service.start({ ...tacticalStart, eventDefinition: routed });
+    expect(() => service.transitionRoute({ runId: started.runId, planVersion: 0, routeId: 'test:route:office-exit' }))
+      .toThrow(/unavailable/);
+    expect(service.getSnapshot()).toEqual(started);
+
+    service.applyStateDelta({ heldItems: [{ id: 'archive_key', present: true }] });
+    const ready = service.completeCurrentLocation();
+    expect(ready.currentLocationId).toBe('test:location:office');
+    expect(service.getView()?.currentRoutes.map(route => route.available)).toEqual([true, true]);
+    expect(() => service.transitionRoute({
+      runId: ready.runId,
+      planVersion: ready.planVersion - 1,
+      routeId: 'test:route:office-archive',
+    })).toThrow(/stale/);
+    expect(service.getSnapshot()).toEqual(ready);
+    const inArchive = service.transitionRoute({
+      runId: ready.runId,
+      planVersion: ready.planVersion,
+      routeId: 'test:route:office-archive',
+    });
+    expect(inArchive).toMatchObject({
+      currentLocationId: 'test:location:archive',
+      eventState: { heldItemIds: [] },
+      routeHistory: [{ fromLocationId: 'test:location:office', fromLocationResult: 'success', routeId: 'test:route:office-archive', toLocationId: 'test:location:archive', consumedHeldItemId: 'archive_key' }],
+    });
+
+    const backAtOffice = service.completeCurrentLocation();
+    expect(backAtOffice).toMatchObject({
+      currentLocationId: 'test:location:office',
+      routeHistory: [
+        { routeId: 'test:route:office-archive' },
+        { routeId: 'test:route:archive-loop' },
+      ],
+    });
+    const atExit = service.completeCurrentLocation();
+    expect(atExit).toMatchObject({ currentLocationId: 'test:location:exit', routeHistory: [{}, {}, {}] });
+    expect(service.getView()).toMatchObject({ totalLocationVisits: 4, maxLocationVisits: 4 });
+    const resultRun = service.completeCurrentLocation();
+    expect(resultRun.status).toBe('failure');
+    expect(service.getView()?.currentRoutes).toEqual([
+      expect.objectContaining({ routeId: 'test:route:exit-loop', available: false, lockedReason: 'operation:route:max-visits-reached' }),
+    ]);
   });
 
   test('contains listener errors and continues notifying after committed transitions', () => {
@@ -572,10 +711,10 @@ describe('OperationRuntimeService', () => {
       { kind: 'heldItem', itemId: 'archive_key', op: 'grant' },
       { kind: 'heldItem', itemId: 'archive_key', op: 'grant' },
     ]);
-    const tactics = startInput.eventDefinition.locationTactics![0];
+    const tactics = startInput.eventDefinition.locations![0];
     const eventDefinition: OperationEventDef = {
       ...startInput.eventDefinition,
-      locationTactics: [{
+      locations: [{
         ...tactics,
         objectives: [{
           id: 'test:objective:open-archive',
@@ -583,7 +722,7 @@ describe('OperationRuntimeService', () => {
           kind: 'primary',
           predicate: { kind: 'knownFact', factId: 'door_open', present: true },
         }],
-      }],
+      } ], maxLocationVisits: 20,
     };
     const started = owner.start({ ...startInput, eventDefinition });
 
@@ -678,19 +817,35 @@ describe('OperationRuntimeService', () => {
     const owner = new OperationRuntimeService();
     const entry = operationEntryFor(owner);
     const startInput = tacticalRunStartInput();
-    const tactics = startInput.eventDefinition.locationTactics![0];
+    const tactics = startInput.eventDefinition.locations[0];
     const started = owner.start({
       ...startInput,
-      eventDefinition: { ...startInput.eventDefinition, locationTactics: [{ ...tactics, maxBeats: 1 }] },
+      eventDefinition: {
+        ...startInput.eventDefinition,
+        locations: [
+          {
+            ...tactics,
+            maxBeats: 1,
+            routeEdges: [{
+              id: 'test:route:office-archive',
+              targetLocationId: 'test:location:archive',
+              label: 'Continue',
+              description: 'Move to the archive.',
+            }],
+          },
+          eventDef().locations[1],
+        ],
+      },
     });
 
     entry.commitBeat({ runId: started.runId, planVersion: started.planVersion });
     expect(owner.getSnapshot()).toMatchObject({
       status: 'inProgress',
+      currentLocationId: 'test:location:archive',
       locationProgress: {
         'test:location:office': { visitCount: 1, beatCount: 1, completed: true, result: 'failure' },
       },
-      preparedBeat: null,
+      preparedBeat: { planVersion: 2, locationId: 'test:location:archive' },
     });
     expect(owner.getResult()).toBeNull();
   });
@@ -741,12 +896,10 @@ describe('OperationRuntimeService', () => {
     expect(changed).toMatchObject({ planVersion: 1, preparedBeat: { planVersion: 1, locationId: 'test:location:office' } });
     expect(() => entry.commitBeat({ runId: initial.runId, planVersion: 0 })).toThrow(/stale/);
 
-    const entered = service.enterLocation('test:location:archive');
-    expect(entered).toMatchObject({ planVersion: 2, preparedBeat: { planVersion: 2, locationId: 'test:location:archive' } });
     const completed = service.completeCurrentLocation();
-    expect(completed).toMatchObject({ planVersion: 3, preparedBeat: null });
+    expect(completed).toMatchObject({ status: 'failure', planVersion: 3 });
     const finished = service.finish();
-    expect(finished.finalRun).toMatchObject({ planVersion: 4, preparedBeat: null, interventionDraft: null });
+    expect(finished.finalRun).toMatchObject({ planVersion: 3, preparedBeat: null, interventionDraft: null });
   });
 
   test('rejects runtime mutations during lifecycle callbacks without changing the Run', () => {
@@ -759,7 +912,7 @@ describe('OperationRuntimeService', () => {
       expect(() => service.dispose()).toThrow(OperationRuntimeError);
       expect(() => service.start(eventDef())).toThrow(OperationRuntimeError);
       expect(() => service.applyStateDelta({ tracks: { danger: 2 } })).toThrow(OperationRuntimeError);
-      expect(() => service.enterLocation('test:location:archive')).toThrow(OperationRuntimeError);
+      expect(() => service.transitionRoute({ runId: 'blocked', planVersion: 0, routeId: 'blocked' })).toThrow(OperationRuntimeError);
       expect(() => service.completeCurrentLocation()).toThrow(OperationRuntimeError);
       expect(() => service.finish()).toThrow(OperationRuntimeError);
     });

@@ -279,9 +279,9 @@ export function previewOperationIntervention(
   const initialization = getStudentInitialization(trustedContent, draft.actorId);
   const candidateRow = getCandidateRow(initialization.profile, actionId);
   const action = getActionDefinition(trustedContent, actionId);
-  const locationTactics = trustedContent.eventDefinition.locationTactics
-    ?.find(row => row.locationId === snapshot.currentLocationId);
-  if (!locationTactics?.enabledActionIds.includes(actionId)) {
+  const location = trustedContent.eventDefinition.locations
+    .find(row => row.id === snapshot.currentLocationId);
+  if (!location?.enabledActionIds.includes(actionId)) {
     fail('operation:intervention:action-not-enabled', 'Action is not enabled at the current Location');
   }
   if (draft.reasonId !== undefined

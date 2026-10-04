@@ -13,10 +13,9 @@
 - [[draft-0212-gameplay-b-ac-native-design-roadmap]]：玩法 B 接入 AC 的设计路线与分阶段提案。
 - [[task-0216-gameplay-b-command-loop-vertical-slice-ui]]：单地点核心切片与 OperationView 原型；其版式不是正式三栏 UI 规范。
 
-### 玩法 B 接入 AC：目标、地图与服务机制（暂不扩展玩家 UI）
+### 玩法 B 接入 AC：目标与结局机制（暂不扩展玩家 UI）
 
 - [[task-0217-gameplay-b-objectives-and-partial-outcomes]]：事件目标、Runtime 结果与只读投影；不施工玩家交互 UI。
-- [[task-0218-gameplay-b-causal-locations-and-route-selection]]：持有物门槛、分支、有界回环与 Route 命令/View；地图交互 UI 延至 0222。
 
 ### 玩法 B 接入 AC：场景行为与玩家路线经济服务（暂不施工信息流交互）
 
@@ -37,6 +36,7 @@
 - [[archive/task-0227-init-theme-selector-only]]：Init 声明主题只用于外部选择页；游戏运行时不再应用 Init 的颜色、背景或 Presentation。
 - [[archive/task-0226-ui-theme-color-only-inheritance]]：父子宿主不再回退复用父级背景图层，子级保留主题色作用域继承并使用自身默认表现。
 - [[archive/task-0215-gameplay-b-prepared-actions-and-intervention-resolution]]：PreparedBeat、Intent、有限指挥与确定性结算；U1–U9 均已完成，2026-10-05 按 Task Owner 指示归档。
+- [[task-0218-gameplay-b-causal-locations-and-route-selection]]：单一 Location/Route 合同、持有物门槛、分支/有界回环、唯一转场入口与固定样例；Runtime/View/文档/GALHCG 闭环完成。
 - [[archive/task-0214-gameplay-b-student-participation-and-autonomy]]：完成学生准入、Actor/Profile 快照及机制文档与 GALHCG 收尾。
 - [[archive/task-0213-gameplay-b-event-runtime-and-session-state]]：EventRun 状态 owner、GameInstance 生命周期与机制文档/GALHCG 闭环完成；为 Task 0214 提供稳定 Runtime 基础。
 - [[task-0223-ai-collaboration-docs-and-galhcg-discovery]]：整理 AI 协作文档入口及 GALHCG 查询、维护协议。

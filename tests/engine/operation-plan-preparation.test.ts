@@ -112,12 +112,14 @@ function eventDefinition(
   actors: readonly OperationActorDef[],
   options: {
     teams?: NonNullable<OperationEventDef['teams']>;
-    locationTactics?: OperationEventDef['locationTactics'];
+    locations?: OperationEventDef['locations'];
+    maxLocationVisits?: number;
   } = {},
 ): OperationEventDef {
   return {
     id: 'test:operation:preparation',
-    locationIds: ['location:office', 'location:arcade'],
+    locations: [{ id: 'location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] }, { id: 'location:arcade', enabledActionIds: [], combinationRules: [], routeEdges: [] } ],
+    maxLocationVisits: options.maxLocationVisits ?? 20,
     initialLocationId: 'location:office',
     tracks: [],
     factIds: [],
@@ -126,7 +128,7 @@ function eventDefinition(
     heldItemIds: [],
     actors,
     ...(options.teams ? { teams: options.teams } : {}),
-    ...(options.locationTactics ? { locationTactics: options.locationTactics } : {}),
+    ...(options.locations ? { locations: options.locations } : {}),
     playerRouteState: { playerCost: 9, cards: { drawPile: [], hand: [], discard: [], played: [] } },
   };
 }
@@ -154,11 +156,7 @@ describe('pure Operation Beat preparation', () => {
     const opponent = actor('actor:opponent', 'opponent');
     const studentB = actor('actor:student-b', 'student');
     const event = eventDefinition([studentA, opponent, studentB], {
-      locationTactics: [{
-        locationId: 'location:office',
-        enabledActionIds: ['student:priority', 'student:observe', 'opponent:enabled'],
-        combinationRules: [],
-      }],
+      locations: [{ id: 'location:office', enabledActionIds: ['student:priority', 'student:observe', 'opponent:enabled'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const profileA = studentProfile('a', ['student:observe', 'student:priority'], ['student:priority']);
     const profileB = studentProfile('b', ['student:observe']);
@@ -195,7 +193,7 @@ describe('pure Operation Beat preparation', () => {
   test('skips a statically capability-blocked Profile candidate and selects the next eligible candidate', () => {
     const student = actor('actor:student', 'student');
     const event = eventDefinition([student], {
-      locationTactics: [{ locationId: 'location:office', enabledActionIds: ['student:blocked', 'student:eligible'], combinationRules: [] }],
+      locations: [{ id: 'location:office', enabledActionIds: ['student:blocked', 'student:eligible'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const baseProfile = studentProfile('capability', ['student:blocked', 'student:eligible'], ['student:blocked']);
     const profile: OperationStudentProfileSnapshot = {
@@ -222,11 +220,7 @@ describe('pure Operation Beat preparation', () => {
     const second = actor('actor:second', 'opponent', { teamId: 'team:enemy' });
     const event = eventDefinition([first, second], {
       teams: [{ id: 'team:enemy', resources: { pressure: { initial: 2, min: 0, max: 2 } } }],
-      locationTactics: [{
-        locationId: 'location:office',
-        enabledActionIds: ['enemy:large', 'enemy:small', 'enemy:free'],
-        combinationRules: [],
-      }],
+      locations: [{ id: 'location:office', enabledActionIds: ['enemy:large', 'enemy:small', 'enemy:free'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const trusted = content(event, [
       opponentInitialization(second.id, ['enemy:small', 'enemy:free']),
@@ -260,11 +254,7 @@ describe('pure Operation Beat preparation', () => {
         id: 'team:opponents',
         resources: { pressure: { initial: 1, min: 1, max: 2 } },
       }],
-      locationTactics: [{
-        locationId: 'location:office',
-        enabledActionIds: ['student:spend-focus', 'opponent:spend-pressure'],
-        combinationRules: [],
-      }],
+      locations: [{ id: 'location:office', enabledActionIds: ['student:spend-focus', 'opponent:spend-pressure'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const trusted = content(event, [
       studentInitialization(student.id, studentProfile('minimum', ['student:spend-focus'])),
@@ -300,11 +290,7 @@ describe('pure Operation Beat preparation', () => {
     ];
     const event = eventDefinition([student, ...opponents], {
       teams: [{ id: 'team:decimal', resources: { pressure: { initial: 0.3, min: 0, max: 0.3 } } }],
-      locationTactics: [{
-        locationId: 'location:office',
-        enabledActionIds: ['student:decimal-cost', 'opponent:decimal-cost'],
-        combinationRules: [],
-      }],
+      locations: [{ id: 'location:office', enabledActionIds: ['student:decimal-cost', 'opponent:decimal-cost'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const trusted = content(event, [
       studentInitialization(student.id, studentProfile('decimal', ['student:decimal-cost'])),
@@ -331,11 +317,7 @@ describe('pure Operation Beat preparation', () => {
     const second = actor('actor:large-balance-second', 'opponent', { teamId: 'team:large-balance' });
     const event = eventDefinition([first, second], {
       teams: [{ id: 'team:large-balance', resources: { pressure: { initial: 1e16, min: 0, max: 1e16 } } }],
-      locationTactics: [{
-        locationId: 'location:office',
-        enabledActionIds: ['enemy:small-decimal', 'enemy:full-balance'],
-        combinationRules: [],
-      }],
+      locations: [{ id: 'location:office', enabledActionIds: ['enemy:small-decimal', 'enemy:full-balance'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const trusted = content(event, [
       opponentInitialization(first.id, ['enemy:small-decimal']),
@@ -365,7 +347,7 @@ describe('pure Operation Beat preparation', () => {
     const ally = actor('actor:ally', 'opponent', { teamId: 'team:enemy' });
     const event = eventDefinition([source, ally], {
       teams: [{ id: 'team:enemy', resources: { pressure: { initial: 2, min: 0, max: 2 } } }],
-      locationTactics: [{ locationId: 'location:office', enabledActionIds: ['enemy:targeted', 'enemy:backup'], combinationRules: [] }],
+      locations: [{ id: 'location:office', enabledActionIds: ['enemy:targeted', 'enemy:backup'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const trusted = content(event, [
       opponentInitialization(source.id, ['enemy:targeted', 'enemy:backup']),
@@ -412,18 +394,14 @@ describe('pure Operation Beat preparation', () => {
     const student = actor('actor:student', 'student', { teamId: 'team:students', resources: { focus: { initial: 1, min: 0, max: 2 } } });
     const event = eventDefinition([emptyCandidateActor, student], {
       teams: [{ id: 'team:students' }],
-      locationTactics: [{
-        locationId: 'location:office',
-        enabledActionIds: ['student:needs-target', 'student:too-expensive'],
-        combinationRules: [],
-      }],
+      locations: [{ id: 'location:office', enabledActionIds: ['student:needs-target', 'student:too-expensive'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const studentProfileWithCandidates = studentProfile('blocked-by-runtime', ['student:needs-target', 'student:too-expensive']);
     const staticProfile = waitOnlyStudentProfile('static-wait');
     const studentWithoutAction = actor('actor:static-wait', 'student');
     const eventWithStaticWait = eventDefinition([emptyCandidateActor, student, studentWithoutAction], {
       teams: [{ id: 'team:students' }],
-      locationTactics: event.locationTactics,
+      locations: event.locations,
     });
     const trusted = content(eventWithStaticWait, [
       studentInitialization(student.id, studentProfileWithCandidates),
@@ -460,7 +438,7 @@ describe('pure Operation Beat preparation', () => {
   test('returns equal frozen output for repeated input and never mutates snapshot or content', () => {
     const student = actor('actor:student', 'student');
     const event = eventDefinition([student], {
-      locationTactics: [{ locationId: 'location:office', enabledActionIds: ['student:observe'], combinationRules: [] }],
+      locations: [{ id: 'location:office', enabledActionIds: ['student:observe'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const trusted = content(event, [studentInitialization(student.id, studentProfile('student', ['student:observe']))], [action('student:observe', ['student'])]);
     const dynamic = snapshot([{ actorId: student.id, participantKind: 'student', resources: {} }]);
@@ -481,7 +459,7 @@ describe('pure Operation Beat preparation', () => {
   test('rejects a candidate that references missing Action content with a concrete diagnostic', () => {
     const enemy = actor('actor:enemy', 'opponent');
     const event = eventDefinition([enemy], {
-      locationTactics: [{ locationId: 'location:office', enabledActionIds: ['enemy:missing'], combinationRules: [] }],
+      locations: [{ id: 'location:office', enabledActionIds: ['enemy:missing'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     });
     const trusted = content(event, [opponentInitialization(enemy.id, ['enemy:missing'])], []);
 
@@ -523,7 +501,7 @@ describe('pure Operation Beat preparation', () => {
       })),
     };
     const capabilityContent = content(eventDefinition([student], {
-      locationTactics: [{ locationId: 'location:office', enabledActionIds: ['student:trained'], combinationRules: [] }],
+      locations: [{ id: 'location:office', enabledActionIds: ['student:trained'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     }), [studentInitialization(student.id, profile)], [
       action('student:trained', ['student'], { requiredCapabilityIds: ['capability:trained'] }),
     ]);

@@ -7,7 +7,7 @@ import type {
   OperationPredicateDef,
   OperationPredicateLeafDef,
 } from '../contracts/operation';
-import type { OperationLocationTacticsDef } from '../contracts/operation-action';
+import type { OperationLocationDef } from '../contracts/operation-action';
 
 type EventStateView = Pick<EventRun['eventState'], 'tracks' | 'knownFactIds'>;
 
@@ -56,7 +56,7 @@ export function evaluateOperationEventOutcome(event: OperationEventDef, state: E
 }
 
 export function evaluateOperationLocationOutcome(
-  definition: OperationLocationTacticsDef | undefined,
+  definition: OperationLocationDef | undefined,
   state: EventStateView,
   beatCount: number,
 ): OperationLocationResultKind | null {
@@ -69,6 +69,6 @@ export function evaluateOperationLocationOutcome(
   return null;
 }
 
-export function getCurrentLocationDefinition(event: OperationEventDef, locationId: string): OperationLocationTacticsDef | undefined {
-  return event.locationTactics?.find(definition => definition.locationId === locationId);
+export function getCurrentLocationDefinition(event: OperationEventDef, locationId: string): OperationLocationDef | undefined {
+  return event.locations.find(definition => definition.id === locationId);
 }

@@ -218,31 +218,33 @@ function validateOutcomeConditions(
   });
 }
 
-function validateLocationTactics(
+function validateLocations(
   value: unknown,
-  locations: ReadonlySet<string>,
   trackIds: ReadonlySet<string>,
   factIds: ReadonlySet<string>,
   itemIds: ReadonlySet<string>,
   issues: string[],
-): void {
-  if (value === undefined) return;
+): Set<string> {
+  const locationIds = new Set<string>();
   if (!Array.isArray(value)) {
-    issues.push('locationTactics must be an array');
-    return;
+    issues.push('locations must be an array');
+    return locationIds;
   }
-  const seenLocations = new Set<string>();
   value.forEach((entry, index) => {
-    const path = 'locationTactics[' + index + ']';
-    if (!isOperationRecord(entry) || !isNonEmptyOperationId(entry.locationId)) {
-      issues.push(path + '.locationId must be a non-empty ID');
+    if (!isOperationRecord(entry) || !isNonEmptyOperationId(entry.id)) {
+      issues.push('locations[' + index + '].id must be a non-empty ID');
+    } else if (locationIds.has(entry.id)) {
+      issues.push('locations contains duplicate ID: ' + entry.id);
+    } else {
+      locationIds.add(entry.id);
+    }
+  });
+  value.forEach((entry, index) => {
+    const path = 'locations[' + index + ']';
+    if (!isOperationRecord(entry) || !isNonEmptyOperationId(entry.id)) {
       return;
     }
-    rejectUnsupportedFields(entry, ['locationId', 'enabledActionIds', 'combinationRules', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats'], path, issues);
-    if (!locations.has(entry.locationId)) issues.push(path + '.locationId references an undeclared Location: ' + entry.locationId);
-    if (seenLocations.has(entry.locationId)) issues.push('locationTactics contains duplicate locationId: ' + entry.locationId);
-    seenLocations.add(entry.locationId);
-
+    rejectUnsupportedFields(entry, ['id', 'enabledActionIds', 'combinationRules', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats', 'routeEdges'], path, issues);
     collectIds(entry.enabledActionIds, path + '.enabledActionIds', issues);
     validateObjectives(entry.objectives, trackIds, factIds, path + '.objectives', issues);
     validateOutcomeConditions(entry.partialOutcomes, trackIds, factIds, path + '.partialOutcomes', issues);
@@ -250,6 +252,37 @@ function validateLocationTactics(
     if (entry.maxBeats !== undefined && (!Number.isSafeInteger(entry.maxBeats) || Number(entry.maxBeats) <= 0)) {
       issues.push(path + '.maxBeats must be a positive safe integer');
     }
+    if (!Array.isArray(entry.routeEdges)) {
+      issues.push(path + '.routeEdges must be an array');
+      return;
+    }
+    const routeIds = new Set<string>();
+    entry.routeEdges.forEach((route, routeIndex) => {
+      const routePath = path + '.routeEdges[' + routeIndex + ']';
+      if (!isOperationRecord(route)) {
+        issues.push(routePath + ' must be a RouteEdge object');
+        return;
+      }
+      rejectUnsupportedFields(route, ['id', 'targetLocationId', 'label', 'description', 'requiredHeldItemId', 'consumeRequiredHeldItem'], routePath, issues);
+      if (!isNonEmptyOperationId(route.id)) issues.push(routePath + '.id must be a non-empty routeId');
+      else if (routeIds.has(route.id)) issues.push(path + '.routeEdges contains duplicate routeId: ' + route.id);
+      else routeIds.add(route.id);
+      if (!isNonEmptyOperationId(route.targetLocationId) || !locationIds.has(route.targetLocationId)) {
+        issues.push(routePath + '.targetLocationId references an undeclared Location');
+      }
+      if (typeof route.label !== 'string' || route.label.trim().length === 0) issues.push(routePath + '.label must be non-empty');
+      if (typeof route.description !== 'string' || route.description.trim().length === 0) issues.push(routePath + '.description must be non-empty');
+      if (route.requiredHeldItemId !== undefined
+        && (!isNonEmptyOperationId(route.requiredHeldItemId) || !itemIds.has(route.requiredHeldItemId))) {
+        issues.push(routePath + '.requiredHeldItemId references an undeclared item');
+      }
+      if (route.consumeRequiredHeldItem !== undefined && typeof route.consumeRequiredHeldItem !== 'boolean') {
+        issues.push(routePath + '.consumeRequiredHeldItem must be boolean');
+      }
+      if (route.consumeRequiredHeldItem === true && route.requiredHeldItemId === undefined) {
+        issues.push(routePath + '.consumeRequiredHeldItem requires requiredHeldItemId');
+      }
+    });
     if (!Array.isArray(entry.combinationRules)) {
       issues.push(path + '.combinationRules must be an array');
       return;
@@ -276,6 +309,7 @@ function validateLocationTactics(
       }
     });
   });
+  return locationIds;
 }
 
 /** Pure definition/reference validation. A non-empty result is a complete diagnostic list. */
@@ -286,11 +320,6 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   if (!isNonEmptyOperationId(raw.id)) issues.push('id must be a non-empty ID');
   if (Object.prototype.hasOwnProperty.call(raw, 'actionRequirements')) {
     issues.push('actionRequirements is removed; declare trusted Action definitions in OperationResolvedContent');
-  }
-
-  const locations = collectIds(raw.locationIds, 'locationIds', issues);
-  if (!isNonEmptyOperationId(raw.initialLocationId) || !locations.has(raw.initialLocationId)) {
-    issues.push('initialLocationId must reference a declared location');
   }
 
   const trackIds = new Set<string>();
@@ -316,6 +345,14 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   const items = collectIds(raw.itemIds, 'itemIds', issues);
   const heldItems = collectIds(raw.heldItemIds, 'heldItemIds', issues);
   for (const id of heldItems) if (!items.has(id)) issues.push('heldItemIds contains undeclared item: ' + id);
+
+  const locations = validateLocations(raw.locations, trackIds, facts, items, issues);
+  if (!isNonEmptyOperationId(raw.initialLocationId) || !locations.has(raw.initialLocationId)) {
+    issues.push('initialLocationId must reference a declared location');
+  }
+  if (!Number.isSafeInteger(raw.maxLocationVisits) || Number(raw.maxLocationVisits) <= 0) {
+    issues.push('maxLocationVisits must be a positive safe integer');
+  }
 
   validateObjectives(raw.objectives, trackIds, facts, 'objectives', issues);
   validateOutcomeConditions(raw.partialOutcomes, trackIds, facts, 'partialOutcomes', issues);
@@ -390,8 +427,6 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
       }
     });
   }
-
-  validateLocationTactics(raw.locationTactics, locations, trackIds, facts, items, issues);
 
   if (!isOperationRecord(raw.playerRouteState)) {
     issues.push('playerRouteState must be an object');

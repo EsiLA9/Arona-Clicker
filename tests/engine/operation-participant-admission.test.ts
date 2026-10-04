@@ -35,7 +35,7 @@ const SERIKA_PROFILE: StudentOperationProfileDef = {
 function eventDef(id = EVENT_ID): OperationEventDef {
   return {
     id,
-    locationIds: ['test:location:office'],
+    locations: [{ id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [],
     factIds: [],
@@ -290,7 +290,7 @@ describe('Operation participant admission', () => {
         source: content({
           eventDefinition: {
             ...eventDef(),
-            locationTactics: [{ locationId: 'test:location:office', enabledActionIds: ['missing'], combinationRules: [] }],
+            locations: [{ id: 'test:location:office', enabledActionIds: ['missing'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
           },
         }),
         message: /enabledActionIds references a missing Action/,
@@ -299,11 +299,7 @@ describe('Operation participant admission', () => {
         source: content({
           eventDefinition: {
             ...eventDef(),
-            locationTactics: [{
-              locationId: 'test:location:office',
-              enabledActionIds: ['observe'],
-              combinationRules: [{ id: 'combo', priority: 1, inputTagIds: ['missing:a', 'missing:b'], targetMatch: 'no-target', effects: [] }],
-            }],
+            locations: [{ id: 'test:location:office', enabledActionIds: ['observe'], combinationRules: [{ id: 'combo', priority: 1, inputTagIds: ['missing:a', 'missing:b'], targetMatch: 'no-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
           },
         }),
         message: /does not match an enabled student Action tag/,
@@ -313,10 +309,7 @@ describe('Operation participant admission', () => {
           actionDefinitions: baseActions.map((action, index) => ({ ...action, tagIds: [index === 0 ? 'slot:a' : 'slot:b'] })),
           eventDefinition: {
             ...eventDef(),
-            locationTactics: [{
-              locationId: 'test:location:office', enabledActionIds: ['observe', 'protect'],
-              combinationRules: [{ id: 'same-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'same-target', effects: [] }],
-            }],
+            locations: [{ id: 'test:location:office', enabledActionIds: ['observe', 'protect'], combinationRules: [{ id: 'same-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'same-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
           },
         }),
         message: /not have enabled student Actions compatible with targetMatch same-target/,
@@ -330,10 +323,7 @@ describe('Operation participant admission', () => {
           })),
           eventDefinition: {
             ...eventDef(),
-            locationTactics: [{
-              locationId: 'test:location:office', enabledActionIds: ['observe', 'protect'],
-              combinationRules: [{ id: 'no-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'no-target', effects: [] }],
-            }],
+            locations: [{ id: 'test:location:office', enabledActionIds: ['observe', 'protect'], combinationRules: [{ id: 'no-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'no-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
           },
         }),
         message: /not have enabled student Actions compatible with targetMatch no-target/,

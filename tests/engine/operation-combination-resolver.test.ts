@@ -65,7 +65,7 @@ function eventDefinition(
 ): OperationEventDef {
   return {
     id: 'test:operation:combination',
-    locationIds: ['location:office', 'location:arcade'],
+    locations: [{ id: 'location:office', enabledActionIds: [], combinationRules: rules, routeEdges: [] }, { id: 'location:arcade', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'location:office',
     tracks: [],
     factIds: [],
@@ -73,7 +73,6 @@ function eventDefinition(
     itemIds: [],
     heldItemIds: [],
     actors,
-    locationTactics: [{ locationId: 'location:office', enabledActionIds: [], combinationRules: rules }],
     playerRouteState: { playerCost: 0, cards: { drawPile: [], hand: [], discard: [], played: [] } },
   };
 }

@@ -84,19 +84,7 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
   ];
   const eventDefinition: OperationEventDef = {
     id: 'event:test:resolution',
-    locationIds: ['location:office'],
-    initialLocationId: 'location:office',
-    tracks: [{ id: 'track:momentum', initial: 0, min: 0, max: 3 }],
-    factIds: [],
-    knownFactIds: [],
-    itemIds: [],
-    heldItemIds: [],
-    actors,
-    teams: [{ id: TEAM_BLUE, resources: { energy: { initial: 0.3, min: 0, max: 1 } } }],
-    locationTactics: [{
-      locationId: 'location:office',
-      enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION],
-      combinationRules: options.invalidActionEffect ? [] : [{
+    locations: [{ id: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: options.invalidActionEffect ? [] : [{
         id: 'combo:focus',
         priority: 0,
         inputTagIds: ['tag:a', 'tag:b'],
@@ -105,8 +93,15 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
           { kind: 'actorHpDelta', recipient: 'actor', amount: 1 },
           { kind: 'eventTrackDelta', trackId: 'track:momentum', amount: 2 },
         ],
-      }],
-    }],
+      }], routeEdges: [] } ], maxLocationVisits: 20,
+    initialLocationId: 'location:office',
+    tracks: [{ id: 'track:momentum', initial: 0, min: 0, max: 3 }],
+    factIds: [],
+    knownFactIds: [],
+    itemIds: [],
+    heldItemIds: [],
+    actors,
+    teams: [{ id: TEAM_BLUE, resources: { energy: { initial: 0.3, min: 0, max: 1 } } }],
     playerRouteState: { playerCost: 9, cards: { drawPile: [], hand: [], discard: [], played: [] } },
   };
   const actionDefinitions: OperationActionDef[] = [
@@ -269,7 +264,7 @@ describe('pure Operation Resolution planner', () => {
     const input = fixture();
     const eventDefinition = {
       ...input.trustedContent.eventDefinition,
-      locationTactics: input.trustedContent.eventDefinition.locationTactics!.map(row => ({
+      locations: input.trustedContent.eventDefinition.locations!.map(row => ({
         ...row,
         combinationRules: row.combinationRules.map(rule => ({
           ...rule,
@@ -375,7 +370,7 @@ describe('pure Operation Resolution planner', () => {
       actors: actorCostInput.trustedContent.eventDefinition.actors.map(actorDefinition => actorDefinition.id === STUDENT_A
         ? { ...actorDefinition, targetPriorityActorIds: [STUDENT_B] }
         : actorDefinition),
-      locationTactics: [{ locationId: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: [] }],
+      locations: [{ id: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     };
     const gainActions = [
       { ...actorCostActions[0], cost: undefined, target: { kind: 'actor' as const, relation: 'any' as const }, effects: [
@@ -428,7 +423,7 @@ describe('pure Operation Resolution planner', () => {
       ...event,
       actors: remappedActors,
       teams: [],
-      locationTactics: [{ locationId: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: [] }],
+      locations: [{ id: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     };
     const actionDefinitions = input.trustedContent.actionDefinitions.map((actionDefinition, index) => index < 2
       ? {

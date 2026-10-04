@@ -82,7 +82,7 @@ Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限�
 ## Documentation / GALHCG
 
 - 本 Task Receipt 收集实现稳定后的机制页候选、Concept 与证据路径；不在单 Task 收尾时刷新或写 GALHCG。
-- Task 0218 完成后，一次性委派子 Agent 汇总 0217–0218 的 Objective/Outcome、Route/Location 稳定语义并更新 GALHCG；只维护稳定 Concept 与有依据的路径，不为 helper 或单条配置建节点。
+- Task 0218 收尾已将 0217–0218 的 Objective/Outcome、Location/Route 稳定语义合并更新到 Runtime/OperationView 机制文档与 `concept:operation-event-run-runtime` 的 GALHCG Evidence/maps_to；只维护稳定 Concept，不为 helper 或单条配置建节点。SceneAction/Card 包装与 AC 奖励提交仍由后续 Task 验收。
 - Read Set：`docs/docs-829/03-data-structures/engine-contracts.md`、`docs/docs-829/04-mechanisms/arona-clicker/state-mutation.md`、`docs/docs-829/04-mechanisms/engine/effect-trigger.md`、`docs/docs-829/05-conventions/architecture-discipline.md`。
 
 ## 当前核验与剩余工作

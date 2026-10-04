@@ -241,18 +241,20 @@ function buildIndexes(input: OperationResolutionPlannerInput): PlannerIndexes {
   if (!event || !isNonEmptyId(event.id) || snapshot.eventId !== event.id) {
     fail('operation:resolution:invalid-content', 'snapshot Event does not match trusted Event definitions');
   }
-  if (!Array.isArray(event.locationIds) || !Array.isArray(event.actors) || !Array.isArray(event.tracks)
+  if (!Array.isArray(event.locations) || !Number.isSafeInteger(event.maxLocationVisits) || event.maxLocationVisits <= 0
+    || !Array.isArray(event.actors) || !Array.isArray(event.tracks)
     || !Array.isArray(event.factIds) || !Array.isArray(event.itemIds)
-    || (event.teams !== undefined && !Array.isArray(event.teams))
-    || (event.locationTactics !== undefined && !Array.isArray(event.locationTactics))) {
-    fail('operation:resolution:invalid-content', 'Event content has malformed Location, Actor, Track, Team, or tactics collections');
+    || (event.teams !== undefined && !Array.isArray(event.teams))) {
+    fail('operation:resolution:invalid-content', 'Event content has malformed Location, Actor, Track, Team, or item collections');
   }
-  for (const row of event.locationTactics ?? []) {
-    if (!isRecord(row) || !Array.isArray(row.enabledActionIds) || !Array.isArray(row.combinationRules)) {
-      fail('operation:resolution:invalid-content', 'Location tactics rows must contain Action and Combination arrays');
+  for (const location of event.locations) {
+    if (!isRecord(location) || !isNonEmptyId(location.id)
+      || !Array.isArray(location.enabledActionIds) || !Array.isArray(location.combinationRules)
+      || !Array.isArray(location.routeEdges)) {
+      fail('operation:resolution:invalid-content', 'Location definitions must contain Action, Combination, and Route arrays');
     }
   }
-  if (!event.locationIds.includes(snapshot.currentLocationId)) {
+  if (!event.locations.some(location => location.id === snapshot.currentLocationId)) {
     fail('operation:resolution:invalid-snapshot', 'snapshot Location is not declared by the Event');
   }
   const actorsById = indexUnique(event.actors, actor => actor.id, 'Event actors', 'operation:resolution:invalid-content');
@@ -764,10 +766,8 @@ function addCombinationEffects(
   input: OperationResolutionPlannerInput,
 ): void {
   const rulesById = new Map<string, OperationCombinationRuleDef>();
-  for (const row of input.trustedContent.eventDefinition.locationTactics ?? []) {
-    if (row.locationId !== input.snapshot.currentLocationId) continue;
-    for (const rule of row.combinationRules) rulesById.set(rule.id, rule);
-  }
+  const location = input.trustedContent.eventDefinition.locations.find(row => row.id === input.snapshot.currentLocationId);
+  for (const rule of location?.combinationRules ?? []) rulesById.set(rule.id, rule);
   for (const match of matches) {
     const rule = rulesById.get(match.ruleId);
     if (!rule) fail('operation:resolution:invalid-content', 'Combination match references a missing rule: ' + match.ruleId);
