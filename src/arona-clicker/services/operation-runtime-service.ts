@@ -641,7 +641,7 @@ export class OperationRuntimeService {
   start(input: OperationEventDef | OperationRunStartInput): EventRun {
     this.assertCanMutate();
     const hasActorInitializations = isRecord(input) && 'eventDefinition' in input;
-    const runStartInput = hasActorInitializations ? input as OperationRunStartInput : undefined;
+    const runStartInput = hasActorInitializations ? input as unknown as OperationRunStartInput : undefined;
     const definition = runStartInput?.eventDefinition ?? input as OperationEventDef;
     const diagnostics = validateOperationEventDef(definition);
     if (diagnostics.length > 0) throw new OperationRuntimeError(diagnostics);

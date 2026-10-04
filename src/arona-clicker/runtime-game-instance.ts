@@ -35,7 +35,7 @@ import type { OperationObservation, OperationObservationInput } from './contract
 import { OperationRuntimeService } from './services/operation-runtime-service';
 import { createOperationEntry } from './services/operation-entry-service';
 import type { OperationEntryFacade } from './services/operation-entry-service';
-import { emptyOperationContentResolver } from './contracts/operation-content-resolver';
+import { createRegistryOperationContentResolver } from './services/registry-operation-content-resolver';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
 import { buildSaveData } from './runtime-save-codec';
 import { restoreFromSave } from './runtime-save';
@@ -171,7 +171,7 @@ export class GameInstance {
       characterSystem: this.characterSystem,
       rosterSystem: this.rosterSystem,
       getState: () => this._state,
-      resolver: options.operationContentResolver ?? emptyOperationContentResolver,
+      resolver: options.operationContentResolver ?? createRegistryOperationContentResolver(this.registry),
       owner: this.#operationRuntimeOwner,
     }).facade;
     this.runtimeContentBrowser = createRuntimeContentBrowser(this.registry, {

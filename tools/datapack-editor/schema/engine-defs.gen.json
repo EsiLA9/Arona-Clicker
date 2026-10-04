@@ -18,6 +18,22 @@
       "type": "SpotDef",
       "shape": "array"
     },
+    "operationEvents": {
+      "type": "OperationEventContentDef",
+      "shape": "array"
+    },
+    "operationLocations": {
+      "type": "OperationLocationDef",
+      "shape": "array"
+    },
+    "operationActions": {
+      "type": "OperationActionDef",
+      "shape": "array"
+    },
+    "studentOperationProfiles": {
+      "type": "StudentOperationProfileDef",
+      "shape": "array"
+    },
     "enhancements": {
       "type": "EnhancementDef",
       "shape": "array"
@@ -3974,6 +3990,380 @@
           "required": false,
           "kind": "extra",
           "tsType": "ExtraCompound"
+        }
+      ]
+    },
+    "OperationEventContentDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "initId",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Owning AC worldline; v1 exposes the event from this Init."
+        },
+        {
+          "key": "resumeVersion",
+          "required": true,
+          "kind": "float",
+          "tsType": "number",
+          "description": "Explicit author-maintained compatibility version for Save/Resume."
+        },
+        {
+          "key": "locationIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "initialLocationId",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "maxLocationVisits",
+          "required": true,
+          "kind": "float",
+          "tsType": "number"
+        },
+        {
+          "key": "tracks",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly OperationTrackDef[]"
+        },
+        {
+          "key": "factIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "knownFactIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "itemIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "heldItemIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "objectives",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationObjectiveDef[]"
+        },
+        {
+          "key": "partialOutcomes",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationOutcomeConditionDef[]"
+        },
+        {
+          "key": "hardFailureConditions",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationOutcomeConditionDef[]"
+        },
+        {
+          "key": "actors",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly OperationActorDef[]"
+        },
+        {
+          "key": "teams",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationTeamDef[]"
+        },
+        {
+          "key": "participants",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly OperationParticipantSpec[]"
+        },
+        {
+          "key": "studentSkillRules",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationStudentSkillRuleDef[]"
+        },
+        {
+          "key": "playerRouteState",
+          "required": true,
+          "kind": "object",
+          "tsType": "OperationPlayerRouteStateDef",
+          "fields": [
+            {
+              "key": "playerCost",
+              "required": true,
+              "kind": "float",
+              "tsType": "number"
+            }
+          ]
+        },
+        {
+          "key": "playerSceneDeck",
+          "required": false,
+          "kind": "object",
+          "tsType": "OperationPlayerSceneDeckDef",
+          "fields": [
+            {
+              "key": "cards",
+              "required": true,
+              "kind": "hand",
+              "tsType": "readonly OperationPlayerSceneCardDef[]"
+            },
+            {
+              "key": "initialDraw",
+              "required": true,
+              "kind": "float",
+              "tsType": "number"
+            },
+            {
+              "key": "locationEntryDraw",
+              "required": true,
+              "kind": "float",
+              "tsType": "number"
+            },
+            {
+              "key": "maxHandSize",
+              "required": true,
+              "kind": "float",
+              "tsType": "number"
+            }
+          ]
+        },
+        {
+          "key": "randomSeed",
+          "required": false,
+          "kind": "float",
+          "tsType": "number"
+        }
+      ]
+    },
+    "OperationLocationDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "enabledActionIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "combinationRules",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly OperationCombinationRuleDef[]"
+        },
+        {
+          "key": "actionMode",
+          "required": false,
+          "kind": "enum",
+          "tsType": "OperationSceneActionMode",
+          "options": [
+            "individual",
+            "global"
+          ]
+        },
+        {
+          "key": "sceneActions",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationSceneActionDef[]"
+        },
+        {
+          "key": "sceneActionBatches",
+          "required": false,
+          "kind": "float",
+          "tsType": "number"
+        },
+        {
+          "key": "costGain",
+          "required": false,
+          "kind": "float",
+          "tsType": "number"
+        },
+        {
+          "key": "maxCarryCost",
+          "required": false,
+          "kind": "float",
+          "tsType": "number"
+        },
+        {
+          "key": "objectives",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationObjectiveDef[]"
+        },
+        {
+          "key": "partialOutcomes",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationOutcomeConditionDef[]"
+        },
+        {
+          "key": "failureConditions",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationOutcomeConditionDef[]"
+        },
+        {
+          "key": "maxBeats",
+          "required": false,
+          "kind": "float",
+          "tsType": "number"
+        },
+        {
+          "key": "routeEdges",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly OperationRouteEdgeDef[]"
+        }
+      ]
+    },
+    "OperationActionDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "allowedParticipantKinds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly OperationActorKind[]"
+        },
+        {
+          "key": "requiredCapabilityIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "reasonIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "tagIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "cost",
+          "required": false,
+          "kind": "object",
+          "tsType": "OperationActionCostDef",
+          "fields": [
+            {
+              "key": "scope",
+              "required": true,
+              "kind": "enum",
+              "tsType": "'actor' | 'team'",
+              "options": [
+                "actor",
+                "team"
+              ]
+            },
+            {
+              "key": "resourceId",
+              "required": true,
+              "kind": "string",
+              "tsType": "string"
+            },
+            {
+              "key": "amount",
+              "required": true,
+              "kind": "float",
+              "tsType": "number"
+            }
+          ]
+        },
+        {
+          "key": "target",
+          "required": true,
+          "kind": "hand",
+          "tsType": "OperationActionTargetDef"
+        },
+        {
+          "key": "effects",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly OperationActionEffectDef[]"
+        }
+      ]
+    },
+    "StudentOperationProfileDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "characterId",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "candidateActionIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "actionPriorityIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "capabilityIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "reasonIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
+          "key": "randomSkillRuleId",
+          "required": false,
+          "kind": "string",
+          "tsType": "string"
         }
       ]
     },
@@ -10873,6 +11263,35 @@
     "MilestoneDef",
     "MotionDef",
     "MotionPreset",
+    "OperationActionCostDef",
+    "OperationActionDef",
+    "OperationActionEffectDef",
+    "OperationActionTargetDef",
+    "OperationActionTargetRelation",
+    "OperationActorDef",
+    "OperationActorKind",
+    "OperationBoundedValueDef",
+    "OperationCombinationRuleDef",
+    "OperationCombinationTargetMatch",
+    "OperationEventContentDef",
+    "OperationLocationDef",
+    "OperationLocationResultKind",
+    "OperationObjectiveDef",
+    "OperationOutcomeConditionDef",
+    "OperationParticipantSpec",
+    "OperationPlayerRouteStateDef",
+    "OperationPlayerSceneCardDef",
+    "OperationPlayerSceneDeckDef",
+    "OperationPredicateDef",
+    "OperationPredicateLeafDef",
+    "OperationPredicateOperator",
+    "OperationResultKind",
+    "OperationRouteEdgeDef",
+    "OperationSceneActionDef",
+    "OperationSceneActionMode",
+    "OperationStudentSkillRuleDef",
+    "OperationTeamDef",
+    "OperationTrackDef",
     "PanelPresentationDef",
     "PassivePoolChild",
     "PassivePoolDef",
@@ -10968,6 +11387,7 @@
     "StoryEntryReaction",
     "StoryFollowUp",
     "StoryId",
+    "StudentOperationProfileDef",
     "TagDef",
     "Talklet",
     "ThemeBackgroundVariant",

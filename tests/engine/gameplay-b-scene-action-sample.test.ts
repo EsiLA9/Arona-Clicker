@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstrap';
-import { carouselSceneActionSliceResolver } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
+import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { Character } from '../../src/arona-clicker/types/ids';
-import { baseDatapack } from '../../src/data/test-datapack';
+import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
+import { OperationAdmissionError } from '../../src/arona-clicker/services/operation-participant-admission';
 import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 
 const STUDENTS = [Character.Hoshino, Character.Serika, Character.Shiroko] as const;
@@ -21,8 +22,8 @@ describe('Gameplay B carousel SceneAction sample', () => {
   });
 
   test('plays Individual and Global batches, then follows the held-item branch to an Event outcome', () => {
-    const game = createAppRuntime({ operationContentResolver: carouselSceneActionSliceResolver });
-    game.init([baseDatapack], { enterDefaultInit: true });
+    const game = createAppRuntime();
+    game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
     games.push(game);
     expect(game.state.activeInit).toBe(DEFAULT_INIT_ID);
     for (const student of STUDENTS) game.mutations.acquireCharacter(VARIANTS[student], 'story');
@@ -99,5 +100,8 @@ describe('Gameplay B carousel SceneAction sample', () => {
 
     game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.parkExit });
     expect(game.operationEntry.getSnapshot()!.status).toBe('success');
+
+    game.inits.enterInit('base:init:millennium');
+    expect(() => game.operationEntry.start(IDS.event, STUDENTS)).toThrow(OperationAdmissionError);
   });
 });

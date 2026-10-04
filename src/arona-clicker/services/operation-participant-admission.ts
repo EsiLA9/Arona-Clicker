@@ -342,6 +342,14 @@ export class OperationParticipantAdmission {
     if (!parsed) throw new OperationAdmissionError(issues);
     const { content, participants, profiles, actionDefinitions, studentSkillRules } = parsed;
     const profileIndexes = indexStudentProfiles(profiles);
+    const currentState = this.dependencies.getState?.();
+    const requiredInitId = content.eventDefinition.initId;
+    if (requiredInitId !== undefined) {
+      if (!currentState) issues.push('Operation Event requires current Init context: ' + requiredInitId);
+      else if (currentState.activeInit !== requiredInitId) {
+        issues.push('Operation Event ' + eventId + ' belongs to Init ' + requiredInitId + ', current Init is ' + currentState.activeInit);
+      }
+    }
 
     const studentSlots = participants.filter((participant): participant is Extract<OperationParticipantSpec, { kind: 'student' }> => participant.kind === 'student');
     if (studentSlots.length !== characterIds.length) {
@@ -353,12 +361,11 @@ export class OperationParticipantAdmission {
     const ownedVariantIds = new Map<Character, string>();
     const admissionCount = Math.min(studentSlots.length, characterIds.length);
     if (admissionCount > 0) {
-      if (!characters || !roster || !this.dependencies.getState) {
+      if (!characters || !roster || !currentState) {
         throw new OperationAdmissionError(['operation entry is unavailable because Character/Roster services are not wired']);
       }
-      const state = this.dependencies.getState();
-      for (const character of characters.getUnlocked(state)) unlockedIds.add(character.id);
-      for (const [characterId, variantId] of indexOwnedVariantsByCharacter(state, roster)) {
+      for (const character of characters.getUnlocked(currentState)) unlockedIds.add(character.id);
+      for (const [characterId, variantId] of indexOwnedVariantsByCharacter(currentState, roster)) {
         ownedVariantIds.set(characterId, variantId);
       }
     }

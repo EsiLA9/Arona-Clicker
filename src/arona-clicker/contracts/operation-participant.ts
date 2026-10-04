@@ -3,24 +3,9 @@ import type { OperationEventDef } from './operation';
 import type { StudentOperationProfileDef } from './student-operation-profile';
 import type { OperationActionDef } from './operation-action';
 import type { OperationStudentSkillRuleDef } from './operation-skill';
+export type { OperationParticipantSpec } from '../../data-services/contracts/operation';
 
 export type OperationParticipantKind = 'student' | 'opponent' | 'environment';
-
-/** Definition-level participant slot associated with one OperationActorDef ID. */
-export type OperationParticipantSpec =
-  | {
-      readonly actorId: string;
-      readonly kind: 'student';
-      /** Optional content pin; if present it must resolve to the selected Character. */
-      readonly profileId?: string;
-    }
-  | {
-      readonly actorId: string;
-      readonly kind: 'opponent' | 'environment';
-      readonly factionId?: string;
-      /** Ordered non-student Intent candidates; Location tactics only filters this list. */
-      readonly candidateActionIds: readonly string[];
-    };
 
 export interface OperationStudentParticipant {
   readonly actorId: string;

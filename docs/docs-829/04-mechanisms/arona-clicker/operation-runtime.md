@@ -22,11 +22,11 @@ Facade 不暴露 raw owner、任意 `applyStateDelta()`、`finish()`、`reset()`
 
 ## 受控入场与每局冻结规则
 
-调用方只提交事件 ID 和选定 Character ID。构造时配置的可信 `OperationContentResolver` 提供事件、行动、学生技能与参与者内容；标准 Runtime wiring 组合 `CharacterSystem`、`RosterSystem` 和当前状态读取器。Admission 在创建 Run 前验证请求 ID、事件定义、参与者槽位、学生 Character 定义、真实且持有的 Registry Variant、解锁状态、Profile 配对及其结构。对手和环境参与者不经过玩家 roster / Student Profile 检查。任何解析或准入失败都不会替换现有 Run 或发布 `runStarted`。
+调用方只提交事件 ID 和选定 Character ID。标准 GameInstance 使用 Registry-backed `OperationContentResolver`；显式传入的 resolver 可作为测试/扩展覆写。Registry adapter 以完整 ID 读取 Operation Event、Location、Action 和 StudentOperationProfile，再组装运行时入场 DTO。声明 `initId` 的 Datapack Event 只能从当前所处 Init 启动。Admission 在创建 Run 前验证请求 ID、事件定义、参与者槽位、学生 Character 定义、真实且持有的 Registry Variant、解锁状态、Profile 配对及其结构。对手和环境参与者不经过玩家 roster / Student Profile 检查。任何解析或准入失败都不会替换现有 Run 或发布 `runStarted`。
 
 GameInstance 入场将通过验证的 Actor 身份与 Profile 静态投影交给 owner。学生快照只含本局所需 Character ID、Profile ID、行动候选/优先级、能力、理由及可选技能规则 ID；不包含 Variant ID、`CharacterData`、`VariantProgress` 或长期角色对象。对手/环境快照包含参与者类型、可选 faction ID 和有序候选行动 ID。Admission DTO 只在入场过程中转换为 Run-start input，不按 Run ID 缓存。
 
-owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`OperationResolvedContent.actionDefinitions` 和技能规则，按 Run 私有保存。后续准备、预览与 Commit 都只读取该份冻结内容，不重新查询 resolver、Registry 或 PlayerState。Resolver 是当前临时受信内容入口；Operation 内容还没有正式 Datapack / Registry 表。
+owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`OperationResolvedContent.actionDefinitions` 和技能规则，按 Run 私有保存。后续准备、预览与 Commit 都只读取该份冻结内容，不重新查询 resolver、Registry 或 PlayerState。作者输入现在来自四张 Datapack 表；运行时仍只保留当前 Run 所需的冻结规则，不把 Registry 对象传给结算服务。
 
 ## EventRun 状态与归属
 
@@ -52,7 +52,7 @@ EventRun 是每个 `GameInstance` 独立的易失状态，不写入 `PlayerState
 
 `OperationResolvedContent.actionDefinitions` 是本局 ActionDef 的唯一可信来源；`OperationEventDef.actionRequirements` 已删除。学生候选来自已入场 Profile 的 `actionPriorityIds` 和 `candidateActionIds`；对手/环境候选按其 `OperationParticipantSpec.candidateActionIds` 声明顺序读取。候选 ID 必须解析到完整 `OperationActionDef`，定义有限地声明参与者类型、能力、理由、标签、可选 Actor/Team 单项资源费、无目标或单 Actor 目标合同，以及 Actor HP/resource、Team resource 或事件数值轨道的有限 delta 效果。
 
-`OperationEventDef.locations[]` 同时保存每个 Location 的 ID、启用战术 Action、Combination、局部结局规则、路线和可选场景合同。非战斗场景可用 `actionMode` 选择 `individual` 或 `global`，配置有限 `sceneActionBatches`、SceneAction 薄包装、`costGain` 与 `maxCarryCost`。Individual 每批必须为每名存活学生各提交一项行为；Global 每批恰好提交一项行为，可带一名或多名合法目标。SceneActionDef 只引用 `OperationActionDef` 并声明 scope 与 PlayerCost；目标、资格和效果不复制。RouteGate 只读取单个可选 `requiredHeldItemId`；内容验证要求所有 Route 目标和门禁物品已声明。Location 仍只过滤战术候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
+Runtime `OperationEventDef.locations[]` 是 Registry adapter 依 `OperationEventContentDef.locationIds` 解析出的只读入场 DTO；作者内容中的 Location 独立登记。Location 保持战术 Action、Combination、局部结局规则、路线和可选场景合同。非战斗场景可用 `actionMode` 选择 `individual` 或 `global`，配置有限 `sceneActionBatches`、SceneAction 薄包装、`costGain` 与 `maxCarryCost`。Individual 每批必须为每名存活学生各提交一项行为；Global 每批恰好提交一项行为，可带一名或多名合法目标。SceneActionDef 只引用 `OperationActionDef` 并声明 scope 与 PlayerCost；目标、资格和效果不复制。RouteGate 只读取单个可选 `requiredHeldItemId`；Datapack 校验要求 Route 目标位于 Event 声明的 Location 内、门禁物品属于 Event。Location 仍只过滤战术候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
 
 有限玩家卡组位于事件定义的 `playerSceneDeck`：PlayerSceneCardDef 只声明卡 ID、ActionDef、PlayerCost、scene 时机和副本数。场景批次另可提交零张或多张当前 hand 卡实例；每张卡由同一份 `OperationActionDef` 提供效果与目标规则。SceneAction 与卡牌费用从内容定义汇总，在提交前统一校验余额；命令不能注入费用、Action 或效果。Planner 将 SceneAction/SceneCard 效果与 Beat 效果写入相同 OperationResolution 变化格式与同一个 Runtime 提交边界，卡牌只在该原子提交里从 hand 移入 discard。
 
@@ -95,7 +95,7 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 ## 尚未覆盖的范围
 
-当前已有有界地图分支、回环、单持有物 Gate、Location/Event 目标与结局、Individual/Global SceneAction、共享 PlayerCost、固定有限玩家场景卡组与独立抽牌顺序。作者 Datapack / Registry 合同与 Run 保存/恢复分别由 Task 0220/0219 承接。Profile 中 `randomSkillRuleId` 只在本局规则提供对应有限技能定义并成功 Beat Commit 时触发，不是随机抽取 AC 角色技能系统的运行入口。
+当前已有有界地图分支、回环、单持有物 Gate、Location/Event 目标与结局、Individual/Global SceneAction、共享 PlayerCost、固定有限玩家场景卡组与独立抽牌顺序。Task 0220 已将作者合同接入 Datapack / Registry；Run 保存/恢复由 Task 0219 承接。Profile 中 `randomSkillRuleId` 只在本局规则提供对应有限技能定义并成功 Beat Commit 时触发，不是随机抽取 AC 角色技能系统的运行入口。
 
 ## 代码与测试
 
@@ -104,7 +104,7 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 - `operation-definition-validation.ts`、`operation-action-content-validation.ts`、`operation-tactical-definition-validation.ts`：事件、Action 与战术内容校验。
 - `operation-plan-preparation.ts`、`operation-target-selection.ts`、`operation-intervention-preview.ts`、`operation-combination-resolver.ts`、`operation-tactical-rng.ts`、`operation-resolution-planner.ts`：纯计划、干预、协同、局部随机与结算规划。
 - `src/arona-clicker/services/operation-runtime-service.ts`：Run owner、版本检查、原子提交、有限历史与生命周期通知。
-- `src/arona-clicker/runtime-options.ts`、`runtime-wiring.ts`、`runtime-game-instance.ts`：resolver 装配、私有 owner 和 GameInstance 生命周期清理。
+- `src/arona-clicker/services/registry-operation-content-resolver.ts`、`src/arona-clicker/runtime-options.ts`、`runtime-wiring.ts`、`runtime-game-instance.ts`：Registry 内容解析、resolver 装配、私有 owner 和 GameInstance 生命周期清理。
 - 定向测试：`tests/engine/operation-runtime-service.test.ts`、`operation-scene-actions.test.ts`、`operation-player-scene-deck.test.ts`、`gameplay-b-scene-action-sample.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。
 
 相关边界：[[docs/docs-829/01-architecture/data-flow]]、[[docs/docs-829/02-modules/arona-clicker]]、[[docs/docs-829/03-data-structures/player-state]]。

@@ -91,7 +91,7 @@ const eventDefinition: OperationEventDef = {
 
 const studentProfiles: readonly StudentOperationProfileDef[] = [
   {
-    id: 'demo:operation-profile:hoshino-carousel-safety',
+    id: 'demo:student-operation-profile:hoshino-carousel-safety',
     characterId: Character.Hoshino,
     candidateActionIds: [IDS.actions.brace, IDS.actions.emergencyStop],
     actionPriorityIds: [IDS.actions.brace, IDS.actions.emergencyStop],
@@ -99,16 +99,16 @@ const studentProfiles: readonly StudentOperationProfileDef[] = [
     reasonIds: ['demo:operation-reason:hoshino-veteran'],
   },
   {
-    id: 'demo:operation-profile:serika-carousel-safety',
+    id: 'demo:student-operation-profile:serika-carousel-safety',
     characterId: Character.Serika,
     candidateActionIds: [IDS.actions.signal, IDS.actions.crowdGuide],
     actionPriorityIds: [IDS.actions.signal, IDS.actions.crowdGuide],
     capabilityIds: ['demo:operation-capability:crowd-coordination'],
     reasonIds: ['demo:operation-reason:serika-crowd-awareness'],
-    randomSkillRuleId: 'demo:operation-skill:serika-stay-focused',
+    randomSkillRuleId: 'serika-stay-focused',
   },
   {
-    id: 'demo:operation-profile:shiroko-carousel-safety',
+    id: 'demo:student-operation-profile:shiroko-carousel-safety',
     characterId: Character.Shiroko,
     candidateActionIds: [IDS.actions.shield],
     actionPriorityIds: [IDS.actions.shield],
@@ -195,7 +195,7 @@ const actionDefinitions: readonly OperationActionDef[] = [
 ];
 
 const studentSkillRules: readonly OperationStudentSkillRuleDef[] = [{
-  id: 'demo:operation-skill:serika-stay-focused',
+  id: 'serika-stay-focused',
   triggerActionIds: [IDS.actions.signal],
   chanceBps: 5000,
   effects: [{ kind: 'actorResourceDelta', recipient: 'actor', resourceId: 'focus', amount: 1 }],
@@ -204,9 +204,9 @@ const studentSkillRules: readonly OperationStudentSkillRuleDef[] = [{
 export const carouselSafetySliceContent = deepFreeze<OperationResolvedContent>({
   eventDefinition,
   participants: [
-    { actorId: IDS.actors.hoshino, kind: 'student' },
-    { actorId: IDS.actors.serika, kind: 'student' },
-    { actorId: IDS.actors.shiroko, kind: 'student' },
+    { actorId: IDS.actors.hoshino, kind: 'student', profileId: 'demo:student-operation-profile:hoshino-carousel-safety' },
+    { actorId: IDS.actors.serika, kind: 'student', profileId: 'demo:student-operation-profile:serika-carousel-safety' },
+    { actorId: IDS.actors.shiroko, kind: 'student', profileId: 'demo:student-operation-profile:shiroko-carousel-safety' },
     {
       actorId: IDS.actors.saboteur,
       kind: 'opponent',

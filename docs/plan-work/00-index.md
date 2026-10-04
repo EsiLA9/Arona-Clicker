@@ -17,9 +17,8 @@
 
 - [[task-0217-gameplay-b-objectives-and-partial-outcomes]]：事件目标、Runtime 结果与只读投影；不施工玩家交互 UI。
 
-### 玩法 B 接入 AC：内容合同、续局与正式交付
+### 玩法 B 接入 AC：续局与正式交付
 
-- [[task-0220-gameplay-b-datapack-contracts-and-registry]]：事件内容的 Datapack / Registry 契约。
 - [[task-0219-gameplay-b-event-save-and-resume]]：保存并恢复 EventRun、场景费用/卡组状态、待提交计划与随机流。
 - [[task-0221-gameplay-b-authoring-and-content-validation-workflow]]：事件内容创建、诊断、加载与迭代流程。
 - [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]]：下一大型体验阶段；从夏莱办公室启动正式多地点事件，并设计我方/信息/敌方三栏和角色卡交互。
@@ -27,6 +26,7 @@
 ## 近期完成
 
 - [[archive/task-0229-unified-theme-contribution-and-background-rendering]]：统一主题来源、派生画布底层与渲染，提供面向编辑态 Datapack 主题的 owner-aware 预览和保存服务。
+- [[archive/task-0220-gameplay-b-datapack-contracts-and-registry]]：Operation 四张 Datapack 表、Registry 引用校验、正式示例内容与 Schema 同步。
 - [[archive/task-0228-theme-derived-background-unified-authoring]]：调查主题派生背景与自定义背景图层的模型、合并、渲染及编辑入口差异；后续实现另立 Task。
 - [[archive/task-0227-init-theme-selector-only]]：Init 声明主题只用于外部选择页；游戏运行时不再应用 Init 的颜色、背景或 Presentation。
 - [[archive/task-0226-ui-theme-color-only-inheritance]]：父子宿主不再回退复用父级背景图层，子级保留主题色作用域继承并使用自身默认表现。

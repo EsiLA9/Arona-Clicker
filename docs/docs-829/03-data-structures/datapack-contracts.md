@@ -20,4 +20,12 @@
 
 Registry 为各契约表建立查询集合；内容作者策略则限定哪些表和字段可由通用编辑 API 修改，并声明编码、默认值与消费者。契约存在某字段不意味着它支持局部 mutation，也不意味着某 UI 已消费它。需区分：声明数据、Registry 物化、领域或 Engine 消费、作者入口授权。
 
+### Gameplay B Operation 表
+
+Datapack 可选声明 `operationEvents`、`operationLocations`、`operationActions` 和 `studentOperationProfiles`。四类顶层定义分别使用 `operation-event`、`operation-location`、`operation-action`、`student-operation-profile` 三段式 ID；跨表引用写完整 ID。SceneAction、RouteEdge、Objective、Outcome、CombinationRule、SceneCard、Actor 等仍嵌入 Event 或 Location，并在所属内容范围内使用局部 ID。
+
+Operation Event 用 `locationIds` 关联 Location、用 `initId` 归属 AC 世界线，并声明正整数 `resumeVersion`。它是作者显式维护的恢复兼容号，不由 Registry 计算内容 Hash。RouteEdge 只能检查 Event 声明的单个局内持有物；谓词只检查 Event 的 track/fact。Registry 在 `validateDatapack` 阶段对同包与已加载 Registry 的引用进行检查，随后通过统一表步骤合并、覆盖及清空。
+
+这些字段会进入生成的 `engine-defs.gen.json`，但本阶段不添加 Operation 专属编辑器表配置；独立作者工作流分别由任务 [[task-0221-gameplay-b-authoring-and-content-validation-workflow]] 接续。
+
 详细协作路由见 [[docs/docs-829/06-wiki/20-data-services/definition-authoring]]；总入口见 [[docs/docs-829/06-wiki/20-data-services/00-index]]。

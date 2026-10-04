@@ -48,6 +48,10 @@ export const ENTITY_TYPES: ReadonlySet<string> = new Set([
   'affectionconfig',
   'shop',
   'tag',
+  'operation-event',
+  'operation-location',
+  'operation-action',
+  'student-operation-profile',
 ]);
 
 /** 构造三段式实体 ID：entityId('base', 'spot', 'credit_printer') → base:spot:credit_printer */

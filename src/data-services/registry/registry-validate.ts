@@ -1,4 +1,5 @@
 import type { AchievementDef, Datapack, MilestoneListenerDef } from '../contracts/datapack';
+import { validateOperationDatapackContent, type OperationContentValidationContext } from './operation-content-validation';
 // ============================================================
 // data-services/registry-validate.ts — 数据包静态校验（纯函数）
 // 从 registry.ts 拆出：只读检查 Datapack，不触碰注册表实例状态。
@@ -43,6 +44,15 @@ const checkEntityIds = (
     throw new RegistryError(
       `${label} id "${item.id}" 的 typeName 段须为 "${expectedType}"（注册表见 core/entity-id.ts ENTITY_TYPES）`,
     );
+  }
+};
+
+/** Operation tables require the exact registered typeName for their own definition table. */
+const checkExpectedEntityType = (items: { id: string }[] | undefined, expectedType: string, label: string): void => {
+  for (const item of items ?? []) {
+    if (parseEntityId(item.id)?.type !== expectedType) {
+      throw new RegistryError(`${label} id "${item.id}" 的 typeName 段须为 "${expectedType}"`);
+    }
   }
 };
 
@@ -159,8 +169,7 @@ function checkEntityPresentation(items: Array<{ id: string; presentation?: Entit
 }
 
 /** 校验数据包；非法即抛 RegistryError。 */
-export interface DatapackValidationContext {
-  readonly initIds?: ReadonlySet<string>;
+export interface DatapackValidationContext extends OperationContentValidationContext {
   readonly areaIds?: ReadonlySet<string>;
   readonly storyEntryIds?: ReadonlySet<string>;
   readonly milestoneIds?: ReadonlySet<string>;
@@ -194,6 +203,10 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   if (dp.shops) checkDup(dp.shops, 'shop');
   if (dp.dropTables) checkDup(dp.dropTables, 'drop table');
   if (dp.milestones) checkDup(dp.milestones, 'milestone');
+  if (dp.operationEvents) checkDup(dp.operationEvents, 'operation event');
+  if (dp.operationLocations) checkDup(dp.operationLocations, 'operation location');
+  if (dp.operationActions) checkDup(dp.operationActions, 'operation action');
+  if (dp.studentOperationProfiles) checkDup(dp.studentOperationProfiles, 'student operation profile');
   if (dp.milestoneListeners) checkDup(dp.milestoneListeners, 'milestone listener');
   if (dp.achievements) checkDup(dp.achievements, 'achievement');
   if (dp.funcletDefs) checkDup(dp.funcletDefs, 'funclet');
@@ -301,6 +314,14 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   checkEntityIds(dp.shops, 'shop', 'Shop');
   checkEntityIds(dp.dropTables, 'droptable', 'Drop table');
   checkEntityIds(dp.milestones, 'milestone', 'Milestone');
+  checkEntityIds(dp.operationEvents, 'operation-event', 'Operation Event');
+  checkEntityIds(dp.operationLocations, 'operation-location', 'Operation Location');
+  checkEntityIds(dp.operationActions, 'operation-action', 'Operation Action');
+  checkEntityIds(dp.studentOperationProfiles, 'student-operation-profile', 'StudentOperationProfile');
+  checkExpectedEntityType(dp.operationEvents, 'operation-event', 'Operation Event');
+  checkExpectedEntityType(dp.operationLocations, 'operation-location', 'Operation Location');
+  checkExpectedEntityType(dp.operationActions, 'operation-action', 'Operation Action');
+  checkExpectedEntityType(dp.studentOperationProfiles, 'student-operation-profile', 'StudentOperationProfile');
   for (const milestone of dp.milestones ?? []) {
     if (parseEntityId(milestone.id)?.type !== 'milestone') {
       throw new RegistryError(`Milestone id "${milestone.id}" 的 typeName 段须为 "milestone"`);
@@ -482,6 +503,10 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
       }
       throw e;
     }
+  }
+  const operationIssues = validateOperationDatapackContent(dp, context);
+  if (operationIssues.length > 0) {
+    throw new RegistryError(operationIssues.join('\n'));
   }
 }
 

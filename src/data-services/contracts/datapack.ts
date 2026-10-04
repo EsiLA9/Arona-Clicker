@@ -38,6 +38,12 @@ import type { CharacterPersistConfig } from './character-persist';
 import type { GachaPoolDef } from './gacha-pool';
 import type { ShopDef } from './shop';
 import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from './character-progression-def';
+import type {
+  OperationActionDef,
+  OperationEventContentDef,
+  OperationLocationDef,
+  StudentOperationProfileDef,
+} from './operation';
 
 // --- Datapack 汇总 ---
 
@@ -74,6 +80,14 @@ export interface Datapack {
   inits: InitDef[];
   areas: AreaDef[];
   spots: SpotDef[];
+  /** Gameplay B Event definitions; locations/actions/profiles are resolved by stable IDs. */
+  operationEvents?: OperationEventContentDef[];
+  /** Reusable Gameplay B Event locations. */
+  operationLocations?: OperationLocationDef[];
+  /** Reusable Gameplay B actions; wrappers never duplicate target/effect rules. */
+  operationActions?: OperationActionDef[];
+  /** Character-specific Gameplay B autonomy profiles. */
+  studentOperationProfiles?: StudentOperationProfileDef[];
   enhancements: EnhancementDef[];
   /** 主线 / 支线 / 羁绊剧情入口。 */
   activeStories: ActiveStoryEntry[];

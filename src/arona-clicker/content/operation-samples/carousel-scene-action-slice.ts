@@ -19,15 +19,15 @@ export const CAROUSEL_SCENE_ACTION_IDS = Object.freeze({
     treatTeam: 'demo:operation-action:scene-team-first-aid',
   }),
   sceneActions: Object.freeze({
-    inspect: 'demo:operation-scene-action:inspect-carousel-control',
-    guide: 'demo:operation-scene-action:guide-queue',
-    firstAid: 'demo:operation-scene-action:whole-team-first-aid',
+    inspect: 'inspect-carousel-control',
+    guide: 'guide-queue',
+    firstAid: 'whole-team-first-aid',
   }),
   routes: Object.freeze({
-    publicPath: 'demo:operation-route:scene-public-path',
-    staffGate: 'demo:operation-route:scene-staff-gate',
-    returnLoop: 'demo:operation-route:scene-return-loop',
-    parkExit: 'demo:operation-route:scene-park-exit',
+    publicPath: 'scene-public-path',
+    staffGate: 'scene-staff-gate',
+    returnLoop: 'scene-return-loop',
+    parkExit: 'scene-park-exit',
   }),
   item: 'demo:operation-item:scene-staff-pass',
   fact: 'demo:operation-fact:scene-carousel-secured',
@@ -36,7 +36,7 @@ export const CAROUSEL_SCENE_ACTION_IDS = Object.freeze({
 
 const IDS = CAROUSEL_SCENE_ACTION_IDS;
 const objective = {
-  id: 'demo:operation-objective:scene-carousel-secured',
+  id: 'scene-carousel-secured',
   description: 'The carousel control has been checked and the staff pass collected.',
   kind: 'primary' as const,
   predicate: { kind: 'knownFact' as const, factId: IDS.fact, present: true },
@@ -126,7 +126,7 @@ const eventDefinition: OperationEventDef = {
   },
   playerSceneDeck: {
     cards: [{
-      id: 'demo:player-scene-card:team-first-aid',
+      id: 'team-first-aid',
       actionId: IDS.actions.treatTeam,
       playerCost: 1,
       timing: 'scene',

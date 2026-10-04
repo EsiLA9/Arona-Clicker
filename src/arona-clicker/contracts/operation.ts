@@ -1,62 +1,40 @@
-import type { OperationActionDef, OperationLocationDef } from './operation-action';
+import type { OperationActionDef } from './operation-action';
 import type { OperationStudentSkillRuleDef } from './operation-skill';
 import type { OperationInterventionDraft, PreparedBeat } from './operation-beat';
 import type { OperationResolution } from './operation-resolution';
+import type {
+  OperationEventContentDef,
+  OperationActorKind,
+  OperationLocationDef,
+  OperationLocationResultKind,
+  OperationPlayerRouteStateDef,
+  OperationResultKind,
+} from '../../data-services/contracts/operation';
 
-export type OperationResultKind = 'success' | 'partialSuccess' | 'failure';
+export type {
+  OperationActorDef,
+  OperationActorKind,
+  OperationBoundedValueDef,
+  OperationEventContentDef,
+  OperationObjectiveDef,
+  OperationOutcomeConditionDef,
+  OperationPlayerRouteStateDef,
+  OperationPlayerSceneCardDef,
+  OperationPlayerSceneDeckDef,
+  OperationPredicateDef,
+  OperationPredicateLeafDef,
+  OperationPredicateOperator,
+  OperationResultKind,
+  OperationLocationResultKind,
+  OperationTeamDef,
+  OperationTrackDef,
+} from '../../data-services/contracts/operation';
+
 export type OperationRunStatus = 'inProgress' | OperationResultKind;
-export type OperationLocationResultKind = OperationResultKind;
 export type OperationCardZone = 'drawPile' | 'hand' | 'discard';
-
-export type OperationPredicateOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
-export type OperationPredicateLeafDef =
-  | { readonly kind: 'track'; readonly trackId: string; readonly operator: OperationPredicateOperator; readonly value: number }
-  | { readonly kind: 'knownFact'; readonly factId: string; readonly present: boolean };
-export type OperationPredicateDef = OperationPredicateLeafDef
-  | { readonly kind: 'all' | 'any'; readonly terms: readonly OperationPredicateLeafDef[] };
-
-export interface OperationObjectiveDef {
-  readonly id: string;
-  readonly description: string;
-  readonly kind: 'primary' | 'secondary';
-  readonly predicate: OperationPredicateDef;
-}
-
-export interface OperationOutcomeConditionDef {
-  readonly id: string;
-  readonly description: string;
-  readonly predicate: OperationPredicateDef;
-}
 
 export const OPERATION_WAIT_ACTION_ID = 'operation:action:wait' as const;
 export const OPERATION_NO_ELIGIBLE_ACTION_REASON_ID = 'operation:profile:no-eligible-action' as const;
-
-export type OperationActorKind = 'student' | 'opponent' | 'environment';
-
-export interface OperationBoundedValueDef {
-  readonly initial: number;
-  readonly min: number;
-  readonly max: number;
-}
-
-export interface OperationTrackDef extends OperationBoundedValueDef {
-  readonly id: string;
-}
-
-export interface OperationActorDef {
-  readonly id: string;
-  readonly type: string;
-  readonly hp: OperationBoundedValueDef;
-  readonly resources?: Readonly<Record<string, OperationBoundedValueDef>>;
-  readonly teamId?: string;
-  /** Event-local target preference; IDs are not stored on reusable Action definitions. */
-  readonly targetPriorityActorIds?: readonly string[];
-}
-
-export interface OperationTeamDef {
-  readonly id: string;
-  readonly resources?: Readonly<Record<string, OperationBoundedValueDef>>;
-}
 
 export interface OperationTeamState {
   readonly id: string;
@@ -67,25 +45,6 @@ export interface OperationCardZones {
   readonly drawPile: readonly string[];
   readonly hand: readonly string[];
   readonly discard: readonly string[];
-}
-
-export interface OperationPlayerRouteStateDef {
-  readonly playerCost: number;
-}
-
-export interface OperationPlayerSceneCardDef {
-  readonly id: string;
-  readonly actionId: string;
-  readonly playerCost: number;
-  readonly timing: 'scene';
-  readonly copies: number;
-}
-
-export interface OperationPlayerSceneDeckDef {
-  readonly cards: readonly OperationPlayerSceneCardDef[];
-  readonly initialDraw: number;
-  readonly locationEntryDraw: number;
-  readonly maxHandSize: number;
 }
 
 export interface OperationPlayerSceneCardInstanceDef {
@@ -100,26 +59,17 @@ export interface OperationPlayerRouteState extends OperationPlayerRouteStateDef 
   readonly cards: OperationCardZones;
 }
 
-/** U1 的最小事件输入契约；行为和 Datapack 合同由后续 Task 扩展。 */
-export interface OperationEventDef {
-  readonly id: string;
+/** Runtime Event DTO: Registry Event locations have been resolved from their stable IDs. */
+export type OperationEventDef = Omit<
+  OperationEventContentDef,
+  'initId' | 'resumeVersion' | 'locationIds' | 'participants' | 'studentSkillRules'
+> & {
   readonly locations: readonly OperationLocationDef[];
-  readonly initialLocationId: string;
-  readonly maxLocationVisits: number;
-  readonly tracks: readonly OperationTrackDef[];
-  readonly factIds: readonly string[];
-  readonly knownFactIds: readonly string[];
-  readonly itemIds: readonly string[];
-  readonly heldItemIds: readonly string[];
-  readonly objectives?: readonly OperationObjectiveDef[];
-  readonly partialOutcomes?: readonly OperationOutcomeConditionDef[];
-  readonly hardFailureConditions?: readonly OperationOutcomeConditionDef[];
-  readonly actors: readonly OperationActorDef[];
-  readonly teams?: readonly OperationTeamDef[];
-  readonly playerRouteState: OperationPlayerRouteStateDef;
-  readonly playerSceneDeck?: OperationPlayerSceneDeckDef;
-  readonly randomSeed?: number;
-}
+  /** Present for Registry-authored events that are scoped to one AC Init. */
+  readonly initId?: string;
+  /** Present for Registry-authored definitions; omitted by low-level in-memory fixtures. */
+  readonly resumeVersion?: number;
+};
 
 export interface OperationActionCandidateSnapshot {
   readonly actionId: string;

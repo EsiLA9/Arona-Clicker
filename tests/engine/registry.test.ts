@@ -1,4 +1,10 @@
 import type { AchievementDef, Datapack, MilestoneDef, MilestoneListenerDef } from '../../src/data-services/contracts/datapack';
+import type {
+  OperationActionDef,
+  OperationEventContentDef,
+  OperationLocationDef,
+  StudentOperationProfileDef,
+} from '../../src/data-services/contracts/operation';
 // ============================================================
 // engine/registry.test.ts
 // ============================================================
@@ -34,6 +40,66 @@ const sampleDatapack: Datapack = {
   
 };
 
+const TEST_OPERATION_CHARACTER_ID = 'test-character';
+const TEST_OPERATION_EVENT_ID = 'test:operation-event:carousel_demo';
+const TEST_OPERATION_LOCATION_ID = 'test:operation-location:control_room';
+const TEST_OPERATION_ACTION_ID = 'test:operation-action:inspect_panel';
+const TEST_OPERATION_PROFILE_ID = 'test:student-operation-profile:guide';
+const testOperationCharacter = { id: TEST_OPERATION_CHARACTER_ID } as Datapack['characters'][number];
+
+const testOperationAction: OperationActionDef = {
+  id: TEST_OPERATION_ACTION_ID,
+  allowedParticipantKinds: ['student'],
+  requiredCapabilityIds: [],
+  reasonIds: ['inspect-panel'],
+  tagIds: [],
+  target: { kind: 'none' },
+  effects: [{ kind: 'eventFact', factId: 'panel-inspected', op: 'reveal' }],
+};
+
+const testOperationLocation: OperationLocationDef = {
+  id: TEST_OPERATION_LOCATION_ID,
+  enabledActionIds: [TEST_OPERATION_ACTION_ID],
+  combinationRules: [],
+  routeEdges: [],
+};
+
+const testStudentOperationProfile: StudentOperationProfileDef = {
+  id: TEST_OPERATION_PROFILE_ID,
+  characterId: TEST_OPERATION_CHARACTER_ID,
+  candidateActionIds: [TEST_OPERATION_ACTION_ID],
+  actionPriorityIds: [TEST_OPERATION_ACTION_ID],
+  capabilityIds: [],
+  reasonIds: [],
+};
+
+const testOperationEvent: OperationEventContentDef = {
+  id: TEST_OPERATION_EVENT_ID,
+  initId: 'test:init:init_a',
+  resumeVersion: 1,
+  locationIds: [TEST_OPERATION_LOCATION_ID],
+  initialLocationId: TEST_OPERATION_LOCATION_ID,
+  maxLocationVisits: 2,
+  tracks: [{ id: 'queue', initial: 1, min: 0, max: 3 }],
+  factIds: ['panel-inspected'],
+  knownFactIds: [],
+  itemIds: [],
+  heldItemIds: [],
+  actors: [{ id: 'student_1', type: 'student', hp: { initial: 3, min: 0, max: 3 } }],
+  participants: [{ actorId: 'student_1', kind: 'student', profileId: TEST_OPERATION_PROFILE_ID }],
+  playerRouteState: { playerCost: 0 },
+};
+
+const operationDatapack = (overrides: Partial<Datapack> = {}): Datapack => ({
+  ...sampleDatapack,
+  characters: [testOperationCharacter],
+  operationEvents: [testOperationEvent],
+  operationLocations: [testOperationLocation],
+  operationActions: [testOperationAction],
+  studentOperationProfiles: [testStudentOperationProfile],
+  ...overrides,
+});
+
 const makeMilestone = (id = 'test:milestone:credit_1000'): MilestoneDef => ({
   id,
   condition: { target: 'resource', key: 'credit', comparator: '>=', value: 1000 },
@@ -68,6 +134,107 @@ describe('Registry', () => {
     expect(reg.inits.get('test:init:init_a')).toBeDefined();
     expect(reg.areas.get('test:area:area_1')).toBeDefined();
     expect(reg.spots.get('test:spot:spot_1')).toBeDefined();
+  });
+
+  test('merges, queries, and clears the four Gameplay B Datapack tables', () => {
+    const reg = new Registry();
+    reg.load(operationDatapack());
+
+    expect(reg.operationEvents.get(TEST_OPERATION_EVENT_ID)).toEqual(testOperationEvent);
+    expect(reg.operationLocations.get(TEST_OPERATION_LOCATION_ID)).toEqual(testOperationLocation);
+    expect(reg.operationActions.get(TEST_OPERATION_ACTION_ID)).toEqual(testOperationAction);
+    expect(reg.studentOperationProfiles.get(TEST_OPERATION_PROFILE_ID)).toEqual(testStudentOperationProfile);
+
+    reg.clear();
+    expect(reg.operationEvents.size).toBe(0);
+    expect(reg.operationLocations.size).toBe(0);
+    expect(reg.operationActions.size).toBe(0);
+    expect(reg.studentOperationProfiles.size).toBe(0);
+  });
+
+  test('resolves Operation references against prior Registry tables and same-pack content', () => {
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, characters: [testOperationCharacter] });
+
+    reg.load({
+      ...sampleDatapack,
+      inits: [], areas: [], spots: [], characters: [],
+      operationLocations: [testOperationLocation],
+      operationActions: [testOperationAction],
+      studentOperationProfiles: [testStudentOperationProfile],
+    });
+    expect(() => reg.load({
+      ...sampleDatapack,
+      inits: [], areas: [], spots: [], characters: [],
+      operationEvents: [testOperationEvent],
+    })).not.toThrow();
+
+    const samePack = new Registry();
+    expect(() => samePack.load(operationDatapack())).not.toThrow();
+  });
+
+  test('rejects malformed Operation IDs and missing route, action, Profile, Character, and Predicate references before merge', () => {
+    const invalidType = operationDatapack({
+      operationActions: [{ ...testOperationAction, id: 'test:shop:wrong_type' }],
+    });
+    expect(() => new Registry().load(invalidType)).toThrow(/Operation Action id .*typeName.*operation-action/);
+
+    const reg = new Registry();
+    reg.load(operationDatapack());
+    const invalidEvent = {
+      ...testOperationEvent,
+      locationIds: ['test:operation-location:missing'],
+      initialLocationId: 'test:operation-location:missing',
+      objectives: [{
+        id: 'primary_goal', description: 'Find the control panel.', kind: 'primary' as const,
+        predicate: { kind: 'track' as const, trackId: 'missing-track', operator: 'gte' as const, value: 1 },
+      }],
+    };
+    expect(() => reg.load({
+      ...sampleDatapack,
+      inits: [], areas: [], spots: [], characters: [],
+      operationEvents: [invalidEvent], operationLocations: [], operationActions: [], studentOperationProfiles: [],
+    })).toThrow(/locationIds references an unknown OperationLocation/);
+    expect(reg.operationEvents.get(TEST_OPERATION_EVENT_ID)).toEqual(testOperationEvent);
+    expect(reg.operationLocations.has(TEST_OPERATION_LOCATION_ID)).toBe(true);
+
+    const missingAction = operationDatapack({
+      operationLocations: [{ ...testOperationLocation, enabledActionIds: ['test:operation-action:missing'] }],
+      operationActions: [],
+    });
+    expect(() => new Registry().load(missingAction)).toThrow(/enabledActionIds references an unknown OperationAction/);
+
+    const missingCharacter = operationDatapack({
+      studentOperationProfiles: [{ ...testStudentOperationProfile, characterId: 'missing-character' }],
+    });
+    expect(() => new Registry().load(missingCharacter)).toThrow(/characterId references an unknown Character/);
+
+    const missingProfile = operationDatapack({
+      operationEvents: [{
+        ...testOperationEvent,
+        participants: [{ actorId: 'student_1', kind: 'student', profileId: 'test:student-operation-profile:missing' }],
+      }],
+    });
+    expect(() => new Registry().load(missingProfile)).toThrow(/profileId references an unknown StudentOperationProfile/);
+
+    const missingRoute = operationDatapack({
+      operationLocations: [{
+        ...testOperationLocation,
+        routeEdges: [{ id: 'back_path', targetLocationId: 'test:operation-location:missing', label: 'Back', description: 'Return.' }],
+      }],
+    });
+    expect(() => new Registry().load(missingRoute)).toThrow(/targetLocationId references a Location outside this Event/);
+
+    const missingPredicate = operationDatapack({
+      operationEvents: [{
+        ...testOperationEvent,
+        objectives: [{
+          id: 'primary_goal', description: 'Find the control panel.', kind: 'primary',
+          predicate: { kind: 'track', trackId: 'missing-track', operator: 'gte', value: 1 },
+        }],
+      }],
+    });
+    expect(() => new Registry().load(missingPredicate)).toThrow(/predicate.trackId references an undeclared Event track/);
   });
 
   test('should merge, query, and clear milestone definitions', () => {

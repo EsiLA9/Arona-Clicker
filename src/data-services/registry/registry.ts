@@ -17,6 +17,12 @@ import type { GachaPoolDef } from '../contracts/gacha-pool';
 import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../contracts/color';
 import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from '../contracts/character-progression-def';
 import type { ShopDef } from '../contracts/shop';
+import type {
+  OperationActionDef,
+  OperationEventContentDef,
+  OperationLocationDef,
+  StudentOperationProfileDef,
+} from '../contracts/operation';
 import type { PaymentOptionDef } from '../contracts/cost';
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
 // ============================================================
@@ -116,6 +122,10 @@ export class Registry {
   private _colorGroups: Map<string, ColorGroupDef> = new Map();
   private _colorEquipments: Map<string, ColorEquipmentDef> = new Map();
   private _themeDesigns: Map<string, ThemeDesignDef> = new Map();
+  private _operationEvents = new Map<string, OperationEventContentDef>();
+  private _operationLocations = new Map<string, OperationLocationDef>();
+  private _operationActions = new Map<string, OperationActionDef>();
+  private _studentOperationProfiles = new Map<string, StudentOperationProfileDef>();
   /** 三层归属声明；缺省值见 characterScopeOf。 */
   private _characterPersistConfig: CharacterPersistConfig | undefined;
   /** 好感数值配置（部分覆盖合并；缺省字段用引擎内置阶梯，见 system/affection-system.ts）。 */
@@ -352,6 +362,30 @@ export class Registry {
           if (dp.themeDesigns) for (const d of dp.themeDesigns) this._themeDesigns.set(d.id, d);
         },
         clear: () => this._themeDesigns.clear(),
+      },
+      {
+        table: 'operationEvents',
+        merge: dp => { if (dp.operationEvents) for (const event of dp.operationEvents) this._operationEvents.set(event.id, event); },
+        clear: () => this._operationEvents.clear(),
+      },
+      {
+        table: 'operationLocations',
+        merge: dp => { if (dp.operationLocations) for (const location of dp.operationLocations) this._operationLocations.set(location.id, location); },
+        clear: () => this._operationLocations.clear(),
+      },
+      {
+        table: 'operationActions',
+        merge: dp => { if (dp.operationActions) for (const action of dp.operationActions) this._operationActions.set(action.id, action); },
+        clear: () => this._operationActions.clear(),
+      },
+      {
+        table: 'studentOperationProfiles',
+        merge: dp => {
+          if (dp.studentOperationProfiles) {
+            for (const profile of dp.studentOperationProfiles) this._studentOperationProfiles.set(profile.id, profile);
+          }
+        },
+        clear: () => this._studentOperationProfiles.clear(),
       },
       {
         table: 'characterPersistConfig',
@@ -751,6 +785,10 @@ export class Registry {
   get colorEquipments(): ReadonlyMap<string, ColorEquipmentDef> { return this._colorEquipments; }
   /** 实体配色设计表（DesignId → Def）。 */
   get themeDesigns(): ReadonlyMap<string, ThemeDesignDef> { return this._themeDesigns; }
+  get operationEvents(): ReadonlyMap<string, OperationEventContentDef> { return this._operationEvents; }
+  get operationLocations(): ReadonlyMap<string, OperationLocationDef> { return this._operationLocations; }
+  get operationActions(): ReadonlyMap<string, OperationActionDef> { return this._operationActions; }
+  get studentOperationProfiles(): ReadonlyMap<string, StudentOperationProfileDef> { return this._studentOperationProfiles; }
   /** 好感数值配置（数据包声明；未声明返回 undefined = 引擎内置阶梯）。 */
   get affectionConfig(): AffectionConfigDef | undefined { return this._affectionConfig; }
 
@@ -1257,6 +1295,10 @@ export class Registry {
       milestoneIds: new Set(this._milestones.keys()),
       milestoneListeners: this._milestoneListeners,
       achievements: this._achievements,
+      characterIds: new Set<string>(this._characters.keys()),
+      locations: this._operationLocations,
+      actions: this._operationActions,
+      profiles: this._studentOperationProfiles,
     });
     this.currentPackModName = datapack.modName ?? 'base';
     const incomingTagKeys = new Set<string>();
@@ -1281,6 +1323,10 @@ export class Registry {
       milestoneIds: new Set(this._milestones.keys()),
       milestoneListeners: this._milestoneListeners,
       achievements: this._achievements,
+      characterIds: new Set<string>(this._characters.keys()),
+      locations: this._operationLocations,
+      actions: this._operationActions,
+      profiles: this._studentOperationProfiles,
     });
   }
 

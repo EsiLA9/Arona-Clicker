@@ -79,6 +79,19 @@ describe('Schema 描述协议：defMap 派生自 Datapack', () => {
       expect(entity.fields?.length, `${meta.type} 字段为空`).toBeGreaterThan(0);
     }
   });
+
+  it('在生成的 Datapack Schema 中包含 Gameplay B 的四个 Registry 内容表', () => {
+    const gameplayBTables = {
+      operationEvents: 'OperationEventContentDef',
+      operationLocations: 'OperationLocationDef',
+      operationActions: 'OperationActionDef',
+      studentOperationProfiles: 'StudentOperationProfileDef',
+    } as const;
+    for (const [table, type] of Object.entries(gameplayBTables)) {
+      expect(schema.defMap[table]?.type, `${table} 未从 Datapack 声明生成`).toBe(type);
+      expect(schema.defs[type]?.fields?.length, `${type} 没有生成字段`).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe('Schema 描述协议：字段覆盖一致性', () => {
