@@ -117,7 +117,13 @@ export interface StoryWorkspaceState {
   returnContext: WorkspaceReturnContext;
 }
 
-export type WorkspaceState = ShopWorkspaceState | CharacterWorkspaceState | ContactsWorkspaceState | StoryWorkspaceState;
+export interface OperationWorkspaceState {
+  type: 'operation';
+  runId: string;
+  returnContext: WorkspaceReturnContext;
+}
+
+export type WorkspaceState = ShopWorkspaceState | CharacterWorkspaceState | ContactsWorkspaceState | StoryWorkspaceState | OperationWorkspaceState;
 
 export function renderAppShell(ctx: UIContext, state: PanelState): string {
   const workspace = state.workspace;
@@ -128,7 +134,9 @@ export function renderAppShell(ctx: UIContext, state: PanelState): string {
         ? { type: 'character' as const, variantId: workspace.variantId }
         : workspace.type === 'contacts'
           ? { type: 'contacts' as const }
-          : { type: 'story' as const, sessionId: workspace.conversationOwner ?? undefined }
+          : workspace.type === 'story'
+            ? { type: 'story' as const, sessionId: workspace.conversationOwner ?? undefined }
+            : { type: 'operation' as const, runId: workspace.runId }
     : null;
   const route = resolveCurrentWorkspaceRoute(state.workspaceNavigation, { service: state.service, workspace: legacyWorkspace });
   return renderWorkspace(ctx, route, state);

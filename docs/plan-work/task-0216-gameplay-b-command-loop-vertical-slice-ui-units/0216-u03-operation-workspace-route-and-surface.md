@@ -13,12 +13,14 @@
 - `src/ui/update/ui-surface.ts`
 - `src/ui/controller.ts`
 - `tests/ui/workspace-router.test.ts`
+- `tests/ui/workspace-lifecycle.test.ts`
 
 ## Confirmed Facts
 
 - Workspace route 要与 `PanelState` 派生的 Legacy route 相符才可解析。依据：`src/ui/workspace/workspace-router.ts`。
-- `disposeWorkspace` 根据导航状态的 `returnTo` 恢复来源标签。依据：`src/ui/controller-panels.ts` 与 `workspace-router.ts`。
+- `disposeWorkspace` 位于 `src/ui/controller.ts`，根据导航状态的 `returnTo` 恢复来源标签。
 - Surface key 可保持区域实例稳定；高频 Operation version/Beat 不应作为 Surface identity。依据：`src/ui/update/ui-surface.ts`。
+- `workspace-renderer.ts` 当前未知 route 会回退成 Game Workspace；实际 Operation view renderer 属 U4，本 Unit 只验 route 与 Surface identity。
 
 ## Allowed Files
 
@@ -27,6 +29,7 @@
 - `src/ui/update/ui-surface.ts`
 - `src/ui/controller.ts`
 - `tests/ui/workspace-router.test.ts`
+- `tests/ui/workspace-lifecycle.test.ts`
 - `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u03-operation-workspace-route-and-surface-receipt.md`
 
 ## Constraints
@@ -46,12 +49,14 @@
 
 ## Completion Criteria
 
-- [ ] Operation route 唯一解析并返回 Operation Surface。
-- [ ] 进入和退出保留来源 route/tab；独立 runId 不串用不同 Surface。
-- [ ] View 的普通版本更新不会销毁 Surface identity。
-- [ ] 非 Office Init 启动入口是否隐藏留由 U5 完成，但 route 本身无全局入口。
+- [x] 从 typed `PanelState.workspace` 唯一解析 Operation route，并产生对应的稳定 Surface token。
+- [x] 进入和退出保留来源 route/tab；独立 runId 不串用不同 Surface。
+- [x] 同一 runId 的 route state 收敛不销毁 Surface identity；不同 runId 会产生新 Surface token。
+- [x] route 仅由局部 workspace state 驱动，不增加全局导航入口。非 Office Init 的启动入口由 U5 隐藏。
+- [x] 实际视图分派由 U4 `workspace-renderer.ts` 承担；本 Unit 不增加 placeholder 或 Game Workspace fallback 行为。
 
 ## Verification
 
-- `npx vitest run tests/ui/workspace-router.test.ts`
+- `npx vitest run tests/ui/workspace-router.test.ts --silent`
+- `npx vitest run tests/ui/workspace-lifecycle.test.ts -t "Operation route" --silent`
 - `npx tsc --noEmit`

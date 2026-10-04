@@ -16,6 +16,7 @@ import {
   renderAppShell,
   PanelState,
   type ContactsWorkspaceState,
+  type OperationWorkspaceState,
   type StoryWorkspaceState,
   type WorkspaceReturnContext,
 } from './components/app-shell';
@@ -107,7 +108,7 @@ import {
   replaceWorkspaceNavigation,
   routeFromLegacyState,
   sameWorkspaceRoute,
-  type LegacyWorkspaceRef,
+  type WorkspaceRouteRef,
   type WorkspaceLocation,
   type WorkspaceRoute,
 } from './workspace/workspace-router';
@@ -1611,17 +1612,18 @@ export class UIController {
     this.disposeWorkspace();
   }
 
-  private legacyWorkspaceRef(): LegacyWorkspaceRef | null {
+  private workspaceRouteRef(): WorkspaceRouteRef | null {
     const workspace = this.panelState.workspace;
     if (!workspace) return null;
     if (workspace.type === 'shop') return { type: 'shop', sessionId: `${workspace.spotId}:${workspace.shopId}` };
     if (workspace.type === 'character') return { type: 'character', variantId: workspace.variantId };
     if (workspace.type === 'contacts') return { type: 'contacts' };
-    return { type: 'story', sessionId: workspace.conversationOwner ?? undefined };
+    if (workspace.type === 'story') return { type: 'story', sessionId: workspace.conversationOwner ?? undefined };
+    return { type: 'operation', runId: workspace.runId };
   }
 
   private currentWorkspaceRoute(): WorkspaceRoute {
-    return routeFromLegacyState({ service: this.panelState.service, workspace: this.legacyWorkspaceRef() });
+    return routeFromLegacyState({ service: this.panelState.service, workspace: this.workspaceRouteRef() });
   }
 
   workspaceLocation(): WorkspaceLocation {
@@ -1830,6 +1832,25 @@ export class UIController {
     this.panelState.rightTab = 'spot';
     this.panelState.storyNavPath = workspace.navPath.slice();
     this.panelState.conversationVariantId = owner;
+    this.panelState.storyGate = null;
+    return workspace;
+  }
+
+  /** 进入独立 Operation Surface；只保存稳定 Run ID 和返回位置，不复制 Runtime View。 */
+  openOperationWorkspace(runId: string): OperationWorkspaceState {
+    const current = this.panelState.workspace?.type === 'operation' ? this.panelState.workspace : undefined;
+    const workspace: OperationWorkspaceState = {
+      type: 'operation',
+      runId,
+      returnContext: current?.returnContext ?? this.createWorkspaceReturnContext(),
+    };
+    if (current) this.replaceWorkspaceRoute({ kind: 'operation', runId });
+    else this.enterWorkspaceRoute({ kind: 'operation', runId });
+    this.panelState.workspace = workspace;
+    this.panelState.service = 'game';
+    this.panelState.leftTab = 'area';
+    this.panelState.centerTab = 'chat';
+    this.panelState.rightTab = 'spot';
     this.panelState.storyGate = null;
     return workspace;
   }

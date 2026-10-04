@@ -79,6 +79,35 @@ describe('Workspace 页面生命周期', () => {
     expect(document.querySelector('[data-workspace-frame="game"]')).not.toBeNull();
   });
 
+  it('Operation route 保存聊天位置、同 Run 保持 token，换 Run 后重建身份', () => {
+    controller.panelState.leftTab = 'story';
+    controller.panelState.centerTab = 'log';
+    controller.panelState.rightTab = 'character';
+    controller.panelState.selectedVariantId = 'Hoshino';
+    controller.panelState.conversationVariantId = 'Serika';
+    const original = controller.workspaceLocation();
+
+    controller.openOperationWorkspace('operation-run-17');
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'operation', runId: 'operation-run-17' });
+    expect(controller.panelState.workspaceNavigation?.returnTo).toEqual(original);
+    expect(controller.panelState.workspace).toMatchObject({ type: 'operation', runId: 'operation-run-17', returnContext: original });
+    const token = controller.getCurrentSurfaceToken();
+
+    controller.openOperationWorkspace('operation-run-17');
+    expect(controller.getCurrentSurfaceToken()).toEqual(token);
+    controller.openOperationWorkspace('operation-run-18');
+    expect(controller.getCurrentSurfaceToken()).toMatchObject({ key: 'operation:operation-run-18', generation: token.generation + 1 });
+    controller.disposeWorkspace();
+
+    expect(controller.panelState.workspace).toBeUndefined();
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
+    expect(controller.panelState.leftTab).toBe('story');
+    expect(controller.panelState.centerTab).toBe('log');
+    expect(controller.panelState.rightTab).toBe('character');
+    expect(controller.panelState.selectedVariantId).toBe('Hoshino');
+    expect(controller.panelState.conversationVariantId).toBe('Serika');
+  });
+
   it('Character 右侧成长面板刷新不重建 Workspace 根节点，并保留焦点与滚动', () => {
     game.mutations.acquireCharacter('Hoshino', 'story');
     controller.openCharacterWorkspace('Hoshino');

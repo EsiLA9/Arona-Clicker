@@ -6,12 +6,15 @@ import {
   isLegacyWorkspaceStateConsistent,
   normalizeWorkspaceRoute,
   replaceWorkspaceNavigation,
+  resolveCurrentWorkspaceRoute,
   routeForService,
   routeFromLegacyState,
   sameWorkspaceRoute,
   workspaceRouteKey,
   type WorkspaceLocation,
 } from '../../src/ui/workspace/workspace-router';
+import type { PanelState } from '../../src/ui/components/app-shell';
+import { surfaceKeyOf, UISurfaceRuntime } from '../../src/ui/update/ui-surface';
 
 const gameLocation: WorkspaceLocation = {
   route: { kind: 'game' },
@@ -50,6 +53,18 @@ describe('WorkspaceRouter', () => {
     expect(sameWorkspaceRoute({ kind: 'service', page: 'settings' }, { kind: 'service', page: 'inventory' })).toBe(false);
   });
 
+  it('以 runId 唯一识别 Operation route，并令 PanelState 推导与 Navigation 一致', () => {
+    const route = { kind: 'operation', runId: 'operation-run-17' } as const;
+    const reference = { type: 'operation', runId: 'operation-run-17' } as const;
+    const navigation = createWorkspaceNavigation(route);
+
+    expect(routeFromLegacyState({ service: 'game', workspace: reference })).toEqual(route);
+    expect(resolveCurrentWorkspaceRoute(navigation, { service: 'game', workspace: reference })).toEqual(route);
+    expect(workspaceRouteKey(route)).toBe('operation:operation-run-17');
+    expect(sameWorkspaceRoute(route, { kind: 'operation', runId: 'operation-run-17' })).toBe(true);
+    expect(sameWorkspaceRoute(route, { kind: 'operation', runId: 'operation-run-18' })).toBe(false);
+  });
+
   it('识别 service 与 workspace 同时存在的非法组合', () => {
     expect(isLegacyWorkspaceStateConsistent({ service: 'settings', workspace: { type: 'contacts' } })).toBe(false);
     expect(isLegacyWorkspaceStateConsistent({ service: 'game', workspace: { type: 'contacts' } })).toBe(true);
@@ -80,6 +95,35 @@ describe('WorkspaceRouter', () => {
 
     expect(replaced.current).toEqual({ kind: 'shop', sessionId: 'spot:other' });
     expect(replaced.returnTo).toEqual(gameLocation);
+  });
+
+  it('返回 Operation 前保存的来源位置，不把返回位置重复加到 route history', () => {
+    const operation = enterWorkspaceNavigation(
+      createWorkspaceNavigation(),
+      { kind: 'operation', runId: 'operation-run-17' },
+      gameLocation,
+    );
+
+    expect(operation.returnTo).toEqual(gameLocation);
+    expect(backWorkspaceNavigation(operation)).toEqual({ current: { kind: 'game' }, returnTo: undefined });
+  });
+
+  it('Operation Surface key 只随 runId 改变', () => {
+    const createState = (runId: string): PanelState => ({
+      service: 'game',
+      workspaceNavigation: createWorkspaceNavigation({ kind: 'operation', runId }),
+      workspace: { type: 'operation', runId, returnContext: gameLocation },
+    } as PanelState);
+    const initial = createState('operation-run-17');
+    const surface = new UISurfaceRuntime(initial);
+    const token = surface.current();
+    const sameRun = surface.sync(createState('operation-run-17'));
+    const nextRun = surface.sync(createState('operation-run-18'));
+
+    expect(surfaceKeyOf(initial)).toBe('operation:operation-run-17');
+    expect(sameRun).toEqual(token);
+    expect(nextRun.key).toBe('operation:operation-run-18');
+    expect(nextRun.generation).toBe(token.generation + 1);
   });
 
   it('无返回位置时回退到 Game，并能兼容旧字符串路由', () => {

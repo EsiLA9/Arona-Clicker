@@ -15,13 +15,16 @@ export function surfaceKeyOf(state: PanelState): string {
         ? { type: 'character' as const, variantId: workspace.variantId }
         : workspace.type === 'contacts'
           ? { type: 'contacts' as const }
-          : { type: 'story' as const, sessionId: workspace.conversationOwner ?? undefined }
+          : workspace.type === 'story'
+            ? { type: 'story' as const, sessionId: workspace.conversationOwner ?? undefined }
+            : { type: 'operation' as const, runId: workspace.runId }
     : null;
   const route = resolveCurrentWorkspaceRoute(state.workspaceNavigation, { service: state.service, workspace: legacyWorkspace });
   if (route.kind === 'service') return `service:${route.page}`;
   if (route.kind === 'game') return 'game';
   if (route.kind === 'shop') return ['shop', route.sessionId].join(':');
   if (route.kind === 'character') return ['character', route.variantId].join(':');
+  if (route.kind === 'operation') return ['operation', route.runId].join(':');
   if (route.kind === 'contacts' && workspace?.type === 'contacts') {
     return ['contacts', workspace.selectedVariantId ?? '', workspace.conversationVariantId ?? ''].join(':');
   }
