@@ -1,5 +1,4 @@
 import type { Datapack } from '../contracts/datapack';
-import JSZip from 'jszip';
 import type { } from '../../engine/types';
 import { parsePackManifest, type PackManifest } from './manifest';
 import { mergeFragments, parseFragment } from './fragment-parser';
@@ -73,6 +72,7 @@ export async function parsePack(source: PackSource): Promise<ParsedPack> {
 }
 
 export async function parsePackFromZipBuffer(input: ArrayBuffer | Uint8Array | Blob): Promise<ParsedPack> {
+  const { default: JSZip } = await import('jszip');
   return parsePack(new ZipPackSource(await JSZip.loadAsync(input)));
 }
 

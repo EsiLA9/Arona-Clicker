@@ -1,6 +1,7 @@
 import { getContentPolicy, SPOT_CONTENT_POLICY } from '../../data-services/authoring/content-policy';
 import type { UIContext } from '../context';
 import type { PanelState } from '../components/app-shell';
+import type { PackCatalogReadModel } from '../../arona-clicker/contracts';
 import {
   codexEntryKey,
   renderCodexShell,
@@ -94,6 +95,10 @@ export { readRuntimeEditorFields };
 
 const RUNTIME_SCOPE_ID = '__runtime-effective__';
 const SINGLETON_ID = '<singleton>';
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] ?? character));
+}
 
 function runtimeCodexModId(
   entry: { readonly sourceMod?: string },
@@ -298,8 +303,25 @@ export function runtimeEditorPreferredAreaInitId(ctx: UIContext, state: PanelSta
   return ctx.game.registry.areas.get(areaId)?.initId === initId ? initId : null;
 }
 
-function renderRuntimeEditorEmptyState(): string {
-  return '<div class="runtime-editor-empty-state"><span class="eyebrow">EDITOR ENTRY</span><strong>请先在数据包管理页选择编辑态</strong><p>首次点击编辑态用于选择；再次点击已选编辑态后，才会进入该 Mod 的编辑模式。</p></div>';
+function renderRuntimeEditorTargetPicker(ctx: UIContext, state: PanelState): string {
+  const host = ctx.game as UIContext['game'] & Partial<PackCatalogReadModel>;
+  const entries = host.getPackCatalog?.().entries.filter(entry => entry.editingMode === 'editing') ?? [];
+  const editor = state.runtimeDatapackEditor;
+  const currentId = editor?.packRecordId ?? '';
+  const currentExists = entries.some(entry => (entry.packRecordId ?? entry.id) === currentId);
+  const fallback = currentId && !currentExists
+    ? `<option value="${ctx.escapeHtml(currentId)}" selected>${ctx.escapeHtml(editor?.displayName || editor?.modName || '当前编辑目标')}</option>`
+    : '';
+  const options = entries.map(entry => {
+    const id = entry.packRecordId ?? entry.id;
+    return `<option value="${ctx.escapeHtml(id)}"${id === currentId ? ' selected' : ''}>${ctx.escapeHtml(`${entry.name} · ${entry.modName} v${entry.version}`)}</option>`;
+  }).join('');
+  const placeholder = currentId ? '' : `<option value="" selected${entries.length ? ' disabled' : ''}>${entries.length ? '选择编辑态 Mod' : '没有可编辑的 Mod'}</option>`;
+  return `<label class="user-theme-field runtime-editor-target-picker"><span>目标编辑态 Mod</span><select data-runtime-editor-target-pack${entries.length ? '' : ' disabled'}>${placeholder}${fallback}${options}</select></label>`;
+}
+
+function renderRuntimeEditorEmptyState(ctx: UIContext, state: PanelState): string {
+  return `<div class="runtime-editor-empty-state"><span class="eyebrow">EDITOR ENTRY</span><strong>选择目标编辑态 Mod</strong>${renderRuntimeEditorTargetPicker(ctx, state)}<p>目标切换后会打开对应的编辑态数据包。</p></div>`;
 }
 
 /** body 级 Runtime Editor 浮动工作区：不随 #app 路由重建，作为独立编辑宿主。 */
@@ -320,7 +342,7 @@ export function renderRuntimeEditorPanel(
   const body = surface === 'codex'
     ? renderRuntimeEditorCodex(ctx, codexState ?? { query: '', selectedModId: null, selectedKind: null, selectedEntryKey: null, mobilePane: 'mods', kindFilterOpen: false, backStack: [], forwardStack: [] }, codexInspectorTab)
     : !hasTarget
-    ? renderRuntimeEditorEmptyState()
+    ? renderRuntimeEditorEmptyState(ctx, state)
     : surface === 'mod'
       ? renderRuntimeEditorForm(ctx, state)
       : surface === 'browser'
@@ -348,104 +370,159 @@ export function renderRuntimeEditorForm(ctx: UIContext, state: PanelState): stri
   const field = (label: string, key: string, value: string | number, type = 'text') => `<label class="user-theme-field"><span>${label}</span><input data-runtime-editor-mod-field="${key}" type="${type}" value="${esc(String(value))}"></label>`;
   const hasMetadata = Boolean(editor.modName && editor.displayName);
   const hint = hasMetadata ? 'Mod 信息已锁定为编辑命名空间；继续编辑内容不需要再次保存。' : '先填写并保存 Mod 信息，随后才能创建内容。';
-  return `<div class="runtime-editor-form">${renderError(esc, editor)}${renderNotice(esc, editor)}<h4>Mod 元信息</h4>${field('modName', 'modName', editor.modName)}${field('显示名称', 'displayName', editor.displayName)}${field('版本', 'version', editor.version)}${field('作者', 'author', editor.author)}${field('简介', 'description', editor.description)}<div class="service-actions"><button type="button" class="primary-button" data-runtime-editor-create>校验并保存 Mod 信息</button><span class="service-draft-status">${hasMetadata ? '已配置' : '待配置'}</span></div><p class="service-summary">${hint}</p></div>`;
+  return `<div class="runtime-editor-form">${renderError(esc, editor)}${renderNotice(esc, editor)}${renderRuntimeEditorTargetPicker(ctx, state)}<h4>Mod 元信息</h4>${field('modName', 'modName', editor.modName)}${field('显示名称', 'displayName', editor.displayName)}${field('版本', 'version', editor.version)}${field('作者', 'author', editor.author)}${field('简介', 'description', editor.description)}<div class="service-actions"><button type="button" class="primary-button" data-runtime-editor-create>校验并保存 Mod 信息</button><span class="service-draft-status">${hasMetadata ? '已配置' : '待配置'}</span></div><p class="service-summary">${hint}</p></div>`;
 }
 
-/** 内容浏览器 + Draft/Runtime 差异 + Apply：编辑器骨架的常驻视图。 */
+/** 内容浏览器复用 Codex 三栏工作区外观，但仍只读写编辑态 Draft。 */
 export function renderRuntimeEditorWorkspace(ctx: UIContext, state: PanelState): string {
   const editor = state.runtimeDatapackEditor;
   if (!editor) return '';
-  const contentSwitch = renderRuntimeEditorContentSwitch(editor);
-  if (editor.selectedContentKind !== 'spots') return `${contentSwitch}${renderRuntimeDefinitionWorkspace(ctx, editor, editor.selectedContentKind)}`;
-  const esc = ctx.escapeHtml;
-  const pending = runtimeEditorPendingSpots(editor);
-  const entries = filteredRuntimeSpotEntries(editor);
-  const rows = entries.map(spot => renderRuntimeSpotEntry(ctx, editor, spot)).join('');
-  const selected = getSelectedRuntimeEditorSpot(editor);
-  const applied = selected ? findRuntimeEditorAppliedSpot(editor, selected.idName) : undefined;
-  const diff = selected ? renderRuntimeEditorDiff(runtimeEditorDiff(POLICY, selected, applied)) : '';
-  const filterButton = (filter: typeof editor.browserFilter, label: string) => `<button type="button" class="toolbar-button${editor.browserFilter === filter ? ' is-active' : ''}" data-runtime-editor-filter="${filter}">${label}</button>`;
-  const list = editor.spots.length === 0
-    ? '<p class="service-summary">草稿中还没有内容。用「新建 Spot」开始。</p>'
-    : entries.length === 0
-      ? '<p class="service-summary">当前筛选下没有条目。</p>'
-      : `<ul class="runtime-spot-list">${rows}</ul>`;
-  const canCreate = Boolean(editor.modName && editor.displayName);
-  return `${contentSwitch}<div class="runtime-editor-workspace">
-    <div class="panel-heading"><h4>内容浏览器 · ${esc(POLICY.label)}</h4><span class="index">${editor.spots.length} 草稿 / ${editor.appliedSpots.length} 已生效</span>${canCreate ? '<button type="button" class="toolbar-button" data-runtime-editor-new-spot>新建 Spot</button>' : ''}</div>
-    <div class="runtime-editor-filters">${filterButton('all', '全部')}${filterButton('pending', `待应用 ${pending.length}`)}${filterButton('applied', '已生效')}${filterButton('removed', `已移除 ${editor.suspendedSpotIds.length}`)}</div>
-    ${list}
-    ${renderError(esc, editor)}${renderNotice(esc, editor)}
-    ${renderRuntimeEditorProblems(ctx, POLICY, editor.problems)}
-    <div class="runtime-editor-apply-bar">
-      <button type="button" class="primary-button" data-runtime-editor-apply${pending.length === 0 ? ' disabled' : ''}>应用到运行时</button>
-      <span class="service-draft-status">${pending.length === 0 ? 'Draft 与 Runtime 一致' : `${pending.length} 项待应用`}</span>
+  const pendingTotal = runtimeEditorPendingSpots(editor).length
+    + runtimeEditorPendingDefinitions(editor, 'inits').length
+    + runtimeEditorPendingDefinitions(editor, 'areas').length
+    + runtimeEditorPendingDefinitions(editor, 'enhancements').length;
+  const canApply = pendingTotal > 0;
+  const status = pendingTotal === 0 ? 'Draft 与 Runtime 一致' : `${pendingTotal} 项待应用`;
+  return `<section class="runtime-editor-codex runtime-editor-content-browser" data-runtime-editor-browser>
+    <div class="runtime-editor-codex__grid runtime-editor-content-browser__grid">
+      ${renderRuntimeEditorBrowserKinds(ctx, state, editor)}
+      ${renderRuntimeEditorBrowserEntries(ctx, state)}
+      <aside class="runtime-editor-codex__pane runtime-editor-codex__pane--detail runtime-editor-content-browser__detail" data-codex-pane="detail" aria-label="条目编辑器">
+        <header class="runtime-editor-codex__pane-head"><div><span class="runtime-editor-codex__eyebrow">DRAFT INSPECTOR</span><h3>条目编辑器</h3></div></header>
+        <div class="runtime-editor-codex__detail-body runtime-editor-content-browser__detail-body" data-runtime-editor-browser-detail>${renderRuntimeEditorBrowserDetail(ctx, state)}</div>
+      </aside>
     </div>
-    ${selected ? `<div class="runtime-editor-diff-panel"><span class="eyebrow">${esc(selected.name || selected.idName)} 的差异</span><p class="service-summary">运行中版本：${esc(applied ? applied.name : '尚未应用')}</p>${diff}</div>` : ''}
-  </div>`;
+    <footer class="runtime-editor-content-browser__apply-bar"><span class="runtime-editor-codex__search-hint">${ctx.escapeHtml(status)}</span><button type="button" class="primary-button" data-runtime-editor-apply${canApply ? '' : ' disabled'}>应用到运行时</button></footer>
+  </section>`;
 }
 
-function renderRuntimeEditorContentSwitch(editor: RuntimeDatapackEditorState): string {
-  return `<nav class="runtime-editor-content-switch" aria-label="内容类型">${EDITABLE_CONTENT_KINDS.map(kind => `<button type="button" class="toolbar-button${editor.selectedContentKind === kind ? ' is-active' : ''}" data-runtime-editor-kind-tab="${kind}" aria-current="${editor.selectedContentKind === kind ? 'page' : 'false'}">${CONTENT_KIND_LABEL[kind]}</button>`).join('')}</nav>`;
-}
-
-function renderRuntimeDefinitionWorkspace(ctx: UIContext, editor: RuntimeDatapackEditorState, kind: RuntimeEditorContentKind): string {
-  const policy = getContentPolicy(kind);
-  if (!policy) return '<p class="service-result error">当前内容类型尚未接入编辑策略。</p>';
+function renderRuntimeEditorBrowserKinds(ctx: UIContext, state: PanelState, editor: RuntimeDatapackEditorState): string {
   const esc = ctx.escapeHtml;
+  const buttons = EDITABLE_CONTENT_KINDS.map(kind => {
+    const drafts = runtimeEditorDefinitions(editor, kind).length;
+    const count = String(drafts);
+    const selected = editor.selectedContentKind === kind;
+    return `<button type="button" class="runtime-editor-codex__kind-tab${selected ? ' is-selected' : ''}" role="tab" aria-label="${CONTENT_KIND_LABEL[kind]}，${count} 条草稿" aria-selected="${selected}" data-runtime-editor-kind-tab="${kind}"><span>${CONTENT_KIND_LABEL[kind]}</span><small>${count}</small></button>`;
+  }).join('');
+  const target = editor.packRecordId
+    ? `<div class="runtime-editor-content-browser__target"><span class="runtime-editor-codex__eyebrow">EDITING PACK</span><strong>${esc(editor.displayName || editor.modName || '未命名 Mod')}</strong><code>${esc(editor.modName || '待设置')} · v${esc(editor.version)}</code>${renderRuntimeEditorTargetPicker(ctx, state)}</div>`
+    : renderRuntimeEditorTargetPicker(ctx, state);
+  return `<aside class="runtime-editor-codex__pane runtime-editor-codex__pane--mods runtime-editor-content-browser__kinds" data-codex-pane="mods" aria-label="内容类型与编辑目标">
+    <header class="runtime-editor-codex__pane-head"><div><span class="runtime-editor-codex__eyebrow">AUTHORING SCOPE</span><h3>编辑目标</h3></div></header>
+    ${target}
+    <nav class="runtime-editor-content-browser__kind-list" role="tablist" aria-label="内容类型">${buttons}</nav>
+  </aside>`;
+}
+
+function runtimeEditorBrowserEntries(editor: RuntimeDatapackEditorState, kind: RuntimeEditorContentKind): string {
+  if (kind === 'spots') return filteredRuntimeSpotEntries(editor).map(entry => renderRuntimeSpotEntryForBrowser(editor, entry)).join('');
   const definitions = runtimeEditorDefinitions(editor, kind);
-  const appliedDefinitions = runtimeEditorAppliedDefinitions(editor, kind);
+  const applied = runtimeEditorAppliedDefinitions(editor, kind);
   const suspended = runtimeEditorDefinitionSuspensions(editor, kind);
-  const pending = runtimeEditorPendingDefinitions(editor, kind);
-  const visibleDefinitions = [...definitions, ...appliedDefinitions.filter(definition => !definitions.some(item => item.idName === definition.idName))];
-  const filtered = visibleDefinitions.filter(definition => {
+  const visible = [...definitions, ...applied.filter(definition => !definitions.some(item => item.idName === definition.idName))];
+  return visible.filter(definition => {
     const state = runtimeEditorDefinitionEntryState(editor, kind, definition);
-    if (editor.browserFilter === 'pending') return state !== 'unchanged';
+    if (editor.browserFilter === 'pending') return state !== 'unchanged' || suspended.includes(definition.idName);
     if (editor.browserFilter === 'applied') return !suspended.includes(definition.idName) && state === 'unchanged';
-    if (editor.browserFilter === 'removed') return suspended.includes(definition.idName);
+    if (editor.browserFilter === 'removed') return suspended.includes(definition.idName) || !definitions.some(item => item.idName === definition.idName);
     return true;
-  });
-  const rows = filtered.map(definition => {
+  }).map(definition => {
     const state = runtimeEditorDefinitionEntryState(editor, kind, definition);
     const removed = suspended.includes(definition.idName) || !definitions.some(item => item.idName === definition.idName);
-    const issues = kind === 'inits' ? runtimeEditorInitProblems(ctx, editor, definition) : [];
-    const tone = removed ? 'removed' : issues.length > 0 ? 'error' : state;
-    const label = removed ? '已移除' : issues.length > 0 ? `有 ${issues.length} 个问题` : ENTRY_STATE_LABEL[state];
-    const name = definition.name;
-    return `<li class="runtime-spot-item" data-runtime-editor-entry="${esc(definition.idName)}" data-entry-state="${tone}">
-      <button type="button" class="runtime-spot-item-main" data-runtime-editor-definition-edit data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}"><span class="runtime-spot-item-name">${esc(name || definition.idName)}</span><em>${esc(definition.idName)}${kind === 'inits' ? ' · Runtime Mod' : ''}</em></button>
-      <span class="runtime-editor-entry-state" data-entry-state="${tone}">${label}</span>
-      ${removed ? `<button type="button" class="mini-action" data-runtime-editor-definition-restore data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}">撤销删除</button>` : `<button type="button" class="mini-action" data-runtime-editor-definition-remove data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}">删除</button>`}
+    const tone = removed ? 'removed' : state;
+    const name = definition.name || definition.idName;
+    const searchable = `${name} ${definition.idName} ${kind}`.toLocaleLowerCase();
+    const stateLabel = removed ? '已移除' : state === 'created' ? '新增' : ENTRY_STATE_LABEL[state];
+    return `<li class="runtime-spot-item${editor.selectedDefinitionId === definition.idName ? ' is-selected' : ''}" data-runtime-editor-entry="${escapeHtml(definition.idName)}" data-entry-state="${tone}" data-browser-search="${escapeHtml(searchable)}">
+      <button type="button" class="runtime-editor-codex__entry${editor.selectedDefinitionId === definition.idName ? ' is-selected' : ''}" role="option" aria-selected="${editor.selectedDefinitionId === definition.idName}" data-runtime-editor-definition-edit data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${escapeHtml(definition.idName)}"><span class="runtime-editor-codex__entry-signal" aria-hidden="true"></span><span class="runtime-editor-codex__entry-copy"><strong>${escapeHtml(name)}</strong><code>${escapeHtml(definition.idName)}</code><small>${CONTENT_KIND_LABEL[kind]} · ${escapeHtml(editor.modName)}</small></span><span class="runtime-editor-codex__chevron" aria-hidden="true">›</span></button>
+      <span class="runtime-editor-entry-state" data-entry-state="${tone}">${stateLabel}</span>
+      ${removed ? `<button type="button" class="mini-action" data-runtime-editor-definition-restore data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${escapeHtml(definition.idName)}">恢复</button>` : `<button type="button" class="mini-action" data-runtime-editor-definition-remove data-runtime-editor-kind="${kind}" data-runtime-editor-definition-id="${escapeHtml(definition.idName)}">删除</button>`}
     </li>`;
   }).join('');
-  const filterButton = (filter: typeof editor.browserFilter, label: string) => `<button type="button" class="toolbar-button${editor.browserFilter === filter ? ' is-active' : ''}" data-runtime-editor-filter="${filter}">${label}</button>`;
-  const list = visibleDefinitions.length === 0
-    ? `<p class="service-summary">${policy.label} 草稿为空。点击“新建 ${policy.label}”开始。</p>`
-    : filtered.length === 0 ? '<p class="service-summary">当前筛选下没有条目。</p>' : `<ul class="runtime-spot-list">${rows}</ul>`;
+}
+
+function renderRuntimeSpotEntryForBrowser(editor: RuntimeDatapackEditorState, spot: RuntimeEditorSpotDraft): string {
+  const state = runtimeEditorEntryState(editor, spot);
+  const removed = editor.suspendedSpotIds.includes(spot.idName);
+  const tone = removed ? 'removed' : state;
+  const name = spot.name || spot.idName;
+  const searchable = `${name} ${spot.idName} ${spot.areaId}`.toLocaleLowerCase();
+  const stateLabel = removed ? '已移除' : state === 'created' ? '新增' : ENTRY_STATE_LABEL[state];
+  return `<li class="runtime-spot-item${editor.selectedSpotId === spot.idName ? ' is-selected' : ''}" data-runtime-editor-entry="${escapeHtml(spot.idName)}" data-entry-state="${tone}" data-browser-search="${escapeHtml(searchable)}">
+    <button type="button" class="runtime-editor-codex__entry${editor.selectedSpotId === spot.idName ? ' is-selected' : ''}" role="option" aria-selected="${editor.selectedSpotId === spot.idName}" data-runtime-editor-entry-edit="${escapeHtml(spot.idName)}"><span class="runtime-editor-codex__entry-signal" aria-hidden="true"></span><span class="runtime-editor-codex__entry-copy"><strong>${escapeHtml(name)}</strong><code>${escapeHtml(spot.idName)}</code><small>Spot · ${escapeHtml(spot.areaId)}</small></span><span class="runtime-editor-codex__chevron" aria-hidden="true">›</span></button>
+    <span class="runtime-editor-entry-state" data-entry-state="${tone}">${stateLabel}</span>
+    <button type="button" class="mini-action" data-runtime-editor-entry-remove="${escapeHtml(spot.idName)}">删除</button>
+  </li>`;
+}
+
+export function renderRuntimeEditorBrowserEntries(ctx: UIContext, state: PanelState): string {
+  const editor = state.runtimeDatapackEditor;
+  if (!editor) return '';
+  const kind = editor.selectedContentKind;
+  const definitions = runtimeEditorDefinitions(editor, kind);
+  const applied = kind === 'spots' ? editor.appliedSpots : runtimeEditorAppliedDefinitions(editor, kind);
+  const pendingCount = kind === 'spots' ? runtimeEditorPendingSpots(editor).length : runtimeEditorPendingDefinitions(editor, kind).length;
+  return renderRuntimeEditorBrowserEntriesRegion(ctx, editor, kind, definitions, applied, pendingCount);
+}
+
+function renderRuntimeEditorBrowserEntriesRegion(
+  ctx: UIContext,
+  editor: RuntimeDatapackEditorState,
+  kind: RuntimeEditorContentKind,
+  definitions: readonly RuntimeEditorDefinitionDraft[],
+  applied: readonly RuntimeEditorDefinitionDraft[],
+  pendingCount: number,
+): string {
+  const esc = ctx.escapeHtml;
+  const policy = getContentPolicy(kind);
+  const label = CONTENT_KIND_LABEL[kind];
+  const entries = runtimeEditorBrowserEntries(editor, kind);
+  const total = kind === 'spots' ? editor.spots.length : definitions.length;
+  const appliedCount = kind === 'spots' ? editor.appliedSpots.length : applied.length;
+  const kindPending = kind === 'spots' ? runtimeEditorPendingSpots(editor).length : pendingCount;
+  const removedCount = kind === 'spots' ? editor.suspendedSpotIds.length : runtimeEditorDefinitionSuspensions(editor, kind).length;
   const canCreate = Boolean(editor.modName && editor.displayName);
+  const create = kind === 'spots'
+    ? `<button type="button" class="runtime-editor-codex__create" data-runtime-editor-new-spot${canCreate ? '' : ' disabled'}>＋ 新建 Spot</button>`
+    : `<button type="button" class="runtime-editor-codex__create" data-runtime-editor-new-definition="${kind}"${canCreate ? '' : ' disabled'}>＋ 新建 ${esc(label)}</button>`;
+  const filterButton = (filter: RuntimeDatapackEditorState['browserFilter'], text: string) => `<button type="button" class="runtime-editor-content-browser__filter${editor.browserFilter === filter ? ' is-active' : ''}" data-runtime-editor-filter="${filter}">${text}</button>`;
+  const empty = total === 0
+    ? `<div class="runtime-editor-codex__empty" data-runtime-editor-browser-empty><strong>${esc(policy?.label ?? label)}草稿为空</strong><p>创建第一条 ${esc(label)}，然后在右侧编辑它。</p></div>`
+    : `<div class="runtime-editor-codex__empty" data-runtime-editor-browser-empty hidden><strong>没有匹配条目</strong><p>调整搜索词或状态筛选。</p></div>`;
   const sourceNote = kind === 'inits'
-    ? '<p class="runtime-editor-source-note"><strong>来源：</strong>当前 Runtime Mod 自有内容可编辑；基础包和其他 Mod 的 Init 只读，不能被同 ID 覆盖。</p>'
+    ? '<p class="runtime-editor-content-browser__source-note">当前编辑 Mod 的 Init 可编辑；基础包和其他 Mod 的 Init 保持只读。</p>'
     : '';
-  const selected = getSelectedRuntimeEditorDefinition(editor);
-  const applied = selected ? appliedDefinitions.find(definition => definition.idName === selected.idName) : undefined;
-  const diff = selected ? renderRuntimeEditorDiff(runtimeEditorDiff(policy, selected, applied)) : '';
-  return `<div class="runtime-editor-workspace" data-runtime-editor-definition-workspace="${kind}">
-    <div class="panel-heading"><h4>内容浏览器 · ${esc(policy.label)}</h4><span class="index">${definitions.length} 草稿 / ${appliedDefinitions.length} 已生效</span>${canCreate ? `<button type="button" class="toolbar-button" data-runtime-editor-new-definition="${kind}">新建 ${esc(policy.label)}</button>` : ''}</div>
-    ${sourceNote}
-    <div class="runtime-editor-filters">${filterButton('all', '全部')}${filterButton('pending', `待应用 ${pending.length}`)}${filterButton('applied', '已生效')}${filterButton('removed', `已移除 ${suspended.length}`)}</div>
-    ${list}
-    ${renderError(esc, editor)}${renderNotice(esc, editor)}
-    ${renderRuntimeEditorProblems(ctx, policy, editor.problems)}
-    <div class="runtime-editor-apply-bar"><button type="button" class="primary-button" data-runtime-editor-apply${pending.length === 0 ? ' disabled' : ''}>应用到运行时</button><span class="service-draft-status">${pending.length === 0 ? 'Draft 与 Runtime 一致' : `${pending.length} 项待应用`}</span></div>
-    ${selected ? `<div class="runtime-editor-diff-panel"><span class="eyebrow">${esc(selected.name || selected.idName)} 的差异</span><p class="service-summary">运行中版本：${esc(applied ? applied.name : '尚未应用')}</p>${diff}</div>` : ''}
-  </div>`;
+  return `<section class="runtime-editor-codex__pane runtime-editor-codex__pane--entries runtime-editor-content-browser__entries" data-codex-pane="entries" aria-label="${esc(label)} 条目">
+    <header class="runtime-editor-codex__pane-head"><div><span class="runtime-editor-codex__eyebrow">DRAFT INDEX</span><h3>${esc(label)} 条目</h3></div><span class="runtime-editor-codex__count" data-runtime-editor-browser-count>${total}</span></header>
+    <div class="runtime-editor-codex__search"><label for="runtime-editor-browser-search"><span class="runtime-editor-codex__eyebrow">SEARCH</span><span class="sr-only">搜索当前类型的名称或 ID</span></label><input id="runtime-editor-browser-search" type="search" placeholder="名称或 ID…" autocomplete="off" data-runtime-editor-browser-search aria-controls="runtime-editor-browser-entry-list"></div>
+    <div class="runtime-editor-content-browser__toolbar">${filterButton('all', '全部')}${filterButton('pending', `待应用 ${kindPending}`)}${filterButton('applied', '已生效')}${filterButton('removed', `已移除 ${removedCount}`)}</div>
+    ${sourceNote}<div class="runtime-editor-content-browser__entry-scroll" id="runtime-editor-browser-entry-list" data-runtime-editor-browser-entry-list>${entries ? `<ul class="runtime-spot-list">${entries}</ul>${empty}` : empty}</div>
+    <div class="runtime-editor-content-browser__create">${create}</div>
+  </section>`;
+}
+
+export function renderRuntimeEditorBrowserDetail(ctx: UIContext, state: PanelState): string {
+  const editor = state.runtimeDatapackEditor;
+  if (!editor) return '';
+  const hasEditTarget = editor.selectedContentKind === 'spots'
+    ? Boolean(editor.selectedSpotId || editor.activeSection || editor.formDraft)
+    : Boolean(editor.selectedDefinitionId || editor.activeSection || editor.formDraft);
+  const form = hasEditTarget
+    ? editor.selectedContentKind === 'spots'
+      ? renderRuntimeSpotForm(ctx, state, true)
+      : renderRuntimeDefinitionForm(ctx, state, editor.selectedContentKind, true)
+    : '';
+  if (form) return form;
+  const title = editor.selectedContentKind === 'spots' ? '选择一个 Spot' : `选择一个 ${CONTENT_KIND_LABEL[editor.selectedContentKind]}`;
+  const detail = editor.error ?? '从中栏选择条目，或创建一条新内容开始编辑。';
+  return `<div class="runtime-editor-content-browser__empty-detail"><span class="runtime-editor-codex__empty-mark" aria-hidden="true">✳</span><strong>${ctx.escapeHtml(title)}</strong><p>${ctx.escapeHtml(detail)}</p>${renderError(ctx.escapeHtml, editor)}${renderNotice(ctx.escapeHtml, editor)}</div>`;
 }
 
 /**
  * Spot 编辑外壳：顶部条（标题 / 提示 / 操作）+ 左侧 Switch + 右侧页内容。
  * 所有页始终在 DOM 中，切换只改 hidden —— 换页不会丢失未保存输入。
  */
-export function renderRuntimeSpotForm(ctx: UIContext, state: PanelState): string {
+export function renderRuntimeSpotForm(ctx: UIContext, state: PanelState, embedded = false): string {
   const editor = state.runtimeDatapackEditor!;
   const esc = ctx.escapeHtml;
   const spot = getSelectedRuntimeEditorSpot(editor);
@@ -479,7 +556,7 @@ export function renderRuntimeSpotForm(ctx: UIContext, state: PanelState): string
       <div class="runtime-editor-topbar-title"><h4>${spot ? '编辑 Spot' : '新建 Spot'}</h4><p class="service-summary">${spot ? '保存只写入草稿；差异确认后再应用到运行时。' : '保存后加入草稿，不会立刻改变游戏。'}</p></div>
       <div class="service-actions">
         <button type="button" class="primary-button" data-runtime-editor-create-spot>${spot ? '保存 Spot 修改' : '加入草稿'}</button>
-        <button type="button" class="primary-button" data-runtime-editor-apply>应用到运行时</button>
+        ${embedded ? '' : '<button type="button" class="primary-button" data-runtime-editor-apply>应用到运行时</button>'}
         ${spot ? '<button type="button" class="toolbar-button danger" data-runtime-editor-delete-spot>删除 Spot</button>' : ''}
       </div>
     </header>
@@ -492,7 +569,7 @@ export function renderRuntimeSpotForm(ctx: UIContext, state: PanelState): string
 }
 
 /** Init / Area / Enhancement 与 Spot 共用同一顶部条、左侧 Switch、诊断与 Apply 外壳。 */
-export function renderRuntimeDefinitionForm(ctx: UIContext, state: PanelState, kind: RuntimeEditorContentKind): string {
+export function renderRuntimeDefinitionForm(ctx: UIContext, state: PanelState, kind: RuntimeEditorContentKind, embedded = false): string {
   const editor = state.runtimeDatapackEditor!;
   const policy = getContentPolicy(kind);
   if (!policy) return '<p class="service-result error">当前内容类型尚未接入编辑策略。</p>';
@@ -522,8 +599,8 @@ export function renderRuntimeDefinitionForm(ctx: UIContext, state: PanelState, k
   const pages = current ? renderDefinitionSection(ctx, editor, policy, current, active, views, values, diff, problems) : '';
   const label = CONTENT_KIND_LABEL[kind];
   const initCreationAssist = kind === 'inits' && !definition ? renderRuntimeInitCreationAssist(ctx, editor, values) : '';
-  return `<div class="runtime-editor-form runtime-editor-shell" data-runtime-editor-definition-form data-runtime-editor-content-kind="${kind}">
-    <header class="runtime-editor-topbar"><div class="runtime-editor-topbar-title"><h4>${definition ? `编辑 ${label}` : `新建 ${label}`}</h4><p class="service-summary">${definition ? '保存只写入草稿；确认差异后再应用到运行时。' : '保存后加入临时 Mod 草稿，不会立刻改变游戏。'}</p></div><div class="service-actions"><button type="button" class="primary-button" data-runtime-editor-save-definition="${kind}">${definition ? `保存 ${label} 修改` : `加入 ${label} 草稿`}</button><button type="button" class="primary-button" data-runtime-editor-apply>应用到运行时</button>${definition ? `<button type="button" class="toolbar-button danger" data-runtime-editor-delete-definition="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}">删除 ${label}</button>` : ''}</div></header>
+  return `<div class="runtime-editor-form runtime-editor-shell${embedded ? ' runtime-editor-content-browser__embedded-form' : ''}" data-runtime-editor-definition-form data-runtime-editor-content-kind="${kind}">
+    <header class="runtime-editor-topbar"><div class="runtime-editor-topbar-title"><h4>${definition ? `编辑 ${label}` : `新建 ${label}`}</h4><p class="service-summary">${definition ? '保存只写入草稿；确认差异后再应用到运行时。' : '保存后加入临时 Mod 草稿，不会立刻改变游戏。'}</p></div><div class="service-actions"><button type="button" class="primary-button" data-runtime-editor-save-definition="${kind}">${definition ? `保存 ${label} 修改` : `加入 ${label} 草稿`}</button>${embedded ? '' : '<button type="button" class="primary-button" data-runtime-editor-apply>应用到运行时</button>'}${definition ? `<button type="button" class="toolbar-button danger" data-runtime-editor-delete-definition="${kind}" data-runtime-editor-definition-id="${esc(definition.idName)}">删除 ${label}</button>` : ''}</div></header>
     ${renderError(esc, editor)}${renderNotice(esc, editor)}${initCreationAssist}
     <div class="runtime-editor-body"><nav class="runtime-editor-switch" data-runtime-editor-switch>${tabs}</nav><div class="runtime-editor-panes">${pages}</div></div>
   </div>`;
@@ -844,20 +921,6 @@ function renderExtensionBlock(
     default:
       return '';
   }
-}
-
-function renderRuntimeSpotEntry(ctx: UIContext, editor: RuntimeDatapackEditorState, spot: RuntimeEditorSpotDraft): string {
-  const esc = ctx.escapeHtml;
-  const state = runtimeEditorEntryState(editor, spot);
-  const removed = editor.suspendedSpotIds.includes(spot.idName);
-  const areaName = ctx.game.registry.areas.get(spot.areaId)?.name ?? spot.areaId;
-  const label = removed ? '已移除' : ENTRY_STATE_LABEL[state];
-  const tone = removed ? 'removed' : state;
-  return `<li class="runtime-spot-item" data-runtime-editor-entry="${esc(spot.idName)}" data-entry-state="${tone}"${editor.selectedSpotId === spot.idName ? ' data-selected="1"' : ''}>
-    <button type="button" class="runtime-spot-item-main" data-runtime-editor-entry-edit="${esc(spot.idName)}"><span class="runtime-spot-item-name">${esc(spot.name || spot.idName)}</span><em>${esc(spot.idName)} · ${esc(areaName)}</em></button>
-    <span class="runtime-editor-entry-state" data-entry-state="${tone}">${label}</span>
-    <button type="button" class="mini-action" data-runtime-editor-entry-remove="${esc(spot.idName)}">删除</button>
-  </li>`;
 }
 
 function filteredRuntimeSpotEntries(editor: RuntimeDatapackEditorState) {

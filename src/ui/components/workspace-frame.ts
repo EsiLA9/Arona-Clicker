@@ -3,6 +3,7 @@ import { renderUIHost } from '../presentation-service';
 
 export type WorkspaceSlot = 'left' | 'center' | 'right';
 export type WorkspaceLayoutPreset = 'default' | 'center-heavy';
+export type WorkspaceComposition = 'columns' | 'left-center' | 'center-right' | 'all';
 export type WorkspaceResponsiveProfile = 'default' | 'two-column' | 'single-column';
 export type WorkspaceScrollMode = 'auto' | 'content' | 'none';
 export type WorkspaceScrollOwner = 'workspace-body' | 'content-region' | 'delegated';
@@ -26,6 +27,8 @@ export interface WorkspaceColumnSpec {
 export interface WorkspaceLayoutSpec {
   preset?: WorkspaceLayoutPreset;
   responsive?: WorkspaceResponsiveProfile;
+  /** Render only the retained columns; callers place absorbed content in the retained slot explicitly. */
+  composition?: WorkspaceComposition;
 }
 export interface WorkspaceFrameSpec {
   id: string;
@@ -68,6 +71,14 @@ export function renderWorkspaceColumn(ctx: UIContext, column: WorkspaceColumnSpe
 export function renderWorkspaceFrame(ctx: UIContext, spec: WorkspaceFrameSpec): string {
   const preset = spec.layout?.preset ?? 'default';
   const responsive = spec.layout?.responsive ?? 'default';
+  const composition = spec.layout?.composition ?? 'columns';
   const legacyClass = legacyWorkspaceClass(spec.id);
-  return `<section class="workspace-frame workspace-frame--${spec.id} ${legacyClass}" data-workspace-frame="${spec.id}" data-layout="${preset}" data-responsive="${responsive}">${renderWorkspaceColumn(ctx, spec.left)}${renderWorkspaceColumn(ctx, spec.center)}${renderWorkspaceColumn(ctx, spec.right)}</section>`;
+  const columns = composition === 'left-center'
+    ? [spec.left, spec.right]
+    : composition === 'center-right'
+      ? [spec.left, spec.center]
+      : composition === 'all'
+        ? [spec.left]
+        : [spec.left, spec.center, spec.right];
+  return `<section class="workspace-frame workspace-frame--${spec.id} ${legacyClass}" data-workspace-frame="${spec.id}" data-layout="${preset}" data-responsive="${responsive}" data-composition="${composition}">${columns.map(column => renderWorkspaceColumn(ctx, column)).join('')}</section>`;
 }

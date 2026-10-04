@@ -1,0 +1,24 @@
+{
+  "triggerDefs": [
+    {
+      "id": "base:trigger:first_credit",
+      "on": { "kind": "tick", "every": 1 },
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          { "target": "resource", "key": "base:resource:credit", "comparator": ">=", "value": 100 }
+        ]
+      },
+      "effects": [
+        { "op": "addItem", "target": "base:item:field_note", "value": 1 }
+      ],
+      "once": true,
+      "extra": {
+        "t": "dict",
+        "v": {
+          "name_zh": { "t": "str", "v": "首次积累 100 信用点" }
+        }
+      }
+    }
+  ]
+}

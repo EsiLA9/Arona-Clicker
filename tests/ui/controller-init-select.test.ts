@@ -87,6 +87,97 @@ describe('UIController Init 选择页', () => {
     expect(game.state.totalFrames).toBe(beforeState.totalFrames);
   });
 
+  it('离开活动场景到选择页时只投影全局主题与焦点主题，不继承旧 Area/剧情层', () => {
+    game.colorSystem.pushSceneTheme({
+      id: 'selector-stale-area',
+      scope: 'area',
+      background: [{ id: 'selector-stale-area-layer', kind: 'solid', value: '#deadbe' }],
+    });
+    game.colorSystem.pushEphemeralTheme({
+      id: 'selector-stale-story',
+      scope: 'ephemeral',
+      background: [{ id: 'selector-stale-story-layer', kind: 'solid', value: '#badc0d' }],
+    });
+    game.colorSystem.setUserThemePreview({
+      palette: ['#123456'],
+      tokens: { primary: '#112233', bg: '#223344', bgAlt: '#334455' },
+      presentation: { hosts: [{
+        id: 'global',
+        layers: [{ id: 'selector-global-user-layer', kind: 'solid', value: '#11aa33' }],
+        layerOrder: ['system-color-background', 'selector-global-user-layer'],
+      }] },
+    });
+
+    showSelectPage();
+
+    const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]')!;
+    const shell = root.querySelector<HTMLElement>('.selector-shell')!;
+    const outer = document.querySelector<HTMLElement>('#ui-background-layer')!;
+    expect(current.innerHTML).toContain('#11aa33');
+    expect(current.innerHTML).not.toContain('#deadbe');
+    expect(current.innerHTML).not.toContain('#badc0d');
+    expect(outer.innerHTML).not.toContain('#deadbe');
+    expect(outer.innerHTML).not.toContain('#badc0d');
+    expect(outer.style.getPropertyValue('--ac-primary')).toBe('#112233');
+    expect(shell.style.getPropertyValue('--theme-node-primary')).toBeTruthy();
+  });
+
+  it('从 Init 的结束游戏入口撤离时，选择页显示 Init 主题而不叠加当前 Area 主题', () => {
+    game.mutations.changeResource('base:resource:pyroxene', 100);
+    game.inits.unlockInit(MILLENNIUM);
+    controller.startNewGame(MILLENNIUM);
+    controller.selectorPage.restoreInitSelection(MILLENNIUM);
+    controller.render();
+
+    expect(game.colorSystem.runtimeThemeTokens().primary).toBe('#6366f1');
+    root.querySelector<HTMLButtonElement>('[data-restart-init]')!.click();
+
+    const shell = root.querySelector<HTMLElement>('.selector-shell')!;
+    const viewport = root.querySelector<HTMLElement>('.selector-viewport')!;
+    const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]')!;
+    expect(controller.started).toBe(false);
+    expect((controller as unknown as { pendingRestart: boolean }).pendingRestart).toBe(true);
+    expect(shell.style.getPropertyValue('--theme-node-primary')).toBe('#4f46e5');
+    expect(viewport.dataset.selectorThemeKey?.endsWith('|')).toBe(true);
+    expect(current.innerHTML).toContain('#4f46e5');
+  });
+
+  it('Schale 撤离后聚焦另一 Init 时，current/next 背景槽都不带旧 Area 资产', () => {
+    game.mutations.changeResource('base:resource:pyroxene', 100);
+    game.inits.unlockInit(MILLENNIUM);
+    controller.startNewGame(OFFICE);
+    controller.selectorPage.restoreInitSelection(OFFICE);
+    controller.render();
+    root.querySelector<HTMLButtonElement>('[data-restart-init]')!.click();
+
+    const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]')!;
+    expect(current.innerHTML).not.toContain('/assets/Hoshino.png');
+    expect(current.innerHTML).not.toContain('triangles');
+
+    root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!.click();
+    const next = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]')!;
+    expect(next.innerHTML).not.toContain('/assets/Hoshino.png');
+    expect(next.innerHTML).not.toContain('triangles');
+  });
+
+  it('从 Restart 选择页恢复另一 Init 后，再构建目标 Init 与 Area 运行时主题', () => {
+    game.mutations.changeResource('base:resource:pyroxene', 100);
+    controller.startNewGame(OFFICE);
+    game.inits.unlockInit(MILLENNIUM);
+    controller.render();
+    root.querySelector<HTMLButtonElement>('[data-restart-init]')!.click();
+    root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!.click();
+    root.querySelector<HTMLButtonElement>(`[data-init="${MILLENNIUM}"]`)!.click();
+
+    expect(game.state.activeInit).toBe(MILLENNIUM);
+    expect(controller.started).toBe(true);
+    expect(root.querySelector('.selector-shell')).toBeNull();
+    expect(game.colorSystem.runtimeThemeTokens().primary).toBe('#6366f1');
+    const outer = document.querySelector<HTMLElement>('#ui-background-layer')!;
+    expect(outer.innerHTML).not.toContain('/assets/Hoshino.png');
+    expect(outer.innerHTML).not.toContain('triangles');
+  });
+
   it('选择页上部按钮随聚焦主题刷新背景，主题浮窗开合保持同一表现链', () => {
     game.mutations.changeResource('base:resource:pyroxene', 100);
     game.inits.unlockInit(MILLENNIUM);

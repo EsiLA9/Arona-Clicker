@@ -1,0 +1,100 @@
+[
+  {
+    "source": "aoci.txt",
+    "destination": "docs/archive/retired-assets-2026-10-01/aoci/aoci.txt",
+    "bytes": 298,
+    "sha256": "0E278FD3E1CCDB2A7F8D46BAD70C30C8C437E7896BD6CBAFF550F1C4E2944199",
+    "verified": true
+  },
+  {
+    "source": "aoci.code.txt",
+    "destination": "docs/archive/retired-assets-2026-10-01/aoci/aoci.code.txt",
+    "bytes": 318152,
+    "sha256": "F2F84BD1476F3012EACFB91D08723C1E9096E3D56DCB3B5A744DA37D8850869E",
+    "verified": true
+  },
+  {
+    "source": "aoci.meta.txt",
+    "destination": "docs/archive/retired-assets-2026-10-01/aoci/aoci.meta.txt",
+    "bytes": 1900,
+    "sha256": "60FFEA0527AE0E1E2B5BF822C119CD3141118CDD33479DEC063EE5F9C2114126",
+    "verified": true
+  },
+  {
+    "source": ".aoci/config.json",
+    "destination": "docs/archive/retired-assets-2026-10-01/aoci/metadata/config.json",
+    "bytes": 8956,
+    "sha256": "2E9065CA23ECB1E0506E562A6E484ADA70370979BAA99A8B4D8C5B712BCA5307",
+    "verified": true
+  },
+  {
+    "source": ".aoci/baseline.json",
+    "destination": "docs/archive/retired-assets-2026-10-01/aoci/metadata/baseline.json",
+    "bytes": 216550,
+    "sha256": "FFA7FA26246FD806DF0344BAD4AB19DD5CB8751096542EAAC3ED0A20E5BE5143",
+    "verified": true
+  },
+  {
+    "source": ".aoci/.gitignore",
+    "destination": "docs/archive/retired-assets-2026-10-01/aoci/metadata/.gitignore",
+    "bytes": 338,
+    "sha256": "81AC3B55CFD0FF9C3D28ACCFC9336AED8D43D745B7913927105FDF691A6CF27C",
+    "verified": true
+  },
+  {
+    "source": ".vitest-report.json",
+    "destination": "docs/archive/retired-assets-2026-10-01/test-results/vitest-report-2026-09-10.json",
+    "bytes": 407282,
+    "sha256": "DBF21F615286DA1BEDA8BE6682C59435A6D24947C270DCDE85BE5C00FAD40D40",
+    "verified": true
+  },
+  {
+    "source": "AGENTS.md.backup.20260917_130823.ba5df314d1b8d796ac64ad9cd6b40d7744d1906f85cd77424e29f034742fb274",
+    "destination": "docs/archive/retired-assets-2026-10-01/agent-instructions/AGENTS-backup-2026-09-17.txt",
+    "bytes": 9832,
+    "sha256": "BA5DF314D1B8D796AC64AD9CD6B40D7744D1906F85CD77424E29F034742FB274",
+    "verified": true
+  },
+  {
+    "source": "scripts/_refactor-move-engine.mjs",
+    "destination": "docs/archive/retired-assets-2026-10-01/migration-scripts/_refactor-move-engine.mjs",
+    "bytes": 7880,
+    "sha256": "1C22C59D4B09012EC7F9AE5AD4D3B3863F5F2B3EA5FA86A41C4CC5B310042AD6",
+    "verified": true
+  },
+  {
+    "source": "scripts/_fix-engine-imports.mjs",
+    "destination": "docs/archive/retired-assets-2026-10-01/migration-scripts/_fix-engine-imports.mjs",
+    "bytes": 5102,
+    "sha256": "806606F9770698CE5937CC8FE3529195E9D8DDE486C108A440287C78308E5981",
+    "verified": true
+  },
+  {
+    "source": "scripts/_fix2-engine-imports.mjs",
+    "destination": "docs/archive/retired-assets-2026-10-01/migration-scripts/_fix2-engine-imports.mjs",
+    "bytes": 4619,
+    "sha256": "AA815B6F0593B4B5EF85F7C867D9016FD9AB8381DEF881AC4D628357E019C738",
+    "verified": true
+  },
+  {
+    "source": "scripts/_fix3-engine-imports.mjs",
+    "destination": "docs/archive/retired-assets-2026-10-01/migration-scripts/_fix3-engine-imports.mjs",
+    "bytes": 5808,
+    "sha256": "B88E2E10C686C5871BCDF4536B9ECAD58B72B3D543655284C812D0929E353742",
+    "verified": true
+  },
+  {
+    "source": "scripts/_fix-docs-engine-paths.mjs",
+    "destination": "docs/archive/retired-assets-2026-10-01/migration-scripts/_fix-docs-engine-paths.mjs",
+    "bytes": 4595,
+    "sha256": "7C4E2C06E8E007A601BE9968DF2E2A08257DDF97AA0F0683AF1775A5B121AD58",
+    "verified": true
+  },
+  {
+    "source": "bondDict.ts",
+    "destination": "docs/archive/retired-assets-2026-10-01/legacy-data/bondDict.ts",
+    "bytes": 2404,
+    "sha256": "E9978E90F0DD8860C6502C5EA053BF45E751A51F77469BA4B3E6488A5EF47F35",
+    "verified": true
+  }
+]

@@ -87,9 +87,10 @@ export const themeShowcaseAreas: AreaDef[] = [
 export const themeShowcaseSpots: SpotDef[] = [
   spot(THEME_SHOWCASE_SPOTS[0], THEME_SHOWCASE_AREA)
     .name('主题色面板样本')
-    .desc('展示 Panel、边框、激活态与主题节点的组合效果。')
+    .desc('展示 Panel、边框、激活态与主题节点的组合效果，并可从此结束展示世界线。')
     .cost(0).flow('base:flow:showcase', 'base:resource:credit', 1)
     .tags(tagPath('theme', 'showcase'), tagPath('display'))
+    .restartInit('base:funclet:theme_showcase_restart')
     .build(),
   spot(THEME_SHOWCASE_SPOTS[1], THEME_SHOWCASE_AREA)
     .name('气泡、状态与商店样本')

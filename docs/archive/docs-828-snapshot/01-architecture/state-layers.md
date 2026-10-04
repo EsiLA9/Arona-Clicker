@@ -1,0 +1,54 @@
+---
+scope: current-fact
+authority: semantic-explanation
+read_when:
+  - 新增或修改 PlayerState 字段
+  - 修改 Init、存档或状态写入口
+avoid_when:
+  - 只改不持久化的表现层代码
+related_modules:
+  - player-state
+  - state-mutation
+  - lifecycle
+---
+
+# 01-architecture/state-layers — 三层状态与写入口
+
+> 本文回答：**运行时状态分几层、各层放什么、新增数据该放哪一层。**
+> 字段级结构见 [[docs/archive/docs-828-snapshot/03-data-structures/player-state]]；写入管道见 [[docs/archive/docs-828-snapshot/04-mechanisms/state-mutation]]。
+
+## 三层分层
+
+| 层 | 载体 | 生命周期 | 代表内容 |
+| --- | --- | --- | --- |
+| **Global** | `PlayerState` 顶层 `global*` 字段与收集类字段 | 跨世界线永久（新游戏除外） | `globalResources`、`unlockedInits`、GlobalEnh、Global Chara、用户主题、色彩/装备收集 |
+| **per-Init 快照** | `PlayerState.initSnapshots[initId]` | 离开世界线时保存、回来时恢复 | flag / extra / resources / items / 本地 enhancements / spotLevels / stats / storyReadLogs / Story cursor 等 |
+| **per-Init 当前** | `PlayerState` 顶层字段 | 当前世界线运行时 | `resources`、`flags`、`initExtras`、`inventory`、`spotLevels`、`currentAreaId`、`storyLog` |
+
+`informationRevealProgress` 位于 Save 内的 PlayerState 顶层，不进入 `InitSnapshot`：已知信息跨 Init 切换和 Run 重启保留，但不跨不同 Save 或账号共享。当前 Init 的 Reveal Watch 是可重建运行时投影，不属于该持久字段。
+
+`milestoneProgress` 同样位于 Save 内 PlayerState 顶层，不进入 `InitSnapshot`：已完成 Milestone 是跨 Init / Run 保留的单调历史事实；对应 EB-T Watch / Registration 是可重建投影，不能作为历史事实来源。
+
+**关键约定**：读状态时「当前层有值用当前层，无值回退快照层」——由 `StateMutationService` 的访问器（`extraFromLayer` / `resourceBucket` 等）统一实现。
+
+## per-Init 字段单一事实源（T3）
+
+- `src/arona-clicker/state/per-init-fields.ts` 的 `PER_INIT_FIELD_SPECS` 是 per-Init 字段清单的**唯一登记处**（19 字段）：普通字段 `field()` / Spot 容器 `spotField()` / Character 归属容器 `characterContainer()` / Story cursor 上下文。
+- `src/arona-clicker/state/init-savepoint.ts` 的 save / clear / restore 全部遍历 SPECS；`state-factory.createDefaultState` 负责产品运行时初始状态。
+- **编译期键守卫**（`PER_INIT_KEY_GUARD`）：SPECS 键集合与 `InitSnapshot` 键集合双向 `Exclude` 断言——新增 per-Init 字段漏登记直接编译错误。
+- 新增 per-Init 字段流程：`PlayerState` + `InitSnapshot` 加字段 → `PER_INIT_FIELD_SPECS` 登记（含 `scope` 归属，Character 容器字段声明 `characterPersistConfig` 三分支：roster/gacha/chatRead）。
+- `storyCursors` 只保存可序列化的 global/chat 执行游标；切换时清理 StoryService 运行时对象，恢复时重新构造 cursor state。
+
+## Character 归属层（`CharacterPersistScope`）
+
+角色域字段声明各自归属：`global`（跨世界线保留）/ `init`（随世界线重置）。`characterPersistConfig` 可按域覆盖默认（如 chatRead 默认 init）。
+
+## 变更纪律
+
+1. **任何字段只经 `StateMutationService` 写**（写方法内：改值 → 记统计 → 发事件）。
+2. 新增字段前先想清楚放三层哪一层；收集类资产通常 global，运行时进度通常 per-Init。
+3. **不写存档迁移代码**（架构纪律 8）：旧档缺字段用 `??=` 兜底或清档重来。
+
+---
+
+相关：[[docs/archive/docs-828-snapshot/01-architecture/data-flow]]（数据从声明到 UI 的四层流动）

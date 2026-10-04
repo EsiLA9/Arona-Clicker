@@ -1,5 +1,13 @@
-# 04-algorithms — 已迁移
+# README — docs-829 路由
 
-> 当前机制正文已迁移至 `docs/docs-828/04-mechanisms/`。本目录仅保留迁移说明，不再承载当前机制正文。
+> 这是 docs/docs-828 的兼容重定向页，不再维护旧版正文。
 
-请从 [[docs/docs-828/04-mechanisms/00-index]] 进入。
+此路径是兼容入口；相关主题由 docs-829 当前页面承接，原文保留为只读历史出处。
+
+## 当前主题入口
+
+- [[docs/docs-829/04-mechanisms/00-index]]
+
+## 只读历史原文
+
+- [[docs/archive/docs-828-snapshot/04-algorithms/README]]

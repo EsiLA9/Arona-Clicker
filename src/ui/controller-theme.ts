@@ -278,6 +278,26 @@ export function presentationView(ctrl: UIController) {
   });
 }
 
+/** Init / GlobalEnh 选择页共享的全局基底视图，不继承离开前的 Init、Area、Student 或剧情临时层。 */
+export function selectorBaseBackgroundView(ctrl: UIController) {
+  const theme = ctrl.game.colorSystem.selectorBaseTheme();
+  return buildBackgroundView(
+    theme.background,
+    ctrl.game.pics,
+    theme.tokens,
+    theme.systemColorLayerIgnored,
+    theme.palette,
+    rootThemeVars(theme),
+  );
+}
+
+export function selectorBasePresentationView(ctrl: UIController) {
+  const theme = ctrl.game.colorSystem.selectorBaseTheme();
+  return buildPresentationView(theme.presentation, ctrl.game.pics, {
+    evaluateCondition: condition => ctrl.game.conditionSystem.evaluate(condition, ctrl.game.state),
+  });
+}
+
 export function refreshPresentationHostElements(ctrl: UIController, hostIds?: readonly string[]): void {
   const context = createUIContext(ctrl.game, backgroundView(ctrl), presentationView(ctrl));
   refreshPresentationHostElementsIn(ctrl.root, context, hostIds);

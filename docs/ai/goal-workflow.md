@@ -1,6 +1,6 @@
 # Goal 工作流 — 从玩法意图到施工
 
-> 本文回答：如何让长期终点、阶段规划、SolChat 讨论、源码核验和本地施工各有归属。它只规定协作流程，不记录具体玩法，不改变 `AGENTS.md`、`docs/docs-828/` 或 AOCI 的权威边界。
+> 本文回答：如何让长期终点、阶段规划、SolChat 讨论、源码核验和本地施工各有归属。它只规定协作流程，不记录具体玩法；当前规则由 `AGENTS.md` 与 `docs/docs-829/` 路由，GALHCG 提供需源码核验的导航。
 
 ## 五层对象
 
@@ -18,7 +18,7 @@ Codex Goal 只负责当前会话的持续执行。长期状态、决策、验收
 
 ## 权威与可删除边界
 
-- 当前实现事实来自源码、测试与 `docs/docs-828/`；Goal Set、Goal Card 和 Draft 表达意图、裁定或待核对问题，不升格为当前机制事实。
+- 当前实现事实来自源码、测试与 `docs/docs-829/`；Goal Set、Goal Card 和 Draft 表达意图、裁定或待核对问题，不升格为当前机制事实。
 - SolChat 给出建议和方案；本地 AI 用项目 Read Set 核对代码证据；人类裁定玩法优先级和架构级选择。Draft 的裁定记录区分建议、决定和依据。
 - Goal Set 只向持久文档发出链接。`docs/plan-work/goalsets/README.md` 以外的 Goal Set 文件不得成为其目录外 WikiLink 的目标；持久 Draft、Task 和机制文档须独立解释目标与边界。因此整组删除不会使正式记录失去含义。
 - Goal Set 的进度表只链接 Draft / Task，不再复制它们的状态与验收结论。`docs/plan-work/00-index.md` 只链接稳定的 Goal Set 使用说明及正式活跃文档，不逐张登记可删除的 Goal Card。
@@ -30,7 +30,7 @@ Codex Goal 只负责当前会话的持续执行。长期状态、决策、验收
 2. **讨论阶段目标**：每个进入讨论的 Goal 建一份 Draft；多轮 SolChat 意见继续更新同一 Draft 的裁定记录，不为每轮建议另建文档。使用 [[docs/ai/templates/discussion-draft]] 与 [[docs/ai/prompts/sol-discussion]]。
 3. **核对事实**：把会改变方案或验收边界的未知项列为事实门槛。按 [[docs/ai/task-read-set-routing]] 读取最小源码与测试，记录证据、结论和影响。使用 [[docs/ai/prompts/local-fact-review]]。事实核对不自动形成新的阶段目标。
 4. **冻结施工范围**：Draft 满足下方准入后，建立 Task 并在 `docs/plan-work/00-index.md` 登记。Task 写独立目标、当前代码事实、验收与剩余工作，不以 Goal Set 为必读前提。使用 [[docs/ai/templates/execution-task]]。
-5. **执行与收尾**：Task 按 [[docs/ai/PROJECT-CONSTITUTION]] 拆 Patch Unit / Receipt，实际核验后归档。用户要求清空当前工作区时，也可冻结未完成 Task 并保留原状态与待续记录。实现稳定的机制再按文档维护规则沉淀到 `docs/docs-828/`；只完成一个阶段不等于整个最终目标完成。
+5. **执行与收尾**：Task 按 [[docs/ai/PROJECT-CONSTITUTION]] 拆 Patch Unit / Receipt，实际核验后归档。用户要求清空当前工作区时，也可冻结未完成 Task 并保留原状态与待续记录。实现稳定的机制再按文档维护规则沉淀到 `docs/docs-829/`；只完成一个阶段不等于整个最终目标完成。
 
 ## Draft → Task 准入
 
@@ -54,8 +54,8 @@ Codex Goal 只负责当前会话的持续执行。长期状态、决策、验收
 
 ## 清空与重启
 
-删除某个 `<set-id>/` 前，先确认其 Draft / Task 已写明独立目标与裁定、没有目录外文件链接到该集，并运行 `npm run check:docs`。删除 Goal Set 不归档为机制事实，也不删除已归档 Task；Git 历史保留过去的讨论快照。重新讨论相似方向时新建 set-id，按需链接旧 Draft / Task 并重新核对当前源码，不原地复活旧计划。
+删除某个 `<set-id>/` 前，先确认其 Draft / Task 已写明独立目标与裁定、没有目录外文件链接到该集，并运行 `npm run check:docs`。默认可删除 Goal Set；若用户明确要求冻结归档，则将整组文件移入 `docs/plan-work/archive/`，保留最后已知状态并在 `docs/plan-work/00-index.md` 登记，不把归档写成完成。归档 Goal Set 不升格为机制事实，也不删除已归档 Task；重新讨论相似方向时新建 set-id，按需链接旧 Draft / Task 并重新核对当前源码，不原地复活旧计划。
 
 ## 相关入口
 
-[[AGENTS.md]] · [[docs/plan-work/goalsets/README]] · [[docs/docs-828/05-conventions/doc-maintenance]] · [[docs/ai/PROJECT-CONSTITUTION]]
+[[AGENTS.md]] · [[docs/plan-work/goalsets/README]] · [[docs/docs-829/05-conventions/doc-maintenance]] · [[docs/ai/PROJECT-CONSTITUTION]]

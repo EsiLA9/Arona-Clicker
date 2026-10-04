@@ -7,7 +7,7 @@
 1. 用 `gs-YYYYMMDD-简短主题` 作为唯一 set-id，新建同名目录。
 2. 从 [[docs/ai/templates/goal-set]] 复制 `<set-id>-set.md`；每个独立可验收阶段从 [[docs/ai/templates/goal-card]] 复制 `<set-id>-g01.md`、`<set-id>-g02.md` 等。
 3. 只在 Goal 进入实际讨论时，另立全局编号的 `draft-*.md` 并登记到 `docs/plan-work/00-index.md`。Goal Card 可链接 Draft；Draft 不链接本目录内的可删除文件。
-4. Goal Set 完成或需要清爽重启时，删除整个 `<set-id>/`，运行 `npm run check:docs`；正式 Draft / Task 仍可独立阅读。
+4. Goal Set 完成或需要清爽重启时，默认删除整个 `<set-id>/`，运行 `npm run check:docs`；正式 Draft / Task 仍可独立阅读。用户明确要求冻结时，则将整组文件移入 `docs/plan-work/archive/`，保留末态并在 `docs/plan-work/00-index.md` 登记，不表示目标已完成。
 
 ## 文件边界
 

@@ -77,6 +77,20 @@ describe('UserThemeLayerService', () => {
     expect(draft.presentation?.hosts).toEqual([]);
   });
 
+  test('删除继承层后保留显式空覆盖；只有显式清除才恢复继承', () => {
+    const draft: UserThemeDraft = { version: 1 };
+    const target = { kind: 'global' as const };
+    materializeTargetLayers(draft, target, [layer('design-layer', '#123456')]);
+
+    expect(removeTargetLayer(draft, target, 'design-layer')).toBe(true);
+    expect(hasLocalTarget(draft, target)).toBe(true);
+    expect(getTargetLayers(draft, target)).toEqual([]);
+    expect(getTargetLayerOrder(draft, target)).toEqual(['system-color-background']);
+
+    expect(clearTargetOverride(draft, target)).toBe(true);
+    expect(hasLocalTarget(draft, target)).toBe(false);
+  });
+
   test('预览层不写回会话 draft，并按目标追加或替换单层', () => {
     const draft: UserThemeDraft = { version: 1, presentation: { hosts: [{ id: 'global', layers: [layer('existing', '#111')], layerOrder: ['system-color-background', 'existing'] }] } };
     const target = { kind: 'global' as const };

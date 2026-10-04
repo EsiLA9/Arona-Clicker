@@ -61,7 +61,7 @@ import {
   showBackToGame as showBackToGameImpl,
 } from './controller-panels';
 import { bindEvents } from './controller-events';
-import { applyTheme as applyThemeImpl, backgroundView as backgroundViewImpl, presentationView as presentationViewImpl, restoreThemeFloat as restoreThemeFloatImpl, syncRuntimeTheme as syncRuntimeThemeImpl } from './controller-theme';
+import { applyTheme as applyThemeImpl, backgroundView as backgroundViewImpl, presentationView as presentationViewImpl, restoreThemeFloat as restoreThemeFloatImpl, selectorBaseBackgroundView, selectorBasePresentationView, syncRuntimeTheme as syncRuntimeThemeImpl } from './controller-theme';
 import { bindSaveActions } from './controller-save';
 import { bindTopBarActions } from './controller-actions-topbar';
 import { bindContactsActions } from './controller-actions-contacts';
@@ -317,7 +317,12 @@ export class UIController {
       game: this.game,
       root: this.root,
       popovers: this.popovers,
-      selectorContext: () => createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this)),
+      selectorContext: () => createUIContext(
+        this.game,
+        selectorBaseBackgroundView(this),
+        selectorBasePresentationView(this),
+        { includeResumedArea: !this.pendingRestart },
+      ),
       initSelectMode: () => initSelectModeImpl(this),
       showBackToGame: () => showBackToGameImpl(this),
       bindDetailActions: () => bindDetailActionsImpl(this),
@@ -739,6 +744,10 @@ export class UIController {
       const refreshed = this.refreshStoryWorkspaceRegions(panels);
       if (refreshed) return;
     }
+    if (['settings', 'datapack', 'saves', 'records'].includes(this.panelState.service ?? '') && panels.length > 0) {
+      const refreshed = panels.map(panel => this.refreshSettingsServiceRegion(panel));
+      if (refreshed.every(Boolean)) return;
+    }
     if (this.panelState.workspace) {
       this.render();
       return;
@@ -959,7 +968,9 @@ export class UIController {
     const service = this.panelState.service;
     if (service !== 'settings' && service !== 'datapack' && service !== 'saves' && service !== 'records') return false;
     const column = panel === 'left' ? 'navigation' : panel === 'center' ? 'main' : 'inspector';
-    const hostId = `${panel}Panel.service.${service}.${column}`;
+    const hostId = service === 'datapack' && panel === 'left'
+      ? 'leftPanel.service.datapack.workspace'
+      : `${panel}Panel.service.${service}.${column}`;
     const current = this.findThemeHost(this.root, hostId);
     if (!current) return false;
 

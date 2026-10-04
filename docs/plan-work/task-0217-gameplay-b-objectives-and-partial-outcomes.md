@@ -1,0 +1,87 @@
+# Task 0217 — 玩法 B 事件目标与多类结局
+
+状态：proposed — 等待 Task 0213–0216 完成
+
+## 目标
+
+使战斗和现场行动都能推进事件定义的目标，依据少量局内轨道与事实产生成功、部分成功或失败，而不把击倒全部对手作为统一胜利条件。
+
+## Why
+
+行动循环需要一个超越清空敌方生命值的理由。明确目标与部分结果可以让救援、调查、设施处置和战斗围绕相同的事件状态形成因果。
+
+## Scope
+
+- 为事件定义可读的主/次目标、失败门槛和位置局部终止规则。
+- v1 Predicate 只支持数值轨道比较、事实存在/缺失和有限的 all/any 组合。
+- 为行动提供有限效果类型：Actor 状态/资源变化、数值轨道变化、事实发现/移除。
+- 明确同一 Beat 的效果先从统一快照计算，按稳定规则合并和限幅，再原子写回 EventRun。
+- 定义 Location 局部完成/部分完成/失败与 Event 终局结果的区别；地点部分成果结算后可继续走路线。
+- 硬失败门槛可在任何 Beat 立即结束 Event；其余 EventOutcome 只在事件终止边界评估，避免尚有路线时因当前部分条件过早结局。
+- Event 终止边界优先级：硬失败 → 全部主目标满足时成功 → 明确部分成功条件 → 失败；硬失败与主目标同 Beat 成立以失败为准。
+- 让非战斗地点能以环境 Intent 和现场状态产生 Resolution；战斗地点继续共用相同 Commit 管线。
+- 每个 Location 必须有明确目标/失败条件或有限 Beat 上限，避免局内循环无界增长。
+
+## Non-goals
+
+- 不引入可执行脚本、任意表达式 DSL 或将现有 ConditionTarget 扩展为通用 EventRun 查询器。
+- 不强制每个事件有相同计量项；数值轨道与事实由事件定义选择。
+- 不实现路线图和存档，分别由 Task 0218 与 Task 0219 负责。
+
+## Current AC facts
+
+| 已核实事实 | 证据 | 设计影响 |
+| --- | --- | --- |
+| ConditionSystem 对当前 ConditionTarget 求值且不修改状态。 | `docs/docs-829/03-data-structures/engine-contracts.md`；`docs/docs-829/06-wiki/40-engine/core-contracts.md` | EventRun 临时指标需小型独立 Predicate，避免假定现有 Condition 能读它。 |
+| StateMutationService 负责 PlayerState 写入与领域事件，Engine Effect 通过宿主端口消费状态变化。 | `docs/docs-829/04-mechanisms/arona-clicker/state-mutation.md`；`docs/docs-829/04-mechanisms/engine/effect-trigger.md` | 局内结果由 OperationRuntime 原子更新；长期结果在明确边界转交 AC mutation。 |
+
+## Data / API
+
+- LocationObjective/LocationResult 与 EventObjective/EventOutcome 规则：局部 ID、轨道/事实条件、主次标签、部分条件、结果说明和允许提交到 AC 的奖励白名单；嵌入 Event/Location，不建立独立 Registry 表。
+- `EventPredicate`：有限比较与 all/any；无任意函数、表达式求值或跨 PlayerState 副作用。
+- `OperationEffect`：Actor/资源/轨道/事实的封闭变更集合，进入 `Resolution` 后批量应用。
+- 一个 Beat 读取冻结快照，以稀疏 delta 累积 Actor/轨道/事实变化，限幅后一次原子写回，不为每项效果复制完整 Run。
+
+## Runtime Flow
+
+Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限幅 → 一次写回 EventRun → 若硬失败成立则立即产生 Event 终局 → 否则重评当前 Location Objective/Result → Location 终止后如仍有路线继续 Event；无合法路线/达到终止条件时才按优先序评估 EventOutcome → 输出局部结果或事件终局 OperationView。
+
+## Acceptance
+
+- [ ] 同一条规则可由战斗 Action 和非战斗/环境 Action 改变 EventState，并展示相同的目标与日志信息结构。
+- [ ] Location 部分完成只结算当前问题并更新 EventState；只要仍有合法路线就继续 Event，不触发 Event-level Partial Outcome。
+- [ ] 硬失败门槛任意 Beat 成立时立即终止；否则仅在 Event 终止边界按“主目标全满足的成功 → 明确部分条件 → 失败”裁定；硬失败与主目标同 Beat 成立时结果为失败。
+- [ ] 部分成功必须满足事件明示条件且有可列举成果；不将所有未归类终局兜底为部分成功。
+- [ ] 玩家可通过不同决定稳定达到三种结果，随机不单独决定终局类型。
+- [ ] 一次 Beat 同时发生的伤害、治疗和轨道变化依定义的结算顺序合并；异常/越界时不出现半个 EventRun 更新。
+- [ ] 只有相关 EventState 版本变化时才重评当前 Location/Outcome 的相关 Predicate；不因只读 View/hover/滚动全量评估整张事件图。
+- [ ] 未声明的 track/fact、非法 target 或不支持的 Predicate/Effect 被 Registry/Runtime 校验拒绝并指明来源。
+- [ ] 全队失能不是全局硬编码结局；事件规则可将其配置为失败，也可以让救援/撤离/环境行动继续有效。
+
+## Tests
+
+- **Unit：**Predicate、效果限幅、终局 Outcome 优先级/同 Beat 冲突、奖励白名单。
+- **Runtime：**硬失败即时终止；地点局部部分结果在有合法路线时继续；仅在事件终止时判成功/部分/失败；全局与地点局部结算边界。
+- **Integration：**终局奖励经 StateMutationService 提交一次；局内轨道仍不出现在 PlayerState。
+- **UI：**OperationView 目标进度、状态变化与结果摘要同步。
+
+## Dependencies
+
+- 依赖 Task 0213（EventState）、Task 0214–0215（Actor/Action/Resolution）和 Task 0216（可观察切片）。
+- Task 0218 使用本 Task 的轨道/事实与 Predicate 门槛。
+
+## Documentation / GALHCG
+
+- 实现后更新 Operation 目标、效果和结果机制页，以及涉及持久奖励时的 StateMutation 路由。
+- Objective、EventPredicate 与 OperationEffect 作为稳定内容语义可进入 GALHCG；内部比较 helper 和每个事件轨道值不单独建节点。
+- Read Set：`docs/docs-829/03-data-structures/engine-contracts.md`、`docs/docs-829/04-mechanisms/arona-clicker/state-mutation.md`、`docs/docs-829/04-mechanisms/engine/effect-trigger.md`、`docs/docs-829/05-conventions/architecture-discipline.md`。
+
+## 当前核验与剩余工作
+
+当前只核对 Condition、Effect 和 Mutation 的语义边界；未实现、未运行测试。终局条件的并发冲突规则需在第一组事件定义前写入机制文档。
+
+## 相关路由
+
+- [[draft-0212-gameplay-b-ac-native-design-roadmap]]
+- [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution]]
+- [[docs/docs-829/05-conventions/testing]]

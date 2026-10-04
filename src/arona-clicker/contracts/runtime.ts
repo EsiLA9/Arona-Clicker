@@ -34,6 +34,7 @@ import type { EntityPresentationQueryPort } from './entity-presentation-query';
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type { AchievementViewItem } from '../read-model/achievement-view';
 import type { OperationObservation } from './operation-observation';
+import type { PackManifestColor } from '../../data-services/datapack/manifest';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -46,8 +47,10 @@ export interface PackCatalogEntry {
   readonly sourceDigest?: string;
   readonly contentDigest?: string;
   readonly author?: string;
+  readonly color?: PackManifestColor;
   readonly dependencies: readonly string[];
   readonly sourceKind: PackSourceKind;
+  readonly sourcePath?: string;
   readonly importedAt: number;
   readonly enabled: boolean;
   readonly capabilities?: {
@@ -68,6 +71,7 @@ export interface PackCatalogRecord {
     readonly name: string;
     readonly version: string;
     readonly author?: string;
+    readonly color?: PackManifestColor;
     readonly dependencies: readonly string[];
   };
   readonly datapack: Datapack;
@@ -209,7 +213,8 @@ export interface RuntimeModApplyResult {
   applyEnabledPacks(): void;
   /** 从包库移除数据包（仅允许非内置、未启用包；不触发 reload）。 */
     removePack?(id: string, options?: { readonly editorDirty?: boolean }): void;
-  createEditingPack?(sourcePackRecordId: string): { ok: boolean; packRecordId?: string; message: string };
+  createEditingPack?(sourcePackRecordId: string, versionId?: string): { ok: boolean; packRecordId?: string; message: string };
+  convertEditingPackToNormal?(sourcePackRecordId: string): { ok: boolean; packRecordId?: string; message: string };
   openEditingPack?(packRecordId: string): RuntimeModApplyResult;
   validatePackConfiguration?(draft: PackConfigurationDraft): PackValidationReport;
     applyPackConfiguration?(draft: PackConfigurationDraft): PackApplyResult;

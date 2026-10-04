@@ -1,14 +1,14 @@
 # docs/ai/PROJECT-CONSTITUTION — AI 施工纪律（从属索引）
 
 > 本文是 Luna 施工时携带的最小纪律清单，**从属于 [AGENTS.md]**，不是第二事实源。
-> 架构硬约束（8 条纪律）、开发命令、禁改清单与 Schema 同步协议一律以 `AGENTS.md` 与 [[docs/docs-828/05-conventions/architecture-discipline]] 为权威，本文**不复述**；需要时按路径读取原文。
+> 架构硬约束、开发命令、禁改清单与 Schema 同步协议一律以 `AGENTS.md`、[[docs/docs-829/05-conventions/architecture-discipline]] 和 [[docs/docs-829/05-conventions/schema-sync]] 为权威，本文**不复述**；需要时按路径读取原文。docs-828 保留为历史快照，不作为当前规则来源。
 > 本文只补充 `AGENTS.md` 未覆盖的**施工纪律**。两者冲突时，以 `AGENTS.md` 为准。
 
 ## 适用与权威
 
 | 信息 | 权威来源 | 施工中的用法 |
 | --- | --- | --- |
-| 架构 / 机制 / 命令 / 禁改清单 | `AGENTS.md`、`docs/docs-828/` | 直接读原文；Unit 只给链接，不复制正文 |
+| 架构 / 机制 / 命令 / 禁改清单 | `AGENTS.md`、[[docs/docs-829/00-INDEX]] 及其路由到的当前页面 | 直接读原文；Unit 只给链接，不复制正文 |
 | 当前代码事实 | 源码与测试 | 写入 `Confirmed Facts` 时必须带路径与符号 |
 | 已裁定的未来设计 | `docs/plan-work/archive/adr-*` 或对应 Task | 仅在需要时进入 `Constraints`，附链接 |
 | 本次实际进展 | Patch、测试结果、Receipt | 仅对当前 Unit 有效，不自动升级为项目规则 |
@@ -25,7 +25,7 @@
 - **C6 Confirmed Facts 只写已核实事实**：来自源码、测试或权威文档，并标注路径与符号。推测、待验证结论与个人判断必须写成问题，不得伪装成事实。（依据：Task-0000 §1.3、§2.4）
 - **C7 Receipt 纪律**：每个完成或中断的 Unit 都写 Execution Receipt，只记录实际修改、未完成内容、测试结果、问题与需上游确认项。Receipt 不是完成声明，不能替代真实测试结果。（依据：Task-0000 §2.5、§7）
 - **C8 不预设知识库与自动化**：只有当某个失败模式在多次 Unit 中重复出现时，才新增 Architecture Card、辅助脚本或 Constitution 条目；不为“可能发生”的问题预建百科，也不引入隐式全仓库扫描。（依据：Task-0000 §5 P2/P3、§6）
-- **C9 协议可发现**：新会话应能仅凭 `AGENTS.md` 路由到达 `docs/ai/`；修改协议位置时同步更新 `AGENTS.md` 路由表与 [[docs/docs-828/05-conventions/doc-maintenance]] 分区表。（依据：Task-0000 §5 P0、§6）
+- **C9 协议可发现**：新会话应能仅凭 `AGENTS.md` 路由到达 `docs/ai/`；修改协议位置时同步更新 `AGENTS.md` 路由表与 [[docs/docs-829/05-conventions/doc-maintenance]] 分区表。（依据：Task-0000 §5 P0、§6）
 
 ## 角色与入口
 
@@ -73,4 +73,4 @@
 
 ## 相关
 
-[[AGENTS.md]] · [[docs/docs-828/05-conventions/architecture-discipline]] · [[task-0000-ai-context-infrastructure]] · [[docs/plan-work/00-index]]
+[[AGENTS.md]] · [[docs/docs-829/05-conventions/architecture-discipline]] · [[task-0000-ai-context-infrastructure]] · [[docs/plan-work/00-index]]

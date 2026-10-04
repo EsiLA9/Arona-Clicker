@@ -1,9 +1,9 @@
 // 文档完整性静态检查：只做可机械核实、且对当前文档模型仍有意义的检查。
 //
-// 模型背景（2026-09-15 起）：
-//   - docs/docs-828/   当前事实源（核心）
-//   - docs/plan-work/  活跃计划、可删除 goalsets 与冻结历史，不再按生命周期分目录，
-//                      因此不再检查准出、状态词表与目录一致性。
+// 当前文档边界：
+//   - docs/docs-829/ 是当前项目知识的文档系统；docs/docs-828/ 与 docs/docs-824/ 是历史快照。
+//   - docs/plan-work/ 包含活跃 Task/ADR/Draft、可删除 goalsets 与冻结历史；
+//     docs/archive/ 也保存只读历史材料。
 //
 // 保留并扩展为机械检查：链接目标存在、plan-work 内文件名唯一（裸名链接可解析）、
 // 引用的源码路径存在、已使用的 YAML 路由元信息结构完整、旧计划目录不再承载 WikiLink，
@@ -16,6 +16,8 @@ const docsRoot = path.join(root, 'docs');
 const PLAN_DIR = 'docs/plan-work/';
 const GOALSETS_DIR = PLAN_DIR + 'goalsets/';
 const GOALSETS_GUIDE = GOALSETS_DIR + 'README.md';
+const PLAN_ARCHIVE_DIR = PLAN_DIR + 'archive/';
+const DOCS_ARCHIVE_DIR = 'docs/archive/';
 const NAV_BASE = '00-index';
 
 const errors = [];
@@ -45,6 +47,8 @@ const rootMd = fs
 
 const byBase = new Map();
 for (const f of allMd.concat(rootMd)) {
+  // 归档副本只通过完整路径引用，不参与裸名解析，避免历史副本让现行链接变得歧义。
+  if (rel(f).startsWith(DOCS_ARCHIVE_DIR)) continue;
   const base = path.basename(f, '.md');
   if (!byBase.has(base)) byBase.set(base, []);
   byBase.get(base).push(f);
@@ -89,14 +93,14 @@ for (const file of allMd.concat([path.join(root, 'AGENTS.md')])) {
   if (!fs.existsSync(file)) continue;
   const text = fs.readFileSync(file, 'utf8');
   const r = rel(file);
-  const isArchive = r.startsWith(PLAN_DIR + 'archive/');
+  const isHistoricalArchive = r.startsWith(PLAN_ARCHIVE_DIR) || r.startsWith(DOCS_ARCHIVE_DIR);
 
   checkFrontMatter(text, file);
 
   // R1：WikiLink 目标存在（裸名按文件名解析，全路径按路径解析）
   // 代码块与行内代码中的 [[...]] 是文档示例而非链接，先剥离再扫描
   const linkText = text.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
-  if (!isArchive && /\[\[docs\/newPlan\//.test(linkText)) {
+  if (!isHistoricalArchive && /\[\[docs\/newPlan\//.test(linkText)) {
     errors.push('[R5 旧计划链接] ' + r + '：当前文档不应使用 docs/newPlan/ WikiLink');
   }
   for (const m of linkText.matchAll(/\[\[([^\[\]]+)\]\]/g)) {
@@ -139,7 +143,7 @@ for (const file of allMd.concat([path.join(root, 'AGENTS.md')])) {
   }
 
   // R3：引用的源码路径存在（冻结考古层为历史记录，豁免）
-  if (!isArchive) {
+  if (!isHistoricalArchive) {
     for (const line of text.split(/\r?\n/)) {
       if (DELETION_HINT.test(line)) continue;
       for (const m of line.matchAll(SRC_RE)) {

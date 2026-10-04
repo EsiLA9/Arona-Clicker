@@ -48,6 +48,24 @@ describe('WorkspaceFrame', () => {
     expect(html).not.toContain('data-role=');
   });
 
+  it.each([
+    ['left-center', ['left', 'right']],
+    ['center-right', ['left', 'center']],
+    ['all', ['left']],
+  ] as const)('%s composition 只渲染被合并 workspace 的宿主列', (composition, expectedSlots) => {
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    const html = renderWorkspaceFrame(createUIContext(game), {
+      id: 'merged', layout: { composition },
+      left: { slot: 'left', hostId: 'leftPanel', content: 'L' },
+      center: { slot: 'center', hostId: 'centerPanel', content: 'C' },
+      right: { slot: 'right', hostId: 'rightPanel', content: 'R' },
+    });
+    const slots = [...html.matchAll(/data-workspace-column="(left|center|right)"/g)].map(match => match[1]);
+    expect(slots).toEqual(expectedSlots);
+    expect(html).toContain(`data-composition="${composition}"`);
+  });
+
   it('无标题与空内容仍保持列契约，none 滚动交给下游', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);

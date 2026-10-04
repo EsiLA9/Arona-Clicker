@@ -2,8 +2,8 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/affection-system.test.ts — 好感系统（§1 数值 / §2 轴 B 队列 / §3 尾巴挂靠推送）
 //
-// 覆盖 docs/docs-828/06-adr/planning.md 测试清单（2026-08-29 修订：轴 A 消息成分移除）：
-//   §1  默认阶梯（bondDict）、跨级推演、星级锁、save/load 往返、
+// 好感台阶/尾巴的当前投递规则见 docs/docs-829/06-wiki/30-arona-clicker-domain/story-and-chat.md；历史测试清单见 docs/plan-work/archive/affection-planning.md：
+//   §1  默认阶梯（DEFAULT_AFFECTION_EXP_CURVE）、跨级推演、星级锁、save/load 往返、
 //       addAffectionExp effect、acquireCharacter 初始化、affectionLevel 条件
 //   §2B 就绪队列：达标入队、需求值升序、推送时机、闲聊回落、聊天空间壁垒、readyStepCount
 //   §3  尾巴挂靠：完结即入队、强制优先、triggerTailPush 定向推送、owner 隔离、退出随机抽取
@@ -120,7 +120,7 @@ function finishStory(game: GameInstance, owner?: string | null): void {
 // §1 好感数值
 // ============================================================
 
-describe('§1 默认阶梯（bondDict）', () => {
+describe('§1 默认阶梯（DEFAULT_AFFECTION_EXP_CURVE）', () => {
   test('默认阶梯与蔚蓝档案参考表一致（抽查 1/10/50/100 级）', () => {
     expect(DEFAULT_AFFECTION_EXP_CURVE.length).toBe(100);
     expect(DEFAULT_AFFECTION_EXP_CURVE[0]).toBe(15);

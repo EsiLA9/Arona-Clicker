@@ -24,7 +24,7 @@ const rel = (file) => path.relative(root, file).split(path.sep).join('/');
 const estimateTokens = (chars) => Math.ceil(chars / 4);
 
 const groups = [
-  ['docs/docs-828', 'docs/docs-828'],
+  ['docs/docs-829', 'docs/docs-829'],
   ['docs/ai', 'docs/ai'],
   ['docs/plan-work/goalsets', 'docs/plan-work/goalsets'],
   ['docs/plan-work/mechanisms', 'docs/plan-work/mechanisms'],

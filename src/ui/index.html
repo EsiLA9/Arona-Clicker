@@ -4,8 +4,83 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AronaClicker / Schale Console</title>
+    <style>
+      html, body { min-height: 100%; margin: 0; background: #0b1420; }
+      #startup-shell {
+        position: fixed;
+        z-index: 2147483647;
+        inset: 0;
+        display: grid;
+        align-content: center;
+        justify-items: start;
+        gap: 0.9rem;
+        padding: 2rem clamp(1.5rem, 8vw, 8rem);
+        overflow: hidden;
+        color: #eef6ff;
+        background: radial-gradient(ellipse at 78% 42%, #18314a 0, #0d1b2a 34%, #0b1420 72%);
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      #startup-shell::before {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        background: linear-gradient(transparent, #48b8ff 38%, #48b8ff 62%, transparent);
+        content: "";
+      }
+      #startup-shell .startup-mark {
+        margin: 0;
+        color: #77bce9;
+        font: 500 0.72rem/1.4 ui-monospace, Consolas, monospace;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      #startup-shell h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 3.3rem);
+        font-weight: 600;
+        letter-spacing: -0.045em;
+      }
+      #startup-status {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        margin: 0.7rem 0 0;
+        color: #a9bed1;
+        font-size: 0.9rem;
+      }
+      #startup-status::before {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 50%;
+        background: #48b8ff;
+        box-shadow: 0 0 1rem #48b8ff;
+        content: "";
+        animation: startup-pulse 1.5s ease-in-out infinite;
+      }
+      #startup-shell[data-state="error"] #startup-status { color: #ffc0b8; }
+      #startup-shell[data-state="error"] #startup-status::before { background: #ff7d72; box-shadow: none; animation: none; }
+      @keyframes startup-pulse { 50% { opacity: 0.35; } }
+      @media (prefers-reduced-motion: reduce) { #startup-status::before { animation: none; } }
+    </style>
+    <script>
+      window.addEventListener('error', event => {
+        if (!(event.target instanceof HTMLScriptElement) || event.target.type !== 'module') return;
+        const shell = document.querySelector('#startup-shell');
+        const status = document.querySelector('#startup-status');
+        if (shell) shell.dataset.state = 'error';
+        if (status) {
+          status.setAttribute('aria-busy', 'false');
+          status.textContent = '游戏入口无法启动，请刷新页面重试。';
+        }
+      }, true);
+    </script>
   </head>
   <body>
+    <section id="startup-shell" data-state="loading" aria-label="AronaClicker 启动">
+      <p class="startup-mark">Arona Clicker / Local System</p>
+      <h1>Schale Console</h1>
+      <p id="startup-status" role="status" aria-live="polite" aria-atomic="true" aria-busy="true">正在启动游戏…</p>
+    </section>
     <div id="ui-background-layer" class="console-background" aria-hidden="true"></div>
     <div id="app"></div>
     <script type="module" src="./main.ts"></script>

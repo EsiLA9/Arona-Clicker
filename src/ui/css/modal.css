@@ -189,6 +189,25 @@
    gap: 6px;
 }
 
+.pack-drag-column { display: flex; flex-direction: column; min-width: 0; min-height: 220px; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--panel) 92%, var(--cyan)); }
+.pack-drag-column.is-enabled { background: color-mix(in srgb, var(--panel) 92%, var(--theme-node-active, var(--cyan))); }
+.pack-drag-column.is-drop-target { outline: 2px solid var(--theme-node-active, var(--cyan)); outline-offset: -2px; }
+.pack-entry.is-swap-conflict-target { border-color: var(--theme-node-warning, var(--orange)); box-shadow: inset 0 0 0 1px var(--theme-node-warning, var(--orange)); background: color-mix(in srgb, var(--panel) 88%, var(--theme-node-warning, var(--orange))); }
+.pack-drag-column__heading { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.pack-drag-list { display: grid; align-content: start; gap: 6px; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px; }
+.pack-entry--draggable[draggable='true'] { cursor: grab; }
+.pack-entry--draggable[draggable='true']:active { cursor: grabbing; }
+.pack-entry--dragging { opacity: .45; }
+.pack-drag-handle { color: var(--muted-on-panel); font-size: 18px; line-height: 1; }
+.pack-source-list { display: grid; gap: 6px; }
+.pack-inspector-actions { flex-wrap: wrap; }
+.pack-related-records { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.pack-related-records li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 10px; }
+.pack-related-records small { flex: 0 0 auto; color: var(--muted-on-panel); }
+.pack-source-note,
+.pack-conflict-note { color: var(--muted-on-panel); font-size: 10px; line-height: 1.5; }
+.pack-conflict-note { color: var(--theme-node-warning, var(--orange)); }
+
 .pack-pane {
    display: grid;
    gap: 5px;
@@ -393,6 +412,24 @@
    border-color: var(--danger, #b43b48);
 }
 
+.pack-entry--draggable {
+   background: var(--pack-entry-bg);
+   color: var(--pack-entry-fg);
+}
+
+.pack-entry--draggable.is-selected {
+   background: color-mix(in srgb, var(--pack-entry-bg) 90%, var(--theme-node-active, var(--cyan)) 10%);
+}
+
+.pack-entry--draggable.is-draft-changed {
+   background: color-mix(in srgb, var(--pack-entry-bg) 90%, var(--theme-node-warning, var(--orange)) 10%);
+}
+
+.pack-entry--draggable.is-swap-conflict-target {
+   background: color-mix(in srgb, var(--pack-entry-bg) 84%, var(--theme-node-warning, var(--orange)) 16%);
+   color: var(--pack-entry-fg);
+}
+
 .pack-entry-select {
    display: grid;
    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
@@ -488,6 +525,60 @@
 .pack-entry-meta {
    color: var(--muted-on-panel);
    font-size: 10px;
+}
+
+.pack-entry--draggable .pack-entry-main span,
+.pack-entry--draggable .pack-entry-meta,
+.pack-entry--draggable .pack-drag-handle {
+   color: var(--pack-entry-fg);
+}
+
+.pack-entry--draggable .pack-entry-meta {
+   display: grid;
+   align-content: center;
+   gap: 4px;
+   min-width: 0;
+   white-space: normal;
+}
+
+.pack-entry-meta__pills {
+   display: flex;
+   align-items: center;
+   gap: 4px;
+   min-width: 0;
+   overflow: hidden;
+}
+
+.pack-entry-pill {
+   display: inline-flex;
+   align-items: center;
+   min-width: 0;
+   max-width: 100%;
+   padding: 2px 6px;
+   overflow: hidden;
+   border-radius: 999px;
+   font-size: 9px;
+   font-weight: 650;
+   line-height: 1.25;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.pack-entry-pill--source { flex: 0 1 auto; }
+.pack-entry-pill--mode { flex: 0 0 auto; }
+.pack-entry-pill--release { color: #244f8b; background: #e2ecff; }
+.pack-entry-pill--record { color: #1e684d; background: #dff2e9; }
+.pack-entry-pill--development { color: #624198; background: #eee4ff; }
+.pack-entry-pill--editing { color: #825018; background: #faebcf; }
+.pack-entry-pill--normal { color: #4b5664; background: #e9edf2; }
+
+.pack-entry--draggable .pack-entry-author {
+   overflow: hidden;
+   color: var(--pack-entry-fg);
+   font-size: 10px;
+   line-height: 1.2;
+   text-overflow: ellipsis;
+   white-space: nowrap;
 }
 
 .pack-entry-main strong,

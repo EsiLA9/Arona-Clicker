@@ -1,0 +1,47 @@
+{
+  "inits": [
+    {
+      "id": "base:init:millennium",
+      "name": "千年科学学园",
+      "description": "以科技与效率著称的学园。在这里可以搭建自动化的研究生产线。",
+      "defaultAreas": ["base:area:millennium_lab"],
+      "purchaseCost": [{ "resourceId": "base:resource:pyroxene", "amount": 20 }],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              { "target": "stat", "key": "$GlobalProducedAmount base:resource:credit", "comparator": ">=", "value": 50 }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              { "target": "stat", "key": "$GlobalProducedAmount base:resource:credit", "comparator": ">=", "value": 200 }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              { "target": "stat", "key": "$GlobalProducedAmount base:resource:credit", "comparator": ">=", "value": 200 }
+            ]
+          }
+        }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "unlock_order": { "t": "int", "v": 1 },
+          "free": { "t": "bool", "v": false }
+        }
+      }
+    }
+  ]
+}

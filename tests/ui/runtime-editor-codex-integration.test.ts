@@ -4,9 +4,10 @@ import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { createUIContext } from '../../src/ui/context';
 import { UIController } from '../../src/ui/controller';
-import { openRuntimeEditorPanel, openRuntimeEditorLauncher } from '../../src/ui/runtime-editor/actions';
+import { openRuntimeEditorPanel, openRuntimeEditorLauncher, syncRuntimeEditorPanel } from '../../src/ui/runtime-editor/actions';
 import { getRuntimeEditorCodexView, renderRuntimeEditorCodex } from '../../src/ui/runtime-editor/view';
 import { createCodexShellState, codexEntryKey } from '../../src/ui/runtime-editor/codex';
+import { createRuntimeDatapackEditorState, setRuntimeEditorDefinition } from '../../src/ui/runtime-editor/state';
 import { renderDefinitionInspector } from '../../src/ui/runtime-editor/codex-details';
 import type { RuntimeContentBrowserView } from '../../src/data-services/contracts/runtime-content-browser';
 import type { UIContext } from '../../src/ui/context';
@@ -43,6 +44,77 @@ describe('RuntimeEditor 超级图鉴集成', () => {
     expect(panel?.querySelector('.runtime-editor-empty-state')).toBeNull();
     expect(controller.panelState.runtimeDatapackEditor).toBeUndefined();
     expect(panel?.textContent).toContain('当前 Runtime 有效内容 · 只读');
+  });
+
+  it('重复同步保留 Runtime Editor shell、header 和 body 宿主，Codex 委托动作只执行一次', () => {
+    openRuntimeEditorPanel(controller, 'codex');
+    const panel = document.querySelector<HTMLElement>('.runtime-editor-panel')!;
+    const header = panel.querySelector('[data-runtime-editor-panel-head]');
+    const body = panel.querySelector('.runtime-editor-panel-body');
+    const codex = panel.querySelector('[data-runtime-editor-codex]');
+    const initialMod = panel.querySelector<HTMLElement>('[data-codex-mod]')!;
+    const selectedModId = initialMod.dataset.codexMod;
+
+    syncRuntimeEditorPanel(controller);
+
+    expect(document.querySelector('.runtime-editor-panel')).toBe(panel);
+    expect(panel.querySelector('[data-runtime-editor-panel-head]')).toBe(header);
+    expect(panel.querySelector('.runtime-editor-panel-body')).toBe(body);
+    expect(panel.querySelector('[data-runtime-editor-codex]')).toBe(codex);
+    let codexState = controller.runtimeEditorCodexState;
+    let stateWrites = 0;
+    Object.defineProperty(controller, 'runtimeEditorCodexState', {
+      configurable: true,
+      get: () => codexState,
+      set: value => { stateWrites += 1; codexState = value; },
+    });
+    panel.querySelector<HTMLElement>(`[data-codex-mod="${selectedModId}"]`)!.click();
+    expect(controller.runtimeEditorCodexState.selectedModId).toBe(selectedModId);
+    expect(stateWrites).toBe(2);
+  });
+
+  it('内容浏览器条目选择保留三栏和列表节点，只刷新右侧 Draft 编辑区', () => {
+    const editor = createRuntimeDatapackEditorState(null, 'runtime-editor', 'editing:runtime');
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime 编辑包';
+    setRuntimeEditorDefinition(editor, 'inits', { idName: 'first', name: 'First', description: '', defaultAreas: [] });
+    setRuntimeEditorDefinition(editor, 'inits', { idName: 'second', name: 'Second', description: '', defaultAreas: [] });
+    controller.panelState.runtimeDatapackEditor = editor;
+    controller.runtimeEditorSurface = 'browser';
+    controller.runtimeEditorPanelOpen = true;
+    syncRuntimeEditorPanel(controller);
+
+    const panel = document.querySelector<HTMLElement>('[data-runtime-editor-panel-host] .runtime-editor-panel')!;
+    const browser = panel.querySelector('[data-runtime-editor-browser]');
+    const kindsPane = browser?.querySelector('[data-codex-pane="mods"]');
+    const entriesPane = browser?.querySelector('[data-codex-pane="entries"]');
+    const detailPane = browser?.querySelector('[data-codex-pane="detail"]');
+    const list = browser?.querySelector('[data-runtime-editor-browser-entry-list]');
+    const detail = browser?.querySelector('[data-runtime-editor-browser-detail]');
+
+    const rows = [...(browser?.querySelectorAll<HTMLElement>('[data-runtime-editor-entry]') ?? [])];
+    const search = browser?.querySelector<HTMLInputElement>('[data-runtime-editor-browser-search]')!;
+    search.value = 'first';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    expect([...browser!.querySelectorAll('[data-runtime-editor-entry]')]).toEqual(rows);
+    expect(rows.map(row => row.hidden)).toEqual([false, true]);
+    browser!.querySelector<HTMLElement>('[data-runtime-editor-filter="applied"]')!.click();
+    expect([...browser!.querySelectorAll('[data-runtime-editor-entry]')]).toEqual(rows);
+    expect(rows.every(row => row.hidden)).toBe(true);
+    browser!.querySelector<HTMLElement>('[data-runtime-editor-filter="all"]')!.click();
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+
+    panel.querySelector<HTMLElement>('[data-runtime-editor-definition-id="first"]')!.click();
+
+    expect(editor.selectedDefinitionId).toBe('first');
+    expect(browser?.querySelector('[data-codex-pane="mods"]')).toBe(kindsPane);
+    expect(browser?.querySelector('[data-codex-pane="entries"]')).toBe(entriesPane);
+    expect(browser?.querySelector('[data-codex-pane="detail"]')).toBe(detailPane);
+    expect(browser?.querySelector('[data-runtime-editor-browser-entry-list]')).toBe(list);
+    expect(browser?.querySelector('[data-runtime-editor-browser-detail]')).toBe(detail);
+    expect(detail?.textContent).toContain('编辑 Init');
+    expect(detail?.textContent).toContain('first');
   });
 
   it('从入口打开后可完成 Mod、类型、条目、详情页签和移动端栏位切换', () => {
@@ -87,6 +159,29 @@ describe('RuntimeEditor 超级图鉴集成', () => {
     expect(panel.querySelector('[data-runtime-editor-codex]')).toBe(codex);
     expect(codex.querySelector('[data-codex-pane="entries"]')).not.toBe(entriesPane);
     expect(controller.runtimeEditorCodexState.selectedModId).toBe(mod.dataset.codexMod);
+  });
+
+  it('检查器页签切换只更新详情 slot，保留详情 Pane、标题和选中条目', () => {
+    openRuntimeEditorPanel(controller, 'codex');
+    const panel = document.querySelector('[data-runtime-editor-panel-host] .runtime-editor-panel')!;
+    const entry = panel.querySelector<HTMLElement>('[data-codex-entry]')!;
+    entry.click();
+
+    const codex = panel.querySelector('[data-runtime-editor-codex]')!;
+    const detailPane = codex.querySelector('[data-codex-pane="detail"]');
+    const detailHeader = detailPane?.querySelector('.runtime-editor-codex__detail-head');
+    const detailSlot = detailPane?.querySelector('[data-codex-detail-slot]');
+    const selectedEntry = panel.querySelector('[data-codex-entry].is-selected');
+    const relationsTab = panel.querySelector<HTMLButtonElement>('[data-codex-inspector-tab="relations"]')!;
+    relationsTab.click();
+
+    expect(codex.querySelector('[data-codex-pane="detail"]')).toBe(detailPane);
+    expect(detailPane?.querySelector('.runtime-editor-codex__detail-head')).toBe(detailHeader);
+    expect(detailPane?.querySelector('[data-codex-detail-slot]')).toBe(detailSlot);
+    expect(panel.querySelector('[data-codex-entry].is-selected')).toBe(selectedEntry);
+    const activeTab = detailSlot?.querySelector('button[data-codex-inspector-tab="relations"]');
+    expect(activeTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(activeTab);
   });
 
   it('点击条目只更新选中项和详情，不重建条目列表', () => {

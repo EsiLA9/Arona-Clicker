@@ -649,6 +649,7 @@ export function prepareRuntimeEditorForNewSpot(editor: RuntimeDatapackEditorStat
   clearRuntimeEditorSpot(editor);
   editor.selectedContentKind = 'spots';
   editor.selectedDefinitionId = null;
+  editor.activeSection = 'overview';
 }
 
 export function prepareRuntimeEditorForNewDefinition(editor: RuntimeDatapackEditorState, kind: RuntimeEditorContentKind): void {
@@ -656,7 +657,7 @@ export function prepareRuntimeEditorForNewDefinition(editor: RuntimeDatapackEdit
   editor.selectedDefinitionId = null;
   editor.selectedSpotId = null;
   if (editor.selectedContentKind === 'spots') editor.selectedDefinitionId = null;
-  editor.activeSection = null;
+  editor.activeSection = 'overview';
   editor.formDraft = null;
   editor.error = null;
   editor.problems = [];

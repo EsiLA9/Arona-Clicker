@@ -23,11 +23,8 @@ export const UI_SERVICE_DEFINITIONS: readonly UIServiceDefinition[] = [
     id: 'datapack',
     label: '数据包服务',
     hosts: [
-      { id: 'centerPanel.datapack', label: '数据包服务主面板', level: 'region', parent: 'centerPanel', kind: 'container', serviceId: 'datapack' },
-      { id: 'centerPanel.datapack.navigation', label: '数据包服务导航', level: 'control', parent: 'centerPanel.datapack', kind: 'container', serviceId: 'datapack' },
-      { id: 'centerPanel.datapack.main', label: '数据包服务主工作区', level: 'control', parent: 'centerPanel.datapack', kind: 'container', serviceId: 'datapack' },
-      { id: 'centerPanel.datapack.inspector', label: '数据包服务检查区', level: 'control', parent: 'centerPanel.datapack', kind: 'container', serviceId: 'datapack' },
-      ...workspaceHosts('datapack', '数据包服务'),
+      { id: 'leftPanel.service.datapack.workspace', label: '数据包管理工作区', level: 'region', parent: 'leftPanel', kind: 'container', serviceId: 'datapack', workspaceOwner: 'datapack' },
+      { id: 'rightPanel.service.datapack.inspector', label: '数据包详情与操作', level: 'region', parent: 'rightPanel', kind: 'container', serviceId: 'datapack', workspaceOwner: 'datapack' },
     ],
   },
   {

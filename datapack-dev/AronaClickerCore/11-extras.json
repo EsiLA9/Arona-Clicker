@@ -1,0 +1,8 @@
+{
+  "extras": {
+    "meta/author": { "t": "str", "v": "AronaClicker Team" },
+    "meta/website": { "t": "str", "v": "https://example.com" },
+    "balance/start-credit": { "t": "int", "v": 0 },
+    "balance/max-credit": { "t": "int", "v": 100000 }
+  }
+}

@@ -46,61 +46,67 @@ describe('数据包工作区排序与默认行为', () => {
   });
 
   it('列表按草案顺序渲染，而不是正式顺序', () => {
-    const base = runtime.getPackCatalog().entries.find(entry => entry.sourceKind === 'builtin')!.id;
+    const base = runtime.getPackCatalog().entries.find(entry => entry.modName === 'base')!.id;
     const demo = runtime.getPackCatalog().entries.find(entry => entry.modName === 'demo')!.id;
 
     const reversed = renderDatapack(runtime, {
-      section: 'all', selectedPackId: null,
+      section: 'all', mode: 'classic', selectedPackId: null,
       draftEnabledIds: [base, demo], draftOrder: [demo, base],
       validation: null, lastResult: null,
     });
-    expect(reversed.indexOf(`data-pack-pane="demo@1.0.0"`)).toBeLessThan(reversed.indexOf(`data-pack-pane="base@1.0.0"`));
+    expect(reversed.indexOf(`data-pack-id="demo@1.0.0"`)).toBeLessThan(reversed.indexOf(`data-pack-id="base@1.0.0"`));
 
     const formal = renderDatapack(runtime, {
-      section: 'all', selectedPackId: null,
+      section: 'all', mode: 'classic', selectedPackId: null,
       draftEnabledIds: [base, demo], draftOrder: [base, demo],
       validation: null, lastResult: null,
     });
-    expect(formal.indexOf(`data-pack-pane="base@1.0.0"`)).toBeLessThan(formal.indexOf(`data-pack-pane="demo@1.0.0"`));
+    expect(formal.indexOf(`data-pack-id="base@1.0.0"`)).toBeLessThan(formal.indexOf(`data-pack-id="demo@1.0.0"`));
   });
 
-  it('仅在「全部数据包」分区允许调整加载顺序', () => {
-    const base = runtime.getPackCatalog().entries.find(entry => entry.sourceKind === 'builtin')!.id;
+  it('经典包模式显示拖放列表与正式启用草案状态', () => {
+    const base = runtime.getPackCatalog().entries.find(entry => entry.modName === 'base')!.id;
     const demo = runtime.getPackCatalog().entries.find(entry => entry.modName === 'demo')!.id;
 
     const enabledSection = renderDatapack(runtime, {
-      section: 'enabled', selectedPackId: null,
+      section: 'enabled', mode: 'classic', selectedPackId: null,
       draftEnabledIds: [base, demo], draftOrder: [base, demo],
       validation: null, lastResult: null,
     });
-    expect(enabledSection).toContain('加载顺序只能在「全部数据包」中调整');
-    expect(enabledSection).toContain('请在「全部数据包」中调整加载顺序');
+    expect(enabledSection).toContain('data-pack-list="enabled"');
+    expect(enabledSection).toContain('data-pack-list="disabled"');
+    expect(enabledSection).toContain('data-pack-apply');
   });
 
-  it('核心包不可被普通包越过：对内置包上移按钮禁用', () => {
-    const base = runtime.getPackCatalog().entries.find(entry => entry.sourceKind === 'builtin')!.id;
+  it('启用中的 base 不可自由拖动；未启用的 base 可拖向同名交换', () => {
+    const base = runtime.getPackCatalog().entries.find(entry => entry.modName === 'base')!.id;
+    const demo = runtime.getPackCatalog().entries.find(entry => entry.modName === 'demo')!.id;
+    const created = runtime.createEditingPack(base, '2.0.0');
+    if (!created.ok || !created.packRecordId) throw new Error(created.message);
+
+    const html = renderDatapack(runtime, {
+      section: 'all', mode: 'classic', selectedPackId: null,
+      draftEnabledIds: [base, demo], draftOrder: [base, demo, created.packRecordId],
+      validation: null, lastResult: null,
+    });
+    expect(html).toContain('data-pack-id="base@1.0.0" draggable="false"');
+    expect(html).toContain('data-pack-id="demo@1.0.0" draggable="true"');
+    expect(html).toContain(`data-pack-id="${created.packRecordId}" draggable="true"`);
+  });
+
+  it('导航计数按包库记录与固定目录来源分类', () => {
+    const base = runtime.getPackCatalog().entries.find(entry => entry.modName === 'base')!.id;
     const demo = runtime.getPackCatalog().entries.find(entry => entry.modName === 'demo')!.id;
 
     const html = renderDatapack(runtime, {
-      section: 'all', selectedPackId: null,
+      section: 'issues', mode: 'classic', selectedPackId: null,
       draftEnabledIds: [base, demo], draftOrder: [base, demo],
       validation: null, lastResult: null,
     });
-    // demo 位于 base 之后，其上移目标是非可排序的核心包 → 禁用
-    expect(html).toContain('data-pack-draft-pane-up="demo@1.0.0" title="已经是第一个数据包或前方是核心数据包" disabled');
-  });
-
-  it('导航计数与「有问题」分区使用草案口径', () => {
-    const base = runtime.getPackCatalog().entries.find(entry => entry.sourceKind === 'builtin')!.id;
-    const demo = runtime.getPackCatalog().entries.find(entry => entry.modName === 'demo')!.id;
-
-    const html = renderDatapack(runtime, {
-      section: 'issues', selectedPackId: null,
-      draftEnabledIds: [base, demo], draftOrder: [base, demo],
-      validation: null, lastResult: null,
-    });
-    expect(html).toContain('2 启用 · 2 已导入');
-    expect(html).toContain('data-pack-pane="demo@1.0.0"');
+    expect(html).toContain('2 启用 · 2 条记录');
+    expect(html).toContain('data-datapack-mode="classic"');
+    expect(html).toContain('data-datapack-mode="development"');
+    expect(html).toContain('data-pack-id="demo@1.0.0"');
   });
 
   it('resolvePackIssues 覆盖缺失依赖、modName 冲突与顺序异常', () => {

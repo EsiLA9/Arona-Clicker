@@ -1,0 +1,62 @@
+{
+  "items": [
+    {
+      "id": "area-achievement-demo:item:archive-fragment",
+      "name": "档案片",
+      "description": "从旧档案间拾得的纸页。",
+      "maxStack": 99,
+      "rarity": "rare",
+      "type": "material"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "area-achievement-demo:milestone:steady-credit",
+      "condition": {
+        "target": "stat",
+        "key": "$InitProducedAmount area-achievement-demo:init:archive-route base:resource:credit",
+        "comparator": ">=",
+        "value": 6
+      }
+    },
+    {
+      "id": "area-achievement-demo:milestone:archive-fragments",
+      "condition": {
+        "target": "stat",
+        "key": "$InitCollectedAmount area-achievement-demo:init:archive-route area-achievement-demo:item:archive-fragment",
+        "comparator": ">=",
+        "value": 3
+      }
+    }
+  ],
+  "milestoneListeners": [
+    {
+      "id": "area-achievement-demo:milestone-listener:steady-credit",
+      "milestoneId": "area-achievement-demo:milestone:steady-credit",
+      "areaId": "area-achievement-demo:area:supply-station",
+      "then": [{ "op": "addResource", "target": "base:resource:credit", "value": 2 }]
+    },
+    {
+      "id": "area-achievement-demo:milestone-listener:archive-fragments",
+      "milestoneId": "area-achievement-demo:milestone:archive-fragments",
+      "areaId": "area-achievement-demo:area:archive-room",
+      "then": [{ "op": "addResource", "target": "base:resource:credit", "value": 5 }]
+    }
+  ],
+  "achievements": [
+    {
+      "id": "area-achievement-demo:achievement:steady-credit",
+      "listenerId": "area-achievement-demo:milestone-listener:steady-credit",
+      "title": "慢慢积起的补给",
+      "clue": "让旧式发生器运转一会儿，积累 6 点信用点产出。",
+      "rewardDescription": "整理完成后额外获得 2 点信用点。"
+    },
+    {
+      "id": "area-achievement-demo:achievement:archive-fragments",
+      "listenerId": "area-achievement-demo:milestone-listener:archive-fragments",
+      "title": "散落的档案",
+      "clue": "首次进入北侧档案间后，多次往返收齐 3 枚档案片。",
+      "rewardDescription": "收齐后获得 5 点信用点。"
+    }
+  ]
+}

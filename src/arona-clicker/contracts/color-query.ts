@@ -21,6 +21,8 @@ export interface ColorGroupDescription {
 
 export interface ColorQueryPort {
   runtimeTheme(): ResolvedTheme;
+  /** 选择页的全局基底：排除活动场景与剧情临时层，保留玩家/用户主题。 */
+  selectorBaseTheme(): ResolvedTheme;
   runtimeThemeDiagnostics(target?: string): ThemeRuntimeDiagnostics;
   getGroup(groupId: ColorGroupId): ColorGroupDef | undefined;
   getAllGroups(): ColorGroupDef[];

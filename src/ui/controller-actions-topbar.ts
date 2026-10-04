@@ -10,18 +10,21 @@ import { buildDatapackWorkspaceView } from '../arona-clicker/services/datapack-w
 import {
   hasDatapackWorkspaceChanges,
   moveDatapackDraft,
+  moveDatapackDraftToColumn,
   moveDatapackPaneDraft,
+  swapDatapackDraftIntoEnabledSequence,
   setDatapackResult,
   setDatapackSection,
   setDatapackSelection,
   setDatapackValidation,
+  setDatapackWorkspaceMode,
   toggleDatapackDraftEnabled,
 } from './workspace/datapack-workspace-state';
 import { bindRuntimeDatapackEditorActions, openRuntimeEditingPack, syncRuntimeEditorCreateActions } from './runtime-editor/actions';
 import { runtimeEditorHasUnsavedChanges } from './runtime-editor/state';
 import type { UIController } from './controller';
 import { refreshPresentationHostElements } from './controller-theme';
-import type { PackCatalogCommands, PackCatalogReadModel } from '../arona-clicker/contracts';
+import type { PackCatalogCommands, PackCatalogEntry, PackCatalogReadModel } from '../arona-clicker/contracts';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] ?? character));
@@ -238,6 +241,19 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
     ctrl.resetDatapackDraft();
     root = ctrl.panelState.datapackWorkspace ?? root;
   };
+  scope.querySelectorAll<HTMLButtonElement>('[data-datapack-mode]').forEach(button => {
+    button.addEventListener('click', () => {
+      const mode = button.dataset.datapackMode;
+      if (mode !== 'classic' && mode !== 'development') return;
+      setDatapackWorkspaceMode(root, mode);
+      const entries = host.getPackCatalog?.().entries ?? [];
+      const visibleEntries = entries.filter(entry => mode === 'development' ? Boolean(entry.sourcePath) : !entry.sourcePath);
+      if (!visibleEntries.some(entry => entry.id === root.selectedPackId)) {
+        setDatapackSelection(root, visibleEntries.find(entry => !entry.capabilities?.required)?.id ?? visibleEntries[0]?.id ?? null);
+      }
+      render();
+    });
+  });
   scope.querySelectorAll<HTMLButtonElement>('[data-datapack-section]').forEach(button => {
     button.addEventListener('click', () => {
       const section = button.dataset.datapackSection as typeof root.section;
@@ -261,6 +277,126 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       setDatapackSelection(root, button.dataset.packSelect ?? null);
       render();
     });
+  });
+  let draggedPackId: string | null = null;
+  const dragger = scope.querySelector<HTMLElement>('[data-pack-dragger]');
+  const clearDragIndicators = (): void => {
+    dragger?.querySelectorAll('.is-drop-target, .is-swap-conflict-target').forEach(target => {
+      target.classList.remove('is-drop-target', 'is-swap-conflict-target');
+    });
+  };
+  const findEnabledConflict = (packId: string): PackCatalogEntry | undefined => {
+    const entries = host.getPackCatalog?.().entries ?? [];
+    const moving = entries.find(entry => entry.id === packId);
+    if (!moving || root.draftEnabledIds.includes(packId)) return undefined;
+    return entries.find(entry => entry.id !== packId
+      && entry.modName === moving.modName && root.draftEnabledIds.includes(entry.id));
+  };
+  const refreshPackWorkspace = (panels: Array<'left' | 'right'> = ['left', 'right']): void => {
+    ctrl.refreshPanels(panels);
+  };
+  const validatePackDraftAfterDrop = (): void => {
+    const report = host.validatePackConfiguration?.({
+      enabledIds: [...root.draftEnabledIds],
+      order: [...root.draftOrder],
+    });
+    if (!report) return;
+    setDatapackValidation(root, report);
+    setDatapackResult(root, null);
+  };
+  dragger?.querySelectorAll<HTMLElement>('[data-pack-id][draggable="true"]').forEach(card => {
+    card.addEventListener('dragstart', event => {
+      draggedPackId = card.dataset.packId ?? null;
+      if (!draggedPackId) return;
+      event.dataTransfer?.setData('text/plain', draggedPackId);
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      card.classList.add('pack-entry--dragging');
+    });
+    card.addEventListener('dragend', () => {
+      draggedPackId = null;
+      card.classList.remove('pack-entry--dragging');
+      clearDragIndicators();
+    });
+  });
+  dragger?.addEventListener('dragover', event => {
+    const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-pack-dropzone]') : null;
+    if (!target) return;
+    event.preventDefault();
+    clearDragIndicators();
+    target.classList.add('is-drop-target');
+    if (target.dataset.packDropzone === 'enabled' && draggedPackId) {
+      const conflict = findEnabledConflict(draggedPackId);
+      if (conflict) [...dragger.querySelectorAll<HTMLElement>('[data-pack-id]')]
+        .find(card => card.dataset.packId === conflict.id)?.classList.add('is-swap-conflict-target');
+    }
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  });
+  dragger?.addEventListener('dragleave', event => {
+    const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-pack-dropzone]') : null;
+    const related = event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (target && (!related || !target.contains(related))) clearDragIndicators();
+  });
+  dragger?.addEventListener('drop', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const column = target?.closest<HTMLElement>('[data-pack-dropzone]');
+    const list = column?.querySelector<HTMLElement>('[data-pack-list]');
+    const packId = event.dataTransfer?.getData('text/plain') || draggedPackId;
+    if (!column || !list || !packId) return;
+    event.preventDefault();
+    clearDragIndicators();
+    const targetCard = target?.closest<HTMLElement>('[data-pack-id]');
+    if (targetCard?.dataset.packId === packId) return;
+    const cards = [...list.querySelectorAll<HTMLElement>(':scope > [data-pack-id]')].filter(card => card.dataset.packId !== packId);
+    const targetIndex = targetCard ? Math.max(0, cards.findIndex(card => card === targetCard)) : cards.length;
+    const entries = host.getPackCatalog?.().entries ?? [];
+    const moving = entries.find(entry => entry.id === packId);
+    const conflict = column.dataset.packDropzone === 'enabled' ? findEnabledConflict(packId) : undefined;
+    if (moving && conflict) {
+      const baseSwap = moving.modName === 'base' && conflict.modName === 'base';
+      const protectedConflict = !baseSwap && (conflict.sourceKind === 'builtin'
+        || conflict.capabilities?.required === true
+        || conflict.capabilities?.reorderable === false);
+      if (protectedConflict) {
+        ctrl.modal.open({
+          title: '此数据包不能交换',
+          body: `<p><strong>${escapeHtml(conflict.name)}</strong>（${escapeHtml(conflict.modName)}）当前不能被替换。</p><p>请保持这条记录未启用。</p>`,
+          footer: '<button class="modal-close">知道了</button>',
+          onClose: clearDragIndicators,
+        });
+        return;
+      }
+      ctrl.modal.open({
+        title: '交换同名数据包',
+        body: `<p>启用序列中已有 <strong>${escapeHtml(conflict.name)}</strong>（${escapeHtml(conflict.modName)} v${escapeHtml(conflict.version)}）。</p><p>交换后，<strong>${escapeHtml(moving.name)}</strong> 会占用它当前的启用位置；原记录会返回未启用列表。</p>`,
+        footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="swap-datapack-entry">交换并启用</button>',
+        onAction: action => {
+          if (action !== 'swap-datapack-entry') return;
+          const result = swapDatapackDraftIntoEnabledSequence(root, entries, packId, conflict.id);
+          if (result === 'swapped') validatePackDraftAfterDrop();
+          else setDatapackResult(root, { ok: false, message: '交换未完成，启用序列已变化或记录不可交换。' });
+          ctrl.modal.close();
+          refreshPackWorkspace();
+          if (result === 'swapped') {
+            [...ctrl.root.querySelectorAll<HTMLButtonElement>('[data-pack-select]')]
+              .find(button => button.dataset.packSelect === packId)?.focus();
+          }
+        },
+        onClose: clearDragIndicators,
+      });
+      return;
+    }
+    const moved = moveDatapackDraftToColumn(root, entries, packId, column.dataset.packDropzone === 'enabled', targetIndex);
+    if (moved === 'blocked') {
+      const entry = entries.find(item => item.id === packId);
+      const duplicate = entries.find(item => item.id !== packId && item.modName === entry?.modName && root.draftEnabledIds.includes(item.id));
+      setDatapackResult(root, { ok: false, message: duplicate ? `启用集已有同 ModName 记录：${duplicate.name}。` : '该数据包不能更改状态。' });
+      refreshPackWorkspace(['left']);
+      return;
+    }
+    if (moved === 'moved') {
+      validatePackDraftAfterDrop();
+      refreshPackWorkspace();
+    }
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-selection-pane]').forEach(button => {
     button.addEventListener('click', () => {
@@ -296,57 +432,76 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       render();
     });
   });
-  const openCreateEmptyEditingModal = (values: { modId?: string; versionId?: string; error?: string } = {}): void => {
-    const modId = values.modId ?? '';
-    const versionId = values.versionId ?? '';
-    ctrl.modal.open({
-      title: '创建新编辑态数据包',
-      width: 440,
-      body: `<div class="pack-create-empty-form"><p>创建一个只存在于编辑态的空数据包。输入身份后会先核实，再写入包库；不会加入启用集或改变当前 Runtime。</p><label>ModId<input id="pack-create-mod-id" data-pack-create-mod-id type="text" value="${escapeHtml(modId)}" placeholder="例如 my-mod" autocomplete="off" spellcheck="false"></label><label>VersionId<input id="pack-create-version-id" data-pack-create-version-id type="text" value="${escapeHtml(versionId)}" placeholder="例如 0.1.0" autocomplete="off" spellcheck="false"></label>${values.error ? `<p class="pack-form-error" role="alert">${escapeHtml(values.error)}</p>` : ''}</div>`,
-      footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="verify-empty-editing-pack">核实身份</button>',
-      onAction: action => {
-        if (action !== 'verify-empty-editing-pack') return;
-        const rawModId = document.querySelector<HTMLInputElement>('[data-pack-create-mod-id]')?.value ?? '';
-        const rawVersionId = document.querySelector<HTMLInputElement>('[data-pack-create-version-id]')?.value ?? '';
-        const nextModId = rawModId.trim();
-        const nextVersionId = rawVersionId.trim();
-        if (!/^[a-z0-9-]+$/.test(nextModId)) {
-          openCreateEmptyEditingModal({ modId: rawModId, versionId: rawVersionId, error: 'ModId 只能包含小写字母、数字和连字符。' });
-          return;
-        }
-        if (!nextVersionId || /\s/.test(nextVersionId)) {
-          openCreateEmptyEditingModal({ modId: nextModId, versionId: rawVersionId, error: 'VersionId 不能为空且不能包含空白字符。' });
-          return;
-        }
-        const existingPane = host.getPackCatalog?.().panes?.find(pane => pane.modName === nextModId && pane.version === nextVersionId);
-        if (existingPane) {
-          openCreateEmptyEditingModal({ modId: nextModId, versionId: nextVersionId, error: `数据包 ${nextModId}@${nextVersionId} 已存在，请换一个身份。` });
-          return;
-        }
-        ctrl.modal.open({
-          title: '核实新编辑态数据包',
-          width: 440,
-          body: `<div class="pack-create-empty-confirm"><p>请确认以下身份无误。确认后将创建一个仅有编辑态的空数据包：</p><dl><div><dt>ModId</dt><dd>${escapeHtml(nextModId)}</dd></div><div><dt>VersionId</dt><dd>${escapeHtml(nextVersionId)}</dd></div></dl><p class="muted">创建后仍需在编辑器中填充内容；它不会加入启用集。</p></div>`,
-          footer: '<button class="modal-close">返回修改</button><button class="primary-button" data-modal-action="create-empty-editing-pack">确认创建</button>',
-          onAction: confirmAction => {
-            if (confirmAction !== 'create-empty-editing-pack') return;
-            const result = host.createEmptyEditingPack?.({ modId: nextModId, versionId: nextVersionId });
-            if (result) setDatapackResult(root, { ok: result.ok, message: result.message });
-            ctrl.modal.close();
-            render();
-          },
-        });
-      },
-    });
-  };
-  scope.querySelector('[data-pack-create-empty-editing]')?.addEventListener('click', () => openCreateEmptyEditingModal());
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-create-editing]').forEach(button => {
     button.addEventListener('click', () => {
       const sourceId = button.dataset.packCreateEditing;
       if (!sourceId || !host.createEditingPack) return;
-      const result = host.createEditingPack(sourceId);
-      setDatapackResult(root, { ok: result.ok, message: result.message });
+      const source = host.getPackCatalog?.().entries.find(entry => entry.id === sourceId);
+      if (!source) return;
+      const openVersionForm = (versionId = '', error = '') => ctrl.modal.open({
+        title: '复制为新编辑态',
+        width: 440,
+        body: `<div class="pack-create-empty-form"><p>编辑态会成为独立记录。请为副本填写一个与来源不同的 Version。</p><label>新 Version<input data-pack-editing-version type="text" value="${escapeHtml(versionId)}" placeholder="例如 ${escapeHtml(source.version)}-dev" autocomplete="off" spellcheck="false"></label>${error ? `<p class="pack-form-error" role="alert">${escapeHtml(error)}</p>` : ''}</div>`,
+        footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="create-versioned-editing-pack">创建副本</button>',
+        onAction: action => {
+          if (action !== 'create-versioned-editing-pack') return;
+          const nextVersion = document.querySelector<HTMLInputElement>('[data-pack-editing-version]')?.value.trim() ?? '';
+          if (!nextVersion || /\s/.test(nextVersion)) {
+            openVersionForm(nextVersion, '新 Version 不能为空且不能包含空白字符。');
+            return;
+          }
+          if (nextVersion === source.version) {
+            openVersionForm(nextVersion, '新 Version 必须与来源不同。');
+            return;
+          }
+          const result = host.createEditingPack!(sourceId, nextVersion);
+          setDatapackResult(root, { ok: result.ok, message: result.message });
+          if (result.ok && result.packRecordId) setDatapackSelection(root, result.packRecordId);
+          ctrl.modal.close();
+          render();
+        },
+      });
+      openVersionForm();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-enabled-toggle]').forEach(button => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.packEnabledToggle;
+      if (!id) return;
+      const entries = host.getPackCatalog?.().entries ?? [];
+      const enabled = root.draftEnabledIds.includes(id);
+      const targetIndex = enabled
+        ? root.draftOrder.filter(packId => root.draftEnabledIds.includes(packId)).length
+        : root.draftOrder.filter(packId => !root.draftEnabledIds.includes(packId)).length;
+      const moved = moveDatapackDraftToColumn(root, entries, id, !enabled, targetIndex);
+      if (moved === 'blocked') {
+        const pack = entries.find(entry => entry.id === id);
+        const conflict = entries.find(entry => entry.id !== id && entry.modName === pack?.modName && root.draftEnabledIds.includes(entry.id));
+        setDatapackResult(root, { ok: false, message: conflict ? `启用集已有同 ModName 记录：${conflict.name}。` : '该数据包不能更改状态。' });
+      }
       render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-convert-normal]').forEach(button => {
+    button.addEventListener('click', () => {
+      const sourceId = button.dataset.packConvertNormal;
+      if (!sourceId || !host.convertEditingPackToNormal) return;
+      const result = host.convertEditingPackToNormal(sourceId);
+      setDatapackResult(root, { ok: result.ok, message: result.message });
+      if (result.ok && result.packRecordId) setDatapackSelection(root, result.packRecordId);
+      render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-pack-open-editing]').forEach(button => {
+    button.addEventListener('click', () => {
+      const packRecordId = button.dataset.packOpenEditing;
+      if (!packRecordId) return;
+      if (hasDatapackWorkspaceChanges(root, host.getPackConfiguration?.())) {
+        setDatapackResult(root, { ok: false, message: '请先应用启用集草案，再进入编辑模式。' });
+        render();
+        return;
+      }
+      if (!openRuntimeEditingPack(ctrl, packRecordId)) render();
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-toggle]').forEach(button => {
@@ -355,7 +510,7 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       if (!id) return;
       const entry = host.getPackCatalog?.().entries.find(item => item.id === id);
       if (entry && entry.capabilities && !entry.capabilities.enableable) {
-        setDatapackResult(root, { ok: false, message: '核心数据包必须始终保留在启用集内。' });
+        setDatapackResult(root, { ok: false, message: '当前 base 必须由同名交换替换，不能直接停用。' });
         render();
         return;
       }
@@ -394,7 +549,7 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       if (!entry) return;
       ctrl.modal.open({
         title: '从包库移除数据包',
-        body: `<p>确认将 <strong>${escapeHtml(entry.name)}</strong>（${escapeHtml(entry.modName)} v${escapeHtml(entry.version)}）从包库移除？</p><p class="muted">该操作只影响包库，未启用数据包不影响当前运行内容。</p>`,
+        body: `<p>确认将 <strong>${escapeHtml(entry.name)}</strong>（${escapeHtml(entry.modName)} v${escapeHtml(entry.version)}）从包库移除？</p><p class="muted">${entry.sourcePath ? '该操作不会删除开发目录中的文件；下次启动会重新发现此来源。' : '该操作只影响包库；未启用数据包不会影响当前运行内容。'}</p>`,
         footer: '<button class="modal-close">取消</button><button class="toolbar-button" data-modal-action="remove-datapack">确认移除</button>',
         onAction: action => {
           if (action !== 'remove-datapack') return;
@@ -425,13 +580,6 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
         render();
       },
     });
-  });
-  scope.querySelector('[data-pack-validate]')?.addEventListener('click', () => {
-    if (!host.validatePackConfiguration) return;
-    const report = host.validatePackConfiguration({ enabledIds: root.draftEnabledIds, order: root.draftOrder });
-    setDatapackValidation(root, report);
-    setDatapackResult(root, { ok: report.ok, message: report.ok ? '启用集校验通过，可以应用。' : report.errors[0] ?? '启用集校验失败。' });
-    render();
   });
   scope.querySelector('[data-pack-selection-apply]')?.addEventListener('click', () => {
     if (!host.applyPackSelection) return;

@@ -4,18 +4,19 @@
 
 ## Required Read Set
 
-- [[docs/docs-828/05-conventions/architecture-discipline]]
-- [[docs/docs-828/05-conventions/schema-sync]]
-- [[docs/docs-828/03-data-structures/declarative-dsl]]
-- [[docs/docs-828/03-data-structures/registry]]
+- [[docs/docs-829/05-conventions/architecture-discipline]]
+- [[docs/docs-829/05-conventions/schema-sync]]
+- [[docs/docs-829/03-data-structures/engine-contracts]]
+- [[docs/docs-829/03-data-structures/datapack-contracts]]
+- [[docs/docs-829/03-data-structures/registry]]
 - 对应模块卡片与 `src/engine/types/` 目标类型
 - 相关 Schema 同步测试
 
 ## Optional Read Set
 
 - `tools/datapack-editor/schema/editor-extras.ts`
-- [[docs/docs-828/03-data-structures/id-reference-semantics]]
-- [[docs/docs-828/01-architecture/design-constraints]]
+- [[docs/docs-829/06-wiki/20-data-services/registry]]
+- [[docs/docs-829/01-architecture/data-flow]]
 
 ## 默认不读
 

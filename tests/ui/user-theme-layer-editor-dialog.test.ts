@@ -300,12 +300,12 @@ describe('用户主题图层编辑器：Dialog 与 Manager 行为', () => {
     expect(shell().innerHTML).toContain('no-confirm-layer');
   });
 
-  it('删除单个图层不会丢失其余图层内容', () => {
+  it('删除单个全局图层不会误删系统颜色层', () => {
     controller.openUserThemeEditor();
     addGlobalTarget();
     openManager();
     const before = [...shell().querySelectorAll<HTMLElement>('[data-theme-layer-row]')].map(row => row.dataset.themeLayerId!);
-    expect(before.filter(id => id !== 'system-color-background').length).toBeGreaterThan(0);
+    expect(before).toEqual(['system-color-background']);
 
     openCreateDialog('extra-layer');
     dialog().querySelector<HTMLButtonElement>('[data-theme-layer-dialog-save]')!.click();
@@ -317,7 +317,7 @@ describe('用户主题图层编辑器：Dialog 与 Manager 行为', () => {
     expect([...after].sort()).toEqual([...before].sort());
   });
 
-  it('删除目标最后一层后清除本地覆盖并回到回退视图', () => {
+  it('删除目标最后一层后保留空本地覆盖，显式清除后才回到回退视图', () => {
     controller.openUserThemeEditor();
     addTarget('header.button', 'control');
     document.querySelector<HTMLButtonElement>('[data-theme-layer-manager-target-kind="host"]')!.click();
@@ -336,8 +336,37 @@ describe('用户主题图层编辑器：Dialog 与 Manager 行为', () => {
     removeRow('only-layer');
 
     expect(shell().querySelector('[data-theme-layer-id="only-layer"]')).toBeNull();
-    expect(source()).toContain('回退');
-    expect(localIds().length).toBeGreaterThan(0);
+    expect(source()).toContain('本地覆盖');
+    expect(localIds()).toEqual([]);
+
+    shell().querySelector<HTMLButtonElement>('[data-theme-layer-revert]')!.click();
+    expect(source()).toContain('继承');
+  });
+
+  it('全局主题删到系统色层时保留并保存空覆盖，Preview 同步撤下旧用户层', () => {
+    controller.openUserThemeEditor();
+    addGlobalTarget();
+    openManager();
+    openCreateDialog('only-global-layer');
+    dialog().querySelector<HTMLButtonElement>('[data-theme-layer-dialog-save]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-user-theme-save]')!.click();
+
+    controller.openUserThemeEditor();
+    openManager();
+    shell().querySelector<HTMLButtonElement>('[data-theme-layer-id="only-global-layer"] [data-theme-layer-remove]')!.click();
+
+    expect(shell().querySelector<HTMLElement>('[data-theme-layer-manager-source]')?.textContent).toContain('本地空覆盖');
+    expect(shell().querySelectorAll('[data-theme-layer-id="system-color-background"]')).toHaveLength(1);
+    expect(game.colorSystem.runtimeTheme().background.map(layer => layer.id)).not.toContain('only-global-layer');
+
+    document.querySelector<HTMLButtonElement>('[data-user-theme-save]')!.click();
+    const stored = game.state.customThemes?.['user:theme:default'];
+    expect(stored?.presentation?.hosts?.find(host => host.id === 'global')?.layers).toEqual([]);
+
+    controller.openUserThemeEditor();
+    openManager();
+    expect(shell().querySelector<HTMLElement>('[data-theme-layer-manager-source]')?.textContent).toContain('本地空覆盖');
+    expect(shell().querySelectorAll('[data-theme-layer-id="system-color-background"]')).toHaveLength(1);
   });
 
   it('上移/下移改变图层顺序', () => {
@@ -403,7 +432,7 @@ describe('用户主题图层编辑器：Dialog 与 Manager 行为', () => {
     expect(alphaRow.querySelector<HTMLElement>('[data-theme-layer-toggle]')?.dataset.themeLayerNextEnabled).toBe('1');
   });
 
-  it('新建图层会先固化当前继承层，不丢失已有内容', () => {
+  it('新建全局层只固化全局回退，不把活动场景层复制进用户主题', () => {
     controller.openUserThemeEditor();
     addGlobalTarget();
     openManager();
@@ -415,7 +444,7 @@ describe('用户主题图层编辑器：Dialog 与 Manager 行为', () => {
     const ids = [...shell().querySelectorAll<HTMLElement>('[data-theme-layer-row]')].map(row => row.dataset.themeLayerId);
     expect(ids).toContain('preserve-layer');
     expect(ids).toContain('system-color-background');
-    expect(ids.filter(id => id !== 'preserve-layer' && id !== 'system-color-background').length).toBeGreaterThan(0);
+    expect(ids.filter(id => id !== 'preserve-layer' && id !== 'system-color-background')).toEqual([]);
   });
 
   it('Dialog 输入即时预览，取消后不写入会话内容', async () => {

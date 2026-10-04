@@ -4,21 +4,23 @@
 
 ## Required Read Set
 
-机制改动先读 [[docs/docs-828/05-conventions/architecture-discipline]]。再按实际子题选择，跨子题时合并：
+机制改动先读 [[docs/docs-829/05-conventions/architecture-discipline]] 与 [[docs/docs-829/02-modules/engine]]。再按实际子题选择，跨子题时合并：
 
 | 子题 | 先读 |
 | --- | --- |
-| 生产结算 / Tick | [[docs/docs-828/04-mechanisms/production]]、[[docs/docs-828/02-modules/game-num]] |
-| GameNum 表达式或失效 | [[docs/docs-828/02-modules/game-num]]、受影响的 [[docs/docs-828/04-mechanisms/production]] 章节 |
-| Affector 持续效果 | [[docs/docs-828/02-modules/affector]]、受影响的 [[docs/docs-828/04-mechanisms/production]] 章节 |
-| Effect / Trigger 联动 | [[docs/docs-828/04-mechanisms/trigger-effect]]、[[docs/docs-828/02-modules/effect-trigger]] |
+| 生产结算 / Tick | [[docs/docs-829/04-mechanisms/engine/production]]、[[docs/docs-829/06-wiki/40-engine/tick-session]] |
+| GameNum 表达式或失效 | [[docs/docs-829/06-wiki/40-engine/expressions-and-game-num]]、[[docs/docs-829/04-mechanisms/engine/production]] |
+| Affector 持续效果 | [[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]]、[[docs/docs-829/04-mechanisms/engine/effect-trigger]] |
+| Effect / Trigger 联动 | [[docs/docs-829/04-mechanisms/engine/effect-trigger]]、[[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]] |
 
 每次还要读取目标源码、调用方和相关测试；`src/engine/expression/` 与 `src/engine/effect/` 是定位范围，不是整目录阅读清单。
 
 ## Optional Read Set
 
-- [[docs/docs-828/01-architecture/run-logic]]
-- [[docs/docs-828/07-audit/affector-performance]]
+- [[docs/docs-829/01-architecture/run-logic]]
+- [[docs/docs-829/06-wiki/40-engine/expressions-and-game-num]]
+
+旧 `docs-828/07-audit/affector-performance` 是历史审计快照，不代表当前性能状态；性能结论须依据当前源码、测试和测量重新确认。
 
 ## 默认不读
 

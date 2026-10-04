@@ -63,6 +63,31 @@ describe('Runtime Editor shared Init / Area framework', () => {
     expect(panel.querySelector('[data-toast-action-key]')).toBeNull();
   });
 
+  test('内容浏览器复用 Codex 三栏框架，并把条目编辑放在右侧 Draft 检查器', () => {
+    const editor = createRuntimeDatapackEditorState(null, 'runtime-editor', 'pack-editing-runtime');
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    setRuntimeEditorDefinition(editor, 'areas', { idName: 'lobby', initId: 'base:init:main', name: 'Lobby', description: '', defaultSpots: [] });
+    const panel = document.createElement('div');
+    panel.innerHTML = renderRuntimeEditorPanel(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'browser');
+
+    const browser = panel.querySelector('.runtime-editor-content-browser');
+    expect(browser?.querySelectorAll('.runtime-editor-codex__grid > .runtime-editor-codex__pane')).toHaveLength(3);
+    expect(browser?.querySelector('[data-runtime-editor-target-pack]')).not.toBeNull();
+    expect(browser?.querySelector('[data-runtime-editor-browser-search]')).not.toBeNull();
+    expect(browser?.querySelector('[data-runtime-editor-definition-form]')).not.toBeNull();
+    expect(browser?.querySelector('[data-runtime-editor-apply]')).toBeTruthy();
+    expect(browser?.querySelectorAll('[data-runtime-editor-apply]')).toHaveLength(1);
+    expect(browser?.querySelector('.runtime-editor-content-switch')).toBeNull();
+  });
+
+  test('Codex inspector 页签拥有明确的容器、选中态与键盘焦点样式', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/ui/runtime-editor/codex/codex.css'), 'utf8');
+    expect(css).toContain('.runtime-editor-codex .codex-inspector-tabs [role="tab"]');
+    expect(css).toContain('[aria-selected="true"]');
+    expect(css).toContain(':focus-visible');
+  });
+
   test('Init / Area 使用同一 Draft CRUD 状态并映射到 RuntimeModDraft', () => {
     const editor = createRuntimeDatapackEditorState(null);
     editor.modName = 'runtime';
@@ -106,7 +131,7 @@ describe('Runtime Editor shared Init / Area framework', () => {
     const workspace = document.createElement('div');
     workspace.innerHTML = renderRuntimeEditorWorkspace(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState);
     expect(workspace.querySelector('[data-runtime-editor-kind-tab="inits"]')).not.toBeNull();
-    expect(workspace.querySelector('[data-runtime-editor-kind-tab="areas"]')?.classList.contains('is-active')).toBe(true);
+    expect(workspace.querySelector('[data-runtime-editor-kind-tab="areas"]')?.classList.contains('is-selected')).toBe(true);
     expect(workspace.querySelector('[data-runtime-editor-kind-tab="enhancements"]')).not.toBeNull();
     expect(getSelectedRuntimeEditorDefinition(editor)).toBeNull();
   });

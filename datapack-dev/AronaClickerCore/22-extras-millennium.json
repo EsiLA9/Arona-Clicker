@@ -1,0 +1,9 @@
+{
+  "extras": {
+    "millennium/featured": { "t": "bool", "v": true },
+    "millennium/motto": { "t": "str", "v": "Let's make it happen." },
+    "millennium/slots": { "t": "int", "v": 3 },
+    "balance/start-pyroxene": { "t": "int", "v": 0 },
+    "balance/max-pyroxene": { "t": "int", "v": 50000 }
+  }
+}

@@ -115,7 +115,12 @@ export function renderLayerManagerList(ctx: UIContext, draft: UserThemeDraft, ta
   const userCount = entries.filter(entry => !entry.system).length;
   if (!userCount) {
     const systemEntry = entries.findIndex(entry => entry.system);
-    return `${systemEntry >= 0 ? system(systemEntry, entries.length) : ''}<div class="theme-layer-empty"><strong>${local ? '本目标有本地图层，但当前为空' : '当前没有本地图层'}</strong><small>${local ? '运行时将回退到父级或系统表现。' : '当前回退到父级或系统表现。'}</small></div>`;
+    const emptyState = local
+      ? target.kind === 'global'
+        ? ['全局背景为本地空覆盖', '只保留系统颜色层；需要恢复设计图层时使用“清除覆盖”。']
+        : ['本地覆盖没有用户图层', '控件宿主仍按父级与状态回退规则解析。']
+      : ['当前继承结果没有用户图层', '全局目标仍由系统颜色层提供基础表现。'];
+    return `${systemEntry >= 0 ? system(systemEntry, entries.length) : ''}<div class="theme-layer-empty"><strong>${emptyState[0]}</strong><small>${emptyState[1]}</small></div>`;
   }
   return `${!local ? '<p class="theme-layer-fallback-note">以下为当前有效回退图层；第一次修改时才建立本地覆盖。</p>' : ''}${entries.map((entry, index) => entry.system ? system(index, entries.length) : renderLayerRow(ctx, target, entry.layer, index, entries.length, entry.sourceIndex)).join('')}`;
 }
@@ -123,7 +128,7 @@ export function renderLayerManagerList(ctx: UIContext, draft: UserThemeDraft, ta
 export function renderLayerManagerShell(ctx: UIContext, draft: UserThemeDraft, active: boolean, initialTarget: ThemeLayerTargetRef | null = null, resolvedLayers: readonly BackgroundLayerDef[] = []): string {
   return `<section class="theme-layer-manager" data-theme-layer-manager-shell hidden aria-label="图层管理器">
     <header class="theme-layer-manager-header" data-theme-layer-manager-header><span class="theme-layer-manager-heading"><strong data-theme-layer-manager-title>${initialTarget ? esc(ctx, themeLayerTargetLabel(initialTarget)) : '选择表现目标'}</strong><small data-theme-layer-manager-source>${initialTarget && hasLocalTarget(draft, initialTarget) ? '当前目标的本地覆盖' : '只读解析；实际修改才建立本地覆盖'}</small></span><button type="button" class="theme-layer-icon-button" data-theme-layer-manager-close title="关闭图层管理器" aria-label="关闭图层管理器">×</button></header>
-    <div class="theme-layer-manager-toolbar"><button type="button" data-theme-layer-add ${active ? '' : 'disabled'} title="新增图层">＋ 新增</button><button type="button" data-theme-layer-revert ${active ? '' : 'disabled'} title="清除当前目标的本地覆盖">↺ 清除覆盖</button></div>
+    <div class="theme-layer-manager-toolbar"><button type="button" data-theme-layer-add ${active ? '' : 'disabled'} title="新增图层">＋ 新增</button><button type="button" data-theme-layer-revert ${active ? '' : 'disabled'} title="丢弃本地覆盖并恢复继承图层">↺ 恢复继承</button></div>
     <div class="theme-layer-manager-list" data-theme-layer-manager-list>${renderLayerManagerList(ctx, draft, initialTarget, active, resolvedLayers)}</div>
   </section>`;
 }

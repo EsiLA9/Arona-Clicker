@@ -1,5 +1,3 @@
-import JSZip from 'jszip';
-
 export type ArchiveEntryContent = string | Uint8Array;
 
 export interface ArchiveEntry {
@@ -74,6 +72,7 @@ export function validateArchivePlan(plan: ArchivePlan): ArchiveEntry[] {
 
 export class ZipArchiveWriter implements ArchiveWriter {
   async write(plan: ArchivePlan): Promise<Uint8Array> {
+    const { default: JSZip } = await import('jszip');
     const zip = new JSZip();
     for (const entry of validateArchivePlan(plan)) {
       zip.file(entry.path, entry.content, {

@@ -5,7 +5,7 @@
 // ============================================================
 
 import { createUIContext } from './context';
-import { backgroundView as backgroundViewImpl, presentationView as presentationViewImpl } from './controller-theme';
+import { selectorBaseBackgroundView, selectorBasePresentationView } from './controller-theme';
 import { renderSelectorPage as renderSelectorPageView } from './components/selector-page';
 import type { InitSelectMode } from './components/init-select';
 import type { SelectionFace } from './components/global-enhancement-select';
@@ -34,7 +34,12 @@ export function renderSelectorPage(ctrl: UIController, initialFace: SelectionFac
   if (!SaveSystem.exists()) {
     SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
   }
-  const context = createUIContext(ctrl.game, backgroundViewImpl(ctrl), presentationViewImpl(ctrl));
+  const context = createUIContext(
+    ctrl.game,
+    selectorBaseBackgroundView(ctrl),
+    selectorBasePresentationView(ctrl),
+    { includeResumedArea: !ctrl.pendingRestart },
+  );
   ctrl.popovers.dismissBeforeRootMutation();
   ctrl.selectorPage.reset();
   ctrl.root.innerHTML = renderSelectorPageView(

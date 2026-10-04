@@ -126,10 +126,10 @@ export function dependencyState(dependency: string, entries: readonly PackCatalo
 
 export function packCapabilities(pack: PackCatalogEntry): NonNullable<PackCatalogEntry['capabilities']> {
   return pack.capabilities ?? {
-    required: pack.sourceKind === 'builtin',
-    removable: pack.sourceKind !== 'builtin',
-    reorderable: pack.sourceKind !== 'builtin',
-    enableable: pack.sourceKind !== 'builtin',
+    required: pack.modName === 'base',
+    removable: pack.modName !== 'base' && pack.sourceKind !== 'builtin' && pack.sourceKind !== 'bundle',
+    reorderable: pack.modName !== 'base' && pack.sourceKind !== 'builtin' && pack.sourceKind !== 'bundle',
+    enableable: pack.modName !== 'base',
   };
 }
 

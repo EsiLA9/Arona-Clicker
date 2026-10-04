@@ -317,6 +317,32 @@ h3 {
    --workspace-right-width: minmax(220px, 1fr);
 }
 
+.workspace-frame[data-composition='left-center'] {
+   grid-template-columns: minmax(0, 1fr) var(--workspace-right-width);
+}
+.workspace-frame[data-composition='left-center'] > .workspace-column--left { grid-column: 1; }
+.workspace-frame[data-composition='left-center'] > .workspace-column--right { grid-column: 2; }
+.workspace-frame[data-composition='center-right'] { grid-template-columns: minmax(190px, 1fr) minmax(0, 2fr); }
+.workspace-frame[data-composition='center-right'] > .workspace-column--left { grid-column: 1; }
+.workspace-frame[data-composition='center-right'] > .workspace-column--center { grid-column: 2; }
+.workspace-frame[data-composition='all'] { grid-template-columns: minmax(0, 1fr); }
+.workspace-frame[data-composition='all'] > .workspace-column--left { grid-column: 1; }
+
+.datapack-workspace {
+   min-height: 0;
+   height: 100%;
+   overflow: hidden;
+}
+.datapack-workspace__sections { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.datapack-workspace__sections .service-column-title { flex: 1 0 100%; margin-bottom: 2px; }
+.datapack-workspace__sections .service-nav-item { width: auto; min-width: 0; min-height: 38px; flex: 1 1 110px; grid-template-columns: 7px minmax(0, 1fr) auto auto; padding: 7px 8px; }
+.datapack-workspace__sections .service-nav-item > small:last-child { display: none; }
+.datapack-workspace__catalog { display: flex; flex: 1 1 auto; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; overflow: hidden; }
+.datapack-workspace__catalog > .service-pack-list { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; overflow: hidden; }
+.datapack-workspace__catalog .pack-dragger { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.datapack-workspace__catalog .pack-drag-column { min-height: 0; }
+.datapack-workspace__catalog .pack-source-list { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
 .workspace-column { min-width: 0; min-height: 0; height: 100%; }
 .workspace-column__slot { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
 .workspace-column.is-collapsed { display: none; }
@@ -424,6 +450,9 @@ h3 {
 }
 
 .pack-draft-actions {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
    flex: 0 0 auto;
 }
 

@@ -35,7 +35,7 @@ describe('服务工作区', () => {
   });
 
   it.each([
-    ['datapack', '数据包管理', '导入数据包'],
+    ['datapack', '数据包管理', '导入 ZIP'],
     ['saves', '存读档', '保存当前进度'],
     ['records', '图鉴与统计', '打开完整图鉴'],
   ] as const)('渲染 %s 工作区并保留三栏结构', (service, title, action) => {
@@ -43,22 +43,42 @@ describe('服务工作区', () => {
       ...baseState(),
       service,
       datapackWorkspace: service === 'datapack' ? {
-        section: 'all', selectedPackId: null, draftEnabledIds: [], draftOrder: [], validation: null, lastResult: null,
+        section: 'all', mode: 'classic', selectedPackId: null, draftEnabledIds: [], draftOrder: [], validation: null, lastResult: null,
       } : undefined,
     });
     expect(html).toContain('data-workspace-frame="service-');
     expect(html).toContain('data-responsive="two-column"');
     expect(html).toContain(`>${title}<`);
     expect(html).toContain(action);
-    expect(html).toContain('service-navigation');
+    if (service !== 'datapack') expect(html).toContain('service-navigation');
     expect(html).toContain('service-inspector');
-    expect(html).toContain('panel service-column service-navigation');
-    expect(html).toContain('panel service-column service-main');
+    if (service !== 'datapack') {
+      expect(html).toContain('panel service-column service-navigation');
+      expect(html).toContain('panel service-column service-main');
+    } else {
+      expect(html).toContain('class="datapack-workspace__sections"');
+      expect(html).toContain('class="datapack-workspace__catalog"');
+      expect(html).toContain('data-datapack-mode="classic"');
+    }
     expect(html).toContain('panel service-column service-inspector');
-    expect(html).toContain(`data-theme-host-id="leftPanel.service.${service}.navigation"`);
-    expect(html).toContain(`data-theme-host-id="centerPanel.service.${service}.main"`);
+    expect(html).toContain(service === 'datapack' ? 'data-composition="left-center"' : 'data-composition="columns"');
+    expect(html).toContain(service === 'datapack' ? 'data-theme-host-id="leftPanel.service.datapack.workspace"' : `data-theme-host-id="leftPanel.service.${service}.navigation"`);
+    if (service !== 'datapack') expect(html).toContain(`data-theme-host-id="centerPanel.service.${service}.main"`);
     expect(html).toContain(`data-theme-host-id="rightPanel.service.${service}.inspector"`);
-    expect(html).toContain(`data-theme-scope="center.${service}.main"`);
+    if (service !== 'datapack') expect(html).toContain(`data-theme-scope="center.${service}.main"`);
+  });
+
+  it('数据包管理场景只生成一个 workspace，左侧合并导航和主体，右侧保留详情区', () => {
+    const html = renderAppShell(createUIContext(game), {
+      ...baseState(), service: 'datapack',
+      datapackWorkspace: { section: 'all', mode: 'classic', selectedPackId: null, draftEnabledIds: [], draftOrder: [], validation: null, lastResult: null },
+    });
+    const frames = html.match(/data-workspace-frame="[^"]+"/g) ?? [];
+    expect(frames).toEqual(['data-workspace-frame="service-datapack"']);
+    expect(html).toContain('class="datapack-workspace__sections"');
+    expect(html).toContain('class="datapack-workspace__catalog"');
+    expect(html).toContain('data-theme-host-id="rightPanel.service.datapack.inspector"');
+    expect(html).not.toContain('data-theme-host-id="centerPanel.service.datapack.main"');
   });
 
   it('Records 按投影顺序分组展示已发现成就、状态与简单进度', () => {
@@ -119,7 +139,7 @@ describe('服务工作区', () => {
     expect(emptyHtml).not.toContain('data-achievement-id=');
   });
 
-  it('数据包工作区显示分类语义、正式状态与草案操作', () => {
+  it('经典包管理使用启用/未启用双列表与可应用草案', () => {
     const runtime = new AronaClickerRuntime();
     runtime.init([baseDatapack]);
     const html = renderAppShell(createUIContext(runtime), {
@@ -127,6 +147,7 @@ describe('服务工作区', () => {
       service: 'datapack',
       datapackWorkspace: {
         section: 'all',
+        mode: 'classic',
         selectedPackId: null,
         draftEnabledIds: [],
         draftOrder: [],
@@ -134,83 +155,127 @@ describe('服务工作区', () => {
         lastResult: null,
       },
     });
-    expect(html).toContain('data-datapack-section="enabled"');
+    expect(html).toContain('data-datapack-mode="classic"');
+    expect(html).toContain('data-datapack-mode="development"');
     expect(html).toContain('普通态');
-    expect(html).toContain('data-pack-selection-pane=');
-    expect(html).toContain('data-pack-validate');
+    expect(html).toContain('data-pack-list="disabled"');
+    expect(html).toContain('data-pack-list="enabled"');
+    expect(html).toContain('data-pack-dragger');
+    expect(html).not.toContain('data-pack-validate');
+    expect(html).toContain('id="import-datapack"');
     expect(html).toContain('data-pack-apply');
+    expect(html).toContain('class="service-card pack-draft-actions"');
+    expect(html).not.toContain('启用与顺序草案未应用');
+    expect(html).not.toContain('Runtime 来源已同步');
     expect(html).not.toContain('pack-workflow-guide');
     expect(html).not.toContain('当前编辑目标');
     expect(html).not.toContain('运行时数据包编辑');
     expect(html).not.toContain('打开编辑器');
     expect(html).not.toContain('模式 / 下次 Runtime 来源');
-    expect(html).toContain('aria-label="选择数据包状态"');
-    expect(html).toContain('class="pack-fixed-state"');
-    expect(html).toContain('data-pack-create-empty-editing');
-    expect(html).toContain('创建新编辑态数据包');
-    expect(html).not.toContain('普通态已加入启用集');
-    expect(html).not.toContain('编辑态可编辑');
-    expect(html.indexOf('data-pack-selection-pane=')).toBeLessThan(html.indexOf('class="pack-fixed-state"'));
-    expect(html).toContain('启用集与加载顺序');
-    expect(html.indexOf('service-pack-list')).toBeLessThan(html.indexOf('pack-draft-actions'));
+    expect(html).toContain('填写不同的 Version');
+    expect(html).not.toContain('data-pack-create-empty-editing');
+    expect(html).toContain('drag');
+    expect(html).not.toContain('data-pack-selection-pane=');
   });
 
-  it('前台 UI 只保留 Pane 状态选择，不重复渲染编辑目标卡片', () => {
+  it('ModName 重名的未启用记录逐条呈现，右侧显示冲突组与版本化编辑态操作', () => {
     const runtime = new AronaClickerRuntime();
     runtime.init([baseDatapack]);
-    const source = runtime.getPackCatalog().entries.find(entry => entry.editingMode === 'normal');
-    if (!source) throw new Error('测试需要一个普通态数据包作为编辑态副本来源。');
-    const created = runtime.createEditingPack(source.packRecordId ?? source.id);
-    if (!created.ok || !created.packRecordId) throw new Error(created.message);
-    const target = runtime.getPackCatalog().entries.find(entry => entry.packRecordId === created.packRecordId);
-    if (!target) throw new Error('编辑态副本创建后无法读取目标数据包。');
-    const editor = createRuntimeDatapackEditorState(null, 'runtime-editor', created.packRecordId);
-    editor.modName = target.modName;
-    editor.displayName = target.name;
-    editor.version = target.version;
+    const examplePack = {
+      manifest: { modName: 'shared', name: 'Shared', version: '1.0.0', dependencies: [] },
+      datapack: { ...baseDatapack, modName: 'shared', name: 'Shared', version: '1.0.0', spots: [] },
+      images: [], jsonFileCount: 1, ignoredCount: 0,
+    };
+    runtime.registerParsedPack(examplePack, 'shared-a');
+    runtime.registerParsedPack({ ...examplePack, manifest: { ...examplePack.manifest, version: '2.0.0' }, datapack: { ...examplePack.datapack, version: '2.0.0' } }, 'shared-b');
     const html = renderAppShell(createUIContext(runtime), {
       ...baseState(),
       service: 'datapack',
       datapackWorkspace: {
-        section: 'all', selectedPackId: target.id, draftEnabledIds: [], draftOrder: [], validation: null, lastResult: null,
+        section: 'all', mode: 'classic', selectedPackId: 'shared-a', draftEnabledIds: [], draftOrder: ['base@1.0.0', 'shared-a', 'shared-b'], validation: null, lastResult: null,
       },
-      runtimeDatapackEditor: editor,
     });
-    const paneKey = `${target.modName}@${target.version}`;
-    expect(html.match(new RegExp(`data-pack-pane="${paneKey}"`, 'g'))).toHaveLength(1);
-    expect(html.match(new RegExp(`data-pack-selection-pane="${paneKey}"`, 'g'))).toHaveLength(2);
-    expect(html).not.toContain('pack-pane-slots');
-    expect(html).toContain('aria-label="选择数据包状态"');
-    expect(html).not.toContain('class="pack-pane-current-editor"');
-    expect(html).not.toContain('class="pack-editor-target"');
-    expect(html).not.toContain('is-editing-target');
-    expect(html).not.toContain('class="runtime-editor-toggle"');
-    expect(html).not.toContain('data-pack-open-editing');
-    expect(html).not.toContain('打开编辑器');
+    expect(html.match(/data-pack-id="shared-[ab]"/g)).toHaveLength(2);
+    expect(html).toContain('data-pack-create-editing="shared-a"');
+    expect(html).toContain('ModName 记录');
+    expect(html).toContain('shared · v2.0.0');
   });
 
-  it('已 Apply 的槽位不再显示待 Apply', () => {
+  it('经典拖动列表不重复显示由左右列位置表达的启用状态', () => {
     const runtime = new AronaClickerRuntime();
     runtime.init([baseDatapack]);
-    const source = runtime.getPackCatalog().entries.find(entry => entry.editingMode === 'normal');
-    if (!source) throw new Error('测试需要一个普通态数据包作为编辑态副本来源。');
-    const created = runtime.createEditingPack(source.packRecordId ?? source.id);
+    const source = runtime.getPackCatalog().entries.find(entry => entry.modName === 'base')!;
+    runtime.createEditingPack(source.id, '2.0.0');
+    const html = renderAppShell(createUIContext(runtime), {
+      ...baseState(),
+      service: 'datapack',
+      datapackWorkspace: {
+        section: 'all', mode: 'classic', selectedPackId: null,
+        draftEnabledIds: ['base@1.0.0'], draftOrder: runtime.getPackCatalog().entries.map(entry => entry.id),
+        validation: null, lastResult: null,
+      },
+    });
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    expect(container.querySelectorAll('.pack-entry--draggable .pack-state')).toHaveLength(0);
+    expect(container.querySelector('[data-pack-list="disabled"]')).toBeTruthy();
+    expect(container.querySelector('[data-pack-list="enabled"]')).toBeTruthy();
+  });
+
+  it('编辑态转换控制位于右侧详情，复制时要求新 Version', () => {
+    const runtime = new AronaClickerRuntime();
+    runtime.init([baseDatapack]);
+    const source = runtime.getPackCatalog().entries.find(entry => entry.modName === 'base' && entry.editingMode === 'normal')!;
+    const created = runtime.createEditingPack(source.id, '2.0.0');
     if (!created.ok || !created.packRecordId) throw new Error(created.message);
-    const pane = runtime.getPackCatalog().panes.find(item => item.editing?.packRecordId === created.packRecordId);
-    if (!pane) throw new Error('编辑态副本创建后无法生成 Pane。');
-    runtime.setPackSelection(pane.paneKey, 'editing');
-    expect(runtime.applyPackSelection().ok).toBe(true);
+    const target = runtime.getPackCatalog().entries.find(entry => entry.id === created.packRecordId)!;
+    expect(target.version).toBe('2.0.0');
 
     const html = renderAppShell(createUIContext(runtime), {
       ...baseState(),
       service: 'datapack',
       datapackWorkspace: {
-        section: 'all', selectedPackId: null, draftEnabledIds: [], draftOrder: [], validation: null, lastResult: null,
+        section: 'all', mode: 'classic', selectedPackId: target.id, draftEnabledIds: ['base@1.0.0'], draftOrder: ['base@1.0.0', target.id], validation: null, lastResult: null,
       },
     });
-    expect(html).toContain('aria-label="编辑态 · 当前 Runtime"');
-    expect(html).toContain('>编辑态</button>');
-    expect(html).not.toContain('>编辑态 ·');
+    expect(html).toContain('data-pack-convert-normal="editing:base@2.0.0"');
+    expect(html).toContain('data-pack-open-editing="editing:base@2.0.0"');
+    expect(html).toContain('版本</dt><dd>2.0.0</dd>');
+  });
+
+  it('开发目录模式展示固定来源路径，启用状态在右侧可管理', () => {
+    const runtime = new AronaClickerRuntime();
+    runtime.init([baseDatapack]);
+    const pack = {
+      id: 'development:demo@1.0@finished/', packRecordId: 'development:demo@1.0@finished/',
+      sourcePath: 'demo@1.0@finished/',
+      manifest: { modName: 'demo', name: 'Demo', version: '1.0', dependencies: [] },
+      datapack: { ...baseDatapack, modName: 'demo', name: 'Demo', version: '1.0', spots: [] },
+      images: [], sourceKind: 'folder' as const, importedAt: 1, editingMode: 'normal' as const,
+    };
+    runtime.reconcileDevelopmentPacks([pack]);
+    const html = renderAppShell(createUIContext(runtime), {
+      ...baseState(), service: 'datapack',
+      datapackWorkspace: {
+        section: 'all', mode: 'development', selectedPackId: pack.id,
+        draftEnabledIds: ['base@1.0.0', pack.id], draftOrder: ['base@1.0.0', pack.id], validation: null, lastResult: null,
+      },
+    });
+    expect(html).toContain('class="pack-source-list"');
+    expect(html).not.toContain('data-pack-list="disabled"');
+    expect(html).not.toContain('data-pack-list="enabled"');
+    expect(html).toContain('data-pack-id="development:demo@1.0@finished/"');
+    expect(html).toContain('data-pack-create-editing="development:demo@1.0@finished/"');
+    expect(html).toContain('data-pack-enabled-toggle="development:demo@1.0@finished/"');
+    expect(html).toContain('开发目录');
+    expect(html).toContain('demo@1.0@finished/');
+
+    const classic = renderAppShell(createUIContext(runtime), {
+      ...baseState(), service: 'datapack',
+      datapackWorkspace: { section: 'all', mode: 'classic', selectedPackId: null, draftEnabledIds: ['base@1.0.0', pack.id], draftOrder: ['base@1.0.0', pack.id], validation: null, lastResult: null },
+    });
+    expect(classic).toContain('data-pack-id="development:demo@1.0@finished/"');
+    expect(classic).toContain('data-pack-list="enabled"');
   });
 
   it('正常游戏模式仍渲染原有三栏', () => {

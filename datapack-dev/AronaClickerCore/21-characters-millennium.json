@@ -1,0 +1,32 @@
+{
+  "characters": [
+    {
+      "id": "yuuka",
+      "name": "优香",
+      "displayName": "优香",
+      "school": "千禧年",
+      "rarity": "rare",
+      "description": "千年研讨会的会计，精打细算，对数字十分敏感。",
+      "extra": {
+        "t": "dict",
+        "v": {
+          "cv": { "t": "str", "v": "？？？" }
+        }
+      }
+    },
+    {
+      "id": "noa",
+      "name": "诺亚",
+      "displayName": "诺亚",
+      "school": "千禧年",
+      "rarity": "rare",
+      "description": "千年研讨会的记录员，喜欢收集各种有趣的情报。",
+      "extra": {
+        "t": "dict",
+        "v": {
+          "cv": { "t": "str", "v": "？？？" }
+        }
+      }
+    }
+  ]
+}

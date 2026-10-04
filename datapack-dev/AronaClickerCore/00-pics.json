@@ -1,0 +1,9 @@
+{
+  "pics": [
+    { "id": "base:avatar(pic):shiroko", "src": "zip:assets/avatar/shiroko.png", "label": "白子头像" },
+    { "id": "base:avatar(pic):hoshino", "src": "zip:assets/avatar/hoshino.png", "label": "星野头像" },
+    { "id": "base:background(pic):schale_office", "src": "zip:assets/bg/schale_office.webp", "label": "夏莱办公室背景" },
+    { "id": "base:background(pic):abydos_desert", "src": "zip:assets/bg/abydos_desert.webp", "label": "阿比多斯沙漠背景" },
+    { "id": "base:sticker(pic):party_hat", "src": "zip:assets/sticker/party_hat.png", "label": "派对帽贴图" }
+  ]
+}

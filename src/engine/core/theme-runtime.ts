@@ -48,6 +48,8 @@ export interface ThemeLayer {
   scopeNodeOverrides?: Record<string, Partial<Record<ThemeNodeName, string>>>;
   /** 背景视觉层；高优先级层按 id 覆盖，匿名层追加。 */
   background?: readonly BackgroundLayerDef[];
+  /** 用于编辑预览：替换指定来源已应用的背景贡献，同时保留其它来源（例如场景层）。 */
+  backgroundReplacementScope?: ThemeLayer['scope'];
   /** 背景表现层的来源无关堆叠顺序；未列出的层保持合并顺序追加。 */
   backgroundLayerOrder?: readonly string[];
   /** 是否显式关闭主题色系统生成的全局颜色底层。 */
@@ -80,6 +82,15 @@ export interface TalkletThemeRecord extends TalkletThemeSpec {
 export interface RuntimeThemeManagerOptions {
   now?: () => number;
   onChange?: () => void;
+}
+
+export interface RuntimeThemeResolveOptions {
+  /** false 时排除 Init / Area / Student 场景贡献，供选择页从全局主题建立独立投影。 */
+  includeSceneLayers?: boolean;
+  /** false 时排除编辑 Preview。 */
+  includePreview?: boolean;
+  /** false 时排除剧情等临时演出层。 */
+  includeEphemeralLayers?: boolean;
 }
 
 /** 某一层最终解析出的 token 表。 */
@@ -394,20 +405,22 @@ export class RuntimeThemeManager {
    * 解析最终主题：按玩家配置的 player/init/area/student 相对优先级合并，演出层叠加在最上。
    * 以最底层（优先级最低）的非空层为基底求整包 token，其上各层逐 token 覆盖。
    */
-  resolve(target?: string): ResolvedTheme {
+  resolve(target?: string, options: RuntimeThemeResolveOptions = {}): ResolvedTheme {
     // 各槽位层（player 单层 + 场景栈按 scope 去重），再按配置顺序从低到高收集；
     // 演出层不参与排序，恒在顶层叠加
     const byScope: Partial<Record<ThemeOrderScope | 'user' | 'ephemeral', ThemeLayer>> = {};
     if (this.player) byScope.player = this.player;
-    for (const scene of this.sceneStack) byScope[scene.scope] = scene;
+    if (options.includeSceneLayers !== false) {
+      for (const scene of this.sceneStack) byScope[scene.scope] = scene;
+    }
     const ordered: ThemeLayer[] = [];
     for (const scope of this.layerOrder) {
       const layer = byScope[scope];
       if (layer) ordered.push(layer);
     }
     if (this.user) ordered.push(this.user);
-    if (this.preview) ordered.push(this.preview);
-    for (const e of [...this.ephemeralStack].sort((a, b) => a.revision - b.revision)) {
+    if (options.includePreview !== false && this.preview) ordered.push(this.preview);
+    for (const e of options.includeEphemeralLayers === false ? [] : [...this.ephemeralStack].sort((a, b) => a.revision - b.revision)) {
       if (e.targets && target !== undefined && !e.targets.includes(target)) continue;
       ordered.push(e.layer);
     }
@@ -419,6 +432,7 @@ export class RuntimeThemeManager {
     let scopeNodeOverrides: Record<string, Partial<Record<ThemeNodeName, string>>> = {};
     let groupId: ColorGroupId | null = null;
     const background: BackgroundLayerDef[] = [];
+    const backgroundContributions: { layer: BackgroundLayerDef; owner: ThemeLayer['scope'] }[] = [];
     const presentation: PresentationDef = { layers: [], components: [], panels: [], hosts: [] };
     const presentationLayerIds = new Map<string, number>();
     const presentationComponentIds = new Map<string, number>();
@@ -427,17 +441,31 @@ export class RuntimeThemeManager {
     const backgroundIds = new Map<string, number>();
     let backgroundLayerOrder: string[] = [];
     let systemColorLayerIgnored = false;
-    const mergeBackground = (layers: readonly BackgroundLayerDef[] | undefined): void => {
-      for (const layer of layers ?? []) {
+    const rebuildBackground = (): void => {
+      background.length = 0;
+      backgroundIds.clear();
+      for (const { layer, owner } of backgroundContributions) {
         if (layer.id) {
           const index = backgroundIds.get(layer.id);
-          if (index !== undefined) background[index] = { ...layer };
-          else {
-            backgroundIds.set(layer.id, background.length);
-            background.push({ ...layer });
+          if (index !== undefined) {
+            background[index] = { ...layer };
+            continue;
           }
-        } else background.push({ ...layer });
+          backgroundIds.set(layer.id, background.length);
+        }
+        background.push({ ...layer });
       }
+    };
+    const mergeBackground = (layers: readonly BackgroundLayerDef[] | undefined, owner: ThemeLayer['scope']): void => {
+      for (const layer of layers ?? []) backgroundContributions.push({ layer: { ...layer }, owner });
+      rebuildBackground();
+    };
+    const applyBackgroundReplacement = (scope: ThemeLayer['scope'] | undefined): void => {
+      if (!scope) return;
+      for (let index = backgroundContributions.length - 1; index >= 0; index--) {
+        if (backgroundContributions[index].owner === scope) backgroundContributions.splice(index, 1);
+      }
+      rebuildBackground();
     };
     const mergePresentation = (value: PresentationDef | undefined): void => {
       const mergeHost = (baseHost: PresentationHostDef | undefined, incoming: PresentationHostDef): PresentationHostDef => {
@@ -502,7 +530,8 @@ export class RuntimeThemeManager {
     if (ordered[0].palette?.length) palette = [...ordered[0].palette];
     nodeOverrides = { ...(ordered[0].nodeOverrides ?? {}) };
     scopeNodeOverrides = mergeScopeNodeOverrides({}, ordered[0].scopeNodeOverrides);
-    mergeBackground(ordered[0].background);
+    applyBackgroundReplacement(ordered[0].backgroundReplacementScope);
+    mergeBackground(ordered[0].background, ordered[0].scope);
     if (ordered[0].backgroundLayerOrder?.length) backgroundLayerOrder = [...ordered[0].backgroundLayerOrder];
     if (ordered[0].systemColorLayerIgnored !== undefined) systemColorLayerIgnored = ordered[0].systemColorLayerIgnored;
     mergePresentation(ordered[0].presentation);
@@ -515,7 +544,8 @@ export class RuntimeThemeManager {
         merged = { ...merged, ...this.resolveLayer(layer) };
         if (!groupId) groupId = layer.groupId;
       }
-      mergeBackground(layer.background);
+      applyBackgroundReplacement(layer.backgroundReplacementScope);
+      mergeBackground(layer.background, layer.scope);
       if (layer.backgroundLayerOrder?.length) backgroundLayerOrder = [...layer.backgroundLayerOrder];
       if (layer.systemColorLayerIgnored !== undefined) systemColorLayerIgnored = layer.systemColorLayerIgnored;
       mergePresentation(layer.presentation);

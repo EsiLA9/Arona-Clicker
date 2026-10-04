@@ -64,7 +64,8 @@
 }
 
 /* 超级图鉴是查询工作区，不沿用编辑器的窄侧窗尺寸。 */
-.runtime-editor-panel[data-runtime-editor-surface-current="codex"] {
+.runtime-editor-panel[data-runtime-editor-surface-current="codex"],
+.runtime-editor-panel[data-runtime-editor-surface-current="browser"] {
    top: 18px;
    right: 18px;
    bottom: 18px;
@@ -74,7 +75,8 @@
    border-radius: 12px;
 }
 
-.runtime-editor-panel[data-runtime-editor-surface-current="codex"] .runtime-editor-panel-body {
+.runtime-editor-panel[data-runtime-editor-surface-current="codex"] .runtime-editor-panel-body,
+.runtime-editor-panel[data-runtime-editor-surface-current="browser"] .runtime-editor-panel-body {
    display: flex;
    flex: 1 1 auto;
    flex-direction: column;
@@ -84,6 +86,14 @@
 }
 
 .runtime-editor-panel[data-runtime-editor-surface-current="codex"] .runtime-editor-codex {
+   height: 100%;
+   min-height: 0;
+   border: 0;
+   border-radius: 0;
+   box-shadow: none;
+}
+
+.runtime-editor-panel[data-runtime-editor-surface-current="browser"] .runtime-editor-content-browser {
    height: 100%;
    min-height: 0;
    border: 0;
@@ -332,6 +342,11 @@
    line-height: 1.5;
 }
 
+.runtime-editor-empty-state .runtime-editor-target-picker {
+   width: min(100%, 420px);
+   margin: 0;
+}
+
 .runtime-editor-panel .user-theme-field {
    color: var(--re-muted);
 }
@@ -385,7 +400,8 @@
       border-radius: 10px 10px 6px 6px;
    }
 
-   .runtime-editor-panel[data-runtime-editor-surface-current="codex"] {
+   .runtime-editor-panel[data-runtime-editor-surface-current="codex"],
+   .runtime-editor-panel[data-runtime-editor-surface-current="browser"] {
       top: 8px;
       right: 8px;
       bottom: 8px;
@@ -429,18 +445,42 @@
 }
 
 .runtime-editor-form {
-   display: grid;
-   gap: 4px;
+   display: flex;
+   flex: 1 1 auto;
+   flex-direction: column;
+   align-items: stretch;
+   gap: 12px;
+   overflow-x: hidden;
+   overflow-y: auto;
+   padding-right: 6px;
+   scrollbar-gutter: stable;
+   overscroll-behavior: contain;
 }
 
 .runtime-editor-form h4 {
-   margin: 12px 0 2px;
+   flex: 0 0 auto;
+   margin: 6px 0 0;
    padding-bottom: 4px;
    border-bottom: 1px solid var(--re-line);
 }
 
 .runtime-editor-form .user-theme-field {
-   margin: 4px 0;
+   flex: 0 0 auto;
+   margin: 0;
+}
+
+.runtime-editor-form .service-actions,
+.runtime-editor-form .service-summary {
+   flex: 0 0 auto;
+   margin: 0;
+}
+
+.runtime-editor-target-picker {
+   width: min(100%, 480px);
+}
+
+.runtime-editor-target-picker select {
+   min-height: 34px;
 }
 
 /* --- 集合：原型驱动（摘要行 + 条目子编辑弹窗） --- */
@@ -1023,6 +1063,316 @@
 .runtime-editor-diagnostics li {
    color: var(--re-danger);
    cursor: pointer;
+}
+
+.runtime-editor-content-browser {
+   --codex-kind-width: 220px;
+   --codex-entry-width: minmax(300px, .95fr);
+   --codex-detail-width: minmax(440px, 1.55fr);
+}
+
+.runtime-editor-content-browser__grid {
+   grid-template-columns: minmax(205px, .72fr) minmax(310px, 1fr) minmax(460px, 1.55fr);
+}
+
+.runtime-editor-content-browser__kinds {
+   padding-bottom: 10px;
+}
+
+.runtime-editor-content-browser__target {
+   display: grid;
+   gap: 6px;
+   margin: 12px;
+   padding: 12px;
+   border: 1px solid var(--codex-line);
+   border-radius: 7px;
+   background: linear-gradient(145deg, rgba(11, 153, 168, .09), rgba(255, 255, 255, .72));
+}
+
+.runtime-editor-content-browser__target strong {
+   overflow: hidden;
+   color: var(--codex-ink);
+   font-size: 13px;
+   text-overflow: ellipsis;
+}
+
+.runtime-editor-content-browser__target code {
+   color: var(--codex-muted);
+   font: 10px/1.4 "DM Mono", ui-monospace, monospace;
+}
+
+.runtime-editor-content-browser__target .runtime-editor-target-picker {
+   width: 100%;
+   margin-top: 5px;
+}
+
+.runtime-editor-content-browser__target .runtime-editor-target-picker > span {
+   font-size: 10px;
+}
+
+.runtime-editor-content-browser__target .runtime-editor-target-picker select {
+   width: 100%;
+   min-width: 0;
+}
+
+.runtime-editor-content-browser__kind-list {
+   display: grid;
+   gap: 5px;
+   overflow: auto;
+   min-height: 0;
+   padding: 0 10px;
+}
+
+.runtime-editor-content-browser__kind-list .runtime-editor-codex__kind-tab {
+   width: 100%;
+}
+
+.runtime-editor-content-browser__entries {
+   display: flex;
+   overflow: hidden;
+}
+
+.runtime-editor-content-browser__toolbar {
+   display: flex;
+   flex: none;
+   flex-wrap: wrap;
+   gap: 4px;
+   padding: 0 12px 10px;
+}
+
+.runtime-editor-content-browser__filter {
+   min-height: 27px;
+   padding: 4px 8px;
+   border: 1px solid transparent;
+   border-radius: 5px;
+   background: transparent;
+   color: var(--codex-muted);
+   cursor: pointer;
+   font-family: inherit;
+   font-size: 10px;
+   line-height: 1.2;
+}
+
+.runtime-editor-content-browser__filter:hover,
+.runtime-editor-content-browser__filter:focus-visible {
+   border-color: var(--codex-line);
+   color: var(--codex-ink);
+   outline: none;
+}
+
+.runtime-editor-content-browser__filter.is-active {
+   border-color: rgba(11, 153, 168, .32);
+   background: var(--codex-accent-soft);
+   color: #087985;
+   font-weight: 700;
+}
+
+.runtime-editor-content-browser__entry-scroll {
+   flex: 1 1 auto;
+   min-height: 0;
+   overflow: auto;
+   padding: 0 10px 12px;
+   scrollbar-gutter: stable;
+   overscroll-behavior: contain;
+}
+
+.runtime-editor-content-browser__entry-scroll .runtime-spot-list {
+   max-height: none;
+   overflow: visible;
+   gap: 6px;
+}
+
+.runtime-editor-content-browser__entry-scroll .runtime-spot-item {
+   position: relative;
+   gap: 6px;
+   padding: 0 7px 0 0;
+   border-color: transparent;
+   background: rgba(255, 255, 255, .58);
+}
+
+.runtime-editor-content-browser__entry-scroll .runtime-spot-item.is-selected {
+   border-color: rgba(11, 153, 168, .42);
+   background: rgba(11, 153, 168, .08);
+}
+
+.runtime-editor-content-browser__entry-scroll .runtime-editor-codex__entry {
+   min-width: 0;
+   flex: 1 1 auto;
+   border: 0;
+   background: transparent;
+}
+
+.runtime-editor-content-browser__entry-scroll .runtime-editor-entry-state {
+   max-width: 72px;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.runtime-editor-content-browser__entry-scroll .mini-action {
+   flex: none;
+   padding: 4px 6px;
+   border: 0;
+   background: transparent;
+   color: var(--codex-muted);
+   font-size: 10px;
+}
+
+.runtime-editor-content-browser__entry-scroll .mini-action:hover,
+.runtime-editor-content-browser__entry-scroll .mini-action:focus-visible {
+   color: #a94642;
+}
+
+.runtime-editor-content-browser__source-note {
+   flex: none;
+   margin: 0 12px 8px;
+   color: var(--codex-muted);
+   font-size: 10px;
+   line-height: 1.5;
+}
+
+.runtime-editor-content-browser__create {
+   flex: none;
+   padding: 10px 12px 0;
+   border-top: 1px solid var(--codex-line);
+}
+
+.runtime-editor-codex__create {
+   width: 100%;
+   min-height: 34px;
+   padding: 7px 10px;
+   border: 1px solid rgba(11, 153, 168, .32);
+   border-radius: 6px;
+   background: var(--codex-accent-soft);
+   color: #087985;
+   cursor: pointer;
+   font: inherit;
+   font-size: 11px;
+   font-weight: 700;
+   text-align: left;
+}
+
+.runtime-editor-codex__create:hover:not(:disabled),
+.runtime-editor-codex__create:focus-visible {
+   border-color: var(--codex-accent);
+   background: rgba(11, 153, 168, .16);
+}
+
+.runtime-editor-codex__create:disabled {
+   cursor: not-allowed;
+   opacity: .5;
+}
+
+.runtime-editor-content-browser__empty-detail {
+   display: grid;
+   justify-items: start;
+   gap: 9px;
+   max-width: 430px;
+   margin: 12vh auto 0;
+   padding: 20px;
+   color: var(--codex-muted);
+}
+
+.runtime-editor-content-browser__empty-detail strong {
+   color: var(--codex-ink);
+   font-size: 15px;
+}
+
+.runtime-editor-content-browser__empty-detail p {
+   margin: 0;
+   font-size: 12px;
+   line-height: 1.6;
+}
+
+.runtime-editor-content-browser__detail-body {
+   display: flex;
+   flex: 1 1 auto;
+   flex-direction: column;
+   min-height: 0;
+   overflow: hidden;
+}
+
+.runtime-editor-content-browser__detail-body > .runtime-editor-shell {
+   flex: 1 1 auto;
+   min-height: 0;
+}
+
+.runtime-editor-content-browser__embedded-form {
+   display: flex;
+   height: 100%;
+   min-height: 0;
+   overflow: hidden;
+   gap: 0;
+   padding: 0;
+}
+
+.runtime-editor-content-browser__embedded-form .runtime-editor-topbar {
+   flex: none;
+   padding: 0 0 12px;
+   border-bottom: 1px solid var(--codex-line);
+   background: transparent;
+}
+
+.runtime-editor-content-browser__embedded-form .runtime-editor-topbar h4 {
+   border: 0;
+   font-size: 14px;
+}
+
+.runtime-editor-content-browser__embedded-form .runtime-editor-topbar .service-summary {
+   color: var(--codex-muted);
+   font-size: 10px;
+}
+
+.runtime-editor-content-browser__embedded-form .runtime-editor-topbar .service-actions {
+   gap: 5px;
+}
+
+.runtime-editor-content-browser__embedded-form .runtime-editor-topbar .primary-button,
+.runtime-editor-content-browser__embedded-form .runtime-editor-topbar .toolbar-button {
+   min-height: 30px;
+   padding: 5px 8px;
+   font-size: 10px;
+}
+
+.runtime-editor-content-browser__embedded-form > .service-result,
+.runtime-editor-content-browser__embedded-form > .runtime-editor-notice,
+.runtime-editor-content-browser__embedded-form > .runtime-init-creation-assist {
+   flex: none;
+}
+
+.runtime-editor-content-browser__embedded-form .runtime-editor-body {
+   flex: 1 1 auto;
+   min-height: 0;
+   overflow: hidden;
+}
+
+.runtime-editor-content-browser__embedded-form .runtime-editor-switch {
+   flex: 0 0 130px;
+   min-height: 0;
+   overflow: auto;
+   border-color: var(--codex-line);
+}
+
+.runtime-editor-content-browser__embedded-form .runtime-editor-panes {
+   min-height: 0;
+   overflow: auto;
+   padding: 0 12px 8px;
+}
+
+.runtime-editor-content-browser__apply-bar {
+   display: flex;
+   flex: none;
+   align-items: center;
+   justify-content: flex-end;
+   gap: 12px;
+   min-height: 48px;
+   padding: 7px 14px;
+   border-top: 1px solid var(--codex-line);
+   background: rgba(249, 251, 253, .96);
+}
+
+.runtime-editor-content-browser__apply-bar .runtime-editor-codex__search-hint {
+   margin-right: auto;
 }
 
 .runtime-editor-diagnostics li:focus-visible,

@@ -254,7 +254,7 @@ export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focuse
   const enhancement = face === 'global-enh' && focusId ? ctx.game.registry.enhancements.get(focusId) : undefined;
   const variantId: SelectorVariantId = initVariant ?? (enhancement ? selectorEnhancementVariant(ctx, enhancement) : 'new');
   const selected = selectedTheme(ctx, face, focusId);
-  const runtime = ctx.game.colorSystem.runtimeTheme();
+  const runtime = ctx.game.colorSystem.selectorBaseTheme();
   const runtimePrimary = runtime.tokens.primary ?? runtime.palette[0] ?? SYSTEM_DEFAULT_PRIMARY;
   const baseTokens = { ...deriveThemeTokens(runtimePrimary), ...runtime.tokens };
   const fallbackPrimary = selectorFallbackPrimary(face, focusId);
@@ -265,8 +265,11 @@ export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focuse
   for (const [node, value] of Object.entries(selected.theme?.nodes ?? {})) nodeOverrides.set(node as ThemeNodeName, value);
 
   const data = focusId && face === 'init' ? progressData(ctx, focusId) : undefined;
-  const currentAreaId = resumeId && data && focusId === resumeId ? data.currentAreaId : (resumeId ? progressData(ctx, resumeId).currentAreaId : null);
-  const currentArea = focusId && face === 'init' && focusId === resumeId ? areaTheme(ctx, currentAreaId) : undefined;
+  const includeResumedArea = ctx.selectorThemePolicy?.includeResumedArea !== false;
+  const currentAreaId = includeResumedArea && resumeId && data && focusId === resumeId
+    ? data.currentAreaId
+    : null;
+  const currentArea = currentAreaId && face === 'init' ? areaTheme(ctx, currentAreaId) : undefined;
   const areaContribution = ctx.game.colorSystem.themeFromThemeDef(currentArea);
   if (currentArea && colorThemePresent(currentArea, areaContribution)) {
     const area = themeTokens(ctx, currentArea, tokens.primary ?? runtimePrimary);

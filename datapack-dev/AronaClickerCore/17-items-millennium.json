@@ -1,0 +1,41 @@
+{
+  "items": [
+    {
+      "id": "base:item:catalyst_shard",
+      "name": "催化剂碎片",
+      "description": "千年级催化剂的副产品，在实验室中偶然获得，可以兑换信用点。",
+      "icon": "shard",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material",
+      "sellPrice": { "resourceId": "base:resource:credit", "amount": 15 },
+      "pickupEffects": [
+        { "op": "addResource", "target": "base:resource:pyroxene", "value": 1 }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "origin": { "t": "str", "v": "millennium" }
+        }
+      }
+    },
+    {
+      "id": "base:item:vending_snack",
+      "name": "售货机零食",
+      "description": "从千年售货机掉落的零食，食用后获得少量青辉石。",
+      "icon": "snack",
+      "maxStack": 99,
+      "rarity": "common",
+      "type": "consumable",
+      "useEffects": [
+        { "op": "addResource", "target": "base:resource:pyroxene", "value": 2 }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "origin": { "t": "str", "v": "millennium" }
+        }
+      }
+    }
+  ]
+}

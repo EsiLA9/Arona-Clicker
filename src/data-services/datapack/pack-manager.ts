@@ -11,7 +11,9 @@ export interface StoredPack {
   readonly manifest: PackManifest;
   readonly datapack: Datapack;
   readonly images: readonly { path: string; url: string }[];
-  readonly sourceKind: PackSource['kind'] | 'builtin' | 'editing';
+  readonly sourceKind: PackSource['kind'] | 'builtin' | 'bundle' | 'editing';
+  /** 仓库开发包目录中的相对路径；仅用于自动来源对账，不表示可写文件路径。 */
+  readonly sourcePath?: string;
   readonly importedAt: number;
   readonly editingMode?: EditingMode;
   readonly sourcePackRecordId?: string;
@@ -20,7 +22,7 @@ export interface StoredPack {
 }
 
 export type EditingMode = 'normal' | 'editing';
-export type PackSourceKind = PackSource['kind'] | 'builtin' | 'editing';
+export type PackSourceKind = PackSource['kind'] | 'builtin' | 'bundle' | 'editing';
 export type DatapackSlotKind = 'fixed' | 'editing';
 export type DatapackSelectionSlot = DatapackSlotKind | 'none';
 export type PackConflictCode =
@@ -189,10 +191,12 @@ function cloneJson<T>(value: T): T {
 function normalizeStoredPack(pack: StoredPack): StoredPack {
   const editingMode = packEditingMode(pack);
   const packRecordId = pack.packRecordId ?? pack.id;
+  const sourceKind = pack.sourceKind === 'builtin' && pack.manifest.modName === 'base' ? 'bundle' : pack.sourceKind;
   return {
     ...pack,
     id: pack.id,
     packRecordId,
+    sourceKind,
     editingMode,
     contentDigest: pack.contentDigest ?? storedPackContentDigest(pack),
   };
@@ -216,27 +220,24 @@ export class PackManager {
   private selectedSlots = new Map<string, DatapackSelectionSlot>();
   private runtimePackRecordIds = new Map<string, string>();
 
-  constructor(initial?: PackManagerSnapshot, private readonly store?: PackSnapshotStore, builtinPacks: readonly StoredPack[] = []) {
+  constructor(initial?: PackManagerSnapshot, private readonly store?: PackSnapshotStore, bundledPacks: readonly StoredPack[] = []) {
     initial ??= store?.load() ?? { packs: [], enabledIds: [], order: [] };
     for (const pack of initial.packs) this.packs.set(pack.id, normalizeStoredPack(pack));
-    for (const pack of builtinPacks) this.packs.set(pack.id, normalizeStoredPack(pack));
+    for (const pack of bundledPacks) {
+      if (!this.packs.has(pack.id)) this.packs.set(pack.id, normalizeStoredPack(pack));
+    }
     this.order = this.normalizeOrder(initial.order);
-    for (const pack of builtinPacks) {
+    for (const pack of [...bundledPacks].reverse()) {
       if (!this.order.includes(pack.id)) this.order.unshift(pack.id);
     }
-    const recordKeys = new Map<string, string>();
-    for (const pack of this.packs.values()) {
-      const key = packRecordKey(pack);
-      const previous = recordKeys.get(key);
-      if (previous && previous !== pack.id) {
-        throw new PackManagerError(`包库快照存在重复数据包记录：${key}（${previous} 与 ${pack.id}）。`, 'datapack-record-conflict');
-      }
-      recordKeys.set(key, pack.id);
-    }
+    // Catalog record identity is pack.id; ModName / Version / state remain runtime validation dimensions.
     for (const id of initial.enabledIds) {
       if (this.packs.has(id)) this.enabledIds.add(id);
     }
-    for (const pack of builtinPacks) this.enabledIds.add(pack.id);
+    if (![...this.enabledIds].some(id => this.packs.get(id)?.manifest.modName === 'base')) {
+      const firstBase = this.order.find(id => this.packs.get(id)?.manifest.modName === 'base');
+      if (firstBase) this.enabledIds.add(firstBase);
+    }
     for (const [paneKey, selectedSlot] of Object.entries(initial.selectedSlots ?? {})) {
       this.selectedSlots.set(paneKey, selectedSlot);
     }
@@ -316,9 +317,6 @@ export class PackManager {
     for (const pane of panes) {
       const selectedSlot = this.selectionForPane(pane);
       if (selectedSlot === 'none') {
-        if (pane.fixedSlot?.sourceKind === 'builtin') {
-          throw new PackManagerError(`核心数据包不能取消选择：${pane.paneKey}。`, 'runtime-plan-invalid');
-        }
         continue;
       }
       const record = selectedSlot === 'fixed' ? pane.fixedSlot : pane.editingSlot;
@@ -349,6 +347,9 @@ export class PackManager {
         }
       }
     }
+    if (this.hasBasePack() && entries.filter(entry => entry.modId === 'base').length !== 1) {
+      throw new PackManagerError('Runtime Apply 必须且只能包含一个启用的 base 数据包。', 'runtime-plan-invalid');
+    }
     const orderIndex = new Map(this.order.map((id, index) => [id, index] as const));
     entries.sort((left, right) => (orderIndex.get(left.packRecordId) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(right.packRecordId) ?? Number.MAX_SAFE_INTEGER));
     return { entries };
@@ -358,12 +359,9 @@ export class PackManager {
   applySelection(target: PackApplyTarget): RuntimeApplyPlan {
     const plan = this.buildRuntimeApplyPlan();
     this.applyRuntimePlan(plan, target);
-    this.enabledIds = new Set(plan.entries
-      .filter(entry => entry.selectedSlot === 'fixed')
-      .map(entry => entry.packRecordId));
-    for (const pack of this.packs.values()) {
-      if (pack.sourceKind === 'builtin') this.enabledIds.add(pack.id);
-    }
+    this.enabledIds = new Set(plan.entries.map(entry => entry.packRecordId));
+    const selectedByPane = new Map(plan.entries.map(entry => [entry.paneKey, entry.selectedSlot] as const));
+    for (const pane of this.panes()) this.selectedSlots.set(pane.paneKey, selectedByPane.get(pane.paneKey) ?? 'none');
     this.persist();
     return plan;
   }
@@ -377,21 +375,16 @@ export class PackManager {
     if (enabled.size !== draft.enabledIds.length || draft.enabledIds.some(id => !known.has(id))) {
       throw new PackManagerError('启用集包含未知或重复的数据包。');
     }
-    for (const pack of this.packs.values()) {
-      if (pack.sourceKind === 'builtin' && !enabled.has(pack.id)) {
-        throw new PackManagerError(`核心数据包必须保留在启用集内：${pack.manifest.name}。`);
-      }
-    }
     const byModName = new Map<string, string>();
     for (const id of draft.order) {
       if (!enabled.has(id)) continue;
       const pack = this.packs.get(id)!;
-      if (packEditingMode(pack) === 'editing') {
-        throw new PackManagerError(`编辑态数据包不能直接进入启用集：${id}。`, 'modid-runtime-conflict');
-      }
       const previous = byModName.get(pack.manifest.modName);
       if (previous) throw new PackManagerError(`启用集存在 modName 冲突：${pack.manifest.modName}（${previous} 与 ${id}）。`, 'modid-runtime-conflict');
       byModName.set(pack.manifest.modName, id);
+    }
+    if (this.hasBasePack() && byModName.has('base') === false) {
+      throw new PackManagerError('启用集必须保留一个 base 数据包；请先选择替代基础包。');
     }
     for (const id of draft.order) {
       if (!enabled.has(id)) continue;
@@ -430,17 +423,16 @@ export class PackManager {
   importPack(pack: StoredPack): PackImportDecision {
     const normalized = normalizeStoredPack(pack);
     const incomingKey = packRecordKey(normalized);
-    const existingByKey = [...this.packs.values()].find(item => packRecordKey(item) === incomingKey);
-    if (existingByKey) {
-      const existingDigest = existingByKey.contentDigest ?? storedPackContentDigest(existingByKey);
+    const existingById = this.packs.get(normalized.id);
+    if (existingById) {
+      if (packRecordKey(existingById) !== incomingKey) throw new PackManagerError(`数据包保存冲突：记录 ${normalized.id} 的 ModName、Version 或 Editing 状态不同。`, 'datapack-record-conflict');
+      const existingDigest = existingById.contentDigest ?? storedPackContentDigest(existingById);
       const incomingDigest = normalized.contentDigest ?? storedPackContentDigest(normalized);
       if (existingDigest !== incomingDigest) {
         throw new PackManagerError(`数据包保存冲突：${incomingKey} 已存在但内容不同。`, 'datapack-record-conflict');
       }
-      return { kind: 'idempotent', packRecordId: existingByKey.id, packId: incomingKey.slice(0, incomingKey.lastIndexOf('#')), editingMode: packEditingMode(existingByKey) };
+      return { kind: 'idempotent', packRecordId: existingById.id, packId: incomingKey.slice(0, incomingKey.lastIndexOf('#')), editingMode: packEditingMode(existingById) };
     }
-    const existingById = this.packs.get(normalized.id);
-    if (existingById) throw new PackManagerError(`数据包记录身份已存在：${normalized.id}。`, 'datapack-record-conflict');
     const existingByRecordId = [...this.packs.values()].find(item => (item.packRecordId ?? item.id) === (normalized.packRecordId ?? normalized.id));
     if (existingByRecordId) throw new PackManagerError(`数据包 packRecordId 已存在：${normalized.packRecordId ?? normalized.id}。`, 'datapack-record-conflict');
     this.packs.set(normalized.id, normalized);
@@ -454,11 +446,10 @@ export class PackManager {
     const normalized = normalizeStoredPack(pack);
     const existing = this.packs.get(normalized.id);
     if (!existing) return this.importPack(normalized);
-    if (packRecordKey(existing) !== packRecordKey(normalized)) {
+    const sameDevelopmentSource = existing.sourcePath !== undefined && existing.sourcePath === normalized.sourcePath;
+    if (packRecordKey(existing) !== packRecordKey(normalized) && !sameDevelopmentSource) {
       throw new PackManagerError(`数据包保存冲突：${normalized.id} 的 ModId、Version 或 EditingMode 不可变更。`, 'datapack-record-conflict');
     }
-    const conflict = [...this.packs.values()].find(item => item.id !== normalized.id && packRecordKey(item) === packRecordKey(normalized));
-    if (conflict) throw new PackManagerError(`数据包保存冲突：${packRecordKey(normalized)} 已被 ${conflict.id} 占用。`, 'datapack-record-conflict');
     this.packs.set(normalized.id, normalized);
     this.persist();
     return { kind: 'added', packRecordId: normalized.id, packId: packLogicalId(normalized), editingMode: packEditingMode(normalized) };
@@ -474,6 +465,47 @@ export class PackManager {
       sourcePackRecordId: undefined,
       sourceDigest: undefined,
     });
+  }
+
+  reconcileDevelopmentPacks(discovered: readonly StoredPack[]): void {
+    const sourcePaths = new Set<string>();
+    for (const pack of discovered) {
+      if (!pack.sourcePath) throw new PackManagerError(`自动发现的数据包缺少 sourcePath：${pack.id}。`);
+      if (sourcePaths.has(pack.sourcePath)) throw new PackManagerError(`开发目录来源路径重复：${pack.sourcePath}。`);
+      sourcePaths.add(pack.sourcePath);
+    }
+
+    for (const pack of this.orderedPacks()) {
+      if (pack.sourcePath && !sourcePaths.has(pack.sourcePath)) this.removePack(pack.id);
+    }
+
+    const previousIds = new Set(this.packs.keys());
+    for (const pack of discovered) {
+      const existing = this.packs.get(pack.id);
+      if (!existing) {
+        this.importPack(pack);
+        continue;
+      }
+      const sameContent = (existing.contentDigest ?? storedPackContentDigest(existing))
+        === (pack.contentDigest ?? storedPackContentDigest(pack));
+      if (!sameContent || existing.sourceKind !== pack.sourceKind || existing.editingMode !== pack.editingMode) {
+        this.savePack({ ...pack, importedAt: existing.importedAt });
+      }
+    }
+
+    const newNormalByModName = new Map<string, StoredPack[]>();
+    for (const pack of discovered) {
+      if (previousIds.has(pack.id) || packEditingMode(pack) === 'editing') continue;
+      const group = newNormalByModName.get(pack.manifest.modName) ?? [];
+      group.push(pack);
+      newNormalByModName.set(pack.manifest.modName, group);
+    }
+    for (const [modName, packs] of newNormalByModName) {
+      if (packs.length !== 1) continue;
+      const pack = packs[0];
+      const alreadyEnabled = this.order.some(id => this.enabledIds.has(id) && this.packs.get(id)?.manifest.modName === modName);
+      if (!alreadyEnabled) this.setEnabled(pack.id, true);
+    }
   }
 
   /** 创建指定身份的空 editing；已有 fixed 时必须改用 cloneAsEditing。 */
@@ -560,11 +592,37 @@ export class PackManager {
   }
 
   /** 保留 task0110 的入口语义：从 fixed 创建同身份 editing。 */
-  createEditingPack(sourceId: string, editingId = `editing:${sourceId}`): { kind: 'created' | 'existing'; pack: StoredPack } {
+  createEditingPack(sourceId: string, editingId = `editing:${sourceId}`, versionId?: string): { kind: 'created' | 'existing'; pack: StoredPack } {
     const source = this.packs.get(sourceId);
     if (!source) throw new PackManagerError(`不存在的数据包：${sourceId}`, 'source-not-found');
     if (packSlotKind(source) !== 'fixed') throw new PackManagerError('只有普通态数据包可以作为同身份编辑态的创建入口。');
+    if (versionId !== undefined) {
+      const nextVersion = versionId.trim();
+      if (!nextVersion || /\s/.test(nextVersion)) throw new PackManagerError('新 Version 不能为空且不能包含空白字符。');
+      if (nextVersion === source.manifest.version) throw new PackManagerError('创建编辑态时必须使用不同于来源的新 Version。');
+      return this.cloneAsEditing(sourceId, { modId: source.manifest.modName, versionId: nextVersion });
+    }
     return this.cloneAsEditing(sourceId, editingId);
+  }
+
+  convertEditingPackToNormal(sourceId: string): StoredPack {
+    const source = this.packs.get(sourceId);
+    if (!source) throw new PackManagerError(`不存在的数据包：${sourceId}`, 'source-not-found');
+    if (packSlotKind(source) !== 'editing') throw new PackManagerError('只有编辑态数据包可以转换为普通态。');
+    const id = `normal-copy:${source.id}`;
+    const converted = normalizeStoredPack({
+      ...source,
+      id,
+      packRecordId: id,
+      sourceKind: 'editing',
+      sourcePath: undefined,
+      sourcePackRecordId: undefined,
+      sourceDigest: undefined,
+      importedAt: Date.now(),
+      editingMode: 'normal',
+    });
+    this.importPack(converted);
+    return converted;
   }
 
   /** 导出快照始终抹平本地 editing 标记，重新导入时会进入 fixed 槽位。 */
@@ -589,7 +647,9 @@ export class PackManager {
   }
 
   removePack(id: string): void {
-    if (this.packs.get(id)?.sourceKind === 'builtin') throw new PackManagerError('内置数据包不可删除：' + id);
+    const pack = this.packs.get(id);
+    if (pack?.sourceKind === 'bundle' || pack?.sourceKind === 'builtin') throw new PackManagerError('发布基础包不可从包库移除：' + id);
+    if (pack?.manifest.modName === 'base' && this.enabledIds.has(id)) throw new PackManagerError('当前启用的 base 数据包不能删除；请先交换到另一个 base。');
     this.packs.delete(id);
     this.enabledIds.delete(id);
     this.order = this.order.filter(packId => packId !== id);
@@ -606,8 +666,6 @@ export class PackManager {
 
   setEnabled(id: string, enabled: boolean): void {
     if (!this.packs.has(id)) throw new PackManagerError('不存在的数据包：' + id);
-    if (!enabled && this.packs.get(id)?.sourceKind === 'builtin') throw new PackManagerError('内置数据包不可停用：' + id);
-    if (enabled && packEditingMode(this.packs.get(id)!) === 'editing') throw new PackManagerError('编辑态数据包不能直接加入启用集，请通过编辑器 Apply。', 'modid-runtime-conflict');
     if (enabled) {
       this.enabledIds.add(id);
       try { this.validateEnabledSet(); }
@@ -618,6 +676,11 @@ export class PackManager {
       this.persist();
     } else {
       this.enabledIds.delete(id);
+      try { this.validateEnabledSet(); }
+      catch (error) {
+        this.enabledIds.add(id);
+        throw error;
+      }
       this.persist();
     }
   }
@@ -663,14 +726,18 @@ export class PackManager {
    */
   findInvalidOptionalPackIds(validate: (datapacks: readonly Datapack[]) => void): readonly string[] {
     const enabledIds = new Set(this.enabledIds);
-    const optionalIds = this.order.filter(id => enabledIds.has(id) && this.packs.get(id)?.sourceKind !== 'builtin');
+    const optionalIds = this.order.filter(id => enabledIds.has(id)
+      && this.packs.get(id)?.sourceKind !== 'builtin'
+      && this.packs.get(id)?.sourceKind !== 'bundle'
+      && this.packs.get(id)?.manifest.modName !== 'base');
     const invalid = new Set<string>();
 
     for (const id of optionalIds) {
       const closure = this.dependencyClosure(id, enabledIds);
       const candidateEnabled = new Set<string>();
+      const activeBaseId = [...enabledIds].find(candidateId => this.packs.get(candidateId)?.manifest.modName === 'base');
       for (const candidateId of this.order) {
-        if (this.packs.get(candidateId)?.sourceKind === 'builtin' || closure.has(candidateId)) {
+        if (candidateId === activeBaseId || closure.has(candidateId)) {
           candidateEnabled.add(candidateId);
         }
       }
@@ -684,7 +751,9 @@ export class PackManager {
         validate(this.datapacksFor(draft));
       } catch {
         for (const candidateId of closure) {
-          if (this.packs.get(candidateId)?.sourceKind !== 'builtin') invalid.add(candidateId);
+          if (this.packs.get(candidateId)?.manifest.modName !== 'base'
+            && this.packs.get(candidateId)?.sourceKind !== 'builtin'
+            && this.packs.get(candidateId)?.sourceKind !== 'bundle') invalid.add(candidateId);
         }
       }
     }
@@ -695,7 +764,11 @@ export class PackManager {
   /** 停用可选包但保留包库记录，方便用户更新或重新启用。 */
   disableOptionalPacks(ids: readonly string[]): readonly string[] {
     const requested = new Set(ids);
-    const disabled = this.order.filter(id => requested.has(id) && this.enabledIds.has(id) && this.packs.get(id)?.sourceKind !== 'builtin');
+    const disabled = this.order.filter(id => requested.has(id)
+      && this.enabledIds.has(id)
+      && this.packs.get(id)?.sourceKind !== 'builtin'
+      && this.packs.get(id)?.sourceKind !== 'bundle'
+      && this.packs.get(id)?.manifest.modName !== 'base');
     if (disabled.length === 0) return [];
     for (const id of disabled) this.enabledIds.delete(id);
     this.persist();
@@ -782,10 +855,16 @@ export class PackManager {
       if (!this.enabledIds.has(id)) continue;
       const pack = this.packs.get(id)!;
       const previous = byModName.get(pack.manifest.modName);
-      if (packEditingMode(pack) === 'editing') throw new PackManagerError('编辑态数据包不能直接进入启用集：' + id + '。', 'modid-runtime-conflict');
       if (previous) throw new PackManagerError('启用集存在 modName 冲突：' + pack.manifest.modName + '（' + previous + ' 与 ' + id + '）。', 'modid-runtime-conflict');
       byModName.set(pack.manifest.modName, id);
     }
+    if (this.hasBasePack() && !byModName.has('base')) {
+      throw new PackManagerError('启用集必须保留一个 base 数据包；请先选择替代基础包。');
+    }
+  }
+
+  private hasBasePack(): boolean {
+    return [...this.packs.values()].some(pack => pack.manifest.modName === 'base');
   }
 
   private persist(): void {

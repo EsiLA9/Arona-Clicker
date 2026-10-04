@@ -1,7 +1,8 @@
 import type { UIContext } from '../context';
-import type { PackCatalogReadModel } from '../../arona-clicker/contracts';
+import type { PackCatalogEntry, PackCatalogReadModel } from '../../arona-clicker/contracts';
 import type { AchievementViewItem } from '../../arona-clicker/read-model/achievement-view';
 import type { PanelState } from './app-shell';
+import { packEntryColorStyle } from './pack-entry-color';
 import {
   buildDatapackWorkspaceView,
   dependencyState,
@@ -18,6 +19,7 @@ export type ServiceWorkspaceId = 'datapack' | 'saves' | 'records';
 type ServiceColumn = 'navigation' | 'main' | 'inspector';
 
 function hostId(service: ServiceWorkspaceId, column: ServiceColumn): string {
+  if (service === 'datapack' && column === 'navigation') return 'leftPanel.service.datapack.workspace';
   const root = column === 'navigation' ? 'leftPanel' : column === 'main' ? 'centerPanel' : 'rightPanel';
   return `${root}.service.${service}.${column}`;
 }
@@ -36,13 +38,16 @@ const SECTION_LABELS: Record<DatapackWorkspaceSection, string> = {
 
 function renderNavigation(service: ServiceWorkspaceId, state: PanelState, view?: DatapackWorkspaceView): string {
   const items = service === 'datapack'
-    ? (view?.sections ?? []).map(section => ({ id: section.id, label: SECTION_LABELS[section.id], count: section.count }))
+    ? [
+        { id: 'classic', label: '经典数据包', count: view?.entries.filter(entry => !entry.sourcePath).length ?? 0 },
+        { id: 'development', label: '开发目录', count: view?.entries.filter(entry => Boolean(entry.sourcePath)).length ?? 0 },
+      ]
     : service === 'saves'
       ? ['当前进度', '本地存档', '自动保存', '导入 / 导出', '存档检查'].map((label, index) => ({ id: String(index), label, count: null }))
       : ['图鉴总览', '故事', '学生', '设施与物品', '统计总览', '标签', '数据包贡献'].map((label, index) => ({ id: String(index), label, count: null }));
   return items.map((item, index) => {
-    const active = service === 'datapack' ? state.datapackWorkspace?.section === item.id : index === 0;
-    const action = service === 'datapack' ? `data-datapack-section="${item.id}"` : '';
+    const active = service === 'datapack' ? state.datapackWorkspace?.mode === item.id : index === 0;
+    const action = service === 'datapack' ? `data-datapack-mode="${item.id}"` : '';
     const count = item.count === null ? '' : `<small class="service-nav-count">${item.count}</small>`;
     return `<button class="nav-item service-nav-item ${active ? 'active' : ''}" type="button" ${action} aria-current="${active ? 'page' : 'false'}"><span class="nav-marker"></span><span>${escape(item.label)}</span>${count}<small>${active ? '当前' : '查看'}</small></button>`;
   }).join('');
@@ -86,17 +91,55 @@ function renderPackEntry(pack: NonNullable<DatapackWorkspaceView['selection']>, 
   return `<article class="pack-entry ${selected ? 'is-selected' : ''} ${draftChanged ? 'is-draft-changed' : ''} ${invalid ? 'is-invalid' : ''}" data-pack-id="${escape(pack.id)}">
     <button type="button" class="pack-entry-select" data-pack-select="${escape(pack.id)}" aria-pressed="${selected ? 'true' : 'false'}">
       <span class="pack-entry-main"><strong>${escape(pack.name)}</strong><span>${escape(pack.modName)} · v${escape(pack.version)}</span></span>
-    <span class="pack-entry-meta">${pack.author ? `作者：${escape(pack.author)} · ` : ''}${editingMode ? '编辑态数据包' : capabilities.required ? '核心包 · 始终启用' : pack.sourceKind === 'builtin' ? '内置数据包' : escape(pack.sourceKind)} · ${dependencyText}</span>
+    <span class="pack-entry-meta">${pack.author ? `作者：${escape(pack.author)} · ` : ''}${editingMode ? '编辑态数据包' : capabilities.required ? 'base 基础包' : pack.sourceKind === 'builtin' || pack.sourceKind === 'bundle' ? '发布包' : escape(pack.sourceKind)} · ${dependencyText}</span>
     </button>
     <div class="pack-entry-status"><span class="pack-state ${formalEnabled ? 'enabled' : 'disabled'}">${formalEnabled ? '正式启用' : '未启用'}</span>${draftChanged ? `<span class="pack-state draft">草案${draftEnabled ? '启用' : '停用'}</span>` : ''}${invalid ? '<span class="pack-state invalid">校验未通过</span>' : ''}</div>
     <div class="pack-entry-actions">
-      ${editingMode ? '<span class="pack-fixed-state">编辑态可编辑</span>' : capabilities.enableable ? `<button class="toolbar-button" data-pack-draft-toggle="${escape(pack.id)}">${draftEnabled ? '移出启用集' : '加入启用集'}</button>` : '<span class="pack-fixed-state">始终启用</span>'}
+      ${editingMode ? '<span class="pack-fixed-state">编辑态可编辑</span>' : capabilities.enableable ? `<button class="toolbar-button" data-pack-draft-toggle="${escape(pack.id)}">${draftEnabled ? '移出启用集' : '加入启用集'}</button>` : capabilities.required ? '<span class="pack-fixed-state">base 槽位</span>' : '<span class="pack-fixed-state">不可更改</span>'}
       ${!editingMode ? `<button class="toolbar-button" data-pack-create-editing="${escape(pack.id)}">复制为编辑态</button>` : ''}
       <button class="toolbar-button" data-pack-draft-up="${escape(pack.id)}" title="${upTitle}" ${canMoveUp ? '' : 'disabled'}>上移</button>
       <button class="toolbar-button" data-pack-draft-down="${escape(pack.id)}" title="${downTitle}" ${canMoveDown ? '' : 'disabled'}>下移</button>
       ${removableNow ? `<button class="toolbar-button" data-pack-remove="${escape(pack.id)}" title="从包库移除">移除</button>` : ''}
     </div>
   </article>`;
+}
+
+function renderDatapackListEntry(
+  pack: PackCatalogEntry,
+  state: PanelState,
+  view: DatapackWorkspaceView,
+  allowDrag = true,
+  allowBaseSwapSource = false,
+): string {
+  const selected = state.datapackWorkspace?.selectedPackId === pack.id;
+  const draftEnabled = view.draftEnabledIds.has(pack.id);
+  const editing = pack.editingMode === 'editing';
+  const changed = draftEnabled !== pack.enabled;
+  const source = pack.sourcePath ? `开发目录 · ${pack.sourcePath}` : pack.sourceKind === 'builtin' || pack.sourceKind === 'bundle' ? '应用发布包' : '包库记录';
+  const sourceTone = pack.sourcePath ? 'development' : pack.sourceKind === 'builtin' || pack.sourceKind === 'bundle' ? 'release' : 'record';
+  const baseSwapSource = allowBaseSwapSource && !draftEnabled && pack.modName === 'base';
+  const draggable = allowDrag && (pack.capabilities?.reorderable !== false || baseSwapSource);
+  const dragTitle = baseSwapSource && pack.capabilities?.reorderable === false
+    ? '拖动到启用中的 base 记录以交换'
+    : '拖动以更改状态或顺序';
+  return `<article class="pack-entry pack-entry--draggable ${selected ? 'is-selected' : ''} ${changed ? 'is-draft-changed' : ''}" data-pack-id="${escape(pack.id)}" draggable="${draggable ? 'true' : 'false'}" style="${packEntryColorStyle(pack.modName, pack.color)}">
+    <button type="button" class="pack-entry-select" data-pack-select="${escape(pack.id)}" aria-pressed="${selected ? 'true' : 'false'}">
+      <span class="pack-entry-main"><strong>${escape(pack.name)}</strong><span>${escape(pack.modName)} · v${escape(pack.version)}</span></span>
+      <span class="pack-entry-meta"><span class="pack-entry-meta__pills"><span class="pack-entry-pill pack-entry-pill--source pack-entry-pill--${sourceTone}">${escape(source)}</span><span class="pack-entry-pill pack-entry-pill--mode pack-entry-pill--${editing ? 'editing' : 'normal'}">${editing ? '编辑态' : '普通态'}</span></span>${pack.author ? `<span class="pack-entry-author">${escape(pack.author)}</span>` : ''}</span>
+    </button>
+    ${allowDrag ? `<span class="pack-drag-handle" aria-hidden="true" title="${dragTitle}">⠿</span>` : ''}
+  </article>`;
+}
+
+function renderPackColumn(
+  title: string,
+  enabled: boolean,
+  entries: readonly PackCatalogEntry[],
+  state: PanelState,
+  view: DatapackWorkspaceView,
+): string {
+  const rows = entries.map(entry => renderDatapackListEntry(entry, state, view, true, !enabled)).join('');
+  return `<section class="pack-drag-column ${enabled ? 'is-enabled' : 'is-disabled'}" data-pack-dropzone="${enabled ? 'enabled' : 'disabled'}"><div class="pack-drag-column__heading"><strong>${title}</strong><span class="index">${entries.length}</span></div><div class="pack-drag-list" data-pack-list="${enabled ? 'enabled' : 'disabled'}" aria-label="${title}">${rows || `<div class="service-empty"><strong>${enabled ? '当前没有启用的数据包' : '未启用列表为空'}</strong></div>`}</div></section>`;
 }
 
 function renderPackPane(
@@ -150,7 +193,7 @@ function renderPackPane(
   };
   const fixedActions = pane.fixed
     ? packCapabilities(pane.fixed).required
-      ? '<span class="pack-fixed-state">始终启用</span>'
+      ? `<span class="pack-fixed-state">${pane.fixed.enabled ? 'base 当前已选' : 'base 回退候选'}</span>`
       : `<button class="toolbar-button" data-pack-draft-toggle="${escape(pane.fixed.id)}">${view.draftEnabledIds.has(pane.fixed.id) ? '移出启用集' : '加入启用集'}</button>`
     : '';
   return `<section class="pack-pane${selected ? ' is-selected' : ''}${invalid ? ' is-invalid' : ''}" data-pack-pane="${escape(pane.paneKey)}"><div class="pack-pane-heading"><div class="pack-pane-identity"><strong>${escape(pane.modName)} · v${escape(pane.version)}</strong></div><div class="pack-pane-reorder"><button class="toolbar-button" data-pack-draft-pane-up="${escape(pane.paneKey)}" title="${upTitle}" ${move.canMoveUp ? '' : 'disabled'}>上移</button><button class="toolbar-button" data-pack-draft-pane-down="${escape(pane.paneKey)}" title="${downTitle}" ${move.canMoveDown ? '' : 'disabled'}>下移</button></div></div><div class="pack-pane-state-row"><div class="pack-pane-selection" aria-label="选择数据包状态">${slotButton('fixed', pane.fixed)}${slotButton('editing', pane.editing)}${fixedActions}</div></div></section>`;
@@ -158,9 +201,9 @@ function renderPackPane(
 
 function renderDatapackInspector(ctx: UIContext, state: PanelState, view: DatapackWorkspaceView, dependencyStatus: Map<string, string>): string {
   const selected = view.selection;
-  if (!selected) return '<section class="service-card service-empty"><strong>选择数据包查看详情</strong></section>';
+  if (!selected) return `<section class="service-card service-empty"><strong>选择一条数据包记录</strong><p>从普通态记录创建编辑态副本时，需要填写不同的 Version。</p></section>`;
   const capabilities = packCapabilities(selected);
-  const formalEnabled = selected.enabled;
+  const formalEnabled = view.draftEnabledIds.has(selected.id);
   const dependencyRows = selected.dependencies.map(dependency => {
     const formal = dependencyStatus.get(`${selected.id}:${dependency}`);
     const formalText = !formalEnabled
@@ -176,62 +219,68 @@ function renderDatapackInspector(ctx: UIContext, state: PanelState, view: Datapa
     ? `<ul class="service-issue-list pack-validation-errors">${issues.map(issue => `<li>${escape(issue.detail)}</li>`).join('')}</ul>`
     : '';
   const editing = selected.editingMode === 'editing';
-  const stateLabel = editing ? '编辑态' : formalEnabled ? '正式启用' : '未启用';
+  const stateLabel = editing ? formalEnabled ? '启用中 · 编辑态' : '编辑态' : formalEnabled ? '启用中' : '未启用';
+  const sameModName = view.entries.filter(entry => entry.modName === selected.modName && entry.id !== selected.id);
+  const activeConflicts = view.entries.filter(entry => entry.id !== selected.id
+    && entry.modName === selected.modName && view.draftEnabledIds.has(entry.id));
+  const sourceLabel = selected.sourceKind === 'bundle'
+    ? '应用发布包'
+    : selected.sourcePath
+      ? `${selected.sourceKind} · 固定开发目录`
+      : selected.sourceKind === 'builtin' ? '旧版内置来源' : `${selected.sourceKind} · 包库记录`;
   const enablementText = editing
-    ? '编辑态不直接加入启用集；请在列表中选择编辑态，再次点击进入编辑模式。'
-    : capabilities.required ? '核心包，始终启用'
-      : view.draftEnabledIds.has(selected.id) ? '草案：启用' : '草案：未启用';
-  return `<section class="service-card"><div class="panel-heading"><h3>${escape(selected.name)}</h3><span class="index">${stateLabel}</span></div><dl class="pack-detail-list"><div><dt>modName</dt><dd>${escape(selected.modName)}</dd></div><div><dt>版本</dt><dd>${escape(selected.version)}</dd></div><div><dt>状态</dt><dd>${editing ? '可编辑副本' : '普通态数据包'}</dd></div><div><dt>来源</dt><dd>${capabilities.required ? '核心内置数据包' : selected.sourceKind === 'builtin' ? '内置数据包' : escape(selected.sourceKind)}</dd></div><div><dt>导入时间</dt><dd>${ctx.formatTime(selected.importedAt)}</dd></div></dl><h4>依赖</h4>${dependencyRows.length ? `<ul class="service-dependency-list">${dependencyRows.join('')}</ul>` : '<p class="service-ok">无依赖</p>'}${issueList}<h4>启用集</h4><p>${enablementText}</p>${editing ? '' : `<div class="service-actions"><button class="toolbar-button" data-pack-create-editing="${escape(selected.id)}">复制为编辑态</button></div>`}</section>`;
+    ? formalEnabled ? '此编辑态数据包正在 Runtime 中运行，可继续用 RuntimeEditor 修改。' : '启用后会进入 Runtime 序列，也可继续用 RuntimeEditor 修改。'
+      : capabilities.required ? formalEnabled ? '当前占用必需的 base 槽位；可通过同名交换替换。' : '这是可供回退或交换的 base 候选。'
+      : formalEnabled ? '此记录处于启用草案中。' : '此记录当前未启用。';
+  const relatedRows = sameModName.length
+    ? `<ul class="pack-related-records">${sameModName.map(entry => `<li><span>${escape(entry.name)} · v${escape(entry.version)} · ${entry.editingMode === 'editing' ? '编辑态' : '普通态'}</span><small>${view.draftEnabledIds.has(entry.id) ? '启用中' : '未启用'}${entry.id === activeConflicts[0]?.id ? ' · 冲突项' : ''}</small></li>`).join('')}</ul>`
+    : '<p class="service-ok">包库中没有其他同 ModName 记录。</p>';
+  const actions = [
+    capabilities.enableable ? `<button class="toolbar-button" data-pack-enabled-toggle="${escape(selected.id)}">${formalEnabled ? '移出启用集' : '加入启用集'}</button>` : '',
+    !editing ? `<button class="toolbar-button" data-pack-create-editing="${escape(selected.id)}">复制为新编辑态</button>` : '',
+    editing ? `<button class="toolbar-button" data-pack-convert-normal="${escape(selected.id)}">复制为普通态</button>` : '',
+    editing ? `<button class="toolbar-button" data-pack-open-editing="${escape(selected.id)}">打开编辑器</button>` : '',
+    !capabilities.required && capabilities.removable && !formalEnabled ? `<button class="toolbar-button" data-pack-remove="${escape(selected.id)}">从包库移除</button>` : '',
+  ].filter(Boolean).join('');
+  const sourceNote = selected.sourcePath
+    ? '<p class="pack-source-note">来源文件由开发目录管理。移除包库记录不会删除文件；下次启动会重新发现。</p>'
+    : '';
+  return `<section class="service-card pack-inspector-card"><div class="panel-heading"><h3>${escape(selected.name)}</h3><span class="index">${stateLabel}</span></div><dl class="pack-detail-list"><div><dt>modName</dt><dd>${escape(selected.modName)}</dd></div><div><dt>版本</dt><dd>${escape(selected.version)}</dd></div><div><dt>状态</dt><dd>${editing ? '编辑态记录' : '普通态记录'}</dd></div><div><dt>来源</dt><dd>${escape(sourceLabel)}</dd></div>${selected.sourcePath ? `<div><dt>来源路径</dt><dd>${escape(selected.sourcePath)}</dd></div>` : ''}<div><dt>导入时间</dt><dd>${ctx.formatTime(selected.importedAt)}</dd></div></dl><h4>ModName 记录</h4>${relatedRows}${activeConflicts.length ? `<p class="pack-conflict-note">ModName ${escape(selected.modName)} 已由其他启用记录占用；应用前需要解决冲突。</p>` : ''}<h4>依赖</h4>${dependencyRows.length ? `<ul class="service-dependency-list">${dependencyRows.join('')}</ul>` : '<p class="service-ok">无依赖</p>'}${issueList}<h4>启用状态</h4><p>${enablementText}</p>${sourceNote}${actions ? `<div class="service-actions pack-inspector-actions">${actions}</div>` : ''}</section>`;
 }
 
 function renderDatapackMain(ctx: UIContext, state: PanelState, catalog: ReturnType<NonNullable<PackCatalogReadModel['getPackCatalog']>> | undefined, view: DatapackWorkspaceView): string {
   const workspace = state.datapackWorkspace;
-  const section = view.section;
   const entries = view.entries;
-  const filtered = view.filteredEntries;
   const changed = view.changed;
-  if (section === 'import') return `<div class="service-heading"><h2>导入数据包</h2></div><section class="service-card import-guide"><button class="primary-button" id="import-datapack">选择 ZIP 文件</button></section>`;
-  const orderedPanes = catalog?.panes
-    ? [...catalog.panes].sort((left, right) => {
-      const firstIndex = (pane: typeof left): number => Math.min(
-        ...[pane.fixed, pane.editing]
-          .filter((entry): entry is NonNullable<typeof pane.fixed> => Boolean(entry))
-          .map(entry => view.orderedEntries.findIndex(item => item.id === entry.id))
-          .filter(index => index >= 0),
-        Number.MAX_SAFE_INTEGER,
-      );
-      return firstIndex(left) - firstIndex(right);
-    })
-    : [];
-  const visibleIds = new Set(filtered.map(entry => entry.id));
-  const visiblePanes = orderedPanes.filter(pane => [pane.fixed, pane.editing].some(entry => Boolean(entry && visibleIds.has(entry.id))));
-  const paneBody = catalog?.panes?.length
-    ? visiblePanes.map(pane => renderPackPane(pane, state, view, section === 'all')).join('')
-    : filtered.map(pack => renderPackEntry(pack, state, view, section === 'all')).join('');
-  const createEmptyEditingAction = section === 'all'
-    ? '<div class="pack-catalog-create"><button class="toolbar-button" data-pack-create-empty-editing>创建新编辑态数据包</button></div>'
-    : '';
+  const mode = workspace?.mode ?? 'classic';
+  const classicEntries = view.orderedEntries;
+  const developmentEntries = view.orderedEntries.filter(entry => Boolean(entry.sourcePath));
+  const modeEntries = mode === 'development' ? developmentEntries : classicEntries;
+  const enabledEntries = modeEntries.filter(entry => view.draftEnabledIds.has(entry.id));
+  const disabledEntries = modeEntries.filter(entry => !view.draftEnabledIds.has(entry.id));
   const body = catalog
-    ? paneBody
-      ? `<div class="pack-catalog">${paneBody}${createEmptyEditingAction}</div>`
-      : `<div class="service-empty"><strong>没有匹配的数据包</strong></div>${createEmptyEditingAction}`
+    ? mode === 'classic'
+      ? `<div class="pack-dragger" data-pack-dragger>${renderPackColumn('未启用', false, disabledEntries, state, view)}${renderPackColumn('启用中', true, enabledEntries, state, view)}</div>`
+      : `${renderDevelopmentSourceIssues(ctx)}<div class="pack-source-list">${modeEntries.map(entry => renderDatapackListEntry(entry, state, view, false)).join('') || '<div class="service-empty"><strong>开发目录中没有可加载的数据包</strong><p>在 datapack-dev/ 中放置 ZIP 或符合命名规则的展开目录。</p></div>'}</div>`
     : '<div class="service-empty"><strong>包库服务不可用</strong></div>';
-  const runtimeSelectionPending = Boolean(catalog?.panes?.some(pane => {
-    const target = pane.selectedSlot === 'fixed' ? pane.fixed : pane.editing;
-    return Boolean(target && pane.runtimePackRecordId !== target.packRecordId);
-  }));
   const result = workspace?.lastResult ? `<div class="service-result ${workspace.lastResult.ok ? 'success' : 'error'}">${escape(workspace.lastResult.message)}</div>` : '';
   const validation = workspace?.validation && !workspace.validation.ok
     ? `<ul class="service-issue-list pack-validation-errors">${workspace.validation.errors.map(error => `<li>${escape(error)}</li>`).join('')}</ul>`
     : workspace?.validation?.warnings.length
       ? `<ul class="service-warning-list">${workspace.validation.warnings.map(warning => `<li>${escape(warning)}</li>`).join('')}</ul>`
       : '';
-  const reorderHint = section === 'all' ? '' : '<span class="service-draft-status">加载顺序只能在「全部数据包」中调整</span>';
   return `
-    <div class="service-heading"><h2>${sectionTitle(section)}</h2><span class="service-status">${view.draftEnabledIds.size} 启用 · ${entries.length} 已导入</span></div>
-    <div class="service-actions"><button class="primary-button" id="import-datapack">导入数据包</button><button class="primary-button" data-pack-selection-apply>应用到 Runtime</button>${changed ? '<span class="service-draft-status">启用集草案未应用</span>' : runtimeSelectionPending ? '<span class="service-draft-status">Runtime 来源待 Apply</span>' : '<span class="service-draft-status">Runtime 来源已同步</span>'}${reorderHint}</div>
-    ${result}<section class="service-card service-pack-list"><div class="panel-heading"><h3>${section === 'all' ? '全部数据包' : sectionTitle(section)}</h3><span class="index">${catalog?.panes?.length ? visiblePanes.length : filtered.length} 个 Pane</span></div>${body}</section>
-    <section class="service-card pack-draft-actions"><div class="panel-heading"><div><h3>启用集与加载顺序</h3><p>只调整普通态数据包的启用状态与加载顺序；编辑态槽位请使用上方“应用到 Runtime”。</p></div><span class="index">${changed ? '待校验' : '已应用'}</span></div>${validation}<div class="service-actions"><button class="toolbar-button" data-pack-discard ${changed ? '' : 'disabled'}>放弃草案</button><button class="toolbar-button" data-pack-validate ${changed ? '' : 'disabled'}>校验启用集</button><button class="primary-button" data-pack-apply ${changed ? '' : 'disabled'}>应用启用集草案</button></div></section>`;
+    <div class="service-heading"><h2>${mode === 'classic' ? '经典数据包' : '固定开发目录'}</h2><span class="service-status">${enabledEntries.length} 启用 · ${modeEntries.length} 条记录</span></div>
+    ${result}<section class="service-card service-pack-list"><div class="panel-heading"><h3>${mode === 'classic' ? '拖动记录以调整状态或顺序' : '固定目录来源 · 可在经典列表管理状态'}</h3><span class="index">${disabledEntries.length} 未启用 · ${enabledEntries.length} 启用中</span></div>${body}</section>
+    <section class="service-card pack-draft-actions">${validation}<div class="service-actions">${mode === 'classic' ? '<button class="primary-button" id="import-datapack">导入 ZIP</button>' : ''}<button class="toolbar-button" data-pack-discard ${changed ? '' : 'disabled'}>放弃草案</button><button class="primary-button" data-pack-apply ${changed ? '' : 'disabled'}>应用到 Runtime</button></div></section>`;
+}
+
+function renderDevelopmentSourceIssues(ctx: UIContext): string {
+  const issues = ctx.game.getDevLogs()
+    .filter(entry => entry.source === 'datapack' && entry.message.startsWith('[Development Datapack]'))
+    .slice(0, 12);
+  if (issues.length === 0) return '';
+  return `<section class="service-card pack-source-issues"><div class="panel-heading"><h3>未能加载的数据源</h3><span class="index">${issues.length}</span></div><ul class="service-issue-list">${issues.map(issue => `<li>${escape(issue.message)}</li>`).join('')}</ul></section>`;
 }
 
 function renderSavesMain(ctx: UIContext): string {
@@ -294,7 +343,7 @@ export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspace
   const datapackView = service === 'datapack'
     ? buildDatapackWorkspaceView({
       entries: catalog?.entries ?? [],
-      section: state.datapackWorkspace?.section ?? 'all',
+      section: 'all',
       draftOrder: state.datapackWorkspace?.draftOrder,
       draftEnabledIds: state.datapackWorkspace?.draftEnabledIds,
       selectedPackId: state.datapackWorkspace?.selectedPackId,
@@ -303,15 +352,18 @@ export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspace
     : undefined;
   const main = service === 'datapack' ? renderDatapackMain(ctx, state, catalog, datapackView!) : service === 'saves' ? renderSavesMain(ctx) : renderRecordsMain(ctx);
   const navigation = `<div class="service-column-title"><strong>${serviceTitle(service)}</strong></div>${renderNavigation(service, state, datapackView)}`;
+  const datapackWorkspace = service === 'datapack'
+    ? `<div class="datapack-workspace__sections">${navigation}</div><div class="datapack-workspace__catalog">${main}</div>`
+    : navigation;
   const dependencyStatus = new Map((catalog?.dependencies ?? []).map(hint => [`${hint.packId}:${hint.dependency}`, hint.status]));
   const inspector = service === 'datapack'
     ? `<div class="service-column-title"><strong>${state.datapackWorkspace?.selectedPackId ? '数据包详情' : '当前选择'}</strong></div>${renderDatapackInspector(ctx, state, datapackView!, dependencyStatus)}`
     : `<div class="service-column-title"><span class="eyebrow">INSPECTOR</span><strong>当前选择</strong></div><section class="service-card"><h3>${service === 'saves' ? '安全提示' : '只读记录'}</h3><p>${service === 'saves' ? '读取、新游戏和删除等操作会影响进度，确认前必须查看覆盖范围。' : '图鉴与统计展示来源、范围和状态，不直接修改 PlayerState。'}</p></section><section class="service-card"><h3>下一步</h3><p>选择左侧分类或使用中部主要操作。操作结果会保留在当前页面并通过通知反馈。</p></section>`;
   return renderWorkspaceFrame(ctx, {
     id: `service-${service}`,
-    layout: { responsive: 'two-column' },
-    left: { slot: 'left', workspaceOwner: service, hostId: hostId(service, 'navigation'), themeScope: `left.${service}.navigation`, surface: 'panel', className: 'service-column service-navigation', content: navigation },
-    center: { slot: 'center', workspaceOwner: service, hostId: hostId(service, 'main'), themeScope: `center.${service}.main`, surface: 'panel', className: 'service-column service-main', content: main, scroll: 'content' },
+    layout: { responsive: 'two-column', composition: service === 'datapack' ? 'left-center' : 'columns' },
+    left: { slot: 'left', workspaceOwner: service, hostId: hostId(service, 'navigation'), themeScope: `left.${service}.navigation`, surface: 'panel', className: service === 'datapack' ? 'service-column datapack-workspace' : 'service-column service-navigation', content: datapackWorkspace, scroll: service === 'datapack' ? 'content' : 'auto' },
+    center: { slot: 'center', workspaceOwner: service, hostId: hostId(service, 'main'), themeScope: `center.${service}.main`, surface: 'panel', className: 'service-column service-main', content: service === 'datapack' ? '' : main, scroll: 'content' },
     right: { slot: 'right', workspaceOwner: service, hostId: hostId(service, 'inspector'), themeScope: `right.${service}.inspector`, surface: 'panel', className: 'service-column service-inspector', content: inspector },
   });
 }

@@ -3,6 +3,7 @@ import type { PackCatalogEntry, RuntimeModDraft } from '../../src/arona-clicker/
 import {
   createDatapackWorkspaceState,
   hasDatapackWorkspaceChanges,
+  moveDatapackDraftToColumn,
   moveDatapackDraft,
   moveDatapackPaneDraft,
   resetDatapackWorkspaceState,
@@ -10,6 +11,8 @@ import {
   setDatapackValidation,
   synchronizeDatapackWorkspaceState,
   toggleDatapackDraftEnabled,
+  setDatapackWorkspaceMode,
+  swapDatapackDraftIntoEnabledSequence,
 } from '../../src/ui/workspace/datapack-workspace-state';
 import {
   clearRuntimeEditorSpot,
@@ -49,7 +52,7 @@ const spot = {
 describe('Datapack Workspace 状态边界', () => {
   it('从正式配置创建独立草案，并保留首选可操作包', () => {
     const entries = [
-      entry('core', { sourceKind: 'builtin', enabled: true }),
+      entry('core', { modName: 'base', sourceKind: 'bundle', enabled: true }),
       entry('demo', { enabled: false }),
     ];
     const state = createDatapackWorkspaceState(entries, { enabledIds: ['core'], order: ['core', 'demo'] });
@@ -60,6 +63,14 @@ describe('Datapack Workspace 状态边界', () => {
     expect(state.validation).toBeNull();
     expect(state.lastResult).toBeNull();
     expect(hasDatapackWorkspaceChanges(state, { enabledIds: ['core'], order: ['core', 'demo'] })).toBe(false);
+  });
+
+  it('模式切换保存在工作区状态，草案重置时保留当前模式', () => {
+    const entries = [entry('core', { sourceKind: 'builtin' }), entry('demo')];
+    const state = createDatapackWorkspaceState(entries);
+    setDatapackWorkspaceMode(state, 'development');
+    const reset = resetDatapackWorkspaceState(entries, undefined, state);
+    expect(reset.mode).toBe('development');
   });
 
   it('同步包库变化时只清理未知草案项，并追加新包', () => {
@@ -108,6 +119,72 @@ describe('Datapack Workspace 状态边界', () => {
     expect(state.draftOrder).toEqual(['core', 'b', 'a']);
     expect(state.validation).toBeNull();
     expect(state.lastResult).toBeNull();
+  });
+
+  it('跨启用列表拖移时更新启用状态与序列顺序，并阻止 ModName 冲突', () => {
+    const entries = [
+      entry('core', { modName: 'base', sourceKind: 'builtin', enabled: true, capabilities: { required: true, removable: false, reorderable: false, enableable: false } }),
+      entry('same-active', { modName: 'same', enabled: true }),
+      entry('candidate', { modName: 'same' }),
+      entry('other', { modName: 'other' }),
+    ];
+    const state = createDatapackWorkspaceState(entries, { enabledIds: ['core', 'same-active'], order: ['core', 'same-active', 'candidate', 'other'] });
+    expect(moveDatapackDraftToColumn(state, entries, 'candidate', true, 1)).toBe('blocked');
+    expect(moveDatapackDraftToColumn(state, entries, 'other', true, 1)).toBe('moved');
+    expect(state.draftOrder).toEqual(['core', 'other', 'same-active', 'candidate']);
+    expect(state.draftEnabledIds).toEqual(['core', 'same-active', 'other']);
+    expect(moveDatapackDraftToColumn(state, entries, 'same-active', false, 0)).toBe('moved');
+    expect(state.draftEnabledIds).toEqual(['core', 'other']);
+    expect(state.draftOrder).toEqual(['core', 'other', 'same-active', 'candidate']);
+  });
+
+  it('确认交换同名记录时沿用活跃项与拖动项原有位置', () => {
+    const entries = [
+      entry('core', { modName: 'base', sourceKind: 'builtin', enabled: true, capabilities: { required: true, removable: false, reorderable: false, enableable: false } }),
+      entry('first', { modName: 'first', enabled: true }),
+      entry('same-active', { modName: 'same', enabled: true }),
+      entry('candidate', { modName: 'same', editingMode: 'editing' }),
+      entry('other', { modName: 'other' }),
+    ];
+    const state = createDatapackWorkspaceState(entries, {
+      enabledIds: ['core', 'first', 'same-active'],
+      order: ['core', 'first', 'same-active', 'candidate', 'other'],
+    });
+
+    expect(swapDatapackDraftIntoEnabledSequence(state, entries, 'candidate', 'same-active')).toBe('swapped');
+    expect(state.draftEnabledIds).toEqual(['core', 'first', 'candidate']);
+    expect(state.draftOrder).toEqual(['core', 'first', 'candidate', 'same-active', 'other']);
+    expect(swapDatapackDraftIntoEnabledSequence(state, entries, 'candidate', 'same-active')).toBe('blocked');
+  });
+
+  it('base 交换可往返，并保留启用位置与未启用位置', () => {
+    const entries = [
+      entry('base-bundle', { modName: 'base', sourceKind: 'bundle', enabled: true, capabilities: { required: true, removable: false, reorderable: false, enableable: false } }),
+      entry('other-active', { modName: 'other', enabled: true }),
+      entry('base-editing', { modName: 'base', sourceKind: 'editing', editingMode: 'editing', capabilities: { required: true, removable: false, reorderable: true, enableable: true } }),
+    ];
+    const state = createDatapackWorkspaceState(entries, {
+      enabledIds: ['base-bundle', 'other-active'],
+      order: ['base-bundle', 'other-active', 'base-editing'],
+    });
+
+    expect(swapDatapackDraftIntoEnabledSequence(state, entries, 'base-editing', 'base-bundle')).toBe('swapped');
+    expect(state.draftEnabledIds).toEqual(['base-editing', 'other-active']);
+    expect(state.draftOrder).toEqual(['base-editing', 'other-active', 'base-bundle']);
+
+    expect(swapDatapackDraftIntoEnabledSequence(state, entries, 'base-bundle', 'base-editing')).toBe('swapped');
+    expect(state.draftEnabledIds).toEqual(['base-bundle', 'other-active']);
+    expect(state.draftOrder).toEqual(['base-bundle', 'other-active', 'base-editing']);
+  });
+
+  it('无同名冲突时允许编辑态记录进入启用序列', () => {
+    const entries = [
+      entry('core', { modName: 'base', sourceKind: 'builtin', enabled: true, capabilities: { required: true, removable: false, reorderable: false, enableable: false } }),
+      entry('editable', { modName: 'editable', editingMode: 'editing' }),
+    ];
+    const state = createDatapackWorkspaceState(entries, { enabledIds: ['core'], order: ['core', 'editable'] });
+    expect(moveDatapackDraftToColumn(state, entries, 'editable', true, 1)).toBe('moved');
+    expect(state.draftEnabledIds).toEqual(['core', 'editable']);
   });
 
   it('移动 Pane 时将普通态与编辑态作为一个连续块移动', () => {

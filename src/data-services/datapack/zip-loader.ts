@@ -6,7 +6,7 @@ import type { EnhancementDef } from '../contracts/enhancement';
 import type { PassivePoolDef } from '../contracts/passive-pool';
 import type { StoryDef } from '../contracts/story';
 import type { ActiveStoryEntry, PassiveStoryEntry } from '../contracts/story-entry';
-import JSZip from 'jszip';
+import type JSZip from 'jszip';
 import { ZipPackSource } from './source';
 import { FragmentParseError, mergeFragments as mergeParsedFragments, parseFragment as parseDatapackFragment } from './fragment-parser';
 import type {
@@ -84,7 +84,8 @@ export async function loadDatapackFromZip(zip: JSZip): Promise<ZipLoadResult> {
 }
 
 export async function loadDatapackFromZipBuffer(input: ArrayBuffer | Uint8Array | Blob): Promise<ZipLoadResult> {
-  return loadDatapackFromZip(await JSZip.loadAsync(input));
+  const { default: ZipLibrary } = await import('jszip');
+  return loadDatapackFromZip(await ZipLibrary.loadAsync(input));
 }
 
 export async function loadDatapackFromZipFile(file: File | Blob): Promise<ZipLoadResult> {

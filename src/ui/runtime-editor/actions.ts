@@ -6,7 +6,7 @@
 // ============================================================
 
 import { AREA_CONTENT_POLICY, getContentPolicy, SPOT_CONTENT_POLICY, validateAuthoringInput, type ContentAuthoringPolicy, type SpotFunctionalityKind } from '../../data-services/authoring/content-policy';
-import { getRuntimeEditorCodexView, renderRuntimeDefinitionForm, renderRuntimeEditorCodexParts, renderRuntimeEditorLauncher, renderRuntimeEditorPanel, renderRuntimeSpotForm, runtimeEditorInitProblems } from './view';
+import { getRuntimeEditorCodexView, renderRuntimeDefinitionForm, renderRuntimeEditorBrowserDetail, renderRuntimeEditorBrowserEntries, renderRuntimeEditorCodexParts, renderRuntimeEditorLauncher, renderRuntimeEditorPanel, renderRuntimeSpotForm, runtimeEditorInitProblems } from './view';
 import { getSelectedCodexEntry, reduceCodexShellState, type CodexPane, type CodexShellAction } from './codex';
 import type { InspectorTab } from './codex-details';
 import {
@@ -40,6 +40,7 @@ import {
   toRuntimeModDraft,
   updateRuntimeEditorFields,
   type RuntimeEditorFilter,
+  type RuntimeDatapackEditorState,
   type RuntimeEditorContentKind,
   type RuntimeEditorAreaDraft,
   type RuntimeEditorDefinitionDraft,
@@ -83,6 +84,7 @@ import {
   type CollectionPrototype,
 } from './collection-prototypes';
 import type { UIController } from '../controller';
+import { captureFocusWithin, restoreFocusWithin } from '../focus';
 import { downloadBytes } from '../file-download';
 import { createUIContext } from '../context';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../../arona-clicker/contracts';
@@ -118,8 +120,20 @@ const EXIT_EDITING_LAUNCHER_ENTRY: RuntimeEditorLauncherEntry = {
   order: 5,
 };
 
+const switchedRuntimeEditorDrafts = new WeakMap<UIController, Map<string, RuntimeDatapackEditorState>>();
+
+function runtimeEditorDraftCache(ctrl: UIController): Map<string, RuntimeDatapackEditorState> {
+  let drafts = switchedRuntimeEditorDrafts.get(ctrl);
+  if (!drafts) {
+    drafts = new Map();
+    switchedRuntimeEditorDrafts.set(ctrl, drafts);
+  }
+  return drafts;
+}
+
 function closeRuntimeEditingState(ctrl: UIController): void {
   ctrl.runtimeEditorPersistence.clear();
+  switchedRuntimeEditorDrafts.delete(ctrl);
   ctrl.panelState.runtimeDatapackEditor = undefined;
   ctrl.runtimeEditorDraftRestored = false;
   ctrl.runtimeEditorExplicitlyClosed = true;
@@ -159,6 +173,7 @@ export async function downloadRuntimeEditorPack(ctrl: UIController, scope: Paren
     return;
   }
   try {
+    ctrl.toast.show('正在准备数据包导出…', 'info');
     const bytes = await writeRuntimeEditorPack(result.archive);
     downloadBytes(bytes, result.archive.filename, 'application/zip');
     scheduleRuntimeEditorDraft(ctrl);
@@ -236,7 +251,7 @@ function readRuntimeDefinitionExtensions(policy: ContentAuthoringPolicy, scope: 
 function runtimeAuthoringContext(ctrl: UIController) {
   const editor = ctrl.panelState.runtimeDatapackEditor;
   const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel>;
-  const sourceDatapack = editor?.packRecordId ? host.getPackRecord?.(editor.packRecordId)?.datapack : undefined;
+  const sourceRecord = editor?.packRecordId ? host.getPackRecord?.(editor.packRecordId) : null;
   return {
     resourceIds: new Set(ctrl.game.registry.resourceDisplays.keys()),
     itemIds: new Set(ctrl.game.registry.items.keys()),
@@ -244,7 +259,8 @@ function runtimeAuthoringContext(ctrl: UIController) {
     shopIds: new Set(ctrl.game.registry.shops.keys()),
     initIds: new Set(ctrl.game.registry.inits.keys()),
     areaIds: new Set(ctrl.game.registry.areas.keys()),
-    sourceDatapack,
+    sourceDatapack: sourceRecord?.datapack,
+    sourceManifest: sourceRecord?.manifest,
   };
 }
 
@@ -265,6 +281,17 @@ export function openRuntimeEditingPack(ctrl: UIController, packRecordId: string)
     ctrl.toast.show('当前运行时不支持打开编辑态数据包。', 'error');
     return false;
   }
+  const previousEditor = ctrl.panelState.runtimeDatapackEditor;
+  if (previousEditor?.packRecordId === packRecordId) {
+    ctrl.runtimeEditorPanelOpen = true;
+    ctrl.runtimeEditorSurface = 'mod';
+    syncRuntimeEditorPanel(ctrl);
+    return true;
+  }
+  if (previousEditor?.packRecordId) {
+    flushRuntimeEditorDraft(ctrl);
+    runtimeEditorDraftCache(ctrl).set(previousEditor.packRecordId, structuredClone(previousEditor));
+  }
   const opened = host.openEditingPack(packRecordId);
   if (!opened.ok) {
     ctrl.toast.show(opened.message, 'error');
@@ -275,20 +302,23 @@ export function openRuntimeEditingPack(ctrl: UIController, packRecordId: string)
     ctrl.toast.show('编辑态数据包内容读取失败。', 'error');
     return false;
   }
-  flushRuntimeEditorDraft(ctrl);
-  const editor = createRuntimeDatapackEditorState(
-    draft.areas?.[0]?.idName ?? ctrl.game.getView().currentAreaId ?? [...ctrl.game.registry.areas.keys()][0] ?? null,
-    'runtime-editor',
-    packRecordId,
-  );
-  hydrateRuntimeEditor(editor, draft);
+  const cached = runtimeEditorDraftCache(ctrl).get(packRecordId);
+  const editor = cached
+    ? structuredClone(cached)
+    : createRuntimeDatapackEditorState(
+      draft.areas?.[0]?.idName ?? ctrl.game.getView().currentAreaId ?? [...ctrl.game.registry.areas.keys()][0] ?? null,
+      'runtime-editor',
+      packRecordId,
+    );
+  if (cached) runtimeEditorDraftCache(ctrl).delete(packRecordId);
+  else hydrateRuntimeEditor(editor, draft);
   editor.packRecordId = packRecordId;
   ctrl.panelState.runtimeDatapackEditor = editor;
   ctrl.runtimeEditorDraftRestored = false;
   ctrl.runtimeEditorExplicitlyClosed = false;
   ctrl.runtimeEditorPanelOpen = true;
   ctrl.runtimeEditorSurface = 'mod';
-  ctrl.render();
+  syncRuntimeEditorPanel(ctrl);
   return true;
 }
 
@@ -330,22 +360,165 @@ export function syncRuntimeEditorPanel(ctrl: UIController): void {
   }
   const host = existing ?? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'runtime-editor-panel-host' }));
   host.dataset.runtimeEditorPanelHost = 'true';
-  host.innerHTML = renderRuntimeEditorPanel(
+  const nextHost = document.createElement('div');
+  nextHost.innerHTML = renderRuntimeEditorPanel(
     createUIContext(ctrl.game),
     ctrl.panelState,
     ctrl.runtimeEditorSurface,
     ctrl.runtimeEditorCodexState,
     ctrl.runtimeEditorCodexInspectorTab,
   );
+  const nextPanel = nextHost.querySelector<HTMLElement>('.runtime-editor-panel');
   const panel = host.querySelector<HTMLElement>('.runtime-editor-panel');
-  if (panel) {
-    if (ctrl.runtimeEditorSurface === 'codex') bindRuntimeEditorCodexActions(ctrl, panel);
-    else bindRuntimeDatapackEditorActions(ctrl, panel);
+  const currentHeader = panel?.querySelector<HTMLElement>('[data-runtime-editor-panel-head]');
+  const currentBody = panel?.querySelector<HTMLElement>('.runtime-editor-panel-body');
+  const nextHeader = nextPanel?.querySelector<HTMLElement>('[data-runtime-editor-panel-head]');
+  const nextBody = nextPanel?.querySelector<HTMLElement>('.runtime-editor-panel-body');
+  if (panel && currentHeader && currentBody && nextPanel && nextHeader && nextBody) {
+    panel.className = nextPanel.className;
+    for (const attribute of [...panel.attributes]) {
+      if (attribute.name !== 'class'
+        && attribute.name !== 'data-runtime-editor-persistence-bound'
+        && attribute.name !== 'data-runtime-editor-codex-actions-bound') panel.removeAttribute(attribute.name);
+    }
+    for (const attribute of [...nextPanel.attributes]) {
+      if (attribute.name !== 'class') panel.setAttribute(attribute.name, attribute.value);
+    }
+    if (currentHeader.innerHTML !== nextHeader.innerHTML) {
+      const focus = captureFocusWithin(currentHeader);
+      ctrl.popovers.dismissBeforeRootMutation(currentHeader);
+      currentHeader.innerHTML = nextHeader.innerHTML;
+      restoreFocusWithin(currentHeader, focus);
+    }
+    if (currentBody.innerHTML !== nextBody.innerHTML) {
+      const focus = captureFocusWithin(currentBody);
+      const list = currentBody.querySelector<HTMLElement>('[data-runtime-editor-browser-entry-list]');
+      const scrollTop = list?.scrollTop;
+      ctrl.popovers.dismissBeforeRootMutation(currentBody);
+      currentBody.innerHTML = nextBody.innerHTML;
+      const nextList = currentBody.querySelector<HTMLElement>('[data-runtime-editor-browser-entry-list]');
+      if (nextList && scrollTop !== undefined) nextList.scrollTop = scrollTop;
+      restoreFocusWithin(currentBody, focus);
+    }
+  } else {
+    // Initial mount or malformed host recovery; ordinary updates retain the shell above.
+    host.innerHTML = nextHost.innerHTML;
+  }
+  const activePanel = host.querySelector<HTMLElement>('.runtime-editor-panel');
+  if (activePanel) {
+    if (ctrl.runtimeEditorSurface === 'codex') bindRuntimeEditorCodexActions(ctrl, activePanel);
+    else bindRuntimeDatapackEditorActions(ctrl, activePanel);
   }
   if (ctrl.runtimeEditorSurface !== 'codex') scheduleRuntimeEditorDraft(ctrl);
 }
 
+function runtimeEditorPanelFor(scope?: ParentNode): HTMLElement | null {
+  if (scope instanceof HTMLElement) {
+    if (scope.matches('.runtime-editor-panel')) return scope;
+    const panel = scope.closest<HTMLElement>('.runtime-editor-panel');
+    if (panel) return panel;
+  }
+  return document.querySelector<HTMLElement>('.runtime-editor-panel');
+}
+
+function syncRuntimeEditorBrowserFooter(ctrl: UIController, panel: HTMLElement): void {
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  const footer = panel.querySelector<HTMLElement>('.runtime-editor-content-browser__apply-bar');
+  if (!editor || !footer) return;
+  const pending = runtimeEditorPendingSpots(editor).length
+    + runtimeEditorPendingDefinitions(editor, 'inits').length
+    + runtimeEditorPendingDefinitions(editor, 'areas').length
+    + runtimeEditorPendingDefinitions(editor, 'enhancements').length;
+  const status = footer.querySelector<HTMLElement>('.runtime-editor-codex__search-hint');
+  const apply = footer.querySelector<HTMLButtonElement>('[data-runtime-editor-apply]');
+  if (status) status.textContent = pending === 0 ? 'Draft 与 Runtime 一致' : `${pending} 项待应用`;
+  if (apply) apply.disabled = pending === 0;
+}
+
+function syncRuntimeEditorBrowserFilter(panel: HTMLElement): void {
+  const editor = panel.querySelector<HTMLElement>('[data-runtime-editor-browser]');
+  const list = editor?.querySelector<HTMLElement>('[data-runtime-editor-browser-entry-list]');
+  const input = editor?.querySelector<HTMLInputElement>('[data-runtime-editor-browser-search]');
+  if (!editor || !list) return;
+  const query = input?.value.trim().toLocaleLowerCase() ?? '';
+  const filter = panel.querySelector<HTMLElement>('[data-runtime-editor-filter].is-active')?.dataset.runtimeEditorFilter ?? 'all';
+  let visible = 0;
+  const rows = [...list.querySelectorAll<HTMLElement>('[data-runtime-editor-entry]')];
+  for (const row of rows) {
+    const state = row.dataset.entryState ?? 'unchanged';
+    const matchesFilter = filter === 'pending'
+      ? state === 'created' || state === 'modified' || state === 'error' || state === 'removed'
+      : filter === 'applied' ? state === 'unchanged' : filter === 'removed' ? state === 'removed' : true;
+    const matchesQuery = !query || (row.dataset.browserSearch ?? '').includes(query);
+    row.hidden = !(matchesFilter && matchesQuery);
+    if (!row.hidden) visible += 1;
+  }
+  const empty = list.querySelector<HTMLElement>('[data-runtime-editor-browser-empty]');
+  if (empty) empty.hidden = visible > 0;
+}
+
+function syncRuntimeEditorBrowserEntries(ctrl: UIController, scope?: ParentNode): void {
+  const panel = runtimeEditorPanelFor(scope);
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  const oldPane = panel?.querySelector<HTMLElement>('.runtime-editor-content-browser__entries');
+  if (!panel || !editor || ctrl.runtimeEditorSurface !== 'browser' || !oldPane) return;
+  const scroll = oldPane.querySelector<HTMLElement>('[data-runtime-editor-browser-entry-list]');
+  const scrollTop = scroll?.scrollTop ?? 0;
+  const search = oldPane.querySelector<HTMLInputElement>('[data-runtime-editor-browser-search]')?.value ?? '';
+  const freshHost = document.createElement('div');
+  freshHost.innerHTML = renderRuntimeEditorBrowserEntries(createUIContext(ctrl.game), ctrl.panelState);
+  const freshPane = freshHost.querySelector<HTMLElement>('.runtime-editor-content-browser__entries');
+  if (!freshPane || !scroll) return;
+  oldPane.querySelector('[data-runtime-editor-browser-count]')!.textContent = freshPane.querySelector('[data-runtime-editor-browser-count]')?.textContent ?? '0';
+  panel.querySelectorAll<HTMLElement>('[data-runtime-editor-kind-tab]').forEach(button => {
+    const kind = button.dataset.runtimeEditorKindTab as RuntimeEditorContentKind | undefined;
+    if (!kind) return;
+    const count = String(runtimeEditorDefinitions(editor, kind).length);
+    const badge = button.querySelector('small');
+    if (badge) badge.textContent = count;
+    button.setAttribute('aria-label', `${kind === 'inits' ? 'Init' : kind === 'areas' ? 'Area' : kind === 'spots' ? 'Spot' : 'Enhancement'}，${count} 条草稿`);
+  });
+  const freshScroll = freshPane.querySelector<HTMLElement>('[data-runtime-editor-browser-entry-list]');
+  if (freshScroll) scroll.innerHTML = freshScroll.innerHTML;
+  const oldFilters = [...oldPane.querySelectorAll<HTMLElement>('[data-runtime-editor-filter]')];
+  const newFilters = [...freshPane.querySelectorAll<HTMLElement>('[data-runtime-editor-filter]')];
+  oldFilters.forEach((button, index) => {
+    const replacement = newFilters[index];
+    if (!replacement) return;
+    button.textContent = replacement.textContent;
+    button.classList.toggle('is-active', replacement.classList.contains('is-active'));
+  });
+  scroll.scrollTop = scrollTop;
+  const input = oldPane.querySelector<HTMLInputElement>('[data-runtime-editor-browser-search]');
+  if (input) input.value = search;
+  bindRuntimeDatapackEditorActions(ctrl, scroll);
+  syncRuntimeEditorBrowserFilter(panel);
+  syncRuntimeEditorBrowserFooter(ctrl, panel);
+}
+
+function syncRuntimeEditorBrowserDetail(ctrl: UIController, scope?: ParentNode): boolean {
+  const panel = runtimeEditorPanelFor(scope);
+  if (!panel || ctrl.runtimeEditorSurface !== 'browser') return false;
+  const slot = panel.querySelector<HTMLElement>('[data-runtime-editor-browser-detail]');
+  if (!slot) return false;
+  slot.innerHTML = renderRuntimeEditorBrowserDetail(createUIContext(ctrl.game), ctrl.panelState);
+  bindRuntimeDatapackEditorActions(ctrl, slot);
+  const editor = ctrl.panelState.runtimeDatapackEditor;
+  const selectedId = editor?.selectedContentKind === 'spots' ? editor.selectedSpotId : editor?.selectedDefinitionId;
+  panel.querySelectorAll<HTMLElement>('[data-runtime-editor-entry]').forEach(row => {
+    const selected = row.dataset.runtimeEditorEntry === selectedId;
+    row.classList.toggle('is-selected', selected);
+    const button = row.querySelector<HTMLElement>('.runtime-editor-codex__entry');
+    button?.classList.toggle('is-selected', selected);
+    button?.setAttribute('aria-selected', String(selected));
+  });
+  syncRuntimeEditorBrowserFooter(ctrl, panel);
+  return true;
+}
+
 function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): void {
+  if (scope.dataset.runtimeEditorCodexActionsBound === '1') return;
+  scope.dataset.runtimeEditorCodexActionsBound = '1';
   const view = (): ReturnType<typeof getRuntimeEditorCodexView> => getRuntimeEditorCodexView(createUIContext(ctrl.game));
   const reduce = (action: CodexShellAction, patch: { readonly entries?: boolean; readonly detail?: boolean } = {}): void => {
     ctrl.runtimeEditorCodexState = reduceCodexShellState(view(), ctrl.runtimeEditorCodexState, action);
@@ -432,7 +605,8 @@ function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): 
       const tab = inspectorButton.dataset.codexInspectorTab as InspectorTab | undefined;
       if (tab === 'overview' || tab === 'relations' || tab === 'raw') {
         ctrl.runtimeEditorCodexInspectorTab = tab;
-        refreshRuntimeEditorCodexPanel(ctrl, scope, { entries: false, detail: true });
+        refreshRuntimeEditorCodexPanel(ctrl, scope, { entries: false, detail: true, detailContentOnly: true });
+        scope.querySelector<HTMLElement>(`button[data-codex-inspector-tab="${tab}"]`)?.focus();
       }
     }
   });
@@ -441,7 +615,7 @@ function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): 
 function refreshRuntimeEditorCodexPanel(
   ctrl: UIController,
   scope: HTMLElement,
-  patch: { readonly entries?: boolean; readonly detail?: boolean } = {},
+  patch: { readonly entries?: boolean; readonly detail?: boolean; readonly detailContentOnly?: boolean } = {},
 ): void {
   const codex = scope.querySelector<HTMLElement>('[data-runtime-editor-codex]');
   if (!codex) return;
@@ -456,13 +630,32 @@ function refreshRuntimeEditorCodexPanel(
   } else {
     syncRuntimeCodexEntrySelection(codex, parts.state.selectedEntryKey);
   }
-  if (patch.detail !== false) replaceRuntimeCodexPane(codex, 'detail', parts.detailPane);
+  if (patch.detail !== false) {
+    if (patch.detailContentOnly) replaceRuntimeCodexDetailContent(codex, parts.detailPane);
+    else replaceRuntimeCodexPane(codex, 'detail', parts.detailPane);
+  }
   codex.dataset.codexMobilePane = parts.state.mobilePane;
   codex.querySelectorAll<HTMLButtonElement>('button[data-codex-mobile-pane]').forEach(button => {
     const active = button.dataset.codexMobilePane === parts.state.mobilePane;
     button.classList.toggle('is-active', active);
     button.setAttribute('aria-selected', String(active));
   });
+}
+
+function replaceRuntimeCodexDetailContent(scope: HTMLElement, html: string): void {
+  const current = scope.querySelector<HTMLElement>('[data-codex-detail-slot]');
+  if (!current) {
+    replaceRuntimeCodexPane(scope, 'detail', html);
+    return;
+  }
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  const next = template.content.querySelector<HTMLElement>('[data-codex-detail-slot]');
+  if (!next) return;
+  const body = current.closest<HTMLElement>('.runtime-editor-codex__detail-body');
+  const scrollTop = body?.scrollTop ?? 0;
+  current.innerHTML = next.innerHTML;
+  if (body) body.scrollTop = scrollTop;
 }
 
 function syncRuntimeCodexEntrySelection(scope: HTMLElement, selectedEntryKey: string | null): void {
@@ -651,9 +844,10 @@ function openRuntimeSpotEditor(ctrl: UIController): void {
   const area = areaId ? ctrl.game.registry.areas.get(areaId) : undefined;
   if (!editor?.enabled || !area) return;
   clearSubDialogs();
-  ctrl.runtimeEditorSurface = 'spot';
+  const wasBrowser = ctrl.runtimeEditorSurface === 'browser';
+  ctrl.runtimeEditorSurface = 'browser';
   ctrl.runtimeEditorPanelOpen = true;
-  syncRuntimeEditorPanel(ctrl);
+  if (!wasBrowser || !syncRuntimeEditorBrowserDetail(ctrl)) syncRuntimeEditorPanel(ctrl);
 }
 
 function openLoadedRuntimeSpotEditor(ctrl: UIController, runtimeSpotId?: string): void {
@@ -847,7 +1041,10 @@ function saveRuntimeDefinitionDraft(ctrl: UIController, scope: ParentNode, reope
   }
   setRuntimeEditorProblems(editor, []);
   setRuntimeEditorError(editor, null);
-  if (reopenEditor) openRuntimeDefinitionEditor(ctrl, kind);
+  if (reopenEditor) {
+    openRuntimeDefinitionEditor(ctrl, kind);
+    syncRuntimeEditorBrowserEntries(ctrl, scope);
+  }
   return true;
 }
 
@@ -1126,7 +1323,10 @@ function saveRuntimeSpotDraft(ctrl: UIController, scope: ParentNode, reopenEdito
   } as unknown as RuntimeEditorSpotDraft);
   setRuntimeEditorProblems(editor, []);
   setRuntimeEditorError(editor, null);
-  if (reopenEditor) openRuntimeSpotEditor(ctrl);
+  if (reopenEditor) {
+    openRuntimeSpotEditor(ctrl);
+    syncRuntimeEditorBrowserEntries(ctrl, scope);
+  }
   syncRuntimeEditorCreateActions(ctrl);
   return true;
 }
@@ -1136,9 +1336,10 @@ function openRuntimeDefinitionEditor(ctrl: UIController, kind: RuntimeEditorCont
   if (!editor?.enabled) return;
   editor.selectedContentKind = kind;
   clearSubDialogs();
-  ctrl.runtimeEditorSurface = 'definition';
+  const wasBrowser = ctrl.runtimeEditorSurface === 'browser';
+  ctrl.runtimeEditorSurface = 'browser';
   ctrl.runtimeEditorPanelOpen = true;
-  syncRuntimeEditorPanel(ctrl);
+  if (!wasBrowser || !syncRuntimeEditorBrowserDetail(ctrl)) syncRuntimeEditorPanel(ctrl);
 }
 
 function openRuntimeDefinitionDeleteConfirm(ctrl: UIController, kind: RuntimeEditorContentKind, idName: string): void {
@@ -1190,9 +1391,11 @@ function renderRuntimeInitDeletionImpact(ctrl: UIController, idName: string): st
 }
 
 export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode): void {
-  if (scope instanceof HTMLElement && scope.dataset.runtimeEditorPersistenceBound !== '1') {
+  const isPanelScope = scope instanceof HTMLElement && scope.matches('.runtime-editor-panel');
+  if (isPanelScope && scope.dataset.runtimeEditorPersistenceBound !== '1') {
     scope.dataset.runtimeEditorPersistenceBound = '1';
-    const captureDraft = (): void => {
+    const captureDraft = (event: Event): void => {
+      if (event.target instanceof HTMLElement && event.target.matches('[data-runtime-editor-browser-search]')) return;
       const editor = ctrl.panelState.runtimeDatapackEditor;
       if (!editor) return;
       if (scope.querySelector('[data-runtime-editor-mod-field]')) readRuntimeEditorModFields(ctrl, scope);
@@ -1225,6 +1428,13 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
   });
   scope.querySelector('[data-runtime-editor-export]')?.addEventListener('click', () => {
     void downloadRuntimeEditorPack(ctrl, scope);
+  });
+  scope.querySelector<HTMLSelectElement>('[data-runtime-editor-target-pack]')?.addEventListener('change', event => {
+    const target = event.currentTarget as HTMLSelectElement;
+    if (!target.value) return;
+    if (!openRuntimeEditingPack(ctrl, target.value)) {
+      target.value = ctrl.panelState.runtimeDatapackEditor?.packRecordId ?? '';
+    }
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-surface]').forEach(button => {
     button.addEventListener('click', () => {
@@ -1372,8 +1582,16 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
       const editor = ctrl.panelState.runtimeDatapackEditor;
       if (!editor) return;
       setRuntimeEditorFilter(editor, (button.dataset.runtimeEditorFilter ?? 'all') as RuntimeEditorFilter);
-      openRuntimeDatapackEditor(ctrl);
+      if (ctrl.runtimeEditorSurface === 'browser') {
+        const panel = runtimeEditorPanelFor(scope);
+        panel?.querySelectorAll<HTMLElement>('[data-runtime-editor-filter]').forEach(item => item.classList.toggle('is-active', item === button));
+        if (panel) syncRuntimeEditorBrowserFilter(panel);
+      } else openRuntimeDatapackEditor(ctrl);
     });
+  });
+  scope.querySelector<HTMLInputElement>('[data-runtime-editor-browser-search]')?.addEventListener('input', () => {
+    const panel = runtimeEditorPanelFor(scope);
+    if (panel) syncRuntimeEditorBrowserFilter(panel);
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-entry-edit]').forEach(button => {
     button.addEventListener('click', () => {

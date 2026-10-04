@@ -64,6 +64,7 @@ export class ImportExportService {
       if (!file) return;
       const { game, toast } = this.host;
       try {
+        toast.show('正在读取压缩包数据包…', 'info');
         const { manifest, datapack, jsonFileCount, ignoredCount, images } = await parsePackFromZipFile(file);
         if (game.registerParsedPack && game.applyEnabledPacks) {
           const escape = (value: string): string => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));

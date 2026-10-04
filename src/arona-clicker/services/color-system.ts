@@ -239,11 +239,13 @@ export class ColorSystem {
       scopeNodeOverrides: draft?.scopes,
     };
     const globalHost = draft?.presentation?.hosts?.find(host => host.id === 'global');
+    const replacesUserBackground = globalHost?.layers !== undefined;
     this.runtime.setPreview(draft ? {
       id: 'user-theme-preview',
       scope: 'ephemeral',
       ...colorLayer,
       background: globalHost?.layers ? [systemColorBackground(), ...globalHost.layers] : [systemColorBackground()],
+      backgroundReplacementScope: replacesUserBackground ? 'user' : undefined,
       backgroundLayerOrder: globalHost?.layerOrder?.length ? globalHost.layerOrder : [SYSTEM_COLOR_BACKGROUND_ID],
       systemColorLayerIgnored: draft.systemColorLayerIgnored === true,
       presentation: draft.presentation,
@@ -278,6 +280,11 @@ export class ColorSystem {
   /** 当前运行时主题（L1 临时 > L2 场景 > L3 玩家）合并后的最终结果。 */
   runtimeTheme(): ReturnType<RuntimeThemeManager['resolve']> {
     return this.runtime.resolve();
+  }
+
+  /** 选择页只以玩家/用户全局主题为基底，再投影当前焦点实体；旧场景和剧情临时层不进入输入快照。 */
+  selectorBaseTheme(): ReturnType<RuntimeThemeManager['resolve']> {
+    return this.runtime.resolve(undefined, { includeSceneLayers: false, includeEphemeralLayers: false });
   }
 
   /** 当前运行时主题层的只读来源/生命周期诊断；不写入玩家状态。 */

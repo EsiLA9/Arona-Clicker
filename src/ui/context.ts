@@ -38,6 +38,8 @@ export interface UIContext {
   nameOf(type: string, id: string): string;
   background: BackgroundView;
   presentation: PresentationView;
+  /** 选择页主题投影策略；撤离到重选页时不把运行快照中的当前 Area 叠到 Init 预览上。 */
+  selectorThemePolicy?: { includeResumedArea: boolean };
   entityPresentation?: GameReadModel['entityPresentation'];
   backgroundForHost(hostId: string, inheritGlobal?: boolean, state?: PresentationHostState): BackgroundView;
   presentationHostState(hostId: string, state?: PresentationHostState): PresentationHostStateResult;
@@ -67,7 +69,12 @@ const emptyPresentation: PresentationView = {
   stateAppearance: () => undefined,
 };
 
-export function createUIContext(game: GameReadModel, background?: BackgroundView, presentation?: PresentationView): UIContext {
+export function createUIContext(
+  game: GameReadModel,
+  background?: BackgroundView,
+  presentation?: PresentationView,
+  selectorThemePolicy?: UIContext['selectorThemePolicy'],
+): UIContext {
   const presentationView = presentation ?? emptyPresentation;
   const resolveHostId = (hostId: string): string | undefined => {
     let candidate = hostId;
@@ -130,6 +137,7 @@ export function createUIContext(game: GameReadModel, background?: BackgroundView
     nameOf: (type, id) => displayName(game.registry, type, id),
     background: background ?? { layers: [] },
     presentation: presentation ?? emptyPresentation,
+    selectorThemePolicy,
     entityPresentation: game.entityPresentation,
     backgroundForHost: (hostId, inheritGlobal = true, state: PresentationHostState = 'default') => {
       const globalLayers = (background ?? { layers: [] }).layers;

@@ -29,3 +29,7 @@
 2. 历史来源条目指向 `archive/` 原文；原文记录的是**当时的判断**，不是当前行为；
 3. ADR 中「应如此」但源码未实现的部分，以 [[docs/docs-828/01-architecture/design-constraints]] 末节为准；
 4. 同一文件可从多个机制入口被引用，但正文只保留一份。
+
+## 更正（2026-10-01）
+
+本索引上文保留了冻结时的旧路由文字。当前系统已统一为 `docs/docs-829/`；`docs/docs-828/` 只作兼容重定向，旧版来源归档在 `docs/archive/docs-828-snapshot/`。当前机制与仍生效约束应从 `docs/docs-829/00-INDEX.md` 及其路由读取；旧 `design-constraints` 页面不再作为现行裁定来源。历史 ADR 中未实现的提案仍须回到当前源码和测试核实。

@@ -102,7 +102,7 @@ export function renderSelectorPage(
     </section>`;
 
   return `
-    <main class="console-shell init-select-shell selector-shell ${isEnh ? 'enh-mode' : 'init-mode'}">
+    <main class="console-shell init-select-shell selector-shell ${isEnh ? 'enh-mode' : 'init-mode'}" style="${ctx.escapeHtml(activeProjection.inlineStyle)}">
       <div class="selector-super-background" data-selector-super-background="true" style="${ctx.escapeHtml(activeProjection.inlineStyle)}">
         <div class="selector-scene-background-stack" aria-hidden="true">
           ${renderSelectorSceneLayer(ctx, activeProjection, 'current')}

@@ -3,7 +3,7 @@
 > 用于解决 Draft 中会改变最近阶段方案的问题；不以全仓审计代替具体问题。
 
 ```text
-依据 AGENTS.md、docs/docs-828/00-INDEX.md 和指定 Draft，核对进入下一阶段所必需的源码与测试事实。先按 docs/ai/task-read-set-routing.md 选择最小 Read Set。
+依据 AGENTS.md、docs/docs-829/00-INDEX.md 和指定 Draft，核对进入下一阶段所必需的源码与测试事实。docs-828 是历史快照，只在追溯旧审计或设计理由时查阅，不作为当前事实依据。先按 docs/ai/task-read-set-routing.md 选择最小 Read Set。
 
 Draft：<路径>
 本轮事实问题：<逐条列出>

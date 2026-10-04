@@ -48,6 +48,53 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
     expect(r.groupId).toBe('blue');
   });
 
+  test('选择页全局快照排除活动场景与剧情临时层，保留玩家/用户层', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', groupId: 'blue' });
+    manager.setUser({ scope: 'user', background: [{ id: 'global-user', kind: 'solid', value: '#112233' }] });
+    manager.pushScene({ scope: 'area', tokens: { primary: '#abcdef' }, background: [{ id: 'old-area', kind: 'solid', value: '#deadbe' }] });
+    manager.pushEphemeral({ scope: 'ephemeral', background: [{ id: 'old-story', kind: 'solid', value: '#badc0d' }] });
+
+    const selector = manager.resolve(undefined, { includeSceneLayers: false, includeEphemeralLayers: false });
+
+    expect(selector.tokens.primary).toBe('#3b82f6');
+    expect(selector.background.map(layer => layer.id)).toContain('global-user');
+    expect(selector.background.map(layer => layer.id)).not.toContain('old-area');
+    expect(selector.background.map(layer => layer.id)).not.toContain('old-story');
+  });
+
+  test('用户主题 Preview 替换已应用用户背景贡献，但保留独立场景图层', () => {
+    const { manager } = makeManager();
+    manager.setUser({ scope: 'user', background: [
+      { id: 'system-color-background', kind: 'solid', value: '#000000' },
+      { id: 'applied-user-layer', kind: 'solid', value: '#112233' },
+    ] });
+    manager.pushScene({ scope: 'area', background: [{ id: 'area-layer', kind: 'solid', value: '#223344' }] });
+    manager.setPreview({
+      scope: 'ephemeral',
+      backgroundReplacementScope: 'user',
+      background: [{ id: 'system-color-background', kind: 'solid', value: '#000000' }],
+      backgroundLayerOrder: ['system-color-background'],
+    });
+
+    const resolved = manager.resolve();
+
+    expect(resolved.background.map(layer => layer.id)).toContain('area-layer');
+    expect(resolved.background.map(layer => layer.id)).toContain('system-color-background');
+    expect(resolved.background.map(layer => layer.id)).not.toContain('applied-user-layer');
+  });
+
+  test('Preview 移除同 id 用户覆盖后恢复被遮蔽的低层贡献', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ scope: 'player', background: [{ id: 'shared-layer', kind: 'solid', value: '#112233' }] });
+    manager.setUser({ scope: 'user', background: [{ id: 'shared-layer', kind: 'solid', value: '#445566' }] });
+    manager.setPreview({ scope: 'ephemeral', backgroundReplacementScope: 'user', background: [] });
+
+    const resolved = manager.resolve();
+
+    expect(resolved.background).toEqual([{ id: 'shared-layer', kind: 'solid', value: '#112233' }]);
+  });
+
   test('RUNTIME-03 场景层（Area）覆盖玩家层对应 token，其余保留', () => {
     const { manager } = makeManager();
     manager.setPlayer({ scope: 'player', groupId: 'blue' });

@@ -516,11 +516,11 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
 }
 
 function resolvedLayersForTarget(ctrl: UIController, target: ThemeLayerTargetRef): readonly BackgroundLayerDef[] {
-  const runtime = ctrl.game.colorSystem.runtimeTheme();
+  const runtime = ctrl.game.colorSystem.selectorBaseTheme();
   const hostId = target.kind === 'global' ? 'global' : target.hostId;
-  const globalLayers = runtime.presentation?.hosts?.find(item => item.id === 'global')?.layers;
+  const globalHost = runtime.presentation?.hosts?.find(item => item.id === 'global');
   if (hostId === 'global') {
-    return globalLayers?.length ? globalLayers : runtime.background;
+    return globalHost?.layers !== undefined ? globalHost.layers : runtime.background;
   }
   let effectiveHostId = hostId;
   let host = runtime.presentation?.hosts?.find(item => item.id === effectiveHostId);
@@ -565,6 +565,12 @@ function layerManagerStateFor(overlay: HTMLElement, initialTarget: ThemeLayerTar
   const created: LayerManagerState = { target: initialTarget, dialogTarget: null, dialogLayerId: null, dialogDraft: null, dirty: false, baselineLayers: new Map() };
   layerManagerStates.set(overlay, created);
   return created;
+}
+
+function layerManagerSourceLabel(draft: import('../arona-clicker/types/user-theme').UserThemeDraft, target: ThemeLayerTargetRef): string {
+  if (!hasLocalTarget(draft, target)) return '继承当前有效回退；编辑后建立本地覆盖';
+  if (target.kind === 'global' && getTargetLayers(draft, target).length === 0) return '本地空覆盖：只保留系统颜色层';
+  return '当前目标的本地覆盖';
 }
 
 function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: import('../arona-clicker/services/user-theme-service').UserThemeEditSession, active: boolean): void {
@@ -618,7 +624,7 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     }
   };
   const refreshList = (): void => {
-    if (source && ui.target) source.textContent = hasLocalTarget(session.draft, ui.target) ? '当前目标的本地覆盖' : '当前有效回退；实际修改才建立本地覆盖';
+    if (source && ui.target) source.textContent = layerManagerSourceLabel(session.draft, ui.target);
     if (!list) return;
     reconcileList(renderLayerManagerList(createUIContext(ctrl.game), session.draft, ui.target, active, ui.target ? baselineFor(ui.target) : []));
   };
@@ -631,7 +637,7 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     baselineFor(target);
     shell.hidden = false;
     if (title) title.textContent = themeLayerTargetLabel(target);
-    if (source) source.textContent = hasLocalTarget(session.draft, target) ? '当前目标的本地覆盖' : '当前有效回退；实际修改才建立本地覆盖';
+    if (source) source.textContent = layerManagerSourceLabel(session.draft, target);
     refreshList();
   };
   const closeDialog = (skipConfirm = false): void => {
@@ -710,8 +716,7 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     else if (button.dataset.themeLayerMove) moveTargetLayer(session.draft, ui.target, id, button.dataset.direction === 'up' ? 'up' : 'down');
     else if (button.dataset.themeLayerRemove) {
       if (!window.confirm('删除这个图层吗？')) return;
-      const removed = removeTargetLayer(session.draft, ui.target, id);
-      if (removed && getTargetLayers(session.draft, ui.target).length === 0) clearTargetOverride(session.draft, ui.target);
+      removeTargetLayer(session.draft, ui.target, id);
     }
     preview(); refreshList();
   });
@@ -722,7 +727,7 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     refreshList();
   });
   shell.querySelector<HTMLButtonElement>('[data-theme-layer-revert]')?.addEventListener('click', () => {
-    if (!ui.target || !active || !hasLocalTarget(session.draft, ui.target) || !window.confirm('清除当前目标的本地覆盖并回退吗？')) return;
+    if (!ui.target || !active || !hasLocalTarget(session.draft, ui.target) || !window.confirm('丢弃本地覆盖并恢复当前继承图层吗？')) return;
     clearTargetOverride(session.draft, ui.target);
     preview(); refreshList();
   });

@@ -1,43 +1,13 @@
-# 04-mechanisms/cultivate — 培养推进：经验曲线 / 突破
+# cultivate — docs-829 路由
 
-> 本文回答：**差分升级与突破怎么结算。** `CultivateSystem.applyExp(variantId, exp)` / `breakthroughStar`；实体结构见 [[docs/docs-828/03-data-structures/character-entities]]。
+> 这是 docs/docs-828 的兼容重定向页，不再维护旧版正文。
 
-## 曲线模型（CultivateCurveDef）
+此路径是兼容入口；相关主题由 docs-829 当前页面承接，原文保留为只读历史出处。
 
-| 字段 | 语义 |
-| --- | --- |
-| `maxLevel` | 等级上限 |
-| `expTable?` | 各级升级需求（长度 = maxLevel - 1）；缺省用全局默认线性曲线 |
-| `starMax?` | 星级上限 |
-| `starCost?` | 各级突破消耗（单位：该差分碎片），`starCost[s]` = 从 s 升 s+1 所需 |
+## 当前主题入口
 
-- 差分 `curve` 字段是真引用；缺省回落全局默认曲线；
-- 玩家进度（等级/经验/星级/碎片）按 variantId 存 `state.roster` / `state.fragments` 副本（意义引用）。
+- [[docs/docs-829/04-mechanisms/arona-clicker/gacha-cultivation]]
 
-## applyExp 推进
+## 只读历史原文
 
-```text
-applyExp(variantId, exp)
- ├─ 取曲线 + 当前等级/经验
- ├─ 累计经验 += exp
- ├─ while 累计经验 >= 下一级门槛 && 等级 < maxLevel：
- │    ├─ 等级 +1
- │    └─ 经验 -= 门槛
- └─ 发 `characterProgressChanged`（domain:'level'）事件 → Trigger kind `cultivated` 侦测、UI 刷新
-```
-
-## 突破（breakthroughStar）
-
-- 消耗该差分碎片（按 `starCost`）→ 星级 +1（上限 `starMax`）；
-- `checkBreakthrough(variantId)` 只读判定当前是否可突破；
-- 完成后发 `characterProgressChanged`（domain:'star'）。
-
-## 统计 / 事件
-
-- 每级推进经单一写入口同步记统计；
-- `characterProgressChanged` 伞事件统一承载升级（`domain:'level'`）与突破（`domain:'star'`），负载含 `variantId`——事件名以 `EVENT_CATALOG` 登记为准。
-
-## 相关文档
-
-[[docs/docs-828/04-mechanisms/gacha]] · [[docs/docs-828/03-data-structures/declarative-dsl]] §5（`cultivated` Trigger kind）
-
+- [[docs/archive/docs-828-snapshot/04-mechanisms/cultivate]]

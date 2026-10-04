@@ -33,6 +33,8 @@ export interface RuntimeEditorPackExportContext extends AuthoringValidationConte
   readonly areaIds?: ReadonlySet<string>;
   /** 编辑态数据包的原始完整内容；编辑器只覆盖可编辑四类，其余表原样保留。 */
   readonly sourceDatapack?: Datapack;
+  /** 重导出时保留原包的显示颜色。 */
+  readonly sourceManifest?: Pick<PackManifest, 'color'>;
 }
 
 export interface RuntimeEditorPackExportDiagnostic {
@@ -158,6 +160,7 @@ export function compileRuntimeEditorPack(
     name: editor.displayName,
     version: editor.version,
     ...(editor.author.trim() ? { author: editor.author.trim() } : {}),
+    ...(context.sourceManifest?.color ? { color: context.sourceManifest.color } : {}),
     dependencies,
   };
   const planEntries = [

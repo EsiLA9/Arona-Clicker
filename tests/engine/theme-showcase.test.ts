@@ -30,4 +30,18 @@ describe('主题系统展示 Init', () => {
     });
     expect(theme?.background?.[0]?.value).toContain('#cffafe');
   });
+
+  test('主题面板 Spot 提供离开展示世界线的软重启功能', () => {
+    const game = new GameInstance();
+    game.init([defaultDatapack]);
+    expect(game.inits.startNewGame(THEME_SHOWCASE_INIT)).toBe(true);
+
+    const exitSpot = game.registry.spots.get(THEME_SHOWCASE_SPOTS[0]);
+    expect(exitSpot).toBeDefined();
+    expect(game.spotFunctionalitySystem.hasFunctionality(exitSpot!, game.state, 'restartInit')).toBe(true);
+
+    game.inits.restartInit();
+    expect(game.state.activeInit).toBe('');
+    expect(game.running).toBe(false);
+  });
 });

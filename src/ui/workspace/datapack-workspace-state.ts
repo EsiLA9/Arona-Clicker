@@ -4,9 +4,11 @@ import type { DatapackWorkspaceSection } from '../../arona-clicker/services/data
 import type { PackConfigurationDraft } from '../../data-services/datapack/pack-manager';
 
 export type { DatapackWorkspaceSection } from '../../arona-clicker/services/datapack-workspace-view';
+export type DatapackWorkspaceMode = 'classic' | 'development';
 
 export interface DatapackWorkspaceState {
   section: DatapackWorkspaceSection;
+  mode?: DatapackWorkspaceMode;
   selectedPackId: string | null;
   draftEnabledIds: string[];
   draftOrder: string[];
@@ -15,7 +17,7 @@ export interface DatapackWorkspaceState {
 }
 
 function defaultPackSelection(entries: readonly PackCatalogEntry[]): string | null {
-  const preferred = entries.find(entry => !(entry.capabilities?.required ?? entry.sourceKind === 'builtin'));
+  const preferred = entries.find(entry => !(entry.capabilities?.required ?? entry.modName === 'base'));
   return (preferred ?? entries[0])?.id ?? null;
 }
 
@@ -29,11 +31,12 @@ function currentConfiguration(entries: readonly PackCatalogEntry[], configuratio
 export function createDatapackWorkspaceState(
   entries: readonly PackCatalogEntry[],
   configuration?: PackConfigurationDraft,
-  options: { section?: DatapackWorkspaceSection; selectedPackId?: string | null } = {},
+  options: { section?: DatapackWorkspaceSection; mode?: DatapackWorkspaceMode; selectedPackId?: string | null } = {},
 ): DatapackWorkspaceState {
   const current = currentConfiguration(entries, configuration);
   return {
     section: options.section ?? 'all',
+    mode: options.mode ?? 'classic',
     selectedPackId: options.selectedPackId === undefined ? defaultPackSelection(entries) : options.selectedPackId,
     draftEnabledIds: [...current.enabledIds],
     draftOrder: [...current.order],
@@ -54,10 +57,11 @@ export function synchronizeDatapackWorkspaceState(workspace: DatapackWorkspaceSt
 export function resetDatapackWorkspaceState(
   entries: readonly PackCatalogEntry[],
   configuration?: PackConfigurationDraft,
-  current?: Pick<DatapackWorkspaceState, 'section' | 'selectedPackId'>,
+  current?: Pick<DatapackWorkspaceState, 'section' | 'mode' | 'selectedPackId'>,
 ): DatapackWorkspaceState {
   return createDatapackWorkspaceState(entries, configuration, {
     section: current?.section ?? 'all',
+    mode: current?.mode ?? 'classic',
     selectedPackId: current?.selectedPackId ?? entries[0]?.id ?? null,
   });
 }
@@ -69,6 +73,10 @@ export function selectDatapackPack(workspace: DatapackWorkspaceState, packId: st
 
 export function setDatapackSection(workspace: DatapackWorkspaceState, section: DatapackWorkspaceSection): void {
   workspace.section = section;
+}
+
+export function setDatapackWorkspaceMode(workspace: DatapackWorkspaceState, mode: DatapackWorkspaceMode): void {
+  workspace.mode = mode;
 }
 
 export function setDatapackSelection(workspace: DatapackWorkspaceState, packId: string | null): void {
@@ -107,6 +115,93 @@ export function toggleDatapackDraftEnabled(workspace: DatapackWorkspaceState, pa
     ? workspace.draftEnabledIds.filter(id => id !== packId)
     : [...workspace.draftEnabledIds, packId];
   clearDatapackFeedback(workspace);
+}
+
+export type DatapackDropResult = 'moved' | 'blocked' | 'ignored';
+export type DatapackSwapResult = 'swapped' | 'blocked' | 'ignored';
+
+/** 将未启用记录与同 ModName 的启用记录交换，并保留两侧原有位置。 */
+export function swapDatapackDraftIntoEnabledSequence(
+  workspace: DatapackWorkspaceState,
+  entries: readonly PackCatalogEntry[],
+  movingPackId: string,
+  activeConflictId: string,
+): DatapackSwapResult {
+  const byId = new Map(entries.map(item => [item.id, item] as const));
+  const moving = byId.get(movingPackId);
+  const conflict = byId.get(activeConflictId);
+  const baseConflictCanSwap = conflict?.modName === 'base' && moving?.modName === 'base';
+  if (!moving || !conflict || movingPackId === activeConflictId
+    || ((!isReorderable(moving) || !isReorderable(conflict)) && !baseConflictCanSwap)) return 'ignored';
+  if (workspace.draftEnabledIds.includes(movingPackId)
+    || !workspace.draftEnabledIds.includes(activeConflictId)
+    || moving.modName !== conflict.modName) return 'blocked';
+
+  const knownOrder = workspace.draftOrder.filter(id => byId.has(id));
+  for (const entry of entries) if (!knownOrder.includes(entry.id)) knownOrder.push(entry.id);
+  const enabledOrder = knownOrder.filter(id => workspace.draftEnabledIds.includes(id));
+  const disabledOrder = knownOrder.filter(id => !workspace.draftEnabledIds.includes(id));
+  const enabledIndex = enabledOrder.indexOf(activeConflictId);
+  const disabledIndex = disabledOrder.indexOf(movingPackId);
+  if (enabledIndex < 0 || disabledIndex < 0) return 'blocked';
+
+  const nextEnabledOrder = [...enabledOrder];
+  const nextDisabledOrder = [...disabledOrder];
+  nextEnabledOrder[enabledIndex] = movingPackId;
+  nextDisabledOrder[disabledIndex] = activeConflictId;
+  const nextEnabledIds = nextEnabledOrder;
+  const nextOrder = [...nextEnabledOrder, ...nextDisabledOrder];
+  if (JSON.stringify(nextOrder) === JSON.stringify(knownOrder)) return 'ignored';
+  workspace.draftEnabledIds = nextEnabledIds;
+  workspace.draftOrder = nextOrder;
+  clearDatapackFeedback(workspace);
+  return 'swapped';
+}
+
+/** 在未启用/启用中列表之间移动单条记录；启用集顺序固定排在包库顺序前段。 */
+export function moveDatapackDraftToColumn(
+  workspace: DatapackWorkspaceState,
+  entries: readonly PackCatalogEntry[],
+  packId: string,
+  targetEnabled: boolean,
+  targetIndex: number,
+): DatapackDropResult {
+  const entry = entries.find(item => item.id === packId);
+  if (!entry || !isReorderable(entry)) return 'ignored';
+
+  const byId = new Map(entries.map(item => [item.id, item] as const));
+  const knownOrder = workspace.draftOrder.filter(id => byId.has(id));
+  for (const item of entries) if (!knownOrder.includes(item.id)) knownOrder.push(item.id);
+  const enabled = new Set(workspace.draftEnabledIds);
+  const enabledOrder = knownOrder.filter(id => enabled.has(id) && id !== packId);
+  const disabledOrder = knownOrder.filter(id => !enabled.has(id) && id !== packId);
+  const currentlyEnabled = enabled.has(packId);
+  const targetLength = targetEnabled ? enabledOrder.length : disabledOrder.length;
+  const requiredIndex = targetEnabled ? enabledOrder.findIndex(id => byId.get(id)?.capabilities?.required) : -1;
+  const minimumIndex = requiredIndex === 0 ? 1 : 0;
+  const boundedIndex = Math.max(minimumIndex, Math.min(targetIndex, targetLength));
+
+  if (targetEnabled && !currentlyEnabled) {
+    if (enabledOrder.some(id => byId.get(id)?.modName === entry.modName)) return 'blocked';
+    enabled.add(packId);
+  } else if (!targetEnabled) {
+    if (entry.capabilities?.required) return 'blocked';
+    enabled.delete(packId);
+  }
+
+  const nextEnabledOrder = targetEnabled
+    ? [...enabledOrder.slice(0, boundedIndex), packId, ...enabledOrder.slice(boundedIndex)]
+    : enabledOrder;
+  const nextDisabledOrder = targetEnabled
+    ? disabledOrder
+    : [...disabledOrder.slice(0, boundedIndex), packId, ...disabledOrder.slice(boundedIndex)];
+  const nextOrder = [...nextEnabledOrder, ...nextDisabledOrder];
+  if (JSON.stringify(nextOrder) === JSON.stringify(knownOrder)
+    && currentlyEnabled === targetEnabled) return 'ignored';
+  workspace.draftEnabledIds = knownOrder.filter(id => enabled.has(id));
+  workspace.draftOrder = nextOrder;
+  clearDatapackFeedback(workspace);
+  return 'moved';
 }
 
 export type DatapackMoveResult = 'moved' | 'ignored' | 'blocked';

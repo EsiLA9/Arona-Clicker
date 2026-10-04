@@ -29,13 +29,13 @@ function legacyInvalidPack(): StoredPack {
 }
 
 describe('AronaClickerRuntime PackManager 接线', () => {
-  test('base 作为内置数据包进入包库并始终参与启用集', () => {
+  test('发布 base 进入包库并占用唯一必需基础槽位', () => {
     const game = new AronaClickerRuntime();
     const base = game.getPackCatalog().entries.find(entry => entry.modName === 'base');
 
-    expect(base).toMatchObject({ id: 'base@1.0.0', sourceKind: 'builtin', enabled: true, capabilities: { required: true, removable: false, enableable: false } });
-    expect(() => game.setPackEnabled('base@1.0.0', false)).toThrow('内置数据包不可停用');
-    expect(() => game.packManager.removePack('base@1.0.0')).toThrow('内置数据包不可删除');
+    expect(base).toMatchObject({ id: 'base@1.0.0', sourceKind: 'bundle', enabled: true, capabilities: { required: true, removable: false, enableable: false } });
+    expect(() => game.setPackEnabled('base@1.0.0', false)).toThrow('必须保留一个 base 数据包');
+    expect(() => game.packManager.removePack('base@1.0.0')).toThrow('发布基础包不可从包库移除');
   });
 
   test('默认内容中的 Spot 卡池引用全部可解析', () => {
@@ -43,6 +43,49 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     for (const spot of defaultDatapack.spots) {
       for (const poolId of spot.gachaPools ?? []) expect(poolIds.has(poolId), `${spot.id} -> ${poolId}`).toBe(true);
     }
+  });
+
+  test('基础包可复制为新版本编辑态、编辑后恢复并交换回发布版本', async () => {
+    const game = new AronaClickerRuntime();
+    const baseId = 'base@1.0.0';
+    const baseline = game.getPackRecord(baseId)!.datapack;
+    const editing = game.createEditingPack(baseId, '1.0.1');
+    expect(editing.ok).toBe(true);
+    const editingId = editing.packRecordId!;
+    const configuration = game.getPackConfiguration();
+    const order = [...configuration.order];
+    const baseIndex = order.indexOf(baseId);
+    const editingIndex = order.indexOf(editingId);
+    [order[baseIndex], order[editingIndex]] = [order[editingIndex], order[baseIndex]];
+    const enabledIds = configuration.enabledIds.map(id => id === baseId ? editingId : id);
+    expect(game.applyPackConfiguration({ enabledIds, order }).ok).toBe(true);
+    expect(game.packManager.snapshot().enabledIds).toContain(editingId);
+
+    expect(game.openEditingPack(editingId).ok).toBe(true);
+    const draft = game.getRuntimeMod()!;
+    const originalName = draft.spots[0].name;
+    const changed = game.applyRuntimeMod({
+      ...draft,
+      areas: draft.areas?.map(({ adjacentAreaIds: _legacyAdjacentAreaIds, ...area }) => area),
+      spots: draft.spots.map((spot, index) => index === 0 ? { ...spot, name: `${spot.name}（编辑）` } : spot),
+    });
+    expect(changed.ok, changed.message).toBe(true);
+    expect(game.getPackRecord(editingId)?.datapack.spots.find(spot => spot.id === `base:spot:${draft.spots[0].idName}`)?.name).toBe(`${originalName}（编辑）`);
+    expect(game.getPackRecord(editingId)?.datapack.items).toEqual(baseline.items);
+
+    const snapshot = game.packManager.snapshot();
+    const restored = new AronaClickerRuntime();
+    await restored.restorePackManager({
+      load: async () => snapshot,
+      save: async () => undefined,
+      clear: async () => undefined,
+    });
+    expect(restored.packManager.snapshot().enabledIds).toContain(editingId);
+    expect(restored.getPackRecord(editingId)?.datapack.spots.find(spot => spot.id === `base:spot:${draft.spots[0].idName}`)?.name).toBe(`${originalName}（编辑）`);
+
+    const rollback = game.getPackConfiguration();
+    expect(game.applyPackConfiguration({ enabledIds: rollback.enabledIds.map(id => id === editingId ? baseId : id), order }).ok).toBe(true);
+    expect(game.registry.spots.get(draft.spots[0].idName.includes(':') ? draft.spots[0].idName : `base:spot:${draft.spots[0].idName}`)?.name).toBe(originalName);
   });
 
   test('未启用包可从包库移除；已启用包、内置包与未知包被拒绝', () => {
@@ -65,7 +108,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     game.registerParsedPack(parsed);
     game.setPackEnabled('demo@1.0.0', true);
     expect(() => game.removePack('demo@1.0.0')).toThrow('请先将该数据包移出启用集');
-    expect(() => game.removePack('base@1.0.0')).toThrow('内置数据包不可删除');
+    expect(() => game.removePack('base@1.0.0')).toThrow('发布基础包不可从包库移除');
     expect(() => game.removePack('missing@1.0.0')).toThrow('不存在的数据包');
   });
 
@@ -77,6 +120,26 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.0']);
     expect(game.state.activeInit).toBe('');
     expect(game.running).toBe(false);
+  });
+
+  test('唯一无冲突的普通态开发来源进入启用序列并由 Runtime 加载', () => {
+    const game = new AronaClickerRuntime();
+    const pack: StoredPack = {
+      id: 'development:sample.zip',
+      packRecordId: 'development:sample.zip',
+      sourcePath: 'sample.zip',
+      manifest: { modName: 'development-sample', name: 'Development Sample', version: '1.0.0', dependencies: ['base'] },
+      datapack: {
+        modName: 'development-sample', name: 'Development Sample', version: '1.0.0',
+        inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], characters: [], funcletDefs: [],
+      },
+      images: [], sourceKind: 'zip', importedAt: 1, editingMode: 'normal',
+    };
+
+    game.reconcileDevelopmentPacks([pack]);
+    expect(game.getPackCatalog().entries.find(entry => entry.id === pack.id)?.enabled).toBe(true);
+    expect(() => game.applyEnabledPacks()).not.toThrow();
+    expect(game.registry.loadedModNames.has('development-sample')).toBe(true);
   });
 
   test('启用集含失效非 base 包时自动停用该包并保留包库记录', () => {

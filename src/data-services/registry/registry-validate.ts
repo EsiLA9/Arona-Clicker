@@ -22,8 +22,8 @@ export class RegistryError extends Error {
 }
 
 /**
- * 三段式 id 校验（docs/docs-828/06-adr/0004 §2）：
- * formatOnly = true 时只查格式（story / character 表待 S1b/c 中段归位后收紧）。
+ * 三段式 id 校验：formatOnly = true 时只查格式，否则同时校验 typeName 已登记。
+ * 当前规则与数据契约见 docs/docs-829/03-data-structures/datapack-contracts.md。
  */
 const checkEntityIds = (
   items: { id: string }[] | undefined,

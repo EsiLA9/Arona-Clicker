@@ -1,0 +1,174 @@
+# docs/docs-828 — 总入口（00-INDEX）
+
+> 本文是文档库的**唯一入口**：只做路由，不写正文。想了解什么、想改什么，按表跳转到对应文档。
+> 本库取代 `docs-824/`（已归档）；内容以 2026-09-15 本次核验前的代码实况为基线，后续以源码、测试和本库当前机制说明为准。
+
+## 系统一句话
+
+**事件驱动 + 声明式数据包**的放置类 RPG 引擎（TypeScript / Vite / vitest）：游戏逻辑写成 `Datapack`，由引擎子系统解释执行；所有状态变更走 `StateMutationService` 单一写入口；UI 只消费只读快照。
+
+## 主干调用链
+
+```text
+src/ui/main.ts → createAppRuntime()（组合 Runtime 与服务）
+        → applyEnabledPacks()（加载启用数据包，保持 Lobby）
+        → Lobby（activeInit 为空；选择 Init / 服务工作区，不启动 Tick）
+        → choose / resume Init（写入 activeInit，恢复或建立快照）
+        → start()（1 tick/秒）
+        → tick()（生产结算 → Affector → 剧情 → 阻断复检 → 统计）
+```
+
+## 路由表
+
+### 我想理解……
+
+| 想了解 | 看这篇 |
+| --- | --- |
+| 按概念层阅读项目 Wiki（应用 / 数据服务 / Engine / 产品领域 / UI / 工程支持） | [[docs/archive/docs-828-snapshot/06-wiki/00-index]] |
+| 项目概念图、代码职责与协作层级 | [[docs/archive/docs-828-snapshot/01-architecture/AC-outline-wiki]] |
+| 系统全貌 / 核心思想 / 目录职责速览 | [[docs/archive/docs-828-snapshot/01-architecture/overview]] |
+| 新会话最小架构上下文 / Luna 阅读入口 | [[docs/archive/docs-828-snapshot/01-architecture/current-context-card]] |
+| 启动 → 装配 → tick 的完整时序 | [[docs/archive/docs-828-snapshot/01-architecture/run-logic]] |
+| 三层状态（global / per-Init 快照 / per-Init 当前）与写入口 | [[docs/archive/docs-828-snapshot/01-architecture/state-layers]] |
+| Datapack → Registry → PlayerState → GameView 数据流 | [[docs/archive/docs-828-snapshot/01-architecture/data-flow]] |
+| 2026-09-06 的历史模块依赖基线 | [[docs/archive/docs-828-snapshot/01-architecture/module-dependency-baseline]]；当前关系图见 [[docs/archive/docs-828-snapshot/01-architecture/AC-outline-wiki]] |
+| 某个子系统（GameNum / Affector / 抽卡 / 色彩 / 剧情…） | [[#02-modules 模块卡片索引]] |
+| 游戏内 Runtime Editor / 快速构建临时 Spot 内容 | [[docs/archive/docs-828-snapshot/02-modules/runtime-editor]] |
+| PlayerState / Registry / 实体类型 / 声明式 DSL 枚举 | [[docs/archive/docs-828-snapshot/03-data-structures/player-state]] 起（见下方分区表） |
+| 引擎契约与 AronaClicker 类型边界 | [[docs/archive/docs-828-snapshot/03-data-structures/type-boundary-audit]] |
+| 生产 / 抽卡 / 培养 / 色彩 / 事件联动的机制细节 | [[docs/archive/docs-828-snapshot/04-mechanisms/00-index]]（当前机制正文入口） |
+| **有哪些不可违反的设计约束**（含尚未落地的纸面约束） | [[docs/archive/docs-828-snapshot/01-architecture/design-constraints]] |
+| 某个机制为什么这样设计 / 它的历史来源 | [[docs/plan-work/mechanisms/00-index]] → 再跳 `docs/plan-work/archive/` 原文 |
+| 角色成长 / 养成体系 / 跨世界线记忆与追赶 | [[docs/archive/docs-828-snapshot/01-architecture/design-constraints]]（A 段约束）+ [[docs/plan-work/00-index]]（B 段属未决方向） |
+| 还有什么没做（未决方向，**非当前计划**） | [[docs/plan-work/00-index]] |
+| 从玩法需求讨论到阶段 Task / Goal Set | [[docs/ai/goal-workflow]] |
+
+### 我想改……
+
+| 想改 | 先读 |
+| --- | --- |
+| 引擎机制 / 新增子系统 | 对应 [[#02-modules 模块卡片索引]] + [[docs/archive/docs-828-snapshot/05-conventions/architecture-discipline]] |
+| Runtime Editor / Spot 热内容 CRUD | [[docs/archive/docs-828-snapshot/02-modules/runtime-editor]] + [[docs/archive/docs-828-snapshot/05-conventions/architecture-discipline]] |
+| 实体字段 / 枚举（`src/engine/types/`） | [[docs/archive/docs-828-snapshot/05-conventions/schema-sync]]（必读，含 `gen:schema` 协议） |
+| 文件拆分 / 重构 | [[docs/archive/docs-828-snapshot/05-conventions/refactoring]] |
+| 正式默认游戏内容 | `src/arona-clicker/content/default-datapack.ts` + [[docs/archive/docs-828-snapshot/02-modules/registry]]；测试/示例包见 `src/data/test-datapack.ts` |
+| 新增跨世界线保留的数据 | [[docs/archive/docs-828-snapshot/01-architecture/state-layers]]（先想清楚放哪一层） |
+| Datapack 读取 / 多包管理 / mod 冲突 | [[docs/archive/docs-828-snapshot/01-architecture/design-constraints]]（命名与包约束）+ [[docs/plan-work/00-index]]（未落地部分） |
+| 测试 | [[docs/archive/docs-828-snapshot/05-conventions/testing]] |
+| 文档本身 | [[docs/archive/docs-828-snapshot/05-conventions/doc-maintenance]] |
+| 任务 Read Set / 上下文预算 | [[docs/ai/task-read-set-routing]] |
+
+## 02-modules 模块卡片索引
+
+| 卡片                                     | 子系统                                              | 代码位置                                             |
+| -------------------------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| [[docs/archive/docs-828-snapshot/02-modules/core]]           | 事件总线 / Tag / 主题运行时 / DevLog 等横切基础                | `src/engine/core/`                               |
+| [[docs/archive/docs-828-snapshot/02-modules/registry]]       | 数据包注册表 + 加载校验 + def-factory 构建器（Wiki 参考页见卡片） | `src/data-services/registry/`、`src/engine/def-factory/` |
+| [[docs/archive/docs-828-snapshot/02-modules/expression]]     | ValueSystem / ConditionSystem / Funclet / 统计 DSL | `src/engine/expression/`                         |
+| [[docs/archive/docs-828-snapshot/02-modules/game-num]]       | GameNum 统一数值树（产出结算核心）                            | `src/engine/expression/game-num*.ts`             |
+| [[docs/archive/docs-828-snapshot/02-modules/effect-trigger]] | Effect / Trigger / 事件驱动响应器                       | `src/engine/effect/`                             |
+| [[docs/archive/docs-828-snapshot/02-modules/affector]]       | Affector 持续效果（四通道）                               | `src/engine/effect/affector-engine.ts`           |
+| [[docs/archive/docs-828-snapshot/02-modules/state-mutation]] | StateMutationService 单一写入口                       | `src/arona-clicker/state/state-mutation-service.ts`    |
+| [[docs/archive/docs-828-snapshot/02-modules/character]]      | Character / 抽卡 / 培养 / 通讯录                        | `src/arona-clicker/services/` 角色域              |
+| [[docs/archive/docs-828-snapshot/02-modules/color]]          | 色彩 / 主题 / 装备                                     | `src/arona-clicker/services/color*.ts`           |
+| [[docs/archive/docs-828-snapshot/02-modules/world]]          | Init / Area / Spot / 会话 / 存档                     | `src/arona-clicker/` Runtime 与领域服务            |
+| [[docs/archive/docs-828-snapshot/02-modules/story]]          | 剧情演出 / 聊天流 / 被动闲聊                                | `src/arona-clicker/services/`                   |
+| [[docs/archive/docs-828-snapshot/02-modules/visibility]]     | 可见性 / Reveal 揭示阶梯                                | `src/engine/visibility/`                         |
+| [[docs/archive/docs-828-snapshot/02-modules/stats]]          | 三层统计 / Tag 统计 / 世界倾斜                             | `src/engine/stats/`                              |
+| [[docs/archive/docs-828-snapshot/02-modules/extra]]          | Extra 三层附加数据树                                    | `src/engine/extra/`                              |
+| [[docs/archive/docs-828-snapshot/02-modules/pics]]           | 图片资产（PicDef / ImageStore / charaProfile）         | `src/data-services/assets/`                              |
+| [[docs/archive/docs-828-snapshot/02-modules/ui]]             | 前端 UI（只读消费 + controller 拆分）                      | `src/ui/`                                        |
+| [[docs/archive/docs-828-snapshot/02-modules/runtime-editor]] | 游戏内 Runtime Editor：Spot 草稿、Policy、热提交与支付方案编辑 | `src/ui/runtime-editor/`、`src/data-services/authoring/` |
+
+## 03-data-structures 分区（数据结构）
+
+| 文档 | 主题 |
+| --- | --- |
+| [[docs/archive/docs-828-snapshot/03-data-structures/player-state]] | PlayerState 三层运行时状态 |
+| [[docs/archive/docs-828-snapshot/03-data-structures/registry]] | Registry 表 + 关系索引 + 校验 |
+| [[docs/archive/docs-828-snapshot/03-data-structures/character-entities]] | Character 实体：差分/卡池/曲线/色彩 |
+| [[docs/archive/docs-828-snapshot/03-data-structures/stats-views]] | 三层统计 & UI 只读视图 |
+| [[docs/archive/docs-828-snapshot/03-data-structures/id-reference-semantics]] | 真引用 / 意义引用判定全表 |
+| [[docs/archive/docs-828-snapshot/03-data-structures/declarative-dsl]] | 声明式 DSL 枚举总目录 |
+
+## 04-mechanisms 分区（当前机制）
+
+> 当前机制正文统一位于 `04-mechanisms`；旧目录 `04-algorithms` 仅保留迁移说明。
+
+| 文档 | 主题 |
+| --- | --- |
+| [[docs/archive/docs-828-snapshot/04-mechanisms/state-mutation]] | 状态写入 4 步管道 |
+| [[docs/archive/docs-828-snapshot/04-mechanisms/production]] | 生产结算：GameNum 四级层级树 + zone 聚合 |
+| [[docs/archive/docs-828-snapshot/04-mechanisms/gacha]] | 抽卡结算 |
+| [[docs/archive/docs-828-snapshot/04-mechanisms/cultivate]] | 培养推进 |
+| [[docs/archive/docs-828-snapshot/04-mechanisms/color-derivation]] | 色彩派生与主题 token |
+| [[docs/archive/docs-828-snapshot/04-mechanisms/trigger-effect]] | 事件联动 + GameEvent 事件目录 |
+| [[docs/archive/docs-828-snapshot/04-mechanisms/roster]] | 通讯录 / 图鉴 / 招募入口 |
+| [[docs/archive/docs-828-snapshot/04-mechanisms/gear]] | 装备（Gear）成长：三固定槽、经验与 tier 升级 |
+
+## 05-conventions（纪律与规范）
+
+| 文档 | 主题 |
+| --- | --- |
+| [[docs/archive/docs-828-snapshot/05-conventions/architecture-discipline]] | 架构纪律 8 条（不可破坏） |
+| [[docs/archive/docs-828-snapshot/05-conventions/refactoring]] | 文件拆分规范 |
+| [[docs/archive/docs-828-snapshot/05-conventions/schema-sync]] | 实体类型 → 数据包编辑器同步协议 |
+| [[docs/archive/docs-828-snapshot/05-conventions/testing]] | 测试纪律 |
+| [[docs/archive/docs-828-snapshot/05-conventions/doc-maintenance]] | 文档维护规则（防漂移） |
+
+## 计划与架构决策
+
+> ADR 与其他计划文档已**整体冻结**至 `docs/plan-work/archive/`（非当前事实源）。当前仍生效的设计约束统一收敛在 [[docs/archive/docs-828-snapshot/01-architecture/design-constraints]]；下表只保留「哪条决策记在哪份 ADR」的检索路由。
+
+| 文档 | 决策 |
+| --- | --- |
+| [[docs/archive/docs-828-snapshot/01-architecture/design-constraints]] | **仍生效的设计约束汇编**（含尚未落地的纸面约束） |
+| [[adr-0001-architecture-consolidation]] | T1-T7 架构整理收官（装配外移 / 只读纪律 / 表驱动 / 环解扣） |
+| [[adr-0002-gamenum-tree]] | GameNum 四级层级树 + 事件驱动失效（taskProduction Phase 1-8） |
+| [[adr-0003-docs-restructure]] | 文档库重构：从日期戳手册到分层索引 |
+| [[adr-0004-datapack-management]] | Datapack 多包读取与管理（三段式命名空间 / 包库与启用集 / 惰性存档；规划中） |
+| [[affection-planning]] | 好感系统设计（§1 数值 / §2 台阶推送与未读 / §3 羁绊尾巴挂靠推送 / §4 Talklet 输入中提示；轴 A 消息成分已移除） |
+| [[adr-0006-ui-background-layering]] | 背景层数据结构、合并规则与安全边界 |
+| [[adr-0007-shop-transaction-boundaries]] | Spot 商店的购买记录、原子提交与事件边界 |
+| [[adr-0008-character-progression-boundaries]] | 角色成长体系边界与 A 段状态骨架（B 段推迟） |
+| [[adr-0009-init-lifecycle-boundaries]] | Init 生命周期边界与运行时重建 |
+| [[adr-0010-definition-repository-editor-resolution]] | DefinitionRepository 只读接口与 Editor 来源解析优先级 |
+| [[adr-0011-definition-resolution-withdrawal]] | Definition Resolution 撤回、引用悬置与 Runtime Delta 责任边界 |
+| [[adr-0012-runtime-hot-content-crud]] | Runtime 热内容 CRUD 与 Spot 服务接入边界 |
+
+## 07-audit 设计审查（2026-08-30）
+
+> 繁简 / 兜底问题清单（位置 / 原因 / 方案组）。**GameNum 增量失效体系与 Affector 对账链为多第三方 Datapack 基础设施，豁免**（见 00-overview）。整改完成后本分区归档。
+
+| 文档 | 主题 |
+| --- | --- |
+| [[docs/archive/docs-828-snapshot/07-audit/00-overview]] | 范围 / 前提豁免 / 分组路由 |
+| [[docs/archive/docs-828-snapshot/07-audit/runtime-tolerance]] | 运行时容错政策分裂（三轨失效路径 / funclet 实证 / 存档双政策） |
+| [[docs/archive/docs-828-snapshot/07-audit/dual-track-state]] | 双轨与副本状态（剧情 id / 阅读记录 / equipmentId / SPECS 登记面） |
+| [[docs/archive/docs-828-snapshot/07-audit/dormant-machinery]] | 休眠与预留机制（无调用点 / 无写入方 / no-op 群） |
+| [[docs/archive/docs-828-snapshot/07-audit/presentation-fallbacks]] | 表现层回退链与 UI 防御密度 |
+| [[docs/archive/docs-828-snapshot/07-audit/presentation-editor-consistency]] | 主题表现编辑器 / 运行时 / hover-active 一致性 |
+| [[docs/archive/docs-828-snapshot/07-audit/enum-taxonomy]] | 枚举面与分类学超配（可见性阶梯 / 返回码 / EffectOp） |
+| [[docs/archive/docs-828-snapshot/07-audit/stats-ledgers]] | 统计五套并记与 worldTilt 预留体系 |
+| [[docs/archive/docs-828-snapshot/07-audit/sync-burden]] | 同步义务与流程负担（含漂移实证） |
+| [[docs/archive/docs-828-snapshot/07-audit/affector-performance]] | Affector / GameNum 性能热点真实性与紧迫性判别 |
+| [[docs/archive/docs-828-snapshot/07-audit/condition-presentation]] | 条件判断渲染建议真实性与可行性判别 |
+| [[docs/archive/docs-828-snapshot/07-audit/dom-refresh-chains]] | UI DOM 刷新链条、刷新范围与 hover / 交互状态边界 |
+
+## 08-roadmap 长期目标追踪
+
+> 全部 roadmap 已冻结至 `docs/plan-work/archive/`，**不再是当前计划**。
+> 完整的未完成方向清单（含各 roadmap 的剩余切片）见 [[docs/plan-work/00-index]] 的「未决方向」；本分区不再维护状态表，避免出现第三处状态副本。
+
+## 命令速查
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm test` | vitest 全量测试 |
+| `npx tsc --noEmit` | 类型检查 |
+| `npm run dev:game` / `npm run dev` | UI / 引擎开发服务器 |
+| `npm run build` | 构建 |
+| `npm run gen:schema` | `src/engine/types/` → 编辑器 Schema 协议 |
+| `npm run check:architecture` | 数据服务单向依赖边界检查 |
+| `npm run check:docs` | 文档库结构检查（链接目标 / 文件名唯一 / 源码路径） |
+| `npm run report:doc-context` | 文档分区规模与粗略上下文预算报告 |

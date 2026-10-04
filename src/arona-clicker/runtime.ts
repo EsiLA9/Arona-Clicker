@@ -8,6 +8,7 @@ import { Registry } from '../data-services/registry/registry';
 import { buildAuthoringDef, requireContentPolicy, validateAuthoringInput } from '../data-services/authoring/content-policy';
 import type { AuthoringValidationContext, ContentAuthoringPolicy } from '../data-services/authoring/content-policy';
 import { defaultDatapack } from './content/default-datapack';
+import bundledBaseManifest from './content/base-pack/datapack.json';
 import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogPane, PackCatalogReadModel, PackCatalogRecord, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft, RuntimeModApplyResult } from './contracts';
 import type { Datapack } from '../data-services/contracts/datapack';
 import type { AreaDef, InitDef, SpotDef } from '../data-services/contracts/world';
@@ -20,6 +21,16 @@ import { decodeSpotContent } from '../data-services/authoring/content-policy-dsl
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;
+}
+
+function replaceRuntimeDatapack(active: readonly Datapack[], replacement: Datapack, previousModNames: readonly string[] = []): Datapack[] {
+  const replacedModNames = new Set([...previousModNames, replacement.modName]);
+  const currentIndex = active.findIndex(datapack => replacedModNames.has(datapack.modName));
+  const retained = active.filter(datapack => !replacedModNames.has(datapack.modName));
+  const insertIndex = currentIndex < 0
+    ? retained.length
+    : active.slice(0, currentIndex).filter(datapack => !replacedModNames.has(datapack.modName)).length;
+  return [...retained.slice(0, insertIndex), replacement, ...retained.slice(insertIndex)];
 }
 
 /**
@@ -40,7 +51,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
   constructor(options: AronaClickerRuntimeOptions = {}) {
     super({ ...options, saveCodec: options.saveCodec ?? buildSaveData });
-    this.packManager = new PackManager(undefined, options.packStore, [createBuiltinBasePack()]);
+    this.packManager = new PackManager(undefined, options.packStore, [createBundledBasePack()]);
     this.runtimeContent = new RuntimeContentCoordinator({
       registry: this.registry,
       sourceId: 'runtime-editor',
@@ -152,15 +163,19 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       ...(pack.sourceDigest ? { sourceDigest: pack.sourceDigest } : {}),
       contentDigest: pack.contentDigest ?? storedPackContentDigest(pack),
       author: pack.manifest.author,
+      ...(pack.manifest.color ? { color: pack.manifest.color } : {}),
       dependencies: [...pack.manifest.dependencies],
       sourceKind: pack.sourceKind,
+      ...(pack.sourcePath ? { sourcePath: pack.sourcePath } : {}),
       importedAt: pack.importedAt,
       enabled: enabled.has(pack.id),
       capabilities: {
-        required: pack.sourceKind === 'builtin',
-        removable: pack.sourceKind !== 'builtin',
-        reorderable: pack.sourceKind !== 'builtin',
-        enableable: pack.sourceKind !== 'builtin' && packEditingMode(pack) === 'normal',
+        required: pack.manifest.modName === 'base',
+        removable: pack.manifest.modName !== 'base' && pack.sourceKind !== 'bundle' && pack.sourceKind !== 'builtin',
+        reorderable: pack.manifest.modName === 'base'
+          ? !enabled.has(pack.id)
+          : pack.sourceKind !== 'bundle' && pack.sourceKind !== 'builtin',
+        enableable: pack.manifest.modName !== 'base' || !enabled.has(pack.id),
       },
     } satisfies PackCatalogEntry));
     const entryByRecordId = new Map(entries.map(entry => [entry.packRecordId ?? entry.id, entry] as const));
@@ -182,15 +197,27 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     };
   }
 
-  createEditingPack(sourcePackRecordId: string): { ok: boolean; packRecordId?: string; message: string } {
+  createEditingPack(sourcePackRecordId: string, versionId?: string): { ok: boolean; packRecordId?: string; message: string } {
     try {
-      const result = this.packManager.createEditingPack(sourcePackRecordId);
+      const result = versionId
+        ? this.packManager.createEditingPack(sourcePackRecordId, undefined, versionId)
+        : this.packManager.createEditingPack(sourcePackRecordId);
       this.persistPackManagerSnapshot();
       return {
         ok: true,
         packRecordId: result.pack.id,
         message: result.kind === 'existing' ? '已打开现有编辑态数据包。' : '已从普通态数据包创建编辑态副本。',
       };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  convertEditingPackToNormal(sourcePackRecordId: string): { ok: boolean; packRecordId?: string; message: string } {
+    try {
+      const converted = this.packManager.convertEditingPackToNormal(sourcePackRecordId);
+      this.persistPackManagerSnapshot();
+      return { ok: true, packRecordId: converted.id, message: '已复制为独立普通态记录。' };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error) };
     }
@@ -236,6 +263,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         name: pack.manifest.name,
         version: pack.manifest.version,
         ...(pack.manifest.author ? { author: pack.manifest.author } : {}),
+        ...(pack.manifest.color ? { color: pack.manifest.color } : {}),
         dependencies: [...pack.manifest.dependencies],
       },
       datapack: cloneJson(pack.datapack),
@@ -256,8 +284,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     const previousRuntimeMod = this.runtimeMod;
     try {
       const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
-      const background = active.filter(datapack => datapack.modName !== pack.manifest.modName);
-      const datapacks = [...background, cloneJson(pack.datapack)];
+      const datapacks = replaceRuntimeDatapack(active, cloneJson(pack.datapack), this.runtimeMod ? [this.runtimeMod.modName] : []);
       this.validatePackDatapacks(datapacks);
       this.reloadPreservingState(datapacks);
       this.runtimeMod = draft;
@@ -548,13 +575,16 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         spots: previousDatapack ? mergeAuthoringRecords(previousDatapack.spots, spots) : spots,
         enhancements: previousDatapack ? mergeAuthoringRecords(previousDatapack.enhancements, enhancements) : enhancements,
       };
-      const background = (this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks())
-        .filter(datapack => datapack.modName !== draft.modName && (!this.runtimeMod || datapack.modName !== this.runtimeMod.modName));
+      const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
+      const replacedModNames = this.runtimeMod ? [this.runtimeMod.modName] : [];
+      const background = active.filter(datapack => datapack.modName !== draft.modName
+        && (!datapack.modName || !replacedModNames.includes(datapack.modName)));
+      const datapacks = replaceRuntimeDatapack(active, runtimePack, replacedModNames);
       const backgroundRegistry = new Registry();
       for (const datapack of background) backgroundRegistry.load(datapack);
       assertRuntimeDefinitionConflicts(backgroundRegistry, draft, this.runtimeMod);
-      this.validatePackDatapacks([...background, runtimePack]);
-      this.reloadPreservingState([...background, runtimePack]);
+      this.validatePackDatapacks(datapacks);
+      this.reloadPreservingState(datapacks);
       this.runtimeMod = {
         ...draft,
         ...(targetPackRecordId ? { targetPackRecordId } : {}),
@@ -725,7 +755,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   removePack(id: string, options: { readonly editorDirty?: boolean } = {}): void {
     const pack = this.packManager.getPack(id);
     if (!pack) throw new PackManagerError('不存在的数据包：' + id);
-    if (pack.sourceKind === 'builtin') throw new PackManagerError('内置数据包不可删除：' + id);
+    if (pack.sourceKind === 'builtin' || pack.sourceKind === 'bundle') throw new PackManagerError('发布基础包不可从包库移除：' + id);
     if (options.editorDirty) {
       throw new PackManagerError('该编辑态存在未保存修改；请先放弃编辑或保存后再删除。', 'editor-dirty');
     }
@@ -742,7 +772,12 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   async restorePackManager(store: AsyncPackSnapshotStore): Promise<void> {
     this.packAsyncStore = store;
     const snapshot = await store.load();
-    if (snapshot) this.packManager = new PackManager(snapshot, undefined, [createBuiltinBasePack()]);
+    if (snapshot) this.packManager = new PackManager(snapshot, undefined, [createBundledBasePack()]);
+  }
+
+  reconcileDevelopmentPacks(packs: readonly StoredPack[]): void {
+    this.packManager.reconcileDevelopmentPacks(packs);
+    this.persistPackManagerSnapshot();
   }
 
   async savePackManager(store: AsyncPackSnapshotStore): Promise<void> {
@@ -859,19 +894,16 @@ function assertRuntimeDefinitionConflicts(
   check('Enhancement', 'enhancement', registry.enhancements, draft.enhancements ?? [], previous?.enhancements ?? []);
 }
 
-function createBuiltinBasePack(): StoredPack {
+function createBundledBasePack(): StoredPack {
+  const id = `${bundledBaseManifest.modName}@${bundledBaseManifest.version}`;
   return {
-    id: 'base@1.0.0',
+    id,
     manifest: {
-      modName: 'base',
-      name: 'AronaClicker 基础内容',
-      version: '1.0.0',
-      author: 'AronaClicker',
-      dependencies: [],
+      ...bundledBaseManifest,
     },
     datapack: defaultDatapack,
     images: [],
-    sourceKind: 'builtin',
+    sourceKind: 'bundle',
     importedAt: 0,
   };
 }

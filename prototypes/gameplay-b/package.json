@@ -1,0 +1,17 @@
+{
+  "name": "gameplay-b-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite . --host 127.0.0.1 --port 5174 --strictPort",
+    "test": "vitest run --root .",
+    "typecheck": "tsc --noEmit --project ./tsconfig.json",
+    "build": "vite build ."
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "items": [
+    {
+      "id": "base:item:energy_drink",
+      "name": "能量饮料",
+      "description": "沙勒便利店的热销饮料，饮用后立即获得信用点。",
+      "maxStack": 99,
+      "rarity": "common",
+      "type": "consumable",
+      "useEffects": [
+        { "op": "addResource", "target": "base:resource:credit", "value": 5 }
+      ],
+      "extra": {
+        "t": "dict",
+        "v": {
+          "icon": { "t": "str", "v": "drink" }
+        }
+      }
+    },
+    {
+      "id": "base:item:field_note",
+      "name": "行动报告",
+      "description": "记录沙勒成员行动成果的报告书，可兑换青辉石。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material",
+      "extra": {
+        "t": "dict",
+        "v": {
+          "icon": { "t": "str", "v": "note" }
+        }
+      }
+    }
+  ]
+}

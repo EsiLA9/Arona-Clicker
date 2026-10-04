@@ -336,6 +336,8 @@ export class SelectorPage {
     const focusedId = this.face === 'global-enh' ? this.enhSelectedId : this.initSelectedId;
     const projection = projectSelectorTheme(context, this.face, focusedId);
     const { root } = this.host;
+    const shell = root.querySelector<HTMLElement>('.selector-shell');
+    if (shell) applyThemeTree(shell, projection.tree);
     const topbar = root.querySelector<HTMLElement>('.selector-topbar');
     if (topbar) {
       applyThemeTree(topbar, projection.tree);

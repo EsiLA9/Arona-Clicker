@@ -275,10 +275,15 @@ describe('顶栏与设置工作区', () => {
     expect(root.querySelector('.runtime-editor-toggle')).toBeNull();
   });
 
-  it('编辑态首次点击只选择，二次点击进入对应 Mod；启用集草案未 Apply 时阻止进入', () => {
+  it('从右侧记录详情进入编辑器；启用集草案未 Apply 时阻止进入', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
     const editingId = createEditingCopy(game);
+    game.registerParsedPack({
+      manifest: { modName: 'optional', name: 'Optional', version: '1.0.0', dependencies: [] },
+      datapack: { ...baseDatapack, modName: 'optional', name: 'Optional', version: '1.0.0', spots: [] },
+      images: [], jsonFileCount: 1, ignoredCount: 0,
+    }, 'optional-a');
     const root = document.createElement('div');
     document.body.appendChild(root);
     const controller = new UIController(game, root);
@@ -288,48 +293,40 @@ describe('顶栏与设置工作区', () => {
 
     root.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
     root.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
-    const editingButton = (): HTMLButtonElement => {
-      const button = root.querySelector<HTMLButtonElement>('[data-pack-selection-slot="editing"]');
-      if (!button) throw new Error('未找到编辑态状态按钮。');
-      return button;
+    root.querySelector<HTMLButtonElement>('[data-pack-select="optional-a"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-pack-enabled-toggle="optional-a"]')!.click();
+    const selectEditingRecord = (): HTMLButtonElement => {
+      const button = root.querySelector<HTMLButtonElement>(`[data-pack-select="${editingId}"]`);
+      if (!button) throw new Error('未找到编辑态包库记录。');
+      button.click();
+      const openEditor = root.querySelector<HTMLButtonElement>(`[data-pack-open-editing="${editingId}"]`);
+      if (!openEditor) throw new Error('右侧详情中未找到编辑器入口。');
+      return openEditor;
     };
 
-    editingButton().click();
-    expect(controller.runtimeEditorPanelOpen).toBe(false);
-    expect(game.getPackCatalog().panes.find(pane => pane.editing?.packRecordId === editingId)?.selectedSlot).toBe('editing');
-    expect(editingButton().textContent).toBe('编辑态');
-
-    controller.panelState.datapackWorkspace!.draftEnabledIds = [];
-    editingButton().click();
+    selectEditingRecord().click();
     expect(controller.runtimeEditorPanelOpen).toBe(false);
     expect(root.textContent).toContain('请先应用启用集草案，再进入编辑模式。');
 
     controller.resetDatapackDraft();
     controller.render();
-    editingButton().click();
+    selectEditingRecord().click();
     expect(controller.runtimeEditorPanelOpen).toBe(true);
     expect(controller.panelState.runtimeDatapackEditor?.packRecordId).toBe(editingId);
-    expect(editingButton().classList.contains('is-editing-target')).toBe(true);
-    expect(editingButton().textContent).toBe('编辑中');
-    expect(editingButton().getAttribute('title')).toContain('编辑中');
 
     document.querySelector<HTMLButtonElement>('[data-runtime-editor-panel-close]')!.click();
     expect(controller.runtimeEditorPanelOpen).toBe(false);
-    expect(editingButton().classList.contains('is-editing-target')).toBe(false);
-    expect(editingButton().classList.contains('is-create-target')).toBe(true);
-    expect(editingButton().textContent).toBe('新建：base');
-    expect(editingButton().getAttribute('title')).toContain('新建内容目标');
+    expect(root.querySelector(`[data-pack-open-editing="${editingId}"]`)).not.toBeNull();
 
     root.querySelector<HTMLButtonElement>('#runtime-editor-launch')!.click();
     document.querySelector<HTMLButtonElement>('[data-runtime-editor-launcher-entry="close-editing"]')!.click();
-    expect(editingButton().classList.contains('is-create-target')).toBe(false);
-    expect(editingButton().textContent).toBe('编辑态');
+    expect(root.querySelector(`[data-pack-open-editing="${editingId}"]`)).not.toBeNull();
 
     controller.destroy();
     game.stop();
   });
 
-  it('从数据包列表末尾核实身份后创建仅有编辑态的新数据包', () => {
+  it('数据包管理页不再提供创建空编辑态入口', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
     const root = document.createElement('div');
@@ -340,24 +337,78 @@ describe('顶栏与设置工作区', () => {
 
     root.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
     root.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
-    root.querySelector<HTMLButtonElement>('[data-pack-create-empty-editing]')!.click();
+    expect(root.querySelector('[data-pack-create-empty-editing]')).toBeNull();
+    expect(document.querySelector('.app-modal')).toBeNull();
 
-    const modId = document.querySelector<HTMLInputElement>('[data-pack-create-mod-id]');
-    const versionId = document.querySelector<HTMLInputElement>('[data-pack-create-version-id]');
-    expect(modId).not.toBeNull();
-    expect(versionId).not.toBeNull();
-    modId!.value = 'fresh-mod';
-    versionId!.value = '0.1.0';
-    document.querySelector<HTMLButtonElement>('[data-modal-action="verify-empty-editing-pack"]')!.click();
-    expect(document.querySelector('.app-modal')?.textContent).toContain('fresh-mod');
-    expect(document.querySelector('.app-modal')?.textContent).toContain('0.1.0');
+    controller.destroy();
+    game.stop();
+  });
 
-    document.querySelector<HTMLButtonElement>('[data-modal-action="create-empty-editing-pack"]')!.click();
-    const created = game.getPackCatalog().entries.find(entry => entry.modName === 'fresh-mod' && entry.version === '0.1.0');
-    expect(created?.editingMode).toBe('editing');
-    expect(game.getPackCatalog().panes.find(pane => pane.modName === 'fresh-mod' && pane.version === '0.1.0')?.fixed).toBeUndefined();
-    expect(root.textContent).toContain('已创建空编辑态数据包');
+  it('拖入启用列表时高亮同名项，并且只在确认后按原位置交换', () => {
+    const game = new AronaClickerRuntime();
+    game.init([baseDatapack]);
+    const parsed = (modName: string, version: string) => ({
+      manifest: { modName, name: modName, version, dependencies: [] },
+      datapack: {
+        modName, name: modName, version, inits: [], areas: [], spots: [], enhancements: [],
+        activeStories: [], passiveStories: [], stories: [], items: [], characters: [], funcletDefs: [],
+      },
+      images: [], jsonFileCount: 1, ignoredCount: 0,
+    });
+    game.registerParsedPack(parsed('shared', '1.0.0'), 'shared-active');
+    game.registerParsedPack(parsed('later', '1.0.0'), 'later-active');
+    game.setPackEnabled('shared-active', true);
+    game.setPackEnabled('later-active', true);
+    const editing = game.createEditingPack('shared-active', '2.0.0');
+    if (!editing.ok || !editing.packRecordId) throw new Error(editing.message);
+    const editingId = editing.packRecordId;
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const controller = new UIController(game, root);
+    controller.started = true;
+    controller.render();
+    root.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
 
+    const moving = root.querySelector<HTMLElement>(`[data-pack-id="${editingId}"]`)!;
+    const active = root.querySelector<HTMLElement>('[data-pack-id="shared-active"]')!;
+    const transfer = {
+      data: '', effectAllowed: 'move', dropEffect: 'none',
+      setData(_type: string, value: string) { this.data = value; },
+      getData(_type: string) { return this.data; },
+    };
+    const dragEvent = (type: string): Event => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'dataTransfer', { value: transfer });
+      return event;
+    };
+    const dragToConflict = (): void => {
+      moving.dispatchEvent(dragEvent('dragstart'));
+      active.dispatchEvent(dragEvent('dragover'));
+      expect(active.closest('[data-pack-dropzone="enabled"]')?.classList.contains('is-drop-target'), active.outerHTML).toBe(true);
+      expect(active.classList.contains('is-swap-conflict-target')).toBe(true);
+      active.dispatchEvent(dragEvent('drop'));
+    };
+    const workspace = () => controller.panelState.datapackWorkspace!;
+    const originalOrder = [...workspace().draftOrder];
+    const originalEnabled = [...workspace().draftEnabledIds];
+
+    dragToConflict();
+    expect(document.querySelector('.app-modal')?.textContent).toContain('交换同名数据包');
+    document.querySelector<HTMLButtonElement>('.app-modal .modal-close')!.click();
+    expect(workspace().draftOrder).toEqual(originalOrder);
+    expect(workspace().draftEnabledIds).toEqual(originalEnabled);
+    moving.dispatchEvent(dragEvent('dragend'));
+
+    const fullRendersBeforeSwap = Number(root.dataset.uiRefreshFull);
+    const regionRefreshesBeforeSwap = Number(root.dataset.uiRefreshRegion);
+    dragToConflict();
+    document.querySelector<HTMLButtonElement>('[data-modal-action="swap-datapack-entry"]')!.click();
+    expect(workspace().draftEnabledIds).toEqual(['base@1.0.0', editingId, 'later-active']);
+    expect(workspace().draftOrder).toEqual(['base@1.0.0', editingId, 'later-active', 'shared-active']);
+    expect(root.querySelector(`[data-pack-select="${editingId}"]`)).not.toBeNull();
+    expect(Number(root.dataset.uiRefreshFull), `regions ${regionRefreshesBeforeSwap} -> ${root.dataset.uiRefreshRegion}`).toBe(fullRendersBeforeSwap);
+    expect(Number(root.dataset.uiRefreshRegion)).toBeGreaterThan(regionRefreshesBeforeSwap);
     controller.destroy();
     game.stop();
   });
@@ -433,7 +484,7 @@ describe('顶栏与设置工作区', () => {
     if (IS_DEBUG_EDITING !== 1) return;
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
-    createEditingCopy(game);
+    const editingId = createEditingCopy(game);
     const root = document.createElement('div');
     document.body.appendChild(root);
     const controller = new UIController(game, root);
@@ -466,7 +517,7 @@ describe('顶栏与设置工作区', () => {
   it('单 Mod 多 Spot 逐个即时新建、编辑与删除', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
-    createEditingCopy(game);
+    const editingId = createEditingCopy(game);
     const root = document.createElement('div');
     document.body.appendChild(root);
     const controller = new UIController(game, root);
@@ -476,12 +527,12 @@ describe('顶栏与设置工作区', () => {
     root.querySelector<HTMLButtonElement>('[data-service="settings"]')!.click();
     root.querySelector<HTMLButtonElement>('[data-service="datapack"]')!.click();
     const enterSelectedEditingPack = (): void => {
-      const editing = root.querySelector<HTMLButtonElement>('[data-pack-selection-slot="editing"]');
-      if (!editing) throw new Error('未找到编辑态选择按钮。');
-      editing.click();
-      const reentry = root.querySelector<HTMLButtonElement>('[data-pack-selection-slot="editing"]');
-      if (!reentry) throw new Error('编辑态首次选择后未保留按钮。');
-      reentry.click();
+      const record = root.querySelector<HTMLButtonElement>(`[data-pack-select="${editingId}"]`);
+      if (!record) throw new Error('未找到编辑态包库记录。');
+      record.click();
+      const openEditor = root.querySelector<HTMLButtonElement>(`[data-pack-open-editing="${editingId}"]`);
+      if (!openEditor) throw new Error('右侧详情中未找到编辑器入口。');
+      openEditor.click();
     };
     enterSelectedEditingPack();
     expect(root.querySelector('.runtime-editor-form')).toBeNull();
