@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation';
+import { OPERATION_WAIT_ACTION_ID, type OperationEventDef } from '../../src/arona-clicker/contracts/operation';
 import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation-content-resolver';
 import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
 import { Character } from '../../src/arona-clicker/types/ids';
@@ -38,6 +38,10 @@ function eventDef(): OperationEventDef {
     actors: [
       { id: 'test:actor:student-slot', type: 'student', hp: { initial: 4, min: 0, max: 4 } },
       { id: 'test:actor:opponent', type: 'opponent', hp: { initial: 5, min: 0, max: 5 } },
+    ],
+    actionRequirements: [
+      { actionId: 'observe', requiredCapabilityIds: [], reasonIds: ['test:reason:observe'] },
+      { actionId: 'protect', requiredCapabilityIds: ['frontline-protection'], reasonIds: ['test:reason:protection'] },
     ],
     playerRouteState: {
       playerCost: 2,
@@ -103,6 +107,18 @@ describe('Gameplay B Operation entry integration', () => {
     const firstRun = first.operationEntry.start(EVENT_ID, [Character.Hoshino]);
     const secondRun = second.operationEntry.start(EVENT_ID, [Character.Hoshino]);
     expect(firstRun.runId).not.toBe(secondRun.runId);
+    expect(firstRun.actorStates[0]).toMatchObject({
+      participantKind: 'student',
+      characterId: Character.Hoshino,
+      profile: {
+        id: HOSHINO_PROFILE.id,
+        eligibleActionIds: ['protect', 'observe'],
+      },
+    });
+    expect(firstRun.actorStates[1]).toMatchObject({
+      participantKind: 'opponent',
+      factionId: 'test:faction:enemy',
+    });
     expect(first.operationEntry.getSnapshot()).toEqual(firstRun);
     expect(second.operationEntry.getSnapshot()).toEqual(secondRun);
     expect(Object.isFrozen(first.operationEntry.getSnapshot())).toBe(true);
@@ -120,6 +136,20 @@ describe('Gameplay B Operation entry integration', () => {
     ownHoshino(game);
     expect(game.operationEntry.start(EVENT_ID, [Character.Hoshino]).eventId).toBe(EVENT_ID);
     expect(game.operationEntry.getSnapshot()).not.toBeNull();
+  });
+
+  test('rejects the reserved Wait action as a Profile candidate before the owner creates a Run', () => {
+    const waitProfile: StudentOperationProfileDef = {
+      ...HOSHINO_PROFILE,
+      candidateActionIds: [OPERATION_WAIT_ACTION_ID],
+      actionPriorityIds: [OPERATION_WAIT_ACTION_ID],
+    };
+    const game = createGame(resolverOf(resolvedContent({ studentProfiles: [waitProfile] })));
+    ownHoshino(game);
+
+    expect(() => game.operationEntry.start(EVENT_ID, [Character.Hoshino]))
+      .toThrow(/reserved Wait fallback action ID/);
+    expect(game.operationEntry.getSnapshot()).toBeNull();
   });
 
   test('clears volatile Runs at init, reset, load, and reload while stop preserves a Run', () => {

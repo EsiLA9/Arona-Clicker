@@ -2,6 +2,17 @@ export type OperationResultKind = 'success' | 'partialSuccess' | 'failure';
 export type OperationRunStatus = 'inProgress' | OperationResultKind;
 export type OperationCardZone = 'drawPile' | 'hand' | 'discard' | 'played';
 
+export const OPERATION_WAIT_ACTION_ID = 'operation:action:wait' as const;
+export const OPERATION_NO_ELIGIBLE_ACTION_REASON_ID = 'operation:profile:no-eligible-action' as const;
+
+export type OperationActorKind = 'student' | 'opponent' | 'environment';
+
+export interface OperationActionRequirementDef {
+  readonly actionId: string;
+  readonly requiredCapabilityIds: readonly string[];
+  readonly reasonIds: readonly string[];
+}
+
 export interface OperationBoundedValueDef {
   readonly initial: number;
   readonly min: number;
@@ -42,8 +53,56 @@ export interface OperationEventDef {
   readonly itemIds: readonly string[];
   readonly heldItemIds: readonly string[];
   readonly actors: readonly OperationActorDef[];
+  /** Event-scoped actions and their capability eligibility gates. */
+  readonly actionRequirements?: readonly OperationActionRequirementDef[];
   readonly playerRouteState: OperationPlayerRouteStateDef;
   readonly randomSeed?: number;
+}
+
+export interface OperationActionCandidateSnapshot {
+  readonly actionId: string;
+  readonly eligible: boolean;
+  readonly requiredCapabilityIds: readonly string[];
+  readonly missingCapabilityIds: readonly string[];
+  readonly reasonIds: readonly string[];
+}
+
+export interface OperationWaitFallbackSnapshot {
+  readonly actionId: typeof OPERATION_WAIT_ACTION_ID;
+  readonly reasonIds: readonly [typeof OPERATION_NO_ELIGIBLE_ACTION_REASON_ID];
+}
+
+/** Detached student Profile input plus event-scoped action eligibility for one EventRun. */
+export interface OperationStudentProfileSnapshot {
+  readonly id: string;
+  readonly characterId: string;
+  readonly candidateActionIds: readonly string[];
+  readonly actionPriorityIds: readonly string[];
+  readonly capabilityIds: readonly string[];
+  readonly reasonIds: readonly string[];
+  readonly actionCandidates: readonly OperationActionCandidateSnapshot[];
+  readonly eligibleActionIds: readonly string[];
+  readonly fallback?: OperationWaitFallbackSnapshot;
+  readonly randomSkillRuleId?: string;
+}
+
+export type OperationActorInitialization =
+  | {
+      readonly actorId: string;
+      readonly participantKind: 'student';
+      readonly characterId: string;
+      readonly profile: OperationStudentProfileSnapshot;
+    }
+  | {
+      readonly actorId: string;
+      readonly participantKind: 'opponent' | 'environment';
+      readonly factionId?: string;
+    };
+
+/** Complete admission-to-runtime hand-off; consumed atomically by the EventRun owner. */
+export interface OperationRunStartInput {
+  readonly eventDefinition: OperationEventDef;
+  readonly actors: readonly OperationActorInitialization[];
 }
 
 export interface OperationEventState {
@@ -57,6 +116,11 @@ export interface OperationActorState {
   readonly type: string;
   readonly hp: number;
   readonly resources: Readonly<Record<string, number>>;
+  /** Present for GameInstance runs; omitted only by low-level structural Runtime fixtures. */
+  readonly participantKind?: OperationActorKind;
+  readonly characterId?: string;
+  readonly profile?: OperationStudentProfileSnapshot;
+  readonly factionId?: string;
 }
 
 export interface OperationPlayerRouteState {

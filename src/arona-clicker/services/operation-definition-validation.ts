@@ -1,4 +1,10 @@
-import type { OperationBoundedValueDef, OperationCardZones, OperationEventDef } from '../contracts/operation';
+import {
+  OPERATION_NO_ELIGIBLE_ACTION_REASON_ID,
+  OPERATION_WAIT_ACTION_ID,
+  type OperationBoundedValueDef,
+  type OperationCardZones,
+  type OperationEventDef,
+} from '../contracts/operation';
 
 export function isOperationRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -119,6 +125,26 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   const heldItems = collectIds(raw.heldItemIds, 'heldItemIds', issues);
   for (const id of heldItems) if (!items.has(id)) issues.push('heldItemIds contains undeclared item: ' + id);
 
+  if (raw.actionRequirements !== undefined) {
+    if (!Array.isArray(raw.actionRequirements)) {
+      issues.push('actionRequirements must be an array');
+    } else {
+      const actionIds = new Set<string>();
+      raw.actionRequirements.forEach((value, index) => {
+        const path = 'actionRequirements[' + index + ']';
+        if (!isOperationRecord(value) || !isNonEmptyOperationId(value.actionId)) {
+          issues.push(path + '.actionId must be a non-empty ID');
+          return;
+        }
+        if (actionIds.has(value.actionId)) issues.push('actionRequirements contains duplicate actionId: ' + value.actionId);
+        if (value.actionId === OPERATION_WAIT_ACTION_ID) issues.push(path + '.actionId uses the reserved Wait fallback ID');
+        actionIds.add(value.actionId);
+        collectIds(value.requiredCapabilityIds, path + '.requiredCapabilityIds', issues);
+        collectIds(value.reasonIds, path + '.reasonIds', issues);
+      });
+    }
+  }
+
   if (!Array.isArray(raw.actors)) {
     issues.push('actors must be an array');
   } else {
@@ -160,4 +186,165 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
     issues.push('randomSeed must be a safe integer');
   }
   return issues;
+}
+
+/** Validates the detached participant/Profile hand-off before the owner creates a Run. */
+export function validateOperationActorInitializations(
+  eventDefinition: OperationEventDef,
+  value: unknown,
+): readonly string[] {
+  const issues: string[] = [];
+  if (!Array.isArray(value)) return ['actors must be an array of admitted actor snapshots'];
+
+  const actorDefinitions = eventDefinition.actors;
+  const actionRequirements = new Map((eventDefinition.actionRequirements ?? []).map(requirement => [requirement.actionId, requirement]));
+  const expectedIds = new Set(actorDefinitions.map(actor => actor.id));
+  const seenIds = new Set<string>();
+  value.forEach((entry, index) => {
+    const path = 'actors[' + index + ']';
+    if (!isOperationRecord(entry) || !isNonEmptyOperationId(entry.actorId)) {
+      issues.push(path + '.actorId must be a non-empty ID');
+      return;
+    }
+    if (seenIds.has(entry.actorId)) issues.push('actors contains duplicate actorId: ' + entry.actorId);
+    seenIds.add(entry.actorId);
+    if (!expectedIds.has(entry.actorId)) issues.push(path + '.actorId references an undeclared Event actor: ' + entry.actorId);
+
+    if (entry.participantKind === 'student') {
+      if (!isNonEmptyOperationId(entry.characterId)) issues.push(path + '.characterId must be a non-empty Character ID');
+      if (!isOperationRecord(entry.profile) || !isNonEmptyOperationId(entry.profile.id)) {
+        issues.push(path + '.profile must define a non-empty Profile ID');
+        return;
+      }
+      const profile = entry.profile;
+      if (profile.characterId !== entry.characterId) issues.push(path + '.profile.characterId must match actor characterId');
+      const candidateIds = collectIds(profile.candidateActionIds, path + '.profile.candidateActionIds', issues);
+      if (candidateIds.has(OPERATION_WAIT_ACTION_ID)) {
+        issues.push(path + '.profile.candidateActionIds contains the reserved Wait fallback ID');
+      }
+      const priorityIds = collectIds(profile.actionPriorityIds, path + '.profile.actionPriorityIds', issues);
+      const capabilityIds = collectIds(profile.capabilityIds, path + '.profile.capabilityIds', issues);
+      collectIds(profile.reasonIds, path + '.profile.reasonIds', issues);
+      for (const id of priorityIds) {
+        if (!candidateIds.has(id)) issues.push(path + '.profile.actionPriorityIds contains an undeclared candidate: ' + id);
+      }
+      if (profile.randomSkillRuleId !== undefined && !isNonEmptyOperationId(profile.randomSkillRuleId)) {
+        issues.push(path + '.profile.randomSkillRuleId must be a non-empty rule reference');
+      }
+      if (!Array.isArray(profile.actionCandidates)) {
+        issues.push(path + '.profile.actionCandidates must be an array');
+      } else {
+        const projectedActionIds = new Set<string>();
+        const projectedActionOrder: string[] = [];
+        const eligibleActionOrder: string[] = [];
+        const rawCandidateOrder = Array.isArray(profile.candidateActionIds)
+          ? [...new Set(profile.candidateActionIds.filter(isNonEmptyOperationId))]
+          : [];
+        const rawPriorityOrder = Array.isArray(profile.actionPriorityIds)
+          ? [...new Set(profile.actionPriorityIds.filter(isNonEmptyOperationId))]
+          : [];
+        const candidateSet = new Set(rawCandidateOrder.filter(id => actionRequirements.has(id)));
+        const priorityOrder = rawPriorityOrder.filter(id => candidateSet.has(id));
+        const prioritySet = new Set(priorityOrder);
+        const expectedActionOrder = [
+          ...priorityOrder,
+          ...rawCandidateOrder.filter(id => candidateSet.has(id) && !prioritySet.has(id)),
+        ];
+        profile.actionCandidates.forEach((candidate, candidateIndex) => {
+          const candidatePath = path + '.profile.actionCandidates[' + candidateIndex + ']';
+          if (!isOperationRecord(candidate) || !isNonEmptyOperationId(candidate.actionId)) {
+            issues.push(candidatePath + '.actionId must be a non-empty ID');
+            return;
+          }
+          if (projectedActionIds.has(candidate.actionId)) issues.push(path + '.profile.actionCandidates contains duplicate actionId: ' + candidate.actionId);
+          projectedActionIds.add(candidate.actionId);
+          projectedActionOrder.push(candidate.actionId);
+          if (!candidateIds.has(candidate.actionId)) issues.push(candidatePath + '.actionId is not in candidateActionIds');
+          if (typeof candidate.eligible !== 'boolean') issues.push(candidatePath + '.eligible must be boolean');
+          const required = collectIds(candidate.requiredCapabilityIds, candidatePath + '.requiredCapabilityIds', issues);
+          const missing = collectIds(candidate.missingCapabilityIds, candidatePath + '.missingCapabilityIds', issues);
+          collectIds(candidate.reasonIds, candidatePath + '.reasonIds', issues);
+          const requirement = actionRequirements.get(candidate.actionId);
+          if (!requirement) {
+            issues.push(candidatePath + '.actionId is not declared by event actionRequirements');
+          } else {
+            const expectedRequired = [...requirement.requiredCapabilityIds];
+            if (!sameOrderedIds(candidate.requiredCapabilityIds, expectedRequired)) {
+              issues.push(candidatePath + '.requiredCapabilityIds does not match the Event action requirement');
+            }
+            const expectedMissing = expectedRequired.filter(id => !capabilityIds.has(id));
+            if (!sameOrderedIds(candidate.missingCapabilityIds, expectedMissing)) {
+              issues.push(candidatePath + '.missingCapabilityIds does not match the Profile capabilities');
+            }
+            const profileReasonIds = Array.isArray(profile.reasonIds)
+              ? profile.reasonIds.filter(isNonEmptyOperationId)
+              : [];
+            const expectedReasons = [...new Set([...profileReasonIds, ...requirement.reasonIds])];
+            if (!sameOrderedIds(candidate.reasonIds, expectedReasons)) {
+              issues.push(candidatePath + '.reasonIds does not match the Profile and Event reasons');
+            }
+            const expectedEligible = expectedMissing.length === 0;
+            if (candidate.eligible !== expectedEligible) {
+              issues.push(candidatePath + '.eligible does not match required capabilities');
+            }
+            if (expectedEligible) eligibleActionOrder.push(candidate.actionId);
+          }
+          for (const id of missing) {
+            if (!required.has(id)) issues.push(candidatePath + '.missingCapabilityIds contains an undeclared requirement: ' + id);
+            if (capabilityIds.has(id)) issues.push(candidatePath + '.missingCapabilityIds contains a present capability: ' + id);
+          }
+          if (candidate.eligible === true && missing.size > 0) issues.push(candidatePath + ' is eligible despite missing capabilities');
+          if (candidate.eligible === false && missing.size === 0) issues.push(candidatePath + ' is ineligible without a missing capability');
+        });
+        if (!sameOrderedIds(projectedActionOrder, expectedActionOrder)) {
+          issues.push(path + '.profile.actionCandidates does not match candidate/actionPriority order and event declaration');
+        }
+      }
+      collectIds(profile.eligibleActionIds, path + '.profile.eligibleActionIds', issues);
+      const expectedEligibleIds: string[] = [];
+      if (Array.isArray(profile.actionCandidates)) {
+        for (const candidate of profile.actionCandidates) {
+          if (!isOperationRecord(candidate) || !isNonEmptyOperationId(candidate.actionId)) continue;
+          const requirement = actionRequirements.get(candidate.actionId);
+          if (requirement && requirement.requiredCapabilityIds.every(id => capabilityIds.has(id))) {
+            expectedEligibleIds.push(candidate.actionId);
+          }
+        }
+      }
+      if (!sameOrderedIds(profile.eligibleActionIds, expectedEligibleIds)) {
+        issues.push(path + '.profile.eligibleActionIds must match eligible candidates in declared order');
+      }
+      if (expectedEligibleIds.length === 0) {
+        if (!isOperationRecord(profile.fallback)
+          || profile.fallback.actionId !== OPERATION_WAIT_ACTION_ID
+          || !Array.isArray(profile.fallback.reasonIds)
+          || profile.fallback.reasonIds.length !== 1
+          || profile.fallback.reasonIds[0] !== OPERATION_NO_ELIGIBLE_ACTION_REASON_ID) {
+          issues.push(path + '.profile.fallback must use the stable Wait action and reason');
+        }
+      } else if (profile.fallback !== undefined) {
+        issues.push(path + '.profile.fallback must be omitted when an eligible action exists');
+      }
+      if (entry.factionId !== undefined) issues.push(path + ' student snapshot must not define factionId');
+    } else if (entry.participantKind === 'opponent' || entry.participantKind === 'environment') {
+      if (entry.factionId !== undefined && !isNonEmptyOperationId(entry.factionId)) {
+        issues.push(path + '.factionId must be a non-empty ID when supplied');
+      }
+      if (entry.characterId !== undefined || entry.profile !== undefined) {
+        issues.push(path + ' non-student snapshot must not define Character or Profile data');
+      }
+    } else {
+      issues.push(path + '.participantKind must be student, opponent, or environment');
+    }
+  });
+
+  for (const id of expectedIds) if (!seenIds.has(id)) issues.push('actors is missing Event actor: ' + id);
+  if (seenIds.size !== expectedIds.size) issues.push('actors must contain every Event actor exactly once');
+  return issues;
+}
+
+function sameOrderedIds(value: unknown, expected: readonly string[]): boolean {
+  return Array.isArray(value)
+    && value.length === expected.length
+    && value.every((id, index) => id === expected[index]);
 }

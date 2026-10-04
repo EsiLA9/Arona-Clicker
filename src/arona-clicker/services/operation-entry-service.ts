@@ -7,6 +7,7 @@ import type { OperationRuntimeService } from './operation-runtime-service';
 import type { CharacterSystem } from './character-system';
 import type { RosterSystem } from './roster-system';
 import { OperationParticipantAdmission } from './operation-participant-admission';
+import { resolveOperationRunStart } from './student-operation-profile-resolver';
 
 export interface OperationEntryContext {
   readonly characterSystem?: CharacterSystem;
@@ -56,9 +57,8 @@ class OperationEntryService {
   }
 
   private startAdmitted(admission: OperationAdmission): EventRun {
-    // U1 validates the DTO here. U2 extends this private seam to materialize its Actor/Profile
-    // snapshot before the owner publishes runStarted; U1 currently starts the base EventRun.
-    return this.#owner.start(admission.eventDefinition);
+    // Admission-to-Actor materialization finishes before the owner publishes runStarted.
+    return this.#owner.start(resolveOperationRunStart(admission));
   }
 
   getSnapshot(): EventRun | null { return this.#owner.getSnapshot(); }

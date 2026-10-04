@@ -2,13 +2,16 @@ import type {
   EventResult,
   EventRun,
   OperationActorDef,
+  OperationActorInitialization,
   OperationBoundedValueDef,
   OperationEventDef,
   OperationLifecycleEvent,
   OperationMembershipChange,
   OperationResultKind,
+  OperationRunStartInput,
   OperationRunStatus,
   OperationStateDelta,
+  OperationStudentProfileSnapshot,
 } from '../contracts/operation';
 import {
   isNonEmptyOperationId as nonEmptyId,
@@ -16,6 +19,7 @@ import {
   operationCardCounts as cardCounts,
   readOperationCardZones as readCardZones,
   sameOperationCardCounts as sameCounts,
+  validateOperationActorInitializations,
   validateOperationEventDef,
 } from './operation-definition-validation';
 
@@ -24,6 +28,10 @@ interface MutableActorState {
   type: string;
   hp: number;
   resources: Record<string, number>;
+  participantKind?: OperationActorInitialization['participantKind'];
+  characterId?: string;
+  profile?: OperationStudentProfileSnapshot;
+  factionId?: string;
 }
 
 interface MutableRun {
@@ -94,7 +102,11 @@ function defineRules(definition: OperationEventDef): RunRules {
   };
 }
 
-function createRun(runId: string, rules: RunRules): MutableRun {
+function createRun(
+  runId: string,
+  rules: RunRules,
+  actorInitializations?: ReadonlyMap<string, OperationActorInitialization>,
+): MutableRun {
   const definition = rules.definition;
   const locations = Object.fromEntries(definition.locationIds.map(id => [
     id,
@@ -110,12 +122,25 @@ function createRun(runId: string, rules: RunRules): MutableRun {
       knownFactIds: [...definition.knownFactIds],
       heldItemIds: [...definition.heldItemIds],
     },
-    actorStates: definition.actors.map(actor => ({
-      id: actor.id,
-      type: actor.type,
-      hp: actor.hp.initial,
-      resources: Object.fromEntries(Object.entries(actor.resources ?? {}).map(([id, value]) => [id, value.initial])),
-    })),
+    actorStates: definition.actors.map(actor => {
+      const base: MutableActorState = {
+        id: actor.id,
+        type: actor.type,
+        hp: actor.hp.initial,
+        resources: Object.fromEntries(Object.entries(actor.resources ?? {}).map(([id, value]) => [id, value.initial])),
+      };
+      const identity = actorInitializations?.get(actor.id);
+      if (!identity) return base;
+      if (identity.participantKind === 'student') {
+        base.participantKind = 'student';
+        base.characterId = identity.characterId;
+        base.profile = identity.profile;
+      } else {
+        base.participantKind = identity.participantKind;
+        if (identity.factionId) base.factionId = identity.factionId;
+      }
+      return base;
+    }),
     playerRouteState: {
       playerCost: definition.playerRouteState.playerCost,
       cards: {
@@ -181,23 +206,36 @@ export class OperationRuntimeService {
     return () => this.listeners.delete(listener);
   }
 
-  start(definition: OperationEventDef): EventRun {
+  start(input: OperationEventDef | OperationRunStartInput): EventRun {
     this.assertCanMutate();
+    const hasActorInitializations = isRecord(input) && 'eventDefinition' in input;
+    const runStartInput = hasActorInitializations ? input as OperationRunStartInput : undefined;
+    const definition = runStartInput?.eventDefinition ?? input as OperationEventDef;
     const diagnostics = validateOperationEventDef(definition);
     if (diagnostics.length > 0) throw new OperationRuntimeError(diagnostics);
+    const actorInitializations = runStartInput?.actors;
+    if (hasActorInitializations) {
+      const actorIssues = validateOperationActorInitializations(definition, actorInitializations);
+      if (actorIssues.length > 0) throw new OperationRuntimeError(actorIssues);
+    }
     this.assertUsable();
     if (this.slot?.run.status === 'inProgress') {
       throw new OperationRuntimeError(['an EventRun is already in progress']);
     }
 
     let rules: RunRules;
+    let detachedActorInitializations: ReadonlyMap<string, OperationActorInitialization> | undefined;
     try {
       rules = defineRules(definition);
+      if (actorInitializations) {
+        const cloned = deepFreeze(deepCopy(actorInitializations));
+        detachedActorInitializations = new Map(cloned.map(actor => [actor.actorId, actor]));
+      }
     } catch {
       throw new OperationRuntimeError(['event definition must contain only cloneable data']);
     }
     const runId = 'operation-run-' + (++runSequence);
-    const run = createRun(runId, rules);
+    const run = createRun(runId, rules, detachedActorInitializations);
     this.slot = { rules, run, result: null };
     this.publish({ type: 'runStarted', runId, eventId: run.eventId });
     this.publish({ type: 'locationEntered', runId, eventId: run.eventId, locationId: run.currentLocationId });

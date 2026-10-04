@@ -1,6 +1,6 @@
 # Task 0214 — 玩法 B 学生参与与自主行动 Profile
 
-状态：active — 0214-U2 ready
+状态：active — 0214-U3 ready
 
 ## 目标
 
@@ -185,7 +185,7 @@ GameInstance 公共 `operationEntry.start(eventId, characterIds)` → 私有受�
 
 ### Unit 0214-U2：EventRun Actor/Profile 快照、专属能力与安全回退
 
-状态：ready — 依赖已完成 U1
+状态：completed
 
 #### Goal
 
@@ -227,7 +227,11 @@ GameInstance 公共 `operationEntry.start(eventId, characterIds)` → 私有受�
 - `OperationEntryService` 是 admission DTO → owner 的唯一传递点；U2 在此把成功的 admission 结果映射为 EventRun Actor/Profile 快照，不创建绕过该门面的第二条 owner 调用路径。
 - 在事件开始阶段解析和复制 Profile；一局内后续准备不得重新查询 CharacterSystem/RosterSystem、扫描 Registry 或重解析 Profile。
 - 专属能力须通过资格/候选行动/可达目标等方式改变合法处理方案，并带可供 ReadModel 展示的来源理由。标签或普通倍率本身不足以通过验收。
+- 为演示可行性门槛，`OperationEventDef` 增加最小 `OperationActionRequirementDef[]` / `actionRequirements` 表：按 `actionId` 声明 `requiredCapabilityIds` 与可读 `reasonIds`；Profile 的行动候选须与事件声明相交，并满足全部能力门槛才进入合法候选。本 Unit 只做候选资格、确定排序和理由投影，不定义目标、费用、效果或结算；Task 0215 的完整 `OperationActionDef` / Resolver 承接这些行为。
+- Profile `actionPriorityIds` 中的合法候选按其稳定顺序优先排序，其余合法候选保留 `candidateActionIds` 声明顺序。每个候选携带事件门槛理由和 Profile 理由供下游解释；准备器不得为每个 Beat 重新扫描 Registry。
+- Run Actor 按 `OperationActorDef.id` 与 U1 `OperationAdmission.participants.actorId` 一对一配对；学生再以 participant `profileId` 关联 admission 中已选 Profile。该次入场预建索引，不依赖数组顺序碰巧一致，也不把 VariantProgress 或 Registry 对象存入 Run。
 - Profile 无可用计划时须给出稳定的 Observe/Wait 回退及理由；实际 Beat 的最终选择解释由 0215 结合当时局势生成。
+- 固定回退 action ID 为 `operation:action:wait`，reason ID 为 `operation:profile:no-eligible-action`，由 `operation.ts` 导出常量，保证引擎与后续准备器共用；该回退不要求作为事件动作或 Profile 候选声明，且任何空/被能力门槛过滤的候选集都产生相同结果。
 - 非学生 Actor 同样进入 EventRun 快照，但不必携带 Character 或 StudentOperationProfile。
 - 候选规模按当前 EventDefinition/Profile 输入线性索引；不得在每个 Actor/Beat 扫描整个 Registry。硬性内容上限由后续内容合同裁定，不在本 Unit 猜定数字。
 - 本 Unit 只处理 EventDefinition 初始参与者，不声明 LocationDef 或 Datapack participant 内容。
@@ -258,13 +262,15 @@ GameInstance 公共 `operationEntry.start(eventId, characterIds)` → 私有受�
 
 #### Acceptance / Completion Criteria
 
-- [ ] 入场后 EventRun Actor 快照含后续规则所需且不可变的身份/Profile/faction/能力/优先项信息；当前 HP、操作资源和临时状态只由 EventRun 持有。
-- [ ] GameInstance 仍无公开 raw Runtime owner；Actor/Profile 快照仅由 `operationEntry.getSnapshot()` detached read-only 返回，公开启动仍只接受 ID。
-- [ ] 同一个 Character 连续参加不同 EventRun 时，ActorState 相互隔离；修改 Run 内状态不改写长期角色进度。
-- [ ] Profile 在一次入场时解析完成；验证不需运行时扫描完整 Registry 或在每次候选决策重新读取角色持有状态。
-- [ ] 三个测试 Profile 可呈现不同优先级/能力；至少一项 Profile 专属能力开启原本不合法的有效方案，移除能力后该方案不可用，理由可追溯到能力/优先级/可见条件。
-- [ ] 没有合法 Profile 候选时产生明确 Observe/Wait 计划和原因；非学生 Actor 不被迫提供 Character/Profile。
-- [ ] Profile 快照可保留可选角色随机技能规则引用且不含 PlayerCost；本 Unit 测试不消费 seed/cursor、不结算技能结果。
+- [x] 入场后 EventRun Actor 快照含后续规则所需且不可变的身份/Profile/faction/能力/优先项信息；当前 HP、操作资源和临时状态只由 EventRun 持有。
+- [x] GameInstance 仍无公开 raw Runtime owner；Actor/Profile 快照仅由 `operationEntry.getSnapshot()` detached read-only 返回，公开启动仍只接受 ID。
+- [x] 同一个 Character 连续参加不同 EventRun 时，ActorState 相互隔离；修改 Run 内状态不改写长期角色进度。
+- [x] Profile 在一次入场时解析完成；验证不需运行时扫描完整 Registry 或在每次候选决策重新读取角色持有状态。
+- [x] 三个测试 Profile 可呈现不同优先级/能力；至少一项 Profile 专属能力开启原本不合法的有效方案，移除能力后该方案不可用，理由可追溯到能力/优先级/可见条件。
+- [x] `actionRequirements` 将 event-scoped action ID 与所需能力/理由关联；同一 `candidateActionIds` 下只有具备 required capabilities 的 Profile 得到 eligible 候选，移除能力不会通过移除候选列表来伪造负例；此 Unit 不声明目标、费用、效果或结算。
+- [x] 合法候选按 `actionPriorityIds` 稳定排序，剩余候选保持 `candidateActionIds` 顺序；每项候选带可追溯的 reason IDs。
+- [x] 没有合法 Profile 候选时产生固定 `operation:action:wait` 与 `operation:profile:no-eligible-action`；重复解析结果稳定。非学生 Actor 不被迫提供 Character/Profile。
+- [x] Profile 快照可保留可选角色随机技能规则引用且不含 PlayerCost；本 Unit 测试不消费 seed/cursor、不结算技能结果。
 
 #### Verification
 
@@ -278,15 +284,15 @@ GameInstance 公共 `operationEntry.start(eventId, characterIds)` → 私有受�
 
 | 项 | 内容 |
 | --- | --- |
-| 状态 | 等待 U1 |
-| 修改文件 | — |
-| 验证 | — |
-| 未完成 / 问题 | — |
-| 事实更新建议 | — |
+| 状态 | completed |
+| 修改文件 | `src/arona-clicker/contracts/operation.ts`；`src/arona-clicker/services/operation-entry-service.ts`、`operation-runtime-service.ts`、`operation-definition-validation.ts`、`student-operation-profile-resolver.ts`；`tests/engine/student-operation-runtime.test.ts`、`gameplay-b-event-runtime-integration.test.ts`。 |
+| 验证 | `npx vitest run tests/engine/student-operation-runtime.test.ts tests/engine/operation-runtime-service.test.ts tests/engine/gameplay-b-event-runtime-integration.test.ts`：3 files / 24 tests passed；`npx tsc --noEmit`、`npm run check:architecture`、`npm run check:docs`、`git diff --check` 全部通过。 |
+| 未完成 / 问题 | `OperationActionRequirementDef` 只表达静态 action eligibility 与解释理由；目标、费用、效果、Resolution 和完整 `OperationActionDef` / PreparedBeat 由 Task 0215 完成。随机技能规则只进入 Profile 快照，本 Unit 不消费随机流。U3 仍需把已实现 Actor/Profile 快照沉淀至当前机制文档并完成 GALHCG Evidence / maps_to 收尾。 |
+| 事实更新建议 | admission DTO 在 `OperationEntryService.startAdmitted()` 内转成按 actorId 关联的 Actor/Profile 初始化输入；owner 在首次 `runStarted` 前校验、复制并冻结快照，错误不会替换已有 Run。每个 student Profile 通过 `actionRequirements` 能力门槛形成有序候选；空资格集生成固定 Wait action/reason。Run 不持有 CharacterData、VariantProgress、PlayerState 或 Registry 引用。 |
 
 ### Unit 0214-U3：参与者机制文档与 GALHCG 收尾
 
-状态：proposed — 依赖 U1、U2
+状态：ready — 依赖已完成 U1、U2
 
 #### Goal
 
@@ -382,7 +388,7 @@ GameInstance 公共 `operationEntry.start(eventId, characterIds)` → 私有受�
 - Character / Variant / Roster 的源码与定向测试已核对；EventRun 当前 actor 字段、生命周期及 Runtime 机制页已核对；未修改代码、未运行测试。
 - 2026-10-04 GALHCG 查询确认项目根为 `C:\Users\15229\Documents\Obsidian Vault\1-项目\ACProgram`、`project_id=acprogram`；`project_info` 为 `metadata_status=absent`，无项目专属 map/source scopes。
 - 本次预研的 GALHCG `lookup("CharacterSystem")` 与 `lookup("RosterSystem")` 分别命中既有角色/roster 概念；当时 StudentOperationProfile / EventRun / Operation Runtime 未命中。随后 Task 0213-U3 已建立 `concept:operation-event-run-runtime` 并映射运行时服务、测试、架构/模块文档及机制索引。StudentOperationProfile 源码查询当时完整零命中。实施 U3 时必须重新查询并读取最新源码、测试及 token，沿用现有 Runtime Concept。
-- U1 入场 admission 与 ID-only facade 已实施并验证；Task 0213-U3 已完成归档。U2 将在 `OperationEntryService.startAdmitted()` 的私有 seam 消费 DTO，初始化 EventRun Actor/Profile 快照。当前 `OperationEventDef` / `EventRun` Actor 结构仍未扩展；Profile 字段须从合法行动差异与解释需求反推，不扩展 Character 基础 Schema。GALHCG 定向变更审查和语义 Evidence 收尾由 U3 完成。
+- U1 admission 与 ID-only facade、U2 Actor/Profile/EventRun 快照和能力资格投影均已实施并验证；Task 0213-U3 已归档。U3 负责将当前 stable implementation 写入唯一权威机制文档，并对实际新增/修改路径重新 review_changes、维护 GALHCG Evidence/maps_to 和 freshness。Character 基础 Schema 与 PlayerState 不变；完整动作结算交给 Task 0215。
 
 ## 相关路由
 
