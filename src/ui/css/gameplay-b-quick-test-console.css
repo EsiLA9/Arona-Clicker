@@ -1,0 +1,126 @@
+.gameplay-b-test-console-toggle {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  padding: 10px 16px;
+  border: 1px solid var(--line, rgba(30, 60, 90, .2));
+  border-radius: 999px;
+  background: var(--accent, #3b82f6);
+  color: #fff;
+  box-shadow: 0 8px 28px rgba(16, 42, 86, .2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.gameplay-b-test-console {
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(620px, calc(100vh - 32px));
+  margin: auto;
+  padding: 22px;
+  border: 1px solid var(--line, rgba(30, 60, 90, .18));
+  border-radius: 18px;
+  background: var(--panel, #f8fbff);
+  color: var(--ink-on-panel, #102a56);
+  box-shadow: 0 24px 72px rgba(16, 42, 86, .28);
+  font-family: inherit;
+}
+
+.gameplay-b-test-console::backdrop {
+  background: rgba(15, 30, 48, .4);
+  backdrop-filter: blur(2px);
+}
+
+.gameplay-b-test-console__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+.gameplay-b-test-console__eyebrow {
+  color: var(--accent, #3b82f6);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+
+.gameplay-b-test-console__head h2 {
+  margin: 4px 0 0;
+  font-size: 20px;
+}
+
+.gameplay-b-test-console__close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line, rgba(30, 60, 90, .18));
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gameplay-b-test-console__note,
+.gameplay-b-test-console__result {
+  margin: 0 0 16px;
+  color: var(--muted, #5a718b);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.gameplay-b-test-console__label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.gameplay-b-test-console textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px;
+  resize: vertical;
+  border: 1px solid var(--line, rgba(30, 60, 90, .2));
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: 14px/1.5 ui-monospace, Consolas, monospace;
+}
+
+.gameplay-b-test-console textarea:focus-visible,
+.gameplay-b-test-console button:focus-visible,
+.gameplay-b-test-console-toggle:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent, #3b82f6) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.gameplay-b-test-console__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 12px 0;
+}
+
+.gameplay-b-test-console__actions button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent, #3b82f6);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.gameplay-b-test-console__result {
+  min-height: 22px;
+  margin-bottom: 0;
+}

@@ -58,6 +58,15 @@ async function boot(): Promise<void> {
     setStartupStatus('正在装载游戏内容…');
     loadDefaultDatapack(game);
 
+    const gameplayBQuickTestConsoleEnabled = import.meta.env.DEV
+      && new URLSearchParams(window.location.search).get('devConsole') === 'gameplay-b';
+    if (gameplayBQuickTestConsoleEnabled) {
+      const { mountGameplayBQuickTestConsole } = await import('./development/gameplay-b-quick-test-console');
+      mountGameplayBQuickTestConsole(game);
+      document.body.dataset.gameplayBQuickTest = 'carousel-safety';
+      document.title = `${document.title} · Gameplay B quick test`;
+    }
+
     const root = document.querySelector<HTMLDivElement>('#app');
     if (!root) throw new Error('UI root is missing');
 

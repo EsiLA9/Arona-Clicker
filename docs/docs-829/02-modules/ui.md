@@ -10,6 +10,15 @@
 - `context.ts` 组合 GameView、GameReadModel 与表现查询；样式位于 `css/`。
 - 游戏内内容编辑器位于 `runtime-editor/`，独立 Datapack Editor 位于 `tools/datapack-editor/`。
 
+## Gameplay B Operation Surface
+
+- `workspace/workspace-router.ts` 将 Operation Run ID 表达为独立 route；`workspace/workspace-renderer.ts` 通过只读 `GameReadModel.operationEntry.getView(runId)` 获取投影。
+- `components/operation-workspace.ts` 以聊天记录呈现场景、计划、Intent、Resolution 和 Commit；窄风险侧栏显示场所、轨道与回合进度。
+- `controller-actions-operation.ts` 经 Controller 调用 Runtime 的窄 Operation Entry 写 facade；已挂载 Surface 的命令合并为一个 region 更新，路由进出才重建 Workspace。
+- 本地内容命令台是 DEV + 显式 `?devConsole=gameplay-b` 才动态挂载的测试工具；命令白名单仅允许为当前夏莱办公室内存状态获得试玩角色，不自动进入 Run，也不写存档。
+
+只读 DTO 与 Runtime 边界见 [[docs/docs-829/03-data-structures/operation-view]]；Workspace 与更新细节见 [[docs/docs-829/06-wiki/50-ui/workspace-routing]]、[[docs/docs-829/06-wiki/50-ui/refresh-update]]。
+
 ## 关键阅读与测试
 
 | 主题 | 路径 |

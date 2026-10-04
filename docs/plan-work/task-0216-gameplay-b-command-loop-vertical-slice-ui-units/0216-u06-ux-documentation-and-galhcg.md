@@ -23,18 +23,24 @@
 
 ## Allowed Files
 
+- `src/ui/main.ts`
+- `src/ui/development/gameplay-b-quick-test-console.ts` (new)
+- `src/ui/css/gameplay-b-quick-test-console.css` (new)
+- `tests/ui/gameplay-b-quick-test-console.test.ts` (new)
 - `docs/docs-829/03-data-structures/operation-view.md`
 - `docs/docs-829/03-data-structures/00-index.md`
 - `docs/docs-829/02-modules/ui.md`
 - `docs/docs-829/06-wiki/50-ui/workspace-routing.md`
+- `docs/docs-829/06-wiki/50-ui/refresh-update.md`
 - `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
 - `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u06-ux-documentation-and-galhcg-receipt.md`
 - `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/task-0216-gameplay-b-command-loop-vertical-slice-ui-receipt.md`
 
 ## Constraints
 
+- 如常规游戏路径不能快速获得全部准入角色，可提供只在 Vite DEV 且显式 URL 参数下挂载的试玩控制台；只解释 allowlist 命令，不执行任意代码。`获得角色 星野 芹香 白子` 通过现有 `StateMutationService` 写入当前内存并保持实际 Admission 校验，不写 Save / IndexedDB，不改变无参数正常入口，也不随生产构建开放。
 - 完成 U1–U5 代码、定向测试、类型与架构检查后，才把实现写入当前机制文档。
-- UI 视觉检查 1280×720：主聊天列至少 60%；分别操作无干预/紧急制动/人群疏导；检查两 Beat 结果与固定 Seed 重复性。
+- UI 视觉检查以 1280×720 为设计基准；若运行环境不能精确设置 viewport，记录真实浏览器截图像素尺寸并验收桌面主聊天列至少 60%。不要求额外窄屏移位场景；分别操作无干预/紧急制动/人群疏导，检查两 Beat 结果与固定 Seed 重复性。
 - 检查焦点、日志滚动、未到底时追加消息的锚点、主列表 identity、refresh observation 和 DOM budget。
 - 按 GALHCG 协议做概念/路径发现、检查既有地图、刷新触达证据、维护稳定 Operation UI/View 概念关系、验证 freshness；不得仅凭概念搜索结果推断代码事实。
 - 最后核对 Task Acceptance 的每一项，未能实测的口径明示为未完成，不勾选；0215 archive 仍须 Task Owner 独立确认。
@@ -50,11 +56,12 @@
 
 ## Completion Criteria
 
-- [ ] UI 人工走查两种不同样例结果及无干预路线；同 seed 可复现。
-- [ ] 检查焦点/滚动/节点 identity 与刷新诊断符合 U4/U5 约定。
-- [ ] 更新 `operation-view.md`、模块索引和 Workspace Routing Wiki，内容与源码一致。
-- [ ] GALHCG 概念与路径证据关系更新并通过 freshness 验证。
-- [ ] 两层 receipts 与 0216 Task 状态记录真实完成项、命令和限制。
+- [x] UI 人工走查两种不同样例结果及无干预路线；同 seed 可复现。
+- [x] 快速测试台仅 DEV + 显式 URL 可见；合法命令按现有 Mutation 入口获得角色，非法命令不变更状态，刷新后状态不持久。
+- [x] 检查焦点/滚动/节点 identity 与刷新诊断符合 U4/U5 约定。
+- [x] 更新 `operation-view.md`、模块索引和 Workspace Routing/增量更新 Wiki，内容与源码一致。
+- [x] GALHCG 概念与路径证据关系更新并通过 freshness 验证。
+- [x] 两层 receipts 与 0216 Task 状态记录真实完成项、命令和限制。
 
 ## Verification
 

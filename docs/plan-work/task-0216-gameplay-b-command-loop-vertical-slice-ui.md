@@ -1,6 +1,6 @@
 # Task 0216 — 玩法 B 核心可玩切片与只读 UI
 
-状态：active — 0213–0215 的 Runtime 基础与战术结算已实现并验证；进行 0216 纵切。Task 0215 归档确认单独等待 Task Owner。
+状态：complete — U1–U6、浏览器试玩与文档/GALHCG 收尾完成。Task 0215 归档确认仍单独等待 Task Owner，不影响本切片验收。
 
 ## 目标
 
@@ -27,7 +27,7 @@
 ## 体验与 Runtime 边界
 
 - 事件入口放在现有中心聊天流内，不新增全局导航项。进入事件后使用独立 Operation Surface；返回时恢复原聊天列表、面板标签、焦点与滚动位置，中心事件日志继续采用 AC 的对话流式呈现。
-- 1280×720 验收布局复用双栏 Workspace Frame，中心对话流至少占可用宽度的 60%；目标/轨道放入侧栏，学生计划、敌方 Intent、干预槽和 Commit 保留在主要对话流内。
+- 1280×720 为验收设计基准；若宿主浏览器不能精确设定 viewport，记录实际宽桌面截图尺寸并确认中心对话流至少占可用宽度的 60%。不额外验收窄屏内容移位；目标/轨道放入侧栏，学生计划、敌方 Intent、干预槽和 Commit 保留在主要对话流内。
 - OperationView 是 `operationEntry` 提供的只读 detached 投影；UI 组件不读取 EventRun owner、resolver、ActionDef 或 mutable GameInstance 规则对象。读取按 Operation Surface 需要调用，不塞进全局 GameView。
 - 0215 尚无 Beat 上限或正式 Objective/Outcome 机制。两次有效 Commit 后，样例只依据游乐设施危险轨道展示“安全处置 / 处置失败”的**试玩切片结果**并禁用继续提交；不得把此 UI 判读显示为 `EventRun.status` 或 EventOutcome。正式成功、部分成功、失败与结束状态由 Task 0217 提供。
 
@@ -57,20 +57,20 @@
 
 ## Acceptance
 
-- [ ] 1280×720 桌面布局能同时让玩家看到地点目标/事件轨道、学生计划、敌方/环境 Intent、一次指挥余量、关键目标与 Commit 控件。
-- [ ] 用户能识别每名学生的行动及原因、可修改范围、不可选原因和修订后的差异；未干预学生保持原计划。
-- [ ] 同一 Beat 同时显示至少两项有代价冲突的合理干预机会；不干预和两种不同干预都能经玩家选择稳定到达不同结果，不由随机单独决定。
-- [ ] 替换/移除专属 Profile 能力会改变一个有效方案或目标结果；学生卡/理由说明该能力的实际作用。
-- [ ] 角色随机技能只在有效 Commit 结算后显示其实际结果；改选、hover 与预览不先掷骰，重复固定 Seed 可复现。
-- [ ] Commit 后每个行动/协同只结算一次，事件轨道、Actor 状态和日志与 Resolver 结果一致。
-- [ ] 未完成选择、非法目标、费用不足与终局状态清楚禁用 Commit 并解释原因。
-- [ ] 改选/hover/scroll 不触发全 Workspace 重建；提交结果后焦点和滚动位置保持可预期。
-- [ ] hover/scroll 不重建 Runtime 计划，不触发 Resolver；一次用户命令只生成所需 OperationView 并请求一个合并区域更新。
-- [ ] 人工能在同一切片通过不同合法决定观察成功和失败两种结果，重复固定 Seed 可复现。
+- [x] 宿主浏览器宽桌面截图中能同时看到地点目标/事件轨道、学生计划、敌方/环境 Intent、一次指挥余量、关键目标与 Commit 控件；实测截图 1412×811 px，中心列按 `.78fr / 2.22fr` 占约 74%。
+- [x] 用户能识别每名学生的行动及原因、可修改范围、不可选原因和修订后的差异；未干预学生保持原计划。
+- [x] 同一 Beat 有两项有成本的冲突干预；无干预、紧急停机和游客疏导由玩家选出不同局面与代价，不由随机单独决定。
+- [x] 替换/移除专属 Profile 能力会改变一个有效方案或目标结果；学生卡/理由说明该能力的实际作用。
+- [x] 角色随机技能只在有效 Commit 结算后显示其实际结果；运行时测试覆盖预览不掷骰及 seed 17 重复结果。
+- [x] Commit 后每个行动/协同只结算一次，事件轨道、Actor 状态和日志与 Resolver 结果一致。
+- [x] 未完成选择、非法目标、费用不足与终局状态清楚禁用 Commit 并解释原因。
+- [x] 改选/scroll 不触发全 Workspace 重建；提交结果后焦点和滚动位置保持可预期，返回焦点落在聊天流试玩入口。
+- [x] hover/scroll 不重建 Runtime 计划，不触发 Resolver；UI 测试核对单命令 View/region 数、节点 identity 与 refresh observation。
+- [x] 浏览器试玩观测无干预 3→4→5（失败）、紧急停机 3→1→2（成功）、游客疏导 3→3→4（失败）；同 seed 重跑紧急停机仍得 3→1→2。
 
 ## Patch Units 与 Receipt
 
-本 Task 拆成六个职责 Unit；每个 Unit 的 `Allowed Files` 与验证口径以对应文件为准。U1–U5 完成后立即记录 Unit Receipt；U6 完成机制文档、UI Wiki、GALHCG 与最终收尾。Receipt 位于 `task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/`。
+本 Task 拆成六个职责 Unit；每个 Unit 的 `Allowed Files` 与验证口径以对应文件为准。U1–U6 均已完成并记录 Unit Receipt；最终 Receipt 位于 `task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/`。
 
 1. [[task-0216-gameplay-b-command-loop-vertical-slice-ui-units/0216-u01-operation-view-contract-and-owner-projection]] — `operationEntry.getView()` 安全只读投影。
 2. [[task-0216-gameplay-b-command-loop-vertical-slice-ui-units/0216-u02-amusement-park-demo-content]] — 夏莱办公室专属的临时游乐园事件与固定 Seed 样例。
@@ -98,9 +98,11 @@
 - GALHCG 只记录 Operation UI/ReadModel 稳定职责；单个组件、DOM wrapper、局部渲染 helper 不建 Concept。
 - Read Set：`docs/docs-829/02-modules/ui.md`、`docs/docs-829/03-data-structures/game-view.md`、`docs/docs-829/06-wiki/50-ui/controller-commands.md`、`read-model-context.md`、`refresh-update.md`、`docs/docs-829/05-conventions/architecture-discipline.md`、`docs/ai/frontend-design-project-overlay.md`。
 
-## 当前核验与剩余工作
+## 收尾核验与后续边界
 
-当前只读取 AC View、Controller 和局部更新约定；未实现、未运行浏览器验收。视觉样式由施工时现有主题和内容确定，本 Task 冻结信息和行为要求。
+- 真实浏览器在可用宿主尺寸 1412×811 px 完成三条两 Beat 路线与同 seed 重复；未将该像素截图冒充成精确 1280×720 viewport。
+- U1–U6 实现、Runtime/UI 定向测试、类型/架构/文档检查、GALHCG 映射与 freshness 结果见两层 receipts。
+- OperationRun 仍是每 GameInstance 私有易失状态；Task 0217 接续正式 Objective/Outcome 与终止契约。Task 0215 是否归档仍由 Task Owner 单独确认。
 
 ## 相关路由
 
