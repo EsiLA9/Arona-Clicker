@@ -1,0 +1,839 @@
+import type {
+  OperationActionCostDef,
+  OperationActionDef,
+  OperationActionEffectDef,
+  OperationCombinationMatch,
+  OperationCombinationRuleDef,
+} from '../contracts/operation-action';
+import type {
+  OperationActorDef,
+  OperationBoundedValueDef,
+  OperationEventDef,
+  OperationTeamDef,
+  OperationTacticalRandomState,
+} from '../contracts/operation';
+import type {
+  OperationPreparedActorPlan,
+  PreparedBeat,
+  OperationPreparationContent,
+  OperationPreparationSnapshot,
+} from '../contracts/operation-beat';
+import type {
+  OperationResolutionActorSnapshot,
+  OperationResolutionBatch,
+  OperationResolutionEffectSource,
+  OperationResolutionNumericChange,
+  OperationResolutionPayment,
+  OperationResolutionPlannerErrorCode,
+  OperationResolutionPlannerInput,
+  OperationResolutionTeamSnapshot,
+  OperationResolutionValueTarget,
+} from '../contracts/operation-resolution';
+import { OPERATION_WAIT_ACTION_ID } from '../contracts/operation';
+import { previewOperationIntervention } from './operation-intervention-preview';
+import { resolveOperationCombinations } from './operation-combination-resolver';
+import { prepareOperationBeat } from './operation-plan-preparation';
+import { rollOperationStudentSkills } from './operation-tactical-rng';
+
+interface DecimalParts {
+  readonly coefficient: bigint;
+  readonly scale: number;
+}
+
+interface ValueBucket {
+  readonly target: OperationResolutionValueTarget;
+  readonly before: number;
+  readonly bounds: OperationBoundedValueDef;
+  readonly contributions: { readonly amount: number; readonly source: OperationResolutionEffectSource }[];
+  requestedDelta: DecimalParts;
+}
+
+interface PlannerIndexes {
+  readonly actorsById: ReadonlyMap<string, OperationActorDef>;
+  readonly actorStatesById: ReadonlyMap<string, OperationResolutionActorSnapshot>;
+  readonly teamsById: ReadonlyMap<string, OperationTeamDef>;
+  readonly teamStatesById: ReadonlyMap<string, OperationResolutionTeamSnapshot>;
+  readonly tracksById: ReadonlyMap<string, OperationBoundedValueDef>;
+  readonly actionDefinitionsById: ReadonlyMap<string, OperationActionDef>;
+}
+
+export class OperationResolutionPlannerError extends Error {
+  constructor(readonly code: OperationResolutionPlannerErrorCode, detail: string) {
+    super(code + ': ' + detail);
+    this.name = 'OperationResolutionPlannerError';
+  }
+}
+
+function fail(code: OperationResolutionPlannerErrorCode, detail: string): never {
+  throw new OperationResolutionPlannerError(code, detail);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isNonEmptyId(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0 && value === value.trim();
+}
+
+function freezeTree<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value as Record<string, unknown>)) freezeTree(child);
+  }
+  return value;
+}
+
+function decimalParts(value: number): DecimalParts {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    fail('operation:resolution:invalid-snapshot', 'numeric values must be finite');
+  }
+  const [mantissa, exponentText] = value.toString().toLowerCase().split('e');
+  const exponent = exponentText === undefined ? 0 : Number(exponentText);
+  const negative = mantissa.startsWith('-');
+  const unsigned = negative ? mantissa.slice(1) : mantissa;
+  const [integerPart, fractionPart = ''] = unsigned.split('.');
+  let coefficient = BigInt(integerPart + fractionPart);
+  if (negative) coefficient = -coefficient;
+  let scale = fractionPart.length - exponent;
+  if (scale < 0) {
+    coefficient *= 10n ** BigInt(-scale);
+    scale = 0;
+  }
+  return { coefficient, scale };
+}
+
+function coefficientAtScale(value: DecimalParts, scale: number): bigint {
+  return value.coefficient * 10n ** BigInt(scale - value.scale);
+}
+
+function addDecimal(left: DecimalParts, right: DecimalParts): DecimalParts {
+  const scale = Math.max(left.scale, right.scale);
+  return {
+    coefficient: coefficientAtScale(left, scale) + coefficientAtScale(right, scale),
+    scale,
+  };
+}
+
+function subtractDecimal(left: DecimalParts, right: DecimalParts): DecimalParts {
+  return addDecimal(left, { coefficient: -right.coefficient, scale: right.scale });
+}
+
+function compareDecimal(left: DecimalParts, right: DecimalParts): number {
+  const scale = Math.max(left.scale, right.scale);
+  const a = coefficientAtScale(left, scale);
+  const b = coefficientAtScale(right, scale);
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function decimalToNumber(value: DecimalParts, label: string): number {
+  const result = Number(value.coefficient.toString() + 'e-' + value.scale);
+  if (!Number.isFinite(result)) fail('operation:resolution:invalid-effect', label + ' exceeds finite numeric range');
+  return result;
+}
+
+function sameCost(left: OperationActionCostDef | null, right: OperationActionCostDef | null | undefined): boolean {
+  if (left === null) return right === null || right === undefined;
+  if (right === null || right === undefined) return false;
+  return left.scope === right.scope && left.resourceId === right.resourceId && left.amount === right.amount;
+}
+
+function samePlan(left: OperationPreparedActorPlan, right: OperationPreparedActorPlan): boolean {
+  return left.actorId === right.actorId
+    && left.participantKind === right.participantKind
+    && left.kind === right.kind
+    && left.source === right.source
+    && left.actionId === right.actionId
+    && left.targetActorId === right.targetActorId
+    && sameCost(left.cost, right.cost)
+    && Array.isArray(left.reasonIds)
+    && Array.isArray(right.reasonIds)
+    && left.reasonIds.length === right.reasonIds.length
+    && left.reasonIds.every((reasonId, index) => reasonId === right.reasonIds[index]);
+}
+
+function sameBeat(leftValue: unknown, rightValue: unknown): boolean {
+  if (!isRecord(leftValue) || !isRecord(rightValue)) return false;
+  const leftPlans = leftValue.actorPlans;
+  const rightPlans = rightValue.actorPlans;
+  if (!Array.isArray(leftPlans) || !Array.isArray(rightPlans) || leftPlans.length !== rightPlans.length) return false;
+  return leftValue.planVersion === rightValue.planVersion
+    && leftValue.locationId === rightValue.locationId
+    && leftPlans.every((plan: unknown, index: number) => isRecord(plan)
+      && isRecord(rightPlans[index])
+      && samePlan(plan as unknown as OperationPreparedActorPlan, rightPlans[index] as unknown as OperationPreparedActorPlan));
+}
+
+function indexUnique<T>(
+  values: readonly T[],
+  idOf: (value: T) => string,
+  label: string,
+  code: OperationResolutionPlannerErrorCode,
+): Map<string, T> {
+  if (!Array.isArray(values)) fail(code, label + ' must be an array');
+  const result = new Map<string, T>();
+  for (const value of values) {
+    if (!isRecord(value)) fail(code, label + ' contains a non-object entry');
+    const entry = value as T;
+    const id = idOf(entry);
+    if (!isNonEmptyId(id)) fail(code, label + ' contains an invalid ID');
+    if (result.has(id)) fail(code, label + ' contains duplicate ID: ' + id);
+    result.set(id, entry);
+  }
+  return result;
+}
+
+function validateBounds(bounds: OperationBoundedValueDef, label: string): void {
+  if (!bounds || !Number.isFinite(bounds.min) || !Number.isFinite(bounds.max)
+    || !Number.isFinite(bounds.initial) || bounds.min > bounds.max
+    || bounds.initial < bounds.min || bounds.initial > bounds.max) {
+    fail('operation:resolution:invalid-content', label + ' has invalid bounded-value declarations');
+  }
+}
+
+function validateBalanceRecord(value: unknown, label: string): asserts value is Readonly<Record<string, number>> {
+  if (!isRecord(value)) fail('operation:resolution:invalid-snapshot', label + ' must be a resource record');
+  for (const [id, amount] of Object.entries(value)) {
+    if (!isNonEmptyId(id) || typeof amount !== 'number' || !Number.isFinite(amount)) {
+      fail('operation:resolution:invalid-snapshot', label + ' contains an invalid ID or non-finite balance');
+    }
+  }
+}
+
+function validateDeclaredBalances(
+  declarations: Readonly<Record<string, OperationBoundedValueDef>> | undefined,
+  balances: Readonly<Record<string, number>>,
+  label: string,
+): void {
+  const declared = declarations ?? {};
+  if (!isRecord(declared)) fail('operation:resolution:invalid-content', label + ' declarations must be a resource record');
+  for (const [resourceId, bounds] of Object.entries(declared)) {
+    validateBounds(bounds, label + '.' + resourceId);
+    if (!Object.prototype.hasOwnProperty.call(balances, resourceId)) {
+      fail('operation:resolution:invalid-snapshot', label + ' is missing declared resource: ' + resourceId);
+    }
+    const balance = balances[resourceId];
+    if (balance < bounds.min || balance > bounds.max) {
+      fail('operation:resolution:invalid-snapshot', label + '.' + resourceId + ' is outside its bounds');
+    }
+  }
+  for (const resourceId of Object.keys(balances)) {
+    if (!Object.prototype.hasOwnProperty.call(declared, resourceId)) {
+      fail('operation:resolution:invalid-snapshot', label + ' contains undeclared resource: ' + resourceId);
+    }
+  }
+}
+
+function buildIndexes(input: OperationResolutionPlannerInput): PlannerIndexes {
+  const { snapshot, trustedContent } = input;
+  if (!isRecord(snapshot) || !isNonEmptyId(snapshot.runId) || !isNonEmptyId(snapshot.eventId)
+    || !Number.isSafeInteger(snapshot.planVersion) || snapshot.planVersion < 0
+    || !isNonEmptyId(snapshot.currentLocationId)) {
+    fail('operation:resolution:invalid-snapshot', 'Run, Event, plan version, and Location identifiers are required');
+  }
+  if (!isRecord(trustedContent)) fail('operation:resolution:invalid-content', 'trustedContent must be an object');
+  const event = trustedContent.eventDefinition;
+  if (!event || !isNonEmptyId(event.id) || snapshot.eventId !== event.id) {
+    fail('operation:resolution:invalid-content', 'snapshot Event does not match trusted Event definitions');
+  }
+  if (!Array.isArray(event.locationIds) || !Array.isArray(event.actors) || !Array.isArray(event.tracks)
+    || (event.teams !== undefined && !Array.isArray(event.teams))
+    || (event.locationTactics !== undefined && !Array.isArray(event.locationTactics))) {
+    fail('operation:resolution:invalid-content', 'Event content has malformed Location, Actor, Track, Team, or tactics collections');
+  }
+  for (const row of event.locationTactics ?? []) {
+    if (!isRecord(row) || !Array.isArray(row.enabledActionIds) || !Array.isArray(row.combinationRules)) {
+      fail('operation:resolution:invalid-content', 'Location tactics rows must contain Action and Combination arrays');
+    }
+  }
+  if (!event.locationIds.includes(snapshot.currentLocationId)) {
+    fail('operation:resolution:invalid-snapshot', 'snapshot Location is not declared by the Event');
+  }
+  const actorsById = indexUnique(event.actors, actor => actor.id, 'Event actors', 'operation:resolution:invalid-content');
+  const teamsById = indexUnique(event.teams ?? [], team => team.id, 'Event teams', 'operation:resolution:invalid-content');
+  const tracksById = indexUnique(event.tracks, track => track.id, 'Event tracks', 'operation:resolution:invalid-content');
+  const actorStatesById = indexUnique(snapshot.actors, actor => actor.actorId, 'snapshot actors', 'operation:resolution:invalid-snapshot');
+  const teamStatesById = indexUnique(snapshot.teams, team => team.id, 'snapshot teams', 'operation:resolution:invalid-snapshot');
+  if (actorsById.size !== actorStatesById.size || teamsById.size !== teamStatesById.size) {
+    fail('operation:resolution:invalid-snapshot', 'snapshot Actor and Team sets must exactly match the Event');
+  }
+
+  for (const actorDefinition of event.actors) {
+    if (!isNonEmptyId(actorDefinition.id)) fail('operation:resolution:invalid-content', 'Event actor ID is invalid');
+    validateBounds(actorDefinition.hp, 'Actor ' + actorDefinition.id + '.hp');
+    if (actorDefinition.teamId !== undefined && !teamsById.has(actorDefinition.teamId)) {
+      fail('operation:resolution:invalid-content', 'Actor references an undeclared Team: ' + actorDefinition.teamId);
+    }
+    const state = actorStatesById.get(actorDefinition.id);
+    if (!state || state.participantKind !== actorDefinition.type || !Number.isFinite(state.hp)
+      || state.hp < actorDefinition.hp.min || state.hp > actorDefinition.hp.max) {
+      fail('operation:resolution:invalid-snapshot', 'Actor state is missing, mismatched, or outside HP bounds: ' + actorDefinition.id);
+    }
+    validateBalanceRecord(state.resources, 'Actor ' + actorDefinition.id + '.resources');
+    validateDeclaredBalances(actorDefinition.resources, state.resources, 'Actor ' + actorDefinition.id + '.resources');
+  }
+  for (const teamDefinition of event.teams ?? []) {
+    if (!isNonEmptyId(teamDefinition.id)) fail('operation:resolution:invalid-content', 'Event Team ID is invalid');
+    const state = teamStatesById.get(teamDefinition.id);
+    if (!state) fail('operation:resolution:invalid-snapshot', 'Team state is missing: ' + teamDefinition.id);
+    validateBalanceRecord(state.resources, 'Team ' + teamDefinition.id + '.resources');
+    validateDeclaredBalances(teamDefinition.resources, state.resources, 'Team ' + teamDefinition.id + '.resources');
+  }
+  if (!isRecord(snapshot.tracks)) fail('operation:resolution:invalid-snapshot', 'tracks must be a numeric record');
+  for (const [trackId, bounds] of tracksById) {
+    validateBounds(bounds, 'Track ' + trackId);
+    const value = snapshot.tracks[trackId];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < bounds.min || value > bounds.max) {
+      fail('operation:resolution:invalid-snapshot', 'Track value is missing or outside bounds: ' + trackId);
+    }
+  }
+  for (const trackId of Object.keys(snapshot.tracks)) {
+    if (!tracksById.has(trackId)) fail('operation:resolution:invalid-snapshot', 'snapshot contains undeclared Track: ' + trackId);
+  }
+  const actionDefinitionsById = indexUnique(
+    trustedContent.actionDefinitions,
+    action => action.id,
+    'Action definitions',
+    'operation:resolution:invalid-content',
+  );
+  if (!Array.isArray(trustedContent.actorInitializations) || !Array.isArray(trustedContent.studentSkillRules)) {
+    fail('operation:resolution:invalid-content', 'trusted participant and Student Skill rules must be arrays');
+  }
+  for (const initialization of trustedContent.actorInitializations) {
+    if (!isRecord(initialization) || !isNonEmptyId(initialization.actorId)) {
+      fail('operation:resolution:invalid-content', 'Actor initializations contain an invalid entry');
+    }
+  }
+  for (const skillRule of trustedContent.studentSkillRules) {
+    if (!isRecord(skillRule)) fail('operation:resolution:invalid-content', 'Student Skill rules contain a non-object entry');
+  }
+  return { actorsById, actorStatesById, teamsById, teamStatesById, tracksById, actionDefinitionsById };
+}
+
+function preparationSnapshot(input: OperationResolutionPlannerInput): OperationPreparationSnapshot {
+  return {
+    eventId: input.snapshot.eventId,
+    planVersion: input.snapshot.planVersion,
+    currentLocationId: input.snapshot.currentLocationId,
+    actors: input.snapshot.actors.map(actor => ({
+      actorId: actor.actorId,
+      participantKind: actor.participantKind,
+      resources: actor.resources,
+    })),
+    teams: input.snapshot.teams.map(team => ({ id: team.id, resources: team.resources })),
+  };
+}
+
+function preparationContent(input: OperationResolutionPlannerInput): OperationPreparationContent {
+  return {
+    eventDefinition: input.trustedContent.eventDefinition,
+    actors: input.trustedContent.actorInitializations,
+    actionDefinitions: input.trustedContent.actionDefinitions,
+  };
+}
+
+function planAndActionIndexes(
+  eventActors: readonly OperationActorDef[],
+  plans: readonly OperationPreparedActorPlan[],
+  actions: ReadonlyMap<string, OperationActionDef>,
+): Map<string, OperationActionDef> {
+  if (plans.length !== eventActors.length) fail('operation:resolution:invalid-content', 'Beat must contain one plan per Event Actor');
+  const selectedActions = new Map<string, OperationActionDef>();
+  for (let index = 0; index < eventActors.length; index += 1) {
+    const actor = eventActors[index];
+    const plan = plans[index];
+    if (!plan || plan.actorId !== actor.id || plan.participantKind !== actor.type) {
+      fail('operation:resolution:invalid-content', 'Beat plans must follow Event Actor declaration order');
+    }
+    if (plan.kind === 'wait') {
+      if (plan.actionId !== OPERATION_WAIT_ACTION_ID || plan.cost !== null || plan.targetActorId !== null) {
+        fail('operation:resolution:invalid-content', 'Wait plans cannot pay costs or carry targets');
+      }
+      continue;
+    }
+    if (plan.kind !== 'studentAction' && plan.kind !== 'intent') {
+      fail('operation:resolution:invalid-content', 'Beat contains an unknown plan kind');
+    }
+    if ((plan.kind === 'studentAction') !== (plan.participantKind === 'student')) {
+      fail('operation:resolution:invalid-content', 'Plan kind does not match Actor participant kind: ' + actor.id);
+    }
+    const action = actions.get(plan.actionId);
+    if (!action || !action.allowedParticipantKinds.includes(plan.participantKind)) {
+      fail('operation:resolution:invalid-content', 'Plan references a missing or disallowed Action: ' + plan.actionId);
+    }
+    if ((action as { readonly cost?: unknown }).cost === null) {
+      fail('operation:resolution:invalid-content', 'Action cost must be omitted or a valid cost object: ' + action.id);
+    }
+    if (!sameCost(plan.cost, action.cost)) {
+      fail('operation:resolution:invalid-content', 'Prepared cost differs from trusted Action cost: ' + action.id);
+    }
+    if (action.target.kind === 'none' ? plan.targetActorId !== null : plan.targetActorId === null) {
+      fail('operation:resolution:invalid-content', 'Prepared target does not match Action target contract: ' + action.id);
+    }
+    selectedActions.set(actor.id, action);
+  }
+  return selectedActions;
+}
+
+function resourceBounds(
+  indexes: PlannerIndexes,
+  cost: OperationActionCostDef,
+  actorId: string,
+): { readonly scopeId: string; readonly bounds: OperationBoundedValueDef; readonly before: number } {
+  if (!isNonEmptyId(cost.resourceId) || !Number.isFinite(cost.amount) || cost.amount <= 0) {
+    fail('operation:resolution:invalid-content', 'Action cost must name a resource and have a positive finite amount');
+  }
+  if (cost.scope === 'actor') {
+    const actor = indexes.actorsById.get(actorId);
+    const state = indexes.actorStatesById.get(actorId);
+    const bounds = actor?.resources?.[cost.resourceId];
+    const before = state?.resources[cost.resourceId];
+    if (!actor || !state || !bounds || before === undefined) {
+      fail('operation:resolution:invalid-content', 'Actor cost references an undeclared resource: ' + cost.resourceId);
+    }
+    return { scopeId: actorId, bounds, before };
+  }
+  if (cost.scope === 'team') {
+    const actor = indexes.actorsById.get(actorId);
+    const teamId = actor?.teamId;
+    const team = teamId ? indexes.teamsById.get(teamId) : undefined;
+    const state = teamId ? indexes.teamStatesById.get(teamId) : undefined;
+    const bounds = team?.resources?.[cost.resourceId];
+    const before = state?.resources[cost.resourceId];
+    if (!teamId || !team || !state || !bounds || before === undefined) {
+      fail('operation:resolution:invalid-content', 'Team cost references an undeclared resource: ' + cost.resourceId);
+    }
+    return { scopeId: teamId, bounds, before };
+  }
+  fail('operation:resolution:invalid-content', 'Action cost scope must be actor or team');
+}
+
+function preflightPayments(
+  eventActors: readonly OperationActorDef[],
+  plans: readonly OperationPreparedActorPlan[],
+  selectedActions: ReadonlyMap<string, OperationActionDef>,
+  indexes: PlannerIndexes,
+): OperationResolutionPayment[] {
+  const actorBalances = new Map<string, Map<string, DecimalParts>>();
+  for (const [actorId, state] of indexes.actorStatesById) {
+    actorBalances.set(actorId, new Map(Object.entries(state.resources).map(([id, value]) => [id, decimalParts(value)])));
+  }
+  const teamBalances = new Map<string, Map<string, DecimalParts>>();
+  for (const [teamId, state] of indexes.teamStatesById) {
+    teamBalances.set(teamId, new Map(Object.entries(state.resources).map(([id, value]) => [id, decimalParts(value)])));
+  }
+  const payments: OperationResolutionPayment[] = [];
+  for (let index = 0; index < eventActors.length; index += 1) {
+    const plan = plans[index];
+    const action = selectedActions.get(plan.actorId);
+    const cost = action?.cost;
+    if (!cost) continue;
+    const { scopeId, bounds } = resourceBounds(indexes, cost, plan.actorId);
+    const balances = cost.scope === 'actor' ? actorBalances.get(plan.actorId) : teamBalances.get(scopeId);
+    const balance = balances?.get(cost.resourceId);
+    if (!balance) fail('operation:resolution:invalid-snapshot', 'Cost balance is missing: ' + cost.resourceId);
+    const next = subtractDecimal(balance, decimalParts(cost.amount));
+    if (compareDecimal(next, decimalParts(bounds.min)) < 0) {
+      fail('operation:resolution:unaffordable', 'Action cost exceeds the commit-start balance for Actor ' + plan.actorId);
+    }
+    balances!.set(cost.resourceId, next);
+    payments.push({ actorId: plan.actorId, actionId: action!.id, cost: { ...cost }, scopeId });
+  }
+  return payments;
+}
+
+function targetKey(target: OperationResolutionValueTarget): string {
+  switch (target.kind) {
+    case 'actorHp': return JSON.stringify(['actorHp', target.actorId]);
+    case 'actorResource': return JSON.stringify(['actorResource', target.actorId, target.resourceId]);
+    case 'teamResource': return JSON.stringify(['teamResource', target.teamId, target.resourceId]);
+    case 'track': return JSON.stringify(['track', target.trackId]);
+  }
+}
+
+function valueBucket(
+  target: OperationResolutionValueTarget,
+  indexes: PlannerIndexes,
+  snapshot: OperationResolutionPlannerInput['snapshot'],
+): Omit<ValueBucket, 'contributions' | 'requestedDelta'> {
+  switch (target.kind) {
+    case 'actorHp': {
+      const definition = indexes.actorsById.get(target.actorId);
+      const state = indexes.actorStatesById.get(target.actorId);
+      if (!definition || !state) fail('operation:resolution:invalid-effect', 'Effect references an undeclared Actor: ' + target.actorId);
+      return { target, before: state.hp, bounds: definition.hp };
+    }
+    case 'actorResource': {
+      const definition = indexes.actorsById.get(target.actorId);
+      const state = indexes.actorStatesById.get(target.actorId);
+      const bounds = definition?.resources?.[target.resourceId];
+      const before = state?.resources[target.resourceId];
+      if (!definition || !state || !bounds || before === undefined) {
+        fail('operation:resolution:invalid-effect', 'Effect references an undeclared Actor resource: ' + target.resourceId);
+      }
+      return { target, before, bounds };
+    }
+    case 'teamResource': {
+      const definition = indexes.teamsById.get(target.teamId);
+      const state = indexes.teamStatesById.get(target.teamId);
+      const bounds = definition?.resources?.[target.resourceId];
+      const before = state?.resources[target.resourceId];
+      if (!definition || !state || !bounds || before === undefined) {
+        fail('operation:resolution:invalid-effect', 'Effect references an undeclared Team resource: ' + target.resourceId);
+      }
+      return { target, before, bounds };
+    }
+    case 'track': {
+      const bounds = indexes.tracksById.get(target.trackId);
+      const before = snapshot.tracks[target.trackId];
+      if (!bounds || before === undefined) fail('operation:resolution:invalid-effect', 'Effect references an undeclared Event Track: ' + target.trackId);
+      return { target, before, bounds };
+    }
+  }
+}
+
+function addContribution(
+  buckets: Map<string, ValueBucket>,
+  target: OperationResolutionValueTarget,
+  amount: number,
+  source: OperationResolutionEffectSource,
+  indexes: PlannerIndexes,
+  snapshot: OperationResolutionPlannerInput['snapshot'],
+): void {
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+    fail('operation:resolution:invalid-effect', 'Effect amount must be finite');
+  }
+  const key = targetKey(target);
+  let bucket = buckets.get(key);
+  if (!bucket) {
+    bucket = { ...valueBucket(target, indexes, snapshot), contributions: [], requestedDelta: { coefficient: 0n, scale: 0 } };
+    buckets.set(key, bucket);
+  }
+  bucket.contributions.push({ amount, source });
+  bucket.requestedDelta = addDecimal(bucket.requestedDelta, decimalParts(amount));
+}
+
+function effectTarget(
+  effect: OperationActionEffectDef,
+  sourceActorId: string,
+  targetActorId: string | null,
+  indexes: PlannerIndexes,
+): OperationResolutionValueTarget {
+  if (effect.kind === 'eventTrackDelta') {
+    if (!isNonEmptyId(effect.trackId)) fail('operation:resolution:invalid-effect', 'Event Track effect has an invalid Track ID');
+    return { kind: 'track', trackId: effect.trackId };
+  }
+  if (effect.kind === 'actorHpDelta' || effect.kind === 'actorResourceDelta') {
+    if (effect.recipient !== 'actor' && effect.recipient !== 'target') {
+      fail('operation:resolution:invalid-effect', 'Actor effect recipient must be actor or target');
+    }
+  }
+  if (effect.kind === 'teamResourceDelta'
+    && effect.recipient !== 'actorTeam' && effect.recipient !== 'targetTeam') {
+    fail('operation:resolution:invalid-effect', 'Team effect recipient must be actorTeam or targetTeam');
+  }
+  const recipient = effect.recipient === 'actor' ? sourceActorId
+    : effect.recipient === 'target' ? targetActorId : null;
+  if (effect.kind === 'actorHpDelta') {
+    if (!recipient) fail('operation:resolution:invalid-effect', 'Actor HP effect needs a selected target');
+    return { kind: 'actorHp', actorId: recipient };
+  }
+  if (effect.kind === 'actorResourceDelta') {
+    if (!recipient) fail('operation:resolution:invalid-effect', 'Actor resource effect needs a selected target');
+    if (!isNonEmptyId(effect.resourceId)) fail('operation:resolution:invalid-effect', 'Actor resource effect has an invalid resource ID');
+    return { kind: 'actorResource', actorId: recipient, resourceId: effect.resourceId };
+  }
+  if (effect.kind === 'teamResourceDelta') {
+    const teamActorId = effect.recipient === 'actorTeam' ? sourceActorId : targetActorId;
+    if (!teamActorId) fail('operation:resolution:invalid-effect', 'Team resource effect needs an actor target');
+    if (!isNonEmptyId(effect.resourceId)) fail('operation:resolution:invalid-effect', 'Team resource effect has an invalid resource ID');
+    const teamId = indexes.actorsById.get(teamActorId)?.teamId;
+    if (!teamId) fail('operation:resolution:invalid-effect', 'Team resource effect actor has no Team: ' + teamActorId);
+    return { kind: 'teamResource', teamId, resourceId: effect.resourceId };
+  }
+  fail('operation:resolution:invalid-effect', 'Effect kind is not supported by the tactical Runtime');
+}
+
+function addEffectList(
+  effects: readonly OperationActionEffectDef[],
+  sourceActorId: string,
+  targetActorId: string | null,
+  sourceForIndex: (effectIndex: number) => OperationResolutionEffectSource,
+  buckets: Map<string, ValueBucket>,
+  indexes: PlannerIndexes,
+  snapshot: OperationResolutionPlannerInput['snapshot'],
+): void {
+  if (!Array.isArray(effects)) fail('operation:resolution:invalid-effect', 'Effect list must be an array');
+  effects.forEach((effect, effectIndex) => {
+    if (!isRecord(effect)) fail('operation:resolution:invalid-effect', 'Effect must be an object');
+    const typedEffect = effect as unknown as OperationActionEffectDef;
+    const target = effectTarget(typedEffect, sourceActorId, targetActorId, indexes);
+    addContribution(buckets, target, typedEffect.amount, sourceForIndex(effectIndex), indexes, snapshot);
+  });
+}
+
+function validateEffectList(
+  effects: readonly OperationActionEffectDef[],
+  sourceActorId: string,
+  targetActorId: string | null,
+  indexes: PlannerIndexes,
+  snapshot: OperationResolutionPlannerInput['snapshot'],
+): void {
+  if (!Array.isArray(effects)) fail('operation:resolution:invalid-effect', 'Effect list must be an array');
+  for (const effect of effects) {
+    if (!isRecord(effect)) fail('operation:resolution:invalid-effect', 'Effect must be an object');
+    const typedEffect = effect as unknown as OperationActionEffectDef;
+    if (typeof typedEffect.amount !== 'number' || !Number.isFinite(typedEffect.amount)) {
+      fail('operation:resolution:invalid-effect', 'Effect amount must be finite');
+    }
+    const target = effectTarget(typedEffect, sourceActorId, targetActorId, indexes);
+    valueBucket(target, indexes, snapshot);
+  }
+}
+
+function addPayments(
+  payments: readonly OperationResolutionPayment[],
+  buckets: Map<string, ValueBucket>,
+  indexes: PlannerIndexes,
+  snapshot: OperationResolutionPlannerInput['snapshot'],
+): void {
+  for (const payment of payments) {
+    const target: OperationResolutionValueTarget = payment.cost.scope === 'actor'
+      ? { kind: 'actorResource', actorId: payment.actorId, resourceId: payment.cost.resourceId }
+      : { kind: 'teamResource', teamId: payment.scopeId, resourceId: payment.cost.resourceId };
+    addContribution(buckets, target, -payment.cost.amount, {
+      kind: 'payment',
+      actorId: payment.actorId,
+      actionId: payment.actionId,
+      scopeId: payment.scopeId,
+      resourceId: payment.cost.resourceId,
+    }, indexes, snapshot);
+  }
+}
+
+function compareId(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function compareTargets(
+  left: OperationResolutionValueTarget,
+  right: OperationResolutionValueTarget,
+  indexes: PlannerIndexes,
+  input: OperationResolutionPlannerInput,
+): number {
+  const rank = (target: OperationResolutionValueTarget): number =>
+    target.kind === 'actorHp' ? 0 : target.kind === 'actorResource' ? 1 : target.kind === 'teamResource' ? 2 : 3;
+  const category = rank(left) - rank(right);
+  if (category !== 0) return category;
+  const eventActors = input.trustedContent.eventDefinition.actors;
+  const teams = input.trustedContent.eventDefinition.teams ?? [];
+  const tracks = input.trustedContent.eventDefinition.tracks;
+  const actorIndex = (id: string) => eventActors.findIndex(actor => actor.id === id);
+  const teamIndex = (id: string) => teams.findIndex(team => team.id === id);
+  const trackIndex = (id: string) => tracks.findIndex(track => track.id === id);
+  if (left.kind === 'actorHp' && right.kind === 'actorHp') return actorIndex(left.actorId) - actorIndex(right.actorId);
+  if (left.kind === 'actorResource' && right.kind === 'actorResource') {
+    return actorIndex(left.actorId) - actorIndex(right.actorId) || compareId(left.resourceId, right.resourceId);
+  }
+  if (left.kind === 'teamResource' && right.kind === 'teamResource') {
+    return teamIndex(left.teamId) - teamIndex(right.teamId) || compareId(left.resourceId, right.resourceId);
+  }
+  if (left.kind === 'track' && right.kind === 'track') return trackIndex(left.trackId) - trackIndex(right.trackId);
+  return compareId(targetKey(left), targetKey(right));
+}
+
+function resolveChanges(
+  buckets: ReadonlyMap<string, ValueBucket>,
+  indexes: PlannerIndexes,
+  input: OperationResolutionPlannerInput,
+): OperationResolutionNumericChange[] {
+  return [...buckets.values()]
+    .sort((left, right) => compareTargets(left.target, right.target, indexes, input))
+    .map(bucket => {
+      const requestedDelta = decimalToNumber(bucket.requestedDelta, 'Requested aggregate delta');
+      const total = addDecimal(decimalParts(bucket.before), bucket.requestedDelta);
+      const minimum = decimalParts(bucket.bounds.min);
+      const maximum = decimalParts(bucket.bounds.max);
+      const clamped = compareDecimal(total, minimum) < 0 ? minimum
+        : compareDecimal(total, maximum) > 0 ? maximum : total;
+      const after = decimalToNumber(clamped, 'Clamped value');
+      const delta = decimalToNumber(subtractDecimal(clamped, decimalParts(bucket.before)), 'Actual delta');
+      return {
+        target: bucket.target,
+        before: bucket.before,
+        requestedDelta,
+        delta,
+        after,
+        contributions: bucket.contributions,
+      };
+    });
+}
+
+function addActionEffects(
+  plans: readonly OperationPreparedActorPlan[],
+  selectedActions: ReadonlyMap<string, OperationActionDef>,
+  consumedActorIds: ReadonlySet<string>,
+  buckets: Map<string, ValueBucket>,
+  indexes: PlannerIndexes,
+  input: OperationResolutionPlannerInput,
+): void {
+  for (const plan of plans) {
+    if (plan.kind === 'wait' || consumedActorIds.has(plan.actorId)) continue;
+    const action = selectedActions.get(plan.actorId);
+    if (!action) fail('operation:resolution:invalid-content', 'Selected Action disappeared for Actor ' + plan.actorId);
+    addEffectList(action.effects, plan.actorId, plan.targetActorId, effectIndex => ({
+      kind: 'action', actorId: plan.actorId, actionId: action.id, effectIndex,
+    }), buckets, indexes, input.snapshot);
+  }
+}
+
+function addCombinationEffects(
+  matches: readonly OperationCombinationMatch[],
+  buckets: Map<string, ValueBucket>,
+  indexes: PlannerIndexes,
+  input: OperationResolutionPlannerInput,
+): void {
+  const rulesById = new Map<string, OperationCombinationRuleDef>();
+  for (const row of input.trustedContent.eventDefinition.locationTactics ?? []) {
+    if (row.locationId !== input.snapshot.currentLocationId) continue;
+    for (const rule of row.combinationRules) rulesById.set(rule.id, rule);
+  }
+  for (const match of matches) {
+    const rule = rulesById.get(match.ruleId);
+    if (!rule) fail('operation:resolution:invalid-content', 'Combination match references a missing rule: ' + match.ruleId);
+    addEffectList(rule.effects, match.actorAId, match.targetActorId, effectIndex => ({
+      kind: 'combination', ruleId: match.ruleId, actorAId: match.actorAId, actorBId: match.actorBId, effectIndex,
+    }), buckets, indexes, input.snapshot);
+  }
+}
+
+function addSkillEffects(
+  checks: OperationResolutionBatch['studentSkillChecks'],
+  plans: readonly OperationPreparedActorPlan[],
+  buckets: Map<string, ValueBucket>,
+  indexes: PlannerIndexes,
+  input: OperationResolutionPlannerInput,
+): void {
+  const plansByActorId = new Map(plans.map(plan => [plan.actorId, plan]));
+  const rulesById = new Map(input.trustedContent.studentSkillRules.map(rule => [rule.id, rule]));
+  for (const check of checks) {
+    const rule = rulesById.get(check.skillRuleId);
+    const plan = plansByActorId.get(check.actorId);
+    if (!rule || !plan) fail('operation:resolution:invalid-content', 'Skill check references a missing rule or Actor');
+    if (!rule.triggerActionIds.includes(check.actionId) || plan.kind !== 'studentAction' || plan.actionId !== check.actionId) {
+      fail('operation:resolution:invalid-content', 'Skill check does not match the final student Action');
+    }
+    if (!check.succeeded) {
+      validateEffectList(rule.effects, check.actorId, plan.targetActorId, indexes, input.snapshot);
+      continue;
+    }
+    addEffectList(rule.effects, check.actorId, plan.targetActorId, effectIndex => ({
+      kind: 'studentSkill', actorId: check.actorId, skillRuleId: check.skillRuleId,
+      actionId: check.actionId, effectIndex,
+    }), buckets, indexes, input.snapshot);
+  }
+}
+
+function skillRandomState(input: OperationResolutionPlannerInput): OperationTacticalRandomState {
+  const value = input.snapshot.randomState;
+  if (!value || !Number.isSafeInteger(value.seed) || !Number.isSafeInteger(value.tacticalCursor)
+    || value.tacticalCursor < 0) {
+    fail('operation:resolution:rng-failure', 'Run tactical RNG state is invalid');
+  }
+  return value;
+}
+
+/** Plans all payments, rolls, combinations, and local deltas without writing EventRun. */
+export function planOperationResolution(input: OperationResolutionPlannerInput): OperationResolutionBatch {
+  if (!isRecord(input)) fail('operation:resolution:invalid-snapshot', 'planner input must be an object');
+  const indexes = buildIndexes(input);
+  const preparationInput = preparationSnapshot(input);
+  const content = preparationContent(input);
+  let canonicalBase: PreparedBeat;
+  try {
+    canonicalBase = prepareOperationBeat(preparationInput, content);
+  } catch (error) {
+    fail('operation:resolution:invalid-content', error instanceof Error ? error.message : 'canonical preparation failed');
+  }
+  if (!input.preparedBeat || !sameBeat(canonicalBase, input.preparedBeat)) {
+    fail('operation:resolution:stale-plan', 'stored base PreparedBeat does not match the current snapshot');
+  }
+
+  let finalBeat = canonicalBase;
+  let intervention: OperationResolutionBatch['intervention'] = null;
+  if (input.interventionDraft !== null) {
+    const storedDraft = { ...input.interventionDraft };
+    try {
+      const preview = previewOperationIntervention({
+        snapshot: preparationInput,
+        trustedContent: content,
+        preparedBeat: canonicalBase,
+        currentDraft: storedDraft,
+        draft: storedDraft,
+      });
+      finalBeat = preview.preparedBeat;
+      const before = canonicalBase.actorPlans.find(plan => plan.actorId === input.interventionDraft!.actorId);
+      const after = finalBeat.actorPlans.find(plan => plan.actorId === input.interventionDraft!.actorId);
+      if (!before || !after) fail('operation:resolution:invalid-content', 'intervention Actor plan is missing');
+      intervention = {
+        actorId: input.interventionDraft.actorId,
+        before,
+        after,
+        ...(input.interventionDraft.reasonId ? { reasonId: input.interventionDraft.reasonId } : {}),
+      };
+    } catch (error) {
+      fail('operation:resolution:invalid-content', error instanceof Error ? error.message : 'intervention preview failed');
+    }
+  }
+
+  const selectedActions = planAndActionIndexes(input.trustedContent.eventDefinition.actors, finalBeat.actorPlans, indexes.actionDefinitionsById);
+  const payments = preflightPayments(input.trustedContent.eventDefinition.actors, finalBeat.actorPlans, selectedActions, indexes);
+
+  let skillBatch;
+  try {
+    skillBatch = rollOperationStudentSkills(
+      input.trustedContent.eventDefinition,
+      input.trustedContent.actorInitializations,
+      finalBeat,
+      input.trustedContent.studentSkillRules,
+      skillRandomState(input),
+    );
+  } catch (error) {
+    fail('operation:resolution:rng-failure', error instanceof Error ? error.message : 'skill roll failed');
+  }
+
+  let combinations;
+  try {
+    combinations = resolveOperationCombinations(
+      input.trustedContent.eventDefinition,
+      finalBeat,
+      input.trustedContent.actionDefinitions,
+    );
+  } catch (error) {
+    fail('operation:resolution:invalid-content', error instanceof Error ? error.message : 'combination resolution failed');
+  }
+
+  const buckets = new Map<string, ValueBucket>();
+  addPayments(payments, buckets, indexes, input.snapshot);
+  const consumedActorIds = new Set(combinations.matches.flatMap(match => [match.actorAId, match.actorBId]));
+  addActionEffects(finalBeat.actorPlans, selectedActions, consumedActorIds, buckets, indexes, input);
+  addCombinationEffects(combinations.matches, buckets, indexes, input);
+  addSkillEffects(skillBatch.checks, finalBeat.actorPlans, buckets, indexes, input);
+  const randomState = skillRandomState(input);
+
+  return freezeTree({
+    runId: input.snapshot.runId,
+    eventId: input.snapshot.eventId,
+    basePlanVersion: input.snapshot.planVersion,
+    locationId: input.snapshot.currentLocationId,
+    actorPlans: finalBeat.actorPlans,
+    intervention,
+    payments,
+    combinations,
+    studentSkillChecks: skillBatch.checks,
+    randomCursorBefore: randomState.tacticalCursor,
+    randomCursorAfter: skillBatch.nextRandomState.tacticalCursor,
+    numericChanges: resolveChanges(buckets, indexes, input),
+    nextRandomState: skillBatch.nextRandomState,
+  });
+}
