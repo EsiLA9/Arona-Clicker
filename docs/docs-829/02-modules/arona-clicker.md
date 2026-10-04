@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | `runtime*.ts`、`runtime/` | 组合 GameInstance、服务与外部端口 | `createAppRuntime()`、`GameInstance` |
 | `services/` | 世界线、抽卡、培养、剧情、聊天等业务用例 | 各领域 Service/System |
-| `services/operation-entry-service.ts`、`services/operation-participant-admission.ts`、`contracts/operation-content-resolver.ts`、`contracts/operation-participant.ts`、`contracts/student-operation-profile.ts` | 按事件 ID 解析受信内容、核验学生入场后调用私有 Operation owner；只读快照经安全门面返回 | `GameInstance.operationEntry.start(eventId, characterIds)`、`operationEntry.getSnapshot()` |
+| `services/operation-entry-service.ts`、`services/operation-participant-admission.ts`、`services/student-operation-profile-resolver.ts`、`contracts/operation-content-resolver.ts`、`contracts/operation-participant.ts`、`contracts/student-operation-profile.ts` | 按事件 ID 解析受信内容、核验学生并构造一次性 Actor/Profile 初始化快照后调用私有 Operation owner；只读快照经安全门面返回 | `GameInstance.operationEntry.start(eventId, characterIds)`、`operationEntry.getSnapshot()` |
 | `services/operation-runtime-service.ts`、`contracts/operation.ts` | 每个 GameInstance 的私有易失 EventRun owner 与局部转移校验 | 仅由 Runtime / Operation 领域服务内部调用，不作为 GameInstance 公共属性暴露 |
 | `state/`、`types/state.ts` | PlayerState、快照和集中写入实现 | `StateMutationService`、`InitSavepoint` |
 | `read-model/`、`contracts/view.ts` | 将状态与派生查询投影成只读 GameView | `buildGameView()` |
@@ -28,7 +28,7 @@
 
 `GameView` 是面向 UI 的投影，构建时复制若干集合和映射，并合入可见性、剧情、Affector、统计快照。扩展 UI 展示应确认应进入 PlayerState、派生系统还是只读投影。
 
-`OperationRuntimeService` 管理的 EventRun 属于另一份易失局内状态，不属于 `PlayerState`、`InitSnapshot` 或 `GameView`。每个 `GameInstance` 都有自己的私有 owner；产品调用方经 `operationEntry.start(eventId, characterIds)` 请求入场，经 `operationEntry.getSnapshot()` 读取 detached snapshot，不能传入 EventDefinition 或取得通用状态写入口。U1 当前 Run Actor 仍只包含事件 Actor 定义中的 ID/type/HP/resources；虽然入场 admission 已解析学生身份和 Profile，这些字段尚未复制到 EventRun Actor 快照。Operation Runtime 的字段和生命周期见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
+`OperationRuntimeService` 管理的 EventRun 属于另一份易失局内状态，不属于 `PlayerState`、`InitSnapshot` 或 `GameView`。每个 `GameInstance` 都有自己的私有 owner；产品调用方经 `operationEntry.start(eventId, characterIds)` 请求入场，经 `operationEntry.getSnapshot()` 读取 detached snapshot，不能传入 EventDefinition 或取得通用状态写入口。当前 GameInstance 入场会把按 actorId/ProfileId 配对的 Character ID、静态 Profile 资格快照及非学生 participantKind/faction 信息原子加入 Run；Variant ID、CharacterData、VariantProgress 等持久角色对象不会复制到 Run。行动执行、目标、费用、Resolution 与 Commit RNG 不属于当前 Runtime/Profile 快照机制，详见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
 
 ## 深入阅读
 

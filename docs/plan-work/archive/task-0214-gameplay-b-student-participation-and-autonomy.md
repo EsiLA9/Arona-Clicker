@@ -1,6 +1,6 @@
 # Task 0214 — 玩法 B 学生参与与自主行动 Profile
 
-状态：active — 0214-U3 ready
+状态：completed — 0214-U1、U2、U3 全部完成
 
 ## 目标
 
@@ -292,7 +292,7 @@ GameInstance 公共 `operationEntry.start(eventId, characterIds)` → 私有受�
 
 ### Unit 0214-U3：参与者机制文档与 GALHCG 收尾
 
-状态：ready — 依赖已完成 U1、U2
+状态：completed
 
 #### Goal
 
@@ -358,12 +358,12 @@ GameInstance 公共 `operationEntry.start(eventId, characterIds)` → 私有受�
 
 #### Acceptance / Completion Criteria
 
-- [ ] 机制文档准确说明玩家学生入场核验、Profile 预解析、EventRun Actor/Profile 快照、独立局内状态、非学生参与者旁路和 Observe/Wait 回退。
-- [ ] Operation Runtime 页、模块卡和数据流图都描述 ID-only gated entry、受信内容解析/admission、私有 owner 与 detached read-only snapshot；不声称可将原始 EventDefinition 传给 GameInstance。
-- [ ] Operation Runtime 页及必要索引可路由到参与者/Profile 权威内容；不改写归档 Task 0213 Receipt，不复制 PlayerState 或 owner 说明。
-- [ ] 没有把 Commit RNG、LocationDef 或 Datapack 内容合同提前写为已实现事实。
-- [ ] 对受影响代码、测试和机制文档执行 GALHCG 定向 review；现有映射已核对，新增 Concept / maps_to 仅在有实现、测试及文档证据时提交并复核。
-- [ ] `npm run check:docs` 与 `git --no-pager diff --check` 通过。
+- [x] 机制文档准确说明玩家学生入场核验、Profile 预解析、EventRun Actor/Profile 快照、独立局内状态、非学生参与者旁路和 Observe/Wait 回退。
+- [x] Operation Runtime 页、模块卡和数据流图都描述 ID-only gated entry、受信内容解析/admission、私有 owner 与 detached read-only snapshot；不声称可将原始 EventDefinition 传给 GameInstance。
+- [x] Operation Runtime 页及既有机制索引可路由到参与者/Profile 权威内容；未改写归档 Task 0213 Receipt，也未复制 PlayerState 或 owner 说明。
+- [x] 没有把 Commit RNG、LocationDef 或 Datapack 内容合同提前写为已实现事实。
+- [x] 对受影响代码、测试和机制文档执行 GALHCG 定向 review；现有映射已核对，新增 Concept / maps_to 有实现、测试及文档证据。
+- [x] `npm run check:docs` 与 `git --no-pager diff --check` 通过。
 
 #### Verification
 
@@ -377,11 +377,11 @@ GameInstance 公共 `operationEntry.start(eventId, characterIds)` → 私有受�
 
 | 项 | 内容 |
 | --- | --- |
-| 状态 | 等待 U1、U2 |
-| 修改文件 | — |
-| 验证 | — |
-| 未完成 / 问题 | — |
-| 事实更新建议 | — |
+| 状态 | completed |
+| 修改文件 | `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md`、`docs/docs-829/01-architecture/data-flow.md`、`docs/docs-829/02-modules/arona-clicker.md`；归档 `docs/plan-work/archive/task-0214-gameplay-b-student-participation-and-autonomy.md` 并更新 `docs/plan-work/00-index.md`。 |
+| 验证 | GALHCG 对 18 条受影响源码/测试/当前文档路径逐项复核，全部 owner 页完整且 `needs_attention=false`；51 个受影响节点/关系 Evidence freshness 均 `fresh` 且完整。 `search(mode="map")` 精确命中 `concept:operation-student-profile-admission`；`context` 与 `traverse` 完整展示 Module containment、CharacterSystem/Roster 依赖及其与 Operation EventRun Runtime 的关联。`npm run check:docs` 与 `git --no-pager diff --check` 通过。 |
+| 未完成 / 问题 | 本 Unit 无遗留。目标、费用、完整 Resolution、Commit RNG 与正式内容合同仍由后续独立 Task 负责。 |
+| 事实更新建议 | GALHCG 新增 `concept:operation-student-profile-admission`，只描述学生身份准入与静态 Profile 资格投影；与 `concept:operation-event-run-runtime` 分责关联，并依赖 CharacterSystem 与 roster 概念。Operation Runtime 概念同步覆盖私有 ID-only 入场、原子 Actor/Profile 快照及静态候选资格；对共享源码/文档路径同时复核并刷新 Runtime Composition、RuntimeEffectReactor、ReadModel 等既有 owner 证据。U2 测试也已列入 Runtime 机制页代码与测试入口。 |
 
 ## 当前调查记录
 

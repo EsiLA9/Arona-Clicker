@@ -13,8 +13,10 @@ Story / Affector ─────┘
 GameInstance.operationEntry.start(eventId, characterIds)
         ↓ constructor-configured trusted OperationContentResolver
 OperationParticipantAdmission (AC Character/Roster/Profile validation)
-        ↓ admitted OperationEventDef
-private OperationRuntimeService owner → EventRun
+        ↓ resolveOperationRunStart (actorId/ProfileId + static eligibility snapshot)
+OperationRunStartInput (OperationEventDef + initialized Actor/Profile/faction snapshots)
+        ↓ validate, deep-copy and create complete Run before publication
+private OperationRuntimeService owner → EventRun → runStarted
         └→ operationEntry.getSnapshot() → detached read-only snapshot
 ```
 
@@ -23,7 +25,7 @@ private OperationRuntimeService owner → EventRun
 - **派生结果**由 Engine 系统从定义和状态计算，可经事件定向更新或重建，不默认写入存档。
 - **UI 投影**由 Runtime `getView()` 和 `GameReadModel` 提供；`UIContext` 进一步组合组件需要的格式、主题和表现查询。
 
-Gameplay B 的 `EventRun` 是独立的局内状态 owner，由每个 `GameInstance` 内部私有的 `OperationRuntimeService` 管理。调用方只能经 `GameInstance.operationEntry.start(eventId, characterIds)` 按 ID 请求入场；构造时配置的受信 `OperationContentResolver` 查出事件/Profile 内容，`OperationParticipantAdmission` 在启动 Run 前校验学生的 Character 定义、真实且持有的 Variant、`CharacterSystem.getUnlocked()` 结果与 Profile 配对。校验成功后 EntryService 才把事件定义传给私有 owner。它不写入 `PlayerState` 或 `InitSnapshot`，也不由 `GameView` 投影；`stop()` 保留 Run，`init`、`load`、`reload` 和 `reset` 清除当前 Run，`dispose()` 清除并释放 owner。U1 当前 ActorState 仍只有事件定义中的 Actor ID/type/HP/resources；已准入的 Character、Profile 与 faction 信息尚未进入 EventRun Actor 快照。只读 detached Run 快照经 `operationEntry.getSnapshot()` 读取。细节见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
+Gameplay B 的 `EventRun` 是独立的局内状态 owner，由每个 `GameInstance` 内部私有的 `OperationRuntimeService` 管理。调用方只能经 `GameInstance.operationEntry.start(eventId, characterIds)` 按 ID 请求入场；构造时配置的受信 `OperationContentResolver` 查出事件/Profile 内容，Admission 校验学生的 Character 定义、真实且持有的 Variant、`CharacterSystem.getUnlocked()` 结果与 Profile 配对。EntryService 随后按 actorId/ProfileId 生成 `OperationRunStartInput`：Actor 快照含学生 Character ID 与派生 Profile 静态资格投影，非学生 Actor 的身份快照含 participant kind 与可选 faction。Actor 本身仍有事件定义中的 ID/type/HP/resources。Variant ID 和长期角色对象不进入 Run。私有 owner 校验并构建完整 Run 后才发布 `runStarted`；失败初始化不写部分 Run。Admission DTO 不按 Run ID 缓存。EventRun 不写入 `PlayerState` 或 `InitSnapshot`，也不由 `GameView` 投影；`stop()` 保留 Run，`init`、`load`、`reload` 和 `reset` 清除当前 Run，`dispose()` 释放 owner。只读 detached Run 快照经 `operationEntry.getSnapshot()` 读取。Action requirements 目前只生成静态候选资格、次序和理由，不执行 Action、Target、费用、Resolution 或 Commit RNG。细节见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
 
 ## 关键代码入口
 
