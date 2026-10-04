@@ -7,7 +7,7 @@
 ## Must Read / Read Set
 
 - `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
-- `docs/plan-work/task-0214-gameplay-b-student-operation-profile-admission.md`
+- `docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution.md`
 - `src/arona-clicker/contracts/operation-content-resolver.ts`
 - `src/arona-clicker/services/student-operation-profile-resolver.ts`
 - `src/app/runtime-bootstrap.ts`
@@ -23,6 +23,8 @@
 ## Allowed Files
 
 - src/arona-clicker/content/operation-samples/carousel-safety-slice.ts (new file)
+- src/arona-clicker/content/operation-samples/carousel-safety-ids.ts (new file; IDs only)
+- src/arona-clicker/content/operation-samples/carousel-safety-copy.ts (new file; static presentation only)
 - `src/app/runtime-bootstrap.ts`
 - tests/engine/gameplay-b-operation-sample.test.ts (new file)
 - `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u02-amusement-park-demo-content-receipt.md`
@@ -30,7 +32,7 @@
 ## Constraints
 
 - 事件 ID 为 `demo:operation-event:carousel-safety-slice`，地点为 `demo:operation-location:carousel-platform`；只在 `activeInit === 'base:init:schale_office'` 的 UI入口启用。
-- 固定 seed 17，风险轨道起始 3、范围 0–6；最多两 Beat；PlayerCost=0、卡区为空。
+- 固定 seed 17，风险轨道起始 3、范围 0–6；presentation catalog 记载最多两 Beat 和 UI 本地安全判读，Runtime 本身不实施试玩上限；PlayerCost=0、卡区为空。
 - 三名学生使用 Hoshino、Serika、Shiroko 的既有 profile admission；两个对手和一个游乐设施环境参与者；不得伪造玩家 roster。
 - 至少保留两种互斥干预路径和无干预路径，并验证专属 Profile 能力影响一条合法方案；随机技能只能在 commit 后结算，且不决定安全判读。
 - 样例 content 与 Runtime rules 分离：Runtime 只接受受信样例 resolver；UI 展示文案之后由 U4 消费静态 display catalog。
@@ -46,10 +48,11 @@
 
 ## Completion Criteria
 
-- [ ] 不干预、Hoshino 紧急制动、Serika 疏导三条路线对设施状态/风险轨道给出可解释差异。
-- [ ] 同地点 brake + signal 标签组合可以观察到一次协同。
-- [ ] Profile admission 缺失真实学生时返回可显示的失败原因，不自动发角色。
-- [ ] app bootstrap 使用样例 resolver，直接构造默认 GameInstance 仍没有该样例。
+- [x] 不干预、Hoshino 紧急制动、Serika 疏导三条路线对设施状态/风险轨道给出可解释差异。
+- [x] 同地点 brake + signal 标签组合可以观察到一次协同。
+- [x] Profile admission 缺失真实学生时返回可显示的失败原因，不自动发角色。
+- [x] app bootstrap 只在夏莱办公室为样例启用 resolver（包含显式 resolver 覆盖时）；直接构造默认 GameInstance 仍没有该样例。
+- [x] Hoshino 专属能力只解锁紧急停机，缺失时仍可采用常规制动；固定 Seed 重复试玩复现相同技能成功结果。
 
 ## Verification
 
