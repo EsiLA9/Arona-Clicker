@@ -1,6 +1,6 @@
 # 04-mechanisms/arona-clicker/operation-runtime — Gameplay B EventRun Runtime
 
-本文记录 AC 内 Gameplay B 的当前 EventRun、战术 Beat 与非战斗场景行为 Runtime。每个 `GameInstance` 私有持有一个局内 owner；操作方经受控入场和窄 facade 启动、查看及推进 Run。Beat/SceneAction 计划、玩家共享 Cost、有限卡组、结算与战术随机游标都属于易失 EventRun，不进入 AC 玩家存档状态。
+本文记录 AC 内 Gameplay B 的当前 EventRun、战术 Beat 与非战斗场景行为 Runtime。每个 `GameInstance` 私有持有一个局内 owner；操作方经受控入场和窄 facade 启动、查看及推进 Run。Run 不进入 `PlayerState` 或 `InitSnapshot`；主 `SaveData` 可选存一份有界 `operationRun` checkpoint，用于恢复同一场正在进行的事件。
 
 ## Runtime owner 与公开命令
 
@@ -15,8 +15,13 @@
 | `clearIntervention({ runId, planVersion })` | 清除已存草稿并递增版本；槽位已空时返回未变化快照。 |
 | `commitBeat({ runId, planVersion })` | 由当前 Run 中已存的计划与草稿执行一次战术结算。 |
 | `previewSceneActionBatch({ runId, planVersion, selections, cards? })` | 纯校验当前地点的完整 Individual/Global 批次；汇总 SceneAction 与当前手牌 SceneCard 的内容费用，不写 Run 或消费随机数。 |
+| `stageSceneActionBatch({ runId, planVersion, selections, cards? })` | 显式暂存完整逐人/全局选择、玩家卡选择与费用预览；不扣费、移牌或消费随机数，可随 Run 存档。 |
+| `clearSceneActionBatchDraft({ runId, planVersion })` | 丢弃暂存批次；不改 Cost、卡区或随机流。 |
+| `commitStagedSceneActionBatch({ runId, planVersion })` | 校验暂存费用快照仍与当前 Run 一致，再通过同一原子场景结算入口提交。 |
 | `commitSceneActionBatch({ runId, planVersion, selections, cards? })` | 将 SceneAction 与零张或多张手牌合成一条 OperationResolution，一次扣 PlayerCost、递减批次数并将所用卡从 hand 移入 discard。 |
 | `transitionRoute({ runId, planVersion, routeId })` | 完成地点后按当前出口 Gate 转场；这是自动单出口和玩家多出口共用的唯一地点转场命令。 |
+| `createSaveSnapshot()` / `restoreSaveSnapshot(snapshot)` | 由 GameInstance 存档/读档路径调用；内容由当前 Registry 重建，拒绝时保留清晰诊断。 |
+| `getLastRestoreResult()` | 查询最近一次读档的续局结果或拒绝原因；没有 `operationRun` 时为 `none`。 |
 
 Facade 不暴露 raw owner、任意 `applyStateDelta()`、`finish()`、`reset()`、`dispose()`、订阅接口或冻结的 Run rules。战术命令只接受当前 `runId` 和 `planVersion`；Commit 不接收行动、效果、支付、技能抽取或 Resolution 内容作为调用方输入。
 
@@ -38,15 +43,24 @@ owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`Opera
 | `playerRouteState` | 与学生/队伍战术资源分开的共享 `playerCost`，以及只存物理 `cardInstanceId` 的 drawPile、hand、discard 三个互斥卡区。打出的牌直接进入 discard，不回洗。 |
 | `locationProgress` | 已声明 Location 的访问次数、完成标记与当前访问已消费的 SceneAction 批次数；每次新访问重置批次数。 |
 | `locationEntryCostHistory` | 每次进入地点记录访问序号、访问计数、costGain 与余额前后值；它与 `routeHistory` 一并属于 Run 快照。 |
+| `pendingSceneActionBatch` | 仅显式 stage 后存在；保存完整输入及基于当时余额计算的费用预览。纯 `previewSceneActionBatch()` 不写入。 |
 | `routeHistory` | 每次转场记录来源/目标地点、Route ID、离开结果、可选已消费持有物，以及配置了携带上限时的离场余额。 |
 | `preparedBeat` / `interventionDraft` | 当前版本的规范基础计划，以及最多一名学生的一槽干预草稿。低层结构测试 Run 可能没有战术内容，因此两者可为 `null`。 |
 | `resolutions` / `resolutionSequence` | 最近最多 32 条结算记录及单调递增序号。 |
 | `random` | `splitmix64-counter-v1`、事件 seed 和 `tacticalCursor`。 |
 | `planVersion` / `beatIndex` | Run 状态版本和已成功提交 Beat 数。 |
 
-EventRun 是每个 `GameInstance` 独立的易失状态，不写入 `PlayerState`、`InitSnapshot`、`SaveData`，也不通过 `GameView` 投影。事件起始余额由 `playerRouteState.playerCost` 给出；地点 `costGain` 在 Run 开始和每次新访问时各发放一次。合法路线提交在同一 detached Run 计划内先应用来源地点 `maxCarryCost`，再切换地点、发放目标 `costGain` 并按手牌上限抽牌；任一步骤失败都不会写回。SceneAction / SceneCard 的 PlayerCost 与 Actor/Team 战术资源分离，战术 Beat 不读取或支付 PlayerCost。
+EventRun 仍是每个 `GameInstance` 的独立 owner 状态，不写入 `PlayerState`、`InitSnapshot`，也不通过 `GameView` 投影。`GameInstance.save()` 只会把有 `resumeVersion` 的 admitted Run 写入主 `SaveData.operationRun`；该 checkpoint 保存 EventRun、Actor/Profile 快照和终局 `EventResult`，不复制 Registry 定义、OperationAction 或 View。事件起始余额由 `playerRouteState.playerCost` 给出；地点 `costGain` 在 Run 开始和每次新访问时各发放一次。合法路线提交在同一 detached Run 计划内先应用来源地点 `maxCarryCost`，再切换地点、发放目标 `costGain` 并按手牌上限抽牌；任一步骤失败都不会写回。SceneAction / SceneCard 的 PlayerCost 与 Actor/Team 战术资源分离，战术 Beat 不读取或支付 PlayerCost。
 
 事件可用 Seed 派生有限牌组的物理实例 ID 和初始牌序；独立牌组派生序列不推进 `random.tacticalCursor`。Run 保存实际抽牌顺序与三分区位置；达到 `maxHandSize` 时停止抽牌，未抽卡留在 drawPile，drawPile 耗尽或 discard 有牌时都不会回洗。牌定义、ActionDef 和牌实例索引不写入 Run。
+
+## Save / Resume
+
+可恢复快照由现有 `GameInstance.save()/load()` 接线到主 SaveData 的可选 `operationRun` 字段；SaveSystem 继续把它作为普通 JSON 文档，不新增 key、slot 或格式迁移。快照只有 `eventId + resumeVersion`、当前 EventRun 动态字段和可能存在的 EventResult；规则、Registry lookup 与 View 不落盘。有限牌组的 drawPile/hand/discard 已包含实际抽取顺序，因此恢复不重洗牌，也不重复发地点 Cost 或重抽卡。
+
+读档顺序为：清除现存易失 Run → 恢复主 PlayerState → 按稳定 Event ID 从当前 Registry 解析规则 → 比较 `resumeVersion` 与 Init/Character/Profile/Action 引用 → 校验保存的轨道、Actor、Cost、地点访问、牌区、Resolution、RNG、PreparedBeat、干预与暂存场景批次 → 一次安装恢复 Run。任何检查失败都不留下半恢复状态；`operationEntry.getLastRestoreResult()` 给出 `restored` 或带原因的 `rejected`，GameInstance 同时记录可见开发日志，调用方可重新开始事件。事件内容不兼容由作者递增 `resumeVersion` 表达，不计算内容 Hash。
+
+SceneAction/玩家卡批次只有调用 `stageSceneActionBatch()` 后才成为 Run 状态。stage 保存原始选择和费用预览；读档会按当前可信内容重算并核对预览，commit 再走既有原子结算。纯预览、未接受的 UI 草稿和 hover/滚动状态均不在 SaveData 中。
 
 ## 行动内容与 PreparedBeat
 
@@ -89,7 +103,8 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 | GameInstance 操作 | Operation Runtime 行为 |
 | --- | --- |
 | `stop()` | 只停止 Session Tick，保留当前 Run。 |
-| `init()` / `load()` / `reset()` | 清除当前易失 Run；`load()` 不从 SaveData 恢复它。 |
+| `init()` / `reset()` | 清除当前易失 Run。 |
+| `load()` | 先清除现存 Run 并恢复 PlayerState；存在 `operationRun` 时再用当前 Registry/Init 恢复，缺少字段时维持无 Run。 |
 | `reload()` | 经 `stop()` → `reset()` → `init()` 重载并清除旧 Run。 |
 | `dispose()` | 停止 Session Tick 并 dispose 私有 owner；之后不能启动 Run。 |
 
@@ -99,12 +114,12 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 ## 代码与测试
 
-- `src/arona-clicker/contracts/operation.ts`、`operation-action.ts`、`operation-skill.ts`、`operation-beat.ts`、`operation-resolution.ts`：EventRun、Action、有限技能、Beat 与 Resolution 合同。
+- `src/arona-clicker/contracts/operation.ts`、`operation-action.ts`、`operation-skill.ts`、`operation-beat.ts`、`operation-resolution.ts`、`operation-save.ts`：EventRun、Action、有限技能、Beat、Resolution 与有界存档合同。
 - `src/arona-clicker/services/operation-entry-service.ts`、`operation-participant-admission.ts`、`student-operation-profile-resolver.ts`：ID-only entry、参与者准入与 Actor/Profile 入场投影。
 - `operation-definition-validation.ts`、`operation-action-content-validation.ts`、`operation-tactical-definition-validation.ts`：事件、Action 与战术内容校验。
 - `operation-plan-preparation.ts`、`operation-target-selection.ts`、`operation-intervention-preview.ts`、`operation-combination-resolver.ts`、`operation-tactical-rng.ts`、`operation-resolution-planner.ts`：纯计划、干预、协同、局部随机与结算规划。
 - `src/arona-clicker/services/operation-runtime-service.ts`：Run owner、版本检查、原子提交、有限历史与生命周期通知。
 - `src/arona-clicker/services/registry-operation-content-resolver.ts`、`src/arona-clicker/runtime-options.ts`、`runtime-wiring.ts`、`runtime-game-instance.ts`：Registry 内容解析、resolver 装配、私有 owner 和 GameInstance 生命周期清理。
-- 定向测试：`tests/engine/operation-runtime-service.test.ts`、`operation-scene-actions.test.ts`、`operation-player-scene-deck.test.ts`、`gameplay-b-scene-action-sample.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。
+- 定向测试：`tests/engine/operation-runtime-service.test.ts`、`operation-scene-actions.test.ts`、`gameplay-b-save-resume.test.ts`、`operation-player-scene-deck.test.ts`、`gameplay-b-scene-action-sample.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。
 
 相关边界：[[docs/docs-829/01-architecture/data-flow]]、[[docs/docs-829/02-modules/arona-clicker]]、[[docs/docs-829/03-data-structures/player-state]]。

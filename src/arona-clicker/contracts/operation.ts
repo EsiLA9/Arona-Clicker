@@ -2,6 +2,7 @@ import type { OperationActionDef } from './operation-action';
 import type { OperationStudentSkillRuleDef } from './operation-skill';
 import type { OperationInterventionDraft, PreparedBeat } from './operation-beat';
 import type { OperationResolution } from './operation-resolution';
+import type { OperationSceneActionBatchDraft } from './operation-scene-action';
 import type {
   OperationEventContentDef,
   OperationActorKind,
@@ -227,6 +228,8 @@ export interface EventRun {
   readonly locationProgress: Readonly<Record<string, OperationLocationProgress>>;
   readonly routeHistory: readonly OperationRouteTransitionRecord[];
   readonly locationEntryCostHistory?: readonly OperationLocationEntryCostRecord[];
+  /** Optional explicitly staged SceneAction/Card batch; pure previews are never retained. */
+  readonly pendingSceneActionBatch?: OperationSceneActionBatchDraft | null;
   readonly planVersion: number;
   readonly beatIndex: number;
   readonly preparedBeat: PreparedBeat | null;

@@ -16,6 +16,8 @@
 
 `InitSnapshot` 是按 InitId 索引的字段子集，不是完整 PlayerState 副本。`initSnapshots` 承载多个世界线的检查点；快照 spec 还可按 Registry 定义的 global/local 归属拆分 Spot 与 Enhancement 状态。
 
+Gameplay B 的 `EventRun` 也不属于 `PlayerState` 或 `InitSnapshot`。`GameInstance.save()` 可将有界的 `operationRun` checkpoint 放入主 `SaveData`；读档时 Runtime 先清空内存 Run，再按当前 Registry 与 Event 的 `resumeVersion` 显式重建。它不会成为 per-Init 字段，也不改变 InitSnapshot 的捕获/清除/恢复登记。
+
 ## 快照登记
 
 `PER_INIT_FIELD_SPECS` 是字段清除/捕获/恢复的登记表，并由类型守卫约束与 `InitSnapshot` 键一致。角色数据按 Registry 的 roster、gacha、chatRead、equips scope 决定是否纳入 Init 快照。Story cursor 通过可选 context 参与 capture/restore。

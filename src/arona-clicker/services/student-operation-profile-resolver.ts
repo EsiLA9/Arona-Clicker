@@ -3,10 +3,12 @@ import {
   OPERATION_WAIT_ACTION_ID,
   type OperationActionCandidateSnapshot,
   type OperationActorInitialization,
+  type EventRun,
   type OperationRunStartInput,
   type OperationStudentProfileSnapshot,
 } from '../contracts/operation';
-import type { OperationAdmission, OperationAdmittedParticipant } from '../contracts/operation-participant';
+import type { OperationAdmission, OperationAdmittedParticipant, OperationParticipantSpec } from '../contracts/operation-participant';
+import type { OperationResolvedContent } from '../contracts/operation-content-resolver';
 import type { StudentOperationProfileDef } from '../contracts/student-operation-profile';
 import type { OperationActionDef } from '../contracts/operation-action';
 import { validateOperationActorInitializations } from './operation-definition-validation';
@@ -36,12 +38,13 @@ function freezeTree<T>(value: T): T {
 }
 
 function snapshotProfile(
-  participant: Extract<OperationAdmittedParticipant, { kind: 'student' }>,
+  actorId: string,
+  characterId: string,
   profile: StudentOperationProfileDef,
   actionDefinitions: ReadonlyMap<string, OperationActionDef>,
 ): OperationStudentProfileSnapshot {
-  if (profile.characterId !== participant.characterId) {
-    fail('Profile ' + profile.id + ' Character mismatch for actor ' + participant.actorId);
+  if (profile.characterId !== characterId) {
+    fail('Profile ' + profile.id + ' Character mismatch for actor ' + actorId);
   }
 
   const declaredCandidateIds = new Set(profile.candidateActionIds);
@@ -97,6 +100,39 @@ function snapshotProfile(
   return freezeTree(base);
 }
 
+function validateRunStart(runStart: OperationRunStartInput): OperationRunStartInput {
+  const initializationIssues = validateOperationActorInitializations(
+    runStart.eventDefinition,
+    runStart.actors,
+    runStart.actionDefinitions,
+    runStart.studentSkillRules,
+  );
+  if (initializationIssues.length > 0) throw new StudentOperationProfileResolutionError(initializationIssues);
+  const profileReferences = runStart.actors.flatMap(actor => actor.participantKind === 'student' ? [actor.profile] : []);
+  const content = validateOperationActionContent(
+    runStart.eventDefinition,
+    runStart.actionDefinitions,
+    runStart.studentSkillRules,
+    profileReferences,
+    runStart.actors
+      .filter((actor): actor is Extract<OperationActorInitialization, { participantKind: 'opponent' | 'environment' }> => actor.participantKind !== 'student')
+      .map(actor => ({ actorId: actor.actorId, participantKind: actor.participantKind, candidateActionIds: actor.candidateActionIds })),
+  );
+  if (content.issues.length > 0) throw new StudentOperationProfileResolutionError(content.issues);
+  const actorReferenceIssues = validateOperationActionActorReferences(
+    runStart.eventDefinition,
+    content.actionDefinitions,
+    content.studentSkillRules,
+    runStart.actors,
+  );
+  if (actorReferenceIssues.length > 0) throw new StudentOperationProfileResolutionError(actorReferenceIssues);
+  return freezeTree({
+    ...runStart,
+    actionDefinitions: [...content.actionDefinitions],
+    studentSkillRules: [...content.studentSkillRules],
+  });
+}
+
 function ensureUniqueBy<T>(values: readonly T[], idOf: (value: T) => string, label: string): Map<string, T> {
   const index = new Map<string, T>();
   for (const value of values) {
@@ -146,7 +182,7 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
       actorId: actor.id,
       participantKind: 'student',
       characterId: participant.characterId,
-      profile: snapshotProfile(participant, profile, actionDefinitions),
+      profile: snapshotProfile(participant.actorId, participant.characterId, profile, actionDefinitions),
     };
   });
 
@@ -163,34 +199,68 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
     actionDefinitions: [...admission.actionDefinitions],
     studentSkillRules: [...admission.studentSkillRules],
   };
-  const initializationIssues = validateOperationActorInitializations(
-    event,
+  return validateRunStart(runStart);
+}
+
+/** Rebuilds trusted static rules around the Character/Profile snapshots saved in an EventRun. */
+export function resolveOperationRunResume(
+  content: OperationResolvedContent,
+  run: EventRun,
+  characterExists: (characterId: string) => boolean,
+): OperationRunStartInput {
+  if (!content || content.eventDefinition.id !== run.eventId) fail('restore content does not match saved eventId');
+  const event = content.eventDefinition;
+  const participantsByActorId = ensureUniqueBy(content.participants, value => value.actorId, 'participant actor');
+  const profilesById = ensureUniqueBy(content.studentProfiles, value => value.id, 'student Profile');
+  const actionsById = ensureUniqueBy(content.actionDefinitions, value => value.id, 'Action');
+  ensureUniqueBy(content.studentSkillRules, value => value.id, 'Student Skill Rule');
+  const statesByActorId = ensureUniqueBy(run.actorStates, value => value.id, 'saved Actor');
+  const actors: OperationActorInitialization[] = event.actors.map(actor => {
+    const participant = participantsByActorId.get(actor.id);
+    const saved = statesByActorId.get(actor.id);
+    if (!participant || !saved) fail('saved Run is missing participant Actor ' + actor.id);
+    if (participant.kind !== saved.participantKind) fail('saved Actor participant kind mismatch: ' + actor.id);
+    if (participant.kind !== 'student') {
+      return {
+        actorId: actor.id,
+        participantKind: participant.kind,
+        ...(participant.factionId ? { factionId: participant.factionId } : {}),
+        candidateActionIds: [...participant.candidateActionIds],
+      };
+    }
+
+    if (!saved.characterId || !characterExists(saved.characterId)) fail('saved Run references unknown Character ' + String(saved.characterId));
+    if (!saved.profile || saved.profile.characterId !== saved.characterId) fail('saved Student Profile snapshot is malformed for ' + actor.id);
+    if (participant.profileId !== undefined && saved.profile.id !== participant.profileId) {
+      fail('saved Student Profile does not match Event participant ' + actor.id);
+    }
+    const profile = profilesById.get(saved.profile.id);
+    if (!profile || profile.characterId !== saved.characterId) fail('saved Run references missing or mismatched StudentOperationProfile ' + saved.profile.id);
+    if (participant.profileId === undefined
+      && content.studentProfiles.filter(candidate => candidate.characterId === saved.characterId).length !== 1) {
+      fail('saved Student Profile is ambiguous for Character ' + saved.characterId);
+    }
+    const expectedProfile = snapshotProfile(actor.id, saved.characterId, profile, actionsById);
+    if (JSON.stringify(expectedProfile) !== JSON.stringify(saved.profile)) {
+      fail('saved Student Profile snapshot differs from current content for Actor ' + actor.id);
+    }
+    return {
+      actorId: actor.id,
+      participantKind: 'student',
+      characterId: saved.characterId,
+      profile: saved.profile,
+    };
+  });
+
+  if (actors.length !== run.actorStates.length) fail('saved Run contains undeclared Actor state');
+  for (const actorId of participantsByActorId.keys()) {
+    if (!event.actors.some(actor => actor.id === actorId)) fail('current Event content has an undeclared participant Actor ' + actorId);
+  }
+  const runStart: OperationRunStartInput = {
+    eventDefinition: event,
     actors,
-    runStart.actionDefinitions,
-    runStart.studentSkillRules,
-  );
-  if (initializationIssues.length > 0) throw new StudentOperationProfileResolutionError(initializationIssues);
-  const profileReferences = actors.flatMap(actor => actor.participantKind === 'student' ? [actor.profile] : []);
-  const content = validateOperationActionContent(
-    event,
-    runStart.actionDefinitions,
-    runStart.studentSkillRules,
-    profileReferences,
-    actors
-      .filter((actor): actor is Extract<OperationActorInitialization, { participantKind: 'opponent' | 'environment' }> => actor.participantKind !== 'student')
-      .map(actor => ({
-        actorId: actor.actorId,
-        participantKind: actor.participantKind,
-        candidateActionIds: actor.candidateActionIds,
-      })),
-  );
-  if (content.issues.length > 0) throw new StudentOperationProfileResolutionError(content.issues);
-  const actorReferenceIssues = validateOperationActionActorReferences(
-    event,
-    content.actionDefinitions,
-    content.studentSkillRules,
-    actors,
-  );
-  if (actorReferenceIssues.length > 0) throw new StudentOperationProfileResolutionError(actorReferenceIssues);
-  return freezeTree(runStart);
+    actionDefinitions: [...content.actionDefinitions],
+    studentSkillRules: [...content.studentSkillRules],
+  };
+  return validateRunStart(runStart);
 }

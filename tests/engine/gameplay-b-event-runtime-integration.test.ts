@@ -117,8 +117,10 @@ describe('Gameplay B Operation entry integration', () => {
 
     expect('operationRuntime' in first).toBe(false);
     expect(Object.keys(first.operationEntry).sort()).toEqual([
-      'clearIntervention', 'commitBeat', 'commitSceneActionBatch', 'getSnapshot', 'getView', 'previewIntervention',
-      'previewSceneActionBatch', 'reviseIntervention', 'start', 'transitionRoute',
+      'clearIntervention', 'clearSceneActionBatchDraft', 'commitBeat', 'commitSceneActionBatch',
+      'commitStagedSceneActionBatch', 'createSaveSnapshot', 'getLastRestoreResult', 'getResult',
+      'getSnapshot', 'getView', 'previewIntervention', 'previewSceneActionBatch', 'restoreSaveSnapshot',
+      'reviseIntervention', 'stageSceneActionBatch', 'start', 'transitionRoute',
     ]);
     expect('reset' in first.operationEntry).toBe(false);
     expect('dispose' in first.operationEntry).toBe(false);

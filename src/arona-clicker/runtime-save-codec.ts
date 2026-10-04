@@ -9,6 +9,7 @@ export function buildSaveData(ctx: SaveBuildContext): SaveData {
   const tagOverrides = splitTagOverrides(allTagOverrides, ctx.activeModNames ?? new Set(['base']));
   const allTagEffects = mergeTagEffects(ctx.state.tagEffects, ctx.retainedTagResidue);
   const tagEffects = splitTagEffects(allTagEffects, ctx.activeModNames ?? new Set(['base']));
+  const operationRun = ctx.operationRun?.() ?? null;
   return {
     version: '1.0.0',
     timestamp: Date.now(),
@@ -22,6 +23,7 @@ export function buildSaveData(ctx: SaveBuildContext): SaveData {
     pendingInsertStack: storyCursor.insertStack,
     pendingVisitedStoryIds: storyCursor.visitedStoryIds,
     pendingIsReplay: storyCursor.isReplay,
+    ...(operationRun ? { operationRun } : {}),
     chatCursors: ctx.chatCursors(),
     stats: ctx.persistedStats(),
     retained: { ...tagOverrides.residue, ...(Object.keys(tagEffects.residue).length ? { tagEffects: tagEffects.residue } : {}) },

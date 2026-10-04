@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { OperationEventDef, OperationRunStartInput, OperationStateDelta } from '../../src/arona-clicker/contracts/operation';
 import type { OperationActionDef, OperationActionEffectDef } from '../../src/arona-clicker/contracts/operation-action';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
 import type { OperationContentResolver } from '../../src/arona-clicker/contracts/operation-content-resolver';
 import { validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
 import { validateOperationActionDef } from '../../src/arona-clicker/services/operation-tactical-definition-validation';
@@ -102,6 +103,47 @@ function tacticalRunStartInput(effects: readonly OperationActionEffectDef[] = [
     }],
     actionDefinitions: [action],
     studentSkillRules: [],
+  };
+}
+
+function tacticalRunStartInputWithAlternateAction(): OperationRunStartInput {
+  const base = tacticalRunStartInput();
+  const actionId = base.actionDefinitions[0].id;
+  const alternateActionId = 'test:action:alternate-inspect';
+  const studentActor = base.actors[0];
+  if (studentActor.participantKind !== 'student') throw new Error('expected Student Actor fixture');
+  const alternateAction: OperationActionDef = {
+    ...base.actionDefinitions[0],
+    id: alternateActionId,
+    effects: [{ kind: 'eventTrackDelta', trackId: 'danger', amount: 1 }],
+  };
+  const alternateCandidate = {
+    actionId: alternateActionId,
+    eligible: true,
+    requiredCapabilityIds: [],
+    missingCapabilityIds: [],
+    reasonIds: ['test:reason:inspect'],
+  };
+  return {
+    ...base,
+    eventDefinition: {
+      ...base.eventDefinition,
+      resumeVersion: 1,
+      locations: base.eventDefinition.locations.map(location => location.id === 'test:location:office'
+        ? { ...location, enabledActionIds: [...location.enabledActionIds, alternateActionId] }
+        : location),
+    },
+    actors: [{
+      ...studentActor,
+      profile: {
+        ...studentActor.profile,
+        candidateActionIds: [actionId, alternateActionId],
+        actionPriorityIds: [actionId, alternateActionId],
+        actionCandidates: [...studentActor.profile.actionCandidates, alternateCandidate],
+        eligibleActionIds: [actionId, alternateActionId],
+      },
+    }],
+    actionDefinitions: [...base.actionDefinitions, alternateAction],
   };
 }
 
@@ -893,6 +935,93 @@ describe('OperationRuntimeService', () => {
     expect(latestRun.resolutions.at(-1)?.resolutionSequence).toBe(33);
     expect('nextRandomState' in latestRun.resolutions.at(-1)!).toBe(false);
     expect(() => entry.commitBeat({ runId: latestRun.runId, planVersion: 0 })).toThrow(/stale/);
+  });
+
+  test('restores a bounded checkpoint with the exact pending plan and next deterministic Commit', () => {
+    const input = tacticalRunStartInputWithAlternateAction();
+    const uninterrupted = new OperationRuntimeService();
+    const first = uninterrupted.start(input);
+    const revised = uninterrupted.reviseIntervention({
+      runId: first.runId,
+      planVersion: first.planVersion,
+      draft: { actorId: 'test:actor:student', actionId: 'test:action:alternate-inspect' },
+    });
+    const checkpoint = uninterrupted.createSaveSnapshot();
+
+    expect(checkpoint).not.toBeNull();
+    const resumed = new OperationRuntimeService();
+    expect(resumed.restoreSaveSnapshot(checkpoint, input)).toEqual(revised);
+    expect(resumed.createSaveSnapshot()).toEqual(checkpoint);
+
+    const expectedResolution = uninterrupted.commitBeat({ runId: revised.runId, planVersion: revised.planVersion });
+    const actualResolution = resumed.commitBeat({ runId: revised.runId, planVersion: revised.planVersion });
+    expect(actualResolution).toEqual(expectedResolution);
+    expect(resumed.getSnapshot()).toEqual(uninterrupted.getSnapshot());
+  });
+
+  test('rejects incompatible or malformed checkpoints without installing a partial Run', () => {
+    const baseInput = tacticalRunStartInput();
+    const input: OperationRunStartInput = { ...baseInput, eventDefinition: { ...baseInput.eventDefinition, resumeVersion: 1 } };
+    const source = new OperationRuntimeService();
+    source.start(input);
+    const checkpoint = source.createSaveSnapshot()!;
+
+    const incompatible = new OperationRuntimeService();
+    expect(() => incompatible.restoreSaveSnapshot(checkpoint, {
+      ...input,
+      eventDefinition: { ...input.eventDefinition, resumeVersion: 2 },
+    })).toThrow(/resumeVersion mismatch/);
+    expect(incompatible.getSnapshot()).toBeNull();
+
+    const malformed = new OperationRuntimeService();
+    expect(() => malformed.restoreSaveSnapshot({
+      ...checkpoint,
+      run: { ...checkpoint.run, playerRouteState: { ...checkpoint.run.playerRouteState, playerCost: -1 } },
+    }, input)).toThrow(/PlayerCost is invalid/);
+    expect(malformed.getSnapshot()).toBeNull();
+
+    const unsafeRunId = new OperationRuntimeService();
+    expect(() => unsafeRunId.restoreSaveSnapshot({
+      ...checkpoint,
+      run: { ...checkpoint.run, runId: 'operation-run-9007199254740992' },
+    }, input)).toThrow(/runId is malformed/);
+    expect(unsafeRunId.getSnapshot()).toBeNull();
+  });
+
+  test('restores a non-zero tactical RNG cursor without rerolling the next Student skill', () => {
+    const base = tacticalRunStartInput();
+    const actionId = base.actionDefinitions[0].id;
+    const skillId = 'test:skill:guaranteed-focus';
+    const student = base.actors[0];
+    if (student.participantKind !== 'student') throw new Error('expected Student Actor fixture');
+    const input: OperationRunStartInput = {
+      ...base,
+      eventDefinition: { ...base.eventDefinition, resumeVersion: 1 },
+      actors: [{
+        ...student,
+        profile: { ...student.profile, randomSkillRuleId: skillId },
+      }],
+      studentSkillRules: [{
+        id: skillId,
+        triggerActionIds: [actionId],
+        chanceBps: 10000,
+        effects: [{ kind: 'actorResourceDelta', recipient: 'actor', resourceId: 'focus', amount: 1 }],
+      } satisfies OperationStudentSkillRuleDef],
+    };
+    const uninterrupted = new OperationRuntimeService();
+    let run = uninterrupted.start(input);
+    uninterrupted.commitBeat({ runId: run.runId, planVersion: run.planVersion });
+    run = uninterrupted.getSnapshot()!;
+    expect(run.random.tacticalCursor).toBeGreaterThan(0);
+    expect(run.resolutionSequence).toBe(1);
+
+    const checkpoint = uninterrupted.createSaveSnapshot()!;
+    const resumed = new OperationRuntimeService();
+    expect(resumed.restoreSaveSnapshot(checkpoint, input)).toEqual(run);
+    const expected = uninterrupted.commitBeat({ runId: run.runId, planVersion: run.planVersion });
+    const actual = resumed.commitBeat({ runId: run.runId, planVersion: run.planVersion });
+    expect(actual).toEqual(expected);
+    expect(resumed.getSnapshot()).toEqual(uninterrupted.getSnapshot());
   });
 
   test('accepted state and Location writes advance the plan version and rebuild the base plan', () => {

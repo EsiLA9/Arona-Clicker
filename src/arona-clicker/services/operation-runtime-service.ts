@@ -17,16 +17,19 @@ import type {
   OperationRouteCommand,
   OperationRunStartInput,
   OperationRunStatus,
+  OperationActorState,
   OperationStateDelta,
   OperationStudentProfileSnapshot,
   OperationTacticalRandomState,
   OperationTeamDef,
 } from '../contracts/operation';
 import type {
+  OperationSceneActionBatchDraft,
   OperationSceneActionBatchCommand,
   OperationSceneActionBatchPreview,
   OperationSceneCardSelection,
 } from '../contracts/operation-scene-action';
+import type { OperationRunSaveSnapshot } from '../contracts/operation-save';
 import type {
   OperationInterventionPreview,
   OperationInterventionDraft,
@@ -104,6 +107,7 @@ interface MutableRun {
   locationProgress: Record<string, { visitCount: number; completed: boolean; beatCount: number; sceneActionBatchesUsed?: number; result: 'success' | 'partialSuccess' | 'failure' | null }>;
   routeHistory: EventRun['routeHistory'][number][];
   locationEntryCostHistory?: OperationLocationEntryCostRecord[];
+  pendingSceneActionBatch: OperationSceneActionBatchDraft | null;
   planVersion: number;
   beatIndex: number;
   preparedBeat: PreparedBeat | null;
@@ -269,6 +273,7 @@ function createRun(
     locationProgress: locations,
     routeHistory: [],
     ...(hasLocationEntryCostRules(definition) ? { locationEntryCostHistory: [] } : {}),
+    pendingSceneActionBatch: null,
     planVersion: 0,
     beatIndex: 0,
     preparedBeat: null,
@@ -469,6 +474,65 @@ function parseSceneActionBatchCommand(value: unknown): OperationSceneActionBatch
   return { ...base, selections, ...(cards !== undefined ? { cards } : {}) };
 }
 
+function planSceneActionBatchForSlot(slot: RunSlot, command: OperationSceneActionBatchCommand): OperationResolutionBatch {
+  if (slot.run.status !== 'inProgress') throw new OperationRuntimeError(['the EventRun is already terminal']);
+  assertCommandMatchesRun(command, slot.run);
+  if (slot.run.locationProgress[slot.run.currentLocationId]?.completed) {
+    throw new OperationRuntimeError(['current Location is already complete']);
+  }
+  const trustedContent = slot.rules.tacticalContent;
+  if (!trustedContent) throw new OperationRuntimeError(['this EventRun has no admitted Action definitions']);
+  try {
+    const batch = planOperationResolution({
+      snapshot: resolutionPlannerSnapshot(slot.run),
+      trustedContent,
+      preparedBeat: slot.run.preparedBeat!,
+      interventionDraft: slot.run.interventionDraft,
+      sceneBatch: { selections: command.selections, cards: command.cards },
+    });
+    if (batch.runId !== slot.run.runId || batch.eventId !== slot.run.eventId
+      || batch.basePlanVersion !== slot.run.planVersion || batch.locationId !== slot.run.currentLocationId
+      || batch.randomCursorBefore !== slot.run.random.tacticalCursor
+      || batch.randomCursorAfter !== batch.nextRandomState.tacticalCursor
+      || batch.randomCursorAfter !== batch.randomCursorBefore
+      || batch.nextRandomState.seed !== slot.run.random.seed
+      || batch.nextRandomState.algorithm !== slot.run.random.algorithm) {
+      throw new OperationRuntimeError(['SceneAction Resolution does not match its commit-start Run snapshot']);
+    }
+    return batch;
+  } catch (error) {
+    const diagnostics = error instanceof OperationResolutionPlannerError
+      ? [error.message]
+      : [error instanceof Error ? error.message : 'SceneAction planning failed'];
+    throw new OperationRuntimeError(diagnostics);
+  }
+}
+
+function sceneActionBatchPreview(slot: RunSlot, batch: OperationResolutionBatch): OperationSceneActionBatchPreview {
+  const scene = batch.sceneBatch;
+  if (!scene) throw new OperationRuntimeError(['SceneAction planner did not produce scene batch details']);
+  const location = getCurrentLocationDefinition(slot.rules.definition, slot.run.currentLocationId);
+  if (!location?.actionMode || location.sceneActionBatches === undefined) {
+    throw new OperationRuntimeError(['current Location does not declare SceneAction batch controls']);
+  }
+  return frozenCopy({
+    runId: batch.runId,
+    eventId: batch.eventId,
+    basePlanVersion: batch.basePlanVersion,
+    locationId: batch.locationId,
+    actionMode: location.actionMode,
+    selections: scene.selections,
+    cards: scene.cards,
+    cost: {
+      balanceBefore: scene.playerCostBefore,
+      totalCost: scene.playerCostPaid,
+      balanceAfter: scene.playerCostAfter,
+    },
+    sceneActionBatchesUsed: scene.sceneActionBatchesUsed,
+    sceneActionBatchesLimit: location.sceneActionBatches,
+  });
+}
+
 function toResolution(batch: OperationResolutionBatch, sequence: number): OperationResolution {
   const { nextRandomState: _nextRandomState, ...persisted } = batch;
   return frozenCopy({ ...persisted, resolutionSequence: sequence });
@@ -617,6 +681,198 @@ function isInBounds(value: unknown, bounds: OperationBoundedValueDef): value is 
   return typeof value === 'number' && Number.isFinite(value) && value >= bounds.min && value <= bounds.max;
 }
 
+function sameKeys(value: Record<string, unknown>, expected: Iterable<string>): boolean {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  return actual.length === wanted.length && actual.every((key, index) => key === wanted[index]);
+}
+
+function validIds(values: unknown, allowed: ReadonlySet<string>): values is string[] {
+  return Array.isArray(values)
+    && values.every(nonEmptyId)
+    && new Set(values).size === values.length
+    && values.every(id => allowed.has(id));
+}
+
+function validateRestoredRun(run: MutableRun, rules: RunRules): void {
+  const definition = rules.definition;
+  const fail = (message: string): never => { throw new OperationRuntimeError(['invalid Operation Run checkpoint: ' + message]); };
+  const runSequenceMatch = typeof run.runId === 'string' ? /^operation-run-(\d+)$/.exec(run.runId) : null;
+  const restoredRunSequence = runSequenceMatch ? Number(runSequenceMatch[1]) : NaN;
+  if (!nonEmptyId(run.runId) || !runSequenceMatch || !Number.isSafeInteger(restoredRunSequence)
+    || restoredRunSequence < 1 || String(restoredRunSequence) !== runSequenceMatch[1]) fail('runId is malformed');
+  if (run.eventId !== definition.id) fail('eventId does not match Event content');
+  if (!['inProgress', 'success', 'partialSuccess', 'failure'].includes(run.status)) fail('status is invalid');
+  if (!Number.isSafeInteger(run.planVersion) || run.planVersion < 0) fail('planVersion is invalid');
+  if (!Number.isSafeInteger(run.beatIndex) || run.beatIndex < 0) fail('beatIndex is invalid');
+  if (!Number.isSafeInteger(run.resolutionSequence) || run.resolutionSequence < 0) fail('resolutionSequence is invalid');
+  if (!isRecord(run.random) || run.random.algorithm !== OPERATION_TACTICAL_RNG_ALGORITHM
+    || run.random.seed !== (definition.randomSeed ?? 0)
+    || !Number.isSafeInteger(run.random.tacticalCursor) || run.random.tacticalCursor < 0) fail('tactical RNG state is invalid');
+
+  const locationIds = new Set(definition.locations.map(location => location.id));
+  if (!locationIds.has(run.currentLocationId) || !isRecord(run.locationProgress)
+    || !sameKeys(run.locationProgress, locationIds)) fail('Location progress does not match Event content');
+  for (const location of definition.locations) {
+    const progress = run.locationProgress[location.id];
+    if (!isRecord(progress) || !Number.isSafeInteger(progress.visitCount) || progress.visitCount < 0
+      || progress.visitCount > definition.maxLocationVisits || typeof progress.completed !== 'boolean'
+      || !Number.isSafeInteger(progress.beatCount) || progress.beatCount < 0
+      || (progress.result !== null && !['success', 'partialSuccess', 'failure'].includes(progress.result))) {
+      fail('Location progress is malformed for ' + location.id);
+    }
+    if (progress.completed !== (progress.result !== null)) fail('Location completion/result disagree for ' + location.id);
+    if (location.sceneActionBatches === undefined) {
+      if (progress.sceneActionBatchesUsed !== undefined) fail('unexpected SceneAction batch count for ' + location.id);
+    } else if (!Number.isSafeInteger(progress.sceneActionBatchesUsed)
+      || progress.sceneActionBatchesUsed! < 0 || progress.sceneActionBatchesUsed! > location.sceneActionBatches) {
+      fail('SceneAction batch count is invalid for ' + location.id);
+    }
+  }
+
+  if (!isRecord(run.eventState) || !isRecord(run.eventState.tracks)
+    || !sameKeys(run.eventState.tracks, rules.tracks.keys())) fail('Event tracks do not match Event content');
+  for (const [id, bounds] of rules.tracks) if (!isInBounds(run.eventState.tracks[id], bounds)) fail('track value is invalid for ' + id);
+  const facts = new Set(definition.factIds);
+  const items = new Set(definition.itemIds);
+  if (!validIds(run.eventState.knownFactIds, facts)) fail('known facts are malformed');
+  if (!validIds(run.eventState.heldItemIds, items)) fail('held items are malformed');
+
+  if (!Array.isArray(run.actorStates) || run.actorStates.length !== definition.actors.length) fail('Actor state count does not match Event content');
+  const actorsById = new Map(run.actorStates.map(actor => [actor.id, actor]));
+  if (actorsById.size !== run.actorStates.length) fail('Actor IDs are duplicated');
+  for (const actorDef of definition.actors) {
+    const actor = actorsById.get(actorDef.id);
+    if (!actor) throw new OperationRuntimeError(['invalid Operation Run checkpoint: Actor state is missing for ' + actorDef.id]);
+    if (actor.type !== actorDef.type || actor.teamId !== actorDef.teamId
+      || !isInBounds(actor.hp, actorDef.hp) || !isRecord(actor.resources)
+      || !sameKeys(actor.resources, Object.keys(actorDef.resources ?? {}))) fail('Actor state does not match Event content for ' + actorDef.id);
+    for (const [resourceId, bounds] of Object.entries(actorDef.resources ?? {})) {
+      if (!isInBounds(actor.resources[resourceId], bounds)) fail('Actor resource is invalid: ' + actorDef.id + '.' + resourceId);
+    }
+    const initialization = rules.tacticalContent?.actorInitializations.find(item => item.actorId === actorDef.id);
+    if (initialization) {
+      if (actor.participantKind !== initialization.participantKind) fail('Actor participant kind changed for ' + actorDef.id);
+      if (initialization.participantKind === 'student'
+        && (actor.characterId !== initialization.characterId || JSON.stringify(actor.profile) !== JSON.stringify(initialization.profile))) {
+        fail('student Actor identity/Profile differs from its admission snapshot: ' + actorDef.id);
+      }
+      if (initialization.participantKind !== 'student'
+        && (actor.factionId !== initialization.factionId || actor.characterId !== undefined || actor.profile !== undefined)) {
+        fail('non-student Actor identity differs from its admission snapshot: ' + actorDef.id);
+      }
+    }
+  }
+
+  if (!Array.isArray(run.teamStates) || run.teamStates.length !== (definition.teams ?? []).length) fail('Team state count does not match Event content');
+  const teamsById = new Map(run.teamStates.map(team => [team.id, team]));
+  for (const teamDef of definition.teams ?? []) {
+    const team = teamsById.get(teamDef.id);
+    if (!team) throw new OperationRuntimeError(['invalid Operation Run checkpoint: Team state is missing for ' + teamDef.id]);
+    if (!isRecord(team.resources) || !sameKeys(team.resources, Object.keys(teamDef.resources ?? {}))) fail('Team state does not match Event content for ' + teamDef.id);
+    for (const [resourceId, bounds] of Object.entries(teamDef.resources ?? {})) {
+      if (!isInBounds(team.resources[resourceId], bounds)) fail('Team resource is invalid: ' + teamDef.id + '.' + resourceId);
+    }
+  }
+
+  if (!isRecord(run.playerRouteState) || !Number.isSafeInteger(run.playerRouteState.playerCost)
+    || run.playerRouteState.playerCost < 0) fail('PlayerCost is invalid');
+  const cardIssues: string[] = [];
+  const cardZones = readCardZones(run.playerRouteState.cards, 'playerRouteState.cards', cardIssues);
+  if (!cardZones || cardIssues.length > 0 || cardZones.hand.length > rules.maxHandSize
+    || !sameCounts(rules.deckCounts, cardCounts(cardZones))) fail('card zones do not match the finite physical deck');
+  if (!Array.isArray(run.routeHistory) || run.routeHistory.length > definition.maxLocationVisits * definition.locations.length) fail('route history exceeds the Location visit bound');
+  for (const route of run.routeHistory) {
+    const source = definition.locations.find(location => location.id === route.fromLocationId);
+    const edge = source?.routeEdges.find(candidate => candidate.id === route.routeId);
+    if (!edge || edge.targetLocationId !== route.toLocationId
+      || !['success', 'partialSuccess', 'failure'].includes(route.fromLocationResult)) fail('route history contains an unknown transition');
+  }
+  const maxLocationEntries = definition.maxLocationVisits * definition.locations.length;
+  if (run.locationEntryCostHistory !== undefined) {
+    if (!Array.isArray(run.locationEntryCostHistory) || run.locationEntryCostHistory.length > maxLocationEntries) fail('Location entry Cost history exceeds its bound');
+    run.locationEntryCostHistory.forEach((entry, index) => {
+      const location = definition.locations.find(candidate => candidate.id === entry.locationId);
+      if (!location || entry.visitSequence !== index + 1 || !Number.isSafeInteger(entry.visitCount)
+        || entry.visitCount < 1 || entry.visitCount > definition.maxLocationVisits
+        || entry.costGain !== (location.costGain ?? 0)
+        || !Number.isSafeInteger(entry.balanceBefore) || entry.balanceBefore < 0
+        || !Number.isSafeInteger(entry.balanceAfter) || entry.balanceAfter !== entry.balanceBefore + entry.costGain) {
+        fail('Location entry Cost history is malformed');
+      }
+    });
+  }
+  if (!Array.isArray(run.resolutions) || run.resolutions.length > 32) fail('Resolution history exceeds its bound');
+  let priorSequence = 0;
+  for (const resolution of run.resolutions) {
+    if (!Number.isSafeInteger(resolution.resolutionSequence) || resolution.resolutionSequence <= priorSequence
+      || resolution.resolutionSequence > run.resolutionSequence || resolution.eventId !== run.eventId || resolution.runId !== run.runId) {
+      fail('Resolution history sequence is invalid');
+    }
+    priorSequence = resolution.resolutionSequence;
+  }
+  if (run.resolutions.length > 0 && priorSequence !== run.resolutionSequence) fail('latest Resolution does not match resolutionSequence');
+  if (run.status === 'inProgress') {
+    const progress = run.locationProgress[run.currentLocationId];
+    const expected = progress.completed ? null : restoredPreparedBeat(run, rules);
+    if (JSON.stringify(run.preparedBeat) !== JSON.stringify(expected)) fail('PreparedBeat does not match the saved Run state');
+    if (run.interventionDraft !== null) {
+      if (!run.preparedBeat) fail('InterventionDraft has no PreparedBeat');
+      try {
+        const base = prepareOperationBeat(preparationSnapshot(run), {
+          eventDefinition: rules.definition,
+          actors: rules.tacticalContent!.actorInitializations,
+          actionDefinitions: rules.tacticalContent!.actionDefinitions,
+        });
+        previewOperationIntervention({
+          snapshot: preparationSnapshot(run),
+          trustedContent: {
+            eventDefinition: rules.definition,
+            actors: rules.tacticalContent!.actorInitializations,
+            actionDefinitions: rules.tacticalContent!.actionDefinitions,
+          },
+          preparedBeat: base,
+          currentDraft: null,
+          draft: run.interventionDraft,
+        });
+      } catch (error) {
+        if (error instanceof OperationRuntimeError) throw error;
+        fail(error instanceof Error ? error.message : 'InterventionDraft is invalid');
+      }
+    }
+    if (run.pendingSceneActionBatch !== null && run.pendingSceneActionBatch !== undefined) {
+      try {
+        const draft = run.pendingSceneActionBatch;
+        const command = parseSceneActionBatchCommand(draft.command);
+        const slot: RunSlot = { rules, run, result: null };
+        const preview = sceneActionBatchPreview(slot, planSceneActionBatchForSlot(slot, command));
+        if (JSON.stringify(preview) !== JSON.stringify(draft.preview)) fail('staged SceneAction/Card preview does not match the saved Run state');
+      } catch (error) {
+        if (error instanceof OperationRuntimeError) throw error;
+        fail(error instanceof Error ? error.message : 'staged SceneAction/Card batch is invalid');
+      }
+    }
+  } else if (run.preparedBeat !== null || run.interventionDraft !== null) {
+    fail('terminal Run still contains an actionable plan');
+  } else if (run.pendingSceneActionBatch) {
+    fail('terminal Run still contains a staged SceneAction/Card batch');
+  }
+}
+
+function restoredPreparedBeat(run: MutableRun, rules: RunRules): PreparedBeat | null {
+  if (!rules.tacticalContent) return null;
+  try {
+    return prepareOperationBeat(preparationSnapshot(run), {
+      eventDefinition: rules.definition,
+      actors: rules.tacticalContent.actorInitializations,
+      actionDefinitions: rules.tacticalContent.actionDefinitions,
+    });
+  } catch (error) {
+    throw new OperationRuntimeError(['could not rebuild the saved PreparedBeat: '
+      + (error instanceof Error ? error.message : 'unknown preparation error')]);
+  }
+}
+
 export class OperationRuntimeError extends Error {
   constructor(readonly diagnostics: readonly string[]) {
     super(diagnostics.join('; '));
@@ -736,6 +992,97 @@ export class OperationRuntimeService {
     return this.slot?.result ?? null;
   }
 
+  createSaveSnapshot(): OperationRunSaveSnapshot | null {
+    const slot = this.slot;
+    const resumeVersion = slot?.rules.definition.resumeVersion;
+    if (!slot?.rules.tacticalContent || !Number.isSafeInteger(resumeVersion) || resumeVersion! < 1) return null;
+    return frozenCopy({
+      eventId: slot.run.eventId,
+      resumeVersion: resumeVersion!,
+      run: slot.run,
+      result: slot.result,
+    });
+  }
+
+  /** Validates all trusted content and saved state before installing one restored Run slot. */
+  restoreSaveSnapshot(snapshot: unknown, input: OperationRunStartInput): EventRun {
+    this.assertCanMutate();
+    if (this.slot) throw new OperationRuntimeError(['clear the current Operation Run before restoring a checkpoint']);
+    if (!isRecord(snapshot) || !nonEmptyId(snapshot.eventId)
+      || !Number.isSafeInteger(snapshot.resumeVersion) || (snapshot.resumeVersion as number) < 1
+      || !isRecord(snapshot.run) || snapshot.run.eventId !== snapshot.eventId
+      || snapshot.run.runId === undefined) {
+      throw new OperationRuntimeError(['Operation Run checkpoint header is malformed']);
+    }
+    const diagnostics = validateOperationEventDef(input.eventDefinition);
+    if (diagnostics.length > 0) throw new OperationRuntimeError(diagnostics);
+    if (snapshot.eventId !== input.eventDefinition.id) {
+      throw new OperationRuntimeError(['Operation Run checkpoint eventId does not match resolved Event content']);
+    }
+    if (snapshot.resumeVersion !== input.eventDefinition.resumeVersion) {
+      throw new OperationRuntimeError(['Operation Event resumeVersion mismatch: saved '
+        + String(snapshot.resumeVersion) + ', current ' + String(input.eventDefinition.resumeVersion)]);
+    }
+    if (!Array.isArray(input.actors) || !Array.isArray(input.actionDefinitions) || !Array.isArray(input.studentSkillRules)) {
+      throw new OperationRuntimeError(['resolved Operation restore content is malformed']);
+    }
+    const actorIssues = validateOperationActorInitializations(
+      input.eventDefinition,
+      input.actors,
+      input.actionDefinitions,
+      input.studentSkillRules,
+    );
+    if (actorIssues.length > 0) throw new OperationRuntimeError(actorIssues);
+    const profileReferences = input.actors.flatMap(actor => actor.participantKind === 'student' ? [actor.profile] : []);
+    const content = validateOperationActionContent(
+      input.eventDefinition,
+      input.actionDefinitions,
+      input.studentSkillRules,
+      profileReferences,
+      input.actors
+        .filter((actor): actor is Extract<OperationActorInitialization, { participantKind: 'opponent' | 'environment' }> => actor.participantKind !== 'student')
+        .map(actor => ({ actorId: actor.actorId, participantKind: actor.participantKind, candidateActionIds: actor.candidateActionIds })),
+    );
+    if (content.issues.length > 0) throw new OperationRuntimeError(content.issues);
+    const referenceIssues = validateOperationActionActorReferences(
+      input.eventDefinition,
+      content.actionDefinitions,
+      content.studentSkillRules,
+      input.actors,
+    );
+    if (referenceIssues.length > 0) throw new OperationRuntimeError(referenceIssues);
+
+    let rules: RunRules;
+    try {
+      rules = defineRules(input.eventDefinition, {
+        actorInitializations: input.actors,
+        actionDefinitions: content.actionDefinitions,
+        studentSkillRules: content.studentSkillRules,
+      });
+    } catch {
+      throw new OperationRuntimeError(['resolved Operation restore content must contain only cloneable data']);
+    }
+
+    const run = deepCopy(snapshot.run) as unknown as MutableRun;
+    validateRestoredRun(run, rules);
+    let result: EventResult | null = null;
+    if (snapshot.result !== null && snapshot.result !== undefined) {
+      if (!isRecord(snapshot.result) || snapshot.result.eventId !== run.eventId || snapshot.result.runId !== run.runId
+        || snapshot.result.kind !== run.status || run.status === 'inProgress'
+        || JSON.stringify(snapshot.result.finalRun) !== JSON.stringify(run)) {
+        throw new OperationRuntimeError(['Operation EventResult does not match its final Run snapshot']);
+      }
+      result = freezeEventResult(run, run.status as OperationResultKind);
+    } else if (run.status !== 'inProgress') {
+      throw new OperationRuntimeError(['terminal Operation Run checkpoint is missing its EventResult']);
+    }
+
+    this.slot = { rules, run, result };
+    const sequence = /^operation-run-(\d+)$/.exec(run.runId);
+    if (sequence) runSequence = Math.max(runSequence, Number(sequence[1]));
+    return this.getSnapshot()!;
+  }
+
   previewIntervention(input: OperationInterventionCommand): OperationInterventionPreview {
     this.assertUsable();
     const command = parseInterventionCommand(input);
@@ -773,6 +1120,7 @@ export class OperationRuntimeService {
     const preview = this.previewIntervention(command);
     const slot = this.requireActiveRun();
     const next = deepCopy(slot.run);
+    next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = deepCopy(preview.draft);
     refreshPreparedBeat(next, slot.rules);
@@ -787,6 +1135,7 @@ export class OperationRuntimeService {
     assertCommandMatchesRun(command, slot.run);
     if (slot.run.interventionDraft === null) return this.getSnapshot()!;
     const next = deepCopy(slot.run);
+    next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
     refreshPreparedBeat(next, slot.rules);
@@ -854,6 +1203,7 @@ export class OperationRuntimeService {
     next.resolutionSequence += 1;
     const resolution = toResolution(batch, next.resolutionSequence);
     next.resolutions = [...next.resolutions, resolution].slice(-32);
+    next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(run);
     next.interventionDraft = null;
     const hardFailure = hasOperationHardFailure(slot.rules.definition, next.eventState);
@@ -892,27 +1242,53 @@ export class OperationRuntimeService {
   previewSceneActionBatch(input: OperationSceneActionBatchCommand): OperationSceneActionBatchPreview {
     this.assertUsable();
     const command = parseSceneActionBatchCommand(input);
-    const batch = this.planSceneActionBatch(command);
-    const scene = batch.sceneBatch;
-    if (!scene) throw new OperationRuntimeError(['SceneAction planner did not produce scene batch details']);
-    const slot = this.slot!;
-    const location = getCurrentLocationDefinition(slot.rules.definition, slot.run.currentLocationId)!;
-    return frozenCopy({
-      runId: batch.runId,
-      eventId: batch.eventId,
-      basePlanVersion: batch.basePlanVersion,
-      locationId: batch.locationId,
-      actionMode: location.actionMode!,
-      selections: scene.selections,
-      cards: scene.cards,
-      cost: {
-        balanceBefore: scene.playerCostBefore,
-        totalCost: scene.playerCostPaid,
-        balanceAfter: scene.playerCostAfter,
-      },
-      sceneActionBatchesUsed: scene.sceneActionBatchesUsed,
-      sceneActionBatchesLimit: location.sceneActionBatches!,
-    });
+    const slot = this.slot;
+    if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
+    return sceneActionBatchPreview(slot, planSceneActionBatchForSlot(slot, command));
+  }
+
+  stageSceneActionBatch(input: OperationSceneActionBatchCommand): EventRun {
+    this.assertCanMutate();
+    const command = parseSceneActionBatchCommand(input);
+    const slot = this.slot;
+    if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
+    const preview = sceneActionBatchPreview(slot, planSceneActionBatchForSlot(slot, command));
+    const next = deepCopy(slot.run);
+    next.pendingSceneActionBatch = { command, preview };
+    slot.run = next;
+    return this.getSnapshot()!;
+  }
+
+  clearSceneActionBatchDraft(input: OperationRunVersionCommand): EventRun {
+    this.assertCanMutate();
+    const command = parseVersionCommand(input);
+    const slot = this.slot;
+    if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
+    assertCommandMatchesRun(command, slot.run);
+    if (!slot.run.pendingSceneActionBatch) return this.getSnapshot()!;
+    const next = deepCopy(slot.run);
+    next.pendingSceneActionBatch = null;
+    slot.run = next;
+    return this.getSnapshot()!;
+  }
+
+  commitStagedSceneActionBatch(input: OperationRunVersionCommand): OperationResolution {
+    this.assertCanMutate();
+    const command = parseVersionCommand(input);
+    const slot = this.slot;
+    if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
+    assertCommandMatchesRun(command, slot.run);
+    const draft = slot.run.pendingSceneActionBatch;
+    if (!draft) throw new OperationRuntimeError(['there is no staged SceneAction/Card batch']);
+    const stagedCommand = parseSceneActionBatchCommand(draft.command);
+    if (stagedCommand.runId !== command.runId || stagedCommand.planVersion !== command.planVersion) {
+      throw new OperationRuntimeError(['staged SceneAction/Card batch is stale']);
+    }
+    const currentPreview = sceneActionBatchPreview(slot, planSceneActionBatchForSlot(slot, stagedCommand));
+    if (JSON.stringify(currentPreview) !== JSON.stringify(draft.preview)) {
+      throw new OperationRuntimeError(['staged SceneAction/Card fee preview no longer matches the current Run']);
+    }
+    return this.commitSceneActionBatch(stagedCommand);
   }
 
   commitSceneActionBatch(input: OperationSceneActionBatchCommand): OperationResolution {
@@ -939,6 +1315,7 @@ export class OperationRuntimeService {
       next.playerRouteState.cards = { drawPile: [...cards.drawPile], hand: [...cards.hand], discard: [...cards.discard] };
     }
     progress.sceneActionBatchesUsed = scene.sceneActionBatchesUsed;
+    next.pendingSceneActionBatch = null;
     if (next.resolutionSequence >= Number.MAX_SAFE_INTEGER) {
       throw new OperationRuntimeError(['resolutionSequence cannot advance safely']);
     }
@@ -980,37 +1357,7 @@ export class OperationRuntimeService {
   private planSceneActionBatch(command: OperationSceneActionBatchCommand): OperationResolutionBatch {
     const slot = this.slot;
     if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
-    if (slot.run.status !== 'inProgress') throw new OperationRuntimeError(['the EventRun is already terminal']);
-    assertCommandMatchesRun(command, slot.run);
-    if (slot.run.locationProgress[slot.run.currentLocationId]?.completed) {
-      throw new OperationRuntimeError(['current Location is already complete']);
-    }
-    const trustedContent = slot.rules.tacticalContent;
-    if (!trustedContent) throw new OperationRuntimeError(['this EventRun has no admitted Action definitions']);
-    try {
-      const batch = planOperationResolution({
-        snapshot: resolutionPlannerSnapshot(slot.run),
-        trustedContent,
-        preparedBeat: slot.run.preparedBeat!,
-        interventionDraft: slot.run.interventionDraft,
-        sceneBatch: { selections: command.selections, cards: command.cards },
-      });
-      if (batch.runId !== slot.run.runId || batch.eventId !== slot.run.eventId
-        || batch.basePlanVersion !== slot.run.planVersion || batch.locationId !== slot.run.currentLocationId
-        || batch.randomCursorBefore !== slot.run.random.tacticalCursor
-        || batch.randomCursorAfter !== batch.nextRandomState.tacticalCursor
-        || batch.randomCursorAfter !== batch.randomCursorBefore
-        || batch.nextRandomState.seed !== slot.run.random.seed
-        || batch.nextRandomState.algorithm !== slot.run.random.algorithm) {
-        throw new OperationRuntimeError(['SceneAction Resolution does not match its commit-start Run snapshot']);
-      }
-      return batch;
-    } catch (error) {
-      const diagnostics = error instanceof OperationResolutionPlannerError
-        ? [error.message]
-        : [error instanceof Error ? error.message : 'SceneAction planning failed'];
-      throw new OperationRuntimeError(diagnostics);
-    }
+    return planSceneActionBatchForSlot(slot, command);
   }
 
   /** Atomically applies checked local state changes; it emits no per-field events. */
@@ -1055,6 +1402,7 @@ export class OperationRuntimeService {
     this.applyActorChanges(next, delta.actors, slot.rules.actors, issues);
     this.applyRouteChange(next, delta.playerRouteState, slot.rules.deckCounts, issues);
     if (issues.length > 0) throw new OperationRuntimeError(issues);
+    next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
     const hardFailure = hasOperationHardFailure(slot.rules.definition, next.eventState);
@@ -1105,6 +1453,7 @@ export class OperationRuntimeService {
     }
     progress.completed = true;
     progress.result = result ?? 'success';
+    next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
     refreshPreparedBeat(next, slot.rules);
@@ -1126,6 +1475,7 @@ export class OperationRuntimeService {
       throw new OperationRuntimeError(['a Route must be selected before the Event outcome can be evaluated']);
     }
     const next = deepCopy(active.run);
+    next.pendingSceneActionBatch = null;
     const kind = evaluateOperationEventOutcome(active.rules.definition, next.eventState);
     next.status = kind as OperationRunStatus;
     next.planVersion = advancePlanVersion(active.run);
@@ -1221,6 +1571,7 @@ export class OperationRuntimeService {
       hand: [...enteredCards.hand],
       discard: [...enteredCards.discard],
     };
+    next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
 

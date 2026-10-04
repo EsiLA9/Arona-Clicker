@@ -465,6 +465,7 @@ export class GameInstance {
       persistedStats: () => this.statsService.getPersistable(),
       activeModNames: this.registry.loadedModNames,
       retainedTagResidue: this._tagResidue,
+      operationRun: () => this._operationEntry.createSaveSnapshot(),
     });
     this._tagResidue = saveData.retained ?? { spotTagOverrides: {} };
     return saveData;
@@ -495,6 +496,14 @@ export class GameInstance {
       },
       setTagResidue: residue => { this._tagResidue = residue; },
     }, saveData);
+    const operationResume = this._operationEntry.restoreSaveSnapshot(saveData.operationRun);
+    if (operationResume.status === 'rejected') {
+      this.devLog.record('玩法 B 续局未恢复，可重新开始事件', {
+        source: 'operation',
+        level: 'warning',
+        details: operationResume.diagnostics.join('; '),
+      });
+    }
   }
 
   /** 重置为默认状态 */

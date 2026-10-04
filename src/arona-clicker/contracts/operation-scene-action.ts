@@ -37,3 +37,9 @@ export interface OperationSceneActionBatchPreview {
   readonly sceneActionBatchesUsed: number;
   readonly sceneActionBatchesLimit: number;
 }
+
+/** Runtime-owned, explicitly staged player batch. The preview preserves its accepted fee snapshot. */
+export interface OperationSceneActionBatchDraft {
+  readonly command: OperationSceneActionBatchCommand;
+  readonly preview: OperationSceneActionBatchPreview;
+}

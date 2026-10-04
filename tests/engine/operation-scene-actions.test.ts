@@ -244,6 +244,59 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     expect(service.getSnapshot()).toEqual(before);
   });
 
+  test('restores a staged Global SceneAction and card batch with its exact fee preview', () => {
+    const base = globalStartInput();
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      resumeVersion: 1,
+      playerSceneDeck: {
+        cards: [{ id: 'demo:card:team-aid', actionId: ACTION_GLOBAL, playerCost: 1, timing: 'scene', copies: 1 }],
+        initialDraw: 1,
+        locationEntryDraw: 0,
+        maxHandSize: 1,
+      },
+    };
+    const input: OperationRunStartInput = { ...base, eventDefinition };
+    const uninterrupted = new OperationRuntimeService();
+    const uninterruptedRun = uninterrupted.start(input);
+    const uninterruptedCommand = {
+      runId: uninterruptedRun.runId,
+      planVersion: uninterruptedRun.planVersion,
+      selections: [{ sceneActionId: 'demo:scene-action:calm-crowd', actorId: A, targetActorIds: [B] }],
+      cards: [{ cardInstanceId: uninterruptedRun.playerRouteState.cards.hand[0], actorId: A, targetActorIds: [B] }],
+    };
+    const expected = uninterrupted.commitSceneActionBatch(uninterruptedCommand);
+
+    const paused = new OperationRuntimeService();
+    const pausedRun = paused.start(input);
+    const command = {
+      ...uninterruptedCommand,
+      runId: pausedRun.runId,
+      cards: [{ cardInstanceId: pausedRun.playerRouteState.cards.hand[0], actorId: A, targetActorIds: [B] }],
+    };
+    const staged = paused.stageSceneActionBatch(command);
+    expect(staged.pendingSceneActionBatch?.preview.cost).toEqual({ balanceBefore: 3, totalCost: 3, balanceAfter: 0 });
+    expect(staged.playerRouteState).toEqual(pausedRun.playerRouteState);
+    expect(staged.random).toEqual(pausedRun.random);
+    const checkpoint = paused.createSaveSnapshot()!;
+
+    const restored = new OperationRuntimeService();
+    expect(restored.restoreSaveSnapshot(checkpoint, input)).toEqual(staged);
+    const actual = restored.commitStagedSceneActionBatch({ runId: staged.runId, planVersion: staged.planVersion });
+    expect(actual.sceneBatch).toEqual(expected.sceneBatch);
+    expect(actual.numericChanges).toEqual(expected.numericChanges);
+    expect(restored.getSnapshot()).toMatchObject({
+      status: uninterrupted.getSnapshot()!.status,
+      currentLocationId: uninterrupted.getSnapshot()!.currentLocationId,
+      eventState: uninterrupted.getSnapshot()!.eventState,
+      actorStates: uninterrupted.getSnapshot()!.actorStates,
+      playerRouteState: uninterrupted.getSnapshot()!.playerRouteState,
+      resolutions: [{ ...expected, runId: pausedRun.runId }],
+      pendingSceneActionBatch: null,
+      random: uninterrupted.getSnapshot()!.random,
+    });
+  });
+
   test('rejects an incomplete Individual batch or insufficient PlayerCost without any Run mutation', () => {
     const input = individualStartInput();
     const service = new OperationRuntimeService();
