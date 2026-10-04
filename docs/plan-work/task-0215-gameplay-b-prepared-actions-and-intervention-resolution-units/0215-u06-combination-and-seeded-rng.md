@@ -41,7 +41,7 @@
 - RNG 使用 counter-addressed SplitMix64 v1、BigInt、算法 ID `splitmix64-counter-v1` 与固定 `operation:tactical:v1` stream tag；`wordAt` 由 seed/tag/cursor O(1) 得到。
 - 算法常量固定：`MASK=2^64-1`、`GAMMA=0x9E3779B97F4A7C15`；`mix64(z)` 依次执行 `z ^= z >> 30; z *= 0xBF58476D1CE4E5B9; z ^= z >> 27; z *= 0x94D049BB133111EB; z ^= z >> 31`，每步乘法后与 MASK 按位 AND。逻辑 tactical tag 固定映射为 `0x746163746963616c`（ASCII `tactical`）；`wordAt = mix64((mix64(uint64(seed) XOR tag) + GAMMA * (cursor + 1)) AND MASK)`。
 - 整数区间用 64-bit rejection sampling，无偏取值；cursor 记录已消费 raw word 数，包含拒绝样本。cursor 的临时推进只有 U8 原子 Commit 成功后写回。
-- Skill roll 固定无偏取 `[0,10000)`，再与 integer `chanceBps` 比较；每个满足条件的 Actor/Rule 每次有效 Commit 检查一次，`0` 与 `10000` 也各消耗一次 sample；不满足 trigger 条件时不抽取。不得依赖 `runId`、时间、遍历偶然顺序或 `Math.random`。
+- Skill roll 固定无偏取 `[0,10000)`，再与 integer `chanceBps` 比较；只有干预应用后的最终学生 Action ID 命中 Rule trigger 时才检查，检查顺序在 Combination 消费前；每个满足条件的 Actor/Rule 每次有效 Commit 检查一次，`0` 与 `10000` 也各消耗一次 sample；不满足 trigger 条件时不抽取。不得依赖 `runId`、时间、遍历偶然顺序或 `Math.random`。
 - Combination 只读取当前 Location 内嵌规则与 PreparedBeat；tag slots 有序，slot A/B 分别匹配 pair 中先/后声明的 Actor。候选按 `(priority 升序, rule ID code-unit ordinal, slot A Actor index, slot B Actor index)` 总序处理；每名学生最多被消费一次。
 - 配对规则只要求输入标签槽及 `same-target` / `no-target`；命中时原始两个 Action 效果不重复结算，费用与独立 Student Skill 保留。
 
@@ -53,7 +53,7 @@
 - src/arona-clicker/services/operation-tactical-rng.ts（新增）
 - tests/engine/operation-combination-resolver.test.ts（新增）
 - tests/engine/operation-tactical-rng.test.ts（新增）
-- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u06-combination-and-seeded-rng.md
+- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u06-combination-and-seeded-rng-receipt.md
 
 ## Explicit Non-goals
 

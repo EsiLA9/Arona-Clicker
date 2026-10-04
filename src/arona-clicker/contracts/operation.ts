@@ -1,4 +1,6 @@
 import type { OperationLocationTacticsDef } from './operation-action';
+import type { OperationActionDef } from './operation-action';
+import type { OperationStudentSkillRuleDef } from './operation-skill';
 
 export type OperationResultKind = 'success' | 'partialSuccess' | 'failure';
 export type OperationRunStatus = 'inProgress' | OperationResultKind;
@@ -8,12 +10,6 @@ export const OPERATION_WAIT_ACTION_ID = 'operation:action:wait' as const;
 export const OPERATION_NO_ELIGIBLE_ACTION_REASON_ID = 'operation:profile:no-eligible-action' as const;
 
 export type OperationActorKind = 'student' | 'opponent' | 'environment';
-
-export interface OperationActionRequirementDef {
-  readonly actionId: string;
-  readonly requiredCapabilityIds: readonly string[];
-  readonly reasonIds: readonly string[];
-}
 
 export interface OperationBoundedValueDef {
   readonly initial: number;
@@ -71,8 +67,6 @@ export interface OperationEventDef {
   readonly teams?: readonly OperationTeamDef[];
   /** Temporary tactical definitions keyed by existing Location IDs until Task 0218. */
   readonly locationTactics?: readonly OperationLocationTacticsDef[];
-  /** Event-scoped actions and their capability eligibility gates. */
-  readonly actionRequirements?: readonly OperationActionRequirementDef[];
   readonly playerRouteState: OperationPlayerRouteStateDef;
   readonly randomSeed?: number;
 }
@@ -121,6 +115,10 @@ export type OperationActorInitialization =
 export interface OperationRunStartInput {
   readonly eventDefinition: OperationEventDef;
   readonly actors: readonly OperationActorInitialization[];
+  /** Resolver-authored catalog passed through admission; the private owner retains it frozen per Run in U8. */
+  readonly actionDefinitions: readonly OperationActionDef[];
+  /** Resolver-authored rules, referenced only by admitted student Profiles. */
+  readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
 }
 
 export interface OperationEventState {

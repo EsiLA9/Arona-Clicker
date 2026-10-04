@@ -1,6 +1,8 @@
 import type { OperationEventDef } from './operation';
 import type { OperationParticipantSpec } from './operation-participant';
 import type { StudentOperationProfileDef } from './student-operation-profile';
+import type { OperationActionDef } from './operation-action';
+import type { OperationStudentSkillRuleDef } from './operation-skill';
 
 /** Trusted, event-scoped content returned only by the resolver configured at GameInstance construction. */
 export interface OperationResolvedContent {
@@ -8,6 +10,8 @@ export interface OperationResolvedContent {
   /** Must describe every OperationActorDef exactly once, in desired student slot order. */
   readonly participants: readonly OperationParticipantSpec[];
   readonly studentProfiles: readonly StudentOperationProfileDef[];
+  readonly actionDefinitions: readonly OperationActionDef[];
+  readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
 }
 
 export interface OperationContentResolver {

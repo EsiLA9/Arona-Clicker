@@ -6,6 +6,9 @@ import type { StudentOperationProfileDef } from '../contracts/student-operation-
 import type { CharacterSystem } from './character-system';
 import type { RosterSystem } from './roster-system';
 import { validateOperationEventDef } from './operation-definition-validation';
+import { validateOperationActionContent } from './operation-action-content-validation';
+import type { OperationActionDef } from '../contracts/operation-action';
+import type { OperationStudentSkillRuleDef } from '../contracts/operation-skill';
 
 export class OperationAdmissionError extends Error {
   constructor(readonly diagnostics: readonly string[]) {
@@ -166,7 +169,13 @@ function readResolvedContent(
   value: unknown,
   requestedEventId: string,
   issues: string[],
-): { readonly content: OperationResolvedContent; readonly participants: readonly OperationParticipantSpec[]; readonly profiles: readonly StudentOperationProfileDef[] } | null {
+): {
+  readonly content: OperationResolvedContent;
+  readonly participants: readonly OperationParticipantSpec[];
+  readonly profiles: readonly StudentOperationProfileDef[];
+  readonly actionDefinitions: readonly OperationActionDef[];
+  readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
+} | null {
   if (!isRecord(value)) {
     issues.push('resolver returned no content for eventId: ' + requestedEventId);
     return null;
@@ -183,10 +192,19 @@ function readResolvedContent(
   const participants = readParticipants(value.participants, issues);
   const profiles = parseProfiles(value.studentProfiles, issues);
   checkEventParticipantShape(value.eventDefinition.actors, participants, issues);
+  const actionContent = validateOperationActionContent(
+    value.eventDefinition as unknown as import('../contracts/operation').OperationEventDef,
+    value.actionDefinitions,
+    value.studentSkillRules,
+    profiles,
+  );
+  issues.push(...actionContent.issues);
   return {
     content: value as unknown as OperationResolvedContent,
     participants,
     profiles,
+    actionDefinitions: actionContent.actionDefinitions,
+    studentSkillRules: actionContent.studentSkillRules,
   };
 }
 
@@ -286,7 +304,7 @@ export class OperationParticipantAdmission {
       throw new OperationAdmissionError(['operation content is malformed or unreadable for eventId ' + eventId + detail]);
     }
     if (!parsed) throw new OperationAdmissionError(issues);
-    const { content, participants, profiles } = parsed;
+    const { content, participants, profiles, actionDefinitions, studentSkillRules } = parsed;
     const profileIndexes = indexStudentProfiles(profiles);
 
     const studentSlots = participants.filter((participant): participant is Extract<OperationParticipantSpec, { kind: 'student' }> => participant.kind === 'student');
@@ -357,6 +375,8 @@ export class OperationParticipantAdmission {
         eventDefinition: content.eventDefinition,
         participants: admitted,
         studentProfiles: selectedProfiles,
+        actionDefinitions,
+        studentSkillRules,
       });
     } catch {
       throw new OperationAdmissionError(['resolved Operation content must contain only cloneable data']);

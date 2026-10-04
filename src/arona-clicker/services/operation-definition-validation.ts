@@ -5,6 +5,8 @@ import {
   type OperationCardZones,
   type OperationEventDef,
 } from '../contracts/operation';
+import type { OperationActionDef } from '../contracts/operation-action';
+import { validateOperationActionDef, validateOperationActionEffects } from './operation-tactical-definition-validation';
 
 export function isOperationRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -100,103 +102,6 @@ export function sameOperationCardCounts(
   return true;
 }
 
-function validateOperationActionEffect(value: unknown, path: string, issues: string[]): void {
-  if (!isOperationRecord(value)) {
-    issues.push(path + ' must be an effect object');
-    return;
-  }
-  if (typeof value.amount !== 'number' || !Number.isFinite(value.amount)) {
-    issues.push(path + '.amount must be a finite number');
-  }
-  switch (value.kind) {
-    case 'actorHpDelta':
-      rejectUnsupportedFields(value, ['kind', 'recipient', 'amount'], path, issues);
-      if (value.recipient !== 'actor' && value.recipient !== 'target') {
-        issues.push(path + '.recipient must be actor or target');
-      }
-      break;
-    case 'actorResourceDelta':
-      rejectUnsupportedFields(value, ['kind', 'recipient', 'resourceId', 'amount'], path, issues);
-      if (value.recipient !== 'actor' && value.recipient !== 'target') {
-        issues.push(path + '.recipient must be actor or target');
-      }
-      if (!isNonEmptyOperationId(value.resourceId)) issues.push(path + '.resourceId must be a non-empty ID');
-      break;
-    case 'teamResourceDelta':
-      rejectUnsupportedFields(value, ['kind', 'recipient', 'resourceId', 'amount'], path, issues);
-      if (value.recipient !== 'actorTeam' && value.recipient !== 'targetTeam') {
-        issues.push(path + '.recipient must be actorTeam or targetTeam');
-      }
-      if (!isNonEmptyOperationId(value.resourceId)) issues.push(path + '.resourceId must be a non-empty ID');
-      break;
-    case 'eventTrackDelta':
-      rejectUnsupportedFields(value, ['kind', 'trackId', 'amount'], path, issues);
-      if (!isNonEmptyOperationId(value.trackId)) issues.push(path + '.trackId must be a non-empty ID');
-      break;
-    default:
-      issues.push(path + '.kind is not a supported Operation Action effect');
-  }
-}
-
-function validateOperationActionEffects(value: unknown, path: string, issues: string[]): void {
-  if (!Array.isArray(value)) {
-    issues.push(path + ' must be an array');
-    return;
-  }
-  value.forEach((effect, index) => validateOperationActionEffect(effect, path + '[' + index + ']', issues));
-}
-
-/** Validates the closed, data-only Action contract before it enters an Operation resolver. */
-export function validateOperationActionDef(value: unknown): readonly string[] {
-  const issues: string[] = [];
-  if (!isOperationRecord(value)) return ['action definition must be an object'];
-  rejectUnsupportedFields(value, [
-    'id', 'allowedParticipantKinds', 'requiredCapabilityIds', 'reasonIds', 'tagIds', 'cost', 'target', 'effects',
-  ], 'action', issues);
-  if (!isNonEmptyOperationId(value.id)) issues.push('id must be a non-empty Action ID');
-
-  const allowedKinds = collectIds(value.allowedParticipantKinds, 'allowedParticipantKinds', issues);
-  if (allowedKinds.size === 0) issues.push('allowedParticipantKinds must contain at least one participant kind');
-  for (const kind of allowedKinds) {
-    if (!['student', 'opponent', 'environment'].includes(kind)) {
-      issues.push('allowedParticipantKinds contains an unsupported participant kind: ' + kind);
-    }
-  }
-  collectIds(value.requiredCapabilityIds, 'requiredCapabilityIds', issues);
-  collectIds(value.reasonIds, 'reasonIds', issues);
-  collectIds(value.tagIds, 'tagIds', issues);
-
-  if (value.cost !== undefined) {
-    if (!isOperationRecord(value.cost)) {
-      issues.push('cost must be an object');
-    } else {
-      rejectUnsupportedFields(value.cost, ['scope', 'resourceId', 'amount'], 'cost', issues);
-      if (value.cost.scope !== 'actor' && value.cost.scope !== 'team') issues.push('cost.scope must be actor or team');
-      if (!isNonEmptyOperationId(value.cost.resourceId)) issues.push('cost.resourceId must be a non-empty ID');
-      if (typeof value.cost.amount !== 'number' || !Number.isFinite(value.cost.amount) || value.cost.amount <= 0) {
-        issues.push('cost.amount must be a positive finite number');
-      }
-    }
-  }
-
-  if (!isOperationRecord(value.target)) {
-    issues.push('target must be an object');
-  } else if (value.target.kind === 'none') {
-    rejectUnsupportedFields(value.target, ['kind'], 'target', issues);
-    if (value.target.relation !== undefined) issues.push('target.relation must be omitted when target.kind is none');
-  } else if (value.target.kind === 'actor') {
-    rejectUnsupportedFields(value.target, ['kind', 'relation'], 'target', issues);
-    if (!['self', 'sameTeam', 'otherTeam', 'any'].includes(String(value.target.relation))) {
-      issues.push('target.relation must be self, sameTeam, otherTeam, or any');
-    }
-  } else {
-    issues.push('target.kind must be none or actor');
-  }
-
-  validateOperationActionEffects(value.effects, 'effects', issues);
-  return issues;
-}
-
 function validateCombinationRule(value: unknown, path: string, issues: string[]): void {
   if (!isOperationRecord(value) || !isNonEmptyOperationId(value.id)) {
     issues.push(path + '.id must be a non-empty ID');
@@ -268,6 +173,9 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   if (!isOperationRecord(definition)) return ['event definition must be an object'];
   const raw = definition as unknown as Record<string, unknown>;
   if (!isNonEmptyOperationId(raw.id)) issues.push('id must be a non-empty ID');
+  if (Object.prototype.hasOwnProperty.call(raw, 'actionRequirements')) {
+    issues.push('actionRequirements is removed; declare trusted Action definitions in OperationResolvedContent');
+  }
 
   const locations = collectIds(raw.locationIds, 'locationIds', issues);
   if (!isNonEmptyOperationId(raw.initialLocationId) || !locations.has(raw.initialLocationId)) {
@@ -322,26 +230,6 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
             }
           }
         }
-      });
-    }
-  }
-
-  if (raw.actionRequirements !== undefined) {
-    if (!Array.isArray(raw.actionRequirements)) {
-      issues.push('actionRequirements must be an array');
-    } else {
-      const actionIds = new Set<string>();
-      raw.actionRequirements.forEach((value, index) => {
-        const path = 'actionRequirements[' + index + ']';
-        if (!isOperationRecord(value) || !isNonEmptyOperationId(value.actionId)) {
-          issues.push(path + '.actionId must be a non-empty ID');
-          return;
-        }
-        if (actionIds.has(value.actionId)) issues.push('actionRequirements contains duplicate actionId: ' + value.actionId);
-        if (value.actionId === OPERATION_WAIT_ACTION_ID) issues.push(path + '.actionId uses the reserved Wait fallback ID');
-        actionIds.add(value.actionId);
-        collectIds(value.requiredCapabilityIds, path + '.requiredCapabilityIds', issues);
-        collectIds(value.reasonIds, path + '.reasonIds', issues);
       });
     }
   }
@@ -410,12 +298,46 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
 export function validateOperationActorInitializations(
   eventDefinition: OperationEventDef,
   value: unknown,
+  rawActionDefinitions: unknown,
+  rawStudentSkillRules: unknown,
 ): readonly string[] {
   const issues: string[] = [];
   if (!Array.isArray(value)) return ['actors must be an array of admitted actor snapshots'];
 
+  const actionDefinitionsList: OperationActionDef[] = [];
+  if (!Array.isArray(rawActionDefinitions)) {
+    issues.push('actionDefinitions must be an array');
+  } else {
+    const seenActions = new Set<string>();
+    rawActionDefinitions.forEach((action, index) => {
+      const actionIssues = validateOperationActionDef(action);
+      for (const issue of actionIssues) issues.push('actionDefinitions[' + index + ']: ' + issue);
+      if (!isOperationRecord(action) || !isNonEmptyOperationId(action.id)) return;
+      if (action.id === OPERATION_WAIT_ACTION_ID) issues.push('actionDefinitions contains the reserved Wait fallback ID');
+      if (seenActions.has(action.id)) issues.push('actionDefinitions contains duplicate Action ID: ' + action.id);
+      seenActions.add(action.id);
+      if (actionIssues.length === 0) actionDefinitionsList.push(action as unknown as OperationActionDef);
+    });
+  }
+  const actionDefinitions = new Map(actionDefinitionsList.map(action => [action.id, action]));
+  const studentSkillRuleIds = new Set<string>();
+  if (!Array.isArray(rawStudentSkillRules)) {
+    issues.push('studentSkillRules must be an array');
+  } else {
+    const seenRules = new Set<string>();
+    rawStudentSkillRules.forEach((rule, index) => {
+      if (!isOperationRecord(rule) || !isNonEmptyOperationId(rule.id)) {
+        issues.push('studentSkillRules[' + index + '].id must be a non-empty ID');
+      } else if (seenRules.has(rule.id)) {
+        issues.push('studentSkillRules contains duplicate Rule ID: ' + rule.id);
+      } else {
+        seenRules.add(rule.id);
+        studentSkillRuleIds.add(rule.id);
+      }
+    });
+  }
+
   const actorDefinitions = eventDefinition.actors;
-  const actionRequirements = new Map((eventDefinition.actionRequirements ?? []).map(requirement => [requirement.actionId, requirement]));
   const expectedIds = new Set(actorDefinitions.map(actor => actor.id));
   const seenIds = new Set<string>();
   value.forEach((entry, index) => {
@@ -448,6 +370,8 @@ export function validateOperationActorInitializations(
       }
       if (profile.randomSkillRuleId !== undefined && !isNonEmptyOperationId(profile.randomSkillRuleId)) {
         issues.push(path + '.profile.randomSkillRuleId must be a non-empty rule reference');
+      } else if (profile.randomSkillRuleId !== undefined && !studentSkillRuleIds.has(profile.randomSkillRuleId)) {
+        issues.push(path + '.profile.randomSkillRuleId references a missing Student Skill Rule: ' + profile.randomSkillRuleId);
       }
       if (!Array.isArray(profile.actionCandidates)) {
         issues.push(path + '.profile.actionCandidates must be an array');
@@ -461,7 +385,7 @@ export function validateOperationActorInitializations(
         const rawPriorityOrder = Array.isArray(profile.actionPriorityIds)
           ? [...new Set(profile.actionPriorityIds.filter(isNonEmptyOperationId))]
           : [];
-        const candidateSet = new Set(rawCandidateOrder.filter(id => actionRequirements.has(id)));
+        const candidateSet = new Set(rawCandidateOrder);
         const priorityOrder = rawPriorityOrder.filter(id => candidateSet.has(id));
         const prioritySet = new Set(priorityOrder);
         const expectedActionOrder = [
@@ -482,13 +406,16 @@ export function validateOperationActorInitializations(
           const required = collectIds(candidate.requiredCapabilityIds, candidatePath + '.requiredCapabilityIds', issues);
           const missing = collectIds(candidate.missingCapabilityIds, candidatePath + '.missingCapabilityIds', issues);
           collectIds(candidate.reasonIds, candidatePath + '.reasonIds', issues);
-          const requirement = actionRequirements.get(candidate.actionId);
-          if (!requirement) {
-            issues.push(candidatePath + '.actionId is not declared by event actionRequirements');
+          const action = actionDefinitions.get(candidate.actionId);
+          if (!action) {
+            issues.push(candidatePath + '.actionId is not declared by the Action catalog');
           } else {
-            const expectedRequired = [...requirement.requiredCapabilityIds];
+            if (!action.allowedParticipantKinds.includes('student')) {
+              issues.push(candidatePath + '.actionId does not allow student participants');
+            }
+            const expectedRequired = [...action.requiredCapabilityIds];
             if (!sameOrderedIds(candidate.requiredCapabilityIds, expectedRequired)) {
-              issues.push(candidatePath + '.requiredCapabilityIds does not match the Event action requirement');
+              issues.push(candidatePath + '.requiredCapabilityIds does not match the Action definition');
             }
             const expectedMissing = expectedRequired.filter(id => !capabilityIds.has(id));
             if (!sameOrderedIds(candidate.missingCapabilityIds, expectedMissing)) {
@@ -497,13 +424,13 @@ export function validateOperationActorInitializations(
             const profileReasonIds = Array.isArray(profile.reasonIds)
               ? profile.reasonIds.filter(isNonEmptyOperationId)
               : [];
-            const expectedReasons = [...new Set([...profileReasonIds, ...requirement.reasonIds])];
+            const expectedReasons = [...new Set([...profileReasonIds, ...action.reasonIds])];
             if (!sameOrderedIds(candidate.reasonIds, expectedReasons)) {
-              issues.push(candidatePath + '.reasonIds does not match the Profile and Event reasons');
+              issues.push(candidatePath + '.reasonIds does not match the Profile and Action reasons');
             }
             const expectedEligible = expectedMissing.length === 0;
             if (candidate.eligible !== expectedEligible) {
-              issues.push(candidatePath + '.eligible does not match required capabilities');
+              issues.push(candidatePath + '.eligible does not match Action required capabilities');
             }
             if (expectedEligible) eligibleActionOrder.push(candidate.actionId);
           }
@@ -523,8 +450,8 @@ export function validateOperationActorInitializations(
       if (Array.isArray(profile.actionCandidates)) {
         for (const candidate of profile.actionCandidates) {
           if (!isOperationRecord(candidate) || !isNonEmptyOperationId(candidate.actionId)) continue;
-          const requirement = actionRequirements.get(candidate.actionId);
-          if (requirement && requirement.requiredCapabilityIds.every(id => capabilityIds.has(id))) {
+          const action = actionDefinitions.get(candidate.actionId);
+          if (action && action.requiredCapabilityIds.every(id => capabilityIds.has(id))) {
             expectedEligibleIds.push(candidate.actionId);
           }
         }

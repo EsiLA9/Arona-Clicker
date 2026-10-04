@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { OPERATION_WAIT_ACTION_ID, type OperationEventDef } from '../../src/arona-clicker/contracts/operation';
 import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation-content-resolver';
 import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
@@ -39,16 +41,24 @@ function eventDef(): OperationEventDef {
       { id: 'test:actor:student-slot', type: 'student', hp: { initial: 4, min: 0, max: 4 } },
       { id: 'test:actor:opponent', type: 'opponent', hp: { initial: 5, min: 0, max: 5 } },
     ],
-    actionRequirements: [
-      { actionId: 'observe', requiredCapabilityIds: [], reasonIds: ['test:reason:observe'] },
-      { actionId: 'protect', requiredCapabilityIds: ['frontline-protection'], reasonIds: ['test:reason:protection'] },
-    ],
     playerRouteState: {
       playerCost: 2,
       cards: { drawPile: ['test:card:inspect'], hand: [], discard: [], played: [] },
     },
     randomSeed: 17,
   };
+}
+
+function actionDefinitions(): OperationActionDef[] {
+  return [
+    { id: 'observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['test:reason:observe'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'protect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['frontline-protection'], reasonIds: ['test:reason:protection'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'organize', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['resourcefulness'], reasonIds: ['test:reason:organize'], tagIds: [], target: { kind: 'none' }, effects: [] },
+  ];
+}
+
+function studentSkillRules(): OperationStudentSkillRuleDef[] {
+  return [{ id: 'test:skill-rule:hoshino', triggerActionIds: ['protect'], chanceBps: 2000, effects: [] }];
 }
 
 function resolvedContent(changes: Partial<OperationResolvedContent> = {}): OperationResolvedContent {
@@ -59,6 +69,8 @@ function resolvedContent(changes: Partial<OperationResolvedContent> = {}): Opera
       { actorId: 'test:actor:opponent', kind: 'opponent', factionId: 'test:faction:enemy' },
     ],
     studentProfiles: [HOSHINO_PROFILE, SERIKA_PROFILE],
+    actionDefinitions: actionDefinitions(),
+    studentSkillRules: studentSkillRules(),
     ...changes,
   };
 }

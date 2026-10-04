@@ -8,6 +8,9 @@ import {
 } from '../contracts/operation';
 import type { OperationAdmission, OperationAdmittedParticipant } from '../contracts/operation-participant';
 import type { StudentOperationProfileDef } from '../contracts/student-operation-profile';
+import type { OperationActionDef } from '../contracts/operation-action';
+import { validateOperationActorInitializations } from './operation-definition-validation';
+import { validateOperationActionActorReferences, validateOperationActionContent } from './operation-action-content-validation';
 
 export class StudentOperationProfileResolutionError extends Error {
   constructor(readonly diagnostics: readonly string[]) {
@@ -35,7 +38,7 @@ function freezeTree<T>(value: T): T {
 function snapshotProfile(
   participant: Extract<OperationAdmittedParticipant, { kind: 'student' }>,
   profile: StudentOperationProfileDef,
-  requirements: ReadonlyMap<string, { readonly requiredCapabilityIds: readonly string[]; readonly reasonIds: readonly string[] }>,
+  actionDefinitions: ReadonlyMap<string, OperationActionDef>,
 ): OperationStudentProfileSnapshot {
   if (profile.characterId !== participant.characterId) {
     fail('Profile ' + profile.id + ' Character mismatch for actor ' + participant.actorId);
@@ -45,24 +48,30 @@ function snapshotProfile(
   if (declaredCandidateIds.has(OPERATION_WAIT_ACTION_ID)) {
     fail('Profile ' + profile.id + ' uses the reserved Wait fallback action ID as a candidate');
   }
-  const eventCandidateIds = new Set([...declaredCandidateIds].filter(actionId => requirements.has(actionId)));
-  const prioritizedIds = profile.actionPriorityIds.filter(actionId => eventCandidateIds.has(actionId));
+  for (const actionId of declaredCandidateIds) {
+    const action = actionDefinitions.get(actionId);
+    if (!action) fail('Profile ' + profile.id + ' references missing Action ' + actionId);
+    if (!action.allowedParticipantKinds.includes('student')) {
+      fail('Profile ' + profile.id + ' references Action that does not allow student participants: ' + actionId);
+    }
+  }
+  const prioritizedIds = profile.actionPriorityIds.filter(actionId => declaredCandidateIds.has(actionId));
   const prioritizedSet = new Set(prioritizedIds);
   const orderedIds = [
     ...prioritizedIds,
-    ...profile.candidateActionIds.filter(actionId => eventCandidateIds.has(actionId) && !prioritizedSet.has(actionId)),
+    ...profile.candidateActionIds.filter(actionId => !prioritizedSet.has(actionId)),
   ];
   const capabilities = new Set(profile.capabilityIds);
 
   const actionCandidates: OperationActionCandidateSnapshot[] = orderedIds.map(actionId => {
-    const requirement = requirements.get(actionId)!;
-    const missingCapabilityIds = requirement.requiredCapabilityIds.filter(id => !capabilities.has(id));
+    const action = actionDefinitions.get(actionId)!;
+    const missingCapabilityIds = action.requiredCapabilityIds.filter(id => !capabilities.has(id));
     return {
       actionId,
       eligible: missingCapabilityIds.length === 0,
-      requiredCapabilityIds: [...requirement.requiredCapabilityIds],
+      requiredCapabilityIds: [...action.requiredCapabilityIds],
       missingCapabilityIds,
-      reasonIds: unique([...profile.reasonIds, ...requirement.reasonIds]),
+      reasonIds: unique([...profile.reasonIds, ...action.reasonIds]),
     };
   });
   const eligibleActionIds = actionCandidates.filter(candidate => candidate.eligible).map(candidate => candidate.actionId);
@@ -106,7 +115,8 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
   const event = admission.eventDefinition;
   const participantsByActorId = ensureUniqueBy(admission.participants, value => value.actorId, 'participant actor');
   const profilesById = ensureUniqueBy(admission.studentProfiles, value => value.id, 'student Profile');
-  const requirements = new Map((event.actionRequirements ?? []).map(requirement => [requirement.actionId, requirement]));
+  const actionDefinitions = ensureUniqueBy(admission.actionDefinitions, value => value.id, 'Action');
+  ensureUniqueBy(admission.studentSkillRules, value => value.id, 'Student Skill Rule');
   const eventActorIds = new Set(event.actors.map(actor => actor.id));
 
   for (const actorId of participantsByActorId.keys()) {
@@ -135,7 +145,7 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
       actorId: actor.id,
       participantKind: 'student',
       characterId: participant.characterId,
-      profile: snapshotProfile(participant, profile, requirements),
+      profile: snapshotProfile(participant, profile, actionDefinitions),
     };
   });
 
@@ -146,5 +156,33 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
   );
   if (selectedProfileIds.size !== profilesById.size) fail('Admission contains an unselected or duplicate student Profile');
 
-  return freezeTree({ eventDefinition: event, actors });
+  const runStart: OperationRunStartInput = {
+    eventDefinition: event,
+    actors,
+    actionDefinitions: [...admission.actionDefinitions],
+    studentSkillRules: [...admission.studentSkillRules],
+  };
+  const initializationIssues = validateOperationActorInitializations(
+    event,
+    actors,
+    runStart.actionDefinitions,
+    runStart.studentSkillRules,
+  );
+  if (initializationIssues.length > 0) throw new StudentOperationProfileResolutionError(initializationIssues);
+  const profileReferences = actors.flatMap(actor => actor.participantKind === 'student' ? [actor.profile] : []);
+  const content = validateOperationActionContent(
+    event,
+    runStart.actionDefinitions,
+    runStart.studentSkillRules,
+    profileReferences,
+  );
+  if (content.issues.length > 0) throw new StudentOperationProfileResolutionError(content.issues);
+  const actorReferenceIssues = validateOperationActionActorReferences(
+    event,
+    content.actionDefinitions,
+    content.studentSkillRules,
+    actors,
+  );
+  if (actorReferenceIssues.length > 0) throw new StudentOperationProfileResolutionError(actorReferenceIssues);
+  return freezeTree(runStart);
 }

@@ -1,6 +1,8 @@
 import type { Character } from '../types/ids';
 import type { OperationEventDef } from './operation';
 import type { StudentOperationProfileDef } from './student-operation-profile';
+import type { OperationActionDef } from './operation-action';
+import type { OperationStudentSkillRuleDef } from './operation-skill';
 
 export type OperationParticipantKind = 'student' | 'opponent' | 'environment';
 
@@ -42,4 +44,6 @@ export interface OperationAdmission {
   readonly eventDefinition: OperationEventDef;
   readonly participants: readonly OperationAdmittedParticipant[];
   readonly studentProfiles: readonly StudentOperationProfileDef[];
+  readonly actionDefinitions: readonly OperationActionDef[];
+  readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
 }

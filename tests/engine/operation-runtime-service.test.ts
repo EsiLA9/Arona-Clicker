@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { OperationEventDef, OperationStateDelta } from '../../src/arona-clicker/contracts/operation';
-import { validateOperationActionDef, validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
+import { validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
+import { validateOperationActionDef } from '../../src/arona-clicker/services/operation-tactical-definition-validation';
 import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
 
 function eventDef(): OperationEventDef {

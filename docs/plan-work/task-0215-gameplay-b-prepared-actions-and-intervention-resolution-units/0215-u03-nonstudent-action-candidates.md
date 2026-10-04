@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 文档 | `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md` | 当前非学生 admission 旁路与 Actor 快照 |
 | 历史 | `docs/plan-work/archive/task-0214-gameplay-b-student-participation-and-autonomy.md` | 非学生不需要 Character/Profile 的已完成边界 |
-| 源码/测试 | `src/arona-clicker/contracts/operation-participant.ts`、`src/arona-clicker/services/operation-participant-admission.ts`、`src/arona-clicker/services/operation-entry-service.ts`、`src/arona-clicker/contracts/operation.ts`、`tests/engine/operation-participant-admission.test.ts` | ParticipantSpec admission 到 Run start 的投影 |
+| 源码/测试 | `src/arona-clicker/contracts/operation-participant.ts`、`src/arona-clicker/services/operation-participant-admission.ts`、`src/arona-clicker/services/operation-entry-service.ts`、`src/arona-clicker/services/operation-action-content-validation.ts`、`src/arona-clicker/contracts/operation.ts`、`tests/engine/operation-participant-admission.test.ts` | ParticipantSpec admission、Action/Team resource 交叉校验到 Run start 的投影 |
 
 ## Context Budget
 
@@ -41,6 +41,7 @@
 - 非学生候选来自 `OperationParticipantSpec.candidateActionIds`，其数组顺序就是 Intent 的尝试顺序；所有 ID 必须由 Action catalog 提供且 ActionDef 允许对应 kind。
 - `locationTactics` 临时块仅列 `enabledActionIds` 和 `combinationRules`，不得再复制/排序非学生 candidate 列表；当前地点可用候选是 ParticipantSpec 顺序与 enabledActionIds 的交集。
 - 候选在 admission/start 时校验、复制，不在每次准备时重扫 Registry 或 Participant definitions。
+- 每个非学生候选 Action 必须同时通过候选参与者 kind、当前 Location 启用过滤，以及该 Event Actor 的 cost/effect Actor/Team resource 引用校验；无效内容在 owner start 前拒绝。
 - `OperationActorDef.teamId` 决定 Team resource 付款归属；ParticipantSpec.factionId 仍仅是参与者身份，不隐式决定 Team。
 - 不实现 AI 条件树；每 Beat 按声明序与当时目标/资源资格选第一个可行 Intent。
 
@@ -49,9 +50,10 @@
 - `src/arona-clicker/contracts/operation-participant.ts`
 - `src/arona-clicker/contracts/operation.ts`
 - `src/arona-clicker/services/operation-participant-admission.ts`
+- src/arona-clicker/services/operation-action-content-validation.ts
 - `src/arona-clicker/services/operation-entry-service.ts`
 - `tests/engine/operation-participant-admission.test.ts`
-- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u03-nonstudent-action-candidates.md
+- docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution-units/receipts/0215-u03-nonstudent-action-candidates-receipt.md
 
 ## Explicit Non-goals
 
@@ -66,6 +68,7 @@
 ## Completion Criteria
 
 - [ ] 非学生 ParticipantSpec 可声明唯一有序 action candidate IDs；错误、重复、缺定义、kind 不兼容均在 Run 启动前拒绝。
+- [ ] 非学生候选 Action 的 cost/effect resource IDs 在对应 Actor/Team 范围完整解析；合法有序候选 detached 进入 Run-start input。
 - [ ] 合法候选以 detached 快照进入受控 Run start input，并能供后续纯准备器读取。
 - [ ] LocationTactics 只过滤 enabledActionIds 并提供 CombinationRules，不重复维护 Intent 优先序。
 - [ ] factionId 与 teamId 清晰分离；非学生 admission 不读取 Player roster/Character Profile。

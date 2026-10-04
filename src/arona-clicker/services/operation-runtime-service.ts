@@ -23,6 +23,7 @@ import {
   validateOperationActorInitializations,
   validateOperationEventDef,
 } from './operation-definition-validation';
+import { validateOperationActionActorReferences, validateOperationActionContent } from './operation-action-content-validation';
 
 interface MutableActorState {
   id: string;
@@ -225,8 +226,28 @@ export class OperationRuntimeService {
     if (diagnostics.length > 0) throw new OperationRuntimeError(diagnostics);
     const actorInitializations = runStartInput?.actors;
     if (hasActorInitializations) {
-      const actorIssues = validateOperationActorInitializations(definition, actorInitializations);
+      const actorIssues = validateOperationActorInitializations(
+        definition,
+        actorInitializations,
+        runStartInput?.actionDefinitions,
+        runStartInput?.studentSkillRules,
+      );
       if (actorIssues.length > 0) throw new OperationRuntimeError(actorIssues);
+      const profileReferences = actorInitializations!.flatMap(actor => actor.participantKind === 'student' ? [actor.profile] : []);
+      const content = validateOperationActionContent(
+        definition,
+        runStartInput?.actionDefinitions,
+        runStartInput?.studentSkillRules,
+        profileReferences,
+      );
+      if (content.issues.length > 0) throw new OperationRuntimeError(content.issues);
+      const referenceIssues = validateOperationActionActorReferences(
+        definition,
+        content.actionDefinitions,
+        content.studentSkillRules,
+        actorInitializations!,
+      );
+      if (referenceIssues.length > 0) throw new OperationRuntimeError(referenceIssues);
     }
     this.assertUsable();
     if (this.slot?.run.status === 'inProgress') {

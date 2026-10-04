@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation';
 import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation-content-resolver';
 import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { CharacterVariantDef } from '../../src/arona-clicker/types/character';
 import { Character } from '../../src/arona-clicker/types/ids';
@@ -48,6 +50,17 @@ function eventDef(id = EVENT_ID): OperationEventDef {
   };
 }
 
+function actionDefinitions(): OperationActionDef[] {
+  return [
+    { id: 'observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['observe-reason'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'protect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['frontline-protection'], reasonIds: ['protect-reason'], tagIds: [], target: { kind: 'none' }, effects: [] },
+  ];
+}
+
+function studentSkillRules(): OperationStudentSkillRuleDef[] {
+  return [{ id: 'test:skill-rule:hoshino', triggerActionIds: ['protect'], chanceBps: 2500, effects: [] }];
+}
+
 function content(changes: Partial<OperationResolvedContent> = {}): OperationResolvedContent {
   return {
     eventDefinition: eventDef(),
@@ -56,6 +69,8 @@ function content(changes: Partial<OperationResolvedContent> = {}): OperationReso
       { actorId: 'test:actor:opponent', kind: 'opponent', factionId: 'test:faction:enemy' },
     ],
     studentProfiles: [HOSHINO_PROFILE],
+    actionDefinitions: actionDefinitions(),
+    studentSkillRules: studentSkillRules(),
     ...changes,
   };
 }
@@ -202,6 +217,122 @@ describe('Operation participant admission', () => {
       {
         source: content({ studentProfiles: [{ ...HOSHINO_PROFILE, playerCost: 2 } as StudentOperationProfileDef] }),
         message: /unsupported runtime\/payment field playerCost/,
+      },
+    ];
+
+    for (const { source, message } of cases) {
+      const entry = makeEntry(game, owner, resolverOf(source));
+      expect(() => entry.facade.start(EVENT_ID, [Character.Hoshino])).toThrow(message);
+      expect(owner.getSnapshot()).toBeNull();
+    }
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  test('closes Action, Skill, Location, and Actor resource references before owner start', () => {
+    const game = createGame();
+    ownHoshino(game);
+    const owner = new OperationRuntimeService();
+    const start = vi.spyOn(owner, 'start');
+    const baseActions = actionDefinitions();
+    const baseSkillRules = studentSkillRules();
+    const cases: Array<{ source: OperationResolvedContent; message: RegExp }> = [
+      {
+        source: content({ actionDefinitions: [...baseActions, { ...baseActions[0] }] }),
+        message: /duplicate Action ID/,
+      },
+      {
+        source: content({ studentProfiles: [{ ...HOSHINO_PROFILE, candidateActionIds: ['missing', 'observe'], actionPriorityIds: ['observe'] }] }),
+        message: /candidateActionIds references a missing Action/,
+      },
+      {
+        source: content({ studentProfiles: [{ ...HOSHINO_PROFILE, randomSkillRuleId: 'test:skill-rule:missing' }] }),
+        message: /references a missing Student Skill Rule/,
+      },
+      {
+        source: content({ studentProfiles: [{ ...HOSHINO_PROFILE, capabilityIds: [] }] }),
+        message: /no eligible trigger Action/,
+      },
+      {
+        source: content({ studentSkillRules: [{ ...baseSkillRules[0], triggerActionIds: ['missing'] }] }),
+        message: /triggerActionIds references a missing Action/,
+      },
+      {
+        source: content({ studentSkillRules: [...baseSkillRules, { ...baseSkillRules[0] }] }),
+        message: /duplicate Rule ID/,
+      },
+      {
+        source: content({ studentSkillRules: [{ ...baseSkillRules[0], chanceBps: 10001 }] }),
+        message: /chanceBps must be a safe integer/,
+      },
+      {
+        source: content({
+          studentSkillRules: [{ ...baseSkillRules[0], effects: [{ kind: 'eventTrackDelta', trackId: 'missing', amount: 1 }] }],
+        }),
+        message: /references an undeclared track/,
+      },
+      {
+        source: content({
+          eventDefinition: {
+            ...eventDef(),
+            locationTactics: [{ locationId: 'test:location:office', enabledActionIds: ['missing'], combinationRules: [] }],
+          },
+        }),
+        message: /enabledActionIds references a missing Action/,
+      },
+      {
+        source: content({
+          eventDefinition: {
+            ...eventDef(),
+            locationTactics: [{
+              locationId: 'test:location:office',
+              enabledActionIds: ['observe'],
+              combinationRules: [{ id: 'combo', priority: 1, inputTagIds: ['missing:a', 'missing:b'], targetMatch: 'no-target', effects: [] }],
+            }],
+          },
+        }),
+        message: /does not match an enabled student Action tag/,
+      },
+      {
+        source: content({
+          actionDefinitions: baseActions.map((action, index) => ({ ...action, tagIds: [index === 0 ? 'slot:a' : 'slot:b'] })),
+          eventDefinition: {
+            ...eventDef(),
+            locationTactics: [{
+              locationId: 'test:location:office', enabledActionIds: ['observe', 'protect'],
+              combinationRules: [{ id: 'same-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'same-target', effects: [] }],
+            }],
+          },
+        }),
+        message: /not have enabled student Actions compatible with targetMatch same-target/,
+      },
+      {
+        source: content({
+          actionDefinitions: baseActions.map((action, index) => ({
+            ...action,
+            tagIds: [index === 0 ? 'slot:a' : 'slot:b'],
+            target: { kind: 'actor', relation: 'any' },
+          })),
+          eventDefinition: {
+            ...eventDef(),
+            locationTactics: [{
+              locationId: 'test:location:office', enabledActionIds: ['observe', 'protect'],
+              combinationRules: [{ id: 'no-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'no-target', effects: [] }],
+            }],
+          },
+        }),
+        message: /not have enabled student Actions compatible with targetMatch no-target/,
+      },
+      {
+        source: content({ actionDefinitions: baseActions.map((action, index) => index === 0 ? { ...action, id: 'observe ' } : action) }),
+        message: /id must be a non-empty Action ID/,
+      },
+      {
+        source: content({
+          actionDefinitions: baseActions.map(action => action.id === 'protect'
+            ? { ...action, cost: { scope: 'actor', resourceId: 'energy', amount: 1 } }
+            : action),
+        }),
+        message: /undeclared actor resource: energy/,
       },
     ];
 

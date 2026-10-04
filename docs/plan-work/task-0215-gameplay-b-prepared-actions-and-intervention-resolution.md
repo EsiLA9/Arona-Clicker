@@ -1,6 +1,6 @@
 # Task 0215 — 玩法 B 行动准备、有限指挥与统一结算
 
-状态：active — 实现语义与 Patch Units 已裁定；代码施工从 0215-U1 开始
+状态：active — U1 与 U2 完成；U3 非学生 Intent 候选来源待施工
 
 ## 目标
 
@@ -54,7 +54,7 @@
 ### RNG、原子性、版本与历史
 
 - 使用 counter-addressed SplitMix64 v1；Algorithm ID 为 `splitmix64-counter-v1`，BigInt 64-bit 运算，随机快照字段至少为 `algorithm`、`seed`、`tacticalCursor`。固定 stream tag 为 `operation:tactical:v1`；不同系统不得共用此 stream。`tacticalCursor` 表示已消费的 raw 64-bit word 数。
-- Student Skill 使用整数 basis points `[0,10000]` 的机会规则；只有 Profile 引用的规则存在、原始计划 action 满足规则 trigger、且该 Run 有效 Commit 到达结算时才抽取。每个实际检查都用 rejection sampling 取 `[0,10000)`，每个 raw word（含被 rejection 的 word）推进一次 provisional cursor。roll 顺序是 Event Actor 声明顺序；同一有效输入与 seed 得到同一结果。准备、Intervention、预览、撤销、非法/过期 Commit 和任何失败结算都不写回 cursor。内容规则与效果仍来自受信临时 resolver，Task 0220 负责正式内容合同。
+- Student Skill 使用整数 basis points `[0,10000]` 的机会规则；只有 Profile 引用的规则存在、**干预应用后的最终学生 Action ID** 满足规则 trigger、且该 Run 有效 Commit 到达结算时才抽取。触发检查发生在 Combination 消费前；组合替代 Action 效果，但不改变玩家最终提交的 Skill trigger Action。每个实际检查都用 rejection sampling 取 `[0,10000)`，每个 raw word（含被 rejection 的 word）推进一次 provisional cursor。roll 顺序是 Event Actor 声明顺序；同一有效输入与 seed 得到同一结果。准备、Intervention、预览、撤销、非法/过期 Commit 和任何失败结算都不写回 cursor。内容规则与效果仍来自受信临时 resolver，Task 0220 负责正式内容合同。
 - Commit 输入只携带 `runId` 与当前 `planVersion`；干预 Draft 已经作为 EventRun 状态经单独版本命令写入，不随 Commit payload 重复发送。只有当前 in-progress Run、当前 PreparedBeat 版本、唯一有效 Intervention、全部行动/目标/预算检查通过后才计算 Resolution。纯 planner 产生临时的 resolved batch；Run owner 再将 Actor/Team/Track delta、tacticalCursor、Beat/Resolution sequence、草稿清理和历史 append 一次写回。任何验证或结果合并失败均不写 Run，也不消耗游标。Resolved content 在 start 时已冻结，结算过程中不重新调用 resolver。
 - 每个 Run 的 `planVersion` 单调递增。Commit request 的 `planVersion` 是提交时消费的 base version；最新 Resolution 保留此版本。对最新一次已消费的 `{runId, base planVersion}` 重试时，在通常的 stale 检查前返回同一 Resolution，不重复通知；更早版本或其他旧 run 明确返回 stale，不改变状态。Commit 命令不再接收 Draft payload，修改草稿本身须先以当前版本写入 Run，因此同一个 base version 不可能代表不同 Draft。更新后的新 Beat 不能被旧版本命令覆盖。
 - Run 仅保存最近 32 条 compact Resolution；每条保留计划/指挥/Intent/协同/技能结果/支付及局部状态差异，不内嵌完整 Run 或内容定义。`resolutionSequence` 单调递增，不因裁剪回退。更早版本的重试只返回 stale，不要求保留完整无限历史。Task 0220 负责限制单条内容规模，Task 0219 另定存档字节上限。

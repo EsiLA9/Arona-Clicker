@@ -5,8 +5,11 @@ import {
   type OperationEventDef,
 } from '../../src/arona-clicker/contracts/operation';
 import type { OperationAdmission } from '../../src/arona-clicker/contracts/operation-participant';
+import type { OperationActionDef, OperationActionEffectDef } from '../../src/arona-clicker/contracts/operation-action';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
 import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
 import { Character } from '../../src/arona-clicker/types/ids';
+import { validateOperationActionContent } from '../../src/arona-clicker/services/operation-action-content-validation';
 import { validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
 import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
 import { resolveOperationRunStart } from '../../src/arona-clicker/services/student-operation-profile-resolver';
@@ -29,17 +32,29 @@ function eventDef(): OperationEventDef {
       hp: { initial: 4, min: 0, max: 4 },
       resources: { focus: { initial: 2, min: 0, max: 3 } },
     })),
-    actionRequirements: [
-      { actionId: 'operation:action:observe', requiredCapabilityIds: [], reasonIds: ['operation:reason:observe'] },
-      { actionId: 'operation:action:guard', requiredCapabilityIds: ['capability:frontline'], reasonIds: ['operation:reason:frontline'] },
-      { actionId: 'operation:action:inspect', requiredCapabilityIds: ['capability:resourceful'], reasonIds: ['operation:reason:resourceful'] },
-    ],
     playerRouteState: {
       playerCost: 2,
       cards: { drawPile: [], hand: [], discard: [], played: [] },
     },
     randomSeed: 19,
   };
+}
+
+function actionDefinitions(): OperationActionDef[] {
+  return [
+    { id: 'operation:action:observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['operation:reason:observe'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'operation:action:guard', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['capability:frontline'], reasonIds: ['operation:reason:frontline'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'operation:action:inspect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['capability:resourceful'], reasonIds: ['operation:reason:resourceful'], tagIds: [], target: { kind: 'none' }, effects: [] },
+  ];
+}
+
+function studentSkillRules(): OperationStudentSkillRuleDef[] {
+  return [{
+    id: 'test:skill-rule:a',
+    triggerActionIds: ['operation:action:guard'],
+    chanceBps: 2500,
+    effects: [],
+  }];
 }
 
 function profile(
@@ -78,34 +93,68 @@ function admission(): OperationAdmission {
       { actorId: ACTOR_IDS[1], kind: 'student', characterId: Character.Serika, variantId: 'test:variant:b', profileId: 'test:profile:b' },
     ],
     studentProfiles: [profiles[2], profiles[3], profiles[1], profiles[0]],
+    actionDefinitions: actionDefinitions(),
+    studentSkillRules: studentSkillRules(),
   };
 }
 
 describe('StudentOperationProfileResolver and EventRun snapshots', () => {
-  test('validates unique event action requirements and stable capability/reason ID lists', () => {
-    const duplicateRequirement = {
-      ...eventDef(),
-      actionRequirements: [
-        { actionId: 'operation:action:same', requiredCapabilityIds: [], reasonIds: [] },
-        { actionId: 'operation:action:same', requiredCapabilityIds: [], reasonIds: [] },
-      ],
-    } as OperationEventDef;
-    const malformedList = {
-      ...eventDef(),
-      actionRequirements: [{ actionId: 'operation:action:bad', requiredCapabilityIds: [''], reasonIds: [] }],
-    } as OperationEventDef;
-    const reservedWaitAction = {
-      ...eventDef(),
-      actionRequirements: [{ actionId: OPERATION_WAIT_ACTION_ID, requiredCapabilityIds: [], reasonIds: [] }],
-    } as OperationEventDef;
+  test('validates unique trusted Action IDs, Action capability/reason lists, and reserved Wait ID', () => {
+    const actions = actionDefinitions();
+    const duplicateAction = { ...actions[0] };
+    const malformedList = { ...actions[0], requiredCapabilityIds: [''] };
+    const reservedWaitAction = { ...actions[0], id: OPERATION_WAIT_ACTION_ID };
 
-    expect(validateOperationEventDef(duplicateRequirement).join('\n')).toMatch(/duplicate actionId/);
-    expect(validateOperationEventDef(malformedList).join('\n')).toMatch(/requiredCapabilityIds\[0\]/);
-    expect(validateOperationEventDef(reservedWaitAction).join('\n')).toMatch(/reserved Wait fallback ID/);
+    expect(validateOperationActionContent(eventDef(), [actions[0], duplicateAction], [], []).issues.join('\n'))
+      .toMatch(/duplicate Action ID/);
+    expect(validateOperationActionContent(eventDef(), [malformedList], [], []).issues.join('\n'))
+      .toMatch(/requiredCapabilityIds\[0\]/);
+    expect(validateOperationActionContent(eventDef(), [reservedWaitAction], [], []).issues.join('\n'))
+      .toMatch(/reserved Wait fallback ID/);
+    expect(validateOperationEventDef({ ...eventDef(), actionRequirements: [] } as unknown as OperationEventDef).join('\n'))
+      .toMatch(/actionRequirements is removed/);
+  });
+
+  test('closes Combination effect resources relative to slot A and its shared target', () => {
+    const source = admission();
+    const taggedActions = source.actionDefinitions.map(action => ({
+      ...action,
+      ...(action.id === 'operation:action:observe' ? { tagIds: ['combination:slot-a'] } : {}),
+      ...(action.id === 'operation:action:inspect' ? { tagIds: ['combination:slot-b'] } : {}),
+    }));
+    const runWith = (
+      targetMatch: 'same-target' | 'no-target',
+      effects: readonly OperationActionEffectDef[],
+      targetKind: 'none' | 'actor' = 'none',
+    ) => resolveOperationRunStart({
+      ...source,
+      eventDefinition: {
+        ...source.eventDefinition,
+        locationTactics: [{
+          locationId: 'test:location:office',
+          enabledActionIds: ['operation:action:observe', 'operation:action:inspect'],
+          combinationRules: [{ id: 'test:combination:rule', priority: 1, inputTagIds: ['combination:slot-a', 'combination:slot-b'], targetMatch, effects }],
+        }],
+      },
+      actionDefinitions: taggedActions.map(action => targetKind === 'actor'
+        ? { ...action, target: { kind: 'actor', relation: 'any' } }
+        : action),
+    });
+
+    expect(() => runWith('no-target', [{ kind: 'actorResourceDelta', recipient: 'actor', resourceId: 'energy', amount: 1 }]))
+      .toThrow(/undeclared actor resource: energy/);
+    expect(() => runWith('no-target', [{ kind: 'actorResourceDelta', recipient: 'target', resourceId: 'focus', amount: 1 }]))
+      .toThrow(/this result has no Actor target/);
+    expect(() => runWith('same-target', [{ kind: 'actorResourceDelta', recipient: 'target', resourceId: 'energy', amount: 1 }], 'actor'))
+      .toThrow(/undeclared target actor resource: energy/);
   });
 
   test('joins by actorId/Profile ID and snapshots distinct ordered capability candidates', () => {
     const runStart = resolveOperationRunStart(admission());
+    expect(Object.isFrozen(runStart)).toBe(true);
+    expect(Object.isFrozen(runStart.actionDefinitions)).toBe(true);
+    expect(Object.isFrozen(runStart.actionDefinitions[0])).toBe(true);
+    expect(Object.isFrozen(runStart.studentSkillRules[0])).toBe(true);
     const service = new OperationRuntimeService();
     const firstLifecycleSnapshot = viSafeLifecycleSnapshot(service, runStart);
     const isolatedRun = new OperationRuntimeService();
@@ -172,7 +221,7 @@ describe('StudentOperationProfileResolver and EventRun snapshots', () => {
     const admissionWithoutFrontline: OperationAdmission = {
       ...admissionWithFrontline,
       studentProfiles: admissionWithFrontline.studentProfiles.map(profile => profile.id === originalProfile.id
-        ? { ...profile, capabilityIds: [] }
+        ? { ...profile, capabilityIds: [], randomSkillRuleId: undefined }
         : profile),
     };
     const stripped = resolveOperationRunStart(admissionWithoutFrontline).actors.find(actor => actor.actorId === ACTOR_IDS[0]);
@@ -308,7 +357,7 @@ describe('StudentOperationProfileResolver and EventRun snapshots', () => {
     };
 
     expect(() => service.start(invalid)).toThrow(OperationRuntimeError);
-    expect(() => service.start(forgedGate)).toThrow(/does not match the Event action requirement/);
+    expect(() => service.start(forgedGate)).toThrow(/does not match the Action definition/);
     expect(service.getSnapshot()).toEqual(prior);
     expect(lifecycleEvents).toEqual(['runStarted', 'locationEntered']);
   });
