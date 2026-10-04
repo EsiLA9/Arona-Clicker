@@ -59,6 +59,11 @@ function readParticipants(value: unknown, issues: string[]): OperationParticipan
     if (ids.has(raw.actorId)) issues.push('participants contains duplicate actorId: ' + raw.actorId);
     ids.add(raw.actorId);
     if (raw.kind === 'student') {
+      for (const field of Object.keys(raw)) {
+        if (!['actorId', 'kind', 'profileId'].includes(field)) {
+          issues.push(path + ' contains unsupported student participant field: ' + field);
+        }
+      }
       if (raw.profileId !== undefined && !isNonEmptyId(raw.profileId)) {
         issues.push(path + '.profileId must be a non-empty ID when supplied');
       }
@@ -67,13 +72,40 @@ function readParticipants(value: unknown, issues: string[]): OperationParticipan
       }
       result.push({ actorId: raw.actorId, kind: 'student', ...(isNonEmptyId(raw.profileId) ? { profileId: raw.profileId } : {}) });
     } else if (raw.kind === 'opponent' || raw.kind === 'environment') {
+      for (const field of Object.keys(raw)) {
+        if (!['actorId', 'kind', 'factionId', 'candidateActionIds'].includes(field)) {
+          issues.push(path + ' contains unsupported non-student participant field: ' + field);
+        }
+      }
       if (raw.factionId !== undefined && !isNonEmptyId(raw.factionId)) {
         issues.push(path + '.factionId must be a non-empty ID when supplied');
       }
       if (raw.profileId !== undefined || raw.characterId !== undefined || raw.variantId !== undefined) {
         issues.push(path + ' non-student participants must not reference Character, Variant, or student Profile');
       }
-      result.push({ actorId: raw.actorId, kind: raw.kind, ...(isNonEmptyId(raw.factionId) ? { factionId: raw.factionId } : {}) });
+      const rawCandidates = raw.candidateActionIds;
+      const candidateActionIds: string[] = [];
+      if (!Array.isArray(rawCandidates)) {
+        issues.push(path + '.candidateActionIds must be an array of Action IDs');
+      } else {
+        const candidateIds = new Set<string>();
+        rawCandidates.forEach((actionId, candidateIndex) => {
+          if (!isNonEmptyId(actionId)) {
+            issues.push(path + '.candidateActionIds[' + candidateIndex + '] must be a non-empty Action ID');
+          } else if (candidateIds.has(actionId)) {
+            issues.push(path + '.candidateActionIds contains duplicate Action ID: ' + actionId);
+          } else {
+            candidateIds.add(actionId);
+            candidateActionIds.push(actionId);
+          }
+        });
+      }
+      result.push({
+        actorId: raw.actorId,
+        kind: raw.kind,
+        ...(isNonEmptyId(raw.factionId) ? { factionId: raw.factionId } : {}),
+        candidateActionIds,
+      });
     } else {
       issues.push(path + '.kind must be student, opponent, or environment');
     }
@@ -197,6 +229,13 @@ function readResolvedContent(
     value.actionDefinitions,
     value.studentSkillRules,
     profiles,
+    participants
+      .filter((participant): participant is Extract<OperationParticipantSpec, { kind: 'opponent' | 'environment' }> => participant.kind !== 'student')
+      .map(participant => ({
+        actorId: participant.actorId,
+        participantKind: participant.kind,
+        candidateActionIds: participant.candidateActionIds,
+      })),
   );
   issues.push(...actionContent.issues);
   return {
@@ -284,9 +323,6 @@ export class OperationParticipantAdmission {
     const issues: string[] = [];
     if (!isNonEmptyId(eventId)) throw new OperationAdmissionError(['eventId must be a non-empty stable ID']);
     if (!Array.isArray(characterIds)) throw new OperationAdmissionError(['characterIds must be an array']);
-    if (!this.dependencies.characterSystem || !this.dependencies.rosterSystem || !this.dependencies.getState) {
-      throw new OperationAdmissionError(['operation entry is unavailable because Character/Roster services are not wired']);
-    }
 
     let resolved: OperationResolvedContent | null;
     try {
@@ -311,17 +347,31 @@ export class OperationParticipantAdmission {
     if (studentSlots.length !== characterIds.length) {
       issues.push('student participant slot count ' + studentSlots.length + ' does not match selected Character count ' + characterIds.length);
     }
-    const state = this.dependencies.getState();
     const characters = this.dependencies.characterSystem;
     const roster = this.dependencies.rosterSystem;
-    const unlockedIds = new Set(characters.getUnlocked(state).map(character => character.id));
-    const ownedVariantIds = indexOwnedVariantsByCharacter(state, roster);
+    const unlockedIds = new Set<string>();
+    const ownedVariantIds = new Map<Character, string>();
+    const admissionCount = Math.min(studentSlots.length, characterIds.length);
+    if (admissionCount > 0) {
+      if (!characters || !roster || !this.dependencies.getState) {
+        throw new OperationAdmissionError(['operation entry is unavailable because Character/Roster services are not wired']);
+      }
+      const state = this.dependencies.getState();
+      for (const character of characters.getUnlocked(state)) unlockedIds.add(character.id);
+      for (const [characterId, variantId] of indexOwnedVariantsByCharacter(state, roster)) {
+        ownedVariantIds.set(characterId, variantId);
+      }
+    }
     const seenCharacters = new Set<string>();
     const admittedByActorId = new Map<string, OperationAdmittedParticipant>();
     const profilesByActorId = new Map<string, StudentOperationProfileDef>();
-    const count = Math.min(studentSlots.length, characterIds.length);
+    const count = admissionCount;
 
     for (let index = 0; index < count; index++) {
+      if (!characters) {
+        issues.push('operation entry is unavailable because Character services are not wired');
+        continue;
+      }
       const characterId = characterIds[index];
       const slot = studentSlots[index];
       if (!isNonEmptyId(characterId)) {

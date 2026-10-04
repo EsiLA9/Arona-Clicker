@@ -17,6 +17,12 @@ export interface OperationActionProfileReference {
   readonly randomSkillRuleId?: string;
 }
 
+export interface OperationActionParticipantCandidateReference {
+  readonly actorId: string;
+  readonly participantKind: 'opponent' | 'environment';
+  readonly candidateActionIds: readonly string[];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -127,6 +133,7 @@ export function validateOperationActionContent(
   rawActions: unknown,
   rawSkillRules: unknown,
   profiles: readonly OperationActionProfileReference[],
+  nonStudentCandidates: readonly OperationActionParticipantCandidateReference[] = [],
 ): {
   readonly issues: readonly string[];
   readonly actionDefinitions: readonly OperationActionDef[];
@@ -226,6 +233,38 @@ export function validateOperationActionContent(
     }
   }
 
+  for (const participant of nonStudentCandidates) {
+    const path = 'participants[' + participant.actorId + ']';
+    if (!Array.isArray(participant.candidateActionIds)) {
+      issues.push(path + '.candidateActionIds must be an array of Action IDs');
+      continue;
+    }
+    const seen = new Set<string>();
+    for (const actionId of participant.candidateActionIds) {
+      if (!isNonEmptyId(actionId)) {
+        issues.push(path + '.candidateActionIds contains an invalid Action ID');
+        continue;
+      }
+      if (actionId === OPERATION_WAIT_ACTION_ID) {
+        issues.push(path + '.candidateActionIds contains the reserved Wait fallback action ID');
+        continue;
+      }
+      if (seen.has(actionId)) {
+        issues.push(path + '.candidateActionIds contains duplicate Action ID: ' + actionId);
+        continue;
+      }
+      seen.add(actionId);
+      const action = actionsById.get(actionId);
+      if (!action) {
+        issues.push(path + '.candidateActionIds references a missing Action: ' + actionId);
+      } else if (!action.allowedParticipantKinds.includes(participant.participantKind)) {
+        issues.push(path + ' candidate Action does not allow ' + participant.participantKind + ' participants: ' + actionId);
+      } else if (action.requiredCapabilityIds.length > 0) {
+        issues.push(path + ' candidate Action requires student capabilities unavailable to ' + participant.participantKind + ' participants: ' + actionId);
+      }
+    }
+  }
+
   const locationTactics = Array.isArray(event.locationTactics) ? event.locationTactics : [];
   for (const [locationIndex, tactics] of locationTactics.entries()) {
     if (!isRecord(tactics) || !Array.isArray(tactics.enabledActionIds) || !Array.isArray(tactics.combinationRules)) continue;
@@ -277,11 +316,29 @@ export function validateOperationActionActorReferences(
   const actorsById = indexById(event.actors, value => value.id);
 
   for (const [index, initialization] of actorInitializations.entries()) {
-    if (initialization.participantKind !== 'student') continue;
     const source = actorsById.get(initialization.actorId);
     if (!source) continue;
-    const profile = initialization.profile;
     const path = 'actors[' + index + ']';
+    if (initialization.participantKind !== 'student') {
+      if (!Array.isArray(initialization.candidateActionIds)) {
+        issues.push(path + '.candidateActionIds must be an array of Action IDs');
+        continue;
+      }
+      for (const actionId of initialization.candidateActionIds) {
+        const action = actionsById.get(actionId);
+        if (!action) {
+          issues.push(path + '.candidateActionIds references a missing Action: ' + actionId);
+        } else if (!action.allowedParticipantKinds.includes(initialization.participantKind)) {
+          issues.push(path + ' candidate Action does not allow ' + initialization.participantKind + ' participants: ' + actionId);
+        } else if (action.requiredCapabilityIds.length > 0) {
+          issues.push(path + ' candidate Action requires student capabilities unavailable to ' + initialization.participantKind + ' participants: ' + actionId);
+        } else {
+          validateActionResourceReferences(event, source, action, path + '.candidate Action ' + actionId, issues);
+        }
+      }
+      continue;
+    }
+    const profile = initialization.profile;
     for (const actionId of profile.eligibleActionIds) {
       const action = actionsById.get(actionId);
       if (action) validateActionResourceReferences(event, source, action, path + '.profile.action ' + actionId, issues);

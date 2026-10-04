@@ -54,6 +54,7 @@ function actionDefinitions(): OperationActionDef[] {
   return [
     { id: 'observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['observe-reason'], tagIds: [], target: { kind: 'none' }, effects: [] },
     { id: 'protect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['frontline-protection'], reasonIds: ['protect-reason'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'opponent-observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
   ];
 }
 
@@ -66,7 +67,7 @@ function content(changes: Partial<OperationResolvedContent> = {}): OperationReso
     eventDefinition: eventDef(),
     participants: [
       { actorId: 'test:actor:student-slot', kind: 'student' },
-      { actorId: 'test:actor:opponent', kind: 'opponent', factionId: 'test:faction:enemy' },
+      { actorId: 'test:actor:opponent', kind: 'opponent', factionId: 'test:faction:enemy', candidateActionIds: ['opponent-observe'] },
     ],
     studentProfiles: [HOSHINO_PROFILE],
     actionDefinitions: actionDefinitions(),
@@ -192,7 +193,7 @@ describe('Operation participant admission', () => {
       {
         source: content({ participants: [
           { actorId: 'test:actor:student-slot', kind: 'student', profileId: 'test:operation-profile:missing' },
-          { actorId: 'test:actor:opponent', kind: 'opponent' },
+          { actorId: 'test:actor:opponent', kind: 'opponent', candidateActionIds: ['opponent-observe'] },
         ] }),
         message: /references missing Profile/,
       },
@@ -200,7 +201,7 @@ describe('Operation participant admission', () => {
         source: content({
           participants: [
             { actorId: 'test:actor:student-slot', kind: 'student', profileId: SERIKA_PROFILE.id },
-            { actorId: 'test:actor:opponent', kind: 'opponent' },
+            { actorId: 'test:actor:opponent', kind: 'opponent', candidateActionIds: ['opponent-observe'] },
           ],
           studentProfiles: [SERIKA_PROFILE],
         }),
@@ -210,7 +211,14 @@ describe('Operation participant admission', () => {
       {
         source: content({ participants: [
           { actorId: 'test:actor:student-slot', kind: 'student' },
-          { actorId: 'test:actor:student-slot', kind: 'opponent' },
+          { actorId: 'test:actor:opponent', kind: 'opponent', candidateActionIds: ['opponent-observe', 'opponent-observe'] },
+        ] }),
+        message: /duplicate Action ID/,
+      },
+      {
+        source: content({ participants: [
+          { actorId: 'test:actor:student-slot', kind: 'student' },
+          { actorId: 'test:actor:student-slot', kind: 'opponent', candidateActionIds: [] },
         ] }),
         message: /duplicate actorId/,
       },
@@ -334,6 +342,42 @@ describe('Operation participant admission', () => {
         }),
         message: /undeclared actor resource: energy/,
       },
+      {
+        source: content({ participants: [
+          { actorId: 'test:actor:student-slot', kind: 'student' },
+          { actorId: 'test:actor:opponent', kind: 'opponent', candidateActionIds: ['missing-opponent-action'] },
+        ] }),
+        message: /candidateActionIds references a missing Action/,
+      },
+      {
+        source: content({ participants: [
+          { actorId: 'test:actor:student-slot', kind: 'student' },
+          { actorId: 'test:actor:opponent', kind: 'opponent', candidateActionIds: ['observe'] },
+        ] }),
+        message: /candidate Action does not allow opponent participants/,
+      },
+      {
+        source: content({
+          actionDefinitions: [...baseActions, {
+            id: 'opponent-needs-capability',
+            allowedParticipantKinds: ['opponent'],
+            requiredCapabilityIds: ['capability:unmodeled'],
+            reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [],
+          }],
+          participants: [
+            { actorId: 'test:actor:student-slot', kind: 'student' },
+            { actorId: 'test:actor:opponent', kind: 'opponent', candidateActionIds: ['opponent-needs-capability'] },
+          ],
+        }),
+        message: /capabilities unavailable to opponent participants/,
+      },
+      {
+        source: content({ participants: [
+          { actorId: 'test:actor:student-slot', kind: 'student' },
+          { actorId: 'test:actor:opponent', kind: 'opponent' } as never,
+        ] }),
+        message: /candidateActionIds must be an array/,
+      },
     ];
 
     for (const { source, message } of cases) {
@@ -358,19 +402,188 @@ describe('Operation participant admission', () => {
     expect(entry.facade.getSnapshot()?.runId).toBe(first.runId);
   });
 
-  test('non-student participants need no Character, Variant, or Profile', () => {
-    const game = createGame();
+  test('NPC-only admission bypasses Character and Roster services', () => {
     const npcEvent = eventDef('test:operation:npc-only');
     const npcContent = content({
       eventDefinition: { ...npcEvent, actors: [npcEvent.actors[1]] },
-      participants: [{ actorId: 'test:actor:opponent', kind: 'environment', factionId: 'test:faction:park' }],
+      participants: [{ actorId: 'test:actor:opponent', kind: 'environment', factionId: 'test:faction:park', candidateActionIds: [] }],
       studentProfiles: [],
     });
-    const entry = makeEntry(game, new OperationRuntimeService(), {
-      resolve: eventId => eventId === npcEvent.id ? npcContent : null,
+    const entry = createOperationEntry({
+      owner: new OperationRuntimeService(),
+      resolver: { resolve: eventId => eventId === npcEvent.id ? npcContent : null },
     });
 
     expect(entry.facade.start(npcEvent.id, []).eventId).toBe(npcEvent.id);
+  });
+
+  test('student admission still requires wired Character and Roster services', () => {
+    const entry = createOperationEntry({ owner: new OperationRuntimeService(), resolver: resolverOf() });
+    expect(() => entry.facade.start(EVENT_ID, [Character.Hoshino])).toThrow(/Character\/Roster services are not wired/);
+  });
+
+  test('detaches ordered non-student candidates and closes their Actor resource references before owner start', () => {
+    const game = createGame();
+    const owner = new OperationRuntimeService();
+    const start = vi.spyOn(owner, 'start');
+    ownHoshino(game);
+    const source = content({
+      eventDefinition: {
+        ...eventDef(),
+        actors: eventDef().actors.map(actor => actor.id === 'test:actor:opponent'
+          ? { ...actor, resources: { ammo: { initial: 2, min: 0, max: 2 } } }
+          : actor),
+      },
+      participants: [
+        { actorId: 'test:actor:student-slot', kind: 'student' },
+        { actorId: 'test:actor:opponent', kind: 'opponent', candidateActionIds: ['opponent-fire', 'opponent-observe'] },
+      ],
+      actionDefinitions: [
+        ...actionDefinitions(),
+        {
+          id: 'opponent-fire',
+          allowedParticipantKinds: ['opponent'],
+          requiredCapabilityIds: [],
+          reasonIds: [],
+          tagIds: [],
+          cost: { scope: 'actor', resourceId: 'ammo', amount: 1 },
+          target: { kind: 'none' },
+          effects: [{ kind: 'actorResourceDelta', recipient: 'actor', resourceId: 'ammo', amount: -1 }],
+        },
+      ],
+    });
+    const entry = makeEntry(game, owner, resolverOf(source));
+    entry.facade.start(EVENT_ID, [Character.Hoshino]);
+    const runStart = start.mock.calls[0][0];
+    expect('eventDefinition' in runStart).toBe(true);
+    if ('eventDefinition' in runStart) {
+      const opponent = runStart.actors.find(actor => actor.actorId === 'test:actor:opponent');
+      if (!opponent || opponent.participantKind === 'student') throw new Error('expected non-student opponent initialization');
+      expect(opponent).toMatchObject({
+        participantKind: 'opponent',
+        candidateActionIds: ['opponent-fire', 'opponent-observe'],
+      });
+      expect(Object.isFrozen(opponent.candidateActionIds)).toBe(true);
+    }
+
+    owner.finish('success');
+    const invalid: OperationResolvedContent = {
+      ...source,
+      actionDefinitions: source.actionDefinitions.map(action => action.id === 'opponent-fire'
+        ? { ...action, cost: { scope: 'actor' as const, resourceId: 'missing-ammo', amount: 1 } }
+        : action),
+    };
+    const invalidEntry = makeEntry(game, owner, resolverOf(invalid));
+    expect(() => invalidEntry.facade.start(EVENT_ID, [Character.Hoshino])).toThrow(/undeclared actor resource: missing-ammo/);
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  test('joins multiple non-student candidate lists by actorId without roster admission', () => {
+    const baseEvent = eventDef('test:operation:npc-candidate-join');
+    const opponent = baseEvent.actors[1];
+    const environment = { id: 'test:actor:environment', type: 'environment', hp: { initial: 2, min: 0, max: 2 } };
+    const resolved: OperationResolvedContent = {
+      eventDefinition: { ...baseEvent, actors: [opponent, environment] },
+      participants: [
+        { actorId: environment.id, kind: 'environment', candidateActionIds: ['environment-observe'] },
+        { actorId: opponent.id, kind: 'opponent', factionId: 'test:faction:only-an-identity', candidateActionIds: ['opponent-observe'] },
+      ],
+      studentProfiles: [],
+      actionDefinitions: [
+        { id: 'opponent-observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
+        { id: 'environment-observe', allowedParticipantKinds: ['environment'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
+      ],
+      studentSkillRules: [],
+    };
+    const owner = new OperationRuntimeService();
+    const start = vi.spyOn(owner, 'start');
+    const entry = createOperationEntry({ owner, resolver: { resolve: () => resolved } });
+
+    entry.facade.start(resolved.eventDefinition.id, []);
+
+    const input = start.mock.calls[0][0];
+    expect('eventDefinition' in input).toBe(true);
+    if ('eventDefinition' in input) {
+      expect(input.actors.map(actor => actor.actorId)).toEqual([opponent.id, environment.id]);
+      expect(input.actors.map(actor => actor.participantKind === 'student' ? undefined : actor.candidateActionIds)).toEqual([
+        ['opponent-observe'],
+        ['environment-observe'],
+      ]);
+    }
+  });
+
+  test('resolves non-student Actor and Team resource references by teamId and legal targets', () => {
+    const game = createGame();
+    ownHoshino(game);
+    const owner = new OperationRuntimeService();
+    const start = vi.spyOn(owner, 'start');
+    const action: OperationActionDef = {
+      id: 'opponent-barrage',
+      allowedParticipantKinds: ['opponent'],
+      requiredCapabilityIds: [],
+      reasonIds: [],
+      tagIds: [],
+      cost: { scope: 'team', resourceId: 'pressure', amount: 1 },
+      target: { kind: 'actor', relation: 'otherTeam' },
+      effects: [
+        { kind: 'actorResourceDelta', recipient: 'target', resourceId: 'shield', amount: 1 },
+        { kind: 'teamResourceDelta', recipient: 'actorTeam', resourceId: 'pressure', amount: -1 },
+        { kind: 'teamResourceDelta', recipient: 'targetTeam', resourceId: 'support', amount: 1 },
+      ],
+    };
+    const validEvent: OperationEventDef = {
+      ...eventDef('test:operation:nonstudent-team-resources'),
+      teams: [
+        { id: 'team:students', resources: { support: { initial: 0, min: 0, max: 3 } } },
+        { id: 'team:enemy', resources: { pressure: { initial: 2, min: 0, max: 3 } } },
+      ],
+      actors: [
+        { id: 'test:actor:student-slot', type: 'student', hp: { initial: 4, min: 0, max: 4 }, teamId: 'team:students', resources: { shield: { initial: 0, min: 0, max: 3 } } },
+        { id: 'test:actor:opponent', type: 'opponent', hp: { initial: 5, min: 0, max: 5 }, teamId: 'team:enemy' },
+      ],
+    };
+    const buildContent = (eventDefinition: OperationEventDef, factionId = 'test:faction:enemy'): OperationResolvedContent => content({
+      eventDefinition,
+      participants: [
+        { actorId: 'test:actor:student-slot', kind: 'student' },
+        { actorId: 'test:actor:opponent', kind: 'opponent', factionId, candidateActionIds: ['opponent-barrage'] },
+      ],
+      actionDefinitions: [...actionDefinitions(), action],
+    });
+    const validEntry = makeEntry(game, owner, resolverOf(buildContent(validEvent)));
+
+    validEntry.facade.start(validEvent.id, [Character.Hoshino]);
+    expect(start).toHaveBeenCalledTimes(1);
+    owner.finish('success');
+
+    const noTeamMembership: OperationEventDef = {
+      ...validEvent,
+      actors: validEvent.actors.map(actor => actor.id === 'test:actor:opponent'
+        ? { ...actor, teamId: undefined }
+        : actor),
+    };
+    const factionDoesNotSupplyTeam = makeEntry(game, owner, resolverOf(buildContent(noTeamMembership, 'team:enemy')));
+    expect(() => factionDoesNotSupplyTeam.facade.start(validEvent.id, [Character.Hoshino]))
+      .toThrow(/cost references an undeclared team resource: pressure/);
+
+    const missingTargetActorResource: OperationEventDef = {
+      ...validEvent,
+      actors: validEvent.actors.map(actor => actor.id === 'test:actor:student-slot'
+        ? { ...actor, resources: undefined }
+        : actor),
+    };
+    const missingActorResource = makeEntry(game, owner, resolverOf(buildContent(missingTargetActorResource)));
+    expect(() => missingActorResource.facade.start(validEvent.id, [Character.Hoshino]))
+      .toThrow(/undeclared target actor resource: shield/);
+
+    const missingTargetTeamResource: OperationEventDef = {
+      ...validEvent,
+      teams: validEvent.teams?.map(team => team.id === 'team:students' ? { ...team, resources: {} } : team),
+    };
+    const missingTeamResource = makeEntry(game, owner, resolverOf(buildContent(missingTargetTeamResource)));
+    expect(() => missingTeamResource.facade.start(validEvent.id, [Character.Hoshino]))
+      .toThrow(/undeclared target Team resource: support/);
+    expect(start).toHaveBeenCalledTimes(1);
   });
 
   test('rejects invalid caller IDs before resolver lookup', () => {

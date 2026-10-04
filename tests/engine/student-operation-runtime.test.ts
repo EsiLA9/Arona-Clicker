@@ -45,6 +45,7 @@ function actionDefinitions(): OperationActionDef[] {
     { id: 'operation:action:observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['operation:reason:observe'], tagIds: [], target: { kind: 'none' }, effects: [] },
     { id: 'operation:action:guard', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['capability:frontline'], reasonIds: ['operation:reason:frontline'], tagIds: [], target: { kind: 'none' }, effects: [] },
     { id: 'operation:action:inspect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['capability:resourceful'], reasonIds: ['operation:reason:resourceful'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'operation:action:enemy-observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
   ];
 }
 
@@ -87,7 +88,7 @@ function admission(): OperationAdmission {
     // Deliberately scrambled: joins must use actorId/Profile ID, not array positions.
     participants: [
       { actorId: ACTOR_IDS[2], kind: 'student', characterId: Character.Yuuka, variantId: 'test:variant:c', profileId: 'test:profile:c' },
-      { actorId: ACTOR_IDS[4], kind: 'opponent', factionId: 'test:faction:enemy' },
+      { actorId: ACTOR_IDS[4], kind: 'opponent', factionId: 'test:faction:enemy', candidateActionIds: ['operation:action:enemy-observe'] },
       { actorId: ACTOR_IDS[0], kind: 'student', characterId: Character.Hoshino, variantId: 'test:variant:a', profileId: 'test:profile:a' },
       { actorId: ACTOR_IDS[3], kind: 'student', characterId: Character.Nonomi, variantId: 'test:variant:blocked', profileId: 'test:profile:blocked' },
       { actorId: ACTOR_IDS[1], kind: 'student', characterId: Character.Serika, variantId: 'test:variant:b', profileId: 'test:profile:b' },
@@ -151,6 +152,10 @@ describe('StudentOperationProfileResolver and EventRun snapshots', () => {
 
   test('joins by actorId/Profile ID and snapshots distinct ordered capability candidates', () => {
     const runStart = resolveOperationRunStart(admission());
+    expect(runStart.actors.find(actor => actor.actorId === ACTOR_IDS[4])).toMatchObject({
+      participantKind: 'opponent',
+      candidateActionIds: ['operation:action:enemy-observe'],
+    });
     expect(Object.isFrozen(runStart)).toBe(true);
     expect(Object.isFrozen(runStart.actionDefinitions)).toBe(true);
     expect(Object.isFrozen(runStart.actionDefinitions[0])).toBe(true);
@@ -355,9 +360,23 @@ describe('StudentOperationProfileResolver and EventRun snapshots', () => {
         ? { ...student, profile: forgedProfile }
         : actor),
     };
+    const forgedOpponent = {
+      ...validRunStart,
+      actors: validRunStart.actors.map(actor => actor.actorId === ACTOR_IDS[4]
+        ? { ...actor, candidateActionIds: ['operation:action:guard'] }
+        : actor),
+    };
+    const missingOpponentCandidates = {
+      ...validRunStart,
+      actors: validRunStart.actors.map(actor => actor.actorId === ACTOR_IDS[4]
+        ? Object.fromEntries(Object.entries(actor).filter(([key]) => key !== 'candidateActionIds')) as unknown as typeof actor
+        : actor),
+    };
 
     expect(() => service.start(invalid)).toThrow(OperationRuntimeError);
     expect(() => service.start(forgedGate)).toThrow(/does not match the Action definition/);
+    expect(() => service.start(forgedOpponent)).toThrow(/candidate Action does not allow opponent participants/);
+    expect(() => service.start(missingOpponentCandidates)).toThrow(/candidateActionIds must be an array of IDs/);
     expect(service.getSnapshot()).toEqual(prior);
     expect(lifecycleEvents).toEqual(['runStarted', 'locationEntered']);
   });

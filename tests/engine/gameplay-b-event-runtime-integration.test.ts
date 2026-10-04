@@ -66,7 +66,7 @@ function resolvedContent(changes: Partial<OperationResolvedContent> = {}): Opera
     eventDefinition: eventDef(),
     participants: [
       { actorId: 'test:actor:student-slot', kind: 'student' },
-      { actorId: 'test:actor:opponent', kind: 'opponent', factionId: 'test:faction:enemy' },
+      { actorId: 'test:actor:opponent', kind: 'opponent', factionId: 'test:faction:enemy', candidateActionIds: [] },
     ],
     studentProfiles: [HOSHINO_PROFILE, SERIKA_PROFILE],
     actionDefinitions: actionDefinitions(),

@@ -18,6 +18,8 @@ export type OperationParticipantSpec =
       readonly actorId: string;
       readonly kind: 'opponent' | 'environment';
       readonly factionId?: string;
+      /** Ordered non-student Intent candidates; Location tactics only filters this list. */
+      readonly candidateActionIds: readonly string[];
     };
 
 export interface OperationStudentParticipant {
@@ -33,13 +35,14 @@ export interface OperationNonStudentParticipant {
   readonly actorId: string;
   readonly kind: 'opponent' | 'environment';
   readonly factionId?: string;
+  readonly candidateActionIds: readonly string[];
 }
 
 export type OperationAdmittedParticipant =
   | OperationStudentParticipant
   | OperationNonStudentParticipant;
 
-/** Validated, detached input retained as the hand-off point for U2 Actor/Profile snapshots. */
+/** Validated, detached input for U2 student Profile and U3 non-student candidate projections. */
 export interface OperationAdmission {
   readonly eventDefinition: OperationEventDef;
   readonly participants: readonly OperationAdmittedParticipant[];

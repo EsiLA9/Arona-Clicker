@@ -109,6 +109,8 @@ export type OperationActorInitialization =
       readonly actorId: string;
       readonly participantKind: 'opponent' | 'environment';
       readonly factionId?: string;
+      /** Detached, ordered candidate source for later pure Intent preparation. */
+      readonly candidateActionIds: readonly string[];
     };
 
 /** Complete admission-to-runtime hand-off; consumed atomically by the EventRun owner. */

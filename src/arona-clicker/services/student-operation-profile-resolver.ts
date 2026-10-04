@@ -136,6 +136,7 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
         actorId: actor.id,
         participantKind: participant.kind,
         ...(participant.factionId ? { factionId: participant.factionId } : {}),
+        candidateActionIds: [...participant.candidateActionIds],
       };
     }
 
@@ -175,6 +176,13 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
     runStart.actionDefinitions,
     runStart.studentSkillRules,
     profileReferences,
+    actors
+      .filter((actor): actor is Extract<OperationActorInitialization, { participantKind: 'opponent' | 'environment' }> => actor.participantKind !== 'student')
+      .map(actor => ({
+        actorId: actor.actorId,
+        participantKind: actor.participantKind,
+        candidateActionIds: actor.candidateActionIds,
+      })),
   );
   if (content.issues.length > 0) throw new StudentOperationProfileResolutionError(content.issues);
   const actorReferenceIssues = validateOperationActionActorReferences(

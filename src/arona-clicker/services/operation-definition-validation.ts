@@ -351,6 +351,7 @@ export function validateOperationActorInitializations(
     if (!expectedIds.has(entry.actorId)) issues.push(path + '.actorId references an undeclared Event actor: ' + entry.actorId);
 
     if (entry.participantKind === 'student') {
+      rejectUnsupportedFields(entry, ['actorId', 'participantKind', 'characterId', 'profile'], path, issues);
       if (!isNonEmptyOperationId(entry.characterId)) issues.push(path + '.characterId must be a non-empty Character ID');
       if (!isOperationRecord(entry.profile) || !isNonEmptyOperationId(entry.profile.id)) {
         issues.push(path + '.profile must define a non-empty Profile ID');
@@ -472,8 +473,13 @@ export function validateOperationActorInitializations(
       }
       if (entry.factionId !== undefined) issues.push(path + ' student snapshot must not define factionId');
     } else if (entry.participantKind === 'opponent' || entry.participantKind === 'environment') {
+      rejectUnsupportedFields(entry, ['actorId', 'participantKind', 'factionId', 'candidateActionIds'], path, issues);
       if (entry.factionId !== undefined && !isNonEmptyOperationId(entry.factionId)) {
         issues.push(path + '.factionId must be a non-empty ID when supplied');
+      }
+      const candidateIds = collectIds(entry.candidateActionIds, path + '.candidateActionIds', issues);
+      if (candidateIds.has(OPERATION_WAIT_ACTION_ID)) {
+        issues.push(path + '.candidateActionIds contains the reserved Wait fallback ID');
       }
       if (entry.characterId !== undefined || entry.profile !== undefined) {
         issues.push(path + ' non-student snapshot must not define Character or Profile data');
