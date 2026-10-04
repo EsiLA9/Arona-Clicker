@@ -52,6 +52,49 @@ export interface PreparedBeat {
   readonly actorPlans: readonly OperationPreparedActorPlan[];
 }
 
+/**
+ * Limited player intent; costs, effects, and replacement plans always come from trusted content.
+ * This is a complete Draft over the base PreparedBeat: omitted actionId keeps its selected Action,
+ * while omitted targetActorId leaves deterministic U4 targeting in place.
+ */
+export interface OperationInterventionDraft {
+  readonly actorId: string;
+  readonly actionId?: string;
+  readonly targetActorId?: string;
+  /** Optional authored explanation, selected from the action/Profile reason catalog. */
+  readonly reasonId?: string;
+}
+
+export interface OperationInterventionPreviewInput {
+  readonly snapshot: OperationPreparationSnapshot;
+  readonly trustedContent: OperationPreparationContent;
+  readonly preparedBeat: PreparedBeat;
+  /** Existing slot ownership; replacing it for another student requires clearing it first. */
+  readonly currentDraft: OperationInterventionDraft | null;
+  /** Complete proposed Draft, not a patch merged with currentDraft. */
+  readonly draft: OperationInterventionDraft;
+}
+
+export interface OperationInterventionPreview {
+  /** Version of the base PreparedBeat from which this detached preview was produced. */
+  readonly planVersion: number;
+  readonly draft: OperationInterventionDraft;
+  readonly preparedBeat: PreparedBeat;
+}
+
+export type OperationInterventionPreviewErrorCode =
+  | 'operation:intervention:invalid-draft'
+  | 'operation:intervention:stale-plan'
+  | 'operation:intervention:student-slot-occupied'
+  | 'operation:intervention:invalid-actor'
+  | 'operation:intervention:invalid-action'
+  | 'operation:intervention:action-not-enabled'
+  | 'operation:intervention:action-not-affordable'
+  | 'operation:intervention:no-legal-target'
+  | 'operation:intervention:invalid-target'
+  | 'operation:intervention:invalid-reason'
+  | 'operation:intervention:plan-conflict';
+
 export type OperationTargetSelection =
   | { readonly kind: 'none'; readonly targetActorId: null }
   | { readonly kind: 'actor'; readonly targetActorId: string }
