@@ -1,6 +1,6 @@
 # Goal 工作流 — 从玩法意图到施工
 
-> 本文回答：如何让长期终点、阶段规划、SolChat 讨论、源码核验和本地施工各有归属。它只规定协作流程，不记录具体玩法；当前规则由 `AGENTS.md` 与 `docs/docs-829/` 路由，GALHCG 提供需源码核验的导航。
+> 本文回答：如何让长期终点、阶段规划、方案讨论、源码核验和本地施工各有归属。它只规定协作流程，不记录具体玩法；当前规则由 `AGENTS.md` 与 `docs/docs-829/` 路由，GALHCG 主动帮助发现未知实现与文件关系，但必须回到源码和测试核证。
 
 ## 五层对象
 
@@ -10,7 +10,7 @@
 | Goal Card | 一个有独立完成定义的阶段结果，以及它对最终目标的贡献 | 同一 Goal Set 目录，每 Goal 一张 | 随 Goal Set 删除 |
 | Draft | 一个 Goal 的滚动语义裁定和事实问题 | `docs/plan-work/draft-*.md` | 保留为设计来源；失效时归档 |
 | Task | 已裁定且可验收的调查或施工边界 | `docs/plan-work/task-*.md` | 核验后移入 `archive/` |
-| Patch Unit / Receipt | 单次施工白名单与实际结果 | 所属 Task 内，或超过 3 个 Unit 时拆出 | 随 Task 归档 |
+| Patch Unit / Receipt | 单次施工白名单与实际结果 | 活动 Task 内，或超过 3 个 Unit 时拆至 Task 同级目录 | Task 完成/冻结后随 Task 归档 |
 
 默认关系为一个 Goal → 一份滚动 Draft → 一个实施 Task；这是减少文档分裂的偏好，不是数量约束。Goal Set 可以包含多个 Goal。独立可验收、可供多个后续 Task 复用的只读审计可以另立 Task；小范围事实核对留在 Draft 的事实门槛中。单个 Goal 因责任边界变化而需要多个 Task 时，必须写明各自验收结果、依赖和未完成的最终目标部分。
 
@@ -28,9 +28,9 @@ Codex Goal 只负责当前会话的持续执行。长期状态、决策、验收
 
 1. **提出需求**：在 Goal Set 写完整终点、明确暂缓项、阶段全图和依赖；每个阶段只有独立可验收时才建 Goal Card。使用 [[docs/ai/templates/goal-set]] 和 [[docs/ai/templates/goal-card]]。
 2. **讨论阶段目标**：每个进入讨论的 Goal 建一份 Draft；多轮 SolChat 意见继续更新同一 Draft 的裁定记录，不为每轮建议另建文档。使用 [[docs/ai/templates/discussion-draft]] 与 [[docs/ai/prompts/sol-discussion]]。
-3. **核对事实**：把会改变方案或验收边界的未知项列为事实门槛。按 [[docs/ai/task-read-set-routing]] 读取最小源码与测试，记录证据、结论和影响。使用 [[docs/ai/prompts/local-fact-review]]。事实核对不自动形成新的阶段目标。
+3. **核对事实**：把会改变方案或验收边界的未知项列为事实门槛。先按 [[docs/ai/galhcg-project-map]] 主动搜索相关 Module、Concept、相邻源码与当前文档；零命中时换别名、路径或源码字面量继续定位，不能以“图里没有”作结论。再按 [[docs/ai/task-read-set-routing]] 读取最小源码与测试，记录证据、结论和影响。使用 [[docs/ai/prompts/local-fact-review]]。事实核对不自动形成新的阶段目标。
 4. **冻结施工范围**：Draft 满足下方准入后，建立 Task 并在 `docs/plan-work/00-index.md` 登记。Task 写独立目标、当前代码事实、验收与剩余工作，不以 Goal Set 为必读前提。使用 [[docs/ai/templates/execution-task]]。
-5. **执行与收尾**：Task 按 [[docs/ai/PROJECT-CONSTITUTION]] 拆 Patch Unit / Receipt，实际核验后归档。用户要求清空当前工作区时，也可冻结未完成 Task 并保留原状态与待续记录。实现稳定的机制再按文档维护规则沉淀到 `docs/docs-829/`；只完成一个阶段不等于整个最终目标完成。
+5. **执行与收尾**：需要白名单边界的施工 Task 按 [[docs/ai/PROJECT-CONSTITUTION]] 拆 Patch Unit / Receipt。源码、测试或当前机制文档变化后，按 GALHCG 协议主动 `review_changes` 直接受影响路径，并维护有证据支持的关系；定向刷新不能替代语义映射更新。实际核验后归档。用户要求清空当前工作区时，也可冻结未完成 Task 并保留原状态与待续记录。实现稳定的机制再按文档维护规则沉淀到 `docs/docs-829/`；只完成一个阶段不等于整个最终目标完成。
 
 ## Draft → Task 准入
 
@@ -58,4 +58,4 @@ Codex Goal 只负责当前会话的持续执行。长期状态、决策、验收
 
 ## 相关入口
 
-[[AGENTS.md]] · [[docs/plan-work/goalsets/README]] · [[docs/docs-829/05-conventions/doc-maintenance]] · [[docs/ai/PROJECT-CONSTITUTION]]
+[[AGENTS.md]] · [[docs/ai/00-index]] · [[docs/ai/galhcg-project-map]] · [[docs/plan-work/goalsets/README]] · [[docs/docs-829/05-conventions/doc-maintenance]] · [[docs/ai/PROJECT-CONSTITUTION]]

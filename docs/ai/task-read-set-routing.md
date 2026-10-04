@@ -15,15 +15,15 @@ related_modules:
 # task-read-set-routing — 任务 Read Set 路由
 
 > 本文回答：**如何按具体任务选择必要的文档、源码和验证入口。**
-> 它是 `AGENTS.md` 与 [[docs/docs-829/00-INDEX]] 的补充路由；领域细目只在对应上下文包维护。docs-828 是旧文档系统的迁移来源，不作为当前 Read Set。
+> 它是 `AGENTS.md` 与 [[docs/docs-829/00-INDEX]] 的补充路由；领域细目只在对应上下文包维护。未知实现与文件关系按 [[docs/ai/galhcg-project-map]] 主动发现并回到源码核证。docs-828 是旧文档系统的迁移来源，不作为当前 Read Set。
 
 ## 使用规则
 
-1. 先读 `AGENTS.md` 与 [[docs/docs-829/00-INDEX]]，按任务类型进入下表。需要跨模块定位或尚不熟悉整体架构时，再读 [[docs/docs-829/01-architecture/overview]]；核对依赖方向时读 [[docs/docs-829/01-architecture/dependency-map]]。
+1. 先读 `AGENTS.md` 与 [[docs/docs-829/00-INDEX]]，按任务类型进入下表。项目任务涉及陌生领域、新内容或关系未知时，先用 GALHCG 查候选 Module / Concept / 路径，再选对应最小 Read Set；需要跨模块定位或尚不熟悉整体架构时，再读 [[docs/docs-829/01-architecture/overview]]；核对依赖方向时读 [[docs/docs-829/01-architecture/dependency-map]]。
 2. 领域包中的“按子题选择”只选命中的行；同时涉及多个子题时再合并，重复文档只读一次。目标源码和相关测试始终要核对，不把整个目录视为必读正文。
 3. 事实不足时才扩展 Optional Read Set。`docs/plan-work/archive/**` 默认不读；追溯历史理由时按需引入 1–2 篇，再回到源码确认当前实现。
 4. Read Set 与源码事实冲突时停止施工并记录冲突，不自行推导替代设计。
-5. GALHCG 项目身份、查询、文件迁移与地图维护遵守 AGENTS.md 的接入约定；地图用于导航，实际事实仍按 Read Set 核对源码与测试。
+5. GALHCG 项目身份、查询、文件迁移与地图维护遵守 [[docs/ai/galhcg-project-map]]。文件变更后默认审查直接受影响路径；新文件与新关系要主动查找适当归属，地图用于导航，实际事实仍按 Read Set 核对源码与测试。
 
 ## 任务路由
 
@@ -57,5 +57,7 @@ related_modules:
 - [[docs/docs-829/01-architecture/overview]]
 - [[docs/docs-829/00-INDEX]]
 - [[docs/ai/PROJECT-CONSTITUTION]]
+- [[docs/ai/galhcg-project-map]]
+- [[docs/ai/00-index]]
 - [[docs/ai/templates/patch-unit]]
 - [[docs/ai/goal-workflow]]

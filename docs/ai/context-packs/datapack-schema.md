@@ -2,6 +2,7 @@
 
 适用：实体字段、枚举、Datapack 合并、Registry、Definition resolution 和编辑器协议。
 
+
 ## Required Read Set
 
 - [[docs/docs-829/05-conventions/architecture-discipline]]

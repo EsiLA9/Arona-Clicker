@@ -1,8 +1,8 @@
 # Patch Unit 模板
 
-> 用法：由高层 AI 填写，作为 Luna 的唯一施工入口。复制下方骨架即可，不要删节标题。
+> 用法：由任务负责人填写，作为施工代理的单个白名单入口。复制下方骨架即可，不要删节标题。
 > 纪律依据：[[docs/ai/PROJECT-CONSTITUTION]]（Unit 预算、Allowed Files、Completion Criteria、停止条件）。
-> 存放位置：默认内联在所属 Task 文档的小节中（`docs/plan-work/archive/task-*.md`）；单个 Task 超过 3 个 Unit 时才拆出 `docs/plan-work/archive/<task-id>-units/<unit-id>.md`。
+> 存放位置：活动 Unit 默认内联在 `docs/plan-work/task-*.md` 的所属小节中；单个 Task 超过 3 个 Unit 时才拆出 `docs/plan-work/<task-id>-units/<unit-id>.md`，Receipt 放同目录的 `receipts/`。Task 完成或冻结后，再连同拆出目录一起归档。
 
 ## 骨架
 
@@ -76,11 +76,11 @@
 - `Verification` 必须可在本仓库执行；无法执行的验证要写成 Stop Condition，而不是省略。
 - 超出 3–5 个文件或 300–500 行净改动时，先拆分 Unit，不要扩大预算。
 
-## Pre-flight（Luna 开工前必须复述）
+## Pre-flight（施工代理开工前必须复述）
 
 1. Goal；
 2. Allowed Files；
 3. Explicit Non-goals；
 4. Stop Conditions。
 
-复述后若发现与 `Read Set`、源码事实或本模板任一项冲突，按停止条件上报。
+复述后若发现与 `Read Set`、源码事实或本模板任一项冲突，按停止条件上报。遇到未知领域、新增文件或变更影响时，按 [[docs/ai/galhcg-project-map]] 主动查询并记录相关地图审查。

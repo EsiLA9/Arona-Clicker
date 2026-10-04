@@ -1,6 +1,6 @@
-# 05-conventions/doc-maintenance — 文档维护规则
+# 05-conventions/doc-maintenance — 项目文档维护规则
 
-> 本文回答：docs-829 如何组织当前事实、分功能 Wiki、稳定链接与历史快照。
+> 本文回答：项目文档如何区分当前事实、协作协议和历史材料，并组织稳定路由与归档。
 
 ## 内容归属
 
@@ -13,8 +13,9 @@
 | `04-mechanisms/` | 行为算法与运行流程，按 Engine、Data Services、AronaClicker 分组 |
 | `05-conventions/` | 项目稳定开发与文档维护约定 |
 | `06-wiki/` | 按 AC Outline 分层的功能关系页和跨模块协作地图 |
+| `docs/ai/` | AI 协作协议、GALHCG 操作说明、Read Set、上下文包、提示词和模板；内部权威与路由见 [[docs/ai/00-index]] |
 
-Wiki 页面解释文件和子系统如何协作；字段含义和机制细节由 03/04 的专门页面承担。相同内容只保留一个正文权威点，其余使用 WikiLink。
+Wiki 页面解释文件和子系统如何协作；字段含义和机制细节由 03/04 的专门页面承担。`docs/ai/` 只约束协作和查阅流程，不另建机制事实源。相同内容只保留一个正文权威点，其余使用 WikiLink。
 
 ## 页面格式
 
