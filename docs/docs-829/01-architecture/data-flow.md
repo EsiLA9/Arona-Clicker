@@ -15,9 +15,13 @@ GameInstance.operationEntry.start(eventId, characterIds)
 OperationParticipantAdmission (AC Character/Roster/Profile validation)
         ↓ resolveOperationRunStart (actorId/ProfileId + static eligibility snapshot)
 OperationRunStartInput (OperationEventDef + initialized Actor/Profile/faction snapshots)
-        ↓ validate, deep-copy and create complete Run before publication
+        ↓ validate, deep-copy/freeze Run rules, create initial Beat before publication
 private OperationRuntimeService owner → EventRun → runStarted
-        └→ operationEntry.getSnapshot() → detached read-only snapshot
+        ├→ operationEntry.getSnapshot() → detached read-only snapshot
+        ├→ preview/revise/clearIntervention → versioned single-slot command
+        └→ commitBeat(runId, planVersion) → pure Resolution planner
+                ↓ validate candidate, atomic Run slot replacement
+           EventRun + beatResolved → next PreparedBeat
 ```
 
 - **定义**描述游戏可用内容，来源包括正式内容包和导入数据包，由 `Registry` 形成查询表及索引。
@@ -25,7 +29,7 @@ private OperationRuntimeService owner → EventRun → runStarted
 - **派生结果**由 Engine 系统从定义和状态计算，可经事件定向更新或重建，不默认写入存档。
 - **UI 投影**由 Runtime `getView()` 和 `GameReadModel` 提供；`UIContext` 进一步组合组件需要的格式、主题和表现查询。
 
-Gameplay B 的 `EventRun` 是独立的局内状态 owner，由每个 `GameInstance` 内部私有的 `OperationRuntimeService` 管理。调用方只能经 `GameInstance.operationEntry.start(eventId, characterIds)` 按 ID 请求入场；构造时配置的受信 `OperationContentResolver` 查出事件/Profile 内容，Admission 校验学生的 Character 定义、真实且持有的 Variant、`CharacterSystem.getUnlocked()` 结果与 Profile 配对。EntryService 随后按 actorId/ProfileId 生成 `OperationRunStartInput`：Actor 快照含学生 Character ID 与派生 Profile 静态资格投影，非学生 Actor 的身份快照含 participant kind 与可选 faction。Actor 本身仍有事件定义中的 ID/type/HP/resources。Variant ID 和长期角色对象不进入 Run。私有 owner 校验并构建完整 Run 后才发布 `runStarted`；失败初始化不写部分 Run。Admission DTO 不按 Run ID 缓存。EventRun 不写入 `PlayerState` 或 `InitSnapshot`，也不由 `GameView` 投影；`stop()` 保留 Run，`init`、`load`、`reload` 和 `reset` 清除当前 Run，`dispose()` 释放 owner。只读 detached Run 快照经 `operationEntry.getSnapshot()` 读取。Action requirements 目前只生成静态候选资格、次序和理由，不执行 Action、Target、费用、Resolution 或 Commit RNG。细节见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
+Gameplay B 的 `EventRun` 是独立的局内状态 owner，由每个 `GameInstance` 内部私有的 `OperationRuntimeService` 管理。调用方只能经 `GameInstance.operationEntry` 按 ID 请求入场并提交受 `runId` / `planVersion` 约束的干预与 Beat 命令；受信 `OperationContentResolver` 提供每局内容，Admission 校验学生的 Character 定义、真实且持有的 Variant、`CharacterSystem.getUnlocked()` 结果与 Profile 配对。EntryService 按 actorId/ProfileId 生成 `OperationRunStartInput`：Actor 快照含学生 Character ID 与派生 Profile 静态资格投影，非学生 Actor 的身份快照含 participant kind、可选 faction 与有序候选；Actor 本身仍有事件定义中的 ID/type/HP/resources。Variant ID 和长期角色对象不进入 Run。私有 owner 校验后深拷贝并冻结每局战术规则、构建首个 PreparedBeat，再发布 `runStarted`；失败初始化不写部分 Run。Admission DTO 不按 Run ID 缓存。EventRun 不写入 `PlayerState` 或 `InitSnapshot`，也不由 `GameView` 投影；`stop()` 保留 Run，`init`、`load`、`reload` 和 `reset` 清除当前 Run，`dispose()` 释放 owner。`getSnapshot()` 返回 detached 只读快照；`previewIntervention()` 纯计算，`reviseIntervention()` / `clearIntervention()` 写入单槽草稿，`commitBeat()` 经纯 Resolution planner 校验并原子替换 Run 后发布 `beatResolved`。PlayerCost 与玩家卡牌区仍独立于 Actor/Team 战术费用；战术局部 RNG 只在有效 Commit 成功时前进。细节见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
 
 ## 关键代码入口
 
