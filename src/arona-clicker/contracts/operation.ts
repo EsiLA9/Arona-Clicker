@@ -123,6 +123,31 @@ export interface OperationRunStartInput {
   readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
 }
 
+export const OPERATION_TACTICAL_RNG_ALGORITHM = 'splitmix64-counter-v1' as const;
+
+/** Pure tactical stream state; U8 owns committing the returned cursor to EventRun. */
+export interface OperationTacticalRandomState {
+  readonly algorithm: typeof OPERATION_TACTICAL_RNG_ALGORITHM;
+  readonly seed: number;
+  readonly tacticalCursor: number;
+}
+
+export interface OperationStudentSkillCheckResult {
+  readonly actorId: string;
+  readonly skillRuleId: string;
+  readonly actionId: string;
+  readonly chanceBps: number;
+  readonly rollBps: number;
+  readonly succeeded: boolean;
+  readonly rawWordsConsumed: number;
+}
+
+/** Temporary pure roll result. It is not a Run mutation or a persisted Resolution. */
+export interface OperationStudentSkillRollBatch {
+  readonly checks: readonly OperationStudentSkillCheckResult[];
+  readonly nextRandomState: OperationTacticalRandomState;
+}
+
 export interface OperationEventState {
   readonly tracks: Readonly<Record<string, number>>;
   readonly knownFactIds: readonly string[];

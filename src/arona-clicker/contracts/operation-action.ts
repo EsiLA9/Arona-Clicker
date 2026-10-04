@@ -42,6 +42,24 @@ export interface OperationCombinationRuleDef {
   readonly effects: readonly OperationActionEffectDef[];
 }
 
+/** One disjoint pair selected by the current Location's deterministic Combination ordering. */
+export interface OperationCombinationMatch {
+  readonly ruleId: string;
+  readonly priority: number;
+  readonly actorAId: string;
+  readonly actorBId: string;
+  readonly actionAId: string;
+  readonly actionBId: string;
+  readonly targetActorId: string | null;
+}
+
+/** Detached Combination projection tied to the exact base Beat it consumed. */
+export interface OperationCombinationPreview {
+  readonly planVersion: number;
+  readonly locationId: string;
+  readonly matches: readonly OperationCombinationMatch[];
+}
+
 /** Temporary tactical rules for an existing Event location ID; routes remain a later Task. */
 export interface OperationLocationTacticsDef {
   readonly locationId: string;
