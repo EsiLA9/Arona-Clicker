@@ -105,7 +105,7 @@ function eventDefinition(
     ...(options.enabledActionIds ? {
       locations: [{ id: 'location:office', enabledActionIds: options.enabledActionIds, combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     } : {}),
-    playerRouteState: { playerCost: 9, cards: { drawPile: [], hand: [], discard: [], played: [] } },
+    playerRouteState: { playerCost: 9 },
   };
 }
 

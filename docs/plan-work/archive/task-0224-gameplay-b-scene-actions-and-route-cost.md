@@ -1,6 +1,6 @@
 # Task 0224 — 玩法 B 场景行为与路线 Cost
 
-状态：proposed — 等待 Task 0213–0218 的 Runtime、行动结算与路线边界稳定
+状态：completed — Individual/Global 场景批次、共享 PlayerCost 与原子路线衔接已实现；Task 0225 的卡牌支付与区域迁移也已在同一批次闭环验收。
 
 ## 目标
 
@@ -56,19 +56,19 @@
 
 ## Acceptance
 
-- [ ] Individual 批次要求玩家对每名在场且可行动角色分别选一种合法场景行为；漏选、重复选人或非法目标均阻止提交。失去行动资格的角色不需要选择。
-- [ ] 每个 Location 访问的 SceneAction 批次数有显式有限值；有效提交恰好减少一次，拒绝/无效命令不消耗额度，达到目标或额度上限后进入地点完成/出口判断。
-- [ ] Global 批次只包含一项场景行为；动作定义可限定单人、多目标或全队，目标超出范围时拒绝整批。
-- [ ] SceneAction 批次不消耗、不占用也不受战斗 Beat 的单人 Sensei 干预额度限制；战斗 Beat 仍沿 Task 0215 原规则处理。
-- [ ] 一批内所选 SceneAction 和玩家卡的费用只从已验证的定义读取并合并为一个总额；不接受调用方传入任意费用。余额不足时整批原子拒绝，不扣费、不应用部分效果、不改变输入状态、不推进随机流或场景行动次数。
-- [ ] 合法提交只扣 PlayerCost 一次，并通过统一 Resolution 记录该批行为及所有可观察变化；同一批次不能重复提交造成二次扣费或重复效果。
-- [ ] SceneActionDef 与 PlayerSceneCardDef 均只引用 OperationActionDef；费用由被引用的薄包装提供，效果/目标只来自 OperationActionDef，命令不能注入任意费用或效果。
-- [ ] SceneAction 与战斗资源分别读写；场景卡不进入战斗。
-- [ ] 每次 Location 访问的 costGain 恰好应用一次；恢复同一 EventRun 不重复发放，允许回访时每个新访问可再次发放。
-- [ ] maxCarryCost 只在成功离开 Location 时应用，单出口自动转场与显式路线选择结果一致；下一地点的 costGain 在离场上限生效后应用。
-- [ ] 单出口自动转场与多出口显式选择均通过 Task 0218 的 `transitionRoute(routeId)`；Cost 截断、地点切换和下一地点 costGain 一次计算并提交，任一步失败时整份 EventRun 不变化。
-- [ ] 出口预览、过期出口、无效选择和 Event 终止不会提前截断余额或产生战术 Resolution。
-- [ ] 固定 Seed 与相同输入得到相同费用、场景结果及 Resolution 顺序；费用失败不会消耗随机数。
+- [x] Individual 批次要求玩家对每名在场且可行动角色分别选一种合法场景行为；漏选、重复选人或非法目标均阻止提交。失去行动资格的角色不需要选择。
+- [x] 每个 Location 访问的 SceneAction 批次数有显式有限值；有效提交恰好减少一次，拒绝/无效命令不消耗额度，达到目标或额度上限后进入地点完成/出口判断。
+- [x] Global 批次只包含一项场景行为；ActionDef 目标关系可限定单人、多目标或同队集合中的目标，目标超出范围时拒绝整批。
+- [x] SceneAction 批次不消耗、不占用也不受战斗 Beat 的单人 Sensei 干预额度限制；战斗 Beat 仍沿 Task 0215 原规则处理。
+- [x] 一批内所选 SceneAction 和玩家卡的费用只从已验证的定义读取并合并为一个总额；不接受调用方传入任意费用。余额不足时整批原子拒绝，不扣费、不应用部分效果、不改变输入状态、不推进随机流或场景行动次数。
+- [x] 合法提交只扣 PlayerCost 一次，并通过统一 Resolution 记录该批行为及所有可观察变化；同一批次不能重复提交造成二次扣费或重复效果。
+- [x] SceneActionDef 与 PlayerSceneCardDef 均只引用 OperationActionDef；费用由被引用的薄包装提供，效果/目标只来自 OperationActionDef，命令不能注入任意费用或效果。
+- [x] SceneAction 与战斗资源分别读写；场景卡不进入战斗。
+- [x] 每次 Location 访问的 costGain 恰好应用一次，并以 `locationEntryCostHistory` 记录；允许回访时每个新访问再次发放。
+- [x] maxCarryCost 只在成功离开 Location 时应用，单出口自动转场与显式路线选择结果一致；下一地点的 costGain 在离场上限生效后应用。
+- [x] 单出口自动转场与多出口显式选择均通过 Task 0218 的 `transitionRoute(routeId)`；Cost 截断、地点切换、下一地点 costGain 和入场抽牌一次计算并提交，任一步失败时整份 EventRun 不变化。
+- [x] 出口预览、过期出口、无效选择和 Event 终止不会提前截断余额或产生战术 Resolution。
+- [x] 固定 Seed 与相同输入得到相同费用、场景结果及 Resolution 顺序；场景费用失败不会消耗战术 RNG。
 
 ## Tests
 
@@ -83,15 +83,15 @@
 - Task 0225 依赖本 Task 的批次提交与共享费用合同，并将卡牌实例、效果与区域变化接入。
 - Task 0219、0220、0221、0222 的存档、内容合同、作者流程与正式切片均须依赖 Task 0224 和 Task 0225；本 Task 不修改这些既有任务文档。
 
-## Documentation / GALHCG
+## Receipt（2026-10-05）
 
-- 本 Task Receipt 收集 Operation SceneAction、PlayerCost 与 Resolution 机制页候选及证据路径；单独收尾时不写 GALHCG。
-- Task 0225 完成后，一次性委派子 Agent 汇总 0224–0225 的 SceneAction、共享 PlayerCost 和有限场景卡牌机制，批量更新当前机制文档/GALHCG 并验证 freshness；单项行为、数值和路线配置不建节点。
-- Read Set：Task 0213–0218、对应实现与测试、[[docs/ai/task-read-set-routing]]、[[docs/ai/galhcg-project-map]]。
-
-## 当前核验与剩余工作
-
-已将 Draft 0204 中确认的场景模式与 Cost 边界拆为 AC-native 执行要求；未实现接口或运行测试。施工时仍需依 Task 0213–0218 的落地代码决定最小命令、View 与 Resolution 字段。
+- Runtime 合同：`OperationLocationDef.actionMode / sceneActions / sceneActionBatches / costGain / maxCarryCost`；薄 SceneActionDef 引用 ActionDef；EventRun 记录 `sceneActionBatchesUsed`、PlayerCost 和每次地点进入的余额记录。
+- API：`previewSceneActionBatch()` 与 `commitSceneActionBatch()` 加入 GameInstance 的 Operation facade。输入只含 Run/version、逐人/全局选择、目标和可选手牌实例 ID，不接受费用或效果字段。
+- Resolution：`planOperationResolution()` 增加场景批次规划分支，复用同一数值/事实/持有物聚合与 `OperationResolution`；一次原子提交行动效果、费用、批次数和 hand→discard。
+- Route：唯一 `transitionRoute()` 现将来源 `maxCarryCost`、目标地点 `costGain`、入场抽牌纳入同一 detached 候选 Run；单出口与显式选择仍走同一路径。
+- 示例：新增 `carousel-scene-action-slice.ts`，覆盖 Individual/Global、多个目标、持有员工证、路线门禁/消费、路线 Cost、SceneCard 联合费用、地点抽牌与结局。
+- 验收：`operation-scene-actions.test.ts`、`operation-player-scene-deck.test.ts`、`gameplay-b-scene-action-sample.test.ts`；同批定向 Operation 回归共 62 tests 通过，`npx tsc --noEmit` 通过。GALHCG 与机制文档按 0224–0225 批次统一更新。
+- 后续：不阻塞的正式 Datapack/Registry 合同、Save/Resume、作者校验工作流及三栏交互验收分别由 Task 0220、0219、0221、0222 承接。
 
 ## 相关路由
 

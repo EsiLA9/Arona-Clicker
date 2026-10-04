@@ -3,6 +3,7 @@ import type { PlayerState } from '../types/state';
 import type { EventRun, OperationInterventionCommand, OperationRouteCommand, OperationRunVersionCommand } from '../contracts/operation';
 import type { OperationInterventionPreview } from '../contracts/operation-beat';
 import type { OperationResolution } from '../contracts/operation-resolution';
+import type { OperationSceneActionBatchCommand, OperationSceneActionBatchPreview } from '../contracts/operation-scene-action';
 import type { OperationView } from '../contracts/operation-view';
 import type { OperationAdmission } from '../contracts/operation-participant';
 import type { OperationContentResolver } from '../contracts/operation-content-resolver';
@@ -26,6 +27,8 @@ export interface OperationEntryFacade {
   reviseIntervention(input: OperationInterventionCommand): EventRun;
   clearIntervention(input: OperationRunVersionCommand): EventRun;
   commitBeat(input: OperationRunVersionCommand): OperationResolution;
+  previewSceneActionBatch(input: OperationSceneActionBatchCommand): OperationSceneActionBatchPreview;
+  commitSceneActionBatch(input: OperationSceneActionBatchCommand): OperationResolution;
   transitionRoute(input: OperationRouteCommand): EventRun;
 }
 
@@ -47,6 +50,8 @@ export function createOperationEntry(options: CreateOperationEntryOptions): {
     reviseIntervention: service.reviseIntervention.bind(service),
     clearIntervention: service.clearIntervention.bind(service),
     commitBeat: service.commitBeat.bind(service),
+    previewSceneActionBatch: service.previewSceneActionBatch.bind(service),
+    commitSceneActionBatch: service.commitSceneActionBatch.bind(service),
     transitionRoute: service.transitionRoute.bind(service),
   });
   return { facade };
@@ -94,6 +99,14 @@ class OperationEntryService {
 
   commitBeat(input: OperationRunVersionCommand): OperationResolution {
     return this.#owner.commitBeat(input);
+  }
+
+  previewSceneActionBatch(input: OperationSceneActionBatchCommand): OperationSceneActionBatchPreview {
+    return this.#owner.previewSceneActionBatch(input);
+  }
+
+  commitSceneActionBatch(input: OperationSceneActionBatchCommand): OperationResolution {
+    return this.#owner.commitSceneActionBatch(input);
   }
 
   transitionRoute(input: OperationRouteCommand): EventRun {

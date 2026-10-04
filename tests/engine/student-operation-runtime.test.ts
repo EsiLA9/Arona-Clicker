@@ -34,7 +34,6 @@ function eventDef(): OperationEventDef {
     })),
     playerRouteState: {
       playerCost: 2,
-      cards: { drawPile: [], hand: [], discard: [], played: [] },
     },
     randomSeed: 19,
   };

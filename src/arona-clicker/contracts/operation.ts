@@ -6,7 +6,7 @@ import type { OperationResolution } from './operation-resolution';
 export type OperationResultKind = 'success' | 'partialSuccess' | 'failure';
 export type OperationRunStatus = 'inProgress' | OperationResultKind;
 export type OperationLocationResultKind = OperationResultKind;
-export type OperationCardZone = 'drawPile' | 'hand' | 'discard' | 'played';
+export type OperationCardZone = 'drawPile' | 'hand' | 'discard';
 
 export type OperationPredicateOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
 export type OperationPredicateLeafDef =
@@ -67,11 +67,36 @@ export interface OperationCardZones {
   readonly drawPile: readonly string[];
   readonly hand: readonly string[];
   readonly discard: readonly string[];
-  readonly played: readonly string[];
 }
 
 export interface OperationPlayerRouteStateDef {
   readonly playerCost: number;
+}
+
+export interface OperationPlayerSceneCardDef {
+  readonly id: string;
+  readonly actionId: string;
+  readonly playerCost: number;
+  readonly timing: 'scene';
+  readonly copies: number;
+}
+
+export interface OperationPlayerSceneDeckDef {
+  readonly cards: readonly OperationPlayerSceneCardDef[];
+  readonly initialDraw: number;
+  readonly locationEntryDraw: number;
+  readonly maxHandSize: number;
+}
+
+export interface OperationPlayerSceneCardInstanceDef {
+  readonly cardInstanceId: string;
+  readonly cardDefId: string;
+  readonly actionId: string;
+  readonly playerCost: number;
+  readonly timing: 'scene';
+}
+
+export interface OperationPlayerRouteState extends OperationPlayerRouteStateDef {
   readonly cards: OperationCardZones;
 }
 
@@ -92,6 +117,7 @@ export interface OperationEventDef {
   readonly actors: readonly OperationActorDef[];
   readonly teams?: readonly OperationTeamDef[];
   readonly playerRouteState: OperationPlayerRouteStateDef;
+  readonly playerSceneDeck?: OperationPlayerSceneDeckDef;
   readonly randomSeed?: number;
 }
 
@@ -215,7 +241,17 @@ export interface OperationLocationProgress {
   readonly visitCount: number;
   readonly completed: boolean;
   readonly beatCount: number;
+  readonly sceneActionBatchesUsed?: number;
   readonly result: OperationLocationResultKind | null;
+}
+
+export interface OperationLocationEntryCostRecord {
+  readonly visitSequence: number;
+  readonly locationId: string;
+  readonly visitCount: number;
+  readonly costGain: number;
+  readonly balanceBefore: number;
+  readonly balanceAfter: number;
 }
 
 export interface OperationRouteTransitionRecord {
@@ -224,6 +260,8 @@ export interface OperationRouteTransitionRecord {
   readonly routeId: string;
   readonly toLocationId: string;
   readonly consumedHeldItemId?: string;
+  readonly playerCostBeforeExit?: number;
+  readonly playerCostAfterCarryLimit?: number;
 }
 
 /** Read-only detached view; the service retains the only mutable Run. */
@@ -238,6 +276,7 @@ export interface EventRun {
   readonly playerRouteState: OperationPlayerRouteState;
   readonly locationProgress: Readonly<Record<string, OperationLocationProgress>>;
   readonly routeHistory: readonly OperationRouteTransitionRecord[];
+  readonly locationEntryCostHistory?: readonly OperationLocationEntryCostRecord[];
   readonly planVersion: number;
   readonly beatIndex: number;
   readonly preparedBeat: PreparedBeat | null;
@@ -261,6 +300,14 @@ export type OperationLifecycleEvent =
   | { readonly type: 'locationCompleted'; readonly runId: string; readonly eventId: string; readonly locationId: string }
   | {
       readonly type: 'beatResolved';
+      readonly runId: string;
+      readonly eventId: string;
+      readonly locationId: string;
+      readonly basePlanVersion: number;
+      readonly resolutionSequence: number;
+    }
+  | {
+      readonly type: 'sceneActionBatchResolved';
       readonly runId: string;
       readonly eventId: string;
       readonly locationId: string;

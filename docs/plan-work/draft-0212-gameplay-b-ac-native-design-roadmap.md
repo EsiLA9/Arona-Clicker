@@ -130,7 +130,7 @@ v1 用作者明确配置的简单有向图，不自动生成地图；图允许�
 | Event State / Objective | 每个事件可声明数值轨道、事实、目标、失败条件及成功/部分成功/失败结果 | 关系网络、计时器、全局天气、跨事件共享内容状态 |
 | Route | 支持允许环路的有向地点图；每个出口至多检查一个 EventRun 局内持有物；Event 总访问上限阻止无限循环 | 复合 Gate 表达式、事实/轨道/计时或任意 Predicate 路线门槛、随机路线图、地图编辑器、动态路线生成 |
 | Character participation | EventDef 固定 roster 并按现有 Character 身份做准入；入口展示参与者摘要；现场 HP/资源/行动与长期进度隔离 | V1 选人 UI、Variant 专属操作构型、长期阵容成长、学生关系影响 |
-| RNG | 角色技能与行动效果的随机仅在 Commit 结算；预备/编辑不抽取新结果；场景卡牌序由 EventRun Seed 确定并随牌堆保存，不推进 Commit 结算随机游标 | 可视化概率、重播、内容版本兼容回放 |
+| RNG | 角色技能与行动效果的战术随机仅在 Commit 结算；场景卡组用 Event Seed 派生一次固定顺序并将剩余顺序保存在 drawPile，不推进或另存后续不再使用的牌组随机游标 | 可视化概率、重播、内容版本兼容回放 |
 | Save / Resume | V1 发布切片必须恢复当前 EventRun、地点、局部 Actor/事件状态、准备与已修订计划、日志游标和 RNG 状态；核心可玩切片 0216 可先以内存运行 | 跨内容版本迁移、云同步、操作回放 |
 | 内容扩展 | 事件、地点、动作、参与者配置、目标和路线以声明式内容进入 Datapack/Registry，并进行 ID/引用/边界校验 | 游戏内即时编辑、图形化地图编辑、外部脚本和社区模组工具 |
 | UI / ViewModel | detached 的只读 Operation View；正式 Gameplay B 使用我方/信息/敌方三栏；我方角色卡承载学生当前计划/行为，固定场景与结算信息进入中央信息流 | 其余信息流交互、复盘视图与高阶策略分析 |
@@ -156,7 +156,7 @@ v1 用作者明确配置的简单有向图，不自动生成地图；图允许�
 | `StudentOperationProfileDef` — 解释学生如何自主计划和处理问题 | Character ID、行动优先级、专长、替代行动、理由与角色随机技能规则引用 | Datapack；事件开始时读取 | authorable 顶层定义；Registry 校验 Character/Action 引用 | 不存档 | 不改 Character 持久进度或消费 PlayerCost | v1 不进游戏内 Runtime Editor | Profile 稳定时建 Concept；单个学生配置不建 | 技能结果仅进入 Commit Resolution | 专长、行动理由、技能结果可见 |
 | `CombinationRule` — 让两个行动的协作改变一次结算 | 两个 Action 的标签/目标匹配、确定优先序与组合效果 | 嵌入 Location 定义；Beat 结算时读 | authorable 嵌入值；v1 不设独立 Registry 表 | 不存档 | 只改变当前 EventRun | 由 Datapack 定义 | 稳定协同语义可建 Concept | 匹配是 Runtime 内部步骤 | 可预览匹配与日志结果 |
 | 目标/结局规则 — 说明当前问题进展和何时终止 | 局部 ID、轨道/事实 Predicate、类型、说明和奖励白名单 | 嵌入 Event/Location 定义；状态变化时评估 | authorable 嵌入值；不独立建表 | 不存档 | 进度归 EventRun；奖励经 Mutation | 由 Datapack 定义 | 目标/结果稳定后建 Concept | 地点/事件终止时发一次 | 进度、锁定原因和结果可见 |
-| `EventRun` 聚合 — 作为本局唯一权威状态源 | run/event ID、当前地点、轨道/事实、局内持有物集合、局部状态、共享 PlayerCost、有限卡组 draw/hand/discard 区、地点/批次进度与独立 RNG 游标 | AronaClicker 操作运行时；开始至终局 | Runtime 创建；不进 Datapack/Registry | `eventId + resumeVersion + Run` 保存于主 SaveData.operationRun | 不混入 PlayerState 或 InitSnapshot；路线条件不读写 PlayerState.inventory | 不适用 | Run/State 边界稳定后建 Concept | 只在开始、地点转移/完成、终局发领域事件 | Event 概览、Actor 状态、Cost/手牌、持有物与路线可见 |
+| `EventRun` 聚合 — 作为本局唯一权威状态源 | run/event ID、当前地点、轨道/事实、局内持有物集合、局部状态、共享 PlayerCost、有限卡组 draw/hand/discard 区、地点/批次进度与战术 RNG 游标 | AronaClicker 操作运行时；开始至终局 | Runtime 创建；不进 Datapack/Registry | `eventId + resumeVersion + Run` 保存于主 SaveData.operationRun，包含实际 drawPile 顺序 | 不混入 PlayerState 或 InitSnapshot；路线条件不读写 PlayerState.inventory | 不适用 | Run/State 边界稳定后建 Concept | 只在开始、地点转移/完成、终局发领域事件 | Event 概览、Actor 状态、Cost/手牌、持有物与路线可见 |
 | `PreparedBeat` — 固定本轮所有计划供玩家审阅/提交 | beat ID、Actor→Action/Intent、Target、费用、理由、计划版本 | EventRun 内的待提交事实；Commit 后重建 | Runtime-only；引用 Registry 定义 | 随 Run 保存 | 无 | 不适用 | 通常是 Resolution 流程细节 | 不向 EventBus 逐项发布 | 只读计划投影可见 |
 | `InterventionDraft` — 暂存 Sensei 对战斗计划的一项修订 | Actor ID、改选 Action/Target、指挥理由 | EventRun 内的待提交事实；Commit 后清理 | Runtime-only 待提交值 | 随 Run 保存，保证中断可续 | 无 | 不适用 | 不单独建 Concept | 不发布领域事件 | 改动前后差异可见 |
 | `SceneActionSelection` — 暂存非战斗地点的玩家行为选择批次 | Location ID、`individual/global` 模式、角色→行为映射或一个全局行为及目标、玩家场景卡选择、费用快照和剩余批次数 | EventRun 内的待提交事实；Commit 后清理 | Runtime-only；引用 Location/Action/PlayerSceneCard 定义 | 随 Run 保存，保证中断可续 | 只改 EventRun | 不适用 | 不单独建 Concept | 通过该批 Resolution 记录结果 | 场景选项、逐人选择和费用合计可见 |
@@ -296,7 +296,7 @@ Task 0217–0221、0224–0225 可定义与实现 EventRun 命令、SceneAction 
 | 7 | [[task-0224-gameplay-b-scene-actions-and-route-cost]] | Individual/Global 非战斗 SceneAction 玩家选择、共享路线 PlayerCost、每地点 `costGain` / `maxCarryCost` 纳入统一 Commit/Resolution 与 EventRun | 0213–0218 |
 | 8 | [[task-0225-gameplay-b-finite-player-scene-card-deck]] | 有限玩家场景卡组、确定性抽牌与场景支付接入；卡牌不进入战斗 Click | 0224 |
 | 9 | [[task-0220-gameplay-b-datapack-contracts-and-registry]] | 事件/地点/行动与嵌入场景卡组可由声明式 Datapack 定义并验证，并提供显式 `resumeVersion` | 0213–0218、0224–0225 |
-| 10 | [[task-0219-gameplay-b-event-save-and-resume]] | EventRun 可精确暂停和恢复，包含 PlayerCost、三分区卡组及各自 RNG 状态 | 0213–0218、0220、0224–0225 |
+| 10 | [[task-0219-gameplay-b-event-save-and-resume]] | EventRun 可精确暂停和恢复，包含 PlayerCost、三分区牌区、固定 draw 顺序与战术 RNG 状态 | 0213–0218、0220、0224–0225 |
 | 11 | [[task-0221-gameplay-b-authoring-and-content-validation-workflow]] | 作者能创建、检查、加载并迭代完整事件内容 | 0217–0220、0224–0225 |
 | 12 | [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] | **下一大型体验施工阶段 / V1 产品切片**：把稳定服务与内容接成正式 AC 入口，并用我方角色卡 / 中央信息流 / 敌方三栏跑通已裁定的最小玩法闭环 | 0216–0221、0224–0225 |
 

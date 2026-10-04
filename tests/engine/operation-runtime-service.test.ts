@@ -25,14 +25,23 @@ function eventDef(): OperationEventDef {
     }],
     playerRouteState: {
       playerCost: 2,
-      cards: {
-        drawPile: ['test:card:inspect'],
-        hand: ['test:card:assist'],
-        discard: [],
-        played: [],
-      },
     },
     randomSeed: 17,
+  };
+}
+
+function eventDefWithSceneDeck(): OperationEventDef {
+  return {
+    ...eventDef(),
+    playerSceneDeck: {
+      cards: [
+        { id: 'test:card:inspect', actionId: 'test:action:inspect', playerCost: 0, timing: 'scene', copies: 1 },
+        { id: 'test:card:assist', actionId: 'test:action:inspect', playerCost: 0, timing: 'scene', copies: 1 },
+      ],
+      initialDraw: 2,
+      locationEntryDraw: 0,
+      maxHandSize: 2,
+    },
   };
 }
 
@@ -131,10 +140,9 @@ describe('validateOperationEventDef', () => {
     };
     expect(validateOperationEventDef(uncapped)).toEqual([]);
     const service = new OperationRuntimeService();
-    expect(service.start(uncapped).playerRouteState).toEqual({
-      playerCost: 1000,
-      cards: { drawPile: ['test:card:inspect'], hand: ['test:card:assist'], discard: [], played: [] },
-    });
+    const uncappedRun = service.start(uncapped);
+    expect(uncappedRun.playerRouteState.playerCost).toBe(1000);
+    expect(uncappedRun.playerRouteState.cards).toEqual({ drawPile: [], hand: [], discard: [] });
   });
 
   test('validates Team definitions, Actor membership, and target preference references', () => {
@@ -364,7 +372,6 @@ describe('OperationRuntimeService', () => {
       actors: [{ actorId: 'test:actor:student', hp: 1, resources: { focus: 0 } }],
       playerRouteState: {
         playerCost: 4,
-        cards: { drawPile: [], hand: [], discard: ['test:card:inspect'], played: ['test:card:assist'] },
       },
     });
     expect(first.getSnapshot()).toMatchObject({
@@ -436,18 +443,19 @@ describe('OperationRuntimeService', () => {
     expect(service.getSnapshot()).toEqual(before);
   });
 
-  test('keeps the finite four-zone card partition intact and validates non-negative finite PlayerCost', () => {
+  test('keeps the finite three-zone card partition intact and validates non-negative finite PlayerCost', () => {
     const service = new OperationRuntimeService();
-    service.start(eventDef());
+    const initial = service.start(eventDefWithSceneDeck());
+    const cards = [...initial.playerRouteState.cards.hand];
     service.applyStateDelta({
       playerRouteState: {
         playerCost: 50,
-        cards: { drawPile: [], hand: [], discard: ['test:card:assist'], played: ['test:card:inspect'] },
+        cards: { drawPile: [], hand: [], discard: cards },
       },
     });
     expect(service.getSnapshot()?.playerRouteState).toEqual({
       playerCost: 50,
-      cards: { drawPile: [], hand: [], discard: ['test:card:assist'], played: ['test:card:inspect'] },
+      cards: { drawPile: [], hand: [], discard: cards },
     });
 
     const before = service.getSnapshot();

@@ -49,7 +49,7 @@ function eventDefinition(actors: readonly OperationActorDef[]): OperationEventDe
     itemIds: [],
     heldItemIds: [],
     actors,
-    playerRouteState: { playerCost: 0, cards: { drawPile: [], hand: [], discard: [], played: [] } },
+    playerRouteState: { playerCost: 0 },
   };
 }
 

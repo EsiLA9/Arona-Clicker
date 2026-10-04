@@ -9,6 +9,10 @@ import type {
 import type { OperationPreparedActorPlan } from './operation-beat';
 import type { OperationCombinationPreview } from './operation-action';
 import type { OperationStudentSkillRuleDef } from './operation-skill';
+import type { OperationSceneActionSelection } from './operation-scene-action';
+import type { OperationSceneCardSelection } from './operation-scene-action';
+import type { OperationCardZones } from './operation';
+import type { OperationPlayerSceneCardInstanceDef } from './operation';
 
 export interface OperationResolutionPayment {
   readonly actorId: string;
@@ -38,6 +42,22 @@ export type OperationResolutionEffectSource =
       readonly actorId: string;
       readonly skillRuleId: string;
       readonly actionId: string;
+      readonly effectIndex: number;
+    }
+  | {
+      readonly kind: 'sceneAction';
+      readonly actorId: string;
+      readonly sceneActionId: string;
+      readonly actionId: string;
+      readonly targetActorId: string | null;
+      readonly effectIndex: number;
+    }
+  | {
+      readonly kind: 'sceneCard';
+      readonly cardInstanceId: string;
+      readonly actorId: string;
+      readonly actionId: string;
+      readonly targetActorId: string | null;
       readonly effectIndex: number;
     };
 
@@ -71,6 +91,15 @@ export interface OperationResolutionIntervention {
   readonly reasonId?: string;
 }
 
+export interface OperationResolutionSceneBatch {
+  readonly selections: readonly OperationSceneActionSelection[];
+  readonly cards: readonly (OperationSceneCardSelection & { readonly actionId: string; readonly playerCost: number })[];
+  readonly playerCostBefore: number;
+  readonly playerCostPaid: number;
+  readonly playerCostAfter: number;
+  readonly sceneActionBatchesUsed: number;
+}
+
 /** Pure successful Commit candidate; only U8 may publish state or retain its next RNG cursor. */
 export interface OperationResolutionBatch {
   readonly runId: string;
@@ -86,6 +115,8 @@ export interface OperationResolutionBatch {
   readonly randomCursorAfter: number;
   readonly numericChanges: readonly OperationResolutionNumericChange[];
   readonly membershipChanges: readonly OperationResolutionMembershipChange[];
+  /** Present only for a non-combat SceneAction/Card batch; it shares this Resolution container. */
+  readonly sceneBatch?: OperationResolutionSceneBatch;
   readonly nextRandomState: OperationTacticalRandomState;
 }
 
@@ -109,6 +140,9 @@ export interface OperationResolutionPlannerSnapshot {
   readonly knownFactIds: readonly string[];
   readonly heldItemIds: readonly string[];
   readonly randomState: OperationTacticalRandomState;
+  readonly playerCost?: number;
+  readonly sceneActionBatchesUsed?: number;
+  readonly playerCardZones?: OperationCardZones;
 }
 
 export interface OperationResolutionActorSnapshot {
@@ -129,6 +163,7 @@ export interface OperationResolutionTrustedContent {
   readonly actorInitializations: readonly OperationActorInitialization[];
   readonly actionDefinitions: readonly OperationActionDef[];
   readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
+  readonly playerSceneCardInstances?: readonly OperationPlayerSceneCardInstanceDef[];
 }
 
 /** Only stored owner state and frozen definitions enter the pure planner. */
@@ -138,6 +173,11 @@ export interface OperationResolutionPlannerInput {
   /** The owner's stored canonical base plan; the planner recomputes and compares it. */
   readonly preparedBeat: import('./operation-beat').PreparedBeat;
   readonly interventionDraft: import('./operation-beat').OperationInterventionDraft | null;
+  /** When present, the same planner validates and aggregates a complete non-combat batch. */
+  readonly sceneBatch?: {
+    readonly selections: readonly OperationSceneActionSelection[];
+    readonly cards?: readonly OperationSceneCardSelection[];
+  };
 }
 
 export type OperationResolutionPlannerErrorCode =

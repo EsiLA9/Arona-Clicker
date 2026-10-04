@@ -283,6 +283,23 @@ export function validateOperationActionContent(
         issues.push('locations[' + locationIndex + '].enabledActionIds references a missing Action: ' + actionId);
       }
     }
+    const sceneActionIds = new Set<string>();
+    for (const [sceneActionIndex, sceneAction] of (location.sceneActions ?? []).entries()) {
+      const path = 'locations[' + locationIndex + '].sceneActions[' + sceneActionIndex + ']';
+      if (sceneActionIds.has(sceneAction.id)) issues.push(path + ' duplicates SceneAction ID: ' + sceneAction.id);
+      sceneActionIds.add(sceneAction.id);
+      const action = actionsById.get(sceneAction.actionId);
+      if (!action) {
+        issues.push(path + '.actionId references a missing Action: ' + sceneAction.actionId);
+      } else {
+        if (!action.allowedParticipantKinds.includes('student')) {
+          issues.push(path + ' Action must allow student participants: ' + sceneAction.actionId);
+        }
+        if (action.cost !== undefined) {
+          issues.push(path + ' Action cannot declare actor/team resource cost; PlayerCost belongs to SceneActionDef');
+        }
+      }
+    }
     const enabledStudentActions = [...enabledIds]
       .map(id => actionsById.get(id))
       .filter((action): action is OperationActionDef => action?.allowedParticipantKinds.includes('student') === true);
@@ -306,6 +323,21 @@ export function validateOperationActionContent(
           issues.push('locations[' + locationIndex + '].combinationRules[' + ruleIndex + '] tag slots do not have enabled student Actions compatible with targetMatch ' + String(rule.targetMatch));
         }
       }
+    }
+  }
+
+  for (const [cardIndex, card] of (event.playerSceneDeck?.cards ?? []).entries()) {
+    const path = 'playerSceneDeck.cards[' + cardIndex + ']';
+    const action = actionsById.get(card.actionId);
+    if (!action) {
+      issues.push(path + '.actionId references a missing Action: ' + card.actionId);
+      continue;
+    }
+    if (!action.allowedParticipantKinds.includes('student')) {
+      issues.push(path + ' Action must allow student participants: ' + card.actionId);
+    }
+    if (action.cost !== undefined) {
+      issues.push(path + ' Action cannot declare actor/team resource cost; PlayerCost belongs to PlayerSceneCardDef');
     }
   }
 
@@ -368,6 +400,25 @@ export function validateOperationActionActorReferences(
     const enabledActions = location.enabledActionIds
       .map(id => actionsById.get(id))
       .filter((action): action is OperationActionDef => action !== undefined && action.allowedParticipantKinds.includes('student'));
+    for (const [sceneActionIndex, sceneAction] of (location.sceneActions ?? []).entries()) {
+      const action = actionsById.get(sceneAction.actionId);
+      if (!action || !action.allowedParticipantKinds.includes('student') || action.cost !== undefined) continue;
+      for (const initialization of actorInitializations) {
+        if (initialization.participantKind !== 'student'
+          || !initialization.profile.eligibleActionIds.includes(action.id)
+          || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) continue;
+        const source = actorsById.get(initialization.actorId);
+        if (source) {
+          validateActionResourceReferences(
+            event,
+            source,
+            action,
+            'locations[' + locationIndex + '].sceneActions[' + sceneActionIndex + '] for Actor ' + source.id,
+            issues,
+          );
+        }
+      }
+    }
     for (const [ruleIndex, rule] of location.combinationRules.entries()) {
       const slotAActions = enabledActions.filter(action => action.tagIds.includes(rule.inputTagIds[0]));
       const slotBActions = enabledActions.filter(action => action.tagIds.includes(rule.inputTagIds[1]));
@@ -401,6 +452,23 @@ export function validateOperationActionActorReferences(
         }
       }
     }
+  }
+
+  for (const [cardIndex, card] of (event.playerSceneDeck?.cards ?? []).entries()) {
+    const action = actionsById.get(card.actionId);
+    if (!action || !action.allowedParticipantKinds.includes('student') || action.cost !== undefined) continue;
+    let hasQualifiedStudent = false;
+    for (const initialization of actorInitializations) {
+      if (initialization.participantKind !== 'student'
+        || !initialization.profile.eligibleActionIds.includes(action.id)
+        || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) continue;
+      const source = actorsById.get(initialization.actorId);
+      if (source) {
+        hasQualifiedStudent = true;
+        validateActionResourceReferences(event, source, action, 'playerSceneDeck.cards[' + cardIndex + '] for Actor ' + source.id, issues);
+      }
+    }
+    if (!hasQualifiedStudent) issues.push('playerSceneDeck.cards[' + cardIndex + '] has no eligible student Action user: ' + action.id);
   }
 
   return issues;

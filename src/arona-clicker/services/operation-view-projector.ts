@@ -1,5 +1,7 @@
 import type { EventRun, OperationActorDef, OperationEventDef, OperationStudentProfileSnapshot } from '../contracts/operation';
 import type { OperationActionDef, OperationActionTargetDef } from '../contracts/operation-action';
+import type { OperationViewSceneAction } from '../contracts/operation-view';
+import type { OperationPlayerSceneCardInstanceDef } from '../contracts/operation';
 import type {
   OperationInterventionDraft,
   OperationPreparationContent,
@@ -13,6 +15,7 @@ import {
 import type { OperationView, OperationViewActionOption, OperationViewActor, OperationViewResolution } from '../contracts/operation-view';
 import { previewOperationIntervention, OperationInterventionPreviewError } from './operation-intervention-preview';
 import { resolveOperationCombinations } from './operation-combination-resolver';
+import { createOperationPlayerSceneCardInstances } from './operation-player-scene-deck';
 import { isOperationObjectiveSatisfied, isOperationOutcomeConditionSatisfied } from './operation-progress-evaluator';
 import { evaluateOperationRoutes } from './operation-route-evaluator';
 
@@ -231,6 +234,40 @@ function projectActor(
   };
 }
 
+function projectSceneActions(
+  run: EventRun,
+  content: OperationViewProjectionContent,
+): readonly OperationViewSceneAction[] {
+  const location = content.eventDefinition.locations.find(row => row.id === run.currentLocationId);
+  if (!location?.sceneActions) return [];
+  const actionsById = new Map(content.actionDefinitions.map(action => [action.id, action]));
+  const statesById = new Map(run.actorStates.map(actor => [actor.id, actor]));
+  const actorsById = new Map(content.eventDefinition.actors.map(actor => [actor.id, actor]));
+  const initializationsById = new Map(content.actors.map(actor => [actor.actorId, actor]));
+  return location.sceneActions.map(sceneAction => {
+    const action = actionsById.get(sceneAction.actionId);
+    const eligibleActorIds = content.eventDefinition.actors
+      .filter(actorDefinition => {
+        const state = statesById.get(actorDefinition.id);
+        const initialization = initializationsById.get(actorDefinition.id);
+        const actor = actorsById.get(actorDefinition.id);
+        return state?.participantKind === 'student' && state.hp > 0
+          && initialization?.participantKind === 'student' && actor !== undefined && action !== undefined
+          && action.allowedParticipantKinds.includes(state.participantKind)
+          && initialization.profile.eligibleActionIds.includes(action.id)
+          && action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id));
+      })
+      .map(actor => actor.id);
+    return {
+      id: sceneAction.id,
+      actionId: sceneAction.actionId,
+      scope: sceneAction.scope,
+      playerCost: sceneAction.playerCost,
+      eligibleActorIds,
+    };
+  });
+}
+
 export function projectOperationView(
   sourceRun: EventRun,
   content: OperationViewProjectionContent,
@@ -302,6 +339,7 @@ export function projectOperationView(
     teamStates: run.teamStates.map(team => ({ id: team.id, resources: { ...team.resources } })),
     locationProgress: { ...run.locationProgress },
     routeHistory: run.routeHistory.map(entry => ({ ...entry })),
+    locationEntryCostHistory: run.locationEntryCostHistory?.map(entry => ({ ...entry })) ?? [],
     currentRoutes: routeAvailability.options.map(({ route, available, lockedReason }) => ({
       routeId: route.id,
       targetLocationId: route.targetLocationId,
@@ -314,6 +352,14 @@ export function projectOperationView(
     })),
     totalLocationVisits: routeAvailability.totalLocationVisits,
     maxLocationVisits: content.eventDefinition.maxLocationVisits,
+    playerCost: run.playerRouteState.playerCost,
+    maxCarryCost: currentLocation?.maxCarryCost ?? null,
+    currentActionMode: currentLocation?.actionMode ?? null,
+    currentSceneActions: projectSceneActions(run, content),
+    playerCards: projectPlayerCards(run, content),
+    sceneActionBatchesUsed: run.locationProgress[run.currentLocationId]?.sceneActionBatchesUsed ?? 0,
+    sceneActionBatchesRemaining: Math.max(0,
+      (currentLocation?.sceneActionBatches ?? 0) - (run.locationProgress[run.currentLocationId]?.sceneActionBatchesUsed ?? 0)),
     basePreparedBeat: run.preparedBeat,
     effectivePreparedBeat: effectiveBeat && plans ? { ...effectiveBeat, actorPlans: [...plans] } : null,
     interventionDraft: run.interventionDraft,
@@ -330,4 +376,22 @@ export interface OperationViewProjectionContent {
   readonly eventDefinition: OperationEventDef;
   readonly actors: OperationPreparationContent['actors'];
   readonly actionDefinitions: readonly OperationActionDef[];
+  readonly playerSceneCardInstances?: readonly OperationPlayerSceneCardInstanceDef[];
+}
+
+function projectPlayerCards(
+  run: EventRun,
+  content: OperationViewProjectionContent,
+): OperationView['playerCards'] {
+  const instances = content.playerSceneCardInstances ?? createOperationPlayerSceneCardInstances(content.eventDefinition);
+  const byId = new Map(instances.map(card => [card.cardInstanceId, card]));
+  return {
+    drawPileCount: run.playerRouteState.cards.drawPile.length,
+    hand: run.playerRouteState.cards.hand.flatMap(cardInstanceId => {
+      const card = byId.get(cardInstanceId);
+      return card ? [{ ...card }] : [];
+    }),
+    discardCount: run.playerRouteState.cards.discard.length,
+    maxHandSize: content.eventDefinition.playerSceneDeck?.maxHandSize ?? 0,
+  };
 }

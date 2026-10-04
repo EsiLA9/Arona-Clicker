@@ -129,7 +129,7 @@ function eventDefinition(
     actors,
     ...(options.teams ? { teams: options.teams } : {}),
     ...(options.locations ? { locations: options.locations } : {}),
-    playerRouteState: { playerCost: 9, cards: { drawPile: [], hand: [], discard: [], played: [] } },
+    playerRouteState: { playerCost: 9 },
   };
 }
 

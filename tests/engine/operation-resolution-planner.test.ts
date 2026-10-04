@@ -102,7 +102,7 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
     heldItemIds: [],
     actors,
     teams: [{ id: TEAM_BLUE, resources: { energy: { initial: 0.3, min: 0, max: 1 } } }],
-    playerRouteState: { playerCost: 9, cards: { drawPile: [], hand: [], discard: [], played: [] } },
+    playerRouteState: { playerCost: 9 },
   };
   const actionDefinitions: OperationActionDef[] = [
     studentAction(ACTION_A, 'tag:a'),

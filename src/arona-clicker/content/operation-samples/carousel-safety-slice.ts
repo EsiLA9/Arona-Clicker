@@ -85,7 +85,6 @@ const eventDefinition: OperationEventDef = {
   ],
   playerRouteState: {
     playerCost: 0,
-    cards: { drawPile: [], hand: [], discard: [], played: [] },
   },
   randomSeed: 17,
 };

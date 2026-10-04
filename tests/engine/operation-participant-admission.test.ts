@@ -46,7 +46,7 @@ function eventDef(id = EVENT_ID): OperationEventDef {
       { id: 'test:actor:student-slot', type: 'student', hp: { initial: 4, min: 0, max: 4 } },
       { id: 'test:actor:opponent', type: 'opponent', hp: { initial: 5, min: 0, max: 5 } },
     ],
-    playerRouteState: { playerCost: 0, cards: { drawPile: [], hand: [], discard: [], played: [] } },
+    playerRouteState: { playerCost: 0 },
   };
 }
 

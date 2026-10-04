@@ -95,7 +95,7 @@ describe('Gameplay B carousel safety sample', () => {
     expect(app.operationEntry.getSnapshot()?.random.seed).toBe(17);
     expect(app.operationEntry.getSnapshot()?.playerRouteState).toEqual({
       playerCost: 0,
-      cards: { drawPile: [], hand: [], discard: [], played: [] },
+      cards: { drawPile: [], hand: [], discard: [] },
     });
 
     app.inits.enterInit('base:init:millennium');

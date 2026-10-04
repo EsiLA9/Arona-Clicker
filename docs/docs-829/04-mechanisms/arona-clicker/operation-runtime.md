@@ -1,6 +1,6 @@
 # 04-mechanisms/arona-clicker/operation-runtime — Gameplay B EventRun Runtime
 
-本文记录 AC 内 Gameplay B 的当前 EventRun 与战术 Beat Runtime。每个 `GameInstance` 私有持有一个局内 owner；操作方经受控入场和窄 facade 启动、查看及推进 Run。Beat 计划、干预草稿、战术结算和随机游标都属于易失 EventRun，不进入 AC 玩家存档状态。
+本文记录 AC 内 Gameplay B 的当前 EventRun、战术 Beat 与非战斗场景行为 Runtime。每个 `GameInstance` 私有持有一个局内 owner；操作方经受控入场和窄 facade 启动、查看及推进 Run。Beat/SceneAction 计划、玩家共享 Cost、有限卡组、结算与战术随机游标都属于易失 EventRun，不进入 AC 玩家存档状态。
 
 ## Runtime owner 与公开命令
 
@@ -14,6 +14,8 @@
 | `reviseIntervention({ runId, planVersion, draft })` | 校验预览后写入唯一干预槽，递增版本并重建基础计划。 |
 | `clearIntervention({ runId, planVersion })` | 清除已存草稿并递增版本；槽位已空时返回未变化快照。 |
 | `commitBeat({ runId, planVersion })` | 由当前 Run 中已存的计划与草稿执行一次战术结算。 |
+| `previewSceneActionBatch({ runId, planVersion, selections, cards? })` | 纯校验当前地点的完整 Individual/Global 批次；汇总 SceneAction 与当前手牌 SceneCard 的内容费用，不写 Run 或消费随机数。 |
+| `commitSceneActionBatch({ runId, planVersion, selections, cards? })` | 将 SceneAction 与零张或多张手牌合成一条 OperationResolution，一次扣 PlayerCost、递减批次数并将所用卡从 hand 移入 discard。 |
 | `transitionRoute({ runId, planVersion, routeId })` | 完成地点后按当前出口 Gate 转场；这是自动单出口和玩家多出口共用的唯一地点转场命令。 |
 
 Facade 不暴露 raw owner、任意 `applyStateDelta()`、`finish()`、`reset()`、`dispose()`、订阅接口或冻结的 Run rules。战术命令只接受当前 `runId` 和 `planVersion`；Commit 不接收行动、效果、支付、技能抽取或 Resolution 内容作为调用方输入。
@@ -33,21 +35,26 @@ owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`Opera
 | `eventState` | 有界数值轨道、已知事实 ID、持有物 ID。 |
 | `actorStates` | 事件 Actor 的 ID/type、HP/resources、可选 Team ID；GameInstance Run 另有参与者身份，学生携带派生 Profile snapshot。 |
 | `teamStates` | 每个声明 Team 的局部战术 resources。Team membership 只由 `OperationActorDef.teamId` 决定。 |
-| `playerRouteState` | 独立的 `playerCost` 数值和固定多重集的 drawPile、hand、discard、played 卡牌 ID 区。 |
-| `locationProgress` | 已声明 Location 的访问次数及完成标记；初始地点从一次访问开始。 |
-| `routeHistory` | 每次转场记录来源/目标地点、Route ID、离开结果及可选的已消费持有物。 |
+| `playerRouteState` | 与学生/队伍战术资源分开的共享 `playerCost`，以及只存物理 `cardInstanceId` 的 drawPile、hand、discard 三个互斥卡区。打出的牌直接进入 discard，不回洗。 |
+| `locationProgress` | 已声明 Location 的访问次数、完成标记与当前访问已消费的 SceneAction 批次数；每次新访问重置批次数。 |
+| `locationEntryCostHistory` | 每次进入地点记录访问序号、访问计数、costGain 与余额前后值；它与 `routeHistory` 一并属于 Run 快照。 |
+| `routeHistory` | 每次转场记录来源/目标地点、Route ID、离开结果、可选已消费持有物，以及配置了携带上限时的离场余额。 |
 | `preparedBeat` / `interventionDraft` | 当前版本的规范基础计划，以及最多一名学生的一槽干预草稿。低层结构测试 Run 可能没有战术内容，因此两者可为 `null`。 |
 | `resolutions` / `resolutionSequence` | 最近最多 32 条结算记录及单调递增序号。 |
 | `random` | `splitmix64-counter-v1`、事件 seed 和 `tacticalCursor`。 |
 | `planVersion` / `beatIndex` | Run 状态版本和已成功提交 Beat 数。 |
 
-EventRun 是每个 `GameInstance` 独立的易失状态，不写入 `PlayerState`、`InitSnapshot`、`SaveData`，也不通过 `GameView` 投影。`playerRouteState.playerCost` 与玩家卡牌区虽暂存在 Run 合同内，但它们不是 Team/Actor 战术资源；本战术规划、干预与结算不读取、不扣除 PlayerCost，也不抽取或打出玩家卡牌。
+EventRun 是每个 `GameInstance` 独立的易失状态，不写入 `PlayerState`、`InitSnapshot`、`SaveData`，也不通过 `GameView` 投影。事件起始余额由 `playerRouteState.playerCost` 给出；地点 `costGain` 在 Run 开始和每次新访问时各发放一次。合法路线提交在同一 detached Run 计划内先应用来源地点 `maxCarryCost`，再切换地点、发放目标 `costGain` 并按手牌上限抽牌；任一步骤失败都不会写回。SceneAction / SceneCard 的 PlayerCost 与 Actor/Team 战术资源分离，战术 Beat 不读取或支付 PlayerCost。
+
+事件可用 Seed 派生有限牌组的物理实例 ID 和初始牌序；独立牌组派生序列不推进 `random.tacticalCursor`。Run 保存实际抽牌顺序与三分区位置；达到 `maxHandSize` 时停止抽牌，未抽卡留在 drawPile，drawPile 耗尽或 discard 有牌时都不会回洗。牌定义、ActionDef 和牌实例索引不写入 Run。
 
 ## 行动内容与 PreparedBeat
 
 `OperationResolvedContent.actionDefinitions` 是本局 ActionDef 的唯一可信来源；`OperationEventDef.actionRequirements` 已删除。学生候选来自已入场 Profile 的 `actionPriorityIds` 和 `candidateActionIds`；对手/环境候选按其 `OperationParticipantSpec.candidateActionIds` 声明顺序读取。候选 ID 必须解析到完整 `OperationActionDef`，定义有限地声明参与者类型、能力、理由、标签、可选 Actor/Team 单项资源费、无目标或单 Actor 目标合同，以及 Actor HP/resource、Team resource 或事件数值轨道的有限 delta 效果。
 
-`OperationEventDef.locations[]` 同时保存每个 Location 的 ID、启用 Action、Combination、局部结局规则与 `routeEdges[]`。入口由 `initialLocationId` 指定，`maxLocationVisits` 限制单局总访问次数。RouteGate 只读取单个可选 `requiredHeldItemId`；内容验证要求所有 Route 目标和门禁物品已声明。Location 仍只过滤候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
+`OperationEventDef.locations[]` 同时保存每个 Location 的 ID、启用战术 Action、Combination、局部结局规则、路线和可选场景合同。非战斗场景可用 `actionMode` 选择 `individual` 或 `global`，配置有限 `sceneActionBatches`、SceneAction 薄包装、`costGain` 与 `maxCarryCost`。Individual 每批必须为每名存活学生各提交一项行为；Global 每批恰好提交一项行为，可带一名或多名合法目标。SceneActionDef 只引用 `OperationActionDef` 并声明 scope 与 PlayerCost；目标、资格和效果不复制。RouteGate 只读取单个可选 `requiredHeldItemId`；内容验证要求所有 Route 目标和门禁物品已声明。Location 仍只过滤战术候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
+
+有限玩家卡组位于事件定义的 `playerSceneDeck`：PlayerSceneCardDef 只声明卡 ID、ActionDef、PlayerCost、scene 时机和副本数。场景批次另可提交零张或多张当前 hand 卡实例；每张卡由同一份 `OperationActionDef` 提供效果与目标规则。SceneAction 与卡牌费用从内容定义汇总，在提交前统一校验余额；命令不能注入费用、Action 或效果。Planner 将 SceneAction/SceneCard 效果与 Beat 效果写入相同 OperationResolution 变化格式与同一个 Runtime 提交边界，卡牌只在该原子提交里从 hand 移入 discard。
 
 纯准备器 `prepareOperationBeat()` 接收最小 EventRun 快照与冻结内容，不接收 RNG、PlayerCost 或可变 owner。它按事件 Actor 声明顺序，为每位 Actor 生成一个 `studentAction`、`intent` 或 `wait`：学生按 Profile 候选次序，对手/环境按 ParticipantSpec 次序；每项需通过地点启用、能力、参与者类型、目标和当前资源检查。非学生没有 capability 来源，因此 Admission 拒绝其引用带能力门槛的 Action，不会忽略门槛。Action 仅支持无目标或单 Actor 目标；显式 `targetPriorityActorIds` 优先，其后按 Event Actor 声明顺序选取首个合法目标。准备期间按 Actor 顺序预留共享 Team 与个人 Actor 资源；本 Beat 产生的资源不会支付本 Beat 的行动费用。
 
@@ -69,13 +76,13 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 纯 `planOperationResolution()` 从 Commit 开始时的同一份冻结快照计算最终计划、唯一干预、行动费用、Combination、技能 roll 和数值变化。费用先从 Commit 起始 Actor/Team 余额按 Actor 声明顺序验证预留；行动、Intent、Combination、技能效果和支付对同一 numeric pool 汇总后只限幅一次。每项变化保留 before、requested delta、实际 delta、after 和来源，Resolution 不携带完整 Run 或规则定义。
 
-`commitBeat({ runId, planVersion })` 先校验当前 in-progress Run 与版本，再运行纯 planner。owner 校验候选批次与当前 Run、Location、计划版本和 RNG cursor 一致，把结算 delta 应用到 detached 候选 Run，并完成随机状态、Beat/Resolution 序号、草稿清除、历史 append 与下一 Beat 准备。所有步骤成功后只替换一次 Run slot，再发布 `beatResolved`。任何规划、校验、数值合并或下一 Beat 准备失败均不写 Run、cursor、历史或通知。
+`commitBeat({ runId, planVersion })` 先校验当前 in-progress Run 与版本，再运行纯 planner。owner 校验候选批次与当前 Run、Location、计划版本和 RNG cursor 一致，把结算 delta 应用到 detached 候选 Run，并完成随机状态、Beat/Resolution 序号、草稿清除、历史 append 与下一 Beat 准备。所有步骤成功后只替换一次 Run slot，再发布 `beatResolved`。`commitSceneActionBatch()` 复用同一个 `planOperationResolution()`、OperationResolution 容器与变更应用逻辑；不抽取战术随机数，只额外提交批次数、玩家 Cost 与牌区移动。任何规划、校验、费用、目标或下一 Beat 准备失败均不写 Run、随机流、历史或通知。
 
 每次成功状态变更都会推进 `planVersion`：Commit、有效 `applyStateDelta()`、Location complete/route transition 和 finish。Route 命令必须匹配当前 `runId` 与 `planVersion`。状态/Location 变化会清除过期草稿并重建当前规范计划；终局状态没有下一 Beat。最近一次已消费 `basePlanVersion` 的 Commit 重试在 stale/terminal 检查前返回同一条冻结 Resolution，不重复扣费、抽样、写入或通知；更早版本不重放，返回 stale。历史最多保留最近 32 条，`resolutionSequence` 不随裁剪回退。
 
 ## 其他状态转移与生命周期
 
-`applyStateDelta()` 对数值轨道、事实、持有物、Actor 和玩家路线状态先整体校验再写入。拒绝的批次无部分写入；玩家牌区 ID 多重集须保持初始牌组不变。`completeCurrentLocation()` 标记当前地点完成并评估出口：没有合法出口时调用事件终局判定，一个合法出口自动通过 `transitionRoute()` 前进，多个出口则等待玩家提交 Route ID。`transitionRoute()` 在 detached 候选 Run 上验证完成状态、版本、出口、访问上限和所需持有物，再消费门禁物品、保存来源结果、重置目标地点的本次进度、递增访问数并准备新地点；全部步骤成功后只替换一次 Run slot。任何转场错误都保留原 Run。Task 0224/0225 将把 Cost 携带/增量与地点抽牌依序接入同一入口。
+`applyStateDelta()` 对数值轨道、事实、持有物、Actor 和玩家路线状态先整体校验再写入。拒绝的批次无部分写入；牌区 ID 多重集须保持事件固定牌组的物理实例不变。`completeCurrentLocation()` 标记当前地点完成并评估出口：没有合法出口时调用事件终局判定，一个合法出口自动通过 `transitionRoute()` 前进，多个出口则等待玩家提交 Route ID。`transitionRoute()` 在 detached 候选 Run 上验证完成状态、版本、出口、访问上限和所需持有物，再应用离场 Cost 上限、消费门禁物品、保存来源结果、重置目标地点的本次进度、递增访问数、发放入场 Cost/抽牌并准备新地点；全部步骤成功后只替换一次 Run slot。任何转场错误都保留原 Run。
 
 `finish()` 只在当前 Location 已完成且没有合法出口时生成 `success`、`partialSuccess` 或 `failure` 的冻结 `EventResult`；终局 Run 不接受后续状态转移，重复结束返回已有结果。Run owner 的本地通知包括 `runStarted`、Location 进入/完成、`beatResolved` 和 `runFinished`，不扩展通用 Engine EventBus，也不从 facade 暴露订阅接口。
 
@@ -88,7 +95,7 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 ## 尚未覆盖的范围
 
-当前已有有界地图分支、回环、单持有物 Gate、Location/Event 目标与终局判定。当前 Action 效果可改 Actor/Team/数值轨道/事实/局内持有物；SceneAction、玩家场景卡、PlayerCost 携带与抽牌仍由 Task 0224/0225 接入。Datapack / Registry 作者表与 Run 保存/恢复分别由 Task 0220/0219 承接。Profile 中 `randomSkillRuleId` 只在本局规则提供对应有限技能定义并成功 Commit 时触发，不是随机抽取 AC 角色技能系统的运行入口。
+当前已有有界地图分支、回环、单持有物 Gate、Location/Event 目标与结局、Individual/Global SceneAction、共享 PlayerCost、固定有限玩家场景卡组与独立抽牌顺序。作者 Datapack / Registry 合同与 Run 保存/恢复分别由 Task 0220/0219 承接。Profile 中 `randomSkillRuleId` 只在本局规则提供对应有限技能定义并成功 Beat Commit 时触发，不是随机抽取 AC 角色技能系统的运行入口。
 
 ## 代码与测试
 
@@ -98,6 +105,6 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 - `operation-plan-preparation.ts`、`operation-target-selection.ts`、`operation-intervention-preview.ts`、`operation-combination-resolver.ts`、`operation-tactical-rng.ts`、`operation-resolution-planner.ts`：纯计划、干预、协同、局部随机与结算规划。
 - `src/arona-clicker/services/operation-runtime-service.ts`：Run owner、版本检查、原子提交、有限历史与生命周期通知。
 - `src/arona-clicker/runtime-options.ts`、`runtime-wiring.ts`、`runtime-game-instance.ts`：resolver 装配、私有 owner 和 GameInstance 生命周期清理。
-- 定向测试：`tests/engine/operation-runtime-service.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。
+- 定向测试：`tests/engine/operation-runtime-service.test.ts`、`operation-scene-actions.test.ts`、`operation-player-scene-deck.test.ts`、`gameplay-b-scene-action-sample.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。
 
 相关边界：[[docs/docs-829/01-architecture/data-flow]]、[[docs/docs-829/02-modules/arona-clicker]]、[[docs/docs-829/03-data-structures/player-state]]。

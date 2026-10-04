@@ -72,10 +72,25 @@ export interface OperationRouteEdgeDef {
   readonly consumeRequiredHeldItem?: boolean;
 }
 
+export type OperationSceneActionMode = 'individual' | 'global';
+
+/** A thin, location-scoped wrapper; all targeting and effects remain on OperationActionDef. */
+export interface OperationSceneActionDef {
+  readonly id: string;
+  readonly actionId: string;
+  readonly scope: OperationSceneActionMode;
+  readonly playerCost: number;
+}
+
 export interface OperationLocationDef {
   readonly id: string;
   readonly enabledActionIds: readonly string[];
   readonly combinationRules: readonly OperationCombinationRuleDef[];
+  readonly actionMode?: OperationSceneActionMode;
+  readonly sceneActions?: readonly OperationSceneActionDef[];
+  readonly sceneActionBatches?: number;
+  readonly costGain?: number;
+  readonly maxCarryCost?: number;
   readonly objectives?: readonly OperationObjectiveDef[];
   readonly partialOutcomes?: readonly OperationOutcomeConditionDef[];
   readonly failureConditions?: readonly OperationOutcomeConditionDef[];

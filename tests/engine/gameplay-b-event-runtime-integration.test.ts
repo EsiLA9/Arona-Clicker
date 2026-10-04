@@ -48,7 +48,6 @@ function eventDef(): OperationEventDef {
     ],
     playerRouteState: {
       playerCost: 2,
-      cards: { drawPile: ['test:card:inspect'], hand: [], discard: [], played: [] },
     },
     randomSeed: 17,
   };
@@ -118,7 +117,8 @@ describe('Gameplay B Operation entry integration', () => {
 
     expect('operationRuntime' in first).toBe(false);
     expect(Object.keys(first.operationEntry).sort()).toEqual([
-      'clearIntervention', 'commitBeat', 'getSnapshot', 'getView', 'previewIntervention', 'reviseIntervention', 'start', 'transitionRoute',
+      'clearIntervention', 'commitBeat', 'commitSceneActionBatch', 'getSnapshot', 'getView', 'previewIntervention',
+      'previewSceneActionBatch', 'reviseIntervention', 'start', 'transitionRoute',
     ]);
     expect('reset' in first.operationEntry).toBe(false);
     expect('dispose' in first.operationEntry).toBe(false);

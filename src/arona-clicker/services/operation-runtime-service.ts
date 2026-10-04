@@ -1,10 +1,13 @@
 import type {
   EventResult,
   EventRun,
+  OperationCardZones,
   OperationActorDef,
   OperationActorInitialization,
   OperationBoundedValueDef,
   OperationEventDef,
+  OperationPlayerSceneCardInstanceDef,
+  OperationLocationEntryCostRecord,
   OperationLifecycleEvent,
   OperationMembershipChange,
   OperationInterventionCommand,
@@ -19,6 +22,11 @@ import type {
   OperationTacticalRandomState,
   OperationTeamDef,
 } from '../contracts/operation';
+import type {
+  OperationSceneActionBatchCommand,
+  OperationSceneActionBatchPreview,
+  OperationSceneCardSelection,
+} from '../contracts/operation-scene-action';
 import type {
   OperationInterventionPreview,
   OperationInterventionDraft,
@@ -58,6 +66,12 @@ import {
 } from './operation-progress-evaluator';
 import { evaluateOperationRoutes } from './operation-route-evaluator';
 import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../contracts/operation';
+import {
+  createOperationPlayerSceneCardInstances,
+  discardOperationPlayerSceneCards,
+  drawOperationPlayerSceneCards,
+  shuffleOperationPlayerSceneDeck,
+} from './operation-player-scene-deck';
 
 interface MutableActorState {
   id: string;
@@ -85,10 +99,11 @@ interface MutableRun {
   teamStates: { id: string; resources: Record<string, number> }[];
   playerRouteState: {
     playerCost: number;
-    cards: { drawPile: string[]; hand: string[]; discard: string[]; played: string[] };
+    cards: { drawPile: string[]; hand: string[]; discard: string[] };
   };
-  locationProgress: Record<string, { visitCount: number; completed: boolean; beatCount: number; result: 'success' | 'partialSuccess' | 'failure' | null }>;
+  locationProgress: Record<string, { visitCount: number; completed: boolean; beatCount: number; sceneActionBatchesUsed?: number; result: 'success' | 'partialSuccess' | 'failure' | null }>;
   routeHistory: EventRun['routeHistory'][number][];
+  locationEntryCostHistory?: OperationLocationEntryCostRecord[];
   planVersion: number;
   beatIndex: number;
   preparedBeat: PreparedBeat | null;
@@ -106,6 +121,10 @@ interface RunRules {
   readonly actors: ReadonlyMap<string, OperationActorDef>;
   readonly teams: ReadonlyMap<string, OperationTeamDef>;
   readonly deckCounts: ReadonlyMap<string, number>;
+  readonly cardInstances: readonly OperationPlayerSceneCardInstanceDef[];
+  readonly cardInstancesById: ReadonlyMap<string, OperationPlayerSceneCardInstanceDef>;
+  readonly maxHandSize: number;
+  readonly locationEntryDraw: number;
   readonly tacticalContent: OperationResolutionTrustedContent | null;
 }
 
@@ -140,8 +159,9 @@ function defineRules(
   tacticalContent?: Omit<OperationResolutionTrustedContent, 'eventDefinition'>,
 ): RunRules {
   const cloned = deepFreeze(deepCopy(definition));
+  const cardInstances = createOperationPlayerSceneCardInstances(cloned);
   const frozenTacticalContent = tacticalContent
-    ? deepFreeze({ eventDefinition: cloned, ...deepCopy(tacticalContent) })
+    ? deepFreeze({ eventDefinition: cloned, ...deepCopy(tacticalContent), playerSceneCardInstances: cardInstances })
     : null;
   return {
     definition: cloned,
@@ -150,9 +170,41 @@ function defineRules(
     items: new Set(cloned.itemIds),
     actors: new Map(cloned.actors.map(actor => [actor.id, actor])),
     teams: new Map((cloned.teams ?? []).map(team => [team.id, team])),
-    deckCounts: cardCounts(cloned.playerRouteState.cards),
+    deckCounts: new Map(cardInstances.map(card => [card.cardInstanceId, 1])),
+    cardInstances,
+    cardInstancesById: new Map(cardInstances.map(card => [card.cardInstanceId, card])),
+    maxHandSize: cloned.playerSceneDeck?.maxHandSize ?? 0,
+    locationEntryDraw: cloned.playerSceneDeck?.locationEntryDraw ?? 0,
     tacticalContent: frozenTacticalContent,
   };
+}
+
+function hasLocationEntryCostRules(definition: OperationEventDef): boolean {
+  return definition.locations.some(location => location.costGain !== undefined || location.maxCarryCost !== undefined);
+}
+
+function applyLocationEntryCost(run: MutableRun, locationId: string, definition: OperationEventDef): void {
+  const location = getCurrentLocationDefinition(definition, locationId);
+  const gain = location?.costGain ?? 0;
+  if (gain === 0 && !run.locationEntryCostHistory) return;
+  const history = run.locationEntryCostHistory ?? (run.locationEntryCostHistory = []);
+  const progress = run.locationProgress[locationId];
+  if (!progress) throw new OperationRuntimeError(['Location progress is missing while applying entry Cost']);
+  const before = run.playerRouteState.playerCost;
+  const after = before + gain;
+  if (!Number.isFinite(after) || after > Number.MAX_SAFE_INTEGER) {
+    throw new OperationRuntimeError(['Location costGain exceeds the safe PlayerCost range']);
+  }
+  run.playerRouteState.playerCost = after;
+  if (!Number.isSafeInteger(history.length + 1)) throw new OperationRuntimeError(['Location entry Cost history cannot advance safely']);
+  history.push({
+    visitSequence: history.length + 1,
+    locationId,
+    visitCount: progress.visitCount,
+    costGain: gain,
+    balanceBefore: before,
+    balanceAfter: after,
+  });
 }
 
 function createRun(
@@ -161,9 +213,20 @@ function createRun(
   actorInitializations?: ReadonlyMap<string, OperationActorInitialization>,
 ): MutableRun {
   const definition = rules.definition;
+  const cards = drawOperationPlayerSceneCards({
+    drawPile: shuffleOperationPlayerSceneDeck(definition),
+    hand: [],
+    discard: [],
+  }, definition.playerSceneDeck?.initialDraw ?? 0, rules.maxHandSize);
   const locations = Object.fromEntries(definition.locations.map(location => [
     location.id,
-    { visitCount: location.id === definition.initialLocationId ? 1 : 0, completed: false, beatCount: 0, result: null },
+    {
+      visitCount: location.id === definition.initialLocationId ? 1 : 0,
+      completed: false,
+      beatCount: 0,
+      ...(location.sceneActionBatches !== undefined ? { sceneActionBatchesUsed: 0 } : {}),
+      result: null,
+    },
   ]));
   return {
     runId,
@@ -201,15 +264,11 @@ function createRun(
     }),
     playerRouteState: {
       playerCost: definition.playerRouteState.playerCost,
-      cards: {
-        drawPile: [...definition.playerRouteState.cards.drawPile],
-        hand: [...definition.playerRouteState.cards.hand],
-        discard: [...definition.playerRouteState.cards.discard],
-        played: [...definition.playerRouteState.cards.played],
-      },
+      cards: { drawPile: [...cards.drawPile], hand: [...cards.hand], discard: [...cards.discard] },
     },
     locationProgress: locations,
     routeHistory: [],
+    ...(hasLocationEntryCostRules(definition) ? { locationEntryCostHistory: [] } : {}),
     planVersion: 0,
     beatIndex: 0,
     preparedBeat: null,
@@ -274,17 +333,25 @@ function hasLocationOutcomeRules(definition: NonNullable<ReturnType<typeof getCu
     || (definition.partialOutcomes?.length ?? 0) > 0
     || (definition.failureConditions?.length ?? 0) > 0
     || definition.maxBeats !== undefined
+    || definition.sceneActionBatches !== undefined
   );
 }
 
 function evaluateLocationProgress(run: MutableRun, rules: RunRules): boolean {
   const progress = run.locationProgress[run.currentLocationId];
   if (!progress || progress.completed) return false;
-  const result = evaluateOperationLocationOutcome(
+  let result = evaluateOperationLocationOutcome(
     getCurrentLocationDefinition(rules.definition, run.currentLocationId),
     run.eventState,
     progress.beatCount,
   );
+  const location = getCurrentLocationDefinition(rules.definition, run.currentLocationId);
+  if (result === null && location?.sceneActionBatches !== undefined
+    && (progress.sceneActionBatchesUsed ?? 0) >= location.sceneActionBatches) {
+    const hasUnmetRequiredOutcome = (location.objectives ?? []).some(objective => objective.kind === 'primary')
+      || (location.partialOutcomes?.length ?? 0) > 0;
+    result = hasUnmetRequiredOutcome ? 'failure' : 'success';
+  }
   if (result === null) return false;
   progress.completed = true;
   progress.result = result;
@@ -296,6 +363,7 @@ function freezeEventResult(run: MutableRun, kind: OperationResultKind): EventRes
 }
 
 function resolutionPlannerSnapshot(run: MutableRun): OperationResolutionPlannerSnapshot {
+  const locationProgress = run.locationProgress[run.currentLocationId];
   return {
     runId: run.runId,
     eventId: run.eventId,
@@ -317,6 +385,13 @@ function resolutionPlannerSnapshot(run: MutableRun): OperationResolutionPlannerS
     knownFactIds: run.eventState.knownFactIds,
     heldItemIds: run.eventState.heldItemIds,
     randomState: run.random,
+    playerCost: run.playerRouteState.playerCost,
+    sceneActionBatchesUsed: locationProgress?.sceneActionBatchesUsed ?? 0,
+    playerCardZones: {
+      drawPile: [...run.playerRouteState.cards.drawPile],
+      hand: [...run.playerRouteState.cards.hand],
+      discard: [...run.playerRouteState.cards.discard],
+    },
   };
 }
 
@@ -354,6 +429,44 @@ function parseRouteCommand(value: unknown): OperationRouteCommand {
     throw new OperationRuntimeError(['route command must contain only runId, planVersion, and routeId']);
   }
   return { ...parseVersionCommand({ runId: value.runId, planVersion: value.planVersion }), routeId: value.routeId };
+}
+
+function parseSceneActionBatchCommand(value: unknown): OperationSceneActionBatchCommand {
+  if (!isRecord(value)
+    || Object.keys(value).some(key => key !== 'runId' && key !== 'planVersion' && key !== 'selections' && key !== 'cards')
+    || !Array.isArray(value.selections)
+    || (value.cards !== undefined && !Array.isArray(value.cards))) {
+    throw new OperationRuntimeError(['SceneAction command must contain only runId, planVersion, selections, and cards']);
+  }
+  const base = parseVersionCommand({ runId: value.runId, planVersion: value.planVersion });
+  const selections = value.selections.map((row, index) => {
+    if (!isRecord(row)
+      || Object.keys(row).some(key => key !== 'sceneActionId' && key !== 'actorId' && key !== 'targetActorIds')
+      || !nonEmptyId(row.sceneActionId) || !nonEmptyId(row.actorId)
+      || !Array.isArray(row.targetActorIds) || !row.targetActorIds.every(nonEmptyId)
+      || row.cardInstanceIds !== undefined) {
+      throw new OperationRuntimeError(['SceneAction selection ' + index + ' is malformed']);
+    }
+    return {
+      sceneActionId: row.sceneActionId,
+      actorId: row.actorId,
+      targetActorIds: [...row.targetActorIds] as string[],
+    };
+  });
+  const cards = (value.cards as unknown[] | undefined)?.map((row, index) => {
+    if (!isRecord(row)
+      || Object.keys(row).some(key => key !== 'cardInstanceId' && key !== 'actorId' && key !== 'targetActorIds')
+      || !nonEmptyId(row.cardInstanceId) || !nonEmptyId(row.actorId)
+      || !Array.isArray(row.targetActorIds) || !row.targetActorIds.every(nonEmptyId)) {
+      throw new OperationRuntimeError(['SceneCard selection ' + index + ' is malformed']);
+    }
+    return {
+      cardInstanceId: row.cardInstanceId,
+      actorId: row.actorId,
+      targetActorIds: [...row.targetActorIds] as string[],
+    } satisfies OperationSceneCardSelection;
+  });
+  return { ...base, selections, ...(cards !== undefined ? { cards } : {}) };
 }
 
 function toResolution(batch: OperationResolutionBatch, sequence: number): OperationResolution {
@@ -579,6 +692,7 @@ export class OperationRuntimeService {
       ? new Map(rules.tacticalContent.actorInitializations.map(actor => [actor.actorId, actor]))
       : undefined;
     const run = createRun(runId, rules, actorInitializationsById);
+    applyLocationEntryCost(run, run.currentLocationId, rules.definition);
     const initialHardFailure = hasOperationHardFailure(rules.definition, run.eventState);
     const initialLocationProgress = run.locationProgress[run.currentLocationId];
     let initialLocationCompleted = false;
@@ -614,6 +728,7 @@ export class OperationRuntimeService {
       eventDefinition: slot.rules.tacticalContent.eventDefinition,
       actors: slot.rules.tacticalContent.actorInitializations,
       actionDefinitions: slot.rules.tacticalContent.actionDefinitions,
+      playerSceneCardInstances: slot.rules.cardInstances,
     });
   }
 
@@ -686,7 +801,8 @@ export class OperationRuntimeService {
     if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
     const run = slot.run;
     const latestResolution = run.resolutions[run.resolutions.length - 1];
-    if (command.runId === run.runId && latestResolution?.basePlanVersion === command.planVersion) {
+    if (command.runId === run.runId && latestResolution?.sceneBatch === undefined
+      && latestResolution?.basePlanVersion === command.planVersion) {
       return latestResolution;
     }
     if (run.status !== 'inProgress') throw new OperationRuntimeError(['the EventRun is already terminal']);
@@ -771,6 +887,130 @@ export class OperationRuntimeService {
     }
     if (locationCompleted && !eventResult) this.advanceCompletedLocation();
     return resolution;
+  }
+
+  previewSceneActionBatch(input: OperationSceneActionBatchCommand): OperationSceneActionBatchPreview {
+    this.assertUsable();
+    const command = parseSceneActionBatchCommand(input);
+    const batch = this.planSceneActionBatch(command);
+    const scene = batch.sceneBatch;
+    if (!scene) throw new OperationRuntimeError(['SceneAction planner did not produce scene batch details']);
+    const slot = this.slot!;
+    const location = getCurrentLocationDefinition(slot.rules.definition, slot.run.currentLocationId)!;
+    return frozenCopy({
+      runId: batch.runId,
+      eventId: batch.eventId,
+      basePlanVersion: batch.basePlanVersion,
+      locationId: batch.locationId,
+      actionMode: location.actionMode!,
+      selections: scene.selections,
+      cards: scene.cards,
+      cost: {
+        balanceBefore: scene.playerCostBefore,
+        totalCost: scene.playerCostPaid,
+        balanceAfter: scene.playerCostAfter,
+      },
+      sceneActionBatchesUsed: scene.sceneActionBatchesUsed,
+      sceneActionBatchesLimit: location.sceneActionBatches!,
+    });
+  }
+
+  commitSceneActionBatch(input: OperationSceneActionBatchCommand): OperationResolution {
+    this.assertCanMutate();
+    const command = parseSceneActionBatchCommand(input);
+    const slot = this.slot;
+    if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
+    const latest = slot.run.resolutions[slot.run.resolutions.length - 1];
+    if (command.runId === slot.run.runId && latest?.sceneBatch !== undefined
+      && latest.basePlanVersion === command.planVersion) return latest;
+    const batch = this.planSceneActionBatch(command);
+    const scene = batch.sceneBatch!;
+    const next = deepCopy(slot.run);
+    applyResolutionChanges(next, batch.numericChanges, slot.rules);
+    applyResolutionMembershipChanges(next, batch.membershipChanges, slot.rules);
+    const progress = next.locationProgress[next.currentLocationId];
+    if (!progress || progress.sceneActionBatchesUsed === undefined) {
+      throw new OperationRuntimeError(['current Location SceneAction progress is missing']);
+    }
+    next.playerRouteState.playerCost = scene.playerCostAfter;
+    const playedCardIds = scene.cards.map(card => card.cardInstanceId);
+    if (playedCardIds.length > 0) {
+      const cards = discardOperationPlayerSceneCards(next.playerRouteState.cards, playedCardIds);
+      next.playerRouteState.cards = { drawPile: [...cards.drawPile], hand: [...cards.hand], discard: [...cards.discard] };
+    }
+    progress.sceneActionBatchesUsed = scene.sceneActionBatchesUsed;
+    if (next.resolutionSequence >= Number.MAX_SAFE_INTEGER) {
+      throw new OperationRuntimeError(['resolutionSequence cannot advance safely']);
+    }
+    next.resolutionSequence += 1;
+    const resolution = toResolution(batch, next.resolutionSequence);
+    next.resolutions = [...next.resolutions, resolution].slice(-32);
+    next.planVersion = advancePlanVersion(slot.run);
+    next.interventionDraft = null;
+    const hardFailure = hasOperationHardFailure(slot.rules.definition, next.eventState);
+    let locationCompleted = false;
+    if (hardFailure) {
+      progress.completed = true;
+      progress.result = 'failure';
+      next.status = 'failure';
+      next.preparedBeat = null;
+    } else {
+      locationCompleted = evaluateLocationProgress(next, slot.rules);
+      refreshPreparedBeat(next, slot.rules);
+    }
+    const eventResult = hardFailure ? freezeEventResult(next, 'failure') : null;
+    slot.run = next;
+    if (eventResult) slot.result = eventResult;
+    this.publish({
+      type: 'sceneActionBatchResolved',
+      runId: next.runId,
+      eventId: next.eventId,
+      locationId: next.currentLocationId,
+      basePlanVersion: command.planVersion,
+      resolutionSequence: resolution.resolutionSequence,
+    });
+    if (locationCompleted || hardFailure) {
+      this.publish({ type: 'locationCompleted', runId: next.runId, eventId: next.eventId, locationId: next.currentLocationId });
+    }
+    if (eventResult) this.publish({ type: 'runFinished', runId: eventResult.runId, eventId: eventResult.eventId, kind: eventResult.kind });
+    if (locationCompleted && !eventResult) this.advanceCompletedLocation();
+    return resolution;
+  }
+
+  private planSceneActionBatch(command: OperationSceneActionBatchCommand): OperationResolutionBatch {
+    const slot = this.slot;
+    if (!slot) throw new OperationRuntimeError(['there is no EventRun']);
+    if (slot.run.status !== 'inProgress') throw new OperationRuntimeError(['the EventRun is already terminal']);
+    assertCommandMatchesRun(command, slot.run);
+    if (slot.run.locationProgress[slot.run.currentLocationId]?.completed) {
+      throw new OperationRuntimeError(['current Location is already complete']);
+    }
+    const trustedContent = slot.rules.tacticalContent;
+    if (!trustedContent) throw new OperationRuntimeError(['this EventRun has no admitted Action definitions']);
+    try {
+      const batch = planOperationResolution({
+        snapshot: resolutionPlannerSnapshot(slot.run),
+        trustedContent,
+        preparedBeat: slot.run.preparedBeat!,
+        interventionDraft: slot.run.interventionDraft,
+        sceneBatch: { selections: command.selections, cards: command.cards },
+      });
+      if (batch.runId !== slot.run.runId || batch.eventId !== slot.run.eventId
+        || batch.basePlanVersion !== slot.run.planVersion || batch.locationId !== slot.run.currentLocationId
+        || batch.randomCursorBefore !== slot.run.random.tacticalCursor
+        || batch.randomCursorAfter !== batch.nextRandomState.tacticalCursor
+        || batch.randomCursorAfter !== batch.randomCursorBefore
+        || batch.nextRandomState.seed !== slot.run.random.seed
+        || batch.nextRandomState.algorithm !== slot.run.random.algorithm) {
+        throw new OperationRuntimeError(['SceneAction Resolution does not match its commit-start Run snapshot']);
+      }
+      return batch;
+    } catch (error) {
+      const diagnostics = error instanceof OperationResolutionPlannerError
+        ? [error.message]
+        : [error instanceof Error ? error.message : 'SceneAction planning failed'];
+      throw new OperationRuntimeError(diagnostics);
+    }
   }
 
   /** Atomically applies checked local state changes; it emits no per-field events. */
@@ -937,6 +1177,12 @@ export class OperationRuntimeService {
     // Build and validate the entire destination Run before publishing the sole owner write.
     const next = deepCopy(slot.run);
     const fromLocationId = next.currentLocationId;
+    const sourceLocation = getCurrentLocationDefinition(slot.rules.definition, fromLocationId);
+    const playerCostBeforeExit = next.playerRouteState.playerCost;
+    const playerCostAfterCarryLimit = sourceLocation?.maxCarryCost === undefined
+      ? playerCostBeforeExit
+      : Math.min(playerCostBeforeExit, sourceLocation.maxCarryCost);
+    next.playerRouteState.playerCost = playerCostAfterCarryLimit;
     let consumedHeldItemId: string | undefined;
     if (route.consumeRequiredHeldItem && route.requiredHeldItemId) {
       const itemIndex = next.eventState.heldItemIds.indexOf(route.requiredHeldItemId);
@@ -950,13 +1196,31 @@ export class OperationRuntimeService {
       routeId: route.id,
       toLocationId: route.targetLocationId,
       ...(consumedHeldItemId ? { consumedHeldItemId } : {}),
+      ...(sourceLocation?.maxCarryCost !== undefined || sourceLocation?.costGain !== undefined
+        ? { playerCostBeforeExit, playerCostAfterCarryLimit }
+        : {}),
     });
     next.currentLocationId = route.targetLocationId;
     const nextProgress = next.locationProgress[route.targetLocationId];
     nextProgress.visitCount += 1;
     nextProgress.beatCount = 0;
+    if (nextProgress.sceneActionBatchesUsed !== undefined) nextProgress.sceneActionBatchesUsed = 0;
+    else if (getCurrentLocationDefinition(slot.rules.definition, route.targetLocationId)?.sceneActionBatches !== undefined) {
+      nextProgress.sceneActionBatchesUsed = 0;
+    }
     nextProgress.completed = false;
     nextProgress.result = null;
+    applyLocationEntryCost(next, route.targetLocationId, slot.rules.definition);
+    const enteredCards = drawOperationPlayerSceneCards(
+      next.playerRouteState.cards,
+      slot.rules.locationEntryDraw,
+      slot.rules.maxHandSize,
+    );
+    next.playerRouteState.cards = {
+      drawPile: [...enteredCards.drawPile],
+      hand: [...enteredCards.hand],
+      discard: [...enteredCards.discard],
+    };
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
 
@@ -1052,8 +1316,8 @@ export class OperationRuntimeService {
     }
     if (change.playerCost !== undefined) {
       if (typeof change.playerCost !== 'number' || !Number.isFinite(change.playerCost)
-        || change.playerCost < 0) {
-        issues.push('playerRouteState.playerCost is outside its bounds');
+        || change.playerCost < 0 || change.playerCost > Number.MAX_SAFE_INTEGER) {
+        issues.push('playerRouteState.playerCost is outside the safe numeric range');
       } else {
         next.playerRouteState.playerCost = change.playerCost;
       }

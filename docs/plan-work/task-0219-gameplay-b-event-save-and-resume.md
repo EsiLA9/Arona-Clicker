@@ -15,9 +15,9 @@
 - EventRun 快照放入主 `SaveData` 的可选 `operationRun` 字段，继续使用现有唯一存档键；不新增 key/slot、第二套存档介质或快照专属版本号。`SaveData.version` 管存档格式，事件内容兼容只由 `eventId + resumeVersion` 管理。
 - 快照保存 `eventId`、`resumeVersion` 与 EventRun 权威状态；OperationRuntime 负责恢复 Runtime 对象，SaveSystem 只读写主存档。
 - 在玩家可暂停的位置保存 current Location、地点访问、轨道/事实、Actor 临时状态、PreparedBeat、InterventionDraft、RNG seed/cursor、终局/日志信息。
-- 保存路线共享 PlayerCost、每次地点访问的 `costGain` 是否已应用，以及有限卡组 drawPile/hand/discard 区域、抽牌顺序和抽牌流状态；恢复不得重复发放入场 Cost 或重抽已抽卡。
+- 保存路线共享 PlayerCost、每次地点访问的 `costGain` 记录，以及有限卡组 drawPile/hand/discard 区域和当前 draw 顺序；恢复不得重复发放入场 Cost 或重抽已抽卡。
 - 若在 SceneAction 批次待提交时允许暂停，保存完整逐人/全局选择、卡牌选择与费用快照；拒绝/撤销后保存的 Run 必须维持原 PlayerCost 与卡牌区。
-- 区分战术随机流与玩家卡组抽取流，分别保存可继续的状态；任一流的预览不得消费随机数。
+- Event Seed 只用于派生固定卡组的初始洗牌顺序；顺序生成后保存在 drawPile，后续抽牌只移动列表头，不再推进牌组随机游标。存档不另存一个无后续用途的牌组 RNG cursor；预览不得消费战术随机数或改变牌区。
 - PreparedBeat/InterventionDraft 是已向玩家展示的待提交事实，存档直接保留；OperationView 和索引可从 Run/Registry 重建，不存档。
 - 只在有效状态命令或明确存档点形成 checkpoint；hover、滚动、只读预览不触发全存档序列化。
 - Resolution/事件日志保持有界；地点访问、批次数与卡组上限保证 Run 和存档体积有限，不另做字节 cap benchmark。
@@ -46,7 +46,7 @@
 
 ## Data / API
 
-- `SaveData.operationRun`：`eventId`、`resumeVersion`、地点状态/访问收益标记、ActorState、EventState、共享 PlayerCost、玩家卡组三分区与抽牌状态、PreparedBeat、InterventionDraft、随机流位置、有限 Resolution 摘要。
+- `SaveData.operationRun`：`eventId`、`resumeVersion`、地点状态与访问 Cost 记录、ActorState、EventState、共享 PlayerCost、玩家卡组三分区和固定 draw 顺序、PreparedBeat、InterventionDraft、战术 RNG cursor、有限 Resolution 摘要。
 - 恢复顺序固定为：加载主 Save → 让 0213 生命周期先清除内存 Run → 找到 EventDef 并校验 `eventId + resumeVersion` → 重建 EventRun、随机流和待提交状态 → 再创建 OperationView。版本或引用校验失败时不创建半恢复 Run。
 - 不引入独立存档 key/slot 或自动解析 Datapack graph 计算内容 Hash。
 - 定义副本、Registry lookup 索引、OperationView、DOM/UI 状态不进入 snapshot；缓存均从现有 Datapack/Registry 重建。
@@ -59,7 +59,7 @@
 
 - [ ] 在 Commit 前保存包含一次学生行动修订的 Run，恢复后看到相同 PreparedBeat/InterventionDraft；Commit 结果与不中断时相同。
 - [ ] 在路线切换后保存并恢复，当前 Location、访问次数和 EventState 保持一致。
-- [ ] 恢复后 PlayerCost、地点 `costGain` 访问标记、有限卡组 drawPile/hand/discard、抽牌顺序及卡组 RNG 与保存前一致；恢复不重领 Cost、不重抽卡。
+- [ ] 恢复后 PlayerCost、地点 `costGain` 访问记录、有限卡组 drawPile/hand/discard 与保存的 draw 顺序一致；恢复不重领 Cost、不重抽卡，也不重洗卡组。
 - [ ] SceneAction 或玩家卡批次待提交时保存/恢复，继续提交与无中断执行结果一致；拒绝批次不改变已保存的费用、卡牌分区或随机流。
 - [ ] RNG seed/cursor 恢复后，不重掷既有预备结果，也不跳过下一次应发生的随机结算。
 - [ ] 损坏 snapshot、未知事件/角色引用或 `resumeVersion` 不兼容均返回清楚诊断，不生成半恢复 Runtime。
@@ -70,7 +70,7 @@
 
 ## Tests
 
-- **Unit：**主 SaveData.operationRun 往返、字段/角色引用诊断、resumeVersion 变化拒绝、PlayerCost/三分区卡组与随机流恢复。
+- **Unit：**主 SaveData.operationRun 往返、字段/角色引用诊断、resumeVersion 变化拒绝、PlayerCost/三分区牌区与已洗牌 draw 顺序恢复、战术 RNG 恢复。
 - **Runtime：**Commit 前/后、地点之间与事件终局恢复；对比 uninterrupted replay。
 - **Integration：**主 SaveSystem 存取、0213 load 清理后显式恢复 Runtime，奖励提交幂等。
 - **API/Integration：**暂停点、恢复结果和拒绝原因可由 Runtime/Save facade 查询；不做玩家侧界面或信息流交互。
@@ -87,7 +87,7 @@
 
 ## 当前核验与剩余工作
 
-当前核对到 SaveSystem 使用固定主存档键；V1 选择在主 SaveData 增加可选 `operationRun`。`SaveData.version` 管格式，EventDef 的 `resumeVersion` 管内容兼容；不建设内容 Hash。保存/恢复覆盖路线 Cost、入场收益标记、三分区卡组、抽牌状态和待提交计划。
+当前核对到 SaveSystem 使用固定主存档键；V1 选择在主 SaveData 增加可选 `operationRun`。`SaveData.version` 管格式，EventDef 的 `resumeVersion` 管内容兼容；不建设内容 Hash。保存/恢复覆盖路线 Cost、地点入场收益记录、三分区卡组/已洗牌 draw 顺序、战术随机状态和待提交计划；卡组不维护洗牌后的随机游标。
 
 ## 相关路由
 

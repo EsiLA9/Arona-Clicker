@@ -17,11 +17,6 @@
 
 - [[task-0217-gameplay-b-objectives-and-partial-outcomes]]：事件目标、Runtime 结果与只读投影；不施工玩家交互 UI。
 
-### 玩法 B 接入 AC：场景行为与玩家路线经济服务（暂不施工信息流交互）
-
-- [[task-0224-gameplay-b-scene-actions-and-route-cost]]：Individual/Global 批次 API、共享 PlayerCost 与地点入场增量/离场携带上限。
-- [[task-0225-gameplay-b-finite-player-scene-card-deck]]：有界玩家场景卡组服务、Seed 抽牌与跨地点牌区状态；交互表现延至 0222。
-
 ### 玩法 B 接入 AC：内容合同、续局与正式交付
 
 - [[task-0220-gameplay-b-datapack-contracts-and-registry]]：事件内容的 Datapack / Registry 契约。
@@ -35,6 +30,8 @@
 - [[archive/task-0228-theme-derived-background-unified-authoring]]：调查主题派生背景与自定义背景图层的模型、合并、渲染及编辑入口差异；后续实现另立 Task。
 - [[archive/task-0227-init-theme-selector-only]]：Init 声明主题只用于外部选择页；游戏运行时不再应用 Init 的颜色、背景或 Presentation。
 - [[archive/task-0226-ui-theme-color-only-inheritance]]：父子宿主不再回退复用父级背景图层，子级保留主题色作用域继承并使用自身默认表现。
+- [[archive/task-0225-gameplay-b-finite-player-scene-card-deck]]：有限玩家场景牌组、独立派生初始牌序、地点抽牌与 hand→discard 原子结算。
+- [[archive/task-0224-gameplay-b-scene-actions-and-route-cost]]：Individual/Global 场景批次、共享 PlayerCost、入场收益/离场上限与统一路线转场。
 - [[archive/task-0215-gameplay-b-prepared-actions-and-intervention-resolution]]：PreparedBeat、Intent、有限指挥与确定性结算；U1–U9 均已完成，2026-10-05 按 Task Owner 指示归档。
 - [[task-0218-gameplay-b-causal-locations-and-route-selection]]：单一 Location/Route 合同、持有物门槛、分支/有界回环、唯一转场入口与固定样例；Runtime/View/文档/GALHCG 闭环完成。
 - [[archive/task-0214-gameplay-b-student-participation-and-autonomy]]：完成学生准入、Actor/Profile 快照及机制文档与 GALHCG 收尾。

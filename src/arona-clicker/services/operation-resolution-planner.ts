@@ -30,11 +30,13 @@ import type {
   OperationResolutionTeamSnapshot,
   OperationResolutionValueTarget,
 } from '../contracts/operation-resolution';
+import type { OperationSceneActionSelection, OperationSceneCardSelection } from '../contracts/operation-scene-action';
 import { OPERATION_WAIT_ACTION_ID } from '../contracts/operation';
 import { previewOperationIntervention } from './operation-intervention-preview';
 import { resolveOperationCombinations } from './operation-combination-resolver';
 import { prepareOperationBeat } from './operation-plan-preparation';
 import { rollOperationStudentSkills } from './operation-tactical-rng';
+import { createOperationPlayerSceneCardInstances } from './operation-player-scene-deck';
 
 interface DecimalParts {
   readonly coefficient: bigint;
@@ -820,10 +822,231 @@ function skillRandomState(input: OperationResolutionPlannerInput): OperationTact
   return value;
 }
 
+function sceneTargetIsRelated(
+  event: OperationEventDef,
+  sourceActorId: string,
+  targetActorId: string,
+  relation: Extract<OperationActionDef['target'], { readonly kind: 'actor' }>['relation'],
+): boolean {
+  const source = event.actors.find(actor => actor.id === sourceActorId);
+  const target = event.actors.find(actor => actor.id === targetActorId);
+  if (!source || !target) return false;
+  if (relation === 'self') return source.id === target.id;
+  if (relation === 'any') return true;
+  if (source.teamId === undefined || target.teamId === undefined) return false;
+  return relation === 'sameTeam' ? source.teamId === target.teamId : source.teamId !== target.teamId;
+}
+
+function planSceneBatch(input: OperationResolutionPlannerInput, indexes: PlannerIndexes): OperationResolutionBatch {
+  const request = input.sceneBatch;
+  if (!request || !Array.isArray(request.selections) || request.selections.length === 0) {
+    fail('operation:resolution:invalid-content', 'SceneAction batch must contain at least one selection');
+  }
+  const { snapshot, trustedContent } = input;
+  const event = trustedContent.eventDefinition;
+  const location = event.locations.find(row => row.id === snapshot.currentLocationId);
+  if (!location?.actionMode || !Array.isArray(location.sceneActions) || !Number.isSafeInteger(location.sceneActionBatches)
+    || location.sceneActionBatches! <= 0) {
+    fail('operation:resolution:invalid-content', 'current Location has no finite SceneAction contract');
+  }
+  const batchesUsed = snapshot.sceneActionBatchesUsed;
+  if (!Number.isSafeInteger(batchesUsed) || batchesUsed! < 0 || batchesUsed! >= location.sceneActionBatches!) {
+    fail('operation:resolution:stale-plan', 'current Location has no SceneAction batches remaining');
+  }
+  const playerCost = snapshot.playerCost;
+  if (typeof playerCost !== 'number' || !Number.isFinite(playerCost) || playerCost < 0 || playerCost > Number.MAX_SAFE_INTEGER) {
+    fail('operation:resolution:invalid-snapshot', 'shared PlayerCost balance is invalid');
+  }
+  const activeStudents = snapshot.actors.filter(actor => actor.participantKind === 'student' && actor.hp > 0);
+  if (activeStudents.length === 0) fail('operation:resolution:invalid-snapshot', 'SceneAction batch has no active Student participants');
+  if (location.actionMode === 'individual' && request.selections.length !== activeStudents.length) {
+    fail('operation:resolution:invalid-content', 'Individual batches require one selection for every active Student');
+  }
+  if (location.actionMode === 'global' && request.selections.length !== 1) {
+    fail('operation:resolution:invalid-content', 'Global batches require exactly one SceneAction selection');
+  }
+
+  const actorInitializations = new Map(trustedContent.actorInitializations.map(row => [row.actorId, row]));
+  const sceneActions = new Map(location.sceneActions.map(row => [row.id, row]));
+  const selectedActorIds = new Set<string>();
+  const selected: { readonly request: OperationSceneActionSelection; readonly actionId: string; readonly playerCost: number; readonly targets: readonly (string | null)[] }[] = [];
+  let totalCost = decimalParts(0);
+  for (const candidate of request.selections) {
+    if (!isRecord(candidate) || !isNonEmptyId(candidate.sceneActionId) || !isNonEmptyId(candidate.actorId)
+      || !Array.isArray(candidate.targetActorIds) || !candidate.targetActorIds.every(isNonEmptyId)
+      || (candidate.cardInstanceIds !== undefined && (!Array.isArray(candidate.cardInstanceIds) || candidate.cardInstanceIds.length > 0))) {
+      fail('operation:resolution:invalid-content', 'SceneAction selection has an invalid shape or includes unavailable SceneCards');
+    }
+    const selection = candidate as unknown as OperationSceneActionSelection;
+    const sourceState = indexes.actorStatesById.get(selection.actorId);
+    const sceneAction = sceneActions.get(selection.sceneActionId);
+    const action = sceneAction ? indexes.actionDefinitionsById.get(sceneAction.actionId) : undefined;
+    const initialization = actorInitializations.get(selection.actorId);
+    if (!sceneAction || sceneAction.scope !== location.actionMode || !action || action.cost !== undefined) {
+      fail('operation:resolution:invalid-content', 'selection references an unavailable SceneAction or an Action with a separate resource cost');
+    }
+    if (!sourceState || sourceState.participantKind !== 'student' || sourceState.hp <= 0 || selectedActorIds.has(selection.actorId)) {
+      fail('operation:resolution:invalid-content', 'SceneAction performer must be a unique active Student');
+    }
+    if (!action.allowedParticipantKinds.includes('student') || !initialization || initialization.participantKind !== 'student'
+      || !initialization.profile.eligibleActionIds.includes(action.id)
+      || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) {
+      fail('operation:resolution:invalid-content', 'performer is not qualified for Action ' + action.id);
+    }
+    if (location.actionMode === 'individual' && !activeStudents.some(actor => actor.actorId === selection.actorId)) {
+      fail('operation:resolution:invalid-content', 'Individual batches must include each active Student exactly once');
+    }
+    if (action.target.kind === 'none') {
+      if (selection.targetActorIds.length !== 0) fail('operation:resolution:invalid-content', 'Action does not accept Actor targets: ' + action.id);
+      selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, targets: [null] });
+    } else {
+      if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
+        || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
+        || new Set(selection.targetActorIds).size !== selection.targetActorIds.length) {
+        fail('operation:resolution:invalid-content', 'selected Actor target count is invalid for Action ' + action.id);
+      }
+      for (const targetActorId of selection.targetActorIds) {
+        if (!indexes.actorStatesById.has(targetActorId)
+          || !sceneTargetIsRelated(event, selection.actorId, targetActorId, action.target.relation)) {
+          fail('operation:resolution:invalid-content', 'selected target is outside the Action target relation: ' + targetActorId);
+        }
+      }
+      selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, targets: selection.targetActorIds });
+    }
+    selectedActorIds.add(selection.actorId);
+    totalCost = addDecimal(totalCost, decimalParts(sceneAction.playerCost));
+  }
+  if (location.actionMode === 'individual' && activeStudents.some(actor => !selectedActorIds.has(actor.actorId))) {
+    fail('operation:resolution:invalid-content', 'Individual batches must include each active Student exactly once');
+  }
+  const cardSelections = request.cards ?? [];
+  if (!Array.isArray(cardSelections)) fail('operation:resolution:invalid-content', 'SceneCard selections must be an array');
+  const handIds = snapshot.playerCardZones?.hand;
+  if (!Array.isArray(handIds)) fail('operation:resolution:invalid-snapshot', 'current Player SceneCard hand is missing');
+  const cardInstances = trustedContent.playerSceneCardInstances ?? createOperationPlayerSceneCardInstances(event);
+  const cardInstancesById = new Map(cardInstances.map(card => [card.cardInstanceId, card]));
+  const selectedCardIds = new Set<string>();
+  const selectedCards: { readonly request: OperationSceneCardSelection; readonly instance: (typeof cardInstances)[number]; readonly actionId: string; readonly targets: readonly (string | null)[] }[] = [];
+  for (const candidate of cardSelections) {
+    if (!isRecord(candidate) || !isNonEmptyId(candidate.cardInstanceId) || !isNonEmptyId(candidate.actorId)
+      || !Array.isArray(candidate.targetActorIds) || !candidate.targetActorIds.every(isNonEmptyId)) {
+      fail('operation:resolution:invalid-content', 'SceneCard selection has an invalid shape');
+    }
+    const selection = candidate as unknown as OperationSceneCardSelection;
+    const instance = cardInstancesById.get(selection.cardInstanceId);
+    if (!instance || !handIds.includes(selection.cardInstanceId) || selectedCardIds.has(selection.cardInstanceId)) {
+      fail('operation:resolution:invalid-content', 'SceneCard must be a unique instance currently in hand: ' + selection.cardInstanceId);
+    }
+    if (instance.timing !== 'scene') fail('operation:resolution:invalid-content', 'SceneCard timing does not match the current SceneAction batch');
+    const actorState = indexes.actorStatesById.get(selection.actorId);
+    const initialization = actorInitializations.get(selection.actorId);
+    const action = indexes.actionDefinitionsById.get(instance.actionId);
+    if (!actorState || actorState.participantKind !== 'student' || actorState.hp <= 0
+      || !initialization || initialization.participantKind !== 'student'
+      || !action || action.cost !== undefined || !action.allowedParticipantKinds.includes('student')
+      || !initialization.profile.eligibleActionIds.includes(action.id)
+      || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) {
+      fail('operation:resolution:invalid-content', 'SceneCard Action has no qualified active Student performer: ' + instance.actionId);
+    }
+    if (action.target.kind === 'none') {
+      if (selection.targetActorIds.length !== 0) fail('operation:resolution:invalid-content', 'SceneCard Action does not accept Actor targets: ' + action.id);
+      selectedCards.push({ request: selection, instance, actionId: action.id, targets: [null] });
+    } else {
+      if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
+        || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
+        || new Set(selection.targetActorIds).size !== selection.targetActorIds.length) {
+        fail('operation:resolution:invalid-content', 'SceneCard target count is invalid for Action ' + action.id);
+      }
+      for (const targetActorId of selection.targetActorIds) {
+        if (!indexes.actorStatesById.has(targetActorId)
+          || !sceneTargetIsRelated(event, selection.actorId, targetActorId, action.target.relation)) {
+          fail('operation:resolution:invalid-content', 'SceneCard target is outside the Action target relation: ' + targetActorId);
+        }
+      }
+      selectedCards.push({ request: selection, instance, actionId: action.id, targets: selection.targetActorIds });
+    }
+    selectedCardIds.add(selection.cardInstanceId);
+    totalCost = addDecimal(totalCost, decimalParts(instance.playerCost));
+  }
+  const totalCostNumber = decimalToNumber(totalCost, 'SceneAction batch PlayerCost');
+  if (totalCostNumber > Number.MAX_SAFE_INTEGER) {
+    fail('operation:resolution:invalid-content', 'SceneAction batch PlayerCost exceeds the safe numeric range');
+  }
+  const remainingCost = subtractDecimal(decimalParts(playerCost), totalCost);
+  if (compareDecimal(remainingCost, decimalParts(0)) < 0) fail('operation:resolution:unaffordable', 'SceneAction batch exceeds the shared PlayerCost balance');
+  const nextCost = decimalToNumber(remainingCost, 'Remaining PlayerCost');
+
+  const buckets = new Map<string, ValueBucket>();
+  const membershipChanges = new Map<string, OperationResolutionMembershipChange>();
+  for (const row of selected) {
+    const action = indexes.actionDefinitionsById.get(row.actionId)!;
+    for (const targetActorId of row.targets) {
+      validateEffectList(action.effects, row.request.actorId, targetActorId, indexes, snapshot);
+      addEffectList(action.effects, row.request.actorId, targetActorId, effectIndex => ({
+        kind: 'sceneAction', actorId: row.request.actorId, sceneActionId: row.request.sceneActionId,
+        actionId: row.actionId, targetActorId, effectIndex,
+      }), buckets, membershipChanges, indexes, snapshot);
+    }
+  }
+  for (const row of selectedCards) {
+    const action = indexes.actionDefinitionsById.get(row.actionId)!;
+    for (const targetActorId of row.targets) {
+      validateEffectList(action.effects, row.request.actorId, targetActorId, indexes, snapshot);
+      addEffectList(action.effects, row.request.actorId, targetActorId, effectIndex => ({
+        kind: 'sceneCard', cardInstanceId: row.request.cardInstanceId, actorId: row.request.actorId,
+        actionId: row.actionId, targetActorId, effectIndex,
+      }), buckets, membershipChanges, indexes, snapshot);
+    }
+  }
+  const randomState = skillRandomState(input);
+  const selections = selected.map(row => ({
+    sceneActionId: row.request.sceneActionId,
+    actorId: row.request.actorId,
+    targetActorIds: row.request.targetActorIds.slice(),
+  }));
+  const resolvedCards = selectedCards.map(row => ({
+    cardInstanceId: row.request.cardInstanceId,
+    actorId: row.request.actorId,
+    targetActorIds: row.request.targetActorIds.slice(),
+    actionId: row.actionId,
+    playerCost: row.instance.playerCost,
+  }));
+  const usedAfter = batchesUsed! + 1;
+  if (!Number.isSafeInteger(usedAfter)) fail('operation:resolution:invalid-snapshot', 'SceneAction batch count cannot advance safely');
+  return freezeTree({
+    runId: snapshot.runId,
+    eventId: snapshot.eventId,
+    basePlanVersion: snapshot.planVersion,
+    locationId: snapshot.currentLocationId,
+    actorPlans: [],
+    intervention: null,
+    payments: [],
+    combinations: { planVersion: snapshot.planVersion, locationId: snapshot.currentLocationId, matches: [] },
+    studentSkillChecks: [],
+    randomCursorBefore: randomState.tacticalCursor,
+    randomCursorAfter: randomState.tacticalCursor,
+    numericChanges: resolveChanges(buckets, indexes, input),
+    membershipChanges: resolveMembershipChanges(membershipChanges),
+    sceneBatch: {
+      selections,
+      cards: resolvedCards,
+      playerCostBefore: playerCost,
+      playerCostPaid: totalCostNumber,
+      playerCostAfter: nextCost,
+      sceneActionBatchesUsed: usedAfter,
+    },
+    nextRandomState: randomState,
+  });
+}
+
 /** Plans all payments, rolls, combinations, and local deltas without writing EventRun. */
 export function planOperationResolution(input: OperationResolutionPlannerInput): OperationResolutionBatch {
   if (!isRecord(input)) fail('operation:resolution:invalid-snapshot', 'planner input must be an object');
   const indexes = buildIndexes(input);
+  if (input.sceneBatch !== undefined) return planSceneBatch(input, indexes);
+  if (!input.preparedBeat || input.interventionDraft === undefined) {
+    fail('operation:resolution:invalid-content', 'Beat planning requires a stored PreparedBeat and intervention draft slot');
+  }
   const preparationInput = preparationSnapshot(input);
   const content = preparationContent(input);
   let canonicalBase: PreparedBeat;

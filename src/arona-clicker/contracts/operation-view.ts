@@ -4,6 +4,7 @@ import type { OperationActionCostDef } from './operation-action';
 import type { OperationInterventionDraft, OperationPreparedActorPlan, PreparedBeat } from './operation-beat';
 import type { OperationResolution } from './operation-resolution';
 import type { OperationRouteTransitionRecord } from './operation';
+import type { OperationLocationEntryCostRecord } from './operation';
 
 /** UI-safe candidate row: stable IDs and reasons, without exposing the Action definition. */
 export interface OperationViewActionOption {
@@ -44,6 +45,29 @@ export interface OperationViewOutcomeCondition {
   readonly id: string;
   readonly description: string;
   readonly met: boolean;
+}
+
+export interface OperationViewSceneAction {
+  readonly id: string;
+  readonly actionId: string;
+  readonly scope: 'individual' | 'global';
+  readonly playerCost: number;
+  readonly eligibleActorIds: readonly string[];
+}
+
+export interface OperationViewSceneCard {
+  readonly cardInstanceId: string;
+  readonly cardDefId: string;
+  readonly actionId: string;
+  readonly playerCost: number;
+  readonly timing: 'scene';
+}
+
+export interface OperationViewPlayerCards {
+  readonly drawPileCount: number;
+  readonly hand: readonly OperationViewSceneCard[];
+  readonly discardCount: number;
+  readonly maxHandSize: number;
 }
 
 export interface OperationViewRouteOption {
@@ -95,9 +119,17 @@ export interface OperationView {
   readonly teamStates: EventRun['teamStates'];
   readonly locationProgress: EventRun['locationProgress'];
   readonly routeHistory: readonly OperationRouteTransitionRecord[];
+  readonly locationEntryCostHistory: readonly OperationLocationEntryCostRecord[];
   readonly currentRoutes: readonly OperationViewRouteOption[];
   readonly totalLocationVisits: number;
   readonly maxLocationVisits: number;
+  readonly playerCost: number;
+  readonly playerCards: OperationViewPlayerCards;
+  readonly maxCarryCost: number | null;
+  readonly currentActionMode: 'individual' | 'global' | null;
+  readonly currentSceneActions: readonly OperationViewSceneAction[];
+  readonly sceneActionBatchesUsed: number;
+  readonly sceneActionBatchesRemaining: number;
   readonly basePreparedBeat: PreparedBeat | null;
   /** Includes the current intervention draft when one is active. */
   readonly effectivePreparedBeat: PreparedBeat | null;

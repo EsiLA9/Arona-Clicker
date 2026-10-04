@@ -29,7 +29,7 @@ function event(actors: readonly OperationActorDef[], teams: readonly string[] = 
     heldItemIds: [],
     actors,
     teams: teams.map(id => ({ id })),
-    playerRouteState: { playerCost: 0, cards: { drawPile: [], hand: [], discard: [], played: [] } },
+    playerRouteState: { playerCost: 0 },
   };
 }
 

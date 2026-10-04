@@ -65,11 +65,12 @@ function validateBoundedValue(value: unknown, path: string, issues: string[]): v
 /** Parses the finite card zones and reports malformed IDs for both definitions and local deltas. */
 export function readOperationCardZones(value: unknown, path: string, issues: string[]): OperationCardZones | null {
   if (!isOperationRecord(value)) {
-    issues.push(path + ' must define drawPile, hand, discard, and played');
+    issues.push(path + ' must define drawPile, hand, and discard');
     return null;
   }
   const zones: Record<string, string[]> = {};
-  for (const zone of ['drawPile', 'hand', 'discard', 'played'] as const) {
+  rejectUnsupportedFields(value, ['drawPile', 'hand', 'discard'], path, issues);
+  for (const zone of ['drawPile', 'hand', 'discard'] as const) {
     const cards = value[zone];
     if (!Array.isArray(cards)) {
       issues.push(path + '.' + zone + ' must be an array');
@@ -87,7 +88,7 @@ export function readOperationCardZones(value: unknown, path: string, issues: str
 
 export function operationCardCounts(zones: OperationCardZones): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const zone of [zones.drawPile, zones.hand, zones.discard, zones.played]) {
+  for (const zone of [zones.drawPile, zones.hand, zones.discard]) {
     for (const cardId of zone) counts.set(cardId, (counts.get(cardId) ?? 0) + 1);
   }
   return counts;
@@ -244,8 +245,48 @@ function validateLocations(
     if (!isOperationRecord(entry) || !isNonEmptyOperationId(entry.id)) {
       return;
     }
-    rejectUnsupportedFields(entry, ['id', 'enabledActionIds', 'combinationRules', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats', 'routeEdges'], path, issues);
+    rejectUnsupportedFields(entry, ['id', 'enabledActionIds', 'combinationRules', 'actionMode', 'sceneActions', 'sceneActionBatches', 'costGain', 'maxCarryCost', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats', 'routeEdges'], path, issues);
     collectIds(entry.enabledActionIds, path + '.enabledActionIds', issues);
+    const hasSceneContract = entry.actionMode !== undefined || entry.sceneActions !== undefined || entry.sceneActionBatches !== undefined;
+    if (hasSceneContract) {
+      if (entry.actionMode !== 'individual' && entry.actionMode !== 'global') {
+        issues.push(path + '.actionMode must be individual or global');
+      }
+      if (!Array.isArray(entry.sceneActions) || entry.sceneActions.length === 0) {
+        issues.push(path + '.sceneActions must contain at least one scene action');
+      }
+      if (!Number.isSafeInteger(entry.sceneActionBatches) || Number(entry.sceneActionBatches) <= 0) {
+        issues.push(path + '.sceneActionBatches must be a positive safe integer');
+      }
+      if (Array.isArray(entry.sceneActions)) {
+        const sceneActionIds = new Set<string>();
+        entry.sceneActions.forEach((action, actionIndex) => {
+          const actionPath = path + '.sceneActions[' + actionIndex + ']';
+          if (!isOperationRecord(action)) {
+            issues.push(actionPath + ' must be a SceneAction object');
+            return;
+          }
+          rejectUnsupportedFields(action, ['id', 'actionId', 'scope', 'playerCost'], actionPath, issues);
+          if (!isNonEmptyOperationId(action.id)) issues.push(actionPath + '.id must be a non-empty SceneAction ID');
+          else if (sceneActionIds.has(action.id)) issues.push(path + '.sceneActions contains duplicate ID: ' + action.id);
+          else sceneActionIds.add(action.id);
+          if (!isNonEmptyOperationId(action.actionId)) issues.push(actionPath + '.actionId must be a non-empty Action ID');
+          if (action.scope !== 'individual' && action.scope !== 'global') issues.push(actionPath + '.scope must be individual or global');
+          else if (action.scope !== entry.actionMode) issues.push(actionPath + '.scope must match the Location actionMode');
+          if (typeof action.playerCost !== 'number' || !Number.isFinite(action.playerCost) || action.playerCost < 0
+            || action.playerCost > Number.MAX_SAFE_INTEGER) {
+            issues.push(actionPath + '.playerCost must be a non-negative finite number in the safe numeric range');
+          }
+        });
+      }
+    }
+    for (const field of ['costGain', 'maxCarryCost'] as const) {
+      const amount = entry[field];
+      if (amount !== undefined && (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0
+        || amount > Number.MAX_SAFE_INTEGER)) {
+        issues.push(path + '.' + field + ' must be a non-negative finite number in the safe numeric range');
+      }
+    }
     validateObjectives(entry.objectives, trackIds, factIds, path + '.objectives', issues);
     validateOutcomeConditions(entry.partialOutcomes, trackIds, factIds, path + '.partialOutcomes', issues);
     validateOutcomeConditions(entry.failureConditions, trackIds, factIds, path + '.failureConditions', issues);
@@ -431,11 +472,51 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   if (!isOperationRecord(raw.playerRouteState)) {
     issues.push('playerRouteState must be an object');
   } else {
+    rejectUnsupportedFields(raw.playerRouteState, ['playerCost'], 'playerRouteState', issues);
     const playerCost = raw.playerRouteState.playerCost;
-    if (typeof playerCost !== 'number' || !Number.isFinite(playerCost) || playerCost < 0) {
-      issues.push('playerRouteState.playerCost must be a non-negative finite number');
+    if (typeof playerCost !== 'number' || !Number.isFinite(playerCost) || playerCost < 0
+      || playerCost > Number.MAX_SAFE_INTEGER) {
+      issues.push('playerRouteState.playerCost must be a non-negative finite number in the safe numeric range');
     }
-    readOperationCardZones(raw.playerRouteState.cards, 'playerRouteState.cards', issues);
+  }
+
+  if (raw.playerSceneDeck !== undefined) {
+    if (!isOperationRecord(raw.playerSceneDeck)) {
+      issues.push('playerSceneDeck must be an object');
+    } else {
+      rejectUnsupportedFields(raw.playerSceneDeck, ['cards', 'initialDraw', 'locationEntryDraw', 'maxHandSize'], 'playerSceneDeck', issues);
+      if (!Array.isArray(raw.playerSceneDeck.cards) || raw.playerSceneDeck.cards.length === 0) {
+        issues.push('playerSceneDeck.cards must contain at least one card definition');
+      }
+      for (const field of ['initialDraw', 'locationEntryDraw'] as const) {
+        const count = raw.playerSceneDeck[field];
+        if (!Number.isSafeInteger(count) || Number(count) < 0) issues.push('playerSceneDeck.' + field + ' must be a non-negative safe integer');
+      }
+      if (!Number.isSafeInteger(raw.playerSceneDeck.maxHandSize) || Number(raw.playerSceneDeck.maxHandSize) <= 0) {
+        issues.push('playerSceneDeck.maxHandSize must be a positive safe integer');
+      }
+      if (Array.isArray(raw.playerSceneDeck.cards)) {
+        const cardIds = new Set<string>();
+        raw.playerSceneDeck.cards.forEach((card, index) => {
+          const path = 'playerSceneDeck.cards[' + index + ']';
+          if (!isOperationRecord(card)) {
+            issues.push(path + ' must be a PlayerSceneCard definition');
+            return;
+          }
+          rejectUnsupportedFields(card, ['id', 'actionId', 'playerCost', 'timing', 'copies'], path, issues);
+          if (!isNonEmptyOperationId(card.id)) issues.push(path + '.id must be a non-empty card definition ID');
+          else if (cardIds.has(card.id)) issues.push('playerSceneDeck.cards contains duplicate ID: ' + card.id);
+          else cardIds.add(card.id);
+          if (!isNonEmptyOperationId(card.actionId)) issues.push(path + '.actionId must be a non-empty Action ID');
+          if (typeof card.playerCost !== 'number' || !Number.isFinite(card.playerCost) || card.playerCost < 0
+            || card.playerCost > Number.MAX_SAFE_INTEGER) {
+            issues.push(path + '.playerCost must be a non-negative finite number in the safe numeric range');
+          }
+          if (card.timing !== 'scene') issues.push(path + '.timing must be scene');
+          if (!Number.isSafeInteger(card.copies) || Number(card.copies) <= 0) issues.push(path + '.copies must be a positive safe integer');
+        });
+      }
+    }
   }
 
   if (raw.randomSeed !== undefined && !Number.isSafeInteger(raw.randomSeed)) {

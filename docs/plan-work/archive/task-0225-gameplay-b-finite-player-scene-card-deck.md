@@ -1,6 +1,6 @@
 # Task 0225 — 玩法 B 有限玩家场景卡组
 
-状态：proposed — 等待 Task 0224 的 SceneAction 与共享费用合同完成
+状态：completed — 固定场景牌组、独立派生初始牌序、起始/地点抽牌和同批结算均已实现并验证；Task 0220/0219/0221/0222 可依赖此状态语义。
 
 ## 目标
 
@@ -56,15 +56,15 @@
 
 ## Acceptance
 
-- [ ] 相同 Event 与 Seed 产生相同的物理 `cardInstanceId` 和初始 draw 顺序；牌组随机流独立于 Task 0215 战术随机流。
-- [ ] 每张物理卡有唯一实例 ID；重复卡名不会合并成一张牌，同一实例在任一时刻只属于一个区域。
-- [ ] 起始抽牌、地点入场抽牌和手牌上限由内容明确控制；达到上限不丢牌，抽牌堆耗尽后不从其他区域补牌。
-- [ ] 手牌可跨 Location 保留；成功打出的卡从 hand 进入 discard，discard 不回洗到 draw；不存在独立 played 区或玩家弃牌命令。
-- [ ] 一张卡只能从当前 hand 选择，并且只能在非战斗 SceneAction 批次使用；战斗 Beat 或不匹配场景时机的使用被拒绝。
-- [ ] PlayerSceneCardDef 只引用 OperationActionDef；选卡与 SceneAction 同批校验，费用只计一次，效果与行动进入同一 Resolution，成功后实例只从 hand 移到 discard 一次。
-- [ ] 实际转场进入 Location 时，抽牌由 `transitionRoute(routeId)` 统一提交；若转场任一部分失败，地点、Cost、持有物、抽牌顺序及牌区均保持不变。
-- [ ] 资源不足、无效目标、重复卡实例、卡牌不在手牌或批次过期时整批拒绝；PlayerCost、事件状态、随机游标和所有卡牌区域保持不变。
-- [ ] 同一 Seed 与输入序列产生相同卡牌抽取、区域变化及 Resolution 记录；卡组状态始终受内容上限约束。
+- [x] 相同 Event 与 Seed 产生相同的物理 `cardInstanceId` 和初始 draw 顺序；独立派生的牌组洗牌不推进 Task 0215 战术随机流。
+- [x] 每张物理卡有唯一实例 ID；副本不会合并成一张牌，同一实例在任一时刻只属于一个区域。
+- [x] 起始抽牌、地点入场抽牌和手牌上限由内容明确控制；达到上限不丢牌，抽牌堆耗尽后不从其他区域补牌。
+- [x] 手牌可跨 Location 保留；成功打出的卡从 hand 进入 discard，discard 不回洗到 draw；不存在独立 played 区或玩家弃牌命令。
+- [x] 一张卡只能从当前 hand 选择，并且只能在非战斗 SceneAction 批次使用；战斗 Beat 或不匹配场景时机的使用被拒绝。
+- [x] PlayerSceneCardDef 只引用 OperationActionDef；选卡与 SceneAction 同批校验，费用只计一次，效果与行动进入同一 Resolution，成功后实例只从 hand 移到 discard 一次。
+- [x] 实际转场进入 Location 时，抽牌由 `transitionRoute(routeId)` 统一提交；转场任一部分失败时，地点、Cost、持有物、抽牌顺序及牌区均保持不变。
+- [x] 资源不足、无效目标、重复卡实例、卡牌不在手牌或批次过期时整批拒绝；PlayerCost、事件状态、战术 RNG 和所有卡牌区域保持不变。
+- [x] 同一 Seed 与输入序列产生相同卡牌抽取、区域变化及 Resolution 记录；Run 持有的物理卡数量由声明副本数约束。
 
 ## Tests
 
@@ -79,15 +79,14 @@
 - 依赖 Task 0224 的 EventRun PlayerCost、SceneAction 批次原子提交与统一 Resolution；并传递依赖 Task 0213–0218。Task 0220 是后续声明合同/内容校验 Task，不是本 Runtime 卡组逻辑的前置。
 - Task 0219、0220、0221、0222 的存档、内容合同、作者流程与正式样例均须依赖 Task 0225；本 Task 不修改这些既有任务文档。
 
-## Documentation / GALHCG
+## Receipt（2026-10-05）
 
-- 本 Task Receipt 收集 Operation 场景卡组的机制页候选、Owner 与证据路径；单独收尾时不写 GALHCG。
-- Task 0225 完成后，一次性委派子 Agent 汇总 Task 0224–0225 的 SceneAction/PlayerCost/SceneCard 语义，批量更新相关当前机制文档/GALHCG 并验证 freshness；单张卡牌、卡组实例和数值不建节点。
-- Read Set：Task 0215、0219、0224 与 0220–0222、目标 Runtime / Registry / Save 源码和测试、[[docs/ai/task-read-set-routing]]、[[docs/ai/galhcg-project-map]]。
-
-## 当前核验与剩余工作
-
-已将 Draft 0204 确认的有限玩家场景卡组规则拆为 EventRun 状态、抽牌和 SceneAction 提交要求；未实现卡组接口、Datapack 合同、存档编码或测试。施工时由 Task 0220 定稿内容层级和数值上限。
+- 内容合同：`OperationEventDef.playerSceneDeck` 声明固定牌定义、起始/入场抽牌数和手牌上限；`PlayerSceneCardDef` 只引用 ActionDef 并声明 PlayerCost、scene 时机和副本数。
+- 实例与抽牌：`operation-player-scene-deck.ts` 依 `(event Seed, cardDefId, copyOrdinal)` 生成稳定 `cardInstanceId`，用独立派生 shuffle 对顺序洗牌；Run 保存顺序与 drawPile/hand/discard，后续抽牌不推进战术 RNG，也不回洗 discard。
+- 提交：`OperationSceneActionBatchCommand.cards` 只能选择当前手牌实例；Planner 从冻结 Event 内容解析对应 Action/费用，和 SceneAction 费用一并验证。统一 Resolution 应用效果，原子提交同时扣费并执行 hand→discard。
+- 投影：OperationView 暴露手牌实例的 Action ID/PlayerCost、draw/discard 数量及手牌上限，未实现交互 UI。
+- 示例与测试：游乐园样例现覆盖起始/地点抽牌、牌组 Seed、卡与 SceneAction 联合费用、目标效果、hand→discard 以及随后路线转场；`operation-player-scene-deck.test.ts` 与 `operation-scene-actions.test.ts` 验证实例稳定、手牌上限、拒绝原子性、不回洗和 RNG 隔离。
+- 核验：同批定向 Operation 回归 62 tests 通过，`npx tsc --noEmit` 通过；机制页与 GALHCG 已合并更新。GALHCG 复用现有 `Operation EventRun Runtime` / `Operation Student Profile Admission` Concepts，没有新建近义概念；运行时节点保留 20 份可一次完整核验的核心 Evidence，全部 47 条直接 `maps_to` 和 1 条相关关系均完成新鲜度核验。发现 8 条历史 Evidence 因测试/样例内容变化而 stale，已用当前版本令牌更新并复核为 fresh。作者内容硬上限、存档编码、正式 Datapack 与玩家 UI 由 Task 0220、0219、0221、0222 承接。
 
 ## 相关路由
 
@@ -97,3 +96,5 @@
 - [[task-0215-gameplay-b-prepared-actions-and-intervention-resolution]]
 - [[task-0219-gameplay-b-event-save-and-resume]]
 - [[task-0220-gameplay-b-datapack-contracts-and-registry]]
+- [[task-0221-gameplay-b-authoring-and-content-validation-workflow]]
+- [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]]
