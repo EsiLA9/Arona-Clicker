@@ -32,6 +32,7 @@ import type {
   OperationResolutionPlannerSnapshot,
   OperationResolutionTrustedContent,
 } from '../contracts/operation-resolution';
+import type { OperationView } from '../contracts/operation-view';
 import {
   isNonEmptyOperationId as nonEmptyId,
   isOperationRecord as isRecord,
@@ -45,6 +46,7 @@ import { validateOperationActionActorReferences, validateOperationActionContent 
 import { prepareOperationBeat } from './operation-plan-preparation';
 import { previewOperationIntervention, OperationInterventionPreviewError } from './operation-intervention-preview';
 import { planOperationResolution, OperationResolutionPlannerError } from './operation-resolution-planner';
+import { projectOperationView } from './operation-view-projector';
 import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../contracts/operation';
 
 interface MutableActorState {
@@ -499,6 +501,17 @@ export class OperationRuntimeService {
 
   getSnapshot(): EventRun | null {
     return this.slot ? frozenCopy(this.slot.run) : null;
+  }
+
+  getView(expectedRunId?: string): OperationView | null {
+    this.assertUsable();
+    const slot = this.slot;
+    if (!slot || (expectedRunId !== undefined && expectedRunId !== slot.run.runId) || !slot.rules.tacticalContent) return null;
+    return projectOperationView(slot.run, {
+      eventDefinition: slot.rules.tacticalContent.eventDefinition,
+      actors: slot.rules.tacticalContent.actorInitializations,
+      actionDefinitions: slot.rules.tacticalContent.actionDefinitions,
+    });
   }
 
   getResult(): EventResult | null {

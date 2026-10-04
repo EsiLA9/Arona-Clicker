@@ -3,6 +3,7 @@ import type { PlayerState } from '../types/state';
 import type { EventRun, OperationInterventionCommand, OperationRunVersionCommand } from '../contracts/operation';
 import type { OperationInterventionPreview } from '../contracts/operation-beat';
 import type { OperationResolution } from '../contracts/operation-resolution';
+import type { OperationView } from '../contracts/operation-view';
 import type { OperationAdmission } from '../contracts/operation-participant';
 import type { OperationContentResolver } from '../contracts/operation-content-resolver';
 import type { OperationRuntimeService } from './operation-runtime-service';
@@ -20,6 +21,7 @@ export interface OperationEntryContext {
 export interface OperationEntryFacade {
   start(eventId: string, characterIds: readonly Character[]): EventRun;
   getSnapshot(): EventRun | null;
+  getView(expectedRunId?: string): OperationView | null;
   previewIntervention(input: OperationInterventionCommand): OperationInterventionPreview;
   reviseIntervention(input: OperationInterventionCommand): EventRun;
   clearIntervention(input: OperationRunVersionCommand): EventRun;
@@ -39,6 +41,7 @@ export function createOperationEntry(options: CreateOperationEntryOptions): {
   const facade: OperationEntryFacade = Object.freeze({
     start: service.start.bind(service),
     getSnapshot: service.getSnapshot.bind(service),
+    getView: service.getView.bind(service),
     previewIntervention: service.previewIntervention.bind(service),
     reviseIntervention: service.reviseIntervention.bind(service),
     clearIntervention: service.clearIntervention.bind(service),
@@ -72,6 +75,8 @@ class OperationEntryService {
   }
 
   getSnapshot(): EventRun | null { return this.#owner.getSnapshot(); }
+
+  getView(expectedRunId?: string): OperationView | null { return this.#owner.getView(expectedRunId); }
 
   previewIntervention(input: OperationInterventionCommand): OperationInterventionPreview {
     return this.#owner.previewIntervention(input);
