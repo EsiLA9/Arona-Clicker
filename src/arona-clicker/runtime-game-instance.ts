@@ -33,6 +33,9 @@ import type { AchievementViewItem } from './read-model/achievement-view';
 import { OperationObservationStore } from './operation-observation';
 import type { OperationObservation, OperationObservationInput } from './contracts/operation-observation';
 import { OperationRuntimeService } from './services/operation-runtime-service';
+import { createOperationEntry } from './services/operation-entry-service';
+import type { OperationEntryFacade } from './services/operation-entry-service';
+import { emptyOperationContentResolver } from './contracts/operation-content-resolver';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
 import { buildSaveData } from './runtime-save-codec';
 import { restoreFromSave } from './runtime-save';
@@ -143,11 +146,13 @@ export class GameInstance {
   readonly userThemeService!: UserThemeService;
   /** Spot 商店交易门面。 */
   readonly shopService!: ShopService;
-  /** Gameplay B 的局内 EventRun owner；Run 快照为 detached read-only copy。 */
-  readonly operationRuntime!: OperationRuntimeService;
+  /** Gameplay B 的 ID-only 入场与 detached read-only Run 快照入口。 */
+  private _operationEntry!: OperationEntryFacade;
+  get operationEntry(): OperationEntryFacade { return this._operationEntry; }
 
   // 运行时状态
   private _state!: PlayerState;
+  #operationRuntimeOwner = new OperationRuntimeService();
   private _tagResidue: TagOverrideResidue = { spotTagOverrides: {} };
   private runtimeAreaTopology: readonly RuntimeAreaTopologyConnection[] = [];
   private readonly operationObservationStore = new OperationObservationStore();
@@ -161,8 +166,14 @@ export class GameInstance {
       setState: next => { this._state = next; },
       refreshVisibility: () => this.refreshVisibility(),
     }, options);
-    // 保持 no-op / 自定义 Wiring 的既有可注入用法；默认 Wiring 会在组合根创建实例。
-    if (!this.operationRuntime) this.operationRuntime = new OperationRuntimeService();
+    // Resolver data is trusted constructor input; AC ownership queries always come from this instance.
+    this._operationEntry = createOperationEntry({
+      characterSystem: this.characterSystem,
+      rosterSystem: this.rosterSystem,
+      getState: () => this._state,
+      resolver: options.operationContentResolver ?? emptyOperationContentResolver,
+      owner: this.#operationRuntimeOwner,
+    }).facade;
     this.runtimeContentBrowser = createRuntimeContentBrowser(this.registry, {
       affectorPacks: {
         getEntries: () => this.affectorEngine.getPacks(),
@@ -270,7 +281,7 @@ export class GameInstance {
   /** 加载数据包并初始化游戏 */
   init(datapacks: Datapack[], options: RuntimeInitOptions = {}): void {
     this.operationObservationStore.clear();
-    this.operationRuntime.reset();
+    this.#operationRuntimeOwner.reset();
     this.sessionService.touchLastTick();
     // 加载所有数据包
     for (const dp of datapacks) {
@@ -392,7 +403,7 @@ export class GameInstance {
   /** 结束该 Runtime 持有的局内服务，并停止 Tick 循环。 */
   dispose(): void {
     this.stop();
-    this.operationRuntime.dispose();
+    this.#operationRuntimeOwner.dispose();
   }
 
   /**
@@ -462,7 +473,7 @@ export class GameInstance {
   /** 从存档数据恢复 */
   load(saveData: SaveData): void {
     this.operationObservationStore.clear();
-    this.operationRuntime.reset();
+    this.#operationRuntimeOwner.reset();
     restoreFromSave({
       registry: this.registry,
       devLog: this.devLog,
@@ -489,7 +500,7 @@ export class GameInstance {
   /** 重置为默认状态 */
   reset(): void {
     this.operationObservationStore.clear();
-    this.operationRuntime.reset();
+    this.#operationRuntimeOwner.reset();
     this._tagResidue = { spotTagOverrides: {} };
     resetRuntime({
       stop: () => this.stop(),

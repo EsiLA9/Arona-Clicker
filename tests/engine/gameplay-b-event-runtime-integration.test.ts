@@ -1,11 +1,33 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation';
+import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation-content-resolver';
+import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
+import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 
+const EVENT_ID = 'test:operation:integration';
+const HOSHINO_PROFILE: StudentOperationProfileDef = {
+  id: 'test:operation-profile:hoshino',
+  characterId: Character.Hoshino,
+  candidateActionIds: ['observe', 'protect'],
+  actionPriorityIds: ['protect', 'observe'],
+  capabilityIds: ['frontline-protection'],
+  reasonIds: ['hoshino-veteran'],
+  randomSkillRuleId: 'test:skill-rule:hoshino',
+};
+const SERIKA_PROFILE: StudentOperationProfileDef = {
+  id: 'test:operation-profile:serika',
+  characterId: Character.Serika,
+  candidateActionIds: ['observe', 'organize'],
+  actionPriorityIds: ['organize', 'observe'],
+  capabilityIds: ['resourcefulness'],
+  reasonIds: ['serika-practical'],
+};
+
 function eventDef(): OperationEventDef {
   return {
-    id: 'test:operation:integration',
+    id: EVENT_ID,
     locationIds: ['test:location:office'],
     initialLocationId: 'test:location:office',
     tracks: [{ id: 'danger', initial: 1, min: 0, max: 5 }],
@@ -13,7 +35,10 @@ function eventDef(): OperationEventDef {
     knownFactIds: [],
     itemIds: ['archive_key'],
     heldItemIds: [],
-    actors: [],
+    actors: [
+      { id: 'test:actor:student-slot', type: 'student', hp: { initial: 4, min: 0, max: 4 } },
+      { id: 'test:actor:opponent', type: 'opponent', hp: { initial: 5, min: 0, max: 5 } },
+    ],
     playerRouteState: {
       playerCost: 2,
       cards: { drawPile: ['test:card:inspect'], hand: [], discard: [], played: [] },
@@ -22,98 +47,129 @@ function eventDef(): OperationEventDef {
   };
 }
 
+function resolvedContent(changes: Partial<OperationResolvedContent> = {}): OperationResolvedContent {
+  return {
+    eventDefinition: eventDef(),
+    participants: [
+      { actorId: 'test:actor:student-slot', kind: 'student' },
+      { actorId: 'test:actor:opponent', kind: 'opponent', factionId: 'test:faction:enemy' },
+    ],
+    studentProfiles: [HOSHINO_PROFILE, SERIKA_PROFILE],
+    ...changes,
+  };
+}
+
+function resolverOf(content: OperationResolvedContent | null = resolvedContent()): OperationContentResolver {
+  return { resolve: eventId => eventId === EVENT_ID ? content : null };
+}
+
 function stateSnapshot(game: GameInstance): string {
   return JSON.stringify(game.state);
 }
 
-describe('Gameplay B Event Runtime integration', () => {
+describe('Gameplay B Operation entry integration', () => {
   const games: GameInstance[] = [];
 
-  function createGame(): GameInstance {
-    const game = new GameInstance();
+  function createGame(resolver: OperationContentResolver = resolverOf()): GameInstance {
+    const game = new GameInstance({ operationContentResolver: resolver });
     games.push(game);
     game.init([baseDatapack], { enterDefaultInit: false });
     return game;
   }
 
+  function ownHoshino(game: GameInstance): void {
+    game.mutations.acquireCharacter('Hoshino', 'story');
+  }
+
   afterEach(() => {
     for (const game of games.splice(0)) {
-      if (!game.running) continue;
-      game.stop();
+      if (game.running) game.stop();
     }
   });
 
-  test('wires a separate Run service per GameInstance and leaves PlayerState untouched', () => {
+  test('keeps EventRuns isolated per GameInstance and exposes only ID entry plus detached snapshots', () => {
     const first = createGame();
     const second = createGame();
+    ownHoshino(first);
+    ownHoshino(second);
     const firstState = stateSnapshot(first);
     const secondState = stateSnapshot(second);
 
-    expect(first.operationRuntime).not.toBe(second.operationRuntime);
-    const firstRun = first.operationRuntime.start(eventDef());
-    const secondRun = second.operationRuntime.start(eventDef());
-    first.operationRuntime.applyStateDelta({
-      tracks: { danger: 4 },
-      knownFacts: [{ id: 'door_open', present: true }],
-      heldItems: [{ id: 'archive_key', present: true }],
-      playerRouteState: { playerCost: 7 },
-    });
+    expect('operationRuntime' in first).toBe(false);
+    expect(Object.keys(first.operationEntry).sort()).toEqual(['getSnapshot', 'start']);
+    expect('reset' in first.operationEntry).toBe(false);
+    expect('dispose' in first.operationEntry).toBe(false);
 
-    expect(first.operationRuntime.getSnapshot()).toMatchObject({
-      runId: firstRun.runId,
-      eventState: { tracks: { danger: 4 }, knownFactIds: ['door_open'], heldItemIds: ['archive_key'] },
-      playerRouteState: { playerCost: 7 },
-    });
-    expect(second.operationRuntime.getSnapshot()).toMatchObject({
-      runId: secondRun.runId,
-      eventState: { tracks: { danger: 1 }, knownFactIds: [], heldItemIds: [] },
-      playerRouteState: { playerCost: 2 },
-    });
+    const firstRun = first.operationEntry.start(EVENT_ID, [Character.Hoshino]);
+    const secondRun = second.operationEntry.start(EVENT_ID, [Character.Hoshino]);
+    expect(firstRun.runId).not.toBe(secondRun.runId);
+    expect(first.operationEntry.getSnapshot()).toEqual(firstRun);
+    expect(second.operationEntry.getSnapshot()).toEqual(secondRun);
+    expect(Object.isFrozen(first.operationEntry.getSnapshot())).toBe(true);
+    expect(first.operationEntry.getSnapshot()).not.toBe(first.operationEntry.getSnapshot());
     expect(stateSnapshot(first)).toBe(firstState);
     expect(stateSnapshot(second)).toBe(secondState);
   });
 
+  test('public GameInstance entry rejects an unowned student without creating a Run', () => {
+    const game = createGame();
+
+    expect(() => game.operationEntry.start(EVENT_ID, [Character.Hoshino])).toThrow(/no owned Registry Variant/);
+    expect(game.operationEntry.getSnapshot()).toBeNull();
+
+    ownHoshino(game);
+    expect(game.operationEntry.start(EVENT_ID, [Character.Hoshino]).eventId).toBe(EVENT_ID);
+    expect(game.operationEntry.getSnapshot()).not.toBeNull();
+  });
+
   test('clears volatile Runs at init, reset, load, and reload while stop preserves a Run', () => {
     const game = createGame();
-    const startRun = () => game.operationRuntime.start(eventDef());
+    ownHoshino(game);
+    const startRun = () => game.operationEntry.start(EVENT_ID, [Character.Hoshino]);
 
     startRun();
     game.stop();
-    expect(game.operationRuntime.getSnapshot()).not.toBeNull();
+    expect(game.operationEntry.getSnapshot()).not.toBeNull();
 
     game.reset();
-    expect(game.operationRuntime.getSnapshot()).toBeNull();
+    expect(game.operationEntry.getSnapshot()).toBeNull();
+    expect(() => startRun()).toThrow(/no owned Registry Variant/);
+    ownHoshino(game);
     expect(() => startRun()).not.toThrow();
 
     const save = game.save();
     game.load(save);
-    expect(game.operationRuntime.getSnapshot()).toBeNull();
+    expect(game.operationEntry.getSnapshot()).toBeNull();
+    expect(() => startRun()).not.toThrow();
 
-    startRun();
     game.reload([baseDatapack], { enterDefaultInit: false });
-    expect(game.operationRuntime.getSnapshot()).toBeNull();
+    expect(game.operationEntry.getSnapshot()).toBeNull();
+    ownHoshino(game);
+    expect(() => startRun()).not.toThrow();
 
-    startRun();
     game.init([], { enterDefaultInit: false });
-    expect(game.operationRuntime.getSnapshot()).toBeNull();
+    expect(game.operationEntry.getSnapshot()).toBeNull();
+    expect(() => startRun()).toThrow(/unknown or invalid Character/);
   });
 
-  test('disposes the local Operation Runtime and stops the GameInstance tick loop', () => {
+  test('dispose clears the Run and prevents later admission from writing', () => {
     const game = createGame();
-    game.operationRuntime.start(eventDef());
-    game.start();
+    ownHoshino(game);
+    game.operationEntry.start(EVENT_ID, [Character.Hoshino]);
 
     game.dispose();
 
     expect(game.running).toBe(false);
-    expect(game.operationRuntime.getSnapshot()).toBeNull();
-    expect(() => game.operationRuntime.applyStateDelta({ tracks: { danger: 2 } })).toThrow(/disposed/);
+    expect(game.operationEntry.getSnapshot()).toBeNull();
+    expect(() => game.operationEntry.start(EVENT_ID, [Character.Hoshino])).toThrow(/disposed/);
+    expect(game.operationEntry.getSnapshot()).toBeNull();
   });
 
-  test('provides the Operation Runtime fallback for custom no-op Wiring', () => {
-    const game = new GameInstance({ wiring: () => undefined });
+  test('custom no-op Wiring receives a closed entry facade, never the owner', () => {
+    const game = new GameInstance({ wiring: () => undefined, operationContentResolver: resolverOf() });
 
-    expect(game.operationRuntime).toBeDefined();
-    expect(game.operationRuntime.start(eventDef()).eventId).toBe('test:operation:integration');
+    expect(game.operationEntry.getSnapshot()).toBeNull();
+    expect(() => game.operationEntry.start(EVENT_ID, [Character.Hoshino])).toThrow(/services are not wired/);
+    expect('operationRuntime' in game).toBe(false);
   });
 });

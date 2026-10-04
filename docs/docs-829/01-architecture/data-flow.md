@@ -10,8 +10,12 @@ PlayerState ──────────┐
 Visibility / Stats ───┼→ GameView / GameReadModel → UIContext → Components
 Story / Affector ─────┘
 
-OperationEventDef → GameInstance.operationRuntime → EventRun
-                                                └→ detached read-only snapshots
+GameInstance.operationEntry.start(eventId, characterIds)
+        ↓ constructor-configured trusted OperationContentResolver
+OperationParticipantAdmission (AC Character/Roster/Profile validation)
+        ↓ admitted OperationEventDef
+private OperationRuntimeService owner → EventRun
+        └→ operationEntry.getSnapshot() → detached read-only snapshot
 ```
 
 - **定义**描述游戏可用内容，来源包括正式内容包和导入数据包，由 `Registry` 形成查询表及索引。
@@ -19,7 +23,7 @@ OperationEventDef → GameInstance.operationRuntime → EventRun
 - **派生结果**由 Engine 系统从定义和状态计算，可经事件定向更新或重建，不默认写入存档。
 - **UI 投影**由 Runtime `getView()` 和 `GameReadModel` 提供；`UIContext` 进一步组合组件需要的格式、主题和表现查询。
 
-Gameplay B 的 `EventRun` 是独立的局内状态 owner，由每个 `GameInstance` 持有的 `OperationRuntimeService` 管理。它不写入 `PlayerState` 或 `InitSnapshot`，也不由 `GameView` 投影；`init`、`load`、`reload` 和 `reset` 会清除当前 Run。当前 `OperationEventDef` 由调用方直接传给服务，尚未进入 Datapack / Registry 装载路径。细节见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
+Gameplay B 的 `EventRun` 是独立的局内状态 owner，由每个 `GameInstance` 内部私有的 `OperationRuntimeService` 管理。调用方只能经 `GameInstance.operationEntry.start(eventId, characterIds)` 按 ID 请求入场；构造时配置的受信 `OperationContentResolver` 查出事件/Profile 内容，`OperationParticipantAdmission` 在启动 Run 前校验学生的 Character 定义、真实且持有的 Variant、`CharacterSystem.getUnlocked()` 结果与 Profile 配对。校验成功后 EntryService 才把事件定义传给私有 owner。它不写入 `PlayerState` 或 `InitSnapshot`，也不由 `GameView` 投影；`stop()` 保留 Run，`init`、`load`、`reload` 和 `reset` 清除当前 Run，`dispose()` 清除并释放 owner。U1 当前 ActorState 仍只有事件定义中的 Actor ID/type/HP/resources；已准入的 Character、Profile 与 faction 信息尚未进入 EventRun Actor 快照。只读 detached Run 快照经 `operationEntry.getSnapshot()` 读取。细节见 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]。
 
 ## 关键代码入口
 
