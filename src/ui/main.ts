@@ -76,6 +76,14 @@ async function boot(): Promise<void> {
       document.title = `${document.title} · Gameplay B quick test`;
     }
 
+    if (import.meta.env.DEV) {
+      const inspector = await import('./development/gameplay-b-card-inspector');
+      if (inspector.shouldMountGameplayBCardInspector(import.meta.env.DEV, window.location.search)) {
+        inspector.mountGameplayBCardInspector();
+        document.body.dataset.gameplayBCardInspector = 'enabled';
+      }
+    }
+
     if (typeof window !== 'undefined') {
       (window as Window & { __game?: AronaClickerRuntime; __ui?: UIController }).__game = game;
       (window as Window & { __game?: AronaClickerRuntime; __ui?: UIController }).__ui = controller;

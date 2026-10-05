@@ -20,7 +20,7 @@
 ### 玩法 B Operation 卡牌交互
 
 - [[task-0232]]：按用户偏好完成学生行动归属、场景批次卡片交互、中心结果流与路线摘要；U0–U3 实现、当前机制文档和 GALHCG 已分阶段提交。仍待 Edge 实际流程与现场键盘验收；Task 不包含原 Demo 真牌面 / 拖拽复刻。
-- [[task-0234-gameplay-b-demo-card-surface]]：将 Operation 当前控件组重塑为原 Demo 式独立牌面、人物 / 场地牌层、叠放与合法目标关系交互；按钮外包卡片容器不算完成。保留现有 OperationView 与 Runtime 批次语义。
+- [[task-0234-gameplay-b-demo-card-surface]]：U0 开发态真样例检查入口已完成并隔离存档；U1/U2 真牌面与目标关系施工中。冻结后独立严格审查，再由 GALHCG 更新最终索引。保留现有 OperationView 与 Runtime 批次语义。
 
 ## 近期完成
 

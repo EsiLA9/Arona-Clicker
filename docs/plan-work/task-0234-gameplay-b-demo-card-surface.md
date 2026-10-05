@@ -1,6 +1,6 @@
 # Task 0234：Gameplay B Operation 原型式真卡牌面与牌层交互
 
-状态：proposed — 2026-10-05 基于 Task-0232 当前实现完成独立源码审查；尚未施工。
+状态：in progress — 2026-10-05 源码审查完成；U0 开发态检查入口与 U1/U2 真牌面施工已委派，严格审查和最终 GALHCG 更新排在实现之后。
 
 ## 目标
 
@@ -13,6 +13,7 @@
 ## 设计边界
 
 - 本 Task 包含：当前战斗行动 / Intent / 技能预备牌、Individual 学生场景行动牌、Global 全队场景行动牌、逐实体玩家 SceneCard；它们在 Operation 内使用统一但可区分类型的牌面结构。
+- 增加一个开发态专用的便捷检查入口，以正式样例和 Runtime/View 建立可重复的牌面验收场景；仅显式开发参数启用，不进入普通玩法流，不持久化试玩状态。该入口与现有 Quick Test Console 分离，不修改其源文件、测试、注册表或内容。
 - 交互主路径仿照 Demo：当前牌直接附着在所属人物卡或场地牌层；点击、键盘激活和拖拽可编辑合法行动/目标；拖拽过程可显示合法人物高亮及临时关系线。操作仅更新当前 UI 草稿，仍由既有整批暂存 / Commit 命令写入 Run。
 - 必须区分 Demo 原有范围：Demo 的战斗 prepared action card 是独立叠放牌面；其非战斗玩家 SceneCard 选择本来是行式控件。本 Task 按用户要求，将当前 AC 的玩家手牌也扩展为真实牌面，不宣称这是对 Demo 场景选择旧 UI 的逐像素复刻。
 - 牌面视觉优先使用 Demo 的文字层级和 CSS 表现；Demo 牌面本身不依赖插画。本 Task 不新增卡牌图片、Datapack 字段、Operation 规则、PlayerState / SaveData 状态或通用卡牌引擎。
@@ -29,8 +30,35 @@
 | Task-0232 的 AC 战斗行动摘要和候选项仍由人物身份卡内的文本、折叠区及按钮表达；SceneAction 为 section 外壳加行动按钮；手牌 article 内含加入、执行者和目标按钮。 | src/ui/components/operation-workspace.ts:71–116、132–160、180–222；src/ui/css/operation-workspace.css:255–319、407–437。 | 目前属于人物卡归属与控件容器化，不是 Demo 的独立叠放牌面；本 Task 专门补这段差距。 |
 | OperationView 已投影人物行动、玩家卡实例、合法执行者和逐执行者合法目标；读面 detached，Runtime 有现成批次草稿与校验命令。 | src/arona-clicker/contracts/operation-view.ts: OperationView / OperationViewSceneCard；src/arona-clicker/services/operation-view-projector.ts: projectSceneActions / projectPlayerCards；tests/ui/gameplay-b-operation-controller.test.ts。 | 牌面消费现有候选和命令，不反向读取 Runtime / Registry，不扩规则或状态合同。 |
 | Task-0232 的 region morph 已为场景卡、手牌、角色、路线和 Dock 添加稳定 key；本地选择通过 behavior 更新，成功命令经单一 Operation region 收敛。 | src/ui/controller.ts: operationMorphKey / refreshOperationWorkspaceRegion；src/ui/controller-actions-operation.ts；docs/docs-829/06-wiki/50-ui/refresh-update.md。 | 牌层需要稳定 cardInstanceId / actorId 身份，交互需保留滚动、焦点与未变化节点。 |
+| src/ui/main.ts 只在显式 DEV 查询参数下动态挂载本地试玩控制台；现有 console 源码与测试有并行未提交的 Task-0233 改动。 | src/ui/main.ts: gameplayBQuickTestConsoleEnabled；src/ui/development/gameplay-b-quick-test-console.ts；tests/ui/gameplay-b-quick-test-console.test.ts。 | 新检查入口用独立 query 参数和独立模块，不改现有 console 及 Task-0233 路径。 |
 
 ## 施工切片
+
+### U0：开发态真牌面检查入口
+
+**Goal**：建立一条可重复进入正式 Gameplay B 样例的本地检查路径，让视觉与交互实现可以通过实际 Operation Surface 验收。
+
+**Read Set**：本 Task；[[docs/ai/context-packs/ui-presentation]]；src/ui/main.ts: boot / gameplayBQuickTestConsoleEnabled；src/ui/controller-actions-operation.ts: startSample；正式 Gameplay B Datapack 与 Operation 固定阵容准入；tests/ui/gameplay-b-operation-controller.test.ts 的真实事件流准备方式。
+
+**Constraints**：只在 import.meta.env.DEV 且显式 query 参数匹配时挂载；必须使用正式 Run、OperationView 与既有事件内容。样例数据只存在于当前进程内存，刷新后清除；不能写 SaveData、修改默认 Datapack、Registry 或生产入口。检查工具独立于现有 Quick Test Console。
+
+**Allowed Files**：
+
+- src/ui/main.ts
+- src/ui/development/gameplay-b-card-inspector.ts（新增）
+- tests/ui/gameplay-b-card-inspector.test.ts（新增）
+- docs/plan-work/task-0234-gameplay-b-demo-card-surface.md（Receipt）
+
+**Completion Criteria**：
+
+- [x] 仅显式开发 query 参数显示“卡牌检查”入口；未设置参数或生产构建不挂载任何检查入口。
+- [x] 一次操作可用固定 Gameplay B 样例建立正式 Operation Run 并打开真实 Operation Surface，提供 battle、Individual/Global、手牌及目标牌面检查路径；不靠伪造 OperationView。
+- [x] 必要的试玩阵容仅存在于独立临时 Runtime；退出 / 刷新后丢弃，不覆盖主 Runtime、既有 roster 或用户存档。
+- [x] 不改 src/ui/development/gameplay-b-quick-test-console.ts、src/ui/css/gameplay-b-quick-test-console.css、tests/ui/gameplay-b-quick-test-console.test.ts、src/data-services/registry/registry.ts。
+
+**Verification**：`npx vitest run tests/ui/gameplay-b-card-inspector.test.ts` 3/3 通过；`npx tsc --noEmit` 与 `git diff --check` 通过。测试覆盖 DEV/query gate、正式 Run / Operation Surface、战斗与 Individual/Global/手牌目标路径、独立 Runtime 销毁，以及主页面真实保存命令不改变预存 SaveData。随后作为 U1/U2 的浏览器检查入口。
+
+**Stop Conditions**：若启动试玩必须改动现有 Quick Test Console、写入存档或增加 Runtime API，先交回 Task Owner，不扩散入口范围。
 
 ### U1：独立牌面与真实牌层
 
@@ -118,13 +146,16 @@
 - [ ] 点击 / 键盘 / 拖拽在投影合法范围内完成操作；既有费用、批次提交、结算、撤销和拒绝语义不变。
 - [ ] View 读取保持只读；局部选择不触发 View 查询或 Run 写入；刷新、焦点、滚动与节点 identity 符合 UI overlay。
 - [ ] GALHCG 对本 Task 与 index 的路径审查 / Evidence / maps_to 已闭环；浏览器截图、验证命令和实际结果写入 Receipt。
+- [ ] 开发态检查入口可重复进入正式样例，并在退出 / 刷新后不残留持久化试玩状态。
 
 ## 当前核验（2026-10-05）
 
 - 只读对照原 Demo 和 Task-0232 当前代码。原 Demo 战斗牌面为 112×62 独立节点、角色锚定层、叠放旋转与拖拽关系；Task-0232 已提交 UI 则仍以摘要、折叠区和按钮控件实现对应 Operation 行为。
 - 原 Demo 的非战斗场景玩家牌选择本身也是行式控件；本 Task 的 SceneCard 真牌面要求是用户新增的设计裁定，不归称为原 Demo 已有 UI。
 - Task-0232 的 U0–U3 代码、机制文档和 GALHCG 已提交；它仍等待 Edge 与现场键盘验收。本 Task 只在现有实现上重塑表现和交互，不代表 Task-0232 已整体完成。
-- 本 Task 未施工。npm run check:docs 扫描 649 篇 Markdown、0 errors；git diff --check 通过。
+- U0 开发检查入口已完成：`?gameplayBCardInspector=1` + DEV gate 挂载独立临时 Runtime；通过正式 OperationEntry 与 OperationView 渲染样例。主存档预存后再经主页面保存按钮，导出内容完全一致；关闭检查后临时 Runtime 被销毁。定向测试 3/3、类型检查和 diff check 通过。
+- 当前施工顺序：U0 检查入口与 U1/U2 牌面主体并行；入口和主体冻结后交独立 Agent 做严格审查，修正完毕后由 GALHCG Agent 更新最终文件地图并写后核验。
+- Task-0232 的当前证据仍只证明卡片容器/控件交互，不作为 U0 开发入口或原型式牌面的完成证据。
 
 ## GALHCG 影响闭环
 
@@ -136,7 +167,7 @@
 ## 剩余工作
 
 - Task-0232 尚待 Edge 实际流程与现场键盘验收；此状态不改变 Task-0234 的设计结论。
-- 本 Task 内：U1–U3 全部施工、Edge 与现场键盘验收、当前机制文档及 GALHCG 闭环。
+- 本 Task 内：U1–U3 施工、严格审查、Edge 与现场键盘验收、当前机制文档及最终 GALHCG 闭环。
 
 ## 相关路由
 
