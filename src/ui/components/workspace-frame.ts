@@ -36,6 +36,8 @@ export interface WorkspaceFrameSpec {
   center: WorkspaceColumnSpec;
   right: WorkspaceColumnSpec;
   layout?: WorkspaceLayoutSpec;
+  /** Optional shared surface nodes appended as direct children after the frame columns. */
+  overlay?: string;
 }
 
 function legacyWorkspaceClass(id: string): string {
@@ -80,5 +82,5 @@ export function renderWorkspaceFrame(ctx: UIContext, spec: WorkspaceFrameSpec): 
       : composition === 'all'
         ? [spec.left]
         : [spec.left, spec.center, spec.right];
-  return `<section class="workspace-frame workspace-frame--${spec.id} ${legacyClass}" data-workspace-frame="${spec.id}" data-layout="${preset}" data-responsive="${responsive}" data-composition="${composition}">${columns.map(column => renderWorkspaceColumn(ctx, column)).join('')}</section>`;
+  return `<section class="workspace-frame workspace-frame--${spec.id} ${legacyClass}" data-workspace-frame="${spec.id}" data-layout="${preset}" data-responsive="${responsive}" data-composition="${composition}">${columns.map(column => renderWorkspaceColumn(ctx, column)).join('')}${spec.overlay ?? ''}</section>`;
 }

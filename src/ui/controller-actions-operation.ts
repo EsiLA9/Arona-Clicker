@@ -23,6 +23,7 @@ export type OperationFocusTarget =
   | { readonly type: 'commit' };
 
 const boundControllers = new WeakSet<UIController>();
+const disposedOperationControllers = new WeakSet<UIController>();
 
 function operationErrorText(error: unknown): string {
   if (error instanceof OperationAdmissionError) {
@@ -91,7 +92,263 @@ interface OperationCardDrag {
 
 const cardDrags = new WeakMap<UIController, OperationCardDrag>();
 const suppressedCardClicks = new WeakMap<UIController, HTMLButtonElement>();
+interface PreparedLayerFrame {
+  readonly id: number;
+  readonly cancel: (id: number) => void;
+}
+
+const preparedLayerFrames = new WeakMap<UIController, PreparedLayerFrame>();
 const CARD_DRAG_THRESHOLD = 7;
+
+interface PreparedLayerResizeState {
+  readonly observer: ResizeObserver;
+  readonly observed: Set<Element>;
+}
+
+const preparedLayerResizeStates = new WeakMap<UIController, PreparedLayerResizeState>();
+
+interface PreparedLayerObservationState {
+  readonly root: HTMLElement;
+  readonly scrollListener: EventListener;
+  readonly mutationObserver: MutationObserver | null;
+}
+
+const preparedLayerObservationStates = new WeakMap<UIController, PreparedLayerObservationState>();
+
+function operationWorkspaceHost(element: Element | null): HTMLElement | null {
+  return element?.closest<HTMLElement>('[data-workspace-frame="operation"]') ?? null;
+}
+
+function preparedLayer(host: HTMLElement): HTMLElement | null {
+  return [...host.children].find(child => child instanceof HTMLElement && child.matches('[data-operation-prepared-card-layer]')) as HTMLElement | undefined ?? null;
+}
+
+function layoutPreparedCardsForHost(host: HTMLElement): void {
+  const layer = preparedLayer(host);
+  if (!layer) return;
+  const layerRect = layer.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  const layerLeft = layerRect.width > 0 ? layerRect.left : hostRect.left;
+  const layerTop = layerRect.height > 0 ? layerRect.top : hostRect.top;
+  const layerWidth = layerRect.width > 0 ? layerRect.width : hostRect.width;
+  if (layerWidth <= 0 || hostRect.height <= 0) return;
+
+  const anchors = new Map<string, HTMLElement>();
+  for (const anchor of host.querySelectorAll<HTMLElement>('[data-operation-card-anchor]')) {
+    const actorId = anchor.dataset.operationCardAnchor;
+    if (actorId) anchors.set(actorId, anchor);
+  }
+  const cards = [...layer.children].filter((child): child is HTMLElement =>
+    child instanceof HTMLElement && child.classList.contains('operation-prepared-card'),
+  );
+  const cardsByOwner = new Map<string, HTMLElement[]>();
+  for (const card of cards) {
+    const ownerId = card.dataset.operationPreparedOwnerId;
+    if (!ownerId) continue;
+    const owned = cardsByOwner.get(ownerId) ?? [];
+    owned.push(card);
+    cardsByOwner.set(ownerId, owned);
+  }
+  const positions = new Map<HTMLElement, { left: number; top: number; width: number; height: number }>();
+  const dimension = (element: HTMLElement, axis: 'width' | 'height', fallback: number): number => {
+    const rect = element.getBoundingClientRect();
+    return rect[axis] || element[axis === 'width' ? 'offsetWidth' : 'offsetHeight'] || fallback;
+  };
+  const place = (element: HTMLElement, left: number, top: number, width: number, height: number): void => {
+    element.style.left = `${Math.round(left * 100) / 100}px`;
+    element.style.top = `${Math.round(top * 100) / 100}px`;
+    element.dataset.positioned = 'true';
+    positions.set(element, { left, top, width, height });
+  };
+
+  for (const [ownerId, ownerCards] of cardsByOwner) {
+    const owner = anchors.get(ownerId);
+    if (!owner?.isConnected) {
+      ownerCards.forEach(card => { card.hidden = true; });
+      continue;
+    }
+    const ownerRect = owner.getBoundingClientRect();
+    if (ownerRect.width <= 0 || ownerRect.height <= 0) continue;
+    const current = ownerCards.find(card => card.hasAttribute('data-operation-action-current') || card.hasAttribute('data-operation-action-current-toggle'));
+    if (current) {
+      const width = dimension(current, 'width', 112);
+      const height = dimension(current, 'height', 62);
+      const rightLeft = ownerRect.right - layerLeft + 8;
+      const leftLeft = ownerRect.left - layerLeft - width - 8;
+      const minFrameLeft = hostRect.left - layerLeft + 4;
+      const maxFrameRight = hostRect.right - layerLeft - 4;
+      const rightFits = rightLeft + width <= maxFrameRight;
+      const leftFits = leftLeft >= minFrameLeft;
+      // Keep the selected face outside the owner card so its HP / resource row
+      // remains readable. At narrow widths, flip to the owner's left when that
+      // side fits; if neither side fits, preserve the non-overlapping right anchor.
+      const left = rightFits ? rightLeft : leftFits ? leftLeft : rightLeft;
+      const top = ownerRect.top - layerTop + 9;
+      place(current, left, top, width, height);
+
+      const alternatives = ownerCards.filter(card => card.hasAttribute('data-operation-action-alternative'));
+      const panel = [...layer.children].find(child => child instanceof HTMLElement
+        && child.matches('[data-operation-action-alternatives-panel]')
+        && child.dataset.operationActionOwnerId === ownerId) as HTMLElement | undefined;
+      const open = current.getAttribute('aria-expanded') === 'true';
+      if (panel) panel.hidden = !open;
+      for (const card of alternatives) card.hidden = !open;
+      if (open && alternatives.length > 0 && panel) {
+        const gap = 8;
+        const cardWidth = 112;
+        const cardHeight = 62;
+        const availableRight = hostRect.right - (layerLeft + left + width + gap);
+        const columns = availableRight >= cardWidth * 2 + 24 ? 2 : 1;
+        const rows = Math.ceil(alternatives.length / columns);
+        const panelWidth = columns * cardWidth + (columns - 1) * 6 + 16;
+        const panelHeight = 28 + rows * cardHeight + Math.max(0, rows - 1) * 8 + 12;
+        let panelLeft = left + width + gap;
+        if (availableRight < panelWidth) {
+          const leftCandidate = left - panelWidth - gap;
+          const minLeft = hostRect.left - layerLeft + 8;
+          const maxLeft = Math.max(minLeft, hostRect.right - layerLeft - panelWidth - 8);
+          panelLeft = leftCandidate >= minLeft ? leftCandidate : maxLeft;
+        }
+        const minPanelLeft = hostRect.left - layerLeft + 8;
+        const maxPanelLeft = Math.max(minPanelLeft, hostRect.right - layerLeft - panelWidth - 8);
+        panelLeft = Math.max(minPanelLeft, Math.min(panelLeft, maxPanelLeft));
+        const minTop = hostRect.top - layerTop + 4;
+        const maxTop = hostRect.bottom - layerTop - panelHeight - 4;
+        const panelTop = Math.max(minTop, Math.min(top - 4, maxTop));
+        panel.style.left = `${panelLeft}px`;
+        panel.style.top = `${panelTop}px`;
+        panel.style.width = `${panelWidth}px`;
+        panel.style.height = `${panelHeight}px`;
+        panel.dataset.positioned = 'true';
+        alternatives.forEach((card, index) => {
+          const column = index % columns;
+          const row = Math.floor(index / columns);
+          place(card, panelLeft + 8 + column * (cardWidth + 6), panelTop + 27 + row * (cardHeight + 8), cardWidth, cardHeight);
+        });
+      }
+    }
+
+    for (const card of ownerCards.filter(item => item.matches('[data-operation-intent]'))) {
+      card.hidden = false;
+      const width = dimension(card, 'width', 112);
+      const height = dimension(card, 'height', 62);
+      place(card, ownerRect.right - layerLeft - width + 8, ownerRect.bottom - layerTop - height + 8, width, height);
+    }
+  }
+
+  for (const tray of layer.querySelectorAll<HTMLElement>('[data-operation-action-targets][data-operation-prepared-owner-id]')) {
+    const ownerId = tray.dataset.operationPreparedOwnerId;
+    const actionId = tray.dataset.operationActionId;
+    const card = cards.find(item => item.dataset.operationPreparedOwnerId === ownerId && item.dataset.actionId === actionId);
+    const position = card ? positions.get(card) : undefined;
+    if (!position || tray.hidden) continue;
+    tray.style.left = `${position.left}px`;
+    tray.style.top = `${position.top + position.height + 8}px`;
+    tray.dataset.positioned = 'true';
+  }
+}
+
+function updatePreparedLayerResizeObservations(ctrl: UIController): void {
+  if (typeof ResizeObserver === 'undefined') return;
+  let state = preparedLayerResizeStates.get(ctrl);
+  if (!state) {
+    const observer = new ResizeObserver(() => requestPreparedCardLayout(ctrl));
+    state = { observer, observed: new Set<Element>() };
+    preparedLayerResizeStates.set(ctrl, state);
+  }
+  const next = new Set<Element>();
+  for (const host of ctrl.root.querySelectorAll<HTMLElement>('[data-workspace-frame="operation"]')) {
+    next.add(host);
+    const layer = preparedLayer(host);
+    if (layer) next.add(layer);
+    for (const anchor of host.querySelectorAll<HTMLElement>('[data-operation-card-anchor]')) next.add(anchor);
+  }
+  for (const element of state.observed) {
+    if (next.has(element) && element.isConnected) continue;
+    state.observer.unobserve(element);
+    state.observed.delete(element);
+  }
+  for (const element of next) {
+    if (state.observed.has(element)) continue;
+    state.observer.observe(element);
+    state.observed.add(element);
+  }
+}
+
+function requestPreparedCardLayout(ctrl: UIController): void {
+  if (disposedOperationControllers.has(ctrl)) return;
+  if (preparedLayerFrames.has(ctrl)) return;
+  const usesAnimationFrame = typeof window.requestAnimationFrame === 'function';
+  const request = usesAnimationFrame
+    ? (callback: FrameRequestCallback) => window.requestAnimationFrame(callback)
+    : (callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 0);
+  const cancel = usesAnimationFrame && typeof window.cancelAnimationFrame === 'function'
+    ? (id: number) => window.cancelAnimationFrame(id)
+    : (id: number) => window.clearTimeout(id);
+  let scheduledFrame: PreparedLayerFrame | null = null;
+  const frame = request(() => {
+    if (scheduledFrame && preparedLayerFrames.get(ctrl) === scheduledFrame) preparedLayerFrames.delete(ctrl);
+    if (disposedOperationControllers.has(ctrl)) return;
+    for (const host of ctrl.root.querySelectorAll<HTMLElement>('[data-workspace-frame="operation"]')) layoutPreparedCardsForHost(host);
+    updatePreparedLayerResizeObservations(ctrl);
+  });
+  scheduledFrame = { id: frame, cancel };
+  preparedLayerFrames.set(ctrl, scheduledFrame);
+}
+
+function observePreparedCardLayout(ctrl: UIController): void {
+  if (disposedOperationControllers.has(ctrl) || preparedLayerObservationStates.has(ctrl)) return;
+  const schedule = () => requestPreparedCardLayout(ctrl);
+  ctrl.root.addEventListener('scroll', schedule, true);
+  let observer: MutationObserver | null = null;
+  if (typeof MutationObserver !== 'undefined') {
+    observer = new MutationObserver(records => {
+      const changedOperation = records.some(record => {
+        const target = record.target instanceof Element ? record.target : record.target.parentElement;
+        if (target?.closest('[data-workspace-frame="operation"]')) return true;
+        return [...record.addedNodes].some(node => node instanceof Element
+          && (node.matches('[data-workspace-frame="operation"]') || node.querySelector('[data-workspace-frame="operation"]')));
+      });
+      if (changedOperation) schedule();
+    });
+    observer.observe(ctrl.root, { childList: true, subtree: true });
+  }
+  preparedLayerObservationStates.set(ctrl, { root: ctrl.root, scrollListener: schedule, mutationObserver: observer });
+  requestPreparedCardLayout(ctrl);
+}
+
+/** Release long-lived Operation card observers owned by this controller. Safe to call repeatedly. */
+export function disposeOperationActions(ctrl: UIController): void {
+  if (disposedOperationControllers.has(ctrl)) return;
+  disposedOperationControllers.add(ctrl);
+
+  const observation = preparedLayerObservationStates.get(ctrl);
+  if (observation) {
+    observation.root.removeEventListener('scroll', observation.scrollListener, true);
+    observation.mutationObserver?.disconnect();
+    preparedLayerObservationStates.delete(ctrl);
+  }
+
+  const resizeState = preparedLayerResizeStates.get(ctrl);
+  if (resizeState) {
+    resizeState.observer.disconnect();
+    resizeState.observed.clear();
+    preparedLayerResizeStates.delete(ctrl);
+  }
+
+  const pendingFrame = preparedLayerFrames.get(ctrl);
+  if (pendingFrame) {
+    pendingFrame.cancel(pendingFrame.id);
+    preparedLayerFrames.delete(ctrl);
+  }
+
+  const drag = cardDrags.get(ctrl);
+  if (drag) {
+    cardDrags.delete(ctrl);
+    clearCardDragPresentation(ctrl, drag);
+  }
+  suppressedCardClicks.delete(ctrl);
+}
 
 function readLegalTargetIds(face: HTMLElement): string[] {
   try {
@@ -100,6 +357,13 @@ function readLegalTargetIds(face: HTMLElement): string[] {
   } catch {
     return [];
   }
+}
+
+function focusActionTargetChoice(tray: HTMLElement): void {
+  const choices = [...tray.querySelectorAll<HTMLButtonElement>('[data-operation-target]:not(:disabled)')];
+  (choices.find(button => button.getAttribute('aria-pressed') === 'true')
+    ?? choices.find(button => button.hasAttribute('data-default-target'))
+    ?? choices[0])?.focus({ preventScroll: true });
 }
 
 function readLegalTargetMap(face: HTMLElement): Record<string, string[]> {
@@ -152,10 +416,10 @@ function actorTargetAtPoint(ctrl: UIController, x: number, y: number, allowedIds
 }
 
 function drawCardRelation(ctrl: UIController, drag: OperationCardDrag, targetActorId: string | null): void {
-  const frame = drag.source.closest<HTMLElement>('[data-workspace-frame="operation"]');
-  const path = frame?.querySelector<SVGPathElement>('[data-operation-drag-relation]');
+  const host = operationWorkspaceHost(drag.source);
+  const path = host?.querySelector<SVGPathElement>('[data-operation-drag-relation]');
   const target = targetActorId
-    ? [...(frame?.querySelectorAll<HTMLElement>('[data-operation-actor-target]') ?? [])].find(actor => actor.dataset.operationActorTarget === targetActorId)
+    ? [...(host?.querySelectorAll<HTMLElement>('[data-operation-actor-target]') ?? [])].find(actor => actor.dataset.operationActorTarget === targetActorId)
     : null;
   if (!path || !target) {
     path?.setAttribute('visibility', 'hidden');
@@ -182,17 +446,17 @@ function clearCardDragPresentation(ctrl: UIController, drag: OperationCardDrag):
   for (const actor of ctrl.root.querySelectorAll<HTMLElement>('[data-operation-actor-target].is-card-legal-target, [data-operation-actor-target].is-card-hover-target')) {
     actor.classList.remove('is-card-legal-target', 'is-card-hover-target');
   }
-  const frame = drag.source.closest<HTMLElement>('[data-workspace-frame="operation"]');
-  const path = frame?.querySelector<SVGPathElement>('[data-operation-drag-relation]');
+  const host = operationWorkspaceHost(drag.source);
+  const path = host?.querySelector<SVGPathElement>('[data-operation-drag-relation]');
   path?.setAttribute('visibility', 'hidden');
-  const status = frame?.querySelector<HTMLElement>('[data-operation-drag-status]');
+  const status = host?.querySelector<HTMLElement>('[data-operation-drag-status]');
   if (status) status.hidden = true;
-  frame?.classList.remove('is-card-dragging');
+  drag.source.closest<HTMLElement>('[data-workspace-frame="operation"]')?.classList.remove('is-card-dragging');
 }
 
 function announceCardDrag(drag: OperationCardDrag, message: string): void {
-  const frame = drag.source.closest<HTMLElement>('[data-workspace-frame="operation"]');
-  const status = frame?.querySelector<HTMLElement>('[data-operation-drag-status]');
+  const host = operationWorkspaceHost(drag.source);
+  const status = host?.querySelector<HTMLElement>('[data-operation-drag-status]');
   if (!status) return;
   status.textContent = message;
   status.hidden = false;
@@ -443,14 +707,49 @@ function bindCardTargetGestures(ctrl: UIController): void {
   ctrl.root.addEventListener('pointercancel', cancel);
   ctrl.root.addEventListener('lostpointercapture', cancel, true);
   ctrl.root.addEventListener('keydown', event => {
+    const rawTarget = event.target;
+    if (event.key === 'ArrowDown' && rawTarget instanceof Element) {
+      const face = rawTarget.closest<HTMLButtonElement>('[data-operation-action][aria-pressed="true"]');
+      const legalTargets = face ? readLegalTargetIds(face) : [];
+      if (face && legalTargets.length > 0) {
+        const host = operationWorkspaceHost(face);
+        const tray = [...(host?.querySelectorAll<HTMLElement>('[data-operation-action-targets]') ?? [])]
+          .find(item => item.dataset.operationPreparedOwnerId === face.dataset.actorId && item.dataset.operationActionId === face.dataset.actionId);
+        if (tray) {
+          event.preventDefault();
+          tray.hidden = false;
+          focusActionTargetChoice(tray);
+          requestPreparedCardLayout(ctrl);
+          return;
+        }
+      }
+    }
     if (event.key !== 'Escape') return;
     const drag = cardDrags.get(ctrl);
-    if (!drag) return;
-    event.preventDefault();
-    event.stopPropagation();
-    cardDrags.delete(ctrl);
-    clearCardDragPresentation(ctrl, drag);
-    drag.source.focus({ preventScroll: true });
+    if (drag) {
+      event.preventDefault();
+      event.stopPropagation();
+      cardDrags.delete(ctrl);
+      clearCardDragPresentation(ctrl, drag);
+      drag.source.focus({ preventScroll: true });
+      return;
+    }
+    const host = operationWorkspaceHost(rawTarget instanceof Element ? rawTarget : null);
+    const expandedCurrent = host?.querySelector<HTMLElement>('[data-operation-action-current][aria-expanded="true"], [data-operation-action-current-toggle][aria-expanded="true"]');
+    const activeTray = rawTarget instanceof Element ? rawTarget.closest<HTMLElement>('[data-operation-action-targets]') : null;
+    const targetSource = activeTray
+      ? [...(host?.querySelectorAll<HTMLElement>('[data-operation-action]') ?? [])].find(face =>
+        face.dataset.actorId === activeTray.dataset.operationPreparedOwnerId && face.dataset.actionId === activeTray.dataset.operationActionId,
+      )
+      : null;
+    const expanded = host?.querySelectorAll<HTMLElement>('[data-operation-action-targets]:not([hidden])') ?? [];
+    if (expandedCurrent || targetSource || expanded.length > 0) {
+      event.preventDefault();
+      for (const panel of host?.querySelectorAll<HTMLElement>('[data-operation-action-alternatives-panel], [data-operation-action-alternative], [data-operation-action-targets]') ?? []) panel.hidden = true;
+      expandedCurrent?.setAttribute('aria-expanded', 'false');
+      const returnTarget = expandedCurrent ?? targetSource;
+      returnTarget?.focus({ preventScroll: true });
+    }
   }, true);
   ctrl.root.addEventListener('click', event => {
     if (event.detail === 0) return;
@@ -463,6 +762,7 @@ function bindCardTargetGestures(ctrl: UIController): void {
     event.stopImmediatePropagation();
     suppressedCardClicks.delete(ctrl);
   }, true);
+  observePreparedCardLayout(ctrl);
 }
 
 function startSample(ctrl: UIController): void {
@@ -485,15 +785,47 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
   const rawTarget = event.target;
   if (!(rawTarget instanceof Element)) return;
   const target = rawTarget.closest<HTMLElement>(
-    '[data-operation-start], [data-operation-resume-run], [data-operation-back], [data-operation-action-disclosure], [data-operation-scene-alternatives], [data-operation-action], [data-operation-target], [data-operation-clear], [data-operation-commit], [data-operation-scene-stage], [data-operation-scene-commit], [data-operation-clear-scene], [data-operation-route], [data-operation-reward], [data-operation-scene-choice], [data-operation-scene-target], [data-operation-scene-performer], [data-operation-card-toggle], [data-operation-card-actor], [data-operation-card-target]',
+    '[data-operation-start], [data-operation-resume-run], [data-operation-back], [data-operation-action-current-toggle], [data-operation-action], [data-operation-target], [data-operation-clear], [data-operation-commit], [data-operation-scene-stage], [data-operation-scene-commit], [data-operation-clear-scene], [data-operation-route], [data-operation-reward], [data-operation-scene-choice], [data-operation-scene-target], [data-operation-scene-performer], [data-operation-card-toggle], [data-operation-card-actor], [data-operation-card-target], [data-operation-scene-alternatives]',
   );
   if (!target || target instanceof HTMLButtonElement && target.disabled) return;
-  if (target.matches('[data-operation-action-disclosure]')) {
+  if (target.matches('[data-operation-action-current-toggle]')) {
+    const host = operationWorkspaceHost(target);
+    const actorId = target.dataset.operationActionOwnerId;
+    if (!host || !actorId) return;
     const open = target.getAttribute('aria-expanded') !== 'true';
     target.setAttribute('aria-expanded', String(open));
-    target.closest<HTMLElement>('[data-operation-action-list]')?.querySelectorAll<HTMLElement>('[data-operation-action-option]').forEach(option => {
-      option.hidden = !open && !option.classList.contains('is-selected');
-    });
+    const layer = preparedLayer(host);
+    for (const option of layer?.querySelectorAll<HTMLElement>('[data-operation-action-alternative]') ?? []) {
+      if (option.dataset.operationActionOwnerId === actorId) option.hidden = !open;
+    }
+    const panel = [...(layer?.querySelectorAll<HTMLElement>('[data-operation-action-alternatives-panel]') ?? [])]
+      .find(item => item.dataset.operationActionOwnerId === actorId);
+    if (panel) panel.hidden = !open;
+    if (open && event.detail === 0) {
+      [...(layer?.querySelectorAll<HTMLButtonElement>('[data-operation-action-alternative]') ?? [])]
+        .find(option => option.dataset.operationActionOwnerId === actorId && !option.disabled)?.focus({ preventScroll: true });
+    }
+    requestPreparedCardLayout(ctrl);
+    return;
+  }
+  if (target.matches('[data-operation-action][aria-pressed="true"]')) {
+    const host = operationWorkspaceHost(target);
+    const actorId = target.dataset.operationActionOwnerId;
+    if (!host || !actorId) return;
+    const open = target.getAttribute('aria-expanded') !== 'true';
+    target.setAttribute('aria-expanded', String(open));
+    const layer = preparedLayer(host);
+    for (const option of layer?.querySelectorAll<HTMLElement>('[data-operation-action-alternative]') ?? []) {
+      if (option.dataset.operationActionOwnerId === actorId) option.hidden = !open;
+    }
+    const panel = [...(layer?.querySelectorAll<HTMLElement>('[data-operation-action-alternatives-panel]') ?? [])]
+      .find(item => item.dataset.operationActionOwnerId === actorId);
+    if (panel) panel.hidden = !open;
+    if (open && event.detail === 0) {
+      [...(layer?.querySelectorAll<HTMLButtonElement>('[data-operation-action-alternative]') ?? [])]
+        .find(option => option.dataset.operationActionOwnerId === actorId && !option.disabled)?.focus({ preventScroll: true });
+    }
+    requestPreparedCardLayout(ctrl);
     return;
   }
   if (target.matches('[data-operation-scene-alternatives]')) {
@@ -503,6 +835,23 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
       option.hidden = !open && !option.classList.contains('is-selected');
     });
     return;
+  }
+  if (target.matches('[data-operation-action][data-operation-action-alternative]')) {
+    const targetIds = readLegalTargetIds(target);
+    if (targetIds.length > 0) {
+      // Mouse users choose a target by dragging this face onto a legal object.
+      // Native button activation (detail 0) remains the keyboard target path.
+      if (event.detail !== 0) return;
+      const host = operationWorkspaceHost(target);
+      const tray = [...(host?.querySelectorAll<HTMLElement>('[data-operation-action-targets]') ?? [])]
+        .find(item => item.dataset.operationPreparedOwnerId === target.dataset.actorId && item.dataset.operationActionId === target.dataset.actionId);
+      if (tray) {
+        tray.hidden = !tray.hidden;
+        if (!tray.hidden && event.detail === 0) focusActionTargetChoice(tray);
+        requestPreparedCardLayout(ctrl);
+      }
+      return;
+    }
   }
   if (target.matches('[data-operation-scene-choice]')) {
     const card = target.closest<HTMLElement>('[data-operation-scene-card]');
@@ -639,14 +988,6 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
       const actorId = target.dataset.actorId;
       const actionId = target.dataset.actionId;
       if (!actorId || !actionId) return;
-      if (target.getAttribute('aria-pressed') === 'true') {
-        const targetTray = target.parentElement?.querySelector<HTMLElement>('.operation-action-targets');
-        if (targetTray) {
-          targetTray.hidden = !targetTray.hidden;
-          if (!targetTray.hidden) targetTray.querySelector<HTMLElement>('[data-operation-target]:not([aria-pressed="true"])')?.focus({ preventScroll: true });
-        }
-        return;
-      }
       const targetActorId = target.dataset.defaultTargetActorId;
       ctrl.game.operationEntry.reviseIntervention({
         ...command,
@@ -791,7 +1132,7 @@ function readSceneBatchCommand(
 
 /** Stable #app delegation survives Operation region replacements and ordinary selections. */
 export function bindOperationActions(ctrl: UIController): void {
-  if (boundControllers.has(ctrl)) return;
+  if (disposedOperationControllers.has(ctrl) || boundControllers.has(ctrl)) return;
   boundControllers.add(ctrl);
   bindCardTargetGestures(ctrl);
   ctrl.root.addEventListener('click', event => handleOperationClick(ctrl, event));

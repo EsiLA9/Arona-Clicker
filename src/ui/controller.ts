@@ -70,7 +70,7 @@ import { bindThemeActions } from './controller-actions-theme';
 import { bindEntityPresentationActions } from './controller-actions-presentation';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
-import { bindOperationActions, type OperationFocusTarget } from './controller-actions-operation';
+import { bindOperationActions, disposeOperationActions, type OperationFocusTarget } from './controller-actions-operation';
 import type { GameCommands } from '../arona-clicker/contracts';
 import type { PackCatalogReadModel } from '../arona-clicker/contracts';
 import type { OperationView } from '../arona-clicker/contracts/operation-view';
@@ -482,6 +482,7 @@ export class UIController {
   }
 
   destroy(): void {
+    disposeOperationActions(this);
     flushRuntimeEditorDraft(this);
     if (this.runtimeEditorPersistenceBound) {
       window.removeEventListener('pagehide', this.runtimeEditorPageHideHandler);

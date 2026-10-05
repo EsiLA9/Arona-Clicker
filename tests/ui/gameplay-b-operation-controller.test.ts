@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
@@ -49,6 +49,40 @@ describe('Gameplay B Operation Controller', () => {
   function startFromFeed(): void {
     root.querySelector<HTMLButtonElement>('[data-operation-start]')!.click();
     expect(controller.panelState.workspace?.type).toBe('operation');
+  }
+
+  function installTargetableAlternative(): {
+    currentFace: HTMLButtonElement;
+    alternative: HTMLButtonElement;
+    targetTray: HTMLDivElement;
+    targetChoice: HTMLButtonElement;
+    targetId: string;
+    actionId: string;
+  } {
+    const actorId = CAROUSEL_SAFETY_IDS.actors.hoshino;
+    const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
+    const initialView = game.operationEntry.getView(runId)!;
+    const actionId = CAROUSEL_SAFETY_IDS.actions.brace;
+    // Move the current plan to its targetless legal alternative so Brace is a
+    // distinct target-required alternative with a renderer-owned default marker.
+    game.operationEntry.reviseIntervention({
+      runId,
+      planVersion: initialView.planVersion,
+      draft: { actorId, actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop },
+    });
+    controller.render();
+    const currentFace = root.querySelector<HTMLButtonElement>(
+      '[data-operation-action-current][data-actor-id="' + actorId + '"][aria-pressed="true"]',
+    )!;
+    const alternative = root.querySelector<HTMLButtonElement>(
+      '[data-operation-action-alternative][data-actor-id="' + actorId + '"][data-action-id="' + actionId + '"]',
+    )!;
+    const layer = alternative.closest<HTMLElement>('[data-operation-prepared-card-layer]')!;
+    const targetId = CAROUSEL_SAFETY_IDS.actors.ride;
+    const targetTray = [...layer.querySelectorAll<HTMLDivElement>('[data-operation-action-targets]')]
+      .find(tray => tray.dataset.operationPreparedOwnerId === actorId && tray.dataset.operationActionId === actionId)!;
+    const targetChoice = targetTray.querySelector<HTMLButtonElement>('[data-operation-target][data-target-actor-id="' + targetId + '"]')!;
+    return { currentFace, alternative, targetTray, targetChoice, targetId, actionId };
   }
 
   it('入口只在夏莱办公室出现；准入状态说明缺失角色且不补发角色', () => {
@@ -130,22 +164,22 @@ describe('Gameplay B Operation Controller', () => {
     const stableStream = root.querySelector('[data-operation-log]');
     const stableDock = root.querySelector('[data-operation-commit-dock]');
     const stableStudent = root.querySelector('[data-operation-student="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"]');
-    const alternateTarget = root.querySelector<HTMLButtonElement>(
-      '[data-operation-target][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.brace + '"]:not([aria-pressed="true"])',
-    );
-    expect(alternateTarget).not.toBeNull();
-    alternateTarget!.click();
-    expect(game.operationEntry.getView(runId)?.interventionDraft?.targetActorId).toBe(alternateTarget!.dataset.targetActorId);
-    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
-
-    root.querySelector<HTMLButtonElement>('[data-operation-clear]')!.click();
+    const hoshinoBrace = root.querySelector<HTMLButtonElement>('[data-operation-action][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.brace + '"]')!;
+    expect(JSON.parse(hoshinoBrace.dataset.legalTargetActorIds ?? '[]')).toEqual([CAROUSEL_SAFETY_IDS.actors.ride]);
     expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
-    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
+    expect(controller.getRefreshStats().regionRefreshes).toBe(regionBefore);
 
-    const actionAlternatives = root.querySelector<HTMLButtonElement>('[data-operation-student="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"] [data-operation-action-disclosure]');
+    const actionAlternatives = root.querySelector<HTMLButtonElement>('[data-operation-action][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"][aria-pressed="true"]');
     expect(actionAlternatives?.getAttribute('aria-expanded')).toBe('false');
+    const beforeOpenRun = game.operationEntry.getView(runId);
+    const beforeOpenRegions = controller.getRefreshStats().regionRefreshes;
     actionAlternatives!.click();
+    expect(actionAlternatives!.getAttribute('aria-expanded')).toBe('true');
+    expect(root.querySelector('[data-operation-action-alternatives-panel][data-operation-action-owner-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"]')?.hasAttribute('hidden')).toBe(false);
+    expect(game.operationEntry.getView(runId)?.planVersion).toBe(beforeOpenRun?.planVersion);
+    expect(controller.getRefreshStats().regionRefreshes).toBe(beforeOpenRegions);
     const emergencyStopButton = root.querySelector<HTMLButtonElement>('[data-operation-action][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.emergencyStop + '"]')!;
+    expect(emergencyStopButton.parentElement?.matches('[data-operation-prepared-card-layer]')).toBe(true);
     emergencyStopButton.click();
     expect(game.operationEntry.getView(runId)?.interventionDraft).toMatchObject({
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
@@ -212,11 +246,243 @@ describe('Gameplay B Operation Controller', () => {
     acquireStudents();
     startFromFeed();
     const before = controller.getRefreshStats();
-    root.querySelector<HTMLElement>('.operation-action-choice')?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    root.querySelector<HTMLElement>('.operation-prepared-card[data-operation-action-current]')?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     root.querySelector<HTMLElement>('[data-operation-log]')?.dispatchEvent(new Event('scroll', { bubbles: true }));
 
     expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
     expect(controller.getRefreshStats().regionRefreshes).toBe(before.regionRefreshes);
+  });
+
+  it('根据 owner 与固定共享层的真实矩形定位牌面，并响应 scroll 与尺寸变化', async () => {
+    acquireStudents();
+    const rect = (left: number, top: number, width: number, height: number): DOMRect => ({
+      x: left, y: top, left, top, width, height, right: left + width, bottom: top + height,
+      toJSON: () => ({}),
+    });
+    let ownerRect = rect(150, 100, 210, 150);
+    const resizeCallback: { current: ResizeObserverCallback | null } = { current: null };
+    class TestResizeObserver {
+      constructor(callback: ResizeObserverCallback) { resizeCallback.current = callback; }
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    vi.stubGlobal('ResizeObserver', TestResizeObserver);
+    const nextFrame = () => new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
+    startFromFeed();
+    try {
+      await Promise.resolve();
+      await nextFrame();
+      expect(resizeCallback.current).not.toBeNull();
+
+      const frame = root.querySelector<HTMLElement>('[data-workspace-frame="operation"]')!;
+      const layer = [...frame.children].find(child => child instanceof HTMLElement && child.matches('[data-operation-prepared-card-layer]')) as HTMLElement;
+      const owner = frame.querySelector<HTMLElement>('[data-operation-card-anchor="' + IDS.actors.hoshino + '"]')!;
+      const face = layer.querySelector<HTMLButtonElement>('[data-operation-action-current][data-actor-id="' + IDS.actors.hoshino + '"]')!;
+      const originalRects = [frame, layer, owner].map(element => element.getBoundingClientRect.bind(element));
+      ownerRect = rect(150, 100, 210, 150);
+      Object.defineProperty(frame, 'getBoundingClientRect', { configurable: true, value: () => rect(0, 0, 1000, 700) });
+      Object.defineProperty(layer, 'getBoundingClientRect', { configurable: true, value: () => rect(0, 0, 1280, 720) });
+      Object.defineProperty(owner, 'getBoundingClientRect', { configurable: true, value: () => ownerRect });
+      resizeCallback.current?.([], {} as ResizeObserver);
+      await nextFrame();
+      expect(face.style.left).toBe('368px');
+      expect(face.style.top).toBe('109px');
+      expect(Number.parseFloat(face.style.left)).toBeGreaterThanOrEqual(ownerRect.right + 8);
+
+      const alternative = layer.querySelector<HTMLButtonElement>('[data-operation-action-alternative][data-operation-action-owner-id="' + IDS.actors.hoshino + '"]')!;
+      const alternativePanel = layer.querySelector<HTMLElement>('[data-operation-action-alternatives-panel][data-operation-action-owner-id="' + IDS.actors.hoshino + '"]')!;
+      face.click();
+      await nextFrame();
+      expect(alternative.hidden).toBe(false);
+      expect(alternativePanel.hidden).toBe(false);
+      expect(Number.parseFloat(alternative.style.left)).toBeGreaterThan(Number.parseFloat(face.style.left));
+      face.click();
+      await nextFrame();
+      expect(alternative.hidden).toBe(true);
+
+      ownerRect = rect(160, 60, 210, 160);
+      frame.querySelector<HTMLElement>('[data-scroll="content"]')?.dispatchEvent(new Event('scroll', { bubbles: true }));
+      await nextFrame();
+      expect(face.style.left).toBe('378px');
+      expect(face.style.top).toBe('69px');
+      expect(Number.parseFloat(face.style.left)).toBeGreaterThanOrEqual(ownerRect.right + 8);
+
+      ownerRect = rect(160, 60, 230, 160);
+      resizeCallback.current?.([], {} as ResizeObserver);
+      await nextFrame();
+      expect(face.style.left).toBe('398px');
+      expect(face.style.top).toBe('69px');
+      expect(Number.parseFloat(face.style.left)).toBeGreaterThanOrEqual(ownerRect.right + 8);
+
+      // When the owner's right side is too close to the frame edge, flip to
+      // its left while preserving a gap; the identity card remains unobscured.
+      Object.defineProperty(frame, 'getBoundingClientRect', { configurable: true, value: () => rect(0, 0, 500, 700) });
+      Object.defineProperty(layer, 'getBoundingClientRect', { configurable: true, value: () => rect(100, 0, 700, 720) });
+      ownerRect = rect(200, 60, 210, 160);
+      resizeCallback.current?.([], {} as ResizeObserver);
+      await nextFrame();
+      expect(face.style.left).toBe('-20px');
+      expect(100 + Number.parseFloat(face.style.left) + 112).toBeLessThanOrEqual(ownerRect.left - 8);
+      await nextFrame();
+      for (const [index, element] of [frame, layer, owner].entries()) {
+        Object.defineProperty(element, 'getBoundingClientRect', { configurable: true, value: originalRects[index] });
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('目标型替代牌的鼠标 click 不选计划；Enter 可通过该牌自己的目标路径设置目标', () => {
+    acquireStudents();
+    startFromFeed();
+    const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
+    const { currentFace, alternative, targetTray, targetChoice, targetId, actionId } = installTargetableAlternative();
+    const initialView = game.operationEntry.getView(runId)!;
+    currentFace.click();
+    expect(alternative.hidden).toBe(false);
+    expect(targetTray.hidden).toBe(true);
+    expect(targetChoice.getAttribute('aria-pressed')).toBe('false');
+    expect(targetChoice.hasAttribute('data-default-target')).toBe(true);
+    expect(initialView.interventionDraft).toMatchObject({
+      actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
+      actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop,
+    });
+
+    alternative.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+    expect(targetTray.hidden).toBe(true);
+    expect(game.operationEntry.getView(runId)?.planVersion).toBe(initialView.planVersion);
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toEqual(initialView.interventionDraft);
+
+    alternative.focus();
+    alternative.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    alternative.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
+    expect(targetTray.hidden).toBe(false);
+    expect(document.activeElement).toBe(targetChoice);
+    targetChoice.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    targetChoice.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toMatchObject({
+      actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
+      actionId,
+      targetActorId: targetId,
+    });
+    expect(game.operationEntry.getView(runId)!.planVersion).toBeGreaterThan(initialView.planVersion);
+  });
+
+  it('目标型替代牌仍可拖到合法对象后选择', () => {
+    acquireStudents();
+    startFromFeed();
+    const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
+    const { currentFace, alternative, targetId, actionId } = installTargetableAlternative();
+    const initialView = game.operationEntry.getView(runId)!;
+    currentFace.click();
+    const dropTarget = root.querySelector<HTMLElement>('[data-operation-actor-target="' + targetId + '"]')!;
+    const originalElementFromPoint = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => dropTarget });
+    try {
+      alternative.dispatchEvent(pointer('pointerdown', 2, 2, 49));
+      root.dispatchEvent(pointer('pointermove', 18, 18, 49));
+      expect(dropTarget.classList.contains('is-card-legal-target')).toBe(true);
+      alternative.dispatchEvent(pointer('pointerup', 18, 18, 49));
+    } finally {
+      if (originalElementFromPoint) Object.defineProperty(document, 'elementFromPoint', originalElementFromPoint);
+      else Reflect.deleteProperty(document, 'elementFromPoint');
+    }
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toMatchObject({
+      actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
+      actionId,
+      targetActorId: targetId,
+    });
+    expect(game.operationEntry.getView(runId)!.planVersion).toBeGreaterThan(initialView.planVersion);
+  });
+
+  it('UIController.destroy 幂等释放牌层 scroll、MutationObserver、ResizeObserver 与 pending rAF', () => {
+    controller.destroy();
+    document.body.innerHTML = '<div id="app"></div>';
+    root = document.querySelector('#app')!;
+    const resizeObservers: Array<{ observed: Set<Element>; disconnected: boolean; disconnectCount: number }> = [];
+    class TestResizeObserver {
+      readonly observed = new Set<Element>();
+      disconnected = false;
+      disconnectCount = 0;
+      constructor(_callback: ResizeObserverCallback) { resizeObservers.push(this); }
+      observe(target: Element): void { this.observed.add(target); }
+      unobserve(target: Element): void { this.observed.delete(target); }
+      disconnect(): void { this.disconnected = true; this.disconnectCount += 1; this.observed.clear(); }
+    }
+    const mutationObservers: Array<{ target: Node | null; disconnected: boolean; disconnectCount: number }> = [];
+    class TestMutationObserver {
+      target: Node | null = null;
+      disconnected = false;
+      disconnectCount = 0;
+      constructor(_callback: MutationCallback) { mutationObservers.push(this); }
+      observe(target: Node): void { this.target = target; }
+      disconnect(): void { this.disconnected = true; this.disconnectCount += 1; }
+      takeRecords(): MutationRecord[] { return []; }
+    }
+    vi.stubGlobal('ResizeObserver', TestResizeObserver);
+    vi.stubGlobal('MutationObserver', TestMutationObserver);
+    let nextFrameId = 0;
+    const pendingFrames = new Map<number, FrameRequestCallback>();
+    const cancelledFrames: number[] = [];
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      const id = ++nextFrameId;
+      pendingFrames.set(id, callback);
+      return id;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      cancelledFrames.push(id);
+      pendingFrames.delete(id);
+    });
+    const addListener = vi.spyOn(root, 'addEventListener');
+    const removeListener = vi.spyOn(root, 'removeEventListener');
+    const flushPendingFrames = (): void => {
+      const queued = [...pendingFrames.entries()];
+      for (const [id, callback] of queued) {
+        pendingFrames.delete(id);
+        callback(16);
+      }
+    };
+
+    try {
+      controller = new UIController(game, root);
+      controller.started = true;
+      controller.render();
+      flushPendingFrames();
+      acquireStudents();
+      startFromFeed();
+      root.dispatchEvent(new Event('scroll', { bubbles: true }));
+      flushPendingFrames();
+
+      const layer = root.querySelector<HTMLElement>('[data-operation-prepared-card-layer]')!;
+      const resizeObserver = resizeObservers.find(observer => observer.observed.has(layer));
+      const mutationObserver = mutationObservers.find(observer => observer.target === root);
+      const scrollRegistration = addListener.mock.calls.find(call => call[0] === 'scroll' && call[2] === true);
+      expect(resizeObserver).toBeDefined();
+      expect(mutationObserver).toBeDefined();
+      expect(scrollRegistration).toBeDefined();
+      expect(requestFrame).toHaveBeenCalled();
+
+      root.dispatchEvent(new Event('scroll', { bubbles: true }));
+      const pendingEntry = [...pendingFrames.entries()].at(-1);
+      expect(pendingEntry).toBeDefined();
+      const [pendingFrameId, staleCallback] = pendingEntry!;
+      controller.destroy();
+      controller.destroy();
+
+      expect(removeListener).toHaveBeenCalledWith('scroll', scrollRegistration![1], true);
+      expect(mutationObserver!.disconnected).toBe(true);
+      expect(mutationObserver!.disconnectCount).toBe(1);
+      expect(resizeObserver!.disconnected).toBe(true);
+      expect(resizeObserver!.disconnectCount).toBe(1);
+      expect(cancelledFrames).toContain(pendingFrameId);
+      expect(pendingFrames.has(pendingFrameId)).toBe(false);
+      staleCallback(32);
+      expect(pendingFrames.size).toBe(0);
+    } finally {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
   });
 
   it('卡片选择只更新当前 DOM，不改 Runtime 计划或触发刷新', () => {
@@ -245,30 +511,37 @@ describe('Gameplay B Operation Controller', () => {
     expect(staged?.preview.selections.find(selection => selection.actorId === selectedActorId)?.sceneActionId).toBe(selectedActionId);
   });
 
-  it('行动牌拖向合法人物会显示临时关系并写入正确边界的草稿', () => {
+  it('键盘可达行动目标，合法牌面拖放只在释放时写入草稿', () => {
     acquireStudents();
     startFromFeed();
     const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
-    const initialView = game.operationEntry.getView(runId)!;
-    const actionFace = [...root.querySelectorAll<HTMLButtonElement>('[data-operation-action][aria-pressed="true"]')]
-      .find(face => (JSON.parse(face.dataset.legalTargetActorIds ?? '[]') as string[])
-        .some(id => id !== face.dataset.defaultTargetActorId))!;
+    let initialView = game.operationEntry.getView(runId)!;
+    let actionFace = [...root.querySelectorAll<HTMLButtonElement>('[data-operation-action][aria-pressed="true"]')]
+      .find(face => (JSON.parse(face.dataset.legalTargetActorIds ?? '[]') as string[]).length > 0)!;
     expect(actionFace).toBeDefined();
-    const legalTargets = JSON.parse(actionFace.dataset.legalTargetActorIds ?? '[]') as string[];
-    const dropTargetId = legalTargets.find(id => id !== actionFace.dataset.defaultTargetActorId)!;
-    const dropTarget = [...root.querySelectorAll<HTMLElement>('[data-operation-actor-target]')]
+    let legalTargets = JSON.parse(actionFace.dataset.legalTargetActorIds ?? '[]') as string[];
+    const dropTargetId = legalTargets[0];
+    let dropTarget = [...root.querySelectorAll<HTMLElement>('[data-operation-actor-target]')]
       .find(actor => actor.dataset.operationActorTarget === dropTargetId)!;
     const originalElementFromPoint = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
     expect(actionFace.tagName).toBe('BUTTON');
     expect(actionFace.tabIndex).toBe(0);
     expect(actionFace.getAttribute('aria-label')).toContain('行动');
-    const targetTray = actionFace.parentElement?.querySelector<HTMLElement>('.operation-action-targets')!;
+    let targetTray = [...root.querySelectorAll<HTMLElement>('[data-operation-action-targets]')]
+      .find(tray => tray.dataset.operationPreparedOwnerId === actionFace.dataset.actorId && tray.dataset.operationActionId === actionFace.dataset.actionId)!;
     actionFace.focus();
-    actionFace.click();
+    actionFace.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
     expect(targetTray.hidden).toBe(false);
-    expect(document.activeElement).toBe(targetTray.querySelector('[data-operation-target]:not([aria-pressed="true"])'));
-    actionFace.click();
+    const keyboardTarget = [...targetTray.querySelectorAll<HTMLButtonElement>('[data-operation-target]:not(:disabled)')]
+      .find(button => button.dataset.targetActorId === dropTargetId)!;
+    expect(document.activeElement).toBe(keyboardTarget);
+    expect(keyboardTarget.getAttribute('aria-pressed')).toBe('true');
+    keyboardTarget.click();
+    expect(game.operationEntry.getView(runId)?.planVersion).toBe(initialView.planVersion);
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+    keyboardTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(targetTray.hidden).toBe(true);
+    expect(document.activeElement).toBe(actionFace);
     const illegalTarget = [...root.querySelectorAll<HTMLElement>('[data-operation-actor-target]')]
       .find(actor => !legalTargets.includes(actor.dataset.operationActorTarget ?? ''))!;
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => dropTarget });

@@ -142,7 +142,7 @@ export function mountGameplayBCardInspector(): GameplayBCardInspectorMount {
       surfaceRoot.querySelector<HTMLElement>('[data-operation-commit]:not(:disabled)')?.focus({ preventScroll: true });
 
       overlay.addEventListener('keydown', event => {
-        if (event.key === 'Escape') {
+        if (event.key === 'Escape' && !event.defaultPrevented) {
           event.preventDefault();
           closeSession();
         }

@@ -73,8 +73,19 @@ describe('Gameplay B Operation workspace view', () => {
     expect(host.querySelectorAll('[data-operation-student]')).toHaveLength(3);
     expect(host.querySelectorAll('[data-operation-opponent]')).toHaveLength(2);
     expect(host.querySelectorAll('[data-operation-environment-actor]')).toHaveLength(1);
-    expect(host.querySelector('[data-operation-action][data-actor-id="' + IDS.actors.hoshino + '"]')?.closest('[data-operation-student]')?.getAttribute('data-operation-student')).toBe(IDS.actors.hoshino);
-    expect(host.querySelector('[data-operation-intent="' + IDS.actors.saboteur + '"]')?.closest('[data-operation-opponent]')?.getAttribute('data-operation-opponent')).toBe(IDS.actors.saboteur);
+    const operationFrame = host.querySelector<HTMLElement>('[data-workspace-frame="operation"]');
+    const preparedLayer = host.querySelector<HTMLElement>('[data-operation-prepared-card-layer]');
+    expect(preparedLayer?.parentElement).toBe(operationFrame);
+    expect(host.querySelector('[data-operation-relation-layer]')?.parentElement).toBe(operationFrame);
+    expect(host.querySelector('[data-operation-drag-status]')?.parentElement).toBe(operationFrame);
+    const hoshinoAction = host.querySelector<HTMLElement>('[data-operation-action][data-actor-id="' + IDS.actors.hoshino + '"][aria-pressed="true"]');
+    expect(host.querySelector('[data-operation-student="' + IDS.actors.hoshino + '"]')?.getAttribute('data-operation-action-anchor')).toBe(IDS.actors.hoshino);
+    expect(hoshinoAction?.parentElement).toBe(preparedLayer);
+    expect(hoshinoAction?.dataset.operationPreparedOwnerId).toBe(IDS.actors.hoshino);
+    expect(hoshinoAction?.closest('[data-operation-student]')).toBeNull();
+    const saboteurIntent = host.querySelector<HTMLElement>('[data-operation-intent="' + IDS.actors.saboteur + '"]');
+    expect(saboteurIntent?.parentElement?.matches('[data-operation-prepared-card-layer]')).toBe(true);
+    expect(saboteurIntent?.dataset.operationPreparedOwnerId).toBe(IDS.actors.saboteur);
     expect(host.querySelector('.operation-student-list')).toBeNull();
     expect(host.querySelector('.operation-intents')).toBeNull();
     expect(host.querySelector('[data-operation-log]')).not.toBeNull();
@@ -90,7 +101,62 @@ describe('Gameplay B Operation workspace view', () => {
     expect(battleFaces.every(face => face.dataset.cardKind === 'battle-action' && !face.querySelector('button'))).toBe(true);
     expect(host.querySelectorAll('.operation-card-face--intent')).toHaveLength(3);
     expect(host.querySelector('[data-operation-intent="' + IDS.actors.saboteur + '"]')?.tagName).toBe('ARTICLE');
-    expect(host.querySelector('[data-operation-action-options] [data-operation-action-option][hidden]')).not.toBeNull();
+    expect(host.querySelectorAll('[data-operation-action-option]')).toHaveLength(battleFaces.length);
+    expect(host.querySelector('[data-operation-action-disclosure]')).toBeNull();
+    expect(host.querySelector('.operation-card-face--battle .operation-card-type')?.textContent).not.toContain('当前行动');
+    expect(host.querySelectorAll('[data-operation-action-option][data-operation-action-alternative][hidden]').length).toBeGreaterThan(0);
+  });
+
+  it('替代行动牌与目标 tray 使用自身 option 的默认目标', () => {
+    const game = createGame();
+    const runId = start(game);
+    const view = game.operationEntry.getView(runId)!;
+    const hoshino = view.actorStates.find(actor => actor.id === IDS.actors.hoshino)!;
+    const serika = view.actorStates.find(actor => actor.id === IDS.actors.serika)!;
+    const ride = view.actorStates.find(actor => actor.id === IDS.actors.ride)!;
+    const options = hoshino.profile!.actionOptions;
+    const activePlan = hoshino.currentPlan!;
+    const selectedOption = options.find(option => option.actionId === activePlan.actionId)!;
+    const alternativeOption = options.find(option => option.actionId !== selectedOption.actionId)!;
+    const projectedView = {
+      ...view,
+      actorStates: view.actorStates.map(actor => actor.id !== hoshino.id ? actor : {
+        ...actor,
+        currentPlan: { ...activePlan, targetActorId: ride.id },
+        profile: {
+          ...actor.profile!,
+          actionOptions: actor.profile!.actionOptions.map(option => option.actionId !== alternativeOption.actionId ? option : {
+            ...option,
+            defaultTargetActorId: serika.id,
+            legalTargetActorIds: [serika.id, ride.id],
+          }),
+        },
+      }),
+    };
+    const host = document.createElement('div');
+    host.innerHTML = renderOperationWorkspace(createUIContext(game), projectedView);
+
+    const currentFace = host.querySelector<HTMLButtonElement>(
+      '[data-operation-action-current][data-action-id="' + selectedOption.actionId + '"]',
+    )!;
+    const alternativeFace = host.querySelector<HTMLButtonElement>(
+      '[data-operation-action-alternative][data-action-id="' + alternativeOption.actionId + '"]',
+    )!;
+    const alternativeTray = host.querySelector<HTMLElement>(
+      '[data-operation-action-targets][data-operation-action-id="' + alternativeOption.actionId + '"]',
+    )!;
+    const currentTray = host.querySelector<HTMLElement>(
+      '[data-operation-action-targets][data-operation-action-id="' + selectedOption.actionId + '"]',
+    )!;
+
+    expect(currentFace.dataset.targetSummary).toBe('→ ' + ride.displayName);
+    expect(alternativeFace.dataset.targetSummary).toBe('→ ' + serika.displayName);
+    expect(alternativeFace.querySelector('[data-operation-card-target-summary]')?.textContent).toBe('→ ' + serika.displayName);
+    const alternativeDefault = alternativeTray.querySelector('[data-target-actor-id="' + serika.id + '"]');
+    expect(alternativeDefault?.hasAttribute('data-default-target')).toBe(true);
+    expect(alternativeDefault?.getAttribute('aria-pressed')).toBe('false');
+    expect(alternativeTray.querySelector('[data-target-actor-id="' + ride.id + '"]')?.getAttribute('aria-pressed')).toBe('false');
+    expect(currentTray.querySelector('[data-target-actor-id="' + ride.id + '"]')?.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('reading a missing scene-draft version does not evict the stored draft', () => {
@@ -114,6 +180,25 @@ describe('Gameplay B Operation workspace view', () => {
     host.innerHTML = render(game, runId);
     expect(host.querySelector('[data-operation-student="' + hoshino.id + '"]')?.textContent).toContain(hoshino.displayName);
     expect(host.querySelector('[data-operation-opponent="' + opponent.id + '"]')?.textContent).toContain(opponent.displayName);
+    const serika = view.actorStates.find(actor => actor.id === IDS.actors.serika)!;
+    const shiroko = view.actorStates.find(actor => actor.id === IDS.actors.shiroko)!;
+    const student = (id: string) => host.querySelector<HTMLElement>('[data-operation-student="' + id + '"]');
+    expect(student(hoshino.id)?.querySelector('[data-operation-scost]')?.textContent).toContain('体力 1');
+    expect(student(serika.id)?.querySelector('[data-operation-scost]')?.textContent).toContain('专注 0');
+    expect(student(shiroko.id)?.querySelector('[data-operation-scost]')?.textContent).toContain('—');
+    expect(student(shiroko.id)?.querySelector('[data-operation-scost]')?.textContent).not.toContain('协调');
+    expect(view.teamStates.some(team => team.resources.coordination !== undefined)).toBe(true);
+    const personalCoordinationView = {
+      ...view,
+      actorStates: view.actorStates.map(actor => actor.id === shiroko.id ? { ...actor, resources: { coordination: 2 } } : actor),
+    };
+    const personalCoordinationHost = document.createElement('div');
+    personalCoordinationHost.innerHTML = renderOperationWorkspace(createUIContext(game), personalCoordinationView);
+    expect(personalCoordinationHost.querySelector('[data-operation-student="' + shiroko.id + '"] [data-operation-scost]')?.textContent).toContain('个人协调 2');
+    expect(student(hoshino.id)?.querySelector('[role="meter"]')).not.toBeNull();
+    expect(student(hoshino.id)?.querySelector('[role="meter"]')?.getAttribute('aria-valuenow')).toBe(String(hoshino.hp));
+    expect(student(hoshino.id)?.querySelector('[role="meter"]')?.getAttribute('aria-valuemax')).toBe(String(hoshino.maxHp));
+    expect(student(hoshino.id)?.querySelector('[role="meter"] span')?.getAttribute('style')).toContain('--operation-hp-fill:');
   });
 
   it('shows the Individual scene batch, held-item route and Global hand at their locations', () => {

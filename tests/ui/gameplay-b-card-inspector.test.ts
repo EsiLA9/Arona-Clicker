@@ -145,4 +145,35 @@ describe('Gameplay B card inspector entry', () => {
     expect(nextRunId).not.toBe(firstRunId);
     expect(game?.operationEntry.getView()).toBeNull();
   });
+
+  test('Operation 消费的 Escape 只关闭局部牌面交互；退出按钮与未消费 Escape 仍退出检查器', () => {
+    createPrimaryFixture();
+    inspector = mountGameplayBCardInspector();
+    const launcher = document.querySelector<HTMLButtonElement>('[data-gameplay-b-card-inspector] button')!;
+    launcher.click();
+
+    let overlay = document.querySelector<HTMLElement>('[data-gameplay-b-card-inspector-surface]')!;
+    const operationRoot = overlay.querySelector<HTMLElement>('[data-gameplay-b-card-inspector-operation-root]')!;
+    const currentFace = operationRoot.querySelector<HTMLButtonElement>(
+      '[data-operation-action-current-toggle], [data-operation-action-current][aria-pressed="true"]',
+    )!;
+    currentFace.click();
+    expect(currentFace.getAttribute('aria-expanded')).toBe('true');
+
+    const consumedEscape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    currentFace.dispatchEvent(consumedEscape);
+    expect(consumedEscape.defaultPrevented).toBe(true);
+    expect(currentFace.getAttribute('aria-expanded')).toBe('false');
+    expect(overlay.isConnected).toBe(true);
+
+    overlay.querySelector<HTMLButtonElement>('[data-gameplay-b-card-inspector-close]')!.click();
+    expect(document.querySelector('[data-gameplay-b-card-inspector-surface]')).toBeNull();
+
+    launcher.click();
+    overlay = document.querySelector<HTMLElement>('[data-gameplay-b-card-inspector-surface]')!;
+    const unconsumedEscape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    overlay.dispatchEvent(unconsumedEscape);
+    expect(unconsumedEscape.defaultPrevented).toBe(true);
+    expect(document.querySelector('[data-gameplay-b-card-inspector-surface]')).toBeNull();
+  });
 });
