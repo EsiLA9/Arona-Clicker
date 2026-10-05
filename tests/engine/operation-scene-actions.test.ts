@@ -364,4 +364,47 @@ describe('Operation SceneAction batches and shared route Cost', () => {
       },
     })).toThrow(/sceneActionBatches|scope/);
   });
+
+  test('rejects target-filtered tactical Actions when wrapped as Location SceneActions', () => {
+    const input = individualStartInput();
+    const actionDefinitions = input.actionDefinitions.map(actionDefinition => actionDefinition.id === ACTION_A
+      ? { ...actionDefinition, target: { kind: 'actor' as const, relation: 'any' as const, allowedActorIds: [A] } }
+      : actionDefinition);
+
+    expect(() => new OperationRuntimeService().start({ ...input, actionDefinitions }))
+      .toThrow(/locations\[0\]\.sceneActions\[0\] Action target ID\/type filters are only supported for tactical Beat Actions/);
+  });
+
+  test('rejects target-filtered tactical Actions when wrapped as PlayerSceneCards', () => {
+    const base = globalStartInput();
+    const sceneOnlyActionId = 'demo:action:scene-only';
+    const actionDefinitions = [
+      {
+        ...base.actionDefinitions[0],
+        target: { kind: 'actor' as const, relation: 'any' as const, allowedActorTypes: ['student'] },
+      },
+      action(sceneOnlyActionId, []),
+    ];
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      locations: base.eventDefinition.locations.map(location => ({
+        ...location,
+        sceneActions: [{
+          id: 'demo:scene-action:calm-crowd',
+          actionId: sceneOnlyActionId,
+          scope: 'global' as const,
+          playerCost: 2,
+        }],
+      })),
+      playerSceneDeck: {
+        cards: [{ id: 'demo:card:team-aid', actionId: ACTION_GLOBAL, playerCost: 2, timing: 'scene', copies: 1 }],
+        initialDraw: 1,
+        locationEntryDraw: 1,
+        maxHandSize: 2,
+      },
+    };
+
+    expect(() => new OperationRuntimeService().start({ ...base, eventDefinition, actionDefinitions }))
+      .toThrow(/playerSceneDeck\.cards\[0\] Action target ID\/type filters are only supported for tactical Beat Actions/);
+  });
 });

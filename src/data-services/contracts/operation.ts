@@ -92,7 +92,14 @@ export interface OperationPlayerSceneDeckDef {
 export type OperationActionTargetRelation = 'self' | 'sameTeam' | 'otherTeam' | 'any';
 export type OperationActionTargetDef =
   | { readonly kind: 'none' }
-  | { readonly kind: 'actor'; readonly relation: OperationActionTargetRelation };
+  | {
+      readonly kind: 'actor';
+      readonly relation: OperationActionTargetRelation;
+      /** When present, only these exact Event Actor IDs can be selected. */
+      readonly allowedActorIds?: readonly string[];
+      /** When present, the target's declared Event Actor type must match one of these strings. */
+      readonly allowedActorTypes?: readonly string[];
+    };
 
 export interface OperationActionCostDef {
   readonly scope: 'actor' | 'team';

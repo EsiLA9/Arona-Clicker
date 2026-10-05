@@ -99,6 +99,65 @@ function admission(): OperationAdmission {
 }
 
 describe('StudentOperationProfileResolver and EventRun snapshots', () => {
+  test('validates optional Actor ID/type target scopes while keeping legacy targets valid', () => {
+    const base = actionDefinitions()[0];
+    const validateTarget = (target: unknown) => validateOperationActionContent(
+      eventDef(),
+      [{ ...base, target }],
+      [],
+      [],
+    ).issues;
+
+    expect(validateTarget({ kind: 'actor', relation: 'any' })).toEqual([]);
+    expect(validateTarget({
+      kind: 'actor',
+      relation: 'any',
+      allowedActorIds: [ACTOR_IDS[0]],
+      allowedActorTypes: ['student'],
+    })).toEqual([]);
+    expect(validateTarget({
+      kind: 'actor',
+      relation: 'any',
+      allowedActorIds: ['test:actor:missing'],
+      allowedActorTypes: ['student'],
+    }).join('\n')).toMatch(/allowedActorIds\[0\] references an undeclared Event Actor: test:actor:missing/);
+    expect(validateTarget({
+      kind: 'actor',
+      relation: 'any',
+      allowedActorIds: [ACTOR_IDS[0]],
+      allowedActorTypes: ['carousel-platform'],
+    }).join('\n')).toMatch(/allowedActorTypes\[0\] references an Actor type not declared by this Event: carousel-platform/);
+  });
+
+  test('rejects empty, duplicate, and malformed Actor ID/type target filters', () => {
+    const base = actionDefinitions()[0];
+    const validateTarget = (target: unknown) => validateOperationActionContent(
+      eventDef(),
+      [{ ...base, target }],
+      [],
+      [],
+    ).issues.join('\n');
+
+    expect(validateTarget({ kind: 'actor', relation: 'any', allowedActorIds: [] }))
+      .toMatch(/allowedActorIds must contain at least one Actor ID/);
+    expect(validateTarget({ kind: 'actor', relation: 'any', allowedActorIds: ['test:actor:a', 'test:actor:a'] }))
+      .toMatch(/allowedActorIds contains duplicate ID/);
+    expect(validateTarget({ kind: 'actor', relation: 'any', allowedActorIds: ['  '] }))
+      .toMatch(/allowedActorIds\[0\] must be a non-empty ID/);
+    expect(validateTarget({ kind: 'actor', relation: 'any', allowedActorTypes: [] }))
+      .toMatch(/allowedActorTypes must contain at least one Actor type/);
+    expect(validateTarget({ kind: 'actor', relation: 'any', allowedActorTypes: ['carousel-platform', 'carousel-platform'] }))
+      .toMatch(/allowedActorTypes contains duplicate Actor type/);
+    expect(validateTarget({ kind: 'actor', relation: 'any', allowedActorTypes: ['  '] }))
+      .toMatch(/allowedActorTypes\[0\] must be a non-empty Actor type/);
+    expect(validateTarget({ kind: 'actor', relation: 'any', allowedActorTypes: [' carousel-platform'] }))
+      .toMatch(/allowedActorTypes\[0\] must be a non-empty Actor type/);
+    expect(validateTarget({ kind: 'actor', relation: 'any', allowedActorIds: 'test:actor:a' }))
+      .toMatch(/allowedActorIds must be an array of IDs/);
+    expect(validateTarget({ kind: 'none', allowedActorIds: ['test:actor:a'] }))
+      .toMatch(/target contains unsupported field: allowedActorIds/);
+  });
+
   test('validates unique trusted Action IDs, Action capability/reason lists, and reserved Wait ID', () => {
     const actions = actionDefinitions();
     const duplicateAction = { ...actions[0] };

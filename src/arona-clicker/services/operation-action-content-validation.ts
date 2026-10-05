@@ -38,15 +38,29 @@ function indexById<T>(values: readonly T[], idOf: (value: T) => string): Map<str
 }
 
 function legalTargetActors(event: OperationEventDef, source: OperationActorDef, action: OperationActionDef): readonly OperationActorDef[] {
-  if (action.target.kind !== 'actor') return [];
-  switch (action.target.relation) {
-    case 'self': return [source];
-    case 'sameTeam': return source.teamId ? event.actors.filter(actor => actor.teamId === source.teamId) : [];
-    case 'otherTeam': return source.teamId
+  const target = action.target;
+  if (target.kind !== 'actor') return [];
+  let relationTargets: readonly OperationActorDef[] = [];
+  switch (target.relation) {
+    case 'self': relationTargets = [source]; break;
+    case 'sameTeam': relationTargets = source.teamId
+      ? event.actors.filter(actor => actor.teamId === source.teamId)
+      : [];
+      break;
+    case 'otherTeam': relationTargets = source.teamId
       ? event.actors.filter(actor => actor.teamId !== undefined && actor.teamId !== source.teamId)
       : [];
-    case 'any': return event.actors;
+      break;
+    case 'any': relationTargets = event.actors; break;
   }
+  return relationTargets.filter(actor =>
+    (target.allowedActorIds === undefined || target.allowedActorIds.includes(actor.id))
+    && (target.allowedActorTypes === undefined || target.allowedActorTypes.includes(actor.type)));
+}
+
+function hasTacticalActorTargetFilters(action: OperationActionDef): boolean {
+  return action.target.kind === 'actor'
+    && (action.target.allowedActorIds !== undefined || action.target.allowedActorTypes !== undefined);
 }
 
 function hasActorResource(actor: OperationActorDef, resourceId: string): boolean {
@@ -181,8 +195,22 @@ export function validateOperationActionContent(
     .filter(isNonEmptyId));
   const factIds = new Set(Array.isArray(event.factIds) ? event.factIds.filter(isNonEmptyId) : []);
   const itemIds = new Set(Array.isArray(event.itemIds) ? event.itemIds.filter(isNonEmptyId) : []);
+  const eventActorIds = new Set(event.actors.map(actor => actor.id).filter(isNonEmptyId));
+  const eventActorTypes = new Set(event.actors.map(actor => actor.type).filter(isNonEmptyId));
 
   for (const [index, action] of actionDefinitions.entries()) {
+    if (action.target.kind === 'actor') {
+      for (const [targetIndex, actorId] of (action.target.allowedActorIds ?? []).entries()) {
+        if (!eventActorIds.has(actorId)) {
+          issues.push('actionDefinitions[' + index + '].target.allowedActorIds[' + targetIndex + '] references an undeclared Event Actor: ' + actorId);
+        }
+      }
+      for (const [typeIndex, actorType] of (action.target.allowedActorTypes ?? []).entries()) {
+        if (!eventActorTypes.has(actorType)) {
+          issues.push('actionDefinitions[' + index + '].target.allowedActorTypes[' + typeIndex + '] references an Actor type not declared by this Event: ' + actorType);
+        }
+      }
+    }
     for (const [effectIndex, effect] of action.effects.entries()) {
       if (effect.kind === 'eventTrackDelta' && !trackIds.has(effect.trackId)) {
         issues.push('actionDefinitions[' + index + '].effects[' + effectIndex + '].trackId references an undeclared track: ' + effect.trackId);
@@ -292,6 +320,9 @@ export function validateOperationActionContent(
       if (!action) {
         issues.push(path + '.actionId references a missing Action: ' + sceneAction.actionId);
       } else {
+        if (hasTacticalActorTargetFilters(action)) {
+          issues.push(path + ' Action target ID/type filters are only supported for tactical Beat Actions: ' + sceneAction.actionId);
+        }
         if (!action.allowedParticipantKinds.includes('student')) {
           issues.push(path + ' Action must allow student participants: ' + sceneAction.actionId);
         }
@@ -332,6 +363,9 @@ export function validateOperationActionContent(
     if (!action) {
       issues.push(path + '.actionId references a missing Action: ' + card.actionId);
       continue;
+    }
+    if (hasTacticalActorTargetFilters(action)) {
+      issues.push(path + ' Action target ID/type filters are only supported for tactical Beat Actions: ' + card.actionId);
     }
     if (!action.allowedParticipantKinds.includes('student')) {
       issues.push(path + ' Action must allow student participants: ' + card.actionId);

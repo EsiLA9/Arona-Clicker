@@ -130,7 +130,7 @@ const actionDefinitions: readonly OperationActionDef[] = [
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:brace-the-brake'],
     tagIds: ['gameplay-b:operation-tag:brake'],
-    target: { kind: 'actor', relation: 'any' },
+    target: { kind: 'actor', relation: 'any', allowedActorIds: TARGET_RIDE },
     effects: [{ kind: 'actorHpDelta', recipient: 'target', amount: 1 }],
   },
   {
@@ -149,7 +149,7 @@ const actionDefinitions: readonly OperationActionDef[] = [
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:signal-rhythm'],
     tagIds: ['gameplay-b:operation-tag:signal'],
-    target: { kind: 'actor', relation: 'any' },
+    target: { kind: 'actor', relation: 'any', allowedActorIds: TARGET_RIDE },
     effects: [{ kind: 'eventTrackDelta', trackId: IDS.track, amount: -1 }],
   },
   {
@@ -168,7 +168,7 @@ const actionDefinitions: readonly OperationActionDef[] = [
     requiredCapabilityIds: ['gameplay-b:operation-capability:precision'],
     reasonIds: ['gameplay-b:operation-reason:shield-the-frame'],
     tagIds: [],
-    target: { kind: 'actor', relation: 'any' },
+    target: { kind: 'actor', relation: 'any', allowedActorIds: TARGET_RIDE },
     effects: [{ kind: 'actorHpDelta', recipient: 'target', amount: 1 }],
   },
   {

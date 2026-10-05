@@ -336,6 +336,45 @@ describe('pure Operation Resolution planner', () => {
       .toMatchObject({ requestedDelta: -2, before: 2, after: 0, delta: -2 });
   });
 
+  test('rechecks an intervention target against the Action Actor ID and type scopes at Resolution', () => {
+    const input = fixture();
+    const actionDefinitions = input.trustedContent.actionDefinitions.map(actionDefinition => actionDefinition.id === ACTION_A
+      ? {
+        ...actionDefinition,
+        target: {
+          kind: 'actor' as const,
+          relation: 'any' as const,
+          allowedActorIds: [ENEMY],
+          allowedActorTypes: ['opponent'],
+        },
+      }
+      : actionDefinition);
+    const trustedContent = { ...input.trustedContent, actionDefinitions };
+    const preparationSnapshot: OperationPreparationSnapshot = {
+      eventId: input.snapshot.eventId,
+      planVersion: input.snapshot.planVersion,
+      currentLocationId: input.snapshot.currentLocationId,
+      actors: input.snapshot.actors.map(({ actorId, participantKind, resources }) => ({ actorId, participantKind, resources })),
+      teams: input.snapshot.teams,
+    };
+    const preparationContent: OperationPreparationContent = {
+      eventDefinition: trustedContent.eventDefinition,
+      actors: trustedContent.actorInitializations,
+      actionDefinitions: trustedContent.actionDefinitions,
+    };
+    const preparedBeat = prepareOperationBeat(preparationSnapshot, preparationContent);
+    const invalidIntervention = {
+      ...input,
+      trustedContent,
+      preparedBeat,
+      interventionDraft: { actorId: STUDENT_A, targetActorId: STUDENT_B },
+    };
+    const before = structuredClone(invalidIntervention);
+
+    expectPlannerError(() => planOperationResolution(invalidIntervention), 'operation:resolution:invalid-content');
+    expect(invalidIntervention).toEqual(before);
+  });
+
   test('records independent Actor-scope payments and cannot use an earlier Action gain to pay a later plan', () => {
     const actorCostInput = fixture();
     const actorCostActions = actorCostInput.trustedContent.actionDefinitions.map((actionDefinition, index) => index < 2

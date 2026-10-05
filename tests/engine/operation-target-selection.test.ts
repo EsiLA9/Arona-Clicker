@@ -7,10 +7,11 @@ function actor(
   id: string,
   teamId?: string,
   targetPriorityActorIds?: readonly string[],
+  type = 'test-actor',
 ): OperationActorDef {
   return {
     id,
-    type: 'test-actor',
+    type,
     hp: { initial: 1, min: 0, max: 1 },
     ...(teamId ? { teamId } : {}),
     ...(targetPriorityActorIds ? { targetPriorityActorIds } : {}),
@@ -121,6 +122,45 @@ describe('Operation automatic target selection', () => {
       kind: 'actor',
       targetActorId: 'first',
     });
+  });
+
+  test('applies exact ID and declared Actor type filters before target preferences', () => {
+    const definition = event([
+      actor('source', undefined, ['wrong-type', 'preferred-platform']),
+      actor('wrong-type', undefined, undefined, 'streetlight'),
+      actor('preferred-platform', undefined, undefined, 'carousel-platform'),
+      actor('allowlisted-platform', undefined, undefined, 'carousel-platform'),
+    ]);
+
+    expect(selectOperationTarget(definition, 'source', {
+      kind: 'actor',
+      relation: 'any',
+      allowedActorTypes: ['carousel-platform'],
+    })).toEqual({ kind: 'actor', targetActorId: 'preferred-platform' });
+    expect(selectOperationTarget(definition, 'source', {
+      kind: 'actor',
+      relation: 'any',
+      allowedActorIds: ['allowlisted-platform'],
+    })).toEqual({ kind: 'actor', targetActorId: 'allowlisted-platform' });
+    expect(selectOperationTarget(definition, 'source', {
+      kind: 'actor',
+      relation: 'any',
+      allowedActorIds: ['allowlisted-platform'],
+      allowedActorTypes: ['carousel-platform'],
+    })).toEqual({ kind: 'actor', targetActorId: 'allowlisted-platform' });
+  });
+
+  test('returns unavailable when relation candidates do not match the declared Actor type', () => {
+    const definition = event([
+      actor('source', undefined, ['target']),
+      actor('target', undefined, undefined, 'carousel-platform'),
+    ]);
+
+    expect(selectOperationTarget(definition, 'source', {
+      kind: 'actor',
+      relation: 'any',
+      allowedActorTypes: ['not-a-carousel'],
+    })).toMatchObject({ kind: 'unavailable', targetActorId: null });
   });
 
   test('reports undeclared preferred Actors and unknown source Actors concretely', () => {

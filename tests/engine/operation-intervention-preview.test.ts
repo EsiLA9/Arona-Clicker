@@ -23,11 +23,11 @@ import {
 function actor(
   id: string,
   participantKind: 'student' | 'opponent' | 'environment',
-  options: { teamId?: string; targetPriorityActorIds?: readonly string[]; resources?: OperationActorDef['resources'] } = {},
+  options: { type?: string; teamId?: string; targetPriorityActorIds?: readonly string[]; resources?: OperationActorDef['resources'] } = {},
 ): OperationActorDef {
   return {
     id,
-    type: participantKind,
+    type: options.type ?? participantKind,
     hp: { initial: 3, min: 0, max: 3 },
     ...(options.teamId ? { teamId: options.teamId } : {}),
     ...(options.targetPriorityActorIds ? { targetPriorityActorIds: options.targetPriorityActorIds } : {}),
@@ -228,6 +228,50 @@ describe('pure Operation Intervention Draft preview', () => {
     expect(targetOnly.preparedBeat.actorPlans[0]).toMatchObject({ actionId: 'student:aim', targetActorId: opponent.id });
     expect(actionAndTarget.preparedBeat.actorPlans[0]).toMatchObject({ actionId: 'student:assist', targetActorId: opponent.id });
     expect(targetOnly.preparedBeat.actorPlans.slice(1)).toEqual(targetInput.preparedBeat.actorPlans.slice(1));
+  });
+
+  test('rejects explicit targets outside an Action ID allowlist or declared Actor type scope', () => {
+    const student = actor('actor:student', 'student', { targetPriorityActorIds: ['actor:streetlight'] });
+    const carousel = actor('actor:carousel', 'environment', { type: 'carousel-platform' });
+    const streetlight = actor('actor:streetlight', 'environment', { type: 'streetlight' });
+    const event = eventDefinition([student, carousel, streetlight], {
+      enabledActionIds: ['student:type-scope', 'student:id-scope'],
+    });
+    const actors = [
+      studentInitializationWithPriority(student.id, ['student:type-scope', 'student:id-scope'], ['student:type-scope']),
+      { actorId: carousel.id, participantKind: 'environment' as const, candidateActionIds: [] },
+      { actorId: streetlight.id, participantKind: 'environment' as const, candidateActionIds: [] },
+    ];
+    const actions = [
+      action('student:type-scope', ['student'], {
+        target: { kind: 'actor', relation: 'any', allowedActorTypes: ['carousel-platform'] },
+      }),
+      action('student:id-scope', ['student'], {
+        target: { kind: 'actor', relation: 'any', allowedActorIds: [carousel.id] },
+      }),
+    ];
+    const states = [
+      { actorId: student.id, participantKind: 'student' as const, resources: {} },
+      { actorId: carousel.id, participantKind: 'environment' as const, resources: {} },
+      { actorId: streetlight.id, participantKind: 'environment' as const, resources: {} },
+    ];
+    const legalTypePreview = previewOperationIntervention(previewInput(
+      event, actors, actions, states,
+      { actorId: student.id, actionId: 'student:type-scope', targetActorId: carousel.id },
+    ));
+
+    expect(legalTypePreview.preparedBeat.actorPlans[0]).toMatchObject({
+      actionId: 'student:type-scope',
+      targetActorId: carousel.id,
+    });
+    errorCode(() => previewOperationIntervention(previewInput(
+      event, actors, actions, states,
+      { actorId: student.id, actionId: 'student:type-scope', targetActorId: streetlight.id },
+    )), 'operation:intervention:invalid-target');
+    errorCode(() => previewOperationIntervention(previewInput(
+      event, actors, actions, states,
+      { actorId: student.id, actionId: 'student:id-scope', targetActorId: streetlight.id },
+    )), 'operation:intervention:invalid-target');
   });
 
   test('rejects stale plans, untrusted fields, a second student, and action/reason/target violations', () => {

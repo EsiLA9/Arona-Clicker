@@ -3,8 +3,10 @@ import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstr
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
+import { carouselSafetySliceContent } from '../../src/arona-clicker/content/operation-samples/carousel-safety-slice';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
+import { validateOperationActionContent } from '../../src/arona-clicker/services/operation-action-content-validation';
 import { OperationAdmissionError } from '../../src/arona-clicker/services/operation-participant-admission';
 import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 
@@ -34,6 +36,27 @@ describe('Gameplay B carousel SceneAction sample', () => {
     let sceneTacticalRandom = run.random;
     let view = game.operationEntry.getView(runId)!;
     expect(view).toMatchObject({ currentLocationId: IDS.locations.platform, currentActionMode: null, playerCost: 5 });
+    const scopedActions = [
+      { actorId: IDS.actors.hoshino, actionId: CAROUSEL_SAFETY_IDS.actions.brace },
+      { actorId: IDS.actors.serika, actionId: CAROUSEL_SAFETY_IDS.actions.signal },
+      { actorId: IDS.actors.shiroko, actionId: CAROUSEL_SAFETY_IDS.actions.shield },
+    ];
+    for (const scopedAction of scopedActions) {
+      const option = view.actorStates.find(actor => actor.id === scopedAction.actorId)
+        ?.profile?.actionOptions.find(candidate => candidate.actionId === scopedAction.actionId);
+      expect(option?.legalTargetActorIds).toEqual([IDS.actors.ride]);
+    }
+    const unchangedBeforeInvalidTarget = game.operationEntry.getSnapshot()!;
+    expect(() => game.operationEntry.reviseIntervention({
+      runId,
+      planVersion: unchangedBeforeInvalidTarget.planVersion,
+      draft: {
+        actorId: IDS.actors.hoshino,
+        actionId: CAROUSEL_SAFETY_IDS.actions.brace,
+        targetActorId: IDS.actors.saboteur,
+      },
+    })).toThrow();
+    expect(game.operationEntry.getSnapshot()).toEqual(unchangedBeforeInvalidTarget);
     const hoshinoPlan = view.actorStates.find(actor => actor.id === IDS.actors.hoshino)?.currentPlan;
     expect(hoshinoPlan?.kind).toBe('studentAction');
     game.operationEntry.reviseIntervention({
@@ -117,6 +140,55 @@ describe('Gameplay B carousel SceneAction sample', () => {
 
     game.inits.enterInit('base:init:millennium');
     expect(() => game.operationEntry.start(IDS.event, STUDENTS)).toThrow(OperationAdmissionError);
+  });
+
+  test('rejects target allowlist IDs that do not reference an Event Actor', () => {
+    const nonStudentCandidates = carouselSafetySliceContent.participants.flatMap(participant =>
+      participant.kind === 'student' ? [] : [{
+        actorId: participant.actorId,
+        participantKind: participant.kind,
+        candidateActionIds: participant.candidateActionIds,
+      }]);
+    const validate = (actionDefinitions: typeof carouselSafetySliceContent.actionDefinitions) =>
+      validateOperationActionContent(
+        carouselSafetySliceContent.eventDefinition,
+        actionDefinitions,
+        carouselSafetySliceContent.studentSkillRules ?? [],
+        carouselSafetySliceContent.studentProfiles,
+        nonStudentCandidates,
+      );
+    const invalidActionDefinitions = carouselSafetySliceContent.actionDefinitions.map(actionDefinition =>
+      actionDefinition.id === CAROUSEL_SAFETY_IDS.actions.brace
+        ? {
+          ...actionDefinition,
+          target: {
+            kind: 'actor' as const,
+            relation: 'any' as const,
+            allowedActorIds: ['gameplay-b:operation-actor:missing-target'],
+          },
+        }
+        : actionDefinition);
+    const declaredTypeActionDefinitions = carouselSafetySliceContent.actionDefinitions.map(actionDefinition =>
+      actionDefinition.id === CAROUSEL_SAFETY_IDS.actions.brace
+        ? {
+          ...actionDefinition,
+          target: { kind: 'actor' as const, relation: 'any' as const, allowedActorTypes: ['environment'] },
+        }
+        : actionDefinition);
+    const unknownTypeActionDefinitions = carouselSafetySliceContent.actionDefinitions.map(actionDefinition =>
+      actionDefinition.id === CAROUSEL_SAFETY_IDS.actions.brace
+        ? {
+          ...actionDefinition,
+          target: { kind: 'actor' as const, relation: 'any' as const, allowedActorTypes: ['carousel-platform'] },
+        }
+        : actionDefinition);
+
+    expect(validate(carouselSafetySliceContent.actionDefinitions).issues).toEqual([]);
+    expect(validate(declaredTypeActionDefinitions).issues).toEqual([]);
+    expect(validate(invalidActionDefinitions).issues.join('\n'))
+      .toMatch(/allowedActorIds\[0\] references an undeclared Event Actor: gameplay-b:operation-actor:missing-target/);
+    expect(validate(unknownTypeActionDefinitions).issues.join('\n'))
+      .toMatch(/allowedActorTypes\[0\] references an Actor type not declared by this Event: carousel-platform/);
   });
 
   test('the same fixed seed produces a partial outcome when the player preserves the fact but not the safety target', () => {

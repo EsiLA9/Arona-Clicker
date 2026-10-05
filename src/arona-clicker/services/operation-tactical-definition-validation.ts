@@ -13,15 +13,15 @@ function rejectUnsupportedFields(value: Record<string, unknown>, allowed: readon
   for (const key of Object.keys(value)) if (!allowed.includes(key)) issues.push(path + ' contains unsupported field: ' + key);
 }
 
-function collectIds(value: unknown, path: string, issues: string[]): Set<string> {
+function collectIds(value: unknown, path: string, issues: string[], itemLabel = 'ID'): Set<string> {
   const result = new Set<string>();
   if (!Array.isArray(value)) {
-    issues.push(path + ' must be an array of IDs');
+    issues.push(path + ' must be an array of ' + itemLabel + 's');
     return result;
   }
   value.forEach((id, index) => {
-    if (!isNonEmptyId(id)) issues.push(path + '[' + index + '] must be a non-empty ID');
-    else if (result.has(id)) issues.push(path + ' contains duplicate ID: ' + id);
+    if (!isNonEmptyId(id)) issues.push(path + '[' + index + '] must be a non-empty ' + itemLabel);
+    else if (result.has(id)) issues.push(path + ' contains duplicate ' + itemLabel + ': ' + id);
     else result.add(id);
   });
   return result;
@@ -117,9 +117,21 @@ export function validateOperationActionDef(value: unknown): readonly string[] {
     rejectUnsupportedFields(value.target, ['kind'], 'target', issues);
     if (value.target.relation !== undefined) issues.push('target.relation must be omitted when target.kind is none');
   } else if (value.target.kind === 'actor') {
-    rejectUnsupportedFields(value.target, ['kind', 'relation'], 'target', issues);
+    rejectUnsupportedFields(value.target, ['kind', 'relation', 'allowedActorIds', 'allowedActorTypes'], 'target', issues);
     if (!['self', 'sameTeam', 'otherTeam', 'any'].includes(String(value.target.relation))) {
       issues.push('target.relation must be self, sameTeam, otherTeam, or any');
+    }
+    if (value.target.allowedActorIds !== undefined) {
+      collectIds(value.target.allowedActorIds, 'target.allowedActorIds', issues);
+      if (Array.isArray(value.target.allowedActorIds) && value.target.allowedActorIds.length === 0) {
+        issues.push('target.allowedActorIds must contain at least one Actor ID when declared');
+      }
+    }
+    if (value.target.allowedActorTypes !== undefined) {
+      collectIds(value.target.allowedActorTypes, 'target.allowedActorTypes', issues, 'Actor type');
+      if (Array.isArray(value.target.allowedActorTypes) && value.target.allowedActorTypes.length === 0) {
+        issues.push('target.allowedActorTypes must contain at least one Actor type when declared');
+      }
     }
   } else {
     issues.push('target.kind must be none or actor');

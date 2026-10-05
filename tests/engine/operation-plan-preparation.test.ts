@@ -22,11 +22,11 @@ import { OperationPlanPreparationError, prepareOperationBeat } from '../../src/a
 function actor(
   id: string,
   participantKind: 'student' | 'opponent' | 'environment',
-  options: { teamId?: string; targetPriorityActorIds?: readonly string[]; resources?: OperationActorDef['resources'] } = {},
+  options: { type?: string; teamId?: string; targetPriorityActorIds?: readonly string[]; resources?: OperationActorDef['resources'] } = {},
 ): OperationActorDef {
   return {
     id,
-    type: participantKind,
+    type: options.type ?? participantKind,
     hp: { initial: 3, min: 0, max: 3 },
     ...(options.teamId ? { teamId: options.teamId } : {}),
     ...(options.targetPriorityActorIds ? { targetPriorityActorIds: options.targetPriorityActorIds } : {}),
@@ -432,6 +432,68 @@ describe('pure Operation Beat preparation', () => {
       actorId: studentWithoutAction.id,
       kind: 'wait',
       reasonIds: [OPERATION_NO_ELIGIBLE_ACTION_REASON_ID],
+    });
+  });
+
+  test('prepares a target using Event Actor type independently from runtime participantKind', () => {
+    const student = actor('actor:student', 'student', {
+      targetPriorityActorIds: ['actor:streetlight', 'actor:carousel'],
+    });
+    const streetlight = actor('actor:streetlight', 'environment', { type: 'streetlight' });
+    const carousel = actor('actor:carousel', 'environment', { type: 'carousel-platform' });
+    const event = eventDefinition([student, streetlight, carousel], {
+      locations: [{ id: 'location:office', enabledActionIds: ['student:secure-carousel'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    });
+    const trusted = content(event, [
+      studentInitialization(student.id, studentProfile('type-filter', ['student:secure-carousel'])),
+      { actorId: streetlight.id, participantKind: 'environment', candidateActionIds: [] },
+      { actorId: carousel.id, participantKind: 'environment', candidateActionIds: [] },
+    ], [action('student:secure-carousel', ['student'], {
+      target: {
+        kind: 'actor',
+        relation: 'any',
+        allowedActorIds: [carousel.id],
+        allowedActorTypes: ['carousel-platform'],
+      },
+    })]);
+
+    const prepared = prepareOperationBeat(snapshot([
+      { actorId: streetlight.id, participantKind: 'environment', resources: {} },
+      { actorId: student.id, participantKind: 'student', resources: {} },
+      { actorId: carousel.id, participantKind: 'environment', resources: {} },
+    ]), trusted);
+
+    expect(prepared.actorPlans[0]).toMatchObject({
+      actorId: student.id,
+      participantKind: 'student',
+      kind: 'studentAction',
+      targetActorId: carousel.id,
+    });
+  });
+
+  test('waits with the existing no-legal-target reason when an Actor type filter excludes all relation candidates', () => {
+    const student = actor('actor:student', 'student');
+    const carousel = actor('actor:carousel', 'environment', { type: 'carousel-platform' });
+    const event = eventDefinition([student, carousel], {
+      locations: [{ id: 'location:office', enabledActionIds: ['student:wrong-type'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    });
+    const trusted = content(event, [
+      studentInitialization(student.id, studentProfile('no-type-match', ['student:wrong-type'])),
+      { actorId: carousel.id, participantKind: 'environment', candidateActionIds: [] },
+    ], [action('student:wrong-type', ['student'], {
+      target: { kind: 'actor', relation: 'any', allowedActorTypes: ['carousel-light'] },
+    })]);
+
+    const prepared = prepareOperationBeat(snapshot([
+      { actorId: student.id, participantKind: 'student', resources: {} },
+      { actorId: carousel.id, participantKind: 'environment', resources: {} },
+    ]), trusted);
+
+    expect(prepared.actorPlans[0]).toMatchObject({
+      kind: 'wait',
+      actionId: OPERATION_WAIT_ACTION_ID,
+      targetActorId: null,
+      reasonIds: [OPERATION_WAIT_REASON_NO_LEGAL_TARGET],
     });
   });
 

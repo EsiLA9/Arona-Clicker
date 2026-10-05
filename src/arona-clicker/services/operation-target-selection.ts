@@ -86,6 +86,12 @@ export function selectOperationTarget(
       fail('target relation must be self, sameTeam, otherTeam, or any');
   }
 
+  const allowedActorIds = target.allowedActorIds === undefined ? undefined : new Set(target.allowedActorIds);
+  const allowedActorTypes = target.allowedActorTypes === undefined ? undefined : new Set(target.allowedActorTypes);
+  legalTargets = legalTargets.filter(actor =>
+    (allowedActorIds === undefined || allowedActorIds.has(actor.id))
+    && (allowedActorTypes === undefined || allowedActorTypes.has(actor.type)));
+
   const legalIds = new Set(legalTargets.map(actor => actor.id));
   const priorityIds = source.targetPriorityActorIds ?? [];
   if (!Array.isArray(priorityIds)) fail('targetPriorityActorIds must be an array');
