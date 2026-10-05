@@ -12,6 +12,10 @@
 
 - 玩法 B V1 的 Runtime、独立内容包、三栏入口、路线、玩家场景牌、结局、奖励和续局已完成；后续产品扩展另立 Task，不沿用已关闭 Task 的“下一阶段”描述。
 
+### Base 默认内容扩展：施工中
+
+- [[task-0239-base-free-abydos-student-spot]]：在夏莱主厅增加免费手动领取 Spot，领取后通过一次性 Trigger 授予星野、芹香、白子；无 Gacha 随机性、无运行时机制改动。
+
 ### 玩法 B 原始 Demo：事实参考
 
 - [[draft-0231-gameplay-b-original-demo-activity-and-battle-round]]：原始 `prototypes/gameplay-b/` 的非战斗场所批次与战斗回合，从三栏 UI、显示反馈、玩法到操作步骤逐项记录并附源码/测试索引；与 AC 移植版分开。

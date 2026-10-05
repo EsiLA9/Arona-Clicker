@@ -1,10 +1,20 @@
 import { trigger, and, cond } from '../../engine/types';
 import type { TriggerDef } from '../../engine/types';
+import { ABYDOS_STUDENT_RECRUITMENT_SPOT_ID } from './spots';
 
 export const baseTriggers: TriggerDef[] = [
   trigger('base:trigger:first_credit_milestone').onTick().when(and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 100))).effects({ op: 'addResource', target: Resource.Credit, value: 25 }).build(),
   trigger('base:trigger:office_mastered').onSpotLevel().when(and(cond('countTags', 'office', '>=', 2))).effects({ op: 'setFlag', target: 'office_mastered', value: '1' }).build(),
   trigger('base:trigger:welcome_reward').onStory('base:story:schale_welcome').effects({ op: 'addItem', target: 'base:item:energy_drink', value: 1 }).build(),
+  trigger('base:trigger:abydos_student_recruitment')
+    .onSpotLevel(ABYDOS_STUDENT_RECRUITMENT_SPOT_ID)
+    .effects(
+      { op: 'grantCharacter', target: 'Hoshino', value: 1 },
+      { op: 'grantCharacter', target: 'Serika', value: 1 },
+      { op: 'grantCharacter', target: 'Shiroko', value: 1 },
+    )
+    .once()
+    .build(),
   trigger('base:trigger:abydos_first_milestone').onTick().when(and(cond('stat', '$InitProducedAmount base:init:abydos base:resource:credit', '>=', 80))).effects(
     { op: 'addResource', target: Resource.Credit, value: 30 },
     { op: 'addItem', target: 'base:item:tactical_kit', value: 1 },

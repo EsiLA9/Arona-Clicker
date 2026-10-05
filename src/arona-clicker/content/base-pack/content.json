@@ -4692,6 +4692,35 @@
       }
     },
     {
+      "id": "base:spot:abydos_student_recruitment",
+      "areaId": "base:area:schale_main",
+      "name": "阿比多斯联络点",
+      "description": "夏莱为阿比多斯对策委员会准备的联络点。领取后，星野、芹香与白子会加入通讯录。",
+      "tags": [
+        [
+          "office"
+        ],
+        [
+          "abydos"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "free",
+          "label": "免费",
+          "costs": []
+        }
+      ],
+      "maxLevel": 1,
+      "global": true,
+      "presentation": {
+        "default": {
+          "name": "阿比多斯联络点",
+          "description": "夏莱为阿比多斯对策委员会准备的联络点。领取后，星野、芹香与白子会加入通讯录。"
+        }
+      }
+    },
+    {
       "id": "base:spot:comms_terminal",
       "areaId": "base:area:schale_main",
       "name": "通讯终端",
@@ -12363,6 +12392,31 @@
       "once": true
     },
     {
+      "id": "base:trigger:abydos_student_recruitment",
+      "on": {
+        "kind": "spotLevel",
+        "spotId": "base:spot:abydos_student_recruitment"
+      },
+      "effects": [
+        {
+          "op": "grantCharacter",
+          "target": "Hoshino",
+          "value": 1
+        },
+        {
+          "op": "grantCharacter",
+          "target": "Serika",
+          "value": 1
+        },
+        {
+          "op": "grantCharacter",
+          "target": "Shiroko",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
       "id": "base:trigger:abydos_first_milestone",
       "on": {
         "kind": "tick"
@@ -15875,5 +15929,6 @@
       "t": "int",
       "v": 0
     }
-  }
+  },
+  "modName": "base"
 }
