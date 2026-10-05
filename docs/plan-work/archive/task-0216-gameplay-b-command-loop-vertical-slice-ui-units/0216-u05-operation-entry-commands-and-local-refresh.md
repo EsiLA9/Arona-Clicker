@@ -6,7 +6,7 @@
 
 ## Must Read / Read Set
 
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
 - `docs/docs-829/06-wiki/50-ui/controller-commands.md`
 - `docs/docs-829/06-wiki/50-ui/refresh-update.md`
 - `src/ui/components/center-panel.ts`
@@ -35,7 +35,7 @@
 - src/ui/controller-actions-operation.ts (new file)
 - `src/ui/controller.ts`
 - tests/ui/gameplay-b-operation-controller.test.ts (new file)
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u05-operation-entry-commands-and-local-refresh-receipt.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u05-operation-entry-commands-and-local-refresh-receipt.md`
 
 ## Constraints
 

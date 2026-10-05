@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstrap';
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
+import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import { OperationAdmissionError } from '../../src/arona-clicker/services/operation-participant-admission';
@@ -21,7 +22,7 @@ describe('Gameplay B carousel SceneAction sample', () => {
     for (const game of games.splice(0)) if (game.running) game.stop();
   });
 
-  test('plays Individual and Global batches, then follows the held-item branch to an Event outcome', () => {
+  test('plays battle, Individual scene choices, held-item branch, Global action, card and one-time reward', () => {
     const game = createAppRuntime();
     game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
     games.push(game);
@@ -30,16 +31,24 @@ describe('Gameplay B carousel SceneAction sample', () => {
 
     const runId = game.operationEntry.start(IDS.event, STUDENTS).runId;
     let run = game.operationEntry.getSnapshot()!;
-    const initialTacticalRandom = run.random;
+    let sceneTacticalRandom = run.random;
     let view = game.operationEntry.getView(runId)!;
-    expect(view).toMatchObject({
-      currentLocationId: IDS.locations.platform,
-      currentActionMode: 'individual',
-      playerCost: 5,
-      sceneActionBatchesRemaining: 1,
+    expect(view).toMatchObject({ currentLocationId: IDS.locations.platform, currentActionMode: null, playerCost: 5 });
+    const hoshinoPlan = view.actorStates.find(actor => actor.id === IDS.actors.hoshino)?.currentPlan;
+    expect(hoshinoPlan?.kind).toBe('studentAction');
+    game.operationEntry.reviseIntervention({
+      runId,
+      planVersion: run.planVersion,
+      draft: { actorId: IDS.actors.hoshino, actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop },
     });
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    view = game.operationEntry.getView(runId)!;
+    run = game.operationEntry.getSnapshot()!;
+    sceneTacticalRandom = run.random;
+    expect(view).toMatchObject({ currentLocationId: IDS.locations.concourse, currentActionMode: 'individual', playerCost: 5, sceneActionBatchesRemaining: 1 });
 
-    game.operationEntry.commitSceneActionBatch({
+    game.operationEntry.stageSceneActionBatch({
       runId,
       planVersion: run.planVersion,
       selections: [
@@ -48,9 +57,11 @@ describe('Gameplay B carousel SceneAction sample', () => {
         { sceneActionId: IDS.sceneActions.guide, actorId: IDS.actors.shiroko, targetActorIds: [] },
       ],
     });
+    const staged = game.operationEntry.getSnapshot()!;
+    expect(staged.playerRouteState.playerCost).toBe(5);
+    game.operationEntry.commitStagedSceneActionBatch({ runId, planVersion: staged.planVersion });
     view = game.operationEntry.getView(runId)!;
     run = game.operationEntry.getSnapshot()!;
-    expect(view.currentLocationId).toBe(IDS.locations.platform);
     expect(view.currentRoutes.filter(route => route.available).map(route => route.routeId)).toEqual([
       IDS.routes.staffGate,
       IDS.routes.publicPath,
@@ -60,7 +71,7 @@ describe('Gameplay B carousel SceneAction sample', () => {
     game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.staffGate });
     run = game.operationEntry.getSnapshot()!;
     view = game.operationEntry.getView(runId)!;
-    expect(view).toMatchObject({ currentLocationId: IDS.locations.concourse, currentActionMode: 'global', playerCost: 3 });
+    expect(view).toMatchObject({ currentLocationId: IDS.locations.exit, currentActionMode: 'global', playerCost: 3 });
     expect(view.playerCards).toMatchObject({ drawPileCount: 0, discardCount: 0 });
     expect(view.playerCards.hand).toHaveLength(2);
     expect(view.heldItemIds).not.toContain(IDS.item);
@@ -85,7 +96,8 @@ describe('Gameplay B carousel SceneAction sample', () => {
     view = game.operationEntry.getView(runId)!;
     run = game.operationEntry.getSnapshot()!;
     expect(view).toMatchObject({
-      currentLocationId: IDS.locations.concourse,
+      currentLocationId: IDS.locations.exit,
+      status: 'success',
       sceneActionBatchesRemaining: 0,
       playerCost: 0,
       tracks: { [IDS.track]: 0 },
@@ -95,13 +107,49 @@ describe('Gameplay B carousel SceneAction sample', () => {
     expect(run.playerRouteState.cards.discard).toEqual([playedCardId]);
     expect(run.playerRouteState.cards.hand).toHaveLength(1);
     expect(view.playerCards.discardCount).toBe(1);
-    expect(run.random).toEqual(initialTacticalRandom);
-    expect(view.currentRoutes.map(route => route.routeId)).toEqual([IDS.routes.returnLoop, IDS.routes.parkExit]);
-
-    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.parkExit });
+    expect(run.random).toEqual(sceneTacticalRandom);
     expect(game.operationEntry.getSnapshot()!.status).toBe('success');
+    const beforeReward = game.getView().resources['base:resource:credit'] ?? 0;
+    expect(game.operationEntry.claimOutcomeReward()).toMatchObject({ status: 'claimed', reward: { amount: 200 } });
+    expect(game.getView().resources['base:resource:credit']).toBe(beforeReward + 200);
+    expect(game.operationEntry.claimOutcomeReward()).toMatchObject({ status: 'alreadyClaimed' });
+    expect(game.getView().resources['base:resource:credit']).toBe(beforeReward + 200);
 
     game.inits.enterInit('base:init:millennium');
     expect(() => game.operationEntry.start(IDS.event, STUDENTS)).toThrow(OperationAdmissionError);
+  });
+
+  test('the same fixed seed produces a partial outcome when the player preserves the fact but not the safety target', () => {
+    const game = createAppRuntime();
+    game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
+    games.push(game);
+    for (const student of STUDENTS) game.mutations.acquireCharacter(VARIANTS[student], 'story');
+
+    const runId = game.operationEntry.start(IDS.event, STUDENTS).runId;
+    let run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    run = game.operationEntry.getSnapshot()!;
+    expect(run.currentLocationId).toBe(IDS.locations.concourse);
+    game.operationEntry.commitSceneActionBatch({
+      runId,
+      planVersion: run.planVersion,
+      selections: [
+        { sceneActionId: IDS.sceneActions.inspect, actorId: IDS.actors.hoshino, targetActorIds: [] },
+        { sceneActionId: IDS.sceneActions.guide, actorId: IDS.actors.serika, targetActorIds: [] },
+        { sceneActionId: IDS.sceneActions.guide, actorId: IDS.actors.shiroko, targetActorIds: [] },
+      ],
+    });
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.staffGate });
+    run = game.operationEntry.getSnapshot()!;
+    const targets = [IDS.actors.hoshino, IDS.actors.serika, IDS.actors.shiroko];
+    game.operationEntry.commitSceneActionBatch({
+      runId,
+      planVersion: run.planVersion,
+      selections: [{ sceneActionId: IDS.sceneActions.firstAid, actorId: IDS.actors.hoshino, targetActorIds: targets }],
+    });
+
+    expect(game.operationEntry.getView(runId)).toMatchObject({ status: 'partialSuccess', knownFactIds: [IDS.fact] });
+    expect(game.operationEntry.claimOutcomeReward()).toMatchObject({ status: 'claimed', reward: { amount: 80 } });
   });
 });

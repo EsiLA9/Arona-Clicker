@@ -6,7 +6,7 @@
 
 ## Must Read / Read Set
 
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
 - `docs/docs-829/06-wiki/50-ui/workspace-routing.md`
 - `src/ui/workspace/workspace-router.ts`
 - `src/ui/components/app-shell.ts`
@@ -30,7 +30,7 @@
 - `src/ui/controller.ts`
 - `tests/ui/workspace-router.test.ts`
 - `tests/ui/workspace-lifecycle.test.ts`
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u03-operation-workspace-route-and-surface-receipt.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u03-operation-workspace-route-and-surface-receipt.md`
 
 ## Constraints
 

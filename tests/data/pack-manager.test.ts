@@ -12,6 +12,38 @@ function pack(id: string, modName: string, version = '1.0.0'): StoredPack {
 }
 
 describe('PackManager', () => {
+  test('首次发布的可选内置包可默认启用，之后保留玩家停用选择', () => {
+    const base = { ...pack('base@1.0.0', 'base'), sourceKind: 'bundle' as const };
+    const demo = {
+      ...pack('gameplay-b@1.0.0', 'gameplay-b'),
+      sourceKind: 'bundle' as const,
+      manifest: { ...pack('gameplay-b@1.0.0', 'gameplay-b').manifest, dependencies: ['base'] },
+    };
+    const defaults = [base, demo];
+    const firstInstall = new PackManager(undefined, undefined, defaults, ['gameplay-b@1.0.0']);
+    expect(firstInstall.configuration().enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0']);
+
+    firstInstall.setEnabled('gameplay-b@1.0.0', false);
+    const restored = new PackManager(firstInstall.snapshot(), undefined, defaults, ['gameplay-b@1.0.0']);
+    expect(restored.configuration().enabledIds).toEqual(['base@1.0.0']);
+  });
+
+  test('已有 Pane 明确选择 none 时不默认启用新内置包', () => {
+    const base = { ...pack('base@1.0.0', 'base'), sourceKind: 'bundle' as const };
+    const demo = {
+      ...pack('gameplay-b@1.0.0', 'gameplay-b'),
+      sourceKind: 'bundle' as const,
+      manifest: { ...pack('gameplay-b@1.0.0', 'gameplay-b').manifest, dependencies: ['base'] },
+    };
+    const manager = new PackManager({
+      packs: [],
+      enabledIds: [],
+      order: [],
+      selectedSlots: { 'gameplay-b@1.0.0': 'none' },
+    }, undefined, [base, demo], ['gameplay-b@1.0.0']);
+    expect(manager.configuration().enabledIds).toEqual(['base@1.0.0']);
+  });
+
   test('固定来源按路径保存重复身份，首次只自动启用唯一 finished 来源', () => {
     const manager = new PackManager();
     const finished = { ...pack('dev:example-finished', 'example'), sourceKind: 'folder' as const, sourcePath: 'example@1.0@finished/', editingMode: 'normal' as const };
@@ -152,6 +184,55 @@ describe('PackManager', () => {
     expect(restored.configuration().enabledIds).toEqual([selected.id]);
     expect(restored.getPack(nextRelease.id)?.manifest.version).toBe('2.0.0');
     expect(restored.enabledPacks()).toEqual([selected.datapack]);
+  });
+
+  test('恢复快照时新发布版替换旧 bundle，保留编辑态副本', () => {
+    const previous = { ...pack('base@1.0.0', 'base', '1.0.0'), sourceKind: 'bundle' as const };
+    const editing = {
+      ...pack('editing:base@1.0.0', 'base', '1.0.1'),
+      sourceKind: 'editing' as const,
+      editingMode: 'editing' as const,
+    };
+    const current = { ...pack('base@1.0.2', 'base', '1.0.2'), sourceKind: 'bundle' as const };
+    const restored = new PackManager({
+      packs: [previous, editing],
+      enabledIds: [previous.id],
+      order: [previous.id, editing.id],
+    }, undefined, [current]);
+
+    expect(restored.getPack(previous.id)).toBeUndefined();
+    expect(restored.getPack(editing.id)).toBeDefined();
+    expect(restored.configuration().enabledIds).toEqual([current.id]);
+  });
+
+  test('恢复快照时同身份发布 bundle 刷新为当前打包内容，保留编辑态副本与选择', () => {
+    const oldBundle = {
+      ...pack('base@1.0.0', 'base', '1.0.0'),
+      sourceKind: 'bundle' as const,
+      datapack: { ...pack('base@1.0.0', 'base').datapack, name: 'old-bundle' },
+    };
+    const editing = {
+      ...pack('editing:base@1.0.0', 'base', '1.0.0'),
+      sourceKind: 'editing' as const,
+      editingMode: 'editing' as const,
+      datapack: { ...oldBundle.datapack, name: 'editing-copy' },
+    };
+    const currentBundle = {
+      ...pack('base@1.0.0', 'base', '1.0.0'),
+      sourceKind: 'bundle' as const,
+      importedAt: 2,
+      datapack: { ...pack('base@1.0.0', 'base').datapack, name: 'current-bundle' },
+    };
+    const restored = new PackManager({
+      packs: [oldBundle, editing],
+      enabledIds: [oldBundle.id],
+      order: [oldBundle.id, editing.id],
+    }, undefined, [currentBundle]);
+
+    expect(restored.getPack(oldBundle.id)?.datapack.name).toBe('current-bundle');
+    expect(restored.getPack(oldBundle.id)?.importedAt).toBe(oldBundle.importedAt);
+    expect(restored.getPack(editing.id)?.datapack.name).toBe('editing-copy');
+    expect(restored.configuration().enabledIds).toEqual([oldBundle.id]);
   });
 
   test('草案校验要求依赖位于启用序列内', () => {

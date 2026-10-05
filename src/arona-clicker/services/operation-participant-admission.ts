@@ -22,6 +22,10 @@ export interface OperationParticipantAdmissionDependencies {
   readonly characterSystem?: CharacterSystem;
   readonly rosterSystem?: RosterSystem;
   readonly getState?: () => PlayerState;
+  readonly resolveStudentPresentation?: (
+    characterId: Character,
+    variantId: string,
+  ) => { readonly displayName: string; readonly avatarRef: string | null };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -406,7 +410,16 @@ export class OperationParticipantAdmission {
       if (!slot) continue;
       const profile = resolveStudentProfile(slot, characterId as Character, profileIndexes, characters, issues);
       if (!profile) continue;
-      admittedByActorId.set(slot.actorId, { actorId: slot.actorId, kind: 'student', characterId: characterId as Character, variantId: ownedVariantId, profileId: profile.id });
+      const presentation = this.dependencies.resolveStudentPresentation?.(characterId as Character, ownedVariantId);
+      admittedByActorId.set(slot.actorId, {
+        actorId: slot.actorId,
+        kind: 'student',
+        characterId: characterId as Character,
+        variantId: ownedVariantId,
+        displayName: presentation?.displayName || characters.get(characterId as Character)?.displayName || characterId,
+        avatarRef: presentation?.avatarRef ?? null,
+        profileId: profile.id,
+      });
       profilesByActorId.set(slot.actorId, profile);
     }
 

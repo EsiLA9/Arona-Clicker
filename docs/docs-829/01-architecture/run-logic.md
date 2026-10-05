@@ -4,7 +4,7 @@
 
 ## 应用启动
 
-`src/ui/main.ts` 创建 `AronaClickerRuntime`，恢复包管理器快照，应用默认启用包，再构造并挂载 `UIController`。默认包从 `src/arona-clicker/content/default-datapack.ts` 进入产品内容目录；测试示例包不是正式默认内容。
+`src/ui/main.ts` 创建 `AronaClickerRuntime`，恢复包管理器快照，应用默认启用包，再构造并挂载 `UIController`。base 默认内容从 `src/arona-clicker/content/default-datapack.ts` 进入产品内容目录；Gameplay B V1 的 `gameplay-b@1.0.0` 是独立正式可选 bundle，首次安装默认启用，已保存的停用/Pane 选择优先。测试示例包不会自动进入正式启用集。
 
 ```text
 src/ui/main.ts

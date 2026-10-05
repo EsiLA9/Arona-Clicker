@@ -6,7 +6,7 @@
 
 ## Must Read / Read Set
 
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
 - `docs/plan-work/task-0215-gameplay-b-prepared-actions-and-intervention-resolution.md`
 - `src/arona-clicker/contracts/operation-content-resolver.ts`
 - `src/arona-clicker/services/student-operation-profile-resolver.ts`
@@ -27,7 +27,7 @@
 - src/arona-clicker/content/operation-samples/carousel-safety-copy.ts (new file; static presentation only)
 - `src/app/runtime-bootstrap.ts`
 - tests/engine/gameplay-b-operation-sample.test.ts (new file)
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u02-amusement-park-demo-content-receipt.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u02-amusement-park-demo-content-receipt.md`
 
 ## Constraints
 

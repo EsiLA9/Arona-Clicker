@@ -1601,7 +1601,7 @@ export class UIController {
       focusTarget ??= [...current.querySelectorAll<HTMLButtonElement>('[data-operation-action]')]
         .find(button => button.dataset.actorId === focus.actorId) ?? null;
     } else if (focus?.type === 'commit') {
-      focusTarget = current.querySelector<HTMLButtonElement>('[data-operation-commit]') ?? null;
+      focusTarget = current.querySelector<HTMLButtonElement>('[data-operation-commit], [data-operation-scene-stage], [data-operation-scene-commit], [data-operation-reward], [data-operation-route]:not(:disabled)') ?? null;
     }
     if (focusTarget instanceof HTMLButtonElement && focusTarget.disabled) focusTarget = null;
     focusTarget ??= current.querySelector<HTMLElement>('[data-operation-command-notice]');

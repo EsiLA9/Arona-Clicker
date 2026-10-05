@@ -53,7 +53,7 @@ const event: OperationEventContentDef = {
  * It depends on base Character and Init definitions and is loaded after the base pack.
  */
 export const gameplayBCarouselDatapack: Datapack = {
-  modName: 'demo',
+  modName: 'gameplay-b',
   name: 'Gameplay B Carousel Demo',
   version: '1.0.0',
   inits: [],

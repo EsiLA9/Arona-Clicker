@@ -1,9 +1,10 @@
 import { Character } from '../arona-clicker/types/ids';
-import { CAROUSEL_SAFETY_IDS } from '../arona-clicker/content/operation-samples/carousel-safety-ids';
-import { CAROUSEL_SAFETY_PRESENTATION } from '../arona-clicker/content/operation-samples/carousel-safety-copy';
+import { CAROUSEL_SCENE_ACTION_IDS } from '../arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { OperationAdmissionError } from '../arona-clicker/services/operation-participant-admission';
 import { OperationInterventionPreviewError } from '../arona-clicker/services/operation-intervention-preview';
 import { OperationRuntimeError } from '../arona-clicker/services/operation-runtime-service';
+import type { OperationSceneActionBatchCommand } from '../arona-clicker/contracts/operation-scene-action';
+import type { OperationView } from '../arona-clicker/contracts/operation-view';
 import type { UIController } from './controller';
 
 const OPERATION_INIT_ID = 'base:init:schale_office';
@@ -61,7 +62,7 @@ function refreshAfterCommand(ctrl: UIController, runId: string, focus: Operation
 function startSample(ctrl: UIController): void {
   if (ctrl.game.state.activeInit !== OPERATION_INIT_ID) return;
   try {
-    const run = ctrl.game.operationEntry.start(CAROUSEL_SAFETY_IDS.event, DEMO_STUDENTS.map(student => student.id));
+    const run = ctrl.game.operationEntry.start(CAROUSEL_SCENE_ACTION_IDS.event, DEMO_STUDENTS.map(student => student.id));
     ctrl.openOperationWorkspace(run.runId);
     // Route identity changes once; renderWorkspace reads the newly started OperationView once.
     ctrl.render();
@@ -78,7 +79,7 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
   const rawTarget = event.target;
   if (!(rawTarget instanceof Element)) return;
   const target = rawTarget.closest<HTMLElement>(
-    '[data-operation-start], [data-operation-resume-run], [data-operation-back], [data-operation-action], [data-operation-target], [data-operation-clear], [data-operation-commit]',
+    '[data-operation-start], [data-operation-resume-run], [data-operation-back], [data-operation-action], [data-operation-target], [data-operation-clear], [data-operation-commit], [data-operation-scene-stage], [data-operation-scene-commit], [data-operation-clear-scene], [data-operation-route], [data-operation-reward]',
   );
   if (!target || target instanceof HTMLButtonElement && target.disabled) return;
 
@@ -140,9 +141,42 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     }
 
     if (target.hasAttribute('data-operation-commit')) {
-      const resolvedBeats = Number(target.dataset.resolvedBeats ?? 0);
-      if (resolvedBeats >= CAROUSEL_SAFETY_PRESENTATION.event.maximumBeats) return;
       ctrl.game.operationEntry.commitBeat(command);
+      refreshAfterCommand(ctrl, runId, { type: 'commit' });
+      return;
+    }
+
+    if (target.hasAttribute('data-operation-scene-stage')) {
+      const view = ctrl.game.operationEntry.getView(runId);
+      if (!view) return;
+      const batch = readSceneBatchCommand(target, view, command);
+      ctrl.game.operationEntry.stageSceneActionBatch(batch);
+      refreshAfterCommand(ctrl, runId, { type: 'commit' });
+      return;
+    }
+
+    if (target.hasAttribute('data-operation-scene-commit')) {
+      ctrl.game.operationEntry.commitStagedSceneActionBatch(command);
+      refreshAfterCommand(ctrl, runId, { type: 'commit' });
+      return;
+    }
+
+    if (target.hasAttribute('data-operation-clear-scene')) {
+      ctrl.game.operationEntry.clearSceneActionBatchDraft(command);
+      refreshAfterCommand(ctrl, runId, { type: 'commit' });
+      return;
+    }
+
+    if (target.hasAttribute('data-operation-route')) {
+      const routeId = target.dataset.routeId;
+      if (!routeId) return;
+      ctrl.game.operationEntry.transitionRoute({ ...command, routeId });
+      refreshAfterCommand(ctrl, runId, { type: 'commit' });
+      return;
+    }
+
+    if (target.hasAttribute('data-operation-reward')) {
+      ctrl.game.operationEntry.claimOutcomeReward();
       refreshAfterCommand(ctrl, runId, { type: 'commit' });
     }
   } catch (error) {
@@ -153,6 +187,45 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
       ctrl.toast.show(message, 'error');
     }
   }
+}
+
+function readSceneBatchCommand(
+  target: HTMLElement,
+  view: OperationView,
+  command: { readonly runId: string; readonly planVersion: number },
+): OperationSceneActionBatchCommand {
+  const workspace = target.closest<HTMLElement>('[data-workspace-frame="operation"]');
+  if (!workspace || !view.currentActionMode) throw new Error('Scene action controls are unavailable');
+  const selections: Array<{ sceneActionId: string; actorId: string; targetActorIds: readonly string[] }> = [];
+  if (view.currentActionMode === 'individual') {
+    for (const select of workspace.querySelectorAll<HTMLSelectElement>('[data-operation-scene-selection]')) {
+      const actorId = select.dataset.actorId;
+      const sceneActionId = select.value;
+      if (!actorId || !sceneActionId) throw new Error('请为每位学生选择一项行动。');
+      const action = view.currentSceneActions.find(item => item.id === sceneActionId);
+      if (!action) throw new Error('所选场景行动已经失效，请重新选择。');
+      selections.push({ sceneActionId, actorId, targetActorIds: action.legalTargetActorIdsByActorId[actorId] ?? [] });
+    }
+  } else {
+    const select = workspace.querySelector<HTMLSelectElement>('[data-operation-global-action]');
+    const performer = workspace.querySelector<HTMLSelectElement>('[data-operation-scene-performer]');
+    if (!select?.value || !performer?.value) throw new Error('请选择全局行动和执行者。');
+    const action = view.currentSceneActions.find(item => item.id === select.value);
+    if (!action) throw new Error('所选场景行动已经失效，请重新选择。');
+    selections.push({ sceneActionId: action.id, actorId: performer.value, targetActorIds: action.legalTargetActorIdsByActorId[performer.value] ?? [] });
+  }
+  const cards: Array<{ cardInstanceId: string; actorId: string; targetActorIds: readonly string[] }> = [];
+  for (const input of workspace.querySelectorAll<HTMLInputElement>('[data-operation-card-instance]:checked')) {
+    const cardInstanceId = input.dataset.operationCardInstance;
+    const actorSelect = input.closest<HTMLElement>('[data-operation-player-card]')?.querySelector<HTMLSelectElement>('[data-operation-card-actor]');
+    const actorId = actorSelect?.value;
+    if (!cardInstanceId || !actorId) throw new Error('玩家卡牌执行者无效。');
+    const card = view.playerCards.hand.find(item => item.cardInstanceId === cardInstanceId);
+    if (!card) throw new Error('玩家卡牌已离开手牌，请重新选择。');
+    const action = view.currentSceneActions.find(item => item.actionId === card.actionId && item.eligibleActorIds.includes(actorId));
+    cards.push({ cardInstanceId, actorId, targetActorIds: action?.legalTargetActorIdsByActorId[actorId] ?? [] });
+  }
+  return { ...command, selections, ...(cards.length ? { cards } : {}) };
 }
 
 /** Stable #app delegation survives Operation region replacements and ordinary selections. */

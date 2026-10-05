@@ -16,7 +16,7 @@
 | 状态归属、写入口与事件联动 | [[docs/docs-829/03-data-structures/player-state]]、[[docs/docs-829/04-mechanisms/state-mutation]]、[[docs/docs-829/04-mechanisms/effect-trigger]] |
 | 实体字段、枚举、Datapack / Schema | [[docs/docs-829/05-conventions/schema-sync]]、[[docs/ai/context-packs/datapack-schema]] |
 | 生产、抽卡、培养、角色和好感 | [[docs/ai/context-packs/production]]、[[docs/ai/context-packs/character]] |
-| 默认 Datapack 与内容导入边界 | [[docs/ai/context-packs/datapack-schema]]；正式默认内容从 `src/arona-clicker/content/default-datapack.ts` 进入，`src/data/test-datapack.ts` 是测试/示例内容 |
+| 默认 Datapack 与内容导入边界 | [[docs/ai/context-packs/datapack-schema]]；正式 base 内容从 `src/arona-clicker/content/default-datapack.ts` 进入；Gameplay B V1 样例作为 Runtime 装配的可选 `gameplay-b@1.0.0` bundle 进入同一 PackManager/Registry；`src/data/test-datapack.ts` 是测试/示例内容 |
 | 世界线、Init、Spot、Lobby 与存档 | [[docs/ai/context-packs/world-lifecycle]] |
 | 游戏内 UI、主题与表现 | [[docs/docs-829/06-wiki/50-ui/00-index]]、[[docs/ai/context-packs/ui-presentation]]；使用通用 `frontend-design` skill 时叠加 [[docs/ai/frontend-design-project-overlay]] |
 | 文档结构、链接、归档 | [[docs/docs-829/05-conventions/doc-maintenance]] |

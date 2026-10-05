@@ -11,13 +11,13 @@
 
 ## 投影内容
 
-投影包括当前 Event / Location、版本与 Beat、轨道/事实/持有物、事件与地点目标进度、Actor 与 Team、基础计划和干预后计划、合法战术 Action / Target 候选及阻塞理由、协同预览、Commit 状态、Resolution 历史和序号。玩家场景投影提供当前共享 PlayerCost、离场 `maxCarryCost`、Location `actionMode`、SceneAction ID/Action ID/费用/可行动学生、批次已用/剩余、drawPile/discard 数量和可用 hand 实例的 Action ID/PlayerCost，以及每次地点入场的 Cost 记录。RouteView 投影当前地点出口、可用性/锁定原因、持有物要求、转场历史、总访问数与事件访问上限；它不包含可写规则或整张地图副本。角色技能结果只保留是否成功；tactical RNG cursor、roll 测量、原始规则对象和完整 Run 不出现在 UI DTO。
+投影包括当前 Event / Location、版本与 Beat、轨道/事实/持有物、事件与地点目标进度、Actor 与 Team、基础计划和干预后计划、合法战术 Action / Target 候选及阻塞理由、协同预览、Commit 状态、Resolution 历史和序号。`OperationViewActor` 带 detached `displayName`、`avatarRef`、`hp`、`maxHp` 与 `participantKind`，左/右身份卡不需要 UI 反查可变角色或 Runtime 数据。玩家场景投影提供当前共享 PlayerCost、离场 `maxCarryCost`、Location `actionMode`、SceneAction ID/Action ID/费用/可行动学生及按学生区分的合法目标、批次已用/剩余、待提交批次草稿、drawPile/discard 数量和可用 hand 实例的 Action ID/PlayerCost，以及每次地点入场的 Cost 记录。RouteView 投影当前地点出口、可用性/锁定原因、持有物要求、转场历史、总访问数与事件访问上限；它不包含可写规则或整张地图副本。角色技能结果只保留是否成功；tactical RNG cursor、roll 测量、原始规则对象和完整 Run 不出现在 UI DTO。终局还投影奖励是否已领取。
 
 写命令重算候选时，projector 复用冻结规则上的纯干预预览与 Combination resolver；读取 View 不调用内容 resolver、不写 EventRun、不推进随机游标。返回结构深度脱离 owner 当前状态。
 
 ## AC UI 消费路径
 
-Operation route 持有 `runId`，由 Workspace Renderer 在进入或重建 route 时查询投影。已挂载 Workspace 中的行动、目标、取消和 Commit 命令由 Controller 经 `operationEntry` 执行；每次成功或拒绝结果最多读取一次新投影，再请求一个 `workspace.operation` region 更新。route 进出属于 workspace structure 更新。
+Operation route 持有 `runId`，由 Workspace Renderer 在进入或重建 route 时查询投影。已挂载 Workspace 中的战斗行动/目标/取消、SceneAction 与玩家卡批次暂存/结算、路线转场和奖励领取由 Controller 经 `operationEntry` 执行；每次命令最多读取一次新投影，再请求一个 `workspace.operation` region 更新。route 进出属于 workspace structure 更新。
 
 实现与回归测试：`src/arona-clicker/contracts/operation-view.ts`、`src/arona-clicker/services/operation-view-projector.ts`、`src/ui/workspace/workspace-renderer.ts`、`src/ui/components/operation-workspace.ts`、`tests/engine/gameplay-b-event-runtime-integration.test.ts`、`tests/ui/operation-workspace-view.test.ts`。
 

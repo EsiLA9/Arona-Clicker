@@ -1,17 +1,24 @@
 import type { Character } from '../types/ids';
 import type { PlayerState } from '../types/state';
 import type { OperationRunSaveSnapshot, OperationRunRestoreFailureReason, OperationRunRestoreResult } from '../contracts/operation-save';
-import type { EventRun, OperationInterventionCommand, OperationRouteCommand, OperationRunVersionCommand } from '../contracts/operation';
+import type {
+  EventRun,
+  OperationInterventionCommand,
+  OperationRewardClaimResult,
+  OperationRewardDef,
+  OperationRouteCommand,
+  OperationRunVersionCommand,
+} from '../contracts/operation';
 import type { OperationInterventionPreview } from '../contracts/operation-beat';
 import type { OperationResolution } from '../contracts/operation-resolution';
 import type { OperationSceneActionBatchCommand, OperationSceneActionBatchPreview } from '../contracts/operation-scene-action';
-import type { OperationView } from '../contracts/operation-view';
+import type { OperationAdmissionSummary, OperationView } from '../contracts/operation-view';
 import type { OperationAdmission } from '../contracts/operation-participant';
 import type { OperationContentResolver } from '../contracts/operation-content-resolver';
 import type { OperationRuntimeService } from './operation-runtime-service';
 import type { CharacterSystem } from './character-system';
 import type { RosterSystem } from './roster-system';
-import { OperationParticipantAdmission } from './operation-participant-admission';
+import { OperationAdmissionError, OperationParticipantAdmission } from './operation-participant-admission';
 import { resolveOperationRunResume, resolveOperationRunStart, StudentOperationProfileResolutionError } from './student-operation-profile-resolver';
 import { OperationRuntimeError } from './operation-runtime-service';
 
@@ -19,6 +26,10 @@ export interface OperationEntryContext {
   readonly characterSystem?: CharacterSystem;
   readonly rosterSystem?: RosterSystem;
   readonly getState?: () => PlayerState;
+  readonly resolveStudentPresentation?: (
+    characterId: Character,
+    variantId: string,
+  ) => { readonly displayName: string; readonly avatarRef: string | null };
 }
 
 export interface OperationEntryFacade {
@@ -26,6 +37,8 @@ export interface OperationEntryFacade {
   getSnapshot(): EventRun | null;
   getResult(): import('../contracts/operation').EventResult | null;
   getView(expectedRunId?: string): OperationView | null;
+  getAdmissionSummary(eventId: string, characterIds: readonly Character[]): OperationAdmissionSummary;
+  claimOutcomeReward(): OperationRewardClaimResult;
   createSaveSnapshot(): OperationRunSaveSnapshot | null;
   restoreSaveSnapshot(snapshot: unknown): OperationRunRestoreResult;
   getLastRestoreResult(): OperationRunRestoreResult | null;
@@ -44,6 +57,7 @@ export interface OperationEntryFacade {
 export interface CreateOperationEntryOptions extends OperationEntryContext {
   readonly resolver: OperationContentResolver;
   readonly owner: OperationRuntimeService;
+  readonly applyReward?: (reward: OperationRewardDef) => void;
 }
 
 /** Returns the narrow public facade while keeping the raw owner in the service's private closure. */
@@ -56,6 +70,8 @@ export function createOperationEntry(options: CreateOperationEntryOptions): {
     getSnapshot: service.getSnapshot.bind(service),
     getResult: service.getResult.bind(service),
     getView: service.getView.bind(service),
+    getAdmissionSummary: service.getAdmissionSummary.bind(service),
+    claimOutcomeReward: service.claimOutcomeReward.bind(service),
     createSaveSnapshot: service.createSaveSnapshot.bind(service),
     restoreSaveSnapshot: service.restoreSaveSnapshot.bind(service),
     getLastRestoreResult: service.getLastRestoreResult.bind(service),
@@ -79,17 +95,20 @@ class OperationEntryService {
   readonly #resolver: OperationContentResolver;
   readonly #characterSystem?: CharacterSystem;
   readonly #getState?: () => PlayerState;
+  readonly #applyReward?: (reward: OperationRewardDef) => void;
   #lastRestoreResult: OperationRunRestoreResult | null = null;
 
   constructor(options: CreateOperationEntryOptions) {
     this.#resolver = options.resolver;
     this.#characterSystem = options.characterSystem;
     this.#getState = options.getState;
+    this.#applyReward = options.applyReward;
     this.#admission = new OperationParticipantAdmission({
       resolver: options.resolver,
       characterSystem: options.characterSystem,
       rosterSystem: options.rosterSystem,
       getState: options.getState,
+      resolveStudentPresentation: options.resolveStudentPresentation,
     });
     this.#owner = options.owner;
   }
@@ -109,6 +128,39 @@ class OperationEntryService {
   getResult(): import('../contracts/operation').EventResult | null { return this.#owner.getResult(); }
 
   getView(expectedRunId?: string): OperationView | null { return this.#owner.getView(expectedRunId); }
+
+  getAdmissionSummary(eventId: string, characterIds: readonly Character[]): OperationAdmissionSummary {
+    const participants = characterIds.map(characterId => ({
+      characterId,
+      displayName: this.#characterSystem?.get(characterId)?.displayName ?? characterId,
+    }));
+    try {
+      this.#admission.admit(eventId, characterIds);
+      return { eventId, participants, available: true, missingCharacterIds: [], unavailableReason: null };
+    } catch (error) {
+      const diagnostics = error instanceof OperationAdmissionError ? error.diagnostics : [];
+      const diagnosticsText = diagnostics.join(' ').toLocaleLowerCase();
+      const missingCharacterIds = characterIds.filter(characterId => diagnostics.some(message =>
+        message.includes('Character ' + characterId)
+        && (message.includes('has no owned Registry Variant') || message.includes('is not unlocked')),
+      ));
+      const unavailableReason = missingCharacterIds.length > 0
+        ? '缺少持有且已解锁的固定队员。'
+        : diagnostics.some(message => message.includes('belongs to Init'))
+          ? '这场行动只能从夏莱办公室启动。'
+          : diagnosticsText.includes('operation content') || diagnosticsText.includes('resolver returned no content')
+            ? '事件内容未在当前启用的数据包中。'
+            : '固定阵容准入检查未通过。';
+      return { eventId, participants, available: false, missingCharacterIds, unavailableReason };
+    }
+  }
+
+  claimOutcomeReward(): OperationRewardClaimResult {
+    return this.#owner.claimOutcomeReward(reward => {
+      if (!this.#applyReward) throw new Error('Operation reward mutation is not wired');
+      this.#applyReward(reward);
+    });
+  }
 
   createSaveSnapshot(): OperationRunSaveSnapshot | null { return this.#owner.createSaveSnapshot(); }
 

@@ -19,6 +19,8 @@ import type {
   OperationRunStatus,
   OperationActorState,
   OperationStateDelta,
+  OperationRewardDef,
+  OperationRewardClaimResult,
   OperationStudentProfileSnapshot,
   OperationTacticalRandomState,
   OperationTeamDef,
@@ -79,7 +81,10 @@ import {
 interface MutableActorState {
   id: string;
   type: string;
+  displayName: string;
+  avatarRef: string | null;
   hp: number;
+  maxHp: number;
   resources: Record<string, number>;
   participantKind?: OperationActorInitialization['participantKind'];
   characterId?: string;
@@ -92,6 +97,7 @@ interface MutableRun {
   runId: string;
   eventId: string;
   status: OperationRunStatus;
+  rewardClaimed: boolean;
   currentLocationId: string;
   eventState: {
     tracks: Record<string, number>;
@@ -236,6 +242,7 @@ function createRun(
     runId,
     eventId: definition.id,
     status: 'inProgress',
+    rewardClaimed: false,
     currentLocationId: definition.initialLocationId,
     eventState: {
       tracks: Object.fromEntries(definition.tracks.map(track => [track.id, track.initial])),
@@ -247,14 +254,17 @@ function createRun(
       resources: Object.fromEntries(Object.entries(team.resources ?? {}).map(([id, value]) => [id, value.initial])),
     })),
     actorStates: definition.actors.map(actor => {
+      const identity = actorInitializations?.get(actor.id);
       const base: MutableActorState = {
         id: actor.id,
         type: actor.type,
+        displayName: identity?.displayName ?? actor.displayName ?? actor.type,
+        avatarRef: identity?.avatarRef ?? actor.avatarRef ?? null,
         hp: actor.hp.initial,
+        maxHp: actor.hp.max,
         resources: Object.fromEntries(Object.entries(actor.resources ?? {}).map(([id, value]) => [id, value.initial])),
         ...(actor.teamId ? { teamId: actor.teamId } : {}),
       };
-      const identity = actorInitializations?.get(actor.id);
       if (!identity) return base;
       if (identity.participantKind === 'student') {
         base.participantKind = 'student';
@@ -703,6 +713,7 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
     || restoredRunSequence < 1 || String(restoredRunSequence) !== runSequenceMatch[1]) fail('runId is malformed');
   if (run.eventId !== definition.id) fail('eventId does not match Event content');
   if (!['inProgress', 'success', 'partialSuccess', 'failure'].includes(run.status)) fail('status is invalid');
+  if (typeof run.rewardClaimed !== 'boolean' || run.status === 'inProgress' && run.rewardClaimed) fail('reward claim state is invalid');
   if (!Number.isSafeInteger(run.planVersion) || run.planVersion < 0) fail('planVersion is invalid');
   if (!Number.isSafeInteger(run.beatIndex) || run.beatIndex < 0) fail('beatIndex is invalid');
   if (!Number.isSafeInteger(run.resolutionSequence) || run.resolutionSequence < 0) fail('resolutionSequence is invalid');
@@ -745,6 +756,9 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
     const actor = actorsById.get(actorDef.id);
     if (!actor) throw new OperationRuntimeError(['invalid Operation Run checkpoint: Actor state is missing for ' + actorDef.id]);
     if (actor.type !== actorDef.type || actor.teamId !== actorDef.teamId
+      || typeof actor.displayName !== 'string' || actor.displayName.trim() === ''
+      || actor.avatarRef !== null && typeof actor.avatarRef !== 'string'
+      || actor.maxHp !== actorDef.hp.max
       || !isInBounds(actor.hp, actorDef.hp) || !isRecord(actor.resources)
       || !sameKeys(actor.resources, Object.keys(actorDef.resources ?? {}))) fail('Actor state does not match Event content for ' + actorDef.id);
     for (const [resourceId, bounds] of Object.entries(actorDef.resources ?? {})) {
@@ -974,6 +988,23 @@ export class OperationRuntimeService {
 
   getSnapshot(): EventRun | null {
     return this.slot ? frozenCopy(this.slot.run) : null;
+  }
+
+  claimOutcomeReward(applyReward: (reward: OperationRewardDef) => void): OperationRewardClaimResult {
+    this.assertCanMutate();
+    const slot = this.slot;
+    if (!slot?.result) return { status: 'notTerminal', reward: null };
+    const kind = slot.result.kind;
+    const reward = kind === 'success' || kind === 'partialSuccess'
+      ? slot.rules.definition.rewards?.[kind] ?? null
+      : null;
+    if (slot.run.rewardClaimed) return { status: 'alreadyClaimed', reward };
+    if (reward) applyReward(reward);
+    const next = deepCopy(slot.run);
+    next.rewardClaimed = true;
+    slot.run = next;
+    slot.result = freezeEventResult(next, kind);
+    return { status: 'claimed', reward };
   }
 
   getView(expectedRunId?: string): OperationView | null {

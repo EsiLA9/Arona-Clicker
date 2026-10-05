@@ -271,7 +271,32 @@ function checkEvent(
     issues.push(prefix + '.playerRouteState.playerCost must be a non-negative safe integer');
   }
 
+  if (event.rewards !== undefined) {
+    const allowedRewardKeys = new Set(['success', 'partialSuccess']);
+    for (const key of Object.keys(event.rewards as Record<string, unknown>)) {
+      if (!allowedRewardKeys.has(key)) issues.push(prefix + '.rewards contains unsupported outcome: ' + key);
+    }
+    const allowedResourceIds = new Set(['base:resource:credit', 'base:resource:pyroxene']);
+    for (const outcome of ['success', 'partialSuccess'] as const) {
+      const reward = event.rewards[outcome];
+      if (reward === undefined) continue;
+      const rewardPath = prefix + '.rewards.' + outcome;
+      if (!isRecord(reward) || reward.kind !== 'resource' || !allowedResourceIds.has(reward.resourceId)
+        || !safeCount(reward.amount, 1, Number.MAX_SAFE_INTEGER)) {
+        issues.push(rewardPath + ' must award a positive safe amount of a whitelisted AC resource');
+      }
+    }
+  }
+
   const actorIds = new Set((event.actors ?? []).map(actor => actor.id));
+  for (const [index, actor] of (event.actors ?? []).entries()) {
+    const actorPath = prefix + '.actors[' + index + ']';
+    if (actor.displayName !== undefined && (typeof actor.displayName !== 'string' || actor.displayName.trim() === '')) {
+      issues.push(actorPath + '.displayName must be a non-empty string');
+    }
+    if (actor.avatarRef !== undefined && typeof actor.avatarRef !== 'string') issues.push(actorPath + '.avatarRef must be a string');
+    if (actor.description !== undefined && typeof actor.description !== 'string') issues.push(actorPath + '.description must be a string');
+  }
   const participants = new Map<string, (typeof event.participants)[number]>();
   const studentProfiles: StudentOperationProfileDef[] = [];
   for (const [index, participant] of (event.participants ?? []).entries()) {
@@ -404,7 +429,7 @@ export function validateOperationDatapackContent(
   const locations = mergeById(context.locations, datapack.operationLocations);
   const actions = mergeById(context.actions, datapack.operationActions);
   const profiles = mergeById(context.profiles, datapack.studentOperationProfiles);
-  const characters = new Set([...context.characterIds ?? [], ...datapack.characters.map(character => character.id)]);
+  const characters = new Set([...context.characterIds ?? [], ...(datapack.characters ?? []).map(character => character.id)]);
 
   for (const [index, profile] of (datapack.studentOperationProfiles ?? []).entries()) {
     checkProfile(profile, 'studentOperationProfiles[' + index + ']', characters, actions, issues);
@@ -418,7 +443,7 @@ export function validateOperationDatapackContent(
   for (const [index, event] of (datapack.operationEvents ?? []).entries()) {
     checkEvent(event, 'operationEvents[' + index + ']', {
       ...context,
-      initIds: new Set([...context.initIds ?? [], ...datapack.inits.map(init => init.id)]),
+      initIds: new Set([...context.initIds ?? [], ...(datapack.inits ?? []).map(init => init.id)]),
     }, locations, actions, profiles, characters, issues);
   }
   return issues;

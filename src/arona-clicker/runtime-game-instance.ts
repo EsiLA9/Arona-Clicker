@@ -171,6 +171,15 @@ export class GameInstance {
       characterSystem: this.characterSystem,
       rosterSystem: this.rosterSystem,
       getState: () => this._state,
+      resolveStudentPresentation: (characterId, variantId) => {
+        const profile = this.charaProfileService.characterProfile(characterId);
+        const variant = this.rosterSystem.getVariant(variantId);
+        return {
+          displayName: profile.name || variant?.displayName || characterId,
+          avatarRef: profile.avatar ?? this.picService.urlOf(variant?.avatar) ?? null,
+        };
+      },
+      applyReward: reward => this.mutations.changeResource(reward.resourceId, reward.amount),
       resolver: options.operationContentResolver ?? createRegistryOperationContentResolver(this.registry),
       owner: this.#operationRuntimeOwner,
     }).facade;

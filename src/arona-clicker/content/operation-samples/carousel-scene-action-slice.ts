@@ -6,17 +6,17 @@ import { CAROUSEL_SAFETY_IDS } from './carousel-safety-ids';
 import { carouselSafetySliceContent } from './carousel-safety-slice';
 
 export const CAROUSEL_SCENE_ACTION_IDS = Object.freeze({
-  event: 'demo:operation-event:carousel-scene-action-slice',
+  event: 'gameplay-b:operation-event:carousel-scene-action-slice',
   actors: CAROUSEL_SAFETY_IDS.actors,
   locations: Object.freeze({
-    platform: 'demo:operation-location:carousel-scene-platform',
-    concourse: 'demo:operation-location:carousel-scene-concourse',
-    exit: 'demo:operation-location:carousel-scene-exit',
+    platform: 'gameplay-b:operation-location:carousel-scene-platform',
+    concourse: 'gameplay-b:operation-location:carousel-scene-concourse',
+    exit: 'gameplay-b:operation-location:carousel-scene-exit',
   }),
   actions: Object.freeze({
-    investigate: 'demo:operation-action:scene-investigate-control',
-    guideCrowd: 'demo:operation-action:scene-guide-queue',
-    treatTeam: 'demo:operation-action:scene-team-first-aid',
+    investigate: 'gameplay-b:operation-action:scene-investigate-control',
+    guideCrowd: 'gameplay-b:operation-action:scene-guide-queue',
+    treatTeam: 'gameplay-b:operation-action:scene-team-first-aid',
   }),
   sceneActions: Object.freeze({
     inspect: 'inspect-carousel-control',
@@ -24,22 +24,27 @@ export const CAROUSEL_SCENE_ACTION_IDS = Object.freeze({
     firstAid: 'whole-team-first-aid',
   }),
   routes: Object.freeze({
+    platformToConcourse: 'ride-to-concourse',
     publicPath: 'scene-public-path',
     staffGate: 'scene-staff-gate',
-    returnLoop: 'scene-return-loop',
-    parkExit: 'scene-park-exit',
   }),
-  item: 'demo:operation-item:scene-staff-pass',
-  fact: 'demo:operation-fact:scene-carousel-secured',
-  track: 'demo:operation-track:scene-queue-order',
+  item: 'gameplay-b:operation-item:scene-staff-pass',
+  fact: 'gameplay-b:operation-fact:scene-carousel-secured',
+  track: 'gameplay-b:operation-track:scene-queue-order',
 });
 
 const IDS = CAROUSEL_SCENE_ACTION_IDS;
 const objective = {
   id: 'scene-carousel-secured',
-  description: 'The carousel control has been checked and the staff pass collected.',
+  description: '收好员工证，并把旋转木马危险度降至安全范围。',
   kind: 'primary' as const,
-  predicate: { kind: 'knownFact' as const, factId: IDS.fact, present: true },
+  predicate: {
+    kind: 'all' as const,
+    terms: [
+      { kind: 'knownFact' as const, factId: IDS.fact, present: true },
+      { kind: 'track' as const, trackId: CAROUSEL_SAFETY_IDS.track, operator: 'lte' as const, value: 3 },
+    ],
+  },
 };
 
 const eventDefinition: OperationEventDef = {
@@ -48,6 +53,29 @@ const eventDefinition: OperationEventDef = {
   locations: [
     {
       id: IDS.locations.platform,
+      enabledActionIds: [
+        CAROUSEL_SAFETY_IDS.actions.brace,
+        CAROUSEL_SAFETY_IDS.actions.emergencyStop,
+        CAROUSEL_SAFETY_IDS.actions.signal,
+        CAROUSEL_SAFETY_IDS.actions.crowdGuide,
+        CAROUSEL_SAFETY_IDS.actions.shield,
+        CAROUSEL_SAFETY_IDS.actions.sabotage,
+        CAROUSEL_SAFETY_IDS.actions.alarm,
+        CAROUSEL_SAFETY_IDS.actions.surge,
+      ],
+      combinationRules: carouselSafetySliceContent.eventDefinition.locations[0].combinationRules,
+      maxBeats: 1,
+      costGain: 2,
+      maxCarryCost: 3,
+      routeEdges: [{
+        id: IDS.routes.platformToConcourse,
+        targetLocationId: IDS.locations.concourse,
+        label: '前往游乐园通道',
+        description: '战斗结束后前往入口通道继续处理游客与设备。',
+      }],
+    },
+    {
+      id: IDS.locations.concourse,
       enabledActionIds: [],
       combinationRules: [],
       actionMode: 'individual',
@@ -57,27 +85,26 @@ const eventDefinition: OperationEventDef = {
         { id: IDS.sceneActions.guide, actionId: IDS.actions.guideCrowd, scope: 'individual', playerCost: 1 },
       ],
       costGain: 2,
-      maxCarryCost: 3,
-      objectives: [objective],
+      maxCarryCost: 2,
       routeEdges: [
         {
           id: IDS.routes.staffGate,
-          targetLocationId: IDS.locations.concourse,
-          label: 'Crew access gate',
-          description: 'Use the staff pass for the restricted route.',
+          targetLocationId: IDS.locations.exit,
+          label: '员工通道',
+          description: '出示员工证通过维修通道；转场时会收回证件。',
           requiredHeldItemId: IDS.item,
           consumeRequiredHeldItem: true,
         },
         {
           id: IDS.routes.publicPath,
-          targetLocationId: IDS.locations.concourse,
-          label: 'Public concourse',
-          description: 'Take the public route and keep any staff pass.',
+          targetLocationId: IDS.locations.exit,
+          label: '游客通道',
+          description: '直接从公共通道前往出口。',
         },
       ],
     },
     {
-      id: IDS.locations.concourse,
+      id: IDS.locations.exit,
       enabledActionIds: [],
       combinationRules: [],
       actionMode: 'global',
@@ -87,26 +114,6 @@ const eventDefinition: OperationEventDef = {
       ],
       costGain: 1,
       maxCarryCost: 2,
-      routeEdges: [
-        {
-          id: IDS.routes.returnLoop,
-          targetLocationId: IDS.locations.platform,
-          label: 'Return to the ride',
-          description: 'Revisit the carousel area; the route visit limit prevents an endless loop.',
-        },
-        {
-          id: IDS.routes.parkExit,
-          targetLocationId: IDS.locations.exit,
-          label: 'Leave the park',
-          description: 'End the operation after the concourse check.',
-        },
-      ],
-    },
-    {
-      id: IDS.locations.exit,
-      enabledActionIds: [],
-      combinationRules: [],
-      objectives: [objective],
       routeEdges: [],
     },
   ],
@@ -121,6 +128,15 @@ const eventDefinition: OperationEventDef = {
   itemIds: [IDS.item],
   heldItemIds: [],
   objectives: [objective],
+  partialOutcomes: [{
+    id: 'carousel-partial-stable',
+    description: '现场暂时稳定，但员工通道目标或危险度目标尚未全部达成。',
+    predicate: { kind: 'track', trackId: CAROUSEL_SAFETY_IDS.track, operator: 'lte', value: 5 },
+  }],
+  rewards: {
+    success: { kind: 'resource', resourceId: 'base:resource:credit', amount: 200 },
+    partialSuccess: { kind: 'resource', resourceId: 'base:resource:credit', amount: 80 },
+  },
   playerRouteState: {
     playerCost: 3,
   },
@@ -143,7 +159,7 @@ const actionDefinitions: readonly OperationActionDef[] = [
     id: IDS.actions.investigate,
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
-    reasonIds: ['demo:operation-reason:inspect-control-panel'],
+    reasonIds: ['gameplay-b:operation-reason:inspect-control-panel'],
     tagIds: [],
     target: { kind: 'none' },
     effects: [
@@ -155,7 +171,7 @@ const actionDefinitions: readonly OperationActionDef[] = [
     id: IDS.actions.guideCrowd,
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
-    reasonIds: ['demo:operation-reason:guide-queue'],
+    reasonIds: ['gameplay-b:operation-reason:guide-queue'],
     tagIds: [],
     target: { kind: 'none' },
     effects: [{ kind: 'eventTrackDelta', trackId: IDS.track, amount: -1 }],
@@ -164,7 +180,7 @@ const actionDefinitions: readonly OperationActionDef[] = [
     id: IDS.actions.treatTeam,
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
-    reasonIds: ['demo:operation-reason:first-aid-team'],
+    reasonIds: ['gameplay-b:operation-reason:first-aid-team'],
     tagIds: [],
     target: { kind: 'actor', relation: 'sameTeam' },
     effects: [

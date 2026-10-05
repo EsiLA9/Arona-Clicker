@@ -5,6 +5,8 @@ import type { OperationInterventionDraft, OperationPreparedActorPlan, PreparedBe
 import type { OperationResolution } from './operation-resolution';
 import type { OperationRouteTransitionRecord } from './operation';
 import type { OperationLocationEntryCostRecord } from './operation';
+import type { OperationSceneActionBatchDraft } from './operation-scene-action';
+import type { Character } from '../types/ids';
 
 /** UI-safe candidate row: stable IDs and reasons, without exposing the Action definition. */
 export interface OperationViewActionOption {
@@ -53,6 +55,7 @@ export interface OperationViewSceneAction {
   readonly scope: 'individual' | 'global';
   readonly playerCost: number;
   readonly eligibleActorIds: readonly string[];
+  readonly legalTargetActorIdsByActorId: Readonly<Record<string, readonly string[]>>;
 }
 
 export interface OperationViewSceneCard {
@@ -84,11 +87,14 @@ export interface OperationViewRouteOption {
 export interface OperationViewActor {
   readonly id: string;
   readonly type: string;
+  readonly displayName: string;
+  readonly avatarRef: string | null;
   readonly participantKind?: OperationActorKind;
   readonly characterId?: string;
   readonly factionId?: string;
   readonly teamId?: string;
   readonly hp: number;
+  readonly maxHp: number;
   readonly resources: Readonly<Record<string, number>>;
   readonly profile?: {
     readonly id: string;
@@ -100,11 +106,21 @@ export interface OperationViewActor {
   readonly currentPlan: OperationPreparedActorPlan | null;
 }
 
+/** Detached entry summary for a fixed-roster Operation launch card. */
+export interface OperationAdmissionSummary {
+  readonly eventId: string;
+  readonly participants: readonly { readonly characterId: string; readonly displayName: string }[];
+  readonly available: boolean;
+  readonly missingCharacterIds: readonly string[];
+  readonly unavailableReason: string | null;
+}
+
 /** Detached operation-specific UI projection; deliberately not a GameView and not an EventRun. */
 export interface OperationView {
   readonly runId: string;
   readonly eventId: string;
   readonly status: EventRun['status'];
+  readonly rewardClaimed: boolean;
   readonly currentLocationId: string;
   readonly planVersion: number;
   readonly beatIndex: number;
@@ -128,6 +144,7 @@ export interface OperationView {
   readonly maxCarryCost: number | null;
   readonly currentActionMode: 'individual' | 'global' | null;
   readonly currentSceneActions: readonly OperationViewSceneAction[];
+  readonly pendingSceneActionBatch: OperationSceneActionBatchDraft | null;
   readonly sceneActionBatchesUsed: number;
   readonly sceneActionBatchesRemaining: number;
   readonly basePreparedBeat: PreparedBeat | null;
@@ -144,4 +161,5 @@ export interface OperationView {
 /** Narrow UI query port; exposes detached projections without Runtime mutation commands. */
 export interface OperationViewQuery {
   getView(expectedRunId?: string): OperationView | null;
+  getAdmissionSummary(eventId: string, characterIds: readonly Character[]): OperationAdmissionSummary;
 }

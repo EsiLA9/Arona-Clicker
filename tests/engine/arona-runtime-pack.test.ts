@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
+import { CAROUSEL_SCENE_ACTION_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import type { PackManagerSnapshot, StoredPack } from '../../src/data-services/datapack/pack-manager';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 
@@ -57,7 +58,9 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     const baseIndex = order.indexOf(baseId);
     const editingIndex = order.indexOf(editingId);
     [order[baseIndex], order[editingIndex]] = [order[editingIndex], order[baseIndex]];
-    const enabledIds = configuration.enabledIds.map(id => id === baseId ? editingId : id);
+    const enabledIds = configuration.enabledIds
+      .filter(id => id !== 'gameplay-b@1.0.0')
+      .map(id => id === baseId ? editingId : id);
     expect(game.applyPackConfiguration({ enabledIds, order }).ok).toBe(true);
     expect(game.packManager.snapshot().enabledIds).toContain(editingId);
 
@@ -112,12 +115,14 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(() => game.removePack('missing@1.0.0')).toThrow('不存在的数据包');
   });
 
-  test('默认启动通过启用集加载 base，而不是绕过 PackManager', () => {
+  test('默认启用集装载 base 与独立 Gameplay B 示例包', () => {
     const game = new AronaClickerRuntime();
     game.applyEnabledPacks();
 
     expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
-    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.0']);
+    expect(game.registry.operationEvents.has(CAROUSEL_SCENE_ACTION_IDS.event)).toBe(true);
+    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0']);
+    expect(game.getPackCatalog().entries.find(entry => entry.id === 'gameplay-b@1.0.0')).toMatchObject({ sourceKind: 'bundle', enabled: true });
     expect(game.state.activeInit).toBe('');
     expect(game.running).toBe(false);
   });
@@ -162,8 +167,8 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
     expect(game.registry.spots.has('addition-test:spot:scanner')).toBe(false);
     expect(game.getPackCatalog().entries.find(entry => entry.id === invalidPack.id)?.enabled).toBe(false);
-    expect(game.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.0', invalidPack.id]);
-    expect((saved as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0']);
+    expect(game.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.0', invalidPack.id, 'gameplay-b@1.0.0']);
+    expect((saved as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0']);
   });
 
   test('异步恢复后也会持久化自动停用结果', async () => {
@@ -182,7 +187,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     await game.restorePackManager(store);
 
     expect(() => game.applyEnabledPacks()).not.toThrow();
-    expect(snapshot.enabledIds).toEqual(['base@1.0.0']);
+    expect(snapshot.enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0']);
     expect(game.getPackCatalog().entries.find(entry => entry.id === invalidPack.id)?.enabled).toBe(false);
   });
 
@@ -284,10 +289,10 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     await source.savePackManager(store);
     const restored = new AronaClickerRuntime();
     await restored.restorePackManager(store);
-    expect(restored.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.0', 'demo@1.0.0']);
+    expect(restored.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.0', 'gameplay-b@1.0.0', 'demo@1.0.0']);
     restored.setPackEnabled('demo@1.0.0', true);
     await Promise.resolve();
-    expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0', 'demo@1.0.0']);
+    expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0', 'demo@1.0.0']);
   });
 
   test('异步恢复后应用启用集会持久化策略且下一次启动自动加载', async () => {
@@ -314,10 +319,12 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     const restored = new AronaClickerRuntime();
     await restored.restorePackManager(store);
 
-    expect(restored.applyPackConfiguration({
+    const currentOrder = restored.getPackConfiguration().order;
+    const apply = restored.applyPackConfiguration({
       enabledIds: ['base@1.0.0', demoId],
-      order: ['base@1.0.0', demoId],
-    }).ok).toBe(true);
+      order: currentOrder,
+    });
+    expect(apply.ok, apply.message).toBe(true);
     await Promise.resolve();
     expect(snapshot.enabledIds).toEqual(['base@1.0.0', demoId]);
 

@@ -10,6 +10,7 @@
 | --- | --- |
 | `start(eventId, characterIds)` | 按 ID 请求一次受控入场，返回 detached `EventRun`。 |
 | `getSnapshot()` | 返回当前 Run 的 detached、冻结副本；没有 Run 时返回 `null`。 |
+| `getAdmissionSummary(eventId, characterIds)` | 对固定阵容做只读准入预检，返回参与者展示名、可出动状态与缺失原因；不启动 Run。 |
 | `previewIntervention({ runId, planVersion, draft })` | 纯计算单名学生的指挥修订预览，不写 Run 或消费随机数。 |
 | `reviseIntervention({ runId, planVersion, draft })` | 校验预览后写入唯一干预槽，递增版本并重建基础计划。 |
 | `clearIntervention({ runId, planVersion })` | 清除已存草稿并递增版本；槽位已空时返回未变化快照。 |
@@ -20,6 +21,7 @@
 | `commitStagedSceneActionBatch({ runId, planVersion })` | 校验暂存费用快照仍与当前 Run 一致，再通过同一原子场景结算入口提交。 |
 | `commitSceneActionBatch({ runId, planVersion, selections, cards? })` | 将 SceneAction 与零张或多张手牌合成一条 OperationResolution，一次扣 PlayerCost、递减批次数并将所用卡从 hand 移入 discard。 |
 | `transitionRoute({ runId, planVersion, routeId })` | 完成地点后按当前出口 Gate 转场；这是自动单出口和玩家多出口共用的唯一地点转场命令。 |
+| `claimOutcomeReward()` | 对已结束的成功/部分成功 Run，经 `StateMutationService` 提交事件定义中的白名单奖励一次；失败、未结束或已领取状态不会重复发放。 |
 | `createSaveSnapshot()` / `restoreSaveSnapshot(snapshot)` | 由 GameInstance 存档/读档路径调用；内容由当前 Registry 重建，拒绝时保留清晰诊断。 |
 | `getLastRestoreResult()` | 查询最近一次读档的续局结果或拒绝原因；没有 `operationRun` 时为 `none`。 |
 
@@ -38,13 +40,14 @@ owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`Opera
 | 子状态 | 当前持有内容 |
 | --- | --- |
 | `eventState` | 有界数值轨道、已知事实 ID、持有物 ID。 |
-| `actorStates` | 事件 Actor 的 ID/type、HP/resources、可选 Team ID；GameInstance Run 另有参与者身份，学生携带派生 Profile snapshot。 |
+| `actorStates` | 事件 Actor 的 ID/type、HP/maxHP/resources、可选 Team ID 与 detached displayName/avatarRef；GameInstance Run 另有参与者身份，学生携带派生 Profile snapshot。 |
 | `teamStates` | 每个声明 Team 的局部战术 resources。Team membership 只由 `OperationActorDef.teamId` 决定。 |
 | `playerRouteState` | 与学生/队伍战术资源分开的共享 `playerCost`，以及只存物理 `cardInstanceId` 的 drawPile、hand、discard 三个互斥卡区。打出的牌直接进入 discard，不回洗。 |
 | `locationProgress` | 已声明 Location 的访问次数、完成标记与当前访问已消费的 SceneAction 批次数；每次新访问重置批次数。 |
 | `locationEntryCostHistory` | 每次进入地点记录访问序号、访问计数、costGain 与余额前后值；它与 `routeHistory` 一并属于 Run 快照。 |
 | `pendingSceneActionBatch` | 仅显式 stage 后存在；保存完整输入及基于当时余额计算的费用预览。纯 `previewSceneActionBatch()` 不写入。 |
 | `routeHistory` | 每次转场记录来源/目标地点、Route ID、离开结果、可选已消费持有物，以及配置了携带上限时的离场余额。 |
+| `rewardClaimed` | Run 已结束且事件奖励确认已成功提交后置为 true；与 `EventResult` 同步快照并在 Save/Resume 中保留。 |
 | `preparedBeat` / `interventionDraft` | 当前版本的规范基础计划，以及最多一名学生的一槽干预草稿。低层结构测试 Run 可能没有战术内容，因此两者可为 `null`。 |
 | `resolutions` / `resolutionSequence` | 最近最多 32 条结算记录及单调递增序号。 |
 | `random` | `splitmix64-counter-v1`、事件 seed 和 `tacticalCursor`。 |
@@ -98,7 +101,7 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 `applyStateDelta()` 对数值轨道、事实、持有物、Actor 和玩家路线状态先整体校验再写入。拒绝的批次无部分写入；牌区 ID 多重集须保持事件固定牌组的物理实例不变。`completeCurrentLocation()` 标记当前地点完成并评估出口：没有合法出口时调用事件终局判定，一个合法出口自动通过 `transitionRoute()` 前进，多个出口则等待玩家提交 Route ID。`transitionRoute()` 在 detached 候选 Run 上验证完成状态、版本、出口、访问上限和所需持有物，再应用离场 Cost 上限、消费门禁物品、保存来源结果、重置目标地点的本次进度、递增访问数、发放入场 Cost/抽牌并准备新地点；全部步骤成功后只替换一次 Run slot。任何转场错误都保留原 Run。
 
-`finish()` 只在当前 Location 已完成且没有合法出口时生成 `success`、`partialSuccess` 或 `failure` 的冻结 `EventResult`；终局 Run 不接受后续状态转移，重复结束返回已有结果。Run owner 的本地通知包括 `runStarted`、Location 进入/完成、`beatResolved` 和 `runFinished`，不扩展通用 Engine EventBus，也不从 facade 暴露订阅接口。
+`finish()` 只在当前 Location 已完成且没有合法出口时生成 `success`、`partialSuccess` 或 `failure` 的冻结 `EventResult`；终局 Run 不接受后续状态转移，重复结束返回已有结果。终局奖励只允许从 `EventDef.rewards.success/partialSuccess` 读取受限资源奖励；`claimOutcomeReward()` 先调用 AC 注入的 Mutation 回调，成功后才原子标记 Run 与结果已领取，回调失败不留下已领取标记。失败不产生奖励。Run owner 的本地通知包括 `runStarted`、Location 进入/完成、`beatResolved` 和 `runFinished`，不扩展通用 Engine EventBus，也不从 facade 暴露订阅接口。
 
 | GameInstance 操作 | Operation Runtime 行为 |
 | --- | --- |
@@ -108,9 +111,9 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 | `reload()` | 经 `stop()` → `reset()` → `init()` 重载并清除旧 Run。 |
 | `dispose()` | 停止 Session Tick 并 dispose 私有 owner；之后不能启动 Run。 |
 
-## 尚未覆盖的范围
+## 当前机制范围
 
-当前已有有界地图分支、回环、单持有物 Gate、Location/Event 目标与结局、Individual/Global SceneAction、共享 PlayerCost、固定有限玩家场景卡组与独立抽牌顺序。Task 0220 已将作者合同接入 Datapack / Registry；Run 保存/恢复由 Task 0219 承接。Profile 中 `randomSkillRuleId` 只在本局规则提供对应有限技能定义并成功 Beat Commit 时触发，不是随机抽取 AC 角色技能系统的运行入口。
+当前正式切片已组合有界地图分支/回环、单持有物 Gate、Location/Event 目标与结局、Individual/Global SceneAction、共享 PlayerCost、固定有限玩家场景卡组、独立抽牌顺序、固定阵容准入、三栏 Operation UI、主 SaveData 续局和一次性 AC 资源奖励。Gameplay B 运行内容从独立 `gameplay-b@1.0.0` bundle 接入；其局内 ID 命名空间为 `gameplay-b`。Profile 中 `randomSkillRuleId` 只在本局规则提供对应有限技能定义并成功 Beat Commit 时触发，不是随机抽取 AC 角色技能系统的运行入口。更广泛事件目录、阵容选择器、地图作者画布、通用卡片系统和自定义奖励效果仍不属于 V1。
 
 ## 代码与测试
 

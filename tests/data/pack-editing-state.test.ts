@@ -81,6 +81,7 @@ describe('AronaClickerRuntime 编辑态数据包接线', () => {
   test('启用序列中的编辑态可打开与保存，并保留原有 Mod 顺序', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
+    game.packManager.setEnabled('gameplay-b@1.0.0', false);
     const authorPack = pack('author@1.0.0');
     game.packManager.importPack({ ...authorPack, manifest: { ...authorPack.manifest, modName: 'author', name: 'Author' }, datapack: { ...authorPack.datapack, modName: 'author', name: 'Author', spots: [] } });
     const laterPack = pack('later@1.0.0');
@@ -93,7 +94,9 @@ describe('AronaClickerRuntime 编辑态数据包接线', () => {
     expect(copy.ok).toBe(true);
     const editingId = copy.packRecordId!;
     expect(game.getPackCatalog().entries.find(entry => entry.id === editingId)?.capabilities?.enableable).toBe(true);
-    game.packManager.reorder(['base@1.0.0', 'author@1.0.0', editingId, 'later@1.0.0']);
+    const baseId = game.getPackCatalog().entries.find(entry => entry.modName === 'base')!.id;
+    const gameplayBDemoId = game.getPackCatalog().entries.find(entry => entry.modName === 'gameplay-b')!.id;
+    game.packManager.reorder([baseId, gameplayBDemoId, 'author@1.0.0', editingId, 'later@1.0.0']);
     game.packManager.setEnabled('author@1.0.0', false);
     game.packManager.setEnabled(editingId, true);
     game.applyEnabledPacks();

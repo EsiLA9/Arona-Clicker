@@ -171,6 +171,8 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
       return {
         actorId: actor.id,
         participantKind: participant.kind,
+        displayName: actor.displayName ?? actor.type,
+        avatarRef: actor.avatarRef ?? null,
         ...(participant.factionId ? { factionId: participant.factionId } : {}),
         candidateActionIds: [...participant.candidateActionIds],
       };
@@ -182,6 +184,8 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
       actorId: actor.id,
       participantKind: 'student',
       characterId: participant.characterId,
+      displayName: participant.displayName ?? actor.displayName ?? actor.type,
+      avatarRef: participant.avatarRef ?? actor.avatarRef ?? null,
       profile: snapshotProfile(participant.actorId, participant.characterId, profile, actionDefinitions),
     };
   });
@@ -216,6 +220,8 @@ export function resolveOperationRunResume(
   ensureUniqueBy(content.studentSkillRules, value => value.id, 'Student Skill Rule');
   const statesByActorId = ensureUniqueBy(run.actorStates, value => value.id, 'saved Actor');
   const actors: OperationActorInitialization[] = event.actors.map(actor => {
+    const savedActor = statesByActorId.get(actor.id);
+    if (!savedActor) fail('saved Actor is missing: ' + actor.id);
     const participant = participantsByActorId.get(actor.id);
     const saved = statesByActorId.get(actor.id);
     if (!participant || !saved) fail('saved Run is missing participant Actor ' + actor.id);
@@ -224,6 +230,8 @@ export function resolveOperationRunResume(
       return {
         actorId: actor.id,
         participantKind: participant.kind,
+        displayName: savedActor.displayName ?? actor.displayName ?? actor.type,
+        avatarRef: savedActor.avatarRef ?? actor.avatarRef ?? null,
         ...(participant.factionId ? { factionId: participant.factionId } : {}),
         candidateActionIds: [...participant.candidateActionIds],
       };
@@ -248,6 +256,8 @@ export function resolveOperationRunResume(
       actorId: actor.id,
       participantKind: 'student',
       characterId: saved.characterId,
+      displayName: savedActor.displayName ?? actor.displayName ?? actor.type,
+      avatarRef: savedActor.avatarRef ?? actor.avatarRef ?? null,
       profile: saved.profile,
     };
   });

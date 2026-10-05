@@ -6,7 +6,7 @@
 
 ## Must Read / Read Set
 
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
 - `docs/ai/galhcg-project-map.md`
 - `docs/ai/frontend-design-project-overlay.md`
 - `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md`
@@ -32,9 +32,9 @@
 - `docs/docs-829/02-modules/ui.md`
 - `docs/docs-829/06-wiki/50-ui/workspace-routing.md`
 - `docs/docs-829/06-wiki/50-ui/refresh-update.md`
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u06-ux-documentation-and-galhcg-receipt.md`
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/task-0216-gameplay-b-command-loop-vertical-slice-ui-receipt.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u06-ux-documentation-and-galhcg-receipt.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/task-0216-gameplay-b-command-loop-vertical-slice-ui-receipt.md`
 
 ## Constraints
 

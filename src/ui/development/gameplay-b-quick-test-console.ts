@@ -1,4 +1,4 @@
-import type { AronaClickerRuntime } from '../../arona-clicker/runtime';
+import type { GameInstance } from '../../arona-clicker/runtime-game-instance';
 import '../css/gameplay-b-quick-test-console.css';
 
 const SCHALE_OFFICE_INIT_ID = 'base:init:schale_office';
@@ -38,7 +38,7 @@ export function interpretGameplayBQuickTestCommand(input: string): GameplayBQuic
 }
 
 /** Attach a small, opt-in dialog for local browser acceptance; no persistent state is written. */
-export function mountGameplayBQuickTestConsole(game: AronaClickerRuntime): void {
+export function mountGameplayBQuickTestConsole(game: Pick<GameInstance, 'state' | 'mutations'>, onApplied?: () => void): void {
   if (document.querySelector('[data-gameplay-b-test-console]')) return;
 
   const toggle = document.createElement('button');
@@ -101,12 +101,13 @@ export function mountGameplayBQuickTestConsole(game: AronaClickerRuntime): void 
       game.mutations.acquireCharacter(variantId, 'story');
       acquired.push(displayName);
     }
+    onApplied?.();
 
     const details = [
       acquired.length ? `本次获得：${acquired.join('、')}` : '',
       alreadyOwned.length ? `已持有：${alreadyOwned.join('、')}` : '',
     ].filter(Boolean);
-    result.textContent = `${details.join('；')}。仅当前页面内存有效，刷新即清空。`;
+    result.textContent = `${details.join('；')}。${onApplied ? '界面已刷新。' : ''}仅当前页面内存有效，刷新即清空。`;
   });
 
   document.body.append(toggle, dialog);

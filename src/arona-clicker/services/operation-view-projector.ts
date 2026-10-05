@@ -204,11 +204,14 @@ function projectActor(
   const identity: Omit<OperationViewActor, 'currentPlan'> = {
     id: actor.id,
     type: actor.type,
+    displayName: actor.displayName ?? actor.type,
+    avatarRef: actor.avatarRef ?? null,
     ...(actor.participantKind ? { participantKind: actor.participantKind } : {}),
     ...(actor.characterId ? { characterId: actor.characterId } : {}),
     ...(actor.factionId ? { factionId: actor.factionId } : {}),
     ...(actor.teamId ? { teamId: actor.teamId } : {}),
     hp: actor.hp,
+    maxHp: actor.maxHp ?? actor.hp,
     resources: { ...actor.resources },
   };
   if (!actor.profile || !content) return { ...identity, currentPlan };
@@ -244,6 +247,7 @@ function projectSceneActions(
   const statesById = new Map(run.actorStates.map(actor => [actor.id, actor]));
   const actorsById = new Map(content.eventDefinition.actors.map(actor => [actor.id, actor]));
   const initializationsById = new Map(content.actors.map(actor => [actor.actorId, actor]));
+  const event = content.eventDefinition;
   return location.sceneActions.map(sceneAction => {
     const action = actionsById.get(sceneAction.actionId);
     const eligibleActorIds = content.eventDefinition.actors
@@ -258,12 +262,22 @@ function projectSceneActions(
           && action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id));
       })
       .map(actor => actor.id);
+    const legalTargetActorIdsByActorId = Object.fromEntries(eligibleActorIds.map(actorId => {
+      const source = actorsById.get(actorId)!;
+      const targetIds = action?.target.kind === 'none'
+        ? []
+        : action
+          ? targetCandidates(event, source, action.target).filter(targetId => (statesById.get(targetId)?.hp ?? 0) > 0)
+          : [];
+      return [actorId, targetIds];
+    }));
     return {
       id: sceneAction.id,
       actionId: sceneAction.actionId,
       scope: sceneAction.scope,
       playerCost: sceneAction.playerCost,
       eligibleActorIds,
+      legalTargetActorIdsByActorId,
     };
   });
 }
@@ -307,6 +321,7 @@ export function projectOperationView(
     runId: run.runId,
     eventId: run.eventId,
     status: run.status,
+    rewardClaimed: run.rewardClaimed,
     currentLocationId: run.currentLocationId,
     planVersion: run.planVersion,
     beatIndex: run.beatIndex,
@@ -356,6 +371,33 @@ export function projectOperationView(
     maxCarryCost: currentLocation?.maxCarryCost ?? null,
     currentActionMode: currentLocation?.actionMode ?? null,
     currentSceneActions: projectSceneActions(run, content),
+    pendingSceneActionBatch: run.pendingSceneActionBatch ? {
+      command: {
+        ...run.pendingSceneActionBatch.command,
+        selections: run.pendingSceneActionBatch.command.selections.map(selection => ({
+          ...selection,
+          targetActorIds: [...selection.targetActorIds],
+        })),
+        ...(run.pendingSceneActionBatch.command.cards ? {
+          cards: run.pendingSceneActionBatch.command.cards.map(selection => ({
+            ...selection,
+            targetActorIds: [...selection.targetActorIds],
+          })),
+        } : {}),
+      },
+      preview: {
+        ...run.pendingSceneActionBatch.preview,
+        selections: run.pendingSceneActionBatch.preview.selections.map(selection => ({
+          ...selection,
+          targetActorIds: [...selection.targetActorIds],
+        })),
+        cards: run.pendingSceneActionBatch.preview.cards.map(selection => ({
+          ...selection,
+          targetActorIds: [...selection.targetActorIds],
+        })),
+        cost: { ...run.pendingSceneActionBatch.preview.cost },
+      },
+    } : null,
     playerCards: projectPlayerCards(run, content),
     sceneActionBatchesUsed: run.locationProgress[run.currentLocationId]?.sceneActionBatchesUsed ?? 0,
     sceneActionBatchesRemaining: Math.max(0,

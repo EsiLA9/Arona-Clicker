@@ -220,11 +220,28 @@ export class PackManager {
   private selectedSlots = new Map<string, DatapackSelectionSlot>();
   private runtimePackRecordIds = new Map<string, string>();
 
-  constructor(initial?: PackManagerSnapshot, private readonly store?: PackSnapshotStore, bundledPacks: readonly StoredPack[] = []) {
+  constructor(
+    initial?: PackManagerSnapshot,
+    private readonly store?: PackSnapshotStore,
+    bundledPacks: readonly StoredPack[] = [],
+    defaultEnabledBundleIds: readonly string[] = [],
+  ) {
     initial ??= store?.load() ?? { packs: [], enabledIds: [], order: [] };
     for (const pack of initial.packs) this.packs.set(pack.id, normalizeStoredPack(pack));
+    const currentBundleIds = new Set(bundledPacks.map(pack => pack.id));
+    for (const [id, pack] of this.packs) {
+      if (pack.sourceKind === 'bundle'
+        && bundledPacks.some(bundle => bundle.manifest.modName === pack.manifest.modName)
+        && !currentBundleIds.has(id)) {
+        this.packs.delete(id);
+      }
+    }
     for (const pack of bundledPacks) {
-      if (!this.packs.has(pack.id)) this.packs.set(pack.id, normalizeStoredPack(pack));
+      const bundled = normalizeStoredPack(pack);
+      const existing = this.packs.get(pack.id);
+      if (!existing || existing.sourceKind === 'bundle') {
+        this.packs.set(pack.id, { ...bundled, importedAt: existing?.importedAt ?? bundled.importedAt });
+      }
     }
     this.order = this.normalizeOrder(initial.order);
     for (const pack of [...bundledPacks].reverse()) {
@@ -232,7 +249,15 @@ export class PackManager {
     }
     // Catalog record identity is pack.id; ModName / Version / state remain runtime validation dimensions.
     for (const id of initial.enabledIds) {
-      if (this.packs.has(id)) this.enabledIds.add(id);
+      if (this.packs.has(id)) {
+        this.enabledIds.add(id);
+        continue;
+      }
+      const replacedBundle = initial.packs.find(pack => pack.id === id && pack.sourceKind === 'bundle');
+      const currentBundle = replacedBundle
+        ? bundledPacks.find(pack => pack.manifest.modName === replacedBundle.manifest.modName)
+        : undefined;
+      if (currentBundle && this.packs.has(currentBundle.id)) this.enabledIds.add(currentBundle.id);
     }
     if (![...this.enabledIds].some(id => this.packs.get(id)?.manifest.modName === 'base')) {
       const firstBase = this.order.find(id => this.packs.get(id)?.manifest.modName === 'base');
@@ -240,6 +265,16 @@ export class PackManager {
     }
     for (const [paneKey, selectedSlot] of Object.entries(initial.selectedSlots ?? {})) {
       this.selectedSlots.set(paneKey, selectedSlot);
+    }
+    for (const id of defaultEnabledBundleIds) {
+      const pack = this.packs.get(id);
+      if (!pack || pack.sourceKind !== 'bundle') continue;
+      const wasInstalled = initial.packs.some(previous => previous.id === id);
+      const paneKey = datapackPaneKey(storedPackIdentity(pack));
+      const hasExplicitSelection = Object.prototype.hasOwnProperty.call(initial.selectedSlots ?? {}, paneKey);
+      const modNameAlreadyEnabled = [...this.enabledIds]
+        .some(enabledId => this.packs.get(enabledId)?.manifest.modName === pack.manifest.modName);
+      if (!wasInstalled && !hasExplicitSelection && !modNameAlreadyEnabled) this.enabledIds.add(id);
     }
     this.validateEnabledSet();
   }

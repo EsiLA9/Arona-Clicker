@@ -404,8 +404,8 @@ describe('顶栏与设置工作区', () => {
     const regionRefreshesBeforeSwap = Number(root.dataset.uiRefreshRegion);
     dragToConflict();
     document.querySelector<HTMLButtonElement>('[data-modal-action="swap-datapack-entry"]')!.click();
-    expect(workspace().draftEnabledIds).toEqual(['base@1.0.0', editingId, 'later-active']);
-    expect(workspace().draftOrder).toEqual(['base@1.0.0', editingId, 'later-active', 'shared-active']);
+    expect(workspace().draftEnabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0', editingId, 'later-active']);
+    expect(workspace().draftOrder).toEqual(['base@1.0.0', 'gameplay-b@1.0.0', editingId, 'later-active', 'shared-active']);
     expect(root.querySelector(`[data-pack-select="${editingId}"]`)).not.toBeNull();
     expect(Number(root.dataset.uiRefreshFull), `regions ${regionRefreshesBeforeSwap} -> ${root.dataset.uiRefreshRegion}`).toBe(fullRendersBeforeSwap);
     expect(Number(root.dataset.uiRefreshRegion)).toBeGreaterThan(regionRefreshesBeforeSwap);

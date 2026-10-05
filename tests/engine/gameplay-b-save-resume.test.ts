@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstrap';
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
+import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import { Character } from '../../src/arona-clicker/types/ids';
 import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
@@ -13,6 +14,20 @@ const VARIANTS: Record<typeof STUDENTS[number], string> = {
   [Character.Shiroko]: 'Shiroko',
 };
 const DATAPACKS = [defaultDatapack, gameplayBCarouselDatapack];
+
+function enterConcourse(game: GameInstance, runId: string) {
+  let run = game.operationEntry.getSnapshot()!;
+  game.operationEntry.reviseIntervention({
+    runId,
+    planVersion: run.planVersion,
+    draft: { actorId: IDS.actors.hoshino, actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop },
+  });
+  run = game.operationEntry.getSnapshot()!;
+  game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+  const atConcourse = game.operationEntry.getSnapshot()!;
+  expect(atConcourse.currentLocationId).toBe(IDS.locations.concourse);
+  return atConcourse;
+}
 
 describe('Gameplay B Save/Resume', () => {
   const games: GameInstance[] = [];
@@ -32,7 +47,7 @@ describe('Gameplay B Save/Resume', () => {
   test('round-trips a staged Individual batch without spending Cost or losing its fee snapshot', () => {
     const source = createGame();
     const runId = source.operationEntry.start(IDS.event, STUDENTS).runId;
-    const beforeStage = source.operationEntry.getSnapshot()!;
+    const beforeStage = enterConcourse(source, runId);
     const staged = source.operationEntry.stageSceneActionBatch({
       runId,
       planVersion: beforeStage.planVersion,
@@ -63,8 +78,8 @@ describe('Gameplay B Save/Resume', () => {
   test('restores Location Cost history, physical deck order, tactical RNG and the terminal EventResult', () => {
     const source = createGame();
     const runId = source.operationEntry.start(IDS.event, STUDENTS).runId;
-    let run = source.operationEntry.getSnapshot()!;
-    source.operationEntry.commitSceneActionBatch({
+    let run = enterConcourse(source, runId);
+    source.operationEntry.stageSceneActionBatch({
       runId,
       planVersion: run.planVersion,
       selections: [
@@ -73,27 +88,31 @@ describe('Gameplay B Save/Resume', () => {
         { sceneActionId: IDS.sceneActions.guide, actorId: IDS.actors.shiroko, targetActorIds: [] },
       ],
     });
+    const staged = source.operationEntry.getSnapshot()!;
+    source.operationEntry.commitStagedSceneActionBatch({ runId, planVersion: staged.planVersion });
     run = source.operationEntry.getSnapshot()!;
+    expect(source.operationEntry.getView(runId)?.currentRoutes.map(route => route.routeId)).toContain(IDS.routes.staffGate);
     source.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.staffGate });
-    const atConcourse = source.operationEntry.getSnapshot()!;
-    expect(atConcourse).toMatchObject({
-      currentLocationId: IDS.locations.concourse,
+    const atExit = source.operationEntry.getSnapshot()!;
+    expect(atExit).toMatchObject({
+      currentLocationId: IDS.locations.exit,
       playerRouteState: { playerCost: 3 },
       locationEntryCostHistory: [
         { visitSequence: 1, locationId: IDS.locations.platform, costGain: 2, balanceBefore: 3, balanceAfter: 5 },
-        { visitSequence: 2, locationId: IDS.locations.concourse, costGain: 1, balanceBefore: 2, balanceAfter: 3 },
+        { visitSequence: 2, locationId: IDS.locations.concourse, costGain: 2, balanceBefore: 3, balanceAfter: 5 },
+        { visitSequence: 3, locationId: IDS.locations.exit, costGain: 1, balanceBefore: 2, balanceAfter: 3 },
       ],
-      random: { tacticalCursor: 0 },
+      random: { tacticalCursor: 1 },
     });
     const afterRouteSave = source.save();
 
     const resumed = createGame();
     resumed.load(afterRouteSave);
     expect(resumed.operationEntry.getLastRestoreResult()?.status).toBe('restored');
-    expect(resumed.operationEntry.getSnapshot()).toEqual(atConcourse);
+    expect(resumed.operationEntry.getSnapshot()).toEqual(atExit);
     expect(resumed.operationEntry.getView(runId)).toEqual(source.operationEntry.getView(runId));
 
-    const cardId = atConcourse.playerRouteState.cards.hand[0];
+    const cardId = atExit.playerRouteState.cards.hand[0];
     const commit = (game: GameInstance) => game.operationEntry.commitSceneActionBatch({
       runId,
       planVersion: game.operationEntry.getSnapshot()!.planVersion,
@@ -112,7 +131,7 @@ describe('Gameplay B Save/Resume', () => {
     expect(resumed.operationEntry.getSnapshot()).toEqual(source.operationEntry.getSnapshot());
 
     run = source.operationEntry.getSnapshot()!;
-    source.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.parkExit });
+    expect(run.status).toBe('success');
     const terminalSave = source.save();
     expect(terminalSave.operationRun?.result?.kind).toBe('success');
 

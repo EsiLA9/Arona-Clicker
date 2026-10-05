@@ -103,7 +103,7 @@ describe('数据包工作区排序与默认行为', () => {
       draftEnabledIds: [base, demo], draftOrder: [base, demo],
       validation: null, lastResult: null,
     });
-    expect(html).toContain('2 启用 · 2 条记录');
+    expect(html).toContain('2 启用 · 3 条记录');
     expect(html).toContain('data-datapack-mode="classic"');
     expect(html).toContain('data-datapack-mode="development"');
     expect(html).toContain('data-pack-id="demo@1.0.0"');

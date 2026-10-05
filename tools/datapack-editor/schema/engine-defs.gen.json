@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T14:51:48.817Z",
+  "generatedAt": "2026-10-05T01:45:31.573Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -4080,6 +4080,67 @@
           "required": false,
           "kind": "hand",
           "tsType": "readonly OperationOutcomeConditionDef[]"
+        },
+        {
+          "key": "rewards",
+          "required": false,
+          "kind": "object",
+          "tsType": "OperationEventRewardsDef",
+          "description": "Only success and partial-success resource grants are supported in V1.",
+          "fields": [
+            {
+              "key": "success",
+              "required": false,
+              "kind": "object",
+              "tsType": "OperationRewardDef",
+              "fields": [
+                {
+                  "key": "kind",
+                  "required": true,
+                  "kind": "hand",
+                  "tsType": "'resource'"
+                },
+                {
+                  "key": "resourceId",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string"
+                },
+                {
+                  "key": "amount",
+                  "required": true,
+                  "kind": "float",
+                  "tsType": "number"
+                }
+              ]
+            },
+            {
+              "key": "partialSuccess",
+              "required": false,
+              "kind": "object",
+              "tsType": "OperationRewardDef",
+              "fields": [
+                {
+                  "key": "kind",
+                  "required": true,
+                  "kind": "hand",
+                  "tsType": "'resource'"
+                },
+                {
+                  "key": "resourceId",
+                  "required": true,
+                  "kind": "string",
+                  "tsType": "string"
+                },
+                {
+                  "key": "amount",
+                  "required": true,
+                  "kind": "float",
+                  "tsType": "number"
+                }
+              ]
+            }
+          ]
         },
         {
           "key": "actors",
@@ -11274,6 +11335,7 @@
     "OperationCombinationRuleDef",
     "OperationCombinationTargetMatch",
     "OperationEventContentDef",
+    "OperationEventRewardsDef",
     "OperationLocationDef",
     "OperationLocationResultKind",
     "OperationObjectiveDef",
@@ -11286,6 +11348,7 @@
     "OperationPredicateLeafDef",
     "OperationPredicateOperator",
     "OperationResultKind",
+    "OperationRewardDef",
     "OperationRouteEdgeDef",
     "OperationSceneActionDef",
     "OperationSceneActionMode",

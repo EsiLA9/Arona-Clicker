@@ -157,7 +157,7 @@ describe('Gameplay B carousel safety sample', () => {
     expect(emergencyStop).toMatchObject({
       eligible: false,
       selectable: false,
-      missingCapabilityIds: ['demo:operation-capability:frontline-protection'],
+      missingCapabilityIds: ['gameplay-b:operation-capability:frontline-protection'],
     });
     expect(hoshino.currentPlan).toMatchObject({
       kind: 'studentAction',

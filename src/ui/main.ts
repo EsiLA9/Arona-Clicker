@@ -60,12 +60,6 @@ async function boot(): Promise<void> {
 
     const gameplayBQuickTestConsoleEnabled = import.meta.env.DEV
       && new URLSearchParams(window.location.search).get('devConsole') === 'gameplay-b';
-    if (gameplayBQuickTestConsoleEnabled) {
-      const { mountGameplayBQuickTestConsole } = await import('./development/gameplay-b-quick-test-console');
-      mountGameplayBQuickTestConsole(game);
-      document.body.dataset.gameplayBQuickTest = 'carousel-safety';
-      document.title = `${document.title} · Gameplay B quick test`;
-    }
 
     const root = document.querySelector<HTMLDivElement>('#app');
     if (!root) throw new Error('UI root is missing');
@@ -74,6 +68,13 @@ async function boot(): Promise<void> {
     const controller = new UIController(game, root);
     controller.mount();
     document.querySelector('#startup-shell')?.remove();
+
+    if (gameplayBQuickTestConsoleEnabled) {
+      const { mountGameplayBQuickTestConsole } = await import('./development/gameplay-b-quick-test-console');
+      mountGameplayBQuickTestConsole(game, () => controller.render());
+      document.body.dataset.gameplayBQuickTest = 'carousel-safety';
+      document.title = `${document.title} · Gameplay B quick test`;
+    }
 
     if (typeof window !== 'undefined') {
       (window as Window & { __game?: AronaClickerRuntime; __ui?: UIController }).__game = game;

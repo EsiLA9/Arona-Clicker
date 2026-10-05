@@ -2,10 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
+import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
+import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { UIController } from '../../src/ui/controller';
-import { baseDatapack } from '../../src/data/test-datapack';
+import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 
 const OFFICE = 'base:init:schale_office';
 const MILLENNIUM = 'base:init:millennium';
@@ -21,7 +23,7 @@ describe('Gameplay B Operation Controller', () => {
     document.body.innerHTML = '<div id="app"></div>';
     root = document.querySelector('#app')!;
     game = createAppRuntime();
-    game.init([baseDatapack], { enterDefaultInit: true });
+    game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
     controller = new UIController(game, root);
     controller.started = true;
     controller.render();
@@ -35,6 +37,7 @@ describe('Gameplay B Operation Controller', () => {
 
   function acquireStudents(): void {
     for (const variantId of VARIANTS) game.mutations.acquireCharacter(variantId, 'story');
+    controller.render();
   }
 
   function startFromFeed(): void {
@@ -42,7 +45,7 @@ describe('Gameplay B Operation Controller', () => {
     expect(controller.panelState.workspace?.type).toBe('operation');
   }
 
-  it('入口只在夏莱办公室出现；准入失败明确提示且不补发角色', () => {
+  it('入口只在夏莱办公室出现；准入状态说明缺失角色且不补发角色', () => {
     expect(root.querySelector('[data-operation-start]')).not.toBeNull();
     game.inits.enterInit(MILLENNIUM);
     controller.render();
@@ -50,15 +53,15 @@ describe('Gameplay B Operation Controller', () => {
 
     game.inits.enterInit(OFFICE);
     controller.render();
-    expect(root.querySelector('[data-operation-start]')).not.toBeNull();
+    const start = root.querySelector<HTMLButtonElement>('[data-operation-start]')!;
+    expect(start).not.toBeNull();
+    expect(start.disabled).toBe(true);
+    expect(root.querySelector('.operation-admission-reason')?.textContent).toContain('缺少持有且已解锁的固定队员');
     const before = controller.getRefreshStats();
-    root.querySelector<HTMLButtonElement>('[data-operation-start]')!.click();
 
     expect(controller.panelState.workspace).toBeUndefined();
     expect(game.operationEntry.getView()).toBeNull();
-    expect(controller.panelState.chatEntries.some(entry => entry.text.includes('还需要持有并解锁星野、芹香、白子'))).toBe(true);
     expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
-    expect(controller.getRefreshObservations().at(-1)).toMatchObject({ scope: 'region', reason: 'operation-admission-failed', outcome: 'applied' });
   });
 
   it('创建与恢复 Run 使用 Operation Surface；返回后恢复聊天位置、焦点和面板状态', () => {
@@ -109,7 +112,7 @@ describe('Gameplay B Operation Controller', () => {
     }
   });
 
-  it('修订、改目标、取消与 Beat Commit 各自只替换一个 Operation region', () => {
+  it('沿正式事件流完成干预、两类场景行动、路线、玩家卡与奖励，始终只刷新 Operation region', () => {
     acquireStudents();
     startFromFeed();
     const workspace = controller.panelState.workspace;
@@ -119,11 +122,11 @@ describe('Gameplay B Operation Controller', () => {
     let regionBefore = controller.getRefreshStats().regionRefreshes;
     const stableFrame = root.querySelector('[data-workspace-frame="operation"]');
     const stableStream = root.querySelector('[data-operation-log]');
-    const stableStudent = root.querySelector(`[data-operation-student="${CAROUSEL_SAFETY_IDS.actors.hoshino}"]`);
-    const emergencyStopButton = root.querySelector<HTMLButtonElement>(`[data-operation-action][data-actor-id="${CAROUSEL_SAFETY_IDS.actors.hoshino}"][data-action-id="${CAROUSEL_SAFETY_IDS.actions.emergencyStop}"]`)!;
+    const stableStudent = root.querySelector('[data-operation-student="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"]');
+    const emergencyStopButton = root.querySelector<HTMLButtonElement>('[data-operation-action][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.emergencyStop + '"]')!;
 
     const alternateTarget = root.querySelector<HTMLButtonElement>(
-      `[data-operation-target][data-actor-id="${CAROUSEL_SAFETY_IDS.actors.hoshino}"][data-action-id="${CAROUSEL_SAFETY_IDS.actions.brace}"]:not([aria-pressed="true"])`,
+      '[data-operation-target][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.brace + '"]:not([aria-pressed="true"])',
     );
     expect(alternateTarget).not.toBeNull();
     alternateTarget!.click();
@@ -144,27 +147,48 @@ describe('Gameplay B Operation Controller', () => {
     expect((document.activeElement as HTMLElement).dataset.actionId).toBe(CAROUSEL_SAFETY_IDS.actions.emergencyStop);
     expect(root.querySelector('[data-workspace-frame="operation"]')).toBe(stableFrame);
     expect(root.querySelector('[data-operation-log]')).toBe(stableStream);
-    expect(root.querySelector(`[data-operation-student="${CAROUSEL_SAFETY_IDS.actors.hoshino}"]`)).toBe(stableStudent);
-    expect(root.querySelector(`[data-operation-action][data-action-id="${CAROUSEL_SAFETY_IDS.actions.emergencyStop}"]`)).toBe(emergencyStopButton);
-    root.querySelector<HTMLButtonElement>('[data-operation-clear]')!.click();
-    expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+    expect(root.querySelector('[data-operation-student="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"]')).toBe(stableStudent);
+    expect(root.querySelector('[data-operation-action][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.emergencyStop + '"]')).toBe(emergencyStopButton);
+    root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.concourse);
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
 
-    root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
-    expect(game.operationEntry.getView(runId)?.resolutions).toHaveLength(1);
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
-    root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
-    const view = game.operationEntry.getView(runId);
-    expect(view?.resolutions).toHaveLength(2);
-    expect(view?.status).toBe('inProgress');
-    expect(root.querySelector<HTMLButtonElement>('[data-operation-commit]')?.disabled).toBe(true);
-    expect(root.textContent).toContain('处置失败');
-    expect(root.textContent).toContain('不会改写正式事件结局');
+    expect(game.operationEntry.getView(runId)?.pendingSceneActionBatch).not.toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-commit]')!.click();
+    expect(game.operationEntry.getView(runId)?.heldItemIds).toContain(IDS.item);
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
+
+    root.querySelector<HTMLButtonElement>('[data-operation-route][data-route-id="' + IDS.routes.staffGate + '"]')!.click();
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.exit);
+    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
+    root.querySelector<HTMLInputElement>('[data-operation-card-instance]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
+    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-commit]')!.click();
+    expect(game.operationEntry.getView(runId)?.status).toBe('success');
+    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
+    root.querySelector<HTMLButtonElement>('[data-operation-reward]')!.click();
+    expect(game.operationEntry.getView(runId)?.rewardClaimed).toBe(true);
+    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
+
     expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
-    const operationUpdates = controller.getRefreshObservations().filter(item => item.reason === 'operation-command').slice(-6);
-    expect(operationUpdates).toHaveLength(6);
+    expect(root.querySelector('[data-operation-outcome]')?.textContent).toContain('行动成功');
+    const operationUpdates = controller.getRefreshObservations().filter(item => item.reason === 'operation-command').slice(-10);
+    expect(operationUpdates).toHaveLength(10);
     for (const observation of operationUpdates) expect(observation).toMatchObject({ scope: 'region', outcome: 'applied' });
+  });
+
+  it('角色卡悬停与聊天流滚动不触发 Operation 查询或 UI 重建', () => {
+    acquireStudents();
+    startFromFeed();
+    const before = controller.getRefreshStats();
+    root.querySelector<HTMLElement>('.operation-action-choice')?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    root.querySelector<HTMLElement>('[data-operation-log]')?.dispatchEvent(new Event('scroll', { bubbles: true }));
+
+    expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
+    expect(controller.getRefreshStats().regionRefreshes).toBe(before.regionRefreshes);
   });
 
   it('拒绝过期 planVersion 时显示可读提示并刷新到当前版本', () => {

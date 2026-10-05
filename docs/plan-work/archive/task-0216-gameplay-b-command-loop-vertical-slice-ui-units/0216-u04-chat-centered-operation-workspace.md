@@ -6,7 +6,7 @@
 
 ## Must Read / Read Set
 
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
 - `docs/ai/frontend-design-project-overlay.md`
 - `docs/docs-829/06-wiki/50-ui/read-model-context.md`
 - `docs/docs-829/06-wiki/50-ui/refresh-update.md`
@@ -46,7 +46,7 @@
 - src/ui/css/operation-workspace.css (new file)
 - `src/ui/main.ts`
 - tests/ui/operation-workspace-view.test.ts (new file)
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u04-chat-centered-operation-workspace-receipt.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u04-chat-centered-operation-workspace-receipt.md`
 
 ## Constraints
 

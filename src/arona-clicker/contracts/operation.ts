@@ -5,11 +5,13 @@ import type { OperationResolution } from './operation-resolution';
 import type { OperationSceneActionBatchDraft } from './operation-scene-action';
 import type {
   OperationEventContentDef,
+  OperationEventRewardsDef,
   OperationActorKind,
   OperationLocationDef,
   OperationLocationResultKind,
   OperationPlayerRouteStateDef,
   OperationResultKind,
+  OperationRewardDef,
 } from '../../data-services/contracts/operation';
 
 export type {
@@ -17,6 +19,7 @@ export type {
   OperationActorKind,
   OperationBoundedValueDef,
   OperationEventContentDef,
+  OperationEventRewardsDef,
   OperationObjectiveDef,
   OperationOutcomeConditionDef,
   OperationPlayerRouteStateDef,
@@ -25,6 +28,7 @@ export type {
   OperationPredicateDef,
   OperationPredicateLeafDef,
   OperationPredicateOperator,
+  OperationRewardDef,
   OperationResultKind,
   OperationLocationResultKind,
   OperationTeamDef,
@@ -104,11 +108,15 @@ export type OperationActorInitialization =
       readonly actorId: string;
       readonly participantKind: 'student';
       readonly characterId: string;
+      readonly displayName?: string;
+      readonly avatarRef?: string | null;
       readonly profile: OperationStudentProfileSnapshot;
     }
   | {
       readonly actorId: string;
       readonly participantKind: 'opponent' | 'environment';
+      readonly displayName?: string;
+      readonly avatarRef?: string | null;
       readonly factionId?: string;
       /** Detached, ordered candidate source for later pure Intent preparation. */
       readonly candidateActionIds: readonly string[];
@@ -173,7 +181,10 @@ export interface OperationEventState {
 export interface OperationActorState {
   readonly id: string;
   readonly type: string;
+  readonly displayName?: string;
+  readonly avatarRef?: string | null;
   readonly hp: number;
+  readonly maxHp?: number;
   readonly resources: Readonly<Record<string, number>>;
   /** Present for GameInstance runs; omitted only by low-level structural Runtime fixtures. */
   readonly participantKind?: OperationActorKind;
@@ -220,6 +231,8 @@ export interface EventRun {
   readonly runId: string;
   readonly eventId: string;
   readonly status: OperationRunStatus;
+  /** True once the terminal AC reward has been committed through StateMutationService. */
+  readonly rewardClaimed: boolean;
   readonly currentLocationId: string;
   readonly eventState: OperationEventState;
   readonly actorStates: readonly OperationActorState[];
@@ -245,6 +258,11 @@ export interface EventResult {
   readonly runId: string;
   readonly kind: OperationResultKind;
   readonly finalRun: EventRun;
+}
+
+export interface OperationRewardClaimResult {
+  readonly status: 'claimed' | 'alreadyClaimed' | 'notTerminal';
+  readonly reward: OperationRewardDef | null;
 }
 
 export type OperationLifecycleEvent =

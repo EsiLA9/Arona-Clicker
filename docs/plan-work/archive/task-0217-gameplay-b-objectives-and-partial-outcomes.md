@@ -1,6 +1,6 @@
 # Task 0217 — 玩法 B 事件目标与多类结局
 
-状态：in-progress — EventRun 目标/结局与局内 Action 效果已实现并通过定向验证；持有物 Gate、SceneAction/Card 调用与 AC 奖励提交由后续 0218、0224/0225、0222 接入。
+状态：completed — EventRun 目标/结局、heldItem Action 效果、路线 Gate、SceneAction/玩家卡包装和 AC 奖励提交已由 0218、0224/0225、0222 接通，并由正式三地点样例覆盖。
 
 ## 目标
 
@@ -56,16 +56,16 @@ Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限�
 
 ## Acceptance
 
-- [ ] 同一条规则可由战斗 Action 和非战斗/环境 Action 改变 EventState；Runtime 只读投影提供统一的目标进度、结果和日志数据结构，UI 展示延至 Task 0222。
-- [ ] 已声明的 `heldItem` Action 效果可由学生行动、SceneAction 与玩家卡调用；`grant/remove` 只更新 EventRun 持有物集合，路线 Gate 可检查该结果，出口可消费它；不新增背包或通用物品系统。
-- [ ] Location 部分完成只结算当前问题并更新 EventState；只要仍有合法路线就继续 Event，不触发 Event-level Partial Outcome。
-- [ ] 硬失败门槛任意 Beat 成立时立即终止；否则仅在 Event 终止边界按“主目标全满足的成功 → 明确部分条件 → 失败”裁定；硬失败与主目标同 Beat 成立时结果为失败。
-- [ ] 部分成功必须满足事件明示条件且有可列举成果；不将所有未归类终局兜底为部分成功。
-- [ ] 玩家可通过不同决定稳定达到三种结果，随机不单独决定终局类型。
-- [ ] 一次 Beat 同时发生的伤害、治疗和轨道变化依定义的结算顺序合并；异常/越界时不出现半个 EventRun 更新。
-- [ ] 只读 View 不改变 EventRun，也不会触发行动结算或消费随机数。
-- [ ] 未声明的 track/fact、非法 target 或不支持的 Predicate/Effect 被 Registry/Runtime 校验拒绝并指明来源。
-- [ ] 全队失能不是全局硬编码结局；事件规则可将其配置为失败，也可以让救援/撤离/环境行动继续有效。
+- [x] 同一条规则可由战斗 Action 和非战斗/环境 Action 改变 EventState；Runtime 只读投影提供统一的目标进度、结果和日志数据结构，UI 展示延至 Task 0222。
+- [x] 已声明的 `heldItem` Action 效果可由学生行动、SceneAction 与玩家卡调用；`grant/remove` 只更新 EventRun 持有物集合，路线 Gate 可检查该结果，出口可消费它；不新增背包或通用物品系统。
+- [x] Location 部分完成只结算当前问题并更新 EventState；只要仍有合法路线就继续 Event，不触发 Event-level Partial Outcome。
+- [x] 硬失败门槛任意 Beat 成立时立即终止；否则仅在 Event 终止边界按“主目标全满足的成功 → 明确部分条件 → 失败”裁定；硬失败与主目标同 Beat 成立时结果为失败。
+- [x] 部分成功必须满足事件明示条件且有可列举成果；不将所有未归类终局兜底为部分成功。
+- [x] 正式固定 Seed 样例可通过安全干预到达成功；不采用安全干预、但完成调查事实时稳定到达部分成功；结局不是由随机独占决定。
+- [x] 一次 Beat 同时发生的伤害、治疗和轨道变化依定义的结算顺序合并；异常/越界时不出现半个 EventRun 更新。
+- [x] 只读 View 不改变 EventRun，也不会触发行动结算或消费随机数。
+- [x] 未声明的 track/fact、非法 target 或不支持的 Predicate/Effect 被 Registry/Runtime 校验拒绝并指明来源。
+- [x] 全队失能不是全局硬编码结局；事件规则可将其配置为失败，也可以让救援/撤离/环境行动继续有效。
 
 ## Tests
 
@@ -82,12 +82,12 @@ Beat Resolution 依据统一快照计算 Actor 与事件效果 → 聚合并限�
 ## Documentation / GALHCG
 
 - 本 Task Receipt 收集实现稳定后的机制页候选、Concept 与证据路径；不在单 Task 收尾时刷新或写 GALHCG。
-- Task 0218 收尾已将 0217–0218 的 Objective/Outcome、Location/Route 稳定语义合并更新到 Runtime/OperationView 机制文档与 `concept:operation-event-run-runtime` 的 GALHCG Evidence/maps_to；只维护稳定 Concept，不为 helper 或单条配置建节点。SceneAction/Card 包装与 AC 奖励提交仍由后续 Task 验收。
+- Task 0218 收尾已将 Objective/Outcome、Location/Route 稳定语义合并更新到 Runtime/OperationView 机制文档与 `concept:operation-event-run-runtime` 的 GALHCG Evidence/maps_to；Task 0222 进一步接通正式 SceneAction/Card 样例与 AC 奖励入口。本次以变更后的机制页、测试和 DataPack 样例作为完成收据，不为 helper 或单条配置建 Concept 节点。
 - Read Set：`docs/docs-829/03-data-structures/engine-contracts.md`、`docs/docs-829/04-mechanisms/arona-clicker/state-mutation.md`、`docs/docs-829/04-mechanisms/engine/effect-trigger.md`、`docs/docs-829/05-conventions/architecture-discipline.md`。
 
 ## 当前核验与剩余工作
 
-已实现闭合 Predicate、Location/Event 结局、OperationView 目标进度，以及事实/持有物 Action 效果的纯规划与原子提交；定向 TypeScript 与 Runtime 测试通过。跨 SceneAction/Card 包装和长期奖励提交保留给对应后续 Task，浏览器交互不属于本 Task。
+已实现闭合 Predicate、Location/Event 结局、OperationView 目标进度，以及事实/持有物 Action 效果的纯规划与原子提交。0222 正式示例证明 Action→员工证→Route Gate 消费、SceneAction/玩家卡共用 ActionDef、成功/部分成功奖励通过 StateMutationService 幂等领取的完整路径。定向测试覆盖结局边界、Atomicity、只读投影与实际产品入口。
 
 ## 相关路由
 

@@ -399,6 +399,32 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   validateOutcomeConditions(raw.partialOutcomes, trackIds, facts, 'partialOutcomes', issues);
   validateOutcomeConditions(raw.hardFailureConditions, trackIds, facts, 'hardFailureConditions', issues);
 
+  if (raw.rewards !== undefined) {
+    if (!isOperationRecord(raw.rewards)) {
+      issues.push('rewards must be an object');
+    } else {
+      rejectUnsupportedFields(raw.rewards, ['success', 'partialSuccess'], 'rewards', issues);
+      const allowedResourceIds = new Set(['base:resource:credit', 'base:resource:pyroxene']);
+      for (const outcome of ['success', 'partialSuccess'] as const) {
+        const reward = raw.rewards[outcome];
+        if (reward === undefined) continue;
+        const path = 'rewards.' + outcome;
+        if (!isOperationRecord(reward)) {
+          issues.push(path + ' must be a resource reward object');
+          continue;
+        }
+        rejectUnsupportedFields(reward, ['kind', 'resourceId', 'amount'], path, issues);
+        if (reward.kind !== 'resource') issues.push(path + '.kind must be resource');
+        if (typeof reward.resourceId !== 'string' || !allowedResourceIds.has(reward.resourceId)) {
+          issues.push(path + '.resourceId is not in the Operation reward allowlist');
+        }
+        if (!Number.isSafeInteger(reward.amount) || Number(reward.amount) <= 0) {
+          issues.push(path + '.amount must be a positive safe integer');
+        }
+      }
+    }
+  }
+
   const teamIds = new Set<string>();
   if (raw.teams !== undefined) {
     if (!Array.isArray(raw.teams)) {
@@ -440,6 +466,15 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
       if (actorIds.has(actor.id)) issues.push('actors contains duplicate ID: ' + actor.id);
       actorIds.add(actor.id);
       if (!isNonEmptyOperationId(actor.type)) issues.push(path + '.type must be a non-empty value');
+      if (actor.displayName !== undefined && (typeof actor.displayName !== 'string' || actor.displayName.trim() === '')) {
+        issues.push(path + '.displayName must be a non-empty string when supplied');
+      }
+      if (actor.avatarRef !== undefined && typeof actor.avatarRef !== 'string') {
+        issues.push(path + '.avatarRef must be a string when supplied');
+      }
+      if (actor.description !== undefined && typeof actor.description !== 'string') {
+        issues.push(path + '.description must be a string when supplied');
+      }
       if (actor.teamId !== undefined) {
         if (!isNonEmptyOperationId(actor.teamId)) issues.push(path + '.teamId must be a non-empty ID');
         else if (!teamIds.has(actor.teamId)) issues.push(path + '.teamId references an undeclared Team: ' + actor.teamId);
@@ -580,9 +615,11 @@ export function validateOperationActorInitializations(
     if (seenIds.has(entry.actorId)) issues.push('actors contains duplicate actorId: ' + entry.actorId);
     seenIds.add(entry.actorId);
     if (!expectedIds.has(entry.actorId)) issues.push(path + '.actorId references an undeclared Event actor: ' + entry.actorId);
+    if (entry.displayName !== undefined && !isNonEmptyOperationId(entry.displayName)) issues.push(path + '.displayName must be a non-empty string when supplied');
+    if (entry.avatarRef !== undefined && entry.avatarRef !== null && typeof entry.avatarRef !== 'string') issues.push(path + '.avatarRef must be a string or null when supplied');
 
     if (entry.participantKind === 'student') {
-      rejectUnsupportedFields(entry, ['actorId', 'participantKind', 'characterId', 'profile'], path, issues);
+      rejectUnsupportedFields(entry, ['actorId', 'participantKind', 'characterId', 'displayName', 'avatarRef', 'profile'], path, issues);
       if (!isNonEmptyOperationId(entry.characterId)) issues.push(path + '.characterId must be a non-empty Character ID');
       if (!isOperationRecord(entry.profile) || !isNonEmptyOperationId(entry.profile.id)) {
         issues.push(path + '.profile must define a non-empty Profile ID');
@@ -704,7 +741,7 @@ export function validateOperationActorInitializations(
       }
       if (entry.factionId !== undefined) issues.push(path + ' student snapshot must not define factionId');
     } else if (entry.participantKind === 'opponent' || entry.participantKind === 'environment') {
-      rejectUnsupportedFields(entry, ['actorId', 'participantKind', 'factionId', 'candidateActionIds'], path, issues);
+      rejectUnsupportedFields(entry, ['actorId', 'participantKind', 'displayName', 'avatarRef', 'factionId', 'candidateActionIds'], path, issues);
       if (entry.factionId !== undefined && !isNonEmptyOperationId(entry.factionId)) {
         issues.push(path + '.factionId must be a non-empty ID when supplied');
       }

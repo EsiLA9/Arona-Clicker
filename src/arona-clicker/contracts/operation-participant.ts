@@ -13,6 +13,8 @@ export interface OperationStudentParticipant {
   readonly characterId: Character;
   /** Actual held roster Variant used to establish the Character admission. */
   readonly variantId: string;
+  readonly displayName?: string;
+  readonly avatarRef?: string | null;
   readonly profileId: string;
 }
 

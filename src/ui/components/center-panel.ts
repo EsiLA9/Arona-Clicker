@@ -7,8 +7,9 @@ import type { SendState } from '../../arona-clicker/contracts/results';
 import type { ActiveBanner, SendGatePhase, StoryGateState } from './app-shell';
 import { renderBackground } from '../background-service';
 import { renderPresentationRegion } from '../presentation-service';
-import { CAROUSEL_SAFETY_IDS } from '../../arona-clicker/content/operation-samples/carousel-safety-ids';
-import { CAROUSEL_SAFETY_PRESENTATION } from '../../arona-clicker/content/operation-samples/carousel-safety-copy';
+import { CAROUSEL_SCENE_ACTION_IDS } from '../../arona-clicker/content/operation-samples/carousel-scene-action-slice';
+import { GAMEPLAY_B_PRESENTATION } from '../../arona-clicker/content/operation-samples/gameplay-b-presentation';
+import { Character } from '../../arona-clicker/types/ids';
 
 const CENTER_TABS: TabDef[] = [
   { id: 'chat', label: '聊天' },
@@ -98,18 +99,22 @@ export function renderChatTab(
 function renderOperationEntry(ctx: UIContext): string {
   if (ctx.view.activeInit !== 'base:init:schale_office') return '';
   const current = ctx.game.operationEntry.getView();
-  const resumable = current?.status === 'inProgress' ? current : null;
-  const localResultReady = resumable !== null
-    && resumable.resolutions.length >= CAROUSEL_SAFETY_PRESENTATION.event.maximumBeats;
-  const action = resumable
-    ? `<button type="button" class="primary-button" data-operation-resume-run="${ctx.escapeHtml(resumable.runId)}"><span>${localResultReady ? '查看试玩结论' : '继续安全试玩'}</span><span>↗</span></button>`
-    : '<button type="button" class="primary-button" data-operation-start><span>查看游乐园警报</span><span>↗</span></button>';
+  const sameEvent = current?.eventId === CAROUSEL_SCENE_ACTION_IDS.event ? current : null;
+  const fixedRoster = [Character.Hoshino, Character.Serika, Character.Shiroko];
+  const admission = ctx.game.operationEntry.getAdmissionSummary(CAROUSEL_SCENE_ACTION_IDS.event, fixedRoster);
+  const label = GAMEPLAY_B_PRESENTATION.event.title;
+  const action = sameEvent
+    ? `<button type="button" class="primary-button" data-operation-resume-run="${ctx.escapeHtml(sameEvent.runId)}"><span>${sameEvent.status === 'inProgress' ? '继续游乐园行动' : '查看行动结论'}</span><span>↗</span></button>`
+    : `<button type="button" class="primary-button" data-operation-start${admission.available ? '' : ' disabled'}><span>${admission.available ? '查看游乐园警报' : '暂不可出动'}</span><span>↗</span></button>`;
+  const roster = admission.participants.map(actor => ctx.escapeHtml(actor.displayName)).join('、');
+  const unavailable = admission.unavailableReason ? `<p class="operation-admission-reason" role="status">${ctx.escapeHtml(admission.unavailableReason)}</p>` : '';
   return `
     <section class="chat-launcher operation-entry-card" data-operation-entry>
       <span class="operation-eyebrow">游乐园 · 设施安全事件</span>
-      <strong>${ctx.escapeHtml(CAROUSEL_SAFETY_PRESENTATION.event.title)}</strong>
-      <p>${ctx.escapeHtml(CAROUSEL_SAFETY_PRESENTATION.event.introduction)}</p>
-      <p>需要先持有并解锁星野、芹香与白子；试玩不会自动补发角色。</p>
+      <strong>${ctx.escapeHtml(label)}</strong>
+      <p>${ctx.escapeHtml(GAMEPLAY_B_PRESENTATION.event.introduction)}</p>
+      <p>固定出动：${roster}。试玩不会自动补发角色。</p>
+      ${unavailable}
       <div class="story-actions">${action}</div>
     </section>`;
 }

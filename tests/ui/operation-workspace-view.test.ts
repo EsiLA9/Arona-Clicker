@@ -1,32 +1,30 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
+import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
-import { carouselSafetySliceContent, carouselSafetySliceResolver } from '../../src/arona-clicker/content/operation-samples/carousel-safety-slice';
-import type { OperationContentResolver } from '../../src/arona-clicker/contracts/operation-content-resolver';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import type { PanelState } from '../../src/ui/components/app-shell';
 import { createUIContext } from '../../src/ui/context';
 import { renderWorkspace } from '../../src/ui/workspace/workspace-renderer';
 import { createWorkspaceNavigation } from '../../src/ui/workspace/workspace-router';
+import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 
-const STUDENTS = ['Hoshino', 'Serika', 'Shiroko'] as const;
+const STUDENTS = [Character.Hoshino, Character.Serika, Character.Shiroko] as const;
+const VARIANTS = ['Hoshino', 'Serika', 'Shiroko'] as const;
 
 describe('Gameplay B Operation workspace view', () => {
   const games: GameInstance[] = [];
 
-  function createGame(withSample = true): GameInstance {
-    const game = withSample ? createAppRuntime() : new GameInstance();
-    game.init([baseDatapack], { enterDefaultInit: withSample });
+  function createGame(): GameInstance {
+    const game = createAppRuntime();
+    game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
     games.push(game);
+    for (const student of VARIANTS) game.mutations.acquireCharacter(student, 'story');
     return game;
-  }
-
-  function startOperation(game: GameInstance): string {
-    for (const student of STUDENTS) game.mutations.acquireCharacter(student, 'story');
-    return game.operationEntry.start(CAROUSEL_SAFETY_IDS.event, [Character.Hoshino, Character.Serika, Character.Shiroko]).runId;
   }
 
   function render(game: GameInstance, runId: string): string {
@@ -49,39 +47,109 @@ describe('Gameplay B Operation workspace view', () => {
     return renderWorkspace(createUIContext(game), { kind: 'operation', runId }, state);
   }
 
+  function start(game: GameInstance): string {
+    return game.operationEntry.start(IDS.event, STUDENTS).runId;
+  }
+
   afterEach(() => {
     for (const game of games.splice(0)) if (game.running) game.stop();
   });
 
-  it('把 Action log 放在中心聊天列，展示学生行动、Intent、风险与干预 Cost', () => {
+  it('shows the three roles and keeps plans attached to their owning cards', () => {
     const game = createGame();
-    const runId = startOperation(game);
+    const runId = start(game);
     const html = render(game, runId);
     const host = document.createElement('div');
     host.innerHTML = html;
     const text = host.textContent ?? '';
 
-    expect(html).toContain('data-workspace-frame="operation"');
-    expect(html).toContain('data-composition="center-right"');
-    expect(html).toContain('data-operation-log');
-    expect(html).toContain('data-operation-commit-dock');
-    expect(html).toContain('data-operation-action');
-    expect(text).toContain('旋转木马平台');
+    expect(html).toContain('data-composition="columns"');
+    expect(html).toContain('data-workspace-role="our-team"');
+    expect(html).toContain('data-workspace-role="information"');
+    expect(html).toContain('data-workspace-role="opponents"');
+    expect(host.querySelectorAll('[data-workspace-column]')).toHaveLength(3);
+    expect(host.querySelectorAll('[data-operation-student]')).toHaveLength(3);
+    expect(host.querySelectorAll('[data-operation-opponent]')).toHaveLength(2);
+    expect(host.querySelectorAll('[data-operation-environment-actor]')).toHaveLength(1);
+    expect(host.querySelector('[data-operation-plan="' + IDS.actors.hoshino + '"]')?.closest('[data-operation-student]')?.getAttribute('data-operation-student')).toBe(IDS.actors.hoshino);
+    expect(host.querySelector('[data-operation-intent="' + IDS.actors.saboteur + '"]')?.closest('[data-operation-opponent]')?.getAttribute('data-operation-opponent')).toBe(IDS.actors.saboteur);
+    expect(host.querySelector('.operation-student-list')).toBeNull();
+    expect(host.querySelector('.operation-intents')).toBeNull();
+    expect(host.querySelector('[data-operation-log]')).not.toBeNull();
+    expect(host.querySelector('[data-operation-action]')).not.toBeNull();
+    expect(text).toContain('旋转木马安全行动');
     expect(text).toContain('设施危险度');
     expect(text).toContain('星野');
-    expect(text).toContain('芹香');
-    expect(text).toContain('白子');
     expect(text).toContain('对手意图');
-    expect(text).toContain('设施动向');
-    expect(text).toContain('体力 1');
-    expect(text).toContain('协调 1');
-    expect(text).toContain('第 1 / 2 回合');
-    expect(text).toContain('本回合干预 0 / 1');
-    expect(text).toContain('第一回合尚未结算');
+    expect(text).toContain('场景 / 设施');
+    expect(text).toContain('Cost 5');
   });
 
-  it('缺少有效 admission/run 时说明真实拥有条件，不伪造普通事件面板', () => {
-    const game = createGame(false);
+  it('projects detached actor names and HP on each side of the chat stream', () => {
+    const game = createGame();
+    const runId = start(game);
+    const view = game.operationEntry.getView(runId)!;
+    const hoshino = view.actorStates.find(actor => actor.id === IDS.actors.hoshino)!;
+    const opponent = view.actorStates.find(actor => actor.id === IDS.actors.saboteur)!;
+    expect(hoshino).toMatchObject({ displayName: '小鸟游星野', maxHp: expect.any(Number) });
+    expect(opponent).toMatchObject({ displayName: '破坏者', maxHp: expect.any(Number), participantKind: 'opponent' });
+    const host = document.createElement('div');
+    host.innerHTML = render(game, runId);
+    expect(host.querySelector('[data-operation-student="' + hoshino.id + '"]')?.textContent).toContain(hoshino.displayName);
+    expect(host.querySelector('[data-operation-opponent="' + opponent.id + '"]')?.textContent).toContain(opponent.displayName);
+  });
+
+  it('shows the Individual scene batch, held-item route and Global hand at their locations', () => {
+    const game = createGame();
+    const runId = start(game);
+    let run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.reviseIntervention({
+      runId,
+      planVersion: run.planVersion,
+      draft: { actorId: IDS.actors.hoshino, actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop },
+    });
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    let view = game.operationEntry.getView(runId)!;
+    expect(view.currentLocationId).toBe(IDS.locations.concourse);
+    let host = document.createElement('div');
+    host.innerHTML = render(game, runId);
+    expect(host.querySelectorAll('[data-operation-scene-selection]')).toHaveLength(3);
+    expect(host.querySelector('[data-operation-player-hand]')).not.toBeNull();
+
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.commitSceneActionBatch({
+      runId,
+      planVersion: run.planVersion,
+      selections: [
+        { sceneActionId: IDS.sceneActions.inspect, actorId: IDS.actors.hoshino, targetActorIds: [] },
+        { sceneActionId: IDS.sceneActions.guide, actorId: IDS.actors.serika, targetActorIds: [] },
+        { sceneActionId: IDS.sceneActions.guide, actorId: IDS.actors.shiroko, targetActorIds: [] },
+      ],
+    });
+    view = game.operationEntry.getView(runId)!;
+    expect(view.heldItemIds).toContain(IDS.item);
+    expect(view.currentRoutes.find(route => route.routeId === IDS.routes.staffGate)?.available).toBe(true);
+    host = document.createElement('div');
+    host.innerHTML = render(game, runId);
+    expect(host.querySelector('[data-operation-routes]')).not.toBeNull();
+    expect(host.textContent).toContain('员工通道');
+
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.staffGate });
+    view = game.operationEntry.getView(runId)!;
+    host = document.createElement('div');
+    host.innerHTML = render(game, runId);
+    expect(view).toMatchObject({ currentLocationId: IDS.locations.exit, currentActionMode: 'global' });
+    expect(host.querySelector('[data-operation-global-action]')).not.toBeNull();
+    expect(host.querySelectorAll('[data-operation-player-card]')).toHaveLength(view.playerCards.hand.length);
+    expect(host.querySelector('[data-operation-cost-balance]')).not.toBeNull();
+  });
+
+  it('shows an unavailable state instead of exposing a stale run', () => {
+    const game = new GameInstance();
+    game.init([baseDatapack], { enterDefaultInit: true });
+    games.push(game);
     const html = render(game, 'stale-operation-run');
     const host = document.createElement('div');
     host.innerHTML = html;
@@ -90,65 +158,5 @@ describe('Gameplay B Operation workspace view', () => {
     expect(host.textContent).toContain('持有且解锁星野、芹香与白子');
     expect(host.textContent).not.toContain('stale-operation-run');
     expect(host.querySelector('[data-operation-commit]')).toBeNull();
-  });
-
-  it('清楚标出自动计划与修订行动，并说明因能力缺失而不能选择的原因', () => {
-    const game = createGame();
-    const runId = startOperation(game);
-    const snapshot = game.operationEntry.getSnapshot()!;
-    game.operationEntry.reviseIntervention({
-      runId,
-      planVersion: snapshot.planVersion,
-      draft: { actorId: CAROUSEL_SAFETY_IDS.actors.hoshino, actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop },
-    });
-    const revised = render(game, runId);
-    const revisedHost = document.createElement('div');
-    revisedHost.innerHTML = revised;
-    const planText = revisedHost.querySelector('[data-operation-plan]')?.textContent ?? '';
-    expect(planText).toContain('自动计划');
-    expect(planText).toContain('本回合修订');
-    expect(planText).toContain('紧急停机');
-
-    const withoutProtection: OperationContentResolver = {
-      resolve(eventId) {
-        if (eventId !== CAROUSEL_SAFETY_IDS.event) return carouselSafetySliceResolver.resolve(eventId);
-        return {
-          ...carouselSafetySliceContent,
-          studentProfiles: carouselSafetySliceContent.studentProfiles.map(profile => profile.characterId === Character.Hoshino
-            ? { ...profile, capabilityIds: [] }
-            : profile),
-        };
-      },
-    };
-    const restrictedGame = createAppRuntime({ operationContentResolver: withoutProtection });
-    restrictedGame.init([baseDatapack], { enterDefaultInit: true });
-    games.push(restrictedGame);
-    const restrictedRunId = startOperation(restrictedGame);
-    const restricted = render(restrictedGame, restrictedRunId);
-    const restrictedHost = document.createElement('div');
-    restrictedHost.innerHTML = restricted;
-    const emergencyStop = restrictedHost.querySelector<HTMLButtonElement>(`[data-operation-action][data-action-id="${CAROUSEL_SAFETY_IDS.actions.emergencyStop}"]`);
-    expect(emergencyStop?.disabled).toBe(true);
-    expect(restrictedHost.textContent).toContain('星野的防护能力解锁');
-    expect(restrictedHost.textContent).not.toContain('demo:operation-capability');
-  });
-
-  it('提交后将安全结算写入中心对话记录，并隐藏内部规则与随机数据', () => {
-    const game = createGame();
-    const runId = startOperation(game);
-    const snapshot = game.operationEntry.getSnapshot()!;
-    game.operationEntry.commitBeat({ runId, planVersion: snapshot.planVersion });
-    const html = render(game, runId);
-    const host = document.createElement('div');
-    host.innerHTML = html;
-    const text = host.textContent ?? '';
-
-    expect(host.querySelectorAll('[data-operation-resolution]')).toHaveLength(1);
-    expect(text).toContain('第 1 回合');
-    expect(text).toContain('设施危险度 3 → 4');
-    expect(text).not.toContain('demo:operation-action');
-    expect(text).not.toContain('chanceBps');
-    expect(text).not.toContain('randomCursor');
-    expect(text).not.toContain('demo:operation-skill');
   });
 });

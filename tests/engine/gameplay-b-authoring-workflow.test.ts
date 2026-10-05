@@ -38,9 +38,10 @@ function configurationWithCarousel(runtime: AronaClickerRuntime) {
   const configuration = runtime.getPackConfiguration();
   return {
     ...configuration,
-    enabledIds: configuration.enabledIds.includes(PACK_RECORD_ID)
-      ? [...configuration.enabledIds]
-      : [...configuration.enabledIds, PACK_RECORD_ID],
+    enabledIds: [
+      ...configuration.enabledIds.filter(id => id !== 'gameplay-b@1.0.0' && id !== PACK_RECORD_ID),
+      PACK_RECORD_ID,
+    ],
   };
 }
 

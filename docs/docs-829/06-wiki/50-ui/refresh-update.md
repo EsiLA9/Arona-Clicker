@@ -14,7 +14,7 @@
 
 `controller-events.ts` 将游戏事件映射到适合的更新范围；`controller-core.ts` 处理揭示变化和轻量刷新。定时轻量刷新用于持续变化的读数，聊天打字状态变化只刷新聊天面板。结构或工作区身份改变时需要重新渲染；普通值变化优先使用已存在的局部更新入口。
 
-Gameplay B Operation route 进入/退出时更新 Workspace structure。已挂载 Surface 的行动、目标、取消与 Commit 命令经 Controller 获取一次新的 `OperationView`，并提交单一 `workspace.operation` region 请求；region morph 按稳定身份同步内容，保留 Workspace frame、学生计划区域、主日志流、提交区、滚动锚点与可恢复焦点。普通滚动、焦点和选择不触发全 Workspace render。该投影由 `GameReadModel.operationEntry.getView(expectedRunId?)` 窄查询提供，不扩展全局 GameView。
+Gameplay B Operation route 进入/退出时更新 Workspace structure。已挂载 Surface 的战斗行动/目标/取消、SceneAction/玩家卡批次暂存与 Commit、路线转场及奖励领取命令经 Controller 获取一次新的 `OperationView`，并提交单一 `workspace.operation` region 请求；region morph 按稳定学生 / opponent / environment / card / route 身份同步内容，保留 Workspace frame、角色卡、主日志流、Action Dock、滚动锚点与可恢复焦点。普通悬停、滚动、焦点和选择不触发 Resolver 或全 Workspace render。该投影由 `GameReadModel.operationEntry.getView(expectedRunId?)` 窄查询提供，不扩展全局 GameView。
 
 ## 代码与测试
 

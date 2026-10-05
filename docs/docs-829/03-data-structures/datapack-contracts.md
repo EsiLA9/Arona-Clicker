@@ -24,7 +24,7 @@ Registry 为各契约表建立查询集合；内容作者策略则限定哪些�
 
 Datapack 可选声明 `operationEvents`、`operationLocations`、`operationActions` 和 `studentOperationProfiles`。四类顶层定义分别使用 `operation-event`、`operation-location`、`operation-action`、`student-operation-profile` 三段式 ID；跨表引用写完整 ID。SceneAction、RouteEdge、Objective、Outcome、CombinationRule、SceneCard、Actor 等仍嵌入 Event 或 Location，并在所属内容范围内使用局部 ID。
 
-Operation Event 用 `locationIds` 关联 Location、用 `initId` 归属 AC 世界线，并声明正整数 `resumeVersion`。它是作者显式维护的恢复兼容号，不由 Registry 计算内容 Hash。RouteEdge 只能检查 Event 声明的单个局内持有物；谓词只检查 Event 的 track/fact。Registry 在 `validateDatapack` 阶段对同包与已加载 Registry 的引用进行检查，随后通过统一表步骤合并、覆盖及清空。
+Operation Event 用 `locationIds` 关联 Location、用 `initId` 归属 AC 世界线，并声明正整数 `resumeVersion`。它是作者显式维护的恢复兼容号，不由 Registry 计算内容 Hash。Event 可声明成功/部分成功的白名单资源奖励；Operation Actor 可提供可选展示名与头像引用，运行时会把它们冻结到 Run。RouteEdge 只能检查 Event 声明的单个局内持有物；谓词只检查 Event 的 track/fact。Registry 在 `validateDatapack` 阶段对同包与已加载 Registry 的引用进行检查，随后通过统一表步骤合并、覆盖及清空。
 
 这些字段会进入生成的 `engine-defs.gen.json`，但本阶段不添加 Operation 专属编辑器表配置；独立作者工作流分别由任务 [[task-0221-gameplay-b-authoring-and-content-validation-workflow]] 接续。
 

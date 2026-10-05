@@ -5,30 +5,30 @@ import { Character } from '../../types/ids';
 import { carouselSafetySliceContent } from './carousel-safety-slice';
 
 export const CAROUSEL_ROUTE_IDS = Object.freeze({
-  event: 'demo:operation-event:carousel-route-slice',
+  event: 'gameplay-b:operation-event:carousel-route-slice',
   locations: Object.freeze({
-    platform: 'demo:operation-location:carousel-route-platform',
-    concourse: 'demo:operation-location:carousel-concourse',
-    maintenance: 'demo:operation-location:carousel-maintenance-tunnel',
-    ending: 'demo:operation-location:carousel-operator-exit',
+    platform: 'gameplay-b:operation-location:carousel-route-platform',
+    concourse: 'gameplay-b:operation-location:carousel-concourse',
+    maintenance: 'gameplay-b:operation-location:carousel-maintenance-tunnel',
+    ending: 'gameplay-b:operation-location:carousel-operator-exit',
   }),
-  item: 'demo:operation-item:carousel-staff-pass',
-  fact: 'demo:operation-fact:carousel-secured',
-  action: 'demo:operation-action:carousel-secure-and-collect-pass',
+  item: 'gameplay-b:operation-item:carousel-staff-pass',
+  fact: 'gameplay-b:operation-fact:carousel-secured',
+  action: 'gameplay-b:operation-action:carousel-secure-and-collect-pass',
   routes: Object.freeze({
-    staffGate: 'demo:operation-route:carousel-staff-gate',
-    concourse: 'demo:operation-route:carousel-concourse',
-    emergencyExit: 'demo:operation-route:carousel-emergency-exit',
-    platformLoop: 'demo:operation-route:carousel-platform-loop',
-    maintenanceLoop: 'demo:operation-route:carousel-maintenance-loop',
-    endFromConcourse: 'demo:operation-route:carousel-concourse-exit',
-    endFromMaintenance: 'demo:operation-route:carousel-maintenance-exit',
+    staffGate: 'gameplay-b:operation-route:carousel-staff-gate',
+    concourse: 'gameplay-b:operation-route:carousel-concourse',
+    emergencyExit: 'gameplay-b:operation-route:carousel-emergency-exit',
+    platformLoop: 'gameplay-b:operation-route:carousel-platform-loop',
+    maintenanceLoop: 'gameplay-b:operation-route:carousel-maintenance-loop',
+    endFromConcourse: 'gameplay-b:operation-route:carousel-concourse-exit',
+    endFromMaintenance: 'gameplay-b:operation-route:carousel-maintenance-exit',
   }),
 });
 
 const IDS = CAROUSEL_ROUTE_IDS;
 const objective = {
-  id: 'demo:operation-objective:carousel-secured',
+  id: 'gameplay-b:operation-objective:carousel-secured',
   description: 'The carousel has been secured.',
   kind: 'primary' as const,
   predicate: { kind: 'knownFact' as const, factId: IDS.fact, present: true },
@@ -120,7 +120,7 @@ const collectPassAction: OperationActionDef = {
   id: IDS.action,
   allowedParticipantKinds: ['student'],
   requiredCapabilityIds: [],
-  reasonIds: ['demo:operation-reason:secure-carousel-and-collect-pass'],
+  reasonIds: ['gameplay-b:operation-reason:secure-carousel-and-collect-pass'],
   tagIds: [],
   target: { kind: 'none' },
   effects: [

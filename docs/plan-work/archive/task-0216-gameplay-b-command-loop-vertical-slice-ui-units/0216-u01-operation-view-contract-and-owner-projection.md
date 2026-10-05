@@ -6,7 +6,7 @@
 
 ## Must Read / Read Set
 
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui.md`
 - `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md`
 - `src/arona-clicker/contracts/operation.ts`
 - `src/arona-clicker/contracts/operation-beat.ts`
@@ -32,7 +32,7 @@
 - `src/arona-clicker/services/operation-runtime-service.ts`
 - `src/arona-clicker/services/operation-entry-service.ts`
 - `tests/engine/gameplay-b-event-runtime-integration.test.ts`
-- `docs/plan-work/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u01-operation-view-contract-and-owner-projection-receipt.md`
+- `docs/plan-work/archive/task-0216-gameplay-b-command-loop-vertical-slice-ui-units/receipts/0216-u01-operation-view-contract-and-owner-projection-receipt.md`
 
 ## Constraints
 

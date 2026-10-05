@@ -7,6 +7,18 @@ export type OperationActorKind = 'student' | 'opponent' | 'environment';
 export type OperationResultKind = 'success' | 'partialSuccess' | 'failure';
 export type OperationLocationResultKind = OperationResultKind;
 
+/** V1 permits only a small, validated AC resource award per non-failure outcome. */
+export interface OperationRewardDef {
+  readonly kind: 'resource';
+  readonly resourceId: string;
+  readonly amount: number;
+}
+
+export interface OperationEventRewardsDef {
+  readonly success?: OperationRewardDef;
+  readonly partialSuccess?: OperationRewardDef;
+}
+
 export type OperationPredicateOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
 export type OperationPredicateLeafDef =
   | { readonly kind: 'track'; readonly trackId: string; readonly operator: OperationPredicateOperator; readonly value: number }
@@ -42,6 +54,10 @@ export interface OperationTrackDef extends OperationBoundedValueDef {
 export interface OperationActorDef {
   readonly id: string;
   readonly type: string;
+  /** Detached card copy for opponent/environment actors; student copy comes from the admitted Variant. */
+  readonly displayName?: string;
+  readonly avatarRef?: string;
+  readonly description?: string;
   readonly hp: OperationBoundedValueDef;
   readonly resources?: Readonly<Record<string, OperationBoundedValueDef>>;
   readonly teamId?: string;
@@ -199,6 +215,8 @@ export interface OperationEventContentDef {
   readonly objectives?: readonly OperationObjectiveDef[];
   readonly partialOutcomes?: readonly OperationOutcomeConditionDef[];
   readonly hardFailureConditions?: readonly OperationOutcomeConditionDef[];
+  /** Only success and partial-success resource grants are supported in V1. */
+  readonly rewards?: OperationEventRewardsDef;
   readonly actors: readonly OperationActorDef[];
   readonly teams?: readonly OperationTeamDef[];
   readonly participants: readonly OperationParticipantSpec[];

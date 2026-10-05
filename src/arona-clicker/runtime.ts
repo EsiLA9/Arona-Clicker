@@ -18,6 +18,7 @@ import { RuntimeWorldContentCoordinator } from './services/runtime-world-content
 import { RuntimeDefinitionEditor, SpotContentService } from './services/spot-content-service';
 import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './contracts/runtime-content';
 import { decodeSpotContent } from '../data-services/authoring/content-policy-dsl';
+import { gameplayBCarouselDatapack } from './content/operation-samples/gameplay-b-datapack';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;
@@ -51,7 +52,12 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
   constructor(options: AronaClickerRuntimeOptions = {}) {
     super({ ...options, saveCodec: options.saveCodec ?? buildSaveData });
-    this.packManager = new PackManager(undefined, options.packStore, [createBundledBasePack()]);
+    this.packManager = new PackManager(
+      undefined,
+      options.packStore,
+      [createBundledBasePack(), createBundledGameplayBDemoPack()],
+      ['gameplay-b@1.0.0'],
+    );
     this.runtimeContent = new RuntimeContentCoordinator({
       registry: this.registry,
       sourceId: 'runtime-editor',
@@ -772,7 +778,14 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   async restorePackManager(store: AsyncPackSnapshotStore): Promise<void> {
     this.packAsyncStore = store;
     const snapshot = await store.load();
-    if (snapshot) this.packManager = new PackManager(snapshot, undefined, [createBundledBasePack()]);
+    if (snapshot) {
+      this.packManager = new PackManager(
+        snapshot,
+        undefined,
+        [createBundledBasePack(), createBundledGameplayBDemoPack()],
+        ['gameplay-b@1.0.0'],
+      );
+    }
   }
 
   reconcileDevelopmentPacks(packs: readonly StoredPack[]): void {
@@ -902,6 +915,24 @@ function createBundledBasePack(): StoredPack {
       ...bundledBaseManifest,
     },
     datapack: defaultDatapack,
+    images: [],
+    sourceKind: 'bundle',
+    importedAt: 0,
+  };
+}
+
+function createBundledGameplayBDemoPack(): StoredPack {
+  return {
+    id: 'gameplay-b@1.0.0',
+    packRecordId: 'gameplay-b@1.0.0',
+    manifest: {
+      modName: gameplayBCarouselDatapack.modName!,
+      name: gameplayBCarouselDatapack.name,
+      version: gameplayBCarouselDatapack.version,
+      author: 'AronaClicker',
+      dependencies: ['base'],
+    },
+    datapack: gameplayBCarouselDatapack,
     images: [],
     sourceKind: 'bundle',
     importedAt: 0,

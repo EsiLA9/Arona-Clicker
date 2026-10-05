@@ -1,12 +1,12 @@
 # Draft 0212 — 玩法 B：老师指挥学生处理现场事件
 
-状态：draft — 已形成玩法身份、v1 需求、AC 语义映射与可独立验收的施工顺序；未开始代码施工
+状态：closed — Gameplay B V1 路线、裁定与施工顺序已完成并由 archived Tasks/当前机制文档留证；本 Draft 保留为设计历史，后续扩展另立新 Task。
 
 ## 目标与边界
 
 本文定义一款以学生自主行动和老师有限指挥为核心的现场事件策略游戏，并把该玩法翻译为 AC 内可逐步建设的 Runtime、状态、内容和 UI 能力。本文是产品与架构提案，不是当前 AC 运行时事实。
 
-Task 0213–0216 已完成并形成单地点核心机制原型；0217–0225 的后续任务仍按各自 Task 状态逐项推进。规划层设计不得覆盖源码、测试和当前机制文档中的事实。
+Task 0213–0225 已完成并形成正式 AC V1 闭环。规划层设计保留为设计来源，当前实现事实以源码、测试和 `docs/docs-829/` 为准；Post-v1 扩展须另行立项。
 
 ## 裁定来源与状态
 
@@ -15,7 +15,7 @@ Task 0213–0216 已完成并形成单地点核心机制原型；0217–0225 的
 | 无实时反应要求；一次有效的战术 Commit 对应一整批场景行动或完整战斗轮次 | 用户已确认的操作边界 | 保留为节拍制；UI 上的 Commit 代表完整 Beat，而不是单个 Actor 行动。 |
 | 玩家先审阅学生计划，再决定是否调整并一次提交 | 已观察到有价值的玩法模式 | 保留“自主准备—有限修订—统一结算”；可编辑数量与限制在本 Draft 中重新裁定。 |
 | 学生行动理由、对手 Intent、结算记录需要可解释 | 本次产品要求 | 列为 v1 信息与验收要求，不代表已有完整规则实现。 |
-| 每个 Beat 只有一个 Sensei 指挥位，且只能修改一名学生的计划 | **新提案**，不是既有确认规则 | 用于凸显学生自主性并限制逐个操控；Task 0216/0222 必须验证干预存在真实取舍。 |
+| 每个 Beat 只有一个 Sensei 指挥位，且只能修改一名学生的计划 | **新提案**，不是既有确认规则 | 已由 Task 0215/0222 落地并在正式 Operation UI 复用。 |
 | 路线选择是单独事件命令，不产生战术 Beat/Resolution | **新裁定** | 解决战术提交单位与地点转场输入的口径歧义；只有一个出口时自动转场，多出口时才等待玩家选择。 |
 | 正式玩法 B 界面采用左/中/右三栏：我方 / 信息 / 敌方 | 用户本轮确认 | Task 0222 按此重构 Gameplay B Surface；不要求全 AC 全局 UI 改版，也不以窄屏内容移位为本阶段前置。 |
 | 固定场景内容与结算叙述进入中央信息聊天流；左右用角色身份卡承载我方/敌方实体，学生计划/行为和敌方意图作为各自卡内的附着行动卡表现，不拆成中栏多列表或重复消息条目 | 用户本轮确认的方向，细节以独立 Demo 参照核对 | Task 0222 必须精读 Draft 0183 与 Demo 行动卡源码，再为 AC `OperationView` 裁定沿用/改造/不沿用。角色身份卡、附着行动/意图卡与独立有限玩家 SceneCard 牌区是三类对象。 |
@@ -290,15 +290,15 @@ Task 0217–0221、0224–0225 可定义与实现 EventRun 命令、SceneAction 
 | 1 | [[task-0213-gameplay-b-event-runtime-and-session-state]] | 可启动、推进与终止一个独立 EventRun，拥有局部状态边界 | 无 |
 | 2 | [[task-0214-gameplay-b-student-participation-and-autonomy]] | AC Character 可作为学生参加事件并依据可解释 Profile 形成计划 | 0213 |
 | 3 | [[archive/task-0215-gameplay-b-prepared-actions-and-intervention-resolution]] | 行动/Intent 快照、有限指挥、协同与一次性 Resolution 闭环（已完成并归档） | 0213–0214 |
-| 4 | [[task-0216-gameplay-b-command-loop-vertical-slice-ui]] | **核心可玩切片**：玩家可在一个地点完成准备、竞争性修订、提交和结算闭环 | 0213–0215 |
-| 5 | [[task-0217-gameplay-b-objectives-and-partial-outcomes]] | 场景与战斗共享事件目标，能产生成功/部分成功/失败 | 0213–0216 |
-| 6 | [[task-0218-gameplay-b-causal-locations-and-route-selection]] | 多地点选择会改变后续压力、事实或处理方案；Route Gate 只检查局内持有物，地图允许回环并由 Event 总访问上限收束 | 0217 |
+| 4 | [[task-0216-gameplay-b-command-loop-vertical-slice-ui]] | **已完成：核心可玩切片**：单地点准备、有限干预、提交和结算闭环 | 0213–0215 |
+| 5 | [[task-0217-gameplay-b-objectives-and-partial-outcomes]] | **已完成：**场景与战斗共享事件目标，产生成功/部分成功/失败 | 0213–0216 |
+| 6 | [[task-0218-gameplay-b-causal-locations-and-route-selection]] | **已完成：**多地点分支、held-item Gate、有界回环与统一转场入口 | 0217 |
 | 7 | [[task-0224-gameplay-b-scene-actions-and-route-cost]] | Individual/Global 非战斗 SceneAction 玩家选择、共享路线 PlayerCost、每地点 `costGain` / `maxCarryCost` 纳入统一 Commit/Resolution 与 EventRun | 0213–0218 |
 | 8 | [[task-0225-gameplay-b-finite-player-scene-card-deck]] | 有限玩家场景卡组、确定性抽牌与场景支付接入；卡牌不进入战斗 Click | 0224 |
 | 9 | [[task-0220-gameplay-b-datapack-contracts-and-registry]] | 事件/地点/行动与嵌入场景卡组可由声明式 Datapack 定义并验证，并提供显式 `resumeVersion` | 0213–0218、0224–0225 |
 | 10 | [[task-0219-gameplay-b-event-save-and-resume]] | EventRun 可精确暂停和恢复，包含 PlayerCost、三分区牌区、固定 draw 顺序与战术 RNG 状态 | 0213–0218、0220、0224–0225 |
 | 11 | [[task-0221-gameplay-b-authoring-and-content-validation-workflow]] | 作者能创建、检查、加载并迭代完整事件内容 | 0217–0220、0224–0225 |
-| 12 | [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] | **下一大型体验施工阶段 / V1 产品切片**：把稳定服务与内容接成正式 AC 入口，并用我方角色卡 / 中央信息流 / 敌方三栏跑通已裁定的最小玩法闭环 | 0216–0221、0224–0225 |
+| 12 | [[task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] | **已完成：V1 产品闭环**：独立 bundle 从夏莱办公室固定阵容入口启动；三栏角色卡/AC 聊天流覆盖战斗干预、员工证分支、场景行动/玩家卡、一次性结案奖励和 Save/Resume | 0216–0221、0224–0225 |
 
 0213–0216 已交付 Runtime 基础与单地点原型；0215 已归档。后续按 0217 → 0218 → 0224 → 0225 → 0220 → 0219 → 0221 → 0222 推进。0221 与 0222 复用同一正式游乐园 Datapack 示例；0222 使用固定 roster 和左/中/右三栏，跑通最小的行动、Cost/卡牌、持有物路线、结局、奖励与续局闭环。选人 UI、泛化 Widget、编辑器、at-cap p50/p95 基准和 GALHCG 深度维护为 post-v1，不阻塞交付。
 
