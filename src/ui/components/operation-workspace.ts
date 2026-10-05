@@ -163,7 +163,9 @@ function renderProgress(ctx: UIContext, view: OperationView): string {
     e(ctx, TRACKS[id]?.name ?? '现场状态') + '</span><strong>' + e(ctx, value) + '</strong><small>' + e(ctx, TRACKS[id]?.description ?? '') + '</small></div>').join('');
   const objectives = view.objectives.map(objective => '<li class="' + (objective.achieved ? 'is-achieved' : '') + '" data-operation-objective="' + e(ctx, objective.id) + '">' +
     '<span aria-hidden="true">' + (objective.achieved ? '✓' : '○') + '</span><span>' + e(ctx, objective.description) + '</span></li>').join('');
-  const facts = view.knownFactIds.includes(SCENE.fact) ? '<p class="operation-facts">已确认：旋转木马控制台已检查。</p>' : '';
+  const currentFacts = view.knownFactIds.includes(SCENE.fact) ? '<span>当前已知：控制台已检查</span>' : '';
+  const heldItems = view.heldItemIds.includes(SCENE.item) ? '<span>当前持有：' + e(ctx, COPY.itemName) + '</span>' : '';
+  const facts = currentFacts || heldItems ? '<div class="operation-current-items" aria-label="当前行动状态">' + currentFacts + heldItems + '</div>' : '';
   return '<section class="operation-context-card" data-operation-location="' + e(ctx, view.currentLocationId) + '">' +
     '<span class="operation-eyebrow">游乐园 · 当前场所</span><h2>' + e(ctx, location?.name ?? '行动现场') + '</h2><p>' + e(ctx, location?.description ?? '') + '</p>' +
     '<div class="operation-track-list">' + tracks + '</div><ul class="operation-objectives" aria-label="行动目标">' + objectives + '</ul>' + facts + '</section>';
@@ -249,21 +251,72 @@ function renderRoutes(ctx: UIContext, view: OperationView): string {
 }
 
 function renderResolutions(ctx: UIContext, view: OperationView): string {
-  if (!view.resolutions.length) return '<div class="operation-log-empty" data-operation-log-empty><span aria-hidden="true">●</span><p>现场处置记录会按时间出现在这里。</p></div>';
-  return view.resolutions.map(resolution => {
-    const changes = resolution.numericChanges.flatMap(change => {
-      const target = change.target;
-      if (target.kind === 'track') return [TRACKS[target.trackId]?.name ?? '状态 ' + target.trackId + ' ' + change.before + ' → ' + change.after];
-      if (target.kind === 'actorHp') {
-        const actor = view.actorStates.find(row => row.id === target.actorId);
-        return actor ? [actor.displayName + ' 状态 ' + change.before + ' → ' + change.after] : [];
-      }
-      return [];
+  if (!view.resolutions.length) return '';
+  const actorName = (id: string) => view.actorStates.find(actor => actor.id === id)?.displayName ?? '行动者';
+  const valueLabel = (change: OperationView['resolutions'][number]['numericChanges'][number]): string => {
+    const target = change.target;
+    if (target.kind === 'track') return (TRACKS[target.trackId]?.name ?? '现场状态') + ' ' + change.before + ' → ' + change.after;
+    if (target.kind === 'actorHp') return actorName(target.actorId) + ' 状态 ' + change.before + ' → ' + change.after;
+    const resource = target.resourceId === 'stamina' ? '体力' : target.resourceId === 'coordination' ? '协调' : target.resourceId === 'focus' ? '专注' : target.resourceId;
+    if (target.kind === 'actorResource') return actorName(target.actorId) + ' ' + resource + ' ' + change.before + ' → ' + change.after;
+    const teamName = view.teamStates.find(team => team.id === target.teamId)?.id ?? '小组';
+    return teamName + ' ' + resource + ' ' + change.before + ' → ' + change.after;
+  };
+  const membershipLabel = (change: OperationView['resolutions'][number]['membershipChanges'][number]): string => {
+    const itemName = change.target.id === SCENE.item ? COPY.itemName : change.target.id;
+    if (change.target.kind === 'knownFact') return change.after ? '记录事实：旋转木马控制台已检查' : '事实记录已撤销：旋转木马控制台已检查';
+    return (change.after ? '获得' : '消耗') + itemName;
+  };
+  const sceneLabel = (resolution: OperationView['resolutions'][number]): string[] => {
+    const batch = resolution.sceneBatch;
+    if (!batch) return resolution.actorPlans.filter(plan => plan.participantKind === 'student' && plan.kind === 'studentAction')
+      .map(plan => actorName(plan.actorId) + '使用' + actionLabel(plan.actionId));
+    const selections = batch.selections.map(selection => {
+      const actor = actorName(selection.actorId);
+      const action = SCENE_NAMES[selection.sceneActionId] ?? selection.sceneActionId;
+      const target = selection.targetActorIds.length ? ' → ' + selection.targetActorIds.map(actorName).join('、') : '';
+      return actor + '使用' + action + target;
     });
-    return '<div class="chat-talk chat-talk-npc operation-resolution" data-operation-resolution="' + resolution.resolutionSequence + '"><span class="chat-avatar"><span class="chat-avatar-fallback">记</span></span>' +
-      '<div class="chat-talk-main"><div class="chat-name"><span>夏莱行动记录</span><small>第 ' + resolution.resolutionSequence + ' 次结算</small></div><div class="chat-bubble chat-bubble-npc"><p>' +
-      e(ctx, changes.length ? changes.join(' · ') : '行动已经结算，现场情况已更新。') + '</p></div></div></div>';
+    const cards = batch.cards.map(card => {
+      const label = CARDS[card.actionId] ?? ACTIONS[card.actionId]?.name ?? '玩家场景卡';
+      const target = card.targetActorIds.length ? ' → ' + card.targetActorIds.map(actorName).join('、') : '';
+      return actorName(card.actorId) + '打出' + label + target + '（' + card.playerCost + ' Cost）';
+    });
+    return [...selections, ...cards, '本批实际支付 ' + batch.playerCostPaid + ' PlayerCost（' + batch.playerCostBefore + ' → ' + batch.playerCostAfter + '）'];
+  };
+  const entries = view.resolutions.map(resolution => {
+    const details = [
+      ...sceneLabel(resolution),
+      ...resolution.studentSkillChecks.map(check => actorName(check.actorId) + '技能' + (check.succeeded ? '成功' : '未成功')),
+      ...resolution.numericChanges.map(valueLabel),
+      ...resolution.membershipChanges.map(membershipLabel),
+    ];
+    const locationName = LOCATIONS[resolution.locationId]?.name ?? '行动现场';
+    return '<article class="chat-talk chat-talk-npc operation-resolution" data-operation-resolution="' + resolution.resolutionSequence + '"><span class="chat-avatar"><span class="chat-avatar-fallback">记</span></span>' +
+      '<div class="chat-talk-main"><div class="chat-name"><span>夏莱行动记录</span><small>' + e(ctx, locationName) + ' · 第 ' + resolution.resolutionSequence + ' 次结算</small></div><div class="chat-bubble chat-bubble-npc"><p>' +
+      e(ctx, details.length ? details.join(' · ') : '行动已经结算，现场情况已更新。') + '</p></div></div></article>';
   }).join('');
+  const trimmed = view.resolutionSequence > view.resolutions.length
+    ? '<p class="operation-history-limit" data-operation-history-limit>这里只保留最近 32 条结算记录。</p>'
+    : '';
+  return trimmed + entries;
+}
+
+function renderRouteHistory(ctx: UIContext, view: OperationView): string {
+  if (!view.routeHistory.length && !view.locationEntryCostHistory.length) return '';
+  const routes = view.routeHistory.length
+    ? '<ol aria-label="已确认转场">' + view.routeHistory.map(record => {
+      const from = LOCATIONS[record.fromLocationId]?.name ?? '行动现场';
+      const to = LOCATIONS[record.toLocationId]?.name ?? '行动现场';
+      const item = record.consumedHeldItemId ? ' · 消耗' + (record.consumedHeldItemId === SCENE.item ? COPY.itemName : record.consumedHeldItemId) : '';
+      const cost = record.playerCostBeforeExit === undefined ? '' : ' · 离场 Cost ' + record.playerCostBeforeExit + (record.playerCostAfterCarryLimit === undefined ? '' : ' → ' + record.playerCostAfterCarryLimit);
+      return '<li data-operation-route-history-item data-route-id="' + e(ctx, record.routeId) + '" data-from-location-id="' + e(ctx, record.fromLocationId) + '" data-to-location-id="' + e(ctx, record.toLocationId) + '"><span>' + e(ctx, from + ' → ' + to + item + cost) + '</span></li>';
+    }).join('') + '</ol>' : '';
+  const entries = view.locationEntryCostHistory.length
+    ? '<ol aria-label="地点入场费用记录">' + view.locationEntryCostHistory.map(record => '<li data-operation-entry-cost-item><span>第 ' + record.visitSequence + ' 次进入' + e(ctx, LOCATIONS[record.locationId]?.name ?? '行动现场') + ' · Cost ' + record.balanceBefore + ' + ' + record.costGain + ' = ' + record.balanceAfter + '</span></li>').join('') + '</ol>'
+    : '';
+  const label = view.routeHistory.length ? '路线履历 · ' + view.routeHistory.length + ' 次转场' : '地点费用记录';
+  return '<details class="operation-route-history" data-operation-route-history><summary>' + label + '</summary>' + routes + entries + '</details>';
 }
 
 function renderMain(ctx: UIContext, view: OperationView, notice: string | null): string {
@@ -278,7 +331,7 @@ function renderMain(ctx: UIContext, view: OperationView, notice: string | null):
   let button = '';
   if (terminal) {
     title = view.status === 'success' ? '行动成功' : view.status === 'partialSuccess' ? '行动部分达成' : '行动未能完成';
-    description = resultText;
+    description = view.rewardClaimed ? '结案奖励已领取。' : '结案奖励待领取。';
     button = '<button type="button" class="operation-commit-button" data-operation-reward data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '"' +
       (view.rewardClaimed ? ' disabled' : '') + '>' + (view.rewardClaimed ? '奖励已领取' : '领取结案奖励') + '</button>';
   } else if (view.pendingSceneActionBatch) {
@@ -305,12 +358,11 @@ function renderMain(ctx: UIContext, view: OperationView, notice: string | null):
     (notice ? '<p class="operation-command-notice" data-operation-command-notice role="alert" tabindex="-1">' + e(ctx, notice) + '</p>' : '') +
     '<div class="chat-talk chat-talk-npc operation-opening-message"><span class="chat-avatar"><span class="chat-avatar-fallback">安</span></span><div class="chat-talk-main"><div class="chat-name"><span>游乐园安全员</span></div>' +
     '<div class="chat-bubble chat-bubble-npc"><p>' + e(ctx, COPY.event.introduction) + '</p></div></div></div>' + renderProgress(ctx, view) +
-    (view.knownFactIds.includes(SCENE.fact) ? '<div class="chat-talk chat-talk-player operation-decision-message" data-operation-fact-message="' + e(ctx, SCENE.fact) +
-      '"><div class="chat-talk-main"><div class="chat-bubble chat-bubble-player"><p>我检查了控制台，并拿到了员工证。</p></div></div></div>' : '') +
+    renderRouteHistory(ctx, view) + '<section class="operation-resolution-log" data-operation-resolution-log aria-label="行动结算记录">' + renderResolutions(ctx, view) + '</section>' +
     renderSceneControls(ctx, view) + renderPending(ctx, view) + renderRoutes(ctx, view) +
     (terminal ? '<section class="operation-outcome" data-operation-outcome><span class="operation-eyebrow">行动结论</span><h2>' + e(ctx, title) + '</h2><p>' + e(ctx, resultText) +
       '</p><small>' + (view.rewardClaimed ? '奖励已提交到账。' : '确认后将通过正式状态服务写入奖励。') + '</small></section>' : '') +
-    '<section class="operation-resolution-log" data-operation-resolution-log aria-label="行动结算记录">' + renderResolutions(ctx, view) + '</section></div>' +
+    '</div>' +
     '<footer class="operation-commit-dock" data-operation-commit-dock=""><div class="operation-dock-cost" aria-label="当前剩余 PlayerCost"><span class="operation-dock-cost__label">Cost ' +
     view.playerCost + '</span><div class="operation-cost-slots" data-operation-cost-balance>' + slots + '</div></div><div class="operation-commit-status" role="status"><strong>' +
     e(ctx, title) + '</strong><span>' + e(ctx, description) + '</span></div><div class="operation-commit-actions">' + button + '</div></footer></main>';

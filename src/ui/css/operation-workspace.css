@@ -234,7 +234,14 @@
 .operation-objectives li { display: flex; align-items: flex-start; gap: 7px; color: var(--muted-on-panel); font-size: 9px; line-height: 1.45; }
 .operation-objectives li.is-achieved { color: var(--lime); }
 .operation-facts { color: var(--theme-node-primary, var(--cyan)) !important; }
+.operation-current-items { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted-on-panel); font-size: 8px; }
+.operation-current-items > span { padding: 4px 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
 .operation-decision-message { align-self: flex-end; }
+.operation-route-history { width: min(800px, 100%); align-self: center; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--ink-on-panel); }
+.operation-route-history summary { color: var(--muted-on-panel); font-size: 9px; cursor: pointer; }
+.operation-route-history ol { display: grid; gap: 4px; margin: 8px 0 0; padding-left: 18px; color: var(--muted-on-panel); font-size: 8px; line-height: 1.45; }
+.operation-resolution-log { display: grid; gap: 9px; width: min(800px, 100%); align-self: center; }
+.operation-history-limit { margin: 0; color: var(--muted-on-panel); font-size: 8px; text-align: center; }
 .operation-section-heading,
 .operation-route-choices > header,
 .operation-hand > header {

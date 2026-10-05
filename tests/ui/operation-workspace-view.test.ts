@@ -2,11 +2,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { CAROUSEL_ROUTE_IDS, carouselRouteSliceResolver } from '../../src/arona-clicker/content/operation-samples/carousel-route-slice';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import type { PanelState } from '../../src/ui/components/app-shell';
+import { renderOperationWorkspace } from '../../src/ui/components/operation-workspace';
 import { createUIContext } from '../../src/ui/context';
 import { renderWorkspace } from '../../src/ui/workspace/workspace-renderer';
 import { createWorkspaceNavigation } from '../../src/ui/workspace/workspace-router';
@@ -133,6 +135,13 @@ describe('Gameplay B Operation workspace view', () => {
     expect(view.currentRoutes.find(route => route.routeId === IDS.routes.staffGate)?.available).toBe(true);
     host = document.createElement('div');
     host.innerHTML = render(game, runId);
+    const resolutionLog = host.querySelector('[data-operation-resolution-log]')?.textContent ?? '';
+    expect(resolutionLog).toContain('星野使用检查控制台');
+    expect(resolutionLog).toContain('本批实际支付 ' + view.resolutions.at(-1)?.sceneBatch?.playerCostPaid + ' PlayerCost');
+    expect(resolutionLog).toContain('记录事实：旋转木马控制台已检查');
+    expect(resolutionLog).toContain('获得员工证');
+    expect(host.querySelector('[data-operation-fact-message]')).toBeNull();
+    expect(host.querySelector('.operation-current-items')?.textContent).toContain('当前持有：员工证');
     expect(host.querySelector('[data-operation-routes]')).not.toBeNull();
     expect(host.textContent).toContain('员工通道');
 
@@ -144,6 +153,8 @@ describe('Gameplay B Operation workspace view', () => {
     expect(view).toMatchObject({ currentLocationId: IDS.locations.exit, currentActionMode: 'global' });
     expect(host.querySelector('[data-global-scene-card]')).not.toBeNull();
     expect(host.querySelector('[data-operation-global-action]')).toBeNull();
+    expect(host.querySelector('[data-operation-route-history]')?.textContent).toContain('游乐园通道 → 出口集合点');
+    expect(host.querySelectorAll('[data-operation-entry-cost-item]')).toHaveLength(3);
     expect(host.querySelectorAll('[data-operation-player-card]')).toHaveLength(view.playerCards.hand.length);
     expect(host.querySelector('[data-operation-cost-balance]')).not.toBeNull();
   });
@@ -160,5 +171,50 @@ describe('Gameplay B Operation workspace view', () => {
     expect(host.textContent).toContain('持有且解锁星野、芹香与白子');
     expect(host.textContent).not.toContain('stale-operation-run');
     expect(host.querySelector('[data-operation-commit]')).toBeNull();
+  });
+
+  it('keeps route loops in their own recorded order and shows one terminal conclusion', () => {
+    const game = createAppRuntime({ operationContentResolver: carouselRouteSliceResolver });
+    game.init([baseDatapack], { enterDefaultInit: true });
+    games.push(game);
+    for (const student of VARIANTS) game.mutations.acquireCharacter(student, 'story');
+    const runId = game.operationEntry.start(CAROUSEL_ROUTE_IDS.event, STUDENTS).runId;
+    let run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: CAROUSEL_ROUTE_IDS.routes.staffGate });
+    expect(game.operationEntry.getView(runId)?.heldItemIds).not.toContain(CAROUSEL_ROUTE_IDS.item);
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: CAROUSEL_ROUTE_IDS.routes.maintenanceLoop });
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: CAROUSEL_ROUTE_IDS.routes.emergencyExit });
+    const view = game.operationEntry.getView(runId)!;
+    expect(view.status).toBe('success');
+    const host = document.createElement('div');
+    host.innerHTML = render(game, runId);
+    const routeItems = [...host.querySelectorAll<HTMLElement>('[data-operation-route-history-item]')];
+    expect(routeItems.map(item => item.dataset.routeId)).toEqual([
+      CAROUSEL_ROUTE_IDS.routes.staffGate,
+      CAROUSEL_ROUTE_IDS.routes.maintenanceLoop,
+      CAROUSEL_ROUTE_IDS.routes.emergencyExit,
+    ]);
+    expect(routeItems.map(item => item.dataset.fromLocationId)).toEqual([
+      CAROUSEL_ROUTE_IDS.locations.platform,
+      CAROUSEL_ROUTE_IDS.locations.maintenance,
+      CAROUSEL_ROUTE_IDS.locations.platform,
+    ]);
+    expect(host.querySelectorAll('[data-operation-outcome]')).toHaveLength(1);
+    expect(host.querySelector('[data-operation-commit-dock]')?.textContent).not.toContain('主要目标已完成');
+    expect(host.querySelectorAll('[data-operation-entry-cost-item]')).toHaveLength(0);
+    const resolution = view.resolutions[0];
+    const clippedView = {
+      ...view,
+      resolutions: Array.from({ length: 32 }, (_, index) => ({ ...resolution, resolutionSequence: index + 2 })),
+      resolutionSequence: 33,
+    };
+    host.innerHTML = renderOperationWorkspace(createUIContext(game), clippedView);
+    expect(host.querySelector('[data-operation-history-limit]')?.textContent).toContain('最近 32 条');
+    expect(host.querySelector('[data-operation-resolution="2"]')).not.toBeNull();
+    expect(host.querySelector('[data-operation-resolution="33"]')).not.toBeNull();
   });
 });
