@@ -114,7 +114,8 @@ describe('Gameplay B Operation workspace view', () => {
     expect(view.currentLocationId).toBe(IDS.locations.concourse);
     let host = document.createElement('div');
     host.innerHTML = render(game, runId);
-    expect(host.querySelectorAll('[data-operation-scene-selection]')).toHaveLength(3);
+    expect(host.querySelectorAll('[data-operation-scene-card][data-actor-id]')).toHaveLength(3);
+    expect(host.querySelectorAll('[data-operation-scene-selection]')).toHaveLength(0);
     expect(host.querySelector('[data-operation-player-hand]')).not.toBeNull();
 
     run = game.operationEntry.getSnapshot()!;
@@ -141,7 +142,8 @@ describe('Gameplay B Operation workspace view', () => {
     host = document.createElement('div');
     host.innerHTML = render(game, runId);
     expect(view).toMatchObject({ currentLocationId: IDS.locations.exit, currentActionMode: 'global' });
-    expect(host.querySelector('[data-operation-global-action]')).not.toBeNull();
+    expect(host.querySelector('[data-global-scene-card]')).not.toBeNull();
+    expect(host.querySelector('[data-operation-global-action]')).toBeNull();
     expect(host.querySelectorAll('[data-operation-player-card]')).toHaveLength(view.playerCards.hand.length);
     expect(host.querySelector('[data-operation-cost-balance]')).not.toBeNull();
   });

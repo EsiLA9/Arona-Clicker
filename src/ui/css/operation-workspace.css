@@ -246,42 +246,69 @@
    font-size: 9px;
 }
 .operation-scene-selections { display: grid; gap: 6px; }
-.operation-scene-row {
-   display: grid;
-   grid-template-columns: minmax(100px, .8fr) minmax(0, 2fr);
+.operation-scene-card { display: grid; gap: 7px; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+.operation-scene-card__current { display: grid; gap: 5px; }
+.operation-scene-card--global { width: 100%; }
+.operation-scene-action,
+.operation-scene-targets button,
+.operation-card-targets button,
+.operation-scene-performers button,
+.operation-card-performers button {
+   display: inline-flex;
    align-items: center;
+   justify-content: space-between;
    gap: 8px;
-   color: var(--ink-on-panel);
-   font-size: 10px;
-}
-.operation-scene-row select,
-.operation-player-card select {
    min-width: 0;
-   padding: 7px 8px;
+   padding: 7px 9px;
    border: 1px solid var(--line);
    border-radius: 8px;
-   background: var(--panel);
+   background: var(--panel-light);
    color: var(--ink-on-panel);
-   font-size: 9px;
+   font: inherit;
+   text-align: left;
+   cursor: pointer;
 }
+.operation-scene-action > span:first-child,
+.operation-player-card__toggle > span:first-child { display: grid; gap: 2px; }
+.operation-scene-action strong { font-size: 10px; }
+.operation-scene-action small { color: var(--muted-on-panel); font-size: 8px; }
+.operation-scene-action.is-selected,
+.operation-scene-targets button[aria-pressed="true"],
+.operation-card-targets button[aria-pressed="true"],
+.operation-scene-performers button[aria-pressed="true"],
+.operation-card-performers button[aria-pressed="true"] { border-color: var(--theme-node-primary, var(--cyan)); background: color-mix(in srgb, var(--cyan) 10%, var(--panel)); }
+.operation-scene-alternatives summary { width: fit-content; color: var(--theme-node-primary, var(--cyan)); font-size: 9px; cursor: pointer; }
+.operation-scene-alternatives > div,
+.operation-scene-targets,
+.operation-card-targets,
+.operation-scene-performers,
+.operation-card-performers { display: flex; flex-wrap: wrap; gap: 5px; }
+.operation-scene-alternatives > div { padding-top: 6px; }
+.operation-scene-targets button,
+.operation-card-targets button,
+.operation-scene-performers button,
+.operation-card-performers button { justify-content: center; font-size: 9px; }
+.operation-scene-card button:focus-visible,
+.operation-player-card button:focus-visible { outline: 2px solid var(--theme-node-primary, var(--cyan)); outline-offset: 2px; }
+.operation-scene-card button:disabled,
+.operation-player-card button:disabled { opacity: .55; cursor: default; }
 .operation-hand { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
 .operation-hand > header span,
 .operation-hand-note,
 .operation-cost-hint { color: var(--muted-on-panel); font-size: 8px; }
 .operation-player-card {
    display: grid;
-   grid-template-columns: auto minmax(100px, 1fr) minmax(110px, .8fr);
-   align-items: center;
-   gap: 8px;
+   gap: 6px;
    padding: 7px 8px;
    border: 1px solid var(--line);
    border-radius: 8px;
    background: var(--panel);
 }
-.operation-player-card input { accent-color: var(--theme-node-primary, var(--cyan)); }
-.operation-player-card > span { display: grid; gap: 2px; }
-.operation-player-card strong { font-size: 10px; }
-.operation-player-card small { color: var(--muted-on-panel); font-size: 8px; }
+.operation-player-card.is-selected { border-color: var(--theme-node-primary, var(--cyan)); }
+.operation-player-card__toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0; border: 0; background: transparent; color: var(--ink-on-panel); text-align: left; cursor: pointer; }
+.operation-player-card__toggle strong { font-size: 10px; }
+.operation-player-card__toggle small { color: var(--muted-on-panel); font-size: 8px; }
+.operation-player-card__toggle > span:last-child { flex: 0 0 auto; color: var(--theme-node-primary, var(--cyan)); font-size: 9px; }
 .operation-hand-note { margin: 0; }
 .operation-cost-hint { margin: 0; }
 .operation-pending-batch { border-color: var(--theme-node-primary, var(--cyan)); }

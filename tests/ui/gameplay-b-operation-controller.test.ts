@@ -153,9 +153,20 @@ describe('Gameplay B Operation Controller', () => {
     expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.concourse);
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
 
+    const individualCards = [...root.querySelectorAll<HTMLElement>('[data-operation-scene-card][data-actor-id]')];
+    expect(individualCards).toHaveLength(3);
+    expect(root.querySelector('[data-operation-scene-selection]')).toBeNull();
+    const preselectedActions = individualCards.map(card => card.querySelector<HTMLElement>('[data-operation-scene-choice][aria-pressed="true"]')?.dataset.sceneActionId);
     root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
     expect(game.operationEntry.getView(runId)?.pendingSceneActionBatch).not.toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-operation-clear-scene]')!.click();
+    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
+    const restoredActions = [...root.querySelectorAll<HTMLElement>('[data-operation-scene-card][data-actor-id]')]
+      .map(card => card.querySelector<HTMLElement>('[data-operation-scene-choice][aria-pressed="true"]')?.dataset.sceneActionId);
+    expect(restoredActions).toEqual(preselectedActions);
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
+    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
     root.querySelector<HTMLButtonElement>('[data-operation-scene-commit]')!.click();
     expect(game.operationEntry.getView(runId)?.heldItemIds).toContain(IDS.item);
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
@@ -163,7 +174,7 @@ describe('Gameplay B Operation Controller', () => {
     root.querySelector<HTMLButtonElement>('[data-operation-route][data-route-id="' + IDS.routes.staffGate + '"]')!.click();
     expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.exit);
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
-    root.querySelector<HTMLInputElement>('[data-operation-card-instance]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-card-toggle]')!.click();
     root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
     root.querySelector<HTMLButtonElement>('[data-operation-scene-commit]')!.click();
@@ -189,6 +200,30 @@ describe('Gameplay B Operation Controller', () => {
 
     expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
     expect(controller.getRefreshStats().regionRefreshes).toBe(before.regionRefreshes);
+  });
+
+  it('卡片选择只更新当前 DOM，不改 Runtime 计划或触发刷新', () => {
+    acquireStudents();
+    startFromFeed();
+    root.querySelector<HTMLButtonElement>('[data-operation-action][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.emergencyStop + '"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
+    const workspace = root.querySelector<HTMLElement>('[data-workspace-frame="operation"]')!;
+    const planVersion = game.operationEntry.getSnapshot()!.planVersion;
+    const regionBefore = controller.getRefreshStats().regionRefreshes;
+    const alternatives = workspace.querySelector<HTMLButtonElement>('[data-operation-scene-choice]:not([aria-pressed="true"])');
+    expect(alternatives).not.toBeNull();
+    alternatives!.closest('details')!.open = true;
+    alternatives!.click();
+    expect(alternatives!.getAttribute('aria-pressed')).toBe('true');
+    expect(game.operationEntry.getSnapshot()!.planVersion).toBe(planVersion);
+    expect(controller.getRefreshStats().regionRefreshes).toBe(regionBefore);
+    expect(root.querySelector('[data-workspace-frame="operation"]')).toBe(workspace);
+    const selectedActorId = alternatives!.dataset.actorId;
+    const selectedActionId = alternatives!.dataset.sceneActionId;
+    const stageButton = root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!;
+    stageButton.click();
+    const staged = game.operationEntry.getView(stageButton.dataset.runId)?.pendingSceneActionBatch;
+    expect(staged?.preview.selections.find(selection => selection.actorId === selectedActorId)?.sceneActionId).toBe(selectedActionId);
   });
 
   it('拒绝过期 planVersion 时显示可读提示并刷新到当前版本', () => {

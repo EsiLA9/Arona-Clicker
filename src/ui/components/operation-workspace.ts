@@ -45,6 +45,53 @@ function targetName(view: OperationView, targetActorId: string): string {
   return view.actorStates.find(actor => actor.id === targetActorId)?.displayName ?? '场景目标';
 }
 
+const operationSceneDrafts = new Map<string, OperationSceneDraft>();
+
+export interface OperationSceneDraft {
+  readonly selections: readonly { readonly sceneActionId: string; readonly actorId: string; readonly targetActorIds: readonly string[] }[];
+  readonly cards: readonly { readonly cardInstanceId: string; readonly actorId: string; readonly targetActorIds: readonly string[] }[];
+}
+
+function sceneDraftKey(runId: string, planVersion: number, locationId: string): string {
+  return `${runId}\u0000${planVersion}\u0000${locationId}`;
+}
+
+export function saveOperationSceneDraft(runId: string, planVersion: number, locationId: string, draft: OperationSceneDraft): void {
+  const key = sceneDraftKey(runId, planVersion, locationId);
+  for (const oldKey of operationSceneDrafts.keys()) if (oldKey.startsWith(`${runId}\u0000`) || operationSceneDrafts.size >= 8) operationSceneDrafts.delete(oldKey);
+  operationSceneDrafts.set(key, draft);
+}
+
+export function readOperationSceneDraft(runId: string, planVersion: number, locationId: string): OperationSceneDraft | undefined {
+  const key = sceneDraftKey(runId, planVersion, locationId);
+  for (const oldKey of operationSceneDrafts.keys()) if (oldKey.startsWith(`${runId}\u0000`) && oldKey !== key) operationSceneDrafts.delete(oldKey);
+  return operationSceneDrafts.get(key);
+}
+
+function renderSceneActionCard(ctx: UIContext, view: OperationView, actorId: string, actions: OperationViewSceneAction[], chosen: OperationViewSceneAction | undefined): string {
+  if (!chosen) return '<section class="operation-scene-card is-empty" data-operation-scene-card data-actor-id="' + e(ctx, actorId) + '"><strong>暂无可用行动</strong></section>';
+  const draft = readOperationSceneDraft(view.runId, view.planVersion, view.currentLocationId);
+  const saved = draft?.selections.find(selection => selection.actorId === actorId);
+  const selected = saved ? actions.find(action => action.id === saved.sceneActionId) ?? chosen : chosen;
+  const actionButton = (action: OperationViewSceneAction, isSelected: boolean) => '<button type="button" class="operation-scene-action' + (isSelected ? ' is-selected' : '') + '" data-operation-scene-choice data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '" data-actor-id="' + e(ctx, actorId) + '" data-scene-action-id="' + e(ctx, action.id) + '" aria-pressed="' + String(isSelected) + '"><span><strong>' + e(ctx, SCENE_NAMES[action.id] ?? action.id) + '</strong><small>' + action.playerCost + ' Cost</small></span>' + (isSelected ? '✓' : '选择') + '</button>';
+  const actionOption = (action: OperationViewSceneAction, isSelected: boolean) => {
+    const targets = actionTargets(action, actorId);
+    const selectedTargetIds = saved?.sceneActionId === action.id ? saved.targetActorIds : targets.slice(0, 1);
+    const targetButtons = targets.length > 1 ? '<div class="operation-scene-targets" aria-label="选择场景目标">' + targets.map(targetId =>
+      '<button type="button" data-operation-scene-target data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '" data-target-actor-id="' + e(ctx, targetId) + '" aria-pressed="' + String(selectedTargetIds.includes(targetId)) + '">' + e(ctx, targetName(view, targetId)) + '</button>',
+    ).join('') + '</div>' : '';
+    return '<div class="operation-scene-option' + (isSelected ? ' is-selected' : '') + '" data-operation-scene-option>' + actionButton(action, isSelected) + targetButtons + '</div>';
+  };
+  return '<section class="operation-scene-card" data-operation-scene-card data-actor-id="' + e(ctx, actorId) + '"><div class="operation-scene-card__current"><span class="operation-eyebrow">本批行动</span>' + actionOption(selected, true) + '</div>' +
+    (actions.length > 1 ? '<details class="operation-scene-alternatives"><summary>更改行动</summary><div>' + actions.filter(action => action.id !== selected.id).map(action => actionOption(action, false)).join('') + '</div></details>' : '') + '</section>';
+}
+
+function renderIndividualSceneCard(ctx: UIContext, view: OperationView, actor: OperationViewActor, index: number): string {
+  const actions = view.currentSceneActions.filter(action => action.scope === 'individual' && action.eligibleActorIds.includes(actor.id));
+  const chosen = actions[Math.min(index, Math.max(actions.length - 1, 0))];
+  return renderSceneActionCard(ctx, view, actor.id, actions, chosen);
+}
+
 function renderAction(ctx: UIContext, view: OperationView, actor: OperationViewActor, option: OperationViewActionOption): string {
   const selected = actor.currentPlan?.actionId === option.actionId;
   const disabled = !option.selectable || view.status !== 'inProgress' || Boolean(view.locationProgress[view.currentLocationId]?.completed);
@@ -69,7 +116,7 @@ function renderAction(ctx: UIContext, view: OperationView, actor: OperationViewA
     ((reasonText || actionCopy) ? '<p class="operation-action-note">' + e(ctx, reasonText || actionCopy) + '</p>' : '') + targets + '</article>';
 }
 
-function renderStudent(ctx: UIContext, view: OperationView, actor: OperationViewActor, battle: boolean): string {
+function renderStudent(ctx: UIContext, view: OperationView, actor: OperationViewActor, battle: boolean, studentIndex: number): string {
   const basePlan = view.basePreparedBeat?.actorPlans.find(plan => plan.actorId === actor.id) ?? null;
   const activePlan = view.effectivePreparedBeat?.actorPlans.find(plan => plan.actorId === actor.id) ?? actor.currentPlan;
   const changed = Boolean(basePlan && activePlan && (basePlan.actionId !== activePlan.actionId || basePlan.targetActorId !== activePlan.targetActorId));
@@ -85,7 +132,9 @@ function renderStudent(ctx: UIContext, view: OperationView, actor: OperationView
   const actionCards = battle
     ? '<div class="operation-action-list" data-operation-action-list="' + e(ctx, actor.id) + '">' +
       options.map(option => renderAction(ctx, view, actor, option)).join('') + '</div>'
-    : '<p class="operation-muted">当前行动计划</p>';
+    : view.currentActionMode === 'individual' && view.sceneActionBatchesRemaining > 0 && !view.pendingSceneActionBatch
+      ? renderIndividualSceneCard(ctx, view, actor, studentIndex)
+      : '<p class="operation-muted">当前行动计划</p>';
   return '<article class="operation-student-card" data-operation-student="' + e(ctx, actor.id) + '">' +
     '<header class="operation-student-card__header"><span class="operation-student-card__avatar" aria-hidden="true">' + avatar + '</span><span><strong>' + e(ctx, name) + '</strong><small>' + e(ctx, ACTORS[actor.id]?.description ?? '行动队员') + '</small></span></header>' +
     '<section class="operation-attached-plan" data-operation-plan="' + e(ctx, actor.id) + '"><span class="operation-plan-label">' + (changed ? '本回合修订' : '当前计划') + '</span><strong>' + e(ctx, planLabel(actor, view)) + '</strong>' +
@@ -128,41 +177,47 @@ function renderSceneControls(ctx: UIContext, view: OperationView): string {
   if (!view.currentActionMode || view.sceneActionBatchesRemaining < 1 || view.pendingSceneActionBatch) return '';
   const actions = view.currentSceneActions.filter(action => action.scope === view.currentActionMode);
   const students = view.actorStates.filter(actor => actor.participantKind === 'student' && actor.hp > 0);
-  const actionOption = (action: OperationViewSceneAction, selected: boolean) => '<option value="' + e(ctx, action.id) + '"' + (selected ? ' selected' : '') + '>' +
-    e(ctx, SCENE_NAMES[action.id] ?? action.id) + ' · ' + action.playerCost + ' Cost</option>';
-  const eligibleFor = (actorId: string) => actions.filter(action => action.eligibleActorIds.includes(actorId));
-  const studentOptions = (ids: readonly string[]) => ids.map(id => {
-    const actor = view.actorStates.find(row => row.id === id);
-    return '<option value="' + e(ctx, id) + '">' + e(ctx, actor?.displayName ?? '学生') + '</option>';
-  }).join('');
+  const draft = readOperationSceneDraft(view.runId, view.planVersion, view.currentLocationId);
   let controls = '';
-  if (view.currentActionMode === 'individual') {
-    controls = students.map((actor, index) => {
-      const eligible = eligibleFor(actor.id);
-      const chosen = eligible[Math.min(index, Math.max(eligible.length - 1, 0))];
-      return '<label class="operation-scene-row"><span>' + e(ctx, actor.displayName) + '</span><select data-operation-scene-selection data-actor-id="' + e(ctx, actor.id) +
-        '" aria-label="' + e(ctx, actor.displayName) + '的行动">' + (eligible.length ? eligible.map(action => actionOption(action, action.id === chosen?.id)).join('') : '<option value="">暂无可用行动</option>') + '</select></label>';
-    }).join('');
-  } else {
+  if (view.currentActionMode === 'global') {
     const eligibleActions = actions.filter(action => action.eligibleActorIds.length > 0);
     const chosen = eligibleActions[0];
     const performers = chosen?.eligibleActorIds ?? [];
-    controls = '<label class="operation-scene-row"><span>全局行动</span><select data-operation-global-action aria-label="选择全局行动">' +
-      eligibleActions.map(action => actionOption(action, action.id === chosen?.id)).join('') + '</select></label>' +
-      '<label class="operation-scene-row"><span>执行者</span><select data-operation-scene-performer aria-label="选择执行者">' + studentOptions(performers) + '</select></label>';
+    const performerButtons = (action: OperationViewSceneAction, selectedActorId: string) => action.eligibleActorIds.map(actorId => {
+      const actor = view.actorStates.find(row => row.id === actorId);
+      return '<button type="button" data-operation-scene-performer data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '" data-actor-id="' + e(ctx, actorId) + '" aria-pressed="' + String(actorId === selectedActorId) + '">' + e(ctx, actor?.displayName ?? '学生') + '</button>';
+    }).join('');
+    const saved = draft?.selections[0];
+    const selectedAction = eligibleActions.find(action => action.id === saved?.sceneActionId) ?? chosen;
+    const selectedActor = selectedAction?.eligibleActorIds.includes(saved?.actorId ?? '') ? saved!.actorId : selectedAction?.eligibleActorIds[0] ?? '';
+    controls = selectedAction
+      ? '<section class="operation-scene-card operation-scene-card--global" data-operation-scene-card data-global-scene-card><span class="operation-eyebrow">全队共同行动</span>' +
+        renderSceneActionCard(ctx, view, selectedActor, eligibleActions, selectedAction) +
+        '<div class="operation-scene-performers" aria-label="选择执行者">' + performerButtons(selectedAction, selectedActor) + '</div></section>'
+      : '<p class="operation-muted">当前没有可执行的全队行动。</p>';
   }
   const hand = view.playerCards.hand.length ? '<section class="operation-hand" data-operation-player-hand aria-label="玩家场景手牌"><header><strong>玩家手牌</strong><span>' +
     view.playerCards.hand.length + ' 张 · 抽牌堆 ' + view.playerCards.drawPileCount + '</span></header>' + view.playerCards.hand.map(card => {
       const action = actions.find(item => item.actionId === card.actionId);
       const performers = action?.eligibleActorIds ?? students.map(actor => actor.id);
       const label = CARDS[card.actionId] ?? (ACTIONS[card.actionId]?.name ?? '场景卡');
-      return '<label class="operation-player-card" data-operation-player-card="' + e(ctx, card.cardInstanceId) + '"><input type="checkbox" data-operation-card-instance="' + e(ctx, card.cardInstanceId) +
-        '"><span><strong>' + e(ctx, label) + '</strong><small>场景卡 · ' + card.playerCost + ' Cost</small></span><select data-operation-card-actor aria-label="选择卡牌执行者">' + studentOptions(performers) + '</select></label>';
+      const selected = draft?.cards.find(item => item.cardInstanceId === card.cardInstanceId);
+      const selectedActorId = selected?.actorId ?? performers[0] ?? '';
+      const performerButtons = performers.map(actorId => {
+        const actor = view.actorStates.find(row => row.id === actorId);
+        return '<button type="button" data-operation-card-actor data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '" data-actor-id="' + e(ctx, actorId) + '" aria-pressed="' + String(actorId === (selected?.actorId ?? performers[0])) + '">' + e(ctx, actor?.displayName ?? '学生') + '</button>';
+      }).join('');
+      const targetIds = action?.legalTargetActorIdsByActorId[selectedActorId] ?? [];
+      const selectedTargetIds = selected?.targetActorIds ?? targetIds.slice(0, 1);
+      const targetButtons = targetIds.length > 1 ? '<div class="operation-card-targets" aria-label="选择卡牌目标">' + targetIds.map(targetId =>
+        '<button type="button" data-operation-card-target data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '" data-target-actor-id="' + e(ctx, targetId) + '" aria-pressed="' + String(selectedTargetIds.includes(targetId)) + '">' + e(ctx, targetName(view, targetId)) + '</button>',
+      ).join('') + '</div>' : '';
+      return '<article class="operation-player-card' + (selected ? ' is-selected' : '') + '" data-operation-player-card="' + e(ctx, card.cardInstanceId) + '"><button type="button" class="operation-player-card__toggle" data-operation-card-toggle data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '" aria-pressed="' + String(Boolean(selected)) + '"><span><strong>' + e(ctx, label) + '</strong><small>场景卡 · ' + card.playerCost + ' Cost</small></span><span>' + (selected ? '已选择' : '加入本批') + '</span></button><div class="operation-card-performers" aria-label="选择卡牌执行者">' + performerButtons + '</div>' + targetButtons + '</article>';
     }).join('') + '<small class="operation-hand-note">打出的牌进入弃牌堆，本次行动不会洗回。</small></section>' :
     '<section class="operation-hand is-empty" data-operation-player-hand><strong>玩家手牌</strong><span>手牌 0 张 · 抽牌堆 ' + view.playerCards.drawPileCount + ' · 弃牌堆 ' + view.playerCards.discardCount + '</span></section>';
   return '<section class="operation-scene-actions" data-operation-scene-actions aria-label="场景行动"><header class="operation-section-heading"><span class="operation-eyebrow">' +
-    (view.currentActionMode === 'individual' ? '每位学生分别选择' : '全队共同选择') + '</span><span>剩余批次 ' + view.sceneActionBatchesRemaining +
-    '</span></header><div class="operation-scene-selections">' + controls + '</div>' + hand +
+    (view.currentActionMode === 'individual' ? '行动附在学生卡上' : '全队共同选择') + '</span><span>剩余批次 ' + view.sceneActionBatchesRemaining +
+    '</span></header>' + (controls ? '<div class="operation-scene-selections">' + controls + '</div>' : '') + hand +
     '<p class="operation-cost-hint">当前 PlayerCost：' + view.playerCost + '。确认整批行动时统一扣除费用。</p></section>';
 }
 
@@ -273,7 +328,7 @@ export function renderOperationWorkspace(ctx: UIContext, view: OperationView | n
   const battle = Boolean(view && view.currentLocationId === SCENE.locations.platform && !view.locationProgress[view.currentLocationId]?.completed);
   const left = view
     ? '<aside class="operation-party-column" aria-label="我方学生" data-operation-party><header class="operation-column-heading"><span class="operation-eyebrow">我方</span><strong>' +
-      students.length + ' 位学生</strong></header><div class="operation-party-list">' + students.map(actor => renderStudent(ctx, view, actor, battle)).join('') + '</div></aside>'
+      students.length + ' 位学生</strong></header><div class="operation-party-list">' + students.map((actor, index) => renderStudent(ctx, view, actor, battle, index)).join('') + '</div></aside>'
     : '<aside class="operation-party-column" aria-hidden="true"></aside>';
   const center = view ? renderMain(ctx, view, notice) : renderUnavailable(ctx, notice);
   const right = view ? renderOpponents(ctx, view) : '<aside class="operation-opponent-column" aria-hidden="true"></aside>';
