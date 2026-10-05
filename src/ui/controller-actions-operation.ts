@@ -83,6 +83,24 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     '[data-operation-start], [data-operation-resume-run], [data-operation-back], [data-operation-action], [data-operation-target], [data-operation-clear], [data-operation-commit], [data-operation-scene-stage], [data-operation-scene-commit], [data-operation-clear-scene], [data-operation-route], [data-operation-reward], [data-operation-scene-choice], [data-operation-scene-target], [data-operation-scene-performer], [data-operation-card-toggle], [data-operation-card-actor], [data-operation-card-target]',
   );
   if (!target || target instanceof HTMLButtonElement && target.disabled) return;
+  const updateCostPreview = (workspace: HTMLElement | null): void => {
+    if (!workspace) return;
+    const preview = workspace.querySelector<HTMLElement>('[data-operation-cost-preview]');
+    if (!preview) return;
+    const sceneCards = [...workspace.querySelectorAll<HTMLElement>('[data-operation-scene-card][data-actor-id]')];
+    const globalCard = workspace.querySelector<HTMLElement>('[data-global-scene-card]');
+    const selectedSceneCards = globalCard ? [globalCard] : sceneCards;
+    const sceneCost = selectedSceneCards.reduce((sum, card) => {
+      const selected = card.querySelector<HTMLElement>('[data-operation-scene-choice][aria-pressed="true"]');
+      return sum + Number(selected?.dataset.playerCost ?? 0);
+    }, 0);
+    const selectedCardCost = [...workspace.querySelectorAll<HTMLElement>('[data-operation-player-card].is-selected [data-operation-card-toggle]')]
+      .reduce((sum, button) => sum + Number(button.dataset.playerCost ?? 0), 0);
+    const total = sceneCost + selectedCardCost;
+    const balance = Number(preview.dataset.playerCost ?? 0);
+    const deficit = Math.max(0, total - balance);
+    preview.textContent = '本批预计 ' + total + ' Cost · 余额 ' + balance + (deficit ? ' · 超出 ' + deficit : ' · 余额足够') + '。确认整批行动时统一扣除费用。';
+  };
 
   if (target.matches('[data-operation-scene-choice]')) {
     const card = target.closest<HTMLElement>('[data-operation-scene-card]');
@@ -97,14 +115,20 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     const selectedAction = target.querySelector('strong')?.textContent;
     if (currentAction && selectedAction) currentAction.textContent = selectedAction;
     if (card) card.dataset.selectedSceneActionId = target.dataset.sceneActionId ?? '';
+    updateCostPreview(target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
     return;
   }
   if (target.matches('[data-operation-scene-target]')) {
     const group = target.closest<HTMLElement>('.operation-scene-targets');
-    group?.querySelectorAll<HTMLElement>('[data-operation-scene-target]').forEach(button => {
-      const selected = button === target;
-      button.setAttribute('aria-pressed', String(selected));
-    });
+    if (group?.dataset.targetMode === 'global') {
+      target.setAttribute('aria-pressed', String(target.getAttribute('aria-pressed') !== 'true'));
+    } else {
+      group?.querySelectorAll<HTMLElement>('[data-operation-scene-target]').forEach(button => {
+        const selected = button === target;
+        button.setAttribute('aria-pressed', String(selected));
+      });
+    }
+    updateCostPreview(target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
     return;
   }
   if (target.matches('[data-operation-scene-performer]')) {
@@ -113,6 +137,7 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     const card = target.closest<HTMLElement>('[data-global-scene-card]');
     const choice = card?.querySelector<HTMLElement>('[data-operation-scene-choice][aria-pressed="true"]');
     if (choice) choice.dataset.actorId = target.dataset.actorId ?? '';
+    updateCostPreview(target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
     return;
   }
   if (target.matches('[data-operation-card-toggle]')) {
@@ -121,16 +146,27 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     target.closest<HTMLElement>('[data-operation-player-card]')?.classList.toggle('is-selected', selected);
     const status = target.querySelector<HTMLElement>('span:last-child');
     if (status) status.textContent = selected ? '已选择' : '加入本批';
+    updateCostPreview(target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
     return;
   }
   if (target.matches('[data-operation-card-actor]')) {
     const group = target.closest<HTMLElement>('.operation-card-performers');
     group?.querySelectorAll<HTMLElement>('[data-operation-card-actor]').forEach(button => button.setAttribute('aria-pressed', String(button === target)));
+    const card = target.closest<HTMLElement>('[data-operation-player-card]');
+    card?.querySelectorAll<HTMLElement>('[data-operation-card-targets-for]').forEach(targets => {
+      targets.hidden = targets.dataset.operationCardTargetsFor !== target.dataset.actorId;
+    });
+    updateCostPreview(target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
     return;
   }
   if (target.matches('[data-operation-card-target]')) {
     const group = target.closest<HTMLElement>('.operation-card-targets');
-    group?.querySelectorAll<HTMLElement>('[data-operation-card-target]').forEach(button => button.setAttribute('aria-pressed', String(button === target)));
+    if (group?.dataset.targetMode === 'global') {
+      target.setAttribute('aria-pressed', String(target.getAttribute('aria-pressed') !== 'true'));
+    } else {
+      group?.querySelectorAll<HTMLElement>('[data-operation-card-target]').forEach(button => button.setAttribute('aria-pressed', String(button === target)));
+    }
+    updateCostPreview(target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
     return;
   }
 
@@ -280,7 +316,9 @@ function readSceneBatchCommand(
     if (!selected?.dataset.sceneActionId || !performer?.dataset.actorId) throw new Error('请选择全局行动和执行者。');
     const action = view.currentSceneActions.find(item => item.id === selected.dataset.sceneActionId);
     if (!action) throw new Error('所选场景行动已经失效，请重新选择。');
-    const selectedTargets = [...(selected.closest<HTMLElement>('[data-operation-scene-option]')?.querySelectorAll<HTMLElement>('.operation-scene-targets [data-operation-scene-target][aria-pressed="true"]') ?? [])].map(button => button.dataset.targetActorId).filter((id): id is string => Boolean(id));
+    const targetGroup = selected.closest<HTMLElement>('[data-operation-scene-option]')?.querySelector<HTMLElement>('.operation-scene-targets');
+    const selectedTargets = [...(targetGroup?.querySelectorAll<HTMLElement>('[data-operation-scene-target][aria-pressed="true"]') ?? [])].map(button => button.dataset.targetActorId).filter((id): id is string => Boolean(id));
+    if (targetGroup?.dataset.targetMode === 'global' && selectedTargets.length === 0) throw new Error('全局行动至少要选择一名目标。');
     selections.push({ sceneActionId: action.id, actorId: performer.dataset.actorId, targetActorIds: selectedTargets.length ? selectedTargets : action.legalTargetActorIdsByActorId[performer.dataset.actorId] ?? [] });
   }
   const cards: Array<{ cardInstanceId: string; actorId: string; targetActorIds: readonly string[] }> = [];
@@ -291,8 +329,13 @@ function readSceneBatchCommand(
     const viewCard = view.playerCards.hand.find(item => item.cardInstanceId === cardInstanceId);
     if (!viewCard) throw new Error('玩家卡牌已离开手牌，请重新选择。');
     const action = view.currentSceneActions.find(item => item.actionId === viewCard.actionId && item.eligibleActorIds.includes(actorId));
-    const selectedTargets = [...card.querySelectorAll<HTMLElement>('.operation-card-targets [data-operation-card-target][aria-pressed="true"]')].map(button => button.dataset.targetActorId).filter((id): id is string => Boolean(id));
-    cards.push({ cardInstanceId, actorId, targetActorIds: selectedTargets.length ? selectedTargets : action?.legalTargetActorIdsByActorId[actorId] ?? [] });
+    if (!viewCard.eligibleActorIds.includes(actorId)) throw new Error('玩家卡牌执行者已失效，请重新选择。');
+    const targetGroup = [...card.querySelectorAll<HTMLElement>('[data-operation-card-targets-for]')]
+      .find(group => group.dataset.operationCardTargetsFor === actorId);
+    const selectedTargets = [...(targetGroup?.querySelectorAll<HTMLElement>('[data-operation-card-target][aria-pressed="true"]') ?? [])]
+      .map(button => button.dataset.targetActorId).filter((id): id is string => Boolean(id));
+    if (targetGroup && selectedTargets.length === 0) throw new Error('玩家卡牌至少要选择一名目标。');
+    cards.push({ cardInstanceId, actorId, targetActorIds: selectedTargets });
   }
   return { ...command, selections, ...(cards.length ? { cards } : {}) };
 }

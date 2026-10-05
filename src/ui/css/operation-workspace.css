@@ -405,6 +405,10 @@
 }
 .operation-commit-button:disabled { border-color: var(--line); background: var(--panel-light); color: var(--muted-on-panel); cursor: default; }
 .operation-action-list { display: grid; gap: 5px; }
+.operation-action-disclosure { margin-top: 5px; border-top: 1px solid var(--line); }
+.operation-action-disclosure > summary { padding: 5px 2px; color: var(--muted-on-panel); font-size: 9px; cursor: pointer; }
+.operation-action-disclosure[open] > summary { color: var(--theme-node-primary, var(--cyan)); }
+.operation-card-targets[hidden] { display: none; }
 .operation-action-choice { min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-light); }
 .operation-action-choice.is-selected { border-color: var(--theme-node-primary, var(--cyan)); }
 .operation-action-choice.is-disabled { opacity: .58; }
