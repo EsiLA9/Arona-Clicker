@@ -141,6 +141,28 @@ function elementMatchesMarkup(current: HTMLElement, html: string): boolean {
 function operationMorphKey(node: Node): string | null {
   if (!(node instanceof HTMLElement)) return null;
   if (node.hasAttribute('data-operation-student')) return `student:${node.dataset.operationStudent}`;
+  if (node.hasAttribute('data-operation-scene-card')) return `scene-card:${node.hasAttribute('data-global-scene-card') ? 'global' : node.dataset.actorId}`;
+  if (node.hasAttribute('data-operation-scene-choice')) return `scene-choice:${node.dataset.actorId}:${node.dataset.sceneActionId}`;
+  if (node.hasAttribute('data-operation-scene-target')) {
+    const owner = node.closest<HTMLElement>('[data-operation-student], [data-global-scene-card]')?.dataset.operationStudent ?? 'global';
+    const actionId = node.closest<HTMLElement>('[data-operation-scene-option]')?.querySelector<HTMLElement>('[data-operation-scene-choice]')?.dataset.sceneActionId;
+    return `scene-target:${owner}:${actionId}:${node.dataset.targetActorId}`;
+  }
+  if (node.hasAttribute('data-operation-scene-performer')) return `scene-performer:${node.dataset.actorId}`;
+  if (node.hasAttribute('data-operation-card-toggle')) return `scene-card-toggle:${node.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard}`;
+  if (node.hasAttribute('data-operation-card-actor')) return `scene-card-actor:${node.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard}:${node.dataset.actorId}`;
+  if (node.hasAttribute('data-operation-card-target')) return `scene-card-target:${node.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard}:${node.dataset.targetActorId}`;
+  if (node.hasAttribute('data-operation-player-card')) return `player-card:${node.dataset.operationPlayerCard}`;
+  if (node.hasAttribute('data-operation-route-history-item')) {
+    const peers = [...(node.parentElement?.querySelectorAll<HTMLElement>('[data-operation-route-history-item]') ?? [])];
+    return `route-history:${peers.indexOf(node)}`;
+  }
+  if (node.hasAttribute('data-operation-entry-cost-item')) {
+    const peers = [...(node.parentElement?.querySelectorAll<HTMLElement>('[data-operation-entry-cost-item]') ?? [])];
+    return `entry-cost:${peers.indexOf(node)}`;
+  }
+  if (node.hasAttribute('data-operation-route-card')) return `route-card:${node.dataset.operationRouteCard}`;
+  if (node.hasAttribute('data-operation-player-hand')) return 'player-hand';
   if (node.hasAttribute('data-operation-action-list')) return `action-list:${node.dataset.operationActionList}`;
   if (node.hasAttribute('data-operation-action')) return `action:${node.dataset.actorId}:${node.dataset.actionId}`;
   if (node.hasAttribute('data-operation-target')) return `target:${node.dataset.actorId}:${node.dataset.actionId}:${node.dataset.targetActorId}`;
@@ -148,6 +170,7 @@ function operationMorphKey(node: Node): string | null {
   if (node.hasAttribute('data-operation-intent')) return `intent:${node.dataset.operationIntent}`;
   if (node.hasAttribute('data-operation-resolution')) return `resolution:${node.dataset.operationResolution}`;
   if (node.hasAttribute('data-operation-commit')) return 'commit';
+  if (node.hasAttribute('data-operation-commit-dock')) return 'commit-dock';
   if (node.hasAttribute('data-operation-back')) return 'back';
   if (node.hasAttribute('data-operation-command-notice')) return 'command-notice';
   if (node.hasAttribute('data-operation-log-empty')) return 'log-empty';
@@ -1603,6 +1626,7 @@ export class UIController {
     } else if (focus?.type === 'commit') {
       focusTarget = current.querySelector<HTMLButtonElement>('[data-operation-commit], [data-operation-scene-stage], [data-operation-scene-commit], [data-operation-reward], [data-operation-route]:not(:disabled)') ?? null;
     }
+    if (pending.notice) focusTarget = current.querySelector<HTMLElement>('[data-operation-command-notice]') ?? focusTarget;
     if (focusTarget instanceof HTMLButtonElement && focusTarget.disabled) focusTarget = null;
     focusTarget ??= current.querySelector<HTMLElement>('[data-operation-command-notice]');
     focusTarget ??= current.querySelector<HTMLElement>('[data-operation-commit-dock]');

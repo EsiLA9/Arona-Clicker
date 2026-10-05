@@ -11,7 +11,7 @@
 
 ## 投影内容
 
-投影包括当前 Event / Location、版本与 Beat、轨道/事实/持有物、事件与地点目标进度、Actor 与 Team、基础计划和干预后计划、合法战术 Action / Target 候选及阻塞理由、协同预览、Commit 状态、Resolution 历史和序号。`OperationViewActor` 带 detached `displayName`、`avatarRef`、`hp`、`maxHp` 与 `participantKind`，左/右身份卡不需要 UI 反查可变角色或 Runtime 数据。玩家场景投影提供当前共享 PlayerCost、离场 `maxCarryCost`、Location `actionMode`、SceneAction ID/Action ID/费用/可行动学生及按学生区分的合法目标、批次已用/剩余、待提交批次草稿、drawPile/discard 数量和可用 hand 实例的 Action ID/PlayerCost，以及每次地点入场的 Cost 记录。RouteView 投影当前地点出口、可用性/锁定原因、持有物要求、转场历史、总访问数与事件访问上限；它不包含可写规则或整张地图副本。角色技能结果只保留是否成功；tactical RNG cursor、roll 测量、原始规则对象和完整 Run 不出现在 UI DTO。终局还投影奖励是否已领取。
+投影包括当前 Event / Location、版本与 Beat、轨道/事实/持有物、事件与地点目标进度、Actor 与 Team、基础计划和干预后计划、合法战术 Action / Target 候选及阻塞理由、协同预览、Commit 状态、Resolution 历史和序号。`OperationViewActor` 带 detached `displayName`、`avatarRef`、`hp`、`maxHp` 与 `participantKind`，左/右身份卡不需要 UI 反查可变角色或 Runtime 数据。玩家场景投影提供当前共享 PlayerCost、离场 `maxCarryCost`、Location `actionMode`、SceneAction ID/Action ID/费用/可行动学生及按学生区分的合法目标、批次已用/剩余、待提交批次草稿、drawPile/discard 数量和可用 hand 实例的 Action ID/PlayerCost、合法 Student 执行者及按执行者区分的合法目标候选，以及每次地点入场的 Cost 记录。手牌候选从本次 Run 冻结的 Event/Profile/Action 与当前 Actor 状态投影；候选只含 UI-safe ID 列表，不暴露 Action 定义，也不依赖 Location SceneAction 的当前模式筛选。RouteView 投影当前地点出口、可用性/锁定原因、持有物要求、转场历史、总访问数与事件访问上限；它不包含可写规则或整张地图副本。角色技能结果只保留是否成功；tactical RNG cursor、roll 测量、原始规则对象和完整 Run 不出现在 UI DTO。终局还投影奖励是否已领取。
 
 写命令重算候选时，projector 复用冻结规则上的纯干预预览与 Combination resolver；读取 View 不调用内容 resolver、不写 EventRun、不推进随机游标。返回结构深度脱离 owner 当前状态。
 
