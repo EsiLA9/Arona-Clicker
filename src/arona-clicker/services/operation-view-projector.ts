@@ -282,6 +282,37 @@ function projectSceneActions(
   });
 }
 
+function projectSceneCardCandidates(
+  run: EventRun,
+  content: OperationViewProjectionContent,
+  actionId: string,
+): Pick<OperationView['playerCards']['hand'][number], 'eligibleActorIds' | 'legalTargetActorIdsByActorId'> {
+  const event = content.eventDefinition;
+  const action = content.actionDefinitions.find(row => row.id === actionId);
+  if (!action || action.cost !== undefined) return { eligibleActorIds: [], legalTargetActorIdsByActorId: {} };
+
+  const statesById = new Map(run.actorStates.map(actor => [actor.id, actor]));
+  const initializationsById = new Map(content.actors.map(actor => [actor.actorId, actor]));
+  const eligibleActorIds = event.actors.flatMap(actor => {
+    const state = statesById.get(actor.id);
+    const initialization = initializationsById.get(actor.id);
+    const eligible = state?.participantKind === 'student' && state.hp > 0
+      && initialization?.participantKind === 'student'
+      && action.allowedParticipantKinds.includes('student')
+      && initialization.profile.eligibleActionIds.includes(action.id)
+      && action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id));
+    return eligible ? [actor.id] : [];
+  });
+  const legalTargetActorIdsByActorId = Object.fromEntries(eligibleActorIds.map(actorId => {
+    const source = event.actors.find(actor => actor.id === actorId)!;
+    const targets = action.target.kind === 'none'
+      ? []
+      : targetCandidates(event, source, action.target).filter(targetId => statesById.has(targetId));
+    return [actorId, targets];
+  }));
+  return { eligibleActorIds, legalTargetActorIdsByActorId };
+}
+
 export function projectOperationView(
   sourceRun: EventRun,
   content: OperationViewProjectionContent,
@@ -431,7 +462,7 @@ function projectPlayerCards(
     drawPileCount: run.playerRouteState.cards.drawPile.length,
     hand: run.playerRouteState.cards.hand.flatMap(cardInstanceId => {
       const card = byId.get(cardInstanceId);
-      return card ? [{ ...card }] : [];
+      return card ? [{ ...card, ...projectSceneCardCandidates(run, content, card.actionId) }] : [];
     }),
     discardCount: run.playerRouteState.cards.discard.length,
     maxHandSize: content.eventDefinition.playerSceneDeck?.maxHandSize ?? 0,

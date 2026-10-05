@@ -8,6 +8,7 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstrap';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
 import { carouselSafetySliceContent, carouselSafetySliceResolver } from '../../src/arona-clicker/content/operation-samples/carousel-safety-slice';
+import { CAROUSEL_SCENE_ACTION_IDS, carouselSceneActionSliceResolver } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 
 const STUDENT_CHARACTERS = [Character.Hoshino, Character.Serika, Character.Shiroko] as const;
 const VARIANT_IDS: Record<typeof STUDENT_CHARACTERS[number], string> = {
@@ -163,5 +164,76 @@ describe('Gameplay B carousel safety sample', () => {
       kind: 'studentAction',
       actionId: CAROUSEL_SAFETY_IDS.actions.brace,
     });
+  });
+
+  test('projects SceneCard performers and relation-correct targets independently of the current SceneAction mode', () => {
+    const game = createGame(true, carouselSceneActionSliceResolver);
+    acquire(game);
+    const runId = game.operationEntry.start(CAROUSEL_SCENE_ACTION_IDS.event, STUDENT_CHARACTERS).runId;
+
+    let run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.reviseIntervention({
+      runId,
+      planVersion: run.planVersion,
+      draft: { actorId: CAROUSEL_SAFETY_IDS.actors.hoshino, actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop },
+    });
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+
+    let view = game.operationEntry.getView(runId)!;
+    expect(view.currentActionMode).toBe('individual');
+    expect(view.currentSceneActions.some(action => action.actionId === CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam)).toBe(false);
+    const individualCard = view.playerCards.hand[0]!;
+    expect(individualCard).toMatchObject({
+      eligibleActorIds: [
+        CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
+        CAROUSEL_SCENE_ACTION_IDS.actors.serika,
+        CAROUSEL_SCENE_ACTION_IDS.actors.shiroko,
+      ],
+      legalTargetActorIdsByActorId: {
+        [CAROUSEL_SCENE_ACTION_IDS.actors.serika]: [
+          CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
+          CAROUSEL_SCENE_ACTION_IDS.actors.serika,
+          CAROUSEL_SCENE_ACTION_IDS.actors.shiroko,
+        ],
+      },
+    });
+    expect(Object.isFrozen(individualCard)).toBe(true);
+    expect(Object.isFrozen(individualCard.eligibleActorIds)).toBe(true);
+    expect(Object.isFrozen(individualCard.legalTargetActorIdsByActorId[CAROUSEL_SCENE_ACTION_IDS.actors.serika])).toBe(true);
+
+    run = game.operationEntry.getSnapshot()!;
+    const runBeforeViewRead = JSON.parse(JSON.stringify(run));
+    game.operationEntry.getView(runId);
+    expect(game.operationEntry.getSnapshot()).toEqual(runBeforeViewRead);
+    game.operationEntry.commitSceneActionBatch({
+      runId,
+      planVersion: run.planVersion,
+      selections: [
+        { sceneActionId: CAROUSEL_SCENE_ACTION_IDS.sceneActions.inspect, actorId: CAROUSEL_SCENE_ACTION_IDS.actors.hoshino, targetActorIds: [] },
+        { sceneActionId: CAROUSEL_SCENE_ACTION_IDS.sceneActions.guide, actorId: CAROUSEL_SCENE_ACTION_IDS.actors.serika, targetActorIds: [] },
+        { sceneActionId: CAROUSEL_SCENE_ACTION_IDS.sceneActions.guide, actorId: CAROUSEL_SCENE_ACTION_IDS.actors.shiroko, targetActorIds: [] },
+      ],
+      cards: [{
+        cardInstanceId: individualCard.cardInstanceId,
+        actorId: CAROUSEL_SCENE_ACTION_IDS.actors.serika,
+        targetActorIds: [CAROUSEL_SCENE_ACTION_IDS.actors.hoshino],
+      }],
+    });
+    expect(game.operationEntry.getView(runId)?.heldItemIds).toContain(CAROUSEL_SCENE_ACTION_IDS.item);
+
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: CAROUSEL_SCENE_ACTION_IDS.routes.staffGate });
+    view = game.operationEntry.getView(runId)!;
+    expect(view.currentActionMode).toBe('global');
+    expect(view.currentSceneActions.some(action => action.actionId === CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam)).toBe(true);
+    for (const card of view.playerCards.hand) {
+      expect(card.eligibleActorIds).toEqual([
+        CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
+        CAROUSEL_SCENE_ACTION_IDS.actors.serika,
+        CAROUSEL_SCENE_ACTION_IDS.actors.shiroko,
+      ]);
+      expect(card.legalTargetActorIdsByActorId[CAROUSEL_SCENE_ACTION_IDS.actors.serika]).toContain(CAROUSEL_SCENE_ACTION_IDS.actors.shiroko);
+    }
   });
 });

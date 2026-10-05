@@ -64,6 +64,10 @@ export interface OperationViewSceneCard {
   readonly actionId: string;
   readonly playerCost: number;
   readonly timing: 'scene';
+  /** Qualified active Student performers for the card Action in this Run. */
+  readonly eligibleActorIds: readonly string[];
+  /** Relation-correct Actor targets for each eligible performer; empty when the Action is targetless. */
+  readonly legalTargetActorIdsByActorId: Readonly<Record<string, readonly string[]>>;
 }
 
 export interface OperationViewPlayerCards {
