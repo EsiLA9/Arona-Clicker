@@ -21,6 +21,7 @@
 
 - [[task-0232]]：按用户偏好完成学生行动归属、场景批次卡片交互、中心结果流与路线摘要；U0–U3 实现、当前机制文档和 GALHCG 已分阶段提交。仍待 Edge 实际流程与现场键盘验收；Task 不包含原 Demo 真牌面 / 拖拽复刻。
 - [[task-0234-gameplay-b-demo-card-surface]]：U0 检查入口、U1/U2 真牌面与目标交互均已完成并通过独立严格审查；U3 Edge 常规 / 窄窗口与现场键盘验收、最终 GALHCG 写后核验仍待完成。保留现有 OperationView 与 Runtime 批次语义。
+- [[task-0236-gameplay-b-typed-action-cards-and-target-layers]]：调查并约束学生战术牌目标集合，改用人物右侧替代真牌层与拖放目标，整理 z 轴并在角色卡显示 HP / sCost；U0/U1 实现、独立严格审查与 IAB 常规 / 窄视口验收已完成，待 Edge 常规 / 窄视口实测后关闭。
 
 ## 近期完成
 

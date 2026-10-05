@@ -69,11 +69,13 @@ SceneAction/玩家卡批次只有调用 `stageSceneActionBatch()` 后才成为 R
 
 `OperationResolvedContent.actionDefinitions` 是本局 ActionDef 的唯一可信来源；`OperationEventDef.actionRequirements` 已删除。学生候选来自已入场 Profile 的 `actionPriorityIds` 和 `candidateActionIds`；对手/环境候选按其 `OperationParticipantSpec.candidateActionIds` 声明顺序读取。候选 ID 必须解析到完整 `OperationActionDef`，定义有限地声明参与者类型、能力、理由、标签、可选 Actor/Team 单项资源费、无目标或单 Actor 目标合同，以及 Actor HP/resource、Team resource 或事件数值轨道的有限 delta 效果。
 
+Actor target 先由 `relation` 确定候选；战术 Beat Action 可再用可选 `allowedActorIds` 精确限制 Event Actor ID，并用 `allowedActorTypes` 限制声明的 `OperationActorDef.type` 字符串。两者同时声明时取交集；每个 ID 和 type 都必须在当前 Event 中存在。字段省略时保持既有 relation 范围。`targetPriorityActorIds` 只在合法候选中排序，不增加目标资格。由于 Location SceneAction 和 PlayerSceneCard 目前只按 relation 解析多目标，内容校验拒绝将带 Actor ID/type 过滤的 Action 用作这两类场景行动。
+
 Runtime `OperationEventDef.locations[]` 是 Registry adapter 依 `OperationEventContentDef.locationIds` 解析出的只读入场 DTO；作者内容中的 Location 独立登记。Location 保持战术 Action、Combination、局部结局规则、路线和可选场景合同。非战斗场景可用 `actionMode` 选择 `individual` 或 `global`，配置有限 `sceneActionBatches`、SceneAction 薄包装、`costGain` 与 `maxCarryCost`。Individual 每批必须为每名存活学生各提交一项行为；Global 每批恰好提交一项行为，可带一名或多名合法目标。SceneActionDef 只引用 `OperationActionDef` 并声明 scope 与 PlayerCost；目标、资格和效果不复制。RouteGate 只读取单个可选 `requiredHeldItemId`；Datapack 校验要求 Route 目标位于 Event 声明的 Location 内、门禁物品属于 Event。Location 仍只过滤战术候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
 
 有限玩家卡组位于事件定义的 `playerSceneDeck`：PlayerSceneCardDef 只声明卡 ID、ActionDef、PlayerCost、scene 时机和副本数。场景批次另可提交零张或多张当前 hand 卡实例；每张卡由同一份 `OperationActionDef` 提供效果与目标规则。SceneAction 与卡牌费用从内容定义汇总，在提交前统一校验余额；命令不能注入费用、Action 或效果。Planner 将 SceneAction/SceneCard 效果与 Beat 效果写入相同 OperationResolution 变化格式与同一个 Runtime 提交边界，卡牌只在该原子提交里从 hand 移入 discard。
 
-纯准备器 `prepareOperationBeat()` 接收最小 EventRun 快照与冻结内容，不接收 RNG、PlayerCost 或可变 owner。它按事件 Actor 声明顺序，为每位 Actor 生成一个 `studentAction`、`intent` 或 `wait`：学生按 Profile 候选次序，对手/环境按 ParticipantSpec 次序；每项需通过地点启用、能力、参与者类型、目标和当前资源检查。非学生没有 capability 来源，因此 Admission 拒绝其引用带能力门槛的 Action，不会忽略门槛。Action 仅支持无目标或单 Actor 目标；显式 `targetPriorityActorIds` 优先，其后按 Event Actor 声明顺序选取首个合法目标。准备期间按 Actor 顺序预留共享 Team 与个人 Actor 资源；本 Beat 产生的资源不会支付本 Beat 的行动费用。
+纯准备器 `prepareOperationBeat()` 接收最小 EventRun 快照与冻结内容，不接收 RNG、PlayerCost 或可变 owner。它按事件 Actor 声明顺序，为每位 Actor 生成一个 `studentAction`、`intent` 或 `wait`：学生按 Profile 候选次序，对手/环境按 ParticipantSpec 次序；每项需通过地点启用、能力、参与者类型、目标和当前资源检查。非学生没有 capability 来源，因此 Admission 拒绝其引用带能力门槛的 Action，不会忽略门槛。Action 仅支持无目标或单 Actor 目标；显式 `targetPriorityActorIds` 只重排 relation 与声明过滤后的合法候选，之后按 Event Actor 声明顺序选取首个合法目标。准备期间按 Actor 顺序预留共享 Team 与个人 Actor 资源；本 Beat 产生的资源不会支付本 Beat 的行动费用。
 
 每个冻结 `PreparedBeat` 都带 `planVersion`、`locationId` 和按 Actor 声明顺序排列的计划。准备是纯计算：相同 Run 快照和同一份冻结规则产生相同计划、目标、支付预算及理由，不写 Run、不发通知、不消费随机数。没有可用候选时产生带稳定理由的 Wait，不扣费；不会运行通用 AI。
 
