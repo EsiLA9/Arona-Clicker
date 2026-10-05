@@ -13,6 +13,12 @@ const OFFICE = 'base:init:schale_office';
 const MILLENNIUM = 'base:init:millennium';
 const VARIANTS = ['Hoshino', 'Serika', 'Shiroko'] as const;
 
+function pointer(type: string, x: number, y: number, pointerId = 17): PointerEvent {
+  const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y });
+  Object.defineProperty(event, 'pointerId', { configurable: true, value: pointerId });
+  return event as PointerEvent;
+}
+
 describe('Gameplay B Operation Controller', () => {
   let game: GameInstance;
   let controller: UIController;
@@ -136,9 +142,9 @@ describe('Gameplay B Operation Controller', () => {
     expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
 
-    const actionAlternatives = root.querySelector<HTMLDetailsElement>('[data-operation-student="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"] [data-operation-action-disclosure]');
-    expect(actionAlternatives?.open).toBe(false);
-    actionAlternatives!.open = true;
+    const actionAlternatives = root.querySelector<HTMLButtonElement>('[data-operation-student="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"] [data-operation-action-disclosure]');
+    expect(actionAlternatives?.getAttribute('aria-expanded')).toBe('false');
+    actionAlternatives!.click();
     const emergencyStopButton = root.querySelector<HTMLButtonElement>('[data-operation-action][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.emergencyStop + '"]')!;
     emergencyStopButton.click();
     expect(game.operationEntry.getView(runId)?.interventionDraft).toMatchObject({
@@ -224,7 +230,7 @@ describe('Gameplay B Operation Controller', () => {
     const regionBefore = controller.getRefreshStats().regionRefreshes;
     const alternatives = workspace.querySelector<HTMLButtonElement>('[data-operation-scene-choice]:not([aria-pressed="true"])');
     expect(alternatives).not.toBeNull();
-    alternatives!.closest('details')!.open = true;
+    workspace.querySelector<HTMLButtonElement>('[data-operation-scene-alternatives]')!.click();
     alternatives!.click();
     expect(alternatives!.getAttribute('aria-pressed')).toBe('true');
     expect(game.operationEntry.getSnapshot()!.planVersion).toBe(planVersion);
@@ -237,6 +243,131 @@ describe('Gameplay B Operation Controller', () => {
     stageButton.click();
     const staged = game.operationEntry.getView(stageButton.dataset.runId)?.pendingSceneActionBatch;
     expect(staged?.preview.selections.find(selection => selection.actorId === selectedActorId)?.sceneActionId).toBe(selectedActionId);
+  });
+
+  it('行动牌拖向合法人物会显示临时关系并写入正确边界的草稿', () => {
+    acquireStudents();
+    startFromFeed();
+    const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
+    const initialView = game.operationEntry.getView(runId)!;
+    const actionFace = [...root.querySelectorAll<HTMLButtonElement>('[data-operation-action][aria-pressed="true"]')]
+      .find(face => (JSON.parse(face.dataset.legalTargetActorIds ?? '[]') as string[])
+        .some(id => id !== face.dataset.defaultTargetActorId))!;
+    expect(actionFace).toBeDefined();
+    const legalTargets = JSON.parse(actionFace.dataset.legalTargetActorIds ?? '[]') as string[];
+    const dropTargetId = legalTargets.find(id => id !== actionFace.dataset.defaultTargetActorId)!;
+    const dropTarget = [...root.querySelectorAll<HTMLElement>('[data-operation-actor-target]')]
+      .find(actor => actor.dataset.operationActorTarget === dropTargetId)!;
+    const originalElementFromPoint = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
+    expect(actionFace.tagName).toBe('BUTTON');
+    expect(actionFace.tabIndex).toBe(0);
+    expect(actionFace.getAttribute('aria-label')).toContain('行动');
+    const targetTray = actionFace.parentElement?.querySelector<HTMLElement>('.operation-action-targets')!;
+    actionFace.focus();
+    actionFace.click();
+    expect(targetTray.hidden).toBe(false);
+    expect(document.activeElement).toBe(targetTray.querySelector('[data-operation-target]:not([aria-pressed="true"])'));
+    actionFace.click();
+    expect(targetTray.hidden).toBe(true);
+    const illegalTarget = [...root.querySelectorAll<HTMLElement>('[data-operation-actor-target]')]
+      .find(actor => !legalTargets.includes(actor.dataset.operationActorTarget ?? ''))!;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => dropTarget });
+    try {
+      actionFace.dispatchEvent(pointer('pointerdown', 2, 2, 19));
+      root.dispatchEvent(pointer('pointermove', 18, 18, 19));
+      expect(dropTarget.classList.contains('is-card-legal-target')).toBe(true);
+      root.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      expect(dropTarget.classList.contains('is-card-legal-target')).toBe(false);
+      expect(document.activeElement).toBe(actionFace);
+      expect(game.operationEntry.getView(runId)?.planVersion).toBe(initialView.planVersion);
+      expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+
+      actionFace.dispatchEvent(pointer('pointerdown', 2, 2, 21));
+      root.dispatchEvent(pointer('pointermove', 18, 18, 21));
+      expect(actionFace.classList.contains('is-card-drag-source')).toBe(true);
+      root.dispatchEvent(pointer('pointercancel', 18, 18, 21));
+      expect(actionFace.classList.contains('is-card-drag-source')).toBe(false);
+      expect(dropTarget.classList.contains('is-card-legal-target')).toBe(false);
+      expect(root.querySelector('[data-workspace-frame="operation"]')?.classList.contains('is-card-dragging')).toBe(false);
+      expect(game.operationEntry.getView(runId)?.planVersion).toBe(initialView.planVersion);
+      expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+
+      actionFace.dispatchEvent(pointer('pointerdown', 2, 2, 22));
+      root.dispatchEvent(pointer('pointermove', 18, 18, 22));
+      actionFace.dispatchEvent(pointer('lostpointercapture', 18, 18, 22));
+      expect(actionFace.classList.contains('is-card-drag-source')).toBe(false);
+      expect(dropTarget.classList.contains('is-card-legal-target')).toBe(false);
+      expect(game.operationEntry.getView(runId)?.planVersion).toBe(initialView.planVersion);
+      expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+
+      Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => illegalTarget });
+      actionFace.dispatchEvent(pointer('pointerdown', 2, 2, 20));
+      root.dispatchEvent(pointer('pointermove', 18, 18, 20));
+      actionFace.dispatchEvent(pointer('pointerup', 18, 18, 20));
+      expect(game.operationEntry.getView(runId)?.planVersion).toBe(initialView.planVersion);
+      expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+
+      Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => dropTarget });
+      actionFace.dispatchEvent(pointer('pointerdown', 2, 2));
+      root.dispatchEvent(pointer('pointermove', 18, 18));
+      expect(dropTarget.classList.contains('is-card-legal-target')).toBe(true);
+      expect(dropTarget.classList.contains('is-card-hover-target')).toBe(true);
+      expect(root.querySelector('[data-operation-drag-relation]')?.getAttribute('d')).toContain('M');
+      expect(game.operationEntry.getSnapshot()!.planVersion).toBe(initialView.planVersion);
+      actionFace.dispatchEvent(pointer('pointerup', 18, 18));
+    } finally {
+      if (originalElementFromPoint) Object.defineProperty(document, 'elementFromPoint', originalElementFromPoint);
+      else Reflect.deleteProperty(document, 'elementFromPoint');
+    }
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toMatchObject({
+      actorId: actionFace.dataset.actorId,
+      actionId: actionFace.dataset.actionId,
+      targetActorId: dropTargetId,
+    });
+    expect(game.operationEntry.getView(runId)!.planVersion).toBeGreaterThan(initialView.planVersion);
+    expect(root.querySelector('[data-operation-action][data-actor-id="' + actionFace.dataset.actorId + '"][data-action-id="' + actionFace.dataset.actionId + '"]')).toBe(actionFace);
+    expect(document.activeElement).toBe(actionFace);
+
+    // Reset this isolated drag scenario so the existing safety plan takes its normal route to Individual actions.
+    root.querySelector<HTMLButtonElement>('[data-operation-clear]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-commit]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-route][data-route-id="' + IDS.routes.staffGate + '"]')!.click();
+    const sceneView = game.operationEntry.getView(runId)!;
+    const cardFace = [...root.querySelectorAll<HTMLButtonElement>('[data-operation-card-toggle]')]
+      .find(face => (JSON.parse(face.dataset.legalTargetActorIds ?? '[]') as string[]).length > 0)!;
+    expect(sceneView.currentActionMode).toBe('global');
+    expect(cardFace).toBeDefined();
+    const cardTargetId = (JSON.parse(cardFace.dataset.legalTargetActorIds ?? '[]') as string[])[0];
+    const cardTarget = [...root.querySelectorAll<HTMLElement>('[data-operation-actor-target]')]
+      .find(actor => actor.dataset.operationActorTarget === cardTargetId)!;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => cardTarget });
+    try {
+      cardFace.dispatchEvent(pointer('pointerdown', 2, 2, 18));
+      root.dispatchEvent(pointer('pointermove', 18, 18, 18));
+      expect(cardTarget.classList.contains('is-card-legal-target')).toBe(true);
+      cardFace.dispatchEvent(pointer('pointerup', 18, 18, 18));
+    } finally {
+      if (originalElementFromPoint) Object.defineProperty(document, 'elementFromPoint', originalElementFromPoint);
+      else Reflect.deleteProperty(document, 'elementFromPoint');
+    }
+    expect(game.operationEntry.getView(runId)?.planVersion).toBe(sceneView.planVersion);
+    expect(game.operationEntry.getView(runId)?.pendingSceneActionBatch).toBeNull();
+    expect(cardFace.getAttribute('aria-pressed')).toBe('true');
+    expect(cardFace.dataset.targetSummary).toContain('→');
+    const visibleCardTarget = cardFace.querySelector<HTMLElement>('[data-operation-card-target-summary]');
+    expect(visibleCardTarget?.textContent).toContain('→');
+    const targetName = cardFace.closest<HTMLElement>('[data-operation-player-card]')!
+      .querySelector<HTMLElement>('[data-operation-card-target][data-target-actor-id="' + cardTargetId + '"]')?.textContent?.trim();
+    expect(targetName).toBeTruthy();
+    expect(visibleCardTarget?.textContent).toContain(targetName!);
+    expect(cardFace.getAttribute('aria-label')).toContain(targetName!);
+    expect(cardFace.getAttribute('aria-label')).toContain('已加入本批');
+    expect(cardFace.querySelector('[data-operation-card-status]')?.textContent).toBe('已加入');
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
+    const staged = game.operationEntry.getView(runId)?.pendingSceneActionBatch;
+    expect(staged?.preview.cards.find(card => card.cardInstanceId === cardFace.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard)?.targetActorIds).toContain(cardTargetId);
   });
 
   it('Individual 同队治疗牌使用自身候选并预览整批费用，点击不查询或写 Run', () => {
@@ -273,13 +404,135 @@ describe('Gameplay B Operation Controller', () => {
     expect(game.operationEntry.getSnapshot()!.planVersion).toBe(planVersion);
     expect(controller.getRefreshStats()).toMatchObject({ fullRenders: refreshBefore.fullRenders, regionRefreshes: refreshBefore.regionRefreshes });
 
+    const individualSelections = [...root.querySelectorAll<HTMLElement>('[data-operation-scene-card][data-actor-id]')]
+      .map(sceneCard => ({ actorId: sceneCard.dataset.actorId, sceneActionId: sceneCard.querySelector<HTMLElement>('[data-operation-scene-choice][aria-pressed="true"]')?.dataset.sceneActionId }));
+    const firstCardInstanceId = aidCard!.cardInstanceId;
+    const secondCardInstanceId = secondAidCard!.cardInstanceId;
+    const expectedCardTargetIds = [IDS.actors.hoshino];
+    controller.requestOperationWorkspaceRefresh(game.operationEntry.getView(runId)!, { type: 'commit' });
+    expect(controller.getRefreshStats().regionRefreshes).toBe(refreshBefore.regionRefreshes + 1);
+    expect([...root.querySelectorAll<HTMLElement>('[data-operation-scene-card][data-actor-id]')]
+      .map(sceneCard => ({ actorId: sceneCard.dataset.actorId, sceneActionId: sceneCard.querySelector<HTMLElement>('[data-operation-scene-choice][aria-pressed="true"]')?.dataset.sceneActionId })))
+      .toEqual(individualSelections);
+    for (const cardInstanceId of [firstCardInstanceId, secondCardInstanceId]) {
+      const restoredCard = root.querySelector<HTMLElement>('[data-operation-player-card="' + cardInstanceId + '"]')!;
+      expect(restoredCard.classList.contains('is-selected')).toBe(true);
+      expect(restoredCard.querySelector('[data-operation-card-actor][aria-pressed="true"]')?.getAttribute('data-actor-id')).toBe(IDS.actors.serika);
+      expect([...restoredCard.querySelectorAll<HTMLElement>('[data-operation-card-targets-for="' + IDS.actors.serika + '"] [data-operation-card-target][aria-pressed="true"]')]
+        .map(button => button.dataset.targetActorId)).toEqual(expectedCardTargetIds);
+    }
+
     root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
     const staged = game.operationEntry.getView(runId)?.pendingSceneActionBatch;
     expect(staged?.preview.cards).toContainEqual(expect.objectContaining({
-      cardInstanceId: aidCard!.cardInstanceId,
+      cardInstanceId: firstCardInstanceId,
       actorId: IDS.actors.serika,
-      targetActorIds: [IDS.actors.hoshino],
+      targetActorIds: expectedCardTargetIds,
     }));
+  });
+
+  it('Operation 区域重建从内存 SceneDraft 恢复行动牌、执行者、目标和已选玩家卡', () => {
+    acquireStudents();
+    startFromFeed();
+    const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
+    root.querySelector<HTMLButtonElement>('[data-operation-action][data-action-id="' + CAROUSEL_SAFETY_IDS.actions.emergencyStop + '"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
+
+    const individualView = game.operationEntry.getView(runId)!;
+    expect(individualView.currentActionMode).toBe('individual');
+    const hoshinoCard = root.querySelector<HTMLElement>('[data-operation-scene-card][data-actor-id="' + IDS.actors.hoshino + '"]')!;
+    const defaultSceneFace = hoshinoCard.querySelector<HTMLButtonElement>('[data-operation-scene-choice][aria-pressed="true"]')!;
+    const defaultActionId = defaultSceneFace.dataset.sceneActionId!;
+    const alternateSceneFace = hoshinoCard.querySelector<HTMLButtonElement>('[data-operation-scene-choice]:not([aria-pressed="true"])')!;
+    const selectedActionId = alternateSceneFace.dataset.sceneActionId!;
+    hoshinoCard.querySelector<HTMLButtonElement>('[data-operation-scene-alternatives]')!.click();
+    alternateSceneFace.click();
+    expect(game.operationEntry.getView(runId)?.planVersion).toBe(individualView.planVersion);
+    controller.requestOperationWorkspaceRefresh(individualView, { type: 'commit' });
+    const restoredHoshino = root.querySelector<HTMLElement>('[data-operation-scene-card][data-actor-id="' + IDS.actors.hoshino + '"]')!;
+    expect(restoredHoshino.querySelector('[data-operation-scene-choice][aria-pressed="true"]')?.getAttribute('data-scene-action-id')).toBe(selectedActionId);
+
+    restoredHoshino.querySelector<HTMLButtonElement>('[data-operation-scene-alternatives]')!.click();
+    restoredHoshino.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + defaultActionId + '"]')!.click();
+
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
+    expect(game.operationEntry.getView(runId)?.pendingSceneActionBatch?.preview.selections)
+      .toContainEqual(expect.objectContaining({ actorId: IDS.actors.hoshino, sceneActionId: defaultActionId }));
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-commit]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-route][data-route-id="' + IDS.routes.staffGate + '"]')!.click();
+
+    const globalView = game.operationEntry.getView(runId)!;
+    expect(globalView.currentActionMode).toBe('global');
+    const globalCard = root.querySelector<HTMLElement>('[data-global-scene-card]')!;
+    const globalFace = globalCard.querySelector<HTMLButtonElement>('[data-operation-scene-choice][aria-pressed="true"]')!;
+    globalFace.click();
+    const performer = [...globalCard.querySelectorAll<HTMLButtonElement>('[data-operation-scene-performer]')]
+      .find(button => button.getAttribute('aria-pressed') !== 'true')!;
+    performer.click();
+    const performerId = performer.dataset.actorId!;
+    const targetGroup = [...globalCard.querySelectorAll<HTMLElement>('[data-targets-for]')]
+      .find(group => group.dataset.targetsFor === performerId)!;
+    const sceneTarget = targetGroup.querySelector<HTMLButtonElement>('[data-operation-scene-target]')!;
+    sceneTarget.click();
+    const selectedSceneTargets = [...targetGroup.querySelectorAll<HTMLButtonElement>('[data-operation-scene-target][aria-pressed="true"]')]
+      .map(button => button.dataset.targetActorId);
+    expect(selectedSceneTargets.length).toBeGreaterThan(0);
+
+    const playerCardFace = [...root.querySelectorAll<HTMLButtonElement>('[data-operation-card-toggle]')]
+      .find(face => (JSON.parse(face.dataset.legalTargetActorIds ?? '[]') as string[]).length > 0)!;
+    const playerCard = playerCardFace.closest<HTMLElement>('[data-operation-player-card]')!;
+    playerCardFace.click();
+    const alternatePerformer = [...playerCard.querySelectorAll<HTMLButtonElement>('[data-operation-card-actor]')]
+      .find(button => button.getAttribute('aria-pressed') !== 'true');
+    alternatePerformer?.click();
+    const cardActorId = playerCardFace.dataset.actorId!;
+    const cardTargetGroup = [...playerCard.querySelectorAll<HTMLElement>('[data-operation-card-targets-for]')]
+      .find(group => group.dataset.operationCardTargetsFor === cardActorId)!;
+    const cardTargetButtons = [...cardTargetGroup.querySelectorAll<HTMLButtonElement>('[data-operation-card-target]')];
+    if (cardTargetButtons.length > 1) {
+      const chosen = cardTargetButtons.find(button => button.getAttribute('aria-pressed') !== 'true') ?? cardTargetButtons[0];
+      if (chosen.getAttribute('aria-pressed') === 'true') {
+        const remaining = cardTargetButtons.find(button => button !== chosen && button.getAttribute('aria-pressed') === 'true');
+        if (remaining) chosen.click();
+      } else chosen.click();
+    }
+    const cardTargetIds = [...cardTargetGroup.querySelectorAll<HTMLButtonElement>('[data-operation-card-target][aria-pressed="true"]')]
+      .map(button => button.dataset.targetActorId);
+    expect(cardTargetIds.length).toBeGreaterThan(0);
+    const selectedCardInstanceId = playerCard.dataset.operationPlayerCard!;
+
+    const refreshBefore = controller.getRefreshStats().regionRefreshes;
+    controller.requestOperationWorkspaceRefresh(globalView, { type: 'commit' });
+    expect(controller.getRefreshStats().regionRefreshes).toBe(refreshBefore + 1);
+    const restoredGlobalCard = root.querySelector<HTMLElement>('[data-global-scene-card]')!;
+    const restoredGlobalFace = restoredGlobalCard.querySelector<HTMLButtonElement>('[data-operation-scene-choice][aria-pressed="true"]')!;
+    expect(restoredGlobalFace.dataset.sceneActionId).toBe(globalFace.dataset.sceneActionId);
+    expect(restoredGlobalCard.querySelector('[data-operation-scene-performer][aria-pressed="true"]')?.getAttribute('data-actor-id')).toBe(performerId);
+    const restoredTargetGroup = [...restoredGlobalCard.querySelectorAll<HTMLElement>('[data-targets-for]')]
+      .find(group => group.dataset.targetsFor === performerId)!;
+    expect([...restoredTargetGroup.querySelectorAll<HTMLElement>('[data-operation-scene-target][aria-pressed="true"]')]
+      .map(button => button.dataset.targetActorId)).toEqual(selectedSceneTargets);
+    const restoredPlayerCard = root.querySelector<HTMLElement>('[data-operation-player-card="' + selectedCardInstanceId + '"]')!;
+    expect(restoredPlayerCard.classList.contains('is-selected')).toBe(true);
+    expect(restoredPlayerCard.querySelector('[data-operation-card-actor][aria-pressed="true"]')?.getAttribute('data-actor-id')).toBe(cardActorId);
+    const restoredCardTargetGroup = [...restoredPlayerCard.querySelectorAll<HTMLElement>('[data-operation-card-targets-for]')]
+      .find(group => group.dataset.operationCardTargetsFor === cardActorId)!;
+    expect([...restoredCardTargetGroup.querySelectorAll<HTMLElement>('[data-operation-card-target][aria-pressed="true"]')]
+      .map(button => button.dataset.targetActorId)).toEqual(cardTargetIds);
+
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
+    const staged = game.operationEntry.getView(runId)?.pendingSceneActionBatch?.preview;
+    expect(staged?.selections).toContainEqual(expect.objectContaining({
+      sceneActionId: globalFace.dataset.sceneActionId,
+      actorId: performerId,
+      targetActorIds: selectedSceneTargets,
+    }));
+    expect(staged?.cards).toContainEqual(expect.objectContaining({
+      cardInstanceId: selectedCardInstanceId,
+      actorId: cardActorId,
+      targetActorIds: cardTargetIds,
+    }));
+    expect(defaultSceneFace.dataset.sceneActionId).toBe(defaultActionId);
   });
 
   it('拒绝过期 planVersion 时显示可读提示并刷新到当前版本', () => {

@@ -8,7 +8,7 @@ import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-s
 import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import type { PanelState } from '../../src/ui/components/app-shell';
-import { renderOperationWorkspace } from '../../src/ui/components/operation-workspace';
+import { readOperationSceneDraft, renderOperationWorkspace, saveOperationSceneDraft } from '../../src/ui/components/operation-workspace';
 import { createUIContext } from '../../src/ui/context';
 import { renderWorkspace } from '../../src/ui/workspace/workspace-renderer';
 import { createWorkspaceNavigation } from '../../src/ui/workspace/workspace-router';
@@ -73,7 +73,7 @@ describe('Gameplay B Operation workspace view', () => {
     expect(host.querySelectorAll('[data-operation-student]')).toHaveLength(3);
     expect(host.querySelectorAll('[data-operation-opponent]')).toHaveLength(2);
     expect(host.querySelectorAll('[data-operation-environment-actor]')).toHaveLength(1);
-    expect(host.querySelector('[data-operation-plan="' + IDS.actors.hoshino + '"]')?.closest('[data-operation-student]')?.getAttribute('data-operation-student')).toBe(IDS.actors.hoshino);
+    expect(host.querySelector('[data-operation-action][data-actor-id="' + IDS.actors.hoshino + '"]')?.closest('[data-operation-student]')?.getAttribute('data-operation-student')).toBe(IDS.actors.hoshino);
     expect(host.querySelector('[data-operation-intent="' + IDS.actors.saboteur + '"]')?.closest('[data-operation-opponent]')?.getAttribute('data-operation-opponent')).toBe(IDS.actors.saboteur);
     expect(host.querySelector('.operation-student-list')).toBeNull();
     expect(host.querySelector('.operation-intents')).toBeNull();
@@ -85,6 +85,21 @@ describe('Gameplay B Operation workspace view', () => {
     expect(text).toContain('对手意图');
     expect(text).toContain('场景 / 设施');
     expect(text).toContain('Cost 5');
+    const battleFaces = [...host.querySelectorAll<HTMLButtonElement>('.operation-card-face--battle[data-operation-action]')];
+    expect(battleFaces.length).toBeGreaterThan(3);
+    expect(battleFaces.every(face => face.dataset.cardKind === 'battle-action' && !face.querySelector('button'))).toBe(true);
+    expect(host.querySelectorAll('.operation-card-face--intent')).toHaveLength(3);
+    expect(host.querySelector('[data-operation-intent="' + IDS.actors.saboteur + '"]')?.tagName).toBe('ARTICLE');
+    expect(host.querySelector('[data-operation-action-options] [data-operation-action-option][hidden]')).not.toBeNull();
+  });
+
+  it('reading a missing scene-draft version does not evict the stored draft', () => {
+    const runId = 'operation-draft-pure-read-regression';
+    const draft = { selections: [{ sceneActionId: IDS.sceneActions.inspect, actorId: IDS.actors.hoshino, targetActorIds: [] }], cards: [] };
+    saveOperationSceneDraft(runId, 3, IDS.locations.concourse, draft);
+
+    expect(readOperationSceneDraft(runId, 4, IDS.locations.concourse)).toBeUndefined();
+    expect(readOperationSceneDraft(runId, 3, IDS.locations.concourse)).toBe(draft);
   });
 
   it('projects detached actor names and HP on each side of the chat stream', () => {
@@ -119,6 +134,13 @@ describe('Gameplay B Operation workspace view', () => {
     expect(host.querySelectorAll('[data-operation-scene-card][data-actor-id]')).toHaveLength(3);
     expect(host.querySelectorAll('[data-operation-scene-selection]')).toHaveLength(0);
     expect(host.querySelector('[data-operation-player-hand]')).not.toBeNull();
+    const sceneFaces = [...host.querySelectorAll<HTMLButtonElement>('[data-operation-scene-choice]')];
+    expect(sceneFaces.length).toBeGreaterThanOrEqual(3);
+    expect(sceneFaces.every(face => face.classList.contains('operation-card-face--scene') && face.dataset.cardKind === 'scene-action')).toBe(true);
+    const physicalCards = [...host.querySelectorAll<HTMLElement>('[data-operation-player-card]')];
+    expect(new Set(physicalCards.map(card => card.dataset.operationPlayerCard)).size).toBe(physicalCards.length);
+    expect(physicalCards.every(card => card.querySelectorAll('.operation-card-face--player[data-operation-card-toggle]').length === 1)).toBe(true);
+    expect(physicalCards.every(card => card.querySelector('.operation-player-card__tools')?.hasAttribute('hidden'))).toBe(true);
 
     run = game.operationEntry.getSnapshot()!;
     game.operationEntry.commitSceneActionBatch({
@@ -156,6 +178,7 @@ describe('Gameplay B Operation workspace view', () => {
     expect(host.querySelector('[data-operation-route-history]')?.textContent).toContain('游乐园通道 → 出口集合点');
     expect(host.querySelectorAll('[data-operation-entry-cost-item]')).toHaveLength(3);
     expect(host.querySelectorAll('[data-operation-player-card]')).toHaveLength(view.playerCards.hand.length);
+    expect(host.querySelectorAll('.operation-card-face--scene.is-global')).toHaveLength(1);
     expect(host.querySelector('[data-operation-cost-balance]')).not.toBeNull();
   });
 

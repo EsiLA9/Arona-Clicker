@@ -14,7 +14,7 @@
 
 `controller-events.ts` 将游戏事件映射到适合的更新范围；`controller-core.ts` 处理揭示变化和轻量刷新。定时轻量刷新用于持续变化的读数，聊天打字状态变化只刷新聊天面板。结构或工作区身份改变时需要重新渲染；普通值变化优先使用已存在的局部更新入口。
 
-Gameplay B Operation route 进入/退出时更新 Workspace structure。已挂载 Surface 的战斗行动/目标/取消、SceneAction/玩家卡批次暂存与 Commit、路线转场及奖励领取命令经 Controller 获取一次新的 `OperationView`，并提交单一 `workspace.operation` region 请求；region morph 按稳定学生 / opponent / environment / card / route 身份同步内容，保留 Workspace frame、角色卡、主日志流、Action Dock、滚动锚点与可恢复焦点。SceneAction、玩家卡、执行者与目标的批次草稿选择只修改当前 Surface 的 aria/选中态和总 Cost 预览，不查询 `OperationView`、不写 Run，也不重建 Workspace；暂存或其他 Runtime 命令才读取最新投影。普通悬停、滚动和焦点不触发 Resolver 或全 Workspace render。战斗行动与目标选择会提交修订命令，因此按单次 region 更新处理。该投影由 `GameReadModel.operationEntry.getView(expectedRunId?)` 窄查询提供，不扩展全局 GameView。
+Gameplay B Operation route 进入/退出时更新 Workspace structure。战斗行动、对手 / 设施意图、Individual / Global SceneAction 与每个玩家 `cardInstanceId` 都有独立牌面；牌面按所属人物、共享场地或手牌层锚定。已挂载 Surface 的战斗行动/目标/取消、SceneAction/玩家卡批次暂存与 Commit、路线转场及奖励领取命令经 Controller 获取一次新的 `OperationView`，并提交单一 `workspace.operation` region 请求；region morph 按稳定学生 / opponent / environment / card / route 身份同步内容，保留 Workspace frame、角色卡、主日志流、Action Dock、滚动锚点与可恢复焦点。SceneAction、执行者、目标和玩家卡选择只更新当前 Surface、内存 `OperationSceneDraft` 与总 Cost 预览，不查询 `OperationView`、不写 Run，也不重建 Workspace；Stage 优先从本地草稿构造批次，首次没有草稿时从本次已有 `OperationView` 初始化默认选择，再用同一投影校验后调用既有 Runtime 命令。普通悬停、滚动和焦点不触发 Resolver 或全 Workspace render。战斗行动与目标选择会提交修订命令，因此按单次 region 更新处理。该投影由 `GameReadModel.operationEntry.getView(expectedRunId?)` 窄查询提供，不扩展全局 GameView。
 
 ## 代码与测试
 

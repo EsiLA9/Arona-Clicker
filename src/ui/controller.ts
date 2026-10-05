@@ -142,6 +142,10 @@ function operationMorphKey(node: Node): string | null {
   if (!(node instanceof HTMLElement)) return null;
   if (node.hasAttribute('data-operation-student')) return `student:${node.dataset.operationStudent}`;
   if (node.hasAttribute('data-operation-scene-card')) return `scene-card:${node.hasAttribute('data-global-scene-card') ? 'global' : node.dataset.actorId}`;
+  if (node.hasAttribute('data-operation-scene-option-card')) {
+    const owner = node.closest<HTMLElement>('[data-operation-scene-card]');
+    return `scene-option:${owner?.hasAttribute('data-global-scene-card') ? 'global' : owner?.dataset.actorId}:${node.dataset.sceneActionId}`;
+  }
   if (node.hasAttribute('data-operation-scene-choice')) return `scene-choice:${node.dataset.actorId}:${node.dataset.sceneActionId}`;
   if (node.hasAttribute('data-operation-scene-target')) {
     const owner = node.closest<HTMLElement>('[data-operation-student], [data-global-scene-card]')?.dataset.operationStudent ?? 'global';
@@ -153,6 +157,7 @@ function operationMorphKey(node: Node): string | null {
   if (node.hasAttribute('data-operation-card-actor')) return `scene-card-actor:${node.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard}:${node.dataset.actorId}`;
   if (node.hasAttribute('data-operation-card-target')) return `scene-card-target:${node.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard}:${node.dataset.targetActorId}`;
   if (node.hasAttribute('data-operation-player-card')) return `player-card:${node.dataset.operationPlayerCard}`;
+  if (node.hasAttribute('data-operation-action-option')) return `action-option:${node.dataset.actorId}:${node.dataset.actionId}`;
   if (node.hasAttribute('data-operation-route-history-item')) {
     const peers = [...(node.parentElement?.querySelectorAll<HTMLElement>('[data-operation-route-history-item]') ?? [])];
     return `route-history:${peers.indexOf(node)}`;
@@ -168,6 +173,7 @@ function operationMorphKey(node: Node): string | null {
   if (node.hasAttribute('data-operation-target')) return `target:${node.dataset.actorId}:${node.dataset.actionId}:${node.dataset.targetActorId}`;
   if (node.hasAttribute('data-operation-clear')) return `clear:${node.dataset.actorId}`;
   if (node.hasAttribute('data-operation-intent')) return `intent:${node.dataset.operationIntent}`;
+  if (node.hasAttribute('data-operation-prepared-plan')) return `prepared-plan:${node.dataset.operationPreparedPlan}`;
   if (node.hasAttribute('data-operation-resolution')) return `resolution:${node.dataset.operationResolution}`;
   if (node.hasAttribute('data-operation-commit')) return 'commit';
   if (node.hasAttribute('data-operation-commit-dock')) return 'commit-dock';
@@ -1618,6 +1624,7 @@ export class UIController {
         .find(button => button.dataset.actorId === focus.actorId
           && button.dataset.actionId === focus.actionId
           && button.dataset.targetActorId === focus.targetActorId) ?? null;
+      focusTarget?.closest<HTMLElement>('.operation-action-targets')?.removeAttribute('hidden');
     } else if (focus?.type === 'clear') {
       focusTarget = [...current.querySelectorAll<HTMLButtonElement>('[data-operation-clear]')]
         .find(button => button.dataset.actorId === focus.actorId) ?? null;

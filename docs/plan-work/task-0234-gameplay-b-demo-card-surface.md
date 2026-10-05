@@ -1,6 +1,6 @@
 # Task 0234：Gameplay B Operation 原型式真卡牌面与牌层交互
 
-状态：in progress — 2026-10-05 源码审查完成；U0 开发态检查入口与 U1/U2 真牌面施工已委派，严格审查和最终 GALHCG 更新排在实现之后。
+状态：in progress — U0 检查入口与 U1/U2 真牌面实施及独立严格审查已完成；U3 的 Edge 实际验收和最终 GALHCG 写后核验仍未闭环。
 
 ## 目标
 
@@ -66,7 +66,7 @@
 
 **Read Set**：本 Task；[[task-0232]]；[[draft-0231-gameplay-b-original-demo-activity-and-battle-round]]；[[docs/ai/context-packs/ui-presentation]]；[[docs/ai/frontend-design-project-overlay]]；目标 component、CSS 与两份 UI 定向测试；原 Demo 仅读 prototypes/gameplay-b/src/view.ts 与 style.css 的上述源码索引。
 
-**DOM budget**：每个当前行动 / Intent 一张常驻牌；替代行动仅在按需打开的卡牌选择层中渲染；每个当前手牌实例一张牌面；关系 SVG 只在 hover/focus/drag 所需范围绘制。复用 Operation Workspace 和角色节点，不重建整页。实现前在 Receipt 中给出新增稳定节点数及 behavior / region 边界。
+**DOM budget**：每个当前行动 / Intent 一张常驻牌；替代行动仅在按需打开的卡牌选择层中渲染；每个当前手牌实例一张牌面；关系 SVG 只在 hover/focus/drag 所需范围绘制。复用 Operation Workspace 和角色节点，不重建整页。Receipt：新增稳定牌面节点数随当前 OperationView 中已投影的可见行动、Intent 和实体 `cardInstanceId` 一对一增长；替代牌仅随选择层展开挂载。牌面及替代层在现有 Operation region 内，点击/键盘选择与目标编辑走当前 Surface 行为，候选结构变化和既有 Runtime 命令才触发单次 Operation region 更新；不新增 Workspace / 人物身份卡重建。
 
 **Allowed Files**：
 
@@ -77,13 +77,13 @@
 
 **Completion Criteria**：
 
-- [ ] 学生行动和敌方 Intent 的当前牌面是独立节点，直接贴近所属角色卡；Global 行动牌有明确的共享场地区域；玩家手牌每个物理 cardInstanceId 各是一张真实牌面。
-- [ ] 牌面以标题、效果 / 目标摘要、费用及选择 / 禁用状态构成可辨认的正面；参考 Demo 的横向比例、色边与错位叠层，响应式缩放不得压扁成普通列表行。
-- [ ] 当前行动的替代项即使按需展开，也以独立牌面呈现；不能用一列文字按钮冒充牌组。
-- [ ] 选择元素本身是牌面，不以带圆角的 section/article 包裹“加入”按钮、执行者按钮墙和目标按钮墙冒充完成。
-- [ ] 牌面内容全部来自当前 OperationView / 已有展示映射；无效或缺失候选不虚构牌面或效果。
+- [x] 学生行动和敌方 Intent 的当前牌面是独立节点，直接贴近所属角色卡；Global 行动牌有明确的共享场地区域；玩家手牌每个物理 cardInstanceId 各是一张真实牌面。
+- [x] 牌面以标题、效果 / 目标摘要、费用及选择 / 禁用状态构成可辨认的正面；参考 Demo 的横向比例、色边与错位叠层，响应式缩放不得压扁成普通列表行。
+- [x] 当前行动的替代项即使按需展开，也以独立牌面呈现；不能用一列文字按钮冒充牌组。
+- [x] 选择元素本身是牌面，不以带圆角的 section/article 包裹“加入”按钮、执行者按钮墙和目标按钮墙冒充完成。
+- [x] 牌面内容全部来自当前 OperationView / 已有展示映射；无效或缺失候选不虚构牌面或效果。
 
-**Verification**：npx vitest run tests/ui/operation-workspace-view.test.ts；npx tsc --noEmit。
+**Verification**：`npx vitest run tests/ui/operation-workspace-view.test.ts` 与 `npx tsc --noEmit` 通过；独立严格审查第三轮签署通过，无 P0/P1/P2。
 
 **Stop Conditions**：如牌面需要新的领域字段、跨 Run 状态、Datapack 配置或超出此 Operation 范围的通用卡牌模型，停止并交回 Task Owner 裁定。
 
@@ -104,13 +104,13 @@
 
 **Completion Criteria**：
 
-- [ ] 指向某人的单目标操作可以从牌面拖到合法人物；拖拽时仅高亮 View 允许的目标并显示临时关系线，放下后牌面明确显示目标关系。
-- [ ] 多目标 / 固定目标仍沿用当前 planner 许可与批次语义；必要时显示局部确认层，但不能退回常驻 select 或候选按钮墙。
-- [ ] 拖拽阈值、取消、失焦和 Escape 行为明确；非法目标不更新草稿，合法投放只更新本地草稿，不写 Run、不查询新 View。只有现有暂存 / Commit 操作进入 Runtime 命令。
-- [ ] 键盘和触屏可通过牌面激活、聚焦目标或等价的简洁可访问交互完成同一决策；拖拽不得成为唯一通路。
-- [ ] 费用预览、选中、失败保留选择及 Runtime 拒绝提示保持 Task-0232 已验收语义。
+- [x] 指向某人的单目标操作可以从牌面拖到合法人物；拖拽时仅高亮 View 允许的目标并显示临时关系线，放下后牌面明确显示目标关系。
+- [x] 多目标 / 固定目标仍沿用当前 planner 许可与批次语义；必要时显示局部确认层，但不能退回常驻 select 或候选按钮墙。
+- [x] 拖拽阈值、取消、失焦和 Escape 行为明确；非法目标不更新草稿，合法投放只更新本地草稿，不写 Run、不查询新 View。只有现有暂存 / Commit 操作进入 Runtime 命令。
+- [x] 键盘和触屏可通过牌面激活、聚焦目标或等价的简洁可访问交互完成同一决策；拖拽不得成为唯一通路。
+- [x] 费用预览、选中、失败保留选择及 Runtime 拒绝提示保持 Task-0232 已验收语义。
 
-**Verification**：npx vitest run tests/ui/gameplay-b-operation-controller.test.ts；npx tsc --noEmit。测试须走真实命令链验证投影目标与结算结果，并验证拖拽草稿隔离。
+**Verification**：`npx vitest run tests/ui/gameplay-b-operation-controller.test.ts` 与 `npx tsc --noEmit` 通过；controller 定向测试走真实命令链验证投影目标、结算结果与拖拽草稿隔离。独立严格审查第三轮签署通过，无 P0/P1/P2。
 
 **Stop Conditions**：若现有 OperationView 目标合同无法表达所需关系，停止并回报具体字段缺口；本 Unit 不自行增加 DTO / Runtime 合同。
 
@@ -154,7 +154,8 @@
 - 原 Demo 的非战斗场景玩家牌选择本身也是行式控件；本 Task 的 SceneCard 真牌面要求是用户新增的设计裁定，不归称为原 Demo 已有 UI。
 - Task-0232 的 U0–U3 代码、机制文档和 GALHCG 已提交；它仍等待 Edge 与现场键盘验收。本 Task 只在现有实现上重塑表现和交互，不代表 Task-0232 已整体完成。
 - U0 开发检查入口已完成：`?gameplayBCardInspector=1` + DEV gate 挂载独立临时 Runtime；通过正式 OperationEntry 与 OperationView 渲染样例。主存档预存后再经主页面保存按钮，导出内容完全一致；关闭检查后临时 Runtime 被销毁。定向测试 3/3、类型检查和 diff check 通过。
-- 当前施工顺序：U0 检查入口与 U1/U2 牌面主体并行；入口和主体冻结后交独立 Agent 做严格审查，修正完毕后由 GALHCG Agent 更新最终文件地图并写后核验。
+- U1/U2 已完成并经独立严格审查第三轮签署通过。牌面选择器、目标编辑、Stage 草稿读取和 region rebuild 恢复状态均按同一 OperationView / 本地草稿边界实施；取消拖拽与失焦不会写 Run。独立复跑 U1/U2 两套测试 16/16 通过；合并定向套件（含 U0）19/19、`npx tsc --noEmit` 与 `git diff --check` 通过。
+- U3 已更新当前 UI 刷新文档。用本地样例在 Codex IAB 补充查看了桌面与 390px 窄视口下的战斗、个人、全队和手牌牌面，并补充键盘激活观察；这些仅作视觉 / 操作补充，不替代本 Unit 要求的 Edge 证据。Edge 浏览器扩展两次都返回 `nodeRepl.fetch request failed`，没有打开标签，因此没有 Edge 截图或现场键盘流程证据；按本 Task 验收约定，U3 和总体验收保持未完成。代码 / Receipt 稳定后，由 GALHCG Agent 对最终变更路径执行映射更新及写后核验。
 - Task-0232 的当前证据仍只证明卡片容器/控件交互，不作为 U0 开发入口或原型式牌面的完成证据。
 
 ## GALHCG 影响闭环
@@ -167,7 +168,7 @@
 ## 剩余工作
 
 - Task-0232 尚待 Edge 实际流程与现场键盘验收；此状态不改变 Task-0234 的设计结论。
-- 本 Task 内：U1–U3 施工、严格审查、Edge 与现场键盘验收、当前机制文档及最终 GALHCG 闭环。
+- 本 Task 内：Edge 常规 / 窄窗口截图与现场键盘验收、最终 GALHCG 映射及写后核验。
 
 ## 相关路由
 
