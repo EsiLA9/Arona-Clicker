@@ -74,6 +74,14 @@
       "type": "MilestoneDef",
       "shape": "array"
     },
+    "milestoneListeners": {
+      "type": "MilestoneListenerDef",
+      "shape": "array"
+    },
+    "achievements": {
+      "type": "AchievementDef",
+      "shape": "array"
+    },
     "funcletDefs": {
       "type": "FuncletDef",
       "shape": "array"
@@ -282,6 +290,13 @@
               "table": "colorGroups"
             },
             {
+              "key": "systemColorLayerIgnored",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean",
+              "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+            },
+            {
               "key": "palette",
               "required": false,
               "kind": "array",
@@ -1037,6 +1052,13 @@
                       "table": "colorGroups"
                     },
                     {
+                      "key": "systemColorLayerIgnored",
+                      "required": false,
+                      "kind": "bool",
+                      "tsType": "boolean",
+                      "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+                    },
+                    {
                       "key": "palette",
                       "required": false,
                       "kind": "array",
@@ -1344,6 +1366,13 @@
                             "tsType": "string",
                             "label": "引用色彩组",
                             "table": "colorGroups"
+                          },
+                          {
+                            "key": "systemColorLayerIgnored",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
                           },
                           {
                             "key": "palette",
@@ -1531,6 +1560,13 @@
               "table": "colorGroups"
             },
             {
+              "key": "systemColorLayerIgnored",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean",
+              "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+            },
+            {
               "key": "palette",
               "required": false,
               "kind": "array",
@@ -2286,6 +2322,13 @@
                       "table": "colorGroups"
                     },
                     {
+                      "key": "systemColorLayerIgnored",
+                      "required": false,
+                      "kind": "bool",
+                      "tsType": "boolean",
+                      "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+                    },
+                    {
                       "key": "palette",
                       "required": false,
                       "kind": "array",
@@ -2593,6 +2636,13 @@
                             "tsType": "string",
                             "label": "引用色彩组",
                             "table": "colorGroups"
+                          },
+                          {
+                            "key": "systemColorLayerIgnored",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
                           },
                           {
                             "key": "palette",
@@ -2855,6 +2905,13 @@
               "table": "colorGroups"
             },
             {
+              "key": "systemColorLayerIgnored",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean",
+              "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+            },
+            {
               "key": "palette",
               "required": false,
               "kind": "array",
@@ -3610,6 +3667,13 @@
                       "table": "colorGroups"
                     },
                     {
+                      "key": "systemColorLayerIgnored",
+                      "required": false,
+                      "kind": "bool",
+                      "tsType": "boolean",
+                      "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+                    },
+                    {
                       "key": "palette",
                       "required": false,
                       "kind": "array",
@@ -3917,6 +3981,13 @@
                             "tsType": "string",
                             "label": "引用色彩组",
                             "table": "colorGroups"
+                          },
+                          {
+                            "key": "systemColorLayerIgnored",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
                           },
                           {
                             "key": "palette",
@@ -4536,6 +4607,13 @@
               "table": "colorGroups"
             },
             {
+              "key": "systemColorLayerIgnored",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean",
+              "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+            },
+            {
               "key": "palette",
               "required": false,
               "kind": "array",
@@ -5291,6 +5369,13 @@
                       "table": "colorGroups"
                     },
                     {
+                      "key": "systemColorLayerIgnored",
+                      "required": false,
+                      "kind": "bool",
+                      "tsType": "boolean",
+                      "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+                    },
+                    {
                       "key": "palette",
                       "required": false,
                       "kind": "array",
@@ -5598,6 +5683,13 @@
                             "tsType": "string",
                             "label": "引用色彩组",
                             "table": "colorGroups"
+                          },
+                          {
+                            "key": "systemColorLayerIgnored",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
                           },
                           {
                             "key": "palette",
@@ -6217,6 +6309,73 @@
         }
       ]
     },
+    "MilestoneListenerDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "milestoneId",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "areaId",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "then",
+          "required": true,
+          "kind": "array",
+          "tsType": "Effect[]",
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "Effect"
+          }
+        }
+      ]
+    },
+    "AchievementDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "listenerId",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "title",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "clue",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "rewardDescription",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        }
+      ]
+    },
     "FuncletDef": {
       "fields": [
         {
@@ -6462,6 +6621,13 @@
               "tsType": "string",
               "label": "引用色彩组",
               "table": "colorGroups"
+            },
+            {
+              "key": "systemColorLayerIgnored",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean",
+              "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
             },
             {
               "key": "palette",
@@ -7219,6 +7385,13 @@
                       "table": "colorGroups"
                     },
                     {
+                      "key": "systemColorLayerIgnored",
+                      "required": false,
+                      "kind": "bool",
+                      "tsType": "boolean",
+                      "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+                    },
+                    {
                       "key": "palette",
                       "required": false,
                       "kind": "array",
@@ -7526,6 +7699,13 @@
                             "tsType": "string",
                             "label": "引用色彩组",
                             "table": "colorGroups"
+                          },
+                          {
+                            "key": "systemColorLayerIgnored",
+                            "required": false,
+                            "kind": "hand",
+                            "tsType": "boolean",
+                            "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
                           },
                           {
                             "key": "palette",
@@ -8280,6 +8460,13 @@
           }
         },
         {
+          "key": "systemColorLayerIgnored",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
+        },
+        {
           "key": "theme",
           "required": false,
           "kind": "hand",
@@ -8343,6 +8530,13 @@
               "tsType": "string",
               "label": "引用色彩组",
               "table": "colorGroups"
+            },
+            {
+              "key": "systemColorLayerIgnored",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean",
+              "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
             },
             {
               "key": "palette",
@@ -9114,6 +9308,13 @@
               "tsType": "string",
               "label": "引用色彩组",
               "table": "colorGroups"
+            },
+            {
+              "key": "systemColorLayerIgnored",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean",
+              "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
             },
             {
               "key": "palette",
@@ -10023,6 +10224,13 @@
               "tsType": "string",
               "label": "引用色彩组",
               "table": "colorGroups"
+            },
+            {
+              "key": "systemColorLayerIgnored",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean",
+              "label": "忽略主题派生画布底层；显式背景图层仍参与显示"
             },
             {
               "key": "palette",
@@ -11192,6 +11400,7 @@
   },
   "indexedTypes": [
     "AccessStage",
+    "AchievementDef",
     "ActiveAreaConnection",
     "ActiveStoryEntry",
     "ActiveThemeSelection",
@@ -11322,6 +11531,7 @@
     "ItemRevealCondition",
     "LevelUpgradeDef",
     "MilestoneDef",
+    "MilestoneListenerDef",
     "MotionDef",
     "MotionPreset",
     "OperationActionCostDef",

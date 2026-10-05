@@ -12,8 +12,15 @@
 
 - 玩法 B V1 的 Runtime、独立内容包、三栏入口、路线、玩家场景牌、结局、奖励和续局已完成；后续产品扩展另立 Task，不沿用已关闭 Task 的“下一阶段”描述。
 
+### 玩法 B 原始 Demo：事实参考
+
+- [[draft-0231-gameplay-b-original-demo-activity-and-battle-round]]：原始 `prototypes/gameplay-b/` 的非战斗场所批次与战斗回合，从三栏 UI、显示反馈、玩法到操作步骤逐项记录并附源码/测试索引；与 AC 移植版分开。
+- [[draft-0231-b]]：调查原始场所/战斗体验如何映射到已完成的 AC Gameplay B V1 聊天流与三栏基础；逐项对照 Demo 固定显示元素，明确现有实现、内容/界面硬编码和仍待产品裁定的问题，不是施工 Task。
+
 ## 近期完成
 
+- [[archive/task-0230-contacts-story-workspace-titlebar-convergence]]：通讯录与故事复用默认中栏等高标题区，以本地 SVG 返回键替代长文本并移除 eyebrow；定向测试与类型检查通过。
+- [[archive/task-0229-unified-theme-contribution-and-background-rendering]]：统一主题来源、派生画布底层与渲染，提供面向编辑态 Datapack 主题的 owner-aware 预览和保存服务。
 - [[archive/draft-0212-gameplay-b-ac-native-design-roadmap]]：Gameplay B V1 设计身份、规则裁定与阶段来源；实现以当前机制文档为准。
 - [[archive/task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]]：Gameplay B V1 从夏莱办公室固定阵容入口，经战斗、场景行动/玩家卡、路线、结局/奖励与 Save/Resume 完成端到端闭环。
 - [[archive/task-0218-gameplay-b-causal-locations-and-route-selection]]：单一 Location 合同、路线选择/自动转场、持有物 Gate、有界回环、路线投影与固定样例。

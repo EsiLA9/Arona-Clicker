@@ -1,6 +1,6 @@
 {
   "name": "AronaClicker",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "inits": [
     {
       "id": "base:init:schale_office",
@@ -3926,6 +3926,36 @@
               "textColorMode": "auto"
             },
             {
+              "id": "leftPanel.area",
+              "layers": [
+                {
+                  "id": "left-area-clear",
+                  "kind": "empty",
+                  "value": ""
+                }
+              ]
+            },
+            {
+              "id": "centerPanel.chat",
+              "layers": [
+                {
+                  "id": "center-chat-clear",
+                  "kind": "empty",
+                  "value": ""
+                }
+              ]
+            },
+            {
+              "id": "rightPanel.spot",
+              "layers": [
+                {
+                  "id": "right-spot-clear",
+                  "kind": "empty",
+                  "value": ""
+                }
+              ]
+            },
+            {
               "id": "footer.send",
               "parent": "footer",
               "shape": "rounded-parallelogram",
@@ -3970,22 +4000,6 @@
             }
           ],
           "components": [
-            {
-              "id": "center-hoshino-portrait",
-              "parent": "centerPanel",
-              "asset": "base:background(pic):hoshino",
-              "anchor": "bottom-right",
-              "offset": {
-                "x": 4,
-                "y": 1,
-                "unit": "percent"
-              },
-              "size": {
-                "height": 88,
-                "unit": "percent"
-              },
-              "fit": "contain"
-            },
             {
               "id": "center-triangle-decoration",
               "parent": "centerPanel",
@@ -4126,6 +4140,36 @@
                   "textColorMode": "auto"
                 },
                 {
+                  "id": "leftPanel.area",
+                  "layers": [
+                    {
+                      "id": "left-area-clear",
+                      "kind": "empty",
+                      "value": ""
+                    }
+                  ]
+                },
+                {
+                  "id": "centerPanel.chat",
+                  "layers": [
+                    {
+                      "id": "center-chat-clear",
+                      "kind": "empty",
+                      "value": ""
+                    }
+                  ]
+                },
+                {
+                  "id": "rightPanel.spot",
+                  "layers": [
+                    {
+                      "id": "right-spot-clear",
+                      "kind": "empty",
+                      "value": ""
+                    }
+                  ]
+                },
+                {
                   "id": "footer.send",
                   "parent": "footer",
                   "shape": "rounded-parallelogram",
@@ -4170,22 +4214,6 @@
                 }
               ],
               "components": [
-                {
-                  "id": "center-hoshino-portrait",
-                  "parent": "centerPanel",
-                  "asset": "base:background(pic):hoshino",
-                  "anchor": "bottom-right",
-                  "offset": {
-                    "x": 4,
-                    "y": 1,
-                    "unit": "percent"
-                  },
-                  "size": {
-                    "height": 88,
-                    "unit": "percent"
-                  },
-                  "fit": "contain"
-                },
                 {
                   "id": "center-triangle-decoration",
                   "parent": "centerPanel",
@@ -15847,6 +15875,5 @@
       "t": "int",
       "v": 0
     }
-  },
-  "modName": "base"
+  }
 }

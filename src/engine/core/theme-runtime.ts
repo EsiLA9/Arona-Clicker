@@ -30,6 +30,10 @@ export const DEFAULT_LAYER_ORDER: ThemeOrderScope[] = ['player', 'init', 'area',
 export interface ThemeLayer {
   /** 层的唯一标识（用于 pop/清除；缺省自动生成）。 */
   id?: string;
+  /** 稳定的主题来源键；用于编辑态 Preview 按原优先级替换当前来源。 */
+  sourceId?: string;
+  /** Preview 请求替换的来源键；未命中时 Preview 按普通高优先级层追加。 */
+  replacesSourceId?: string;
   /** 运行时归属标识；仅用于生命周期诊断，不参与主题解析。 */
   owner?: string;
   /** 运行时目标键；仅用于临时层目标过滤和诊断，不参与 token 解析。 */
@@ -139,6 +143,38 @@ export interface ResolvedTheme {
 
 const DEFAULT_TOKENS: ThemeTokens = { primary: SYSTEM_DEFAULT_PRIMARY };
 
+/** 全局主题色派生画布底层的保留图层 ID。 */
+export const SYSTEM_COLOR_BACKGROUND_ID = 'system-color-background';
+
+/** 所有主题来源共用同一份派生画布层表达；实际颜色由当前 ThemeTree 的 token 变量解析。 */
+export function systemColorBackgroundLayer(): BackgroundLayerDef {
+  return {
+    id: SYSTEM_COLOR_BACKGROUND_ID,
+    kind: 'gradient',
+    value: 'linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)',
+    opacity: 1,
+    position: 'center',
+    size: 'cover',
+    repeat: 'no-repeat',
+    blendMode: 'normal',
+    attachment: 'fixed',
+  };
+}
+
+/** 派生色层固定为最底层；同 ID 的作者层不能覆写这条系统层。 */
+export function composeThemeBackground(
+  layers: readonly BackgroundLayerDef[],
+): BackgroundLayerDef[];
+export function composeThemeBackground<T extends { id?: string; kind: BackgroundLayerDef['kind']; value: string }>(
+  layers: readonly T[],
+): T[];
+export function composeThemeBackground<T extends { id?: string; kind: BackgroundLayerDef['kind']; value: string }>(
+  layers: readonly T[],
+): T[] {
+  const explicit = layers.filter(layer => layer.id !== SYSTEM_COLOR_BACKGROUND_ID).map(layer => ({ ...layer }));
+  return [systemColorBackgroundLayer() as T, ...explicit];
+}
+
 function mergeScopeNodeOverrides(
   base: Record<string, Partial<Record<ThemeNodeName, string>>>,
   next: Record<string, Partial<Record<ThemeNodeName, string>>> | undefined,
@@ -246,7 +282,7 @@ export class RuntimeThemeManager {
   pushEphemeral(layer: ThemeLayer): string {
     const id = layer.id ?? `ephemeral-${++this.seq}`;
     const existing = this.ephemeralStack.findIndex(e => e.id === id);
-    const entry = { layer: { ...layer, id }, id, revision: ++this.revision, owner: layer.owner, targets: layer.targets ? [...layer.targets] : undefined };
+    const entry = { layer: { ...layer, id, sourceId: layer.sourceId ?? id }, id, revision: ++this.revision, owner: layer.owner, targets: layer.targets ? [...layer.targets] : undefined };
     if (existing >= 0) this.ephemeralStack[existing] = entry;
     else this.ephemeralStack.push(entry);
     this.changed();
@@ -419,12 +455,21 @@ export class RuntimeThemeManager {
       if (layer) ordered.push(layer);
     }
     if (this.user) ordered.push(this.user);
-    if (options.includePreview !== false && this.preview) ordered.push(this.preview);
+    const preview = options.includePreview !== false ? this.preview : null;
+    let previewReplaced = false;
+    if (preview?.replacesSourceId) {
+      const replaceIndex = ordered.findIndex(layer => layer.sourceId === preview.replacesSourceId);
+      if (replaceIndex >= 0) {
+        ordered[replaceIndex] = preview;
+        previewReplaced = true;
+      }
+    }
+    if (preview && !previewReplaced) ordered.push(preview);
     for (const e of options.includeEphemeralLayers === false ? [] : [...this.ephemeralStack].sort((a, b) => a.revision - b.revision)) {
       if (e.targets && target !== undefined && !e.targets.includes(target)) continue;
       ordered.push(e.layer);
     }
-    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, palette: [], nodeOverrides: {}, scopeNodeOverrides: {}, layers: [], background: [], systemColorLayerIgnored: false, presentation: {} };
+    if (ordered.length === 0) return { groupId: null, tokens: { ...DEFAULT_TOKENS }, palette: [], nodeOverrides: {}, scopeNodeOverrides: {}, layers: [], background: composeThemeBackground([]), systemColorLayerIgnored: false, presentation: {} };
 
     let merged: ThemeTokens = {};
     let palette: string[] = [];
@@ -566,7 +611,7 @@ export class RuntimeThemeManager {
       nodeOverrides,
       scopeNodeOverrides,
       layers: ordered.map(l => l.id ?? l.scope),
-      background,
+      background: composeThemeBackground(background),
       systemColorLayerIgnored,
       presentation,
     };

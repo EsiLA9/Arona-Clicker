@@ -192,7 +192,7 @@ describe('服务工作区', () => {
       ...baseState(),
       service: 'datapack',
       datapackWorkspace: {
-        section: 'all', mode: 'classic', selectedPackId: 'shared-a', draftEnabledIds: [], draftOrder: ['base@1.0.0', 'shared-a', 'shared-b'], validation: null, lastResult: null,
+        section: 'all', mode: 'classic', selectedPackId: 'shared-a', draftEnabledIds: [], draftOrder: ['base@1.0.2', 'shared-a', 'shared-b'], validation: null, lastResult: null,
       },
     });
     expect(html.match(/data-pack-id="shared-[ab]"/g)).toHaveLength(2);
@@ -211,7 +211,7 @@ describe('服务工作区', () => {
       service: 'datapack',
       datapackWorkspace: {
         section: 'all', mode: 'classic', selectedPackId: null,
-        draftEnabledIds: ['base@1.0.0'], draftOrder: runtime.getPackCatalog().entries.map(entry => entry.id),
+        draftEnabledIds: ['base@1.0.2'], draftOrder: runtime.getPackCatalog().entries.map(entry => entry.id),
         validation: null, lastResult: null,
       },
     });
@@ -235,7 +235,7 @@ describe('服务工作区', () => {
       ...baseState(),
       service: 'datapack',
       datapackWorkspace: {
-        section: 'all', mode: 'classic', selectedPackId: target.id, draftEnabledIds: ['base@1.0.0'], draftOrder: ['base@1.0.0', target.id], validation: null, lastResult: null,
+        section: 'all', mode: 'classic', selectedPackId: target.id, draftEnabledIds: ['base@1.0.2'], draftOrder: ['base@1.0.2', target.id], validation: null, lastResult: null,
       },
     });
     expect(html).toContain('data-pack-convert-normal="editing:base@2.0.0"');
@@ -258,7 +258,7 @@ describe('服务工作区', () => {
       ...baseState(), service: 'datapack',
       datapackWorkspace: {
         section: 'all', mode: 'development', selectedPackId: pack.id,
-        draftEnabledIds: ['base@1.0.0', pack.id], draftOrder: ['base@1.0.0', pack.id], validation: null, lastResult: null,
+        draftEnabledIds: ['base@1.0.2', pack.id], draftOrder: ['base@1.0.2', pack.id], validation: null, lastResult: null,
       },
     });
     expect(html).toContain('class="pack-source-list"');
@@ -272,7 +272,7 @@ describe('服务工作区', () => {
 
     const classic = renderAppShell(createUIContext(runtime), {
       ...baseState(), service: 'datapack',
-      datapackWorkspace: { section: 'all', mode: 'classic', selectedPackId: null, draftEnabledIds: ['base@1.0.0', pack.id], draftOrder: ['base@1.0.0', pack.id], validation: null, lastResult: null },
+      datapackWorkspace: { section: 'all', mode: 'classic', selectedPackId: null, draftEnabledIds: ['base@1.0.2', pack.id], draftOrder: ['base@1.0.2', pack.id], validation: null, lastResult: null },
     });
     expect(classic).toContain('data-pack-id="development:demo@1.0@finished/"');
     expect(classic).toContain('data-pack-list="enabled"');

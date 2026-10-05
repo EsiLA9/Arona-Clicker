@@ -163,7 +163,7 @@ describe('UIContext：簇与当前区域宿主', () => {
     expect(ctx.backgroundForHost('leftPanel.tab', true, 'disabled').layers.map(layer => layer.value)).toContain('#abc');
   });
 
-  test('active、inactive、disabled 有专属图层时优先使用；active 缺失时回退主题色 2', () => {
+  test('active、inactive、disabled 有专属图层时优先使用；active 缺失时使用本宿主默认层', () => {
     const presentation = buildPresentationView({ hosts: [{
       id: 'header.button',
       layers: [{ id: 'default', kind: 'solid', value: '#abc' }],
@@ -178,7 +178,7 @@ describe('UIContext：簇与当前区域宿主', () => {
     expect(ctx.backgroundForHost('header.button', false, 'inactive').layers.map(layer => layer.value)).toContain('#0f0');
     expect(ctx.backgroundForHost('header.button', false, 'disabled').layers.map(layer => layer.value)).toContain('#888');
     const fallback = buildPresentationView({ hosts: [{ id: 'header.button', layers: [{ kind: 'solid', value: '#abc' }] }] }, pics);
-    expect(createUIContext(game, { layers: [] }, fallback).backgroundForHost('header.button', false, 'active').layers.map(layer => layer.value)).toContain('var(--theme-palette-2, var(--theme-palette-1, var(--theme-node-primary)))');
+    expect(createUIContext(game, { layers: [] }, fallback).backgroundForHost('header.button', false, 'active').layers.map(layer => layer.value)).toEqual(['#abc']);
   });
 
   test('active 新增图层保留默认宿主图层，并按同 ID 覆盖', () => {
@@ -195,15 +195,29 @@ describe('UIContext：簇与当前区域宿主', () => {
     expect(ctx.backgroundForHost('header.button', false, 'active').layers.map(layer => layer.value)).not.toContain('#def');
   });
 
-  test('子宿主没有 active 覆盖时继承父宿主 active 图层，而不是回退主题色', () => {
+  test('子宿主缺少状态覆盖时使用自身默认图层，不复用父宿主图层或装饰', () => {
     const presentation = buildPresentationView({ hosts: [
-      { id: 'leftPanel', layers: [{ id: 'base', kind: 'solid', value: '#abc' }], states: { active: { layers: [{ id: 'parent-active', kind: 'solid', value: '#ace' }] } } },
-      { id: 'leftPanel.area', layers: [{ id: 'area-base', kind: 'solid', value: '#def' }] },
+      { id: 'leftPanel', layers: [{ id: 'base', kind: 'solid', value: '#abc' }], decoration: { color: '#f0f', width: 2 }, states: { active: { layers: [{ id: 'parent-active', kind: 'solid', value: '#ace' }], decoration: { color: '#f0f', width: 3 } } } },
+      { id: 'leftPanel.area', layers: [{ id: 'area-base', kind: 'solid', value: 'var(--theme-node-panel)' }] },
     ] }, pics);
     const ctx = createUIContext(game, { layers: [] }, presentation);
 
-    expect(ctx.backgroundForHost('leftPanel.area', false, 'active').layers.map(layer => layer.value)).toContain('#ace');
-    expect(ctx.backgroundForHost('leftPanel.area', false, 'active').layers.map(layer => layer.value)).not.toContain('var(--theme-palette-2, var(--theme-palette-1, var(--theme-node-primary)))');
+    const active = ctx.backgroundForHost('leftPanel.area', false, 'active');
+    expect(active.layers.map(layer => layer.value)).toEqual(['var(--theme-node-panel)']);
+    expect(active.decoration).toBeUndefined();
+    expect(ctx.backgroundForHost('leftPanel.area', false, 'default').layers.map(layer => layer.value)).toEqual(['var(--theme-node-panel)']);
+  });
+
+  test('子宿主没有自有默认层和状态层时沿用主题色 active 默认表现', () => {
+    const presentation = buildPresentationView({ hosts: [
+      { id: 'leftPanel', layers: [{ id: 'base', kind: 'solid', value: '#abc' }], states: { active: { layers: [{ id: 'parent-active', kind: 'solid', value: '#ace' }] } } },
+      { id: 'leftPanel.area', layers: [] },
+    ] }, pics);
+    const ctx = createUIContext(game, { layers: [] }, presentation);
+
+    expect(ctx.backgroundForHost('leftPanel.area', false, 'active').layers.map(layer => layer.value)).toEqual([
+      'var(--theme-palette-2, var(--theme-palette-1, var(--theme-node-primary)))',
+    ]);
   });
 
   test('没有控件宿主时，active 使用主题色 2，非 active 使用主题基本背景色', () => {

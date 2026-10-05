@@ -50,8 +50,8 @@ export function restoreThemeFloat(ctrl: UIController): void {
 }
 
 /**
- * 重建运行时场景层（保留玩家基色与临时演出层）：
- * 先清空 area/student 场景栈，再按当前场景（学生对话 > Area）重推。
+ * 重建游戏内运行时场景层（保留玩家基色与临时演出层）：
+ * Init 主题只投影到外部 Init 选择页；游戏运行时只按当前 Area 与学生对话重推。
  * 必须在任何依赖运行时层状态的 UI（如层级优先级色胶囊）生成之前调用，
  * 否则胶囊会读到上一帧的层 → 换色后落后一拍。
  */
@@ -65,15 +65,6 @@ export function syncRuntimeTheme(ctrl: UIController): void {
   if (!ctrl.game.getView().currentStory) {
     ctrl.game.colorSystem.clearStoryTheme();
   }
-  const activeInitId = ctrl.game.getView().activeInit;
-  const activeInit = activeInitId ? ctrl.game.world.inits.get(activeInitId) : undefined;
-  if (activeInit) {
-    const resolution = ctrl.game.colorSystem.resolveEntityTheme(ctrl.game.state, entityKeyOf('init', activeInit.id), { declaredTheme: activeInit.theme });
-    const theme = resolution.theme;
-    if (theme) {
-      ctrl.game.colorSystem.pushSceneTheme({ scope: 'init', groupId: theme.colorGroupId, palette: theme.palette, tokens: theme.tokens, nodeOverrides: theme.nodes, background: theme.background, presentation: theme.presentation });
-    }
-  }
   const areaId = ctrl.game.getView().currentAreaId;
   if (areaId) {
     const area = ctrl.game.world.areas.get(areaId);
@@ -82,10 +73,16 @@ export function syncRuntimeTheme(ctrl: UIController): void {
       ? ctrl.game.colorSystem.resolveEntityTheme(ctrl.game.state, entityKeyOf('area', areaId), { declaredTheme: area.theme })
       : { theme: null };
     const theme = resolution.theme
-      ? { ...resolution.theme, background: resolution.theme.background ?? area?.theme?.background }
+      ? {
+        ...resolution.theme,
+        background: resolution.theme.background ?? area?.theme?.background,
+        systemColorLayerIgnored: resolution.theme.systemColorLayerIgnored
+          ?? (resolution.theme.colorGroupId ? ctrl.game.colorSystem.getGroup(resolution.theme.colorGroupId)?.systemColorLayerIgnored : undefined)
+          ?? area?.theme?.systemColorLayerIgnored,
+      }
       : null;
     if (theme) {
-      ctrl.game.colorSystem.pushSceneTheme({ scope: 'area', groupId: theme.colorGroupId, palette: theme.palette, tokens: theme.tokens, nodeOverrides: theme.nodes, background: theme.background, presentation: theme.presentation });
+      ctrl.game.colorSystem.pushSceneTheme({ sourceId: `area:${areaId}`, scope: 'area', groupId: theme.colorGroupId, palette: theme.palette, tokens: theme.tokens, nodeOverrides: theme.nodes, background: theme.background, systemColorLayerIgnored: theme.systemColorLayerIgnored, presentation: theme.presentation });
     }
   }
   const convId = ctrl.panelState.conversationVariantId;
@@ -103,12 +100,16 @@ export function syncRuntimeTheme(ctrl: UIController): void {
         // 统一解析实体主题来源（自定义 / 设计 / 装备 / 声明默认）
         const override = resolution.theme;
         ctrl.game.colorSystem.pushSceneTheme({
+          sourceId: `student:${convId}`,
           scope: 'student',
           groupId: override.colorGroupId,
           palette: override.palette,
           tokens: override.tokens,
           nodeOverrides: override.nodes,
           background: override.background ?? variant.theme?.background,
+          systemColorLayerIgnored: override.systemColorLayerIgnored
+            ?? (override.colorGroupId ? ctrl.game.colorSystem.getGroup(override.colorGroupId)?.systemColorLayerIgnored : undefined)
+            ?? variant.theme?.systemColorLayerIgnored,
           presentation: override.presentation ?? variant.theme?.presentation,
         });
       } else {
@@ -122,12 +123,15 @@ export function syncRuntimeTheme(ctrl: UIController): void {
           studentGroupId = groupId;
         }
         ctrl.game.colorSystem.pushSceneTheme({
+          sourceId: `student:${convId}`,
           scope: 'student',
           groupId: studentGroupId,
           palette: variant.theme?.palette,
           tokens: variant.theme?.tokens,
           nodeOverrides: variant.theme?.nodes,
           background: variant.theme?.background,
+          systemColorLayerIgnored: variant.theme?.systemColorLayerIgnored
+            ?? (studentGroupId ? ctrl.game.colorSystem.getGroup(studentGroupId)?.systemColorLayerIgnored : undefined),
           presentation: variant.theme?.presentation,
         });
       }

@@ -54,14 +54,14 @@ describe('数据包工作区排序与默认行为', () => {
       draftEnabledIds: [base, demo], draftOrder: [demo, base],
       validation: null, lastResult: null,
     });
-    expect(reversed.indexOf(`data-pack-id="demo@1.0.0"`)).toBeLessThan(reversed.indexOf(`data-pack-id="base@1.0.0"`));
+    expect(reversed.indexOf(`data-pack-id="demo@1.0.0"`)).toBeLessThan(reversed.indexOf(`data-pack-id="base@1.0.2"`));
 
     const formal = renderDatapack(runtime, {
       section: 'all', mode: 'classic', selectedPackId: null,
       draftEnabledIds: [base, demo], draftOrder: [base, demo],
       validation: null, lastResult: null,
     });
-    expect(formal.indexOf(`data-pack-id="base@1.0.0"`)).toBeLessThan(formal.indexOf(`data-pack-id="demo@1.0.0"`));
+    expect(formal.indexOf(`data-pack-id="base@1.0.2"`)).toBeLessThan(formal.indexOf(`data-pack-id="demo@1.0.0"`));
   });
 
   it('经典包模式显示拖放列表与正式启用草案状态', () => {
@@ -89,7 +89,7 @@ describe('数据包工作区排序与默认行为', () => {
       draftEnabledIds: [base, demo], draftOrder: [base, demo, created.packRecordId],
       validation: null, lastResult: null,
     });
-    expect(html).toContain('data-pack-id="base@1.0.0" draggable="false"');
+    expect(html).toContain('data-pack-id="base@1.0.2" draggable="false"');
     expect(html).toContain('data-pack-id="demo@1.0.0" draggable="true"');
     expect(html).toContain(`data-pack-id="${created.packRecordId}" draggable="true"`);
   });

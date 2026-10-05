@@ -51,6 +51,18 @@ describe('选择页动态主题投影', () => {
     expect(projection.background.layers.find(layer => layer.id === 'init-atmosphere')?.value).toContain('#4f46e5');
   });
 
+  it('Init 的统一派生底层关闭选项仅作用于选择页投影', () => {
+    const game = freshGame();
+    const init = game.world.inits.get(MILLENNIUM)!;
+    init.theme = { ...init.theme, systemColorLayerIgnored: true };
+
+    const projection = projectSelectorTheme(createUIContext(game), 'init', MILLENNIUM);
+
+    expect(projection.background.systemColorLayerIgnored).toBe(true);
+    expect(projection.background.layers.filter(layer => layer.id === 'system-color-background')).toHaveLength(1);
+    expect(game.colorSystem.runtimeTheme().systemColorLayerIgnored).toBe(false);
+  });
+
   it('无声明主题的 GlobalEnh 条目使用稳定且彼此可区分的回退主色', () => {
     const game = freshGame();
     const context = createUIContext(game);
@@ -61,6 +73,8 @@ describe('选择页动态主题投影', () => {
     expect(first.tree['--theme-node-primary']).not.toBe(second.tree['--theme-node-primary']);
     expect(['locked', 'available', 'active']).toContain(first.context.variantId);
     expect(first.background.layers.length).toBeGreaterThan(0);
+    expect(first.background.layers.filter(layer => layer.id === 'system-color-background')).toHaveLength(1);
+    expect(first.background.layers.some(layer => layer.id === 'selector-focus-atmosphere')).toBe(false);
   });
 
   it('同 id 背景层由后一个投影替换，匿名层保持追加', () => {

@@ -36,6 +36,7 @@ import type { AchievementViewItem } from '../read-model/achievement-view';
 import type { OperationObservation } from './operation-observation';
 import type { OperationViewQuery } from './operation-view';
 import type { PackManifestColor } from '../../data-services/datapack/manifest';
+import type { ThemeContentEditorService } from '../services/theme-content-editor-service';
 
 export interface PackCatalogEntry {
   readonly id: string;
@@ -323,4 +324,6 @@ export interface GameCommands {
   applyRuntimeMod?(draft: RuntimeModDraft): RuntimeModApplyResult;
   setRuntimeModMetadata?(metadata: Pick<RuntimeModDraft, 'modName' | 'displayName' | 'version' | 'author' | 'description'> & { readonly targetPackRecordId?: string }): RuntimeModApplyResult;
   runtimeDefinitionEditor?: RuntimeDefinitionEditorCommands;
+  /** 一般编辑态 ColorGroup / ThemeDesign 的 source-aware 编辑、Preview 与保存服务。 */
+  themeContentEditor?: ThemeContentEditorService;
 }

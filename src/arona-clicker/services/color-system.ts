@@ -36,8 +36,6 @@ function normalizePalette(colors: readonly string[] | undefined, uiEnabled?: rea
   return [...(colors ?? [])].filter((color, index) => typeof color === 'string' && color.trim().length > 0 && uiEnabled?.[index] !== false).slice(0, 6);
 }
 
-const SYSTEM_COLOR_BACKGROUND_ID = 'system-color-background';
-
 function storedThemeDef(theme: StoredCustomTheme, base?: ThemeDef): ThemeDef {
   return {
     ...base,
@@ -45,6 +43,7 @@ function storedThemeDef(theme: StoredCustomTheme, base?: ThemeDef): ThemeDef {
     tokens: { ...(base?.tokens ?? {}), ...(theme.tokens ?? {}) },
     nodes: { ...(base?.nodes ?? {}), ...(theme.nodes ?? {}) },
     background: theme.background ?? base?.background,
+    systemColorLayerIgnored: theme.systemColorLayerIgnored ?? base?.systemColorLayerIgnored,
     presentation: theme.presentation ?? base?.presentation,
   };
 }
@@ -57,10 +56,6 @@ function customThemeBase(registry: Registry, theme: StoredCustomTheme): ThemeDef
     return registry.themeDesigns.get(theme.baseThemeRef.id)?.theme;
   }
   return undefined;
-}
-
-function systemColorBackground(opacity = 1): BackgroundLayerDef {
-  return { id: SYSTEM_COLOR_BACKGROUND_ID, kind: 'gradient', value: 'linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)', opacity, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' };
 }
 
 /** 实体键：实体主题槽 / 配色设计归属的稳定键。 */
@@ -195,7 +190,14 @@ export class ColorSystem {
   syncPlayerThemeFromState(state: PlayerState): void {
     const selection = state.activeTheme ?? { kind: 'system' as const };
     const id = selection.kind === 'color-group' ? selection.id : null;
-    this.runtime.setPlayer(id ? { scope: 'player', groupId: id, palette: this.paletteOfGroup(id) } : null);
+    const group = id ? this.registry.colorGroups.get(id) : undefined;
+    this.runtime.setPlayer(id ? {
+      sourceId: 'player-theme',
+      scope: 'player',
+      groupId: id,
+      palette: this.paletteOfGroup(id),
+      systemColorLayerIgnored: group?.systemColorLayerIgnored,
+    } : null);
     this.runtime.setLayerOrder(state.themeLayerOrder);
   }
 
@@ -211,7 +213,6 @@ export class ColorSystem {
     const base = stored ? customThemeBase(this.registry, stored) : undefined;
     const applied = stored ? storedThemeDef(stored, base) : undefined;
     const globalHost = applied?.presentation?.hosts?.find(host => host.id === 'global');
-    const globalLayers = globalHost?.layers ? [systemColorBackground(), ...globalHost.layers] : [systemColorBackground()];
     const colorLayer = {
       tokens: applied?.tokens,
       palette: normalizePalette(applied?.palette, stored?.paletteUiEnabled),
@@ -220,12 +221,15 @@ export class ColorSystem {
     };
     this.runtime.setUser(enabled ? {
       id: customId ?? undefined,
+      sourceId: 'user-theme',
       scope: 'user',
       groupId: applied?.colorGroupId as ColorGroupId | undefined,
       ...colorLayer,
-      background: globalLayers,
-      backgroundLayerOrder: globalHost?.layerOrder?.length ? globalHost.layerOrder : [SYSTEM_COLOR_BACKGROUND_ID],
-      systemColorLayerIgnored: stored?.systemColorLayerIgnored === true,
+      background: globalHost?.layers,
+      backgroundLayerOrder: globalHost?.layerOrder,
+      systemColorLayerIgnored: stored?.systemColorLayerIgnored
+        ?? applied?.systemColorLayerIgnored
+        ?? (applied?.colorGroupId ? this.registry.colorGroups.get(applied.colorGroupId)?.systemColorLayerIgnored : undefined),
       presentation: applied?.presentation,
     } : null);
   }
@@ -244,10 +248,10 @@ export class ColorSystem {
       id: 'user-theme-preview',
       scope: 'ephemeral',
       ...colorLayer,
-      background: globalHost?.layers ? [systemColorBackground(), ...globalHost.layers] : [systemColorBackground()],
+      background: globalHost?.layers,
       backgroundReplacementScope: replacesUserBackground ? 'user' : undefined,
-      backgroundLayerOrder: globalHost?.layerOrder?.length ? globalHost.layerOrder : [SYSTEM_COLOR_BACKGROUND_ID],
-      systemColorLayerIgnored: draft.systemColorLayerIgnored === true,
+      backgroundLayerOrder: globalHost?.layerOrder,
+      systemColorLayerIgnored: draft.systemColorLayerIgnored,
       presentation: draft.presentation,
     } : null);
   }

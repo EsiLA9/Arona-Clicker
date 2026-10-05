@@ -173,23 +173,15 @@ export function createUIContext(
           ...presentationView.shapeParametersForHost(hostId),
         };
       }
-      let effectiveHostId = resolvedHostId;
-      let host = presentationView.host(effectiveHostId);
+      const host = presentationView.host(resolvedHostId);
       const stateView = () => {
         const exact = host.states?.get(state);
         return exact && (exact.layers.length > 0 || exact.decoration !== undefined)
           ? exact
           : undefined;
       };
-      while (state !== 'default' && !stateView()) {
-        const separator: number = effectiveHostId.lastIndexOf('.');
-        const parentId: string = separator >= 0 ? effectiveHostId.slice(0, separator) : '';
-        if (!parentId || !presentationView.hasHost(parentId)) break;
-        effectiveHostId = parentId;
-        host = presentationView.host(parentId);
-      }
       const activeState = stateView();
-      const activeFallback = state === 'active' && !activeState;
+      const activeFallback = state === 'active' && !activeState && host.layers.length === 0;
       const decoration = mergeDecoration(host.decoration, activeState?.decoration);
       const mergeStateLayers = (base: readonly BackgroundView['layers'][number][], overlay: readonly BackgroundView['layers'][number][]) => {
         const overlayIds = new Set(overlay.map(layer => layer.id).filter((id): id is string => Boolean(id)));

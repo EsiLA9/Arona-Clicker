@@ -15,6 +15,7 @@ import type { AreaDef, InitDef, SpotDef } from '../data-services/contracts/world
 import type { EnhancementDef } from '../data-services/contracts/enhancement';
 import { RuntimeContentCoordinator } from './services/runtime-content-coordinator';
 import { RuntimeWorldContentCoordinator } from './services/runtime-world-content-coordinator';
+import { ThemeContentEditorService } from './services/theme-content-editor-service';
 import { RuntimeDefinitionEditor, SpotContentService } from './services/spot-content-service';
 import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './contracts/runtime-content';
 import { decodeSpotContent } from '../data-services/authoring/content-policy-dsl';
@@ -49,6 +50,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   private readonly runtimeContent: RuntimeContentCoordinator;
   private readonly runtimeWorldContent: RuntimeWorldContentCoordinator;
   readonly runtimeDefinitionEditor: RuntimeDefinitionEditor;
+  readonly themeContentEditor: ThemeContentEditorService;
 
   constructor(options: AronaClickerRuntimeOptions = {}) {
     super({ ...options, saveCodec: options.saveCodec ?? buildSaveData });
@@ -58,6 +60,11 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       [createBundledBasePack(), createBundledGameplayBDemoPack()],
       ['gameplay-b@1.0.0'],
     );
+    this.themeContentEditor = new ThemeContentEditorService({
+      getPackManager: () => this.packManager,
+      colorSystem: this.colorSystem,
+      persistPackManagerSnapshot: () => this.persistPackManagerSnapshot(),
+    });
     this.runtimeContent = new RuntimeContentCoordinator({
       registry: this.registry,
       sourceId: 'runtime-editor',

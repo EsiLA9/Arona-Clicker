@@ -12,7 +12,7 @@
 
 `PackManager` 保存包记录、顺序、启用状态与选择配置。配置验证要求记录存在、启用集没有重复 `modName`，并满足 manifest 声明的依赖。AronaClicker 产品包库还要求启用集恰有一个 `modName=base` 的记录；基础包不能直接停用或删除，必须通过同名交换替换，旧记录会回到未启用列表以供回退。
 
-产品发布基础包由 `src/arona-clicker/content/base-pack/datapack.json` 与 JSON 分片打包，记录来源标为 `bundle`。它与 `datapack-dev/` 的来源对账无关；发布基准只读，复制出的新 Version 编辑态记录可以进入启用序列并由 RuntimeEditor 保存。旧快照中的 `builtin` 来源不再定义是否必需，必需性由 `base` 槽位承担。
+产品发布基础包由 `src/arona-clicker/content/base-pack/datapack.json` 与 JSON 分片打包，记录来源标为 `bundle`。当前发布版本为 `base@1.0.2`。它与 `datapack-dev/` 的来源对账无关；发布基准只读，复制出的新 Version 编辑态记录可以进入启用序列并由 RuntimeEditor 保存。旧快照中的 `builtin` 来源不再定义是否必需，必需性由 `base` 槽位承担。
 
 Gameplay B V1 另有独立的可选 bundle `gameplay-b@1.0.0`，由 Runtime 装配 `content/operation-samples/gameplay-b-datapack.ts` 并依赖 `base`。首次发现此包时默认启用；快照已记录该包、Pane 已有明确选择，或已有同 Mod 启用项时不覆盖玩家选择。正式 Operation Event 因而进入现有 PackManager / Registry 流程，base 内容表不重复包含演示 Event。
 

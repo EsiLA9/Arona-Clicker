@@ -34,9 +34,9 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     const game = new AronaClickerRuntime();
     const base = game.getPackCatalog().entries.find(entry => entry.modName === 'base');
 
-    expect(base).toMatchObject({ id: 'base@1.0.0', sourceKind: 'bundle', enabled: true, capabilities: { required: true, removable: false, enableable: false } });
-    expect(() => game.setPackEnabled('base@1.0.0', false)).toThrow('必须保留一个 base 数据包');
-    expect(() => game.packManager.removePack('base@1.0.0')).toThrow('发布基础包不可从包库移除');
+    expect(base).toMatchObject({ id: 'base@1.0.2', sourceKind: 'bundle', enabled: true, capabilities: { required: true, removable: false, enableable: false } });
+    expect(() => game.setPackEnabled('base@1.0.2', false)).toThrow('必须保留一个 base 数据包');
+    expect(() => game.packManager.removePack('base@1.0.2')).toThrow('发布基础包不可从包库移除');
   });
 
   test('默认内容中的 Spot 卡池引用全部可解析', () => {
@@ -48,9 +48,9 @@ describe('AronaClickerRuntime PackManager 接线', () => {
 
   test('基础包可复制为新版本编辑态、编辑后恢复并交换回发布版本', async () => {
     const game = new AronaClickerRuntime();
-    const baseId = 'base@1.0.0';
+    const baseId = 'base@1.0.2';
     const baseline = game.getPackRecord(baseId)!.datapack;
-    const editing = game.createEditingPack(baseId, '1.0.1');
+    const editing = game.createEditingPack(baseId, '1.0.3');
     expect(editing.ok).toBe(true);
     const editingId = editing.packRecordId!;
     const configuration = game.getPackConfiguration();
@@ -111,7 +111,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     game.registerParsedPack(parsed);
     game.setPackEnabled('demo@1.0.0', true);
     expect(() => game.removePack('demo@1.0.0')).toThrow('请先将该数据包移出启用集');
-    expect(() => game.removePack('base@1.0.0')).toThrow('发布基础包不可从包库移除');
+    expect(() => game.removePack('base@1.0.2')).toThrow('发布基础包不可从包库移除');
     expect(() => game.removePack('missing@1.0.0')).toThrow('不存在的数据包');
   });
 
@@ -121,7 +121,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
 
     expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
     expect(game.registry.operationEvents.has(CAROUSEL_SCENE_ACTION_IDS.event)).toBe(true);
-    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0']);
+    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0']);
     expect(game.getPackCatalog().entries.find(entry => entry.id === 'gameplay-b@1.0.0')).toMatchObject({ sourceKind: 'bundle', enabled: true });
     expect(game.state.activeInit).toBe('');
     expect(game.running).toBe(false);
@@ -152,8 +152,8 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     let saved: PackManagerSnapshot | null = null;
     const initial: PackManagerSnapshot = {
       packs: [invalidPack],
-      enabledIds: ['base@1.0.0', 'addition-test@0.1.0'],
-      order: ['base@1.0.0', 'addition-test@0.1.0'],
+      enabledIds: ['base@1.0.2', 'addition-test@0.1.0'],
+      order: ['base@1.0.2', 'addition-test@0.1.0'],
     };
     const game = new AronaClickerRuntime({
       packStore: {
@@ -167,16 +167,16 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
     expect(game.registry.spots.has('addition-test:spot:scanner')).toBe(false);
     expect(game.getPackCatalog().entries.find(entry => entry.id === invalidPack.id)?.enabled).toBe(false);
-    expect(game.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.0', invalidPack.id, 'gameplay-b@1.0.0']);
-    expect((saved as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0']);
+    expect(game.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.2', invalidPack.id, 'gameplay-b@1.0.0']);
+    expect((saved as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0']);
   });
 
   test('异步恢复后也会持久化自动停用结果', async () => {
     const invalidPack = legacyInvalidPack();
     let snapshot: PackManagerSnapshot = {
       packs: [invalidPack],
-      enabledIds: ['base@1.0.0', invalidPack.id],
-      order: ['base@1.0.0', invalidPack.id],
+      enabledIds: ['base@1.0.2', invalidPack.id],
+      order: ['base@1.0.2', invalidPack.id],
     };
     const store = {
       load: async () => snapshot,
@@ -187,7 +187,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     await game.restorePackManager(store);
 
     expect(() => game.applyEnabledPacks()).not.toThrow();
-    expect(snapshot.enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0']);
+    expect(snapshot.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0']);
     expect(game.getPackCatalog().entries.find(entry => entry.id === invalidPack.id)?.enabled).toBe(false);
   });
 
@@ -289,10 +289,10 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     await source.savePackManager(store);
     const restored = new AronaClickerRuntime();
     await restored.restorePackManager(store);
-    expect(restored.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.0', 'gameplay-b@1.0.0', 'demo@1.0.0']);
+    expect(restored.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'demo@1.0.0']);
     restored.setPackEnabled('demo@1.0.0', true);
     await Promise.resolve();
-    expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.0', 'gameplay-b@1.0.0', 'demo@1.0.0']);
+    expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'demo@1.0.0']);
   });
 
   test('异步恢复后应用启用集会持久化策略且下一次启动自动加载', async () => {
@@ -308,8 +308,8 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     };
     let snapshot: PackManagerSnapshot = {
       packs: [demoPack],
-      enabledIds: ['base@1.0.0'],
-      order: ['base@1.0.0', demoId],
+      enabledIds: ['base@1.0.2'],
+      order: ['base@1.0.2', demoId],
     };
     const store = {
       load: async () => snapshot,
@@ -321,12 +321,12 @@ describe('AronaClickerRuntime PackManager 接线', () => {
 
     const currentOrder = restored.getPackConfiguration().order;
     const apply = restored.applyPackConfiguration({
-      enabledIds: ['base@1.0.0', demoId],
+      enabledIds: ['base@1.0.2', demoId],
       order: currentOrder,
     });
     expect(apply.ok, apply.message).toBe(true);
     await Promise.resolve();
-    expect(snapshot.enabledIds).toEqual(['base@1.0.0', demoId]);
+    expect(snapshot.enabledIds).toEqual(['base@1.0.2', demoId]);
 
     const nextBoot = new AronaClickerRuntime();
     await nextBoot.restorePackManager(store);

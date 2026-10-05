@@ -16,11 +16,13 @@ import type { RuntimeModDraft, RuntimeModApplyResult } from './contracts/runtime
 import type { PlayerState } from './types/state';
 import type { DevLogEntry } from '../engine/core/dev-log';
 import type { OperationObservation, OperationObservationInput } from './contracts/operation-observation';
+import type { ThemeContentEditorService } from './services/theme-content-editor-service';
 
 export interface GameCommandSource {
   readonly state: Readonly<PlayerState>;
   getDevLogs(): readonly DevLogEntry[];
   recordOperationObservation(input: OperationObservationInput): OperationObservation;
+  readonly themeContentEditor?: ThemeContentEditorService;
   travelToArea(areaId: AreaId, allowDuringStory?: boolean, checkAdjacency?: boolean): TravelResult;
   tick(): TickResult;
   start(): void;
@@ -132,5 +134,6 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     ...(game.applyRuntimeWorldDraft ? { applyRuntimeWorldDraft: draft => game.applyRuntimeWorldDraft!(draft) } : {}),
     ...(game.setRuntimeModMetadata ? { setRuntimeModMetadata: metadata => game.setRuntimeModMetadata!(metadata) } : {}),
     ...(game.runtimeDefinitionEditor ? { runtimeDefinitionEditor: game.runtimeDefinitionEditor } : {}),
+    ...(game.themeContentEditor ? { themeContentEditor: game.themeContentEditor } : {}),
   };
 }

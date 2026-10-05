@@ -10,6 +10,8 @@
 
 控制器在 `controller.ts` 执行进入、替换和返回；`components/app-shell.ts` 提供工作区状态类型，`workspace-renderer.ts` 将当前状态渲染为对应工作区。
 
+Contacts 与 Story Workspace 的左、中、右列均以 `renderPanelHeaderRegion(ctx, slot, ...)` 标题区开始，分别复用 `leftPanel.tabs`、`centerPanel.tabs`、`rightPanel.tabs` 宿主和 `panel-tabs-region` 等高规则。只有左侧导航列的标题区带有无障碍名称的本地 SVG 返回键，并保留现有 Workspace 返回动作；它按进入时保存的返回位置退出当前工作区。中栏和右栏标题只标识该列内容，不承担页面跳转。
+
 Operation route 以 `runId` 标识当前易失 Run，并由 `workspace-renderer.ts` 通过 `GameReadModel.operationEntry.getView(runId)` 请求 detached 投影。正式 Operation Surface 使用左 / 中 / 右三栏：左栏角色卡持有学生当前计划与战斗干预，中心 AC 聊天流承载事件、地点、目标、玩家决定、SceneAction/有限手牌、路线及结算，右栏角色卡持有敌方 Intent 并独立展示环境/设施。Cost 槽位留在中心底部 Action Dock。操作命令经 Controller 调用 Runtime 私有 Operation Entry facade；只读查询与写命令不混入全局 GameView / GameCommands。返回使用单层 Workspace 返回位置恢复 AC 聊天流；Run 本身仍由 GameInstance 私有 owner 持有，并按主 SaveData 中的可选 checkpoint 显式恢复。
 
 ## Surface 生命周期

@@ -25,6 +25,8 @@ export interface ColorGroupDef {
   description?: string;
   compositionType: CompositionType;
   slots: ColorGroupSlot[];
+  /** @label 忽略主题派生画布底层；显式背景图层仍参与显示 */
+  systemColorLayerIgnored?: boolean;
   theme?: Partial<Record<ThemeToken, string>>;
   unlock?: Condition | ConditionGroup;
 }

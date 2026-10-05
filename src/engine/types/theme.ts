@@ -202,6 +202,8 @@ export interface PresentationDef {
 export interface ThemeDef {
   /** @label 引用色彩组 @ref colorGroups */
   colorGroupId?: string;
+  /** @label 忽略主题派生画布底层；显式背景图层仍参与显示 */
+  systemColorLayerIgnored?: boolean;
   /** @label 有序主题色列表（最多六个） */
   palette?: string[];
   /** @label 局部覆盖 */

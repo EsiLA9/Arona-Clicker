@@ -4,19 +4,10 @@ import { renderConversationBody } from './contacts';
 import { renderChatTab } from './center-panel';
 import { renderStoryNavigation } from './rail';
 import { renderWorkspaceFrame } from './workspace-frame';
+import { renderWorkspaceTitlebar } from './workspace-titlebar';
 
-function leaveHeader(title: string): string {
-  return '<div class="workspace-page-header">'
-    + '<button type="button" class="workspace-page-header__back" data-story-workspace-leave aria-label="返回游戏">← 返回游戏</button>'
-    + '<div><span class="eyebrow">STORY WORKSPACE</span><strong>'
-    + title
-    + '</strong></div></div>';
-}
-
-function placeholder(title: string, detail: string): string {
-  return '<div class="workspace-placeholder"><span class="eyebrow">PLANNED REGION</span><h2>'
-    + title
-    + '</h2><p>'
+function placeholder(detail: string): string {
+  return '<div class="workspace-placeholder"><p>'
     + detail
     + '</p></div>';
 }
@@ -29,13 +20,13 @@ export function renderStoryWorkspace(
   const owner = workspace.conversationOwner;
   const hasConversation = workspace.subroute === 'overview'
     && (workspace.selectedEntryId !== null || workspace.mode === 'playing');
-  const left = leaveHeader('故事')
+  const left = renderWorkspaceTitlebar(ctx, 'left', '故事导航', 'data-story-workspace-leave')
     + '<div class="story-workspace__navigation">'
     + renderStoryNavigation(ctx, workspace.navPath)
     + '</div>';
-  const center = workspace.subroute === 'archive'
+  const centerContent = workspace.subroute === 'archive'
     ? '<div class="story-workspace__archive">'
-      + '<div class="workspace-placeholder"><span class="eyebrow">STORY ARCHIVE</span><h2>故事档案</h2><p>档案内容将在 Records Service 或 Story 子路由中继续设计。</p>'
+      + '<div class="workspace-placeholder"><h2>故事档案</h2><p>档案内容将在 Records Service 或 Story 子路由中继续设计。</p>'
       + '<button type="button" class="toolbar-button" data-story-archive-back>返回故事</button></div></div>'
     : hasConversation
     ? owner
@@ -58,13 +49,14 @@ export function renderStoryWorkspace(
           state.storyGate ?? null,
           state.openingBanner ?? null,
         )
-    : placeholder('故事内容', '选择左侧分类或故事条目后，这里将显示故事内容。');
-  const right = placeholder(
-    '故事详情',
-    workspace.selectedEntryId
-      ? '当前故事的详情与辅助信息将在此 Workspace 内继续设计。'
-      : '故事详情、档案和统计的归属正在规划中。',
-  );
+    : placeholder('选择左侧分类或故事条目后，这里将显示故事内容。');
+  const right = renderWorkspaceTitlebar(ctx, 'right', '故事详情')
+    + placeholder(
+        workspace.selectedEntryId
+          ? '当前故事的详情与辅助信息将在此 Workspace 内继续设计。'
+          : '故事详情、档案和统计的归属正在规划中。',
+      );
+  const center = renderWorkspaceTitlebar(ctx, 'center', '故事内容') + centerContent;
 
   return renderWorkspaceFrame(ctx, {
     id: 'story',

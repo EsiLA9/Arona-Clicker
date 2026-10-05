@@ -8,6 +8,7 @@
 
 import type { EnhancementDef } from '../data-services/contracts/enhancement';
 import type { BackgroundLayerDef, ThemeDef, ThemeNodeName } from '../engine/types/theme';
+import { composeThemeBackground } from '../engine/core/theme-runtime';
 import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
 import { deriveThemeTokens, entityKeyOf } from '../arona-clicker/services/color-system';
 import { rgbTriplet } from '../engine/core/color';
@@ -195,20 +196,6 @@ function backgroundLayers(theme: ThemeDef | undefined, variantId: SelectorVarian
   return theme?.background ?? [];
 }
 
-function selectorFallbackBackground(tokens: Record<string, string>, primary: string): BackgroundLayerDef {
-  return {
-    id: 'selector-focus-atmosphere',
-    kind: 'gradient',
-    value: `linear-gradient(135deg, ${tokens.bg ?? 'var(--canvas)'} 0%, ${tokens.bgAlt ?? 'var(--panel-light)'} 62%, ${primary} 118%)`,
-    opacity: 0.78,
-    position: 'center',
-    size: 'cover',
-    repeat: 'no-repeat',
-    blendMode: 'normal',
-    attachment: 'fixed',
-  };
-}
-
 /** 与 RuntimeThemeManager 相同的“有 id 替换、匿名追加”合并规则。 */
 export function mergeSelectorBackgrounds(...views: readonly BackgroundView[]): BackgroundView {
   const layers: BackgroundView['layers'][number][] = [];
@@ -241,8 +228,12 @@ function withScopeVars(view: BackgroundView, vars: ThemeTree): BackgroundView {
   return {
     layers: view.layers,
     themeVars: vars,
+    systemColorLayerIgnored: view.systemColorLayerIgnored,
     get ink() {
-      return backgroundInkService.ink(view.layers, { lookup: vars });
+      return backgroundInkService.ink(view.layers, {
+        lookup: vars,
+        ignoreLayerIds: view.systemColorLayerIgnored ? ['system-color-background'] : [],
+      });
     },
   };
 }
@@ -278,6 +269,15 @@ export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focuse
   }
   for (const [node, value] of Object.entries(currentArea?.nodes ?? {})) nodeOverrides.set(node as ThemeNodeName, value);
 
+  const themeColorBackgroundIgnored = (theme: ThemeDef | undefined): boolean | undefined => {
+    if (!theme) return undefined;
+    return theme.systemColorLayerIgnored
+      ?? (theme.colorGroupId ? ctx.game.colorSystem.getGroup(theme.colorGroupId)?.systemColorLayerIgnored : undefined);
+  };
+  const systemColorLayerIgnored = themeColorBackgroundIgnored(currentArea)
+    ?? themeColorBackgroundIgnored(selected.theme)
+    ?? runtime.systemColorLayerIgnored;
+
   const primary = tokens.primary ?? focus.primary ?? runtimePrimary;
   const tree = buildThemeTree(tokens, primary, palette, nodeOverrides);
   const focusPresentation = buildPresentationView(selected.theme?.presentation, ctx.game.pics, {
@@ -291,11 +291,9 @@ export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focuse
     ? ctx.background
     : buildBackgroundView(runtime.background, ctx.game.pics, baseTokens);
   const focusDefs = backgroundLayers(selected.theme, variantId);
-  const focusBackground = buildBackgroundView(
-    focusDefs.length > 0 ? focusDefs : [selectorFallbackBackground(tokens, primary)],
-    ctx.game.pics,
-    tokens,
-  );
+  const focusBackground = focusDefs.length > 0
+    ? buildBackgroundView(focusDefs, ctx.game.pics, tokens)
+    : { layers: [] };
   const areaDefs = currentArea?.background ?? [];
   const areaBackground = areaDefs.length > 0
     ? buildBackgroundView(areaDefs, ctx.game.pics, tokens)
@@ -318,7 +316,10 @@ export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focuse
     theme: selected.theme,
     tree,
     inlineStyle: localTreeStyle(tree),
-    background: withScopeVars(mergeSelectorBackgrounds(baseBackground, focusBackground, areaBackground), tree),
+    background: withScopeVars({
+      layers: composeThemeBackground(mergeSelectorBackgrounds(baseBackground, focusBackground, areaBackground).layers),
+      systemColorLayerIgnored,
+    }, tree),
     presentation,
   };
 }

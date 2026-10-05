@@ -92,7 +92,8 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
 
     const resolved = manager.resolve();
 
-    expect(resolved.background).toEqual([{ id: 'shared-layer', kind: 'solid', value: '#112233' }]);
+    expect(resolved.background.map(layer => layer.id)).toEqual(['system-color-background', 'shared-layer']);
+    expect(resolved.background[1]).toEqual({ id: 'shared-layer', kind: 'solid', value: '#112233' });
   });
 
   test('RUNTIME-03 场景层（Area）覆盖玩家层对应 token，其余保留', () => {
@@ -389,10 +390,23 @@ describe('RuntimeThemeManager：多色彩组/场景/临时演出分层叠加', (
       { kind: 'image', value: 'base:overlay(pic):triangles' },
     ] });
     expect(manager.resolve().background.map(layer => layer.value)).toEqual([
+      'linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%)',
       'base:background(pic):two',
       'base:background(pic):one',
       'base:overlay(pic):triangles',
     ]);
+  });
+
+  test('派生画布底层始终在显式主题图层下方，Preview 按来源在原优先级替换', () => {
+    const { manager } = makeManager();
+    manager.setPlayer({ sourceId: 'player-theme', scope: 'player', tokens: { primary: '#123456', bg: '#eeeeee' }, background: [{ id: 'player-image', kind: 'image', value: 'player.png' }] });
+    manager.pushScene({ sourceId: 'area:main', scope: 'area', tokens: { bg: '#abcdef' }, background: [{ id: 'area-overlay', kind: 'solid', value: 'rgba(0, 0, 0, 0.2)' }] });
+    manager.setPreview({ sourceId: 'area:main', replacesSourceId: 'area:main', scope: 'ephemeral', tokens: { bg: '#fedcba' }, background: [{ id: 'area-overlay', kind: 'solid', value: 'rgba(0, 0, 0, 0.4)' }] });
+
+    const resolved = manager.resolve();
+    expect(resolved.tokens.bg).toBe('#fedcba');
+    expect(resolved.background.map(layer => layer.id)).toEqual(['system-color-background', 'player-image', 'area-overlay']);
+    expect(resolved.background.at(-1)?.value).toBe('rgba(0, 0, 0, 0.4)');
   });
 
   test('RUNTIME-16 背景层按显式顺序排列，未列出的层保持合并顺序', () => {
@@ -469,6 +483,17 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     expect(theme.tokens.bg).toBe('#abcdef');
     expect(theme.nodeOverrides.active).toBe('#fedcba');
     expect(theme.background.find(layer => layer.id === 'system-color-background')?.opacity).toBe(1);
+  });
+
+  test('ColorGroup 的统一禁用选项进入玩家主题层', () => {
+    const game = freshGame();
+    const group = game.colorSystem.getGroup('base:colorgroup:schale-solid')!;
+    group.systemColorLayerIgnored = true;
+    game.colorSystem.syncPlayerThemeFromState({ ...game.state, activeTheme: { kind: 'color-group', id: group.id } });
+
+    const resolved = game.colorSystem.runtimeTheme();
+    expect(resolved.systemColorLayerIgnored).toBe(true);
+    expect(resolved.background.map(layer => layer.id)).toContain('system-color-background');
   });
 
   test('用户主题预览把系统颜色层固定在最底，不遮挡继承背景层', () => {

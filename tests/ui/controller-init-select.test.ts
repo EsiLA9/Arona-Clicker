@@ -87,6 +87,20 @@ describe('UIController Init 选择页', () => {
     expect(game.state.totalFrames).toBe(beforeState.totalFrames);
   });
 
+  it('Init 主题只显示在外部选择页，不进入游戏内运行时主题', () => {
+    const runtime = game.colorSystem.runtimeTheme();
+    const activeLayers = game.colorSystem.runtimeThemeDiagnostics().layers;
+
+    expect(activeLayers.some(layer => layer.scope === 'init')).toBe(false);
+    expect(runtime.background.some(layer => layer.id === 'init-atmosphere')).toBe(false);
+    expect(document.querySelector('#ui-background-layer')?.innerHTML).not.toContain('init-atmosphere');
+
+    showSelectPage();
+
+    const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]');
+    expect(current?.innerHTML).toContain('linear-gradient(135deg, #93c5fd 0%, #eff6ff 100%)');
+  });
+
   it('离开活动场景到选择页时只投影全局主题与焦点主题，不继承旧 Area/剧情层', () => {
     game.colorSystem.pushSceneTheme({
       id: 'selector-stale-area',

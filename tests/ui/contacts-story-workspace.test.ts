@@ -38,8 +38,41 @@ describe('Contacts / Story Workspace ownership', () => {
     expect(root.querySelectorAll('[data-workspace-frame="contacts"] [data-workspace-owner="contacts"]')).toHaveLength(3);
     expect(root.querySelector('.contacts-empty, .workspace-placeholder')).not.toBeNull();
     expect(root.querySelector('.center-panel, .right-panel')).toBeNull();
+    expect(root.querySelector('[data-workspace-frame="contacts"] .eyebrow')).toBeNull();
+    const frame = root.querySelector<HTMLElement>('[data-workspace-frame="contacts"]')!;
+    const titlebars = [
+      ['left', 'leftPanel.tabs', '通讯录'],
+      ['center', 'centerPanel.tabs', '学生故事'],
+      ['right', 'rightPanel.tabs', '角色信息'],
+    ] as const;
+    expect(frame.querySelectorAll('.panel-tabs-region')).toHaveLength(3);
+    for (const [slot, hostId, title] of titlebars) {
+      const titlebar = frame.querySelector<HTMLElement>(`[data-workspace-column="${slot}"] .panel-tabs-region`);
+      expect(titlebar).not.toBeNull();
+      expect(titlebar?.classList.contains('ui-cluster')).toBe(true);
+      expect(titlebar?.classList.contains(`ui-cluster--${slot}-tabs-region`)).toBe(true);
+      expect(titlebar?.classList.contains('presentation-host-target')).toBe(true);
+      expect(titlebar?.dataset.themeHostId).toBe(hostId);
+      expect(titlebar?.textContent).toContain(title);
+      expect(titlebar?.querySelector('.eyebrow')).toBeNull();
+      expect(titlebar?.querySelector('.workspace-page-header')).toBeNull();
+    }
+    const leftTitlebar = frame.querySelector<HTMLElement>('[data-workspace-column="left"] .panel-tabs-region');
+    const centerTitlebar = frame.querySelector<HTMLElement>('[data-workspace-column="center"] .panel-tabs-region');
+    const rightTitlebar = frame.querySelector<HTMLElement>('[data-workspace-column="right"] .panel-tabs-region');
+    const back = leftTitlebar?.querySelector<HTMLButtonElement>('[data-contacts-workspace-leave]');
+    expect(centerTitlebar?.querySelector('[data-contacts-workspace-leave]')).toBeNull();
+    expect(rightTitlebar?.querySelector('[data-contacts-workspace-leave]')).toBeNull();
+    expect(back?.getAttribute('aria-label')).toBe('返回上一页');
+    expect(back?.getAttribute('title')).toBe('返回上一页');
+    expect(back?.textContent?.trim()).toBe('');
+    expect(back?.querySelector('svg[viewBox="0 0 24 24"][aria-hidden="true"][focusable="false"] path')?.getAttribute('d')).toBe('M15 18 9 12 15 6');
     expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'contacts' });
     expect(controller.panelState.workspaceNavigation?.returnTo?.route).toEqual({ kind: 'game' });
+
+    back?.click();
+    expect(root.querySelector('[data-workspace-frame="game"]')).not.toBeNull();
+    expect(root.querySelector('.topbar')).not.toBeNull();
   });
 
   it('选择学生只改变 Contacts 内部状态，不嵌套 CharacterWorkspace', () => {
@@ -96,12 +129,43 @@ describe('Contacts / Story Workspace ownership', () => {
     expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'story', sessionId: 'Hoshino' });
     expect(root.querySelector('[data-workspace-frame="character"]')).toBeNull();
     expect(root.querySelectorAll('[data-workspace-frame="story"] [data-workspace-owner="story"]')).toHaveLength(3);
+    const frame = root.querySelector<HTMLElement>('[data-workspace-frame="story"]')!;
+    const titlebars = [
+      ['left', 'leftPanel.tabs', '故事导航'],
+      ['center', 'centerPanel.tabs', '故事内容'],
+      ['right', 'rightPanel.tabs', '故事详情'],
+    ] as const;
+    expect(frame.querySelectorAll('.panel-tabs-region')).toHaveLength(3);
+    for (const [slot, hostId, title] of titlebars) {
+      const titlebar = frame.querySelector<HTMLElement>(`[data-workspace-column="${slot}"] .panel-tabs-region`);
+      expect(titlebar).not.toBeNull();
+      expect(titlebar?.classList.contains('ui-cluster')).toBe(true);
+      expect(titlebar?.classList.contains(`ui-cluster--${slot}-tabs-region`)).toBe(true);
+      expect(titlebar?.classList.contains('presentation-host-target')).toBe(true);
+      expect(titlebar?.dataset.themeHostId).toBe(hostId);
+      expect(titlebar?.textContent).toContain(title);
+      expect(titlebar?.querySelector('.eyebrow')).toBeNull();
+    }
+    const leftTitlebar = frame.querySelector<HTMLElement>('[data-workspace-column="left"] .panel-tabs-region');
+    const centerTitlebar = frame.querySelector<HTMLElement>('[data-workspace-column="center"] .panel-tabs-region');
+    const rightTitlebar = frame.querySelector<HTMLElement>('[data-workspace-column="right"] .panel-tabs-region');
+    const back = leftTitlebar?.querySelector<HTMLButtonElement>('[data-story-workspace-leave]');
+    expect(centerTitlebar?.querySelector('[data-story-workspace-leave]')).toBeNull();
+    expect(rightTitlebar?.querySelector('[data-story-workspace-leave]')).toBeNull();
+    expect(back?.getAttribute('aria-label')).toBe('返回上一页');
+    expect(back?.textContent?.trim()).toBe('');
+    expect(back?.querySelector('svg path')?.getAttribute('d')).toBe('M15 18 9 12 15 6');
 
     root.querySelector<HTMLButtonElement>('[data-story-archive]')!.click();
     expect(controller.panelState.workspace?.type).toBe('story');
     expect(root.querySelector('[data-workspace-frame="story"]')).not.toBeNull();
     expect(root.querySelector('[data-story-archive-back]')).not.toBeNull();
     expect(root.querySelector('.center-panel')).toBeNull();
+    expect(root.querySelector('[data-workspace-frame="story"] .eyebrow')).toBeNull();
+    expect(root.querySelector('[data-workspace-frame="story"] .workspace-placeholder h2')?.textContent).toBe('故事档案');
+
+    root.querySelector<HTMLButtonElement>('[data-story-workspace-leave]')?.click();
+    expect(root.querySelector('[data-workspace-frame="game"]')).not.toBeNull();
   });
 
   it('Story 中心聊天刷新不重建 Workspace 根节点，并保留焦点', () => {
@@ -201,7 +265,7 @@ describe('Contacts / Story Workspace ownership', () => {
 
     expect(controller.panelState.workspace?.type).toBe('story');
     expect(controller.panelState.workspaceNavigation?.returnTo?.route).toEqual({ kind: 'contacts' });
-    controller.disposeWorkspace();
+    root.querySelector<HTMLButtonElement>('[data-story-workspace-leave]')!.click();
 
     const workspace = controller.panelState.workspace;
     expect(workspace?.type).toBe('contacts');

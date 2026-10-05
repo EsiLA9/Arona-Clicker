@@ -6,6 +6,19 @@ import { parsePack } from '../../src/data-services/datapack/pack-parser';
 import { FolderPackSource } from '../../src/data-services/datapack/source';
 
 describe('发布基础数据包', () => {
+  test('运行时内置图片引用使用直接资源 URL，而不是文件包 zip 路径', () => {
+    expect(bundledContent.pics?.find(pic => pic.id === 'base:background(pic):hoshino')?.src).toBe('/src/data/Hoshino.png');
+    expect(bundledContent.pics?.every(pic => !pic.src.startsWith('zip:'))).toBe(true);
+  });
+
+  test('Schale 主厅的面板清空层使用 empty 类型，避免背景回退渐变', () => {
+    const area = bundledContent.areas.find(item => item.id === 'base:area:schale_main');
+    const hosts = area?.presentation?.default?.theme?.presentation?.hosts ?? [];
+    for (const hostId of ['leftPanel.area', 'centerPanel.chat', 'rightPanel.spot']) {
+      expect(hosts.find(host => host.id === hostId)?.layers?.[0]).toMatchObject({ kind: 'empty' });
+    }
+  });
+
   test('manifest 与完整 JSON 分片可由标准 PackSource 解析', async () => {
     const files: Array<{ path: string; value: unknown }> = [
       { path: 'datapack.json', value: bundledManifest },
@@ -16,7 +29,7 @@ describe('发布基础数据包', () => {
       read: async () => new TextEncoder().encode(JSON.stringify(value)),
     }))));
 
-    expect(parsed.manifest).toMatchObject({ modName: 'base', version: '1.0.0', dependencies: [] });
+    expect(parsed.manifest).toMatchObject({ modName: 'base', version: '1.0.2', dependencies: [] });
     expect(parsed.datapack).toEqual(defaultDatapack);
     expect(parsed.jsonFileCount).toBe(1);
     expect(parsed.ignoredCount).toBe(0);

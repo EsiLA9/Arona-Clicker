@@ -59,7 +59,7 @@ const defaultVariants = baseCharacterVariants.map(def => withDefaultPresentation
 /** Kept separate from the runtime JSON package so source modules remain untouched. */
 export const baseDatapackSource: Datapack = {
   name: 'AronaClicker',
-  version: '1.0.0',
+  version: '1.0.2',
   inits: defaultInits,
   areas: defaultAreas,
   spots: defaultSpots,
