@@ -17,9 +17,10 @@
 - [[draft-0231-gameplay-b-original-demo-activity-and-battle-round]]：原始 `prototypes/gameplay-b/` 的非战斗场所批次与战斗回合，从三栏 UI、显示反馈、玩法到操作步骤逐项记录并附源码/测试索引；与 AC 移植版分开。
 - [[draft-0231-b]]：已完成审阅并转制为 Task 0232；保留 Demo→AC 调查、候选方案与本轮取舍来源。
 
-### 玩法 B 人物卡片与中心记录流：待施工
+### 玩法 B Operation 卡牌交互
 
-- [[task-0232]]：按用户的人物卡片风格偏好，以学生行动卡、全队行动卡和独立玩家牌替代下拉表单；完善中心实际结果阅读与独立路线摘要。已冻结范围并拆分 U1–U3，施工未开始；不包含原 Demo 全图/完整数值或新叙事存档合同。
+- [[task-0232]]：按用户偏好完成学生行动归属、场景批次卡片交互、中心结果流与路线摘要；U0–U3 实现、当前机制文档和 GALHCG 已分阶段提交。仍待 Edge 实际流程与现场键盘验收；Task 不包含原 Demo 真牌面 / 拖拽复刻。
+- [[task-0234-gameplay-b-demo-card-surface]]：将 Operation 当前控件组重塑为原 Demo 式独立牌面、人物 / 场地牌层、叠放与合法目标关系交互；按钮外包卡片容器不算完成。保留现有 OperationView 与 Runtime 批次语义。
 
 ## 近期完成
 
