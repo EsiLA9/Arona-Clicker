@@ -160,10 +160,9 @@
 
 ## GALHCG 影响闭环
 
-- 首次解析项目路径为 ACProgram，root_path 与 workspace_path 一致；overview 按 next_cursor 读完整三页。lookup 命中 UI Workspace Renderer、Operation EventRun Runtime 与准确名称 Goal 与 Task 工作流；字面查询 Goal workflow 零命中后改用图中准确名称复查成功。
-- 新 Task 文件经 docs/plan-work 限定 refresh 后 indexed；docs/plan-work/00-index.md 原有 Evidence 写前 review 为 content_changed，完整返回 4 owners。两条路径均已 resolve、preview；无新 Concept。
-- 地图维护：完整更新项目规划 Module 的 4 条 Evidence、Project→planning-records contains Evidence 及 Goal 与 Task 工作流→index / 新 Task 两条 documentation maps_to。节点批 4 refs 与边批 3 refs 均经 plan、valid dry-run 后提交；新 Task File 仅映射到 Goal-workflow documentation，未扩张为 UI 实现事实。
-- 写后核验：Task 与 index 的 review 均 unchanged、stale=0；Task path 精确搜索命中；Goal→Task traversal 达到目标且分页完整；Goal-workflow 在 docs/plan-work 的 documentation inventory 完整返回 8 个关联文件。Task File owner Evidence 已按本 Receipt 最终文本刷新，写后 review 为 unchanged / stale=0。
+- 最终变更审查绑定 ACProgram 项目，并仅对本 Task 的 12 条实际变更路径执行限定 refresh / review：`src/ui/main.ts`、开发态 Inspector 及其测试、Operation workspace / controller / CSS 及两份定向测试、当前 UI 刷新文档、Task-0234 与计划索引。限定刷新得到 12 个文件、0 移除；全部 12 路径精确解析并取得完整预览 token。共享 `main.ts` 和 `00-index.md` 的 Evidence 按整文件 token 更新；没有把 Task-0233 / Task-0235 或 Quick Test Console 的旁支变更纳入本图谱。
+- 依据源码和测试，将实现、测试、UI 刷新文档及 Task 记录关联到现有 UI Workspace Renderer、Operation EventRun Runtime、Test Harness and Configuration 与 Goal-workflow 概念；没有新增 Concept。各批 plan 均完整，节点与边阶段的 dry-run 均 `valid=true` 后提交；累计 upsert 5 个已有节点、15 条边（包含两条 Inspector 路径映射与 Task→Goal-workflow documentation 边），未删除节点或边。Task 文件自身经 refresh 后仍 indexed，最终 Receipt 的版本 token 已更新到既有 Goal-workflow maps_to Evidence。
+- 写后核验：15 条受影响边逐项 freshness 均 `checked_files=1/1`、`complete=true`；12 条路径 review 均 unchanged、stale=0、owner 完整。`main.ts` 两页共 9 个 owner 均续读完整。12 条变更路径的精确 path search 全部命中且完整；15 条定向关系 traversal 均 reached、complete。UI Workspace Renderer inventory 完整返回 29 个 implementation maps_to 文件，包含 `operation-workspace.ts`；Goal-workflow 的 docs/plan-work inventory 完整包含本 Task。Task→Goal-workflow traversal（incoming）与 Project→planning-records contains traversal（incoming）均到达目标且完整。盘点可见 Task-0233 / Task-0235 文件，但本轮未对这些文件或 Quick Test Console 执行写入或重映射。
 
 ## 剩余工作
 
