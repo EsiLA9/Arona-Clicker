@@ -19,8 +19,10 @@ import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef
 import type { ShopDef } from '../contracts/shop';
 import type {
   OperationActionDef,
+  OperationCardPoolDef,
   OperationEventContentDef,
   OperationLocationDef,
+  OperationStrategyProfileDef,
   StudentOperationProfileDef,
 } from '../contracts/operation';
 import type { PaymentOptionDef } from '../contracts/cost';
@@ -108,6 +110,7 @@ export class Registry {
   private _characters: Map<Character, CharacterData> = new Map();
   /** Character 重构表（docs-818/12-character-rework.md §2）。 */
   private _characterVariants: Map<string, CharacterVariantDef> = new Map();
+  private _characterVariantSourceModNames = new Map<string, string>();
   private _cultivateCurves: Map<string, CultivateCurveDef> = new Map();
   /** 角色养成声明表（A 段只声明，无消费）。 */
   private _favoriteItems: Map<string, FavoriteItemDef> = new Map();
@@ -126,12 +129,15 @@ export class Registry {
   private _operationLocations = new Map<string, OperationLocationDef>();
   private _operationActions = new Map<string, OperationActionDef>();
   private _studentOperationProfiles = new Map<string, StudentOperationProfileDef>();
+  private _operationStrategyProfiles = new Map<string, OperationStrategyProfileDef>();
+  private _operationCardPools = new Map<string, OperationCardPoolDef>();
   /** 三层归属声明；缺省值见 characterScopeOf。 */
   private _characterPersistConfig: CharacterPersistConfig | undefined;
   /** 好感数值配置（部分覆盖合并；缺省字段用引擎内置阶梯，见 system/affection-system.ts）。 */
   private _affectionConfig: AffectionConfigDef | undefined;
   /** 资源条显示条目：resourceId → 显示配置（标签、可选策略、排序）。 */
   private _resourceDisplays: Map<string, ResourceDisplayDef> = new Map();
+  private _resourceDisplaySourceModNames = new Map<string, string>();
   /** 标签表现定义：路径串（如 'office' / 'office/defense'）→ 名称、简介。 */
   private _tagDefs: Map<string, ResolvedTagDef> = new Map();
   private _tagDefSources = new Map<string, string>();
@@ -274,9 +280,12 @@ export class Registry {
       {
         table: 'characterVariants',
         merge: dp => {
-          if (dp.characterVariants) for (const v of dp.characterVariants) this._characterVariants.set(v.id, v);
+          if (dp.characterVariants) for (const v of dp.characterVariants) {
+            this._characterVariants.set(v.id, v);
+            this._characterVariantSourceModNames.set(v.id, this.currentPackModName);
+          }
         },
-        clear: () => this._characterVariants.clear(),
+        clear: () => { this._characterVariants.clear(); this._characterVariantSourceModNames.clear(); },
       },
       {
         table: 'cultivateCurves',
@@ -388,6 +397,16 @@ export class Registry {
         clear: () => this._studentOperationProfiles.clear(),
       },
       {
+        table: 'operationStrategyProfiles',
+        merge: dp => { if (dp.operationStrategyProfiles) for (const profile of dp.operationStrategyProfiles) this._operationStrategyProfiles.set(profile.id, profile); },
+        clear: () => this._operationStrategyProfiles.clear(),
+      },
+      {
+        table: 'operationCardPools',
+        merge: dp => { if (dp.operationCardPools) for (const pool of dp.operationCardPools) this._operationCardPools.set(pool.id, pool); },
+        clear: () => this._operationCardPools.clear(),
+      },
+      {
         table: 'characterPersistConfig',
         merge: dp => {
           if (!dp.characterPersistConfig) return;
@@ -424,9 +443,12 @@ export class Registry {
       {
         table: 'resourceDisplays',
         merge: dp => {
-          if (dp.resourceDisplays) for (const rd of dp.resourceDisplays) this._resourceDisplays.set(rd.resourceId, rd);
+          if (dp.resourceDisplays) for (const rd of dp.resourceDisplays) {
+            this._resourceDisplays.set(rd.resourceId, rd);
+            this._resourceDisplaySourceModNames.set(rd.resourceId, this.currentPackModName);
+          }
         },
-        clear: () => this._resourceDisplays.clear(),
+        clear: () => { this._resourceDisplays.clear(); this._resourceDisplaySourceModNames.clear(); },
       },
       {
         table: 'tags',
@@ -764,6 +786,8 @@ export class Registry {
   get characters(): ReadonlyMap<Character, CharacterData> { return this._characters; }
   /** 角色差分表（VariantId → Def）。 */
   get characterVariants(): ReadonlyMap<string, CharacterVariantDef> { return this._characterVariants; }
+  /** 当前角色差分定义的来源 Datapack modName。 */
+  characterVariantOwnerOf(variantId: string): string | undefined { return this._characterVariantSourceModNames.get(variantId); }
   /** 培养曲线表。 */
   get cultivateCurves(): ReadonlyMap<string, CultivateCurveDef> { return this._cultivateCurves; }
   /** 爱用品表。 */
@@ -789,6 +813,8 @@ export class Registry {
   get operationLocations(): ReadonlyMap<string, OperationLocationDef> { return this._operationLocations; }
   get operationActions(): ReadonlyMap<string, OperationActionDef> { return this._operationActions; }
   get studentOperationProfiles(): ReadonlyMap<string, StudentOperationProfileDef> { return this._studentOperationProfiles; }
+  get operationStrategyProfiles(): ReadonlyMap<string, OperationStrategyProfileDef> { return this._operationStrategyProfiles; }
+  get operationCardPools(): ReadonlyMap<string, OperationCardPoolDef> { return this._operationCardPools; }
   /** 好感数值配置（数据包声明；未声明返回 undefined = 引擎内置阶梯）。 */
   get affectionConfig(): AffectionConfigDef | undefined { return this._affectionConfig; }
 
@@ -894,6 +920,8 @@ export class Registry {
   }
   /** 资源条显示条目（数据包声明，驱动 UI 资源条渲染）。 */
   get resourceDisplays(): ReadonlyMap<string, ResourceDisplayDef> { return this._resourceDisplays; }
+  /** 当前资源展示定义的来源 Datapack modName。 */
+  resourceDisplayOwnerOf(resourceId: string): string | undefined { return this._resourceDisplaySourceModNames.get(resourceId); }
 
   /** Spot 审计时间查询；缺失时间只在查询结果中按极早值表达，不改写 Def。 */
   getEffectiveSpotMetadata(spotId: string): EffectiveDefMetadata {
@@ -1299,6 +1327,8 @@ export class Registry {
       locations: this._operationLocations,
       actions: this._operationActions,
       profiles: this._studentOperationProfiles,
+      strategyProfiles: this._operationStrategyProfiles,
+      cardPools: this._operationCardPools,
     });
     this.currentPackModName = datapack.modName ?? 'base';
     const incomingTagKeys = new Set<string>();
@@ -1327,6 +1357,8 @@ export class Registry {
       locations: this._operationLocations,
       actions: this._operationActions,
       profiles: this._studentOperationProfiles,
+      strategyProfiles: this._operationStrategyProfiles,
+      cardPools: this._operationCardPools,
     });
   }
 

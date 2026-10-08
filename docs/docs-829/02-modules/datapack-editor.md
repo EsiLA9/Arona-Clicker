@@ -13,3 +13,7 @@
 - `npm run dev:editor` 启动独立编辑器；`npm run gen:schema` 更新生成协议。
 - 同步护栏：`tools/datapack-editor/schema/engine-schema.sync.test.ts`。
 - 源字段与协议步骤见 [[docs/docs-829/05-conventions/schema-sync]]。
+
+## 验证与继续阅读
+
+Schema 同步测试只检查编辑器生成协议与 Engine 契约保持同步，不替代编辑器各表单的浏览器验收。编辑器职责概览见 [[docs/docs-829/06-wiki/60-engineering-support/schema-editor]]；启动与编辑器专属测试范围见 [[docs/docs-829/06-wiki/60-engineering-support/testing]]。

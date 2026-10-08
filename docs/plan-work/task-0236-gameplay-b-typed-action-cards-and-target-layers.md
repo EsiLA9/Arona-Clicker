@@ -131,4 +131,4 @@
 
 ## 相关路由
 
-[[task-0232]] · [[task-0234-gameplay-b-demo-card-surface]] · [[draft-0231-b]] · [[draft-0231-gameplay-b-original-demo-activity-and-battle-round]] · [[docs/ai/goal-workflow]] · [[docs/ai/PROJECT-CONSTITUTION]] · [[docs/ai/context-packs/ui-presentation]] · [[docs/ai/frontend-design-project-overlay]] · [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]] · [[docs/docs-829/06-wiki/50-ui/refresh-update]] · [[docs/docs-829/05-conventions/schema-sync]]
+[[task-0232]] · [[task-0234-gameplay-b-demo-card-surface]] · [[draft-0231-b]] · [[draft-0231-gameplay-b-original-demo-activity-and-battle-round]] · [[docs/ai/goal-workflow]] · [[docs/ai/PROJECT-CONSTITUTION]] · [[docs/ai/context-packs/ui-presentation]] · [[docs/ai/frontend-design-project-overlay]] · [[operation-runtime]] · [[docs/docs-829/06-wiki/50-ui/refresh-update]] · [[docs/docs-829/05-conventions/schema-sync]]

@@ -40,8 +40,10 @@ import type { ShopDef } from './shop';
 import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from './character-progression-def';
 import type {
   OperationActionDef,
+  OperationCardPoolDef,
   OperationEventContentDef,
   OperationLocationDef,
+  OperationStrategyProfileDef,
   StudentOperationProfileDef,
 } from './operation';
 
@@ -88,6 +90,10 @@ export interface Datapack {
   operationActions?: OperationActionDef[];
   /** Character-specific Gameplay B autonomy profiles. */
   studentOperationProfiles?: StudentOperationProfileDef[];
+  /** Reusable Strategy tag biases for Operation Character Hands. */
+  operationStrategyProfiles?: OperationStrategyProfileDef[];
+  /** Reusable weighted Operation Action sources. */
+  operationCardPools?: OperationCardPoolDef[];
   enhancements: EnhancementDef[];
   /** 主线 / 支线 / 羁绊剧情入口。 */
   activeStories: ActiveStoryEntry[];

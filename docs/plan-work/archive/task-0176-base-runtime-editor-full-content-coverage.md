@@ -26,7 +26,7 @@
 
 - [[docs/docs-829/00-INDEX]]
 - [[docs/docs-829/03-data-structures/datapack-contracts]]
-- [[docs/docs-829/04-mechanisms/data-services/pack-loading]]
+- [[pack-loading]]
 - [[docs/docs-829/05-conventions/architecture-discipline]]
 - [[docs/docs-829/05-conventions/testing]]
 - [[docs/ai/frontend-design-project-overlay]]

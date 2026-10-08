@@ -8,7 +8,7 @@
 
 - [[docs/docs-829/03-data-structures/datapack-contracts]]
 - [[docs/docs-829/03-data-structures/registry]]
-- [[docs/docs-829/04-mechanisms/engine/effect-trigger]]
+- [[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]]
 
 ## 只读历史原文
 

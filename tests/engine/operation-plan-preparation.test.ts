@@ -46,6 +46,7 @@ function action(
 ): OperationActionDef {
   return {
     id,
+    title: id,
     allowedParticipantKinds: kinds,
     requiredCapabilityIds: options.requiredCapabilityIds ?? [],
     reasonIds: options.reasonIds ?? ['reason:' + id],
@@ -151,6 +152,25 @@ function content(
 }
 
 describe('pure Operation Beat preparation', () => {
+  test('uses the supplied Character Hand as the student candidate boundary', () => {
+    const student = actor('actor:student', 'student');
+    const event = eventDefinition([student], { locations: [{
+      id: 'location:office', enabledActionIds: ['student:static', 'student:pooled'], combinationRules: [], routeEdges: [],
+    }] });
+    const initialization = studentInitialization(student.id, studentProfile('student', ['student:static']));
+    const contentValue = content(event, [initialization], [action('student:static', ['student']), action('student:pooled', ['student'])]);
+    const handSnapshot = {
+      ...snapshot([{ actorId: student.id, participantKind: 'student', resources: {} }]),
+      studentActionIdsByActorId: { [student.id]: ['student:pooled'] },
+    };
+
+    const prepared = prepareOperationBeat(handSnapshot, contentValue);
+    expect(prepared.actorPlans[0].actionId).toBe('student:pooled');
+
+    const emptyHand = prepareOperationBeat({ ...handSnapshot, studentActionIdsByActorId: { [student.id]: [] } }, contentValue);
+    expect(emptyHand.actorPlans[0].kind).toBe('wait');
+  });
+
   test('uses Profile priority, Event actor order, participant candidates, Location filtering, and target preference', () => {
     const studentA = actor('actor:student-a', 'student', { targetPriorityActorIds: ['actor:student-b'] });
     const opponent = actor('actor:opponent', 'opponent');

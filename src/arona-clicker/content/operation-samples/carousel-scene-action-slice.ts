@@ -1,7 +1,6 @@
 import type { OperationActionDef } from '../../contracts/operation-action';
 import type { OperationContentResolver, OperationResolvedContent } from '../../contracts/operation-content-resolver';
 import type { OperationEventDef } from '../../contracts/operation';
-import { Character } from '../../types/ids';
 import { CAROUSEL_SAFETY_IDS } from './carousel-safety-ids';
 import { carouselSafetySliceContent } from './carousel-safety-slice';
 
@@ -81,8 +80,10 @@ const eventDefinition: OperationEventDef = {
       actionMode: 'individual',
       sceneActionBatches: 1,
       sceneActions: [
-        { id: IDS.sceneActions.inspect, actionId: IDS.actions.investigate, scope: 'individual', playerCost: 1 },
-        { id: IDS.sceneActions.guide, actionId: IDS.actions.guideCrowd, scope: 'individual', playerCost: 1 },
+        { id: IDS.sceneActions.inspect, actionId: IDS.actions.investigate, scope: 'individual', playerCost: 1,
+          performerPolicy: 'selected-student', selectionPolicy: 'required', title: '检查控制台' },
+        { id: IDS.sceneActions.guide, actionId: IDS.actions.guideCrowd, scope: 'individual', playerCost: 1,
+          performerPolicy: 'selected-student', selectionPolicy: 'required', title: '引导游客' },
       ],
       costGain: 2,
       maxCarryCost: 2,
@@ -110,7 +111,8 @@ const eventDefinition: OperationEventDef = {
       actionMode: 'global',
       sceneActionBatches: 1,
       sceneActions: [
-        { id: IDS.sceneActions.firstAid, actionId: IDS.actions.treatTeam, scope: 'global', playerCost: 2 },
+        { id: IDS.sceneActions.firstAid, actionId: IDS.actions.treatTeam, scope: 'global', playerCost: 2,
+          performerPolicy: 'optional-student', selectionPolicy: 'required', title: '全队急救' },
       ],
       costGain: 1,
       maxCarryCost: 2,
@@ -118,7 +120,6 @@ const eventDefinition: OperationEventDef = {
     },
   ],
   initialLocationId: IDS.locations.platform,
-  maxLocationVisits: 6,
   tracks: [
     ...carouselSafetySliceContent.eventDefinition.tracks,
     { id: IDS.track, initial: 2, min: 0, max: 4 },
@@ -147,6 +148,9 @@ const eventDefinition: OperationEventDef = {
       playerCost: 1,
       timing: 'scene',
       copies: 2,
+      performerPolicy: 'optional-student',
+      selectionPolicy: 'required',
+      title: '团队急救包',
     }],
     initialDraw: 1,
     locationEntryDraw: 1,
@@ -157,6 +161,8 @@ const eventDefinition: OperationEventDef = {
 const actionDefinitions: readonly OperationActionDef[] = [
   {
     id: IDS.actions.investigate,
+    title: '检查控制台',
+    description: '发现员工证并记录设备已检查。',
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:inspect-control-panel'],
@@ -169,6 +175,8 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
   {
     id: IDS.actions.guideCrowd,
+    title: '引导游客',
+    description: '改善通道秩序。',
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:guide-queue'],
@@ -178,11 +186,13 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
   {
     id: IDS.actions.treatTeam,
+    title: '全队急救',
+    description: '为每名选定队员恢复 1 点 HP，并降低现场危险度。',
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:first-aid-team'],
     tagIds: [],
-    target: { kind: 'actor', relation: 'sameTeam' },
+    target: { kind: 'actor', relation: 'sameTeam', allowedActorIds: [CAROUSEL_SAFETY_IDS.actors.hoshino, CAROUSEL_SAFETY_IDS.actors.serika, CAROUSEL_SAFETY_IDS.actors.shiroko] },
     effects: [
       { kind: 'actorHpDelta', recipient: 'target', amount: 1 },
       { kind: 'eventTrackDelta', trackId: IDS.track, amount: -1 },
@@ -190,22 +200,9 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
 ];
 
-const sceneActionIds = Object.values(IDS.actions);
 const content: OperationResolvedContent = {
   ...carouselSafetySliceContent,
   eventDefinition,
-  studentProfiles: carouselSafetySliceContent.studentProfiles.map(profile => {
-    const isCarouselStudent = profile.characterId === Character.Hoshino
-      || profile.characterId === Character.Serika
-      || profile.characterId === Character.Shiroko;
-    return isCarouselStudent
-      ? {
-        ...profile,
-        candidateActionIds: [...profile.candidateActionIds, ...sceneActionIds],
-        actionPriorityIds: [...profile.actionPriorityIds, ...sceneActionIds],
-      }
-      : profile;
-  }),
   actionDefinitions: [...carouselSafetySliceContent.actionDefinitions, ...actionDefinitions],
 };
 

@@ -13,6 +13,7 @@ import type {
   OperationResultKind,
   OperationRewardDef,
 } from '../../data-services/contracts/operation';
+import type { OperationCardPoolDef, OperationStrategyProfileDef } from '../../data-services/contracts/operation';
 
 export type {
   OperationActorDef,
@@ -58,6 +59,10 @@ export interface OperationPlayerSceneCardInstanceDef {
   readonly actionId: string;
   readonly playerCost: number;
   readonly timing: 'scene';
+  readonly selectionPolicy?: 'required' | 'fixed';
+  readonly performerPolicy?: 'selected-student' | 'none' | 'optional-student';
+  readonly title?: string;
+  readonly description?: string;
 }
 
 export interface OperationPlayerRouteState extends OperationPlayerRouteStateDef {
@@ -97,6 +102,9 @@ export interface OperationStudentProfileSnapshot {
   readonly actionPriorityIds: readonly string[];
   readonly capabilityIds: readonly string[];
   readonly reasonIds: readonly string[];
+  readonly strategyProfileId?: string;
+  readonly strategyBiases?: readonly { readonly tagId: string; readonly biasBps: number }[];
+  readonly cardPoolIds?: readonly string[];
   readonly actionCandidates: readonly OperationActionCandidateSnapshot[];
   readonly eligibleActionIds: readonly string[];
   readonly fallback?: OperationWaitFallbackSnapshot;
@@ -130,6 +138,27 @@ export interface OperationRunStartInput {
   readonly actionDefinitions: readonly OperationActionDef[];
   /** Resolver-authored rules, referenced only by admitted student Profiles. */
   readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
+  /** Reference-closed author definitions; absent only in low-level legacy fixtures. */
+  readonly operationCardPools?: readonly OperationCardPoolDef[];
+  readonly operationStrategyProfiles?: readonly OperationStrategyProfileDef[];
+}
+
+export interface OperationCardCandidateDiagnostic {
+  readonly actionId: string;
+  readonly sourcePoolIds: readonly string[];
+  readonly legacyFallback: boolean;
+  readonly eligible: boolean;
+  readonly reasonIds: readonly string[];
+  readonly baseWeight: number;
+  readonly strategyFactorBps: number | null;
+  readonly finalWeight: number;
+}
+
+export interface OperationCharacterHandSnapshot {
+  readonly actorId: string;
+  readonly actionIds: readonly string[];
+  readonly matchedPoolIds: readonly string[];
+  readonly candidates: readonly OperationCardCandidateDiagnostic[];
 }
 
 export const OPERATION_TACTICAL_RNG_ALGORITHM = 'splitmix64-counter-v1' as const;
@@ -184,6 +213,7 @@ export interface OperationActorState {
   readonly displayName?: string;
   readonly avatarRef?: string | null;
   readonly hp: number;
+  readonly positionId?: string;
   readonly maxHp?: number;
   readonly resources: Readonly<Record<string, number>>;
   /** Present for GameInstance runs; omitted only by low-level structural Runtime fixtures. */
@@ -236,6 +266,8 @@ export interface EventRun {
   readonly currentLocationId: string;
   readonly eventState: OperationEventState;
   readonly actorStates: readonly OperationActorState[];
+  /** Student Action Hands; separate from the physical playerSceneDeck zones. */
+  readonly characterHands?: Readonly<Record<string, OperationCharacterHandSnapshot>>;
   readonly teamStates: readonly OperationTeamState[];
   readonly playerRouteState: OperationPlayerRouteState;
   readonly locationProgress: Readonly<Record<string, OperationLocationProgress>>;

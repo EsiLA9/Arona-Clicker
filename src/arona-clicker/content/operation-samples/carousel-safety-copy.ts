@@ -47,7 +47,7 @@ export const CAROUSEL_SAFETY_PRESENTATION = Object.freeze({
     [CAROUSEL_SAFETY_IDS.actions.signal]: { name: '节奏信号', description: '降低危险度，并可与制动动作形成合流。' },
     [CAROUSEL_SAFETY_IDS.actions.crowdGuide]: { name: '疏导游客', description: '消耗小组 1 点协调资源，危险度 -3；无法参与制动合流。' },
     [CAROUSEL_SAFETY_IDS.actions.shield]: { name: '护住设备外框', description: '保护关键目标。' },
-    [CAROUSEL_SAFETY_IDS.actions.sabotage]: { name: '破坏安全闩', description: '降低设备耐久。' },
+    [CAROUSEL_SAFETY_IDS.actions.sabotage]: { name: '破坏安全闩', description: '破坏旋转木马安全闩，扣除 1 点设备耐久。' },
     [CAROUSEL_SAFETY_IDS.actions.alarm]: { name: '制造混乱', description: '推高现场危险度。' },
     [CAROUSEL_SAFETY_IDS.actions.surge]: { name: '机械惯性', description: '旋转仍会推高危险度。' },
   },

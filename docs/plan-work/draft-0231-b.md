@@ -209,4 +209,4 @@ AC 侧已有 SceneActionBatch 与 PlayerSceneCard 规则、成本统一校验、
 
 ## 相关文档
 
-[[draft-0231-gameplay-b-original-demo-activity-and-battle-round]] · [[docs/plan-work/archive/draft-0212-gameplay-b-ac-native-design-roadmap]] · [[docs/plan-work/archive/task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] · [[docs/docs-829/03-data-structures/operation-view]] · [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]] · [[docs/docs-829/06-wiki/50-ui/workspace-routing]] · [[docs/ai/goal-workflow]]
+[[draft-0231-gameplay-b-original-demo-activity-and-battle-round]] · [[docs/plan-work/archive/draft-0212-gameplay-b-ac-native-design-roadmap]] · [[docs/plan-work/archive/task-0222-gameplay-b-packaged-event-entry-and-end-to-end-slice]] · [[docs/docs-829/03-data-structures/operation-view]] · [[operation-runtime]] · [[docs/docs-829/06-wiki/50-ui/workspace-routing]] · [[docs/ai/goal-workflow]]

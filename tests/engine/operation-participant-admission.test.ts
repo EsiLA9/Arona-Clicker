@@ -4,16 +4,22 @@ import type { OperationContentResolver, OperationResolvedContent } from '../../s
 import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
 import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
 import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
+import type { OperationCardPoolDef, OperationStrategyProfileDef, OperationEventContentDef, OperationLocationDef } from '../../src/data-services/contracts/operation';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { CharacterVariantDef } from '../../src/arona-clicker/types/character';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
 import { createOperationEntry } from '../../src/arona-clicker/services/operation-entry-service';
-import { OperationAdmissionError } from '../../src/arona-clicker/services/operation-participant-admission';
+import { OperationAdmissionError, OperationParticipantAdmission } from '../../src/arona-clicker/services/operation-participant-admission';
+import { createRegistryOperationContentResolver } from '../../src/arona-clicker/services/registry-operation-content-resolver';
+import { gameplayBStrategyParkDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-strategy-park';
+import { GAMEPLAY_B_STRATEGY_PARK_IDS as STRATEGY_PARK_IDS } from '../../src/arona-clicker/content/operation-samples/gameplay-b-strategy-park-ids';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 const EVENT_ID = 'test:operation:admission';
+const STRATEGY_ID = 'test:strategy:hoshino';
+const POOL_ID = 'test:pool:hoshino';
 const HOSHINO_PROFILE: StudentOperationProfileDef = {
   id: 'test:operation-profile:hoshino',
   characterId: Character.Hoshino,
@@ -22,6 +28,8 @@ const HOSHINO_PROFILE: StudentOperationProfileDef = {
   capabilityIds: ['frontline-protection'],
   reasonIds: ['hoshino-veteran'],
   randomSkillRuleId: 'test:skill-rule:hoshino',
+  strategyProfileId: STRATEGY_ID,
+  cardPoolIds: [POOL_ID],
 };
 const SERIKA_PROFILE: StudentOperationProfileDef = {
   id: 'test:operation-profile:serika',
@@ -38,7 +46,7 @@ function eventDef(id = EVENT_ID): OperationEventDef {
     locations: [{ id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [],
-    factIds: [],
+    factIds: ['door-open'],
     knownFactIds: [],
     itemIds: [],
     heldItemIds: [],
@@ -52,14 +60,22 @@ function eventDef(id = EVENT_ID): OperationEventDef {
 
 function actionDefinitions(): OperationActionDef[] {
   return [
-    { id: 'observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['observe-reason'], tagIds: [], target: { kind: 'none' }, effects: [] },
-    { id: 'protect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['frontline-protection'], reasonIds: ['protect-reason'], tagIds: [], target: { kind: 'none' }, effects: [] },
-    { id: 'opponent-observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'observe', title: 'observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['observe-reason'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'protect', title: 'protect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['frontline-protection'], reasonIds: ['protect-reason'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'opponent-observe', title: 'opponent observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
   ];
 }
 
 function studentSkillRules(): OperationStudentSkillRuleDef[] {
   return [{ id: 'test:skill-rule:hoshino', triggerActionIds: ['protect'], chanceBps: 2500, effects: [] }];
+}
+
+function operationCardPools(): OperationCardPoolDef[] {
+  return [{ id: POOL_ID, selector: { positionIds: ['front'], requiredFactIds: ['door-open'] }, entries: [{ actionId: 'observe', weight: 4 }] }];
+}
+
+function operationStrategyProfiles(): OperationStrategyProfileDef[] {
+  return [{ id: STRATEGY_ID, biases: [{ tagId: 'protect', biasBps: 15000 }] }];
 }
 
 function content(changes: Partial<OperationResolvedContent> = {}): OperationResolvedContent {
@@ -72,6 +88,8 @@ function content(changes: Partial<OperationResolvedContent> = {}): OperationReso
     studentProfiles: [HOSHINO_PROFILE],
     actionDefinitions: actionDefinitions(),
     studentSkillRules: studentSkillRules(),
+    operationCardPools: operationCardPools(),
+    operationStrategyProfiles: operationStrategyProfiles(),
     ...changes,
   };
 }
@@ -136,6 +154,141 @@ describe('Operation participant admission', () => {
     expect(run.eventId).toBe(EVENT_ID);
     expect(start).toHaveBeenCalledTimes(1);
     expect(lifecycle).toEqual(['runStarted', 'locationEntered']);
+  });
+
+  test('passes only referenced Strategy/CardPool definitions through detached Admission', () => {
+    const game = createGame();
+    ownHoshino(game);
+    const admission = new OperationParticipantAdmission({
+      resolver: resolverOf(content({
+        operationCardPools: [...operationCardPools(), { id: 'unused-pool', entries: [{ actionId: 'observe', weight: 2 }] }],
+        operationStrategyProfiles: [...operationStrategyProfiles(), { id: 'unused-strategy', biases: [] }],
+      })),
+      characterSystem: game.characterSystem,
+      rosterSystem: game.rosterSystem,
+      getState: () => game.state as PlayerState,
+    }).admit(EVENT_ID, [Character.Hoshino]);
+
+    expect(admission.operationCardPools).toEqual(operationCardPools());
+    expect(admission.operationStrategyProfiles).toEqual(operationStrategyProfiles());
+    expect(Object.isFrozen(admission.operationCardPools?.[0].entries[0])).toBe(true);
+    expect(admission.studentProfiles[0].strategyProfileId).toBe(STRATEGY_ID);
+  });
+
+  test('Registry resolver closes definitions over Event, Location, and selected Profile references', () => {
+    const location: OperationLocationDef = {
+      id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [],
+      cardPoolIds: ['test:pool:location'],
+    };
+    const registryEvent = {
+      ...eventDef(),
+      initId: 'test:init:admission',
+      resumeVersion: 1,
+      locationIds: [location.id],
+      participants: content().participants,
+      studentSkillRules: studentSkillRules(),
+      cardPoolIds: ['test:pool:event'],
+    } as unknown as OperationEventContentDef;
+    const poolRows = [
+      ...operationCardPools(),
+      { id: 'test:pool:event', entries: [{ actionId: 'observe', weight: 1 }] },
+      { id: 'test:pool:location', entries: [{ actionId: 'protect', weight: 1 }] },
+      { id: 'unused-pool', entries: [{ actionId: 'observe', weight: 1 }] },
+    ] as OperationCardPoolDef[];
+    const strategyRows = [...operationStrategyProfiles(), { id: 'unused-strategy', biases: [] }] as OperationStrategyProfileDef[];
+    const resolver = createRegistryOperationContentResolver({
+      operationEvents: new Map([[registryEvent.id, registryEvent]]),
+      operationLocations: new Map([[location.id, location]]),
+      operationActions: new Map(actionDefinitions().map(action => [action.id, action])),
+      studentOperationProfiles: new Map([[HOSHINO_PROFILE.id, HOSHINO_PROFILE]]),
+      operationCardPools: new Map(poolRows.map(pool => [pool.id, pool])),
+      operationStrategyProfiles: new Map(strategyRows.map(profile => [profile.id, profile])),
+    });
+    const resolved = resolver.resolve(EVENT_ID);
+    expect(resolved?.operationCardPools?.map(pool => pool.id).sort()).toEqual([POOL_ID, 'test:pool:event', 'test:pool:location'].sort());
+    expect(resolved?.operationStrategyProfiles?.map(profile => profile.id)).toEqual([STRATEGY_ID]);
+    expect(resolved?.actionDefinitions.map(action => action.id).sort()).toEqual(['observe', 'opponent-observe', 'protect']);
+  });
+
+  test('keeps Registry Location context and Action Conditions through Admission and RunStart', () => {
+    const operationPack = {
+      ...gameplayBStrategyParkDatapack,
+      operationEvents: gameplayBStrategyParkDatapack.operationEvents?.map(event => event.id === STRATEGY_PARK_IDS.event
+        ? { ...event, characterHandSize: 10 }
+        : event),
+    };
+    const game = new GameInstance();
+    games.push(game);
+    game.init([baseDatapack, operationPack], { enterDefaultInit: false });
+    game.inits.enterInit('base:init:schale_office');
+    game.mutations.acquireCharacter('Hoshino', 'story');
+    game.mutations.acquireCharacter('Serika', 'story');
+    game.mutations.acquireCharacter('Shiroko', 'story');
+
+    expect(game.registry.operationLocations.get(STRATEGY_PARK_IDS.locations.westGate)).toMatchObject({
+      interactionSceneId: 'park:exploration',
+      activityId: 'park:briefing',
+      cardPoolIds: [STRATEGY_PARK_IDS.pools.exploration],
+    });
+    expect(game.registry.operationActions.get(STRATEGY_PARK_IDS.actions.searchMaze)?.cardCondition).toEqual({
+      sceneIds: ['park:exploration'],
+      activityIds: ['park:mirror-maze'],
+    });
+
+    const runId = game.operationEntry.start(STRATEGY_PARK_IDS.event, [Character.Hoshino, Character.Serika, Character.Shiroko]).runId;
+    const hand = game.operationEntry.getView(runId)!.actorStates
+      .find(actor => actor.id === STRATEGY_PARK_IDS.actors.hoshino)!.characterHand!;
+    expect(hand.matchedPoolIds).toContain(STRATEGY_PARK_IDS.pools.exploration);
+    expect(hand.matchedPoolIds).not.toContain(STRATEGY_PARK_IDS.pools.backline);
+    expect(hand.actionIds).toContain(STRATEGY_PARK_IDS.actions.brief);
+    expect(hand.actionIds).not.toContain(STRATEGY_PARK_IDS.actions.searchMaze);
+    expect(hand.candidates.find(candidate => candidate.actionId === STRATEGY_PARK_IDS.actions.brief))
+      .toMatchObject({ eligible: true });
+    expect(hand.candidates.find(candidate => candidate.actionId === STRATEGY_PARK_IDS.actions.searchMaze))
+      .toMatchObject({ eligible: false, reasonIds: expect.arrayContaining(['operation:hand:action-condition-not-met']) });
+  });
+
+  test.each([
+    ['malformed selector array', { sceneIds: 'park:exploration' }],
+    ['undeclared Event fact', { requiredFactIds: ['test:fact:not-declared'] }],
+    ['unsupported selector field', { sceneIds: ['park:exploration'], rangeIds: ['near'] }],
+  ])('rejects an Action.cardCondition with %s during Admission', (_label, cardCondition) => {
+    const game = createGame();
+    ownHoshino(game);
+    const invalidActions = actionDefinitions().map(action => action.id === 'observe'
+      ? { ...action, cardCondition } as unknown as OperationActionDef
+      : action);
+    const admission = new OperationParticipantAdmission({
+      resolver: resolverOf(content({ actionDefinitions: invalidActions })),
+      characterSystem: game.characterSystem,
+      rosterSystem: game.rosterSystem,
+      getState: () => game.state as PlayerState,
+    });
+
+    expect(() => admission.admit(EVENT_ID, [Character.Hoshino])).toThrow(OperationAdmissionError);
+  });
+
+  test('rejects blank Location context IDs and duplicate Location Pool IDs', () => {
+    const game = createGame();
+    ownHoshino(game);
+    const baseEvent = eventDef();
+    const invalidLocations = [
+      { ...baseEvent.locations[0], interactionSceneId: ' ' },
+      { ...baseEvent.locations[0], activityId: ' ' },
+      { ...baseEvent.locations[0], cardPoolIds: ['test:pool:duplicate', 'test:pool:duplicate'] },
+    ] as unknown as OperationEventDef['locations'];
+
+    for (const location of invalidLocations) {
+      const admission = new OperationParticipantAdmission({
+        resolver: resolverOf(content({
+          eventDefinition: { ...baseEvent, locations: [location] },
+        })),
+        characterSystem: game.characterSystem,
+        rosterSystem: game.rosterSystem,
+        getState: () => game.state as PlayerState,
+      });
+      expect(() => admission.admit(EVENT_ID, [Character.Hoshino])).toThrow(OperationAdmissionError);
+    }
   });
 
   test('rejects a missing or proto-mismatched Registry Variant despite existing roster progress', () => {
@@ -358,6 +511,7 @@ describe('Operation participant admission', () => {
         source: content({
           actionDefinitions: [...baseActions, {
             id: 'opponent-needs-capability',
+            title: 'opponent needs capability',
             allowedParticipantKinds: ['opponent'],
             requiredCapabilityIds: ['capability:unmodeled'],
             reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [],
@@ -440,6 +594,7 @@ describe('Operation participant admission', () => {
         ...actionDefinitions(),
         {
           id: 'opponent-fire',
+          title: 'opponent fire',
           allowedParticipantKinds: ['opponent'],
           requiredCapabilityIds: [],
           reasonIds: [],
@@ -489,8 +644,8 @@ describe('Operation participant admission', () => {
       ],
       studentProfiles: [],
       actionDefinitions: [
-        { id: 'opponent-observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
-        { id: 'environment-observe', allowedParticipantKinds: ['environment'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
+        { id: 'opponent-observe', title: 'opponent observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
+        { id: 'environment-observe', title: 'environment observe', allowedParticipantKinds: ['environment'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
       ],
       studentSkillRules: [],
     };
@@ -518,6 +673,7 @@ describe('Operation participant admission', () => {
     const start = vi.spyOn(owner, 'start');
     const action: OperationActionDef = {
       id: 'opponent-barrage',
+      title: 'opponent barrage',
       allowedParticipantKinds: ['opponent'],
       requiredCapabilityIds: [],
       reasonIds: [],
@@ -584,6 +740,44 @@ describe('Operation participant admission', () => {
     expect(() => missingTeamResource.facade.start(validEvent.id, [Character.Hoshino]))
       .toThrow(/undeclared target Team resource: support/);
     expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  test('validates actorPosition recipients against the action target contract', () => {
+    const game = createGame();
+    ownHoshino(game);
+    const owner = new OperationRuntimeService();
+    const source = content();
+    const actorPositionAction = (recipient: 'actor' | 'target', positionId = 'front'): OperationActionDef => ({
+      ...source.actionDefinitions[0],
+      strategyTagIds: ['protect'],
+      effects: [{ kind: 'actorPosition', recipient, positionId }],
+    });
+    const accepted = makeEntry(game, owner, resolverOf({
+      ...source,
+      actionDefinitions: [actorPositionAction('actor'), ...source.actionDefinitions.slice(1)],
+    }));
+    expect(() => accepted.facade.start(EVENT_ID, [Character.Hoshino])).not.toThrow();
+
+    const targetless = makeEntry(game, new OperationRuntimeService(), resolverOf({
+      ...source,
+      actionDefinitions: [actorPositionAction('target'), ...source.actionDefinitions.slice(1)],
+    }));
+    expect(() => targetless.facade.start(EVENT_ID, [Character.Hoshino])).toThrow(/targets an Actor but this result has no Actor target/);
+
+    const malformed = makeEntry(game, new OperationRuntimeService(), resolverOf({
+      ...source,
+      actionDefinitions: [actorPositionAction('actor', ' '), ...source.actionDefinitions.slice(1)],
+    }));
+    expect(() => malformed.facade.start(EVENT_ID, [Character.Hoshino])).toThrow(/positionId must be a non-empty ID/);
+
+    const duplicateStrategyTag = makeEntry(game, new OperationRuntimeService(), resolverOf({
+      ...source,
+      actionDefinitions: [
+        { ...actorPositionAction('actor'), strategyTagIds: ['protect', 'protect'] },
+        ...source.actionDefinitions.slice(1),
+      ],
+    }));
+    expect(() => duplicateStrategyTag.facade.start(EVENT_ID, [Character.Hoshino])).toThrow(/strategyTagIds contains duplicate ID/);
   });
 
   test('rejects invalid caller IDs before resolver lookup', () => {

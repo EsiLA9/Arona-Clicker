@@ -55,9 +55,9 @@ function eventDef(): OperationEventDef {
 
 function actionDefinitions(): OperationActionDef[] {
   return [
-    { id: 'observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['test:reason:observe'], tagIds: [], target: { kind: 'none' }, effects: [] },
-    { id: 'protect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['frontline-protection'], reasonIds: ['test:reason:protection'], tagIds: [], target: { kind: 'none' }, effects: [] },
-    { id: 'organize', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['resourcefulness'], reasonIds: ['test:reason:organize'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'observe', title: 'observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['test:reason:observe'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'protect', title: 'protect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['frontline-protection'], reasonIds: ['test:reason:protection'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'organize', title: 'organize', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['resourcefulness'], reasonIds: ['test:reason:organize'], tagIds: [], target: { kind: 'none' }, effects: [] },
   ];
 }
 
@@ -267,6 +267,7 @@ describe('Gameplay B Operation entry integration', () => {
     const actionDefinitions: OperationActionDef[] = [
       {
         id: 'protect',
+        title: 'protect',
         allowedParticipantKinds: ['student'],
         requiredCapabilityIds: ['frontline-protection'],
         reasonIds: ['test:reason:protection'],
@@ -276,6 +277,7 @@ describe('Gameplay B Operation entry integration', () => {
       },
       {
         id: 'observe',
+        title: 'observe',
         allowedParticipantKinds: ['student'],
         requiredCapabilityIds: [],
         reasonIds: ['test:reason:observe'],
@@ -286,6 +288,7 @@ describe('Gameplay B Operation entry integration', () => {
       },
       {
         id: 'organize',
+        title: 'organize',
         allowedParticipantKinds: ['student'],
         requiredCapabilityIds: ['resourcefulness'],
         reasonIds: ['test:reason:organize'],

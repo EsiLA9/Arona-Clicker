@@ -137,7 +137,13 @@ export class ScrollManager {
   captureWorkspace(root: HTMLElement): void {
     this.workspaceScrollTop = new Map(
       [...root.querySelectorAll<HTMLElement>('.workspace-column__body')]
-        .map(body => [body.closest<HTMLElement>('[data-workspace-column]')?.dataset.workspaceColumn, body.scrollTop] as const)
+        .map(body => {
+          const contentScroller = body.dataset.scrollOwner === 'content-region'
+            ? body
+            : body.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+          const scrollTarget = contentScroller ?? body;
+          return [body.closest<HTMLElement>('[data-workspace-column]')?.dataset.workspaceColumn, scrollTarget.scrollTop] as const;
+        })
         .filter((entry): entry is [string, number] => Boolean(entry[0])),
     );
   }
@@ -146,7 +152,11 @@ export class ScrollManager {
     root.querySelectorAll<HTMLElement>('.workspace-column__body').forEach(body => {
       const slot = body.closest<HTMLElement>('[data-workspace-column]')?.dataset.workspaceColumn;
       const scrollTop = slot ? this.workspaceScrollTop.get(slot) : undefined;
-      if (scrollTop !== undefined) body.scrollTop = scrollTop;
+      const contentScroller = body.dataset.scrollOwner === 'content-region'
+        ? body
+        : body.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+      const scrollTarget = contentScroller ?? body;
+      if (scrollTop !== undefined) scrollTarget.scrollTop = scrollTop;
     });
   }
 }

@@ -3,13 +3,13 @@ import type { OperationRunVersionCommand } from './operation';
 /** One performer selects one trusted location-scoped action; target IDs are checked against its ActionDef. */
 export interface OperationSceneActionSelection {
   readonly sceneActionId: string;
-  readonly actorId: string;
+  readonly actorId?: string;
   readonly targetActorIds: readonly string[];
 }
 
 export interface OperationSceneCardSelection {
   readonly cardInstanceId: string;
-  readonly actorId: string;
+  readonly actorId?: string;
   readonly targetActorIds: readonly string[];
 }
 
@@ -25,6 +25,15 @@ export interface OperationSceneActionCostPreview {
   readonly balanceAfter: number;
 }
 
+export interface OperationSceneActionResourceCostPreview {
+  readonly actorId: string;
+  readonly actionId: string;
+  readonly scope: 'actor' | 'team';
+  readonly scopeId: string;
+  readonly resourceId: string;
+  readonly amount: number;
+}
+
 export interface OperationSceneActionBatchPreview {
   readonly runId: string;
   readonly eventId: string;
@@ -34,6 +43,8 @@ export interface OperationSceneActionBatchPreview {
   readonly selections: readonly OperationSceneActionSelection[];
   readonly cards: readonly (OperationSceneCardSelection & { readonly actionId: string; readonly playerCost: number })[];
   readonly cost: OperationSceneActionCostPreview;
+  /** Actor/Team resource costs from ActionDef, previewed with PlayerCost in one transaction. */
+  readonly actionCosts: readonly OperationSceneActionResourceCostPreview[];
   readonly sceneActionBatchesUsed: number;
   readonly sceneActionBatchesLimit: number;
 }

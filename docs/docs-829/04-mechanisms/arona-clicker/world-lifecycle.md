@@ -2,6 +2,8 @@
 
 本文概述 InitService 当前实现的世界线选择、快照恢复、重启与区域移动流程。Init 在产品代码中也称世界线；本页只记录已实现行为。
 
+简单来说，Init 是一条独立游玩进度线，Area 是线上的区域。切换、重启和恢复 Init 会清理或恢复该线专属字段；在 Area 之间移动则只改变当前所在位置和由此触发的进入流程。
+
 ## Init 转换
 
 `startNewGame(initId)` 校验定义与购买条件，停止旧运行时，创建默认状态并播种 Registry/Init Extra，再重置并重绑依赖服务，解锁并进入目标 Init。若从 Lobby 首次开始，会保留大厅期间取得的 globalResources、已解锁 Init 和 global Enhancement。
@@ -19,6 +21,8 @@
 ## 生命周期状态
 
 Init 字段的具体快照范围由 [[docs/docs-829/03-data-structures/player-state]] 所述的 `PER_INIT_FIELD_SPECS` 决定。保存格式和运行时重建由 InitService 与 InitSavepoint 协作，不代表 Runtime 派生对象被整体复制。
+
+世界线进入后的角色、剧情和业务状态如何写入，见 [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/state-mutation]]；玩家可见的世界线功能路由见 [[docs/docs-829/06-wiki/30-arona-clicker-domain/world-lifecycle]]。
 
 ## 代码入口
 

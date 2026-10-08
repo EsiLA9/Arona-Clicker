@@ -62,6 +62,7 @@ function studentInitialization(actorId: string, actionId: string): OperationActo
 function studentAction(id: string, tagId: string): OperationActionDef {
   return {
     id,
+    title: id,
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
     reasonIds: ['reason:' + id],
@@ -74,6 +75,9 @@ function studentAction(id: string, tagId: string): OperationActionDef {
 
 interface FixtureOptions {
   readonly invalidActionEffect?: boolean;
+  readonly positionEffects?: readonly OperationActionDef['effects'][number][];
+  readonly disableCombinations?: boolean;
+  readonly targetlessAction?: boolean;
 }
 
 function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput {
@@ -84,7 +88,7 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
   ];
   const eventDefinition: OperationEventDef = {
     id: 'event:test:resolution',
-    locations: [{ id: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: options.invalidActionEffect ? [] : [{
+    locations: [{ id: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: options.invalidActionEffect || options.disableCombinations ? [] : [{
         id: 'combo:focus',
         priority: 0,
         inputTagIds: ['tag:a', 'tag:b'],
@@ -109,6 +113,7 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
     studentAction(ACTION_B, 'tag:b'),
     {
       id: ENEMY_ACTION,
+      title: ENEMY_ACTION,
       allowedParticipantKinds: ['opponent'],
       requiredCapabilityIds: [],
       reasonIds: ['reason:' + ENEMY_ACTION],
@@ -123,6 +128,8 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
       effects: [{ kind: 'actorResourceDelta', recipient: 'actor', resourceId: 'resource:missing', amount: 1 }],
     };
   }
+  if (options.positionEffects) actionDefinitions[0] = { ...actionDefinitions[0], effects: options.positionEffects };
+  if (options.targetlessAction) actionDefinitions[0] = { ...actionDefinitions[0], target: { kind: 'none' } };
   const actorInitializations: OperationActorInitialization[] = [
     studentInitialization(STUDENT_A, ACTION_A),
     studentInitialization(STUDENT_B, ACTION_B),
@@ -159,9 +166,9 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
       planVersion: preparationSnapshot.planVersion,
       currentLocationId: preparationSnapshot.currentLocationId,
       actors: [
-        { actorId: STUDENT_A, participantKind: 'student', hp: 2, resources: { focus: 1 } },
-        { actorId: STUDENT_B, participantKind: 'student', hp: 2, resources: { focus: 1 } },
-        { actorId: ENEMY, participantKind: 'opponent', hp: 2, resources: {} },
+        { actorId: STUDENT_A, participantKind: 'student', hp: 2, resources: { focus: 1 }, positionId: 'back' },
+        { actorId: STUDENT_B, participantKind: 'student', hp: 2, resources: { focus: 1 }, positionId: 'back' },
+        { actorId: ENEMY, participantKind: 'opponent', hp: 2, resources: {}, positionId: 'front' },
       ],
       teams: [{ id: TEAM_BLUE, resources: { energy: 0.3 } }],
       tracks: { 'track:momentum': 0 },
@@ -186,6 +193,33 @@ function expectPlannerError(run: () => unknown, code: string): void {
 }
 
 describe('pure Operation Resolution planner', () => {
+  test('plans actor and target position changes without mutating the snapshot', () => {
+    const input = fixture({ positionEffects: [
+      { kind: 'actorPosition', recipient: 'actor', positionId: 'front' },
+      { kind: 'actorPosition', recipient: 'actor', positionId: 'brace' },
+      { kind: 'actorPosition', recipient: 'target', positionId: 'protected' },
+    ], disableCombinations: true });
+    const before = structuredClone(input);
+    const result = planOperationResolution(input);
+    expect(input).toEqual(before);
+    expect(result.positionChanges).toEqual([
+      { actorId: STUDENT_A, before: 'back', after: 'brace', sources: [
+        expect.objectContaining({ kind: 'action', actorId: STUDENT_A, effectIndex: 0 }),
+        expect.objectContaining({ kind: 'action', actorId: STUDENT_A, effectIndex: 1 }),
+      ] },
+      { actorId: ENEMY, before: 'front', after: 'protected', sources: [expect.objectContaining({ kind: 'action', actorId: STUDENT_A, effectIndex: 2 })] },
+    ]);
+  });
+
+  test('rejects a target position effect when the selected action has no target', () => {
+    const input = fixture({
+      positionEffects: [{ kind: 'actorPosition', recipient: 'target', positionId: 'protected' }],
+      disableCombinations: true,
+      targetlessAction: true,
+    });
+    expectPlannerError(() => planOperationResolution(input), 'operation:resolution:invalid-effect');
+  });
+
   test('preflights shared decimal costs, resolves combinations and skills, then clamps aggregated deltas once', () => {
     const input = fixture();
     const before = structuredClone(input);

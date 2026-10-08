@@ -6,7 +6,7 @@
 
 ## 当前主题入口（部分承接）
 
-- [[docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]]
+- [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]]
 - [[docs/docs-829/06-wiki/30-arona-clicker-domain/world-lifecycle]]
 
 ## 只读历史原文

@@ -118,6 +118,8 @@ const eventDefinition: OperationEventDef = {
 
 const collectPassAction: OperationActionDef = {
   id: IDS.action,
+  title: '检查设备并领取员工证',
+  description: '记录设备检查结果，并取得员工证。',
   allowedParticipantKinds: ['student'],
   requiredCapabilityIds: [],
   reasonIds: ['gameplay-b:operation-reason:secure-carousel-and-collect-pass'],

@@ -37,6 +37,7 @@ function student(actorId: string, actionId: string) {
 function action(id: string, effects: OperationActionDef['effects'], target: OperationActionDef['target'] = { kind: 'none' }): OperationActionDef {
   return {
     id,
+    title: id,
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
     reasonIds: [],
@@ -244,6 +245,48 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     expect(service.getSnapshot()).toEqual(before);
   });
 
+  test('previews and atomically commits PlayerCost plus Action Actor-resource costs across SceneAction and SceneCard', () => {
+    const base = globalStartInput();
+    const actionWithCost = { ...base.actionDefinitions[0], cost: { scope: 'actor' as const, resourceId: 'sCost', amount: 1 } };
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      actors: base.eventDefinition.actors.map(actor => ({
+        ...actor,
+        resources: { sCost: { initial: 2, min: 0, max: 2 } },
+      })),
+      playerSceneDeck: {
+        cards: [{ id: 'demo:card:costed', actionId: ACTION_GLOBAL, playerCost: 1, timing: 'scene', copies: 1 }],
+        initialDraw: 1,
+        locationEntryDraw: 1,
+        maxHandSize: 1,
+      },
+    };
+    const service = new OperationRuntimeService();
+    const runId = service.start({ ...base, eventDefinition, actionDefinitions: [actionWithCost] }).runId;
+    const run = service.getSnapshot()!;
+    const cardInstanceId = run.playerRouteState.cards.hand[0];
+    const command = {
+      runId,
+      planVersion: run.planVersion,
+      selections: [{ sceneActionId: 'demo:scene-action:calm-crowd', actorId: A, targetActorIds: [B] }],
+      cards: [{ cardInstanceId, actorId: A, targetActorIds: [B] }],
+    };
+
+    expect(service.previewSceneActionBatch(command)).toMatchObject({
+      cost: { balanceBefore: 3, totalCost: 3, balanceAfter: 0 },
+      actionCosts: [
+        { actorId: A, actionId: ACTION_GLOBAL, scope: 'actor', scopeId: A, resourceId: 'sCost', amount: 1 },
+        { actorId: A, actionId: ACTION_GLOBAL, scope: 'actor', scopeId: A, resourceId: 'sCost', amount: 1 },
+      ],
+    });
+    expect(service.getSnapshot()!.actorStates.find(actor => actor.id === A)?.resources.sCost).toBe(2);
+
+    const resolution = service.commitSceneActionBatch(command);
+    expect(resolution.payments).toHaveLength(2);
+    expect(service.getSnapshot()!.actorStates.find(actor => actor.id === A)?.resources.sCost).toBe(0);
+    expect(service.getSnapshot()!.playerRouteState.playerCost).toBe(0);
+  });
+
   test('restores a staged Global SceneAction and card batch with its exact fee preview', () => {
     const base = globalStartInput();
     const eventDefinition: OperationEventDef = {
@@ -297,7 +340,7 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     });
   });
 
-  test('rejects an incomplete Individual batch or insufficient PlayerCost without any Run mutation', () => {
+  test('allows an empty batch to skip the scene, while insufficient PlayerCost remains atomic', () => {
     const input = individualStartInput();
     const service = new OperationRuntimeService();
     const runId = service.start({
@@ -306,25 +349,28 @@ describe('Operation SceneAction batches and shared route Cost', () => {
         ...input.eventDefinition,
         playerRouteState: { ...input.eventDefinition.playerRouteState, playerCost: 0 },
         locations: input.eventDefinition.locations.map(location => location.id === 'demo:location:platform'
-          ? { ...location, costGain: 1 }
+          ? { ...location, costGain: 1, sceneActionBatches: 2 }
           : location),
       },
     }).runId;
     const before = service.getSnapshot()!;
-    expect(() => service.commitSceneActionBatch({
+    const skipped = service.commitSceneActionBatch({
       runId,
       planVersion: before.planVersion,
-      selections: [{ sceneActionId: 'demo:scene-action:collect-pass', actorId: A, targetActorIds: [] }],
-    })).toThrow(OperationRuntimeError);
+      selections: [],
+    });
+    expect(skipped.sceneBatch).toMatchObject({ selections: [], playerCostPaid: 0, sceneActionBatchesUsed: 1 });
+    expect(service.getSnapshot()!.locationProgress['demo:location:platform'].completed).toBe(false);
+    const afterSkip = service.getSnapshot()!;
     expect(() => service.previewSceneActionBatch({
       runId,
-      planVersion: before.planVersion,
+      planVersion: afterSkip.planVersion,
       selections: [
         { sceneActionId: 'demo:scene-action:collect-pass', actorId: A, targetActorIds: [] },
         { sceneActionId: 'demo:scene-action:steady-lights', actorId: B, targetActorIds: [] },
       ],
     })).toThrow(/unaffordable/);
-    expect(service.getSnapshot()).toEqual(before);
+    expect(service.getSnapshot()).toEqual(afterSkip);
   });
 
   test('stale selections and caller-supplied cost/effects are not accepted', () => {
@@ -365,17 +411,17 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     })).toThrow(/sceneActionBatches|scope/);
   });
 
-  test('rejects target-filtered tactical Actions when wrapped as Location SceneActions', () => {
+  test('allows a student SceneAction to narrow its relational targets with actor filters', () => {
     const input = individualStartInput();
     const actionDefinitions = input.actionDefinitions.map(actionDefinition => actionDefinition.id === ACTION_A
       ? { ...actionDefinition, target: { kind: 'actor' as const, relation: 'any' as const, allowedActorIds: [A] } }
       : actionDefinition);
 
-    expect(() => new OperationRuntimeService().start({ ...input, actionDefinitions }))
-      .toThrow(/locations\[0\]\.sceneActions\[0\] Action target ID\/type filters are only supported for tactical Beat Actions/);
+    const service = new OperationRuntimeService();
+    expect(service.start({ ...input, actionDefinitions }).status).toBe('inProgress');
   });
 
-  test('rejects target-filtered tactical Actions when wrapped as PlayerSceneCards', () => {
+  test('allows a student PlayerSceneCard to narrow its relational targets with actor filters', () => {
     const base = globalStartInput();
     const sceneOnlyActionId = 'demo:action:scene-only';
     const actionDefinitions = [
@@ -404,7 +450,66 @@ describe('Operation SceneAction batches and shared route Cost', () => {
       },
     };
 
-    expect(() => new OperationRuntimeService().start({ ...base, eventDefinition, actionDefinitions }))
-      .toThrow(/playerSceneDeck\.cards\[0\] Action target ID\/type filters are only supported for tactical Beat Actions/);
+    const service = new OperationRuntimeService();
+    expect(service.start({ ...base, eventDefinition, actionDefinitions }).status).toBe('inProgress');
+  });
+
+  test('optional-student Global action supports in-place absolute targeting and assigned-student targeting', () => {
+    const base = globalStartInput();
+    const actionWithAbsoluteTargets = {
+      ...base.actionDefinitions[0]!,
+      target: { kind: 'actor' as const, relation: 'any' as const, allowedActorIds: [A, B] },
+    };
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      locations: base.eventDefinition.locations.map(location => ({
+        ...location,
+        sceneActions: [{ id: 'demo:scene-action:calm-crowd', actionId: ACTION_GLOBAL, scope: 'global', playerCost: 1,
+          performerPolicy: 'optional-student' as const }],
+      })),
+    };
+    const local = new OperationRuntimeService();
+    const localRun = local.start({ ...base, eventDefinition, actionDefinitions: [actionWithAbsoluteTargets] });
+    const localResolution = local.commitSceneActionBatch({ runId: localRun.runId, planVersion: localRun.planVersion,
+      selections: [{ sceneActionId: 'demo:scene-action:calm-crowd', targetActorIds: [A] }] });
+    expect(localResolution.sceneBatch?.selections).toEqual([{ sceneActionId: 'demo:scene-action:calm-crowd', targetActorIds: [A] }]);
+    expect(local.getSnapshot()!.playerRouteState.playerCost).toBe(2);
+
+    const assigned = new OperationRuntimeService();
+    const assignedRun = assigned.start({ ...base, eventDefinition, actionDefinitions: [actionWithAbsoluteTargets] });
+    assigned.commitSceneActionBatch({ runId: assignedRun.runId, planVersion: assignedRun.planVersion,
+      selections: [{ sceneActionId: 'demo:scene-action:calm-crowd', actorId: A, targetActorIds: [B] }] });
+    expect(assigned.getSnapshot()!.actorStates.find(actor => actor.id === B)?.hp).toBe(4);
+  });
+
+  test('optional-student PlayerSceneCard can resolve actorless with an absolute target', () => {
+    const base = globalStartInput();
+    const actionWithAbsoluteTargets = {
+      ...base.actionDefinitions[0]!,
+      target: { kind: 'actor' as const, relation: 'any' as const, allowedActorIds: [A, B] },
+    };
+    const sceneOnlyAction = action('demo:action:scene-only', []);
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      locations: base.eventDefinition.locations.map(location => ({
+        ...location,
+        sceneActions: [{ id: 'demo:scene-action:ambient', actionId: sceneOnlyAction.id, scope: 'global', playerCost: 0,
+          performerPolicy: 'none' as const }],
+      })),
+      playerSceneDeck: {
+        cards: [{ id: 'demo:card:optional-actor', actionId: ACTION_GLOBAL, playerCost: 1, timing: 'scene', copies: 1,
+          performerPolicy: 'optional-student' as const }],
+        initialDraw: 1,
+        locationEntryDraw: 0,
+        maxHandSize: 1,
+      },
+    };
+    const service = new OperationRuntimeService();
+    const started = service.start({ ...base, eventDefinition, actionDefinitions: [actionWithAbsoluteTargets, sceneOnlyAction] });
+    const cardInstanceId = service.getSnapshot()!.playerRouteState.cards.hand[0]!;
+    const resolution = service.commitSceneActionBatch({ runId: started.runId, planVersion: started.planVersion,
+      selections: [], cards: [{ cardInstanceId, targetActorIds: [B] }] });
+    expect(resolution.sceneBatch?.cards).toEqual([expect.objectContaining({ cardInstanceId, targetActorIds: [B] })]);
+    expect(service.getSnapshot()!.playerRouteState.playerCost).toBe(2);
   });
 });

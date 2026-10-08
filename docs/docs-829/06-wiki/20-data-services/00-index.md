@@ -2,6 +2,8 @@
 
 本文回答 Data Services 下各主题该从哪里进入，以及包内容、定义编辑、Registry、图片资产和存储如何协作。
 
+如果不熟悉这些名字，可以先把 Data Services 理解为“内容和外部数据进出 Runtime 时经过的服务层”：它接收 Datapack、选择包的顺序、把定义交给 Registry，也管理图片资源、存档读写和 ZIP 输出。它本身不决定玩家操作规则；玩法服务会从 Registry 读取定义，再通过状态入口改变进度。
+
 ```text
 文件 / 内置声明 → Datapack 契约 → 解析与包选择 → 完整启用集校验
                                       → Registry 表 / 索引 → Runtime 与领域消费者
@@ -17,4 +19,6 @@
 | 通用定义作者策略如何限制编辑 | [[docs/docs-829/06-wiki/20-data-services/definition-authoring]] |
 | 图片资产、存储和归档服务的范围 | [[docs/docs-829/06-wiki/20-data-services/persistence-assets]] |
 
-基础路由：[[docs/docs-829/02-modules/data-services]]。查聚合类型和字段形态走 [[docs/docs-829/03-data-structures/datapack-contracts]]；查表语义走 [[docs/docs-829/03-data-structures/registry]]；查加载行为走 [[docs/docs-829/04-mechanisms/data-services/pack-loading]]。
+基础路由：[[docs/docs-829/02-modules/data-services]]。查聚合类型和字段形态走 [[docs/docs-829/03-data-structures/datapack-contracts]]；查表语义走 [[docs/docs-829/03-data-structures/registry]]；查加载行为走 [[pack-loading]]。
+
+推荐顺序：先读包流，知道声明如何到达 Runtime；再读 Registry，理解服务如何查询定义；最后按工作选择作者策略、图片，或存档与归档。玩家状态本身见 [[docs/docs-829/03-data-structures/player-state]]，不要把 `SaveSystem`、包配置保存和运行时 Registry 混为一谈。

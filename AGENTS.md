@@ -6,14 +6,14 @@
 
 1. 先读 [[docs/docs-829/00-INDEX]]，按任务路由读取当前机制、结构或约定文档。
 2. 按 [[docs/ai/task-read-set-routing]] 选择最小 Read Set；涉及未知领域、新内容或文件改动时，按 [[docs/ai/galhcg-project-map]] 主动发现和维护 GALHCG 证据。
-3. 玩法策划与施工按 [[docs/ai/goal-workflow]]；Patch Unit、验证和 Receipt 按 [[docs/ai/PROJECT-CONSTITUTION]]。
+3. 普通小需求默认直接实施，按影响选择必要检查，不强制新建 Task / Patch Unit / Receipt 或新增测试。重要系统结构设计与已报告 bug 的调查、修复优先构造行为 / 回归测试并严格审查；验证分级按 [[docs/docs-829/05-conventions/testing]]。需要正式策划或施工边界时按 [[docs/ai/goal-workflow]] 与 [[docs/ai/PROJECT-CONSTITUTION]]。
 
 ## 常见路由
 
 | 任务 | 路由 |
 | --- | --- |
 | 引擎/领域机制与模块 | [[docs/docs-829/00-INDEX]]、[[docs/docs-829/02-modules/00-index]]、[[docs/docs-829/04-mechanisms/00-index]] |
-| 状态归属、写入口与事件联动 | [[docs/docs-829/03-data-structures/player-state]]、[[docs/docs-829/04-mechanisms/state-mutation]]、[[docs/docs-829/04-mechanisms/effect-trigger]] |
+| 状态归属、写入口与事件联动 | [[docs/docs-829/03-data-structures/player-state]]、[[docs/docs-829/04-mechanisms/state-mutation]]、[[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]] |
 | 实体字段、枚举、Datapack / Schema | [[docs/docs-829/05-conventions/schema-sync]]、[[docs/ai/context-packs/datapack-schema]] |
 | 生产、抽卡、培养、角色和好感 | [[docs/ai/context-packs/production]]、[[docs/ai/context-packs/character]] |
 | 默认 Datapack 与内容导入边界 | [[docs/ai/context-packs/datapack-schema]]；正式 base 内容从 `src/arona-clicker/content/default-datapack.ts` 进入；Gameplay B V1 样例作为 Runtime 装配的可选 `gameplay-b@1.0.0` bundle 进入同一 PackManager/Registry；`src/data/test-datapack.ts` 是测试/示例内容 |
@@ -38,7 +38,7 @@ Spot 招募入口是 Spot 的 `gacha` 功能项，不在通讯录；机制和领
 - 状态变更经 `StateMutationService`；新增联动优先使用 Trigger / Affector，新事件登记 `EVENT_CATALOG`。
 - 新机制优先声明为 Datapack 内容；UI 消费 `getView()` / `createUIContext()` 的只读面，不持有写引用。
 - 新增跨世界线数据前确定 global、per-Init snapshot 或 per-Init current 归属；per-Init 字段登记 `PER_INIT_FIELD_SPECS`。
-- 机制变更配套 Vitest 测试。`src/data-services/` 不反向依赖 UI、产品内容、测试数据或存档层，边界由 `npm run check:architecture` 验证。
+- 测试与审查按变更重要性分级：重要系统结构设计与已报告 bug 优先配套 Vitest 行为 / 回归测试和严格审查；普通局部机制、内容、UI 或文档调整不一律新增测试、运行全量检查或开展结构审计。`src/data-services/` 不反向依赖 UI、产品内容、测试数据或存档层，触及该边界时由 `npm run check:architecture` 验证。
 - 不编写存档迁移或版本兼容层；破坏性状态变更同步更新测试和文档，按项目策略清档。
 - Schema 字段或枚举以 `src/engine/types/` 等源契约为准；更新后运行 `npm run gen:schema`，禁止手改生成的 `tools/datapack-editor/schema/engine-defs.gen.json`。复杂表元数据同步维护 `editor-extras.ts`。详见 [[docs/docs-829/05-conventions/schema-sync]]。
 - UI 视觉优先复用 CSS、主题 token、表现宿主或稳定语义节点。新增 wrapper 必须承担布局、语义、交互或可访问性职责；scroll、hover、focus 和普通 click 默认不触发全量 `render()`。详见 UI 项目覆盖协议。

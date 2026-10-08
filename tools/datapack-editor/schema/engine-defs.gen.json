@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T01:45:31.573Z",
+  "generatedAt": "2026-10-07T05:43:49.245Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -32,6 +32,14 @@
     },
     "studentOperationProfiles": {
       "type": "StudentOperationProfileDef",
+      "shape": "array"
+    },
+    "operationStrategyProfiles": {
+      "type": "OperationStrategyProfileDef",
+      "shape": "array"
+    },
+    "operationCardPools": {
+      "type": "OperationCardPoolDef",
       "shape": "array"
     },
     "enhancements": {
@@ -4129,6 +4137,20 @@
           "tsType": "readonly string[]"
         },
         {
+          "key": "cardPoolIds",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly string[]",
+          "description": "Pools available to every student in this Event."
+        },
+        {
+          "key": "characterHandSize",
+          "required": false,
+          "kind": "float",
+          "tsType": "number",
+          "description": "Per-student hand size; defaults to 3 and is validated in [1, 10]."
+        },
+        {
           "key": "heldItemIds",
           "required": true,
           "kind": "hand",
@@ -4300,6 +4322,25 @@
           "tsType": "string"
         },
         {
+          "key": "interactionSceneId",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Optional finite interaction context for CardPool and Action selectors."
+        },
+        {
+          "key": "activityId",
+          "required": false,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "cardPoolIds",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly string[]"
+        },
+        {
           "key": "enabledActionIds",
           "required": true,
           "kind": "hand",
@@ -4370,6 +4411,13 @@
           "tsType": "number"
         },
         {
+          "key": "maxVisits",
+          "required": false,
+          "kind": "float",
+          "tsType": "number",
+          "description": "Optional per-Location visit ceiling, checked before a route enters this Location."
+        },
+        {
           "key": "routeEdges",
           "required": true,
           "kind": "hand",
@@ -4382,6 +4430,19 @@
         {
           "key": "id",
           "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "title",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Author-facing canonical name used when no Scene wrapper overrides it."
+        },
+        {
+          "key": "description",
+          "required": false,
           "kind": "string",
           "tsType": "string"
         },
@@ -4408,6 +4469,58 @@
           "required": true,
           "kind": "hand",
           "tsType": "readonly string[]"
+        },
+        {
+          "key": "strategyTagIds",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly string[]",
+          "description": "Open Operation-local preference tags; deliberately separate from Combination tagIds."
+        },
+        {
+          "key": "cardCondition",
+          "required": false,
+          "kind": "object",
+          "tsType": "OperationCardConditionDef",
+          "description": "Additional finite legality filter for Character Hand candidates.",
+          "fields": [
+            {
+              "key": "sceneIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "activityIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "positionIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "weaponIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "requiredFactIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "forbiddenFactIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            }
+          ]
         },
         {
           "key": "cost",
@@ -4492,10 +4605,100 @@
           "tsType": "readonly string[]"
         },
         {
+          "key": "strategyProfileId",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Optional role preference; omitted legacy profiles use neutral bias."
+        },
+        {
+          "key": "cardPoolIds",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly string[]",
+          "description": "Character-specific pools, merged with Event and Location pools."
+        },
+        {
           "key": "randomSkillRuleId",
           "required": false,
           "kind": "string",
           "tsType": "string"
+        }
+      ]
+    },
+    "OperationStrategyProfileDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "biases",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly { readonly tagId: string; readonly biasBps: number }[]"
+        }
+      ]
+    },
+    "OperationCardPoolDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "selector",
+          "required": false,
+          "kind": "object",
+          "tsType": "OperationCardConditionDef",
+          "fields": [
+            {
+              "key": "sceneIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "activityIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "positionIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "weaponIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "requiredFactIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            },
+            {
+              "key": "forbiddenFactIds",
+              "required": false,
+              "kind": "hand",
+              "tsType": "readonly string[]"
+            }
+          ]
+        },
+        {
+          "key": "entries",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly { readonly actionId: string; readonly weight: number }[]"
         }
       ]
     },
@@ -11542,6 +11745,8 @@
     "OperationActorDef",
     "OperationActorKind",
     "OperationBoundedValueDef",
+    "OperationCardConditionDef",
+    "OperationCardPoolDef",
     "OperationCombinationRuleDef",
     "OperationCombinationTargetMatch",
     "OperationEventContentDef",
@@ -11562,6 +11767,7 @@
     "OperationRouteEdgeDef",
     "OperationSceneActionDef",
     "OperationSceneActionMode",
+    "OperationStrategyProfileDef",
     "OperationStudentSkillRuleDef",
     "OperationTeamDef",
     "OperationTrackDef",

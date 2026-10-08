@@ -100,8 +100,7 @@ describe('Gameplay B card inspector entry', () => {
     expect(operationRoot!.querySelector('[data-operation-player-card]')).not.toBeNull();
     expect(operationRoot!.querySelector('[data-operation-card-target]')).not.toBeNull();
 
-    operationRoot!.querySelector<HTMLButtonElement>('[data-operation-scene-stage]')!.click();
-    operationRoot!.querySelector<HTMLButtonElement>('[data-operation-scene-commit]')!.click();
+    operationRoot!.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
     operationRoot!.querySelector<HTMLButtonElement>(
       `[data-operation-route][data-route-id="${CAROUSEL_SCENE_ACTION_IDS.routes.staffGate}"]`,
     )!.click();

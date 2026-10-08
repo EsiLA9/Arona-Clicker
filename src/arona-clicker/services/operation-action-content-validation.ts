@@ -58,9 +58,12 @@ function legalTargetActors(event: OperationEventDef, source: OperationActorDef, 
     && (target.allowedActorTypes === undefined || target.allowedActorTypes.includes(actor.type)));
 }
 
-function hasTacticalActorTargetFilters(action: OperationActionDef): boolean {
-  return action.target.kind === 'actor'
-    && (action.target.allowedActorIds !== undefined || action.target.allowedActorTypes !== undefined);
+function hasPerformerRelativeEffects(action: OperationActionDef): boolean {
+  return action.effects.some(effect => {
+    if (!('recipient' in effect)) return false;
+    return effect.recipient === 'actor' || effect.recipient === 'actorTeam'
+      || (action.target.kind === 'none' && (effect.recipient === 'target' || effect.recipient === 'targetTeam'));
+  });
 }
 
 function hasActorResource(actor: OperationActorDef, resourceId: string): boolean {
@@ -115,6 +118,8 @@ function validateEffectResourceReferences(
         }
       }
     } else if (effect.kind === 'actorHpDelta' && effect.recipient === 'target' && !hasTarget) {
+      issues.push(effectPath + ' targets an Actor but this result has no Actor target');
+    } else if (effect.kind === 'actorPosition' && effect.recipient === 'target' && !hasTarget) {
       issues.push(effectPath + ' targets an Actor but this result has no Actor target');
     }
   });
@@ -320,14 +325,19 @@ export function validateOperationActionContent(
       if (!action) {
         issues.push(path + '.actionId references a missing Action: ' + sceneAction.actionId);
       } else {
-        if (hasTacticalActorTargetFilters(action)) {
-          issues.push(path + ' Action target ID/type filters are only supported for tactical Beat Actions: ' + sceneAction.actionId);
+        const performerPolicy = sceneAction.performerPolicy ?? 'selected-student';
+        if ((performerPolicy === 'none' || performerPolicy === 'optional-student') && action.target.kind === 'actor'
+          && !action.target.allowedActorIds?.length && !action.target.allowedActorTypes?.length) {
+          issues.push(path + ' actorless-capable Action target requires an absolute Actor ID/type filter: ' + sceneAction.actionId);
         }
-        if (!action.allowedParticipantKinds.includes('student')) {
+        if (performerPolicy !== 'none' && !action.allowedParticipantKinds.includes('student')) {
           issues.push(path + ' Action must allow student participants: ' + sceneAction.actionId);
         }
-        if (action.cost !== undefined) {
-          issues.push(path + ' Action cannot declare actor/team resource cost; PlayerCost belongs to SceneActionDef');
+        if (performerPolicy === 'none' && (action.cost !== undefined || hasPerformerRelativeEffects(action))) {
+          issues.push(path + ' actorless Action cannot use performer-relative cost/effects: ' + sceneAction.actionId);
+        }
+        if (performerPolicy === 'optional-student' && (action.cost !== undefined || hasPerformerRelativeEffects(action))) {
+          issues.push(path + ' optional-student Action cannot use performer-relative cost/effects: ' + sceneAction.actionId);
         }
       }
     }
@@ -364,14 +374,19 @@ export function validateOperationActionContent(
       issues.push(path + '.actionId references a missing Action: ' + card.actionId);
       continue;
     }
-    if (hasTacticalActorTargetFilters(action)) {
-      issues.push(path + ' Action target ID/type filters are only supported for tactical Beat Actions: ' + card.actionId);
+    const performerPolicy = card.performerPolicy ?? 'selected-student';
+    if ((performerPolicy === 'none' || performerPolicy === 'optional-student') && action.target.kind === 'actor'
+      && !action.target.allowedActorIds?.length && !action.target.allowedActorTypes?.length) {
+      issues.push(path + ' actorless-capable Action target requires an absolute Actor ID/type filter: ' + card.actionId);
     }
-    if (!action.allowedParticipantKinds.includes('student')) {
+    if (performerPolicy !== 'none' && !action.allowedParticipantKinds.includes('student')) {
       issues.push(path + ' Action must allow student participants: ' + card.actionId);
     }
-    if (action.cost !== undefined) {
-      issues.push(path + ' Action cannot declare actor/team resource cost; PlayerCost belongs to PlayerSceneCardDef');
+    if (performerPolicy === 'none' && (action.cost !== undefined || hasPerformerRelativeEffects(action))) {
+      issues.push(path + ' actorless Action cannot use performer-relative cost/effects: ' + card.actionId);
+    }
+    if (performerPolicy === 'optional-student' && (action.cost !== undefined || hasPerformerRelativeEffects(action))) {
+      issues.push(path + ' optional-student Action cannot use performer-relative cost/effects: ' + card.actionId);
     }
   }
 
@@ -434,12 +449,12 @@ export function validateOperationActionActorReferences(
     const enabledActions = location.enabledActionIds
       .map(id => actionsById.get(id))
       .filter((action): action is OperationActionDef => action !== undefined && action.allowedParticipantKinds.includes('student'));
+    // SceneAction grants are location-scoped; student eligibility depends on Action kind and capabilities, not tactical Hand membership.
     for (const [sceneActionIndex, sceneAction] of (location.sceneActions ?? []).entries()) {
       const action = actionsById.get(sceneAction.actionId);
-      if (!action || !action.allowedParticipantKinds.includes('student') || action.cost !== undefined) continue;
+      if (!action || !action.allowedParticipantKinds.includes('student')) continue;
       for (const initialization of actorInitializations) {
         if (initialization.participantKind !== 'student'
-          || !initialization.profile.eligibleActionIds.includes(action.id)
           || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) continue;
         const source = actorsById.get(initialization.actorId);
         if (source) {
@@ -490,11 +505,11 @@ export function validateOperationActionActorReferences(
 
   for (const [cardIndex, card] of (event.playerSceneDeck?.cards ?? []).entries()) {
     const action = actionsById.get(card.actionId);
-    if (!action || !action.allowedParticipantKinds.includes('student') || action.cost !== undefined) continue;
+    if (!action || !action.allowedParticipantKinds.includes('student')) continue;
+    // Shared scene cards also have their own performer qualification and are independent of tactical candidateActionIds.
     let hasQualifiedStudent = false;
     for (const initialization of actorInitializations) {
       if (initialization.participantKind !== 'student'
-        || !initialization.profile.eligibleActionIds.includes(action.id)
         || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) continue;
       const source = actorsById.get(initialization.actorId);
       if (source) {

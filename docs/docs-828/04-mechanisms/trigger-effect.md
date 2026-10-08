@@ -6,7 +6,7 @@
 
 ## 当前主题入口
 
-- [[docs/docs-829/04-mechanisms/engine/effect-trigger]]
+- [[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]]
 - [[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]]
 
 ## 只读历史原文

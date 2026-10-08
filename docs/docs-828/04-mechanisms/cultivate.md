@@ -6,7 +6,7 @@
 
 ## 当前主题入口
 
-- [[docs/docs-829/04-mechanisms/arona-clicker/gacha-cultivation]]
+- [[gacha-cultivation]]
 
 ## 只读历史原文
 

@@ -9,7 +9,7 @@
 - [[docs/docs-829/05-conventions/architecture-discipline]]
 - [[docs/docs-829/03-data-structures/datapack-contracts]]
 - [[docs/docs-829/03-data-structures/engine-contracts]]
-- [[docs/docs-829/04-mechanisms/data-services/pack-loading]]
+- [[pack-loading]]
 - [[docs/docs-829/06-wiki/50-ui/presentation-theme]]
 
 ## 只读历史原文

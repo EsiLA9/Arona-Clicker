@@ -20,6 +20,7 @@ import { RuntimeDefinitionEditor, SpotContentService } from './services/spot-con
 import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './contracts/runtime-content';
 import { decodeSpotContent } from '../data-services/authoring/content-policy-dsl';
 import { gameplayBCarouselDatapack } from './content/operation-samples/gameplay-b-datapack';
+import { gameplayBStrategyParkDatapack } from './content/operation-samples/gameplay-b-strategy-park';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;
@@ -57,8 +58,8 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     this.packManager = new PackManager(
       undefined,
       options.packStore,
-      [createBundledBasePack(), createBundledGameplayBDemoPack()],
-      ['gameplay-b@1.0.0'],
+      [createBundledBasePack(), createBundledGameplayBDemoPack(), createBundledStrategyParkPack()],
+      ['gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0'],
     );
     this.themeContentEditor = new ThemeContentEditorService({
       getPackManager: () => this.packManager,
@@ -789,8 +790,8 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       this.packManager = new PackManager(
         snapshot,
         undefined,
-        [createBundledBasePack(), createBundledGameplayBDemoPack()],
-        ['gameplay-b@1.0.0'],
+        [createBundledBasePack(), createBundledGameplayBDemoPack(), createBundledStrategyParkPack()],
+        ['gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0'],
       );
     }
   }
@@ -940,6 +941,24 @@ function createBundledGameplayBDemoPack(): StoredPack {
       dependencies: ['base'],
     },
     datapack: gameplayBCarouselDatapack,
+    images: [],
+    sourceKind: 'bundle',
+    importedAt: 0,
+  };
+}
+
+function createBundledStrategyParkPack(): StoredPack {
+  return {
+    id: 'gameplay-b-strategy-park@1.0.0',
+    packRecordId: 'gameplay-b-strategy-park@1.0.0',
+    manifest: {
+      modName: gameplayBStrategyParkDatapack.modName!,
+      name: 'Gameplay B Strategy Park',
+      version: gameplayBStrategyParkDatapack.version,
+      author: 'AronaClicker',
+      dependencies: ['base'],
+    },
+    datapack: gameplayBStrategyParkDatapack,
     images: [],
     sourceKind: 'bundle',
     importedAt: 0,

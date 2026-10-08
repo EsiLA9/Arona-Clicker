@@ -245,7 +245,14 @@ function validateLocations(
     if (!isOperationRecord(entry) || !isNonEmptyOperationId(entry.id)) {
       return;
     }
-    rejectUnsupportedFields(entry, ['id', 'enabledActionIds', 'combinationRules', 'actionMode', 'sceneActions', 'sceneActionBatches', 'costGain', 'maxCarryCost', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats', 'routeEdges'], path, issues);
+    rejectUnsupportedFields(entry, ['id', 'interactionSceneId', 'activityId', 'cardPoolIds', 'enabledActionIds', 'combinationRules', 'actionMode', 'sceneActions', 'sceneActionBatches', 'costGain', 'maxCarryCost', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats', 'maxVisits', 'routeEdges'], path, issues);
+    for (const field of ['interactionSceneId', 'activityId'] as const) {
+      const value = entry[field];
+      if (value !== undefined && !isNonEmptyOperationId(value)) {
+        issues.push(path + '.' + field + ' must be a non-empty ID');
+      }
+    }
+    if (entry.cardPoolIds !== undefined) collectIds(entry.cardPoolIds, path + '.cardPoolIds', issues);
     collectIds(entry.enabledActionIds, path + '.enabledActionIds', issues);
     const hasSceneContract = entry.actionMode !== undefined || entry.sceneActions !== undefined || entry.sceneActionBatches !== undefined;
     if (hasSceneContract) {
@@ -266,13 +273,18 @@ function validateLocations(
             issues.push(actionPath + ' must be a SceneAction object');
             return;
           }
-          rejectUnsupportedFields(action, ['id', 'actionId', 'scope', 'playerCost'], actionPath, issues);
+          rejectUnsupportedFields(action, ['id', 'actionId', 'scope', 'playerCost', 'performerPolicy', 'selectionPolicy', 'title', 'description'], actionPath, issues);
           if (!isNonEmptyOperationId(action.id)) issues.push(actionPath + '.id must be a non-empty SceneAction ID');
           else if (sceneActionIds.has(action.id)) issues.push(path + '.sceneActions contains duplicate ID: ' + action.id);
           else sceneActionIds.add(action.id);
           if (!isNonEmptyOperationId(action.actionId)) issues.push(actionPath + '.actionId must be a non-empty Action ID');
           if (action.scope !== 'individual' && action.scope !== 'global') issues.push(actionPath + '.scope must be individual or global');
           else if (action.scope !== entry.actionMode) issues.push(actionPath + '.scope must match the Location actionMode');
+          if (action.selectionPolicy !== undefined && action.selectionPolicy !== 'required' && action.selectionPolicy !== 'fixed') issues.push(actionPath + '.selectionPolicy must be required or fixed');
+          if (action.performerPolicy !== undefined && action.performerPolicy !== 'selected-student' && action.performerPolicy !== 'none' && action.performerPolicy !== 'optional-student') issues.push(actionPath + '.performerPolicy must be selected-student, none, or optional-student');
+          if ((action.performerPolicy === 'none' || action.performerPolicy === 'optional-student') && action.scope !== 'global') issues.push(actionPath + ' actorless-capable SceneAction is only supported for global scope');
+          if (action.title !== undefined && (typeof action.title !== 'string' || action.title.trim() === '')) issues.push(actionPath + '.title must be a non-empty string when supplied');
+          if (action.description !== undefined && typeof action.description !== 'string') issues.push(actionPath + '.description must be a string when supplied');
           if (typeof action.playerCost !== 'number' || !Number.isFinite(action.playerCost) || action.playerCost < 0
             || action.playerCost > Number.MAX_SAFE_INTEGER) {
             issues.push(actionPath + '.playerCost must be a non-negative finite number in the safe numeric range');
@@ -293,6 +305,9 @@ function validateLocations(
     if (entry.maxBeats !== undefined && (!Number.isSafeInteger(entry.maxBeats) || Number(entry.maxBeats) <= 0)) {
       issues.push(path + '.maxBeats must be a positive safe integer');
     }
+    if (entry.maxVisits !== undefined && (!Number.isSafeInteger(entry.maxVisits) || Number(entry.maxVisits) <= 0)) {
+      issues.push(path + '.maxVisits must be a positive safe integer');
+    }
     if (!Array.isArray(entry.routeEdges)) {
       issues.push(path + '.routeEdges must be an array');
       return;
@@ -304,7 +319,7 @@ function validateLocations(
         issues.push(routePath + ' must be a RouteEdge object');
         return;
       }
-      rejectUnsupportedFields(route, ['id', 'targetLocationId', 'label', 'description', 'requiredHeldItemId', 'consumeRequiredHeldItem'], routePath, issues);
+      rejectUnsupportedFields(route, ['id', 'targetLocationId', 'label', 'description', 'requiredHeldItemId', 'anyOfHeldItemIds', 'consumeRequiredHeldItem'], routePath, issues);
       if (!isNonEmptyOperationId(route.id)) issues.push(routePath + '.id must be a non-empty routeId');
       else if (routeIds.has(route.id)) issues.push(path + '.routeEdges contains duplicate routeId: ' + route.id);
       else routeIds.add(route.id);
@@ -316,6 +331,14 @@ function validateLocations(
       if (route.requiredHeldItemId !== undefined
         && (!isNonEmptyOperationId(route.requiredHeldItemId) || !itemIds.has(route.requiredHeldItemId))) {
         issues.push(routePath + '.requiredHeldItemId references an undeclared item');
+      }
+      if (route.anyOfHeldItemIds !== undefined) {
+        const alternatives = collectIds(route.anyOfHeldItemIds, routePath + '.anyOfHeldItemIds', issues);
+        if (alternatives.size < 2) issues.push(routePath + '.anyOfHeldItemIds must contain at least two item IDs');
+        alternatives.forEach(itemId => { if (!itemIds.has(itemId)) issues.push(routePath + '.anyOfHeldItemIds references an undeclared item: ' + itemId); });
+      }
+      if (route.requiredHeldItemId !== undefined && route.anyOfHeldItemIds !== undefined) {
+        issues.push(routePath + ' must use either requiredHeldItemId or anyOfHeldItemIds');
       }
       if (route.consumeRequiredHeldItem !== undefined && typeof route.consumeRequiredHeldItem !== 'boolean') {
         issues.push(routePath + '.consumeRequiredHeldItem must be boolean');
@@ -538,7 +561,7 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
             issues.push(path + ' must be a PlayerSceneCard definition');
             return;
           }
-          rejectUnsupportedFields(card, ['id', 'actionId', 'playerCost', 'timing', 'copies'], path, issues);
+          rejectUnsupportedFields(card, ['id', 'actionId', 'playerCost', 'timing', 'copies', 'selectionPolicy', 'performerPolicy', 'title', 'description'], path, issues);
           if (!isNonEmptyOperationId(card.id)) issues.push(path + '.id must be a non-empty card definition ID');
           else if (cardIds.has(card.id)) issues.push('playerSceneDeck.cards contains duplicate ID: ' + card.id);
           else cardIds.add(card.id);
@@ -548,6 +571,10 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
             issues.push(path + '.playerCost must be a non-negative finite number in the safe numeric range');
           }
           if (card.timing !== 'scene') issues.push(path + '.timing must be scene');
+          if (card.selectionPolicy !== undefined && card.selectionPolicy !== 'required' && card.selectionPolicy !== 'fixed') issues.push(path + '.selectionPolicy must be required or fixed');
+          if (card.performerPolicy !== undefined && card.performerPolicy !== 'selected-student' && card.performerPolicy !== 'none' && card.performerPolicy !== 'optional-student') issues.push(path + '.performerPolicy must be selected-student, none, or optional-student');
+          if (card.title !== undefined && (typeof card.title !== 'string' || card.title.trim() === '')) issues.push(path + '.title must be a non-empty string when supplied');
+          if (card.description !== undefined && typeof card.description !== 'string') issues.push(path + '.description must be a string when supplied');
           if (!Number.isSafeInteger(card.copies) || Number(card.copies) <= 0) issues.push(path + '.copies must be a positive safe integer');
         });
       }

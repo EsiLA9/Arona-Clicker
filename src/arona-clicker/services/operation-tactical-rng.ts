@@ -13,6 +13,8 @@ export const OPERATION_TACTICAL_RNG_MASK = UINT64_MODULUS - 1n;
 export const OPERATION_TACTICAL_RNG_GAMMA = 0x9E3779B97F4A7C15n;
 /** ASCII "tactical"; versioning is carried by the fixed stream contract and algorithm ID. */
 export const OPERATION_TACTICAL_RNG_STREAM_TAG = 0x746163746963616cn;
+/** ASCII "charhand"; independent of the committed tactical skill stream. */
+export const OPERATION_CHARACTER_HAND_RNG_STREAM_TAG = 0x6368617268616e64n;
 
 const MIX_MULTIPLIER_1 = 0xBF58476D1CE4E5B9n;
 const MIX_MULTIPLIER_2 = 0x94D049BB133111EBn;
@@ -61,6 +63,29 @@ function mix64(input: bigint): bigint {
   value = ((value ^ (value >> 27n)) * MIX_MULTIPLIER_2) & OPERATION_TACTICAL_RNG_MASK;
   value = value ^ (value >> 31n);
   return value & OPERATION_TACTICAL_RNG_MASK;
+}
+
+function stableActorKey(actorId: string): bigint {
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < actorId.length; index++) {
+    hash ^= BigInt(actorId.charCodeAt(index));
+    hash = (hash * 0x100000001b3n) & OPERATION_TACTICAL_RNG_MASK;
+  }
+  return hash;
+}
+
+/** Pure, counter-addressed Hand word; it never shares or advances tacticalCursor. */
+export function operationCharacterHandWordAt(seed: number, actorId: string, beatIndex: number, wordCursor: number): bigint {
+  if (!Number.isSafeInteger(seed)) fail('seed must be a safe integer');
+  if (!isNonEmptyId(actorId)) fail('actorId must be a non-empty ID');
+  if (!Number.isSafeInteger(beatIndex) || beatIndex < 0) fail('beatIndex must be a non-negative safe integer');
+  if (!Number.isSafeInteger(wordCursor) || wordCursor < 0) fail('wordCursor must be a non-negative safe integer');
+  const seedWord = BigInt.asUintN(64, BigInt(seed));
+  const beatWord = BigInt(beatIndex);
+  const keyedSeed = mix64(seedWord ^ OPERATION_CHARACTER_HAND_RNG_STREAM_TAG ^ stableActorKey(actorId) ^ mix64(beatWord));
+  const counter = BigInt(wordCursor) + 1n;
+  const input = (keyedSeed + OPERATION_TACTICAL_RNG_GAMMA * counter) & OPERATION_TACTICAL_RNG_MASK;
+  return mix64(input);
 }
 
 /** Returns one raw counter-addressed word without advancing or mutating state. */

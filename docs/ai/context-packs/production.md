@@ -8,10 +8,10 @@
 
 | 子题 | 先读 |
 | --- | --- |
-| 生产结算 / Tick | [[docs/docs-829/04-mechanisms/engine/production]]、[[docs/docs-829/06-wiki/40-engine/tick-session]] |
-| GameNum 表达式或失效 | [[docs/docs-829/06-wiki/40-engine/expressions-and-game-num]]、[[docs/docs-829/04-mechanisms/engine/production]] |
-| Affector 持续效果 | [[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]]、[[docs/docs-829/04-mechanisms/engine/effect-trigger]] |
-| Effect / Trigger 联动 | [[docs/docs-829/04-mechanisms/engine/effect-trigger]]、[[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]] |
+| 生产结算 / Tick | [[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/production]]、[[docs/docs-829/06-wiki/40-engine/tick-session]] |
+| GameNum 表达式或失效 | [[docs/docs-829/06-wiki/40-engine/expressions-and-game-num]]、[[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/production]] |
+| Affector 持续效果 | [[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]]、[[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]] |
+| Effect / Trigger 联动 | [[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]]、[[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]] |
 
 每次还要读取目标源码、调用方和相关测试；`src/engine/expression/` 与 `src/engine/effect/` 是定位范围，不是整目录阅读清单。
 

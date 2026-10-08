@@ -27,10 +27,12 @@ related_modules:
 
 ## 任务路由
 
+下表提供候选验证入口，不要求每次全部执行。普通小需求按影响选必要检查，不强制新增测试、类型检查或正式 Unit；重要系统结构设计与已报告 bug 优先构造测试并严格审查，统一按 [[docs/docs-829/05-conventions/testing]] 分级。
+
 | 任务 | Required Read Set 入口 | 验证入口 |
 | --- | --- | --- |
 | 引擎机制 / 新增子系统 | [[docs/docs-829/02-modules/00-index]]、[[docs/docs-829/04-mechanisms/00-index]]、[[docs/docs-829/05-conventions/architecture-discipline]]、目标源码与测试；生产链见 [[docs/ai/context-packs/production]] | 定向测试、类型检查；触及数据服务边界时检查架构 |
-| PlayerState / 状态分层 | [[docs/docs-829/03-data-structures/player-state]]、[[docs/docs-829/04-mechanisms/arona-clicker/state-mutation]]、目标 state service 与测试 | 定向测试、类型检查；不写存档迁移 |
+| PlayerState / 状态分层 | [[docs/docs-829/03-data-structures/player-state]]、[[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/state-mutation]]、目标 state service 与测试 | 定向测试、类型检查；不写存档迁移 |
 | 实体字段 / 枚举 / Datapack Schema | [[docs/ai/context-packs/datapack-schema]] 与目标类型、同步测试 | `npm run gen:schema`、Schema 测试、类型检查 |
 | 生产 / GameNum / Affector / Trigger | [[docs/ai/context-packs/production]] 中命中的子题 | 生产 / Effect 定向测试、类型检查 |
 | 角色 / 抽卡 / 培养 / 通讯录 | [[docs/ai/context-packs/character]] 中命中的子题 | 角色域定向测试、类型检查 |
@@ -39,7 +41,7 @@ related_modules:
 | 文档维护 / 上下文治理 | 本文、[[docs/docs-829/05-conventions/doc-maintenance]]；施工协议变更再读 [[docs/ai/PROJECT-CONSTITUTION]] | `npm run check:docs`、`git --no-pager diff --check` |
 | 玩法需求讨论 / Draft 准入 | [[docs/ai/goal-workflow]]、目标 Draft、命中领域的最小 Read Set；仅在事实门槛需要时读目标源码与测试 | 逐项记录事实依据；不以测试通过替代玩法裁定 |
 
-表中“类型检查”指 `npx tsc --noEmit`。机制改动还须遵守 `AGENTS.md` 的测试和 Schema 同步要求；表格只提供查找入口，不降低这些护栏。
+表中“类型检查”指 `npx tsc --noEmit`。验证按上述分级选择；Schema 同步、架构边界及其他工程护栏仍遵守 `AGENTS.md`。
 
 ## 上下文预算
 

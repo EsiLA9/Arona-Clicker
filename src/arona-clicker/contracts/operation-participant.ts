@@ -1,5 +1,6 @@
 import type { Character } from '../types/ids';
 import type { OperationEventDef } from './operation';
+import type { OperationCardPoolDef, OperationStrategyProfileDef } from '../../data-services/contracts/operation';
 import type { StudentOperationProfileDef } from './student-operation-profile';
 import type { OperationActionDef } from './operation-action';
 import type { OperationStudentSkillRuleDef } from './operation-skill';
@@ -36,4 +37,8 @@ export interface OperationAdmission {
   readonly studentProfiles: readonly StudentOperationProfileDef[];
   readonly actionDefinitions: readonly OperationActionDef[];
   readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
+  /** Present on standard Admission; optional only for low-level legacy test fixtures. */
+  readonly operationCardPools?: readonly OperationCardPoolDef[];
+  /** Present on standard Admission; optional only for low-level legacy test fixtures. */
+  readonly operationStrategyProfiles?: readonly OperationStrategyProfileDef[];
 }

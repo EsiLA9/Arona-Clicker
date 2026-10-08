@@ -22,9 +22,11 @@ import type {
   OperationRewardDef,
   OperationRewardClaimResult,
   OperationStudentProfileSnapshot,
+  OperationCharacterHandSnapshot,
   OperationTacticalRandomState,
   OperationTeamDef,
 } from '../contracts/operation';
+import { OPERATION_NO_ELIGIBLE_ACTION_REASON_ID, OPERATION_WAIT_ACTION_ID } from '../contracts/operation';
 import type {
   OperationSceneActionBatchDraft,
   OperationSceneActionBatchCommand,
@@ -48,6 +50,9 @@ import type {
   OperationResolutionPlannerSnapshot,
   OperationResolutionTrustedContent,
 } from '../contracts/operation-resolution';
+import type { OperationActionDef } from '../contracts/operation-action';
+import type { OperationActionCandidateSnapshot } from '../contracts/operation';
+import type { OperationStrategyProfileDef } from '../../data-services/contracts/operation';
 import type { OperationView } from '../contracts/operation-view';
 import {
   isNonEmptyOperationId as nonEmptyId,
@@ -60,6 +65,7 @@ import {
 } from './operation-definition-validation';
 import { validateOperationActionActorReferences, validateOperationActionContent } from './operation-action-content-validation';
 import { prepareOperationBeat } from './operation-plan-preparation';
+import { resolveOperationCharacterHand } from './operation-card-candidate-resolver';
 import { previewOperationIntervention, OperationInterventionPreviewError } from './operation-intervention-preview';
 import { planOperationResolution, OperationResolutionPlannerError } from './operation-resolution-planner';
 import { projectOperationView } from './operation-view-projector';
@@ -84,6 +90,7 @@ interface MutableActorState {
   displayName: string;
   avatarRef: string | null;
   hp: number;
+  positionId?: string;
   maxHp: number;
   resources: Record<string, number>;
   participantKind?: OperationActorInitialization['participantKind'];
@@ -105,6 +112,7 @@ interface MutableRun {
     heldItemIds: string[];
   };
   actorStates: MutableActorState[];
+  characterHands: Record<string, OperationCharacterHandSnapshot>;
   teamStates: { id: string; resources: Record<string, number> }[];
   playerRouteState: {
     playerCost: number;
@@ -136,6 +144,8 @@ interface RunRules {
   readonly maxHandSize: number;
   readonly locationEntryDraw: number;
   readonly tacticalContent: OperationResolutionTrustedContent | null;
+  readonly operationCardPools: OperationRunStartInput['operationCardPools'];
+  readonly operationStrategyProfiles: OperationRunStartInput['operationStrategyProfiles'];
 }
 
 interface RunSlot {
@@ -167,6 +177,8 @@ function frozenCopy<T>(value: T): T {
 function defineRules(
   definition: OperationEventDef,
   tacticalContent?: Omit<OperationResolutionTrustedContent, 'eventDefinition'>,
+  operationCardPools: OperationRunStartInput['operationCardPools'] = [],
+  operationStrategyProfiles: OperationRunStartInput['operationStrategyProfiles'] = [],
 ): RunRules {
   const cloned = deepFreeze(deepCopy(definition));
   const cardInstances = createOperationPlayerSceneCardInstances(cloned);
@@ -186,6 +198,8 @@ function defineRules(
     maxHandSize: cloned.playerSceneDeck?.maxHandSize ?? 0,
     locationEntryDraw: cloned.playerSceneDeck?.locationEntryDraw ?? 0,
     tacticalContent: frozenTacticalContent,
+    operationCardPools: deepFreeze(deepCopy(operationCardPools ?? [])),
+    operationStrategyProfiles: deepFreeze(deepCopy(operationStrategyProfiles ?? [])),
   };
 }
 
@@ -262,6 +276,7 @@ function createRun(
         avatarRef: identity?.avatarRef ?? actor.avatarRef ?? null,
         hp: actor.hp.initial,
         maxHp: actor.hp.max,
+        ...(actor.positionId ? { positionId: actor.positionId } : {}),
         resources: Object.fromEntries(Object.entries(actor.resources ?? {}).map(([id, value]) => [id, value.initial])),
         ...(actor.teamId ? { teamId: actor.teamId } : {}),
       };
@@ -276,6 +291,7 @@ function createRun(
       }
       return base;
     }),
+    characterHands: {},
     playerRouteState: {
       playerCost: definition.playerRouteState.playerCost,
       cards: { drawPile: [...cards.drawPile], hand: [...cards.hand], discard: [...cards.discard] },
@@ -317,7 +333,135 @@ function preparationSnapshot(run: MutableRun): OperationPreparationSnapshot {
       return { actorId: actor.id, participantKind: actor.participantKind, resources: actor.resources };
     }),
     teams: run.teamStates.map(team => ({ id: team.id, resources: team.resources })),
+    studentActionIdsByActorId: Object.fromEntries(run.actorStates
+      .filter(actor => actor.participantKind === 'student')
+      .map(actor => [actor.id, run.characterHands[actor.id]?.actionIds ?? []])),
   };
+}
+
+function actionBlockReasonsForCandidate(
+  run: MutableRun,
+  rules: RunRules,
+  actorId: string,
+  action: OperationActionDef,
+): readonly string[] {
+  const content = rules.tacticalContent;
+  const initialization = content?.actorInitializations.find(actor => actor.actorId === actorId);
+  if (!content || !initialization || initialization.participantKind !== 'student') return ['operation:hand:missing-student-profile'];
+  const profile = initialization.profile;
+  const missingCapabilityIds = action.requiredCapabilityIds.filter(id => !profile.capabilityIds.includes(id));
+  const candidate: OperationActionCandidateSnapshot = {
+    actionId: action.id,
+    eligible: missingCapabilityIds.length === 0,
+    requiredCapabilityIds: [...action.requiredCapabilityIds],
+    missingCapabilityIds,
+    reasonIds: [...new Set([...profile.reasonIds, ...action.reasonIds])],
+  };
+  const oneActionProfile: OperationStudentProfileSnapshot = {
+    ...profile,
+    candidateActionIds: [action.id],
+    actionPriorityIds: [action.id],
+    actionCandidates: [candidate],
+    eligibleActionIds: candidate.eligible ? [action.id] : [],
+    ...(candidate.eligible ? { fallback: undefined } : {
+      fallback: { actionId: OPERATION_WAIT_ACTION_ID, reasonIds: [OPERATION_NO_ELIGIBLE_ACTION_REASON_ID] },
+    }),
+  };
+  const actors = content.actorInitializations.map(actor => actor.actorId === actorId
+    ? { ...actor, profile: oneActionProfile }
+    : actor);
+  const currentSnapshot = preparationSnapshot(run);
+  const snapshot: OperationPreparationSnapshot = {
+    ...currentSnapshot,
+    studentActionIdsByActorId: {
+      ...currentSnapshot.studentActionIdsByActorId,
+      [actorId]: [action.id],
+    },
+  };
+  try {
+    const beat = prepareOperationBeat(snapshot, {
+      eventDefinition: content.eventDefinition,
+      actors,
+      actionDefinitions: content.actionDefinitions,
+    });
+    const plan = beat.actorPlans.find(row => row.actorId === actorId);
+    return plan?.kind === 'wait' ? plan.reasonIds : [];
+  } catch (error) {
+    return [error instanceof Error ? error.message : 'operation:hand:action-is-not-preparable'];
+  }
+}
+
+function resolveCharacterHands(run: MutableRun, rules: RunRules): Record<string, OperationCharacterHandSnapshot> {
+  const content = rules.tacticalContent;
+  if (!content) return {};
+  const pools = rules.operationCardPools ?? [];
+  const strategies = new Map((rules.operationStrategyProfiles ?? []).map(profile => [profile.id, profile]));
+  const resolved: Record<string, OperationCharacterHandSnapshot> = {};
+  for (const actor of run.actorStates) {
+    if (actor.participantKind !== 'student') continue;
+    const profile = actor.profile;
+    if (!profile) throw new OperationRuntimeError(['student Actor has no Operation Profile: ' + actor.id]);
+    const strategy = profile.strategyProfileId ? strategies.get(profile.strategyProfileId) : undefined;
+    if (profile.strategyProfileId && !strategy) throw new OperationRuntimeError(['Student Profile references an unavailable StrategyProfile: ' + profile.strategyProfileId]);
+    try {
+      resolved[actor.id] = resolveOperationCharacterHand({
+        eventDefinition: content.eventDefinition,
+        locationId: run.currentLocationId,
+        actorId: actor.id,
+        profile,
+        positionId: actor.positionId,
+        weaponId: rules.actors.get(actor.id)?.weaponId,
+        knownFactIds: run.eventState.knownFactIds,
+        actionDefinitions: content.actionDefinitions,
+        cardPools: pools,
+        strategyProfile: strategy,
+        seed: run.random.seed,
+        beatIndex: run.beatIndex,
+        getActionBlockReasons: action => actionBlockReasonsForCandidate(run, rules, actor.id, action),
+      });
+    } catch (error) {
+      throw new OperationRuntimeError([error instanceof Error ? error.message : 'Character Hand resolution failed']);
+    }
+  }
+  return resolved;
+}
+
+/** Gives the pure tactical planner a detached actor view whose candidates are exactly the committed Hands. */
+function bindTacticalContentToCharacterHands(
+  run: MutableRun,
+  content: OperationResolutionTrustedContent,
+): OperationResolutionTrustedContent {
+  const actionsById = new Map(content.actionDefinitions.map(action => [action.id, action]));
+  const actorInitializations = content.actorInitializations.map(initialization => {
+    if (initialization.participantKind !== 'student') return initialization;
+    const hand = run.characterHands[initialization.actorId];
+    if (!hand) throw new OperationRuntimeError(['Character Hand is missing for student Actor ' + initialization.actorId]);
+    const actionCandidates = hand.actionIds.map(actionId => {
+      const action = actionsById.get(actionId);
+      if (!action) throw new OperationRuntimeError(['Character Hand references a missing Action: ' + actionId]);
+      const missingCapabilityIds = action.requiredCapabilityIds.filter(id => !initialization.profile.capabilityIds.includes(id));
+      return {
+        actionId,
+        eligible: missingCapabilityIds.length === 0,
+        requiredCapabilityIds: [...action.requiredCapabilityIds],
+        missingCapabilityIds,
+        reasonIds: [...new Set([...initialization.profile.reasonIds, ...action.reasonIds])],
+      };
+    });
+    const eligibleActionIds = actionCandidates.filter(candidate => candidate.eligible).map(candidate => candidate.actionId);
+    const profile: OperationStudentProfileSnapshot = {
+      ...initialization.profile,
+      candidateActionIds: [...hand.actionIds],
+      actionPriorityIds: [...hand.actionIds],
+      actionCandidates,
+      eligibleActionIds,
+      ...(eligibleActionIds.length === 0 ? {
+        fallback: { actionId: OPERATION_WAIT_ACTION_ID, reasonIds: [OPERATION_NO_ELIGIBLE_ACTION_REASON_ID] },
+      } : { fallback: undefined }),
+    };
+    return { ...initialization, profile };
+  });
+  return { ...content, actorInitializations };
 }
 
 function refreshPreparedBeat(run: MutableRun, rules: RunRules): void {
@@ -332,7 +476,7 @@ function refreshPreparedBeat(run: MutableRun, rules: RunRules): void {
   }
   const preparationContent: OperationPreparationContent = {
     eventDefinition: content.eventDefinition,
-    actors: content.actorInitializations,
+    actors: bindTacticalContentToCharacterHands(run, content).actorInitializations,
     actionDefinitions: content.actionDefinitions,
   };
   try {
@@ -393,6 +537,7 @@ function resolutionPlannerSnapshot(run: MutableRun): OperationResolutionPlannerS
         participantKind: actor.participantKind,
         hp: actor.hp,
         resources: actor.resources,
+        ...(actor.positionId !== undefined ? { positionId: actor.positionId } : {}),
       };
     }),
     teams: run.teamStates.map(team => ({ id: team.id, resources: team.resources })),
@@ -457,27 +602,27 @@ function parseSceneActionBatchCommand(value: unknown): OperationSceneActionBatch
   const selections = value.selections.map((row, index) => {
     if (!isRecord(row)
       || Object.keys(row).some(key => key !== 'sceneActionId' && key !== 'actorId' && key !== 'targetActorIds')
-      || !nonEmptyId(row.sceneActionId) || !nonEmptyId(row.actorId)
+      || !nonEmptyId(row.sceneActionId) || (row.actorId !== undefined && !nonEmptyId(row.actorId))
       || !Array.isArray(row.targetActorIds) || !row.targetActorIds.every(nonEmptyId)
       || row.cardInstanceIds !== undefined) {
       throw new OperationRuntimeError(['SceneAction selection ' + index + ' is malformed']);
     }
     return {
       sceneActionId: row.sceneActionId,
-      actorId: row.actorId,
+      ...(row.actorId !== undefined ? { actorId: row.actorId } : {}),
       targetActorIds: [...row.targetActorIds] as string[],
     };
   });
   const cards = (value.cards as unknown[] | undefined)?.map((row, index) => {
     if (!isRecord(row)
       || Object.keys(row).some(key => key !== 'cardInstanceId' && key !== 'actorId' && key !== 'targetActorIds')
-      || !nonEmptyId(row.cardInstanceId) || !nonEmptyId(row.actorId)
+      || !nonEmptyId(row.cardInstanceId) || (row.actorId !== undefined && !nonEmptyId(row.actorId))
       || !Array.isArray(row.targetActorIds) || !row.targetActorIds.every(nonEmptyId)) {
       throw new OperationRuntimeError(['SceneCard selection ' + index + ' is malformed']);
     }
     return {
       cardInstanceId: row.cardInstanceId,
-      actorId: row.actorId,
+      ...(row.actorId !== undefined ? { actorId: row.actorId } : {}),
       targetActorIds: [...row.targetActorIds] as string[],
     } satisfies OperationSceneCardSelection;
   });
@@ -533,6 +678,14 @@ function sceneActionBatchPreview(slot: RunSlot, batch: OperationResolutionBatch)
     actionMode: location.actionMode,
     selections: scene.selections,
     cards: scene.cards,
+    actionCosts: scene.actionCosts.map(payment => ({
+      actorId: payment.actorId,
+      actionId: payment.actionId,
+      scope: payment.cost.scope,
+      scopeId: payment.scopeId,
+      resourceId: payment.cost.resourceId,
+      amount: payment.cost.amount,
+    })),
     cost: {
       balanceBefore: scene.playerCostBefore,
       totalCost: scene.playerCostPaid,
@@ -660,6 +813,36 @@ function applyResolutionMembershipChanges(
   run.eventState.heldItemIds = [...items];
 }
 
+function applyResolutionPositionChanges(
+  run: MutableRun,
+  changes: OperationResolutionBatch['positionChanges'],
+  rules: RunRules,
+): void {
+  if (!Array.isArray(changes)) throw new OperationRuntimeError(['Resolution positionChanges must be an array']);
+  const pending: { state: MutableActorState; after: string }[] = [];
+  const seen = new Set<string>();
+  for (const candidate of changes) {
+    if (!isRecord(candidate) || !nonEmptyId(candidate.actorId) || !nonEmptyId(candidate.after)
+      || (candidate.before !== null && !nonEmptyId(candidate.before))) {
+      throw new OperationRuntimeError(['Resolution contains a malformed position change']);
+    }
+    if (seen.has(candidate.actorId)) throw new OperationRuntimeError(['Resolution repeats a position target: ' + candidate.actorId]);
+    seen.add(candidate.actorId);
+    const state = run.actorStates.find(actor => actor.id === candidate.actorId);
+    if (!state || !rules.actors.has(candidate.actorId)) {
+      throw new OperationRuntimeError(['Resolution position change references an undeclared Actor: ' + candidate.actorId]);
+    }
+    if ((state.positionId ?? null) !== candidate.before) {
+      throw new OperationRuntimeError(['Resolution position change no longer matches its commit-start value']);
+    }
+    if (!Array.isArray(candidate.sources) || candidate.sources.length === 0) {
+      throw new OperationRuntimeError(['Resolution position change has no authored source']);
+    }
+    pending.push({ state, after: candidate.after });
+  }
+  for (const change of pending) change.state.positionId = change.after;
+}
+
 function validateMembershipChanges(
   changes: unknown,
   declarations: ReadonlySet<string>,
@@ -732,6 +915,9 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
       || (progress.result !== null && !['success', 'partialSuccess', 'failure'].includes(progress.result))) {
       fail('Location progress is malformed for ' + location.id);
     }
+    if (location.maxVisits !== undefined && progress.visitCount > location.maxVisits) {
+      fail('Location progress exceeds the declared visit limit for ' + location.id);
+    }
     if (progress.completed !== (progress.result !== null)) fail('Location completion/result disagree for ' + location.id);
     if (location.sceneActionBatches === undefined) {
       if (progress.sceneActionBatchesUsed !== undefined) fail('unexpected SceneAction batch count for ' + location.id);
@@ -756,6 +942,7 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
     const actor = actorsById.get(actorDef.id);
     if (!actor) throw new OperationRuntimeError(['invalid Operation Run checkpoint: Actor state is missing for ' + actorDef.id]);
     if (actor.type !== actorDef.type || actor.teamId !== actorDef.teamId
+      || actor.positionId !== undefined && !nonEmptyId(actor.positionId)
       || typeof actor.displayName !== 'string' || actor.displayName.trim() === ''
       || actor.avatarRef !== null && typeof actor.avatarRef !== 'string'
       || actor.maxHp !== actorDef.hp.max
@@ -827,6 +1014,19 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
   }
   if (run.resolutions.length > 0 && priorSequence !== run.resolutionSequence) fail('latest Resolution does not match resolutionSequence');
   if (run.status === 'inProgress') {
+    if (rules.tacticalContent) {
+      if (!isRecord(run.characterHands)) fail('Character Hands are missing from the saved Run');
+      for (const actor of run.actorStates) {
+        if (actor.participantKind !== 'student') continue;
+        const hand = run.characterHands[actor.id];
+        if (!isRecord(hand) || !Array.isArray(hand.actionIds) || !Array.isArray(hand.matchedPoolIds)
+          || !Array.isArray(hand.candidates)) fail('Character Hand is malformed for ' + actor.id);
+      }
+      const expectedHands = resolveCharacterHands(run, rules);
+      if (JSON.stringify(run.characterHands) !== JSON.stringify(expectedHands)) {
+        fail('Character Hands do not match the saved Run context and committed beat index');
+      }
+    }
     const progress = run.locationProgress[run.currentLocationId];
     const expected = progress.completed ? null : restoredPreparedBeat(run, rules);
     if (JSON.stringify(run.preparedBeat) !== JSON.stringify(expected)) fail('PreparedBeat does not match the saved Run state');
@@ -878,7 +1078,7 @@ function restoredPreparedBeat(run: MutableRun, rules: RunRules): PreparedBeat | 
   try {
     return prepareOperationBeat(preparationSnapshot(run), {
       eventDefinition: rules.definition,
-      actors: rules.tacticalContent.actorInitializations,
+      actors: bindTacticalContentToCharacterHands(run, rules.tacticalContent).actorInitializations,
       actionDefinitions: rules.tacticalContent.actionDefinitions,
     });
   } catch (error) {
@@ -953,7 +1153,12 @@ export class OperationRuntimeService {
 
     let rules: RunRules;
     try {
-      rules = defineRules(definition, normalizedTacticalContent);
+      rules = defineRules(
+        definition,
+        normalizedTacticalContent,
+        runStartInput?.operationCardPools,
+        runStartInput?.operationStrategyProfiles,
+      );
     } catch {
       throw new OperationRuntimeError(['event definition and trusted tactical rules must contain only cloneable data']);
     }
@@ -963,6 +1168,7 @@ export class OperationRuntimeService {
       : undefined;
     const run = createRun(runId, rules, actorInitializationsById);
     applyLocationEntryCost(run, run.currentLocationId, rules.definition);
+    if (rules.tacticalContent) run.characterHands = resolveCharacterHands(run, rules);
     const initialHardFailure = hasOperationHardFailure(rules.definition, run.eventState);
     const initialLocationProgress = run.locationProgress[run.currentLocationId];
     let initialLocationCompleted = false;
@@ -1011,9 +1217,10 @@ export class OperationRuntimeService {
     this.assertUsable();
     const slot = this.slot;
     if (!slot || (expectedRunId !== undefined && expectedRunId !== slot.run.runId) || !slot.rules.tacticalContent) return null;
+    // Project against the same per-Run Character Hands used to build the saved PreparedBeat.
     return projectOperationView(slot.run, {
       eventDefinition: slot.rules.tacticalContent.eventDefinition,
-      actors: slot.rules.tacticalContent.actorInitializations,
+      actors: bindTacticalContentToCharacterHands(slot.run, slot.rules.tacticalContent).actorInitializations,
       actionDefinitions: slot.rules.tacticalContent.actionDefinitions,
       playerSceneCardInstances: slot.rules.cardInstances,
     });
@@ -1089,7 +1296,7 @@ export class OperationRuntimeService {
         actorInitializations: input.actors,
         actionDefinitions: content.actionDefinitions,
         studentSkillRules: content.studentSkillRules,
-      });
+      }, input.operationCardPools, input.operationStrategyProfiles);
     } catch {
       throw new OperationRuntimeError(['resolved Operation restore content must contain only cloneable data']);
     }
@@ -1197,7 +1404,7 @@ export class OperationRuntimeService {
     try {
       batch = planOperationResolution({
         snapshot: resolutionPlannerSnapshot(run),
-        trustedContent: tacticalContent,
+        trustedContent: bindTacticalContentToCharacterHands(run, tacticalContent),
         preparedBeat: run.preparedBeat,
         interventionDraft: run.interventionDraft,
       });
@@ -1219,6 +1426,7 @@ export class OperationRuntimeService {
 
     applyResolutionChanges(next, batch.numericChanges, slot.rules);
     applyResolutionMembershipChanges(next, batch.membershipChanges, slot.rules);
+    applyResolutionPositionChanges(next, batch.positionChanges, slot.rules);
     next.random = deepCopy(batch.nextRandomState);
     next.beatIndex += 1;
     const nextLocationProgress = next.locationProgress[next.currentLocationId];
@@ -1246,6 +1454,7 @@ export class OperationRuntimeService {
       next.preparedBeat = null;
     } else {
       locationCompleted = evaluateLocationProgress(next, slot.rules);
+      next.characterHands = resolveCharacterHands(next, slot.rules);
       refreshPreparedBeat(next, slot.rules);
     }
     const eventResult = hardFailure ? freezeEventResult(next, 'failure') : null;
@@ -1335,6 +1544,7 @@ export class OperationRuntimeService {
     const next = deepCopy(slot.run);
     applyResolutionChanges(next, batch.numericChanges, slot.rules);
     applyResolutionMembershipChanges(next, batch.membershipChanges, slot.rules);
+    applyResolutionPositionChanges(next, batch.positionChanges, slot.rules);
     const progress = next.locationProgress[next.currentLocationId];
     if (!progress || progress.sceneActionBatchesUsed === undefined) {
       throw new OperationRuntimeError(['current Location SceneAction progress is missing']);
@@ -1364,6 +1574,7 @@ export class OperationRuntimeService {
       next.preparedBeat = null;
     } else {
       locationCompleted = evaluateLocationProgress(next, slot.rules);
+      next.characterHands = resolveCharacterHands(next, slot.rules);
       refreshPreparedBeat(next, slot.rules);
     }
     const eventResult = hardFailure ? freezeEventResult(next, 'failure') : null;
@@ -1546,6 +1757,7 @@ export class OperationRuntimeService {
 
     const route = selected.route;
     const targetProgress = slot.run.locationProgress[route.targetLocationId];
+    const targetDefinition = slot.rules.definition.locations.find(location => location.id === route.targetLocationId);
     const sourceProgress = slot.run.locationProgress[slot.run.currentLocationId];
     if (!targetProgress) throw new OperationRuntimeError(['Route target Location progress is missing']);
     if (!sourceProgress?.completed || !sourceProgress.result) {
@@ -1553,6 +1765,9 @@ export class OperationRuntimeService {
     }
     if (targetProgress.visitCount >= Number.MAX_SAFE_INTEGER) {
       throw new OperationRuntimeError(['Location visitCount cannot advance safely']);
+    }
+    if (targetDefinition?.maxVisits !== undefined && targetProgress.visitCount >= targetDefinition.maxVisits) {
+      throw new OperationRuntimeError(['selected Route target Location reached its visit limit']);
     }
 
     // Build and validate the entire destination Run before publishing the sole owner write.
@@ -1592,6 +1807,7 @@ export class OperationRuntimeService {
     nextProgress.completed = false;
     nextProgress.result = null;
     applyLocationEntryCost(next, route.targetLocationId, slot.rules.definition);
+    next.characterHands = resolveCharacterHands(next, slot.rules);
     const enteredCards = drawOperationPlayerSceneCards(
       next.playerRouteState.cards,
       slot.rules.locationEntryDraw,

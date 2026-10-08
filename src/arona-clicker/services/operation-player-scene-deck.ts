@@ -28,6 +28,10 @@ export function createOperationPlayerSceneCardInstances(event: OperationEventDef
     actionId: card.actionId,
     playerCost: card.playerCost,
     timing: card.timing,
+    ...(card.selectionPolicy ? { selectionPolicy: card.selectionPolicy } : {}),
+    ...(card.performerPolicy ? { performerPolicy: card.performerPolicy } : {}),
+    ...(card.title ? { title: card.title } : {}),
+    ...(card.description ? { description: card.description } : {}),
   })));
 }
 

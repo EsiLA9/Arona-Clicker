@@ -9,6 +9,7 @@ import { validateOperationEventDef } from './operation-definition-validation';
 import { validateOperationActionContent } from './operation-action-content-validation';
 import type { OperationActionDef } from '../contracts/operation-action';
 import type { OperationStudentSkillRuleDef } from '../contracts/operation-skill';
+import type { OperationCardPoolDef, OperationStrategyProfileDef } from '../../data-services/contracts/operation';
 
 export class OperationAdmissionError extends Error {
   constructor(readonly diagnostics: readonly string[]) {
@@ -144,13 +145,17 @@ function validateProfile(value: unknown, path: string, issues: string[]): Studen
   const actionPriorityIds = readIds('actionPriorityIds');
   const capabilityIds = readIds('capabilityIds');
   const reasonIds = readIds('reasonIds');
+  const cardPoolIds = value.cardPoolIds === undefined ? [] : readIds('cardPoolIds');
   for (const actionId of actionPriorityIds) {
     if (!candidateActionIds.includes(actionId)) issues.push(path + '.actionPriorityIds contains an action outside candidateActionIds: ' + actionId);
   }
   if (value.randomSkillRuleId !== undefined && !isNonEmptyId(value.randomSkillRuleId)) {
     issues.push(path + '.randomSkillRuleId must be a non-empty rule reference');
   }
-  const allowed = new Set(['id', 'characterId', 'candidateActionIds', 'actionPriorityIds', 'capabilityIds', 'reasonIds', 'randomSkillRuleId']);
+  if (value.strategyProfileId !== undefined && !isNonEmptyId(value.strategyProfileId)) {
+    issues.push(path + '.strategyProfileId must be a non-empty OperationStrategyProfile ID');
+  }
+  const allowed = new Set(['id', 'characterId', 'candidateActionIds', 'actionPriorityIds', 'capabilityIds', 'reasonIds', 'randomSkillRuleId', 'strategyProfileId', 'cardPoolIds']);
   for (const field of Object.keys(value)) {
     if (!allowed.has(field)) issues.push(path + ' contains unsupported runtime/payment field ' + field);
   }
@@ -161,6 +166,8 @@ function validateProfile(value: unknown, path: string, issues: string[]): Studen
     actionPriorityIds,
     capabilityIds,
     reasonIds,
+    ...(isNonEmptyId(value.strategyProfileId) ? { strategyProfileId: value.strategyProfileId } : {}),
+    ...(value.cardPoolIds !== undefined ? { cardPoolIds } : {}),
     ...(isNonEmptyId(value.randomSkillRuleId) ? { randomSkillRuleId: value.randomSkillRuleId } : {}),
   };
 }
@@ -178,6 +185,70 @@ function parseProfiles(value: unknown, issues: string[]): StudentOperationProfil
     if (profileIds.has(parsed.id)) issues.push('studentProfiles contains duplicate profile ID: ' + parsed.id);
     profileIds.add(parsed.id);
     result.push(parsed);
+  });
+  return result;
+}
+
+function parseOperationCardPools(value: unknown, issues: string[]): OperationCardPoolDef[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    issues.push('operationCardPools must be an array');
+    return [];
+  }
+  const seen = new Set<string>();
+  const result: OperationCardPoolDef[] = [];
+  value.forEach((raw, index) => {
+    const path = 'operationCardPools[' + index + ']';
+    if (!isRecord(raw) || !isNonEmptyId(raw.id) || !Array.isArray(raw.entries)) {
+      issues.push(path + ' must define a non-empty id and entries array');
+      return;
+    }
+    if (seen.has(raw.id)) issues.push('operationCardPools contains duplicate id: ' + raw.id);
+    seen.add(raw.id);
+    if (raw.entries.length === 0 || raw.entries.length > 64) issues.push(path + '.entries must contain 1 to 64 entries');
+    const entries = raw.entries.flatMap((entry, entryIndex) => {
+      if (!isRecord(entry) || !isNonEmptyId(entry.actionId) || !Number.isSafeInteger(entry.weight)
+        || Number(entry.weight) < 1 || Number(entry.weight) > 100000) {
+        issues.push(path + '.entries[' + entryIndex + '] must define an Action ID and weight between 1 and 100000');
+        return [];
+      }
+      return [{ actionId: entry.actionId, weight: Number(entry.weight) }];
+    });
+    result.push({ id: raw.id, entries, ...(isRecord(raw.selector) ? { selector: raw.selector as OperationCardPoolDef['selector'] } : {}) });
+    if (raw.selector !== undefined && !isRecord(raw.selector)) issues.push(path + '.selector must be a finite object');
+  });
+  return result;
+}
+
+function parseOperationStrategyProfiles(value: unknown, issues: string[]): OperationStrategyProfileDef[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    issues.push('operationStrategyProfiles must be an array');
+    return [];
+  }
+  const seenProfiles = new Set<string>();
+  const result: OperationStrategyProfileDef[] = [];
+  value.forEach((raw, index) => {
+    const path = 'operationStrategyProfiles[' + index + ']';
+    if (!isRecord(raw) || !isNonEmptyId(raw.id) || !Array.isArray(raw.biases)) {
+      issues.push(path + ' must define a non-empty id and biases array');
+      return;
+    }
+    if (seenProfiles.has(raw.id)) issues.push('operationStrategyProfiles contains duplicate id: ' + raw.id);
+    seenProfiles.add(raw.id);
+    if (raw.biases.length > 16) issues.push(path + '.biases must contain at most 16 entries');
+    const seenTags = new Set<string>();
+    const biases = raw.biases.flatMap((bias, biasIndex) => {
+      if (!isRecord(bias) || !isNonEmptyId(bias.tagId) || !Number.isSafeInteger(bias.biasBps)
+        || Number(bias.biasBps) < 1 || Number(bias.biasBps) > 30000) {
+        issues.push(path + '.biases[' + biasIndex + '] must define tagId and biasBps between 1 and 30000');
+        return [];
+      }
+      if (seenTags.has(bias.tagId)) issues.push(path + '.biases contains duplicate tagId: ' + bias.tagId);
+      seenTags.add(bias.tagId);
+      return [{ tagId: bias.tagId, biasBps: Number(bias.biasBps) }];
+    });
+    result.push({ id: raw.id, biases });
   });
   return result;
 }
@@ -211,6 +282,8 @@ function readResolvedContent(
   readonly profiles: readonly StudentOperationProfileDef[];
   readonly actionDefinitions: readonly OperationActionDef[];
   readonly studentSkillRules: readonly OperationStudentSkillRuleDef[];
+  readonly operationCardPools: readonly OperationCardPoolDef[];
+  readonly operationStrategyProfiles: readonly OperationStrategyProfileDef[];
 } | null {
   if (!isRecord(value)) {
     issues.push('resolver returned no content for eventId: ' + requestedEventId);
@@ -227,6 +300,44 @@ function readResolvedContent(
   issues.push(...eventIssues.map(issue => 'eventDefinition: ' + issue));
   const participants = readParticipants(value.participants, issues);
   const profiles = parseProfiles(value.studentProfiles, issues);
+  const cardPools = parseOperationCardPools(value.operationCardPools, issues);
+  const strategyProfiles = parseOperationStrategyProfiles(value.operationStrategyProfiles, issues);
+  const cardPoolsById = new Map(cardPools.map(pool => [pool.id, pool]));
+  const strategyProfilesById = new Map(strategyProfiles.map(profile => [profile.id, profile]));
+  const actionRows = Array.isArray(value.actionDefinitions) ? value.actionDefinitions : [];
+  const actionsById = new Map(actionRows.flatMap(action => isRecord(action) && isNonEmptyId(action.id) ? [[action.id, action] as const] : []));
+  const eventFacts = new Set(Array.isArray(value.eventDefinition.factIds) ? value.eventDefinition.factIds.filter(isNonEmptyId) : []);
+  const referencedPoolIds = new Set<string>([
+    ...(Array.isArray(value.eventDefinition.cardPoolIds) ? value.eventDefinition.cardPoolIds.filter(isNonEmptyId) : []),
+    ...(Array.isArray(value.eventDefinition.locations) ? value.eventDefinition.locations.flatMap(location =>
+      isRecord(location) && Array.isArray(location.cardPoolIds) ? location.cardPoolIds.filter(isNonEmptyId) : []) : []),
+    ...profiles.flatMap(profile => profile.cardPoolIds ?? []),
+  ]);
+  for (const profile of profiles) if (profile.strategyProfileId && !strategyProfilesById.has(profile.strategyProfileId)) {
+    issues.push('studentProfiles profile ' + profile.id + ' references missing StrategyProfile ' + profile.strategyProfileId);
+  }
+  for (const poolId of referencedPoolIds) if (!cardPoolsById.has(poolId)) issues.push('resolved Operation content references missing CardPool ' + poolId);
+  for (const pool of cardPools) for (const entry of pool.entries) {
+    const action = actionsById.get(entry.actionId);
+    if (!action) issues.push('OperationCardPool ' + pool.id + ' references missing Action ' + entry.actionId);
+    else if (!Array.isArray(action.allowedParticipantKinds) || !action.allowedParticipantKinds.includes('student')) {
+      issues.push('OperationCardPool ' + pool.id + ' Action does not allow student participants: ' + entry.actionId);
+    }
+    const conditions = [pool.selector, action?.cardCondition].filter(isRecord);
+    for (const condition of conditions) {
+      for (const field of ['sceneIds', 'activityIds', 'positionIds', 'weaponIds', 'requiredFactIds', 'forbiddenFactIds']) {
+        const ids = condition[field];
+        if (ids !== undefined && (!Array.isArray(ids) || ids.some(id => !isNonEmptyId(id)))) {
+          issues.push('OperationCardPool or Action Condition .' + field + ' must be an array of non-empty IDs');
+        }
+      }
+      for (const field of ['requiredFactIds', 'forbiddenFactIds']) {
+        if (Array.isArray(condition[field])) for (const factId of condition[field]) {
+          if (isNonEmptyId(factId) && !eventFacts.has(factId)) issues.push('Operation CardCondition.' + field + ' references an undeclared Event fact: ' + factId);
+        }
+      }
+    }
+  }
   checkEventParticipantShape(value.eventDefinition.actors, participants, issues);
   const actionContent = validateOperationActionContent(
     value.eventDefinition as unknown as import('../contracts/operation').OperationEventDef,
@@ -248,6 +359,8 @@ function readResolvedContent(
     profiles,
     actionDefinitions: actionContent.actionDefinitions,
     studentSkillRules: actionContent.studentSkillRules,
+    operationCardPools: cardPools.filter(pool => referencedPoolIds.has(pool.id)),
+    operationStrategyProfiles: strategyProfiles.filter(profile => profiles.some(item => item.strategyProfileId === profile.id)),
   };
 }
 
@@ -440,6 +553,13 @@ export class OperationParticipantAdmission {
     if (admitted.length !== participants.length) issues.push('one or more participants could not be admitted');
     if (issues.length > 0) throw new OperationAdmissionError(issues);
 
+    const selectedPoolIds = new Set<string>([
+      ...(content.eventDefinition.cardPoolIds ?? []),
+      ...content.eventDefinition.locations.flatMap(location => location.cardPoolIds ?? []),
+      ...selectedProfiles.flatMap(profile => profile.cardPoolIds ?? []),
+    ]);
+    const selectedStrategyIds = new Set(selectedProfiles.flatMap(profile => profile.strategyProfileId ? [profile.strategyProfileId] : []));
+
     try {
       return cloneFreeze({
         eventDefinition: content.eventDefinition,
@@ -447,6 +567,8 @@ export class OperationParticipantAdmission {
         studentProfiles: selectedProfiles,
         actionDefinitions,
         studentSkillRules,
+        operationCardPools: parsed.operationCardPools.filter(pool => selectedPoolIds.has(pool.id)),
+        operationStrategyProfiles: parsed.operationStrategyProfiles.filter(profile => selectedStrategyIds.has(profile.id)),
       });
     } catch {
       throw new OperationAdmissionError(['resolved Operation content must contain only cloneable data']);

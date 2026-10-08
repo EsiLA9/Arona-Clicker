@@ -8,7 +8,7 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstrap';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
 import { carouselSafetySliceContent, carouselSafetySliceResolver } from '../../src/arona-clicker/content/operation-samples/carousel-safety-slice';
-import { CAROUSEL_SCENE_ACTION_IDS, carouselSceneActionSliceResolver } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
+import { CAROUSEL_SCENE_ACTION_IDS, carouselSceneActionSliceContent, carouselSceneActionSliceResolver } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 
 const STUDENT_CHARACTERS = [Character.Hoshino, Character.Serika, Character.Shiroko] as const;
 const VARIANT_IDS: Record<typeof STUDENT_CHARACTERS[number], string> = {
@@ -41,11 +41,19 @@ describe('Gameplay B carousel safety sample', () => {
     readonly firstDanger: number;
     readonly finalDanger: number;
     readonly rideHp: number;
+    readonly defaultHoshinoActionId: string | null;
+    readonly hoshinoHandActionIds: readonly string[];
     readonly resolutions: readonly OperationViewResolution[];
   } {
     const game = createGame();
     acquire(game);
     const runId = start(game);
+    const initialHoshino = game.operationEntry.getView(runId)!.actorStates
+      .find(actor => actor.id === CAROUSEL_SAFETY_IDS.actors.hoshino)!;
+    const defaultHoshinoActionId = initialHoshino.currentPlan?.kind === 'studentAction'
+      ? initialHoshino.currentPlan.actionId
+      : null;
+    const hoshinoHandActionIds = initialHoshino.characterHand?.actionIds ?? [];
     let current = game.operationEntry.getSnapshot()!;
     if (action) {
       game.operationEntry.reviseIntervention({
@@ -64,6 +72,8 @@ describe('Gameplay B carousel safety sample', () => {
       firstDanger,
       finalDanger: finalView.tracks[CAROUSEL_SAFETY_IDS.track],
       rideHp: finalView.actorStates.find(actor => actor.id === CAROUSEL_SAFETY_IDS.actors.ride)!.hp,
+      defaultHoshinoActionId,
+      hoshinoHandActionIds,
       resolutions: finalView.resolutions,
     };
   }
@@ -104,8 +114,24 @@ describe('Gameplay B carousel safety sample', () => {
     expect(() => start(app)).toThrow(OperationAdmissionError);
   });
 
-  test('keeps profile-specific emergency stop and crowd guide as distinct two-Beat choices', () => {
-    const noIntervention = runTwoBeats();
+  test('安全闩只指向旋转木马，急救行动说明效果而费用留在包装上', () => {
+    const sabotage = carouselSafetySliceContent.actionDefinitions.find(action => action.id === CAROUSEL_SAFETY_IDS.actions.sabotage)!;
+    expect(sabotage).toMatchObject({
+      title: '破坏安全闩',
+      description: '破坏旋转木马安全闩，扣除 1 点设备耐久。',
+      target: { kind: 'actor', relation: 'any', allowedActorIds: [CAROUSEL_SAFETY_IDS.actors.ride] },
+      effects: [{ kind: 'actorHpDelta', recipient: 'target', amount: -1 }],
+    });
+    const teamAid = carouselSceneActionSliceContent.actionDefinitions.find(action => action.id === CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam)!;
+    expect(teamAid.description).toBe('为每名选定队员恢复 1 点 HP，并降低现场危险度。');
+    expect(teamAid.description).not.toContain('Cost');
+    expect(carouselSceneActionSliceContent.eventDefinition.playerSceneDeck?.cards[0]?.playerCost).toBe(1);
+    expect(carouselSceneActionSliceContent.eventDefinition.locations
+      .find(location => location.id === CAROUSEL_SCENE_ACTION_IDS.locations.exit)?.sceneActions?.[0]?.playerCost).toBe(2);
+  });
+
+  test('keeps profile-specific actions distinct and commits the first legal Hand action by default', () => {
+    const defaultPlan = runTwoBeats();
     const emergencyStop = runTwoBeats({
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
       actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop,
@@ -115,9 +141,28 @@ describe('Gameplay B carousel safety sample', () => {
       actionId: CAROUSEL_SAFETY_IDS.actions.crowdGuide,
     });
 
-    expect(noIntervention).toMatchObject({ firstDanger: 4, finalDanger: 5, rideHp: 4 });
-    expect(emergencyStop).toMatchObject({ firstDanger: 1, finalDanger: 2, rideHp: 3 });
-    expect(crowdGuide).toMatchObject({ firstDanger: 3, finalDanger: 4, rideHp: 4 });
+    expect(defaultPlan.defaultHoshinoActionId).toBe(defaultPlan.hoshinoHandActionIds[0]);
+    expect(defaultPlan.defaultHoshinoActionId).toBe(CAROUSEL_SAFETY_IDS.actions.emergencyStop);
+    expect(defaultPlan).toMatchObject({ firstDanger: 0, finalDanger: 1, rideHp: 3 });
+    expect(emergencyStop.resolutions[0].actorPlans).toContainEqual(expect.objectContaining({
+      actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
+      actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop,
+    }));
+    expect(crowdGuide.resolutions[0].actorPlans).toContainEqual(expect.objectContaining({
+      actorId: CAROUSEL_SAFETY_IDS.actors.serika,
+      actionId: CAROUSEL_SAFETY_IDS.actions.crowdGuide,
+    }));
+    expect(emergencyStop).toMatchObject({ firstDanger: 0, finalDanger: 1, rideHp: 3 });
+    expect(defaultPlan.resolutions[0].actorPlans).toContainEqual(expect.objectContaining({
+      actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
+      kind: 'studentAction',
+      actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop,
+    }));
+    expect(crowdGuide).toMatchObject({ firstDanger: 0, finalDanger: 1, rideHp: 3 });
+    expect(crowdGuide.resolutions[0].actorPlans).toContainEqual(expect.objectContaining({
+      actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
+      actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop,
+    }));
     expect(emergencyStop.resolutions[0].payments).toContainEqual(expect.objectContaining({
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
       cost: { scope: 'actor', resourceId: 'stamina', amount: 1 },
@@ -126,13 +171,21 @@ describe('Gameplay B carousel safety sample', () => {
       actorId: CAROUSEL_SAFETY_IDS.actors.serika,
       cost: { scope: 'team', resourceId: 'coordination', amount: 1 },
     }));
-    expect(noIntervention.resolutions[0].combinations.matches).toHaveLength(1);
+    expect(defaultPlan.resolutions[0].combinations.matches).toHaveLength(0);
     expect(emergencyStop.resolutions[0].combinations.matches).toHaveLength(0);
     expect(crowdGuide.resolutions[0].combinations.matches).toHaveLength(0);
-    expect(noIntervention.resolutions[0].studentSkillChecks).toHaveLength(1);
-    expect(noIntervention.resolutions[1].studentSkillChecks).toHaveLength(1);
-    expect(noIntervention.resolutions.map(result => result.studentSkillChecks[0].succeeded))
-      .toEqual(runTwoBeats().resolutions.map(result => result.studentSkillChecks[0].succeeded));
+    for (const resolution of defaultPlan.resolutions) {
+      const serikaPlan = resolution.actorPlans.find(plan => plan.actorId === CAROUSEL_SAFETY_IDS.actors.serika);
+      const triggersSkill = serikaPlan?.kind === 'studentAction'
+        && serikaPlan.actionId === CAROUSEL_SAFETY_IDS.actions.signal;
+      expect(resolution.studentSkillChecks).toHaveLength(triggersSkill ? 1 : 0);
+      if (triggersSkill) expect(resolution.studentSkillChecks[0]).toMatchObject({
+        actorId: CAROUSEL_SAFETY_IDS.actors.serika,
+        actionId: CAROUSEL_SAFETY_IDS.actions.signal,
+      });
+    }
+    expect(defaultPlan.resolutions.map(result => result.studentSkillChecks))
+      .toEqual(runTwoBeats().resolutions.map(result => result.studentSkillChecks));
   });
 
   test('a missing Hoshino capability removes the unique emergency-stop solution', () => {
@@ -170,6 +223,13 @@ describe('Gameplay B carousel safety sample', () => {
     const game = createGame(true, carouselSceneActionSliceResolver);
     acquire(game);
     const runId = game.operationEntry.start(CAROUSEL_SCENE_ACTION_IDS.event, STUDENT_CHARACTERS).runId;
+    const sceneActionIds = Object.values(CAROUSEL_SCENE_ACTION_IDS.actions);
+    let launchView = game.operationEntry.getView(runId)!;
+    expect(launchView.currentLocationId).toBe(CAROUSEL_SCENE_ACTION_IDS.locations.platform);
+    expect(launchView.currentSceneActions).toEqual([]);
+    for (const actor of launchView.actorStates.filter(actor => actor.participantKind === 'student')) {
+      expect(actor.characterHand?.actionIds).not.toEqual(expect.arrayContaining(sceneActionIds));
+    }
 
     let run = game.operationEntry.getSnapshot()!;
     game.operationEntry.reviseIntervention({
@@ -185,6 +245,10 @@ describe('Gameplay B carousel safety sample', () => {
     expect(view.currentSceneActions.some(action => action.actionId === CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam)).toBe(false);
     const individualCard = view.playerCards.hand[0]!;
     expect(individualCard).toMatchObject({
+      title: '团队急救包',
+      description: '为每名选定队员恢复 1 点 HP，并降低现场危险度。',
+      performerPolicy: 'selected-student',
+      selectionPolicy: 'required',
       eligibleActorIds: [
         CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
         CAROUSEL_SCENE_ACTION_IDS.actors.serika,
@@ -206,7 +270,7 @@ describe('Gameplay B carousel safety sample', () => {
     const runBeforeViewRead = JSON.parse(JSON.stringify(run));
     game.operationEntry.getView(runId);
     expect(game.operationEntry.getSnapshot()).toEqual(runBeforeViewRead);
-    game.operationEntry.commitSceneActionBatch({
+    const sceneCardResolution = game.operationEntry.commitSceneActionBatch({
       runId,
       planVersion: run.planVersion,
       selections: [
@@ -220,13 +284,39 @@ describe('Gameplay B carousel safety sample', () => {
         targetActorIds: [CAROUSEL_SCENE_ACTION_IDS.actors.hoshino],
       }],
     });
+    expect(sceneCardResolution.sceneBatch?.cards).toContainEqual(expect.objectContaining({
+      cardInstanceId: individualCard.cardInstanceId,
+      actionId: CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam,
+      actorId: CAROUSEL_SCENE_ACTION_IDS.actors.serika,
+      targetActorIds: [CAROUSEL_SCENE_ACTION_IDS.actors.hoshino],
+    }));
     expect(game.operationEntry.getView(runId)?.heldItemIds).toContain(CAROUSEL_SCENE_ACTION_IDS.item);
 
     run = game.operationEntry.getSnapshot()!;
     game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: CAROUSEL_SCENE_ACTION_IDS.routes.staffGate });
     view = game.operationEntry.getView(runId)!;
     expect(view.currentActionMode).toBe('global');
-    expect(view.currentSceneActions.some(action => action.actionId === CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam)).toBe(true);
+    const firstAidSceneAction = view.currentSceneActions.find(action => action.actionId === CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam)!;
+    expect(firstAidSceneAction).toMatchObject({
+      scope: 'global',
+      title: '全队急救',
+      description: '为每名选定队员恢复 1 点 HP，并降低现场危险度。',
+      performerPolicy: 'selected-student',
+      selectionPolicy: 'required',
+      eligibleActorIds: [
+        CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
+        CAROUSEL_SCENE_ACTION_IDS.actors.serika,
+        CAROUSEL_SCENE_ACTION_IDS.actors.shiroko,
+      ],
+      legalTargetActorIdsByActorId: {
+        [CAROUSEL_SCENE_ACTION_IDS.actors.serika]: [
+          CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
+          CAROUSEL_SCENE_ACTION_IDS.actors.serika,
+          CAROUSEL_SCENE_ACTION_IDS.actors.shiroko,
+        ],
+      },
+    });
+    expect(view.playerCards.hand.some(card => card.actionId === CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam)).toBe(true);
     for (const card of view.playerCards.hand) {
       expect(card.eligibleActorIds).toEqual([
         CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
@@ -235,5 +325,27 @@ describe('Gameplay B carousel safety sample', () => {
       ]);
       expect(card.legalTargetActorIdsByActorId[CAROUSEL_SCENE_ACTION_IDS.actors.serika]).toContain(CAROUSEL_SCENE_ACTION_IDS.actors.shiroko);
     }
+  });
+
+  test('authors Carousel scene options and finite hand cards with copy and explicit selection policies', () => {
+    const actions = carouselSceneActionSliceContent.actionDefinitions;
+    expect(actions.every(action => action.title.trim().length > 0 && action.description?.trim().length)).toBe(true);
+    const sceneActions = carouselSceneActionSliceContent.eventDefinition.locations.flatMap(location => location.sceneActions ?? []);
+    expect(sceneActions.every(action => Boolean(action.title?.trim()))).toBe(true);
+    expect(sceneActions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: CAROUSEL_SCENE_ACTION_IDS.sceneActions.inspect, scope: 'individual', performerPolicy: 'selected-student', selectionPolicy: 'required' }),
+      expect.objectContaining({ id: CAROUSEL_SCENE_ACTION_IDS.sceneActions.guide, scope: 'individual', performerPolicy: 'selected-student', selectionPolicy: 'required' }),
+      expect.objectContaining({ id: CAROUSEL_SCENE_ACTION_IDS.sceneActions.firstAid, scope: 'global', performerPolicy: 'selected-student', selectionPolicy: 'required' }),
+    ]));
+    expect(carouselSceneActionSliceContent.eventDefinition.playerSceneDeck?.cards).toEqual([
+      expect.objectContaining({
+        id: 'team-first-aid',
+        title: '团队急救包',
+        actionId: CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam,
+        copies: 2,
+        performerPolicy: 'selected-student',
+        selectionPolicy: 'required',
+      }),
+    ]);
   });
 });

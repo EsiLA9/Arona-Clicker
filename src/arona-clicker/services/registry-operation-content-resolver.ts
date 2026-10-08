@@ -7,7 +7,7 @@ import type { OperationEventDef } from '../contracts/operation';
  * It holds a Registry reference, so it can be created before packs are loaded.
  */
 export function createRegistryOperationContentResolver(
-  registry: Pick<Registry, 'operationEvents' | 'operationLocations' | 'operationActions' | 'studentOperationProfiles'>,
+  registry: Pick<Registry, 'operationEvents' | 'operationLocations' | 'operationActions' | 'studentOperationProfiles' | 'operationStrategyProfiles' | 'operationCardPools'>,
 ): OperationContentResolver {
   return Object.freeze({
     resolve(eventId: string): OperationResolvedContent | null {
@@ -31,6 +31,13 @@ export function createRegistryOperationContentResolver(
         location.enabledActionIds.forEach(id => availableActionIds.add(id));
         location.sceneActions?.forEach(action => availableActionIds.add(action.actionId));
       }
+      const availablePoolIds = new Set(event.cardPoolIds ?? []);
+      for (const location of resolvedLocations) location.cardPoolIds?.forEach(id => availablePoolIds.add(id));
+      for (const poolId of availablePoolIds) {
+        const pool = registry.operationCardPools.get(poolId);
+        if (!pool) return null;
+        pool.entries.forEach(entry => availableActionIds.add(entry.actionId));
+      }
       event.playerSceneDeck?.cards.forEach(card => availableActionIds.add(card.actionId));
       event.studentSkillRules?.forEach(rule => rule.triggerActionIds.forEach(id => availableActionIds.add(id)));
 
@@ -42,6 +49,15 @@ export function createRegistryOperationContentResolver(
       for (const profile of profiles) {
         profile.candidateActionIds.forEach(id => availableActionIds.add(id));
       }
+
+      for (const profile of profiles) profile.cardPoolIds?.forEach(id => availablePoolIds.add(id));
+      const operationCardPools = [...availablePoolIds].map(id => registry.operationCardPools.get(id));
+      if (operationCardPools.some(pool => pool === undefined)) return null;
+      for (const pool of operationCardPools) pool?.entries.forEach(entry => availableActionIds.add(entry.actionId));
+
+      const availableStrategyProfileIds = new Set(profiles.flatMap(profile => profile.strategyProfileId ? [profile.strategyProfileId] : []));
+      const operationStrategyProfiles = [...availableStrategyProfileIds].map(id => registry.operationStrategyProfiles.get(id));
+      if (operationStrategyProfiles.some(profile => profile === undefined)) return null;
 
       const actionDefinitions = [...availableActionIds].map(id => registry.operationActions.get(id));
       if (actionDefinitions.some(action => action === undefined)) return null;
@@ -62,6 +78,8 @@ export function createRegistryOperationContentResolver(
         studentProfiles: profiles,
         actionDefinitions: actionDefinitions.filter((action): action is NonNullable<typeof action> => action !== undefined),
         studentSkillRules: studentSkillRules ?? [],
+        operationCardPools: operationCardPools.filter((pool): pool is NonNullable<typeof pool> => pool !== undefined),
+        operationStrategyProfiles: operationStrategyProfiles.filter((profile): profile is NonNullable<typeof profile> => profile !== undefined),
       };
     },
   });

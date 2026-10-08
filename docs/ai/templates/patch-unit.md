@@ -2,6 +2,7 @@
 
 > 用法：由任务负责人填写，作为施工代理的单个白名单入口。复制下方骨架即可，不要删节标题。
 > 纪律依据：[[docs/ai/PROJECT-CONSTITUTION]]（Unit 预算、Allowed Files、Completion Criteria、停止条件）。
+> 适用：仅用于明确采用正式 Patch Unit 的任务；普通小需求无需套用。验证按 [[docs/docs-829/05-conventions/testing]] 分级，骨架中的测试和类型检查是候选项，按实际影响填写，不强制新增测试或运行全部检查。
 > 存放位置：活动 Unit 默认内联在 `docs/plan-work/task-*.md` 的所属小节中；单个 Task 超过 3 个 Unit 时才拆出 `docs/plan-work/<task-id>-units/<unit-id>.md`，Receipt 放同目录的 `receipts/`。Task 完成或冻结后，再连同拆出目录一起归档。
 
 ## 骨架

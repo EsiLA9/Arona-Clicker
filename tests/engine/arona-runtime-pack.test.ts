@@ -59,7 +59,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     const editingIndex = order.indexOf(editingId);
     [order[baseIndex], order[editingIndex]] = [order[editingIndex], order[baseIndex]];
     const enabledIds = configuration.enabledIds
-      .filter(id => id !== 'gameplay-b@1.0.0')
+      .filter(id => id !== 'gameplay-b@1.0.0' && id !== 'gameplay-b-strategy-park@1.0.0')
       .map(id => id === baseId ? editingId : id);
     expect(game.applyPackConfiguration({ enabledIds, order }).ok).toBe(true);
     expect(game.packManager.snapshot().enabledIds).toContain(editingId);
@@ -121,8 +121,10 @@ describe('AronaClickerRuntime PackManager 接线', () => {
 
     expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
     expect(game.registry.operationEvents.has(CAROUSEL_SCENE_ACTION_IDS.event)).toBe(true);
-    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0']);
+    expect(game.registry.operationEvents.has('gameplay-b-strategy-park:operation-event:park-inspection')).toBe(true);
+    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0']);
     expect(game.getPackCatalog().entries.find(entry => entry.id === 'gameplay-b@1.0.0')).toMatchObject({ sourceKind: 'bundle', enabled: true });
+    expect(game.getPackCatalog().entries.find(entry => entry.id === 'gameplay-b-strategy-park@1.0.0')).toMatchObject({ sourceKind: 'bundle', enabled: true });
     expect(game.state.activeInit).toBe('');
     expect(game.running).toBe(false);
   });
@@ -167,8 +169,8 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
     expect(game.registry.spots.has('addition-test:spot:scanner')).toBe(false);
     expect(game.getPackCatalog().entries.find(entry => entry.id === invalidPack.id)?.enabled).toBe(false);
-    expect(game.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.2', invalidPack.id, 'gameplay-b@1.0.0']);
-    expect((saved as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0']);
+    expect(game.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.2', invalidPack.id, 'gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0']);
+    expect((saved as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0']);
   });
 
   test('异步恢复后也会持久化自动停用结果', async () => {
@@ -187,7 +189,7 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     await game.restorePackManager(store);
 
     expect(() => game.applyEnabledPacks()).not.toThrow();
-    expect(snapshot.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0']);
+    expect(snapshot.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0']);
     expect(game.getPackCatalog().entries.find(entry => entry.id === invalidPack.id)?.enabled).toBe(false);
   });
 
@@ -289,10 +291,10 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     await source.savePackManager(store);
     const restored = new AronaClickerRuntime();
     await restored.restorePackManager(store);
-    expect(restored.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'demo@1.0.0']);
+    expect(restored.packManager.listPacks().map(pack => pack.id)).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0', 'demo@1.0.0']);
     restored.setPackEnabled('demo@1.0.0', true);
     await Promise.resolve();
-    expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'demo@1.0.0']);
+    expect((snapshot as PackManagerSnapshot | null)?.enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0', 'demo@1.0.0']);
   });
 
   test('异步恢复后应用启用集会持久化策略且下一次启动自动加载', async () => {

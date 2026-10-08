@@ -1,23 +1,28 @@
-# 06-wiki/50-ui/workspace-routing — 工作区路由
+# 06-wiki/50-ui/workspace-routing — 页面身份与返回位置
 
-> 本文回答：游戏主界面、服务页和实体工作区如何确定当前页面与返回位置。
+Workspace 是一个承载完整页面内容的界面工作区，例如游戏页、服务页、商店、角色、通讯录、剧情或 Operation。**路由（route）**说明当前显示哪种 Workspace；路由本身不拥有 PlayerState 或业务流程数据。
 
-## 路由模型
+## 当前页面与返回位置
 
-`src/ui/workspace/workspace-router.ts` 定义 `WorkspaceRoute`：游戏、服务、商店、角色、通讯录、剧情和 Operation。路由是当前页面身份；`WorkspaceLocation` 只保存单层返回时需要恢复的 UI 位置，包括旧式服务/工作区字段及左右中面板标签、选中角色和对话角色。
+`src/ui/workspace/workspace-router.ts` 定义 `WorkspaceRoute`、路由身份 key 以及纯状态变换函数。`WorkspaceNavigationState` 保存当前路由和一个可选的 `returnTo`；它是单层返回位置，不是可无限前进 / 后退的历史栈。返回位置额外记录左右中面板标签、所选角色和对话角色等可恢复的 UI 位置。
 
-`enterWorkspaceNavigation()` 进入新工作区并记下返回位置；`replaceWorkspaceNavigation()` 替换当前路由而保留已有返回点；`backWorkspaceNavigation()` 恢复返回位置，缺少返回点时回到游戏页。服务页路由由 `routeForService()` 规范化。旧式 `service`/`workspace` 状态仍可通过 `routeFromLegacyState()` 投影为路由。
+- `enterWorkspaceRoute()` 进入 Workspace 时记下来源位置。
+- `replaceWorkspaceRoute()` 改变当前轻量定位时保留已有返回点，不再额外叠一层。
+- `disposeWorkspace()` 根据保存位置恢复路由及相关 UI 选择。
+- `routeFromLegacyState()` 兼容旧的 `service` / `workspace` 状态表示。
 
-控制器在 `controller.ts` 执行进入、替换和返回；`components/app-shell.ts` 提供工作区状态类型，`workspace-renderer.ts` 将当前状态渲染为对应工作区。
+`src/ui/workspace/workspace-renderer.ts` 根据当前路由调用对应 `render*Workspace()`；所以路由选择是组件调用的输入，并不直接生成 DOM。
 
-Contacts 与 Story Workspace 的左、中、右列均以 `renderPanelHeaderRegion(ctx, slot, ...)` 标题区开始，分别复用 `leftPanel.tabs`、`centerPanel.tabs`、`rightPanel.tabs` 宿主和 `panel-tabs-region` 等高规则。只有左侧导航列的标题区带有无障碍名称的本地 SVG 返回键，并保留现有 Workspace 返回动作；它按进入时保存的返回位置退出当前工作区。中栏和右栏标题只标识该列内容，不承担页面跳转。
+## UI 路由不是 Run 数据
 
-Operation route 以 `runId` 标识当前易失 Run，并由 `workspace-renderer.ts` 通过 `GameReadModel.operationEntry.getView(runId)` 请求 detached 投影。正式 Operation Surface 使用左 / 中 / 右三栏：左栏角色卡持有学生当前计划与战斗干预，中心 AC 聊天流承载事件、地点、目标、玩家决定、SceneAction/有限手牌、路线及结算，右栏角色卡持有敌方 Intent 并独立展示环境/设施。Cost 槽位留在中心底部 Action Dock。操作命令经 Controller 调用 Runtime 私有 Operation Entry facade；只读查询与写命令不混入全局 GameView / GameCommands。返回使用单层 Workspace 返回位置恢复 AC 聊天流；Run 本身仍由 GameInstance 私有 owner 持有，并按主 SaveData 中的可选 checkpoint 显式恢复。
+Operation route 用 `runId` 标识正在显示的 Run。`workspace-renderer.ts` 再通过 `GameReadModel.operationEntry.getView(runId)` 查询只读投影。路由只负责选中并定位 Workspace；Run 内容由专用只读查询和 Operation Runtime 持有。其它 Workspace 也会通过专用状态对象 / 查询端口补充界面所需内容。
 
-## Surface 生命周期
+## Surface 身份保护
 
-`UISurfaceRuntime` 通过路由和工作区子状态产生稳定 `key`，并配合 `generation` 标识挂载代数。切换页面身份会递增代数并清除已挂载标记；重挂载也会让旧代次失效。更新请求携带 token，只有与当前且已挂载 Surface 一致时才可应用。
+`UISurfaceRuntime` 将 Workspace 身份映射为 `key`，并在 DOM 挂载或身份变化时更新 `generation`（挂载代数）。一次局部更新带着生成请求时的 token；若页面已切换或重新挂载，旧 token 与当前 Surface 不符，该更新会被丢弃，避免把旧页面内容写进新页面。
 
-## 代码与测试
+## 测试入口
 
-路由与 Surface 见 `src/ui/workspace/workspace-router.ts`、`src/ui/update/ui-surface.ts`。`tests/ui/workspace-router.test.ts` 验证进入、替换、返回与旧式状态转换；`tests/ui/workspace-lifecycle.test.ts`、`tests/ui/workspace-frame.test.ts` 覆盖工作区渲染和生命周期。
+`tests/ui/workspace-router.test.ts` 验证服务页映射、进入 / 替换 / 返回、Operation `runId` 身份和旧式状态转换；`tests/ui/workspace-lifecycle.test.ts`、`workspace-frame.test.ts` 验证 Workspace 生命周期与框架。旧请求过滤另见 `tests/ui/ui-update-dispatcher.test.ts`。
+
+工作区如何触发 DOM 更新：[[docs/docs-829/06-wiki/50-ui/refresh-update]]。写入与只读查询边界：[[docs/docs-829/06-wiki/50-ui/controller-commands]]、[[docs/docs-829/06-wiki/50-ui/read-model-context]]。返回 [[docs/docs-829/06-wiki/50-ui/00-index]]。

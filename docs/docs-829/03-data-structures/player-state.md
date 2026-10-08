@@ -2,6 +2,8 @@
 
 本文描述玩家持久状态的当前结构、账号与世界线归属，以及哪些运行数据由别的系统持有。事实依据为 `src/arona-clicker/types/state.ts`、`state/per-init-fields.ts` 和 `state/init-savepoint.ts`。
 
+对新人来说，先记住这条区别：PlayerState 记录“玩家现在拥有什么、做过什么”；InitSnapshot 是离开某条世界线时，为之后恢复而保存的一组局部字段；Visibility、Stats 和当前剧情游标等则由运行时计算或另行维护。Init 也就是一条可单独进入、暂存和重开的世界线。
+
 ## 状态所有者
 
 `PlayerState` 是 AronaClicker 玩家进度的主要状态对象。它包含当前 Init 标识、资源、Spot 进度、解锁、物品、剧情记录、角色进度、主题偏好等字段。部分字段为可选，`createDefaultState()` 仅初始化默认运行所需的基础集合；不能仅凭类型的 `?` 推断字段不使用。
@@ -24,6 +26,8 @@ Gameplay B 的 `EventRun` 也不属于 `PlayerState` 或 `InitSnapshot`。`GameI
 
 新增状态字段时，应先明确 Save 与 Init 生命周期，再判断是否加入 `InitSnapshot` 和登记表；只新增类型字段不会自动建立快照语义。
 
+字段的具体归属可以从 `src/arona-clicker/types/state.ts` 的 `PlayerState` 与 `InitSnapshot` 两个接口开始，再对照 `src/arona-clicker/state/per-init-fields.ts` 的 `PER_INIT_FIELD_SPECS`。该登记表中的 `capture`、`clear`、`restore` 函数决定字段实际怎样进入、清空和恢复快照；类型声明本身不负责执行这些步骤。
+
 ## 状态中不等于派生结果
 
 `PlayerState` 保存可恢复的事实或玩家选择。Visibility、Stats、Affector 活跃实例和 UI 格式化结果由运行时系统维护。它们可以读取状态并通过事件响应变化，但其生命周期与存档字段不同。只读 UI 投影见 [[docs/docs-829/03-data-structures/game-view]]。
@@ -35,3 +39,12 @@ Gameplay B 的 `EventRun` 也不属于 `PlayerState` 或 `InitSnapshot`。`GameI
 - `src/arona-clicker/state/per-init-fields.ts`
 - `src/arona-clicker/state/init-savepoint.ts`
 - `src/arona-clicker/state/snapshot.ts`
+
+## 验证入口
+
+- `tests/engine/per-init-fields.test.ts`：按登记表检查字段捕获、清除和恢复。
+- `tests/engine/character-persist.test.ts`：检查角色相关字段会随 Registry scope 决定是否进入 Init 快照。
+- `tests/engine/init-global-lifecycle.test.ts`：检查切换世界线时保存并恢复局部资源/设施进度，同时确认快照与当前运行状态不共享可变对象。
+- `src/arona-clicker/state/state-mutation-service.ts` 的 `resourceBucket()`：资源写入依据资源定义决定放入 `globalResources` 或当前 Init 的 `resources`；`tests/engine/state-mutation-service.test.ts` 验证写入并发出 `resourceChanged`。读结构时也要检查消费和写入处，不能只凭字段名称推断归属。
+
+完整字段清单、跨世界线例外和恢复顺序仍以类型、登记表与世界线生命周期实现为准；本页不宣称每个字段都有各自的独立测试。

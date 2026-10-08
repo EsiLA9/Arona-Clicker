@@ -163,6 +163,6 @@ Engine 持续规则系统
 
 - [[docs/docs-829/00-INDEX]]
 - [[docs/docs-829/01-architecture/dependency-map]]
-- [[docs/docs-829/04-mechanisms/engine/effect-trigger]]
+- [[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]]
 - [[docs/docs-829/05-conventions/architecture-discipline]]
 - [[task-0034-affector-performance-review]]

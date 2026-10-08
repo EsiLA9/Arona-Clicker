@@ -10,7 +10,7 @@ Effect 描述一次操作，Trigger 按事件筛选后请求执行，Affector �
 
 ## Trigger
 
-内容侧 `TriggerDef.on` 描述观察的事件类别；TriggerSystem 把类别映射到 GameEvent，挂载时按事件类型登记索引。收到匹配事件后，系统还会检查具体过滤字段、条件及 once 状态，再通过 EffectEngine 执行效果。无 ID 声明由确定性匿名身份支持。`tests/engine/trigger-system.test.ts` 覆盖剧情完成触发、条件与一次性行为；`trigger-kind.test.ts` 锁定 kind 到事件映射。
+内容侧 `TriggerDef.on` 描述观察的事件类别；TriggerSystem 把类别映射到 GameEvent，按事件类型订阅并登记触发定义索引。收到匹配事件后，系统还会检查具体过滤字段、条件及 once 状态，再通过 EffectEngine 执行效果。无 ID 声明由确定性匿名身份支持。`tests/engine/trigger-system.test.ts` 覆盖剧情完成触发、条件与一次性行为；`trigger-kind.test.ts` 锁定 kind 到事件映射。
 
 ## Affector
 
@@ -20,7 +20,7 @@ AffectorEngine 将包挂载到实体，按条件维护 Latent/Active/Removed 实
 
 ## 链路边界
 
-代表性运行流是“状态/系统发事件 → Trigger 或 Affector 重估 → EffectEngine 分发 → runtime handler 或 Mutation”。静态 import 关系并不表示每次写入都会同步触发所有订阅者；EventBus 的排队与 flush 由宿主调度。产品业务条件和最终状态写入仍由宿主/Mutation 负责。
+代表性运行流是“状态/系统发事件 → Trigger 或 Affector 重估 → EffectEngine 分发 → runtime handler 或 Mutation”。对当前 `EventBus` 来说，未在 flush 中时 `emit()` 立即同步分发；在 `flush()` 期间发出的新事件进入队列，当前 flush 会继续排空后续批次。`SessionService` 在 Tick 结束后执行 flush。静态 import 关系不表示每次写入都会发事件或同步触发所有订阅者；产品业务条件和最终状态写入仍由宿主/Mutation 负责。
 
 ## 相关页面
 

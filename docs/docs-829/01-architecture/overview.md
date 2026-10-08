@@ -41,6 +41,7 @@ src/ui/main.ts
 
 ## 下一步
 
+- 第一次接触项目：从 [[docs/docs-829/01-architecture/first-read]] 按启动、状态和 UI 读写边界逐步阅读。
 - 从 [[docs/docs-829/02-modules/00-index]] 按源代码职责查找模块。
 - 从 [[docs/docs-829/06-wiki/00-index]] 按概念和协作主题阅读分功能 Wiki。
 - 修改机制前核对 [[docs/docs-829/05-conventions/architecture-discipline]] 与目标源码、测试。

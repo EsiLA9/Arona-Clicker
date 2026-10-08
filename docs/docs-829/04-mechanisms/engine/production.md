@@ -2,6 +2,8 @@
 
 一次 Engine Tick 推进一帧，并按资源汇总结算正向产出。
 
+这里的 Tick 是游戏推进一次生产结算的“帧”，并不是浏览器每次重画界面的意思。手动 Tick 与 SessionService 的每秒自动会话最终调用同一套宿主帧流程。
+
 ## 单帧结算
 
 `TickSystem.tick()` 先将 `TickState.totalFrames` 加一，再遍历 `GameNumSystem.getResources()`，对每个资源调用 `evaluateResourceGain(resource, state)`。只有大于零的结果会经 `StateMutationPort.changeResource` 入账，随后发出 `spotProduced`；产出按资源聚合，事件中的 `spotId` 为空。最后发出 `tick` 并返回 `TickResult`。`TICK_INTERVAL_MS` 为 1000 毫秒。
@@ -19,3 +21,5 @@
 ## 相关页面
 
 [[docs/docs-829/06-wiki/40-engine/tick-session]] · [[docs/docs-829/03-data-structures/engine-contracts]]
+
+第一次了解完整启动和会话顺序可从 [[docs/docs-829/01-architecture/first-read]] 开始；本页只说明 Tick 生产计算。

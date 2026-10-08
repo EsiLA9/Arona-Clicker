@@ -22,8 +22,15 @@ export function evaluateOperationRoutes(
     let lockedReason: string | null = null;
     if (!current?.completed) lockedReason = 'operation:route:location-incomplete';
     else if (totalLocationVisits >= event.maxLocationVisits) lockedReason = 'operation:route:max-visits-reached';
+    else if ((run.locationProgress[route.targetLocationId]?.visitCount ?? 0)
+      >= (event.locations.find(candidate => candidate.id === route.targetLocationId)?.maxVisits ?? Number.MAX_SAFE_INTEGER)) {
+      lockedReason = 'operation:route:location-max-visits-reached';
+    }
     else if (route.requiredHeldItemId && !run.eventState.heldItemIds.includes(route.requiredHeldItemId)) {
       lockedReason = 'operation:route:required-held-item-missing';
+    } else if (route.anyOfHeldItemIds?.length
+      && !route.anyOfHeldItemIds.some(itemId => run.eventState.heldItemIds.includes(itemId))) {
+      lockedReason = 'operation:route:any-of-held-items-missing';
     }
     return { route, available: lockedReason === null, lockedReason };
   });

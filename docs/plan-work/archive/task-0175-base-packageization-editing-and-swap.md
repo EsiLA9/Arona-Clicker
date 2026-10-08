@@ -82,7 +82,7 @@
 
 ## 相关路由
 
-- [[docs/docs-829/04-mechanisms/data-services/pack-loading]]
+- [[pack-loading]]
 - [[docs/docs-829/03-data-structures/datapack-contracts]]
 - [[docs/docs-829/02-modules/ui]]
 - [[docs/docs-829/05-conventions/architecture-discipline]]

@@ -57,6 +57,13 @@ function targetCandidates(
   return [...preferred, ...candidates.filter(actorId => !preferred.includes(actorId))];
 }
 
+function actorlessTargetCandidates(event: OperationEventDef, target: OperationActionDef['target']): readonly string[] {
+  if (target.kind !== 'actor' || (!target.allowedActorIds?.length && !target.allowedActorTypes?.length)) return [];
+  const ids = target.allowedActorIds ? new Set(target.allowedActorIds) : null;
+  const types = target.allowedActorTypes ? new Set(target.allowedActorTypes) : null;
+  return event.actors.filter(actor => (!ids || ids.has(actor.id)) && (!types || types.has(actor.type))).map(actor => actor.id);
+}
+
 function candidateOptions(
   actorId: string,
   profile: OperationStudentProfileSnapshot,
@@ -135,6 +142,8 @@ function candidateOptions(
         : legalTargetActorIds.length > 0);
     return {
       actionId: candidate.actionId,
+      title: action?.title ?? candidate.actionId,
+      description: action?.description ?? null,
       eligible: candidate.eligible,
       enabledAtLocation,
       requiredCapabilityIds: [...candidate.requiredCapabilityIds],
@@ -211,8 +220,19 @@ function projectActor(
     ...(actor.factionId ? { factionId: actor.factionId } : {}),
     ...(actor.teamId ? { teamId: actor.teamId } : {}),
     hp: actor.hp,
+    ...(actor.positionId !== undefined ? { positionId: actor.positionId } : {}),
     maxHp: actor.maxHp ?? actor.hp,
     resources: { ...actor.resources },
+    ...(run.characterHands?.[actor.id] ? { characterHand: {
+      actorId: run.characterHands[actor.id].actorId,
+      actionIds: [...run.characterHands[actor.id].actionIds],
+      matchedPoolIds: [...run.characterHands[actor.id].matchedPoolIds],
+      candidates: run.characterHands[actor.id].candidates.map(candidate => ({
+        ...candidate,
+        sourcePoolIds: [...candidate.sourcePoolIds],
+        reasonIds: [...candidate.reasonIds],
+      })),
+    } } : {}),
   };
   if (!actor.profile || !content) return { ...identity, currentPlan };
   return {
@@ -250,15 +270,16 @@ function projectSceneActions(
   const event = content.eventDefinition;
   return location.sceneActions.map(sceneAction => {
     const action = actionsById.get(sceneAction.actionId);
+    const performerPolicy = sceneAction.performerPolicy ?? 'selected-student';
     const eligibleActorIds = content.eventDefinition.actors
       .filter(actorDefinition => {
+        if (performerPolicy === 'none') return false;
         const state = statesById.get(actorDefinition.id);
         const initialization = initializationsById.get(actorDefinition.id);
         const actor = actorsById.get(actorDefinition.id);
         return state?.participantKind === 'student' && state.hp > 0
           && initialization?.participantKind === 'student' && actor !== undefined && action !== undefined
           && action.allowedParticipantKinds.includes(state.participantKind)
-          && initialization.profile.eligibleActionIds.includes(action.id)
           && action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id));
       })
       .map(actor => actor.id);
@@ -274,10 +295,17 @@ function projectSceneActions(
     return {
       id: sceneAction.id,
       actionId: sceneAction.actionId,
+      title: sceneAction.title ?? action?.title ?? sceneAction.id,
+      description: sceneAction.description ?? action?.description ?? null,
       scope: sceneAction.scope,
       playerCost: sceneAction.playerCost,
+      selectionPolicy: sceneAction.selectionPolicy ?? 'required',
+      performerPolicy,
       eligibleActorIds,
       legalTargetActorIdsByActorId,
+      legalActorlessTargetActorIds: (performerPolicy === 'none' || performerPolicy === 'optional-student') && action
+        ? actorlessTargetCandidates(event, action.target).filter(targetId => (statesById.get(targetId)?.hp ?? 0) > 0)
+        : [],
     };
   });
 }
@@ -286,20 +314,20 @@ function projectSceneCardCandidates(
   run: EventRun,
   content: OperationViewProjectionContent,
   actionId: string,
-): Pick<OperationView['playerCards']['hand'][number], 'eligibleActorIds' | 'legalTargetActorIdsByActorId'> {
+  performerPolicy: 'selected-student' | 'none' | 'optional-student',
+): Pick<OperationView['playerCards']['hand'][number], 'eligibleActorIds' | 'legalTargetActorIdsByActorId' | 'legalActorlessTargetActorIds'> {
   const event = content.eventDefinition;
   const action = content.actionDefinitions.find(row => row.id === actionId);
-  if (!action || action.cost !== undefined) return { eligibleActorIds: [], legalTargetActorIdsByActorId: {} };
+  if (!action) return { eligibleActorIds: [], legalTargetActorIdsByActorId: {}, legalActorlessTargetActorIds: [] };
 
   const statesById = new Map(run.actorStates.map(actor => [actor.id, actor]));
   const initializationsById = new Map(content.actors.map(actor => [actor.actorId, actor]));
-  const eligibleActorIds = event.actors.flatMap(actor => {
+  const eligibleActorIds = performerPolicy === 'none' ? [] : event.actors.flatMap(actor => {
     const state = statesById.get(actor.id);
     const initialization = initializationsById.get(actor.id);
     const eligible = state?.participantKind === 'student' && state.hp > 0
       && initialization?.participantKind === 'student'
       && action.allowedParticipantKinds.includes('student')
-      && initialization.profile.eligibleActionIds.includes(action.id)
       && action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id));
     return eligible ? [actor.id] : [];
   });
@@ -310,7 +338,13 @@ function projectSceneCardCandidates(
       : targetCandidates(event, source, action.target).filter(targetId => statesById.has(targetId));
     return [actorId, targets];
   }));
-  return { eligibleActorIds, legalTargetActorIdsByActorId };
+  return {
+    eligibleActorIds,
+    legalTargetActorIdsByActorId,
+    legalActorlessTargetActorIds: performerPolicy === 'none' || performerPolicy === 'optional-student'
+      ? actorlessTargetCandidates(event, action.target).filter(targetId => (statesById.get(targetId)?.hp ?? 0) > 0)
+      : [],
+  };
 }
 
 export function projectOperationView(
@@ -382,6 +416,26 @@ export function projectOperationView(
       met: isOperationOutcomeConditionSatisfied(run.eventState, condition),
     })),
     actorStates: run.actorStates.map(actor => projectActor(run, preparationContent, snapshot, actor, effectiveBeat)),
+    actionPresentations: Object.fromEntries(content.actionDefinitions.map(action => [action.id, {
+      title: action.title,
+      description: action.description ?? null,
+    }])),
+    sceneActionPresentations: Object.fromEntries(content.eventDefinition.locations.flatMap(location =>
+      (location.sceneActions ?? []).map(sceneAction => {
+        const action = content.actionDefinitions.find(row => row.id === sceneAction.actionId);
+        return [sceneAction.id, {
+          title: sceneAction.title ?? action?.title ?? sceneAction.id,
+          description: sceneAction.description ?? action?.description ?? null,
+        }];
+      }))),
+    playerSceneCardPresentations: Object.fromEntries((content.playerSceneCardInstances
+      ?? createOperationPlayerSceneCardInstances(content.eventDefinition)).map(card => {
+      const action = content.actionDefinitions.find(row => row.id === card.actionId);
+      return [card.cardInstanceId, {
+        title: card.title ?? action?.title ?? card.cardDefId,
+        description: card.description ?? action?.description ?? null,
+      }];
+    })),
     teamStates: run.teamStates.map(team => ({ id: team.id, resources: { ...team.resources } })),
     locationProgress: { ...run.locationProgress },
     routeHistory: run.routeHistory.map(entry => ({ ...entry })),
@@ -394,8 +448,37 @@ export function projectOperationView(
       available,
       lockedReason,
       requiredHeldItemId: route.requiredHeldItemId ?? null,
+      anyOfHeldItemIds: [...(route.anyOfHeldItemIds ?? [])],
       consumesHeldItem: route.consumeRequiredHeldItem === true,
     })),
+    map: {
+      nodes: content.eventDefinition.locations.map(location => {
+        const progress = run.locationProgress[location.id];
+        return {
+          locationId: location.id,
+          visitCount: progress?.visitCount ?? 0,
+          maxVisits: location.maxVisits ?? null,
+          current: location.id === run.currentLocationId,
+          visited: (progress?.visitCount ?? 0) > 0,
+          completed: progress?.completed ?? false,
+        };
+      }),
+      edges: content.eventDefinition.locations.flatMap(location => location.routeEdges.map(route => {
+        const currentRoute = routeAvailability.options.find(option => option.route.id === route.id);
+        return {
+          routeId: route.id,
+          sourceLocationId: location.id,
+          targetLocationId: route.targetLocationId,
+          label: route.label,
+          description: route.description,
+          available: currentRoute?.available ?? null,
+          lockedReason: currentRoute?.lockedReason ?? null,
+          requiredHeldItemId: route.requiredHeldItemId ?? null,
+          anyOfHeldItemIds: [...(route.anyOfHeldItemIds ?? [])],
+          consumesHeldItem: route.consumeRequiredHeldItem === true,
+        };
+      })),
+    },
     totalLocationVisits: routeAvailability.totalLocationVisits,
     maxLocationVisits: content.eventDefinition.maxLocationVisits,
     playerCost: run.playerRouteState.playerCost,
@@ -462,7 +545,17 @@ function projectPlayerCards(
     drawPileCount: run.playerRouteState.cards.drawPile.length,
     hand: run.playerRouteState.cards.hand.flatMap(cardInstanceId => {
       const card = byId.get(cardInstanceId);
-      return card ? [{ ...card, ...projectSceneCardCandidates(run, content, card.actionId) }] : [];
+      if (!card) return [];
+      const action = content.actionDefinitions.find(row => row.id === card.actionId);
+      const performerPolicy = card.performerPolicy ?? 'selected-student';
+      return [{
+        ...card,
+        title: card.title ?? action?.title ?? card.cardDefId,
+        description: card.description ?? action?.description ?? null,
+        selectionPolicy: card.selectionPolicy ?? 'required',
+        performerPolicy,
+        ...projectSceneCardCandidates(run, content, card.actionId, performerPolicy),
+      }];
     }),
     discardCount: run.playerRouteState.cards.discard.length,
     maxHandSize: content.eventDefinition.playerSceneDeck?.maxHandSize ?? 0,

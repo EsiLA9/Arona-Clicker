@@ -115,12 +115,25 @@ function getStudentInitialization(
 function getCandidateRow(
   profile: OperationStudentProfileSnapshot,
   actionId: string,
+  action: OperationActionDef,
 ): OperationActionCandidateSnapshot {
   const row = profile.actionCandidates.find(candidate => candidate.actionId === actionId);
-  if (!row || row.eligible !== true || !profile.eligibleActionIds.includes(actionId)) {
-    fail('operation:intervention:invalid-action', 'Action must be a statically eligible candidate in the student Profile');
+  if (row) {
+    if (row.eligible !== true || !profile.eligibleActionIds.includes(actionId)) {
+      fail('operation:intervention:invalid-action', 'Action must be eligible in the student Profile');
+    }
+    return row;
   }
-  return row;
+  if (!action.allowedParticipantKinds.includes('student')) fail('operation:intervention:invalid-action', 'Action does not allow student participants');
+  const missingCapabilityIds = action.requiredCapabilityIds.filter(id => !profile.capabilityIds.includes(id));
+  if (missingCapabilityIds.length > 0) fail('operation:intervention:invalid-action', 'Action requires missing student capabilities');
+  return {
+    actionId,
+    eligible: true,
+    requiredCapabilityIds: [...action.requiredCapabilityIds],
+    missingCapabilityIds: [],
+    reasonIds: [...new Set([...profile.reasonIds, ...action.reasonIds])],
+  };
 }
 
 function getActionDefinition(content: OperationPreparationContent, actionId: string): OperationActionDef {
@@ -147,11 +160,11 @@ function fixedPlanContent(
       const row = initialization.actorId === directedActorId
         ? selectedRow
         : plan.kind === 'studentAction'
-          ? profile.actionCandidates.find(candidate => candidate.actionId === plan.actionId)
+          ? getCandidateRow(profile, plan.actionId, getActionDefinition(content, plan.actionId))
           : undefined;
       if (row) {
-        if (row.eligible !== true || !profile.eligibleActionIds.includes(row.actionId)) {
-          fail('operation:intervention:invalid-action', 'retained Action is not a statically eligible Profile candidate');
+        if (row.eligible !== true) {
+          fail('operation:intervention:invalid-action', 'retained Action is not eligible for its Profile');
         }
         return {
           ...initialization,
@@ -276,9 +289,14 @@ export function previewOperationIntervention(
   const actionId = Object.prototype.hasOwnProperty.call(draft, 'actionId')
     ? draft.actionId!
     : baseStudentPlan.actionId;
+  const handMap = snapshot.studentActionIdsByActorId;
+  if (handMap && Object.prototype.hasOwnProperty.call(handMap, draft.actorId)
+    && !handMap[draft.actorId].includes(actionId)) {
+    fail('operation:intervention:action-not-in-hand', 'Action is not in the Actor current Character Hand');
+  }
   const initialization = getStudentInitialization(trustedContent, draft.actorId);
-  const candidateRow = getCandidateRow(initialization.profile, actionId);
   const action = getActionDefinition(trustedContent, actionId);
+  const candidateRow = getCandidateRow(initialization.profile, actionId, action);
   const location = trustedContent.eventDefinition.locations
     .find(row => row.id === snapshot.currentLocationId);
   if (!location?.enabledActionIds.includes(actionId)) {
@@ -301,7 +319,19 @@ export function previewOperationIntervention(
     candidateRow,
     draft.targetActorId,
   );
-  const previewBeat = prepareOperationBeat(snapshot, previewContent);
+  const previewSnapshot = snapshot.studentActionIdsByActorId === undefined
+    ? snapshot
+    : {
+        ...snapshot,
+        studentActionIdsByActorId: Object.fromEntries(
+          snapshot.studentActionIdsByActorId && Object.keys(snapshot.studentActionIdsByActorId).map(actorId => {
+            if (actorId === draft.actorId) return [actorId, [actionId]];
+            const existingPlan = baselineBeat.actorPlans.find(plan => plan.actorId === actorId);
+            return [actorId, existingPlan?.kind === 'studentAction' ? [existingPlan.actionId] : []];
+          }) || [],
+        ),
+      };
+  const previewBeat = prepareOperationBeat(previewSnapshot, previewContent);
   const selectedPlan = selectedActionPlan(previewBeat, draft.actorId);
   if (selectedPlan.kind === 'wait') {
     if (selectedPlan.reasonIds.includes(OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE)) {

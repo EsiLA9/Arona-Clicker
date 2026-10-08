@@ -71,6 +71,7 @@ function tacticalRunStartInput(effects: readonly OperationActionEffectDef[] = [
   };
   const action: OperationActionDef = {
     id: actionId,
+    title: actionId,
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
     reasonIds: ['test:reason:inspect'],
@@ -753,6 +754,74 @@ describe('OperationRuntimeService', () => {
     expect(() => entry.commitBeat({ runId: 'other-run', planVersion: 0 })).toThrow(/terminal/);
   });
 
+  test('commits position effects and re-resolves the next Character Hand from the new position', () => {
+    const base = tacticalRunStartInput([{ kind: 'actorPosition', recipient: 'actor', positionId: 'front' }]);
+    const actorId = 'test:actor:student';
+    const moveActionId = base.actionDefinitions[0].id;
+    const frontActionId = 'test:action:front-guard';
+    const frontAction: OperationActionDef = {
+      ...base.actionDefinitions[0],
+      id: frontActionId,
+      effects: [],
+    };
+    const input: OperationRunStartInput = {
+      ...base,
+      eventDefinition: {
+        ...base.eventDefinition,
+        actors: [{ ...base.eventDefinition.actors[0], positionId: 'back' }],
+        cardPoolIds: ['test:pool:back', 'test:pool:front'],
+        locations: base.eventDefinition.locations.map(location => location.id === 'test:location:office'
+          ? { ...location, enabledActionIds: [moveActionId, frontActionId] }
+          : location),
+      },
+      actionDefinitions: [...base.actionDefinitions, frontAction],
+      operationCardPools: [
+        { id: 'test:pool:back', selector: { positionIds: ['back'] }, entries: [{ actionId: moveActionId, weight: 1 }] },
+        { id: 'test:pool:front', selector: { positionIds: ['front'] }, entries: [{ actionId: frontActionId, weight: 1 }] },
+      ],
+    };
+    const owner = new OperationRuntimeService();
+    const entry = operationEntryFor(owner);
+    const started = owner.start(input);
+    expect(started.actorStates[0].positionId).toBe('back');
+    expect(started.characterHands?.[actorId]?.actionIds).toEqual([moveActionId]);
+    expect(started.preparedBeat?.actorPlans[0]).toMatchObject({ actionId: moveActionId });
+    expect(() => owner.previewIntervention({
+      runId: started.runId,
+      planVersion: started.planVersion,
+      draft: { actorId, actionId: frontActionId },
+    })).toThrow(/not in the Actor current Character Hand/);
+    expect(owner.getSnapshot()).toEqual(started);
+
+    const resolution = entry.commitBeat({ runId: started.runId, planVersion: started.planVersion });
+    const committed = owner.getSnapshot()!;
+    expect(resolution.positionChanges).toMatchObject([{ actorId, before: 'back', after: 'front' }]);
+    expect(committed.actorStates[0].positionId).toBe('front');
+    expect(committed.characterHands?.[actorId]?.actionIds).toEqual([frontActionId]);
+    expect(committed.preparedBeat?.actorPlans[0]).toMatchObject({ actionId: frontActionId });
+    expect(committed.playerRouteState.cards).toEqual(started.playerRouteState.cards);
+  });
+
+  test('preview and rejected intervention leave Character Hand and both random cursors unchanged', () => {
+    const owner = new OperationRuntimeService();
+    const started = owner.start(tacticalRunStartInput());
+    const before = owner.getSnapshot();
+    expect(() => owner.previewIntervention({
+      runId: started.runId,
+      planVersion: started.planVersion,
+      draft: { actorId: 'test:actor:student', actionId: 'test:action:missing' },
+    })).toThrow(OperationRuntimeError);
+    expect(() => owner.reviseIntervention({
+      runId: started.runId,
+      planVersion: started.planVersion,
+      draft: { actorId: 'test:actor:student', actionId: 'test:action:missing' },
+    })).toThrow(OperationRuntimeError);
+    expect(() => owner.commitBeat({ runId: started.runId, planVersion: started.planVersion + 1 })).toThrow(OperationRuntimeError);
+    expect(owner.getSnapshot()).toEqual(before);
+    expect(before?.random).toEqual(started.random);
+    expect(before?.characterHands).toEqual(started.characterHands);
+  });
+
   test('commits fact and held-item Action effects once and marks the Location objective from that result', () => {
     const owner = new OperationRuntimeService();
     const entry = operationEntryFor(owner);
@@ -979,6 +1048,21 @@ describe('OperationRuntimeService', () => {
       run: { ...checkpoint.run, playerRouteState: { ...checkpoint.run.playerRouteState, playerCost: -1 } },
     }, input)).toThrow(/PlayerCost is invalid/);
     expect(malformed.getSnapshot()).toBeNull();
+
+    const mismatchedHand = new OperationRuntimeService();
+    const savedHands = checkpoint.run.characterHands!;
+    const actorId = 'test:actor:student';
+    expect(() => mismatchedHand.restoreSaveSnapshot({
+      ...checkpoint,
+      run: {
+        ...checkpoint.run,
+        characterHands: {
+          ...savedHands,
+          [actorId]: { ...savedHands[actorId], actionIds: [] },
+        },
+      },
+    } as never, input)).toThrow(/Character Hand/);
+    expect(mismatchedHand.getSnapshot()).toBeNull();
 
     const unsafeRunId = new OperationRuntimeService();
     expect(() => unsafeRunId.restoreSaveSnapshot({

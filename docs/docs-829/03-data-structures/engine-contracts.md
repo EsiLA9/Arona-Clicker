@@ -18,7 +18,9 @@ Engine 通过显式查询、求值、写入和事件类型与宿主及其他子�
 
 `StateMutationPort` 描述状态效果操作；领域 GameInstance 将它连接到产品状态写服务。EffectEngine 可先把可求值数值解析，再将持久状态效果提交至 mutation port，并把 runtime effect 交给注入 handler。事件只表达发生了什么，不代替状态写入授权。
 
-事件类型可比基础 Engine 更宽，`EventBus<TEvent>` 只要求类型字段。同步调用 `emit`、排队及 `flush` 的细节由 EventBus 实现决定；消费者不应从接口类型推断事件一定立即递归派发。
+事件类型可比基础 Engine 更宽，`EventBus<TEvent>` 只要求类型字段。当前 `EventBus.emit()` 在总线未处于 `flush()` 时会立即调用订阅者；总线正在 flush 时，新事件先排队，当前 flush 会继续取出队列中的后续批次。宿主的 `SessionService` 在每次 Tick 后调用 flush。因而事件既不总是排队，也不总是等到稍后处理；要判断时序，必须同时看 emit 时总线是否正在 flush 和宿主在哪里调用 flush。
+
+事件表达“某件事已经发生”，不是授权或要求消费者代替命令写状态。订阅者错误会沿当前调用路径向外抛出；`EventBus.flush()` 对订阅者错误的恢复行为目前有缺陷，详见对应 Code Review Receipt 与后续修复 Task。
 
 ## 相关页面
 

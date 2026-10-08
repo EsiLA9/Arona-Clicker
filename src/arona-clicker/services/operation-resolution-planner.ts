@@ -25,6 +25,7 @@ import type {
   OperationResolutionMembershipChange,
   OperationResolutionNumericChange,
   OperationResolutionPayment,
+  OperationResolutionPositionChange,
   OperationResolutionPlannerErrorCode,
   OperationResolutionPlannerInput,
   OperationResolutionTeamSnapshot,
@@ -63,6 +64,7 @@ interface PlannerIndexes {
 }
 
 type MembershipTarget = OperationResolutionMembershipChange['target'];
+type PositionBucket = { readonly actorId: string; readonly before: string | null; after: string; readonly sources: OperationResolutionEffectSource[] };
 
 export class OperationResolutionPlannerError extends Error {
   constructor(readonly code: OperationResolutionPlannerErrorCode, detail: string) {
@@ -538,11 +540,12 @@ function addContribution(
 
 function effectTarget(
   effect: OperationActionEffectDef,
-  sourceActorId: string,
+  sourceActorId: string | null,
   targetActorId: string | null,
   indexes: PlannerIndexes,
 ): OperationResolutionValueTarget | null {
   if (effect.kind === 'eventFact' || effect.kind === 'heldItem') return null;
+  if (effect.kind === 'actorPosition') return null;
   if (effect.kind === 'eventTrackDelta') {
     if (!isNonEmptyId(effect.trackId)) fail('operation:resolution:invalid-effect', 'Event Track effect has an invalid Track ID');
     return { kind: 'track', trackId: effect.trackId };
@@ -607,11 +610,12 @@ function addMembershipEffect(
 
 function addEffectList(
   effects: readonly OperationActionEffectDef[],
-  sourceActorId: string,
+  sourceActorId: string | null,
   targetActorId: string | null,
   sourceForIndex: (effectIndex: number) => OperationResolutionEffectSource,
   buckets: Map<string, ValueBucket>,
   membershipChanges: Map<string, OperationResolutionMembershipChange>,
+  positionChanges: Map<string, PositionBucket>,
   indexes: PlannerIndexes,
   snapshot: OperationResolutionPlannerInput['snapshot'],
 ): void {
@@ -623,6 +627,28 @@ function addEffectList(
       addMembershipEffect(typedEffect, membershipChanges, indexes, snapshot);
       return;
     }
+    if (typedEffect.kind === 'actorPosition') {
+      const actorId = typedEffect.recipient === 'actor' ? sourceActorId
+        : typedEffect.recipient === 'target' ? targetActorId : null;
+      if (!actorId || !isNonEmptyId(typedEffect.positionId)) {
+        fail('operation:resolution:invalid-effect', 'Position effect needs a valid recipient and position ID');
+      }
+      const actor = indexes.actorStatesById.get(actorId);
+      if (!actor) fail('operation:resolution:invalid-effect', 'Position effect references an unknown Actor: ' + actorId);
+      const existing = positionChanges.get(actorId);
+      if (existing) {
+        existing.after = typedEffect.positionId;
+        existing.sources.push(sourceForIndex(effectIndex));
+      } else {
+        positionChanges.set(actorId, {
+          actorId,
+          before: actor.positionId ?? null,
+          after: typedEffect.positionId,
+          sources: [sourceForIndex(effectIndex)],
+        });
+      }
+      return;
+    }
     const target = effectTarget(typedEffect, sourceActorId, targetActorId, indexes);
     if (!target || !('amount' in typedEffect)) fail('operation:resolution:invalid-effect', 'Numeric effect is malformed');
     addContribution(buckets, target, typedEffect.amount, sourceForIndex(effectIndex), indexes, snapshot);
@@ -631,7 +657,7 @@ function addEffectList(
 
 function validateEffectList(
   effects: readonly OperationActionEffectDef[],
-  sourceActorId: string,
+  sourceActorId: string | null,
   targetActorId: string | null,
   indexes: PlannerIndexes,
   snapshot: OperationResolutionPlannerInput['snapshot'],
@@ -651,6 +677,14 @@ function validateEffectList(
       }
       if (typedEffect.kind === 'heldItem' && typedEffect.op !== 'grant' && typedEffect.op !== 'remove') {
         fail('operation:resolution:invalid-effect', 'Held item operation must be grant or remove');
+      }
+      continue;
+    }
+    if (typedEffect.kind === 'actorPosition') {
+      const actorId = typedEffect.recipient === 'actor' ? sourceActorId
+        : typedEffect.recipient === 'target' ? targetActorId : null;
+      if (!actorId || !isNonEmptyId(typedEffect.positionId) || !indexes.actorStatesById.has(actorId)) {
+        fail('operation:resolution:invalid-effect', 'Position effect needs a valid recipient actor and position ID');
       }
       continue;
     }
@@ -747,6 +781,7 @@ function addActionEffects(
   consumedActorIds: ReadonlySet<string>,
   buckets: Map<string, ValueBucket>,
   membershipChanges: Map<string, OperationResolutionMembershipChange>,
+  positionChanges: Map<string, PositionBucket>,
   indexes: PlannerIndexes,
   input: OperationResolutionPlannerInput,
 ): void {
@@ -756,7 +791,7 @@ function addActionEffects(
     if (!action) fail('operation:resolution:invalid-content', 'Selected Action disappeared for Actor ' + plan.actorId);
     addEffectList(action.effects, plan.actorId, plan.targetActorId, effectIndex => ({
       kind: 'action', actorId: plan.actorId, actionId: action.id, effectIndex,
-    }), buckets, membershipChanges, indexes, input.snapshot);
+    }), buckets, membershipChanges, positionChanges, indexes, input.snapshot);
 }
 }
 
@@ -764,6 +799,7 @@ function addCombinationEffects(
   matches: readonly OperationCombinationMatch[],
   buckets: Map<string, ValueBucket>,
   membershipChanges: Map<string, OperationResolutionMembershipChange>,
+  positionChanges: Map<string, PositionBucket>,
   indexes: PlannerIndexes,
   input: OperationResolutionPlannerInput,
 ): void {
@@ -775,7 +811,7 @@ function addCombinationEffects(
     if (!rule) fail('operation:resolution:invalid-content', 'Combination match references a missing rule: ' + match.ruleId);
     addEffectList(rule.effects, match.actorAId, match.targetActorId, effectIndex => ({
       kind: 'combination', ruleId: match.ruleId, actorAId: match.actorAId, actorBId: match.actorBId, effectIndex,
-    }), buckets, membershipChanges, indexes, input.snapshot);
+    }), buckets, membershipChanges, positionChanges, indexes, input.snapshot);
 }
 }
 
@@ -784,6 +820,7 @@ function addSkillEffects(
   plans: readonly OperationPreparedActorPlan[],
   buckets: Map<string, ValueBucket>,
   membershipChanges: Map<string, OperationResolutionMembershipChange>,
+  positionChanges: Map<string, PositionBucket>,
   indexes: PlannerIndexes,
   input: OperationResolutionPlannerInput,
 ): void {
@@ -803,14 +840,20 @@ function addSkillEffects(
     addEffectList(rule.effects, check.actorId, plan.targetActorId, effectIndex => ({
       kind: 'studentSkill', actorId: check.actorId, skillRuleId: check.skillRuleId,
       actionId: check.actionId, effectIndex,
-    }), buckets, membershipChanges, indexes, input.snapshot);
-  }
+    }), buckets, membershipChanges, positionChanges, indexes, input.snapshot);
+}
 }
 
 function resolveMembershipChanges(
   changes: ReadonlyMap<string, OperationResolutionMembershipChange>,
 ): OperationResolutionMembershipChange[] {
   return [...changes.values()].filter(change => change.before !== change.after);
+}
+
+function resolvePositionChanges(changes: ReadonlyMap<string, PositionBucket>): OperationResolutionPositionChange[] {
+  return [...changes.values()]
+    .filter(change => change.before !== change.after)
+    .map(change => ({ actorId: change.actorId, before: change.before, after: change.after, sources: change.sources.slice() }));
 }
 
 function skillRandomState(input: OperationResolutionPlannerInput): OperationTacticalRandomState {
@@ -837,10 +880,18 @@ function sceneTargetIsRelated(
   return relation === 'sameTeam' ? source.teamId === target.teamId : source.teamId !== target.teamId;
 }
 
+function absoluteActorTargetAllowed(event: OperationEventDef, action: OperationActionDef, targetActorId: string): boolean {
+  if (action.target.kind !== 'actor' || (!action.target.allowedActorIds?.length && !action.target.allowedActorTypes?.length)) return false;
+  const target = event.actors.find(actor => actor.id === targetActorId);
+  return Boolean(target)
+    && (action.target.allowedActorIds === undefined || action.target.allowedActorIds.includes(targetActorId))
+    && (action.target.allowedActorTypes === undefined || action.target.allowedActorTypes.includes(target!.type));
+}
+
 function planSceneBatch(input: OperationResolutionPlannerInput, indexes: PlannerIndexes): OperationResolutionBatch {
   const request = input.sceneBatch;
-  if (!request || !Array.isArray(request.selections) || request.selections.length === 0) {
-    fail('operation:resolution:invalid-content', 'SceneAction batch must contain at least one selection');
+  if (!request || !Array.isArray(request.selections)) {
+    fail('operation:resolution:invalid-content', 'SceneAction batch selections must be an array');
   }
   const { snapshot, trustedContent } = input;
   const event = trustedContent.eventDefinition;
@@ -858,47 +909,123 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
     fail('operation:resolution:invalid-snapshot', 'shared PlayerCost balance is invalid');
   }
   const activeStudents = snapshot.actors.filter(actor => actor.participantKind === 'student' && actor.hp > 0);
-  if (activeStudents.length === 0) fail('operation:resolution:invalid-snapshot', 'SceneAction batch has no active Student participants');
-  if (location.actionMode === 'individual' && request.selections.length !== activeStudents.length) {
-    fail('operation:resolution:invalid-content', 'Individual batches require one selection for every active Student');
+  if (location.actionMode === 'individual' && activeStudents.length === 0) fail('operation:resolution:invalid-snapshot', 'Individual SceneAction batch has no active Student participants');
+  const sceneActions = new Map(location.sceneActions.map(row => [row.id, row]));
+  const selectableActionSelections = request.selections.filter(row => sceneActions.get(row.sceneActionId)?.selectionPolicy !== 'fixed');
+  if (location.actionMode === 'individual' && selectableActionSelections.some(row => !row.actorId
+    || selectableActionSelections.filter(other => other.actorId === row.actorId).length > 1)) {
+    fail('operation:resolution:invalid-content', 'Individual batches allow at most one selected SceneAction per Student');
   }
-  if (location.actionMode === 'global' && request.selections.length !== 1) {
-    fail('operation:resolution:invalid-content', 'Global batches require exactly one SceneAction selection');
+  if (location.actionMode === 'global' && selectableActionSelections.length > 1) {
+    fail('operation:resolution:invalid-content', 'Global batches allow at most one selectable SceneAction');
   }
 
   const actorInitializations = new Map(trustedContent.actorInitializations.map(row => [row.actorId, row]));
-  const sceneActions = new Map(location.sceneActions.map(row => [row.id, row]));
+  const resolvePerformer = (action: OperationActionDef, preferred?: string): string | undefined => {
+    const candidates = activeStudents.filter(actor => {
+      const init = actorInitializations.get(actor.actorId);
+      return Boolean(init?.participantKind === 'student'
+        && action.allowedParticipantKinds.includes('student')
+        && action.requiredCapabilityIds.every(id => init.profile.capabilityIds.includes(id)));
+    }).map(actor => actor.actorId);
+    return preferred && candidates.includes(preferred) ? preferred : candidates[0];
+  };
+  const resolveDefaultTargets = (action: OperationActionDef, actorId: string | null): readonly string[] => {
+    const targetSpec = action.target;
+    if (targetSpec.kind === 'none') return [];
+    const candidates = event.actors.filter(target => {
+      if ((indexes.actorStatesById.get(target.id)?.hp ?? 0) <= 0) return false;
+      const relationAllowed = actorId
+        ? sceneTargetIsRelated(event, actorId, target.id, targetSpec.relation)
+        : absoluteActorTargetAllowed(event, action, target.id);
+      return relationAllowed
+        && (targetSpec.allowedActorIds === undefined || targetSpec.allowedActorIds.includes(target.id))
+        && (targetSpec.allowedActorTypes === undefined || targetSpec.allowedActorTypes.includes(target.type));
+    });
+    if (candidates.length === 0) fail('operation:resolution:invalid-content', 'fixed Scene option has no legal default Actor target: ' + action.id);
+    return [candidates[0].id];
+  };
+  const actionSelections: OperationSceneActionSelection[] = [...request.selections];
+  for (const fixed of location.sceneActions.filter(row => row.selectionPolicy === 'fixed')) {
+    const suppliedFixed = request.selections.filter(row => row.sceneActionId === fixed.id);
+    if (fixed.scope === 'global' && suppliedFixed.length > 1) {
+      fail('operation:resolution:invalid-content', 'fixed Global SceneAction may appear only once: ' + fixed.id);
+    }
+    if (fixed.scope === 'individual') {
+      for (const row of suppliedFixed) {
+        if (!row.actorId || !activeStudents.some(actor => actor.actorId === row.actorId)) {
+          fail('operation:resolution:invalid-content', 'fixed Individual SceneAction must bind to an active Student: ' + fixed.id);
+        }
+      }
+      if (new Set(suppliedFixed.map(row => row.actorId)).size !== suppliedFixed.length) {
+        fail('operation:resolution:invalid-content', 'fixed Individual SceneAction cannot contain duplicate performer bindings: ' + fixed.id);
+      }
+    }
+    const action = indexes.actionDefinitionsById.get(fixed.actionId);
+    if (!action) fail('operation:resolution:invalid-content', 'fixed SceneAction references an unknown Action: ' + fixed.actionId);
+    const expectedActorIds: readonly (string | null)[] = fixed.scope === 'individual'
+      ? activeStudents.map(actor => actor.actorId)
+      : [null];
+    for (const expectedActorId of expectedActorIds) {
+      const existing = request.selections.find(row => row.sceneActionId === fixed.id
+        && (fixed.scope === 'global' || row.actorId === expectedActorId));
+      const resolvedActor = fixed.performerPolicy === 'none' || (fixed.performerPolicy === 'optional-student' && !existing?.actorId)
+        ? null
+        : existing?.actorId ?? expectedActorId ?? resolvePerformer(action);
+      if (fixed.performerPolicy !== 'none' && !resolvedActor) fail('operation:resolution:invalid-content', 'fixed SceneAction has no qualified Student performer: ' + fixed.id);
+      const normalized: OperationSceneActionSelection = {
+        sceneActionId: fixed.id,
+        ...(resolvedActor ? { actorId: resolvedActor } : {}),
+        targetActorIds: existing?.targetActorIds.length ? existing.targetActorIds : resolveDefaultTargets(action, resolvedActor ?? null),
+      };
+      if (existing) {
+        const index = actionSelections.indexOf(existing);
+        if (index >= 0) actionSelections[index] = normalized;
+      } else actionSelections.push(normalized);
+    }
+  }
   const selectedActorIds = new Set<string>();
-  const selected: { readonly request: OperationSceneActionSelection; readonly actionId: string; readonly playerCost: number; readonly targets: readonly (string | null)[] }[] = [];
+  const selected: { readonly request: OperationSceneActionSelection; readonly actionId: string; readonly playerCost: number; readonly actorId: string | null; readonly targets: readonly (string | null)[]; readonly cost?: OperationActionCostDef }[] = [];
   let totalCost = decimalParts(0);
-  for (const candidate of request.selections) {
-    if (!isRecord(candidate) || !isNonEmptyId(candidate.sceneActionId) || !isNonEmptyId(candidate.actorId)
+  for (const candidate of actionSelections) {
+    if (!isRecord(candidate) || !isNonEmptyId(candidate.sceneActionId) || (candidate.actorId !== undefined && !isNonEmptyId(candidate.actorId))
       || !Array.isArray(candidate.targetActorIds) || !candidate.targetActorIds.every(isNonEmptyId)
       || (candidate.cardInstanceIds !== undefined && (!Array.isArray(candidate.cardInstanceIds) || candidate.cardInstanceIds.length > 0))) {
       fail('operation:resolution:invalid-content', 'SceneAction selection has an invalid shape or includes unavailable SceneCards');
     }
     const selection = candidate as unknown as OperationSceneActionSelection;
-    const sourceState = indexes.actorStatesById.get(selection.actorId);
     const sceneAction = sceneActions.get(selection.sceneActionId);
     const action = sceneAction ? indexes.actionDefinitionsById.get(sceneAction.actionId) : undefined;
-    const initialization = actorInitializations.get(selection.actorId);
-    if (!sceneAction || sceneAction.scope !== location.actionMode || !action || action.cost !== undefined) {
-      fail('operation:resolution:invalid-content', 'selection references an unavailable SceneAction or an Action with a separate resource cost');
+    const performerPolicy = sceneAction?.performerPolicy ?? 'selected-student';
+    const actorId = selection.actorId ?? null;
+    const sourceState = actorId ? indexes.actorStatesById.get(actorId) : undefined;
+    const initialization = actorId ? actorInitializations.get(actorId) : undefined;
+    if (!sceneAction || sceneAction.scope !== location.actionMode || !action) {
+      fail('operation:resolution:invalid-content', 'selection references an unavailable SceneAction');
     }
-    if (!sourceState || sourceState.participantKind !== 'student' || sourceState.hp <= 0 || selectedActorIds.has(selection.actorId)) {
+    const actorless = performerPolicy === 'none' || (performerPolicy === 'optional-student' && actorId === null);
+    if (actorless) {
+      if (actorId !== null) fail('operation:resolution:invalid-content', 'actorless SceneAction must not name a performer');
+      if (action.cost !== undefined) fail('operation:resolution:invalid-content', 'actorless SceneAction cannot pay Action actor/team cost');
+      if (action.effects.some(effect => 'recipient' in effect && (effect.recipient === 'actor' || effect.recipient === 'actorTeam'))) {
+        fail('operation:resolution:invalid-content', 'actorless SceneAction cannot use performer-relative effects');
+      }
+      if (action.target.kind === 'actor' && !action.target.allowedActorIds?.length && !action.target.allowedActorTypes?.length) {
+        fail('operation:resolution:invalid-content', 'actorless Action target requires an absolute Actor ID/type filter');
+      }
+    } else if (!sourceState || sourceState.participantKind !== 'student' || sourceState.hp <= 0
+      || (location.actionMode === 'individual' && sceneAction.selectionPolicy !== 'fixed' && selectedActorIds.has(actorId!))) {
       fail('operation:resolution:invalid-content', 'SceneAction performer must be a unique active Student');
-    }
-    if (!action.allowedParticipantKinds.includes('student') || !initialization || initialization.participantKind !== 'student'
-      || !initialization.profile.eligibleActionIds.includes(action.id)
+    } else if (!action.allowedParticipantKinds.includes('student') || !initialization || initialization.participantKind !== 'student'
       || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) {
       fail('operation:resolution:invalid-content', 'performer is not qualified for Action ' + action.id);
     }
-    if (location.actionMode === 'individual' && !activeStudents.some(actor => actor.actorId === selection.actorId)) {
+    if (location.actionMode === 'individual' && (!actorId || !activeStudents.some(actor => actor.actorId === actorId))) {
       fail('operation:resolution:invalid-content', 'Individual batches must include each active Student exactly once');
     }
     if (action.target.kind === 'none') {
       if (selection.targetActorIds.length !== 0) fail('operation:resolution:invalid-content', 'Action does not accept Actor targets: ' + action.id);
-      selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, targets: [null] });
+      selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, actorId, targets: [null], ...(action.cost ? { cost: action.cost } : {}) });
     } else {
       if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
         || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
@@ -906,18 +1033,19 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
         fail('operation:resolution:invalid-content', 'selected Actor target count is invalid for Action ' + action.id);
       }
       for (const targetActorId of selection.targetActorIds) {
-        if (!indexes.actorStatesById.has(targetActorId)
-          || !sceneTargetIsRelated(event, selection.actorId, targetActorId, action.target.relation)) {
+        const related = actorId
+          ? sceneTargetIsRelated(event, actorId, targetActorId, action.target.relation)
+          : absoluteActorTargetAllowed(event, action, targetActorId);
+        const allowedByFilter = (action.target.allowedActorIds === undefined || action.target.allowedActorIds.includes(targetActorId))
+          && (action.target.allowedActorTypes === undefined || event.actors.find(row => row.id === targetActorId)?.type && action.target.allowedActorTypes.includes(event.actors.find(row => row.id === targetActorId)!.type));
+        if (!indexes.actorStatesById.has(targetActorId) || !related || !allowedByFilter) {
           fail('operation:resolution:invalid-content', 'selected target is outside the Action target relation: ' + targetActorId);
         }
       }
-      selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, targets: selection.targetActorIds });
+      selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, actorId, targets: selection.targetActorIds, ...(action.cost ? { cost: action.cost } : {}) });
     }
-    selectedActorIds.add(selection.actorId);
+    if (actorId && sceneAction.selectionPolicy !== 'fixed') selectedActorIds.add(actorId);
     totalCost = addDecimal(totalCost, decimalParts(sceneAction.playerCost));
-  }
-  if (location.actionMode === 'individual' && activeStudents.some(actor => !selectedActorIds.has(actor.actorId))) {
-    fail('operation:resolution:invalid-content', 'Individual batches must include each active Student exactly once');
   }
   const cardSelections = request.cards ?? [];
   if (!Array.isArray(cardSelections)) fail('operation:resolution:invalid-content', 'SceneCard selections must be an array');
@@ -926,9 +1054,32 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
   const cardInstances = trustedContent.playerSceneCardInstances ?? createOperationPlayerSceneCardInstances(event);
   const cardInstancesById = new Map(cardInstances.map(card => [card.cardInstanceId, card]));
   const selectedCardIds = new Set<string>();
-  const selectedCards: { readonly request: OperationSceneCardSelection; readonly instance: (typeof cardInstances)[number]; readonly actionId: string; readonly targets: readonly (string | null)[] }[] = [];
-  for (const candidate of cardSelections) {
-    if (!isRecord(candidate) || !isNonEmptyId(candidate.cardInstanceId) || !isNonEmptyId(candidate.actorId)
+  const selectedCards: { readonly request: OperationSceneCardSelection; readonly instance: (typeof cardInstances)[number]; readonly actionId: string; readonly actorId: string | null; readonly targets: readonly (string | null)[]; readonly cost?: OperationActionCostDef }[] = [];
+  const normalizedCardSelections: OperationSceneCardSelection[] = [...cardSelections];
+  for (const cardInstanceId of handIds) {
+    const instance = cardInstancesById.get(cardInstanceId);
+    if (!instance || instance.timing !== 'scene' || instance.selectionPolicy !== 'fixed') continue;
+    const action = indexes.actionDefinitionsById.get(instance.actionId);
+    if (!action) fail('operation:resolution:invalid-content', 'fixed SceneCard references an unknown Action: ' + instance.actionId);
+    const existing = normalizedCardSelections.find(row => row.cardInstanceId === cardInstanceId);
+    const performerPolicy = instance.performerPolicy ?? 'selected-student';
+    const actorId = performerPolicy === 'none' || (performerPolicy === 'optional-student' && !existing?.actorId)
+      ? null : existing?.actorId ?? resolvePerformer(action);
+    if (performerPolicy === 'selected-student' && !actorId) {
+      fail('operation:resolution:invalid-content', 'fixed SceneCard has no qualified Student performer: ' + instance.actionId);
+    }
+    const normalized: OperationSceneCardSelection = {
+      cardInstanceId,
+      ...(actorId ? { actorId } : {}),
+      targetActorIds: existing?.targetActorIds.length ? existing.targetActorIds : resolveDefaultTargets(action, actorId ?? null),
+    };
+    if (existing) {
+      const index = normalizedCardSelections.indexOf(existing);
+      if (index >= 0) normalizedCardSelections[index] = normalized;
+    } else normalizedCardSelections.push(normalized);
+  }
+  for (const candidate of normalizedCardSelections) {
+    if (!isRecord(candidate) || !isNonEmptyId(candidate.cardInstanceId) || (candidate.actorId !== undefined && !isNonEmptyId(candidate.actorId))
       || !Array.isArray(candidate.targetActorIds) || !candidate.targetActorIds.every(isNonEmptyId)) {
       fail('operation:resolution:invalid-content', 'SceneCard selection has an invalid shape');
     }
@@ -938,19 +1089,31 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       fail('operation:resolution:invalid-content', 'SceneCard must be a unique instance currently in hand: ' + selection.cardInstanceId);
     }
     if (instance.timing !== 'scene') fail('operation:resolution:invalid-content', 'SceneCard timing does not match the current SceneAction batch');
-    const actorState = indexes.actorStatesById.get(selection.actorId);
-    const initialization = actorInitializations.get(selection.actorId);
+    const performerPolicy = instance.performerPolicy ?? 'selected-student';
+    const actorId = selection.actorId ?? null;
+    const actorState = actorId ? indexes.actorStatesById.get(actorId) : undefined;
+    const initialization = actorId ? actorInitializations.get(actorId) : undefined;
     const action = indexes.actionDefinitionsById.get(instance.actionId);
-    if (!actorState || actorState.participantKind !== 'student' || actorState.hp <= 0
+    if (!action) fail('operation:resolution:invalid-content', 'SceneCard Action definition is missing: ' + instance.actionId);
+    const actorless = performerPolicy === 'none' || (performerPolicy === 'optional-student' && actorId === null);
+    if (actorless) {
+      if (actorId !== null) fail('operation:resolution:invalid-content', 'actorless SceneCard must not name a performer');
+      if (action.cost !== undefined) fail('operation:resolution:invalid-content', 'actorless SceneCard cannot pay Action actor/team cost');
+      if (action.effects.some(effect => 'recipient' in effect && (effect.recipient === 'actor' || effect.recipient === 'actorTeam'))) {
+        fail('operation:resolution:invalid-content', 'actorless SceneCard cannot use performer-relative effects');
+      }
+      if (action.target.kind === 'actor' && !action.target.allowedActorIds?.length && !action.target.allowedActorTypes?.length) {
+        fail('operation:resolution:invalid-content', 'actorless Action target requires an absolute Actor ID/type filter');
+      }
+    } else if (!actorState || actorState.participantKind !== 'student' || actorState.hp <= 0
       || !initialization || initialization.participantKind !== 'student'
-      || !action || action.cost !== undefined || !action.allowedParticipantKinds.includes('student')
-      || !initialization.profile.eligibleActionIds.includes(action.id)
+      || !action.allowedParticipantKinds.includes('student')
       || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) {
       fail('operation:resolution:invalid-content', 'SceneCard Action has no qualified active Student performer: ' + instance.actionId);
     }
     if (action.target.kind === 'none') {
       if (selection.targetActorIds.length !== 0) fail('operation:resolution:invalid-content', 'SceneCard Action does not accept Actor targets: ' + action.id);
-      selectedCards.push({ request: selection, instance, actionId: action.id, targets: [null] });
+      selectedCards.push({ request: selection, instance, actionId: action.id, actorId, targets: [null], ...(action.cost ? { cost: action.cost } : {}) });
     } else {
       if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
         || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
@@ -958,12 +1121,16 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
         fail('operation:resolution:invalid-content', 'SceneCard target count is invalid for Action ' + action.id);
       }
       for (const targetActorId of selection.targetActorIds) {
-        if (!indexes.actorStatesById.has(targetActorId)
-          || !sceneTargetIsRelated(event, selection.actorId, targetActorId, action.target.relation)) {
+        const related = actorId
+          ? sceneTargetIsRelated(event, actorId, targetActorId, action.target.relation)
+          : absoluteActorTargetAllowed(event, action, targetActorId);
+        const allowedByFilter = (action.target.allowedActorIds === undefined || action.target.allowedActorIds.includes(targetActorId))
+          && (action.target.allowedActorTypes === undefined || action.target.allowedActorTypes.includes(event.actors.find(row => row.id === targetActorId)?.type ?? ''));
+        if (!indexes.actorStatesById.has(targetActorId) || !related || !allowedByFilter) {
           fail('operation:resolution:invalid-content', 'SceneCard target is outside the Action target relation: ' + targetActorId);
         }
       }
-      selectedCards.push({ request: selection, instance, actionId: action.id, targets: selection.targetActorIds });
+      selectedCards.push({ request: selection, instance, actionId: action.id, actorId, targets: selection.targetActorIds, ...(action.cost ? { cost: action.cost } : {}) });
     }
     selectedCardIds.add(selection.cardInstanceId);
     totalCost = addDecimal(totalCost, decimalParts(instance.playerCost));
@@ -978,35 +1145,54 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
 
   const buckets = new Map<string, ValueBucket>();
   const membershipChanges = new Map<string, OperationResolutionMembershipChange>();
+  const positionChanges = new Map<string, PositionBucket>();
+  const scenePayments: OperationResolutionPayment[] = [];
+  const paymentBalances = new Map<string, DecimalParts>();
+  for (const row of [...selected, ...selectedCards]) {
+    if (!row.cost) continue;
+    if (!row.actorId) fail('operation:resolution:invalid-content', 'Action resource cost requires a selected Student performer');
+    const { scopeId, bounds } = resourceBounds(indexes, row.cost, row.actorId);
+    const key = row.cost.scope + ':' + scopeId + ':' + row.cost.resourceId;
+    const initialBalance = row.cost.scope === 'actor'
+      ? indexes.actorStatesById.get(scopeId)?.resources[row.cost.resourceId]
+      : indexes.teamStatesById.get(scopeId)?.resources[row.cost.resourceId];
+    if (initialBalance === undefined) fail('operation:resolution:invalid-snapshot', 'Action resource balance is missing: ' + row.cost.resourceId);
+    const balance = paymentBalances.get(key) ?? decimalParts(initialBalance);
+    const nextBalance = subtractDecimal(balance, decimalParts(row.cost.amount));
+    if (compareDecimal(nextBalance, decimalParts(bounds.min)) < 0) fail('operation:resolution:unaffordable', 'Scene Action resource costs exceed the commit-start balance for ' + scopeId);
+    paymentBalances.set(key, nextBalance);
+    scenePayments.push({ actorId: row.actorId, actionId: row.actionId, cost: { ...row.cost }, scopeId });
+  }
+  addPayments(scenePayments, buckets, indexes, snapshot);
   for (const row of selected) {
     const action = indexes.actionDefinitionsById.get(row.actionId)!;
     for (const targetActorId of row.targets) {
-      validateEffectList(action.effects, row.request.actorId, targetActorId, indexes, snapshot);
-      addEffectList(action.effects, row.request.actorId, targetActorId, effectIndex => ({
-        kind: 'sceneAction', actorId: row.request.actorId, sceneActionId: row.request.sceneActionId,
+      validateEffectList(action.effects, row.actorId, targetActorId, indexes, snapshot);
+      addEffectList(action.effects, row.actorId, targetActorId, effectIndex => ({
+        kind: 'sceneAction', ...(row.actorId ? { actorId: row.actorId } : {}), sceneActionId: row.request.sceneActionId,
         actionId: row.actionId, targetActorId, effectIndex,
-      }), buckets, membershipChanges, indexes, snapshot);
+      }), buckets, membershipChanges, positionChanges, indexes, snapshot);
     }
   }
   for (const row of selectedCards) {
     const action = indexes.actionDefinitionsById.get(row.actionId)!;
     for (const targetActorId of row.targets) {
-      validateEffectList(action.effects, row.request.actorId, targetActorId, indexes, snapshot);
-      addEffectList(action.effects, row.request.actorId, targetActorId, effectIndex => ({
-        kind: 'sceneCard', cardInstanceId: row.request.cardInstanceId, actorId: row.request.actorId,
+      validateEffectList(action.effects, row.actorId, targetActorId, indexes, snapshot);
+      addEffectList(action.effects, row.actorId, targetActorId, effectIndex => ({
+        kind: 'sceneCard', cardInstanceId: row.request.cardInstanceId, ...(row.actorId ? { actorId: row.actorId } : {}),
         actionId: row.actionId, targetActorId, effectIndex,
-      }), buckets, membershipChanges, indexes, snapshot);
+      }), buckets, membershipChanges, positionChanges, indexes, snapshot);
     }
   }
   const randomState = skillRandomState(input);
   const selections = selected.map(row => ({
     sceneActionId: row.request.sceneActionId,
-    actorId: row.request.actorId,
+    ...(row.actorId ? { actorId: row.actorId } : {}),
     targetActorIds: row.request.targetActorIds.slice(),
   }));
   const resolvedCards = selectedCards.map(row => ({
     cardInstanceId: row.request.cardInstanceId,
-    actorId: row.request.actorId,
+    ...(row.actorId ? { actorId: row.actorId } : {}),
     targetActorIds: row.request.targetActorIds.slice(),
     actionId: row.actionId,
     playerCost: row.instance.playerCost,
@@ -1020,16 +1206,18 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
     locationId: snapshot.currentLocationId,
     actorPlans: [],
     intervention: null,
-    payments: [],
+    payments: scenePayments,
     combinations: { planVersion: snapshot.planVersion, locationId: snapshot.currentLocationId, matches: [] },
     studentSkillChecks: [],
     randomCursorBefore: randomState.tacticalCursor,
     randomCursorAfter: randomState.tacticalCursor,
     numericChanges: resolveChanges(buckets, indexes, input),
     membershipChanges: resolveMembershipChanges(membershipChanges),
+    positionChanges: resolvePositionChanges(positionChanges),
     sceneBatch: {
       selections,
       cards: resolvedCards,
+      actionCosts: scenePayments,
       playerCostBefore: playerCost,
       playerCostPaid: totalCostNumber,
       playerCostAfter: nextCost,
@@ -1115,11 +1303,12 @@ export function planOperationResolution(input: OperationResolutionPlannerInput):
 
   const buckets = new Map<string, ValueBucket>();
   const membershipChanges = new Map<string, OperationResolutionMembershipChange>();
+  const positionChanges = new Map<string, PositionBucket>();
   addPayments(payments, buckets, indexes, input.snapshot);
   const consumedActorIds = new Set(combinations.matches.flatMap(match => [match.actorAId, match.actorBId]));
-  addActionEffects(finalBeat.actorPlans, selectedActions, consumedActorIds, buckets, membershipChanges, indexes, input);
-  addCombinationEffects(combinations.matches, buckets, membershipChanges, indexes, input);
-  addSkillEffects(skillBatch.checks, finalBeat.actorPlans, buckets, membershipChanges, indexes, input);
+  addActionEffects(finalBeat.actorPlans, selectedActions, consumedActorIds, buckets, membershipChanges, positionChanges, indexes, input);
+  addCombinationEffects(combinations.matches, buckets, membershipChanges, positionChanges, indexes, input);
+  addSkillEffects(skillBatch.checks, finalBeat.actorPlans, buckets, membershipChanges, positionChanges, indexes, input);
   const randomState = skillRandomState(input);
 
   return freezeTree({
@@ -1136,6 +1325,7 @@ export function planOperationResolution(input: OperationResolutionPlannerInput):
     randomCursorAfter: skillBatch.nextRandomState.tacticalCursor,
     numericChanges: resolveChanges(buckets, indexes, input),
     membershipChanges: resolveMembershipChanges(membershipChanges),
+    positionChanges: resolvePositionChanges(positionChanges),
     nextRandomState: skillBatch.nextRandomState,
   });
 }

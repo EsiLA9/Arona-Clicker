@@ -46,7 +46,7 @@ export type OperationResolutionEffectSource =
     }
   | {
       readonly kind: 'sceneAction';
-      readonly actorId: string;
+      readonly actorId?: string;
       readonly sceneActionId: string;
       readonly actionId: string;
       readonly targetActorId: string | null;
@@ -55,7 +55,7 @@ export type OperationResolutionEffectSource =
   | {
       readonly kind: 'sceneCard';
       readonly cardInstanceId: string;
-      readonly actorId: string;
+      readonly actorId?: string;
       readonly actionId: string;
       readonly targetActorId: string | null;
       readonly effectIndex: number;
@@ -84,6 +84,13 @@ export interface OperationResolutionMembershipChange {
   readonly after: boolean;
 }
 
+export interface OperationResolutionPositionChange {
+  readonly actorId: string;
+  readonly before: string | null;
+  readonly after: string;
+  readonly sources: readonly OperationResolutionEffectSource[];
+}
+
 export interface OperationResolutionIntervention {
   readonly actorId: string;
   readonly before: OperationPreparedActorPlan;
@@ -94,6 +101,7 @@ export interface OperationResolutionIntervention {
 export interface OperationResolutionSceneBatch {
   readonly selections: readonly OperationSceneActionSelection[];
   readonly cards: readonly (OperationSceneCardSelection & { readonly actionId: string; readonly playerCost: number })[];
+  readonly actionCosts: readonly OperationResolutionPayment[];
   readonly playerCostBefore: number;
   readonly playerCostPaid: number;
   readonly playerCostAfter: number;
@@ -115,6 +123,7 @@ export interface OperationResolutionBatch {
   readonly randomCursorAfter: number;
   readonly numericChanges: readonly OperationResolutionNumericChange[];
   readonly membershipChanges: readonly OperationResolutionMembershipChange[];
+  readonly positionChanges: readonly OperationResolutionPositionChange[];
   /** Present only for a non-combat SceneAction/Card batch; it shares this Resolution container. */
   readonly sceneBatch?: OperationResolutionSceneBatch;
   readonly nextRandomState: OperationTacticalRandomState;
@@ -150,6 +159,7 @@ export interface OperationResolutionActorSnapshot {
   readonly participantKind: OperationActorKind;
   readonly hp: number;
   readonly resources: Readonly<Record<string, number>>;
+  readonly positionId?: string;
 }
 
 export interface OperationResolutionTeamSnapshot {

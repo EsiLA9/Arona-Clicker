@@ -140,6 +140,8 @@ function elementMatchesMarkup(current: HTMLElement, html: string): boolean {
 
 function operationMorphKey(node: Node): string | null {
   if (!(node instanceof HTMLElement)) return null;
+  if (node.hasAttribute('data-operation-map-popup')) return 'operation-map-popup';
+  if (node.hasAttribute('data-operation-map-intro')) return `operation-map-intro:${node.dataset.operationMapIntro}`;
   if (node.hasAttribute('data-operation-student')) return `student:${node.dataset.operationStudent}`;
   if (node.hasAttribute('data-operation-scene-card')) return `scene-card:${node.hasAttribute('data-global-scene-card') ? 'global' : node.dataset.actorId}`;
   if (node.hasAttribute('data-operation-scene-option-card')) {
@@ -147,15 +149,9 @@ function operationMorphKey(node: Node): string | null {
     return `scene-option:${owner?.hasAttribute('data-global-scene-card') ? 'global' : owner?.dataset.actorId}:${node.dataset.sceneActionId}`;
   }
   if (node.hasAttribute('data-operation-scene-choice')) return `scene-choice:${node.dataset.actorId}:${node.dataset.sceneActionId}`;
-  if (node.hasAttribute('data-operation-scene-target')) {
-    const owner = node.closest<HTMLElement>('[data-operation-student], [data-global-scene-card]')?.dataset.operationStudent ?? 'global';
-    const actionId = node.closest<HTMLElement>('[data-operation-scene-option]')?.querySelector<HTMLElement>('[data-operation-scene-choice]')?.dataset.sceneActionId;
-    return `scene-target:${owner}:${actionId}:${node.dataset.targetActorId}`;
-  }
   if (node.hasAttribute('data-operation-scene-performer')) return `scene-performer:${node.dataset.actorId}`;
   if (node.hasAttribute('data-operation-card-toggle')) return `scene-card-toggle:${node.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard}`;
   if (node.hasAttribute('data-operation-card-actor')) return `scene-card-actor:${node.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard}:${node.dataset.actorId}`;
-  if (node.hasAttribute('data-operation-card-target')) return `scene-card-target:${node.closest<HTMLElement>('[data-operation-player-card]')?.dataset.operationPlayerCard}:${node.dataset.targetActorId}`;
   if (node.hasAttribute('data-operation-player-card')) return `player-card:${node.dataset.operationPlayerCard}`;
   if (node.hasAttribute('data-operation-action-option')) return `action-option:${node.dataset.actorId}:${node.dataset.actionId}`;
   if (node.hasAttribute('data-operation-route-history-item')) {
@@ -170,7 +166,6 @@ function operationMorphKey(node: Node): string | null {
   if (node.hasAttribute('data-operation-player-hand')) return 'player-hand';
   if (node.hasAttribute('data-operation-action-list')) return `action-list:${node.dataset.operationActionList}`;
   if (node.hasAttribute('data-operation-action')) return `action:${node.dataset.actorId}:${node.dataset.actionId}`;
-  if (node.hasAttribute('data-operation-target')) return `target:${node.dataset.actorId}:${node.dataset.actionId}:${node.dataset.targetActorId}`;
   if (node.hasAttribute('data-operation-clear')) return `clear:${node.dataset.actorId}`;
   if (node.hasAttribute('data-operation-intent')) return `intent:${node.dataset.operationIntent}`;
   if (node.hasAttribute('data-operation-prepared-plan')) return `prepared-plan:${node.dataset.operationPreparedPlan}`;
@@ -194,7 +189,9 @@ function morphOperationNode(current: Node, next: Node): void {
     if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
     return;
   }
-  if (!(current instanceof HTMLElement) || !(next instanceof HTMLElement)) return;
+  // Operation map edges are SVG Elements; morph their attributes/children too,
+  // otherwise the map's node labels update while route availability stays stale.
+  if (!(current instanceof Element) || !(next instanceof Element)) return;
   for (const attribute of [...current.attributes]) {
     if (!next.hasAttribute(attribute.name)) current.removeAttribute(attribute.name);
   }
@@ -1620,19 +1617,13 @@ export class UIController {
     if (focus?.type === 'action') {
       focusTarget = [...current.querySelectorAll<HTMLButtonElement>('[data-operation-action]')]
         .find(button => button.dataset.actorId === focus.actorId && button.dataset.actionId === focus.actionId) ?? null;
-    } else if (focus?.type === 'target') {
-      focusTarget = [...current.querySelectorAll<HTMLButtonElement>('[data-operation-target]')]
-        .find(button => button.dataset.actorId === focus.actorId
-          && button.dataset.actionId === focus.actionId
-          && button.dataset.targetActorId === focus.targetActorId) ?? null;
-      focusTarget?.closest<HTMLElement>('.operation-action-targets')?.removeAttribute('hidden');
     } else if (focus?.type === 'clear') {
       focusTarget = [...current.querySelectorAll<HTMLButtonElement>('[data-operation-clear]')]
         .find(button => button.dataset.actorId === focus.actorId) ?? null;
       focusTarget ??= [...current.querySelectorAll<HTMLButtonElement>('[data-operation-action]')]
         .find(button => button.dataset.actorId === focus.actorId) ?? null;
     } else if (focus?.type === 'commit') {
-      focusTarget = current.querySelector<HTMLButtonElement>('[data-operation-commit], [data-operation-scene-stage], [data-operation-scene-commit], [data-operation-reward], [data-operation-route]:not(:disabled)') ?? null;
+      focusTarget = current.querySelector<HTMLButtonElement>('[data-operation-commit], [data-operation-scene-submit], [data-operation-scene-commit], [data-operation-reward], [data-operation-route]:not(:disabled)') ?? null;
     }
     if (pending.notice) focusTarget = current.querySelector<HTMLElement>('[data-operation-command-notice]') ?? focusTarget;
     if (focusTarget instanceof HTMLButtonElement && focusTarget.disabled) focusTarget = null;

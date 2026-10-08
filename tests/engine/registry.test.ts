@@ -1,8 +1,10 @@
 import type { AchievementDef, Datapack, MilestoneDef, MilestoneListenerDef } from '../../src/data-services/contracts/datapack';
 import type {
   OperationActionDef,
+  OperationCardPoolDef,
   OperationEventContentDef,
   OperationLocationDef,
+  OperationStrategyProfileDef,
   StudentOperationProfileDef,
 } from '../../src/data-services/contracts/operation';
 // ============================================================
@@ -45,10 +47,13 @@ const TEST_OPERATION_EVENT_ID = 'test:operation-event:carousel_demo';
 const TEST_OPERATION_LOCATION_ID = 'test:operation-location:control_room';
 const TEST_OPERATION_ACTION_ID = 'test:operation-action:inspect_panel';
 const TEST_OPERATION_PROFILE_ID = 'test:student-operation-profile:guide';
+const TEST_OPERATION_STRATEGY_ID = 'test:operation-strategy-profile:protective';
+const TEST_OPERATION_POOL_ID = 'test:operation-card-pool:common';
 const testOperationCharacter = { id: TEST_OPERATION_CHARACTER_ID } as Datapack['characters'][number];
 
-const testOperationAction: OperationActionDef = {
+  const testOperationAction: OperationActionDef = {
   id: TEST_OPERATION_ACTION_ID,
+  title: TEST_OPERATION_ACTION_ID,
   allowedParticipantKinds: ['student'],
   requiredCapabilityIds: [],
   reasonIds: ['inspect-panel'],
@@ -71,6 +76,18 @@ const testStudentOperationProfile: StudentOperationProfileDef = {
   actionPriorityIds: [TEST_OPERATION_ACTION_ID],
   capabilityIds: [],
   reasonIds: [],
+  strategyProfileId: TEST_OPERATION_STRATEGY_ID,
+  cardPoolIds: [],
+};
+
+const testOperationStrategyProfile: OperationStrategyProfileDef = {
+  id: TEST_OPERATION_STRATEGY_ID,
+  biases: [{ tagId: 'protect', biasBps: 15000 }],
+};
+
+const testOperationCardPool: OperationCardPoolDef = {
+  id: TEST_OPERATION_POOL_ID,
+  entries: [{ actionId: TEST_OPERATION_ACTION_ID, weight: 5 }],
 };
 
 const testOperationEvent: OperationEventContentDef = {
@@ -85,6 +102,7 @@ const testOperationEvent: OperationEventContentDef = {
   knownFactIds: [],
   itemIds: [],
   heldItemIds: [],
+  cardPoolIds: [TEST_OPERATION_POOL_ID],
   actors: [{ id: 'student_1', type: 'student', hp: { initial: 3, min: 0, max: 3 } }],
   participants: [{ actorId: 'student_1', kind: 'student', profileId: TEST_OPERATION_PROFILE_ID }],
   playerRouteState: { playerCost: 0 },
@@ -97,6 +115,8 @@ const operationDatapack = (overrides: Partial<Datapack> = {}): Datapack => ({
   operationLocations: [testOperationLocation],
   operationActions: [testOperationAction],
   studentOperationProfiles: [testStudentOperationProfile],
+  operationStrategyProfiles: [testOperationStrategyProfile],
+  operationCardPools: [testOperationCardPool],
   ...overrides,
 });
 
@@ -136,7 +156,35 @@ describe('Registry', () => {
     expect(reg.spots.get('test:spot:spot_1')).toBeDefined();
   });
 
-  test('merges, queries, and clears the four Gameplay B Datapack tables', () => {
+  test('tracks resource and CharacterVariant source Datapacks through override and clear', () => {
+    const variant = { id: 'Hoshino' } as NonNullable<Datapack['characterVariants']>[number];
+    const resourceDisplays = [{ resourceId: 'test:resource:credit', label: 'Credit' }];
+    const registry = new Registry();
+
+    registry.load({
+      ...sampleDatapack,
+      modName: 'test',
+      resourceDisplays,
+      characterVariants: [variant],
+    });
+    expect(registry.resourceDisplayOwnerOf('test:resource:credit')).toBe('test');
+    expect(registry.characterVariantOwnerOf('Hoshino')).toBe('test');
+
+    registry.load({
+      ...sampleDatapack,
+      modName: 'override-pack',
+      resourceDisplays,
+      characterVariants: [variant],
+    });
+    expect(registry.resourceDisplayOwnerOf('test:resource:credit')).toBe('override-pack');
+    expect(registry.characterVariantOwnerOf('Hoshino')).toBe('override-pack');
+
+    registry.clear();
+    expect(registry.resourceDisplayOwnerOf('test:resource:credit')).toBeUndefined();
+    expect(registry.characterVariantOwnerOf('Hoshino')).toBeUndefined();
+  });
+
+  test('merges, queries, and clears Gameplay B Datapack tables including Strategy and CardPools', () => {
     const reg = new Registry();
     reg.load(operationDatapack());
 
@@ -144,12 +192,16 @@ describe('Registry', () => {
     expect(reg.operationLocations.get(TEST_OPERATION_LOCATION_ID)).toEqual(testOperationLocation);
     expect(reg.operationActions.get(TEST_OPERATION_ACTION_ID)).toEqual(testOperationAction);
     expect(reg.studentOperationProfiles.get(TEST_OPERATION_PROFILE_ID)).toEqual(testStudentOperationProfile);
+    expect(reg.operationStrategyProfiles.get(TEST_OPERATION_STRATEGY_ID)).toEqual(testOperationStrategyProfile);
+    expect(reg.operationCardPools.get(TEST_OPERATION_POOL_ID)).toEqual(testOperationCardPool);
 
     reg.clear();
     expect(reg.operationEvents.size).toBe(0);
     expect(reg.operationLocations.size).toBe(0);
     expect(reg.operationActions.size).toBe(0);
     expect(reg.studentOperationProfiles.size).toBe(0);
+    expect(reg.operationStrategyProfiles.size).toBe(0);
+    expect(reg.operationCardPools.size).toBe(0);
   });
 
   test('resolves Operation references against prior Registry tables and same-pack content', () => {
@@ -162,6 +214,8 @@ describe('Registry', () => {
       operationLocations: [testOperationLocation],
       operationActions: [testOperationAction],
       studentOperationProfiles: [testStudentOperationProfile],
+      operationStrategyProfiles: [testOperationStrategyProfile],
+      operationCardPools: [testOperationCardPool],
     });
     expect(() => reg.load({
       ...sampleDatapack,
@@ -216,6 +270,34 @@ describe('Registry', () => {
       }],
     });
     expect(() => new Registry().load(missingProfile)).toThrow(/profileId references an unknown StudentOperationProfile/);
+
+    const missingPool = operationDatapack({
+      operationEvents: [{ ...testOperationEvent, cardPoolIds: ['test:operation-card-pool:missing'] }],
+    });
+    expect(() => new Registry().load(missingPool)).toThrow(/cardPoolIds references an unknown OperationCardPool/);
+
+    const missingStrategy = operationDatapack({
+      studentOperationProfiles: [{ ...testStudentOperationProfile, strategyProfileId: 'test:operation-strategy-profile:missing' }],
+    });
+    expect(() => new Registry().load(missingStrategy)).toThrow(/strategyProfileId references an unknown OperationStrategyProfile/);
+
+    const unknownContextFact = operationDatapack({
+      operationCardPools: [{ ...testOperationCardPool, selector: { requiredFactIds: ['not-an-event-fact'] } }],
+    });
+    expect(() => new Registry().load(unknownContextFact)).toThrow(/selector.requiredFactIds references an undeclared Event fact/);
+
+    const invalidHandSize = operationDatapack({
+      operationEvents: [{ ...testOperationEvent, characterHandSize: 11 }],
+    });
+    expect(() => new Registry().load(invalidHandSize)).toThrow(/characterHandSize must be between 1 and 10/);
+
+    expect(() => new Registry().load(operationDatapack({
+      operationCardPools: [{ ...testOperationCardPool, entries: [{ actionId: TEST_OPERATION_ACTION_ID, weight: 0 }] }],
+    }))).toThrow(/weight must be between 1 and 100000/);
+
+    expect(() => new Registry().load(operationDatapack({
+      operationStrategyProfiles: [{ ...testOperationStrategyProfile, id: 'test:operation-action:wrong_type' }],
+    }))).toThrow(/OperationStrategyProfile id .*typeName.*operation-strategy-profile/);
 
     const missingRoute = operationDatapack({
       operationLocations: [{

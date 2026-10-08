@@ -19,6 +19,8 @@ export interface OperationPreparationSnapshot {
   /** Indexed by actorId; Event actor declaration order remains the execution order. */
   readonly actors: readonly OperationPreparationActorSnapshot[];
   readonly teams: readonly OperationTeamState[];
+  /** Present on standard Runs; when present it is the hard per-student Action choice boundary. */
+  readonly studentActionIdsByActorId?: Readonly<Record<string, readonly string[]>>;
 }
 
 export interface OperationPreparationActorSnapshot {
@@ -88,6 +90,7 @@ export type OperationInterventionPreviewErrorCode =
   | 'operation:intervention:student-slot-occupied'
   | 'operation:intervention:invalid-actor'
   | 'operation:intervention:invalid-action'
+  | 'operation:intervention:action-not-in-hand'
   | 'operation:intervention:action-not-enabled'
   | 'operation:intervention:action-not-affordable'
   | 'operation:intervention:no-legal-target'

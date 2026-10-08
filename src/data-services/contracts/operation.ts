@@ -58,6 +58,10 @@ export interface OperationActorDef {
   readonly displayName?: string;
   readonly avatarRef?: string;
   readonly description?: string;
+  /** Operation-local current actor facts used by card pool selectors. */
+  readonly positionId?: string;
+  /** Operation-local weapon fact used by card pool selectors. */
+  readonly weaponId?: string;
   readonly hp: OperationBoundedValueDef;
   readonly resources?: Readonly<Record<string, OperationBoundedValueDef>>;
   readonly teamId?: string;
@@ -80,6 +84,12 @@ export interface OperationPlayerSceneCardDef {
   readonly playerCost: number;
   readonly timing: 'scene';
   readonly copies: number;
+  readonly title?: string;
+  readonly description?: string;
+  /** required cards are optional player choices; fixed cards auto-join every Scene batch. */
+  readonly selectionPolicy?: 'required' | 'fixed';
+  /** selected-student requires a student; none is actorless; optional-student allows either an actorless use or a qualified student. */
+  readonly performerPolicy?: 'selected-student' | 'none' | 'optional-student';
 }
 
 export interface OperationPlayerSceneDeckDef {
@@ -110,6 +120,7 @@ export interface OperationActionCostDef {
 export type OperationActionEffectDef =
   | { readonly kind: 'actorHpDelta'; readonly recipient: 'actor' | 'target'; readonly amount: number }
   | { readonly kind: 'actorResourceDelta'; readonly recipient: 'actor' | 'target'; readonly resourceId: string; readonly amount: number }
+  | { readonly kind: 'actorPosition'; readonly recipient: 'actor' | 'target'; readonly positionId: string }
   | { readonly kind: 'teamResourceDelta'; readonly recipient: 'actorTeam' | 'targetTeam'; readonly resourceId: string; readonly amount: number }
   | { readonly kind: 'eventTrackDelta'; readonly trackId: string; readonly amount: number }
   | { readonly kind: 'eventFact'; readonly factId: string; readonly op: 'reveal' | 'forget' }
@@ -118,10 +129,17 @@ export type OperationActionEffectDef =
 /** Top-level reusable Action. Targets, requirements and effects have one authoritative home. */
 export interface OperationActionDef {
   readonly id: string;
+  /** Author-facing canonical name used when no Scene wrapper overrides it. */
+  readonly title: string;
+  readonly description?: string;
   readonly allowedParticipantKinds: readonly OperationActorKind[];
   readonly requiredCapabilityIds: readonly string[];
   readonly reasonIds: readonly string[];
   readonly tagIds: readonly string[];
+  /** Open Operation-local preference tags; deliberately separate from Combination tagIds. */
+  readonly strategyTagIds?: readonly string[];
+  /** Additional finite legality filter for Character Hand candidates. */
+  readonly cardCondition?: OperationCardConditionDef;
   readonly cost?: OperationActionCostDef;
   readonly target: OperationActionTargetDef;
   readonly effects: readonly OperationActionEffectDef[];
@@ -145,6 +163,8 @@ export interface OperationRouteEdgeDef {
   readonly label: string;
   readonly description: string;
   readonly requiredHeldItemId?: string;
+  /** The route is available when the player holds at least one of these Event items. */
+  readonly anyOfHeldItemIds?: readonly string[];
   readonly consumeRequiredHeldItem?: boolean;
 }
 
@@ -156,11 +176,21 @@ export interface OperationSceneActionDef {
   readonly actionId: string;
   readonly scope: OperationSceneActionMode;
   readonly playerCost: number;
+  readonly title?: string;
+  readonly description?: string;
+  /** selected-student requires a student; none is actorless; optional-student allows either an actorless use or a qualified student. */
+  readonly performerPolicy?: 'selected-student' | 'none' | 'optional-student';
+  /** Fixed actions are auto-included and cannot be deselected. */
+  readonly selectionPolicy?: 'required' | 'fixed';
 }
 
 /** Top-level Location. All action and route targets reference full stable IDs. */
 export interface OperationLocationDef {
   readonly id: string;
+  /** Optional finite interaction context for CardPool and Action selectors. */
+  readonly interactionSceneId?: string;
+  readonly activityId?: string;
+  readonly cardPoolIds?: readonly string[];
   readonly enabledActionIds: readonly string[];
   readonly combinationRules: readonly OperationCombinationRuleDef[];
   readonly actionMode?: OperationSceneActionMode;
@@ -172,6 +202,8 @@ export interface OperationLocationDef {
   readonly partialOutcomes?: readonly OperationOutcomeConditionDef[];
   readonly failureConditions?: readonly OperationOutcomeConditionDef[];
   readonly maxBeats?: number;
+  /** Optional per-Location visit ceiling, checked before a route enters this Location. */
+  readonly maxVisits?: number;
   readonly routeEdges: readonly OperationRouteEdgeDef[];
 }
 
@@ -193,7 +225,37 @@ export interface StudentOperationProfileDef {
   readonly actionPriorityIds: readonly string[];
   readonly capabilityIds: readonly string[];
   readonly reasonIds: readonly string[];
+  /** Optional role preference; omitted legacy profiles use neutral bias. */
+  readonly strategyProfileId?: string;
+  /** Character-specific pools, merged with Event and Location pools. */
+  readonly cardPoolIds?: readonly string[];
   readonly randomSkillRuleId?: string;
+}
+
+/**
+ * Finite Operation facts queried by pool activation and candidate legality.
+ * Each supplied list is OR; different fields are AND. Omitted lists are unrestricted.
+ */
+export interface OperationCardConditionDef {
+  readonly sceneIds?: readonly string[];
+  readonly activityIds?: readonly string[];
+  readonly positionIds?: readonly string[];
+  readonly weaponIds?: readonly string[];
+  readonly requiredFactIds?: readonly string[];
+  readonly forbiddenFactIds?: readonly string[];
+}
+
+/** Open tag-to-weight preferences owned by one Character Operation Profile. */
+export interface OperationStrategyProfileDef {
+  readonly id: string;
+  readonly biases: readonly { readonly tagId: string; readonly biasBps: number }[];
+}
+
+/** A reusable source of weighted Operation Actions, activated by a finite selector. */
+export interface OperationCardPoolDef {
+  readonly id: string;
+  readonly selector?: OperationCardConditionDef;
+  readonly entries: readonly { readonly actionId: string; readonly weight: number }[];
 }
 
 /** Embedded finite Commit-time skill rule; no callback or player PlayerCost. */
@@ -218,6 +280,10 @@ export interface OperationEventContentDef {
   readonly factIds: readonly string[];
   readonly knownFactIds: readonly string[];
   readonly itemIds: readonly string[];
+  /** Pools available to every student in this Event. */
+  readonly cardPoolIds?: readonly string[];
+  /** Per-student hand size; defaults to 3 and is validated in [1, 10]. */
+  readonly characterHandSize?: number;
   readonly heldItemIds: readonly string[];
   readonly objectives?: readonly OperationObjectiveDef[];
   readonly partialOutcomes?: readonly OperationOutcomeConditionDef[];

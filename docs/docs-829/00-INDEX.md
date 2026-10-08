@@ -18,6 +18,7 @@ Arona Clicker 由声明式 Datapack 提供内容，产品 Runtime 组合通用 E
 
 | 想了解 | 阅读 |
 | --- | --- |
+| 第一次接触项目，从哪里开始 | [[docs/docs-829/01-architecture/first-read]] |
 | 系统概览、依赖方向与运行流 | [[docs/docs-829/01-architecture/overview]] |
 | 模块职责与源码入口 | [[docs/docs-829/02-modules/00-index]] |
 | 按大模块浏览分功能 Wiki | [[docs/docs-829/06-wiki/00-index]] |
@@ -31,7 +32,7 @@ Arona Clicker 由声明式 Datapack 提供内容，产品 Runtime 组合通用 E
 | --- | --- |
 | 改实体字段或枚举 | [[docs/docs-829/05-conventions/schema-sync]] |
 | 改状态归属 / Init 快照 | [[docs/docs-829/03-data-structures/player-state]] |
-| 改状态写入或事件联动 | [[docs/docs-829/04-mechanisms/state-mutation]]、[[docs/docs-829/04-mechanisms/effect-trigger]] |
+| 改状态写入或事件联动 | [[docs/docs-829/04-mechanisms/state-mutation]]、[[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]] |
 | 改 UI 刷新、命令或表现 | [[docs/docs-829/06-wiki/50-ui/00-index]] |
 | 写或调整测试 | [[docs/docs-829/05-conventions/testing]] |
 

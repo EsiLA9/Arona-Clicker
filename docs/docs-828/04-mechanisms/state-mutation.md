@@ -6,7 +6,7 @@
 
 ## 当前主题入口
 
-- [[docs/docs-829/04-mechanisms/arona-clicker/state-mutation]]
+- [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/state-mutation]]
 
 ## 只读历史原文
 

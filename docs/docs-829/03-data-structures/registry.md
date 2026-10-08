@@ -2,6 +2,8 @@
 
 本文回答 Registry 保存哪些声明表、身份如何组织，以及查询索引如何对应主表。
 
+Registry 可以理解为运行时的“内容目录”：包管理层把已启用的 Datapack 按顺序交给它，Registry 校验后把定义放进按 ID 查询的表里。它不负责读取文件、决定启用哪些包，也不保存玩家游玩进度；包流程见 [[docs/docs-829/06-wiki/20-data-services/datapack-flow]]，玩家进度见 [[docs/docs-829/03-data-structures/player-state]]。
+
 Registry 的主数据以 Map 按定义 ID 保存；`Registry.load()` 根据 `Datapack` 契约逐表合并。必需表由 `Datapack` 声明为数组，可选表在未声明时按空表处理。完整表清单以 `src/data-services/registry/registry.ts` 的 `tableSteps` 和字段为准。
 
 ## 定义表
@@ -23,5 +25,11 @@ Spot 支持受控的 create、replace、delete、suspend、resume 操作，返�
 ## 路由
 
 - 契约与可选表：[[docs/docs-829/03-data-structures/datapack-contracts]]
-- 包合并行为：[[docs/docs-829/04-mechanisms/data-services/pack-loading]]
+- 包合并行为：[[pack-loading]]
 - Spot/Area/Init 查询与协作：[[docs/docs-829/06-wiki/20-data-services/registry]]
+
+## 从哪里核对
+
+- `src/data-services/registry/registry.ts`：`Registry.load()` 校验后登记定义；`merge()` 通过共享的 `tableSteps` 合并各表；`clear()` 使用相同步骤清空；`validate()` 只校验、不提交。
+- `tests/engine/registry.test.ts`：`should build relationship indices` 验证 Init→Area、Area→Spot 查询索引；`should merge multiple datapacks` 验证多包合并；`should reject duplicate IDs`、`should reject broken references` 验证拒绝条件。
+- `tests/data/registry-spot-mutation.test.ts`：覆盖 Spot 的受控新增、替换、删除与索引/来源维护。Map 的后载覆盖规则与运行时内容目录不是同一套入口。

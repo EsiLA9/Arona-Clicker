@@ -8,6 +8,10 @@
 
 ## 当前推进
 
+### GALHCG 节点提取与职责聚合
+
+- [[task-0250-galhcg-node-extraction-and-responsibility-aggregation]]：由 Luna 子代理提取 Operation/Workspace Renderer 的具体职责、聚合领域/Engine/UI 子分区并维护粒度协议；主代理复核映射守恒与查询验收。
+
 ### 玩法 B 接入 AC：V1 已完成
 
 - 玩法 B V1 的 Runtime、独立内容包、三栏入口、路线、玩家场景牌、结局、奖励和续局已完成；后续产品扩展另立 Task，不沿用已关闭 Task 的“下一阶段”描述。
@@ -23,12 +27,30 @@
 
 ### 玩法 B Operation 卡牌交互
 
+- [[task-0249-gameplay-b-operation-workspace-panels-and-map-popup]]：已实现经典三栏面板、右栏敌人/背景持有物切换、一次性流内地图卡片和默认关闭/可拖拽的大图浮窗；定向 UI 测试与类型检查通过，待人工视口检查布局和遮挡。
+
 - [[task-0232]]：按用户偏好完成学生行动归属、场景批次卡片交互、中心结果流与路线摘要；U0–U3 实现、当前机制文档和 GALHCG 已分阶段提交。仍待 Edge 实际流程与现场键盘验收；Task 不包含原 Demo 真牌面 / 拖拽复刻。
 - [[task-0234-gameplay-b-demo-card-surface]]：U0 检查入口、U1/U2 真牌面与目标交互均已完成并通过独立严格审查；U3 Edge 常规 / 窄窗口与现场键盘验收、最终 GALHCG 写后核验仍待完成。保留现有 OperationView 与 Runtime 批次语义。
 - [[task-0236-gameplay-b-typed-action-cards-and-target-layers]]：调查并约束学生战术牌目标集合，改用人物右侧替代真牌层与拖放目标，整理 z 轴并在角色卡显示 HP / sCost；U0/U1 实现、独立严格审查与 IAB 常规 / 窄视口验收已完成，待 Edge 常规 / 窄视口实测后关闭。
+- [[archive/task-0248-gameplay-b-scene-card-activation-progression-and-links]]：已实现 optional-student 场景牌、部分选择与空批次跳过、Cost 上限结算，以及按方位择边的卡牌关系线。
+- [[task-0240-gameplay-b-operation-card-presentation-and-action-targeting]]：收敛 Operation 行动牌呈现与目标表达，隔离 SceneAction / 战斗候选；主要源码实现已落地，定向测试与浏览器验收待完成。
+- [[archive/task-0245-gameplay-b-operation-scene-card-performer-target-cost-model]]：已完成 Operation 场景选项的免执行者/目标/费用分离、fixed/required 语义、内容文案投影和统一卡片表现；保留现有 Scene 批次语义，群体目标、M/N Offer、商店与编辑器体验留后续。
+- [[archive/task-0241-gameplay-b-strategy-pools-and-interaction-context]]：已完成 Operation 角色倾向、CardPool 合并、角色 Hand 抽取、12 地点相似玩法实例与无浏览器 headless 虚拟回放；包括 Engine/D1/D2 证据与 GALHCG 闭环。
+
+### Code Review 后续修复：待施工
+
+- [[task-0237-event-bus-flush-exception-recovery]]：修复 EventBus 订阅者在 flush 中抛错后永久停止派发的问题，并定义剩余批次行为。
+- [[task-0238-remove-stale-architecture-check-exemptions]]：清除架构检查器对两个已不存在 Engine 路径的整文件豁免。
 
 ## 近期完成
 
+- [[archive/task-0246-gameplay-b-unified-actor-card-interface]]：统一 Operation 角色持牌投影与 SceneAction / PlayerSceneCard 执行者分配、目标预览、拖放和键盘路径；保留三种牌源的 Runtime 费用与结算边界，定向测试、类型检查、机制文档和 GALHCG 闭环完成。
+- [[archive/task-0247-gameplay-b-card-drag-target-and-semantic-audit]]：外部牌挂靠后以经典卡牌拖放选择合法目标、单击退出；全量核对 36 个 ActionDef 的语义、效果和目标，并修正已确认的内容错配。
+- [[archive/task-0244-gameplay-b-demo-graph-map-near-complete-port]]：移植并接通 13 地点 Strategy Park 地图与 Office 入口，展示全图及分支/Gate/访问上限，保留三场经典 Operation 战斗并完成确定性无浏览器回放。
+- [[archive/task-0243-gameplay-b-carousel-action-replacement-and-reentry]]：修复目标型备选行动的鼠标替换路径，并移除无重置规则的旋转木马重复战斗回路。
+- [[archive/task-0242-gameplay-b-carousel-entry-and-scene-submit]]：修正正式旋转木马样例的 Hand/OperationView 投影不一致，增加受限返回战斗路线，标明流程阶段，并将现场行动收敛为一次确认提交。
+- [[archive/task-0235-newcomer-oriented-project-code-review]]：完成 15 个并行 Patch Unit，按源码与测试证据修订架构、模块、数据、机制及六区 Wiki；建立从总入口可达的人类与 Agent 共用新人首读路线，并另立 EventBus P2 与架构检查 P3 修复 Task。
+- [[archive/task-0233-mini-console-content-grants]]：为 Gameplay B 本地测试扩展严格三段式 `getValue modid:typeid:itemid [valueNum]`，支持 resource/chara/spot；定向测试、类型检查与浏览器验收通过。
 - [[archive/task-0230-contacts-story-workspace-titlebar-convergence]]：通讯录与故事复用默认中栏等高标题区，以本地 SVG 返回键替代长文本并移除 eyebrow；定向测试与类型检查通过。
 - [[archive/task-0229-unified-theme-contribution-and-background-rendering]]：统一主题来源、派生画布底层与渲染，提供面向编辑态 Datapack 主题的 owner-aware 预览和保存服务。
 - [[archive/draft-0212-gameplay-b-ac-native-design-roadmap]]：Gameplay B V1 设计身份、规则裁定与阶段来源；实现以当前机制文档为准。

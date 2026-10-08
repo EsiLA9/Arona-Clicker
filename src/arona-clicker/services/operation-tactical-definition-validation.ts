@@ -44,6 +44,11 @@ function validateOperationActionEffect(value: unknown, path: string, issues: str
       if (value.recipient !== 'actor' && value.recipient !== 'target') issues.push(path + '.recipient must be actor or target');
       if (!isNonEmptyId(value.resourceId)) issues.push(path + '.resourceId must be a non-empty ID');
       break;
+    case 'actorPosition':
+      rejectUnsupportedFields(value, ['kind', 'recipient', 'positionId'], path, issues);
+      if (value.recipient !== 'actor' && value.recipient !== 'target') issues.push(path + '.recipient must be actor or target');
+      if (!isNonEmptyId(value.positionId)) issues.push(path + '.positionId must be a non-empty ID');
+      break;
     case 'teamResourceDelta':
       rejectUnsupportedFields(value, ['kind', 'recipient', 'resourceId', 'amount'], path, issues);
       if (typeof value.amount !== 'number' || !Number.isFinite(value.amount)) issues.push(path + '.amount must be a finite number');
@@ -83,9 +88,25 @@ export function validateOperationActionDef(value: unknown): readonly string[] {
   const issues: string[] = [];
   if (!isRecord(value)) return ['action definition must be an object'];
   rejectUnsupportedFields(value, [
-    'id', 'allowedParticipantKinds', 'requiredCapabilityIds', 'reasonIds', 'tagIds', 'cost', 'target', 'effects',
+    'id', 'title', 'description', 'allowedParticipantKinds', 'requiredCapabilityIds', 'reasonIds', 'tagIds', 'strategyTagIds', 'cardCondition', 'cost', 'target', 'effects',
   ], 'action', issues);
   if (!isNonEmptyId(value.id)) issues.push('id must be a non-empty Action ID');
+  if (!isNonEmptyId(value.title)) issues.push('title must be a non-empty author-facing Action title');
+  if (value.description !== undefined && typeof value.description !== 'string') issues.push('description must be a string');
+
+  if (value.cardCondition !== undefined) {
+    if (!isRecord(value.cardCondition)) {
+      issues.push('cardCondition must be a finite Operation CardCondition object');
+    } else {
+      const condition = value.cardCondition;
+      const conditionPath = 'cardCondition';
+      const fields = ['sceneIds', 'activityIds', 'positionIds', 'weaponIds', 'requiredFactIds', 'forbiddenFactIds'] as const;
+      rejectUnsupportedFields(condition, fields, conditionPath, issues);
+      for (const field of fields) {
+        if (condition[field] !== undefined) collectIds(condition[field], conditionPath + '.' + field, issues);
+      }
+    }
+  }
 
   const allowedKinds = collectIds(value.allowedParticipantKinds, 'allowedParticipantKinds', issues);
   if (allowedKinds.size === 0) issues.push('allowedParticipantKinds must contain at least one participant kind');
@@ -97,6 +118,7 @@ export function validateOperationActionDef(value: unknown): readonly string[] {
   collectIds(value.requiredCapabilityIds, 'requiredCapabilityIds', issues);
   collectIds(value.reasonIds, 'reasonIds', issues);
   collectIds(value.tagIds, 'tagIds', issues);
+  if (value.strategyTagIds !== undefined) collectIds(value.strategyTagIds, 'strategyTagIds', issues);
 
   if (value.cost !== undefined) {
     if (!isRecord(value.cost)) {

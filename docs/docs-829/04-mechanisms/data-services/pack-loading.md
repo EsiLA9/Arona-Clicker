@@ -2,6 +2,8 @@
 
 本文回答一个包如何从文件来源成为运行时内容，以及包内校验和启用集校验的边界。
 
+可以先把它看成四步：**读取文件 → 解析为 Datapack → PackManager 选出启用集 → Runtime 将整组内容应用到 Registry**。`PackManager` 管理包记录和启用选择；`Registry` 是 Runtime 供服务查询已装入定义的表。它们不是同一份数据。
+
 ## 解析
 
 `parsePack()` 从 `PackSource` 列出条目，要求根目录 `datapack.json`，解析 manifest 后读取 JSON 分片并合并为 `Datapack`；支持的图片文件会读为资源 URL。manifest 与分片的 `name`、`version` 必须相同，manifest 的 `modName` 覆盖到 Datapack。ZIP 入口先构造 ZIP 来源，再复用同一解析流程。解析错误会带文件路径（可得时）。
@@ -16,7 +18,9 @@
 
 Gameplay B V1 另有独立的可选 bundle `gameplay-b@1.0.0`，由 Runtime 装配 `content/operation-samples/gameplay-b-datapack.ts` 并依赖 `base`。首次发现此包时默认启用；快照已记录该包、Pane 已有明确选择，或已有同 Mod 启用项时不覆盖玩家选择。正式 Operation Event 因而进入现有 PackManager / Registry 流程，base 内容表不重复包含演示 Event。
 
-恢复包库快照时，`base` 与 Gameplay B 的同 ID 已保存 `bundle` 记录都以当前打包内容为准进行刷新，保留记录身份、导入时间和包选择；独立的编辑态副本不随发布 bundle 刷新。若发布版本 ID 更新，旧版本 `bundle` 记录会被新发布包替换；原快照启用的是旧发布包时转而启用新版本，启用的是编辑态记录时则保留该用户选择。若玩家曾明确停用 Gameplay B bundle，恢复时保持停用。
+13 地点 Strategy Park 验证样例由独立 bundle `gameplay-b-strategy-park@1.0.0` 装配 `content/operation-samples/gameplay-b-strategy-park.ts`，与 Carousel 保持分包但默认一同启用，保留同一 Registry / Operation Runtime 路径，并从夏莱办公室试玩入口按 Event ID 启动。包被明确停用后，PackManager 恢复时仍尊重保存选择。
+
+恢复包库快照时，`base` 与两份 Gameplay B 同 ID 已保存 `bundle` 记录都以当前打包内容为准进行刷新，保留记录身份、导入时间和包选择；独立的编辑态副本不随发布 bundle 刷新。若发布版本 ID 更新，旧版本 `bundle` 记录会被新发布包替换；原快照启用的是旧发布包时转而启用新版本，启用的是编辑态记录时则保留该用户选择。若玩家曾明确停用其中一个 Gameplay B bundle，恢复时保持停用。
 
 保留原 TypeScript 内容模块的同时，可运行 `npm run datapack:export-base` 生成标准 Base 文件夹包，默认位于 `datapack/base@<Version>/`。导出包含 manifest、JSON 分片和图片资源；图片引用转为包内 `zip:` 路径。该目录是从现有 TypeScript 内容重新生成的包产物，不会替换 Runtime 当前读取的 JSON 发布资源。导出测试会经 `FolderPackSource` / `parsePack()` 解析并与 TS 组合逐字段比较。
 
@@ -29,3 +33,9 @@ Gameplay B V1 另有独立的可选 bundle `gameplay-b@1.0.0`，由 Runtime 装�
 应用计划按包顺序产生 Datapack 列表，调用目标的 `reload(datapacks)`，清除旧图片资源，再按包登记新图片。目标可提供 capture/restore；应用中抛错时，若存在快照及 restore，则尝试恢复并向上抛出原始错误。PackManager 对 Runtime Apply 与普通启用配置均沿目标接口委派 Registry 重载，具体 Runtime 目标由调用方装配。
 
 完整协作关系见 [[docs/docs-829/06-wiki/20-data-services/datapack-flow]]；表合并语义见 [[docs/docs-829/03-data-structures/registry]]。
+
+## 入口与验证
+
+- 源码：`src/data-services/datapack/pack-parser.ts`、`pack-manager.ts`、`source.ts`；产品启用集入口：`src/arona-clicker/runtime.ts:applyEnabledPacks()`。
+- 测试：`tests/data/pack-source.test.ts`、`pack-parser.test.ts`、`pack-manager.test.ts`；产品 bundle 与 Registry 装载：`tests/engine/arona-runtime-pack.test.ts`。
+- 往上看产品启动：[[docs/docs-829/01-architecture/run-logic]]；按问题浏览装载与作者流程：[[docs/docs-829/06-wiki/20-data-services/00-index]]。

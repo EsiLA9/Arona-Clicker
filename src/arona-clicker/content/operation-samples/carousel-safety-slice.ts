@@ -126,6 +126,8 @@ const studentProfiles: readonly StudentOperationProfileDef[] = [
 const actionDefinitions: readonly OperationActionDef[] = [
   {
     id: IDS.actions.brace,
+    title: '压住制动杆',
+    description: '稳住设备；与芹香的节奏信号可形成合流。',
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:brace-the-brake'],
@@ -135,6 +137,8 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
   {
     id: IDS.actions.emergencyStop,
+    title: '紧急停机',
+    description: '消耗星野 1 点体力，危险度 -4；会放弃制动合流。',
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: ['gameplay-b:operation-capability:frontline-protection'],
     reasonIds: ['gameplay-b:operation-reason:emergency-stop'],
@@ -145,6 +149,8 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
   {
     id: IDS.actions.signal,
+    title: '节奏信号',
+    description: '降低危险度，并可与制动动作形成合流。',
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:signal-rhythm'],
@@ -154,6 +160,8 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
   {
     id: IDS.actions.crowdGuide,
+    title: '疏导游客',
+    description: '消耗小组 1 点协调资源，危险度 -3；无法参与制动合流。',
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: ['gameplay-b:operation-capability:crowd-coordination'],
     reasonIds: ['gameplay-b:operation-reason:guide-the-crowd'],
@@ -164,6 +172,8 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
   {
     id: IDS.actions.shield,
+    title: '护住设备外框',
+    description: '保护关键目标。',
     allowedParticipantKinds: ['student'],
     requiredCapabilityIds: ['gameplay-b:operation-capability:precision'],
     reasonIds: ['gameplay-b:operation-reason:shield-the-frame'],
@@ -173,15 +183,19 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
   {
     id: IDS.actions.sabotage,
+    title: '破坏安全闩',
+    description: '破坏旋转木马安全闩，扣除 1 点设备耐久。',
     allowedParticipantKinds: ['opponent'],
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:sabotage-the-latch'],
     tagIds: [],
-    target: { kind: 'actor', relation: 'any' },
+    target: { kind: 'actor', relation: 'any', allowedActorIds: TARGET_RIDE },
     effects: [{ kind: 'actorHpDelta', recipient: 'target', amount: -1 }],
   },
   {
     id: IDS.actions.alarm,
+    title: '制造混乱',
+    description: '推高现场危险度。',
     allowedParticipantKinds: ['opponent'],
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:raise-an-alarm'],
@@ -191,6 +205,8 @@ const actionDefinitions: readonly OperationActionDef[] = [
   },
   {
     id: IDS.actions.surge,
+    title: '机械惯性',
+    description: '旋转仍会推高危险度。',
     allowedParticipantKinds: ['environment'],
     requiredCapabilityIds: [],
     reasonIds: ['gameplay-b:operation-reason:mechanical-surge'],

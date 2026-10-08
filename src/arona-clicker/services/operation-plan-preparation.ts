@@ -234,6 +234,7 @@ function validateStudentCandidateRows(
   actorId: string,
   profile: OperationStudentProfileSnapshot,
   actionsById: ReadonlyMap<string, OperationActionDef>,
+  handActionIds?: readonly string[],
 ): readonly OperationActionCandidateSnapshot[] {
   const candidateIds = profile.candidateActionIds;
   if (!Array.isArray(candidateIds) || !Array.isArray(profile.actionPriorityIds)
@@ -303,7 +304,25 @@ function validateStudentCandidateRows(
   } else if (profile.fallback !== undefined) {
     fail('content.actors[' + actorId + '].profile must omit fallback when an Action is eligible');
   }
-  return rows;
+  if (handActionIds === undefined) return rows;
+  if (!Array.isArray(handActionIds) || handActionIds.some(id => !isNonEmptyId(id))
+    || new Set(handActionIds).size !== handActionIds.length) {
+    fail('snapshot.studentActionIdsByActorId[' + actorId + '] must contain unique stable Action IDs');
+  }
+  const capabilities = new Set(profile.capabilityIds);
+  return handActionIds.map(actionId => {
+    const action = actionsById.get(actionId);
+    if (!action) fail('Character Hand references a missing Action for ' + actorId + ': ' + actionId);
+    if (!action.allowedParticipantKinds.includes('student')) fail('Character Hand Action does not allow students: ' + actionId);
+    const missingCapabilityIds = action.requiredCapabilityIds.filter(id => !capabilities.has(id));
+    return {
+      actionId,
+      eligible: missingCapabilityIds.length === 0,
+      requiredCapabilityIds: [...action.requiredCapabilityIds],
+      missingCapabilityIds,
+      reasonIds: unique([...profile.reasonIds, ...action.reasonIds]),
+    };
+  });
 }
 
 function candidateActionsForActor(
@@ -311,12 +330,13 @@ function candidateActionsForActor(
   participantKind: OperationActorKind,
   initialization: OperationActorInitialization,
   actionsById: ReadonlyMap<string, OperationActionDef>,
+  handActionIds?: readonly string[],
 ): { readonly source: 'student-profile' | 'participant'; readonly candidates: readonly CandidateAction[]; readonly staticWaitReasons?: readonly string[] } {
   if (participantKind === 'student') {
     if (initialization.participantKind !== 'student') fail('trusted initialization kind mismatch for student ' + actorId);
     const profile = initialization.profile;
     if (profile.characterId !== initialization.characterId) fail('student Profile Character mismatch for ' + actorId);
-    const rows = validateStudentCandidateRows(actorId, profile, actionsById);
+    const rows = validateStudentCandidateRows(actorId, profile, actionsById, handActionIds);
     const candidates = rows.filter(row => row.eligible).map(row => ({
       action: actionsById.get(row.actionId)!,
       reasonIds: unique(row.reasonIds),
@@ -451,6 +471,17 @@ export function prepareOperationBeat(
   const indexes = indexPreparationInputs(snapshot, content);
   const currentLocation = content.eventDefinition.locations.find(location => location.id === snapshot.currentLocationId);
   const enabledActionIds = new Set(currentLocation?.enabledActionIds ?? []);
+  const handMap = snapshot.studentActionIdsByActorId;
+  if (handMap !== undefined) {
+    if (!isRecord(handMap)) fail('snapshot.studentActionIdsByActorId must be an actor-keyed object');
+    for (const [actorId, hand] of Object.entries(handMap)) {
+      const actor = indexes.actorsById.get(actorId);
+      if (!actor || actor.participantKind !== 'student') fail('snapshot Character Hand references an unknown/non-student Actor: ' + actorId);
+      if (!Array.isArray(hand) || hand.some(actionId => !isNonEmptyId(actionId)) || new Set(hand).size !== hand.length) {
+        fail('snapshot.studentActionIdsByActorId[' + actorId + '] must contain unique stable Action IDs');
+      }
+    }
+  }
 
   const actorBalances = new Map<string, Map<string, DecimalParts>>();
   for (const [actorId, actor] of indexes.actorsById) {
@@ -471,6 +502,7 @@ export function prepareOperationBeat(
       actorState.participantKind,
       initialization,
       indexes.actionDefinitionsById,
+      handMap && Object.prototype.hasOwnProperty.call(handMap, actorId) ? handMap[actorId] : undefined,
     );
 
     if (candidateSet.candidates.length === 0) {

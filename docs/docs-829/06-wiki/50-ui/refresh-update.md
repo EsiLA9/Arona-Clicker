@@ -1,21 +1,32 @@
-# 06-wiki/50-ui/refresh-update — 刷新与增量更新
+# 06-wiki/50-ui/refresh-update — 按影响范围更新 DOM
 
-> 本文回答：状态变化时，UI 怎样选择更新范围并阻止过期 DOM 更新。
+状态变化后，UI 不需要总是重建整页。DOM 更新有不同范围：改已有节点中的值、替换一个元素或内容区域、刷新一个 Workspace，或在页面身份 / 结构变化时重建整个 App。**DOM** 是浏览器里的界面节点树。
 
-## 更新层级
+## 更新范围从窄到宽
 
-控制器提供整页 `render()`、`refreshPanels()`、轻量刷新和工作区区域刷新；更细的更新通过 `UIUpdateDispatcher` 调度。请求分为行为补丁、元素替换、命名区域刷新、工作区结构重建和应用结构重建。控制器记录各类更新命中、未命中和丢弃计数，便于观察刷新路径。
+| 范围 | 作用 | 例子 |
+| --- | --- | --- |
+| behavior | 只改已挂载节点的文本、class 或属性 | Tick 更新资源数字、产出文本。 |
+| element | 重画一个已有语义身份的元素 | 替换一个 Spot 卡片或 Area 导航项。 |
+| region / panel | 替换明确的内容区域 | 更新某个面板、日志或 Operation region。 |
+| structure | 重建 Workspace 或整个 `#app` | 页面路由、工作区 owner 或结构改变。 |
 
-`UIUpdateDispatcher` 在微任务中合并相同身份的请求，过滤失效 Surface token，并优先处理结构、区域、元素、行为更新。应用结构更新会覆盖同批更新；工作区结构更新覆盖较窄的更新；已刷新的区域会抑制其子宿主上的元素/行为更新。控制器对商店区域批量合并后应用。
+这是可选的刷新范围，实际采用哪种取决于调用入口是否能找到稳定节点、该区域内容集合是否变化以及对应回退路径。`UIController.render()` 会重建 `#app`；`refreshPanels()` 尽可能只替换目标 Panel，并在特定 Workspace 上调用其专用区域刷新；`refreshLight()` 通过已有 behavior patch 改数值。任何单个控制器方法都不意味着“所有更新都走同一条 dispatcher”。
 
-行为补丁只处理已挂载节点中的明确语义值，当前注册项包括资源数值、资源增益和 Spot 产出。元素更新针对 Spot 卡、强化卡和 Area 导航项；找不到宿主或节点时会回报未应用，由调用方按需采用更大范围刷新。
+## Dispatcher 怎样合并请求
 
-## 事件与节流
+`src/ui/update/ui-update-dispatcher.ts` 按更新身份合并同一微任务中的重复请求，先检查 Surface token 是否仍有效，再按结构、区域、元素、行为的顺序处理。App 结构更新覆盖同批次的窄更新；Workspace 结构更新也覆盖其下窄更新；区域更新可压掉同宿主及子宿主的元素 / behavior 请求。控制器通过稳定宿主 ID 找目标；目标不存在时专用调用方可选择面板或结构回退。
 
-`controller-events.ts` 将游戏事件映射到适合的更新范围；`controller-core.ts` 处理揭示变化和轻量刷新。定时轻量刷新用于持续变化的读数，聊天打字状态变化只刷新聊天面板。结构或工作区身份改变时需要重新渲染；普通值变化优先使用已存在的局部更新入口。
+Surface key / generation 令旧 Workspace 发出的请求不会落入新页面，见 [[docs/docs-829/06-wiki/50-ui/workspace-routing]]。更新请求的四种类型在 `src/ui/update/ui-update-types.ts`；具体已有 DOM 目标的 behavior 在 `ui-behaviors.ts`。
 
-Gameplay B Operation route 进入/退出时更新 Workspace structure。战斗行动、对手 / 设施意图、Individual / Global SceneAction 与每个玩家 `cardInstanceId` 都有独立牌面；牌面按所属人物、共享场地或手牌层锚定。已挂载 Surface 的战斗行动/目标/取消、SceneAction/玩家卡批次暂存与 Commit、路线转场及奖励领取命令经 Controller 获取一次新的 `OperationView`，并提交单一 `workspace.operation` region 请求；region morph 按稳定学生 / opponent / environment / card / route 身份同步内容，保留 Workspace frame、角色卡、主日志流、Action Dock、滚动锚点与可恢复焦点。SceneAction、执行者、目标和玩家卡选择只更新当前 Surface、内存 `OperationSceneDraft` 与总 Cost 预览，不查询 `OperationView`、不写 Run，也不重建 Workspace；Stage 优先从本地草稿构造批次，首次没有草稿时从本次已有 `OperationView` 初始化默认选择，再用同一投影校验后调用既有 Runtime 命令。普通悬停、滚动和焦点不触发 Resolver 或全 Workspace render。战斗行动与目标选择会提交修订命令，因此按单次 region 更新处理。该投影由 `GameReadModel.operationEntry.getView(expectedRunId?)` 窄查询提供，不扩展全局 GameView。
+## 事件怎样选刷新
 
-## 代码与测试
+`src/ui/controller-events.ts` 把引擎事件映射成界面响应：资源、Spot 产出和 Tick 的高频数字由轻量刷新覆盖；可见性变化尝试刷新单张 Spot 卡片 / Area 项，集合发生改变或目标找不到时回退面板更新。应用主题相关事件可以安排结构刷新；单个实体表现事件则调用针对该实体的更新入口。收到事件不等于无条件 `render()`。
 
-更新协议见 `src/ui/update/ui-update-types.ts`，Surface 代次见 `ui-surface.ts`，合并与优先级见 `ui-update-dispatcher.ts`，行为注册见 `ui-behaviors.ts`。Operation 局部更新见 `src/ui/controller.ts` 与 `src/ui/controller-actions-operation.ts`。测试见 `tests/ui/ui-update-dispatcher.test.ts`、`tests/ui/workspace-lifecycle.test.ts`、`tests/ui/gameplay-b-operation-controller.test.ts`。
+项目交互边界还规定，scroll、hover、focus、普通 click 和单项选择默认不得调用全量 render；优先复用 behavior / region 更新并保留无关节点。规范来源：[[docs/ai/frontend-design-project-overlay]]。
+
+## 测试与验证边界
+
+`tests/ui/ui-update-dispatcher.test.ts` 验证重复合并、区域 / 结构优先级及过期 Surface 丢弃；`tests/ui/controller-events.test.ts` 验证事件映射到当前导航、局部区域和主题响应；`tests/ui/workspace-frame.test.ts`、`workspace-lifecycle.test.ts` 覆盖工作区结构 / 生命周期。它们不替代真实浏览器中的视觉或交互验收。
+
+读命令和查询输入：[[docs/docs-829/06-wiki/50-ui/controller-commands]]、[[docs/docs-829/06-wiki/50-ui/read-model-context]]。返回 [[docs/docs-829/06-wiki/50-ui/00-index]]。

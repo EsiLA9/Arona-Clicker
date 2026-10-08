@@ -177,4 +177,27 @@ describe('ScrollManager 聊天流滚动状态', () => {
     expect(secondBody.scrollTop).toBe(108);
     expect(workspaceBody.scrollTop).toBe(999);
   });
+
+  test('工作区列把滚动委托给显式的内部 content-region 时保存和恢复该节点', () => {
+    const sm = new ScrollManager();
+    const leftContent = { scrollTop: 73 };
+    const rightContent = { scrollTop: 129 };
+    const makeColumnBody = (slot: string, content: { scrollTop: number }) => ({
+      dataset: { scrollOwner: 'delegated' },
+      scrollTop: 0,
+      querySelector: (selector: string) => selector === '[data-scroll-owner="content-region"]' ? content : null,
+      closest: (selector: string) => selector === '[data-workspace-column]' ? { dataset: { workspaceColumn: slot } } : null,
+    });
+    const bodies = [makeColumnBody('left', leftContent), makeColumnBody('right', rightContent)];
+    const root = { querySelectorAll: (selector: string) => selector === '.workspace-column__body' ? bodies : [] } as any;
+
+    sm.captureWorkspace(root);
+    leftContent.scrollTop = 0;
+    rightContent.scrollTop = 0;
+    sm.restoreWorkspace(root);
+
+    expect(leftContent.scrollTop).toBe(73);
+    expect(rightContent.scrollTop).toBe(129);
+    expect(bodies.map(body => body.scrollTop)).toEqual([0, 0]);
+  });
 });

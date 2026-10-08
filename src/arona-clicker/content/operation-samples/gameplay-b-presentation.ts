@@ -45,7 +45,7 @@ export const GAMEPLAY_B_PRESENTATION = Object.freeze({
     ...SAFETY_COPY.actions,
     [SCENE.actions.investigate]: { name: '检查控制台', description: '发现员工证并记录设备已检查。' },
     [SCENE.actions.guideCrowd]: { name: '引导游客', description: '消耗 1 点 PlayerCost，改善通道秩序。' },
-    [SCENE.actions.treatTeam]: { name: '全队急救', description: '消耗 2 点 PlayerCost，为全队恢复状态并改善整备度。' },
+    [SCENE.actions.treatTeam]: { name: '全队急救', description: '为每名选定队员恢复 1 点 HP，并降低现场危险度。' },
   },
   sceneActions: {
     [SCENE.sceneActions.inspect]: '检查控制台',

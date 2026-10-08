@@ -13,6 +13,14 @@ Engine 为产品 Runtime 提供通用表达式、事件、效果、派生计算�
 ## 深入阅读
 
 - [[docs/docs-829/03-data-structures/engine-contracts]]：状态查询、Mutation、Evaluation 与事件契约。
-- [[docs/docs-829/04-mechanisms/engine/production]]：Tick 生产结算。
-- [[docs/docs-829/04-mechanisms/engine/effect-trigger]]：Effect、Trigger、Affector 协作。
+- [[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/production]]：Tick 生产结算。
+- [[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]]：Effect、Trigger、Affector 协作。
 - [[docs/docs-829/06-wiki/40-engine/00-index]]：按功能浏览源码与测试。
+
+## 验证入口
+
+- `tests/engine/engine-contracts.test.ts`：验证 Engine 契约可用最小端口装配。
+- `tests/engine/event-bus.test.ts`：验证事件注册、立即派发和 flush 中的队列行为。
+- `tests/engine/trigger-system.test.ts`：验证事件匹配、条件与 Trigger 效果。
+
+这些定向测试覆盖各自列出的行为，不等价于对所有 Engine 子系统的完整证明。

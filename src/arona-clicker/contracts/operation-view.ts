@@ -1,4 +1,4 @@
-import type { EventRun, OperationActorKind } from './operation';
+import type { EventRun, OperationActorKind, OperationCharacterHandSnapshot } from './operation';
 import type { OperationCombinationPreview } from './operation-action';
 import type { OperationActionCostDef } from './operation-action';
 import type { OperationInterventionDraft, OperationPreparedActorPlan, PreparedBeat } from './operation-beat';
@@ -11,6 +11,8 @@ import type { Character } from '../types/ids';
 /** UI-safe candidate row: stable IDs and reasons, without exposing the Action definition. */
 export interface OperationViewActionOption {
   readonly actionId: string;
+  readonly title: string;
+  readonly description: string | null;
   readonly eligible: boolean;
   readonly enabledAtLocation: boolean;
   readonly requiredCapabilityIds: readonly string[];
@@ -52,22 +54,34 @@ export interface OperationViewOutcomeCondition {
 export interface OperationViewSceneAction {
   readonly id: string;
   readonly actionId: string;
+  readonly title: string;
+  readonly description: string | null;
   readonly scope: 'individual' | 'global';
   readonly playerCost: number;
+  readonly selectionPolicy: 'required' | 'fixed';
+  readonly performerPolicy: 'selected-student' | 'none' | 'optional-student';
   readonly eligibleActorIds: readonly string[];
   readonly legalTargetActorIdsByActorId: Readonly<Record<string, readonly string[]>>;
+  /** Absolute ID/type-filtered targets available when none/optional-student is activated in place. */
+  readonly legalActorlessTargetActorIds: readonly string[];
 }
 
 export interface OperationViewSceneCard {
   readonly cardInstanceId: string;
   readonly cardDefId: string;
   readonly actionId: string;
+  readonly title: string;
+  readonly description: string | null;
   readonly playerCost: number;
   readonly timing: 'scene';
+  readonly selectionPolicy: 'required' | 'fixed';
+  readonly performerPolicy: 'selected-student' | 'none' | 'optional-student';
   /** Qualified active Student performers for the card Action in this Run. */
   readonly eligibleActorIds: readonly string[];
   /** Relation-correct Actor targets for each eligible performer; empty when the Action is targetless. */
   readonly legalTargetActorIdsByActorId: Readonly<Record<string, readonly string[]>>;
+  /** Absolute ID/type-filtered targets available when none/optional-student is activated in place. */
+  readonly legalActorlessTargetActorIds: readonly string[];
 }
 
 export interface OperationViewPlayerCards {
@@ -85,6 +99,30 @@ export interface OperationViewRouteOption {
   readonly available: boolean;
   readonly lockedReason: string | null;
   readonly requiredHeldItemId: string | null;
+  readonly anyOfHeldItemIds: readonly string[];
+  readonly consumesHeldItem: boolean;
+}
+
+export interface OperationViewMapNode {
+  readonly locationId: string;
+  readonly visitCount: number;
+  readonly maxVisits: number | null;
+  readonly current: boolean;
+  readonly visited: boolean;
+  readonly completed: boolean;
+}
+
+export interface OperationViewMapEdge {
+  readonly routeId: string;
+  readonly sourceLocationId: string;
+  readonly targetLocationId: string;
+  readonly label: string;
+  readonly description: string;
+  /** Availability is evaluated only for exits from the current Location. */
+  readonly available: boolean | null;
+  readonly lockedReason: string | null;
+  readonly requiredHeldItemId: string | null;
+  readonly anyOfHeldItemIds: readonly string[];
   readonly consumesHeldItem: boolean;
 }
 
@@ -98,8 +136,10 @@ export interface OperationViewActor {
   readonly factionId?: string;
   readonly teamId?: string;
   readonly hp: number;
+  readonly positionId?: string;
   readonly maxHp: number;
   readonly resources: Readonly<Record<string, number>>;
+  readonly characterHand?: OperationCharacterHandSnapshot;
   readonly profile?: {
     readonly id: string;
     readonly capabilityIds: readonly string[];
@@ -136,11 +176,15 @@ export interface OperationView {
   readonly partialOutcomes: readonly OperationViewOutcomeCondition[];
   readonly hardFailureConditions: readonly OperationViewOutcomeCondition[];
   readonly actorStates: readonly OperationViewActor[];
+  readonly actionPresentations: Readonly<Record<string, { readonly title: string; readonly description: string | null }>>;
+  readonly sceneActionPresentations: Readonly<Record<string, { readonly title: string; readonly description: string | null }>>;
+  readonly playerSceneCardPresentations: Readonly<Record<string, { readonly title: string; readonly description: string | null }>>;
   readonly teamStates: EventRun['teamStates'];
   readonly locationProgress: EventRun['locationProgress'];
   readonly routeHistory: readonly OperationRouteTransitionRecord[];
   readonly locationEntryCostHistory: readonly OperationLocationEntryCostRecord[];
   readonly currentRoutes: readonly OperationViewRouteOption[];
+  readonly map: { readonly nodes: readonly OperationViewMapNode[]; readonly edges: readonly OperationViewMapEdge[] };
   readonly totalLocationVisits: number;
   readonly maxLocationVisits: number;
   readonly playerCost: number;

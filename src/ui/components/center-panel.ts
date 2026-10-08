@@ -9,6 +9,7 @@ import { renderBackground } from '../background-service';
 import { renderPresentationRegion } from '../presentation-service';
 import { CAROUSEL_SCENE_ACTION_IDS } from '../../arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { GAMEPLAY_B_PRESENTATION } from '../../arona-clicker/content/operation-samples/gameplay-b-presentation';
+import { GAMEPLAY_B_STRATEGY_PARK_IDS } from '../../arona-clicker/content/operation-samples/gameplay-b-strategy-park-ids';
 import { Character } from '../../arona-clicker/types/ids';
 
 const CENTER_TABS: TabDef[] = [
@@ -99,24 +100,47 @@ export function renderChatTab(
 function renderOperationEntry(ctx: UIContext): string {
   if (ctx.view.activeInit !== 'base:init:schale_office') return '';
   const current = ctx.game.operationEntry.getView();
-  const sameEvent = current?.eventId === CAROUSEL_SCENE_ACTION_IDS.event ? current : null;
   const fixedRoster = [Character.Hoshino, Character.Serika, Character.Shiroko];
-  const admission = ctx.game.operationEntry.getAdmissionSummary(CAROUSEL_SCENE_ACTION_IDS.event, fixedRoster);
-  const label = GAMEPLAY_B_PRESENTATION.event.title;
-  const action = sameEvent
-    ? `<button type="button" class="primary-button" data-operation-resume-run="${ctx.escapeHtml(sameEvent.runId)}"><span>${sameEvent.status === 'inProgress' ? '继续游乐园行动' : '查看行动结论'}</span><span>↗</span></button>`
-    : `<button type="button" class="primary-button" data-operation-start${admission.available ? '' : ' disabled'}><span>${admission.available ? '查看游乐园警报' : '暂不可出动'}</span><span>↗</span></button>`;
-  const roster = admission.participants.map(actor => ctx.escapeHtml(actor.displayName)).join('、');
-  const unavailable = admission.unavailableReason ? `<p class="operation-admission-reason" role="status">${ctx.escapeHtml(admission.unavailableReason)}</p>` : '';
+  const entries = [
+    {
+      eventId: CAROUSEL_SCENE_ACTION_IDS.event,
+      eyebrow: '游乐园 · 设施安全事件',
+      title: GAMEPLAY_B_PRESENTATION.event.title,
+      introduction: GAMEPLAY_B_PRESENTATION.event.introduction,
+      startLabel: '开始旋转木马安全战斗',
+      resumeLabel: '继续旋转木马行动',
+    },
+    {
+      eventId: GAMEPLAY_B_STRATEGY_PARK_IDS.event,
+      eyebrow: 'Gameplay B · 策略园地图试玩',
+      title: '游园巡查：策略园',
+      introduction: '沿游园路线完成探索、交涉、补给与经典战斗。',
+      startLabel: '开始策略园试玩',
+      resumeLabel: '继续策略园试玩',
+    },
+  ];
+  const cards = entries.map(entry => {
+    const admission = ctx.game.operationEntry.getAdmissionSummary(entry.eventId, fixedRoster);
+    const sameEvent = current?.eventId === entry.eventId ? current : null;
+    const anotherRunInProgress = current?.status === 'inProgress' && !sameEvent;
+    const action = sameEvent
+      ? `<button type="button" class="primary-button" data-operation-resume-run="${ctx.escapeHtml(sameEvent.runId)}" data-operation-event-id="${ctx.escapeHtml(entry.eventId)}"><span>${sameEvent.status === 'inProgress' ? entry.resumeLabel : '查看行动结论'}</span><span>↗</span></button>`
+      : `<button type="button" class="primary-button" data-operation-start="${ctx.escapeHtml(entry.eventId)}"${admission.available && !anotherRunInProgress ? '' : ' disabled'}><span>${anotherRunInProgress ? '先处理进行中的行动' : admission.available ? entry.startLabel : '暂不可出动'}</span><span>↗</span></button>`;
+    const roster = admission.participants.map(actor => ctx.escapeHtml(actor.displayName)).join('、');
+    const unavailableReason = anotherRunInProgress ? '当前有一场尚未完成的行动，请先继续或完成它。' : admission.unavailableReason;
+    const unavailable = unavailableReason ? `<p class="operation-admission-reason" role="status">${ctx.escapeHtml(unavailableReason)}</p>` : '';
+    return `
+      <section class="chat-launcher operation-entry-card" data-operation-entry="${ctx.escapeHtml(entry.eventId)}">
+        <span class="operation-eyebrow">${ctx.escapeHtml(entry.eyebrow)}</span>
+        <strong>${ctx.escapeHtml(entry.title)}</strong>
+        <p>${ctx.escapeHtml(entry.introduction)}</p>
+        <p>固定出动：${roster}。试玩不会自动补发角色。</p>
+        ${unavailable}
+        <div class="story-actions">${action}</div>
+      </section>`;
+  }).join('');
   return `
-    <section class="chat-launcher operation-entry-card" data-operation-entry>
-      <span class="operation-eyebrow">游乐园 · 设施安全事件</span>
-      <strong>${ctx.escapeHtml(label)}</strong>
-      <p>${ctx.escapeHtml(GAMEPLAY_B_PRESENTATION.event.introduction)}</p>
-      <p>固定出动：${roster}。试玩不会自动补发角色。</p>
-      ${unavailable}
-      <div class="story-actions">${action}</div>
-    </section>`;
+    <div class="operation-entry-list" data-operation-entries>${cards}</div>`;
 }
 
 function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeCompleted: boolean): string {

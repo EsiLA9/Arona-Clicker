@@ -36,6 +36,10 @@ describe('Gameplay B carousel SceneAction sample', () => {
     let sceneTacticalRandom = run.random;
     let view = game.operationEntry.getView(runId)!;
     expect(view).toMatchObject({ currentLocationId: IDS.locations.platform, currentActionMode: null, playerCost: 5 });
+    for (const actor of view.actorStates.filter(row => row.participantKind === 'student')) {
+      const battleActionIds = actor.profile?.actionOptions.map(option => option.actionId) ?? [];
+      for (const sceneActionId of Object.values(IDS.actions)) expect(battleActionIds).not.toContain(sceneActionId);
+    }
     const scopedActions = [
       { actorId: IDS.actors.hoshino, actionId: CAROUSEL_SAFETY_IDS.actions.brace },
       { actorId: IDS.actors.serika, actionId: CAROUSEL_SAFETY_IDS.actions.signal },
@@ -142,6 +146,24 @@ describe('Gameplay B carousel SceneAction sample', () => {
     expect(() => game.operationEntry.start(IDS.event, STUDENTS)).toThrow(OperationAdmissionError);
   });
 
+  test('the carousel battle is a single encounter and its completed route does not offer a second battle', () => {
+    const game = createAppRuntime();
+    game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
+    games.push(game);
+    for (const student of STUDENTS) game.mutations.acquireCharacter(VARIANTS[student], 'story');
+
+    const runId = game.operationEntry.start(IDS.event, STUDENTS).runId;
+    let run = game.operationEntry.getSnapshot()!;
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.platform);
+    game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    run = game.operationEntry.getSnapshot()!;
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.concourse);
+    const view = game.operationEntry.getView(runId)!;
+    expect(view.currentLocationId).toBe(IDS.locations.concourse);
+    expect(view.locationProgress[IDS.locations.platform]?.completed).toBe(true);
+    expect(view.currentRoutes.some(route => route.targetLocationId === IDS.locations.platform)).toBe(false);
+  });
+
   test('rejects target allowlist IDs that do not reference an Event Actor', () => {
     const nonStudentCandidates = carouselSafetySliceContent.participants.flatMap(participant =>
       participant.kind === 'student' ? [] : [{
@@ -191,7 +213,7 @@ describe('Gameplay B carousel SceneAction sample', () => {
       .toMatch(/allowedActorTypes\[0\] references an Actor type not declared by this Event: carousel-platform/);
   });
 
-  test('the same fixed seed produces a partial outcome when the player preserves the fact but not the safety target', () => {
+  test('the same fixed seed resolves the formal Character Hand and completes the carousel safety objective', () => {
     const game = createAppRuntime();
     game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
     games.push(game);
@@ -221,7 +243,7 @@ describe('Gameplay B carousel SceneAction sample', () => {
       selections: [{ sceneActionId: IDS.sceneActions.firstAid, actorId: IDS.actors.hoshino, targetActorIds: targets }],
     });
 
-    expect(game.operationEntry.getView(runId)).toMatchObject({ status: 'partialSuccess', knownFactIds: [IDS.fact] });
-    expect(game.operationEntry.claimOutcomeReward()).toMatchObject({ status: 'claimed', reward: { amount: 80 } });
+    expect(game.operationEntry.getView(runId)).toMatchObject({ status: 'success', knownFactIds: [IDS.fact] });
+    expect(game.operationEntry.claimOutcomeReward()).toMatchObject({ status: 'claimed', reward: { amount: 200 } });
   });
 });

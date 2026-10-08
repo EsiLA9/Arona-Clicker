@@ -42,6 +42,7 @@ function action(
 ): OperationActionDef {
   return {
     id,
+    title: id,
     allowedParticipantKinds: kinds,
     requiredCapabilityIds: [],
     reasonIds: ['reason:' + id],
@@ -154,6 +155,35 @@ function errorCode(run: () => unknown, expected: string): void {
 }
 
 describe('pure Operation Intervention Draft preview', () => {
+  test('selects an Action from the current Character Hand and rejects a Profile Action outside that Hand', () => {
+    const student = actor('actor:student', 'student');
+    const event = eventDefinition([student], { enabledActionIds: ['student:static', 'student:pool-only'] });
+    const initialization = studentInitialization(student.id, ['student:static']);
+    const actions = [action('student:static', ['student']), action('student:pool-only', ['student'])];
+    const handInput = previewInput(
+      event,
+      [initialization],
+      actions,
+      [{ actorId: student.id, participantKind: 'student', resources: {} }],
+      { actorId: student.id, actionId: 'student:pool-only' },
+    );
+    const snapshotWithHand = {
+      ...handInput.snapshot,
+      studentActionIdsByActorId: { [student.id]: ['student:pool-only'] },
+    };
+    const input = {
+      ...handInput,
+      snapshot: snapshotWithHand,
+      preparedBeat: prepareOperationBeat(snapshotWithHand, handInput.trustedContent),
+    };
+
+    expect(previewOperationIntervention(input).preparedBeat.actorPlans[0].actionId).toBe('student:pool-only');
+    errorCode(() => previewOperationIntervention({
+      ...input,
+      draft: { actorId: student.id, actionId: 'student:static' },
+    }), 'operation:intervention:action-not-in-hand');
+  });
+
   test('action-only Draft uses U4 auto-targeting and leaves every other Actor plan unchanged', () => {
     const student = actor('actor:student', 'student', { targetPriorityActorIds: ['actor:ally'] });
     const ally = actor('actor:ally', 'student');

@@ -7,7 +7,7 @@
 ## 当前主题入口（部分承接）
 
 - [[docs/docs-829/06-wiki/20-data-services/definition-authoring]]
-- [[docs/docs-829/04-mechanisms/data-services/pack-loading]]
+- [[pack-loading]]
 
 ## 只读历史原文
 

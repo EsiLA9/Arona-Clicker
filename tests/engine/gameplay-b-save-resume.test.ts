@@ -75,7 +75,7 @@ describe('Gameplay B Save/Resume', () => {
     expect(resumed.operationEntry.getSnapshot()).toEqual(source.operationEntry.getSnapshot());
   });
 
-  test('restores Location Cost history, physical deck order, tactical RNG and the terminal EventResult', () => {
+  test('restores Location Cost history, physical deck order, independent Hand draws and the terminal EventResult', () => {
     const source = createGame();
     const runId = source.operationEntry.start(IDS.event, STUDENTS).runId;
     let run = enterConcourse(source, runId);
@@ -102,7 +102,7 @@ describe('Gameplay B Save/Resume', () => {
         { visitSequence: 2, locationId: IDS.locations.concourse, costGain: 2, balanceBefore: 3, balanceAfter: 5 },
         { visitSequence: 3, locationId: IDS.locations.exit, costGain: 1, balanceBefore: 2, balanceAfter: 3 },
       ],
-      random: { tacticalCursor: 1 },
+      random: { tacticalCursor: 0 },
     });
     const afterRouteSave = source.save();
 

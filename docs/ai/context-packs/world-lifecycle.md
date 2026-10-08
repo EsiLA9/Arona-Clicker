@@ -8,9 +8,9 @@
 
 | 子题 | 先读 |
 | --- | --- |
-| Lobby / Init 选择 / Runtime 重建 | [[docs/docs-829/01-architecture/run-logic]]、[[docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]] |
-| 世界线状态归属 / 存档 / 恢复 | [[docs/docs-829/03-data-structures/player-state]]、[[docs/docs-829/06-wiki/30-arona-clicker-domain/world-lifecycle]]；涉及写入口时读 [[docs/docs-829/04-mechanisms/arona-clicker/state-mutation]] |
-| Area / Spot 拓扑与访问 | [[docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]]；涉及内容解析时补 [[docs/docs-829/06-wiki/20-data-services/registry]] |
+| Lobby / Init 选择 / Runtime 重建 | [[docs/docs-829/01-architecture/run-logic]]、[[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]] |
+| 世界线状态归属 / 存档 / 恢复 | [[docs/docs-829/03-data-structures/player-state]]、[[docs/docs-829/06-wiki/30-arona-clicker-domain/world-lifecycle]]；涉及写入口时读 [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/state-mutation]] |
+| Area / Spot 拓扑与访问 | [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]]；涉及内容解析时补 [[docs/docs-829/06-wiki/20-data-services/registry]] |
 | Spot 生产结算 | [[docs/ai/context-packs/production]] 中的生产子题 |
 
 每次还要读取 `src/arona-clicker/` 对应 runtime、init 或 save service 及相关测试，不默认读取整个目录。

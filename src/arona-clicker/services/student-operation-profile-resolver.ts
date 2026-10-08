@@ -11,6 +11,7 @@ import type { OperationAdmission, OperationAdmittedParticipant, OperationPartici
 import type { OperationResolvedContent } from '../contracts/operation-content-resolver';
 import type { StudentOperationProfileDef } from '../contracts/student-operation-profile';
 import type { OperationActionDef } from '../contracts/operation-action';
+import type { OperationCardPoolDef, OperationStrategyProfileDef } from '../../data-services/contracts/operation';
 import { validateOperationActorInitializations } from './operation-definition-validation';
 import { validateOperationActionActorReferences, validateOperationActionContent } from './operation-action-content-validation';
 
@@ -42,6 +43,8 @@ function snapshotProfile(
   characterId: string,
   profile: StudentOperationProfileDef,
   actionDefinitions: ReadonlyMap<string, OperationActionDef>,
+  strategyProfiles: ReadonlyMap<string, OperationStrategyProfileDef>,
+  cardPools: ReadonlyMap<string, OperationCardPoolDef>,
 ): OperationStudentProfileSnapshot {
   if (profile.characterId !== characterId) {
     fail('Profile ' + profile.id + ' Character mismatch for actor ' + actorId);
@@ -51,6 +54,10 @@ function snapshotProfile(
   if (declaredCandidateIds.has(OPERATION_WAIT_ACTION_ID)) {
     fail('Profile ' + profile.id + ' uses the reserved Wait fallback action ID as a candidate');
   }
+  const cardPoolIds = [...(profile.cardPoolIds ?? [])];
+  for (const poolId of cardPoolIds) if (!cardPools.has(poolId)) fail('Profile ' + profile.id + ' references missing CardPool ' + poolId);
+  const strategyProfile = profile.strategyProfileId ? strategyProfiles.get(profile.strategyProfileId) : undefined;
+  if (profile.strategyProfileId && !strategyProfile) fail('Profile ' + profile.id + ' references missing StrategyProfile ' + profile.strategyProfileId);
   for (const actionId of declaredCandidateIds) {
     const action = actionDefinitions.get(actionId);
     if (!action) fail('Profile ' + profile.id + ' references missing Action ' + actionId);
@@ -85,6 +92,9 @@ function snapshotProfile(
     actionPriorityIds: [...profile.actionPriorityIds],
     capabilityIds: [...profile.capabilityIds],
     reasonIds: [...profile.reasonIds],
+    ...(profile.strategyProfileId ? { strategyProfileId: profile.strategyProfileId } : {}),
+    strategyBiases: strategyProfile?.biases.map(bias => ({ ...bias })) ?? [],
+    cardPoolIds,
     actionCandidates,
     eligibleActionIds,
     ...(eligibleActionIds.length === 0
@@ -126,6 +136,32 @@ function validateRunStart(runStart: OperationRunStartInput): OperationRunStartIn
     runStart.actors,
   );
   if (actorReferenceIssues.length > 0) throw new StudentOperationProfileResolutionError(actorReferenceIssues);
+  const cardPoolsById = ensureUniqueBy(runStart.operationCardPools ?? [], value => value.id, 'CardPool');
+  const strategiesById = ensureUniqueBy(runStart.operationStrategyProfiles ?? [], value => value.id, 'StrategyProfile');
+  const usedPoolIds = new Set([
+    ...(runStart.eventDefinition.cardPoolIds ?? []),
+    ...runStart.eventDefinition.locations.flatMap(location => location.cardPoolIds ?? []),
+    ...runStart.actors.flatMap(actor => actor.participantKind === 'student' ? actor.profile.cardPoolIds ?? [] : []),
+  ]);
+  for (const poolId of usedPoolIds) if (!cardPoolsById.has(poolId)) fail('RunStart content references missing CardPool ' + poolId);
+  const actionsById = new Map(runStart.actionDefinitions.map(action => [action.id, action]));
+  for (const pool of cardPoolsById.values()) for (const entry of pool.entries) {
+    const action = actionsById.get(entry.actionId);
+    if (!action) fail('CardPool ' + pool.id + ' references missing Action ' + entry.actionId);
+    if (!action.allowedParticipantKinds.includes('student')) fail('CardPool ' + pool.id + ' Action does not allow student participants: ' + entry.actionId);
+  }
+  for (const actor of runStart.actors) {
+    if (actor.participantKind !== 'student') continue;
+    if (actor.profile.strategyProfileId) {
+      const strategy = strategiesById.get(actor.profile.strategyProfileId);
+      if (!strategy) fail('RunStart Profile references missing StrategyProfile ' + actor.profile.strategyProfileId);
+      if (JSON.stringify(actor.profile.strategyBiases ?? []) !== JSON.stringify(strategy.biases)) {
+        fail('RunStart Profile Strategy snapshot differs from StrategyProfile ' + strategy.id);
+      }
+    } else if ((actor.profile.strategyBiases ?? []).length > 0) {
+      fail('RunStart Profile contains Strategy biases without a StrategyProfile ID: ' + actor.profile.id);
+    }
+  }
   return freezeTree({
     ...runStart,
     actionDefinitions: [...content.actionDefinitions],
@@ -152,6 +188,8 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
   const participantsByActorId = ensureUniqueBy(admission.participants, value => value.actorId, 'participant actor');
   const profilesById = ensureUniqueBy(admission.studentProfiles, value => value.id, 'student Profile');
   const actionDefinitions = ensureUniqueBy(admission.actionDefinitions, value => value.id, 'Action');
+  const strategyProfiles = ensureUniqueBy(admission.operationStrategyProfiles ?? [], value => value.id, 'StrategyProfile');
+  const cardPools = ensureUniqueBy(admission.operationCardPools ?? [], value => value.id, 'CardPool');
   ensureUniqueBy(admission.studentSkillRules, value => value.id, 'Student Skill Rule');
   const eventActorIds = new Set(event.actors.map(actor => actor.id));
 
@@ -186,7 +224,7 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
       characterId: participant.characterId,
       displayName: participant.displayName ?? actor.displayName ?? actor.type,
       avatarRef: participant.avatarRef ?? actor.avatarRef ?? null,
-      profile: snapshotProfile(participant.actorId, participant.characterId, profile, actionDefinitions),
+      profile: snapshotProfile(participant.actorId, participant.characterId, profile, actionDefinitions, strategyProfiles, cardPools),
     };
   });
 
@@ -202,6 +240,8 @@ export function resolveOperationRunStart(admission: OperationAdmission): Operati
     actors,
     actionDefinitions: [...admission.actionDefinitions],
     studentSkillRules: [...admission.studentSkillRules],
+    operationCardPools: [...admission.operationCardPools ?? []],
+    operationStrategyProfiles: [...admission.operationStrategyProfiles ?? []],
   };
   return validateRunStart(runStart);
 }
@@ -217,6 +257,8 @@ export function resolveOperationRunResume(
   const participantsByActorId = ensureUniqueBy(content.participants, value => value.actorId, 'participant actor');
   const profilesById = ensureUniqueBy(content.studentProfiles, value => value.id, 'student Profile');
   const actionsById = ensureUniqueBy(content.actionDefinitions, value => value.id, 'Action');
+  const strategyProfiles = ensureUniqueBy(content.operationStrategyProfiles ?? [], value => value.id, 'StrategyProfile');
+  const cardPools = ensureUniqueBy(content.operationCardPools ?? [], value => value.id, 'CardPool');
   ensureUniqueBy(content.studentSkillRules, value => value.id, 'Student Skill Rule');
   const statesByActorId = ensureUniqueBy(run.actorStates, value => value.id, 'saved Actor');
   const actors: OperationActorInitialization[] = event.actors.map(actor => {
@@ -248,7 +290,7 @@ export function resolveOperationRunResume(
       && content.studentProfiles.filter(candidate => candidate.characterId === saved.characterId).length !== 1) {
       fail('saved Student Profile is ambiguous for Character ' + saved.characterId);
     }
-    const expectedProfile = snapshotProfile(actor.id, saved.characterId, profile, actionsById);
+    const expectedProfile = snapshotProfile(actor.id, saved.characterId, profile, actionsById, strategyProfiles, cardPools);
     if (JSON.stringify(expectedProfile) !== JSON.stringify(saved.profile)) {
       fail('saved Student Profile snapshot differs from current content for Actor ' + actor.id);
     }
@@ -271,6 +313,8 @@ export function resolveOperationRunResume(
     actors,
     actionDefinitions: [...content.actionDefinitions],
     studentSkillRules: [...content.studentSkillRules],
+    operationCardPools: [...content.operationCardPools ?? []],
+    operationStrategyProfiles: [...content.operationStrategyProfiles ?? []],
   };
   return validateRunStart(runStart);
 }

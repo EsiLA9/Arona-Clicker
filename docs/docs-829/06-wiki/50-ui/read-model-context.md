@@ -1,19 +1,31 @@
-# 06-wiki/50-ui/read-model-context — 渲染查询上下文
+# 06-wiki/50-ui/read-model-context — 组件的只读查询上下文
 
-> 本文回答：组件从哪里取得游戏数据，以及 UIContext 如何补充表现相关查询。
+组件需要知道当前资源、可见性、区域、角色和表现，才能生成界面。Runtime 通过 GameReadModel 提供查询入口；`createUIContext()` 把常用视图、查询器和格式化 / 表现工具整理成渲染上下文。组件消费这些读取结果，不拥有 PlayerState 的写引用。
 
-## 只读游戏视图
+## 两个读模型
 
-UI 组件读取 `GameReadModel`，由 `game.getView()` 提供面向界面的状态投影。`UIContext` 同时携带 `game`、当前 `world`、`view`、实体展示查询、格式化/转义工具，以及背景和表现查询。`src/ui/context.ts` 的 `createUIContext()` 将这些输入组装成组件渲染所需的上下文。
+`GameReadModel` 定义于 `src/arona-clicker/contracts/runtime.ts`：它包含 `getView()`、可用的目录 / 世界 / 服务查询接口，以及故事和成就等专用投影查询。`getView()` 返回 `GameView`，在 `src/arona-clicker/runtime-game-instance.ts` 通过 `buildGameView()` 生成面向界面的快照；它不返回 PlayerState 本身。
 
-控制器在渲染或局部刷新时创建上下文，再传给 `render*` 组件。上下文暴露的视图是读取面；操作应走 `GameCommands`，不要把可变 Runtime 状态塞进展示组件。
+`UIContext` 是更靠近组件的渲染输入，定义于 `src/ui/context.ts`。`createUIContext(game, background, presentation)` 读取一次 `game.getView()`，并附上 Registry / World 查询、名称格式化、HTML 转义、主题背景、Presentation 宿主状态及实体表现查询。组件可从 `ctx.view` 取这次渲染使用的 GameView，从 `ctx.game` 使用契约暴露的查询方法。对话、Operation 等需要窄投影的区域可以调用专用查询，不必复制进全局 GameView。
 
-## 表现宿主查询
+## “只读”的实际含义
 
-`backgroundForHost(hostId, inheritGlobal, state)` 按宿主与状态解析背景层，可选择继承全局背景；active、inactive、disabled 等状态在缺少专属配置时有各自的回退行为。嵌套宿主可向父级解析配置。
+只读是组件的架构边界：`UIContext.game` 的类型是 `GameReadModel`，它不暴露 `mutations`、命令门面、生命周期或存档写入；Controller 单独拥有 `GameCommands` 并代表界面发起命令。GameView 是视图数据，服务查询接口可以按自身契约读取。不要把 `Readonly<T>` 类型包装误读为深度冻结，也不要在组件里绕开命令接口写游戏状态。
 
-`presentationHostState()` 同时返回宿主背景、合成后的墨色判断和文本颜色模式。颜色模式优先使用精确状态，再读 default 配置并向父宿主回溯；`auto` 在宿主有背景层时按合成背景计算深浅，无自有背景时保留语义色。
+常见链路：
 
-## 代码与测试
+```text
+Controller 开始渲染
+  → createUIContext(game, 背景视图, 表现视图)
+  → ctx.view = game.getView()
+  → render* 组件查询字段并生成 HTML
+  → Controller 把 HTML 挂载或更新到 DOM
+```
 
-上下文定义见 `src/ui/context.ts`；读取协议见 `src/arona-clicker/contracts/`。`tests/ui/context.test.ts` 覆盖背景继承、宿主状态、父级回退、文字颜色和缺少背景时的语义色行为。
+`src/ui/components/` 中的 `render*` 函数消费上下文；局部更新也会重新创建 UIContext，所以组件读取的是更新时的查询结果。控制器刷新 DOM 的具体范围见 [[docs/docs-829/06-wiki/50-ui/refresh-update]]。
+
+## 证明路径与测试边界
+
+`tests/ui/controller-init-select.test.ts` 验证 Init 选择后的 View 反映新会话资源及状态；`tests/ui/context.test.ts` 验证 `createUIContext()` 的背景、宿主状态、父级回退和文字颜色查询。它们分别覆盖 View 消费与 UI 表现查询，不等于验证每一个组件。
+
+View DTO 字段的权威列表：[[docs/docs-829/03-data-structures/game-view]]。输入命令：[[docs/docs-829/06-wiki/50-ui/controller-commands]]；返回 [[docs/docs-829/06-wiki/50-ui/00-index]]。

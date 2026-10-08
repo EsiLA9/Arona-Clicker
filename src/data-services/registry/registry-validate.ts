@@ -207,6 +207,8 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   if (dp.operationLocations) checkDup(dp.operationLocations, 'operation location');
   if (dp.operationActions) checkDup(dp.operationActions, 'operation action');
   if (dp.studentOperationProfiles) checkDup(dp.studentOperationProfiles, 'student operation profile');
+  if (dp.operationStrategyProfiles) checkDup(dp.operationStrategyProfiles, 'operation strategy profile');
+  if (dp.operationCardPools) checkDup(dp.operationCardPools, 'operation card pool');
   if (dp.milestoneListeners) checkDup(dp.milestoneListeners, 'milestone listener');
   if (dp.achievements) checkDup(dp.achievements, 'achievement');
   if (dp.funcletDefs) checkDup(dp.funcletDefs, 'funclet');
@@ -318,10 +320,14 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   checkEntityIds(dp.operationLocations, 'operation-location', 'Operation Location');
   checkEntityIds(dp.operationActions, 'operation-action', 'Operation Action');
   checkEntityIds(dp.studentOperationProfiles, 'student-operation-profile', 'StudentOperationProfile');
+  checkEntityIds(dp.operationStrategyProfiles, 'operation-strategy-profile', 'OperationStrategyProfile');
+  checkEntityIds(dp.operationCardPools, 'operation-card-pool', 'OperationCardPool');
   checkExpectedEntityType(dp.operationEvents, 'operation-event', 'Operation Event');
   checkExpectedEntityType(dp.operationLocations, 'operation-location', 'Operation Location');
   checkExpectedEntityType(dp.operationActions, 'operation-action', 'Operation Action');
   checkExpectedEntityType(dp.studentOperationProfiles, 'student-operation-profile', 'StudentOperationProfile');
+  checkExpectedEntityType(dp.operationStrategyProfiles, 'operation-strategy-profile', 'OperationStrategyProfile');
+  checkExpectedEntityType(dp.operationCardPools, 'operation-card-pool', 'OperationCardPool');
   for (const milestone of dp.milestones ?? []) {
     if (parseEntityId(milestone.id)?.type !== 'milestone') {
       throw new RegistryError(`Milestone id "${milestone.id}" 的 typeName 段须为 "milestone"`);

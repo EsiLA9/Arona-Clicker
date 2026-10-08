@@ -26,6 +26,8 @@ Codex Goal 只负责当前会话的持续执行。长期状态、决策、验收
 
 ## 流转
 
+以下完整流转用于需要阶段规划、方案裁定或明确施工边界的工作。普通小需求可直接实施并说明结果，无需先建 Goal Set / Draft / Task / Unit / Receipt；测试与审查按 [[docs/docs-829/05-conventions/testing]] 分级，重要系统结构设计与已报告 bug 优先严格验证。
+
 1. **提出需求**：在 Goal Set 写完整终点、明确暂缓项、阶段全图和依赖；每个阶段只有独立可验收时才建 Goal Card。使用 [[docs/ai/templates/goal-set]] 和 [[docs/ai/templates/goal-card]]。
 2. **讨论阶段目标**：每个进入讨论的 Goal 建一份 Draft；多轮 SolChat 意见继续更新同一 Draft 的裁定记录，不为每轮建议另建文档。使用 [[docs/ai/templates/discussion-draft]] 与 [[docs/ai/prompts/sol-discussion]]。
 3. **核对事实**：把会改变方案或验收边界的未知项列为事实门槛。先按 [[docs/ai/galhcg-project-map]] 主动搜索相关 Module、Concept、相邻源码与当前文档；零命中时换别名、路径或源码字面量继续定位，不能以“图里没有”作结论。再按 [[docs/ai/task-read-set-routing]] 读取最小源码与测试，记录证据、结论和影响。使用 [[docs/ai/prompts/local-fact-review]]。事实核对不自动形成新的阶段目标。

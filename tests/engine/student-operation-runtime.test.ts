@@ -41,10 +41,10 @@ function eventDef(): OperationEventDef {
 
 function actionDefinitions(): OperationActionDef[] {
   return [
-    { id: 'operation:action:observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['operation:reason:observe'], tagIds: [], target: { kind: 'none' }, effects: [] },
-    { id: 'operation:action:guard', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['capability:frontline'], reasonIds: ['operation:reason:frontline'], tagIds: [], target: { kind: 'none' }, effects: [] },
-    { id: 'operation:action:inspect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['capability:resourceful'], reasonIds: ['operation:reason:resourceful'], tagIds: [], target: { kind: 'none' }, effects: [] },
-    { id: 'operation:action:enemy-observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'operation:action:observe', title: 'observe', allowedParticipantKinds: ['student'], requiredCapabilityIds: [], reasonIds: ['operation:reason:observe'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'operation:action:guard', title: 'guard', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['capability:frontline'], reasonIds: ['operation:reason:frontline'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'operation:action:inspect', title: 'inspect', allowedParticipantKinds: ['student'], requiredCapabilityIds: ['capability:resourceful'], reasonIds: ['operation:reason:resourceful'], tagIds: [], target: { kind: 'none' }, effects: [] },
+    { id: 'operation:action:enemy-observe', title: 'enemy observe', allowedParticipantKinds: ['opponent'], requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [] },
   ];
 }
 

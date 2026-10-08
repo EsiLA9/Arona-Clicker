@@ -22,6 +22,7 @@ function action(
 ): OperationActionDef {
   return {
     id,
+    title: id,
     allowedParticipantKinds: kinds,
     requiredCapabilityIds: [],
     reasonIds: [],
