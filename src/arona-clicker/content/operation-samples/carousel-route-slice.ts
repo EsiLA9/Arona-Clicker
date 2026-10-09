@@ -38,6 +38,7 @@ const location = (
   routeEdges: OperationEventDef['locations'][number]['routeEdges'],
 ) => ({
   id,
+  stage: 'combat' as const,
   enabledActionIds: [IDS.action],
   combinationRules: [],
   objectives: [objective],
@@ -108,6 +109,7 @@ const eventDefinition: OperationEventDef = {
     ]),
     {
       id: IDS.locations.ending,
+      stage: 'scene',
       enabledActionIds: [],
       combinationRules: [],
       objectives: [objective],

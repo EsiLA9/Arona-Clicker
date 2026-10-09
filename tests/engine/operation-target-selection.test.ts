@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type { OperationEventDef, OperationActorDef } from '../../src/arona-clicker/contracts/operation';
 import type { OperationActionTargetDef } from '../../src/arona-clicker/contracts/operation-action';
-import { OperationTargetSelectionError, selectOperationTarget } from '../../src/arona-clicker/services/operation-target-selection';
+import { getOperationTargetActorIds, OperationTargetSelectionError, selectOperationTarget } from '../../src/arona-clicker/services/operation-target-selection';
+import { OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY } from '../../src/arona-clicker/contracts/operation-beat';
 
 function actor(
   id: string,
@@ -21,7 +22,7 @@ function actor(
 function event(actors: readonly OperationActorDef[], teams: readonly string[] = ['team:red', 'team:blue']): OperationEventDef {
   return {
     id: 'test:operation:target-selection',
-    locations: [{ id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [],
     factIds: [],
@@ -161,6 +162,72 @@ describe('Operation automatic target selection', () => {
       relation: 'any',
       allowedActorTypes: ['not-a-carousel'],
     })).toMatchObject({ kind: 'unavailable', targetActorId: null });
+  });
+
+  test('intersects relation, ID, type, and current position/liveness filters', () => {
+    const definition = event([
+      actor('source', 'team:red'),
+      { ...actor('front-a', 'team:blue', undefined, 'opponent'), positionId: 'front' },
+      { ...actor('front-b', 'team:blue', undefined, 'opponent'), positionId: 'front' },
+      { ...actor('back', 'team:blue', undefined, 'opponent'), positionId: 'back' },
+      { ...actor('ally-front', 'team:red', undefined, 'opponent'), positionId: 'front' },
+    ]);
+    const target: OperationActionTargetDef = {
+      kind: 'actor',
+      relation: 'otherTeam',
+      allowedActorIds: ['front-a', 'front-b', 'back'],
+      allowedActorTypes: ['opponent'],
+      allowedPositionIds: ['front'],
+    };
+    const current = new Map([
+      ['source', { hp: 1, positionId: 'front' }],
+      ['front-a', { hp: 2, positionId: 'front' }],
+      ['front-b', { hp: 0, positionId: 'front' }],
+      ['back', { hp: 2, positionId: 'front' }],
+      ['ally-front', { hp: 2, positionId: 'front' }],
+    ]);
+
+    expect(getOperationTargetActorIds(definition, 'source', target, current)).toEqual(['front-a', 'back']);
+    expect(getOperationTargetActorIds(definition, null, {
+      kind: 'actor', relation: 'any', allowedPositionIds: ['front'],
+    }, current)).toEqual([]);
+  });
+
+  test('uses current Run position over declared position and excludes missing or dead Actors', () => {
+    const definition = event([
+      actor('source', 'team:red'),
+      { ...actor('front', 'team:blue', undefined, 'opponent'), positionId: 'front' },
+      { ...actor('back', 'team:blue', undefined, 'opponent'), positionId: 'back' },
+    ]);
+    const target: OperationActionTargetDef = {
+      kind: 'actor', relation: 'otherTeam', allowedActorTypes: ['opponent'], allowedPositionIds: ['front'],
+    };
+
+    expect(getOperationTargetActorIds(definition, 'source', target, new Map([
+      ['source', { hp: 1 }],
+      ['front', { hp: 1, positionId: 'back' }],
+      ['back', { hp: 1, positionId: 'front' }],
+    ]))).toEqual(['back']);
+    expect(getOperationTargetActorIds(definition, 'source', target, new Map([
+      ['source', { hp: 1 }],
+      ['front', { hp: 0, positionId: 'front' }],
+    ]))).toEqual([]);
+  });
+
+  test('never silently picks the first candidate for all-eligible combat targeting', () => {
+    const definition = event([
+      actor('source', 'team:red'),
+      actor('enemy-a', 'team:blue'),
+      actor('enemy-b', 'team:blue'),
+    ]);
+
+    expect(selectOperationTarget(definition, 'source', {
+      kind: 'actor', relation: 'otherTeam', selectionMode: 'all-eligible',
+    })).toEqual({
+      kind: 'unavailable',
+      targetActorId: null,
+      reasonId: OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY,
+    });
   });
 
   test('reports undeclared preferred Actors and unknown source Actors concretely', () => {

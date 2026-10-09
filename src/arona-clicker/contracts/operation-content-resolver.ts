@@ -20,9 +20,12 @@ export interface OperationResolvedContent {
 
 export interface OperationContentResolver {
   resolve(eventId: string): OperationResolvedContent | null;
+  /** Enumerates candidate IDs for read-only launch projection; callers still resolve and validate each candidate. */
+  listEventIds?(): readonly string[];
 }
 
 /** Safe default until product content supplies actual Operation definitions. */
 export const emptyOperationContentResolver: OperationContentResolver = Object.freeze({
   resolve: (_eventId: string) => null,
+  listEventIds: () => [],
 });

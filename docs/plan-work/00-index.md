@@ -8,39 +8,24 @@
 
 ## 当前推进
 
-### GALHCG 节点提取与职责聚合
+### 本轮完成（2026-10-09）
 
-- [[task-0250-galhcg-node-extraction-and-responsibility-aggregation]]：由 Luna 子代理提取 Operation/Workspace Renderer 的具体职责、聚合领域/Engine/UI 子分区并维护粒度协议；主代理复核映射守恒与查询验收。
+- [[archive/task-0277-gameplay-b-three-column-workspace-unification]]：统一 Operation 三栏标题与分割线层级；修复替代行动重复点击收起；补充玩家手牌激活样式；移除执行者旧标记；同场景多行动牌默认铺开并响应式换行。42 项定向 UI 测试、类型检查及桌面/窄屏浏览器验收通过。
 
-### 玩法 B 接入 AC：V1 已完成
+### 玩法 B 原子化场景重构
 
-- 玩法 B V1 的 Runtime、独立内容包、三栏入口、路线、玩家场景牌、结局、奖励和续局已完成；后续产品扩展另立 Task，不沿用已关闭 Task 的“下一阶段”描述。
+Goal Set：`gs-20261008-gameplay-b-atomic-scenes`（阶段导航位于 `docs/plan-work/goalsets/`；正式 Draft / Task 可独立阅读）。G01～G05 均已完成；玩法 B 原子场景重构的 PB-01～PB-26 已完成并归档。
 
-### Base 默认内容扩展：施工中
+- **G01：V1 可读、可玩（completed）** — [[draft-0251-gameplay-b-atomic-scenes-phase-i-v1-corrections]]；[[archive/task-0251-pb-01-runtime-combat-stage-projection]]、[[archive/task-0252-pb-02-event-correct-operation-copy]]、[[archive/task-0253-pb-03-cost-balance-slot-projection]]、[[archive/task-0254-pb-04-readable-operation-state-names]]、[[archive/task-0255-pb-05-actor-position-and-action-eligibility]]。
+- **G02：操作语义统一（completed）** — [[archive/draft-0252-gameplay-b-atomic-scenes-phase-ii-operation-semantics]]；[[archive/task-0256-pb-06-card-selection-states]]、[[archive/task-0257-pb-07-click-performer-assignment]]、[[archive/task-0258-pb-08-target-selection-and-count-validation]]、[[archive/task-0259-pb-09-reversible-local-action-plans]]、[[archive/task-0260-pb-10-legality-and-cost-preview]]、[[archive/task-0261-pb-11-confirm-return-and-skip]]、[[archive/task-0262-pb-12-operation-result-timeline]]。
+- **G03：原子场景骨架（completed）** — [[archive/draft-0253-gameplay-b-atomic-scenes-phase-iii-foundation]]；[[archive/task-0263-pb-13-scene-identity-lifecycle]]、[[archive/task-0264-pb-14-scene-content-presentation]]、[[archive/task-0265-pb-15-action-offer-projection]]、[[archive/task-0266-pb-16-scene-plan-preview]]、[[archive/task-0267-pb-17-scene-atomic-resolution]]、[[archive/task-0268-pb-18-scene-completion-location-exit]]。
+- **G04：真实玩法迁移（completed）** — [[draft-0254-gameplay-b-atomic-scenes-phase-iv-migration]]；[[archive/task-0269-pb-19-carousel-sample-migration]]、[[archive/task-0270-pb-20-strategy-park-battle-migration]]、[[archive/task-0271-pb-21-location-exploration-migration]]、[[archive/task-0272-pb-22-multiple-scenes-per-location]]、[[archive/task-0273-pb-23-group-and-position-targets]]、[[archive/task-0274-pb-24-m-of-n-and-temporary-shop]]。
+- **G05：内容作者交付（completed）** — [[draft-0255-gameplay-b-atomic-scenes-phase-v-authoring]]；[[archive/task-0275-pb-25-scene-authoring-and-validation]]、[[archive/task-0276-pb-26-remove-legacy-special-cases-and-regression]]。
+- **Goal Owner 统一裁定 / 一次性背景卷** — [[draft-0256-gameplay-b-atomic-scenes-task-rulings]]；2026-10-08 默认规则作为 PB-01～PB-26 当前施工依据，四项升级条件除外；五份阶段 Draft 与各 Task 的历史“待裁定”措辞以该文裁定为准。
 
-- [[task-0239-base-free-abydos-student-spot]]：在夏莱主厅增加免费手动领取 Spot，领取后通过一次性 Trigger 授予星野、芹香、白子；无 Gacha 随机性、无运行时机制改动。
+### 本轮冻结归档（2026-10-08）
 
-### 玩法 B 原始 Demo：事实参考
-
-- [[draft-0231-gameplay-b-original-demo-activity-and-battle-round]]：原始 `prototypes/gameplay-b/` 的非战斗场所批次与战斗回合，从三栏 UI、显示反馈、玩法到操作步骤逐项记录并附源码/测试索引；与 AC 移植版分开。
-- [[draft-0231-b]]：已完成审阅并转制为 Task 0232；保留 Demo→AC 调查、候选方案与本轮取舍来源。
-
-### 玩法 B Operation 卡牌交互
-
-- [[task-0249-gameplay-b-operation-workspace-panels-and-map-popup]]：已实现经典三栏面板、右栏敌人/背景持有物切换、一次性流内地图卡片和默认关闭/可拖拽的大图浮窗；定向 UI 测试与类型检查通过，待人工视口检查布局和遮挡。
-
-- [[task-0232]]：按用户偏好完成学生行动归属、场景批次卡片交互、中心结果流与路线摘要；U0–U3 实现、当前机制文档和 GALHCG 已分阶段提交。仍待 Edge 实际流程与现场键盘验收；Task 不包含原 Demo 真牌面 / 拖拽复刻。
-- [[task-0234-gameplay-b-demo-card-surface]]：U0 检查入口、U1/U2 真牌面与目标交互均已完成并通过独立严格审查；U3 Edge 常规 / 窄窗口与现场键盘验收、最终 GALHCG 写后核验仍待完成。保留现有 OperationView 与 Runtime 批次语义。
-- [[task-0236-gameplay-b-typed-action-cards-and-target-layers]]：调查并约束学生战术牌目标集合，改用人物右侧替代真牌层与拖放目标，整理 z 轴并在角色卡显示 HP / sCost；U0/U1 实现、独立严格审查与 IAB 常规 / 窄视口验收已完成，待 Edge 常规 / 窄视口实测后关闭。
-- [[archive/task-0248-gameplay-b-scene-card-activation-progression-and-links]]：已实现 optional-student 场景牌、部分选择与空批次跳过、Cost 上限结算，以及按方位择边的卡牌关系线。
-- [[task-0240-gameplay-b-operation-card-presentation-and-action-targeting]]：收敛 Operation 行动牌呈现与目标表达，隔离 SceneAction / 战斗候选；主要源码实现已落地，定向测试与浏览器验收待完成。
-- [[archive/task-0245-gameplay-b-operation-scene-card-performer-target-cost-model]]：已完成 Operation 场景选项的免执行者/目标/费用分离、fixed/required 语义、内容文案投影和统一卡片表现；保留现有 Scene 批次语义，群体目标、M/N Offer、商店与编辑器体验留后续。
-- [[archive/task-0241-gameplay-b-strategy-pools-and-interaction-context]]：已完成 Operation 角色倾向、CardPool 合并、角色 Hand 抽取、12 地点相似玩法实例与无浏览器 headless 虚拟回放；包括 Engine/D1/D2 证据与 GALHCG 闭环。
-
-### Code Review 后续修复：待施工
-
-- [[task-0237-event-bus-flush-exception-recovery]]：修复 EventBus 订阅者在 flush 中抛错后永久停止派发的问题，并定义剩余批次行为。
-- [[task-0238-remove-stale-architecture-check-exemptions]]：清除架构检查器对两个已不存在 Engine 路径的整文件豁免。
+- [[archive/active-work-freeze-2026-10-08-gameplay-b-atomic-scenes]]：冻结根目录原有全部活动 Draft / Task，逐项保留冻结时的最后已知状态；未完成验收不因移入 `archive/` 而关闭。
 
 ## 近期完成
 

@@ -1,5 +1,6 @@
-import type { EventRun, OperationActorDef, OperationEventDef, OperationStudentProfileSnapshot } from '../contracts/operation';
-import type { OperationActionDef, OperationActionTargetDef } from '../contracts/operation-action';
+import type { EventRun, OperationEventDef, OperationStudentProfileSnapshot } from '../contracts/operation';
+import type { OperationActionDef } from '../contracts/operation-action';
+import { getOperationTargetActorIds } from './operation-target-selection';
 import type { OperationViewSceneAction } from '../contracts/operation-view';
 import type { OperationPlayerSceneCardInstanceDef } from '../contracts/operation';
 import type {
@@ -9,15 +10,129 @@ import type {
   PreparedBeat,
 } from '../contracts/operation-beat';
 import {
+  OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY,
   OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE,
   OPERATION_WAIT_REASON_NO_LEGAL_TARGET,
 } from '../contracts/operation-beat';
-import type { OperationView, OperationViewActionOption, OperationViewActor, OperationViewResolution } from '../contracts/operation-view';
+import type {
+  OperationView,
+  OperationViewActionOffer,
+  OperationViewActionOption,
+  OperationViewActor,
+  OperationViewResolution,
+  OperationViewScene,
+  OperationViewScenePurchaseOffer,
+  OperationViewSceneActionChoice,
+  OperationViewSceneStatus,
+} from '../contracts/operation-view';
 import { previewOperationIntervention, OperationInterventionPreviewError } from './operation-intervention-preview';
 import { resolveOperationCombinations } from './operation-combination-resolver';
 import { createOperationPlayerSceneCardInstances } from './operation-player-scene-deck';
-import { isOperationObjectiveSatisfied, isOperationOutcomeConditionSatisfied } from './operation-progress-evaluator';
+import {
+  getNextOperationSceneId,
+  getOperationSceneDefinitions,
+  isOperationObjectiveSatisfied,
+  isOperationOutcomeConditionSatisfied,
+} from './operation-progress-evaluator';
 import { evaluateOperationRoutes } from './operation-route-evaluator';
+
+function eventContentForCurrentScene(event: OperationEventDef, run: EventRun): OperationEventDef | null {
+  const location = event.locations.find(row => row.id === run.currentLocationId);
+  const progress = run.locationProgress[run.currentLocationId];
+  if (!location || !progress) return null;
+  const sceneId = getNextOperationSceneId(location, progress);
+  if (!sceneId) return null;
+  const scene = getOperationSceneDefinitions(location).find(row => row.id === sceneId);
+  if (!scene) return null;
+  if (location.scenes === undefined) return event;
+  const scopedLocation = {
+    ...location,
+    enabledActionIds: scene.enabledActionIds ?? location.enabledActionIds,
+    actionMode: scene.actionMode,
+    sceneActions: scene.sceneActions,
+    sceneActionBatches: scene.sceneActionBatches,
+    sceneActionChoice: scene.sceneActionChoice,
+    purchaseOffers: scene.purchaseOffers,
+  };
+  return { ...event, locations: event.locations.map(row => row.id === location.id ? scopedLocation : row) };
+}
+
+function projectScenes(run: EventRun, event: OperationEventDef): readonly OperationViewScene[] {
+  const location = event.locations.find(row => row.id === run.currentLocationId);
+  const progress = run.locationProgress[run.currentLocationId];
+  if (!location || !progress) return [];
+  const definitions = getOperationSceneDefinitions(location);
+  const completed = new Set(progress.completedSceneIds ?? []);
+  const activeSceneId = getNextOperationSceneId(location, progress);
+  return definitions.map((scene, index) => {
+    let status: OperationViewSceneStatus;
+    if (progress.completed || completed.has(scene.id)) status = 'completed';
+    else if (scene.id === activeSceneId && run.status === 'inProgress') status = 'active';
+    else status = 'ready';
+    return {
+      sceneId: scene.id,
+      title: scene.title.trim() ? scene.title : null,
+      description: scene.description ?? null,
+      status,
+      index: index + 1,
+      count: definitions.length,
+    };
+  });
+}
+
+function projectActionOffers(
+  sceneId: string | null,
+  actors: readonly OperationViewActor[],
+  sceneActions: readonly OperationViewSceneAction[],
+  playerCards: OperationView['playerCards'],
+  purchases: readonly OperationViewScenePurchaseOffer[],
+): readonly OperationViewActionOffer[] {
+  if (!sceneId) return [];
+  const offers: OperationViewActionOffer[] = [];
+  for (const actor of actors) {
+    for (const option of actor.profile?.actionOptions ?? []) {
+      offers.push({
+        offerId: 'student-action:' + encodeURIComponent(sceneId) + ':' + encodeURIComponent(actor.id) + ':' + encodeURIComponent(option.actionId),
+        source: 'student-action',
+        sceneId,
+        actorId: actor.id,
+        actionId: option.actionId,
+        option,
+      });
+    }
+  }
+  for (const action of sceneActions) {
+    offers.push({
+      offerId: 'scene-action:' + encodeURIComponent(sceneId) + ':' + encodeURIComponent(action.id),
+      source: 'scene-action',
+      sceneId,
+      sceneActionId: action.id,
+      actionId: action.actionId,
+      action,
+    });
+  }
+  for (const card of playerCards.hand) {
+    offers.push({
+      offerId: 'player-scene-card:' + encodeURIComponent(sceneId) + ':' + encodeURIComponent(card.cardInstanceId),
+      source: 'player-scene-card',
+      sceneId,
+      cardInstanceId: card.cardInstanceId,
+      actionId: card.actionId,
+      card,
+    });
+  }
+  for (const purchase of purchases) {
+    offers.push({
+      offerId: 'purchase:' + encodeURIComponent(sceneId) + ':' + encodeURIComponent(purchase.id),
+      source: 'purchase',
+      sceneId,
+      purchaseOfferId: purchase.id,
+      actionId: purchase.actionId,
+      purchase,
+    });
+  }
+  return offers;
+}
 
 function freezeTree<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -29,39 +144,6 @@ function freezeTree<T>(value: T): T {
 
 function cloneRun(run: EventRun): EventRun {
   return JSON.parse(JSON.stringify(run)) as EventRun;
-}
-
-function targetCandidates(
-  event: OperationEventDef,
-  source: OperationActorDef,
-  target: OperationActionTargetDef,
-): readonly string[] {
-  if (target.kind === 'none') return [];
-  let candidates: readonly string[];
-  switch (target.relation) {
-    case 'self': candidates = [source.id]; break;
-    case 'sameTeam':
-      candidates = source.teamId
-        ? event.actors.filter(actor => actor.teamId === source.teamId).map(actor => actor.id)
-        : [];
-      break;
-    case 'otherTeam':
-      candidates = source.teamId
-        ? event.actors.filter(actor => actor.teamId !== undefined && actor.teamId !== source.teamId).map(actor => actor.id)
-        : [];
-      break;
-    case 'any': candidates = event.actors.map(actor => actor.id); break;
-  }
-  const candidateIds = new Set(candidates);
-  const preferred = (source.targetPriorityActorIds ?? []).filter(actorId => candidateIds.has(actorId));
-  return [...preferred, ...candidates.filter(actorId => !preferred.includes(actorId))];
-}
-
-function actorlessTargetCandidates(event: OperationEventDef, target: OperationActionDef['target']): readonly string[] {
-  if (target.kind !== 'actor' || (!target.allowedActorIds?.length && !target.allowedActorTypes?.length)) return [];
-  const ids = target.allowedActorIds ? new Set(target.allowedActorIds) : null;
-  const types = target.allowedActorTypes ? new Set(target.allowedActorTypes) : null;
-  return event.actors.filter(actor => (!ids || ids.has(actor.id)) && (!types || types.has(actor.type))).map(actor => actor.id);
 }
 
 function candidateOptions(
@@ -79,6 +161,7 @@ function candidateOptions(
   const enabledActionIds = new Set(event.locations
     .find(row => row.id === preparedBeat.locationId)?.enabledActionIds ?? []);
   const planByActorId = new Map(preparedBeat.actorPlans.map(plan => [plan.actorId, plan]));
+  const targetActorStates = new Map(preparationSnapshot.actors.map(actor => [actor.actorId, actor]));
 
   return profile.actionCandidates.map(candidate => {
     const action = actionDefinitions.find(row => row.id === candidate.actionId);
@@ -126,7 +209,7 @@ function candidateOptions(
       if (action.target.kind === 'none') {
         tryPreview();
       } else {
-        const targets = targetCandidates(event, eventActor, action.target);
+        const targets = getOperationTargetActorIds(event, actorId, action.target, targetActorStates);
         tryPreview();
         targets.forEach(targetActorId => tryPreview(targetActorId));
         if (legalTargetActorIds.length === 0 && !rejectedPreviewReasonIds.length) rejectedPreviewReasonIds.push('operation:intervention:no-legal-target');
@@ -154,6 +237,7 @@ function candidateOptions(
       defaultTargetActorId: basePlan?.actionId === candidate.actionId
         ? basePlan.targetActorId
         : legalTargetActorIds[0] ?? defaultTargetActorId,
+      targetSelectionMode: action?.target.kind === 'actor' ? action.target.selectionMode ?? 'select' : 'select',
       legalTargetActorIds: [...new Set(legalTargetActorIds)],
       blockedReasonIds: [...new Set([...blockedReasonIds, ...(legalTargetActorIds.length === 0 ? rejectedPreviewReasonIds : [])])],
     };
@@ -180,7 +264,13 @@ function projectionSnapshot(run: EventRun): OperationPreparationSnapshot {
     currentLocationId: run.currentLocationId,
     actors: run.actorStates.map(actor => {
       if (!actor.participantKind) throw new Error('OperationView requires admitted participant kinds');
-      return { actorId: actor.id, participantKind: actor.participantKind, resources: actor.resources };
+      return {
+        actorId: actor.id,
+        participantKind: actor.participantKind,
+        hp: actor.hp,
+        ...(actor.positionId !== undefined ? { positionId: actor.positionId } : {}),
+        resources: actor.resources,
+      };
     }),
     teams: run.teamStates,
   };
@@ -265,7 +355,6 @@ function projectSceneActions(
   if (!location?.sceneActions) return [];
   const actionsById = new Map(content.actionDefinitions.map(action => [action.id, action]));
   const statesById = new Map(run.actorStates.map(actor => [actor.id, actor]));
-  const actorsById = new Map(content.eventDefinition.actors.map(actor => [actor.id, actor]));
   const initializationsById = new Map(content.actors.map(actor => [actor.actorId, actor]));
   const event = content.eventDefinition;
   return location.sceneActions.map(sceneAction => {
@@ -276,19 +365,17 @@ function projectSceneActions(
         if (performerPolicy === 'none') return false;
         const state = statesById.get(actorDefinition.id);
         const initialization = initializationsById.get(actorDefinition.id);
-        const actor = actorsById.get(actorDefinition.id);
         return state?.participantKind === 'student' && state.hp > 0
-          && initialization?.participantKind === 'student' && actor !== undefined && action !== undefined
+          && initialization?.participantKind === 'student' && action !== undefined
           && action.allowedParticipantKinds.includes(state.participantKind)
           && action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id));
       })
       .map(actor => actor.id);
-    const legalTargetActorIdsByActorId = Object.fromEntries(eligibleActorIds.map(actorId => {
-      const source = actorsById.get(actorId)!;
+  const legalTargetActorIdsByActorId = Object.fromEntries(eligibleActorIds.map(actorId => {
       const targetIds = action?.target.kind === 'none'
         ? []
         : action
-          ? targetCandidates(event, source, action.target).filter(targetId => (statesById.get(targetId)?.hp ?? 0) > 0)
+          ? getOperationTargetActorIds(event, actorId, action.target, statesById)
           : [];
       return [actorId, targetIds];
     }));
@@ -299,13 +386,46 @@ function projectSceneActions(
       description: sceneAction.description ?? action?.description ?? null,
       scope: sceneAction.scope,
       playerCost: sceneAction.playerCost,
+      targetSelectionMode: action?.target.kind === 'actor' ? action.target.selectionMode ?? 'select' : 'select',
       selectionPolicy: sceneAction.selectionPolicy ?? 'required',
       performerPolicy,
       eligibleActorIds,
       legalTargetActorIdsByActorId,
       legalActorlessTargetActorIds: (performerPolicy === 'none' || performerPolicy === 'optional-student') && action
-        ? actorlessTargetCandidates(event, action.target).filter(targetId => (statesById.get(targetId)?.hp ?? 0) > 0)
+        ? getOperationTargetActorIds(event, null, action.target, statesById)
         : [],
+    };
+  });
+}
+
+function purchaseRewardPreview(action: OperationActionDef | undefined): readonly string[] {
+  if (!action) return [];
+  const description = action.description?.trim();
+  if (description) return [description];
+  const title = action.title.trim();
+  return [title || '按内容定义应用奖励。'];
+}
+
+function projectScenePurchaseOffers(
+  run: EventRun,
+  content: OperationViewProjectionContent,
+): readonly OperationViewScenePurchaseOffer[] {
+  const location = content.eventDefinition.locations.find(row => row.id === run.currentLocationId);
+  const actionsById = new Map(content.actionDefinitions.map(action => [action.id, action]));
+  return (location?.purchaseOffers ?? []).map(offer => {
+    const action = actionsById.get(offer.actionId);
+    const purchased = run.eventState.knownFactIds.includes(offer.purchaseFactId);
+    const affordable = run.playerRouteState.playerCost >= offer.playerCost;
+    return {
+      id: offer.id,
+      actionId: offer.actionId,
+      title: offer.title ?? action?.title ?? offer.id,
+      description: offer.description ?? action?.description ?? null,
+      playerCost: offer.playerCost,
+      purchased,
+      affordable,
+      unavailableReason: purchased ? '已购买，本次 Run 仅可购买一次' : affordable ? null : 'PlayerCost 不足',
+      rewardPreview: purchaseRewardPreview(action),
     };
   });
 }
@@ -315,10 +435,10 @@ function projectSceneCardCandidates(
   content: OperationViewProjectionContent,
   actionId: string,
   performerPolicy: 'selected-student' | 'none' | 'optional-student',
-): Pick<OperationView['playerCards']['hand'][number], 'eligibleActorIds' | 'legalTargetActorIdsByActorId' | 'legalActorlessTargetActorIds'> {
+): Pick<OperationView['playerCards']['hand'][number], 'eligibleActorIds' | 'legalTargetActorIdsByActorId' | 'legalActorlessTargetActorIds' | 'targetSelectionMode'> {
   const event = content.eventDefinition;
   const action = content.actionDefinitions.find(row => row.id === actionId);
-  if (!action) return { eligibleActorIds: [], legalTargetActorIdsByActorId: {}, legalActorlessTargetActorIds: [] };
+  if (!action) return { eligibleActorIds: [], legalTargetActorIdsByActorId: {}, legalActorlessTargetActorIds: [], targetSelectionMode: 'select' };
 
   const statesById = new Map(run.actorStates.map(actor => [actor.id, actor]));
   const initializationsById = new Map(content.actors.map(actor => [actor.actorId, actor]));
@@ -332,18 +452,16 @@ function projectSceneCardCandidates(
     return eligible ? [actor.id] : [];
   });
   const legalTargetActorIdsByActorId = Object.fromEntries(eligibleActorIds.map(actorId => {
-    const source = event.actors.find(actor => actor.id === actorId)!;
-    const targets = action.target.kind === 'none'
-      ? []
-      : targetCandidates(event, source, action.target).filter(targetId => statesById.has(targetId));
+    const targets = getOperationTargetActorIds(event, actorId, action.target, statesById);
     return [actorId, targets];
   }));
   return {
     eligibleActorIds,
     legalTargetActorIdsByActorId,
     legalActorlessTargetActorIds: performerPolicy === 'none' || performerPolicy === 'optional-student'
-      ? actorlessTargetCandidates(event, action.target).filter(targetId => (statesById.get(targetId)?.hp ?? 0) > 0)
+      ? getOperationTargetActorIds(event, null, action.target, statesById)
       : [],
+    targetSelectionMode: action.target.kind === 'actor' ? action.target.selectionMode ?? 'select' : 'select',
   };
 }
 
@@ -352,8 +470,27 @@ export function projectOperationView(
   content: OperationViewProjectionContent,
 ): OperationView {
   const run = cloneRun(sourceRun);
+  const originalLocation = content.eventDefinition.locations.find(row => row.id === run.currentLocationId);
+  const currentLocationProgress = run.locationProgress[run.currentLocationId];
+  const currentSceneId = originalLocation && currentLocationProgress && run.status === 'inProgress'
+    ? getNextOperationSceneId(originalLocation, currentLocationProgress)
+    : null;
+  const scenes = projectScenes(run, content.eventDefinition);
+  const currentScene = currentSceneId ? scenes.find(scene => scene.sceneId === currentSceneId) ?? null : null;
+  const currentSceneDefinition = currentSceneId && originalLocation
+    ? getOperationSceneDefinitions(originalLocation).find(scene => scene.id === currentSceneId) ?? null
+    : null;
+  const currentSceneBatchCount = originalLocation && currentLocationProgress && currentSceneDefinition
+    ? originalLocation.scenes !== undefined
+      ? currentLocationProgress.sceneActionBatchesUsedByScene?.[currentSceneDefinition.id] ?? 0
+      : currentLocationProgress.sceneActionBatchesUsed ?? 0
+    : 0;
+  const currentSceneActionMode = currentSceneDefinition?.actionMode ?? null;
+  const currentSceneBatchLimit = currentSceneDefinition?.sceneActionBatches ?? 0;
+  const activeEventDefinition = eventContentForCurrentScene(content.eventDefinition, run) ?? content.eventDefinition;
+  const projectionContent: OperationViewProjectionContent = { ...content, eventDefinition: activeEventDefinition };
   const preparationContent: OperationPreparationContent = {
-    eventDefinition: content.eventDefinition,
+    eventDefinition: activeEventDefinition,
     actors: content.actors,
     actionDefinitions: content.actionDefinitions,
   };
@@ -367,7 +504,8 @@ export function projectOperationView(
     if (plan.participantKind !== 'student' || plan.kind !== 'wait') continue;
     for (const reasonId of plan.reasonIds) {
       if (reasonId === OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE
-        || reasonId === OPERATION_WAIT_REASON_NO_LEGAL_TARGET) {
+        || reasonId === OPERATION_WAIT_REASON_NO_LEGAL_TARGET
+        || reasonId === OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY) {
         commitmentBlockedReasons.add(reasonId);
       }
     }
@@ -382,12 +520,26 @@ export function projectOperationView(
   const currentLocation = content.eventDefinition.locations
     .find(row => row.id === run.currentLocationId);
   const routeAvailability = evaluateOperationRoutes(content.eventDefinition, run);
+  const projectedActors = run.actorStates.map(actor => projectActor(run, preparationContent, snapshot, actor, effectiveBeat));
+  const currentSceneActions = projectSceneActions(run, projectionContent);
+  const currentScenePurchaseOffers = projectScenePurchaseOffers(run, projectionContent);
+  const currentSceneActionChoice: OperationViewSceneActionChoice | null = currentSceneDefinition?.sceneActionChoice
+    ? { ...currentSceneDefinition.sceneActionChoice, candidateSceneActionIds: [...currentSceneDefinition.sceneActionChoice.candidateSceneActionIds] }
+    : null;
+  const playerCards = projectPlayerCards(run, projectionContent);
+  const actionOffers = projectActionOffers(currentSceneId, projectedActors, currentSceneActions, playerCards, currentScenePurchaseOffers);
   const view: OperationView = {
     runId: run.runId,
     eventId: run.eventId,
+    eventTitle: content.eventDefinition.title ?? null,
+    eventDescription: content.eventDefinition.description ?? null,
     status: run.status,
     rewardClaimed: run.rewardClaimed,
     currentLocationId: run.currentLocationId,
+    currentStage: currentLocation!.stage,
+    currentSceneId,
+    currentScene,
+    scenes,
     planVersion: run.planVersion,
     beatIndex: run.beatIndex,
     tracks: { ...run.eventState.tracks },
@@ -415,17 +567,25 @@ export function projectOperationView(
       description: condition.description,
       met: isOperationOutcomeConditionSatisfied(run.eventState, condition),
     })),
-    actorStates: run.actorStates.map(actor => projectActor(run, preparationContent, snapshot, actor, effectiveBeat)),
+    actorStates: projectedActors,
     actionPresentations: Object.fromEntries(content.actionDefinitions.map(action => [action.id, {
       title: action.title,
       description: action.description ?? null,
     }])),
     sceneActionPresentations: Object.fromEntries(content.eventDefinition.locations.flatMap(location =>
-      (location.sceneActions ?? []).map(sceneAction => {
+      [...(location.sceneActions ?? []), ...(location.scenes ?? []).flatMap(scene => scene.sceneActions ?? [])].map(sceneAction => {
         const action = content.actionDefinitions.find(row => row.id === sceneAction.actionId);
         return [sceneAction.id, {
           title: sceneAction.title ?? action?.title ?? sceneAction.id,
           description: sceneAction.description ?? action?.description ?? null,
+        }];
+      }))),
+    purchaseOfferPresentations: Object.fromEntries(content.eventDefinition.locations.flatMap(location =>
+      [...(location.purchaseOffers ?? []), ...(location.scenes ?? []).flatMap(scene => scene.purchaseOffers ?? [])].map(offer => {
+        const action = content.actionDefinitions.find(row => row.id === offer.actionId);
+        return [offer.id, {
+          title: offer.title ?? action?.title ?? offer.id,
+          description: offer.description ?? action?.description ?? null,
         }];
       }))),
     playerSceneCardPresentations: Object.fromEntries((content.playerSceneCardInstances
@@ -440,6 +600,7 @@ export function projectOperationView(
     locationProgress: { ...run.locationProgress },
     routeHistory: run.routeHistory.map(entry => ({ ...entry })),
     locationEntryCostHistory: run.locationEntryCostHistory?.map(entry => ({ ...entry })) ?? [],
+    timelineSequence: run.timelineSequence,
     currentRoutes: routeAvailability.options.map(({ route, available, lockedReason }) => ({
       routeId: route.id,
       targetLocationId: route.targetLocationId,
@@ -483,8 +644,11 @@ export function projectOperationView(
     maxLocationVisits: content.eventDefinition.maxLocationVisits,
     playerCost: run.playerRouteState.playerCost,
     maxCarryCost: currentLocation?.maxCarryCost ?? null,
-    currentActionMode: currentLocation?.actionMode ?? null,
-    currentSceneActions: projectSceneActions(run, content),
+    currentActionMode: currentSceneActionMode,
+    currentSceneActions,
+    currentSceneActionChoice,
+    currentScenePurchaseOffers,
+    actionOffers,
     pendingSceneActionBatch: run.pendingSceneActionBatch ? {
       command: {
         ...run.pendingSceneActionBatch.command,
@@ -501,6 +665,17 @@ export function projectOperationView(
       },
       preview: {
         ...run.pendingSceneActionBatch.preview,
+        plan: {
+          ...run.pendingSceneActionBatch.preview.plan,
+          selections: run.pendingSceneActionBatch.preview.plan.selections.map(selection => ({
+            ...selection,
+            targetActorIds: [...selection.targetActorIds],
+          })),
+          cards: run.pendingSceneActionBatch.preview.plan.cards.map(selection => ({
+            ...selection,
+            targetActorIds: [...selection.targetActorIds],
+          })),
+        },
         selections: run.pendingSceneActionBatch.preview.selections.map(selection => ({
           ...selection,
           targetActorIds: [...selection.targetActorIds],
@@ -512,10 +687,10 @@ export function projectOperationView(
         cost: { ...run.pendingSceneActionBatch.preview.cost },
       },
     } : null,
-    playerCards: projectPlayerCards(run, content),
-    sceneActionBatchesUsed: run.locationProgress[run.currentLocationId]?.sceneActionBatchesUsed ?? 0,
+    playerCards,
+    sceneActionBatchesUsed: currentSceneBatchCount,
     sceneActionBatchesRemaining: Math.max(0,
-      (currentLocation?.sceneActionBatches ?? 0) - (run.locationProgress[run.currentLocationId]?.sceneActionBatchesUsed ?? 0)),
+      currentSceneBatchLimit - currentSceneBatchCount),
     basePreparedBeat: run.preparedBeat,
     effectivePreparedBeat: effectiveBeat && plans ? { ...effectiveBeat, actorPlans: [...plans] } : null,
     interventionDraft: run.interventionDraft,

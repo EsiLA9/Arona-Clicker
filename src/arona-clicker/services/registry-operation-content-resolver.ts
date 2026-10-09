@@ -10,6 +10,9 @@ export function createRegistryOperationContentResolver(
   registry: Pick<Registry, 'operationEvents' | 'operationLocations' | 'operationActions' | 'studentOperationProfiles' | 'operationStrategyProfiles' | 'operationCardPools'>,
 ): OperationContentResolver {
   return Object.freeze({
+    listEventIds() {
+      return [...registry.operationEvents.keys()];
+    },
     resolve(eventId: string): OperationResolvedContent | null {
       const event = registry.operationEvents.get(eventId);
       if (!event) return null;
@@ -30,6 +33,11 @@ export function createRegistryOperationContentResolver(
       for (const location of resolvedLocations) {
         location.enabledActionIds.forEach(id => availableActionIds.add(id));
         location.sceneActions?.forEach(action => availableActionIds.add(action.actionId));
+        location.scenes?.forEach(scene => {
+          scene.sceneActions?.forEach(action => availableActionIds.add(action.actionId));
+          scene.purchaseOffers?.forEach(offer => availableActionIds.add(offer.actionId));
+        });
+        location.purchaseOffers?.forEach(offer => availableActionIds.add(offer.actionId));
       }
       const availablePoolIds = new Set(event.cardPoolIds ?? []);
       for (const location of resolvedLocations) location.cardPoolIds?.forEach(id => availablePoolIds.add(id));

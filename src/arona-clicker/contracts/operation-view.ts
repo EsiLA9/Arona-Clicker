@@ -1,6 +1,6 @@
 import type { EventRun, OperationActorKind, OperationCharacterHandSnapshot } from './operation';
 import type { OperationCombinationPreview } from './operation-action';
-import type { OperationActionCostDef } from './operation-action';
+import type { OperationActionCostDef, OperationActionTargetSelectionMode } from './operation-action';
 import type { OperationInterventionDraft, OperationPreparedActorPlan, PreparedBeat } from './operation-beat';
 import type { OperationResolution } from './operation-resolution';
 import type { OperationRouteTransitionRecord } from './operation';
@@ -21,6 +21,7 @@ export interface OperationViewActionOption {
   readonly cost: OperationActionCostDef | null;
   readonly selectable: boolean;
   readonly defaultTargetActorId: string | null;
+  readonly targetSelectionMode: OperationActionTargetSelectionMode;
   /** Explicit targets accepted by the same pure preview used by the write command. */
   readonly legalTargetActorIds: readonly string[];
   readonly blockedReasonIds: readonly string[];
@@ -58,12 +59,31 @@ export interface OperationViewSceneAction {
   readonly description: string | null;
   readonly scope: 'individual' | 'global';
   readonly playerCost: number;
+  readonly targetSelectionMode: OperationActionTargetSelectionMode;
   readonly selectionPolicy: 'required' | 'fixed';
   readonly performerPolicy: 'selected-student' | 'none' | 'optional-student';
   readonly eligibleActorIds: readonly string[];
   readonly legalTargetActorIdsByActorId: Readonly<Record<string, readonly string[]>>;
   /** Absolute ID/type-filtered targets available when none/optional-student is activated in place. */
   readonly legalActorlessTargetActorIds: readonly string[];
+}
+
+export interface OperationViewSceneActionChoice {
+  readonly candidateSceneActionIds: readonly string[];
+  readonly chooseExactly: number;
+}
+
+export interface OperationViewScenePurchaseOffer {
+  readonly id: string;
+  readonly actionId: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly playerCost: number;
+  readonly purchased: boolean;
+  readonly affordable: boolean;
+  readonly unavailableReason: string | null;
+  /** Human-readable Action summary; the projection never exposes Event-local effect IDs. */
+  readonly rewardPreview: readonly string[];
 }
 
 export interface OperationViewSceneCard {
@@ -74,6 +94,7 @@ export interface OperationViewSceneCard {
   readonly description: string | null;
   readonly playerCost: number;
   readonly timing: 'scene';
+  readonly targetSelectionMode: OperationActionTargetSelectionMode;
   readonly selectionPolicy: 'required' | 'fixed';
   readonly performerPolicy: 'selected-student' | 'none' | 'optional-student';
   /** Qualified active Student performers for the card Action in this Run. */
@@ -83,6 +104,53 @@ export interface OperationViewSceneCard {
   /** Absolute ID/type-filtered targets available when none/optional-student is activated in place. */
   readonly legalActorlessTargetActorIds: readonly string[];
 }
+
+export type OperationViewSceneStatus = 'ready' | 'active' | 'completed';
+
+/** Detached Scene copy; status and position are projected from ordered content plus EventRun progress. */
+export interface OperationViewScene {
+  readonly sceneId: string;
+  readonly title: string | null;
+  readonly description: string | null;
+  readonly status: OperationViewSceneStatus;
+  readonly index: number;
+  readonly count: number;
+}
+
+/** Read-only candidate Offer. Each source retains its own identity and transaction-specific payload. */
+export type OperationViewActionOffer =
+  | {
+      readonly offerId: string;
+      readonly source: 'student-action';
+      readonly sceneId: string;
+      readonly actorId: string;
+      readonly actionId: string;
+      readonly option: OperationViewActionOption;
+    }
+  | {
+      readonly offerId: string;
+      readonly source: 'scene-action';
+      readonly sceneId: string;
+      readonly sceneActionId: string;
+      readonly actionId: string;
+      readonly action: OperationViewSceneAction;
+    }
+  | {
+      readonly offerId: string;
+      readonly source: 'player-scene-card';
+      readonly sceneId: string;
+      readonly cardInstanceId: string;
+      readonly actionId: string;
+      readonly card: OperationViewSceneCard;
+    }
+  | {
+      readonly offerId: string;
+      readonly source: 'purchase';
+      readonly sceneId: string;
+      readonly purchaseOfferId: string;
+      readonly actionId: string;
+      readonly purchase: OperationViewScenePurchaseOffer;
+    };
 
 export interface OperationViewPlayerCards {
   readonly drawPileCount: number;
@@ -159,13 +227,29 @@ export interface OperationAdmissionSummary {
   readonly unavailableReason: string | null;
 }
 
+/** Detached read-only summary for an Event that can be launched from the current Init. */
+export interface OperationEventLaunchEntry {
+  readonly eventId: string;
+  readonly title: string | null;
+  readonly description: string | null;
+  /** Ordered student roster candidate used by the Controller's start command. */
+  readonly characterIds: readonly Character[];
+  readonly admission: OperationAdmissionSummary;
+}
+
 /** Detached operation-specific UI projection; deliberately not a GameView and not an EventRun. */
 export interface OperationView {
   readonly runId: string;
   readonly eventId: string;
+  readonly eventTitle: string | null;
+  readonly eventDescription: string | null;
   readonly status: EventRun['status'];
   readonly rewardClaimed: boolean;
   readonly currentLocationId: string;
+  readonly currentStage: 'combat' | 'scene';
+  readonly currentSceneId: string | null;
+  readonly currentScene: OperationViewScene | null;
+  readonly scenes: readonly OperationViewScene[];
   readonly planVersion: number;
   readonly beatIndex: number;
   readonly tracks: Readonly<Record<string, number>>;
@@ -178,6 +262,8 @@ export interface OperationView {
   readonly actorStates: readonly OperationViewActor[];
   readonly actionPresentations: Readonly<Record<string, { readonly title: string; readonly description: string | null }>>;
   readonly sceneActionPresentations: Readonly<Record<string, { readonly title: string; readonly description: string | null }>>;
+  readonly purchaseOfferPresentations: Readonly<Record<string, { readonly title: string; readonly description: string | null }>>;
+  readonly actionOffers: readonly OperationViewActionOffer[];
   readonly playerSceneCardPresentations: Readonly<Record<string, { readonly title: string; readonly description: string | null }>>;
   readonly teamStates: EventRun['teamStates'];
   readonly locationProgress: EventRun['locationProgress'];
@@ -192,6 +278,8 @@ export interface OperationView {
   readonly maxCarryCost: number | null;
   readonly currentActionMode: 'individual' | 'global' | null;
   readonly currentSceneActions: readonly OperationViewSceneAction[];
+  readonly currentSceneActionChoice: OperationViewSceneActionChoice | null;
+  readonly currentScenePurchaseOffers: readonly OperationViewScenePurchaseOffer[];
   readonly pendingSceneActionBatch: OperationSceneActionBatchDraft | null;
   readonly sceneActionBatchesUsed: number;
   readonly sceneActionBatchesRemaining: number;
@@ -203,6 +291,8 @@ export interface OperationView {
   readonly canCommit: boolean;
   readonly commitBlockedReasonIds: readonly string[];
   readonly resolutions: readonly OperationViewResolution[];
+  /** Current Run-wide interleaving cursor for timeline records. */
+  readonly timelineSequence: number;
   readonly resolutionSequence: number;
 }
 
@@ -210,4 +300,5 @@ export interface OperationView {
 export interface OperationViewQuery {
   getView(expectedRunId?: string): OperationView | null;
   getAdmissionSummary(eventId: string, characterIds: readonly Character[]): OperationAdmissionSummary;
+  getLaunchEntries(): readonly OperationEventLaunchEntry[];
 }

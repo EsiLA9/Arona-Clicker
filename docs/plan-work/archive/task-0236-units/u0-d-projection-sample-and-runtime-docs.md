@@ -6,7 +6,7 @@
 ## Must Read / Read Set
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
-| 任务 | `docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md`、U0-A / U0-B / U0-C Unit 与 Receipt | 统一筛选合同及其 Runtime 使用 |
+| 任务 | `docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md`、U0-A / U0-B / U0-C Unit 与 Receipt | 统一筛选合同及其 Runtime 使用 |
 | 协议 | `docs/ai/PROJECT-CONSTITUTION.md`、`docs/ai/galhcg-project-map.md` | Unit / Evidence 护栏 |
 | 文档 | `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md` | 更新的目标选择权威说明 |
 | 契约 | `src/arona-clicker/contracts/operation.ts:OperationEventDef/OperationLocationDef` | 确认 Run Event 已含展开的 Location SceneAction 与有限 SceneCard 引用，便于静态准入检查 |
@@ -48,8 +48,8 @@
 - `tests/engine/gameplay-b-scene-action-sample.test.ts`
 - `tests/engine/operation-scene-actions.test.ts`
 - `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md`
-- `docs/plan-work/task-0236-units/u0-d-projection-sample-and-runtime-docs.md`
-- `docs/plan-work/task-0236-units/receipts/receipt-u0-d-projection-sample-and-runtime-docs.md`
+- `docs/plan-work/archive/task-0236-units/u0-d-projection-sample-and-runtime-docs.md`
+- `docs/plan-work/archive/task-0236-units/receipts/receipt-u0-d-projection-sample-and-runtime-docs.md`
 
 ## Explicit Non-goals
 - 不改其他 Operation 内容包，不改 SceneAction / SceneCard 的 UI、费用、效果或结算。

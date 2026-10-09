@@ -484,6 +484,7 @@ export function prepareOperationBeat(
   }
 
   const actorBalances = new Map<string, Map<string, DecimalParts>>();
+  const targetActorStates = new Map(snapshot.actors.map(actor => [actor.actorId, actor]));
   for (const [actorId, actor] of indexes.actorsById) {
     actorBalances.set(actorId, new Map(Object.entries(actor.resources).map(([id, balance]) => [id, decimalParts(balance)])));
   }
@@ -528,7 +529,7 @@ export function prepareOperationBeat(
 
       let targetActorId: string | null;
       try {
-        const target = selectOperationTarget(content.eventDefinition, actorId, action.target);
+        const target = selectOperationTarget(content.eventDefinition, actorId, action.target, targetActorStates);
         if (target.kind === 'unavailable') {
           rejectedReasons.add(target.reasonId);
           continue;

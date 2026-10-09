@@ -195,6 +195,11 @@ export function validateOperationActionContent(
 
   const actionsById = indexById(actionDefinitions, value => value.id);
   const rulesById = indexById(studentSkillRules, value => value.id);
+  const purchaseOffers = event.locations.flatMap(location => [
+    ...(location.purchaseOffers ?? []),
+    ...(location.scenes ?? []).flatMap(scene => scene.purchaseOffers ?? []),
+  ]);
+  const purchaseFactIds = new Set(purchaseOffers.map(offer => offer.purchaseFactId));
   const trackIds = new Set((Array.isArray(event.tracks) ? event.tracks : [])
     .map(track => track?.id)
     .filter(isNonEmptyId));
@@ -224,6 +229,21 @@ export function validateOperationActionContent(
       } else if (effect.kind === 'heldItem' && !itemIds.has(effect.itemId)) {
         issues.push('actionDefinitions[' + index + '].effects[' + effectIndex + '].itemId references an undeclared held item: ' + effect.itemId);
       }
+      if (effect.kind === 'eventFact' && purchaseFactIds.has(effect.factId)) {
+        issues.push('actionDefinitions[' + index + '].effects[' + effectIndex + '] must not modify a reserved PurchaseOffer marker fact');
+      }
+    }
+  }
+
+  for (const offer of purchaseOffers) {
+    const action = actionsById.get(offer.actionId);
+    if (!action) {
+      issues.push('PurchaseOffer "' + offer.id + '" references a missing Action: ' + offer.actionId);
+      continue;
+    }
+    if (action.target.kind !== 'none' || action.cost !== undefined || action.effects.length === 0
+      || action.effects.some(effect => effect.kind !== 'eventTrackDelta' && effect.kind !== 'eventFact' && effect.kind !== 'heldItem')) {
+      issues.push('PurchaseOffer "' + offer.id + '" Action must be targetless, have no Action cost, and include at least one Event Track, Fact, or held-item reward effect');
     }
   }
 
@@ -243,6 +263,19 @@ export function validateOperationActionContent(
         issues.push('studentSkillRules[' + index + '].effects[' + effectIndex + '].factId references an undeclared fact: ' + effect.factId);
       } else if (effect.kind === 'heldItem' && !itemIds.has(effect.itemId)) {
         issues.push('studentSkillRules[' + index + '].effects[' + effectIndex + '].itemId references an undeclared held item: ' + effect.itemId);
+      }
+      if (effect.kind === 'eventFact' && purchaseFactIds.has(effect.factId)) {
+        issues.push('studentSkillRules[' + index + '].effects[' + effectIndex + '] must not modify a reserved PurchaseOffer marker fact');
+      }
+    }
+  }
+
+  for (const [locationIndex, location] of event.locations.entries()) {
+    for (const [ruleIndex, rule] of (location.combinationRules ?? []).entries()) {
+      for (const [effectIndex, effect] of rule.effects.entries()) {
+        if (effect.kind === 'eventFact' && purchaseFactIds.has(effect.factId)) {
+          issues.push('locations[' + locationIndex + '].combinationRules[' + ruleIndex + '].effects[' + effectIndex + '] must not modify a reserved PurchaseOffer marker fact');
+        }
       }
     }
   }
@@ -310,17 +343,21 @@ export function validateOperationActionContent(
 
   for (const [locationIndex, location] of event.locations.entries()) {
     if (!Array.isArray(location.enabledActionIds) || !Array.isArray(location.combinationRules)) continue;
-    const enabledIds = new Set(location.enabledActionIds);
-    for (const actionId of location.enabledActionIds) {
+    const sceneEnabledIds = (location.scenes ?? []).flatMap(scene => scene.enabledActionIds ?? []);
+    const enabledIds = new Set([...location.enabledActionIds, ...sceneEnabledIds]);
+    for (const actionId of enabledIds) {
       if (!actionsById.has(actionId)) {
         issues.push('locations[' + locationIndex + '].enabledActionIds references a missing Action: ' + actionId);
       }
     }
-    const sceneActionIds = new Set<string>();
-    for (const [sceneActionIndex, sceneAction] of (location.sceneActions ?? []).entries()) {
-      const path = 'locations[' + locationIndex + '].sceneActions[' + sceneActionIndex + ']';
-      if (sceneActionIds.has(sceneAction.id)) issues.push(path + ' duplicates SceneAction ID: ' + sceneAction.id);
-      sceneActionIds.add(sceneAction.id);
+    const sceneActionRows = location.scenes !== undefined
+      ? location.scenes.flatMap(scene => (scene.sceneActions ?? []).map((sceneAction, index) => ({ sceneId: scene.id, sceneAction, index })))
+      : (location.sceneActions ?? []).map((sceneAction, index) => ({ sceneId: null, sceneAction, index }));
+    for (const row of sceneActionRows) {
+      const { sceneAction, index: sceneActionIndex } = row;
+      const path = row.sceneId === null
+        ? 'locations[' + locationIndex + '].sceneActions[' + sceneActionIndex + ']'
+        : 'locations[' + locationIndex + '].scenes[' + row.sceneId + '].sceneActions[' + sceneActionIndex + ']';
       const action = actionsById.get(sceneAction.actionId);
       if (!action) {
         issues.push(path + '.actionId references a missing Action: ' + sceneAction.actionId);
@@ -446,13 +483,24 @@ export function validateOperationActionActorReferences(
   }
 
   for (const [locationIndex, location] of event.locations.entries()) {
-    const enabledActions = location.enabledActionIds
+    const enabledActionIds = [...new Set([
+      ...location.enabledActionIds,
+      ...(location.scenes ?? []).flatMap(scene => scene.enabledActionIds ?? []),
+    ])];
+    const enabledActions = enabledActionIds
       .map(id => actionsById.get(id))
       .filter((action): action is OperationActionDef => action !== undefined && action.allowedParticipantKinds.includes('student'));
-    // SceneAction grants are location-scoped; student eligibility depends on Action kind and capabilities, not tactical Hand membership.
-    for (const [sceneActionIndex, sceneAction] of (location.sceneActions ?? []).entries()) {
+    const sceneActionRows = location.scenes !== undefined
+      ? location.scenes.flatMap(scene => (scene.sceneActions ?? []).map((sceneAction, index) => ({ sceneId: scene.id, sceneAction, index })))
+      : (location.sceneActions ?? []).map((sceneAction, index) => ({ sceneId: null, sceneAction, index }));
+    // Student eligibility depends on the trusted Action and Profile snapshots, not tactical Hand membership.
+    for (const row of sceneActionRows) {
+      const { sceneAction, index: sceneActionIndex } = row;
       const action = actionsById.get(sceneAction.actionId);
       if (!action || !action.allowedParticipantKinds.includes('student')) continue;
+      const scenePath = row.sceneId === null
+        ? 'locations[' + locationIndex + '].sceneActions[' + sceneActionIndex + ']'
+        : 'locations[' + locationIndex + '].scenes[' + row.sceneId + '].sceneActions[' + sceneActionIndex + ']';
       for (const initialization of actorInitializations) {
         if (initialization.participantKind !== 'student'
           || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) continue;
@@ -462,7 +510,7 @@ export function validateOperationActionActorReferences(
             event,
             source,
             action,
-            'locations[' + locationIndex + '].sceneActions[' + sceneActionIndex + '] for Actor ' + source.id,
+            scenePath + ' for Actor ' + source.id,
             issues,
           );
         }

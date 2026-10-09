@@ -107,6 +107,9 @@ export function renderType(
       return renderTagged(type, value, ctx, commit);
     case 'extra':
       return renderExtra(value, commit);
+    case 'json':
+    case 'hand':
+      return renderJson(value, commit);
     case 'divider':
       // renderField 在字段遍历处已直接渲染横条，此处仅作类型完备
       return document.createElement('div');
@@ -706,6 +709,31 @@ function renderExtra(value: unknown, commit: (v: unknown) => void): HTMLElement 
   return textarea;
 }
 
+/** 编辑任意 JSON 值，不按当前字段推断或重写它的对象形状。 */
+function renderJson(value: unknown, commit: (v: unknown) => void): HTMLElement {
+  const textarea = document.createElement('textarea');
+  textarea.className = 'field-input json-editor';
+  textarea.rows = 10;
+  textarea.spellcheck = false;
+  try {
+    textarea.value = JSON.stringify(value ?? null, null, 2);
+  } catch {
+    textarea.value = 'null';
+    textarea.classList.add('invalid');
+  }
+  textarea.onchange = () => {
+    try {
+      const parsed: unknown = JSON.parse(textarea.value);
+      textarea.classList.remove('invalid');
+      commit(parsed);
+    } catch {
+      textarea.classList.add('invalid');
+    }
+  };
+  textarea.oninput = () => textarea.classList.remove('invalid');
+  return textarea;
+}
+
 // ---------- 字段行包装 ----------
 
 export function renderField(
@@ -832,6 +860,9 @@ function summarizeFieldType(type: FieldType, value: unknown): string {
     }
     case 'extra':
       return 'JSON';
+    case 'json':
+    case 'hand':
+      return 'JSON';
     case 'divider':
       return '—';
     default:
@@ -877,6 +908,9 @@ export function initValue(type: FieldType): unknown {
     }
     case 'extra':
       return { t: 'null', v: null };
+    case 'json':
+    case 'hand':
+      return null;
     case 'divider':
       return null; // 横条非数据字段，不产生默认值
     default: {

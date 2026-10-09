@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstrap';
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
-import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
+import { CAROUSEL_SCENE_ACTION_IDS as IDS, carouselSceneActionSliceContent } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
 import { carouselSafetySliceContent } from '../../src/arona-clicker/content/operation-samples/carousel-safety-slice';
 import { Character } from '../../src/arona-clicker/types/ids';
@@ -35,6 +35,12 @@ describe('Gameplay B carousel SceneAction sample', () => {
     let run = game.operationEntry.getSnapshot()!;
     let sceneTacticalRandom = run.random;
     let view = game.operationEntry.getView(runId)!;
+    expect(carouselSceneActionSliceContent.eventDefinition.locations.every(location => location.scenes === undefined)).toBe(true);
+    expect(view).toMatchObject({
+      currentLocationId: IDS.locations.platform,
+      currentSceneId: 'main',
+      currentScene: { sceneId: 'main', status: 'active', index: 1, count: 1 },
+    });
     expect(view).toMatchObject({ currentLocationId: IDS.locations.platform, currentActionMode: null, playerCost: 5 });
     for (const actor of view.actorStates.filter(row => row.participantKind === 'student')) {
       const battleActionIds = actor.profile?.actionOptions.map(option => option.actionId) ?? [];
@@ -69,10 +75,12 @@ describe('Gameplay B carousel SceneAction sample', () => {
       draft: { actorId: IDS.actors.hoshino, actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop },
     });
     run = game.operationEntry.getSnapshot()!;
-    game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    const battleResolution = game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    expect(battleResolution).toMatchObject({ eventId: IDS.event, locationId: IDS.locations.platform, sceneId: 'main' });
     view = game.operationEntry.getView(runId)!;
     run = game.operationEntry.getSnapshot()!;
     sceneTacticalRandom = run.random;
+    expect(view).toMatchObject({ currentLocationId: IDS.locations.concourse, currentSceneId: 'main' });
     expect(view).toMatchObject({ currentLocationId: IDS.locations.concourse, currentActionMode: 'individual', playerCost: 5, sceneActionBatchesRemaining: 1 });
 
     game.operationEntry.stageSceneActionBatch({
@@ -86,7 +94,13 @@ describe('Gameplay B carousel SceneAction sample', () => {
     });
     const staged = game.operationEntry.getSnapshot()!;
     expect(staged.playerRouteState.playerCost).toBe(5);
-    game.operationEntry.commitStagedSceneActionBatch({ runId, planVersion: staged.planVersion });
+    const concourseResolution = game.operationEntry.commitStagedSceneActionBatch({ runId, planVersion: staged.planVersion });
+    expect(concourseResolution).toMatchObject({
+      eventId: IDS.event,
+      locationId: IDS.locations.concourse,
+      sceneId: 'main',
+      sceneBatch: { playerCostPaid: 3, sceneActionBatchesUsed: 1 },
+    });
     view = game.operationEntry.getView(runId)!;
     run = game.operationEntry.getSnapshot()!;
     expect(view.currentRoutes.filter(route => route.available).map(route => route.routeId)).toEqual([
@@ -98,6 +112,12 @@ describe('Gameplay B carousel SceneAction sample', () => {
     game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.staffGate });
     run = game.operationEntry.getSnapshot()!;
     view = game.operationEntry.getView(runId)!;
+    expect(view).toMatchObject({ currentLocationId: IDS.locations.exit, currentSceneId: 'main' });
+    expect(view.routeHistory.at(-1)).toMatchObject({
+      routeId: IDS.routes.staffGate,
+      fromLocationId: IDS.locations.concourse,
+      toLocationId: IDS.locations.exit,
+    });
     expect(view).toMatchObject({ currentLocationId: IDS.locations.exit, currentActionMode: 'global', playerCost: 3 });
     expect(view.playerCards).toMatchObject({ drawPileCount: 0, discardCount: 0 });
     expect(view.playerCards.hand).toHaveLength(2);
@@ -120,6 +140,12 @@ describe('Gameplay B carousel SceneAction sample', () => {
         targetActorIds: [IDS.actors.hoshino, IDS.actors.serika, IDS.actors.shiroko],
       }],
     });
+    expect(globalResolution).toMatchObject({
+      eventId: IDS.event,
+      locationId: IDS.locations.exit,
+      sceneId: 'main',
+      sceneBatch: { playerCostPaid: 3, sceneActionBatchesUsed: 1 },
+    });
     view = game.operationEntry.getView(runId)!;
     run = game.operationEntry.getSnapshot()!;
     expect(view).toMatchObject({
@@ -135,6 +161,17 @@ describe('Gameplay B carousel SceneAction sample', () => {
     expect(run.playerRouteState.cards.hand).toHaveLength(1);
     expect(view.playerCards.discardCount).toBe(1);
     expect(run.random).toEqual(sceneTacticalRandom);
+    expect(run.resolutions.map(({ eventId, locationId, sceneId }) => ({ eventId, locationId, sceneId }))).toEqual([
+      { eventId: IDS.event, locationId: IDS.locations.platform, sceneId: 'main' },
+      { eventId: IDS.event, locationId: IDS.locations.concourse, sceneId: 'main' },
+      { eventId: IDS.event, locationId: IDS.locations.exit, sceneId: 'main' },
+    ]);
+    expect(game.save().operationRun?.run.resolutions).toEqual(run.resolutions);
+    expect(view.routeHistory.at(-1)).toMatchObject({
+      routeId: IDS.routes.staffGate,
+      fromLocationId: IDS.locations.concourse,
+      toLocationId: IDS.locations.exit,
+    });
     expect(game.operationEntry.getSnapshot()!.status).toBe('success');
     const beforeReward = game.getView().resources['base:resource:credit'] ?? 0;
     expect(game.operationEntry.claimOutcomeReward()).toMatchObject({ status: 'claimed', reward: { amount: 200 } });

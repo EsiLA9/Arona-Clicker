@@ -2,14 +2,54 @@ import type {
   EventRun,
   OperationEventDef,
   OperationLocationResultKind,
+  OperationLocationProgress,
   OperationObjectiveDef,
   OperationOutcomeConditionDef,
   OperationPredicateDef,
   OperationPredicateLeafDef,
+  OperationSceneDef,
 } from '../contracts/operation';
 import type { OperationLocationDef } from '../contracts/operation-action';
 
 type EventStateView = Pick<EventRun['eventState'], 'tracks' | 'knownFactIds'>;
+
+/** Stable fallback identity for Locations that have not authored an explicit Scene list. */
+export const OPERATION_IMPLICIT_SCENE_ID = 'main' as const;
+
+/** Returns explicit ordered Scene content or a detached singleton projection of the legacy Location fields. */
+export function getOperationSceneDefinitions(location: OperationLocationDef): readonly OperationSceneDef[] {
+  if (location.scenes !== undefined) return location.scenes;
+  return [{
+    id: OPERATION_IMPLICIT_SCENE_ID,
+    title: '',
+    enabledActionIds: location.enabledActionIds,
+    ...(location.actionMode !== undefined ? { actionMode: location.actionMode } : {}),
+    ...(location.sceneActions !== undefined ? { sceneActions: location.sceneActions } : {}),
+    ...(location.sceneActionBatches !== undefined ? { sceneActionBatches: location.sceneActionBatches } : {}),
+    ...(location.sceneActionChoice !== undefined ? { sceneActionChoice: location.sceneActionChoice } : {}),
+    ...(location.purchaseOffers !== undefined ? { purchaseOffers: location.purchaseOffers } : {}),
+  }];
+}
+
+/** The next Scene is derived from its ordered definitions and the Run's durable completion IDs. */
+export function getNextOperationSceneId(
+  location: OperationLocationDef,
+  progress: OperationLocationProgress,
+): string | null {
+  if (progress.completed) return null;
+  if (location.scenes === undefined) return OPERATION_IMPLICIT_SCENE_ID;
+  const completed = new Set(progress.completedSceneIds ?? []);
+  return location.scenes.find(scene => !completed.has(scene.id))?.id ?? null;
+}
+
+/** Legacy implicit Scenes keep Location completion rules; explicit sequences must finish before a Location can exit. */
+export function isOperationSceneSequenceComplete(
+  location: OperationLocationDef,
+  progress: OperationLocationProgress,
+): boolean {
+  return location.scenes === undefined
+    || location.scenes.every(scene => (progress.completedSceneIds ?? []).includes(scene.id));
+}
 
 function evaluateLeaf(state: EventStateView, predicate: OperationPredicateLeafDef): boolean {
   if (predicate.kind === 'knownFact') return state.knownFactIds.includes(predicate.factId) === predicate.present;

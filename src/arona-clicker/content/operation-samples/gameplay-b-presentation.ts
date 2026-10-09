@@ -33,6 +33,12 @@ export const GAMEPLAY_B_PRESENTATION = Object.freeze({
       description: '通道行动和全队急救会提高现场整备度。',
     },
   },
+  facts: {
+    [SCENE.fact]: '旋转木马控制台已检查',
+  },
+  items: {
+    [SCENE.item]: '员工证',
+  },
   actors: {
     [SAFETY.actors.hoshino]: { role: '前线防护', description: '稳住设备；必要时可花费体力紧急停机。' },
     [SAFETY.actors.serika]: { role: '现场协调', description: '同步制动节奏，也能帮助游客通过通道。' },
@@ -55,7 +61,6 @@ export const GAMEPLAY_B_PRESENTATION = Object.freeze({
   playerCards: {
     [SCENE.actions.treatTeam]: '团队急救包',
   },
-  itemName: '员工证',
   resultText: {
     success: '主要目标已完成，设施风险已降到安全范围。',
     partialSuccess: '现场暂时稳定，但仍有目标没有完全达成。',

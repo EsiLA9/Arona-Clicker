@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
+import { SCENE_OFFER_PURCHASE_DEMO_IDS as OFFER_DEMO_IDS } from '../../src/arona-clicker/content/operation-samples/scene-offer-purchase-demo';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { gameplayBStrategyParkDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-strategy-park';
@@ -10,8 +11,9 @@ import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import type { OperationView, OperationViewSceneAction } from '../../src/arona-clicker/contracts/operation-view';
 import { UIController } from '../../src/ui/controller';
+import { readOperationSceneBatchCommand, saveSceneDraftFromWorkspace, targetsAfterPerformerChange } from '../../src/ui/controller-actions-operation';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { projectOperationActorHand, readOperationSceneDraft, renderOperationWorkspace } from '../../src/ui/components/operation-workspace';
+import { projectOperationActorHand, readOperationSceneDraft, renderOperationWorkspace, saveOperationSceneDraft } from '../../src/ui/components/operation-workspace';
 import { createUIContext } from '../../src/ui/context';
 
 const OFFICE = 'base:init:schale_office';
@@ -166,6 +168,95 @@ describe('Gameplay B Operation Controller', () => {
     expect(controller.getRefreshStats().fullRenders).toBe(before.fullRenders);
   });
 
+  it('shows the exact M-of-N counter and purchase preview; one batch applies both purchases', () => {
+    acquireStudents();
+    const start = root.querySelector<HTMLButtonElement>('[data-operation-start="' + OFFER_DEMO_IDS.event + '"]')!;
+    expect(start.disabled).toBe(false);
+    start.click();
+    const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
+    expect(runId).not.toBe('');
+    expect(root.querySelector('[data-operation-choice-group]')?.textContent).toContain('恰好选择 2 项');
+    expect(root.querySelector('[data-scene-choice-count]')?.textContent).toContain('0 / 2');
+    expect(root.querySelector('[data-operation-cost-preview]')?.textContent).toContain('恰好选择 2 项');
+    const choiceFaces = [...root.querySelectorAll<HTMLButtonElement>('[data-operation-choice-group-card] [data-operation-scene-choice]')];
+    expect(choiceFaces.map(face => face.dataset.sceneActionId)).toEqual([
+      OFFER_DEMO_IDS.choiceA,
+      OFFER_DEMO_IDS.choiceB,
+      OFFER_DEMO_IDS.choiceC,
+      OFFER_DEMO_IDS.choiceD,
+    ]);
+    expect(choiceFaces.every(face => !face.closest<HTMLElement>('[data-operation-scene-option]')?.hidden)).toBe(true);
+
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + OFFER_DEMO_IDS.choiceA + '"]')!.click();
+    expect(root.querySelector('[data-scene-choice-count]')?.textContent).toContain('1 / 2');
+    expect(root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')?.disabled).toBe(true);
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + OFFER_DEMO_IDS.choiceB + '"]')!.click();
+    expect(root.querySelector('[data-scene-choice-count]')?.textContent).toContain('2 / 2');
+    expect(root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')?.disabled).toBe(false);
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + OFFER_DEMO_IDS.choiceB + '"]')!.click();
+    expect(root.querySelector('[data-scene-choice-count]')?.textContent).toContain('1 / 2');
+    expect(root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')?.disabled).toBe(true);
+    expect(game.operationEntry.getView(runId)).toMatchObject({ playerCost: 11, tracks: { [OFFER_DEMO_IDS.track]: 0 }, resolutions: [] });
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + OFFER_DEMO_IDS.choiceC + '"]')!.click();
+    expect(root.querySelector('[data-scene-choice-count]')?.textContent).toContain('2 / 2');
+    expect(root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')?.disabled).toBe(false);
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+
+    expect(game.operationEntry.getView(runId)?.currentSceneId).toBe(OFFER_DEMO_IDS.purchaseScene);
+    expect(root.querySelector('[data-operation-choice-group]')).toBeNull();
+
+    const waterOffer = root.querySelector<HTMLButtonElement>('[data-operation-purchase-toggle][data-offer-id="' + OFFER_DEMO_IDS.waterOffer + '"]')!;
+    const medkitOffer = root.querySelector<HTMLButtonElement>('[data-operation-purchase-toggle][data-offer-id="' + OFFER_DEMO_IDS.medkitOffer + '"]')!;
+    const waterOfferCard = root.querySelector('[data-operation-purchase-offer="' + OFFER_DEMO_IDS.waterOffer + '"]')!;
+    expect(waterOfferCard.textContent).toContain('补给一箱饮水，并提升现场准备度。');
+    expect(waterOfferCard.textContent).not.toContain(OFFER_DEMO_IDS.waterItem);
+    expect(waterOffer.textContent).toContain('2 Cost');
+    expect(medkitOffer.textContent).toContain('3 Cost');
+    const purchaseBeforeToggle = game.operationEntry.getSnapshot();
+    root.querySelector<HTMLButtonElement>('[data-operation-purchase-toggle][data-offer-id="' + OFFER_DEMO_IDS.waterOffer + '"]')!.click();
+    expect(root.querySelector('[data-operation-cost-preview]')?.textContent).toContain('本批支付 2 PlayerCost · 余额 9 → 7');
+    expect(game.operationEntry.getSnapshot()).toEqual(purchaseBeforeToggle);
+    root.querySelector<HTMLButtonElement>('[data-operation-purchase-toggle][data-offer-id="' + OFFER_DEMO_IDS.waterOffer + '"]')!.click();
+    expect(root.querySelector('[data-operation-cost-preview]')?.textContent).toContain('本批支付 0 PlayerCost · 余额 9 → 9');
+    expect(game.operationEntry.getSnapshot()).toEqual(purchaseBeforeToggle);
+    root.querySelector<HTMLButtonElement>('[data-operation-purchase-toggle][data-offer-id="' + OFFER_DEMO_IDS.waterOffer + '"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-purchase-toggle][data-offer-id="' + OFFER_DEMO_IDS.medkitOffer + '"]')!.click();
+    expect(root.querySelector('[data-operation-cost-preview]')?.textContent).toContain('本批支付 5 PlayerCost · 余额 9 → 4');
+    expect(game.operationEntry.getSnapshot()).toEqual(purchaseBeforeToggle);
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+
+    expect(game.operationEntry.getView(runId)).toMatchObject({
+      currentLocationId: OFFER_DEMO_IDS.location,
+      currentSceneId: OFFER_DEMO_IDS.purchaseScene,
+      locationProgress: { [OFFER_DEMO_IDS.location]: { completedSceneIds: [OFFER_DEMO_IDS.choiceScene] } },
+      heldItemIds: [OFFER_DEMO_IDS.waterItem, OFFER_DEMO_IDS.medkitItem],
+      knownFactIds: [OFFER_DEMO_IDS.waterFact, OFFER_DEMO_IDS.medkitFact],
+      playerCost: 4,
+    });
+    expect(root.querySelector<HTMLButtonElement>('[data-operation-purchase-toggle][data-offer-id="' + OFFER_DEMO_IDS.waterOffer + '"]')?.disabled).toBe(true);
+    const resolution = game.operationEntry.getView(runId)?.resolutions.find(row => row.sceneId === OFFER_DEMO_IDS.purchaseScene && row.sceneBatch?.purchases?.length);
+    expect(resolution?.sceneBatch?.purchases?.map(purchase => purchase.offerId)).toEqual([
+      OFFER_DEMO_IDS.waterOffer,
+      OFFER_DEMO_IDS.medkitOffer,
+    ]);
+    expect(resolution?.sceneBatch?.playerCostPaid).toBe(5);
+
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + OFFER_DEMO_IDS.removeSpentWater + '"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+    expect(game.operationEntry.getView(runId)).toMatchObject({
+      currentSceneId: OFFER_DEMO_IDS.purchaseScene,
+      heldItemIds: [OFFER_DEMO_IDS.medkitItem],
+      knownFactIds: [OFFER_DEMO_IDS.waterFact, OFFER_DEMO_IDS.medkitFact],
+    });
+
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + OFFER_DEMO_IDS.finalInventoryCheck + '"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+    expect(game.operationEntry.getView(runId)).toMatchObject({
+      currentLocationId: OFFER_DEMO_IDS.exitLocation,
+      locationProgress: { [OFFER_DEMO_IDS.location]: { completed: true, result: 'success', completedSceneIds: [OFFER_DEMO_IDS.choiceScene, OFFER_DEMO_IDS.purchaseScene] } },
+    });
+  });
+
   it('创建与恢复 Run 使用 Operation Surface；返回后恢复聊天位置、焦点和面板状态', () => {
     acquireStudents();
     const originalCapture = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
@@ -186,16 +277,17 @@ describe('Gameplay B Operation Controller', () => {
       beforeStream.scrollTop = 90;
       const fullBefore = controller.getRefreshStats().fullRenders;
 
-      expect(root.querySelector('[data-operation-start]')?.textContent).toContain('开始旋转木马安全战斗');
+      expect(root.querySelector('[data-operation-start]')?.textContent).toContain('开始旋转木马安全行动');
       root.querySelector<HTMLButtonElement>('[data-operation-start]')!.click();
       const operation = controller.panelState.workspace;
       expect(operation?.type).toBe('operation');
       if (operation?.type !== 'operation') throw new Error('Operation route did not open');
       expect(game.operationEntry.getView(operation.runId)).toMatchObject({
         currentLocationId: IDS.locations.platform,
+        currentStage: 'combat',
         currentActionMode: null,
       });
-      expect(root.querySelector('.operation-commit-status')?.textContent).toContain('旋转木马安全战斗');
+      expect(root.querySelector('.operation-commit-status')?.textContent).toContain('战斗阶段');
       expect(root.querySelector('[data-workspace-frame="operation"]')).not.toBeNull();
       expect(controller.getRefreshStats().fullRenders).toBe(fullBefore + 1);
       expect(document.activeElement).toBe(root.querySelector('[data-operation-commit]'));
@@ -293,7 +385,7 @@ describe('Gameplay B Operation Controller', () => {
     expect(root.querySelector('[data-operation-action][data-action-id="' + selectedActionId + '"]')).toBe(actionButton);
     root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
     expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.concourse);
-    expect(root.querySelector('.operation-commit-status')?.textContent).toContain('战斗已结束');
+    expect(root.querySelector('.operation-commit-status')?.textContent).toContain('处理地点行动');
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
     expect(root.querySelector('[data-workspace-frame="operation"]')).toBe(stableFrame);
     expect(root.querySelector('[data-operation-log]')).toBe(stableStream);
@@ -404,7 +496,7 @@ describe('Gameplay B Operation Controller', () => {
       expect(alternative.hidden).toBe(true);
 
       ownerRect = rect(160, 60, 210, 160);
-      frame.querySelector<HTMLElement>('[data-scroll="content"]')?.dispatchEvent(new Event('scroll', { bubbles: true }));
+      frame.dispatchEvent(new Event('scroll', { bubbles: true }));
       await nextFrame();
       expect(face.style.left).toBe('250px');
       expect(face.style.top).toBe('150px');
@@ -435,6 +527,47 @@ describe('Gameplay B Operation Controller', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it('替换当前行动后，新当前牌能收起遗留的待替换卡并再次展开', () => {
+    acquireStudents();
+    startFromFeed();
+    const actorId = CAROUSEL_SAFETY_IDS.actors.hoshino;
+    const { currentFace, alternative } = installTargetableAlternative();
+    currentFace.click();
+    expect(alternative.hidden).toBe(false);
+    alternative.click();
+
+    const replacement = root.querySelector<HTMLButtonElement>(
+      '[data-operation-action-current][data-operation-action-owner-id="' + actorId + '"][aria-pressed="true"]',
+    )!;
+    const alternatives = [...root.querySelectorAll<HTMLButtonElement>(
+      '[data-operation-action-alternative][data-operation-action-owner-id="' + actorId + '"]',
+    )];
+    const panel = root.querySelector<HTMLElement>(
+      '[data-operation-action-alternatives-panel][data-operation-action-owner-id="' + actorId + '"]',
+    )!;
+    expect(replacement.dataset.actionId).toBe(alternative.dataset.actionId);
+    expect(replacement.getAttribute('aria-expanded')).toBe('false');
+    expect(alternatives.every(option => option.hidden)).toBe(true);
+    expect(panel.hidden).toBe(true);
+
+    // Reproduce a stale visible alternative layer after the current card has been re-rendered.
+    alternatives.forEach(option => { option.hidden = false; });
+    panel.hidden = false;
+    replacement.click();
+    expect(replacement.getAttribute('aria-expanded')).toBe('false');
+    expect(alternatives.every(option => option.hidden)).toBe(true);
+    expect(panel.hidden).toBe(true);
+
+    replacement.click();
+    expect(replacement.getAttribute('aria-expanded')).toBe('true');
+    expect(alternatives.some(option => !option.hidden)).toBe(true);
+    expect(panel.hidden).toBe(false);
+    replacement.click();
+    expect(replacement.getAttribute('aria-expanded')).toBe('false');
+    expect(alternatives.every(option => option.hidden)).toBe(true);
+    expect(panel.hidden).toBe(true);
   });
 
   it('单目标替代牌的键盘 Enter 直接采用其固定目标', () => {
@@ -638,7 +771,7 @@ describe('Gameplay B Operation Controller', () => {
     const regionBefore = controller.getRefreshStats().regionRefreshes;
     const alternatives = workspace.querySelector<HTMLButtonElement>('[data-operation-scene-choice]:not([aria-pressed="true"])');
     expect(alternatives).not.toBeNull();
-    workspace.querySelector<HTMLButtonElement>('[data-operation-scene-alternatives]')!.click();
+    expect([...workspace.querySelectorAll<HTMLElement>('[data-operation-scene-option]')].every(option => !option.hidden)).toBe(true);
     alternatives!.click();
     expect(alternatives!.getAttribute('aria-pressed')).toBe('true');
     expect(game.operationEntry.getSnapshot()!.planVersion).toBe(planVersion);
@@ -811,6 +944,286 @@ describe('Gameplay B Operation Controller', () => {
     expect(face.dataset.actorId).toBe(ownerActorId);
   });
 
+  it('纯点击为 Global SceneAction 选择、改派并取消合格执行者', () => {
+    const runId = enterCarouselExit();
+    const view = game.operationEntry.getView(runId)!;
+    const source = view.currentSceneActions.find(action => action.scope === 'global' && action.performerPolicy === 'optional-student')!;
+    const sceneAction = { ...source, performerPolicy: 'selected-student' as const };
+    const syntheticView: OperationView = {
+      ...view,
+      currentSceneActions: view.currentSceneActions.map(action => action.id === source.id ? sceneAction : action),
+    };
+    const renderSynthetic = () => { root.innerHTML = renderOperationWorkspace(createUIContext(game), syntheticView); };
+    const initialRun = game.operationEntry.getSnapshot();
+    renderSynthetic();
+    let picker = root.querySelector<HTMLElement>('[data-operation-performer-picker][data-card-kind="scene-action"][data-card-identity="' + source.id + '"]')!;
+    let choices = [...picker.querySelectorAll<HTMLButtonElement>('[data-operation-card-actor]')];
+    expect(choices.map(button => button.dataset.performerActorId)).toEqual(source.eligibleActorIds);
+    choices[0]!.click();
+    expect(readOperationSceneDraft(runId, view.planVersion, view.currentLocationId)?.selections)
+      .toContainEqual(expect.objectContaining({ sceneActionId: source.id, actorId: source.eligibleActorIds[0] }));
+    expect(game.operationEntry.getSnapshot()).toEqual(initialRun);
+
+    renderSynthetic();
+    picker = root.querySelector<HTMLElement>('[data-operation-performer-picker][data-card-kind="scene-action"][data-card-identity="' + source.id + '"]')!;
+    choices = [...picker.querySelectorAll<HTMLButtonElement>('[data-operation-card-actor]')];
+    choices[1]!.click();
+    expect(readOperationSceneDraft(runId, view.planVersion, view.currentLocationId)?.selections)
+      .toContainEqual(expect.objectContaining({ sceneActionId: source.id, actorId: source.eligibleActorIds[1] }));
+    expect(game.operationEntry.getSnapshot()).toEqual(initialRun);
+
+    renderSynthetic();
+    root.querySelector<HTMLButtonElement>('[data-operation-performer-clear][data-card-identity="' + source.id + '"]')!.click();
+    expect(readOperationSceneDraft(runId, view.planVersion, view.currentLocationId)?.selections).toEqual([]);
+    expect(game.operationEntry.getSnapshot()).toEqual(initialRun);
+  });
+
+  it('公共手牌可点选 Performer，清除后焦点回到同一张卡', () => {
+    const runId = enterCarouselExit();
+    const view = game.operationEntry.getView(runId)!;
+    const source = view.playerCards.hand.find(card => card.selectionPolicy === 'required' && card.performerPolicy === 'optional-student')!;
+    const card = { ...source, performerPolicy: 'selected-student' as const };
+    const syntheticView: OperationView = {
+      ...view,
+      playerCards: {
+        ...view.playerCards,
+        hand: view.playerCards.hand.map(item => item.cardInstanceId === source.cardInstanceId ? card : item),
+      },
+    };
+    root.innerHTML = renderOperationWorkspace(createUIContext(game), syntheticView);
+    const initialRun = game.operationEntry.getSnapshot();
+    const picker = root.querySelector<HTMLElement>(
+      '[data-operation-performer-picker][data-card-kind="player-card"][data-card-identity="' + card.cardInstanceId + '"]',
+    );
+    expect(picker).not.toBeNull();
+    const performers = [...picker!.querySelectorAll<HTMLButtonElement>('[data-operation-card-actor]')];
+    expect(performers.map(button => button.dataset.performerActorId)).toEqual(card.eligibleActorIds);
+    const face = root.querySelector<HTMLButtonElement>('[data-operation-card-toggle][data-card-instance-id="' + card.cardInstanceId + '"]');
+    expect(face).not.toBeNull();
+    face!.click();
+    expect((picker as HTMLDetailsElement).open).toBe(true);
+    expect(document.activeElement).toBe(performers[0]);
+    performers[0]!.click();
+
+    const assignedDraft = readOperationSceneDraft(runId, view.planVersion, view.currentLocationId)!;
+    expect(assignedDraft.cards).toContainEqual(expect.objectContaining({
+      cardInstanceId: card.cardInstanceId,
+      actorId: card.eligibleActorIds[0],
+    }));
+    expect(game.operationEntry.getSnapshot()).toEqual(initialRun);
+
+    root.innerHTML = renderOperationWorkspace(createUIContext(game), syntheticView);
+    root.querySelector<HTMLButtonElement>('[data-operation-performer-clear][data-card-identity="' + card.cardInstanceId + '"]')!.click();
+    const returnedCard = root.querySelector<HTMLButtonElement>(
+      '[data-operation-player-hand] [data-operation-player-card="' + card.cardInstanceId + '"] [data-operation-card-toggle]',
+    );
+    expect(returnedCard).not.toBeNull();
+    expect(document.activeElement).toBe(returnedCard);
+    expect(readOperationSceneDraft(runId, view.planVersion, view.currentLocationId)?.cards).toEqual([]);
+    expect(game.operationEntry.getSnapshot()).toEqual(initialRun);
+  });
+
+  it('通过真实 Controller 改派后保留合法目标并交给批次构造器', () => {
+    const runId = enterCarouselExit();
+    const view = game.operationEntry.getView(runId)!;
+    const source = view.currentSceneActions.find(action => action.scope === 'global' && action.performerPolicy === 'optional-student')!;
+    const previousActorId = IDS.actors.hoshino;
+    const nextActorId = IDS.actors.serika;
+    const retainedTargetId = IDS.actors.shiroko;
+    expect(source.eligibleActorIds).toContain(previousActorId);
+    expect(source.eligibleActorIds).toContain(nextActorId);
+    expect(source.legalTargetActorIdsByActorId[previousActorId]).toContain(retainedTargetId);
+    expect(source.legalTargetActorIdsByActorId[nextActorId]).toContain(retainedTargetId);
+
+    saveOperationSceneDraft(runId, view.planVersion, view.currentLocationId, {
+      selections: [{ sceneActionId: source.id, actorId: previousActorId, targetActorIds: [retainedTargetId] }],
+      cards: [],
+    });
+    const sceneAction = { ...source, performerPolicy: 'selected-student' as const };
+    const syntheticView: OperationView = {
+      ...view,
+      currentSceneActions: view.currentSceneActions.map(action => action.id === source.id ? sceneAction : action),
+    };
+    root.innerHTML = renderOperationWorkspace(createUIContext(game), syntheticView);
+    const runtimeBefore = game.operationEntry.getSnapshot();
+    const performerChoice = root.querySelector<HTMLButtonElement>(
+      '[data-operation-performer-picker][data-card-kind="scene-action"][data-card-identity="' + source.id + '"] [data-performer-actor-id="' + nextActorId + '"]',
+    );
+    expect(performerChoice).not.toBeNull();
+    performerChoice!.click();
+
+    const reassignedDraft = readOperationSceneDraft(runId, view.planVersion, view.currentLocationId)!;
+    expect(reassignedDraft.selections).toEqual([{
+      sceneActionId: source.id,
+      actorId: nextActorId,
+      targetActorIds: [retainedTargetId],
+    }]);
+    expect(game.operationEntry.getSnapshot()).toEqual(runtimeBefore);
+
+    const workspace = root.querySelector<HTMLElement>('[data-workspace-frame="operation"]')!;
+    const serialized = saveSceneDraftFromWorkspace(workspace)!;
+    expect(serialized.selections).toEqual(reassignedDraft.selections);
+    const batch = readOperationSceneBatchCommand(view, { runId, planVersion: view.planVersion }, serialized);
+    expect(batch.selections).toEqual([{
+      sceneActionId: source.id,
+      actorId: nextActorId,
+      targetActorIds: [retainedTargetId],
+    }]);
+  });
+
+  it('改派 Global SceneAction 后序列化并构造批次时保留空目标意图', () => {
+    const previousActorId = IDS.actors.hoshino;
+    const nextActorId = IDS.actors.serika;
+    expect(targetsAfterPerformerChange({ actorId: previousActorId, targetActorIds: [IDS.actors.serika, IDS.actors.shiroko] },
+      nextActorId, [IDS.actors.serika, IDS.actors.hoshino])).toEqual([IDS.actors.serika]);
+    const runId = enterCarouselExit();
+    const view = game.operationEntry.getView(runId)!;
+    const source = view.currentSceneActions.find(action => action.scope === 'global' && action.performerPolicy === 'optional-student')!;
+    const action: OperationViewSceneAction = {
+      ...source,
+      scope: 'individual',
+      performerPolicy: 'selected-student',
+      eligibleActorIds: [nextActorId],
+      legalTargetActorIdsByActorId: { [previousActorId]: [IDS.actors.shiroko], [nextActorId]: [IDS.actors.hoshino] },
+    };
+    const individualView: OperationView = {
+      ...view,
+      currentActionMode: 'individual',
+      currentSceneActions: [action],
+    };
+    const unselectedTargets = targetsAfterPerformerChange({ actorId: previousActorId, targetActorIds: [IDS.actors.shiroko] },
+      nextActorId, action.legalTargetActorIdsByActorId[nextActorId]!);
+    expect(unselectedTargets).toEqual([]);
+    expect(targetsAfterPerformerChange(undefined, nextActorId, [IDS.actors.hoshino])).toEqual([IDS.actors.hoshino]);
+    expect(targetsAfterPerformerChange({ targetActorIds: [IDS.actors.shiroko] }, nextActorId, [IDS.actors.hoshino]))
+      .toEqual([IDS.actors.hoshino]);
+
+    const makeWorkspace = (global: boolean, selectedTargets: readonly string[], legalTargets: readonly string[]): HTMLElement => {
+      const workspace = document.createElement('section');
+      workspace.dataset.workspaceFrame = 'operation';
+      const location = document.createElement('div');
+      location.dataset.operationLocation = view.currentLocationId;
+      const submit = document.createElement('button');
+      submit.dataset.operationSceneSubmit = '';
+      submit.dataset.runId = runId;
+      submit.dataset.planVersion = String(view.planVersion);
+      const card = document.createElement('div');
+      card.dataset.operationSceneCard = '';
+      if (global) card.dataset.globalSceneCard = '';
+      card.dataset.actorId = nextActorId;
+      const option = document.createElement('div');
+      option.dataset.operationSceneOption = '';
+      const face = document.createElement('button');
+      face.dataset.operationSceneChoice = '';
+      face.dataset.sceneActionId = action.id;
+      face.dataset.actorId = nextActorId;
+      face.dataset.selectedTargetActorIds = JSON.stringify(selectedTargets);
+      face.dataset.legalTargetActorIds = JSON.stringify(legalTargets);
+      face.setAttribute('aria-pressed', 'true');
+      option.append(face);
+      card.append(option);
+      workspace.append(location, submit, card);
+      return workspace;
+    };
+
+    const runBefore = game.operationEntry.getSnapshot();
+    const workspace = makeWorkspace(false, unselectedTargets, action.legalTargetActorIdsByActorId[nextActorId]!);
+    const serialized = saveSceneDraftFromWorkspace(workspace)!;
+    expect(serialized.selections).toEqual([{ sceneActionId: action.id, actorId: nextActorId, targetActorIds: [] }]);
+    expect(() => readOperationSceneBatchCommand(individualView, { runId, planVersion: view.planVersion }, serialized))
+      .toThrow('请为个人行动选择一名目标。');
+    const visibleUniqueDefault = [IDS.actors.hoshino];
+    expect(saveSceneDraftFromWorkspace(makeWorkspace(false, visibleUniqueDefault, visibleUniqueDefault))?.selections[0]?.targetActorIds)
+      .toEqual(visibleUniqueDefault);
+
+    const globalAction = { ...source, performerPolicy: 'selected-student' as const, eligibleActorIds: [nextActorId],
+      legalTargetActorIdsByActorId: { [nextActorId]: [IDS.actors.hoshino, IDS.actors.shiroko] } };
+    const globalView: OperationView = { ...view, currentActionMode: 'global', currentSceneActions: [globalAction] };
+    const globalSerialized = saveSceneDraftFromWorkspace(makeWorkspace(true, [], [IDS.actors.hoshino, IDS.actors.shiroko]))!;
+    expect(() => readOperationSceneBatchCommand(globalView, { runId, planVersion: view.planVersion }, globalSerialized))
+      .toThrow('请至少选择一名行动目标；也可以取消这张行动并跳过本批。');
+    expect(game.operationEntry.getSnapshot()).toEqual(runBefore);
+  });
+
+  it('Individual SceneAction 空目标草稿保持未选择，不扩成全部合法目标', () => {
+    const runId = enterCarouselExit();
+    const view = game.operationEntry.getView(runId)!;
+    const source = view.currentSceneActions[0]!;
+    const targets = [IDS.actors.hoshino, IDS.actors.serika];
+    const action: OperationViewSceneAction = {
+      ...source,
+      scope: 'individual',
+      eligibleActorIds: [IDS.actors.hoshino],
+      legalTargetActorIdsByActorId: { [IDS.actors.hoshino]: targets },
+    };
+    const individualView: OperationView = { ...view, currentActionMode: 'individual', currentSceneActions: [action] };
+    const command = { runId, planVersion: view.planVersion };
+    const draft = {
+      selections: [{ sceneActionId: action.id, actorId: IDS.actors.hoshino, targetActorIds: [] }],
+      cards: [],
+    };
+    expect(() => readOperationSceneBatchCommand(individualView, command, draft)).toThrow('请为个人行动选择一名目标。');
+    expect(readOperationSceneBatchCommand(individualView, command, {
+      ...draft,
+      selections: [{ sceneActionId: action.id, actorId: IDS.actors.hoshino, targetActorIds: [IDS.actors.serika] }],
+    }).selections).toEqual([{ sceneActionId: action.id, actorId: IDS.actors.hoshino, targetActorIds: [IDS.actors.serika] }]);
+  });
+
+  it('all-eligible SceneAction 明示自动合格目标，序列化保留空手选 ID', () => {
+    const runId = enterCarouselExit();
+    const view = game.operationEntry.getView(runId)!;
+    const source = view.currentSceneActions.find(action => action.scope === 'global' && action.performerPolicy === 'optional-student')!;
+    const targetIds = [IDS.actors.serika, IDS.actors.shiroko];
+    const groupAction: OperationViewSceneAction = {
+      ...source,
+      targetSelectionMode: 'all-eligible',
+      performerPolicy: 'selected-student',
+      eligibleActorIds: [IDS.actors.hoshino],
+      legalTargetActorIdsByActorId: { [IDS.actors.hoshino]: targetIds },
+    };
+    const groupView: OperationView = {
+      ...view,
+      currentActionMode: 'global',
+      sceneActionBatchesRemaining: Math.max(1, view.sceneActionBatchesRemaining),
+      pendingSceneActionBatch: null,
+      currentSceneActions: [groupAction],
+    };
+    const draft = {
+      selections: [{ sceneActionId: groupAction.id, actorId: IDS.actors.hoshino, targetActorIds: [] }],
+      cards: [],
+    };
+    saveOperationSceneDraft(runId, view.planVersion, view.currentLocationId, draft);
+    const markup = renderOperationWorkspace(createUIContext(game), groupView);
+    root.innerHTML = markup;
+
+    const face = root.querySelector<HTMLButtonElement>(
+      '[data-operation-scene-choice][data-scene-action-id="' + groupAction.id + '"]',
+    )!;
+    expect(face.dataset.targetSelectionMode).toBe('all-eligible');
+    expect(JSON.parse(face.dataset.selectedTargetActorIds ?? 'null')).toEqual([]);
+    expect(face.dataset.targetSummary).toContain('自动作用于全部合格目标（2）');
+    for (const targetId of targetIds) {
+      expect(face.textContent).toContain(view.actorStates.find(actor => actor.id === targetId)?.displayName);
+    }
+
+    const command = { runId, planVersion: view.planVersion };
+    expect(readOperationSceneBatchCommand(groupView, command, draft).selections).toEqual([{
+      sceneActionId: groupAction.id,
+      actorId: IDS.actors.hoshino,
+      targetActorIds: [],
+    }]);
+    expect(() => readOperationSceneBatchCommand(groupView, command, {
+      ...draft,
+      selections: [{ ...draft.selections[0]!, targetActorIds: [targetIds[0]!] }],
+    })).toThrow('全体目标行动不接受手动目标列表。');
+    const emptyGroupView: OperationView = {
+      ...groupView,
+      currentSceneActions: [{ ...groupAction, legalTargetActorIdsByActorId: { [IDS.actors.hoshino]: [] } }],
+    };
+    expect(() => readOperationSceneBatchCommand(emptyGroupView, command, draft))
+      .toThrow('当前没有合格目标，无法执行全体目标行动。');
+  });
+
   it('fixed SceneAction 作为不可交互牌展示，点击不会从批次移除', () => {
     acquireStudents();
     startFromFeed();
@@ -821,6 +1234,7 @@ describe('Gameplay B Operation Controller', () => {
       actionId: PARK_IDS.actions.recordConsole,
       title: '登记控制台记录',
       description: '记录控制室内的设备信息。',
+      targetSelectionMode: 'select',
       scope: 'global',
       playerCost: 0,
       selectionPolicy: 'fixed',
@@ -849,7 +1263,7 @@ describe('Gameplay B Operation Controller', () => {
     expect(game.operationEntry.getSnapshot()).toEqual(before);
   });
 
-  it('Individual 同队治疗牌使用自身候选并预览整批费用，点击不查询或写 Run', () => {
+  it('Individual 同队治疗牌使用 Runtime 预览整批费用，编辑草稿不写 Run', () => {
     acquireStudents();
     startFromFeed();
     const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
@@ -867,6 +1281,7 @@ describe('Gameplay B Operation Controller', () => {
     expect(secondAidCard).toBeDefined();
     const secondCard = root.querySelector<HTMLElement>('[data-operation-player-card="' + secondAidCard!.cardInstanceId + '"]')!;
     const planVersion = view.planVersion;
+    const runtimeBefore = game.operationEntry.getSnapshot();
     const refreshBefore = controller.getRefreshStats();
     dragPlayerCardToStudent(root, card.querySelector<HTMLButtonElement>('[data-operation-card-toggle]')!, IDS.actors.serika, 81);
     let assignedCard = root.querySelector<HTMLElement>('[data-operation-player-card="' + aidCard!.cardInstanceId + '"]')!;
@@ -882,8 +1297,9 @@ describe('Gameplay B Operation Controller', () => {
     dragPlayerCardToStudent(root, secondCard.querySelector<HTMLButtonElement>('[data-operation-card-toggle]')!, IDS.actors.serika, 82);
     const assignedSecondCard = root.querySelector<HTMLElement>('[data-operation-player-card="' + secondAidCard!.cardInstanceId + '"]')!;
     dragCardToActorTarget(root, assignedSecondCard.querySelector<HTMLButtonElement>('[data-operation-card-toggle]')!, IDS.actors.hoshino, 84);
-    expect(root.querySelector('[data-operation-cost-preview]')?.textContent).toContain('本批实际支付 2 Cost');
-    expect(game.operationEntry.getSnapshot()!.planVersion).toBe(planVersion);
+    expect(root.querySelector('[data-operation-cost-preview]')?.textContent).toContain('本批支付 2 PlayerCost');
+    expect(root.querySelector<HTMLElement>('[data-operation-cost-preview]')?.dataset.previewStatus).toBe('valid');
+    expect(game.operationEntry.getSnapshot()).toEqual(runtimeBefore);
     expect(controller.getRefreshStats()).toMatchObject({ fullRenders: refreshBefore.fullRenders, regionRefreshes: refreshBefore.regionRefreshes + 2 });
 
     const individualSelections = [...root.querySelectorAll<HTMLElement>('[data-operation-scene-card][data-actor-id]')]
@@ -926,14 +1342,14 @@ describe('Gameplay B Operation Controller', () => {
     const defaultActionId = defaultSceneFace.dataset.sceneActionId!;
     const alternateSceneFace = sceneFaces.find(face => face !== defaultSceneFace)!;
     const selectedActionId = alternateSceneFace.dataset.sceneActionId!;
-    hoshinoCard.querySelector<HTMLButtonElement>('[data-operation-scene-alternatives]')!.click();
+    expect([...hoshinoCard.querySelectorAll<HTMLElement>('[data-operation-scene-option]')].every(option => !option.hidden)).toBe(true);
     alternateSceneFace.click();
     expect(game.operationEntry.getView(runId)?.planVersion).toBe(individualView.planVersion);
     controller.requestOperationWorkspaceRefresh(individualView, { type: 'commit' });
     const restoredHoshino = root.querySelector<HTMLElement>('[data-operation-scene-card][data-actor-id="' + IDS.actors.hoshino + '"]')!;
     expect(restoredHoshino.querySelector('[data-operation-scene-choice][aria-pressed="true"]')?.getAttribute('data-scene-action-id')).toBe(selectedActionId);
 
-    restoredHoshino.querySelector<HTMLButtonElement>('[data-operation-scene-alternatives]')!.click();
+    expect([...restoredHoshino.querySelectorAll<HTMLElement>('[data-operation-scene-option]')].every(option => !option.hidden)).toBe(true);
     restoredHoshino.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + defaultActionId + '"]')!.click();
 
     expect(readOperationSceneDraft(runId, individualView.planVersion, IDS.locations.concourse)?.selections)
@@ -1070,6 +1486,7 @@ describe('Gameplay B Operation Controller', () => {
   it('出口急救可以就地激活并指定绝对目标', () => {
     const runId = enterCarouselExit();
     const view = game.operationEntry.getView(runId)!;
+    const planVersion = view.planVersion;
     const face = root.querySelector<HTMLButtonElement>('[data-global-scene-card] [data-operation-scene-choice]')!;
     expect(face.dataset.performerPolicy).toBe('optional-student');
     expect(face.getAttribute('aria-pressed')).toBe('false');
@@ -1085,6 +1502,7 @@ describe('Gameplay B Operation Controller', () => {
     expect(game.operationEntry.getView(runId)?.resolutions.at(-1)?.sceneBatch?.selections).toEqual([
       { sceneActionId: IDS.sceneActions.firstAid, targetActorIds: [IDS.actors.shiroko] },
     ]);
+    expect(readOperationSceneDraft(runId, planVersion, IDS.locations.exit)).toBeUndefined();
 
   });
 

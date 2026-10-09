@@ -88,7 +88,7 @@ function fixture(options: FixtureOptions = {}): OperationResolutionPlannerInput 
   ];
   const eventDefinition: OperationEventDef = {
     id: 'event:test:resolution',
-    locations: [{ id: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: options.invalidActionEffect || options.disableCombinations ? [] : [{
+    locations: [{ id: 'location:office', stage: 'combat', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: options.invalidActionEffect || options.disableCombinations ? [] : [{
         id: 'combo:focus',
         priority: 0,
         inputTagIds: ['tag:a', 'tag:b'],
@@ -443,7 +443,7 @@ describe('pure Operation Resolution planner', () => {
       actors: actorCostInput.trustedContent.eventDefinition.actors.map(actorDefinition => actorDefinition.id === STUDENT_A
         ? { ...actorDefinition, targetPriorityActorIds: [STUDENT_B] }
         : actorDefinition),
-      locations: [{ id: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+      locations: [{ id: 'location:office', stage: 'combat' as const, enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     };
     const gainActions = [
       { ...actorCostActions[0], cost: undefined, target: { kind: 'actor' as const, relation: 'any' as const }, effects: [
@@ -496,7 +496,7 @@ describe('pure Operation Resolution planner', () => {
       ...event,
       actors: remappedActors,
       teams: [],
-      locations: [{ id: 'location:office', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+      locations: [{ id: 'location:office', stage: 'combat', enabledActionIds: [ACTION_A, ACTION_B, ENEMY_ACTION], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     };
     const actionDefinitions = input.trustedContent.actionDefinitions.map((actionDefinition, index) => index < 2
       ? {

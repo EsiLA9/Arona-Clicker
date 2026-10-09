@@ -9,6 +9,7 @@ const eventDefinition: OperationEventDef = {
   id: 'test:operation-event:hand',
   locations: [{
     id: 'test:operation-location:front',
+    stage: 'combat',
     enabledActionIds: ['test:operation-action:cover', 'test:operation-action:attack', 'test:operation-action:observe'],
     combinationRules: [],
     routeEdges: [],

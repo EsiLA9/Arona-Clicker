@@ -22,7 +22,7 @@
 
 - `src/arona-clicker/services/operation-action-content-validation.ts`
 - `tests/engine/gameplay-b-operation-sample.test.ts`
-- `docs/plan-work/task-0241-units/receipts/receipt-0241-u12-scene-action-admission-separation.md`
+- `docs/plan-work/archive/task-0241-units/receipts/receipt-0241-u12-scene-action-admission-separation.md`
 
 ## Completion Criteria
 
@@ -41,4 +41,4 @@
 
 ## Receipt
 
-`docs/plan-work/task-0241-units/receipts/receipt-0241-u12-scene-action-admission-separation.md`
+`docs/plan-work/archive/task-0241-units/receipts/receipt-0241-u12-scene-action-admission-separation.md`

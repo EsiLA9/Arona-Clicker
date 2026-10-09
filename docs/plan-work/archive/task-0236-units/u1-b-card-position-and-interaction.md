@@ -6,8 +6,8 @@
 ## Must Read / Read Set
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
-| 任务 | `docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md` | 交互契约与验收边界 |
-| 前置 Unit | `docs/plan-work/task-0236-units/u1-attached-action-card-layer.md` 及其 Receipt | 共享 frame layer 的最终 DOM 约定 |
+| 任务 | `docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md` | 交互契约与验收边界 |
+| 前置 Unit | `docs/plan-work/archive/task-0236-units/u1-attached-action-card-layer.md` 及其 Receipt | 共享 frame layer 的最终 DOM 约定 |
 | 协议 | `docs/ai/PROJECT-CONSTITUTION.md`、`docs/ai/frontend-design-project-overlay.md`、`docs/ai/galhcg-project-map.md` | 白名单、交互连续性与地图维护 |
 | 文档 | `docs/docs-829/06-wiki/50-ui/refresh-update.md` | behavior/region 刷新边界 |
 | 源码 | `src/ui/controller-actions-operation.ts:pointer handlers / operation action event handlers` | 当前拖放、目标命中和 Operation 命令边界 |
@@ -58,8 +58,8 @@
 - `tests/ui/gameplay-b-operation-controller.test.ts`
 - `tests/ui/operation-workspace-view.test.ts`
 - `tests/ui/gameplay-b-card-inspector.test.ts`
-- `docs/plan-work/task-0236-units/u1-b-card-position-and-interaction.md`
-- `docs/plan-work/task-0236-units/receipts/receipt-u1-b-card-position-and-interaction.md`
+- `docs/plan-work/archive/task-0236-units/u1-b-card-position-and-interaction.md`
+- `docs/plan-work/archive/task-0236-units/receipts/receipt-u1-b-card-position-and-interaction.md`
 
 ## Explicit Non-goals
 - 不改变 Operation Workspace 结构、WorkspaceFrame、CSS、Runtime、目标合同、Registry、Datapack 或存档；仅允许修正既有行动牌及 target tray 的目标摘要 / 默认选中目标投影。

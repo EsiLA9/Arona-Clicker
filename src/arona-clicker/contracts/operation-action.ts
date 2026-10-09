@@ -4,12 +4,15 @@ export type {
   OperationActionEffectDef,
   OperationActionTargetDef,
   OperationActionTargetRelation,
+  OperationActionTargetSelectionMode,
   OperationCombinationRuleDef,
   OperationCombinationTargetMatch,
   OperationLocationDef,
   OperationRouteEdgeDef,
   OperationSceneActionDef,
+  OperationSceneActionChoiceDef,
   OperationSceneActionMode,
+  OperationScenePurchaseOfferDef,
 } from '../../data-services/contracts/operation';
 
 /** One disjoint pair selected by the current Location's deterministic Combination ordering. */

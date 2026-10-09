@@ -16,6 +16,10 @@ export function isNonEmptyOperationId(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isLocalOperationId(value: unknown): value is string {
+  return isNonEmptyOperationId(value) && !value.includes(':');
+}
+
 function rejectUnsupportedFields(
   value: Record<string, unknown>,
   allowed: readonly string[],
@@ -219,14 +223,139 @@ function validateOutcomeConditions(
   });
 }
 
+function validateSceneActionChoice(
+  value: unknown,
+  sceneActions: unknown,
+  actionMode: unknown,
+  path: string,
+  issues: string[],
+): void {
+  if (value === undefined) return;
+  if (!isOperationRecord(value)) {
+    issues.push(path + ' must be a SceneAction choice object');
+    return;
+  }
+  rejectUnsupportedFields(value, ['candidateSceneActionIds', 'chooseExactly'], path, issues);
+  const candidates = collectIds(value.candidateSceneActionIds, path + '.candidateSceneActionIds', issues);
+  if (candidates.size < 2) issues.push(path + '.candidateSceneActionIds must contain at least two SceneAction IDs');
+  if (!Number.isSafeInteger(value.chooseExactly) || Number(value.chooseExactly) < 1 || Number(value.chooseExactly) > candidates.size) {
+    issues.push(path + '.chooseExactly must be between 1 and the candidate count');
+  }
+  if (actionMode !== 'global') issues.push(path + ' requires global SceneAction mode');
+  if (!Array.isArray(sceneActions)) {
+    issues.push(path + ' requires declared SceneActions');
+    return;
+  }
+  const actionsById = new Map<string, Record<string, unknown>>();
+  for (const action of sceneActions) {
+    if (isOperationRecord(action) && isNonEmptyOperationId(action.id)) actionsById.set(action.id, action);
+  }
+  for (const id of candidates) {
+    const action = actionsById.get(id);
+    if (!action) issues.push(path + '.candidateSceneActionIds references an undeclared SceneAction: ' + id);
+    else if (action.scope !== 'global' || action.selectionPolicy === 'fixed') {
+      issues.push(path + '.candidateSceneActionIds must reference required Global SceneActions: ' + id);
+    }
+  }
+  for (const action of actionsById.values()) {
+    if (action.scope === 'global' && action.selectionPolicy !== 'fixed' && !candidates.has(String(action.id))) {
+      issues.push(path + ' must include every selectable Global SceneAction in candidateSceneActionIds');
+    }
+  }
+}
+
+function validatePurchaseOffers(
+  value: unknown,
+  path: string,
+  actionMode: unknown,
+  sceneActionBatches: unknown,
+  factIds: ReadonlySet<string>,
+  knownFactIds: ReadonlySet<string>,
+  seenOfferIds: Set<string>,
+  seenPurchaseFactIds: Set<string>,
+  issues: string[],
+): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length === 0) {
+    issues.push(path + ' must contain at least one purchase offer');
+    return;
+  }
+  if (actionMode !== 'global' || !Number.isSafeInteger(sceneActionBatches) || Number(sceneActionBatches) <= 0) {
+    issues.push(path + ' requires global SceneAction mode and a positive batch limit');
+  }
+  value.forEach((offer, index) => {
+    const offerPath = path + '[' + index + ']';
+    if (!isOperationRecord(offer)) {
+      issues.push(offerPath + ' must be a PurchaseOffer object');
+      return;
+    }
+    rejectUnsupportedFields(offer, ['id', 'actionId', 'playerCost', 'purchaseFactId', 'title', 'description'], offerPath, issues);
+    if (!isLocalOperationId(offer.id)) issues.push(offerPath + '.id must be a local PurchaseOffer ID');
+    else if (seenOfferIds.has(offer.id)) issues.push(path + ' contains duplicate PurchaseOffer ID: ' + offer.id);
+    else seenOfferIds.add(offer.id);
+    if (!isNonEmptyOperationId(offer.actionId)) issues.push(offerPath + '.actionId must be a full Action ID');
+    if (typeof offer.playerCost !== 'number' || !Number.isSafeInteger(offer.playerCost) || offer.playerCost < 0) {
+      issues.push(offerPath + '.playerCost must be a non-negative safe integer');
+    }
+    if (!isNonEmptyOperationId(offer.purchaseFactId) || !factIds.has(String(offer.purchaseFactId))) {
+      issues.push(offerPath + '.purchaseFactId must reference a declared Event fact');
+    } else {
+      if (knownFactIds.has(offer.purchaseFactId)) issues.push(offerPath + '.purchaseFactId must not be initially known');
+      if (seenPurchaseFactIds.has(offer.purchaseFactId)) issues.push(offerPath + '.purchaseFactId is already used by another PurchaseOffer');
+      else seenPurchaseFactIds.add(offer.purchaseFactId);
+    }
+    if (offer.title !== undefined && (typeof offer.title !== 'string' || offer.title.trim() === '')) issues.push(offerPath + '.title must be non-empty when supplied');
+    if (offer.description !== undefined && typeof offer.description !== 'string') issues.push(offerPath + '.description must be a string');
+  });
+}
+
+function validatePurchaseMarkerFacts(
+  locations: unknown,
+  factIds: ReadonlySet<string>,
+  knownFactIds: ReadonlySet<string>,
+  issues: string[],
+): void {
+  if (!Array.isArray(locations)) return;
+  const offerIds = new Set<string>();
+  const purchaseFacts = new Set<string>();
+  for (const [locationIndex, location] of locations.entries()) {
+    if (!isOperationRecord(location)) continue;
+    const owners = [
+      { path: 'locations[' + locationIndex + '].purchaseOffers', value: location.purchaseOffers },
+      ...(Array.isArray(location.scenes) ? location.scenes.flatMap((scene, sceneIndex) => isOperationRecord(scene)
+        ? [{ path: 'locations[' + locationIndex + '].scenes[' + sceneIndex + '].purchaseOffers', value: scene.purchaseOffers }]
+        : []) : []),
+    ];
+    for (const owner of owners) {
+      if (!Array.isArray(owner.value)) continue;
+      for (const [offerIndex, offer] of owner.value.entries()) {
+        if (!isOperationRecord(offer)) continue;
+        if (isLocalOperationId(offer.id)) {
+          const key = location.id + ':' + offer.id;
+          if (offerIds.has(key)) issues.push(owner.path + '[' + offerIndex + '].id duplicates another PurchaseOffer ID in this Location');
+          offerIds.add(key);
+        }
+        if (!isNonEmptyOperationId(offer.purchaseFactId)) continue;
+        const factId = offer.purchaseFactId;
+        if (!factIds.has(factId)) issues.push(owner.path + '[' + offerIndex + '].purchaseFactId references an undeclared Event fact: ' + factId);
+        if (knownFactIds.has(factId)) issues.push(owner.path + '[' + offerIndex + '].purchaseFactId must not be initially known: ' + factId);
+        if (purchaseFacts.has(factId)) issues.push(owner.path + '[' + offerIndex + '].purchaseFactId is shared by multiple PurchaseOffers: ' + factId);
+        purchaseFacts.add(factId);
+      }
+    }
+  }
+}
+
 function validateLocations(
   value: unknown,
   trackIds: ReadonlySet<string>,
   factIds: ReadonlySet<string>,
+  knownFactIds: ReadonlySet<string>,
   itemIds: ReadonlySet<string>,
   issues: string[],
 ): Set<string> {
   const locationIds = new Set<string>();
+  const purchaseFactIds = new Set<string>();
   if (!Array.isArray(value)) {
     issues.push('locations must be an array');
     return locationIds;
@@ -245,7 +374,8 @@ function validateLocations(
     if (!isOperationRecord(entry) || !isNonEmptyOperationId(entry.id)) {
       return;
     }
-    rejectUnsupportedFields(entry, ['id', 'interactionSceneId', 'activityId', 'cardPoolIds', 'enabledActionIds', 'combinationRules', 'actionMode', 'sceneActions', 'sceneActionBatches', 'costGain', 'maxCarryCost', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats', 'maxVisits', 'routeEdges'], path, issues);
+    rejectUnsupportedFields(entry, ['id', 'stage', 'interactionSceneId', 'activityId', 'cardPoolIds', 'enabledActionIds', 'combinationRules', 'scenes', 'actionMode', 'sceneActions', 'sceneActionBatches', 'sceneActionChoice', 'purchaseOffers', 'costGain', 'maxCarryCost', 'objectives', 'partialOutcomes', 'failureConditions', 'maxBeats', 'maxVisits', 'routeEdges'], path, issues);
+    if (entry.stage !== 'combat' && entry.stage !== 'scene') issues.push(path + '.stage must be combat or scene');
     for (const field of ['interactionSceneId', 'activityId'] as const) {
       const value = entry[field];
       if (value !== undefined && !isNonEmptyOperationId(value)) {
@@ -254,13 +384,14 @@ function validateLocations(
     }
     if (entry.cardPoolIds !== undefined) collectIds(entry.cardPoolIds, path + '.cardPoolIds', issues);
     collectIds(entry.enabledActionIds, path + '.enabledActionIds', issues);
-    const hasSceneContract = entry.actionMode !== undefined || entry.sceneActions !== undefined || entry.sceneActionBatches !== undefined;
+    const hasSceneContract = entry.actionMode !== undefined || entry.sceneActions !== undefined || entry.sceneActionBatches !== undefined
+      || entry.sceneActionChoice !== undefined || entry.purchaseOffers !== undefined;
     if (hasSceneContract) {
       if (entry.actionMode !== 'individual' && entry.actionMode !== 'global') {
         issues.push(path + '.actionMode must be individual or global');
       }
-      if (!Array.isArray(entry.sceneActions) || entry.sceneActions.length === 0) {
-        issues.push(path + '.sceneActions must contain at least one scene action');
+      if ((!Array.isArray(entry.sceneActions) || entry.sceneActions.length === 0) && !Array.isArray(entry.purchaseOffers)) {
+        issues.push(path + '.sceneActions must contain at least one scene action unless PurchaseOffers are declared');
       }
       if (!Number.isSafeInteger(entry.sceneActionBatches) || Number(entry.sceneActionBatches) <= 0) {
         issues.push(path + '.sceneActionBatches must be a positive safe integer');
@@ -289,6 +420,81 @@ function validateLocations(
             || action.playerCost > Number.MAX_SAFE_INTEGER) {
             issues.push(actionPath + '.playerCost must be a non-negative finite number in the safe numeric range');
           }
+        });
+      }
+      validateSceneActionChoice(entry.sceneActionChoice, entry.sceneActions, entry.actionMode, path + '.sceneActionChoice', issues);
+      validatePurchaseOffers(entry.purchaseOffers, path + '.purchaseOffers', entry.actionMode, entry.sceneActionBatches,
+        factIds, knownFactIds, new Set<string>(), purchaseFactIds, issues);
+    }
+    if (entry.scenes !== undefined) {
+      if (!Array.isArray(entry.scenes) || entry.scenes.length < 1 || entry.scenes.length > 32) {
+        issues.push(path + '.scenes must contain 1 to 32 ordered Scene definitions');
+      } else {
+        if (entry.actionMode !== undefined || entry.sceneActions !== undefined || entry.sceneActionBatches !== undefined
+          || entry.sceneActionChoice !== undefined || entry.purchaseOffers !== undefined) {
+          issues.push(path + ' must put SceneAction batch controls and PurchaseOffers inside scenes when an explicit Scene list is declared');
+        }
+        const sceneIds = new Set<string>();
+        entry.scenes.forEach((scene, sceneIndex) => {
+          const scenePath = path + '.scenes[' + sceneIndex + ']';
+          if (!isOperationRecord(scene)) {
+            issues.push(scenePath + ' must be a Scene object');
+            return;
+          }
+          rejectUnsupportedFields(scene, ['id', 'title', 'description', 'enabledActionIds', 'actionMode', 'sceneActions', 'sceneActionBatches', 'sceneActionChoice', 'purchaseOffers', 'completion'], scenePath, issues);
+          if (!isLocalOperationId(scene.id)) issues.push(scenePath + '.id must be a Location-local ID');
+          else if (sceneIds.has(scene.id)) issues.push(path + '.scenes contains duplicate Scene ID: ' + scene.id);
+          else sceneIds.add(scene.id);
+          if (typeof scene.title !== 'string' || scene.title.trim() === '') issues.push(scenePath + '.title must be non-empty');
+          if (scene.description !== undefined && typeof scene.description !== 'string') issues.push(scenePath + '.description must be a string');
+          if (scene.enabledActionIds !== undefined) collectIds(scene.enabledActionIds, scenePath + '.enabledActionIds', issues);
+          if (scene.completion === undefined) issues.push(scenePath + '.completion is required for an explicit Scene');
+          else validatePredicate(scene.completion, trackIds, factIds, scenePath + '.completion', issues);
+          const hasBatchContract = scene.actionMode !== undefined || scene.sceneActions !== undefined || scene.sceneActionBatches !== undefined
+            || scene.sceneActionChoice !== undefined || scene.purchaseOffers !== undefined;
+          if (hasBatchContract) {
+            if (scene.actionMode !== 'individual' && scene.actionMode !== 'global') issues.push(scenePath + '.actionMode must be individual or global');
+            if ((!Array.isArray(scene.sceneActions) || scene.sceneActions.length === 0) && !Array.isArray(scene.purchaseOffers)) {
+              issues.push(scenePath + '.sceneActions must contain at least one scene action unless PurchaseOffers are declared');
+            }
+            if (!Number.isSafeInteger(scene.sceneActionBatches) || Number(scene.sceneActionBatches) <= 0) {
+              issues.push(scenePath + '.sceneActionBatches must be a positive safe integer');
+            }
+          }
+          if (Array.isArray(scene.sceneActions)) {
+            const nestedActionIds = new Set<string>();
+            scene.sceneActions.forEach((action, actionIndex) => {
+              const actionPath = scenePath + '.sceneActions[' + actionIndex + ']';
+              if (!isOperationRecord(action)) {
+                issues.push(actionPath + ' must be a SceneAction object');
+                return;
+              }
+              rejectUnsupportedFields(action, ['id', 'actionId', 'scope', 'playerCost', 'performerPolicy', 'selectionPolicy', 'title', 'description'], actionPath, issues);
+              if (!isLocalOperationId(action.id)) issues.push(actionPath + '.id must be a Scene-local ID');
+              else if (nestedActionIds.has(action.id)) issues.push(scenePath + '.sceneActions contains duplicate ID: ' + action.id);
+              else nestedActionIds.add(action.id);
+              if (!isNonEmptyOperationId(action.actionId)) issues.push(actionPath + '.actionId must be a full Action ID');
+              if (action.scope !== 'individual' && action.scope !== 'global') issues.push(actionPath + '.scope must be individual or global');
+              else if (action.scope !== scene.actionMode) issues.push(actionPath + '.scope must match the Scene actionMode');
+              if (typeof action.playerCost !== 'number' || !Number.isSafeInteger(action.playerCost) || action.playerCost < 0) {
+                issues.push(actionPath + '.playerCost must be a non-negative safe integer');
+              }
+              if (action.performerPolicy !== undefined && !['selected-student', 'none', 'optional-student'].includes(String(action.performerPolicy))) {
+                issues.push(actionPath + '.performerPolicy is unsupported');
+              }
+              if (action.selectionPolicy !== undefined && !['required', 'fixed'].includes(String(action.selectionPolicy))) {
+                issues.push(actionPath + '.selectionPolicy is unsupported');
+              }
+              if ((action.performerPolicy === 'none' || action.performerPolicy === 'optional-student') && action.scope !== 'global') {
+                issues.push(actionPath + ' actorless-capable SceneAction is only supported for global scope');
+              }
+              if (action.title !== undefined && (typeof action.title !== 'string' || action.title.trim() === '')) issues.push(actionPath + '.title must be non-empty when supplied');
+              if (action.description !== undefined && typeof action.description !== 'string') issues.push(actionPath + '.description must be a string');
+            });
+          }
+          validateSceneActionChoice(scene.sceneActionChoice, scene.sceneActions, scene.actionMode, scenePath + '.sceneActionChoice', issues);
+          validatePurchaseOffers(scene.purchaseOffers, scenePath + '.purchaseOffers', scene.actionMode, scene.sceneActionBatches,
+            factIds, knownFactIds, new Set<string>(), purchaseFactIds, issues);
         });
       }
     }
@@ -382,6 +588,8 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   if (!isOperationRecord(definition)) return ['event definition must be an object'];
   const raw = definition as unknown as Record<string, unknown>;
   if (!isNonEmptyOperationId(raw.id)) issues.push('id must be a non-empty ID');
+  if (raw.title !== undefined && (typeof raw.title !== 'string' || raw.title.trim() === '')) issues.push('title must be non-empty when supplied');
+  if (raw.description !== undefined && (typeof raw.description !== 'string' || raw.description.trim() === '')) issues.push('description must be non-empty when supplied');
   if (Object.prototype.hasOwnProperty.call(raw, 'actionRequirements')) {
     issues.push('actionRequirements is removed; declare trusted Action definitions in OperationResolvedContent');
   }
@@ -410,7 +618,8 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   const heldItems = collectIds(raw.heldItemIds, 'heldItemIds', issues);
   for (const id of heldItems) if (!items.has(id)) issues.push('heldItemIds contains undeclared item: ' + id);
 
-  const locations = validateLocations(raw.locations, trackIds, facts, items, issues);
+  const locations = validateLocations(raw.locations, trackIds, facts, knownFacts, items, issues);
+  validatePurchaseMarkerFacts(raw.locations, facts, knownFacts, issues);
   if (!isNonEmptyOperationId(raw.initialLocationId) || !locations.has(raw.initialLocationId)) {
     issues.push('initialLocationId must reference a declared location');
   }

@@ -245,7 +245,7 @@ flowchart LR
 
 ## 相关记录
 
-[[task-0240-gameplay-b-operation-card-presentation-and-action-targeting]] · [[task-0236-gameplay-b-typed-action-cards-and-target-layers]] · [[archive/task-0224-gameplay-b-scene-actions-and-route-cost]] · [[archive/task-0225-gameplay-b-finite-player-scene-card-deck]] · [[docs/docs-829/03-data-structures/operation-view]] · [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]
+[[task-0240-gameplay-b-operation-card-presentation-and-action-targeting]] · [[archive/task-0236-gameplay-b-typed-action-cards-and-target-layers]] · [[archive/task-0224-gameplay-b-scene-actions-and-route-cost]] · [[archive/task-0225-gameplay-b-finite-player-scene-card-deck]] · [[docs/docs-829/03-data-structures/operation-view]] · [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]
 
 ## 完成验收
 

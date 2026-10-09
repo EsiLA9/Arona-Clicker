@@ -164,6 +164,6 @@ U1–U9/U12/U13 仅写 Operation 契约、Registry、Runtime 与 engine tests；
 
 ## 相关路由
 
-- [[task-0240-gameplay-b-operation-card-presentation-and-action-targeting]]、[[task-0236-gameplay-b-typed-action-cards-and-target-layers]]、[[task-0221-gameplay-b-authoring-and-content-validation-workflow]]
+- [[task-0240-gameplay-b-operation-card-presentation-and-action-targeting]]、[[archive/task-0236-gameplay-b-typed-action-cards-and-target-layers]]、[[task-0221-gameplay-b-authoring-and-content-validation-workflow]]
 - [[docs/docs-829/03-data-structures/operation-view]]、[[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]
 - [[docs/docs-829/05-conventions/architecture-discipline]]、[[docs/docs-829/05-conventions/schema-sync]]、[[docs/docs-829/05-conventions/testing]]、[[docs/ai/PROJECT-CONSTITUTION]]、[[docs/ai/galhcg-project-map]]

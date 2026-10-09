@@ -49,9 +49,12 @@ const objective = {
 const eventDefinition: OperationEventDef = {
   ...carouselSafetySliceContent.eventDefinition,
   id: IDS.event,
+  title: '旋转木马安全行动',
+  description: '设施警报仍未解除。先稳住现场，再检查控制台并确认游客都能安全离场。',
   locations: [
     {
       id: IDS.locations.platform,
+      stage: 'combat',
       enabledActionIds: [
         CAROUSEL_SAFETY_IDS.actions.brace,
         CAROUSEL_SAFETY_IDS.actions.emergencyStop,
@@ -75,6 +78,7 @@ const eventDefinition: OperationEventDef = {
     },
     {
       id: IDS.locations.concourse,
+      stage: 'scene',
       enabledActionIds: [],
       combinationRules: [],
       actionMode: 'individual',
@@ -106,6 +110,7 @@ const eventDefinition: OperationEventDef = {
     },
     {
       id: IDS.locations.exit,
+      stage: 'scene',
       enabledActionIds: [],
       combinationRules: [],
       actionMode: 'global',

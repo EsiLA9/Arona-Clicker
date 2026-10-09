@@ -13,6 +13,14 @@ export type TableKey =
   | 'areas'
   | 'spots'
   | 'enhancements'
+  | 'gachaPools'
+  | 'shops'
+  | 'operationEvents'
+  | 'operationLocations'
+  | 'operationActions'
+  | 'studentOperationProfiles'
+  | 'operationStrategyProfiles'
+  | 'operationCardPools'
   | 'activeStories'
   | 'passiveStories'
   /** 虚拟合并表：activeStories ∪ passiveStories 的只读引用视图（不落盘） */
@@ -115,13 +123,14 @@ export type FieldType =
    */
   | { kind: 'flexible' }
   /**
-   * 生成器占位：该字段由 engine 类型推断为"复杂/联合/递归"，
-   * 必须由 editor-extras 在 merge 阶段用真实 FieldDef 替换。
-   * merge 后若仍残留 hand 字段 = 同步遗漏（engine-schema.sync.test.ts 报错）。
+   * 生成器占位：该字段由 Engine 类型推断为复杂/联合/递归结构。
+   * merge 默认转换为通用 JSON 编辑器；需要更强表单语义时可由 editor-extras 覆盖。
    */
   | { kind: 'hand' }
   /** Extra 自由树（NBT 六变体 {t,v}），开放可变内容 */
   | { kind: 'extra' }
+  /** 任意 JSON 值；用于 Engine 合同中的递归或联合字段，保持源结构而不作推断。 */
+  | { kind: 'json' }
   /** 分隔横条：仅用于 UI 语义分组，不参与 JSON 合并/校验（数据行中不存在该字段） */
   | { kind: 'divider' };
 

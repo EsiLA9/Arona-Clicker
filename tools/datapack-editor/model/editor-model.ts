@@ -19,20 +19,50 @@ export interface EditorChange {
 }
 
 type HistoryEntry = { label: string; snapshot: string };
+type EditorModelSnapshot = {
+  data: Partial<Record<TableKey, unknown>>;
+  packageMetadata: Partial<EditorPackageMetadata>;
+};
+
+export interface EditorPackageMetadata {
+  modName: string;
+  name: string;
+  version: string;
+  author?: string;
+  dependencies: string[];
+  icon?: string;
+  color?: { r: number; g: number; b: number } | { h: number; s: number; l: number };
+}
 
 const HISTORY_LIMIT = 50;
 
 export class EditorModel {
   /** tableKey → 数据。array 表为行数组；record 表为 {key: value} */
   private data: Partial<Record<TableKey, unknown>> = {};
+  /** manifest 元数据单独保存；Datapack 导出只包含它的 name/version/modName 三个字段。 */
+  private packageMetadata: Partial<EditorPackageMetadata> = {};
   private undoStack: HistoryEntry[] = [];
   private redoStack: HistoryEntry[] = [];
   private listeners = new Set<(reason: string) => void>();
 
   // ---------- 加载 / 导出 ----------
 
-  loadDatapack(datapack: Record<string, unknown>): void {
+  loadDatapack(datapack: Record<string, unknown>, manifest?: Partial<EditorPackageMetadata>): void {
     this.data = {};
+    const source = manifest ?? datapack;
+    this.packageMetadata = {
+      ...(typeof source.modName === 'string' ? { modName: source.modName } : {}),
+      ...(typeof source.name === 'string' ? { name: source.name } : {}),
+      ...(typeof source.version === 'string' ? { version: source.version } : {}),
+      ...(typeof source.author === 'string' ? { author: source.author } : {}),
+      ...(Array.isArray(source.dependencies) && source.dependencies.every((value) => typeof value === 'string')
+        ? { dependencies: [...source.dependencies] as string[] }
+        : {}),
+      ...(typeof source.icon === 'string' ? { icon: source.icon } : {}),
+      ...(source.color && typeof source.color === 'object' && !Array.isArray(source.color)
+        ? { color: structuredClone(source.color) as EditorPackageMetadata['color'] }
+        : {}),
+    };
     for (const table of TABLES) {
       const raw = datapack[table.key];
       if (raw !== undefined) this.data[table.key] = structuredClone(raw);
@@ -44,11 +74,34 @@ export class EditorModel {
 
   toDatapack(): Record<string, unknown> {
     const out: Record<string, unknown> = {};
+    for (const key of ['modName', 'name', 'version'] as const) {
+      const value = this.packageMetadata[key];
+      if (value !== undefined) out[key] = value;
+    }
     for (const table of TABLES) {
       const d = this.data[table.key];
       if (d !== undefined) out[table.key] = structuredClone(d);
     }
     return out;
+  }
+
+  /** 用于 ZIP manifest 编辑；缺省值只影响新包导出，不回写到未编辑的数据模型。 */
+  getPackageMetadata(): EditorPackageMetadata {
+    return {
+      modName: this.packageMetadata.modName ?? 'custom-pack',
+      name: this.packageMetadata.name ?? 'New Datapack',
+      version: this.packageMetadata.version ?? '1.0.0',
+      ...(this.packageMetadata.author !== undefined ? { author: this.packageMetadata.author } : {}),
+      dependencies: [...(this.packageMetadata.dependencies ?? [])],
+      ...(this.packageMetadata.icon !== undefined ? { icon: this.packageMetadata.icon } : {}),
+      ...(this.packageMetadata.color !== undefined ? { color: structuredClone(this.packageMetadata.color) } : {}),
+    };
+  }
+
+  setPackageMetadata(metadata: EditorPackageMetadata): void {
+    this.commit('修改数据包信息', () => {
+      this.packageMetadata = structuredClone(metadata);
+    });
   }
 
   /** 当前数据（引用，勿直接修改；用于读取） */
@@ -91,7 +144,7 @@ export class EditorModel {
   // ---------- 变更（全部产生历史快照） ----------
 
   private commit(label: string, mutator: () => void): void {
-    this.undoStack.push({ label, snapshot: JSON.stringify(this.data) });
+    this.undoStack.push({ label, snapshot: this.snapshot() });
     if (this.undoStack.length > HISTORY_LIMIT) this.undoStack.shift();
     this.redoStack = [];
     mutator();
@@ -194,8 +247,8 @@ export class EditorModel {
   undo(): boolean {
     const entry = this.undoStack.pop();
     if (!entry) return false;
-    this.redoStack.push({ label: entry.label, snapshot: JSON.stringify(this.data) });
-    this.data = JSON.parse(entry.snapshot) as typeof this.data;
+    this.redoStack.push({ label: entry.label, snapshot: this.snapshot() });
+    this.restore(entry.snapshot);
     this.notify(`撤销：${entry.label}`);
     return true;
   }
@@ -203,8 +256,8 @@ export class EditorModel {
   redo(): boolean {
     const entry = this.redoStack.pop();
     if (!entry) return false;
-    this.undoStack.push({ label: entry.label, snapshot: JSON.stringify(this.data) });
-    this.data = JSON.parse(entry.snapshot) as typeof this.data;
+    this.undoStack.push({ label: entry.label, snapshot: this.snapshot() });
+    this.restore(entry.snapshot);
     this.notify(`重做：${entry.label}`);
     return true;
   }
@@ -239,6 +292,16 @@ export class EditorModel {
     if (!t) throw new Error(`未知表：${key}`);
     return t;
   }
+
+  private snapshot(): string {
+    return JSON.stringify({ data: this.data, packageMetadata: this.packageMetadata });
+  }
+
+  private restore(snapshot: string): void {
+    const restored = JSON.parse(snapshot) as EditorModelSnapshot;
+    this.data = restored.data;
+    this.packageMetadata = restored.packageMetadata ?? {};
+  }
 }
 
 /** 按 kind 提供默认值（用于新增行） */
@@ -257,6 +320,9 @@ function defaultFor(kind: string): unknown {
       return [];
     case 'object':
       return {};
+    case 'json':
+    case 'hand':
+      return null;
     default:
       return undefined;
   }

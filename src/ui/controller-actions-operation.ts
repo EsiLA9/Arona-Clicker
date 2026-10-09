@@ -1,12 +1,11 @@
 import { Character } from '../arona-clicker/types/ids';
-import { CAROUSEL_SCENE_ACTION_IDS } from '../arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { OperationAdmissionError } from '../arona-clicker/services/operation-participant-admission';
 import { OperationInterventionPreviewError } from '../arona-clicker/services/operation-intervention-preview';
 import { OperationRuntimeError } from '../arona-clicker/services/operation-runtime-service';
 import type { OperationSceneActionBatchCommand } from '../arona-clicker/contracts/operation-scene-action';
 import type { OperationView } from '../arona-clicker/contracts/operation-view';
 import type { UIController } from './controller';
-import { closeOperationMapCard, closeOperationWorkspaceMap, moveOperationWorkspaceMap, readOperationSceneDraft, saveOperationSceneDraft, setOperationWorkspaceTab, toggleOperationWorkspaceMap, type OperationSceneDraft } from './components/operation-workspace';
+import { clearOperationSceneDraft, closeOperationMapCard, closeOperationWorkspaceMap, moveOperationWorkspaceMap, readOperationSceneDraft, saveOperationSceneDraft, setOperationWorkspaceTab, toggleOperationWorkspaceMap, type OperationSceneDraft } from './components/operation-workspace';
 import { operationRelationAnchors, operationRelationPath } from './operation-card-relation';
 
 const OPERATION_INIT_ID = 'base:init:schale_office';
@@ -25,20 +24,23 @@ export type OperationFocusTarget =
 const boundControllers = new WeakSet<UIController>();
 const disposedOperationControllers = new WeakSet<UIController>();
 
-function operationErrorText(error: unknown): string {
+function operationErrorText(error: unknown, selectedCharacterIds?: readonly string[]): string {
   if (error instanceof OperationAdmissionError) {
-    const missing = DEMO_STUDENTS.filter(student => error.diagnostics.some(diagnostic =>
-      diagnostic.includes(`Character ${student.id}`)
+    const roster = selectedCharacterIds ?? DEMO_STUDENTS.map(student => student.id);
+    const missing = roster.filter(characterId => error.diagnostics.some(diagnostic =>
+      diagnostic.includes(`Character ${characterId}`)
       && (diagnostic.includes('has no owned Registry Variant') || diagnostic.includes('is not unlocked')),
     ));
     if (missing.length > 0) {
-      return `还需要持有并解锁${missing.map(student => student.name).join('、')}；这次试玩不会自动补发学生。`;
+      const names = missing.map(characterId => DEMO_STUDENTS.find(student => student.id === characterId)?.name ?? characterId);
+      return `还需要持有并解锁${names.join('、')}；这次试玩不会自动补发学生。`;
     }
-    return '试玩准入检查没有通过，请确认星野、芹香与白子都已持有并解锁。';
+    return '试玩准入检查没有通过，请确认入口卡列出的学生均已持有并解锁；不会自动补发角色。';
   }
   if (error instanceof OperationInterventionPreviewError) {
     if (error.code === 'operation:intervention:action-not-affordable') return '剩余行动资源不足，无法采用这个方案。';
     if (error.code === 'operation:intervention:plan-conflict') return '这个方案与当前其他行动冲突；可以先取消已有修订。';
+    if (error.code === 'operation:intervention:group-target-scene-only') return '全体合格目标仅支持场景行动。';
     if (error.code === 'operation:intervention:no-legal-target' || error.code === 'operation:intervention:invalid-target') return '目标已经变化，请检查当前行动计划后重选。';
     if (error.code === 'operation:intervention:stale-plan') return '行动计划刚刚更新了，已刷新状态，请再试一次。';
     return '这个行动现在无法修改，已刷新当前计划。';
@@ -59,27 +61,61 @@ function readCommandVersion(element: HTMLElement): { runId: string; planVersion:
 function refreshAfterCommand(ctrl: UIController, runId: string, focus: OperationFocusTarget, notice: string | null = null): void {
   const view = ctrl.game.operationEntry.getView(runId);
   ctrl.requestOperationWorkspaceRefresh(view, focus, notice);
+  updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
 }
 
-function updateCostPreview(workspace: HTMLElement | null): void {
+function scenePreviewErrorText(error: unknown): string {
+  const detail = error instanceof OperationRuntimeError ? error.diagnostics.join(' ') : error instanceof Error ? error.message : '';
+  if (/恰好选择/.test(detail)) return detail;
+  const exactChoice = detail.match(/SceneAction choice requires exactly (\d+) of (\d+) offers; received (\d+)/);
+  if (exactChoice) return '请从 ' + exactChoice[2] + ' 项候选中恰好选择 ' + exactChoice[1] + ' 项；当前选择 ' + exactChoice[3] + ' 项。';
+  if (/unaffordable|resource costs exceed|cost exceeds/i.test(detail)) return '本批费用不足；请取消部分选择或改选执行者。';
+  if (/target count is invalid|at least one|至少选择一名|选择一名目标/i.test(detail)) return '请为已选行动明确指定合法目标。';
+  if (/target.*outside|target.*invalid|目标已经失效|所选场景目标/i.test(detail)) return '目标已经变化，请重新选择合法目标。';
+  if (/performer|执行者|qualified/i.test(detail)) return '请为所选行动分配一名合格执行者。';
+  if (/stale|planVersion/i.test(detail)) return '行动计划刚刚更新了，请重新检查本批。';
+  return '当前方案无法结算；请检查执行者、目标和费用。';
+}
+
+function updateCostPreview(ctrl: UIController, workspace: HTMLElement | null): void {
   if (!workspace) return;
-  const preview = workspace.querySelector<HTMLElement>('[data-operation-cost-preview]');
-  if (!preview) return;
-  const sceneCards = [...workspace.querySelectorAll<HTMLElement>('[data-operation-scene-card][data-actor-id]')];
-  const globalCard = workspace.querySelector<HTMLElement>('[data-global-scene-card]');
-  const selectedSceneCards = globalCard ? [globalCard] : sceneCards;
-  const sceneCost = selectedSceneCards.reduce((sum, card) => {
-    const selected = card.querySelector<HTMLElement>('[data-operation-scene-choice][aria-pressed="true"]');
-    return sum + Number(selected?.dataset.playerCost ?? 0);
-  }, 0);
-  const selectedCardCost = [...workspace.querySelectorAll<HTMLElement>('[data-operation-player-card].is-selected [data-operation-card-toggle]')]
-    .reduce((sum, button) => sum + Number(button.dataset.playerCost ?? 0), 0);
-  const fixedSceneCost = [...workspace.querySelectorAll<HTMLElement>('[data-operation-fixed-scene-action]')]
-    .reduce((sum, card) => sum + Number(card.dataset.playerCost ?? 0), 0);
-  const total = sceneCost + fixedSceneCost + selectedCardCost;
-  const balance = Number(preview.dataset.playerCost ?? 0);
-  const deficit = Math.max(0, total - balance);
-  preview.textContent = '本批实际支付 ' + total + ' Cost · 余额 ' + balance + (deficit ? ' · 超出 ' + deficit + '，请取消部分选择' : ' · 未用余额保留') + '。不必花完 Cost；可部分选择或跳过本批。';
+  const previewNode = workspace.querySelector<HTMLElement>('[data-operation-cost-preview]');
+  const submit = workspace.querySelector<HTMLButtonElement>('[data-operation-scene-submit]');
+  if (!previewNode || !submit) return;
+  const command = readCommandVersion(submit);
+  const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
+  if (!command || !view || view.planVersion !== command.planVersion || view.currentActionMode === null) {
+    previewNode.dataset.previewStatus = 'unavailable';
+    previewNode.textContent = '行动计划已更新，请重新检查本批。';
+    submit.disabled = true;
+    return;
+  }
+  try {
+    const draft = saveSceneDraftFromWorkspace(workspace) ?? { selections: [], cards: [] };
+    const choiceCount = workspace.querySelector<HTMLElement>('[data-scene-choice-count]');
+    if (choiceCount && view.currentSceneActionChoice) {
+      const count = draft.selections.filter(selection => view.currentSceneActionChoice!.candidateSceneActionIds.includes(selection.sceneActionId)).length;
+      choiceCount.textContent = '已选 ' + count + ' / ' + view.currentSceneActionChoice.chooseExactly;
+    }
+    const batch = readOperationSceneBatchCommand(view, command, draft);
+    const result = ctrl.game.operationEntry.previewSceneActionBatch(batch);
+    const actionCosts = result.actionCosts.map(cost => {
+      const actorName = view.actorStates.find(actor => actor.id === cost.actorId)?.displayName ?? '角色';
+      const payer = cost.scope === 'team' ? '小组' : actorName;
+      const resource = cost.resourceId === 'stamina' ? '体力' : cost.resourceId === 'coordination' ? '协调' : cost.resourceId === 'focus' ? '专注' : cost.resourceId;
+      return payer + ' ' + resource + ' ' + cost.amount;
+    });
+    const balance = result.cost;
+    previewNode.dataset.previewStatus = 'valid';
+    previewNode.textContent = '本批支付 ' + balance.totalCost + ' PlayerCost · 余额 ' + balance.balanceBefore + ' → ' + balance.balanceAfter +
+      (actionCosts.length ? ' · 执行费用：' + actionCosts.join('、') : ' · 无额外执行费用') +
+      '。Runtime 预览未写入状态；确认后一次结算。';
+    submit.disabled = false;
+  } catch (error) {
+    previewNode.dataset.previewStatus = 'invalid';
+    previewNode.textContent = scenePreviewErrorText(error);
+    submit.disabled = true;
+  }
 }
 
 interface OperationCardDrag {
@@ -456,7 +492,8 @@ function drawCardRelation(ctrl: UIController, source: HTMLElement, targetActorId
 }
 
 function currentActionRelationTarget(face: HTMLButtonElement): string | null {
-  if (face.disabled || face.getAttribute('aria-pressed') !== 'true') return null;
+  if (face.disabled || face.getAttribute('aria-pressed') !== 'true'
+    || face.dataset.targetSelectionMode === 'all-eligible') return null;
   const legalTargetIds = readLegalTargetIds(face);
   if (!legalTargetIds.length) return null;
   let selectedTarget: string | undefined;
@@ -529,9 +566,9 @@ function operationLocationId(element: HTMLElement): string {
 }
 
 /** Copy reversible card choices from the mounted controls without consulting OperationView. */
-function saveSceneDraftFromWorkspace(workspace: HTMLElement): OperationSceneDraft | null {
+export function saveSceneDraftFromWorkspace(workspace: HTMLElement): OperationSceneDraft | null {
   const source = workspace.querySelector<HTMLElement>('[data-operation-scene-submit]')
-    ?? workspace.querySelector<HTMLElement>('[data-operation-scene-choice], [data-operation-card-toggle]');
+    ?? workspace.querySelector<HTMLElement>('[data-operation-scene-choice], [data-operation-card-toggle], [data-operation-purchase-toggle]');
   const command = source ? readCommandVersion(source) : null;
   const locationId = operationLocationId(workspace);
   if (!command || !locationId) return null;
@@ -549,7 +586,6 @@ function saveSceneDraftFromWorkspace(workspace: HTMLElement): OperationSceneDraf
       const values = JSON.parse(face.dataset.selectedTargetActorIds ?? '[]') as unknown;
       if (Array.isArray(values)) targetActorIds = values.filter((id): id is string => typeof id === 'string' && readLegalTargetIds(face).includes(id));
     } catch { targetActorIds = []; }
-    if (!targetActorIds.length && readLegalTargetIds(face).length === 1) targetActorIds = [readLegalTargetIds(face)[0]!];
     selections.push({ sceneActionId, ...(performerId ? { actorId: performerId } : {}), targetActorIds });
   }
 
@@ -564,11 +600,12 @@ function saveSceneDraftFromWorkspace(workspace: HTMLElement): OperationSceneDraf
       const values = JSON.parse(face.dataset.selectedTargetActorIds ?? '[]') as unknown;
       if (Array.isArray(values)) targetActorIds = values.filter((id): id is string => typeof id === 'string' && readLegalTargetIds(face).includes(id));
     } catch { targetActorIds = []; }
-    if (!targetActorIds.length && readLegalTargetIds(face).length === 1) targetActorIds = [readLegalTargetIds(face)[0]!];
     cards.push({ cardInstanceId, ...(actorId ? { actorId } : {}), targetActorIds });
   }
 
-  const draft: OperationSceneDraft = { selections, cards };
+  const purchases = [...workspace.querySelectorAll<HTMLButtonElement>('[data-operation-purchase-toggle][aria-pressed="true"]')]
+    .flatMap(face => face.dataset.offerId ? [{ offerId: face.dataset.offerId }] : []);
+  const draft: OperationSceneDraft = { selections, cards, ...(purchases.length ? { purchases } : {}) };
   saveOperationSceneDraft(command.runId, command.planVersion, locationId, draft);
   return draft;
 }
@@ -584,7 +621,8 @@ function defaultSceneDraftFromView(view: OperationView): OperationSceneDraft {
   return { selections: [], cards: [] };
 }
 
-function selectSceneCardTarget(face: HTMLButtonElement, targetActorId: string): void {
+function selectSceneCardTarget(ctrl: UIController, face: HTMLButtonElement, targetActorId: string): void {
+  if (face.dataset.targetSelectionMode === 'all-eligible') return;
   const option = face.closest<HTMLElement>('[data-operation-scene-option]');
   const card = face.closest<HTMLElement>('[data-operation-scene-card]');
   if (!option || !card) return;
@@ -608,10 +646,11 @@ function selectSceneCardTarget(face: HTMLButtonElement, targetActorId: string): 
   if (summaryNode) summaryNode.textContent = face.dataset.targetSummary;
   updateSceneFaceAccessibleName(face);
   saveSceneDraftFromElement(face);
-  updateCostPreview(face.closest<HTMLElement>('[data-workspace-frame="operation"]'));
+  updateCostPreview(ctrl, face.closest<HTMLElement>('[data-workspace-frame="operation"]'));
 }
 
 function applyPlayerCardTarget(ctrl: UIController, face: HTMLButtonElement, targetActorId: string): void {
+  if (face.dataset.targetSelectionMode === 'all-eligible') return;
   const card = face.closest<HTMLElement>('[data-operation-player-card]');
   if (!card) return;
   face.setAttribute('aria-pressed', 'true');
@@ -632,7 +671,17 @@ function applyPlayerCardTarget(ctrl: UIController, face: HTMLButtonElement, targ
   if (summary) summary.textContent = face.dataset.targetSummary;
   updateSceneFaceAccessibleName(face);
   saveSceneDraftFromElement(face);
-  updateCostPreview(face.closest<HTMLElement>('[data-workspace-frame="operation"]'));
+  updateCostPreview(ctrl, face.closest<HTMLElement>('[data-workspace-frame="operation"]'));
+}
+
+export function targetsAfterPerformerChange(
+  previous: { readonly actorId?: string; readonly targetActorIds: readonly string[] } | undefined,
+  nextActorId: string | undefined,
+  legalTargets: readonly string[],
+): string[] {
+  if (previous && previous.actorId === nextActorId) return [...previous.targetActorIds];
+  if (!previous?.actorId) return legalTargets.length === 1 ? [legalTargets[0]!] : [];
+  return previous.targetActorIds.filter(targetActorId => legalTargets.includes(targetActorId));
 }
 
 function applyCardDrop(ctrl: UIController, drag: OperationCardDrag, targetActorId: string): void {
@@ -664,7 +713,11 @@ function applyCardDrop(ctrl: UIController, drag: OperationCardDrag, targetActorI
       announceCardDrag(drag, '行动卡已挂靠到角色卡；再次拖动可选择作用目标。');
       return;
     }
-    selectSceneCardTarget(face, targetActorId);
+    if (face.dataset.targetSelectionMode === 'all-eligible') {
+      announceCardDrag(drag, '全体合格目标会按当前状态自动确定，不接受手动目标。');
+      return;
+    }
+    selectSceneCardTarget(ctrl, face, targetActorId);
     announceCardDrag(drag, '已把這张行动牌指向合法目标。');
     return;
   }
@@ -672,6 +725,10 @@ function applyCardDrop(ctrl: UIController, drag: OperationCardDrag, targetActorI
     if (drag.dropMode === 'scene-performer') {
       applyPlayerCardPerformer(ctrl, face, targetActorId);
       announceCardDrag(drag, '场景牌已加入并挂靠到角色卡；再次拖动可选择作用目标。');
+      return;
+    }
+    if (face.dataset.targetSelectionMode === 'all-eligible') {
+      announceCardDrag(drag, '全体合格目标会按当前状态自动确定，不接受手动目标。');
       return;
     }
     applyPlayerCardTarget(ctrl, face, targetActorId);
@@ -693,12 +750,14 @@ function applyPlayerCardPerformer(ctrl: UIController, face: HTMLButtonElement, a
   const draft = mountedDraft ?? readOperationSceneDraft(command.runId, command.planVersion, locationId) ?? { selections: [], cards: [] };
   const legalTargets = localActivation ? card.legalActorlessTargetActorIds : card.legalTargetActorIdsByActorId[actorId] ?? [];
   const previous = draft.cards.find(item => item.cardInstanceId === card.cardInstanceId);
-  const targetActorIds = previous && previous.actorId === (actorId || undefined) ? previous.targetActorIds
-    : legalTargets.length === 1 ? [...legalTargets] : [];
+  const targetActorIds = card.targetSelectionMode === 'all-eligible'
+    ? []
+    : targetsAfterPerformerChange(previous, actorId || undefined, legalTargets);
   const cards = draft.cards.filter(item => item.cardInstanceId !== card.cardInstanceId);
   cards.push({ cardInstanceId: card.cardInstanceId, ...(actorId ? { actorId } : {}), targetActorIds });
   saveOperationSceneDraft(command.runId, command.planVersion, locationId, { ...draft, cards });
   ctrl.requestOperationWorkspaceRefresh(view, null);
+  updateCostPreview(ctrl, workspace);
 }
 
 function applyGlobalScenePerformer(ctrl: UIController, face: HTMLButtonElement, actorId: string): void {
@@ -714,14 +773,97 @@ function applyGlobalScenePerformer(ctrl: UIController, face: HTMLButtonElement, 
   const draft = mountedDraft ?? readOperationSceneDraft(command.runId, command.planVersion, locationId) ?? { selections: [], cards: [] };
   const previous = draft.selections.find(selection => selection.sceneActionId === action.id);
   const legalTargets = actorId ? action.legalTargetActorIdsByActorId[actorId] ?? [] : action.legalActorlessTargetActorIds;
-  const targetActorIds = previous && previous.actorId === (actorId || undefined)
-    ? previous.targetActorIds
-    : legalTargets.length === 1 ? [...legalTargets] : [];
+  const targetActorIds = action.targetSelectionMode === 'all-eligible'
+    ? []
+    : targetsAfterPerformerChange(previous, actorId || undefined, legalTargets);
   saveOperationSceneDraft(command.runId, command.planVersion, locationId, {
     ...draft,
-    selections: [{ sceneActionId: action.id, ...(actorId ? { actorId } : {}), targetActorIds }],
+    selections: [
+      ...draft.selections.filter(selection => selection.sceneActionId !== action.id),
+      { sceneActionId: action.id, ...(actorId ? { actorId } : {}), targetActorIds },
+    ],
   });
   ctrl.requestOperationWorkspaceRefresh(view, null);
+  updateCostPreview(ctrl, workspace);
+}
+
+function focusPerformerPicker(ctrl: UIController, cardKind: 'scene-action' | 'player-card', identity: string): void {
+  const picker = [...ctrl.root.querySelectorAll<HTMLDetailsElement>('[data-operation-performer-picker]')]
+    .find(node => node.dataset.cardKind === cardKind && node.dataset.cardIdentity === identity);
+  const summary = picker?.querySelector<HTMLElement>(':scope > summary');
+  summary?.focus({ preventScroll: true });
+}
+
+function togglePreparedActionAlternatives(ctrl: UIController, current: HTMLElement, actorId: string, focusAlternative: boolean): void {
+  const host = operationWorkspaceHost(current);
+  if (!host) return;
+  const layer = preparedLayer(host);
+  if (!layer) return;
+  const alternatives = [...layer.querySelectorAll<HTMLElement>('[data-operation-action-alternative]')]
+    .filter(option => option.dataset.operationActionOwnerId === actorId);
+  const panel = [...layer.querySelectorAll<HTMLElement>('[data-operation-action-alternatives-panel]')]
+    .find(item => item.dataset.operationActionOwnerId === actorId);
+  const isExpanded = current.getAttribute('aria-expanded') === 'true'
+    || alternatives.some(option => !option.hidden)
+    || Boolean(panel && !panel.hidden);
+  const expanded = !isExpanded;
+  current.setAttribute('aria-expanded', String(expanded));
+  alternatives.forEach(option => { option.hidden = !expanded; });
+  if (panel) panel.hidden = !expanded;
+  if (expanded && focusAlternative) {
+    alternatives.find(option => option instanceof HTMLButtonElement && !option.disabled)?.focus({ preventScroll: true });
+  }
+  requestPreparedCardLayout(ctrl);
+}
+
+function focusPublicPlayerCard(ctrl: UIController, identity: string): void {
+  const card = [...ctrl.root.querySelectorAll<HTMLElement>('[data-operation-player-hand] [data-operation-player-card]')]
+    .find(node => node.dataset.operationPlayerCard === identity);
+  card?.querySelector<HTMLButtonElement>('[data-operation-card-toggle]')?.focus({ preventScroll: true });
+}
+
+function assignClickedPerformer(ctrl: UIController, target: HTMLElement): void {
+  const cardKind = target.dataset.cardKind;
+  const identity = target.dataset.cardIdentity;
+  const actorId = target.dataset.performerActorId;
+  const command = readCommandVersion(target);
+  const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
+  if (!command || !view || view.planVersion !== command.planVersion || !actorId) return;
+  if (cardKind === 'scene-action' && identity) {
+    const face = [...ctrl.root.querySelectorAll<HTMLButtonElement>('[data-operation-scene-choice]')]
+      .find(button => button.dataset.sceneActionId === identity && button.dataset.performerPolicy === 'selected-student');
+    if (!face) return;
+    applyGlobalScenePerformer(ctrl, face, actorId);
+    focusPerformerPicker(ctrl, 'scene-action', identity);
+    return;
+  }
+  if (cardKind === 'player-card' && identity) {
+    const face = [...ctrl.root.querySelectorAll<HTMLButtonElement>('[data-operation-card-toggle]')]
+      .find(button => button.dataset.cardInstanceId === identity);
+    if (!face) return;
+    applyPlayerCardPerformer(ctrl, face, actorId);
+    focusPerformerPicker(ctrl, 'player-card', identity);
+  }
+}
+
+function clearClickedPerformer(ctrl: UIController, target: HTMLElement): void {
+  const cardKind = target.dataset.cardKind;
+  const identity = target.dataset.cardIdentity;
+  const command = readCommandVersion(target);
+  const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
+  if (!command || !identity || !view || view.planVersion !== command.planVersion) return;
+  const workspace = operationWorkspaceHost(target);
+  const locationId = view.currentLocationId;
+  const draft = workspace ? saveSceneDraftFromWorkspace(workspace) : readOperationSceneDraft(command.runId, command.planVersion, locationId);
+  if (!draft) return;
+  const next: OperationSceneDraft = cardKind === 'player-card'
+    ? { ...draft, cards: draft.cards.filter(card => card.cardInstanceId !== identity) }
+    : { ...draft, selections: draft.selections.filter(selection => selection.sceneActionId !== identity) };
+  saveOperationSceneDraft(command.runId, command.planVersion, locationId, next);
+  ctrl.requestOperationWorkspaceRefresh(view, null);
+  updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
+  if (cardKind === 'player-card') focusPublicPlayerCard(ctrl, identity);
+  else focusPerformerPicker(ctrl, 'scene-action', identity);
 }
 
 function bindCardTargetGestures(ctrl: UIController): void {
@@ -798,6 +940,7 @@ function bindCardTargetGestures(ctrl: UIController): void {
     const dropMode: OperationCardDrag['dropMode'] = performerCandidateIds.length > 0 && !face.dataset.actorId
       ? 'scene-performer'
       : 'target';
+    if (dropMode === 'target' && face.dataset.targetSelectionMode === 'all-eligible') return;
     const candidateIds = dropMode === 'scene-performer' ? performerCandidateIds : readLegalTargetIds(face);
     if (!candidateIds.length || dropMode === 'target' && candidateIds.length < 2 && face.dataset.cardKind === 'battle-action') return;
     const drag: OperationCardDrag = {
@@ -956,15 +1099,18 @@ function bindCardTargetGestures(ctrl: UIController): void {
   observePreparedCardLayout(ctrl);
 }
 
-function startSample(ctrl: UIController, eventId: string): void {
+function startSample(ctrl: UIController, eventId: string, characterIds: readonly string[]): void {
   if (ctrl.game.state.activeInit !== OPERATION_INIT_ID) return;
+  if (characterIds.length === 0 || characterIds.some(id => typeof id !== 'string' || id.trim().length === 0)
+    || new Set(characterIds).size !== characterIds.length) return;
   try {
-    const run = ctrl.game.operationEntry.start(eventId, DEMO_STUDENTS.map(student => student.id));
+    const run = ctrl.game.operationEntry.start(eventId, [...characterIds]);
     ctrl.openOperationWorkspace(run.runId);
     // Route identity changes once; renderWorkspace reads the newly started OperationView once.
     ctrl.render();
+    updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
   } catch (error) {
-    const message = operationErrorText(error);
+    const message = operationErrorText(error, characterIds);
     // The single authoritative view query happens inside the ensuing center-region render.
     ctrl.pushChat({ kind: 'system', text: `行动试玩未能开始：${message}` });
     ctrl.requestUIUpdate({ type: 'region', hostId: 'centerPanel.chat', reason: 'operation-admission-failed' });
@@ -1024,55 +1170,49 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     return;
   }
   const target = rawTarget.closest<HTMLElement>(
-    '[data-operation-start], [data-operation-resume-run], [data-operation-back], [data-operation-action-current-toggle], [data-operation-action], [data-operation-clear], [data-operation-commit], [data-operation-scene-submit], [data-operation-scene-skip], [data-operation-scene-commit], [data-operation-clear-scene], [data-operation-route], [data-operation-reward], [data-operation-scene-choice], [data-operation-card-toggle], [data-operation-card-actor], [data-operation-scene-alternatives]',
+    '[data-operation-start], [data-operation-resume-run], [data-operation-back], [data-operation-action-current-toggle], [data-operation-action], [data-operation-clear], [data-operation-commit], [data-operation-scene-submit], [data-operation-scene-skip], [data-operation-scene-commit], [data-operation-clear-scene], [data-operation-route], [data-operation-reward], [data-operation-scene-choice], [data-operation-purchase-toggle], [data-operation-card-toggle], [data-operation-card-actor], [data-operation-performer-clear]',
   );
   if (!target || target instanceof HTMLButtonElement && target.disabled) return;
+  if (target.hasAttribute('data-operation-card-actor')) {
+    assignClickedPerformer(ctrl, target);
+    return;
+  }
+  if (target.hasAttribute('data-operation-performer-clear')) {
+    clearClickedPerformer(ctrl, target);
+    return;
+  }
+  if (target.matches('[data-operation-purchase-toggle]')) {
+    const command = readCommandVersion(target);
+    const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
+    const offerId = target.dataset.offerId;
+    const workspace = operationWorkspaceHost(target);
+    if (!command || !view || !offerId || !workspace || view.planVersion !== command.planVersion) return;
+    const offer = view.currentScenePurchaseOffers.find(item => item.id === offerId);
+    if (!offer || offer.purchased || !offer.affordable) return;
+    const draft = saveSceneDraftFromWorkspace(workspace) ?? { selections: [], cards: [] };
+    const selected = target.getAttribute('aria-pressed') === 'true';
+    const purchases = selected
+      ? (draft.purchases ?? []).filter(item => item.offerId !== offerId)
+      : [...(draft.purchases ?? []).filter(item => item.offerId !== offerId), { offerId }];
+    const draftWithoutPurchases: OperationSceneDraft = { selections: draft.selections, cards: draft.cards };
+    saveOperationSceneDraft(command.runId, command.planVersion, view.currentLocationId, {
+      ...draftWithoutPurchases,
+      ...(purchases.length ? { purchases } : {}),
+    });
+    ctrl.requestOperationWorkspaceRefresh(view, null);
+    updateCostPreview(ctrl, workspace);
+    return;
+  }
   if (target.matches('[data-operation-action-current-toggle]')) {
-    const host = operationWorkspaceHost(target);
     const actorId = target.dataset.operationActionOwnerId;
-    if (!host || !actorId) return;
-    const open = target.getAttribute('aria-expanded') !== 'true';
-    target.setAttribute('aria-expanded', String(open));
-    const layer = preparedLayer(host);
-    for (const option of layer?.querySelectorAll<HTMLElement>('[data-operation-action-alternative]') ?? []) {
-      if (option.dataset.operationActionOwnerId === actorId) option.hidden = !open;
-    }
-    const panel = [...(layer?.querySelectorAll<HTMLElement>('[data-operation-action-alternatives-panel]') ?? [])]
-      .find(item => item.dataset.operationActionOwnerId === actorId);
-    if (panel) panel.hidden = !open;
-    if (open && event.detail === 0) {
-      [...(layer?.querySelectorAll<HTMLButtonElement>('[data-operation-action-alternative]') ?? [])]
-        .find(option => option.dataset.operationActionOwnerId === actorId && !option.disabled)?.focus({ preventScroll: true });
-    }
-    requestPreparedCardLayout(ctrl);
+    if (!actorId) return;
+    togglePreparedActionAlternatives(ctrl, target, actorId, event.detail === 0);
     return;
   }
   if (target.matches('[data-operation-action][aria-pressed="true"]')) {
-    const host = operationWorkspaceHost(target);
     const actorId = target.dataset.operationActionOwnerId;
-    if (!host || !actorId) return;
-    const open = target.getAttribute('aria-expanded') !== 'true';
-    target.setAttribute('aria-expanded', String(open));
-    const layer = preparedLayer(host);
-    for (const option of layer?.querySelectorAll<HTMLElement>('[data-operation-action-alternative]') ?? []) {
-      if (option.dataset.operationActionOwnerId === actorId) option.hidden = !open;
-    }
-    const panel = [...(layer?.querySelectorAll<HTMLElement>('[data-operation-action-alternatives-panel]') ?? [])]
-      .find(item => item.dataset.operationActionOwnerId === actorId);
-    if (panel) panel.hidden = !open;
-    if (open && event.detail === 0) {
-      [...(layer?.querySelectorAll<HTMLButtonElement>('[data-operation-action-alternative]') ?? [])]
-        .find(option => option.dataset.operationActionOwnerId === actorId && !option.disabled)?.focus({ preventScroll: true });
-    }
-    requestPreparedCardLayout(ctrl);
-    return;
-  }
-  if (target.matches('[data-operation-scene-alternatives]')) {
-    const open = target.getAttribute('aria-expanded') !== 'true';
-    target.setAttribute('aria-expanded', String(open));
-    target.closest<HTMLElement>('[data-operation-scene-card]')?.querySelectorAll<HTMLElement>('[data-operation-scene-option]').forEach(option => {
-      option.hidden = !open && !option.classList.contains('is-selected');
-    });
+    if (!actorId) return;
+    togglePreparedActionAlternatives(ctrl, target, actorId, event.detail === 0);
     return;
   }
   if (target.matches('[data-operation-action][data-operation-action-alternative]')) {
@@ -1084,37 +1224,62 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     const selectedOption = target.closest<HTMLElement>('[data-operation-scene-option]');
     if (!card || !selectedOption) return;
     const wasSelected = target.getAttribute('aria-pressed') === 'true';
-    if (target.dataset.performerPolicy === 'selected-student' && !target.dataset.actorId) return;
+    if (target.dataset.performerPolicy === 'selected-student' && !target.dataset.actorId) {
+      if (!wasSelected) {
+        card.querySelectorAll<HTMLElement>('[data-operation-scene-choice]').forEach(button => updateFaceSelection(button, button === target));
+        card.querySelectorAll<HTMLElement>('[data-operation-scene-option]').forEach(option => option.classList.toggle('is-selected', option === selectedOption));
+        card.dataset.selectedSceneActionId = target.dataset.sceneActionId ?? '';
+        saveSceneDraftFromElement(target);
+        updateCostPreview(ctrl, target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
+      }
+      const picker = selectedOption.querySelector<HTMLElement>('[data-operation-performer-picker]');
+      if (picker) {
+        (picker as HTMLDetailsElement).open = true;
+        picker.querySelector<HTMLButtonElement>('[data-operation-card-actor]')?.focus({ preventScroll: true });
+      }
+      return;
+    }
     if (wasSelected) {
       updateFaceSelection(target, false);
       selectedOption.classList.remove('is-selected');
       saveSceneDraftFromElement(target);
       const command = readCommandVersion(target);
       const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
-      if (view) ctrl.requestOperationWorkspaceRefresh(view, null);
+      const workspace = operationWorkspaceHost(target);
+      if (view && workspace) {
+        ctrl.requestOperationWorkspaceRefresh(view, null);
+        updateCostPreview(ctrl, workspace);
+      }
       return;
     }
     card.querySelectorAll<HTMLElement>('[data-operation-scene-choice]').forEach(button => updateFaceSelection(button, button === target));
     card.querySelectorAll<HTMLElement>('[data-operation-scene-option]').forEach(option => option.classList.toggle('is-selected', option === selectedOption));
-    const alternativesOpen = card.querySelector<HTMLElement>('[data-operation-scene-alternatives]')?.getAttribute('aria-expanded') === 'true';
-    card.querySelectorAll<HTMLElement>('[data-operation-scene-option]').forEach(option => {
-      option.hidden = !alternativesOpen && !option.classList.contains('is-selected');
-    });
     if (card) card.dataset.selectedSceneActionId = target.dataset.sceneActionId ?? '';
     saveSceneDraftFromElement(target);
-    updateCostPreview(target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
+    updateCostPreview(ctrl, target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
     return;
   }
   if (target.matches('[data-operation-card-toggle]')) {
     if (target.getAttribute('aria-disabled') === 'true') return;
-    if (target.dataset.performerPolicy === 'selected-student' && !target.dataset.actorId) return;
+    if (target.dataset.performerPolicy === 'selected-student' && !target.dataset.actorId) {
+      const card = target.closest<HTMLElement>('[data-operation-player-card]');
+      const picker = card?.querySelector<HTMLElement>('[data-operation-performer-picker]');
+      if (picker) {
+        (picker as HTMLDetailsElement).open = true;
+        picker.querySelector<HTMLButtonElement>('[data-operation-card-actor]')?.focus({ preventScroll: true });
+      }
+      return;
+    }
     if (target.dataset.actorId) {
       target.setAttribute('aria-pressed', 'false');
       target.closest<HTMLElement>('[data-operation-player-card]')?.classList.remove('is-selected');
       saveSceneDraftFromElement(target);
       const command = readCommandVersion(target);
       const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
-      if (view) ctrl.requestOperationWorkspaceRefresh(view, null);
+      if (view) {
+        ctrl.requestOperationWorkspaceRefresh(view, null);
+        updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
+      }
       return;
     }
     const selected = target.getAttribute('aria-pressed') !== 'true';
@@ -1122,14 +1287,22 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     const card = target.closest<HTMLElement>('[data-operation-player-card]');
     card?.classList.toggle('is-selected', selected);
     saveSceneDraftFromElement(target);
-    updateCostPreview(target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
+    updateCostPreview(ctrl, target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
     return;
   }
 
   if (target.hasAttribute('data-operation-start')) {
     const eventId = target.dataset.operationStart;
-    if (!eventId) return;
-    startSample(ctrl, eventId);
+    const characterIdsJson = target.dataset.operationCharacterIds;
+    if (!eventId || !characterIdsJson) return;
+    let characterIds: unknown;
+    try {
+      characterIds = JSON.parse(characterIdsJson);
+    } catch {
+      return;
+    }
+    if (!Array.isArray(characterIds) || !characterIds.every(id => typeof id === 'string' && id.trim().length > 0)) return;
+    startSample(ctrl, eventId, characterIds);
     return;
   }
   if (target.hasAttribute('data-operation-resume-run')) {
@@ -1139,6 +1312,7 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     if (!runId || !eventId || ctrl.game.operationEntry.getView(runId)?.eventId !== eventId) return;
     ctrl.openOperationWorkspace(runId);
     ctrl.render();
+    updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
     return;
   }
   if (target.hasAttribute('data-operation-back')) {
@@ -1180,8 +1354,9 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
       return;
     }
 
-  if (target.hasAttribute('data-operation-scene-skip')) {
-      ctrl.game.operationEntry.commitSceneActionBatch({ ...command, selections: [], cards: [] });
+    if (target.hasAttribute('data-operation-scene-skip')) {
+      ctrl.game.operationEntry.commitSceneActionBatch({ ...command, selections: [], cards: [], purchases: [], skip: true });
+      clearOperationSceneDraft(runId);
       refreshAfterCommand(ctrl, runId, { type: 'commit' });
       return;
     }
@@ -1200,15 +1375,18 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
         draft = defaultSceneDraftFromView(view);
         saveOperationSceneDraft(runId, command.planVersion, view.currentLocationId, draft);
       }
-      const batch = readSceneBatchCommand(view, command, draft);
+      const batch = readOperationSceneBatchCommand(view, command, draft);
       saveOperationSceneDraft(runId, command.planVersion, view.currentLocationId, batch as OperationSceneDraft);
+      ctrl.game.operationEntry.previewSceneActionBatch(batch);
       ctrl.game.operationEntry.commitSceneActionBatch(batch);
+      clearOperationSceneDraft(runId);
       refreshAfterCommand(ctrl, runId, { type: 'commit' });
       return;
     }
 
     if (target.hasAttribute('data-operation-scene-commit')) {
       ctrl.game.operationEntry.commitStagedSceneActionBatch(command);
+      clearOperationSceneDraft(runId);
       refreshAfterCommand(ctrl, runId, { type: 'commit' });
       return;
     }
@@ -1223,6 +1401,7 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
         const draft: OperationSceneDraft = {
           selections: pending.selections.map(selection => ({ sceneActionId: selection.sceneActionId, actorId: selection.actorId, targetActorIds: selection.targetActorIds })),
           cards: pending.cards.map(card => ({ cardInstanceId: card.cardInstanceId, actorId: card.actorId, targetActorIds: card.targetActorIds })),
+          ...(pending.purchases?.length ? { purchases: pending.purchases.map(purchase => ({ offerId: purchase.offerId })) } : {}),
         };
         saveOperationSceneDraft(runId, updated.planVersion, updated.currentLocationId, draft);
         ctrl.requestOperationWorkspaceRefresh(updated, { type: 'commit' });
@@ -1236,6 +1415,7 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
       const routeId = target.dataset.routeId;
       if (!routeId) return;
       ctrl.game.operationEntry.transitionRoute({ ...command, routeId });
+      clearOperationSceneDraft(runId);
       refreshAfterCommand(ctrl, runId, { type: 'commit' });
       return;
     }
@@ -1254,12 +1434,21 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
   }
 }
 
-function readSceneBatchCommand(
+export function readOperationSceneBatchCommand(
   view: OperationView,
   command: { readonly runId: string; readonly planVersion: number },
   draft: OperationSceneDraft,
 ): OperationSceneActionBatchCommand {
   if (!view.currentActionMode) throw new Error('Scene action controls are unavailable');
+  const choice = view.currentSceneActionChoice;
+  if (choice) {
+    const selectedIds = draft.selections.map(selection => selection.sceneActionId);
+    if (selectedIds.some(id => !choice.candidateSceneActionIds.includes(id))) throw new Error('本批包含不属于当前 M 选 N 候选组的行动。');
+    if (new Set(selectedIds).size !== selectedIds.length) throw new Error('同一候选行动只能选择一次。');
+    if (selectedIds.length !== choice.chooseExactly) {
+      throw new Error('请从 ' + choice.candidateSceneActionIds.length + ' 项候选中恰好选择 ' + choice.chooseExactly + ' 项；当前选择 ' + selectedIds.length + ' 项。');
+    }
+  }
   const selections: OperationSceneActionBatchCommand['selections'][number][] = [];
   if (view.currentActionMode === 'individual') {
     for (const saved of draft.selections) {
@@ -1267,13 +1456,18 @@ function readSceneBatchCommand(
       const action = view.currentSceneActions.find(item => item.id === saved.sceneActionId && item.scope === 'individual');
       if (!action || !action.eligibleActorIds.includes(saved.actorId)) throw new Error('所选场景行动已经失效，请重新选择。');
       const legalTargets = action.legalTargetActorIdsByActorId[saved.actorId] ?? [];
-      const targetActorIds = saved.targetActorIds.length ? saved.targetActorIds : legalTargets;
+      const targetActorIds = saved.targetActorIds;
+      if (action.targetSelectionMode === 'all-eligible') {
+        if (legalTargets.length === 0) throw new Error('当前没有合格目标，无法执行全体目标行动。');
+        if (targetActorIds.length > 0) throw new Error('全体目标行动不接受手动目标列表。');
+      }
+      if (action.targetSelectionMode !== 'all-eligible' && legalTargets.length > 0 && targetActorIds.length === 0) throw new Error('请为个人行动选择一名目标。');
       if (targetActorIds.some(id => !legalTargets.includes(id))) throw new Error('所选场景目标已经失效，请重新选择。');
       selections.push({ sceneActionId: action.id, actorId: saved.actorId, targetActorIds });
     }
   } else {
-    const saved = draft.selections.find(row => Boolean(row.sceneActionId));
-    if (saved) {
+    if (!choice && draft.selections.length > 1) throw new Error('全队批次最多选择一项行动。');
+    for (const saved of draft.selections) {
       const action = view.currentSceneActions.find(item => item.id === saved.sceneActionId && item.scope === 'global');
       if (!action) throw new Error('所选场景行动已经失效，请重新选择。');
       if (action.performerPolicy === 'selected-student' && (!saved.actorId || !action.eligibleActorIds.includes(saved.actorId))) {
@@ -1284,7 +1478,11 @@ function readSceneBatchCommand(
       const legalTargets = saved.actorId
         ? action.legalTargetActorIdsByActorId[saved.actorId] ?? []
         : action.legalActorlessTargetActorIds;
-      if (legalTargets.length > 0 && saved.targetActorIds.length === 0) throw new Error('请至少选择一名行动目标；也可以取消这张行动并跳过本批。');
+      if (action.targetSelectionMode === 'all-eligible') {
+        if (legalTargets.length === 0) throw new Error('当前没有合格目标，无法执行全体目标行动。');
+        if (saved.targetActorIds.length > 0) throw new Error('全体目标行动不接受手动目标列表。');
+      }
+      if (action.targetSelectionMode !== 'all-eligible' && legalTargets.length > 0 && saved.targetActorIds.length === 0) throw new Error('请至少选择一名行动目标；也可以取消这张行动并跳过本批。');
       if (saved.targetActorIds.some(id => !legalTargets.includes(id))) throw new Error('所选场景目标已经失效，请重新选择。');
       selections.push({ sceneActionId: action.id, ...(saved.actorId ? { actorId: saved.actorId } : {}), targetActorIds: saved.targetActorIds });
     }
@@ -1301,11 +1499,21 @@ function readSceneBatchCommand(
     const legalTargets = actorId
       ? viewCard.legalTargetActorIdsByActorId[actorId] ?? []
       : viewCard.legalActorlessTargetActorIds;
-    if (legalTargets.length > 0 && saved.targetActorIds.length === 0) throw new Error('玩家卡牌至少要选择一名目标。');
+    if (viewCard.targetSelectionMode === 'all-eligible') {
+      if (legalTargets.length === 0) throw new Error('当前没有合格目标，无法执行全体目标卡牌。');
+      if (saved.targetActorIds.length > 0) throw new Error('全体目标卡牌不接受手动目标列表。');
+    }
+    if (viewCard.targetSelectionMode !== 'all-eligible' && legalTargets.length > 0 && saved.targetActorIds.length === 0) throw new Error('玩家卡牌至少要选择一名目标。');
     if (saved.targetActorIds.some(id => !legalTargets.includes(id))) throw new Error('玩家卡牌目标已经失效，请重新选择。');
     cards.push({ cardInstanceId, ...(actorId ? { actorId } : {}), targetActorIds: saved.targetActorIds });
   }
-  return { ...command, selections, ...(cards.length ? { cards } : {}) };
+  const purchases: NonNullable<OperationSceneActionBatchCommand['purchases']>[number][] = [];
+  for (const saved of draft.purchases ?? []) {
+    const offer = view.currentScenePurchaseOffers.find(item => item.id === saved.offerId);
+    if (!offer || offer.purchased) throw new Error('所选购买项已失效或已在本次 Run 购买，请重新检查。');
+    purchases.push({ offerId: offer.id });
+  }
+  return { ...command, selections, ...(cards.length ? { cards } : {}), ...(purchases.length ? { purchases } : {}) };
 }
 
 /** Stable #app delegation survives Operation region replacements and ordinary selections. */

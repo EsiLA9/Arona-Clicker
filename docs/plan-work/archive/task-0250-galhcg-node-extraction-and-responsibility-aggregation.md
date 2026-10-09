@@ -119,18 +119,18 @@
 | tests/engine/operation-combination-resolver.test.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/engine/operation-plan-preparation.test.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/engine/operation-scene-actions.test.ts | concept:operation-scene-deck | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0236-units/receipts/receipt-u0-c-intervention-and-resolution-target-checks.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/receipts/receipt-u0-c-intervention-and-resolution-target-checks.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | src/arona-clicker/services/operation-target-selection.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md | concept:operation-event-run-runtime; concept:ui-workspace-renderer | 保留共享落点；跨机制/跨域证据：concept:operation-event-run-runtime、concept:ui-workspace-renderer |
-| docs/plan-work/task-0236-units/u0-b-target-selection-and-preparation.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md | concept:operation-event-run-runtime; concept:ui-workspace-renderer | 保留共享落点；跨机制/跨域证据：concept:operation-event-run-runtime、concept:ui-workspace-renderer |
+| docs/plan-work/archive/task-0236-units/u0-b-target-selection-and-preparation.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | docs/docs-829/02-modules/arona-clicker.md | concept:operation-event-run-runtime | 保留跨模块架构/机制导航，不代表单一 Operation 机制 |
 | src/arona-clicker/content/operation-samples/carousel-scene-action-slice.ts | concept:operation-sample-content | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/engine/operation-tactical-rng.test.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0241-units/receipts/receipt-0241-u12-scene-action-admission-separation.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0241-units/receipts/receipt-0241-u12-scene-action-admission-separation.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | tests/engine/operation-player-scene-deck.test.ts | concept:operation-scene-deck | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/engine/operation-target-selection.test.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/content/operation-samples/gameplay-b-strategy-park-ids.ts | concept:operation-sample-content | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0236-units/u0-a-target-scope-contract.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/u0-a-target-scope-contract.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | tests/engine/operation-card-candidate-resolver.test.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/engine/gameplay-b-save-resume.test.ts | concept:operation-run-lifecycle | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/services/operation-route-evaluator.ts | concept:operation-route-outcome | 迁移/复用到该职责节点；Evidence 与角色已核验 |
@@ -139,9 +139,9 @@
 | src/arona-clicker/services/operation-plan-preparation.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/services/operation-resolution-planner.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | docs/plan-work/archive/task-0247-gameplay-b-card-drag-target-and-semantic-audit.md | concept:operation-event-run-runtime; concept:ui-workspace-renderer | 保留共享落点；跨机制/跨域证据：concept:operation-event-run-runtime、concept:ui-workspace-renderer |
-| docs/plan-work/task-0236-units/receipts/receipt-u0-d-projection-sample-and-runtime-docs.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/receipts/receipt-u0-d-projection-sample-and-runtime-docs.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | src/arona-clicker/services/operation-intervention-preview.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0241-units/receipts/receipt-0241-u13-context-card-condition-admission.md | concept:operation-student-profile-admission | 迁移/复用到该职责节点；Evidence 与角色已核验 |
+| docs/plan-work/archive/task-0241-units/receipts/receipt-0241-u13-context-card-condition-admission.md | concept:operation-student-profile-admission | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/engine/operation-intervention-preview.test.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/engine/operation-resolution-planner.test.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | docs/plan-work/task-0240-gameplay-b-operation-card-presentation-and-action-targeting.md | concept:operation-event-run-runtime; concept:ui-workspace-renderer | 保留共享落点；跨机制/跨域证据：concept:operation-event-run-runtime、concept:ui-workspace-renderer |
@@ -155,7 +155,7 @@
 | src/arona-clicker/content/operation-samples/carousel-route-slice.ts | concept:operation-sample-content | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/services/operation-action-content-validation.ts | concept:operation-content-validation | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/contracts/operation-skill.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0236-units/u0-c-intervention-and-resolution-target-checks.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/u0-c-intervention-and-resolution-target-checks.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | src/arona-clicker/contracts/operation-beat.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | docs/docs-829/06-wiki/20-data-services/definition-authoring.md | concept:operation-content-validation | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/content/operation-samples/carousel-safety-slice.ts | concept:operation-sample-content | 迁移/复用到该职责节点；Evidence 与角色已核验 |
@@ -163,18 +163,18 @@
 | tests/engine/gameplay-b-strategy-park-virtual-play.test.ts | concept:operation-sample-content | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | docs/plan-work/archive/task-0241-gameplay-b-strategy-pools-and-interaction-context.md | concept:operation-event-run-runtime | 聚合节点保留追溯；归档 Task 不作当前实现唯一依据 |
 | src/arona-clicker/services/operation-tactical-rng.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0236-units/u0-d-projection-sample-and-runtime-docs.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/u0-d-projection-sample-and-runtime-docs.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | src/arona-clicker/contracts/operation-scene-action.ts | concept:operation-scene-deck | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/data-services/contracts/operation.ts | concept:operation-event-run-runtime | 保留 Data Services 跨模块合同 owner |
-| docs/plan-work/task-0236-units/receipts/receipt-u0-a-target-scope-contract.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
-| docs/plan-work/task-0241-units/receipts/0241-d1-gameplay-b-strategy-park.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/receipts/receipt-u0-a-target-scope-contract.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0241-units/receipts/0241-d1-gameplay-b-strategy-park.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | docs/docs-829/03-data-structures/operation-view.md | concept:operation-view-projection | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | docs/docs-829/01-architecture/data-flow.md | concept:operation-event-run-runtime | 保留跨模块架构/机制导航，不代表单一 Operation 机制 |
-| docs/plan-work/task-0241-units/receipts/0241-d2-headless-virtual-play.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0241-units/receipts/0241-d2-headless-virtual-play.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | tests/engine/student-operation-runtime.test.ts | concept:operation-student-profile-admission | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/services/operation-progress-evaluator.ts | concept:operation-route-outcome | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/contracts/operation-action.ts | concept:operation-action-planning | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0236-units/receipts/receipt-u0-b-target-selection-and-preparation.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/receipts/receipt-u0-b-target-selection-and-preparation.md | concept:operation-event-run-runtime | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | tests/engine/gameplay-b-scene-action-sample.test.ts | concept:operation-scene-deck | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/engine/gameplay-b-route-sample.test.ts | concept:operation-route-outcome | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/arona-clicker/services/operation-player-scene-deck.ts | concept:operation-scene-deck | 迁移/复用到该职责节点；Evidence 与角色已核验 |
@@ -205,7 +205,7 @@
 | src/ui/css/conversation.css | concept:ui-story-chat-presentation | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/ui/css/cards.css | concept:ui-workspace-renderer | 保留通用 Workspace 页面与框架组合入口 |
 | tests/ui/shop-modal.test.ts | concept:ui-workspace-renderer | 保留本轮非目标页面/框架的集成验证 |
-| docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md | concept:operation-event-run-runtime; concept:ui-workspace-renderer | 保留共享落点；跨机制/跨域证据：concept:operation-event-run-runtime、concept:ui-workspace-renderer |
+| docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md | concept:operation-event-run-runtime; concept:ui-workspace-renderer | 保留共享落点；跨机制/跨域证据：concept:operation-event-run-runtime、concept:ui-workspace-renderer |
 | src/ui/components/inventory-workspace.ts | concept:ui-workspace-renderer | 保留通用 Workspace 页面与框架组合入口 |
 | src/ui/update/ui-behaviors.ts | concept:ui-incremental-refresh | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/ui/workspace/workspace-router.ts | concept:ui-workspace-routing | 迁移/复用到该职责节点；Evidence 与角色已核验 |
@@ -228,8 +228,8 @@
 | src/ui/css/toast.css | concept:ui-overlay-focus-scroll | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/ui/components/tooltip-detail-area.ts | concept:ui-presentation-layer | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/ui/workspace-frame.test.ts | concept:ui-workspace-renderer | 保留本轮非目标页面/框架的集成验证 |
-| docs/plan-work/task-0236-units/u1-attached-action-card-layer.md | concept:ui-workspace-renderer | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
-| docs/plan-work/task-0236-units/receipts/receipt-u1-b-card-position-and-interaction.md | concept:ui-workspace-renderer | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/u1-attached-action-card-layer.md | concept:ui-workspace-renderer | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/receipts/receipt-u1-b-card-position-and-interaction.md | concept:ui-workspace-renderer | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | src/ui/components/tooltip-detail-resource.ts | concept:ui-presentation-layer | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/ui/datapack-workspace-state.test.ts | concept:ui-workspace-renderer | 保留本轮非目标页面/框架的集成验证 |
 | src/ui/components/tooltip.ts | concept:ui-presentation-layer | 迁移/复用到该职责节点；Evidence 与角色已核验 |
@@ -275,7 +275,7 @@
 | src/ui/components/center-panel.ts | concept:ui-workspace-renderer | 保留通用 Workspace 页面与框架组合入口 |
 | src/ui/components/errors.ts | concept:ui-workspace-renderer | 保留通用 Workspace 页面与框架组合入口 |
 | src/ui/workspace/datapack-workspace-state.ts | concept:runtime-datapack-editor-ui | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0236-units/u1-b-card-position-and-interaction.md | concept:ui-workspace-renderer | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/u1-b-card-position-and-interaction.md | concept:ui-workspace-renderer | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | src/ui/css/popover.css | concept:ui-overlay-focus-scroll | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | src/ui/main.ts | concept:ui-workspace-renderer | 保留通用 Workspace 页面与框架组合入口 |
 | src/ui/components/tooltip-detail-enh.ts | concept:ui-presentation-layer | 迁移/复用到该职责节点；Evidence 与角色已核验 |
@@ -283,7 +283,7 @@
 | src/ui/components/character-workspace.ts | concept:ui-workspace-renderer | 保留通用 Workspace 页面与框架组合入口 |
 | src/ui/components/operation-workspace.ts | concept:ui-operation-workspace | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | tests/ui/gameplay-b-strategy-park-map.test.ts | concept:ui-operation-workspace | 迁移/复用到该职责节点；Evidence 与角色已核验 |
-| docs/plan-work/task-0236-units/receipts/receipt-u1-attached-action-card-layer.md | concept:ui-workspace-renderer | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
+| docs/plan-work/archive/task-0236-units/receipts/receipt-u1-attached-action-card-layer.md | concept:ui-workspace-renderer | 聚合节点保留追溯；Task/Unit/Receipt 以源码和当前机制页核实 |
 | src/ui/components/settings-workspace.ts | concept:ui-workspace-renderer | 保留通用 Workspace 页面与框架组合入口 |
 | tests/ui/toast.test.ts | concept:ui-overlay-focus-scroll | 迁移/复用到该职责节点；Evidence 与角色已核验 |
 | docs/docs-829/06-wiki/50-ui/workspace-routing.md | concept:ui-workspace-routing | 迁移/复用到该职责节点；Evidence 与角色已核验 |

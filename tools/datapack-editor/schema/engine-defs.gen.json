@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T05:43:49.245Z",
+  "generatedAt": "2026-10-08T14:31:10.997Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -4081,6 +4081,20 @@
           "tsType": "string"
         },
         {
+          "key": "title",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Short player-facing name for a generic Operation entry and its workspace heading."
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Concise event introduction for a generic Operation entry and its workspace opening."
+        },
+        {
           "key": "initId",
           "required": true,
           "kind": "string",
@@ -4322,6 +4336,17 @@
           "tsType": "string"
         },
         {
+          "key": "stage",
+          "required": true,
+          "kind": "enum",
+          "tsType": "'combat' | 'scene'",
+          "description": "Declares the active gameplay stage; Runtime projects this without UI inference.",
+          "options": [
+            "combat",
+            "scene"
+          ]
+        },
+        {
           "key": "interactionSceneId",
           "required": false,
           "kind": "string",
@@ -4353,6 +4378,13 @@
           "tsType": "readonly OperationCombinationRuleDef[]"
         },
         {
+          "key": "scenes",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationSceneDef[]",
+          "description": "Ordered Scene definitions. Omitted content projects one implicit Location-local Scene."
+        },
+        {
           "key": "actionMode",
           "required": false,
           "kind": "enum",
@@ -4373,6 +4405,36 @@
           "required": false,
           "kind": "float",
           "tsType": "number"
+        },
+        {
+          "key": "sceneActionChoice",
+          "required": false,
+          "kind": "object",
+          "tsType": "OperationSceneActionChoiceDef",
+          "description": "Choice contract for the Location's implicit Scene.",
+          "fields": [
+            {
+              "key": "candidateSceneActionIds",
+              "required": true,
+              "kind": "hand",
+              "tsType": "readonly string[]",
+              "description": "Candidate SceneAction IDs; each candidate can be selected once."
+            },
+            {
+              "key": "chooseExactly",
+              "required": true,
+              "kind": "float",
+              "tsType": "number",
+              "description": "The batch must include exactly this many candidates."
+            }
+          ]
+        },
+        {
+          "key": "purchaseOffers",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly OperationScenePurchaseOfferDef[]",
+          "description": "Purchase offers for the Location's implicit Scene."
         },
         {
           "key": "costGain",
@@ -11742,6 +11804,7 @@
     "OperationActionEffectDef",
     "OperationActionTargetDef",
     "OperationActionTargetRelation",
+    "OperationActionTargetSelectionMode",
     "OperationActorDef",
     "OperationActorKind",
     "OperationBoundedValueDef",
@@ -11765,8 +11828,11 @@
     "OperationResultKind",
     "OperationRewardDef",
     "OperationRouteEdgeDef",
+    "OperationSceneActionChoiceDef",
     "OperationSceneActionDef",
     "OperationSceneActionMode",
+    "OperationSceneDef",
+    "OperationScenePurchaseOfferDef",
     "OperationStrategyProfileDef",
     "OperationStudentSkillRuleDef",
     "OperationTeamDef",

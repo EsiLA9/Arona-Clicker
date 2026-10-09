@@ -41,7 +41,7 @@ function studentInitialization(actorId: string, randomSkillRuleId?: string): Ope
 function eventDefinition(actors: readonly OperationActorDef[]): OperationEventDef {
   return {
     id: 'test:operation:rng',
-    locations: [{ id: 'location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    locations: [{ id: 'location:office', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'location:office',
     tracks: [],
     factIds: [],

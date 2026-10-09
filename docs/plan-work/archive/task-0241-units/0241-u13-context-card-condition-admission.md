@@ -6,7 +6,7 @@
 
 ## Evidence / Read Set
 
-- `docs/plan-work/task-0241-units/receipts/0241-d1-gameplay-b-strategy-park.md`：Registry counts、142 条诊断、旧 Carousel 对照及精确漏接字段证据。
+- `docs/plan-work/archive/task-0241-units/receipts/0241-d1-gameplay-b-strategy-park.md`：Registry counts、142 条诊断、旧 Carousel 对照及精确漏接字段证据。
 - `src/data-services/contracts/operation.ts`：Location、Action Condition、CardPool author contract。
 - `src/data-services/registry/operation-content-validation.ts`：Datapack 合同和 Registry 引用校验的现有源头。
 - `src/arona-clicker/services/registry-operation-content-resolver.ts`、`src/arona-clicker/services/operation-participant-admission.ts`：Registry resolve 到 Admission 的数据 handoff。
@@ -26,7 +26,7 @@
 - `src/arona-clicker/services/operation-definition-validation.ts`
 - `src/arona-clicker/services/operation-tactical-definition-validation.ts`
 - `tests/engine/operation-participant-admission.test.ts`
-- `docs/plan-work/task-0241-units/receipts/receipt-0241-u13-context-card-condition-admission.md`
+- `docs/plan-work/archive/task-0241-units/receipts/receipt-0241-u13-context-card-condition-admission.md`
 
 `tests/engine/gameplay-b-strategy-park-sample.test.ts` 可由 U13 运行作集成验收，但不在白名单中、不得修改；新增正负例放入 `operation-participant-admission.test.ts`。
 
@@ -47,4 +47,4 @@
 
 ## Receipt
 
-`docs/plan-work/task-0241-units/receipts/receipt-0241-u13-context-card-condition-admission.md`
+`docs/plan-work/archive/task-0241-units/receipts/receipt-0241-u13-context-card-condition-admission.md`

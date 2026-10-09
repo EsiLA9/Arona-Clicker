@@ -6,7 +6,7 @@
 ## Must Read / Read Set
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
-| 任务 | `docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md` | 产品边界与目标语义 |
+| 任务 | `docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md` | 产品边界与目标语义 |
 | 协议 | `docs/ai/PROJECT-CONSTITUTION.md`、`docs/ai/galhcg-project-map.md` | Unit / Evidence 护栏 |
 | 文档 | `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md`、`docs/docs-829/05-conventions/schema-sync.md` | 当前 Runtime 合同与 Schema 生成边界 |
 | 源码 | `src/data-services/contracts/operation.ts:OperationActionTargetDef`、`src/arona-clicker/services/operation-tactical-definition-validation.ts:validateOperationActionDef` | 目标定义与静态内容校验 |
@@ -44,8 +44,8 @@
 - `src/arona-clicker/services/operation-tactical-definition-validation.ts`
 - `tests/engine/student-operation-runtime.test.ts`
 - `tools/datapack-editor/schema/engine-defs.gen.json`（仅允许 `npm run gen:schema` 生成；禁止手改）
-- `docs/plan-work/task-0236-units/u0-a-target-scope-contract.md`
-- `docs/plan-work/task-0236-units/receipts/receipt-u0-a-target-scope-contract.md`
+- `docs/plan-work/archive/task-0236-units/u0-a-target-scope-contract.md`
+- `docs/plan-work/archive/task-0236-units/receipts/receipt-u0-a-target-scope-contract.md`
 
 ## Explicit Non-goals
 - 不修改自动目标选择、干预预览、OperationView、结算规划或 UI。

@@ -48,6 +48,12 @@ describe('Gameplay B Strategy Park 13-location map', () => {
 
     expect(game.state.activeInit).toBe(DEFAULT_INIT_ID);
     expect(registryLocations).toHaveLength(13);
+    expect(contentLocations.filter(location => location.stage === 'combat').map(location => location.id)).toEqual([
+      IDS.locations.bumper,
+      IDS.locations.fireworks,
+      IDS.locations.boss,
+    ]);
+    expect(contentLocations.filter(location => location.stage === 'scene')).toHaveLength(10);
     expect(new Set(registryLocations)).toEqual(new Set(Object.values(IDS.locations)));
     expect(contentLocations.map(location => location.id)).toEqual(registryLocations);
     expect(mapLocations).toHaveLength(13);

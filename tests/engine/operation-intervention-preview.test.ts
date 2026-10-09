@@ -94,7 +94,7 @@ function eventDefinition(
 ): OperationEventDef {
   return {
     id: 'test:operation:intervention',
-    locations: [{ id: 'location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] }, { id: 'location:arcade', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    locations: [{ id: 'location:office', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [] }, { id: 'location:arcade', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'location:office',
     tracks: [],
     factIds: [],
@@ -104,7 +104,7 @@ function eventDefinition(
     actors,
     ...(options.teams ? { teams: options.teams } : {}),
     ...(options.enabledActionIds ? {
-      locations: [{ id: 'location:office', enabledActionIds: options.enabledActionIds, combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+      locations: [{ id: 'location:office', stage: 'combat', enabledActionIds: options.enabledActionIds, combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     } : {}),
     playerRouteState: { playerCost: 9 },
   };

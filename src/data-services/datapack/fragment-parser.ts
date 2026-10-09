@@ -26,7 +26,10 @@ import type { ShopDef } from '../contracts/shop';
 import type { AchievementDef, MilestoneListenerDef } from '../contracts/datapack';
 
 export const DATAPACK_LIST_FIELDS = [
-  'inits', 'areas', 'spots', 'enhancements', 'activeStories', 'passiveStories', 'stories',
+  'inits', 'areas', 'spots',
+  'operationEvents', 'operationLocations', 'operationActions',
+  'studentOperationProfiles', 'operationStrategyProfiles', 'operationCardPools',
+  'enhancements', 'activeStories', 'passiveStories', 'stories',
   'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'milestones', 'milestoneListeners', 'achievements', 'funcletDefs', 'characters',
   'resourceDisplays', 'pics', 'charaProfiles', 'passivePools',
   'characterVariants', 'cultivateCurves', 'colorGroups', 'colorEquipments', 'themeDesigns',
@@ -115,7 +118,7 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
     }
     for (const field of DATAPACK_LIST_FIELDS) {
       const items = frag.lists[field];
-      if (items && items.length > 0) (lists[field] ??= []).push(...items);
+      if (items !== undefined) (lists[field] ??= []).push(...items);
     }
   }
   const datapack: Datapack = {
@@ -132,6 +135,12 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
     characters: (lists.characters as CharacterData[] | undefined) ?? [],
   };
   if (lists.dropTables) datapack.dropTables = lists.dropTables as DropTableDef[];
+  if (lists.operationEvents) datapack.operationEvents = lists.operationEvents as Datapack['operationEvents'];
+  if (lists.operationLocations) datapack.operationLocations = lists.operationLocations as Datapack['operationLocations'];
+  if (lists.operationActions) datapack.operationActions = lists.operationActions as Datapack['operationActions'];
+  if (lists.studentOperationProfiles) datapack.studentOperationProfiles = lists.studentOperationProfiles as Datapack['studentOperationProfiles'];
+  if (lists.operationStrategyProfiles) datapack.operationStrategyProfiles = lists.operationStrategyProfiles as Datapack['operationStrategyProfiles'];
+  if (lists.operationCardPools) datapack.operationCardPools = lists.operationCardPools as Datapack['operationCardPools'];
   if (lists.affectorPacks) datapack.affectorPacks = lists.affectorPacks as AffectorPackDef[];
   if (lists.triggerDefs) datapack.triggerDefs = lists.triggerDefs as TriggerDef[];
   if (lists.milestones) datapack.milestones = lists.milestones as Datapack['milestones'];

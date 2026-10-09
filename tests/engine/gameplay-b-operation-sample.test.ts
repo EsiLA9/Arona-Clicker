@@ -247,7 +247,7 @@ describe('Gameplay B carousel safety sample', () => {
     expect(individualCard).toMatchObject({
       title: '团队急救包',
       description: '为每名选定队员恢复 1 点 HP，并降低现场危险度。',
-      performerPolicy: 'selected-student',
+      performerPolicy: 'optional-student',
       selectionPolicy: 'required',
       eligibleActorIds: [
         CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
@@ -301,7 +301,7 @@ describe('Gameplay B carousel safety sample', () => {
       scope: 'global',
       title: '全队急救',
       description: '为每名选定队员恢复 1 点 HP，并降低现场危险度。',
-      performerPolicy: 'selected-student',
+      performerPolicy: 'optional-student',
       selectionPolicy: 'required',
       eligibleActorIds: [
         CAROUSEL_SCENE_ACTION_IDS.actors.hoshino,
@@ -335,7 +335,7 @@ describe('Gameplay B carousel safety sample', () => {
     expect(sceneActions).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: CAROUSEL_SCENE_ACTION_IDS.sceneActions.inspect, scope: 'individual', performerPolicy: 'selected-student', selectionPolicy: 'required' }),
       expect.objectContaining({ id: CAROUSEL_SCENE_ACTION_IDS.sceneActions.guide, scope: 'individual', performerPolicy: 'selected-student', selectionPolicy: 'required' }),
-      expect.objectContaining({ id: CAROUSEL_SCENE_ACTION_IDS.sceneActions.firstAid, scope: 'global', performerPolicy: 'selected-student', selectionPolicy: 'required' }),
+      expect.objectContaining({ id: CAROUSEL_SCENE_ACTION_IDS.sceneActions.firstAid, scope: 'global', performerPolicy: 'optional-student', selectionPolicy: 'required' }),
     ]));
     expect(carouselSceneActionSliceContent.eventDefinition.playerSceneDeck?.cards).toEqual([
       expect.objectContaining({
@@ -343,7 +343,7 @@ describe('Gameplay B carousel safety sample', () => {
         title: '团队急救包',
         actionId: CAROUSEL_SCENE_ACTION_IDS.actions.treatTeam,
         copies: 2,
-        performerPolicy: 'selected-student',
+        performerPolicy: 'optional-student',
         selectionPolicy: 'required',
       }),
     ]);

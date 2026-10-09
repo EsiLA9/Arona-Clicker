@@ -49,7 +49,7 @@ Interaction preservation:
 | `carousel-scene-action-slice.ts` 把 `Object.values(IDS.actions)` 的三个 SceneAction ID 追加进三名学生的 `candidateActionIds` / `actionPriorityIds`。首地点 `enabledActionIds` 不含它们。 | `src/arona-clicker/content/operation-samples/carousel-scene-action-slice.ts` | 这是额外卡片的直接来源；不应通过 UI 隐藏来掩盖候选数据污染。 |
 | `candidateOptions()` 遍历 profile 候选全量生成 View option；对地点未启用项添加 `action-not-enabled`，而不是过滤掉。操作界面把非当前行动作为替代牌生成。 | `src/arona-clicker/services/operation-view-projector.ts:candidateOptions`；`src/ui/components/operation-workspace.ts:renderAction` / `renderPreparedCardLayer` | 从战斗候选数据源移除 SceneAction ID；保留其 SceneAction 定义及地点场景投影。收紧 UI 回归断言，确保不再出现这三项。 |
 | `brace`、`signal`、`shield` 的 Action target 均限制到 carousel Actor；投影通过合法候选设置默认目标。`emergencyStop`、`crowdGuide` 是不同的无目标行动。 | `src/arona-clicker/content/operation-samples/carousel-safety-slice.ts`；`operation-view-projector.ts:candidateOptions`；`src/arona-clicker/services/operation-target-selection.ts` | 首幕三张目标行动的实际合法目标唯一，按 View 默认值可显示旋转木马；是否推广为通用“角色逻辑索引”机制仍待裁定。 |
-| Task 0236 将替代牌设为人物卡外侧独立牌层；当前行动牌层序和裁切仍有 Edge 验收未完成记录。 | `docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md` | 本 Task 是新的布局需求，实施时保留独立牌对象、合法目标交互和刷新连续性，并在常规/窄视口重新验收。 |
+| Task 0236 将替代牌设为人物卡外侧独立牌层；当前行动牌层序和裁切仍有 Edge 验收未完成记录。 | `docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md` | 本 Task 是新的布局需求，实施时保留独立牌对象、合法目标交互和刷新连续性，并在常规/窄视口重新验收。 |
 | 关系线由 `drawCardRelation()` 绘制；本次增加 `renderCardRelationPreview()`，从当前 View 投影的已选/默认合法目标恢复 Hover/focus 预览；活动拖拽覆盖它。线仍不属于 OperationView / Run，离开、失焦或拖拽终止会清理。 | `src/ui/controller-actions-operation.ts:drawCardRelation`、`currentActionRelationTarget`、`renderCardRelationPreview`、`bindCardTargetGestures`；`src/ui/components/operation-workspace.ts` 的 `[data-operation-drag-relation]` SVG | 单次强制改目标的写命令不再是显示线索的唯一触发；当前牌悬停/聚焦直接显示目标关系，拖拽则继续作动态预览。 |
 
 ## 文本-潜在解决方案
@@ -114,6 +114,6 @@ Interaction preservation:
 
 ## 相关路由
 
-- [[task-0232]]、[[task-0234-gameplay-b-demo-card-surface]]、[[task-0236-gameplay-b-typed-action-cards-and-target-layers]]
+- [[task-0232]]、[[task-0234-gameplay-b-demo-card-surface]]、[[archive/task-0236-gameplay-b-typed-action-cards-and-target-layers]]
 - [[docs/ai/context-packs/ui-presentation]]、[[docs/ai/frontend-design-project-overlay]]
 - [[docs/docs-829/03-data-structures/operation-view]]、[[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]]、[[docs/docs-829/06-wiki/50-ui/refresh-update]]

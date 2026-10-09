@@ -11,7 +11,7 @@ import { createOperationEntry } from '../../src/arona-clicker/services/operation
 function eventDef(): OperationEventDef {
   return {
     id: 'test:operation:office',
-    locations: [{ id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] }, { id: 'test:location:archive', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [] }, { id: 'test:location:archive', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [{ id: 'danger', initial: 1, min: 0, max: 5 }],
     factIds: ['door_open'],
@@ -67,7 +67,7 @@ function tacticalRunStartInput(effects: readonly OperationActionEffectDef[] = [
   const actionId = 'test:action:inspect';
   const eventDefinition: OperationEventDef = {
     ...eventDef(),
-    locations: [{ id: 'test:location:office', enabledActionIds: [actionId], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: [actionId], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
   };
   const action: OperationActionDef = {
     id: actionId,
@@ -225,7 +225,7 @@ describe('validateOperationEventDef', () => {
   test('validates temporary Location tactical structure and ordered Combination slots', () => {
     const valid: OperationEventDef = {
       ...eventDef(),
-      locations: [{ id: 'test:location:office', enabledActionIds: ['test:action:assist', 'test:action:repair'], combinationRules: [{
+      locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: ['test:action:assist', 'test:action:repair'], combinationRules: [{
           id: 'test:combination:assist-repair',
           priority: 1,
           inputTagIds: ['assist', 'repair'],
@@ -241,6 +241,7 @@ describe('validateOperationEventDef', () => {
         ...valid.locations!,
         {
           id: 'test:location:office',
+          stage: 'combat',
           enabledActionIds: ['test:action:assist', 'test:action:assist'],
           combinationRules: [{
             id: 'test:combination:invalid',
@@ -253,6 +254,7 @@ describe('validateOperationEventDef', () => {
         },
         {
           id: 'test:location:missing',
+          stage: 'combat',
           enabledActionIds: [],
           combinationRules: [],
           routeEdges: [],
@@ -351,6 +353,7 @@ describe('validateOperationEventDef', () => {
   test('validates the closed OperationAction contract without executing it', () => {
     const valid = {
       id: 'test:action:assist',
+      title: 'Assist',
       allowedParticipantKinds: ['student'],
       requiredCapabilityIds: ['field_support'],
       reasonIds: ['help_injured'],
@@ -614,7 +617,7 @@ describe('OperationRuntimeService', () => {
           }],
         },
         {
-          id: 'test:location:exit', enabledActionIds: [], combinationRules: [],
+          id: 'test:location:exit', stage: 'scene', enabledActionIds: [], combinationRules: [],
           routeEdges: [{
             id: 'test:route:exit-loop',
             targetLocationId: 'test:location:office',
@@ -660,6 +663,16 @@ describe('OperationRuntimeService', () => {
         { routeId: 'test:route:archive-loop' },
       ],
     });
+    expect(backAtOffice.routeHistory.map(record => record.timelineSequence)).toEqual([
+      ...backAtOffice.routeHistory.map(record => record.timelineSequence),
+    ].sort((left, right) => left - right));
+    expect(new Set([
+      ...backAtOffice.routeHistory.map(record => record.timelineSequence),
+      ...(backAtOffice.locationEntryCostHistory ?? []).map(record => record.timelineSequence),
+      ...backAtOffice.resolutions.map(record => record.timelineSequence),
+    ]).size).toBe(backAtOffice.routeHistory.length
+      + (backAtOffice.locationEntryCostHistory ?? []).length
+      + backAtOffice.resolutions.length);
     const atExit = service.completeCurrentLocation();
     expect(atExit).toMatchObject({ currentLocationId: 'test:location:exit', routeHistory: [{}, {}, {}] });
     expect(service.getView()).toMatchObject({ totalLocationVisits: 4, maxLocationVisits: 4 });
@@ -752,6 +765,231 @@ describe('OperationRuntimeService', () => {
     expect(owner.getSnapshot()).toEqual(terminal);
     expect(notifications).toHaveLength(1);
     expect(() => entry.commitBeat({ runId: 'other-run', planVersion: 0 })).toThrow(/terminal/);
+  });
+
+  test('rejects a direct tactical Beat commit in a Scene Location without changing the Run', () => {
+    const owner = new OperationRuntimeService();
+    const entry = operationEntryFor(owner);
+    const observed: string[] = [];
+    owner.subscribe(event => observed.push(event.type));
+    const tactical = tacticalRunStartInput();
+    const started = owner.start({
+      ...tactical,
+      eventDefinition: {
+        ...tactical.eventDefinition,
+        locations: tactical.eventDefinition.locations.map(location => ({ ...location, stage: 'scene' })),
+      },
+    });
+    observed.length = 0;
+    expect(started.preparedBeat).not.toBeNull();
+    const before = owner.getSnapshot();
+
+    expect(() => entry.commitBeat({ runId: started.runId, planVersion: started.planVersion }))
+      .toThrow(/only be committed in a combat Location/);
+    expect(owner.getSnapshot()).toEqual(before);
+    expect(observed).toEqual([]);
+  });
+
+  test('completes ordered Location-local Scenes from committed post-state and resumes the next Scene in place', () => {
+    const base = tacticalRunStartInput();
+    const student = base.actors[0];
+    if (student.participantKind !== 'student') throw new Error('expected Student Actor fixture');
+    const firstActionId = base.actionDefinitions[0].id;
+    const secondActionId = 'test:action:reveal-door';
+    const secondAction: OperationActionDef = {
+      ...base.actionDefinitions[0],
+      id: secondActionId,
+      effects: [{ kind: 'eventFact', factId: 'door_open', op: 'reveal' }],
+    };
+    const secondCandidate = {
+      actionId: secondActionId,
+      eligible: true,
+      requiredCapabilityIds: [],
+      missingCapabilityIds: [],
+      reasonIds: ['test:reason:inspect'],
+    };
+    const office = base.eventDefinition.locations.find(location => location.id === 'test:location:office')!;
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      resumeVersion: 1,
+      locations: base.eventDefinition.locations.map(location => location.id === office.id ? {
+        ...location,
+        enabledActionIds: [firstActionId, secondActionId],
+        scenes: [
+          {
+            id: 'first',
+            title: 'Stabilize',
+            enabledActionIds: [firstActionId],
+            completion: { kind: 'track', trackId: 'danger', operator: 'lte', value: 0 },
+          },
+          {
+            id: 'second',
+            title: 'Open the archive',
+            enabledActionIds: [secondActionId],
+            completion: { kind: 'knownFact', factId: 'door_open', present: true },
+          },
+        ],
+      } : location),
+    };
+    const input: OperationRunStartInput = {
+      ...base,
+      eventDefinition,
+      actors: [{
+        ...student,
+        profile: {
+          ...student.profile,
+          candidateActionIds: [...student.profile.candidateActionIds, secondActionId],
+          actionPriorityIds: [...student.profile.actionPriorityIds, secondActionId],
+          actionCandidates: [...student.profile.actionCandidates, secondCandidate],
+          eligibleActionIds: [...student.profile.eligibleActionIds, secondActionId],
+        },
+      }],
+      actionDefinitions: [...base.actionDefinitions, secondAction],
+    };
+    const owner = new OperationRuntimeService();
+    const started = owner.start(input);
+    const initialView = owner.getView()!;
+    expect(initialView).toMatchObject({
+      currentLocationId: 'test:location:office',
+      currentSceneId: 'first',
+      currentScene: { sceneId: 'first', title: 'Stabilize', status: 'active' },
+      scenes: [
+        { sceneId: 'first', status: 'active', index: 1, count: 2 },
+        { sceneId: 'second', status: 'ready', index: 2, count: 2 },
+      ],
+    });
+    expect(initialView.actionOffers).toContainEqual(expect.objectContaining({
+      source: 'student-action', sceneId: 'first', actionId: firstActionId,
+    }));
+
+    const firstResolution = owner.commitBeat({ runId: started.runId, planVersion: started.planVersion });
+    expect(firstResolution.sceneId).toBe('first');
+    expect(owner.getSnapshot()).toMatchObject({
+      status: 'inProgress',
+      currentLocationId: 'test:location:office',
+      routeHistory: [],
+      locationProgress: {
+        'test:location:office': { completed: false, completedSceneIds: ['first'] },
+      },
+    });
+    const checkpoint = owner.createSaveSnapshot()!;
+    const resumed = new OperationRuntimeService();
+    const restored = resumed.restoreSaveSnapshot(checkpoint, input);
+    expect(restored).toMatchObject({
+      currentLocationId: 'test:location:office',
+      locationProgress: { 'test:location:office': { completedSceneIds: ['first'] } },
+    });
+    expect(resumed.getView()).toMatchObject({
+      currentSceneId: 'second',
+      currentScene: { sceneId: 'second', status: 'active' },
+      scenes: [
+        { sceneId: 'first', status: 'completed' },
+        { sceneId: 'second', status: 'active' },
+      ],
+    });
+
+    const secondPlan = resumed.getSnapshot()!;
+    expect(secondPlan.preparedBeat?.actorPlans[0]).toMatchObject({ kind: 'studentAction', actionId: secondActionId });
+    const secondResolution = resumed.commitBeat({ runId: secondPlan.runId, planVersion: secondPlan.planVersion });
+    expect(secondResolution.sceneId).toBe('second');
+    expect(resumed.getSnapshot()).toMatchObject({
+      currentLocationId: 'test:location:office',
+      status: 'inProgress',
+      routeHistory: [],
+      locationProgress: {
+        'test:location:office': { completed: false, completedSceneIds: ['first', 'second'] },
+      },
+    });
+    expect(resumed.getView()).toMatchObject({
+      currentSceneId: null,
+      currentScene: null,
+      scenes: [
+        { sceneId: 'first', status: 'completed' },
+        { sceneId: 'second', status: 'completed' },
+      ],
+    });
+  });
+
+  test('projects current student Action, Location SceneAction, and PlayerSceneCard as read-only Offers', () => {
+    const base = tacticalRunStartInput();
+    const actionId = base.actionDefinitions[0].id;
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      playerSceneDeck: {
+        cards: [{ id: 'test:card:offer', actionId, playerCost: 0, timing: 'scene', copies: 1 }],
+        initialDraw: 1,
+        locationEntryDraw: 0,
+        maxHandSize: 1,
+      },
+      locations: base.eventDefinition.locations.map(location => ({
+        ...location,
+        scenes: [{
+          id: 'offer-scene',
+          title: 'Offer test',
+          actionMode: 'individual',
+          sceneActionBatches: 1,
+          sceneActions: [{ id: 'offer-action', actionId, scope: 'individual', playerCost: 0 }],
+          completion: { kind: 'track', trackId: 'danger', operator: 'lte', value: 0 },
+        }],
+      })),
+    };
+    const owner = new OperationRuntimeService();
+    owner.start({ ...base, eventDefinition });
+
+    const view = owner.getView()!;
+    expect(view.actionOffers.map(offer => offer.source)).toEqual([
+      'student-action', 'scene-action', 'player-scene-card',
+    ]);
+    expect(view.actionOffers.every(offer => !('effects' in offer))).toBe(true);
+    expect(view.actionOffers.every(offer => offer.sceneId === 'offer-scene')).toBe(true);
+  });
+
+  test('preserves completed Scene IDs when the same Location is revisited in one Run', () => {
+    const base = tacticalRunStartInput();
+    const officeId = 'test:location:office';
+    const archiveId = 'test:location:archive';
+    const actionId = base.actionDefinitions[0].id;
+    const office = base.eventDefinition.locations.find(location => location.id === officeId)!;
+    const archive: OperationEventDef['locations'][number] = {
+      id: archiveId,
+      stage: 'combat',
+      enabledActionIds: [],
+      combinationRules: [],
+      routeEdges: [{ id: 'archive-office', targetLocationId: officeId, label: 'Return office', description: 'Go back.' }],
+    };
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      locations: [{
+        ...office,
+        scenes: [{
+          id: 'stabilize',
+          title: 'Stabilize',
+          enabledActionIds: [actionId],
+          completion: { kind: 'track', trackId: 'danger', operator: 'lte', value: 0 },
+        }],
+        routeEdges: [{ id: 'office-archive', targetLocationId: archiveId, label: 'Enter archive', description: 'Go to archive.' }],
+      }, archive],
+    };
+    const owner = new OperationRuntimeService();
+    owner.start({ ...base, eventDefinition });
+
+    owner.commitBeat({ runId: owner.getSnapshot()!.runId, planVersion: owner.getSnapshot()!.planVersion });
+    expect(owner.getSnapshot()).toMatchObject({
+      currentLocationId: officeId,
+      locationProgress: { [officeId]: { completed: false, completedSceneIds: ['stabilize'] } },
+    });
+    owner.completeCurrentLocation();
+    expect(owner.getSnapshot()?.currentLocationId).toBe(archiveId);
+    owner.completeCurrentLocation();
+
+    expect(owner.getSnapshot()).toMatchObject({
+      currentLocationId: officeId,
+      locationProgress: { [officeId]: { visitCount: 2, completed: false, completedSceneIds: ['stabilize'] } },
+    });
+    expect(owner.getView()).toMatchObject({
+      currentSceneId: null,
+      scenes: [{ sceneId: 'stabilize', status: 'completed' }],
+    });
   });
 
   test('commits position effects and re-resolves the next Character Hand from the new position', () => {
@@ -969,6 +1207,15 @@ describe('OperationRuntimeService', () => {
     expect(owner.getResult()).toBeNull();
   });
 
+  test('rejects a Location without an explicit gameplay stage', () => {
+    const definition = eventDef();
+    const invalid = {
+      ...definition,
+      locations: definition.locations.map(({ stage: _stage, ...location }) => location),
+    } as unknown as OperationEventDef;
+    expect(validateOperationEventDef(invalid)).toContain('locations[0].stage must be combat or scene');
+  });
+
   test('keeps every Run field and suppresses beatResolved notification when pure planning fails', () => {
     const owner = new OperationRuntimeService();
     const entry = operationEntryFor(owner);
@@ -1002,6 +1249,8 @@ describe('OperationRuntimeService', () => {
     expect(latestRun.resolutions).toHaveLength(32);
     expect(latestRun.resolutions[0].resolutionSequence).toBe(2);
     expect(latestRun.resolutions.at(-1)?.resolutionSequence).toBe(33);
+    expect(latestRun.resolutions[0].timelineSequence).toBe(2);
+    expect(latestRun.resolutions.at(-1)?.timelineSequence).toBe(latestRun.timelineSequence);
     expect('nextRandomState' in latestRun.resolutions.at(-1)!).toBe(false);
     expect(() => entry.commitBeat({ runId: latestRun.runId, planVersion: 0 })).toThrow(/stale/);
   });
@@ -1070,6 +1319,109 @@ describe('OperationRuntimeService', () => {
       run: { ...checkpoint.run, runId: 'operation-run-9007199254740992' },
     }, input)).toThrow(/runId is malformed/);
     expect(unsafeRunId.getSnapshot()).toBeNull();
+  });
+
+  test('requires complete Route and entry-Cost histories for visited Locations', () => {
+    const base = tacticalRunStartInput();
+    const definition = eventDef();
+    const office = definition.locations[0]!;
+    const input: OperationRunStartInput = {
+      ...base,
+      eventDefinition: {
+        ...definition,
+        resumeVersion: 1,
+        maxLocationVisits: 4,
+        locations: [
+          {
+            ...office,
+            costGain: 1,
+            routeEdges: [{
+              id: 'test:route:office-archive',
+              targetLocationId: 'test:location:archive',
+              label: 'Open the archive',
+              description: 'Continue into the archive.',
+            }],
+          },
+          {
+            ...definition.locations[1]!,
+            costGain: 1,
+          },
+        ],
+      },
+    };
+    const source = new OperationRuntimeService();
+    source.start(input);
+    const enteredArchive = source.completeCurrentLocation();
+    expect(enteredArchive.currentLocationId).toBe('test:location:archive');
+    const checkpoint = source.createSaveSnapshot()!;
+    expect(enteredArchive.locationProgress).toMatchObject({
+      'test:location:office': { visitCount: 1 },
+      'test:location:archive': { visitCount: 1 },
+    });
+    expect(checkpoint.run.routeHistory).toHaveLength(1);
+    expect(checkpoint.run.locationEntryCostHistory).toHaveLength(2);
+    expect(checkpoint.run.timelineSequence).toBe(
+      checkpoint.run.resolutionSequence + checkpoint.run.routeHistory.length + checkpoint.run.locationEntryCostHistory!.length,
+    );
+
+    const validResume = new OperationRuntimeService();
+    expect(validResume.restoreSaveSnapshot(checkpoint, input)).toEqual(enteredArchive);
+
+    const missingRoute = new OperationRuntimeService();
+    expect(() => missingRoute.restoreSaveSnapshot({
+      ...checkpoint,
+      run: { ...checkpoint.run, routeHistory: [] },
+    }, input)).toThrow(/route history does not match total Location visits/);
+    expect(missingRoute.getSnapshot()).toBeNull();
+
+    const entries = checkpoint.run.locationEntryCostHistory!;
+    const missingOldEntry = { ...entries[1]!, visitSequence: 1 };
+    const missingEntry = new OperationRuntimeService();
+    expect(() => missingEntry.restoreSaveSnapshot({
+      ...checkpoint,
+      run: { ...checkpoint.run, locationEntryCostHistory: [missingOldEntry] },
+    }, input)).toThrow(/Location entry Cost history does not match total Location visits/);
+    expect(missingEntry.getSnapshot()).toBeNull();
+  });
+
+  test('requires the complete newest Resolution window and rejects sequence holes', () => {
+    const base = tacticalRunStartInput();
+    const input: OperationRunStartInput = {
+      ...base,
+      eventDefinition: { ...base.eventDefinition, resumeVersion: 1 },
+    };
+    const source = new OperationRuntimeService();
+    let run = source.start(input);
+    for (let index = 0; index < 33; index += 1) {
+      source.commitBeat({ runId: run.runId, planVersion: run.planVersion });
+      run = source.getSnapshot()!;
+    }
+    const checkpoint = source.createSaveSnapshot()!;
+    expect(checkpoint.run.resolutionSequence).toBe(33);
+    expect(checkpoint.run.resolutions).toHaveLength(32);
+    expect(checkpoint.run.resolutions.map(resolution => resolution.resolutionSequence)).toEqual(
+      Array.from({ length: 32 }, (_, index) => index + 2),
+    );
+
+    const validResume = new OperationRuntimeService();
+    expect(validResume.restoreSaveSnapshot(checkpoint, input)).toEqual(run);
+
+    const missingResolution = new OperationRuntimeService();
+    expect(() => missingResolution.restoreSaveSnapshot({
+      ...checkpoint,
+      run: { ...checkpoint.run, resolutions: checkpoint.run.resolutions.slice(1) },
+    }, input)).toThrow(/Resolution history is incomplete/);
+    expect(missingResolution.getSnapshot()).toBeNull();
+
+    const resolutionsWithHole = checkpoint.run.resolutions.map((resolution, index) => index === 0
+      ? { ...resolution, resolutionSequence: 1 }
+      : resolution);
+    const missingSequence = new OperationRuntimeService();
+    expect(() => missingSequence.restoreSaveSnapshot({
+      ...checkpoint,
+      run: { ...checkpoint.run, resolutions: resolutionsWithHole },
+    }, input)).toThrow(/Resolution history sequence is invalid/);
+    expect(missingSequence.getSnapshot()).toBeNull();
   });
 
   test('restores a non-zero tactical RNG cursor without rerolling the next Student skill', () => {

@@ -58,6 +58,7 @@ function individualStartInput(): OperationRunStartInput {
     locations: [
       {
         id: 'demo:location:platform',
+        stage: 'scene',
         enabledActionIds: [],
         combinationRules: [],
         actionMode: 'individual',
@@ -85,6 +86,7 @@ function individualStartInput(): OperationRunStartInput {
       },
       {
         id: 'demo:location:concourse',
+        stage: 'scene',
         enabledActionIds: [],
         combinationRules: [],
         costGain: 4,
@@ -120,6 +122,7 @@ function globalStartInput(): OperationRunStartInput {
     id: 'demo:event:global-scene',
     locations: [{
       id: 'demo:location:platform',
+      stage: 'scene',
       enabledActionIds: [],
       combinationRules: [],
       actionMode: 'global',
@@ -144,6 +147,35 @@ function globalStartInput(): OperationRunStartInput {
 }
 
 describe('Operation SceneAction batches and shared route Cost', () => {
+  test('rejects an empty Individual target instead of expanding it to all legal targets', () => {
+    const input = individualStartInput();
+    const targetAction = action(ACTION_A, [{ kind: 'actorHpDelta', recipient: 'target', amount: -1 }], { kind: 'actor', relation: 'any' });
+    const service = new OperationRuntimeService();
+    const runId = service.start({ ...input, actionDefinitions: [targetAction, input.actionDefinitions[1]!] }).runId;
+    const before = service.getSnapshot()!;
+    const emptyTargetCommand = {
+      runId,
+      planVersion: before.planVersion,
+      selections: [
+        { sceneActionId: 'demo:scene-action:collect-pass', actorId: A, targetActorIds: [] },
+        { sceneActionId: 'demo:scene-action:steady-lights', actorId: B, targetActorIds: [] },
+      ],
+    } as const;
+
+    expect(() => service.previewSceneActionBatch(emptyTargetCommand)).toThrow(/target count is invalid/);
+    expect(service.getSnapshot()).toEqual(before);
+
+    const explicitSingleTarget = service.previewSceneActionBatch({
+      ...emptyTargetCommand,
+      selections: [
+        { sceneActionId: 'demo:scene-action:collect-pass', actorId: A, targetActorIds: [B] },
+        { sceneActionId: 'demo:scene-action:steady-lights', actorId: B, targetActorIds: [] },
+      ],
+    });
+    expect(explicitSingleTarget.selections[0]?.targetActorIds).toEqual([B]);
+    expect(service.getSnapshot()).toEqual(before);
+  });
+
   test('previews without mutation, then commits one Individual batch through Resolution and the sole route path', () => {
     const service = new OperationRuntimeService();
     const runId = service.start(individualStartInput()).runId;
@@ -160,6 +192,7 @@ describe('Operation SceneAction batches and shared route Cost', () => {
 
     expect(run.playerRouteState.playerCost).toBe(7);
     expect(run.locationEntryCostHistory).toEqual([{
+      timelineSequence: 1,
       visitSequence: 1,
       locationId: 'demo:location:platform',
       visitCount: 1,
@@ -209,6 +242,53 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     expect(service.getSnapshot()!.actorStates.map(actor => actor.hp)).toEqual([4, 4]);
     expect(service.getSnapshot()!.playerRouteState.playerCost).toBe(1);
     expect(service.getSnapshot()!.locationProgress['demo:location:platform']).toMatchObject({ sceneActionBatchesUsed: 1, completed: false });
+  });
+
+  test('resolves an explicit all-eligible Scene Action from the current set and records those IDs', () => {
+    const base = globalStartInput();
+    const groupAction = action(ACTION_GLOBAL, [{ kind: 'actorHpDelta', recipient: 'target', amount: -1 }], {
+      kind: 'actor', relation: 'any', selectionMode: 'all-eligible',
+    });
+    const service = new OperationRuntimeService();
+    const runId = service.start({ ...base, actionDefinitions: [groupAction] }).runId;
+    const before = service.getSnapshot()!;
+    const command = {
+      runId,
+      planVersion: before.planVersion,
+      selections: [{ sceneActionId: 'demo:scene-action:calm-crowd', actorId: A, targetActorIds: [] }],
+    } as const;
+
+    const preview = service.previewSceneActionBatch(command);
+    expect(preview.selections).toEqual([{
+      sceneActionId: 'demo:scene-action:calm-crowd', actorId: A, targetActorIds: [B, A],
+    }]);
+    expect(service.getSnapshot()).toEqual(before);
+    expect(() => service.commitSceneActionBatch({
+      ...command,
+      selections: [{ ...command.selections[0], targetActorIds: [B] }],
+    })).toThrow(/must not include explicit target IDs/);
+    expect(service.getSnapshot()).toEqual(before);
+
+    const resolution = service.commitSceneActionBatch(command);
+    expect(resolution.sceneBatch?.selections[0]?.targetActorIds).toEqual([B, A]);
+    expect(service.getSnapshot()?.actorStates.map(actor => actor.hp)).toEqual([2, 2]);
+  });
+
+  test('blocks all-eligible Scene Actions when the live legal set is empty without mutation', () => {
+    const base = globalStartInput();
+    const groupAction = action(ACTION_GLOBAL, [{ kind: 'actorHpDelta', recipient: 'target', amount: -1 }], {
+      kind: 'actor', relation: 'otherTeam', selectionMode: 'all-eligible',
+    });
+    const service = new OperationRuntimeService();
+    const runId = service.start({ ...base, actionDefinitions: [groupAction] }).runId;
+    const before = service.getSnapshot()!;
+
+    expect(() => service.previewSceneActionBatch({
+      runId,
+      planVersion: before.planVersion,
+      selections: [{ sceneActionId: 'demo:scene-action:calm-crowd', actorId: A, targetActorIds: [] }],
+    })).toThrow(/all-eligible Action has no legal targets/);
+    expect(service.getSnapshot()).toEqual(before);
   });
 
   test('counts a PlayerSceneCard with the SceneAction fee and rejects an unaffordable batch atomically', () => {
@@ -373,6 +453,74 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     expect(service.getSnapshot()).toEqual(afterSkip);
   });
 
+  test('an empty skip never completes an explicit Scene even when its predicate is already satisfied', () => {
+    const input = individualStartInput();
+    const legacyLocation = input.eventDefinition.locations[0];
+    const { actionMode: _actionMode, sceneActionBatches: _sceneActionBatches, sceneActions, ...locationFields } = legacyLocation;
+    const explicitLocation = {
+      ...locationFields,
+      scenes: [{
+        id: 'main',
+        title: 'Stabilize the platform',
+        actionMode: 'individual' as const,
+        sceneActionBatches: 2,
+        sceneActions: sceneActions?.map(action => ({
+          ...action,
+          id: action.id.slice(action.id.lastIndexOf(':') + 1),
+        })),
+        completion: { kind: 'knownFact' as const, factId: 'demo:fact:platform-secured', present: false },
+      }],
+    };
+    const service = new OperationRuntimeService();
+    const runId = service.start({
+      ...input,
+      eventDefinition: {
+        ...input.eventDefinition,
+        locations: [explicitLocation, ...input.eventDefinition.locations.slice(1)],
+      },
+    }).runId;
+    const started = service.getSnapshot()!;
+    expect(started.eventState.knownFactIds).not.toContain('demo:fact:platform-secured');
+
+    const skipped = service.commitSceneActionBatch({ runId, planVersion: started.planVersion, selections: [] });
+    expect(skipped.sceneId).toBe('main');
+    expect(skipped.sceneBatch).toMatchObject({ selections: [], playerCostPaid: 0, sceneActionBatchesUsed: 1 });
+    expect(service.getSnapshot()).toMatchObject({
+      currentLocationId: 'demo:location:platform',
+      locationProgress: {
+        'demo:location:platform': {
+          completed: false,
+          completedSceneIds: [],
+          sceneActionBatchesUsedByScene: { main: 1 },
+        },
+      },
+    });
+    expect(service.getView()).toMatchObject({
+      currentSceneId: 'main',
+      currentScene: { sceneId: 'main', status: 'active' },
+    });
+
+    const afterSkip = service.getSnapshot()!;
+    const selections = [
+      { sceneActionId: 'steady-lights', actorId: B, targetActorIds: [] },
+    ];
+    const preview = service.previewSceneActionBatch({ runId, planVersion: afterSkip.planVersion, selections });
+    expect(preview.plan).toMatchObject({ runId, sceneId: 'main', selections });
+    expect(service.getSnapshot()).toEqual(afterSkip);
+    const committed = service.commitSceneActionBatch({ runId, planVersion: afterSkip.planVersion, selections });
+    expect(committed.sceneId).toBe('main');
+    expect(service.getSnapshot()).toMatchObject({
+      currentLocationId: 'demo:location:platform',
+      locationProgress: {
+        'demo:location:platform': {
+          completed: false,
+          completedSceneIds: ['main'],
+          sceneActionBatchesUsedByScene: { main: 2 },
+        },
+      },
+    });
+  });
+
   test('stale selections and caller-supplied cost/effects are not accepted', () => {
     const service = new OperationRuntimeService();
     const runId = service.start(individualStartInput()).runId;
@@ -382,7 +530,7 @@ describe('Operation SceneAction batches and shared route Cost', () => {
       planVersion: run.planVersion,
       playerCost: 0,
       selections: [],
-    } as never)).toThrow(/only runId, planVersion, selections, and cards/);
+    } as never)).toThrow(/only runId, planVersion, selections, cards, purchases, and skip/);
     const command = {
       runId,
       planVersion: run.planVersion + 1,

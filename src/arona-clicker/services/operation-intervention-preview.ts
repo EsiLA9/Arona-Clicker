@@ -9,6 +9,7 @@ import {
 } from '../contracts/operation';
 import type { OperationActionDef } from '../contracts/operation-action';
 import {
+  OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY,
   OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE,
   OPERATION_WAIT_REASON_NO_LEGAL_TARGET,
   type OperationInterventionDraft,
@@ -215,6 +216,7 @@ function fixedPlanContent(
 
 function validateExplicitTarget(
   content: OperationPreparationContent,
+  snapshot: OperationInterventionPreviewInput['snapshot'],
   actorId: string,
   action: OperationActionDef,
   targetActorId: string,
@@ -235,7 +237,8 @@ function validateExplicitTarget(
     },
   };
   try {
-    const selected = selectOperationTarget(targetContent.eventDefinition, actorId, action.target);
+    const targetStates = new Map(snapshot.actors.map(actor => [actor.actorId, actor]));
+    const selected = selectOperationTarget(targetContent.eventDefinition, actorId, action.target, targetStates);
     if (selected.kind !== 'actor' || selected.targetActorId !== targetActorId) {
       fail('operation:intervention:invalid-target', 'target is not legal for this Action');
     }
@@ -309,7 +312,7 @@ export function previewOperationIntervention(
   }
 
   if (draft.targetActorId !== undefined) {
-    validateExplicitTarget(trustedContent, draft.actorId, action, draft.targetActorId);
+    validateExplicitTarget(trustedContent, snapshot, draft.actorId, action, draft.targetActorId);
   }
 
   const previewContent = fixedPlanContent(
@@ -339,6 +342,9 @@ export function previewOperationIntervention(
     }
     if (selectedPlan.reasonIds.includes(OPERATION_WAIT_REASON_NO_LEGAL_TARGET)) {
       fail('operation:intervention:no-legal-target', 'Action has no legal automatic target');
+    }
+    if (selectedPlan.reasonIds.includes(OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY)) {
+      fail('operation:intervention:group-target-scene-only', 'all-eligible targets are only supported by SceneAction/Card batches');
     }
     fail('operation:intervention:invalid-action', 'Action could not produce a legal prepared plan');
   }

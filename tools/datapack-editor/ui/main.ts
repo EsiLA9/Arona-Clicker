@@ -6,9 +6,10 @@
  * 支持校验、撤销/重做、导入/导出（M6 fixture 导出见 io.ts）。
  */
 import { EditorModel } from '../model/editor-model';
+import type { EditorPackageMetadata } from '../model/editor-model';
 import { TABLES } from '../schema/datapack.schema';
 import type { TableKey } from '../schema/types';
-import { copyDatapack, downloadDatapack, loadDefaultDatapack, pasteImport, fileInputImport } from './io';
+import { copyDatapack, downloadDatapack, downloadDatapackPackage, loadDefaultDatapack, pasteImport, fileInputImport } from './io';
 import { renderList, type Selection } from './components/list-view';
 import { renderDetail } from './components/detail-view';
 import { NaviService } from './navi';
@@ -19,6 +20,7 @@ const navi = new NaviService();
 let currentTable: TableKey = 'spots';
 let selection: Selection = null;
 let listFilter = '';
+let packageMetadataOpen = false;
 
 const sidebarEl = document.getElementById('sidebar')!;
 const toolbarEl = document.getElementById('toolbar')!;
@@ -66,13 +68,66 @@ function renderToolbar(): void {
   actions.appendChild(toolBtn('⟳ 重做', () => model.redo(), !model.canRedo()));
   actions.appendChild(toolBtn('校验', () => renderErrors(model.validate())));
   actions.appendChild(toolBtn('加载默认数据', () => { model.loadDatapack(loadDefaultDatapack()); }));
-  actions.appendChild(toolBtn('导入文件', async () => { const d = await fileInputImport(); if (d) model.loadDatapack(d); }));
+  actions.appendChild(toolBtn('导入文件', async () => {
+    const imported = await fileInputImport();
+    if (imported) model.loadDatapack(imported.datapack, imported.manifest);
+  }));
   actions.appendChild(toolBtn('粘贴导入', async () => { const d = await pasteImport(); if (d) model.loadDatapack(d); }));
   actions.appendChild(toolBtn('复制当前表', () => void copyTableJson()));
   actions.appendChild(toolBtn('复制全量', () => void copyDatapack(model.toDatapack())));
   actions.appendChild(toolBtn('下载', () => downloadDatapack(model.toDatapack())));
+  actions.appendChild(toolBtn('导出包 ZIP', () => {
+    void downloadDatapackPackage(model.toDatapack(), model.getPackageMetadata())
+      .catch((error) => alert(`导出失败：${error instanceof Error ? error.message : String(error)}`));
+  }));
+  actions.appendChild(renderPackageMetadataEditor());
 
   toolbarEl.append(title, actions);
+}
+
+function renderPackageMetadataEditor(): HTMLElement {
+  const details = document.createElement('details');
+  details.className = 'package-metadata';
+  details.open = packageMetadataOpen;
+  details.ontoggle = () => { packageMetadataOpen = details.open; };
+  const summary = document.createElement('summary');
+  summary.className = 'btn';
+  summary.textContent = '包信息';
+  const fields = document.createElement('div');
+  fields.className = 'package-metadata__fields';
+  const metadata = model.getPackageMetadata();
+  const addTextField = (key: 'modName' | 'name' | 'version', caption: string): void => {
+    const label = document.createElement('label');
+    label.textContent = caption;
+    const input = document.createElement('input');
+    input.className = 'field-input';
+    input.value = metadata[key];
+    input.autocomplete = 'off';
+    input.onchange = () => {
+      const next: EditorPackageMetadata = { ...model.getPackageMetadata(), [key]: input.value };
+      model.setPackageMetadata(next);
+    };
+    label.appendChild(input);
+    fields.appendChild(label);
+  };
+  addTextField('modName', 'Mod ID');
+  addTextField('name', '包名称');
+  addTextField('version', '版本');
+  const dependencyLabel = document.createElement('label');
+  dependencyLabel.textContent = '依赖包 Mod ID（每行一个）';
+  const dependencyInput = document.createElement('textarea');
+  dependencyInput.className = 'field-input package-metadata__dependencies';
+  dependencyInput.value = metadata.dependencies.join('\n');
+  dependencyInput.autocomplete = 'off';
+  dependencyInput.spellcheck = false;
+  dependencyInput.onchange = () => {
+    const dependencies = [...new Set(dependencyInput.value.split(/\r?\n/).map(value => value.trim()).filter(Boolean))];
+    model.setPackageMetadata({ ...model.getPackageMetadata(), dependencies });
+  };
+  dependencyLabel.appendChild(dependencyInput);
+  fields.appendChild(dependencyLabel);
+  details.append(summary, fields);
+  return details;
 }
 
 function toolBtn(text: string, onClick: () => void, disabled = false): HTMLButtonElement {

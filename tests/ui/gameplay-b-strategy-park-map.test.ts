@@ -189,7 +189,7 @@ describe('Gameplay B Strategy Park map UI', () => {
     expect(document.activeElement).toBe(opener);
   });
 
-  it('追踪车轮印通过拖拽分配学生，不再打开执行者选项托盘', () => {
+  it('追踪车轮印可点击打开行内执行者选择器，也可拖拽分配学生', () => {
     localStorage.clear();
     document.body.innerHTML = '<div id="app"></div>';
     game = createAppRuntime();
@@ -210,7 +210,8 @@ describe('Gameplay B Strategy Park map UI', () => {
     expect(tracks.getAttribute('aria-pressed')).toBe('false');
     tracks.click();
     expect(root.querySelector('[data-operation-card-choice-tray]')).toBeNull();
-    expect(tracks.getAttribute('aria-pressed')).toBe('false');
+    expect(tracks.getAttribute('aria-pressed')).toBe('true');
+    expect(tracks.closest('[data-operation-scene-option]')?.querySelector<HTMLDetailsElement>('[data-operation-performer-picker]')?.open).toBe(true);
     dragSceneCardToStudent(root, tracks, PARK_IDS.actors.hoshino);
     const attached = root.querySelector<HTMLElement>('[data-operation-student="' + PARK_IDS.actors.hoshino + '"] [data-operation-scene-choice][aria-pressed="true"]')!;
     expect(attached.dataset.sceneActionId).toBe(PARK_IDS.sceneActions.tracks);

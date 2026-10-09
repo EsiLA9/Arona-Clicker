@@ -66,7 +66,7 @@ function eventDefinition(
 ): OperationEventDef {
   return {
     id: 'test:operation:combination',
-    locations: [{ id: 'location:office', enabledActionIds: [], combinationRules: rules, routeEdges: [] }, { id: 'location:arcade', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    locations: [{ id: 'location:office', stage: 'combat', enabledActionIds: [], combinationRules: rules, routeEdges: [] }, { id: 'location:arcade', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'location:office',
     tracks: [],
     factIds: [],

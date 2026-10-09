@@ -3,9 +3,9 @@
  *
  * 生成 defs 覆盖"结构 + 简单含义"（string/float/enum/ref/array/record/extra…）；
  * editor-extras 覆盖"复杂 / 仅编辑需要"（tagged 联动、引用表、optionsFrom、int/float 精修、
- * divider 分组、stories/extras 整表）。
+ * divider 分组、stories/extras 整表）；未覆盖的递归 / 联合字段以通用 JSON 控件保留。
  *
- * 优先级：override（editor-extras）> 生成 defs > hand 占位（残留 = 同步遗漏，测试报错）。
+ * 优先级：override（editor-extras）> 生成 defs > 通用 JSON 控件。
  */
 import { loadEngineDefs } from './engine-defs';
 import type { GenField } from './engine-defs';
@@ -48,8 +48,8 @@ function convertGenerated(gf: GenField): FieldDef {
     case 'flexible':
       return { ...base, type: { kind: 'flexible' } };
     case 'hand':
-      // 防御：正常应由 editor-extras 覆盖；残留即同步遗漏（engine-schema.sync.test.ts 报错）
-      return { ...base, type: { kind: 'hand' } };
+      // 递归或联合合同使用原生 JSON 编辑器，避免在 DSL 未建模时丢失作者数据。
+      return { ...base, type: { kind: 'json' } };
     case 'array':
       return { ...base, type: { kind: 'array', item: convertGenerated(gf.item!) } };
     case 'object':
@@ -59,7 +59,7 @@ function convertGenerated(gf: GenField): FieldDef {
   }
 }
 
-/** 拼合 engine defs + editor-extras → 13 张表 */
+/** 拼合 engine defs + editor-extras → 最终可编辑表集合 */
 export function buildTables(): TableSchema[] {
   const ed = loadEngineDefs();
   const tables: TableSchema[] = [];

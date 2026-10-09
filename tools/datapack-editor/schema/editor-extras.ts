@@ -780,6 +780,251 @@ const extrasTable = (): TableSchema => ({
   fields: [],
 });
 
+// ---------- Gameplay B Operation authoring ----------
+
+const operationStringArray = (key: string, label: string, extra: Partial<FieldDef> = {}): FieldDef =>
+  a(key, s('$', '值'), label, extra);
+
+const operationRefArray = (
+  key: string,
+  table: TableKey,
+  label: string,
+  extra: Partial<FieldDef> = {},
+): FieldDef => a(key, r('$', table, '引用'), label, extra);
+
+const operationSceneActionObject = (): FieldDef => o('$', [
+  s('id', 'SceneAction ID', { required: true }),
+  r('actionId', 'operationActions', 'Operation Action', { required: true }),
+  e('scope', ['individual', 'global'], '范围', { required: true }),
+  i('playerCost', '玩家费用', { required: true }),
+  e('performerPolicy', ['selected-student', 'none', 'optional-student'], '执行者规则'),
+  e('selectionPolicy', ['required', 'fixed'], '选择规则'),
+  s('title', '标题'),
+  s('description', '说明'),
+], 'SceneAction');
+
+const operationSceneActionArray = (): FieldDef =>
+  alist('sceneActions', operationSceneActionObject(), 'SceneActions');
+
+const operationSceneActionChoice = (): FieldDef => o('sceneActionChoice', [
+  operationStringArray('candidateSceneActionIds', '候选 SceneAction ID', { required: true }),
+  i('chooseExactly', '恰选数量', { required: true }),
+], '精确候选选择');
+
+const operationPurchaseOfferObject = (): FieldDef => o('$', [
+  s('id', 'PurchaseOffer ID', { required: true }),
+  r('actionId', 'operationActions', '奖励行动', { required: true }),
+  i('playerCost', '玩家费用', { required: true }),
+  s('purchaseFactId', '购买标记 Fact ID', { required: true }),
+  s('title', '标题'),
+  s('description', '说明'),
+], 'PurchaseOffer');
+
+const operationPurchaseOfferArray = (): FieldDef =>
+  alist('purchaseOffers', operationPurchaseOfferObject(), 'PurchaseOffers');
+
+const operationSceneObject = (): FieldDef => o('$', [
+  s('id', 'Scene ID', { required: true }),
+  s('title', '标题', { required: true }),
+  s('description', '说明'),
+  operationRefArray('enabledActionIds', 'operationActions', '启用的行动'),
+  e('actionMode', ['individual', 'global'], 'SceneAction 范围'),
+  operationSceneActionArray(),
+  i('sceneActionBatches', '行动批次数'),
+  operationSceneActionChoice(),
+  operationPurchaseOfferArray(),
+  // Predicate 合同保持 JSON 编辑；运行时仍是唯一语义权威。
+  { key: 'completion', label: '完成条件', type: { kind: 'json' } },
+], 'Scene');
+
+const operationSceneArray = (): FieldDef =>
+  alist('scenes', operationSceneObject(), '有序 Scenes');
+
+const operationRouteEdgeObject = (): FieldDef => o('$', [
+  s('id', '路线 ID', { required: true }),
+  r('targetLocationId', 'operationLocations', '目标地点', { required: true }),
+  s('label', '路线名称', { required: true }),
+  s('description', '说明', { required: true }),
+  s('requiredHeldItemId', '所需持有物 ID'),
+  operationStringArray('anyOfHeldItemIds', '任一所需持有物 ID'),
+  b('consumeRequiredHeldItem', '消耗所需持有物'),
+], 'Route Edge');
+
+const operationRouteEdges = (): FieldDef =>
+  alist('routeEdges', operationRouteEdgeObject(), '路线');
+
+const operationTrackObject = (): FieldDef => o('$', [
+  s('id', 'Track ID', { required: true }),
+  n('initial', '初始值', { required: true }),
+  n('min', '最小值', { required: true }),
+  n('max', '最大值', { required: true }),
+], 'Track');
+
+const operationObjectiveArray = (key: string, label: string): FieldDef =>
+  alist(key, { key: '$', label: '条件', type: { kind: 'json' } }, label);
+
+const operationParticipant = (): FieldDef => ({
+  key: '$',
+  label: '参与者',
+  type: {
+    kind: 'union',
+    tagField: 'kind',
+    variants: [
+      {
+        tag: 'student',
+        label: '学生',
+        fields: [
+          s('actorId', 'Actor ID', { required: true }),
+          r('profileId', 'studentOperationProfiles', '学生 Operation 档案'),
+        ],
+      },
+      ...(['opponent', 'environment'] as const).map((tag) => ({
+        tag,
+        label: tag === 'opponent' ? '对手' : '环境',
+        fields: [
+          s('actorId', 'Actor ID', { required: true }),
+          operationRefArray('candidateActionIds', 'operationActions', '候选行动', { required: true }),
+        ],
+      })),
+    ],
+  },
+});
+
+const operationActorObject = (): FieldDef => o('$', [
+  s('id', 'Actor ID', { required: true }),
+  s('type', 'Actor 类型', { required: true }),
+  s('displayName', '显示名称'),
+  s('avatarRef', '头像引用'),
+  s('description', '说明'),
+  s('positionId', 'Operation 位置 ID'),
+  s('weaponId', '武器 ID'),
+  o('hp', [n('initial', '初始值', { required: true }), n('min', '最小值', { required: true }), n('max', '最大值', { required: true })], 'HP', { required: true }),
+  { key: 'resources', label: '资源', type: { kind: 'json' } },
+  s('teamId', 'Team ID'),
+  operationStringArray('targetPriorityActorIds', '目标优先级 Actor IDs'),
+], 'Actor');
+
+const operationTeamObject = (): FieldDef => o('$', [
+  s('id', 'Team ID', { required: true }),
+  { key: 'resources', label: '资源', type: { kind: 'json' } },
+], 'Team');
+
+const operationPlayerSceneCardObject = (): FieldDef => o('$', [
+  s('id', '卡牌 ID', { required: true }),
+  r('actionId', 'operationActions', 'Operation Action', { required: true }),
+  i('playerCost', '玩家费用', { required: true }),
+  e('timing', ['scene'], '时机', { required: true }),
+  i('copies', '复制数量', { required: true }),
+  s('title', '标题'),
+  s('description', '说明'),
+  e('selectionPolicy', ['required', 'fixed'], '选择规则'),
+  e('performerPolicy', ['selected-student', 'none', 'optional-student'], '执行者规则'),
+], 'Scene 卡牌');
+
+const operationActionOverrides: Record<string, FieldDef | (() => FieldDef)> = {
+  allowedParticipantKinds: () => ({
+    key: 'allowedParticipantKinds', label: '允许的参与者类型', required: true,
+    type: { kind: 'array', item: e('$', ['student', 'opponent', 'environment'], '类型') },
+  }),
+  requiredCapabilityIds: () => operationStringArray('requiredCapabilityIds', '所需能力 IDs', { required: true }),
+  reasonIds: () => operationStringArray('reasonIds', '理由 IDs', { required: true }),
+  tagIds: () => operationStringArray('tagIds', '组合标签 IDs', { required: true }),
+  strategyTagIds: () => operationStringArray('strategyTagIds', '策略偏好标签 IDs'),
+  cardCondition: () => ({ key: 'cardCondition', label: '候选条件', type: { kind: 'json' } }),
+  cost: () => o('cost', [
+    e('scope', ['actor', 'team'], '费用归属', { required: true }),
+    r('resourceId', 'resourceDisplays', '资源', { required: true }),
+    i('amount', '数量', { required: true }),
+  ], '行动费用'),
+  target: () => ({ key: 'target', label: '目标规则', required: true, type: { kind: 'json' } }),
+  effects: () => ({ key: 'effects', label: '效果', required: true, type: { kind: 'json' } }),
+};
+
+const operationProfileOverrides: Record<string, FieldDef | (() => FieldDef)> = {
+  characterId: () => r('characterId', 'characters', '角色', { required: true }),
+  candidateActionIds: () => operationRefArray('candidateActionIds', 'operationActions', '候选行动 IDs', { required: true }),
+  actionPriorityIds: () => operationRefArray('actionPriorityIds', 'operationActions', '行动优先级 IDs', { required: true }),
+  capabilityIds: () => operationStringArray('capabilityIds', '能力 IDs', { required: true }),
+  reasonIds: () => operationStringArray('reasonIds', '理由 IDs', { required: true }),
+  strategyProfileId: () => r('strategyProfileId', 'operationStrategyProfiles', '策略档案'),
+  cardPoolIds: () => operationRefArray('cardPoolIds', 'operationCardPools', '行动池 IDs'),
+  randomSkillRuleId: () => s('randomSkillRuleId', '随机技能规则 ID'),
+};
+
+const operationEventOverrides: Record<string, FieldDef | (() => FieldDef)> = {
+  initId: () => r('initId', 'inits', '所属世界线', { required: true }),
+  locationIds: () => operationRefArray('locationIds', 'operationLocations', '地点 IDs', { required: true }),
+  initialLocationId: () => r('initialLocationId', 'operationLocations', '初始地点', { required: true }),
+  tracks: () => alist('tracks', operationTrackObject(), 'Tracks', { required: true }),
+  factIds: () => operationStringArray('factIds', 'Fact IDs', { required: true }),
+  knownFactIds: () => operationStringArray('knownFactIds', '初始已知 Fact IDs', { required: true }),
+  itemIds: () => operationStringArray('itemIds', 'Item IDs', { required: true }),
+  cardPoolIds: () => operationRefArray('cardPoolIds', 'operationCardPools', '行动池 IDs'),
+  heldItemIds: () => operationStringArray('heldItemIds', '初始持有 Item IDs', { required: true }),
+  objectives: () => operationObjectiveArray('objectives', '目标条件'),
+  partialOutcomes: () => operationObjectiveArray('partialOutcomes', '部分结果条件'),
+  hardFailureConditions: () => operationObjectiveArray('hardFailureConditions', '失败条件'),
+  rewards: () => o('rewards', [
+    o('success', [e('kind', ['resource'], '类型', { required: true }), r('resourceId', 'resourceDisplays', '资源', { required: true }), i('amount', '数量', { required: true })], '成功奖励'),
+    o('partialSuccess', [e('kind', ['resource'], '类型', { required: true }), r('resourceId', 'resourceDisplays', '资源', { required: true }), i('amount', '数量', { required: true })], '部分成功奖励'),
+  ], '奖励'),
+  actors: () => alist('actors', operationActorObject(), 'Actors', { required: true }),
+  teams: () => alist('teams', operationTeamObject(), 'Teams'),
+  participants: () => a('participants', operationParticipant(), '参与者', { required: true }),
+  studentSkillRules: () => alist('studentSkillRules', o('$', [
+    s('id', '规则 ID', { required: true }),
+    operationRefArray('triggerActionIds', 'operationActions', '触发行动 IDs', { required: true }),
+    i('chanceBps', '触发概率基点', { required: true }),
+    { key: 'effects', label: '效果', required: true, type: { kind: 'json' } },
+  ], '学生技能规则'), '学生技能规则'),
+  playerRouteState: () => o('playerRouteState', [i('playerCost', '玩家费用', { required: true })], '路线状态', { required: true }),
+  playerSceneDeck: () => o('playerSceneDeck', [
+    alist('cards', operationPlayerSceneCardObject(), '卡牌', { required: true }),
+    i('initialDraw', '初始抽取数', { required: true }),
+    i('locationEntryDraw', '进入地点抽取数', { required: true }),
+    i('maxHandSize', '最大手牌数', { required: true }),
+  ], 'Scene 卡牌组'),
+};
+
+const operationLocationOverrides: Record<string, FieldDef | (() => FieldDef)> = {
+  interactionSceneId: () => s('interactionSceneId', '交互 Scene ID'),
+  cardPoolIds: () => operationRefArray('cardPoolIds', 'operationCardPools', '行动池 IDs'),
+  enabledActionIds: () => operationRefArray('enabledActionIds', 'operationActions', '启用的行动 IDs', { required: true }),
+  combinationRules: () => alist('combinationRules', o('$', [
+    s('id', '规则 ID', { required: true }),
+    i('priority', '优先级', { required: true }),
+    operationStringArray('inputTagIds', '输入标签 IDs', { required: true }),
+    e('targetMatch', ['same-target', 'no-target'], '目标匹配', { required: true }),
+    { key: 'effects', label: '效果', required: true, type: { kind: 'json' } },
+  ], '组合规则'), '组合规则', { required: true }),
+  scenes: () => operationSceneArray(),
+  actionMode: () => e('actionMode', ['individual', 'global'], 'SceneAction 范围'),
+  sceneActions: () => operationSceneActionArray(),
+  sceneActionBatches: () => i('sceneActionBatches', 'SceneAction 批次数'),
+  sceneActionChoice: () => operationSceneActionChoice(),
+  purchaseOffers: () => operationPurchaseOfferArray(),
+  costGain: () => i('costGain', '每回合费用恢复'),
+  maxCarryCost: () => i('maxCarryCost', '费用上限'),
+  objectives: () => operationObjectiveArray('objectives', '目标条件'),
+  partialOutcomes: () => operationObjectiveArray('partialOutcomes', '部分结果条件'),
+  failureConditions: () => operationObjectiveArray('failureConditions', '失败条件'),
+  maxBeats: () => i('maxBeats', '最大回合数'),
+  maxVisits: () => i('maxVisits', '最多访问次数'),
+  routeEdges: () => operationRouteEdges(),
+};
+
+const operationStrategyOverrides: Record<string, FieldDef | (() => FieldDef)> = {
+  biases: () => alist('biases', o('$', [s('tagId', '策略标签 ID', { required: true }), i('biasBps', '偏好基点', { required: true })], '标签偏好'), '标签偏好', { required: true }),
+};
+
+const operationCardPoolOverrides: Record<string, FieldDef | (() => FieldDef)> = {
+  selector: () => ({ key: 'selector', label: '启用条件', type: { kind: 'json' } }),
+  entries: () => alist('entries', o('$', [
+    r('actionId', 'operationActions', 'Operation Action', { required: true }),
+    i('weight', '权重', { required: true }),
+  ], '行动池条目'), '加权行动', { required: true }),
+};
+
 // ---------- 表元数据 + 字段覆盖（merge.ts 消费） ----------
 
 export interface TableMeta {
@@ -799,7 +1044,7 @@ export interface TableMeta {
   custom?: () => TableSchema;
 }
 
-/** 13 张表：结构来自 engine defs，编辑语义/复杂结构在此兜底。 */
+/** Editor 表元数据：结构来自 engine defs，编辑语义/复杂结构在此兜底。 */
 export const TABLE_META: TableMeta[] = [
   {
     key: 'inits',
@@ -850,6 +1095,12 @@ export const TABLE_META: TableMeta[] = [
       colorGroupId: () => s('colorGroupId', '默认色组', { description: 'ColorGroupDef id（如 base:color-group:xxx）；声明后设施卡片以该色组主色构建自身 ThemeTree。' }),
     },
   },
+  { key: 'operationEvents', label: 'Operation 事件', type: 'OperationEventContentDef', idField: 'id', overrides: operationEventOverrides },
+  { key: 'operationLocations', label: 'Operation 地点', type: 'OperationLocationDef', idField: 'id', overrides: operationLocationOverrides },
+  { key: 'operationActions', label: 'Operation 行动', type: 'OperationActionDef', idField: 'id', overrides: operationActionOverrides },
+  { key: 'studentOperationProfiles', label: 'Operation 学生档案', type: 'StudentOperationProfileDef', idField: 'id', overrides: operationProfileOverrides },
+  { key: 'operationStrategyProfiles', label: 'Operation 策略档案', type: 'OperationStrategyProfileDef', idField: 'id', overrides: operationStrategyOverrides },
+  { key: 'operationCardPools', label: 'Operation 行动池', type: 'OperationCardPoolDef', idField: 'id', overrides: operationCardPoolOverrides },
   {
     key: 'enhancements',
     label: '强化',

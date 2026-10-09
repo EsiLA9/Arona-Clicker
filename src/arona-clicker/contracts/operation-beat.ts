@@ -9,6 +9,7 @@ import type {
 export const OPERATION_WAIT_REASON_NO_CANDIDATE_ACTION = 'operation:plan:no-candidate-action' as const;
 export const OPERATION_WAIT_REASON_NO_ENABLED_ACTION = 'operation:plan:no-enabled-action' as const;
 export const OPERATION_WAIT_REASON_NO_LEGAL_TARGET = 'operation:plan:no-legal-target' as const;
+export const OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY = 'operation:plan:group-target-scene-only' as const;
 export const OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE = 'operation:plan:insufficient-resource' as const;
 
 /** Minimal dynamic input; preparation deliberately receives no RNG, PlayerCost, or mutable Run owner. */
@@ -26,6 +27,9 @@ export interface OperationPreparationSnapshot {
 export interface OperationPreparationActorSnapshot {
   readonly actorId: string;
   readonly participantKind: OperationActorKind;
+  /** Live HP is supplied by Runtime; optional only for low-level legacy pure-planner fixtures. */
+  readonly hp?: number;
+  readonly positionId?: string;
   readonly resources: Readonly<Record<string, number>>;
 }
 
@@ -94,6 +98,7 @@ export type OperationInterventionPreviewErrorCode =
   | 'operation:intervention:action-not-enabled'
   | 'operation:intervention:action-not-affordable'
   | 'operation:intervention:no-legal-target'
+  | 'operation:intervention:group-target-scene-only'
   | 'operation:intervention:invalid-target'
   | 'operation:intervention:invalid-reason'
   | 'operation:intervention:plan-conflict';
@@ -104,5 +109,5 @@ export type OperationTargetSelection =
   | {
       readonly kind: 'unavailable';
       readonly targetActorId: null;
-      readonly reasonId: typeof OPERATION_WAIT_REASON_NO_LEGAL_TARGET;
+      readonly reasonId: typeof OPERATION_WAIT_REASON_NO_LEGAL_TARGET | typeof OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY;
     };

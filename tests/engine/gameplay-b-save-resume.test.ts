@@ -62,7 +62,7 @@ describe('Gameplay B Save/Resume', () => {
     expect(staged.random).toEqual(beforeStage.random);
 
     const save = source.save();
-    expect(save.operationRun).toMatchObject({ eventId: IDS.event, resumeVersion: 1, run: staged });
+    expect(save.operationRun).toMatchObject({ eventId: IDS.event, resumeVersion: 3, run: staged });
 
     const resumed = createGame();
     resumed.load(save);
@@ -73,6 +73,31 @@ describe('Gameplay B Save/Resume', () => {
     expect(resumed.operationEntry.commitStagedSceneActionBatch(command))
       .toEqual(source.operationEntry.commitStagedSceneActionBatch(command));
     expect(resumed.operationEntry.getSnapshot()).toEqual(source.operationEntry.getSnapshot());
+  });
+
+  test('rejects a pre-Scene-identity checkpoint version without migrating its Resolution history', () => {
+    const game = createGame();
+    const runId = game.operationEntry.start(IDS.event, STUDENTS).runId;
+    const run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    const currentSave = game.save();
+    const operationRun = currentSave.operationRun!;
+    const legacyRun = {
+      ...operationRun.run,
+      resolutions: operationRun.run.resolutions.map(({ sceneId: _sceneId, ...resolution }) => resolution),
+    };
+
+    game.load({
+      ...currentSave,
+      operationRun: { ...operationRun, resumeVersion: 2, run: legacyRun },
+    });
+
+    expect(game.operationEntry.getLastRestoreResult()).toMatchObject({
+      status: 'rejected',
+      eventId: IDS.event,
+      reason: 'content-version-mismatch',
+    });
+    expect(game.operationEntry.getSnapshot()).toBeNull();
   });
 
   test('restores Location Cost history, physical deck order, independent Hand draws and the terminal EventResult', () => {

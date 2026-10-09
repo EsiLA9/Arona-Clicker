@@ -4,6 +4,8 @@ import type {
   OperationCardPoolDef,
   OperationEventContentDef,
   OperationLocationDef,
+  OperationSceneActionChoiceDef,
+  OperationScenePurchaseOfferDef,
   OperationStrategyProfileDef,
   StudentOperationProfileDef,
 } from '../../src/data-services/contracts/operation';
@@ -64,6 +66,7 @@ const testOperationCharacter = { id: TEST_OPERATION_CHARACTER_ID } as Datapack['
 
 const testOperationLocation: OperationLocationDef = {
   id: TEST_OPERATION_LOCATION_ID,
+  stage: 'combat',
   enabledActionIds: [TEST_OPERATION_ACTION_ID],
   combinationRules: [],
   routeEdges: [],
@@ -92,6 +95,8 @@ const testOperationCardPool: OperationCardPoolDef = {
 
 const testOperationEvent: OperationEventContentDef = {
   id: TEST_OPERATION_EVENT_ID,
+  title: '测试行动',
+  description: '测试事件的简短介绍。',
   initId: 'test:init:init_a',
   resumeVersion: 1,
   locationIds: [TEST_OPERATION_LOCATION_ID],
@@ -119,6 +124,83 @@ const operationDatapack = (overrides: Partial<Datapack> = {}): Datapack => ({
   operationCardPools: [testOperationCardPool],
   ...overrides,
 });
+
+const TEST_PURCHASE_LOCATION_ID = 'test:operation-location:supply_room';
+const TEST_PURCHASE_ACTION_ID = 'test:operation-action:purchase_supply';
+const TEST_PURCHASE_FACT_ID = 'purchased-supply';
+const TEST_PURCHASE_ITEM_ID = 'supply-kit';
+const TEST_PURCHASE_OFFER: OperationScenePurchaseOfferDef = {
+  id: 'supply-kit',
+  actionId: TEST_PURCHASE_ACTION_ID,
+  playerCost: 2,
+  purchaseFactId: TEST_PURCHASE_FACT_ID,
+};
+
+const testPurchaseAction: OperationActionDef = {
+  id: TEST_PURCHASE_ACTION_ID,
+  title: 'Purchase supply kit',
+  allowedParticipantKinds: ['student'],
+  requiredCapabilityIds: [],
+  reasonIds: [],
+  tagIds: [],
+  target: { kind: 'none' },
+  effects: [{ kind: 'heldItem', itemId: TEST_PURCHASE_ITEM_ID, op: 'grant' }],
+};
+
+const createPurchaseLocation = (options: {
+  readonly sceneActionChoice?: OperationSceneActionChoiceDef;
+  readonly purchaseOffers?: readonly OperationScenePurchaseOfferDef[];
+} = {}): OperationLocationDef => ({
+  id: TEST_PURCHASE_LOCATION_ID,
+  stage: 'scene',
+  enabledActionIds: [],
+  combinationRules: [],
+  scenes: [{
+    id: 'supply-choice',
+    title: 'Supply choice',
+    actionMode: 'global',
+    sceneActionBatches: 1,
+    sceneActions: [
+      { id: 'choice-a', actionId: TEST_OPERATION_ACTION_ID, scope: 'global', playerCost: 0, performerPolicy: 'none' },
+      { id: 'choice-b', actionId: TEST_OPERATION_ACTION_ID, scope: 'global', playerCost: 0, performerPolicy: 'none' },
+    ],
+    sceneActionChoice: options.sceneActionChoice ?? {
+      candidateSceneActionIds: ['choice-a', 'choice-b'],
+      chooseExactly: 1,
+    },
+    purchaseOffers: options.purchaseOffers ?? [TEST_PURCHASE_OFFER],
+    completion: { kind: 'track', trackId: 'queue', operator: 'gte', value: 1 },
+  }],
+  routeEdges: [],
+});
+
+const purchaseOperationDatapack = (
+  options: {
+    readonly event?: Partial<OperationEventContentDef>;
+    readonly location?: OperationLocationDef;
+    readonly purchaseAction?: OperationActionDef;
+  } = {},
+): Datapack => operationDatapack({
+  operationEvents: [{
+    ...testOperationEvent,
+    locationIds: [TEST_PURCHASE_LOCATION_ID],
+    initialLocationId: TEST_PURCHASE_LOCATION_ID,
+    factIds: ['panel-inspected', TEST_PURCHASE_FACT_ID],
+    itemIds: [TEST_PURCHASE_ITEM_ID],
+    ...options.event,
+  }],
+  operationLocations: [options.location ?? createPurchaseLocation()],
+  operationActions: [testOperationAction, options.purchaseAction ?? testPurchaseAction],
+});
+
+function expectPurchaseDatapackRejectedBeforeMerge(datapack: Datapack, message: RegExp): void {
+  const registry = new Registry();
+  expect(() => registry.load(datapack)).toThrow(message);
+  expect(registry.inits.has('test:init:init_a')).toBe(false);
+  expect(registry.operationEvents.size).toBe(0);
+  expect(registry.operationLocations.size).toBe(0);
+  expect(registry.operationActions.size).toBe(0);
+}
 
 const makeMilestone = (id = 'test:milestone:credit_1000'): MilestoneDef => ({
   id,
@@ -233,6 +315,11 @@ describe('Registry', () => {
     });
     expect(() => new Registry().load(invalidType)).toThrow(/Operation Action id .*typeName.*operation-action/);
 
+    const { stage: _stage, ...missingStageLocation } = testOperationLocation;
+    expect(() => new Registry().load(operationDatapack({
+      operationLocations: [missingStageLocation as OperationLocationDef],
+    }))).toThrow(/stage must be combat or scene/);
+
     const reg = new Registry();
     reg.load(operationDatapack());
     const invalidEvent = {
@@ -317,6 +404,38 @@ describe('Registry', () => {
       }],
     });
     expect(() => new Registry().load(missingPredicate)).toThrow(/predicate.trackId references an undeclared Event track/);
+  });
+
+  test('rejects malformed M-of-N and PurchaseOffer contracts before Registry merge', () => {
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      location: createPurchaseLocation({
+        sceneActionChoice: { candidateSceneActionIds: ['choice-a', 'choice-b'], chooseExactly: 3 },
+      }),
+    }), /sceneActionChoice\.chooseExactly must be between 1 and the candidate count/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      location: createPurchaseLocation({
+        sceneActionChoice: { candidateSceneActionIds: ['choice-a', 'missing-choice'], chooseExactly: 1 },
+      }),
+    }), /sceneActionChoice\.candidateSceneActionIds references an undeclared SceneAction: missing-choice/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      event: { factIds: ['panel-inspected'] },
+    }), /purchaseFactId references an undeclared Event fact: purchased-supply/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      event: { knownFactIds: [TEST_PURCHASE_FACT_ID] },
+    }), /purchaseFactId must not be initially known: purchased-supply/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      location: createPurchaseLocation({
+        purchaseOffers: [TEST_PURCHASE_OFFER, { ...TEST_PURCHASE_OFFER, id: 'supply-kit-again' }],
+      }),
+    }), /purchaseFactId is already used by another PurchaseOffer: purchased-supply/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      purchaseAction: { ...testPurchaseAction, effects: [] },
+    }), /purchaseOffers\[0\]\.actionId must reference.*at least one Event Track, Fact, or held-item reward effect/);
   });
 
   test('should merge, query, and clear milestone definitions', () => {

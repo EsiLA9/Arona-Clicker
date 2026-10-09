@@ -9,8 +9,8 @@
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
 | Task | `docs/plan-work/archive/task-0241-gameplay-b-strategy-pools-and-interaction-context.md` E0 / D1 / D2 | 虚拟游玩与人手验收目标 |
-| Receipt | `docs/plan-work/task-0241-units/receipts/0241-e1-operation-runtime-and-galhcg.md` | facade/View/Hand 可用入口和边界 |
-| Content Unit | `docs/plan-work/task-0241-units/0241-u10-strategy-park-sample.md` | 新事件 ID、实际内容路线和终局 |
+| Receipt | `docs/plan-work/archive/task-0241-units/receipts/0241-e1-operation-runtime-and-galhcg.md` | facade/View/Hand 可用入口和边界 |
+| Content Unit | `docs/plan-work/archive/task-0241-units/0241-u10-strategy-park-sample.md` | 新事件 ID、实际内容路线和终局 |
 | Mechanism | `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md` | 受控 OperationEntry 命令边界 |
 | Tests | `tests/engine/gameplay-b-scene-action-sample.test.ts`、`tests/engine/gameplay-b-route-sample.test.ts` | 真实 Runtime 回放模式 |
 
@@ -34,7 +34,7 @@
 ## Allowed Files
 
 - `tests/engine/gameplay-b-strategy-park-virtual-play.test.ts`（new）
-- `docs/plan-work/task-0241-units/receipts/0241-d2-headless-virtual-play.md`（new）
+- `docs/plan-work/archive/task-0241-units/receipts/0241-d2-headless-virtual-play.md`（new）
 
 ## Explicit Non-goals
 
@@ -61,4 +61,4 @@
 
 ## Receipt
 
-`docs/plan-work/task-0241-units/receipts/0241-d2-headless-virtual-play.md`
+`docs/plan-work/archive/task-0241-units/receipts/0241-d2-headless-virtual-play.md`

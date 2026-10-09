@@ -90,6 +90,43 @@ body {
   gap: 6px;
   flex-wrap: wrap;
 }
+.package-metadata {
+  position: relative;
+}
+.package-metadata summary {
+  list-style: none;
+  user-select: none;
+}
+.package-metadata summary::-webkit-details-marker {
+  display: none;
+}
+.package-metadata__fields {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: 250px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(30 42 56 / 16%);
+}
+.package-metadata__fields label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.package-metadata__fields input {
+  width: 100%;
+}
+.package-metadata__dependencies {
+  min-height: 64px;
+  resize: vertical;
+}
 #content {
   flex: 1;
   display: flex;
@@ -561,7 +598,8 @@ body {
   border-color: var(--accent);
   color: var(--text);
 }
-.extra-editor {
+.extra-editor,
+.json-editor {
   font-family: Consolas, monospace;
   min-width: 340px;
   white-space: pre;

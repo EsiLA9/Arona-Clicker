@@ -100,15 +100,21 @@ export interface OperationPlayerSceneDeckDef {
 }
 
 export type OperationActionTargetRelation = 'self' | 'sameTeam' | 'otherTeam' | 'any';
+/** Whether an Actor target is chosen by the player or resolved as the current legal group. */
+export type OperationActionTargetSelectionMode = 'select' | 'all-eligible';
 export type OperationActionTargetDef =
   | { readonly kind: 'none' }
   | {
       readonly kind: 'actor';
       readonly relation: OperationActionTargetRelation;
+      /** Omitted means select. all-eligible is supported by Scene batches, not combat Beats. */
+      readonly selectionMode?: OperationActionTargetSelectionMode;
       /** When present, only these exact Event Actor IDs can be selected. */
       readonly allowedActorIds?: readonly string[];
       /** When present, the target's declared Event Actor type must match one of these strings. */
       readonly allowedActorTypes?: readonly string[];
+      /** When present, the target's current Run position must match one of these IDs. */
+      readonly allowedPositionIds?: readonly string[];
     };
 
 export interface OperationActionCostDef {
@@ -184,18 +190,68 @@ export interface OperationSceneActionDef {
   readonly selectionPolicy?: 'required' | 'fixed';
 }
 
+/** One SceneAction choice set within a SceneAction batch. Current V1 choice sets use global offers. */
+export interface OperationSceneActionChoiceDef {
+  /** Candidate SceneAction IDs; each candidate can be selected once. */
+  readonly candidateSceneActionIds: readonly string[];
+  /** The batch must include exactly this many candidates. */
+  readonly chooseExactly: number;
+}
+
+/** A one-time Run-local purchase using the shared PlayerCost balance and an existing Action's Effects. */
+export interface OperationScenePurchaseOfferDef {
+  /** Local to the owning Location or Scene. */
+  readonly id: string;
+  /** Existing actorless Operation Action that grants this offer's result. */
+  readonly actionId: string;
+  readonly playerCost: number;
+  /** Event fact revealed on purchase; the Run keeps it as the one-purchase guard. */
+  readonly purchaseFactId: string;
+  readonly title?: string;
+  readonly description?: string;
+}
+
+/** One Location-local stage in an ordered Operation Scene sequence. */
+export interface OperationSceneDef {
+  /** Stable only within the parent Location; full identity is Event/Location/Scene. */
+  readonly id: string;
+  /** Inline player-facing copy; no separate presentation Registry is required. */
+  readonly title: string;
+  readonly description?: string;
+  /** Optional tactical Action subset; omitted scenes inherit the Location's enabled actions. */
+  readonly enabledActionIds?: readonly string[];
+  /** Scene-scoped noncombat offer sources. */
+  readonly actionMode?: OperationSceneActionMode;
+  readonly sceneActions?: readonly OperationSceneActionDef[];
+  readonly sceneActionBatches?: number;
+  /** Optional exact M-of-N choice among required Global SceneAction offers in this Scene. */
+  readonly sceneActionChoice?: OperationSceneActionChoiceDef;
+  /** Optional temporary one-time offers settled in the same SceneAction batch. */
+  readonly purchaseOffers?: readonly OperationScenePurchaseOfferDef[];
+  /** A single boolean condition; Runtime records completion only after a successful commit. */
+  readonly completion?: OperationPredicateDef;
+}
+
 /** Top-level Location. All action and route targets reference full stable IDs. */
 export interface OperationLocationDef {
   readonly id: string;
+  /** Declares the active gameplay stage; Runtime projects this without UI inference. */
+  readonly stage: 'combat' | 'scene';
   /** Optional finite interaction context for CardPool and Action selectors. */
   readonly interactionSceneId?: string;
   readonly activityId?: string;
   readonly cardPoolIds?: readonly string[];
   readonly enabledActionIds: readonly string[];
   readonly combinationRules: readonly OperationCombinationRuleDef[];
+  /** Ordered Scene definitions. Omitted content projects one implicit Location-local Scene. */
+  readonly scenes?: readonly OperationSceneDef[];
   readonly actionMode?: OperationSceneActionMode;
   readonly sceneActions?: readonly OperationSceneActionDef[];
   readonly sceneActionBatches?: number;
+  /** Choice contract for the Location's implicit Scene. */
+  readonly sceneActionChoice?: OperationSceneActionChoiceDef;
+  /** Purchase offers for the Location's implicit Scene. */
+  readonly purchaseOffers?: readonly OperationScenePurchaseOfferDef[];
   readonly costGain?: number;
   readonly maxCarryCost?: number;
   readonly objectives?: readonly OperationObjectiveDef[];
@@ -269,6 +325,10 @@ export interface OperationStudentSkillRuleDef {
 /** One declared Operation Event. Locations, Actions and Profiles are resolved from the Registry. */
 export interface OperationEventContentDef {
   readonly id: string;
+  /** Short player-facing name for a generic Operation entry and its workspace heading. */
+  readonly title?: string;
+  /** Concise event introduction for a generic Operation entry and its workspace opening. */
+  readonly description?: string;
   /** Owning AC worldline; v1 exposes the event from this Init. */
   readonly initId: string;
   /** Explicit author-maintained compatibility version for Save/Resume. */

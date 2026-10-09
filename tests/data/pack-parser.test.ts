@@ -43,4 +43,26 @@ describe('parsePack', () => {
     const parsed = await parsePackFromZipBuffer(await zip.generateAsync({ type: 'uint8array' }));
     expect(parsed.manifest.modName).toBe('demo');
   });
+
+  test('保留所有 Operation 列表，包括显式空列表', async () => {
+    const zip = new JSZip();
+    zip.file('datapack.json', '{"modName":"demo","name":"Demo","version":"1.0.0"}');
+    zip.file('content.json', JSON.stringify({
+      name: 'Demo',
+      version: '1.0.0',
+      operationEvents: [],
+      operationLocations: [],
+      operationActions: [],
+      studentOperationProfiles: [],
+      operationStrategyProfiles: [],
+      operationCardPools: [],
+    }));
+    const parsed = await parsePackFromZipBuffer(await zip.generateAsync({ type: 'uint8array' }));
+    expect(parsed.datapack.operationEvents).toEqual([]);
+    expect(parsed.datapack.operationLocations).toEqual([]);
+    expect(parsed.datapack.operationActions).toEqual([]);
+    expect(parsed.datapack.studentOperationProfiles).toEqual([]);
+    expect(parsed.datapack.operationStrategyProfiles).toEqual([]);
+    expect(parsed.datapack.operationCardPools).toEqual([]);
+  });
 });

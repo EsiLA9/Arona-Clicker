@@ -12,8 +12,8 @@ import type {
 import type { OperationInterventionPreview } from '../contracts/operation-beat';
 import type { OperationResolution } from '../contracts/operation-resolution';
 import type { OperationSceneActionBatchCommand, OperationSceneActionBatchPreview } from '../contracts/operation-scene-action';
-import type { OperationAdmissionSummary, OperationView } from '../contracts/operation-view';
-import type { OperationAdmission } from '../contracts/operation-participant';
+import type { OperationAdmissionSummary, OperationEventLaunchEntry, OperationView } from '../contracts/operation-view';
+import type { OperationAdmission, OperationParticipantSpec } from '../contracts/operation-participant';
 import type { OperationContentResolver } from '../contracts/operation-content-resolver';
 import type { OperationRuntimeService } from './operation-runtime-service';
 import type { CharacterSystem } from './character-system';
@@ -38,6 +38,7 @@ export interface OperationEntryFacade {
   getResult(): import('../contracts/operation').EventResult | null;
   getView(expectedRunId?: string): OperationView | null;
   getAdmissionSummary(eventId: string, characterIds: readonly Character[]): OperationAdmissionSummary;
+  getLaunchEntries(): readonly OperationEventLaunchEntry[];
   claimOutcomeReward(): OperationRewardClaimResult;
   createSaveSnapshot(): OperationRunSaveSnapshot | null;
   restoreSaveSnapshot(snapshot: unknown): OperationRunRestoreResult;
@@ -71,6 +72,7 @@ export function createOperationEntry(options: CreateOperationEntryOptions): {
     getResult: service.getResult.bind(service),
     getView: service.getView.bind(service),
     getAdmissionSummary: service.getAdmissionSummary.bind(service),
+    getLaunchEntries: service.getLaunchEntries.bind(service),
     claimOutcomeReward: service.claimOutcomeReward.bind(service),
     createSaveSnapshot: service.createSaveSnapshot.bind(service),
     restoreSaveSnapshot: service.restoreSaveSnapshot.bind(service),
@@ -128,6 +130,43 @@ class OperationEntryService {
   getResult(): import('../contracts/operation').EventResult | null { return this.#owner.getResult(); }
 
   getView(expectedRunId?: string): OperationView | null { return this.#owner.getView(expectedRunId); }
+
+  getLaunchEntries(): readonly OperationEventLaunchEntry[] {
+    const initId = this.#getState?.().activeInit;
+    if (!initId || !this.#resolver.listEventIds) return [];
+    let eventIds: readonly string[];
+    try {
+      eventIds = this.#resolver.listEventIds();
+    } catch {
+      return [];
+    }
+    const entries: OperationEventLaunchEntry[] = [];
+    for (const eventId of eventIds) {
+      let resolved: ReturnType<OperationContentResolver['resolve']>;
+      try {
+        resolved = this.#resolver.resolve(eventId);
+      } catch {
+        continue;
+      }
+      if (!resolved || resolved.eventDefinition.initId !== initId) continue;
+      const studentParticipants = resolved.participants.filter(
+        (participant): participant is Extract<OperationParticipantSpec, { readonly kind: 'student' }> => participant.kind === 'student',
+      );
+      if (studentParticipants.length === 0 || studentParticipants.some(participant => !participant.profileId)) continue;
+      const profilesById = new Map(resolved.studentProfiles.map(profile => [profile.id, profile] as const));
+      const selectedProfiles = studentParticipants.map(participant => profilesById.get(participant.profileId!));
+      if (selectedProfiles.some(profile => !profile)) continue;
+      const characterIds = selectedProfiles.map(profile => profile!.characterId);
+      entries.push({
+        eventId,
+        title: resolved.eventDefinition.title ?? null,
+        description: resolved.eventDefinition.description ?? null,
+        characterIds,
+        admission: this.getAdmissionSummary(eventId, characterIds),
+      });
+    }
+    return entries;
+  }
 
   getAdmissionSummary(eventId: string, characterIds: readonly Character[]): OperationAdmissionSummary {
     const participants = characterIds.map(characterId => ({

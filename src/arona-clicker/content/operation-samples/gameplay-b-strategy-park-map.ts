@@ -1,8 +1,43 @@
 import { GAMEPLAY_B_STRATEGY_PARK_IDS as IDS } from './gameplay-b-strategy-park-ids';
 
-/** Presentation-only map labels and regions for the Strategy Park Operation sample. */
+/** Event-local presentation labels and map layout for the Strategy Park Operation sample. */
 export const GAMEPLAY_B_STRATEGY_PARK_MAP = Object.freeze({
   title: '游园会停电巡查',
+  presentation: {
+    resultText: {
+      success: '巡查目标已完成，园区安全并完成东门交接。',
+      partialSuccess: '主要风险已控制，但部分巡查目标尚未完成。',
+      failure: '现场风险未能及时控制，本次巡查未能安全完成。',
+    },
+    tracks: {
+      [IDS.tracks.risk]: { name: '现场风险', description: '数值越低，园区越安全。' },
+    },
+    facts: {
+      [IDS.facts.briefed]: '队伍已完成出发简报',
+      [IDS.facts.trail]: '已发现碰碰车轮迹',
+      [IDS.facts.staffCooperates]: '维修员愿意配合',
+      [IDS.facts.mazeRoute]: '已发现迷宫维修线索',
+      [IDS.facts.powerPanel]: '已记录设备检修线索',
+      [IDS.facts.safe]: '已完成园区安全交接',
+    },
+    items: {
+      [IDS.items.maintenancePass]: '维修通行证',
+      [IDS.items.staffRadio]: '员工广播凭证',
+    },
+    reasons: {
+      'operation:plan:no-candidate-action': '当前没有可用行动。',
+      'operation:plan:no-enabled-action': '当前地点没有开放的行动。',
+      'operation:plan:no-legal-target': '当前没有合法目标。',
+      'operation:plan:insufficient-resource': '行动所需的个人或小组资源不足。',
+      'operation:intervention:action-not-enabled': '当前地点不允许此行动。',
+      'operation:intervention:action-not-affordable': '行动所需的个人或小组资源不足。',
+      'operation:intervention:no-legal-target': '当前没有合法目标。',
+      'operation:intervention:student-slot-occupied': '另一名学生已有待确认的计划修订。',
+    },
+    abilities: {
+      'gameplay-b-strategy-park:capability:shotgun': '此行动需要相应的战术能力。',
+    },
+  },
   areas: [
     { id: 'ground-park', label: '地面园区', locationIds: [IDS.locations.westGate, IDS.locations.corridor, IDS.locations.kiosk,
       IDS.locations.arcade, IDS.locations.bumper, IDS.locations.aid, IDS.locations.maze, IDS.locations.ferris,

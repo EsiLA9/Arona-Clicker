@@ -76,7 +76,7 @@
 | --- | --- |
 | 状态 | 完成 |
 | 实际修改 | `docs/docs-829/06-wiki/50-ui/00-index.md`、`controller-commands.md`、`read-model-context.md`；本 Unit Receipt |
-| 未完成内容 | 未审阅所有 Controller Action / 所有 View DTO 字段，符合 Unit Do Not Read by Default / Explicit Non-goals。GameReadModel 当前含 `operationEntry` 只读查询契约；对应 Operation UI 组件 / 命令与回归测试正由 [[docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers]] 并行修改，不把其未提交状态作为稳定基线；只确认本页所述查询契约形状，具体 Operation UI 行为待 Task 0236 稳定后复核。 |
+| 未完成内容 | 未审阅所有 Controller Action / 所有 View DTO 字段，符合 Unit Do Not Read by Default / Explicit Non-goals。GameReadModel 当前含 `operationEntry` 只读查询契约；对应 Operation UI 组件 / 命令与回归测试当时正由 [[docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers]] 并行修改，不把其未提交状态作为稳定基线；只确认本页所述查询契约形状，具体 Operation UI 行为待后续复核。 |
 | 范围外变更 | 无 |
 | GALHCG 影响闭环 | 对 `50-ui/` 与本 Unit 路径执行 `review_changes`；刷新本 Unit 两页共 3 条直接 Wiki Evidence 和本 Unit 的 1 条 Evidence。写后复核：这些直接映射 owner unchanged、stale 0。`00-index.md` 无既有直接 Evidence / maps_to，不新建泛化 Concept。 |
 

@@ -12,6 +12,7 @@ import type {
   OperationMembershipChange,
   OperationInterventionCommand,
   OperationLocationResultKind,
+  OperationSceneDef,
   OperationResultKind,
   OperationRunVersionCommand,
   OperationRouteCommand,
@@ -31,6 +32,7 @@ import type {
   OperationSceneActionBatchDraft,
   OperationSceneActionBatchCommand,
   OperationSceneActionBatchPreview,
+  OperationScenePlan,
   OperationSceneCardSelection,
 } from '../contracts/operation-scene-action';
 import type { OperationRunSaveSnapshot } from '../contracts/operation-save';
@@ -73,7 +75,11 @@ import {
   evaluateOperationEventOutcome,
   evaluateOperationLocationOutcome,
   getCurrentLocationDefinition,
+  getNextOperationSceneId,
+  getOperationSceneDefinitions,
   hasOperationHardFailure,
+  isOperationPredicateSatisfied,
+  isOperationSceneSequenceComplete,
 } from './operation-progress-evaluator';
 import { evaluateOperationRoutes } from './operation-route-evaluator';
 import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../contracts/operation';
@@ -100,6 +106,16 @@ interface MutableActorState {
   teamId?: string;
 }
 
+interface MutableLocationProgress {
+  visitCount: number;
+  completed: boolean;
+  beatCount: number;
+  sceneActionBatchesUsed?: number;
+  completedSceneIds?: string[];
+  sceneActionBatchesUsedByScene?: Record<string, number>;
+  result: 'success' | 'partialSuccess' | 'failure' | null;
+}
+
 interface MutableRun {
   runId: string;
   eventId: string;
@@ -118,7 +134,7 @@ interface MutableRun {
     playerCost: number;
     cards: { drawPile: string[]; hand: string[]; discard: string[] };
   };
-  locationProgress: Record<string, { visitCount: number; completed: boolean; beatCount: number; sceneActionBatchesUsed?: number; result: 'success' | 'partialSuccess' | 'failure' | null }>;
+  locationProgress: Record<string, MutableLocationProgress>;
   routeHistory: EventRun['routeHistory'][number][];
   locationEntryCostHistory?: OperationLocationEntryCostRecord[];
   pendingSceneActionBatch: OperationSceneActionBatchDraft | null;
@@ -127,6 +143,7 @@ interface MutableRun {
   preparedBeat: PreparedBeat | null;
   interventionDraft: OperationInterventionDraft | null;
   resolutions: OperationResolution[];
+  timelineSequence: number;
   resolutionSequence: number;
   random: OperationTacticalRandomState;
 }
@@ -152,6 +169,85 @@ interface RunSlot {
   rules: RunRules;
   run: MutableRun;
   result: EventResult | null;
+}
+
+function currentSceneDefinition(
+  event: OperationEventDef,
+  run: Pick<MutableRun, 'currentLocationId' | 'locationProgress'>,
+): { readonly location: NonNullable<ReturnType<typeof getCurrentLocationDefinition>>; readonly scene: OperationSceneDef } | null {
+  const location = getCurrentLocationDefinition(event, run.currentLocationId);
+  const progress = run.locationProgress[run.currentLocationId];
+  if (!location || !progress) return null;
+  const sceneId = getNextOperationSceneId(location, progress);
+  if (!sceneId) return null;
+  const scene = getOperationSceneDefinitions(location).find(candidate => candidate.id === sceneId);
+  return scene ? { location, scene } : null;
+}
+
+function sceneActionBatchesUsed(
+  run: Pick<MutableRun, 'locationProgress'>,
+  location: NonNullable<ReturnType<typeof getCurrentLocationDefinition>>,
+  scene: OperationSceneDef,
+): number {
+  const progress = run.locationProgress[location.id];
+  if (!progress) return 0;
+  return location.scenes !== undefined
+    ? progress.sceneActionBatchesUsedByScene?.[scene.id] ?? 0
+    : progress.sceneActionBatchesUsed ?? 0;
+}
+
+function setSceneActionBatchesUsed(
+  run: MutableRun,
+  location: NonNullable<ReturnType<typeof getCurrentLocationDefinition>>,
+  scene: OperationSceneDef,
+  used: number,
+): void {
+  const progress = run.locationProgress[location.id];
+  if (!progress) throw new OperationRuntimeError(['current Location progress is missing']);
+  if (location.scenes !== undefined) {
+    if (!progress.sceneActionBatchesUsedByScene) progress.sceneActionBatchesUsedByScene = {};
+    progress.sceneActionBatchesUsedByScene[scene.id] = used;
+  } else {
+    progress.sceneActionBatchesUsed = used;
+  }
+}
+
+function eventContentForCurrentScene(
+  event: OperationEventDef,
+  run: MutableRun,
+): OperationEventDef | null {
+  const resolved = currentSceneDefinition(event, run);
+  if (!resolved) return null;
+  if (resolved.location.scenes === undefined) return event;
+  const scopedLocation = {
+    ...resolved.location,
+    enabledActionIds: resolved.scene.enabledActionIds ?? resolved.location.enabledActionIds,
+    actionMode: resolved.scene.actionMode,
+    sceneActions: resolved.scene.sceneActions,
+    sceneActionBatches: resolved.scene.sceneActionBatches,
+    sceneActionChoice: resolved.scene.sceneActionChoice,
+    purchaseOffers: resolved.scene.purchaseOffers,
+  };
+  return {
+    ...event,
+    locations: event.locations.map(location => location.id === scopedLocation.id ? scopedLocation : location),
+  };
+}
+
+function completeCurrentSceneAfterCommit(
+  run: MutableRun,
+  definition: OperationEventDef,
+  sceneId: string,
+): boolean {
+  const location = getCurrentLocationDefinition(definition, run.currentLocationId);
+  const progress = run.locationProgress[run.currentLocationId];
+  const scene = location?.scenes?.find(candidate => candidate.id === sceneId);
+  if (!location?.scenes || !progress || !scene?.completion) return false;
+  if (!isOperationPredicateSatisfied(run.eventState, scene.completion)) return false;
+  const completed = progress.completedSceneIds ?? (progress.completedSceneIds = []);
+  if (completed.includes(scene.id)) return false;
+  completed.push(scene.id);
+  return true;
 }
 
 type OperationLifecycleListener = (event: OperationLifecycleEvent) => void;
@@ -207,6 +303,14 @@ function hasLocationEntryCostRules(definition: OperationEventDef): boolean {
   return definition.locations.some(location => location.costGain !== undefined || location.maxCarryCost !== undefined);
 }
 
+function advanceTimelineSequence(run: MutableRun): number {
+  if (!Number.isSafeInteger(run.timelineSequence) || run.timelineSequence >= Number.MAX_SAFE_INTEGER) {
+    throw new OperationRuntimeError(['timelineSequence cannot advance safely']);
+  }
+  run.timelineSequence += 1;
+  return run.timelineSequence;
+}
+
 function applyLocationEntryCost(run: MutableRun, locationId: string, definition: OperationEventDef): void {
   const location = getCurrentLocationDefinition(definition, locationId);
   const gain = location?.costGain ?? 0;
@@ -222,6 +326,7 @@ function applyLocationEntryCost(run: MutableRun, locationId: string, definition:
   run.playerRouteState.playerCost = after;
   if (!Number.isSafeInteger(history.length + 1)) throw new OperationRuntimeError(['Location entry Cost history cannot advance safely']);
   history.push({
+    timelineSequence: advanceTimelineSequence(run),
     visitSequence: history.length + 1,
     locationId,
     visitCount: progress.visitCount,
@@ -249,6 +354,14 @@ function createRun(
       completed: false,
       beatCount: 0,
       ...(location.sceneActionBatches !== undefined ? { sceneActionBatchesUsed: 0 } : {}),
+      ...(location.scenes !== undefined ? {
+        completedSceneIds: [],
+        ...(location.scenes.some(scene => scene.sceneActionBatches !== undefined) ? {
+          sceneActionBatchesUsedByScene: Object.fromEntries(location.scenes
+            .filter(scene => scene.sceneActionBatches !== undefined)
+            .map(scene => [scene.id, 0])),
+        } : {}),
+      } : {}),
       result: null,
     },
   ]));
@@ -305,6 +418,7 @@ function createRun(
     preparedBeat: null,
     interventionDraft: null,
     resolutions: [],
+    timelineSequence: 0,
     resolutionSequence: 0,
     random: {
       algorithm: OPERATION_TACTICAL_RNG_ALGORITHM,
@@ -330,7 +444,13 @@ function preparationSnapshot(run: MutableRun): OperationPreparationSnapshot {
       if (!actor.participantKind) {
         throw new OperationRuntimeError(['tactical Run Actor lacks its admitted participant kind: ' + actor.id]);
       }
-      return { actorId: actor.id, participantKind: actor.participantKind, resources: actor.resources };
+      return {
+        actorId: actor.id,
+        participantKind: actor.participantKind,
+        hp: actor.hp,
+        ...(actor.positionId !== undefined ? { positionId: actor.positionId } : {}),
+        resources: actor.resources,
+      };
     }),
     teams: run.teamStates.map(team => ({ id: team.id, resources: team.resources })),
     studentActionIdsByActorId: Object.fromEntries(run.actorStates
@@ -474,8 +594,13 @@ function refreshPreparedBeat(run: MutableRun, rules: RunRules): void {
     run.preparedBeat = null;
     return;
   }
+  const eventDefinition = eventContentForCurrentScene(content.eventDefinition, run);
+  if (!eventDefinition) {
+    run.preparedBeat = null;
+    return;
+  }
   const preparationContent: OperationPreparationContent = {
-    eventDefinition: content.eventDefinition,
+    eventDefinition,
     actors: bindTacticalContentToCharacterHands(run, content).actorInitializations,
     actionDefinitions: content.actionDefinitions,
   };
@@ -505,6 +630,7 @@ function evaluateLocationProgress(run: MutableRun, rules: RunRules): boolean {
     progress.beatCount,
   );
   const location = getCurrentLocationDefinition(rules.definition, run.currentLocationId);
+  if (location && result !== 'failure' && !isOperationSceneSequenceComplete(location, progress)) return false;
   if (result === null && location?.sceneActionBatches !== undefined
     && (progress.sceneActionBatchesUsed ?? 0) >= location.sceneActionBatches) {
     const hasUnmetRequiredOutcome = (location.objectives ?? []).some(objective => objective.kind === 'primary')
@@ -521,13 +647,15 @@ function freezeEventResult(run: MutableRun, kind: OperationResultKind): EventRes
   return frozenCopy({ eventId: run.eventId, runId: run.runId, kind, finalRun: run }) as EventResult;
 }
 
-function resolutionPlannerSnapshot(run: MutableRun): OperationResolutionPlannerSnapshot {
+function resolutionPlannerSnapshot(run: MutableRun, definition: OperationEventDef): OperationResolutionPlannerSnapshot {
   const locationProgress = run.locationProgress[run.currentLocationId];
+  const activeScene = currentSceneDefinition(definition, run);
   return {
     runId: run.runId,
     eventId: run.eventId,
     planVersion: run.planVersion,
     currentLocationId: run.currentLocationId,
+    ...(activeScene ? { currentSceneId: activeScene.scene.id } : {}),
     actors: run.actorStates.map(actor => {
       if (!actor.participantKind) {
         throw new OperationRuntimeError(['tactical Run Actor lacks its admitted participant kind: ' + actor.id]);
@@ -546,7 +674,9 @@ function resolutionPlannerSnapshot(run: MutableRun): OperationResolutionPlannerS
     heldItemIds: run.eventState.heldItemIds,
     randomState: run.random,
     playerCost: run.playerRouteState.playerCost,
-    sceneActionBatchesUsed: locationProgress?.sceneActionBatchesUsed ?? 0,
+    sceneActionBatchesUsed: activeScene
+      ? sceneActionBatchesUsed(run, activeScene.location, activeScene.scene)
+      : locationProgress?.sceneActionBatchesUsed ?? 0,
     playerCardZones: {
       drawPile: [...run.playerRouteState.cards.drawPile],
       hand: [...run.playerRouteState.cards.hand],
@@ -593,10 +723,12 @@ function parseRouteCommand(value: unknown): OperationRouteCommand {
 
 function parseSceneActionBatchCommand(value: unknown): OperationSceneActionBatchCommand {
   if (!isRecord(value)
-    || Object.keys(value).some(key => key !== 'runId' && key !== 'planVersion' && key !== 'selections' && key !== 'cards')
+    || Object.keys(value).some(key => key !== 'runId' && key !== 'planVersion' && key !== 'selections' && key !== 'cards' && key !== 'purchases' && key !== 'skip')
     || !Array.isArray(value.selections)
-    || (value.cards !== undefined && !Array.isArray(value.cards))) {
-    throw new OperationRuntimeError(['SceneAction command must contain only runId, planVersion, selections, and cards']);
+    || (value.cards !== undefined && !Array.isArray(value.cards))
+    || (value.purchases !== undefined && !Array.isArray(value.purchases))
+    || (value.skip !== undefined && value.skip !== true)) {
+    throw new OperationRuntimeError(['SceneAction command must contain only runId, planVersion, selections, cards, purchases, and skip']);
   }
   const base = parseVersionCommand({ runId: value.runId, planVersion: value.planVersion });
   const selections = value.selections.map((row, index) => {
@@ -626,7 +758,22 @@ function parseSceneActionBatchCommand(value: unknown): OperationSceneActionBatch
       targetActorIds: [...row.targetActorIds] as string[],
     } satisfies OperationSceneCardSelection;
   });
-  return { ...base, selections, ...(cards !== undefined ? { cards } : {}) };
+  const purchases = (value.purchases as unknown[] | undefined)?.map((row, index) => {
+    if (!isRecord(row) || Object.keys(row).some(key => key !== 'offerId') || !nonEmptyId(row.offerId)) {
+      throw new OperationRuntimeError(['Purchase selection ' + index + ' is malformed']);
+    }
+    return { offerId: row.offerId } satisfies NonNullable<OperationSceneActionBatchCommand['purchases']>[number];
+  });
+  if (value.skip === true && (selections.length > 0 || (cards?.length ?? 0) > 0 || (purchases?.length ?? 0) > 0)) {
+    throw new OperationRuntimeError(['explicit SceneAction skip cannot include selectable offers']);
+  }
+  return {
+    ...base,
+    selections,
+    ...(cards !== undefined ? { cards } : {}),
+    ...(purchases !== undefined ? { purchases } : {}),
+    ...(value.skip === true ? { skip: true as const } : {}),
+  };
 }
 
 function planSceneActionBatchForSlot(slot: RunSlot, command: OperationSceneActionBatchCommand): OperationResolutionBatch {
@@ -637,14 +784,19 @@ function planSceneActionBatchForSlot(slot: RunSlot, command: OperationSceneActio
   }
   const trustedContent = slot.rules.tacticalContent;
   if (!trustedContent) throw new OperationRuntimeError(['this EventRun has no admitted Action definitions']);
+  const activeScene = currentSceneDefinition(slot.rules.definition, slot.run);
+  if (!activeScene) throw new OperationRuntimeError(['current Location has no active Scene']);
+  const eventDefinition = eventContentForCurrentScene(trustedContent.eventDefinition, slot.run);
+  if (!eventDefinition) throw new OperationRuntimeError(['current Location has no active Scene']);
   try {
-    const batch = planOperationResolution({
-      snapshot: resolutionPlannerSnapshot(slot.run),
-      trustedContent,
+    const planned = planOperationResolution({
+      snapshot: resolutionPlannerSnapshot(slot.run, slot.rules.definition),
+      trustedContent: { ...trustedContent, eventDefinition },
       preparedBeat: slot.run.preparedBeat!,
       interventionDraft: slot.run.interventionDraft,
-      sceneBatch: { selections: command.selections, cards: command.cards },
+      sceneBatch: { selections: command.selections, cards: command.cards, purchases: command.purchases, skip: command.skip },
     });
+    const batch: OperationResolutionBatch = { ...planned, sceneId: activeScene.scene.id };
     if (batch.runId !== slot.run.runId || batch.eventId !== slot.run.eventId
       || batch.basePlanVersion !== slot.run.planVersion || batch.locationId !== slot.run.currentLocationId
       || batch.randomCursorBefore !== slot.run.random.tacticalCursor
@@ -666,18 +818,37 @@ function planSceneActionBatchForSlot(slot: RunSlot, command: OperationSceneActio
 function sceneActionBatchPreview(slot: RunSlot, batch: OperationResolutionBatch): OperationSceneActionBatchPreview {
   const scene = batch.sceneBatch;
   if (!scene) throw new OperationRuntimeError(['SceneAction planner did not produce scene batch details']);
-  const location = getCurrentLocationDefinition(slot.rules.definition, slot.run.currentLocationId);
-  if (!location?.actionMode || location.sceneActionBatches === undefined) {
-    throw new OperationRuntimeError(['current Location does not declare SceneAction batch controls']);
+  const activeScene = currentSceneDefinition(slot.rules.definition, slot.run);
+  if (!activeScene?.scene.actionMode || activeScene.scene.sceneActionBatches === undefined || batch.sceneId !== activeScene.scene.id) {
+    throw new OperationRuntimeError(['current Scene does not declare SceneAction batch controls']);
   }
+  const plan: OperationScenePlan = {
+    runId: batch.runId,
+    eventId: batch.eventId,
+    planVersion: batch.basePlanVersion,
+    locationId: batch.locationId,
+    sceneId: activeScene.scene.id,
+    selections: scene.selections,
+    cards: scene.cards.map(card => ({
+      cardInstanceId: card.cardInstanceId,
+      ...(card.actorId ? { actorId: card.actorId } : {}),
+      targetActorIds: card.targetActorIds,
+    })),
+    ...(scene.purchases?.length ? { purchases: scene.purchases.map(purchase => ({ offerId: purchase.offerId })) } : {}),
+    ...(scene.skip ? { skip: true } : {}),
+  };
   return frozenCopy({
     runId: batch.runId,
     eventId: batch.eventId,
     basePlanVersion: batch.basePlanVersion,
     locationId: batch.locationId,
-    actionMode: location.actionMode,
+    sceneId: activeScene.scene.id,
+    plan,
+    actionMode: activeScene.scene.actionMode,
     selections: scene.selections,
     cards: scene.cards,
+    ...(scene.purchases?.length ? { purchases: scene.purchases } : {}),
+    ...(scene.skip ? { skip: true } : {}),
     actionCosts: scene.actionCosts.map(payment => ({
       actorId: payment.actorId,
       actionId: payment.actionId,
@@ -692,11 +863,11 @@ function sceneActionBatchPreview(slot: RunSlot, batch: OperationResolutionBatch)
       balanceAfter: scene.playerCostAfter,
     },
     sceneActionBatchesUsed: scene.sceneActionBatchesUsed,
-    sceneActionBatchesLimit: location.sceneActionBatches,
+    sceneActionBatchesLimit: activeScene.scene.sceneActionBatches,
   });
 }
 
-function toResolution(batch: OperationResolutionBatch, sequence: number): OperationResolution {
+function toResolution(batch: OperationResolutionBatch, sequence: number): Omit<OperationResolution, 'timelineSequence'> {
   const { nextRandomState: _nextRandomState, ...persisted } = batch;
   return frozenCopy({ ...persisted, resolutionSequence: sequence });
 }
@@ -900,6 +1071,7 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
   if (!Number.isSafeInteger(run.planVersion) || run.planVersion < 0) fail('planVersion is invalid');
   if (!Number.isSafeInteger(run.beatIndex) || run.beatIndex < 0) fail('beatIndex is invalid');
   if (!Number.isSafeInteger(run.resolutionSequence) || run.resolutionSequence < 0) fail('resolutionSequence is invalid');
+  if (!Number.isSafeInteger(run.timelineSequence) || run.timelineSequence < 0) fail('timelineSequence is invalid');
   if (!isRecord(run.random) || run.random.algorithm !== OPERATION_TACTICAL_RNG_ALGORITHM
     || run.random.seed !== (definition.randomSeed ?? 0)
     || !Number.isSafeInteger(run.random.tacticalCursor) || run.random.tacticalCursor < 0) fail('tactical RNG state is invalid');
@@ -907,6 +1079,7 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
   const locationIds = new Set(definition.locations.map(location => location.id));
   if (!locationIds.has(run.currentLocationId) || !isRecord(run.locationProgress)
     || !sameKeys(run.locationProgress, locationIds)) fail('Location progress does not match Event content');
+  let totalLocationVisits = 0;
   for (const location of definition.locations) {
     const progress = run.locationProgress[location.id];
     if (!isRecord(progress) || !Number.isSafeInteger(progress.visitCount) || progress.visitCount < 0
@@ -919,13 +1092,44 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
       fail('Location progress exceeds the declared visit limit for ' + location.id);
     }
     if (progress.completed !== (progress.result !== null)) fail('Location completion/result disagree for ' + location.id);
-    if (location.sceneActionBatches === undefined) {
-      if (progress.sceneActionBatchesUsed !== undefined) fail('unexpected SceneAction batch count for ' + location.id);
-    } else if (!Number.isSafeInteger(progress.sceneActionBatchesUsed)
-      || progress.sceneActionBatchesUsed! < 0 || progress.sceneActionBatchesUsed! > location.sceneActionBatches) {
-      fail('SceneAction batch count is invalid for ' + location.id);
+    totalLocationVisits += progress.visitCount;
+    if (!Number.isSafeInteger(totalLocationVisits)) fail('total Location visit count is invalid');
+    if (location.scenes !== undefined) {
+      const sceneIds = location.scenes.map(scene => scene.id);
+      if (!validIds(progress.completedSceneIds, new Set(sceneIds))) fail('completed Scene IDs are malformed for ' + location.id);
+      const completedPrefix = sceneIds.slice(0, progress.completedSceneIds!.length);
+      if (!progress.completedSceneIds!.every((sceneId, index) => sceneId === completedPrefix[index])) {
+        fail('completed Scene IDs are out of order for ' + location.id);
+      }
+      if (progress.sceneActionBatchesUsed !== undefined) fail('unexpected legacy SceneAction batch count for ' + location.id);
+      const sceneBatchLimits = new Map(location.scenes
+        .filter(scene => scene.sceneActionBatches !== undefined)
+        .map(scene => [scene.id, scene.sceneActionBatches!]));
+      if (sceneBatchLimits.size === 0) {
+        if (progress.sceneActionBatchesUsedByScene !== undefined) fail('unexpected per-Scene batch counts for ' + location.id);
+      } else {
+        if (!isRecord(progress.sceneActionBatchesUsedByScene)
+          || !sameKeys(progress.sceneActionBatchesUsedByScene, sceneBatchLimits.keys())) {
+          fail('per-Scene batch counts do not match content for ' + location.id);
+        }
+        for (const [sceneId, limit] of sceneBatchLimits) {
+          const used = progress.sceneActionBatchesUsedByScene![sceneId];
+          if (!Number.isSafeInteger(used) || used < 0 || used > limit) fail('SceneAction batch count is invalid for ' + location.id + '/' + sceneId);
+        }
+      }
+    } else {
+      if (progress.completedSceneIds !== undefined || progress.sceneActionBatchesUsedByScene !== undefined) {
+        fail('unexpected explicit Scene progress for implicit Location ' + location.id);
+      }
+      if (location.sceneActionBatches === undefined) {
+        if (progress.sceneActionBatchesUsed !== undefined) fail('unexpected SceneAction batch count for ' + location.id);
+      } else if (!Number.isSafeInteger(progress.sceneActionBatchesUsed)
+        || progress.sceneActionBatchesUsed! < 0 || progress.sceneActionBatchesUsed! > location.sceneActionBatches) {
+        fail('SceneAction batch count is invalid for ' + location.id);
+      }
     }
   }
+  if (totalLocationVisits < 1) fail('initial Location visit is missing');
 
   if (!isRecord(run.eventState) || !isRecord(run.eventState.tracks)
     || !sameKeys(run.eventState.tracks, rules.tracks.keys())) fail('Event tracks do not match Event content');
@@ -983,16 +1187,38 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
   if (!cardZones || cardIssues.length > 0 || cardZones.hand.length > rules.maxHandSize
     || !sameCounts(rules.deckCounts, cardCounts(cardZones))) fail('card zones do not match the finite physical deck');
   if (!Array.isArray(run.routeHistory) || run.routeHistory.length > definition.maxLocationVisits * definition.locations.length) fail('route history exceeds the Location visit bound');
+  if (run.routeHistory.length !== totalLocationVisits - 1) fail('route history does not match total Location visits');
+  const timelineSequences = new Set<number>();
+  const includeTimelineSequence = (sequence: number): void => {
+    if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence > run.timelineSequence || timelineSequences.has(sequence)) {
+      fail('timeline record sequence is invalid');
+    }
+    timelineSequences.add(sequence);
+  };
+  let priorRouteTimelineSequence = 0;
   for (const route of run.routeHistory) {
+    includeTimelineSequence(route.timelineSequence);
+    if (route.timelineSequence <= priorRouteTimelineSequence) fail('route timeline order is invalid');
+    priorRouteTimelineSequence = route.timelineSequence;
     const source = definition.locations.find(location => location.id === route.fromLocationId);
     const edge = source?.routeEdges.find(candidate => candidate.id === route.routeId);
     if (!edge || edge.targetLocationId !== route.toLocationId
       || !['success', 'partialSuccess', 'failure'].includes(route.fromLocationResult)) fail('route history contains an unknown transition');
   }
   const maxLocationEntries = definition.maxLocationVisits * definition.locations.length;
+  const hasEntryCostRules = hasLocationEntryCostRules(definition);
+  if (hasEntryCostRules && !Array.isArray(run.locationEntryCostHistory)) fail('Location entry Cost history is missing');
+  if (hasEntryCostRules && run.locationEntryCostHistory!.length !== totalLocationVisits) {
+    fail('Location entry Cost history does not match total Location visits');
+  }
+  if (!hasEntryCostRules && run.locationEntryCostHistory !== undefined) fail('unexpected Location entry Cost history');
   if (run.locationEntryCostHistory !== undefined) {
     if (!Array.isArray(run.locationEntryCostHistory) || run.locationEntryCostHistory.length > maxLocationEntries) fail('Location entry Cost history exceeds its bound');
+    let priorEntryTimelineSequence = 0;
     run.locationEntryCostHistory.forEach((entry, index) => {
+      includeTimelineSequence(entry.timelineSequence);
+      if (entry.timelineSequence <= priorEntryTimelineSequence) fail('Location entry timeline order is invalid');
+      priorEntryTimelineSequence = entry.timelineSequence;
       const location = definition.locations.find(candidate => candidate.id === entry.locationId);
       if (!location || entry.visitSequence !== index + 1 || !Number.isSafeInteger(entry.visitCount)
         || entry.visitCount < 1 || entry.visitCount > definition.maxLocationVisits
@@ -1004,15 +1230,34 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
     });
   }
   if (!Array.isArray(run.resolutions) || run.resolutions.length > 32) fail('Resolution history exceeds its bound');
-  let priorSequence = 0;
-  for (const resolution of run.resolutions) {
-    if (!Number.isSafeInteger(resolution.resolutionSequence) || resolution.resolutionSequence <= priorSequence
+  const expectedResolutionCount = Math.min(run.resolutionSequence, 32);
+  if (run.resolutions.length !== expectedResolutionCount) fail('Resolution history is incomplete');
+  const firstRetainedResolutionSequence = Math.max(1, run.resolutionSequence - 31);
+  let priorSequence = firstRetainedResolutionSequence - 1;
+  let priorResolutionTimelineSequence = 0;
+  for (const [index, resolution] of run.resolutions.entries()) {
+    includeTimelineSequence(resolution.timelineSequence);
+    if (resolution.timelineSequence <= priorResolutionTimelineSequence) fail('Resolution timeline order is invalid');
+    priorResolutionTimelineSequence = resolution.timelineSequence;
+    if (!Number.isSafeInteger(resolution.resolutionSequence) || resolution.resolutionSequence !== firstRetainedResolutionSequence + index
+      || resolution.resolutionSequence <= priorSequence
       || resolution.resolutionSequence > run.resolutionSequence || resolution.eventId !== run.eventId || resolution.runId !== run.runId) {
       fail('Resolution history sequence is invalid');
+    }
+    const resolutionLocation = definition.locations.find(location => location.id === resolution.locationId);
+    if (!resolutionLocation || !nonEmptyId(resolution.sceneId)
+      || !getOperationSceneDefinitions(resolutionLocation).some(scene => scene.id === resolution.sceneId)) {
+      fail('Resolution Scene identity is invalid');
     }
     priorSequence = resolution.resolutionSequence;
   }
   if (run.resolutions.length > 0 && priorSequence !== run.resolutionSequence) fail('latest Resolution does not match resolutionSequence');
+  const expectedTimelineSequence = run.resolutionSequence + run.routeHistory.length + (run.locationEntryCostHistory?.length ?? 0);
+  if (!Number.isSafeInteger(expectedTimelineSequence) || run.timelineSequence !== expectedTimelineSequence) {
+    fail('timelineSequence does not match complete timeline history counts');
+  }
+  const latestTimelineSequence = Math.max(0, ...timelineSequences);
+  if (latestTimelineSequence !== run.timelineSequence) fail('latest timeline record does not match timelineSequence');
   if (run.status === 'inProgress') {
     if (rules.tacticalContent) {
       if (!isRecord(run.characterHands)) fail('Character Hands are missing from the saved Run');
@@ -1033,18 +1278,23 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
     if (run.interventionDraft !== null) {
       if (!run.preparedBeat) fail('InterventionDraft has no PreparedBeat');
       try {
+        const eventDefinition = eventContentForCurrentScene(rules.definition, run);
+        if (!eventDefinition) throw new OperationRuntimeError(['invalid Operation Run checkpoint: InterventionDraft has no active Scene']);
+        const trustedContent = bindTacticalContentToCharacterHands(run, {
+          ...rules.tacticalContent!,
+          eventDefinition,
+        });
+        const preparationContent = {
+          eventDefinition,
+          actors: trustedContent.actorInitializations,
+          actionDefinitions: trustedContent.actionDefinitions,
+        };
         const base = prepareOperationBeat(preparationSnapshot(run), {
-          eventDefinition: rules.definition,
-          actors: rules.tacticalContent!.actorInitializations,
-          actionDefinitions: rules.tacticalContent!.actionDefinitions,
+          ...preparationContent,
         });
         previewOperationIntervention({
           snapshot: preparationSnapshot(run),
-          trustedContent: {
-            eventDefinition: rules.definition,
-            actors: rules.tacticalContent!.actorInitializations,
-            actionDefinitions: rules.tacticalContent!.actionDefinitions,
-          },
+          trustedContent: preparationContent,
           preparedBeat: base,
           currentDraft: null,
           draft: run.interventionDraft,
@@ -1075,9 +1325,11 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
 
 function restoredPreparedBeat(run: MutableRun, rules: RunRules): PreparedBeat | null {
   if (!rules.tacticalContent) return null;
+  const eventDefinition = eventContentForCurrentScene(rules.definition, run);
+  if (!eventDefinition) return null;
   try {
     return prepareOperationBeat(preparationSnapshot(run), {
-      eventDefinition: rules.definition,
+      eventDefinition,
       actors: bindTacticalContentToCharacterHands(run, rules.tacticalContent).actorInitializations,
       actionDefinitions: rules.tacticalContent.actionDefinitions,
     });
@@ -1394,20 +1646,28 @@ export class OperationRuntimeService {
     }
     if (run.status !== 'inProgress') throw new OperationRuntimeError(['the EventRun is already terminal']);
     assertCommandMatchesRun(command, run);
+    const currentLocation = slot.rules.definition.locations.find(location => location.id === run.currentLocationId);
+    if (currentLocation?.stage !== 'combat') {
+      throw new OperationRuntimeError(['a tactical Beat can only be committed in a combat Location']);
+    }
     const tacticalContent = slot.rules.tacticalContent;
     if (!tacticalContent || !run.preparedBeat) {
       throw new OperationRuntimeError(['this EventRun has no admitted tactical content']);
     }
+    const activeScene = currentSceneDefinition(slot.rules.definition, run);
+    const eventDefinition = eventContentForCurrentScene(tacticalContent.eventDefinition, run);
+    if (!activeScene || !eventDefinition) throw new OperationRuntimeError(['current Location has no active Scene']);
 
     const next = deepCopy(run);
     let batch: OperationResolutionBatch;
     try {
-      batch = planOperationResolution({
-        snapshot: resolutionPlannerSnapshot(run),
-        trustedContent: bindTacticalContentToCharacterHands(run, tacticalContent),
+      const planned = planOperationResolution({
+        snapshot: resolutionPlannerSnapshot(run, slot.rules.definition),
+        trustedContent: bindTacticalContentToCharacterHands(run, { ...tacticalContent, eventDefinition }),
         preparedBeat: run.preparedBeat,
         interventionDraft: run.interventionDraft,
       });
+      batch = { ...planned, sceneId: activeScene.scene.id };
     } catch (error) {
       const diagnostics = error instanceof OperationResolutionPlannerError
         ? [error.message]
@@ -1440,7 +1700,7 @@ export class OperationRuntimeService {
       throw new OperationRuntimeError(['resolutionSequence cannot advance safely']);
     }
     next.resolutionSequence += 1;
-    const resolution = toResolution(batch, next.resolutionSequence);
+    const resolution = { ...toResolution(batch, next.resolutionSequence), timelineSequence: advanceTimelineSequence(next) };
     next.resolutions = [...next.resolutions, resolution].slice(-32);
     next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(run);
@@ -1453,6 +1713,7 @@ export class OperationRuntimeService {
       next.status = 'failure';
       next.preparedBeat = null;
     } else {
+      completeCurrentSceneAfterCommit(next, slot.rules.definition, activeScene.scene.id);
       locationCompleted = evaluateLocationProgress(next, slot.rules);
       next.characterHands = resolveCharacterHands(next, slot.rules);
       refreshPreparedBeat(next, slot.rules);
@@ -1540,28 +1801,30 @@ export class OperationRuntimeService {
     if (command.runId === slot.run.runId && latest?.sceneBatch !== undefined
       && latest.basePlanVersion === command.planVersion) return latest;
     const batch = this.planSceneActionBatch(command);
+    const activeScene = currentSceneDefinition(slot.rules.definition, slot.run);
+    if (!activeScene || activeScene.scene.id !== batch.sceneId) {
+      throw new OperationRuntimeError(['SceneAction Resolution does not match the active Scene']);
+    }
     const scene = batch.sceneBatch!;
     const next = deepCopy(slot.run);
     applyResolutionChanges(next, batch.numericChanges, slot.rules);
     applyResolutionMembershipChanges(next, batch.membershipChanges, slot.rules);
     applyResolutionPositionChanges(next, batch.positionChanges, slot.rules);
     const progress = next.locationProgress[next.currentLocationId];
-    if (!progress || progress.sceneActionBatchesUsed === undefined) {
-      throw new OperationRuntimeError(['current Location SceneAction progress is missing']);
-    }
+    if (!progress) throw new OperationRuntimeError(['current Location Scene progress is missing']);
     next.playerRouteState.playerCost = scene.playerCostAfter;
     const playedCardIds = scene.cards.map(card => card.cardInstanceId);
     if (playedCardIds.length > 0) {
       const cards = discardOperationPlayerSceneCards(next.playerRouteState.cards, playedCardIds);
       next.playerRouteState.cards = { drawPile: [...cards.drawPile], hand: [...cards.hand], discard: [...cards.discard] };
     }
-    progress.sceneActionBatchesUsed = scene.sceneActionBatchesUsed;
+    setSceneActionBatchesUsed(next, activeScene.location, activeScene.scene, scene.sceneActionBatchesUsed);
     next.pendingSceneActionBatch = null;
     if (next.resolutionSequence >= Number.MAX_SAFE_INTEGER) {
       throw new OperationRuntimeError(['resolutionSequence cannot advance safely']);
     }
     next.resolutionSequence += 1;
-    const resolution = toResolution(batch, next.resolutionSequence);
+    const resolution = { ...toResolution(batch, next.resolutionSequence), timelineSequence: advanceTimelineSequence(next) };
     next.resolutions = [...next.resolutions, resolution].slice(-32);
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
@@ -1573,6 +1836,9 @@ export class OperationRuntimeService {
       next.status = 'failure';
       next.preparedBeat = null;
     } else {
+      if (scene.selections.length > 0 || scene.cards.length > 0 || (scene.purchases?.length ?? 0) > 0) {
+        completeCurrentSceneAfterCommit(next, slot.rules.definition, activeScene.scene.id);
+      }
       locationCompleted = evaluateLocationProgress(next, slot.rules);
       next.characterHands = resolveCharacterHands(next, slot.rules);
       refreshPreparedBeat(next, slot.rules);
@@ -1690,6 +1956,9 @@ export class OperationRuntimeService {
     const progress = next.locationProgress[locationId];
     const locationDefinition = getCurrentLocationDefinition(slot.rules.definition, locationId);
     const result = evaluateOperationLocationOutcome(locationDefinition, next.eventState, progress.beatCount);
+    if (locationDefinition && result !== 'failure' && !isOperationSceneSequenceComplete(locationDefinition, progress)) {
+      throw new OperationRuntimeError(['all ordered Scenes must be complete before the Location can complete']);
+    }
     if (result === null && hasLocationOutcomeRules(locationDefinition)) {
       throw new OperationRuntimeError(['current Location objectives are not complete']);
     }
@@ -1787,6 +2056,7 @@ export class OperationRuntimeService {
       consumedHeldItemId = route.requiredHeldItemId;
     }
     next.routeHistory.push({
+      timelineSequence: advanceTimelineSequence(next),
       fromLocationId,
       fromLocationResult: sourceProgress.result,
       routeId: route.id,

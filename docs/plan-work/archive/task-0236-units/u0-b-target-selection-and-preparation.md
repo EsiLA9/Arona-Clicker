@@ -6,7 +6,7 @@
 ## Must Read / Read Set
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
-| 任务 | `docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md`、`docs/plan-work/task-0236-units/u0-a-target-scope-contract.md` | 目标含义与新合同 |
+| 任务 | `docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md`、`docs/plan-work/archive/task-0236-units/u0-a-target-scope-contract.md` | 目标含义与新合同 |
 | 协议 | `docs/ai/PROJECT-CONSTITUTION.md`、`docs/ai/galhcg-project-map.md` | Unit / Evidence 护栏 |
 | 文档 | `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md` | 当前准备与目标选择语义 |
 | 源码 | `src/arona-clicker/services/operation-target-selection.ts:selectOperationTarget`、`operation-plan-preparation.ts:prepareOperationBeat` | 自动目标的权威选择点 |
@@ -43,8 +43,8 @@
 - `src/arona-clicker/services/operation-plan-preparation.ts`
 - `tests/engine/operation-target-selection.test.ts`
 - `tests/engine/operation-plan-preparation.test.ts`
-- `docs/plan-work/task-0236-units/u0-b-target-selection-and-preparation.md`
-- `docs/plan-work/task-0236-units/receipts/receipt-u0-b-target-selection-and-preparation.md`
+- `docs/plan-work/archive/task-0236-units/u0-b-target-selection-and-preparation.md`
+- `docs/plan-work/archive/task-0236-units/receipts/receipt-u0-b-target-selection-and-preparation.md`
 
 ## Explicit Non-goals
 - 不改干预预览、OperationView、Resolution 或 UI。

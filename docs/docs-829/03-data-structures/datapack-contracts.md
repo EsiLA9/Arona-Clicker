@@ -24,11 +24,17 @@ Registry 为各契约表建立查询集合；内容作者策略则限定哪些�
 
 ### Gameplay B Operation 表
 
-Datapack 可选声明 `operationEvents`、`operationLocations`、`operationActions` 和 `studentOperationProfiles`。四类顶层定义分别使用 `operation-event`、`operation-location`、`operation-action`、`student-operation-profile` 三段式 ID；跨表引用写完整 ID。SceneAction、RouteEdge、Objective、Outcome、CombinationRule、SceneCard、Actor 等仍嵌入 Event 或 Location，并在所属内容范围内使用局部 ID。
+Datapack 可选声明 `operationEvents`、`operationLocations`、`operationActions`、`studentOperationProfiles`、`operationStrategyProfiles` 和 `operationCardPools`。六类顶层定义分别使用 `operation-event`、`operation-location`、`operation-action`、`student-operation-profile`、`operation-strategy-profile`、`operation-card-pool` 三段式 ID；跨表引用写完整 ID。SceneAction、RouteEdge、Objective、Outcome、CombinationRule、SceneCard、Actor 等仍嵌入 Event 或 Location，并在所属内容范围内使用局部 ID。
 
-Operation Event 用 `locationIds` 关联 Location、用 `initId` 归属 AC 世界线，并声明正整数 `resumeVersion`。它是作者显式维护的恢复兼容号，不由 Registry 计算内容 Hash。Event 可声明成功/部分成功的白名单资源奖励；Operation Actor 可提供可选展示名与头像引用，运行时会把它们冻结到 Run。RouteEdge 只能检查 Event 声明的单个局内持有物；谓词只检查 Event 的 track/fact。Registry 在 `validateDatapack` 阶段对同包与已加载 Registry 的引用进行检查，随后通过统一表步骤合并、覆盖及清空。
+Operation Event 用 `locationIds` 关联 Location、用 `initId` 归属 AC 世界线，并声明正整数 `resumeVersion`。`title` 与 `description` 是可选的事件入口名称和简短介绍，供通用入口与运行区显示。`resumeVersion` 是作者显式维护的恢复兼容号，不由 Registry 计算内容 Hash。Event 可声明成功/部分成功的白名单资源奖励；Operation Actor 可提供可选展示名与头像引用，运行时会把它们冻结到 Run。每个 Operation Location 必须声明 `stage: combat | scene`；UI 从 Runtime View 消费当前地点阶段，不根据地点 ID 或 `PreparedBeat` 是否存在推测。RouteEdge 只能检查 Event 声明的单个局内持有物；谓词只检查 Event 的 track/fact。Registry 在 `validateDatapack` 阶段对同包与已加载 Registry 的引用进行检查，随后通过统一表步骤合并、覆盖及清空。
 
-这些字段会进入生成的 `engine-defs.gen.json`，但本阶段不添加 Operation 专属编辑器表配置；独立作者工作流分别由任务 [[task-0221-gameplay-b-authoring-and-content-validation-workflow]] 接续。
+Location 可声明有序 `scenes`；每个 Scene 可独立声明 `actionMode`、批次数、`sceneActions`、`sceneActionChoice` 和 `purchaseOffers`。未声明 Scene 序列时，旧 Location 批次字段投影为隐式 `main` Scene。`sceneActionChoice` 以唯一的 Global required SceneAction ID 列出 M 个候选，并用 `chooseExactly` 声明 N；Runtime 强制每批恰好选择 N 项，fixed 项自动纳入且不计数，skip 必须经显式 `skip: true` 命令。此 V1 规则不把玩家物理卡或购买项纳入 M/N。
+
+`purchaseOffers` 是 EventRun 内的一次性效果 Offer，不是 `ShopDef` / Spot Shop。每项声明 Location/Scene-local Offer ID、引用既有 targetless Operation Action、非负共享 PlayerCost、Event 已声明且初始未记录的 `purchaseFactId`，以及可选标题/说明。引用 Action 至少含一个 Event Track / Fact / HeldItem 奖励 Effect，不能含 Action cost 或其它 Effect 类。purchase Fact 由 Offer 在同一 Resolution 写入并保留到 Run/checkpoint 结束；它与奖励 HeldItem 分开，且不能被 Action、StudentSkillRule 或 CombinationRule 效果改写。Registry 与 Operation Runtime admission 都校验候选基数、Offer/Fact 唯一性与引用闭合；编辑字段后仍需同步 Schema 并验证完整 pack。
+
+`OperationActionDef.target` 是目标规则的唯一来源。Actor target 可选择 `selectionMode: 'select' | 'all-eligible'`，并用 `relation`、`allowedActorIds`、`allowedActorTypes` 与 `allowedPositionIds` 约束候选；所有声明的过滤相交。`selectionMode` 省略时为 `select`。`all-eligible` 仅供 Scene batch，Runtime 按提交时的存活状态和当前位置解析当前全组，空组不可提交；`targetActorIds: []` 本身不表达群体。显式 `select` ID 若因死亡或换位失效，Runtime 拒绝整个批次，不静默换目标或留下部分费用 / 效果。actorless Scene Action 仍须以 ID/type 建立绝对目标边界，Position 只缩小该边界，不能单独建立目标关系。
+
+这些 Operation 表字段进入生成的 `engine-defs.gen.json`；`OperationActionDef.target` 当前由 Schema 的通用 JSON 字段呈现，没有 PB-23 专属目标编辑器。源契约变化后运行 `npm run gen:schema` 并检查 Schema 同步测试，禁止手改生成文件。Operation 独立作者编辑器 / 导入导出闭环见 [[docs/plan-work/task-0275-pb-25-scene-authoring-and-validation]]；游戏内 Runtime Editor 与 `ContentAuthoringPolicy` CRUD 仍是不同入口。
 
 详细协作路由见 [[docs/docs-829/06-wiki/20-data-services/definition-authoring]]；总入口见 [[docs/docs-829/06-wiki/20-data-services/00-index]]。
 

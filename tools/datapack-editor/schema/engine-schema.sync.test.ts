@@ -63,7 +63,20 @@ function collectRefs(type: FieldType, out: Set<string>, seen: Set<string>, depth
 }
 
 describe('Schema 描述协议：defMap 派生自 Datapack', () => {
-  it('defMap 覆盖 editor 的 13 张表（非自定义表均有类型映射）', () => {
+  it('TableKey 覆盖现行 Datapack 表 gachaPools 与 shops', () => {
+    const legacyEditorTables = {
+      gachaPools: 'GachaPoolDef',
+      shops: 'ShopDef',
+    } as const;
+    const registeredTables = new Set(TABLE_META.map((meta) => meta.key));
+    for (const [table, type] of Object.entries(legacyEditorTables)) {
+      expect(registeredTables.has(table as keyof typeof legacyEditorTables), `${table} 未注册到独立 Editor`).toBe(true);
+      expect(schema.defMap[table]?.type, `${table} 未从 Datapack 声明生成`).toBe(type);
+      expect(TABLES.some((candidate) => candidate.key === table), `${table} 未进入最终 TABLES`).toBe(true);
+    }
+  });
+
+  it('defMap 覆盖 editor 的所有生成表（非自定义表均有类型映射）', () => {
     for (const meta of TABLE_META) {
       if (meta.custom) continue;
       expect(schema.defMap[meta.key], `${meta.key} 未出现在 defMap（Datapack 接口缺失？）`).toBeDefined();
@@ -80,17 +93,55 @@ describe('Schema 描述协议：defMap 派生自 Datapack', () => {
     }
   });
 
-  it('在生成的 Datapack Schema 中包含 Gameplay B 的四个 Registry 内容表', () => {
+  it('在生成的 Datapack Schema 中包含全部六张 Gameplay B Operation 表', () => {
     const gameplayBTables = {
       operationEvents: 'OperationEventContentDef',
       operationLocations: 'OperationLocationDef',
       operationActions: 'OperationActionDef',
       studentOperationProfiles: 'StudentOperationProfileDef',
+      operationStrategyProfiles: 'OperationStrategyProfileDef',
+      operationCardPools: 'OperationCardPoolDef',
     } as const;
+    const registeredTables = new Set(TABLE_META.map((meta) => meta.key));
     for (const [table, type] of Object.entries(gameplayBTables)) {
+      expect(registeredTables.has(table as keyof typeof gameplayBTables), `${table} 未注册到独立 Editor`).toBe(true);
       expect(schema.defMap[table]?.type, `${table} 未从 Datapack 声明生成`).toBe(type);
       expect(schema.defs[type]?.fields?.length, `${type} 没有生成字段`).toBeGreaterThan(0);
+      expect(TABLES.some((candidate) => candidate.key === table), `${table} 未进入最终 TABLES`).toBe(true);
     }
+  });
+
+  it('PB24 Scene、SceneAction、PurchaseOffer、M/N 和 Route 用字段表单与引用类型描述', () => {
+    const field = (fields: FieldDef[], key: string): FieldDef => {
+      const found = fields.find((candidate) => candidate.key === key);
+      expect(found, `缺少字段 ${key}`).toBeDefined();
+      return found!;
+    };
+    const objectFields = (candidate: FieldDef): FieldDef[] => {
+      expect(candidate.type.kind).toBe('object');
+      return candidate.type.kind === 'object' ? candidate.type.fields : [];
+    };
+    const arrayItemFields = (candidate: FieldDef): FieldDef[] => {
+      expect(candidate.type.kind).toBe('array');
+      if (candidate.type.kind !== 'array') return [];
+      return objectFields(candidate.type.item);
+    };
+    const refTable = (candidate: FieldDef): string | undefined =>
+      candidate.type.kind === 'ref' ? candidate.type.table : undefined;
+    const operationLocation = getTable('operationLocations').fields;
+    const sceneFields = arrayItemFields(field(operationLocation, 'scenes'));
+    const sceneActionFields = arrayItemFields(field(sceneFields, 'sceneActions'));
+    const choiceFields = objectFields(field(sceneFields, 'sceneActionChoice'));
+    const purchaseFields = arrayItemFields(field(sceneFields, 'purchaseOffers'));
+    const routeFields = arrayItemFields(field(operationLocation, 'routeEdges'));
+
+    expect(refTable(field(operationLocation, 'enabledActionIds').type.kind === 'array'
+      ? field(operationLocation, 'enabledActionIds').type.item : field(operationLocation, 'enabledActionIds'))).toBe('operationActions');
+    expect(refTable(field(sceneActionFields, 'actionId'))).toBe('operationActions');
+    expect(field(choiceFields, 'candidateSceneActionIds').type.kind).toBe('array');
+    expect(field(choiceFields, 'chooseExactly').type.kind).toBe('int');
+    expect(refTable(field(purchaseFields, 'actionId'))).toBe('operationActions');
+    expect(refTable(field(routeFields, 'targetLocationId'))).toBe('operationLocations');
   });
 });
 
@@ -109,17 +160,20 @@ describe('Schema 描述协议：字段覆盖一致性', () => {
     }
   });
 
-  it('无残留 hand 字段（复杂字段必须由 editor-extras 覆盖）', () => {
+  it('复杂 hand 字段有可编辑的结构化描述或通用 JSON 编辑器', () => {
     for (const meta of TABLE_META) {
       if (meta.custom) continue;
       const genFields = schema.defs[meta.type!].fields ?? [];
       const ov = meta.overrides ?? {};
       for (const gf of genFields) {
         if (gf.kind === 'hand') {
-          expect(
-            ov[gf.key],
-            `${meta.key}.${gf.key} 为 hand 占位（${gf.tsType}），缺少 editor-extras 运行时构建`,
-          ).toBeDefined();
+          const field = getTable(meta.key).fields.find((candidate) => candidate.key === gf.key);
+          expect(field, `${meta.key}.${gf.key} 没有最终 FieldDef`).toBeDefined();
+          if (ov[gf.key]) {
+            expect(field!.type.kind).not.toBe('hand');
+          } else {
+            expect(field!.type.kind, `${meta.key}.${gf.key} 应使用通用 JSON 编辑器`).toBe('json');
+          }
         }
       }
     }

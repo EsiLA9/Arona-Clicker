@@ -43,7 +43,7 @@ const SERIKA_PROFILE: StudentOperationProfileDef = {
 function eventDef(id = EVENT_ID): OperationEventDef {
   return {
     id,
-    locations: [{ id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [],
     factIds: ['door-open'],
@@ -176,9 +176,17 @@ describe('Operation participant admission', () => {
   });
 
   test('Registry resolver closes definitions over Event, Location, and selected Profile references', () => {
+    const nestedSceneAction: OperationActionDef = {
+      id: 'scene-only-action', title: 'scene only', allowedParticipantKinds: ['student'],
+      requiredCapabilityIds: [], reasonIds: [], tagIds: [], target: { kind: 'none' }, effects: [],
+    };
     const location: OperationLocationDef = {
-      id: 'test:location:office', enabledActionIds: [], combinationRules: [], routeEdges: [],
+      id: 'test:location:office', stage: 'combat', enabledActionIds: [], combinationRules: [], routeEdges: [],
       cardPoolIds: ['test:pool:location'],
+      scenes: [{
+        id: 'nested-scene', title: 'Nested Scene', actionMode: 'global', sceneActionBatches: 1,
+        sceneActions: [{ id: 'nested-choice', actionId: nestedSceneAction.id, scope: 'global', playerCost: 0 }],
+      }],
     };
     const registryEvent = {
       ...eventDef(),
@@ -199,7 +207,7 @@ describe('Operation participant admission', () => {
     const resolver = createRegistryOperationContentResolver({
       operationEvents: new Map([[registryEvent.id, registryEvent]]),
       operationLocations: new Map([[location.id, location]]),
-      operationActions: new Map(actionDefinitions().map(action => [action.id, action])),
+      operationActions: new Map([...actionDefinitions(), nestedSceneAction].map(action => [action.id, action])),
       studentOperationProfiles: new Map([[HOSHINO_PROFILE.id, HOSHINO_PROFILE]]),
       operationCardPools: new Map(poolRows.map(pool => [pool.id, pool])),
       operationStrategyProfiles: new Map(strategyRows.map(profile => [profile.id, profile])),
@@ -207,7 +215,7 @@ describe('Operation participant admission', () => {
     const resolved = resolver.resolve(EVENT_ID);
     expect(resolved?.operationCardPools?.map(pool => pool.id).sort()).toEqual([POOL_ID, 'test:pool:event', 'test:pool:location'].sort());
     expect(resolved?.operationStrategyProfiles?.map(profile => profile.id)).toEqual([STRATEGY_ID]);
-    expect(resolved?.actionDefinitions.map(action => action.id).sort()).toEqual(['observe', 'opponent-observe', 'protect']);
+    expect(resolved?.actionDefinitions.map(action => action.id).sort()).toEqual(['observe', 'opponent-observe', 'protect', 'scene-only-action']);
   });
 
   test('keeps Registry Location context and Action Conditions through Admission and RunStart', () => {
@@ -443,7 +451,7 @@ describe('Operation participant admission', () => {
         source: content({
           eventDefinition: {
             ...eventDef(),
-            locations: [{ id: 'test:location:office', enabledActionIds: ['missing'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+            locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: ['missing'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
           },
         }),
         message: /enabledActionIds references a missing Action/,
@@ -452,7 +460,7 @@ describe('Operation participant admission', () => {
         source: content({
           eventDefinition: {
             ...eventDef(),
-            locations: [{ id: 'test:location:office', enabledActionIds: ['observe'], combinationRules: [{ id: 'combo', priority: 1, inputTagIds: ['missing:a', 'missing:b'], targetMatch: 'no-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
+            locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: ['observe'], combinationRules: [{ id: 'combo', priority: 1, inputTagIds: ['missing:a', 'missing:b'], targetMatch: 'no-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
           },
         }),
         message: /does not match an enabled student Action tag/,
@@ -462,7 +470,7 @@ describe('Operation participant admission', () => {
           actionDefinitions: baseActions.map((action, index) => ({ ...action, tagIds: [index === 0 ? 'slot:a' : 'slot:b'] })),
           eventDefinition: {
             ...eventDef(),
-            locations: [{ id: 'test:location:office', enabledActionIds: ['observe', 'protect'], combinationRules: [{ id: 'same-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'same-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
+            locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: ['observe', 'protect'], combinationRules: [{ id: 'same-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'same-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
           },
         }),
         message: /not have enabled student Actions compatible with targetMatch same-target/,
@@ -476,7 +484,7 @@ describe('Operation participant admission', () => {
           })),
           eventDefinition: {
             ...eventDef(),
-            locations: [{ id: 'test:location:office', enabledActionIds: ['observe', 'protect'], combinationRules: [{ id: 'no-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'no-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
+            locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: ['observe', 'protect'], combinationRules: [{ id: 'no-target', priority: 1, inputTagIds: ['slot:a', 'slot:b'], targetMatch: 'no-target', effects: [] }], routeEdges: [] } ], maxLocationVisits: 20,
           },
         }),
         message: /not have enabled student Actions compatible with targetMatch no-target/,

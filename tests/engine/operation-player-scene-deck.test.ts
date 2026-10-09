@@ -13,9 +13,9 @@ function deckEvent(seed = 17): OperationEventDef {
   return {
     id: 'test:operation:card-deck',
     locations: [
-      { id: 'test:location:a', enabledActionIds: [], combinationRules: [], routeEdges: [route('test:route:a-b', 'test:location:b')] },
-      { id: 'test:location:b', enabledActionIds: [], combinationRules: [], routeEdges: [route('test:route:b-c', 'test:location:c')] },
-      { id: 'test:location:c', enabledActionIds: [], combinationRules: [], routeEdges: [] },
+      { id: 'test:location:a', stage: 'scene', enabledActionIds: [], combinationRules: [], routeEdges: [route('test:route:a-b', 'test:location:b')] },
+      { id: 'test:location:b', stage: 'scene', enabledActionIds: [], combinationRules: [], routeEdges: [route('test:route:b-c', 'test:location:c')] },
+      { id: 'test:location:c', stage: 'scene', enabledActionIds: [], combinationRules: [], routeEdges: [] },
     ],
     initialLocationId: 'test:location:a',
     maxLocationVisits: 5,

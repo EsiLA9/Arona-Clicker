@@ -1,5 +1,5 @@
 /**
- * datapack.schema.ts —— 13 张表 Schema（由协议拼合）
+ * datapack.schema.ts —— Editor 表 Schema（由协议拼合）
  *
  * 结构 + 简单含义来自 src/engine/types/** 与 src/engine/contracts/**（scripts/gen-engine-schema.mjs →
  * engine-defs.gen.json）；复杂/编辑语义来自 editor-extras.ts；merge.ts 拼合为最终 TableSchema。

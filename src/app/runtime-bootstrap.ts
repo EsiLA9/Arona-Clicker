@@ -11,6 +11,14 @@ export function createAppRuntime(options: AronaClickerRuntimeOptions = {}): Aron
   let runtime: AronaClickerRuntime | null = null;
   let registryResolver: OperationContentResolver | null = null;
   const operationContentResolver: OperationContentResolver = {
+    listEventIds() {
+      if (runtime) registryResolver ??= createRegistryOperationContentResolver(runtime.registry);
+      const ids = [
+        ...(options.operationContentResolver?.listEventIds?.() ?? []),
+        ...(registryResolver?.listEventIds?.() ?? []),
+      ];
+      return [...new Set(ids)];
+    },
     resolve(eventId) {
       if (eventId === CAROUSEL_SAFETY_IDS.event && runtime?.state.activeInit !== DEFAULT_INIT_ID) return null;
       const customContent = options.operationContentResolver?.resolve(eventId);

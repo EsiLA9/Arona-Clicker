@@ -13,10 +13,29 @@ export interface OperationSceneCardSelection {
   readonly targetActorIds: readonly string[];
 }
 
+/** Selecting this ID requests one purchase; all price and effect data stay in trusted content. */
+export interface OperationScenePurchaseSelection {
+  readonly offerId: string;
+}
+
 /** A complete atomic scene batch. No cost or effect values are accepted from the caller. */
 export interface OperationSceneActionBatchCommand extends OperationRunVersionCommand {
   readonly selections: readonly OperationSceneActionSelection[];
   readonly cards?: readonly OperationSceneCardSelection[];
+  readonly purchases?: readonly OperationScenePurchaseSelection[];
+  /** Explicitly applies the existing skip-batch behavior; it cannot carry selectable offers. */
+  readonly skip?: true;
+}
+
+/** Ephemeral Scene-local selection value; it carries no trusted costs or effects. */
+export interface OperationScenePlan extends OperationRunVersionCommand {
+  readonly eventId: string;
+  readonly locationId: string;
+  readonly sceneId: string;
+  readonly selections: readonly OperationSceneActionSelection[];
+  readonly cards: readonly OperationSceneCardSelection[];
+  readonly purchases?: readonly OperationScenePurchaseSelection[];
+  readonly skip?: boolean;
 }
 
 export interface OperationSceneActionCostPreview {
@@ -39,9 +58,18 @@ export interface OperationSceneActionBatchPreview {
   readonly eventId: string;
   readonly basePlanVersion: number;
   readonly locationId: string;
+  readonly sceneId: string;
+  /** Lightweight value projection used for pure preview; never stored as a second owner state. */
+  readonly plan: OperationScenePlan;
   readonly actionMode: 'individual' | 'global';
   readonly selections: readonly OperationSceneActionSelection[];
   readonly cards: readonly (OperationSceneCardSelection & { readonly actionId: string; readonly playerCost: number })[];
+  readonly purchases?: readonly (OperationScenePurchaseSelection & {
+    readonly actionId: string;
+    readonly playerCost: number;
+    readonly purchaseFactId: string;
+  })[];
+  readonly skip?: boolean;
   readonly cost: OperationSceneActionCostPreview;
   /** Actor/Team resource costs from ActionDef, previewed with PlayerCost in one transaction. */
   readonly actionCosts: readonly OperationSceneActionResourceCostPreview[];

@@ -72,7 +72,7 @@ describe('Gameplay B Datapack authoring workflow', () => {
     expect(runtime.validatePackConfiguration(configuration)).toEqual({ ok: true, errors: [], warnings: [] });
     const initialApply = runtime.applyPackConfiguration(configuration);
     expect(initialApply.ok, initialApply.message).toBe(true);
-    expect(runtime.registry.operationEvents.get(IDS.event)?.resumeVersion).toBe(1);
+    expect(runtime.registry.operationEvents.get(IDS.event)?.resumeVersion).toBe(3);
 
     for (const student of STUDENTS) runtime.mutations.acquireCharacter(VARIANTS[student], 'story');
     const initialRun = runtime.operationEntry.start(IDS.event, STUDENTS);
@@ -109,7 +109,7 @@ describe('Gameplay B Datapack authoring workflow', () => {
     const revisedPack = clone(gameplayBCarouselDatapack);
     revisedPack.operationEvents![0] = {
       ...revisedPack.operationEvents![0],
-      resumeVersion: 2,
+      resumeVersion: 4,
       initialLocationId: IDS.locations.concourse,
     };
     savePackContent(runtime, revisedPack);
@@ -119,7 +119,7 @@ describe('Gameplay B Datapack authoring workflow', () => {
     expect(revisedApply.ok, revisedApply.message).toBe(true);
     expect(runtime.operationEntry.getSnapshot()).toBeNull();
     expect(runtime.registry.operationEvents.get(IDS.event)).toMatchObject({
-      resumeVersion: 2,
+      resumeVersion: 4,
       initialLocationId: IDS.locations.concourse,
     });
 
@@ -133,7 +133,7 @@ describe('Gameplay B Datapack authoring workflow', () => {
 
     const resumedRoster = runtime.operationEntry.start(IDS.event, STUDENTS);
     expect(resumedRoster.currentLocationId).toBe(IDS.locations.concourse);
-    expect(runtime.operationEntry.createSaveSnapshot()?.resumeVersion).toBe(2);
+    expect(runtime.operationEntry.createSaveSnapshot()?.resumeVersion).toBe(4);
     expect(resumedRoster.random.seed).toBe(revisedPack.operationEvents![0].randomSeed ?? 0);
   });
 });

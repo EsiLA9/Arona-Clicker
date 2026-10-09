@@ -93,6 +93,45 @@ describe('ID 三段式格式', () => {
     expect(messages(data)).toEqual([]);
   });
 
+  it('pack 与 kind 中的合法连字符可用于三段式 Operation ID', () => {
+    const data = {
+      operationEvents: [{
+        id: 'scene-authoring:operation-event:sample',
+        initId: 'base:init:base',
+        resumeVersion: 1,
+        locationIds: ['scene-authoring:operation-location:worksite'],
+        initialLocationId: 'scene-authoring:operation-location:worksite',
+        maxLocationVisits: 1,
+        tracks: [],
+        factIds: [],
+        knownFactIds: [],
+        itemIds: [],
+        heldItemIds: [],
+        actors: [],
+        participants: [],
+        playerRouteState: { playerCost: 0 },
+      }],
+      operationLocations: [{
+        id: 'scene-authoring:operation-location:worksite',
+        stage: 'scene',
+        enabledActionIds: [],
+        combinationRules: [],
+        routeEdges: [],
+      }],
+      operationActions: [{
+        id: 'scene-authoring:operation-action:inspect',
+        title: '检查现场',
+        allowedParticipantKinds: ['student'],
+        requiredCapabilityIds: [],
+        reasonIds: [],
+        tagIds: [],
+        target: { kind: 'none' },
+        effects: [],
+      }],
+    };
+    expect(messages(data)).toEqual([]);
+  });
+
   it('非法 id 报错', () => {
     const data = { spots: [{ id: 'base:spot' }, { id: 'printer' }, { id: 'BASE:spot:printer' }] };
     const msgs = messages(data);

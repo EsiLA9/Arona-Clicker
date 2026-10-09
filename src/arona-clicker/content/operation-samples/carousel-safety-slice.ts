@@ -22,7 +22,7 @@ function deepFreeze<T>(value: T): T {
 
 const eventDefinition: OperationEventDef = {
   id: IDS.event,
-  locations: [{ id: IDS.location, enabledActionIds: Object.values(IDS.actions), combinationRules: [{
+  locations: [{ id: IDS.location, stage: 'combat', enabledActionIds: Object.values(IDS.actions), combinationRules: [{
       id: 'gameplay-b:operation-combination:carousel-brake-signal',
       priority: 10,
       inputTagIds: ['gameplay-b:operation-tag:brake', 'gameplay-b:operation-tag:signal'],

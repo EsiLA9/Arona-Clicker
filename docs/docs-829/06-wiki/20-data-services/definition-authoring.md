@@ -14,14 +14,14 @@
 
 ## Gameplay B Operation 内容
 
-`operationEvents`、`operationLocations`、`operationActions` 和 `studentOperationProfiles` 是 `Datapack` / Registry 的正式表。作者直接修改正式 Datapack 定义；这些表没有登记为 `ContentAuthoringPolicy` CRUD，也不属于游戏内 Spot/Area/Init Runtime Editor。
+`operationEvents`、`operationLocations`、`operationActions`、`studentOperationProfiles`、`operationStrategyProfiles` 和 `operationCardPools` 是 `Datapack` / Registry 的正式表。它们可在独立 Datapack Editor 中编辑，但没有登记为 `ContentAuthoringPolicy` CRUD，也不属于游戏内 Spot/Area/Init Runtime Editor。Action 的嵌套 `target` union 在生成 Schema 中保留为通用 JSON 字段；PB-23 目标规则由 `OperationActionDef.target` 源契约和 Registry 校验约束，不由 Editor 或游戏 UI 另算候选。
 
 应用包配置时，`AronaClickerRuntime.validatePackConfiguration()` 会按候选启用集建立临时 Registry 并逐包校验；校验通过后，`applyPackConfiguration()` 才交给 PackManager 应用并 reload Runtime。Operation 引用错误由 Registry 指向完整 Event/Location ID 与字段路径，例如 `operationEvents[...].locationIds`、`operationLocations[...].routeEdges[...].targetLocationId`。校验失败不会触发 Runtime reload；有效内容改动则在 reload 后由新 Run 从 Registry 读取。
 
-事件作者对不兼容修改递增 Event 的 `resumeVersion`。旧 Run checkpoint 会被拒绝恢复，之后新启动的 Run 使用新定义。当前固定游乐园示例及其编辑/校验/重载验收位于 `src/arona-clicker/content/operation-samples/gameplay-b-datapack.ts` 与 `tests/engine/gameplay-b-authoring-workflow.test.ts`；v1 不增加 Operation 专用编辑器、CLI 或第二份示例事件。
+事件作者对不兼容修改递增 Event 的 `resumeVersion`。旧 Run checkpoint 会被拒绝恢复，之后新启动的 Run 使用新定义。当前固定游乐园示例位于 `src/arona-clicker/content/operation-samples/gameplay-b-datapack.ts`；独立原子场景 Registry Event 位于 `src/arona-clicker/content/operation-samples/atomic-scene-demo.ts`。Operation 表在 Datapack Editor 中的编辑、导入导出及 Runtime reload 闭环由 PB-25 验收；通用作者策略 API 仍不提供 Operation 表的局部 CRUD。
 
 ## 从哪里核对
 
 - `src/data-services/authoring/content-policies.ts` 定义策略清单；`src/data-services/authoring/content-policy.ts` 提供授权查询、字段校验、Def 编码及 `applyAuthoringMutation()`。
 - `tests/data/content-policy.test.ts` 覆盖未登记字段拒绝、字段值校验、`buildAuthoringDef()` 编码和 Registry mutation receipt。Spot 局部 mutation 是已登记的具体路径，不能推广为所有内容表都能局部编辑。
-- Gameplay B Operation 属于正式 Datapack 定义，但不在通用策略清单；`tests/engine/gameplay-b-authoring-workflow.test.ts` 验证候选启用集校验与 reload 流程。
+- 六张 Gameplay B Operation 表属于正式 Datapack 定义，但不在通用策略清单；`tests/engine/gameplay-b-authoring-workflow.test.ts` 验证候选启用集校验与 reload 流程。

@@ -76,7 +76,7 @@
 | --- | --- |
 | 状态 | 完成 |
 | 实际修改 | `docs/docs-829/06-wiki/50-ui/workspace-routing.md`、`refresh-update.md`、`presentation-theme.md`；本 Unit Receipt |
-| 未完成内容 | 未运行真实浏览器视觉 / 交互验收；Unit 是已有 UI 路由、更新协议与表现数据流的文档审查，相关浏览器验收不是本 Unit Verification 必需项。未逐页检查所有视觉资产和 CSS。Operation workspace 组件 / 命令以及对应测试正在 [[docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers]] 并行修改；本 Unit 只审查当前 WorkspaceRoute / Renderer 投影入口，不把 Operation Surface 的展示与交互当作稳定结论，待该 Task 稳定后复核。 |
+| 未完成内容 | 未运行真实浏览器视觉 / 交互验收；Unit 是已有 UI 路由、更新协议与表现数据流的文档审查，相关浏览器验收不是本 Unit Verification 必需项。未逐页检查所有视觉资产和 CSS。Operation workspace 组件 / 命令以及对应测试当时正在 [[docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers]] 并行修改；本 Unit 只审查当前 WorkspaceRoute / Renderer 投影入口，不把 Operation Surface 的展示与交互当作稳定结论，待相应交互复核。 |
 | 范围外变更 | 无 |
 | GALHCG 影响闭环 | 对 `50-ui/` 与本 Unit 路径执行 `review_changes`；刷新本 Unit 三页共 6 条直接 Wiki Evidence 和本 Unit 的 1 条 Evidence，两条 Wiki maps_to 边写后为 unchanged。共享 `concept:ui-workspace-renderer` 节点仍有两条对应页面 Evidence stale；其 node 更新 dry-run 因并行 Task 0236 的 `src/ui/components/operation-workspace.ts` stale token 被拒，留待该文件稳定后复核并一并更新节点 Evidence。未把当前 Operation UI 当作最终状态。 |
 

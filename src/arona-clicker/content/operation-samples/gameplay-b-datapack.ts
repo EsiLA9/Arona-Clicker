@@ -4,6 +4,25 @@ import type {
   OperationLocationDef,
 } from '../../../data-services/contracts/operation';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS, carouselSceneActionSliceContent } from './carousel-scene-action-slice';
+import {
+  atomicSceneDemoAction,
+  atomicSceneDemoAlarmAction,
+  atomicSceneDemoAlarmGroupAction,
+  atomicSceneDemoAlarmMoveAction,
+  atomicSceneDemoActorlessAction,
+  atomicSceneDemoEvent,
+  atomicSceneDemoHoshinoProfile,
+  atomicSceneDemoLocation,
+  atomicSceneDemoExitLocation,
+  atomicSceneDemoSerikaProfile,
+} from './atomic-scene-demo';
+import {
+  sceneOfferPurchaseDemoActions,
+  sceneOfferPurchaseDemoEvent,
+  sceneOfferPurchaseDemoExitLocation,
+  sceneOfferPurchaseDemoHoshinoProfile,
+  sceneOfferPurchaseDemoLocation,
+} from './scene-offer-purchase-demo';
 
 function localId(id: string): string {
   return id.slice(id.lastIndexOf(':') + 1);
@@ -34,7 +53,7 @@ const event: OperationEventContentDef = {
   ...eventFields,
   id: IDS.event,
   initId: 'base:init:schale_office',
-  resumeVersion: 1,
+  resumeVersion: 3,
   locationIds: locations.map(location => location.id),
   initialLocationId: IDS.locations.platform,
   objectives: eventFields.objectives?.map(objective => ({ ...objective, id: localId(objective.id) })),
@@ -66,8 +85,16 @@ export const gameplayBCarouselDatapack: Datapack = {
   items: [],
   funcletDefs: [],
   characters: [],
-  operationEvents: [event],
-  operationLocations: [...locations],
-  operationActions: [...carouselSceneActionSliceContent.actionDefinitions],
-  studentOperationProfiles: [...studentProfiles],
+  operationEvents: [event, atomicSceneDemoEvent, sceneOfferPurchaseDemoEvent],
+  operationLocations: [...locations, atomicSceneDemoLocation, atomicSceneDemoExitLocation, sceneOfferPurchaseDemoLocation, sceneOfferPurchaseDemoExitLocation],
+  operationActions: [
+    ...carouselSceneActionSliceContent.actionDefinitions,
+    atomicSceneDemoAction,
+    atomicSceneDemoAlarmAction,
+    atomicSceneDemoAlarmGroupAction,
+    atomicSceneDemoAlarmMoveAction,
+    atomicSceneDemoActorlessAction,
+    ...sceneOfferPurchaseDemoActions,
+  ],
+  studentOperationProfiles: [...studentProfiles, atomicSceneDemoHoshinoProfile, atomicSceneDemoSerikaProfile, sceneOfferPurchaseDemoHoshinoProfile],
 };

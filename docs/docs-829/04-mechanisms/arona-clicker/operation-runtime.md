@@ -15,11 +15,11 @@
 | `reviseIntervention({ runId, planVersion, draft })` | 校验预览后写入唯一干预槽，递增版本并重建基础计划。 |
 | `clearIntervention({ runId, planVersion })` | 清除已存草稿并递增版本；槽位已空时返回未变化快照。 |
 | `commitBeat({ runId, planVersion })` | 由当前 Run 中已存的计划与草稿执行一次战术结算。 |
-| `previewSceneActionBatch({ runId, planVersion, selections, cards? })` | 纯校验当前地点的 Individual/Global 部分选择或空批次；汇总实际选择的 SceneAction 与当前手牌 SceneCard 费用，不写 Run 或消费随机数。 |
-| `stageSceneActionBatch({ runId, planVersion, selections, cards? })` | 显式暂存当前选择的 SceneAction、玩家卡与费用预览；零选择表示跳过本批。不扣费、移牌或消费随机数，可随 Run 存档。 |
+| `previewSceneActionBatch({ runId, planVersion, selections, cards?, purchases?, skip? })` | 纯校验当前 Scene 的 Individual/Global 选择、PurchaseOffer 与跳过合同；汇总实际选择的 SceneAction、当前手牌 SceneCard 和 PurchaseOffer 的共享 PlayerCost，不写 Run 或消费随机数。 |
+| `stageSceneActionBatch({ runId, planVersion, selections, cards?, purchases?, skip? })` | 显式暂存当前选择的 SceneAction、玩家卡、购买项与费用预览；显式 skip 才表示跳过本批。不扣费、移牌或消费随机数，可随 Run 存档。 |
 | `clearSceneActionBatchDraft({ runId, planVersion })` | 丢弃暂存批次；不改 Cost、卡区或随机流。 |
 | `commitStagedSceneActionBatch({ runId, planVersion })` | 校验暂存费用快照仍与当前 Run 一致，再通过同一原子场景结算入口提交。 |
-| `commitSceneActionBatch({ runId, planVersion, selections, cards? })` | 将 SceneAction 与零张或多张手牌合成一条 OperationResolution，一次扣 PlayerCost、递减批次数并将所用卡从 hand 移入 discard。 |
+| `commitSceneActionBatch({ runId, planVersion, selections, cards?, purchases?, skip? })` | 将 SceneAction、零张或多张手牌和 PurchaseOffer 合成一条 OperationResolution，一次扣 PlayerCost、写购买 Fact marker、应用既有 Action 效果、递减批次数并将所用卡从 hand 移入 discard。 |
 | `transitionRoute({ runId, planVersion, routeId })` | 完成地点后按当前出口 Gate 转场；这是自动单出口和玩家多出口共用的唯一地点转场命令。 |
 | `claimOutcomeReward()` | 对已结束的成功/部分成功 Run，经 `StateMutationService` 提交事件定义中的白名单奖励一次；失败、未结束或已领取状态不会重复发放。 |
 | `createSaveSnapshot()` / `restoreSaveSnapshot(snapshot)` | 由 GameInstance 存档/读档路径调用；内容由当前 Registry 重建，拒绝时保留清晰诊断。 |
@@ -33,7 +33,7 @@ Facade 不暴露 raw owner、任意 `applyStateDelta()`、`finish()`、`reset()`
 
 GameInstance 入场将通过验证的 Actor 身份与 Profile 静态投影交给 owner。学生快照只含本局所需 Character ID、Profile ID、行动候选/优先级、能力、理由及可选技能规则 ID；不包含 Variant ID、`CharacterData`、`VariantProgress` 或长期角色对象。对手/环境快照包含参与者类型、可选 faction ID 和有序候选行动 ID。Admission DTO 只在入场过程中转换为 Run-start input，不按 Run ID 缓存。
 
-owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`OperationResolvedContent.actionDefinitions` 和技能规则，按 Run 私有保存。后续准备、预览与 Commit 都只读取该份冻结内容，不重新查询 resolver、Registry 或 PlayerState。作者输入现在来自四张 Datapack 表；运行时仍只保留当前 Run 所需的冻结规则，不把 Registry 对象传给结算服务。
+owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`OperationResolvedContent.actionDefinitions` 和技能规则，按 Run 私有保存。后续准备、预览与 Commit 都只读取该份冻结内容，不重新查询 resolver、Registry 或 PlayerState。作者输入现在来自六张 Datapack 表；运行时仍只保留当前 Run 所需的冻结规则，不把 Registry 对象传给结算服务。
 
 ## EventRun 状态与归属
 
@@ -43,13 +43,13 @@ owner 在发布 Run 前深拷贝并冻结事件定义、Actor 初始化、`Opera
 | `actorStates` | 事件 Actor 的 ID/type、HP/maxHP/resources、可选 Team ID 与 detached displayName/avatarRef；GameInstance Run 另有参与者身份，学生携带派生 Profile snapshot。 |
 | `teamStates` | 每个声明 Team 的局部战术 resources。Team membership 只由 `OperationActorDef.teamId` 决定。 |
 | `playerRouteState` | 与学生/队伍战术资源分开的共享 `playerCost`，以及只存物理 `cardInstanceId` 的 drawPile、hand、discard 三个互斥卡区。打出的牌直接进入 discard，不回洗。 |
-| `locationProgress` | 已声明 Location 的访问次数、完成标记与当前访问已消费的 SceneAction 批次数；每次新访问重置批次数。 |
-| `locationEntryCostHistory` | 每次进入地点记录访问序号、访问计数、costGain 与余额前后值；它与 `routeHistory` 一并属于 Run 快照。 |
+| `locationProgress` | 已声明 Location 的访问次数、完成标记、有序 Scene 的已完成 ID 前缀，以及当前访问或各 Scene 已消费的 SceneAction 批次数；每次新访问重置批次数，但保留同 Run 已完成 Scene。 |
+| `locationEntryCostHistory` | 每次进入地点记录访问序号、访问计数、costGain 与余额前后值，并带 Run-wide `timelineSequence`；它与 `routeHistory` 一并属于 Run 快照。 |
 | `pendingSceneActionBatch` | 仅显式 stage 后存在；保存完整输入及基于当时余额计算的费用预览。纯 `previewSceneActionBatch()` 不写入。 |
-| `routeHistory` | 每次转场记录来源/目标地点、Route ID、离开结果、可选已消费持有物，以及配置了携带上限时的离场余额。 |
+| `routeHistory` | 每次转场记录 Run-wide `timelineSequence`、来源/目标地点、Route ID、离开结果、可选已消费持有物，以及配置了携带上限时的离场余额。 |
 | `rewardClaimed` | Run 已结束且事件奖励确认已成功提交后置为 true；与 `EventResult` 同步快照并在 Save/Resume 中保留。 |
 | `preparedBeat` / `interventionDraft` | 当前版本的规范基础计划，以及最多一名学生的一槽干预草稿。低层结构测试 Run 可能没有战术内容，因此两者可为 `null`。 |
-| `resolutions` / `resolutionSequence` | 最近最多 32 条结算记录及单调递增序号。 |
+| `resolutions` / `resolutionSequence` / `timelineSequence` | 最近最多 32 条结算记录、单调递增的结算序号，以及共享于结算、转场和地点入场记录的 Run-wide 时间序号。 |
 | `random` | `splitmix64-counter-v1`、事件 seed 和 `tacticalCursor`。 |
 | `planVersion` / `beatIndex` | Run 状态版本和已成功提交 Beat 数。 |
 
@@ -61,21 +61,41 @@ EventRun 仍是每个 `GameInstance` 的独立 owner 状态，不写入 `PlayerS
 
 可恢复快照由现有 `GameInstance.save()/load()` 接线到主 SaveData 的可选 `operationRun` 字段；SaveSystem 继续把它作为普通 JSON 文档，不新增 key、slot 或格式迁移。快照只有 `eventId + resumeVersion`、当前 EventRun 动态字段和可能存在的 EventResult；规则、Registry lookup 与 View 不落盘。有限牌组的 drawPile/hand/discard 已包含实际抽取顺序，因此恢复不重洗牌，也不重复发地点 Cost 或重抽卡。
 
-读档顺序为：清除现存易失 Run → 恢复主 PlayerState → 按稳定 Event ID 从当前 Registry 解析规则 → 比较 `resumeVersion` 与 Init/Character/Profile/Action 引用 → 校验保存的轨道、Actor、Cost、地点访问、牌区、Resolution、RNG、PreparedBeat、干预与暂存场景批次 → 一次安装恢复 Run。任何检查失败都不留下半恢复状态；`operationEntry.getLastRestoreResult()` 给出 `restored` 或带原因的 `rejected`，GameInstance 同时记录可见开发日志，调用方可重新开始事件。事件内容不兼容由作者递增 `resumeVersion` 表达，不计算内容 Hash。
+读档顺序为：清除现存易失 Run → 恢复主 PlayerState → 按稳定 Event ID 从当前 Registry 解析规则 → 比较 `resumeVersion` 与 Init/Character/Profile/Action 引用 → 校验保存的轨道、Actor、Cost、地点访问、牌区、Resolution 与共享 timeline 顺序、RNG、PreparedBeat、干预与暂存场景批次 → 一次安装恢复 Run。历史完整性校验要求初始 Location 至少访问一次；`routeHistory.length` 等于所有 Location `visitCount` 总和减一；若任一 Location 声明 `costGain` 或 `maxCarryCost`，Location entry Cost history 必须存在且逐次覆盖每次访问，否则不允许多余的 entry Cost history。Resolution history 长度必须精确等于 `min(resolutionSequence, 32)`，其中序号覆盖最近连续保留窗口；共享 `timelineSequence` 必须等于累计 Resolution 数、Route 数和 entry Cost 记录数之和。每一条保留记录仍须通过 ID、字段、单调次序、唯一序号和范围校验。任何检查失败都不留下半恢复状态；`operationEntry.getLastRestoreResult()` 给出 `restored` 或带原因的 `rejected`，GameInstance 同时记录可见开发日志，调用方可重新开始事件。事件内容不兼容由作者递增 `resumeVersion` 表达，不计算内容 Hash。
 
 SceneAction/玩家卡批次只有调用 `stageSceneActionBatch()` 后才成为 Run 状态。stage 保存原始选择和费用预览；读档会按当前可信内容重算并核对预览，commit 再走既有原子结算。纯预览、未接受的 UI 草稿和 hover/滚动状态均不在 SaveData 中。
+
+## Location 内有序 Scene
+
+`OperationLocationDef.scenes` 可内嵌一组按作者顺序执行的 `OperationSceneDef`。Scene ID 只需在所属 Location 内稳定；完整内容身份由 Event、Location、Scene 的父子路径组成。省略 `scenes` 时 Runtime 投影一个隐式 singleton Scene，稳定 ID 为 `main`，并沿用该 Location 原有的 enabled actions 与 SceneAction 设置，因此旧 Location 不需要内容迁移。
+
+Scene 没有独立 Runtime owner、`sceneInstanceId` 或 SaveData 字段。`EventRun.locationProgress[locationId]` 承载 `completedSceneIds` 及显式 Scene 的批次计数；当前 Scene 从有序内容中取第一个未完成项，完成 ID 按顺序前缀校验。Location 重访沿用该 Run 已完成的 Scene 前缀，checkpoint 也保存同一份进度；开始新的 EventRun 才得到新的 Scene 进度。隐式 `main` 沿用 Location 原有完成规则；显式 Scene 只有成功提交后状态满足作者声明的 `completion` 才记录完成。
+
+`OperationView.currentSceneId`、`currentScene`、`scenes` 和 `actionOffers` 都由当前 Location 内容与 EventRun 进度推导，不另存 ready/active/completed 标记。Scene Location 在有 tacticalContent 时仍保留一个确定性的 `preparedBeat` 作为只读资格投影与恢复校验快照；它不表示玩家可以提交战斗 Beat，Workspace 只在 `currentStage: combat` 显示战斗控制，且 Runtime 的 `commitBeat()` 会拒绝任何非 `stage: combat` Location。Scene 结算把 Scene ID 写入同一条 `OperationResolution.sceneId`，并按来源使用现有 `commitBeat()` 或 `commitSceneActionBatch()` 的 detached copy-on-write 提交；SceneAction 空 skip 虽消耗批次预算，不执行效果，也不推进 Scene。Scene 完成本身不会标记 Location 完成或执行路线转场；只有现有 Location objective / failure / explicit completion 规则决定退出。
+
+`gameplay-b:operation-event:atomic-scene-demo` 是独立的小型 Registry Event，包含一个复合 Location 和一个最小出口 Location；复合地点按序排列 `investigate-equipment` → `handle-alarm` 两个 Scene。警报 Scene 分四批运行：`all-eligible` 对当前前排的两名敌人结算、显式选择并把一名前排敌人移到后排、再次 `all-eligible`（只命中仍在前排的敌人）、最后显式选择解除警报并揭示完成 Fact 的敌人。调查提交揭示维修线索后，View 将同地点的警报 Scene 投影为 active；空 skip、被 Runtime 拒绝的批次或只用 actorless 遥控牌都不会推进到警报 Scene。Scene A 完成时地点仍为 inProgress、出口 Route 不可用且没有路线历史。Scene B 成功后，独立地点目标与有序 Scene 完成门槛共同满足；来源地点记录为 success，唯一合法出口按既有规则自动转场。Run / Map 保留来源地点成功状态及两个 completed Scene ID，Route history 保存 Route ID。样例通过通用 Registry Operation 入口启动，不增加 Event-ID UI 特判；其 Event checkpoint 版本为 3。
+
+Scene 可用 `sceneActionChoice` 声明一个 M-of-N 候选集。V1 只接受 required Global SceneAction ID，作者的 N 必须在 `[1, M]`；普通 SceneAction 批次必须恰好提交 N 个不同候选，候选缺失、重复或多选都会使 Preview 与 Commit 整批失败。`fixed` SceneAction 仍自动结算，但不计入 N。显式 `skip: true` 是独立命令，不受 exact-N 拦截；它只按既有空批次规则消耗批次额度、不运行非 fixed Action、不扣选择费用，也不满足 Scene completion。普通空提交不能伪装成 skip。该选择合同不把物理 PlayerSceneCard 或 PurchaseOffer 混入 M/N 候选。
+
+同一 Scene 还可声明 `purchaseOffers`，但当前演示把玩法分置于同一 Location 的两个有序 Scene：`choose-response` 先完成 exact 2-of-4 选择，`purchase-supplies` 再呈现两个不同价格的补给。每个 PurchaseOffer 指向已登记 targetless Operation Action、非负共享 PlayerCost 与一个 Event `factIds` 中初始未记录且唯一的 `purchaseFactId`。Action 必须至少有一个 Event Track / Fact / HeldItem 奖励效果，不得声明 Action cost 或非 Event 效果。成功购买在同一 Resolution 中扣共享 PlayerCost、运行既有 Action effects 并揭示独立 purchase Fact；奖励 HeldItem 不充当防重锁。该 marker 属于 EventRun 的 `knownFactIds`，随 checkpoint 保存；Preview 和 Commit 均按 marker 重验。因此移除奖励物、恢复存档或重置 Location-local 进度不会清除购买锁。Action、StudentSkillRule 与 CombinationRule effects 不得 reveal/forget 任何预留 marker。Purchase Offer 的 View 奖励说明采用人类可读 Action 描述或标题，不把 Event-local Item/Fact/Track ID 当玩家文案。当前机制不引入 ShopService、货币或通用库存层。
+
+`gameplay-b:operation-event:scene-offer-purchase-demo` 是上述合同的独立验收样例：同一 Location 内先 M/N 选择，再批量购买两个补给；购买后另用库存复核行动证明持有物可移除而 marker 仍有效。每个显式 Scene 仅在成功 Commit 后满足各自 completion 条件；两幕完成并满足 Location objectives 后才按单出口规则转场。
+
+正式 Carousel 与 Strategy Park checkpoint 的 `resumeVersion` 当前分别为 3 与 4：Scene ID 进入 Resolution 后，旧版本检查点按既有内容版本策略拒绝，不做迁移。
+
+显式 Scene 序列的完成是 Location 退出前置门槛：即使地点目标已满足，前序或当前 Scene 尚未完成时，地点也不会被标记完成或开放出口。Scene A → B 本身不消耗 Route；完成最后一幕后，再由 Location outcome 决定结果并评估出口。唯一可用 Route 沿现有 exact-one 规则自动转场；多出口仍等待玩家提交 Route ID。
 
 ## 行动内容与 PreparedBeat
 
 `OperationResolvedContent.actionDefinitions` 是本局 ActionDef 的唯一可信来源；`OperationEventDef.actionRequirements` 已删除。学生候选来自已入场 Profile 的 `actionPriorityIds` 和 `candidateActionIds`；对手/环境候选按其 `OperationParticipantSpec.candidateActionIds` 声明顺序读取。候选 ID 必须解析到完整 `OperationActionDef`，定义有限地声明参与者类型、能力、理由、标签、可选 Actor/Team 单项资源费、无目标或单 Actor 目标合同，以及 Actor HP/resource、Team resource 或事件数值轨道的有限 delta 效果。
 
-Actor target 有 performer 时先由 `relation` 确定候选，并可用 `allowedActorIds` 精确限制 Event Actor ID、用 `allowedActorTypes` 限制声明的 `OperationActorDef.type` 字符串；两者同时声明时取交集，每个 ID 和 type 都必须在当前 Event 中存在。免 performer 的场景 Action 不存在 relation source，只能使用显式 `allowedActorIds` / `allowedActorTypes` 形成绝对目标候选；不能解析 `self`、`sameTeam` 或 `otherTeam`。`targetPriorityActorIds` 只在合法候选中排序，不增加目标资格。Actorless Action 的非 Target Effect 不能依赖 source Actor；缺少 performer 时 Actor/Team execution cost 与 actor-relative Effect 均非法。
+Actor Target 合同可声明 `selectionMode: 'select' | 'all-eligible'`、`allowedPositionIds` 和现有关系 / ID / type 过滤。省略 `selectionMode` 等价于 `select`；所有已声明的 relation、ID、type、position 条件都取交集。候选资格使用当前 Run 中存活 Actor 的 HP 和站位，站位 Effect 提交后 View / Preview 会据此重新计算。`select` 保留玩家显式选择的目标 ID，并在 Preview / Commit 再验证；目标死亡、换位或其他状态变化导致目标失效时整批拒绝，不改选成全组、不留下部分费用或效果。`all-eligible` 只在 Scene 批次显式启用，由 Runtime 在当前状态解析全部合格目标，空组不可执行；它不由空 `targetActorIds` 推断。该模式不适用于战斗 Beat / Intervention，战斗仍使用原有单目标语义。Actor target 有 performer 时 `relation` 先确定关系候选；`allowedActorIds` 精确限制 Event Actor ID，`allowedActorTypes` 限制声明的 `OperationActorDef.type` 字符串，`allowedPositionIds` 限制当前 Run 的位置，所有条件同时声明时相交，每个静态 ID/type 都必须在当前 Event 中存在。免 performer 的场景 Action 不存在 relation source，只能使用显式 `allowedActorIds` / `allowedActorTypes` 建立绝对目标候选；`allowedPositionIds` 仅继续过滤这个集合，不能单独建立关系或 Actorless 目标边界，也不能解析 `self`、`sameTeam` 或 `otherTeam`。`targetPriorityActorIds` 只在合法候选中排序，不增加目标资格。Actorless Action 的非 Target Effect 不能依赖 source Actor；缺少 performer 时 Actor/Team execution cost 与 actor-relative Effect 均非法。
 
-Runtime `OperationEventDef.locations[]` 是 Registry adapter 依 `OperationEventContentDef.locationIds` 解析出的只读入场 DTO；作者内容中的 Location 独立登记。Location 保持战术 Action、Combination、局部结局规则、路线和可选场景合同。非战斗场景可用 `actionMode` 选择 `individual` 或 `global`，配置有限 `sceneActionBatches`、SceneAction 薄包装、`costGain`、`maxCarryCost` 与可选 `maxVisits`。Individual 每批每名存活学生最多选一项；Global 每批最多选一项；两种模式都允许零选或部分选择。空批次通过显式跳过消耗一个批次额度，不结算非 fixed Action、不支付费用、不移牌；批次数仍按 Location 完成条件推进，目标、Route Gate 与结局条件照常生效。`performerPolicy` 位于 SceneAction / PlayerSceneCard 调用入口，缺省为 `selected-student`；`none` 只允许就地激活，`optional-student` 允许就地激活或由一名合格学生执行。Actorless Actor Target 必须声明绝对 Actor ID/type filter，且不能使用执行者资源成本或 performer-relative 效果；student 分支可用该学生的关系目标。`selectionPolicy` 缺省为 `required`，表示可由玩家选择的行动/牌，不表示批次必须用尽所有可选项；`fixed` 项自动纳入、不可取消，Location fixed SceneAction 按 scope 纳入，fixed 物理手牌按实例纳入。没有明确提交绑定的 fixed 项由 Runtime 根据 performer policy 选择默认执行方式/目标。SceneAction 与 PlayerSceneCard 仍只引用一份 `OperationActionDef`，目标、资格和效果不复制；Action `title` / `description` 与 wrapper 文案覆盖从 View 投影，不由 UI 按内容 ID 查表。RouteGate 可要求单个 `requiredHeldItemId`，或要求 `anyOfHeldItemIds` 中至少持有一项；两种字段互斥。只有单凭证路线可声明 `consumeRequiredHeldItem`，因此消费对象唯一。Datapack 校验要求 Route 目标位于 Event 声明的 Location 内、门禁物品属于 Event。进入目标地点时同时检查 Event 总访问预算与 Location 自身 `maxVisits`；RouteView 只对当前地点出边判断可用性。Location 仍只过滤战术候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
+Runtime `OperationEventDef.locations[]` 是 Registry adapter 依 `OperationEventContentDef.locationIds` 解析出的只读入场 DTO；作者内容中的 Location 独立登记。Event 可带可选 `title` 与 `description`，分别供通用入口和 Operation workspace 标题/简报使用。每个 Location 必须显式声明 `stage: 'combat' | 'scene'`；Runtime View 原样投影当前阶段，UI 不从 `PreparedBeat`、`maxBeats` 或 Location ID 推断。`maxBeats` 仍只限定该 Location 可提交的战斗 Beat 数。Location 保持战术 Action、Combination、局部结局规则、路线和可选场景合同。非战斗场景可用 `actionMode` 选择 `individual` 或 `global`，配置有限 `sceneActionBatches`、SceneAction 薄包装、`costGain`、`maxCarryCost` 与可选 `maxVisits`。Individual 每批每名存活学生最多选一项；Global 每批最多选一项；两种模式都允许零选或部分选择。空批次通过显式跳过消耗一个批次额度，不结算非 fixed Action、不支付费用、不移牌；批次数仍按 Location 完成条件推进，目标、Route Gate 与结局条件照常生效。`performerPolicy` 位于 SceneAction / PlayerSceneCard 调用入口，缺省为 `selected-student`；`none` 只允许就地激活，`optional-student` 允许就地激活或由一名合格学生执行。Actorless Actor Target 必须声明绝对 Actor ID/type filter，且不能使用执行者资源成本或 performer-relative 效果；student 分支可用该学生的关系目标。`selectionPolicy` 缺省为 `required`，表示可由玩家选择的行动/牌，不表示批次必须用尽所有可选项；`fixed` 项自动纳入、不可取消，Location fixed SceneAction 按 scope 纳入，fixed 物理手牌按实例纳入。没有明确提交绑定的 fixed 项由 Runtime 根据 performer policy 选择默认执行方式/目标。SceneAction 与 PlayerSceneCard 仍只引用一份 `OperationActionDef`，目标、资格和效果不复制；Action `title` / `description` 与 wrapper 文案覆盖从 View 投影，不由 UI 按内容 ID 查表。RouteGate 可要求单个 `requiredHeldItemId`，或要求 `anyOfHeldItemIds` 中至少持有一项；两种字段互斥。只有单凭证路线可声明 `consumeRequiredHeldItem`，因此消费对象唯一。Datapack 校验要求 Route 目标位于 Event 声明的 Location 内、门禁物品属于 Event。进入目标地点时同时检查 Event 总访问预算与 Location 自身 `maxVisits`；RouteView 只对当前地点出边判断可用性。Location 仍只过滤战术候选，不覆盖 Profile / ParticipantSpec 的候选顺序。
 
-有限玩家卡组位于事件定义的 `playerSceneDeck`：PlayerSceneCardDef 声明卡 ID、ActionDef、标题/说明覆盖、PlayerCost、scene 时机、副本数，以及可选 performer / selection policy。场景批次另可提交零张或多张当前 hand 卡实例；每张卡由同一份 `OperationActionDef` 提供效果与目标规则。SceneAction 与玩家卡 PlayerCost、Action Actor/Team execution cost 从内容定义分别汇总并联合预检；命令不能注入费用、Action 或效果。Planner 将 SceneAction/SceneCard 效果与费用写入相同 OperationResolution 变化格式与同一个 Runtime 提交边界，卡牌只在该原子提交里从 hand 移入 discard。
+有限玩家卡组位于事件定义的 `playerSceneDeck`：PlayerSceneCardDef 声明卡 ID、ActionDef、标题/说明覆盖、PlayerCost、scene 时机、副本数，以及可选 performer / selection policy。场景批次另可提交零张或多张当前 hand 卡实例；每张卡由同一份 `OperationActionDef` 提供效果与目标规则。SceneAction 与玩家卡 PlayerCost、Action Actor/Team execution cost 从内容定义分别汇总并联合预检；命令不能注入费用、Action 或效果。Planner 将 SceneAction/SceneCard 效果与费用写入相同 OperationResolution 变化格式与同一个 Runtime 提交边界，卡牌只在该原子提交里从 hand 移入 discard。纯 `previewSceneActionBatch()` 向 UI 返回 PlayerCost 余额前/总额/余额后及 Actor/Team action cost；预览不写入 Run，最终 Commit 仍重新验证。
 
-UI 中外部 SceneAction / PlayerSceneCard 可在公共场景区就地激活，也可拖到学生卡指定 performer；挂靠后后续拖动只读取该牌当前 `legalTargetActorIds` 并写入效果目标。`required` 场景牌点按用于加入或撤销，fixed 项保持自动加入且不可取消。`selected-student` 卡必须拖到学生卡上分配执行者；`optional-student` 卡点按即可就地激活，也可拖到学生卡分配执行者。牌已选中或挂靠后，拖到高亮目标上设置目标；多目标合同可通过重复拖放增删目标，单一合法目标作为硬指向。SceneAction / PlayerSceneCard 与战斗替代行动牌均不再渲染执行者/目标按钮托盘；战斗牌多目标且没有默认目标时，需拖到合法目标上提交，单目标或声明了默认目标的牌沿用其硬指向。关系线按卡牌与目标矩形的相对位置选择左右或上下边作为出/入端口；重叠时选择目标边界上最靠近卡牌的一侧。Hover、focus 与 drag 共用端口算法，只更新既有 SVG path。批次 dock 同时提供“确认本批”和“跳过本批”；PlayerCost 仅按实际选择汇总，余额足够即可提交，未用余额保留。此交互仅改变 UI SceneDraft 投影，不改变存档字段。
+UI 将浏览/焦点、已选、不可用和 fixed 纳入投影区分；required 只在进入 Run 计划或 UI 草稿后表示已选，fixed 自动纳入且不可取消。`selected-student` Global SceneAction 与 PlayerSceneCard 可通过键盘/点击执行者选择器分配、改派或取消；候选直接来自当前 View 的 `eligibleActorIds`，与拖放共用 SceneDraft 写入路径。`optional-student` 仍可点按就地激活，也可选择学生执行。`select` 展示可选的当前合法 Actor，已选目标仍是显式 ID 集合；`all-eligible` 显示“自动作用于全部合格目标”与 View 当前候选，不开放手动目标增删。目标模式与候选一起从 Runtime View 投影；重排站位后 UI 更新候选摘要。SceneDraft 只在 UI 内存中按 Run、planVersion 和 Location 保存；改选、撤销与目标更新不写 Run。每次编辑后 Controller 调用 Runtime 纯预览，显示 PlayerCost 与 Actor/Team action cost，并以预览拒绝原因禁用确认。普通提交保持“编辑、查看即时预览、单次确认”，不会强制 stage/commit 两次确认；显式跳过仍走空批次规则。批次费用来自 Runtime，不由 UI 对 DOM 费用标签求和。
 
 纯准备器 `prepareOperationBeat()` 接收最小 EventRun 快照与冻结内容，不接收 RNG、PlayerCost 或可变 owner。它按事件 Actor 声明顺序，为每位 Actor 生成一个 `studentAction`、`intent` 或 `wait`：学生按 Profile 候选次序，对手/环境按 ParticipantSpec 次序；每项需通过地点启用、能力、参与者类型、目标和当前资源检查。非学生没有 capability 来源，因此 Admission 拒绝其引用带能力门槛的 Action，不会忽略门槛。Action 仅支持无目标或单 Actor 目标；显式 `targetPriorityActorIds` 只重排 relation 与声明过滤后的合法候选，之后按 Event Actor 声明顺序选取首个合法目标。准备期间按 Actor 顺序预留共享 Team 与个人 Actor 资源；本 Beat 产生的资源不会支付本 Beat 的行动费用。
 
@@ -99,7 +119,7 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 `commitBeat({ runId, planVersion })` 先校验当前 in-progress Run 与版本，再运行纯 planner。owner 校验候选批次与当前 Run、Location、计划版本和 RNG cursor 一致，把结算 delta 应用到 detached 候选 Run，并完成随机状态、Beat/Resolution 序号、草稿清除、历史 append 与下一 Beat 准备。所有步骤成功后只替换一次 Run slot，再发布 `beatResolved`。`commitSceneActionBatch()` 复用同一个 `planOperationResolution()`、OperationResolution 容器与变更应用逻辑；不抽取战术随机数，只额外提交批次数、玩家 Cost 与牌区移动。任何规划、校验、费用、目标或下一 Beat 准备失败均不写 Run、随机流、历史或通知。
 
-每次成功状态变更都会推进 `planVersion`：Commit、有效 `applyStateDelta()`、Location complete/route transition 和 finish。Route 命令必须匹配当前 `runId` 与 `planVersion`。状态/Location 变化会清除过期草稿并重建当前规范计划；终局状态没有下一 Beat。最近一次已消费 `basePlanVersion` 的 Commit 重试在 stale/terminal 检查前返回同一条冻结 Resolution，不重复扣费、抽样、写入或通知；更早版本不重放，返回 stale。历史最多保留最近 32 条，`resolutionSequence` 不随裁剪回退。
+每次成功状态变更都会推进 `planVersion`：Commit、有效 `applyStateDelta()`、Location complete/route transition 和 finish。Route 命令必须匹配当前 `runId` 与 `planVersion`。状态/Location 变化会清除过期草稿并重建当前规范计划；终局状态没有下一 Beat。最近一次已消费 `basePlanVersion` 的 Commit 重试在 stale/terminal 检查前返回同一条冻结 Resolution，不重复扣费、抽样、写入或通知；更早版本不重放，返回 stale。Resolution 历史最多保留最近 32 条，`resolutionSequence` 不随裁剪回退。成功 Commit、Route 转场和 Location 入场费用记录共享 Run-wide `timelineSequence`，供 UI 按可证明的顺序交织结算、路线与 Cost 变化；缺少共同序号时 UI 标出顺序不完整，不猜测。修改该 checkpoint 字段的正式 Carousel / Strategy Park Event 已递增各自 `resumeVersion`，按既有策略拒绝旧 checkpoint，不做迁移。
 
 ## 其他状态转移与生命周期
 
@@ -127,6 +147,6 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 - `operation-plan-preparation.ts`、`operation-target-selection.ts`、`operation-intervention-preview.ts`、`operation-combination-resolver.ts`、`operation-tactical-rng.ts`、`operation-resolution-planner.ts`：纯计划、干预、协同、局部随机与结算规划。
 - `src/arona-clicker/services/operation-runtime-service.ts`：Run owner、版本检查、原子提交、有限历史与生命周期通知。
 - `src/arona-clicker/services/registry-operation-content-resolver.ts`、`src/arona-clicker/runtime-options.ts`、`runtime-wiring.ts`、`runtime-game-instance.ts`：Registry 内容解析、resolver 装配、私有 owner 和 GameInstance 生命周期清理。
-- 定向测试：`tests/engine/operation-runtime-service.test.ts`、`operation-scene-actions.test.ts`、`gameplay-b-save-resume.test.ts`、`operation-player-scene-deck.test.ts`、`gameplay-b-scene-action-sample.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。
+- 定向测试：`tests/engine/operation-runtime-service.test.ts`、`operation-scene-actions.test.ts`、`gameplay-b-save-resume.test.ts`、`operation-player-scene-deck.test.ts`、`gameplay-b-scene-action-sample.test.ts`、`gameplay-b-multiscene-location.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`；Registry 入口两幕点击测试位于 `tests/ui/gameplay-b-operation-entry-registry.test.ts`。
 
 相关边界：[[docs/docs-829/01-architecture/data-flow]]、[[docs/docs-829/02-modules/arona-clicker]]、[[docs/docs-829/03-data-structures/player-state]]。

@@ -216,6 +216,9 @@ function validateValue(
     case 'flexible':
       // 宽松值：接受任意 JSON
       break;
+    case 'json':
+      // 合同尚未由 Editor DSL 结构化的字段保留为任意 JSON。
+      break;
     case 'hand':
       // 生成器占位：merge 后不应残留（残留即同步遗漏）；防御性跳过校验
       break;
@@ -297,14 +300,15 @@ export function validateRecord(table: TableSchema, data: Record<string, unknown>
 
 /** 同表 id 唯一性检查 */
 export function checkUniqueIds(table: TableSchema, rows: unknown[]): ValidationIssue[] {
-  if (!table.idField) return [];
+  const idField = table.idField;
+  if (!idField) return [];
   const issues: ValidationIssue[] = [];
   const seen = new Map<string, number>();
   rows.forEach((row, idx) => {
-    const id = (row as Record<string, unknown>)?.[table.idField];
+    const id = (row as Record<string, unknown>)?.[idField];
     if (typeof id !== 'string') return;
     if (seen.has(id)) {
-      push(issues, table.key, idx, `${table.key}[${idx}].${table.idField}`, `ID "${id}" 重复（第 ${seen.get(id)} 行）`);
+      push(issues, table.key, idx, `${table.key}[${idx}].${idField}`, `ID "${id}" 重复（第 ${seen.get(id)} 行）`);
     } else {
       seen.set(id, idx);
     }
@@ -312,8 +316,8 @@ export function checkUniqueIds(table: TableSchema, rows: unknown[]): ValidationI
   return issues;
 }
 
-/** 三段式 ID 格式：`pack:kind:name`（如 base:spot:credit_printer） */
-const ID_FORMAT = /^[a-z0-9]+:[a-z0-9]+:[^:]+$/;
+/** 三段式 ID 格式：`pack:kind:name`；pack/kind 接受 Datapack manifest 使用的连字符。 */
+const ID_FORMAT = /^[a-z0-9-]+:[a-z0-9_-]+:[^:]+$/;
 const TAG_REF_FORMAT = /^[a-z0-9-]+:[a-z0-9_-]+(?:\/[a-z0-9_-]+)*$/;
 
 function hasTagReference(value: string, ids: Set<string>): boolean {
@@ -324,13 +328,14 @@ function hasTagReference(value: string, ids: Set<string>): boolean {
 }
 
 export function checkIdFormat(table: TableSchema, rows: unknown[]): ValidationIssue[] {
-  if (!table.idField || table.idFormat === 'free') return [];
+  const idField = table.idField;
+  if (!idField || table.idFormat === 'free') return [];
   const issues: ValidationIssue[] = [];
   rows.forEach((row, idx) => {
-    const id = (row as Record<string, unknown>)?.[table.idField];
+    const id = (row as Record<string, unknown>)?.[idField];
     if (typeof id !== 'string' || id.length === 0) return;
     if (!ID_FORMAT.test(id)) {
-      push(issues, table.key, idx, `${table.key}[${idx}].${table.idField}`, `ID "${id}" 不符合三段式格式（pack:kind:name）`);
+      push(issues, table.key, idx, `${table.key}[${idx}].${idField}`, `ID "${id}" 不符合三段式格式（pack:kind:name）`);
     }
   });
   return issues;
@@ -338,6 +343,200 @@ export function checkIdFormat(table: TableSchema, rows: unknown[]): ValidationIs
 
 export interface DatapackData {
   [key: string]: unknown;
+}
+
+function dataRows(data: DatapackData, table: TableKey): { row: Record<string, unknown>; index: number }[] {
+  const value = data[table];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row, index) => isObj(row) ? [{ row, index }] : []);
+}
+
+function stringIdSet(value: unknown): Set<string> {
+  return new Set(Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
+}
+
+function validateSceneChoice(
+  choice: unknown,
+  actions: unknown,
+  actionMode: unknown,
+  path: string,
+  table: TableKey,
+  rowIndex: number,
+): ValidationIssue[] {
+  if (choice === undefined || !isObj(choice)) return [];
+  const issues: ValidationIssue[] = [];
+  const candidateValue = choice.candidateSceneActionIds;
+  const candidates = Array.isArray(candidateValue)
+    ? candidateValue.filter((candidate): candidate is string => typeof candidate === 'string')
+    : [];
+  const candidateSet = new Set(candidates);
+  if (candidates.length < 2) {
+    push(issues, table, rowIndex, `${path}.candidateSceneActionIds`, `${path}.candidateSceneActionIds 至少需要两个 SceneAction ID`);
+  }
+  candidates.forEach((id, index) => {
+    if (candidates.indexOf(id) !== index) {
+      push(issues, table, rowIndex, `${path}.candidateSceneActionIds[${index}]`, `候选 SceneAction ID "${id}" 重复`);
+    }
+  });
+  if (!Number.isSafeInteger(choice.chooseExactly) || (choice.chooseExactly as number) < 1 || (choice.chooseExactly as number) > candidateSet.size) {
+    push(issues, table, rowIndex, `${path}.chooseExactly`, `${path}.chooseExactly 必须在 1 到候选数量之间`);
+  }
+  if (actionMode !== 'global') {
+    push(issues, table, rowIndex, path, `${path} 需要 global SceneAction 范围`);
+  }
+  const actionsById = new Map<string, Record<string, unknown>>();
+  if (Array.isArray(actions)) {
+    for (const action of actions) {
+      if (isObj(action) && typeof action.id === 'string') actionsById.set(action.id, action);
+    }
+  }
+  candidates.forEach((id, index) => {
+    const action = actionsById.get(id);
+    if (!action) {
+      push(issues, table, rowIndex, `${path}.candidateSceneActionIds[${index}]`, `${path}.candidateSceneActionIds 引用了未声明的 SceneAction ID "${id}"`);
+    } else if (action.scope !== 'global' || action.selectionPolicy === 'fixed') {
+      push(issues, table, rowIndex, `${path}.candidateSceneActionIds[${index}]`, `候选 SceneAction ID "${id}" 必须指向可选的 global SceneAction`);
+    }
+  });
+  for (const [actionIndex, action] of (Array.isArray(actions) ? actions : []).entries()) {
+    if (!isObj(action) || typeof action.id !== 'string') continue;
+    if (action.scope === 'global' && action.selectionPolicy !== 'fixed' && !candidateSet.has(action.id)) {
+      push(issues, table, rowIndex, `${path}.candidateSceneActionIds`, `缺少可选的 global SceneAction ID "${action.id}"`);
+    }
+    if (actionsById.get(action.id) !== action) continue;
+    // Duplicate local SceneAction IDs make the candidate reference ambiguous.
+    if ((Array.isArray(actions) ? actions : []).some((other, otherIndex) => otherIndex < actionIndex && isObj(other) && other.id === action.id)) {
+      push(issues, table, rowIndex, `${path}.candidateSceneActionIds`, `SceneAction ID "${action.id}" 重复，无法唯一解析候选`);
+    }
+  }
+  return issues;
+}
+
+/**
+ * Cross-row checks whose IDs are intentionally local to one Event/Location/Scene and
+ * therefore cannot be represented by the editor's global `ref` field type.
+ */
+function validateOperationLocalReferences(data: DatapackData): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const locations = dataRows(data, 'operationLocations');
+  const locationsById = new Map<string, { row: Record<string, unknown>; index: number }>();
+  for (const entry of locations) {
+    if (typeof entry.row.id === 'string') locationsById.set(entry.row.id, entry);
+  }
+
+  for (const { row: event, index: eventIndex } of dataRows(data, 'operationEvents')) {
+    const eventPath = `operationEvents[${eventIndex}]`;
+    const eventLocationIds = stringIdSet(event.locationIds);
+    const factIds = stringIdSet(event.factIds);
+    const knownFactIds = stringIdSet(event.knownFactIds);
+    const itemIds = stringIdSet(event.itemIds);
+    if (typeof event.initialLocationId === 'string' && !eventLocationIds.has(event.initialLocationId)) {
+      push(issues, 'operationEvents', eventIndex, `${eventPath}.initialLocationId`, `初始地点 ID "${event.initialLocationId}" 不在此 Event 的 locationIds 中`);
+    }
+
+    const actors = stringIdSet(Array.isArray(event.actors)
+      ? event.actors.flatMap((actor) => isObj(actor) && typeof actor.id === 'string' ? [actor.id] : [])
+      : []);
+    const participantIds = new Set<string>();
+    if (Array.isArray(event.participants)) {
+      event.participants.forEach((participant, participantIndex) => {
+        if (!isObj(participant) || typeof participant.actorId !== 'string') return;
+        const path = `${eventPath}.participants[${participantIndex}].actorId`;
+        if (!actors.has(participant.actorId)) {
+          push(issues, 'operationEvents', eventIndex, path, `Actor ID "${participant.actorId}" 未在此 Event 的 actors 中声明`);
+        }
+        if (participantIds.has(participant.actorId)) {
+          push(issues, 'operationEvents', eventIndex, path, `Actor ID "${participant.actorId}" 被重复分配`);
+        }
+        participantIds.add(participant.actorId);
+      });
+    }
+    for (const [actorIndex, actor] of (Array.isArray(event.actors) ? event.actors : []).entries()) {
+      if (!isObj(actor) || typeof actor.id !== 'string') continue;
+      if (!participantIds.has(actor.id)) {
+        push(issues, 'operationEvents', eventIndex, `${eventPath}.participants`, `缺少 Actor ID "${actor.id}" 的参与者声明`);
+      }
+    }
+    for (const [factIndex, factId] of (Array.isArray(event.knownFactIds) ? event.knownFactIds : []).entries()) {
+      if (typeof factId === 'string' && !factIds.has(factId)) {
+        push(issues, 'operationEvents', eventIndex, `${eventPath}.knownFactIds[${factIndex}]`, `Fact ID "${factId}" 未在此 Event 的 factIds 中声明`);
+      }
+    }
+    for (const [itemIndex, itemId] of (Array.isArray(event.heldItemIds) ? event.heldItemIds : []).entries()) {
+      if (typeof itemId === 'string' && !itemIds.has(itemId)) {
+        push(issues, 'operationEvents', eventIndex, `${eventPath}.heldItemIds[${itemIndex}]`, `Item ID "${itemId}" 未在此 Event 的 itemIds 中声明`);
+      }
+    }
+
+    const usedPurchaseFacts = new Set<string>();
+    const checkOffers = (value: unknown, path: string, locationIndex: number): void => {
+      if (!Array.isArray(value)) return;
+      value.forEach((offer, offerIndex) => {
+        if (!isObj(offer) || typeof offer.purchaseFactId !== 'string') return;
+        const fieldPath = `${path}[${offerIndex}].purchaseFactId`;
+        if (!factIds.has(offer.purchaseFactId)) {
+          push(issues, 'operationLocations', locationIndex, fieldPath, `Fact ID "${offer.purchaseFactId}" 未在引用此地点的 Event 中声明`);
+        }
+        if (knownFactIds.has(offer.purchaseFactId)) {
+          push(issues, 'operationLocations', locationIndex, fieldPath, `Purchase marker Fact ID "${offer.purchaseFactId}" 不能初始已知`);
+        }
+        if (usedPurchaseFacts.has(offer.purchaseFactId)) {
+          push(issues, 'operationLocations', locationIndex, fieldPath, `Purchase marker Fact ID "${offer.purchaseFactId}" 在此 Event 中重复使用`);
+        }
+        usedPurchaseFacts.add(offer.purchaseFactId);
+      });
+    };
+
+    for (const locationId of eventLocationIds) {
+      const locationEntry = locationsById.get(locationId);
+      if (!locationEntry) continue; // Global ref validation reports the missing Location ID.
+      const location = locationEntry.row;
+      const locationPath = `operationLocations[${locationEntry.index}]`;
+
+      for (const [routeIndex, edge] of (Array.isArray(location.routeEdges) ? location.routeEdges : []).entries()) {
+        if (!isObj(edge)) continue;
+        if (typeof edge.targetLocationId === 'string' && !eventLocationIds.has(edge.targetLocationId)) {
+          push(issues, 'operationLocations', locationEntry.index, `${locationPath}.routeEdges[${routeIndex}].targetLocationId`, `目标地点 ID "${edge.targetLocationId}" 不属于此 Event 的 locationIds`);
+        }
+        if (typeof edge.requiredHeldItemId === 'string' && !itemIds.has(edge.requiredHeldItemId)) {
+          push(issues, 'operationLocations', locationEntry.index, `${locationPath}.routeEdges[${routeIndex}].requiredHeldItemId`, `Item ID "${edge.requiredHeldItemId}" 未在引用此地点的 Event 中声明`);
+        }
+        if (Array.isArray(edge.anyOfHeldItemIds)) {
+          edge.anyOfHeldItemIds.forEach((itemId, itemIndex) => {
+            if (typeof itemId === 'string' && !itemIds.has(itemId)) {
+              push(issues, 'operationLocations', locationEntry.index, `${locationPath}.routeEdges[${routeIndex}].anyOfHeldItemIds[${itemIndex}]`, `Item ID "${itemId}" 未在引用此地点的 Event 中声明`);
+            }
+          });
+        }
+      }
+
+      const visitScene = (scene: unknown, scenePath: string): void => {
+        if (!isObj(scene)) return;
+        issues.push(...validateSceneChoice(
+          scene.sceneActionChoice,
+          scene.sceneActions,
+          scene.actionMode,
+          `${scenePath}.sceneActionChoice`,
+          'operationLocations',
+          locationEntry.index,
+        ));
+        checkOffers(scene.purchaseOffers, `${scenePath}.purchaseOffers`, locationEntry.index);
+      };
+      issues.push(...validateSceneChoice(
+        location.sceneActionChoice,
+        location.sceneActions,
+        location.actionMode,
+        `${locationPath}.sceneActionChoice`,
+        'operationLocations',
+        locationEntry.index,
+      ));
+      checkOffers(location.purchaseOffers, `${locationPath}.purchaseOffers`, locationEntry.index);
+      if (Array.isArray(location.scenes)) {
+        location.scenes.forEach((scene, sceneIndex) => visitScene(scene, `${locationPath}.scenes[${sceneIndex}]`));
+      }
+    }
+  }
+  return issues;
 }
 
 /** 校验一个完整 datapack（所有表的数组数据），返回全部 issues */
@@ -409,6 +608,7 @@ export function validateDatapack(
       issues.push(...checkIdFormat(table, raw));
     }
   }
+  issues.push(...validateOperationLocalReferences(data));
   return issues;
 }
 

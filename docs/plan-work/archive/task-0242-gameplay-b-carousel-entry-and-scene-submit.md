@@ -41,6 +41,6 @@
 ## 相关路由
 
 - [[task-0240-gameplay-b-operation-card-presentation-and-action-targeting]]
-- [[task-0241-units/0241-u12-scene-action-admission-separation]]
+- [[archive/task-0241-units/0241-u12-scene-action-admission-separation]]
 - [[docs/docs-829/03-data-structures/operation-view]]
 

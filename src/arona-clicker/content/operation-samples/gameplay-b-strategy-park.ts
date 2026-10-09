@@ -136,6 +136,7 @@ const combatSceneActionIds = [IDS.actions.brief, IDS.actions.followTracks, IDS.a
 
 const locations: readonly OperationLocationDef[] = [
   location(IDS.locations.westGate, scene.exploration, activity.briefing, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.exploration],
     enabledActionIds: [IDS.actions.brief],
     combinationRules: [], actionMode: 'global', sceneActionBatches: 1,
@@ -145,6 +146,7 @@ const locations: readonly OperationLocationDef[] = [
     routeEdges: [route(IDS.routes.gateToCorridor, IDS.locations.corridor, '沿林荫连廊出发', '领取巡查任务后沿游园连廊前进。')],
   }),
   location(IDS.locations.corridor, scene.exploration, activity.clues, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.exploration],
     enabledActionIds: [IDS.actions.followTracks],
     combinationRules: [], actionMode: 'global', sceneActionBatches: 2,
@@ -154,6 +156,7 @@ const locations: readonly OperationLocationDef[] = [
     routeEdges: [route(IDS.routes.corridorToKiosk, IDS.locations.kiosk, '前往游园服务亭', '轮迹与广播线索都指向服务亭。')],
   }),
   location(IDS.locations.kiosk, scene.exploration, activity.kiosk, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.exploration],
     enabledActionIds: [IDS.actions.callStaff],
     combinationRules: [], actionMode: 'global', sceneActionBatches: 1,
@@ -166,6 +169,7 @@ const locations: readonly OperationLocationDef[] = [
     ],
   }),
   location(IDS.locations.arcade, scene.social, activity.negotiation, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.negotiation],
     enabledActionIds: [IDS.actions.searchDrawer, IDS.actions.inspectConsole],
     combinationRules: [], actionMode: 'individual', sceneActionBatches: 1,
@@ -181,6 +185,7 @@ const locations: readonly OperationLocationDef[] = [
     ],
   }),
   location(IDS.locations.bumper, scene.combat, 'park:first-encounter', {
+    stage: 'combat',
     cardPoolIds: [IDS.pools.frontline],
     enabledActionIds: [...combatActions, IDS.actions.stepForward, IDS.actions.frontGuard, IDS.actions.chargerAttack],
     combinationRules: [], maxBeats: 3, costGain: 1, maxCarryCost: 5,
@@ -188,6 +193,7 @@ const locations: readonly OperationLocationDef[] = [
     routeEdges: [route(IDS.routes.bumperToAid, IDS.locations.aid, '前往急救补给站', '碰碰车区暂时安全，前往补给站整备。')],
   }),
   location(IDS.locations.aid, scene.recovery, activity.firstAid, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.recovery],
     enabledActionIds: [IDS.actions.firstAid],
     combinationRules: [], actionMode: 'global', sceneActionBatches: 1,
@@ -197,6 +203,7 @@ const locations: readonly OperationLocationDef[] = [
     routeEdges: [route(IDS.routes.aidToFerris, IDS.locations.ferris, '前往摩天轮检修廊', '完成急救后沿设备层标记继续巡查。')],
   }),
   location(IDS.locations.maze, scene.exploration, activity.maze, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.exploration],
     enabledActionIds: [IDS.actions.searchMaze, IDS.actions.followTracks],
     combinationRules: [], actionMode: 'individual', sceneActionBatches: 1,
@@ -212,6 +219,7 @@ const locations: readonly OperationLocationDef[] = [
     ],
   }),
   location(IDS.locations.ferris, scene.exploration, activity.ferris, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.exploration],
     enabledActionIds: [IDS.actions.inspectPanel, IDS.actions.searchStaffEntry],
     combinationRules: [], actionMode: 'individual', sceneActionBatches: 1,
@@ -225,6 +233,7 @@ const locations: readonly OperationLocationDef[] = [
     ],
   }),
   location(IDS.locations.fireworks, scene.combat, 'park:second-encounter', {
+    stage: 'combat',
     cardPoolIds: [IDS.pools.frontline],
     enabledActionIds: [...combatActions, IDS.actions.frontGuard, IDS.actions.fireworksAttack],
     combinationRules: [], maxBeats: 3, costGain: 1, maxCarryCost: 5,
@@ -232,6 +241,7 @@ const locations: readonly OperationLocationDef[] = [
     routeEdges: [route(IDS.routes.fireworksToBoss, IDS.locations.boss, '进入中央舞台设备井', '烟花排练场清理后进入 Boss 战。')],
   }),
   location(IDS.locations.backstage, scene.recovery, activity.backstage, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.recovery],
     enabledActionIds: [IDS.actions.rest],
     combinationRules: [], actionMode: 'global', sceneActionBatches: 1,
@@ -241,6 +251,7 @@ const locations: readonly OperationLocationDef[] = [
     routeEdges: [route(IDS.routes.backstageToFireworks, IDS.locations.fireworks, '进入烟花排练广场', '后台检查完成后进入烟花排练广场。')],
   }),
   location(IDS.locations.boss, scene.combat, 'park:final-encounter', {
+    stage: 'combat',
     cardPoolIds: [IDS.pools.frontline],
     enabledActionIds: [...combatActions, IDS.actions.frontGuard, IDS.actions.bossAttack],
     combinationRules: [], maxBeats: 4, costGain: 1, maxCarryCost: 5,
@@ -248,6 +259,7 @@ const locations: readonly OperationLocationDef[] = [
     routeEdges: [route(IDS.routes.bossToExit, IDS.locations.exit, '前往东出口交接', '设备井安全后前往东门完成现场交接。')],
   }),
   location(IDS.locations.exit, scene.social, activity.handoff, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.handoff],
     enabledActionIds: [IDS.actions.handoff],
     combinationRules: [], actionMode: 'global', sceneActionBatches: 1,
@@ -255,6 +267,7 @@ const locations: readonly OperationLocationDef[] = [
     costGain: 0, maxCarryCost: 5, maxVisits: 1, routeEdges: [],
   }),
   location(IDS.locations.control, scene.recovery, activity.control, {
+    stage: 'scene',
     cardPoolIds: [IDS.pools.recovery],
     enabledActionIds: [IDS.actions.resetPower, IDS.actions.recordConsole],
     combinationRules: [], actionMode: 'global', sceneActionBatches: 1,
@@ -395,8 +408,10 @@ const studentProfiles: readonly StudentOperationProfileDef[] = [
 
 const eventDefinition: OperationEventContentDef = {
   id: IDS.event,
+  title: '游园会停电巡查',
+  description: '园区多处设施停电，队伍需要沿现场线索巡查、控制风险并完成东门交接。',
   initId: 'base:init:schale_office',
-  resumeVersion: 2,
+  resumeVersion: 4,
   locationIds: locations.map(row => row.id),
   initialLocationId: IDS.locations.westGate,
   maxLocationVisits: 18,
@@ -438,7 +453,7 @@ const eventDefinition: OperationEventContentDef = {
   randomSeed: 241024,
 };
 
-/** Independent 12-location Operation pack inspired by, but not replacing, the Carousel demo. */
+/** Independent 13-location Operation pack inspired by, but not replacing, the Carousel demo. */
 export const gameplayBStrategyParkDatapack: Datapack = {
   modName: 'gameplay-b-strategy-park',
   name: 'Gameplay B Strategy Park Validation',

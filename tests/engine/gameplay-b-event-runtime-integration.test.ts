@@ -35,7 +35,7 @@ const SERIKA_PROFILE: StudentOperationProfileDef = {
 function eventDef(): OperationEventDef {
   return {
     id: EVENT_ID,
-    locations: [{ id: 'test:location:office', enabledActionIds: ['observe', 'protect', 'organize'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
+    locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: ['observe', 'protect', 'organize'], combinationRules: [], routeEdges: [] } ], maxLocationVisits: 20,
     initialLocationId: 'test:location:office',
     tracks: [{ id: 'danger', initial: 1, min: 0, max: 5 }],
     factIds: ['door_open'],
@@ -118,7 +118,7 @@ describe('Gameplay B Operation entry integration', () => {
     expect('operationRuntime' in first).toBe(false);
     expect(Object.keys(first.operationEntry).sort()).toEqual([
       'claimOutcomeReward', 'clearIntervention', 'clearSceneActionBatchDraft', 'commitBeat', 'commitSceneActionBatch',
-      'commitStagedSceneActionBatch', 'createSaveSnapshot', 'getAdmissionSummary', 'getLastRestoreResult', 'getResult',
+      'commitStagedSceneActionBatch', 'createSaveSnapshot', 'getAdmissionSummary', 'getLastRestoreResult', 'getLaunchEntries', 'getResult',
       'getSnapshot', 'getView', 'previewIntervention', 'previewSceneActionBatch', 'restoreSaveSnapshot',
       'reviseIntervention', 'stageSceneActionBatch', 'start', 'transitionRoute',
     ]);
@@ -256,7 +256,7 @@ describe('Gameplay B Operation entry integration', () => {
         { id: serikaActorId, type: 'student', hp: { initial: 4, min: 0, max: 4 }, teamId, targetPriorityActorIds: [opponentActorId, hoshinoActorId] },
         { id: opponentActorId, type: 'opponent', hp: { initial: 5, min: 0, max: 5 } },
       ],
-      locations: [{ id: 'test:location:office', enabledActionIds: ['protect', 'observe', 'organize'], combinationRules: [{
+      locations: [{ id: 'test:location:office', stage: 'combat', enabledActionIds: ['protect', 'observe', 'organize'], combinationRules: [{
           id: 'test:combination:protect-signal',
           priority: 10,
           inputTagIds: ['brace', 'signal'],

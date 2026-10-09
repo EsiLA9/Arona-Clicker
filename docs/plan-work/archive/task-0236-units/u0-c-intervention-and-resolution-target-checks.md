@@ -6,7 +6,7 @@
 ## Must Read / Read Set
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
-| 任务 | `docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md`、`docs/plan-work/task-0236-units/u0-a-target-scope-contract.md`、`u0-b-target-selection-and-preparation.md` | 目标契约、运行时匹配规则 |
+| 任务 | `docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md`、`docs/plan-work/archive/task-0236-units/u0-a-target-scope-contract.md`、`u0-b-target-selection-and-preparation.md` | 目标契约、运行时匹配规则 |
 | 协议 | `docs/ai/PROJECT-CONSTITUTION.md`、`docs/ai/galhcg-project-map.md` | Unit / Evidence 护栏 |
 | 文档 | `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md` | 干预、版本和原子 Commit 语义 |
 | 源码 | `src/arona-clicker/services/operation-intervention-preview.ts:previewOperationIntervention`、`operation-resolution-planner.ts:planOperationResolution` | 显式目标校验和结算边界 |
@@ -42,8 +42,8 @@
 - `src/arona-clicker/services/operation-resolution-planner.ts`
 - `tests/engine/operation-intervention-preview.test.ts`
 - `tests/engine/operation-resolution-planner.test.ts`
-- `docs/plan-work/task-0236-units/u0-c-intervention-and-resolution-target-checks.md`
-- `docs/plan-work/task-0236-units/receipts/receipt-u0-c-intervention-and-resolution-target-checks.md`
+- `docs/plan-work/archive/task-0236-units/u0-c-intervention-and-resolution-target-checks.md`
+- `docs/plan-work/archive/task-0236-units/receipts/receipt-u0-c-intervention-and-resolution-target-checks.md`
 
 ## Explicit Non-goals
 - 不改 target 合同、自动准备、View 投影、首幕内容或 UI。

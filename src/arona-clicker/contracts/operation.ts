@@ -29,6 +29,9 @@ export type {
   OperationPredicateDef,
   OperationPredicateLeafDef,
   OperationPredicateOperator,
+  OperationSceneDef,
+  OperationSceneActionChoiceDef,
+  OperationScenePurchaseOfferDef,
   OperationRewardDef,
   OperationResultKind,
   OperationLocationResultKind,
@@ -234,10 +237,16 @@ export interface OperationLocationProgress {
   readonly completed: boolean;
   readonly beatCount: number;
   readonly sceneActionBatchesUsed?: number;
+  /** Explicit Scene IDs completed once in this Run; kept across Location re-entry. */
+  readonly completedSceneIds?: readonly string[];
+  /** Explicit SceneAction batch counts, indexed by Location-local Scene ID. */
+  readonly sceneActionBatchesUsedByScene?: Readonly<Record<string, number>>;
   readonly result: OperationLocationResultKind | null;
 }
 
 export interface OperationLocationEntryCostRecord {
+  /** Run-wide order shared with Route records and Resolution commits. */
+  readonly timelineSequence: number;
   readonly visitSequence: number;
   readonly locationId: string;
   readonly visitCount: number;
@@ -247,6 +256,8 @@ export interface OperationLocationEntryCostRecord {
 }
 
 export interface OperationRouteTransitionRecord {
+  /** Run-wide order shared with Location entry records and Resolution commits. */
+  readonly timelineSequence: number;
   readonly fromLocationId: string;
   readonly fromLocationResult: OperationLocationResultKind;
   readonly routeId: string;
@@ -280,6 +291,8 @@ export interface EventRun {
   readonly preparedBeat: PreparedBeat | null;
   readonly interventionDraft: OperationInterventionDraft | null;
   readonly resolutions: readonly OperationResolution[];
+  /** Monotone Run-wide sequence for interleaving retained operation records. */
+  readonly timelineSequence: number;
   /** Monotone across history trimming; equal to the newest Resolution sequence or zero. */
   readonly resolutionSequence: number;
   readonly random: OperationTacticalRandomState;

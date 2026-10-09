@@ -18,6 +18,7 @@ import type {
   OperationPreparationContent,
   OperationPreparationSnapshot,
 } from '../contracts/operation-beat';
+import { getOperationTargetActorIds } from './operation-target-selection';
 import type {
   OperationResolutionActorSnapshot,
   OperationResolutionBatch,
@@ -31,7 +32,7 @@ import type {
   OperationResolutionTeamSnapshot,
   OperationResolutionValueTarget,
 } from '../contracts/operation-resolution';
-import type { OperationSceneActionSelection, OperationSceneCardSelection } from '../contracts/operation-scene-action';
+import type { OperationSceneActionSelection, OperationSceneCardSelection, OperationScenePurchaseSelection } from '../contracts/operation-scene-action';
 import { OPERATION_WAIT_ACTION_ID } from '../contracts/operation';
 import { previewOperationIntervention } from './operation-intervention-preview';
 import { resolveOperationCombinations } from './operation-combination-resolver';
@@ -343,6 +344,8 @@ function preparationSnapshot(input: OperationResolutionPlannerInput): OperationP
     actors: input.snapshot.actors.map(actor => ({
       actorId: actor.actorId,
       participantKind: actor.participantKind,
+      hp: actor.hp,
+      ...(actor.positionId !== undefined ? { positionId: actor.positionId } : {}),
       resources: actor.resources,
     })),
     teams: input.snapshot.teams.map(team => ({ id: team.id, resources: team.resources })),
@@ -865,38 +868,19 @@ function skillRandomState(input: OperationResolutionPlannerInput): OperationTact
   return value;
 }
 
-function sceneTargetIsRelated(
-  event: OperationEventDef,
-  sourceActorId: string,
-  targetActorId: string,
-  relation: Extract<OperationActionDef['target'], { readonly kind: 'actor' }>['relation'],
-): boolean {
-  const source = event.actors.find(actor => actor.id === sourceActorId);
-  const target = event.actors.find(actor => actor.id === targetActorId);
-  if (!source || !target) return false;
-  if (relation === 'self') return source.id === target.id;
-  if (relation === 'any') return true;
-  if (source.teamId === undefined || target.teamId === undefined) return false;
-  return relation === 'sameTeam' ? source.teamId === target.teamId : source.teamId !== target.teamId;
-}
-
-function absoluteActorTargetAllowed(event: OperationEventDef, action: OperationActionDef, targetActorId: string): boolean {
-  if (action.target.kind !== 'actor' || (!action.target.allowedActorIds?.length && !action.target.allowedActorTypes?.length)) return false;
-  const target = event.actors.find(actor => actor.id === targetActorId);
-  return Boolean(target)
-    && (action.target.allowedActorIds === undefined || action.target.allowedActorIds.includes(targetActorId))
-    && (action.target.allowedActorTypes === undefined || action.target.allowedActorTypes.includes(target!.type));
-}
-
 function planSceneBatch(input: OperationResolutionPlannerInput, indexes: PlannerIndexes): OperationResolutionBatch {
   const request = input.sceneBatch;
   if (!request || !Array.isArray(request.selections)) {
     fail('operation:resolution:invalid-content', 'SceneAction batch selections must be an array');
   }
+  if (request.skip !== undefined && request.skip !== true) fail('operation:resolution:invalid-content', 'SceneAction skip flag must be true when supplied');
+  if (request.skip === true && (request.selections.length > 0 || (request.cards?.length ?? 0) > 0 || (request.purchases?.length ?? 0) > 0)) {
+    fail('operation:resolution:invalid-content', 'Explicit skip cannot include selectable offers');
+  }
   const { snapshot, trustedContent } = input;
   const event = trustedContent.eventDefinition;
   const location = event.locations.find(row => row.id === snapshot.currentLocationId);
-  if (!location?.actionMode || !Array.isArray(location.sceneActions) || !Number.isSafeInteger(location.sceneActionBatches)
+  if (!location?.actionMode || (!Array.isArray(location.sceneActions) && !location.purchaseOffers?.length) || !Number.isSafeInteger(location.sceneActionBatches)
     || location.sceneActionBatches! <= 0) {
     fail('operation:resolution:invalid-content', 'current Location has no finite SceneAction contract');
   }
@@ -910,13 +894,28 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
   }
   const activeStudents = snapshot.actors.filter(actor => actor.participantKind === 'student' && actor.hp > 0);
   if (location.actionMode === 'individual' && activeStudents.length === 0) fail('operation:resolution:invalid-snapshot', 'Individual SceneAction batch has no active Student participants');
-  const sceneActions = new Map(location.sceneActions.map(row => [row.id, row]));
+  const sceneActions = new Map((location.sceneActions ?? []).map(row => [row.id, row]));
   const selectableActionSelections = request.selections.filter(row => sceneActions.get(row.sceneActionId)?.selectionPolicy !== 'fixed');
   if (location.actionMode === 'individual' && selectableActionSelections.some(row => !row.actorId
     || selectableActionSelections.filter(other => other.actorId === row.actorId).length > 1)) {
     fail('operation:resolution:invalid-content', 'Individual batches allow at most one selected SceneAction per Student');
   }
-  if (location.actionMode === 'global' && selectableActionSelections.length > 1) {
+  if (location.actionMode === 'global'
+    && new Set(selectableActionSelections.map(row => row.sceneActionId)).size !== selectableActionSelections.length) {
+    fail('operation:resolution:invalid-content', 'A SceneAction offer can be selected only once per batch');
+  }
+  const choice = location.sceneActionChoice;
+  if (choice) {
+    const candidateIds = new Set(choice.candidateSceneActionIds);
+    const selectedCandidateIds = selectableActionSelections.map(row => row.sceneActionId);
+    if (selectedCandidateIds.some(id => !candidateIds.has(id))) {
+      fail('operation:resolution:invalid-content', 'SceneAction selection is outside the declared M-of-N candidate set');
+    }
+    if (request.skip !== true && selectedCandidateIds.length !== choice.chooseExactly) {
+      fail('operation:resolution:invalid-content', 'SceneAction choice requires exactly ' + choice.chooseExactly + ' of '
+        + choice.candidateSceneActionIds.length + ' offers; received ' + selectedCandidateIds.length);
+    }
+  } else if (location.actionMode === 'global' && selectableActionSelections.length > 1) {
     fail('operation:resolution:invalid-content', 'Global batches allow at most one selectable SceneAction');
   }
 
@@ -933,20 +932,12 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
   const resolveDefaultTargets = (action: OperationActionDef, actorId: string | null): readonly string[] => {
     const targetSpec = action.target;
     if (targetSpec.kind === 'none') return [];
-    const candidates = event.actors.filter(target => {
-      if ((indexes.actorStatesById.get(target.id)?.hp ?? 0) <= 0) return false;
-      const relationAllowed = actorId
-        ? sceneTargetIsRelated(event, actorId, target.id, targetSpec.relation)
-        : absoluteActorTargetAllowed(event, action, target.id);
-      return relationAllowed
-        && (targetSpec.allowedActorIds === undefined || targetSpec.allowedActorIds.includes(target.id))
-        && (targetSpec.allowedActorTypes === undefined || targetSpec.allowedActorTypes.includes(target.type));
-    });
+    const candidates = getOperationTargetActorIds(event, actorId, targetSpec, indexes.actorStatesById);
     if (candidates.length === 0) fail('operation:resolution:invalid-content', 'fixed Scene option has no legal default Actor target: ' + action.id);
-    return [candidates[0].id];
+    return targetSpec.selectionMode === 'all-eligible' ? [] : [candidates[0]!];
   };
   const actionSelections: OperationSceneActionSelection[] = [...request.selections];
-  for (const fixed of location.sceneActions.filter(row => row.selectionPolicy === 'fixed')) {
+  for (const fixed of (location.sceneActions ?? []).filter(row => row.selectionPolicy === 'fixed')) {
     const suppliedFixed = request.selections.filter(row => row.sceneActionId === fixed.id);
     if (fixed.scope === 'global' && suppliedFixed.length > 1) {
       fail('operation:resolution:invalid-content', 'fixed Global SceneAction may appear only once: ' + fixed.id);
@@ -1027,22 +1018,28 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       if (selection.targetActorIds.length !== 0) fail('operation:resolution:invalid-content', 'Action does not accept Actor targets: ' + action.id);
       selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, actorId, targets: [null], ...(action.cost ? { cost: action.cost } : {}) });
     } else {
-      if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
-        || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
-        || new Set(selection.targetActorIds).size !== selection.targetActorIds.length) {
-        fail('operation:resolution:invalid-content', 'selected Actor target count is invalid for Action ' + action.id);
-      }
-      for (const targetActorId of selection.targetActorIds) {
-        const related = actorId
-          ? sceneTargetIsRelated(event, actorId, targetActorId, action.target.relation)
-          : absoluteActorTargetAllowed(event, action, targetActorId);
-        const allowedByFilter = (action.target.allowedActorIds === undefined || action.target.allowedActorIds.includes(targetActorId))
-          && (action.target.allowedActorTypes === undefined || event.actors.find(row => row.id === targetActorId)?.type && action.target.allowedActorTypes.includes(event.actors.find(row => row.id === targetActorId)!.type));
-        if (!indexes.actorStatesById.has(targetActorId) || !related || !allowedByFilter) {
-          fail('operation:resolution:invalid-content', 'selected target is outside the Action target relation: ' + targetActorId);
+      const legalTargetIds = getOperationTargetActorIds(event, actorId, action.target, indexes.actorStatesById);
+      let targets: readonly string[];
+      if (action.target.selectionMode === 'all-eligible') {
+        if (selection.targetActorIds.length !== 0) {
+          fail('operation:resolution:invalid-content', 'all-eligible Action must not include explicit target IDs: ' + action.id);
         }
+        if (legalTargetIds.length === 0) fail('operation:resolution:invalid-content', 'all-eligible Action has no legal targets: ' + action.id);
+        targets = legalTargetIds;
+      } else {
+        if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
+          || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
+          || new Set(selection.targetActorIds).size !== selection.targetActorIds.length) {
+          fail('operation:resolution:invalid-content', 'selected Actor target count is invalid for Action ' + action.id);
+        }
+        for (const targetActorId of selection.targetActorIds) {
+          if (!legalTargetIds.includes(targetActorId)) {
+            fail('operation:resolution:invalid-content', 'selected target is no longer eligible for Action ' + action.id + ': ' + targetActorId);
+          }
+        }
+        targets = selection.targetActorIds;
       }
-      selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, actorId, targets: selection.targetActorIds, ...(action.cost ? { cost: action.cost } : {}) });
+      selected.push({ request: selection, actionId: action.id, playerCost: sceneAction.playerCost, actorId, targets, ...(action.cost ? { cost: action.cost } : {}) });
     }
     if (actorId && sceneAction.selectionPolicy !== 'fixed') selectedActorIds.add(actorId);
     totalCost = addDecimal(totalCost, decimalParts(sceneAction.playerCost));
@@ -1115,25 +1112,67 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       if (selection.targetActorIds.length !== 0) fail('operation:resolution:invalid-content', 'SceneCard Action does not accept Actor targets: ' + action.id);
       selectedCards.push({ request: selection, instance, actionId: action.id, actorId, targets: [null], ...(action.cost ? { cost: action.cost } : {}) });
     } else {
-      if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
-        || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
-        || new Set(selection.targetActorIds).size !== selection.targetActorIds.length) {
-        fail('operation:resolution:invalid-content', 'SceneCard target count is invalid for Action ' + action.id);
-      }
-      for (const targetActorId of selection.targetActorIds) {
-        const related = actorId
-          ? sceneTargetIsRelated(event, actorId, targetActorId, action.target.relation)
-          : absoluteActorTargetAllowed(event, action, targetActorId);
-        const allowedByFilter = (action.target.allowedActorIds === undefined || action.target.allowedActorIds.includes(targetActorId))
-          && (action.target.allowedActorTypes === undefined || action.target.allowedActorTypes.includes(event.actors.find(row => row.id === targetActorId)?.type ?? ''));
-        if (!indexes.actorStatesById.has(targetActorId) || !related || !allowedByFilter) {
-          fail('operation:resolution:invalid-content', 'SceneCard target is outside the Action target relation: ' + targetActorId);
+      const legalTargetIds = getOperationTargetActorIds(event, actorId, action.target, indexes.actorStatesById);
+      let targets: readonly string[];
+      if (action.target.selectionMode === 'all-eligible') {
+        if (selection.targetActorIds.length !== 0) {
+          fail('operation:resolution:invalid-content', 'all-eligible SceneCard Action must not include explicit target IDs: ' + action.id);
         }
+        if (legalTargetIds.length === 0) fail('operation:resolution:invalid-content', 'all-eligible SceneCard Action has no legal targets: ' + action.id);
+        targets = legalTargetIds;
+      } else {
+        if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
+          || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
+          || new Set(selection.targetActorIds).size !== selection.targetActorIds.length) {
+          fail('operation:resolution:invalid-content', 'SceneCard target count is invalid for Action ' + action.id);
+        }
+        for (const targetActorId of selection.targetActorIds) {
+          if (!legalTargetIds.includes(targetActorId)) {
+            fail('operation:resolution:invalid-content', 'SceneCard target is no longer eligible for Action ' + action.id + ': ' + targetActorId);
+          }
+        }
+        targets = selection.targetActorIds;
       }
-      selectedCards.push({ request: selection, instance, actionId: action.id, actorId, targets: selection.targetActorIds, ...(action.cost ? { cost: action.cost } : {}) });
+      selectedCards.push({ request: selection, instance, actionId: action.id, actorId, targets, ...(action.cost ? { cost: action.cost } : {}) });
     }
     selectedCardIds.add(selection.cardInstanceId);
     totalCost = addDecimal(totalCost, decimalParts(instance.playerCost));
+  }
+  const purchaseSelections = request.purchases ?? [];
+  if (!Array.isArray(purchaseSelections)) fail('operation:resolution:invalid-content', 'Purchase selections must be an array');
+  const purchaseOffers = new Map((location.purchaseOffers ?? []).map(offer => [offer.id, offer]));
+  const selectedPurchaseIds = new Set<string>();
+  const selectedPurchases: {
+    readonly request: OperationScenePurchaseSelection;
+    readonly offer: NonNullable<typeof location.purchaseOffers>[number];
+    readonly action: OperationActionDef;
+  }[] = [];
+  for (const candidate of purchaseSelections) {
+    if (!isRecord(candidate) || Object.keys(candidate).some(key => key !== 'offerId') || !isNonEmptyId(candidate.offerId)) {
+      fail('operation:resolution:invalid-content', 'Purchase selection has an invalid shape');
+    }
+    const selection = candidate as unknown as OperationScenePurchaseSelection;
+    const offer = purchaseOffers.get(selection.offerId);
+    if (!offer || selectedPurchaseIds.has(selection.offerId)) {
+      fail('operation:resolution:invalid-content', 'PurchaseOffer is unavailable or repeated in this batch: ' + selection.offerId);
+    }
+    if (!indexes.factsById.has(offer.purchaseFactId)) {
+      fail('operation:resolution:invalid-content', 'PurchaseOffer marker is not a declared Event fact: ' + offer.purchaseFactId);
+    }
+    if (snapshot.knownFactIds.includes(offer.purchaseFactId)) {
+      fail('operation:resolution:invalid-content', 'PurchaseOffer was already purchased in this Run: ' + offer.id);
+    }
+    const action = indexes.actionDefinitionsById.get(offer.actionId);
+    if (!action || action.target.kind !== 'none' || action.cost !== undefined || action.effects.length === 0
+      || action.effects.some(effect => effect.kind !== 'eventTrackDelta' && effect.kind !== 'eventFact' && effect.kind !== 'heldItem')) {
+      fail('operation:resolution:invalid-content', 'PurchaseOffer must use an admitted targetless Action with at least one Event-only reward effect: ' + offer.id);
+    }
+    if (!Number.isSafeInteger(offer.playerCost) || offer.playerCost < 0 || offer.playerCost > Number.MAX_SAFE_INTEGER) {
+      fail('operation:resolution:invalid-content', 'PurchaseOffer PlayerCost is invalid: ' + offer.id);
+    }
+    selectedPurchaseIds.add(selection.offerId);
+    selectedPurchases.push({ request: selection, offer, action });
+    totalCost = addDecimal(totalCost, decimalParts(offer.playerCost));
   }
   const totalCostNumber = decimalToNumber(totalCost, 'SceneAction batch PlayerCost');
   if (totalCostNumber > Number.MAX_SAFE_INTEGER) {
@@ -1184,18 +1223,39 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       }), buckets, membershipChanges, positionChanges, indexes, snapshot);
     }
   }
+  for (const row of selectedPurchases) {
+    validateEffectList(row.action.effects, null, null, indexes, snapshot);
+    addEffectList(row.action.effects, null, null, effectIndex => ({
+      kind: 'scenePurchase', purchaseOfferId: row.offer.id, actionId: row.offer.actionId, effectIndex,
+    }), buckets, membershipChanges, positionChanges, indexes, snapshot);
+    const markerKey = 'knownFact:' + row.offer.purchaseFactId;
+    if (membershipChanges.has(markerKey)) {
+      fail('operation:resolution:invalid-content', 'PurchaseOffer marker conflicts with another effect in the same batch: ' + row.offer.purchaseFactId);
+    }
+    membershipChanges.set(markerKey, {
+      target: { kind: 'knownFact', id: row.offer.purchaseFactId },
+      before: false,
+      after: true,
+    });
+  }
   const randomState = skillRandomState(input);
   const selections = selected.map(row => ({
     sceneActionId: row.request.sceneActionId,
     ...(row.actorId ? { actorId: row.actorId } : {}),
-    targetActorIds: row.request.targetActorIds.slice(),
+    targetActorIds: row.targets.filter((targetActorId): targetActorId is string => targetActorId !== null),
   }));
   const resolvedCards = selectedCards.map(row => ({
     cardInstanceId: row.request.cardInstanceId,
     ...(row.actorId ? { actorId: row.actorId } : {}),
-    targetActorIds: row.request.targetActorIds.slice(),
+    targetActorIds: row.targets.filter((targetActorId): targetActorId is string => targetActorId !== null),
     actionId: row.actionId,
     playerCost: row.instance.playerCost,
+  }));
+  const resolvedPurchases = selectedPurchases.map(row => ({
+    offerId: row.request.offerId,
+    actionId: row.offer.actionId,
+    playerCost: row.offer.playerCost,
+    purchaseFactId: row.offer.purchaseFactId,
   }));
   const usedAfter = batchesUsed! + 1;
   if (!Number.isSafeInteger(usedAfter)) fail('operation:resolution:invalid-snapshot', 'SceneAction batch count cannot advance safely');
@@ -1217,6 +1277,8 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
     sceneBatch: {
       selections,
       cards: resolvedCards,
+      ...(resolvedPurchases.length ? { purchases: resolvedPurchases } : {}),
+      ...(request.skip === true ? { skip: true } : {}),
       actionCosts: scenePayments,
       playerCostBefore: playerCost,
       playerCostPaid: totalCostNumber,

@@ -20,11 +20,69 @@ const sample = {
   triggerDefs: [{ id: 'base:trigger:t1', on: { kind: 'tick', every: 60 } }],
 };
 
+const operationTables = {
+  modName: 'scene-authoring',
+  name: '场景作者包',
+  version: '1.2.0',
+  operationEvents: [{ id: 'scene-authoring:event:sample', opaqueContract: { nested: [1, { future: true }] } }],
+  operationLocations: [{ id: 'scene-authoring:location:sample', opaqueContract: { list: ['a', null, { b: 2 }] } }],
+  operationActions: [{ id: 'scene-authoring:action:sample', opaqueContract: { targetShape: { unknown: ['kept'] } } }],
+  studentOperationProfiles: [{ id: 'scene-authoring:student-profile:sample', opaqueContract: [{ key: 'value' }] }],
+  operationStrategyProfiles: [{ id: 'scene-authoring:strategy-profile:sample', opaqueContract: { weight: 17 } }],
+  operationCardPools: [{ id: 'scene-authoring:card-pool:sample', opaqueContract: { entries: [{ nested: true }] } }],
+};
+
 describe('EditorModel', () => {
   it('加载与导出往返一致', () => {
     const m = new EditorModel();
     m.loadDatapack(sample);
     expect(m.toDatapack()).toEqual(sample);
+  });
+
+  it('六张 Operation 表和包名/版本/Mod ID 无损往返', () => {
+    const m = new EditorModel();
+    m.loadDatapack(operationTables);
+    expect(m.toDatapack()).toEqual(operationTables);
+    expect(m.getPackageMetadata()).toMatchObject({
+      modName: 'scene-authoring', name: '场景作者包', version: '1.2.0', dependencies: [],
+    });
+  });
+
+  it('六张 Operation 表都支持通用 CRUD，嵌套任意值不会被重写', () => {
+    const m = new EditorModel();
+    m.loadDatapack({});
+    const tables = [
+      'operationEvents', 'operationLocations', 'operationActions',
+      'studentOperationProfiles', 'operationStrategyProfiles', 'operationCardPools',
+    ] as const;
+    for (const table of tables) {
+      const index = m.addRow(table);
+      const value = { arbitrary: [1, { keep: null }, ['nested']] };
+      m.setValue(table, index, ['opaqueContract'], value);
+      expect(m.rowAt(table, index).opaqueContract).toEqual(value);
+      expect((m.toDatapack()[table] as Array<Record<string, unknown>>)[index].opaqueContract).toEqual(value);
+      m.removeRow(table, index);
+      expect(m.rowsOf(table)).toHaveLength(0);
+    }
+  });
+
+  it('包元数据也参与撤销与重做', () => {
+    const m = new EditorModel();
+    m.loadDatapack(operationTables);
+    m.setPackageMetadata({
+      ...m.getPackageMetadata(),
+      modName: 'scene-edited',
+      name: '已改名的场景包',
+      version: '2.0.0',
+      dependencies: ['base', 'gameplay-b'],
+    });
+    expect(m.toDatapack()).toMatchObject({ modName: 'scene-edited', name: '已改名的场景包', version: '2.0.0' });
+    expect(m.getPackageMetadata().dependencies).toEqual(['base', 'gameplay-b']);
+    expect(m.undo()).toBe(true);
+    expect(m.toDatapack()).toMatchObject({ modName: 'scene-authoring', name: '场景作者包', version: '1.2.0' });
+    expect(m.getPackageMetadata().dependencies).toEqual([]);
+    expect(m.redo()).toBe(true);
+    expect(m.toDatapack()).toMatchObject({ modName: 'scene-edited', name: '已改名的场景包', version: '2.0.0' });
   });
 
   it('新增行带默认值并可设置值', () => {

@@ -7,10 +7,6 @@ import type { SendState } from '../../arona-clicker/contracts/results';
 import type { ActiveBanner, SendGatePhase, StoryGateState } from './app-shell';
 import { renderBackground } from '../background-service';
 import { renderPresentationRegion } from '../presentation-service';
-import { CAROUSEL_SCENE_ACTION_IDS } from '../../arona-clicker/content/operation-samples/carousel-scene-action-slice';
-import { GAMEPLAY_B_PRESENTATION } from '../../arona-clicker/content/operation-samples/gameplay-b-presentation';
-import { GAMEPLAY_B_STRATEGY_PARK_IDS } from '../../arona-clicker/content/operation-samples/gameplay-b-strategy-park-ids';
-import { Character } from '../../arona-clicker/types/ids';
 
 const CENTER_TABS: TabDef[] = [
   { id: 'chat', label: '聊天' },
@@ -100,40 +96,23 @@ export function renderChatTab(
 function renderOperationEntry(ctx: UIContext): string {
   if (ctx.view.activeInit !== 'base:init:schale_office') return '';
   const current = ctx.game.operationEntry.getView();
-  const fixedRoster = [Character.Hoshino, Character.Serika, Character.Shiroko];
-  const entries = [
-    {
-      eventId: CAROUSEL_SCENE_ACTION_IDS.event,
-      eyebrow: '游乐园 · 设施安全事件',
-      title: GAMEPLAY_B_PRESENTATION.event.title,
-      introduction: GAMEPLAY_B_PRESENTATION.event.introduction,
-      startLabel: '开始旋转木马安全战斗',
-      resumeLabel: '继续旋转木马行动',
-    },
-    {
-      eventId: GAMEPLAY_B_STRATEGY_PARK_IDS.event,
-      eyebrow: 'Gameplay B · 策略园地图试玩',
-      title: '游园巡查：策略园',
-      introduction: '沿游园路线完成探索、交涉、补给与经典战斗。',
-      startLabel: '开始策略园试玩',
-      resumeLabel: '继续策略园试玩',
-    },
-  ];
+  const entries = ctx.game.operationEntry.getLaunchEntries();
   const cards = entries.map(entry => {
-    const admission = ctx.game.operationEntry.getAdmissionSummary(entry.eventId, fixedRoster);
+    const title = entry.title ?? entry.eventId;
+    const admission = entry.admission;
     const sameEvent = current?.eventId === entry.eventId ? current : null;
     const anotherRunInProgress = current?.status === 'inProgress' && !sameEvent;
     const action = sameEvent
-      ? `<button type="button" class="primary-button" data-operation-resume-run="${ctx.escapeHtml(sameEvent.runId)}" data-operation-event-id="${ctx.escapeHtml(entry.eventId)}"><span>${sameEvent.status === 'inProgress' ? entry.resumeLabel : '查看行动结论'}</span><span>↗</span></button>`
-      : `<button type="button" class="primary-button" data-operation-start="${ctx.escapeHtml(entry.eventId)}"${admission.available && !anotherRunInProgress ? '' : ' disabled'}><span>${anotherRunInProgress ? '先处理进行中的行动' : admission.available ? entry.startLabel : '暂不可出动'}</span><span>↗</span></button>`;
+      ? `<button type="button" class="primary-button" data-operation-resume-run="${ctx.escapeHtml(sameEvent.runId)}" data-operation-event-id="${ctx.escapeHtml(entry.eventId)}"><span>${sameEvent.status === 'inProgress' ? `继续${title}` : '查看行动结论'}</span><span>↗</span></button>`
+      : `<button type="button" class="primary-button" data-operation-start="${ctx.escapeHtml(entry.eventId)}" data-operation-character-ids="${ctx.escapeHtml(JSON.stringify(entry.characterIds))}"${admission.available && !anotherRunInProgress ? '' : ' disabled'}><span>${anotherRunInProgress ? '先处理进行中的行动' : admission.available ? `开始${title}` : '暂不可出动'}</span><span>↗</span></button>`;
     const roster = admission.participants.map(actor => ctx.escapeHtml(actor.displayName)).join('、');
     const unavailableReason = anotherRunInProgress ? '当前有一场尚未完成的行动，请先继续或完成它。' : admission.unavailableReason;
     const unavailable = unavailableReason ? `<p class="operation-admission-reason" role="status">${ctx.escapeHtml(unavailableReason)}</p>` : '';
     return `
       <section class="chat-launcher operation-entry-card" data-operation-entry="${ctx.escapeHtml(entry.eventId)}">
-        <span class="operation-eyebrow">${ctx.escapeHtml(entry.eyebrow)}</span>
-        <strong>${ctx.escapeHtml(entry.title)}</strong>
-        <p>${ctx.escapeHtml(entry.introduction)}</p>
+        <span class="operation-eyebrow">Operation · 行动</span>
+        <strong>${ctx.escapeHtml(title)}</strong>
+        <p>${ctx.escapeHtml(entry.description ?? '按当前地点和场景提示完成本次行动。')}</p>
         <p>固定出动：${roster}。试玩不会自动补发角色。</p>
         ${unavailable}
         <div class="story-actions">${action}</div>

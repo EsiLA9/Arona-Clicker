@@ -139,9 +139,13 @@ export function validateOperationActionDef(value: unknown): readonly string[] {
     rejectUnsupportedFields(value.target, ['kind'], 'target', issues);
     if (value.target.relation !== undefined) issues.push('target.relation must be omitted when target.kind is none');
   } else if (value.target.kind === 'actor') {
-    rejectUnsupportedFields(value.target, ['kind', 'relation', 'allowedActorIds', 'allowedActorTypes'], 'target', issues);
+    rejectUnsupportedFields(value.target, ['kind', 'relation', 'selectionMode', 'allowedActorIds', 'allowedActorTypes', 'allowedPositionIds'], 'target', issues);
     if (!['self', 'sameTeam', 'otherTeam', 'any'].includes(String(value.target.relation))) {
       issues.push('target.relation must be self, sameTeam, otherTeam, or any');
+    }
+    if (value.target.selectionMode !== undefined
+      && value.target.selectionMode !== 'select' && value.target.selectionMode !== 'all-eligible') {
+      issues.push('target.selectionMode must be select or all-eligible');
     }
     if (value.target.allowedActorIds !== undefined) {
       collectIds(value.target.allowedActorIds, 'target.allowedActorIds', issues);
@@ -153,6 +157,12 @@ export function validateOperationActionDef(value: unknown): readonly string[] {
       collectIds(value.target.allowedActorTypes, 'target.allowedActorTypes', issues, 'Actor type');
       if (Array.isArray(value.target.allowedActorTypes) && value.target.allowedActorTypes.length === 0) {
         issues.push('target.allowedActorTypes must contain at least one Actor type when declared');
+      }
+    }
+    if (value.target.allowedPositionIds !== undefined) {
+      collectIds(value.target.allowedPositionIds, 'target.allowedPositionIds', issues, 'Actor position');
+      if (Array.isArray(value.target.allowedPositionIds) && value.target.allowedPositionIds.length === 0) {
+        issues.push('target.allowedPositionIds must contain at least one position ID when declared');
       }
     }
   } else {

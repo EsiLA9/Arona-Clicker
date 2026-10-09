@@ -6,7 +6,7 @@
 ## Must Read / Read Set
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
-| 任务 | `docs/plan-work/task-0236-gameplay-b-typed-action-cards-and-target-layers.md` | 玩法、视觉契约与验收 |
+| 任务 | `docs/plan-work/archive/task-0236-gameplay-b-typed-action-cards-and-target-layers.md` | 玩法、视觉契约与验收 |
 | 协议 | `docs/ai/PROJECT-CONSTITUTION.md`、`docs/ai/frontend-design-project-overlay.md`、`docs/ai/galhcg-project-map.md` | Unit 白名单、DOM / 刷新预算与地图维护 |
 | 文档 | `docs/docs-829/06-wiki/50-ui/refresh-update.md` | Operation UI 刷新连续性 |
 | 验收入口 | `src/ui/main.ts:?gameplayBCardInspector=1`、`src/ui/development/gameplay-b-card-inspector.ts`、`tests/ui/gameplay-b-card-inspector.test.ts` | 复用隔离临时 Runtime 启动正式旋转木马 Operation，不新增入口 |
@@ -50,8 +50,8 @@
 - `src/ui/components/workspace-frame.ts`
 - `src/ui/css/operation-workspace.css`
 - `tests/ui/operation-workspace-view.test.ts`
-- `docs/plan-work/task-0236-units/u1-attached-action-card-layer.md`
-- `docs/plan-work/task-0236-units/receipts/receipt-u1-attached-action-card-layer.md`
+- `docs/plan-work/archive/task-0236-units/u1-attached-action-card-layer.md`
+- `docs/plan-work/archive/task-0236-units/receipts/receipt-u1-attached-action-card-layer.md`
 
 ## Explicit Non-goals
 - 不修改 Operation Runtime、目标合同、Registry、Datapack、玩家 SceneCard 与 `controller.ts` 的区域刷新算法。

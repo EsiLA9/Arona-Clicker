@@ -9,7 +9,7 @@
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
 | Task | `docs/plan-work/archive/task-0241-gameplay-b-strategy-pools-and-interaction-context.md` E0 / D1 / 未复制项 | Engine 合同、验收与数据限制 |
-| Receipt | `docs/plan-work/task-0241-units/receipts/0241-e1-operation-runtime-and-galhcg.md` | E1 已实现接口与限制 |
+| Receipt | `docs/plan-work/archive/task-0241-units/receipts/0241-e1-operation-runtime-and-galhcg.md` | E1 已实现接口与限制 |
 | 原型路线 | `prototypes/gameplay-b/src/content/park-graph-route.ts`、`prototypes/gameplay-b/src/content/first-battle.ts` | BDemo 路线与战斗范围 |
 | 原型角色/测试 | `prototypes/gameplay-b/src/content/characters.ts`、`prototypes/gameplay-b/tests/park-demo.test.ts` | 角色行动与完整游园演示依据 |
 | AC 参考 | `src/arona-clicker/content/operation-samples/gameplay-b-datapack.ts`、`src/arona-clicker/services/registry-operation-content-resolver.ts` | 现有 bundle / resolver 边界 |
@@ -47,7 +47,7 @@
 - `src/arona-clicker/content/operation-samples/gameplay-b-strategy-park-ids.ts`（new）
 - `src/arona-clicker/content/operation-samples/gameplay-b-strategy-park.ts`（new，包含 Datapack/事件内容）
 - `tests/engine/gameplay-b-strategy-park-sample.test.ts`（new）
-- `docs/plan-work/task-0241-units/receipts/0241-d1-gameplay-b-strategy-park.md`（new；本 Unit Receipt）
+- `docs/plan-work/archive/task-0241-units/receipts/0241-d1-gameplay-b-strategy-park.md`（new；本 Unit Receipt）
 
 ## Explicit Non-goals
 
@@ -74,4 +74,4 @@
 
 ## Receipt
 
-`docs/plan-work/task-0241-units/receipts/0241-d1-gameplay-b-strategy-park.md`
+`docs/plan-work/archive/task-0241-units/receipts/0241-d1-gameplay-b-strategy-park.md`

@@ -114,6 +114,7 @@ interface ReplayResult {
   readonly transcript: string;
   readonly route: readonly string[];
   readonly battleBeatCounts: Readonly<Record<string, number>>;
+  readonly sceneIdentities: readonly string[];
   readonly status: string;
   readonly consumedItems: readonly string[];
   readonly arcadeVisits: number;
@@ -131,10 +132,16 @@ describe('Gameplay B Strategy Park headless virtual play', () => {
 
   test('replays the full classic route and control-room credential branches through real Operation with one fixed seed', () => {
     expect(gameplayBStrategyParkContent.eventDefinition.randomSeed).toBe(241024);
+    expect(gameplayBStrategyParkContent.locations).toHaveLength(13);
+    expect(gameplayBStrategyParkContent.locations.every(location => location.scenes === undefined)).toBe(true);
     const scripts = [classicRoute, controlRoute('maintenancePass'), controlRoute('staffRadio')];
     const first = scripts.map(playScenario);
     const replay = scripts.map(playScenario);
     expect(first).toEqual(replay);
+    const observedSceneIdentities = new Set(first.flatMap(result => result.sceneIdentities));
+    expect([...observedSceneIdentities].sort()).toEqual(gameplayBStrategyParkContent.locations
+      .map(location => `${IDS.event}/${location.id}/main`)
+      .sort());
 
     const [classic, passBranch, radioBranch] = first;
     expect(classic).toMatchObject({ status: 'success', battleBeatCounts: {
@@ -190,6 +197,7 @@ function playScenario(script: RouteScript): ReplayResult {
     const routeQueues = new Map<string, string[]>();
     for (const choice of script.routes) routeQueues.set(choice.from, [...(routeQueues.get(choice.from) ?? []), choice.routeId]);
     const battleBeatCounts: Record<string, number> = {};
+    const sceneIdentities = new Set<string>();
     const consumedItems: string[] = [];
     let arcadeThirdVisitBlocked = false;
     let run = game.operationEntry.getSnapshot()!;
@@ -201,11 +209,21 @@ function playScenario(script: RouteScript): ReplayResult {
       const locationId = view.currentLocationId;
       const location = gameplayBStrategyParkContent.locations.find(row => row.id === locationId)!;
       transcript.push(`\n[${locationNames[locationId] ?? locationId}] visits=${run.locationProgress[locationId]?.visitCount ?? 0}`);
+      if (!run.locationProgress[locationId]?.completed) {
+        expect(view).toMatchObject({
+          eventId: IDS.event,
+          currentLocationId: locationId,
+          currentSceneId: 'main',
+          currentScene: { sceneId: 'main', status: 'active' },
+        });
+        sceneIdentities.add(`${view.eventId}/${locationId}/${view.currentSceneId}`);
+      }
 
       if (!run.locationProgress[locationId]?.completed && location.interactionSceneId === 'park:combat') {
         battleBeatCounts[locationId] = (battleBeatCounts[locationId] ?? 0) + 1;
         if (battleBeatCounts[locationId] === 1) transcript.push('  战斗开始');
         const resolution = game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+        expect(resolution).toMatchObject({ eventId: IDS.event, locationId, sceneId: 'main' });
         transcript.push(`  Beat ${battleBeatCounts[locationId]} 已结算`);
         run = game.operationEntry.getSnapshot()!;
         view = game.operationEntry.getView(runId)!;
@@ -233,6 +251,7 @@ function playScenario(script: RouteScript): ReplayResult {
             targetActorIds: [...(choice.targetActorIds ?? [])],
           })),
         });
+        expect(resolution).toMatchObject({ eventId: IDS.event, locationId, sceneId: 'main' });
         transcript.push(`  SceneAction ${choice.sceneActionId} 已提交; ${JSON.stringify(resolution.sceneBatch?.selections ?? [])}`);
         run = game.operationEntry.getSnapshot()!;
         view = game.operationEntry.getView(runId)!;
@@ -248,6 +267,11 @@ function playScenario(script: RouteScript): ReplayResult {
         if (locationId === IDS.locations.control) {
           expect(location.sceneActions?.find(action => action.id === IDS.sceneActions.controlRecord))
             .toMatchObject({ performerPolicy: 'none', selectionPolicy: 'fixed', playerCost: 0 });
+          expect(resolution.sceneBatch?.selections).toEqual(expect.arrayContaining([
+            expect.objectContaining({ sceneActionId: IDS.sceneActions.controlPower, actorId: IDS.actors.hoshino }),
+            expect.objectContaining({ sceneActionId: IDS.sceneActions.controlRecord }),
+          ]));
+          expect(resolution.sceneBatch?.playerCostPaid).toBe(2);
           expect(view.knownFactIds).toContain(IDS.facts.powerPanel);
           transcript.push('  固定控制台记录随必选复位行动一同结算');
         }
@@ -296,6 +320,7 @@ function playScenario(script: RouteScript): ReplayResult {
       transcript: transcript.join('\n'),
       route: run.routeHistory.map(edge => edge.toLocationId),
       battleBeatCounts,
+      sceneIdentities: [...sceneIdentities].sort(),
       status: view.status,
       consumedItems,
       arcadeVisits: locationProgress[IDS.locations.arcade]?.visitCount ?? 0,

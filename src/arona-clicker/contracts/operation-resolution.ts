@@ -10,7 +10,7 @@ import type { OperationPreparedActorPlan } from './operation-beat';
 import type { OperationCombinationPreview } from './operation-action';
 import type { OperationStudentSkillRuleDef } from './operation-skill';
 import type { OperationSceneActionSelection } from './operation-scene-action';
-import type { OperationSceneCardSelection } from './operation-scene-action';
+import type { OperationSceneCardSelection, OperationScenePurchaseSelection } from './operation-scene-action';
 import type { OperationCardZones } from './operation';
 import type { OperationPlayerSceneCardInstanceDef } from './operation';
 
@@ -59,6 +59,12 @@ export type OperationResolutionEffectSource =
       readonly actionId: string;
       readonly targetActorId: string | null;
       readonly effectIndex: number;
+    }
+  | {
+      readonly kind: 'scenePurchase';
+      readonly purchaseOfferId: string;
+      readonly actionId: string;
+      readonly effectIndex: number;
     };
 
 export interface OperationResolutionDeltaContribution {
@@ -101,6 +107,12 @@ export interface OperationResolutionIntervention {
 export interface OperationResolutionSceneBatch {
   readonly selections: readonly OperationSceneActionSelection[];
   readonly cards: readonly (OperationSceneCardSelection & { readonly actionId: string; readonly playerCost: number })[];
+  readonly purchases?: readonly (OperationScenePurchaseSelection & {
+    readonly actionId: string;
+    readonly playerCost: number;
+    readonly purchaseFactId: string;
+  })[];
+  readonly skip?: boolean;
   readonly actionCosts: readonly OperationResolutionPayment[];
   readonly playerCostBefore: number;
   readonly playerCostPaid: number;
@@ -114,6 +126,8 @@ export interface OperationResolutionBatch {
   readonly eventId: string;
   readonly basePlanVersion: number;
   readonly locationId: string;
+  /** Location-local Scene identity resolved by the EventRun owner for this commit. */
+  readonly sceneId?: string;
   readonly actorPlans: readonly OperationPreparedActorPlan[];
   readonly intervention: OperationResolutionIntervention | null;
   readonly payments: readonly OperationResolutionPayment[];
@@ -131,6 +145,8 @@ export interface OperationResolutionBatch {
 
 /** Compact per-Run record; the next seed/cursor is owned by EventRun, not copied into history. */
 export type OperationResolution = Omit<OperationResolutionBatch, 'nextRandomState'> & {
+  /** Run-wide order shared with Route transitions and Location entry records. */
+  readonly timelineSequence: number;
   readonly resolutionSequence: number;
 };
 
@@ -143,6 +159,8 @@ export interface OperationResolutionPlannerSnapshot {
   readonly eventId: string;
   readonly planVersion: number;
   readonly currentLocationId: string;
+  /** Active Location-local Scene resolved by EventRun; omitted only by low-level legacy planner fixtures. */
+  readonly currentSceneId?: string;
   readonly actors: readonly OperationResolutionActorSnapshot[];
   readonly teams: readonly OperationResolutionTeamSnapshot[];
   readonly tracks: Readonly<Record<string, number>>;
@@ -187,6 +205,8 @@ export interface OperationResolutionPlannerInput {
   readonly sceneBatch?: {
     readonly selections: readonly OperationSceneActionSelection[];
     readonly cards?: readonly OperationSceneCardSelection[];
+    readonly purchases?: readonly OperationScenePurchaseSelection[];
+    readonly skip?: boolean;
   };
 }
 
