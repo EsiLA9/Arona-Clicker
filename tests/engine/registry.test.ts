@@ -69,6 +69,7 @@ const testOperationLocation: OperationLocationDef = {
   stage: 'combat',
   enabledActionIds: [TEST_OPERATION_ACTION_ID],
   combinationRules: [],
+  maxBeats: 1,
   routeEdges: [],
 };
 

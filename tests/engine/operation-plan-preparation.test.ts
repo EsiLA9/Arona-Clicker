@@ -171,6 +171,57 @@ describe('pure Operation Beat preparation', () => {
     expect(emptyHand.actorPlans[0].kind).toBe('wait');
   });
 
+  test('orders held Actions by Profile priority and falls back after target rejection', () => {
+    const student = actor('actor:student', 'student');
+    const event = eventDefinition([student], {
+      locations: [{ id: 'location:office', stage: 'combat', enabledActionIds: ['student:backup', 'student:preferred'], combinationRules: [], routeEdges: [] }],
+    });
+    const profile = studentProfile('held-priority', ['student:backup', 'student:preferred'], ['student:preferred']);
+    const trusted = content(event, [studentInitialization(student.id, profile)], [
+      action('student:backup', ['student']),
+      action('student:preferred', ['student']),
+    ]);
+    const input = {
+      ...snapshot([{ actorId: student.id, participantKind: 'student', resources: {} }]),
+      studentActionIdsByActorId: { [student.id]: ['student:backup', 'student:preferred'] },
+    };
+
+    expect(prepareOperationBeat(input, trusted).actorPlans[0]).toMatchObject({
+      actionId: 'student:preferred',
+      kind: 'studentAction',
+    });
+
+    const targetBlocked = content(event, [studentInitialization(student.id, profile)], [
+      action('student:backup', ['student']),
+      action('student:preferred', ['student'], { target: { kind: 'actor', relation: 'otherTeam' } }),
+    ]);
+    expect(prepareOperationBeat(input, targetBlocked).actorPlans[0]).toMatchObject({
+      actionId: 'student:backup',
+      kind: 'studentAction',
+    });
+  });
+
+  test('a defeated student receives Wait instead of an actionable plan', () => {
+    const student = actor('actor:student', 'student');
+    const event = eventDefinition([student], {
+      locations: [{ id: 'location:office', stage: 'combat', enabledActionIds: ['student:action'], combinationRules: [], routeEdges: [] }],
+    });
+    const profile = studentProfile('defeated-student', ['student:action']);
+    const trusted = content(event, [studentInitialization(student.id, profile)], [action('student:action', ['student'])]);
+    const defeated = {
+      ...snapshot([{ actorId: student.id, participantKind: 'student', hp: 0, resources: {} }]),
+      studentActionIdsByActorId: { [student.id]: ['student:action'] },
+    };
+
+    expect(prepareOperationBeat(defeated, trusted).actorPlans[0]).toMatchObject({
+      actorId: student.id,
+      kind: 'wait',
+      actionId: OPERATION_WAIT_ACTION_ID,
+      targetActorId: null,
+      reasonIds: [OPERATION_WAIT_REASON_NO_CANDIDATE_ACTION],
+    });
+  });
+
   test('uses Profile priority, Event actor order, participant candidates, Location filtering, and target preference', () => {
     const studentA = actor('actor:student-a', 'student', { targetPriorityActorIds: ['actor:student-b'] });
     const opponent = actor('actor:opponent', 'opponent');

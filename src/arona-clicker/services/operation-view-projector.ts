@@ -486,7 +486,7 @@ export function projectOperationView(
       : currentLocationProgress.sceneActionBatchesUsed ?? 0
     : 0;
   const currentSceneActionMode = currentSceneDefinition?.actionMode ?? null;
-  const currentSceneBatchLimit = currentSceneDefinition?.sceneActionBatches ?? 0;
+  const currentSceneBatchLimit = currentSceneActionMode ? currentSceneDefinition?.sceneActionBatches : 0;
   const activeEventDefinition = eventContentForCurrentScene(content.eventDefinition, run) ?? content.eventDefinition;
   const projectionContent: OperationViewProjectionContent = { ...content, eventDefinition: activeEventDefinition };
   const preparationContent: OperationPreparationContent = {
@@ -689,8 +689,9 @@ export function projectOperationView(
     } : null,
     playerCards,
     sceneActionBatchesUsed: currentSceneBatchCount,
-    sceneActionBatchesRemaining: Math.max(0,
-      currentSceneBatchLimit - currentSceneBatchCount),
+    sceneActionBatchesRemaining: currentSceneBatchLimit === undefined
+      ? currentSceneActionMode ? null : 0
+      : Math.max(0, currentSceneBatchLimit - currentSceneBatchCount),
     basePreparedBeat: run.preparedBeat,
     effectivePreparedBeat: effectiveBeat && plans ? { ...effectiveBeat, actorPlans: [...plans] } : null,
     interventionDraft: run.interventionDraft,

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { OPERATION_WAIT_ACTION_ID, type OperationEventDef } from '../../src/arona-clicker/contracts/operation';
+import { OPERATION_NO_ELIGIBLE_ACTION_REASON_ID, OPERATION_WAIT_ACTION_ID, type OperationEventDef } from '../../src/arona-clicker/contracts/operation';
 import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation-content-resolver';
 import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
 import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
@@ -378,7 +378,7 @@ describe('Gameplay B Operation entry integration', () => {
   test.each([
     ['insufficient actor resource', OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE],
     ['no legal target', OPERATION_WAIT_REASON_NO_LEGAL_TARGET],
-  ])('disables Commit and exposes a reason when every student Action is blocked by %s', (_label, expectedReason) => {
+  ])('allows a no-progress Wait Beat when Character Hand excludes every Action blocked by %s', (_label, expectedReason) => {
     const base = resolvedContent();
     const studentActions = base.actionDefinitions.map(action => ({
       ...action,
@@ -403,19 +403,18 @@ describe('Gameplay B Operation entry integration', () => {
     const view = game.operationEntry.getView(run.runId)!;
     const student = view.actorStates.find(actor => actor.characterId === Character.Hoshino)!;
 
-    expect(student.currentPlan).toMatchObject({ kind: 'wait', reasonIds: [expectedReason] });
-    expect(view.canCommit).toBe(false);
-    expect(view.commitBlockedReasonIds).toContain(expectedReason);
-    expect(student.profile?.actionOptions.every(option => !option.selectable)).toBe(true);
-    if (expectedReason === OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE) {
-      expect(student.profile?.actionOptions.every(option => option.cost?.scope === 'actor'
-        && option.cost.resourceId === 'stamina' && option.cost.amount === 1)).toBe(true);
-    }
-    expect(student.profile?.actionOptions.some(option => option.blockedReasonIds.includes(
-      expectedReason === OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE
-        ? 'operation:intervention:action-not-affordable'
-        : 'operation:intervention:no-legal-target',
-    ))).toBe(true);
+    expect(student.currentPlan).toMatchObject({ kind: 'wait', reasonIds: [OPERATION_NO_ELIGIBLE_ACTION_REASON_ID] });
+    expect(view.canCommit).toBe(true);
+    expect(view.commitBlockedReasonIds).toEqual([]);
+    expect(student.characterHand?.actionIds).toEqual([]);
+    expect(student.characterHand?.candidates.some(candidate => candidate.reasonIds.includes(expectedReason))).toBe(true);
+
+    game.operationEntry.commitBeat({ runId: run.runId, planVersion: run.planVersion });
+    expect(game.operationEntry.getSnapshot()).toMatchObject({
+      status: 'inProgress',
+      beatIndex: 1,
+      locationProgress: { 'test:location:office': { completed: false, result: null } },
+    });
   });
 
   test('previews, revises, clears, commits, and retries one versioned Beat through the narrow facade', () => {

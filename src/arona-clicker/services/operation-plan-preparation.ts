@@ -59,6 +59,21 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
+function profileOrderedHandActionIds(
+  profile: OperationStudentProfileSnapshot,
+  handActionIds: readonly string[],
+): string[] {
+  const hand = new Set(handActionIds);
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const actionId of [...profile.actionPriorityIds, ...profile.candidateActionIds, ...handActionIds]) {
+    if (!hand.has(actionId) || seen.has(actionId)) continue;
+    seen.add(actionId);
+    ordered.push(actionId);
+  }
+  return ordered;
+}
+
 function sameOrderedIds(actual: readonly string[], expected: readonly string[]): boolean {
   return actual.length === expected.length && actual.every((id, index) => id === expected[index]);
 }
@@ -336,7 +351,13 @@ function candidateActionsForActor(
     if (initialization.participantKind !== 'student') fail('trusted initialization kind mismatch for student ' + actorId);
     const profile = initialization.profile;
     if (profile.characterId !== initialization.characterId) fail('student Profile Character mismatch for ' + actorId);
-    const rows = validateStudentCandidateRows(actorId, profile, actionsById, handActionIds);
+    const validatedRows = validateStudentCandidateRows(actorId, profile, actionsById, handActionIds);
+    const rowsById = new Map(validatedRows.map(row => [row.actionId, row]));
+    const rows = handActionIds === undefined
+      ? validatedRows
+      : profileOrderedHandActionIds(profile, handActionIds)
+        .map(actionId => rowsById.get(actionId))
+        .filter((row): row is OperationActionCandidateSnapshot => row !== undefined);
     const candidates = rows.filter(row => row.eligible).map(row => ({
       action: actionsById.get(row.actionId)!,
       reasonIds: unique(row.reasonIds),
@@ -505,6 +526,11 @@ export function prepareOperationBeat(
       indexes.actionDefinitionsById,
       handMap && Object.prototype.hasOwnProperty.call(handMap, actorId) ? handMap[actorId] : undefined,
     );
+
+    if (actorState.hp !== undefined && actorState.hp <= 0) {
+      actorPlans.push(waitPlan(actorId, actorState.participantKind, candidateSet.source, [OPERATION_WAIT_REASON_NO_CANDIDATE_ACTION]));
+      continue;
+    }
 
     if (candidateSet.candidates.length === 0) {
       actorPlans.push(waitPlan(

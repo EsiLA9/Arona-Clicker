@@ -49,12 +49,15 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
       routeHistory: [],
     });
 
-    source.operationEntry.commitSceneActionBatch({
+    const skipResolution = source.operationEntry.commitSceneActionBatch({
       runId,
       planVersion: initial.planVersion,
       selections: [],
+      skip: true,
     });
+    expect(skipResolution.sceneBatch?.selections).toEqual([]);
     const afterSkip = source.operationEntry.getSnapshot()!;
+    expect(afterSkip.eventState.knownFactIds).not.toContain(ATOMIC_SCENE_DEMO_IDS.repairClueFact);
     expect(afterSkip.locationProgress[locationId]).toMatchObject({
       completed: false,
       completedSceneIds: [],
@@ -72,25 +75,31 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
 
     const cardInstanceId = afterSkip.playerRouteState.cards.hand[0];
     expect(cardInstanceId).toBeDefined();
-    source.operationEntry.commitSceneActionBatch({
+    const firstResolution = source.operationEntry.commitSceneActionBatch({
       runId,
       planVersion: afterSkip.planVersion,
       selections: [],
       cards: [{ cardInstanceId: cardInstanceId!, targetActorIds: [] }],
     });
+    expect(firstResolution.sceneBatch?.selections).toEqual([CAROUSEL_SAFETY_IDS.actors.hoshino, CAROUSEL_SAFETY_IDS.actors.serika].map(actorId => ({
+      sceneActionId: ATOMIC_SCENE_DEMO_IDS.sceneAction,
+      actorId,
+      targetActorIds: [CAROUSEL_SAFETY_IDS.actors.ride],
+    })));
+    expect(firstResolution.sceneBatch?.cards).toEqual([expect.objectContaining({ cardInstanceId: cardInstanceId! })]);
     const afterActorlessCard = source.operationEntry.getSnapshot()!;
-    expect(afterActorlessCard.eventState.knownFactIds).not.toContain(ATOMIC_SCENE_DEMO_IDS.repairClueFact);
+    expect(afterActorlessCard.eventState.knownFactIds).toContain(ATOMIC_SCENE_DEMO_IDS.repairClueFact);
     expect(afterActorlessCard.eventState.tracks[CAROUSEL_SAFETY_IDS.track]).toBe(0);
     expect(source.operationEntry.getView(runId)).toMatchObject({
       currentLocationId: locationId,
-      currentSceneId: ATOMIC_SCENE_DEMO_IDS.scene,
+      currentSceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene,
       scenes: [
-        { sceneId: ATOMIC_SCENE_DEMO_IDS.scene, status: 'active' },
-        { sceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene, status: 'ready' },
+        { sceneId: ATOMIC_SCENE_DEMO_IDS.scene, status: 'completed' },
+        { sceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene, status: 'active' },
       ],
       locationProgress: {
         [locationId]: {
-          completedSceneIds: [],
+          completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene],
           sceneActionBatchesUsedByScene: { [ATOMIC_SCENE_DEMO_IDS.scene]: 2 },
         },
       },
@@ -107,20 +116,7 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
       }],
     })).toThrow();
     expect(source.operationEntry.getSnapshot()).toEqual(afterActorlessCard);
-    expect(source.operationEntry.getView(runId)?.currentSceneId).toBe(ATOMIC_SCENE_DEMO_IDS.scene);
-
-    const beforeInvestigation = source.operationEntry.getSnapshot()!;
-    const firstResolution = source.operationEntry.commitSceneActionBatch({
-      runId,
-      planVersion: beforeInvestigation.planVersion,
-      selections: [CAROUSEL_SAFETY_IDS.actors.hoshino, CAROUSEL_SAFETY_IDS.actors.serika].map(actorId => ({
-        sceneActionId: ATOMIC_SCENE_DEMO_IDS.sceneAction,
-        actorId,
-        targetActorIds: [CAROUSEL_SAFETY_IDS.actors.ride],
-      })),
-    });
     expect(firstResolution.sceneId).toBe(ATOMIC_SCENE_DEMO_IDS.scene);
-    expect(source.operationEntry.getSnapshot()?.eventState.knownFactIds).toContain(ATOMIC_SCENE_DEMO_IDS.repairClueFact);
     expect(source.operationEntry.getView(runId)).toMatchObject({
       currentLocationId: locationId,
       currentSceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene,
@@ -133,7 +129,7 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
         [locationId]: {
           completed: false,
           completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene],
-          sceneActionBatchesUsedByScene: { [ATOMIC_SCENE_DEMO_IDS.scene]: 3 },
+          sceneActionBatchesUsedByScene: { [ATOMIC_SCENE_DEMO_IDS.scene]: 2 },
         },
       },
       currentRoutes: [{ routeId: ATOMIC_SCENE_DEMO_IDS.route, targetLocationId: ATOMIC_SCENE_DEMO_IDS.exitLocation, available: false }],
@@ -282,7 +278,7 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
           result: 'success',
           completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene, ATOMIC_SCENE_DEMO_IDS.alarmScene],
           sceneActionBatchesUsedByScene: {
-            [ATOMIC_SCENE_DEMO_IDS.scene]: 3,
+            [ATOMIC_SCENE_DEMO_IDS.scene]: 2,
             [ATOMIC_SCENE_DEMO_IDS.alarmScene]: 4,
           },
         },
@@ -302,5 +298,30 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
       result: 'success',
       completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene, ATOMIC_SCENE_DEMO_IDS.alarmScene],
     });
+  });
+
+  test('an empty non-skip batch executes the pending fixed SceneAction and resolves its target in Runtime', () => {
+    const game = createGame();
+    const runId = game.operationEntry.start(ATOMIC_SCENE_DEMO_IDS.event, STUDENTS).runId;
+    const before = game.operationEntry.getView(runId)!;
+    const preview = game.operationEntry.previewSceneActionBatch({
+      runId,
+      planVersion: before.planVersion,
+      selections: [],
+    });
+    expect(preview.selections).toEqual(STUDENTS.map((_, index) => ({
+      sceneActionId: ATOMIC_SCENE_DEMO_IDS.sceneAction,
+      actorId: [CAROUSEL_SAFETY_IDS.actors.hoshino, CAROUSEL_SAFETY_IDS.actors.serika][index],
+      targetActorIds: [CAROUSEL_SAFETY_IDS.actors.ride],
+    })));
+    const resolution = game.operationEntry.commitSceneActionBatch({
+      runId,
+      planVersion: before.planVersion,
+      selections: [],
+    });
+    expect(resolution.sceneBatch?.selections).toEqual(preview.selections);
+    const after = game.operationEntry.getView(runId)!;
+    expect(after.currentSceneId).toBe(ATOMIC_SCENE_DEMO_IDS.alarmScene);
+    expect(after.scenes[0]).toMatchObject({ sceneId: ATOMIC_SCENE_DEMO_IDS.scene, status: 'completed' });
   });
 });

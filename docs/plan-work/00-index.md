@@ -8,8 +8,14 @@
 
 ## 当前推进
 
+### 当前执行（2026-10-09）
+
+无。
+
 ### 本轮完成（2026-10-09）
 
+- [[archive/task-0279-gameplay-b-scene-pending-action-default]]：将 Atomic “检查故障设备”标为 fixed SceneAction，使空选择 Commit 自动解析行动与 Ride 目标；修正显式 Skip 绕过固定行动，补充 Engine / UI 回归。33 项定向测试、类型、文档和 GALHCG 检查通过；未做浏览器回放。
+- [[archive/task-0278-gameplay-b-unbounded-loop-and-character-autonomy]]：完成无上限循环、角色自动战斗计划、单槽干预与 selectable SceneAction 首选合法目标；U1–U8 已验收。U1–U7 为 15 个定向测试文件、230 项通过；U8 为 4 个 Engine / UI 文件、61 项通过；类型、文档和 GALHCG 检查通过。未做浏览器回放。
 - [[archive/task-0277-gameplay-b-three-column-workspace-unification]]：统一 Operation 三栏标题与分割线层级；修复替代行动重复点击收起；补充玩家手牌激活样式；移除执行者旧标记；同场景多行动牌默认铺开并响应式换行。42 项定向 UI 测试、类型检查及桌面/窄屏浏览器验收通过。
 
 ### 玩法 B 原子化场景重构

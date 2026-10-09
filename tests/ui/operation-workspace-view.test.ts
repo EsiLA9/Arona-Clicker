@@ -225,7 +225,7 @@ describe('Gameplay B Operation workspace view', () => {
     expect(alternativeFace.querySelector('[data-operation-card-target-summary]')?.textContent).toBe('→ ' + serika.displayName);
     expect(host.querySelector('[data-operation-action-targets]')).toBeNull();
     expect(host.querySelector('[data-operation-target]')).toBeNull();
-    expect(currentFace.querySelector('[data-operation-action-status]')?.textContent).toBe('当前计划');
+    expect(currentFace.querySelector('[data-operation-action-status]')?.textContent).toBe('自动计划');
     expect(alternativeFace.querySelector('[data-operation-action-status]')?.textContent).toBe('可替换');
   });
 
@@ -358,6 +358,52 @@ describe('Gameplay B Operation workspace view', () => {
     expect(host.textContent).toContain('当前地点不允许此行动。');
     expect(host.textContent).not.toContain('private-position-id');
     expect(host.querySelector('[data-operation-student="' + PARK_IDS.actors.hoshino + '"] [data-operation-position]')?.getAttribute('data-operation-position')).toBe('unknown');
+  });
+
+  it('shows the first legal target as the SceneAction default without selecting the Action', () => {
+    const game = createGame();
+    const runId = game.operationEntry.start(ATOMIC_SCENE_DEMO_IDS.event, [Character.Hoshino, Character.Serika]).runId;
+    const view = game.operationEntry.getView(runId)!;
+    const sceneAction = view.currentSceneActions.find(action => action.id === ATOMIC_SCENE_DEMO_IDS.sceneAction)!;
+    const prioritizedTargets = [ATOMIC_SCENE_DEMO_IDS.enemyBack, ATOMIC_SCENE_DEMO_IDS.enemyFrontA];
+    const prioritizedView: OperationView = {
+      ...view,
+      currentSceneActions: view.currentSceneActions.map(action => action.id !== sceneAction.id ? action : {
+        ...action,
+        selectionPolicy: 'required',
+        legalTargetActorIdsByActorId: {
+          ...action.legalTargetActorIdsByActorId,
+          [CAROUSEL_SAFETY_IDS.actors.hoshino]: prioritizedTargets,
+        },
+      }),
+    };
+    const host = document.createElement('div');
+    host.innerHTML = renderOperationWorkspace(createUIContext(game), prioritizedView);
+    const face = host.querySelector<HTMLButtonElement>(
+      '[data-operation-scene-card][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"] [data-operation-scene-choice][data-scene-action-id="' + ATOMIC_SCENE_DEMO_IDS.sceneAction + '"]',
+    )!;
+
+    expect(JSON.parse(face.dataset.selectedTargetActorIds ?? '[]')).toEqual([ATOMIC_SCENE_DEMO_IDS.enemyBack]);
+    expect(face.dataset.targetSummary).toContain('敌人丙');
+    expect(face.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('keeps SceneAction controls available and labels an omitted batch limit as unlimited', () => {
+    const game = createGame();
+    const runId = start(game);
+    const view = game.operationEntry.getView(runId)!;
+    const unlimitedView: OperationView = {
+      ...view,
+      currentActionMode: 'individual',
+      sceneActionBatchesUsed: 7,
+      sceneActionBatchesRemaining: null,
+    };
+    const host = document.createElement('div');
+    host.innerHTML = renderOperationWorkspace(createUIContext(game), unlimitedView);
+
+    expect(host.textContent).toContain('已提交 7 批 · 不限');
+    expect(host.querySelector('[data-operation-scene-submit]')).not.toBeNull();
+    expect(host.querySelector('[data-operation-scene-skip]')).not.toBeNull();
   });
 
   it('reading a missing scene-draft version does not evict the stored draft', () => {

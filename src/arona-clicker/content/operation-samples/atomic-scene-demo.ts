@@ -171,7 +171,7 @@ export const atomicSceneDemoLocation: OperationLocationDef = {
       scope: 'individual',
       playerCost: 0,
       performerPolicy: 'selected-student',
-      selectionPolicy: 'required',
+      selectionPolicy: 'fixed',
       title: '检查故障设备',
     }],
     completion: { kind: 'knownFact', factId: ATOMIC_SCENE_DEMO_IDS.repairClueFact, present: true },

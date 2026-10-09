@@ -74,7 +74,8 @@ export interface OperationSceneActionBatchPreview {
   /** Actor/Team resource costs from ActionDef, previewed with PlayerCost in one transaction. */
   readonly actionCosts: readonly OperationSceneActionResourceCostPreview[];
   readonly sceneActionBatchesUsed: number;
-  readonly sceneActionBatchesLimit: number;
+  /** null means the current Scene has no authored batch ceiling. */
+  readonly sceneActionBatchesLimit: number | null;
 }
 
 /** Runtime-owned, explicitly staged player batch. The preview preserves its accepted fee snapshot. */

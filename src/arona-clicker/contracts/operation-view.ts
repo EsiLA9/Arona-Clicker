@@ -282,7 +282,8 @@ export interface OperationView {
   readonly currentScenePurchaseOffers: readonly OperationViewScenePurchaseOffer[];
   readonly pendingSceneActionBatch: OperationSceneActionBatchDraft | null;
   readonly sceneActionBatchesUsed: number;
-  readonly sceneActionBatchesRemaining: number;
+  /** null means the active Scene has no authored batch ceiling. */
+  readonly sceneActionBatchesRemaining: number | null;
   readonly basePreparedBeat: PreparedBeat | null;
   /** Includes the current intervention draft when one is active. */
   readonly effectivePreparedBeat: PreparedBeat | null;

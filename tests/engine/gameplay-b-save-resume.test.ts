@@ -127,7 +127,7 @@ describe('Gameplay B Save/Resume', () => {
         { visitSequence: 2, locationId: IDS.locations.concourse, costGain: 2, balanceBefore: 3, balanceAfter: 5 },
         { visitSequence: 3, locationId: IDS.locations.exit, costGain: 1, balanceBefore: 2, balanceAfter: 3 },
       ],
-      random: { tacticalCursor: 0 },
+      random: { tacticalCursor: 1 },
     });
     const afterRouteSave = source.save();
 

@@ -147,7 +147,7 @@ function globalStartInput(): OperationRunStartInput {
 }
 
 describe('Operation SceneAction batches and shared route Cost', () => {
-  test('rejects an empty Individual target instead of expanding it to all legal targets', () => {
+  test('uses the preferred legal target when a selected Individual SceneAction has no explicit target', () => {
     const input = individualStartInput();
     const targetAction = action(ACTION_A, [{ kind: 'actorHpDelta', recipient: 'target', amount: -1 }], { kind: 'actor', relation: 'any' });
     const service = new OperationRuntimeService();
@@ -162,18 +162,25 @@ describe('Operation SceneAction batches and shared route Cost', () => {
       ],
     } as const;
 
-    expect(() => service.previewSceneActionBatch(emptyTargetCommand)).toThrow(/target count is invalid/);
+    const defaultTargetPreview = service.previewSceneActionBatch(emptyTargetCommand);
+    expect(defaultTargetPreview.selections).toEqual([
+      { sceneActionId: 'demo:scene-action:collect-pass', actorId: A, targetActorIds: [B] },
+      { sceneActionId: 'demo:scene-action:steady-lights', actorId: B, targetActorIds: [] },
+    ]);
     expect(service.getSnapshot()).toEqual(before);
 
-    const explicitSingleTarget = service.previewSceneActionBatch({
+    const explicitOverride = service.previewSceneActionBatch({
       ...emptyTargetCommand,
       selections: [
-        { sceneActionId: 'demo:scene-action:collect-pass', actorId: A, targetActorIds: [B] },
+        { sceneActionId: 'demo:scene-action:collect-pass', actorId: A, targetActorIds: [A] },
         { sceneActionId: 'demo:scene-action:steady-lights', actorId: B, targetActorIds: [] },
       ],
     });
-    expect(explicitSingleTarget.selections[0]?.targetActorIds).toEqual([B]);
+    expect(explicitOverride.selections[0]?.targetActorIds).toEqual([A]);
     expect(service.getSnapshot()).toEqual(before);
+
+    const resolution = service.commitSceneActionBatch(emptyTargetCommand);
+    expect(resolution.sceneBatch?.selections).toEqual(defaultTargetPreview.selections);
   });
 
   test('previews without mutation, then commits one Individual batch through Resolution and the sole route path', () => {
@@ -541,6 +548,66 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     };
     expect(() => service.previewSceneActionBatch(command)).toThrow(/stale/);
     expect(service.getSnapshot()).toEqual(run);
+  });
+
+  test('commits unlimited batches one at a time and resumes counters beyond the history window', () => {
+    const base = individualStartInput();
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      resumeVersion: 1,
+      locations: base.eventDefinition.locations.map(location => {
+        if (location.id !== 'demo:location:platform') return location;
+        const { sceneActionBatches: _limit, ...unboundedLocation } = location;
+        return unboundedLocation;
+      }),
+    };
+    const input: OperationRunStartInput = { ...base, eventDefinition };
+    const paused = new OperationRuntimeService();
+    let run = paused.start(input);
+    for (let index = 0; index < 40; index += 1) {
+      const resolution = paused.commitSceneActionBatch({
+        runId: run.runId,
+        planVersion: run.planVersion,
+        selections: [],
+        skip: true,
+      });
+      expect(resolution.sceneBatch?.sceneActionBatchesUsed).toBe(index + 1);
+      run = paused.getSnapshot()!;
+      expect(run.status).toBe('inProgress');
+    }
+
+    expect(run.locationProgress['demo:location:platform']).toMatchObject({ sceneActionBatchesUsed: 40, completed: false });
+    expect(run.resolutionSequence).toBe(40);
+    expect(run.resolutions).toHaveLength(32);
+    expect(run.resolutions[0].resolutionSequence).toBe(9);
+    expect(paused.previewSceneActionBatch({
+      runId: run.runId,
+      planVersion: run.planVersion,
+      selections: [],
+      skip: true,
+    }).sceneActionBatchesLimit).toBeNull();
+
+    const checkpoint = paused.createSaveSnapshot()!;
+    const resumed = new OperationRuntimeService();
+    expect(resumed.restoreSaveSnapshot(checkpoint, input)).toEqual(run);
+    const beforeRejectedCommit = resumed.getSnapshot()!;
+    expect(() => resumed.commitSceneActionBatch({
+      runId: run.runId,
+      planVersion: run.planVersion + 1,
+      selections: [],
+      skip: true,
+    })).toThrow(/stale/);
+    expect(resumed.getSnapshot()).toEqual(beforeRejectedCommit);
+
+    const next = resumed.commitSceneActionBatch({
+      runId: run.runId,
+      planVersion: run.planVersion,
+      selections: [],
+      skip: true,
+    });
+    expect(next.sceneBatch?.sceneActionBatchesUsed).toBe(41);
+    expect(resumed.getSnapshot()).toMatchObject({ resolutionSequence: 41, timelineSequence: 42 });
+    expect(resumed.getSnapshot()!.resolutions).toHaveLength(32);
   });
 
   test('validates SceneAction wrapper scope, definition references, and finite visit budget', () => {

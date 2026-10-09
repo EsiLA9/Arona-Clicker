@@ -148,6 +148,87 @@ function tacticalRunStartInputWithAlternateAction(): OperationRunStartInput {
   };
 }
 
+function unboundedCombatRunStartInput(): OperationRunStartInput {
+  const base = tacticalRunStartInput();
+  const studentActorId = 'test:actor:student';
+  const opponentActorId = 'test:actor:opponent';
+  const studentActionId = 'test:action:student-strike';
+  const opponentActionId = 'test:action:opponent-intent';
+  const studentActor = base.actors[0];
+  if (studentActor.participantKind !== 'student') throw new Error('expected Student Actor fixture');
+  const studentAction: OperationActionDef = {
+    id: studentActionId,
+    title: 'Student strike',
+    allowedParticipantKinds: ['student'],
+    requiredCapabilityIds: [],
+    reasonIds: [],
+    tagIds: [],
+    target: { kind: 'actor', relation: 'any', allowedActorIds: [opponentActorId] },
+    effects: [
+      { kind: 'actorHpDelta', recipient: 'target', amount: -1 },
+      { kind: 'eventFact', factId: 'door_open', op: 'reveal' },
+    ],
+  };
+  const opponentAction: OperationActionDef = {
+    id: opponentActionId,
+    title: 'Opponent intent',
+    allowedParticipantKinds: ['opponent'],
+    requiredCapabilityIds: [],
+    reasonIds: [],
+    tagIds: [],
+    target: { kind: 'none' },
+    effects: [],
+  };
+  return {
+    ...base,
+    eventDefinition: {
+      ...base.eventDefinition,
+      resumeVersion: 1,
+      objectives: [{
+        id: 'test:objective:complete',
+        description: 'Complete the mission after the opponent is defeated.',
+        kind: 'primary',
+        predicate: { kind: 'knownFact', factId: 'door_open', present: true },
+      }],
+      actors: [
+        ...base.eventDefinition.actors,
+        { id: opponentActorId, type: 'opponent', hp: { initial: 3, min: 0, max: 3 } },
+      ],
+      locations: [{
+        ...base.eventDefinition.locations[0],
+        enabledActionIds: [studentActionId, opponentActionId],
+        objectives: [{
+          id: 'test:objective:secondary',
+          description: 'This optional objective does not gate Location completion.',
+          kind: 'secondary',
+          predicate: { kind: 'track', trackId: 'danger', operator: 'eq', value: 1 },
+        }],
+        routeEdges: [],
+      }],
+    },
+    actors: [
+      {
+        ...studentActor,
+        profile: {
+          ...studentActor.profile,
+          candidateActionIds: [studentActionId],
+          actionPriorityIds: [studentActionId],
+          actionCandidates: [{
+            actionId: studentActionId,
+            eligible: true,
+            requiredCapabilityIds: [],
+            missingCapabilityIds: [],
+            reasonIds: [],
+          }],
+          eligibleActionIds: [studentActionId],
+        },
+      },
+      { actorId: opponentActorId, participantKind: 'opponent', candidateActionIds: [opponentActionId] },
+    ],
+    actionDefinitions: [studentAction, opponentAction],
+  };
+}
+
 function operationEntryFor(owner: OperationRuntimeService) {
   const resolver: OperationContentResolver = { resolve: () => null };
   return createOperationEntry({ owner, resolver }).facade;
@@ -186,6 +267,30 @@ describe('validateOperationEventDef', () => {
     const uncappedRun = service.start(uncapped);
     expect(uncappedRun.playerRouteState.playerCost).toBe(1000);
     expect(uncappedRun.playerRouteState.cards).toEqual({ drawPile: [], hand: [], discard: [] });
+  });
+
+  test('allows a missing SceneAction batch limit while retaining explicit positive-limit validation', () => {
+    const definition = eventDef();
+    const location = definition.locations[0];
+    const unboundedLocation: OperationEventDef['locations'][number] = {
+      ...location,
+      stage: 'scene',
+      actionMode: 'individual',
+      sceneActions: [{ id: 'inspect', actionId: 'test:action:inspect', scope: 'individual', playerCost: 0 }],
+    };
+    const unbounded: OperationEventDef = {
+      ...definition,
+      locations: [unboundedLocation, ...definition.locations.slice(1)],
+    };
+    expect(validateOperationEventDef(unbounded)).toEqual([]);
+
+    for (const sceneActionBatches of [0, -1, Number.POSITIVE_INFINITY]) {
+      const invalid: OperationEventDef = {
+        ...unbounded,
+        locations: [{ ...unboundedLocation, sceneActionBatches }, ...definition.locations.slice(1)],
+      };
+      expect(validateOperationEventDef(invalid).join('\n')).toMatch(/sceneActionBatches must be a positive safe integer/);
+    }
   });
 
   test('validates Team definitions, Actor membership, and target preference references', () => {
@@ -400,6 +505,29 @@ describe('OperationRuntimeService', () => {
 
     expect(() => service.start(invalid)).toThrow(OperationRuntimeError);
     expect(service.getSnapshot()).toBeNull();
+  });
+
+  test('continues an uncapped combat across explicit Beats and completes when its last enabled opponent falls', () => {
+    const owner = new OperationRuntimeService();
+    const entry = operationEntryFor(owner);
+    let run = owner.start(unboundedCombatRunStartInput());
+
+    for (let beat = 1; beat <= 2; beat += 1) {
+      entry.commitBeat({ runId: run.runId, planVersion: run.planVersion });
+      run = owner.getSnapshot()!;
+      expect(run.beatIndex).toBe(beat);
+      expect(run.actorStates.find(actor => actor.id === 'test:actor:opponent')?.hp).toBe(3 - beat);
+      expect(run.locationProgress['test:location:office']).toMatchObject({ completed: false, result: null });
+      expect(run.preparedBeat).not.toBeNull();
+    }
+
+    entry.commitBeat({ runId: run.runId, planVersion: run.planVersion });
+    run = owner.getSnapshot()!;
+    expect(run.beatIndex).toBe(3);
+    expect(run.actorStates.find(actor => actor.id === 'test:actor:opponent')?.hp).toBe(0);
+    expect(run.locationProgress['test:location:office']).toMatchObject({ completed: true, result: 'success', beatCount: 3 });
+    expect(run).toMatchObject({ status: 'success', preparedBeat: null });
+    expect(owner.getResult()?.kind).toBe('success');
   });
 
   test('creates independent Run copies from the same definition and returns detached snapshots', () => {
@@ -1058,6 +1186,36 @@ describe('OperationRuntimeService', () => {
     expect(owner.getSnapshot()).toEqual(before);
     expect(before?.random).toEqual(started.random);
     expect(before?.characterHands).toEqual(started.characterHands);
+  });
+
+  test('does not store a default plan as an Intervention and clears an override selected back to base', () => {
+    const owner = new OperationRuntimeService();
+    const started = owner.start(tacticalRunStartInputWithAlternateAction());
+    const basePlan = started.preparedBeat!.actorPlans[0];
+    const actorId = 'test:actor:student';
+
+    const unchanged = owner.reviseIntervention({
+      runId: started.runId,
+      planVersion: started.planVersion,
+      draft: { actorId, actionId: basePlan.actionId },
+    });
+    expect(unchanged).toEqual(started);
+    expect(unchanged.interventionDraft).toBeNull();
+
+    const override = owner.reviseIntervention({
+      runId: started.runId,
+      planVersion: unchanged.planVersion,
+      draft: { actorId, actionId: 'test:action:alternate-inspect' },
+    });
+    expect(override.interventionDraft).toMatchObject({ actorId, actionId: 'test:action:alternate-inspect' });
+    const reset = owner.reviseIntervention({
+      runId: started.runId,
+      planVersion: override.planVersion,
+      draft: { actorId, actionId: basePlan.actionId },
+    });
+    expect(reset.interventionDraft).toBeNull();
+    expect(reset.planVersion).toBe(override.planVersion + 1);
+    expect(reset.preparedBeat?.actorPlans[0]).toMatchObject({ actionId: basePlan.actionId, targetActorId: basePlan.targetActorId });
   });
 
   test('commits fact and held-item Action effects once and marks the Location objective from that result', () => {

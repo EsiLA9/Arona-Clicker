@@ -880,12 +880,14 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
   const { snapshot, trustedContent } = input;
   const event = trustedContent.eventDefinition;
   const location = event.locations.find(row => row.id === snapshot.currentLocationId);
-  if (!location?.actionMode || (!Array.isArray(location.sceneActions) && !location.purchaseOffers?.length) || !Number.isSafeInteger(location.sceneActionBatches)
-    || location.sceneActionBatches! <= 0) {
-    fail('operation:resolution:invalid-content', 'current Location has no finite SceneAction contract');
+  if (!location?.actionMode || (!Array.isArray(location.sceneActions) && !location.purchaseOffers?.length)
+    || (location.sceneActionBatches !== undefined
+      && (!Number.isSafeInteger(location.sceneActionBatches) || location.sceneActionBatches <= 0))) {
+    fail('operation:resolution:invalid-content', 'current Location has no valid SceneAction contract');
   }
   const batchesUsed = snapshot.sceneActionBatchesUsed;
-  if (!Number.isSafeInteger(batchesUsed) || batchesUsed! < 0 || batchesUsed! >= location.sceneActionBatches!) {
+  if (!Number.isSafeInteger(batchesUsed) || batchesUsed! < 0
+    || (location.sceneActionBatches !== undefined && batchesUsed! >= location.sceneActionBatches)) {
     fail('operation:resolution:stale-plan', 'current Location has no SceneAction batches remaining');
   }
   const playerCost = snapshot.playerCost;
@@ -933,11 +935,11 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
     const targetSpec = action.target;
     if (targetSpec.kind === 'none') return [];
     const candidates = getOperationTargetActorIds(event, actorId, targetSpec, indexes.actorStatesById);
-    if (candidates.length === 0) fail('operation:resolution:invalid-content', 'fixed Scene option has no legal default Actor target: ' + action.id);
+    if (candidates.length === 0) fail('operation:resolution:invalid-content', 'Scene action/card has no legal default Actor target: ' + action.id);
     return targetSpec.selectionMode === 'all-eligible' ? [] : [candidates[0]!];
   };
   const actionSelections: OperationSceneActionSelection[] = [...request.selections];
-  for (const fixed of (location.sceneActions ?? []).filter(row => row.selectionPolicy === 'fixed')) {
+  for (const fixed of request.skip === true ? [] : (location.sceneActions ?? []).filter(row => row.selectionPolicy === 'fixed')) {
     const suppliedFixed = request.selections.filter(row => row.sceneActionId === fixed.id);
     if (fixed.scope === 'global' && suppliedFixed.length > 1) {
       fail('operation:resolution:invalid-content', 'fixed Global SceneAction may appear only once: ' + fixed.id);
@@ -984,11 +986,17 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       || (candidate.cardInstanceIds !== undefined && (!Array.isArray(candidate.cardInstanceIds) || candidate.cardInstanceIds.length > 0))) {
       fail('operation:resolution:invalid-content', 'SceneAction selection has an invalid shape or includes unavailable SceneCards');
     }
-    const selection = candidate as unknown as OperationSceneActionSelection;
-    const sceneAction = sceneActions.get(selection.sceneActionId);
+    const suppliedSelection = candidate as unknown as OperationSceneActionSelection;
+    const sceneAction = sceneActions.get(suppliedSelection.sceneActionId);
     const action = sceneAction ? indexes.actionDefinitionsById.get(sceneAction.actionId) : undefined;
     const performerPolicy = sceneAction?.performerPolicy ?? 'selected-student';
-    const actorId = selection.actorId ?? null;
+    const actorId = suppliedSelection.actorId ?? null;
+    const selection: OperationSceneActionSelection = action
+      && action.target.kind === 'actor'
+      && action.target.selectionMode !== 'all-eligible'
+      && suppliedSelection.targetActorIds.length === 0
+      ? { ...suppliedSelection, targetActorIds: [...resolveDefaultTargets(action, actorId)] }
+      : suppliedSelection;
     const sourceState = actorId ? indexes.actorStatesById.get(actorId) : undefined;
     const initialization = actorId ? actorInitializations.get(actorId) : undefined;
     if (!sceneAction || sceneAction.scope !== location.actionMode || !action) {
@@ -1053,7 +1061,7 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
   const selectedCardIds = new Set<string>();
   const selectedCards: { readonly request: OperationSceneCardSelection; readonly instance: (typeof cardInstances)[number]; readonly actionId: string; readonly actorId: string | null; readonly targets: readonly (string | null)[]; readonly cost?: OperationActionCostDef }[] = [];
   const normalizedCardSelections: OperationSceneCardSelection[] = [...cardSelections];
-  for (const cardInstanceId of handIds) {
+  for (const cardInstanceId of request.skip === true ? [] : handIds) {
     const instance = cardInstancesById.get(cardInstanceId);
     if (!instance || instance.timing !== 'scene' || instance.selectionPolicy !== 'fixed') continue;
     const action = indexes.actionDefinitionsById.get(instance.actionId);

@@ -280,8 +280,9 @@ function validatePurchaseOffers(
     issues.push(path + ' must contain at least one purchase offer');
     return;
   }
-  if (actionMode !== 'global' || !Number.isSafeInteger(sceneActionBatches) || Number(sceneActionBatches) <= 0) {
-    issues.push(path + ' requires global SceneAction mode and a positive batch limit');
+  if (actionMode !== 'global' || (sceneActionBatches !== undefined
+    && (!Number.isSafeInteger(sceneActionBatches) || Number(sceneActionBatches) <= 0))) {
+    issues.push(path + ' requires global SceneAction mode and, when supplied, a positive batch limit');
   }
   value.forEach((offer, index) => {
     const offerPath = path + '[' + index + ']';
@@ -393,7 +394,8 @@ function validateLocations(
       if ((!Array.isArray(entry.sceneActions) || entry.sceneActions.length === 0) && !Array.isArray(entry.purchaseOffers)) {
         issues.push(path + '.sceneActions must contain at least one scene action unless PurchaseOffers are declared');
       }
-      if (!Number.isSafeInteger(entry.sceneActionBatches) || Number(entry.sceneActionBatches) <= 0) {
+      if (entry.sceneActionBatches !== undefined
+        && (!Number.isSafeInteger(entry.sceneActionBatches) || Number(entry.sceneActionBatches) <= 0)) {
         issues.push(path + '.sceneActionBatches must be a positive safe integer');
       }
       if (Array.isArray(entry.sceneActions)) {
@@ -457,7 +459,8 @@ function validateLocations(
             if ((!Array.isArray(scene.sceneActions) || scene.sceneActions.length === 0) && !Array.isArray(scene.purchaseOffers)) {
               issues.push(scenePath + '.sceneActions must contain at least one scene action unless PurchaseOffers are declared');
             }
-            if (!Number.isSafeInteger(scene.sceneActionBatches) || Number(scene.sceneActionBatches) <= 0) {
+            if (scene.sceneActionBatches !== undefined
+              && (!Number.isSafeInteger(scene.sceneActionBatches) || Number(scene.sceneActionBatches) <= 0)) {
               issues.push(scenePath + '.sceneActionBatches must be a positive safe integer');
             }
           }
@@ -995,6 +998,7 @@ export function validateOperationActorInitializations(
 
   for (const id of expectedIds) if (!seenIds.has(id)) issues.push('actors is missing Event actor: ' + id);
   if (seenIds.size !== expectedIds.size) issues.push('actors must contain every Event actor exactly once');
+
   return issues;
 }
 

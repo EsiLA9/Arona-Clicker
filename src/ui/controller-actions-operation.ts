@@ -634,9 +634,13 @@ function selectSceneCardTarget(ctrl: UIController, face: HTMLButtonElement, targ
   if (!legalTargets.includes(targetActorId)) return;
   let selectedTargets: string[] = [];
   try { const values = JSON.parse(face.dataset.selectedTargetActorIds ?? '[]') as unknown; if (Array.isArray(values)) selectedTargets = values.filter((id): id is string => typeof id === 'string' && legalTargets.includes(id)); } catch { /* use an empty draft */ }
-  selectedTargets = face.dataset.targetMode === 'global'
-    ? selectedTargets.includes(targetActorId) ? selectedTargets.filter(id => id !== targetActorId) : [...selectedTargets, targetActorId]
-    : [targetActorId];
+  if (face.dataset.targetMode === 'global') {
+    if (face.dataset.targetDefaulted === 'true') selectedTargets = [targetActorId];
+    else if (selectedTargets.includes(targetActorId)) {
+      selectedTargets = selectedTargets.length === 1 ? selectedTargets : selectedTargets.filter(id => id !== targetActorId);
+    } else selectedTargets.push(targetActorId);
+  } else selectedTargets = [targetActorId];
+  face.dataset.targetDefaulted = 'false';
   face.dataset.selectedTargetActorIds = JSON.stringify(selectedTargets);
   face.dataset.legalTargetActorIds = JSON.stringify(legalTargets);
   const host = operationWorkspaceHost(face);
@@ -682,6 +686,16 @@ export function targetsAfterPerformerChange(
   if (previous && previous.actorId === nextActorId) return [...previous.targetActorIds];
   if (!previous?.actorId) return legalTargets.length === 1 ? [legalTargets[0]!] : [];
   return previous.targetActorIds.filter(targetActorId => legalTargets.includes(targetActorId));
+}
+
+function sceneActionTargetsAfterPerformerChange(
+  previous: { readonly actorId?: string; readonly targetActorIds: readonly string[] } | undefined,
+  nextActorId: string | undefined,
+  legalTargets: readonly string[],
+): string[] {
+  if (previous && previous.actorId === nextActorId && previous.targetActorIds.length > 0) return [...previous.targetActorIds];
+  const retained = previous?.targetActorIds.filter(targetActorId => legalTargets.includes(targetActorId)) ?? [];
+  return retained.length ? retained : legalTargets[0] ? [legalTargets[0]] : [];
 }
 
 function applyCardDrop(ctrl: UIController, drag: OperationCardDrag, targetActorId: string): void {
@@ -775,7 +789,7 @@ function applyGlobalScenePerformer(ctrl: UIController, face: HTMLButtonElement, 
   const legalTargets = actorId ? action.legalTargetActorIdsByActorId[actorId] ?? [] : action.legalActorlessTargetActorIds;
   const targetActorIds = action.targetSelectionMode === 'all-eligible'
     ? []
-    : targetsAfterPerformerChange(previous, actorId || undefined, legalTargets);
+    : sceneActionTargetsAfterPerformerChange(previous, actorId || undefined, legalTargets);
   saveOperationSceneDraft(command.runId, command.planVersion, locationId, {
     ...draft,
     selections: [

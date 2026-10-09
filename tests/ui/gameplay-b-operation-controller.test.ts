@@ -354,10 +354,12 @@ describe('Gameplay B Operation Controller', () => {
 
     const actionAlternatives = root.querySelector<HTMLButtonElement>('[data-operation-action][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"][aria-pressed="true"]');
     expect(actionAlternatives?.getAttribute('aria-expanded')).toBe('false');
+    expect(actionAlternatives?.querySelector('[data-operation-action-status]')?.textContent).toBe('自动计划');
     const beforeOpenRun = game.operationEntry.getView(runId);
     const beforeOpenRegions = controller.getRefreshStats().regionRefreshes;
     actionAlternatives!.click();
     expect(actionAlternatives!.getAttribute('aria-expanded')).toBe('true');
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
     expect(root.querySelector('[data-operation-action-alternatives-panel][data-operation-action-owner-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"]')?.hasAttribute('hidden')).toBe(false);
     expect(game.operationEntry.getView(runId)?.planVersion).toBe(beforeOpenRun?.planVersion);
     expect(controller.getRefreshStats().regionRefreshes).toBe(beforeOpenRegions);
@@ -376,6 +378,8 @@ describe('Gameplay B Operation Controller', () => {
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
       actionId: selectedActionId,
     });
+    expect(root.querySelector('[data-operation-action-current][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"] [data-operation-action-status]')?.textContent)
+      .toBe('玩家已修订');
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
     expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
     expect((document.activeElement as HTMLElement).dataset.actionId).toBe(selectedActionId);
@@ -417,7 +421,11 @@ describe('Gameplay B Operation Controller', () => {
     expect(root.querySelector('[data-operation-scene-actions] [data-global-scene-card]')).toBeNull();
     const attachedExitFace = root.querySelector<HTMLButtonElement>('[data-operation-student="' + IDS.actors.hoshino + '"] [data-global-scene-card] [data-operation-scene-choice][aria-pressed="true"]')!;
     const exitTargets = JSON.parse(attachedExitFace.dataset.legalTargetActorIds ?? '[]') as string[];
-    if (exitTargets.length > 1) dragCardToActorTarget(root, attachedExitFace, exitTargets[0]!, 44);
+    if (exitTargets.length > 1) {
+      const beforeTargetSelection = controller.getRefreshStats().regionRefreshes;
+      dragCardToActorTarget(root, attachedExitFace, exitTargets[0]!, 44);
+      expect(controller.getRefreshStats().regionRefreshes).toBe(beforeTargetSelection);
+    }
     expect(root.querySelector('[data-operation-student="' + IDS.actors.hoshino + '"] [data-global-scene-card]')).not.toBeNull();
     root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
@@ -570,7 +578,7 @@ describe('Gameplay B Operation Controller', () => {
     expect(panel.hidden).toBe(true);
   });
 
-  it('单目标替代牌的键盘 Enter 直接采用其固定目标', () => {
+  it('键盘选择当前自动行动时清除干预并恢复自动目标', () => {
     acquireStudents();
     startFromFeed();
     const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
@@ -589,11 +597,11 @@ describe('Gameplay B Operation Controller', () => {
     alternative.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     alternative.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
     expect(targetTray).toBeNull();
-    expect(game.operationEntry.getView(runId)?.interventionDraft).toMatchObject({
-      actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
-      actionId,
-      targetActorId: targetId,
-    });
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+    expect(game.operationEntry.getView(runId)?.actorStates.find(actor => actor.id === CAROUSEL_SAFETY_IDS.actors.hoshino)?.currentPlan)
+      .toMatchObject({ actionId, targetActorId: targetId });
+    expect(root.querySelector('[data-operation-action-current][data-actor-id="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"] [data-operation-action-status]')?.textContent)
+      .toBe('自动计划');
     expect(game.operationEntry.getView(runId)!.planVersion).toBeGreaterThan(initialView.planVersion);
   });
 
@@ -629,7 +637,7 @@ describe('Gameplay B Operation Controller', () => {
     });
   });
 
-  it('首次推荐时可以用鼠标把星野的目标型备选行动替换进计划', () => {
+  it('首次推荐按 Profile 选择目标型行动并显示自动目标，不创建干预', () => {
     acquireStudents();
     startFromFeed();
     const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
@@ -639,21 +647,16 @@ describe('Gameplay B Operation Controller', () => {
     const currentFace = root.querySelector<HTMLButtonElement>(
       '[data-operation-action-current][data-actor-id="' + actorId + '"][aria-pressed="true"]',
     )!;
-    const alternative = root.querySelector<HTMLButtonElement>(
-      '[data-operation-action-alternative][data-actor-id="' + actorId + '"][data-action-id="' + actionId + '"]',
-    )!;
-
-    expect(initialView.actorStates.find(actor => actor.id === actorId)?.currentPlan?.actionId)
-      .not.toBe(actionId);
-    currentFace.click();
-    expect(alternative.hidden).toBe(false);
-    expect(alternative.disabled).toBe(false);
-    alternative.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
-
-    expect(game.operationEntry.getView(runId)?.interventionDraft).toMatchObject({ actorId, actionId });
+    const plan = initialView.actorStates.find(actor => actor.id === actorId)?.currentPlan;
+    expect(plan).toMatchObject({ actionId, targetActorId: CAROUSEL_SAFETY_IDS.actors.ride });
+    expect(currentFace.dataset.actionId).toBe(actionId);
+    expect(currentFace.dataset.targetSummary).toContain('→');
+    expect(currentFace.querySelector('[data-operation-action-status]')?.textContent).toBe('自动计划');
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+    expect(game.operationEntry.getView(runId)?.planVersion).toBe(initialView.planVersion);
   });
 
-  it('单一合法目标的替代牌显示硬目标，不启动二次拖放', () => {
+  it('单一合法目标的自动行动显示固定目标，选择后清除干预', () => {
     acquireStudents();
     startFromFeed();
     const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
@@ -662,11 +665,9 @@ describe('Gameplay B Operation Controller', () => {
     currentFace.click();
     expect(JSON.parse(alternative.dataset.legalTargetActorIds ?? '[]')).toEqual([targetId]);
     alternative.click();
-    expect(game.operationEntry.getView(runId)?.interventionDraft).toMatchObject({
-      actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
-      actionId,
-      targetActorId: targetId,
-    });
+    expect(game.operationEntry.getView(runId)?.interventionDraft).toBeNull();
+    expect(game.operationEntry.getView(runId)?.actorStates.find(actor => actor.id === CAROUSEL_SAFETY_IDS.actors.hoshino)?.currentPlan)
+      .toMatchObject({ actionId, targetActorId: targetId });
     expect(game.operationEntry.getView(runId)!.planVersion).toBeGreaterThan(initialView.planVersion);
   });
 
@@ -1184,7 +1185,7 @@ describe('Gameplay B Operation Controller', () => {
     const groupView: OperationView = {
       ...view,
       currentActionMode: 'global',
-      sceneActionBatchesRemaining: Math.max(1, view.sceneActionBatchesRemaining),
+      sceneActionBatchesRemaining: Math.max(1, view.sceneActionBatchesRemaining ?? 1),
       pendingSceneActionBatch: null,
       currentSceneActions: [groupAction],
     };

@@ -353,12 +353,12 @@ function createRun(
       visitCount: location.id === definition.initialLocationId ? 1 : 0,
       completed: false,
       beatCount: 0,
-      ...(location.sceneActionBatches !== undefined ? { sceneActionBatchesUsed: 0 } : {}),
+      ...(location.actionMode !== undefined ? { sceneActionBatchesUsed: 0 } : {}),
       ...(location.scenes !== undefined ? {
         completedSceneIds: [],
-        ...(location.scenes.some(scene => scene.sceneActionBatches !== undefined) ? {
+        ...(location.scenes.some(scene => scene.actionMode !== undefined) ? {
           sceneActionBatchesUsedByScene: Object.fromEntries(location.scenes
-            .filter(scene => scene.sceneActionBatches !== undefined)
+            .filter(scene => scene.actionMode !== undefined)
             .map(scene => [scene.id, 0])),
         } : {}),
       } : {}),
@@ -435,6 +435,27 @@ function advancePlanVersion(run: MutableRun): number {
   return run.planVersion + 1;
 }
 
+function preparedBeatPlansMatch(left: PreparedBeat, right: PreparedBeat): boolean {
+  return left.planVersion === right.planVersion
+    && left.locationId === right.locationId
+    && JSON.stringify(left.actorPlans) === JSON.stringify(right.actorPlans);
+}
+
+function profileOrderedCharacterHand(
+  profile: OperationStudentProfileSnapshot,
+  handActionIds: readonly string[],
+): string[] {
+  const hand = new Set(handActionIds);
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const actionId of [...profile.actionPriorityIds, ...profile.candidateActionIds, ...handActionIds]) {
+    if (!hand.has(actionId) || seen.has(actionId)) continue;
+    seen.add(actionId);
+    ordered.push(actionId);
+  }
+  return ordered;
+}
+
 function preparationSnapshot(run: MutableRun): OperationPreparationSnapshot {
   return {
     eventId: run.eventId,
@@ -455,7 +476,7 @@ function preparationSnapshot(run: MutableRun): OperationPreparationSnapshot {
     teams: run.teamStates.map(team => ({ id: team.id, resources: team.resources })),
     studentActionIdsByActorId: Object.fromEntries(run.actorStates
       .filter(actor => actor.participantKind === 'student')
-      .map(actor => [actor.id, run.characterHands[actor.id]?.actionIds ?? []])),
+      .map(actor => [actor.id, profileOrderedCharacterHand(actor.profile!, run.characterHands[actor.id]?.actionIds ?? [])])),
   };
 }
 
@@ -556,7 +577,9 @@ function bindTacticalContentToCharacterHands(
     if (initialization.participantKind !== 'student') return initialization;
     const hand = run.characterHands[initialization.actorId];
     if (!hand) throw new OperationRuntimeError(['Character Hand is missing for student Actor ' + initialization.actorId]);
-    const actionCandidates = hand.actionIds.map(actionId => {
+    const handActionIds = profileOrderedCharacterHand(initialization.profile, hand.actionIds);
+    const handActionSet = new Set(handActionIds);
+    const actionCandidates = handActionIds.map(actionId => {
       const action = actionsById.get(actionId);
       if (!action) throw new OperationRuntimeError(['Character Hand references a missing Action: ' + actionId]);
       const missingCapabilityIds = action.requiredCapabilityIds.filter(id => !initialization.profile.capabilityIds.includes(id));
@@ -571,8 +594,8 @@ function bindTacticalContentToCharacterHands(
     const eligibleActionIds = actionCandidates.filter(candidate => candidate.eligible).map(candidate => candidate.actionId);
     const profile: OperationStudentProfileSnapshot = {
       ...initialization.profile,
-      candidateActionIds: [...hand.actionIds],
-      actionPriorityIds: [...hand.actionIds],
+      candidateActionIds: handActionIds,
+      actionPriorityIds: initialization.profile.actionPriorityIds.filter(actionId => handActionSet.has(actionId)),
       actionCandidates,
       eligibleActionIds,
       ...(eligibleActionIds.length === 0 ? {
@@ -613,12 +636,43 @@ function refreshPreparedBeat(run: MutableRun, rules: RunRules): void {
 
 function hasLocationOutcomeRules(definition: NonNullable<ReturnType<typeof getCurrentLocationDefinition>> | undefined): boolean {
   return definition !== undefined && (
-    (definition.objectives?.length ?? 0) > 0
+    (definition.objectives?.some(objective => objective.kind === 'primary') ?? false)
     || (definition.partialOutcomes?.length ?? 0) > 0
     || (definition.failureConditions?.length ?? 0) > 0
     || definition.maxBeats !== undefined
+    || definition.actionMode !== undefined
+    || (definition.scenes?.some(scene => scene.actionMode !== undefined) ?? false)
     || definition.sceneActionBatches !== undefined
   );
+}
+
+function hasLocationOutcomePredicates(definition: NonNullable<ReturnType<typeof getCurrentLocationDefinition>> | undefined): boolean {
+  return definition !== undefined && (
+    (definition.objectives?.some(objective => objective.kind === 'primary') ?? false)
+    || (definition.partialOutcomes?.length ?? 0) > 0
+    || (definition.failureConditions?.length ?? 0) > 0
+  );
+}
+
+function isUnboundedCombatDefeatSatisfied(run: MutableRun, rules: RunRules): boolean {
+  const location = getCurrentLocationDefinition(rules.definition, run.currentLocationId);
+  if (location?.stage !== 'combat' || location.maxBeats !== undefined || hasLocationOutcomePredicates(location)) return false;
+
+  const progress = run.locationProgress[location.id];
+  const current = currentSceneDefinition(rules.definition, run);
+  const completedSceneIds = progress?.completedSceneIds ?? [];
+  const lastCompletedScene = [...getOperationSceneDefinitions(location)].reverse()
+    .find(scene => completedSceneIds.includes(scene.id));
+  const scene = current?.scene ?? lastCompletedScene;
+  const enabledActionIds = new Set(scene?.enabledActionIds ?? location.enabledActionIds);
+  const actorInitializations = rules.tacticalContent?.actorInitializations ?? [];
+  const candidatesByOpponentId = new Map<string, readonly string[]>();
+  for (const actor of actorInitializations) {
+    if (actor.participantKind === 'opponent') candidatesByOpponentId.set(actor.actorId, actor.candidateActionIds);
+  }
+  const activeOpponents = run.actorStates.filter(actor => actor.participantKind === 'opponent'
+    && (candidatesByOpponentId.get(actor.id) ?? []).some(actionId => enabledActionIds.has(actionId)));
+  return activeOpponents.length > 0 && activeOpponents.every(actor => actor.hp <= 0);
 }
 
 function evaluateLocationProgress(run: MutableRun, rules: RunRules): boolean {
@@ -637,6 +691,7 @@ function evaluateLocationProgress(run: MutableRun, rules: RunRules): boolean {
       || (location.partialOutcomes?.length ?? 0) > 0;
     result = hasUnmetRequiredOutcome ? 'failure' : 'success';
   }
+  if (result === null && isUnboundedCombatDefeatSatisfied(run, rules)) result = 'success';
   if (result === null) return false;
   progress.completed = true;
   progress.result = result;
@@ -819,7 +874,7 @@ function sceneActionBatchPreview(slot: RunSlot, batch: OperationResolutionBatch)
   const scene = batch.sceneBatch;
   if (!scene) throw new OperationRuntimeError(['SceneAction planner did not produce scene batch details']);
   const activeScene = currentSceneDefinition(slot.rules.definition, slot.run);
-  if (!activeScene?.scene.actionMode || activeScene.scene.sceneActionBatches === undefined || batch.sceneId !== activeScene.scene.id) {
+  if (!activeScene?.scene.actionMode || batch.sceneId !== activeScene.scene.id) {
     throw new OperationRuntimeError(['current Scene does not declare SceneAction batch controls']);
   }
   const plan: OperationScenePlan = {
@@ -863,7 +918,7 @@ function sceneActionBatchPreview(slot: RunSlot, batch: OperationResolutionBatch)
       balanceAfter: scene.playerCostAfter,
     },
     sceneActionBatchesUsed: scene.sceneActionBatchesUsed,
-    sceneActionBatchesLimit: activeScene.scene.sceneActionBatches,
+    sceneActionBatchesLimit: activeScene.scene.sceneActionBatches ?? null,
   });
 }
 
@@ -1102,29 +1157,32 @@ function validateRestoredRun(run: MutableRun, rules: RunRules): void {
         fail('completed Scene IDs are out of order for ' + location.id);
       }
       if (progress.sceneActionBatchesUsed !== undefined) fail('unexpected legacy SceneAction batch count for ' + location.id);
-      const sceneBatchLimits = new Map(location.scenes
-        .filter(scene => scene.sceneActionBatches !== undefined)
-        .map(scene => [scene.id, scene.sceneActionBatches!]));
-      if (sceneBatchLimits.size === 0) {
+      const sceneBatchContracts = new Map(location.scenes
+        .filter(scene => scene.actionMode !== undefined)
+        .map(scene => [scene.id, scene.sceneActionBatches]));
+      if (sceneBatchContracts.size === 0) {
         if (progress.sceneActionBatchesUsedByScene !== undefined) fail('unexpected per-Scene batch counts for ' + location.id);
       } else {
         if (!isRecord(progress.sceneActionBatchesUsedByScene)
-          || !sameKeys(progress.sceneActionBatchesUsedByScene, sceneBatchLimits.keys())) {
+          || !sameKeys(progress.sceneActionBatchesUsedByScene, sceneBatchContracts.keys())) {
           fail('per-Scene batch counts do not match content for ' + location.id);
         }
-        for (const [sceneId, limit] of sceneBatchLimits) {
+        for (const [sceneId, limit] of sceneBatchContracts) {
           const used = progress.sceneActionBatchesUsedByScene![sceneId];
-          if (!Number.isSafeInteger(used) || used < 0 || used > limit) fail('SceneAction batch count is invalid for ' + location.id + '/' + sceneId);
+          if (!Number.isSafeInteger(used) || used < 0 || (limit !== undefined && used > limit)) {
+            fail('SceneAction batch count is invalid for ' + location.id + '/' + sceneId);
+          }
         }
       }
     } else {
       if (progress.completedSceneIds !== undefined || progress.sceneActionBatchesUsedByScene !== undefined) {
         fail('unexpected explicit Scene progress for implicit Location ' + location.id);
       }
-      if (location.sceneActionBatches === undefined) {
+      if (location.actionMode === undefined) {
         if (progress.sceneActionBatchesUsed !== undefined) fail('unexpected SceneAction batch count for ' + location.id);
       } else if (!Number.isSafeInteger(progress.sceneActionBatchesUsed)
-        || progress.sceneActionBatchesUsed! < 0 || progress.sceneActionBatchesUsed! > location.sceneActionBatches) {
+        || progress.sceneActionBatchesUsed! < 0
+        || (location.sceneActionBatches !== undefined && progress.sceneActionBatchesUsed! > location.sceneActionBatches)) {
         fail('SceneAction batch count is invalid for ' + location.id);
       }
     }
@@ -1609,6 +1667,17 @@ export class OperationRuntimeService {
     const command = parseInterventionCommand(input);
     const preview = this.previewIntervention(command);
     const slot = this.requireActiveRun();
+    const basePreparedBeat = slot.run.preparedBeat;
+    if (basePreparedBeat && preparedBeatPlansMatch(preview.preparedBeat, basePreparedBeat)) {
+      if (slot.run.interventionDraft === null) return this.getSnapshot()!;
+      const reset = deepCopy(slot.run);
+      reset.pendingSceneActionBatch = null;
+      reset.planVersion = advancePlanVersion(slot.run);
+      reset.interventionDraft = null;
+      refreshPreparedBeat(reset, slot.rules);
+      slot.run = reset;
+      return this.getSnapshot()!;
+    }
     const next = deepCopy(slot.run);
     next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(slot.run);
@@ -1700,7 +1769,7 @@ export class OperationRuntimeService {
       throw new OperationRuntimeError(['resolutionSequence cannot advance safely']);
     }
     next.resolutionSequence += 1;
-    const resolution = { ...toResolution(batch, next.resolutionSequence), timelineSequence: advanceTimelineSequence(next) };
+    const resolution = frozenCopy({ ...toResolution(batch, next.resolutionSequence), timelineSequence: advanceTimelineSequence(next) });
     next.resolutions = [...next.resolutions, resolution].slice(-32);
     next.pendingSceneActionBatch = null;
     next.planVersion = advancePlanVersion(run);
@@ -1824,7 +1893,7 @@ export class OperationRuntimeService {
       throw new OperationRuntimeError(['resolutionSequence cannot advance safely']);
     }
     next.resolutionSequence += 1;
-    const resolution = { ...toResolution(batch, next.resolutionSequence), timelineSequence: advanceTimelineSequence(next) };
+    const resolution = frozenCopy({ ...toResolution(batch, next.resolutionSequence), timelineSequence: advanceTimelineSequence(next) });
     next.resolutions = [...next.resolutions, resolution].slice(-32);
     next.planVersion = advancePlanVersion(slot.run);
     next.interventionDraft = null;
@@ -2070,8 +2139,10 @@ export class OperationRuntimeService {
     const nextProgress = next.locationProgress[route.targetLocationId];
     nextProgress.visitCount += 1;
     nextProgress.beatCount = 0;
+    const targetLocationDefinition = getCurrentLocationDefinition(slot.rules.definition, route.targetLocationId);
     if (nextProgress.sceneActionBatchesUsed !== undefined) nextProgress.sceneActionBatchesUsed = 0;
-    else if (getCurrentLocationDefinition(slot.rules.definition, route.targetLocationId)?.sceneActionBatches !== undefined) {
+    else if (targetLocationDefinition?.scenes === undefined
+      && (targetLocationDefinition?.actionMode !== undefined || targetLocationDefinition?.sceneActionBatches !== undefined)) {
       nextProgress.sceneActionBatchesUsed = 0;
     }
     nextProgress.completed = false;

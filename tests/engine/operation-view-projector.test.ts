@@ -79,6 +79,27 @@ function runStartInput(): OperationRunStartInput {
 }
 
 describe('OperationView Character Hand projection', () => {
+  test('projects an omitted SceneAction batch limit as unlimited', () => {
+    const base = runStartInput();
+    const eventDefinition: OperationEventDef = {
+      ...base.eventDefinition,
+      locations: base.eventDefinition.locations.map(location => ({
+        ...location,
+        stage: 'scene',
+        actionMode: 'individual',
+        sceneActions: [{ id: 'inspect', actionId: ACTION_ID, scope: 'individual', playerCost: 0 }],
+      })),
+    };
+    const runtime = new OperationRuntimeService();
+    runtime.start({ ...base, eventDefinition });
+
+    expect(runtime.getView()).toMatchObject({
+      currentActionMode: 'individual',
+      sceneActionBatchesUsed: 0,
+      sceneActionBatchesRemaining: null,
+    });
+  });
+
   test('projects the implicit singleton Scene as completed with its completed Location', () => {
     const runtime = new OperationRuntimeService();
     const start = runStartInput();

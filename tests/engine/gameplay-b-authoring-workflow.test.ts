@@ -136,4 +136,80 @@ describe('Gameplay B Datapack authoring workflow', () => {
     expect(runtime.operationEntry.createSaveSnapshot()?.resumeVersion).toBe(4);
     expect(resumedRoster.random.seed).toBe(revisedPack.operationEvents![0].randomSeed ?? 0);
   });
+
+  test('accepts unbounded Scene batches with a Location exit and rejects unbounded Locations with no structural exit', () => {
+    const runtime = createRuntime();
+    const configuration = configurationWithCarousel(runtime);
+    const validUnboundedPack = clone(gameplayBCarouselDatapack);
+    const firstSceneLocation = validUnboundedPack.operationLocations!.find(location => location.actionMode !== undefined)!;
+    const trackId = validUnboundedPack.operationEvents![0].tracks[0].id;
+    validUnboundedPack.operationLocations = validUnboundedPack.operationLocations!.map(location => {
+      if (location.id !== firstSceneLocation.id) return location;
+      const { sceneActionBatches: _limit, ...rest } = location;
+      return {
+        ...rest,
+        objectives: [{
+          id: 'unbounded-location-exit',
+          description: 'The location has a declared result exit.',
+          kind: 'primary' as const,
+          predicate: { kind: 'track' as const, trackId, operator: 'lte' as const, value: 3 },
+        }],
+      };
+    });
+    savePackContent(runtime, validUnboundedPack);
+    expect(runtime.validatePackConfiguration(configuration)).toMatchObject({ ok: true, errors: [] });
+
+    const invalidScenePack = clone(validUnboundedPack);
+    invalidScenePack.operationLocations = invalidScenePack.operationLocations!.map(location => {
+      if (location.id !== firstSceneLocation.id) return location;
+      const { objectives: _objectives, ...rest } = location;
+      return rest;
+    });
+    savePackContent(runtime, invalidScenePack);
+    const invalidSceneValidation = runtime.validatePackConfiguration(configuration);
+    expect(invalidSceneValidation.ok).toBe(false);
+    expect(invalidSceneValidation.errors.join('\n')).toMatch(/unbounded SceneAction batch but no Location outcome or Event hard failure exit/);
+
+    const secondaryOnlyScenePack = clone(validUnboundedPack);
+    secondaryOnlyScenePack.operationLocations = secondaryOnlyScenePack.operationLocations!.map(location => {
+      if (location.id !== firstSceneLocation.id) return location;
+      return {
+        ...location,
+        objectives: [{
+          id: 'secondary-only-exit',
+          description: 'Secondary objectives do not complete the Location.',
+          kind: 'secondary' as const,
+          predicate: { kind: 'track' as const, trackId, operator: 'lte' as const, value: 3 },
+        }],
+      };
+    });
+    savePackContent(runtime, secondaryOnlyScenePack);
+    const secondaryOnlyValidation = runtime.validatePackConfiguration(configuration);
+    expect(secondaryOnlyValidation.ok).toBe(false);
+    expect(secondaryOnlyValidation.errors.join('\n')).toMatch(/unbounded SceneAction batch but no Location outcome or Event hard failure exit/);
+
+    const invalidCombatPack = clone(gameplayBCarouselDatapack);
+    const platform = invalidCombatPack.operationLocations!.find(location => location.id === IDS.locations.platform)!;
+    const { maxBeats: _maxBeats, ...unboundedPlatform } = platform;
+    invalidCombatPack.operationLocations = invalidCombatPack.operationLocations!.map(location =>
+      location.id === IDS.locations.platform ? {
+        ...unboundedPlatform,
+        objectives: [{
+          id: 'secondary-combat-goal',
+          description: 'A secondary objective is not a completion exit.',
+          kind: 'secondary' as const,
+          predicate: { kind: 'track' as const, trackId: invalidCombatPack.operationEvents![0].tracks[0].id, operator: 'lte' as const, value: 3 },
+        }],
+      } : location);
+    invalidCombatPack.operationEvents![0] = {
+      ...invalidCombatPack.operationEvents![0],
+      participants: invalidCombatPack.operationEvents![0].participants.map(participant => participant.kind === 'opponent'
+        ? { ...participant, candidateActionIds: [] }
+        : participant),
+    };
+    savePackContent(runtime, invalidCombatPack);
+    const invalidCombatValidation = runtime.validatePackConfiguration(configuration);
+    expect(invalidCombatValidation.ok).toBe(false);
+    expect(invalidCombatValidation.errors.join('\n')).toMatch(/no maxBeats, Location outcome, Event hard failure, or enabled opponent defeat exit/);
+  });
 });

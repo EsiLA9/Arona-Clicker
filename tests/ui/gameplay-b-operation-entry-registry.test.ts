@@ -146,7 +146,9 @@ describe('Gameplay B Registry operation entries', () => {
     expect(battleActionOptions.every(option => !option.enabledAtLocation && !option.selectable)).toBe(true);
     expect(root.querySelectorAll('[data-operation-action]')).toHaveLength(0);
     expect(root.querySelector('[data-operation-commit]')).toBeNull();
-    expect(root.querySelectorAll(`[data-operation-scene-choice][data-scene-action-id="${ATOMIC_SCENE_DEMO_IDS.sceneAction}"]`)).toHaveLength(2);
+    expect(root.querySelectorAll(`[data-operation-scene-choice][data-scene-action-id="${ATOMIC_SCENE_DEMO_IDS.sceneAction}"]`)).toHaveLength(0);
+    expect(root.querySelectorAll(`[data-operation-fixed-scene-action="${ATOMIC_SCENE_DEMO_IDS.sceneAction}"]`)).toHaveLength(2);
+    expect(root.textContent).toContain('自动目标：旋转木马');
     const beforeRejectedBeatAction = game.operationEntry.getSnapshot();
     expect(() => game.operationEntry.reviseIntervention({
       runId,
@@ -155,13 +157,6 @@ describe('Gameplay B Registry operation entries', () => {
     })).toThrow();
     expect(game.operationEntry.getSnapshot()).toEqual(beforeRejectedBeatAction);
 
-    for (const actorId of [CAROUSEL_SAFETY_IDS.actors.hoshino, CAROUSEL_SAFETY_IDS.actors.serika]) {
-      const choice = [...root.querySelectorAll<HTMLButtonElement>('[data-operation-scene-choice]')]
-        .find(button => button.dataset.sceneActionId === ATOMIC_SCENE_DEMO_IDS.sceneAction
-          && button.dataset.actorId === actorId);
-      expect(choice).toBeDefined();
-      choice!.click();
-    }
     const beforeCommit = game.operationEntry.getView(runId)!;
     expect(beforeCommit.locationProgress[locationId].completed).toBe(false);
     const submit = root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!;

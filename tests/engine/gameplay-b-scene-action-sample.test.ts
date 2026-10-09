@@ -250,7 +250,7 @@ describe('Gameplay B carousel SceneAction sample', () => {
       .toMatch(/allowedActorTypes\[0\] references an Actor type not declared by this Event: carousel-platform/);
   });
 
-  test('the same fixed seed resolves the formal Character Hand and completes the carousel safety objective', () => {
+  test('the same fixed seed resolves the formal Character Hand by Profile priority and commits without target input', () => {
     const game = createAppRuntime();
     game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
     games.push(game);
@@ -258,6 +258,20 @@ describe('Gameplay B carousel SceneAction sample', () => {
 
     const runId = game.operationEntry.start(IDS.event, STUDENTS).runId;
     let run = game.operationEntry.getSnapshot()!;
+    const carouselHands = run.characterHands!;
+    expect(carouselHands[IDS.actors.hoshino].actionIds).toEqual(expect.arrayContaining([
+      CAROUSEL_SAFETY_IDS.actions.brace,
+      CAROUSEL_SAFETY_IDS.actions.emergencyStop,
+    ]));
+    expect(carouselHands[IDS.actors.serika].actionIds).toEqual(expect.arrayContaining([
+      CAROUSEL_SAFETY_IDS.actions.signal,
+      CAROUSEL_SAFETY_IDS.actions.crowdGuide,
+    ]));
+    const planFor = (actorId: string) => run.preparedBeat!.actorPlans.find(plan => plan.actorId === actorId);
+    expect(planFor(IDS.actors.hoshino)).toMatchObject({ actionId: CAROUSEL_SAFETY_IDS.actions.brace, targetActorId: IDS.actors.ride });
+    expect(planFor(IDS.actors.serika)).toMatchObject({ actionId: CAROUSEL_SAFETY_IDS.actions.signal, targetActorId: IDS.actors.ride });
+    expect(planFor(IDS.actors.shiroko)).toMatchObject({ actionId: CAROUSEL_SAFETY_IDS.actions.shield, targetActorId: IDS.actors.ride });
+    expect(run.interventionDraft).toBeNull();
     game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
     run = game.operationEntry.getSnapshot()!;
     expect(run.currentLocationId).toBe(IDS.locations.concourse);
@@ -280,7 +294,7 @@ describe('Gameplay B carousel SceneAction sample', () => {
       selections: [{ sceneActionId: IDS.sceneActions.firstAid, actorId: IDS.actors.hoshino, targetActorIds: targets }],
     });
 
-    expect(game.operationEntry.getView(runId)).toMatchObject({ status: 'success', knownFactIds: [IDS.fact] });
-    expect(game.operationEntry.claimOutcomeReward()).toMatchObject({ status: 'claimed', reward: { amount: 200 } });
+    expect(game.operationEntry.getView(runId)).toMatchObject({ status: 'partialSuccess', knownFactIds: [IDS.fact] });
+    expect(game.operationEntry.claimOutcomeReward()).toMatchObject({ status: 'claimed', reward: { amount: 80 } });
   });
 });
