@@ -101,6 +101,19 @@ describe('UIController Init 选择页', () => {
     expect(current?.innerHTML).toContain('linear-gradient(135deg, #93c5fd 0%, #eff6ff 100%)');
   });
 
+  it('普通游戏页的对话学生不再叠加到当前场景主题', () => {
+    controller.panelState.conversationVariantId = 'Hoshino';
+    controller.render();
+
+    const runtime = game.colorSystem.runtimeTheme();
+    const layers = game.colorSystem.runtimeThemeDiagnostics().layers;
+    expect(layers.length).toBeLessThanOrEqual(1);
+    expect(layers.some(layer => layer.scope === 'student' || layer.scope === 'init')).toBe(false);
+    if (game.state.currentAreaId) {
+      expect(runtime.layers).toContain(`area:${game.state.currentAreaId}`);
+    }
+  });
+
   it('离开活动场景到选择页时只投影全局主题与焦点主题，不继承旧 Area/剧情层', () => {
     game.colorSystem.pushSceneTheme({
       id: 'selector-stale-area',
@@ -112,7 +125,8 @@ describe('UIController Init 选择页', () => {
       scope: 'ephemeral',
       background: [{ id: 'selector-stale-story-layer', kind: 'solid', value: '#badc0d' }],
     });
-    game.colorSystem.setUserThemePreview({
+    game.mutations.setUserTheme({
+      version: 1,
       palette: ['#123456'],
       tokens: { primary: '#112233', bg: '#223344', bgAlt: '#334455' },
       presentation: { hosts: [{
@@ -120,7 +134,8 @@ describe('UIController Init 选择页', () => {
         layers: [{ id: 'selector-global-user-layer', kind: 'solid', value: '#11aa33' }],
         layerOrder: ['system-color-background', 'selector-global-user-layer'],
       }] },
-    });
+    }, true);
+    game.colorSystem.syncSelectedThemeFromState(game.state, true);
 
     showSelectPage();
 

@@ -131,11 +131,14 @@ function renderAreaDesignsSection(ctx: UIContext): string {
   const entityKey = entityKeyOf('area', areaId);
   const options = ctx.game.colorSystem.entityThemeOptions(ctx.game.state, entityKey, {
     declaredTheme: area.theme,
-  });
+  }).map(option => ({
+    ...option,
+    active: ctx.game.state.activeTheme?.kind !== 'system' ? false : option.active,
+  }));
   if (options.length === 0) return '';
   return `
     <section class="theme-float-section entity-designs">
-      <h4 class="theme-float-section-title">区域配色 <small>${ctx.escapeHtml(area.name)}</small></h4>
+      <h4 class="theme-float-section-title">场景主题 <small>${ctx.escapeHtml(area.name)}</small></h4>
       ${renderEntityThemeOptions(ctx, entityKey, options)}
     </section>`;
 }
@@ -221,7 +224,7 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
       ?? '#888'
     : undefined;
   const palette = `
-        <button class="theme-swatch default ${activeTheme.kind === 'system' ? 'active' : ''}" data-activate-group="" aria-pressed="${activeTheme.kind === 'system'}" title="系统默认主题">系统默认</button>
+        <button class="theme-swatch default ${activeTheme.kind === 'system' ? 'active' : ''}" data-activate-group="" aria-pressed="${activeTheme.kind === 'system'}" title="使用当前场景主题">当前场景</button>
         ${ownedGroups.map(g => {
           const primary = game.colorSystem.themeSwatchColor({ colorGroupId: g.id }) ?? '#888';
           const active = activeTheme.kind === 'color-group' && activeTheme.id === g.id ? 'active' : '';
@@ -252,7 +255,6 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
             <div class="theme-float-body">
               <div class="theme-swatches">${palette}</div>
               ${renderUserThemeSection(ctx)}
-              ${renderLayerOrderSection(ctx, options.studentVariantId ?? null)}
               ${renderAreaDesignsSection(ctx)}
             </div>
           </div>

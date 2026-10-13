@@ -34,7 +34,8 @@ describe('Spot Shop workspace', () => {
     expect(document.querySelector('.shop-product-card')).not.toBeNull();
     expect(game.colorSystem.runtimeThemeTokens().primary).toBe('#d97706');
     expect(game.colorSystem.runtimeThemeDiagnostics().layers.find(layer => layer.id === `shop-workspace:${SPOT}:base:shop:abydos-cafe`)).toMatchObject({
-      kind: 'ephemeral',
+      kind: 'player',
+      scope: 'player',
       owner: `workspace:shop:${SPOT}:base:shop:abydos-cafe`,
       selected: true,
     });

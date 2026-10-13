@@ -108,7 +108,7 @@ export function renderContactsTab(
       <div class="contact-themes">
         <h4 class="contact-school">主题色彩组</h4>
         <div class="theme-swatches">
-        <button class="theme-swatch default ${activeTheme.kind === 'system' ? 'active' : ''}" data-activate-group="" aria-pressed="${activeTheme.kind === 'system'}" title="系统默认主题">系统默认</button>
+        <button class="theme-swatch default ${activeTheme.kind === 'system' ? 'active' : ''}" data-activate-group="" aria-pressed="${activeTheme.kind === 'system'}" title="使用当前场景主题">当前场景</button>
           ${ownedGroups.map(g => `
             <button class="theme-swatch ${activeTheme.kind === 'color-group' && activeTheme.id === g.id ? 'active' : ''}"
               data-activate-group="${g.id}" aria-pressed="${activeTheme.kind === 'color-group' && activeTheme.id === g.id}" title="${ctx.escapeHtml(g.name)}"

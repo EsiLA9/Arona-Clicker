@@ -12,7 +12,9 @@
 
 无。
 
-### 本轮完成（2026-10-09）
+### 本轮完成（2026-10-13）
+
+- [[archive/task-0281-exclusive-theme-selection]]：普通游戏页改为单一完整主题选择；场景默认、玩家收集主题与用户主题互斥生效，保留通用堆叠算法。定向回归、类型、文档和架构检查通过。
 
 - [[archive/task-0279-gameplay-b-scene-pending-action-default]]：将 Atomic “检查故障设备”标为 fixed SceneAction，使空选择 Commit 自动解析行动与 Ride 目标；修正显式 Skip 绕过固定行动，补充 Engine / UI 回归。33 项定向测试、类型、文档和 GALHCG 检查通过；未做浏览器回放。
 - [[archive/task-0278-gameplay-b-unbounded-loop-and-character-autonomy]]：完成无上限循环、角色自动战斗计划、单槽干预与 selectable SceneAction 首选合法目标；U1–U8 已验收。U1–U7 为 15 个定向测试文件、230 项通过；U8 为 4 个 Engine / UI 文件、61 项通过；类型、文档和 GALHCG 检查通过。未做浏览器回放。

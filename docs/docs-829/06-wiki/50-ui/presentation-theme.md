@@ -20,6 +20,14 @@ Runtime 主题 / 实体状态 / Registry 定义 / 图片资源
 
 宿主可以声明 default、active、inactive、disabled 等状态表现。`createUIContext()` 按该宿主当前配置解析背景与文字模式；颜色模式为 `auto` 时，宿主有自己的背景层便按合成底色判断深浅，没有自有背景时保留语义颜色。形状、图层、颜色和组件最终由 presentation/background service 解析，样式由 CSS 承载。
 
+## 普通游戏页的主题选择
+
+普通游戏页一次只应用一个主题来源。`activeTheme` 选择玩家已拥有的 ColorGroup 或独立用户主题；选择“当前场景”时，使用当前 Area 的主题，Area 的声明主题是默认项，玩家为该 Area 选择的主题槽可替代它。无当前 Area 或场景主题无效时回到系统默认色彩。玩家切换 ColorGroup / 自定义主题后，该主题完整替代 Area 主题；背景、颜色和 Presentation 不跨来源合并。学生差分主题仍可供实体自身表现使用，不构成全局游戏主题。
+
+用户自定义主题目前只有一个保存记录，和其它主题选项平级。剧情换肤和临时工作区主题也以完整主题临时替换当前选择，结束后恢复所选主题。玩家界面不提供图层优先级排序。`RuntimeThemeManager` 的多层合并与排序算法保留为通用能力，但普通游戏页只读取单一选择运行时，不把场景、学生、玩家和用户主题交给该算法合并。
+
+外部 Init 选择页继续通过 `projectSelectorTheme()` 独立投影聚焦 Init 的主题，不改写普通游戏页的选中主题。宿主背景回退仍由 `backgroundForHost()` 解析；当选中主题自己的宿主没有图层时，回退规则只在该主题上下文内工作。
+
 主题的**内容编辑**和玩家**选择当前主题**是两条不同路径。`ThemeContentEditorService` 编辑 Datapack 中的一般主题定义：草稿 / 预览不写入运行状态，保存回写指定的 editing Pack 并由 PackManager 持久化；它不是玩家 UserTheme 的存储入口。实现见 `src/arona-clicker/services/theme-content-editor-service.ts`，预览、保存和内容冲突测试见 `tests/engine/theme-content-editor-service.test.ts`。
 
 ## 代码与测试

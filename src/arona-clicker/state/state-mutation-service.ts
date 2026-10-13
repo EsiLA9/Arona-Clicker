@@ -729,6 +729,10 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     }
     if (next === null) delete state.entityThemeSlots[entityKey];
     else state.entityThemeSlots[entityKey] = next;
+    if (state.currentAreaId && entityKey === `area:${state.currentAreaId}` && activeThemeOf(state).kind !== 'system') {
+      state.activeTheme = { kind: 'system' };
+      this.emit({ type: 'themeChanged', groupId: null, selection: state.activeTheme });
+    }
     this.emit({ type: 'entityThemeChanged', entityKey });
     return true;
   }

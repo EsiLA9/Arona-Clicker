@@ -1,20 +1,9 @@
 // ============================================================
-// engine/theme-runtime.ts — 运行时主题管理框架（分层叠加）
+// engine/theme-runtime.ts — 通用主题图层解析与优先级算法
 //
-// 将色彩组（ColorGroup）自身与游戏实际结构解耦：场景（Init/Area/学生）与临时演出
-// 不再绑定「必须是某个组的完整主题」，而是可以：
-//   - 引用多个 ColorGroupDef（groupId）各取一套 token
-//   - 或自定义局部 token 覆盖（tokens）
-//   - 或两者混合（用某组打底 + 局部 override）
-//
-// 叠加（优先级从高到低）：
-//   L1 ephemeral 临时演出：Talklet/Trigger 推入的临时层，可覆盖一切，可帧过期
-//   L2 scene      场景特色：当前 Init / Area / 当前对话学生，进入设、离开清
-//   L3 player     玩家全局 ColorGroup 主题
-//   L3 user       玩家独立自定义主题（被选中时才参与）
-// player/init/area/student 四层的相对优先级可由玩家自定义（setLayerOrder）；
-// 演出层不参与排序，始终最高。前端实际消费的 theme-tree =
-// 各层按优先级合并（高层 token 覆盖低层）。
+// RuntimeThemeManager 保留多来源图层、按 scope 排序、同字段覆盖、背景合成与临时层等通用能力。
+// 普通游戏页当前从 ColorSystem 的 selected runtime 读取单一已选主题，不向此多层解析器提交
+// 玩家、场景和学生主题共同合成。其他消费方可独立使用本管理器及其堆叠算法。
 // ============================================================
 
 import type { ColorGroupId } from '../types/character';
@@ -23,7 +12,7 @@ import type { BackgroundLayerDef, PresentationDef, PresentationLayerDef, Compone
 
 export type { ThemeOrderScope } from '../types/theme';
 
-/** 参与玩家自定义排序的四层（低→高缺省顺序）。 */
+/** 通用解析器可排序的四个常规 scope（低→高缺省顺序）。 */
 export const DEFAULT_LAYER_ORDER: ThemeOrderScope[] = ['player', 'init', 'area', 'student'];
 
 /** 单层主题来源：引用色彩组（整包 token）或自定义 token 覆盖，或混合。 */

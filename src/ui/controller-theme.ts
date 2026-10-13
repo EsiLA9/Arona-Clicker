@@ -6,7 +6,6 @@
 // ============================================================
 
 import { THEME_NODES, buildThemeTree, buildThemeVars, heroGradient, type ThemeTree, type ThemeVarName } from './theme-tree';
-import { entityKeyOf } from '../arona-clicker/services/color-system';
 import { rgbTriplet } from '../engine/core/color';
 import type { UIController } from './controller';
 import { buildBackgroundView, renderBackground } from './background-service';
@@ -50,93 +49,17 @@ export function restoreThemeFloat(ctrl: UIController): void {
 }
 
 /**
- * 重建游戏内运行时场景层（保留玩家基色与临时演出层）：
- * Init 主题只投影到外部 Init 选择页；游戏运行时只按当前 Area 与学生对话重推。
- * 必须在任何依赖运行时层状态的 UI（如层级优先级色胶囊）生成之前调用，
- * 否则胶囊会读到上一帧的层 → 换色后落后一拍。
+ * 重建普通游戏页的单一主题选择：玩家选择优先；选择场景默认时使用当前 Area 的主题。
+ * Init 主题只投影到外部 Init 选择页；学生主题不参与全局界面主题。
  */
 export function syncRuntimeTheme(ctrl: UIController): void {
-  ctrl.game.colorSystem.popSceneTheme('area');
-  ctrl.game.colorSystem.popSceneTheme('init');
-  ctrl.game.colorSystem.popSceneTheme('student');
-  ctrl.game.colorSystem.syncPlayerThemeFromState(ctrl.game.state);
-  ctrl.game.colorSystem.syncUserThemeFromState(ctrl.game.state, ctrl.game.userThemeService.capability().active);
-  // 剧情未播放时清除剧情临时演出层（setTheme 仅在演出期间生效）
   if (!ctrl.game.getView().currentStory) {
     ctrl.game.colorSystem.clearStoryTheme();
   }
-  const areaId = ctrl.game.getView().currentAreaId;
-  if (areaId) {
-    const area = ctrl.game.world.areas.get(areaId);
-    // 实体主题槽覆盖（设计/自定义）优先，否则声明默认
-    const resolution = area
-      ? ctrl.game.colorSystem.resolveEntityTheme(ctrl.game.state, entityKeyOf('area', areaId), { declaredTheme: area.theme })
-      : { theme: null };
-    const theme = resolution.theme
-      ? {
-        ...resolution.theme,
-        background: resolution.theme.background ?? area?.theme?.background,
-        systemColorLayerIgnored: resolution.theme.systemColorLayerIgnored
-          ?? (resolution.theme.colorGroupId ? ctrl.game.colorSystem.getGroup(resolution.theme.colorGroupId)?.systemColorLayerIgnored : undefined)
-          ?? area?.theme?.systemColorLayerIgnored,
-      }
-      : null;
-    if (theme) {
-      ctrl.game.colorSystem.pushSceneTheme({ sourceId: `area:${areaId}`, scope: 'area', groupId: theme.colorGroupId, palette: theme.palette, tokens: theme.tokens, nodeOverrides: theme.nodes, background: theme.background, systemColorLayerIgnored: theme.systemColorLayerIgnored, presentation: theme.presentation });
-    }
-  }
-  const convId = ctrl.panelState.conversationVariantId;
-  if (convId) {
-    const variant = ctrl.game.rosterSystem.getVariant(convId);
-    if (variant) {
-      const entry = ctrl.game.state.roster?.[convId];
-      const equipped = entry?.colorEquipment ?? null;
-      const resolution = ctrl.game.colorSystem.resolveEntityTheme(
-        ctrl.game.state,
-        entityKeyOf('variant', convId),
-        { declaredTheme: variant.theme, equippedEquipmentId: equipped },
-      );
-      if (resolution.theme) {
-        // 统一解析实体主题来源（自定义 / 设计 / 装备 / 声明默认）
-        const override = resolution.theme;
-        ctrl.game.colorSystem.pushSceneTheme({
-          sourceId: `student:${convId}`,
-          scope: 'student',
-          groupId: override.colorGroupId,
-          palette: override.palette,
-          tokens: override.tokens,
-          nodeOverrides: override.nodes,
-          background: override.background ?? variant.theme?.background,
-          systemColorLayerIgnored: override.systemColorLayerIgnored
-            ?? (override.colorGroupId ? ctrl.game.colorSystem.getGroup(override.colorGroupId)?.systemColorLayerIgnored : undefined)
-            ?? variant.theme?.systemColorLayerIgnored,
-          presentation: override.presentation ?? variant.theme?.presentation,
-        });
-      } else {
-        // 学生层：优先用其 ColorGroup（装备 > 差分声明）驱动参考树；
-        // variant.theme 作为显式覆盖层（仍可被作者手动指定组覆盖）。
-        let studentGroupId: string | undefined = variant.theme?.colorGroupId;
-        const groupId = equipped
-          ? ctrl.game.colorEquipmentSystem.groupOf(equipped)?.id
-          : variant.colorGroupId;
-        if (!studentGroupId && groupId) {
-          studentGroupId = groupId;
-        }
-        ctrl.game.colorSystem.pushSceneTheme({
-          sourceId: `student:${convId}`,
-          scope: 'student',
-          groupId: studentGroupId,
-          palette: variant.theme?.palette,
-          tokens: variant.theme?.tokens,
-          nodeOverrides: variant.theme?.nodes,
-          background: variant.theme?.background,
-          systemColorLayerIgnored: variant.theme?.systemColorLayerIgnored
-            ?? (studentGroupId ? ctrl.game.colorSystem.getGroup(studentGroupId)?.systemColorLayerIgnored : undefined),
-          presentation: variant.theme?.presentation,
-        });
-      }
-    }
-  }
+  ctrl.game.colorSystem.syncSelectedThemeFromState(
+    ctrl.game.state,
+    ctrl.game.userThemeService.capability().active,
+  );
 }
 
 export function clearInjectedThemeVars(style: CSSStyleDeclaration): void {
@@ -153,7 +76,7 @@ export function clearInjectedThemeVars(style: CSSStyleDeclaration): void {
 
 /**
  * 激活主题 → CSS 变量注入。
- * 运行时主题：玩家全局层 + 场景层（当前 Area / 对话学生）按优先级合并。
+ * 运行时主题：当前唯一选中的主题完整提供界面内容。
  */
 export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   const style = document.documentElement.style;
@@ -173,8 +96,7 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
     style.setProperty(`--${key}`, value);
   }
   const palette = resolved.palette.length > 0 ? resolved.palette : [tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY];
-  // 画布文字色按「多图层背景栈的实际合成色」判定，而非只看 tokens.bg：
-  // Area / 自定义主题常用深色图层（或半透明叠加）覆盖整页，只读 bg 会写反字色。
+  // 画布文字色按当前主题自身背景图层的合成色判定，而非只看 tokens.bg。
   const ink = buildBackgroundView(resolved.background, ctrl.game.pics, tokens, resolved.systemColorLayerIgnored, palette, rootThemeVars(resolved)).ink;
   if (ink) {
     style.setProperty('--ink-on-canvas', ink.text);

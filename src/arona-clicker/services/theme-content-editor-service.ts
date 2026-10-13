@@ -186,7 +186,7 @@ export class ThemeContentEditorService {
     if (!checked.ok) return checked;
     const { session, pack, value } = checked.value;
     const layer = this.previewLayer(session.target, value, pack);
-    this.options.colorSystem.runtime.setPreview(layer);
+    this.options.colorSystem.setExclusiveThemePreview(layer);
     this.activePreviewSessionId = sessionId;
     return { ok: true, value: undefined };
   }
@@ -211,7 +211,7 @@ export class ThemeContentEditorService {
     const version = storedPackContentDigest(saved);
     this.sessions.delete(sessionId);
     if (this.activePreviewSessionId === sessionId) {
-      this.options.colorSystem.runtime.setPreview(null);
+      this.options.colorSystem.setExclusiveThemePreview(null);
       this.activePreviewSessionId = null;
     }
     return { ok: true, value: { content: clone(value), version } };
@@ -220,7 +220,7 @@ export class ThemeContentEditorService {
   cancel(sessionId: string): void {
     this.sessions.delete(sessionId);
     if (this.activePreviewSessionId === sessionId) {
-      this.options.colorSystem.runtime.setPreview(null);
+      this.options.colorSystem.setExclusiveThemePreview(null);
       this.activePreviewSessionId = null;
     }
   }

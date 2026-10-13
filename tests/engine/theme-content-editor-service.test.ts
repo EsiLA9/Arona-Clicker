@@ -63,13 +63,10 @@ describe('ThemeContentEditorService', () => {
 
   it('一般 ThemeDesign 编辑态使用共享 Preview，并保存回指定 editing Pack', () => {
     const { manager, target, game, service, persistedCount } = setup();
-    game.colorSystem.runtime.pushScene({
-      sourceId: 'area:current',
-      scope: 'area',
-      tokens: { primary: '#24558f', bg: '#dbeafe' },
-      background: [{ id: 'area-before', kind: 'solid', value: '#dbeafe' }],
-    });
-    const opened = service.beginEdit({ packRecordId: target.id, kind: 'theme-design', contentId: 'theme-pack:themedesign:office', replacesSourceId: 'area:current' });
+    (game.state as any).currentAreaId = 'base:area:schale_main';
+    game.colorSystem.syncSelectedThemeFromState(game.state);
+    const original = game.colorSystem.runtimeTheme();
+    const opened = service.beginEdit({ packRecordId: target.id, kind: 'theme-design', contentId: 'theme-pack:themedesign:office', replacesSourceId: 'area:base:area:schale_main' });
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
 
@@ -90,8 +87,8 @@ describe('ThemeContentEditorService', () => {
     expect(saved.ok).toBe(true);
     expect(manager.getPack(target.id)?.datapack.themeDesigns?.[0].theme.tokens?.bg).toBe('#e9f1fb');
     expect(persistedCount()).toBe(1);
-    expect(game.colorSystem.runtimeTheme().tokens.bg).toBe('#dbeafe');
-    expect(game.colorSystem.runtimeTheme().background.map(layer => layer.id)).toEqual(['system-color-background', 'area-before']);
+    expect(game.colorSystem.runtimeTheme().tokens.bg).toBe(original.tokens.bg);
+    expect(game.colorSystem.runtimeTheme().background.map(layer => layer.id)).toEqual(original.background.map(layer => layer.id));
   });
 
   it('ColorGroup 使用相同编辑会话并拒绝保存至普通态数据包', () => {

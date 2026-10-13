@@ -163,8 +163,14 @@ export function themeContributionFromThemeDef(
 // --- 服务 ---
 
 export class ColorSystem {
-  /** 运行时主题管理：色彩组与游戏实际结构解耦，多组/临时演出的叠加入口。 */
+  /** 通用主题图层算法入口；普通游戏界面每次只写入一个已选主题。 */
   readonly runtime: RuntimeThemeManager;
+  private readonly selectedRuntime: RuntimeThemeManager;
+  private selectedThemeLayer: ThemeLayer | null = null;
+  private selectorThemeLayer: ThemeLayer | null = null;
+  private temporaryThemeLayer: ThemeLayer | null = null;
+  private temporaryThemeId: string | null = null;
+  private previewThemeLayer: ThemeLayer | null = null;
 
   constructor(
     private readonly registry: Registry,
@@ -172,88 +178,128 @@ export class ColorSystem {
     private readonly getState: () => PlayerState,
     private readonly checkCondition: (expr: Condition | ConditionGroup, state: PlayerState) => boolean,
   ) {
-    // 层→token 表解析：引用 ColorGroupId 时取其整包 resolveTheme，否则空表；tokens 覆盖在此层合并
-    this.runtime = new RuntimeThemeManager(layer => {
-      const tokens: Record<string, string> = {};
-      if (layer.groupId) {
-        const def = this.registry.colorGroups.get(layer.groupId);
-        if (def) Object.assign(tokens, resolveTheme(def));
-      }
-      if (layer.tokens) Object.assign(tokens, layer.tokens);
-      return tokens;
-    });
+    this.runtime = new RuntimeThemeManager(layer => this.resolveLayerTokens(layer));
+    this.selectedRuntime = new RuntimeThemeManager(layer => this.resolveLayerTokens(layer));
+  }
+
+  private resolveLayerTokens(layer: ThemeLayer): ThemeTokens {
+    const tokens: ThemeTokens = {};
+    if (layer.groupId) {
+      const def = this.registry.colorGroups.get(layer.groupId);
+      if (def) Object.assign(tokens, resolveTheme(def));
+    }
+    if (layer.tokens) Object.assign(tokens, layer.tokens);
+    return tokens;
   }
 
   // --- 运行时主题（RuntimeThemeManager 门面） ---
 
-  /** 从状态同步全局主题来源：系统 / ColorGroup / 独立用户主题三选一。 */
-  syncPlayerThemeFromState(state: PlayerState): void {
+  /** 将存档选择解析为单一界面主题：当前场景默认、已拥有色彩组或独立用户主题。 */
+  syncSelectedThemeFromState(state: PlayerState, customThemeAvailable = true): void {
     const selection = state.activeTheme ?? { kind: 'system' as const };
-    const id = selection.kind === 'color-group' ? selection.id : null;
-    const group = id ? this.registry.colorGroups.get(id) : undefined;
-    this.runtime.setPlayer(id ? {
-      sourceId: 'player-theme',
+    const area = state.currentAreaId ? this.registry.areas.get(state.currentAreaId) : undefined;
+    const sceneTheme = area
+      ? this.resolveEntityTheme(state, entityKeyOf('area', area.id), { declaredTheme: area.theme }).theme
+      : null;
+    const sceneLayer = sceneTheme && area ? this.themeLayerFromDef(`area:${area.id}`, sceneTheme) : null;
+    let selected: ThemeLayer | null = sceneLayer;
+    let selectorSelected: ThemeLayer | null = null;
+    if (selection.kind === 'color-group') {
+      const group = this.registry.colorGroups.get(selection.id);
+      if (group && this.isGroupOwned(state, selection.id)) {
+        selectorSelected = selected = this.enrichThemeLayer({
+          id: selection.id,
+          sourceId: `color-group:${selection.id}`,
+          scope: 'player',
+          groupId: selection.id,
+          palette: this.paletteOfGroup(selection.id),
+          systemColorLayerIgnored: group.systemColorLayerIgnored,
+        });
+      }
+    } else if (selection.kind === 'custom') {
+      const stored = state.customThemes?.[selection.id];
+      if (stored && customThemeAvailable && state.userTheme?.enabled !== false) {
+        const base = customThemeBase(this.registry, stored);
+        const applied = storedThemeDef(stored, base);
+        const globalHost = applied.presentation?.hosts?.find(host => host.id === 'global');
+        selectorSelected = selected = this.themeLayerFromDef(selection.id, applied, {
+          palette: normalizePalette(applied.palette, stored.paletteUiEnabled),
+          scopeNodeOverrides: stored.scopes,
+          background: globalHost?.layers ?? applied.background,
+          backgroundLayerOrder: globalHost?.layerOrder ?? stored.backgroundLayerOrder,
+          systemColorLayerIgnored: stored.systemColorLayerIgnored
+            ?? applied.systemColorLayerIgnored
+            ?? (applied.colorGroupId ? this.registry.colorGroups.get(applied.colorGroupId)?.systemColorLayerIgnored : undefined),
+        });
+      }
+    }
+    this.selectorThemeLayer = selectorSelected;
+    this.selectedThemeLayer = selected;
+    this.syncSingleRuntimeTheme();
+  }
+
+  private themeLayerFromDef(
+    sourceId: string,
+    theme: ThemeDef,
+    options: Pick<ThemeLayer, 'palette' | 'scopeNodeOverrides' | 'background' | 'backgroundLayerOrder' | 'systemColorLayerIgnored'> = {},
+  ): ThemeLayer {
+    const group = theme.colorGroupId ? this.registry.colorGroups.get(theme.colorGroupId) : undefined;
+    return this.enrichThemeLayer({
+      id: sourceId,
+      sourceId,
       scope: 'player',
-      groupId: id,
-      palette: this.paletteOfGroup(id),
-      systemColorLayerIgnored: group?.systemColorLayerIgnored,
-    } : null);
-    this.runtime.setLayerOrder(state.themeLayerOrder);
+      groupId: theme.colorGroupId as ColorGroupId | undefined,
+      palette: options.palette ?? theme.palette,
+      tokens: theme.tokens,
+      nodeOverrides: theme.nodes,
+      scopeNodeOverrides: options.scopeNodeOverrides,
+      background: options.background ?? theme.background,
+      backgroundLayerOrder: options.backgroundLayerOrder,
+      systemColorLayerIgnored: options.systemColorLayerIgnored ?? theme.systemColorLayerIgnored ?? group?.systemColorLayerIgnored,
+      presentation: theme.presentation,
+    });
+  }
+
+  private syncSingleRuntimeTheme(): void {
+    const layer = this.previewThemeLayer ?? this.temporaryThemeLayer ?? this.selectedThemeLayer;
+    this.selectedRuntime.reset();
+    this.selectedRuntime.setPlayer(layer ? { ...layer, scope: 'player' } : null);
+  }
+
+  /** 从状态同步全局主题来源；保留旧门面供调用方迁移，主题仍只会单选。 */
+  syncPlayerThemeFromState(state: PlayerState): void {
+    this.syncSelectedThemeFromState(state);
   }
 
   syncUserThemeFromState(state: PlayerState, active: boolean): void {
-    const selection = state.activeTheme ?? { kind: 'system' as const };
-    const user = state.userTheme;
-    const customId = selection.kind === 'custom' ? selection.id : null;
-    const stored = customId ? state.customThemes?.[customId] : undefined;
-    const enabled = active
-      && selection.kind === 'custom'
-      && !!stored
-      && user?.enabled !== false;
-    const base = stored ? customThemeBase(this.registry, stored) : undefined;
-    const applied = stored ? storedThemeDef(stored, base) : undefined;
-    const globalHost = applied?.presentation?.hosts?.find(host => host.id === 'global');
-    const colorLayer = {
-      tokens: applied?.tokens,
-      palette: normalizePalette(applied?.palette, stored?.paletteUiEnabled),
-      nodeOverrides: applied?.nodes,
-      scopeNodeOverrides: stored?.scopes,
-    };
-    this.runtime.setUser(enabled ? {
-      id: customId ?? undefined,
-      sourceId: 'user-theme',
-      scope: 'user',
-      groupId: applied?.colorGroupId as ColorGroupId | undefined,
-      ...colorLayer,
-      background: globalHost?.layers,
-      backgroundLayerOrder: globalHost?.layerOrder,
-      systemColorLayerIgnored: stored?.systemColorLayerIgnored
-        ?? applied?.systemColorLayerIgnored
-        ?? (applied?.colorGroupId ? this.registry.colorGroups.get(applied.colorGroupId)?.systemColorLayerIgnored : undefined),
-      presentation: applied?.presentation,
-    } : null);
+    this.syncSelectedThemeFromState(state, active);
   }
 
-  /** 编辑器草稿预览：高于已应用用户主题，低于剧情临时层。 */
+  /** 编辑器预览作为完整临时主题替换当前选中项，不叠加到场景主题之上。 */
   setUserThemePreview(draft: { palette?: string[]; paletteUiEnabled?: boolean[]; systemColorLayerIgnored?: boolean; backgroundLayerOrder?: string[]; tokens?: Partial<Record<ThemeToken, string>>; nodes?: import('../../engine/types/theme').ThemeDef['nodes']; scopes?: import('../types/user-theme').UserThemeDraft['scopes']; background?: import('../../engine/types/theme').ThemeDef['background']; presentation?: import('../../engine/types/theme').PresentationDef } | null): void {
-    const colorLayer = {
-      tokens: draft?.tokens,
-      palette: normalizePalette(draft?.palette, draft?.paletteUiEnabled),
-      nodeOverrides: draft?.nodes,
-      scopeNodeOverrides: draft?.scopes,
-    };
-    const globalHost = draft?.presentation?.hosts?.find(host => host.id === 'global');
-    const replacesUserBackground = globalHost?.layers !== undefined;
-    this.runtime.setPreview(draft ? {
-      id: 'user-theme-preview',
-      scope: 'ephemeral',
-      ...colorLayer,
-      background: globalHost?.layers,
-      backgroundReplacementScope: replacesUserBackground ? 'user' : undefined,
-      backgroundLayerOrder: globalHost?.layerOrder,
-      systemColorLayerIgnored: draft.systemColorLayerIgnored,
-      presentation: draft.presentation,
-    } : null);
+    if (draft) {
+      const globalHost = draft.presentation?.hosts?.find(host => host.id === 'global');
+      this.previewThemeLayer = {
+        id: 'user-theme-preview',
+        sourceId: 'user-theme-preview',
+        scope: 'player',
+        palette: normalizePalette(draft.palette, draft.paletteUiEnabled),
+        tokens: draft.tokens,
+        nodeOverrides: draft.nodes,
+        scopeNodeOverrides: draft.scopes,
+        background: globalHost?.layers ?? draft.background,
+        backgroundLayerOrder: globalHost?.layerOrder ?? draft.backgroundLayerOrder,
+        systemColorLayerIgnored: draft.systemColorLayerIgnored,
+        presentation: draft.presentation,
+      };
+    } else this.previewThemeLayer = null;
+    this.syncSingleRuntimeTheme();
+  }
+
+  /** 一般 Datapack 主题编辑器预览：以候选内容整体替换当前主题。 */
+  setExclusiveThemePreview(layer: ThemeLayer | null): void {
+    this.previewThemeLayer = layer ? this.enrichThemeLayer({ ...layer, scope: 'player' }) : null;
+    this.syncSingleRuntimeTheme();
   }
 
   /** 压入场景特色层（当前 Area / 当前对话学生；同 scope 覆盖）。 */
@@ -268,32 +314,50 @@ export class ColorSystem {
 
   /** 推入临时演出层，返回其 id（供 popEphemeralTheme 移除）。 */
   pushEphemeralTheme(layer: ThemeLayer): string {
-    return this.runtime.pushEphemeral(this.enrichThemeLayer(layer));
+    const enriched = this.enrichThemeLayer(layer);
+    const id = this.runtime.pushEphemeral(enriched);
+    this.temporaryThemeId = id;
+    this.temporaryThemeLayer = { ...enriched, id, scope: 'player' };
+    this.syncSingleRuntimeTheme();
+    return id;
   }
 
   /** 移除临时演出层（不存在则静默忽略）。 */
   popEphemeralTheme(id: string): void {
     this.runtime.popEphemeral(id);
+    if (this.temporaryThemeId === id) {
+      this.temporaryThemeId = null;
+      this.temporaryThemeLayer = null;
+      this.syncSingleRuntimeTheme();
+    }
   }
 
   /** 清空全部运行时层（新会话/读档）。 */
   resetRuntimeThemes(): void {
+    this.selectedThemeLayer = null;
+    this.selectorThemeLayer = null;
+    this.temporaryThemeLayer = null;
+    this.temporaryThemeId = null;
+    this.previewThemeLayer = null;
     this.runtime.reset();
+    this.selectedRuntime.reset();
   }
 
-  /** 当前运行时主题（L1 临时 > L2 场景 > L3 玩家）合并后的最终结果。 */
+  /** 当前界面唯一选中主题的解析结果。 */
   runtimeTheme(): ReturnType<RuntimeThemeManager['resolve']> {
-    return this.runtime.resolve();
+    return this.selectedRuntime.resolve();
   }
 
-  /** 选择页只以玩家/用户全局主题为基底，再投影当前焦点实体；旧场景和剧情临时层不进入输入快照。 */
+  /** 选择页只以玩家选中的全局主题为基底；场景默认、剧情换肤和编辑预览不进入输入快照。 */
   selectorBaseTheme(): ReturnType<RuntimeThemeManager['resolve']> {
-    return this.runtime.resolve(undefined, { includeSceneLayers: false, includeEphemeralLayers: false });
+    const selectorRuntime = new RuntimeThemeManager(layer => this.resolveLayerTokens(layer));
+    selectorRuntime.setPlayer(this.selectorThemeLayer ? { ...this.selectorThemeLayer, scope: 'player' } : null);
+    return selectorRuntime.resolve();
   }
 
   /** 当前运行时主题层的只读来源/生命周期诊断；不写入玩家状态。 */
   runtimeThemeDiagnostics(target?: string): ThemeRuntimeDiagnostics {
-    return this.runtime.diagnostics(target);
+    return this.selectedRuntime.diagnostics(target);
   }
 
   /** 当前运行时主题合并后的最终 token 表。 */
@@ -303,13 +367,13 @@ export class ColorSystem {
 
   /** 某 scope 当前生效层（忽略临时演出层）解析出的 token 表；无该层返回空表。 */
   scopeThemeTokens(scope: ThemeLayer['scope']): ThemeTokens {
-    return this.runtime.resolveScope(scope);
+    return this.selectedRuntime.resolveScope(scope);
   }
 
   /**
    * 处理临时演出类 theme effect（setTheme op）。
    * 由 effect-engine 在 applyEffects 时转发（mutations 对 setTheme 保持 no-op）。
-   * scope=area/student 时改写实体主题槽（持久，玩家可改回）；否则推临时演出层。
+   * scope=area/student 时改写实体主题槽（持久，玩家可改回）；否则整体替换当前界面主题。
    * @returns 是否已消费（op 属于主题类）。
    */
   /** 剧情演出临时层的固定槽位：同一剧情内的 setTheme 覆盖式更新，离开剧情即清除。 */
@@ -327,21 +391,28 @@ export class ColorSystem {
       });
       return true;
     }
-    this.pushEphemeralTheme({
+    this.temporaryThemeId = ColorSystem.STORY_EPHEMERAL_ID;
+    this.temporaryThemeLayer = this.enrichThemeLayer({
       id: ColorSystem.STORY_EPHEMERAL_ID,
-      scope: 'ephemeral',
+      sourceId: ColorSystem.STORY_EPHEMERAL_ID,
+      scope: 'player',
       groupId: value?.colorGroupId,
       palette: normalizePalette(value?.palette),
       tokens: value?.tokens,
       nodeOverrides: value?.nodes,
       background: value?.background,
     });
+    this.syncSingleRuntimeTheme();
     return true;
   }
 
   /** 清除剧情临时演出层（剧情结束后调用）。 */
   clearStoryTheme(): void {
-    this.runtime.popEphemeral(ColorSystem.STORY_EPHEMERAL_ID);
+    if (this.temporaryThemeId === ColorSystem.STORY_EPHEMERAL_ID) {
+      this.temporaryThemeId = null;
+      this.temporaryThemeLayer = null;
+      this.syncSingleRuntimeTheme();
+    }
   }
 
   getGroup(groupId: ColorGroupId): ColorGroupDef | undefined {

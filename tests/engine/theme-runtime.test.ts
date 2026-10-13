@@ -431,7 +431,7 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     game.mutations.activateTheme('base:colorgroup:schale-solid');
     game.colorSystem.syncPlayerThemeFromState(game.state);
     const base = game.colorSystem.runtimeTheme();
-    expect(base.layers).toContain('player');
+    expect(base.layers).toEqual(['base:colorgroup:schale-solid']);
     // 剧情演出临时变色
     const handled = game.colorSystem.handleThemeEffect({
       op: 'setTheme',
@@ -447,10 +447,32 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     expect(themed.tokens['primary']).toBe('#ff7a59'); // coral 的 primary
     expect(themed.tokens['player-bubble']).toBe('#ff0000');
     expect(themed.background[0]?.value).toContain('linear-gradient');
+    expect(themed.layers).toEqual([ColorSystem.STORY_EPHEMERAL_ID]);
     // 清除剧情临时层
     game.colorSystem.clearStoryTheme();
     const cleared = game.colorSystem.runtimeTheme();
-    expect(cleared.layers).not.toContain(ColorSystem.STORY_EPHEMERAL_ID);
+    expect(cleared.layers).toEqual(['base:colorgroup:schale-solid']);
+  });
+
+  test('工作区临时主题整体替换当前选择，退出后恢复原主题', () => {
+    game = freshGame();
+    game.mutations.acquireCharacter('Arona', 'gacha');
+    game.mutations.activateTheme('base:colorgroup:schale-solid');
+    game.colorSystem.syncSelectedThemeFromState(game.state);
+    const selected = game.colorSystem.runtimeTheme();
+
+    const themeId = game.colorSystem.pushEphemeralTheme({
+      id: 'shop-workspace:test',
+      owner: 'workspace:shop:test',
+      scope: 'ephemeral',
+      tokens: { primary: '#d97706' },
+    });
+    expect(game.colorSystem.runtimeTheme().layers).toEqual(['shop-workspace:test']);
+    expect(game.colorSystem.runtimeTheme().tokens.primary).toBe('#d97706');
+
+    game.colorSystem.popEphemeralTheme(themeId);
+    expect(game.colorSystem.runtimeTheme().layers).toEqual(selected.layers);
+    expect(game.colorSystem.runtimeTheme().tokens.primary).toBe(selected.tokens.primary);
   });
 
   test('非 setTheme effect 不被 handleThemeEffect 消费', () => {
@@ -532,20 +554,23 @@ describe('ColorSystem 运行时主题门面 + setTheme effect', () => {
     expect(ids.indexOf('glow')).toBeGreaterThan(ids.indexOf('atmosphere'));
   });
 
-  test('多色彩组叠加：场景覆盖玩家、临时覆盖一切', () => {
+  test('通用 RuntimeThemeManager 保留多层堆叠：场景覆盖玩家、临时覆盖一切', () => {
     game = freshGame();
     game.mutations.acquireCharacter('Arona', 'gacha');
     game.mutations.activateTheme('base:colorgroup:schale-solid');
     game.colorSystem.syncPlayerThemeFromState(game.state);
+    const selectedPrimary = game.colorSystem.runtimeTheme().tokens['primary'];
+    const runtime = game.colorSystem.runtime;
     // 进入千年 Area → 场景层（靛蓝）
-    game.colorSystem.pushSceneTheme({ scope: 'area', groupId: 'base:colorgroup:indigo' });
-    expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe('#6366f1');
+    runtime.pushScene({ scope: 'area', groupId: 'base:colorgroup:indigo' });
+    expect(runtime.resolve().tokens['primary']).toBe('#6366f1');
     // 打开学生对话（无 theme 的默认学生不影响，但此处模拟千年学生有 theme）
-    game.colorSystem.pushSceneTheme({ scope: 'student', groupId: 'base:colorgroup:violet' });
-    expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe('#8b5cf6');
+    runtime.pushScene({ scope: 'student', groupId: 'base:colorgroup:violet' });
+    expect(runtime.resolve().tokens['primary']).toBe('#8b5cf6');
     // 临时演出压栈 → 最高优先级
-    game.colorSystem.pushEphemeralTheme({ scope: 'ephemeral', tokens: { primary: '#111111' } });
-    expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe('#111111');
+    runtime.pushEphemeral({ scope: 'ephemeral', tokens: { primary: '#111111' } });
+    expect(runtime.resolve().tokens['primary']).toBe('#111111');
+    expect(game.colorSystem.runtimeTheme().tokens['primary']).toBe(selectedPrimary);
   });
 });
 

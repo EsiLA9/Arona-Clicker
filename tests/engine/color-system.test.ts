@@ -39,8 +39,11 @@ function makeDatapack(): Datapack {
   return {
     name: 'test',
     version: '0',
-    inits: [],
-    areas: [],
+    inits: [{ id: 'test:init:theme', name: '主题测试', description: '', defaultAreas: ['test:area:scene'] }],
+    areas: [{
+      id: 'test:area:scene', initId: 'test:init:theme', name: '主题场景', description: '', defaultSpots: [],
+      theme: { colorGroupId: 'test:colorgroup:color-free', background: [{ id: 'scene-theme-bg', kind: 'solid', value: '#f8fafc' }] },
+    }],
     spots: [],
     enhancements: [],
     activeStories: [],
@@ -174,6 +177,30 @@ describe('CL 色彩组获得与主题', () => {
     game.mutations.activateTheme('test:colorgroup:color-free');
     const tokens = game.colorSystem.activeThemeTokens(state());
     expect(tokens?.['primary']).toBe('#22c55e');
+  });
+
+  test('当前场景主题作为默认单选内容，收集色组完整替换场景并隔离通用堆叠器', () => {
+    state().currentAreaId = 'test:area:scene';
+    game.colorSystem.syncSelectedThemeFromState(state());
+    const sceneTheme = game.colorSystem.runtimeTheme();
+    expect(sceneTheme.layers).toEqual(['area:test:area:scene']);
+    expect(sceneTheme.background.some(layer => layer.id === 'scene-theme-bg')).toBe(true);
+
+    game.colorSystem.tryUnlockGroup('test:colorgroup:color-free');
+    game.mutations.activateTheme('test:colorgroup:color-free');
+    game.colorSystem.syncSelectedThemeFromState(state());
+    const ownedTheme = game.colorSystem.runtimeTheme();
+    expect(ownedTheme.layers).toEqual(['test:colorgroup:color-free']);
+    expect(ownedTheme.tokens.primary).toBe('#22c55e');
+    expect(ownedTheme.background.some(layer => layer.id === 'scene-theme-bg')).toBe(false);
+    game.mutations.setThemeLayerOrder(['student', 'area', 'init', 'player']);
+    game.colorSystem.syncSelectedThemeFromState(state());
+    expect(game.colorSystem.runtimeTheme().layers).toEqual(['test:colorgroup:color-free']);
+
+    game.colorSystem.runtime.setPlayer({ scope: 'player', groupId: 'test:colorgroup:color-free' });
+    game.colorSystem.runtime.pushScene({ scope: 'area', groupId: 'test:colorgroup:color-flag' });
+    expect(game.colorSystem.runtime.resolve().tokens.primary).toBe('#3b82f6');
+    expect(game.colorSystem.runtimeTheme().tokens.primary).toBe('#22c55e');
   });
 
   test('用户自定义主题是独立全局来源：切回色彩组后不再叠加自定义层且记录保留', () => {

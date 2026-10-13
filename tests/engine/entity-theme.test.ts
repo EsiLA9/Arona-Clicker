@@ -47,6 +47,19 @@ describe('实体主题槽：entityThemeOverride', () => {
     expect(game.colorSystem.entityThemeOverride(game.state, entityKeyOf('area', 'base:area:abydos_pool'))).toBeNull();
   });
 
+  test('选择当前区域主题时切回场景默认主题选择，不和玩家主题同时生效', () => {
+    (game.state as any).currentAreaId = 'base:area:abydos_pool';
+    game.mutations.activateTheme('base:colorgroup:schale-solid');
+    expect(game.state.activeTheme).toEqual({ kind: 'color-group', id: 'base:colorgroup:schale-solid' });
+
+    game.mutations.setEntityThemeSlot(entityKeyOf('area', 'base:area:abydos_pool'), {
+      kind: 'design',
+      designId: 'base:themedesign:abydos-sunset',
+    });
+
+    expect(game.state.activeTheme).toEqual({ kind: 'system' });
+  });
+
   test('default 槽 → null', () => {
     game.mutations.setEntityThemeSlot(entityKeyOf('area', 'base:area:abydos_pool'), { kind: 'default' });
     expect(game.colorSystem.entityThemeOverride(game.state, entityKeyOf('area', 'base:area:abydos_pool'))).toBeNull();
