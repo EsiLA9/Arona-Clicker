@@ -62,6 +62,10 @@ function authoringDatapack() {
       initialLocationId: locationId,
       maxLocationVisits: 2,
       tracks: [{ id: 'readiness', initial: 0, min: 0, max: 3 }],
+      objectives: [{
+        id: 'finish-worksite', description: 'The authored worksite plan is complete.', kind: 'primary',
+        predicate: { kind: 'track', trackId: 'readiness', operator: 'gte', value: 3 },
+      }],
       factIds: [],
       knownFactIds: [],
       itemIds: [],
@@ -128,6 +132,10 @@ function authoringDatapack() {
       stage: 'scene',
       enabledActionIds: [],
       combinationRules: [],
+      objectives: [{
+        id: 'leave-worksite-ready', description: 'The worksite is ready to leave.', kind: 'primary',
+        predicate: { kind: 'track', trackId: 'readiness', operator: 'gte', value: 3 },
+      }],
       routeEdges: [],
     }],
     operationActions: [

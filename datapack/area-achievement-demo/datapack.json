@@ -1,7 +1,0 @@
-{
-  "modName": "area-achievement-demo",
-  "name": "双区域档案演示",
-  "version": "1.0.0",
-  "author": "AronaClicker Demo Team",
-  "dependencies": ["base"]
-}

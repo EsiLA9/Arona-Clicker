@@ -188,6 +188,25 @@ describe('Gameplay B Datapack authoring workflow', () => {
     expect(secondaryOnlyValidation.ok).toBe(false);
     expect(secondaryOnlyValidation.errors.join('\n')).toMatch(/unbounded SceneAction batch but no Location outcome or Event hard failure exit/);
 
+    const invalidExplicitScenePack = clone(gameplayBCarouselDatapack);
+    const explicitLocation = invalidExplicitScenePack.operationLocations!.find(location => location.scenes?.length)!;
+    invalidExplicitScenePack.operationLocations = invalidExplicitScenePack.operationLocations!.map(location =>
+      location.id === explicitLocation.id ? {
+        ...location,
+        objectives: undefined,
+        scenes: location.scenes?.map((scene, index) => index === 0 ? {
+          ...scene,
+          actionMode: undefined,
+          sceneActions: [],
+          purchaseOffers: [],
+        } : scene),
+      } : location);
+    savePackContent(runtime, invalidExplicitScenePack);
+    const invalidExplicitSceneValidation = runtime.validatePackConfiguration(configuration);
+    expect(invalidExplicitSceneValidation.ok).toBe(false);
+    expect(invalidExplicitSceneValidation.errors.join('\n')).toMatch(/has no SceneAction or PurchaseOffer batch progress source/);
+    expect(invalidExplicitSceneValidation.errors.join('\n')).toMatch(/explicit Scene sequence but no Location completion\/failure condition/);
+
     const invalidCombatPack = clone(gameplayBCarouselDatapack);
     const platform = invalidCombatPack.operationLocations!.find(location => location.id === IDS.locations.platform)!;
     const { maxBeats: _maxBeats, ...unboundedPlatform } = platform;

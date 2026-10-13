@@ -285,6 +285,23 @@ describe('内容策略表：字段授权', () => {
     expect(validateAuthoringInput(policy, spotInput({ functionalities: [{ ...base, extra: 1 }] }))).toMatchObject({ path: 'spot.functionalities[0].extra' });
   });
 
+  test('行动入口复用同一功能类型，保存与再编辑保留各按钮的唯一关卡引用', () => {
+    const policy = requireContentPolicy('spots');
+    const targets = ['test:operation-event:first', 'test:operation-event:second'];
+    const input = spotInput({ functionalities: targets.map((operationEventId, index) => ({
+      id: `entry-${index}`, kind: 'operationEntry', operationEventId,
+    })) });
+    expect(validateAuthoringInput(policy, input)).toBeUndefined();
+    const def = buildAuthoringDef(policy, MOD, input) as unknown as import('../../src/data-services/contracts/world').SpotDef;
+    expect(def.functionalities?.map(fn => fn.kind)).toEqual(['operationEntry', 'operationEntry']);
+    const decoded = decodeSpotContent(def);
+    expect(decoded.functionalities?.map(fn => fn.operationEventId)).toEqual(targets);
+    for (const operationEventId of [undefined, '', ['test:operation-event:first', 'test:operation-event:second']]) {
+      expect(validateAuthoringInput(policy, spotInput({ functionalities: [{ id: 'entry', kind: 'operationEntry', operationEventId }] })))
+        .toMatchObject({ path: 'spot.functionalities[0].operationEventId' });
+    }
+  });
+
   test('支付方案支持 Resource / Item 混合费用、等级独立方案与条件', () => {
     const policy = requireContentPolicy('spots');
     const input = spotInput({

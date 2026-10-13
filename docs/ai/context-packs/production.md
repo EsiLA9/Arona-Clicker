@@ -2,9 +2,9 @@
 
 适用：GameNum、生产结算、Affector、Effect、Trigger、Tick 和相关性能问题。
 
-## Required Read Set
+## 按子题选择
 
-机制改动先读 [[docs/docs-829/05-conventions/architecture-discipline]] 与 [[docs/docs-829/02-modules/engine]]。再按实际子题选择，跨子题时合并：
+只读命中的一行；跨子题时合并。改变模块依赖或状态写入边界时，再读 [[docs/docs-829/05-conventions/architecture-discipline]]；需要确认 Engine 职责时读 [[docs/docs-829/02-modules/engine]]。
 
 | 子题 | 先读 |
 | --- | --- |
@@ -13,7 +13,7 @@
 | Affector 持续效果 | [[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]]、[[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]] |
 | Effect / Trigger 联动 | [[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]]、[[docs/docs-829/06-wiki/40-engine/effects-triggers-affectors]] |
 
-每次还要读取目标源码、调用方和相关测试；`src/engine/expression/` 与 `src/engine/effect/` 是定位范围，不是整目录阅读清单。
+再核对目标源码、直接调用方和相关测试；`src/engine/expression/` 与 `src/engine/effect/` 是定位范围，不是整目录阅读清单。
 
 ## Optional Read Set
 
@@ -27,6 +27,6 @@
 - `docs/plan-work/archive/**`
 - 与生产链无关的 UI / 编辑器文档
 
-## 最小验证
+## 验证入口
 
-定向生产 / Effect 测试、`npx tsc --noEmit`；跨模块改动再运行 `npm test`。
+行为改变时运行对应生产 / Effect 定向测试；契约或跨模块改动时补类型检查，风险需要时再扩大测试范围。

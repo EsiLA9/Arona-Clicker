@@ -277,6 +277,10 @@ describe('validateOperationEventDef', () => {
       stage: 'scene',
       actionMode: 'individual',
       sceneActions: [{ id: 'inspect', actionId: 'test:action:inspect', scope: 'individual', playerCost: 0 }],
+      objectives: [{
+        id: 'scene-exit', description: 'The scene has a declared Location exit.', kind: 'primary',
+        predicate: { kind: 'track', trackId: 'danger', operator: 'gte', value: 0 },
+      }],
     };
     const unbounded: OperationEventDef = {
       ...definition,
@@ -831,6 +835,27 @@ describe('OperationRuntimeService', () => {
     service.completeCurrentLocation();
     expect(service.finish().kind).toBe('success');
     expect(received).toEqual(['runStarted', 'locationEntered', 'locationCompleted', 'runFinished']);
+  });
+
+  test('fails a Combat Run when every Character is down and no Beat can continue', () => {
+    const service = new OperationRuntimeService();
+    const started = service.start(tacticalRunStartInput());
+    expect(started.status).toBe('inProgress');
+    service.applyStateDelta({ actors: [{ actorId: 'test:actor:student', hp: 0 }] });
+    const defeated = service.getSnapshot()!;
+
+    const resolution = service.commitBeat({ runId: defeated.runId, planVersion: defeated.planVersion });
+
+    expect(resolution.actorPlans).toContainEqual(expect.objectContaining({
+      actorId: 'test:actor:student',
+      kind: 'wait',
+    }));
+    expect(service.getSnapshot()).toMatchObject({
+      status: 'failure',
+      preparedBeat: null,
+      locationProgress: { 'test:location:office': { completed: true, result: 'failure' } },
+    });
+    expect(service.finish().kind).toBe('failure');
   });
 
   test('commits one Beat atomically, notifies after the swap, and retries without another write', () => {

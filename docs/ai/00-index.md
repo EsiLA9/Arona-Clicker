@@ -6,10 +6,10 @@
 | 需要 | 阅读 |
 | --- | --- |
 | Patch Unit 边界、停止条件、Receipt 与验证 | [[docs/ai/PROJECT-CONSTITUTION]] |
-| GALHCG 身份解析、未知/新增内容发现、变更审查与地图维护 | [[docs/ai/galhcg-project-map]] |
-| 任务领域与最小源码 Read Set | [[docs/ai/task-read-set-routing]] |
+| GALHCG 查询、分页、只读变更复核 | [[docs/ai/galhcg-project-map]]；获授权维护时再读 `.galhcg/agent-maintenance.md` |
+| 领域未知、跨领域或正式施工时选择 Read Set | [[docs/ai/task-read-set-routing]]；已知领域从 [[AGENTS.md]] 直接进入下方领域包 |
 | 从玩法意图、事实核对到 Task 施工 | [[docs/ai/goal-workflow]] |
-| 游戏内 UI 的刷新级别、DOM 预算和交互连续性 | [[docs/ai/frontend-design-project-overlay]] |
+| 通用 UI 设计；游戏内 UI 的数据、刷新与施工补充；已有风格入口 | Agent 的 `frontend-design` skill；[[docs/ai/frontend-design-project-overlay]]；[[ui-style/00-index]] |
 
 ## 上下文包
 
@@ -33,6 +33,6 @@
 
 ## 权威关系
 
-- [[AGENTS.md]] 是新会话入口和稳定项目护栏；本索引只做 `docs/ai/` 内部导航。
+- [[AGENTS.md]] 是新会话的简短分流入口；稳定工程约束由命中的规范页说明。本索引只做 `docs/ai/` 内部导航，列出的页面不构成必读清单。
 - [[docs/docs-829/00-INDEX]] 与其路由页面维护当前项目机制、结构和架构事实。
 - `docs/plan-work/` 记录目标意图、裁定和阶段状态；归档计划不可替代当前源码核验。

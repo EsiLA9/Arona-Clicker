@@ -22,7 +22,6 @@ const GENERIC_EVENT_COPY: OperationEventCopy = {
     failure: '本次行动未能完成。',
   },
 };
-
 interface OperationEventCopy {
   readonly tracks: Readonly<Record<string, { readonly name: string; readonly description: string }>>;
   readonly facts: Readonly<Record<string, string>>;
@@ -141,7 +140,10 @@ function factName(view: OperationView, factId: string): string {
 }
 
 function trackPresentation(view: OperationView, trackId: string): { readonly name: string; readonly description: string } {
-  return eventCopy(view).tracks[trackId] ?? { name: '现场状态', description: '' };
+  return eventCopy(view).tracks[trackId] ?? {
+    name: trackId.split(':').at(-1)?.replace(/[-_]+/g, ' ') || '现场状态',
+    description: '',
+  };
 }
 
 function actionLabel(view: OperationView, actionId: string): string {
@@ -173,7 +175,9 @@ function locationPresentation(view: OperationView, locationId: string): { readon
     const copy = PARK_MAP.locations[locationId as keyof typeof PARK_MAP.locations];
     return copy ? { name: copy.label } : undefined;
   }
-  return LOCATIONS[locationId];
+  return LOCATIONS[locationId] ?? (locationId === view.currentLocationId && view.currentScene
+    ? { name: view.currentScene.title ?? '行动现场', description: view.currentScene.description ?? '' }
+    : undefined);
 }
 
 function actorPresentation(view: OperationView, actorId: string): { readonly role: string; readonly description: string } | undefined {
@@ -187,7 +191,10 @@ function operationItemName(view: OperationView, itemId: string): string {
 }
 
 function planLabel(actor: OperationViewActor, view: OperationView): string {
-  const plan = actor.currentPlan;
+  return operationPlanLabel(actor.currentPlan, view);
+}
+
+function operationPlanLabel(plan: OperationViewActor['currentPlan'], view: OperationView): string {
   if (!plan) return '尚未生成计划';
   const name = actionLabel(view, plan.actionId);
   const target = plan.targetActorId ? view.actorStates.find(item => item.id === plan.targetActorId)?.displayName ?? '场景目标' : null;
@@ -277,7 +284,7 @@ export function clearOperationSceneDraft(runId: string): void {
 
 export interface OperationActorHandCardView {
   readonly identity: string;
-  readonly kind: 'battle-action' | 'scene-action' | 'player-card';
+  readonly kind: 'battle-action' | 'scene-character-action' | 'scene-action' | 'player-card';
   readonly source: 'character-hand' | 'location-scene-actions' | 'shared-player-deck';
   readonly ownerActorId: string;
   readonly selectionPolicy: 'planned' | 'required' | 'fixed';
@@ -294,11 +301,14 @@ export function projectOperationActorHand(view: OperationView, ownerActorId: str
   const actor = view.actorStates.find(item => item.id === ownerActorId && item.participantKind === 'student');
   if (!actor) return [];
   const battle = view.currentStage === 'combat' && !view.locationProgress[view.currentLocationId]?.completed;
-  if (battle) {
+  const sceneCharacterPlan = view.currentScene?.autoCharacterActions === true;
+  if (battle || sceneCharacterPlan) {
     const activePlan = view.effectivePreparedBeat?.actorPlans.find(plan => plan.actorId === actor.id) ?? actor.currentPlan;
-    return (actor.profile?.actionOptions ?? []).map(option => ({
+    const options = actor.profile?.actionOptions ?? [];
+    const heldActionIds = actor.characterHand ? new Set(actor.characterHand.actionIds) : null;
+    return options.filter(option => !sceneCharacterPlan || !heldActionIds || heldActionIds.has(option.actionId)).map(option => ({
       identity: option.actionId,
-      kind: 'battle-action',
+      kind: battle ? 'battle-action' : 'scene-character-action',
       source: 'character-hand',
       ownerActorId: actor.id,
       selectionPolicy: 'planned',
@@ -551,10 +561,11 @@ function renderAction(ctx: UIContext, view: OperationView, actor: OperationViewA
     ? '全体合格目标仅支持场景行动'
     : selectedTargetId ? '→ ' + targetName(view, selectedTargetId) : option.legalTargetActorIds.length ? '选择目标' : '无需指定目标';
   const kind = option.actionId.includes('skill') || option.actionId.includes('ability') ? 'is-skill' : 'is-player-action';
-  const classes = 'operation-card-face operation-prepared-card operation-card-face--battle ' + kind + (selected ? ' is-selected' : '') + (hasIntervention ? ' is-intervention-changed' : '') + (disabled ? ' is-disabled' : '');
+  const sceneCharacterAction = view.currentScene?.autoCharacterActions === true;
+  const classes = 'operation-card-face operation-prepared-card operation-card-face--battle ' + (sceneCharacterAction ? 'operation-card-face--scene-character ' : '') + kind + (selected ? ' is-selected' : '') + (hasIntervention ? ' is-intervention-changed' : '') + (disabled ? ' is-disabled' : '');
   const cardLabel = actorLabel(actor) + '，行动牌：' + actionLabel(view, option.actionId) + '。' + statusLabel + '。' + (actionCopy || disabledReason || '按计划执行。') + '。' + (cost || targetSummary) + (disabledReason ? '。不可用：' + disabledReason : '');
   return '<button type="button" class="' + classes + '" data-selection-state="' + (selected ? 'selected' : disabled ? 'unavailable' : 'browsing') + '" data-operation-prepared-owner-id="' + e(ctx, actor.id) + '" data-operation-action-option data-operation-action-owner-id="' + e(ctx, actor.id) + '"' +
-    (alternative ? ' data-operation-action-alternative' : ' data-operation-action-current') + ' data-card-kind="battle-action" data-operation-action data-operation-action-card="' + e(ctx, option.actionId) +
+    (alternative ? ' data-operation-action-alternative' : ' data-operation-action-current') + ' data-card-kind="' + (sceneCharacterAction ? 'scene-character-action' : 'battle-action') + '" data-operation-action data-operation-action-card="' + e(ctx, option.actionId) +
     '" data-legal-target-actor-ids="' + e(ctx, JSON.stringify(disabled ? [] : option.legalTargetActorIds)) + '" data-target-summary="' + e(ctx, targetSummary) + '" data-run-id="' + e(ctx, view.runId) +
     '" data-plan-version="' + e(ctx, view.planVersion) + '" data-actor-id="' + e(ctx, actor.id) + '" data-action-id="' + e(ctx, option.actionId) +
     '" data-default-target-actor-id="' + e(ctx, option.defaultTargetActorId ?? '') + '" data-selected-target-actor-id="' + e(ctx, selectedTargetId ?? '') + '" aria-pressed="' + String(selected) + '"' + (selected ? ' aria-expanded="false" aria-controls="operation-action-alternatives-' + e(ctx, actor.id) + '"' : '') +
@@ -587,14 +598,17 @@ function renderStudent(ctx: UIContext, view: OperationView, actor: OperationView
     ? '<img src="' + e(ctx, actor.avatarRef) + '" alt="" loading="lazy">'
     : e(ctx, name.slice(0, 1));
   const positionMarkup = actorPositionMarkup(ctx, actor.positionId, 'operation-student-position');
-  const planMarkup = battle
-      ? changed && basePlan ? '<small class="operation-automatic-plan">自动计划：' + e(ctx, actionLabel(view, basePlan.actionId)) + '</small>' : ''
-    : '';
+  const sceneCharacterPlan = view.currentScene?.autoCharacterActions === true;
+  const characterPlanning = battle || sceneCharacterPlan;
+  const planMarkup = sceneCharacterPlan && activePlan
+    ? '<small class="operation-automatic-plan" data-operation-scene-plan-state="' + (changed ? 'intervention' : activePlan.kind === 'wait' ? 'wait' : 'automatic') + '">' +
+      (changed ? '玩家覆盖：' + e(ctx, operationPlanLabel(activePlan, view)) : activePlan.kind === 'wait' ? '等待：' + e(ctx, operationPlanLabel(activePlan, view)) : '自动计划：' + e(ctx, operationPlanLabel(activePlan, view))) + '</small>'
+    : battle && changed && basePlan ? '<small class="operation-automatic-plan">自动计划：' + e(ctx, operationPlanLabel(basePlan, view)) + '</small>' : '';
   const actorHand = projectOperationActorHand(view, actor.id);
-  const attachedSceneAction = battle ? '' : view.currentActionMode === 'individual'
+  const attachedSceneAction = characterPlanning ? '' : view.currentActionMode === 'individual'
     ? renderIndividualSceneCard(ctx, view, actor, view.actorStates.filter(item => item.participantKind === 'student' && item.hp > 0).findIndex(item => item.id === actor.id))
     : renderGlobalAttachedSceneAction(ctx, view, actor);
-  const actorPlayerCards = !battle ? actorHand.flatMap(projectedCard => {
+  const actorPlayerCards = !characterPlanning ? actorHand.flatMap(projectedCard => {
     if (projectedCard.source !== 'shared-player-deck') return [];
     const card = view.playerCards.hand.find(item => item.cardInstanceId === projectedCard.identity);
     if (!card) return [];
@@ -603,7 +617,7 @@ function renderStudent(ctx: UIContext, view: OperationView, actor: OperationView
   }).join('') : '';
   const actorCardSlot = attachedSceneAction || actorPlayerCards
     ? '<div class="operation-actor-hand-cards" data-operation-actor-hand-cards role="list" aria-label="' + e(ctx, name) + '持有的行动牌">' + attachedSceneAction + actorPlayerCards + '</div>' : '';
-  return '<article class="operation-student-card" data-operation-student="' + e(ctx, actor.id) + '" data-operation-actor-hand="' + e(ctx, actor.id) + '" data-operation-card-anchor="' + e(ctx, actor.id) + '"' + (battle ? ' data-operation-action-anchor="' + e(ctx, actor.id) + '"' : '') + ' data-operation-actor-target="' + e(ctx, actor.id) + '">' +
+  return '<article class="operation-student-card" data-operation-student="' + e(ctx, actor.id) + '" data-operation-actor-hand="' + e(ctx, actor.id) + '" data-operation-card-anchor="' + e(ctx, actor.id) + '"' + (characterPlanning ? ' data-operation-action-anchor="' + e(ctx, actor.id) + '"' : '') + ' data-operation-actor-target="' + e(ctx, actor.id) + '">' +
     '<header class="operation-student-card__header"><span class="operation-student-card__avatar" aria-hidden="true">' + avatar + '</span><span><strong>' + e(ctx, name) + '</strong>' + positionMarkup + '</span></header>' +
     renderStudentVitals(ctx, actor) + planMarkup + actorCardSlot + '</article>';
 }
@@ -670,9 +684,12 @@ function renderIntentCard(ctx: UIContext, view: OperationView, actor: OperationV
 function renderPreparedCardLayer(ctx: UIContext, view: OperationView, battle: boolean, students: readonly OperationViewActor[]): string {
   const panels: string[] = [];
   const cards: string[] = [];
-  if (battle) {
+  const sceneCharacterPlan = view.currentScene?.autoCharacterActions === true;
+  if (battle || sceneCharacterPlan) {
     for (const actor of students) {
-      const options = actor.profile?.actionOptions ?? [];
+      const allOptions = actor.profile?.actionOptions ?? [];
+      const heldActionIds = sceneCharacterPlan && actor.characterHand ? new Set(actor.characterHand.actionIds) : null;
+      const options = heldActionIds ? allOptions.filter(option => heldActionIds.has(option.actionId)) : allOptions;
       const activePlan = view.effectivePreparedBeat?.actorPlans.find(plan => plan.actorId === actor.id) ?? actor.currentPlan;
       const selectedOption = options.find(option => option.actionId === activePlan?.actionId);
       const alternatives = options.filter(option => option.actionId !== selectedOption?.actionId);
@@ -701,11 +718,28 @@ function renderProgress(ctx: UIContext, view: OperationView): string {
   const location = locationPresentation(view, view.currentLocationId);
   const sceneStatusLabel = (status: NonNullable<OperationView['currentScene']>['status']): string =>
     status === 'completed' ? '已完成' : status === 'active' ? '进行中' : '待开始';
+  const predicateLabel = (predicate: NonNullable<NonNullable<OperationView['currentScene']>['completion']>): string => {
+    if ('terms' in predicate) {
+      const operator = predicate.kind === 'all' ? '全部满足' : '满足任一项';
+      return operator + '：' + predicate.terms.map(term => predicateLabel(term)).join('；');
+    }
+    if (predicate.kind === 'knownFact') return (predicate.present ? '已记录 ' : '未记录 ') + factName(view, predicate.factId);
+    const operator = ({ eq: '=', neq: '≠', gt: '>', gte: '≥', lt: '<', lte: '≤' } as const)[predicate.operator];
+    return trackPresentation(view, predicate.trackId).name + ' ' + operator + ' ' + predicate.value;
+  };
+  const batchSummary = view.sceneActionBatchesRemaining === null
+    ? '已提交 ' + view.sceneActionBatchesUsed + ' 批 · 不限'
+    : '批次 ' + (view.sceneActionBatchesUsed + 1) + ' / ' + (view.sceneActionBatchesUsed + view.sceneActionBatchesRemaining);
   const sceneProgress = view.scenes.length
     ? '<div class="operation-scene-progress" data-operation-scenes aria-label="地点内场景进度">' + view.scenes.map(scene =>
       '<div class="operation-scene-progress__item' + (scene.status === 'active' ? ' is-active' : scene.status === 'completed' ? ' is-completed' : '') + '" data-operation-scene="' + e(ctx, scene.sceneId) + '" data-scene-status="' + scene.status + '">' +
       '<span class="operation-scene-progress__position">' + scene.index + '/' + scene.count + '</span><span><strong>' + e(ctx, scene.title ?? '现场场景') + '</strong><small>' + sceneStatusLabel(scene.status) + '</small>' +
-      (scene.description ? '<p>' + e(ctx, scene.description) + '</p>' : '') + '</span></div>').join('') + '</div>'
+      (scene.description ? '<p>' + e(ctx, scene.description) + '</p>' : '') +
+      (scene.sceneId === view.currentSceneId && scene.status === 'active'
+        ? (scene.autoCharacterActions ? '<small data-operation-auto-character-actions="true">我方角色按各自行动手牌自动计划</small>' : '') +
+          (view.sceneActionBatchesRemaining !== 0 ? '<small data-operation-scene-batch-progress>' + e(ctx, batchSummary) + '</small>' : '') +
+          (scene.completion ? '<small data-operation-scene-completion>完成条件：' + e(ctx, predicateLabel(scene.completion)) + '</small>' : '')
+        : '') + '</span></div>').join('') + '</div>'
     : '';
   const locationComplete = view.locationProgress[view.currentLocationId]?.completed === true;
   const tracks = Object.entries(view.tracks).map(([id, value]) => '<div class="operation-track" data-operation-track="' + e(ctx, id) + '"><span>' +
@@ -717,10 +751,14 @@ function renderProgress(ctx: UIContext, view: OperationView): string {
   const heldItemNames = view.heldItemIds.map(id => operationItemName(view, id));
   const heldItems = heldItemNames.length ? '<span>当前持有：' + e(ctx, heldItemNames.join('、')) + '</span>' : '';
   const facts = currentFacts || heldItems ? '<div class="operation-current-items" aria-label="当前行动状态">' + currentFacts + heldItems + '</div>' : '';
+  const failureConditions = view.hardFailureConditions.length
+    ? '<section class="operation-failure-conditions" data-operation-failure-conditions aria-label="失败条件"><strong>失败条件</strong><ul>' + view.hardFailureConditions.map(condition =>
+      '<li data-operation-failure-condition="' + e(ctx, condition.id) + '" data-condition-met="' + String(condition.met) + '"><span>' + (condition.met ? '已触发' : '未触发') + '</span> ' + e(ctx, condition.description) + '</li>').join('') + '</ul></section>'
+    : '';
   return '<section class="operation-context-card" data-operation-location="' + e(ctx, view.currentLocationId) + '" data-operation-stage="' + view.currentStage + '">' +
     '<span class="operation-eyebrow">行动进度 · 当前地点</span><h2>' + e(ctx, location?.name ?? '行动现场') + '</h2><p>' + e(ctx, location?.description ?? '') + '</p>' +
     '<small data-operation-location-status="' + (locationComplete ? 'completed' : 'inProgress') + '">地点状态：' + (locationComplete ? '已完成' : '进行中') + '</small>' + sceneProgress +
-    '<div class="operation-track-list">' + tracks + '</div><ul class="operation-objectives" aria-label="行动目标">' + objectives + '</ul>' + facts + '</section>';
+    '<div class="operation-track-list">' + tracks + '</div><ul class="operation-objectives" aria-label="行动目标">' + objectives + '</ul>' + facts + failureConditions + '</section>';
 }
 
 function actionTargets(action: OperationViewSceneAction, actorId: string): string[] {
@@ -738,8 +776,9 @@ function defaultSceneActionTargets(
 }
 
 function renderSceneControls(ctx: UIContext, view: OperationView): string {
-  if (!view.currentActionMode || view.sceneActionBatchesRemaining === 0 || view.pendingSceneActionBatch) return '';
-  const actions = view.currentSceneActions.filter(action => action.scope === view.currentActionMode);
+  const sceneCharacterPlan = view.currentScene?.autoCharacterActions === true;
+  if ((!view.currentActionMode && !sceneCharacterPlan) || view.sceneActionBatchesRemaining === 0 || view.pendingSceneActionBatch) return '';
+  const actions = view.currentActionMode ? view.currentSceneActions.filter(action => action.scope === view.currentActionMode) : [];
   const students = view.actorStates.filter(actor => actor.participantKind === 'student' && actor.hp > 0);
   const draft = readOperationSceneDraft(view.runId, view.planVersion, view.currentLocationId);
   let controls = '';
@@ -769,7 +808,7 @@ function renderSceneControls(ctx: UIContext, view: OperationView): string {
         ? '<p class="operation-muted">“' + e(ctx, selectedAction!.title) + '”已挂靠到' + e(ctx, actorLabel(assignedActor)) + '；拖动该行动卡到其他角色卡可更换执行者。</p>'
         : selectedAction
           ? renderSceneActionCard(ctx, view, '', eligibleActions, selectedAction)
-          : '<p class="operation-muted">当前没有可执行的全队行动。</p>');
+          : sceneCharacterPlan ? '<p class="operation-muted">角色的本批行动已按自动计划准备。</p>' : '<p class="operation-muted">当前没有可执行的全队行动。</p>');
     }
   } else {
     // Individual SceneActions are projected into each actor's shared card slot.
@@ -804,7 +843,7 @@ function renderSceneControls(ctx: UIContext, view: OperationView): string {
   const fixedSceneActions = actions.filter(action => action.selectionPolicy === 'fixed');
   const fixedSceneCost = view.currentActionMode === 'individual'
     ? students.length * fixedSceneActions.filter(action => action.scope === 'individual').reduce((sum, action) => sum + action.playerCost, 0)
-    : fixedSceneActions.filter(action => action.scope === 'global').reduce((sum, action) => sum + action.playerCost, 0);
+    : view.currentActionMode === 'global' ? fixedSceneActions.filter(action => action.scope === 'global').reduce((sum, action) => sum + action.playerCost, 0) : 0;
   const plannedSceneCost = fixedSceneCost + (draft?.selections ?? []).reduce((sum, selection) => {
     const action = actions.find(item => item.id === selection.sceneActionId && item.selectionPolicy !== 'fixed');
     return sum + (action?.playerCost ?? 0);
@@ -838,7 +877,7 @@ function renderSceneControls(ctx: UIContext, view: OperationView): string {
     ? '已提交 ' + view.sceneActionBatchesUsed + ' 批 · 不限'
     : '剩余批次 ' + view.sceneActionBatchesRemaining;
   return '<section class="operation-scene-actions" data-operation-scene-actions aria-label="场景行动"><header class="operation-section-heading"><span class="operation-eyebrow">' +
-    (view.currentSceneActionChoice ? '同批 M 选 N' : view.currentActionMode === 'individual' ? '每名学生可选 0–1 项' : '全队可选一项或跳过') + '</span><span>' + batchSummary +
+    (view.currentSceneActionChoice ? '同批 M 选 N' : view.currentActionMode === 'individual' ? '每名学生可选 0–1 项' : view.currentActionMode === 'global' ? '全队可选一项或跳过' : '角色自动行动 · 玩家可选手牌') + '</span><span>' + batchSummary +
     '</span></header>' + (controls ? '<div class="operation-scene-selections">' + controls + '</div>' : '') + purchases + hand +
     '<p class="operation-cost-hint" data-operation-cost-preview data-player-cost="' + view.playerCost + '">本批实际支付 ' + estimatedCost + ' Cost · 余额 ' + view.playerCost + (deficit ? ' · 超出 ' + deficit + '，请取消部分选择' : ' · 未用余额保留') + choiceHint + '。不必花完 Cost；可部分选择或跳过本批。</p></section>';
 }
@@ -1064,6 +1103,8 @@ function renderMain(ctx: UIContext, view: OperationView, notice: string | null):
   const terminal = view.status !== 'inProgress';
   const resultText = view.status === 'success' ? copy.resultText.success : view.status === 'partialSuccess' ? copy.resultText.partialSuccess : copy.resultText.failure;
   const canBattle = view.currentStage === 'combat' && !view.locationProgress[view.currentLocationId]?.completed;
+  const hasSceneBatch = view.sceneActionBatchesRemaining !== 0
+    && (view.currentActionMode !== null || view.currentScene?.autoCharacterActions === true);
   const slots = view.playerCost <= MAX_VISIBLE_COST_SLOTS
     ? Array.from({ length: view.playerCost }, (_, index) => '<span class="operation-cost-slot is-available" data-cost-index="' + index + '" aria-hidden="true"></span>').join('')
       || '<span class="operation-cost-balance__empty" data-cost-zero>0</span>'
@@ -1081,9 +1122,11 @@ function renderMain(ctx: UIContext, view: OperationView, notice: string | null):
     description = '确认后一次扣除 PlayerCost 并结算全部效果。';
     button = '<button type="button" class="operation-clear-scene" data-operation-clear-scene data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) +
       '">返回修改</button><button type="button" class="operation-commit-button" data-operation-scene-commit data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '">确认行动</button>';
-  } else if (view.currentActionMode && view.sceneActionBatchesRemaining !== 0) {
-    title = '处理地点行动';
-    description = '只结算已选行动；未用 Cost 保留，也可跳过本批。';
+  } else if (hasSceneBatch) {
+    title = view.currentActionMode ? '处理地点行动' : '角色自动行动 · 本批可直接提交';
+    description = view.currentScene?.autoCharacterActions
+      ? '角色按各自行动手牌自动行动；玩家手牌可选，提交或跳过都只推进本批。'
+      : '只结算已选行动；未用 Cost 保留，也可跳过本批。';
     button = '<button type="button" class="operation-commit-button" data-operation-scene-submit data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '">确认本批</button><button type="button" class="operation-clear-scene" data-operation-scene-skip data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '">跳过本批</button>';
   } else if (canBattle) {
     title = view.canCommit ? '战斗阶段 · 本回合方案已就绪' : '战斗阶段 · 还需要处理计划问题';
@@ -1135,8 +1178,8 @@ export function renderOperationWorkspace(ctx: UIContext, view: OperationView | n
   const leftHeader = '<span class="operation-eyebrow">我方</span><strong>' + students.length + ' 位学生</strong>';
   const centerHeader = view
     ? '<div class="operation-chat-heading"><div><span class="operation-eyebrow">夏莱行动记录 · 当前任务</span><h1>' +
-      e(ctx, eventTitle(view)) + '</h1><small>' + e(ctx, locationPresentation(view, view.currentLocationId)?.name ?? '行动现场') + ' · 第 ' + (view.beatIndex + 1) + ' 次推进</small></div><button type="button" class="operation-back-button" data-operation-back>返回聊天流</button></div>'
-    : '<div class="operation-chat-heading"><div><span class="operation-eyebrow">夏莱行动记录</span><h1>这次行动暂时无法读取</h1></div><button type="button" class="operation-back-button" data-operation-back>返回聊天流</button></div>';
+      e(ctx, eventTitle(view)) + '</h1><small>' + e(ctx, locationPresentation(view, view.currentLocationId)?.name ?? '行动现场') + ' · 第 ' + (view.beatIndex + 1) + ' 次推进</small></div><button type="button" class="operation-back-button" data-operation-back>返回上一页</button></div>'
+    : '<div class="operation-chat-heading"><div><span class="operation-eyebrow">夏莱行动记录</span><h1>这次行动暂时无法读取</h1></div><button type="button" class="operation-back-button" data-operation-back>返回上一页</button></div>';
   const rightHeader = view
     ? '<div class="operation-right-header"><div class="operation-right-tabs" role="tablist" aria-label="行动信息"><button type="button" role="tab" data-operation-right-tab="enemies" data-run-id="' + e(ctx, view!.runId) + '" aria-selected="' + String(transient?.rightTab === 'enemies') + '" tabindex="' + (transient?.rightTab === 'enemies' ? '0' : '-1') + '">敌人</button><button type="button" role="tab" data-operation-right-tab="background" data-run-id="' + e(ctx, view!.runId) + '" aria-selected="' + String(transient?.rightTab === 'background') + '" tabindex="' + (transient?.rightTab === 'background' ? '0' : '-1') + '">背景 / 持有物</button></div>' + (mapId ? '<button type="button" class="operation-map-open" data-operation-map-open="' + e(ctx, mapId) + '" data-run-id="' + e(ctx, view!.runId) + '" aria-controls="operation-map-popup" aria-expanded="' + String(transient?.popupMap === mapId) + '">地图</button>' : '') + '</div>'
     : '<span class="operation-eyebrow">行动信息</span>';

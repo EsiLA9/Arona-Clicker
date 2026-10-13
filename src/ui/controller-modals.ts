@@ -69,7 +69,7 @@ export function openGachaModal(ctrl: UIController): void {
 /** Spot 招募弹窗：专有卡池 / 通用卡池 经 Switch 切换。 */
 export function openSpotGachaModal(ctrl: UIController, spotId: string): void {
   const spot = ctrl.game.world.spots.get(spotId);
-  if (!spot) return;
+  if (!spot || !ctrl.game.spotFunctionalitySystem.hasFunctionality(spot, ctrl.game.state, 'gacha')) return;
   ctrl.modal.open({
     title: `招募 · ${spot.name}`,
     body: renderSpotGachaBody(createUIContext(ctrl.game), spotId),
@@ -86,13 +86,17 @@ export function openSpotGachaModal(ctrl: UIController, spotId: string): void {
       });
     });
   });
-  bindGachaButtons(ctrl, modalEl?.querySelectorAll<HTMLButtonElement>('[data-gacha]') ?? document.querySelectorAll('.app-modal [data-gacha]'));
+  bindGachaButtons(ctrl, modalEl?.querySelectorAll<HTMLButtonElement>('[data-gacha]') ?? document.querySelectorAll('.app-modal [data-gacha]'), spotId);
 }
 
 /** 绑定抽取按钮（root 内与弹窗内共用）。 */
-export function bindGachaButtons(ctrl: UIController, buttons: NodeListOf<HTMLButtonElement>): void {
+export function bindGachaButtons(ctrl: UIController, buttons: NodeListOf<HTMLButtonElement>, spotId?: string): void {
   buttons.forEach(button => {
     button.addEventListener('click', () => {
+      if (spotId) {
+        const spot = ctrl.game.world.spots.get(spotId);
+        if (!spot || !ctrl.game.spotFunctionalitySystem.hasFunctionality(spot, ctrl.game.state, 'gacha')) return;
+      }
       const poolId = button.dataset.gacha!;
       const count = Number(button.dataset.gachaCount) || 1;
       try {

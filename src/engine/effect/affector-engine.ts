@@ -468,7 +468,7 @@ export class AffectorEngine extends EventDrivenReactor {
   private syncSpotFunctionalities(spotId: string): void {
     const spot = this.registry.spots.get(spotId);
     if (!spot || !this.state) return;
-    const funcs = this.functionalitySystem?.functionalitiesOf(spot, this.state) ?? spot.functionalities ?? [];
+    const funcs = this.functionalitySystem?.definitionsOf(spot, this.state) ?? spot.functionalities ?? [];
 
     const expectedPackIds = new Set(
       funcs.filter(fn => fn.kind === 'flow' || fn.kind === 'linearYield').map(fn => `${fn.id}@${spotId}`),
@@ -600,7 +600,7 @@ export class AffectorEngine extends EventDrivenReactor {
   private spotFunctionalitiesOf(spotId: string): SpotFunctionalityView[] {
     const spot = this.registry.spots.get(spotId);
     if (!spot || !this.state) return [];
-    return this.functionalitySystem?.functionalitiesOf(spot, this.state) ?? spot.functionalities ?? [];
+    return this.functionalitySystem?.definitionsOf(spot, this.state) ?? spot.functionalities ?? [];
   }
 
   getFlowResources(): readonly string[] {

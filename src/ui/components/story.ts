@@ -41,6 +41,8 @@ export interface ChatEntry {
   showAvatar?: boolean;
   /** 聊天流发送图片：直连 URL 或 `mod:type(pic):id` 三段式图片索引（渲染在气泡内 text 上方）。 */
   image?: string;
+  /** 已送达剧情页的同步标识，随历史保存；用于读档去重，不按台词文本合并消息。 */
+  storyPageKey?: string;
   timestamp: number;
 }
 

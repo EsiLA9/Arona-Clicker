@@ -91,6 +91,12 @@ function makePack(): Record<string, unknown> {
           }],
           completion: { kind: 'track', trackId: 'progress', operator: 'gte', value: 1 },
         }],
+        objectives: [{
+          id: 'scene-finished',
+          description: 'The authored Scene work is complete.',
+          kind: 'primary',
+          predicate: { kind: 'track', trackId: 'progress', operator: 'gte', value: 1 },
+        }],
         routeEdges: [{
           id: 'continue',
           targetLocationId: 'sceneauthoring:location:exit',
@@ -104,6 +110,12 @@ function makePack(): Record<string, unknown> {
         stage: 'scene',
         enabledActionIds: [],
         combinationRules: [],
+        objectives: [{
+          id: 'exit-ready',
+          description: 'The completed work has reached the exit.',
+          kind: 'primary',
+          predicate: { kind: 'track', trackId: 'progress', operator: 'gte', value: 1 },
+        }],
         routeEdges: [],
       },
     ],
@@ -227,6 +239,37 @@ describe('PB25 Operation authoring contract', () => {
       && issue.path === 'operationLocations[0].routeEdges[0].targetLocationId'
       && issue.message.includes('sceneauthoring:location:foreign'),
     )).toBe(true);
+  });
+
+  it('rejects explicit Scenes without a batch source or Location exit condition', () => {
+    const invalid = structuredClone(makePack());
+    const locations = invalid.operationLocations as Array<Record<string, unknown>>;
+    const sceneLocation = locations[0]!;
+    const scenes = sceneLocation.scenes as Array<Record<string, unknown>>;
+    scenes[0] = {
+      ...scenes[0],
+      actionMode: undefined,
+      sceneActions: [],
+      purchaseOffers: [],
+    };
+    delete sceneLocation.objectives;
+
+    const issues = operationErrors(invalid);
+    expect(issues.some(issue => issue.message.includes('场景缺少 SceneAction、PurchaseOffer 或 Character 自动行动批次来源'))).toBe(true);
+    expect(issues.some(issue => issue.message.includes('显式 Scene 序列必须声明 Location 完成/失败条件'))).toBe(true);
+  });
+
+  it('accepts autoCharacterActions as an explicit Scene batch progress source', () => {
+    const content = structuredClone(makePack());
+    const location = (content.operationLocations as Array<Record<string, unknown>>)[0]!;
+    const scene = (location.scenes as Array<Record<string, unknown>>)[0]!;
+    scene.autoCharacterActions = true;
+    delete scene.actionMode;
+    delete scene.sceneActions;
+    delete scene.sceneActionChoice;
+    delete scene.purchaseOffers;
+
+    expect(operationErrors(content)).toEqual([]);
   });
 
   it('exports, imports, edits and re-exports the actual PB24 Scene payload through PackParser', async () => {

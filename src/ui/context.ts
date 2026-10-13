@@ -7,6 +7,7 @@ import { backgroundInkService, type BackgroundInk } from './background-color';
 import type { PresentationView } from './presentation-service';
 import { DEFAULT_PANEL_OPACITY } from './presentation-config';
 import type { PresentationHostState, PresentationTextColorMode } from '../engine/types/theme';
+import { resolveThemeBackgroundCascade, themeBaseColorForState, themeBaseLayerForState } from './theme-cascade-service';
 
 export interface PresentationHostStateResult {
   background: BackgroundView;
@@ -41,6 +42,7 @@ export interface UIContext {
   /** 选择页主题投影策略；撤离到重选页时不把运行快照中的当前 Area 叠到 Init 预览上。 */
   selectorThemePolicy?: { includeResumedArea: boolean };
   entityPresentation?: GameReadModel['entityPresentation'];
+  /** 宿主背景使用自有图层或按 ThemeTree 生成的语义底色；需要页面底图时显式传 inheritGlobal=true。 */
   backgroundForHost(hostId: string, inheritGlobal?: boolean, state?: PresentationHostState): BackgroundView;
   presentationHostState(hostId: string, state?: PresentationHostState): PresentationHostStateResult;
   textColorModeForHost(hostId: string, state?: PresentationHostState): PresentationTextColorMode;
@@ -86,18 +88,30 @@ export function createUIContext(
     return undefined;
   };
   /**
-   * 宿主背景栈的合成代表色（含其下方的全局背景）。
-   * 仅当宿主自身声明了背景图层时返回非 null——无自有背景的宿主可能靠 CSS 直接上色
+   * 宿主自有背景图层的合成代表色（以主题面板基底作透明层底色）。
+   * 仅当宿主自身声明了背景图层时返回非 null；无自有背景的宿主靠 CSS 语义色绘制，
    * （如 chat-bubble 用 --theme-node-npc-bubble），此时返回 null 让调用方维持 auto，
    * 继续沿用各语义节点的 --ink-on-*，避免用页面底色误判。
    */
   const hostInk = (hostId: string, state: PresentationHostState): BackgroundInk | null => {
-    const hostLayers = context.backgroundForHost(hostId, false, state).layers;
+    const host = presentationView.host(hostId);
+    const stateLayers = host.states?.get(state)?.layers ?? [];
+    const hostLayers = stateLayers.length
+      ? (() => {
+          const overlayIds = new Set(stateLayers.map(layer => layer.id).filter((id): id is string => Boolean(id)));
+          const base = host.layers.length
+            ? host.layers
+            : stateLayers.some(layer => layer.kind === 'empty')
+              ? []
+                : [themeBaseLayerForState(state)];
+          return [...base.filter(layer => !layer.id || !overlayIds.has(layer.id)), ...stateLayers];
+        })()
+      : host.layers;
     if (hostLayers.length === 0) return null;
     return backgroundInkService.ink(hostLayers, {
       lookup: background?.themeVars,
-      // 宿主背景层多为半透明，须与其下方的全局背景合成后再判定
-      base: background?.ink?.color ?? null,
+      // 宿主半透明图层叠在主题面板基底上，而不是页面背景图上。
+      base: themeBaseColorForState(state, background?.themeVars),
     });
   };
   const resolveTextColorMode = (hostId: string, state: PresentationHostState): Pick<PresentationHostStateResult, 'textColorMode' | 'source'> => {
@@ -139,62 +153,31 @@ export function createUIContext(
     presentation: presentation ?? emptyPresentation,
     selectorThemePolicy,
     entityPresentation: game.entityPresentation,
-    backgroundForHost: (hostId, inheritGlobal = true, state: PresentationHostState = 'default') => {
+    backgroundForHost: (hostId, inheritGlobal = false, state: PresentationHostState = 'default') => {
       const globalLayers = (background ?? { layers: [] }).layers;
-      const activeFallbackLayer = {
-        kind: 'solid' as const,
-        value: 'var(--theme-palette-2, var(--theme-palette-1, var(--theme-node-primary)))',
-        opacity: 1,
-        position: 'center' as const,
-        size: 'cover' as const,
-        repeat: 'no-repeat' as const,
-        blendMode: 'normal' as const,
-        attachment: 'fixed' as const,
-        scale: 1,
-        rotation: 0,
-      };
-      const baseFallbackLayer = {
-        kind: 'solid' as const,
-        value: 'var(--ui-button-bg, var(--theme-node-panel-light, var(--theme-node-panel, #ffffff)))',
-        opacity: 1,
-        position: 'center' as const,
-        size: 'cover' as const,
-        repeat: 'no-repeat' as const,
-        blendMode: 'normal' as const,
-        attachment: 'fixed' as const,
-        scale: 1,
-        rotation: 0,
-      };
-      const shouldUseBaseFallback = state === 'inactive' || state === 'disabled';
       const resolvedHostId = resolveHostId(hostId);
-      if (!resolvedHostId) {
-        return {
-          layers: state === 'active' ? [activeFallbackLayer] : shouldUseBaseFallback ? [baseFallbackLayer] : inheritGlobal ? globalLayers : [],
-          ...presentationView.shapeParametersForHost(hostId),
-        };
-      }
-      const host = presentationView.host(resolvedHostId);
-      const stateView = () => {
-        const exact = host.states?.get(state);
-        return exact && (exact.layers.length > 0 || exact.decoration !== undefined)
-          ? exact
-          : undefined;
-      };
-      const activeState = stateView();
-      const activeFallback = state === 'active' && !activeState && host.layers.length === 0;
-      const decoration = mergeDecoration(host.decoration, activeState?.decoration);
-      const mergeStateLayers = (base: readonly BackgroundView['layers'][number][], overlay: readonly BackgroundView['layers'][number][]) => {
-        const overlayIds = new Set(overlay.map(layer => layer.id).filter((id): id is string => Boolean(id)));
-        return [...base.filter(layer => !layer.id || !overlayIds.has(layer.id)), ...overlay];
-      };
-      const hostLayers = activeFallback
-        ? []
-        : activeState?.layers.length
-          ? mergeStateLayers(host.layers, activeState.layers)
-          : host.layers;
+      const host = resolvedHostId ? presentationView.host(resolvedHostId) : presentationView.host(hostId);
+      const localHost = presentationView.host(hostId);
+      const parentState = resolvedHostId && resolvedHostId !== hostId
+        ? host.states?.get(state)
+        : undefined;
+      const localState = localHost.states?.get(state);
+      const localStateView = localState && (localState.layers.length > 0 || localState.decoration !== undefined)
+        ? localState
+        : undefined;
+      const parentStateView = parentState && (parentState.layers.length > 0 || parentState.decoration !== undefined)
+        ? parentState
+        : undefined;
+      const decoration = mergeDecoration(host.decoration, localStateView?.decoration ?? parentStateView?.decoration);
       const geometry = presentationView.shapeParametersForHost(hostId);
-      if (activeFallback) return { layers: [activeFallbackLayer], ...geometry, decoration };
-      return { layers: hostLayers.length > 0 ? hostLayers : inheritGlobal ? globalLayers : shouldUseBaseFallback ? [baseFallbackLayer] : [], ...geometry, decoration };
+      const layers = resolveThemeBackgroundCascade({
+        hostLayers: localHost.layers,
+        stateLayers: localStateView?.layers,
+        globalLayers,
+        state,
+        inheritGlobal,
+      });
+      return { layers, ...geometry, decoration };
     },
     presentationHostState: (hostId, state: PresentationHostState = 'default') => ({
       background: context.backgroundForHost(hostId, false, state),

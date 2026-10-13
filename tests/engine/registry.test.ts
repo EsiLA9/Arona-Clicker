@@ -310,6 +310,29 @@ describe('Registry', () => {
     expect(() => samePack.load(operationDatapack())).not.toThrow();
   });
 
+  test('accepts an auto Character Scene as its own progress source', () => {
+    const sceneLocation: OperationLocationDef = {
+      id: TEST_OPERATION_LOCATION_ID,
+      stage: 'scene',
+      enabledActionIds: [TEST_OPERATION_ACTION_ID],
+      combinationRules: [],
+      objectives: [{
+        id: 'rest-complete',
+        description: 'The Rest objective is reached.',
+        kind: 'primary',
+        predicate: { kind: 'track', trackId: 'queue', operator: 'gte', value: 2 },
+      }],
+      scenes: [{
+        id: 'rest',
+        title: 'Rest',
+        autoCharacterActions: true,
+        completion: { kind: 'track', trackId: 'queue', operator: 'gte', value: 2 },
+      }],
+      routeEdges: [],
+    };
+    expect(() => new Registry().load(operationDatapack({ operationLocations: [sceneLocation] }))).not.toThrow();
+  });
+
   test('rejects malformed Operation IDs and missing route, action, Profile, Character, and Predicate references before merge', () => {
     const invalidType = operationDatapack({
       operationActions: [{ ...testOperationAction, id: 'test:shop:wrong_type' }],

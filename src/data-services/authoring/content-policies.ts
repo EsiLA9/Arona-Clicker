@@ -222,7 +222,7 @@ export const ENHANCEMENT_CONTENT_POLICY: ContentAuthoringPolicy = {
   ], state: 'retain', unsupportedFieldHint: 'effects、addsFunctionalities、affectorPackIds 与 theme / extra 暂不开放；已拥有条目不允许改变归属或不可逆语义',
 };
 
-/** Spot 功能：六种 kind 的增删改，encode 为 SpotFunctionalityDef[]。 */
+/** Spot 功能：共享 kind 框架的增删改，encode 为 SpotFunctionalityDef[]。 */
 const SPOT_FUNCTIONALITY_EXTENSION: AuthoringExtension = {
   inputKey: 'functionalities',
   definitionKey: 'functionalities',

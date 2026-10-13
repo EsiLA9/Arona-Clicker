@@ -10,6 +10,8 @@ StoryService 协调剧情启动、推进、发送、跳转、奖励、重读守�
 
 通常的入口判定会检查当前 Init、触发条件、游标是否被其他剧情占用以及完成状态。`StoryService.startStory()` 将调用交给 `story-flow.ts`；`advanceStory()` 校验选项、应用本页/选项效果、记阅读记录，再推进、跳转或完成。`clickSend()` 则处理聊天按钮、点击页工作进度和被动闲聊入口。已完成 Story 与页阅读记录是 PlayerState 状态；当前演出游标是 Runtime 执行位置，可由 StoryService 的 snapshot context 捕获到 Init 快照。
 
+聊天历史由 UI 保存，已送达的剧情消息带 `storyPageKey`（Entry、实际 StoryDef、页码）；读档恢复历史时，`ChatStream.restoreHistoryState()` 对当前游标复原去重状态和消息 ID 计数，避免再追加最近一句话。未送达的 typing 条目不入档，恢复后仍正常投递；已送达的连发页继续原有节奏链。文本相同的不同页面仍分别显示。相关回归入口：`tests/ui/story-history-resume.test.ts`。
+
 ## 好感台阶与羁绊尾巴
 
 `PassiveStoryEntry.affectionRequired` 与 `pushAfterStory` 条目不参加普通被动剧情的随机抽取，而由角色 owner 的就绪队列投递。好感台阶要求达到门槛且剧情尚未读过，按门槛升序选择，并列时保持 Registry 声明顺序；关联剧情已完成的羁绊尾巴排在台阶之前。owner 空间、阻断、Init、条件与冷却等门槛仍会过滤队列项目。对应实现位于 `src/arona-clicker/services/story-flow.ts`，回归覆盖见 `tests/engine/affection-system.test.ts`。

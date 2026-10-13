@@ -982,6 +982,7 @@ export class Registry {
           throw new RegistryError(`Spot ${spot.id} 的 shop Function ${functionality.id} 引用了未定义的 Shop "${functionality.shopId ?? ''}"`);
         }
       }
+      this.validateSpotOperationEntryRefs(spot);
     }
     for (const shop of this._shops.values()) {
       const sections = new Set<string>();
@@ -1263,6 +1264,15 @@ export class Registry {
       initIds: new Set(this._inits.keys()),
       areaIds: new Set(this._areas.keys()),
     });
+    this.validateSpotOperationEntryRefs(spot);
+  }
+
+  private validateSpotOperationEntryRefs(spot: SpotDef): void {
+    for (const fn of spot.functionalities ?? []) {
+      if (fn.kind === 'operationEntry' && (!fn.operationEventId || !this._operationEvents.has(fn.operationEventId))) {
+        throw new RegistryError(`Spot ${spot.id} 的 operationEntry Function ${fn.id} 引用了未定义的 OperationEvent "${fn.operationEventId ?? ''}"`);
+      }
+    }
   }
 
   /** 登记某 Spot 的某 Tag 的所有前缀（父含子）——数据包加载时建立声明索引用。 */

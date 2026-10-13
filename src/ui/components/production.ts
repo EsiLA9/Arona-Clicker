@@ -7,6 +7,7 @@ import { renderPresentationHostBackground } from '../presentation-service';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
 import type { RuntimeModDraft } from '../../arona-clicker/contracts';
 import { resolveEntityPresentation, renderEntityPresentationOptions } from './entity-presentation';
+import { renderOperationSpotFunctions } from './operation-entry';
 
 /**
  * 设施标签 → 语义颜色角色（硬编码映射，不读数据包 extra）。
@@ -81,6 +82,8 @@ export function renderProductionNodes(ctx: UIContext, spotId?: string): string {
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'gacha');
       const shop = reveal.utilityKnown
         && game.spotFunctionalitySystem.hasFunctionality(spot, game.state, 'shop');
+      const operationFunctions = reveal.utilityKnown
+        ? renderOperationSpotFunctions(ctx, spot.id, game.spotFunctionalitySystem.functionalitiesOf(spot, game.state)) : '';
       const isRuntimeSpot = runtimeMod != null
         && runtimeMod.spots.some(runtimeSpot => `${runtimeMod!.modName}:spot:${runtimeSpot.idName}` === spot.id)
         && !(runtimeMod.suspendedSpotIds ?? []).includes(spot.id.split(':').pop() ?? '');
@@ -138,6 +141,7 @@ export function renderProductionNodes(ctx: UIContext, spotId?: string): string {
                 : ''}
             </div>
           </div>
+          ${operationFunctions ? `<div class="mini-actions spot-operation-functions">${operationFunctions}</div>` : ''}
           ${conditionNote}
         </article>`;
     }).join('');

@@ -60,6 +60,7 @@ const FUNCTIONALITY_KINDS: ReadonlyArray<{ value: SpotFunctionalityKind; label: 
   { value: 'hardResetInit', label: '硬重置入口' },
   { value: 'gacha', label: '招募入口' },
   { value: 'shop', label: '商店入口' },
+  { value: 'operationEntry', label: '行动关卡入口' },
 ];
 
 const REVEAL_TARGETS: ReadonlyArray<{ value: RevealTarget; label: string }> = [
@@ -82,6 +83,7 @@ function kindFields(kind: string): readonly string[] {
     case 'flow': return ['resource', 'amount'];
     case 'linearYield': return ['resource', 'amountPerLevel', 'startLevel'];
     case 'shop': return ['shopId'];
+    case 'operationEntry': return ['operationEventId'];
     default: return [];
   }
 }
@@ -102,6 +104,10 @@ function resourceOptions(ctx: UIContext) {
 
 function shopOptions(ctx: UIContext) {
   return [...ctx.game.registry.shops.values()].map(shop => ({ value: shop.id, label: shop.name || shop.id }));
+}
+
+function operationEventOptions(ctx: UIContext) {
+  return ctx.game.operationEntry.getLaunchEntries().map(entry => ({ value: entry.eventId, label: entry.title ?? entry.eventId }));
 }
 
 function gachaPoolOptions(ctx: UIContext) {
@@ -133,7 +139,7 @@ export const FUNCTIONALITY_PROTOTYPE: CollectionPrototype<SpotFunctionalityDraft
   field: 'functionalities',
   kind: 'object',
   label: '功能',
-  hint: '产出类功能随解锁生效；入口类功能在 Spot 面板提供操作按钮。逐条进入子编辑弹窗配置。',
+  hint: '功能默认要求持有 Spot，并可设置功能条件；产出类由 Affector 结算，入口类在 Spot 面板提供操作按钮。逐条进入子编辑弹窗配置。',
   addLabel: '添加功能',
   variantFields: kindFields,
   normalizeItem(item) {
@@ -143,6 +149,7 @@ export const FUNCTIONALITY_PROTOTYPE: CollectionPrototype<SpotFunctionalityDraft
     return {
       id: `functionality-${Date.now().toString(36)}`,
       kind: 'flow',
+      requiresOwned: true,
       resource: [...ctx.game.registry.resourceDisplays.keys()][0] ?? '',
       amount: 1,
     };
@@ -156,6 +163,8 @@ export const FUNCTIONALITY_PROTOTYPE: CollectionPrototype<SpotFunctionalityDraft
         return { type: '按等级产出', note: `${labelOf(resourceOptions(ctx), item.resource)} 每级 +${item.amountPerLevel ?? 0}` };
       case 'shop':
         return { type: '商店入口', note: labelOf(shopOptions(ctx), item.shopId) };
+      case 'operationEntry':
+        return { type: '行动关卡入口', note: labelOf(operationEventOptions(ctx), item.operationEventId) };
       case 'gacha':
         return { type: '招募入口', note: '使用专属卡池' };
       default:
@@ -175,22 +184,30 @@ export const FUNCTIONALITY_PROTOTYPE: CollectionPrototype<SpotFunctionalityDraft
       ${cell('amountPerLevel', '每级产出', `<input data-runtime-item-field="amountPerLevel" type="number" min="0" step="any" value="${esc(String(item.amountPerLevel ?? ''))}">`)}
       ${cell('startLevel', '起算等级', `<input data-runtime-item-field="startLevel" type="number" min="0" step="1" value="${esc(String(item.startLevel ?? ''))}">`)}
       ${cell('shopId', '商店', `<select data-runtime-item-field="shopId">${optionList(esc, shopOptions(ctx), item.shopId ?? '')}</select>`)}
+      ${item.kind === 'operationEntry' ? cell('operationEventId', '行动关卡', `<select data-runtime-item-field="operationEventId">${optionList(esc, operationEventOptions(ctx), item.operationEventId ?? '')}</select>`) : ''}
+      <label class="user-theme-field"><span>要求持有 Spot</span><select data-runtime-item-field="requiresOwned"><option value="true"${item.requiresOwned !== false ? ' selected="selected"' : ''}>是</option><option value="false"${item.requiresOwned === false ? ' selected="selected"' : ''}>否</option></select></label>
       <div class="runtime-condition-actions"><span class="runtime-editor-hint">条件</span><button type="button" class="toolbar-button" data-runtime-item-condition>${(item.condition?.conditions?.length ?? 0) > 0 ? `条件（${item.condition!.conditions.length} 项）` : '添加条件'}</button></div>
       <div class="runtime-item-condition" data-runtime-item-condition-host hidden>${renderConditionEditorList(ctx, item.condition)}</div>
     </div>`;
   },
   readItem(scope, fallback) {
     const kind = itemValue(scope, 'kind') as SpotFunctionalityKind;
+    const requestedOwnership = itemValue(scope, 'requiresOwned') !== 'false';
+    const requiresOwned = requestedOwnership === (fallback.requiresOwned ?? true)
+      ? fallback.requiresOwned
+      : requestedOwnership;
     const conditionHost = scope.querySelector('[data-runtime-item-condition-host]');
     const condition = conditionHost ? readConditionEditor(conditionHost) : fallback.condition;
     return {
       id: fallback.id,
       kind,
+      ...(requiresOwned === undefined ? {} : { requiresOwned }),
       ...(kind === 'flow' || kind === 'linearYield' ? { resource: itemValue(scope, 'resource') } : {}),
       ...(kind === 'flow' ? { amount: itemNumber(scope, 'amount') } : {}),
       ...(kind === 'linearYield' ? { amountPerLevel: itemNumber(scope, 'amountPerLevel') } : {}),
       ...(kind === 'linearYield' && itemNumber(scope, 'startLevel') ? { startLevel: itemNumber(scope, 'startLevel') } : {}),
       ...(kind === 'shop' ? { shopId: itemValue(scope, 'shopId') } : {}),
+      ...(kind === 'operationEntry' ? { operationEventId: itemValue(scope, 'operationEventId') } : {}),
       ...(condition ? { condition } : {}),
     };
   },

@@ -40,8 +40,8 @@
 ## GALHCG 影响闭环
 
 - 发现路径：<关键查询词与命中 / 未命中；未知项如何继续定位>
-- 变更审查：<review_changes 路径与分页结果>
-- 地图维护：<Evidence / maps_to 更新及写后验证；未更新时说明无直接语义影响或缺少裁定>
+- 变更审查：<graph_health(check="changed") 的直接路径与独立分页结果>
+- 地图维护：<授权范围；按 .galhcg/agent-maintenance.md 预检、提交 Evidence / maps_to 并写后回读；未更新时说明无直接语义影响、缺少裁定或维护授权；查询和说明安装不自动授权写入>
 
 ## 剩余工作
 

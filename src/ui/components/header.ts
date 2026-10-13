@@ -291,7 +291,5 @@ export function renderResourceStrip(ctx: UIContext): string {
   return `
     <section class="resource-bar">
       ${items}
-      <span class="res-item"><span class="eyebrow">帧</span><strong data-resource="frame">${ctx.formatNumber(view.totalFrames)}</strong></span>
-      <button id="tick-now" class="primary-button">推进 <span>↗</span></button>
     </section>`;
 }

@@ -350,8 +350,8 @@ export function renderPresentationRegion(view: PresentationView, region: Present
   return `<div class="presentation-region" data-presentation-region="${region}" aria-hidden="true">${layers}${components}</div>`;
 }
 
-export function renderPresentationHostBackground(ctx: UIContext, hostId: string, className = 'presentation-host-background', state: PresentationHostState = 'default'): string {
-  if (!ctx.presentation?.hasHost?.(hostId) && state === 'default') return '';
+export function renderPresentationHostBackground(ctx: UIContext, hostId: string, className = 'presentation-host-background', state: PresentationHostState = 'default', includeThemeBase = false): string {
+  if (!ctx.presentation?.hasHost?.(hostId) && state === 'default' && !includeThemeBase) return '';
   const background = ctx.backgroundForHost(hostId, false, state);
   const hoverBackground = state === 'inactive'
     ? ctx.backgroundForHost(hostId, false, 'active')
@@ -374,7 +374,7 @@ export function renderUIHost(ctx: UIContext, options: UIHostRenderOptions): stri
   const resolved = ctx.presentationHostState(options.hostId, state);
   const textMode = options.textMode ?? resolved.textColorMode;
   const hoverTextMode = state === 'inactive' ? ctx.hoverTextColorModeForHost(options.hostId) : undefined;
-  const background = renderPresentationHostBackground(ctx, options.hostId, 'presentation-host-background', state);
+  const background = renderPresentationHostBackground(ctx, options.hostId, 'presentation-host-background', state, true);
   const hostId = escapeAttribute(options.hostId);
   const className = escapeAttribute(options.className ?? 'ui-host');
   const scope = options.themeScope ? ` data-theme-scope="${escapeAttribute(options.themeScope)}"` : '';

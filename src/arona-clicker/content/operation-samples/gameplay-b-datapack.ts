@@ -1,4 +1,6 @@
 import type { Datapack } from '../../../data-services/contracts/datapack';
+import { spot } from '../def-factory/spot';
+import { tagPath } from '../../../engine/core/tag';
 import type {
   OperationEventContentDef,
   OperationLocationDef,
@@ -23,6 +25,12 @@ import {
   sceneOfferPurchaseDemoHoshinoProfile,
   sceneOfferPurchaseDemoLocation,
 } from './scene-offer-purchase-demo';
+import {
+  restSceneDemoActions,
+  restSceneDemoEvent,
+  restSceneDemoLocation,
+  restSceneDemoStudentProfiles,
+} from './rest-scene-demo';
 
 function localId(id: string): string {
   return id.slice(id.lastIndexOf(':') + 1);
@@ -71,13 +79,22 @@ const event: OperationEventContentDef = {
  * Standalone, formally typed Operation content pack for the carousel vertical slice.
  * It depends on base Character and Init definitions and is loaded after the base pack.
  */
+export const GAMEPLAY_B_OPERATION_SPOT_ID = 'gameplay-b:spot:operation_terminal';
+
 export const gameplayBCarouselDatapack: Datapack = {
   modName: 'gameplay-b',
   name: 'Gameplay B Carousel Demo',
   version: '1.0.0',
   inits: [],
   areas: [],
-  spots: [],
+  spots: [spot(GAMEPLAY_B_OPERATION_SPOT_ID, 'base:area:schale_main')
+    .name('行动终端').desc('选择一项行动关卡，组织学生出动；进行中的关卡可以从对应功能继续。')
+    .cost(0).maxLevel(1).tags(tagPath('tactical'), tagPath('office'))
+    .operationEntry('carousel', event.id)
+    .operationEntry('atomic-scene', atomicSceneDemoEvent.id)
+    .operationEntry('scene-offer-purchase', sceneOfferPurchaseDemoEvent.id)
+    .operationEntry('rest-scene', restSceneDemoEvent.id)
+    .build()],
   enhancements: [],
   activeStories: [],
   passiveStories: [],
@@ -85,8 +102,8 @@ export const gameplayBCarouselDatapack: Datapack = {
   items: [],
   funcletDefs: [],
   characters: [],
-  operationEvents: [event, atomicSceneDemoEvent, sceneOfferPurchaseDemoEvent],
-  operationLocations: [...locations, atomicSceneDemoLocation, atomicSceneDemoExitLocation, sceneOfferPurchaseDemoLocation, sceneOfferPurchaseDemoExitLocation],
+  operationEvents: [event, atomicSceneDemoEvent, sceneOfferPurchaseDemoEvent, restSceneDemoEvent],
+  operationLocations: [...locations, atomicSceneDemoLocation, atomicSceneDemoExitLocation, sceneOfferPurchaseDemoLocation, sceneOfferPurchaseDemoExitLocation, restSceneDemoLocation],
   operationActions: [
     ...carouselSceneActionSliceContent.actionDefinitions,
     atomicSceneDemoAction,
@@ -95,6 +112,7 @@ export const gameplayBCarouselDatapack: Datapack = {
     atomicSceneDemoAlarmMoveAction,
     atomicSceneDemoActorlessAction,
     ...sceneOfferPurchaseDemoActions,
+    ...restSceneDemoActions,
   ],
-  studentOperationProfiles: [...studentProfiles, atomicSceneDemoHoshinoProfile, atomicSceneDemoSerikaProfile, sceneOfferPurchaseDemoHoshinoProfile],
+  studentOperationProfiles: [...studentProfiles, atomicSceneDemoHoshinoProfile, atomicSceneDemoSerikaProfile, sceneOfferPurchaseDemoHoshinoProfile, ...restSceneDemoStudentProfiles],
 };

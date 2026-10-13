@@ -102,9 +102,10 @@ describe('Gameplay B Registry operation entries', () => {
 
       const entry = root.querySelector<HTMLElement>(`[data-operation-entry="${ATOMIC_SCENE_DEMO_IDS.event}"]`);
       expect(entry?.textContent).toContain('原子场景演示');
-      expect(entry?.textContent).toContain('两名学生先调查旋转木马设备');
-      expect(entry?.textContent).toContain('固定出动：小鸟游星野、黑见芹香');
+      expect(entry?.closest('[data-ui-spot-card]')).not.toBeNull();
+      expect(root.querySelector('.chat-stream [data-operation-entry]')).toBeNull();
       const startButton = root.querySelector<HTMLButtonElement>(`[data-operation-start="${ATOMIC_SCENE_DEMO_IDS.event}"]`)!;
+      expect(startButton.title).toContain('两名学生先调查旋转木马设备');
       expect(JSON.parse(startButton.dataset.operationCharacterIds ?? '[]')).toEqual([Character.Hoshino, Character.Serika]);
       startButton.click();
 
@@ -146,9 +147,9 @@ describe('Gameplay B Registry operation entries', () => {
     expect(battleActionOptions.every(option => !option.enabledAtLocation && !option.selectable)).toBe(true);
     expect(root.querySelectorAll('[data-operation-action]')).toHaveLength(0);
     expect(root.querySelector('[data-operation-commit]')).toBeNull();
-    expect(root.querySelectorAll(`[data-operation-scene-choice][data-scene-action-id="${ATOMIC_SCENE_DEMO_IDS.sceneAction}"]`)).toHaveLength(0);
-    expect(root.querySelectorAll(`[data-operation-fixed-scene-action="${ATOMIC_SCENE_DEMO_IDS.sceneAction}"]`)).toHaveLength(2);
-    expect(root.textContent).toContain('自动目标：旋转木马');
+    expect(root.querySelectorAll(`[data-operation-scene-choice][data-scene-action-id="${ATOMIC_SCENE_DEMO_IDS.sceneAction}"]`)).toHaveLength(2);
+    expect(root.querySelectorAll(`[data-operation-fixed-scene-action="${ATOMIC_SCENE_DEMO_IDS.sceneAction}"]`)).toHaveLength(0);
+    expect(root.textContent).toContain('旋转木马');
     const beforeRejectedBeatAction = game.operationEntry.getSnapshot();
     expect(() => game.operationEntry.reviseIntervention({
       runId,
@@ -159,9 +160,21 @@ describe('Gameplay B Registry operation entries', () => {
 
     const beforeCommit = game.operationEntry.getView(runId)!;
     expect(beforeCommit.locationProgress[locationId].completed).toBe(false);
+    expect(beforeCommit.knownFactIds).not.toContain(ATOMIC_SCENE_DEMO_IDS.repairClueFact);
     const submit = root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!;
     expect(submit.disabled).toBe(false);
-    submit.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-skip]')!.click();
+    const afterSkip = game.operationEntry.getView(runId)!;
+    expect(afterSkip).toMatchObject({
+      currentSceneId: ATOMIC_SCENE_DEMO_IDS.scene,
+      knownFactIds: [],
+      locationProgress: { [locationId]: { completed: false, completedSceneIds: [] } },
+      sceneActionBatchesUsed: 1,
+      resolutions: [{ sceneId: ATOMIC_SCENE_DEMO_IDS.scene, sceneBatch: { skip: true } }],
+    });
+    const inspectChoice = root.querySelector<HTMLButtonElement>(`[data-operation-scene-card][data-actor-id="${CAROUSEL_SAFETY_IDS.actors.hoshino}"] [data-operation-scene-choice][data-scene-action-id="${ATOMIC_SCENE_DEMO_IDS.sceneAction}"]`)!;
+    inspectChoice.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
 
     const afterInvestigation = game.operationEntry.getView(runId)!;
     expect(afterInvestigation).toMatchObject({
@@ -175,7 +188,10 @@ describe('Gameplay B Registry operation entries', () => {
       locationProgress: { [locationId]: { completed: false, result: null, completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene] } },
       currentRoutes: [{ routeId: ATOMIC_SCENE_DEMO_IDS.route, targetLocationId: ATOMIC_SCENE_DEMO_IDS.exitLocation, available: false }],
       routeHistory: [],
-      resolutions: [{ sceneId: ATOMIC_SCENE_DEMO_IDS.scene }],
+      resolutions: [
+        { sceneId: ATOMIC_SCENE_DEMO_IDS.scene, sceneBatch: { skip: true } },
+        { sceneId: ATOMIC_SCENE_DEMO_IDS.scene, sceneBatch: { selections: [{ sceneActionId: ATOMIC_SCENE_DEMO_IDS.sceneAction }] } },
+      ],
     });
     expect(root.querySelector<HTMLElement>(`[data-operation-scene="${ATOMIC_SCENE_DEMO_IDS.scene}"]`)
       ?.getAttribute('data-scene-status')).toBe('completed');
@@ -282,6 +298,7 @@ describe('Gameplay B Registry operation entries', () => {
       },
       routeHistory: [{ routeId: ATOMIC_SCENE_DEMO_IDS.route, fromLocationId: locationId, toLocationId: ATOMIC_SCENE_DEMO_IDS.exitLocation }],
       resolutions: [
+        { sceneId: ATOMIC_SCENE_DEMO_IDS.scene, sceneBatch: { skip: true } },
         { sceneId: ATOMIC_SCENE_DEMO_IDS.scene },
         { sceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene },
         { sceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene },

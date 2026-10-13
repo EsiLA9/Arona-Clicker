@@ -113,6 +113,8 @@ export interface OperationResolutionSceneBatch {
     readonly purchaseFactId: string;
   })[];
   readonly skip?: boolean;
+  /** Present only when the active Scene explicitly enables Character planning. */
+  readonly autoCharacterActions?: true;
   readonly actionCosts: readonly OperationResolutionPayment[];
   readonly playerCostBefore: number;
   readonly playerCostPaid: number;
@@ -161,6 +163,8 @@ export interface OperationResolutionPlannerSnapshot {
   readonly currentLocationId: string;
   /** Active Location-local Scene resolved by EventRun; omitted only by low-level legacy planner fixtures. */
   readonly currentSceneId?: string;
+  /** Enables the shared Character planner for this Scene Batch only. Omitted/false preserves legacy batches. */
+  readonly autoCharacterActions?: boolean;
   readonly actors: readonly OperationResolutionActorSnapshot[];
   readonly teams: readonly OperationResolutionTeamSnapshot[];
   readonly tracks: Readonly<Record<string, number>>;

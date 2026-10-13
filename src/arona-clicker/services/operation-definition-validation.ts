@@ -353,6 +353,7 @@ function validateLocations(
   factIds: ReadonlySet<string>,
   knownFactIds: ReadonlySet<string>,
   itemIds: ReadonlySet<string>,
+  hasEventHardFailure: boolean,
   issues: string[],
 ): Set<string> {
   const locationIds = new Set<string>();
@@ -443,26 +444,39 @@ function validateLocations(
             issues.push(scenePath + ' must be a Scene object');
             return;
           }
-          rejectUnsupportedFields(scene, ['id', 'title', 'description', 'enabledActionIds', 'actionMode', 'sceneActions', 'sceneActionBatches', 'sceneActionChoice', 'purchaseOffers', 'completion'], scenePath, issues);
+          rejectUnsupportedFields(scene, ['id', 'title', 'description', 'enabledActionIds', 'autoCharacterActions', 'actionMode', 'sceneActions', 'sceneActionBatches', 'sceneActionChoice', 'purchaseOffers', 'completion'], scenePath, issues);
           if (!isLocalOperationId(scene.id)) issues.push(scenePath + '.id must be a Location-local ID');
           else if (sceneIds.has(scene.id)) issues.push(path + '.scenes contains duplicate Scene ID: ' + scene.id);
           else sceneIds.add(scene.id);
           if (typeof scene.title !== 'string' || scene.title.trim() === '') issues.push(scenePath + '.title must be non-empty');
           if (scene.description !== undefined && typeof scene.description !== 'string') issues.push(scenePath + '.description must be a string');
           if (scene.enabledActionIds !== undefined) collectIds(scene.enabledActionIds, scenePath + '.enabledActionIds', issues);
+          if (scene.autoCharacterActions !== undefined && typeof scene.autoCharacterActions !== 'boolean') {
+            issues.push(scenePath + '.autoCharacterActions must be boolean');
+          }
+          if (scene.autoCharacterActions === true && entry.stage !== 'scene') {
+            issues.push(scenePath + '.autoCharacterActions is only supported for Scene-stage Locations');
+          }
           if (scene.completion === undefined) issues.push(scenePath + '.completion is required for an explicit Scene');
           else validatePredicate(scene.completion, trackIds, factIds, scenePath + '.completion', issues);
-          const hasBatchContract = scene.actionMode !== undefined || scene.sceneActions !== undefined || scene.sceneActionBatches !== undefined
+          if (entry.stage === 'scene' && scene.autoCharacterActions !== true
+            && (scene.actionMode !== 'individual' && scene.actionMode !== 'global'
+              || (!Array.isArray(scene.sceneActions) || scene.sceneActions.length === 0)
+                && (!Array.isArray(scene.purchaseOffers) || scene.purchaseOffers.length === 0))) {
+            issues.push(scenePath + ' has no SceneAction or PurchaseOffer batch progress source');
+          }
+          const hasPlayerBatchContract = scene.actionMode !== undefined || scene.sceneActions !== undefined
             || scene.sceneActionChoice !== undefined || scene.purchaseOffers !== undefined;
-          if (hasBatchContract) {
+          if (hasPlayerBatchContract) {
             if (scene.actionMode !== 'individual' && scene.actionMode !== 'global') issues.push(scenePath + '.actionMode must be individual or global');
-            if ((!Array.isArray(scene.sceneActions) || scene.sceneActions.length === 0) && !Array.isArray(scene.purchaseOffers)) {
-              issues.push(scenePath + '.sceneActions must contain at least one scene action unless PurchaseOffers are declared');
+            if ((!Array.isArray(scene.sceneActions) || scene.sceneActions.length === 0)
+              && !Array.isArray(scene.purchaseOffers) && scene.autoCharacterActions !== true) {
+              issues.push(scenePath + '.sceneActions must contain at least one scene action unless PurchaseOffers or autoCharacterActions are declared');
             }
-            if (scene.sceneActionBatches !== undefined
-              && (!Number.isSafeInteger(scene.sceneActionBatches) || Number(scene.sceneActionBatches) <= 0)) {
-              issues.push(scenePath + '.sceneActionBatches must be a positive safe integer');
-            }
+          }
+          if (scene.sceneActionBatches !== undefined
+            && (!Number.isSafeInteger(scene.sceneActionBatches) || Number(scene.sceneActionBatches) <= 0)) {
+            issues.push(scenePath + '.sceneActionBatches must be a positive safe integer');
           }
           if (Array.isArray(scene.sceneActions)) {
             const nestedActionIds = new Set<string>();
@@ -511,6 +525,21 @@ function validateLocations(
     validateObjectives(entry.objectives, trackIds, factIds, path + '.objectives', issues);
     validateOutcomeConditions(entry.partialOutcomes, trackIds, factIds, path + '.partialOutcomes', issues);
     validateOutcomeConditions(entry.failureConditions, trackIds, factIds, path + '.failureConditions', issues);
+    if (entry.stage === 'scene') {
+      const hasLocationOutcome = (Array.isArray(entry.objectives)
+        && entry.objectives.some(objective => isOperationRecord(objective) && objective.kind === 'primary'))
+        || (Array.isArray(entry.partialOutcomes) && entry.partialOutcomes.length > 0)
+        || (Array.isArray(entry.failureConditions) && entry.failureConditions.length > 0);
+      const explicitScenes = Array.isArray(entry.scenes);
+      const unboundedImplicitScene = !explicitScenes
+        && (entry.actionMode === 'individual' || entry.actionMode === 'global')
+        && entry.sceneActionBatches === undefined;
+      if (!hasLocationOutcome && !hasEventHardFailure && (explicitScenes || unboundedImplicitScene)) {
+        issues.push(path + ' has no Location completion/failure condition or Event hard failure exit');
+      }
+      // Registry performs the broader implicit stage-scene progress-source check for author content.
+      // Runtime keeps accepting legacy/manual implicit nodes used by existing callers.
+    }
     if (entry.maxBeats !== undefined && (!Number.isSafeInteger(entry.maxBeats) || Number(entry.maxBeats) <= 0)) {
       issues.push(path + '.maxBeats must be a positive safe integer');
     }
@@ -621,7 +650,8 @@ export function validateOperationEventDef(definition: OperationEventDef): readon
   const heldItems = collectIds(raw.heldItemIds, 'heldItemIds', issues);
   for (const id of heldItems) if (!items.has(id)) issues.push('heldItemIds contains undeclared item: ' + id);
 
-  const locations = validateLocations(raw.locations, trackIds, facts, knownFacts, items, issues);
+  const locations = validateLocations(raw.locations, trackIds, facts, knownFacts, items,
+    Array.isArray(raw.hardFailureConditions) && raw.hardFailureConditions.length > 0, issues);
   validatePurchaseMarkerFacts(raw.locations, facts, knownFacts, issues);
   if (!isNonEmptyOperationId(raw.initialLocationId) || !locations.has(raw.initialLocationId)) {
     issues.push('initialLocationId must reference a declared location');

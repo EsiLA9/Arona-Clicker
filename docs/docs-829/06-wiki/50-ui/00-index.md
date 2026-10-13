@@ -16,6 +16,7 @@
 | 当前页面与返回位置由谁决定？ | [[docs/docs-829/06-wiki/50-ui/workspace-routing]] | `src/ui/workspace/workspace-router.ts`；`tests/ui/workspace-router.test.ts` |
 | 怎样避免无关 DOM 重建？ | [[docs/docs-829/06-wiki/50-ui/refresh-update]] | `src/ui/update/`；`tests/ui/ui-update-dispatcher.test.ts` |
 | 背景、主题和实体表现从哪来？ | [[docs/docs-829/06-wiki/50-ui/presentation-theme]] | `src/ui/presentation-service.ts`、`controller-theme.ts`；`tests/ui/presentation-service.test.ts` |
+| 新页面继承什么风格、组件与内容入口？ | [[ui-style/00-index]] | `src/ui/css/variables.css`、`src/ui/css/cards.css`、`src/ui/components/workspace-frame.ts`、`src/ui/components/tabs.ts` |
 
 ## 总览：两条方向不同的路径
 

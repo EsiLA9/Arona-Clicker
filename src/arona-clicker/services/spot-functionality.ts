@@ -12,7 +12,7 @@ export class SpotFunctionalitySystem {
     private readonly conditionSystem?: ConditionSystem,
     private readonly enhTargetTags?: (enhId: string) => TagPath[],
   ) {}
-  functionalitiesOf(spot: SpotFunctionalitySubject, state: FunctionalityState): SpotFunctionalityView[] {
+  definitionsOf(spot: SpotFunctionalitySubject, state: FunctionalityState): SpotFunctionalityView[] {
     const out: SpotFunctionalityView[] = [...(spot.functionalities ?? [])];
     for (const enhId of state.unlockedEnhancements) {
       const enh = this.registry.enhancements.get(enhId);
@@ -22,7 +22,13 @@ export class SpotFunctionalitySystem {
       if (tags.length > 0 && !tags.some(query => effective.some(declared => matchesTag(declared, query)))) continue;
       out.push(...enh.addsFunctionalities);
     }
-    return out;
+    const owned = (state.spotLevels[spot.id] ?? 0) > 0;
+    return out.filter(fn => fn.requiresOwned === false || owned);
+  }
+  functionalitiesOf(spot: SpotFunctionalitySubject, state: FunctionalityState): SpotFunctionalityView[] {
+    return this.definitionsOf(spot, state).filter(fn =>
+      !fn.condition || !!this.conditionSystem?.evaluateGroup(fn.condition, state),
+    );
   }
   hasFunctionality(spot: SpotFunctionalitySubject, state: FunctionalityState, kind: string): boolean {
     return this.functionalitiesOf(spot, state).some(fn => fn.kind === kind);

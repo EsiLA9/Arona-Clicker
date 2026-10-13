@@ -7,8 +7,9 @@ import type { OperationView } from '../arona-clicker/contracts/operation-view';
 import type { UIController } from './controller';
 import { clearOperationSceneDraft, closeOperationMapCard, closeOperationWorkspaceMap, moveOperationWorkspaceMap, readOperationSceneDraft, saveOperationSceneDraft, setOperationWorkspaceTab, toggleOperationWorkspaceMap, type OperationSceneDraft } from './components/operation-workspace';
 import { operationRelationAnchors, operationRelationPath } from './operation-card-relation';
+import { createUIContext } from './context';
+import { getSpotReveal } from './components/tooltip';
 
-const OPERATION_INIT_ID = 'base:init:schale_office';
 const OPERATION_REGION_HOST_ID = 'workspace.operation';
 const DEMO_STUDENTS = [
   { id: Character.Hoshino, name: '星野' },
@@ -84,7 +85,8 @@ function updateCostPreview(ctrl: UIController, workspace: HTMLElement | null): v
   if (!previewNode || !submit) return;
   const command = readCommandVersion(submit);
   const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
-  if (!command || !view || view.planVersion !== command.planVersion || view.currentActionMode === null) {
+  if (!command || !view || view.planVersion !== command.planVersion
+    || view.currentActionMode === null && view.currentScene?.autoCharacterActions !== true) {
     previewNode.dataset.previewStatus = 'unavailable';
     previewNode.textContent = '行动计划已更新，请重新检查本批。';
     submit.disabled = true;
@@ -164,7 +166,9 @@ interface PreparedLayerObservationState {
 const preparedLayerObservationStates = new WeakMap<UIController, PreparedLayerObservationState>();
 
 function operationWorkspaceHost(element: Element | null): HTMLElement | null {
-  return element?.closest<HTMLElement>('[data-workspace-frame="operation"]') ?? null;
+  return element?.closest<HTMLElement>('[data-workspace-frame="operation"]')
+    ?? element?.querySelector<HTMLElement>('[data-workspace-frame="operation"]')
+    ?? null;
 }
 
 function preparedLayer(host: HTMLElement): HTMLElement | null {
@@ -701,7 +705,7 @@ function sceneActionTargetsAfterPerformerChange(
 function applyCardDrop(ctrl: UIController, drag: OperationCardDrag, targetActorId: string): void {
   const face = drag.source;
   const kind = face.dataset.cardKind;
-  if (kind === 'battle-action') {
+  if (kind === 'battle-action' || kind === 'scene-character-action') {
     const command = readCommandVersion(face);
     const actorId = face.dataset.actorId;
     const actionId = face.dataset.actionId;
@@ -1114,7 +1118,7 @@ function bindCardTargetGestures(ctrl: UIController): void {
 }
 
 function startSample(ctrl: UIController, eventId: string, characterIds: readonly string[]): void {
-  if (ctrl.game.state.activeInit !== OPERATION_INIT_ID) return;
+  if (!ctrl.game.operationEntry.getLaunchEntries().some(entry => entry.eventId === eventId)) return;
   if (characterIds.length === 0 || characterIds.some(id => typeof id !== 'string' || id.trim().length === 0)
     || new Set(characterIds).size !== characterIds.length) return;
   try {
@@ -1125,11 +1129,32 @@ function startSample(ctrl: UIController, eventId: string, characterIds: readonly
     updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
   } catch (error) {
     const message = operationErrorText(error, characterIds);
-    // The single authoritative view query happens inside the ensuing center-region render.
-    ctrl.pushChat({ kind: 'system', text: `行动试玩未能开始：${message}` });
-    ctrl.requestUIUpdate({ type: 'region', hostId: 'centerPanel.chat', reason: 'operation-admission-failed' });
-    ctrl.flushUIUpdates();
+    ctrl.toast.show(message, 'error');
   }
+}
+
+/** 抽象关卡入口：调用方提供 Event ID，阵容和当前世界线准入由领域查询决定。 */
+export function enterOperationEvent(ctrl: UIController, eventId: string, restart = false): void {
+  const entry = ctrl.game.operationEntry.getLaunchEntries().find(candidate => candidate.eventId === eventId);
+  if (!entry) return;
+  const current = ctrl.game.operationEntry.getView();
+  if (!restart && current?.eventId === eventId) {
+    ctrl.openOperationWorkspace(current.runId);
+    ctrl.render();
+    updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
+    return;
+  }
+  if (!entry.admission.available || current?.status === 'inProgress') return;
+  startSample(ctrl, eventId, entry.characterIds);
+}
+
+function operationFunctionAvailable(ctrl: UIController, target: HTMLElement, eventId: string): boolean {
+  const spotId = target.dataset.operationSpot;
+  const spot = spotId ? ctrl.game.world.spots.get(spotId) : undefined;
+  if (!spot || spot.areaId !== ctrl.game.getView().currentAreaId || !getSpotReveal(createUIContext(ctrl.game), spot).utilityKnown) return false;
+  const fn = ctrl.game.spotFunctionalitySystem.functionalitiesOf(spot, ctrl.game.state)
+    .find(candidate => candidate.id === target.dataset.operationFunctionality && candidate.kind === 'operationEntry' && candidate.operationEventId === eventId);
+  return !!fn && (!fn.condition || ctrl.game.conditionSystem.evaluateGroup(fn.condition, ctrl.game.state));
 }
 
 function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
@@ -1307,26 +1332,15 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
 
   if (target.hasAttribute('data-operation-start')) {
     const eventId = target.dataset.operationStart;
-    const characterIdsJson = target.dataset.operationCharacterIds;
-    if (!eventId || !characterIdsJson) return;
-    let characterIds: unknown;
-    try {
-      characterIds = JSON.parse(characterIdsJson);
-    } catch {
-      return;
-    }
-    if (!Array.isArray(characterIds) || !characterIds.every(id => typeof id === 'string' && id.trim().length > 0)) return;
-    startSample(ctrl, eventId, characterIds);
+    if (!eventId || !operationFunctionAvailable(ctrl, target, eventId)) return;
+    enterOperationEvent(ctrl, eventId, true);
     return;
   }
   if (target.hasAttribute('data-operation-resume-run')) {
-    if (ctrl.game.state.activeInit !== OPERATION_INIT_ID) return;
     const runId = target.dataset.operationResumeRun;
     const eventId = target.dataset.operationEventId;
-    if (!runId || !eventId || ctrl.game.operationEntry.getView(runId)?.eventId !== eventId) return;
-    ctrl.openOperationWorkspace(runId);
-    ctrl.render();
-    updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
+    if (!runId || !eventId || !operationFunctionAvailable(ctrl, target, eventId) || ctrl.game.operationEntry.getView(runId)?.eventId !== eventId) return;
+    enterOperationEvent(ctrl, eventId);
     return;
   }
   if (target.hasAttribute('data-operation-back')) {
@@ -1453,7 +1467,8 @@ export function readOperationSceneBatchCommand(
   command: { readonly runId: string; readonly planVersion: number },
   draft: OperationSceneDraft,
 ): OperationSceneActionBatchCommand {
-  if (!view.currentActionMode) throw new Error('Scene action controls are unavailable');
+  if (!view.currentActionMode && view.currentScene?.autoCharacterActions !== true) throw new Error('Scene action controls are unavailable');
+  if (!view.currentActionMode && draft.selections.length > 0) throw new Error('This Scene does not accept player SceneAction selections.');
   const choice = view.currentSceneActionChoice;
   if (choice) {
     const selectedIds = draft.selections.map(selection => selection.sceneActionId);
@@ -1479,7 +1494,7 @@ export function readOperationSceneBatchCommand(
       if (targetActorIds.some(id => !legalTargets.includes(id))) throw new Error('所选场景目标已经失效，请重新选择。');
       selections.push({ sceneActionId: action.id, actorId: saved.actorId, targetActorIds });
     }
-  } else {
+  } else if (view.currentActionMode === 'global') {
     if (!choice && draft.selections.length > 1) throw new Error('全队批次最多选择一项行动。');
     for (const saved of draft.selections) {
       const action = view.currentSceneActions.find(item => item.id === saved.sceneActionId && item.scope === 'global');
@@ -1500,6 +1515,8 @@ export function readOperationSceneBatchCommand(
       if (saved.targetActorIds.some(id => !legalTargets.includes(id))) throw new Error('所选场景目标已经失效，请重新选择。');
       selections.push({ sceneActionId: action.id, ...(saved.actorId ? { actorId: saved.actorId } : {}), targetActorIds: saved.targetActorIds });
     }
+  } else if (draft.selections.length > 0) {
+    throw new Error('This Scene does not accept player SceneAction selections.');
   }
   const cards: NonNullable<OperationSceneActionBatchCommand['cards']>[number][] = [];
   for (const saved of draft.cards) {

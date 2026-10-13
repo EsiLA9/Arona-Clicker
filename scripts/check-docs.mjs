@@ -39,7 +39,7 @@ function mdFilesUnder(dir) {
   return out;
 }
 
-const allMd = mdFilesUnder(docsRoot);
+const allMd = mdFilesUnder(docsRoot).concat(mdFilesUnder(path.join(root, 'ui-style')));
 const rootMd = fs
   .readdirSync(root, { withFileTypes: true })
   .filter((e) => e.isFile() && e.name.endsWith('.md'))

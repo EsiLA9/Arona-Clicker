@@ -137,7 +137,7 @@ describe('UIContext：簇与当前区域宿主', () => {
     expect(inactiveButton).toContain('data-theme-hover-text-mode="light"');
   });
 
-  test('区域宿主有图层时覆盖簇，未配置区域时回退簇', () => {
+  test('区域宿主使用自己的图层；未配置时生成语义底色而不继承簇或全局图层', () => {
     const background = { layers: [{ kind: 'solid' as const, value: '#global', opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed' }] };
     const presentation = buildPresentationView({ hosts: [
       { id: 'leftPanel', layers: [{ id: 'cluster', kind: 'solid', value: '#abc' }] },
@@ -146,7 +146,7 @@ describe('UIContext：簇与当前区域宿主', () => {
     const ctx = createUIContext(game, background, presentation);
 
     expect(ctx.backgroundForHost('leftPanel.area').layers.map(layer => layer.value)).toEqual(['#ace']);
-    expect(ctx.backgroundForHost('leftPanel.contacts').layers.map(layer => layer.value)).toEqual(['#abc']);
+    expect(ctx.backgroundForHost('leftPanel.contacts').layers.map(layer => layer.value)).toEqual(['var(--theme-node-panel, #ffffff)']);
   });
 
   test('active 未覆盖时继承宿主默认态，有覆盖时优先使用 active 图层', () => {
@@ -222,6 +222,9 @@ describe('UIContext：簇与当前区域宿主', () => {
 
   test('没有控件宿主时，active 使用主题色 2，非 active 使用主题基本背景色', () => {
     const ctx = createUIContext(game, { layers: [] }, buildPresentationView({}, pics));
+    expect(ctx.backgroundForHost('header.button', false, 'default').layers.map(layer => layer.value)).toEqual([
+      'var(--theme-node-panel, #ffffff)',
+    ]);
     expect(ctx.backgroundForHost('header.button', false, 'active').layers.map(layer => layer.value)).toEqual([
       'var(--theme-palette-2, var(--theme-palette-1, var(--theme-node-primary)))',
     ]);

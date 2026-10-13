@@ -1,4 +1,4 @@
-import type { EventRun, OperationEventDef, OperationStudentProfileSnapshot } from '../contracts/operation';
+import { OPERATION_NO_ELIGIBLE_ACTION_REASON_ID, OPERATION_WAIT_ACTION_ID, type EventRun, type OperationActionCandidateSnapshot, type OperationEventDef, type OperationStudentProfileSnapshot } from '../contracts/operation';
 import type { OperationActionDef } from '../contracts/operation-action';
 import { getOperationTargetActorIds } from './operation-target-selection';
 import type { OperationViewSceneAction } from '../contracts/operation-view';
@@ -76,6 +76,8 @@ function projectScenes(run: EventRun, event: OperationEventDef): readonly Operat
       status,
       index: index + 1,
       count: definitions.length,
+      ...(scene.autoCharacterActions === true ? { autoCharacterActions: true } : {}),
+      completion: scene.completion ?? null,
     };
   });
 }
@@ -257,7 +259,22 @@ function projectResolution(resolution: EventRun['resolutions'][number]): Operati
   };
 }
 
-function projectionSnapshot(run: EventRun): OperationPreparationSnapshot {
+function projectionSnapshot(run: EventRun, eventDefinition: OperationEventDef): OperationPreparationSnapshot {
+  const location = eventDefinition.locations.find(row => row.id === run.currentLocationId);
+  const progress = run.locationProgress[run.currentLocationId];
+  const activeSceneId = location && progress ? getNextOperationSceneId(location, progress) : null;
+  const activeScene = location?.scenes?.find(scene => scene.id === activeSceneId);
+  const autoCharacterActions = location?.stage === 'scene' && activeScene?.autoCharacterActions === true;
+  const handIds = (actorId: string, profile: OperationStudentProfileSnapshot): readonly string[] => {
+    const hand = run.characterHands?.[actorId]?.actionIds ?? [];
+    const handSet = new Set(hand);
+    const seen = new Set<string>();
+    return [...profile.actionPriorityIds, ...profile.candidateActionIds, ...hand].filter(actionId => {
+      if (!handSet.has(actionId) || seen.has(actionId)) return false;
+      seen.add(actionId);
+      return true;
+    });
+  };
   return {
     eventId: run.eventId,
     planVersion: run.planVersion,
@@ -273,6 +290,51 @@ function projectionSnapshot(run: EventRun): OperationPreparationSnapshot {
       };
     }),
     teams: run.teamStates,
+    ...(autoCharacterActions ? {
+      actorIds: run.actorStates.filter(actor => actor.participantKind === 'student' && actor.hp > 0).map(actor => actor.id),
+      studentActionIdsByActorId: Object.fromEntries(run.actorStates.flatMap(actor => actor.participantKind === 'student' && actor.profile
+        ? [[actor.id, handIds(actor.id, actor.profile)]] : [])),
+    } : {}),
+  };
+}
+
+function bindCharacterHands(run: EventRun, content: OperationPreparationContent): OperationPreparationContent {
+  const actionsById = new Map(content.actionDefinitions.map(action => [action.id, action]));
+  return {
+    ...content,
+    actors: content.actors.map(initialization => {
+      if (initialization.participantKind !== 'student') return initialization;
+      const rawIds = run.characterHands?.[initialization.actorId]?.actionIds;
+      if (!rawIds) return initialization;
+      const hand = new Set(rawIds);
+      const seen = new Set<string>();
+      const actionIds = [...initialization.profile.actionPriorityIds, ...initialization.profile.candidateActionIds, ...rawIds]
+        .filter(id => hand.has(id) && !seen.has(id) && Boolean(seen.add(id)));
+      const actionCandidates: OperationActionCandidateSnapshot[] = actionIds.map(actionId => {
+        const action = actionsById.get(actionId);
+        if (!action) throw new Error('Character Hand references a missing Action: ' + actionId);
+        const missingCapabilityIds = action.requiredCapabilityIds.filter(id => !initialization.profile.capabilityIds.includes(id));
+        return {
+          actionId,
+          eligible: missingCapabilityIds.length === 0,
+          requiredCapabilityIds: [...action.requiredCapabilityIds],
+          missingCapabilityIds,
+          reasonIds: [...new Set([...initialization.profile.reasonIds, ...action.reasonIds])],
+        };
+      });
+      const eligibleActionIds = actionCandidates.filter(candidate => candidate.eligible).map(candidate => candidate.actionId);
+      const profile: OperationStudentProfileSnapshot = {
+        ...initialization.profile,
+        candidateActionIds: actionIds,
+        actionPriorityIds: initialization.profile.actionPriorityIds.filter(id => hand.has(id)),
+        actionCandidates,
+        eligibleActionIds,
+        ...(eligibleActionIds.length === 0
+          ? { fallback: { actionId: OPERATION_WAIT_ACTION_ID, reasonIds: [OPERATION_NO_ELIGIBLE_ACTION_REASON_ID] } }
+          : { fallback: undefined }),
+      };
+      return { ...initialization, profile };
+    }),
   };
 }
 
@@ -486,21 +548,22 @@ export function projectOperationView(
       : currentLocationProgress.sceneActionBatchesUsed ?? 0
     : 0;
   const currentSceneActionMode = currentSceneDefinition?.actionMode ?? null;
-  const currentSceneBatchLimit = currentSceneActionMode ? currentSceneDefinition?.sceneActionBatches : 0;
+  const currentSceneHasBatch = currentSceneActionMode !== null || currentSceneDefinition?.autoCharacterActions === true;
+  const currentSceneBatchLimit = currentSceneHasBatch ? currentSceneDefinition?.sceneActionBatches : 0;
   const activeEventDefinition = eventContentForCurrentScene(content.eventDefinition, run) ?? content.eventDefinition;
   const projectionContent: OperationViewProjectionContent = { ...content, eventDefinition: activeEventDefinition };
   const preparationContent: OperationPreparationContent = {
     eventDefinition: activeEventDefinition,
-    actors: content.actors,
+    actors: bindCharacterHands(run, { eventDefinition: activeEventDefinition, actors: content.actors, actionDefinitions: content.actionDefinitions }).actors,
     actionDefinitions: content.actionDefinitions,
   };
-  const snapshot = projectionSnapshot(run);
+  const snapshot = projectionSnapshot(run, content.eventDefinition);
   const effectiveBeat = activeBeat(run, preparationContent, snapshot);
   const plans = effectiveBeat?.actorPlans;
   const commitmentBlockedReasons = new Set<string>();
   if (run.status !== 'inProgress') commitmentBlockedReasons.add('operation:run:terminal');
   if (!run.preparedBeat) commitmentBlockedReasons.add('operation:view:no-prepared-beat');
-  for (const plan of plans ?? []) {
+  for (const plan of originalLocation?.stage === 'combat' ? plans ?? [] : []) {
     if (plan.participantKind !== 'student' || plan.kind !== 'wait') continue;
     for (const reasonId of plan.reasonIds) {
       if (reasonId === OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE
@@ -510,7 +573,7 @@ export function projectOperationView(
       }
     }
   }
-  const combinationPreview = effectiveBeat
+  const combinationPreview = effectiveBeat && originalLocation?.stage === 'combat'
     ? resolveOperationCombinations(
       preparationContent.eventDefinition,
       effectiveBeat,
@@ -685,12 +748,24 @@ export function projectOperationView(
           targetActorIds: [...selection.targetActorIds],
         })),
         cost: { ...run.pendingSceneActionBatch.preview.cost },
+        ...(run.pendingSceneActionBatch.preview.actorPlans ? {
+          actorPlans: run.pendingSceneActionBatch.preview.actorPlans.map(plan => ({ ...plan, reasonIds: [...plan.reasonIds] })),
+        } : {}),
+        ...(Object.prototype.hasOwnProperty.call(run.pendingSceneActionBatch.preview, 'intervention') ? {
+          intervention: run.pendingSceneActionBatch.preview.intervention
+            ? {
+                ...run.pendingSceneActionBatch.preview.intervention,
+                before: { ...run.pendingSceneActionBatch.preview.intervention.before, reasonIds: [...run.pendingSceneActionBatch.preview.intervention.before.reasonIds] },
+                after: { ...run.pendingSceneActionBatch.preview.intervention.after, reasonIds: [...run.pendingSceneActionBatch.preview.intervention.after.reasonIds] },
+              }
+            : null,
+        } : {}),
       },
     } : null,
     playerCards,
     sceneActionBatchesUsed: currentSceneBatchCount,
     sceneActionBatchesRemaining: currentSceneBatchLimit === undefined
-      ? currentSceneActionMode ? null : 0
+      ? currentSceneHasBatch ? null : 0
       : Math.max(0, currentSceneBatchLimit - currentSceneBatchCount),
     basePreparedBeat: run.preparedBeat,
     effectivePreparedBeat: effectiveBeat && plans ? { ...effectiveBeat, actorPlans: [...plans] } : null,

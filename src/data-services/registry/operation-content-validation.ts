@@ -460,12 +460,17 @@ function checkLocationShape(location: OperationLocationDef, path: string, issues
       if (typeof sceneValue.title !== 'string' || sceneValue.title.trim() === '') issues.push(scenePath + '.title must be non-empty');
       if (sceneValue.description !== undefined && typeof sceneValue.description !== 'string') issues.push(scenePath + '.description must be a string');
       if (sceneValue.enabledActionIds !== undefined) readIds(sceneValue.enabledActionIds, scenePath + '.enabledActionIds', issues);
+      if (sceneValue.autoCharacterActions !== undefined && typeof sceneValue.autoCharacterActions !== 'boolean') {
+        issues.push(scenePath + '.autoCharacterActions must be boolean');
+      }
+      if (sceneValue.autoCharacterActions === true && location.stage !== 'scene') {
+        issues.push(scenePath + '.autoCharacterActions is only supported for Scene-stage Locations');
+      }
       if (sceneValue.completion === undefined) issues.push(scenePath + '.completion is required for an explicit Scene');
       if (sceneValue.actionMode !== undefined && sceneValue.actionMode !== 'individual' && sceneValue.actionMode !== 'global') {
         issues.push(scenePath + '.actionMode must be individual or global');
       }
-      if (sceneValue.actionMode !== undefined && sceneValue.sceneActionBatches !== undefined
-        && !safeCount(sceneValue.sceneActionBatches, 1, MAX_SCENE_BATCHES)) {
+      if (sceneValue.sceneActionBatches !== undefined && !safeCount(sceneValue.sceneActionBatches, 1, MAX_SCENE_BATCHES)) {
         issues.push(scenePath + '.sceneActionBatches must be between 1 and ' + MAX_SCENE_BATCHES);
       }
       if (sceneValue.sceneActions !== undefined && !Array.isArray(sceneValue.sceneActions)) {
@@ -475,8 +480,14 @@ function checkLocationShape(location: OperationLocationDef, path: string, issues
         issues.push(scenePath + '.actionMode is required when sceneActions are declared');
       }
       if (sceneValue.actionMode !== undefined && (!Array.isArray(sceneValue.sceneActions) || sceneValue.sceneActions.length === 0)
-        && !Array.isArray(sceneValue.purchaseOffers)) {
+        && !Array.isArray(sceneValue.purchaseOffers) && sceneValue.autoCharacterActions !== true) {
         issues.push(scenePath + '.sceneActions must contain at least one action when actionMode is declared');
+      }
+      if (location.stage === 'scene' && sceneValue.autoCharacterActions !== true
+        && (sceneValue.actionMode !== 'individual' && sceneValue.actionMode !== 'global'
+          || (!Array.isArray(sceneValue.sceneActions) || sceneValue.sceneActions.length === 0)
+            && (!Array.isArray(sceneValue.purchaseOffers) || sceneValue.purchaseOffers.length === 0))) {
+        issues.push(scenePath + ' has no SceneAction or PurchaseOffer batch progress source');
       }
       const sceneActionIds = new Set<string>();
       (sceneValue.sceneActions ?? []).forEach((action, actionIndex) => {
@@ -664,6 +675,16 @@ function checkEvent(
       || (location.partialOutcomes?.length ?? 0) > 0
       || (location.failureConditions?.length ?? 0) > 0;
     const hasEventHardFailure = (event.hardFailureConditions?.length ?? 0) > 0;
+    const hasSceneBatchSource = (location.actionMode === 'individual' || location.actionMode === 'global')
+      && ((location.sceneActions?.length ?? 0) > 0 || (location.purchaseOffers?.length ?? 0) > 0);
+    if (location.stage === 'scene' && location.scenes !== undefined
+      && !hasLocationOutcome && !hasEventHardFailure) {
+      issues.push(prefix + '.locations[' + locationId + '] has an explicit Scene sequence but no Location completion/failure condition or Event hard failure exit');
+    }
+    if (location.stage === 'scene' && location.scenes === undefined
+      && !hasSceneBatchSource && !hasLocationOutcome && !hasEventHardFailure) {
+      issues.push(prefix + '.locations[' + locationId + '] has no SceneAction/PurchaseOffer or outcome-based progress source');
+    }
     if (location.stage === 'combat' && location.maxBeats === undefined && !hasLocationOutcome && !hasEventHardFailure) {
       const enabledActionIds = new Set([
         ...(location.enabledActionIds ?? []),

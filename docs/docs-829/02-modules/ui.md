@@ -13,7 +13,7 @@
 ## Gameplay B Operation Surface
 
 - `workspace/workspace-router.ts` 将 Operation Run ID 表达为独立 route；`workspace/workspace-renderer.ts` 通过只读 `GameReadModel.operationEntry.getView(runId)` 获取投影。
-- `components/operation-workspace.ts` 按我方 / 信息 / 敌方三栏布局：学生行动计划附在左栏身份卡，对手 Intent 附在右栏角色卡，环境/设施独立分组；中心 AC 聊天流承载地点、目标、玩家选择、路线、SceneAction、独立手牌与 Resolution。Strategy Park 试玩在 Workspace 中另显示只读全图，转场仍走当前出口命令。
+- `components/operation-workspace.ts` 按我方 / 信息 / 敌方三栏布局：Combat 与显式启用 `autoCharacterActions` 的 Scene 都显示我方 Character Hand、默认 Action/Target、Wait 与 Intervention 状态；普通 Decision、Shop 和 SceneAction Scene 不自动选择 Character 行动。对手 Intent 附在右栏角色卡，环境/设施独立分组；中心 AC 聊天流承载地点、目标、玩家选择、路线、fixed/required SceneAction、独立 PlayerSceneDeck 手牌与 Resolution。Strategy Park 试玩在 Workspace 中另显示只读全图，转场仍走当前出口命令。
 - `controller-actions-operation.ts` 经 Controller 调用 Runtime 的窄 Operation Entry 写 facade；战斗 Commit、暂存/结算场景批次、路线转场和奖励领取更新单个 `workspace.operation` region，路由进出才重建 Workspace。
 - 本地内容命令台仅在 DEV + 显式 `?devConsole=gameplay-b` 时动态挂载，是 Gameplay B 的内存态测试工具，不写存档。保留角色快捷命令；`getValue modid:typeid:itemid [valueNum]` 严格按来源 Datapack 与 Registry 定义解析，首期支持 `resource` 增量、`chara` 单次获得、`spot` 单级提升，不支持 Area。命令仅在夏莱办公室使用，不自动进入 Run；应用成功后刷新界面。
 

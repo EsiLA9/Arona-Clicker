@@ -2,6 +2,7 @@ import type { Datapack } from '../contracts/datapack';
 import type { ConditionGroup, Effect } from '../../engine/types/expression';
 import type { RevealTarget } from '../../engine/contracts/reveal';
 import type { Registry } from '../registry/registry';
+import type { SpotFunctionalityDef } from '../contracts/world';
 
 /** 可授权编辑的内容键：直接取自 Datapack 顶层内容字段，避免第二份清单。 */
 export type ContentKey = Exclude<keyof Datapack, 'name' | 'version' | 'modName'>;
@@ -45,12 +46,14 @@ export interface ContentSectionDef {
 }
 
 /** Spot 功能行草稿：与 SpotFunctionalityDef 的 kind 一一对应，UI 不暴露引擎 id 前缀。 */
-export type SpotFunctionalityKind = 'flow' | 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop';
+export type SpotFunctionalityKind = SpotFunctionalityDef['kind'];
 
 export interface SpotFunctionalityDraft {
   /** 编辑器生成的稳定局部键，用户不填写。 */
   readonly id: string;
   readonly kind: SpotFunctionalityKind;
+  /** 默认 true；关闭后未持有 Spot 时也允许出现和使用。 */
+  readonly requiresOwned?: boolean;
   /** flow / linearYield：产出资源 id。 */
   readonly resource?: string;
   /** flow：固定产出数量。 */
@@ -61,6 +64,8 @@ export interface SpotFunctionalityDraft {
   readonly startLevel?: number;
   /** shop：商店引用。 */
   readonly shopId?: string;
+  /** operationEntry：该按钮唯一的目标关卡引用。 */
+  readonly operationEventId?: string;
   readonly condition?: ConditionGroup;
 }
 

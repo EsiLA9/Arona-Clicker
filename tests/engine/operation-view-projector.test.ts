@@ -83,11 +83,16 @@ describe('OperationView Character Hand projection', () => {
     const base = runStartInput();
     const eventDefinition: OperationEventDef = {
       ...base.eventDefinition,
+      factIds: ['scene-exit'],
       locations: base.eventDefinition.locations.map(location => ({
         ...location,
         stage: 'scene',
         actionMode: 'individual',
         sceneActions: [{ id: 'inspect', actionId: ACTION_ID, scope: 'individual', playerCost: 0 }],
+        objectives: [{
+          id: 'scene-exit', description: 'A Location-level outcome remains to be satisfied.', kind: 'primary',
+          predicate: { kind: 'knownFact', factId: 'scene-exit', present: true },
+        }],
       })),
     };
     const runtime = new OperationRuntimeService();

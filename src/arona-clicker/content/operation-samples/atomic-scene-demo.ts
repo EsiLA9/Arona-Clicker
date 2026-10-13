@@ -171,7 +171,7 @@ export const atomicSceneDemoLocation: OperationLocationDef = {
       scope: 'individual',
       playerCost: 0,
       performerPolicy: 'selected-student',
-      selectionPolicy: 'fixed',
+      selectionPolicy: 'required',
       title: '检查故障设备',
     }],
     completion: { kind: 'knownFact', factId: ATOMIC_SCENE_DEMO_IDS.repairClueFact, present: true },
@@ -227,6 +227,12 @@ export const atomicSceneDemoExitLocation: OperationLocationDef = {
   stage: 'scene',
   enabledActionIds: [],
   combinationRules: [],
+  objectives: [{
+    id: 'leave-after-alarm-cleared',
+    description: 'The alarm remains cleared after leaving the equipment scene.',
+    kind: 'primary',
+    predicate: { kind: 'knownFact', factId: ATOMIC_SCENE_DEMO_IDS.alarmDisabledFact, present: true },
+  }],
   routeEdges: [],
 };
 
@@ -242,6 +248,12 @@ export const atomicSceneDemoEvent: OperationEventContentDef = {
   tracks: [{ ...track, initial: 3 }],
   factIds: [ATOMIC_SCENE_DEMO_IDS.repairClueFact, ATOMIC_SCENE_DEMO_IDS.alarmDisabledFact],
   knownFactIds: [],
+  objectives: [{
+    id: 'event-alarm-cleared',
+    description: 'The carousel alarm is disabled.',
+    kind: 'primary',
+    predicate: { kind: 'knownFact', factId: ATOMIC_SCENE_DEMO_IDS.alarmDisabledFact, present: true },
+  }],
   itemIds: [],
   heldItemIds: [],
   playerSceneDeck: {

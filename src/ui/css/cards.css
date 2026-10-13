@@ -135,6 +135,26 @@
    justify-content: flex-end;
 }
 
+.spot-operation-functions {
+   justify-content: flex-start;
+}
+
+.spot-operation-function {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 4px;
+   max-width: 100%;
+}
+
+.spot-operation-function .mini-action {
+   white-space: normal;
+   text-align: left;
+}
+
+.spot-operation-function .mini-note {
+   flex-basis: 100%;
+}
+
 .mini-action {
    border: 1px solid var(--card-btn-border);
    padding: 5px 9px;

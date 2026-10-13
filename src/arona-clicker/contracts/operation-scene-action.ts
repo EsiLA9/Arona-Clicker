@@ -1,4 +1,6 @@
 import type { OperationRunVersionCommand } from './operation';
+import type { OperationPreparedActorPlan } from './operation-beat';
+import type { OperationResolutionIntervention } from './operation-resolution';
 
 /** One performer selects one trusted location-scoped action; target IDs are checked against its ActionDef. */
 export interface OperationSceneActionSelection {
@@ -61,7 +63,7 @@ export interface OperationSceneActionBatchPreview {
   readonly sceneId: string;
   /** Lightweight value projection used for pure preview; never stored as a second owner state. */
   readonly plan: OperationScenePlan;
-  readonly actionMode: 'individual' | 'global';
+  readonly actionMode?: 'individual' | 'global';
   readonly selections: readonly OperationSceneActionSelection[];
   readonly cards: readonly (OperationSceneCardSelection & { readonly actionId: string; readonly playerCost: number })[];
   readonly purchases?: readonly (OperationScenePurchaseSelection & {
@@ -76,6 +78,10 @@ export interface OperationSceneActionBatchPreview {
   readonly sceneActionBatchesUsed: number;
   /** null means the current Scene has no authored batch ceiling. */
   readonly sceneActionBatchesLimit: number | null;
+  /** Present only for Scenes with autoCharacterActions enabled. */
+  readonly actorPlans?: readonly OperationPreparedActorPlan[];
+  /** The single Scene Intervention preview, or null when there is no override. */
+  readonly intervention?: OperationResolutionIntervention | null;
 }
 
 /** Runtime-owned, explicitly staged player batch. The preview preserves its accepted fee snapshot. */

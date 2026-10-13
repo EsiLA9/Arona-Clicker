@@ -29,7 +29,7 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
     for (const game of games.splice(0)) if (game.running) game.stop();
   });
 
-  test('skip and rejected commits keep Scene A active; successful A→B commits and restores progress in place', () => {
+  test('fixed actions and PlayerSceneCards resolve atomically; rejected commits and restored progress stay consistent', () => {
     const source = createGame();
     const started = source.operationEntry.start(ATOMIC_SCENE_DEMO_IDS.event, STUDENTS);
     const runId = started.runId;
@@ -49,35 +49,11 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
       routeHistory: [],
     });
 
-    const skipResolution = source.operationEntry.commitSceneActionBatch({
-      runId,
-      planVersion: initial.planVersion,
-      selections: [],
-      skip: true,
-    });
-    expect(skipResolution.sceneBatch?.selections).toEqual([]);
-    const afterSkip = source.operationEntry.getSnapshot()!;
-    expect(afterSkip.eventState.knownFactIds).not.toContain(ATOMIC_SCENE_DEMO_IDS.repairClueFact);
-    expect(afterSkip.locationProgress[locationId]).toMatchObject({
-      completed: false,
-      completedSceneIds: [],
-      sceneActionBatchesUsedByScene: { [ATOMIC_SCENE_DEMO_IDS.scene]: 1 },
-    });
-    expect(source.operationEntry.getView(runId)).toMatchObject({
-      currentLocationId: locationId,
-      currentSceneId: ATOMIC_SCENE_DEMO_IDS.scene,
-      scenes: [
-        { sceneId: ATOMIC_SCENE_DEMO_IDS.scene, status: 'active' },
-        { sceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene, status: 'ready' },
-      ],
-      routeHistory: [],
-    });
-
-    const cardInstanceId = afterSkip.playerRouteState.cards.hand[0];
+    const cardInstanceId = started.playerRouteState.cards.hand[0];
     expect(cardInstanceId).toBeDefined();
     const firstResolution = source.operationEntry.commitSceneActionBatch({
       runId,
-      planVersion: afterSkip.planVersion,
+      planVersion: initial.planVersion,
       selections: [],
       cards: [{ cardInstanceId: cardInstanceId!, targetActorIds: [] }],
     });
@@ -87,9 +63,14 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
       targetActorIds: [CAROUSEL_SAFETY_IDS.actors.ride],
     })));
     expect(firstResolution.sceneBatch?.cards).toEqual([expect.objectContaining({ cardInstanceId: cardInstanceId! })]);
-    const afterActorlessCard = source.operationEntry.getSnapshot()!;
-    expect(afterActorlessCard.eventState.knownFactIds).toContain(ATOMIC_SCENE_DEMO_IDS.repairClueFact);
-    expect(afterActorlessCard.eventState.tracks[CAROUSEL_SAFETY_IDS.track]).toBe(0);
+    const afterFirstResolution = source.operationEntry.getSnapshot()!;
+    expect(afterFirstResolution.eventState.knownFactIds).toContain(ATOMIC_SCENE_DEMO_IDS.repairClueFact);
+    expect(afterFirstResolution.eventState.tracks[CAROUSEL_SAFETY_IDS.track]).toBe(0);
+    expect(afterFirstResolution.locationProgress[locationId]).toMatchObject({
+      completed: false,
+      completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene],
+      sceneActionBatchesUsedByScene: { [ATOMIC_SCENE_DEMO_IDS.scene]: 1 },
+    });
     expect(source.operationEntry.getView(runId)).toMatchObject({
       currentLocationId: locationId,
       currentSceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene,
@@ -97,25 +78,19 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
         { sceneId: ATOMIC_SCENE_DEMO_IDS.scene, status: 'completed' },
         { sceneId: ATOMIC_SCENE_DEMO_IDS.alarmScene, status: 'active' },
       ],
-      locationProgress: {
-        [locationId]: {
-          completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene],
-          sceneActionBatchesUsedByScene: { [ATOMIC_SCENE_DEMO_IDS.scene]: 2 },
-        },
-      },
       routeHistory: [],
     });
 
     expect(() => source.operationEntry.commitSceneActionBatch({
       runId,
-      planVersion: afterActorlessCard.planVersion,
+      planVersion: afterFirstResolution.planVersion,
       selections: [{
         sceneActionId: 'missing-scene-action',
         actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
         targetActorIds: [],
       }],
     })).toThrow();
-    expect(source.operationEntry.getSnapshot()).toEqual(afterActorlessCard);
+    expect(source.operationEntry.getSnapshot()).toEqual(afterFirstResolution);
     expect(firstResolution.sceneId).toBe(ATOMIC_SCENE_DEMO_IDS.scene);
     expect(source.operationEntry.getView(runId)).toMatchObject({
       currentLocationId: locationId,
@@ -129,7 +104,10 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
         [locationId]: {
           completed: false,
           completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene],
-          sceneActionBatchesUsedByScene: { [ATOMIC_SCENE_DEMO_IDS.scene]: 2 },
+          sceneActionBatchesUsedByScene: {
+            [ATOMIC_SCENE_DEMO_IDS.scene]: 1,
+            [ATOMIC_SCENE_DEMO_IDS.alarmScene]: 0,
+          },
         },
       },
       currentRoutes: [{ routeId: ATOMIC_SCENE_DEMO_IDS.route, targetLocationId: ATOMIC_SCENE_DEMO_IDS.exitLocation, available: false }],
@@ -268,7 +246,7 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
     }]);
     expect(finalResolution.sceneId).toBe(ATOMIC_SCENE_DEMO_IDS.alarmScene);
     expect(resumed.operationEntry.getView(runId)).toMatchObject({
-      status: 'inProgress',
+      status: 'success',
       currentLocationId: ATOMIC_SCENE_DEMO_IDS.exitLocation,
       currentRoutes: [],
       locationProgress: {
@@ -278,11 +256,11 @@ describe('Gameplay B same-Location multi-Scene sample', () => {
           result: 'success',
           completedSceneIds: [ATOMIC_SCENE_DEMO_IDS.scene, ATOMIC_SCENE_DEMO_IDS.alarmScene],
           sceneActionBatchesUsedByScene: {
-            [ATOMIC_SCENE_DEMO_IDS.scene]: 2,
+            [ATOMIC_SCENE_DEMO_IDS.scene]: 1,
             [ATOMIC_SCENE_DEMO_IDS.alarmScene]: 4,
           },
         },
-        [ATOMIC_SCENE_DEMO_IDS.exitLocation]: { visitCount: 1, completed: false },
+        [ATOMIC_SCENE_DEMO_IDS.exitLocation]: { visitCount: 1, completed: true, result: 'success' },
       },
       routeHistory: [{
         fromLocationId: locationId,

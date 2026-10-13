@@ -1,4 +1,6 @@
 import type { Datapack } from '../../../data-services/contracts/datapack';
+import { spot } from '../def-factory/spot';
+import { tagPath } from '../../../engine/core/tag';
 import type {
   OperationActionDef,
   OperationCardPoolDef,
@@ -458,7 +460,12 @@ export const gameplayBStrategyParkDatapack: Datapack = {
   modName: 'gameplay-b-strategy-park',
   name: 'Gameplay B Strategy Park Validation',
   version: '1.0.0',
-  inits: [], areas: [], spots: [], enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], funcletDefs: [], characters: [],
+  inits: [], areas: [],
+  spots: [spot('gameplay-b-strategy-park:spot:park_terminal', 'base:area:schale_main')
+    .name('园区巡查终端').desc('组织学生进入策略园巡查，或继续当前巡查进度。')
+    .cost(0).maxLevel(1).tags(tagPath('tactical'), tagPath('office'))
+    .operationEntry('strategy-park', eventDefinition.id).build()],
+  enhancements: [], activeStories: [], passiveStories: [], stories: [], items: [], funcletDefs: [], characters: [],
   operationEvents: [eventDefinition],
   operationLocations: [...locations],
   operationActions: [...actions],

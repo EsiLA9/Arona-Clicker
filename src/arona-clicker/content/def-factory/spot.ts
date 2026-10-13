@@ -67,6 +67,7 @@ export class SpotBuilder {
   hardResetInit(id: string): this { this._functionalities.push({ id, kind: 'hardResetInit' }); return this; }
   gacha(id: string): this { this._functionalities.push({ id, kind: 'gacha' }); return this; }
   shop(id: string, shopId: ShopId): this { this._functionalities.push({ id, kind: 'shop', shopId }); return this; }
+  operationEntry(id: string, operationEventId: string): this { this._functionalities.push({ id, kind: 'operationEntry', operationEventId }); return this; }
   gachaPools(...poolIds: GachaPoolId[]): this { this._gachaPools.push(...poolIds); return this; }
   reveal(target: RevealTarget, condition?: Condition | ConditionGroup): this { this._revealTriggers.push(condition ? { reveal: target, condition } : { reveal: target }); return this; }
   revealResource(target: RevealTarget, resourceId: string, amount: number): this { this._revealTriggers.push(revealResource(target, resourceId, amount)); return this; }

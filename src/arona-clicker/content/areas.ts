@@ -16,11 +16,7 @@ export const baseAreas: AreaDef[] = [
       { id: 'left.panel', parent: 'leftPanel', shape: 'rounded-parallelogram', decoration: { color: '#3b9eff', width: 1, opacity: 0.72, style: 'solid' }, textColorMode: 'auto' },
       { id: 'center.chat', parent: 'centerPanel', shape: 'rounded-rectangle', cornerRadius: 12, decoration: { color: '#8b5cf6', width: 1, inset: 2, opacity: 0.6, style: 'dashed' }, textColorMode: 'auto', states: { active: { textColorMode: 'light', decoration: { color: '#22d3ee', width: 2 } }, disabled: { textColorMode: 'dark', decoration: { opacity: 0.3 } } } },
       { id: 'right.panel', parent: 'rightPanel', shape: 'rounded-rectangle', cornerRadius: 10, decoration: { color: '#38bdf8', width: 1, opacity: 0.68, style: 'dotted' }, textColorMode: 'auto' },
-      // Keep the Hoshino image on the page-sized background; these local transparent layers prevent
-      // the global Area background stack from being copied into each panel background host.
-      { id: 'leftPanel.area', layers: [{ id: 'left-area-clear', kind: 'empty', value: '' }] },
-      { id: 'centerPanel.chat', layers: [{ id: 'center-chat-clear', kind: 'empty', value: '' }] },
-      { id: 'rightPanel.spot', layers: [{ id: 'right-spot-clear', kind: 'empty', value: '' }] },
+      // Hoshino stays on the page canvas. Panels without authored layers receive a theme-node base from the UI cascade service.
       { id: 'footer.send', parent: 'footer', shape: 'rounded-parallelogram', cornerRadius: 6, skewXDeg: -6, textColorMode: 'auto', states: { active: { layers: [{ id: 'send-active', kind: 'solid', value: '#3b9eff', opacity: 0.9 }] }, inactive: { layers: [{ id: 'send-inactive', kind: 'solid', value: '#94a3b8', opacity: 0.5 }] } } },
       { id: 'modal.choice', parent: 'modal', shape: 'rounded-rectangle', cornerRadius: 14, decoration: { color: '#f59e0b', width: 2, opacity: 0.7, style: 'solid' }, textColorMode: 'auto' },
     ],

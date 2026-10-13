@@ -265,15 +265,6 @@ h3 {
    font-size: 8px;
 }
 
-.resource-bar .primary-button {
-   margin-left: auto;
-   min-height: 26px;
-   padding: 0 10px;
-   font-size: 10px;
-   border-radius: 8px;
-   box-shadow: none;
-}
-
 .manager-chip small,
 .trace small {
    display: block;

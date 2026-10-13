@@ -3,6 +3,7 @@ import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstr
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
+import { REST_SCENE_DEMO_IDS as REST_IDS } from '../../src/arona-clicker/content/operation-samples/rest-scene-demo';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import { Character } from '../../src/arona-clicker/types/ids';
 import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
@@ -73,6 +74,86 @@ describe('Gameplay B Save/Resume', () => {
     expect(resumed.operationEntry.commitStagedSceneActionBatch(command))
       .toEqual(source.operationEntry.commitStagedSceneActionBatch(command));
     expect(resumed.operationEntry.getSnapshot()).toEqual(source.operationEntry.getSnapshot());
+  });
+
+  test('keeps automatic Rest plans deterministic across save/resume and commits them with one Player SceneCard', () => {
+    const source = createGame();
+    const students = [Character.Hoshino, Character.Serika] as const;
+    const runId = source.operationEntry.start(REST_IDS.event, students).runId;
+    const initialView = source.operationEntry.getView(runId)!;
+    expect(initialView).toMatchObject({
+      currentSceneId: REST_IDS.scene,
+      currentScene: { autoCharacterActions: true, completion: { kind: 'track', trackId: REST_IDS.track, operator: 'gte', value: 4 } },
+      currentActionMode: 'global',
+      sceneActionBatchesUsed: 0,
+      sceneActionBatchesRemaining: null,
+      playerCost: 2,
+    });
+    expect(initialView.playerCards.hand).toHaveLength(2);
+    expect(initialView.playerCards.drawPileCount).toBe(0);
+    const hoshino = initialView.actorStates.find(actor => actor.id === CAROUSEL_SAFETY_IDS.actors.hoshino)!;
+    const serika = initialView.actorStates.find(actor => actor.id === CAROUSEL_SAFETY_IDS.actors.serika)!;
+    expect(hoshino.characterHand?.actionIds).toHaveLength(2);
+    expect(serika.characterHand?.actionIds).toHaveLength(2);
+    expect(hoshino.currentPlan).toMatchObject({ kind: 'studentAction', targetActorId: CAROUSEL_SAFETY_IDS.actors.serika });
+    expect([REST_IDS.actions.care, REST_IDS.actions.tea]).toContain(hoshino.currentPlan!.actionId);
+    expect(serika.currentPlan?.kind).toBe('studentAction');
+    expect(initialView.interventionDraft).toBeNull();
+
+    const firstResolution = source.operationEntry.commitSceneActionBatch({
+      runId,
+      planVersion: initialView.planVersion,
+      selections: [],
+      cards: [],
+      purchases: [],
+    });
+    const firstBatch = source.operationEntry.getSnapshot()!;
+    expect(firstBatch.status).toBe('inProgress');
+    expect(firstBatch.eventState.tracks[REST_IDS.track]).toBe(3);
+    expect(firstResolution.actorPlans).toEqual(expect.arrayContaining([
+      expect.objectContaining({ actorId: CAROUSEL_SAFETY_IDS.actors.hoshino, actionId: hoshino.currentPlan!.actionId, targetActorId: CAROUSEL_SAFETY_IDS.actors.serika }),
+      expect.objectContaining({ actorId: CAROUSEL_SAFETY_IDS.actors.serika, actionId: serika.currentPlan!.actionId }),
+    ]));
+    expect(firstResolution.sceneBatch?.selections).toContainEqual(expect.objectContaining({ sceneActionId: REST_IDS.sceneAction }));
+    expect(source.operationEntry.getView(runId)?.playerCards.hand.map(card => card.cardInstanceId))
+      .toEqual(initialView.playerCards.hand.map(card => card.cardInstanceId));
+    const nextHandView = source.operationEntry.getView(runId)!;
+    expect(nextHandView.actorStates.find(actor => actor.id === CAROUSEL_SAFETY_IDS.actors.hoshino)?.characterHand?.actionIds)
+      .not.toEqual(hoshino.characterHand?.actionIds);
+    expect(nextHandView.actorStates.find(actor => actor.id === CAROUSEL_SAFETY_IDS.actors.serika)?.characterHand?.actionIds)
+      .not.toEqual(serika.characterHand?.actionIds);
+
+    const save = source.save();
+    const resumed = createGame();
+    resumed.load(save);
+    expect(resumed.operationEntry.getLastRestoreResult()).toEqual({ status: 'restored', eventId: REST_IDS.event, runId });
+    expect(resumed.operationEntry.getSnapshot()).toEqual(firstBatch);
+    expect(resumed.operationEntry.getView(runId)).toEqual(source.operationEntry.getView(runId));
+
+    const secondView = resumed.operationEntry.getView(runId)!;
+    const selectedCard = secondView.playerCards.hand[0]!;
+    const nextCommand = {
+      runId,
+      planVersion: secondView.planVersion,
+      selections: [],
+      cards: [{ cardInstanceId: selectedCard.cardInstanceId, targetActorIds: [] }],
+      purchases: [],
+    } as const;
+    expect(resumed.operationEntry.commitSceneActionBatch(nextCommand))
+      .toEqual(source.operationEntry.commitSceneActionBatch(nextCommand));
+    const completed = resumed.operationEntry.getView(runId)!;
+    expect(completed).toMatchObject({
+      status: 'success',
+      tracks: { [REST_IDS.track]: 4 },
+      playerCost: 1,
+    });
+    expect(completed.playerCards.hand).toHaveLength(1);
+    expect(completed.playerCards.hand[0]?.cardInstanceId).not.toBe(selectedCard.cardInstanceId);
+    const resolution = completed.resolutions.at(-1)!;
+    expect(resolution.actorPlans.filter(plan => plan.participantKind === 'student' && plan.kind === 'studentAction'))
+      .toHaveLength(2);
+    expect(resolution.sceneBatch?.cards).toEqual([expect.objectContaining({ cardInstanceId: selectedCard.cardInstanceId })]);
+    expect(completed.currentScene).toBeNull();
   });
 
   test('rejects a pre-Scene-identity checkpoint version without migrating its Resolution history', () => {

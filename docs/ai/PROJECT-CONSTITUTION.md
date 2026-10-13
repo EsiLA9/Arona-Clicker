@@ -1,14 +1,14 @@
 # docs/ai/PROJECT-CONSTITUTION — AI 施工纪律
 
 > 本文定义受范围约束的施工 Unit 如何工作，**从属于 [[AGENTS.md]]**，不是第二事实源。
-> 架构硬约束、开发命令、禁改清单与 Schema 同步协议一律以 `AGENTS.md`、[[docs/docs-829/05-conventions/architecture-discipline]] 和 [[docs/docs-829/05-conventions/schema-sync]] 为权威，本文**不复述**；需要时按路径读取原文。docs-828 保留为历史快照，不作为当前规则来源。
+> 架构边界、Schema 同步、文档维护与测试验证分别以 [[docs/docs-829/05-conventions/architecture-discipline]]、[[docs/docs-829/05-conventions/schema-sync]]、[[docs/docs-829/05-conventions/doc-maintenance]]、[[docs/docs-829/05-conventions/testing]] 为权威；命令以 `package.json` 为准，禁改路径见 `AGENTS.md`。本文**不复述**；需要时按路径读取原文。docs-828 保留为历史快照，不作为当前规则来源。
 > 本文只补充 `AGENTS.md` 未覆盖的**Unit 施工纪律**。两者冲突时，以 `AGENTS.md` 为准；GALHCG 的项目发现与地图维护按 [[docs/ai/galhcg-project-map]]。
 
 ## 适用与权威
 
 | 信息 | 权威来源 | 施工中的用法 |
 | --- | --- | --- |
-| 架构 / 机制 / 命令 / 禁改清单 | `AGENTS.md`、[[docs/docs-829/00-INDEX]] 及其路由到的当前页面 | 直接读原文；Unit 只给链接，不复制正文 |
+| 架构 / 机制 / 命令 / 禁改清单 | `AGENTS.md` 路由的当前规范、源码与 `package.json` | 按命中主题读原文；Unit 只给链接，不复制正文 |
 | 当前代码事实 | 源码与测试 | 写入 `Confirmed Facts` 时必须带路径与符号 |
 | 已裁定的未来设计 | 当前 Draft / ADR / Task 的明确裁定 | 仅在需要时进入 `Constraints`，附链接；归档状态不表示实现 |
 | 本次实际进展 | Patch、测试结果、Receipt | 仅对当前 Unit 有效，不自动升级为项目规则 |

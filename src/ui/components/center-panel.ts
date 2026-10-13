@@ -71,7 +71,6 @@ export function renderChatTab(
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
   const launcher = story ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
-  const operationEntry = renderOperationEntry(ctx);
   const send = renderSendButton(sendState, sendGate);
 
   // 聊天流与回复按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧，
@@ -83,7 +82,6 @@ export function renderChatTab(
       <div class="chat-stream">
         ${history}
         ${current}
-        ${operationEntry}
         ${launcher}
       </div>
       ${renderChatTexts(ctx, chatTexts)}
@@ -91,35 +89,6 @@ export function renderChatTab(
       ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
       ${send}
     </div>`;
-}
-
-function renderOperationEntry(ctx: UIContext): string {
-  if (ctx.view.activeInit !== 'base:init:schale_office') return '';
-  const current = ctx.game.operationEntry.getView();
-  const entries = ctx.game.operationEntry.getLaunchEntries();
-  const cards = entries.map(entry => {
-    const title = entry.title ?? entry.eventId;
-    const admission = entry.admission;
-    const sameEvent = current?.eventId === entry.eventId ? current : null;
-    const anotherRunInProgress = current?.status === 'inProgress' && !sameEvent;
-    const action = sameEvent
-      ? `<button type="button" class="primary-button" data-operation-resume-run="${ctx.escapeHtml(sameEvent.runId)}" data-operation-event-id="${ctx.escapeHtml(entry.eventId)}"><span>${sameEvent.status === 'inProgress' ? `继续${title}` : '查看行动结论'}</span><span>↗</span></button>`
-      : `<button type="button" class="primary-button" data-operation-start="${ctx.escapeHtml(entry.eventId)}" data-operation-character-ids="${ctx.escapeHtml(JSON.stringify(entry.characterIds))}"${admission.available && !anotherRunInProgress ? '' : ' disabled'}><span>${anotherRunInProgress ? '先处理进行中的行动' : admission.available ? `开始${title}` : '暂不可出动'}</span><span>↗</span></button>`;
-    const roster = admission.participants.map(actor => ctx.escapeHtml(actor.displayName)).join('、');
-    const unavailableReason = anotherRunInProgress ? '当前有一场尚未完成的行动，请先继续或完成它。' : admission.unavailableReason;
-    const unavailable = unavailableReason ? `<p class="operation-admission-reason" role="status">${ctx.escapeHtml(unavailableReason)}</p>` : '';
-    return `
-      <section class="chat-launcher operation-entry-card" data-operation-entry="${ctx.escapeHtml(entry.eventId)}">
-        <span class="operation-eyebrow">Operation · 行动</span>
-        <strong>${ctx.escapeHtml(title)}</strong>
-        <p>${ctx.escapeHtml(entry.description ?? '按当前地点和场景提示完成本次行动。')}</p>
-        <p>固定出动：${roster}。试玩不会自动补发角色。</p>
-        ${unavailable}
-        <div class="story-actions">${action}</div>
-      </section>`;
-  }).join('');
-  return `
-    <div class="operation-entry-list" data-operation-entries>${cards}</div>`;
 }
 
 function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeCompleted: boolean): string {

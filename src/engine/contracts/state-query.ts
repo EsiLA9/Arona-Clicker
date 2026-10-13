@@ -39,9 +39,8 @@ export interface TriggerState extends ConditionState {
   triggersCompleted?: string[];
 }
 
-/** Spot 功能派生所需的强化与动态标签状态。 */
-export interface FunctionalityState {
-  unlockedEnhancements: EnhancementId[];
+/** Spot 功能准入与派生所需的条件、强化与动态标签状态。 */
+export interface FunctionalityState extends ConditionState {
   spotTagOverrides?: Record<string, SpotTagOverrideState>;
 }
 

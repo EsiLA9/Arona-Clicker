@@ -323,6 +323,8 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-restart-init]').forEach(button => {
     button.addEventListener('click', () => {
+      const spot = ctrl.game.world.spots.get(button.dataset.restartInit ?? '');
+      if (!spot || !ctrl.game.spotFunctionalitySystem.hasFunctionality(spot, ctrl.game.state, 'restartInit')) return;
       // 不立即调用 restartInit（会清资源），仅在控制器标记待重启。
       // 玩家在 InitSelect 中选卡 / 购买时再真正执行 restartInit + resumeInit。
       ctrl.started = false;
@@ -333,6 +335,8 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-hard-reset-init]').forEach(button => {
     button.addEventListener('click', () => {
+      const spot = ctrl.game.world.spots.get(button.dataset.hardResetInit ?? '');
+      if (!spot || !ctrl.game.spotFunctionalitySystem.hasFunctionality(spot, ctrl.game.state, 'hardResetInit')) return;
       // 硬重置仍需立即清档（放弃快照），但保留 unlockedInits 与统计。
       ctrl.commands.hardRestartInit();
       ctrl.started = false;

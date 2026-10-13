@@ -316,7 +316,7 @@ export class UIController {
     focus: OperationFocusTarget | null;
     notice: string | null;
   } | null = null;
-  private operationFocusAfterRender: 'commit' | 'entry' | null = null;
+  private operationFocusAfterRender: 'commit' | { eventId: string | null } | null = null;
   private lastLogEntryId = -1;
   /** @internal 主题浮窗：跨 render 全量重建 #app 保留其开关键与位置（供 controller-theme / controller-actions-topbar 读写）。 */
   themeFloatOpen = false;
@@ -1008,8 +1008,9 @@ export class UIController {
     const operationFocus = focusAfterRender === 'commit'
       ? this.root.querySelector<HTMLElement>('[data-operation-commit]:not(:disabled)')
         ?? this.root.querySelector<HTMLElement>('[data-operation-commit-dock]')
-      : focusAfterRender === 'entry'
-        ? this.root.querySelector<HTMLElement>('[data-operation-start], [data-operation-resume-run]')
+      : focusAfterRender
+        ? [...this.root.querySelectorAll<HTMLElement>('[data-operation-resume-run]:not(:disabled), [data-operation-start]:not(:disabled)')]
+          .find(button => (button.dataset.operationEventId ?? button.dataset.operationStart) === focusAfterRender.eventId) ?? null
         : null;
     if (operationFocus) {
       if (!operationFocus.hasAttribute('tabindex') && operationFocus.matches('[data-operation-commit-dock]')) operationFocus.tabIndex = -1;
@@ -1861,7 +1862,9 @@ export class UIController {
   disposeWorkspace(): void {
     const workspace = this.panelState.workspace;
     if (!workspace) return;
-    if (workspace.type === 'operation') this.operationFocusAfterRender = 'entry';
+    if (workspace.type === 'operation') {
+      this.operationFocusAfterRender = { eventId: this.game.operationEntry.getView(workspace.runId)?.eventId ?? null };
+    }
     if (workspace.type === 'shop') {
       workspace.session.clear();
       this.game.colorSystem.popEphemeralTheme(workspace.themeId);

@@ -515,8 +515,19 @@ export function prepareOperationBeat(
   }
 
   const actorPlans: OperationPreparedActorPlan[] = [];
+  let selectedActorIds: Set<string> | null = null;
+  if (snapshot.actorIds !== undefined) {
+    if (!Array.isArray(snapshot.actorIds) || new Set(snapshot.actorIds).size !== snapshot.actorIds.length) {
+      fail('snapshot.actorIds must contain unique declared Actor IDs');
+    }
+    selectedActorIds = new Set(snapshot.actorIds);
+    for (const actorId of selectedActorIds) {
+      if (!indexes.actorsById.has(actorId)) fail('snapshot.actorIds references an undeclared Actor: ' + actorId);
+    }
+  }
   for (const actorDefinition of content.eventDefinition.actors) {
     const actorId = actorDefinition.id;
+    if (selectedActorIds && !selectedActorIds.has(actorId)) continue;
     const actorState = indexes.actorsById.get(actorId)!;
     const initialization = indexes.initializationsByActorId.get(actorId)!;
     const candidateSet = candidateActionsForActor(

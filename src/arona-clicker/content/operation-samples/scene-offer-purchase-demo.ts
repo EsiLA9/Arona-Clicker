@@ -207,6 +207,10 @@ export const sceneOfferPurchaseDemoExitLocation: OperationLocationDef = {
   stage: 'scene',
   enabledActionIds: [],
   combinationRules: [],
+  objectives: [
+    { id: 'exit-water-delivered', description: 'Water remains delivered.', kind: 'primary', predicate: { kind: 'knownFact', factId: ids.waterFact, present: true } },
+    { id: 'exit-medkit-delivered', description: 'The medkit remains delivered.', kind: 'primary', predicate: { kind: 'knownFact', factId: ids.medkitFact, present: true } },
+  ],
   routeEdges: [],
 };
 
@@ -222,6 +226,10 @@ export const sceneOfferPurchaseDemoEvent: OperationEventContentDef = {
   tracks: [{ id: ids.track, initial: 0, min: 0, max: 20 }],
   factIds: [ids.waterFact, ids.medkitFact],
   knownFactIds: [],
+  objectives: [
+    { id: 'event-water-delivered', description: 'The emergency water was purchased.', kind: 'primary', predicate: { kind: 'knownFact', factId: ids.waterFact, present: true } },
+    { id: 'event-medkit-delivered', description: 'The field medkit was purchased.', kind: 'primary', predicate: { kind: 'knownFact', factId: ids.medkitFact, present: true } },
+  ],
   itemIds: [ids.waterItem, ids.medkitItem],
   heldItemIds: [],
   actors: [studentActor],

@@ -743,10 +743,6 @@
       border-bottom: 0;
    }
 
-   .resource-bar .primary-button {
-      margin-left: 0;
-   }
-
    .story-actions {
       justify-content: flex-start;
       margin-top: 14px;

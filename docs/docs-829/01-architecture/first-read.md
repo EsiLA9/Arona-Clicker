@@ -62,6 +62,8 @@ flowchart TD
 
 ## 建议阅读顺序
 
+以下是第一次系统学习的路线，不是日常任务的必读清单；已知领域的改动从 [[AGENTS.md]] 直达对应子题。
+
 1. **先看整体：** [[docs/docs-829/01-architecture/overview]] 与 [[docs/docs-829/01-architecture/dependency-map]]。前者讲运行层次，后者讲源码依赖方向。
 2. **再跟启动：** [[docs/docs-829/01-architecture/run-logic]] → [[docs/docs-829/06-wiki/10-application-runtime/startup-and-composition]] → `src/ui/main.ts`、`src/app/runtime-bootstrap.ts`。
 3. **理解内容装载：** [[docs/docs-829/06-wiki/20-data-services/00-index]] → [[docs/docs-829/03-data-structures/registry]] → [[pack-loading]]。

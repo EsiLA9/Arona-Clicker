@@ -430,6 +430,7 @@ function validateOperationLocalReferences(data: DatapackData): ValidationIssue[]
     const factIds = stringIdSet(event.factIds);
     const knownFactIds = stringIdSet(event.knownFactIds);
     const itemIds = stringIdSet(event.itemIds);
+    const hasEventHardFailure = Array.isArray(event.hardFailureConditions) && event.hardFailureConditions.length > 0;
     if (typeof event.initialLocationId === 'string' && !eventLocationIds.has(event.initialLocationId)) {
       push(issues, 'operationEvents', eventIndex, `${eventPath}.initialLocationId`, `初始地点 ID "${event.initialLocationId}" 不在此 Event 的 locationIds 中`);
     }
@@ -492,6 +493,23 @@ function validateOperationLocalReferences(data: DatapackData): ValidationIssue[]
       if (!locationEntry) continue; // Global ref validation reports the missing Location ID.
       const location = locationEntry.row;
       const locationPath = `operationLocations[${locationEntry.index}]`;
+      const hasLocationOutcome = (Array.isArray(location.objectives)
+        && location.objectives.some(objective => isObj(objective) && objective.kind === 'primary'))
+        || (Array.isArray(location.partialOutcomes) && location.partialOutcomes.length > 0)
+        || (Array.isArray(location.failureConditions) && location.failureConditions.length > 0);
+      const hasLocationSceneBatchSource = (location.actionMode === 'individual' || location.actionMode === 'global')
+        && (Array.isArray(location.sceneActions) && location.sceneActions.length > 0
+          || Array.isArray(location.purchaseOffers) && location.purchaseOffers.length > 0);
+      if (location.stage === 'scene' && Array.isArray(location.scenes)
+        && !hasLocationOutcome && !hasEventHardFailure) {
+        push(issues, 'operationLocations', locationEntry.index, locationPath,
+          '显式 Scene 序列必须声明 Location 完成/失败条件或 Event hard failure 出口');
+      }
+      if (location.stage === 'scene' && !Array.isArray(location.scenes)
+        && !hasLocationSceneBatchSource && !hasLocationOutcome && !hasEventHardFailure) {
+        push(issues, 'operationLocations', locationEntry.index, locationPath,
+          '场景地点没有 SceneAction/PurchaseOffer 或基于结果条件的推进来源');
+      }
 
       for (const [routeIndex, edge] of (Array.isArray(location.routeEdges) ? location.routeEdges : []).entries()) {
         if (!isObj(edge)) continue;
@@ -512,6 +530,13 @@ function validateOperationLocalReferences(data: DatapackData): ValidationIssue[]
 
       const visitScene = (scene: unknown, scenePath: string): void => {
         if (!isObj(scene)) return;
+        const sceneHasBatchSource = scene.autoCharacterActions === true || ((scene.actionMode === 'individual' || scene.actionMode === 'global')
+          && (Array.isArray(scene.sceneActions) && scene.sceneActions.length > 0
+            || Array.isArray(scene.purchaseOffers) && scene.purchaseOffers.length > 0));
+        if (location.stage === 'scene' && !sceneHasBatchSource) {
+          push(issues, 'operationLocations', locationEntry.index, scenePath,
+            '场景缺少 SceneAction、PurchaseOffer 或 Character 自动行动批次来源');
+        }
         issues.push(...validateSceneChoice(
           scene.sceneActionChoice,
           scene.sceneActions,

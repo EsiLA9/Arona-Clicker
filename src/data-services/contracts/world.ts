@@ -116,10 +116,15 @@ export interface SpotDef {
 
 export interface SpotFunctionalityDef {
   id: string;
+  /** 默认 true；为 false 时可在未持有 Spot 时纳入可用功能列表。 */
+  requiresOwned?: boolean;
   condition?: ConditionGroup;
-  kind: 'flow' | 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop';
+  /** operationEntry 是统一的关卡入口功能；每个按钮配置一个目标，不按关卡扩展类型。 */
+  kind: 'flow' | 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop' | 'operationEntry';
   /** @ref shops */
   shopId?: ShopId;
+  /** operationEntry 的目标关卡；阵容、标题与准入状态由行动入口查询提供。 @ref operationEvents */
+  operationEventId?: string;
   resource?: string;
   amount?: number | ValueExpression;
   amountPerLevel?: number;

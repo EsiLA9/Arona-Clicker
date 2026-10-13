@@ -87,10 +87,6 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
   scope.querySelectorAll<HTMLButtonElement>('[data-topbar-action="inventory"]').forEach(button => {
     button.addEventListener('click', () => navigateFromTopbar(ctrl, 'inventory'));
   });
-  scope.querySelector('#tick-now')?.addEventListener('click', () => {
-    ctrl.commands.tick();
-    ctrl.refreshLight();
-  });
   scope.querySelector('#collection-modal')?.addEventListener('click', () => {
     openCollectionModal(ctrl.modal, ctrl.game);
   });

@@ -30,6 +30,11 @@
    opacity: .72;
 }
 
+/* ThemeCascadeService 基底是面板自己的实体色，不透出页面级图片。 */
+.console-panel-background:has([data-theme-cascade-base="true"]) {
+   opacity: 1;
+}
+
 .panel > :not(.console-panel-background) {
    position: relative;
    z-index: 1;

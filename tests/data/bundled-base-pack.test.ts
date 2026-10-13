@@ -11,11 +11,11 @@ describe('发布基础数据包', () => {
     expect(bundledContent.pics?.every(pic => !pic.src.startsWith('zip:'))).toBe(true);
   });
 
-  test('Schale 主厅的面板清空层使用 empty 类型，避免背景回退渐变', () => {
+  test('Schale 主厅不再声明面板清空层，由 UI 主题服务生成主题色基底', () => {
     const area = bundledContent.areas.find(item => item.id === 'base:area:schale_main');
     const hosts = area?.presentation?.default?.theme?.presentation?.hosts ?? [];
     for (const hostId of ['leftPanel.area', 'centerPanel.chat', 'rightPanel.spot']) {
-      expect(hosts.find(host => host.id === hostId)?.layers?.[0]).toMatchObject({ kind: 'empty' });
+      expect(hosts.some(host => host.id === hostId)).toBe(false);
     }
   });
 

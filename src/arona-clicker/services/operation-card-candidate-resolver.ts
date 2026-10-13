@@ -10,7 +10,7 @@ import type {
   OperationEventDef,
   OperationStudentProfileSnapshot,
 } from '../contracts/operation';
-import { operationCharacterHandWordAt } from './operation-tactical-rng';
+import { operationCharacterHandWordAt, operationCharacterSceneHandWordAt } from './operation-tactical-rng';
 
 const NEUTRAL_BIAS_BPS = 10000;
 const LEGACY_ENTRY_WEIGHT = 10000;
@@ -28,6 +28,13 @@ export interface OperationCardCandidateResolutionInput {
   readonly strategyProfile?: OperationStrategyProfileDef;
   readonly seed: number;
   readonly beatIndex: number;
+  /** Scene-local deterministic Hand context; when present, beatIndex is ignored for Hand draws. */
+  readonly sceneHandContext?: {
+    readonly locationId: string;
+    readonly sceneId: string;
+    readonly visitCount: number;
+    readonly sceneBatchCount: number;
+  };
   readonly handSize?: number;
   /** Pure target/cost gate supplied by the Operation planner; any reasons exclude the Action. */
   readonly getActionBlockReasons?: (action: OperationActionDef) => readonly string[];
@@ -205,7 +212,10 @@ function sampleBelow(input: OperationCardCandidateResolutionInput, cursor: { val
   const threshold = (1n << 64n) % bound;
   while (true) {
     if (cursor.value >= Number.MAX_SAFE_INTEGER) fail('Character Hand sample cursor overflow');
-    const word = operationCharacterHandWordAt(input.seed, input.actorId, input.beatIndex, cursor.value++);
+    const word = input.sceneHandContext
+      ? operationCharacterSceneHandWordAt(input.seed, input.actorId, input.sceneHandContext.locationId,
+        input.sceneHandContext.sceneId, input.sceneHandContext.visitCount, input.sceneHandContext.sceneBatchCount, cursor.value++)
+      : operationCharacterHandWordAt(input.seed, input.actorId, input.beatIndex, cursor.value++);
     if (word >= threshold) return word % bound;
   }
 }

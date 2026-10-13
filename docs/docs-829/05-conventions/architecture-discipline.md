@@ -6,6 +6,7 @@
 
 - 产品业务状态写入集中经 `StateMutationService`；Engine 只依赖最小写入 Port，不依赖 AronaClicker 服务实现。
 - 跨系统联动优先通过 EventBus、Trigger、Effect 或 Affector 契约连接，避免在组合门面集中硬编码业务反应。
+- 新增运行时事件时登记 `EVENT_CATALOG`，并核对发布者与订阅者。
 - 新机制优先由 Datapack 声明；改变 Schema 字段后同步生成的编辑器协议。
 - UI 组件消费 `GameReadModel` / `UIContext`；用户命令经 Controller 与 `GameCommands` 进入产品 Runtime。
 - 新状态字段先确定 global、per-Init snapshot 或 per-Init current 的生命周期归属。

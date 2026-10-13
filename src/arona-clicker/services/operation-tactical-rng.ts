@@ -15,6 +15,8 @@ export const OPERATION_TACTICAL_RNG_GAMMA = 0x9E3779B97F4A7C15n;
 export const OPERATION_TACTICAL_RNG_STREAM_TAG = 0x746163746963616cn;
 /** ASCII "charhand"; independent of the committed tactical skill stream. */
 export const OPERATION_CHARACTER_HAND_RNG_STREAM_TAG = 0x6368617268616e64n;
+/** ASCII "scenehan"; Scene Hands are counter-addressed independently of Combat beatIndex. */
+export const OPERATION_CHARACTER_SCENE_HAND_RNG_STREAM_TAG = 0x7363656e6568616en;
 
 const MIX_MULTIPLIER_1 = 0xBF58476D1CE4E5B9n;
 const MIX_MULTIPLIER_2 = 0x94D049BB133111EBn;
@@ -74,6 +76,20 @@ function stableActorKey(actorId: string): bigint {
   return hash;
 }
 
+function stableSceneHandContextKey(values: readonly (string | number)[]): bigint {
+  let hash = 0xcbf29ce484222325n;
+  for (const value of values) {
+    const encoded = String(value);
+    hash ^= BigInt(encoded.length);
+    hash = (hash * 0x100000001b3n) & OPERATION_TACTICAL_RNG_MASK;
+    for (let index = 0; index < encoded.length; index += 1) {
+      hash ^= BigInt(encoded.charCodeAt(index));
+      hash = (hash * 0x100000001b3n) & OPERATION_TACTICAL_RNG_MASK;
+    }
+  }
+  return hash;
+}
+
 /** Pure, counter-addressed Hand word; it never shares or advances tacticalCursor. */
 export function operationCharacterHandWordAt(seed: number, actorId: string, beatIndex: number, wordCursor: number): bigint {
   if (!Number.isSafeInteger(seed)) fail('seed must be a safe integer');
@@ -83,6 +99,31 @@ export function operationCharacterHandWordAt(seed: number, actorId: string, beat
   const seedWord = BigInt.asUintN(64, BigInt(seed));
   const beatWord = BigInt(beatIndex);
   const keyedSeed = mix64(seedWord ^ OPERATION_CHARACTER_HAND_RNG_STREAM_TAG ^ stableActorKey(actorId) ^ mix64(beatWord));
+  const counter = BigInt(wordCursor) + 1n;
+  const input = (keyedSeed + OPERATION_TACTICAL_RNG_GAMMA * counter) & OPERATION_TACTICAL_RNG_MASK;
+  return mix64(input);
+}
+
+/** Pure Scene-round Hand word keyed by the committed Run/Location/Scene visit context. */
+export function operationCharacterSceneHandWordAt(
+  seed: number,
+  actorId: string,
+  locationId: string,
+  sceneId: string,
+  visitCount: number,
+  sceneBatchCount: number,
+  wordCursor: number,
+): bigint {
+  if (!Number.isSafeInteger(seed)) fail('seed must be a safe integer');
+  if (!isNonEmptyId(actorId) || !isNonEmptyId(locationId) || !isNonEmptyId(sceneId)) {
+    fail('Scene Hand Actor/Location/Scene IDs must be non-empty');
+  }
+  for (const [label, value] of [['visitCount', visitCount], ['sceneBatchCount', sceneBatchCount], ['wordCursor', wordCursor]] as const) {
+    if (!Number.isSafeInteger(value) || value < 0) fail(label + ' must be a non-negative safe integer');
+  }
+  const contextKey = stableSceneHandContextKey([actorId, locationId, sceneId, visitCount, sceneBatchCount]);
+  const seedWord = BigInt.asUintN(64, BigInt(seed));
+  const keyedSeed = mix64(seedWord ^ OPERATION_CHARACTER_SCENE_HAND_RNG_STREAM_TAG ^ contextKey);
   const counter = BigInt(wordCursor) + 1n;
   const input = (keyedSeed + OPERATION_TACTICAL_RNG_GAMMA * counter) & OPERATION_TACTICAL_RNG_MASK;
   return mix64(input);

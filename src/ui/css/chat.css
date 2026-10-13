@@ -140,17 +140,6 @@
    border-radius: 12px;
 }
 
-.operation-entry-list {
-   display: flex;
-   flex-direction: column;
-   gap: 10px;
-   margin-top: auto;
-}
-
-.operation-entry-list .operation-entry-card {
-   margin-top: 0;
-}
-
 .chat-launcher strong {
    display: block;
    font-size: 13px;

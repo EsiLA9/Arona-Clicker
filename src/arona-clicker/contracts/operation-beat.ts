@@ -20,6 +20,8 @@ export interface OperationPreparationSnapshot {
   /** Indexed by actorId; Event actor declaration order remains the execution order. */
   readonly actors: readonly OperationPreparationActorSnapshot[];
   readonly teams: readonly OperationTeamState[];
+  /** Optional subset for Scene batches; omitted preserves full Event actor preparation (Combat). */
+  readonly actorIds?: readonly string[];
   /** Present on standard Runs; when present it is the hard per-student Action choice boundary. */
   readonly studentActionIdsByActorId?: Readonly<Record<string, readonly string[]>>;
 }

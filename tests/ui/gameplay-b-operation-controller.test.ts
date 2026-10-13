@@ -4,7 +4,7 @@ import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { CAROUSEL_SAFETY_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-safety-ids';
 import { SCENE_OFFER_PURCHASE_DEMO_IDS as OFFER_DEMO_IDS } from '../../src/arona-clicker/content/operation-samples/scene-offer-purchase-demo';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { GAMEPLAY_B_OPERATION_SPOT_ID, gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { gameplayBStrategyParkDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-strategy-park';
 import { GAMEPLAY_B_STRATEGY_PARK_IDS as PARK_IDS } from '../../src/arona-clicker/content/operation-samples/gameplay-b-strategy-park-ids';
 import { Character } from '../../src/arona-clicker/types/ids';
@@ -89,6 +89,41 @@ describe('Gameplay B Operation Controller', () => {
     root.querySelector<HTMLButtonElement>('[data-operation-start]')!.click();
     expect(controller.panelState.workspace?.type).toBe('operation');
   }
+
+  it('关卡按钮只存在于 Spot，篡改目标绑定不能启动其他关卡', () => {
+    acquireStudents();
+    expect(root.querySelector('.chat-stream [data-operation-entry]')).toBeNull();
+    const button = root.querySelector<HTMLButtonElement>(`[data-operation-start="${IDS.event}"]`)!;
+    expect(button.closest('[data-ui-spot-card]')?.getAttribute('data-ui-spot-card')).toBe(GAMEPLAY_B_OPERATION_SPOT_ID);
+    button.dataset.operationStart = OFFER_DEMO_IDS.event;
+    const history = [...controller.panelState.chatEntries];
+    button.click();
+    expect(game.operationEntry.getView()).toBeNull();
+    expect(controller.panelState.chatEntries).toEqual(history);
+  });
+
+  it('功能条件重新校验，旧按钮不能绕过已变更的入口条件', () => {
+    acquireStudents();
+    const spot = game.registry.spots.get(GAMEPLAY_B_OPERATION_SPOT_ID)!;
+    const fn = spot.functionalities!.find(item => item.operationEventId === IDS.event)!;
+    const button = root.querySelector<HTMLButtonElement>(`[data-operation-start="${IDS.event}"]`)!;
+    const previousCondition = fn.condition;
+    try {
+      // 按钮渲染后变更功能条件，点击时仍须核对当前声明。
+      fn.condition = { type: 'AND', conditions: [{ target: 'flag', key: 'entry-ready', comparator: '==', value: 1 }] };
+      button.click();
+      expect(game.operationEntry.getView()).toBeNull();
+      controller.render();
+      expect(root.querySelector<HTMLButtonElement>(`[data-operation-start="${IDS.event}"]`)?.disabled).toBe(true);
+      game.mutations.setFlag('entry-ready', '1');
+      controller.render();
+      root.querySelector<HTMLButtonElement>(`[data-operation-start="${IDS.event}"]`)!.click();
+      expect(game.operationEntry.getView()?.eventId).toBe(IDS.event);
+    } finally {
+      if (previousCondition) fn.condition = previousCondition;
+      else delete fn.condition;
+    }
+  });
 
   function selectActionIfNotCurrent(actionId: string): void {
     const option = root.querySelector<HTMLButtonElement>(
@@ -175,6 +210,9 @@ describe('Gameplay B Operation Controller', () => {
     start.click();
     const runId = controller.panelState.workspace?.type === 'operation' ? controller.panelState.workspace.runId : '';
     expect(runId).not.toBe('');
+    expect(root.querySelector('[data-operation-fixed-scene-action="' + OFFER_DEMO_IDS.fixedBriefing + '"]')).not.toBeNull();
+    expect(root.querySelector('[data-card-kind="scene-character-action"]')).toBeNull();
+    expect(root.querySelector('[data-operation-scene-plan-state]')).toBeNull();
     expect(root.querySelector('[data-operation-choice-group]')?.textContent).toContain('恰好选择 2 项');
     expect(root.querySelector('[data-scene-choice-count]')?.textContent).toContain('0 / 2');
     expect(root.querySelector('[data-operation-cost-preview]')?.textContent).toContain('恰好选择 2 项');
@@ -272,7 +310,7 @@ describe('Gameplay B Operation Controller', () => {
     try {
       controller.panelState.leftTab = 'story';
       controller.panelState.centerTab = 'chat';
-      controller.panelState.rightTab = 'character';
+      controller.panelState.rightTab = 'spot';
       const beforeStream = root.querySelector<HTMLElement>('.chat-stream')!;
       beforeStream.scrollTop = 90;
       const fullBefore = controller.getRefreshStats().fullRenders;
@@ -296,7 +334,7 @@ describe('Gameplay B Operation Controller', () => {
       expect(controller.panelState.workspace).toBeUndefined();
       expect(controller.panelState.leftTab).toBe('story');
       expect(controller.panelState.centerTab).toBe('chat');
-      expect(controller.panelState.rightTab).toBe('character');
+      expect(controller.panelState.rightTab).toBe('spot');
       expect(root.querySelector<HTMLElement>('.chat-stream')?.scrollTop).toBe(90);
       expect(document.activeElement).toBe(root.querySelector('[data-operation-resume-run]'));
 

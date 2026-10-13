@@ -18,7 +18,11 @@ Runtime 主题 / 实体状态 / Registry 定义 / 图片资源
 
 全局主题、实体主题和用户主题变化由 `controller-events.ts` 订阅并安排界面重建；单个实体的 `entityPresentationChanged` 会转给 `refreshEntityPresentation(entityKey)` 定向刷新。当前是否需要改整页，要看受影响的宿主结构是否变化；普通状态更新不应自动扩大为 `render()`。
 
-宿主可以声明 default、active、inactive、disabled 等状态表现。`createUIContext()` 按该宿主当前配置解析背景与文字模式；颜色模式为 `auto` 时，宿主有自己的背景层便按合成底色判断深浅，没有自有背景时保留语义颜色。形状、图层、颜色和组件最终由 presentation/background service 解析，样式由 CSS 承载。
+主题语义颜色从根主题树沿点分隔的 UI scope 向下传递；子作用域只覆盖明确声明的节点，其余节点沿用父作用域。`ThemeCascadeService` 统一解析这条继承链。
+
+背景图层不沿宿主父链或页面画布自动复制。宿主有自己的图层时按宿主与状态配置解析；没有图层时默认生成不透明的 `--theme-node-panel` 基底，active 使用主题强调色，inactive / disabled 使用 `--theme-node-panel-light`。只有明确传入 `inheritGlobal=true` 的调用才会把页面背景用作宿主背景。`kind: empty` 仍表示作者显式要求透明；普通主题不需要再用它来阻止页面图层回退。
+
+`createUIContext()` 同时解析宿主文字模式、形状与装饰。颜色模式为 `auto` 时，有显式宿主图层则按图层与主题面板基底的合成色判断；只有自动生成的基底时沿用语义文字色。CSS 负责最终绘制与状态样式。
 
 ## 普通游戏页的主题选择
 
@@ -26,13 +30,13 @@ Runtime 主题 / 实体状态 / Registry 定义 / 图片资源
 
 用户自定义主题目前只有一个保存记录，和其它主题选项平级。剧情换肤和临时工作区主题也以完整主题临时替换当前选择，结束后恢复所选主题。玩家界面不提供图层优先级排序。`RuntimeThemeManager` 的多层合并与排序算法保留为通用能力，但普通游戏页只读取单一选择运行时，不把场景、学生、玩家和用户主题交给该算法合并。
 
-外部 Init 选择页继续通过 `projectSelectorTheme()` 独立投影聚焦 Init 的主题，不改写普通游戏页的选中主题。宿主背景回退仍由 `backgroundForHost()` 解析；当选中主题自己的宿主没有图层时，回退规则只在该主题上下文内工作。
+外部 Init 选择页继续通过 `projectSelectorTheme()` 独立投影聚焦 Init 的主题，不改写普通游戏页的选中主题。页面背景只绘制在外层画布；内容宿主使用局部图层或主题面板基底，不会复制外层图片。
 
 主题的**内容编辑**和玩家**选择当前主题**是两条不同路径。`ThemeContentEditorService` 编辑 Datapack 中的一般主题定义：草稿 / 预览不写入运行状态，保存回写指定的 editing Pack 并由 PackManager 持久化；它不是玩家 UserTheme 的存储入口。实现见 `src/arona-clicker/services/theme-content-editor-service.ts`，预览、保存和内容冲突测试见 `tests/engine/theme-content-editor-service.test.ts`。
 
 ## 代码与测试
 
-代码路径：`src/ui/controller-theme.ts` 组合当前运行时视图，`src/ui/presentation-service.ts` 构建表现读取视图并渲染宿主，`src/ui/context.ts` 为组件提供查询。实体表现数据查询来自 Runtime 的只读 `entityPresentation` 端口。主题 / 表现的定义字段及同步边界见 [[docs/docs-829/05-conventions/schema-sync]] 与 [[docs/docs-829/03-data-structures/datapack-contracts]]。
+代码路径：`src/ui/controller-theme.ts` 组合当前运行时视图，`src/ui/theme-cascade-service.ts` 解析语义颜色作用域与宿主背景基底，`src/ui/presentation-service.ts` 构建表现读取视图并渲染宿主，`src/ui/context.ts` 为组件提供查询。实体表现数据查询来自 Runtime 的只读 `entityPresentation` 端口。主题 / 表现的定义字段及同步边界见 [[docs/docs-829/05-conventions/schema-sync]] 与 [[docs/docs-829/03-data-structures/datapack-contracts]]。
 
 `tests/ui/presentation-service.test.ts` 覆盖图层顺序、资源 / 地址校验、属性转义和宿主状态；`tests/ui/context.test.ts` 覆盖状态回退、合成背景文字颜色和父子宿主边界；`tests/ui/controller-theme-cleanup.test.ts` 覆盖主题 CSS 变量清理。测试验证解析行为，不代表真实浏览器中的全部视觉结果。
 

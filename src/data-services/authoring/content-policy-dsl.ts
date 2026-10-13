@@ -47,7 +47,7 @@ const EFFECT_OPS: readonly EffectOp[] = [
 
 const REVEAL_TARGETS: readonly RevealTarget[] = ['existence', 'name', 'condition', 'utility', 'unlock'];
 
-const FUNCTIONALITY_KINDS: readonly SpotFunctionalityKind[] = ['flow', 'linearYield', 'restartInit', 'hardResetInit', 'gacha', 'shop'];
+const FUNCTIONALITY_KINDS: readonly SpotFunctionalityKind[] = ['flow', 'linearYield', 'restartInit', 'hardResetInit', 'gacha', 'shop', 'operationEntry'];
 
 const FUNCTIONALITY_ID_PATTERN = /^[a-z0-9_-]+$/;
 const PAYMENT_OPTION_ID_PATTERN = /^[a-z0-9_-]+$/;
@@ -55,7 +55,7 @@ const PAYMENT_OPTION_KEYS = ['id', 'label', 'condition', 'costs'];
 const PAYMENT_COST_KEYS = ['type', 'resourceId', 'itemId', 'amount'];
 
 /** 功能草稿允许的键：未列出的键一律 fail closed，避免静默写入引擎 Def。 */
-const FUNCTIONALITY_DRAFT_KEYS = ['id', 'kind', 'resource', 'amount', 'amountPerLevel', 'startLevel', 'shopId', 'condition'];
+const FUNCTIONALITY_DRAFT_KEYS = ['id', 'kind', 'requiresOwned', 'resource', 'amount', 'amountPerLevel', 'startLevel', 'shopId', 'operationEventId', 'condition'];
 
 function fail(path: string, message: string): AuthoringProblem {
   return { code: 'invalid-field', path, message };
@@ -157,6 +157,9 @@ export function validateFunctionalityList(
       return fail(`${itemPath}.kind`, `不支持的功能类型：${String(item.kind)}`);
     }
     const kind = item.kind as SpotFunctionalityKind;
+    if (item.requiresOwned !== undefined && typeof item.requiresOwned !== 'boolean') {
+      return fail(`${itemPath}.requiresOwned`, '是否要求持有 Spot 必须是布尔值');
+    }
     if (kind === 'flow' || kind === 'linearYield') {
       if (typeof item.resource !== 'string' || item.resource.trim() === '') {
         return fail(`${itemPath}.resource`, '产出资源必须是非空字符串');
@@ -182,6 +185,11 @@ export function validateFunctionalityList(
         return fail(`${itemPath}.shopId`, `商店未注册：${item.shopId}`);
       }
     }
+    if (kind === 'operationEntry') {
+      if (typeof item.operationEventId !== 'string' || parseEntityId(item.operationEventId)?.type !== 'operation-event') {
+        return fail(`${itemPath}.operationEventId`, '行动入口必须选择一个完整的关卡 ID');
+      }
+    }
     if (item.condition !== undefined && item.condition !== null) {
       const problem = validateConditionGroup(item.condition, `${itemPath}.condition`);
       if (problem) return problem;
@@ -203,6 +211,7 @@ export function encodeFunctionalityList(value: unknown): SpotFunctionalityDef[] 
     const base = {
       id: functionalityEngineId(draft),
       kind: draft.kind,
+      ...(draft.requiresOwned === undefined ? {} : { requiresOwned: draft.requiresOwned }),
       ...(draft.condition ? { condition: draft.condition } : {}),
     };
     switch (draft.kind) {
@@ -218,6 +227,8 @@ export function encodeFunctionalityList(value: unknown): SpotFunctionalityDef[] 
         };
       case 'shop':
         return { ...base, kind: 'shop', shopId: draft.shopId };
+      case 'operationEntry':
+        return { ...base, kind: 'operationEntry', operationEventId: draft.operationEventId };
       default:
         return base;
     }
@@ -497,11 +508,12 @@ function constantExpressionValue(value: unknown): number | undefined {
 
 function toFunctionalityDraft(functionality: SpotFunctionalityDef, index: number): SpotFunctionalityDraft | undefined {
   const id = localFunctionalityId(functionality.id, index);
+  const ownership = functionality.requiresOwned === undefined ? {} : { requiresOwned: functionality.requiresOwned };
   const condition = functionality.condition ? { condition: functionality.condition } : {};
   switch (functionality.kind) {
     case 'flow':
       return typeof functionality.amount === 'number' && isFiniteNumber(functionality.amount) && functionality.resource
-        ? { id, kind: 'flow', resource: functionality.resource, amount: functionality.amount, ...condition }
+        ? { id, kind: 'flow', resource: functionality.resource, amount: functionality.amount, ...ownership, ...condition }
         : undefined;
     case 'linearYield':
       return typeof functionality.amountPerLevel === 'number' && functionality.resource
@@ -511,17 +523,22 @@ function toFunctionalityDraft(functionality: SpotFunctionalityDef, index: number
             resource: functionality.resource,
             amountPerLevel: functionality.amountPerLevel,
             ...(functionality.startLevel ? { startLevel: functionality.startLevel } : {}),
+            ...ownership,
             ...condition,
           }
         : undefined;
     case 'shop':
       return functionality.shopId
-        ? { id, kind: 'shop', shopId: functionality.shopId, ...condition }
+        ? { id, kind: 'shop', shopId: functionality.shopId, ...ownership, ...condition }
+        : undefined;
+    case 'operationEntry':
+      return functionality.operationEventId
+        ? { id, kind: 'operationEntry', operationEventId: functionality.operationEventId, ...ownership, ...condition }
         : undefined;
     case 'restartInit':
     case 'hardResetInit':
     case 'gacha':
-      return { id, kind: functionality.kind, ...condition };
+      return { id, kind: functionality.kind, ...ownership, ...condition };
     default:
       return undefined;
   }

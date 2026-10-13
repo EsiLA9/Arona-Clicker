@@ -220,6 +220,8 @@ export interface OperationSceneDef {
   readonly description?: string;
   /** Optional tactical Action subset; omitted scenes inherit the Location's enabled actions. */
   readonly enabledActionIds?: readonly string[];
+  /** When true, living friendly Characters receive deterministic automatic plans in each Scene batch. */
+  readonly autoCharacterActions?: boolean;
   /** Scene-scoped noncombat offer sources. */
   readonly actionMode?: OperationSceneActionMode;
   readonly sceneActions?: readonly OperationSceneActionDef[];

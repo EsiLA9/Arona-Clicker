@@ -460,6 +460,43 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     expect(service.getSnapshot()).toEqual(afterSkip);
   });
 
+  test('Skip bypasses optional choices but still settles a fixed PlayerSceneCard', () => {
+    const input = individualStartInput();
+    const service = new OperationRuntimeService();
+    const runId = service.start({
+      ...input,
+      eventDefinition: {
+        ...input.eventDefinition,
+        playerSceneDeck: {
+          cards: [{
+            id: 'fixed-repair-card',
+            actionId: ACTION_A,
+            playerCost: 0,
+            timing: 'scene',
+            copies: 1,
+            selectionPolicy: 'fixed',
+          }],
+          initialDraw: 1,
+          locationEntryDraw: 0,
+          maxHandSize: 1,
+        },
+      },
+    }).runId;
+    const started = service.getSnapshot()!;
+    const cardInstanceId = started.playerRouteState.cards.hand[0]!;
+    const skipped = service.commitSceneActionBatch({
+      runId,
+      planVersion: started.planVersion,
+      selections: [],
+      skip: true,
+    });
+
+    expect(skipped.sceneBatch).toMatchObject({ skip: true, playerCostPaid: 0 });
+    expect(skipped.sceneBatch?.cards).toEqual([expect.objectContaining({ cardInstanceId, actionId: ACTION_A })]);
+    expect(service.getSnapshot()!.eventState.knownFactIds).toContain('demo:fact:platform-secured');
+    expect(service.getSnapshot()!.playerRouteState.cards.discard).toContain(cardInstanceId);
+  });
+
   test('an empty skip never completes an explicit Scene even when its predicate is already satisfied', () => {
     const input = individualStartInput();
     const legacyLocation = input.eventDefinition.locations[0];
@@ -525,6 +562,105 @@ describe('Operation SceneAction batches and shared route Cost', () => {
           sceneActionBatchesUsedByScene: { main: 2 },
         },
       },
+    });
+  });
+
+  test('fails the Location when an explicit Scene batch cap is exhausted before Scene completion', () => {
+    const input = individualStartInput();
+    const location = input.eventDefinition.locations[0]!;
+    const { actionMode: _actionMode, sceneActionBatches: _sceneActionBatches, sceneActions, ...locationFields } = location;
+    const scene = {
+      id: 'platform-work',
+      title: 'Secure the platform',
+      actionMode: 'individual' as const,
+      sceneActionBatches: 1,
+      sceneActions: sceneActions?.map(action => ({
+        ...action,
+        id: action.id.slice(action.id.lastIndexOf(':') + 1),
+      })),
+      completion: { kind: 'knownFact' as const, factId: 'demo:fact:platform-secured', present: true },
+    };
+    const service = new OperationRuntimeService();
+    const runId = service.start({
+      ...input,
+      eventDefinition: {
+        ...input.eventDefinition,
+        locations: [{ ...locationFields, scenes: [scene] }, ...input.eventDefinition.locations.slice(1)],
+      },
+    }).runId;
+    const started = service.getSnapshot()!;
+    const committed = service.commitSceneActionBatch({
+      runId,
+      planVersion: started.planVersion,
+      selections: [],
+      skip: true,
+    });
+
+    expect(committed.sceneBatch?.sceneActionBatchesUsed).toBe(1);
+    expect(service.getSnapshot()).toMatchObject({
+      status: 'failure',
+      locationProgress: {
+        'demo:location:platform': {
+          completed: true,
+          result: 'failure',
+          completedSceneIds: [],
+          sceneActionBatchesUsedByScene: { 'platform-work': 1 },
+        },
+      },
+    });
+    expect(service.finish().kind).toBe('failure');
+  });
+
+  test('resets explicit Scene batch counts on Location revisit while preserving completed Scene IDs', () => {
+    const input = individualStartInput();
+    const location = input.eventDefinition.locations[0]!;
+    const concourse = input.eventDefinition.locations[1]!;
+    const { actionMode: _actionMode, sceneActionBatches: _sceneActionBatches, sceneActions, ...locationFields } = location;
+    const explicitLocation = {
+      ...locationFields,
+      scenes: [{
+        id: 'platform-work',
+        title: 'Secure the platform',
+        actionMode: 'individual' as const,
+        sceneActionBatches: 3,
+        sceneActions: sceneActions?.map(action => ({
+          ...action,
+          id: action.id.slice(action.id.lastIndexOf(':') + 1),
+        })),
+        completion: { kind: 'knownFact' as const, factId: 'demo:fact:platform-secured', present: true },
+      }],
+    };
+    const routedConcourse = {
+      ...concourse,
+      routeEdges: [{
+        id: 'demo:route:concourse-platform',
+        targetLocationId: 'demo:location:platform',
+        label: 'Return to the platform',
+        description: 'Return to the platform for a follow-up visit.',
+      }],
+    };
+    const service = new OperationRuntimeService();
+    const runId = service.start({
+      ...input,
+      eventDefinition: {
+        ...input.eventDefinition,
+        locations: [explicitLocation, routedConcourse],
+      },
+    }).runId;
+    const beforeCommit = service.getSnapshot()!;
+    service.commitSceneActionBatch({
+      runId,
+      planVersion: beforeCommit.planVersion,
+      selections: [{ sceneActionId: 'collect-pass', actorId: A, targetActorIds: [] }],
+    });
+    const atConcourse = service.getSnapshot()!;
+    expect(atConcourse.currentLocationId).toBe('demo:location:concourse');
+    const returned = service.completeCurrentLocation();
+
+    expect(returned.locationProgress['demo:location:platform']).toMatchObject({
+      visitCount: 2,
+      completedSceneIds: ['platform-work'],
+      sceneActionBatchesUsedByScene: { 'platform-work': 0 },
     });
   });
 

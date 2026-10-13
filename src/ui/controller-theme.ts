@@ -11,9 +11,10 @@ import type { UIController } from './controller';
 import { buildBackgroundView, renderBackground } from './background-service';
 import type { ResolvedTheme } from '../engine/core/theme-runtime';
 import { buildPresentationView, renderPresentationHostBackground } from './presentation-service';
+import { createThemeScopeCascade } from './theme-cascade-service';
 import { DEFAULT_PANEL_OPACITY } from './presentation-config';
 import { createUIContext, type UIContext } from './context';
-import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, resolveScopedThemeNodes, resolveThemeNodes, type ThemeNodeName } from './theme-palette';
+import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, resolveThemeNodes, type ThemeNodeName } from './theme-palette';
 import { SYSTEM_DEFAULT_PRIMARY } from '../engine/core/theme-defaults';
 import { syncOuterBackground } from './outer-background';
 
@@ -130,29 +131,10 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
 
 function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, palette: string[], rootOverrides: ReadonlyMap<import('./theme-palette').ThemeNodeName, string>, scopeOverrides: Record<string, Partial<Record<import('./theme-palette').ThemeNodeName, string>>>, presentation: import('../engine/types/theme').PresentationDef): void {
   const rootNodes = resolveThemeNodes({ colors: palette }, tokens, rootOverrides);
-  const resolvedByScope = new Map<string, typeof rootNodes>();
-  const resolveMissingParent = (scope: string): typeof rootNodes => {
-    if (!scope || scope === 'root') return rootNodes;
-    const cached = resolvedByScope.get(scope);
-    if (cached) return cached;
-    const parentScope = scope.includes('.') ? scope.slice(0, scope.lastIndexOf('.')) : 'root';
-    const resolved = resolveScopedThemeNodes(
-      resolveMissingParent(parentScope),
-      new Map(Object.entries(scopeOverrides[scope] ?? {}) as [import('./theme-palette').ThemeNodeName, string][]),
-    );
-    resolvedByScope.set(scope, resolved);
-    return resolved;
-  };
+  const themeCascade = createThemeScopeCascade(rootNodes, scopeOverrides);
   ctrl.root.querySelectorAll<HTMLElement>('[data-theme-scope]').forEach(element => {
     const scope = element.dataset.themeScope ?? '';
-    const parentScope = scope.includes('.') ? scope.slice(0, scope.lastIndexOf('.')) : 'root';
-    // 当前阶段作用域只建立父级继承链；节点覆盖接入后在此处按 scope 查表应用。
-    const localOverrides = scopeOverrides[scope];
-    const inherited = resolveScopedThemeNodes(
-      resolvedByScope.get(parentScope) ?? resolveMissingParent(parentScope),
-      new Map(Object.entries(localOverrides ?? {}) as [import('./theme-palette').ThemeNodeName, string][]),
-    );
-    resolvedByScope.set(scope, inherited);
+    const inherited = themeCascade.nodesFor(scope);
     const panelRegion = scope === 'left' || scope.startsWith('left.')
       ? 'leftPanel'
       : scope === 'center' || scope.startsWith('center.')

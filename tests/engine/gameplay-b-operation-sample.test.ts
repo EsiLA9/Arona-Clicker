@@ -130,7 +130,7 @@ describe('Gameplay B carousel safety sample', () => {
       .find(location => location.id === CAROUSEL_SCENE_ACTION_IDS.locations.exit)?.sceneActions?.[0]?.playerCost).toBe(2);
   });
 
-  test('keeps profile-specific actions distinct and commits the first legal Hand action by default', () => {
+  test('keeps profile-specific actions distinct and follows each Profile priority over Hand order', () => {
     const defaultPlan = runTwoBeats();
     const emergencyStop = runTwoBeats({
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
@@ -141,9 +141,9 @@ describe('Gameplay B carousel safety sample', () => {
       actionId: CAROUSEL_SAFETY_IDS.actions.crowdGuide,
     });
 
-    expect(defaultPlan.defaultHoshinoActionId).toBe(defaultPlan.hoshinoHandActionIds[0]);
-    expect(defaultPlan.defaultHoshinoActionId).toBe(CAROUSEL_SAFETY_IDS.actions.emergencyStop);
-    expect(defaultPlan).toMatchObject({ firstDanger: 0, finalDanger: 1, rideHp: 3 });
+    expect(defaultPlan.hoshinoHandActionIds).toContain(CAROUSEL_SAFETY_IDS.actions.brace);
+    expect(defaultPlan.defaultHoshinoActionId).toBe(CAROUSEL_SAFETY_IDS.actions.brace);
+    expect(defaultPlan).toMatchObject({ firstDanger: 4, finalDanger: 5, rideHp: 4 });
     expect(emergencyStop.resolutions[0].actorPlans).toContainEqual(expect.objectContaining({
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
       actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop,
@@ -152,16 +152,16 @@ describe('Gameplay B carousel safety sample', () => {
       actorId: CAROUSEL_SAFETY_IDS.actors.serika,
       actionId: CAROUSEL_SAFETY_IDS.actions.crowdGuide,
     }));
-    expect(emergencyStop).toMatchObject({ firstDanger: 0, finalDanger: 1, rideHp: 3 });
+    expect(emergencyStop).toMatchObject({ firstDanger: 1, finalDanger: 2, rideHp: 3 });
     expect(defaultPlan.resolutions[0].actorPlans).toContainEqual(expect.objectContaining({
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
       kind: 'studentAction',
-      actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop,
+      actionId: CAROUSEL_SAFETY_IDS.actions.brace,
     }));
-    expect(crowdGuide).toMatchObject({ firstDanger: 0, finalDanger: 1, rideHp: 3 });
+    expect(crowdGuide).toMatchObject({ firstDanger: 3, finalDanger: 4, rideHp: 4 });
     expect(crowdGuide.resolutions[0].actorPlans).toContainEqual(expect.objectContaining({
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
-      actionId: CAROUSEL_SAFETY_IDS.actions.emergencyStop,
+      actionId: CAROUSEL_SAFETY_IDS.actions.brace,
     }));
     expect(emergencyStop.resolutions[0].payments).toContainEqual(expect.objectContaining({
       actorId: CAROUSEL_SAFETY_IDS.actors.hoshino,
@@ -171,7 +171,7 @@ describe('Gameplay B carousel safety sample', () => {
       actorId: CAROUSEL_SAFETY_IDS.actors.serika,
       cost: { scope: 'team', resourceId: 'coordination', amount: 1 },
     }));
-    expect(defaultPlan.resolutions[0].combinations.matches).toHaveLength(0);
+    expect(defaultPlan.resolutions[0].combinations.matches).toHaveLength(1);
     expect(emergencyStop.resolutions[0].combinations.matches).toHaveLength(0);
     expect(crowdGuide.resolutions[0].combinations.matches).toHaveLength(0);
     for (const resolution of defaultPlan.resolutions) {

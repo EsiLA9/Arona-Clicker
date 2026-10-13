@@ -3926,36 +3926,6 @@
               "textColorMode": "auto"
             },
             {
-              "id": "leftPanel.area",
-              "layers": [
-                {
-                  "id": "left-area-clear",
-                  "kind": "empty",
-                  "value": ""
-                }
-              ]
-            },
-            {
-              "id": "centerPanel.chat",
-              "layers": [
-                {
-                  "id": "center-chat-clear",
-                  "kind": "empty",
-                  "value": ""
-                }
-              ]
-            },
-            {
-              "id": "rightPanel.spot",
-              "layers": [
-                {
-                  "id": "right-spot-clear",
-                  "kind": "empty",
-                  "value": ""
-                }
-              ]
-            },
-            {
               "id": "footer.send",
               "parent": "footer",
               "shape": "rounded-parallelogram",
@@ -4138,36 +4108,6 @@
                     "style": "dotted"
                   },
                   "textColorMode": "auto"
-                },
-                {
-                  "id": "leftPanel.area",
-                  "layers": [
-                    {
-                      "id": "left-area-clear",
-                      "kind": "empty",
-                      "value": ""
-                    }
-                  ]
-                },
-                {
-                  "id": "centerPanel.chat",
-                  "layers": [
-                    {
-                      "id": "center-chat-clear",
-                      "kind": "empty",
-                      "value": ""
-                    }
-                  ]
-                },
-                {
-                  "id": "rightPanel.spot",
-                  "layers": [
-                    {
-                      "id": "right-spot-clear",
-                      "kind": "empty",
-                      "value": ""
-                    }
-                  ]
                 },
                 {
                   "id": "footer.send",

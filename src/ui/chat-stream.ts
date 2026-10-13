@@ -52,7 +52,7 @@ interface BannerState {
 /** 聊天流管理：维护自增 ID、各流剧情页去重指纹、页级节奏门控，并把条目路由到目标流。 */
 export class ChatStream {
   private chatId = 1;
-  /** 各流最后同步的剧情页指纹（streamKey → `storyId:pageIndex` | null）。 */
+  /** 各流最后同步的剧情页指纹（Entry / StoryDef / 页码，按流隔离）。 */
   private streamFingerprints = new Map<string, string | null>();
   /** 进行中的节奏门控（streamKey → gate）。 */
   private gates = new Map<string, GateState>();
@@ -71,6 +71,25 @@ export class ChatStream {
     for (const key of [...this.gates.keys()]) this.removeGate(key);
     for (const key of [...this.autoAdvances.keys()]) this.cancelAutoAdvance(key);
     for (const key of [...this.banners.keys()]) this.clearBanner(key);
+  }
+
+  /** 历史恢复后重建去重状态与 ID 计数；已送达页继续节奏链，未送达页仍由 syncCurrentStory 投递。 */
+  restoreHistoryState(panelState: PanelState, game: Pick<GameReadModel, 'getView' | 'getStoryView'>): void {
+    this.reset();
+    const streams: [string, ChatEntry[]][] = [
+      ['#global', panelState.chatEntries],
+      ...Object.entries(panelState.studentChats),
+    ];
+    for (const [streamKey, entries] of streams) {
+      for (const entry of entries) this.chatId = Math.max(this.chatId, entry.id + 1);
+      const story = streamKey === '#global' ? game.getView().currentStory : game.getStoryView(streamKey);
+      if (!story) continue;
+      const lastPage = [...entries].reverse().find(entry => entry.storyPageKey);
+      const fingerprint = storyPageKey(story);
+      if (lastPage?.storyPageKey !== fingerprint) continue;
+      this.streamFingerprints.set(streamKey, fingerprint);
+      this.afterDelivery(streamKey, story.page);
+    }
   }
 
   /**
@@ -140,7 +159,7 @@ export class ChatStream {
 
   /**
    * 每次 render 前把当前 Talklet 的演示内容同步进聊天流。
-   * 以「流 → `storyId:pageIndex`」指纹去重，覆盖自动展开 / 手动启动 / 推进 / 读档 / 切换 Init 全部入口。
+   * 以「流 → Entry / StoryDef / 页码」指纹去重，覆盖自动展开 / 手动启动 / 推进 / 读档 / 切换 Init 全部入口。
    *
    * 多沙盒：对话空间（conversationVariantId 非空）同步该角色独立游标上的当前剧情；
    * 一般聊天（conversationVariantId 空）同步全局游标（active 主线 / 一般闲聊）。
@@ -165,7 +184,7 @@ export class ChatStream {
       this.streamFingerprints.set(streamKey, null);
       return;
     }
-    const fingerprint = `${story.storyId}:${story.pageIndex}`;
+    const fingerprint = storyPageKey(story);
     if (this.streamFingerprints.get(streamKey) === fingerprint) return;
     this.streamFingerprints.set(streamKey, fingerprint);
     // 同流推进（防御路径：门控期间按钮已阻断推进）：旧页内容立即落流、旧门控与旧连发解除
@@ -176,6 +195,7 @@ export class ChatStream {
     // click 页为纯底部按钮交互页（text 作按钮文案），不进入聊天流
     if (story.page.kind === 'click') return;
     const payload: Omit<ChatEntry, 'id' | 'timestamp'> = {
+      storyPageKey: fingerprint,
       kind: story.page.kind ?? 'talk',
       speaker: story.page.speaker,
       text: story.page.text,
@@ -248,6 +268,7 @@ export class ChatStream {
     for (const view of views) {
       if (view.page.kind === 'click') continue;
       this.append(stream, {
+        storyPageKey: storyPageKey(view),
         kind: view.page.kind ?? 'talk',
         speaker: view.page.speaker,
         text: view.page.text,
@@ -396,6 +417,11 @@ export class ChatStream {
     clearTimeout(timer);
     this.autoAdvances.delete(streamKey);
   }
+}
+
+/** Entry 在跳转 / insert 中保持不变，必须带上实际 StoryDef 才能区分同页码。 */
+function storyPageKey(story: StoryView): string {
+  return JSON.stringify([story.storyId, story.storyDefId, story.pageIndex]);
 }
 
 /** 页级"正在输入"延迟（秒）：缺省 = 非右侧 talk 页默认 0.9s；0 = 显式关闭；自定义夹取上限 10s。 */

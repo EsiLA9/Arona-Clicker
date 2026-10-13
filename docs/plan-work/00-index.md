@@ -10,7 +10,7 @@
 
 ### 当前执行（2026-10-09）
 
-无。
+- [[task-0280-gameplay-b-scene-composition-p1-mixed-scene-ui]]：Gameplay B 混合 Scene UI、正式 Rest 演示与 Atomic Scene 调查语义修订已完成代码和 Headless 检查；当前为 **代码待人工验收（Pending Manual Acceptance）**，等待 M01–M08 和视觉/交互检查反馈。
 
 ### 本轮完成（2026-10-13）
 

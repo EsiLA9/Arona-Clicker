@@ -337,6 +337,9 @@ function buildIndexes(input: OperationResolutionPlannerInput): PlannerIndexes {
 }
 
 function preparationSnapshot(input: OperationResolutionPlannerInput): OperationPreparationSnapshot {
+  const actors = input.snapshot.autoCharacterActions === true
+    ? input.snapshot.actors.filter(actor => actor.participantKind === 'student' && actor.hp > 0)
+    : [];
   return {
     eventId: input.snapshot.eventId,
     planVersion: input.snapshot.planVersion,
@@ -349,6 +352,7 @@ function preparationSnapshot(input: OperationResolutionPlannerInput): OperationP
       resources: actor.resources,
     })),
     teams: input.snapshot.teams.map(team => ({ id: team.id, resources: team.resources })),
+    ...(input.snapshot.autoCharacterActions === true ? { actorIds: actors.map(actor => actor.actorId) } : {}),
   };
 }
 
@@ -880,11 +884,22 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
   const { snapshot, trustedContent } = input;
   const event = trustedContent.eventDefinition;
   const location = event.locations.find(row => row.id === snapshot.currentLocationId);
-  if (!location?.actionMode || (!Array.isArray(location.sceneActions) && !location.purchaseOffers?.length)
+  const autoCharacterActions = snapshot.autoCharacterActions === true;
+  const activeScene = location?.scenes?.find(scene => scene.id === snapshot.currentSceneId);
+  if (snapshot.autoCharacterActions !== undefined && typeof snapshot.autoCharacterActions !== 'boolean') {
+    fail('operation:resolution:invalid-snapshot', 'autoCharacterActions must be boolean when supplied');
+  }
+  if (autoCharacterActions !== (activeScene?.autoCharacterActions === true)
+    || (autoCharacterActions && location?.stage !== 'scene')) {
+    fail('operation:resolution:invalid-snapshot', 'Scene Character planning flag does not match the active Scene');
+  }
+  if (!location || ((!location.actionMode || !Array.isArray(location.sceneActions) && !location.purchaseOffers?.length)
+    && !autoCharacterActions)
     || (location.sceneActionBatches !== undefined
       && (!Number.isSafeInteger(location.sceneActionBatches) || location.sceneActionBatches <= 0))) {
     fail('operation:resolution:invalid-content', 'current Location has no valid SceneAction contract');
   }
+  const batchMode = location.actionMode ?? 'global';
   const batchesUsed = snapshot.sceneActionBatchesUsed;
   if (!Number.isSafeInteger(batchesUsed) || batchesUsed! < 0
     || (location.sceneActionBatches !== undefined && batchesUsed! >= location.sceneActionBatches)) {
@@ -895,14 +910,28 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
     fail('operation:resolution:invalid-snapshot', 'shared PlayerCost balance is invalid');
   }
   const activeStudents = snapshot.actors.filter(actor => actor.participantKind === 'student' && actor.hp > 0);
-  if (location.actionMode === 'individual' && activeStudents.length === 0) fail('operation:resolution:invalid-snapshot', 'Individual SceneAction batch has no active Student participants');
+  if (batchMode === 'individual' && activeStudents.length === 0) fail('operation:resolution:invalid-snapshot', 'Individual SceneAction batch has no active Student participants');
+  if (!autoCharacterActions && input.interventionDraft !== null) {
+    fail('operation:resolution:invalid-content', 'Scene Intervention requires autoCharacterActions on the active Scene');
+  }
+  if (autoCharacterActions) {
+    let canonicalBase: PreparedBeat;
+    try {
+      canonicalBase = prepareOperationBeat(preparationSnapshot(input), preparationContent(input));
+    } catch (error) {
+      fail('operation:resolution:invalid-content', error instanceof Error ? error.message : 'Scene Character preparation failed');
+    }
+    if (!sameBeat(canonicalBase, input.preparedBeat)) {
+      fail('operation:resolution:stale-plan', 'stored Scene PreparedBeat does not match the current Character Hand and Scene');
+    }
+  }
   const sceneActions = new Map((location.sceneActions ?? []).map(row => [row.id, row]));
   const selectableActionSelections = request.selections.filter(row => sceneActions.get(row.sceneActionId)?.selectionPolicy !== 'fixed');
-  if (location.actionMode === 'individual' && selectableActionSelections.some(row => !row.actorId
+  if (batchMode === 'individual' && selectableActionSelections.some(row => !row.actorId
     || selectableActionSelections.filter(other => other.actorId === row.actorId).length > 1)) {
     fail('operation:resolution:invalid-content', 'Individual batches allow at most one selected SceneAction per Student');
   }
-  if (location.actionMode === 'global'
+  if (batchMode === 'global'
     && new Set(selectableActionSelections.map(row => row.sceneActionId)).size !== selectableActionSelections.length) {
     fail('operation:resolution:invalid-content', 'A SceneAction offer can be selected only once per batch');
   }
@@ -917,7 +946,7 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       fail('operation:resolution:invalid-content', 'SceneAction choice requires exactly ' + choice.chooseExactly + ' of '
         + choice.candidateSceneActionIds.length + ' offers; received ' + selectedCandidateIds.length);
     }
-  } else if (location.actionMode === 'global' && selectableActionSelections.length > 1) {
+  } else if (batchMode === 'global' && selectableActionSelections.length > 1) {
     fail('operation:resolution:invalid-content', 'Global batches allow at most one selectable SceneAction');
   }
 
@@ -939,7 +968,8 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
     return targetSpec.selectionMode === 'all-eligible' ? [] : [candidates[0]!];
   };
   const actionSelections: OperationSceneActionSelection[] = [...request.selections];
-  for (const fixed of request.skip === true ? [] : (location.sceneActions ?? []).filter(row => row.selectionPolicy === 'fixed')) {
+  // Skip bypasses optional choices; fixed Location SceneActions remain part of every batch.
+  for (const fixed of (location.sceneActions ?? []).filter(row => row.selectionPolicy === 'fixed')) {
     const suppliedFixed = request.selections.filter(row => row.sceneActionId === fixed.id);
     if (fixed.scope === 'global' && suppliedFixed.length > 1) {
       fail('operation:resolution:invalid-content', 'fixed Global SceneAction may appear only once: ' + fixed.id);
@@ -999,7 +1029,7 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       : suppliedSelection;
     const sourceState = actorId ? indexes.actorStatesById.get(actorId) : undefined;
     const initialization = actorId ? actorInitializations.get(actorId) : undefined;
-    if (!sceneAction || sceneAction.scope !== location.actionMode || !action) {
+    if (!sceneAction || sceneAction.scope !== batchMode || !action) {
       fail('operation:resolution:invalid-content', 'selection references an unavailable SceneAction');
     }
     const actorless = performerPolicy === 'none' || (performerPolicy === 'optional-student' && actorId === null);
@@ -1013,13 +1043,13 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
         fail('operation:resolution:invalid-content', 'actorless Action target requires an absolute Actor ID/type filter');
       }
     } else if (!sourceState || sourceState.participantKind !== 'student' || sourceState.hp <= 0
-      || (location.actionMode === 'individual' && sceneAction.selectionPolicy !== 'fixed' && selectedActorIds.has(actorId!))) {
+      || (batchMode === 'individual' && sceneAction.selectionPolicy !== 'fixed' && selectedActorIds.has(actorId!))) {
       fail('operation:resolution:invalid-content', 'SceneAction performer must be a unique active Student');
     } else if (!action.allowedParticipantKinds.includes('student') || !initialization || initialization.participantKind !== 'student'
       || !action.requiredCapabilityIds.every(id => initialization.profile.capabilityIds.includes(id))) {
       fail('operation:resolution:invalid-content', 'performer is not qualified for Action ' + action.id);
     }
-    if (location.actionMode === 'individual' && (!actorId || !activeStudents.some(actor => actor.actorId === actorId))) {
+    if (batchMode === 'individual' && (!actorId || !activeStudents.some(actor => actor.actorId === actorId))) {
       fail('operation:resolution:invalid-content', 'Individual batches must include each active Student exactly once');
     }
     if (action.target.kind === 'none') {
@@ -1035,8 +1065,8 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
         if (legalTargetIds.length === 0) fail('operation:resolution:invalid-content', 'all-eligible Action has no legal targets: ' + action.id);
         targets = legalTargetIds;
       } else {
-        if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
-          || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
+        if ((batchMode === 'individual' && selection.targetActorIds.length !== 1)
+          || (batchMode === 'global' && selection.targetActorIds.length < 1)
           || new Set(selection.targetActorIds).size !== selection.targetActorIds.length) {
           fail('operation:resolution:invalid-content', 'selected Actor target count is invalid for Action ' + action.id);
         }
@@ -1061,7 +1091,8 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
   const selectedCardIds = new Set<string>();
   const selectedCards: { readonly request: OperationSceneCardSelection; readonly instance: (typeof cardInstances)[number]; readonly actionId: string; readonly actorId: string | null; readonly targets: readonly (string | null)[]; readonly cost?: OperationActionCostDef }[] = [];
   const normalizedCardSelections: OperationSceneCardSelection[] = [...cardSelections];
-  for (const cardInstanceId of request.skip === true ? [] : handIds) {
+  // Skip bypasses optional SceneCards; fixed physical cards remain part of the batch.
+  for (const cardInstanceId of handIds) {
     const instance = cardInstancesById.get(cardInstanceId);
     if (!instance || instance.timing !== 'scene' || instance.selectionPolicy !== 'fixed') continue;
     const action = indexes.actionDefinitionsById.get(instance.actionId);
@@ -1129,8 +1160,8 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
         if (legalTargetIds.length === 0) fail('operation:resolution:invalid-content', 'all-eligible SceneCard Action has no legal targets: ' + action.id);
         targets = legalTargetIds;
       } else {
-        if ((location.actionMode === 'individual' && selection.targetActorIds.length !== 1)
-          || (location.actionMode === 'global' && selection.targetActorIds.length < 1)
+        if ((batchMode === 'individual' && selection.targetActorIds.length !== 1)
+          || (batchMode === 'global' && selection.targetActorIds.length < 1)
           || new Set(selection.targetActorIds).size !== selection.targetActorIds.length) {
           fail('operation:resolution:invalid-content', 'SceneCard target count is invalid for Action ' + action.id);
         }
@@ -1210,6 +1241,88 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
     paymentBalances.set(key, nextBalance);
     scenePayments.push({ actorId: row.actorId, actionId: row.actionId, cost: { ...row.cost }, scopeId });
   }
+  let actorPlans: readonly OperationPreparedActorPlan[] = [];
+  let intervention: OperationResolutionBatch['intervention'] = null;
+  if (autoCharacterActions) {
+    const basePreparation = preparationSnapshot(input);
+    const adjustedPreparation: OperationPreparationSnapshot = {
+      ...basePreparation,
+      actors: basePreparation.actors.map(actor => ({
+        ...actor,
+        resources: Object.fromEntries(Object.entries(actor.resources).map(([resourceId, balance]) => {
+          const remaining = paymentBalances.get('actor:' + actor.actorId + ':' + resourceId);
+          return [resourceId, remaining === undefined ? balance : decimalToNumber(remaining, 'Remaining Actor resource balance')];
+        })),
+      })),
+      teams: basePreparation.teams.map(team => ({
+        ...team,
+        resources: Object.fromEntries(Object.entries(team.resources).map(([resourceId, balance]) => {
+          const remaining = paymentBalances.get('team:' + team.id + ':' + resourceId);
+          return [resourceId, remaining === undefined ? balance : decimalToNumber(remaining, 'Remaining Team resource balance')];
+        })),
+      })),
+    };
+    let preparedAfterPlayerReservations: PreparedBeat;
+    try {
+      preparedAfterPlayerReservations = prepareOperationBeat(adjustedPreparation, preparationContent(input));
+    } catch (error) {
+      fail('operation:resolution:invalid-content', error instanceof Error ? error.message : 'Scene Character planning failed');
+    }
+    let committedBeat = preparedAfterPlayerReservations;
+    if (input.interventionDraft !== null) {
+      try {
+        const preview = previewOperationIntervention({
+          snapshot: adjustedPreparation,
+          trustedContent: preparationContent(input),
+          preparedBeat: preparedAfterPlayerReservations,
+          currentDraft: null,
+          draft: input.interventionDraft,
+        });
+        committedBeat = preview.preparedBeat;
+        const before = preparedAfterPlayerReservations.actorPlans.find(plan => plan.actorId === preview.draft.actorId);
+        const after = committedBeat.actorPlans.find(plan => plan.actorId === preview.draft.actorId);
+        if (!before || !after) fail('operation:resolution:invalid-content', 'Scene Intervention Actor plan is missing');
+        intervention = {
+          actorId: preview.draft.actorId,
+          before,
+          after,
+          ...(preview.draft.reasonId ? { reasonId: preview.draft.reasonId } : {}),
+        };
+      } catch (error) {
+        fail('operation:resolution:invalid-content', error instanceof Error ? error.message : 'Scene Intervention could not be applied');
+      }
+    }
+    actorPlans = committedBeat.actorPlans;
+    for (const plan of actorPlans) {
+      if (plan.participantKind !== 'student') fail('operation:resolution:invalid-content', 'Scene Character plans cannot contain non-Student Actors');
+      if (plan.kind === 'wait') continue;
+      if (plan.kind !== 'studentAction') fail('operation:resolution:invalid-content', 'Scene Character plans cannot contain Combat Intent');
+      const action = indexes.actionDefinitionsById.get(plan.actionId);
+      if (!action || !action.allowedParticipantKinds.includes('student')) {
+        fail('operation:resolution:invalid-content', 'Scene Character plan references an unavailable Action: ' + plan.actionId);
+      }
+      if (action.cost) {
+        if (!plan.cost || JSON.stringify(plan.cost) !== JSON.stringify(action.cost)) {
+          fail('operation:resolution:invalid-content', 'Scene Character plan cost does not match Action ' + action.id);
+        }
+        const { scopeId, bounds } = resourceBounds(indexes, action.cost, plan.actorId);
+        const key = action.cost.scope + ':' + scopeId + ':' + action.cost.resourceId;
+        const initialBalance = action.cost.scope === 'actor'
+          ? indexes.actorStatesById.get(scopeId)?.resources[action.cost.resourceId]
+          : indexes.teamStatesById.get(scopeId)?.resources[action.cost.resourceId];
+        if (initialBalance === undefined) fail('operation:resolution:invalid-snapshot', 'Action resource balance is missing: ' + action.cost.resourceId);
+        const balance = paymentBalances.get(key) ?? decimalParts(initialBalance);
+        const nextBalance = subtractDecimal(balance, decimalParts(action.cost.amount));
+        if (compareDecimal(nextBalance, decimalParts(bounds.min)) < 0) {
+          fail('operation:resolution:unaffordable', 'Scene Character Action costs exceed the remaining batch budget for ' + scopeId);
+        }
+        paymentBalances.set(key, nextBalance);
+        scenePayments.push({ actorId: plan.actorId, actionId: action.id, cost: { ...action.cost }, scopeId });
+      } else if (plan.cost !== null) {
+        fail('operation:resolution:invalid-content', 'Scene Character plan carries a cost not declared by Action ' + action.id);
+      }
+    }
+  }
   addPayments(scenePayments, buckets, indexes, snapshot);
   for (const row of selected) {
     const action = indexes.actionDefinitionsById.get(row.actionId)!;
@@ -1246,6 +1359,15 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       after: true,
     });
   }
+  for (const plan of actorPlans) {
+    if (plan.kind !== 'studentAction') continue;
+    const action = indexes.actionDefinitionsById.get(plan.actionId)!;
+    const targetActorId = plan.targetActorId;
+    validateEffectList(action.effects, plan.actorId, targetActorId, indexes, snapshot);
+    addEffectList(action.effects, plan.actorId, targetActorId, effectIndex => ({
+      kind: 'action', actorId: plan.actorId, actionId: plan.actionId, effectIndex,
+    }), buckets, membershipChanges, positionChanges, indexes, snapshot);
+  }
   const randomState = skillRandomState(input);
   const selections = selected.map(row => ({
     sceneActionId: row.request.sceneActionId,
@@ -1272,8 +1394,8 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
     eventId: snapshot.eventId,
     basePlanVersion: snapshot.planVersion,
     locationId: snapshot.currentLocationId,
-    actorPlans: [],
-    intervention: null,
+    actorPlans,
+    intervention,
     payments: scenePayments,
     combinations: { planVersion: snapshot.planVersion, locationId: snapshot.currentLocationId, matches: [] },
     studentSkillChecks: [],
@@ -1287,6 +1409,7 @@ function planSceneBatch(input: OperationResolutionPlannerInput, indexes: Planner
       cards: resolvedCards,
       ...(resolvedPurchases.length ? { purchases: resolvedPurchases } : {}),
       ...(request.skip === true ? { skip: true } : {}),
+      ...(autoCharacterActions ? { autoCharacterActions: true as const } : {}),
       actionCosts: scenePayments,
       playerCostBefore: playerCost,
       playerCostPaid: totalCostNumber,

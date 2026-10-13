@@ -194,4 +194,5 @@ export function restoreHistories(ctrl: UIController, data: SaveData): void {
   if (globalEntries && ctrl.panelState.chatEntries.length === 0) {
     ctrl.panelState.chatEntries = globalEntries as ChatEntry[];
   }
+  ctrl.chat.restoreHistoryState(ctrl.panelState, ctrl.game);
 }

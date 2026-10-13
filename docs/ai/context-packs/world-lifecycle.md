@@ -2,9 +2,9 @@
 
 适用：Init、Area、Spot、Lobby、会话、存档、世界线切换和运行时重建。
 
-## Required Read Set
+## 按子题选择
 
-机制改动先读 [[docs/docs-829/05-conventions/architecture-discipline]] 与 [[docs/docs-829/02-modules/arona-clicker]]。再按实际子题选择：
+只读命中的一行；需要领域职责时补 [[docs/docs-829/02-modules/arona-clicker]]，改变架构或状态写入边界时补 [[docs/docs-829/05-conventions/architecture-discipline]]。
 
 | 子题 | 先读 |
 | --- | --- |
@@ -13,7 +13,7 @@
 | Area / Spot 拓扑与访问 | [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]]；涉及内容解析时补 [[docs/docs-829/06-wiki/20-data-services/registry]] |
 | Spot 生产结算 | [[docs/ai/context-packs/production]] 中的生产子题 |
 
-每次还要读取 `src/arona-clicker/` 对应 runtime、init 或 save service 及相关测试，不默认读取整个目录。
+再核对 `src/arona-clicker/` 中对应 runtime、init 或 save service 及相关测试，不默认读取整个目录。
 
 ## Optional Read Set
 
@@ -27,6 +27,6 @@
 - `docs/plan-work/archive/**` 中尚未落地的多包存档规划
 - 与生命周期无关的表现层审查文档
 
-## 最小验证
+## 验证入口
 
-生命周期 / 存档定向测试、`npx tsc --noEmit`；不新增存档迁移代码。
+行为改变时运行生命周期 / 存档定向测试；状态契约改变时补类型检查。不新增存档迁移代码。

@@ -3,7 +3,7 @@ import type { OperationCombinationPreview } from './operation-action';
 import type { OperationActionCostDef, OperationActionTargetSelectionMode } from './operation-action';
 import type { OperationInterventionDraft, OperationPreparedActorPlan, PreparedBeat } from './operation-beat';
 import type { OperationResolution } from './operation-resolution';
-import type { OperationRouteTransitionRecord } from './operation';
+import type { OperationPredicateDef, OperationRouteTransitionRecord } from './operation';
 import type { OperationLocationEntryCostRecord } from './operation';
 import type { OperationSceneActionBatchDraft } from './operation-scene-action';
 import type { Character } from '../types/ids';
@@ -115,6 +115,8 @@ export interface OperationViewScene {
   readonly status: OperationViewSceneStatus;
   readonly index: number;
   readonly count: number;
+  readonly autoCharacterActions?: boolean;
+  readonly completion?: OperationPredicateDef | null;
 }
 
 /** Read-only candidate Offer. Each source retains its own identity and transaction-specific payload. */
