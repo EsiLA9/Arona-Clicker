@@ -197,6 +197,24 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
         ctrl.render();
         return;
       }
+      const workspace = ctrl.panelState.workspace;
+      if (panel === 'left' && tabId === 'area' && (workspace?.type === 'contacts' || workspace?.type === 'story')) {
+        const onInitChat = ctrl.panelState.centerTab === 'chat' && !ctrl.panelState.conversationVariantId;
+        ctrl.navigateToService('game');
+        ctrl.panelState.leftTab = 'area';
+        ctrl.panelState.centerTab = 'chat';
+        ctrl.panelState.rightTab = workspace.returnContext.rightTab;
+        ctrl.panelState.selectedVariantId = workspace.returnContext.selectedVariantId;
+        ctrl.panelState.conversationVariantId = workspace.returnContext.conversationVariantId;
+        if (ctrl.panelState.conversationVariantId) {
+          ctrl.panelState.conversationVariantId = null;
+          ctrl.panelState.selectedVariantId = null;
+        }
+        ctrl.panelState.storyGate = null;
+        if (!onInitChat) ctrl.scroll.forceToBottom();
+        ctrl.render();
+        return;
+      }
       if (panel === 'left') {
         ctrl.panelState.leftTab = tabId;
         // 左侧只在 Game Workspace 内保留区域内容；通讯录 / 故事已在上方转为正式 Workspace。

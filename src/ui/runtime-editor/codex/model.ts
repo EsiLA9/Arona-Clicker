@@ -6,6 +6,7 @@
  */
 
 export type CodexPane = 'mods' | 'entries' | 'detail';
+export type CodexNavigationMode = 'categories' | 'scopes';
 export type CodexInspectorTab = 'overview' | 'relations' | 'raw';
 
 export interface CodexModView {
@@ -46,12 +47,34 @@ export interface RuntimeContentBrowserShellView {
   readonly entries: readonly CodexEntryView[];
 }
 
+export interface CodexReadingPosition {
+  readonly inspectorTab: CodexInspectorTab;
+  readonly listScrollTop: number;
+  readonly detailScrollTop: number;
+}
+
+export interface CodexHistoryEntry {
+  readonly entryKey: string;
+  readonly query: string;
+  readonly selectedModId: string | null;
+  readonly selectedKind: string | null;
+  readonly selectedCategory?: string | null;
+  readonly locationHint?: string;
+  readonly reading?: CodexReadingPosition;
+}
+
 export interface CodexShellState {
+  readonly selectedCategory?: string | null;
+  readonly locationHint?: string;
+  readonly reading?: CodexReadingPosition;
+  readonly backReadings?: readonly CodexHistoryEntry[];
+  readonly forwardReadings?: readonly CodexHistoryEntry[];
   readonly query: string;
   readonly selectedModId: string | null;
   readonly selectedKind: string | null;
   readonly selectedEntryKey: string | null;
   readonly mobilePane: CodexPane;
+  readonly navigationMode: CodexNavigationMode;
   readonly kindFilterOpen: boolean;
   readonly backStack: readonly string[];
   readonly forwardStack: readonly string[];

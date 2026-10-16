@@ -173,6 +173,8 @@ describe('Gameplay B Scene M-of-N and temporary purchase sample', () => {
     const finalView = resumed.operationEntry.getView(runId)!;
     const finalResolution = resumed.operationEntry.commitSceneActionBatch(batch(runId, finalView.planVersion, [IDS.finalInventoryCheck]));
     expect(finalResolution.sceneId).toBe(IDS.purchaseScene);
+    const completedLocation = resumed.operationEntry.getSnapshot()!;
+    resumed.operationEntry.transitionRoute({ runId, planVersion: completedLocation.planVersion, routeId: IDS.route });
     expect(resumed.operationEntry.getView(runId)).toMatchObject({
       currentLocationId: IDS.exitLocation,
       playerCost: 4,

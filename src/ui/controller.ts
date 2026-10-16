@@ -140,10 +140,24 @@ function elementMatchesMarkup(current: HTMLElement, html: string): boolean {
 
 function operationMorphKey(node: Node): string | null {
   if (!(node instanceof HTMLElement)) return null;
+  if (node.hasAttribute('data-operation-timeline')) return 'operation-timeline';
+  if (node.hasAttribute('data-operation-timeline-sequence')) return `timeline:${node.dataset.operationTimelineSequence}`;
+  if (node.classList.contains('operation-opening-message')) return 'operation-opening-message';
+  if (node.hasAttribute('data-operation-location')) return 'operation-progress';
+  if (node.hasAttribute('data-operation-scene-actions')) return 'operation-scene-actions';
+  if (node.hasAttribute('data-operation-pending-batch')) return 'operation-pending-batch';
+  if (node.hasAttribute('data-operation-routes')) return 'operation-routes';
+  if (node.hasAttribute('data-operation-outcome')) return 'operation-outcome';
   if (node.hasAttribute('data-operation-map-popup')) return 'operation-map-popup';
   if (node.hasAttribute('data-operation-map-intro')) return `operation-map-intro:${node.dataset.operationMapIntro}`;
   if (node.hasAttribute('data-operation-student')) return `student:${node.dataset.operationStudent}`;
-  if (node.hasAttribute('data-operation-scene-card')) return `scene-card:${node.hasAttribute('data-global-scene-card') ? 'global' : node.dataset.actorId}`;
+  if (node.hasAttribute('data-operation-scene-card')) {
+    if (node.hasAttribute('data-operation-choice-group-card')) {
+      const sceneActionId = node.querySelector<HTMLElement>('[data-scene-action-id]')?.dataset.sceneActionId;
+      return `scene-choice-group-card:${sceneActionId ?? ''}`;
+    }
+    return `scene-card:${node.hasAttribute('data-global-scene-card') ? 'global' : node.dataset.actorId}`;
+  }
   if (node.hasAttribute('data-operation-scene-option-card')) {
     const owner = node.closest<HTMLElement>('[data-operation-scene-card]');
     return `scene-option:${owner?.hasAttribute('data-global-scene-card') ? 'global' : owner?.dataset.actorId}:${node.dataset.sceneActionId}`;
@@ -200,6 +214,7 @@ function morphOperationNode(current: Node, next: Node): void {
   }
   const originalChildren = [...current.childNodes];
   const used = new Set<Node>();
+  let insertionPoint = current.firstChild;
   [...next.childNodes].forEach((nextChild, index) => {
     const key = operationMorphKey(nextChild);
     const keyed = key ? originalChildren.find(child => !used.has(child) && operationMorphKey(child) === key) : undefined;
@@ -207,12 +222,14 @@ function morphOperationNode(current: Node, next: Node): void {
     const candidate = keyed ?? (positional && !used.has(positional) && operationMorphCompatible(positional, nextChild) ? positional : undefined);
     if (candidate && operationMorphCompatible(candidate, nextChild)) {
       morphOperationNode(candidate, nextChild);
-      current.appendChild(candidate);
       used.add(candidate);
+      if (candidate !== insertionPoint) current.insertBefore(candidate, insertionPoint);
+      insertionPoint = candidate.nextSibling;
     } else {
       const clone = nextChild.cloneNode(true);
-      current.appendChild(clone);
+      current.insertBefore(clone, insertionPoint);
       used.add(clone);
+      insertionPoint = clone.nextSibling;
     }
   });
   for (const child of originalChildren) {
@@ -1214,6 +1231,7 @@ export class UIController {
     const workspace = this.panelState.workspace;
     if (workspace?.type !== 'contacts') return false;
 
+    this.syncRuntimeTheme();
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     const template = document.createElement('template');
     template.innerHTML = renderContactsWorkspace(context, workspace, this.panelState).trim();

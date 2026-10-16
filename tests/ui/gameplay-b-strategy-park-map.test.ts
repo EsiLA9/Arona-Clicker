@@ -73,8 +73,16 @@ describe('Gameplay B Strategy Park map UI', () => {
     expect(map.querySelector('[data-operation-map-blocked-exit]')).toBeNull();
     expect(map.querySelectorAll('[data-operation-route]')).toHaveLength(0);
 
-    for (let tries = 0; tries < 6 && game.operationEntry.getView()?.currentLocationId !== PARK_IDS.locations.kiosk; tries++) {
-      root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+    for (let tries = 0; tries < 10 && game.operationEntry.getView()?.currentLocationId !== PARK_IDS.locations.kiosk; tries++) {
+      const view = game.operationEntry.getView()!;
+      if (view.locationProgress[view.currentLocationId]?.completed) {
+        const routeId = view.currentLocationId === PARK_IDS.locations.westGate
+          ? PARK_IDS.routes.gateToCorridor
+          : PARK_IDS.routes.corridorToKiosk;
+        root.querySelector<HTMLButtonElement>('[data-operation-route][data-route-id="' + routeId + '"]')!.click();
+      } else {
+        root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+      }
     }
     expect(game.operationEntry.getView()?.currentLocationId).toBe(PARK_IDS.locations.kiosk);
     root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
@@ -108,6 +116,33 @@ describe('Gameplay B Strategy Park map UI', () => {
     expect(root.querySelector('[data-operation-strategy-park-map]')).toBeNull();
   });
 
+  it('opens the existing map popup from the lower-right Toast', () => {
+    localStorage.clear();
+    document.body.innerHTML = '<div id="app"></div>';
+    game = createAppRuntime();
+    game.init([defaultDatapack, gameplayBCarouselDatapack, gameplayBStrategyParkDatapack], { enterDefaultInit: true });
+    acquireStudents();
+    const root = document.querySelector<HTMLElement>('#app')!;
+    controller = new UIController(game, root);
+    controller.started = true;
+    const runId = game.operationEntry.start(PARK_IDS.event, [Character.Hoshino, Character.Serika, Character.Shiroko]).runId;
+    controller.panelState.workspace = { type: 'operation', runId };
+    controller.render();
+
+    const toast = root.querySelector<HTMLButtonElement>('[data-operation-map-toast-open]')!;
+    const popup = root.querySelector<HTMLElement>('[data-operation-map-popup]')!;
+    expect(toast.hidden).toBe(false);
+    expect(popup.hidden).toBe(true);
+    toast.click();
+    expect(popup.hidden).toBe(false);
+    expect(popup.querySelectorAll('[data-operation-map-node]')).toHaveLength(13);
+    expect(toast.hidden).toBe(true);
+    popup.querySelector<HTMLButtonElement>('[data-operation-map-popup-close]')!.click();
+    expect(popup.hidden).toBe(true);
+    expect(toast.hidden).toBe(false);
+    expect(document.activeElement).toBe(toast);
+  });
+
   it('keeps the popup and three columns stable while switching views, opening the map, and refreshing a stage', () => {
     localStorage.clear();
     document.body.innerHTML = '<div id="app"></div>';
@@ -130,9 +165,11 @@ describe('Gameplay B Strategy Park map UI', () => {
     const popup = root.querySelector<HTMLElement>('[data-operation-map-popup]')!;
     const mapCard = root.querySelector<HTMLElement>('[data-operation-map-intro]')!;
     const opener = root.querySelector<HTMLButtonElement>('[data-operation-map-open]')!;
+    const toast = root.querySelector<HTMLButtonElement>('[data-operation-map-toast-open]')!;
     const beforeLocalInteractions = controller.getRefreshStats();
     expect(popup.hidden).toBe(true);
     expect(mapCard.hidden).toBe(false);
+    expect(toast.hidden).toBe(false);
     expect(leftColumnBody.dataset.scroll).toBe('none');
     expect(rightColumnBody.dataset.scroll).toBe('none');
     expect(leftColumnBody.querySelector('[data-scroll-owner="content-region"]')).toBe(root.querySelector('[data-operation-party]'));
@@ -187,6 +224,14 @@ describe('Gameplay B Strategy Park map UI', () => {
     popup.querySelector<HTMLButtonElement>('[data-operation-map-popup-close]')!.click();
     expect(popup.hidden).toBe(true);
     expect(document.activeElement).toBe(opener);
+
+    toast.click();
+    expect(popup.hidden).toBe(false);
+    expect(toast.hidden).toBe(true);
+    popup.querySelector<HTMLButtonElement>('[data-operation-map-popup-close]')!.click();
+    expect(popup.hidden).toBe(true);
+    expect(toast.hidden).toBe(false);
+    expect(document.activeElement).toBe(toast);
   });
 
   it('追踪车轮印可点击打开行内执行者选择器，也可拖拽分配学生', () => {
@@ -203,6 +248,7 @@ describe('Gameplay B Strategy Park map UI', () => {
     const brief = root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + PARK_IDS.sceneActions.brief + '"]')!;
     brief.click();
     root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-operation-route][data-route-id="' + PARK_IDS.routes.gateToCorridor + '"]')!.click();
     expect(game.operationEntry.getView()?.currentLocationId).toBe(PARK_IDS.locations.corridor);
 
     const tracks = root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + PARK_IDS.sceneActions.tracks + '"]')!;

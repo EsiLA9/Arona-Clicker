@@ -8,6 +8,13 @@
 
 ## 当前推进
 
+### 本轮完成（2026-10-15）
+
+- [[archive/task-0282-super-codex-phase-a-reliable-relations]]：阶段 A 可靠引用语义、反向跳转、真实包与缓存边界验收完成；定向数据／Runtime回归29项通过。
+- [[archive/task-0283-super-codex-phase-b-friendly-workspace]]：阶段 B 中文图鉴、资料／被引用／技术详情、共享框架与连续导航验收完成；UI／Frame五文件62项通过，桌面1440×900浏览器验收完成。
+- [[archive/handoff-0282-0283-super-codex-2026-10-15]]：保留初始交接检查点与最终验收结果；窄屏按用户要求排除在本轮范围。
+- [[draft-0282-super-codex-and-authoring-workspace]]：A/B已完成；保留阶段 C 编辑器迁入及阶段 D 扩充的设计来源。
+
 ### 当前执行（2026-10-09）
 
 - [[task-0280-gameplay-b-scene-composition-p1-mixed-scene-ui]]：Gameplay B 混合 Scene UI、正式 Rest 演示与 Atomic Scene 调查语义修订已完成代码和 Headless 检查；当前为 **代码待人工验收（Pending Manual Acceptance）**，等待 M01–M08 和视觉/交互检查反馈。

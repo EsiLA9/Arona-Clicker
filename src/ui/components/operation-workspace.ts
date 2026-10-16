@@ -380,7 +380,7 @@ export function projectOperationActorHand(view: OperationView, ownerActorId: str
 function renderPerformerPicker(
   ctx: UIContext,
   view: OperationView,
-  cardKind: 'scene-action' | 'player-card',
+  cardKind: 'player-card',
   identity: string,
   candidates: readonly string[],
   selectedActorId: string,
@@ -392,7 +392,7 @@ function renderPerformerPicker(
     (actorId === selectedActorId ? '✓ ' : '') + e(ctx, targetName(view, actorId)) + '</button>').join('');
   const clear = selectedActorId
     ? '<button type="button" class="operation-performer-picker__clear" data-operation-performer-clear data-card-kind="' + cardKind + '" data-card-identity="' + e(ctx, identity) +
-      '" data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '">' + (cardKind === 'player-card' ? '退回公共手牌' : '取消此行动') + '</button>'
+      '" data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '">退回公共手牌</button>'
     : '';
   return '<details class="operation-performer-picker" data-operation-performer-picker data-card-kind="' + cardKind + '" data-card-identity="' + e(ctx, identity) + '">' +
     '<summary aria-label="' + e(ctx, selectedName ? '更换执行者，当前为' + selectedName : '点击选择执行者') + '">' +
@@ -426,12 +426,12 @@ function renderSceneActionOption(
   const description = action.description ?? actionDescription(view, action.actionId) ?? '执行一项现场行动。';
   const actionName = action.title || sceneActionLabel(view, action.id);
   const targetSummary = action.performerPolicy === 'selected-student' && view.currentActionMode === 'global' && !selectedActorId
-    ? action.eligibleActorIds.length ? '点击选择执行者' : '当前没有合格执行者'
+    ? action.eligibleActorIds.length ? '拖到角色卡上分配执行者' : '当前没有合格执行者'
     : sceneTargetSummary(view, targetSelectionMode, targets, explicitTargetIds);
   const performerActorIds = view.currentActionMode === 'global' && action.performerPolicy !== 'none'
     ? action.eligibleActorIds : [];
   const performerStatus = performerActorIds.length
-    ? '<small class="operation-card-status" data-operation-scene-performer-status>' + (selectedActorId ? '执行者：' + e(ctx, targetName(view, selectedActorId)) : action.performerPolicy === 'optional-student' ? '可就地激活；也可指定学生' : '待选择执行者') + '</small>'
+    ? '<small class="operation-card-status" data-operation-scene-performer-status>' + (selectedActorId ? '执行者：' + e(ctx, targetName(view, selectedActorId)) : action.performerPolicy === 'optional-student' ? '可就地激活；拖到角色卡可指定学生' : '拖到角色卡分配执行者') + '</small>'
     : '';
   const state = action.selectionPolicy === 'fixed' ? 'fixed'
     : isSelected ? 'selected'
@@ -439,10 +439,7 @@ function renderSceneActionOption(
   const unavailable = state === 'unavailable';
   const face = '<button type="button" class="operation-card-face operation-card-face--scene ' + (view.currentActionMode === 'global' ? 'is-global' : 'is-individual') + ' is-' + state + (isSelected ? ' is-selected' : '') + '" data-selection-state="' + state + '" data-operation-scene-choice data-card-kind="scene-action" data-target-mode="' + e(ctx, view.currentActionMode ?? 'individual') + '" data-target-selection-mode="' + targetSelectionMode + '" data-target-defaulted="' + String(defaultTargetSelected) + '" data-selected-target-actor-ids="' + e(ctx, JSON.stringify(explicitTargetIds)) + '" data-scene-action-scope="' + e(ctx, action.scope) + '" data-performer-policy="' + action.performerPolicy + '" data-operation-performer-candidate-actor-ids="' + e(ctx, JSON.stringify(performerActorIds)) + '" data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '" data-player-cost="' + action.playerCost + '" data-actor-id="' + e(ctx, selectedActorId) + '" data-legal-target-actor-ids="' + e(ctx, JSON.stringify(targets)) + '" data-legal-target-map="' + e(ctx, JSON.stringify(legalTargetMap)) + '" data-target-summary="' + e(ctx, targetSummary) + '" data-scene-action-id="' + e(ctx, action.id) + '" style="--card-angle:' + (((index % 3) - 1) * 1.8) + 'deg" aria-pressed="' + String(isSelected) + '"' + (unavailable ? ' disabled' : '') + ' aria-label="' + e(ctx, actionName + '。' + description + '。' + action.playerCost + ' Cost。' + targetSummary) + '">' +
     '<strong class="operation-card-title">' + e(ctx, actionName) + '</strong>' + performerStatus + '<small class="operation-card-description">' + e(ctx, description) + '</small><span class="operation-card-footer"><b>' + action.playerCost + ' Cost</b><span data-operation-card-target-summary>' + e(ctx, targetSummary) + '</span></span></button>';
-  const picker = view.currentActionMode === 'global' && action.performerPolicy === 'selected-student'
-    ? renderPerformerPicker(ctx, view, 'scene-action', action.id, action.eligibleActorIds, selectedActorId)
-    : '';
-  return '<div class="operation-scene-option' + (isSelected ? ' is-selected' : '') + '" data-operation-scene-option data-operation-scene-option-card data-actor-id="' + e(ctx, selectedActorId) + '" data-scene-action-id="' + e(ctx, action.id) + '">' + face + picker + '</div>';
+  return '<div class="operation-scene-option' + (isSelected ? ' is-selected' : '') + '" data-operation-scene-option data-operation-scene-option-card data-actor-id="' + e(ctx, selectedActorId) + '" data-scene-action-id="' + e(ctx, action.id) + '" role="listitem">' + face + '</div>';
 }
 
 function renderSceneActionCard(ctx: UIContext, view: OperationView, actorId: string, actions: OperationViewSceneAction[], chosen: OperationViewSceneAction | undefined, extraContent = '', attachedPerformerActorId: string | null = null): string {
@@ -464,7 +461,7 @@ function renderSceneActionCard(ctx: UIContext, view: OperationView, actorId: str
     return renderSceneActionOption(ctx, view, actorId, action, selected?.id === action.id, targetIds, index, attachedPerformerActorId);
   }).join('');
   return '<div class="operation-scene-card' + (view.currentActionMode === 'global' ? ' operation-scene-card--global' : '') + (attachedPerformerActorId !== null ? ' operation-scene-card--attached' : '') + '" data-operation-scene-card data-actor-id="' + e(ctx, actorId) + '" role="listitem"' + (view.currentActionMode === 'global' ? ' data-global-scene-card' : '') + '>' +
-    '<div class="operation-scene-choice-list" data-operation-scene-options>' + actionOptions + '</div>' + extraContent + '</div>';
+    '<div class="operation-scene-choice-list operation-card-fan" data-operation-scene-options role="list">' + actionOptions + '</div>' + extraContent + '</div>';
 }
 
 function renderSceneActionChoiceCard(ctx: UIContext, view: OperationView, action: OperationViewSceneAction, index: number): string {
@@ -475,7 +472,7 @@ function renderSceneActionChoiceCard(ctx: UIContext, view: OperationView, action
   const selectedTargetIds = defaultSceneActionTargets(action.targetSelectionMode ?? 'select', targets, saved?.targetActorIds);
   const option = renderSceneActionOption(ctx, view, '', action, Boolean(saved), selectedTargetIds, index, actorId || null);
   return '<div class="operation-scene-card operation-scene-card--global" data-operation-scene-card data-global-scene-card data-operation-choice-group-card data-actor-id="" role="listitem">' +
-    '<div class="operation-scene-choice-list" data-operation-scene-options>' + option + '</div></div>';
+    '<div class="operation-scene-choice-list operation-card-fan" data-operation-scene-options role="list">' + option + '</div></div>';
 }
 
 function renderGlobalAttachedSceneAction(ctx: UIContext, view: OperationView, actor: OperationViewActor): string {
@@ -616,7 +613,7 @@ function renderStudent(ctx: UIContext, view: OperationView, actor: OperationView
     return [renderPlayerSceneCard(ctx, view, card, index, actor.id)];
   }).join('') : '';
   const actorCardSlot = attachedSceneAction || actorPlayerCards
-    ? '<div class="operation-actor-hand-cards" data-operation-actor-hand-cards role="list" aria-label="' + e(ctx, name) + '持有的行动牌">' + attachedSceneAction + actorPlayerCards + '</div>' : '';
+    ? '<div class="operation-actor-hand-cards operation-card-fan" data-operation-actor-hand-cards role="list" aria-label="' + e(ctx, name) + '持有的行动牌">' + attachedSceneAction + actorPlayerCards + '</div>' : '';
   return '<article class="operation-student-card" data-operation-student="' + e(ctx, actor.id) + '" data-operation-actor-hand="' + e(ctx, actor.id) + '" data-operation-card-anchor="' + e(ctx, actor.id) + '"' + (characterPlanning ? ' data-operation-action-anchor="' + e(ctx, actor.id) + '"' : '') + ' data-operation-actor-target="' + e(ctx, actor.id) + '">' +
     '<header class="operation-student-card__header"><span class="operation-student-card__avatar" aria-hidden="true">' + avatar + '</span><span><strong>' + e(ctx, name) + '</strong>' + positionMarkup + '</span></header>' +
     renderStudentVitals(ctx, actor) + planMarkup + actorCardSlot + '</article>';
@@ -662,15 +659,18 @@ function renderOpponents(ctx: UIContext, view: OperationView, visible: boolean):
   return '<div class="operation-opponent-column" data-operation-right-view="enemies" data-scroll-owner="content-region"' + (visible ? '' : ' hidden') + '>' + opponentGroup + environmentGroup + '</div>';
 }
 
-function renderBackground(view: OperationView, ctx: UIContext, visible: boolean): string {
+function renderBackground(view: OperationView, ctx: UIContext, visible: boolean, mapId: string, mapOpen: boolean): string {
   const location = locationPresentation(view, view.currentLocationId);
+  const mapAccess = mapId
+    ? '<section class="operation-background-section operation-background-map-entry" data-operation-map-entry><div><strong>行动地图</strong><p>查看全部地点、访问进度与路线。</p></div><button type="button" class="operation-map-open" data-operation-map-open="' + e(ctx, mapId) + '" data-run-id="' + e(ctx, view.runId) + '" aria-controls="operation-map-popup" aria-expanded="' + String(mapOpen) + '">' + (mapOpen ? '地图已打开' : '打开地图') + '</button></section>'
+    : '';
   const knownFacts = view.knownFactIds.length
     ? '<section class="operation-background-section"><strong>已知信息</strong><ul>' + view.knownFactIds.map(id => '<li data-operation-fact="' + e(ctx, id) + '">' + e(ctx, factName(view, id)) + '</li>').join('') + '</ul></section>'
     : '<p class="operation-muted">尚无已记录的现场信息。</p>';
   const items = view.heldItemIds.length
     ? '<div class="operation-current-items" aria-label="当前持有物">' + view.heldItemIds.map(id => '<span>' + e(ctx, operationItemName(view, id)) + '</span>').join('') + '</div>'
     : '<p class="operation-muted">当前没有持有物。</p>';
-  return '<div class="operation-background-view" data-operation-right-view="background" data-scroll-owner="content-region"' + (visible ? '' : ' hidden') + '><section class="operation-background-section"><span class="operation-eyebrow">当前地点</span><strong>' + e(ctx, location?.name ?? '行动现场') + '</strong><p>' + e(ctx, location?.description ?? '') + '</p></section>' + knownFacts + '<section class="operation-background-section"><strong>持有物</strong>' + items + '</section></div>';
+  return '<div class="operation-background-view" data-operation-right-view="background" data-scroll-owner="content-region"' + (visible ? '' : ' hidden') + '><section class="operation-background-section"><span class="operation-eyebrow">当前地点</span><strong>' + e(ctx, location?.name ?? '行动现场') + '</strong><p>' + e(ctx, location?.description ?? '') + '</p></section>' + mapAccess + knownFacts + '<section class="operation-background-section"><strong>持有物</strong>' + items + '</section></div>';
 }
 
 function renderIntentCard(ctx: UIContext, view: OperationView, actor: OperationViewActor): string {
@@ -795,7 +795,7 @@ function renderSceneControls(ctx: UIContext, view: OperationView): string {
       const choiceCards = candidates.map((action, index) => renderSceneActionChoiceCard(ctx, view, action, index)).join('');
       controls = fixedSummary + '<div class="operation-scene-choice-group" data-operation-choice-group data-choice-exactly="' + group.chooseExactly + '">' +
         '<header><strong>从 ' + group.candidateSceneActionIds.length + ' 项行动中恰好选择 ' + group.chooseExactly + ' 项</strong><span data-scene-choice-count>已选 ' + selectedCount + ' / ' + group.chooseExactly + '</span></header>' +
-        '<div class="operation-scene-choice-group__offers" role="list">' + choiceCards + '</div></div>';
+        '<div class="operation-scene-choice-group__offers operation-card-fan" role="list">' + choiceCards + '</div></div>';
     } else {
       const eligibleActions = actions.filter(action => action.selectionPolicy === 'required' && (action.performerPolicy !== 'selected-student' || action.eligibleActorIds.length > 0));
       const chosen = eligibleActions[0];
@@ -815,7 +815,7 @@ function renderSceneControls(ctx: UIContext, view: OperationView): string {
     controls = '';
   }
   const hand = view.playerCards.hand.length ? '<section class="operation-hand" data-operation-player-hand aria-label="玩家场景手牌"><header><strong>玩家手牌</strong><span>' +
-    view.playerCards.hand.filter(card => !draft?.cards.some(selection => selection.cardInstanceId === card.cardInstanceId && selection.actorId)).length + ' 张在公共手牌 · 抽牌堆 ' + view.playerCards.drawPileCount + '</span></header><div class="operation-hand__fan" role="list">' + view.playerCards.hand.filter(card => !draft?.cards.some(selection => selection.cardInstanceId === card.cardInstanceId && selection.actorId)).map((card, index) => {
+    view.playerCards.hand.filter(card => !draft?.cards.some(selection => selection.cardInstanceId === card.cardInstanceId && selection.actorId)).length + ' 张在公共手牌 · 抽牌堆 ' + view.playerCards.drawPileCount + '</span></header><div class="operation-hand__fan operation-card-fan" role="list">' + view.playerCards.hand.filter(card => !draft?.cards.some(selection => selection.cardInstanceId === card.cardInstanceId && selection.actorId)).map((card, index) => {
       const performers = card.eligibleActorIds;
       const label = card.title || actionLabel(view, card.actionId);
       const saved = draft?.cards.find(item => item.cardInstanceId === card.cardInstanceId);
@@ -902,6 +902,7 @@ function renderPending(ctx: UIContext, view: OperationView): string {
 }
 
 function renderRoutes(ctx: UIContext, view: OperationView): string {
+  if (view.status !== 'inProgress' || view.locationProgress[view.currentLocationId]?.completed !== true) return '';
   if (!view.currentRoutes.length) return '';
   const lockText = (reason: string | null): string => {
     if (reason === 'operation:route:location-incomplete') return '先完成当前地点目标。';
@@ -912,16 +913,25 @@ function renderRoutes(ctx: UIContext, view: OperationView): string {
   };
   const parkItemName = (itemId: string): string => itemId === PARK_IDS.items.maintenancePass ? '维修通行证'
     : itemId === PARK_IDS.items.staffRadio ? '员工广播凭证' : itemId;
-  return '<section class="operation-route-choices" data-operation-routes aria-label="路线选择"><header><span class="operation-eyebrow">下一站</span><strong>选择离开方式</strong></header>' +
-    view.currentRoutes.map(route => {
-      const requirement = view.eventId !== PARK_IDS.event ? '' : route.requiredHeldItemId ? '需要：' + parkItemName(route.requiredHeldItemId)
-        : route.anyOfHeldItemIds.length ? '需要其一：' + route.anyOfHeldItemIds.map(parkItemName).join(' / ') : '';
-      return '<article class="operation-route-card" data-operation-route-card="' + e(ctx, route.routeId) + '"><div><strong>' + e(ctx, route.label) + '</strong><p>' +
-      e(ctx, route.description) + '</p>' + (requirement ? '<small data-operation-route-requirement>' + e(ctx, requirement) + '</small>' : '') +
-      (route.lockedReason ? '<small>' + e(ctx, lockText(route.lockedReason)) + '</small>' : '') + '</div><button type="button" data-operation-route data-run-id="' +
-      e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '" data-route-id="' + e(ctx, route.routeId) + '"' + (route.available ? '' : ' disabled') +
-      '>' + (route.available ? '前往' : '尚未开放') + '</button></article>';
-    }).join('') + '</section>';
+  const currentLocation = locationPresentation(view, view.currentLocationId)?.name ?? '当前地点';
+  const buttons = view.currentRoutes.map(route => {
+    const target = locationPresentation(view, route.targetLocationId)?.name ?? route.label;
+    const buttonLabel = route.label === target ? target : route.label + ' → ' + target;
+    const requirement = view.eventId !== PARK_IDS.event ? '' : route.requiredHeldItemId ? '需要：' + parkItemName(route.requiredHeldItemId)
+      : route.anyOfHeldItemIds.length ? '需要其一：' + route.anyOfHeldItemIds.map(parkItemName).join(' / ') : '';
+    const lock = route.available ? '' : lockText(route.lockedReason);
+    const accessibleDescription = [route.label, route.description, lock, requirement].filter(Boolean).join('。');
+    return '<div class="operation-route-option" data-operation-route-card="' + e(ctx, route.routeId) + '"><button type="button" class="operation-route-button"' +
+      ' data-operation-route data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) +
+      '" data-route-id="' + e(ctx, route.routeId) + '" aria-label="前往' + e(ctx, target) + '。' + e(ctx, accessibleDescription) +
+      '" title="' + e(ctx, accessibleDescription) + '"' + (route.available ? '' : ' disabled') + '>' + e(ctx, buttonLabel) + '</button>' +
+      (lock ? '<small class="operation-route-note">' + e(ctx, lock) + '</small>' : '') +
+      (requirement ? '<small class="operation-route-note" data-operation-route-requirement>' + e(ctx, requirement) + '</small>' : '') + '</div>';
+  }).join('');
+  return '<section class="operation-route-choices" data-operation-routes aria-label="可选去向"><div class="chat-talk chat-talk-npc operation-route-flow">' +
+    '<span class="chat-avatar" aria-hidden="true"><span class="chat-avatar-fallback">路</span></span><div class="chat-talk-main"><div class="chat-name"><span>夏莱行动记录</span><small>' +
+    e(ctx, currentLocation) + ' · 地点已完成</small></div><div class="chat-bubble chat-bubble-npc operation-route-flow__bubble"><p>地点行动已经结束。请选择去向：</p>' +
+    '<div class="operation-route-buttons">' + buttons + '</div></div></div></div></section>';
 }
 
 function renderStrategyParkMap(ctx: UIContext, view: OperationView): string {
@@ -985,16 +995,44 @@ function renderStrategyParkMap(ctx: UIContext, view: OperationView): string {
     edges + '</svg>' + nodes + '</div><footer class="operation-map-legend"><span><i class="is-current"></i>当前位置</span><span><i class="is-visited"></i>已访问</span><span><i class="is-unvisited"></i>未访问</span><span><i class="is-available"></i>当前出口可用</span><span><i class="is-locked"></i>当前出口锁定</span></footer></section>';
 }
 
+function renderGenericOperationMap(ctx: UIContext, view: OperationView): string {
+  const nodes = view.map.nodes.map((node, index) => {
+    const location = locationPresentation(view, node.locationId);
+    const status = node.current ? 'current' : node.visited ? 'visited' : 'unvisited';
+    const stateLabel = node.current ? '当前位置' : node.visited ? node.completed ? '已访问 · 已完成' : '已访问' : '未到达';
+    const visits = node.maxVisits === null ? '访问 ' + node.visitCount + ' 次' : '访问 ' + node.visitCount + ' / ' + node.maxVisits + ' 次';
+    return '<li class="operation-generic-map__node is-' + status + (node.completed ? ' is-completed' : '') + '" data-operation-map-node data-map-location-id="' + e(ctx, node.locationId) + '" data-map-status="' + status + '"><span class="operation-generic-map__node-index">' + (index + 1) + '</span><div><strong>' + e(ctx, location?.name ?? '行动地点') + '</strong><small>' + e(ctx, stateLabel + ' · ' + visits) + '</small></div></li>';
+  }).join('');
+  const routeLockLabel = (reason: string | null): string => {
+    if (reason === 'operation:route:location-incomplete') return '先完成当前地点。';
+    if (reason === 'operation:route:max-visits-reached' || reason === 'operation:route:location-max-visits-reached') return '目标地点已达访问上限。';
+    if (reason === 'operation:route:required-held-item-missing') return '缺少所需物品。';
+    if (reason === 'operation:route:any-of-held-items-missing') return '缺少所需凭证。';
+    return reason ? '路线暂不可用。' : '';
+  };
+  const edges = view.map.edges.map(edge => {
+    const from = locationPresentation(view, edge.sourceLocationId)?.name ?? '未知地点';
+    const to = locationPresentation(view, edge.targetLocationId)?.name ?? '未知地点';
+    const state = edge.available === true ? '当前出口可用' : edge.available === false ? '当前出口锁定' : '其他地点的路线';
+    const requirement = edge.requiredHeldItemId ? '需要：' + operationItemName(view, edge.requiredHeldItemId)
+      : edge.anyOfHeldItemIds.length ? '需要其一：' + edge.anyOfHeldItemIds.map(id => operationItemName(view, id)).join(' / ') : '';
+    const lock = edge.available === false ? routeLockLabel(edge.lockedReason) : '';
+    return '<li class="operation-generic-map__route' + (edge.available === true ? ' is-available' : edge.available === false ? ' is-locked' : '') + '" data-operation-map-edge="' + e(ctx, edge.routeId) + '"><div><strong>' + e(ctx, from + ' → ' + to) + '</strong><small>' + e(ctx, edge.label + ' · ' + state) + '</small></div><p>' + e(ctx, edge.description) + '</p>' + (lock ? '<small>' + e(ctx, lock) + '</small>' : '') + (requirement ? '<small>' + e(ctx, requirement) + '</small>' : '') + '</li>';
+  }).join('');
+  return '<section class="operation-generic-map" data-operation-generic-map aria-label="行动地点与路线"><header><div><span class="operation-eyebrow">路线总览</span><strong>' + e(ctx, view.eventTitle ?? '行动地图') + '</strong></div><small>' + view.map.nodes.length + ' 个地点 · ' + view.map.edges.length + ' 条路线</small></header><ol class="operation-generic-map__nodes" aria-label="地点进度">' + nodes + '</ol><section class="operation-generic-map__route-list"><strong>地点之间的路线</strong><ul>' + edges + '</ul></section></section>';
+}
+
 interface OperationMapPresentation { readonly mapId: string; readonly title: string; readonly content: string; }
 
 /** UI adapter: map availability and presentation are selected from the current OperationView context. */
 function operationMapPresentation(ctx: UIContext, view: OperationView): OperationMapPresentation | null {
   if (view.status !== 'inProgress') return null;
   if (view.eventId === PARK_IDS.event) return { mapId: 'gameplay-b:strategy-park', title: PARK_MAP.title, content: renderStrategyParkMap(ctx, view) };
-  return null;
+  return { mapId: 'operation:' + view.eventId, title: view.eventTitle ?? '行动地图', content: renderGenericOperationMap(ctx, view) };
 }
 
 function renderInlineMapCard(ctx: UIContext, view: OperationView): string {
+  if (view.eventId !== PARK_IDS.event) return '';
   const map = operationMapPresentation(ctx, view);
   if (!map) return '';
   const mapId = map.mapId;
@@ -1174,14 +1212,14 @@ export function renderOperationWorkspace(ctx: UIContext, view: OperationView | n
     ? '<aside class="operation-party-column" aria-label="我方学生" data-operation-party data-scroll-owner="content-region"><div class="operation-party-list">' + students.map(actor => renderStudent(ctx, view, actor, battle)).join('') + '</div></aside>'
     : '<aside class="operation-party-column" aria-hidden="true"></aside>';
   const center = view ? renderMain(ctx, view, notice) : renderUnavailable(ctx, notice);
-  const right = view ? renderOpponents(ctx, view, transient?.rightTab !== 'background') + renderBackground(view, ctx, transient?.rightTab === 'background') : '<aside class="operation-opponent-column" aria-hidden="true"></aside>';
+  const right = view ? renderOpponents(ctx, view, transient?.rightTab !== 'background') + renderBackground(view, ctx, transient?.rightTab === 'background', mapId, transient?.popupMap === mapId) : '<aside class="operation-opponent-column" aria-hidden="true"></aside>';
   const leftHeader = '<span class="operation-eyebrow">我方</span><strong>' + students.length + ' 位学生</strong>';
   const centerHeader = view
     ? '<div class="operation-chat-heading"><div><span class="operation-eyebrow">夏莱行动记录 · 当前任务</span><h1>' +
       e(ctx, eventTitle(view)) + '</h1><small>' + e(ctx, locationPresentation(view, view.currentLocationId)?.name ?? '行动现场') + ' · 第 ' + (view.beatIndex + 1) + ' 次推进</small></div><button type="button" class="operation-back-button" data-operation-back>返回上一页</button></div>'
     : '<div class="operation-chat-heading"><div><span class="operation-eyebrow">夏莱行动记录</span><h1>这次行动暂时无法读取</h1></div><button type="button" class="operation-back-button" data-operation-back>返回上一页</button></div>';
   const rightHeader = view
-    ? '<div class="operation-right-header"><div class="operation-right-tabs" role="tablist" aria-label="行动信息"><button type="button" role="tab" data-operation-right-tab="enemies" data-run-id="' + e(ctx, view!.runId) + '" aria-selected="' + String(transient?.rightTab === 'enemies') + '" tabindex="' + (transient?.rightTab === 'enemies' ? '0' : '-1') + '">敌人</button><button type="button" role="tab" data-operation-right-tab="background" data-run-id="' + e(ctx, view!.runId) + '" aria-selected="' + String(transient?.rightTab === 'background') + '" tabindex="' + (transient?.rightTab === 'background' ? '0' : '-1') + '">背景 / 持有物</button></div>' + (mapId ? '<button type="button" class="operation-map-open" data-operation-map-open="' + e(ctx, mapId) + '" data-run-id="' + e(ctx, view!.runId) + '" aria-controls="operation-map-popup" aria-expanded="' + String(transient?.popupMap === mapId) + '">地图</button>' : '') + '</div>'
+    ? '<div class="operation-right-header"><div class="operation-right-tabs" role="tablist" aria-label="行动信息"><button type="button" role="tab" data-operation-right-tab="enemies" data-run-id="' + e(ctx, view!.runId) + '" aria-selected="' + String(transient?.rightTab === 'enemies') + '" tabindex="' + (transient?.rightTab === 'enemies' ? '0' : '-1') + '">敌人</button><button type="button" role="tab" data-operation-right-tab="background" data-run-id="' + e(ctx, view!.runId) + '" aria-selected="' + String(transient?.rightTab === 'background') + '" tabindex="' + (transient?.rightTab === 'background' ? '0' : '-1') + '">背景 / 持有物</button></div></div>'
     : '<span class="operation-eyebrow">行动信息</span>';
   const popup = view ? renderMapPopup(ctx, view) : '';
   const preparedCards = view ? renderPreparedCardLayer(ctx, view, battle, students) : '';

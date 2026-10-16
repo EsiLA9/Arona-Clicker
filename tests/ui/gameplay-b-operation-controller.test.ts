@@ -289,6 +289,9 @@ describe('Gameplay B Operation Controller', () => {
 
     root.querySelector<HTMLButtonElement>('[data-operation-scene-choice][data-scene-action-id="' + OFFER_DEMO_IDS.finalInventoryCheck + '"]')!.click();
     root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+    const exitRoute = root.querySelector<HTMLButtonElement>('[data-operation-route][data-route-id="' + OFFER_DEMO_IDS.route + '"]');
+    expect(exitRoute?.disabled).toBe(false);
+    exitRoute!.click();
     expect(game.operationEntry.getView(runId)).toMatchObject({
       currentLocationId: OFFER_DEMO_IDS.exitLocation,
       locationProgress: { [OFFER_DEMO_IDS.location]: { completed: true, result: 'success', completedSceneIds: [OFFER_DEMO_IDS.choiceScene, OFFER_DEMO_IDS.purchaseScene] } },
@@ -373,6 +376,37 @@ describe('Gameplay B Operation Controller', () => {
     expect(game.operationEntry.getView(workspace.runId)?.eventId).toBe(PARK_IDS.event);
   });
 
+  it('旋转木马路线只在地点完成后显示，并可从路线按钮进入下一地点', () => {
+    acquireStudents();
+    const runId = game.operationEntry.start(IDS.event, [Character.Hoshino, Character.Serika, Character.Shiroko]).runId;
+    controller.panelState.workspace = { type: 'operation', runId };
+    controller.render();
+
+    expect(root.querySelector('[data-operation-routes]')).toBeNull();
+    selectActionIfNotCurrent(CAROUSEL_SAFETY_IDS.actions.emergencyStop);
+    root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.platform);
+    const platformRouteButton = root.querySelector<HTMLButtonElement>(
+      '[data-operation-route][data-route-id="' + IDS.routes.platformToConcourse + '"]',
+    );
+    expect(platformRouteButton?.disabled).toBe(false);
+    platformRouteButton!.click();
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.concourse);
+    expect(root.querySelector('[data-operation-routes]')).toBeNull();
+
+    selectSceneAction(IDS.actors.hoshino, IDS.sceneActions.inspect);
+    selectSceneAction(IDS.actors.serika, IDS.sceneActions.guide);
+    selectSceneAction(IDS.actors.shiroko, IDS.sceneActions.guide);
+    root.querySelector<HTMLButtonElement>('[data-operation-scene-submit]')!.click();
+
+    const routeButton = root.querySelector<HTMLButtonElement>('[data-operation-route][data-route-id="' + IDS.routes.staffGate + '"]');
+    expect(game.operationEntry.getView(runId)?.locationProgress[IDS.locations.concourse]?.completed).toBe(true);
+    expect(routeButton?.disabled).toBe(false);
+    expect(routeButton?.textContent).toContain('员工通道');
+    routeButton!.click();
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.exit);
+  });
+
   it('沿正式事件流完成干预、两类场景行动、路线、玩家卡与奖励，始终只刷新 Operation region', () => {
     acquireStudents();
     startFromFeed();
@@ -426,12 +460,19 @@ describe('Gameplay B Operation Controller', () => {
     expect(root.querySelector('[data-operation-student="' + CAROUSEL_SAFETY_IDS.actors.hoshino + '"]')).toBe(stableStudent);
     expect(root.querySelector('[data-operation-action][data-action-id="' + selectedActionId + '"]')).toBe(actionButton);
     root.querySelector<HTMLButtonElement>('[data-operation-commit]')!.click();
-    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.concourse);
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.platform);
+    const platformRouteButton = root.querySelector<HTMLButtonElement>(
+      '[data-operation-route][data-route-id="' + IDS.routes.platformToConcourse + '"]',
+    );
+    expect(platformRouteButton?.disabled).toBe(false);
     expect(root.querySelector('.operation-commit-status')?.textContent).toContain('处理地点行动');
     expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
     expect(root.querySelector('[data-workspace-frame="operation"]')).toBe(stableFrame);
     expect(root.querySelector('[data-operation-log]')).toBe(stableStream);
     expect(root.querySelector('[data-operation-commit-dock]')).toBe(stableDock);
+    platformRouteButton!.click();
+    expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.concourse);
+    expect(controller.getRefreshStats().regionRefreshes).toBe(++regionBefore);
 
     const individualCards = [...root.querySelectorAll<HTMLElement>('[data-operation-scene-card][data-actor-id]')];
     expect(individualCards).toHaveLength(3);

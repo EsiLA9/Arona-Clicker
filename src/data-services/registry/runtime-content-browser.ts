@@ -16,6 +16,9 @@ import type {
   RuntimeContentUnknownValue,
   RuntimeDefinitionRef,
 } from '../contracts/runtime-content-browser';
+import { collectDefinitionReferences } from './runtime-content-reference-rules';
+import { collectOperationReferences } from './runtime-content-operation-references';
+import type { ReferenceRequest } from './runtime-content-reference-types';
 interface GetterSnapshot {
   readonly kind: string;
   readonly value: unknown;
@@ -94,9 +97,9 @@ function discoverRegistryGetters(registry: object): readonly GetterSnapshot[] {
   if (prototypeSnapshots.length > 0) return prototypeSnapshots;
 
   return Object.keys(registry)
-    .filter(name => !NON_DEFINITION_GETTERS.has(name))
+    .filter(name => !NON_DEFINITION_GETTERS.has(name) && typeof dataValue(registry, name) !== 'function')
     .map(name => {
-      const value = (registry as Record<string, unknown>)[name];
+      const value = dataValue(registry, name);
       return {
         kind: name,
         value,
@@ -106,9 +109,18 @@ function discoverRegistryGetters(registry: object): readonly GetterSnapshot[] {
     });
 }
 
+function dataValue(value: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor && 'value' in descriptor ? descriptor.value : undefined;
+}
+
+function dataEntries(value: object): readonly [string, unknown][] {
+  return Object.keys(value).map(key => [key, dataValue(value, key)]);
+}
+
 function definitionIdOf(value: unknown): string | undefined {
   if (!isPlainObject(value)) return undefined;
-  const id = value.id;
+  const id = dataValue(value, 'id');
   return typeof id === 'string' && id.trim() ? id : undefined;
 }
 
@@ -173,10 +185,13 @@ function namespaceOf(fullId: string | null): string | undefined {
 }
 
 function ownerOf(registry: object, kind: string, fullId: string): string | undefined {
-  const source = registry as Partial<Record<'initOwnerOf' | 'areaOwnerOf' | 'spotOwnerOf', (id: string) => string | undefined>>;
-  if (kind === 'inits' && typeof source.initOwnerOf === 'function') return source.initOwnerOf.call(registry, fullId);
-  if (kind === 'areas' && typeof source.areaOwnerOf === 'function') return source.areaOwnerOf.call(registry, fullId);
-  if (kind === 'spots' && typeof source.spotOwnerOf === 'function') return source.spotOwnerOf.call(registry, fullId);
+  const methods: Readonly<Record<string, string>> = {
+    inits: 'initOwnerOf', areas: 'areaOwnerOf', spots: 'spotOwnerOf',
+    characterVariants: 'characterVariantOwnerOf', resourceDisplays: 'resourceDisplayOwnerOf',
+  };
+  const method = methods[kind];
+  const query = method ? (registry as Record<string, unknown>)[method] : undefined;
+  if (typeof query === 'function') return query.call(registry, fullId) as string | undefined;
   return undefined;
 }
 
@@ -189,7 +204,7 @@ function loadedModNamesOf(registry: object, entries: readonly InternalEntry[]): 
   const derivedNames = new Set<string>();
   for (const entry of entries) {
     if (entry.summary.sourceMod) derivedNames.add(entry.summary.sourceMod);
-    else if (entry.summary.namespace) derivedNames.add(entry.summary.namespace);
+
   }
   return [...derivedNames];
 }
@@ -207,7 +222,7 @@ function cloneRawValue(value: unknown, seen = new WeakSet<object>()): RuntimeCon
 
   let result: RuntimeContentRawValue;
   if (Array.isArray(value)) {
-    result = value.map(item => cloneRawValue(item, seen));
+    result = Array.from({ length: value.length }, (_, index) => cloneRawValue(dataValue(value, String(index)), seen));
   } else if (isMap(value)) {
     const entries: RuntimeContentMapValue['entries'] = [...value.entries()].map(([key, entryValue]) => ({
       key: cloneRawValue(key, seen),
@@ -218,8 +233,8 @@ function cloneRawValue(value: unknown, seen = new WeakSet<object>()): RuntimeCon
     const values = [...value.values()].map(item => cloneRawValue(item, seen));
     result = { $type: 'set', values } satisfies RuntimeContentSetValue;
   } else if (isPlainObject(value)) {
-    const object: Record<string, RuntimeContentRawValue> = {};
-    for (const [key, entryValue] of Object.entries(value)) object[key] = cloneRawValue(entryValue, seen);
+    const object: Record<string, RuntimeContentRawValue> = Object.create(null);
+    for (const [key, entryValue] of dataEntries(value)) object[key] = cloneRawValue(entryValue, seen);
     result = object;
   } else {
     result = { $type: 'unknown', value: Object.prototype.toString.call(value) } satisfies RuntimeContentUnknownValue;
@@ -240,34 +255,40 @@ function fieldValueType(value: unknown): RuntimeContentFieldNode['valueType'] {
   return 'unknown';
 }
 
-function fieldChildren(value: unknown, path: string): readonly RuntimeContentFieldNode[] {
-  if (Array.isArray(value)) {
-    return value.map((entry, index) => createFieldNode(`${path}[${index}]`, String(index), entry));
-  }
-  if (isMap(value)) {
-    return [...value.entries()].map(([key, entry]) => createFieldNode(
-      `${path}[${String(key)}]`,
-      String(key),
-      entry,
-    ));
-  }
-  if (isPlainObject(value)) {
-    return Object.entries(value).map(([key, entry]) => createFieldNode(
-      path === '$' ? `$.${key}` : `${path}.${key}`,
-      key,
-      entry,
-    ));
-  }
-  return [];
+function fieldChildren(value: unknown, path: string, ancestors = new WeakSet<object>()): readonly RuntimeContentFieldNode[] {
+  if (value === null || typeof value !== 'object' || ancestors.has(value)) return [];
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return Array.from({ length: value.length }, (_, index) => createFieldNode(`${path}[${index}]`, String(index), dataValue(value, String(index)), ancestors));
+    }
+    if (isMap(value)) {
+      return [...value.entries()].map(([key, entry]) => createFieldNode(
+        `${path}[${String(key)}]`,
+        String(key),
+        entry,
+        ancestors,
+      ));
+    }
+    if (isPlainObject(value)) {
+      return dataEntries(value).map(([key, entry]) => createFieldNode(
+        path === '$' ? `$.${key}` : `${path}.${key}`,
+        key,
+        entry,
+        ancestors,
+      ));
+    }
+    return [];
+  } finally { ancestors.delete(value); }
 }
 
-function createFieldNode(path: string, key: string, value: unknown): RuntimeContentFieldNode {
+function createFieldNode(path: string, key: string, value: unknown, ancestors = new WeakSet<object>()): RuntimeContentFieldNode {
   return Object.freeze({
     path,
     key,
     valueType: fieldValueType(value),
     value: cloneRawValue(value),
-    children: Object.freeze([...fieldChildren(value, path)]),
+    children: Object.freeze([...fieldChildren(value, path, ancestors)]),
   });
 }
 
@@ -276,123 +297,35 @@ function buildFieldTree(value: unknown): readonly RuntimeContentFieldNode[] {
   return Object.freeze([createFieldNode('$', '$', value)]);
 }
 
-function isReferenceKey(key: string): boolean {
-  const normalized = key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  return normalized === 'proto'
-    || normalized === 'curve'
-    || normalized === 'gear'
-    || normalized === 'members'
-    || normalized === 'featured'
-    || normalized === 'children'
-    || normalized === 'story'
-    || normalized === 'favoriteitem'
-    || normalized === 'uniqueweapon'
-    || normalized.endsWith('id')
-    || normalized.endsWith('ids')
-    || normalized.endsWith('ref')
-    || normalized.endsWith('refs');
-}
-
-function looksLikeReferenceValue(value: string, key: string): boolean {
-  if (!value || key === 'id') return false;
-  const hasQualifiedIdShape = value.split(':').length >= 3;
-  return hasQualifiedIdShape || (isReferenceKey(key) && /^[A-Za-z0-9_.:-]+$/.test(value));
-}
-
-function collectReferenceStrings(
-  value: unknown,
-  path: string,
-  key: string,
-  output: Array<{ readonly path: string; readonly value: string }>,
-): void {
-  if (typeof value === 'string') {
-    if (looksLikeReferenceValue(value, key)) output.push({ path, value });
-    return;
-  }
-  if (Array.isArray(value)) {
-    value.forEach((entry, index) => collectReferenceStrings(entry, `${path}[${index}]`, key, output));
-    return;
-  }
-  if (isMap(value)) {
-    for (const [entryKey, entry] of value.entries()) {
-      collectReferenceStrings(entry, `${path}[${String(entryKey)}]`, key, output);
-    }
-    return;
-  }
-  if (!isPlainObject(value)) return;
-  for (const [entryKey, entry] of Object.entries(value)) {
-    collectReferenceStrings(entry, path === '$' ? `$.${entryKey}` : `${path}.${entryKey}`, entryKey, output);
-  }
-}
-
 function diagnosticFor(
   source: RuntimeDefinitionRef,
-  path: string,
-  value: string,
+  request: ReferenceRequest,
   definitionsById: ReadonlyMap<string, readonly RuntimeDefinitionRef[]>,
+  sourceCategory: RuntimeContentReferenceDiagnostic['sourceCategory'],
 ): RuntimeContentReferenceDiagnostic {
-  const candidates = definitionsById.get(value) ?? [];
-  const status = candidates.length === 0 ? 'missing' : candidates.length === 1 ? 'resolved' : 'ambiguous';
-  return Object.freeze({
-    source,
-    path,
-    value,
-    ...relationMetadata(source, path),
-    status,
-    target: status === 'resolved' ? candidates[0] : null,
-    candidates: Object.freeze([...candidates]),
+  const locations = request.locations ?? (request.scope === 'local' ? [] : undefined);
+  const matching = locations
+    ? locations.map(location => location.ref)
+    : (definitionsById.get(request.value) ?? []).filter(ref =>
+      !request.targetKinds || request.targetKinds.includes(ref.definitionKind));
+  const candidates = [...new Map(matching.map(ref => [refKey(ref), ref])).values()];
+  const count = locations ? locations.length : candidates.length;
+  const status = count === 0 ? 'missing' : count === 1 ? 'resolved' : 'ambiguous';
+  return deepFreeze({
+    source, path: request.path, value: request.value, relation: request.relation,
+    targetKind: request.targetKinds?.[0], confidence: request.confidence,
+    scope: request.scope, sourceCategory, status,
+    target: status === 'resolved' ? candidates[0] ?? null : null,
+    candidates,
+    ...(locations ? { targetLocations: locations.map(location => ({ ref: { ...location.ref }, path: location.path })) } : {}),
+    ...(request.context ? { context: { ...request.context } } : {}),
   });
-}
-
-function relationMetadata(source: RuntimeDefinitionRef, path: string): Pick<RuntimeContentReferenceDiagnostic, 'relation' | 'targetKind' | 'confidence'> {
-  const key = path.split(/[.[\]]/).filter(Boolean).pop()?.replace(/[^A-Za-z0-9]/g, '').toLowerCase() ?? '';
-  const declared: Readonly<Record<string, readonly [string, string | undefined]>> = {
-    areaid: ['所属 Area', 'areas'],
-    initid: ['所属 Init', 'inits'],
-    defaultareas: ['默认 Area', 'areas'],
-    defaultspots: ['默认 Spot', 'spots'],
-    adjacentareaids: ['相邻 Area', 'areas'],
-    startstoryid: ['起始剧情', 'stories'],
-    storyid: ['目标 Story', 'stories'],
-    availableinits: ['可用 Init', 'inits'],
-    spotid: ['目标 Spot', 'spots'],
-    variantid: ['角色差分', 'characterVariants'],
-    proto: ['原型角色', 'characters'],
-    curve: ['培养曲线', 'cultivateCurves'],
-    favoriteitem: ['爱用品', 'favoriteItems'],
-    uniqueweapon: ['专武', 'uniqueWeapons'],
-    colorgroupid: ['色彩组', 'colorGroups'],
-    poolid: ['所属卡池', 'gachaPools'],
-    children: ['闲聊成员', 'passiveStories'],
-    pushafterstory: ['前置剧情', 'stories'],
-    owner: ['所属来源', undefined],
-    members: ['成员', 'characterVariants'],
-    featured: ['Featured 成员', 'characterVariants'],
-    itemid: ['物品', 'items'],
-    resourceid: ['资源', 'resourceDisplays'],
-    resource: ['资源', 'resourceDisplays'],
-    currency: ['抽卡资源', 'resourceDisplays'],
-    shopid: ['商店', 'shops'],
-    entryid: ['商店商品', undefined],
-    gear: ['装备', 'gears'],
-    gearslots: ['装备槽', 'gears'],
-    fromareaid: ['连接起点 Area', 'areas'],
-    toareaid: ['连接终点 Area', 'areas'],
-    affectorpackids: ['Affector Pack', 'affectorPacks'],
-    tags: ['标签', 'tagDefs'],
-  };
-  const declaredRelation = declared[key];
-  if (declaredRelation) return { relation: declaredRelation[0], targetKind: declaredRelation[1], confidence: 'declared' };
-  return {
-    relation: source.definitionKind === 'affectorPacks' || source.definitionKind === 'triggerDefs' ? '规则引用' : '引用',
-    confidence: 'inferred',
-  };
 }
 
 function displayValue(value: unknown, fallback: string): string {
   if (!isPlainObject(value)) return fallback;
   for (const key of ['displayName', 'name', 'label', 'title', 'id']) {
-    const candidate = value[key];
+    const candidate = dataValue(value, key);
     if (typeof candidate === 'string' && candidate.trim()) return candidate;
   }
   return fallback;
@@ -401,7 +334,7 @@ function displayValue(value: unknown, fallback: string): string {
 function descriptionValue(value: unknown): string | undefined {
   if (!isPlainObject(value)) return undefined;
   for (const key of ['description', 'desc', 'summary']) {
-    const candidate = value[key];
+    const candidate = dataValue(value, key);
     if (typeof candidate === 'string' && candidate.trim()) return candidate;
   }
   return undefined;
@@ -444,6 +377,7 @@ function valueFingerprint(value: unknown, identities: WeakMap<object, number>, n
 }
 
 function snapshotFingerprint(
+  registry: object,
   getters: readonly GetterSnapshot[],
   supplemental: readonly (SupplementalSnapshot & { readonly value: ReadonlyMap<string, unknown> })[],
   identities: WeakMap<object, number>,
@@ -457,7 +391,7 @@ function snapshotFingerprint(
     parts.push(`${getter.kind}:${getter.shape}:${getter.derived}:${containerFingerprint}`);
     if (getter.shape === 'map') {
       for (const [key, value] of getter.value as ReadonlyMap<unknown, unknown>) {
-        parts.push(`${getter.kind}.key:${String(key)}:${valueFingerprint(value, identities, nextIdentity)}`);
+        parts.push(`${getter.kind}.key:${String(key)}:${valueFingerprint(value, identities, nextIdentity)}:owner:${ownerOf(registry, getter.kind, String(key)) ?? ''}`);
       }
     } else if (getter.shape === 'array') {
       for (const value of getter.value as readonly unknown[]) {
@@ -471,6 +405,8 @@ function snapshotFingerprint(
       parts.push(`${source.kind}.key:${key}:${valueFingerprint(value, identities, nextIdentity)}`);
     }
   }
+  const loaded = (registry as { readonly loadedModNames?: unknown }).loadedModNames;
+  if (isSet(loaded)) parts.push(`loaded:${[...loaded].join(',')}`);
   return parts.join('|');
 }
 
@@ -539,16 +475,19 @@ function buildSnapshot(
     definitionsById.set(id, refs);
   }
 
+  const referenceEntries = internalEntries.map(entry => ({ ref: entry.summary.ref, value: entry.rawValue, derived: entry.descriptor.derived }));
   const outgoingByEntry = new Map<string, readonly RuntimeContentReferenceDiagnostic[]>();
   for (const entry of internalEntries) {
-    const references: Array<{ readonly path: string; readonly value: string }> = [];
-    collectReferenceStrings(entry.rawValue, '$', '', references);
-    const outgoing = references.map(reference => diagnosticFor(
-      entry.summary.ref,
-      reference.path,
-      reference.value,
-      definitionsById,
-    ));
+    const requests = [
+      ...collectDefinitionReferences(entry.summary.ref, entry.rawValue, referenceEntries),
+      ...collectOperationReferences(entry.summary.ref, entry.rawValue, referenceEntries),
+    ];
+    const category = entry.descriptor.derived ? 'derived'
+      : ['affectorPacks', 'triggerDefs'].includes(entry.summary.ref.definitionKind) ? 'runtime-rule' : 'definition';
+    const unique = new Map(requests.map(request => [
+      `${request.path}\u0000${request.value}\u0000${request.scope}\u0000${request.context ? refKey(request.context) : ''}`, request,
+    ]));
+    const outgoing = [...unique.values()].map(request => diagnosticFor(entry.summary.ref, request, definitionsById, category));
     outgoingByEntry.set(refKey(entry.summary.ref), Object.freeze(outgoing));
   }
 
@@ -567,7 +506,8 @@ function buildSnapshot(
     const outgoing = outgoingByEntry.get(refKey(entry.summary.ref)) ?? [];
     const summary = Object.freeze({
       ...entry.summary,
-      diagnosticCount: outgoing.filter(diagnostic => diagnostic.status !== 'resolved').length,
+      diagnosticCount: outgoing.filter(diagnostic => diagnostic.scope !== 'candidate' && diagnostic.confidence === 'declared' && diagnostic.status !== 'resolved').length,
+      referenceCoverage: { status: 'partial' as const, declaredCount: outgoing.filter(edge => edge.scope !== 'candidate' && edge.confidence === 'declared').length, candidateCount: outgoing.filter(edge => edge.scope === 'candidate' || edge.confidence !== 'declared').length },
     });
     return {
       ...entry,
@@ -581,7 +521,7 @@ function buildSnapshot(
     modName,
     loaded: true as const,
     definitionCount: finalizedEntries.filter(entry =>
-      entry.summary.sourceMod === modName || entry.summary.namespace === modName,
+      entry.summary.sourceMod === modName,
     ).length,
   }));
   const view = deepFreeze({
@@ -594,7 +534,7 @@ function buildSnapshot(
 
 function matchesQuery(entry: RuntimeContentDefinitionSummary, query: RuntimeContentListQuery): boolean {
   if (query.kind && entry.ref.definitionKind !== query.kind) return false;
-  if (query.modName && entry.sourceMod !== query.modName && entry.namespace !== query.modName) return false;
+  if (query.modName && entry.sourceMod !== query.modName) return false;
   if (query.hasDiagnostics !== undefined && (entry.diagnosticCount > 0) !== query.hasDiagnostics) return false;
   if (query.text) {
     const needle = query.text.trim().toLocaleLowerCase();
@@ -631,7 +571,7 @@ export function createRuntimeContentBrowser(
   const current = (): InternalSnapshot => {
     const getters = discoverRegistryGetters(registry);
     const supplemental = discoverSupplementalSources(sources, cached?.supplemental);
-    const fingerprint = snapshotFingerprint(getters, supplemental, identities, nextIdentity);
+    const fingerprint = snapshotFingerprint(registry, getters, supplemental, identities, nextIdentity);
     if (cached?.fingerprint === fingerprint) return cached.snapshot;
     const snapshot = buildSnapshot(registry, getters, supplemental);
     cached = { fingerprint, snapshot, supplemental };

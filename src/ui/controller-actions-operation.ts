@@ -207,6 +207,7 @@ function layoutPreparedCardsForHost(host: HTMLElement): void {
     return rect[axis] || element[axis === 'width' ? 'offsetWidth' : 'offsetHeight'] || fallback;
   };
   const place = (element: HTMLElement, left: number, top: number, width: number, height: number): void => {
+    element.hidden = false;
     element.style.left = `${Math.round(left * 100) / 100}px`;
     element.style.top = `${Math.round(top * 100) / 100}px`;
     element.dataset.positioned = 'true';
@@ -214,9 +215,19 @@ function layoutPreparedCardsForHost(host: HTMLElement): void {
   };
 
   for (const [ownerId, ownerCards] of cardsByOwner) {
+    const panel = [...layer.children].find(child => child instanceof HTMLElement
+      && child.matches('[data-operation-action-alternatives-panel]')
+      && child.dataset.operationActionOwnerId === ownerId) as HTMLElement | undefined;
+    const hideOwnerCards = (): void => {
+      ownerCards.forEach(card => {
+        card.hidden = true;
+        card.removeAttribute('data-positioned');
+      });
+      if (panel) panel.hidden = true;
+    };
     const owner = anchors.get(ownerId);
     if (!owner?.isConnected) {
-      ownerCards.forEach(card => { card.hidden = true; });
+      hideOwnerCards();
       continue;
     }
     const current = ownerCards.find(card => card.hasAttribute('data-operation-action-current') || card.hasAttribute('data-operation-action-current-toggle'));
@@ -232,7 +243,10 @@ function layoutPreparedCardsForHost(host: HTMLElement): void {
       owner.style.removeProperty('--operation-action-card-reserve');
     }
     const ownerRect = owner.getBoundingClientRect();
-    if (ownerRect.width <= 0 || ownerRect.height <= 0) continue;
+    if (ownerRect.width <= 0 || ownerRect.height <= 0) {
+      hideOwnerCards();
+      continue;
+    }
     if (current) {
       const width = currentWidth;
       const height = currentHeight;
@@ -252,9 +266,6 @@ function layoutPreparedCardsForHost(host: HTMLElement): void {
       place(current, left, top, width, height);
 
       const alternatives = ownerCards.filter(card => card.hasAttribute('data-operation-action-alternative'));
-      const panel = [...layer.children].find(child => child instanceof HTMLElement
-        && child.matches('[data-operation-action-alternatives-panel]')
-        && child.dataset.operationActionOwnerId === ownerId) as HTMLElement | undefined;
       const open = current.getAttribute('aria-expanded') === 'true';
       if (panel) panel.hidden = !open;
       for (const card of alternatives) card.hidden = !open;
@@ -805,9 +816,9 @@ function applyGlobalScenePerformer(ctrl: UIController, face: HTMLButtonElement, 
   updateCostPreview(ctrl, workspace);
 }
 
-function focusPerformerPicker(ctrl: UIController, cardKind: 'scene-action' | 'player-card', identity: string): void {
+function focusPerformerPicker(ctrl: UIController, identity: string): void {
   const picker = [...ctrl.root.querySelectorAll<HTMLDetailsElement>('[data-operation-performer-picker]')]
-    .find(node => node.dataset.cardKind === cardKind && node.dataset.cardIdentity === identity);
+    .find(node => node.dataset.cardKind === 'player-card' && node.dataset.cardIdentity === identity);
   const summary = picker?.querySelector<HTMLElement>(':scope > summary');
   summary?.focus({ preventScroll: true });
 }
@@ -847,20 +858,12 @@ function assignClickedPerformer(ctrl: UIController, target: HTMLElement): void {
   const command = readCommandVersion(target);
   const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
   if (!command || !view || view.planVersion !== command.planVersion || !actorId) return;
-  if (cardKind === 'scene-action' && identity) {
-    const face = [...ctrl.root.querySelectorAll<HTMLButtonElement>('[data-operation-scene-choice]')]
-      .find(button => button.dataset.sceneActionId === identity && button.dataset.performerPolicy === 'selected-student');
-    if (!face) return;
-    applyGlobalScenePerformer(ctrl, face, actorId);
-    focusPerformerPicker(ctrl, 'scene-action', identity);
-    return;
-  }
   if (cardKind === 'player-card' && identity) {
     const face = [...ctrl.root.querySelectorAll<HTMLButtonElement>('[data-operation-card-toggle]')]
       .find(button => button.dataset.cardInstanceId === identity);
     if (!face) return;
     applyPlayerCardPerformer(ctrl, face, actorId);
-    focusPerformerPicker(ctrl, 'player-card', identity);
+    focusPerformerPicker(ctrl, identity);
   }
 }
 
@@ -869,19 +872,30 @@ function clearClickedPerformer(ctrl: UIController, target: HTMLElement): void {
   const identity = target.dataset.cardIdentity;
   const command = readCommandVersion(target);
   const view = command ? ctrl.game.operationEntry.getView(command.runId) : null;
-  if (!command || !identity || !view || view.planVersion !== command.planVersion) return;
+  if (!command || cardKind !== 'player-card' || !identity || !view || view.planVersion !== command.planVersion) return;
   const workspace = operationWorkspaceHost(target);
   const locationId = view.currentLocationId;
   const draft = workspace ? saveSceneDraftFromWorkspace(workspace) : readOperationSceneDraft(command.runId, command.planVersion, locationId);
   if (!draft) return;
-  const next: OperationSceneDraft = cardKind === 'player-card'
-    ? { ...draft, cards: draft.cards.filter(card => card.cardInstanceId !== identity) }
-    : { ...draft, selections: draft.selections.filter(selection => selection.sceneActionId !== identity) };
+  const next: OperationSceneDraft = { ...draft, cards: draft.cards.filter(card => card.cardInstanceId !== identity) };
   saveOperationSceneDraft(command.runId, command.planVersion, locationId, next);
   ctrl.requestOperationWorkspaceRefresh(view, null);
   updateCostPreview(ctrl, operationWorkspaceHost(ctrl.root));
-  if (cardKind === 'player-card') focusPublicPlayerCard(ctrl, identity);
-  else focusPerformerPicker(ctrl, 'scene-action', identity);
+  focusPublicPlayerCard(ctrl, identity);
+}
+
+function restoreMapOpenerFocus(ctrl: UIController, workspace: HTMLElement, runId: string, opener: HTMLElement | null): void {
+  if (opener?.closest<HTMLElement>('[data-operation-right-view="background"]')?.hidden) {
+    setOperationWorkspaceTab(runId, 'background');
+    for (const tab of workspace.querySelectorAll<HTMLElement>('[data-operation-right-tab]')) {
+      const selected = tab.dataset.operationRightTab === 'background';
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+    }
+    for (const panel of workspace.querySelectorAll<HTMLElement>('[data-operation-right-view]')) panel.hidden = panel.dataset.operationRightView !== 'background';
+    requestPreparedCardLayout(ctrl);
+  }
+  opener?.focus({ preventScroll: true });
 }
 
 function bindCardTargetGestures(ctrl: UIController): void {
@@ -1076,13 +1090,17 @@ function bindCardTargetGestures(ctrl: UIController): void {
     const popup = ctrl.root.querySelector<HTMLElement>('[data-operation-map-popup]:not([hidden])');
     if (popup) {
       event.preventDefault();
-      const opener = ctrl.root.querySelector<HTMLElement>('[data-operation-map-open]');
+      const workspace = operationWorkspaceHost(popup) ?? ctrl.root;
+      const opener = workspace.querySelector<HTMLElement>('[data-operation-map-open][aria-expanded="true"]')
+        ?? workspace.querySelector<HTMLElement>('[data-operation-map-open]');
       const runId = opener?.dataset.runId;
       const mapId = popup.dataset.operationMapPopup;
       if (runId && mapId) closeOperationWorkspaceMap(runId, mapId);
       popup.hidden = true;
-      opener?.setAttribute('aria-expanded', 'false');
-      opener?.focus({ preventScroll: true });
+      for (const mapOpener of workspace.querySelectorAll<HTMLElement>('[data-operation-map-open]')) {
+        mapOpener.setAttribute('aria-expanded', 'false');
+      }
+      if (runId) restoreMapOpenerFocus(ctrl, workspace, runId, opener);
       return;
     }
     const drag = cardDrags.get(ctrl);
@@ -1173,6 +1191,7 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
       button.tabIndex = selected ? 0 : -1;
     }
     for (const panel of workspace.querySelectorAll<HTMLElement>('[data-operation-right-view]')) panel.hidden = panel.dataset.operationRightView !== tab;
+    requestPreparedCardLayout(ctrl);
     return;
   }
   const mapOpen = rawTarget.closest<HTMLElement>('[data-operation-map-open]');
@@ -1180,23 +1199,30 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     const runId = mapOpen.dataset.runId;
     const mapId = mapOpen.dataset.operationMapOpen;
     if (!runId || !mapId) return;
-    toggleOperationWorkspaceMap(runId, mapId);
     const popup = workspace.querySelector<HTMLElement>('[data-operation-map-popup]');
-    if (popup) popup.hidden = mapOpen.getAttribute('aria-expanded') === 'true';
-    mapOpen.setAttribute('aria-expanded', String(!popup?.hidden));
-    if (popup && !popup.hidden) popup.querySelector<HTMLElement>('[data-operation-map-drag-handle]')?.focus({ preventScroll: true });
+    if (!popup) return;
+    const opening = popup.hidden;
+    toggleOperationWorkspaceMap(runId, mapId);
+    popup.hidden = !opening;
+    for (const opener of workspace.querySelectorAll<HTMLElement>('[data-operation-map-open]')) {
+      opener.setAttribute('aria-expanded', String(opening && opener === mapOpen));
+    }
+    if (opening) popup.querySelector<HTMLElement>('[data-operation-map-drag-handle]')?.focus({ preventScroll: true });
     return;
   }
   const popupClose = rawTarget.closest<HTMLElement>('[data-operation-map-popup-close]');
   if (popupClose && workspace) {
     const popup = popupClose.closest<HTMLElement>('[data-operation-map-popup]');
-    const opener = workspace.querySelector<HTMLElement>('[data-operation-map-open]');
+    const opener = workspace.querySelector<HTMLElement>('[data-operation-map-open][aria-expanded="true"]')
+      ?? workspace.querySelector<HTMLElement>('[data-operation-map-open]');
     const runId = opener?.dataset.runId;
     const mapId = popup?.dataset.operationMapPopup;
     if (runId && mapId) closeOperationWorkspaceMap(runId, mapId);
     if (popup) popup.hidden = true;
-    opener?.setAttribute('aria-expanded', 'false');
-    opener?.focus({ preventScroll: true });
+    for (const mapOpener of workspace.querySelectorAll<HTMLElement>('[data-operation-map-open]')) {
+      mapOpener.setAttribute('aria-expanded', 'false');
+    }
+    if (runId) restoreMapOpenerFocus(ctrl, workspace, runId, opener);
     return;
   }
   const mapCardClose = rawTarget.closest<HTMLElement>('[data-operation-map-card-close]');
@@ -1264,18 +1290,17 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     if (!card || !selectedOption) return;
     const wasSelected = target.getAttribute('aria-pressed') === 'true';
     if (target.dataset.performerPolicy === 'selected-student' && !target.dataset.actorId) {
-      if (!wasSelected) {
+      if (wasSelected) {
+        updateFaceSelection(target, false);
+        selectedOption.classList.remove('is-selected');
+        saveSceneDraftFromElement(target);
+      } else {
         card.querySelectorAll<HTMLElement>('[data-operation-scene-choice]').forEach(button => updateFaceSelection(button, button === target));
         card.querySelectorAll<HTMLElement>('[data-operation-scene-option]').forEach(option => option.classList.toggle('is-selected', option === selectedOption));
         card.dataset.selectedSceneActionId = target.dataset.sceneActionId ?? '';
         saveSceneDraftFromElement(target);
-        updateCostPreview(ctrl, target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
       }
-      const picker = selectedOption.querySelector<HTMLElement>('[data-operation-performer-picker]');
-      if (picker) {
-        (picker as HTMLDetailsElement).open = true;
-        picker.querySelector<HTMLButtonElement>('[data-operation-card-actor]')?.focus({ preventScroll: true });
-      }
+      updateCostPreview(ctrl, target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
       return;
     }
     if (wasSelected) {

@@ -59,7 +59,8 @@ describe('Operation finite player SceneCard deck', () => {
     expect(run.playerRouteState.cards.drawPile).toHaveLength(4);
     const seedOrder = [...run.playerRouteState.cards.drawPile];
 
-    service.completeCurrentLocation();
+    let completed = service.completeCurrentLocation();
+    service.transitionRoute({ runId: completed.runId, planVersion: completed.planVersion, routeId: 'test:route:a-b' });
     run = service.getSnapshot()!;
     expect(run.currentLocationId).toBe('test:location:b');
     expect(run.playerRouteState.cards.hand).toHaveLength(3);
@@ -75,7 +76,8 @@ describe('Operation finite player SceneCard deck', () => {
         },
       },
     });
-    service.completeCurrentLocation();
+    completed = service.completeCurrentLocation();
+    service.transitionRoute({ runId: completed.runId, planVersion: completed.planVersion, routeId: 'test:route:b-c' });
     run = service.getSnapshot()!;
     expect(run.currentLocationId).toBe('test:location:c');
     expect(run.playerRouteState.cards.hand).toHaveLength(2);

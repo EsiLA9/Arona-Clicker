@@ -168,6 +168,17 @@ describe('Contacts / Story Workspace ownership', () => {
     expect(root.querySelector('[data-workspace-frame="game"]')).not.toBeNull();
   });
 
+  it('无 owner 的故事聊天沿用区域聊天的 panel-body 内边距容器', () => {
+    controller.openStoryWorkspace({ selectedEntryId: 'story:demo' });
+    controller.render();
+
+    const center = root.querySelector('[data-workspace-frame="story"] .story-workspace__center');
+    const body = center?.querySelector(':scope > .presentation-host-content .panel-body');
+    expect(body).not.toBeNull();
+    expect(body?.querySelector(':scope > .chat-pane')).not.toBeNull();
+    expect(body?.querySelector('.send-button .send-bubble')).not.toBeNull();
+  });
+
   it('Story 中心聊天刷新不重建 Workspace 根节点，并保留焦点', () => {
     game.mutations.acquireCharacter('Hoshino', 'story');
     controller.openStoryWorkspace({ selectedEntryId: 'story:demo', conversationOwner: 'Hoshino' });

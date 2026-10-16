@@ -150,6 +150,7 @@ function renderReplyCard(
   ctx: UIContext,
   choices: NonNullable<StoryView['page']['choices']>,
   availableIndexes: number[],
+  align: NonNullable<StoryView['page']['align']>,
 ): string {
   const rows = choices
     .map((choice, index) => {
@@ -162,7 +163,7 @@ function renderReplyCard(
     })
     .join('');
   return `
-    <div class="reply-card">
+    <div class="reply-card reply-card--${align}">
       <div class="reply-card-header"><span class="reply-card-bar"></span><span class="reply-card-title">回复</span></div>
       <div class="reply-card-choices">${rows}</div>
     </div>`;
@@ -229,7 +230,7 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
  */
 export function renderCurrentStory(ctx: UIContext, story: StoryView): string {
   const choices = story.page.choices ?? [];
-  if (choices.length > 0) return `<div class="chat-current">${renderReplyCard(ctx, choices, story.availableChoiceIndexes)}</div>`;
+  if (choices.length > 0) return `<div class="chat-current">${renderReplyCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right')}</div>`;
   // 羁绊剧情：渲染 yuzu-kizuna 卡片在流内，点击启动目标 ActiveStoryEntry
   if (story.page.kizuna) {
     return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna)}</div>`;

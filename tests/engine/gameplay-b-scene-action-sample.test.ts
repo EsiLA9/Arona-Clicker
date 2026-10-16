@@ -77,6 +77,8 @@ describe('Gameplay B carousel SceneAction sample', () => {
     run = game.operationEntry.getSnapshot()!;
     const battleResolution = game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
     expect(battleResolution).toMatchObject({ eventId: IDS.event, locationId: IDS.locations.platform, sceneId: 'main' });
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.platformToConcourse });
     view = game.operationEntry.getView(runId)!;
     run = game.operationEntry.getSnapshot()!;
     sceneTacticalRandom = run.random;
@@ -194,6 +196,8 @@ describe('Gameplay B carousel SceneAction sample', () => {
     expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.platform);
     game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
     run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.platformToConcourse });
+    run = game.operationEntry.getSnapshot()!;
     expect(game.operationEntry.getView(runId)?.currentLocationId).toBe(IDS.locations.concourse);
     const view = game.operationEntry.getView(runId)!;
     expect(view.currentLocationId).toBe(IDS.locations.concourse);
@@ -273,6 +277,8 @@ describe('Gameplay B carousel SceneAction sample', () => {
     expect(planFor(IDS.actors.shiroko)).toMatchObject({ actionId: CAROUSEL_SAFETY_IDS.actions.shield, targetActorId: IDS.actors.ride });
     expect(run.interventionDraft).toBeNull();
     game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    run = game.operationEntry.getSnapshot()!;
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.platformToConcourse });
     run = game.operationEntry.getSnapshot()!;
     expect(run.currentLocationId).toBe(IDS.locations.concourse);
     game.operationEntry.commitSceneActionBatch({

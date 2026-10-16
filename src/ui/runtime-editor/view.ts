@@ -1,3 +1,4 @@
+import { codexKindLabel, codexKindGroup } from './codex/content-labels';
 import { getContentPolicy, SPOT_CONTENT_POLICY } from '../../data-services/authoring/content-policy';
 import type { UIContext } from '../context';
 import type { PanelState } from '../components/app-shell';
@@ -7,7 +8,9 @@ import {
   renderCodexShell,
   renderCodexDetailPane,
   renderCodexEntryPane,
+  renderCodexNavigationPane,
   getSelectedCodexEntry,
+  getCodexVisibleEntries,
   reconcileCodexShellState,
   type CodexEntryView,
   type CodexShellState,
@@ -19,11 +22,13 @@ import {
   profileSummaryFields,
   type DefinitionInspectorViewModel,
   type InspectorReference,
+  type InspectorReferenceDefinitionRef,
   type InspectorTab,
 } from './codex-details';
 import type {
   RuntimeContentDefinitionDetail,
   RuntimeContentReferenceDiagnostic,
+  RuntimeDefinitionRef,
 } from '../../data-services/contracts/runtime-content-browser';
 import {
   findRuntimeEditorAppliedSpot,
@@ -114,14 +119,28 @@ function runtimeCodexModId(
 export function getRuntimeEditorCodexView(ctx: UIContext): RuntimeContentBrowserShellView {
   const runtimeView = ctx.game.runtimeContentBrowser.getView();
   const loadedModIds = new Set(runtimeView.loadedMods.map(mod => mod.modName));
+  const canonicalStoryIds = new Set(runtimeView.entries.filter(entry => ['activeStories', 'passiveStories'].includes(entry.ref.definitionKind)).map(entry => entry.ref.fullId));
+  const labelByRef = new Map(runtimeView.entries.map(entry => [`${entry.ref.definitionKind}\u0000${entry.ref.fullId}`, entry.label]));
+  const entryLabel = (entry: RuntimeContentDefinitionDetail['summary']): string => {
+    if (entry.ref.fullId === null) return codexKindLabel(entry.ref.definitionKind);
+    if (entry.label !== entry.ref.fullId) return entry.label;
+    const relationship = ['activeStories', 'passiveStories'].includes(entry.ref.definitionKind)
+      ? ['storyId', 'stories'] : entry.ref.definitionKind === 'studentOperationProfiles' ? ['characterId', 'characters'] : null;
+    if (!relationship) return entry.label;
+    const raw = ctx.game.runtimeContentBrowser.getDefinition(entry.ref)?.raw;
+    const id = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Readonly<Record<string, unknown>>)[relationship[0]] : undefined;
+    const label = typeof id === 'string' ? labelByRef.get(`${relationship[1]}\u0000${id}`) : undefined;
+    return label ? `${label} · ${codexKindLabel(entry.ref.definitionKind)}` : entry.label;
+  };
   const entries = runtimeView.entries.flatMap(entry => {
+    if (entry.ref.definitionKind === 'storyEntries' && canonicalStoryIds.has(entry.ref.fullId)) return [];
     const modId = runtimeCodexModId(entry, loadedModIds);
     if (!modId) return [];
     return [{
       definitionKind: entry.ref.definitionKind,
       fullId: entry.ref.fullId ?? SINGLETON_ID,
       modId,
-      label: entry.label,
+      label: entryLabel(entry),
       summary: entry.description,
       searchText: entry.searchableText,
       ...(entry.diagnosticCount > 0 ? { statusLabel: `${entry.diagnosticCount} 个关系问题` } : {}),
@@ -137,16 +156,16 @@ export function getRuntimeEditorCodexView(ctx: UIContext): RuntimeContentBrowser
     })),
     ...(hasRuntimeScope ? [{
       id: RUNTIME_SCOPE_ID,
-      label: 'Runtime 有效配置',
+      label: '来源待确认',
       entryCount: entries.filter(entry => entry.modId === RUNTIME_SCOPE_ID).length,
-      statusLabel: '来自当前 Registry',
+      statusLabel: '当前生效内容',
     }] : []),
   ];
   const kinds = runtimeView.kinds
     .map(kind => ({
       definitionKind: kind.kind,
-      label: kind.label,
-      groupLabel: kind.group,
+      label: codexKindLabel(kind.kind),
+      groupLabel: codexKindGroup(kind.kind),
       entryCount: entries.filter(entry => entry.definitionKind === kind.kind).length,
     }))
     .filter(kind => kind.entryCount > 0);
@@ -156,23 +175,65 @@ export function getRuntimeEditorCodexView(ctx: UIContext): RuntimeContentBrowser
 function inspectorReference(
   reference: RuntimeContentReferenceDiagnostic,
   labels: ReadonlyMap<string, string>,
+  direction: 'outgoing' | 'incoming',
 ): InspectorReference {
-  const target = reference.target ?? {
-    definitionKind: reference.targetKind ?? 'unknown',
-    fullId: reference.value,
+  const targetLocations = reference.targetLocations ?? [];
+  const localOwner = reference.context
+    ?? (targetLocations.length === 1 ? targetLocations[0].ref : undefined)
+    ?? reference.source;
+  const localTarget = reference.scope === 'local';
+  const displayRef = direction === 'incoming'
+    ? reference.source
+    : localTarget
+      ? localOwner
+      : reference.target ?? {
+        definitionKind: reference.targetKind ?? 'unknown',
+        fullId: reference.value,
+      };
+  const canonicalKind = displayRef.definitionKind === 'storyEntries'
+    ? ['activeStories', 'passiveStories'].find(kind => labels.has(`${kind}\u0000${displayRef.fullId ?? SINGLETON_ID}`))
+    : undefined;
+  const navigableRef = canonicalKind ? { ...displayRef, definitionKind: canonicalKind } : displayRef;
+  const displayKey = `${navigableRef.definitionKind}\u0000${displayRef.fullId ?? SINGLETON_ID}`;
+  const localLocationLabels = targetLocations.map(location => {
+    const locationKey = `${location.ref.definitionKind}\u0000${location.ref.fullId ?? SINGLETON_ID}`;
+    const ownerLabel = labels.get(locationKey) ?? `${location.ref.definitionKind}:${location.ref.fullId ?? SINGLETON_ID}`;
+    return `${ownerLabel} · ${location.path}`;
+  });
+  const displayLabel = localTarget && direction === 'outgoing'
+    ? `${labels.get(displayKey) ?? displayRef.fullId ?? '局部上下文'} · ${localLocationLabels.length > 0
+      ? `局部位置：${localLocationLabels.join(' / ')}`
+      : `局部位置：${reference.path ?? '路径未提供'}`} · 键 ${reference.value}`
+    : labels.get(displayKey);
+  const toInspectorRef = (ref: RuntimeDefinitionRef): InspectorReferenceDefinitionRef => ({
+    definitionKind: ref.definitionKind,
+    fullId: ref.fullId,
+  });
+  const displayTarget = {
+    definitionKind: displayRef.definitionKind,
+    fullId: displayRef.fullId ?? SINGLETON_ID,
+    ...(displayLabel ? { label: displayLabel } : {}),
+    ...(labels.has(displayKey) ? {
+      entryKey: codexEntryKey({ definitionKind: navigableRef.definitionKind, fullId: displayRef.fullId ?? SINGLETON_ID }),
+    } : {}),
   };
-  const targetKey = `${target.definitionKind}\u0000${target.fullId ?? SINGLETON_ID}`;
   return {
     path: reference.path,
     relation: reference.relation ?? reference.value,
     confidence: reference.confidence ?? 'inferred',
     status: reference.status,
-    target: {
-      definitionKind: target.definitionKind,
-      fullId: target.fullId ?? SINGLETON_ID,
-      label: labels.get(targetKey),
-      entryKey: codexEntryKey({ definitionKind: target.definitionKind, fullId: target.fullId ?? SINGLETON_ID }),
-    },
+    edgeSource: toInspectorRef(reference.source),
+    edgeTarget: reference.target ? toInspectorRef(reference.target) : null,
+    ...(reference.scope !== undefined ? { scope: reference.scope } : {}),
+    ...(reference.sourceCategory !== undefined ? { sourceCategory: reference.sourceCategory } : {}),
+    ...(reference.targetLocations !== undefined ? {
+      targetLocations: reference.targetLocations.map(location => ({
+        ref: toInspectorRef(location.ref),
+        path: location.path,
+      })),
+    } : {}),
+    ...(reference.context ? { context: toInspectorRef(reference.context) } : {}),
+    target: displayTarget,
     ...(reference.candidates.length > 0 ? {
       candidates: reference.candidates.map(candidate => ({
         definitionKind: candidate.definitionKind,
@@ -199,19 +260,20 @@ function inspectorView(
   const source = detail.summary.sourceMod;
   return {
     definitionKind: detail.summary.ref.definitionKind,
-    definitionLabel: detail.summary.kind.label,
+    definitionLabel: codexKindLabel(detail.summary.ref.definitionKind),
+    referenceCoverage: detail.summary.referenceCoverage,
     fullId: detail.summary.ref.fullId ?? SINGLETON_ID,
     title: detail.summary.label,
     description: detail.summary.description,
     source: {
       modId: source,
-      label: source ? undefined : '来源未知',
+      label: source ? undefined : '来源待确认',
     },
     status: detail.summary.diagnosticCount > 0 ? `${detail.summary.diagnosticCount} 个关系问题` : '已解析',
     summaryFields: profileSummaryFields(detail),
     definition: detail.raw,
-    references: relationQuery.outgoing.map(reference => labelInspectorReference(inspectorReference(reference, labels))),
-    reverseReferences: relationQuery.incoming.map(reference => labelInspectorReference(inspectorReference(reference, labels))),
+    references: relationQuery.outgoing.map(reference => labelInspectorReference(inspectorReference(reference, labels, 'outgoing'))),
+    reverseReferences: relationQuery.incoming.map(reference => labelInspectorReference(inspectorReference(reference, labels, 'incoming'))),
   };
 }
 
@@ -250,6 +312,7 @@ export function renderRuntimeEditorCodexParts(
 ): {
   readonly view: RuntimeContentBrowserShellView;
   readonly state: CodexShellState;
+  readonly navigationPane: string;
   readonly entriesPane: string;
   readonly detailPane: string;
 } {
@@ -258,12 +321,14 @@ export function renderRuntimeEditorCodexParts(
   return {
     view,
     state: safeState,
+    navigationPane: renderCodexNavigationPane(view, safeState),
     entriesPane: renderCodexEntryPane(view, safeState),
     detailPane: renderCodexDetailPane(
       getSelectedCodexEntry(view, safeState),
       view.loadedMods,
       entry => renderRuntimeCodexDetail(ctx, entry, inspectorTab, view),
       safeState,
+      getCodexVisibleEntries(view, safeState).some(entry => codexEntryKey(entry) === safeState.selectedEntryKey),
     ),
   };
 }
@@ -340,7 +405,7 @@ export function renderRuntimeEditorPanel(
     ? editor?.displayName || 'Runtime Mod 待配置'
     : '尚未开启编辑态';
   const body = surface === 'codex'
-    ? renderRuntimeEditorCodex(ctx, codexState ?? { query: '', selectedModId: null, selectedKind: null, selectedEntryKey: null, mobilePane: 'mods', kindFilterOpen: false, backStack: [], forwardStack: [] }, codexInspectorTab)
+    ? renderRuntimeEditorCodex(ctx, codexState ?? { query: '', selectedModId: null, selectedKind: null, selectedEntryKey: null, mobilePane: 'mods', navigationMode: 'categories', kindFilterOpen: false, backStack: [], forwardStack: [] }, codexInspectorTab)
     : !hasTarget
     ? renderRuntimeEditorEmptyState(ctx, state)
     : surface === 'mod'

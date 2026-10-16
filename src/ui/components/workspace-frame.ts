@@ -4,7 +4,7 @@ import { renderUIHost } from '../presentation-service';
 export type WorkspaceSlot = 'left' | 'center' | 'right';
 export type WorkspaceLayoutPreset = 'default' | 'center-heavy';
 export type WorkspaceComposition = 'columns' | 'left-center' | 'center-right' | 'all';
-export type WorkspaceResponsiveProfile = 'default' | 'two-column' | 'single-column';
+export type WorkspaceResponsiveProfile = 'default' | 'two-column' | 'single-column' | 'pane-switch';
 export type WorkspaceScrollMode = 'auto' | 'content' | 'none';
 export type WorkspaceScrollOwner = 'workspace-body' | 'content-region' | 'delegated';
 export type WorkspaceSurface = 'panel' | 'none';
@@ -40,6 +40,24 @@ export interface WorkspaceFrameSpec {
   overlay?: string;
 }
 
+/** Layout-only entry point for tools whose columns own their surface and theme. */
+export interface WorkspaceLayoutMarkupSpec {
+  id: string;
+  columns: readonly string[];
+  className?: string;
+  layout?: WorkspaceLayoutSpec;
+  overlay?: string;
+}
+
+export function renderWorkspaceLayout(spec: WorkspaceLayoutMarkupSpec): string {
+  const esc = (value: string): string => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
+  const preset = spec.layout?.preset ?? 'default';
+  const responsive = spec.layout?.responsive ?? 'default';
+  const composition = spec.layout?.composition ?? 'columns';
+  const className = ['workspace-frame', `workspace-frame--${spec.id}`, legacyWorkspaceClass(spec.id), spec.className].filter(Boolean).join(' ');
+  return `<section class="${esc(className)}" data-workspace-frame="${esc(spec.id)}" data-layout="${preset}" data-responsive="${responsive}" data-composition="${composition}">${spec.columns.join('')}${spec.overlay ?? ''}</section>`;
+}
+
 function legacyWorkspaceClass(id: string): string {
   if (id === 'game') return 'workspace';
   if (id === 'shop') return 'shop-workspace';
@@ -71,10 +89,7 @@ export function renderWorkspaceColumn(ctx: UIContext, column: WorkspaceColumnSpe
 }
 
 export function renderWorkspaceFrame(ctx: UIContext, spec: WorkspaceFrameSpec): string {
-  const preset = spec.layout?.preset ?? 'default';
-  const responsive = spec.layout?.responsive ?? 'default';
   const composition = spec.layout?.composition ?? 'columns';
-  const legacyClass = legacyWorkspaceClass(spec.id);
   const columns = composition === 'left-center'
     ? [spec.left, spec.right]
     : composition === 'center-right'
@@ -82,5 +97,5 @@ export function renderWorkspaceFrame(ctx: UIContext, spec: WorkspaceFrameSpec): 
       : composition === 'all'
         ? [spec.left]
         : [spec.left, spec.center, spec.right];
-  return `<section class="workspace-frame workspace-frame--${spec.id} ${legacyClass}" data-workspace-frame="${spec.id}" data-layout="${preset}" data-responsive="${responsive}" data-composition="${composition}">${columns.map(column => renderWorkspaceColumn(ctx, column)).join('')}${spec.overlay ?? ''}</section>`;
+  return renderWorkspaceLayout({ id: spec.id, layout: spec.layout, columns: columns.map(column => renderWorkspaceColumn(ctx, column)), overlay: spec.overlay });
 }

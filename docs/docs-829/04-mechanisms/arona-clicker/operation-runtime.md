@@ -22,7 +22,7 @@
 | `clearSceneActionBatchDraft({ runId, planVersion })` | 丢弃暂存批次；不改 Cost、卡区或随机流。 |
 | `commitStagedSceneActionBatch({ runId, planVersion })` | 校验暂存费用快照仍与当前 Run 一致，再通过同一原子场景结算入口提交。 |
 | `commitSceneActionBatch({ runId, planVersion, selections, cards?, purchases?, skip? })` | 将 fixed/玩家选择的 SceneAction、零张或多张手牌、PurchaseOffer，以及启用时的我方 Character actorPlans 合成一条 OperationResolution；先预留明确选择的玩家操作费用，再由 Character 使用剩余 Actor/Team 资源。一次原子提交 PlayerCost、资源支付、效果、批次数与卡区移动。 |
-| `transitionRoute({ runId, planVersion, routeId })` | 完成地点后按当前出口 Gate 转场；这是自动单出口和玩家多出口共用的唯一地点转场命令。 |
+| `transitionRoute({ runId, planVersion, routeId })` | 完成地点后按玩家提交的 Route ID 与当前出口 Gate 转场；单出口与多出口使用同一按钮和命令。 |
 | `claimOutcomeReward()` | 对已结束的成功/部分成功 Run，经 `StateMutationService` 提交事件定义中的白名单奖励一次；失败、未结束或已领取状态不会重复发放。 |
 | `createSaveSnapshot()` / `restoreSaveSnapshot(snapshot)` | 由 GameInstance 存档/读档路径调用；内容由当前 Registry 重建，拒绝时保留清晰诊断。 |
 | `getLastRestoreResult()` | 查询最近一次读档的续局结果或拒绝原因；没有 `operationRun` 时为 `none`。 |
@@ -81,7 +81,7 @@ Scene 没有独立 Runtime owner、`sceneInstanceId` 或 SaveData 字段。`Even
 
 `previewIntervention()` / `reviseIntervention()` 在启用自动行动的 Scene 复用唯一 `interventionDraft`；普通 Scene 不接受会被结算忽略的战术干预。Scene Batch 预览会给出按玩家费用预留后形成的角色计划与覆盖结果，Commit 重算并应用该覆盖。Skip 仍跳过可选玩家选择，但不取消 fixed SceneAction、fixed PlayerSceneCard 或 Character 自动行动。仅实际成功 Character Action 或已结算的玩家行动可触发 Scene completion；全员 Wait 或空 Skip 不自动完成 Scene。所有上述步骤仍在现有 detached Planner 与一次 Run slot 替换中完成，失败提交不写回状态、批次计数、历史或随机游标。
 
-`gameplay-b:operation-event:atomic-scene-demo` 是独立的小型 Registry Event，包含一个复合 Location 和一个最小出口 Location；复合地点按序排列 `investigate-equipment` → `handle-alarm` 两个 Scene。检查故障设备是 required SceneAction：Skip 不会揭示维修线索；学生主动检查并成功提交后，View 才将警报 Scene 投影为 active。警报 Scene 分四批运行：`all-eligible` 对当前前排的两名敌人结算、显式选择并把一名前排敌人移到后排、再次 `all-eligible`（只命中仍在前排的敌人）、最后显式选择解除警报并揭示完成 Fact 的敌人。Scene A 完成时地点仍为 inProgress、出口 Route 不可用且没有路线历史。Scene B 成功后，独立地点目标与有序 Scene 完成门槛共同满足；来源地点记录为 success，唯一合法出口按既有规则自动转场。Run / Map 保留来源地点成功状态及两个 completed Scene ID，Route history 保存 Route ID。样例通过通用 Registry Operation 入口启动，不增加 Event-ID Runtime 分支；其 Event checkpoint 版本为 3。
+`gameplay-b:operation-event:atomic-scene-demo` 是独立的小型 Registry Event，包含一个复合 Location 和一个最小出口 Location；复合地点按序排列 `investigate-equipment` → `handle-alarm` 两个 Scene。检查故障设备是 required SceneAction：Skip 不会揭示维修线索；学生主动检查并成功提交后，View 才将警报 Scene 投影为 active。警报 Scene 分四批运行：`all-eligible` 对当前前排的两名敌人结算、显式选择并把一名前排敌人移到后排、再次 `all-eligible`（只命中仍在前排的敌人）、最后显式选择解除警报并揭示完成 Fact 的敌人。Scene A 完成时地点仍为 inProgress、出口 Route 不可用且没有路线历史。Scene B 成功后，独立地点目标与有序 Scene 完成门槛共同满足；来源地点记录为 success，唯一合法出口显示为路线按钮，玩家提交该 Route ID 后才转场。Run / Map 保留来源地点成功状态及两个 completed Scene ID，Route history 保存 Route ID。样例通过通用 Registry Operation 入口启动，不增加 Event-ID Runtime 分支；其 Event checkpoint 版本为 3。
 
 `gameplay-b:operation-event:rest-scene-demo` 是混合 Scene UI 的正式 Registry 样例。两名学生各有三个合法 Character Action、每批抽取两张 Character Hand；Hoshino/Serika 的 Profile 使用不同优先级，目标型同队行动按各自合法目标偏好选人。Scene 显式启用 `autoCharacterActions`，保留一个 fixed SceneAction 供 Skip 验证，玩家在 Run 启动时抽两张 SceneCard，后续批次不自动补牌。整备度达到 4 才完成 Scene 与 Event；至少两批都可以把 Character actorPlans、fixed SceneAction 与玩家卡放进同一条 OperationResolution。完成后，普通 Operation 入口可以重新开始同一 Event；其 Event checkpoint 版本为 1。
 
@@ -89,11 +89,11 @@ Scene 可用 `sceneActionChoice` 声明一个 M-of-N 候选集。V1 只接受 re
 
 同一 Scene 还可声明 `purchaseOffers`，但当前演示把玩法分置于同一 Location 的两个有序 Scene：`choose-response` 先完成 exact 2-of-4 选择，`purchase-supplies` 再呈现两个不同价格的补给。每个 PurchaseOffer 指向已登记 targetless Operation Action、非负共享 PlayerCost 与一个 Event `factIds` 中初始未记录且唯一的 `purchaseFactId`。Action 必须至少有一个 Event Track / Fact / HeldItem 奖励效果，不得声明 Action cost 或非 Event 效果。成功购买在同一 Resolution 中扣共享 PlayerCost、运行既有 Action effects 并揭示独立 purchase Fact；奖励 HeldItem 不充当防重锁。该 marker 属于 EventRun 的 `knownFactIds`，随 checkpoint 保存；Preview 和 Commit 均按 marker 重验。因此移除奖励物、恢复存档或重置 Location-local 进度不会清除购买锁。Action、StudentSkillRule 与 CombinationRule effects 不得 reveal/forget 任何预留 marker。Purchase Offer 的 View 奖励说明采用人类可读 Action 描述或标题，不把 Event-local Item/Fact/Track ID 当玩家文案。当前机制不引入 ShopService、货币或通用库存层。
 
-`gameplay-b:operation-event:scene-offer-purchase-demo` 是上述合同的独立验收样例：同一 Location 内先 M/N 选择，再批量购买两个补给；购买后另用库存复核行动证明持有物可移除而 marker 仍有效。每个显式 Scene 仅在成功 Commit 后满足各自 completion 条件；两幕完成并满足 Location objectives 后才按单出口规则转场。
+`gameplay-b:operation-event:scene-offer-purchase-demo` 是上述合同的独立验收样例：同一 Location 内先 M/N 选择，再批量购买两个补给；购买后另用库存复核行动证明持有物可移除而 marker 仍有效。每个显式 Scene 仅在成功 Commit 后满足各自 completion 条件；两幕完成并满足 Location objectives 后显示唯一出口按钮，玩家选择后转场。
 
 正式 Carousel 与 Strategy Park checkpoint 的 `resumeVersion` 当前分别为 3 与 4：Scene ID 进入 Resolution 后，旧版本检查点按既有内容版本策略拒绝，不做迁移。
 
-显式 Scene 序列的完成是 Location 退出前置门槛：即使地点目标已满足，前序或当前 Scene 尚未完成时，地点也不会被标记完成或开放出口。Scene A → B 本身不消耗 Route；完成最后一幕后，再由 Location outcome 决定结果并评估出口。唯一可用 Route 沿现有 exact-one 规则自动转场；多出口仍等待玩家提交 Route ID。
+显式 Scene 序列的完成是 Location 退出前置门槛：即使地点目标已满足，前序或当前 Scene 尚未完成时，地点也不会被标记完成或开放出口。Scene A → B 本身不消耗 Route；完成最后一幕后，再由 Location outcome 决定结果并评估出口。只要有可用 Route（包括唯一出口），都显示路线按钮并等待玩家显式提交 Route ID；没有可用 Route 时按现有 Location / Event outcome 结束行动。
 
 ## 行动内容与 PreparedBeat
 
@@ -135,7 +135,7 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 ## 其他状态转移与生命周期
 
-`applyStateDelta()` 对数值轨道、事实、持有物、Actor 和玩家路线状态先整体校验再写入。拒绝的批次无部分写入；牌区 ID 多重集须保持事件固定牌组的物理实例不变。`completeCurrentLocation()` 标记当前地点完成并评估出口：没有合法出口时调用事件终局判定，一个合法出口自动通过 `transitionRoute()` 前进，多个出口则等待玩家提交 Route ID。`transitionRoute()` 在 detached 候选 Run 上验证完成状态、版本、出口、访问上限和所需持有物，再应用离场 Cost 上限、消费门禁物品、保存来源结果、重置目标地点的本次进度、递增访问数、发放入场 Cost/抽牌并准备新地点；全部步骤成功后只替换一次 Run slot。任何转场错误都保留原 Run。
+`applyStateDelta()` 对数值轨道、事实、持有物、Actor 和玩家路线状态先整体校验再写入。拒绝的批次无部分写入；牌区 ID 多重集须保持事件固定牌组的物理实例不变。`completeCurrentLocation()` 标记当前地点完成并评估出口：没有可用出口时调用事件终局判定；有一个或多个可用出口时保留当前地点并显示路线按钮，等待玩家提交 Route ID。`transitionRoute()` 在 detached 候选 Run 上验证完成状态、版本、出口、访问上限和所需持有物，再应用离场 Cost 上限、消费门禁物品、保存来源结果、重置目标地点的本次进度、递增访问数、发放入场 Cost/抽牌并准备新地点；全部步骤成功后只替换一次 Run slot。任何转场错误都保留原 Run。
 
 `finish()` 只在当前 Location 已完成且没有合法出口时生成 `success`、`partialSuccess` 或 `failure` 的冻结 `EventResult`；终局 Run 不接受后续状态转移，重复结束返回已有结果。终局奖励只允许从 `EventDef.rewards.success/partialSuccess` 读取受限资源奖励；`claimOutcomeReward()` 先调用 AC 注入的 Mutation 回调，成功后才原子标记 Run 与结果已领取，回调失败不留下已领取标记。失败不产生奖励。Run owner 的本地通知包括 `runStarted`、Location 进入/完成、`beatResolved` 和 `runFinished`，不扩展通用 Engine EventBus，也不从 facade 暴露订阅接口。
 

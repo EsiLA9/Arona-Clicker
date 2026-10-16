@@ -4,12 +4,26 @@ import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { createUIContext } from '../../src/ui/context';
 import { renderWorkspaceFrame } from '../../src/ui/components/workspace-frame';
+import { renderContentWorkspace } from '../../src/ui/runtime-editor/codex/workspace';
 import { renderCharacterWorkspace } from '../../src/ui/components/character-workspace';
 import { renderPanelTabsRegion } from '../../src/ui/components/tabs';
 import { renderCollectionModalBody } from '../../src/ui/components/collection-modal';
 import type { PanelState } from '../../src/ui/components/app-shell';
 
 describe('WorkspaceFrame', () => {
+  it('内容工具复用布局输出但不引入游戏主题宿主或额外 surface', () => {
+    const html = renderContentWorkspace({ navigation: '<nav>N</nav>', entries: '<section>E</section>', detail: '<article>D</article>' });
+    const root = document.createElement('div');
+    root.innerHTML = html;
+    const frame = root.querySelector('[data-workspace-frame="content-tool"]')!;
+    expect(frame.getAttribute('data-responsive')).toBe('pane-switch');
+    expect([...frame.children].map(node => node.tagName)).toEqual(['NAV', 'SECTION', 'ARTICLE']);
+    expect(root.querySelector('[data-theme-host-id]')).toBeNull();
+    expect(root.querySelector('footer')).toBeNull();
+    root.innerHTML = renderContentWorkspace({ navigation: '', entries: '', detail: '', actions: '<button>保存草稿</button>' });
+    expect(root.querySelector('footer')?.textContent).toBe('保存草稿');
+  });
+
   it('按 left → center → right 顺序渲染三列，并接入 Host 元数据', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);

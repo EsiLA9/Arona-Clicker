@@ -673,6 +673,9 @@ describe('OperationRuntimeService', () => {
     service.start(eventDefWithArchiveRoute());
     service.applyStateDelta({ tracks: { danger: 2 }, knownFacts: [{ id: 'door_open', present: true }] });
     service.completeCurrentLocation();
+    expect(service.getSnapshot()?.currentLocationId).toBe('test:location:office');
+    const completedOffice = service.getSnapshot()!;
+    service.transitionRoute({ runId: completedOffice.runId, planVersion: completedOffice.planVersion, routeId: 'test:route:office-archive' });
     expect(service.getSnapshot()?.currentLocationId).toBe('test:location:archive');
     unsubscribe();
     service.completeCurrentLocation();
@@ -787,7 +790,13 @@ describe('OperationRuntimeService', () => {
       routeHistory: [{ fromLocationId: 'test:location:office', fromLocationResult: 'success', routeId: 'test:route:office-archive', toLocationId: 'test:location:archive', consumedHeldItemId: 'archive_key' }],
     });
 
-    const backAtOffice = service.completeCurrentLocation();
+    const archiveCompleted = service.completeCurrentLocation();
+    expect(archiveCompleted.currentLocationId).toBe('test:location:archive');
+    const backAtOffice = service.transitionRoute({
+      runId: archiveCompleted.runId,
+      planVersion: archiveCompleted.planVersion,
+      routeId: 'test:route:archive-loop',
+    });
     expect(backAtOffice).toMatchObject({
       currentLocationId: 'test:location:office',
       routeHistory: [
@@ -805,7 +814,12 @@ describe('OperationRuntimeService', () => {
     ]).size).toBe(backAtOffice.routeHistory.length
       + (backAtOffice.locationEntryCostHistory ?? []).length
       + backAtOffice.resolutions.length);
-    const atExit = service.completeCurrentLocation();
+    const officeCompleted = service.completeCurrentLocation();
+    const atExit = service.transitionRoute({
+      runId: officeCompleted.runId,
+      planVersion: officeCompleted.planVersion,
+      routeId: 'test:route:office-exit',
+    });
     expect(atExit).toMatchObject({ currentLocationId: 'test:location:exit', routeHistory: [{}, {}, {}] });
     expect(service.getView()).toMatchObject({ totalLocationVisits: 4, maxLocationVisits: 4 });
     const resultRun = service.completeCurrentLocation();
@@ -1132,8 +1146,12 @@ describe('OperationRuntimeService', () => {
       locationProgress: { [officeId]: { completed: false, completedSceneIds: ['stabilize'] } },
     });
     owner.completeCurrentLocation();
+    let completedLocation = owner.getSnapshot()!;
+    owner.transitionRoute({ runId: completedLocation.runId, planVersion: completedLocation.planVersion, routeId: 'office-archive' });
     expect(owner.getSnapshot()?.currentLocationId).toBe(archiveId);
     owner.completeCurrentLocation();
+    completedLocation = owner.getSnapshot()!;
+    owner.transitionRoute({ runId: completedLocation.runId, planVersion: completedLocation.planVersion, routeId: 'archive-office' });
 
     expect(owner.getSnapshot()).toMatchObject({
       currentLocationId: officeId,
@@ -1381,10 +1399,20 @@ describe('OperationRuntimeService', () => {
     entry.commitBeat({ runId: started.runId, planVersion: started.planVersion });
     expect(owner.getSnapshot()).toMatchObject({
       status: 'inProgress',
-      currentLocationId: 'test:location:archive',
+      currentLocationId: 'test:location:office',
       locationProgress: {
         'test:location:office': { visitCount: 1, beatCount: 1, completed: true, result: 'failure' },
       },
+      preparedBeat: null,
+    });
+    const completedOffice = owner.getSnapshot()!;
+    const inArchive = owner.transitionRoute({
+      runId: completedOffice.runId,
+      planVersion: completedOffice.planVersion,
+      routeId: 'test:route:office-archive',
+    });
+    expect(inArchive).toMatchObject({
+      currentLocationId: 'test:location:archive',
       preparedBeat: { planVersion: 2, locationId: 'test:location:archive' },
     });
     expect(owner.getResult()).toBeNull();
@@ -1534,7 +1562,12 @@ describe('OperationRuntimeService', () => {
     };
     const source = new OperationRuntimeService();
     source.start(input);
-    const enteredArchive = source.completeCurrentLocation();
+    const completedOffice = source.completeCurrentLocation();
+    const enteredArchive = source.transitionRoute({
+      runId: completedOffice.runId,
+      planVersion: completedOffice.planVersion,
+      routeId: 'test:route:office-archive',
+    });
     expect(enteredArchive.currentLocationId).toBe('test:location:archive');
     const checkpoint = source.createSaveSnapshot()!;
     expect(enteredArchive.locationProgress).toMatchObject({

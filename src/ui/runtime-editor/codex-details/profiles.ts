@@ -10,21 +10,36 @@ function isRecord(value: unknown): value is RecordLike {
 }
 
 function valueAt(raw: unknown, key: string): unknown {
-  return isRecord(raw) ? raw[key] : undefined;
+  let value = raw;
+  for (const segment of key.split('.')) {
+    if (!isRecord(value)) return undefined;
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(value, segment);
+    } catch {
+      return undefined;
+    }
+    if (!descriptor || !('value' in descriptor)) return undefined;
+    value = descriptor.value;
+  }
+  return value;
 }
 
 function countOf(raw: unknown, key: string): number | undefined {
   const value = valueAt(raw, key);
   if (Array.isArray(value)) return value.length;
   if (value instanceof Map) return value.size;
-  if (isRecord(value) && value.$type === 'map' && Array.isArray(value.entries)) return value.entries.length;
+  if (isRecord(value) && valueAt(value, '$type') === 'map') {
+    const entries = valueAt(value, 'entries');
+    if (Array.isArray(entries)) return entries.length;
+  }
   return undefined;
 }
 
 function addIfPresent(fields: InspectorSummaryField[], raw: unknown, key: string, label: string): void {
   const value = valueAt(raw, key);
   if (value === undefined || value === null || value === '') return;
-  fields.push({ label, value });
+  fields.push({ label, value, path: '$.' + key });
 }
 
 function addCountIfPresent(fields: InspectorSummaryField[], raw: unknown, key: string, label: string): void {
@@ -33,14 +48,19 @@ function addCountIfPresent(fields: InspectorSummaryField[], raw: unknown, key: s
 }
 
 const KIND_FIELDS: Readonly<Record<string, readonly [string, string][]>> = {
-  inits: [['startStoryId', '起始剧情'], ['worldTilt', '世界倾斜'], ['worldTiltAlias', '倾斜值别名']],
-  areas: [['initId', '所属 Init']],
+  inits: [['defaultAreas', '默认区域'], ['startStoryId', '起始剧情'], ['worldTilt', '世界倾斜'], ['worldTiltAlias', '倾斜值说明']],
+  areas: [['initId', '所属世界线'], ['defaultSpots', '默认设施'], ['adjacentAreaIds', '相邻区域']],
   spots: [['areaId', '所属 Area'], ['maxLevel', '等级上限'], ['global', '跨世界线共享']],
   enhancements: [['autoApply', '自动应用'], ['maxStacks', '最大层数'], ['irreversible', '不可撤回']],
-  stories: [['name', '剧情名称']],
   characters: [['school', '学校'], ['rarity', '稀有度']],
   charaProfiles: [['activeName', '当前名称'], ['activeAvatar', '当前头像']],
-  characterVariants: [['proto', '原型角色'], ['curve', '培养曲线'], ['favoriteItem', '爱用品'], ['uniqueWeapon', '专武'], ['school', '学校'], ['rarity', '稀有度'], ['isDefault', '默认差分']],
+  characterVariants: [
+    ['proto', '原型角色'], ['curve', '培养曲线'], ['school', '学校'], ['rarity', '稀有度'],
+    ['isDefault', '默认差分'], ['affectionLevelCapByStar', '好感星级锁'],
+    ['progression.favoriteItem', '爱用品'], ['progression.uniqueWeapon', '专武'],
+    ['progression.initialTraits', '初始特性'], ['progression.gearSlots', '固定装备槽'],
+    ['progression.skills', '技能'],
+  ],
   favoriteItems: [['owner', '所属差分']],
   uniqueWeapons: [['owner', '所属差分']],
   gears: [['slot', '装备槽类别']],
@@ -56,13 +76,42 @@ const KIND_FIELDS: Readonly<Record<string, readonly [string, string][]>> = {
   gachaPools: [['mode', '卡池模式'], ['currency', '抽卡资源'], ['costPerPull', '单抽成本']],
   cultivateCurves: [['maxLevel', '等级上限'], ['starMax', '星级上限']],
   affectionConfig: [['expBeyond', '超出经验需求'], ['maxLevel', '好感上限']],
-  resourceDisplays: [['resourceId', '资源 ID'], ['label', '显示标签'], ['showWhen', '显示条件']],
+  resourceDisplays: [['detailLabel', '详情标签'], ['showWhen', '显示条件'], ['order', '显示顺序']],
   tagDefs: [['parent', '父标签']],
   gearConfig: [['levelCost', '每级附加消耗']],
   extras: [['$type', '数据形态']],
   dropTables: [['maxRolls', '最大抽取次数']],
   triggerDefs: [['once', '一次性触发']],
   funcletDefs: [['description', '规则描述']],
+  operationEvents: [
+    ['initId', '所属 Init'], ['initialLocationId', '初始位置'], ['resumeVersion', '存档兼容版本'],
+    ['maxLocationVisits', '位置访问总上限'], ['characterHandSize', '角色手牌上限'],
+    ['locationIds', '关卡位置'], ['tracks', '行动轨道'], ['actors', '参与角色'],
+    ['participants', '参战席位'], ['objectives', '行动目标'],
+    ['playerRouteState', '路线资源设置'], ['rewards', '结果奖励'],
+  ],
+  operationLocations: [
+    ['stage', '阶段'], ['interactionSceneId', '互动场景'], ['activityId', '活动'],
+    ['actionMode', '行动模式'], ['sceneActionBatches', '场景行动批次'],
+    ['costGain', '行动力变化'], ['maxCarryCost', '行动力携带上限'],
+    ['maxBeats', '战斗回合上限'], ['maxVisits', '访问上限'],
+    ['enabledActionIds', '可用行动'], ['routeEdges', '路线出口'], ['scenes', '场景'],
+    ['combinationRules', '组合规则'], ['sceneActions', '场景行动'],
+    ['sceneActionChoice', '场景行动选择'], ['purchaseOffers', '购买选项'],
+    ['objectives', '行动目标'], ['partialOutcomes', '部分成功条件'], ['failureConditions', '失败条件'],
+  ],
+  operationActions: [
+    ['allowedParticipantKinds', '适用参与者'], ['requiredCapabilityIds', '要求能力'],
+    ['reasonIds', '使用理由'], ['tagIds', '行动标签'], ['strategyTagIds', '策略标签'],
+    ['cardCondition', '卡牌条件'], ['cost', '行动费用'], ['target', '作用目标'], ['effects', '效果'],
+  ],
+  studentOperationProfiles: [
+    ['characterId', '角色'], ['strategyProfileId', '策略偏好'], ['randomSkillRuleId', '随机技能规则'],
+    ['candidateActionIds', '候选行动'], ['actionPriorityIds', '行动优先级'],
+    ['capabilityIds', '能力'], ['reasonIds', '使用理由'], ['cardPoolIds', '卡池'],
+  ],
+  operationStrategyProfiles: [['biases', '偏好权重']],
+  operationCardPools: [['selector', '适用条件'], ['entries', '行动权重']],
 };
 
 const KIND_COUNTS: Readonly<Record<string, readonly [string, string][]>> = {
@@ -71,7 +120,6 @@ const KIND_COUNTS: Readonly<Record<string, readonly [string, string][]>> = {
   activeStories: [['talklets', 'Talklet 数量']],
   passiveStories: [['talklets', 'Talklet 数量']],
   passivePools: [['children', '成员数量']],
-  characterVariants: [['initialTraits', '初始特性数量'], ['gearSlots', '装备槽数量'], ['affectionLevelCapByStar', '好感星级锁数量']],
   inits: [['defaultAreas', '默认 Area 数量'], ['tags', '标签数量']],
   areas: [['defaultSpots', '默认 Spot 数量'], ['adjacentAreaIds', '相邻 Area 数量'], ['tags', '标签数量']],
   enhancements: [['effects', '效果数量'], ['tags', '标签数量']],
@@ -104,6 +152,8 @@ export const DEFINITION_PROFILE_KINDS: readonly string[] = Object.freeze([
   'gears', 'gearConfig', 'gachaPools', 'shops', 'colorGroups', 'colorEquipments',
   'themeDesigns', 'affectionConfig', 'resourceDisplays', 'tagDefs', 'pics', 'charaProfiles',
   'extras', 'affectorPacks', 'triggerDefs',
+  'operationEvents', 'operationLocations', 'operationActions', 'studentOperationProfiles',
+  'operationStrategyProfiles', 'operationCardPools',
 ]);
 
 const PROFILE_KIND_SET = new Set(DEFINITION_PROFILE_KINDS);
@@ -114,8 +164,15 @@ export function hasDefinitionProfile(kind: string): boolean {
 
 export function profileSummaryFields(detail: RuntimeContentDefinitionDetail): readonly InspectorSummaryField[] {
   const fields: InspectorSummaryField[] = [];
-  for (const [key, label] of KIND_FIELDS[detail.summary.ref.definitionKind] ?? []) addIfPresent(fields, detail.raw, key, label);
-  for (const [key, label] of KIND_COUNTS[detail.summary.ref.definitionKind] ?? []) addCountIfPresent(fields, detail.raw, key, label);
+  const fieldPaths = new Set<string>();
+  for (const [key, label] of KIND_FIELDS[detail.summary.ref.definitionKind] ?? []) {
+    const previousCount = fields.length;
+    addIfPresent(fields, detail.raw, key, label);
+    if (fields.length > previousCount) fieldPaths.add('$.' + key);
+  }
+  for (const [key, label] of KIND_COUNTS[detail.summary.ref.definitionKind] ?? []) {
+    if (!fieldPaths.has('$.' + key)) addCountIfPresent(fields, detail.raw, key, label);
+  }
   return fields;
 }
 
@@ -166,6 +223,6 @@ function normalizedTail(path: string): string {
 }
 
 export function labelInspectorReference(reference: InspectorReference): InspectorReference {
-  const relation = RELATION_LABELS[normalizedTail(reference.path ?? '')] ?? reference.relation;
+  const relation = reference.relation ?? RELATION_LABELS[normalizedTail(reference.path ?? '')];
   return relation ? { ...reference, relation } : reference;
 }

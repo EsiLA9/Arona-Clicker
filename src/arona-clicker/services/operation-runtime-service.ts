@@ -1455,7 +1455,7 @@ export class OperationRuntimeService {
   private slot: RunSlot | null = null;
   private disposed = false;
   private notifying = false;
-  private advancingCompletedLocation = false;
+  private finishingCompletedLocation = false;
   private readonly listeners = new Set<OperationLifecycleListener>();
 
   subscribe(listener: OperationLifecycleListener): () => void {
@@ -1545,7 +1545,7 @@ export class OperationRuntimeService {
       this.publish({ type: 'locationCompleted', runId, eventId: run.eventId, locationId: run.currentLocationId });
     }
     if (result) this.publish({ type: 'runFinished', runId, eventId: run.eventId, kind: result.kind });
-    if (initialLocationCompleted && !result) this.advanceCompletedLocation();
+    if (initialLocationCompleted && !result) this.finishCompletedLocationIfTerminal();
     return this.getSnapshot()!;
   }
 
@@ -1864,7 +1864,7 @@ export class OperationRuntimeService {
     if (eventResult) {
       this.publish({ type: 'runFinished', runId: eventResult.runId, eventId: eventResult.eventId, kind: eventResult.kind });
     }
-    if (locationCompleted && !eventResult) this.advanceCompletedLocation();
+    if (locationCompleted && !eventResult) this.finishCompletedLocationIfTerminal();
     return resolution;
   }
 
@@ -1987,7 +1987,7 @@ export class OperationRuntimeService {
       this.publish({ type: 'locationCompleted', runId: next.runId, eventId: next.eventId, locationId: next.currentLocationId });
     }
     if (eventResult) this.publish({ type: 'runFinished', runId: eventResult.runId, eventId: eventResult.eventId, kind: eventResult.kind });
-    if (locationCompleted && !eventResult) this.advanceCompletedLocation();
+    if (locationCompleted && !eventResult) this.finishCompletedLocationIfTerminal();
     return resolution;
   }
 
@@ -2063,16 +2063,16 @@ export class OperationRuntimeService {
     if (eventResult) {
       this.publish({ type: 'runFinished', runId: eventResult.runId, eventId: eventResult.eventId, kind: eventResult.kind });
     }
-    if (locationCompleted && !eventResult) this.advanceCompletedLocation();
+    if (locationCompleted && !eventResult) this.finishCompletedLocationIfTerminal();
     return this.getSnapshot()!;
   }
 
-  /** The sole Location transition write path for manual and automatic routing. */
+  /** The sole Location transition write path; callers supply an explicit route choice. */
   transitionRoute(input: OperationRouteCommand): EventRun {
     this.assertCanMutate();
     const command = parseRouteCommand(input);
     this.commitRouteTransition(command);
-    if (!this.advancingCompletedLocation) this.advanceCompletedLocation();
+    if (!this.finishingCompletedLocation) this.finishCompletedLocationIfTerminal();
     return this.getSnapshot()!;
   }
 
@@ -2099,7 +2099,7 @@ export class OperationRuntimeService {
     refreshPreparedBeat(next, slot.rules);
     slot.run = next;
     this.publish({ type: 'locationCompleted', runId: next.runId, eventId: next.eventId, locationId });
-    this.advanceCompletedLocation();
+    this.finishCompletedLocationIfTerminal();
     return this.getSnapshot()!;
   }
 
@@ -2249,29 +2249,19 @@ export class OperationRuntimeService {
     }
   }
 
-  /** Automatically takes a sole exit and closes terminal Locations; branches wait for player input. */
-  private advanceCompletedLocation(): void {
-    if (this.advancingCompletedLocation) return;
-    this.advancingCompletedLocation = true;
+  /** Finishes completed Locations with no available exits; every available exit remains a player choice. */
+  private finishCompletedLocationIfTerminal(): void {
+    if (this.finishingCompletedLocation) return;
+    this.finishingCompletedLocation = true;
     try {
-      while (this.slot?.run.status === 'inProgress') {
-        const slot = this.slot;
-        if (!slot.run.locationProgress[slot.run.currentLocationId]?.completed) return;
-        const available = evaluateOperationRoutes(slot.rules.definition, slot.run).options
-          .filter(option => option.available);
-        if (available.length === 0) {
-          this.finish();
-          return;
-        }
-        if (available.length > 1) return;
-        this.transitionRoute({
-          runId: slot.run.runId,
-          planVersion: slot.run.planVersion,
-          routeId: available[0].route.id,
-        });
-      }
+      const slot = this.slot;
+      if (slot?.run.status !== 'inProgress') return;
+      if (!slot.run.locationProgress[slot.run.currentLocationId]?.completed) return;
+      const hasAvailableRoute = evaluateOperationRoutes(slot.rules.definition, slot.run).options
+        .some(option => option.available);
+      if (!hasAvailableRoute) this.finish();
     } finally {
-      this.advancingCompletedLocation = false;
+      this.finishingCompletedLocation = false;
     }
   }
 

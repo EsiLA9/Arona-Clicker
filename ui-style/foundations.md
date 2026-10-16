@@ -23,4 +23,6 @@
 
 已有默认外观以浅色表面和蓝色等主题强调为起点，用户主题与宿主背景会改变结果。保持角色、控件和层级一致，不能把默认十六进制值固定到所有页面。CSS 中现存硬编码和局部修正仅是实现事实，新增代码优先使用适用 token。
 
+超级图鉴沿用 body 级 Runtime Editor 的独立工具外观：`src/ui/runtime-editor/codex/codex.css` 在 `.runtime-editor-codex` 内定义局部 `--codex-*`，承载表面、文本、边框与强调；编辑表单继续使用 `src/ui/css/runtime-editor.css` 的 `--re-*`。共享 Frame 只复用网格几何，`.runtime-editor-codex__grid.workspace-frame` 规则重置 Frame 的 margin、gap 与 height；内容工具的纯布局入口不生成游戏 Presentation host。`tests/ui/workspace-frame.test.ts` 验证的是输出结构与 Host 隔离，不等同实际浏览器视觉验收。这是当前已实现并采用的工具范围例外，不能据此为其它页面新建固定配色。
+
 主题机制见 [[docs/docs-829/06-wiki/50-ui/presentation-theme]]；组件入口见 [[ui-style/patterns]]。

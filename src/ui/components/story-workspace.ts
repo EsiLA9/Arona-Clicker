@@ -2,7 +2,8 @@ import type { UIContext } from '../context';
 import type { PanelState, StoryWorkspaceState } from './app-shell';
 import { renderConversationBody } from './contacts';
 import { renderChatTab } from './center-panel';
-import { renderStoryNavigation } from './rail';
+import { LEFT_TABS, renderStoryNavigation } from './rail';
+import { renderPanelTabsRegion } from './tabs';
 import { renderWorkspaceFrame } from './workspace-frame';
 import { renderWorkspaceTitlebar } from './workspace-titlebar';
 
@@ -20,7 +21,7 @@ export function renderStoryWorkspace(
   const owner = workspace.conversationOwner;
   const hasConversation = workspace.subroute === 'overview'
     && (workspace.selectedEntryId !== null || workspace.mode === 'playing');
-  const left = renderWorkspaceTitlebar(ctx, 'left', '故事导航', 'data-story-workspace-leave')
+  const left = renderPanelTabsRegion(ctx, 'left', LEFT_TABS, 'story')
     + '<div class="story-workspace__navigation">'
     + renderStoryNavigation(ctx, workspace.navPath)
     + '</div>';
@@ -40,15 +41,17 @@ export function renderStoryWorkspace(
           state.storyGate ?? null,
           state.openingBanner ?? null,
         )
-      : renderChatTab(
-          ctx,
-          state.chatEntries,
-          state.chatTexts,
-          ctx.game.story.getSendState(),
-          state.sendGate ?? null,
-          state.storyGate ?? null,
-          state.openingBanner ?? null,
-        )
+      : '<div class="ui-cluster ui-cluster--center-chat panel-body">'
+        + renderChatTab(
+            ctx,
+            state.chatEntries,
+            state.chatTexts,
+            ctx.game.story.getSendState(),
+            state.sendGate ?? null,
+            state.storyGate ?? null,
+            state.openingBanner ?? null,
+          )
+        + '</div>'
     : placeholder('选择左侧分类或故事条目后，这里将显示故事内容。');
   const right = renderWorkspaceTitlebar(ctx, 'right', '故事详情')
     + placeholder(

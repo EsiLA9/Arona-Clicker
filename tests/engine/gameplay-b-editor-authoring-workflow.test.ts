@@ -239,6 +239,12 @@ describe('Gameplay B Editor package to Runtime authoring workflow', () => {
       cards: [],
       purchases: [],
     });
+    const completedWorksite = runtime.operationEntry.getSnapshot()!;
+    runtime.operationEntry.transitionRoute({
+      runId,
+      planVersion: completedWorksite.planVersion,
+      routeId: 'leave-worksite',
+    });
     const finishedLocation = runtime.operationEntry.getView(runId)!;
     expect(finishedLocation).toMatchObject({
       locationProgress: { 'scene-authoring:operation-location:worksite': { completed: true, completedSceneIds: ['choose-plan', 'review-work'] } },

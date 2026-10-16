@@ -250,8 +250,10 @@ describe('Gameplay B Strategy Park 13-location map', () => {
     };
 
     act(IDS.sceneActions.brief);
+    route(IDS.routes.gateToCorridor);
     act(IDS.sceneActions.tracks);
     act(IDS.sceneActions.tracks);
+    route(IDS.routes.corridorToKiosk);
     act(IDS.sceneActions.radio);
     route(IDS.routes.kioskToArcade);
     act(IDS.sceneActions.negotiateCalm, IDS.sceneActions.negotiateListen);

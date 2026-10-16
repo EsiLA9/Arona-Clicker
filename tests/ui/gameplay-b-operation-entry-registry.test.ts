@@ -285,6 +285,9 @@ describe('Gameplay B Registry operation entries', () => {
       ?.legalTargetActorIdsByActorId[CAROUSEL_SAFETY_IDS.actors.hoshino]).toEqual(remainingFrontActorIds);
     activateAction(ATOMIC_SCENE_DEMO_IDS.alarmSceneAction, ATOMIC_SCENE_DEMO_IDS.enemyBack);
 
+    const exitRoute = root.querySelector<HTMLButtonElement>(`[data-operation-route][data-route-id="${ATOMIC_SCENE_DEMO_IDS.route}"]`);
+    expect(exitRoute).not.toBeNull();
+    exitRoute!.click();
     const completed = game.operationEntry.getView(runId)!;
     expect(completed).toMatchObject({
       currentLocationId: ATOMIC_SCENE_DEMO_IDS.exitLocation,

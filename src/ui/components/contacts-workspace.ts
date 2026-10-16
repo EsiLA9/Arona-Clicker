@@ -1,6 +1,8 @@
 import type { UIContext } from '../context';
 import type { ContactsWorkspaceState, PanelState } from './app-shell';
 import { renderContactsTab, renderCharacterPanel, renderConversationBody } from './contacts';
+import { LEFT_TABS } from './rail';
+import { renderPanelTabsRegion } from './tabs';
 import { renderWorkspaceFrame } from './workspace-frame';
 import { renderWorkspaceTitlebar } from './workspace-titlebar';
 
@@ -18,7 +20,7 @@ export function renderContactsWorkspace(
   const selected = workspace.selectedVariantId;
   const conversation = workspace.conversationVariantId;
   const variant = selected ? ctx.game.rosterSystem.getVariant(selected) : undefined;
-  const left = renderWorkspaceTitlebar(ctx, 'left', '通讯录', 'data-contacts-workspace-leave')
+  const left = renderPanelTabsRegion(ctx, 'left', LEFT_TABS, 'contacts')
     + '<div class="contacts-workspace__list">'
     + renderContactsTab(ctx, selected, state.studentChats, state.getUnread)
     + '</div>';

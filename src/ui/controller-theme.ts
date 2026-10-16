@@ -51,7 +51,7 @@ export function restoreThemeFloat(ctrl: UIController): void {
 
 /**
  * 重建普通游戏页的单一主题选择：玩家选择优先；选择场景默认时使用当前 Area 的主题。
- * Init 主题只投影到外部 Init 选择页；学生主题不参与全局界面主题。
+ * Init 主题只投影到外部 Init 选择页；通讯录学生对话会临时完整替代普通界面选择。
  */
 export function syncRuntimeTheme(ctrl: UIController): void {
   if (!ctrl.game.getView().currentStory) {
@@ -60,6 +60,9 @@ export function syncRuntimeTheme(ctrl: UIController): void {
   ctrl.game.colorSystem.syncSelectedThemeFromState(
     ctrl.game.state,
     ctrl.game.userThemeService.capability().active,
+    ctrl.panelState.workspace?.type === 'contacts'
+      ? ctrl.panelState.workspace.conversationVariantId
+      : undefined,
   );
 }
 

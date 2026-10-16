@@ -156,7 +156,7 @@ describe('Runtime Editor Mod ZIP 导出', () => {
 
   test('编辑器面板在 Mod 已配置时提供全局导出入口', () => {
     const editor = createEditor();
-    const ctx = { escapeHtml: (value: string) => value } as never;
+    const ctx = { game: { getPackCatalog: () => ({ entries: [] }) }, escapeHtml: (value: string) => value } as never;
     const host = document.createElement('div');
     host.innerHTML = renderRuntimeEditorPanel(ctx, { runtimeDatapackEditor: editor } as never, 'browser');
     expect(host.querySelector('[data-runtime-editor-export]')).not.toBeNull();
@@ -189,7 +189,7 @@ describe('Runtime Editor Mod ZIP 导出', () => {
       toast: { show: toastShow },
     } as never;
     const host = document.createElement('div');
-    const ctx = { escapeHtml: (value: string) => value } as never;
+    const ctx = { game: { getPackCatalog: () => ({ entries: [] }) }, escapeHtml: (value: string) => value } as never;
     host.innerHTML = renderRuntimeEditorPanel(ctx as never, { runtimeDatapackEditor: editor } as never, 'mod');
     document.body.appendChild(host);
     const setField = (key: string, value: string): void => {

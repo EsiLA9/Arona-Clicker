@@ -194,8 +194,8 @@ export class ColorSystem {
 
   // --- 运行时主题（RuntimeThemeManager 门面） ---
 
-  /** 将存档选择解析为单一界面主题：当前场景默认、已拥有色彩组或独立用户主题。 */
-  syncSelectedThemeFromState(state: PlayerState, customThemeAvailable = true): void {
+  /** 将存档选择解析为单一界面主题；通讯录学生对话可用其实体主题覆盖当前选择。 */
+  syncSelectedThemeFromState(state: PlayerState, customThemeAvailable = true, conversationVariantId?: string | null): void {
     const selection = state.activeTheme ?? { kind: 'system' as const };
     const area = state.currentAreaId ? this.registry.areas.get(state.currentAreaId) : undefined;
     const sceneTheme = area
@@ -231,6 +231,29 @@ export class ColorSystem {
             ?? applied.systemColorLayerIgnored
             ?? (applied.colorGroupId ? this.registry.colorGroups.get(applied.colorGroupId)?.systemColorLayerIgnored : undefined),
         });
+      }
+    }
+    if (conversationVariantId) {
+      const variant = this.registry.characterVariants.get(conversationVariantId);
+      if (variant) {
+        const entityKey = entityKeyOf('variant', variant.id);
+        const attachment = state.themeAttachments?.[entityKey];
+        const stored = attachment?.enabled ? state.customThemes?.[attachment.customThemeId] : undefined;
+        const declaredTheme = variant.theme ?? (variant.colorGroupId ? { colorGroupId: variant.colorGroupId } : undefined);
+        const studentTheme = this.resolveEntityTheme(state, entityKey, {
+          declaredTheme,
+          equippedEquipmentId: state.roster?.[variant.id]?.colorEquipment,
+        }).theme;
+        if (studentTheme) {
+          const globalHost = studentTheme.presentation?.hosts?.find(host => host.id === 'global');
+          selected = this.themeLayerFromDef(`student:${variant.id}`, studentTheme, {
+            palette: stored ? normalizePalette(stored.palette, stored.paletteUiEnabled) : studentTheme.palette,
+            scopeNodeOverrides: stored?.scopes,
+            background: globalHost?.layers ?? studentTheme.background,
+            backgroundLayerOrder: globalHost?.layerOrder ?? stored?.backgroundLayerOrder,
+            systemColorLayerIgnored: stored?.systemColorLayerIgnored ?? studentTheme.systemColorLayerIgnored,
+          });
+        }
       }
     }
     this.selectorThemeLayer = selectorSelected;

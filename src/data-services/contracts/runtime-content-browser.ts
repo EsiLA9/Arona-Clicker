@@ -50,7 +50,7 @@ export interface RuntimeContentKindDescriptor {
 export interface RuntimeContentLoadedMod {
   readonly modName: string;
   readonly loaded: true;
-  /** 只统计能从有效 ID 或可靠来源归属确定的条目。 */
+  /** 只统计能从可靠 owner 确定的有效条目，不以 ID 命名空间猜测来源。 */
   readonly definitionCount: number;
 }
 
@@ -93,6 +93,12 @@ export interface RuntimeContentFieldNode {
 
 export type RuntimeContentReferenceStatus = 'resolved' | 'missing' | 'ambiguous';
 
+export interface RuntimeContentReferenceLocation {
+  readonly ref: RuntimeDefinitionRef;
+  /** 目标所属定义内的局部位置。 */
+  readonly path: string;
+}
+
 export interface RuntimeContentReferenceDiagnostic {
   readonly source: RuntimeDefinitionRef;
   readonly path: string;
@@ -100,6 +106,10 @@ export interface RuntimeContentReferenceDiagnostic {
   readonly relation?: string;
   readonly targetKind?: string;
   readonly confidence?: 'declared' | 'inferred';
+  readonly scope?: 'global' | 'local' | 'candidate';
+  readonly sourceCategory?: 'definition' | 'derived' | 'runtime-rule';
+  readonly targetLocations?: readonly RuntimeContentReferenceLocation[];
+  readonly context?: RuntimeDefinitionRef;
   readonly status: RuntimeContentReferenceStatus;
   readonly target: RuntimeDefinitionRef | null;
   readonly candidates: readonly RuntimeDefinitionRef[];
@@ -115,6 +125,12 @@ export interface RuntimeContentDefinitionSummary {
   readonly label: string;
   readonly description?: string;
   readonly diagnosticCount: number;
+  /** 字段规则始终有边界；候选不计入确定缺失诊断。 */
+  readonly referenceCoverage?: {
+    readonly status: 'partial';
+    readonly declaredCount: number;
+    readonly candidateCount: number;
+  };
   /** 供纯函数搜索使用；不代表额外的数据源。 */
   readonly searchableText: string;
 }

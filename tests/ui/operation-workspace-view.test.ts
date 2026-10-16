@@ -459,6 +459,9 @@ describe('Gameplay B Operation workspace view', () => {
     });
     run = game.operationEntry.getSnapshot()!;
     game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
+    run = game.operationEntry.getSnapshot()!;
+    expect(run.currentLocationId).toBe(IDS.locations.platform);
+    game.operationEntry.transitionRoute({ runId, planVersion: run.planVersion, routeId: IDS.routes.platformToConcourse });
     let view = game.operationEntry.getView(runId)!;
     expect(view.currentLocationId).toBe(IDS.locations.concourse);
     expect(view.currentStage).toBe('scene');

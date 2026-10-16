@@ -6,10 +6,13 @@ import { createUIContext } from '../../src/ui/context';
 import { UIController } from '../../src/ui/controller';
 import { openRuntimeEditorPanel, openRuntimeEditorLauncher, syncRuntimeEditorPanel } from '../../src/ui/runtime-editor/actions';
 import { getRuntimeEditorCodexView, renderRuntimeEditorCodex } from '../../src/ui/runtime-editor/view';
-import { createCodexShellState, codexEntryKey } from '../../src/ui/runtime-editor/codex';
+import { createCodexShellState, codexEntryKey, reduceCodexShellState, renderCodexDetailPane } from '../../src/ui/runtime-editor/codex';
 import { createRuntimeDatapackEditorState, setRuntimeEditorDefinition } from '../../src/ui/runtime-editor/state';
 import { renderDefinitionInspector } from '../../src/ui/runtime-editor/codex-details';
-import type { RuntimeContentBrowserView } from '../../src/data-services/contracts/runtime-content-browser';
+import type {
+  RuntimeContentBrowserView,
+  RuntimeContentReferenceDiagnostic,
+} from '../../src/data-services/contracts/runtime-content-browser';
 import type { UIContext } from '../../src/ui/context';
 
 describe('RuntimeEditor 超级图鉴集成', () => {
@@ -69,7 +72,7 @@ describe('RuntimeEditor 超级图鉴集成', () => {
       set: value => { stateWrites += 1; codexState = value; },
     });
     panel.querySelector<HTMLElement>(`[data-codex-mod="${selectedModId}"]`)!.click();
-    expect(controller.runtimeEditorCodexState.selectedModId).toBe(selectedModId);
+    expect(controller.runtimeEditorCodexState.selectedModId).toBe(selectedModId || null);
     expect(stateWrites).toBe(2);
   });
 
@@ -128,7 +131,7 @@ describe('RuntimeEditor 超级图鉴集成', () => {
     const mod = panel.querySelector<HTMLElement>('[data-codex-mod]');
     expect(mod).not.toBeNull();
     mod!.click();
-    expect(controller.runtimeEditorCodexState.selectedModId).toBe(mod!.dataset.codexMod);
+    expect(controller.runtimeEditorCodexState.selectedModId).toBe(mod!.dataset.codexMod || null);
     const kind = panel.querySelector<HTMLElement>('[data-codex-kind]:not([data-codex-kind=""])');
     expect(kind).not.toBeNull();
     kind!.click();
@@ -157,8 +160,8 @@ describe('RuntimeEditor 超级图鉴集成', () => {
 
     expect(document.querySelector('[data-runtime-editor-panel-host] .runtime-editor-panel')).toBe(panel);
     expect(panel.querySelector('[data-runtime-editor-codex]')).toBe(codex);
-    expect(codex.querySelector('[data-codex-pane="entries"]')).not.toBe(entriesPane);
-    expect(controller.runtimeEditorCodexState.selectedModId).toBe(mod.dataset.codexMod);
+    expect(codex.querySelector('[data-codex-pane="entries"]')).toBe(entriesPane);
+    expect(controller.runtimeEditorCodexState.selectedModId).toBe(mod.dataset.codexMod || null);
   });
 
   it('检查器页签切换只更新详情 slot，保留详情 Pane、标题和选中条目', () => {
@@ -184,6 +187,41 @@ describe('RuntimeEditor 超级图鉴集成', () => {
     expect(document.activeElement).toBe(activeTab);
   });
 
+  it('键盘切换页签保留按钮与标题身份，重复同步不重建工具', () => {
+    openRuntimeEditorPanel(controller, 'codex');
+    const panel = document.querySelector<HTMLElement>('[data-runtime-editor-codex]')!;
+    panel.querySelector<HTMLElement>('[data-codex-entry]')!.click();
+    const title = panel.querySelector('#runtime-editor-codex-detail-title');
+    const overview = panel.querySelector<HTMLElement>('[data-codex-inspector-tab="overview"]')!;
+    const raw = panel.querySelector<HTMLElement>('[data-codex-inspector-tab="raw"]')!;
+    overview.focus();
+    overview.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'End' }));
+    expect(controller.runtimeEditorCodexInspectorTab).toBe('raw');
+    expect(document.activeElement).toBe(raw);
+    expect(panel.querySelector('#runtime-editor-codex-detail-title')).toBe(title);
+    syncRuntimeEditorPanel(controller);
+    expect(document.querySelector('[data-runtime-editor-codex]')).toBe(panel);
+    expect(panel.querySelector('[data-codex-inspector-tab="raw"]')).toBe(raw);
+  });
+
+  it('条目标题在详情 shell header 安全转义，并只在一个位置出现', () => {
+    const view = getRuntimeEditorCodexView(createUIContext(game));
+    const entry = view.entries[0];
+    const title = 'Unsafe <title> & "quoted"';
+    const pane = document.createElement('div');
+    pane.innerHTML = renderCodexDetailPane(
+      { ...entry, label: title },
+      view.loadedMods,
+      () => '<p>资料正文</p>',
+    );
+
+    const heading = pane.querySelector<HTMLElement>('#runtime-editor-codex-detail-title');
+    expect(heading?.textContent).toBe(title);
+    expect(heading?.querySelector('title')).toBeNull();
+    expect(pane.querySelector('.runtime-editor-codex__detail-body')?.textContent).toBe('资料正文');
+    expect(pane.innerHTML.match(/Unsafe/g)).toHaveLength(1);
+  });
+
   it('点击条目只更新选中项和详情，不重建条目列表', () => {
     openRuntimeEditorPanel(controller, 'codex');
     const codex = document.querySelector<HTMLElement>('[data-runtime-editor-codex]')!;
@@ -201,7 +239,7 @@ describe('RuntimeEditor 超级图鉴集成', () => {
     expect(codex.querySelector('.runtime-editor-codex__entry-list')).toBe(entryList);
     expect(entries[0].getAttribute('aria-selected')).toBe('false');
     expect(entries[1].getAttribute('aria-selected')).toBe('true');
-    expect(codex.querySelector('[data-codex-pane="detail"]')).not.toBe(firstDetail);
+    expect(codex.querySelector('[data-codex-pane="detail"]')).toBe(firstDetail);
   });
 
   it('类型筛选默认折叠，展开后在筛选刷新中保留状态', () => {
@@ -218,6 +256,75 @@ describe('RuntimeEditor 超级图鉴集成', () => {
 
     expect(controller.runtimeEditorCodexState.kindFilterOpen).toBe(true);
     expect(panel.querySelector<HTMLDetailsElement>('[data-codex-kind-filter]')?.open).toBe(true);
+  });
+
+  it('搜索和输入法组合保留input、两侧Pane与仍可见的条目节点', () => {
+    openRuntimeEditorPanel(controller, 'codex');
+    const panel = document.querySelector<HTMLElement>('[data-runtime-editor-codex]')!;
+    const input = panel.querySelector<HTMLInputElement>('[data-codex-query]')!;
+    const list = panel.querySelector('.runtime-editor-codex__entries-wrap');
+    const pane = panel.querySelector('[data-codex-pane="entries"]');
+    const first = panel.querySelector<HTMLElement>('[data-codex-entry]')!;
+    const label = first.querySelector('strong')!.textContent!;
+    input.focus();
+    input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    input.value = label;
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+    expect(controller.runtimeEditorCodexState.query).toBe('');
+    input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    expect(controller.runtimeEditorCodexState.query).toBe(label);
+    expect(panel.querySelector('[data-codex-query]')).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(panel.querySelector('[data-codex-pane="entries"]')).toBe(pane);
+    expect(panel.querySelector('.runtime-editor-codex__entries-wrap')).toBe(list);
+    expect(panel.querySelector('[data-codex-entry]')).toBe(first);
+  });
+
+  it('跨筛选引用跳转保留列表范围；返回恢复页签和阅读位置，主动定位可撤回', () => {
+    const source = game.runtimeContentBrowser.getView().entries
+      .filter(entry => entry.ref.definitionKind === 'spots')
+      .map(entry => game.runtimeContentBrowser.getDefinition(entry.ref))
+      .find(detail => detail?.outgoingReferences.some(ref => ref.target?.definitionKind === 'areas' && ref.status === 'resolved'))!;
+    const relation = source.outgoingReferences.find(ref => ref.target?.definitionKind === 'areas' && ref.status === 'resolved')!;
+    const targetKey = codexEntryKey({ definitionKind: 'areas', fullId: relation.target!.fullId! });
+    const sourceKey = codexEntryKey({ definitionKind: 'spots', fullId: source.summary.ref.fullId! });
+    controller.runtimeEditorCodexState = { ...createCodexShellState(), query: relation.target!.fullId!, selectedKind: 'areas', selectedEntryKey: targetKey, mobilePane: 'detail' };
+    openRuntimeEditorPanel(controller, 'codex');
+    const panel = document.querySelector<HTMLElement>('[data-runtime-editor-codex]')!;
+    panel.querySelector<HTMLElement>('[data-codex-inspector-tab="relations"]')!.click();
+    const list = panel.querySelector<HTMLElement>('.runtime-editor-codex__entries-wrap')!;
+    const detail = panel.querySelector<HTMLElement>('.runtime-editor-codex__detail-body')!;
+    list.scrollTop = 31;
+    detail.scrollTop = 93;
+    const link = [...panel.querySelectorAll<HTMLButtonElement>('[data-codex-reference-target]')].find(button => button.dataset.codexReferenceTarget === sourceKey)!;
+    expect(link).toBeDefined();
+    link.click();
+    expect(controller.runtimeEditorCodexState.query).toBe(relation.target!.fullId);
+    expect(controller.runtimeEditorCodexState.selectedEntryKey).toBe(sourceKey);
+    expect(panel.querySelector('[data-codex-locate]')).not.toBeNull();
+    panel.querySelector<HTMLElement>('[data-codex-locate]')!.click();
+    expect(controller.runtimeEditorCodexState.query).toBe('');
+    panel.querySelector<HTMLElement>('[data-codex-navigation="back"]')!.click();
+    expect(controller.runtimeEditorCodexState.query).toBe(relation.target!.fullId);
+    expect(controller.runtimeEditorCodexState.selectedEntryKey).toBe(sourceKey);
+    panel.querySelector<HTMLElement>('[data-codex-navigation="back"]')!.click();
+    expect(controller.runtimeEditorCodexState.selectedEntryKey).toBe(targetKey);
+    expect(controller.runtimeEditorCodexInspectorTab).toBe('relations');
+    expect(panel.querySelector('.runtime-editor-codex__entries-wrap')).toBe(list);
+    expect(list.scrollTop).toBe(31);
+    expect(detail.scrollTop).toBe(93);
+  });
+
+  it('历史最多保留50步并清理失效条目', () => {
+    const view = getRuntimeEditorCodexView(createUIContext(game));
+    const keys = view.entries.slice(0, 2).map(codexEntryKey);
+    let state = createCodexShellState();
+    for (let index = 0; index < 60; index++) state = reduceCodexShellState(view, state, { type: 'open-entry', entryKey: keys[index % 2] });
+    expect(state.backStack).toHaveLength(50);
+    expect(state.backReadings).toHaveLength(50);
+    state = reduceCodexShellState({ ...view, entries: view.entries.filter(entry => codexEntryKey(entry) !== keys[0]) }, state, { type: 'go-back' });
+    expect(state.backStack).not.toContain(keys[0]);
+    expect(state.backReadings?.every(item => item.entryKey !== keys[0])).toBe(true);
   });
 
   it('详情适配器使用只读查询快照并保留完整 ID 与 Inspector 页签', () => {
@@ -267,7 +374,7 @@ describe('RuntimeEditor 超级图鉴集成', () => {
 
   it('当前 Runtime 暴露的全部 Def 类型都能进入三页签渲染路径', () => {
     const runtimeView = game.runtimeContentBrowser.getView();
-    for (const entry of runtimeView.entries) {
+    for (const entry of runtimeView.entries.filter(entry => entry.ref.definitionKind !== 'storyEntries' || !runtimeView.entries.some(other => ['activeStories', 'passiveStories'].includes(other.ref.definitionKind) && other.ref.fullId === entry.ref.fullId))) {
       const state = {
         ...createCodexShellState(),
         selectedEntryKey: codexEntryKey({
@@ -343,8 +450,104 @@ describe('RuntimeEditor 超级图鉴集成', () => {
       ['known:item:owned', 'known'],
       ['unknown:item:effective', '__runtime-effective__'],
     ]);
-    expect(view.loadedMods.map(mod => mod.label)).toEqual(['known', 'Runtime 有效配置']);
+    expect(view.loadedMods.map(mod => mod.label)).toEqual(['known', '来源待确认']);
     expect(view.loadedMods.find(mod => mod.id === 'unknown')).toBeUndefined();
+  });
+
+  it('查看 Area 的入向关系时显示并打开引用它的 Spot', () => {
+    const runtimeView = game.runtimeContentBrowser.getView();
+    const source = runtimeView.entries
+      .map(entry => game.runtimeContentBrowser.getDefinition(entry.ref))
+      .find(detail => detail?.summary.ref.definitionKind === 'spots'
+        && detail.outgoingReferences.some(reference => reference.path.endsWith('.areaId')
+          && reference.status === 'resolved'
+          && reference.target?.definitionKind === 'areas'));
+    expect(source).toBeDefined();
+    const reference = source!.outgoingReferences.find(item => item.path.endsWith('.areaId')
+      && item.status === 'resolved'
+      && item.target?.definitionKind === 'areas')!;
+    const sourceKey = codexEntryKey({
+      definitionKind: source!.summary.ref.definitionKind,
+      fullId: source!.summary.ref.fullId!,
+    });
+    const target = reference.target!;
+    const targetKey = codexEntryKey({
+      definitionKind: target.definitionKind,
+      fullId: target.fullId!,
+    });
+    const incoming = game.runtimeContentBrowser.getEntityRelations(target).incoming.find(item =>
+      item.source.definitionKind === source!.summary.ref.definitionKind
+      && item.source.fullId === source!.summary.ref.fullId
+      && item.path === reference.path);
+    expect(incoming).toBeDefined();
+
+    openRuntimeEditorPanel(controller, 'codex');
+    const panel = document.querySelector('[data-runtime-editor-panel-host]')!;
+    const targetButton = [...panel.querySelectorAll<HTMLElement>('[data-codex-entry]')]
+      .find(button => button.dataset.codexEntry === targetKey);
+    expect(targetButton).toBeDefined();
+    targetButton!.click();
+    panel.querySelector<HTMLElement>('[data-codex-inspector-tab="relations"]')!.click();
+
+    const inboundRows = [...panel.querySelectorAll<HTMLElement>('[data-codex-reference-source]')];
+    const sourceRow = inboundRows.find(row =>
+      [...row.querySelectorAll<HTMLElement>('[data-codex-reference-path]')].some(node => node.dataset.codexReferencePath === incoming!.path)
+      && row.querySelector<HTMLButtonElement>('button[data-codex-reference-target]')?.dataset.codexReferenceTarget === sourceKey);
+    expect(sourceRow).toBeDefined();
+    const sourceButton = sourceRow!.querySelector<HTMLButtonElement>('button[data-codex-reference-target]')!;
+    expect(sourceRow!.querySelector(`[data-codex-reference-path="${reference.path}"]`)).not.toBeNull();
+    expect(sourceButton!.textContent).toContain(source!.summary.ref.fullId!);
+    sourceButton!.click();
+    expect(controller.runtimeEditorCodexState.selectedEntryKey).toBe(sourceKey);
+    expect(panel.querySelector('[data-codex-detail-header]')?.textContent).toContain(source!.summary.ref.fullId!);
+  });
+
+  it('局部入向关系以引用者为跳转端并显示所属位置', () => {
+    const runtimeView = game.runtimeContentBrowser.getView();
+    const source = runtimeView.entries.find(entry => entry.ref.definitionKind === 'spots' && entry.ref.fullId !== null)!;
+    const owner = runtimeView.entries.find(entry => entry.ref.definitionKind === 'areas' && entry.ref.fullId !== null)!;
+    const reference: RuntimeContentReferenceDiagnostic = {
+      source: source.ref,
+      path: '$.operation.actorId',
+      value: 'actor:local',
+      relation: '局部演员',
+      targetKind: 'actors',
+      confidence: 'declared',
+      scope: 'local',
+      sourceCategory: 'definition',
+      targetLocations: [{ ref: owner.ref, path: '$.actors[friend]' }],
+      context: owner.ref,
+      status: 'resolved',
+      target: null,
+      candidates: [],
+    };
+    const mockQuery = Object.create(game.runtimeContentBrowser) as typeof game.runtimeContentBrowser;
+    Object.defineProperty(mockQuery, 'getEntityRelations', {
+      configurable: true,
+      value: () => ({ outgoing: [], incoming: [reference] }),
+    });
+    const mockGame = Object.create(game) as GameInstance;
+    Object.defineProperty(mockGame, 'runtimeContentBrowser', { configurable: true, value: mockQuery });
+    const context = { ...createUIContext(game), game: mockGame } as UIContext;
+    const html = renderRuntimeEditorCodex(context, {
+      ...createCodexShellState(),
+      selectedEntryKey: codexEntryKey({ definitionKind: owner.ref.definitionKind, fullId: owner.ref.fullId! }),
+      mobilePane: 'detail',
+    }, 'relations');
+    const rendered = document.createElement('div');
+    rendered.innerHTML = html;
+
+    const row = rendered.querySelector<HTMLElement>('[data-codex-reference-source]');
+    const sourceButton = row?.querySelector<HTMLButtonElement>('button[data-codex-reference-target]');
+    expect(sourceButton?.dataset.codexReferenceTarget).toBe(codexEntryKey({
+      definitionKind: source.ref.definitionKind,
+      fullId: source.ref.fullId!,
+    }));
+    expect(sourceButton?.textContent).toContain(source.ref.fullId!);
+    expect(row?.textContent).toContain('局部位置');
+    expect(row?.textContent).toContain('$.actors[friend]');
+    expect(row?.querySelector(`[data-codex-reference-path="${reference.path}"]`)).not.toBeNull();
+    expect(sourceButton?.dataset.codexReferenceTarget).not.toContain(reference.value);
   });
 
   it('resolved 关系可跳转，点击只更新 Codex 选择状态和详情栏位', () => {
@@ -371,7 +574,7 @@ describe('RuntimeEditor 超级图鉴集成', () => {
     expect(sourceButton).toBeDefined();
     sourceButton!.click();
 
-    panel.querySelector<HTMLElement>('[data-codex-inspector-tab="relations"]')!.click();
+    panel.querySelector<HTMLElement>('[data-codex-inspector-tab="raw"]')!.click();
     const targetButton = panel.querySelector<HTMLButtonElement>('button[data-codex-reference-target]');
     expect(targetButton).not.toBeNull();
     const targetKey = targetButton!.dataset.codexReferenceTarget;
@@ -420,6 +623,8 @@ describe('RuntimeEditor 超级图鉴集成', () => {
         .find(button => button.dataset.codexEntry === entryKey);
       expect(entryButton).toBeDefined();
       entryButton!.click();
+      panel.querySelector<HTMLElement>('[data-codex-copy-id]')!.click();
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(entry!.ref.fullId));
       panel.querySelector<HTMLElement>('[data-codex-inspector-tab="raw"]')!.click();
 
       const copyButton = panel.querySelector<HTMLButtonElement>('[data-codex-copy-raw]');

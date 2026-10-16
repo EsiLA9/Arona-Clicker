@@ -1,3 +1,4 @@
+import { patchCodexPane } from './codex/dom-updates';
 // ============================================================
 // ui/runtime-editor/actions.ts — 运行时编辑器交互接线
 // 自 controller-actions-topbar.ts 拆出：编辑器开关、Spot 表单、
@@ -368,6 +369,9 @@ export function syncRuntimeEditorPanel(ctrl: UIController): void {
     ctrl.runtimeEditorCodexState,
     ctrl.runtimeEditorCodexInspectorTab,
   );
+  // The active tab belongs on its button; duplicating that key on the inspector wrapper makes DOM queries ambiguous.
+  nextHost.querySelectorAll<HTMLElement>('.codex-inspector[data-codex-inspector-tab]')
+    .forEach(inspector => inspector.removeAttribute('data-codex-inspector-tab'));
   const nextPanel = nextHost.querySelector<HTMLElement>('.runtime-editor-panel');
   const panel = host.querySelector<HTMLElement>('.runtime-editor-panel');
   const currentHeader = panel?.querySelector<HTMLElement>('[data-runtime-editor-panel-head]');
@@ -520,24 +524,71 @@ function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): 
   if (scope.dataset.runtimeEditorCodexActionsBound === '1') return;
   scope.dataset.runtimeEditorCodexActionsBound = '1';
   const view = (): ReturnType<typeof getRuntimeEditorCodexView> => getRuntimeEditorCodexView(createUIContext(ctrl.game));
-  const reduce = (action: CodexShellAction, patch: { readonly entries?: boolean; readonly detail?: boolean } = {}): void => {
-    ctrl.runtimeEditorCodexState = reduceCodexShellState(view(), ctrl.runtimeEditorCodexState, action);
-    refreshRuntimeEditorCodexPanel(ctrl, scope, patch);
+  const reduce = (action: CodexShellAction, patch: { readonly navigation?: boolean; readonly entries?: boolean; readonly detail?: boolean } = {}): void => {
+    const previous = ctrl.runtimeEditorCodexState;
+    const reading = {
+      inspectorTab: ctrl.runtimeEditorCodexInspectorTab,
+      listScrollTop: scope.querySelector<HTMLElement>('.runtime-editor-codex__entries-wrap')?.scrollTop ?? 0,
+      detailScrollTop: scope.querySelector<HTMLElement>('.runtime-editor-codex__detail-body')?.scrollTop ?? 0,
+    };
+    const next = reduceCodexShellState(view(), { ...previous, reading }, action);
+    const restoring = action.type === 'go-back' || action.type === 'go-forward';
+    ctrl.runtimeEditorCodexState = next;
+    if (restoring) ctrl.runtimeEditorCodexInspectorTab = next.reading?.inspectorTab ?? 'overview';
+    const entryChanged = previous.selectedEntryKey !== next.selectedEntryKey;
+    refreshRuntimeEditorCodexPanel(ctrl, scope, { ...patch, ...(restoring ? { entries: true } : {}), resetDetail: entryChanged });
+    if (entryChanged || restoring) {
+      const detail = scope.querySelector<HTMLElement>('.runtime-editor-codex__detail-body');
+      const list = scope.querySelector<HTMLElement>('.runtime-editor-codex__entries-wrap');
+      if (detail) detail.scrollTop = restoring ? next.reading?.detailScrollTop ?? 0 : 0;
+      if (restoring && list) list.scrollTop = next.reading?.listScrollTop ?? 0;
+    }
   };
   scope.addEventListener('input', event => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement) || !target.matches('[data-codex-query]')) return;
-    const selectionStart = target.selectionStart;
-    reduce({ type: 'set-query', query: target.value });
-    const nextInput = scope.querySelector<HTMLInputElement>('[data-codex-query]');
-    if (!nextInput) return;
-    nextInput.focus();
-    if (selectionStart !== null) nextInput.setSelectionRange(selectionStart, selectionStart);
+    if (!(event instanceof InputEvent) || !event.isComposing) reduce({ type: 'set-query', query: target.value });
+  });
+  scope.addEventListener('compositionend', event => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.matches('[data-codex-query]')) reduce({ type: 'set-query', query: target.value });
+  });
+  scope.addEventListener('keydown', event => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const inspector = target.closest<HTMLElement>('[data-codex-inspector]');
+    const inspectorTab = target.closest<HTMLButtonElement>('button[data-codex-inspector-tab]')
+      ?? (target === inspector
+        ? inspector?.querySelector<HTMLButtonElement>('button[data-codex-inspector-tab][aria-selected="true"]') ?? null
+        : null);
+    if (inspector && inspectorTab) {
+      const tabs = [...inspector.querySelectorAll<HTMLButtonElement>('button[data-codex-inspector-tab]')];
+      const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+      const tabIndex = tabs.indexOf(inspectorTab);
+      const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : offset ? (tabIndex + offset + tabs.length) % tabs.length : -1;
+      if (index < 0 || !tabs[index]) return;
+      event.preventDefault();
+      const nextTab = tabs[index];
+      const nextTabId = nextTab.dataset.codexInspectorTab;
+      nextTab.click();
+      if (nextTabId) scope.querySelector<HTMLButtonElement>(`button[data-codex-inspector-tab="${nextTabId}"]`)?.focus();
+      return;
+    }
+    if (!target.matches('[role="tab"]')) return;
+    const tabs = [...(target.closest('[role="tablist"]')?.querySelectorAll<HTMLElement>('[role="tab"]') ?? [])];
+    const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : offset ? (tabs.indexOf(target) + offset + tabs.length) % tabs.length : -1;
+    if (index < 0 || !tabs[index]) return;
+    event.preventDefault();
+    tabs[index].click();
+    tabs[index].focus();
   });
   scope.addEventListener('toggle', event => {
     const target = event.target;
     if (!(target instanceof HTMLDetailsElement) || !target.matches('[data-codex-kind-filter]')) return;
     ctrl.runtimeEditorCodexState = { ...ctrl.runtimeEditorCodexState, kindFilterOpen: target.open };
+    target.querySelector<HTMLElement>('.runtime-editor-codex__kind-filter-summary')
+      ?.setAttribute('aria-expanded', String(target.open));
   }, true);
   scope.addEventListener('click', event => {
     const target = event.target;
@@ -559,9 +610,27 @@ function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): 
       if (surface !== 'codex') openRuntimeEditorPanel(ctrl, surface);
       return;
     }
+    const categoryButton = target.closest<HTMLElement>('[data-codex-category]');
+    if (categoryButton) {
+      reduce({ type: 'select-category', category: categoryButton.dataset.codexCategory || null });
+      return;
+    }
+    const navigationModeButton = target.closest<HTMLElement>('[data-codex-navigation-mode]');
+    if (navigationModeButton) {
+      const mode = navigationModeButton.dataset.codexNavigationMode;
+      if (mode === 'categories' || mode === 'scopes') {
+        reduce({ type: 'select-navigation-mode', mode }, { navigation: true, entries: false, detail: false });
+      }
+      return;
+    }
+    if (target.closest('[data-codex-locate]')) {
+      reduce({ type: 'locate-entry' });
+      scope.querySelector<HTMLElement>('[data-codex-entry].is-selected')?.scrollIntoView?.({ block: 'nearest' });
+      return;
+    }
     const modButton = target.closest<HTMLElement>('[data-codex-mod]');
     if (modButton) {
-      reduce({ type: 'select-mod', modId: modButton.dataset.codexMod ?? null });
+      reduce({ type: 'select-mod', modId: modButton.dataset.codexMod || null });
       return;
     }
     const kindButton = target.closest<HTMLElement>('[data-codex-kind]');
@@ -580,7 +649,12 @@ function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): 
     const referenceButton = target.closest<HTMLButtonElement>('button[data-codex-reference-target]');
     if (referenceButton) {
       const entryKey = referenceButton.dataset.codexReferenceTarget;
-      if (entryKey) reduce({ type: 'open-entry', entryKey }, { entries: false });
+      if (entryKey) {
+        reduce({ type: 'open-entry', entryKey, locationHint: referenceButton.dataset.codexReferenceLocation }, { entries: false });
+        const hint = referenceButton.dataset.codexReferenceLocation;
+        if (hint) [...scope.querySelectorAll<HTMLElement>('[data-codex-reference-path], [data-codex-field-path]')]
+          .find(node => node.dataset.codexReferencePath === hint || node.dataset.codexFieldPath === hint)?.scrollIntoView?.({ block: 'nearest' });
+      }
       return;
     }
     const navigationButton = target.closest<HTMLButtonElement>('[data-codex-navigation]');
@@ -588,6 +662,10 @@ function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): 
       const direction = navigationButton.dataset.codexNavigation;
       if (direction === 'back') reduce({ type: 'go-back' }, { entries: false });
       if (direction === 'forward') reduce({ type: 'go-forward' }, { entries: false });
+      return;
+    }
+    if (target.closest('[data-codex-copy-id]')) {
+      void copyRuntimeCodexId(ctrl);
       return;
     }
     if (target.closest('[data-codex-copy-raw]')) {
@@ -615,7 +693,7 @@ function bindRuntimeEditorCodexActions(ctrl: UIController, scope: HTMLElement): 
 function refreshRuntimeEditorCodexPanel(
   ctrl: UIController,
   scope: HTMLElement,
-  patch: { readonly entries?: boolean; readonly detail?: boolean; readonly detailContentOnly?: boolean } = {},
+  patch: { readonly navigation?: boolean; readonly entries?: boolean; readonly detail?: boolean; readonly detailContentOnly?: boolean; readonly resetDetail?: boolean } = {},
 ): void {
   const codex = scope.querySelector<HTMLElement>('[data-runtime-editor-codex]');
   if (!codex) return;
@@ -625,37 +703,24 @@ function refreshRuntimeEditorCodexPanel(
     ctrl.runtimeEditorCodexInspectorTab,
   );
   ctrl.runtimeEditorCodexState = parts.state;
+  if (patch.navigation !== false && (patch.entries !== false || patch.navigation === true)) {
+    patchCodexPane(codex, 'mods', parts.navigationPane, ctrl.popovers);
+  }
   if (patch.entries !== false) {
-    replaceRuntimeCodexPane(codex, 'entries', parts.entriesPane);
+    patchCodexPane(codex, 'entries', parts.entriesPane, ctrl.popovers);
   } else {
     syncRuntimeCodexEntrySelection(codex, parts.state.selectedEntryKey);
   }
   if (patch.detail !== false) {
-    if (patch.detailContentOnly) replaceRuntimeCodexDetailContent(codex, parts.detailPane);
-    else replaceRuntimeCodexPane(codex, 'detail', parts.detailPane);
+    patchCodexPane(codex, 'detail', parts.detailPane, ctrl.popovers, patch.resetDetail);
   }
   codex.dataset.codexMobilePane = parts.state.mobilePane;
   codex.querySelectorAll<HTMLButtonElement>('button[data-codex-mobile-pane]').forEach(button => {
     const active = button.dataset.codexMobilePane === parts.state.mobilePane;
     button.classList.toggle('is-active', active);
+    if (!button.className) button.removeAttribute('class');
     button.setAttribute('aria-selected', String(active));
   });
-}
-
-function replaceRuntimeCodexDetailContent(scope: HTMLElement, html: string): void {
-  const current = scope.querySelector<HTMLElement>('[data-codex-detail-slot]');
-  if (!current) {
-    replaceRuntimeCodexPane(scope, 'detail', html);
-    return;
-  }
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  const next = template.content.querySelector<HTMLElement>('[data-codex-detail-slot]');
-  if (!next) return;
-  const body = current.closest<HTMLElement>('.runtime-editor-codex__detail-body');
-  const scrollTop = body?.scrollTop ?? 0;
-  current.innerHTML = next.innerHTML;
-  if (body) body.scrollTop = scrollTop;
 }
 
 function syncRuntimeCodexEntrySelection(scope: HTMLElement, selectedEntryKey: string | null): void {
@@ -673,13 +738,19 @@ function syncRuntimeCodexEntrySelection(scope: HTMLElement, selectedEntryKey: st
   nextButton.setAttribute('aria-selected', 'true');
 }
 
-function replaceRuntimeCodexPane(scope: HTMLElement, pane: CodexPane, html: string): void {
-  const current = scope.querySelector<HTMLElement>(`[data-codex-pane="${pane}"]`);
-  if (!current) return;
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  const next = template.content.firstElementChild;
-  if (next instanceof HTMLElement) current.replaceWith(next);
+async function copyRuntimeCodexId(ctrl: UIController): Promise<void> {
+  const selected = getSelectedCodexEntry(getRuntimeEditorCodexView(createUIContext(ctrl.game)), ctrl.runtimeEditorCodexState);
+  if (!selected) return;
+  if (!navigator.clipboard?.writeText) {
+    ctrl.toast.show('当前环境不支持复制，请选中 ID 文本复制', 'info');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(selected.fullId);
+    ctrl.toast.show('ID 已复制', 'success');
+  } catch {
+    ctrl.toast.show('复制失败，请选中 ID 文本复制', 'info');
+  }
 }
 
 async function copyRuntimeCodexRaw(ctrl: UIController): Promise<void> {

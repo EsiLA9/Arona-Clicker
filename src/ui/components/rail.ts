@@ -15,7 +15,7 @@ import {
 } from '../../arona-clicker/content/story-hierarchy';
 import { resolveEntityPresentation, renderEntityPresentationOptions } from './entity-presentation';
 
-const LEFT_TABS: TabDef[] = [
+export const LEFT_TABS: TabDef[] = [
   { id: 'area', label: '区域' },
   { id: 'contacts', label: '通讯录' },
   { id: 'story', label: '故事' },

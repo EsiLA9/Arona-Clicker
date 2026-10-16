@@ -151,10 +151,12 @@ describe('Runtime content browser', () => {
 
     const matches = filterRuntimeContentDefinitions(browser.getView().entries, {
       text: 'unloaded:item:ghost',
-      hasDiagnostics: true,
+      hasDiagnostics: false,
     });
     expect(matches).toHaveLength(1);
     expect(matches[0]!.ref.fullId).toBe('extension:item:loaded');
+    expect(loadedItem?.summary.diagnosticCount).toBe(0);
+    expect(loadedItem?.summary.referenceCoverage?.candidateCount).toBeGreaterThan(0);
   });
 
   test('已知字段的缺失引用仍保留目标类型和关系语义', () => {
@@ -201,4 +203,56 @@ describe('Runtime content browser', () => {
     }).toThrow();
     expect(registry.items.get(itemId)?.name).toBe('已加载扩展物品');
   });
+
+  test('目标类型过滤、普通说明与状态键保持独立语义', () => {
+    const browser = createRuntimeContentBrowser({
+      spots: new Map([['demo:spot:a', { areaId: 'demo:area:b', description: 'text:looks:qualified',
+        effects: [{ op: 'setFlag', target: 'demo:flag:key', value: 1 }] }]]),
+      areas: new Map([['demo:area:b', { name: '区域 B' }]]),
+      items: new Map([['demo:area:b', { name: '同 ID 物品' }]]),
+    });
+    const detail = browser.getDefinition({ definitionKind: 'spots', fullId: 'demo:spot:a' })!;
+    const area = detail.outgoingReferences.find(edge => edge.path === '$.areaId');
+    expect(area).toMatchObject({ status: 'resolved', confidence: 'declared', scope: 'global',
+      target: { definitionKind: 'areas', fullId: 'demo:area:b' } });
+    expect(detail.outgoingReferences.filter(edge => edge.confidence === 'declared')).toHaveLength(1);
+    expect(detail.summary.diagnosticCount).toBe(0);
+  });
+
+  test('可靠来源变更使缓存失效，不按命名空间筛选或计数', () => {
+    let owner = 'addon';
+    const shared = { name: '同对象定义' };
+    const registry = { loadedModNames: new Set(['base', 'addon']),
+      characterVariants: new Map([['base:variant:v', shared]]),
+      resourceDisplays: new Map([['base:resource:credit', { label: '信用点' }]]),
+      characterVariantOwnerOf: () => owner,
+      resourceDisplayOwnerOf: () => 'addon',
+    };
+    const browser = createRuntimeContentBrowser(registry);
+    const first = browser.getView();
+    expect(browser.listDefinitions({ modName: 'base' })).toHaveLength(0);
+    expect(first.loadedMods.find(mod => mod.modName === 'addon')?.definitionCount).toBe(2);
+    expect(first.entries.every(entry => entry.sourceMod === 'addon')).toBe(true);
+    owner = 'base';
+    const second = browser.getView();
+    expect(second).not.toBe(first);
+    expect(browser.listDefinitions({ modName: 'base' })).toHaveLength(1);
+    expect(second.loadedMods.find(mod => mod.modName === 'addon')?.definitionCount).toBe(1);
+    registry.characterVariants.clear();
+    expect(browser.getDefinition({ definitionKind: 'characterVariants', fullId: 'base:variant:v' })).toBeNull();
+  });
+});
+
+
+test('查询和字段树不会执行定义getter，且循环字段可安全阅读', () => {
+  let reads = 0;
+  const item: Record<string, unknown> = { id: 'test:item:safe' };
+  Object.defineProperty(item, 'name', { enumerable: true, get: () => { reads++; throw new Error('accessor'); } });
+  item.extra = { parent: item };
+  const browser = createRuntimeContentBrowser({ items: new Map([[item.id, item]]) });
+  expect(browser.getView().entries).toHaveLength(1);
+  const detail = browser.getDefinition({ definitionKind: 'items', fullId: 'test:item:safe' });
+  expect(detail?.raw).toMatchObject({ extra: { parent: { $type: 'unknown', value: '<cycle>' } } });
+  expect(detail?.fields.length).toBeGreaterThan(0);
+  expect(reads).toBe(0);
 });

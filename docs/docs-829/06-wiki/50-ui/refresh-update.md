@@ -25,6 +25,18 @@ Surface key / generation 令旧 Workspace 发出的请求不会落入新页面�
 
 项目交互边界还规定，scroll、hover、focus、普通 click 和单项选择默认不得调用全量 render；优先复用 behavior / region 更新并保留无关节点。规范来源：[[docs/ai/frontend-design-project-overlay]]。
 
+## 超级图鉴的局部更新
+
+图鉴是 body 级工具，浏览状态由 `CodexShellState` 持有。`src/ui/runtime-editor/actions.ts` 的 `bindRuntimeEditorCodexActions()` 委托交互并调用 `refreshRuntimeEditorCodexPanel()`；`src/ui/runtime-editor/view.ts` 汇总视图与状态，`src/ui/runtime-editor/codex/view.ts` 输出三个 Pane，`src/ui/runtime-editor/codex/dom-updates.ts` 的 `patchCodexPane()` 只协调所属 Pane，并按稳定键重排或更新条目。框架由 `src/ui/runtime-editor/codex/workspace.ts` 组合已渲染的导航、列表和详情；局部动作不会重建共享图鉴根。
+
+搜索 input、条目列表及其滚动宿主、详情 Pane、身份标题和详情 slot 在相邻更新中保留身份。页签切换保留按钮与标题，只更新被协调的详情内容和页签属性；普通搜索原位更新输入，不靠替换后恢复光标。输入法组合期间不提交查询，`compositionend` 后再提交。窄屏选栏只改变选中状态和可见性，不重挂三栏内容。
+
+引用跳转保留分类／包／搜索范围；筛选外条目显示定位动作，主动定位才清筛选。引用历史（上限 50 条）保存条目、范围、页签、列表与详情 `scrollTop`，返回／前进恢复阅读位置并清理失效键；列表直接选择不压关系栈。局部 owner 跳转保留位置提示，只有找到匹配的已渲染语义节点才滚动定位。
+
+替换内容或移除节点前关闭该范围内浮层；保留且目标未变的锚点继续存在，更新后调用 `retainIfAnchored()` 复核。缺失 Pane 时只补入对应 Pane，并按导航、列表、详情顺序放回网格；未受影响 Pane 和滚动宿主继续复用。普通图鉴操作不调用游戏全量 `render()`；工具首次挂载和工作视图切换沿用 Runtime Editor 外壳生命周期，Editor 草稿与应用流程仍由原状态对象持有。
+
+证明入口：`tests/ui/runtime-editor-codex-integration.test.ts`、`tests/ui/runtime-editor-codex-dom-updates.test.ts` 验证节点身份、输入法、键盘页签、跨范围历史／阅读位置、缺失 Pane 顺序与浮层边界；`tests/ui/runtime-editor-codex-shell.test.ts` 验证三栏语义与响应式样式合同；共享工具 Frame 结构由 `tests/ui/workspace-frame.test.ts` 验证。测试不代替浏览器视觉与交互验收。
+
 ## 测试与验证边界
 
 `tests/ui/ui-update-dispatcher.test.ts` 验证重复合并、区域 / 结构优先级及过期 Surface 丢弃；`tests/ui/controller-events.test.ts` 验证事件映射到当前导航、局部区域和主题响应；`tests/ui/workspace-frame.test.ts`、`workspace-lifecycle.test.ts` 覆盖工作区结构 / 生命周期。它们不替代真实浏览器中的视觉或交互验收。

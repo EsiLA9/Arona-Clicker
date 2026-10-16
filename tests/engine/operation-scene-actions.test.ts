@@ -223,6 +223,9 @@ describe('Operation SceneAction batches and shared route Cost', () => {
     expect(resolution.membershipChanges).toContainEqual(expect.objectContaining({ target: { kind: 'heldItem', id: 'demo:item:staff-pass' }, after: true }));
     expect(run.random.tacticalCursor).toBe(initialCursor);
     expect(run.locationProgress['demo:location:platform']).toMatchObject({ completed: true, result: 'success', sceneActionBatchesUsed: 1 });
+    expect(run.currentLocationId).toBe('demo:location:platform');
+    expect(service.getView()?.currentRoutes.map(route => route.routeId)).toEqual(['demo:route:staff-gate']);
+    run = service.transitionRoute({ runId: run.runId, planVersion: run.planVersion, routeId: 'demo:route:staff-gate' });
     expect(run.currentLocationId).toBe('demo:location:concourse');
     expect(run.eventState.heldItemIds).toEqual([]);
     expect(run.playerRouteState.playerCost).toBe(7);
@@ -653,9 +656,19 @@ describe('Operation SceneAction batches and shared route Cost', () => {
       planVersion: beforeCommit.planVersion,
       selections: [{ sceneActionId: 'collect-pass', actorId: A, targetActorIds: [] }],
     });
-    const atConcourse = service.getSnapshot()!;
+    const completedPlatform = service.getSnapshot()!;
+    const atConcourse = service.transitionRoute({
+      runId,
+      planVersion: completedPlatform.planVersion,
+      routeId: 'demo:route:staff-gate',
+    });
     expect(atConcourse.currentLocationId).toBe('demo:location:concourse');
-    const returned = service.completeCurrentLocation();
+    const completedConcourse = service.completeCurrentLocation();
+    const returned = service.transitionRoute({
+      runId,
+      planVersion: completedConcourse.planVersion,
+      routeId: 'demo:route:concourse-platform',
+    });
 
     expect(returned.locationProgress['demo:location:platform']).toMatchObject({
       visitCount: 2,

@@ -25,7 +25,12 @@ function enterConcourse(game: GameInstance, runId: string) {
   });
   run = game.operationEntry.getSnapshot()!;
   game.operationEntry.commitBeat({ runId, planVersion: run.planVersion });
-  const atConcourse = game.operationEntry.getSnapshot()!;
+  const completedPlatform = game.operationEntry.getSnapshot()!;
+  const atConcourse = game.operationEntry.transitionRoute({
+    runId,
+    planVersion: completedPlatform.planVersion,
+    routeId: IDS.routes.platformToConcourse,
+  });
   expect(atConcourse.currentLocationId).toBe(IDS.locations.concourse);
   return atConcourse;
 }
