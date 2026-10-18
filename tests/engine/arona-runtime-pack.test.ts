@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
-import { CAROUSEL_SCENE_ACTION_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import type { PackManagerSnapshot, StoredPack } from '../../src/data-services/datapack/pack-manager';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 
@@ -115,16 +114,17 @@ describe('AronaClickerRuntime PackManager 接线', () => {
     expect(() => game.removePack('missing@1.0.0')).toThrow('不存在的数据包');
   });
 
-  test('默认启用集装载 base 与独立 Gameplay B 示例包', () => {
+  test('默认启用集只装载 base 与 Map 版 Gameplay B 包', () => {
     const game = new AronaClickerRuntime();
     game.applyEnabledPacks();
 
     expect(game.registry.inits.has('base:init:schale_office')).toBe(true);
-    expect(game.registry.operationEvents.has(CAROUSEL_SCENE_ACTION_IDS.event)).toBe(true);
-    expect(game.registry.operationEvents.has('gameplay-b-strategy-park:operation-event:park-inspection')).toBe(true);
-    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0']);
+    expect(game.registry.operationEvents.has('gameplay-b:operation-event:carousel-scene-action-slice')).toBe(false);
+    expect(game.registry.operationEvents.has('gameplay-b-strategy-park:operation-event:park-inspection')).toBe(false);
+    expect(game.registry.maps.has('gameplay-b:map:field-investigation')).toBe(true);
+    expect(game.packManager.snapshot().enabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0']);
     expect(game.getPackCatalog().entries.find(entry => entry.id === 'gameplay-b@1.0.0')).toMatchObject({ sourceKind: 'bundle', enabled: true });
-    expect(game.getPackCatalog().entries.find(entry => entry.id === 'gameplay-b-strategy-park@1.0.0')).toMatchObject({ sourceKind: 'bundle', enabled: true });
+    expect(game.getPackCatalog().entries.find(entry => entry.id === 'gameplay-b-strategy-park@1.0.0')).toBeUndefined();
     expect(game.state.activeInit).toBe('');
     expect(game.running).toBe(false);
   });

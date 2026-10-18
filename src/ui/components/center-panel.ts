@@ -1,6 +1,7 @@
 import { UIContext } from '../context';
 import { renderPanelTabsRegion, TabDef } from './tabs';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
+import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE } from '../flow/flow-entry';
 import { renderConversationView } from './contacts';
 import { renderOpeningBanner, renderStoryGate } from './story-gate';
 import type { SendState } from '../../arona-clicker/contracts/results';
@@ -79,7 +80,7 @@ export function renderChatTab(
   // 开幕横幅 / 入口确认浮层同层叠加（横幅在下、浮层在上）。
   return `
     <div class="chat-pane">
-      <div class="chat-stream">
+      <div class="chat-stream" ${FLOW_HOST_KEY_ATTRIBUTE}="chat:global" ${FLOW_STREAM_KEY_ATTRIBUTE}="chat:global" role="log" aria-label="聊天信息">
         ${history}
         ${current}
         ${launcher}

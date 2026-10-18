@@ -225,6 +225,7 @@ export class PackManager {
     private readonly store?: PackSnapshotStore,
     bundledPacks: readonly StoredPack[] = [],
     defaultEnabledBundleIds: readonly string[] = [],
+    retiredBundleIds: readonly string[] = [],
   ) {
     initial ??= store?.load() ?? { packs: [], enabledIds: [], order: [] };
     for (const pack of initial.packs) this.packs.set(pack.id, normalizeStoredPack(pack));
@@ -235,6 +236,10 @@ export class PackManager {
         && !currentBundleIds.has(id)) {
         this.packs.delete(id);
       }
+    }
+    for (const id of retiredBundleIds) {
+      const pack = this.packs.get(id);
+      if (pack?.sourceKind === 'bundle') this.packs.delete(id);
     }
     for (const pack of bundledPacks) {
       const bundled = normalizeStoredPack(pack);
@@ -263,8 +268,9 @@ export class PackManager {
       const firstBase = this.order.find(id => this.packs.get(id)?.manifest.modName === 'base');
       if (firstBase) this.enabledIds.add(firstBase);
     }
+    const currentPaneKeys = new Set([...this.packs.values()].map(pack => datapackPaneKey(storedPackIdentity(pack))));
     for (const [paneKey, selectedSlot] of Object.entries(initial.selectedSlots ?? {})) {
-      this.selectedSlots.set(paneKey, selectedSlot);
+      if (currentPaneKeys.has(paneKey)) this.selectedSlots.set(paneKey, selectedSlot);
     }
     for (const id of defaultEnabledBundleIds) {
       const pack = this.packs.get(id);
@@ -277,6 +283,7 @@ export class PackManager {
       if (!wasInstalled && !hasExplicitSelection && !modNameAlreadyEnabled) this.enabledIds.add(id);
     }
     this.validateEnabledSet();
+    if (retiredBundleIds.length > 0) this.persist();
   }
 
   snapshot(): PackManagerSnapshot {

@@ -35,6 +35,19 @@ import type { Datapack } from '../../data-services/contracts/datapack';
 import type { AchievementViewItem } from '../read-model/achievement-view';
 import type { OperationObservation } from './operation-observation';
 import type { OperationViewQuery } from './operation-view';
+import type {
+  MapRun,
+  MapRunActionOverride,
+  MapRunEncounterCommitCommand,
+  MapRunEncounterDraftToken,
+  MapRunFailureResult,
+  MapRunEncounterSourcePreview,
+  MapRunEncounterSourceTarget,
+  MapRunEncounterHpChange,
+  MapRunEncounterSettlementResourceChange,
+  MapRunShopDraftToken,
+  MapRunSuccessResult,
+} from './map-run';
 import type { PackManifestColor } from '../../data-services/datapack/manifest';
 import type { ThemeContentEditorService } from '../services/theme-content-editor-service';
 
@@ -265,6 +278,8 @@ export interface GameReadModel {
   readonly spot: SpotQueryPort;
   /** Read-only Gameplay B projection; excludes EventRun and all mutation commands. */
   readonly operationEntry: OperationViewQuery;
+  /** Detached read-only MapRun and current Encounter projection. */
+  readonly mapRun: MapRunQuery;
   getView(): GameView;
   getAchievementView(): readonly AchievementViewItem[];
   availableAreaIds(areaId: string): string[];
@@ -272,6 +287,227 @@ export interface GameReadModel {
   getDevLogs(): readonly DevLogEntry[];
   getOperationObservations(options?: { readonly limit?: number }): readonly OperationObservation[];
   getOperationObservation(captureId: string): OperationObservation | null;
+}
+
+/** Detached presentation facts for the Encounter currently blocking Map movement. */
+export interface MapEncounterQueryView {
+  readonly mapId: string;
+  readonly nodeId: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly completion?: { readonly kind: 'manual'; readonly label: string };
+  /** Current Encounter round; present only for an active Encounter. */
+  readonly round?: number;
+  /** Declared finite round count for a Rest Encounter. */
+  readonly rounds?: number;
+  readonly partyHp: readonly { readonly characterId: string; readonly currentHp: number; readonly maxHp: number }[];
+  readonly enemies: readonly { readonly enemyId: string; readonly currentHp: number; readonly maxHp: number; readonly damage: number }[];
+}
+
+/** Display-only Node facts projected for a MapRun Workspace. */
+export interface MapWorkspaceNodeView {
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly hasEncounter: boolean;
+  /** Ordered activity labels for a multi-activity Node; omitted for legacy content. */
+  readonly activityTitles?: readonly string[];
+}
+
+/** Runtime-evaluated, read-only Edge gate shown to the player. */
+export interface MapWorkspaceEdgeConditionView {
+  readonly resourceId: string;
+  readonly amount: number;
+  readonly satisfied: boolean;
+}
+
+/** Display-only directed Edge projected for a MapRun Workspace. */
+export interface MapWorkspaceEdgeView {
+  readonly fromNodeId: string;
+  readonly toNodeId: string;
+  /** Present only for a condition-gated Edge. */
+  readonly condition?: MapWorkspaceEdgeConditionView;
+}
+
+/** Detached subset of the resolved Map definition needed by the UI. */
+export interface MapWorkspaceMapView {
+  readonly id: string;
+  readonly name: string;
+  readonly startNodeId: string;
+  readonly exitNodeIds: readonly string[];
+  readonly nodes: readonly MapWorkspaceNodeView[];
+  readonly edges: readonly MapWorkspaceEdgeView[];
+}
+
+/** One fixed-order activity of the current Node as seen by the player. */
+export interface MapWorkspaceActivityView {
+  readonly activityId: string;
+  readonly title: string;
+  readonly kind: 'battle' | 'rest' | 'encounter' | 'shop';
+  readonly index: number;
+  readonly total: number;
+  readonly completed: boolean;
+  readonly active: boolean;
+}
+
+/** One shop offer with Runtime-computed affordability. */
+export interface MapWorkspaceShopOfferView {
+  readonly offerId: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly costs: readonly { readonly resourceId: string; readonly amount: number }[];
+  readonly effects: readonly { readonly resourceId: string; readonly amount: number }[];
+  readonly heal: { readonly characterId: string; readonly amount: number } | null;
+  readonly canPurchase: boolean;
+}
+
+/** Detached Shop activity projection for the active MapRun. */
+export interface MapWorkspaceShopView {
+  readonly nodeId: string;
+  readonly activityId: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly draftVersion: number;
+  readonly offers: readonly MapWorkspaceShopOfferView[];
+  readonly lastPurchase: { readonly offerId: string; readonly requestId: string } | null;
+}
+
+/** Detached display facts for one Map-local reusable Action. */
+export interface MapWorkspaceActionView {
+  readonly actionId: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy';
+  readonly costs: readonly {
+    readonly scope: 'actor' | 'team';
+    readonly resourceId: string;
+    readonly amount: number;
+  }[];
+  readonly hpEffects: readonly { readonly amount: number }[];
+}
+
+/** One fixed-party member's full Hand and effective Prepared Action / Target. */
+export interface MapWorkspacePreparedActionView {
+  readonly characterId: string;
+  readonly hand: readonly MapWorkspaceActionView[];
+  readonly naturalAction: MapWorkspaceActionView | null;
+  readonly preparedAction: MapWorkspaceActionView | null;
+  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy' | null;
+  readonly legalTargetCharacterIds: readonly string[];
+  readonly legalTargetEnemyIds: readonly string[];
+  readonly targetCharacterId: string | null;
+  readonly targetEnemyId: string | null;
+  readonly targetSelectionRequired: boolean;
+  readonly overrideKind: MapRunActionOverride['kind'] | null;
+  readonly playerCost: 0 | 1;
+}
+
+/** A legal Hand-out candidate with Runtime-computed affordability. */
+export interface MapWorkspacePlayerCommandOptionView {
+  readonly characterId: string;
+  readonly action: MapWorkspaceActionView;
+  readonly playerCost: 1;
+  readonly canPayPlayerCost: boolean;
+  readonly canPayActionCosts: boolean;
+}
+
+/** Read-only full-round Commit readiness produced by the MapRun Owner's shared preflight. */
+export interface MapWorkspaceCommitPreviewView {
+  readonly canCommit: boolean;
+  readonly playerCostRequired: number | null;
+  readonly diagnostics: readonly string[];
+}
+
+/** Readable prior-round result projected from the Encounter's persisted Commit receipt. */
+export interface MapWorkspaceRecentCommitView {
+  readonly requestId: string;
+  readonly commandVersion: number;
+  readonly resultingCommitVersion: number;
+  readonly nodeId: string;
+  readonly round: number;
+  readonly draftVersion: number;
+  readonly settlements: readonly {
+    readonly characterId: string;
+    readonly action: MapWorkspaceActionView | null;
+    readonly targetCharacterId: string | null;
+    readonly targetEnemyId: string | null;
+    readonly overrideKind: MapRunActionOverride['kind'] | null;
+    readonly playerCostSpent: 0 | 1;
+    readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
+    readonly hpChanges: readonly MapRunEncounterHpChange[];
+  }[];
+  readonly ability: {
+    readonly action: MapWorkspaceActionView | null;
+    readonly target: MapRunEncounterSourceTarget;
+    readonly playerCostSpent: 1;
+    readonly hpChanges: readonly MapRunEncounterHpChange[];
+  } | null;
+  readonly item: {
+    readonly itemName: string;
+    readonly action: MapWorkspaceActionView | null;
+    readonly target: MapRunEncounterSourceTarget;
+    readonly consumedCount: 1;
+    readonly hpChanges: readonly MapRunEncounterHpChange[];
+  } | null;
+  readonly enemyAttacks: readonly {
+    readonly enemyId: string;
+    readonly targetCharacterId: string;
+    readonly damage: number;
+    readonly actualDelta: number;
+  }[];
+}
+
+/** Complete detached action / target / Commit projection for one active Encounter. */
+export interface MapRunEncounterWorkspaceView {
+  readonly nodeId: string;
+  readonly round: number;
+  readonly draft: MapRunEncounterDraftToken;
+  readonly overrides: readonly MapRunActionOverride[];
+  readonly preparedActions: readonly MapWorkspacePreparedActionView[];
+  readonly playerCommandOptions: readonly MapWorkspacePlayerCommandOptionView[];
+  readonly commitPreview: MapWorkspaceCommitPreviewView;
+  readonly recentCommit: MapWorkspaceRecentCommitView | null;
+}
+
+/** One detached ReadModel snapshot for rendering the current Map / Encounter. */
+export interface MapRunActiveWorkspaceView {
+  readonly kind: 'active';
+  readonly run: MapRun;
+  readonly map: MapWorkspaceMapView;
+  readonly currentEncounter: MapEncounterQueryView | null;
+  /** Fixed-order activity progress of the current Node; empty for legacy Nodes. */
+  readonly activities: readonly MapWorkspaceActivityView[];
+  /** Present only while a Shop activity is active. */
+  readonly shop: MapWorkspaceShopView | null;
+  readonly actionPreview: MapRunEncounterWorkspaceView | null;
+  /** Current Encounter's actorless Ability / Item candidates and Item condition view. */
+  readonly sourcePreview: MapRunEncounterSourcePreview | null;
+}
+
+export interface MapRunSuccessWorkspaceView {
+  readonly kind: 'success';
+  readonly result: MapRunSuccessResult;
+}
+
+export interface MapRunFailureWorkspaceView {
+  readonly kind: 'failure';
+  readonly result: MapRunFailureResult;
+  readonly map: MapWorkspaceMapView;
+  readonly failedNodeTitle: string;
+  readonly partyHp: readonly { readonly characterId: string; readonly currentHp: 0; readonly maxHp: number }[];
+}
+
+export type MapRunWorkspaceView = MapRunActiveWorkspaceView | MapRunSuccessWorkspaceView | MapRunFailureWorkspaceView;
+
+/** Read-only facade over the GameInstance-owned MapRunService. */
+export interface MapRunQuery {
+  getSnapshot(): MapRun | null;
+  getResult(runId: string): MapRunSuccessResult | null;
+  getFailureResult(runId: string): MapRunFailureResult | null;
+  getCurrentEncounter(): MapEncounterQueryView | null;
+  getWorkspaceView(runId: string): MapRunWorkspaceView | null;
+  getFailureWorkspaceView(runId: string): MapRunFailureWorkspaceView | null;
+  previewSources(runId: string): MapRunEncounterSourcePreview | null;
 }
 
 /** UI 控制器最终应依赖的运行时命令集合；迁移期由 Runtime 直接实现。 */
@@ -290,6 +526,20 @@ export interface GameCommands {
   triggerPassiveStory(initId?: string, owner?: string | null): StoryStartResult;
   triggerAffectionPush(owner: string): StoryStartResult;
   triggerTailPush(owner: string, storyId: string): StoryStartResult;
+  startMap(mapId: string): MapRun;
+  moveMap(runId: string, targetNodeId: string): MapRun;
+  completeMapEncounter(runId: string): MapRun;
+  purchaseMapShopOffer(runId: string, offerId: string, requestId: string, draft: MapRunShopDraftToken): MapRun;
+  leaveMapShop(runId: string, draft: MapRunShopDraftToken): MapRun;
+  swapMapPreparedAction(runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken): MapRun;
+  issueMapPlayerCommand(runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken): MapRun;
+  setMapPreparedTarget(runId: string, characterId: string, targetCharacterId: string | null, draft: MapRunEncounterDraftToken): MapRun;
+  setMapPreparedEnemyTarget(runId: string, characterId: string, targetEnemyId: string | null, draft: MapRunEncounterDraftToken): MapRun;
+  clearMapActionOverride(runId: string, characterId: string, draft: MapRunEncounterDraftToken): MapRun;
+  setMapAbilityDraft(runId: string, actionId: string | null, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;
+  setMapItemDraft(runId: string, itemId: string | null, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;
+  previewMapEncounterSources(runId: string): MapRunEncounterSourcePreview | null;
+  commitMapEncounterRound(command: MapRunEncounterCommitCommand): MapRun;
   advanceStory(choiceIndex?: number, owner?: string | null): StoryAdvanceResult;
   clickSend(owner?: string | null): SendResult;
   useItem(itemId: string): UseItemResult;

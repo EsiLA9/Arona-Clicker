@@ -4,9 +4,11 @@ import { OperationInterventionPreviewError } from '../arona-clicker/services/ope
 import { OperationRuntimeError } from '../arona-clicker/services/operation-runtime-service';
 import type { OperationSceneActionBatchCommand } from '../arona-clicker/contracts/operation-scene-action';
 import type { OperationView } from '../arona-clicker/contracts/operation-view';
+import type { MapRunEncounterCommitCommand, MapRunEncounterDraftToken, MapRunShopDraftToken } from '../arona-clicker/contracts/map-run';
 import type { UIController } from './controller';
 import { clearOperationSceneDraft, closeOperationMapCard, closeOperationWorkspaceMap, moveOperationWorkspaceMap, readOperationSceneDraft, saveOperationSceneDraft, setOperationWorkspaceTab, toggleOperationWorkspaceMap, type OperationSceneDraft } from './components/operation-workspace';
 import { operationRelationAnchors, operationRelationPath } from './operation-card-relation';
+import { bindOperationCardHoverOverlay, disposeOperationCardHoverOverlay, resumeOperationCardHoverOverlay, suspendOperationCardHoverOverlay } from './operation-card-hover-overlay';
 import { createUIContext } from './context';
 import { getSpotReveal } from './components/tooltip';
 
@@ -429,6 +431,7 @@ export function disposeOperationActions(ctrl: UIController): void {
   }
   cardRelationPreviews.delete(ctrl);
   suppressedCardClicks.delete(ctrl);
+  disposeOperationCardHoverOverlay(ctrl.root);
 }
 
 function readLegalTargetIds(face: HTMLElement): string[] {
@@ -552,6 +555,7 @@ function clearCardDragPresentation(ctrl: UIController, drag: OperationCardDrag):
   const status = host?.querySelector<HTMLElement>('[data-operation-drag-status]');
   if (status) status.hidden = true;
   drag.source.closest<HTMLElement>('[data-workspace-frame="operation"]')?.classList.remove('is-card-dragging');
+  resumeOperationCardHoverOverlay(ctrl.root);
 }
 
 function announceCardDrag(drag: OperationCardDrag, message: string): void {
@@ -1005,6 +1009,7 @@ function bindCardTargetGestures(ctrl: UIController): void {
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= CARD_DRAG_THRESHOLD) {
       drag.active = true;
+      suspendOperationCardHoverOverlay(ctrl.root);
       drawCardRelation(ctrl, drag.source, null);
       drag.source.classList.add('is-card-drag-source');
       drag.source.closest<HTMLElement>('[data-workspace-frame="operation"]')?.classList.add('is-card-dragging');
@@ -1175,7 +1180,245 @@ function operationFunctionAvailable(ctrl: UIController, target: HTMLElement, eve
   return !!fn && (!fn.condition || ctrl.game.conditionSystem.evaluateGroup(fn.condition, ctrl.game.state));
 }
 
+function mapFunctionAvailable(ctrl: UIController, target: HTMLElement, mapId: string): boolean {
+  const spotId = target.dataset.mapEntrySpot;
+  const spot = spotId ? ctrl.game.world.spots.get(spotId) : undefined;
+  if (!spot || spot.areaId !== ctrl.game.getView().currentAreaId
+    || !getSpotReveal(createUIContext(ctrl.game), spot).utilityKnown) return false;
+  return ctrl.game.spotFunctionalitySystem.functionalitiesOf(spot, ctrl.game.state).some(fn =>
+    fn.id === target.dataset.mapEntryFunctionality && fn.kind === 'mapEntry' && fn.mapId === mapId,
+  );
+}
+
+function onMapRoute(ctrl: UIController, runId: string): boolean {
+  const route = ctrl.panelState.workspaceNavigation?.current;
+  return !ctrl.panelState.workspace && ctrl.panelState.service === 'game'
+    && route?.kind === 'map' && route.runId === runId;
+}
+
+function readMapDraftToken(target: HTMLElement): MapRunEncounterDraftToken | null {
+  const nodeId = target.dataset.mapDraftNodeId;
+  const activityId = target.dataset.mapDraftActivityId;
+  const round = Number(target.dataset.mapDraftRound);
+  const draftVersion = Number(target.dataset.mapDraftVersion);
+  if (!nodeId || !Number.isSafeInteger(round) || round < 1
+    || !Number.isSafeInteger(draftVersion) || draftVersion < 0) return null;
+  return {
+    nodeId,
+    ...(activityId ? { activityId } : {}),
+    round,
+    draftVersion,
+  };
+}
+
+function readMapShopDraftToken(target: HTMLElement): MapRunShopDraftToken | null {
+  const nodeId = target.dataset.mapShopNodeId;
+  const activityId = target.dataset.mapShopActivityId;
+  const draftVersion = Number(target.dataset.mapShopDraftVersion);
+  if (!nodeId || !activityId || !Number.isSafeInteger(draftVersion) || draftVersion < 0) return null;
+  return { nodeId, activityId, draftVersion };
+}
+
+function mapCommandErrorText(error: unknown): string {
+  const detail = error instanceof Error ? error.message : '';
+  if (/stale|version is stale/i.test(detail)) return '行动状态已更新，请检查当前准备和目标后重试。';
+  if (/target|目标/i.test(detail)) return '目标已失效，请重新选择当前合法目标。';
+  if (/useCondition|inventory|Consumable|Item.*(?:missing|not|no longer)/i.test(detail)) return '道具条件或库存已变化，请重新检查。';
+  if (/PlayerCost|resource cost|afford|resource balance/i.test(detail)) return '本轮费用或资源余额不足，请调整行动后重试。';
+  return '地图行动暂时无法完成；请检查当前行动状态后重试。';
+}
+
+function refreshMapWorkspacePreservingActionFocus(ctrl: UIController, runId: string, source: HTMLElement): void {
+  const focusKey = source.dataset.mapFocusKey;
+  ctrl.requestMapWorkspaceRefresh(runId);
+  if (!focusKey) return;
+  const region = [...ctrl.root.querySelectorAll<HTMLElement>('[data-map-workspace-region]')]
+    .find(candidate => candidate.dataset.mapRunId === runId);
+  const replacement = [...(region?.querySelectorAll<HTMLElement>('[data-map-focus-key]') ?? [])]
+    .find(candidate => candidate.dataset.mapFocusKey === focusKey
+      && !(candidate instanceof HTMLButtonElement && candidate.disabled));
+  if (replacement) {
+    replacement.focus({ preventScroll: true });
+    return;
+  }
+  const sourceFallback = focusKey === 'ability-clear'
+    ? region?.querySelector<HTMLElement>('[data-map-ability-draft]:not(:disabled)')
+    : focusKey === 'item-clear'
+      ? region?.querySelector<HTMLElement>('[data-map-item-draft]:not(:disabled)')
+      : null;
+  const stateHeading = region?.querySelector<HTMLElement>('[data-map-run-result="failure"] [data-map-focus-heading], [data-map-encounter-state="active"] [data-map-focus-heading]');
+  (sourceFallback ?? stateHeading)?.focus({ preventScroll: true });
+}
+
+/** Map Entry and Map commands share the existing Spot action delegation, with route-only entry and region-only commands. */
+function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
+  const rawTarget = event.target;
+  if (!(rawTarget instanceof Element)) return false;
+  const target = rawTarget.closest<HTMLElement>(
+    '[data-map-entry-start], [data-map-entry-continue-run], [data-map-back], [data-map-move-to], [data-map-complete-encounter], [data-map-action-swap], [data-map-player-command], [data-map-target], [data-map-target-clear], [data-map-target-enemy], [data-map-target-enemy-clear], [data-map-ability-draft], [data-map-item-draft], [data-map-ability-target], [data-map-item-target], [data-map-ability-clear], [data-map-item-clear], [data-map-clear-override], [data-map-commit], [data-map-shop-offer], [data-map-shop-leave], [data-map-enemy-info]',
+  );
+  if (!target) return false;
+  if (target instanceof HTMLButtonElement && target.disabled) return true;
+
+  if (target.hasAttribute('data-map-entry-start')) {
+    const mapId = target.dataset.mapEntryStart;
+    if (!mapId || mapId !== target.dataset.mapEntryMapId || !mapFunctionAvailable(ctrl, target, mapId)
+      || ctrl.panelState.workspace || ctrl.panelState.service !== 'game') return true;
+    try {
+      const run = ctrl.commands.startMap(mapId);
+      ctrl.enterWorkspaceRoute({ kind: 'map', runId: run.runId });
+      ctrl.render();
+    } catch {
+      ctrl.toast.show('地图暂时无法开始，请检查入口和当前进度。', 'error');
+    }
+    return true;
+  }
+
+  if (target.hasAttribute('data-map-entry-continue-run')) {
+    const runId = target.dataset.mapEntryContinueRun;
+    const mapId = target.dataset.mapEntryMapId;
+    const run = runId ? ctrl.game.mapRun.getSnapshot() : null;
+    if (!runId || !mapId || !run || run.runId !== runId || run.mapId !== mapId || run.status !== 'inProgress'
+      || !mapFunctionAvailable(ctrl, target, mapId) || ctrl.panelState.workspace || ctrl.panelState.service !== 'game') return true;
+    ctrl.enterWorkspaceRoute({ kind: 'map', runId });
+    ctrl.render();
+    return true;
+  }
+
+  if (target.hasAttribute('data-map-back')) {
+    const runId = target.dataset.mapBack;
+    if (runId && onMapRoute(ctrl, runId) && ctrl.returnFromMapWorkspace(runId)) ctrl.render();
+    return true;
+  }
+
+  const runId = target.dataset.mapRunId;
+  if (!runId || !onMapRoute(ctrl, runId)) return true;
+  try {
+    if (target.hasAttribute('data-map-enemy-info')) {
+      const enemyId = target.dataset.enemyId;
+      if (!enemyId) return true;
+      // 只读查询：写入当前 Run 的 UI 临时流，不改变目标选择或提交草稿。
+      ctrl.showMapEnemyInfo(runId, enemyId);
+    } else if (target.hasAttribute('data-map-move-to')) {
+      const nodeId = target.dataset.mapMoveTo;
+      const fromNodeId = target.dataset.mapFromNode;
+      if (!nodeId || !fromNodeId) return true;
+      ctrl.moveMapFromFlow(runId, fromNodeId, nodeId);
+    } else if (target.hasAttribute('data-map-complete-encounter')) {
+      ctrl.commands.completeMapEncounter(runId);
+      ctrl.requestMapWorkspaceRefresh(runId);
+    } else if (target.hasAttribute('data-map-action-swap') || target.hasAttribute('data-map-player-command')) {
+      const draft = readMapDraftToken(target);
+      const characterId = target.dataset.characterId;
+      const actionId = target.dataset.actionId;
+      if (!draft || !characterId || !actionId) return true;
+      if (target.hasAttribute('data-map-action-swap')) {
+        ctrl.commands.swapMapPreparedAction(runId, characterId, actionId, draft);
+      } else {
+        ctrl.commands.issueMapPlayerCommand(runId, characterId, actionId, draft);
+      }
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-target-enemy') || target.hasAttribute('data-map-target-enemy-clear')) {
+      const draft = readMapDraftToken(target);
+      const characterId = target.dataset.characterId;
+      if (!draft || !characterId) return true;
+      const targetEnemyId = target.hasAttribute('data-map-target-enemy-clear')
+        ? null
+        : target.dataset.targetEnemyId ?? null;
+      if (!target.hasAttribute('data-map-target-enemy-clear') && targetEnemyId === null) return true;
+      ctrl.commands.setMapPreparedEnemyTarget(runId, characterId, targetEnemyId, draft);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-target') || target.hasAttribute('data-map-target-clear')) {
+      const draft = readMapDraftToken(target);
+      const characterId = target.dataset.characterId;
+      if (!draft || !characterId) return true;
+      const targetCharacterId = target.hasAttribute('data-map-target-clear')
+        ? null
+        : target.dataset.targetCharacterId ?? null;
+      if (!target.hasAttribute('data-map-target-clear') && targetCharacterId === null) return true;
+      ctrl.commands.setMapPreparedTarget(runId, characterId, targetCharacterId, draft);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-ability-clear')) {
+      const draft = readMapDraftToken(target);
+      if (!draft) return true;
+      ctrl.commands.setMapAbilityDraft(runId, null, null, draft);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-item-clear')) {
+      const draft = readMapDraftToken(target);
+      if (!draft) return true;
+      ctrl.commands.setMapItemDraft(runId, null, null, draft);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-ability-draft')) {
+      const draft = readMapDraftToken(target);
+      const actionId = target.dataset.actionId;
+      if (!draft || !actionId) return true;
+      const selected = target.getAttribute('aria-pressed') === 'true';
+      ctrl.commands.setMapAbilityDraft(runId, selected ? null : actionId, null, draft);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-item-draft')) {
+      const draft = readMapDraftToken(target);
+      const itemId = target.dataset.itemId;
+      if (!draft || !itemId) return true;
+      const selected = target.getAttribute('aria-pressed') === 'true';
+      ctrl.commands.setMapItemDraft(runId, selected ? null : itemId, null, draft);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-ability-target') || target.hasAttribute('data-map-item-target')) {
+      const draft = readMapDraftToken(target);
+      const actionId = target.dataset.actionId;
+      if (!draft || !actionId) return true;
+      const sourceTarget = target.dataset.targetEnemyId
+        ? { kind: 'enemy' as const, enemyId: target.dataset.targetEnemyId }
+        : target.dataset.targetCharacterId
+          ? { kind: 'partyCharacter' as const, characterId: target.dataset.targetCharacterId }
+          : null;
+      if (!sourceTarget) return true;
+      if (target.hasAttribute('data-map-ability-target')) {
+        ctrl.commands.setMapAbilityDraft(runId, actionId, sourceTarget, draft);
+      } else {
+        const itemId = target.dataset.itemId;
+        if (!itemId) return true;
+        ctrl.commands.setMapItemDraft(runId, itemId, sourceTarget, draft);
+      }
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-clear-override')) {
+      const draft = readMapDraftToken(target);
+      const characterId = target.dataset.characterId;
+      if (!draft || !characterId) return true;
+      ctrl.commands.clearMapActionOverride(runId, characterId, draft);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-commit')) {
+      const draft = readMapDraftToken(target);
+      const expectedCommitVersion = Number(target.dataset.mapExpectedCommitVersion);
+      if (!draft || !Number.isSafeInteger(expectedCommitVersion) || expectedCommitVersion < 0) return true;
+      const command: MapRunEncounterCommitCommand = {
+        runId,
+        requestId: `${runId}:${draft.nodeId}:${draft.activityId ?? '-'}:${draft.round}:${draft.draftVersion}`,
+        expectedCommitVersion,
+        draft,
+      };
+      ctrl.commands.commitMapEncounterRound(command);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-shop-offer')) {
+      const draft = readMapShopDraftToken(target);
+      const offerId = target.dataset.offerId;
+      if (!draft || !offerId) return true;
+      ctrl.commands.purchaseMapShopOffer(runId, offerId, `${runId}:shop:${draft.activityId}:${draft.draftVersion + 1}`, draft);
+      refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+    } else if (target.hasAttribute('data-map-shop-leave')) {
+      const draft = readMapShopDraftToken(target);
+      if (!draft) return true;
+      ctrl.commands.leaveMapShop(runId, draft);
+      ctrl.requestMapWorkspaceRefresh(runId);
+    }
+  } catch (error) {
+    ctrl.toast.show(mapCommandErrorText(error), 'error');
+    refreshMapWorkspacePreservingActionFocus(ctrl, runId, target);
+  }
+  return true;
+}
+
 function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
+  if (handleMapClick(ctrl, event)) return;
   const rawTarget = event.target;
   if (!(rawTarget instanceof Element)) return;
   const workspace = operationWorkspaceHost(rawTarget);
@@ -1293,14 +1536,11 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
       if (wasSelected) {
         updateFaceSelection(target, false);
         selectedOption.classList.remove('is-selected');
+        if (card.dataset.selectedSceneActionId === target.dataset.sceneActionId) card.dataset.selectedSceneActionId = '';
         saveSceneDraftFromElement(target);
-      } else {
-        card.querySelectorAll<HTMLElement>('[data-operation-scene-choice]').forEach(button => updateFaceSelection(button, button === target));
-        card.querySelectorAll<HTMLElement>('[data-operation-scene-option]').forEach(option => option.classList.toggle('is-selected', option === selectedOption));
-        card.dataset.selectedSceneActionId = target.dataset.sceneActionId ?? '';
-        saveSceneDraftFromElement(target);
+        updateCostPreview(ctrl, target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
       }
-      updateCostPreview(ctrl, target.closest<HTMLElement>('[data-workspace-frame="operation"]'));
+      ctrl.toast.show('这项行动不能直接激活。请将行动卡拖到合格角色卡上分配执行者。', 'error');
       return;
     }
     if (wasSelected) {
@@ -1590,6 +1830,7 @@ export function bindOperationActions(ctrl: UIController): void {
   };
   operationMapResizeListeners.set(ctrl, resizeMap);
   window.addEventListener('resize', resizeMap);
+  bindOperationCardHoverOverlay(ctrl.root);
   bindCardTargetGestures(ctrl);
   ctrl.root.addEventListener('click', event => handleOperationClick(ctrl, event));
 }

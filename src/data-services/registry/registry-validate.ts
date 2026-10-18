@@ -13,6 +13,8 @@ import type { TagPath } from '../../engine/core/tag';
 import { parseEntityId, validateEntityId } from '../../engine/core/entity-id';
 import { assertValidExtra, expandFlatKeys, ExtraError } from '../../engine/extra/index';
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
+import type { GameplayMapDef } from '../contracts/gameplay-map';
+import type { ItemDef } from '../contracts/item';
 import type { EffectOp } from '../../engine/types/expression';
 
 export class RegistryError extends Error {
@@ -55,6 +57,633 @@ const checkExpectedEntityType = (items: { id: string }[] | undefined, expectedTy
     }
   }
 };
+
+/** Validate the static topology embedded in each Gameplay B Map. */
+function validateMapTopologies(maps: readonly GameplayMapDef[] | undefined): void {
+  for (const map of maps ?? []) {
+    if (!Number.isSafeInteger(map.resumeVersion) || map.resumeVersion < 1) {
+      throw new RegistryError(`Map "${map.id}" resumeVersion must be a positive safe integer`);
+    }
+    if (!Array.isArray(map.nodes) || map.nodes.length === 0) {
+      throw new RegistryError(`Map "${map.id}" nodes 必须是非空数组`);
+    }
+    if (!Array.isArray(map.exitNodeIds) || map.exitNodeIds.length === 0) {
+      throw new RegistryError(`Map "${map.id}" 至少需要一个 exitNodeId`);
+    }
+    if (!Array.isArray(map.edges)) {
+      throw new RegistryError(`Map "${map.id}" edges 必须是数组`);
+    }
+
+    const nodeIds = new Set<string>();
+    for (const node of map.nodes) {
+      if (!node.id) throw new RegistryError(`Map "${map.id}" 的 Node id 不能为空`);
+      if (nodeIds.has(node.id)) {
+        throw new RegistryError(`Map "${map.id}" 含重复 Node id "${node.id}"`);
+      }
+      nodeIds.add(node.id);
+    }
+
+    if (!nodeIds.has(map.startNodeId)) {
+      throw new RegistryError(`Map "${map.id}" references unknown start Node "${map.startNodeId ?? ''}"`);
+    }
+    const exitIds = new Set<string>();
+    for (const exitNodeId of map.exitNodeIds) {
+      if (!nodeIds.has(exitNodeId)) {
+        throw new RegistryError(`Map "${map.id}" references unknown exit Node "${exitNodeId}"`);
+      }
+      if (exitIds.has(exitNodeId)) {
+        throw new RegistryError(`Map "${map.id}" 含重复 exitNodeId "${exitNodeId}"`);
+      }
+      exitIds.add(exitNodeId);
+    }
+
+    const edges = new Set<string>();
+    for (const edge of map.edges) {
+      if (!nodeIds.has(edge.fromNodeId)) {
+        throw new RegistryError(`Map "${map.id}" Edge references unknown source Node "${edge.fromNodeId ?? ''}"`);
+      }
+      if (!nodeIds.has(edge.toNodeId)) {
+        throw new RegistryError(`Map "${map.id}" Edge references unknown destination Node "${edge.toNodeId ?? ''}"`);
+      }
+      if (edge.fromNodeId === edge.toNodeId) {
+        throw new RegistryError(`Map "${map.id}" Edge cannot connect Node "${edge.fromNodeId}" to itself`);
+      }
+      const key = JSON.stringify([edge.fromNodeId, edge.toNodeId]);
+      if (edges.has(key)) {
+        throw new RegistryError(`Map "${map.id}" 含重复 Edge "${edge.fromNodeId}" → "${edge.toNodeId}"`);
+      }
+      edges.add(key);
+    }
+  }
+}
+
+/** Validate fixed MapRun party references and the explicit starting PlayerCost. */
+function validateMapRunContent(
+  maps: readonly GameplayMapDef[] | undefined,
+  knownCharacterIds: ReadonlySet<string>,
+): void {
+  const isNonEmptyString = (value: unknown): value is string =>
+    typeof value === 'string' && value.trim().length > 0;
+  for (const map of maps ?? []) {
+    const partyCharacterIds: unknown = map.partyCharacterIds;
+    if (!Array.isArray(partyCharacterIds) || partyCharacterIds.length === 0) {
+      throw new RegistryError(`Map "${map.id}" partyCharacterIds 必须是非空数组`);
+    }
+
+    const seenCharacterIds = new Set<string>();
+    for (const [index, characterId] of partyCharacterIds.entries()) {
+      if (typeof characterId !== 'string' || characterId.trim().length === 0) {
+        throw new RegistryError(`Map "${map.id}" partyCharacterIds[${index}] 必须是非空 Character ID`);
+      }
+      if (seenCharacterIds.has(characterId)) {
+        throw new RegistryError(`Map "${map.id}" partyCharacterIds 含重复 Character ID "${characterId}"`);
+      }
+      seenCharacterIds.add(characterId);
+      if (!knownCharacterIds.has(characterId)) {
+        throw new RegistryError(`Map "${map.id}" references unknown Character "${characterId}"`);
+      }
+    }
+
+    if (!Number.isSafeInteger(map.initialPlayerCost) || map.initialPlayerCost < 0) {
+      throw new RegistryError(`Map "${map.id}" initialPlayerCost must be a non-negative safe integer`);
+    }
+
+    const rawInitialPartyHp: unknown = map.initialPartyHp;
+    if (!Array.isArray(rawInitialPartyHp)) {
+      throw new RegistryError(`Map "${map.id}" initialPartyHp 必须显式配置固定队伍每名角色的 HP`);
+    }
+    const configuredCharacterIds = new Set<string>();
+    for (const [index, rawHp] of rawInitialPartyHp.entries()) {
+      const hpPath = `Map "${map.id}" initialPartyHp[${index}]`;
+      if (!isRecord(rawHp)) throw new RegistryError(`${hpPath} 必须是 HP 配置对象`);
+      const extraField = Object.keys(rawHp).find(field => !['characterId', 'initialHp', 'maxHp'].includes(field));
+      if (extraField !== undefined) throw new RegistryError(`${hpPath} 含合同外字段 "${extraField}"`);
+      if (!isNonEmptyString(rawHp.characterId)) {
+        throw new RegistryError(`${hpPath}.characterId 必须是非空 Character ID`);
+      }
+      if (!knownCharacterIds.has(rawHp.characterId)) {
+        throw new RegistryError(`${hpPath}.characterId references unknown Character "${rawHp.characterId}"`);
+      }
+      if (!seenCharacterIds.has(rawHp.characterId)) {
+        throw new RegistryError(`${hpPath}.characterId 必须属于 Map partyCharacterIds`);
+      }
+      if (configuredCharacterIds.has(rawHp.characterId)) {
+        throw new RegistryError(`Map "${map.id}" initialPartyHp 含重复 Character "${rawHp.characterId}"`);
+      }
+      if (!Number.isSafeInteger(rawHp.maxHp) || (rawHp.maxHp as number) <= 0) {
+        throw new RegistryError(`${hpPath}.maxHp 必须是正安全整数`);
+      }
+      if (!Number.isSafeInteger(rawHp.initialHp)
+        || (rawHp.initialHp as number) < 1
+        || (rawHp.initialHp as number) > (rawHp.maxHp as number)) {
+        throw new RegistryError(`${hpPath}.initialHp 必须在 1..maxHp 范围内`);
+      }
+      configuredCharacterIds.add(rawHp.characterId);
+    }
+    for (const characterId of seenCharacterIds) {
+      if (!configuredCharacterIds.has(characterId)) {
+        throw new RegistryError(`Map "${map.id}" 缺少固定队员 "${characterId}" 的 initialPartyHp 配置`);
+      }
+    }
+  }
+}
+
+/** Validate Map-local actions, encounter candidates, and explicit MapRun resources. */
+function validateMapActionContent(
+  maps: readonly GameplayMapDef[] | undefined,
+  knownCharacterIds: ReadonlySet<string>,
+  knownItemTypes: ReadonlyMap<string, ItemDef['type']>,
+): void {
+  const isNonEmptyString = (value: unknown): value is string =>
+    typeof value === 'string' && value.trim().length > 0;
+  const isResourceScope = (value: unknown): value is 'actor' | 'team' =>
+    value === 'actor' || value === 'team';
+  const targetKinds = new Set(['none', 'self', 'partyCharacter', 'enemy']);
+  const assertNoExtraFields = (
+    value: Record<string, unknown>,
+    allowedFields: readonly string[],
+    path: string,
+  ): void => {
+    const allowed = new Set(allowedFields);
+    const extraField = Object.keys(value).find(field => !allowed.has(field));
+    if (extraField !== undefined) {
+      throw new RegistryError(`${path} 含合同外字段 "${extraField}"`);
+    }
+  };
+
+  for (const map of maps ?? []) {
+    const partyIds = new Set(map.partyCharacterIds);
+    const rawActions: unknown = map.actions;
+    if (rawActions !== undefined && !Array.isArray(rawActions)) {
+      throw new RegistryError(`Map "${map.id}" actions 必须是数组`);
+    }
+
+    const actionIds = new Set<string>();
+    const actionEligibility = new Map<string, Set<string>>();
+    const actionDefinitions = new Map<string, Record<string, unknown>>();
+    /** Team resource IDs that receive a MapRun balance from Actions or initial values. */
+    const knownTeamResourceIds = new Set<string>();
+    for (const [actionIndex, rawAction] of ((rawActions ?? []) as unknown[]).entries()) {
+      const actionPath = `Map "${map.id}" actions[${actionIndex}]`;
+      if (!isRecord(rawAction)) throw new RegistryError(`${actionPath} 必须是 Action 对象`);
+      assertNoExtraFields(rawAction, ['id', 'name', 'description', 'eligibleCharacterIds', 'target', 'costs', 'effects', 'hpEffects'], actionPath);
+
+      const actionId = rawAction.id;
+      if (!isNonEmptyString(actionId)) throw new RegistryError(`${actionPath}.id 必须是非空 Map-local Action ID`);
+      if (actionIds.has(actionId)) throw new RegistryError(`Map "${map.id}" 含重复 Action id "${actionId}"`);
+      actionIds.add(actionId);
+      actionDefinitions.set(actionId, rawAction);
+
+      if (!isNonEmptyString(rawAction.name)) throw new RegistryError(`${actionPath}.name 必须是非空展示名称`);
+      if (rawAction.description !== undefined && typeof rawAction.description !== 'string') {
+        throw new RegistryError(`${actionPath}.description 必须是字符串`);
+      }
+
+      const rawEligibleCharacterIds = rawAction.eligibleCharacterIds;
+      if (!Array.isArray(rawEligibleCharacterIds)) {
+        throw new RegistryError(`${actionPath}.eligibleCharacterIds 必须是 Character ID 数组；actorless Action 使用空数组`);
+      }
+      const eligibleCharacterIds = new Set<string>();
+      for (const [eligibleIndex, characterId] of rawEligibleCharacterIds.entries()) {
+        const eligiblePath = `${actionPath}.eligibleCharacterIds[${eligibleIndex}]`;
+        if (!isNonEmptyString(characterId)) throw new RegistryError(`${eligiblePath} 必须是非空 Character ID`);
+        if (eligibleCharacterIds.has(characterId)) throw new RegistryError(`${actionPath}.eligibleCharacterIds 含重复 Character "${characterId}"`);
+        if (!knownCharacterIds.has(characterId)) throw new RegistryError(`${eligiblePath} references unknown Character "${characterId}"`);
+        if (!partyIds.has(characterId)) throw new RegistryError(`${eligiblePath} 必须属于 Map partyCharacterIds`);
+        eligibleCharacterIds.add(characterId);
+      }
+      actionEligibility.set(actionId, eligibleCharacterIds);
+
+      const target = rawAction.target;
+      if (!isRecord(target)) {
+        throw new RegistryError(`${actionPath}.target 必须是目标规则对象`);
+      }
+      assertNoExtraFields(target, ['kind'], `${actionPath}.target`);
+      if (typeof target.kind !== 'string' || !targetKinds.has(target.kind)) {
+        throw new RegistryError(`${actionPath}.target.kind 必须是 none、self、partyCharacter 或 enemy`);
+      }
+
+      const rawCosts: unknown = rawAction.costs;
+      if (rawCosts !== undefined && !Array.isArray(rawCosts)) {
+        throw new RegistryError(`${actionPath}.costs 必须是数组`);
+      }
+      const costKeys = new Set<string>();
+      for (const [costIndex, rawCost] of ((rawCosts ?? []) as unknown[]).entries()) {
+        const costPath = `${actionPath}.costs[${costIndex}]`;
+        if (!isRecord(rawCost)) throw new RegistryError(`${costPath} 必须是资源费用对象`);
+        assertNoExtraFields(rawCost, ['scope', 'resourceId', 'amount'], costPath);
+        if (!isResourceScope(rawCost.scope)) throw new RegistryError(`${costPath}.scope 必须是 actor 或 team`);
+        if (!isNonEmptyString(rawCost.resourceId)) throw new RegistryError(`${costPath}.resourceId 必须是非空字符串`);
+        if (!Number.isSafeInteger(rawCost.amount) || (rawCost.amount as number) <= 0) {
+          throw new RegistryError(`${costPath}.amount 必须是正安全整数`);
+        }
+        const key = JSON.stringify([rawCost.scope, rawCost.resourceId]);
+        if (costKeys.has(key)) throw new RegistryError(`${actionPath}.costs 含重复 ${rawCost.scope} resourceId "${rawCost.resourceId}"`);
+        costKeys.add(key);
+        if (rawCost.scope === 'team') knownTeamResourceIds.add(rawCost.resourceId);
+      }
+
+      const rawEffects: unknown = rawAction.effects;
+      if (rawEffects !== undefined && !Array.isArray(rawEffects)) {
+        throw new RegistryError(`${actionPath}.effects 必须是数组`);
+      }
+      const effectKeys = new Set<string>();
+      for (const [effectIndex, rawEffect] of ((rawEffects ?? []) as unknown[]).entries()) {
+        const effectPath = `${actionPath}.effects[${effectIndex}]`;
+        if (!isRecord(rawEffect)) throw new RegistryError(`${effectPath} 必须是资源效果对象`);
+        assertNoExtraFields(rawEffect, ['scope', 'resourceId', 'amount', 'recipient'], effectPath);
+        if (!isResourceScope(rawEffect.scope)) throw new RegistryError(`${effectPath}.scope 必须是 actor 或 team`);
+        if (!isNonEmptyString(rawEffect.resourceId)) throw new RegistryError(`${effectPath}.resourceId 必须是非空字符串`);
+        if (!Number.isSafeInteger(rawEffect.amount) || (rawEffect.amount as number) === 0) {
+          throw new RegistryError(`${effectPath}.amount 必须是非零安全整数`);
+        }
+        const recipient = rawEffect.recipient;
+        if (rawEffect.scope === 'team' && recipient !== undefined) {
+          throw new RegistryError(`${effectPath}.recipient 仅适用于 actor resource effect`);
+        }
+        if (rawEffect.scope === 'actor' && recipient !== undefined && recipient !== 'actor' && recipient !== 'target') {
+          throw new RegistryError(`${effectPath}.recipient 必须是 actor 或 target`);
+        }
+        if (rawEffect.scope === 'actor' && recipient === 'target'
+          && target.kind !== 'self' && target.kind !== 'partyCharacter') {
+          throw new RegistryError(`${effectPath}.recipient 为 target 时 Action 必须声明 self 或 partyCharacter target`);
+        }
+        if (rawEffect.scope === 'team') knownTeamResourceIds.add(rawEffect.resourceId);
+        const key = JSON.stringify([rawEffect.scope, rawEffect.resourceId, recipient ?? 'actor']);
+        if (effectKeys.has(key)) {
+          throw new RegistryError(`${actionPath}.effects 含重复 ${rawEffect.scope} resourceId "${rawEffect.resourceId}" recipient "${String(recipient ?? 'actor')}"`);
+        }
+        effectKeys.add(key);
+      }
+
+      const rawHpEffects: unknown = rawAction.hpEffects;
+      if (rawHpEffects !== undefined && !Array.isArray(rawHpEffects)) {
+        throw new RegistryError(`${actionPath}.hpEffects 必须是数组`);
+      }
+      if (Array.isArray(rawHpEffects) && rawHpEffects.length > 0
+        && target.kind !== 'enemy' && target.kind !== 'partyCharacter') {
+        throw new RegistryError(`${actionPath} HP 效果必须选择 Enemy 或 partyCharacter target`);
+      }
+      for (const [hpEffectIndex, rawHpEffect] of ((rawHpEffects ?? []) as unknown[]).entries()) {
+        const hpEffectPath = `${actionPath}.hpEffects[${hpEffectIndex}]`;
+        if (!isRecord(rawHpEffect)) throw new RegistryError(`${hpEffectPath} 必须是 HP 效果对象`);
+        assertNoExtraFields(rawHpEffect, ['amount'], hpEffectPath);
+        if (!Number.isSafeInteger(rawHpEffect.amount) || (rawHpEffect.amount as number) === 0) {
+          throw new RegistryError(`${hpEffectPath}.amount 必须是非零安全整数`);
+        }
+        if ((target.kind === 'enemy' && (rawHpEffect.amount as number) >= 0)
+          || (target.kind === 'partyCharacter' && (rawHpEffect.amount as number) <= 0)) {
+          throw new RegistryError(`${hpEffectPath}.amount 符号必须与 Enemy 伤害或 partyCharacter 治疗方向一致`);
+        }
+      }
+    }
+
+    const rawInitialActorResources: unknown = map.initialActorResources;
+    if (rawInitialActorResources !== undefined && !Array.isArray(rawInitialActorResources)) {
+      throw new RegistryError(`Map "${map.id}" initialActorResources 必须是数组`);
+    }
+    const initialActorResourceKeys = new Set<string>();
+    for (const [resourceIndex, rawResource] of ((rawInitialActorResources ?? []) as unknown[]).entries()) {
+      const resourcePath = `Map "${map.id}" initialActorResources[${resourceIndex}]`;
+      if (!isRecord(rawResource)) throw new RegistryError(`${resourcePath} 必须是资源初值对象`);
+      assertNoExtraFields(rawResource, ['characterId', 'resourceId', 'value'], resourcePath);
+      if (!isNonEmptyString(rawResource.characterId)) throw new RegistryError(`${resourcePath}.characterId 必须是非空 Character ID`);
+      if (!knownCharacterIds.has(rawResource.characterId)) {
+        throw new RegistryError(`${resourcePath}.characterId references unknown Character "${rawResource.characterId}"`);
+      }
+      if (!partyIds.has(rawResource.characterId)) {
+        throw new RegistryError(`${resourcePath}.characterId 必须属于 Map partyCharacterIds`);
+      }
+      if (!isNonEmptyString(rawResource.resourceId)) throw new RegistryError(`${resourcePath}.resourceId 必须是非空字符串`);
+      if (!Number.isSafeInteger(rawResource.value) || (rawResource.value as number) < 0) {
+        throw new RegistryError(`${resourcePath}.value 必须是非负安全整数`);
+      }
+      const key = JSON.stringify([rawResource.characterId, rawResource.resourceId]);
+      if (initialActorResourceKeys.has(key)) {
+        throw new RegistryError(`Map "${map.id}" initialActorResources 含重复 Character "${rawResource.characterId}" resourceId "${rawResource.resourceId}"`);
+      }
+      initialActorResourceKeys.add(key);
+    }
+
+    const rawInitialTeamResources: unknown = map.initialTeamResources;
+    if (rawInitialTeamResources !== undefined && !Array.isArray(rawInitialTeamResources)) {
+      throw new RegistryError(`Map "${map.id}" initialTeamResources 必须是数组`);
+    }
+    const initialTeamResourceIds = new Set<string>();
+    for (const [resourceIndex, rawResource] of ((rawInitialTeamResources ?? []) as unknown[]).entries()) {
+      const resourcePath = `Map "${map.id}" initialTeamResources[${resourceIndex}]`;
+      if (!isRecord(rawResource)) throw new RegistryError(`${resourcePath} 必须是资源初值对象`);
+      assertNoExtraFields(rawResource, ['resourceId', 'value'], resourcePath);
+      if (!isNonEmptyString(rawResource.resourceId)) throw new RegistryError(`${resourcePath}.resourceId 必须是非空字符串`);
+      if (!Number.isSafeInteger(rawResource.value) || (rawResource.value as number) < 0) {
+        throw new RegistryError(`${resourcePath}.value 必须是非负安全整数`);
+      }
+      if (initialTeamResourceIds.has(rawResource.resourceId)) {
+        throw new RegistryError(`Map "${map.id}" initialTeamResources 含重复 resourceId "${rawResource.resourceId}"`);
+      }
+      initialTeamResourceIds.add(rawResource.resourceId);
+      knownTeamResourceIds.add(rawResource.resourceId);
+    }
+
+    const validateEncounter = (rawEncounter: unknown, encounterPath: string): void => {
+      if (!isRecord(rawEncounter)) throw new RegistryError(`${encounterPath} 必须是对象`);
+
+      const rawEnemies: unknown = rawEncounter.enemies;
+      let isBattle = false;
+      if (rawEnemies !== undefined) {
+        if (!Array.isArray(rawEnemies) || rawEnemies.length === 0) {
+          throw new RegistryError(`${encounterPath}.enemies 必须是非空 Enemy roster；非战斗 Encounter 应省略此字段`);
+        }
+        isBattle = true;
+        if (rawEncounter.completion !== undefined) {
+          throw new RegistryError(`${encounterPath} Battle 不允许声明手动 completion`);
+        }
+        const enemyIds = new Set<string>();
+        for (const [enemyIndex, rawEnemy] of rawEnemies.entries()) {
+          const enemyPath = `${encounterPath}.enemies[${enemyIndex}]`;
+          if (!isRecord(rawEnemy)) throw new RegistryError(`${enemyPath} 必须是 Enemy 对象`);
+          assertNoExtraFields(rawEnemy, ['id', 'initialHp', 'maxHp', 'damage'], enemyPath);
+          const enemyId = rawEnemy.id;
+          if (!isNonEmptyString(enemyId)) {
+            throw new RegistryError(`${enemyPath}.id 必须是非空 Encounter-local Enemy ID`);
+          }
+          if (enemyIds.has(enemyId)) throw new RegistryError(`${encounterPath}.enemies 含重复 Enemy ID "${enemyId}"`);
+          enemyIds.add(enemyId);
+          if (!Number.isSafeInteger(rawEnemy.maxHp) || (rawEnemy.maxHp as number) <= 0) {
+            throw new RegistryError(`${enemyPath}.maxHp 必须是正安全整数`);
+          }
+          if (!Number.isSafeInteger(rawEnemy.initialHp)
+            || (rawEnemy.initialHp as number) < 1
+            || (rawEnemy.initialHp as number) > (rawEnemy.maxHp as number)) {
+            throw new RegistryError(`${enemyPath}.initialHp 必须在 1..maxHp 范围内`);
+          }
+          if (!Number.isSafeInteger(rawEnemy.damage) || (rawEnemy.damage as number) <= 0) {
+            throw new RegistryError(`${enemyPath}.damage 必须是正安全整数`);
+          }
+        }
+      }
+
+      const assertActorlessSourceAction = (actionId: string, actionPath: string): void => {
+        const action = actionDefinitions.get(actionId);
+        if (!action) throw new RegistryError(`${actionPath} 引用了 Map "${map.id}" 未定义的 Action "${actionId}"`);
+        if (!Array.isArray(action.eligibleCharacterIds) || action.eligibleCharacterIds.length > 0) {
+          throw new RegistryError(`${actionPath} 的 Action "${actionId}" 是 Character Action，不能作为 Ability / Item 来源`);
+        }
+        const target = action.target;
+        if (!isRecord(target) || (target.kind !== 'enemy' && target.kind !== 'partyCharacter')) {
+          throw new RegistryError(`${actionPath} 的 Action "${actionId}" 必须明确选择 enemy 或 partyCharacter target，不能使用 none / self`);
+        }
+        const costs: unknown = action.costs;
+        if (Array.isArray(costs) && costs.length > 0) {
+          throw new RegistryError(`${actionPath} 的 Action "${actionId}" 不允许额外 Action cost`);
+        }
+        const effects: unknown = action.effects;
+        if (Array.isArray(effects) && effects.some(effect => isRecord(effect) && effect.scope === 'actor')) {
+          throw new RegistryError(`${actionPath} 的 Action "${actionId}" 不允许 actor-relative effect`);
+        }
+      };
+
+      const rawAbilityActionIds: unknown = rawEncounter.abilityActionIds;
+      if (rawAbilityActionIds !== undefined) {
+        if (!isBattle) throw new RegistryError(`${encounterPath}.abilityActionIds 只允许用于 Battle Encounter`);
+        if (!Array.isArray(rawAbilityActionIds)) throw new RegistryError(`${encounterPath}.abilityActionIds 必须是 Action ID 数组`);
+        const seenAbilityIds = new Set<string>();
+        for (const [abilityIndex, rawActionId] of rawAbilityActionIds.entries()) {
+          const abilityPath = `${encounterPath}.abilityActionIds[${abilityIndex}]`;
+          if (!isNonEmptyString(rawActionId)) throw new RegistryError(`${abilityPath} 必须是非空 Map-local Action ID`);
+          if (seenAbilityIds.has(rawActionId)) throw new RegistryError(`${encounterPath}.abilityActionIds 含重复 Action ID "${rawActionId}"`);
+          seenAbilityIds.add(rawActionId);
+          if (!actionIds.has(rawActionId)) {
+            throw new RegistryError(`${abilityPath} 引用了 Map "${map.id}" 未定义的 Action "${rawActionId}"`);
+          }
+          assertActorlessSourceAction(rawActionId, abilityPath);
+        }
+      }
+
+      const rawItemActions: unknown = rawEncounter.itemActions;
+      if (rawItemActions !== undefined) {
+        if (!isBattle) throw new RegistryError(`${encounterPath}.itemActions 只允许用于 Battle Encounter`);
+        if (!Array.isArray(rawItemActions)) throw new RegistryError(`${encounterPath}.itemActions 必须是 Item / Action 映射数组`);
+        const mappedItemIds = new Set<string>();
+        for (const [itemActionIndex, rawItemAction] of rawItemActions.entries()) {
+          const itemActionPath = `${encounterPath}.itemActions[${itemActionIndex}]`;
+          if (!isRecord(rawItemAction)) throw new RegistryError(`${itemActionPath} 必须是 Item / Action 映射对象`);
+          assertNoExtraFields(rawItemAction, ['itemId', 'actionId'], itemActionPath);
+          if (!isNonEmptyString(rawItemAction.itemId)) throw new RegistryError(`${itemActionPath}.itemId 必须是非空 Item ID`);
+          if (!isNonEmptyString(rawItemAction.actionId)) throw new RegistryError(`${itemActionPath}.actionId 必须是非空 Map-local Action ID`);
+          const itemType = knownItemTypes.get(rawItemAction.itemId);
+          if (itemType === undefined) {
+            throw new RegistryError(`${itemActionPath}.itemId 引用了未定义的 Item "${rawItemAction.itemId}"`);
+          }
+          if (itemType !== 'consumable') {
+            throw new RegistryError(`${itemActionPath}.itemId "${rawItemAction.itemId}" 必须引用 Consumable Item`);
+          }
+          if (mappedItemIds.has(rawItemAction.itemId)) {
+            throw new RegistryError(`${encounterPath}.itemActions 含重复 Item ID "${rawItemAction.itemId}"`);
+          }
+          mappedItemIds.add(rawItemAction.itemId);
+          if (!actionIds.has(rawItemAction.actionId)) {
+            throw new RegistryError(`${itemActionPath}.actionId 引用了 Map "${map.id}" 未定义的 Action "${rawItemAction.actionId}"`);
+          }
+          assertActorlessSourceAction(rawItemAction.actionId, itemActionPath);
+        }
+      }
+
+      const rawParticipants: unknown = rawEncounter.participants;
+      if (rawParticipants === undefined) return;
+      if (!Array.isArray(rawParticipants)) throw new RegistryError(`${encounterPath}.participants 必须是数组`);
+
+      const participantIds = new Set<string>();
+      for (const [participantIndex, rawParticipant] of rawParticipants.entries()) {
+        const participantPath = `${encounterPath}.participants[${participantIndex}]`;
+        if (!isRecord(rawParticipant)) throw new RegistryError(`${participantPath} 必须是参与者对象`);
+        assertNoExtraFields(rawParticipant, ['characterId', 'actions'], participantPath);
+        const characterId = rawParticipant.characterId;
+        if (!isNonEmptyString(characterId)) throw new RegistryError(`${participantPath}.characterId 必须是非空 Character ID`);
+        if (!knownCharacterIds.has(characterId)) {
+          throw new RegistryError(`${participantPath}.characterId references unknown Character "${characterId}"`);
+        }
+        if (!partyIds.has(characterId)) {
+          throw new RegistryError(`${participantPath}.characterId 必须属于 Map partyCharacterIds`);
+        }
+        if (participantIds.has(characterId)) {
+          throw new RegistryError(`${encounterPath}.participants 含重复 Character "${characterId}"`);
+        }
+        participantIds.add(characterId);
+
+        const rawCandidates: unknown = rawParticipant.actions;
+        if (!Array.isArray(rawCandidates)) throw new RegistryError(`${participantPath}.actions 必须是数组`);
+        const candidateActionIds = new Set<string>();
+        for (const [candidateIndex, rawCandidate] of rawCandidates.entries()) {
+          const candidatePath = `${participantPath}.actions[${candidateIndex}]`;
+          if (!isRecord(rawCandidate)) throw new RegistryError(`${candidatePath} 必须是候选 Action 对象`);
+          assertNoExtraFields(rawCandidate, ['actionId', 'tendencyWeight'], candidatePath);
+          const actionId = rawCandidate.actionId;
+          if (!isNonEmptyString(actionId)) throw new RegistryError(`${candidatePath}.actionId 必须是非空 Map-local Action ID`);
+          if (!actionIds.has(actionId)) {
+            throw new RegistryError(`${candidatePath}.actionId 引用了 Map "${map.id}" 未定义的 Action "${actionId}"`);
+          }
+          if (candidateActionIds.has(actionId)) {
+            throw new RegistryError(`${participantPath}.actions 含重复 Action id "${actionId}"`);
+          }
+          candidateActionIds.add(actionId);
+          if (!Number.isSafeInteger(rawCandidate.tendencyWeight) || (rawCandidate.tendencyWeight as number) <= 0) {
+            throw new RegistryError(`${candidatePath}.tendencyWeight 必须是正安全整数`);
+          }
+          if (!actionEligibility.get(actionId)?.has(characterId)) {
+            throw new RegistryError(`${candidatePath}.actionId "${actionId}" 不允许 Character "${characterId}" 执行`);
+          }
+          const action = actionDefinitions.get(actionId);
+          if (isRecord(action?.target) && action.target.kind === 'enemy' && !isBattle) {
+            throw new RegistryError(`${candidatePath}.actionId "${actionId}" 选择 Enemy target 但 Encounter 没有 Battle roster`);
+          }
+        }
+      }
+    };
+
+    for (const node of map.nodes) {
+      const nodePath = `Map "${map.id}" Node "${node.id}"`;
+      if (node.encounter !== undefined) validateEncounter(node.encounter, `${nodePath} encounter`);
+      const rawActivities: unknown = node.activities;
+      if (rawActivities === undefined) continue;
+      if (node.encounter !== undefined) {
+        throw new RegistryError(`${nodePath} 不能同时声明 encounter 与 activities`);
+      }
+      if (!Array.isArray(rawActivities) || rawActivities.length === 0) {
+        throw new RegistryError(`${nodePath} activities 必须是非空活动数组；无活动 Node 应省略该字段`);
+      }
+      const activityIds = new Set<string>();
+      for (const [activityIndex, rawActivity] of rawActivities.entries()) {
+        const activityPath = `${nodePath} activities[${activityIndex}]`;
+        if (!isRecord(rawActivity)) throw new RegistryError(`${activityPath} 必须是活动对象`);
+        assertNoExtraFields(rawActivity, ['id', 'title', 'encounter', 'shop'], activityPath);
+        if (!isNonEmptyString(rawActivity.id)) {
+          throw new RegistryError(`${activityPath}.id 必须是非空 Node-local Activity ID`);
+        }
+        if (activityIds.has(rawActivity.id)) {
+          throw new RegistryError(`${nodePath} activities 含重复 Activity id "${rawActivity.id}"`);
+        }
+        activityIds.add(rawActivity.id);
+        if (rawActivity.title !== undefined && typeof rawActivity.title !== 'string') {
+          throw new RegistryError(`${activityPath}.title 必须是字符串`);
+        }
+        if ((rawActivity.encounter === undefined) === (rawActivity.shop === undefined)) {
+          throw new RegistryError(`${activityPath} 必须且只能声明 encounter 或 shop`);
+        }
+        if (rawActivity.encounter !== undefined) {
+          validateEncounter(rawActivity.encounter, `${activityPath}.encounter`);
+          const rawRoundEncounter = rawActivity.encounter as Record<string, unknown>;
+          if (rawRoundEncounter.rounds !== undefined) {
+            if (!Number.isSafeInteger(rawRoundEncounter.rounds) || (rawRoundEncounter.rounds as number) < 1) {
+              throw new RegistryError(`${activityPath}.encounter.rounds 必须是正安全整数`);
+            }
+            if (rawRoundEncounter.enemies !== undefined) {
+              throw new RegistryError(`${activityPath}.encounter.rounds 只允许用于没有 Enemy roster 的 Rest`);
+            }
+            if (rawRoundEncounter.completion !== undefined) {
+              throw new RegistryError(`${activityPath}.encounter.rounds 与手动 completion 互斥`);
+            }
+          }
+          continue;
+        }
+        const rawShop: unknown = rawActivity.shop;
+        if (!isRecord(rawShop)) throw new RegistryError(`${activityPath}.shop 必须是对象`);
+        assertNoExtraFields(rawShop, ['title', 'description', 'offers'], `${activityPath}.shop`);
+        if (rawShop.title !== undefined && typeof rawShop.title !== 'string') {
+          throw new RegistryError(`${activityPath}.shop.title 必须是字符串`);
+        }
+        if (rawShop.description !== undefined && typeof rawShop.description !== 'string') {
+          throw new RegistryError(`${activityPath}.shop.description 必须是字符串`);
+        }
+        const rawOffers: unknown = rawShop.offers;
+        if (!Array.isArray(rawOffers) || rawOffers.length === 0) {
+          throw new RegistryError(`${activityPath}.shop.offers 必须是非空数组`);
+        }
+        const offerIds = new Set<string>();
+        for (const [offerIndex, rawOffer] of rawOffers.entries()) {
+          const offerPath = `${activityPath}.shop.offers[${offerIndex}]`;
+          if (!isRecord(rawOffer)) throw new RegistryError(`${offerPath} 必须是商店报价对象`);
+          assertNoExtraFields(rawOffer, ['id', 'name', 'description', 'costs', 'effects', 'heal'], offerPath);
+          if (!isNonEmptyString(rawOffer.id)) throw new RegistryError(`${offerPath}.id 必须是非空 Shop-local Offer ID`);
+          if (offerIds.has(rawOffer.id)) throw new RegistryError(`${activityPath}.shop.offers 含重复 Offer id "${rawOffer.id}"`);
+          offerIds.add(rawOffer.id);
+          if (!isNonEmptyString(rawOffer.name)) throw new RegistryError(`${offerPath}.name 必须是非空展示名称`);
+          if (rawOffer.description !== undefined && typeof rawOffer.description !== 'string') {
+            throw new RegistryError(`${offerPath}.description 必须是字符串`);
+          }
+          const rawCosts: unknown = rawOffer.costs;
+          if (rawCosts !== undefined && !Array.isArray(rawCosts)) throw new RegistryError(`${offerPath}.costs 必须是数组`);
+          const seenCostResourceIds = new Set<string>();
+          for (const [costIndex, rawCost] of ((rawCosts ?? []) as unknown[]).entries()) {
+            const costPath = `${offerPath}.costs[${costIndex}]`;
+            if (!isRecord(rawCost)) throw new RegistryError(`${costPath} 必须是资源费用对象`);
+            assertNoExtraFields(rawCost, ['resourceId', 'amount'], costPath);
+            if (!isNonEmptyString(rawCost.resourceId)) throw new RegistryError(`${costPath}.resourceId 必须是非空字符串`);
+            if (!Number.isSafeInteger(rawCost.amount) || (rawCost.amount as number) <= 0) {
+              throw new RegistryError(`${costPath}.amount 必须是正安全整数`);
+            }
+            if (seenCostResourceIds.has(rawCost.resourceId)) {
+              throw new RegistryError(`${offerPath}.costs 含重复 resourceId "${rawCost.resourceId}"`);
+            }
+            seenCostResourceIds.add(rawCost.resourceId);
+            if (!knownTeamResourceIds.has(rawCost.resourceId)) {
+              throw new RegistryError(`${costPath}.resourceId "${rawCost.resourceId}" 没有对应的 MapRun Team 资源余额`);
+            }
+          }
+          const rawEffects: unknown = rawOffer.effects;
+          if (rawEffects !== undefined && !Array.isArray(rawEffects)) throw new RegistryError(`${offerPath}.effects 必须是数组`);
+          const seenEffectResourceIds = new Set<string>();
+          for (const [effectIndex, rawEffect] of ((rawEffects ?? []) as unknown[]).entries()) {
+            const effectPath = `${offerPath}.effects[${effectIndex}]`;
+            if (!isRecord(rawEffect)) throw new RegistryError(`${effectPath} 必须是资源效果对象`);
+            assertNoExtraFields(rawEffect, ['resourceId', 'amount'], effectPath);
+            if (!isNonEmptyString(rawEffect.resourceId)) throw new RegistryError(`${effectPath}.resourceId 必须是非空字符串`);
+            if (!Number.isSafeInteger(rawEffect.amount) || (rawEffect.amount as number) === 0) {
+              throw new RegistryError(`${effectPath}.amount 必须是非零安全整数`);
+            }
+            if (seenEffectResourceIds.has(rawEffect.resourceId)) {
+              throw new RegistryError(`${offerPath}.effects 含重复 resourceId "${rawEffect.resourceId}"`);
+            }
+            seenEffectResourceIds.add(rawEffect.resourceId);
+            if (!knownTeamResourceIds.has(rawEffect.resourceId)) {
+              throw new RegistryError(`${effectPath}.resourceId "${rawEffect.resourceId}" 没有对应的 MapRun Team 资源余额`);
+            }
+          }
+          const rawHeal: unknown = rawOffer.heal;
+          if (rawHeal !== undefined) {
+            if (!isRecord(rawHeal)) throw new RegistryError(`${offerPath}.heal 必须是对象`);
+            assertNoExtraFields(rawHeal, ['characterId', 'amount'], `${offerPath}.heal`);
+            if (!isNonEmptyString(rawHeal.characterId)) throw new RegistryError(`${offerPath}.heal.characterId 必须是非空 Character ID`);
+            if (!partyIds.has(rawHeal.characterId)) {
+              throw new RegistryError(`${offerPath}.heal.characterId 必须属于 Map partyCharacterIds`);
+            }
+            if (!Number.isSafeInteger(rawHeal.amount) || (rawHeal.amount as number) <= 0) {
+              throw new RegistryError(`${offerPath}.heal.amount 必须是正安全整数`);
+            }
+          }
+        }
+      }
+    }
+
+    for (const edge of map.edges) {
+      const condition = edge.condition;
+      if (condition === undefined) continue;
+      const edgePath = `Map "${map.id}" Edge "${edge.fromNodeId}" → "${edge.toNodeId}"`;
+      if (!isRecord(condition)) throw new RegistryError(`${edgePath}.condition 必须是对象`);
+      assertNoExtraFields(condition, ['kind', 'resourceId', 'amount'], `${edgePath}.condition`);
+      if (condition.kind !== 'teamResourceAtLeast') {
+        throw new RegistryError(`${edgePath}.condition.kind 只支持 teamResourceAtLeast`);
+      }
+      if (!isNonEmptyString(condition.resourceId)) throw new RegistryError(`${edgePath}.condition.resourceId 必须是非空字符串`);
+      if (!Number.isSafeInteger(condition.amount) || (condition.amount as number) <= 0) {
+        throw new RegistryError(`${edgePath}.condition.amount 必须是正安全整数`);
+      }
+      if (!knownTeamResourceIds.has(condition.resourceId)) {
+        throw new RegistryError(`${edgePath}.condition.resourceId "${condition.resourceId}" 没有对应的 MapRun Team 资源余额`);
+      }
+    }
+  }
+}
 
 const PRESENTATION_OPTION_ID = /^[a-z0-9][a-z0-9_-]*$/;
 const CONDITION_COMPARATORS = new Set(['==', '!=', '>=', '<=', '>', '<']);
@@ -170,6 +799,7 @@ function checkEntityPresentation(items: Array<{ id: string; presentation?: Entit
 
 /** 校验数据包；非法即抛 RegistryError。 */
 export interface DatapackValidationContext extends OperationContentValidationContext {
+  readonly itemTypes?: ReadonlyMap<string, ItemDef['type']>;
   readonly areaIds?: ReadonlySet<string>;
   readonly storyEntryIds?: ReadonlySet<string>;
   readonly milestoneIds?: ReadonlySet<string>;
@@ -195,6 +825,7 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   checkDup(dp.inits, 'init');
   checkDup(dp.areas, 'area');
   checkDup(dp.spots, 'spot');
+  if (dp.maps) checkDup(dp.maps, 'map');
   checkDup(dp.enhancements, 'enhancement');
   checkDup(dp.stories, 'story');
   checkDup(dp.activeStories, 'active story entry');
@@ -311,6 +942,27 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   checkEntityIds(dp.inits, 'init', 'Init');
   checkEntityIds(dp.areas, 'area', 'Area');
   checkEntityIds(dp.spots, 'spot', 'Spot');
+  checkEntityIds(dp.maps, 'map', 'Map');
+  checkExpectedEntityType(dp.maps, 'map', 'Map');
+  validateMapTopologies(dp.maps);
+  validateMapRunContent(
+    dp.maps,
+    new Set([
+      ...(context.characterIds ?? []),
+      ...(dp.characters ?? []).map(character => character.id),
+    ]),
+  );
+  validateMapActionContent(
+    dp.maps,
+    new Set([
+      ...(context.characterIds ?? []),
+      ...(dp.characters ?? []).map(character => character.id),
+    ]),
+    new Map([
+      ...(context.itemTypes ?? []),
+      ...(dp.items ?? []).map(item => [item.id, item.type] as const),
+    ]),
+  );
   checkEntityIds(dp.enhancements, 'enhancement', 'Enhancement');
   checkEntityIds(dp.items, 'item', 'Item');
   checkEntityIds(dp.shops, 'shop', 'Shop');

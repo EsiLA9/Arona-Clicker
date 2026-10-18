@@ -1,13 +1,19 @@
 // ============================================================
-// ui/scroll.ts — 聊天流 / 面板滚动状态管理
-// 疏散自 controller.ts：DOM 重建前后按比例保存并恢复滚动位置，
-// 避免条件刷新把列表拽回顶层、或打断用户在上方翻看历史。
+// ui/scroll.ts — 面板 / 工作区滚动状态 + 聊天流的共享滚动入口
+// 聊天流的贴底跟随、图片伸展与观察器已收拢到 flow/flow-scroll.ts；
+// 本类保留原公开方法，作为 Chat 侧的薄包装与面板/工作区快照管理者。
 // ============================================================
 
-/** 聊天流 / 面板滚动状态：重建 DOM 前后捕获并按比例恢复。 */
+import { FlowScroll } from './flow/flow-scroll';
+
+/** 聊天流的流实例键：`.chat-stream` 每次全量 render 会换节点，状态必须按流而非元素保存。 */
+const CHAT_STREAM_KEY = 'chat';
+
+/** 面板与工作区滚动状态；聊天流委托 FlowScroll 处理。 */
 export class ScrollManager {
-  private chatScrollRatio = 1;
-  private chatAtBottom = true;
+  /** 聊天流共享滚动能力（按真实宿主元素与流实例键工作）。 */
+  private readonly flow = new FlowScroll();
+  /** 下一次重建强制滚到底（从日志切回聊天等场景）。 */
   private pendingChatForceScroll = false;
   /** 上一次重建时的活跃流条目数（判断是否有新内容到达）。 */
   private lastChatCount = 0;
@@ -15,25 +21,12 @@ export class ScrollManager {
   private panelScrollTop: number[] = [];
   /** Workspace 三列滚动快照：按 left / center / right 槽位保存。 */
   private workspaceScrollTop = new Map<string, number>();
-  /** 聊天流图片观察器：<img> 加载撑开高度后自动贴底。 */
-  private resizeObserver: ResizeObserver | null = null;
-  /** 当前被观察的聊天流容器（用于移除 scroll 监听）。 */
-  private observeTarget: HTMLElement | null = null;
-
-  /** 滚动时实时刷新贴底标记：图片加载回调不打断用户上翻历史。 */
-  private handleStreamScroll = (): void => {
-    const stream = this.observeTarget;
-    if (!stream) return;
-    this.chatAtBottom = stream.scrollTop + stream.clientHeight >= stream.scrollHeight - 24;
-  };
 
   /** 会话重置：回到底部 + 清快照计数。 */
   reset(): void {
-    this.chatScrollRatio = 1;
-    this.chatAtBottom = true;
     this.pendingChatForceScroll = false;
     this.lastChatCount = 0;
-    this.disconnectObserver();
+    this.flow.reset();
   }
 
   /** 标记下次重建强制滚到底（从日志切回聊天等场景）。 */
@@ -41,20 +34,11 @@ export class ScrollManager {
     this.pendingChatForceScroll = true;
   }
 
-  /** 重建 DOM 前调用：记录当前聊天流滚动比例，并判断是否贴底。 */
+  /** 重建 DOM 前调用：记录当前聊天流滚动状态与阅读锚点。 */
   captureChat(root: HTMLElement): void {
-    this.disconnectObserver();
-    const stream = root.querySelector<HTMLElement>('.chat-stream');
-    if (!stream) return;
-    const max = stream.scrollHeight - stream.clientHeight;
-    if (max <= 0) {
-      this.chatScrollRatio = 1;
-      this.chatAtBottom = true;
-      return;
-    }
-    this.chatScrollRatio = stream.scrollTop / max;
-    // 距底部 24px 内视为"贴底"（新内容到达时跟随滚到底）
-    this.chatAtBottom = stream.scrollTop + stream.clientHeight >= stream.scrollHeight - 24;
+    const host = root.querySelector<HTMLElement>('.chat-stream');
+    if (!host) return;
+    this.flow.capture(host, CHAT_STREAM_KEY);
   }
 
   /**
@@ -70,17 +54,13 @@ export class ScrollManager {
   }): void {
     // 对话空间或一般聊天：两者都有 .chat-stream
     if (opts.centerTab !== 'chat' && !opts.conversationVariantId) return;
-    const stream = root.querySelector<HTMLElement>('.chat-stream');
-    if (!stream) return;
+    const host = root.querySelector<HTMLElement>('.chat-stream');
+    if (!host) return;
     const hasNew = opts.activeStreamLength !== this.lastChatCount;
     this.lastChatCount = opts.activeStreamLength;
-    if ((hasNew && this.chatAtBottom) || this.pendingChatForceScroll) {
-      this.chatScrollRatio = 1;
-      this.pendingChatForceScroll = false;
-      this.chatAtBottom = true;
-    }
-    const max = stream.scrollHeight - stream.clientHeight;
-    stream.scrollTop = this.chatScrollRatio * max;
+    const force = this.pendingChatForceScroll;
+    this.pendingChatForceScroll = false;
+    this.flow.restore(host, { mode: 'ratio', follow: hasNew, force, streamKey: CHAT_STREAM_KEY });
   }
 
   /**
@@ -90,31 +70,9 @@ export class ScrollManager {
    * 图片尺寸回调里重新贴底——覆盖"流高小于视口，图片渲染后才超出"的情况。
    */
   observeChatStream(root: HTMLElement): void {
-    this.disconnectObserver();
-    if (!this.chatAtBottom) return;
-    const stream = root.querySelector<HTMLElement>('.chat-stream');
-    if (!stream || typeof ResizeObserver === 'undefined') return;
-    const images = [...stream.querySelectorAll<HTMLImageElement>('img')];
-    if (images.length === 0) return;
-    this.observeTarget = stream;
-    stream.addEventListener('scroll', this.handleStreamScroll);
-    this.resizeObserver = new ResizeObserver(() => {
-      if (!this.chatAtBottom) return;
-      stream.scrollTop = stream.scrollHeight - stream.clientHeight;
-    });
-    for (const img of images) this.resizeObserver.observe(img);
-  }
-
-  /** 停止观察聊天流（重建 / 重置前调用）。 */
-  disconnectObserver(): void {
-    if (this.observeTarget) {
-      this.observeTarget.removeEventListener('scroll', this.handleStreamScroll);
-      this.observeTarget = null;
-    }
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-      this.resizeObserver = null;
-    }
+    const host = root.querySelector<HTMLElement>('.chat-stream');
+    if (!host) return;
+    this.flow.observe(host, CHAT_STREAM_KEY);
   }
 
   /** 面板滚动位置快照：强化/通讯录等列表防刷新回滚。 */

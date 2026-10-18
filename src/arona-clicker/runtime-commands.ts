@@ -17,11 +17,33 @@ import type { PlayerState } from './types/state';
 import type { DevLogEntry } from '../engine/core/dev-log';
 import type { OperationObservation, OperationObservationInput } from './contracts/operation-observation';
 import type { ThemeContentEditorService } from './services/theme-content-editor-service';
+import type {
+  MapRun,
+  MapRunEncounterCommitCommand,
+  MapRunEncounterDraftToken,
+  MapRunEncounterSourcePreview,
+  MapRunEncounterSourceTarget,
+  MapRunShopDraftToken,
+} from './contracts/map-run';
 
 export interface GameCommandSource {
   readonly state: Readonly<PlayerState>;
   getDevLogs(): readonly DevLogEntry[];
   recordOperationObservation(input: OperationObservationInput): OperationObservation;
+  startMap(mapId: string): MapRun;
+  moveMap(runId: string, targetNodeId: string): MapRun;
+  completeMapEncounter(runId: string): MapRun;
+  purchaseMapShopOffer(runId: string, offerId: string, requestId: string, draft: MapRunShopDraftToken): MapRun;
+  leaveMapShop(runId: string, draft: MapRunShopDraftToken): MapRun;
+  swapMapPreparedAction(runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken): MapRun;
+  issueMapPlayerCommand(runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken): MapRun;
+  setMapPreparedTarget(runId: string, characterId: string, targetCharacterId: string | null, draft: MapRunEncounterDraftToken): MapRun;
+  setMapPreparedEnemyTarget(runId: string, characterId: string, targetEnemyId: string | null, draft: MapRunEncounterDraftToken): MapRun;
+  clearMapActionOverride(runId: string, characterId: string, draft: MapRunEncounterDraftToken): MapRun;
+  setMapAbilityDraft(runId: string, actionId: string | null, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;
+  setMapItemDraft(runId: string, itemId: string | null, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;
+  previewMapEncounterSources(runId: string): MapRunEncounterSourcePreview | null;
+  commitMapEncounterRound(command: MapRunEncounterCommitCommand): MapRun;
   readonly themeContentEditor?: ThemeContentEditorService;
   travelToArea(areaId: AreaId, allowDuringStory?: boolean, checkAdjacency?: boolean): TravelResult;
   tick(): TickResult;
@@ -72,6 +94,25 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     triggerPassiveStory: (initId, owner) => game.story.triggerPassiveStory(initId, owner),
     triggerAffectionPush: owner => game.story.triggerAffectionPush(owner),
     triggerTailPush: (owner, storyId) => game.story.triggerTailPush(owner, storyId),
+    startMap: mapId => game.startMap(mapId),
+    moveMap: (runId, targetNodeId) => game.moveMap(runId, targetNodeId),
+    completeMapEncounter: runId => game.completeMapEncounter(runId),
+    purchaseMapShopOffer: (runId, offerId, requestId, draft) =>
+      game.purchaseMapShopOffer(runId, offerId, requestId, draft),
+    leaveMapShop: (runId, draft) => game.leaveMapShop(runId, draft),
+    swapMapPreparedAction: (runId, characterId, actionId, draft) =>
+      game.swapMapPreparedAction(runId, characterId, actionId, draft),
+    issueMapPlayerCommand: (runId, characterId, actionId, draft) =>
+      game.issueMapPlayerCommand(runId, characterId, actionId, draft),
+    setMapPreparedTarget: (runId, characterId, targetCharacterId, draft) =>
+      game.setMapPreparedTarget(runId, characterId, targetCharacterId, draft),
+    setMapPreparedEnemyTarget: (runId, characterId, targetEnemyId, draft) =>
+      game.setMapPreparedEnemyTarget(runId, characterId, targetEnemyId, draft),
+    clearMapActionOverride: (runId, characterId, draft) => game.clearMapActionOverride(runId, characterId, draft),
+    setMapAbilityDraft: (runId, actionId, target, draft) => game.setMapAbilityDraft(runId, actionId, target, draft),
+    setMapItemDraft: (runId, itemId, target, draft) => game.setMapItemDraft(runId, itemId, target, draft),
+    previewMapEncounterSources: runId => game.previewMapEncounterSources(runId),
+    commitMapEncounterRound: command => game.commitMapEncounterRound(command),
     advanceStory: (choiceIndex, owner) => game.story.advanceStory(choiceIndex, owner),
     clickSend: owner => game.story.clickSend(owner),
     useItem: itemId => game.items.useItem(itemId),

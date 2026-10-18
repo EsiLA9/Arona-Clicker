@@ -119,12 +119,19 @@ export interface SpotFunctionalityDef {
   /** 默认 true；为 false 时可在未持有 Spot 时纳入可用功能列表。 */
   requiresOwned?: boolean;
   condition?: ConditionGroup;
-  /** operationEntry 是统一的关卡入口功能；每个按钮配置一个目标，不按关卡扩展类型。 */
-  kind: 'flow' | 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop' | 'operationEntry';
+  /** operationEntry 指向旧 Operation Event；mapEntry 单独指向新 Map。 */
+  kind: 'flow' | 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop' | 'operationEntry' | 'mapEntry';
   /** @ref shops */
   shopId?: ShopId;
   /** operationEntry 的目标关卡；阵容、标题与准入状态由行动入口查询提供。 @ref operationEvents */
   operationEventId?: string;
+  /** mapEntry 的目标地图。 @ref maps */
+  mapId?: string;
+  /**
+   * mapEntry 的入口按钮文案，作者可直接写成“进入 XXX”；缺省时使用内置
+   * “开始地图 / 继续地图”。只影响按钮文字，不改变入口校验或状态。
+   */
+  mapEntryLabel?: string;
   resource?: string;
   amount?: number | ValueExpression;
   amountPerLevel?: number;

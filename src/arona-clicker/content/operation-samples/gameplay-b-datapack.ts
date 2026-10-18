@@ -5,6 +5,7 @@ import type {
   OperationEventContentDef,
   OperationLocationDef,
 } from '../../../data-services/contracts/operation';
+import { GAMEPLAY_B_MAP_SPOT_ID, gameplayBMapDefinition } from './gameplay-b-map-datapack';
 import { CAROUSEL_SCENE_ACTION_IDS as IDS, carouselSceneActionSliceContent } from './carousel-scene-action-slice';
 import {
   atomicSceneDemoAction,
@@ -76,10 +77,19 @@ const event: OperationEventContentDef = {
 };
 
 /**
- * Standalone, formally typed Operation content pack for the carousel vertical slice.
- * It depends on base Character and Init definitions and is loaded after the base pack.
+ * Legacy mixed Operation / Map fixture retained for focused historical Runtime tests.
+ * The application bundle uses gameplay-b-map-datapack.ts and does not load this fixture.
  */
-export const GAMEPLAY_B_OPERATION_SPOT_ID = 'gameplay-b:spot:operation_terminal';
+export const GAMEPLAY_B_OPERATION_SPOT_ID = GAMEPLAY_B_MAP_SPOT_ID;
+
+const operationEntrySpot = spot(GAMEPLAY_B_OPERATION_SPOT_ID, 'base:area:schale_main')
+  .name('行动终端').desc('选择一项行动关卡，组织学生出动；进行中的关卡可以从对应功能继续。')
+  .cost(0).maxLevel(1).tags(tagPath('tactical'), tagPath('office'))
+  .operationEntry('carousel', event.id)
+  .operationEntry('atomic-scene', atomicSceneDemoEvent.id)
+  .operationEntry('scene-offer-purchase', sceneOfferPurchaseDemoEvent.id)
+  .operationEntry('rest-scene', restSceneDemoEvent.id)
+  .build();
 
 export const gameplayBCarouselDatapack: Datapack = {
   modName: 'gameplay-b',
@@ -87,14 +97,19 @@ export const gameplayBCarouselDatapack: Datapack = {
   version: '1.0.0',
   inits: [],
   areas: [],
-  spots: [spot(GAMEPLAY_B_OPERATION_SPOT_ID, 'base:area:schale_main')
-    .name('行动终端').desc('选择一项行动关卡，组织学生出动；进行中的关卡可以从对应功能继续。')
-    .cost(0).maxLevel(1).tags(tagPath('tactical'), tagPath('office'))
-    .operationEntry('carousel', event.id)
-    .operationEntry('atomic-scene', atomicSceneDemoEvent.id)
-    .operationEntry('scene-offer-purchase', sceneOfferPurchaseDemoEvent.id)
-    .operationEntry('rest-scene', restSceneDemoEvent.id)
-    .build()],
+  spots: [{
+    ...operationEntrySpot,
+    functionalities: [
+      ...(operationEntrySpot.functionalities ?? []),
+      {
+        id: 'field-investigation-map',
+        kind: 'mapEntry',
+        mapId: gameplayBMapDefinition.id,
+        mapEntryLabel: '进入现场调查路线',
+      },
+    ],
+  }],
+  maps: [gameplayBMapDefinition],
   enhancements: [],
   activeStories: [],
   passiveStories: [],

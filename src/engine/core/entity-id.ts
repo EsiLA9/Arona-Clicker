@@ -49,6 +49,7 @@ export const ENTITY_TYPES: ReadonlySet<string> = new Set([
   'shop',
   'tag',
   'operation-event',
+  'map',
   'operation-location',
   'operation-action',
   'student-operation-profile',

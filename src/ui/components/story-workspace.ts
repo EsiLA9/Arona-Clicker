@@ -2,8 +2,7 @@ import type { UIContext } from '../context';
 import type { PanelState, StoryWorkspaceState } from './app-shell';
 import { renderConversationBody } from './contacts';
 import { renderChatTab } from './center-panel';
-import { LEFT_TABS, renderStoryNavigation } from './rail';
-import { renderPanelTabsRegion } from './tabs';
+import { renderStoryNavigation } from './rail';
 import { renderWorkspaceFrame } from './workspace-frame';
 import { renderWorkspaceTitlebar } from './workspace-titlebar';
 
@@ -21,7 +20,7 @@ export function renderStoryWorkspace(
   const owner = workspace.conversationOwner;
   const hasConversation = workspace.subroute === 'overview'
     && (workspace.selectedEntryId !== null || workspace.mode === 'playing');
-  const left = renderPanelTabsRegion(ctx, 'left', LEFT_TABS, 'story')
+  const left = renderWorkspaceTitlebar(ctx, 'left', '故事导航', 'data-story-workspace-leave')
     + '<div class="story-workspace__navigation">'
     + renderStoryNavigation(ctx, workspace.navPath)
     + '</div>';

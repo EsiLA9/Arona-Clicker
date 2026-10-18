@@ -7,6 +7,7 @@
 
 import { UIContext } from '../context';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from './story';
+import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE } from '../flow/flow-entry';
 import { renderSendButton } from './center-panel';
 import { renderPanelHeaderRegion } from './tabs';
 import { renderBackground } from '../background-service';
@@ -312,7 +313,7 @@ function renderConversationFlow(
 
   return `
     <div class="chat-pane">
-      <div class="chat-stream conversation-stream">
+      <div class="chat-stream conversation-stream" ${FLOW_HOST_KEY_ATTRIBUTE}="conversation:${ctx.escapeHtml(variantId)}" ${FLOW_STREAM_KEY_ATTRIBUTE}="conversation:${ctx.escapeHtml(variantId)}" role="log" aria-label="对话信息">
         ${renderChatHistory(entries, ctx)}
         ${current}
       </div>

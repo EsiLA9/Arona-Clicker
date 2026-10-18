@@ -48,6 +48,20 @@ export interface ShopTransactionCommit {
   purchasedEvents: Extract<GameEvent, { type: 'shopPurchased' }>[];
 }
 
+/** Opaque, detached debit for one MapRun Encounter Item commit. */
+export interface PreparedMapRunItemConsumption {
+  readonly itemId: string;
+  readonly expectedCount: number;
+}
+
+interface PreparedMapRunItemConsumptionState {
+  readonly state: AronaClickerState;
+  readonly itemId: string;
+  readonly expectedCount: number;
+  installed: boolean;
+  published: boolean;
+}
+
 function activeThemeOf(state: AronaClickerState): ActiveThemeSelection {
   return state.activeTheme ?? { kind: 'system' };
 }
@@ -81,6 +95,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   private entityPresentationSelectionValidator: ((state: AronaClickerState, entityKey: string, optionId: string) => boolean) | null = null;
   private informationRevealTargetValidator: ((state: AronaClickerState, key: RevealedInformationTarget) => boolean) | null = null;
   private milestoneCompletionValidator: ((state: AronaClickerState, milestoneId: string) => boolean) | null = null;
+  private readonly preparedMapRunItemConsumptions = new WeakMap<object, PreparedMapRunItemConsumptionState>();
 
   constructor(
     private readonly eventBus: EventBus,
@@ -908,6 +923,50 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
       this.emit({ type: 'itemCollected', itemId, count: delta, newTotal: state.inventory[itemId] ?? 0 });
     }
     for (const event of commit.purchasedEvents) this.emit(event);
+  }
+
+  /** Prepares a one-item MapRun debit without changing PlayerState, Stats, or emitting events. */
+  prepareMapRunItemConsumption(itemId: string): PreparedMapRunItemConsumption | null {
+    if (typeof itemId !== 'string' || itemId.trim().length === 0) return null;
+    const state = this.current;
+    const expectedCount = state.inventory[itemId] ?? 0;
+    if (!Number.isSafeInteger(expectedCount) || expectedCount < 1) return null;
+    const plan = Object.freeze({ itemId, expectedCount });
+    this.preparedMapRunItemConsumptions.set(plan, {
+      state,
+      itemId,
+      expectedCount,
+      installed: false,
+      published: false,
+    });
+    return plan;
+  }
+
+  /** Pure preflight; GameInstance performs this before installing either owner. */
+  canInstallPreparedMapRunItemConsumption(plan: PreparedMapRunItemConsumption): boolean {
+    const prepared = this.preparedMapRunItemConsumptions.get(plan as object);
+    return !!prepared && !prepared.installed && !prepared.published
+      && this.state === prepared.state
+      && (prepared.state.inventory[prepared.itemId] ?? 0) === prepared.expectedCount;
+  }
+
+  /** No-event PlayerState and Stats install for a preflighted MapRun item debit. */
+  installPreparedMapRunItemConsumption(plan: PreparedMapRunItemConsumption): void {
+    const prepared = this.preparedMapRunItemConsumptions.get(plan as object)!;
+    const nextCount = prepared.expectedCount - 1;
+    if (nextCount === 0) delete prepared.state.inventory[prepared.itemId];
+    else prepared.state.inventory[prepared.itemId] = nextCount;
+    this.statsService?.recordItemChange(prepared.itemId, -1);
+    prepared.installed = true;
+  }
+
+  /** Publishes the already-installed MapRun item debit after both owners are complete. */
+  publishPreparedMapRunItemConsumption(plan: PreparedMapRunItemConsumption): void {
+    const prepared = this.preparedMapRunItemConsumptions.get(plan as object)!;
+    if (!prepared.installed || prepared.published) return;
+    prepared.published = true;
+    const newTotal = prepared.state.inventory[prepared.itemId] ?? 0;
+    this.emit({ type: 'itemCollected', itemId: prepared.itemId, count: -1, newTotal });
   }
 
   /** Spot 费用与等级的一次提交点；调用方必须先完成完整的只读校验。 */

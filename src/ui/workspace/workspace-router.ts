@@ -7,7 +7,8 @@ export type WorkspaceRoute =
   | { kind: 'character'; variantId: string }
   | { kind: 'contacts' }
   | { kind: 'story'; sessionId?: string }
-  | { kind: 'operation'; runId: string };
+  | { kind: 'operation'; runId: string }
+  | { kind: 'map'; runId: string };
 
 export type LegacyWorkspaceRoute = 'game' | 'contacts' | 'story' | 'shop' | 'character' | 'service';
 
@@ -76,6 +77,7 @@ export function workspaceRouteKey(route: WorkspaceRoute): string {
   if (route.kind === 'character') return `character:${route.variantId}`;
   if (route.kind === 'story') return `story:${route.sessionId ?? ''}`;
   if (route.kind === 'operation') return `operation:${route.runId}`;
+  if (route.kind === 'map') return `map:${route.runId}`;
   return route.kind;
 }
 
@@ -119,5 +121,8 @@ export function resolveCurrentWorkspaceRoute(
   legacy: { service?: string; workspace?: WorkspaceRouteRef | null },
 ): WorkspaceRoute {
   const derived = routeFromLegacyState(legacy);
+  if (navigation?.current.kind === 'map'
+    && (!legacy.service || legacy.service === 'game')
+    && !legacy.workspace) return navigation.current;
   return navigation && sameWorkspaceRoute(navigation.current, derived) ? navigation.current : derived;
 }

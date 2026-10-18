@@ -27,11 +27,21 @@ function mergeDecoration(base: BackgroundDecorationView | undefined, overlay: Ba
  * 不含写入口（mutations / 各命令门面 / 生命周期 / 存档）。
  * 写操作一律由 controller 层经 GameCommands 发起（架构纪律 #4）。
  */
+/**
+ * Map 工作区的 UI 临时信息流：Controller 持有真正的 Run 级流实例，
+ * 缺失时渲染层只使用 detached View 的基线（无查询与会话观察）。
+ */
+export interface MapFlowReader {
+  entriesFor(runId: string, view: import('../arona-clicker/contracts/runtime').MapRunWorkspaceView, ctx: UIContext): readonly import('./flow/flow-entry').FlowEntry[];
+}
+
 export interface UIContext {
   game: GameReadModel;
   world: GameReadModel['world'];
   view: GameView;
   saveExists: boolean;
+  /** 仅 Map 工作区渲染使用；其他调用方保持缺省。 */
+  mapFlow?: MapFlowReader;
   formatNumber(value: number): string;
   escapeHtml(value: string): string;
   formatTime(timestamp: number): string;
@@ -76,6 +86,7 @@ export function createUIContext(
   background?: BackgroundView,
   presentation?: PresentationView,
   selectorThemePolicy?: UIContext['selectorThemePolicy'],
+  mapFlow?: MapFlowReader,
 ): UIContext {
   const presentationView = presentation ?? emptyPresentation;
   const resolveHostId = (hostId: string): string | undefined => {
@@ -152,6 +163,7 @@ export function createUIContext(
     background: background ?? { layers: [] },
     presentation: presentation ?? emptyPresentation,
     selectorThemePolicy,
+    mapFlow,
     entityPresentation: game.entityPresentation,
     backgroundForHost: (hostId, inheritGlobal = false, state: PresentationHostState = 'default') => {
       const globalLayers = (background ?? { layers: [] }).layers;

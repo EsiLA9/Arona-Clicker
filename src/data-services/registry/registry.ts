@@ -27,6 +27,7 @@ import type {
 } from '../contracts/operation';
 import type { PaymentOptionDef } from '../contracts/cost';
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
+import type { GameplayMapDef } from '../contracts/gameplay-map';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
 // ============================================================
@@ -85,6 +86,7 @@ export class Registry {
   private _inits: Map<string, InitDef> = new Map();
   private _areas: Map<string, AreaDef> = new Map();
   private _spots: Map<string, SpotDef> = new Map();
+  private _maps: Map<string, GameplayMapDef> = new Map();
   private _suspendedSpots = new Map<string, { spot: SpotDef; ownerModName: string }>();
   private _initSourceModNames = new Map<string, string>();
   private _areaSourceModNames = new Map<string, string>();
@@ -371,6 +373,11 @@ export class Registry {
           if (dp.themeDesigns) for (const d of dp.themeDesigns) this._themeDesigns.set(d.id, d);
         },
         clear: () => this._themeDesigns.clear(),
+      },
+      {
+        table: 'maps',
+        merge: dp => { if (dp.maps) for (const map of dp.maps) this._maps.set(map.id, map); },
+        clear: () => this._maps.clear(),
       },
       {
         table: 'operationEvents',
@@ -803,6 +810,8 @@ export class Registry {
   /** 卡池表（PoolId → Def）。 */
   get gachaPools(): ReadonlyMap<string, GachaPoolDef> { return this._gachaPools; }
   get shops(): ReadonlyMap<string, ShopDef> { return this._shops; }
+  /** Gameplay B Map definitions (MapId → Def). */
+  get maps(): ReadonlyMap<string, GameplayMapDef> { return this._maps; }
   /** 色彩组表（ColorGroupId → Def；唯一色彩实体）。 */
   get colorGroups(): ReadonlyMap<string, ColorGroupDef> { return this._colorGroups; }
   /** 色彩装备表（EquipmentId → Def）。 */
@@ -983,6 +992,7 @@ export class Registry {
         }
       }
       this.validateSpotOperationEntryRefs(spot);
+      this.validateSpotMapEntryRefs(spot);
     }
     for (const shop of this._shops.values()) {
       const sections = new Set<string>();
@@ -1265,12 +1275,26 @@ export class Registry {
       areaIds: new Set(this._areas.keys()),
     });
     this.validateSpotOperationEntryRefs(spot);
+    this.validateSpotMapEntryRefs(spot);
   }
 
   private validateSpotOperationEntryRefs(spot: SpotDef): void {
     for (const fn of spot.functionalities ?? []) {
       if (fn.kind === 'operationEntry' && (!fn.operationEventId || !this._operationEvents.has(fn.operationEventId))) {
         throw new RegistryError(`Spot ${spot.id} 的 operationEntry Function ${fn.id} 引用了未定义的 OperationEvent "${fn.operationEventId ?? ''}"`);
+      }
+    }
+  }
+
+  private validateSpotMapEntryRefs(spot: SpotDef): void {
+    for (const fn of spot.functionalities ?? []) {
+      if (fn.kind !== 'mapEntry') continue;
+      if (fn.mapEntryLabel !== undefined
+        && (typeof fn.mapEntryLabel !== 'string' || fn.mapEntryLabel.trim().length === 0)) {
+        throw new RegistryError(`Spot ${spot.id} 的 mapEntry Function ${fn.id} 的 mapEntryLabel 必须是非空字符串`);
+      }
+      if (!fn.mapId || !this._maps.has(fn.mapId)) {
+        throw new RegistryError(`Spot ${spot.id} 的 mapEntry Function ${fn.id} 引用了未定义的 Map "${fn.mapId ?? ''}"`);
       }
     }
   }
@@ -1334,6 +1358,7 @@ export class Registry {
       milestoneListeners: this._milestoneListeners,
       achievements: this._achievements,
       characterIds: new Set<string>(this._characters.keys()),
+      itemTypes: new Map(Array.from(this._items, ([id, item]) => [id, item.type] as const)),
       locations: this._operationLocations,
       actions: this._operationActions,
       profiles: this._studentOperationProfiles,
@@ -1364,6 +1389,7 @@ export class Registry {
       milestoneListeners: this._milestoneListeners,
       achievements: this._achievements,
       characterIds: new Set<string>(this._characters.keys()),
+      itemTypes: new Map(Array.from(this._items, ([id, item]) => [id, item.type] as const)),
       locations: this._operationLocations,
       actions: this._operationActions,
       profiles: this._studentOperationProfiles,

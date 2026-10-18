@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { GAMEPLAY_B_OPERATION_SPOT_ID, gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import { CAROUSEL_SCENE_ACTION_IDS as CAROUSEL_IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import { gameplayBStrategyParkDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-strategy-park';
@@ -38,6 +38,8 @@ describe('Gameplay B Strategy Park map UI', () => {
 
   function acquireStudents(): void {
     for (const variantId of ['Hoshino', 'Serika', 'Shiroko']) game!.mutations.acquireCharacter(variantId, 'story');
+    game!.mutations.setSpotLevel(GAMEPLAY_B_OPERATION_SPOT_ID, 1);
+    game!.mutations.setSpotLevel('gameplay-b-strategy-park:spot:park_terminal', 1);
   }
 
   afterEach(() => {
@@ -126,7 +128,11 @@ describe('Gameplay B Strategy Park map UI', () => {
     controller = new UIController(game, root);
     controller.started = true;
     const runId = game.operationEntry.start(PARK_IDS.event, [Character.Hoshino, Character.Serika, Character.Shiroko]).runId;
-    controller.panelState.workspace = { type: 'operation', runId };
+    controller.panelState.workspace = {
+      type: 'operation',
+      runId,
+      returnContext: controller.workspaceLocation(),
+    };
     controller.render();
 
     const toast = root.querySelector<HTMLButtonElement>('[data-operation-map-toast-open]')!;

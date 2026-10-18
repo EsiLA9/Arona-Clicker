@@ -302,6 +302,11 @@ h3 {
    overflow: hidden;
 }
 
+.workspace-frame[data-layout='default'][data-composition='columns']:not([data-responsive='pane-switch']) {
+   --workspace-left-width: 250px;
+   --workspace-right-width: 320px;
+}
+
 .workspace-frame[data-layout='center-heavy'] {
    --workspace-left-width: minmax(170px, .8fr);
    --workspace-center-width: minmax(300px, 1.6fr);

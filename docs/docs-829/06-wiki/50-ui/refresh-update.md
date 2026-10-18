@@ -37,6 +37,26 @@ Surface key / generation 令旧 Workspace 发出的请求不会落入新页面�
 
 证明入口：`tests/ui/runtime-editor-codex-integration.test.ts`、`tests/ui/runtime-editor-codex-dom-updates.test.ts` 验证节点身份、输入法、键盘页签、跨范围历史／阅读位置、缺失 Pane 顺序与浮层边界；`tests/ui/runtime-editor-codex-shell.test.ts` 验证三栏语义与响应式样式合同；共享工具 Frame 结构由 `tests/ui/workspace-frame.test.ts` 验证。测试不代替浏览器视觉与交互验收。
 
+## 聊天流与 Map 信息流的共享条目
+
+普通 Chat 与 Gameplay B 中部信息流共用一套条目标识与滚动实现：条目根元素带 `data-flow-entry-key`，宿主带 `data-flow-host-key`／`data-flow-stream-key` 与 `role="log"`。条目渲染统一走 `src/ui/components/story.ts` 的 `renderChatEntry`，Map 只提供投影，不另拼条目 HTML；正文附加行、受控 `FlowContent.actions` 按钮及 `data-*`／`role` 语义标记由渲染器统一转义与白名单输出，不接受任意 HTML 或内联事件。
+
+滚动状态由 `src/ui/flow/flow-scroll.ts` 按**流实例键**保存，而不是按 DOM 元素：普通 Chat 全量 render 会换 `.chat-stream` 节点，Map 的 feed 由 `patchMapDOM` 保留，两者都能恢复阅读位置。只有原本贴底且出现新条目时才跟随到底；上翻阅读时按条目实例键与相对偏移恢复，锚点被回收则退到相邻稳定条目。
+
+`src/ui/chat-stream.ts` 的追加与 Gameplay B 的条目投递共用 `src/ui/flow/flow-entry.ts` 的 `append`／`replaceSameId` 与 200 条上限。`replaceSameId` 只用于显式声明非空逻辑 ID 的条目（如 `gameplay-b:current-enemy-info`），普通 Chat 条目不写该字段，仍按数字 ID 与 `storyPageKey` 去重。
+
+## Map Workspace 的跨栏更新
+
+Map 的左方队员／行动、中央说明与最近回执／操作区、右方敌人／背景共用一份 detached `MapRunWorkspaceView`。`UIController.refreshMapWorkspaceRegion()` 生成目标标记后，经 `src/ui/workspace/map-dom-updates.ts` 的 `patchMapDOM()` 按区域与控件 key 协调实际变化；沿用原 Dispatcher 的一次命令收敛点，不新增调度器。同一 Encounter 的更新不再等同于只替换右侧 `[data-map-encounter-region]`。
+
+Frame、列根、共享顶部、真实滚动 owner 与仍有效的按钮保持身份；数值、文字、选中／禁用状态原位更新，候选集合变化只协调对应角色内的节点。主题背景增删也不得导致内容宿主被无谓重建。被删除的语义区域先走范围内浮层清理，再移除节点；范围外锚点继续保留，之后校验锚点连接。
+
+更新前记录真实滚动 owner 与有效焦点；按 `data-map-focus-key` 保留或恢复焦点，原按钮失效后转到可操作来源或当前遭遇标题。中部信息流按条目实例键协调：同一来源的快照刷新原位更新、不重排；只在出现新实例键且原本贴底时才跟随，正在阅读上文或仅选择草稿时不跳动。会话内保留的旧回执只带 `data-map-commit-receipt`，`data-map-recent-commit` 与 `feed-recent-commit` 仅属于最新一条。右栏「查看情报」是只读 UI 临时条目，使用固定逻辑槽回收，不发送命令、不改变目标选择。跨遭遇保留的最近回执不等于完整历史日志。
+
+相邻地点移动器属于中部流的 `gameplay-b:move-choices` 当前条目，按 Node 实例键协调；当前活动／遭遇或未完成的 Node 活动会收起它，Node 完成与空闲地点选择下一站时自动唤起。边条件与资源门槛从 detached View 读取。按钮委托沿用 Map 命令入口，并携带来源 Node 身份拒绝过期点击；只有移动命令成功才调用 `MapFlowModel.recordMovement()` 回收旧移动器，追加“从……移动到了……”的 observed 旁白。失败不消费选择器、不追加旁白；下一地点需要移动时生成自己的新移动器。历史只保留在当前 Run 的 UI 会话，离开或读档重建时不伪造此前移动记录。
+
+同一 Map 中移动、完成遭遇和进入终态仍需同步所有受影响消费者，不能误降为敌方区更新。缺失的内容区域可在所属列中补回；根或路由身份不匹配时取消旧请求或按当前路由恢复，不把全页 render 当作普通点击路径。验证入口为 `tests/ui/map-dom-updates.test.ts`、`tests/ui/gameplay-b-map-workspace.test.ts` 与 `tests/ui/gameplay-b-map-vertical-slice.test.ts`，视觉复用入口见 [[ui-style/patterns]]。
+
 ## 测试与验证边界
 
 `tests/ui/ui-update-dispatcher.test.ts` 验证重复合并、区域 / 结构优先级及过期 Surface 丢弃；`tests/ui/controller-events.test.ts` 验证事件映射到当前导航、局部区域和主题响应；`tests/ui/workspace-frame.test.ts`、`workspace-lifecycle.test.ts` 覆盖工作区结构 / 生命周期。它们不替代真实浏览器中的视觉或交互验收。

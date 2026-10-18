@@ -12,6 +12,9 @@ export interface SpotFunctionalityView {
   readonly startLevel?: number;
   readonly shopId?: string;
   readonly operationEventId?: string;
+  readonly mapId?: string;
+  /** Authored Map Entry button text; falls back to the built-in label when omitted. */
+  readonly mapEntryLabel?: string;
 }
 
 export interface SpotFunctionalitySubject {

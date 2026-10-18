@@ -16,11 +16,11 @@
 
 产品发布基础包由 `src/arona-clicker/content/base-pack/datapack.json` 与 JSON 分片打包，记录来源标为 `bundle`。当前发布版本为 `base@1.0.2`。它与 `datapack-dev/` 的来源对账无关；发布基准只读，复制出的新 Version 编辑态记录可以进入启用序列并由 RuntimeEditor 保存。旧快照中的 `builtin` 来源不再定义是否必需，必需性由 `base` 槽位承担。
 
-Gameplay B V1 另有独立的可选 bundle `gameplay-b@1.0.0`，由 Runtime 装配 `content/operation-samples/gameplay-b-datapack.ts` 并依赖 `base`。首次发现此包时默认启用；快照已记录该包、Pane 已有明确选择，或已有同 Mod 启用项时不覆盖玩家选择。正式 Operation Event 因而进入现有 PackManager / Registry 流程，base 内容表不重复包含演示 Event。
+Gameplay B 当前默认只装载 Map 内容：可选 bundle `gameplay-b@1.0.0` 由 Runtime 装配 `content/operation-samples/gameplay-b-map-datapack.ts`，依赖 `base`，只声明 `maps` 和 `Spot.mapEntry`，不带 Operation Event / Location / Action / Profile 表。首次发现此包时默认启用；快照已记录该包、Pane 已有明确选择，或已有同 Mod 启用项时不覆盖玩家选择。
 
-13 地点 Strategy Park 验证样例由独立 bundle `gameplay-b-strategy-park@1.0.0` 装配 `content/operation-samples/gameplay-b-strategy-park.ts`，与 Carousel 保持分包但默认一同启用，保留同一 Registry / Operation Runtime 路径，并从夏莱办公室试玩入口按 Event ID 启动。包被明确停用后，PackManager 恢复时仍尊重保存选择。
+旧 13 地点 Strategy Park bundle `gameplay-b-strategy-park@1.0.0` 已从默认装配中退役。恢复旧包库快照时，Runtime 将该精确 `bundle` 身份列为退役项；`PackManager` 只移除对应的内置 bundle 记录，清理没有剩余记录的选择 Pane，并保存清理后的快照。用户导入包与编辑态副本不会因为这个内置退役规则被删除。
 
-恢复包库快照时，`base` 与两份 Gameplay B 同 ID 已保存 `bundle` 记录都以当前打包内容为准进行刷新，保留记录身份、导入时间和包选择；独立的编辑态副本不随发布 bundle 刷新。若发布版本 ID 更新，旧版本 `bundle` 记录会被新发布包替换；原快照启用的是旧发布包时转而启用新版本，启用的是编辑态记录时则保留该用户选择。若玩家曾明确停用其中一个 Gameplay B bundle，恢复时保持停用。
+同 ID 的 `gameplay-b@1.0.0` bundle 在恢复时以当前 Map-only 内容替换旧混合 Carousel Operation / Map 内容，保留其包记录与启用选择。旧 `operationRun` 若引用已从 Registry 移除的 Gameplay B Event，会被 Operation 恢复流程拒绝；Runtime 记录失效提示，活动 Operation checkpoint 不会安装，后续存档写入时清除该旧 checkpoint。普通玩家状态仍按原 Save 流程恢复。
 
 保留原 TypeScript 内容模块的同时，可运行 `npm run datapack:export-base` 生成标准 Base 文件夹包，默认位于 `datapack/base@<Version>/`。导出包含 manifest、JSON 分片和图片资源；图片引用转为包内 `zip:` 路径。该目录是从现有 TypeScript 内容重新生成的包产物，不会替换 Runtime 当前读取的 JSON 发布资源。导出测试会经 `FolderPackSource` / `parsePack()` 解析并与 TS 组合逐字段比较。
 

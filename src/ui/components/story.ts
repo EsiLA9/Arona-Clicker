@@ -2,6 +2,8 @@ import type { StoryView } from '../../arona-clicker/contracts/results';
 import { UIContext } from '../context';
 import { renderAvatarSvg } from '../avatar-renderer';
 import { renderPresentationHostBackground } from '../presentation-service';
+import type { FlowContent, FlowMarks, FlowRepeatPolicy } from '../flow/flow-entry';
+import { FLOW_ENTRY_KEY_ATTRIBUTE, FLOW_MARK_NAME, chatEntryToFlowContent, chatInstanceKey } from '../flow/flow-entry';
 
 export const storyErrorText: Record<string, string> = {
   AlreadyActive: '已有剧情流程进行中',
@@ -43,6 +45,10 @@ export interface ChatEntry {
   image?: string;
   /** 已送达剧情页的同步标识，随历史保存；用于读档去重，不按台词文本合并消息。 */
   storyPageKey?: string;
+  /** 共享投递策略的逻辑身份；普通 Chat 不写入，保留现有数字 ID 与 storyPageKey 语义。 */
+  contentId?: string;
+  /** 共享投递策略；普通 Chat 不写入（缺省追加）。 */
+  repeatPolicy?: FlowRepeatPolicy;
   timestamp: number;
 }
 
@@ -106,9 +112,61 @@ function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: strin
   return `<span class="chat-avatar">${fallback}</span>`;
 }
 
+/** 单条目渲染选项：实例键写入条目根元素，不新增包裹节点。 */
+export interface RenderChatEntryOptions {
+  /** 条落实例键：共享滚动与 DOM 协调据此定位条目。 */
+  readonly instanceKey?: string;
+  /** 同人连发分组接续：隐藏头像与名称。 */
+  readonly hideIdentity?: boolean;
+  /** 内联样式覆写（演出覆盖层复用气泡外观时使用）。 */
+  readonly inlineStyle?: string;
+}
+
+/** 条目根元素的实例键属性；无键时不输出该属性（演出覆盖层等非流内用法）。 */
+function entryKeyAttribute(ctx: UIContext, instanceKey: string | undefined): string {
+  return instanceKey ? ` ${FLOW_ENTRY_KEY_ATTRIBUTE}="${ctx.escapeHtml(instanceKey)}"` : '';
+}
+
+/** 受控语义标记：只渲染白名单内的属性名，值统一转义。 */
+function markAttributes(ctx: UIContext, marks: FlowMarks | undefined): string {
+  if (!marks) return '';
+  const parts: string[] = [];
+  for (const [name, value] of Object.entries(marks)) {
+    if (!FLOW_MARK_NAME.test(name)) continue;
+    if (value === true) parts.push(` ${name}`);
+    else if (value !== '') parts.push(` ${name}="${ctx.escapeHtml(value)}"`);
+  }
+  return parts.join('');
+}
+
+/** 条目根元素的全部标记：实例键 + 调用方语义标记。 */
+function entryAttributes(ctx: UIContext, entry: FlowContent, instanceKey: string | undefined): string {
+  return `${entryKeyAttribute(ctx, instanceKey)}${markAttributes(ctx, entry.marks)}`;
+}
+
+/**
+ * 气泡正文：普通条目保持单段 `<p>`；带标题／附加行时改为受控多行结构
+ * （标题等级与行内文本都由渲染器转义，不开放 HTML 插槽）。
+ */
+function renderBubbleContent(ctx: UIContext, entry: FlowContent): string {
+  const hasLines = (entry.lines?.length ?? 0) > 0;
+  if (!entry.heading && !hasLines && !entry.actions?.length) {
+    return `<p class="presentation-host-content">${ctx.escapeHtml(entry.text)}</p>`;
+  }
+  const heading = entry.heading
+    ? `<h${entry.heading}${markAttributes(ctx, entry.headingMarks)}>${ctx.escapeHtml(entry.text)}</h${entry.heading}>`
+    : entry.text ? `<p>${ctx.escapeHtml(entry.text)}</p>` : '';
+  const lines = entry.lines?.map(line => `<p>${ctx.escapeHtml(line)}</p>`).join('') ?? '';
+  const actions = entry.actions?.length
+    ? `<div class="flow-actions">${entry.actions.map(action => `<button type="button" class="mini-action flow-action"${markAttributes(ctx, action.marks)}${action.disabled ? ' disabled' : ''}><span>${ctx.escapeHtml(action.label)}</span>${action.detail ? `<small>${ctx.escapeHtml(action.detail)}</small>` : ''}</button>`).join('')}</div>`
+    : '';
+  return `<div class="presentation-host-content">${heading}${lines}${actions}</div>`;
+}
+
 /** 对话气泡：左侧圆形头像（NPC）/ 右侧（玩家），对侧上部名字 + 下部小箭头气泡。
  *  hideIdentity（§4 连发分组）：同人连发中非首条不渲染头像与名称，以不可见头像占位保持气泡缩进对齐。 */
-export function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: string, hideIdentity = false): string {
+export function renderTalk(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
+  const { instanceKey, hideIdentity = false, inlineStyle } = options;
   const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
   // 仅玩家回复保留"回复"标签（当前注释禁用，见同步流）；NPC 不再显示 PASSIVE/ACTIVE
@@ -120,7 +178,7 @@ export function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: strin
     <div class="chat-bubble presentation-host-target chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}" data-theme-host-id="bubble" data-theme-text-mode="${ctx.textColorModeForHost?.('bubble') ?? 'auto'}"${styleAttr}>
       ${renderPresentationHostBackground(ctx, 'bubble')}
       ${image}
-      <p class="presentation-host-content">${ctx.escapeHtml(entry.text)}</p>
+      ${renderBubbleContent(ctx, entry)}
     </div>`;
   const nameLine = hideIdentity ? '' : `<div class="chat-name">${badge}${name}</div>`;
   const main = `<div class="chat-talk-main">${nameLine}${bubble}</div>`;
@@ -129,7 +187,7 @@ export function renderTalk(ctx: UIContext, entry: ChatEntry, inlineStyle?: strin
     : hideIdentity
       ? '<span class="chat-avatar chat-avatar-ghost" aria-hidden="true"></span>'
       : renderAvatar(ctx, entry.avatar, entry.speaker);
-  return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}">${avatar}${main}</div>`;
+  return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}"${entryAttributes(ctx, entry, instanceKey)}>${avatar}${main}</div>`;
 }
 
 /** 聊天气泡内嵌图片：pic ref / 直连 URL 经 getPicUrl 解析；解析失败返回空串（不渲染）。 */
@@ -140,9 +198,9 @@ function renderChatImage(ctx: UIContext, ref: string): string {
 }
 
 /** 场间旁白：横跨聊天流宽度，支持 center/left/right 对齐。 */
-function renderNarration(ctx: UIContext, entry: ChatEntry): string {
+function renderNarration(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
   const align = entry.align ?? 'center';
-  return `<div class="chat-narration chat-narration-${align}"><span class="chat-narration-text">${ctx.escapeHtml(entry.text)}</span></div>`;
+  return `<div class="chat-narration chat-narration-${align}"${entryAttributes(ctx, entry, options.instanceKey)}><span class="chat-narration-text">${ctx.escapeHtml(entry.text)}</span></div>`;
 }
 
 /** 回复选择卡片：header 竖条装饰 + 白底居中选项列表（LOCKED 态保留）。 */
@@ -171,7 +229,8 @@ function renderReplyCard(
 
 /** "正在输入"气泡：复用 talk 气泡骨架（头像/名字/侧向），正文为 send-dots 节奏点（§4 页级打字提示）。
  *  hideIdentity（连发分组接续）：不渲染头像与名称，仅显示气泡内节奏点。 */
-function renderTyping(ctx: UIContext, entry: ChatEntry, hideIdentity = false): string {
+function renderTyping(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
+  const { instanceKey, hideIdentity = false } = options;
   const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
   const bubble = `<div class="chat-bubble presentation-host-target chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}" data-theme-host-id="bubble" data-theme-text-mode="${ctx.textColorModeForHost?.('bubble') ?? 'auto'}">${renderPresentationHostBackground(ctx, 'bubble')}<span class="send-dots presentation-host-content" aria-hidden="true"><i></i><i></i><i></i></span></div>`;
@@ -182,7 +241,7 @@ function renderTyping(ctx: UIContext, entry: ChatEntry, hideIdentity = false): s
     : hideIdentity
       ? '<span class="chat-avatar chat-avatar-ghost" aria-hidden="true"></span>'
       : renderAvatar(ctx, entry.avatar, entry.speaker);
-  return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}">${avatar}${main}</div>`;
+  return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}"${entryAttributes(ctx, entry, instanceKey)}>${avatar}${main}</div>`;
 }
 
 /** 连发分组判定（§4）：相邻两条均为简单 chat（talk/typing）且同人同侧——
@@ -199,6 +258,28 @@ function sameChainGroup(a: ChatEntry | undefined, b: ChatEntry): boolean {
     && !!a.noAvatar === !!b.noAvatar;
 }
 
+/**
+ * 通用条目渲染入口：普通 Chat 与 Map 共用这一处种类分派。
+ * Map 回执等专属正文由调用方先格式化，再作为 `text` 或受控片段进入本入口。
+ */
+export function renderChatEntry(
+  ctx: UIContext,
+  entry: FlowContent,
+  options: RenderChatEntryOptions = {},
+): string {
+  if (entry.kind === 'narration') return renderNarration(ctx, entry, options);
+  if (entry.kind === 'typing') return renderTyping(ctx, entry, options);
+  const attributes = entryAttributes(ctx, entry, options.instanceKey);
+  if (entry.kind === 'system') {
+    return `<div class="chat-bubble chat-system"${attributes}><span class="chat-kind">SYSTEM</span><p>${ctx.escapeHtml(entry.text)}</p></div>`;
+  }
+  if (entry.kind === 'reward') {
+    // 简洁风格：居中圆角小条，无「REWARD」小字符（奖励/移动通知同款）
+    return `<div class="chat-reward"${attributes}><p>${ctx.escapeHtml(entry.text)}</p></div>`;
+  }
+  return renderTalk(ctx, entry, options);
+}
+
 /** 渲染累积的聊天历史（气泡流）。同人连发分组：仅组内首条渲染头像/名称，后续只出现气泡。 */
 export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string {
   if (entries.length === 0) {
@@ -210,16 +291,10 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
       // showAvatar 强制完整显示；否则仅当上一条同属同人连发时隐藏头像/名称
       const hideIdentity = !entry.showAvatar && sameChainGroup(prev, entry);
       prev = entry;
-      if (entry.kind === 'narration') return renderNarration(ctx, entry);
-      if (entry.kind === 'typing') return renderTyping(ctx, entry, hideIdentity);
-      if (entry.kind === 'system') {
-        return `<div class="chat-bubble chat-system"><span class="chat-kind">SYSTEM</span><p>${ctx.escapeHtml(entry.text)}</p></div>`;
-      }
-      if (entry.kind === 'reward') {
-        // 简洁风格：居中圆角小条，无「REWARD」小字符（奖励/移动通知同款）
-        return `<div class="chat-reward"><p>${ctx.escapeHtml(entry.text)}</p></div>`;
-      }
-      return renderTalk(ctx, entry, undefined, hideIdentity);
+      return renderChatEntry(ctx, chatEntryToFlowContent(entry), {
+        instanceKey: chatInstanceKey(entry.id),
+        hideIdentity,
+      });
     })
     .join('');
 }
@@ -318,7 +393,6 @@ function renderOverlayTalklet(ctx: UIContext, tl: import('../../data-services/co
     return `<div class="chat-narration chat-narration-${tl.align ?? 'center'}"><span class="chat-narration-text"${styleAttr}>${ctx.escapeHtml(tl.text)}</span></div>`;
   }
   return renderTalk(ctx, {
-    id: 0,
     kind: 'talk',
     speaker: tl.speaker,
     text: tl.text,
@@ -326,8 +400,7 @@ function renderOverlayTalklet(ctx: UIContext, tl: import('../../data-services/co
     image: tl.image,
     side: tl.side,
     noAvatar: tl.noAvatar,
-    timestamp: 0,
-  }, inline);
+  }, { inlineStyle: inline });
 }
 
 /** 羁绊剧情卡片（yuzu-kizuna 结构，渲染在聊天流中）。 */

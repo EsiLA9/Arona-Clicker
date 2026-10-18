@@ -455,7 +455,7 @@ const eventDefinition: OperationEventContentDef = {
   randomSeed: 241024,
 };
 
-/** Independent 13-location Operation pack inspired by, but not replacing, the Carousel demo. */
+/** Legacy 13-location Operation fixture; it is not bundled by the application Runtime. */
 export const gameplayBStrategyParkDatapack: Datapack = {
   modName: 'gameplay-b-strategy-park',
   name: 'Gameplay B Strategy Park Validation',

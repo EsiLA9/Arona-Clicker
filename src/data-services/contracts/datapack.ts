@@ -38,6 +38,7 @@ import type { CharacterPersistConfig } from './character-persist';
 import type { GachaPoolDef } from './gacha-pool';
 import type { ShopDef } from './shop';
 import type { FavoriteItemDef, GearConfigDef, GearDef, TraitDef, UniqueWeaponDef } from './character-progression-def';
+import type { GameplayMapDef } from './gameplay-map';
 import type {
   OperationActionDef,
   OperationCardPoolDef,
@@ -82,6 +83,8 @@ export interface Datapack {
   inits: InitDef[];
   areas: AreaDef[];
   spots: SpotDef[];
+  /** Gameplay B maps with embedded nodes, edges and optional encounters. */
+  maps?: GameplayMapDef[];
   /** Gameplay B Event definitions; locations/actions/profiles are resolved by stable IDs. */
   operationEvents?: OperationEventContentDef[];
   /** Reusable Gameplay B Event locations. */

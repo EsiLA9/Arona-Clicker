@@ -19,8 +19,7 @@ import { ThemeContentEditorService } from './services/theme-content-editor-servi
 import { RuntimeDefinitionEditor, SpotContentService } from './services/spot-content-service';
 import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './contracts/runtime-content';
 import { decodeSpotContent } from '../data-services/authoring/content-policy-dsl';
-import { gameplayBCarouselDatapack } from './content/operation-samples/gameplay-b-datapack';
-import { gameplayBStrategyParkDatapack } from './content/operation-samples/gameplay-b-strategy-park';
+import { gameplayBMapDatapack } from './content/operation-samples/gameplay-b-map-datapack';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;
@@ -58,8 +57,9 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     this.packManager = new PackManager(
       undefined,
       options.packStore,
-      [createBundledBasePack(), createBundledGameplayBDemoPack(), createBundledStrategyParkPack()],
-      ['gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0'],
+      [createBundledBasePack(), createBundledGameplayBMapPack()],
+      ['gameplay-b@1.0.0'],
+      ['gameplay-b-strategy-park@1.0.0'],
     );
     this.themeContentEditor = new ThemeContentEditorService({
       getPackManager: () => this.packManager,
@@ -790,9 +790,11 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       this.packManager = new PackManager(
         snapshot,
         undefined,
-        [createBundledBasePack(), createBundledGameplayBDemoPack(), createBundledStrategyParkPack()],
-        ['gameplay-b@1.0.0', 'gameplay-b-strategy-park@1.0.0'],
+        [createBundledBasePack(), createBundledGameplayBMapPack()],
+        ['gameplay-b@1.0.0'],
+        ['gameplay-b-strategy-park@1.0.0'],
       );
+      await store.save(this.packManager.snapshot());
     }
   }
 
@@ -929,36 +931,18 @@ function createBundledBasePack(): StoredPack {
   };
 }
 
-function createBundledGameplayBDemoPack(): StoredPack {
+function createBundledGameplayBMapPack(): StoredPack {
   return {
     id: 'gameplay-b@1.0.0',
     packRecordId: 'gameplay-b@1.0.0',
     manifest: {
-      modName: gameplayBCarouselDatapack.modName!,
-      name: gameplayBCarouselDatapack.name,
-      version: gameplayBCarouselDatapack.version,
+      modName: gameplayBMapDatapack.modName!,
+      name: gameplayBMapDatapack.name,
+      version: gameplayBMapDatapack.version,
       author: 'AronaClicker',
       dependencies: ['base'],
     },
-    datapack: gameplayBCarouselDatapack,
-    images: [],
-    sourceKind: 'bundle',
-    importedAt: 0,
-  };
-}
-
-function createBundledStrategyParkPack(): StoredPack {
-  return {
-    id: 'gameplay-b-strategy-park@1.0.0',
-    packRecordId: 'gameplay-b-strategy-park@1.0.0',
-    manifest: {
-      modName: gameplayBStrategyParkDatapack.modName!,
-      name: 'Gameplay B Strategy Park',
-      version: gameplayBStrategyParkDatapack.version,
-      author: 'AronaClicker',
-      dependencies: ['base'],
-    },
-    datapack: gameplayBStrategyParkDatapack,
+    datapack: gameplayBMapDatapack,
     images: [],
     sourceKind: 'bundle',
     importedAt: 0,

@@ -16,6 +16,25 @@ export {
 export type { ArchiveEntry, ArchiveEntryContent, ArchivePlan, ArchiveWriter } from './archive/archive-writer';
 export { FolderPackSource, ZipPackSource } from './datapack/source';
 export type { Datapack } from './contracts/datapack';
+export type {
+  GameplayEncounterEnemyDef,
+  GameplayEncounterItemActionDef,
+  GameplayEncounterCompletionDef,
+  GameplayEncounterDef,
+  GameplayEncounterParticipantDef,
+  GameplayEncounterActionCandidateDef,
+  GameplayMapActionDef,
+  GameplayMapActionHpEffectDef,
+  GameplayMapActionResourceCostDef,
+  GameplayMapActionResourceEffectDef,
+  GameplayMapActionTargetDef,
+  GameplayMapDef,
+  GameplayMapEdgeDef,
+  GameplayMapInitialActorResourceDef,
+  GameplayMapInitialPartyHpDef,
+  GameplayMapInitialTeamResourceDef,
+  GameplayMapNodeDef,
+} from './contracts/gameplay-map';
 export type { TagRef } from '../engine/core/tag';
 export { isTagRef, parseTagRef, tagRef } from '../engine/core/tag';
 export type { CharacterData } from './contracts/character-data';

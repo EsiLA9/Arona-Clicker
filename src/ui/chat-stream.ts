@@ -10,9 +10,8 @@ import type { Talklet } from '../data-services/contracts/story';
 import type { ActiveBanner, PanelState, SendGatePhase } from './components/app-shell';
 import type { ChatEntry, ChatTextEntry } from './components/story';
 import { BANNER_ANIMATION_MS } from './components/story-gate';
+import { FLOW_STREAM_MAX, applyFlowEntryInPlace } from './flow/flow-entry';
 import { PLAYER_IDENTITY } from './player';
-
-const CHAT_MAX = 200;
 
 /** 非右侧 talk 页的默认"正在输入"/"想回复"时长（秒）。 */
 export const DEFAULT_RHYTHM_SECONDS = 0.9;
@@ -326,13 +325,11 @@ export class ChatStream {
     if (idx >= 0) texts.splice(idx, 1);
   }
 
-  /** 追加条目到指定流：分配自增 id / 时间戳并维持上限。返回新条目 id。 */
+  /** 追加条目到指定流：分配自增 id / 时间戳，并走共享投递策略与上限。返回新条目 id。 */
   private append(stream: ChatEntry[], entry: Omit<ChatEntry, 'id' | 'timestamp'>): number {
     const id = this.chatId++;
-    stream.push({ ...entry, id, timestamp: Date.now() });
-    if (stream.length > CHAT_MAX) {
-      stream.splice(0, stream.length - CHAT_MAX);
-    }
+    // 普通 Chat 不写 contentId／repeatPolicy，因此共享策略在此恒为追加；上限与 Map 一致。
+    applyFlowEntryInPlace(stream, { ...entry, id, timestamp: Date.now() }, FLOW_STREAM_MAX);
     return id;
   }
 

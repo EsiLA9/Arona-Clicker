@@ -10,6 +10,7 @@ export function buildSaveData(ctx: SaveBuildContext): SaveData {
   const allTagEffects = mergeTagEffects(ctx.state.tagEffects, ctx.retainedTagResidue);
   const tagEffects = splitTagEffects(allTagEffects, ctx.activeModNames ?? new Set(['base']));
   const operationRun = ctx.operationRun?.() ?? null;
+  const mapRun = ctx.mapRun?.() ?? null;
   return {
     version: '1.0.0',
     timestamp: Date.now(),
@@ -24,6 +25,7 @@ export function buildSaveData(ctx: SaveBuildContext): SaveData {
     pendingVisitedStoryIds: storyCursor.visitedStoryIds,
     pendingIsReplay: storyCursor.isReplay,
     ...(operationRun ? { operationRun } : {}),
+    ...(mapRun ? { mapRun: JSON.parse(JSON.stringify(mapRun)) as typeof mapRun } : {}),
     chatCursors: ctx.chatCursors(),
     stats: ctx.persistedStats(),
     retained: { ...tagOverrides.residue, ...(Object.keys(tagEffects.residue).length ? { tagEffects: tagEffects.residue } : {}) },

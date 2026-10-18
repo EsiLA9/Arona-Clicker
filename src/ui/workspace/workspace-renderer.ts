@@ -9,6 +9,7 @@ import { renderCharacterWorkspace } from '../components/character-workspace';
 import { renderContactsWorkspace } from '../components/contacts-workspace';
 import { renderStoryWorkspace } from '../components/story-workspace';
 import { renderOperationWorkspace } from '../components/operation-workspace';
+import { renderMapWorkspace } from '../components/map-workspace';
 import { renderSettingsWorkspace } from '../components/settings-workspace';
 import { renderInventoryWorkspace } from '../components/inventory-workspace';
 import { renderWorkspaceFrame } from '../components/workspace-frame';
@@ -54,6 +55,10 @@ function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: Panel
       : null;
     const operationView = workspace ? ctx.game.operationEntry.getView(route.runId) : null;
     return { body: renderOperationWorkspace(ctx, operationView), footerNote: '游乐园试玩 · 本地行动记录' };
+  }
+  if (route.kind === 'map') {
+    const mapView = ctx.game.mapRun.getWorkspaceView(route.runId);
+    return { body: renderMapWorkspace(ctx, route.runId, mapView), footerNote: '地图探索 · 当前进度' };
   }
   return { body: renderGameWorkspace(ctx, state), footerNote: 'TS-HTML ENGINE · NO NETWORK' };
 }

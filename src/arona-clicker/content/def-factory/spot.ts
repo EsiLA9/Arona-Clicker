@@ -68,6 +68,11 @@ export class SpotBuilder {
   gacha(id: string): this { this._functionalities.push({ id, kind: 'gacha' }); return this; }
   shop(id: string, shopId: ShopId): this { this._functionalities.push({ id, kind: 'shop', shopId }); return this; }
   operationEntry(id: string, operationEventId: string): this { this._functionalities.push({ id, kind: 'operationEntry', operationEventId }); return this; }
+  /** 地图入口；`label` 是可选的按钮文案，例如“进入废弃走廊战斗”。 */
+  mapEntry(id: string, mapId: string, label?: string): this {
+    this._functionalities.push({ id, kind: 'mapEntry', mapId, ...(label === undefined ? {} : { mapEntryLabel: label }) });
+    return this;
+  }
   gachaPools(...poolIds: GachaPoolId[]): this { this._gachaPools.push(...poolIds); return this; }
   reveal(target: RevealTarget, condition?: Condition | ConditionGroup): this { this._revealTriggers.push(condition ? { reveal: target, condition } : { reveal: target }); return this; }
   revealResource(target: RevealTarget, resourceId: string, amount: number): this { this._revealTriggers.push(revealResource(target, resourceId, amount)); return this; }

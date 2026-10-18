@@ -82,6 +82,8 @@ describe('Gameplay B Operation Controller', () => {
 
   function acquireStudents(): void {
     for (const variantId of VARIANTS) game.mutations.acquireCharacter(variantId, 'story');
+    game.mutations.setSpotLevel(GAMEPLAY_B_OPERATION_SPOT_ID, 1);
+    game.mutations.setSpotLevel('gameplay-b-strategy-park:spot:park_terminal', 1);
     controller.render();
   }
 
@@ -379,7 +381,11 @@ describe('Gameplay B Operation Controller', () => {
   it('旋转木马路线只在地点完成后显示，并可从路线按钮进入下一地点', () => {
     acquireStudents();
     const runId = game.operationEntry.start(IDS.event, [Character.Hoshino, Character.Serika, Character.Shiroko]).runId;
-    controller.panelState.workspace = { type: 'operation', runId };
+    controller.panelState.workspace = {
+      type: 'operation',
+      runId,
+      returnContext: controller.workspaceLocation(),
+    };
     controller.render();
 
     expect(root.querySelector('[data-operation-routes]')).toBeNull();
