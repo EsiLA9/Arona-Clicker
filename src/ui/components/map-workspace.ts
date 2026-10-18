@@ -14,7 +14,7 @@ import { renderPanelHeaderRegion } from './tabs';
 import { renderWorkspaceFrame } from './workspace-frame';
 import { renderFlowEntries } from '../flow/flow-render';
 import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE, type FlowEntry } from '../flow/flow-entry';
-import { MapFlowModel, mapNodeProgressLabel } from '../flow/map-flow-model';
+import { MapFlowModel } from '../flow/map-flow-model';
 import '../css/map-workspace.css';
 
 function escape(ctx: UIContext, value: string): string {
@@ -50,7 +50,7 @@ function workspaceFrame(
     },
     center: {
       slot: 'center', role: 'information-flow', workspaceOwner: 'map', hostId: 'centerPanel.map.flow',
-      themeScope: 'center.map.flow', surface: 'panel', header: renderPanelHeaderRegion(ctx, 'center', headers.center),
+      themeScope: 'center.map.flow', surface: 'panel', header: headers.center ? renderPanelHeaderRegion(ctx, 'center', headers.center) : '',
       content: content.center, scroll: 'none',
     },
     right: {
@@ -82,6 +82,54 @@ function renderActionCosts(
 function renderActionHpEffects(action: { readonly hpEffects: readonly { readonly amount: number }[] } | null): string {
   if (!action?.hpEffects.length) return '';
   return `<small class="map-workspace__action-cost">HP ${action.hpEffects.map(effect => `${effect.amount > 0 ? '+' : ''}${effect.amount}`).join(' / ')}</small>`;
+}
+
+function stableMapCardAngle(key: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < key.length; index += 1) {
+    hash = Math.imul(hash ^ key.charCodeAt(index), 16777619);
+  }
+  return `${(hash >>> 0) % 17 - 8}deg`;
+}
+
+function renderUnitFace(
+  ctx: UIContext,
+  options: {
+    readonly name: string;
+    readonly type: string;
+    readonly currentHp: number;
+    readonly maxHp?: number;
+    readonly avatarUrl?: string;
+    readonly regionKey?: string;
+  },
+): string {
+  const maxHp = options.maxHp ?? 0;
+  const hpPercent = maxHp > 0 ? Math.max(0, Math.min(100, options.currentHp / maxHp * 100)) : 0;
+  const initial = escape(ctx, options.name.trim().charAt(0) || '?');
+  const avatar = options.avatarUrl
+    ? `<img src="${escape(ctx, options.avatarUrl)}" alt="" loading="lazy">`
+    : initial;
+  return `<section class="map-workspace__unit-face"${options.regionKey ? regionKey(ctx, options.regionKey) : ''} aria-label="${escape(ctx, options.name)} 单位卡">
+    <header class="map-workspace__unit-header">
+      <span class="map-workspace__unit-avatar" aria-hidden="true">${avatar}</span>
+      <strong>${escape(ctx, options.name)}</strong>
+      <span class="map-workspace__unit-type">${escape(ctx, options.type)}</span>
+    </header>
+    <div class="map-workspace__unit-vitals">
+      <div class="map-workspace__unit-stat map-workspace__unit-stat--hp"><span>HP</span><strong>${ctx.formatNumber(options.currentHp)} / ${maxHp > 0 ? ctx.formatNumber(maxHp) : '—'}</strong><i${maxHp > 0 ? ` role="meter" aria-label="生命值" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${options.currentHp}"` : ' aria-hidden="true"'}><b style="--map-unit-fill:${hpPercent}%"></b></i></div>
+      <div class="map-workspace__unit-stat map-workspace__unit-stat--scost"><span>sCost</span><strong aria-label="sCost 尚未由当前 MapRun 视图提供">—</strong><i aria-hidden="true"><b></b></i></div>
+    </div>
+    <div class="map-workspace__unit-buffs" aria-label="Buff"></div>
+  </section>`;
+}
+
+function characterAvatarUrl(
+  ctx: UIContext,
+  variantId: Parameters<UIContext['game']['rosterSystem']['getVariant']>[0] | undefined,
+): string | undefined {
+  if (!variantId) return undefined;
+  const avatar = ctx.game.rosterSystem.getVariant(variantId)?.avatar;
+  return avatar ? ctx.game.pics.urlOf(avatar) : undefined;
 }
 
 
@@ -235,58 +283,63 @@ function renderCommitDiagnostic(ctx: UIContext, diagnostics: readonly string[]):
   return '本轮行动暂不能提交，请调整行动后重试。';
 }
 
-function renderOverride(ctx: UIContext, view: MapRunActiveWorkspaceView): string {
-  const preview = view.actionPreview;
-  if (!preview) return '';
-  const entries = preview.overrides.map(override => {
-    const action = preview.preparedActions.find(row => row.characterId === override.characterId)?.preparedAction;
-    const label = `${escape(ctx, ctx.nameOf('character', override.characterId))}${action ? ` · ${escape(ctx, action.name)}` : ''} · ${override.kind === 'swap' ? '免费 Swap' : 'PlayerCommand · 1 PlayerCost'}`;
-    return `<li class="map-workspace__override-entry" data-map-override-character="${escape(ctx, override.characterId)}"${regionKey(ctx, `override:${override.characterId}`)}>
-      <span>${label}</span>
-      <button type="button" class="mini-action map-workspace__clear-override" data-map-clear-override data-character-id="${escape(ctx, override.characterId)}"${focusKey(ctx, `clear-override:${override.characterId}`)}${draftAttributes(ctx, view.run.runId, preview.draft)}>恢复默认</button>
-    </li>`;
-  }).join('');
-  return `<section class="map-workspace__override" data-map-region-key="shared-override" aria-label="本轮行动修订">
-    <div><strong>行动修订</strong><span>${preview.overrides.length ? `已修订 ${preview.overrides.length} 名角色` : '本轮无修订；点选手牌可随时改回默认。'}</span></div>
-    ${entries ? `<ul class="map-workspace__override-list">${entries}</ul>` : ''}
-  </section>`;
+type MapCommitDockAction =
+  | { readonly kind: 'commit'; readonly view: MapRunActiveWorkspaceView; readonly preview: NonNullable<MapRunActiveWorkspaceView['actionPreview']> }
+  | { readonly kind: 'complete'; readonly runId: string; readonly nodeId: string; readonly label: string }
+  | { readonly kind: 'back'; readonly runId: string }
+  | { readonly kind: 'disabled' };
+
+function renderCommitDock(
+  ctx: UIContext,
+  options: {
+    readonly playerCost: number | null;
+    readonly status: string;
+    readonly action: MapCommitDockAction;
+  },
+): string {
+  const { action } = options;
+  const disabled = action.kind === 'disabled';
+  const label = action.kind === 'back' ? '返回游戏'
+    : action.kind === 'complete' ? action.label : '提交本轮';
+  const actionAttributes = action.kind === 'commit'
+    ? ` data-map-commit${focusKey(ctx, 'commit')} data-map-expected-commit-version="${action.view.run.commitVersion}"${draftAttributes(ctx, action.view.run.runId, action.preview.draft)}`
+    : action.kind === 'complete'
+      ? ` data-map-complete-encounter${focusKey(ctx, `complete:${action.nodeId}`)} data-map-run-id="${escape(ctx, action.runId)}"`
+      : action.kind === 'back'
+        ? ` data-map-back="${escape(ctx, action.runId)}"${focusKey(ctx, 'back-game')}`
+        : '';
+  const playerCost = options.playerCost === null ? '—' : ctx.formatNumber(options.playerCost);
+  return `<footer class="map-workspace__commit-dock" data-map-region-key="commit-dock">
+    <div class="map-workspace__commit-balance" aria-label="当前剩余 PlayerCost">
+      <div><span>PlayerCost</span><strong>${playerCost}</strong></div>
+      <p role="status" aria-live="polite" data-map-commit-status>${escape(ctx, options.status)}</p>
+    </div>
+    <button type="button" class="send-button send-player map-workspace__commit${disabled ? ' disabled' : ''}"${actionAttributes}${disabled ? ' disabled' : ''} aria-label="${escape(ctx, label)}">
+      <span class="send-bubble${disabled ? ' disabled' : ''}"><span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="send-text">${escape(ctx, label)}</span><span class="send-arrow" aria-hidden="true">↗</span></span>
+    </button>
+  </footer>`;
 }
 
 function renderActionDock(ctx: UIContext, view: MapRunActiveWorkspaceView): string {
   if (view.shop) return renderShopDock(ctx, view);
   const preview = view.actionPreview;
   const encounter = view.currentEncounter;
-  const completion = encounter?.completion?.kind === 'manual'
-    ? `<button type="button" class="mini-action map-workspace__complete" data-map-complete-encounter${focusKey(ctx, `complete:${encounter.nodeId}`)} data-map-run-id="${escape(ctx, view.run.runId)}">${escape(ctx, encounter.completion.label)}</button>`
-    : '';
-  const completionNote = encounter && !completion
-    ? encounter.enemies.length > 0
-      ? '<p class="map-workspace__dock-note">击败所有 Enemy 后战斗会自动结束。</p>'
-      : '<p class="map-workspace__dock-note">当前遭遇没有可手动提交的完成操作。</p>'
-    : '';
-  if (!preview) {
-    return `<section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="当前行动操作">
-      ${renderTeamResources(ctx, view)}
-      ${completion}
-      ${completionNote}
-      <p class="map-workspace__dock-note" role="status">${encounter ? '行动预览暂不可用，请返回地图后重新进入遭遇。' : '当前没有活动遭遇。'}</p>
-    </section>`;
-  }
-
-  const commitStatus = preview.commitPreview.canCommit
-    ? `本轮可提交 · 预计消耗 ${ctx.formatNumber(preview.commitPreview.playerCostRequired ?? 0)} PlayerCost`
-    : renderCommitDiagnostic(ctx, preview.commitPreview.diagnostics);
-  const commitButton = `<button type="button" class="mini-action map-workspace__commit" data-map-commit${focusKey(ctx, 'commit')} data-map-expected-commit-version="${view.run.commitVersion}"${draftAttributes(ctx, view.run.runId, preview.draft)}${preview.commitPreview.canCommit ? '' : ' disabled'}>提交本轮</button>`;
-  return `<section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="第 ${preview.round} 轮行动操作">
-    <div class="map-workspace__dock-resources">${renderTeamResources(ctx, view)}</div>
-    <div class="map-workspace__options-scroll" data-map-region-key="action-options" data-scroll-owner="content-region" aria-label="Ability 与 Item 候选">
-      ${renderEncounterSources(ctx, view) || '<p class="map-workspace__dock-note">当前没有可用 Ability 或 Item。</p>'}
-    </div>
-    ${renderOverride(ctx, view)}
-    ${completion}${completionNote}
-    <footer class="map-workspace__commit-dock" data-map-region-key="commit-dock">
-      <p role="status" aria-live="polite" data-map-commit-status>${escape(ctx, commitStatus)}</p>${commitButton}
-    </footer>
+  const canCommit = preview?.commitPreview.canCommit === true;
+  const canComplete = !canCommit && encounter?.completion?.kind === 'manual';
+  const status = canCommit
+    ? `本轮可提交 · 预计消耗 ${ctx.formatNumber(preview?.commitPreview.playerCostRequired ?? 0)} PlayerCost`
+    : canComplete
+      ? '当前遭遇已满足手动完成条件。'
+      : preview
+        ? renderCommitDiagnostic(ctx, preview.commitPreview.diagnostics)
+        : encounter ? '行动预览暂不可用，请返回地图后重新进入遭遇。' : '当前没有可提交的遭遇行动。';
+  const action: MapCommitDockAction = canCommit && preview
+    ? { kind: 'commit', view, preview }
+    : canComplete && encounter
+      ? { kind: 'complete', runId: view.run.runId, nodeId: encounter.nodeId, label: encounter.completion?.label ?? '完成遭遇' }
+      : { kind: 'disabled' };
+  return `<section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="${preview ? `第 ${preview.round} 轮行动操作` : '当前遭遇操作'}">
+    ${renderCommitDock(ctx, { playerCost: view.run.playerCost, status, action })}
   </section>`;
 }
 
@@ -308,30 +361,21 @@ function renderActivityProgress(ctx: UIContext, view: MapRunActiveWorkspaceView)
   </section>`;
 }
 
-function renderNodeProgress(ctx: UIContext, view: MapRunActiveWorkspaceView): string {
-  return `<section class="map-workspace__context-section" data-map-region-key="map-progress" aria-label="地图地点进度">
-    <h2>地图地点</h2><ol class="map-workspace__node-list">${view.map.nodes.map(node => {
-      const current = node.id === view.run.currentNodeId;
-      const completed = view.run.completedEncounterNodeIds.includes(node.id);
-      const visited = view.run.visitedNodeIds.includes(node.id);
-      const status = current ? 'current' : completed ? 'completed' : visited ? 'visited' : 'unvisited';
-      return `<li class="map-workspace__node${current ? ' is-active' : ''}" data-map-node-id="${escape(ctx, node.id)}" data-map-status="${status}"${regionKey(ctx, `map-node:${node.id}`)}${view.map.exitNodeIds.includes(node.id) ? ' data-map-exit' : ''}${current ? ' aria-current="location"' : ''}>
-        <strong>${escape(ctx, node.title)}</strong><small>${escape(ctx, mapNodeProgressLabel(view, node))}</small>
-      </li>`;
-    }).join('')}</ol>
-  </section>`;
-}
-
 function renderEnemyRegion(ctx: UIContext, runId: string, view: MapRunActiveWorkspaceView | null): string {
   const encounter = view?.currentEncounter ?? null;
   const nodeId = encounter?.nodeId ?? '';
   const enemies = encounter?.enemies ?? [];
   const content = enemies.length
-    ? `<section class="map-workspace__context-section" data-map-region-key="enemy-list" aria-label="活动敌方">
-        <h2>活动敌方</h2><ul class="map-workspace__enemy-list">${enemies.map(enemy => `<li${regionKey(ctx, `enemy:${enemy.enemyId}`)} data-map-enemy-hp="${escape(ctx, enemy.enemyId)}">
-          <strong>敌方 ${escape(ctx, enemy.enemyId)}</strong><span>${enemy.currentHp} / ${enemy.maxHp} HP</span>
-          <button type="button" class="mini-action map-workspace__enemy-info" data-map-enemy-info data-enemy-id="${escape(ctx, enemy.enemyId)}" data-map-run-id="${escape(ctx, runId)}"${focusKey(ctx, `enemy-info:${enemy.enemyId}`)} aria-label="查看敌方 ${escape(ctx, enemy.enemyId)} 的当前情报">查看情报</button>
-        </li>`).join('')}</ul>
+    ? `<section class="map-workspace__enemy-group" data-map-region-key="enemy-list" aria-label="活动敌方">
+        <ul class="map-workspace__enemy-list">${enemies.map(enemy => {
+          const enemyName = ctx.nameOf('enemy', enemy.enemyId) || `敌方 ${enemy.enemyId}`;
+          return `<li${regionKey(ctx, `enemy:${enemy.enemyId}`)} data-map-enemy-hp="${escape(ctx, enemy.enemyId)}">
+            <article class="map-workspace__unit map-workspace__unit--enemy">
+              ${renderUnitFace(ctx, { name: enemyName, type: '敌方', currentHp: enemy.currentHp, maxHp: enemy.maxHp, regionKey: `enemy-face:${enemy.enemyId}` })}
+              <div class="map-workspace__unit-note"><span>行为信息未投影</span><button type="button" class="mini-action map-workspace__enemy-info" data-map-enemy-info data-enemy-id="${escape(ctx, enemy.enemyId)}" data-map-run-id="${escape(ctx, runId)}"${focusKey(ctx, `enemy-info:${enemy.enemyId}`)} aria-label="查看敌方 ${escape(ctx, enemyName)} 的当前情报">查看情报</button></div>
+            </article>
+          </li>`;
+        }).join('')}</ul>
       </section>`
     : encounter
       ? `<p class="map-workspace__dock-note" data-map-region-key="enemy-empty">当前遭遇没有敌方单位。</p>`
@@ -356,28 +400,18 @@ function renderActivePartyMember(
   prepared: NonNullable<MapRunActiveWorkspaceView['actionPreview']>['preparedActions'][number],
 ): string {
   const preview = view.actionPreview!;
-  const actorName = escape(ctx, ctx.nameOf('character', prepared.characterId));
+  const characterName = ctx.nameOf('character', prepared.characterId);
+  const actorName = escape(ctx, characterName);
+  const partyMember = view.run.party.find(member => member.characterId === prepared.characterId);
   const runHp = view.run.partyHp.find(row => row.characterId === prepared.characterId);
   const encounterHp = view.currentEncounter?.partyHp.find(row => row.characterId === prepared.characterId);
+  const currentHp = encounterHp?.currentHp ?? runHp?.currentHp ?? 0;
+  const maxHp = encounterHp?.maxHp;
   const actorResources = view.run.actorResources.filter(row => row.characterId === prepared.characterId)
     .map(row => `${resourceName(ctx, row.resourceId)} ${ctx.formatNumber(row.value)}`).join(' · ');
   const attributes = draftAttributes(ctx, view.run.runId, preview.draft);
   const preparedAction = prepared.preparedAction;
   const naturalActionId = prepared.naturalAction?.actionId ?? null;
-  const hand = prepared.hand.length
-    ? prepared.hand.map(action => {
-        const selected = preparedAction?.actionId === action.actionId;
-        const isNatural = action.actionId === naturalActionId;
-        const key = `swap:${prepared.characterId}:${action.actionId}`;
-        const status = selected
-          ? isNatural ? '自然准备' : '当前准备'
-          : isNatural ? '恢复默认' : '免费换用';
-        return `<button type="button" class="mini-action map-workspace__hand-choice${selected ? ' is-selected' : ''}" data-map-action-swap${focusKey(ctx, key)}${regionKey(ctx, key)} data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, action.actionId)}"${attributes} aria-pressed="${selected}">
-          <strong>${escape(ctx, action.name)}</strong>${action.description ? `<small>${escape(ctx, action.description)}</small>` : ''}${renderActionCosts(ctx, action)}${renderActionHpEffects(action)}
-          <span>${status}</span>
-        </button>`;
-      }).join('')
-    : '<p class="map-workspace__empty" role="status">没有可行动候选 · Wait</p>';
   const target = prepared.targetKind === 'partyCharacter'
     ? `<div class="map-workspace__target-picker"${regionKey(ctx, `targets:${prepared.characterId}`)} role="group" aria-label="${actorName} 的行动目标">
         <span>${prepared.targetSelectionRequired ? '选择目标' : '目标'}</span><div>${prepared.legalTargetCharacterIds.map(targetCharacterId => {
@@ -399,37 +433,79 @@ function renderActivePartyMember(
     : prepared.targetKind === 'self' ? '<small class="map-workspace__target-label">目标：自身</small>'
       : prepared.targetKind === 'none' ? '<small class="map-workspace__target-label">无目标</small>'
         : '<small class="map-workspace__target-label">无行动目标</small>';
-  const preparedSummary = preparedAction
-    ? `<div class="map-workspace__prepared-summary"${regionKey(ctx, `prepared:${prepared.characterId}`)}><strong>${escape(ctx, preparedAction.name)}</strong>${preparedAction.description ? `<small>${escape(ctx, preparedAction.description)}</small>` : ''}${renderActionCosts(ctx, preparedAction)}${renderActionHpEffects(preparedAction)}${target}</div>`
-    : `<div class="map-workspace__prepared-summary"${regionKey(ctx, `prepared:${prepared.characterId}`)}><strong>Wait</strong><small>本角色本轮没有可行动作。</small>${target}</div>`;
   const commandOverride = preview.overrides.find(override => override.characterId === prepared.characterId) ?? null;
   const commandOptions = preview.playerCommandOptions.filter(option => option.characterId === prepared.characterId);
-  const commands = commandOptions.length
-    ? `<div class="map-workspace__command-list"${regionKey(ctx, `commands:${prepared.characterId}`)}>${commandOptions.map(option => {
-        const selected = commandOverride?.kind === 'playerCommand'
-          && commandOverride.actionId === option.action.actionId;
-        const disabled = !option.canPayPlayerCost || !option.canPayActionCosts;
-        const reasons = [
-          !option.canPayPlayerCost ? '需要 1 PlayerCost' : '',
-          !option.canPayActionCosts ? '行动资源不足' : '',
-        ].filter(Boolean).join(' · ');
-        const key = `command:${prepared.characterId}:${option.action.actionId}`;
-        return `<button type="button" class="mini-action map-workspace__command-choice${selected ? ' is-selected' : ''}" data-map-player-command${focusKey(ctx, key)}${regionKey(ctx, key)} data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, option.action.actionId)}"${attributes} aria-pressed="${selected}"${disabled ? ' disabled' : ''}>
-          <strong>${escape(ctx, option.action.name)}</strong>${option.action.description ? `<small>${escape(ctx, option.action.description)}</small>` : ''}
-          <small>PlayerCommand · 1 PlayerCost${reasons ? ` · ${escape(ctx, reasons)}` : ''}</small>${renderActionCosts(ctx, option.action)}${renderActionHpEffects(option.action)}
-        </button>`;
-      }).join('')}</div>`
-    : '<p class="map-workspace__empty">没有手牌外指令候选。</p>';
+  const handCandidates = prepared.hand.map(action => ({
+    kind: 'swap' as const,
+    action,
+    selected: prepared.overrideKind !== 'playerCommand' && preparedAction?.actionId === action.actionId,
+    disabled: false,
+    reason: '',
+  }));
+  const commandCandidates = commandOptions.map(option => ({
+    kind: 'playerCommand' as const,
+    action: option.action,
+    selected: commandOverride?.kind === 'playerCommand' && commandOverride.actionId === option.action.actionId,
+    disabled: !option.canPayPlayerCost || !option.canPayActionCosts,
+    reason: [!option.canPayPlayerCost ? '需要 1 PlayerCost' : '', !option.canPayActionCosts ? '行动资源不足' : ''].filter(Boolean).join(' · '),
+  }));
+  const candidates = [...handCandidates, ...commandCandidates];
+  const replacementCandidates = candidates.filter(candidate => !candidate.selected);
+  const pickerId = `map-hand-picker-${view.run.runId}-${prepared.characterId}`;
+  const pickerMarkup = replacementCandidates.length > 0
+    ? `<div class="map-workspace__hand-picker" id="${escape(ctx, pickerId)}" popover="manual" data-map-hand-picker data-map-run-id="${escape(ctx, view.run.runId)}" data-character-id="${escape(ctx, prepared.characterId)}" aria-label="${actorName} 的合法替换候选">
+        <header><strong>替换准备行动</strong><small>选择后只更新草稿</small></header>
+        <div class="map-workspace__hand-picker-list">${replacementCandidates.map(candidate => {
+          const key = `unit-card:${prepared.characterId}:${candidate.kind}:${candidate.action.actionId}`;
+          const isNatural = candidate.kind === 'swap' && candidate.action.actionId === naturalActionId;
+          const actionStatus = isNatural ? '恢复默认'
+            : candidate.kind === 'playerCommand' ? 'PlayerCommand · 1 PlayerCost' : '免费换用';
+          const command = candidate.kind === 'swap' ? 'data-map-action-swap' : 'data-map-player-command';
+          return `<button type="button" class="map-workspace__hand-picker-card" ${command}${focusKey(ctx, key)}${regionKey(ctx, key)} data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, candidate.action.actionId)}"${attributes} aria-pressed="false"${candidate.disabled ? ' disabled' : ''}>
+            <strong>${escape(ctx, candidate.action.name)}</strong><small>${escape(ctx, actionStatus)}${candidate.kind === 'playerCommand' && candidate.reason ? ` · ${escape(ctx, candidate.reason)}` : ''}</small>
+            ${candidate.action.description ? `<span>${escape(ctx, candidate.action.description)}</span>` : ''}${renderActionCosts(ctx, candidate.action)}${renderActionHpEffects(candidate.action)}
+          </button>`;
+        }).join('')}</div>
+      </div>`
+    : '';
+  const currentKind = prepared.overrideKind === 'playerCommand' ? 'playerCommand' : 'swap';
+  const currentCardKey = preparedAction
+    ? `unit-card:${prepared.characterId}:${currentKind}:${preparedAction.actionId}`
+    : `unit-card:${prepared.characterId}:wait`;
+  const currentCardStyle = preparedAction
+    ? `--map-card-angle:${stableMapCardAngle(`${view.run.runId}:${preview.nodeId}:${preview.round}:${prepared.characterId}:${currentKind}:${preparedAction.actionId}`)}`
+    : '';
+  const currentCardLabel = prepared.overrideKind === 'playerCommand' ? '当前生效的玩家指令'
+    : preparedAction?.actionId === naturalActionId ? '当前生效的自然行为' : '当前生效的准备行为';
+  const activeCard = preparedAction
+    ? replacementCandidates.length > 0
+      ? `<button type="button" class="map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" data-map-hand-stack-toggle data-map-run-id="${escape(ctx, view.run.runId)}" data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, preparedAction.actionId)}" data-action-kind="${currentKind}" data-picker-id="${escape(ctx, pickerId)}"${focusKey(ctx, currentCardKey)} aria-controls="${escape(ctx, pickerId)}" aria-expanded="false" aria-label="${escape(ctx, `${preparedAction.name} · ${currentCardLabel}，点击更换`)}" aria-pressed="true" style="${currentCardStyle}">
+          <strong>${escape(ctx, preparedAction.name)}</strong><small>${escape(ctx, currentCardLabel)}</small>
+        </button>`
+      : `<div class="map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" aria-label="${escape(ctx, currentCardLabel)}" style="${currentCardStyle}"><strong>${escape(ctx, preparedAction.name)}</strong><small>${escape(ctx, currentCardLabel)}</small></div>`
+    : `<div class="map-workspace__unit-action-card is-wait"><strong>Wait</strong><small>本轮待机</small></div>`;
+  const stackMarkup = `<div class="map-workspace__unit-card-stack" data-map-region-key="unit-card-stack:${escape(ctx, prepared.characterId)}" role="group" aria-label="${actorName} 当前生效的准备行为">
+    ${activeCard}${pickerMarkup}
+  </div>`;
+  const avatarUrl = characterAvatarUrl(ctx, partyMember?.variantId);
+  const face = renderUnitFace(ctx, {
+    name: characterName,
+    type: '学生',
+    currentHp,
+    maxHp,
+    avatarUrl,
+    regionKey: `party-face:${prepared.characterId}`,
+  });
+  const actionDetail = preparedAction
+    ? `<div class="map-workspace__unit-support"${regionKey(ctx, `prepared:${prepared.characterId}`)}>${preparedAction.description ? `<small>${escape(ctx, preparedAction.description)}</small>` : ''}${renderActionCosts(ctx, preparedAction)}${renderActionHpEffects(preparedAction)}${target}</div>`
+    : `<div class="map-workspace__unit-support"${regionKey(ctx, `prepared:${prepared.characterId}`)}><small>本角色本轮没有可行动作。</small>${target}</div>`;
 
   return `<article class="map-workspace__party-member" data-map-party-member="${escape(ctx, prepared.characterId)}"${regionKey(ctx, `party-member:${prepared.characterId}`)} aria-labelledby="map-party-${escape(ctx, prepared.characterId)}">
-    <h2 id="map-party-${escape(ctx, prepared.characterId)}">${actorName}</h2>
-    ${runHp ? `<p class="map-workspace__party-stats"${regionKey(ctx, `party-hp:${prepared.characterId}`)}>HP ${runHp.currentHp}${encounterHp ? ` / ${encounterHp.maxHp}` : ''}</p>` : ''}
-    ${actorResources ? `<p class="map-workspace__party-stats"${regionKey(ctx, `party-resources:${prepared.characterId}`)}>${actorResources}</p>` : ''}
-    <section class="map-workspace__prepared" aria-label="当前准备行动"><span>Prepared</span>${preparedSummary}</section>
-    <section class="map-workspace__hand"${regionKey(ctx, `hand:${prepared.characterId}`)} aria-label="${actorName} 的完整 Hand">
-      <h3>Hand · ${prepared.hand.length}</h3><div class="map-workspace__hand-list"${regionKey(ctx, `hand-list:${prepared.characterId}`)}>${hand}</div>
-    </section>
-    <section class="map-workspace__commands" aria-label="手牌外指令候选"><h3>PlayerCommand 候选</h3>${commands}</section>
+    <div class="map-workspace__unit-slot${preparedAction ? ' has-cards' : ''}" id="map-party-${escape(ctx, prepared.characterId)}">
+      ${face}${stackMarkup}<span class="map-workspace__card-anchor" aria-hidden="true"></span>
+    </div>
+    ${actionDetail}
+    ${actorResources ? `<p class="map-workspace__party-stats"${regionKey(ctx, `party-resources:${prepared.characterId}`)}>资源 ${actorResources}</p>` : ''}
   </article>`;
 }
 
@@ -440,12 +516,21 @@ function renderPassivePartyMember(
 ): string {
   const hp = view.run.partyHp.find(row => row.characterId === characterId);
   const encounterHp = view.currentEncounter?.partyHp.find(row => row.characterId === characterId);
+  const partyMember = view.run.party.find(member => member.characterId === characterId);
+  const characterName = ctx.nameOf('character', characterId);
   const balances = view.run.actorResources.filter(row => row.characterId === characterId)
     .map(row => `${resourceName(ctx, row.resourceId)} ${ctx.formatNumber(row.value)}`).join(' · ');
+  const face = renderUnitFace(ctx, {
+    name: characterName,
+    type: '学生',
+    currentHp: encounterHp?.currentHp ?? hp?.currentHp ?? 0,
+    maxHp: encounterHp?.maxHp,
+    avatarUrl: characterAvatarUrl(ctx, partyMember?.variantId),
+    regionKey: `party-face:${characterId}`,
+  });
   return `<article class="map-workspace__party-member map-workspace__party-member--passive" data-map-party-member="${escape(ctx, characterId)}"${regionKey(ctx, `party-member:${characterId}`)}>
-    <h2>${escape(ctx, ctx.nameOf('character', characterId))}</h2>
-    ${hp ? `<p class="map-workspace__party-stats"${regionKey(ctx, `party-hp:${characterId}`)}>HP ${hp.currentHp}${encounterHp ? ` / ${encounterHp.maxHp}` : ''}</p>` : ''}
-    ${balances ? `<p class="map-workspace__party-stats"${regionKey(ctx, `party-resources:${characterId}`)}>${balances}</p>` : ''}
+    <div class="map-workspace__unit-slot">${face}</div>
+    ${balances ? `<p class="map-workspace__party-stats"${regionKey(ctx, `party-resources:${characterId}`)}>资源 ${balances}</p>` : ''}
   </article>`;
 }
 
@@ -462,27 +547,65 @@ function renderParty(ctx: UIContext, view: MapRunActiveWorkspaceView): string {
 }
 
 function renderFailureParty(ctx: UIContext, view: MapRunFailureWorkspaceView): string {
-  const members = view.partyHp.map(member => `<article class="map-workspace__party-member map-workspace__party-member--passive"${regionKey(ctx, `party-member:${member.characterId}`)}>
-    <h2>${escape(ctx, ctx.nameOf('character', member.characterId))}</h2><p class="map-workspace__party-stats">HP ${member.currentHp} / ${member.maxHp}</p>
-  </article>`).join('');
+  const members = view.partyHp.map(member => {
+    const characterName = ctx.nameOf('character', member.characterId);
+    const face = renderUnitFace(ctx, {
+      name: characterName,
+      type: '学生',
+      currentHp: member.currentHp,
+      maxHp: member.maxHp,
+      regionKey: `party-face:${member.characterId}`,
+    });
+    return `<article class="map-workspace__party-member map-workspace__party-member--passive" data-map-party-member="${escape(ctx, member.characterId)}"${regionKey(ctx, `party-member:${member.characterId}`)}><div class="map-workspace__unit-slot">${face}</div></article>`;
+  }).join('');
   return `<div class="map-workspace__party-scroll" data-map-region-key="party-scroll" data-scroll-owner="content-region" aria-label="我方队伍">${members}</div>`;
 }
 
 function renderActiveRight(ctx: UIContext, runId: string, view: MapRunActiveWorkspaceView): string {
-  const currentNode = view.map.nodes.find(node => node.id === view.run.currentNodeId);
   return `<div class="map-workspace__context-scroll" data-map-region-key="context-scroll" data-scroll-owner="content-region" aria-label="敌方与背景">
     ${renderEnemyRegion(ctx, runId, view)}
     ${renderActivityProgress(ctx, view)}
-    <section class="map-workspace__context-section" data-map-region-key="current-background" aria-label="当前地点背景">
-      <h2>当前地点</h2>${currentNode ? `<strong>${escape(ctx, currentNode.title)}</strong>${currentNode.description ? `<p>${escape(ctx, currentNode.description)}</p>` : ''}` : '<p class="map-workspace__empty">当前地点暂不可读取。</p>'}
-    </section>
-    ${renderNodeProgress(ctx, view)}
   </div>`;
 }
 
 function renderActiveCenter(ctx: UIContext, runId: string, view: MapRunActiveWorkspaceView, entries: readonly FlowEntry[]): string {
+  const node = view.map.nodes.find(candidate => candidate.id === view.run.currentNodeId);
+  const activity = view.activities.find(candidate => candidate.active)
+    ?? view.activities.find(candidate => !candidate.completed)
+    ?? view.activities[view.activities.length - 1];
+  const activityKind = activity?.kind === 'battle' ? '战斗'
+    : activity?.kind === 'rest' ? '休整'
+      : activity?.kind === 'shop' ? '商店'
+        : activity ? '活动' : '';
+  const encounter = view.currentEncounter;
+  const progressLabel = activity
+    ? `${activity.index + 1}/${activity.total} ${activityKind}`
+    : encounter?.round !== undefined
+      ? encounter.rounds !== undefined
+        ? `${encounter.round}/${encounter.rounds} 休整`
+        : `${encounter.round} 轮${encounter.enemies.length > 0 ? '战斗' : '活动'}`
+      : '';
+  const progress = progressLabel
+    ? `<span class="map-workspace__hero-progress" aria-label="当前轮次或活动进度">${escape(ctx, progressLabel)}</span>`
+    : '';
+  const safeRunId = escape(ctx, runId);
+  const hero = `<section class="map-workspace__hero area-hero" data-map-region-key="map-hero" aria-label="当前地点">
+    <div class="map-workspace__hero-heading">
+      <div class="map-workspace__hero-copy">
+        <h1>${escape(ctx, node?.title ?? view.map.name)}</h1>
+        ${node?.description ? `<p>${escape(ctx, node.description)}</p>` : ''}
+      </div>
+      <button type="button" class="mini-action map-workspace__hero-action map-workspace__hero-action--back" data-map-back="${safeRunId}" data-map-focus-key="back-game" aria-label="返回游戏">返回游戏</button>
+    </div>
+    <div class="map-workspace__hero-footer">
+      ${progress}
+      <div class="map-workspace__hero-actions" role="group" aria-label="地图导航">
+        <button type="button" class="mini-action map-workspace__hero-action" data-map-show-map data-map-run-id="${safeRunId}" aria-label="查看地图地点">地图</button>
+      </div>
+    </div>
+  </section>`;
   return `<div class="map-workspace__center-pane" data-map-region-key="center-pane">
-    ${renderFlowHost(ctx, runId, entries)}${renderActionDock(ctx, view)}
+    ${hero}${renderFlowHost(ctx, runId, entries)}${renderActionDock(ctx, view)}
   </div>`;
 }
 
@@ -491,7 +614,9 @@ function renderUnavailable(ctx: UIContext, runId: string): string {
   const left = `<div class="map-workspace__party-scroll" data-map-region-key="party-scroll" data-scroll-owner="content-region"><p class="map-workspace__empty" role="status">当前地图的队伍信息暂不可读取。</p></div>`;
   const center = `<div class="map-workspace__center-pane" data-map-region-key="center-pane">
     <div class="map-workspace__feed" data-map-region-key="talk-feed" data-scroll-owner="content-region" role="status"><section class="map-workspace__feed-entry"${regionKey(ctx, 'feed-unavailable')}><h1>当前地图进度暂不可用</h1><p>请返回游戏页面后查看可继续的地图入口。</p></section></div>
-    <section class="map-workspace__action-dock" data-map-region-key="action-dock"><button type="button" class="mini-action map-workspace__back" data-map-back="${safeRunId}"${focusKey(ctx, 'back-game')}>返回游戏</button></section>
+    <section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="当前遭遇操作">
+      ${renderCommitDock(ctx, { playerCost: null, status: '当前地图不可读取，暂时无法继续。', action: { kind: 'disabled' } })}
+    </section>
   </div>`;
   const right = `<div class="map-workspace__context-scroll" data-map-region-key="context-scroll" data-scroll-owner="content-region">
     <div class="map-workspace__encounter-region" data-map-encounter-region data-map-run-id="${safeRunId}" data-map-encounter-node-id=""${regionKey(ctx, 'enemy-region')}><p class="map-workspace__empty">当前敌方信息暂不可用。</p></div>
@@ -506,7 +631,9 @@ function renderSuccessResult(ctx: UIContext, runId: string, view: MapRunSuccessW
   const left = `<div class="map-workspace__party-scroll" data-map-region-key="party-scroll" data-scroll-owner="content-region"><p class="map-workspace__empty" role="status">本次地图路线已结束。</p></div>`;
   const center = `<div class="map-workspace__center-pane" data-map-region-key="center-pane">
     ${renderFlowHost(ctx, runId, entries, { label: '地图结果', emptyText: '地图结果暂不可读取。' })}
-    <section class="map-workspace__action-dock" data-map-region-key="action-dock"><button type="button" class="mini-action map-workspace__back" data-map-back="${escape(ctx, runId)}"${focusKey(ctx, 'back-game')}>返回游戏</button></section>
+    <section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="路线结果操作">
+      ${renderCommitDock(ctx, { playerCost: null, status: '地图路线已完成。', action: { kind: 'back', runId } })}
+    </section>
   </div>`;
   const right = `<div class="map-workspace__context-scroll" data-map-region-key="context-scroll" data-scroll-owner="content-region">
     <div class="map-workspace__encounter-region" data-map-encounter-region data-map-run-id="${escape(ctx, runId)}" data-map-encounter-node-id=""${regionKey(ctx, 'enemy-region')} data-map-encounter-state="success"><p class="map-workspace__empty">当前没有活动敌人。</p></div>
@@ -518,15 +645,15 @@ function renderSuccessResult(ctx: UIContext, runId: string, view: MapRunSuccessW
 }
 
 function renderFailureResult(ctx: UIContext, runId: string, view: MapRunFailureWorkspaceView, entries: readonly FlowEntry[]): string {
-  const nodeRows = view.map.nodes.map(node => `<li class="map-workspace__node${node.id === view.result.failedNodeId ? ' is-active' : ''}" data-map-node-id="${escape(ctx, node.id)}"${regionKey(ctx, `map-node:${node.id}`)}${node.id === view.result.failedNodeId ? ' aria-current="location"' : ''}><strong>${escape(ctx, node.title)}</strong>${node.id === view.result.failedNodeId ? '<small>遭遇失败</small>' : ''}</li>`).join('');
   const left = renderFailureParty(ctx, view);
   const center = `<div class="map-workspace__center-pane" data-map-region-key="center-pane">
     ${renderFlowHost(ctx, runId, entries, { label: '探索失败结果', emptyText: '探索失败结果暂不可读取。' })}
-    <section class="map-workspace__action-dock" data-map-region-key="action-dock"><button type="button" class="mini-action map-workspace__back" data-map-back="${escape(ctx, runId)}"${focusKey(ctx, 'back-game')}>返回游戏</button></section>
+    <section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="路线结果操作">
+      ${renderCommitDock(ctx, { playerCost: null, status: '本次地图探索已结束。', action: { kind: 'back', runId } })}
+    </section>
   </div>`;
   const right = `<div class="map-workspace__context-scroll" data-map-region-key="context-scroll" data-scroll-owner="content-region">
     <div class="map-workspace__encounter-region" data-map-encounter-region data-map-run-id="${escape(ctx, runId)}" data-map-encounter-node-id="${escape(ctx, view.result.failedNodeId)}"${regionKey(ctx, 'enemy-region')} data-map-encounter-state="failure"><p class="map-workspace__empty">队伍已无法继续战斗。</p></div>
-    <section class="map-workspace__context-section" data-map-region-key="map-progress" aria-label="地图地点"><h2>地图地点</h2><ol class="map-workspace__node-list">${nodeRows}</ol></section>
   </div>`;
   return `<div class="map-workspace__region map-workspace__region--failure" data-map-workspace-region data-map-run-id="${escape(ctx, runId)}">${workspaceFrame(ctx, {
     left: titleContent(ctx, '我方'), center: titleContent(ctx, view.map.name), right: titleContent(ctx, '敌方 / 背景'),
@@ -551,14 +678,12 @@ export function renderMapWorkspace(ctx: UIContext, runId: string, view: MapRunWo
 
   const mapName = escape(ctx, view.map.name);
   const safeRunId = escape(ctx, runId);
-  const back = `<button type="button" class="mini-action map-workspace__back" data-map-back="${safeRunId}"${focusKey(ctx, 'back-game')} aria-label="返回游戏">返回游戏</button>`;
-  const centerTitle = `<div class="map-workspace__center-title">${titleContent(ctx, view.map.name)}${back}</div>`;
   const left = renderParty(ctx, view);
   const center = renderActiveCenter(ctx, runId, view, entries);
   const right = renderActiveRight(ctx, runId, view);
   const frame = workspaceFrame(ctx, {
     left: titleContent(ctx, '我方'),
-    center: centerTitle,
+    center: '',
     right: titleContent(ctx, '敌方 / 背景'),
   }, { left, center, right });
   return `<div class="map-workspace__region${view.currentEncounter ? ' map-workspace__region--encounter' : ''}" data-map-workspace-region data-map-run-id="${safeRunId}" data-map-name="${mapName}">${frame}</div>`;

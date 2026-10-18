@@ -8,6 +8,14 @@
 
 ## 当前推进
 
+### Gameplay B 作用关系、Hover 与目标交互（proposed，2026-10-19）
+
+- [[docs/plan-work/task-0298-gameplay-b-relations-hover-and-target-interaction]]：背景与关键源码已核实，等待负责人确认；按 P0 统一身份 → P1 角色高亮 → P2 Hover / Focus → P3 换牌 → P4 点击 / 拖拽目标 → P5 跨栏稳定性 → P6 纯表现作用线推进。明确卡牌 / 相对目标、敌方公开意图与换牌保留目标的领域合同门槛；本轮不施工。
+
+### Gameplay B 敌我统一单位卡（in progress，2026-10-19）
+
+- [[task-0297-gameplay-b-unified-unit-cards]]：执行共用 UnitFace、HP / sCost 信息层、仅悬挂当前生效的行为卡、点击后替换/取消的 Override 候选浮层；不新增行动槽或改变 Commit 结算边界。
+
 ### 基础地图玩法 P0—P3（completed，2026-10-18）
 
 - [[docs/plan-work/task-0295-gameplay-b-basic-map-p0-p3]]：线性战斗不变量核验 → 单 Node 固定顺序 Battle / Rest / Shop → 单向分叉汇合 → 连续遭遇与条件 Edge。四阶段均已附实际修改、正式 Datapack 样例、可复现命令与结果；P0 未做无关重构，P1—P3 收敛在既有 Map / Node / Activity / Shop / Edge Condition 语义内。另补充 `mapEntryLabel` 作者文案，默认包 6 个地图入口均改为可辨识的“进入 XXX”。引擎 14 项、入口文案 6 项、UI 4 项新增验收与既有 Map 回归通过；未做浏览器人工验收，未运行全量测试，旧 Strategy Park 有 3 项与本 Task 无关的既有失败。

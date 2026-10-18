@@ -23,7 +23,7 @@
 
 .send-bubble {
    font-family: '方正兰亭圆简体';
-   font-size: 1.2em;
+   font-size: 1.2rem;
    display: flex;
    align-items: center;
    gap: 10px;

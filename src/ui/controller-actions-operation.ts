@@ -1236,6 +1236,7 @@ function refreshMapWorkspacePreservingActionFocus(ctrl: UIController, runId: str
     .find(candidate => candidate.dataset.mapRunId === runId);
   const replacement = [...(region?.querySelectorAll<HTMLElement>('[data-map-focus-key]') ?? [])]
     .find(candidate => candidate.dataset.mapFocusKey === focusKey
+      && !candidate.closest('[data-map-hand-picker]:not(.is-open):not(:popover-open)')
       && !(candidate instanceof HTMLButtonElement && candidate.disabled));
   if (replacement) {
     replacement.focus({ preventScroll: true });
@@ -1250,12 +1251,32 @@ function refreshMapWorkspacePreservingActionFocus(ctrl: UIController, runId: str
   (sourceFallback ?? stateHeading)?.focus({ preventScroll: true });
 }
 
+function closeMapHandPicker(picker: HTMLElement): void {
+  if (picker.matches(':popover-open')) picker.hidePopover();
+  else picker.classList.remove('is-open');
+  for (const card of picker.closest('.map-workspace__unit-card-stack')?.querySelectorAll<HTMLElement>('[data-map-hand-stack-toggle]') ?? []) {
+    card.setAttribute('aria-expanded', 'false');
+  }
+}
+
 /** Map Entry and Map commands share the existing Spot action delegation, with route-only entry and region-only commands. */
 function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
   const rawTarget = event.target;
   if (!(rawTarget instanceof Element)) return false;
+  const stackToggle = rawTarget.closest<HTMLElement>('[data-map-hand-stack-toggle]');
+  for (const picker of ctrl.root.querySelectorAll<HTMLElement>('[data-map-hand-picker]')) {
+    const open = picker.matches(':popover-open') || picker.classList.contains('is-open');
+    if (!open) continue;
+    if (stackToggle?.dataset.pickerId === picker.id) {
+      closeMapHandPicker(picker);
+      return true;
+    }
+    if (!picker.contains(rawTarget)) {
+      closeMapHandPicker(picker);
+    }
+  }
   const target = rawTarget.closest<HTMLElement>(
-    '[data-map-entry-start], [data-map-entry-continue-run], [data-map-back], [data-map-move-to], [data-map-complete-encounter], [data-map-action-swap], [data-map-player-command], [data-map-target], [data-map-target-clear], [data-map-target-enemy], [data-map-target-enemy-clear], [data-map-ability-draft], [data-map-item-draft], [data-map-ability-target], [data-map-item-target], [data-map-ability-clear], [data-map-item-clear], [data-map-clear-override], [data-map-commit], [data-map-shop-offer], [data-map-shop-leave], [data-map-enemy-info]',
+    '[data-map-entry-start], [data-map-entry-continue-run], [data-map-back], [data-map-show-map], [data-map-move-to], [data-map-complete-encounter], [data-map-hand-stack-toggle], [data-map-action-swap], [data-map-player-command], [data-map-target], [data-map-target-clear], [data-map-target-enemy], [data-map-target-enemy-clear], [data-map-ability-draft], [data-map-item-draft], [data-map-ability-target], [data-map-item-target], [data-map-ability-clear], [data-map-item-clear], [data-map-clear-override], [data-map-commit], [data-map-shop-offer], [data-map-shop-leave], [data-map-enemy-info]',
   );
   if (!target) return false;
   if (target instanceof HTMLButtonElement && target.disabled) return true;
@@ -1294,7 +1315,46 @@ function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
   const runId = target.dataset.mapRunId;
   if (!runId || !onMapRoute(ctrl, runId)) return true;
   try {
-    if (target.hasAttribute('data-map-enemy-info')) {
+    if (target.hasAttribute('data-map-show-map')) {
+      ctrl.toggleMapOverview(runId);
+    } else if (target.hasAttribute('data-map-hand-stack-toggle')) {
+      const pickerId = target.dataset.pickerId;
+      const picker = pickerId ? ctrl.root.querySelector<HTMLElement>(`#${CSS.escape(pickerId)}`) : null;
+      if (!picker) return true;
+      const nativePopover = typeof picker.showPopover === 'function';
+      if (nativePopover && picker.dataset.mapPopoverBound !== 'true') {
+        picker.addEventListener('toggle', () => {
+          const open = picker.matches(':popover-open');
+          const stack = picker.closest('.map-workspace__unit-card-stack');
+          for (const card of stack?.querySelectorAll<HTMLElement>('[data-map-hand-stack-toggle]') ?? []) {
+            card.setAttribute('aria-expanded', String(open && card.dataset.actionId === picker.dataset.triggerActionId && card.dataset.actionKind === picker.dataset.triggerActionKind));
+          }
+        });
+        picker.dataset.mapPopoverBound = 'true';
+      }
+      const wasOpen = nativePopover ? picker.matches(':popover-open') : picker.classList.contains('is-open');
+      for (const card of target.closest('.map-workspace__unit-card-stack')?.querySelectorAll<HTMLElement>('[data-map-hand-stack-toggle]') ?? []) {
+        card.setAttribute('aria-expanded', 'false');
+      }
+      if (wasOpen) {
+        if (nativePopover) picker.hidePopover();
+        else picker.classList.remove('is-open');
+      } else {
+        picker.dataset.triggerActionId = target.dataset.actionId ?? '';
+        picker.dataset.triggerActionKind = target.dataset.actionKind ?? '';
+        if (nativePopover) picker.showPopover();
+        else picker.classList.add('is-open');
+        const anchor = target.getBoundingClientRect();
+        const bounds = picker.getBoundingClientRect();
+        const width = bounds.width;
+        const height = bounds.height;
+        const left = Math.min(window.innerWidth - width - 8, Math.max(8, anchor.right + 8));
+        const top = Math.min(window.innerHeight - height - 8, Math.max(8, anchor.top));
+        picker.style.left = `${left}px`;
+        picker.style.top = `${top}px`;
+        target.setAttribute('aria-expanded', 'true');
+      }
+    } else if (target.hasAttribute('data-map-enemy-info')) {
       const enemyId = target.dataset.enemyId;
       if (!enemyId) return true;
       // 只读查询：写入当前 Run 的 UI 临时流，不改变目标选择或提交草稿。
@@ -1312,6 +1372,8 @@ function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
       const characterId = target.dataset.characterId;
       const actionId = target.dataset.actionId;
       if (!draft || !characterId || !actionId) return true;
+      const picker = target.closest<HTMLElement>('[data-map-hand-picker]');
+      if (picker) closeMapHandPicker(picker);
       if (target.hasAttribute('data-map-action-swap')) {
         ctrl.commands.swapMapPreparedAction(runId, characterId, actionId, draft);
       } else {

@@ -213,20 +213,23 @@ function actorResourceLabel(resourceId: string): string {
   return resourceId;
 }
 
-function renderStudentVitals(ctx: UIContext, actor: OperationViewActor): string {
+function renderActorVitals(ctx: UIContext, actor: OperationViewActor, showResources: boolean): string {
   const hpPercent = actor.maxHp > 0 ? Math.max(0, Math.min(100, actor.hp / actor.maxHp * 100)) : 0;
-  const personalResources = Object.entries(actor.resources)
-    .sort(([left], [right]) => left.localeCompare(right));
+  const personalResources = showResources ? Object.entries(actor.resources)
+    .sort(([left], [right]) => left.localeCompare(right)) : [];
   const balance = personalResources.length
     ? personalResources.map(([resourceId, value]) => actorResourceLabel(resourceId) + ' ' + value).join(' · ')
     : '—';
   const balanceLabel = personalResources.length
     ? personalResources.map(([resourceId, value]) => actorResourceLabel(resourceId) + ' ' + value).join('，')
     : '没有个人行动资源';
-  return '<div class="operation-student-vitals" aria-label="角色状态">' +
-    '<div class="operation-student-vitals__hp"><span>HP</span><strong>' + actor.hp + ' / ' + actor.maxHp + '</strong>' +
-    '<span class="operation-student-vitals__bar" role="meter" aria-label="生命值" aria-valuemin="0" aria-valuemax="' + actor.maxHp + '" aria-valuenow="' + actor.hp + '"><span style="--operation-hp-fill:' + hpPercent + '%"></span></span></div>' +
-    '<div class="operation-student-vitals__scost" data-operation-scost><span>sCost</span><strong aria-label="' + e(ctx, balanceLabel) + '">' + e(ctx, balance) + '</strong></div></div>';
+  const resourcesMarkup = showResources
+    ? '<div class="operation-unit-vitals__resources" data-operation-scost><span>sCost</span><strong aria-label="' + e(ctx, balanceLabel) + '">' + e(ctx, balance) + '</strong></div>'
+    : '';
+  return '<div class="operation-unit-vitals" aria-label="角色状态">' +
+    '<div class="operation-unit-vitals__hp"><span>HP</span><strong>' + actor.hp + ' / ' + actor.maxHp + '</strong>' +
+    '<span class="operation-unit-vitals__bar" role="meter" aria-label="生命值" aria-valuemin="0" aria-valuemax="' + actor.maxHp + '" aria-valuenow="' + actor.hp + '"><span style="--operation-hp-fill:' + hpPercent + '%"></span></span></div>' +
+    resourcesMarkup + '</div>';
 }
 
 function targetName(view: OperationView, targetActorId: string): string {
@@ -615,8 +618,8 @@ function renderStudent(ctx: UIContext, view: OperationView, actor: OperationView
   const actorCardSlot = attachedSceneAction || actorPlayerCards
     ? '<div class="operation-actor-hand-cards operation-card-fan" data-operation-actor-hand-cards role="list" aria-label="' + e(ctx, name) + '持有的行动牌">' + attachedSceneAction + actorPlayerCards + '</div>' : '';
   return '<article class="operation-student-card" data-operation-student="' + e(ctx, actor.id) + '" data-operation-actor-hand="' + e(ctx, actor.id) + '" data-operation-card-anchor="' + e(ctx, actor.id) + '"' + (characterPlanning ? ' data-operation-action-anchor="' + e(ctx, actor.id) + '"' : '') + ' data-operation-actor-target="' + e(ctx, actor.id) + '">' +
-    '<header class="operation-student-card__header"><span class="operation-student-card__avatar" aria-hidden="true">' + avatar + '</span><span><strong>' + e(ctx, name) + '</strong>' + positionMarkup + '</span></header>' +
-    renderStudentVitals(ctx, actor) + planMarkup + actorCardSlot + '</article>';
+    '<header class="operation-student-card__header"><span class="operation-unit-card__avatar" aria-hidden="true">' + avatar + '</span><span><strong>' + e(ctx, name) + '</strong>' + positionMarkup + '</span></header>' +
+    renderActorVitals(ctx, actor, true) + planMarkup + actorCardSlot + '</article>';
 }
 
 function actorsInCurrentScene(view: OperationView): ReadonlySet<string> {
@@ -648,8 +651,8 @@ function renderOpponents(ctx: UIContext, view: OperationView, visible: boolean):
   const opponentGroup = opponents.length
     ? '<section class="operation-actor-group" data-operation-opponents><header class="operation-column-heading"><span class="operation-eyebrow">敌方</span><strong>' + opponents.length + ' 名</strong></header>' +
     opponents.map(actor => '<article class="operation-opponent-card" data-operation-opponent="' + e(ctx, actor.id) + '" data-operation-card-anchor="' + e(ctx, actor.id) + '" data-operation-actor-target="' + e(ctx, actor.id) + '">' +
-      '<header class="operation-opponent-card__header"><span class="operation-opponent-card__avatar">' + e(ctx, actor.displayName.slice(0, 1)) + '</span><span><strong>' + e(ctx, actorLabel(actor)) + '</strong><small>' + e(ctx, actorPresentation(view, actor.id)?.role ?? '行动者') + '</small>' + actorPositionMarkup(ctx, actor.positionId, 'operation-opponent-position') + '</span></header>' +
-      '<div class="operation-hp"><span>状态</span><strong>' + actor.hp + ' / ' + actor.maxHp + '</strong></div></article>').join('') + '</section>'
+      '<header class="operation-opponent-card__header"><span class="operation-unit-card__avatar" aria-hidden="true">' + e(ctx, actor.displayName.slice(0, 1)) + '</span><span><strong>' + e(ctx, actorLabel(actor)) + '</strong><small>' + e(ctx, actorPresentation(view, actor.id)?.role ?? '行动者') + '</small>' + actorPositionMarkup(ctx, actor.positionId, 'operation-opponent-position') + '</span></header>' +
+      renderActorVitals(ctx, actor, false) + '</article>').join('') + '</section>'
     : '';
   const environmentGroup = environment.length
     ? '<section class="operation-actor-group operation-environment-group" data-operation-environment><header class="operation-column-heading"><span class="operation-eyebrow">场景 / 设施</span><strong>' + environment.length + ' 项</strong></header>' +

@@ -313,7 +313,7 @@ export const gameplayBActivityHallDefinition: GameplayMapDef = {
     {
       id: 'b',
       title: '废弃活动室',
-      description: '进入后按固定顺序完成清洁、休整与补给，顺序不能跳过。',
+      description: '旧校舍的设备储藏室，仍有部分设施运作。',
       activities: [
         {
           id: 'clear-patrol',

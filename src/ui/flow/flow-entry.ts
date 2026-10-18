@@ -13,8 +13,8 @@ export const FLOW_STREAM_MAX = 200;
 /** 缺省策略是追加；只有显式声明且提供非空逻辑 ID 时才回收同 ID 旧条目。 */
 export type FlowRepeatPolicy = 'append' | 'replaceSameId';
 
-/** 通用条目种类：聊天与 Map 共用，不含剧情专属语义。 */
-export type FlowEntryKind = 'talk' | 'narration' | 'system' | 'reward' | 'typing';
+/** 流条目种类：Chat / Story 共用，并包含 UI 专用的 Gameplay B 地图条目。 */
+export type FlowEntryKind = 'talk' | 'map' | 'narration' | 'system' | 'reward' | 'typing';
 
 export type FlowAlign = 'center' | 'left' | 'right';
 export type FlowSide = 'left' | 'right';
@@ -50,6 +50,16 @@ export interface FlowAction {
   readonly marks: FlowMarks;
 }
 
+/** Gameplay B 地图 Talklet 专用的地点胶囊投影。 */
+export interface FlowMapOverview {
+  readonly mapName: string;
+  readonly nodes: readonly {
+    readonly title: string;
+    readonly state: 'current' | 'completed' | 'visited' | 'unvisited';
+    readonly stateLabel: string;
+  }[];
+}
+
 /** 通用呈现字段：普通 Chat 与 Map 都以它进入同一渲染入口。 */
 export interface FlowContent {
   readonly kind: FlowEntryKind;
@@ -60,6 +70,8 @@ export interface FlowContent {
   /** 正文附加行：纯文本，按行渲染为段落。 */
   readonly lines?: readonly string[];
   readonly actions?: readonly FlowAction[];
+  /** 仅 `kind === 'map'` 使用；不进入作者 StoryDef / Datapack Talklet。 */
+  readonly mapOverview?: FlowMapOverview;
   /** 条目根元素的受控语义标记。 */
   readonly marks?: FlowMarks;
   /** 标题元素的受控语义标记（焦点锚点等）。 */

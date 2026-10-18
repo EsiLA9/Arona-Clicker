@@ -258,15 +258,37 @@ function sameChainGroup(a: ChatEntry | undefined, b: ChatEntry): boolean {
     && !!a.noAvatar === !!b.noAvatar;
 }
 
-/**
- * 通用条目渲染入口：普通 Chat 与 Map 共用这一处种类分派。
- * Map 回执等专属正文由调用方先格式化，再作为 `text` 或受控片段进入本入口。
- */
+/** Gameplay B 地图 Talklet：轻量包装下按路线顺序展示地点胶囊。 */
+function renderMapTalklet(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
+  const overview = entry.mapOverview;
+  if (!overview?.nodes.length) {
+    return renderNarration(ctx, {
+      ...entry,
+      kind: 'narration',
+      text: '当前地图地点信息暂不可读取。',
+      align: 'center',
+    }, options);
+  }
+
+  const nodes = overview.nodes.map((node, index) => `<li class="map-talklet__node" data-map-node-state="${node.state}"${node.state === 'current' ? ' aria-current="location"' : ''}>
+    <span class="map-talklet__index" aria-hidden="true">${index + 1}</span>
+    <strong>${ctx.escapeHtml(node.title)}</strong>
+    <small>${ctx.escapeHtml(node.stateLabel)}</small>
+  </li>`).join('');
+  const mapName = ctx.escapeHtml(overview.mapName);
+  return `<section class="map-talklet"${entryAttributes(ctx, entry, options.instanceKey)} role="group" aria-label="地图地点：${mapName}">
+    <header class="map-talklet__header"><span>地图</span><strong>${mapName}</strong></header>
+    <ol class="map-talklet__route" aria-label="地图地点顺序">${nodes}</ol>
+  </section>`;
+}
+
+/** 普通 Chat、Story 与 Gameplay B Map 共用这一处条目种类分派。 */
 export function renderChatEntry(
   ctx: UIContext,
   entry: FlowContent,
   options: RenderChatEntryOptions = {},
 ): string {
+  if (entry.kind === 'map') return renderMapTalklet(ctx, entry, options);
   if (entry.kind === 'narration') return renderNarration(ctx, entry, options);
   if (entry.kind === 'typing') return renderTyping(ctx, entry, options);
   const attributes = entryAttributes(ctx, entry, options.instanceKey);

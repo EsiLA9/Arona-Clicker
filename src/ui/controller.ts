@@ -652,6 +652,24 @@ export class UIController {
     return true;
   }
 
+  /**
+   * 将地图地点概览作为 Talklet 投递到当前 Run 的临时流；再次点击时按其末端位置移除或替换。
+   * 不发送 GameCommand，也不改变地图状态。
+   */
+  toggleMapOverview(runId: string): boolean {
+    const route = this.panelState.workspaceNavigation?.current;
+    if (this.panelState.workspace || this.panelState.service !== 'game'
+      || route?.kind !== 'map' || route.runId !== runId) return false;
+    const view = this.game.mapRun.getWorkspaceView(runId);
+    if (!view || view.kind !== 'active') return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const flow = this.ensureMapFlow(runId, context);
+    flow.sync(view);
+    flow.toggleMapOverview(view);
+    this.requestMapWorkspaceRefresh(runId, true);
+    return true;
+  }
+
   /** 流内移动：只有成功命令才消费移动器并留下本次会话的移动记录。 */
   moveMapFromFlow(runId: string, fromNodeId: string, targetNodeId: string): boolean {
     const route = this.panelState.workspaceNavigation?.current;
@@ -673,7 +691,7 @@ export class UIController {
   }
 
   /** Refreshes the active Encounter region when Map navigation and its Node remain stable. */
-  requestMapWorkspaceRefresh(runId: string): void {
+  requestMapWorkspaceRefresh(runId: string, forceWorkspace = false): void {
     const route = this.panelState.workspaceNavigation?.current;
     if (this.panelState.workspace || this.panelState.service !== 'game'
       || route?.kind !== 'map' || route.runId !== runId) return;
@@ -681,7 +699,7 @@ export class UIController {
       .find(region => region.dataset.mapRunId === runId);
     const view = this.game.mapRun.getWorkspaceView(runId);
     const currentNodeId = current?.querySelector<HTMLElement>('[data-map-current-node]')?.dataset.mapCurrentNode;
-    const refreshEncounterOnly = view?.kind === 'active'
+    const refreshEncounterOnly = !forceWorkspace && view?.kind === 'active'
       && view.run.runId === runId
       && view.currentEncounter !== null
       && currentNodeId === view.currentEncounter.nodeId;

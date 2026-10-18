@@ -29,6 +29,8 @@ import {
 export const MAP_FLOW_ENEMY_INFO_SLOT = 'gameplay-b:current-enemy-info';
 /** 当前地点说明的逻辑槽。 */
 export const MAP_FLOW_CURRENT_NODE_SLOT = 'gameplay-b:current-node';
+/** 玩家主动查看的地图地点概览逻辑槽。 */
+export const MAP_FLOW_MAP_OVERVIEW_SLOT = 'gameplay-b:map-overview';
 /** 当前遭遇说明的逻辑槽。 */
 export const MAP_FLOW_CURRENT_ENCOUNTER_SLOT = 'gameplay-b:current-encounter';
 export const MAP_FLOW_MOVE_CHOICES_SLOT = 'gameplay-b:move-choices';
@@ -310,6 +312,55 @@ export class MapFlowModel {
     };
     applyFlowEntryInPlace(this.entries, entry, FLOW_STREAM_MAX);
     this.enemyInfo = { signature, entry };
+    return this.entries;
+  }
+
+  /**
+   * 查看地图：概览不在流末两条时按同一逻辑 ID 定向替换并移到末尾；
+   * 已在末两条时移除。条目仅属于当前 Run 的 UI 会话。
+   */
+  toggleMapOverview(view: MapRunActiveWorkspaceView): readonly FlowEntry[] {
+    const existingIndex = this.entries.findIndex(entry => entry.contentId === MAP_FLOW_MAP_OVERVIEW_SLOT);
+    if (existingIndex >= 0 && existingIndex >= this.entries.length - 2) {
+      this.entries.splice(existingIndex, 1);
+      return this.entries;
+    }
+
+    this.sequence += 1;
+    const currentNodeExists = view.map.nodes.some(node => node.id === view.run.currentNodeId);
+    const mapIsReadable = view.map.nodes.length > 0 && currentNodeExists;
+    const entry: FlowEntry = {
+      streamKey: this.streamKey,
+      instanceKey: mapInstanceKey('map-overview', String(this.sequence)),
+      contentId: MAP_FLOW_MAP_OVERVIEW_SLOT,
+      repeatPolicy: 'replaceSameId',
+      lifecycle: 'observed',
+      kind: mapIsReadable ? 'map' : 'narration',
+      ...(mapIsReadable ? {
+        noAvatar: true,
+        speaker: view.map.name,
+        text: '地图地点',
+        mapOverview: {
+          mapName: view.map.name,
+          nodes: view.map.nodes.map(node => {
+            const completed = view.run.completedEncounterNodeIds.includes(node.id);
+            const visited = view.run.visitedNodeIds.includes(node.id);
+            const state = node.id === view.run.currentNodeId ? 'current'
+              : completed ? 'completed' : visited ? 'visited' : 'unvisited';
+            const stateLabel = state === 'current' ? '当前位置'
+              : state === 'completed' ? '已完成'
+                : state === 'visited' ? '已访问' : '未到达';
+            return { title: node.title, state, stateLabel };
+          }),
+        },
+      } : {
+        text: '当前地图地点信息暂不可读取。',
+        align: 'center' as const,
+      }),
+      marks: { 'data-map-overview': this.runId },
+      source: { kind: 'map.overview', id: this.runId },
+    };
+    applyFlowEntryInPlace(this.entries, entry, FLOW_STREAM_MAX);
     return this.entries;
   }
 
