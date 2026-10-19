@@ -8,6 +8,10 @@
 
 ## 当前推进
 
+### Gameplay B 可复用卡牌宿主与对象交互（proposed，2026-10-19）
+
+- [[docs/plan-work/task-0300-gameplay-b-reusable-card-interaction]]：已调查现行 MapRun / Encounter、0296—0299 与相关源码，提出共用卡牌绑定、逐实例入口及唯一交互 session；P0—P3 覆盖 Map / Popover 整理和首个 Flow 真实牌闭环，多目标与作用线列为后续阶段。本轮仅编写 Task，不修改产品代码。
+
 ### Gameplay B 自主行动与目标策略（in progress，2026-10-19）
 
 - [[docs/plan-work/task-0299-gameplay-b-autonomous-action-target-strategy]]：P0 产品规则已按负责人意见冻结，开始按 P0—P5 的 Patch Unit 施工；明确覆盖 0290 多目标手选和 0291 自动目标同轮失效合同，不重做旧 Operation Planner、0298 交互或第二 Runtime Owner。

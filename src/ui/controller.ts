@@ -171,7 +171,6 @@ function operationMorphKey(node: Node): string | null {
   if (node.hasAttribute('data-operation-routes')) return 'operation-routes';
   if (node.hasAttribute('data-operation-outcome')) return 'operation-outcome';
   if (node.hasAttribute('data-operation-map-popup')) return 'operation-map-popup';
-  if (node.hasAttribute('data-operation-map-intro')) return `operation-map-intro:${node.dataset.operationMapIntro}`;
   if (node.hasAttribute('data-operation-student')) return `student:${node.dataset.operationStudent}`;
   if (node.hasAttribute('data-operation-scene-card')) {
     if (node.hasAttribute('data-operation-choice-group-card')) {

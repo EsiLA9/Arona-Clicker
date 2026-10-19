@@ -13,8 +13,6 @@ import { OperationRuntimeService } from '../../src/arona-clicker/services/operat
 import { createOperationEntry } from '../../src/arona-clicker/services/operation-entry-service';
 import { OperationAdmissionError, OperationParticipantAdmission } from '../../src/arona-clicker/services/operation-participant-admission';
 import { createRegistryOperationContentResolver } from '../../src/arona-clicker/services/registry-operation-content-resolver';
-import { gameplayBStrategyParkDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-strategy-park';
-import { GAMEPLAY_B_STRATEGY_PARK_IDS as STRATEGY_PARK_IDS } from '../../src/arona-clicker/content/operation-samples/gameplay-b-strategy-park-ids';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 const EVENT_ID = 'test:operation:admission';
@@ -216,44 +214,6 @@ describe('Operation participant admission', () => {
     expect(resolved?.operationCardPools?.map(pool => pool.id).sort()).toEqual([POOL_ID, 'test:pool:event', 'test:pool:location'].sort());
     expect(resolved?.operationStrategyProfiles?.map(profile => profile.id)).toEqual([STRATEGY_ID]);
     expect(resolved?.actionDefinitions.map(action => action.id).sort()).toEqual(['observe', 'opponent-observe', 'protect', 'scene-only-action']);
-  });
-
-  test('keeps Registry Location context and Action Conditions through Admission and RunStart', () => {
-    const operationPack = {
-      ...gameplayBStrategyParkDatapack,
-      operationEvents: gameplayBStrategyParkDatapack.operationEvents?.map(event => event.id === STRATEGY_PARK_IDS.event
-        ? { ...event, characterHandSize: 10 }
-        : event),
-    };
-    const game = new GameInstance();
-    games.push(game);
-    game.init([baseDatapack, operationPack], { enterDefaultInit: false });
-    game.inits.enterInit('base:init:schale_office');
-    game.mutations.acquireCharacter('Hoshino', 'story');
-    game.mutations.acquireCharacter('Serika', 'story');
-    game.mutations.acquireCharacter('Shiroko', 'story');
-
-    expect(game.registry.operationLocations.get(STRATEGY_PARK_IDS.locations.westGate)).toMatchObject({
-      interactionSceneId: 'park:exploration',
-      activityId: 'park:briefing',
-      cardPoolIds: [STRATEGY_PARK_IDS.pools.exploration],
-    });
-    expect(game.registry.operationActions.get(STRATEGY_PARK_IDS.actions.searchMaze)?.cardCondition).toEqual({
-      sceneIds: ['park:exploration'],
-      activityIds: ['park:mirror-maze'],
-    });
-
-    const runId = game.operationEntry.start(STRATEGY_PARK_IDS.event, [Character.Hoshino, Character.Serika, Character.Shiroko]).runId;
-    const hand = game.operationEntry.getView(runId)!.actorStates
-      .find(actor => actor.id === STRATEGY_PARK_IDS.actors.hoshino)!.characterHand!;
-    expect(hand.matchedPoolIds).toContain(STRATEGY_PARK_IDS.pools.exploration);
-    expect(hand.matchedPoolIds).not.toContain(STRATEGY_PARK_IDS.pools.backline);
-    expect(hand.actionIds).toContain(STRATEGY_PARK_IDS.actions.brief);
-    expect(hand.actionIds).not.toContain(STRATEGY_PARK_IDS.actions.searchMaze);
-    expect(hand.candidates.find(candidate => candidate.actionId === STRATEGY_PARK_IDS.actions.brief))
-      .toMatchObject({ eligible: true });
-    expect(hand.candidates.find(candidate => candidate.actionId === STRATEGY_PARK_IDS.actions.searchMaze))
-      .toMatchObject({ eligible: false, reasonIds: expect.arrayContaining(['operation:hand:action-condition-not-met']) });
   });
 
   test.each([

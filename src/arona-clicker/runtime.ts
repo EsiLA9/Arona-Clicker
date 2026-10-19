@@ -19,7 +19,7 @@ import { ThemeContentEditorService } from './services/theme-content-editor-servi
 import { RuntimeDefinitionEditor, SpotContentService } from './services/spot-content-service';
 import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from './contracts/runtime-content';
 import { decodeSpotContent } from '../data-services/authoring/content-policy-dsl';
-import { gameplayBMapDatapack } from './content/operation-samples/gameplay-b-map-datapack';
+import { gameplayBMapDatapack } from './content/gameplay-b-map-datapack';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;

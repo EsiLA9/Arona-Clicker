@@ -2,8 +2,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
-import { gameplayBMapDatapack, gameplayBScostTrainingDefinition } from '../../src/arona-clicker/content/operation-samples/gameplay-b-map-datapack';
+import { gameplayBMapDatapack, gameplayBScostTrainingDefinition } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { Resource } from '../../src/arona-clicker/types/ids';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
@@ -21,7 +20,7 @@ describe('Gameplay B Map Workspace', () => {
   let game: ReturnType<typeof createAppRuntime> | undefined;
   let controller: UIController | undefined;
 
-  function mapFixture(datapack: Datapack = gameplayBCarouselDatapack) {
+  function mapFixture(datapack: Datapack = gameplayBMapDatapack) {
     const entry = datapack.spots
       .flatMap(spot => spot.functionalities ?? [])
       .find(functionality => functionality.kind === 'mapEntry');
@@ -31,7 +30,7 @@ describe('Gameplay B Map Workspace', () => {
     return map;
   }
 
-  function actionWorkspaceDatapack(waitForSerika = false, initialPlayerCost?: number): typeof gameplayBCarouselDatapack {
+  function actionWorkspaceDatapack(waitForSerika = false, initialPlayerCost?: number): typeof gameplayBMapDatapack {
     const source = mapFixture();
     const actions = (source.actions ?? []).map(action => ({
       id: action.id,
@@ -65,8 +64,8 @@ describe('Gameplay B Map Workspace', () => {
       } : node),
     };
     return {
-      ...gameplayBCarouselDatapack,
-      maps: gameplayBCarouselDatapack.maps?.map(map => map.id === source.id ? extendedMap : map),
+      ...gameplayBMapDatapack,
+      maps: gameplayBMapDatapack.maps?.map(map => map.id === source.id ? extendedMap : map),
     };
   }
 
@@ -159,8 +158,8 @@ describe('Gameplay B Map Workspace', () => {
       })),
     };
     return {
-      ...gameplayBCarouselDatapack,
-      maps: gameplayBCarouselDatapack.maps?.map(candidate => candidate.id === source.id ? map : candidate),
+      ...gameplayBMapDatapack,
+      maps: gameplayBMapDatapack.maps?.map(candidate => candidate.id === source.id ? map : candidate),
       items,
     };
   }
@@ -176,7 +175,7 @@ describe('Gameplay B Map Workspace', () => {
     }
   }
 
-  function cardWorkspaceDatapack(): typeof gameplayBCarouselDatapack {
+  function cardWorkspaceDatapack(): typeof gameplayBMapDatapack {
     const source = mapFixture();
     const map: GameplayMapDef = { ...source, resumeVersion: source.resumeVersion + 10,
       initialActorResources: source.partyCharacterIds.map(characterId => ({ characterId, resourceId: 'sCost', value: 5 })),
@@ -192,7 +191,7 @@ describe('Gameplay B Map Workspace', () => {
           { characterId: 'serika', actions: ['shot-a', 'shot-b', 'shot-c', 'shot-d'].map(actionId => ({ actionId, tendencyWeight: 1 })) }],
       } }),
     };
-    return { ...gameplayBCarouselDatapack, maps: gameplayBCarouselDatapack.maps!.map(row => row.id === source.id ? map : row) };
+    return { ...gameplayBMapDatapack, maps: gameplayBMapDatapack.maps!.map(row => row.id === source.id ? map : row) };
   }
 
   function activeWorkspaceView(runId: string) {
@@ -207,7 +206,7 @@ describe('Gameplay B Map Workspace', () => {
     }
   }
 
-  function mount(datapack: Datapack = gameplayBCarouselDatapack): { root: HTMLElement; mapId: string } {
+  function mount(datapack: Datapack = gameplayBMapDatapack): { root: HTMLElement; mapId: string } {
     localStorage.clear();
     document.body.innerHTML = '<div id="app"></div>';
     game = createAppRuntime();

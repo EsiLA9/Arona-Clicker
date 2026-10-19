@@ -1,4 +1,3 @@
-import { Character } from '../arona-clicker/types/ids';
 import { OperationAdmissionError } from '../arona-clicker/services/operation-participant-admission';
 import { OperationInterventionPreviewError } from '../arona-clicker/services/operation-intervention-preview';
 import { OperationRuntimeError } from '../arona-clicker/services/operation-runtime-service';
@@ -6,18 +5,13 @@ import type { OperationSceneActionBatchCommand } from '../arona-clicker/contract
 import type { OperationView } from '../arona-clicker/contracts/operation-view';
 import type { MapRunEncounterCommitCommand, MapRunEncounterDraftToken, MapRunShopDraftToken } from '../arona-clicker/contracts/map-run';
 import type { UIController } from './controller';
-import { clearOperationSceneDraft, closeOperationMapCard, closeOperationWorkspaceMap, moveOperationWorkspaceMap, readOperationSceneDraft, saveOperationSceneDraft, setOperationWorkspaceTab, toggleOperationWorkspaceMap, type OperationSceneDraft } from './components/operation-workspace';
+import { clearOperationSceneDraft, closeOperationWorkspaceMap, moveOperationWorkspaceMap, readOperationSceneDraft, saveOperationSceneDraft, setOperationWorkspaceTab, toggleOperationWorkspaceMap, type OperationSceneDraft } from './components/operation-workspace';
 import { operationRelationAnchors, operationRelationPath } from './operation-card-relation';
 import { bindOperationCardHoverOverlay, disposeOperationCardHoverOverlay, resumeOperationCardHoverOverlay, suspendOperationCardHoverOverlay } from './operation-card-hover-overlay';
 import { createUIContext } from './context';
 import { getSpotReveal } from './components/tooltip';
 
 const OPERATION_REGION_HOST_ID = 'workspace.operation';
-const DEMO_STUDENTS = [
-  { id: Character.Hoshino, name: '星野' },
-  { id: Character.Serika, name: '芹香' },
-  { id: Character.Shiroko, name: '白子' },
-] as const;
 
 export type OperationFocusTarget =
   | { readonly type: 'action'; readonly actorId: string; readonly actionId: string }
@@ -29,16 +23,15 @@ const disposedOperationControllers = new WeakSet<UIController>();
 
 function operationErrorText(error: unknown, selectedCharacterIds?: readonly string[]): string {
   if (error instanceof OperationAdmissionError) {
-    const roster = selectedCharacterIds ?? DEMO_STUDENTS.map(student => student.id);
+    const roster = selectedCharacterIds ?? [];
     const missing = roster.filter(characterId => error.diagnostics.some(diagnostic =>
       diagnostic.includes(`Character ${characterId}`)
       && (diagnostic.includes('has no owned Registry Variant') || diagnostic.includes('is not unlocked')),
     ));
     if (missing.length > 0) {
-      const names = missing.map(characterId => DEMO_STUDENTS.find(student => student.id === characterId)?.name ?? characterId);
-      return `还需要持有并解锁${names.join('、')}；这次试玩不会自动补发学生。`;
+      return `还需要持有并解锁：${missing.join('、')}。`;
     }
-    return '试玩准入检查没有通过，请确认入口卡列出的学生均已持有并解锁；不会自动补发角色。';
+    return '行动准入检查没有通过，请确认当前入口要求的角色均已持有并解锁；系统不会自动补发角色。';
   }
   if (error instanceof OperationInterventionPreviewError) {
     if (error.code === 'operation:intervention:action-not-affordable') return '剩余行动资源不足，无法采用这个方案。';
@@ -1528,15 +1521,6 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
       mapOpener.setAttribute('aria-expanded', 'false');
     }
     if (runId) restoreMapOpenerFocus(ctrl, workspace, runId, opener);
-    return;
-  }
-  const mapCardClose = rawTarget.closest<HTMLElement>('[data-operation-map-card-close]');
-  if (mapCardClose && workspace) {
-    const runId = mapCardClose.dataset.runId;
-    const mapId = mapCardClose.dataset.operationMapCardClose;
-    if (runId && mapId) closeOperationMapCard(runId, mapId);
-    const card = mapCardClose.closest<HTMLElement>('[data-operation-map-intro]');
-    if (card) card.hidden = true;
     return;
   }
   const target = rawTarget.closest<HTMLElement>(

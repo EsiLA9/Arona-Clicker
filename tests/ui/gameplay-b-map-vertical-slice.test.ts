@@ -2,12 +2,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID, defaultDatapack, loadDefaultDatapack } from '../../src/app/runtime-bootstrap';
 import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import { UIController } from '../../src/ui/controller';
 
-function actionE2EDatapack(): typeof gameplayBCarouselDatapack {
-  const source = gameplayBCarouselDatapack.maps?.[0];
+function actionE2EDatapack(): typeof gameplayBMapDatapack {
+  const source = gameplayBMapDatapack.maps?.[0];
   if (!source) throw new Error('The Gameplay B Datapack has no Map for the Encounter action E2E.');
   const commandAction = {
     id: 'e2e-player-command',
@@ -34,8 +34,8 @@ function actionE2EDatapack(): typeof gameplayBCarouselDatapack {
     } : node),
   };
   return {
-    ...gameplayBCarouselDatapack,
-    maps: gameplayBCarouselDatapack.maps?.map(candidate => candidate.id === source.id ? map : candidate),
+    ...gameplayBMapDatapack,
+    maps: gameplayBMapDatapack.maps?.map(candidate => candidate.id === source.id ? map : candidate),
   };
 }
 

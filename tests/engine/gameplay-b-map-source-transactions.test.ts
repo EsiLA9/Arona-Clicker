@@ -3,13 +3,13 @@ import { Resource } from '../../src/arona-clicker/types/ids';
 import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { MapRunError, MapRunService } from '../../src/arona-clicker/services/map-run-service';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import type { MapRun, MapRunEncounterCommitCommand, MapRunEncounterDraftToken, MapRunEncounterSourceTarget } from '../../src/arona-clicker/contracts/map-run';
 
-const MAP_ID = gameplayBCarouselDatapack.maps![0]!.id;
+const MAP_ID = gameplayBMapDatapack.maps![0]!.id;
 const ITEM_ID = 'gameplay-b:item:map-kit';
 const SECOND_ITEM_ID = 'gameplay-b:item:map-kit-2';
 const ABILITY_ID = 'ability-hit';
@@ -31,7 +31,7 @@ interface BattleOptions {
 }
 
 function battleDatapack(options: BattleOptions = {}): Datapack {
-  const baseMap = gameplayBCarouselDatapack.maps?.[0];
+  const baseMap = gameplayBMapDatapack.maps?.[0];
   if (!baseMap) throw new Error('Gameplay B sample Map is missing');
   const characterActionIds = ['char-hit-1', 'char-hit-2', 'char-hit-3', 'char-hit-4'];
   const characterActions: GameplayMapActionDef[] = characterActionIds.map(id => ({
@@ -114,7 +114,7 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
     // MapRun must not run this generic PlayerState effect.
     useEffects: [{ op: 'addResource' as const, target: Resource.Credit, value: 100 }],
   }));
-  return { ...gameplayBCarouselDatapack, maps: [map], items };
+  return { ...gameplayBMapDatapack, maps: [map], items };
 }
 
 describe('Gameplay B Ability / Item source transactions', () => {

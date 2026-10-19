@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-map-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { MapRunService } from '../../src/arona-clicker/services/map-run-service';
 import { createRegistryMapContentResolver } from '../../src/arona-clicker/services/registry-map-content-resolver';
 import type { MapRun, MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map-run';

@@ -3,7 +3,7 @@ import type { Datapack, GameplayMapDef } from '../../src/data-services';
 import type { SpotFunctionalityDef } from '../../src/data-services/contracts/world';
 import { Registry } from '../../src/data-services/registry/registry';
 import { SpotFunctionalitySystem } from '../../src/arona-clicker/services/spot-functionality';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import type { FunctionalityState } from '../../src/engine/contracts/state-query';
 
 const MAP_ID = 'test:map:vertical_slice';
@@ -773,7 +773,7 @@ describe('Gameplay B Map Action Registry', () => {
 
   test('loads the normal Gameplay B Datapack sample with two fixed party members', () => {
     const registry = loadMap(
-      gameplayBCarouselDatapack.maps?.[0] as GameplayMapDef,
+      gameplayBMapDatapack.maps?.[0] as GameplayMapDef,
       [TEST_CHARACTER, TEST_CHARACTER_2],
     );
     const map = registry.maps.get('gameplay-b:map:field-investigation');

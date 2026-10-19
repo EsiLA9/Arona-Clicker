@@ -2,6 +2,8 @@
 
 **状态：proposed — C5 完整施工仍依赖 Task 0291 C4；负责人于 2026-10-18 另行裁定，立即将默认 Gameplay B bundle 切为 Map-only 并退役旧 Strategy Park bundle**
 
+**2026-10-19 负责人修订：**旧版 standalone `prototypes/gameplay-b/` 与 Gameplay B Carousel / Strategy Park Demo 内容已确认不再使用，现明确授权随本轮代码清理移除。此决定覆盖下文 2026-10-18 “保留 prototype” 的暂定边界；新版 Map-only Datapack、MapRun、通用服务及精确旧 bundle 快照清理身份继续保留。
+
 ## 目标
 
 完成 Task 0287 的 C5：让 Gameplay B 作者能在受支持的 Datapack Editor 中建立新 Map；从零重建真实玩法 B 内容；补足 Rest、Shop、Edge Branch 的 D2 样例；完成 Gameplay B 专属旧 Operation 数据、默认包、专属 UI 分支和失效测试的退役；使旧 Operation Run 明确失效，同时保留共享 AC 内容及长期 PlayerState。负责人新裁定已允许默认旧包立即退役，不再等待 U4；B 专属源文件和 UI 分支的彻底清理仍按 U5 依赖关系处理。
@@ -32,7 +34,7 @@ Registry → Map Resolver → Spot.mapEntry → MapRun / Workspace
 - `Spot.mapEntry` 是新 Map 的正常入口；`operationEntry` 不得暗中重解释为 Map。
 - MapRun-local 临时物品、PlayerCost、局内 HP 和节点进度不能因 Shop 或 Encounter 自动写入 Persistent PlayerState。只有明示的一次性长期奖励可以写入。
 - 旧 Gameplay B Operation Run 不迁移。负责人于 2026-10-18 裁定：不要求二次确认；旧 Event 无法由 Registry 解析时直接拒绝恢复，并允许后续存档清除旧 Operation checkpoint。该处理不得清理或回滚长期 PlayerState。
-- `base` 角色、Variant、永久 Items、通用资源 / Effect、PackManager、Save 与事务设施按阶段 B 清单保留；`prototypes/gameplay-b/` 不随默认 Gameplay B 内容清理。
+- `base` 角色、Variant、永久 Items、通用资源 / Effect、PackManager、Save 与事务设施按阶段 B 清单保留；2026-10-18 曾暂定保留 `prototypes/gameplay-b/`，该边界已由 2026-10-19 的负责人修订覆盖。
 - Battle 由 C4 覆盖；Rest、Shop 和 Edge Branch 必须在 C5 有独立 D2 运行记录，不得因阶段拆分而从总体验收中删除。
 - 不编辑生成文件 `tools/datapack-editor/schema/engine-defs.gen.json`。Maps 使用可维护的 Editor Schema 源并补足对应同步 / roundtrip 测试。
 

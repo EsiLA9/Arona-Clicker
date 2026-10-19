@@ -1,7 +1,7 @@
-import type { Datapack } from '../../../data-services/contracts/datapack';
-import type { GameplayMapDef } from '../../../data-services/contracts/gameplay-map';
-import { spot } from '../def-factory/spot';
-import { tagPath } from '../../../engine/core/tag';
+import type { Datapack } from '../../data-services/contracts/datapack';
+import type { GameplayMapDef } from '../../data-services/contracts/gameplay-map';
+import { spot } from './def-factory/spot';
+import { tagPath } from '../../engine/core/tag';
 
 export const GAMEPLAY_B_MAP_SPOT_ID = 'gameplay-b:spot:operation_terminal';
 

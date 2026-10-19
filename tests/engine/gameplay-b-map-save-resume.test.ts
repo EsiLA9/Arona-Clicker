@@ -1,11 +1,9 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstrap';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
 import {
   gameplayBAutonomousTargetBattleDefinition,
   gameplayBMapDatapack,
-} from '../../src/arona-clicker/content/operation-samples/gameplay-b-map-datapack';
-import { CAROUSEL_SCENE_ACTION_IDS as IDS } from '../../src/arona-clicker/content/operation-samples/carousel-scene-action-slice';
+} from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import { MapRunService } from '../../src/arona-clicker/services/map-run-service';
 import { Character } from '../../src/arona-clicker/types/ids';
@@ -17,7 +15,7 @@ const VARIANTS: Record<typeof STUDENTS[number], string> = {
   [Character.Serika]: 'Serika',
   [Character.Shiroko]: 'Shiroko',
 };
-const DATAPACKS = [defaultDatapack, gameplayBCarouselDatapack];
+const DATAPACKS = [defaultDatapack, gameplayBMapDatapack];
 const MAP_PARTY = [
   { characterId: Character.Shiroko, variantId: VARIANTS[Character.Shiroko] },
   { characterId: Character.Serika, variantId: VARIANTS[Character.Serika] },
@@ -55,7 +53,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
   });
 
   test('rejects Maps without a valid resumeVersion instead of silently omitting their active Run', () => {
-    const map = gameplayBCarouselDatapack.maps?.[0];
+    const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
     if (!map) throw new Error('Gameplay B sample Map is missing');
 
@@ -77,7 +75,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
   });
 
   test('rejects checkpoint restore without a Registry Variant lookup and leaves the owner empty', () => {
-    const map = gameplayBCarouselDatapack.maps?.[0];
+    const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
     if (!map) throw new Error('Gameplay B sample Map is missing');
     const mapResolver = { resolve: (mapId: string) => mapId === map.id ? map : null };
@@ -99,7 +97,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
 
   test('round-trips an in-progress MapRun and active Encounter without replaying entry', () => {
     const source = createGame();
-    const map = gameplayBCarouselDatapack.maps?.[0];
+    const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
     if (!map) throw new Error('Gameplay B sample Map is missing');
 
@@ -277,7 +275,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
 
   test('restores detached party identities and a non-initial PlayerCost without checkpoint field leakage', () => {
     const source = createGame();
-    const map = gameplayBCarouselDatapack.maps?.[0];
+    const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
     if (!map) throw new Error('Gameplay B sample Map is missing');
 
@@ -328,7 +326,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
 
   test('round-trips completed Encounter progress with no active Encounter', () => {
     const source = createGame();
-    const map = gameplayBCarouselDatapack.maps?.[0];
+    const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
     if (!map) throw new Error('Gameplay B sample Map is missing');
 
@@ -356,12 +354,11 @@ describe('Gameplay B MapRun Save/Resume', () => {
     expect(resumed.moveMap(started.runId, exitEdge.toNodeId)).toEqual(source.moveMap(started.runId, exitEdge.toNodeId));
   });
 
-  test('rejects an unknown Map or mismatched resumeVersion without changing PlayerState or OperationRun', () => {
+  test('rejects an unknown Map or mismatched resumeVersion without changing PlayerState', () => {
     const source = createGame();
-    const map = gameplayBCarouselDatapack.maps?.[0];
+    const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
     if (!map) throw new Error('Gameplay B sample Map is missing');
-    const operationRunId = source.operationEntry.start(IDS.event, STUDENTS).runId;
     const started = source.startMap(map.id);
     const encounterEdge = map.edges.find(edge => edge.fromNodeId === map.startNodeId
       && map.nodes.find(node => node.id === edge.toNodeId)?.encounter);
@@ -370,7 +367,6 @@ describe('Gameplay B MapRun Save/Resume', () => {
     source.moveMap(started.runId, encounterEdge.toNodeId);
     const save = source.save();
     expect(save.mapRun).toBeDefined();
-    expect(save.operationRun?.run.runId).toBe(operationRunId);
     if (!save.mapRun) throw new Error('MapRun checkpoint is missing');
 
     const rejectedCheckpoints = [
@@ -394,8 +390,6 @@ describe('Gameplay B MapRun Save/Resume', () => {
 
       expect(resumed.mapRun.getSnapshot()).toBeNull();
       expect(resumed.state).toEqual(save.playerState);
-      expect(resumed.operationEntry.getSnapshot()).toEqual(save.operationRun?.run);
-      expect(resumed.operationEntry.getLastRestoreResult()).toMatchObject({ status: 'restored', runId: operationRunId });
       expect(resumed.getDevLogs()).toContainEqual(expect.objectContaining({
         source: 'map-run',
         level: 'warning',

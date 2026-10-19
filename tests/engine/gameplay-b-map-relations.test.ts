@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { GameplayMapActionTargetDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import { projectMapRelations } from '../../src/arona-clicker/services/map-relation-projector';
@@ -8,7 +8,7 @@ import { projectMapRelations } from '../../src/arona-clicker/services/map-relati
 describe('Map preparation relation projection', () => {
   const games: GameInstance[] = [];
   function setup(target: GameplayMapActionTargetDef = { kind: 'enemy' }) {
-    const original = gameplayBCarouselDatapack.maps![0]!;
+    const original = gameplayBMapDatapack.maps![0]!;
     const map: GameplayMapDef = {
       ...original, initialPlayerCost: 4,
       actions: [
@@ -27,7 +27,7 @@ describe('Map preparation relation projection', () => {
     };
     const game = new GameInstance();
     games.push(game);
-    game.init([baseDatapack, { ...gameplayBCarouselDatapack, maps: [map], items: [{
+    game.init([baseDatapack, { ...gameplayBMapDatapack, maps: [map], items: [{
       id: 'gameplay-b:item:relation-kit', name: 'Kit', description: 'Kit', maxStack: 3, rarity: 'common', type: 'consumable',
     }] }], { enterDefaultInit: false });
     for (const characterId of map.partyCharacterIds) {

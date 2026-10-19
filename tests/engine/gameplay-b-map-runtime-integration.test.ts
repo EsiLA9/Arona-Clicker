@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GameplayMapActionDef } from '../../src/data-services/contracts/gameplay-map';
@@ -10,7 +10,7 @@ import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/
 describe('Gameplay B MapRun GameInstance integration', () => {
   const games: GameInstance[] = [];
 
-  function createGame(datapack: Datapack = gameplayBCarouselDatapack): GameInstance {
+  function createGame(datapack: Datapack = gameplayBMapDatapack): GameInstance {
     const game = new GameInstance();
     games.push(game);
     game.init([baseDatapack, datapack], { enterDefaultInit: false });
@@ -18,7 +18,7 @@ describe('Gameplay B MapRun GameInstance integration', () => {
   }
 
   function withHandOutPartyTargetActions(): { datapack: Datapack; commandActionIds: readonly string[] } {
-    const sourceMap = gameplayBCarouselDatapack.maps?.[0];
+    const sourceMap = gameplayBMapDatapack.maps?.[0];
     if (!sourceMap) throw new Error('Gameplay B sample Map is missing');
     const commandActionIds = ['command-target-a', 'command-target-b', 'command-target-c', 'command-target-d'];
     const commandActions: GameplayMapActionDef[] = commandActionIds.map((id, index) => ({
@@ -28,8 +28,8 @@ describe('Gameplay B MapRun GameInstance integration', () => {
       target: { kind: 'partyCharacter' },
     }));
     const datapack: Datapack = {
-      ...gameplayBCarouselDatapack,
-      maps: gameplayBCarouselDatapack.maps?.map(map => map.id !== sourceMap.id ? map : ({
+      ...gameplayBMapDatapack,
+      maps: gameplayBMapDatapack.maps?.map(map => map.id !== sourceMap.id ? map : ({
         ...map,
         resumeVersion: map.resumeVersion + 1,
         actions: [...(map.actions ?? []), ...commandActions],
@@ -79,7 +79,7 @@ describe('Gameplay B MapRun GameInstance integration', () => {
   test('routes MapRun commands through GameCommands and exposes detached run and Encounter reads', () => {
     const game = createGame();
     const commands = createGameCommands(game);
-    const mapId = gameplayBCarouselDatapack.maps?.[0]?.id;
+    const mapId = gameplayBMapDatapack.maps?.[0]?.id;
     expect(mapId).toBeDefined();
     const map = game.registry.maps.get(mapId!);
     expect(map).toBeDefined();
@@ -149,14 +149,14 @@ describe('Gameplay B MapRun GameInstance integration', () => {
   test('resumes on load, ignores legacy saves without MapRun, and clears its owner on init, reset, and dispose', () => {
     const game = createGame();
     const commands = createGameCommands(game);
-    const mapId = gameplayBCarouselDatapack.maps?.[0]?.id;
+    const mapId = gameplayBMapDatapack.maps?.[0]?.id;
     expect(mapId).toBeDefined();
     if (!mapId) throw new Error('Gameplay B sample Map ID is missing');
 
     acquireMapParty(game);
 
     commands.startMap(mapId);
-    game.init([baseDatapack, gameplayBCarouselDatapack], { enterDefaultInit: false });
+    game.init([baseDatapack, gameplayBMapDatapack], { enterDefaultInit: false });
     expect(game.mapRun.getSnapshot()).toBeNull();
 
     const started = commands.startMap(mapId);
@@ -256,7 +256,7 @@ describe('Gameplay B MapRun GameInstance integration', () => {
     const { datapack, commandActionIds } = withHandOutPartyTargetActions();
     const game = createGame(datapack);
     const commands = createGameCommands(game);
-    const mapId = gameplayBCarouselDatapack.maps?.[0]?.id;
+    const mapId = gameplayBMapDatapack.maps?.[0]?.id;
     if (!mapId) throw new Error('Gameplay B sample Map ID is missing');
     const map = game.registry.maps.get(mapId);
     if (!map) throw new Error('Gameplay B sample Map was not loaded into Registry');
@@ -335,7 +335,7 @@ describe('Gameplay B MapRun GameInstance integration', () => {
   test('routes full-round Commit through GameCommands and preserves its receipt across save and retry', () => {
     const game = createGame();
     const commands = createGameCommands(game);
-    const mapId = gameplayBCarouselDatapack.maps?.[0]?.id;
+    const mapId = gameplayBMapDatapack.maps?.[0]?.id;
     if (!mapId) throw new Error('Gameplay B sample Map ID is missing');
     const map = game.registry.maps.get(mapId);
     if (!map) throw new Error('Gameplay B sample Map was not loaded into Registry');

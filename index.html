@@ -56,14 +56,9 @@
       }
       .cards {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 20px;
         margin-top: 44px;
-      }
-      @media (max-width: 900px) {
-        .cards {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
       }
       @media (max-width: 620px) {
         .cards {
@@ -125,7 +120,7 @@
   <body>
     <div class="portal">
       <h1>AC Program · 本地工具台</h1>
-      <p class="subtitle">AronaClicker 游戏与 Datapack Editor 共用本地服务；玩法 B 使用独立原型服务。</p>
+      <p class="subtitle">AronaClicker 游戏与 Datapack Editor 共用本地服务。</p>
 
       <div class="cards">
         <a class="card" href="/game">
@@ -140,15 +135,9 @@
           <div class="desc">Schema 驱动的表格化 JSON 编辑器：校验、补全、跳转、导入导出。</div>
           <span class="url">/editor</span>
         </a>
-        <a class="card" href="http://127.0.0.1:5174/" target="_blank" rel="noopener noreferrer">
-          <div class="icon">🎡</div>
-          <div class="name">玩法 B 预研</div>
-          <div class="desc">独立 Click 推进式战斗与游乐园巡查路线原型。</div>
-          <span class="url">127.0.0.1:5174</span>
-        </a>
       </div>
 
-      <footer>npm run dev → 本页 · /game · /editor · 玩法 B 独立原型 → 127.0.0.1:5174</footer>
+      <footer>npm run dev → 本页 · /game · /editor</footer>
     </div>
   </body>
 </html>

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { UIController } from '../../src/ui/controller';
@@ -73,7 +73,7 @@ describe('Gameplay B local quick-test command', () => {
 
   test('applies resource, character, and Spot commands through their mutation paths', () => {
     game = createAppRuntime();
-    game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
+    game.init([defaultDatapack, gameplayBMapDatapack], { enterDefaultInit: true });
     let refreshes = 0;
     mountGameplayBQuickTestConsole(game, () => { refreshes += 1; });
     const command = document.querySelector<HTMLTextAreaElement>('#gameplay-b-test-console-command')!;
@@ -103,7 +103,7 @@ describe('Gameplay B local quick-test command', () => {
 
   test('rejects foreign owners, unsupported types, and non-stackable counts without partial writes', () => {
     game = createAppRuntime();
-    game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
+    game.init([defaultDatapack, gameplayBMapDatapack], { enterDefaultInit: true });
     let refreshes = 0;
     mountGameplayBQuickTestConsole(game, () => { refreshes += 1; });
     const command = document.querySelector<HTMLTextAreaElement>('#gameplay-b-test-console-command')!;
@@ -138,24 +138,25 @@ describe('Gameplay B local quick-test command', () => {
     expect(refreshes).toBe(0);
   });
 
-  test('applies the memory-only roster command and refreshes the fixed-event admission card', () => {
+  test('applies the memory-only roster command with the Map-only Gameplay B content loaded', () => {
     document.body.innerHTML = '<div id="app"></div>';
     game = createAppRuntime();
-    game.init([defaultDatapack, gameplayBCarouselDatapack], { enterDefaultInit: true });
+    game.init([defaultDatapack, gameplayBMapDatapack], { enterDefaultInit: true });
     const root = document.querySelector<HTMLElement>('#app')!;
     controller = new UIController(game, root);
     controller.started = true;
     controller.render();
     mountGameplayBQuickTestConsole(game, () => controller!.render());
 
-    expect(root.querySelector<HTMLButtonElement>('[data-operation-start]')?.disabled).toBe(true);
+    expect(game.registry.maps.has(gameplayBMapDatapack.maps![0]!.id)).toBe(true);
+    expect(root.querySelector('[data-operation-start]')).toBeNull();
     const command = document.querySelector<HTMLTextAreaElement>('#gameplay-b-test-console-command')!;
     command.value = '获得角色 星野 芹香 白子';
     document.querySelector<HTMLButtonElement>('[data-test-console-run]')!.click();
 
     expect(document.querySelector('[data-test-console-result]')?.textContent).toContain('本次获得');
     expect(document.querySelector('[data-test-console-result]')?.textContent).toContain('界面已刷新');
-    expect(root.querySelector<HTMLButtonElement>('[data-operation-start]')?.disabled).toBe(false);
-    expect(root.querySelector('.operation-admission-reason')).toBeNull();
+    expect(game.state.roster?.Hoshino).toBeDefined();
+    expect(game.registry.maps.has(gameplayBMapDatapack.maps![0]!.id)).toBe(true);
   });
 });

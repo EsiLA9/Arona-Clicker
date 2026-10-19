@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import type { MapRunCardRef } from '../../src/arona-clicker/contracts/map-cards';
 import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/gameplay-b-action-preview-resolver';
 import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
@@ -10,7 +10,7 @@ import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
 describe('MapRun domain cards', () => {
   const games: GameInstance[] = [];
   const map: GameplayMapDef = {
-    id: gameplayBCarouselDatapack.maps![0].id, name: 'Cards', resumeVersion: 1, startNodeId: 'a', exitNodeIds: ['c'],
+    id: gameplayBMapDatapack.maps![0].id, name: 'Cards', resumeVersion: 1, startNodeId: 'a', exitNodeIds: ['c'],
     partyCharacterIds: ['shiroko', 'serika'], initialPlayerCost: 4,
     initialPartyHp: ['shiroko', 'serika'].map(characterId => ({ characterId, initialHp: 20, maxHp: 20 })),
     actions: ['a', 'b', 'c', 'd'].map(id => ({ id, name: id, eligibleCharacterIds: ['shiroko', 'serika'], target: { kind: 'none' } })),
@@ -23,7 +23,7 @@ describe('MapRun domain cards', () => {
   };
   function setup(definition = map) {
     const game = new GameInstance(); games.push(game);
-    game.init([baseDatapack, { ...gameplayBCarouselDatapack, maps: [definition] }], { enterDefaultInit: false });
+    game.init([baseDatapack, { ...gameplayBMapDatapack, maps: [definition] }], { enterDefaultInit: false });
     for (const id of definition.partyCharacterIds) {
       game.mutations.acquireCharacter(game.rosterSystem.getAllVariants().find(row => row.proto === id)!.id, 'story');
     }

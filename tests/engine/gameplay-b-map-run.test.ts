@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { MapContentResolver } from '../../src/arona-clicker/contracts/map-content-resolver';
-import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { MapRunError, MapRunService } from '../../src/arona-clicker/services/map-run-service';
 import type { MapRun, MapRunEncounterActionSettlement, MapRunEncounterDraftToken, MapRunEncounterSnapshot, MapRunSaveSnapshot } from '../../src/arona-clicker/contracts/map-run';
@@ -2060,8 +2060,8 @@ describe('MapRunService', () => {
     const game = new GameInstance();
     let disposed = false;
     try {
-      game.init([baseDatapack, gameplayBCarouselDatapack], { enterDefaultInit: false });
-      const map = gameplayBCarouselDatapack.maps?.[0];
+      game.init([baseDatapack, gameplayBMapDatapack], { enterDefaultInit: false });
+      const map = gameplayBMapDatapack.maps?.[0];
       expect(map).toBeDefined();
       if (!map) throw new Error('Gameplay B sample Map is missing');
 

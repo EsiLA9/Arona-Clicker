@@ -72,16 +72,8 @@ async function boot(): Promise<void> {
     if (gameplayBQuickTestConsoleEnabled) {
       const { mountGameplayBQuickTestConsole } = await import('./development/gameplay-b-quick-test-console');
       mountGameplayBQuickTestConsole(game, () => controller.render());
-      document.body.dataset.gameplayBQuickTest = 'carousel-safety';
+      document.body.dataset.gameplayBQuickTest = 'map';
       document.title = `${document.title} · Gameplay B quick test`;
-    }
-
-    if (import.meta.env.DEV) {
-      const inspector = await import('./development/gameplay-b-card-inspector');
-      if (inspector.shouldMountGameplayBCardInspector(import.meta.env.DEV, window.location.search)) {
-        inspector.mountGameplayBCardInspector();
-        document.body.dataset.gameplayBCardInspector = 'enabled';
-      }
     }
 
     if (typeof window !== 'undefined') {

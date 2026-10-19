@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { Registry } from '../../src/data-services';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { SpotDef } from '../../src/data-services/contracts/world';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-map-datapack';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 type Functionality = NonNullable<SpotDef['functionalities']>[number];

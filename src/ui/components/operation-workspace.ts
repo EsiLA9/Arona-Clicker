@@ -1,44 +1,17 @@
 import type { OperationView, OperationViewActionOption, OperationViewActor, OperationViewSceneAction } from '../../arona-clicker/contracts/operation-view';
-import { CAROUSEL_SAFETY_PRESENTATION } from '../../arona-clicker/content/operation-samples/carousel-safety-copy';
-import { GAMEPLAY_B_PRESENTATION as COPY } from '../../arona-clicker/content/operation-samples/gameplay-b-presentation';
-import { GAMEPLAY_B_STRATEGY_PARK_IDS as PARK_IDS } from '../../arona-clicker/content/operation-samples/gameplay-b-strategy-park-ids';
-import { GAMEPLAY_B_STRATEGY_PARK_MAP as PARK_MAP } from '../../arona-clicker/content/operation-samples/gameplay-b-strategy-park-map';
 import type { UIContext } from '../context';
 import { renderWorkspaceFrame } from './workspace-frame';
 
-const TRACKS = COPY.tracks as Record<string, { name: string; description: string }>;
-const ACTORS = COPY.actors as Record<string, { role: string; description: string }>;
-const LOCATIONS = COPY.locations as Record<string, { name: string; description: string }>;
 const MAX_VISIBLE_COST_SLOTS = 12;
-const GENERIC_EVENT_COPY: OperationEventCopy = {
-  tracks: {},
-  facts: {},
-  items: {},
-  reasons: {},
-  abilities: {},
-  resultText: {
-    success: '本次行动目标已完成。',
-    partialSuccess: '本次行动部分目标已完成。',
-    failure: '本次行动未能完成。',
-  },
-};
-interface OperationEventCopy {
-  readonly tracks: Readonly<Record<string, { readonly name: string; readonly description: string }>>;
-  readonly facts: Readonly<Record<string, string>>;
-  readonly items: Readonly<Record<string, string>>;
-  readonly reasons: Readonly<Record<string, string>>;
-  readonly abilities: Readonly<Record<string, string>>;
-  readonly resultText: { readonly success: string; readonly partialSuccess: string; readonly failure: string };
-}
 
-type OperationWorkspaceTransient = { stage: string; rightTab: 'enemies' | 'background'; seenMaps: Set<string>; closedMapCards: Set<string>; popupMap: string | null; mapPosition: { x: number; y: number } };
+type OperationWorkspaceTransient = { stage: string; rightTab: 'enemies' | 'background'; popupMap: string | null; mapPosition: { x: number; y: number } };
 const operationWorkspaceTransient = new Map<string, OperationWorkspaceTransient>();
 
 function operationUIState(view: OperationView): OperationWorkspaceTransient {
   const stage = `${view.eventId}:${view.currentLocationId}`;
   let state = operationWorkspaceTransient.get(view.runId);
   if (!state) {
-    state = { stage, rightTab: 'enemies', seenMaps: new Set(), closedMapCards: new Set(), popupMap: null, mapPosition: { x: 24, y: 24 } };
+    state = { stage, rightTab: 'enemies', popupMap: null, mapPosition: { x: 24, y: 24 } };
     operationWorkspaceTransient.set(view.runId, state);
     while (operationWorkspaceTransient.size > 8) {
       const oldestRunId = operationWorkspaceTransient.keys().next().value;
@@ -62,8 +35,6 @@ export function closeOperationWorkspaceMap(runId: string, mapId: string): void {
   if (!state) return;
   state.popupMap = null;
 }
-
-export function closeOperationMapCard(runId: string, mapId: string): void { operationWorkspaceTransient.get(runId)?.closedMapCards.add(mapId); }
 
 export function toggleOperationWorkspaceMap(runId: string, mapId: string): void {
   const state = operationWorkspaceTransient.get(runId);
@@ -91,34 +62,7 @@ function eventDescription(view: OperationView): string {
   return view.eventDescription ?? '按当前地点和行动提示完成本次行动。';
 }
 
-function eventCopy(view: OperationView): OperationEventCopy {
-  if (view.eventId === PARK_IDS.event) {
-    return {
-      tracks: PARK_MAP.presentation.tracks,
-      facts: PARK_MAP.presentation.facts,
-      items: PARK_MAP.presentation.items,
-      reasons: PARK_MAP.presentation.reasons,
-      abilities: PARK_MAP.presentation.abilities,
-      resultText: PARK_MAP.presentation.resultText,
-    };
-  }
-  if (view.eventId === COPY.event.id) {
-    return {
-      tracks: TRACKS,
-      facts: COPY.facts as Readonly<Record<string, string>>,
-      items: COPY.items as Readonly<Record<string, string>>,
-      reasons: CAROUSEL_SAFETY_PRESENTATION.reasons as Readonly<Record<string, string>>,
-      abilities: CAROUSEL_SAFETY_PRESENTATION.abilities as Readonly<Record<string, string>>,
-      resultText: COPY.resultText,
-    };
-  }
-  return GENERIC_EVENT_COPY;
-}
-
-function operationReasonLabel(view: OperationView, reasonId: string): string {
-  const copy = eventCopy(view);
-  const mapped = copy.reasons[reasonId] ?? copy.abilities[reasonId];
-  if (mapped) return mapped;
+function operationReasonLabel(reasonId: string): string {
   switch (reasonId) {
     case 'operation:intervention:invalid-action': return '此行动当前不可用。';
     case 'operation:intervention:action-not-in-hand': return '此行动不在当前行动手牌中。';
@@ -135,13 +79,17 @@ function operationReasonLabel(view: OperationView, reasonId: string): string {
   }
 }
 
-function factName(view: OperationView, factId: string): string {
-  return eventCopy(view).facts[factId] ?? '未命名现场信息';
+function localLabel(id: string, fallback: string): string {
+  return id.split(':').at(-1)?.replace(/[-_]+/g, ' ') || fallback;
 }
 
-function trackPresentation(view: OperationView, trackId: string): { readonly name: string; readonly description: string } {
-  return eventCopy(view).tracks[trackId] ?? {
-    name: trackId.split(':').at(-1)?.replace(/[-_]+/g, ' ') || '现场状态',
+function factName(factId: string): string {
+  return localLabel(factId, '现场信息');
+}
+
+function trackPresentation(trackId: string): { readonly name: string; readonly description: string } {
+  return {
+    name: localLabel(trackId, '现场状态'),
     description: '',
   };
 }
@@ -171,23 +119,14 @@ function purchaseOfferLabel(view: OperationView, offerId: string): string {
 }
 
 function locationPresentation(view: OperationView, locationId: string): { readonly name: string; readonly description?: string } | undefined {
-  if (view.eventId === PARK_IDS.event) {
-    const copy = PARK_MAP.locations[locationId as keyof typeof PARK_MAP.locations];
-    return copy ? { name: copy.label } : undefined;
+  if (locationId === view.currentLocationId && view.currentScene) {
+    return { name: view.currentScene.title ?? '行动现场', description: view.currentScene.description ?? '' };
   }
-  return LOCATIONS[locationId] ?? (locationId === view.currentLocationId && view.currentScene
-    ? { name: view.currentScene.title ?? '行动现场', description: view.currentScene.description ?? '' }
-    : undefined);
+  return { name: localLabel(locationId, '行动地点') };
 }
 
-function actorPresentation(view: OperationView, actorId: string): { readonly role: string; readonly description: string } | undefined {
-  return view.eventId === PARK_IDS.event
-    ? PARK_MAP.actors[actorId as keyof typeof PARK_MAP.actors]
-    : ACTORS[actorId];
-}
-
-function operationItemName(view: OperationView, itemId: string): string {
-  return eventCopy(view).items[itemId] ?? '未命名物品';
+function operationItemName(itemId: string): string {
+  return localLabel(itemId, '行动物品');
 }
 
 function planLabel(actor: OperationViewActor, view: OperationView): string {
@@ -198,7 +137,7 @@ function operationPlanLabel(plan: OperationViewActor['currentPlan'], view: Opera
   if (!plan) return '尚未生成计划';
   const name = actionLabel(view, plan.actionId);
   const target = plan.targetActorId ? view.actorStates.find(item => item.id === plan.targetActorId)?.displayName ?? '场景目标' : null;
-  if (plan.kind === 'wait') return plan.reasonIds.map(id => operationReasonLabel(view, id)).join(' ') || '等待指示';
+  if (plan.kind === 'wait') return plan.reasonIds.map(operationReasonLabel).join(' ') || '等待指示';
   return target ? name + ' · 目标：' + target : name;
 }
 
@@ -316,7 +255,7 @@ export function projectOperationActorHand(view: OperationView, ownerActorId: str
       ownerActorId: actor.id,
       selectionPolicy: 'planned',
       state: option.actionId === activePlan?.actionId ? 'selected' : option.selectable ? 'browsing' : 'unavailable',
-      unavailableReason: option.selectable ? null : option.blockedReasonIds.map(id => operationReasonLabel(view, id)).filter(Boolean).join(' ') || '当前无法采用此行动。',
+      unavailableReason: option.selectable ? null : option.blockedReasonIds.map(operationReasonLabel).filter(Boolean).join(' ') || '当前无法采用此行动。',
       selected: activePlan?.actionId === option.actionId,
       performerCandidateIds: [actor.id],
       legalTargetActorIds: [...option.legalTargetActorIds],
@@ -543,7 +482,7 @@ function renderFixedSceneAction(ctx: UIContext, view: OperationView, action: Ope
 
 function renderAction(ctx: UIContext, view: OperationView, actor: OperationViewActor, option: OperationViewActionOption, selected: boolean, alternative: boolean): string {
   const disabled = !option.selectable || view.status !== 'inProgress' || Boolean(view.locationProgress[view.currentLocationId]?.completed);
-  const reasonText = optionReasons(option).map(id => operationReasonLabel(view, id)).join(' ');
+  const reasonText = optionReasons(option).map(operationReasonLabel).join(' ');
   const actionCopy = actionDescription(view, option.actionId) ?? '';
   const disabledReason = disabled ? reasonText || (view.status !== 'inProgress' ? '本次行动已结束' : '当前无法采用') : '';
   const basePlan = view.basePreparedBeat?.actorPlans.find(plan => plan.actorId === actor.id);
@@ -651,12 +590,12 @@ function renderOpponents(ctx: UIContext, view: OperationView, visible: boolean):
   const opponentGroup = opponents.length
     ? '<section class="operation-actor-group" data-operation-opponents><header class="operation-column-heading"><span class="operation-eyebrow">敌方</span><strong>' + opponents.length + ' 名</strong></header>' +
     opponents.map(actor => '<article class="operation-opponent-card" data-operation-opponent="' + e(ctx, actor.id) + '" data-operation-card-anchor="' + e(ctx, actor.id) + '" data-operation-actor-target="' + e(ctx, actor.id) + '">' +
-      '<header class="operation-opponent-card__header"><span class="operation-unit-card__avatar" aria-hidden="true">' + e(ctx, actor.displayName.slice(0, 1)) + '</span><span><strong>' + e(ctx, actorLabel(actor)) + '</strong><small>' + e(ctx, actorPresentation(view, actor.id)?.role ?? '行动者') + '</small>' + actorPositionMarkup(ctx, actor.positionId, 'operation-opponent-position') + '</span></header>' +
+      '<header class="operation-opponent-card__header"><span class="operation-unit-card__avatar" aria-hidden="true">' + e(ctx, actor.displayName.slice(0, 1)) + '</span><span><strong>' + e(ctx, actorLabel(actor)) + '</strong><small>行动者</small>' + actorPositionMarkup(ctx, actor.positionId, 'operation-opponent-position') + '</span></header>' +
       renderActorVitals(ctx, actor, false) + '</article>').join('') + '</section>'
     : '';
   const environmentGroup = environment.length
     ? '<section class="operation-actor-group operation-environment-group" data-operation-environment><header class="operation-column-heading"><span class="operation-eyebrow">场景 / 设施</span><strong>' + environment.length + ' 项</strong></header>' +
-    environment.map(actor => '<article class="operation-environment-card" data-operation-environment-actor="' + e(ctx, actor.id) + '" data-operation-card-anchor="' + e(ctx, actor.id) + '" data-operation-actor-target="' + e(ctx, actor.id) + '"><strong>' + e(ctx, actorLabel(actor)) + '</strong><p>' + e(ctx, actorPresentation(view, actor.id)?.description ?? '现场环境状态') + '</p></article>').join('') +
+    environment.map(actor => '<article class="operation-environment-card" data-operation-environment-actor="' + e(ctx, actor.id) + '" data-operation-card-anchor="' + e(ctx, actor.id) + '" data-operation-actor-target="' + e(ctx, actor.id) + '"><strong>' + e(ctx, actorLabel(actor)) + '</strong><p>现场环境状态</p></article>').join('') +
     '</section>'
     : '';
   return '<div class="operation-opponent-column" data-operation-right-view="enemies" data-scroll-owner="content-region"' + (visible ? '' : ' hidden') + '>' + opponentGroup + environmentGroup + '</div>';
@@ -668,10 +607,10 @@ function renderBackground(view: OperationView, ctx: UIContext, visible: boolean,
     ? '<section class="operation-background-section operation-background-map-entry" data-operation-map-entry><div><strong>行动地图</strong><p>查看全部地点、访问进度与路线。</p></div><button type="button" class="operation-map-open" data-operation-map-open="' + e(ctx, mapId) + '" data-run-id="' + e(ctx, view.runId) + '" aria-controls="operation-map-popup" aria-expanded="' + String(mapOpen) + '">' + (mapOpen ? '地图已打开' : '打开地图') + '</button></section>'
     : '';
   const knownFacts = view.knownFactIds.length
-    ? '<section class="operation-background-section"><strong>已知信息</strong><ul>' + view.knownFactIds.map(id => '<li data-operation-fact="' + e(ctx, id) + '">' + e(ctx, factName(view, id)) + '</li>').join('') + '</ul></section>'
+    ? '<section class="operation-background-section"><strong>已知信息</strong><ul>' + view.knownFactIds.map(id => '<li data-operation-fact="' + e(ctx, id) + '">' + e(ctx, factName(id)) + '</li>').join('') + '</ul></section>'
     : '<p class="operation-muted">尚无已记录的现场信息。</p>';
   const items = view.heldItemIds.length
-    ? '<div class="operation-current-items" aria-label="当前持有物">' + view.heldItemIds.map(id => '<span>' + e(ctx, operationItemName(view, id)) + '</span>').join('') + '</div>'
+    ? '<div class="operation-current-items" aria-label="当前持有物">' + view.heldItemIds.map(id => '<span>' + e(ctx, operationItemName(id)) + '</span>').join('') + '</div>'
     : '<p class="operation-muted">当前没有持有物。</p>';
   return '<div class="operation-background-view" data-operation-right-view="background" data-scroll-owner="content-region"' + (visible ? '' : ' hidden') + '><section class="operation-background-section"><span class="operation-eyebrow">当前地点</span><strong>' + e(ctx, location?.name ?? '行动现场') + '</strong><p>' + e(ctx, location?.description ?? '') + '</p></section>' + mapAccess + knownFacts + '<section class="operation-background-section"><strong>持有物</strong>' + items + '</section></div>';
 }
@@ -726,9 +665,9 @@ function renderProgress(ctx: UIContext, view: OperationView): string {
       const operator = predicate.kind === 'all' ? '全部满足' : '满足任一项';
       return operator + '：' + predicate.terms.map(term => predicateLabel(term)).join('；');
     }
-    if (predicate.kind === 'knownFact') return (predicate.present ? '已记录 ' : '未记录 ') + factName(view, predicate.factId);
+    if (predicate.kind === 'knownFact') return (predicate.present ? '已记录 ' : '未记录 ') + factName(predicate.factId);
     const operator = ({ eq: '=', neq: '≠', gt: '>', gte: '≥', lt: '<', lte: '≤' } as const)[predicate.operator];
-    return trackPresentation(view, predicate.trackId).name + ' ' + operator + ' ' + predicate.value;
+    return trackPresentation(predicate.trackId).name + ' ' + operator + ' ' + predicate.value;
   };
   const batchSummary = view.sceneActionBatchesRemaining === null
     ? '已提交 ' + view.sceneActionBatchesUsed + ' 批 · 不限'
@@ -746,12 +685,12 @@ function renderProgress(ctx: UIContext, view: OperationView): string {
     : '';
   const locationComplete = view.locationProgress[view.currentLocationId]?.completed === true;
   const tracks = Object.entries(view.tracks).map(([id, value]) => '<div class="operation-track" data-operation-track="' + e(ctx, id) + '"><span>' +
-    e(ctx, trackPresentation(view, id).name) + '</span><strong>' + e(ctx, value) + '</strong><small>' + e(ctx, trackPresentation(view, id).description) + '</small></div>').join('');
+    e(ctx, trackPresentation(id).name) + '</span><strong>' + e(ctx, value) + '</strong><small>' + e(ctx, trackPresentation(id).description) + '</small></div>').join('');
   const objectives = view.objectives.map(objective => '<li class="' + (objective.achieved ? 'is-achieved' : '') + '" data-operation-objective="' + e(ctx, objective.id) + '">' +
     '<span aria-hidden="true">' + (objective.achieved ? '✓' : '○') + '</span><span>' + e(ctx, objective.description) + '</span></li>').join('');
   const currentFacts = view.knownFactIds.length
-    ? '<span>已记录：' + e(ctx, view.knownFactIds.map(id => factName(view, id)).join('、')) + '</span>' : '';
-  const heldItemNames = view.heldItemIds.map(id => operationItemName(view, id));
+    ? '<span>已记录：' + e(ctx, view.knownFactIds.map(factName).join('、')) + '</span>' : '';
+  const heldItemNames = view.heldItemIds.map(operationItemName);
   const heldItems = heldItemNames.length ? '<span>当前持有：' + e(ctx, heldItemNames.join('、')) + '</span>' : '';
   const facts = currentFacts || heldItems ? '<div class="operation-current-items" aria-label="当前行动状态">' + currentFacts + heldItems + '</div>' : '';
   const failureConditions = view.hardFailureConditions.length
@@ -914,14 +853,12 @@ function renderRoutes(ctx: UIContext, view: OperationView): string {
     if (reason === 'operation:route:any-of-held-items-missing') return '需要至少一种所列凭证才能通过。';
     return reason ? '路线暂不可用。' : '';
   };
-  const parkItemName = (itemId: string): string => itemId === PARK_IDS.items.maintenancePass ? '维修通行证'
-    : itemId === PARK_IDS.items.staffRadio ? '员工广播凭证' : itemId;
   const currentLocation = locationPresentation(view, view.currentLocationId)?.name ?? '当前地点';
   const buttons = view.currentRoutes.map(route => {
     const target = locationPresentation(view, route.targetLocationId)?.name ?? route.label;
     const buttonLabel = route.label === target ? target : route.label + ' → ' + target;
-    const requirement = view.eventId !== PARK_IDS.event ? '' : route.requiredHeldItemId ? '需要：' + parkItemName(route.requiredHeldItemId)
-      : route.anyOfHeldItemIds.length ? '需要其一：' + route.anyOfHeldItemIds.map(parkItemName).join(' / ') : '';
+    const requirement = route.requiredHeldItemId ? '需要：' + operationItemName(route.requiredHeldItemId)
+      : route.anyOfHeldItemIds.length ? '需要其一：' + route.anyOfHeldItemIds.map(operationItemName).join(' / ') : '';
     const lock = route.available ? '' : lockText(route.lockedReason);
     const accessibleDescription = [route.label, route.description, lock, requirement].filter(Boolean).join('。');
     return '<div class="operation-route-option" data-operation-route-card="' + e(ctx, route.routeId) + '"><button type="button" class="operation-route-button"' +
@@ -935,67 +872,6 @@ function renderRoutes(ctx: UIContext, view: OperationView): string {
     '<span class="chat-avatar" aria-hidden="true"><span class="chat-avatar-fallback">路</span></span><div class="chat-talk-main"><div class="chat-name"><span>夏莱行动记录</span><small>' +
     e(ctx, currentLocation) + ' · 地点已完成</small></div><div class="chat-bubble chat-bubble-npc operation-route-flow__bubble"><p>地点行动已经结束。请选择去向：</p>' +
     '<div class="operation-route-buttons">' + buttons + '</div></div></div></div></section>';
-}
-
-function renderStrategyParkMap(ctx: UIContext, view: OperationView): string {
-  if (view.eventId !== PARK_IDS.event) return '';
-  const nodeById = new Map(view.map.nodes.map(node => [node.locationId, node]));
-  const locationIds = Object.keys(PARK_MAP.locations);
-  if (locationIds.length !== 13 || locationIds.some(id => !nodeById.has(id))) return '';
-
-  const position = (locationId: string): readonly [number, number] => PARK_MAP.locations[locationId as keyof typeof PARK_MAP.locations].position;
-  const coordinate = (value: number, lower: number, upper: number): number => Math.max(lower, Math.min(upper, value));
-  const lockText = (reason: string | null): string => {
-    if (reason === 'operation:route:location-incomplete') return '先完成当前地点。';
-    if (reason === 'operation:route:max-visits-reached' || reason === 'operation:route:location-max-visits-reached') return '该地点已达访问上限。';
-    if (reason === 'operation:route:required-held-item-missing') return '缺少所需凭证。';
-    if (reason === 'operation:route:any-of-held-items-missing') return '缺少任一可用凭证。';
-    return reason ? '路线暂不可用。' : '';
-  };
-  const edges = view.map.edges.map(edge => {
-    const source = position(edge.sourceLocationId);
-    const target = position(edge.targetLocationId);
-    const availability = edge.available === true ? 'available' : edge.available === false ? 'locked' : 'inactive';
-    const fromName = PARK_MAP.locations[edge.sourceLocationId as keyof typeof PARK_MAP.locations].label;
-    const targetName = PARK_MAP.locations[edge.targetLocationId as keyof typeof PARK_MAP.locations].label;
-    const status = edge.available === true ? '当前出口可用' : edge.available === false ? '当前出口锁定' : '其他地点的路线';
-    const requirement = edge.requiredHeldItemId ? '，需要' + operationItemName(view, edge.requiredHeldItemId)
-      : edge.anyOfHeldItemIds.length ? '，需要其一：' + edge.anyOfHeldItemIds.map(id => operationItemName(view, id)).join(' / ') : '';
-    return '<line class="operation-map-edge is-' + availability + '" data-operation-map-edge="' + e(ctx, edge.routeId) + '" data-edge-availability="' + availability +
-      '" x1="' + coordinate(source[0], 9, 91) + '" y1="' + coordinate(source[1], 12, 88) + '" x2="' + coordinate(target[0], 9, 91) + '" y2="' + coordinate(target[1], 12, 88) + '" aria-label="' +
-      e(ctx, fromName + '至' + targetName + '，' + status + requirement + (edge.lockedReason ? '：' + lockText(edge.lockedReason) : '')) + '"></line>';
-  }).join('');
-  const nodes = view.map.nodes.map(node => {
-    const copy = PARK_MAP.locations[node.locationId as keyof typeof PARK_MAP.locations];
-    const status = node.current ? 'current' : node.visited ? 'visited' : 'unvisited';
-    const stateText = node.current ? '当前位置' : node.visited ? (node.completed ? '已访问 · 已完成' : '已访问') : '未访问';
-    const x = coordinate(copy.position[0], 9, 91);
-    const y = coordinate(copy.position[1], 12, 88);
-    const visits = node.maxVisits === null ? '访问 ' + node.visitCount + ' 次' : '访问 ' + node.visitCount + ' / ' + node.maxVisits + ' 次';
-    return '<div class="operation-map-node is-' + status + (node.completed ? ' is-completed' : '') + '" data-operation-map-node data-map-location-id="' + e(ctx, node.locationId) +
-      '" data-map-status="' + status + '" data-map-completed="' + String(node.completed) + '" aria-label="' + e(ctx, copy.label + '，' + stateText + '，' + visits) +
-      '" style="--map-x:' + x + '%;--map-y:' + y + '%"><strong>' + e(ctx, copy.label) + '</strong><small>' + e(ctx, stateText) + '</small></div>';
-  }).join('');
-  const areas = PARK_MAP.areas.map(area => '<span class="operation-map-area" data-operation-map-area="' + e(ctx, area.id) + '"><strong>' + e(ctx, area.label) +
-    '</strong><small>' + area.locationIds.length + ' 个地点</small></span>').join('');
-  const availableCount = view.map.edges.filter(edge => edge.sourceLocationId === view.currentLocationId && edge.available === true).length;
-  const lockedCount = view.map.edges.filter(edge => edge.sourceLocationId === view.currentLocationId && edge.available === false).length;
-  const blockedExit = view.locationProgress[view.currentLocationId]?.completed && availableCount === 0
-    ? PARK_MAP.blockedExitMessages[view.currentLocationId as keyof typeof PARK_MAP.blockedExitMessages]
-    : undefined;
-  const regions = PARK_MAP.areas.map(area => {
-    const coords = area.locationIds.map(position);
-    const left = coordinate(Math.min(...coords.map(point => point[0])) - 5, 2, 92);
-    const top = coordinate(Math.min(...coords.map(point => point[1])) - 8, 3, 88);
-    const width = Math.max(8, Math.min(96 - left, Math.max(...coords.map(point => point[0])) - Math.min(...coords.map(point => point[0])) + 10));
-    const height = Math.max(8, Math.min(94 - top, Math.max(...coords.map(point => point[1])) - Math.min(...coords.map(point => point[1])) + 16));
-    return '<div class="operation-map-region" data-map-region="' + e(ctx, area.id) + '" style="--region-left:' + left + '%;--region-top:' + top + '%;--region-width:' + width + '%;--region-height:' + height + '%"><strong>' + e(ctx, area.label) + '</strong></div>';
-  }).join('');
-  return '<section class="operation-strategy-park-map" data-operation-strategy-park-map aria-label="Strategy Park 全地图"><header class="operation-strategy-park-map__heading"><div><span class="operation-eyebrow">路线总览</span><strong>' +
-    e(ctx, PARK_MAP.title) + '</strong></div><div class="operation-map-exit-summary"><span class="is-available">当前可用出口 ' + availableCount + '</span><span class="is-locked">当前锁定出口 ' + lockedCount +
-    '</span></div></header>' + (blockedExit ? '<p class="operation-map-blocked-exit" data-operation-map-blocked-exit>' + e(ctx, blockedExit) + '</p>' : '') +
-    '<div class="operation-map-areas" aria-label="地图区域">' + areas + '</div><div class="operation-map-canvas" data-operation-map-canvas>' + regions + '<svg class="operation-map-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="路线连接图"><defs><marker id="strategy-park-map-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="3" markerHeight="3" orient="auto"><path d="M0 0 L8 4 L0 8 Z"></path></marker></defs>' +
-    edges + '</svg>' + nodes + '</div><footer class="operation-map-legend"><span><i class="is-current"></i>当前位置</span><span><i class="is-visited"></i>已访问</span><span><i class="is-unvisited"></i>未访问</span><span><i class="is-available"></i>当前出口可用</span><span><i class="is-locked"></i>当前出口锁定</span></footer></section>';
 }
 
 function renderGenericOperationMap(ctx: UIContext, view: OperationView): string {
@@ -1017,8 +893,8 @@ function renderGenericOperationMap(ctx: UIContext, view: OperationView): string 
     const from = locationPresentation(view, edge.sourceLocationId)?.name ?? '未知地点';
     const to = locationPresentation(view, edge.targetLocationId)?.name ?? '未知地点';
     const state = edge.available === true ? '当前出口可用' : edge.available === false ? '当前出口锁定' : '其他地点的路线';
-    const requirement = edge.requiredHeldItemId ? '需要：' + operationItemName(view, edge.requiredHeldItemId)
-      : edge.anyOfHeldItemIds.length ? '需要其一：' + edge.anyOfHeldItemIds.map(id => operationItemName(view, id)).join(' / ') : '';
+    const requirement = edge.requiredHeldItemId ? '需要：' + operationItemName(edge.requiredHeldItemId)
+      : edge.anyOfHeldItemIds.length ? '需要其一：' + edge.anyOfHeldItemIds.map(id => operationItemName(id)).join(' / ') : '';
     const lock = edge.available === false ? routeLockLabel(edge.lockedReason) : '';
     return '<li class="operation-generic-map__route' + (edge.available === true ? ' is-available' : edge.available === false ? ' is-locked' : '') + '" data-operation-map-edge="' + e(ctx, edge.routeId) + '"><div><strong>' + e(ctx, from + ' → ' + to) + '</strong><small>' + e(ctx, edge.label + ' · ' + state) + '</small></div><p>' + e(ctx, edge.description) + '</p>' + (lock ? '<small>' + e(ctx, lock) + '</small>' : '') + (requirement ? '<small>' + e(ctx, requirement) + '</small>' : '') + '</li>';
   }).join('');
@@ -1030,19 +906,8 @@ interface OperationMapPresentation { readonly mapId: string; readonly title: str
 /** UI adapter: map availability and presentation are selected from the current OperationView context. */
 function operationMapPresentation(ctx: UIContext, view: OperationView): OperationMapPresentation | null {
   if (view.status !== 'inProgress') return null;
-  if (view.eventId === PARK_IDS.event) return { mapId: 'gameplay-b:strategy-park', title: PARK_MAP.title, content: renderStrategyParkMap(ctx, view) };
-  return { mapId: 'operation:' + view.eventId, title: view.eventTitle ?? '行动地图', content: renderGenericOperationMap(ctx, view) };
-}
 
-function renderInlineMapCard(ctx: UIContext, view: OperationView): string {
-  if (view.eventId !== PARK_IDS.event) return '';
-  const map = operationMapPresentation(ctx, view);
-  if (!map) return '';
-  const mapId = map.mapId;
-  const state = operationUIState(view);
-  state.seenMaps.add(mapId);
-  if (state.closedMapCards.has(mapId)) return '';
-  return '<section class="operation-map-intro" data-operation-map-intro="' + e(ctx, mapId) + '"><header><strong>' + e(ctx, map.title) + '</strong><button type="button" data-operation-map-card-close="' + e(ctx, mapId) + '" data-run-id="' + e(ctx, view.runId) + '" aria-label="关闭流内地图">关闭</button></header>' + map.content + '</section>';
+  return { mapId: 'operation:' + view.eventId, title: view.eventTitle ?? '行动地图', content: renderGenericOperationMap(ctx, view) };
 }
 
 function renderMapPopup(ctx: UIContext, view: OperationView): string {
@@ -1061,11 +926,10 @@ interface OperationTimelineMarkup {
 
 function renderResolutions(ctx: UIContext, view: OperationView): readonly OperationTimelineMarkup[] {
   if (!view.resolutions.length) return [];
-  const copy = eventCopy(view);
   const actorName = (id: string) => view.actorStates.find(actor => actor.id === id)?.displayName ?? '行动者';
   const valueLabel = (change: OperationView['resolutions'][number]['numericChanges'][number]): string => {
     const target = change.target;
-    if (target.kind === 'track') return (copy.tracks[target.trackId]?.name ?? '现场状态') + ' ' + change.before + ' → ' + change.after;
+    if (target.kind === 'track') return trackPresentation(target.trackId).name + ' ' + change.before + ' → ' + change.after;
     if (target.kind === 'actorHp') return actorName(target.actorId) + ' 状态 ' + change.before + ' → ' + change.after;
     const resource = target.resourceId === 'stamina' ? '体力' : target.resourceId === 'coordination' ? '协调' : target.resourceId === 'focus' ? '专注' : target.resourceId;
     if (target.kind === 'actorResource') return actorName(target.actorId) + ' ' + resource + ' ' + change.before + ' → ' + change.after;
@@ -1073,8 +937,8 @@ function renderResolutions(ctx: UIContext, view: OperationView): readonly Operat
     return teamName + ' ' + resource + ' ' + change.before + ' → ' + change.after;
   };
   const membershipLabel = (change: OperationView['resolutions'][number]['membershipChanges'][number]): string => {
-    if (change.target.kind === 'knownFact') return (change.after ? '记录信息：' : '信息记录已撤销：') + factName(view, change.target.id);
-    return (change.after ? '获得' : '消耗') + operationItemName(view, change.target.id);
+    if (change.target.kind === 'knownFact') return (change.after ? '记录信息：' : '信息记录已撤销：') + factName(change.target.id);
+    return (change.after ? '获得' : '消耗') + operationItemName(change.target.id);
   };
   const sceneLabel = (resolution: OperationView['resolutions'][number]): string[] => {
     const batch = resolution.sceneBatch;
@@ -1113,7 +977,7 @@ function renderRouteHistory(ctx: UIContext, view: OperationView): readonly Opera
   const routes = view.routeHistory.map(record => {
       const from = locationPresentation(view, record.fromLocationId)?.name ?? '行动现场';
       const to = locationPresentation(view, record.toLocationId)?.name ?? '行动现场';
-      const item = record.consumedHeldItemId ? ' · 消耗' + operationItemName(view, record.consumedHeldItemId) : '';
+      const item = record.consumedHeldItemId ? ' · 消耗' + operationItemName(record.consumedHeldItemId) : '';
       const cost = record.playerCostBeforeExit === undefined ? '' : ' · 离场 Cost ' + record.playerCostBeforeExit + (record.playerCostAfterCarryLimit === undefined ? '' : ' → ' + record.playerCostAfterCarryLimit);
       return { timelineSequence: record.timelineSequence, markup: '<article class="chat-talk chat-talk-npc operation-timeline-event operation-timeline-route" data-operation-route-history-item data-route-id="' + e(ctx, record.routeId) + '" data-from-location-id="' + e(ctx, record.fromLocationId) + '" data-to-location-id="' + e(ctx, record.toLocationId) + '" data-operation-timeline-sequence="' + record.timelineSequence + '"><span class="chat-avatar"><span class="chat-avatar-fallback">路</span></span><div class="chat-talk-main"><div class="chat-name"><span>路线转场</span><small>第 ' + record.timelineSequence + ' 项记录</small></div><div class="chat-bubble chat-bubble-npc"><p>' + e(ctx, from + ' → ' + to + item + cost) + '</p></div></div></article>' };
     });
@@ -1140,9 +1004,8 @@ function renderTimeline(ctx: UIContext, view: OperationView): string {
 
 function renderMain(ctx: UIContext, view: OperationView, notice: string | null): string {
   const location = locationPresentation(view, view.currentLocationId);
-  const copy = eventCopy(view);
   const terminal = view.status !== 'inProgress';
-  const resultText = view.status === 'success' ? copy.resultText.success : view.status === 'partialSuccess' ? copy.resultText.partialSuccess : copy.resultText.failure;
+  const resultText = view.status === 'success' ? '本次行动目标已完成。' : view.status === 'partialSuccess' ? '本次行动部分已完成。' : '本次行动未能完成。';
   const canBattle = view.currentStage === 'combat' && !view.locationProgress[view.currentLocationId]?.completed;
   const hasSceneBatch = view.sceneActionBatchesRemaining !== 0
     && (view.currentActionMode !== null || view.currentScene?.autoCharacterActions === true);
@@ -1171,7 +1034,7 @@ function renderMain(ctx: UIContext, view: OperationView, notice: string | null):
     button = '<button type="button" class="operation-commit-button" data-operation-scene-submit data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '">确认本批</button><button type="button" class="operation-clear-scene" data-operation-scene-skip data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) + '">跳过本批</button>';
   } else if (canBattle) {
     title = view.canCommit ? '战斗阶段 · 本回合方案已就绪' : '战斗阶段 · 还需要处理计划问题';
-    description = view.commitBlockedReasonIds.map(id => operationReasonLabel(view, id)).join(' ') || '学生计划附在左侧角色卡，可修订一名学生。';
+    description = view.commitBlockedReasonIds.map(id => operationReasonLabel(id)).join(' ') || '学生计划附在左侧角色卡，可修订一名学生。';
     button = '<button type="button" class="operation-commit-button" data-operation-commit data-run-id="' + e(ctx, view.runId) + '" data-plan-version="' + e(ctx, view.planVersion) +
       '"' + (view.canCommit ? '' : ' disabled') + '>提交本回合</button>';
   } else {
@@ -1184,7 +1047,7 @@ function renderMain(ctx: UIContext, view: OperationView, notice: string | null):
     '<div class="operation-chat-stream" data-scroll="content-region" data-operation-log role="log" aria-live="polite" aria-relevant="additions text">' +
     (notice ? '<p class="operation-command-notice" data-operation-command-notice role="alert" tabindex="-1">' + e(ctx, notice) + '</p>' : '') +
     '<div class="chat-talk chat-talk-npc operation-opening-message"><span class="chat-avatar"><span class="chat-avatar-fallback">安</span></span><div class="chat-talk-main"><div class="chat-name"><span>夏莱行动简报</span></div>' +
-    '<div class="chat-bubble chat-bubble-npc"><p>' + e(ctx, eventDescription(view)) + '</p></div></div></div>' + renderProgress(ctx, view) + renderInlineMapCard(ctx, view) +
+    '<div class="chat-bubble chat-bubble-npc"><p>' + e(ctx, eventDescription(view)) + '</p></div></div></div>' + renderProgress(ctx, view) +
     renderTimeline(ctx, view) +
     renderSceneControls(ctx, view) + renderPending(ctx, view) + renderRoutes(ctx, view) +
     (terminal ? '<section class="operation-outcome" data-operation-outcome><span class="operation-eyebrow">行动结论</span><h2>' + e(ctx, title) + '</h2><p>' + e(ctx, resultText) +
@@ -1197,7 +1060,7 @@ function renderMain(ctx: UIContext, view: OperationView, notice: string | null):
 
 function renderUnavailable(ctx: UIContext, notice: string | null): string {
   return '<section class="operation-unavailable" data-operation-unavailable role="status"><span class="operation-unavailable__mark">!</span><div>' +
-    '<p>请从夏莱办公室重新开始试玩，并确认账号已持有且解锁星野、芹香与白子。</p>' +
+    '<p>请从有效的行动入口重新开始，并确认当前行动要求的角色均已持有且解锁。</p>' +
     (notice ? '<p class="operation-command-notice" data-operation-command-notice tabindex="-1">' + e(ctx, notice) + '</p>' : '') +
     '</div></section>';
 }
