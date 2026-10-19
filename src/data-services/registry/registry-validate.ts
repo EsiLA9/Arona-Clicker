@@ -198,7 +198,7 @@ function validateMapActionContent(
     typeof value === 'string' && value.trim().length > 0;
   const isResourceScope = (value: unknown): value is 'actor' | 'team' =>
     value === 'actor' || value === 'team';
-  const targetKinds = new Set(['none', 'self', 'partyCharacter', 'enemy']);
+  const targetKinds = new Set(['none', 'self', 'partyCharacter', 'enemy', 'card']);
   const assertNoExtraFields = (
     value: Record<string, unknown>,
     allowedFields: readonly string[],
@@ -226,7 +226,7 @@ function validateMapActionContent(
     for (const [actionIndex, rawAction] of ((rawActions ?? []) as unknown[]).entries()) {
       const actionPath = `Map "${map.id}" actions[${actionIndex}]`;
       if (!isRecord(rawAction)) throw new RegistryError(`${actionPath} 必须是 Action 对象`);
-      assertNoExtraFields(rawAction, ['id', 'name', 'description', 'eligibleCharacterIds', 'target', 'costs', 'effects', 'hpEffects'], actionPath);
+      assertNoExtraFields(rawAction, ['id', 'name', 'description', 'eligibleCharacterIds', 'target', 'costs', 'effects', 'hpEffects', 'cardEffects'], actionPath);
 
       const actionId = rawAction.id;
       if (!isNonEmptyString(actionId)) throw new RegistryError(`${actionPath}.id 必须是非空 Map-local Action ID`);
@@ -258,9 +258,29 @@ function validateMapActionContent(
       if (!isRecord(target)) {
         throw new RegistryError(`${actionPath}.target 必须是目标规则对象`);
       }
-      assertNoExtraFields(target, ['kind'], `${actionPath}.target`);
+      assertNoExtraFields(target, target.kind === 'card' ? ['kind', 'side'] : ['kind'], `${actionPath}.target`);
       if (typeof target.kind !== 'string' || !targetKinds.has(target.kind)) {
-        throw new RegistryError(`${actionPath}.target.kind 必须是 none、self、partyCharacter 或 enemy`);
+        throw new RegistryError(`${actionPath}.target.kind 必须是 none、self、partyCharacter、enemy 或 card`);
+      }
+      if (target.kind === 'card' && (typeof target.side !== 'string' || !['self', 'ally', 'opponent', 'any'].includes(target.side))) {
+        throw new RegistryError(`${actionPath}.target.side 必须是 self、ally、opponent 或 any`);
+      }
+      const cardEffects: unknown = rawAction.cardEffects;
+      if (cardEffects !== undefined && !Array.isArray(cardEffects)) throw new RegistryError(`${actionPath}.cardEffects 必须是数组`);
+      if (target.kind === 'card' && (!Array.isArray(cardEffects) || cardEffects.length === 0)) {
+        throw new RegistryError(`${actionPath} card target 必须声明实际 cardEffects`);
+      }
+      if (Array.isArray(cardEffects) && cardEffects.length > 0 && target.kind !== 'card') {
+        throw new RegistryError(`${actionPath}.cardEffects 必须使用 card target`);
+      }
+      for (const [index, effect] of ((cardEffects ?? []) as unknown[]).entries()) {
+        const path = `${actionPath}.cardEffects[${index}]`;
+        if (!isRecord(effect)) throw new RegistryError(`${path} 必须是卡牌效果对象`);
+        assertNoExtraFields(effect, ['kind', 'amount'], path);
+        if (effect.kind !== 'scostDiscount') throw new RegistryError(`${path}.kind 必须是 scostDiscount`);
+        if (!Number.isSafeInteger(effect.amount) || (effect.amount as number) <= 0) {
+          throw new RegistryError(`${path}.amount 必须是正安全整数`);
+        }
       }
 
       const rawCosts: unknown = rawAction.costs;

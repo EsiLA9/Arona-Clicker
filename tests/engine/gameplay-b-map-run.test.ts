@@ -901,6 +901,46 @@ describe('MapRunService', () => {
     });
   });
 
+  test('drops a carried-over Enemy target that fell, keeping the reused card stateless next round', () => {
+    // 'serika' died in a previous round; the carried target choice must not crash
+    // or make a Character lose its target. The reused card re-decides against the
+    // surviving Enemy instead.
+    const staleEncounter: MapRunEncounterSnapshot = {
+      nodeId: 'b',
+      round: 2,
+      hands: [
+        { characterId: 'shiroko', actionIds: ['shiroko-strike'] },
+        { characterId: 'serika', actionIds: ['serika-strike'] },
+        { characterId: 'hoshino', actionIds: ['hoshino-strike'] },
+      ],
+      overrides: [],
+      targetSelections: [{ characterId: 'shiroko', targetEnemyId: 'serika' }],
+      enemies: [
+        { enemyId: 'serika', currentHp: 0 },
+        { enemyId: 'wolf', currentHp: 5 },
+      ],
+      draftVersion: 0,
+      drawCursorStart: 0,
+      randomState: { algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM, seed: 5, cursor: 0 },
+      lastCommit: null,
+    };
+    const preview = resolveGameplayBActionPreview({
+      definition: BATTLE_MAP,
+      encounter: staleEncounter,
+      party: BATTLE_PARTY,
+      partyHp: [
+        { characterId: 'shiroko', currentHp: 2 },
+        { characterId: 'serika', currentHp: 8 },
+        { characterId: 'hoshino', currentHp: 5 },
+      ],
+      playerCost: 0,
+      actorResources: [],
+      teamResources: [{ resourceId: 'ammo', value: 3 }],
+    });
+    expect(preview.preparedActions.map(row => row.targetEnemyId)).toEqual(['wolf', 'wolf', 'wolf']);
+    expect(preview.preparedActions.every(row => !row.targetSelectionRequired)).toBe(true);
+  });
+
   test('automatically fills a unique party target and never creates a Wait Action ID', () => {
     const singlePartyMap: TestMap = {
       ...PREPARED_MAP,

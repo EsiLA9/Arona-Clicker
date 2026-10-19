@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T04:22:29.713Z",
+  "generatedAt": "2026-10-18T18:10:13.980Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -16,6 +16,10 @@
     },
     "spots": {
       "type": "SpotDef",
+      "shape": "array"
+    },
+    "maps": {
+      "type": "GameplayMapDef",
       "shape": "array"
     },
     "operationEvents": {
@@ -4069,6 +4073,101 @@
           "required": false,
           "kind": "extra",
           "tsType": "ExtraCompound"
+        }
+      ]
+    },
+    "GameplayMapDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Stable three-part Datapack identity using the `map` entity type."
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Player-facing map name."
+        },
+        {
+          "key": "resumeVersion",
+          "required": true,
+          "kind": "float",
+          "tsType": "number",
+          "description": "Author-maintained compatibility version for MapRun resume. Raise this when"
+        },
+        {
+          "key": "startNodeId",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Local ID of the node where a new MapRun begins."
+        },
+        {
+          "key": "exitNodeIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly string[]",
+          "description": "Local IDs of nodes that end the MapRun when reached."
+        },
+        {
+          "key": "partyCharacterIds",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly Character[]",
+          "description": "Fixed Character IDs admitted to every Encounter in a new MapRun."
+        },
+        {
+          "key": "initialPartyHp",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly GameplayMapInitialPartyHpDef[]",
+          "description": "Explicit MapRun-local starting HP and cap for every fixed party member."
+        },
+        {
+          "key": "initialPlayerCost",
+          "required": true,
+          "kind": "float",
+          "tsType": "number",
+          "description": "Explicit PlayerCost balance assigned when a new MapRun starts."
+        },
+        {
+          "key": "actions",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly GameplayMapActionDef[]",
+          "description": "Map-local reusable actions; omitted when every encounter is Wait-only."
+        },
+        {
+          "key": "initialActorResources",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly GameplayMapInitialActorResourceDef[]",
+          "description": "Per-character MapRun resource balances; all undeclared values start at 0."
+        },
+        {
+          "key": "initialTeamResources",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly GameplayMapInitialTeamResourceDef[]",
+          "description": "Shared MapRun resource balances; all undeclared values start at 0."
+        },
+        {
+          "key": "nodes",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly GameplayMapNodeDef[]",
+          "description": "Nodes embedded in this map."
+        },
+        {
+          "key": "edges",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly GameplayMapEdgeDef[]",
+          "description": "Directed adjacency between local node IDs."
         }
       ]
     },
@@ -11777,6 +11876,31 @@
     "GameNumSpotSource",
     "GameNumState",
     "GameNumTaggedSource",
+    "GameplayEncounterActionCandidateDef",
+    "GameplayEncounterCompletionDef",
+    "GameplayEncounterDef",
+    "GameplayEncounterEnemyDef",
+    "GameplayEncounterItemActionDef",
+    "GameplayEncounterParticipantDef",
+    "GameplayMapActionCardEffectDef",
+    "GameplayMapActionDef",
+    "GameplayMapActionHpEffectDef",
+    "GameplayMapActionResourceCostDef",
+    "GameplayMapActionResourceEffectDef",
+    "GameplayMapActionTargetDef",
+    "GameplayMapActivityDef",
+    "GameplayMapDef",
+    "GameplayMapEdgeConditionDef",
+    "GameplayMapEdgeDef",
+    "GameplayMapInitialActorResourceDef",
+    "GameplayMapInitialPartyHpDef",
+    "GameplayMapInitialTeamResourceDef",
+    "GameplayMapNodeDef",
+    "GameplayShopDef",
+    "GameplayShopOfferCostDef",
+    "GameplayShopOfferDef",
+    "GameplayShopOfferEffectDef",
+    "GameplayShopOfferHealDef",
     "GearConfigDef",
     "GearCostDef",
     "GearDef",
@@ -11885,6 +12009,7 @@
     "RuntimeContentMapValue",
     "RuntimeContentRawValue",
     "RuntimeContentReferenceDiagnostic",
+    "RuntimeContentReferenceLocation",
     "RuntimeContentReferenceStatus",
     "RuntimeContentSetValue",
     "RuntimeContentShape",

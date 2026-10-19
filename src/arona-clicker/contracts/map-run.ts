@@ -1,3 +1,5 @@
+import type { MapRunCardRef } from './map-cards';
+
 /** One fixed MapRun party member admitted against PlayerState before Run creation. */
 export interface MapRunPartyMember {
   readonly characterId: string;
@@ -33,8 +35,9 @@ export interface MapRunActionOverride {
 
 /** An explicit target choice when an action has more than one legal target. */
 export type MapRunEncounterTargetSelection =
-  | { readonly characterId: string; readonly targetCharacterId: string; readonly targetEnemyId?: never }
-  | { readonly characterId: string; readonly targetEnemyId: string; readonly targetCharacterId?: never };
+  | { readonly characterId: string; readonly targetCharacterId: string; readonly targetEnemyId?: never; readonly targetCard?: never }
+  | { readonly characterId: string; readonly targetEnemyId: string; readonly targetCharacterId?: never; readonly targetCard?: never }
+  | { readonly characterId: string; readonly targetCard: MapRunCardRef; readonly targetCharacterId?: never; readonly targetEnemyId?: never };
 
 /** Explicit target selected by an actorless Encounter source. */
 export type MapRunEncounterSourceTarget =
@@ -169,6 +172,10 @@ export interface MapRunEncounterActionSettlement {
   readonly characterId: string;
   readonly actionId: string | null;
   readonly targetCharacterId: string | null;
+  /** Selected domain card at execution, independently of unit effect recipients. */
+  readonly targetCard?: MapRunCardRef;
+  /** Actual Actor sCost charge: original amount, applied reduction, and net payment. */
+  readonly scostCost?: { readonly original: number; readonly discount: number; readonly paid: number };
   /** Present only when an Enemy was selected; scoped by the receipt's nodeId. */
   readonly targetEnemyId?: string;
   readonly overrideKind: MapRunActionOverride['kind'] | null;

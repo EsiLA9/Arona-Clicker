@@ -1,0 +1,51 @@
+(node:53480) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:41412) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:18924) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7864) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[31m⎯⎯⎯⎯⎯⎯⎯[1m[7m Failed Tests 3 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/ui/gameplay-b-map-vertical-slice.test.ts[2m > [22mGameplay B Map normal entry vertical slice[2m > [22mloads the default pack, acquires a normal Spot, and runs its Map through the UI
+[31m[1mAssertionError[22m: the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string[39m
+[36m [2m❯[22m tests/ui/gameplay-b-map-vertical-slice.test.ts:[2m309:138[22m[39m
+    [90m307| [39m    [34mexpect[39m(controller[33m.[39m[34mgetRefreshStats[39m()[33m.[39mregionRefreshes)[33m.[39m[34mtoBeGreaterTh[39m…
+    [90m308| [39m    regionRefreshes [33m=[39m controller[33m.[39m[34mgetRefreshStats[39m()[33m.[39mregionRefreshes[33m;[39m
+    [90m309| [39m    [34mexpect[39m(root[33m.[39m[34mquerySelector[39m([32m'[data-workspace-column="right"] [data-m[39m…
+    [90m   | [39m                                                                                                                                         [31m^[39m
+    [90m310| [39m
+    [90m311| [39m    root[33m.[39mquerySelector[33m<[39m[33mHTMLButtonElement[39m[33m>[39m([32m`[data-map-move-to="[39m[36m${[39mexitEd…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/ui/gameplay-b-map-vertical-slice.test.ts[2m > [22mGameplay B Map normal entry vertical slice[2m > [22mruns a real two-character Encounter action turn through Datapack, Spot and MapRun with local refresh
+[31m[1mTypeError[22m: Cannot set properties of null (setting 'scrollTop')[39m
+[36m [2m❯[22m captureMapIdentity tests/ui/gameplay-b-map-vertical-slice.test.ts:[2m615:26[22m[39m
+    [90m613| [39m  })[33m;[39m
+    [90m614| [39m  snapshot[33m.[39mfeedScroll[33m.[39mscrollTop [33m=[39m [34m47[39m[33m;[39m
+    [90m615| [39m  snapshot[33m.[39mactionOptions[33m.[39mscrollTop [33m=[39m [34m61[39m[33m;[39m
+    [90m   | [39m                         [31m^[39m
+    [90m616| [39m  snapshot[33m.[39mcontextScroll[33m.[39mscrollTop [33m=[39m [34m73[39m[33m;[39m
+    [90m617| [39m  [35mreturn[39m { runId[33m,[39m snapshot }[33m;[39m
+[90m [2m❯[22m tests/ui/gameplay-b-map-vertical-slice.test.ts:[2m392:18[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders battle HP, routes Enemy targets, keeps Ability and Item drafts separate, and shows the round result
+[31m[1mAssertionError[22m: expected '本轮可提交 · 预计消耗 0 PlayerCost' to contain '选择对象'[39m
+
+Expected: [32m"选择对象"[39m
+Received: [31m"本轮可提交 · 预计消耗 0 PlayerCost"[39m
+
+[36m [2m❯[22m tests/ui/gameplay-b-map-workspace.test.ts:[2m679:73[22m[39m
+    [90m677| [39m    [34mexpect[39m(root[33m.[39m[34mquerySelector[39m([32m'[data-workspace-column="right"] [data-m[39m…
+    [90m678| [39m    [34mexpect[39m(root[33m.[39m[34mquerySelector[39m([32m'[data-map-complete-encounter]'[39m))[33m.[39m[34mtoBeNu[39m…
+    [90m679| [39m    [34mexpect[39m(root[33m.[39m[34mquerySelector[39m([32m'[data-map-commit-status]'[39m)[33m?.[39mtextContent…
+    [90m   | [39m                                                                        [31m^[39m
+    [90m680| [39m    [34mexpect[39m(root[33m.[39m[34mquerySelectorAll[39m([32m'[data-map-target-enemy]'[39m))[33m.[39m[34mtoHaveLen[39m…
+    [90m681| [39m    [34mexpect[39m(root[33m.[39m[34mquerySelector[39m([32m'[data-workspace-column="left"] [data-ma[39m…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+

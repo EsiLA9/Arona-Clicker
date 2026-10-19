@@ -3,12 +3,14 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
+import { gameplayBMapDatapack, gameplayBScostTrainingDefinition } from '../../src/arona-clicker/content/operation-samples/gameplay-b-map-datapack';
 import { Resource } from '../../src/arona-clicker/types/ids';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { UIController } from '../../src/ui/controller';
 import { createUIContext } from '../../src/ui/context';
 import { renderMapWorkspace } from '../../src/ui/components/map-workspace';
+import { mapObjectKey } from '../../src/ui/workspace/map-relation-presentation';
 import {
   createWorkspaceNavigation,
   resolveCurrentWorkspaceRoute,
@@ -174,6 +176,25 @@ describe('Gameplay B Map Workspace', () => {
     }
   }
 
+  function cardWorkspaceDatapack(): typeof gameplayBCarouselDatapack {
+    const source = mapFixture();
+    const map: GameplayMapDef = { ...source, resumeVersion: source.resumeVersion + 10,
+      initialActorResources: source.partyCharacterIds.map(characterId => ({ characterId, resourceId: 'sCost', value: 5 })),
+      actions: [
+        ...['plan-a', 'plan-b'].map(id => ({ id, name: `筹划 ${id}`, eligibleCharacterIds: ['shiroko'],
+          target: { kind: 'card' as const, side: 'ally' as const }, cardEffects: [{ kind: 'scostDiscount' as const, amount: 1 }] })),
+        ...['shot-a', 'shot-b', 'shot-c', 'shot-d'].map(id => ({ id, name: `射击 ${id}`, eligibleCharacterIds: ['serika'],
+          target: { kind: 'enemy' as const }, costs: [{ scope: 'actor' as const, resourceId: 'sCost', amount: 2 }], hpEffects: [{ amount: -1 }] })),
+      ],
+      nodes: source.nodes.map(node => !node.encounter ? node : { ...node, encounter: {
+        title: '卡牌作用演练', enemies: [{ id: 'robot', initialHp: 20, maxHp: 20, damage: 1 }],
+        participants: [{ characterId: 'shiroko', actions: ['plan-a', 'plan-b'].map(actionId => ({ actionId, tendencyWeight: 1 })) },
+          { characterId: 'serika', actions: ['shot-a', 'shot-b', 'shot-c', 'shot-d'].map(actionId => ({ actionId, tendencyWeight: 1 })) }],
+      } }),
+    };
+    return { ...gameplayBCarouselDatapack, maps: gameplayBCarouselDatapack.maps!.map(row => row.id === source.id ? map : row) };
+  }
+
   function activeWorkspaceView(runId: string) {
     const view = game!.mapRun.getWorkspaceView(runId);
     if (!view || view.kind !== 'active') throw new Error(`MapRun "${runId}" has no active Workspace view`);
@@ -181,7 +202,7 @@ describe('Gameplay B Map Workspace', () => {
   }
 
   function expectSharedMapTopbar(scope: ParentNode): void {
-    for (const panel of ['left', 'center', 'right']) {
+    for (const panel of ['left', 'right']) {
       expect(scope.querySelector(`[data-theme-host-id="${panel}Panel.tabs"]`)).not.toBeNull();
     }
   }
@@ -215,6 +236,7 @@ describe('Gameplay B Map Workspace', () => {
   }
 
   afterEach(() => {
+    vi.restoreAllMocks();
     controller?.destroy();
     controller = undefined;
     if (game?.running) game.stop();
@@ -222,6 +244,84 @@ describe('Gameplay B Map Workspace', () => {
     game = undefined;
     localStorage.clear();
     document.body.innerHTML = '';
+  });
+
+  test('selects and drags a real card target without lines or Swap, then explicitly commits the discount', async () => {
+    const datapack = cardWorkspaceDatapack();
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const frame = root.querySelector('[data-workspace-frame]');
+    const flow = root.querySelector('[data-map-flow-host]');
+    const render = vi.spyOn(controller!, 'render');
+    const confirm = vi.spyOn(controller!.commands, 'setMapPreparedCardTarget');
+    const commit = vi.spyOn(controller!.commands, 'commitMapEncounterRound');
+    const initial = activeWorkspaceView(runId);
+    expect(root.textContent).toContain('受用卡牌本轮 sCost 减免 1');
+    expect(root.querySelector('[data-map-party-member="serika"] .map-workspace__unit-stat--scost strong')?.textContent).toBe('5');
+    expect(root.querySelector('[data-map-player-command]')?.hasAttribute('data-map-object-key')).toBe(false);
+    const source = root.querySelector<HTMLButtonElement>('[data-map-hand-stack-toggle][data-character-id="shiroko"]')!;
+    const recipient = root.querySelector<HTMLButtonElement>('[data-map-hand-stack-toggle][data-character-id="serika"]')!;
+    const sourceGroup = root.querySelector('[data-map-party-member="shiroko"]')!;
+    sourceGroup.querySelector<HTMLButtonElement>('[data-map-relation-pin]')!.click();
+    await Promise.resolve();
+    recipient.click(); // A legal recipient also opens its own replacement Popover.
+    sourceGroup.querySelector<HTMLButtonElement>('[data-map-target-edit]')!.click();
+    expect(recipient.getAttribute('aria-expanded')).toBe('false');
+    expect(confirm).not.toHaveBeenCalled();
+    expect(activeWorkspaceView(runId).run).toEqual(initial.run);
+    const preparedCard = initial.cards.find(card => card.owner.id === 'serika' && card.prepared)!;
+    const unusedCard = initial.cards.find(card => card.owner.id === 'serika' && !card.prepared)!;
+    const choices = [...root.querySelectorAll<HTMLButtonElement>('[data-map-card-target]')];
+    const unused = choices.find(node => node.dataset.mapObjectKey === mapObjectKey(unusedCard.ref))!;
+    unused.click();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(activeWorkspaceView(runId).actionPreview!.preparedActions[0].targetCard).toEqual(unusedCard.ref);
+    expect(activeWorkspaceView(runId).run.activeEncounter!.round).toBe(1);
+    expect(commit).not.toHaveBeenCalled();
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(recipient);
+    source.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 8, button: 0, clientX: 10, clientY: 10 }));
+    root.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 8, clientX: 50, clientY: 10 }));
+    expect(recipient.dataset.mapRoleDrop).toBe('接收');
+    expect(root.querySelectorAll('.map-workspace__target-drag-preview')).toHaveLength(1);
+    root.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 8, clientX: 50, clientY: 10 }));
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(activeWorkspaceView(runId).actionPreview!.preparedActions[0].targetCard).toEqual(preparedCard.ref);
+    expect(root.querySelector('.map-workspace__target-drag-preview')).toBeNull();
+    expect(root.querySelector('[data-workspace-frame]')).toBe(frame);
+    expect(root.querySelector('[data-map-flow-host]')).toBe(flow);
+    expect(root.querySelector('svg')).toBeNull();
+    expect(render).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+    const submit = root.querySelector<HTMLButtonElement>('[data-map-commit]')!;
+    submit.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 9, button: 0 }));
+    submit.click();
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(activeWorkspaceView(runId).run.lastEncounterCommit!.settlements[1].scostCost).toEqual({ original: 2, discount: 1, paid: 1 });
+    expect(activeWorkspaceView(runId).run.actorResources.find(row => row.characterId === 'serika' && row.resourceId === 'sCost')?.value).toBe(4);
+    expect(activeWorkspaceView(runId).run.activeEncounter!.round).toBe(2);
+    vi.restoreAllMocks();
+  });
+
+  test('the shipped cooperation sample offers real card targets and settles a chosen discount', () => {
+    const { root } = mount(gameplayBMapDatapack);
+    const runId = enterEncounter(root, gameplayBScostTrainingDefinition);
+    const prepare = (characterId: string, actionId: string) => {
+      if (activeWorkspaceView(runId).actionPreview!.preparedActions.find(row => row.characterId === characterId)!.preparedAction!.actionId === actionId) return;
+      root.querySelector<HTMLButtonElement>(`[data-map-hand-stack-toggle][data-character-id="${characterId}"]`)!.click();
+      root.querySelector<HTMLButtonElement>(`[data-map-action-swap][data-character-id="${characterId}"][data-action-id="${actionId}"]`)!.click();
+    };
+    prepare('shiroko', 'planning');
+    prepare('serika', 'rifle-shot');
+    const before = activeWorkspaceView(runId);
+    const target = before.cards.find(card => card.owner.id === 'serika' && card.actionId === 'rifle-shot')!.ref;
+    const choice = [...root.querySelectorAll<HTMLButtonElement>('[data-map-card-target]')].find(node => node.dataset.mapObjectKey === mapObjectKey(target))!;
+    choice.click();
+    expect(activeWorkspaceView(runId).actionPreview!.preparedActions[0].targetCard).toEqual(target);
+    expect(root.querySelector('[data-map-party-member="serika"] .map-workspace__unit-stat--scost strong')?.textContent).toBe('6');
+    root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
+    expect(activeWorkspaceView(runId).run.lastEncounterCommit!.settlements[1].scostCost).toEqual({ original: 2, discount: 1, paid: 1 });
+    expect(root.querySelector('[data-map-party-member="serika"] .map-workspace__unit-stat--scost strong')?.textContent).toBe('5');
+    expect(root.querySelector('svg')).toBeNull();
   });
 
   test('projects detached Map, Node, Edge, start and exit facts from the current Run', () => {
@@ -287,7 +387,7 @@ describe('Gameplay B Map Workspace', () => {
     const firstTarget = view.map.nodes.find(node => node.id === firstEdge.toNodeId)!;
     const initialMoveButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-map-move-to]')];
     expect(initialMoveButtons.map(button => button.dataset.mapMoveTo)).toEqual([firstTarget.id]);
-    expect(root.querySelector('[data-workspace-column="right"] [data-map-region-key="map-progress"] .map-workspace__node-list')).not.toBeNull();
+    expect(root.querySelector('[data-map-show-map]')).not.toBeNull();
     expect(root.querySelector('[data-workspace-column="right"] [data-map-move-to]')).toBeNull();
     expect(root.querySelector('[data-flow-host-key] [data-map-move-to]')).not.toBeNull();
     const remoteNode = view.map.nodes.find(node => node.id !== view.run.currentNodeId
@@ -303,17 +403,17 @@ describe('Gameplay B Map Workspace', () => {
     expect(view.actionPreview?.preparedActions).toHaveLength(map.partyCharacterIds.length);
     expect(root.querySelectorAll('[data-workspace-column="left"] [data-map-party-member]')).toHaveLength(map.partyCharacterIds.length);
     expect(root.querySelector('[data-map-region-key="action-dock"]')).not.toBeNull();
-    const displayedResources = root.querySelector('[data-map-region-key="shared-resources"]')?.textContent ?? '';
-    expect(displayedResources).toContain('共用资源');
-    expect(displayedResources).toContain(String(view.run.teamResources[0]?.value));
-    expect(root.querySelector<HTMLButtonElement>('[data-map-commit]')?.disabled)
-      .toBe(!view.actionPreview?.commitPreview.canCommit);
+    const displayedResources = root.querySelector('.map-workspace__commit-balance')?.textContent ?? '';
+    expect(displayedResources).toContain('PlayerCost');
+    expect(displayedResources).toContain(String(view.run.playerCost));
+    expect(root.querySelector('[data-map-commit]') !== null)
+      .toBe(view.actionPreview?.commitPreview.canCommit === true);
     expect(root.querySelector('[data-map-move-choices]')).toBeNull();
     const blockedTarget = view.map.edges.find(edge => edge.fromNodeId === view.run.currentNodeId)?.toNodeId;
     expect(blockedTarget).toBeDefined();
     expect(root.querySelector('[data-map-move-to="' + blockedTarget + '"]')).toBeNull();
-    expect(root.querySelector<HTMLButtonElement>('[data-map-complete-encounter]')?.textContent)
-      .toBe(view.currentEncounter?.completion?.label);
+    expect(root.querySelector<HTMLButtonElement>('.map-workspace__commit')?.getAttribute('aria-label'))
+      .toBe(view.actionPreview?.commitPreview.canCommit ? '提交本轮' : view.currentEncounter?.completion?.label);
 
     controller!.commands.completeMapEncounter(started.runId);
     controller!.render();
@@ -321,10 +421,8 @@ describe('Gameplay B Map Workspace', () => {
     expect(view.run.currentNodeId).toBe(firstTarget.id);
     expect(view.run.completedEncounterNodeIds).toContain(firstTarget.id);
     expect(view.currentEncounter).toBeNull();
-    expect(root.querySelector(`[data-workspace-column="right"] [data-map-region-key="map-node:${firstTarget.id}"]`)?.textContent).toContain('遭遇已完成');
-    const completedNode = root.querySelector('[data-map-node-id="' + firstTarget.id + '"]');
-    expect(completedNode?.getAttribute('data-map-status')).toBe('current');
-    expect(completedNode?.textContent).toContain('遭遇已完成');
+    expect(root.querySelector('[data-map-region-key="map-hero"] h1')?.textContent).toBe(firstTarget.title);
+    expect(root.querySelector('[data-map-move-choices]')).not.toBeNull();
 
     const exitEdge = view.map.edges.find(edge => edge.fromNodeId === view.run.currentNodeId)!;
     const exitNode = view.map.nodes.find(node => node.id === exitEdge.toNodeId)!;
@@ -361,8 +459,9 @@ describe('Gameplay B Map Workspace', () => {
   });
 
   test('consumes the flow mover only after success and preserves the mounted workspace', () => {
-    const { root } = mount();
-    const map = mapFixture();
+    const datapack = actionWorkspaceDatapack(); // Unresolved party targets deterministically expose manual completion.
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
     const started = controller!.commands.startMap(map.id);
     controller!.enterWorkspaceRoute({ kind: 'map', runId: started.runId });
     controller!.render();
@@ -440,9 +539,9 @@ describe('Gameplay B Map Workspace', () => {
     expect(root.querySelectorAll('[data-workspace-column="left"] [data-map-party-member]')).toHaveLength(map.partyCharacterIds.length);
     expect(root.querySelector('[data-workspace-column="left"] [data-map-party-member="shiroko"] [data-map-action-swap]')).not.toBeNull();
     expect(root.querySelector('[data-workspace-column="left"] [data-map-party-member="serika"] [data-map-action-swap]')).not.toBeNull();
-    expect(root.querySelector('[data-map-region-key="shared-resources"]')?.textContent).toContain('PlayerCost');
-    expect(root.querySelector<HTMLButtonElement>('[data-map-commit]')?.disabled)
-      .toBe(!firstPreview.commitPreview.canCommit);
+    expect(root.querySelector('.map-workspace__commit-balance')?.textContent).toContain('PlayerCost');
+    expect(root.querySelector('[data-map-commit]') !== null)
+      .toBe(firstPreview.commitPreview.canCommit);
 
     const shiroko = firstPreview.preparedActions.find(member => member.characterId === 'shiroko')!;
     const swapAction = shiroko.hand.find(action => action.actionId !== shiroko.naturalAction?.actionId)!;
@@ -454,7 +553,7 @@ describe('Gameplay B Map Workspace', () => {
     expect(activeWorkspaceView(runId).actionPreview?.overrides).toEqual([
       { kind: 'swap', characterId: 'shiroko', actionId: swapAction.actionId },
     ]);
-    expect(document.activeElement).toBe(swapButton);
+    expect(swapButton.isConnected).toBe(false); // Candidate becomes the mounted effective card.
     expect((document.activeElement as HTMLElement | null)?.dataset.actionId).toBe(swapAction.actionId);
     const swappedPreview = activeWorkspaceView(runId).actionPreview!;
     const shirokoTarget = swappedPreview.preparedActions.find(member => member.characterId === 'shiroko')!;
@@ -474,7 +573,7 @@ describe('Gameplay B Map Workspace', () => {
       { kind: 'swap', characterId: 'shiroko', actionId: swapAction.actionId },
       { kind: 'swap', characterId: 'serika', actionId: serikaSwapAction.actionId },
     ]);
-    expect(root.querySelectorAll('[data-map-clear-override]')).toHaveLength(2);
+    expect(root.querySelectorAll('[data-map-hand-stack-toggle]')).toHaveLength(2);
     root.querySelector<HTMLButtonElement>(
       `[data-map-action-swap][data-character-id="serika"][data-action-id="${serikaMember.naturalAction!.actionId}"]`,
     )!.click();
@@ -496,7 +595,7 @@ describe('Gameplay B Map Workspace', () => {
       `[data-map-action-swap][data-character-id="shiroko"][data-action-id="${swapAction.actionId}"]`,
     )!.click();
     expect(activeWorkspaceView(runId).actionPreview?.overrides).toHaveLength(1);
-    root.querySelector<HTMLButtonElement>('[data-map-clear-override][data-character-id="shiroko"]')!.click();
+    root.querySelector<HTMLButtonElement>(`[data-map-action-swap][data-character-id="shiroko"][data-action-id="${shiroko.naturalAction!.actionId}"]`)!.click();
     const clearedPreview = activeWorkspaceView(runId).actionPreview!;
     expect(clearedPreview.overrides).toEqual([]);
     expect(clearedPreview.preparedActions.find(member => member.characterId === 'shiroko')?.preparedAction?.actionId)
@@ -517,7 +616,7 @@ describe('Gameplay B Map Workspace', () => {
     expect((document.activeElement as HTMLElement | null)?.dataset.actionId).toBe(command.action.actionId);
     expect(root.querySelector<HTMLButtonElement>('[data-map-action-swap][data-character-id="serika"]')?.disabled).toBe(false);
     expect(root.querySelector<HTMLButtonElement>('[data-map-player-command][data-character-id="serika"]')?.disabled).toBe(true);
-    expect(root.querySelector<HTMLButtonElement>('[data-map-commit]')?.disabled).toBe(true);
+    expect(root.querySelector('[data-map-commit]')).toBeNull();
 
     const shirokoCommandTarget = commandedPreview.preparedActions.find(member => member.characterId === 'shiroko')!.legalTargetCharacterIds[0]!;
     root.querySelector<HTMLButtonElement>(
@@ -550,6 +649,27 @@ describe('Gameplay B Map Workspace', () => {
     }));
     expect(root.querySelector('[data-map-region-key="feed-recent-commit"]')?.textContent).toContain('PlayerCommand');
     expect(root.querySelector('[data-map-region-key="feed-recent-commit"]')?.textContent).toContain('−1 PlayerCost');
+  });
+
+  test('shows only the effective card and opens existing candidates without drawing or replacing workspace owners', () => {
+    const datapack = actionWorkspaceDatapack();
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const party = root.querySelector('[data-map-region-key="party-scroll"]');
+    const feed = root.querySelector('[data-map-region-key="talk-feed"]');
+    const toggle = root.querySelector<HTMLButtonElement>('[data-map-hand-stack-toggle][data-character-id="shiroko"]')!;
+    const before = game!.mapRun.getSnapshot();
+    const stack = toggle.closest('.map-workspace__unit-card-stack')!;
+    expect(stack.querySelectorAll('.map-workspace__unit-action-card')).toHaveLength(1);
+    toggle.click();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(stack.querySelector('[data-map-hand-picker]')).not.toBeNull();
+    expect(game!.mapRun.getSnapshot()).toEqual(before);
+    toggle.click();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(root.querySelector('[data-map-region-key="party-scroll"]')).toBe(party);
+    expect(root.querySelector('[data-map-region-key="talk-feed"]')).toBe(feed);
+    expect(game!.mapRun.getSnapshot()).toEqual(before);
   });
 
   test('renders Wait as the prepared state without inventing a Hand card', () => {
@@ -652,15 +772,15 @@ describe('Gameplay B Map Workspace', () => {
       { enemyId: 'wolf', currentHp: 20, maxHp: 24, damage: 1 },
       { enemyId: 'wolf-2', currentHp: 20, maxHp: 24, damage: 1 },
     ]);
-    expect(root.querySelectorAll('[data-workspace-column="left"] [data-map-region-key^="party-hp:"]')).toHaveLength(2);
-    expect(root.querySelector('[data-workspace-column="left"] [data-map-region-key="party-hp:shiroko"]')).not.toBeNull();
-    expect(root.querySelector('[data-workspace-column="right"] [data-map-enemy-hp="wolf-2"]')?.textContent).toContain('20 / 24 HP');
+    expect(root.querySelectorAll('[data-workspace-column="left"] .map-workspace__unit-face')).toHaveLength(2);
+    expect(root.querySelector('[data-map-region-key="party-face:shiroko"]')).not.toBeNull();
+    expect(root.querySelector('[data-workspace-column="right"] [data-map-enemy-hp="wolf-2"]')?.textContent).toContain('20 / 24');
     expect(root.querySelector('[data-map-complete-encounter]')).toBeNull();
-    expect(root.querySelector('[data-map-region-key="action-dock"]')?.textContent).toContain('自动结束');
+    expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('选择对象');
     expect(root.querySelectorAll('[data-map-target-enemy]')).toHaveLength(4);
     expect(root.querySelector('[data-workspace-column="left"] [data-map-target-enemy]')).not.toBeNull();
     expect(root.querySelector('[data-workspace-column="center"] [data-map-ability-draft]')).not.toBeNull();
-    expect(root.querySelector('[data-workspace-column="center"] [data-map-commit]')).not.toBeNull();
+    expect(root.querySelector<HTMLButtonElement>('[data-workspace-column="center"] .map-workspace__commit')?.disabled).toBe(true);
     expect(root.querySelector('[data-map-ability-draft]')?.textContent).toContain('1 PlayerCost');
     expect(root.querySelector('[data-map-ability-draft]')?.textContent).toContain('费用充足');
     expect(root.querySelector('[data-map-item-draft]')?.textContent).toContain('库存 1');
@@ -750,12 +870,12 @@ describe('Gameplay B Map Workspace', () => {
     expect(committedEncounter?.partyHp.map(member => member.currentHp)).not.toEqual(partyHpBeforeCommit);
     expect(committedEncounter?.enemies.map(enemy => enemy.currentHp)).not.toEqual(enemyHpBeforeCommit);
     for (const member of committedEncounter?.partyHp ?? []) {
-      expect(root.querySelector(`[data-workspace-column="left"] [data-map-region-key="party-hp:${member.characterId}"]`)?.textContent)
-        .toContain(`HP ${member.currentHp} / ${member.maxHp}`);
+      expect(root.querySelector(`[data-map-region-key="party-face:${member.characterId}"] .map-workspace__unit-stat--hp strong`)?.textContent)
+        .toBe(`${member.currentHp} / ${member.maxHp}`);
     }
     for (const enemy of committedEncounter?.enemies ?? []) {
       expect(root.querySelector(`[data-workspace-column="right"] [data-map-enemy-hp="${enemy.enemyId}"]`)?.textContent)
-        .toContain(`${enemy.currentHp} / ${enemy.maxHp} HP`);
+        .toContain(`${enemy.currentHp} / ${enemy.maxHp}`);
     }
 
     const nextPreview = activeWorkspaceView(runId).actionPreview!;
@@ -807,6 +927,54 @@ describe('Gameplay B Map Workspace', () => {
     } finally {
       viewSpy.mockRestore();
     }
+  });
+
+  test('edits real Enemy targets by unit click and card drag without Commit or replacing the three columns', async () => {
+    const datapack = battleWorkspaceDatapack();
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const before = game!.mapRun.getSnapshot()!;
+    const columns = [...root.querySelectorAll('[data-workspace-column]')];
+    const scroll = root.querySelector<HTMLElement>('[data-map-region-key="talk-feed"]')!;
+    const fullRenders = controller!.getRefreshStats().fullRenders;
+    const edit = root.querySelector<HTMLButtonElement>('[data-map-party-member="shiroko"] [data-map-target-edit]')!;
+    edit.click();
+    const secondEnemy = root.querySelector<HTMLElement>('[data-map-region-key="enemy-face:wolf-2"]')!;
+    expect(secondEnemy.dataset.mapRoleCandidate).toBe('候选');
+    secondEnemy.click();
+    await Promise.resolve();
+    let current = game!.mapRun.getSnapshot()!;
+    expect(current.activeEncounter!.targetSelections).toContainEqual({ characterId: 'shiroko', targetEnemyId: 'wolf-2' });
+    expect(current.activeEncounter!.draftVersion).toBe(before.activeEncounter!.draftVersion + 1);
+    expect(current.activeEncounter!.round).toBe(before.activeEncounter!.round);
+    expect(current.activeEncounter!.randomState).toEqual(before.activeEncounter!.randomState);
+    expect(current.playerCost).toBe(before.playerCost);
+
+    const source = root.querySelector<HTMLElement>('[data-map-party-member="shiroko"] .map-workspace__unit-action-card')!;
+    const firstEnemy = root.querySelector<HTMLElement>('[data-map-region-key="enemy-face:wolf"]')!;
+    const hit = vi.spyOn(document, 'elementFromPoint').mockReturnValue(firstEnemy);
+    source.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7, button: 0, clientX: 10, clientY: 10 }));
+    root.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 7, clientX: 100, clientY: 20 }));
+    expect(firstEnemy.dataset.mapRoleDrop).toBe('接收');
+    root.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7, clientX: 100, clientY: 20 }));
+    await Promise.resolve();
+    current = game!.mapRun.getSnapshot()!;
+    expect(current.activeEncounter!.targetSelections).toContainEqual({ characterId: 'shiroko', targetEnemyId: 'wolf' });
+    expect(current.activeEncounter!.draftVersion).toBe(before.activeEncounter!.draftVersion + 2);
+    expect(current.activeEncounter!.round).toBe(1);
+    expect(current.activeEncounter!.lastCommit).toBeNull();
+    expect([...root.querySelectorAll('[data-workspace-column]')]).toEqual(columns);
+    expect(root.querySelector('[data-map-region-key="talk-feed"]')).toBe(scroll);
+    expect(controller!.getRefreshStats().fullRenders).toBe(fullRenders);
+    expect(root.querySelector('svg, .map-workspace__target-drag-preview')).toBeNull();
+
+    hit.mockReturnValue(document.body);
+    const beforeCancel = current;
+    source.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 8, button: 0 }));
+    root.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 8, clientX: 100 }));
+    root.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 8, clientX: 100 }));
+    expect(game!.mapRun.getSnapshot()).toEqual(beforeCancel);
+    hit.mockRestore();
   });
 
   test('shows unavailable Ability cost and Item inventory/condition without enabling their drafts', () => {
@@ -890,7 +1058,7 @@ describe('Gameplay B Map Workspace', () => {
     expect(root.querySelector('[data-map-encounter-state="failure"]')).not.toBeNull();
     expect(root.querySelector('[data-map-commit], [data-map-ability-draft], [data-map-item-draft], [data-map-complete-encounter]')).toBeNull();
     expect(root.querySelector('[data-map-run-result="failure"] [data-map-focus-heading]')).toBe(document.activeElement);
-    expect(root.querySelector('[data-map-back]')?.textContent).toBe('返回游戏');
+    expect(root.querySelector('[data-map-back]')?.textContent).toContain('返回游戏');
 
     root.querySelector<HTMLButtonElement>('[data-map-back]')!.click();
     expect(controller!.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });

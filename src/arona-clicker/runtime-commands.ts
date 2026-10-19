@@ -1,4 +1,5 @@
 import type { GameCommands } from './contracts';
+import type { MapRunCardRef } from './contracts/map-cards';
 import type { StoryService } from './services/story-service';
 import type { SpotService } from './services/spot-service';
 import type { InitService } from './services/init-service';
@@ -39,6 +40,7 @@ export interface GameCommandSource {
   issueMapPlayerCommand(runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken): MapRun;
   setMapPreparedTarget(runId: string, characterId: string, targetCharacterId: string | null, draft: MapRunEncounterDraftToken): MapRun;
   setMapPreparedEnemyTarget(runId: string, characterId: string, targetEnemyId: string | null, draft: MapRunEncounterDraftToken): MapRun;
+  setMapPreparedCardTarget(runId: string, characterId: string, target: MapRunCardRef | null, draft: MapRunEncounterDraftToken): MapRun;
   clearMapActionOverride(runId: string, characterId: string, draft: MapRunEncounterDraftToken): MapRun;
   setMapAbilityDraft(runId: string, actionId: string | null, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;
   setMapItemDraft(runId: string, itemId: string | null, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;
@@ -108,6 +110,8 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
       game.setMapPreparedTarget(runId, characterId, targetCharacterId, draft),
     setMapPreparedEnemyTarget: (runId, characterId, targetEnemyId, draft) =>
       game.setMapPreparedEnemyTarget(runId, characterId, targetEnemyId, draft),
+    setMapPreparedCardTarget: (runId, characterId, target, draft) =>
+      game.setMapPreparedCardTarget(runId, characterId, target, draft),
     clearMapActionOverride: (runId, characterId, draft) => game.clearMapActionOverride(runId, characterId, draft),
     setMapAbilityDraft: (runId, actionId, target, draft) => game.setMapAbilityDraft(runId, actionId, target, draft),
     setMapItemDraft: (runId, itemId, target, draft) => game.setMapItemDraft(runId, itemId, target, draft),

@@ -13,7 +13,7 @@
 | 同类 Mini card | `src/ui/css/cards.css` 的 `.mini-card` 与 `--card-*` | 继承视觉规则；业务渲染与内容来源由目标组件负责，没有宣称存在通用卡片渲染器 |
 | Operation 手牌扇列 | `src/ui/components/operation-workspace.ts` 的 `.operation-card-fan` 持有区；悬停展示由 `src/ui/operation-card-hover-overlay.ts` 承担 | 公共手牌、角色持有牌与场景行动候选共用横向交叠；卡面在独立顶层副本中显示抬高、焦点与光晕，原卡继续承接点击和拖拽。固定锚定的预备行动／敌方意图卡与购买项列表保留各自布局 |
 | Spot 行动入口按钮 | `src/ui/components/operation-entry.ts` 的 `renderOperationSpotFunctions`，由 `production.ts` 组合 | 沿用 `.mini-action` 和 `card.action` 主题宿主；同一 `operationEntry` 类型每按钮绑定一个关卡，放在设施操作组内，不插入聊天流。准入与继续状态从领域查询取得；已核对源码与定向测试 |
-| Map / Encounter Run Workspace | `workspace-router.ts` 的 `map` runId 路由、`src/ui/components/map-workspace.ts`、`workspace-frame.ts` 与 `tabs.ts` | 左我方身份／HP／角色行动按钮，中 Node／Encounter 说明与最近结算文本流及固定操作区，右活动敌方／背景／节点进度；相邻地点移动选项在中部 Talklet 内按需出现。三列顶部经 `renderPanelHeaderRegion` 复用统一宿主、控件高度与分割；消费共享三列宽度变量。实际滚动 owner 是 `data-map-region-key` 为 `party-scroll`、`talk-feed`、`action-options`、`context-scroll` 的内容区，窄屏另由 Map 根承接堆叠结构滚动。`UIController.refreshMapWorkspaceRegion()` 使用一份 detached View，经 `workspace/map-dom-updates.ts` 按语义 key 协调变化的消费者，保留 Frame、列根、顶部、滚动容器和有效按钮；缺失子区局部补回，只有 Map 根缺失等恢复失败才回退当前路由。命令继续由 `controller-actions-operation.ts` 一次性事件委托进入 GameCommands；不引入卡牌层、完整历史日志或 UI 自有 Run 状态。行为与连续性由 Map Workspace、vertical-slice 和 map-dom-updates 测试覆盖 |
+| Map / Encounter Run Workspace | `workspace-router.ts` 的 `map` runId 路由、`src/ui/components/map-workspace.ts`、`workspace-frame.ts` 与 `tabs.ts` | 左我方身份／HP／角色行动按钮，中 Node／Encounter 说明与最近结算文本流及固定操作区，右活动敌方／背景／节点进度；相邻地点移动选项在中部 Talklet 内按需出现。三列顶部经 `renderPanelHeaderRegion` 复用统一宿主、控件高度与分割；消费共享三列宽度变量。实际滚动 owner 是 `data-map-region-key` 为 `party-scroll`、`talk-feed`、`action-options`、`context-scroll` 的内容区，窄屏另由 Map 根承接堆叠结构滚动。`UIController.refreshMapWorkspaceRegion()` 使用一份 detached View，经 `workspace/map-dom-updates.ts` 按语义 key 协调变化的消费者，保留 Frame、列根、顶部、滚动容器和有效按钮；缺失子区局部补回，只有 Map 根缺失等恢复失败才回退当前路由。命令继续由 `controller-actions-operation.ts` 一次性事件委托进入 GameCommands；只处理可视卡牌与反馈，不新增领域卡实例、完整历史日志或 UI 自有 Run 状态。行为与连续性由 Map Workspace、vertical-slice 和 map-dom-updates 测试覆盖 |
 | 宿主与实体表现 | `src/ui/presentation-service.ts` 的 `renderUIHost`；`src/ui/components/entity-presentation.ts` 与 `src/ui/context.ts` 的查询 | 经只读上下文解析适用表现，不自行拼接全套主题规则或绕过实体揭示条件 |
 | 弹窗与提示层 | `src/ui/modal.ts`、`src/ui/popovers.ts`；`src/ui/css/modal.css`、`src/ui/css/popover.css` | 先查共享生命周期、锚点与焦点处理入口，再扩展内容，不复制独立浮层管理系统 |
 
@@ -22,6 +22,10 @@ Map 的相邻地点移动器沿用 `.mini-action`，经共享 `FlowContent.actio
 Map Encounter 的按钮版将角色 Target／完整候选保留左栏，Ability／Item 草稿、共享覆盖槽与 Commit 放中栏底部，敌方 HP 在右栏。`[data-map-encounter-region]` 仅作敌方信息锚点，不再代表整个遭遇的刷新边界；普通命令按消费者原位协调，保留 `data-map-focus-key` 控件、各滚动 owner 与范围外浮层。替换或移除节点前执行范围内浮层生命周期。最近回执来自 `actionPreview.recentCommit` 或同一只读 Run 的 `lastEncounterCommit`，按 requestId 标识更新；读者已在流底部时跟随新回执，阅读上文时保留位置。失败／成功按实际终态投影显示只读结果，不重建已清理的 Run。机制边界见 [[docs/docs-829/06-wiki/50-ui/refresh-update]]。
 
 ## 内容与结构
+
+Map 的单位关系检查使用 `src/ui/workspace/map-relation-presentation.ts` 与 `map-relation-interaction.ts`，只消费 Runtime 的 `relations`。当前已验证的单位阶段：来源牌上浮与发起标记、选中单位的中性包围框 / 目标角标、弱虚线合法候选；自身可以叠加发起与目标标记。单位与牌面保持原节点，角色只是属性补丁，不按敌我或效果正负决定受用角色。
+
+当前牌点击继续展开右侧替换浮层；候选是既有 Swap / PlayerCommand 的展示，不是第二套 Hand 或独立战斗卡。独立“固定作用关系”与“修改目标”入口避免同一次点击同时换牌和确认目标。Hover / Focus / 候选预览不写领域状态；单位或真实卡牌的点击 / 键盘 / 拖拽确认走 MapRun 草稿命令，只有显式提交才结算。真实卡牌的当前牌、Hand 展示与目标选择代理共享 Owner object key；代理仅选择受用牌，不换牌、不创建实例，未选 Command offer 无卡实例身份。进入目标编辑先关闭替换浮层，再安装编辑状态，避免关闭动作误选目标。目标编辑 / 拖拽优先于替换浮层、固定、普通 Hover / Focus；未知敌方目标只提示未知。sCost 显示实际余额；本轮减免按所选卡实际执行计算。同角色卡牌只高亮。Flow 独立玩法卡、保留的相对规则与作用线仍属 [[docs/plan-work/task-0298-gameplay-b-relations-hover-and-target-interaction]] 后续范围。
 
 - 内容来源：通过 `UIContext` / `GameView` / 只读查询取得名称、描述、数值与状态，优先沿用目标页面的格式化方式；读写边界见 [[docs/docs-829/06-wiki/50-ui/read-model-context]]。
 - 结构依据：完整游戏工作区通过 `renderWorkspaceFrame()` 和 `WorkspaceColumnSpec` 声明 `hostId`、`workspaceOwner`、`surface` 与 `scroll`；纯布局入口接收预渲染列，不提供这些 Host 语义。按入口选择机制，不把游戏 Host 结构机械套到内容工具。

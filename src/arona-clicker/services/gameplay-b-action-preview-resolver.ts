@@ -10,8 +10,12 @@ import type {
   MapRunPartyHp,
   MapRunTeamResourceBalance,
 } from '../contracts/map-run';
+import type { MapRunCardRef } from '../contracts/map-cards';
+import { catalogMapRunCards, mapRunCardKey, parseMapRunCardRef } from './map-card-catalog';
 
 export interface GameplayBActionPreviewInput {
+  /** Required when resolving round-local card identities. */
+  readonly runId?: string;
   readonly definition: GameplayMapDef;
   readonly encounter: MapRunEncounterSnapshot;
   readonly party: readonly MapRunPartyMember[];
@@ -32,7 +36,7 @@ export interface GameplayBPreparedActionPreview {
   readonly actionName: string | null;
   /** Optional player-facing explanation copied into this detached read model. */
   readonly actionDescription: string | null;
-  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy' | null;
+  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy' | 'card' | null;
   readonly legalTargetCharacterIds: readonly string[];
   /** Present for Enemy-target Actions; IDs are local to this Encounter. */
   readonly legalTargetEnemyIds?: readonly string[];
@@ -41,6 +45,8 @@ export interface GameplayBPreparedActionPreview {
   /** Present for Enemy-target Actions. */
   readonly targetEnemyId?: string | null;
   readonly targetSelectionRequired: boolean;
+  readonly legalTargetCards?: readonly MapRunCardRef[];
+  readonly targetCard?: MapRunCardRef | null;
   readonly overrideKind: MapRunActionOverride['kind'] | null;
   /** PlayerCommand reserves exactly one PlayerCost at Commit; Swap reserves zero. */
   readonly playerCost: 0 | 1;
@@ -69,7 +75,8 @@ export interface GameplayBActionPreview {
 
 type TargetSelectionRef =
   | { readonly kind: 'partyCharacter'; readonly id: string }
-  | { readonly kind: 'enemy'; readonly id: string };
+  | { readonly kind: 'enemy'; readonly id: string }
+  | { readonly kind: 'card'; readonly ref: MapRunCardRef };
 
 export class GameplayBActionPreviewError extends Error {
   constructor(readonly diagnostics: readonly string[]) {
@@ -247,7 +254,7 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
       || (rawAction.description !== undefined && typeof rawAction.description !== 'string')
       || typeof rawAction.target !== 'object' || rawAction.target === null
       || !isRecord(rawAction.target)
-      || !['none', 'self', 'partyCharacter', 'enemy'].includes(String(rawAction.target.kind))) {
+      || !['none', 'self', 'partyCharacter', 'enemy', 'card'].includes(String(rawAction.target.kind))) {
       fail(`Map Action "${rawAction.id}" has invalid eligibility or target rules`);
     }
     actionsById.set(rawAction.id, rawAction as unknown as GameplayMapActionDef);
@@ -310,12 +317,14 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
       && isNonEmptyId(rawSelection.targetCharacterId);
     const enemyTarget = keys.length === 2 && keys.every(key => ['characterId', 'targetEnemyId'].includes(key))
       && isNonEmptyId(rawSelection.targetEnemyId);
+    const card = keys.length === 2 && keys.every(key => ['characterId', 'targetCard'].includes(key))
+      ? parseMapRunCardRef(rawSelection.targetCard) : null;
     if (!isNonEmptyId(rawSelection.characterId) || !partyIds.has(rawSelection.characterId)
-      || (!partyTarget && !enemyTarget)) {
+      || (!partyTarget && !enemyTarget && !card)) {
       fail('Action preview received an invalid target selection');
     }
     if (targetSelections.has(rawSelection.characterId)) fail('Action preview received duplicate target selections');
-    targetSelections.set(rawSelection.characterId, isNonEmptyId(rawSelection.targetCharacterId)
+    targetSelections.set(rawSelection.characterId, card ? { kind: 'card', ref: card } : isNonEmptyId(rawSelection.targetCharacterId)
       ? { kind: 'partyCharacter', id: rawSelection.targetCharacterId }
       : { kind: 'enemy', id: rawSelection.targetEnemyId as string });
   }
@@ -406,7 +415,7 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
         if (selected !== undefined) {
           if (selected.kind !== 'partyCharacter' || legalTargetCharacterIds.length <= 1
             || !legalTargetCharacterIds.includes(selected.id)) {
-            fail(`Target selection "${selected.id}" is not a valid unresolved party target for "${member.characterId}"`);
+            fail(`Target selection is not a valid unresolved party target for "${member.characterId}"`);
           }
           targetCharacterId = selected.id;
         } else if (legalTargetCharacterIds.length === 1) {
@@ -418,15 +427,19 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
         if (livingEnemyIds.length === 0) fail(`Enemy-target Action "${action.id}" has no living Enemy target`);
         targetEnemyId = null;
         const selected = targetSelections.get(member.characterId);
-        if (selected !== undefined) {
-          if (selected.kind === 'enemy' && enemyIds.has(selected.id) && livingEnemyIds.includes(selected.id)) {
-            targetEnemyId = selected.id;
-          } else fail(`Target selection "${selected.id}" is not a living Enemy for "${member.characterId}"`);
+        // The reused / natural card is stateless: a target choice carried over from a
+        // previous round is honored only while it still maps to a living Enemy. Once it
+        // is stale (the Enemy fell), it is dropped and the target is decided anew for
+        // this round instead of failing, so a Character never silently loses its target.
+        if (selected !== undefined && selected.kind === 'enemy' && enemyIds.has(selected.id) && livingEnemyIds.includes(selected.id)) {
+          targetEnemyId = selected.id;
         } else if (livingEnemyIds.length === 1) {
           targetEnemyId = livingEnemyIds[0];
         } else {
           targetSelectionRequired = true;
         }
+      } else if (action.target.kind === 'card') {
+        targetSelectionRequired = true; // Resolve against all real cards after every preparation is known.
       } else if (targetSelections.has(member.characterId)) {
         fail(`Action "${action.id}" does not accept a target selection`);
       }
@@ -468,12 +481,39 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
     }
   }
 
+  let resolvedPrepared = preparedActions;
+  if (preparedActions.some(row => row.targetKind === 'card')) {
+    if (!isNonEmptyId(input.runId)) fail('Card target preview requires its MapRun identity');
+    const catalog = catalogMapRunCards({ runId: input.runId, mapId: definition.id, activeEncounter: encounter, status: 'inProgress' }, { preparedActions });
+    resolvedPrepared = preparedActions.map(row => {
+      if (row.targetKind !== 'card') return row;
+      const action = actionsById.get(row.preparedActionId!)!;
+      if (action.target.kind !== 'card' || !['self', 'ally', 'opponent', 'any'].includes(action.target.side)
+        || !action.cardEffects?.length || action.cardEffects.some(effect => effect.kind !== 'scostDiscount'
+          || !Number.isSafeInteger(effect.amount) || effect.amount <= 0)) fail(`Action "${action.id}" has invalid card effects`);
+      const side = action.target.side;
+      const legalTargetCards = Object.freeze(catalog.filter(card => {
+        const own = card.owner.kind === 'partyCharacter' && card.owner.id === row.characterId;
+        const allied = card.owner.kind === 'partyCharacter';
+        if ((side === 'self' && !own) || (side === 'ally' && !allied) || (side === 'opponent' && allied)) return false;
+        const targetAction = card.actionId === null ? null : actionsById.get(card.actionId);
+        return (targetAction?.costs ?? []).some(cost => cost.scope === 'actor' && cost.resourceId === 'sCost' && cost.amount > 0);
+      }).map(card => card.ref));
+      const selected = targetSelections.get(row.characterId);
+      if (selected && (selected.kind !== 'card' || !legalTargetCards.some(ref => mapRunCardKey(ref) === mapRunCardKey(selected.ref)))) {
+        fail(`Card target selection is not legal for "${row.characterId}"`);
+      }
+      const targetCard = selected?.kind === 'card' ? selected.ref : legalTargetCards.length === 1 ? legalTargetCards[0] : null;
+      return Object.freeze({ ...row, legalTargetCards, targetCard, targetSelectionRequired: targetCard === null });
+    });
+  }
+
   return Object.freeze({
     nodeId: encounter.nodeId,
     round: encounter.round,
     draftVersion: encounter.draftVersion,
     overrides: immutableOverrides(overrides),
-    preparedActions: Object.freeze(preparedActions),
+    preparedActions: Object.freeze(resolvedPrepared),
     playerCommandOptions: Object.freeze(commandOptions),
   });
 }

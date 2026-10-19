@@ -476,6 +476,32 @@ describe('Gameplay B Map Registry', () => {
 });
 
 describe('Gameplay B Map Action Registry', () => {
+  const cardAction = { id: 'discount', name: 'Discount', eligibleCharacterIds: [TEST_CHARACTER_ID],
+    target: { kind: 'card', side: 'ally' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }] };
+  test('accepts a real card target and round-local scost discount definition', () => {
+    const registry = new Registry();
+    const map = mapWithActions([...VALID_MAP_ACTIONS, cardAction]);
+    expect(() => registry.load(makeDatapack({ maps: [map] }))).not.toThrow();
+  });
+  test.each([
+    { target: { kind: 'card', side: 'left' } },
+    { target: { kind: 'card' } },
+    { target: { kind: 'card', side: ['ally'] } },
+    { target: { kind: 'card', side: 'ally', anchor: 'left' } },
+    { cardEffects: [] },
+    { cardEffects: [{ kind: 'scostDiscount', amount: 0 }] },
+    { cardEffects: [{ kind: 'scostDiscount', amount: -1 }] },
+    { cardEffects: [{ kind: 'scostDiscount', amount: 1.5 }] },
+    { cardEffects: [{ kind: 'scostDiscount', amount: Number.MAX_SAFE_INTEGER + 1 }] },
+    { cardEffects: [{ kind: 'scostDiscount', amount: 1, resourceId: 'PlayerCost' }] },
+    { cardEffects: [{ kind: 'playerCostDiscount', amount: 1 }] },
+    { target: { kind: 'enemy' } },
+    { hpEffects: [{ amount: 1 }] },
+    { effects: [{ scope: 'actor', resourceId: 'focus', amount: 1, recipient: 'target' }] },
+  ])('rejects invalid card discount semantics %#', change => {
+    const map = mapWithActions([...VALID_MAP_ACTIONS, { ...cardAction, ...change }]);
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).toThrow();
+  });
   const loadMap = (
     map: GameplayMapDef,
     characters: NonNullable<Datapack['characters']> = [TEST_CHARACTER],
@@ -806,7 +832,7 @@ describe('Gameplay B Map Action Registry', () => {
     {
       label: 'unsupported target rule',
       map: mapWithActions([{ ...VALID_MAP_ACTIONS[0], target: { kind: 'unknown' } }, ...VALID_MAP_ACTIONS.slice(1)]),
-      error: /target\.kind 必须是 none、self、partyCharacter 或 enemy/,
+      error: /target\.kind 必须是 none、self、partyCharacter、enemy 或 card/,
     },
     {
       label: 'zero resource cost',

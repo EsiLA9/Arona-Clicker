@@ -8,9 +8,9 @@
 
 ## 当前推进
 
-### Gameplay B 作用关系、Hover 与目标交互（proposed，2026-10-19）
+### Gameplay B 作用关系、Hover 与目标交互（in progress，2026-10-19）
 
-- [[docs/plan-work/task-0298-gameplay-b-relations-hover-and-target-interaction]]：背景与关键源码已核实，等待负责人确认；按 P0 统一身份 → P1 角色高亮 → P2 Hover / Focus → P3 换牌 → P4 点击 / 拖拽目标 → P5 跨栏稳定性 → P6 纯表现作用线推进。明确卡牌 / 相对目标、敌方公开意图与换牌保留目标的领域合同门槛；本轮不施工。
+- [[docs/plan-work/task-0298-gameplay-b-relations-hover-and-target-interaction]]：Goal 执行中，U1—U21 完成单位基础与真实卡牌的关系投影、高亮、Hover / Focus、换牌、点击 / 无连线拖拽和独立 Commit；正常协同演练显示真实 sCost 余额及原费 / 减免 / 实扣。8 文件 116 项定向回归、类型 / 架构与桌面验收通过。首个效果和左右规则裁定已收敛，Flow 全范围、保留的单位相对规则及 P5 / P6 尚未完成。
 
 ### Gameplay B 敌我统一单位卡（in progress，2026-10-19）
 

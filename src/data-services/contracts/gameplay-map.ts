@@ -52,6 +52,8 @@ export interface GameplayMapActionDef {
   readonly effects?: readonly GameplayMapActionResourceEffectDef[];
   /** Optional bounded HP changes applied to the selected Enemy or party target. */
   readonly hpEffects?: readonly GameplayMapActionHpEffectDef[];
+  /** Round-local effects on the selected domain card; requires a `card` target. */
+  readonly cardEffects?: readonly GameplayMapActionCardEffectDef[];
 }
 
 /** Targets available to Character actions and actorless Ability / Item actions. */
@@ -59,7 +61,20 @@ export type GameplayMapActionTargetDef =
   | { readonly kind: 'none' }
   | { readonly kind: 'self' }
   | { readonly kind: 'partyCharacter' }
-  | { readonly kind: 'enemy' };
+  | { readonly kind: 'enemy' }
+  | {
+    readonly kind: 'card';
+    /** Relative to the source: self means its owner's cards; ally includes self. */
+    readonly side: 'self' | 'ally' | 'opponent' | 'any';
+  };
+
+/** A preparation effect resolved before the full round's net action costs are charged. */
+export interface GameplayMapActionCardEffectDef {
+  /** Only the target card's Actor `sCost` action cost is reduced, never PlayerCost. */
+  readonly kind: 'scostDiscount';
+  /** Positive safe integer reduction; stacks within this round and clamps at zero cost. */
+  readonly amount: number;
+}
 
 /** Resource costs are positive amounts charged from the acting character or team. */
 export interface GameplayMapActionResourceCostDef {

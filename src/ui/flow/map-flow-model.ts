@@ -72,6 +72,7 @@ interface CommitView {
     readonly targetEnemyId: string | null;
     readonly overrideKind: 'swap' | 'playerCommand' | null;
     readonly playerCostSpent: 0 | 1;
+    readonly scostCost?: { readonly original: number; readonly discount: number; readonly paid: number };
     readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
     readonly hpChanges: readonly MapRunEncounterHpChange[];
   }[];
@@ -137,6 +138,7 @@ function commitViewFromReceipt(port: MapFlowTextPort, receipt: MapRunEncounterCo
       targetEnemyId: settlement.targetEnemyId ?? null,
       overrideKind: settlement.overrideKind,
       playerCostSpent: settlement.playerCostSpent,
+      scostCost: settlement.scostCost,
       resourceChanges: settlement.resourceChanges,
       hpChanges: settlement.hpChanges ?? [],
     })),
@@ -173,8 +175,10 @@ function commitLines(port: MapFlowTextPort, commit: CommitView): string[] {
       : settlement.overrideKind === 'swap' ? ' · Swap' : '';
     const playerCost = settlement.playerCostSpent > 0 ? ` · −${settlement.playerCostSpent} PlayerCost` : '';
     const resources = resourcesLabel(port, settlement.resourceChanges);
+    const cost = settlement.scostCost;
+    const scost = cost ? ` · sCost 原费 ${port.formatNumber(cost.original)} / 减免 ${port.formatNumber(cost.discount)} / 实扣 ${port.formatNumber(cost.paid)}` : '';
     const hp = settlement.hpChanges.length ? hpChangesLabel(port, settlement.hpChanges) : '';
-    lines.push(`${actor}：${settlement.actionName}${override}${target}${playerCost}${resources ? ` · ${resources}` : ''}${hp ? ` · ${hp}` : ''}`);
+    lines.push(`${actor}：${settlement.actionName}${override}${target}${playerCost}${resources ? ` · ${resources}` : ''}${scost}${hp ? ` · ${hp}` : ''}`);
   }
   if (commit.ability) {
     const hp = commit.ability.hpChanges.length ? ` · ${hpChangesLabel(port, commit.ability.hpChanges)}` : '';
@@ -526,6 +530,7 @@ export class MapFlowModel {
         settlements: projected.settlements.map(settlement => ({
           characterId: settlement.characterId,
           actionName: settlement.action?.name ?? 'Wait',
+          scostCost: settlement.scostCost,
           targetCharacterId: settlement.targetCharacterId,
           targetEnemyId: settlement.targetEnemyId,
           overrideKind: settlement.overrideKind,

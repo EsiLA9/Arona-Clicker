@@ -119,9 +119,12 @@ export const gameplayBMinimalBattleDefinition: GameplayMapDef = {
       title: '演练场',
       description: '击败训练靶后可前往出口。',
       encounter: {
-        title: '两人对一敌',
-        description: '训练靶有 6 HP。两名队员每轮各攻击 2 点；训练靶存活时还击 2 点。提交两轮行动即可获胜。',
-        enemies: [{ id: '训练靶', initialHp: 6, maxHp: 6, damage: 2 }],
+        title: '两人对两敌',
+        description: '训练靶与机动靶各有 6 HP。两名队员每轮各攻击 2 点；每个存活敌人还击 2 点。集火击败两侧目标方可取胜。',
+        enemies: [
+          { id: '训练靶', initialHp: 6, maxHp: 6, damage: 2 },
+          { id: '机动靶', initialHp: 6, maxHp: 6, damage: 2 },
+        ],
         participants: [
           { characterId: 'shiroko', actions: [{ actionId: 'attack', tendencyWeight: 1 }] },
           { characterId: 'serika', actions: [{ actionId: 'attack', tendencyWeight: 1 }] },
@@ -719,6 +722,52 @@ export const gameplayBContinuousConditionalDefinition: GameplayMapDef = {
   ],
 };
 
+/** A playable card-to-card relationship sample; no connector is needed to choose its targets. */
+export const gameplayBScostTrainingDefinition: GameplayMapDef = {
+  id: 'gameplay-b:map:scost-training',
+  name: '卡牌协同演练',
+  resumeVersion: 1,
+  startNodeId: 'briefing',
+  exitNodeIds: ['exit'],
+  partyCharacterIds: ['shiroko', 'serika'],
+  initialPartyHp: [
+    { characterId: 'shiroko', initialHp: 8, maxHp: 8 },
+    { characterId: 'serika', initialHp: 8, maxHp: 8 },
+  ],
+  initialPlayerCost: 3,
+  initialActorResources: [
+    { characterId: 'shiroko', resourceId: 'sCost', value: 3 },
+    { characterId: 'serika', resourceId: 'sCost', value: 6 },
+  ],
+  actions: [
+    { id: 'planning', name: '战术筹划', eligibleCharacterIds: ['shiroko'],
+      description: '选一张友方卡牌，为其本轮使用减免 1 点 sCost。只有本轮实际执行的受用牌才享受减免。',
+      target: { kind: 'card', side: 'ally' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }] },
+    { id: 'coordinated-planning', name: '协同筹划', eligibleCharacterIds: ['shiroko'],
+      description: '选一张友方卡牌，为其本轮使用减免 2 点 sCost，最低为零。',
+      target: { kind: 'card', side: 'ally' }, cardEffects: [{ kind: 'scostDiscount', amount: 2 }] },
+    { id: 'rifle-shot', name: '精确射击', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
+      costs: [{ scope: 'actor', resourceId: 'sCost', amount: 2 }], hpEffects: [{ amount: -2 }] },
+    { id: 'burst-shot', name: '连续射击', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
+      costs: [{ scope: 'actor', resourceId: 'sCost', amount: 3 }], hpEffects: [{ amount: -3 }] },
+    { id: 'cover-shot', name: '牵制射击', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
+      costs: [{ scope: 'actor', resourceId: 'sCost', amount: 2 }], hpEffects: [{ amount: -1 }] },
+  ],
+  nodes: [
+    { id: 'briefing', title: '协同准备', description: '白子负责筹划，芹香负责射击。可先更换准备牌，再选择将获得减免的卡牌。' },
+    { id: 'training', title: '协同演练场', encounter: {
+      title: '筹划与射击', description: '用高亮检查作用来源和受用卡牌。修改目标只准备行动，确认后再提交本轮。',
+      enemies: [{ id: '协同训练靶', initialHp: 6, maxHp: 6, damage: 1 }],
+      participants: [
+        { characterId: 'shiroko', actions: ['planning', 'coordinated-planning'].map(actionId => ({ actionId, tendencyWeight: 1 })) },
+        { characterId: 'serika', actions: ['rifle-shot', 'burst-shot', 'cover-shot'].map(actionId => ({ actionId, tendencyWeight: 1 })) },
+      ],
+    } },
+    { id: 'exit', title: '演练出口' },
+  ],
+  edges: [{ fromNodeId: 'briefing', toNodeId: 'training' }, { fromNodeId: 'training', toNodeId: 'exit' }],
+};
+
 const mapSpot = spot(GAMEPLAY_B_MAP_SPOT_ID, 'base:area:schale_main')
   .name('地图终端')
   .desc('进入 Gameplay B 地图，沿节点路线探索并处理遭遇。')
@@ -750,6 +799,12 @@ export const gameplayBMapDatapack: Datapack = {
         mapEntryLabel: '进入极简战斗演练',
       },
       {
+        id: 'scost-training-map',
+        kind: 'mapEntry',
+        mapId: gameplayBScostTrainingDefinition.id,
+        mapEntryLabel: '进入卡牌协同演练',
+      },
+      {
         id: 'linear-battle-map',
         kind: 'mapEntry',
         mapId: gameplayBLinearBattleDefinition.id,
@@ -778,6 +833,7 @@ export const gameplayBMapDatapack: Datapack = {
   maps: [
     gameplayBMapDefinition,
     gameplayBMinimalBattleDefinition,
+    gameplayBScostTrainingDefinition,
     gameplayBLinearBattleDefinition,
     gameplayBActivityHallDefinition,
     gameplayBForkedRouteDefinition,

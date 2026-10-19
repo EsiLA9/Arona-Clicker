@@ -31,6 +31,9 @@ import type {
   MapRunShopPurchaseReceipt,
 } from '../contracts/map-run';
 import { GAMEPLAY_B_HAND_RNG_ALGORITHM } from '../contracts/map-run';
+import type { MapRunCardInstance, MapRunCardRef } from '../contracts/map-cards';
+import { catalogMapRunCards, mapRunCardKey, parseMapRunCardRef } from './map-card-catalog';
+import { mapScostCost, resolveMapCardEffects, type MapCardActionChoice } from './map-card-effects';
 import type {
   GameplayEncounterDef,
   GameplayMapActionDef,
@@ -130,6 +133,8 @@ function snapshotOf(run: MutableMapRun): MapRun {
     }) } : {}),
     settlements: Object.freeze(receipt.settlements.map(settlement => Object.freeze({
       ...settlement,
+      ...(settlement.targetCard ? { targetCard: parseMapRunCardRef(settlement.targetCard)! } : {}),
+      ...(settlement.scostCost ? { scostCost: Object.freeze({ ...settlement.scostCost }) } : {}),
       ...(settlement.hpChanges ? { hpChanges: Object.freeze(settlement.hpChanges.map(change => Object.freeze({ ...change }))) } : {}),
       resourceChanges: Object.freeze(settlement.resourceChanges.map(change => Object.freeze({ ...change }))),
     }))),
@@ -142,7 +147,9 @@ function snapshotOf(run: MutableMapRun): MapRun {
       actionIds: Object.freeze([...hand.actionIds]),
     }))),
     overrides: Object.freeze(run.activeEncounter.overrides.map(override => Object.freeze({ ...override }))),
-    targetSelections: Object.freeze(run.activeEncounter.targetSelections.map(selection => Object.freeze({ ...selection }))),
+    targetSelections: Object.freeze(run.activeEncounter.targetSelections.map(selection => Object.freeze({ ...selection,
+      ...(selection.targetCard ? { targetCard: parseMapRunCardRef(selection.targetCard)! } : {}),
+    }))),
     ...(run.activeEncounter.abilityDraft == null ? {} : {
       abilityDraft: Object.freeze({ ...run.activeEncounter.abilityDraft, target: cloneSourceTarget(run.activeEncounter.abilityDraft.target) }),
     }),
@@ -733,6 +740,7 @@ function settlementChangesFor(
   action: GameplayMapActionDef,
   actorCharacterId: string,
   targetCharacterId: string | null,
+  scostDiscount = 0n,
 ): MapRunEncounterSettlementResourceChange[] {
   const changes: MapRunEncounterSettlementResourceChange[] = [];
   const rawCosts: unknown = action.costs ?? [];
@@ -743,12 +751,18 @@ function settlementChangesFor(
       || (rawCost.amount as number) <= 0) {
       throw new MapRunError([`Action "${action.id}" has an invalid resource cost`]);
     }
+    let cost = BigInt(rawCost.amount as number);
+    if (rawCost.scope === 'actor' && rawCost.resourceId === 'sCost') {
+      const reduction = scostDiscount < cost ? scostDiscount : cost;
+      cost -= reduction;
+      scostDiscount -= reduction;
+    }
     changes.push({
       kind: 'cost',
       scope: rawCost.scope,
       ...(rawCost.scope === 'actor' ? { characterId: actorCharacterId } : {}),
       resourceId: rawCost.resourceId,
-      delta: -(rawCost.amount as number),
+      delta: cost === 0n ? 0 : -Number(cost),
     });
   }
 
@@ -790,6 +804,8 @@ function freezeCommitSettlements(
 ): readonly MapRunEncounterActionSettlement[] {
   return Object.freeze(settlements.map(settlement => Object.freeze({
     ...settlement,
+    ...(settlement.targetCard ? { targetCard: parseMapRunCardRef(settlement.targetCard)! } : {}),
+    ...(settlement.scostCost ? { scostCost: Object.freeze({ ...settlement.scostCost }) } : {}),
     ...(settlement.hpChanges ? { hpChanges: Object.freeze(settlement.hpChanges.map(change => Object.freeze({ ...change }))) } : {}),
     resourceChanges: Object.freeze(settlement.resourceChanges.map(change => Object.freeze({ ...change }))),
   })));
@@ -857,6 +873,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   let preview: GameplayBActionPreview;
   try {
     preview = resolveGameplayBActionPreview({
+      runId: slot.run.runId,
       definition: slot.definition,
       encounter,
       party: slot.run.party,
@@ -871,6 +888,16 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   if (encounter.round >= Number.MAX_SAFE_INTEGER) {
     throw new MapRunError(['the Encounter round is exhausted']);
   }
+  for (const prepared of preview.preparedActions) {
+    if (prepared.targetSelectionRequired) throw new MapRunError([`Character "${prepared.characterId}" still requires a target selection`]);
+  }
+  let cardPlan: ReturnType<typeof resolveMapCardEffects>;
+  try {
+    cardPlan = resolveMapCardEffects(slot.definition, { runId: slot.run.runId, mapId: slot.run.mapId,
+      nodeId: encounter.nodeId, activityId: encounter.activityId ?? null, round: encounter.round },
+    preview.preparedActions.map(row => ({ characterId: row.characterId, actionId: row.preparedActionId,
+      overrideKind: row.overrideKind, targetCard: row.targetCard })));
+  } catch (error) { throw new MapRunError([error instanceof Error ? error.message : String(error)]); }
 
   const actorBalances = new Map(slot.run.actorResources.map(balance => [
     actorResourceKey(balance.characterId, balance.resourceId), balance.value,
@@ -943,12 +970,16 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
 
     const playerCostSpent = prepared.playerCost;
     playerCostRequired += playerCostSpent;
-    const resourceChanges = settlementChangesFor(action, prepared.characterId, targetCharacterId);
+    const reduction = cardPlan.reductions.get(prepared.characterId) ?? 0n;
+    const scostCost = mapScostCost(action, reduction);
+    const resourceChanges = settlementChangesFor(action, prepared.characterId, targetCharacterId, reduction);
     addRequiredCosts(resourceChanges);
     const settlement: MapRunEncounterActionSettlement = {
       characterId: prepared.characterId,
       actionId,
       targetCharacterId,
+      ...(cardPlan.targets.has(prepared.characterId) ? { targetCard: cardPlan.targets.get(prepared.characterId)! } : {}),
+      ...(scostCost ? { scostCost } : {}),
       ...(targetEnemyId === null ? {} : { targetEnemyId }),
       overrideKind: prepared.overrideKind,
       playerCostSpent,
@@ -1276,6 +1307,7 @@ function restoreEncounterCommitReceipt(
   party: readonly MapRunPartyMember[],
   encounterRound: number | null,
   commitVersion: number,
+  runId: string,
   activityId?: string,
 ): MapRunEncounterCommitReceipt | null {
   if (!isRecord(value)) return null;
@@ -1319,6 +1351,11 @@ function restoreEncounterCommitReceipt(
   }
   const restoredSettlements: MapRunEncounterActionSettlement[] = [];
   const actionById = new Map((definition.actions ?? []).map(action => [action.id, action]));
+  let cardPlan: ReturnType<typeof resolveMapCardEffects>;
+  try {
+    cardPlan = resolveMapCardEffects(definition, { runId, mapId: definition.id, nodeId: receiptNodeId!,
+      activityId: activityId ?? null, round: value.round as number }, value.settlements as unknown as readonly MapCardActionChoice[]);
+  } catch { return null; }
   let playerCostSpentTotal = abilitySettlement ? 1 : 0;
   // Each Character may spend at most one PlayerCost per round; Ability spends one more.
   const maxPlayerCostSpent = party.length + (abilitySettlement ? 1 : 0);
@@ -1328,11 +1365,13 @@ function restoreEncounterCommitReceipt(
     const settlementKeys = Object.keys(rawSettlement);
     const hasEnemyTarget = Object.prototype.hasOwnProperty.call(rawSettlement, 'targetEnemyId');
     const hasHpChanges = Object.prototype.hasOwnProperty.call(rawSettlement, 'hpChanges');
+    const hasCardTarget = Object.prototype.hasOwnProperty.call(rawSettlement, 'targetCard');
+    const hasScostCost = Object.prototype.hasOwnProperty.call(rawSettlement, 'scostCost');
     const allowedSettlementKeys = [
-      'characterId', 'actionId', 'targetCharacterId', 'targetEnemyId', 'overrideKind', 'playerCostSpent', 'resourceChanges', 'hpChanges',
+      'characterId', 'actionId', 'targetCharacterId', 'targetEnemyId', 'overrideKind', 'playerCostSpent', 'resourceChanges', 'hpChanges', 'targetCard', 'scostCost',
     ];
     if (settlementKeys.some(key => !allowedSettlementKeys.includes(key))
-      || settlementKeys.length !== 6 + Number(hasEnemyTarget) + Number(hasHpChanges)
+      || settlementKeys.length !== 6 + Number(hasEnemyTarget) + Number(hasHpChanges) + Number(hasCardTarget) + Number(hasScostCost)
       || rawSettlement.characterId !== member.characterId
       || !(rawSettlement.actionId === null || isNonEmptyId(rawSettlement.actionId))
       || !(rawSettlement.targetCharacterId === null || isNonEmptyId(rawSettlement.targetCharacterId))
@@ -1349,7 +1388,7 @@ function restoreEncounterCommitReceipt(
     playerCostSpentTotal += rawSettlement.playerCostSpent as number;
     if (playerCostSpentTotal > maxPlayerCostSpent) return null;
     if (actionId === null) {
-      if (targetCharacterId !== null || targetEnemyId !== null || hasHpChanges || overrideKind !== null || rawSettlement.playerCostSpent !== 0
+      if (targetCharacterId !== null || targetEnemyId !== null || hasHpChanges || hasCardTarget || hasScostCost || overrideKind !== null || rawSettlement.playerCostSpent !== 0
         || rawSettlement.resourceChanges.length !== 0) return null;
       restoredSettlements.push({
         characterId: member.characterId, actionId: null, targetCharacterId: null,
@@ -1362,6 +1401,8 @@ function restoreEncounterCommitReceipt(
       || !candidatesByCharacter.get(member.characterId)?.has(actionId)
       || (rawSettlement.playerCostSpent === 1) !== (overrideKind === 'playerCommand')
       || (overrideKind === 'swap' && rawSettlement.playerCostSpent !== 0)) return null;
+    if (hasCardTarget !== cardPlan.targets.has(member.characterId)
+      || (action.target.kind === 'card' && (targetCharacterId !== null || targetEnemyId !== null || !hasCardTarget))) return null;
     if ((action.target.kind === 'none' && (targetCharacterId !== null || targetEnemyId !== null))
       || (action.target.kind === 'self' && (targetCharacterId !== member.characterId || targetEnemyId !== null))
       || (action.target.kind === 'partyCharacter'
@@ -1370,11 +1411,18 @@ function restoreEncounterCommitReceipt(
         && (targetCharacterId !== null || !targetEnemyId || !(encounterDef.enemies ?? []).some(enemy => enemy.id === targetEnemyId)))) return null;
 
     let expectedChanges: MapRunEncounterSettlementResourceChange[];
+    let expectedScost: ReturnType<typeof mapScostCost>;
     try {
-      expectedChanges = settlementChangesFor(action, member.characterId, targetCharacterId);
+      const reduction = cardPlan.reductions.get(member.characterId) ?? 0n;
+      expectedChanges = settlementChangesFor(action, member.characterId, targetCharacterId, reduction);
+      expectedScost = mapScostCost(action, reduction);
     } catch {
       return null;
     }
+    if (hasScostCost !== (expectedScost !== null)) return null;
+    if (expectedScost && (!isRecord(rawSettlement.scostCost) || Object.keys(rawSettlement.scostCost).length !== 3
+      || Object.keys(expectedScost).some(key => (rawSettlement.scostCost as Record<string, unknown>)[key]
+        !== expectedScost![key as keyof typeof expectedScost]))) return null;
     if (expectedChanges.length !== rawSettlement.resourceChanges.length) return null;
     for (const [changeIndex, rawChange] of rawSettlement.resourceChanges.entries()) {
       const expected = expectedChanges[changeIndex];
@@ -1422,6 +1470,8 @@ function restoreEncounterCommitReceipt(
       actionId,
       targetCharacterId,
       ...(targetEnemyId === null ? {} : { targetEnemyId }),
+      ...(cardPlan.targets.has(member.characterId) ? { targetCard: cardPlan.targets.get(member.characterId)! } : {}),
+      ...(expectedScost ? { scostCost: expectedScost } : {}),
       overrideKind,
       playerCostSpent: rawSettlement.playerCostSpent as 0 | 1,
       resourceChanges: expectedChanges,
@@ -1485,6 +1535,7 @@ function restoreEncounterSnapshot(
   teamResources: readonly MapRunTeamResourceBalance[],
   playerCost: number,
   commitVersion: number,
+  runId: string,
   activityId?: string,
 ): MapRunEncounterSnapshot | null {
   if (!isRecord(value)) return null;
@@ -1547,12 +1598,14 @@ function restoreEncounterSnapshot(
       && isNonEmptyId(rawSelection.targetCharacterId);
     const enemyTarget = keys.length === 2 && keys.every(key => ['characterId', 'targetEnemyId'].includes(key))
       && isNonEmptyId(rawSelection.targetEnemyId);
-    if ((!partyTarget && !enemyTarget)
+    const targetCard = keys.length === 2 && keys.every(key => ['characterId', 'targetCard'].includes(key))
+      ? parseMapRunCardRef(rawSelection.targetCard) : null;
+    if ((!partyTarget && !enemyTarget && !targetCard)
       || !isNonEmptyId(rawSelection.characterId) || partyIndex < 0
       || partyIndex <= previousPartyIndex || selectedCharacters.has(rawSelection.characterId)) return null;
     previousPartyIndex = partyIndex;
     selectedCharacters.add(rawSelection.characterId);
-    targetSelections.push(partyTarget
+    targetSelections.push(targetCard ? { characterId: rawSelection.characterId, targetCard } : partyTarget
       ? { characterId: rawSelection.characterId, targetCharacterId: rawSelection.targetCharacterId as string }
       : { characterId: rawSelection.characterId, targetEnemyId: rawSelection.targetEnemyId as string });
   }
@@ -1684,11 +1737,12 @@ function restoreEncounterSnapshot(
     },
     lastCommit: lastCommitSnapshot === null
       ? null
-      : restoreEncounterCommitReceipt(lastCommitSnapshot, definition, expectedNodeId, party, value.round as number, commitVersion, activityId),
+      : restoreEncounterCommitReceipt(lastCommitSnapshot, definition, expectedNodeId, party, value.round as number, commitVersion, runId, activityId),
   };
   if (lastCommitSnapshot !== null && restored.lastCommit === null) return null;
   try {
     resolveGameplayBActionPreview({
+      runId,
       definition,
       encounter: restored,
       party,
@@ -1853,6 +1907,7 @@ function restoreRunState(
       value.party,
       null,
       commitVersionSnapshot as number,
+      value.runId as string,
       lastReceiptActivityId,
     );
   if (lastEncounterCommitSnapshot !== null && lastEncounterCommit === null) return null;
@@ -1943,6 +1998,7 @@ function restoreRunState(
       teamResources,
       value.playerCost as number,
       commitVersionSnapshot as number,
+      value.runId as string,
       activeActivity?.activityId,
     );
   if (value.activeEncounter !== null && activeEncounter === null) return null;
@@ -2073,6 +2129,21 @@ export class MapRunService {
     return snapshotOf(run);
   }
 
+  /** Enumerates current domain cards, never visual copies or unselected command offers. */
+  getCards(expectedRunId?: string): readonly MapRunCardInstance[] {
+    const slot = this.slot;
+    if (!slot || !slot.run.activeEncounter || (expectedRunId !== undefined && expectedRunId !== slot.run.runId)) return Object.freeze([]);
+    return catalogMapRunCards(snapshotOf(slot.run), this.resolveActionPreview(slot));
+  }
+
+  /** A stale scene / round / removed command card is not a current domain object. */
+  resolveCardReference(ref: MapRunCardRef): MapRunCardInstance | null {
+    const parsed = parseMapRunCardRef(ref);
+    if (!parsed) return null;
+    const key = mapRunCardKey(parsed);
+    return this.getCards(parsed.scope.runId).find(card => mapRunCardKey(card.ref) === key) ?? null;
+  }
+
   /** Returns a detached success-only summary for the matching completed Run. */
   getResult(expectedRunId: string): MapRunSuccessResult | null {
     if (!this.result || this.result.runId !== expectedRunId) return null;
@@ -2091,6 +2162,29 @@ export class MapRunService {
     if (!slot || (expectedRunId !== undefined && expectedRunId !== slot.run.runId)
       || slot.run.activeEncounter === null) return null;
     return this.resolveActionPreview(slot);
+  }
+
+  /** Validates a hypothetical replacement without installing it or consuming randomness. */
+  previewActionReplacement(runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken): GameplayBActionPreview {
+    const slot = this.requireEncounterDraft(runId, draft);
+    const encounter = slot.run.activeEncounter!;
+    const current = this.resolveActionPreview(slot);
+    const prepared = current.preparedActions.find(row => row.characterId === characterId);
+    if (!prepared || prepared.preparedActionId === null) throw new MapRunError(['Replacement source is not an active Character']);
+    if (actionId === prepared.preparedActionId) throw new MapRunError(['Replacement must choose a different prepared Action']);
+    const inHand = prepared.handActionIds.includes(actionId);
+    if (!inHand) {
+      const option = current.playerCommandOptions.find(row => row.characterId === characterId && row.actionId === actionId);
+      if (!option || !option.canPayPlayerCost || !option.canPayActionCosts) throw new MapRunError(['Replacement is not a payable PlayerCommand candidate']);
+    }
+    const overrides = encounter.overrides.filter(row => row.characterId !== characterId);
+    if (actionId !== prepared.naturalActionId) overrides.push({ kind: inHand ? 'swap' : 'playerCommand', characterId, actionId });
+    const order = new Map(slot.run.party.map((member, index) => [member.characterId, index]));
+    overrides.sort((left, right) => order.get(left.characterId)! - order.get(right.characterId)!);
+    return this.resolveActionPreview(slot, this.pruneRemovedCardTargets(slot, {
+      ...encounter, overrides,
+      targetSelections: encounter.targetSelections.filter(row => row.characterId !== characterId),
+    }));
   }
 
   /** Reports full-round affordability from the same pure settlement plan as Commit. */
@@ -2508,6 +2602,42 @@ export class MapRunService {
     return snapshotOf(nextRun);
   }
 
+  /** Confirms one real card target through the same optimistic draft boundary as unit targets. */
+  setPreparedCardTarget(runId: string, characterId: string, target: MapRunCardRef | null,
+    expectedDraft: MapRunEncounterDraftToken): MapRun {
+    const slot = this.requireEncounterDraft(runId, expectedDraft);
+    const encounter = slot.run.activeEncounter!;
+    const prepared = this.resolveActionPreview(slot).preparedActions.find(row => row.characterId === characterId);
+    if (!prepared || prepared.targetKind !== 'card') throw new MapRunError(['Prepared Action does not accept a card target']);
+    const parsed = target === null ? null : parseMapRunCardRef(target);
+    const candidates = prepared.legalTargetCards ?? [];
+    if (target !== null && (!parsed || !candidates.some(ref => mapRunCardKey(ref) === mapRunCardKey(parsed)))) {
+      throw new MapRunError(['Card target is not a current legal candidate']);
+    }
+    const stored = encounter.targetSelections.find(row => row.characterId === characterId)?.targetCard;
+    const needsSelection = parsed !== null && candidates.length > 1;
+    if ((!stored && !needsSelection) || (stored && parsed && mapRunCardKey(stored) === mapRunCardKey(parsed))) return snapshotOf(slot.run);
+    const selections = encounter.targetSelections.filter(row => row.characterId !== characterId);
+    if (needsSelection) selections.push({ characterId, targetCard: parsed });
+    selections.sort((a, b) => slot.run.party.findIndex(row => row.characterId === a.characterId)
+      - slot.run.party.findIndex(row => row.characterId === b.characterId));
+    const nextEncounter = this.withDraftVersion({ ...encounter, targetSelections: selections });
+    this.resolveActionPreview(slot, nextEncounter);
+    const nextRun = { ...slot.run, activeEncounter: nextEncounter };
+    this.slot = { ...slot, run: nextRun };
+    return snapshotOf(nextRun);
+  }
+
+  /** Drops incoming references only when the domain card is gone, not when its DOM disappears. */
+  private pruneRemovedCardTargets(slot: MapRunSlot, encounter: MapRunEncounterSnapshot): MapRunEncounterSnapshot {
+    if (!encounter.targetSelections.some(row => row.targetCard)) return encounter;
+    const withoutCardChoices = { ...encounter, targetSelections: encounter.targetSelections.filter(row => !row.targetCard) };
+    const preview = this.resolveActionPreview(slot, withoutCardChoices);
+    const cards = catalogMapRunCards({ ...slot.run, activeEncounter: encounter }, preview);
+    const live = new Set(cards.map(card => mapRunCardKey(card.ref)));
+    return { ...encounter, targetSelections: encounter.targetSelections.filter(row => !row.targetCard || live.has(mapRunCardKey(row.targetCard))) };
+  }
+
   /** Clears one Character's Swap / PlayerCommand override and restores Hand-first preparation. */
   clearActionOverride(runId: string, characterId: string, expectedDraft: MapRunEncounterDraftToken): MapRun {
     const slot = this.requireEncounterDraft(runId, expectedDraft);
@@ -2518,11 +2648,11 @@ export class MapRunService {
     const encounter = slot.run.activeEncounter!;
     if (!encounter.overrides.some(override => override.characterId === characterId)) return snapshotOf(slot.run);
 
-    const nextEncounter = this.withDraftVersion({
+    const nextEncounter = this.pruneRemovedCardTargets(slot, this.withDraftVersion({
       ...encounter,
       overrides: encounter.overrides.filter(override => override.characterId !== characterId),
       targetSelections: encounter.targetSelections.filter(selection => selection.characterId !== characterId),
-    });
+    }));
     this.resolveActionPreview(slot, nextEncounter);
     const nextRun: MutableMapRun = { ...slot.run, activeEncounter: nextEncounter };
     this.slot = { ...slot, run: nextRun };
@@ -2567,11 +2697,11 @@ export class MapRunService {
     ].sort((left, right) =>
       (partyOrder.get(left.characterId) ?? 0) - (partyOrder.get(right.characterId) ?? 0));
 
-    const nextEncounter = this.withDraftVersion({
+    const nextEncounter = this.pruneRemovedCardTargets(slot, this.withDraftVersion({
       ...encounter,
       overrides,
       targetSelections: encounter.targetSelections.filter(selection => selection.characterId !== characterId),
-    });
+    }));
     this.resolveActionPreview(slot, nextEncounter);
     const nextRun: MutableMapRun = { ...slot.run, activeEncounter: nextEncounter };
     this.slot = { ...slot, run: nextRun };
@@ -2584,6 +2714,7 @@ export class MapRunService {
   ): GameplayBActionPreview {
     try {
       return resolveGameplayBActionPreview({
+        runId: slot.run.runId,
         definition: slot.definition,
         encounter,
         party: slot.run.party,

@@ -1,4 +1,6 @@
 import type { AreaId, EntityThemeSlot, SpotId, ThemeOrderScope, VariantId } from '../../engine/types';
+import type { MapActionRelation } from './map-relations';
+import type { MapRunCardInstance, MapRunCardRef } from './map-cards';
 import type { InitPurchaseResult } from '../../data-services/contracts/world';
 import type { PlayerState } from '../types/state';
 import type { TickResult } from '../../engine/contracts/tick';
@@ -377,13 +379,14 @@ export interface MapWorkspaceActionView {
   readonly actionId: string;
   readonly name: string;
   readonly description?: string;
-  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy';
+  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy' | 'card';
   readonly costs: readonly {
     readonly scope: 'actor' | 'team';
     readonly resourceId: string;
     readonly amount: number;
   }[];
   readonly hpEffects: readonly { readonly amount: number }[];
+  readonly cardEffects?: readonly { readonly kind: 'scostDiscount'; readonly amount: number }[];
 }
 
 /** One fixed-party member's full Hand and effective Prepared Action / Target. */
@@ -392,7 +395,9 @@ export interface MapWorkspacePreparedActionView {
   readonly hand: readonly MapWorkspaceActionView[];
   readonly naturalAction: MapWorkspaceActionView | null;
   readonly preparedAction: MapWorkspaceActionView | null;
-  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy' | null;
+  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy' | 'card' | null;
+  readonly legalTargetCards?: readonly MapRunCardRef[];
+  readonly targetCard?: MapRunCardRef | null;
   readonly legalTargetCharacterIds: readonly string[];
   readonly legalTargetEnemyIds: readonly string[];
   readonly targetCharacterId: string | null;
@@ -433,6 +438,7 @@ export interface MapWorkspaceRecentCommitView {
     readonly targetEnemyId: string | null;
     readonly overrideKind: MapRunActionOverride['kind'] | null;
     readonly playerCostSpent: 0 | 1;
+    readonly scostCost?: { readonly original: number; readonly discount: number; readonly paid: number };
     readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
     readonly hpChanges: readonly MapRunEncounterHpChange[];
   }[];
@@ -472,6 +478,10 @@ export interface MapRunEncounterWorkspaceView {
 /** One detached ReadModel snapshot for rendering the current Map / Encounter. */
 export interface MapRunActiveWorkspaceView {
   readonly kind: 'active';
+  /** Live domain cards; display copies and unselected command offers do not add objects. */
+  readonly cards: readonly MapRunCardInstance[];
+  /** Current preparation relationships; actual results remain in Commit receipts. */
+  readonly relations: readonly MapActionRelation[];
   readonly run: MapRun;
   readonly map: MapWorkspaceMapView;
   readonly currentEncounter: MapEncounterQueryView | null;
@@ -501,6 +511,10 @@ export type MapRunWorkspaceView = MapRunActiveWorkspaceView | MapRunSuccessWorks
 
 /** Read-only facade over the GameInstance-owned MapRunService. */
 export interface MapRunQuery {
+  getCards(runId: string): readonly MapRunCardInstance[];
+  resolveCardReference(ref: MapRunCardRef): MapRunCardInstance | null;
+  /** Hypothetical replacement, validated by the Owner without changing the draft. */
+  previewReplacement(runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken): readonly MapActionRelation[];
   getSnapshot(): MapRun | null;
   getResult(runId: string): MapRunSuccessResult | null;
   getFailureResult(runId: string): MapRunFailureResult | null;
@@ -535,6 +549,7 @@ export interface GameCommands {
   issueMapPlayerCommand(runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken): MapRun;
   setMapPreparedTarget(runId: string, characterId: string, targetCharacterId: string | null, draft: MapRunEncounterDraftToken): MapRun;
   setMapPreparedEnemyTarget(runId: string, characterId: string, targetEnemyId: string | null, draft: MapRunEncounterDraftToken): MapRun;
+  setMapPreparedCardTarget(runId: string, characterId: string, target: MapRunCardRef | null, draft: MapRunEncounterDraftToken): MapRun;
   clearMapActionOverride(runId: string, characterId: string, draft: MapRunEncounterDraftToken): MapRun;
   setMapAbilityDraft(runId: string, actionId: string | null, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;
   setMapItemDraft(runId: string, itemId: string | null, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;

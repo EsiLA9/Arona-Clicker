@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID, defaultDatapack, loadDefaultDatapack } from '../../src/app/runtime-bootstrap';
 import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { gameplayBCarouselDatapack } from '../../src/arona-clicker/content/operation-samples/gameplay-b-datapack';
@@ -73,11 +73,15 @@ describe('Gameplay B Map normal entry vertical slice', () => {
   const games: GameInstance[] = [];
   const controllers: UIController[] = [];
 
+  // Keep this navigation / command chain deterministic; RNG behavior has dedicated Owner tests.
+  beforeEach(() => vi.spyOn(Math, 'random').mockReturnValue(0));
+
   afterEach(() => {
     for (const controller of controllers.splice(0)) controller.destroy();
     for (const game of games.splice(0)) if (game.running) game.stop();
     document.body.innerHTML = '';
     localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   test('plays the bundled minimal battle from its Spot through retaliation, victory and the exit', async () => {
@@ -117,7 +121,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`)!.click();
     const runId = game.mapRun.getSnapshot()!.runId;
     root.querySelector<HTMLButtonElement>('[data-map-move-to="battle"]')!.click();
-    expect(root.textContent).toContain('两人对一敌');
+    expect(root.textContent).toContain('两人对两敌');
     expect(root.querySelector('[data-map-complete-encounter]')).toBeNull();
 
     const commitRound = () => {
@@ -130,17 +134,45 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     };
     commitRound();
     const afterFirst = game.mapRun.getSnapshot()!;
-    expect(afterFirst.activeEncounter?.enemies).toEqual([{ enemyId: '训练靶', currentHp: 2 }]);
+    expect(afterFirst.activeEncounter?.enemies).toEqual([
+      { enemyId: '训练靶', currentHp: 2 },
+      { enemyId: '机动靶', currentHp: 6 },
+    ]);
     expect(afterFirst.partyHp).toEqual([
-      { characterId: 'shiroko', currentHp: 8 },
+      { characterId: 'shiroko', currentHp: 6 },
       { characterId: 'serika', currentHp: 10 },
     ]);
-    expect(afterFirst.activeEncounter?.lastCommit?.enemyAttacks).toHaveLength(1);
+    expect(afterFirst.activeEncounter?.lastCommit?.enemyAttacks).toHaveLength(2);
+    commitRound();
+    const afterSecond = game.mapRun.getSnapshot()!;
+    expect(afterSecond.activeEncounter?.enemies).toEqual([
+      { enemyId: '训练靶', currentHp: 0 },
+      { enemyId: '机动靶', currentHp: 6 },
+    ]);
+    expect(afterSecond.partyHp).toEqual([
+      { characterId: 'shiroko', currentHp: 4 },
+      { characterId: 'serika', currentHp: 10 },
+    ]);
+    expect(afterSecond.activeEncounter?.lastCommit?.enemyAttacks).toHaveLength(1);
+    commitRound();
+    const afterThird = game.mapRun.getSnapshot()!;
+    expect(afterThird.activeEncounter?.enemies).toEqual([
+      { enemyId: '训练靶', currentHp: 0 },
+      { enemyId: '机动靶', currentHp: 2 },
+    ]);
+    expect(afterThird.partyHp).toEqual([
+      { characterId: 'shiroko', currentHp: 2 },
+      { characterId: 'serika', currentHp: 10 },
+    ]);
+    expect(afterThird.activeEncounter?.lastCommit?.enemyAttacks).toHaveLength(1);
     commitRound();
     const won = game.mapRun.getSnapshot()!;
     expect(won.activeEncounter).toBeNull();
     expect(won.completedEncounterNodeIds).toContain('battle');
-    expect(won.partyHp).toEqual(afterFirst.partyHp);
+    expect(won.partyHp).toEqual([
+      { characterId: 'shiroko', currentHp: 2 },
+      { characterId: 'serika', currentHp: 10 },
+    ]);
     root.querySelector<HTMLButtonElement>('[data-map-move-to="exit"]')!.click();
     expect(game.mapRun.getWorkspaceView(runId)).toMatchObject({ kind: 'success', result: { mapId, runId } });
   });
@@ -266,6 +298,9 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     const beforeBlockedMove = game.mapRun.getSnapshot();
     expect(() => controller.commands.moveMap(runId, exitEdge!.toNodeId)).toThrow();
     expect(game.mapRun.getSnapshot()).toEqual(beforeBlockedMove);
+    if (!root.querySelector('[data-map-complete-encounter]')) {
+      root.querySelector<HTMLButtonElement>('[data-map-action-swap][data-character-id="shiroko"][data-action-id="assist-teammate"]')!.click();
+    }
     const completion = root.querySelector<HTMLButtonElement>('[data-map-complete-encounter][data-map-run-id]');
     expect(completion?.textContent).toContain(encounterNode.encounter?.completion?.label);
     completion!.click();
@@ -278,7 +313,9 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     expect(controller.getRefreshStats().fullRenders).toBe(fullRenders);
     expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(regionRefreshes);
     regionRefreshes = controller.getRefreshStats().regionRefreshes;
-    expect(root.querySelector('[data-workspace-column="right"] [data-map-region-key="map-node:' + encounterNode.id + '"]')?.textContent).toContain('遭遇已完成');
+    root.querySelector<HTMLButtonElement>('[data-map-show-map]')!.click();
+    expect(root.querySelector('[data-map-overview]')?.textContent).toContain(encounterNode.title);
+    expect(root.querySelector('[data-map-overview]')?.textContent).toContain('当前位置');
 
     root.querySelector<HTMLButtonElement>(`[data-map-move-to="${exitEdge!.toNodeId}"]`)!.click();
     const terminalView = game.mapRun.getWorkspaceView(runId);
@@ -404,16 +441,15 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     }]);
     expect(game.mapRun.getSnapshot()?.playerCost).toBe(1);
     expect((document.activeElement as HTMLElement | null)?.dataset.mapFocusKey)
-      .toBe(`swap:shiroko:${swapAction!.actionId}`);
+      .toBe(`unit-card:shiroko:swap:${swapAction!.actionId}`);
     assertStableEncounter();
 
-    const clearOverride = root.querySelector<HTMLButtonElement>('[data-map-clear-override]')!;
+    const clearOverride = root.querySelector<HTMLButtonElement>(`[data-map-action-swap][data-character-id="shiroko"][data-action-id="${shiroko.naturalAction!.actionId}"]`)!;
     clearOverride.focus();
     clearOverride.click();
-    const encounterHeading = root.querySelector<HTMLElement>('[data-workspace-column="center"] [data-map-encounter-state="active"] [data-map-focus-heading]');
     expect(game.mapRun.getSnapshot()?.activeEncounter?.overrides).toEqual([]);
-    expect(document.activeElement).toBe(encounterHeading);
-    expect(encounterHeading).not.toBeNull();
+    expect((document.activeElement as HTMLElement | null)?.dataset.mapFocusKey)
+      .toBe(`unit-card:shiroko:swap:${shiroko.naturalAction!.actionId}`);
     assertStableEncounter();
 
     root.querySelector<HTMLButtonElement>(
@@ -466,7 +502,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     }
     for (const member of secondRoundView.actionPreview.preparedActions) {
       expect(root.querySelectorAll(`[data-map-party-member="${member.characterId}"] [data-map-action-swap]`))
-        .toHaveLength(member.hand.length);
+        .toHaveLength(member.hand.length - (member.hand.some(card => card.actionId === member.preparedAction?.actionId) ? 1 : 0));
     }
     assertStableEncounter();
 
@@ -541,10 +577,13 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     }
     for (const member of thirdRoundView.actionPreview.preparedActions) {
       expect(root.querySelectorAll(`[data-map-party-member="${member.characterId}"] [data-map-action-swap]`))
-        .toHaveLength(member.hand.length);
+        .toHaveLength(member.hand.length - (member.hand.some(card => card.actionId === member.preparedAction?.actionId) ? 1 : 0));
     }
     assertStableEncounter();
 
+    if (!root.querySelector('[data-map-complete-encounter]')) {
+      root.querySelector<HTMLButtonElement>('[data-map-action-swap][data-character-id="shiroko"][data-action-id="assist-teammate"]')!.click();
+    }
     const completion = root.querySelector<HTMLButtonElement>('[data-map-complete-encounter][data-map-run-id]')!;
     completion.click();
     expect(game.mapRun.getSnapshot()).toMatchObject({
@@ -553,8 +592,9 @@ describe('Gameplay B Map normal entry vertical slice', () => {
       completedEncounterNodeIds: [encounterNode.id],
       status: 'inProgress',
     });
-    expect(root.querySelector(`[data-workspace-column="right"] [data-map-region-key="map-node:${encounterNode.id}"]`)?.textContent).toContain('遭遇已完成');
-    expect(root.querySelector(`[data-workspace-column="right"] [data-map-region-key="map-node:${encounterNode.id}"][data-map-status="current"]`)).not.toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-map-show-map]')!.click();
+    expect(root.querySelector('[data-map-overview]')?.textContent).toContain(encounterNode.title);
+    expect(root.querySelector('[data-map-overview]')?.textContent).toContain('当前位置');
     expect(root.querySelector<HTMLButtonElement>('[data-map-move-to]')?.disabled).toBe(false);
     const exitEdge = map.edges.find(edge => edge.fromNodeId === encounterNode.id && map.exitNodeIds.includes(edge.toNodeId))!;
     root.querySelector<HTMLButtonElement>(`[data-map-move-to="${exitEdge.toNodeId}"]`)!.click();
@@ -570,21 +610,22 @@ function captureMapIdentity(root: HTMLElement, runId: string) {
     left: root.querySelector('[data-workspace-column="left"]'),
     center: root.querySelector('[data-workspace-column="center"]'),
     right: root.querySelector('[data-workspace-column="right"]'),
-    nodeList: root.querySelector('[data-map-region-key="map-progress"] .map-workspace__node-list'),
+    mapToggle: root.querySelector('[data-map-show-map]'),
     currentNode: root.querySelector('[data-map-region-key^="feed-node:"]'),
     partyScroll: scroll('party-scroll'),
     feedScroll: scroll('talk-feed'),
     actionDock: root.querySelector('[data-map-region-key="action-dock"]'),
-    actionOptions: scroll('action-options'),
+    actionOptions: root.querySelector<HTMLElement>('[data-map-region-key="action-options"][data-scroll-owner="content-region"]'),
     contextScroll: scroll('context-scroll'),
   };
   snapshot.partyScroll.scrollTop = 31;
+  expect(snapshot.actionOptions).toBeNull(); // This fixture declares no Ability / Item source controls.
   Object.defineProperties(snapshot.feedScroll, {
     scrollHeight: { configurable: true, value: 1000 },
     clientHeight: { configurable: true, value: 200 },
   });
   snapshot.feedScroll.scrollTop = 47;
-  snapshot.actionOptions.scrollTop = 61;
+  if (snapshot.actionOptions) snapshot.actionOptions.scrollTop = 61;
   snapshot.contextScroll.scrollTop = 73;
   return { runId, snapshot };
 }
@@ -595,7 +636,7 @@ function expectMapIdentity(root: HTMLElement, runId: string, identity: ReturnTyp
   expect(root.querySelector('[data-workspace-column="left"]')).toBe(identity.snapshot.left);
   expect(root.querySelector('[data-workspace-column="center"]')).toBe(identity.snapshot.center);
   expect(root.querySelector('[data-workspace-column="right"]')).toBe(identity.snapshot.right);
-  expect(root.querySelector('[data-map-region-key="map-progress"] .map-workspace__node-list')).toBe(identity.snapshot.nodeList);
+  expect(root.querySelector('[data-map-show-map]')).toBe(identity.snapshot.mapToggle);
   expect(root.querySelector('[data-map-region-key^="feed-node:"]')).toBe(identity.snapshot.currentNode);
   expect(root.querySelector('[data-map-region-key="party-scroll"][data-scroll-owner="content-region"]')).toBe(identity.snapshot.partyScroll);
   expect(root.querySelector('[data-map-region-key="talk-feed"][data-scroll-owner="content-region"]')).toBe(identity.snapshot.feedScroll);
@@ -604,7 +645,7 @@ function expectMapIdentity(root: HTMLElement, runId: string, identity: ReturnTyp
   expect(root.querySelector('[data-map-region-key="context-scroll"][data-scroll-owner="content-region"]')).toBe(identity.snapshot.contextScroll);
   expect(identity.snapshot.partyScroll.scrollTop).toBe(31);
   expect(identity.snapshot.feedScroll.scrollTop).toBe(47);
-  expect(identity.snapshot.actionOptions.scrollTop).toBe(61);
+  if (identity.snapshot.actionOptions) expect(identity.snapshot.actionOptions.scrollTop).toBe(61);
   expect(identity.snapshot.contextScroll.scrollTop).toBe(73);
   expect(root.querySelector('[data-map-workspace-region]')?.getAttribute('data-map-run-id')).toBe(runId);
 }

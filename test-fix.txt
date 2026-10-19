@@ -1,0 +1,81 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/15229/Documents/Obsidian Vault/1-项目/ACProgram[39m
+
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mkeeps faction-scoped Enemy targets through Save/Load, settles overkill costs, and auto-wins without an Enemy turn
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mresolves Enemy turns in declaration order, stops on party defeat, and replays failure outside Save state
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mkeeps surviving members active after one ally falls, excludes downed targets, and retargets by current HP with stable ties
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mdraws a weighted, unique Hand once for every fixed party member and leaves Wait Hands empty
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mpreviews Hand-first preparation, Wait, no-target, self, and selected-party target rules
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mautomatically fills a unique party target and never creates a Wait Action ID
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrepeated previews preserve the natural Hand-first Prepared Action and all Run state
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mfree Swap uses another Hand item, and both a clear and the natural Action restore the default
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects Hand-out Swap and stale requests while keeping every Character independently overridable
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects a prior Encounter draft token after a new Encounter resets its revision
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mPlayerCommand selects a payable Hand-out candidate for one PlayerCost without deducting it
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects unpayable Action costs and unavailable PlayerCost Commands with zero writes
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22msets, clears, and restores a legal party target while rejecting an invalid or stale target
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mtreats a missing MapRun resource balance as zero when filtering Hand candidates
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mclears Encounter-local Hand and RNG while retaining MapRun-local resources
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects a mismatched Encounter Hand checkpoint without partially installing the Run
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mstarts from the resolver definition with one fixed current Node
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects an unknown Map without creating a Run
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects an incomplete admitted party without creating a Run
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22menters an Encounter on the start Node and requires a declared manual completion
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrequires directed adjacency, completes at B without moving, then succeeds at exit C
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mdoes not reopen a completed Encounter when a directed route revisits its Node
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrefuses a parallel Run without disturbing the active Run and allows a new Run after success
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mexposes only the terminal success result through GameInstance and clears it on dispose
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mcommits prepared actions and resolved targets atomically, then restores and deduplicates the checkpointed request
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22maccepts consistent multi-override receipts while rejecting forged override kinds and PlayerCost pairings
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects Commit after a Hand Action is removed from the active Encounter candidates without writing
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mcharges Swap as free and PlayerCommand once through the same Commit pipeline
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mcharges all round costs from starting balances before applying any effects
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects unresolved targets and unsafe effects without writing any round state
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mallows a full Wait round to commit with no resource changes
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mcard targets resolve existing scost-bearing cards by source-relative side, without writing the draft
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mdoes not invent a target when self has no scost-bearing card
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mdoes not invent a target when opponent has no scost-bearing card
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22muniquely resolves a real card and commits its real scost reduction
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mdiscounts on an unplayed Hand card do not transfer to the executed card
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mlarge stacked reductions clamp at zero and stay independent from fixed PlayerCost
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mthe real PlayerCommand still costs one PlayerCost; retries and save/load never charge or discount twice
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22ma new round has no inherited discount when its source can no longer prepare the action
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mdiscounts cannot fund unrelated costs, and forged actual discount receipts are rejected
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mpublic card-target commands are versioned, idempotent, pure until confirmation, and survive save/load
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22ma removed command card clears incoming choices in preview and replacement; a Hand card survives Swap
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22ma saved card choice for another round is rejected by the Owner
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mchanging or restoring the source card never inherits its old explicit card target
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mpublic query exposes unique round-local Hand objects, not replacement offers or visual copies
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22mSwap changes preparation without minting cards; PlayerCommand materializes only the selected command
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts[2m > [22mMapRun domain cards[2m > [22msave/load preserves current identities; committing a new round invalidates every old reference
+ [32m✓[39m tests/ui/gameplay-b-map-vertical-slice.test.ts[2m > [22mGameplay B Map normal entry vertical slice[2m > [22mplays the bundled minimal battle from its Spot through retaliation, victory and the exit[33m 871[2mms[22m[39m
+ [31m×[39m tests/ui/gameplay-b-map-vertical-slice.test.ts[2m > [22mGameplay B Map normal entry vertical slice[2m > [22mloads the default pack, acquires a normal Spot, and runs its Map through the UI[33m 539[2mms[22m[39m
+[31m   → the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string[39m
+ [31m×[39m tests/ui/gameplay-b-map-vertical-slice.test.ts[2m > [22mGameplay B Map normal entry vertical slice[2m > [22mruns a real two-character Encounter action turn through Datapack, Spot and MapRun with local refresh
+[31m   → Cannot set properties of null (setting 'scrollTop')[39m
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mprojects detached Map, Node, Edge, start and exit facts from the current Run
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders Map and active Encounter from one route, then returns to the completed Node and exit
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mconsumes the flow mover only after success and preserves the mounted workspace
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mdoes not preserve a Map route over a different top-level service
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mprojects full Hands and routes Swap, PlayerCommand, Target and Commit through Controller commands[33m 473[2mms[22m[39m
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mshows only the effective card and opens existing candidates without drawing or replacing workspace owners
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders Wait as the prepared state without inventing a Hand card
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders Action, Ability and Item names from a receipt as text instead of markup
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mdisables hand-out PlayerCommand options when Runtime says PlayerCost is insufficient
+ [31m×[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders battle HP, routes Enemy targets, keeps Ability and Item drafts separate, and shows the round result
+[31m   → expected '本轮可提交 · 预计消耗 0 PlayerCost' to contain '选择对象'[39m
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22medits real Enemy targets by unit click and card drag without Commit or replacing the three columns
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mshows unavailable Ability cost and Item inventory/condition without enabling their drafts
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mreports when an Item use condition changes after its draft was selected
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mexplains combined Ability and PlayerCommand PlayerCost and lets the player clear Ability[33m 302[2mms[22m[39m
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders defeat as a read-only three-column result and returns to the game on request
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mreports illegal targets and stale Commit tokens without changing the MapRun
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders only the minimal terminal result without reconstructing map progress
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders the shared three panel tab hosts when a Map route is unavailable
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22m查看情报写入共享信息流且只保留最新一条，不改变领域目标选择
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m66 passed[39m[22m[90m (69)[39m
+[2m   Start at [22m 03:12:57
+[2m   Duration [22m 14.47s[2m (transform 6.60s, setup 47ms, collect 32.26s, tests 5.08s, environment 772ms, prepare 563ms)[22m
+

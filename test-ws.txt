@@ -1,0 +1,28 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/15229/Documents/Obsidian Vault/1-项目/ACProgram[39m
+
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mprojects detached Map, Node, Edge, start and exit facts from the current Run
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders Map and active Encounter from one route, then returns to the completed Node and exit
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mconsumes the flow mover only after success and preserves the mounted workspace
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mdoes not preserve a Map route over a different top-level service
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mprojects full Hands and routes Swap, PlayerCommand, Target and Commit through Controller commands[33m 379[2mms[22m[39m
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mshows only the effective card and opens existing candidates without drawing or replacing workspace owners
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders Wait as the prepared state without inventing a Hand card
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders Action, Ability and Item names from a receipt as text instead of markup
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mdisables hand-out PlayerCommand options when Runtime says PlayerCost is insufficient
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders battle HP, routes Enemy targets, keeps Ability and Item drafts separate, and shows the round result[33m 515[2mms[22m[39m
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22medits real Enemy targets by unit click and card drag without Commit or replacing the three columns
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mshows unavailable Ability cost and Item inventory/condition without enabling their drafts
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mreports when an Item use condition changes after its draft was selected
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mexplains combined Ability and PlayerCommand PlayerCost and lets the player clear Ability
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders defeat as a read-only three-column result and returns to the game on request
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mreports illegal targets and stale Commit tokens without changing the MapRun
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders only the minimal terminal result without reconstructing map progress
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mrenders the shared three panel tab hosts when a Map route is unavailable
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22m查看情报写入共享信息流且只保留最新一条，不改变领域目标选择
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m19 passed[39m[22m[90m (19)[39m
+[2m   Start at [22m 03:15:29
+[2m   Duration [22m 14.59s[2m (transform 2.69s, setup 12ms, collect 10.75s, tests 3.18s, environment 300ms, prepare 94ms)[22m
+

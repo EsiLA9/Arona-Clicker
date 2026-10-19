@@ -1,0 +1,10 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/15229/Documents/Obsidian Vault/1-项目/ACProgram[39m
+
+ [32m✓[39m tests/ui/gameplay-b-map-vertical-slice.test.ts[2m > [22mGameplay B Map normal entry vertical slice[2m > [22mplays the bundled minimal battle from its Spot through retaliation, victory and the exit[33m 1512[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m21 skipped[39m[90m (22)[39m
+[2m   Start at [22m 03:14:43
+[2m   Duration [22m 12.36s[2m (transform 3.27s, setup 21ms, collect 20.29s, tests 1.51s, environment 643ms, prepare 228ms)[22m
+

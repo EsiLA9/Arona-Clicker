@@ -57,6 +57,14 @@ Frame、列根、共享顶部、真实滚动 owner 与仍有效的按钮保持�
 
 同一 Map 中移动、完成遭遇和进入终态仍需同步所有受影响消费者，不能误降为敌方区更新。缺失的内容区域可在所属列中补回；根或路由身份不匹配时取消旧请求或按当前路由恢复，不把全页 render 当作普通点击路径。验证入口为 `tests/ui/map-dom-updates.test.ts`、`tests/ui/gameplay-b-map-workspace.test.ts` 与 `tests/ui/gameplay-b-map-vertical-slice.test.ts`，视觉复用入口见 [[ui-style/patterns]]。
 
+## Map 单位关系的临时交互更新
+
+`MapRunActiveWorkspaceView.relations` 提供当前准备关系，区分选定目标与各项效果受用方；结算实际结果仍来自回执。`MapRunQuery.previewReplacement()` 由 Owner 校验候选 / 草稿版本，在 detached 假设快照上重新解析，不安装草稿或推进抽牌随机流。
+
+`src/ui/workspace/map-relation-interaction.ts` 的 `MapRelationInteraction` 由 Controller 持有，只保存 Hover / Focus、固定、目标编辑与拖拽临时状态。`map-relation-presentation.ts` 在既有可视实例上补属性；Map 局部协调完成后 Controller 同次重核呈现，防止临时 role 属性被新 HTML 清掉。不为这些交互请求全页 render，也不增加渲染调度器。
+
+单位或真实卡牌的点击、Enter 和拖拽合法释放经同一 Controller adapter 发草稿命令；6px 拖拽阈值之前保留原卡点击，成功拖拽抑制尾随点击，新的物理按下 / Enter / Space 恢复独立操作。取消 / 无效释放不写入。命中按最上层元素身份与领域候选核对，不根据坐标推导相对目标；选择不依赖 SVG 或连接锚点。卡牌当前展示、Hand 展示和可访问目标代理共享 object key，不创建领域副本；关闭浮层先于安装目标编辑状态。确认仍通过一次 Map patch 保留 Frame / 列 / Flow，sCost 与 cardEffects 只消费 Runtime 投影。Scope / draft 变化重核来源，离开 Run / 读档沿 `disposeMapFlow()` 清理临时态，Controller 销毁移除监听与指针捕获。对应行为证明见 `tests/ui/map-relation-interaction.test.ts` 与 `gameplay-b-map-workspace.test.ts`；Flow 独立玩法卡与连接线尚未属于该实现。
+
 ## 测试与验证边界
 
 `tests/ui/ui-update-dispatcher.test.ts` 验证重复合并、区域 / 结构优先级及过期 Surface 丢弃；`tests/ui/controller-events.test.ts` 验证事件映射到当前导航、局部区域和主题响应；`tests/ui/workspace-frame.test.ts`、`workspace-lifecycle.test.ts` 覆盖工作区结构 / 生命周期。它们不替代真实浏览器中的视觉或交互验收。

@@ -63,6 +63,9 @@ import { createOperationEntry } from './services/operation-entry-service';
 import type { OperationEntryFacade } from './services/operation-entry-service';
 import { createRegistryOperationContentResolver } from './services/registry-operation-content-resolver';
 import { MapRunError, MapRunService } from './services/map-run-service';
+import { projectMapRelations } from './services/map-relation-projector';
+import type { MapRunCardRef } from './contracts/map-cards';
+import type { GameplayBActionPreview } from './services/gameplay-b-action-preview-resolver';
 import { createRegistryMapContentResolver } from './services/registry-map-content-resolver';
 import type { MapContentResolver } from './contracts/map-content-resolver';
 import { createDefaultState as createDefaultPlayerState } from './state/state-factory';
@@ -230,6 +233,8 @@ export class GameInstance {
     }, options);
     this.replaceMapRunOwner();
     this._mapRunQuery = Object.freeze({
+      getCards: (runId: string) => this.#mapRunOwner.getCards(runId),
+      resolveCardReference: (ref: MapRunCardRef) => this.#mapRunOwner.resolveCardReference(ref),
       getSnapshot: () => this.#mapRunOwner.getSnapshot(),
       getResult: (runId: string) => this.#mapRunOwner.getResult(runId),
       getFailureResult: (runId: string) => this.#mapRunOwner.getFailureResult(runId),
@@ -240,6 +245,15 @@ export class GameInstance {
       getCurrentEncounter: () => this.getCurrentMapEncounter(),
       getWorkspaceView: (runId: string) => this.getMapWorkspaceView(runId),
       previewSources: (runId: string) => this.previewMapEncounterSources(runId),
+      previewReplacement: (runId: string, characterId: string, actionId: string, draft: MapRunEncounterDraftToken) => {
+        const preview = this.#mapRunOwner.previewActionReplacement(runId, characterId, actionId, draft);
+        const run = this.#mapRunOwner.getSnapshot(runId)!;
+        const definition = this.#mapContentResolver.resolve(run.mapId)!;
+        const actionPreview = this.getMapEncounterWorkspaceView(run, definition, preview);
+        return Object.freeze(projectMapRelations({ run, actionPreview, currentEncounter: null, sourcePreview: null }, definition)
+          .filter(row => row.source.kind === 'preparedAction' && row.source.id === characterId)
+          .map(row => Object.freeze({ ...row, phase: 'replacementPreview' as const })));
+      },
     });
     // Resolver data is trusted constructor input; AC ownership queries always come from this instance.
     this._operationEntry = createOperationEntry({
@@ -331,10 +345,11 @@ export class GameInstance {
   private getMapEncounterWorkspaceView(
     run: MapRun,
     definition: NonNullable<ReturnType<MapContentResolver['resolve']>>,
+    replacement?: GameplayBActionPreview,
   ): MapRunEncounterWorkspaceView | null {
     const encounter = run.activeEncounter;
     if (!encounter) return null;
-    const preview = this.#mapRunOwner.previewActions(run.runId);
+    const preview = replacement ?? this.#mapRunOwner.previewActions(run.runId);
     const commitPreview = this.#mapRunOwner.previewEncounterCommit(run.runId);
     if (!preview || !commitPreview) return null;
 
@@ -357,6 +372,7 @@ export class GameInstance {
           amount: cost.amount,
         }))),
         hpEffects: Object.freeze((action.hpEffects ?? []).map(effect => Object.freeze({ amount: effect.amount }))),
+        cardEffects: Object.freeze((action.cardEffects ?? []).map(effect => Object.freeze({ kind: effect.kind, amount: effect.amount }))),
       });
       actionViewById.set(actionId, projected);
       return projected;
@@ -373,6 +389,7 @@ export class GameInstance {
       naturalAction: projectAction(prepared.naturalActionId),
       preparedAction: projectAction(prepared.preparedActionId),
       targetKind: prepared.targetKind,
+      ...(prepared.targetKind === 'card' ? { legalTargetCards: prepared.legalTargetCards, targetCard: prepared.targetCard } : {}),
       legalTargetCharacterIds: Object.freeze([...prepared.legalTargetCharacterIds]),
       legalTargetEnemyIds: Object.freeze([...(prepared.legalTargetEnemyIds ?? [])]),
       targetCharacterId: prepared.targetCharacterId,
@@ -402,6 +419,7 @@ export class GameInstance {
         targetEnemyId: settlement.targetEnemyId ?? null,
         overrideKind: settlement.overrideKind,
         playerCostSpent: settlement.playerCostSpent,
+        ...(settlement.scostCost ? { scostCost: Object.freeze({ ...settlement.scostCost }) } : {}),
         resourceChanges: Object.freeze(settlement.resourceChanges.map(change => Object.freeze({ ...change }))),
         hpChanges: Object.freeze([...(settlement.hpChanges ?? [])].map(change => Object.freeze({ ...change }))),
       }))),
@@ -480,8 +498,9 @@ export class GameInstance {
     });
     const actionPreview = this.getMapEncounterWorkspaceView(run, definition);
 
-    return Object.freeze({
+    const workspace = {
       kind: 'active' as const,
+      cards: this.#mapRunOwner.getCards(runId),
       run,
       map,
       currentEncounter: this.getCurrentMapEncounter(),
@@ -489,7 +508,8 @@ export class GameInstance {
       shop: this.getMapShopView(run, definition),
       actionPreview,
       sourcePreview: this.previewMapEncounterSources(runId),
-    });
+    };
+    return Object.freeze({ ...workspace, relations: projectMapRelations(workspace, definition) });
   }
 
   private getMapActivitiesView(
@@ -702,6 +722,11 @@ export class GameInstance {
     draft: MapRunEncounterDraftToken,
   ): MapRun {
     return this.#mapRunOwner.setPreparedEnemyTarget(runId, characterId, targetEnemyId, draft);
+  }
+
+  setMapPreparedCardTarget(runId: string, characterId: string, target: MapRunCardRef | null,
+    draft: MapRunEncounterDraftToken): MapRun {
+    return this.#mapRunOwner.setPreparedCardTarget(runId, characterId, target, draft);
   }
 
   clearMapActionOverride(runId: string, characterId: string, draft: MapRunEncounterDraftToken): MapRun {

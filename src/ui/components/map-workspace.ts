@@ -3,6 +3,8 @@ import type {
   MapRunFailureWorkspaceView,
   MapRunSuccessWorkspaceView,
   MapRunWorkspaceView,
+  MapWorkspacePreparedActionView,
+  MapWorkspaceActionView,
 } from '../../arona-clicker/contracts/runtime';
 import type {
   MapRunEncounterDraftToken,
@@ -15,6 +17,7 @@ import { renderWorkspaceFrame } from './workspace-frame';
 import { renderFlowEntries } from '../flow/flow-render';
 import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE, type FlowEntry } from '../flow/flow-entry';
 import { MapFlowModel } from '../flow/map-flow-model';
+import { mapObjectKey, mapUnitKey } from '../workspace/map-relation-presentation';
 import '../css/map-workspace.css';
 
 function escape(ctx: UIContext, value: string): string {
@@ -27,6 +30,42 @@ function regionKey(ctx: UIContext, value: string): string {
 
 function focusKey(ctx: UIContext, value: string): string {
   return ` data-map-focus-key="${escape(ctx, value)}"`;
+}
+
+function relationKey(ctx: UIContext, view: MapRunActiveWorkspaceView, kind: string, id: string): string {
+  const relation = view.relations.find(row => row.source.kind === kind && row.source.id === id);
+  return relation ? ` data-map-relation-key="${escape(ctx, relation.key)}"` : '';
+}
+
+function unitKey(view: MapRunActiveWorkspaceView, kind: 'partyCharacter' | 'enemy', id: string): string | undefined {
+  const scope = view.relations[0]?.scope;
+  return scope ? mapUnitKey(scope, kind, id) : undefined;
+}
+
+function cardAttributes(ctx: UIContext, view: MapRunActiveWorkspaceView, ownerId: string, actionId: string): string {
+  const card = view.cards?.find(row => row.owner.kind === 'partyCharacter' && row.owner.id === ownerId && row.actionId === actionId);
+  return card ? ` data-map-object-key="${escape(ctx, mapObjectKey(card.ref))}"` : '';
+}
+
+function renderCardTargets(ctx: UIContext, view: MapRunActiveWorkspaceView, prepared: MapWorkspacePreparedActionView): string {
+  const candidates = prepared.legalTargetCards ?? [];
+  if (!candidates.length) return '<small class="map-workspace__target-label">当前没有合法卡牌目标</small>';
+  const relation = view.relations.find(row => row.source.kind === 'preparedAction' && row.source.id === prepared.characterId);
+  const actions = view.actionPreview!.preparedActions.flatMap(row => [...row.hand, ...(row.preparedAction ? [row.preparedAction] : [])]);
+  return `<div class="map-workspace__target-picker"${regionKey(ctx, `targets:${prepared.characterId}`)} role="group" aria-label="卡牌目标">
+    <span>${prepared.targetSelectionRequired ? '选择受用卡牌' : '受用卡牌'}</span><div>${candidates.map(ref => {
+      const key = mapObjectKey(ref);
+      const card = view.cards.find(row => mapObjectKey(row.ref) === key);
+      const action = actions.find(row => row.actionId === card?.actionId);
+      const owner = card?.owner.kind === 'partyCharacter' ? ctx.nameOf('character', card.owner.id) : '卡牌';
+      const label = `${owner} · ${action?.name ?? '当前卡牌'}`;
+      const selected = prepared.targetCard ? mapObjectKey(prepared.targetCard) === key : false;
+      const semanticKey = `target-card:${prepared.characterId}:${ref.id}`;
+      return `<button type="button" class="mini-action map-workspace__target-choice map-workspace__card-target-choice" data-map-card-target="${escape(ctx, relation?.key ?? '')}" data-map-object-key="${escape(ctx, key)}"${focusKey(ctx, semanticKey)}${regionKey(ctx, semanticKey)} aria-pressed="${selected}">
+        <strong>${escape(ctx, label)}</strong><small>${card?.prepared ? '本轮准备牌' : '备选牌'}${selected ? ' · 已选目标' : ''}</small>
+      </button>`;
+    }).join('')}</div>
+  </div>`;
 }
 
 function titleContent(ctx: UIContext, title: string, subtitle?: string): string {
@@ -84,6 +123,10 @@ function renderActionHpEffects(action: { readonly hpEffects: readonly { readonly
   return `<small class="map-workspace__action-cost">HP ${action.hpEffects.map(effect => `${effect.amount > 0 ? '+' : ''}${effect.amount}`).join(' / ')}</small>`;
 }
 
+function renderCardEffects(ctx: UIContext, action: MapWorkspaceActionView): string {
+  return (action.cardEffects ?? []).map(effect => `<small class="map-workspace__action-cost">受用卡牌本轮 sCost 减免 ${ctx.formatNumber(effect.amount)}，最低为 0</small>`).join('');
+}
+
 function stableMapCardAngle(key: string): string {
   let hash = 2166136261;
   for (let index = 0; index < key.length; index += 1) {
@@ -98,9 +141,12 @@ function renderUnitFace(
     readonly name: string;
     readonly type: string;
     readonly currentHp: number;
+    readonly scost?: number;
     readonly maxHp?: number;
     readonly avatarUrl?: string;
     readonly regionKey?: string;
+    readonly objectKey?: string;
+    readonly relationAttributes?: string;
   },
 ): string {
   const maxHp = options.maxHp ?? 0;
@@ -109,7 +155,7 @@ function renderUnitFace(
   const avatar = options.avatarUrl
     ? `<img src="${escape(ctx, options.avatarUrl)}" alt="" loading="lazy">`
     : initial;
-  return `<section class="map-workspace__unit-face"${options.regionKey ? regionKey(ctx, options.regionKey) : ''} aria-label="${escape(ctx, options.name)} 单位卡">
+  return `<section class="map-workspace__unit-face"${options.regionKey ? regionKey(ctx, options.regionKey) : ''}${options.objectKey ? ` data-map-object-key="${escape(ctx, options.objectKey)}" tabindex="0"` : ''}${options.relationAttributes ?? ''} aria-label="${escape(ctx, options.name)} 单位卡">
     <header class="map-workspace__unit-header">
       <span class="map-workspace__unit-avatar" aria-hidden="true">${avatar}</span>
       <strong>${escape(ctx, options.name)}</strong>
@@ -117,7 +163,7 @@ function renderUnitFace(
     </header>
     <div class="map-workspace__unit-vitals">
       <div class="map-workspace__unit-stat map-workspace__unit-stat--hp"><span>HP</span><strong>${ctx.formatNumber(options.currentHp)} / ${maxHp > 0 ? ctx.formatNumber(maxHp) : '—'}</strong><i${maxHp > 0 ? ` role="meter" aria-label="生命值" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${options.currentHp}"` : ' aria-hidden="true"'}><b style="--map-unit-fill:${hpPercent}%"></b></i></div>
-      <div class="map-workspace__unit-stat map-workspace__unit-stat--scost"><span>sCost</span><strong aria-label="sCost 尚未由当前 MapRun 视图提供">—</strong><i aria-hidden="true"><b></b></i></div>
+      <div class="map-workspace__unit-stat map-workspace__unit-stat--scost"><span>sCost</span><strong aria-label="${options.scost === undefined ? 'sCost 尚未由当前 MapRun 视图提供' : `sCost ${options.scost}`}">${options.scost === undefined ? '—' : ctx.formatNumber(options.scost)}</strong><i aria-hidden="true"><b></b></i></div>
     </div>
     <div class="map-workspace__unit-buffs" aria-label="Buff"></div>
   </section>`;
@@ -200,7 +246,7 @@ function renderEncounterSources(ctx: UIContext, view: MapRunActiveWorkspaceView)
     ? `<section class="map-workspace__source-group"${regionKey(ctx, 'ability-options')} aria-label="Ability draft"><h3>Ability</h3>${preview.abilityOptions.map(option => {
         const selected = option.selected;
         return `<article class="map-workspace__source-option"${regionKey(ctx, `ability:${option.actionId}`)}>
-          <button type="button" class="mini-action map-workspace__source-choice${selected ? ' is-selected' : ''}" data-map-ability-draft${focusKey(ctx, `ability:${option.actionId}`)} data-action-id="${escape(ctx, option.actionId)}"${attributes} aria-pressed="${selected}"${!option.canPayPlayerCost ? ' disabled' : ''}>
+          <button type="button" class="mini-action map-workspace__source-choice${selected ? ' is-selected' : ''}" data-map-ability-draft${focusKey(ctx, `ability:${option.actionId}`)}${relationKey(ctx, view, 'ability', option.actionId)} data-action-id="${escape(ctx, option.actionId)}"${attributes} aria-pressed="${selected}"${!option.canPayPlayerCost ? ' disabled' : ''}>
             <strong>${escape(ctx, option.name)}</strong>${option.description ? `<small>${escape(ctx, option.description)}</small>` : ''}
             <small>Ability · 1 PlayerCost · ${option.canPayPlayerCost ? '费用充足' : 'PlayerCost 不足'}</small>${renderActionHpEffects(option)}
           </button>
@@ -212,7 +258,7 @@ function renderEncounterSources(ctx: UIContext, view: MapRunActiveWorkspaceView)
     ? `<section class="map-workspace__source-group"${regionKey(ctx, 'item-options')} aria-label="Item draft"><h3>Item</h3>${preview.itemOptions.map(option => {
         const selected = option.selected;
         return `<article class="map-workspace__source-option"${regionKey(ctx, `item:${option.itemId}`)}>
-          <button type="button" class="mini-action map-workspace__source-choice${selected ? ' is-selected' : ''}" data-map-item-draft${focusKey(ctx, `item:${option.itemId}`)} data-item-id="${escape(ctx, option.itemId)}" data-action-id="${escape(ctx, option.actionId)}"${attributes} aria-pressed="${selected}"${!option.canUse ? ' disabled' : ''}>
+          <button type="button" class="mini-action map-workspace__source-choice${selected ? ' is-selected' : ''}" data-map-item-draft${focusKey(ctx, `item:${option.itemId}`)}${relationKey(ctx, view, 'item', option.itemId)} data-item-id="${escape(ctx, option.itemId)}" data-action-id="${escape(ctx, option.actionId)}"${attributes} aria-pressed="${selected}"${!option.canUse ? ' disabled' : ''}>
             <strong>${escape(ctx, option.itemName)}</strong>${option.itemDescription ? `<small>${escape(ctx, option.itemDescription)}</small>` : ''}
             <small>库存 ${option.inventoryCount} · 条件${option.useConditionSatisfied ? '满足' : '未满足'} · ${option.canUse ? '可使用' : '暂不可用'}</small>${renderActionHpEffects(option)}
           </button>
@@ -338,7 +384,10 @@ function renderActionDock(ctx: UIContext, view: MapRunActiveWorkspaceView): stri
     : canComplete && encounter
       ? { kind: 'complete', runId: view.run.runId, nodeId: encounter.nodeId, label: encounter.completion?.label ?? '完成遭遇' }
       : { kind: 'disabled' };
+  const sources = renderEncounterSources(ctx, view);
   return `<section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="${preview ? `第 ${preview.round} 轮行动操作` : '当前遭遇操作'}">
+    <p class="map-workspace__dock-note" data-map-relation-status role="status" aria-live="polite"></p>
+    ${sources ? `<div class="map-workspace__options-scroll" data-map-region-key="action-options" data-scroll-owner="content-region">${sources}</div>` : ''}
     ${renderCommitDock(ctx, { playerCost: view.run.playerCost, status, action })}
   </section>`;
 }
@@ -371,8 +420,8 @@ function renderEnemyRegion(ctx: UIContext, runId: string, view: MapRunActiveWork
           const enemyName = ctx.nameOf('enemy', enemy.enemyId) || `敌方 ${enemy.enemyId}`;
           return `<li${regionKey(ctx, `enemy:${enemy.enemyId}`)} data-map-enemy-hp="${escape(ctx, enemy.enemyId)}">
             <article class="map-workspace__unit map-workspace__unit--enemy">
-              ${renderUnitFace(ctx, { name: enemyName, type: '敌方', currentHp: enemy.currentHp, maxHp: enemy.maxHp, regionKey: `enemy-face:${enemy.enemyId}` })}
-              <div class="map-workspace__unit-note"><span>行为信息未投影</span><button type="button" class="mini-action map-workspace__enemy-info" data-map-enemy-info data-enemy-id="${escape(ctx, enemy.enemyId)}" data-map-run-id="${escape(ctx, runId)}"${focusKey(ctx, `enemy-info:${enemy.enemyId}`)} aria-label="查看敌方 ${escape(ctx, enemyName)} 的当前情报">查看情报</button></div>
+              ${renderUnitFace(ctx, { name: enemyName, type: '敌方', currentHp: enemy.currentHp, maxHp: enemy.maxHp, regionKey: `enemy-face:${enemy.enemyId}`, objectKey: view ? unitKey(view, 'enemy', enemy.enemyId) : undefined, relationAttributes: view ? relationKey(ctx, view, 'enemy', enemy.enemyId) : '' })}
+              <div class="map-workspace__unit-note"><span>目标尚未确定 · 结算时决定</span><button type="button" class="mini-action map-workspace__enemy-info" data-map-enemy-info data-enemy-id="${escape(ctx, enemy.enemyId)}" data-map-run-id="${escape(ctx, runId)}"${focusKey(ctx, `enemy-info:${enemy.enemyId}`)} aria-label="查看敌方 ${escape(ctx, enemyName)} 的当前情报">查看情报</button></div>
             </article>
           </li>`;
         }).join('')}</ul>
@@ -430,6 +479,7 @@ function renderActivePartyMember(
         }).join('')}</div>
         ${prepared.legalTargetEnemyIds.length > 1 ? `<button type="button" class="mini-action map-workspace__target-clear" data-map-target-enemy-clear${focusKey(ctx, `target-enemy-clear:${prepared.characterId}`)} data-character-id="${escape(ctx, prepared.characterId)}"${attributes}>清除目标</button>` : ''}
       </div>`
+    : prepared.targetKind === 'card' ? renderCardTargets(ctx, view, prepared)
     : prepared.targetKind === 'self' ? '<small class="map-workspace__target-label">目标：自身</small>'
       : prepared.targetKind === 'none' ? '<small class="map-workspace__target-label">无目标</small>'
         : '<small class="map-workspace__target-label">无行动目标</small>';
@@ -461,9 +511,9 @@ function renderActivePartyMember(
           const actionStatus = isNatural ? '恢复默认'
             : candidate.kind === 'playerCommand' ? 'PlayerCommand · 1 PlayerCost' : '免费换用';
           const command = candidate.kind === 'swap' ? 'data-map-action-swap' : 'data-map-player-command';
-          return `<button type="button" class="map-workspace__hand-picker-card" ${command}${focusKey(ctx, key)}${regionKey(ctx, key)} data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, candidate.action.actionId)}"${attributes} aria-pressed="false"${candidate.disabled ? ' disabled' : ''}>
+          return `<button type="button" class="map-workspace__hand-picker-card" ${command}${cardAttributes(ctx, view, prepared.characterId, candidate.action.actionId)}${focusKey(ctx, key)}${regionKey(ctx, key)} data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, candidate.action.actionId)}"${attributes} aria-pressed="false"${candidate.disabled ? ' disabled' : ''}>
             <strong>${escape(ctx, candidate.action.name)}</strong><small>${escape(ctx, actionStatus)}${candidate.kind === 'playerCommand' && candidate.reason ? ` · ${escape(ctx, candidate.reason)}` : ''}</small>
-            ${candidate.action.description ? `<span>${escape(ctx, candidate.action.description)}</span>` : ''}${renderActionCosts(ctx, candidate.action)}${renderActionHpEffects(candidate.action)}
+            ${candidate.action.description ? `<span>${escape(ctx, candidate.action.description)}</span>` : ''}${renderActionCosts(ctx, candidate.action)}${renderActionHpEffects(candidate.action)}${renderCardEffects(ctx, candidate.action)}
           </button>`;
         }).join('')}</div>
       </div>`
@@ -477,12 +527,17 @@ function renderActivePartyMember(
     : '';
   const currentCardLabel = prepared.overrideKind === 'playerCommand' ? '当前生效的玩家指令'
     : preparedAction?.actionId === naturalActionId ? '当前生效的自然行为' : '当前生效的准备行为';
+  const sourceAttributes = relationKey(ctx, view, 'preparedAction', prepared.characterId)
+    + (preparedAction ? cardAttributes(ctx, view, prepared.characterId, preparedAction.actionId) : '');
+  const relation = view.relations.find(row => row.source.kind === 'preparedAction' && row.source.id === prepared.characterId);
+  const pinControl = relation ? `<button type="button" class="mini-action" data-map-relation-pin="${escape(ctx, relation.key)}"${focusKey(ctx, `relation-pin:${prepared.characterId}`)} aria-pressed="false">固定作用关系</button>` : '';
+  const targetControl = relation?.canSelectTarget ? `<button type="button" class="mini-action" data-map-target-edit="${escape(ctx, relation.key)}"${focusKey(ctx, `target-edit:${prepared.characterId}`)} aria-pressed="false">修改目标</button>` : '';
   const activeCard = preparedAction
     ? replacementCandidates.length > 0
-      ? `<button type="button" class="map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" data-map-hand-stack-toggle data-map-run-id="${escape(ctx, view.run.runId)}" data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, preparedAction.actionId)}" data-action-kind="${currentKind}" data-picker-id="${escape(ctx, pickerId)}"${focusKey(ctx, currentCardKey)} aria-controls="${escape(ctx, pickerId)}" aria-expanded="false" aria-label="${escape(ctx, `${preparedAction.name} · ${currentCardLabel}，点击更换`)}" aria-pressed="true" style="${currentCardStyle}">
+      ? `<button type="button"${sourceAttributes} class="map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" data-map-hand-stack-toggle data-map-run-id="${escape(ctx, view.run.runId)}" data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, preparedAction.actionId)}" data-action-kind="${currentKind}" data-picker-id="${escape(ctx, pickerId)}"${focusKey(ctx, currentCardKey)} aria-controls="${escape(ctx, pickerId)}" aria-expanded="false" aria-label="${escape(ctx, `${preparedAction.name} · ${currentCardLabel}，点击更换`)}" aria-pressed="true" style="${currentCardStyle}">
           <strong>${escape(ctx, preparedAction.name)}</strong><small>${escape(ctx, currentCardLabel)}</small>
         </button>`
-      : `<div class="map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" aria-label="${escape(ctx, currentCardLabel)}" style="${currentCardStyle}"><strong>${escape(ctx, preparedAction.name)}</strong><small>${escape(ctx, currentCardLabel)}</small></div>`
+      : `<div tabindex="0"${sourceAttributes} class="map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" aria-label="${escape(ctx, currentCardLabel)}" style="${currentCardStyle}"><strong>${escape(ctx, preparedAction.name)}</strong><small>${escape(ctx, currentCardLabel)}</small></div>`
     : `<div class="map-workspace__unit-action-card is-wait"><strong>Wait</strong><small>本轮待机</small></div>`;
   const stackMarkup = `<div class="map-workspace__unit-card-stack" data-map-region-key="unit-card-stack:${escape(ctx, prepared.characterId)}" role="group" aria-label="${actorName} 当前生效的准备行为">
     ${activeCard}${pickerMarkup}
@@ -491,20 +546,22 @@ function renderActivePartyMember(
   const face = renderUnitFace(ctx, {
     name: characterName,
     type: '学生',
+    scost: view.run.actorResources.find(row => row.characterId === prepared.characterId && row.resourceId === 'sCost')?.value,
     currentHp,
     maxHp,
     avatarUrl,
     regionKey: `party-face:${prepared.characterId}`,
+    objectKey: unitKey(view, 'partyCharacter', prepared.characterId),
   });
   const actionDetail = preparedAction
-    ? `<div class="map-workspace__unit-support"${regionKey(ctx, `prepared:${prepared.characterId}`)}>${preparedAction.description ? `<small>${escape(ctx, preparedAction.description)}</small>` : ''}${renderActionCosts(ctx, preparedAction)}${renderActionHpEffects(preparedAction)}${target}</div>`
+    ? `<div class="map-workspace__unit-support"${regionKey(ctx, `prepared:${prepared.characterId}`)}>${preparedAction.description ? `<small>${escape(ctx, preparedAction.description)}</small>` : ''}${renderActionCosts(ctx, preparedAction)}${renderActionHpEffects(preparedAction)}${renderCardEffects(ctx, preparedAction)}${target}</div>`
     : `<div class="map-workspace__unit-support"${regionKey(ctx, `prepared:${prepared.characterId}`)}><small>本角色本轮没有可行动作。</small>${target}</div>`;
 
   return `<article class="map-workspace__party-member" data-map-party-member="${escape(ctx, prepared.characterId)}"${regionKey(ctx, `party-member:${prepared.characterId}`)} aria-labelledby="map-party-${escape(ctx, prepared.characterId)}">
     <div class="map-workspace__unit-slot${preparedAction ? ' has-cards' : ''}" id="map-party-${escape(ctx, prepared.characterId)}">
       ${face}${stackMarkup}<span class="map-workspace__card-anchor" aria-hidden="true"></span>
     </div>
-    ${actionDetail}
+    ${actionDetail}${pinControl}${targetControl}
     ${actorResources ? `<p class="map-workspace__party-stats"${regionKey(ctx, `party-resources:${prepared.characterId}`)}>资源 ${actorResources}</p>` : ''}
   </article>`;
 }

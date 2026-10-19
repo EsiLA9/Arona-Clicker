@@ -1,0 +1,41 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/15229/Documents/Obsidian Vault/1-项目/ACProgram[39m
+
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mkeeps faction-scoped Enemy targets through Save/Load, settles overkill costs, and auto-wins without an Enemy turn
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mresolves Enemy turns in declaration order, stops on party defeat, and replays failure outside Save state
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mkeeps surviving members active after one ally falls, excludes downed targets, and retargets by current HP with stable ties
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mdraws a weighted, unique Hand once for every fixed party member and leaves Wait Hands empty
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mpreviews Hand-first preparation, Wait, no-target, self, and selected-party target rules
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mdrops a carried-over Enemy target that fell, keeping the reused card stateless next round
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mautomatically fills a unique party target and never creates a Wait Action ID
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrepeated previews preserve the natural Hand-first Prepared Action and all Run state
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mfree Swap uses another Hand item, and both a clear and the natural Action restore the default
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects Hand-out Swap and stale requests while keeping every Character independently overridable
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects a prior Encounter draft token after a new Encounter resets its revision
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mPlayerCommand selects a payable Hand-out candidate for one PlayerCost without deducting it
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects unpayable Action costs and unavailable PlayerCost Commands with zero writes
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22msets, clears, and restores a legal party target while rejecting an invalid or stale target
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mtreats a missing MapRun resource balance as zero when filtering Hand candidates
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mclears Encounter-local Hand and RNG while retaining MapRun-local resources
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects a mismatched Encounter Hand checkpoint without partially installing the Run
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mstarts from the resolver definition with one fixed current Node
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects an unknown Map without creating a Run
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects an incomplete admitted party without creating a Run
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22menters an Encounter on the start Node and requires a declared manual completion
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrequires directed adjacency, completes at B without moving, then succeeds at exit C
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mdoes not reopen a completed Encounter when a directed route revisits its Node
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrefuses a parallel Run without disturbing the active Run and allows a new Run after success
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mexposes only the terminal success result through GameInstance and clears it on dispose
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mcommits prepared actions and resolved targets atomically, then restores and deduplicates the checkpointed request
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22maccepts consistent multi-override receipts while rejecting forged override kinds and PlayerCost pairings
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects Commit after a Hand Action is removed from the active Encounter candidates without writing
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mcharges Swap as free and PlayerCommand once through the same Commit pipeline
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mcharges all round costs from starting balances before applying any effects
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mrejects unresolved targets and unsafe effects without writing any round state
+ [32m✓[39m tests/engine/gameplay-b-map-run.test.ts[2m > [22mMapRunService[2m > [22mallows a full Wait round to commit with no resource changes
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m32 passed[39m[22m[90m (32)[39m
+[2m   Start at [22m 03:29:54
+[2m   Duration [22m 5.52s[2m (transform 1.69s, setup 14ms, collect 5.12s, tests 64ms, environment 0ms, prepare 110ms)[22m
+

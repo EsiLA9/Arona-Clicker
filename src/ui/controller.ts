@@ -71,6 +71,7 @@ import { bindEntityPresentationActions } from './controller-actions-presentation
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 import { bindOperationActions, disposeOperationActions, type OperationFocusTarget } from './controller-actions-operation';
+import { MapRelationInteraction } from './workspace/map-relation-interaction';
 import type { GameCommands } from '../arona-clicker/contracts';
 import type { PackCatalogReadModel } from '../arona-clicker/contracts';
 import type { OperationView } from '../arona-clicker/contracts/operation-view';
@@ -399,6 +400,7 @@ export class UIController {
   private mapFlow: { readonly runId: string; readonly model: MapFlowModel } | null = null;
   /** Map 中部信息流的共享滚动状态（按真实宿主锚点恢复阅读位置）。 */
   private readonly mapFeedScroll = new FlowScroll();
+  private readonly mapRelations: MapRelationInteraction;
   /** 选择页轮盘交互（Init ⇄ GlobalEnhancement 左右滑动、共享一圆）。 */
   readonly selectorPage: SelectorPage;
   /** 数据包导入 / 日志导出。 */
@@ -417,6 +419,24 @@ export class UIController {
     readonly root: HTMLElement,
   ) {
     this.commands = createGameCommands(game);
+    this.mapRelations = new MapRelationInteraction(root, runId => {
+      const route = this.panelState.workspaceNavigation?.current;
+      if (this.panelState.workspace || this.panelState.service !== 'game' || route?.kind !== 'map' || route.runId !== runId) return [];
+      const view = game.mapRun.getWorkspaceView(runId);
+      return view?.kind === 'active' ? view.relations : [];
+    }, (relation, actionId) => game.mapRun.previewReplacement(relation.scope.runId, relation.source.id, actionId, relation.draft), (relation, target) => {
+      const { runId } = relation.scope;
+      if (relation.source.kind === 'preparedAction') {
+        if (target.kind === 'card') this.commands.setMapPreparedCardTarget(runId, relation.source.id, target, relation.draft);
+        else if (target.kind === 'enemy') this.commands.setMapPreparedEnemyTarget(runId, relation.source.id, target.id, relation.draft);
+        else this.commands.setMapPreparedTarget(runId, relation.source.id, target.id, relation.draft);
+      } else if ((relation.source.kind === 'ability' || relation.source.kind === 'item') && target.kind !== 'card') {
+        const selected = target.kind === 'enemy' ? { kind: 'enemy' as const, enemyId: target.id } : { kind: 'partyCharacter' as const, characterId: target.id };
+        if (relation.source.kind === 'ability') this.commands.setMapAbilityDraft(runId, relation.source.actionId, selected, relation.draft);
+        else this.commands.setMapItemDraft(runId, relation.source.id, selected, relation.draft);
+      } else return;
+      this.requestMapWorkspaceRefresh(runId);
+    });
     this.surfaceRuntime = new UISurfaceRuntime(this.panelState);
     this.uiBehaviors = createDefaultUIBehaviorRegistry();
     const updateSink: UIUpdateSink = {
@@ -522,6 +542,7 @@ export class UIController {
   }
 
   destroy(): void {
+    this.mapRelations.dispose();
     disposeOperationActions(this);
     this.disposeMapFlow();
     flushRuntimeEditorDraft(this);
@@ -1113,6 +1134,7 @@ export class UIController {
     if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace) {
       // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
       renderInitSelectImpl(this);
+      this.mapRelations.reconcile();
       this.surfaceRuntime.markMounted();
       return;
     }
@@ -1149,6 +1171,7 @@ export class UIController {
     this.restoreThemeFloat();
     // 同步揭示指纹，避免下一次事件重复重建
     this.revealFingerprint = this.computeRevealFingerprint();
+    this.mapRelations.reconcile();
   }
 
   /**
@@ -1860,6 +1883,7 @@ export class UIController {
     this.pendingMapRefreshRunId = null;
     this.popovers.retainIfAnchored();
     this.applyTheme(false);
+    this.mapRelations.reconcile();
     return true;
   }
 
@@ -1884,6 +1908,7 @@ export class UIController {
 
   /** 离开 Run / 读档 / 销毁：清空 UI 临时序列与信息流滚动状态。 */
   private disposeMapFlow(): void {
+    this.mapRelations.reset();
     this.mapFlow?.model.dispose();
     this.mapFlow = null;
     this.mapFeedScroll.reset();

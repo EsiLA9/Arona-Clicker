@@ -114,6 +114,25 @@ function last<T>(items: readonly T[]): T {
 }
 
 describe('Map Flow Adapter', () => {
+  it.each([0, 1])('活动投影与持久回执均显示实际 sCost 明细（实扣 %s）', paid => {
+    const base = activeView({ commit: { requestId: 'cost', round: 1 } });
+    const cost = { original: 2, discount: 2 - paid, paid };
+    const projected = base.actionPreview!.recentCommit!;
+    const settlement = { ...projected.settlements[0], scostCost: cost };
+    const active = { ...base, actionPreview: { ...base.actionPreview!, recentCommit: { ...projected, settlements: [settlement] } } };
+    const saved = { ...base, actionPreview: null, run: { ...base.run, lastEncounterCommit: {
+      ...projected, settlements: [{ ...settlement, actionId: 'attack' }],
+    } } } as unknown as MapRunActiveWorkspaceView;
+    for (const view of [active, saved]) {
+      const model = new MapFlowModel('run-1', port);
+      model.sync(view);
+      const line = model.snapshot.find(entry => entry.instanceKey === 'map:commit:cost')!.lines![0];
+      expect(line).toContain(`sCost 原费 2 / 减免 ${2 - paid} / 实扣 ${paid}`);
+      model.sync(view);
+      expect(model.snapshot.filter(entry => entry.instanceKey === 'map:commit:cost')).toHaveLength(1);
+    }
+  });
+
   it('空闲地点唤起单个移动器，活动中收起；刷新／恢复不虚构移动历史', () => {
     const model = new MapFlowModel('run-1', port);
     const base = activeView();

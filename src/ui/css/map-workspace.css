@@ -1144,6 +1144,24 @@
   font-size: 8px;
 }
 
+.map-workspace__card-target-choice {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+}
+
+.map-workspace__hand-picker-card[data-map-object-key] { position: relative; }
+
+.map-workspace__card-target-choice[data-map-role-recipient] { padding-bottom: 16px; }
+
+.map-workspace__card-target-choice small {
+  color: var(--muted-on-panel-light);
+  font-size: 8px;
+}
+
 .map-workspace__commands {
   padding-top: 6px;
   border-top: 1px solid var(--line);
@@ -1429,3 +1447,93 @@
 .map-workspace__feed [data-map-movement] {
   font-style: italic;
 }
+
+/* Relation roles use shape, placement and labels independently of faction. */
+.map-workspace__region [data-map-role-source] {
+  outline: 2px solid var(--ink-on-panel-light);
+  outline-offset: 3px;
+}
+
+.map-workspace__region .map-workspace__unit-action-card[data-map-role-source] {
+  z-index: 90;
+  padding-top: 17px;
+  transform: translateY(-9px) rotate(var(--map-card-angle, 0deg));
+}
+
+.map-workspace__region [data-map-role-source]::before {
+  content: '↑ ' attr(data-map-role-source);
+  position: absolute;
+  top: -9px;
+  left: 6px;
+  z-index: 2;
+  padding: 2px 4px;
+  border-radius: 0 0 4px 0;
+  background: var(--ink-on-panel-light);
+  color: var(--panel-light);
+  font-size: 8px;
+  pointer-events: none;
+}
+
+.map-workspace__region .map-workspace__unit-action-card[data-map-role-source]::before {
+  top: 0;
+  left: 0;
+}
+
+.map-workspace__region [data-map-role-recipient] {
+  box-shadow: inset 0 0 0 2px var(--ink-on-panel-light);
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--ink-on-panel-light) 6%, transparent), transparent);
+}
+
+.map-workspace__region [data-map-role-recipient]::after {
+  content: '⌜ ' attr(data-map-role-recipient) ' ⌟';
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  z-index: 2;
+  padding: 2px 5px;
+  border: 1px solid var(--ink-on-panel-light);
+  border-radius: 4px 0 4px 0;
+  background: var(--panel-light);
+  color: var(--ink-on-panel-light);
+  font-size: 8px;
+  pointer-events: none;
+}
+
+.map-workspace__region [data-map-role-candidate]:not([data-map-role-recipient]) {
+  outline: 1px dashed var(--muted-on-panel-light);
+  outline-offset: -4px;
+}
+
+.map-workspace__source-choice[data-map-relation-key] { position: relative; }
+.map-workspace__region [data-map-object-key]:focus-visible,
+.map-workspace__region [data-map-relation-key]:focus-visible {
+  outline: 2px solid var(--theme-node-primary, var(--cyan));
+  outline-offset: 5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-workspace__unit-action-card { transition: none; }
+}
+
+.map-workspace__target-drag-preview {
+  position: fixed;
+  z-index: 10000;
+  display: grid;
+  gap: 4px;
+  width: 120px;
+  padding: 10px;
+  border: 2px solid var(--ink-on-panel-light);
+  border-radius: 6px;
+  background: var(--panel-light);
+  color: var(--ink-on-panel-light);
+  box-shadow: var(--panel-shadow);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.map-workspace__region [data-map-role-drop] {
+  outline: 3px double var(--ink-on-panel-light);
+  outline-offset: 2px;
+}
+
+.map-workspace__region[data-map-relation-mode='dragging'] { user-select: none; }
