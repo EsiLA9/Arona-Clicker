@@ -1449,7 +1449,8 @@
 }
 
 /* Relation roles use shape, placement and labels independently of faction. */
-.map-workspace__region [data-map-role-source] {
+.map-workspace__region [data-map-role-source],
+.map-workspace__region [data-map-role-recipient] {
   outline: 2px solid var(--ink-on-panel-light);
   outline-offset: 3px;
 }
@@ -1460,18 +1461,23 @@
   transform: translateY(-9px) rotate(var(--map-card-angle, 0deg));
 }
 
-.map-workspace__region [data-map-role-source]::before {
-  content: '↑ ' attr(data-map-role-source);
+.map-workspace__region [data-map-role-source]::before,
+.map-workspace__region [data-map-role-recipient]::after {
   position: absolute;
-  top: -9px;
-  left: 6px;
   z-index: 2;
   padding: 2px 4px;
-  border-radius: 0 0 4px 0;
+  border: 1px solid var(--ink-on-panel-light);
+  border-radius: 4px;
   background: var(--ink-on-panel-light);
   color: var(--panel-light);
   font-size: 8px;
   pointer-events: none;
+}
+
+.map-workspace__region [data-map-role-source]::before {
+  content: '↑ ' attr(data-map-role-source);
+  top: -9px;
+  left: 6px;
 }
 
 .map-workspace__region .map-workspace__unit-action-card[data-map-role-source]::before {
@@ -1479,24 +1485,10 @@
   left: 0;
 }
 
-.map-workspace__region [data-map-role-recipient] {
-  box-shadow: inset 0 0 0 2px var(--ink-on-panel-light);
-  background-image: linear-gradient(135deg, color-mix(in srgb, var(--ink-on-panel-light) 6%, transparent), transparent);
-}
-
 .map-workspace__region [data-map-role-recipient]::after {
-  content: '⌜ ' attr(data-map-role-recipient) ' ⌟';
-  position: absolute;
-  right: 1px;
+  content: '↓ ' attr(data-map-role-recipient);
+  left: 1px;
   bottom: 1px;
-  z-index: 2;
-  padding: 2px 5px;
-  border: 1px solid var(--ink-on-panel-light);
-  border-radius: 4px 0 4px 0;
-  background: var(--panel-light);
-  color: var(--ink-on-panel-light);
-  font-size: 8px;
-  pointer-events: none;
 }
 
 .map-workspace__region [data-map-role-candidate]:not([data-map-role-recipient]) {

@@ -338,6 +338,50 @@ const LATE_EFFECT_COMMIT_MAP: TestMap = {
   edges: [{ fromNodeId: 'a', toNodeId: 'b' }, { fromNodeId: 'b', toNodeId: 'c' }],
 };
 
+const TEAM_RESERVATION_MAP_ID = 'test:map:team-reservation';
+const TEAM_RESERVATION_MAP: TestMap = {
+  id: TEAM_RESERVATION_MAP_ID,
+  name: 'Team Reservation',
+  resumeVersion: 1,
+  startNodeId: 'a',
+  exitNodeIds: ['c'],
+  partyCharacterIds: ['shiroko', 'serika'],
+  initialPartyHp: [
+    { characterId: 'shiroko', initialHp: 10, maxHp: 10 },
+    { characterId: 'serika', initialHp: 10, maxHp: 10 },
+  ],
+  initialPlayerCost: 1,
+  actions: [
+    {
+      id: 'shiroko-spend-two', name: 'Shiroko Spend Two', eligibleCharacterIds: ['shiroko'], target: { kind: 'none' },
+      costs: [{ scope: 'team', resourceId: 'supplies', amount: 2 }],
+    },
+    {
+      id: 'serika-spend-two', name: 'Serika Spend Two', eligibleCharacterIds: ['serika'], target: { kind: 'none' },
+      costs: [{ scope: 'team', resourceId: 'supplies', amount: 2 }],
+    },
+    { id: 'serika-free', name: 'Serika Free Action', eligibleCharacterIds: ['serika'], target: { kind: 'none' } },
+  ],
+  initialTeamResources: [{ resourceId: 'supplies', value: 3 }],
+  nodes: [
+    { id: 'a', title: 'Start' },
+    {
+      id: 'b', title: 'Encounter', encounter: {
+        title: 'Team Reservation',
+        participants: [
+          { characterId: 'shiroko', actions: [{ actionId: 'shiroko-spend-two', tendencyWeight: 1 }] },
+          { characterId: 'serika', actions: [
+            { actionId: 'serika-spend-two', tendencyWeight: 1 },
+            { actionId: 'serika-free', tendencyWeight: 1 },
+          ] },
+        ],
+      },
+    },
+    { id: 'c', title: 'Exit' },
+  ],
+  edges: [{ fromNodeId: 'a', toNodeId: 'b' }, { fromNodeId: 'b', toNodeId: 'c' }],
+};
+
 function resolverOf(...maps: TestMap[]): MapContentResolver {
   const mapById = new Map(maps.map(map => [map.id, map]));
   return { resolve: mapId => mapById.get(mapId) ?? null };
@@ -636,6 +680,166 @@ describe('MapRunService', () => {
     expect(success.status).toBe('success');
   });
 
+  test('preserves a manually confirmed sole default target when an earlier action defeats it', () => {
+    const singleTargetMap: TestMap = {
+      ...BATTLE_MAP,
+      id: 'test:map:manual-sole-target',
+      nodes: BATTLE_MAP.nodes.map(node => node.id === 'b'
+        ? { ...node, encounter: { ...node.encounter!, enemies: [node.encounter!.enemies![0]!] } }
+        : node),
+    };
+    const service = battleService(singleTargetMap);
+    const started = service.start(singleTargetMap.id, BATTLE_PARTY);
+    const entered = service.move(started.runId, 'b');
+    expect(service.previewActions(started.runId)?.preparedActions[1].targetEnemyId).toBe('serika');
+
+    const manuallyLocked = service.setPreparedEnemyTarget(
+      started.runId,
+      'serika',
+      'serika',
+      draftToken(entered.activeEncounter),
+    );
+    expect(manuallyLocked.activeEncounter?.targetSelections).toContainEqual({
+      characterId: 'serika',
+      targetEnemyId: 'serika',
+    });
+    const preview = service.previewEncounterCommit(started.runId);
+    expect(preview?.settlements?.[1]).toMatchObject({
+      targetEnemyId: 'serika',
+      resourceChanges: [
+        { kind: 'cost', scope: 'team', resourceId: 'ammo', delta: -1 },
+        { kind: 'effect', scope: 'team', resourceId: 'ammo', delta: 1 },
+      ],
+      hpChanges: [{ scope: 'enemy', enemyId: 'serika', delta: 0 }],
+    });
+    expect(preview?.settlements?.[1]?.skipReason).toBeUndefined();
+  });
+
+  test('reselects automatic Character targets in order, skips targetless actions for free, and saves the receipt', () => {
+    const source = battleService(BATTLE_MAP);
+    const started = source.start(BATTLE_MAP_ID, BATTLE_PARTY);
+    const entered = source.move(started.runId, 'b');
+    expect(source.previewActions(started.runId)?.preparedActions.map(row => row.targetEnemyId))
+      .toEqual(['serika', 'serika', 'serika']);
+
+    const preview = source.previewEncounterCommit(started.runId);
+    expect(preview).toMatchObject({ canCommit: true });
+    expect(preview?.settlements?.map(row => ({
+      characterId: row.characterId,
+      targetEnemyId: row.targetEnemyId ?? null,
+      skipReason: row.skipReason,
+    }))).toEqual([
+      { characterId: 'shiroko', targetEnemyId: 'serika', skipReason: undefined },
+      { characterId: 'serika', targetEnemyId: 'wolf', skipReason: undefined },
+      { characterId: 'hoshino', targetEnemyId: null, skipReason: 'noLegalTarget' },
+    ]);
+    expect(preview?.settlements?.[2]?.resourceChanges).toEqual([]);
+    expect(preview?.settlements?.[2]?.hpChanges).toBeUndefined();
+
+    const command = commitCommand(entered, 'automatic-retarget-round');
+    const committed = source.commitEncounterRound(command);
+    expect(committed.activeEncounter).toBeNull();
+    expect(committed.teamResources).toEqual([{ resourceId: 'ammo', value: 3 }]);
+    expect(committed.lastEncounterCommit?.settlements).toEqual(preview?.settlements);
+
+    const checkpoint = source.createSaveSnapshot();
+    if (!checkpoint) throw new Error('Retargeted round receipt checkpoint is missing');
+    const restored = battleService(BATTLE_MAP);
+    expect(restored.restoreSaveSnapshot(checkpoint)).toMatchObject({ status: 'restored', runId: started.runId });
+    expect(restored.getSnapshot(started.runId)?.lastEncounterCommit?.settlements).toEqual(preview?.settlements);
+  });
+
+  test('keeps an already paid PlayerCommand fee when its automatic target has no replacement', () => {
+    const commandSkipMap: TestMap = {
+      id: 'test:map:command-target-skip',
+      name: 'Command Target Skip',
+      resumeVersion: 1,
+      startNodeId: 'a',
+      exitNodeIds: ['c'],
+      partyCharacterIds: ['shiroko', 'serika'],
+      initialPartyHp: [
+        { characterId: 'shiroko', initialHp: 10, maxHp: 10 },
+        { characterId: 'serika', initialHp: 10, maxHp: 10 },
+      ],
+      initialPlayerCost: 1,
+      initialTeamResources: [{ resourceId: 'supplies', value: 1 }],
+      actions: [
+        { id: 'shiroko-kill', name: 'Shiroko Kill', eligibleCharacterIds: ['shiroko'],
+          target: { kind: 'enemy' }, hpEffects: [{ amount: -5 }] },
+        { id: 'serika-natural', name: 'Serika Natural', eligibleCharacterIds: ['serika'],
+          target: { kind: 'enemy' }, hpEffects: [{ amount: -1 }] },
+        ...[1, 2, 3].map(index => ({
+          id: 'serika-command-' + index,
+          name: 'Serika Command ' + index,
+          eligibleCharacterIds: ['serika'],
+          target: { kind: 'enemy' as const },
+          costs: [{ scope: 'team' as const, resourceId: 'supplies', amount: 1 }],
+          effects: [{ scope: 'team' as const, resourceId: 'supplies', amount: 2 }],
+          hpEffects: [{ amount: -1 }],
+        })),
+      ],
+      nodes: [
+        { id: 'a', title: 'Start' },
+        {
+          id: 'b', title: 'Battle', encounter: {
+            title: 'Battle',
+            enemies: [{ id: 'enemy-a', initialHp: 5, maxHp: 5, damage: 1 }],
+            participants: [
+              { characterId: 'shiroko', actions: [{ actionId: 'shiroko-kill', tendencyWeight: 1 }] },
+              { characterId: 'serika', actions: [
+                { actionId: 'serika-natural', tendencyWeight: 1 },
+                ...[1, 2, 3].map(index => ({ actionId: 'serika-command-' + index, tendencyWeight: 1 })),
+              ] },
+            ],
+          },
+        },
+        { id: 'c', title: 'Exit' },
+      ],
+      edges: [{ fromNodeId: 'a', toNodeId: 'b' }, { fromNodeId: 'b', toNodeId: 'c' }],
+    };
+    const service = battleService(commandSkipMap);
+    const started = service.start(commandSkipMap.id, COMMIT_PARTY);
+    const entered = service.move(started.runId, 'b');
+    const beforeCommand = service.previewActions(started.runId);
+    const commandOption = beforeCommand?.playerCommandOptions.find(row =>
+      row.characterId === 'serika' && row.canPayActionCosts,
+    );
+    if (!commandOption) throw new Error('Expected an affordable Hand-out PlayerCommand candidate');
+    const commanded = service.issuePlayerCommand(
+      started.runId,
+      'serika',
+      commandOption.actionId,
+      draftToken(entered.activeEncounter),
+    );
+
+    const preview = service.previewEncounterCommit(started.runId);
+    expect(preview).toMatchObject({ canCommit: true, playerCostRequired: 1 });
+    expect(preview?.settlements?.[1]).toMatchObject({
+      actionId: commandOption.actionId,
+      targetCharacterId: null,
+      overrideKind: 'playerCommand',
+      playerCostSpent: 1,
+      resourceChanges: [],
+      skipReason: 'noLegalTarget',
+    });
+
+    const committed = service.commitEncounterRound(commitCommand(commanded, 'command-target-skip'));
+    expect(committed.playerCost).toBe(0);
+    expect(committed.teamResources).toEqual([{ resourceId: 'supplies', value: 1 }]);
+    expect(committed.lastEncounterCommit?.settlements[1]).toMatchObject({
+      actionId: commandOption.actionId,
+      playerCostSpent: 1,
+      resourceChanges: [],
+      skipReason: 'noLegalTarget',
+    });
+    const checkpoint = service.createSaveSnapshot();
+    if (!checkpoint) throw new Error('PlayerCommand skip receipt checkpoint is missing');
+    const restored = battleService(commandSkipMap);
+    expect(restored.restoreSaveSnapshot(checkpoint)).toMatchObject({ status: 'restored', runId: started.runId });
+    expect(restored.getSnapshot(started.runId)?.lastEncounterCommit?.settlements[1])
+      .toEqual(committed.lastEncounterCommit?.settlements[1]);
+  });
+
   test('resolves Enemy turns in declaration order, stops on party defeat, and replays failure outside Save state', () => {
     const source = battleService(DEFEAT_MAP);
     const started = source.start(DEFEAT_MAP_ID, DEFEAT_PARTY);
@@ -811,6 +1015,8 @@ describe('MapRunService', () => {
     for (let seed = 0; seed < 400; seed += 1) {
       const draw = drawGameplayBHands({
         partyCharacterIds: ['shiroko'],
+        livingPartyCharacterIds: ['shiroko'],
+        livingEnemyIds: [],
         participants: [shirokoParticipant],
         actions: HAND_MAP.actions,
         actorResources: [{ characterId: 'shiroko', resourceId: 'stamina', value: 2 }],
@@ -822,7 +1028,92 @@ describe('MapRunService', () => {
     expect(favoredFirstCount).toBeGreaterThan(250);
   });
 
-  test('previews Hand-first preparation, Wait, no-target, self, and selected-party target rules', () => {
+  test('applies explicit recovery, defense, and attack weights at their exact HP / target thresholds', () => {
+    const countSituationalFirst = (
+      role: 'recovery' | 'defense' | 'attack',
+      partyHealth: { characterId: string; currentHp: number; maxHp: number }[],
+      livingEnemyIds: string[],
+    ) => {
+      const target = role === 'recovery'
+        ? { kind: 'partyCharacter' as const }
+        : role === 'attack'
+          ? { kind: 'enemy' as const }
+          : { kind: 'none' as const };
+      let count = 0;
+      for (let seed = 0; seed < 500; seed += 1) {
+        const draw = drawGameplayBHands({
+          partyCharacterIds: ['shiroko', 'serika'],
+          livingPartyCharacterIds: partyHealth.filter(row => row.currentHp > 0).map(row => row.characterId),
+          livingEnemyIds,
+          partyHealth,
+          participants: [{
+            characterId: 'shiroko',
+            actions: [
+              { actionId: 'plain', tendencyWeight: 1 },
+              { actionId: 'situational', tendencyWeight: 1 },
+            ],
+          }],
+          actions: [
+            { id: 'plain', name: 'Plain', eligibleCharacterIds: ['shiroko'], target: { kind: 'none' } },
+            { id: 'situational', name: 'Situational', eligibleCharacterIds: ['shiroko'], target, tendencyRole: role },
+          ],
+          actorResources: [],
+          teamResources: [],
+          randomState: { algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM, seed, cursor: 0 },
+        });
+        if (draw.hands[0].actionIds[0] === 'situational') count += 1;
+      }
+      return count;
+    };
+
+    const healthy = [
+      { characterId: 'shiroko', currentHp: 10, maxHp: 10 },
+      { characterId: 'serika', currentHp: 8, maxHp: 8 },
+    ];
+    const injuredAtQuarter = [
+      { characterId: 'shiroko', currentHp: 10, maxHp: 10 },
+      { characterId: 'serika', currentHp: 6, maxHp: 8 },
+    ];
+    expect(countSituationalFirst('recovery', injuredAtQuarter, []))
+      .toBeGreaterThan(countSituationalFirst('recovery', healthy, []) + 40);
+
+    const defenseAboveHalf = [
+      { characterId: 'shiroko', currentHp: 6, maxHp: 10 },
+      { characterId: 'serika', currentHp: 8, maxHp: 8 },
+    ];
+    const defenseAtHalf = [
+      { characterId: 'shiroko', currentHp: 5, maxHp: 10 },
+      { characterId: 'serika', currentHp: 8, maxHp: 8 },
+    ];
+    expect(countSituationalFirst('defense', defenseAtHalf, []))
+      .toBeGreaterThan(countSituationalFirst('defense', defenseAboveHalf, []) + 40);
+
+    expect(countSituationalFirst('attack', healthy, ['enemy-a']))
+      .toBeGreaterThan(countSituationalFirst('attack', healthy, []) + 40);
+
+    const contextualMap: TestMap = {
+      ...HAND_MAP,
+      id: 'test:map:contextual-hand',
+      initialPartyHp: HAND_MAP.initialPartyHp.map(row => row.characterId === 'shiroko'
+        ? { ...row, initialHp: 5 }
+        : row),
+      actions: HAND_MAP.actions!.map(action => action.id === 'favored'
+        ? { ...action, tendencyRole: 'defense' as const }
+        : action),
+    };
+    const source = new MapRunService(resolverOf(contextualMap), resolveTestVariant);
+    const started = source.start(contextualMap.id, HAND_PARTY);
+    const entered = source.move(started.runId, 'b');
+    const saved = source.createSaveSnapshot();
+    if (!saved) throw new Error('Context-weighted Encounter save is missing');
+    const checkpoint = JSON.parse(JSON.stringify(saved)) as MapRunSaveSnapshot;
+    const restored = new MapRunService(resolverOf(contextualMap), resolveTestVariant);
+    expect(restored.restoreSaveSnapshot(checkpoint)).toMatchObject({ status: 'restored', runId: started.runId });
+    expect(restored.getSnapshot()?.activeEncounter?.hands).toEqual(entered.activeEncounter?.hands);
+    expect(restored.getSnapshot()?.activeEncounter?.randomState).toEqual(entered.activeEncounter?.randomState);
+  });
+
+  test('previews Hand-first preparation, Wait, self, and automatic party targets', () => {
     const encounter = preparedEncounter([
       { characterId: 'shiroko', actionIds: ['inspect'] },
       { characterId: 'serika', actionIds: ['self-care'] },
@@ -881,8 +1172,23 @@ describe('MapRunService', () => {
       preparedActionId: 'assist-party',
       targetKind: 'partyCharacter',
       legalTargetCharacterIds: ['shiroko', 'serika'],
-      targetCharacterId: null,
-      targetSelectionRequired: true,
+      targetCharacterId: 'shiroko',
+      targetSelectionRequired: false,
+    });
+    const manuallySelectedPartyTarget = resolveGameplayBActionPreview({
+      ...input,
+      encounter: {
+        ...preparedEncounter([
+          { characterId: 'shiroko', actionIds: ['assist-party'] },
+          { characterId: 'serika', actionIds: [] },
+        ]),
+        targetSelections: [{ characterId: 'shiroko', targetCharacterId: 'serika' }],
+      },
+    });
+    expect(manuallySelectedPartyTarget.preparedActions[0]).toMatchObject({
+      legalTargetCharacterIds: ['shiroko', 'serika'],
+      targetCharacterId: 'serika',
+      targetSelectionRequired: false,
     });
 
     const waitPreview = resolveGameplayBActionPreview({
@@ -941,7 +1247,7 @@ describe('MapRunService', () => {
     expect(preview.preparedActions.every(row => !row.targetSelectionRequired)).toBe(true);
   });
 
-  test('automatically fills a unique party target and never creates a Wait Action ID', () => {
+  test('chooses preferred legal targets and never creates a Wait Action ID', () => {
     const singlePartyMap: TestMap = {
       ...PREPARED_MAP,
       partyCharacterIds: ['shiroko'],
@@ -987,6 +1293,111 @@ describe('MapRunService', () => {
     }).preparedActions[0];
     expect(wait.preparedActionId).toBeNull();
     expect(wait.handActionIds).toEqual([]);
+  });
+
+  test('selects lowest enemy HP ratio and highest party missing-HP ratio with stable ties', () => {
+    const enemyDefinitions = [
+      { id: 'enemy-a', initialHp: 4, maxHp: 10, damage: 1 },
+      { id: 'enemy-b', initialHp: 4, maxHp: 20, damage: 1 },
+      { id: 'enemy-c', initialHp: 8, maxHp: 10, damage: 1 },
+      { id: 'enemy-d', initialHp: 2, maxHp: 10, damage: 1 },
+    ];
+    const enemyPreferenceMap: TestMap = {
+      ...BATTLE_MAP,
+      actions: BATTLE_ACTIONS.map(action => action.id === 'shiroko-strike'
+        ? { ...action, target: { kind: 'enemy' as const, preference: 'lowestHpRatio' as const } }
+        : action),
+      nodes: BATTLE_MAP.nodes.map(node => node.id === 'b'
+        ? { ...node, encounter: { ...node.encounter!, enemies: enemyDefinitions } }
+        : node),
+    };
+    const enemyEncounter = {
+      ...preparedEncounter(BATTLE_PARTY.map((member, index) => ({
+        characterId: member.characterId,
+        actionIds: index === 0 ? ['shiroko-strike'] : [BATTLE_ACTIONS[index]!.id],
+      }))),
+      enemies: [
+        { enemyId: 'enemy-a', currentHp: 4 },
+        { enemyId: 'enemy-b', currentHp: 4 },
+        { enemyId: 'enemy-c', currentHp: 8 },
+        { enemyId: 'enemy-d', currentHp: 2 },
+      ],
+    };
+    const enemyPreview = resolveGameplayBActionPreview({
+      definition: enemyPreferenceMap,
+      encounter: enemyEncounter,
+      party: BATTLE_PARTY,
+      partyHp: [
+        { characterId: 'shiroko', currentHp: 2 },
+        { characterId: 'serika', currentHp: 8 },
+        { characterId: 'hoshino', currentHp: 5 },
+      ],
+      playerCost: 0,
+      actorResources: [],
+      teamResources: [{ resourceId: 'ammo', value: 3 }],
+    });
+    expect(enemyPreview.preparedActions[0]).toMatchObject({
+      legalTargetEnemyIds: ['enemy-a', 'enemy-b', 'enemy-c', 'enemy-d'],
+      targetEnemyId: 'enemy-b',
+      targetSelectionRequired: false,
+    });
+
+    const manuallySelectedEnemyPreview = resolveGameplayBActionPreview({
+      definition: enemyPreferenceMap,
+      encounter: { ...enemyEncounter, targetSelections: [{ characterId: 'shiroko', targetEnemyId: 'enemy-c' }] },
+      party: BATTLE_PARTY,
+      partyHp: [
+        { characterId: 'shiroko', currentHp: 2 },
+        { characterId: 'serika', currentHp: 8 },
+        { characterId: 'hoshino', currentHp: 5 },
+      ],
+      playerCost: 0,
+      actorResources: [],
+      teamResources: [{ resourceId: 'ammo', value: 3 }],
+    });
+    expect(manuallySelectedEnemyPreview.preparedActions[0].targetEnemyId).toBe('enemy-c');
+
+    const stableEnemyPreview = resolveGameplayBActionPreview({
+      definition: { ...enemyPreferenceMap, actions: BATTLE_ACTIONS },
+      encounter: enemyEncounter,
+      party: BATTLE_PARTY,
+      partyHp: [
+        { characterId: 'shiroko', currentHp: 2 },
+        { characterId: 'serika', currentHp: 8 },
+        { characterId: 'hoshino', currentHp: 5 },
+      ],
+      playerCost: 0,
+      actorResources: [],
+      teamResources: [{ resourceId: 'ammo', value: 3 }],
+    });
+    expect(stableEnemyPreview.preparedActions[0].targetEnemyId).toBe('enemy-a');
+
+    const partyPreferenceMap: TestMap = {
+      ...PREPARED_MAP,
+      actions: PREPARED_MAP.actions!.map(action => action.id === 'assist-party'
+        ? { ...action, target: { kind: 'partyCharacter' as const, preference: 'highestMissingHpRatio' as const } }
+        : action),
+    };
+    const partyPreview = resolveGameplayBActionPreview({
+      definition: partyPreferenceMap,
+      encounter: preparedEncounter([
+        { characterId: 'shiroko', actionIds: ['assist-party'] },
+        { characterId: 'serika', actionIds: [] },
+      ]),
+      party: PREPARED_PARTY,
+      partyHp: [
+        { characterId: 'shiroko', currentHp: 6 },
+        { characterId: 'serika', currentHp: 4 },
+      ],
+      playerCost: 2,
+      actorResources: [],
+      teamResources: [],
+    });
+    expect(partyPreview.preparedActions[0]).toMatchObject({
+      legalTargetCharacterIds: ['shiroko', 'serika'],
+      targetCharacterId: 'serika',
+      targetSelectionRequired: false,
+    });
   });
 
   test('repeated previews preserve the natural Hand-first Prepared Action and all Run state', () => {
@@ -1254,12 +1665,17 @@ describe('MapRunService', () => {
 
     const clearedTarget = service.setPreparedTarget(started.runId, 'shiroko', null, draftToken(targeted.activeEncounter));
     expect(clearedTarget.activeEncounter?.targetSelections).toEqual([]);
-    expect(service.previewActions(started.runId)?.preparedActions[0].targetSelectionRequired).toBe(true);
+    expect(service.previewActions(started.runId)?.preparedActions[0]).toMatchObject({
+      targetCharacterId: 'shiroko',
+      targetSelectionRequired: false,
+    });
   });
 
   test('treats a missing MapRun resource balance as zero when filtering Hand candidates', () => {
     const draw = drawGameplayBHands({
       partyCharacterIds: ['shiroko'],
+      livingPartyCharacterIds: ['shiroko'],
+      livingEnemyIds: [],
       participants: [{
         characterId: 'shiroko',
         actions: [{ actionId: 'costly', tendencyWeight: 1 }],
@@ -1278,6 +1694,89 @@ describe('MapRunService', () => {
 
     expect(draw.hands).toEqual([{ characterId: 'shiroko', actionIds: [] }]);
     expect(draw.randomState.cursor).toBe(0);
+  });
+
+  test('reserves natural Hand-first Team costs in party order and does not draw an unaffordable Wait hand', () => {
+    const randomState = { algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM, seed: 41, cursor: 7 } as const;
+    const draw = drawGameplayBHands({
+      partyCharacterIds: ['shiroko', 'serika'],
+      livingPartyCharacterIds: ['shiroko', 'serika'],
+      livingEnemyIds: [],
+      participants: [
+        { characterId: 'shiroko', actions: [{ actionId: 'shiroko-spend-two', tendencyWeight: 1 }] },
+        { characterId: 'serika', actions: [{ actionId: 'serika-spend-two', tendencyWeight: 1 }] },
+      ],
+      actions: TEAM_RESERVATION_MAP.actions,
+      actorResources: [],
+      teamResources: [{ resourceId: 'supplies', value: 3 }],
+      randomState,
+    });
+
+    expect(draw.hands).toEqual([
+      { characterId: 'shiroko', actionIds: ['shiroko-spend-two'] },
+      { characterId: 'serika', actionIds: [] },
+    ]);
+    expect(draw.randomState.cursor).toBe(randomState.cursor + 1);
+  });
+
+  test('filters unit Actions without legal targets before drawing and preserves the RNG cursor', () => {
+    const randomState = { algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM, seed: 17, cursor: 4 } as const;
+    const draw = drawGameplayBHands({
+      partyCharacterIds: ['shiroko'],
+      livingPartyCharacterIds: ['shiroko'],
+      livingEnemyIds: [],
+      participants: [{
+        characterId: 'shiroko',
+        actions: [{ actionId: 'attack', tendencyWeight: 1000 }],
+      }],
+      actions: [{
+        id: 'attack',
+        name: 'Attack',
+        eligibleCharacterIds: ['shiroko'],
+        target: { kind: 'enemy' },
+      }],
+      actorResources: [],
+      teamResources: [],
+      randomState,
+    });
+    expect(draw.hands).toEqual([{ characterId: 'shiroko', actionIds: [] }]);
+    expect(draw.randomState).toEqual(randomState);
+
+    const cardDraw = drawGameplayBHands({
+      partyCharacterIds: ['shiroko'],
+      livingPartyCharacterIds: ['shiroko'],
+      livingEnemyIds: [],
+      participants: [{ characterId: 'shiroko', actions: [{ actionId: 'card-action', tendencyWeight: 1 }] }],
+      actions: [{
+        id: 'card-action',
+        name: 'Card Action',
+        eligibleCharacterIds: ['shiroko'],
+        target: { kind: 'card', side: 'ally' },
+        cardEffects: [{ kind: 'scostDiscount', amount: 1 }],
+      }],
+      actorResources: [],
+      teamResources: [],
+      randomState,
+    });
+    expect(cardDraw.hands[0].actionIds).toEqual(['card-action']);
+
+    const downedTargetDraw = drawGameplayBHands({
+      partyCharacterIds: ['shiroko'],
+      livingPartyCharacterIds: [],
+      livingEnemyIds: [],
+      participants: [{ characterId: 'shiroko', actions: [{ actionId: 'party-action', tendencyWeight: 1 }] }],
+      actions: [{
+        id: 'party-action',
+        name: 'Party Action',
+        eligibleCharacterIds: ['shiroko'],
+        target: { kind: 'partyCharacter' },
+      }],
+      actorResources: [],
+      teamResources: [],
+      randomState,
+    });
+    expect(downedTargetDraw.hands).toEqual([{ characterId: 'shiroko', actionIds: [] }]);
+    expect(downedTargetDraw.randomState).toEqual(randomState);
   });
 
   test('clears Encounter-local Hand and RNG while retaining MapRun-local resources', () => {
@@ -1852,25 +2351,80 @@ describe('MapRunService', () => {
     expect(restored.getSnapshot()?.activeEncounter?.randomState).toEqual(second.activeEncounter?.randomState);
   });
 
-  test('charges all round costs from starting balances before applying any effects', () => {
+  test('keeps the natural Team budget payable, but allows a later Swap to make it unaffordable', () => {
+    const service = new MapRunService(resolverOf(TEAM_RESERVATION_MAP), resolveTestVariant);
+    const started = service.start(TEAM_RESERVATION_MAP_ID, COMMIT_PARTY);
+    const atEncounter = service.move(started.runId, 'b');
+    const before = service.getSnapshot();
+
+    expect(atEncounter.activeEncounter?.hands).toEqual([
+      { characterId: 'shiroko', actionIds: ['shiroko-spend-two'] },
+      { characterId: 'serika', actionIds: ['serika-free', 'serika-spend-two'] },
+    ]);
+    expect(atEncounter.teamResources).toEqual([{ resourceId: 'supplies', value: 3 }]);
+    expect(service.previewEncounterCommit(started.runId)).toMatchObject({ canCommit: true });
+    expect(service.previewEncounterCommit(started.runId)).toEqual(service.previewEncounterCommit(started.runId));
+    expect(service.getSnapshot()).toEqual(before);
+
+    const checkpoint = JSON.parse(JSON.stringify(service.createSaveSnapshot())) as MapRunSaveSnapshot;
+    const restored = new MapRunService(resolverOf(TEAM_RESERVATION_MAP), resolveTestVariant);
+    expect(restored.restoreSaveSnapshot(checkpoint)).toMatchObject({ status: 'restored' });
+    expect(restored.getSnapshot()).toEqual(before);
+    expect(restored.previewEncounterCommit(started.runId)).toMatchObject({ canCommit: true });
+
+    const naturalCommit = service.commitEncounterRound({
+      runId: started.runId,
+      requestId: 'natural-team-reservation',
+      expectedCommitVersion: atEncounter.commitVersion,
+      draft: draftToken(atEncounter.activeEncounter),
+    });
+    expect(naturalCommit.teamResources).toEqual([{ resourceId: 'supplies', value: 1 }]);
+    expect(naturalCommit.lastEncounterCommit?.settlements.map(row => row.actionId))
+      .toEqual(['shiroko-spend-two', 'serika-free']);
+
+    const swapService = new MapRunService(resolverOf(TEAM_RESERVATION_MAP), resolveTestVariant);
+    const swapStart = swapService.start(TEAM_RESERVATION_MAP_ID, COMMIT_PARTY);
+    const swapEncounter = swapService.move(swapStart.runId, 'b');
+    const serikaHand = swapEncounter.activeEncounter?.hands.find(hand => hand.characterId === 'serika');
+    if (!serikaHand) throw new Error('Serika Hand is missing');
+    const swapped = swapService.swapPreparedAction(
+      swapStart.runId,
+      'serika',
+      'serika-spend-two',
+      draftToken(swapEncounter.activeEncounter),
+    );
+    expect(swapped.activeEncounter?.hands).toEqual(swapEncounter.activeEncounter?.hands);
+    expect(swapped.activeEncounter?.randomState).toEqual(swapEncounter.activeEncounter?.randomState);
+    expect(swapService.previewEncounterCommit(swapStart.runId)).toMatchObject({ canCommit: false });
+    expect(swapService.getSnapshot()?.teamResources).toEqual([{ resourceId: 'supplies', value: 3 }]);
+  });
+
+  test('keeps a naturally payable round when a later PlayerCommand adds a Team cost conflict', () => {
     const service = new MapRunService(resolverOf(LATE_EFFECT_COMMIT_MAP), resolveTestVariant);
     const started = service.start(LATE_EFFECT_COMMIT_MAP_ID, COMMIT_PARTY);
     const atEncounter = service.move(started.runId, 'b');
-    const before = service.getSnapshot();
     expect(atEncounter.activeEncounter?.hands).toEqual([
       { characterId: 'shiroko', actionIds: ['shiroko-spend'] },
-      { characterId: 'serika', actionIds: ['serika-refill'] },
+      { characterId: 'serika', actionIds: [] },
     ]);
+    expect(service.previewEncounterCommit(started.runId)).toMatchObject({ canCommit: true });
+    const commanded = service.issuePlayerCommand(
+      started.runId,
+      'serika',
+      'serika-refill',
+      draftToken(atEncounter.activeEncounter),
+    );
+    const before = service.getSnapshot();
     const preview = service.previewEncounterCommit(started.runId);
-    expect(preview).toMatchObject({ canCommit: false, playerCostRequired: null });
+    expect(preview).toMatchObject({ canCommit: false });
     expect(preview?.diagnostics[0]).toMatch(/cannot afford resource cost "supplies"/);
     expect(service.previewEncounterCommit(started.runId)).toEqual(preview);
     expect(service.getSnapshot()).toEqual(before);
     expect(() => service.commitEncounterRound({
       runId: started.runId,
       requestId: 'underfunded-round',
-      expectedCommitVersion: atEncounter.commitVersion,
-      draft: draftToken(atEncounter.activeEncounter),
+      expectedCommitVersion: commanded.commitVersion,
+      draft: draftToken(commanded.activeEncounter),
     })).toThrow(preview?.diagnostics[0]);
     expect(service.getSnapshot()).toEqual(before);
     expect(service.getSnapshot()?.commitVersion).toBe(0);
@@ -1878,23 +2432,26 @@ describe('MapRunService', () => {
     expect(service.getSnapshot()?.teamResources).toEqual([{ resourceId: 'supplies', value: 1 }]);
   });
 
-  test('rejects unresolved targets and unsafe effects without writing any round state', () => {
+  test('commits an automatically selected party target and rejects unsafe effects without writing state', () => {
     const targetService = new MapRunService(resolverOf(TARGET_COMMIT_MAP), resolveTestVariant);
     const targetStart = targetService.start(TARGET_COMMIT_MAP_ID, COMMIT_PARTY);
     const targetRun = targetService.move(targetStart.runId, 'b');
-    expect(targetService.previewActions(targetStart.runId)?.preparedActions[1].targetSelectionRequired).toBe(true);
-    const beforeTargetFailure = targetService.getSnapshot();
+    expect(targetService.previewActions(targetStart.runId)?.preparedActions[1]).toMatchObject({
+      targetCharacterId: 'shiroko',
+      targetSelectionRequired: false,
+    });
     const targetCommitPreview = targetService.previewEncounterCommit(targetStart.runId);
-    expect(targetCommitPreview).toMatchObject({ canCommit: false });
-    expect(targetCommitPreview?.diagnostics[0]).toMatch(/still requires a target selection/);
-    expect(targetService.getSnapshot()).toEqual(beforeTargetFailure);
-    expect(() => targetService.commitEncounterRound({
+    expect(targetCommitPreview).toMatchObject({ canCommit: true });
+    const targetCommit = targetService.commitEncounterRound({
       runId: targetStart.runId,
-      requestId: 'missing-target',
+      requestId: 'auto-target',
       expectedCommitVersion: targetRun.commitVersion,
       draft: draftToken(targetRun.activeEncounter),
-    })).toThrow(targetCommitPreview?.diagnostics[0]);
-    expect(targetService.getSnapshot()).toEqual(beforeTargetFailure);
+    });
+    expect(targetCommit.lastEncounterCommit?.settlements[1]).toMatchObject({
+      actionId: 'aid',
+      targetCharacterId: 'shiroko',
+    });
 
     const overflowMap: TestMap = {
       ...TARGET_COMMIT_MAP,

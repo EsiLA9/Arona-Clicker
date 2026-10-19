@@ -768,6 +768,103 @@ export const gameplayBScostTrainingDefinition: GameplayMapDef = {
   edges: [{ fromNodeId: 'briefing', toNodeId: 'training' }, { fromNodeId: 'training', toNodeId: 'exit' }],
 };
 
+/**
+ * P5 sample: two autonomous party members, three ordered Enemies, contextual
+ * Action preferences, and a second-round Swap / manual-target exercise.
+ */
+export const gameplayBAutonomousTargetBattleDefinition: GameplayMapDef = {
+  id: 'gameplay-b:map:autonomous-target-battle',
+  name: '自主目标战斗演练',
+  resumeVersion: 1,
+  startNodeId: 'entry',
+  exitNodeIds: ['exit'],
+  partyCharacterIds: ['shiroko', 'serika'],
+  initialPartyHp: [
+    { characterId: 'shiroko', initialHp: 10, maxHp: 10 },
+    { characterId: 'serika', initialHp: 10, maxHp: 10 },
+  ],
+  initialPlayerCost: 2,
+  initialActorResources: [
+    { characterId: 'shiroko', resourceId: 'focus', value: 2 },
+    { characterId: 'serika', resourceId: 'focus', value: 2 },
+  ],
+  initialTeamResources: [
+    { resourceId: 'clues', value: 0 },
+    { resourceId: 'supplies', value: 1 },
+  ],
+  actions: [
+    {
+      id: 'autonomous-standard-shot',
+      name: '普通射击',
+      description: '优先射击当前 HP 比例最低的合法敌人，并记录 1 条线索。',
+      eligibleCharacterIds: ['shiroko', 'serika'],
+      target: { kind: 'enemy', preference: 'lowestHpRatio' },
+      tendencyRole: 'attack',
+      effects: [{ scope: 'team', resourceId: 'clues', amount: 1 }],
+      hpEffects: [{ amount: -2 }],
+    },
+    {
+      id: 'autonomous-take-cover',
+      name: '就地掩护',
+      description: '消耗 1 点专注整理姿态并恢复 1 点专注。',
+      eligibleCharacterIds: ['shiroko', 'serika'],
+      target: { kind: 'self' },
+      tendencyRole: 'defense',
+      costs: [{ scope: 'actor', resourceId: 'focus', amount: 1 }],
+      effects: [{ scope: 'actor', resourceId: 'focus', amount: 1 }],
+    },
+    {
+      id: 'autonomous-aid-teammate',
+      name: '支援队友',
+      description: '优先治疗 HP 损失比例最高的队员，恢复 2 点 HP。',
+      eligibleCharacterIds: ['shiroko', 'serika'],
+      target: { kind: 'partyCharacter', preference: 'highestMissingHpRatio' },
+      tendencyRole: 'recovery',
+      hpEffects: [{ amount: 2 }],
+    },
+  ],
+  nodes: [
+    { id: 'entry', title: '编队入口', description: '白子与芹香进入现场。' },
+    {
+      id: 'battle',
+      title: '机器人拦截区',
+      description: '第一轮不需要手动指定目标；观察后手如何避开已击败的机器人。',
+      encounter: {
+        title: '自主索敌实战',
+        description: '机器人 A 起始 2 / 8 HP，B 与 C 各有 8 HP。存活机器人每轮造成 3 点伤害。',
+        enemies: [
+          { id: 'robot-a', initialHp: 2, maxHp: 8, damage: 3 },
+          { id: 'robot-b', initialHp: 8, maxHp: 8, damage: 3 },
+          { id: 'robot-c', initialHp: 8, maxHp: 8, damage: 3 },
+        ],
+        participants: [
+          {
+            characterId: 'shiroko',
+            actions: [
+              { actionId: 'autonomous-standard-shot', tendencyWeight: Number.MAX_SAFE_INTEGER },
+              { actionId: 'autonomous-take-cover', tendencyWeight: 1 },
+              { actionId: 'autonomous-aid-teammate', tendencyWeight: 1 },
+            ],
+          },
+          {
+            characterId: 'serika',
+            actions: [
+              { actionId: 'autonomous-standard-shot', tendencyWeight: Number.MAX_SAFE_INTEGER },
+              { actionId: 'autonomous-take-cover', tendencyWeight: 1 },
+              { actionId: 'autonomous-aid-teammate', tendencyWeight: 1 },
+            ],
+          },
+        ],
+      },
+    },
+    { id: 'exit', title: '演练出口', description: '完成自主战斗演练。' },
+  ],
+  edges: [
+    { fromNodeId: 'entry', toNodeId: 'battle' },
+    { fromNodeId: 'battle', toNodeId: 'exit' },
+  ],
+};
+
 const mapSpot = spot(GAMEPLAY_B_MAP_SPOT_ID, 'base:area:schale_main')
   .name('地图终端')
   .desc('进入 Gameplay B 地图，沿节点路线探索并处理遭遇。')
@@ -828,6 +925,12 @@ export const gameplayBMapDatapack: Datapack = {
         mapId: gameplayBContinuousConditionalDefinition.id,
         mapEntryLabel: '进入连续调查与员工通道',
       },
+      {
+        id: 'autonomous-target-battle-map',
+        kind: 'mapEntry',
+        mapId: gameplayBAutonomousTargetBattleDefinition.id,
+        mapEntryLabel: '进入自主目标战斗演练',
+      },
     ],
   }],
   maps: [
@@ -838,6 +941,7 @@ export const gameplayBMapDatapack: Datapack = {
     gameplayBActivityHallDefinition,
     gameplayBForkedRouteDefinition,
     gameplayBContinuousConditionalDefinition,
+    gameplayBAutonomousTargetBattleDefinition,
   ],
   enhancements: [],
   activeStories: [],

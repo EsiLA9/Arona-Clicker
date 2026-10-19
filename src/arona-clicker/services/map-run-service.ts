@@ -48,6 +48,7 @@ import {
   resolveGameplayBActionPreview,
   type GameplayBActionPreview,
 } from './gameplay-b-action-preview-resolver';
+import { selectGameplayBUnitTarget } from './gameplay-b-target-selection';
 
 type ResolvedMap = NonNullable<ReturnType<MapContentResolver['resolve']>>;
 type ResolveCharacterIdForVariant = (variantId: string) => string | null | undefined;
@@ -495,6 +496,26 @@ function partyHpCaps(definition: ResolvedMap, party: readonly MapRunPartyMember[
   return caps;
 }
 
+function partyHealthForHandDraw(
+  definition: ResolvedMap,
+  party: readonly MapRunPartyMember[],
+  partyHp: readonly MapRunPartyHp[],
+): { readonly characterId: string; readonly currentHp: number; readonly maxHp: number }[] {
+  const caps = partyHpCaps(definition, party);
+  const currentHp = new Map(partyHp.map(row => [row.characterId, row.currentHp]));
+  if (caps.size !== party.length || currentHp.size !== party.length) {
+    throw new MapRunError(['Hand draw requires current party HP and Map HP caps']);
+  }
+  return party.map(member => {
+    const maxHp = caps.get(member.characterId);
+    const hp = currentHp.get(member.characterId);
+    if (maxHp === undefined || hp === undefined) {
+      throw new MapRunError(['Hand draw is missing HP for Character "' + member.characterId + '"']);
+    }
+    return { characterId: member.characterId, currentHp: hp, maxHp };
+  });
+}
+
 function restoreActorResourceBalances(
   value: unknown,
   expected: readonly MapRunActorResourceBalance[],
@@ -585,6 +606,9 @@ function createEncounterSnapshot(
     seed: initializeEncounterSeed(),
     cursor: 0,
   };
+  const enemies: MapRunEnemyHp[] = retainedEnemies === undefined
+    ? (encounter.enemies ?? []).map(enemy => ({ enemyId: enemy.id, currentHp: enemy.initialHp }))
+    : retainedEnemies.map(enemy => ({ ...enemy }));
   try {
     const draw = drawGameplayBHands({
       partyCharacterIds: party.map(member => member.characterId),
@@ -592,12 +616,11 @@ function createEncounterSnapshot(
       actions: definition.actions,
       actorResources,
       teamResources,
+      partyHealth: partyHealthForHandDraw(definition, party, partyHp),
       livingPartyCharacterIds: partyHp.filter(row => row.currentHp > 0).map(row => row.characterId),
+      livingEnemyIds: enemies.filter(enemy => enemy.currentHp > 0).map(enemy => enemy.enemyId),
       randomState: startingState,
     });
-    const enemies: MapRunEnemyHp[] = retainedEnemies === undefined
-      ? (encounter.enemies ?? []).map(enemy => ({ enemyId: enemy.id, currentHp: enemy.initialHp }))
-      : retainedEnemies.map(enemy => ({ ...enemy }));
     return {
       nodeId,
       ...(activityId === undefined ? {} : { activityId }),
@@ -895,7 +918,8 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   try {
     cardPlan = resolveMapCardEffects(slot.definition, { runId: slot.run.runId, mapId: slot.run.mapId,
       nodeId: encounter.nodeId, activityId: encounter.activityId ?? null, round: encounter.round },
-    preview.preparedActions.map(row => ({ characterId: row.characterId, actionId: row.preparedActionId,
+    preview.preparedActions.map(row => ({ characterId: row.characterId,
+      actionId: row.skipReason === 'noLegalTarget' ? null : row.preparedActionId,
       overrideKind: row.overrideKind, targetCard: row.targetCard })));
   } catch (error) { throw new MapRunError([error instanceof Error ? error.message : String(error)]); }
 
@@ -905,7 +929,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   const teamBalances = new Map(slot.run.teamResources.map(balance => [balance.resourceId, balance.value]));
   const settlements: MapRunEncounterActionSettlement[] = [];
   const pendingHpActions: {
-    readonly settlement: { readonly kind: 'character'; readonly index: number } | { readonly kind: 'ability' } | { readonly kind: 'item' };
+    readonly settlement: { readonly kind: 'ability' } | { readonly kind: 'item' };
     readonly action: GameplayMapActionDef;
     readonly targetCharacterId: string | null;
     readonly targetEnemyId: string | null;
@@ -920,6 +944,48 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   let ability: MapRunEncounterSourceSettlement | null = null;
   let item: MapRunEncounterItemSettlement | null = null;
   const actionById = new Map((slot.definition.actions ?? []).map(action => [action.id, action]));
+  const partyHpAfter = new Map(slot.run.partyHp.map(row => [row.characterId, row.currentHp]));
+  const enemyHpAfter = new Map(encounter.enemies.map(row => [row.enemyId, row.currentHp]));
+  const partyCaps = partyHpCaps(slot.definition, slot.run.party);
+  const enemyDefinitions = encounterDef.enemies ?? [];
+  const enemyCaps = new Map(enemyDefinitions.map(enemy => [enemy.id, enemy.maxHp]));
+
+  const applyHpEffects = (
+    action: GameplayMapActionDef,
+    targetCharacterId: string | null,
+    targetEnemyId: string | null,
+  ): MapRunEncounterHpChange[] | undefined => {
+    const rawEffects: unknown = action.hpEffects ?? [];
+    if (!Array.isArray(rawEffects)) throw new MapRunError([`Action "${action.id}" hpEffects must be an array`]);
+    if (rawEffects.length === 0) return undefined;
+    const changes: MapRunEncounterHpChange[] = [];
+    for (const rawEffect of rawEffects) {
+      if (!isRecord(rawEffect) || !Number.isSafeInteger(rawEffect.amount) || (rawEffect.amount as number) === 0) {
+        throw new MapRunError([`Action "${action.id}" has an invalid HP effect`]);
+      }
+      const amount = rawEffect.amount as number;
+      if (targetEnemyId !== null) {
+        const current = enemyHpAfter.get(targetEnemyId);
+        const cap = enemyCaps.get(targetEnemyId);
+        if (current === undefined || cap === undefined) throw new MapRunError([`Action "${action.id}" targets an unknown Enemy`]);
+        const proposed = BigInt(current) + BigInt(amount);
+        const next = current === 0 ? 0 : Number(proposed <= 0n ? 0n : proposed >= BigInt(cap) ? BigInt(cap) : proposed);
+        enemyHpAfter.set(targetEnemyId, next);
+        changes.push({ scope: 'enemy', enemyId: targetEnemyId, delta: next - current });
+      } else if (targetCharacterId !== null) {
+        const current = partyHpAfter.get(targetCharacterId);
+        const cap = partyCaps.get(targetCharacterId);
+        if (current === undefined || cap === undefined) throw new MapRunError([`Action "${action.id}" targets an unknown party member`]);
+        const proposed = BigInt(current) + BigInt(amount);
+        const next = current === 0 ? 0 : Number(proposed <= 0n ? 0n : proposed >= BigInt(cap) ? BigInt(cap) : proposed);
+        partyHpAfter.set(targetCharacterId, next);
+        changes.push({ scope: 'party', characterId: targetCharacterId, delta: next - current });
+      } else {
+        throw new MapRunError([`Action "${action.id}" declares an HP effect without a selected target`]);
+      }
+    }
+    return changes;
+  };
 
   const addRequiredCosts = (resourceChanges: readonly MapRunEncounterSettlementResourceChange[]) => {
     for (const change of resourceChanges) {
@@ -958,8 +1024,49 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     if (!action || !action.eligibleCharacterIds.includes(prepared.characterId)) {
       throw new MapRunError([`Prepared Action "${actionId}" is no longer valid for "${prepared.characterId}"`]);
     }
-    const targetCharacterId = prepared.targetCharacterId;
-    const targetEnemyId = prepared.targetEnemyId ?? null;
+    let targetCharacterId = prepared.targetCharacterId;
+    let targetEnemyId = prepared.targetEnemyId ?? null;
+    const targetSelection = encounter.targetSelections.find(selection => selection.characterId === prepared.characterId);
+    let skipReason: MapRunEncounterActionSettlement['skipReason'];
+    if (prepared.skipReason === 'noLegalTarget') {
+      if (action.target.kind !== 'card' || prepared.targetCard !== null || prepared.legalTargetCards?.length !== 0) {
+        throw new MapRunError([`Prepared Action "${actionId}" has an invalid noLegalTarget skip`]);
+      }
+      skipReason = 'noLegalTarget';
+    } else if (action.target.kind === 'enemy') {
+      const currentHp = targetEnemyId === null ? 0 : enemyHpAfter.get(targetEnemyId) ?? 0;
+      if (currentHp <= 0 && targetSelection?.targetEnemyId === undefined) {
+        targetEnemyId = selectGameplayBUnitTarget(enemyDefinitions.flatMap(enemy => {
+          const hp = enemyHpAfter.get(enemy.id) ?? 0;
+          return hp > 0 ? [{ id: enemy.id, currentHp: hp, maxHp: enemy.maxHp }] : [];
+        }), action.target.preference ?? 'stableOrder');
+      }
+      if (targetEnemyId === null) skipReason = 'noLegalTarget';
+    } else if (action.target.kind === 'partyCharacter') {
+      const currentHp = targetCharacterId === null ? 0 : partyHpAfter.get(targetCharacterId) ?? 0;
+      if (currentHp <= 0 && targetSelection?.targetCharacterId === undefined) {
+        targetCharacterId = selectGameplayBUnitTarget(slot.run.party.flatMap(member => {
+          const hp = partyHpAfter.get(member.characterId) ?? 0;
+          return hp > 0 ? [{ id: member.characterId, currentHp: hp, maxHp: partyCaps.get(member.characterId)! }] : [];
+        }), action.target.preference ?? 'stableOrder');
+      }
+      if (targetCharacterId === null) skipReason = 'noLegalTarget';
+    }
+
+    const playerCostSpent = prepared.playerCost;
+    playerCostRequired += playerCostSpent;
+    if (skipReason) {
+      settlements.push({
+        characterId: prepared.characterId,
+        actionId,
+        targetCharacterId: null,
+        overrideKind: prepared.overrideKind,
+        playerCostSpent,
+        resourceChanges: [],
+        skipReason,
+      });
+      continue;
+    }
     if ((action.target.kind === 'none' && targetCharacterId !== null)
       || (action.target.kind === 'self' && targetCharacterId !== prepared.characterId)
       || (action.target.kind === 'partyCharacter'
@@ -968,12 +1075,11 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
       throw new MapRunError([`Prepared Action "${actionId}" has an invalid resolved target`]);
     }
 
-    const playerCostSpent = prepared.playerCost;
-    playerCostRequired += playerCostSpent;
     const reduction = cardPlan.reductions.get(prepared.characterId) ?? 0n;
     const scostCost = mapScostCost(action, reduction);
     const resourceChanges = settlementChangesFor(action, prepared.characterId, targetCharacterId, reduction);
     addRequiredCosts(resourceChanges);
+    const hpChanges = applyHpEffects(action, targetCharacterId, targetEnemyId);
     const settlement: MapRunEncounterActionSettlement = {
       characterId: prepared.characterId,
       actionId,
@@ -984,14 +1090,9 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
       overrideKind: prepared.overrideKind,
       playerCostSpent,
       resourceChanges,
+      ...(hpChanges ? { hpChanges } : {}),
     };
     settlements.push(settlement);
-    pendingHpActions.push({
-      settlement: { kind: 'character', index: settlements.length - 1 },
-      action,
-      targetCharacterId,
-      targetEnemyId,
-    });
   }
 
   const sourceTargetIds = (target: MapRunEncounterSourceTarget) => ({
@@ -1101,45 +1202,11 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     }
   }
 
-  const partyHpAfter = new Map(slot.run.partyHp.map(row => [row.characterId, row.currentHp]));
-  const enemyHpAfter = new Map(encounter.enemies.map(row => [row.enemyId, row.currentHp]));
-  const partyCaps = partyHpCaps(slot.definition, slot.run.party);
-  const enemyDefinitions = encounterDef.enemies ?? [];
-  const enemyCaps = new Map(enemyDefinitions.map(enemy => [enemy.id, enemy.maxHp]));
   const hpEffectsToApply: { settlement: (typeof pendingHpActions)[number]['settlement']; changes: MapRunEncounterHpChange[] }[] = [];
 
   for (const pending of pendingHpActions) {
-    const rawEffects: unknown = pending.action.hpEffects ?? [];
-    if (!Array.isArray(rawEffects)) throw new MapRunError([`Action "${pending.action.id}" hpEffects must be an array`]);
-    const changes: MapRunEncounterHpChange[] = [];
-    for (const rawEffect of rawEffects) {
-      if (!isRecord(rawEffect) || !Number.isSafeInteger(rawEffect.amount) || (rawEffect.amount as number) === 0) {
-        throw new MapRunError([`Action "${pending.action.id}" has an invalid HP effect`]);
-      }
-      const amount = rawEffect.amount as number;
-      if (pending.targetEnemyId !== null) {
-        const current = enemyHpAfter.get(pending.targetEnemyId);
-        const cap = enemyCaps.get(pending.targetEnemyId);
-        if (current === undefined || cap === undefined) throw new MapRunError([`Action "${pending.action.id}" targets an unknown Enemy`]);
-        const proposed = BigInt(current) + BigInt(amount);
-        const next = current === 0 ? 0 : Number(proposed <= 0n ? 0n : proposed >= BigInt(cap) ? BigInt(cap) : proposed);
-        const delta = next - current;
-        enemyHpAfter.set(pending.targetEnemyId, next);
-        changes.push({ scope: 'enemy', enemyId: pending.targetEnemyId, delta });
-      } else if (pending.targetCharacterId !== null) {
-        const current = partyHpAfter.get(pending.targetCharacterId);
-        const cap = partyCaps.get(pending.targetCharacterId);
-        if (current === undefined || cap === undefined) throw new MapRunError([`Action "${pending.action.id}" targets an unknown party member`]);
-        const proposed = BigInt(current) + BigInt(amount);
-        const next = current === 0 ? 0 : Number(proposed <= 0n ? 0n : proposed >= BigInt(cap) ? BigInt(cap) : proposed);
-        const delta = next - current;
-        partyHpAfter.set(pending.targetCharacterId, next);
-        changes.push({ scope: 'party', characterId: pending.targetCharacterId, delta });
-      } else {
-        throw new MapRunError([`Action "${pending.action.id}" declares an HP effect without a selected target`]);
-      }
-    }
-    if (changes.length > 0) hpEffectsToApply.push({ settlement: pending.settlement, changes });
+    const changes = applyHpEffects(pending.action, pending.targetCharacterId, pending.targetEnemyId);
+    if (changes && changes.length > 0) hpEffectsToApply.push({ settlement: pending.settlement, changes });
   }
 
   let terminal: MapRunEncounterCommitPlan['terminal'] = 'none';
@@ -1178,10 +1245,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     }
   }
   for (const applied of hpEffectsToApply) {
-    if (applied.settlement.kind === 'character') {
-      const settlement = settlements[applied.settlement.index];
-      if (settlement) settlements[applied.settlement.index] = { ...settlement, hpChanges: applied.changes };
-    } else if (applied.settlement.kind === 'ability' && ability) {
+    if (applied.settlement.kind === 'ability' && ability) {
       ability = { ...ability, hpChanges: applied.changes };
     } else if (applied.settlement.kind === 'item' && item) {
       item = { ...item, hpChanges: applied.changes };
@@ -1354,7 +1418,13 @@ function restoreEncounterCommitReceipt(
   let cardPlan: ReturnType<typeof resolveMapCardEffects>;
   try {
     cardPlan = resolveMapCardEffects(definition, { runId, mapId: definition.id, nodeId: receiptNodeId!,
-      activityId: activityId ?? null, round: value.round as number }, value.settlements as unknown as readonly MapCardActionChoice[]);
+      activityId: activityId ?? null, round: value.round as number }, (value.settlements as unknown[]).map(raw => {
+        if (!isRecord(raw)) return raw as unknown as MapCardActionChoice;
+        return {
+          ...raw,
+          actionId: raw.skipReason === 'noLegalTarget' ? null : raw.actionId,
+        } as unknown as MapCardActionChoice;
+      }));
   } catch { return null; }
   let playerCostSpentTotal = abilitySettlement ? 1 : 0;
   // Each Character may spend at most one PlayerCost per round; Ability spends one more.
@@ -1367,15 +1437,19 @@ function restoreEncounterCommitReceipt(
     const hasHpChanges = Object.prototype.hasOwnProperty.call(rawSettlement, 'hpChanges');
     const hasCardTarget = Object.prototype.hasOwnProperty.call(rawSettlement, 'targetCard');
     const hasScostCost = Object.prototype.hasOwnProperty.call(rawSettlement, 'scostCost');
+    const hasSkipReason = Object.prototype.hasOwnProperty.call(rawSettlement, 'skipReason');
     const allowedSettlementKeys = [
-      'characterId', 'actionId', 'targetCharacterId', 'targetEnemyId', 'overrideKind', 'playerCostSpent', 'resourceChanges', 'hpChanges', 'targetCard', 'scostCost',
+      'characterId', 'actionId', 'targetCharacterId', 'targetEnemyId', 'overrideKind', 'playerCostSpent',
+      'resourceChanges', 'hpChanges', 'targetCard', 'scostCost', 'skipReason',
     ];
     if (settlementKeys.some(key => !allowedSettlementKeys.includes(key))
-      || settlementKeys.length !== 6 + Number(hasEnemyTarget) + Number(hasHpChanges) + Number(hasCardTarget) + Number(hasScostCost)
+      || settlementKeys.length !== 6 + Number(hasEnemyTarget) + Number(hasHpChanges) + Number(hasCardTarget)
+        + Number(hasScostCost) + Number(hasSkipReason)
       || rawSettlement.characterId !== member.characterId
       || !(rawSettlement.actionId === null || isNonEmptyId(rawSettlement.actionId))
       || !(rawSettlement.targetCharacterId === null || isNonEmptyId(rawSettlement.targetCharacterId))
       || (hasEnemyTarget && !isNonEmptyId(rawSettlement.targetEnemyId))
+      || (hasSkipReason && rawSettlement.skipReason !== 'noLegalTarget')
       || !(rawSettlement.overrideKind === null || rawSettlement.overrideKind === 'swap' || rawSettlement.overrideKind === 'playerCommand')
       || !Number.isSafeInteger(rawSettlement.playerCostSpent)
       || (rawSettlement.playerCostSpent !== 0 && rawSettlement.playerCostSpent !== 1)
@@ -1388,7 +1462,8 @@ function restoreEncounterCommitReceipt(
     playerCostSpentTotal += rawSettlement.playerCostSpent as number;
     if (playerCostSpentTotal > maxPlayerCostSpent) return null;
     if (actionId === null) {
-      if (targetCharacterId !== null || targetEnemyId !== null || hasHpChanges || hasCardTarget || hasScostCost || overrideKind !== null || rawSettlement.playerCostSpent !== 0
+      if (targetCharacterId !== null || targetEnemyId !== null || hasHpChanges || hasCardTarget || hasScostCost || hasSkipReason
+        || overrideKind !== null || rawSettlement.playerCostSpent !== 0
         || rawSettlement.resourceChanges.length !== 0) return null;
       restoredSettlements.push({
         characterId: member.characterId, actionId: null, targetCharacterId: null,
@@ -1401,6 +1476,21 @@ function restoreEncounterCommitReceipt(
       || !candidatesByCharacter.get(member.characterId)?.has(actionId)
       || (rawSettlement.playerCostSpent === 1) !== (overrideKind === 'playerCommand')
       || (overrideKind === 'swap' && rawSettlement.playerCostSpent !== 0)) return null;
+    if (hasSkipReason) {
+      if ((action.target.kind !== 'enemy' && action.target.kind !== 'partyCharacter' && action.target.kind !== 'card')
+        || targetCharacterId !== null || targetEnemyId !== null
+        || hasHpChanges || hasCardTarget || hasScostCost || rawSettlement.resourceChanges.length !== 0) return null;
+      restoredSettlements.push({
+        characterId: member.characterId,
+        actionId,
+        targetCharacterId: null,
+        skipReason: 'noLegalTarget',
+        overrideKind,
+        playerCostSpent: rawSettlement.playerCostSpent as 0 | 1,
+        resourceChanges: [],
+      });
+      continue;
+    }
     if (hasCardTarget !== cardPlan.targets.has(member.characterId)
       || (action.target.kind === 'card' && (targetCharacterId !== null || targetEnemyId !== null || !hasCardTarget))) return null;
     if ((action.target.kind === 'none' && (targetCharacterId !== null || targetEnemyId !== null))
@@ -1700,10 +1790,12 @@ function restoreEncounterSnapshot(
     expectedDraw = drawGameplayBHands({
       partyCharacterIds: party.map(member => member.characterId),
       livingPartyCharacterIds: partyHp.filter(row => row.currentHp > 0).map(row => row.characterId),
+      livingEnemyIds: enemies.filter(enemy => enemy.currentHp > 0).map(enemy => enemy.enemyId),
       participants: encounterDef.participants,
       actions: definition.actions,
       actorResources,
       teamResources,
+        partyHealth: partyHealthForHandDraw(definition, party, partyHp),
       randomState: {
         algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM,
         seed: value.randomState.seed as number,
@@ -2540,9 +2632,7 @@ export class MapRunService {
     }
 
     const currentSelection = encounter.targetSelections.find(row => row.characterId === characterId);
-    const needsStoredSelection = targetCharacterId !== null
-      && prepared.targetKind === 'partyCharacter'
-      && prepared.legalTargetCharacterIds.length > 1;
+    const needsStoredSelection = targetCharacterId !== null && prepared.targetKind === 'partyCharacter';
     const nextTargetSelections = encounter.targetSelections
       .filter(row => row.characterId !== characterId);
     if (needsStoredSelection) nextTargetSelections.push({ characterId, targetCharacterId: targetCharacterId! });
@@ -2583,7 +2673,7 @@ export class MapRunService {
       throw new MapRunError([`Enemy target "${targetEnemyId}" is not legal for the Prepared Action of "${characterId}"`]);
     }
     const currentSelection = encounter.targetSelections.find(row => row.characterId === characterId);
-    const needsStoredSelection = targetEnemyId !== null && legalEnemyIds.length > 1;
+    const needsStoredSelection = targetEnemyId !== null;
     const nextTargetSelections = encounter.targetSelections.filter(row => row.characterId !== characterId);
     if (needsStoredSelection) nextTargetSelections.push({ characterId, targetEnemyId: targetEnemyId! });
     nextTargetSelections.sort((left, right) =>

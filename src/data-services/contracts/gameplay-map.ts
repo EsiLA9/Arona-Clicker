@@ -46,6 +46,11 @@ export interface GameplayMapActionDef {
   readonly eligibleCharacterIds: readonly Character[];
   /** The only target rule used by this action. */
   readonly target: GameplayMapActionTargetDef;
+  /**
+   * Optional explicit combat use for finite Encounter tendency adjustments.
+   * Omitted Actions use only their participant's base tendencyWeight.
+   */
+  readonly tendencyRole?: 'recovery' | 'defense' | 'attack';
   /** Optional resource balances consumed before applying effects. */
   readonly costs?: readonly GameplayMapActionResourceCostDef[];
   /** Optional actor/team resource changes applied by a successful action. */
@@ -60,12 +65,22 @@ export interface GameplayMapActionDef {
 export type GameplayMapActionTargetDef =
   | { readonly kind: 'none' }
   | { readonly kind: 'self' }
-  | { readonly kind: 'partyCharacter' }
-  | { readonly kind: 'enemy' }
+  | {
+    readonly kind: 'partyCharacter';
+    /** Optional legal-target preference; absent means the first Map party member. */
+    readonly preference?: 'stableOrder' | 'highestMissingHpRatio';
+  }
+  | {
+    readonly kind: 'enemy';
+    /** Optional legal-target preference; absent means the first Encounter Enemy. */
+    readonly preference?: 'stableOrder' | 'lowestHpRatio';
+  }
   | {
     readonly kind: 'card';
     /** Relative to the source: self means its owner's cards; ally includes self. */
     readonly side: 'self' | 'ally' | 'opponent' | 'any';
+    /** Cards currently support stable logical catalog order only. */
+    readonly preference?: 'stableOrder';
   };
 
 /** A preparation effect resolved before the full round's net action costs are charged. */

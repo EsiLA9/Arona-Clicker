@@ -216,7 +216,10 @@ export class MapRelationInteraction {
     for (const node of workspace.querySelectorAll<HTMLElement>('[data-map-role-drop]')) delete node.dataset.mapRoleDrop;
     if (this.drop) {
       const dropKey = mapObjectKey(this.drop);
-      for (const node of workspace.querySelectorAll<HTMLElement>('[data-map-object-key]')) if (node.dataset.mapObjectKey === dropKey) node.dataset.mapRoleDrop = '接收';
+      for (const node of workspace.querySelectorAll<HTMLElement>('[data-map-object-key]')) if (node.dataset.mapObjectKey === dropKey) {
+        node.dataset.mapRoleRecipient = '接收';
+        node.dataset.mapRoleDrop = '接收';
+      }
     }
     // A preview does not replace the mounted source card or mint a combat instance.
     if (popup && selected.some(row => row.phase === 'replacementPreview')) popup.dataset.mapRoleSource = '发起';

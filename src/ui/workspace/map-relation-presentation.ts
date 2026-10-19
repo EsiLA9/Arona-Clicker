@@ -21,15 +21,11 @@ export function presentMapRelations(root: HTMLElement, relations: readonly MapAc
   for (const relation of relations) {
     const targetKey = relation.selectedTarget
       ? mapObjectKey(relation.selectedTarget) : null;
-    const performer = relation.source.performer;
-    const performerKey = performer ? mapObjectKey(performer) : null;
     const candidates = new Set(showCandidates && relation.selectionMode === 'selectable'
       ? relation.candidates.map(mapObjectKey) : []);
     for (const node of instances) {
-      if (node.dataset.mapRelationKey === relation.key || performerKey !== null && node.dataset.mapObjectKey === performerKey) {
-        node.dataset.mapRoleSource = '发起';
-      }
-      if (targetKey !== null && node.dataset.mapObjectKey === targetKey) node.dataset.mapRoleRecipient = '目标';
+      if (node.dataset.mapRelationKey === relation.key) node.dataset.mapRoleSource = '发起';
+      if (targetKey !== null && node.dataset.mapObjectKey === targetKey) node.dataset.mapRoleRecipient = '接收';
       else if (node.dataset.mapObjectKey && candidates.has(node.dataset.mapObjectKey)) node.dataset.mapRoleCandidate = '候选';
     }
   }

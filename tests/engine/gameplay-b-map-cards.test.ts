@@ -56,9 +56,11 @@ describe('MapRun domain cards', () => {
     const initial = view();
     expect(initial.cards).toEqual(cards());
     const before = initial.run;
-    expect(initial.relations[0]).toMatchObject({ selectedTarget: null, targetState: 'pending', canSelectTarget: true,
+    const defaultTarget = initial.actionPreview!.preparedActions[0].targetCard;
+    expect(defaultTarget).toEqual(initial.actionPreview!.preparedActions[0].legalTargetCards![0]);
+    expect(initial.relations[0]).toMatchObject({ selectedTarget: defaultTarget, targetState: 'determined', canSelectTarget: true,
       source: { performer: { kind: 'partyCharacter', id: 'shiroko' } },
-      effectRecipients: [{ kind: 'cardCost', resourceId: 'sCost', amount: -1, recipient: null }] });
+      effectRecipients: [{ kind: 'cardCost', resourceId: 'sCost', amount: -1, recipient: defaultTarget }] });
     expect(initial.relations[0].candidates).toEqual(initial.actionPreview!.preparedActions[0].legalTargetCards);
     expect(game.mapRun.getSnapshot()).toEqual(before);
     const target = initial.relations[0].candidates[0];
@@ -80,7 +82,9 @@ describe('MapRun domain cards', () => {
     const input = { runId, definition, encounter: run.activeEncounter!, party: run.party, partyHp: run.partyHp,
       playerCost: run.playerCost, actorResources: run.actorResources, teamResources: run.teamResources };
     const prepared = resolveGameplayBActionPreview(input).preparedActions[0];
-    expect(prepared).toMatchObject({ targetKind: 'card', targetCard: null, targetSelectionRequired: true });
+    expect(prepared).toMatchObject({
+      targetKind: 'card', targetCard: prepared.legalTargetCards![0], targetSelectionRequired: false,
+    });
     expect(prepared.legalTargetCards).toHaveLength(3);
     const target = prepared.legalTargetCards![0];
     expect(cards().find(card => card.ref.id === target.id)?.owner.id).toBe('serika');
@@ -99,11 +103,28 @@ describe('MapRun domain cards', () => {
 
   test.each(['self', 'opponent'] as const)('does not invent a target when %s has no scost-bearing card', side => {
     const definition = discountMap(side);
-    const { game, runId } = setup(definition);
+    const { game, runId, view } = setup(definition);
     const run = game.mapRun.getSnapshot()!;
     const prepared = resolveGameplayBActionPreview({ runId, definition, encounter: run.activeEncounter!, party: run.party,
       partyHp: run.partyHp, playerCost: run.playerCost, actorResources: run.actorResources, teamResources: run.teamResources }).preparedActions[0];
-    expect(prepared).toMatchObject({ targetCard: null, legalTargetCards: [], targetSelectionRequired: true });
+    expect(prepared).toMatchObject({
+      targetCard: null, legalTargetCards: [], targetSelectionRequired: false, skipReason: 'noLegalTarget',
+    });
+    const before = game.mapRun.getSnapshot();
+    const committed = game.commitMapEncounterRound({ runId, requestId: 'skip-no-card-target', expectedCommitVersion: 0,
+      draft: view().actionPreview!.draft });
+    const skipped = committed.lastEncounterCommit!.settlements[0];
+    expect(skipped).toMatchObject({
+      characterId: 'shiroko', actionId: 'a', targetCharacterId: null, overrideKind: null,
+      playerCostSpent: 0, resourceChanges: [], skipReason: 'noLegalTarget',
+    });
+    expect(skipped).not.toHaveProperty('targetCard');
+    expect(skipped).not.toHaveProperty('scostCost');
+    expect(committed.actorResources.find(row => row.characterId === 'shiroko' && row.resourceId === 'sCost')?.value)
+      .toBe(before?.actorResources.find(row => row.characterId === 'shiroko' && row.resourceId === 'sCost')?.value);
+    const receipt = committed.lastEncounterCommit;
+    game.load(game.save());
+    expect(game.mapRun.getSnapshot()?.lastEncounterCommit).toEqual(receipt);
   });
 
   test('uniquely resolves a real card and commits its real scost reduction', () => {
@@ -122,6 +143,50 @@ describe('MapRun domain cards', () => {
     const projectedCost = view().actionPreview!.recentCommit!.settlements[1].scostCost;
     expect(projectedCost).toEqual(after.lastEncounterCommit!.settlements[1].scostCost);
     expect(Object.isFrozen(projectedCost)).toBe(true);
+  });
+
+  test('auto-selects the first real card instance in catalog order and applies the effect to that instance', () => {
+    const partyCharacterIds = ['shiroko', 'serika', 'hoshino'];
+    const definition: GameplayMapDef = {
+      ...map,
+      partyCharacterIds,
+      initialPartyHp: partyCharacterIds.map(characterId => ({ characterId, initialHp: 20, maxHp: 20 })),
+      initialActorResources: partyCharacterIds.map(characterId => ({ characterId, resourceId: 'sCost', value: 1 })),
+      actions: [
+        {
+          id: 'source-card', name: 'Discount Card', eligibleCharacterIds: ['shiroko'],
+          target: { kind: 'card', side: 'ally' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }],
+        },
+        {
+          id: 'shared-cost-action', name: 'Shared Cost', eligibleCharacterIds: ['serika', 'hoshino'],
+          target: { kind: 'none' }, costs: [{ scope: 'actor', resourceId: 'sCost', amount: 1 }],
+        },
+      ],
+      nodes: map.nodes.map(node => node.id !== 'b' ? node : { ...node, encounter: { ...node.encounter!, participants: [
+        { characterId: 'shiroko', actions: [{ actionId: 'source-card', tendencyWeight: 1 }] },
+        { characterId: 'serika', actions: [{ actionId: 'shared-cost-action', tendencyWeight: 1 }] },
+        { characterId: 'hoshino', actions: [{ actionId: 'shared-cost-action', tendencyWeight: 1 }] },
+      ] } }),
+    };
+    const { game, runId, view, cards } = setup(definition);
+    const initial = view();
+    const source = initial.actionPreview!.preparedActions[0];
+    const duplicateInstances = cards().filter(card => card.zone === 'hand' && card.actionId === 'shared-cost-action');
+    expect(duplicateInstances.map(card => card.owner.id)).toEqual(['serika', 'hoshino']);
+    expect(duplicateInstances[0].ref).not.toEqual(duplicateInstances[1].ref);
+    expect(source.legalTargetCards).toEqual(duplicateInstances.map(card => card.ref));
+    expect(source.targetCard).toEqual(source.legalTargetCards![0]);
+    expect(source.targetSelectionRequired).toBe(false);
+
+    const committed = game.commitMapEncounterRound({ runId, requestId: 'auto-card-target', expectedCommitVersion: 0,
+      draft: initial.actionPreview!.draft });
+    expect(committed.lastEncounterCommit!.settlements[0].targetCard).toEqual(source.legalTargetCards![0]);
+    expect(committed.lastEncounterCommit!.settlements[1].scostCost).toEqual({ original: 1, discount: 1, paid: 0 });
+    expect(committed.actorResources.find(row => row.characterId === 'serika' && row.resourceId === 'sCost')?.value).toBe(1);
+    expect(committed.actorResources.find(row => row.characterId === 'hoshino' && row.resourceId === 'sCost')?.value).toBe(0);
+    const receipt = committed.lastEncounterCommit;
+    game.load(game.save());
+    expect(game.mapRun.getSnapshot()?.lastEncounterCommit).toEqual(receipt);
   });
 
   test('discounts on an unplayed Hand card do not transfer to the executed card', () => {
@@ -183,16 +248,35 @@ describe('MapRun domain cards', () => {
   });
 
   test('discounts cannot fund unrelated costs, and forged actual discount receipts are rejected', () => {
-    const base = discountMap('ally', true);
-    const definition: GameplayMapDef = { ...base, initialTeamResources: [{ resourceId: 'supplies', value: 2 }],
-      actions: base.actions!.map(action => ({ ...action, costs: [...(action.costs ?? []), { scope: 'team', resourceId: 'supplies', amount: 2 }] })),
+    const base = discountMap('ally');
+    const definition: GameplayMapDef = { ...base, initialTeamResources: [{ resourceId: 'supplies', value: 3 }],
+      actions: [
+        ...base.actions!.map(action => ({ ...action, costs: [...(action.costs ?? []), { scope: 'team' as const, resourceId: 'supplies', amount: 2 }] })),
+        { ...base.actions![1], id: 'serika-free', costs: undefined },
+      ],
+      nodes: base.nodes.map(node => node.id !== 'b' ? node : { ...node, encounter: { ...node.encounter!, participants: [
+        node.encounter!.participants![0], {
+          ...node.encounter!.participants![1],
+          actions: [...node.encounter!.participants![1].actions, { actionId: 'serika-free', tendencyWeight: 1 }],
+        },
+      ] } }),
     };
     const first = setup(definition);
+    const initial = first.view();
+    const serikaHand = first.game.mapRun.getSnapshot()?.activeEncounter?.hands
+      .find(row => row.characterId === 'serika')?.actionIds;
+    const alternate = serikaHand?.find(actionId => ['b', 'c', 'd'].includes(actionId));
+    if (!alternate) throw new Error('Expected a payable Serika Swap candidate: ' + JSON.stringify(serikaHand));
+    first.game.swapMapPreparedAction(first.runId, 'serika', alternate, initial.actionPreview!.draft);
+    const afterSwap = first.view();
+    const cardTarget = afterSwap.actionPreview!.preparedActions[0].legalTargetCards?.[0];
+    if (!cardTarget) throw new Error('Expected a legal card target for Shiroko after Swap');
+    first.game.setMapPreparedCardTarget(first.runId, 'shiroko', cardTarget, afterSwap.actionPreview!.draft);
     const before = first.game.mapRun.getSnapshot();
     expect(() => first.game.commitMapEncounterRound({ runId: first.runId, requestId: 'fail', expectedCommitVersion: 0,
       draft: first.view().actionPreview!.draft })).toThrow(/cannot afford/);
     expect(first.game.mapRun.getSnapshot()).toEqual(before);
-    const second = setup(base);
+    const second = setup(discountMap('ally', true));
     second.game.commitMapEncounterRound({ runId: second.runId, requestId: 'valid', expectedCommitVersion: 0, draft: second.view().actionPreview!.draft });
     const forged = JSON.parse(JSON.stringify(second.game.save()));
     forged.mapRun.run.lastEncounterCommit.settlements[1].scostCost.discount = 99;
@@ -204,7 +288,7 @@ describe('MapRun domain cards', () => {
     const { game, runId, view, cards } = setup(discountMap());
     const commands = createGameCommands(game);
     const initial = view();
-    const target = initial.actionPreview!.preparedActions[0].legalTargetCards![0];
+    const target = initial.actionPreview!.preparedActions[0].legalTargetCards!.at(-1)!;
     const draft = initial.actionPreview!.draft;
     commands.setMapPreparedCardTarget(runId, 'shiroko', target, draft);
     const selected = view();
@@ -223,7 +307,9 @@ describe('MapRun domain cards', () => {
     game.load(game.save());
     expect(view().actionPreview!.preparedActions[0].targetCard).toEqual(target);
     commands.setMapPreparedCardTarget(runId, 'shiroko', null, view().actionPreview!.draft);
-    expect(view().actionPreview!.preparedActions[0]).toMatchObject({ targetCard: null, targetSelectionRequired: true });
+    const reset = view().actionPreview!.preparedActions[0];
+    expect(reset).toMatchObject({ targetCard: reset.legalTargetCards![0], targetSelectionRequired: false });
+    expect(reset.targetCard).not.toEqual(target);
   });
 
   test('a removed command card clears incoming choices in preview and replacement; a Hand card survives Swap', () => {
@@ -245,7 +331,8 @@ describe('MapRun domain cards', () => {
     expect(() => game.mapRun.previewReplacement(runId, 'serika', natural, before.actionPreview!.draft)).not.toThrow();
     expect(view().run).toEqual(before.run);
     game.clearMapActionOverride(runId, 'serika', before.actionPreview!.draft);
-    expect(view().actionPreview!.preparedActions[0]).toMatchObject({ targetCard: null, targetSelectionRequired: true });
+    const cleared = view().actionPreview!.preparedActions[0];
+    expect(cleared).toMatchObject({ targetCard: cleared.legalTargetCards![0], targetSelectionRequired: false });
     const hand = cards().find(card => card.zone === 'hand' && card.owner.id === 'serika')!.ref;
     game.setMapPreparedCardTarget(runId, 'shiroko', hand, view().actionPreview!.draft);
     const alternate = view().actionPreview!.preparedActions[1].hand.find(action => action.actionId !== natural)!.actionId;
@@ -273,14 +360,16 @@ describe('MapRun domain cards', () => {
     };
     const { game, runId, view } = setup(definition);
     const source = view().actionPreview!.preparedActions[0];
-    const target = source.legalTargetCards![0];
+    const target = source.legalTargetCards!.at(-1)!;
     game.setMapPreparedCardTarget(runId, 'shiroko', target, view().actionPreview!.draft);
     const other = source.hand.find(action => action.actionId !== source.preparedAction!.actionId)!;
     game.swapMapPreparedAction(runId, 'shiroko', other.actionId, view().actionPreview!.draft);
-    expect(view().actionPreview!.preparedActions[0]).toMatchObject({ targetCard: null, targetSelectionRequired: true });
-    expect(view().actionPreview!.preparedActions[0].legalTargetCards).toContainEqual(target);
+    const swapped = view().actionPreview!.preparedActions[0];
+    expect(swapped).toMatchObject({ targetCard: swapped.legalTargetCards![0], targetSelectionRequired: false });
+    expect(swapped.targetCard).not.toEqual(target);
     game.clearMapActionOverride(runId, 'shiroko', view().actionPreview!.draft);
-    expect(view().actionPreview!.preparedActions[0]).toMatchObject({ targetCard: null, targetSelectionRequired: true });
+    const natural = view().actionPreview!.preparedActions[0];
+    expect(natural).toMatchObject({ targetCard: natural.legalTargetCards![0], targetSelectionRequired: false });
   });
 
   test('public query exposes unique round-local Hand objects, not replacement offers or visual copies', () => {

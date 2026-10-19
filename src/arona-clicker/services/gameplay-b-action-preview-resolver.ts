@@ -12,6 +12,7 @@ import type {
 } from '../contracts/map-run';
 import type { MapRunCardRef } from '../contracts/map-cards';
 import { catalogMapRunCards, mapRunCardKey, parseMapRunCardRef } from './map-card-catalog';
+import { selectGameplayBUnitTarget } from './gameplay-b-target-selection';
 
 export interface GameplayBActionPreviewInput {
   /** Required when resolving round-local card identities. */
@@ -40,11 +41,12 @@ export interface GameplayBPreparedActionPreview {
   readonly legalTargetCharacterIds: readonly string[];
   /** Present for Enemy-target Actions; IDs are local to this Encounter. */
   readonly legalTargetEnemyIds?: readonly string[];
-  /** Null means no actor target, or a required multi-target choice is pending. */
+  /** Null means no actor target or no legal target; normal unit multi-targets receive a default. */
   readonly targetCharacterId: string | null;
   /** Present for Enemy-target Actions. */
   readonly targetEnemyId?: string | null;
   readonly targetSelectionRequired: boolean;
+  readonly skipReason?: 'noLegalTarget';
   readonly legalTargetCards?: readonly MapRunCardRef[];
   readonly targetCard?: MapRunCardRef | null;
   readonly overrideKind: MapRunActionOverride['kind'] | null;
@@ -229,6 +231,8 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
   }
   const enemyIds = new Set<string>();
   const livingEnemyIds: string[] = [];
+  const enemyHpById = new Map<string, number>();
+  const enemyMaxHpById = new Map<string, number>();
   for (const [index, rawEnemy] of rawEnemies.entries()) {
     const expectedEnemy = enemyDefinitions[index];
     if (!isRecord(rawEnemy) || !isNonEmptyId(rawEnemy.enemyId)
@@ -238,6 +242,8 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
       || (rawEnemy.currentHp as number) > (expectedEnemy.maxHp as number)
       || enemyIds.has(rawEnemy.enemyId)) fail('Action preview received an invalid Enemy HP snapshot');
     enemyIds.add(rawEnemy.enemyId);
+    enemyHpById.set(rawEnemy.enemyId, rawEnemy.currentHp as number);
+    enemyMaxHpById.set(rawEnemy.enemyId, expectedEnemy.maxHp as number);
     if ((rawEnemy.currentHp as number) > 0) livingEnemyIds.push(rawEnemy.enemyId);
   }
   const actionRows: unknown = definition.actions ?? [];
@@ -413,15 +419,20 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
         legalTargetCharacterIds = party.map(partyMember => partyMember.characterId).filter(id => livingPartyIds.has(id));
         const selected = targetSelections.get(member.characterId);
         if (selected !== undefined) {
-          if (selected.kind !== 'partyCharacter' || legalTargetCharacterIds.length <= 1
-            || !legalTargetCharacterIds.includes(selected.id)) {
-            fail(`Target selection is not a valid unresolved party target for "${member.characterId}"`);
+          if (selected.kind !== 'partyCharacter' || !legalTargetCharacterIds.includes(selected.id)) {
+            fail(`Target selection is not a legal party target for "${member.characterId}"`);
           }
           targetCharacterId = selected.id;
-        } else if (legalTargetCharacterIds.length === 1) {
-          targetCharacterId = legalTargetCharacterIds[0];
-        } else {
-          targetSelectionRequired = true;
+        } else if (legalTargetCharacterIds.length > 0) {
+          const preference = action.target.preference ?? 'stableOrder';
+          if (preference === 'highestMissingHpRatio' && input.partyHp === undefined) {
+            fail(`Action "${action.id}" requires a MapRun HP snapshot for its target preference`);
+          }
+          targetCharacterId = selectGameplayBUnitTarget(legalTargetCharacterIds.map(id => ({
+            id,
+            currentHp: partyHp.get(id)!,
+            maxHp: partyHpCaps.get(id)!,
+          })), preference);
         }
       } else if (action.target.kind === 'enemy') {
         if (livingEnemyIds.length === 0) fail(`Enemy-target Action "${action.id}" has no living Enemy target`);
@@ -433,10 +444,13 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
         // this round instead of failing, so a Character never silently loses its target.
         if (selected !== undefined && selected.kind === 'enemy' && enemyIds.has(selected.id) && livingEnemyIds.includes(selected.id)) {
           targetEnemyId = selected.id;
-        } else if (livingEnemyIds.length === 1) {
-          targetEnemyId = livingEnemyIds[0];
         } else {
-          targetSelectionRequired = true;
+          const preference = action.target.preference ?? 'stableOrder';
+          targetEnemyId = selectGameplayBUnitTarget(livingEnemyIds.map(id => ({
+            id,
+            currentHp: enemyHpById.get(id)!,
+            maxHp: enemyMaxHpById.get(id)!,
+          })), preference);
         }
       } else if (action.target.kind === 'card') {
         targetSelectionRequired = true; // Resolve against all real cards after every preparation is known.
@@ -503,8 +517,15 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
       if (selected && (selected.kind !== 'card' || !legalTargetCards.some(ref => mapRunCardKey(ref) === mapRunCardKey(selected.ref)))) {
         fail(`Card target selection is not legal for "${row.characterId}"`);
       }
-      const targetCard = selected?.kind === 'card' ? selected.ref : legalTargetCards.length === 1 ? legalTargetCards[0] : null;
-      return Object.freeze({ ...row, legalTargetCards, targetCard, targetSelectionRequired: targetCard === null });
+      const targetCard = selected?.kind === 'card' ? selected.ref : legalTargetCards[0] ?? null;
+      const hasNoLegalTarget = legalTargetCards.length === 0;
+      return Object.freeze({
+        ...row,
+        legalTargetCards,
+        targetCard,
+        targetSelectionRequired: false,
+        ...(hasNoLegalTarget ? { skipReason: 'noLegalTarget' as const } : {}),
+      });
     });
   }
 

@@ -21,12 +21,14 @@ describe('Map relation interaction priority', () => {
     root.innerHTML = `<main data-map-workspace-region data-map-run-id="run">
       <button data-map-relation-key="a" data-map-hand-stack-toggle aria-expanded="false">A</button>
       <button data-map-relation-key="b" data-map-hand-stack-toggle aria-expanded="false">B</button>
-      <button data-map-relation-pin="a">Pin</button><section tabindex="0"></section>
+      <button data-map-relation-pin="a">Pin</button><article data-map-actor-face tabindex="0"></article><section tabindex="0"></section>
       <p data-map-relation-status></p></main>`;
     const a = root.querySelectorAll<HTMLButtonElement>('button')[0];
     const b = root.querySelectorAll<HTMLButtonElement>('button')[1];
     const pin = root.querySelectorAll<HTMLButtonElement>('button')[2];
+    const actorFace = root.querySelector<HTMLElement>('[data-map-actor-face]')!;
     const target = root.querySelector<HTMLElement>('section')!;
+    actorFace.dataset.mapObjectKey = mapUnitKey(scope, 'partyCharacter', 'a');
     target.dataset.mapObjectKey = mapUnitKey(scope, 'enemy', 'robot');
     document.body.append(root);
     let relations = [relation('a', 'robot'), relation('b', 'robot-b')];
@@ -34,15 +36,18 @@ describe('Map relation interaction priority', () => {
     const session = new MapRelationInteraction(root, query, preview, confirm);
     sessions.push(session);
     session.reconcile();
-    return { root, a, b, pin, target, session, set: (next: MapActionRelation[]) => { relations = next; session.reconcile(); } };
+    return { root, a, b, pin, actorFace, target, session, set: (next: MapActionRelation[]) => { relations = next; session.reconcile(); } };
   }
   const over = (element: HTMLElement) => element.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
 
   test('pointer inspection and reverse target inspection are read-only attribute updates', () => {
-    const { root, a, b, target } = setup();
+    const { root, a, b, actorFace, target } = setup();
     over(a);
     expect(a.dataset.mapRoleSource).toBe('发起');
-    expect(target.dataset.mapRoleRecipient).toBe('目标');
+    expect(target.dataset.mapRoleRecipient).toBe('接收');
+    over(actorFace);
+    expect(actorFace.dataset.mapRoleSource).toBeUndefined();
+    expect(a.dataset.mapRoleSource).toBe('发起');
     over(b);
     expect(a.dataset.mapRoleSource).toBeUndefined();
     over(target);
@@ -105,12 +110,12 @@ describe('Map relation interaction priority', () => {
     expect(target.dataset.mapRoleRecipient).toBeUndefined();
     expect(root.querySelector('[data-map-relation-status]')?.textContent).toContain('替换预览');
     over(a);
-    expect(target.dataset.mapRoleRecipient).toBe('目标');
+    expect(target.dataset.mapRoleRecipient).toBe('接收');
     (picker.firstElementChild as HTMLButtonElement).disabled = true;
     preview.mockClear();
     over(picker.firstElementChild as HTMLElement);
     expect(preview).not.toHaveBeenCalled();
-    expect(target.dataset.mapRoleRecipient).toBe('目标');
+    expect(target.dataset.mapRoleRecipient).toBe('接收');
   });
 
   test('session reset clears pinned state even when a loaded Run reuses the same identifiers', async () => {
@@ -231,6 +236,7 @@ describe('Map relation interaction priority', () => {
     expect(root.querySelector('.map-workspace__target-drag-preview')).toBeNull();
     root.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: 50, clientY: 10 }));
     expect(root.querySelector('.map-workspace__target-drag-preview')).not.toBeNull();
+    expect(target.dataset.mapRoleRecipient).toBe('接收');
     expect(target.dataset.mapRoleDrop).toBe('接收');
     root.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: 50, clientY: 10 }));
     a.click();

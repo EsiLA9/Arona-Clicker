@@ -40,12 +40,12 @@ describe('Map relation visual roles', () => {
     const cardRelation: MapActionRelation = { ...relation, selectedTarget: target, candidates: [target, next],
       effectRecipients: [{ kind: 'cardCost', resourceId: 'sCost', amount: -1, recipient: target }] };
     presentMapRelations(root, [cardRelation], true);
-    expect(copies.slice(0, 2).every(node => node.dataset.mapRoleRecipient === '目标')).toBe(true);
+    expect(copies.slice(0, 2).every(node => node.dataset.mapRoleRecipient === '接收')).toBe(true);
     expect(copies[2].dataset.mapRoleCandidate).toBe('候选');
     expect(units[1].dataset.mapRoleRecipient).toBeUndefined();
     copies[0].remove();
     presentMapRelations(root, [cardRelation], true);
-    expect(copies[1].dataset.mapRoleRecipient).toBe('目标');
+    expect(copies[1].dataset.mapRoleRecipient).toBe('接收');
     expect(cardRelation.selectedTarget).toBe(target);
   });
   test('marks source, selected target and weaker candidates without replacing elements', () => {
@@ -53,8 +53,8 @@ describe('Map relation visual roles', () => {
     const before = [...root.children];
     presentMapRelations(root, [relation], true);
     expect(card.dataset.mapRoleSource).toBe('发起');
-    expect(units[0].dataset.mapRoleSource).toBe('发起');
-    expect(units[1].dataset.mapRoleRecipient).toBe('目标');
+    expect(units[0].dataset.mapRoleSource).toBeUndefined();
+    expect(units[1].dataset.mapRoleRecipient).toBe('接收');
     expect(units[2].dataset.mapRoleCandidate).toBe('候选');
     expect(units[3].dataset.mapRoleCandidate).toBeUndefined();
     expect([...root.children]).toEqual(before);
@@ -63,16 +63,25 @@ describe('Map relation visual roles', () => {
     expect([...root.children]).toEqual(before);
   });
 
-  test('supports self dual roles, no target and multiple display copies', () => {
+  test('keeps source and recipient roles independent on one object, and supports no target and copies', () => {
     const { root, card, units } = mounted();
     root.append(card.cloneNode(true));
     presentMapRelations(root, [{ ...relation, selectedTarget: unit('a') }]);
-    expect(units[0].dataset.mapRoleSource).toBe('发起');
-    expect(units[0].dataset.mapRoleRecipient).toBe('目标');
+    expect(units[0].dataset.mapRoleSource).toBeUndefined();
+    expect(units[0].dataset.mapRoleRecipient).toBe('接收');
     expect(root.querySelectorAll('button[data-map-role-source]')).toHaveLength(2);
     presentMapRelations(root, [{ ...relation, selectedTarget: null, targetState: 'none', selectionMode: 'none' }], true);
-    expect(root.querySelectorAll('[data-map-role-source]')).toHaveLength(3);
+    expect(root.querySelectorAll('[data-map-role-source]')).toHaveLength(2);
     expect(root.querySelector('[data-map-role-recipient], [data-map-role-candidate]')).toBeNull();
+
+    const shared = document.createElement('button');
+    const sharedCard = { kind: 'card' as const, scope, id: 'shared' };
+    shared.dataset.mapRelationKey = relation.key;
+    shared.dataset.mapObjectKey = mapObjectKey(sharedCard);
+    root.append(shared);
+    presentMapRelations(root, [{ ...relation, selectedTarget: sharedCard }]);
+    expect(shared.dataset.mapRoleSource).toBe('发起');
+    expect(shared.dataset.mapRoleRecipient).toBe('接收');
   });
 
   test('does not present unknown enemy targets or use effects as selected targets', () => {

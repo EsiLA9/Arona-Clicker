@@ -226,7 +226,10 @@ function validateMapActionContent(
     for (const [actionIndex, rawAction] of ((rawActions ?? []) as unknown[]).entries()) {
       const actionPath = `Map "${map.id}" actions[${actionIndex}]`;
       if (!isRecord(rawAction)) throw new RegistryError(`${actionPath} 必须是 Action 对象`);
-      assertNoExtraFields(rawAction, ['id', 'name', 'description', 'eligibleCharacterIds', 'target', 'costs', 'effects', 'hpEffects', 'cardEffects'], actionPath);
+      assertNoExtraFields(rawAction, [
+        'id', 'name', 'description', 'eligibleCharacterIds', 'target', 'tendencyRole',
+        'costs', 'effects', 'hpEffects', 'cardEffects',
+      ], actionPath);
 
       const actionId = rawAction.id;
       if (!isNonEmptyString(actionId)) throw new RegistryError(`${actionPath}.id 必须是非空 Map-local Action ID`);
@@ -258,9 +261,32 @@ function validateMapActionContent(
       if (!isRecord(target)) {
         throw new RegistryError(`${actionPath}.target 必须是目标规则对象`);
       }
-      assertNoExtraFields(target, target.kind === 'card' ? ['kind', 'side'] : ['kind'], `${actionPath}.target`);
+      assertNoExtraFields(target, target.kind === 'card'
+        ? ['kind', 'side', 'preference']
+        : ['kind', 'preference'], `${actionPath}.target`);
       if (typeof target.kind !== 'string' || !targetKinds.has(target.kind)) {
         throw new RegistryError(`${actionPath}.target.kind 必须是 none、self、partyCharacter、enemy 或 card`);
+      }
+      if (target.preference !== undefined) {
+        const allowedPreferences = target.kind === 'enemy'
+          ? ['stableOrder', 'lowestHpRatio']
+          : target.kind === 'partyCharacter'
+            ? ['stableOrder', 'highestMissingHpRatio']
+            : target.kind === 'card'
+              ? ['stableOrder']
+              : [];
+        if (typeof target.preference !== 'string' || !allowedPreferences.includes(target.preference)) {
+          throw new RegistryError(`${actionPath}.target.preference 与 target.kind 不兼容`);
+        }
+      }
+      const tendencyRole = rawAction.tendencyRole;
+      if (tendencyRole !== undefined
+        && (typeof tendencyRole !== 'string' || !['recovery', 'defense', 'attack'].includes(tendencyRole))) {
+        throw new RegistryError(`${actionPath}.tendencyRole 必须是 recovery、defense 或 attack`);
+      }
+      if ((tendencyRole === 'recovery' && target.kind !== 'self' && target.kind !== 'partyCharacter')
+        || (tendencyRole === 'attack' && target.kind !== 'enemy')) {
+        throw new RegistryError(`${actionPath}.tendencyRole 与 target.kind 不兼容`);
       }
       if (target.kind === 'card' && (typeof target.side !== 'string' || !['self', 'ally', 'opponent', 'any'].includes(target.side))) {
         throw new RegistryError(`${actionPath}.target.side 必须是 self、ally、opponent 或 any`);

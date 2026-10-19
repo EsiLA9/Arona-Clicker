@@ -20,8 +20,16 @@ export interface GameplayBHandDrawInput {
   readonly partyCharacterIds: readonly string[];
   /** Downed party members remain in Hand order with an empty Hand. */
   readonly livingPartyCharacterIds?: readonly string[];
+  /** Living Enemy IDs from the active Encounter; unit target eligibility needs the current roster. */
+  readonly livingEnemyIds: readonly string[];
   readonly participants?: readonly GameplayEncounterParticipantDef[];
   readonly actions?: readonly GameplayMapActionDef[];
+  /** Current MapRun health with Map definition caps, derived rather than persisted separately. */
+  readonly partyHealth?: readonly {
+    readonly characterId: string;
+    readonly currentHp: number;
+    readonly maxHp: number;
+  }[];
   readonly actorResources: readonly MapRunActorResourceBalance[];
   readonly teamResources: readonly MapRunTeamResourceBalance[];
   readonly randomState: MapRunHandRandomState;
@@ -42,6 +50,13 @@ export class GameplayBHandResolutionError extends Error {
 interface WeightedAction {
   readonly actionId: string;
   readonly weight: bigint;
+  readonly teamCosts: readonly { readonly resourceId: string; readonly amount: bigint }[];
+}
+
+interface PartyHealthRow {
+  readonly characterId: string;
+  readonly currentHp: number;
+  readonly maxHp: number;
 }
 
 function fail(message: string): never {
@@ -112,6 +127,9 @@ function resolveCandidates(
   actionsById: ReadonlyMap<string, GameplayMapActionDef>,
   actorBalances: ReadonlyMap<string, number>,
   teamBalances: ReadonlyMap<string, number>,
+  livingPartyIds: ReadonlySet<string>,
+  livingEnemyIds: readonly string[],
+  partyHealth: ReadonlyMap<string, PartyHealthRow>,
 ): WeightedAction[] {
   if (!Array.isArray(candidates)) fail('Encounter participant actions must be an array: ' + characterId);
   const seenActionIds = new Set<string>();
@@ -135,6 +153,7 @@ function resolveCandidates(
     const costs: unknown = action.costs;
     if (costs !== undefined && !Array.isArray(costs)) fail('Map Action costs must be an array: ' + actionId);
     const requiredBalances = new Map<string, { balance: number; required: bigint }>();
+    const teamCosts = new Map<string, bigint>();
     for (const cost of (costs ?? []) as unknown[]) {
       if (!isRecord(cost) || (cost.scope !== 'actor' && cost.scope !== 'team')
         || !isNonEmptyId(cost.resourceId)
@@ -150,11 +169,63 @@ function resolveCandidates(
         balance,
         required: (previous?.required ?? 0n) + BigInt(cost.amount as number),
       });
+      if (cost.scope === 'team') {
+        teamCosts.set(cost.resourceId, (teamCosts.get(cost.resourceId) ?? 0n) + BigInt(cost.amount as number));
+      }
     }
     if ([...requiredBalances.values()].some(({ balance, required }) => required > BigInt(balance))) continue;
-    result.push({ actionId, weight: BigInt(candidate.tendencyWeight as number) });
+    if ((action.target.kind === 'enemy' && livingEnemyIds.length === 0)
+      || (action.target.kind === 'partyCharacter' && livingPartyIds.size === 0)) continue;
+    const role = action.tendencyRole;
+    if (role !== undefined && !['recovery', 'defense', 'attack'].includes(role)) {
+      fail('Map Action has an invalid tendencyRole: ' + actionId);
+    }
+    if ((role === 'recovery' && action.target.kind !== 'self' && action.target.kind !== 'partyCharacter')
+      || (role === 'attack' && action.target.kind !== 'enemy')) {
+      fail('Map Action tendencyRole does not match its target: ' + actionId);
+    }
+    let multiplier = 1n;
+    if (role === 'recovery') {
+      const eligibleTargets = action.target.kind === 'self' ? [characterId] : [...livingPartyIds];
+      const needsRecovery = eligibleTargets.some(targetId => {
+        const health = partyHealth.get(targetId);
+        if (!health) fail('recovery tendency requires current HP and maximum HP for ' + targetId);
+        return BigInt(health.maxHp - health.currentHp) * 4n >= BigInt(health.maxHp);
+      });
+      if (needsRecovery) multiplier = 2n;
+    } else if (role === 'defense') {
+      const health = partyHealth.get(characterId);
+      if (!health) fail('defense tendency requires current HP and maximum HP for ' + characterId);
+      if (BigInt(health.currentHp) * 2n <= BigInt(health.maxHp)) multiplier = 2n;
+    } else if (role === 'attack' && livingEnemyIds.length > 0) {
+      multiplier = 2n;
+    }
+    result.push({
+      actionId,
+      weight: BigInt(candidate.tendencyWeight as number) * multiplier,
+      teamCosts: [...teamCosts].map(([resourceId, amount]) => ({ resourceId, amount })),
+    });
   }
   return result;
+}
+
+function takeWeightedAction(
+  candidates: WeightedAction[],
+  seed: number,
+  cursor: number,
+): { readonly action: WeightedAction; readonly cursor: number } {
+  if (candidates.length === 0) fail('cannot draw a Gameplay B Action from an empty candidate pool');
+  const totalWeight = candidates.reduce((total, candidate) => total + candidate.weight, 0n);
+  const sample = sampleBelow(totalWeight, seed, cursor);
+  let cumulativeWeight = 0n;
+  const selectedIndex = candidates.findIndex(candidate => {
+    cumulativeWeight += candidate.weight;
+    return sample.value < cumulativeWeight;
+  });
+  if (selectedIndex < 0) fail('weighted Hand draw did not resolve a Map Action');
+  const [action] = candidates.splice(selectedIndex, 1);
+  if (!action) fail('weighted Hand draw selected a missing Map Action');
+  return { action, cursor: sample.cursor };
 }
 
 function indexMapRunResources(
@@ -199,6 +270,11 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
     fail('MapRun Hand draw requires a non-empty unique fixed party');
   }
   validateRandomState(input.randomState);
+  if (!Array.isArray(input.livingEnemyIds)
+    || input.livingEnemyIds.some(id => !isNonEmptyId(id))
+    || new Set(input.livingEnemyIds).size !== input.livingEnemyIds.length) {
+    fail('MapRun Hand draw has an invalid living Enemy roster');
+  }
   const balances = indexMapRunResources(input.partyCharacterIds, input.actorResources, input.teamResources);
 
   const actions = input.actions ?? [];
@@ -224,6 +300,26 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
     || [...livingPartyIds].some(id => !partyIds.has(id))) {
     fail('MapRun Hand draw has a living party member outside the fixed party');
   }
+  const partyHealth = new Map<string, PartyHealthRow>();
+  if (input.partyHealth !== undefined) {
+    if (!Array.isArray(input.partyHealth) || input.partyHealth.length !== input.partyCharacterIds.length) {
+      fail('MapRun Hand draw has an invalid party health snapshot');
+    }
+    for (const [index, row] of input.partyHealth.entries()) {
+      const expectedCharacterId = input.partyCharacterIds[index];
+      if (!isRecord(row) || row.characterId !== expectedCharacterId
+        || !Number.isSafeInteger(row.currentHp) || (row.currentHp as number) < 0
+        || !Number.isSafeInteger(row.maxHp) || (row.maxHp as number) < 1
+        || (row.currentHp as number) > (row.maxHp as number)) {
+        fail('MapRun Hand draw has an invalid party health row');
+      }
+      partyHealth.set(row.characterId as string, {
+        characterId: row.characterId as string,
+        currentHp: row.currentHp as number,
+        maxHp: row.maxHp as number,
+      });
+    }
+  }
   for (const participant of participants) {
     if (!isRecord(participant) || !isNonEmptyId(participant.characterId)
       || !partyIds.has(participant.characterId)) {
@@ -236,6 +332,7 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
   }
 
   let cursor = input.randomState.cursor;
+  const virtualTeamBalances = new Map(balances.team);
   const hands: MapRunEncounterHand[] = [];
   for (const characterId of input.partyCharacterIds) {
     if (!livingPartyIds.has(characterId)) {
@@ -246,20 +343,44 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
     if (participant && !Array.isArray(participant.actions)) {
       fail('Encounter participant actions must be an array: ' + characterId);
     }
-    const remaining = resolveCandidates(characterId, participant?.actions ?? [], actionsById, balances.actor, balances.team);
-    const actionIds: string[] = [];
+    const startingBalanceCandidates = resolveCandidates(
+      characterId,
+      participant?.actions ?? [],
+      actionsById,
+      balances.actor,
+      balances.team,
+      livingPartyIds,
+      input.livingEnemyIds,
+      partyHealth,
+    );
+    const naturalCandidates = resolveCandidates(
+      characterId,
+      participant?.actions ?? [],
+      actionsById,
+      balances.actor,
+      virtualTeamBalances,
+      livingPartyIds,
+      input.livingEnemyIds,
+      partyHealth,
+    );
+    if (naturalCandidates.length === 0) {
+      hands.push({ characterId, actionIds: [] });
+      continue;
+    }
+
+    const natural = takeWeightedAction(naturalCandidates, input.randomState.seed, cursor);
+    cursor = natural.cursor;
+    const actionIds = [natural.action.actionId];
+    const remaining = startingBalanceCandidates.filter(candidate => candidate.actionId !== natural.action.actionId);
+    for (const cost of natural.action.teamCosts) {
+      const balance = virtualTeamBalances.get(cost.resourceId) ?? 0;
+      if (cost.amount > BigInt(balance)) fail('natural Hand reservation exceeded the virtual Team balance');
+      virtualTeamBalances.set(cost.resourceId, balance - Number(cost.amount));
+    }
     while (actionIds.length < HAND_LIMIT && remaining.length > 0) {
-      const totalWeight = remaining.reduce((total, candidate) => total + candidate.weight, 0n);
-      const sample = sampleBelow(totalWeight, input.randomState.seed, cursor);
-      cursor = sample.cursor;
-      let cumulativeWeight = 0n;
-      const selectedIndex = remaining.findIndex(candidate => {
-        cumulativeWeight += candidate.weight;
-        return sample.value < cumulativeWeight;
-      });
-      if (selectedIndex < 0) fail('weighted Hand draw did not resolve a Map Action');
-      actionIds.push(remaining[selectedIndex].actionId);
-      remaining.splice(selectedIndex, 1);
+      const next = takeWeightedAction(remaining, input.randomState.seed, cursor);
+      cursor = next.cursor;
+      actionIds.push(next.action.actionId);
     }
     hands.push({ characterId, actionIds });
   }

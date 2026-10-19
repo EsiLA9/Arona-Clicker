@@ -483,6 +483,57 @@ describe('Gameplay B Map Action Registry', () => {
     const map = mapWithActions([...VALID_MAP_ACTIONS, cardAction]);
     expect(() => registry.load(makeDatapack({ maps: [map] }))).not.toThrow();
   });
+  test('accepts explicit target preferences compatible with each target kind', () => {
+    const registry = new Registry();
+    const map = mapWithActions([
+      ...VALID_MAP_ACTIONS,
+      { id: 'attack-pref', name: 'Attack Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
+        target: { kind: 'enemy', preference: 'lowestHpRatio' } },
+      { id: 'heal-pref', name: 'Healing Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
+        target: { kind: 'partyCharacter', preference: 'highestMissingHpRatio' } },
+      { ...cardAction, target: { kind: 'card', side: 'ally', preference: 'stableOrder' } },
+    ]);
+    expect(() => registry.load(makeDatapack({ maps: [map] }))).not.toThrow();
+  });
+  test('accepts the finite explicit tendencyRole values with compatible targets', () => {
+    const map = mapWithActions([
+      ...VALID_MAP_ACTIONS,
+      { id: 'recovery', name: 'Recovery', eligibleCharacterIds: [TEST_CHARACTER_ID],
+        target: { kind: 'partyCharacter' }, tendencyRole: 'recovery' },
+      { id: 'defense', name: 'Defense', eligibleCharacterIds: [TEST_CHARACTER_ID],
+        target: { kind: 'self' }, tendencyRole: 'defense' },
+      { id: 'attack', name: 'Attack', eligibleCharacterIds: [TEST_CHARACTER_ID],
+        target: { kind: 'enemy' }, tendencyRole: 'attack' },
+    ]);
+    expect(() => loadMap(map)).not.toThrow();
+  });
+  test.each([
+    { id: 'unknown-role', name: 'Unknown Role', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'enemy' }, tendencyRole: 'support' },
+    { id: 'attack-party', name: 'Attack Party', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'partyCharacter' }, tendencyRole: 'attack' },
+    { id: 'recovery-enemy', name: 'Recovery Enemy', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'enemy' }, tendencyRole: 'recovery' },
+    { id: 'recovery-card', name: 'Recovery Card', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'card', side: 'ally' }, tendencyRole: 'recovery',
+      cardEffects: [{ kind: 'scostDiscount', amount: 1 }] },
+  ])('rejects invalid tendencyRole configuration %#', action => {
+    expect(() => loadMap(mapWithActions([...VALID_MAP_ACTIONS, action]))).toThrow(/tendencyRole/);
+  });
+  test.each([
+    { id: 'bad-enemy-pref', name: 'Bad Enemy Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'enemy', preference: 'highestMissingHpRatio' } },
+    { id: 'bad-party-pref', name: 'Bad Party Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' } },
+    { id: 'bad-card-pref', name: 'Bad Card Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'card', side: 'ally', preference: 'lowestHpRatio' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }] },
+    { id: 'bad-none-pref', name: 'Bad None Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'none', preference: 'stableOrder' } },
+    { id: 'unknown-pref', name: 'Unknown Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
+      target: { kind: 'enemy', preference: 'random' } },
+  ])('rejects an invalid target preference %#', action => {
+    expect(() => loadMap(mapWithActions([...VALID_MAP_ACTIONS, action]))).toThrow(/target.preference 与 target.kind 不兼容/);
+  });
   test.each([
     { target: { kind: 'card', side: 'left' } },
     { target: { kind: 'card' } },

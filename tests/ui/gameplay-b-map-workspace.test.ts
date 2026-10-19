@@ -281,6 +281,7 @@ describe('Gameplay B Map Workspace', () => {
     vi.spyOn(document, 'elementFromPoint').mockReturnValue(recipient);
     source.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 8, button: 0, clientX: 10, clientY: 10 }));
     root.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 8, clientX: 50, clientY: 10 }));
+    expect(recipient.dataset.mapRoleRecipient).toBe('接收');
     expect(recipient.dataset.mapRoleDrop).toBe('接收');
     expect(root.querySelectorAll('.map-workspace__target-drag-preview')).toHaveLength(1);
     root.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 8, clientX: 50, clientY: 10 }));
@@ -955,6 +956,7 @@ describe('Gameplay B Map Workspace', () => {
     const hit = vi.spyOn(document, 'elementFromPoint').mockReturnValue(firstEnemy);
     source.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7, button: 0, clientX: 10, clientY: 10 }));
     root.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 7, clientX: 100, clientY: 20 }));
+    expect(firstEnemy.dataset.mapRoleRecipient).toBe('接收');
     expect(firstEnemy.dataset.mapRoleDrop).toBe('接收');
     root.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7, clientX: 100, clientY: 20 }));
     await Promise.resolve();

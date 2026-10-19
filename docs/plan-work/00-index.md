@@ -8,6 +8,10 @@
 
 ## 当前推进
 
+### Gameplay B 自主行动与目标策略（in progress，2026-10-19）
+
+- [[docs/plan-work/task-0299-gameplay-b-autonomous-action-target-strategy]]：P0 产品规则已按负责人意见冻结，开始按 P0—P5 的 Patch Unit 施工；明确覆盖 0290 多目标手选和 0291 自动目标同轮失效合同，不重做旧 Operation Planner、0298 交互或第二 Runtime Owner。
+
 ### Gameplay B 作用关系、Hover 与目标交互（in progress，2026-10-19）
 
 - [[docs/plan-work/task-0298-gameplay-b-relations-hover-and-target-interaction]]：Goal 执行中，U1—U21 完成单位基础与真实卡牌的关系投影、高亮、Hover / Focus、换牌、点击 / 无连线拖拽和独立 Commit；正常协同演练显示真实 sCost 余额及原费 / 减免 / 实扣。8 文件 116 项定向回归、类型 / 架构与桌面验收通过。首个效果和左右规则裁定已收敛，Flow 全范围、保留的单位相对规则及 P5 / P6 尚未完成。

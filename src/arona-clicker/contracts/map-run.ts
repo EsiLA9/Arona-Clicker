@@ -33,7 +33,7 @@ export interface MapRunActionOverride {
   readonly actionId: string;
 }
 
-/** An explicit target choice when an action has more than one legal target. */
+/** An explicit player target choice, including the current default or a sole legal target. */
 export type MapRunEncounterTargetSelection =
   | { readonly characterId: string; readonly targetCharacterId: string; readonly targetEnemyId?: never; readonly targetCard?: never }
   | { readonly characterId: string; readonly targetEnemyId: string; readonly targetCharacterId?: never; readonly targetCard?: never }
@@ -178,6 +178,8 @@ export interface MapRunEncounterActionSettlement {
   readonly scostCost?: { readonly original: number; readonly discount: number; readonly paid: number };
   /** Present only when an Enemy was selected; scoped by the receipt's nodeId. */
   readonly targetEnemyId?: string;
+  /** A prepared Character Action can be skipped when its automatic target has no remaining legal object. */
+  readonly skipReason?: 'noLegalTarget';
   readonly overrideKind: MapRunActionOverride['kind'] | null;
   readonly playerCostSpent: 0 | 1;
   readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
