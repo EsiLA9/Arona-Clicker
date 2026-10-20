@@ -1,19 +1,28 @@
 // ============================================================
-// ui/selector-page.ts — 选择页（Init ⇄ GlobalEnhancement 翻面）
-// 双面叠放于同一视口，共享一个可左右滑动的圆盘。
-// 翻面动画：先淡出当前面条项与文本 → 圆盘左右滑动 → 圆盘落位后
-// 重排目标面条项（relayout）再淡入。切换期间只移动圆盘，条项与文本由
-// 淡入淡出承接，避免错位与文字堆叠。
-// Init 面聚焦盘右缘，GlobalEnhancement 面聚焦盘左缘（镜像、方向相反）。
-// 轮盘层（.wheel-init/.wheel-enh）挂在 shell 顶部覆盖整页，翻面时与文本面同步淡入淡出/显隐。
+// ui/selector-page.ts — 选择页协调器（节点图谱）
+//
+// 负责：节点选中、工作台就地刷新、画布平移 / 缩放、聚焦主题同步。
+// 空间呈现沿用 tools/node-graph-ui-demo 的阅读方式，但运行依赖完全独立。
+// 不持有业务状态：可见性、拥有、价格与动作合法性全部来自
+// UIContext 只读投影与既有 Controller / GameCommands。
 // ============================================================
 
 import type { GameReadModel } from '../arona-clicker/contracts';
 import type { UIContext } from './context';
 import type { InitSelectMode } from './components/init-select';
-import { renderInitDetail, renderInitRow } from './components/init-select';
-import type { SelectionFace } from './components/global-enhancement-select';
-import { renderGlobalEnhancementDetail, renderGlobalEnhancementRow } from './components/global-enhancement-select';
+import type { SelectorNodeKind } from './selector-theme';
+import {
+  buildSelectorGraphView,
+  selectorNodePresentation,
+  updateSelectorGraphGrid,
+  renderSelectorWorkbenchContent,
+  renderSelectorWorkbenchHead,
+  renderSelectorWorkbench,
+  renderSelectorGraphWorkspace,
+  DEFAULT_SELECTOR_GRAPH_PORTAL,
+  type SelectorGraphPortalDef,
+  type SelectorSelection,
+} from './components/selector-graph';
 import type { PopoverManager } from './popovers';
 import { applyThemeTree } from './theme-tree';
 import { refreshPresentationHostElementsIn } from './controller-theme';
@@ -30,311 +39,469 @@ export interface SelectorHost {
   bindDetailActions(): void;
   bindGlobalEnhancementDetailActions(): void;
   bindSelectorCommonActions(): void;
-  renderSelectorPage(face: SelectionFace): void;
 }
 
-interface WheelApi {
-  refreshRow(id: string): void;
-  /** 按当前圆盘坐标重排全部条项（隐藏面切到前台、窗口尺寸变化时调用）。 */
-  relayout(): void;
+/** 与 selectors.css 的背景槽过渡保持一致。 */
+const SCENE_MS = 420;
+const VIEW_WIDTH = 900;
+const VIEW_HEIGHT = 620;
+const VIEW_CENTER = { x: VIEW_WIDTH / 2, y: VIEW_HEIGHT / 2 };
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 2.2;
+const PAN_THRESHOLD = 3;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+interface SelectorGraphHistoryEntry {
+  graphId: string;
+  selection: SelectorSelection;
+  targetNodeId: string;
+  portal: SelectorGraphPortalDef;
 }
 
-/** 与 css/selectors.css 中 .selector-face 过渡 / 圆盘 transform 过渡保持一致。 */
-const FADE_MS = 180;
-const DISC_MS = 420;
-
-/** SelectionFace → DOM 面向 class 后缀（global-enh → enh）。 */
-function faceClass(face: SelectionFace): string {
-  return face === 'global-enh' ? 'enh' : 'init';
+interface CameraState {
+  scale: number;
+  x: number;
+  y: number;
 }
 
-/** 选择页装配：双面叠放 + 共享圆盘，翻面动画（淡出 → 滑盘 → 重排 → 淡入）。 */
+interface PanState {
+  pointerId: number;
+  start: { x: number; y: number };
+  origin: { x: number; y: number };
+  moved: boolean;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function nodeEntityId(node: Element): string | undefined {
+  const kind = node.getAttribute('data-selector-node-kind');
+  return kind === 'global-enh'
+    ? node.getAttribute('data-global-enh-select') ?? undefined
+    : node.getAttribute('data-init-select') ?? undefined;
+}
+
+/** 选择页装配：节点图谱选中 / 工作台 / 画布相机。 */
 export class SelectorPage {
   private initSelectedId: string | null = null;
   private enhSelectedId: string | null = null;
-  private face: SelectionFace = 'init';
-  private initWheel: WheelApi | null = null;
-  private enhWheel: WheelApi | null = null;
-  private flipSeq = 0;
+  private selection: SelectorSelection | null = null;
+  private viewport: SVGSVGElement | null = null;
+  private world: SVGGElement | null = null;
+  private camera: CameraState = { scale: 1, x: 0, y: 0 };
+  private pan: PanState | null = null;
   private sceneSeq = 0;
+  private graphId = 'main';
+  private readonly graphHistory: SelectorGraphHistoryEntry[] = [];
 
   constructor(private readonly host: SelectorHost) {
-    // ←/→ 方向键翻面（仅当选择页在 DOM 时生效）
-    document.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      if (!host.root.querySelector('.selector-shell')) return;
-      e.preventDefault();
-      this.slideTo(e.key === 'ArrowRight' ? 'global-enh' : 'init');
-    });
-    // 窗口尺寸变化后按当前圆盘坐标重排可见面条项
+    // 视口本身由 SVG viewBox 自适应；只有相机缩放保存在这里，窗口变化无需重建。
     window.addEventListener('resize', () => {
-      if (this.face === 'global-enh') this.enhWheel?.relayout();
-      else this.initWheel?.relayout();
+      if (this.host.root.querySelector('.selector-shell')) this.applyCamera();
     });
   }
 
-  /** 重置轮盘状态（进入选择页前调用）；选中项跨翻面保留。 */
+  /** 进入选择页前重置页面级瞬时状态；选中项按注册表有效性保留。 */
   reset(): void {
-    // 选择页会被 Runtime Editor Apply 以及服务切换整页重建。旧页面上的
-    // 翻面定时器不能再触碰新页面，否则会把新页面切回旧的面向/轮盘状态。
-    this.flipSeq += 1;
-    this.face = 'init';
-    this.initWheel = null;
-    this.enhWheel = null;
-    const preferred = preferredInitId(this.host.selectorContext());
-    if (!this.initSelectedId || !this.host.game.registry.inits.has(this.initSelectedId)) {
-      if (preferred) this.initSelectedId = preferred;
-    }
     this.sceneSeq += 1;
+    this.graphId = 'main';
+    this.graphHistory.length = 0;
+    this.selection = null;
+    this.viewport = null;
+    this.world = null;
+    this.pan = null;
+    this.camera = { scale: 1, x: 0, y: 0 };
+    const context = this.host.selectorContext();
+    const preferred = preferredInitId(context);
+    if (!this.initSelectedId || !context.world.inits.has(this.initSelectedId)) {
+      this.initSelectedId = preferred && context.world.inits.has(preferred) ? preferred : null;
+    }
+    if (this.enhSelectedId && !context.game.registry.enhancements.has(this.enhSelectedId)) {
+      this.enhSelectedId = null;
+    }
   }
 
-  get currentFace(): SelectionFace { return this.face; }
+  get currentKind(): SelectorNodeKind { return this.selection?.kind ?? 'init'; }
   get selectedInitId(): string | null { return this.initSelectedId; }
   get selectedEnhId(): string | null { return this.enhSelectedId; }
+  get selectedNode(): SelectorSelection | null { return this.selection; }
 
   /** Runtime 编辑器 Apply 重建选择页后恢复用户原先聚焦的 Init。 */
   restoreInitSelection(initId: string | null): void {
-    if (initId && this.host.game.registry.inits.has(initId)) this.initSelectedId = initId;
-  }
-
-  /** 切换到指定面：淡出当前面 → 滑动圆盘 → 重排目标面并淡入。 */
-  slideTo(face: SelectionFace): void {
-    if (this.face === face) return;
-    const { root } = this.host;
-    const shell = root.querySelector<HTMLElement>('.selector-shell');
-    const oldEl = root.querySelector<HTMLElement>(`.selector-face.face-${faceClass(this.face)}`);
-    const newEl = root.querySelector<HTMLElement>(`.selector-face.face-${faceClass(face)}`);
-    const oldWheel = root.querySelector<HTMLElement>(`.wheel-${faceClass(this.face)}`);
-    const newWheel = root.querySelector<HTMLElement>(`.wheel-${faceClass(face)}`);
-    if (!shell || !oldEl || !newEl) return;
-
-    // 防连点：新切换令旧定时器失效，并清掉上次中断残留的中间态
-    const seq = ++this.flipSeq;
-    this.face = face;
-    this.syncFocusedTheme(true);
-    const scene = this.sceneSeq;
-    root.querySelectorAll('.selector-face.is-fading, .init-wheel.is-fading').forEach(el => el.classList.remove('is-fading'));
-
-    const isEnh = face === 'global-enh';
-    // 1) 淡出当前面条项与文本
-    oldEl.classList.add('is-fading');
-    oldWheel?.classList.add('is-fading');
-    window.setTimeout(() => {
-      if (seq !== this.flipSeq || scene !== this.sceneSeq) return;
-      // 2) 只滑动圆盘，交换可见面
-      shell.classList.toggle('init-mode', !isEnh);
-      shell.classList.toggle('enh-mode', isEnh);
-      oldEl.classList.remove('is-fading');
-      oldEl.classList.add('is-inactive');
-      oldWheel?.classList.remove('is-fading');
-      oldWheel?.classList.add('is-inactive');
-      window.setTimeout(() => {
-        if (seq !== this.flipSeq || scene !== this.sceneSeq) return;
-        // 3) 圆盘落位后按新坐标重排目标面条项，再淡入
-        (isEnh ? this.enhWheel : this.initWheel)?.relayout();
-        newEl.classList.remove('is-inactive');
-        newWheel?.classList.remove('is-inactive');
-        this.syncTopbar();
-      }, DISC_MS);
-    }, FADE_MS);
-  }
-
-  /** 局部替换当前可见面的详情文案块（旋转后详情随聚焦刷新）。 */
-  replaceCurrentDetail(): void {
-    if (this.face === 'global-enh') {
-      this.replaceEnhDetail();
-    } else {
-      this.replaceInitDetail();
+    if (initId && this.host.game.registry.inits.has(initId)) {
+      this.initSelectedId = initId;
+      if (this.selection?.kind === 'init') this.selection = { kind: 'init', entityId: initId };
     }
   }
 
-  /** 局部替换 Init 面详情文案块（不动轮盘 DOM，旋转状态得以保留）。 */
-  replaceInitDetail(): void {
-    const copy = this.host.root.querySelector('.face-init .init-orb-copy');
-    if (copy) {
-      copy.outerHTML = renderInitDetail(this.host.selectorContext(), this.host.initSelectMode(), this.initSelectedId);
-    }
+  /** 整页装配：恢复选中、绑定节点与画布交互、复位相机。 */
+  bindStage(initialKind: SelectorNodeKind): void {
+    const context = this.host.selectorContext();
+    const selection = this.resolveSelection(context, initialKind);
+    this.applySelection(selection);
+
+    this.viewport = this.host.root.querySelector<SVGSVGElement>('[data-selector-graph-viewport]');
+    this.world = this.host.root.querySelector<SVGGElement>('[data-selector-graph-world]');
+    this.camera = { scale: 1, x: 0, y: 0 };
+    this.bindGraphInteractions();
     this.host.bindDetailActions();
-  }
-
-  /** 局部替换 GlobalEnhancement 面详情文案块。 */
-  replaceEnhDetail(): void {
-    const copy = this.host.root.querySelector('.face-enh .enh-orb-copy');
-    if (copy) {
-      copy.outerHTML = renderGlobalEnhancementDetail(this.host.selectorContext(), this.enhSelectedId, this.host.showBackToGame());
-    }
     this.host.bindGlobalEnhancementDetailActions();
+    this.host.bindSelectorCommonActions();
+    this.bindNavigationActions();
+    this.applyCamera();
+    this.syncFocusedTheme(false);
   }
 
-  /** 解锁/购买等状态变化后原位同步该卡片内容（controller 调用）。 */
-  refreshInitRow(initId: string): void { this.initWheel?.refreshRow(initId); }
-  refreshEnhRow(enhId: string): void { this.enhWheel?.refreshRow(enhId); }
+  /** 选中节点：只更新节点态与工作台，不重建画布。 */
+  select(selection: SelectorSelection, options: { animate?: boolean } = {}): void {
+    if (this.selection?.kind === selection.kind && this.selection.entityId === selection.entityId) return;
+    this.applySelection(selection);
+    this.updateNodeSelection();
+    this.replaceWorkbench();
+    this.syncFocusedTheme(options.animate !== false);
+  }
+
+  /** 解锁 / 购买后原位同步该节点；不替换节点元素，保留定位与事件绑定。 */
+  refreshInitNode(initId: string): void {
+    this.refreshNode('init', initId);
+  }
+
+  refreshEnhNode(enhId: string): void {
+    this.refreshNode('global-enh', enhId);
+  }
+
+  /** 购买 / 停用后刷新工作台详情；选中项未变化时不会重建节点。 */
+  refreshWorkbench(): void {
+    this.replaceWorkbench();
+    this.syncFocusedTheme(false);
+  }
 
   /** 主题浮窗开合等顶栏状态变化后，只刷新选择页顶栏的宿主表现。 */
   refreshTopbarPresentation(): void { this.syncFocusedTheme(false); }
 
-  /** 装配两面向：各自轮盘定位 + 详情 CTA 与顶栏（一次只显示 initialFace）。 */
-  bindStage(initialFace: SelectionFace): void {
-    this.face = initialFace;
-    this.initWheel = this.bindWheel('init');
-    this.enhWheel = this.bindWheel('global-enh');
+  private resolveSelection(context: UIContext, initialKind: SelectorNodeKind): SelectorSelection | null {
+    const nodes = buildSelectorGraphView(context, this.graphId, this.currentParentRelation()).nodes;
+    const inits = nodes.filter(node => node.kind === 'init');
+    const enhancements = nodes.filter(node => node.kind === 'global-enh');
+    if (initialKind === 'global-enh') {
+      const enh = enhancements.find(node => node.entityId === this.enhSelectedId) ?? enhancements[0];
+      if (enh) return { kind: 'global-enh', entityId: enh.entityId };
+    }
+    const init = inits.find(node => node.entityId === this.initSelectedId) ?? inits[0];
+    if (init) return { kind: 'init', entityId: init.entityId };
+    const fallback = enhancements[0];
+    return fallback ? { kind: 'global-enh', entityId: fallback.entityId } : null;
+  }
+
+  private applySelection(selection: SelectorSelection | null): void {
+    this.selection = selection;
+    if (selection?.kind === 'init') this.initSelectedId = selection.entityId;
+    if (selection?.kind === 'global-enh') this.enhSelectedId = selection.entityId;
+  }
+
+  private updateNodeSelection(): void {
+    this.host.root.querySelectorAll<SVGGElement>('[data-selector-node]').forEach(node => {
+      const selected = !!this.selection
+        && this.selection.kind === node.getAttribute('data-selector-node-kind')
+        && this.selection.entityId === nodeEntityId(node);
+      node.classList.toggle('is-selected', selected);
+      node.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+  }
+
+  private replaceWorkbench(): void {
+    const body = this.host.root.querySelector<HTMLElement>('[data-selector-workbench-body]');
+    if (!body) return;
+    const context = this.host.selectorContext();
+    body.innerHTML = renderSelectorWorkbenchContent(
+      context,
+      this.host.initSelectMode(),
+      this.selection,
+      this.host.showBackToGame(),
+      this.graphId,
+    );
+    const node = this.selection
+      ? buildSelectorGraphView(context, this.graphId, this.currentParentRelation()).nodes.find(candidate =>
+        candidate.kind === this.selection?.kind && candidate.entityId === this.selection?.entityId)
+      : undefined;
+    const head = this.host.root.querySelector<HTMLElement>('.selector-workbench-head');
+    if (head) head.innerHTML = renderSelectorWorkbenchHead(context, node);
+    this.host.bindDetailActions();
+    this.host.bindGlobalEnhancementDetailActions();
+    this.bindNavigationActions();
+  }
+
+  private refreshNode(kind: SelectorNodeKind, entityId: string): void {
+    const context = this.host.selectorContext();
+    const node = buildSelectorGraphView(context, this.graphId, this.currentParentRelation()).nodes.find(candidate =>
+      candidate.kind === kind && candidate.entityId === entityId);
+    if (!node) return;
+    const element = [...this.host.root.querySelectorAll<SVGGElement>('[data-selector-node]')]
+      .find(candidate => candidate.getAttribute('data-selector-node-kind') === kind && nodeEntityId(candidate) === entityId);
+    if (!element) return;
+    const presentation = selectorNodePresentation(node, this.selection);
+    element.setAttribute('class', presentation.className);
+    element.setAttribute('aria-pressed', presentation.ariaPressed);
+    element.setAttribute('aria-label', presentation.ariaLabel);
+    const glyph = element.querySelector<SVGTextElement>('.selector-node-glyph');
+    if (glyph) glyph.textContent = presentation.glyph;
+    const label = element.querySelector<SVGTextElement>('.selector-node-label');
+    if (label) label.textContent = presentation.label;
+    const icon = element.querySelector<SVGPathElement>('.selector-node-icon');
+    if (node.fog) {
+      icon?.remove();
+    } else if (!icon) {
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('class', 'selector-node-icon');
+      path.setAttribute('d', node.iconPath);
+      element.querySelector('.selector-node-body')?.after(path);
+    }
+    this.applyCamera();
+    this.refreshGraphSummary();
+  }
+
+  private refreshGraphSummary(): void {
+    const summary = this.host.root.querySelector<HTMLElement>('[data-selector-graph-summary]');
+    if (summary) summary.textContent = buildSelectorGraphView(this.host.selectorContext(), this.graphId, this.currentParentRelation()).summaryText;
+  }
+
+  private currentParentRelation(): { graphId: string; sourceNode: SelectorSelection; targetNodeId: string; portal: SelectorGraphPortalDef } | undefined {
+    const parent = this.graphHistory[this.graphHistory.length - 1];
+    return parent ? {
+      graphId: parent.graphId,
+      sourceNode: parent.selection,
+      targetNodeId: parent.targetNodeId,
+      portal: parent.portal,
+    } : undefined;
+  }
+
+  private bindNavigationActions(): void {
+    this.host.root.querySelectorAll<HTMLButtonElement>('[data-selector-graph-enter]').forEach(button => {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        const graphId = button.dataset.selectorGraphEnter;
+        const nodeId = button.dataset.selectorGraphTargetNode;
+        if (graphId && nodeId) this.enterSelectedGraph(graphId, nodeId);
+      });
+    });
+    this.host.root.querySelector<HTMLButtonElement>('[data-selector-graph-back]')?.addEventListener('click', event => {
+      event.preventDefault();
+      this.leaveCurrentGraph();
+    });
+  }
+
+  private enterSelectedGraph(graphId: string, nodeId: string): void {
+    if (!this.selection) return;
+    const context = this.host.selectorContext();
+    const node = buildSelectorGraphView(context, this.graphId, this.currentParentRelation()).nodes.find(candidate =>
+      candidate.kind === this.selection?.kind && candidate.entityId === this.selection?.entityId);
+    const targetExists = node?.graphTargets.some(target => target.graphId === graphId && target.nodeId === nodeId);
+    if (!node || !targetExists) return;
+    const portal = node.graphPortal ?? DEFAULT_SELECTOR_GRAPH_PORTAL;
+    this.graphHistory.push({
+      graphId: this.graphId,
+      selection: this.selection,
+      targetNodeId: nodeId,
+      portal,
+    });
+    this.graphId = graphId;
+    const [kind, ...entityParts] = nodeId.split(':');
+    const target: SelectorSelection = {
+      kind: kind as SelectorSelection['kind'],
+      entityId: entityParts.join(':'),
+    };
+    this.applySelection(target);
+    this.replaceGraphWorkspace();
+  }
+
+  private leaveCurrentGraph(): void {
+    const previous = this.graphHistory.pop();
+    if (!previous) return;
+    this.graphId = previous.graphId;
+    this.applySelection(previous.selection);
+    this.replaceGraphWorkspace();
+  }
+
+  private replaceGraphWorkspace(): void {
+    const workspace = this.host.root.querySelector<HTMLElement>('.selector-workspace');
+    if (!workspace) return;
+    const context = this.host.selectorContext();
+    const projection = projectSelectorTheme(context, this.currentKind, this.selection?.entityId ?? null);
+    const graph = buildSelectorGraphView(context, this.graphId, this.currentParentRelation());
+    workspace.innerHTML = `${renderSelectorGraphWorkspace(
+      context,
+      graph,
+      this.selection,
+      projection.context.transitionKey,
+      this.graphId,
+      this.graphHistory.length > 0,
+    )}${renderSelectorWorkbench(
+      context,
+      this.host.initSelectMode(),
+      this.selection,
+      this.host.showBackToGame(),
+      this.graphId,
+    )}`;
+    this.viewport = this.host.root.querySelector<SVGSVGElement>('[data-selector-graph-viewport]');
+    this.world = this.host.root.querySelector<SVGGElement>('[data-selector-graph-world]');
+    this.camera = { scale: 1, x: 0, y: 0 };
+    this.bindGraphInteractions();
     this.host.bindDetailActions();
     this.host.bindGlobalEnhancementDetailActions();
     this.host.bindSelectorCommonActions();
-    this.bindParallax();
+    this.bindNavigationActions();
+    this.applyCamera();
     this.syncFocusedTheme(false);
   }
 
-  /** 鼠标视差：光标相对圆盘中心的位置写入 --par-x/--par-y，条项与圆盘据此轻微偏移（仅视觉，不改选中）。 */
-  private bindParallax(): void {
-    const root = this.host.root;
-    const shell = root.querySelector<HTMLElement>('.selector-shell');
-    const disc = root.querySelector<HTMLElement>('.init-orb-disc');
-    if (!shell || !disc) return;
+  private bindGraphInteractions(): void {
+    const viewport = this.viewport;
+    if (!viewport) return;
 
-    const setPar = (x: string, y: string) => {
-      shell.style.setProperty('--par-x', x);
-      shell.style.setProperty('--par-y', y);
-    };
-    // 挂在 shell 上以覆盖圆盘中心区域（圆盘可能位于 viewport 之上）
-    shell.addEventListener('mousemove', (e: MouseEvent) => {
-      const r = disc.getBoundingClientRect();
-      const radius = r.width / 2 || 1;
-      const dx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / radius));
-      const dy = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / radius));
-      setPar(dx.toFixed(3), dy.toFixed(3));
+    // 节点点击 / 键盘激活（g[role=button]）只改变选中，不写游戏状态。
+    viewport.addEventListener('click', event => {
+      const target = event.target as Element | null;
+      const node = target?.closest?.('[data-selector-node]');
+      if (node) this.selectFromElement(node);
     });
-    shell.addEventListener('mouseleave', () => setPar('0', '0'));
-  }
-
-  private syncTopbar(): void {
-    const label = this.host.root.querySelector<HTMLElement>('[data-flip-label]');
-    const status = this.host.root.querySelector<HTMLElement>('[data-face-status]');
-    if (label) label.textContent = this.face === 'global-enh' ? '世界线' : '全局强化';
-    if (status) {
-      const restarting = this.host.initSelectMode() === 'restart';
-      status.textContent = this.face === 'global-enh'
-        ? 'GLOBAL ENH'
-        : `WORLD LINE · ${restarting ? 'RESTART' : 'NEW GAME'}`;
-    }
-  }
-
-  /** 单个面的轮盘装配：卡片沿盘缘固定「世界角」i*step，随 spin 整体旋转；聚焦 = 转至盘缘视点的卡片。 */
-  private bindWheel(face: SelectionFace): WheelApi | null {
-    const isEnh = face === 'global-enh';
-    const rowSel = isEnh ? '[data-global-enh-select]' : '[data-init-select]';
-    const wheelEl = this.host.root.querySelector<HTMLElement>(isEnh ? '.wheel-enh' : '.wheel-init');
-    const disc = this.host.root.querySelector<HTMLElement>('.init-orb-disc');
-    if (!wheelEl || !disc || this.host.root.querySelectorAll(rowSel).length === 0) return null;
-
-    const ids = [...this.host.root.querySelectorAll<HTMLButtonElement>(rowSel)]
-      .map(row => row.dataset[isEnh ? 'globalEnhSelect' : 'initSelect']!);
-    const count = ids.length;
-    // 盘缘步进角（度）：小间距可容纳更多条目同屏
-    const step = Math.min(360 / count, 16);
-    const initial = isEnh ? this.enhSelectedId : this.initSelectedId;
-    let spin = Math.max(0, ids.indexOf(initial ?? ids[0]));
-    this.setSelected(isEnh, ids[spin]);
-
-    const getRows = () => [...this.host.root.querySelectorAll<HTMLButtonElement>(rowSel)];
-
-    /** 依当前 spin 沿盘缘排布卡片，返回聚焦卡片下标（Init=正右方；Enh=镜像正左方）。 */
-    const apply = (): number => {
-      if (!document.contains(wheelEl)) return spin;
-      // 共享圆盘中心：以本面轮盘（与所在面向同宽）为坐标系测量
-      const w = wheelEl.getBoundingClientRect();
-      const d = disc.getBoundingClientRect();
-      const cx = d.left - w.left + d.width / 2;
-      const cy = d.top - w.top + d.height / 2;
-      const radius = (d.width / 2) * 0.985;
-      const rot = spin * step;
-
-      let focus = spin;
-      let bestAbs = Infinity;
-      const poses = getRows().map((row, i) => {
-        let angle = i * step - rot;
-        while (angle > 180) angle -= 360;
-        while (angle < -180) angle += 360;
-        const abs = Math.abs(angle);
-        if (abs < bestAbs) { bestAbs = abs; focus = i; }
-        return { row, angle };
-      });
-      poses.forEach(({ row, angle }, i) => {
-        const rad = angle * Math.PI / 180;
-        const facing = Math.cos(rad);
-        // 增强面镜像：x 取反，聚焦落在盘左缘（与 Init 相反），旋转角同步取反使条项中线指向圆心
-        const x = isEnh ? cx - radius * facing : cx + radius * facing;
-        const y = cy + radius * Math.sin(rad);
-        const tilt = isEnh ? -angle : angle;
-        row.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${tilt}deg)`;
-        row.style.opacity = facing <= 0.05 ? '0' : String(Math.max(0.08, facing));
-        row.style.pointerEvents = facing <= 0.05 ? 'none' : 'auto';
-        row.classList.toggle('is-active', i === focus);
-      });
-      return focus;
-    };
-
-    /** 按当前圆盘坐标重排：先禁用过渡（避免从旧盘位“漂移”到新盘位），提交后再恢复。 */
-    const relayout = (): void => {
-      const rows = getRows();
-      rows.forEach(row => row.style.transition = 'none');
-      apply();
-      void wheelEl.getBoundingClientRect(); // 强制同步，让“无过渡”的定位先提交
-      rows.forEach(row => row.style.transition = '');
-    };
-
-    const bindRowClick = (row: HTMLButtonElement) => {
-      row.addEventListener('click', () => {
-        const i = ids.indexOf(row.dataset[isEnh ? 'globalEnhSelect' : 'initSelect']!);
-        if (i !== spin) rotateTo(i, true);
-      });
-    };
-
-    const rotateTo = (target: number, refreshDetail: boolean) => {
-      spin = ((target % count) + count) % count;
-      const focus = apply();
-      this.setSelected(isEnh, ids[focus]);
-      if (refreshDetail) { if (isEnh) this.replaceEnhDetail(); else this.replaceInitDetail(); }
-      this.syncFocusedTheme(true);
-    };
-
-    /** 状态变化后原位同步该卡片内容：不替换节点，保留内联定位与事件绑定。 */
-    const refreshRow = (id: string) => {
-      const html = isEnh
-        ? renderGlobalEnhancementRow(this.host.selectorContext(), id)
-        : renderInitRow(this.host.selectorContext(), id);
-      const old = getRows().find(row => row.dataset[isEnh ? 'globalEnhSelect' : 'initSelect'] === id);
-      if (!html || !old) return;
-      const template = document.createElement('template');
-      template.innerHTML = html.trim();
-      const fresh = template.content.firstElementChild as HTMLButtonElement;
-      old.className = fresh.className;
-      old.innerHTML = fresh.innerHTML;
-      apply();
-    };
-
-    getRows().forEach(bindRowClick);
-
-    wheelEl.parentElement?.addEventListener('wheel', event => {
-      if (this.face !== face) return;
+    viewport.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const target = event.target as Element | null;
+      const node = target?.closest?.('[data-selector-node]');
+      if (!node) return;
       event.preventDefault();
-      // 连续旋转一格：整组卡片绕盘心转动，相对位置保持；spin 环形，边缘继续滚则聚焦跳到另一侧
-      spin = ((spin + ((event as WheelEvent).deltaY > 0 ? 1 : -1)) % count + count) % count;
-      const focus = apply();
-      this.setSelected(isEnh, ids[focus]);
-      if (isEnh) this.replaceEnhDetail(); else this.replaceInitDetail();
-      this.syncFocusedTheme(true);
+      this.selectFromElement(node);
+    });
+
+    // 画布滚轮缩放：以指针位置为锚点，阻止整页滚动。
+    viewport.addEventListener('wheel', event => {
+      event.preventDefault();
+      const anchor = this.clientToViewBox(event.clientX, event.clientY);
+      const factor = Math.exp(-event.deltaY * 0.0012);
+      this.setZoom(this.camera.scale * factor, anchor);
     }, { passive: false });
 
-    apply();
-    return { refreshRow, relayout };
+    // 空白处拖拽平移；节点自身仍处理选中。
+    viewport.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      const target = event.target as Element | null;
+      if (target?.closest?.('[data-selector-node]')) return;
+      this.pan = {
+        pointerId: event.pointerId,
+        start: this.clientToViewBox(event.clientX, event.clientY),
+        origin: { x: this.camera.x, y: this.camera.y },
+        moved: false,
+      };
+      try { viewport.setPointerCapture(event.pointerId); } catch { /* 非浏览器环境 */ }
+      viewport.classList.add('is-panning');
+    });
+
+    viewport.addEventListener('pointermove', event => {
+      const pan = this.pan;
+      if (!pan || pan.pointerId !== event.pointerId) return;
+      const point = this.clientToViewBox(event.clientX, event.clientY);
+      const dx = point.x - pan.start.x;
+      const dy = point.y - pan.start.y;
+      if (!pan.moved && Math.abs(dx) + Math.abs(dy) < PAN_THRESHOLD) return;
+      pan.moved = true;
+      this.camera = { ...this.camera, x: pan.origin.x + dx, y: pan.origin.y + dy };
+      this.applyCamera();
+    });
+
+    const endPan = (event: PointerEvent): void => {
+      if (!this.pan || this.pan.pointerId !== event.pointerId) return;
+      try { viewport.releasePointerCapture(event.pointerId); } catch { /* 非浏览器环境 */ }
+      this.pan = null;
+      viewport.classList.remove('is-panning');
+    };
+    viewport.addEventListener('pointerup', endPan);
+    viewport.addEventListener('pointercancel', endPan);
+
+    const slider = this.host.root.querySelector<HTMLInputElement>('[data-selector-zoom-slider]');
+    slider?.addEventListener('input', () => {
+      this.setZoom(Number(slider.value) / 100, VIEW_CENTER);
+    });
+    this.host.root.querySelector<HTMLButtonElement>('[data-selector-zoom-reset]')?.addEventListener('click', () => {
+      this.camera = { scale: 1, x: 0, y: 0 };
+      this.applyCamera();
+    });
   }
 
-  /** 将当前聚焦项的局部主题投影到视口、圆盘、详情与背景双缓冲。 */
+  private selectFromElement(element: Element): void {
+    const kind = element.getAttribute('data-selector-node-kind') as SelectorNodeKind | null;
+    const entityId = nodeEntityId(element);
+    if (!kind || !entityId) return;
+    this.select({ kind, entityId });
+  }
+
+  /** 屏幕坐标 → SVG viewBox 坐标；CTM 不可用时退回矩形比例。 */
+  private clientToViewBox(clientX: number, clientY: number): { x: number; y: number } {
+    const svg = this.viewport;
+    if (!svg) return { x: VIEW_CENTER.x, y: VIEW_CENTER.y };
+    const ctm = typeof svg.getScreenCTM === 'function' ? svg.getScreenCTM() : null;
+    if (ctm && typeof svg.createSVGPoint === 'function') {
+      const point = svg.createSVGPoint();
+      point.x = clientX;
+      point.y = clientY;
+      const transformed = point.matrixTransform(ctm.inverse());
+      return { x: transformed.x, y: transformed.y };
+    }
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: ((clientX - rect.left) / Math.max(1, rect.width)) * VIEW_WIDTH,
+      y: ((clientY - rect.top) / Math.max(1, rect.height)) * VIEW_HEIGHT,
+    };
+  }
+
+  private setZoom(next: number, anchor = VIEW_CENTER): void {
+    const scale = clamp(next, ZOOM_MIN, ZOOM_MAX);
+    if (scale === this.camera.scale) return;
+    const ratio = scale / this.camera.scale;
+    this.camera = {
+      scale,
+      x: anchor.x - (anchor.x - this.camera.x) * ratio,
+      y: anchor.y - (anchor.y - this.camera.y) * ratio,
+    };
+    this.applyCamera();
+  }
+
+  /** 世界层随相机缩放；节点自身按非线性倍率反缩放，低倍率仍保持可读。 */
+  private applyCamera(): void {
+    const { scale, x, y } = this.camera;
+    this.world?.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${scale.toFixed(4)})`);
+    updateSelectorGraphGrid(this.world?.querySelector<SVGGElement>('.selector-graph-grid') ?? null, this.camera);
+    const nodeScale = scale >= 1 ? 1 : Math.max(0.55, Math.pow(scale, 0.7));
+    const counterScale = nodeScale / scale;
+    this.host.root.querySelectorAll<SVGGElement>('[data-selector-node]').forEach(node => {
+      const nodeX = node.getAttribute('data-node-x') ?? '0';
+      const nodeY = node.getAttribute('data-node-y') ?? '0';
+      const transform = `translate(${nodeX} ${nodeY}) scale(${counterScale.toFixed(4)})`;
+      node.setAttribute('transform', transform);
+    });
+    this.host.root.querySelectorAll<SVGGElement>('[data-selector-node-height]').forEach(height => {
+      const nodeX = height.getAttribute('data-node-x') ?? '0';
+      const nodeY = height.getAttribute('data-node-y') ?? '0';
+      const planeOffset = height.getAttribute('data-plane-offset') ?? '0';
+      height.setAttribute('transform', `translate(${nodeX} ${nodeY})`);
+      height.querySelector<SVGGElement>('.selector-node-footprint-scale')?.setAttribute(
+        'transform',
+        `translate(0 ${planeOffset}) scale(${counterScale.toFixed(4)})`,
+      );
+    });
+    const percent = String(Math.round(scale * 100));
+    const readout = this.host.root.querySelector<HTMLElement>('[data-selector-zoom-readout]');
+    if (readout) readout.textContent = `${percent}%`;
+    const slider = this.host.root.querySelector<HTMLInputElement>('[data-selector-zoom-slider]');
+    if (slider && slider.value !== percent) slider.value = percent;
+  }
+
+  /** 把当前选中节点的局部主题投影到页面宿主、画布与工作台；节点自身保留局部主题。 */
   private syncFocusedTheme(animate: boolean): void {
     const context = this.host.selectorContext();
-    const focusedId = this.face === 'global-enh' ? this.enhSelectedId : this.initSelectedId;
-    const projection = projectSelectorTheme(context, this.face, focusedId);
+    const kind = this.selection?.kind ?? 'init';
+    const focusedId = this.selection?.entityId ?? null;
+    const projection = projectSelectorTheme(context, kind, focusedId);
     const { root } = this.host;
     const shell = root.querySelector<HTMLElement>('.selector-shell');
     if (shell) applyThemeTree(shell, projection.tree);
@@ -348,19 +515,26 @@ export class SelectorPage {
         ['header.button'],
       );
     }
-    const viewport = root.querySelector<HTMLElement>('.selector-viewport');
-    const disc = root.querySelector<HTMLElement>('.selector-disc');
-    const detail = root.querySelector<HTMLElement>(`.selector-face.face-${faceClass(this.face)} [data-selector-theme-key]`);
-    if (viewport) {
-      applyThemeTree(viewport, projection.tree);
-      viewport.dataset.selectorThemeKey = projection.context.transitionKey;
+    const workspace = root.querySelector<HTMLElement>('.selector-workspace');
+    if (workspace) {
+      applyThemeTree(workspace, projection.tree);
+      workspace.dataset.selectorThemeKey = projection.context.transitionKey;
     }
+    const graph = root.querySelector<HTMLElement>('[data-selector-graph]');
+    if (graph) {
+      graph.dataset.selectorThemeKey = projection.context.transitionKey;
+      graph.dataset.selectorSelectedKind = kind;
+    }
+    const workbench = root.querySelector<HTMLElement>('[data-selector-workbench]');
+    if (workbench) applyThemeTree(workbench, projection.tree);
     const superBackground = root.querySelector<HTMLElement>('.selector-super-background');
     if (superBackground) applyThemeTree(superBackground, projection.tree);
-    if (disc) applyThemeTree(disc, projection.tree);
-    if (detail) {
-      applyThemeTree(detail, projection.tree);
-      detail.dataset.selectorThemeKey = `${this.face}:${focusedId ?? ''}`;
+    const status = root.querySelector<HTMLElement>('[data-selector-status]');
+    if (status) {
+      const restarting = this.host.initSelectMode() === 'restart';
+      status.textContent = kind === 'init'
+        ? `WORLD LINE · ${restarting ? 'RESTART' : 'NEW GAME'}`
+        : 'GLOBAL ENH';
     }
 
     const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]');
@@ -390,11 +564,7 @@ export class SelectorPage {
       if (currentNow) currentNow.outerHTML = renderSelectorSceneLayer(context, projection, 'current');
       const nextNow = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]');
       if (nextNow) nextNow.outerHTML = renderSelectorSceneLayer(context, null, 'next');
-    }, DISC_MS);
-  }
-
-  private setSelected(isEnh: boolean, id: string): void {
-    if (isEnh) this.enhSelectedId = id; else this.initSelectedId = id;
+    }, SCENE_MS);
   }
 }
 

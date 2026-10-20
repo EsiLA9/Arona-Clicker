@@ -102,9 +102,10 @@ describe('选择页动态主题投影', () => {
     const parsed = document.createElement('div');
     parsed.innerHTML = html;
     expect(parsed.querySelector('.selector-super-background > .selector-scene-background-stack')).not.toBeNull();
-    expect(parsed.querySelector('.selector-viewport > .selector-scene-background-stack')).toBeNull();
+    expect(parsed.querySelector('.selector-workspace > .selector-scene-background-stack')).toBeNull();
     expect(parsed.querySelector('.selector-super-background')?.getAttribute('data-selector-super-background')).toBe('true');
-    expect(parsed.querySelector('.selector-disc > .selector-scene-background-stack')).toBeNull();
+    expect(parsed.querySelector('[data-selector-graph]')).not.toBeNull();
+    expect(parsed.querySelector('[data-selector-workbench]')).not.toBeNull();
   });
 
   it('选择页顶栏操作复用 header.button，并消费聚焦主题的按钮背景', () => {
@@ -119,7 +120,6 @@ describe('选择页动态主题投影', () => {
     expect(topbar?.dataset.selectorHeaderThemeKey).toContain(`init:${MILLENNIUM}`);
 
     const buttons = [
-      topbar?.querySelector<HTMLButtonElement>('[data-flip-selection-face]'),
       topbar?.querySelector<HTMLButtonElement>('#theme-palette-btn'),
       topbar?.querySelector<HTMLButtonElement>('[data-service="game"]'),
       topbar?.querySelector<HTMLButtonElement>('[data-topbar-action="inventory"]'),
@@ -128,6 +128,6 @@ describe('选择页动态主题投影', () => {
     ];
     expect(buttons.every(button => button?.dataset.themeHostId === 'header.button')).toBe(true);
     expect(buttons.every(button => Boolean(button?.querySelector(':scope > .presentation-host-background')))).toBe(true);
-    expect(topbar?.querySelector<HTMLButtonElement>('[data-flip-selection-face] > .presentation-host-background')?.innerHTML).toContain('#4f46e5');
+    expect(topbar?.querySelector<HTMLButtonElement>('#theme-palette-btn > .presentation-host-background')?.innerHTML).toContain('#4f46e5');
   });
 });

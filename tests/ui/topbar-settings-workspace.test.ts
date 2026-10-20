@@ -90,8 +90,7 @@ describe('顶栏与设置工作区', () => {
     game.stop();
   });
 
-  it('World Apply 后保留 Editor 上下文，关闭后选择页与当前面滚轮仍可交互', () => {
-    vi.useFakeTimers();
+  it('World Apply 后保留 Editor 上下文，关闭后选择页节点仍可交互', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
     createEditingCopy(game);
@@ -100,9 +99,14 @@ describe('顶栏与设置工作区', () => {
     const controller = new UIController(game, root);
     controller.render();
 
-    const oldRow = root.querySelector<HTMLButtonElement>('[data-init-select]')!;
-    const oldInitId = oldRow.dataset.initSelect!;
-    oldRow.click();
+    /** 图上节点是 SVG <g>：用冒泡 click 走与真实指针一致的选择路径。 */
+    const clickNode = (selector: string): SVGElement => {
+      const node = root.querySelector<SVGElement>(selector)!;
+      node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return node;
+    };
+    const oldNode = clickNode('[data-init-select]');
+    const oldInitId = oldNode.dataset.initSelect!;
     expect(controller.selectorPage.selectedInitId).toBe(oldInitId);
 
     root.querySelector<HTMLButtonElement>('#runtime-editor-launch')!.click();
@@ -127,28 +131,17 @@ describe('顶栏与设置工作区', () => {
 
     document.querySelector<HTMLButtonElement>('[data-runtime-editor-panel-close]')!.click();
     expect(controller.runtimeEditorPanelOpen).toBe(false);
-    const newRow = root.querySelector<HTMLButtonElement>(`[data-init-select="${newInitId}"]`)!;
-    newRow.click();
+    clickNode(`[data-init-select="${newInitId}"]`);
     expect(controller.selectorPage.selectedInitId).toBe(newInitId);
 
-    const selectedBeforeWheel = controller.selectorPage.selectedInitId;
-    root.querySelector<HTMLElement>('.wheel-init')!.parentElement!.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, bubbles: true, cancelable: true }));
-    expect(controller.selectorPage.selectedInitId).not.toBe(selectedBeforeWheel);
-    const enhancementBeforeInitWheel = controller.selectorPage.selectedEnhId;
-    expect(enhancementBeforeInitWheel).not.toBeNull();
-
-    root.querySelector<HTMLButtonElement>('[data-flip-selection-face]')!.click();
-    vi.advanceTimersByTime(600);
-    expect(root.querySelector('.selector-shell')?.classList.contains('enh-mode')).toBe(true);
-    const selectedInitOnEnhFace = controller.selectorPage.selectedInitId;
-    root.querySelector<HTMLElement>('.wheel-enh')!.parentElement!.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, bubbles: true, cancelable: true }));
-    expect(controller.selectorPage.selectedInitId).toBe(selectedInitOnEnhFace);
-    expect(controller.selectorPage.selectedEnhId).not.toBe(enhancementBeforeInitWheel);
+    const enhNode = clickNode('[data-global-enh-select]');
+    const enhId = enhNode.dataset.globalEnhSelect!;
+    expect(controller.selectorPage.selectedEnhId).toBe(enhId);
+    expect(controller.selectorPage.selectedInitId).toBe(newInitId);
+    expect(root.querySelector('[data-selector-graph]')?.getAttribute('data-selector-selected-kind')).toBe('global-enh');
 
     controller.destroy();
     game.stop();
-    vi.clearAllTimers();
-    vi.useRealTimers();
   });
 
   it('顶栏保留主题、编辑器、游戏、背包、设置一级入口', () => {

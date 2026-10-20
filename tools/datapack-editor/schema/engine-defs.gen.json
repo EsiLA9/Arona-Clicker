@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T08:58:31.430Z",
+  "generatedAt": "2026-10-20T07:06:14.170Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -6564,34 +6564,9 @@
         {
           "key": "capabilities",
           "required": false,
-          "kind": "array",
-          "tsType": "AffectorCapabilityGrant[]",
-          "description": "声明由 Active Affector 提供的高级服务能力；多个来源可并存。",
-          "item": {
-            "key": "$",
-            "kind": "object",
-            "fields": [
-              {
-                "key": "kind",
-                "required": true,
-                "kind": "hand",
-                "tsType": "'service'"
-              },
-              {
-                "key": "id",
-                "required": true,
-                "kind": "hand",
-                "tsType": "ServiceCapabilityId"
-              },
-              {
-                "key": "mode",
-                "required": true,
-                "kind": "hand",
-                "tsType": "'enable'"
-              }
-            ],
-            "tsType": "AffectorCapabilityGrant"
-          }
+          "kind": "hand",
+          "tsType": "Array<AffectorCapabilityGrant | AffectorGraphGrant>",
+          "description": "声明由 Active Affector 提供的服务或星图导航能力；多个来源可并存。"
         },
         {
           "key": "extra",
@@ -11772,6 +11747,7 @@
     "AffectorCapabilityGrant",
     "AffectorEffect",
     "AffectorFlow",
+    "AffectorGraphGrant",
     "AffectorInstance",
     "AffectorPackDef",
     "AffectorPackRef",

@@ -29,7 +29,6 @@ import { ChatStream } from './chat-stream';
 import { ScrollManager } from './scroll';
 import { captureFocusWithin, restoreFocusWithin, type FocusSnapshot } from './focus';
 import { SelectorPage } from './selector-page';
-import type { SelectionFace } from './components/global-enhancement-select';
 import { ImportExportService } from './import-export';
 import {
   computeRevealFingerprint,
@@ -52,10 +51,8 @@ import {
 } from './controller-modals';
 import {
   initSelectMode as initSelectModeImpl,
-  renderSelectorPage as renderSelectorPageImpl,
   renderInitSelect as renderInitSelectImpl,
   renderGlobalEnhancementSelect as renderGlobalEnhancementSelectImpl,
-  replaceCurrentDetail as replaceCurrentDetailImpl,
   bindDetailActions as bindDetailActionsImpl,
   bindGlobalEnhancementDetailActions as bindGlobalEnhancementDetailActionsImpl,
   bindSelectorCommonActions as bindSelectorCommonActionsImpl,
@@ -401,7 +398,7 @@ export class UIController {
   /** Map 中部信息流的共享滚动状态（按真实宿主锚点恢复阅读位置）。 */
   private readonly mapFeedScroll = new FlowScroll();
   private readonly mapRelations: MapRelationInteraction;
-  /** 选择页轮盘交互（Init ⇄ GlobalEnhancement 左右滑动、共享一圆）。 */
+  /** 选择页节点图交互（Init / GlobalEnhancement 同画布、右侧工作台）。 */
   readonly selectorPage: SelectorPage;
   /** 数据包导入 / 日志导出。 */
   readonly io: ImportExportService;
@@ -491,7 +488,6 @@ export class UIController {
       bindDetailActions: () => bindDetailActionsImpl(this),
       bindGlobalEnhancementDetailActions: () => bindGlobalEnhancementDetailActionsImpl(this),
       bindSelectorCommonActions: () => bindSelectorCommonActionsImpl(this),
-      renderSelectorPage: (face: SelectionFace) => renderSelectorPageImpl(this, face),
     });
     this.io = new ImportExportService({
       game: this.game,
@@ -1936,41 +1932,29 @@ export class UIController {
     return initSelectModeImpl(this);
   }
 
-  /** 全量渲染选择页（Init ⇄ GlobalEnhancement 左右滑动、共享一圆）。 */
+  /** 全量渲染选择页（节点图，默认聚焦世界线节点）。 */
   renderInitSelect(): void {
     renderInitSelectImpl(this);
   }
 
-  /** 全量渲染 GlobalEnhancement 选择页（轨道默认停在强化面）。 */
+  /** 全量渲染选择页（默认聚焦全局强化节点，mid-game 热插拔入口）。 */
   renderGlobalEnhancementSelect(): void {
     renderGlobalEnhancementSelectImpl(this);
   }
 
-  /** 局部替换当前面详情文案块（不动轮盘 DOM，旋转状态得以保留）。 */
-  replaceCurrentDetail(): void {
-    replaceCurrentDetailImpl(this);
-  }
-
-  /** 绑定 Init 面详情 CTA（进入 / 购买）。 */
+  /** 绑定世界线节点详情 CTA（进入 / 购买）。 */
   bindDetailActions(): void {
     bindDetailActionsImpl(this);
   }
 
-  /** 绑定 GlobalEnhancement 面详情 CTA（购买 / 停用）。 */
+  /** 绑定全局强化节点详情 CTA（购买 / 停用）。 */
   bindGlobalEnhancementDetailActions(): void {
     bindGlobalEnhancementDetailActionsImpl(this);
   }
 
-  /** 绑定选择页顶栏共用交互（翻面 / 读档 / 返回游戏）。 */
+  /** 绑定选择页顶栏共用交互（读档 / 返回游戏）。 */
   bindSelectorCommonActions(): void {
     bindSelectorCommonActionsImpl(this);
-  }
-
-  /** 选择页翻面：左右滑动到另一侧（共享圆盘的两面，CSS transition 平滑过渡）。 */
-  flipSelectionFace(): void {
-    this.selectorPage.slideTo(
-      this.selectorPage.currentFace === 'global-enh' ? 'init' : 'global-enh',
-    );
   }
 
   /** 从强化面板进入全局强化选择页（mid-game 热插拔入口）。 */

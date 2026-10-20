@@ -178,7 +178,6 @@ export interface HeaderButtonRenderOptions {
   service?: HeaderServiceId;
   action?: HeaderActionId;
   disabled?: boolean;
-  flipSelectionFace?: boolean;
   backToGame?: boolean;
   state?: PresentationHostState;
   ariaExpanded?: boolean;
@@ -198,7 +197,6 @@ export function renderHeaderButton(ctx: UIContext, options: HeaderButtonRenderOp
     options.service ? `data-service="${options.service}"` : '',
     options.action ? `data-topbar-action="${options.action}"` : '',
     options.disabled ? 'disabled' : '',
-    options.flipSelectionFace ? 'data-flip-selection-face' : '',
     options.backToGame ? 'data-back-to-game' : '',
     `data-theme-host-id="${hostId}"`,
     `data-theme-state="${state}"`,

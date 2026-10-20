@@ -38,48 +38,54 @@ describe('UIController Init 选择页', () => {
     (controller as unknown as { renderInitSelect(): void }).renderInitSelect();
   };
 
+  /** 图上节点是 SVG <g>：用冒泡 click 走与真实指针一致的选择路径。 */
+  const clickNode = (selector: string): SVGElement => {
+    const node = root.querySelector<SVGElement>(selector)!;
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return node;
+  };
+
   const snapshot = () => ({
-    rowOwned: root.querySelector(`[data-init-select="${MILLENNIUM}"]`)?.textContent?.includes('已解锁') ?? false,
-    copyHasPurchase: !!root.querySelector('.init-orb-copy [data-init-purchase]'),
-    copyHasEnter: !!root.querySelector('.init-orb-copy [data-init]'),
+    rowOwned: root.querySelector(`[data-init-select="${MILLENNIUM}"]`)?.classList.contains('is-owned') ?? false,
+    copyHasPurchase: !!root.querySelector('.selector-detail [data-init-purchase]'),
+    copyHasEnter: !!root.querySelector('.selector-detail [data-init]'),
   });
 
-  it('购买选中项后行与详情立即刷新，不触发整页重渲染', () => {
+  it('购买选中项后节点与工作台立即刷新，不触发整页重渲染', () => {
     game.mutations.changeResource('base:resource:pyroxene', 100);
     showSelectPage();
 
-    // 选中千禧年
-    const row = root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!;
-    row.click();
+    // 选中千禧年节点
+    const row = clickNode(`[data-init-select="${MILLENNIUM}"]`);
     expect(snapshot().copyHasPurchase).toBe(true);
 
-    // 点击购买 CTA → 行文本与详情 CTA 应立即更新
+    // 点击购买 CTA → 节点状态与工作台 CTA 应立即更新
     root.querySelector<HTMLButtonElement>('[data-init-purchase]')!.click();
     const after = snapshot();
     expect(after.rowOwned).toBe(true);
     expect(after.copyHasPurchase).toBe(false);
     expect(after.copyHasEnter).toBe(true);
 
-    // 轮盘 DOM 未被整页重建：卡片节点引用保持不变（无飞入/丢绑定）
+    // 画布未被整页重建：节点元素引用保持不变（无丢绑定 / 位置跳变）
     expect(root.contains(row)).toBe(true);
   });
 
-  it('轮盘聚焦切换时更新局部主题与下一背景槽，不触碰运行状态', () => {
+  it('节点选中时更新局部主题与下一背景槽，不触碰运行状态', () => {
     game.mutations.changeResource('base:resource:pyroxene', 100);
     game.inits.unlockInit(MILLENNIUM);
     showSelectPage();
 
-    const viewport = root.querySelector<HTMLElement>('.selector-viewport')!;
+    const workspace = root.querySelector<HTMLElement>('.selector-workspace')!;
     expect(root.querySelector('.selector-super-background > .selector-scene-background-stack')).not.toBeNull();
-    expect(root.querySelector('.selector-viewport > .selector-scene-background-stack')).toBeNull();
+    expect(root.querySelector('.selector-workspace > .selector-scene-background-stack')).toBeNull();
     const currentBefore = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]')!;
     const beforeState = { ...game.state };
     const beforeKey = currentBefore.dataset.selectorTransitionKey;
 
-    root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!.click();
+    clickNode(`[data-init-select="${MILLENNIUM}"]`);
 
     expect(controller.selectorPage.selectedInitId).toBe(MILLENNIUM);
-    expect(viewport.dataset.selectorThemeKey).toContain(`init:${MILLENNIUM}`);
+    expect(workspace.dataset.selectorThemeKey).toContain(`init:${MILLENNIUM}`);
     expect(root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]')?.dataset.selectorTransitionKey)
       .toContain(`init:${MILLENNIUM}`);
     expect(currentBefore.dataset.selectorTransitionKey).toBe(beforeKey);
@@ -162,12 +168,12 @@ describe('UIController Init 选择页', () => {
     root.querySelector<HTMLButtonElement>('[data-restart-init]')!.click();
 
     const shell = root.querySelector<HTMLElement>('.selector-shell')!;
-    const viewport = root.querySelector<HTMLElement>('.selector-viewport')!;
+    const workspace = root.querySelector<HTMLElement>('.selector-workspace')!;
     const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]')!;
     expect(controller.started).toBe(false);
     expect((controller as unknown as { pendingRestart: boolean }).pendingRestart).toBe(true);
     expect(shell.style.getPropertyValue('--theme-node-primary')).toBe('#4f46e5');
-    expect(viewport.dataset.selectorThemeKey?.endsWith('|')).toBe(true);
+    expect(workspace.dataset.selectorThemeKey?.endsWith('|')).toBe(true);
     expect(current.innerHTML).toContain('#4f46e5');
   });
 
@@ -183,7 +189,7 @@ describe('UIController Init 选择页', () => {
     expect(current.innerHTML).not.toContain('/assets/Hoshino.png');
     expect(current.innerHTML).not.toContain('triangles');
 
-    root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!.click();
+    clickNode(`[data-init-select="${MILLENNIUM}"]`);
     const next = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]')!;
     expect(next.innerHTML).not.toContain('/assets/Hoshino.png');
     expect(next.innerHTML).not.toContain('triangles');
@@ -195,7 +201,7 @@ describe('UIController Init 选择页', () => {
     game.inits.unlockInit(MILLENNIUM);
     controller.render();
     root.querySelector<HTMLButtonElement>('[data-restart-init]')!.click();
-    root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!.click();
+    clickNode(`[data-init-select="${MILLENNIUM}"]`);
     root.querySelector<HTMLButtonElement>(`[data-init="${MILLENNIUM}"]`)!.click();
 
     expect(game.state.activeInit).toBe(MILLENNIUM);
@@ -213,15 +219,14 @@ describe('UIController Init 选择页', () => {
     showSelectPage();
 
     const topbar = root.querySelector<HTMLElement>('.selector-topbar')!;
-    const flip = topbar.querySelector<HTMLButtonElement>('[data-flip-selection-face]')!;
     const themeButton = topbar.querySelector<HTMLButtonElement>('#theme-palette-btn')!;
-    const initialBackground = flip.querySelector<HTMLElement>(':scope > .presentation-host-background');
-    expect(flip.classList.contains('presentation-host-target')).toBe(true);
-    expect(flip.dataset.themeHostId).toBe('header.button');
+    const initialBackground = themeButton.querySelector<HTMLElement>(':scope > .presentation-host-background');
+    expect(themeButton.classList.contains('presentation-host-target')).toBe(true);
+    expect(themeButton.dataset.themeHostId).toBe('header.button');
     expect(initialBackground?.innerHTML).toContain('#3b82f6');
 
-    root.querySelector<HTMLButtonElement>(`[data-init-select="${MILLENNIUM}"]`)!.click();
-    expect(flip.querySelector<HTMLElement>(':scope > .presentation-host-background')?.innerHTML).toContain('#4f46e5');
+    clickNode(`[data-init-select="${MILLENNIUM}"]`);
+    expect(themeButton.querySelector<HTMLElement>(':scope > .presentation-host-background')?.innerHTML).toContain('#4f46e5');
 
     themeButton.click();
     expect(themeButton.dataset.themeState).toBe('active');
@@ -231,7 +236,7 @@ describe('UIController Init 选择页', () => {
     expect(themeButton.dataset.themeHostId).toBe('header.button');
   });
 
-  it('无存档进入 Init / GlobalEnhancement 轮盘时立即创建可读取的存档', () => {
+  it('无存档进入 Init / GlobalEnhancement 选择页时立即创建可读取的存档', () => {
     localStorage.clear();
 
     const freshGame = new GameInstance();
@@ -254,7 +259,7 @@ describe('UIController Init 选择页', () => {
     freshGame.stop();
   });
 
-  it('有存档但尚未进入 Init 时仍停留轮盘，不启动游戏会话', () => {
+  it('有存档但尚未进入 Init 时仍停留选择页，不启动游戏会话', () => {
     localStorage.clear();
 
     const pendingGame = new GameInstance();

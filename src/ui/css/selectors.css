@@ -1,15 +1,18 @@
 /* ============================================================
-   ui/css/selectors.css — Init 选择屏轮盘 + GlobalEnhancement 镜像面 + 动画
-   （自 styles.css 拆出，区块顺序与原文件一致）
+   ui/css/selectors.css — Init / GlobalEnhancement 选择页
+   轴测节点图谱 + 右侧当前节点工作台；背景沿用双缓冲场景槽。
+   旧的双面轮盘、圆盘与视差规则已移除。
    ============================================================ */
 
-/* Init selection screen */
+/* ---------- 页面骨架 ---------- */
+
 .init-select-shell {
    position: relative;
    overflow: hidden;
    display: flex;
    flex-direction: column;
-   min-height: 100vh;
+   height: 100vh;
+   min-height: 620px;
 }
 
 .init-select-shell>* {
@@ -17,7 +20,19 @@
    z-index: 1;
 }
 
-/* 选择页专用超级背景：当前/下一场景双缓冲承接轮盘聚焦切换；不进入视口与轮盘。 */
+.selector-graph-shell {
+   padding: 0;
+}
+
+.selector-graph-shell>.selector-topbar {
+   position: absolute;
+   z-index: 5;
+   top: 22px;
+   left: clamp(18px, 3vw, 44px);
+   right: clamp(18px, 3vw, 44px);
+}
+
+/* 选择页专用超级背景：当前 / 下一场景双缓冲承接节点聚焦切换。 */
 .selector-super-background {
    position: absolute;
    z-index: 0;
@@ -32,19 +47,6 @@
    z-index: 0;
    inset: 0;
    overflow: hidden;
-   pointer-events: none;
-}
-
-/* 选择页圆盘是独立的装饰与定位参照；轮盘仍是 shell 的独立兄弟层。 */
-.selector-disc {
-   overflow: hidden;
-   isolation: isolate;
-   background: color-mix(in srgb, var(--theme-node-bg, var(--canvas, #e2f1ff)) 20%, transparent);
-}
-
-.selector-disc::before,
-.selector-disc::after {
-   z-index: 3;
    pointer-events: none;
 }
 
@@ -84,332 +86,738 @@
    transition: none;
 }
 
-/* 巨型倾斜值圆盘：贯穿整个页面高度的背景层 */
-.init-orb-disc {
+.selector-graph-shell footer {
+   display: none;
+}
+
+/* ---------- 工作区：图谱 + 工作台 ---------- */
+
+.selector-workspace {
+   position: absolute;
+   z-index: 1;
+   inset: 0;
+   min-height: 0;
+   display: block;
+   padding: 0;
+   pointer-events: none;
+}
+
+/* ---------- 节点图谱画布 ---------- */
+
+.selector-graph {
+   position: absolute;
+   inset: 0;
+   display: block;
+   min-width: 0;
+   min-height: 0;
+   overflow: hidden;
+   isolation: isolate;
+   pointer-events: none;
+}
+
+.selector-graph-toolbar {
+   position: absolute;
+   z-index: 2;
+   top: 88px;
+   left: clamp(24px, 3vw, 48px);
+   pointer-events: auto;
+}
+
+.selector-graph-back {
+   min-height: 46px;
+   padding: 10px 18px;
+   border: 1px solid color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 55%, var(--theme-node-line, var(--line)));
+   border-radius: 12px;
+   background: color-mix(in srgb, var(--theme-node-panel, var(--panel)) 92%, transparent);
+   box-shadow: var(--panel-shadow);
+   color: var(--ink-on-panel, var(--ink));
+   font: 600 12px Manrope, '方正兰亭圆简体_中', sans-serif;
+   cursor: pointer;
+   transition: border-color .15s, background-color .15s, color .15s;
+}
+
+.selector-graph-back:hover,
+.selector-graph-back:focus-visible {
+   border-color: var(--theme-node-primary, var(--cyan));
+   background: var(--theme-node-panel, var(--panel));
+   color: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-graph-scale {
+   position: absolute;
+   z-index: 2;
+   left: clamp(24px, 3vw, 48px);
+   bottom: 62px;
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   padding: 10px 14px;
+   border: 1px solid var(--theme-node-line, var(--line));
+   border-radius: 12px;
+   background: color-mix(in srgb, var(--theme-node-panel, var(--panel)) 92%, transparent);
+   box-shadow: var(--panel-shadow);
+   color: var(--muted-on-panel, var(--muted));
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .06em;
+   pointer-events: auto;
+}
+
+.selector-graph-scale label {
+   white-space: nowrap;
+}
+
+.selector-graph-scale input[type="range"] {
+   width: 144px;
+   height: 18px;
+   margin: 0;
+   accent-color: var(--theme-node-primary, var(--cyan));
+   cursor: pointer;
+}
+
+.selector-graph-zoom {
+   min-width: 36px;
+   color: var(--theme-node-primary, var(--cyan));
+   text-align: right;
+}
+
+.selector-graph-reset {
+   min-height: 28px;
+   padding: 4px 9px;
+   border: 1px solid var(--theme-node-line, var(--line));
+   border-radius: 999px;
+   background: transparent;
+   color: var(--muted-on-panel, var(--muted));
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .06em;
+   cursor: pointer;
+}
+
+.selector-graph-reset:hover {
+   border-color: var(--theme-node-primary, var(--cyan));
+   color: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-graph-meta {
+   position: absolute;
+   z-index: 2;
+   left: clamp(24px, 3vw, 48px);
+   right: 416px;
+   bottom: 20px;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 16px;
+   padding: 0;
+   color: var(--muted-on-canvas, var(--muted));
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .07em;
+}
+
+.selector-graph-stage {
    position: absolute;
    z-index: 0;
-   left: min(-42vmin, -380px);
-   top: 50%;
-   width: 175vmin;
-   height: 175vmin;
-   transform: translateY(-50%);
-   translate: calc(var(--par-x, 0) * -16px) calc(var(--par-y, 0) * -10px);
-   border-radius: 50%;
-   background: radial-gradient(circle at 72% 50%, var(--panel-light, #f2f9ff) 0%, var(--canvas, #e2f1ff) 42%, color-mix(in srgb, var(--cyan, #cbe6ff) 22%, #ffffff) 100%);
-   border: 1px solid var(--line);
-   box-shadow: inset 0 0 110px rgba(var(--primary-rgb), .14), 0 0 90px rgba(var(--primary-rgb), .12);
-   animation: orb-drift .55s ease-out;
-   transition: translate .35s ease-out;
-}
-
-.init-orb-disc::before {
-   content: '';
-   position: absolute;
-   inset: 4%;
-   border-radius: 50%;
-   border: 1px dashed rgba(var(--primary-rgb), .32);
-}
-
-.init-orb-disc::after {
-   content: '';
-   position: absolute;
-   inset: 13%;
-   border-radius: 50%;
-   border: 1px solid rgba(var(--primary-rgb), .16);
-}
-
-@keyframes orb-drift {
-   from {
-      transform: translateY(-50%) rotate(-5deg) scale(.985);
-      opacity: .55;
-   }
-}
-
-/* 左详细（坐在圆盘弧上）- 右简略（索引列表）双栏舞台 */
-.init-stage {
-   flex: 1;
+   inset: 0;
    min-height: 0;
-   display: grid;
-   grid-template-columns: minmax(0, 1fr) 380px;
-   gap: 28px;
-   align-items: stretch;
-   padding: 10px 0 14px;
+   pointer-events: none;
 }
 
-.init-orb-copy {
+.selector-graph-canvas {
+   position: absolute;
+   inset: 0;
+   display: block;
+   width: 100%;
+   height: 100%;
+   overflow: visible;
+   cursor: grab;
+   touch-action: none;
+   user-select: none;
+   pointer-events: auto;
+}
+
+.selector-graph-canvas.is-panning {
+   cursor: grabbing;
+}
+
+/* 轴测参考平面：网格与节点共用同一个世界层，一起平移 / 缩放。 */
+.selector-graph-gridline {
+   stroke: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 16%, transparent);
+   stroke-width: 1;
+   vector-effect: non-scaling-stroke;
+}
+
+.selector-graph-gridline.is-major {
+   stroke: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 26%, transparent);
+   stroke-width: 1.25;
+}
+
+.selector-graph-gridline.is-axis {
+   stroke: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 38%, transparent);
+   stroke-width: 1.5;
+}
+
+.selector-graph-origin {
+   fill: var(--theme-node-primary, var(--cyan));
+   opacity: .55;
+}
+
+/* 节点间航线：沿用选择页现有排序，只提示阅读顺序。 */
+.selector-graph-edge {
+   stroke: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 22%, transparent);
+   stroke-width: 2;
+   stroke-linecap: round;
+   vector-effect: non-scaling-stroke;
+}
+
+.selector-graph-backdrop {
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.selector-graph-edge.is-backdrop {
+  stroke: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 48%, var(--theme-node-panel, #fff));
+  stroke-dasharray: none;
+  stroke-width: 1.15;
+}
+
+/* 只有母图进入背景合成时收敛成星座；前景节点继续使用完整选择态样式。 */
+.selector-graph-backdrop .selector-node-label,
+.selector-graph-backdrop .selector-node-icon,
+.selector-graph-backdrop .selector-node-glyph,
+.selector-graph-backdrop .selector-node-badge,
+.selector-graph-backdrop .selector-node-check {
+  display: none;
+}
+
+.selector-graph-backdrop .selector-node-ring {
+  display: none;
+}
+
+.selector-graph-backdrop .selector-node-body {
+  r: 5px;
+  stroke: var(--theme-node-panel, #fff);
+  stroke-width: 1.1;
+  transition: none;
+}
+
+.selector-graph-backdrop .selector-node.is-owned .selector-node-body,
+.selector-graph-backdrop .selector-node.is-active .selector-node-body {
+  fill: var(--theme-node-primary, var(--cyan));
+  stroke: var(--theme-node-panel, #fff);
+}
+
+.selector-graph-backdrop .selector-node.is-fog .selector-node-body {
+  fill: color-mix(in srgb, var(--orange, #d9922f) 64%, var(--theme-node-panel, #fff));
+  stroke: var(--orange, #d9922f);
+  stroke-dasharray: none;
+}
+
+.selector-graph-backdrop .selector-node.is-entry .selector-node-ring {
+  display: block;
+  r: 10px;
+  stroke: var(--theme-node-primary, var(--cyan));
+  stroke-width: 1.25;
+  stroke-dasharray: 2 3;
+  opacity: 0.85;
+}
+
+.selector-graph-backdrop .selector-node.is-entry .selector-node-body {
+  r: 6px;
+}
+
+.selector-graph-cross-link {
+  fill: none;
+  stroke: var(--theme-node-primary, var(--cyan));
+  stroke-width: 1.2;
+  stroke-dasharray: 3 4;
+  opacity: 0.55;
+}
+
+.selector-graph-edge.is-open {
+   stroke: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 38%, transparent);
+}
+
+.selector-graph-edge.is-owned {
+   stroke: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 58%, transparent);
+   stroke-width: 2.5;
+}
+
+/* 抬升 / 下沉节点在平台上的脚印与高度线；仅解释空间位置，不参与交互。 */
+.selector-graph-projection-edge,
+.selector-node-height {
+   pointer-events: none;
+}
+
+.selector-graph-projection-edge {
+   stroke: var(--theme-node-primary, var(--cyan));
+   stroke-width: 1.35;
+   stroke-dasharray: 5 5;
+   opacity: .46;
+   vector-effect: non-scaling-stroke;
+}
+
+.selector-node-riser {
+   stroke: var(--theme-node-primary, var(--cyan));
+   stroke-width: 1.7;
+   opacity: .78;
+   vector-effect: non-scaling-stroke;
+}
+
+.selector-node-height.is-above .selector-node-riser {
+   stroke: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-node-height.is-below .selector-node-riser {
+   stroke: var(--theme-node-primary, var(--cyan));
+   stroke-dasharray: 3 4;
+}
+
+.selector-node-footprint {
+   fill: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 12%, transparent);
+   stroke: var(--theme-node-primary, var(--cyan));
+   stroke-opacity: .56;
+   stroke-width: 1.4;
+   vector-effect: non-scaling-stroke;
+}
+
+.selector-node-height.is-above .selector-node-footprint {
+   stroke: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-node-height.is-below .selector-node-footprint {
+   stroke: var(--theme-node-primary, var(--cyan));
+}
+
+/* ---------- 节点 ---------- */
+
+.selector-node {
+   cursor: pointer;
+   outline: none;
+}
+
+.selector-node-hit {
+   fill: transparent;
+}
+
+.selector-node-ring {
+   fill: none;
+   stroke: var(--theme-node-primary, var(--cyan));
+   stroke-width: 2;
+   opacity: 0;
+   transition: opacity .15s ease;
+}
+
+.selector-node.is-selected .selector-node-ring {
+   opacity: .45;
+}
+
+.selector-node:focus-visible .selector-node-ring {
+   opacity: 1;
+   stroke-dasharray: 5 4;
+   stroke-width: 2.5;
+}
+
+.selector-node-body {
+   fill: var(--theme-node-panel, var(--panel));
+   stroke: var(--theme-node-primary, var(--cyan));
+   stroke-width: 2;
+   transition: fill .2s ease, stroke .2s ease, stroke-width .2s ease;
+}
+
+.selector-node-icon {
+   fill: none;
+   stroke: var(--theme-node-primary, var(--cyan));
+   stroke-width: 1.7;
+   stroke-linecap: round;
+   stroke-linejoin: round;
+   pointer-events: none;
+}
+
+.selector-node-glyph {
+   fill: var(--orange, #d9922f);
+   font: 700 22px 'DM Mono', monospace;
+   opacity: 0;
+   pointer-events: none;
+   user-select: none;
+}
+
+.selector-node-label {
+   fill: var(--ink-on-canvas, var(--ink));
+   font-family: Manrope, '方正兰亭圆简体_中', sans-serif;
+   font-size: 14px;
+   font-weight: 600;
+   paint-order: stroke;
+   stroke: var(--theme-node-bg, #f8fbff);
+   stroke-width: 4px;
+   stroke-linejoin: round;
+   pointer-events: none;
+   user-select: none;
+}
+
+.selector-node-badge,
+.selector-node-check {
+   opacity: 0;
+   pointer-events: none;
+}
+
+.selector-node-badge {
+   fill: var(--theme-node-primary, var(--cyan));
+   stroke: var(--theme-node-bg, #f8fbff);
+   stroke-width: 1.5;
+}
+
+.selector-node-check {
+   fill: none;
+   stroke: #ffffff;
+   stroke-width: 2;
+   stroke-linecap: round;
+   stroke-linejoin: round;
+}
+
+.selector-node.is-owned .selector-node-body,
+.selector-node.is-active .selector-node-body {
+   fill: var(--theme-node-primary, var(--cyan));
+   stroke: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-node.is-owned .selector-node-icon,
+.selector-node.is-active .selector-node-icon {
+   stroke: #ffffff;
+}
+
+.selector-node.is-owned .selector-node-badge,
+.selector-node.is-active .selector-node-badge,
+.selector-node.is-owned .selector-node-check,
+.selector-node.is-active .selector-node-check {
+   opacity: 1;
+}
+
+.selector-node.is-active .selector-node-ring {
+   opacity: .24;
+   stroke-dasharray: 2 5;
+}
+
+.selector-node.is-buyable .selector-node-body {
+   fill: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 8%, var(--theme-node-panel, var(--panel)));
+   stroke-dasharray: 6 4;
+}
+
+.selector-node.is-locked .selector-node-body {
+   stroke: var(--theme-node-line, var(--line));
+   stroke-width: 1.6;
+}
+
+.selector-node.is-locked .selector-node-icon {
+   stroke: var(--muted-on-canvas, var(--muted));
+   opacity: .75;
+}
+
+.selector-node.is-fog .selector-node-body {
+   fill: color-mix(in srgb, var(--orange, #d9922f) 13%, var(--theme-node-panel, var(--panel)));
+   stroke: var(--orange, #d9922f);
+   stroke-width: 2;
+   stroke-dasharray: 6 5;
+}
+
+.selector-node.is-fog .selector-node-glyph {
+   opacity: 1;
+}
+
+.selector-node.is-fog .selector-node-icon {
+   display: none;
+}
+
+.selector-node.is-fog .selector-node-label {
+   fill: var(--muted-on-canvas, var(--muted));
+}
+
+.selector-node.is-selected .selector-node-label {
+   fill: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-node:hover .selector-node-body {
+   stroke-width: 2.4;
+}
+
+/* ---------- 视图提示 ---------- */
+
+.selector-graph-hint {
+   color: var(--muted-on-canvas, var(--muted));
+   text-align: right;
+}
+
+/* ---------- 右侧工作台 ---------- */
+
+.selector-workbench {
+   position: absolute;
+   z-index: 4;
+   top: 104px;
+   right: clamp(18px, 3vw, 44px);
+   bottom: 24px;
+   width: min(372px, calc(100vw - 48px));
    display: flex;
    flex-direction: column;
-   justify-content: center;
-   gap: 13px;
-   color: var(--ink-on-canvas, var(--ink, #192536));
-   max-width: 430px;
-   min-height: 340px;
-   height: 100%;
-   padding: 34px 0 34px clamp(4px, 2vw, 28px);
+   min-width: 0;
+   min-height: 0;
+   border: 1px solid var(--theme-node-line, var(--line));
+   border-radius: 22px;
+   background: color-mix(in srgb, var(--theme-node-panel, var(--panel)) 90%, transparent);
+   box-shadow: var(--panel-shadow);
+   overflow: hidden;
+   pointer-events: auto;
 }
 
-.orb-big {
-   color: var(--cyan);
+.selector-workbench-head {
+   flex: 0 0 auto;
+   display: flex;
+   align-items: flex-start;
+   justify-content: space-between;
+   gap: 10px;
+   padding: 16px 18px 13px;
+   border-bottom: 1px solid var(--theme-node-line, var(--line));
+}
+
+.selector-workbench-heading {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+   min-width: 0;
+}
+
+.selector-workbench-identity {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   min-width: 0;
+}
+
+.selector-workbench-icon {
+   flex: 0 0 auto;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   width: 38px;
+   height: 38px;
+   border: 1.5px solid var(--theme-node-primary, var(--cyan));
+   border-radius: 50%;
+   color: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-workbench-icon svg {
+   width: 24px;
+   height: 24px;
+}
+
+.selector-workbench-icon path {
+   fill: none;
+   stroke: currentColor;
+   stroke-width: 1.7;
+   stroke-linecap: round;
+   stroke-linejoin: round;
+}
+
+.selector-workbench-icon.is-owned,
+.selector-workbench-icon.is-active {
+   background: var(--theme-node-primary, var(--cyan));
+   color: #ffffff;
+}
+
+.selector-workbench-icon.is-buyable {
+   border-style: dashed;
+}
+
+.selector-workbench-icon.is-fog {
+   border-color: var(--orange, #d9922f);
+   border-style: dashed;
+   color: var(--orange, #d9922f);
+}
+
+.selector-workbench-icon.is-locked {
+   border-color: var(--theme-node-line, var(--line));
+   color: var(--muted-on-canvas, var(--muted));
+}
+
+.selector-workbench-titles {
+   display: flex;
+   flex-direction: column;
+   gap: 2px;
+   min-width: 0;
+}
+
+.selector-workbench-title {
+   overflow: hidden;
+   color: var(--ink-on-panel, var(--ink));
+   font-family: Manrope, '方正兰亭圆简体_中', sans-serif;
+   font-size: 16px;
+   font-weight: 700;
+   letter-spacing: -.01em;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.selector-workbench-kind {
+   color: var(--muted-on-panel, var(--muted));
+   font: 500 8px 'DM Mono', monospace;
+   letter-spacing: .1em;
+}
+
+.selector-workbench-badge {
+   flex: 0 0 auto;
+   max-width: 46%;
+   padding: 4px 8px;
+   overflow: hidden;
+   border: 1px solid var(--theme-node-line, var(--line));
+   border-radius: 999px;
+   color: var(--muted-on-panel, var(--muted));
+   font: 500 8px 'DM Mono', monospace;
+   letter-spacing: .06em;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+
+.selector-workbench-badge.is-owned,
+.selector-workbench-badge.is-active {
+   border-color: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 45%, transparent);
+   background: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 12%, transparent);
+   color: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-workbench-badge.is-buyable {
+   border-style: dashed;
+   border-color: var(--theme-node-primary, var(--cyan));
+   color: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-workbench-badge.is-fog,
+.selector-workbench-badge.is-idle {
+   border-style: dotted;
+}
+
+.selector-workbench-body {
+   flex: 1;
+   min-height: 0;
+   padding: 0 18px 20px;
+   overflow-y: auto;
+}
+
+.selector-graph-portal {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--theme-accent, #8ac4cf) 35%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--theme-accent, #8ac4cf) 7%, transparent);
+}
+
+.selector-graph-portal p {
+  margin: 0.5rem 0 0.75rem;
+  color: var(--ink-muted, #aab3be);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.selector-graph-enter {
+  width: 100%;
+  min-height: 2.5rem;
+  border: 1px solid var(--theme-accent, #8ac4cf);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--theme-accent, #8ac4cf) 15%, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+
+.selector-graph-enter:hover,
+.selector-graph-enter:focus-visible {
+  background: color-mix(in srgb, var(--theme-accent, #8ac4cf) 25%, transparent);
+}
+
+/* ---------- 节点详情 ---------- */
+
+.selector-detail {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   padding-top: 16px;
+   color: var(--ink-on-panel, var(--ink));
+}
+
+.selector-detail-figure {
+   color: var(--theme-node-primary, var(--cyan));
    font: 500 12px 'DM Mono', monospace;
    letter-spacing: .1em;
 }
 
-.init-orb-copy h2 {
-   font-family: '方正兰亭圆简体_中';
-   font-size: clamp(26px, 3vw, 40px);
-   letter-spacing: -.05em;
+.selector-detail h2 {
+   margin: 0;
+   font-family: '方正兰亭圆简体_中', sans-serif;
+   font-size: clamp(22px, 2vw, 30px);
+   letter-spacing: -.045em;
+   line-height: 1.15;
 }
 
-.init-orb-copy p {
-   font-family: '方正兰亭圆简体_中';
-   color: var(--muted);
-   font-size: 16px;
-   line-height: 1.5;
-   max-width: 380px;
+.selector-detail p {
+   margin: 0;
+   color: var(--muted-on-panel, var(--muted));
+   font-size: 13px;
+   line-height: 1.6;
 }
 
-.orb-note {
+.selector-detail-meta {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+}
+
+.selector-detail-meta span {
+   padding: 4px 7px;
+   border: 1px solid var(--theme-node-line, var(--line));
+   border-radius: 6px;
+   color: var(--muted-on-panel, var(--muted));
+   font: 500 9px 'DM Mono', monospace;
+   letter-spacing: .06em;
+}
+
+.selector-detail-actions {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   margin-top: 6px;
+}
+
+.selector-detail-actions .primary-button {
+   min-height: 42px;
+}
+
+.selector-detail-lock {
+   color: var(--muted-on-panel, var(--muted));
+   font: 500 10px 'DM Mono', monospace;
+   letter-spacing: .08em;
+}
+
+.selector-detail-note {
    font-size: 10px !important;
 }
 
-.orb-meta {
-   display: flex;
-   flex-wrap: wrap;
-   gap: 14px;
-   color: var(--muted);
-   font: 500 10px 'DM Mono', monospace;
-   letter-spacing: .08em;
+.selector-detail-empty {
+   justify-content: center;
+   min-height: 240px;
 }
 
-.orb-actions {
-   margin-top: 10px;
-   display: flex;
-   align-items: center;
-   gap: 14px;
+.selector-detail-empty h2 {
+   font-size: 20px;
 }
 
-.orb-actions .primary-button {
-   align-self: auto;
-   min-height: 44px;
-   box-shadow: 0 6px 16px rgba(var(--primary-rgb), .3);
-}
+/* ---------- 响应式与动效偏好 ---------- */
 
-.orb-lock {
-   color: var(--muted);
-   font: 500 10px 'DM Mono', monospace;
-   letter-spacing: .08em;
-}
-
-/* 右侧世界线索引头部：卡片沿盘缘环绕，JS 驱动整组绕盘心旋转（保持相对位置、聚焦正右方） */
-.init-rail {
-   display: flex;
-   flex-direction: column;
-   min-height: 0;
-}
-
-.init-rail-head {
-   display: flex;
-   justify-content: space-between;
-   align-items: baseline;
-   gap: 12px;
-   padding: 6px 2px 10px;
-   border-bottom: 1px solid var(--line);
-}
-
-.init-rail-hint {
-   color: var(--muted);
-   font: 500 9px 'DM Mono', monospace;
-   letter-spacing: .08em;
-}
-
-/* 全页轮盘层：挂在 shell 上（inset:0 = 整个页面），卡片由 JS 定位到盘缘坐标，
-   只受 .init-select-shell 的 overflow:hidden 裁剪，不被 .selector-viewport 截断 */
-.init-wheel {
-   position: absolute;
-   inset: 0;
-   z-index: 2;
-   pointer-events: none;
-   transition: opacity .18s ease;
-}
-
-.init-wheel.is-fading {
-   opacity: 0;
-}
-
-.init-wheel.is-inactive {
-   opacity: 0;
-   visibility: hidden;
-}
-
-.init-row {
-   position: absolute;
-   left: 0;
-   top: 0;
-   width: clamp(290px, 25vw, 400px);
-   pointer-events: auto;
-   display: grid;
-   grid-template-columns: 1fr auto;
-   gap: 12px;
-   align-items: center;
-   padding: 14px 17px;
-   background: color-mix(in srgb, var(--theme-node-panel, #ffffff) 90%, transparent);
-   border: 1px solid var(--theme-node-line, var(--line));
-   border-radius: 14px;
-   color: var(--ink-on-panel);
-   text-align: left;
-   cursor: pointer;
-   box-shadow: 0 10px 26px rgba(var(--theme-node-primary-rgb, var(--primary-rgb)), .10);
-   translate: calc(var(--par-x, 0) * 18px) calc(var(--par-y, 0) * 12px);
-   transition: transform .6s cubic-bezier(.24, .9, .3, 1), opacity .45s ease, translate .35s ease-out, border-color .15s ease, box-shadow .15s ease;
-   will-change: transform, opacity;
-}
-
-.init-row:hover {
-   border-color: var(--theme-node-primary, var(--cyan));
-}
-
-.init-row:focus-visible {
-   outline: 2px solid var(--theme-node-primary, var(--cyan));
-   outline-offset: 2px;
-}
-
-.init-row.is-active {
-   border-color: var(--theme-node-primary, var(--cyan));
-   background: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 14%, var(--theme-node-panel, #ffffff));
-   box-shadow: 0 16px 38px rgba(var(--theme-node-primary-rgb, var(--primary-rgb)), .22);
-}
-
-.init-row.is-locked .init-row-main strong {
-   color: var(--muted-on-panel, var(--theme-node-muted));
-}
-
-.init-row.is-locked {
-   cursor: help;
-}
-
-.init-row-main {
-   display: flex;
-   flex-direction: column;
-   gap: 3px;
-   min-width: 0;
-}
-
-.init-row-main strong {
-   font-size: 13px;
-   letter-spacing: -.01em;
-   white-space: nowrap;
-   overflow: hidden;
-   text-overflow: ellipsis;
-}
-
-.init-row-main small {
-   color: var(--muted-on-panel, var(--theme-node-muted));
-   font: 500 8px 'DM Mono', monospace;
-   letter-spacing: .08em;
-}
-
-.init-row-tilt {
-   max-width: 150px;
-   overflow: hidden;
-   text-overflow: ellipsis;
-   white-space: nowrap;
-   color: var(--theme-node-primary, var(--cyan));
-   font: 500 9px 'DM Mono', monospace;
-   letter-spacing: .04em;
-}
-
-/* GlobalEnhancement 选择面：与 Init 共享同一圆盘与详情结构，聚焦盘左缘（镜像、方向相反） */
-.enh-orb-copy {
-   align-items: flex-end;
-   text-align: right;
-   margin-left: auto;
-   padding: 34px clamp(4px, 2vw, 28px) 34px 0;
-}
-
-/* 镜像面的条项元信息与操作行右对齐（容器本身已右对齐，此处强化换行行为） */
-.enh-orb-copy .orb-meta,
-.enh-orb-copy .orb-actions {
-   justify-content: flex-end;
-}
-
-/* 选择页：双面叠放、共享一个可左右滑动的大圆盘（Init 偏左 / Enh 偏右，镜像） */
-.selector-shell .init-orb-disc {
-   left: 50%;
-   top: 50%;
-   width: 172vmin;
-   height: 172vmin;
-   transform: translate(-50%, -50%);
-   /* 鼠标视差：跟随光标偏移（与 transform 定位叠加），不改变选中 */
-   translate: calc(var(--par-x, 0) * 12px) calc(var(--par-y, 0) * 8px);
-   background: color-mix(in srgb, var(--theme-node-bg, var(--canvas, #e2f1ff)) 20%, transparent);
-   animation: selector-orb-fade .5s ease-out;
-   transition: transform .42s cubic-bezier(.24, .9, .3, 1), translate .35s ease-out;
-   will-change: transform;
-}
-
-/* Init 面：圆盘偏左，聚焦落在盘右缘 */
-.selector-shell.init-mode .selector-disc {
-   transform: translate(calc(-50% - 44vmin), -50%);
-}
-
-/* GlobalEnhancement 面：圆盘偏右，聚焦落在盘左缘 */
-.selector-shell.enh-mode .selector-disc {
-   transform: translate(calc(-50% + 44vmin), -50%);
-}
-
-/* 入场仅淡入（不触碰 transform，避免轮盘测量到错位圆盘） */
-@keyframes selector-orb-fade {
-   from {
-      opacity: 0;
+@media (max-width: 940px) {
+   .selector-workbench {
+      border-radius: 18px;
    }
-}
-
-/* 面向视口：占满顶栏与页脚之间，水平裁切 */
-.selector-viewport {
-   flex: 1;
-   min-height: 0;
-   position: relative;
-   overflow: hidden;
-}
-
-/* 两面叠放于同一视口，一次只显示一面（切换动画由 JS 驱动淡出/滑盘/淡入） */
-.selector-face {
-   position: absolute;
-   inset: 0;
-   display: flex;
-   flex-direction: column;
-   opacity: 1;
-   transition: opacity .18s ease;
-}
-
-.selector-face.is-inactive {
-   opacity: 0;
-   visibility: hidden;
-   pointer-events: none;
-}
-
-.selector-face.is-fading {
-   opacity: 0;
-   pointer-events: none;
-}
-
-.selector-face .init-stage {
-   flex: 1;
-   min-height: 0;
-}
-
-/* 镜像面：左栏索引 - 右详情（与 Init 面左右对调） */
-.enh-stage {
-   grid-template-columns: 380px minmax(0, 1fr);
 }
 
 @media (prefers-reduced-motion: reduce) {
    .selector-scene-background,
-   .selector-face,
-   .init-orb-disc,
-   .init-row,
-   .init-wheel {
+   .selector-node-body,
+   .selector-node-ring,
+   .selector-graph-reset {
       transition: none;
-      animation: none;
    }
 }

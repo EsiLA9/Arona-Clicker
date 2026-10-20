@@ -1,56 +1,34 @@
 // ============================================================
-// ui/components/selector-page.ts — 选择页整页渲染（Init ⇄ GlobalEnhancement）
-// 两个面向叠放于同一视口（一次只显示一面），共享一个可左右滑动的圆盘：
-// Init 面：盘在左、盘右缘聚焦、详情在左；GlobalEnhancement 面：盘在右、盘左缘聚焦、详情在右（镜像）。
-// 两个轮盘层（.wheel-init / .wheel-enh）直接挂在 shell 上覆盖整页，卡片只受页面边界裁剪。
-// initialFace 决定默认进入的面与圆盘初始位置。
+// ui/components/selector-page.ts — 选择页整页渲染（Init / GlobalEnhancement）
+//
+// 页面只保留顶栏与页脚，主体是一张全画布节点图 + 右侧固定工作台。
+// Init 与 GlobalEnhancement 共用同一平面，按区带与线型区分；所有
+// 名称、条件、价格、拥有态都来自只读投影，动作仍走既有 GameCommands。
 // ============================================================
 
 import type { UIContext } from '../context';
-import { InitSelectMode, renderInitDetail, renderInitRow, visibleInitsByTilt } from './init-select';
-import {
-  SelectionFace,
-  renderGlobalEnhancementDetail,
-  renderGlobalEnhancementRow,
-  visibleGlobalEnhancements,
-} from './global-enhancement-select';
+import type { InitSelectMode } from './init-select';
+import type { SelectorNodeKind } from '../selector-theme';
+import { buildSelectorGraphView, renderSelectorGraphWorkspace, renderSelectorWorkbench, resolveSelectorSelection } from './selector-graph';
 import { renderHeader, renderHeaderButton } from './header';
-import { createSelectorPresentationContext, preferredInitId, projectSelectorTheme, renderSelectorSceneLayer } from '../selector-theme';
+import { createSelectorPresentationContext, projectSelectorTheme, renderSelectorSceneLayer } from '../selector-theme';
 
-/** 整页渲染：双面叠放 + 共享圆盘 + 顶栏翻面按钮。initialFace 决定默认进入的面。 */
+/** 整页渲染：顶栏 + 节点图画布 + 右侧工作台；lastInitialKind 决定初始聚焦的节点类型。 */
 export function renderSelectorPage(
   ctx: UIContext,
   mode: InitSelectMode,
   initSelectedId: string | null,
   enhSelectedId: string | null,
   showBackToGame: boolean,
-  initialFace: SelectionFace,
+  initialKind: SelectorNodeKind = 'init',
 ): string {
   const restarting = mode === 'restart';
-  const isEnh = initialFace === 'global-enh';
+  const selection = resolveSelectorSelection(ctx, initialKind, initSelectedId, enhSelectedId);
+  const selectedKind = selection?.kind ?? initialKind;
+  const graph = buildSelectorGraphView(ctx);
+  const projection = projectSelectorTheme(ctx, selectedKind, selection?.entityId ?? null);
+  const headerContext = createSelectorPresentationContext(ctx, projection);
 
-  const initList = visibleInitsByTilt(ctx);
-  const initPreferredId = preferredInitId(ctx);
-  const initSelected = initList.find(i => i.id === initSelectedId)
-    ?? initList.find(i => i.id === initPreferredId)
-    ?? initList[0];
-  const initDetail = initSelected
-    ? renderInitDetail(ctx, mode, initSelected.id)
-    : '<div class="init-orb-copy"><p>暂无可选的世界线。</p></div>';
-  const initRows = initList.map(i => renderInitRow(ctx, i.id) ?? '').join('');
-
-  const enhList = visibleGlobalEnhancements(ctx);
-  const enhSelected = enhList.find(e => e.id === enhSelectedId) ?? enhList[0];
-  const enhDetail = enhSelected
-    ? renderGlobalEnhancementDetail(ctx, enhSelected.id, showBackToGame)
-    : '<div class="init-orb-copy enh-orb-copy"><p>暂无可选的全局强化。</p></div>';
-  const enhRows = enhList.map(e => renderGlobalEnhancementRow(ctx, e.id) ?? '').join('');
-  const activeProjection = projectSelectorTheme(
-    ctx,
-    initialFace,
-    isEnh ? enhSelected?.id ?? null : initSelected?.id ?? null,
-  );
-  const headerContext = createSelectorPresentationContext(ctx, activeProjection);
   const headerActions = [
     ctx.saveExists && !restarting
       ? renderHeaderButton(headerContext, {
@@ -59,11 +37,6 @@ export function renderSelectorPage(
         content: 'LOAD SAVE <span>↗</span>',
       })
       : '',
-    renderHeaderButton(headerContext, {
-      title: isEnh ? '切换到世界线选择' : '切换到全局强化选择',
-      flipSelectionFace: true,
-      content: `<span data-flip-label>${isEnh ? '世界线' : '全局强化'}</span> <span>⇄</span>`,
-    }),
     showBackToGame
       ? renderHeaderButton(headerContext, {
         title: '返回当前游戏',
@@ -73,61 +46,32 @@ export function renderSelectorPage(
       : '',
   ].join('');
 
-  const initFace = `
-    <section class="selector-face face-init ${isEnh ? 'is-inactive' : ''}">
-      <div class="init-stage">
-        ${initDetail}
-
-        <aside class="init-rail">
-          <div class="init-rail-head">
-            <span class="eyebrow">INDEX / BY TILT DESC</span>
-            <span class="init-rail-hint">滚轮移动聚焦 ↕</span>
-          </div>
-        </aside>
-      </div>
-    </section>`;
-
-  const enhFace = `
-    <section class="selector-face face-enh ${isEnh ? '' : 'is-inactive'}">
-      <div class="init-stage enh-stage">
-        <aside class="init-rail enh-rail">
-          <div class="init-rail-head">
-            <span class="eyebrow">INDEX / GLOBAL ENH</span>
-            <span class="init-rail-hint">滚轮移动聚焦 ↕</span>
-          </div>
-        </aside>
-
-        ${enhDetail}
-      </div>
-    </section>`;
+  const statusLabel = selectedKind === 'init'
+    ? `WORLD LINE · ${restarting ? 'RESTART' : 'NEW GAME'}`
+    : 'GLOBAL ENH';
 
   return `
-    <main class="console-shell init-select-shell selector-shell ${isEnh ? 'enh-mode' : 'init-mode'}" style="${ctx.escapeHtml(activeProjection.inlineStyle)}">
-      <div class="selector-super-background" data-selector-super-background="true" style="${ctx.escapeHtml(activeProjection.inlineStyle)}">
+    <main class="console-shell init-select-shell selector-shell selector-graph-shell" style="${ctx.escapeHtml(projection.inlineStyle)}">
+      <div class="selector-super-background" data-selector-super-background="true" style="${ctx.escapeHtml(projection.inlineStyle)}">
         <div class="selector-scene-background-stack" aria-hidden="true">
-          ${renderSelectorSceneLayer(ctx, activeProjection, 'current')}
+          ${renderSelectorSceneLayer(ctx, projection, 'current')}
           ${renderSelectorSceneLayer(ctx, null, 'next')}
         </div>
       </div>
 
-      <div class="init-orb-disc selector-disc" aria-hidden="true" style="${ctx.escapeHtml(activeProjection.inlineStyle)}"></div>
-
       ${renderHeader(headerContext, {
         className: 'selector-topbar',
-        themeStyle: activeProjection.inlineStyle,
-        themeKey: activeProjection.context.transitionKey,
+        themeStyle: projection.inlineStyle,
+        themeKey: projection.context.transitionKey,
         extraActions: headerActions,
-        statusLabel: `<span data-face-status>${isEnh ? 'GLOBAL ENH' : `WORLD LINE · ${restarting ? 'RESTART' : 'NEW GAME'}`}</span>`,
-        statusSubline: '● AWAITING INPUT',
+        statusLabel: `<span data-selector-status>${statusLabel}</span>`,
+        statusSubline: '● GRAPH VIEW',
       })}
 
-      <div class="selector-viewport" data-selector-theme-key="${ctx.escapeHtml(activeProjection.context.transitionKey)}" style="${ctx.escapeHtml(activeProjection.inlineStyle)}">
-        ${initFace}
-        ${enhFace}
+      <div class="selector-workspace" style="${ctx.escapeHtml(projection.inlineStyle)}">
+        ${renderSelectorGraphWorkspace(ctx, graph, selection, projection.context.transitionKey)}
+        ${renderSelectorWorkbench(ctx, mode, selection, showBackToGame)}
       </div>
-
-      <div class="init-wheel wheel-init ${isEnh ? 'is-inactive' : ''}">${initRows}</div>
-      <div class="init-wheel wheel-enh ${isEnh ? '' : 'is-inactive'}">${enhRows}</div>
 
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>TS-HTML ENGINE · NO NETWORK</span></footer>
     </main>`;

@@ -17,7 +17,7 @@ export const baseAffectorPacks: AffectorPackDef[] = [
   affectorPack('base:affectorpack:supply_chain_mult').entry('base:affector:supply_chain_mult').modEntity('spot', '*', 'mul', 1.6).build(),
   affectorPack('base:affectorpack:energy_supply_mult').entry('base:affector:energy_supply_mult').modEntity('spot', '*', 'mul', 1.25).build(),
   affectorPack('base:affectorpack:sanctuary_field_mult').entry('base:affector:sanctuary_field_mult').modEntity('spot', '*', 'mul', 1.5).build(),
-  affectorPack('base:affectorpack:foundation_mult').entry('base:affector:foundation_mult').modEntity('spot', '*', 'mul', 2).build(),
+  affectorPack('base:affectorpack:foundation_mult').graphCapability('base:graph:foundation', 'init:base:init:millennium').entry('base:affector:foundation_mult').modEntity('spot', '*', 'mul', 2).build(),
   affectorPack('base:affectorpack:eternal_contract_mult').entry('base:affector:eternal_contract_mult').modEntity('spot', '*', 'mul', 1.5).build(),
   affectorPack('base:affectorpack:unified_logistics_flow').entry('base:affector:unified_logistics_flow').flow(Resource.Credit, 1).build(),
 ];

@@ -1,22 +1,22 @@
 // @vitest-environment happy-dom
 // ============================================================
-// controller-global-enhancement.test.ts — 选择页翻面 + GlobalEnhancement 购买
+// controller-global-enhancement.test.ts — 选择节点图 + GlobalEnhancement 购买
 // ============================================================
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
+import { projectPlane } from '../../src/ui/components/selector-graph';
 
 const OFFICE = 'base:init:schale_office';
 const FOUNDATION = 'base:enhancement:foundation';
 
-describe('UIController 选择页翻面（Init ⇄ GlobalEnhancement）', () => {
+describe('UIController 选择节点图（Init / GlobalEnhancement）', () => {
   let game: GameInstance;
   let root: HTMLElement;
   let controller: UIController;
 
   beforeEach(() => {
-    vi.useFakeTimers();
     localStorage.clear();
     game = new GameInstance();
     game.init([baseDatapack]);
@@ -29,9 +29,7 @@ describe('UIController 选择页翻面（Init ⇄ GlobalEnhancement）', () => {
 
   afterEach(() => {
     game.stop();
-    vi.clearAllTimers();
     localStorage.clear();
-    vi.useRealTimers();
   });
 
   /** 进入选择页（重选流程）。 */
@@ -40,87 +38,106 @@ describe('UIController 选择页翻面（Init ⇄ GlobalEnhancement）', () => {
     (controller as unknown as { renderInitSelect(): void }).renderInitSelect();
   };
 
-  it('选择页双面叠放、仅一面可见，翻面动画后切换圆盘方向与可见面', () => {
+  /** 图上节点是 SVG <g>：用冒泡 click 走与真实指针一致的选择路径。 */
+  const clickNode = (selector: string): SVGElement => {
+    const node = root.querySelector<SVGElement>(selector)!;
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return node;
+  };
+
+  it('选择页使用单一节点画布同时呈现世界线与全局强化，不再渲染轮盘 / 翻面控件', () => {
     showSelectPage();
-    // 双面都在 DOM，但只有 Init 面激活；单一共享圆盘
-    expect(root.querySelector('.face-init .init-orb-copy')).not.toBeNull();
-    expect(root.querySelector('.face-enh .enh-orb-copy')).not.toBeNull();
-    expect(root.querySelectorAll('.init-orb-disc')).toHaveLength(1);
-    expect(root.querySelector('.face-init')?.classList.contains('is-inactive')).toBe(false);
-    expect(root.querySelector('.face-enh')?.classList.contains('is-inactive')).toBe(true);
-    expect(root.querySelector('.selector-shell')?.classList.contains('init-mode')).toBe(true);
 
-    // 点击翻面 → 动画未完成前仍是旧方向，推进后切换
-    const flip = root.querySelector<HTMLButtonElement>('[data-flip-selection-face]')!;
-    expect(flip).not.toBeNull();
-    flip.click();
-    expect(root.querySelector('.selector-shell')?.classList.contains('enh-mode')).toBe(false);
-    vi.advanceTimersByTime(180);
-    expect(root.querySelector('.selector-shell')?.classList.contains('enh-mode')).toBe(true);
-    vi.advanceTimersByTime(420);
-    expect(root.querySelector('.face-init')?.classList.contains('is-inactive')).toBe(true);
-    expect(root.querySelector('.face-enh')?.classList.contains('is-inactive')).toBe(false);
-    expect(root.querySelector('.selector-shell')?.classList.contains('enh-mode')).toBe(true);
+    expect(root.querySelector('[data-selector-graph]')).not.toBeNull();
+    expect(root.querySelector('[data-selector-workbench]')).not.toBeNull();
+    expect(root.querySelectorAll('[data-selector-node]').length).toBeGreaterThan(1);
+    expect(root.querySelector('[data-init-select]')).not.toBeNull();
+    expect(root.querySelector('[data-global-enh-select]')).not.toBeNull();
 
-    // 再翻回 Init 面
-    flip.click();
-    vi.advanceTimersByTime(600);
-    expect(root.querySelector('.face-init')?.classList.contains('is-inactive')).toBe(false);
-    expect(root.querySelector('.face-enh')?.classList.contains('is-inactive')).toBe(true);
-    expect(root.querySelector('.selector-shell')?.classList.contains('init-mode')).toBe(true);
+    expect(root.querySelector('.init-wheel')).toBeNull();
+    expect(root.querySelector('.selector-face')).toBeNull();
+    expect(root.querySelector('[data-flip-selection-face]')).toBeNull();
   });
 
-  it('选择页重建时使旧翻面动画失效，避免 Apply 后回写旧轮盘面向', () => {
+  it('节点选中切换工作台与聚焦主题，不重建节点、不触碰运行状态', () => {
     showSelectPage();
-    root.querySelector<HTMLButtonElement>('[data-flip-selection-face]')!.click();
+    const initNode = clickNode(`[data-init-select="${OFFICE}"]`);
+    expect(controller.selectorPage.selectedInitId).toBe(OFFICE);
 
-    // 模拟 Runtime Editor Apply 新建 Init 后触发的整页选择器重建：
-    // 旧翻面还没完成时，新页面必须从 Init 面重新开始。
-    vi.advanceTimersByTime(90);
-    (controller as unknown as { renderInitSelect(): void }).renderInitSelect();
-    vi.advanceTimersByTime(600);
+    const beforeState = { ...game.state };
+    const enhNode = clickNode(`[data-global-enh-select="${FOUNDATION}"]`);
 
-    expect(controller.selectorPage.currentFace).toBe('init');
-    expect(root.querySelector('.selector-shell')?.classList.contains('init-mode')).toBe(true);
-    expect(root.querySelector('.face-init')?.classList.contains('is-inactive')).toBe(false);
-    expect(root.querySelector('.face-enh')?.classList.contains('is-inactive')).toBe(true);
+    expect(controller.selectorPage.selectedEnhId).toBe(FOUNDATION);
+    expect(controller.selectorPage.selectedInitId).toBe(OFFICE);
+    expect(root.querySelector('[data-selector-graph]')?.getAttribute('data-selector-selected-kind')).toBe('global-enh');
+    expect(root.querySelector('.selector-workbench-title')?.textContent).toBe('全能基建');
+    expect(root.querySelector('[data-selector-workbench-body]')?.textContent).toContain('全局信用点产出');
+    expect(root.contains(initNode)).toBe(true);
+    expect(root.contains(enhNode)).toBe(true);
+    expect(game.state.activeInit).toBe(beforeState.activeInit);
+    expect(game.state.totalFrames).toBe(beforeState.totalFrames);
   });
 
-  it('GlobalEnhancement 面购买后行与详情立即刷新，不触发整页重渲染', () => {
+  it('全局强化购买后节点与工作台立即刷新，不触发整页重渲染', () => {
     game.mutations.changeResource('base:resource:pyroxene', 100);
     showSelectPage();
-    root.querySelector<HTMLButtonElement>('[data-flip-selection-face]')!.click();
-    vi.advanceTimersByTime(600); // 完成翻面动画
 
-    const row = root.querySelector<HTMLButtonElement>(`[data-global-enh-select="${FOUNDATION}"]`)!;
-    expect(row).not.toBeNull();
-    expect(root.querySelector('.face-enh')?.classList.contains('is-inactive')).toBe(false);
+    const node = clickNode(`[data-global-enh-select="${FOUNDATION}"]`);
+    expect(root.querySelector<HTMLButtonElement>(`[data-global-enh-purchase="${FOUNDATION}"]`)).not.toBeNull();
 
-    // 显式选中 foundation，避免测试依赖全局强化价格排序
-    row.click();
-    const buy = root.querySelector<HTMLButtonElement>(`[data-global-enh-purchase="${FOUNDATION}"]`);
-    expect(buy).not.toBeNull();
-    buy!.click();
+    root.querySelector<HTMLButtonElement>(`[data-global-enh-purchase="${FOUNDATION}"]`)!.click();
 
-    // 行文本与详情立即更新为「已激活」
-    expect(root.querySelector(`[data-global-enh-select="${FOUNDATION}"]`)?.textContent).toContain('已激活');
-    expect(root.querySelector('.face-enh .enh-orb-copy')?.textContent).toContain('已激活');
-    expect(root.contains(row)).toBe(true); // 轮盘 DOM 未被整页重建
+    expect(game.state.unlockedEnhancements).toContain(FOUNDATION);
+    expect(root.querySelector(`[data-global-enh-select="${FOUNDATION}"]`)?.classList.contains('is-owned')).toBe(true);
+    expect(root.querySelector('[data-selector-workbench-body]')?.textContent).toContain('已激活');
+    expect(root.contains(node)).toBe(true);
   });
 
-  it('mid-game 从强化面板进入全局强化选择页，含「返回游戏」逃生口', () => {
-    // 正常游戏进行中（started = true）
+  it('由节点自身的 Active Affector 授权进入任意星图，并可返回来源图', () => {
+    game.mutations.changeResource('base:resource:pyroxene', 100);
+    showSelectPage();
+    clickNode(`[data-global-enh-select="${FOUNDATION}"]`);
+
+    expect(root.querySelector('[data-selector-workbench-body]')?.textContent).toContain('取得并激活此节点关联的 Affector');
+    root.querySelector<HTMLButtonElement>(`[data-global-enh-purchase="${FOUNDATION}"]`)!.click();
+    expect(game.affectorEngine.getActiveGraphCapabilitySources().get('base:graph:foundation'))
+      .toEqual(expect.arrayContaining([expect.objectContaining({
+        mountEntityId: FOUNDATION,
+        nodeId: 'init:base:init:millennium',
+      })]));
+
+    const rootFoundation = root.querySelector<SVGElement>(`[data-global-enh-select="${FOUNDATION}"]`)!;
+    const rootFoundationPosition = {
+      x: Number(rootFoundation.getAttribute('data-node-x')),
+      y: Number(rootFoundation.getAttribute('data-node-y')),
+    };
+    root.querySelector<HTMLButtonElement>('[data-selector-graph-enter]')!.click();
+    expect(root.querySelector('[data-selector-graph]')?.getAttribute('data-selector-graph-id')).toBe('base:graph:foundation');
+    expect(root.querySelector('[data-selector-graph-back]')).not.toBeNull();
+    expect(root.querySelector('.selector-graph-backdrop [data-selector-node]')).toBeNull();
+    expect(root.querySelector('.selector-graph-backdrop .selector-node.is-backdrop')).not.toBeNull();
+    expect(root.querySelector('.selector-graph-cross-link')).not.toBeNull();
+    const sourceNode = root.querySelector<SVGElement>('.selector-graph-backdrop [data-node-id="global-enh:base:enhancement:foundation"]')!;
+    const planeOrigin = projectPlane(0, 0);
+    const expectedSourcePosition = {
+      x: projectPlane(-360, -210).x + (rootFoundationPosition.x - planeOrigin.x) * 0.48,
+      y: projectPlane(-360, -210).y + (rootFoundationPosition.y - planeOrigin.y) * 0.48,
+    };
+    expect(Number(sourceNode.getAttribute('data-node-x'))).toBeCloseTo(expectedSourcePosition.x);
+    expect(Number(sourceNode.getAttribute('data-node-y'))).toBeCloseTo(expectedSourcePosition.y);
+
+    root.querySelector<HTMLButtonElement>('[data-selector-graph-back]')!.click();
+    expect(root.querySelector('[data-selector-graph]')?.getAttribute('data-selector-graph-id')).toBe('main');
+    expect(controller.selectorPage.selectedEnhId).toBe(FOUNDATION);
+  });
+
+  it('mid-game 从强化面板进入时默认聚焦全局强化节点，并保留「返回游戏」逃生口', () => {
     (controller as unknown as { started: boolean }).started = true;
     (controller as unknown as { pendingRestart: boolean }).pendingRestart = false;
-    // 直接打开全局强化选择页（模拟 mid-game 入口）
     controller.openGlobalEnhancementSelect();
-    expect(root.querySelector('.face-enh .enh-orb-copy')).not.toBeNull();
-    expect(root.querySelector('.face-enh')?.classList.contains('is-inactive')).toBe(false);
-    expect(root.querySelector('.face-init')?.classList.contains('is-inactive')).toBe(true);
-    expect(root.querySelector('.selector-shell')?.classList.contains('enh-mode')).toBe(true);
 
-    // 有「返回游戏」按钮
-    const backBtn = root.querySelector<HTMLButtonElement>('[data-back-to-game]');
-    expect(backBtn).not.toBeNull();
+    expect(root.querySelector('[data-selector-graph]')?.getAttribute('data-selector-selected-kind')).toBe('global-enh');
+    expect(controller.selectorPage.selectedEnhId).not.toBeNull();
+    expect(root.querySelector<HTMLButtonElement>('[data-back-to-game]')).not.toBeNull();
   });
 });

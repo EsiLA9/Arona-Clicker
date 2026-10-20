@@ -11,12 +11,12 @@ const ABYDOS = 'base:init:abydos';
 const TRINITY = 'base:init:trinity';
 const GEHENNA = 'base:init:gehenna';
 
-/** 提取右侧列表行的出现顺序。 */
-function railOrder(html: string): string[] {
+/** 提取图上世界线节点的出现顺序。 */
+function nodeOrder(html: string): string[] {
   return [...html.matchAll(/data-init-select="([^"]+)"/g)].map(m => m[1]);
 }
 
-describe('renderSelectorPage Init 面世界倾斜数值', () => {
+describe('renderSelectorPage 世界线节点与倾斜数值', () => {
   let game: GameInstance;
 
   beforeEach(() => {
@@ -29,23 +29,23 @@ describe('renderSelectorPage Init 面世界倾斜数值', () => {
     game.stop();
   });
 
-  it('Init 面右列按倾斜值降序排列（高在上低在下）', () => {
+  it('世界线节点按倾斜值降序排列（高在上低在下）', () => {
     // 累计产出拉满全部揭示阈值，并解锁全部世界线
     game.mutations.changeResource(CREDIT, 5000);
     for (const id of [MILLENNIUM, ABYDOS, TRINITY, GEHENNA]) game.inits.unlockInit(id);
 
     const html = renderSelectorPage(createUIContext(game), 'new', null, null, false, 'init');
-    expect(railOrder(html)).toEqual([OFFICE, MILLENNIUM, TRINITY, ABYDOS, GEHENNA]);
+    expect(nodeOrder(html)).toEqual([OFFICE, MILLENNIUM, TRINITY, ABYDOS, GEHENNA]);
   });
 
-  it('Init 面左侧详情展示规范化 TILT 值（尾数补满 15 位），默认选中首位', () => {
+  it('工作台展示规范化 TILT 值（尾数补满 15 位），默认选中首位', () => {
     const html = renderSelectorPage(createUIContext(game), 'new', null, null, false, 'init');
     expect(html).toContain('TILT 0.999000000000000');
     expect(html).toContain(`data-init-select="${OFFICE}"`);
-    expect(html).toContain('init-orb-copy');
+    expect(html).toContain('selector-detail');
   });
 
-  it('Init 面选中项驱动左侧详情：有伪装展示字符串时代替数值展示', () => {
+  it('选中项驱动工作台：有伪装展示字符串时代替数值展示', () => {
     game.mutations.changeResource(CREDIT, 5000);
     game.inits.unlockInit(GEHENNA);
     const html = renderSelectorPage(createUIContext(game), 'new', GEHENNA, null, false, 'init');
@@ -53,18 +53,19 @@ describe('renderSelectorPage Init 面世界倾斜数值', () => {
     expect(html).not.toContain('TILT 0.941300000000000');
   });
 
-  it('Init 面名称未揭示前不泄露真实倾斜值', () => {
+  it('名称未揭示前不泄露真实倾斜值', () => {
     const html = renderSelectorPage(createUIContext(game), 'new', MILLENNIUM, null, false, 'init');
     expect(html).toContain('TILT ???');
     expect(html).not.toContain('0.985000000000000');
   });
 
-  it('Init 面 selectedId 无效时回退到排序首位', () => {
+  it('selectedId 无效时回退到排序首位', () => {
     const html = renderSelectorPage(createUIContext(game), 'new', 'base:init:nonexistent', null, false, 'init');
     expect(html).toContain(`data-init-select="${OFFICE}"`);
+    expect(html).toContain('aria-pressed="true"');
   });
 
-  it('Init 面兼容非规范 worldTilt 字符串并将其排在合法值之后', () => {
+  it('兼容非规范 worldTilt 字符串并将其排在合法值之后', () => {
     const original = game.registry.inits.get(OFFICE);
     if (!original) throw new Error('缺少测试 Init');
     const receipt = game.registry.applyInitMutation({
@@ -76,7 +77,7 @@ describe('renderSelectorPage Init 面世界倾斜数值', () => {
       const html = renderSelectorPage(createUIContext(game), 'new', OFFICE, null, false, 'init');
       expect(html).toContain('TILT ddd');
       expect(() => renderSelectorPage(createUIContext(game), 'new', OFFICE, null, false, 'init')).not.toThrow();
-      expect(railOrder(html).at(-1)).toBe(OFFICE);
+      expect(nodeOrder(html).at(-1)).toBe(OFFICE);
     } finally {
       receipt.rollback();
     }

@@ -7,13 +7,14 @@ import type { TagPath } from '../core/tag';
 import type { ExtraCompound } from '../types/extra';
 import type { ConditionGroup, Effect, ValueExpression } from '../types/expression';
 import type { AffectorCapabilityGrant, AffectorEffect, AffectorPackDef, AffectorFlow, ServiceCapabilityId, AreaConnectionDef } from '../types/trigger';
+import type { AffectorGraphGrant } from '../contracts/affector';
 import type { TagEffectCategory, ZoneModifierDecl } from '../expression/tag-effect';
 
 export class AffectorPackBuilder {
   private readonly _id: string;
   private _entries: AffectorEffect[] = [];
   private _extra?: ExtraCompound;
-  private _capabilities: AffectorCapabilityGrant[] = [];
+  private _capabilities: Array<AffectorCapabilityGrant | AffectorGraphGrant> = [];
 
   constructor(id: string) {
     this._id = id;
@@ -84,6 +85,12 @@ export class AffectorPackBuilder {
 
   serviceCapability(id: ServiceCapabilityId): this {
     this._capabilities.push({ kind: 'service', id, mode: 'enable' });
+    return this;
+  }
+
+  /** 授权通往目标星图的指定节点；只影响选择页导航，不替代 Init / Enhancement 业务命令。 */
+  graphCapability(graphId: string, nodeId: string): this {
+    this._capabilities.push({ kind: 'graph', graphId, nodeId, mode: 'enable' });
     return this;
   }
 

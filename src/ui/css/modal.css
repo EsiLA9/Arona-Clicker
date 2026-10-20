@@ -680,31 +680,6 @@
 }
 
 @media (max-width: 620px) {
-   .init-stage {
-      grid-template-columns: 1fr;
-   }
-
-   .init-orb-copy {
-      min-height: 260px;
-      padding: 24px 4px 24px 0;
-   }
-
-   .init-orb-disc {
-      left: -80vmin;
-   }
-
-   .init-wheel {
-      min-height: 300px;
-   }
-}
-
-@media (max-width: 950px) {
-   .init-stage {
-      grid-template-columns: 1fr;
-   }
-}
-
-@media (max-width: 620px) {
    .console-shell {
       padding: 18px 12px;
       height: auto;

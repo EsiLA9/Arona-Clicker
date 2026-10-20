@@ -1,14 +1,14 @@
 // ============================================================
 // ui/controller-panels.ts — UI 控制器：面板桥接
 // 从 controller.ts 拆出：initSelectMode / renderSelectorPage /
-//   replaceDetail / bindDetailActions / bindSelectorCommonActions
+//   bindDetailActions / bindSelectorCommonActions
 // ============================================================
 
 import { createUIContext } from './context';
 import { selectorBaseBackgroundView, selectorBasePresentationView } from './controller-theme';
 import { renderSelectorPage as renderSelectorPageView } from './components/selector-page';
 import type { InitSelectMode } from './components/init-select';
-import type { SelectionFace } from './components/global-enhancement-select';
+import type { SelectorNodeKind } from './selector-theme';
 import { SaveSystem } from '../data-services/persistence/storage';
 import type { SaveData } from '../arona-clicker/contracts/save-data';
 import type { UIController } from './controller';
@@ -27,8 +27,8 @@ export function showBackToGame(ctrl: UIController): boolean {
   return ctrl.started && !ctrl.pendingRestart;
 }
 
-/** 全量渲染选择页（Init ⇄ GlobalEnhancement 左右滑动，共享一圆）。initialFace 决定初始滑动位置。 */
-export function renderSelectorPage(ctrl: UIController, initialFace: SelectionFace = 'init'): void {
+/** 全量渲染选择页（Init / GlobalEnhancement 节点图）。initialKind 决定初始聚焦的节点类型。 */
+export function renderSelectorPage(ctrl: UIController, initialKind: SelectorNodeKind = 'init'): void {
   // 选择页是新游戏的首个可见界面：先落一份存档，避免用户在选择 Init
   // 或 GlobalEnhancement 前关闭页面后丢失这次新建会话。
   if (!SaveSystem.exists()) {
@@ -48,36 +48,31 @@ export function renderSelectorPage(ctrl: UIController, initialFace: SelectionFac
     ctrl.selectorPage.selectedInitId,
     ctrl.selectorPage.selectedEnhId,
     showBackToGame(ctrl),
-    initialFace,
+    initialKind,
   );
   syncOuterBackground(context.background);
   // #app 重建后原锚点（如 Spot hover 的卡片）已脱离文档 → 关闭残留悬浮层
   ctrl.popovers.retainIfAnchored();
   // 选择页也需要 Hover 弹层（同一套事件委托，首次进入即绑定）
   ctrl.popovers.bind();
-  ctrl.selectorPage.bindStage(initialFace);
+  ctrl.selectorPage.bindStage(initialKind);
   // Lobby 也提供与一般游戏相同的服务导航；进入服务后由 render() 切换到服务工作区。
   bindTopBarActions(ctrl);
   bindThemeActions(ctrl);
   bindEntityPresentationActions(ctrl);
 }
 
-/** 全量渲染 Init 选择器（轨道默认停在 Init 面）。 */
+/** 全量渲染选择页（默认聚焦世界线节点）。 */
 export function renderInitSelect(ctrl: UIController): void {
   renderSelectorPage(ctrl, 'init');
 }
 
-/** 全量渲染 GlobalEnhancement 选择页（轨道默认停在强化面）。 */
+/** 全量渲染选择页（默认聚焦全局强化节点，mid-game 热插拔入口）。 */
 export function renderGlobalEnhancementSelect(ctrl: UIController): void {
   renderSelectorPage(ctrl, 'global-enh');
 }
 
-/** 局部替换当前面的详情文案块（不动轮盘 DOM，旋转状态得以保留）。 */
-export function replaceCurrentDetail(ctrl: UIController): void {
-  ctrl.selectorPage.replaceCurrentDetail();
-}
-
-/** 绑定 Init 面详情 CTA（进入 / 购买）。轮盘局部刷新后需重绑。 */
+/** 绑定世界线节点详情 CTA（进入 / 购买）。工作台局部刷新后需重绑。 */
 export function bindDetailActions(ctrl: UIController): void {
   // 详情 CTA：已解锁 → 直接进入（新游戏 / 恢复）
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-init]').forEach(button => {
@@ -108,16 +103,16 @@ export function bindDetailActions(ctrl: UIController): void {
       }
       const init = ctrl.game.world.inits.get(initId);
       ctrl.toast.show(`已解锁世界线 <b>${init?.name ?? initId}</b>`, 'success');
-      // 解锁后局部刷新：仅替换该卡片；若它正被选中则同步刷新详情 CTA
-      ctrl.selectorPage.refreshInitRow(initId);
-      if (ctrl.selectorPage.selectedInitId === initId) {
-        ctrl.selectorPage.replaceInitDetail();
+      // 解锁后局部刷新：仅同步该节点；若它正被选中则同步刷新工作台 CTA
+      ctrl.selectorPage.refreshInitNode(initId);
+      if (ctrl.selectorPage.selectedNode?.kind === 'init' && ctrl.selectorPage.selectedNode.entityId === initId) {
+        ctrl.selectorPage.refreshWorkbench();
       }
     });
   });
 }
 
-/** 绑定 GlobalEnhancement 面详情 CTA（购买 / 停用）。轮盘局部刷新后需重绑。 */
+/** 绑定全局强化节点详情 CTA（购买 / 停用）。工作台局部刷新后需重绑。 */
 export function bindGlobalEnhancementDetailActions(ctrl: UIController): void {
   // 购买全局强化
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-global-enh-purchase]').forEach(button => {
@@ -137,9 +132,9 @@ export function bindGlobalEnhancementDetailActions(ctrl: UIController): void {
       }
       const enh = ctrl.game.registry.enhancements.get(enhId);
       ctrl.toast.show(`已获得全局强化 <b>${enh?.name ?? enhId}</b>`, 'success');
-      ctrl.selectorPage.refreshEnhRow(enhId);
-      if (ctrl.selectorPage.selectedEnhId === enhId) {
-        ctrl.selectorPage.replaceEnhDetail();
+      ctrl.selectorPage.refreshEnhNode(enhId);
+      if (ctrl.selectorPage.selectedNode?.kind === 'global-enh' && ctrl.selectorPage.selectedNode.entityId === enhId) {
+        ctrl.selectorPage.refreshWorkbench();
       }
     });
   });
@@ -155,23 +150,16 @@ export function bindGlobalEnhancementDetailActions(ctrl: UIController): void {
       }
       const enh = ctrl.game.registry.enhancements.get(enhId);
       ctrl.toast.show(`已停用全局强化 <b>${enh?.name ?? enhId}</b>`, 'info');
-      ctrl.selectorPage.refreshEnhRow(enhId);
-      if (ctrl.selectorPage.selectedEnhId === enhId) {
-        ctrl.selectorPage.replaceEnhDetail();
+      ctrl.selectorPage.refreshEnhNode(enhId);
+      if (ctrl.selectorPage.selectedNode?.kind === 'global-enh' && ctrl.selectorPage.selectedNode.entityId === enhId) {
+        ctrl.selectorPage.refreshWorkbench();
       }
     });
   });
 }
 
-/** 绑定选择页顶栏共用交互（翻面 / 读档 / 返回游戏）。每次整页渲染绑定一次。 */
+/** 绑定选择页顶栏共用交互（读档 / 返回游戏）。每次整页渲染绑定一次。 */
 export function bindSelectorCommonActions(ctrl: UIController): void {
-  // 翻面：左右滑动到另一侧
-  ctrl.root.querySelectorAll<HTMLButtonElement>('[data-flip-selection-face]').forEach(button => {
-    button.addEventListener('click', () => {
-      ctrl.flipSelectionFace();
-    });
-  });
-
   // 读档（选择页顶栏）
   ctrl.root.querySelector('#load-game-init')?.addEventListener('click', () => {
     const data = SaveSystem.load<SaveData>();

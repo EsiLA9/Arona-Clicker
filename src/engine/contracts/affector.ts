@@ -10,6 +10,16 @@ export interface AffectorCapabilityGrant {
   id: ServiceCapabilityId;
   mode: 'enable';
 }
+export interface AffectorGraphGrant {
+  /**
+   * UI 导航授权的目标星图和目标节点 ID。目标节点同时作为母图星座的链接锚点；
+   * 图的布局由产品图谱定义提供，本授权不创建或持久化导航状态。
+   */
+  kind: 'graph';
+  graphId: string;
+  nodeId: string;
+  mode: 'enable';
+}
 /** 持续流：Affector 激活期间每 tick 懒求值入账的资源产出。 */
 export interface AffectorFlow {
   /** 目标资源。 */
@@ -39,8 +49,8 @@ export interface AffectorPackDef {
   /** @label ID */
   id: string;
   entries: AffectorEffect[];
-  /** 声明由 Active Affector 提供的高级服务能力；多个来源可并存。 */
-  capabilities?: AffectorCapabilityGrant[];
+  /** 声明由 Active Affector 提供的服务或星图导航能力；多个来源可并存。 */
+  capabilities?: Array<AffectorCapabilityGrant | AffectorGraphGrant>;
   /** Extra 附加数据（数据包声明的结构化元数据，见 docs/13）。 */
   extra?: ExtraCompound;
 }

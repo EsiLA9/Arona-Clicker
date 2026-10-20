@@ -18,14 +18,19 @@ import { buildBackgroundView, renderBackground, type BackgroundView } from './ba
 import { backgroundInkService } from './background-color';
 import { buildThemeTree, themeTreeToInlineStyle, type ThemeTree } from './theme-tree';
 import { buildPresentationView, type PresentationView } from './presentation-service';
-import type { SelectionFace } from './components/global-enhancement-select';
+
+/** 选择页节点类型：世界线或全局强化。两种节点共用一张画布，但详情与命令各走各的边界。 */
+export type SelectorNodeKind = 'init' | 'global-enh';
+
+/** 节点呈现态：仅由只读揭示 / 拥有 / 可购买结果投影，不写回存档。 */
+export type SelectorNodeState = 'owned' | 'active' | 'buyable' | 'locked' | 'fog';
 
 export type SelectorVariantId = 'new' | 'active' | 'advanced' | 'completed' | 'warning' | 'locked' | 'available';
 
 export interface SelectorBackgroundContext {
   sceneId: string;
   variantId: SelectorVariantId;
-  face: SelectionFace;
+  kind: SelectorNodeKind;
   focusedEntityId: string | null;
   activeInitId: string | null;
   currentAreaId: string | null;
@@ -57,8 +62,8 @@ function stableHash(value: string): number {
 }
 
 /** 无声明主题时按实体 ID 稳定选取一个回退主色，不使用随机数。 */
-export function selectorFallbackPrimary(face: SelectionFace, id: string | null): string {
-  const seed = `${face}:${id ?? 'empty'}`;
+export function selectorFallbackPrimary(kind: SelectorNodeKind, id: string | null): string {
+  const seed = `${kind}:${id ?? 'empty'}`;
   return FALLBACK_PRIMARYS[stableHash(seed) % FALLBACK_PRIMARYS.length];
 }
 
@@ -137,8 +142,8 @@ function selectorEnhancementVariant(ctx: UIContext, enhancement: EnhancementDef)
   return 'locked';
 }
 
-function declaredTheme(ctx: UIContext, face: SelectionFace, id: string | null): { theme?: ThemeDef; kind: 'init' | 'enhancement' } {
-  if (face === 'init') {
+function declaredTheme(ctx: UIContext, kind: SelectorNodeKind, id: string | null): { theme?: ThemeDef; kind: 'init' | 'enhancement' } {
+  if (kind === 'init') {
     const init = id ? ctx.world.inits.get(id) : undefined;
     return { theme: init?.theme, kind: 'init' };
   }
@@ -146,8 +151,8 @@ function declaredTheme(ctx: UIContext, face: SelectionFace, id: string | null): 
   return { theme: enhancement?.theme, kind: 'enhancement' };
 }
 
-function selectedTheme(ctx: UIContext, face: SelectionFace, id: string | null): { theme?: ThemeDef; kind: 'init' | 'enhancement' } {
-  const declared = declaredTheme(ctx, face, id);
+function selectedTheme(ctx: UIContext, kind: SelectorNodeKind, id: string | null): { theme?: ThemeDef; kind: 'init' | 'enhancement' } {
+  const declared = declaredTheme(ctx, kind, id);
   if (!id) return declared;
   const override = ctx.game.colorSystem.entityThemeOverride(ctx.game.state, entityKeyOf(declared.kind, id));
   return { theme: override ?? declared.theme, kind: declared.kind };
@@ -238,29 +243,38 @@ function withScopeVars(view: BackgroundView, vars: ThemeTree): BackgroundView {
   };
 }
 
-export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focusedEntityId: string | null): SelectorThemeProjection {
+export function projectSelectorTheme(ctx: UIContext, kind: SelectorNodeKind, focusedEntityId: string | null): SelectorThemeProjection {
   const resumeId = activeInitId(ctx);
-  const focusId = focusedEntityId ?? (face === 'init' ? resumeId : null);
-  const initVariant = face === 'init' && focusId ? selectorInitVariant(ctx, focusId) : null;
-  const enhancement = face === 'global-enh' && focusId ? ctx.game.registry.enhancements.get(focusId) : undefined;
+  const focusId = focusedEntityId ?? (kind === 'init' ? resumeId : null);
+  const initVariant = kind === 'init' && focusId ? selectorInitVariant(ctx, focusId) : null;
+  const enhancement = kind === 'global-enh' && focusId ? ctx.game.registry.enhancements.get(focusId) : undefined;
   const variantId: SelectorVariantId = initVariant ?? (enhancement ? selectorEnhancementVariant(ctx, enhancement) : 'new');
-  const selected = selectedTheme(ctx, face, focusId);
+  const selected = selectedTheme(ctx, kind, focusId);
   const runtime = ctx.game.colorSystem.selectorBaseTheme();
   const runtimePrimary = runtime.tokens.primary ?? runtime.palette[0] ?? SYSTEM_DEFAULT_PRIMARY;
   const baseTokens = { ...deriveThemeTokens(runtimePrimary), ...runtime.tokens };
-  const fallbackPrimary = selectorFallbackPrimary(face, focusId);
+  const fallbackPrimary = selectorFallbackPrimary(kind, focusId);
   const focus = themeTokens(ctx, selected.theme, selected.theme ? runtimePrimary : fallbackPrimary);
-  const tokens = { ...baseTokens, ...focus.tokens };
+  // 未声明主题的实体只覆盖强调色；页面底色 / 正文 / 面板继续沿用选择页基底，
+  // 避免在图上切换节点时整页被派生出的深色 token 覆盖。
+  const tokens = { ...baseTokens };
+  if (selected.theme) {
+    Object.assign(tokens, focus.tokens);
+  } else {
+    tokens.primary = fallbackPrimary;
+    tokens.accent = fallbackPrimary;
+    if (focus.tokens.primaryDim) tokens.primaryDim = focus.tokens.primaryDim;
+  }
   let palette = selected.theme ? focus.palette : [fallbackPrimary];
   const nodeOverrides = new Map(Object.entries(runtime.nodeOverrides) as [ThemeNodeName, string][]);
   for (const [node, value] of Object.entries(selected.theme?.nodes ?? {})) nodeOverrides.set(node as ThemeNodeName, value);
 
-  const data = focusId && face === 'init' ? progressData(ctx, focusId) : undefined;
+  const data = focusId && kind === 'init' ? progressData(ctx, focusId) : undefined;
   const includeResumedArea = ctx.selectorThemePolicy?.includeResumedArea !== false;
   const currentAreaId = includeResumedArea && resumeId && data && focusId === resumeId
     ? data.currentAreaId
     : null;
-  const currentArea = currentAreaId && face === 'init' ? areaTheme(ctx, currentAreaId) : undefined;
+  const currentArea = currentAreaId && kind === 'init' ? areaTheme(ctx, currentAreaId) : undefined;
   const areaContribution = ctx.game.colorSystem.themeFromThemeDef(currentArea);
   if (currentArea && colorThemePresent(currentArea, areaContribution)) {
     const area = themeTokens(ctx, currentArea, tokens.primary ?? runtimePrimary);
@@ -299,13 +313,13 @@ export function projectSelectorTheme(ctx: UIContext, face: SelectionFace, focuse
     ? buildBackgroundView(areaDefs, ctx.game.pics, tokens)
     : { layers: [] };
   const sceneId = focusId
-    ? `${face === 'init' ? 'init' : 'enhancement'}:${focusId}`
-    : `selector:${face}`;
+    ? `${kind === 'init' ? 'init' : 'enhancement'}:${focusId}`
+    : `selector:${kind}`;
   const transitionKey = [sceneId, variantId, resumeId ?? '', currentAreaId ?? ''].join('|');
   const context: SelectorBackgroundContext = {
     sceneId,
     variantId,
-    face,
+    kind,
     focusedEntityId: focusId,
     activeInitId: resumeId,
     currentAreaId,

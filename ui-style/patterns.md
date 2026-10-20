@@ -7,6 +7,7 @@
 | 模式 | 入口 / 已有例子 | 用途与例外 |
 | --- | --- | --- |
 | 工作区骨架 | `src/ui/components/workspace-frame.ts` 的 `renderWorkspaceFrame` / `renderWorkspaceColumn`；`src/ui/components/contacts-workspace.ts` 与 `src/ui/components/inventory-workspace.ts` | 复用列宿主、surface、布局与滚动归属，按业务配置内容，不另手写相似外框 |
+| 选择页节点图谱 | `src/ui/components/selector-graph.ts`、`src/ui/selector-page.ts`、`src/ui/css/selectors.css` | 顶栏保留在最上层；SVG 轴测平面铺满选择页背景，不套画布卡片框；右侧独立浮动工作台承载详情与命令；比例尺固定在图面左下角，进入子图时提供较大的返回按钮，不额外显示状态图例。节点用 `g[role=button]`，位置 / 连线只作呈现；可见性、拥有、价格与动作仍来自 RevealStage、`UIContext` 与 GameCommands。比例尺 / 滚轮锚定缩放只改相机，购买后原位刷新节点与工作台，不整页重建 |
 | 内容工具三栏 | `src/ui/components/workspace-frame.ts` 的纯布局 `renderWorkspaceLayout`、`src/ui/runtime-editor/codex/workspace.ts` 的 `renderContentWorkspace`；超级图鉴实际使用 | 把已渲染的导航／条目／详情作为 Frame 直接子项；使用 `pane-switch` 窄屏显隐。该入口不创建游戏列 Host、surface 或 Presentation host；工具自己拥有表面和滚动区。可选操作 footer 仅在有内容时出现，当前图鉴不挂载。搜索留在固定区域，条目与详情各自拥有内容滚动；现有编辑器尚未迁入新骨架 |
 | Tabs 与顶部区域 | `src/ui/components/tabs.ts` 的 `renderTabs`、`renderPanelTabsRegion`、`renderPanelHeaderRegion` | 保持顶部宿主、主题状态与标题区域一致，不只复制按钮 class 而漏掉宿主元数据 |
 | 工作区返回标题 | `src/ui/components/workspace-titlebar.ts` 的 `renderWorkspaceTitlebar`；Contacts / Story 使用 | 复用支持的 panel 与返回动作；新增业务动作需窄扩展，不伪装成已有动作 |

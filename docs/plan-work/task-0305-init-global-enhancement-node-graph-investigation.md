@@ -2,7 +2,7 @@
 
 > 本文回答：如何把当前 Init 与 GlobalEnhancement 轮盘选择页，重构为全画布节点平面图与右侧独立工作台，同时沿用正式游戏的揭示、购买、启用和 Init 进入规则。
 
-状态：investigation complete — 本文为只读调查与重构建议；未改游戏运行时代码，也未裁定最终视觉稿或新增玩法规则。
+状态：implementation complete（2026-10-20）— 双面轮盘已删除，选择页改为单一轴测节点图谱 + 右侧工作台；只改表现与选择页交互，未新增存档字段或玩法规则。实施记录见第 10 节。
 
 ## 1. 调查范围与结论
 
@@ -203,3 +203,15 @@ interface SelectorRelation {
 ## 9. 后续实施准入
 
 本文完成调查记录，不等于批准新增玩法或字段。开始 UI 重构前，应先裁定第 7 节中的持久化、图边授权和强化启用语义；如仍按本文默认方案，则只改表现和选择页交互，沿用现有业务命令与存档合同。若增添字段或枚举，补读 schema-sync；若新增状态写入、跨层依赖或 Init 归属，再读 architecture-discipline 与对应状态页。完成实施后按 UI 定向行为测试、类型检查和浏览器验收验证。
+
+## 10. 实施记录（2026-10-20）
+
+按第 7 节默认方案实施，只改表现和选择页交互，不新增存档字段、图边授权或强化启用状态。
+
+- **删除轮盘**：移除 `.selector-face`、`.init-wheel`、`.init-orb-disc`、`.init-row`、翻面计时、滚轮旋转与鼠标视差；`SelectionFace` / `currentFace` / `slideTo` / `flipSelectionFace` 不再存在。顶栏翻面按钮同步删除，读档、返回游戏、主题与服务导航保留。
+- **节点图谱**：新增 `src/ui/components/selector-graph.ts`，以 SVG 轴测参考平面绘制圆形节点、节点名称、状态色与节点间连线；Init 与 GlobalEnhancement 同处一张画布，按星区分槽位。节点位置、连线和节点内图符属于表现层配置；数据包新增实体落入星区空槽，不写业务状态。
+- **状态投影**：节点态只由 `getInitReveal()` / `getEnhancementReveal()`、`unlockedInits` / `unlockedEnhancements` 与 `activeInit` 合成；不渲染 invisible 实体，presence 只显示问号与“未知节点”，不通过标签或 aria 泄露名称。
+- **交互**：节点点击 / Enter / Space 只改变选中与工作台；图例、比例尺滑杆、滚轮光标锚定缩放、空白拖拽平移与复位可用。节点在低倍率下按非线性倍率反缩放，标签用 `textLength` 压缩而不截断名称。
+- **局部刷新**：购买 / 停用后只原位更新对应 `<g>` 的 class、aria、标签与图符，并刷新工作台；不整页重建，不绕开 `purchaseInit`、`startNewGame`、`resumeInit`、`purchaseEnhancement`、`removeEnhancement`。
+- **主题**：选中节点声明主题时沿用原投影；未声明主题的实体只覆盖强调色，页面底色、正文与面板继续使用选择页基底，避免切到强化节点时整页变暗。
+- **验证**：选择页 6 个定向测试文件 50 项通过；`npx tsc --noEmit` 无源码错误；`npm run build` 通过；在 1440×900 浏览器中核对节点选中、工作台切换、比例尺 / 滚轮缩放、空白平移、购买失败提示与节点态刷新。全量测试仍有 7 项既有 Map / Gameplay B 失败，与本次选择页改动无关。

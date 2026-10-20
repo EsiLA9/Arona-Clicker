@@ -1,8 +1,7 @@
 // ============================================================
-// ui/components/global-enhancement-select.ts — 全局强化选择界面
-// 与 Init 选择页共用同一巨大圆盘，但朝向相反（镜像）：
-// Init 盘在左、聚焦正右方、详情在左；GlobalEnhancement 盘在右、
-// 聚焦正左方、详情在右。由顶栏翻面按钮在两面间切换。
+// ui/components/global-enhancement-select.ts — GlobalEnhancement 选择投影
+// 与 Init 共用节点图与右侧工作台；这里只输出只读摘要、节点呈现字段
+// 与工作台详情。购买 / 停用仍由 controller-panels 绑定到 GameCommands。
 // ============================================================
 
 import type { RevealStage } from '../../engine/contracts/reveal';
@@ -10,10 +9,7 @@ import type { ResourceAmount } from '../../data-services/contracts/common';
 import { UIContext } from '../context';
 import { getEnhancementReveal } from './tooltip';
 import { enhMultiplierLabel } from './enhancements';
-import { projectSelectorTheme, selectorThemeStyle } from '../selector-theme';
-
-/** 选择页朝向：'init' = 世界线面；'global-enh' = 全局强化面。 */
-export type SelectionFace = 'init' | 'global-enh';
+import { projectSelectorTheme, selectorThemeStyle, type SelectorNodeState } from '../selector-theme';
 
 export interface GlobalEnhancementSummary {
   id: string;
@@ -29,7 +25,7 @@ export interface GlobalEnhancementSummary {
   price: ResourceAmount[];
   /** 产出倍率展示文案（如 +100%（全局））。 */
   multiplierText: string;
-  /** 条目局部主题树，轮盘卡片与详情共用。 */
+  /** 条目局部主题树，图上节点与工作台共用。 */
   themeStyle: string;
 }
 
@@ -71,44 +67,44 @@ function formatCost(ctx: UIContext, cost: ResourceAmount[]): string {
   return cost.map(c => `${c.amount} ${ctx.nameOf('resource', c.resourceId)}`).join('、');
 }
 
-function rowStatus(enh: GlobalEnhancementSummary): string {
+/** 节点标题：未揭示名称前只显示占位符。 */
+export function enhancementDisplayName(enh: GlobalEnhancementSummary): string {
+  return enh.nameKnown || enh.owned ? enh.name : '???';
+}
+
+export function enhancementNodeState(enh: GlobalEnhancementSummary): SelectorNodeState {
+  if (enh.owned) return 'owned';
+  if (enh.stage === 'purchaseable') return 'buyable';
+  if (enh.stage === 'presence' || enh.stage === 'invisible') return 'fog';
+  return 'locked';
+}
+
+export function enhancementStateLabel(enh: GlobalEnhancementSummary): string {
   if (enh.owned) return enh.irreversible ? 'ACTIVE · 已激活·不可撤回' : 'ACTIVE · 已激活';
   if (enh.stage === 'purchaseable') return 'BUYABLE · 可购买';
   if (enh.stage === 'presence') return 'FOG · 迷雾笼罩';
   return 'LOCKED · 未解锁';
 }
 
-function rowHtml(ctx: UIContext, enh: GlobalEnhancementSummary): string {
-  const classes = ['init-row', 'enh-row'];
-  if (!enh.owned && enh.stage !== 'purchaseable') classes.push('is-locked');
-  const name = enh.nameKnown || enh.owned ? enh.name : '???';
-  const tilt = enh.utilityKnown && enh.multiplierText ? enh.multiplierText : (enh.owned ? enh.multiplierText || '—' : '???');
-  return `
-    <button class="${classes.join(' ')}" data-global-enh-select="${enh.id}" data-selector-theme-key="enhancement:${enh.id}" style="${ctx.escapeHtml(enh.themeStyle)}" data-tooltip="enh:${enh.id}">
-      <span class="init-row-main">
-        <strong>${ctx.escapeHtml(name)}</strong>
-        <small>${rowStatus(enh)}</small>
-      </span>
-      <span class="init-row-tilt">${ctx.escapeHtml(tilt)}</span>
-    </button>`;
+/** 节点副标题：只披露效用已揭示时的产出倍率。 */
+export function enhancementNodeMeta(enh: GlobalEnhancementSummary): string {
+  if (enh.utilityKnown && enh.multiplierText) return enh.multiplierText;
+  return enh.owned && enh.multiplierText ? enh.multiplierText : 'SCOPE GLOBAL';
 }
 
 function detailHtml(ctx: UIContext, enh: GlobalEnhancementSummary, showBackToGame: boolean): string {
   const priceText = enh.conditionKnown ? formatCost(ctx, enh.price) : '???';
 
-  let name = '???';
   let desc = '这条全局强化尚被迷雾笼罩……';
   if (enh.owned || enh.utilityKnown) {
-    name = enh.name;
     desc = enh.description;
   } else if (enh.nameKnown) {
-    name = enh.name;
     desc = '这条全局强化的详情尚待揭示……';
   }
 
   const metaBits: string[] = [];
   if (enh.nameKnown || enh.owned) {
-    metaBits.push(`SCOPE GLOBAL`);
+    metaBits.push('SCOPE GLOBAL');
     if (enh.utilityKnown && enh.multiplierText) metaBits.push(enh.multiplierText);
     if (enh.owned) metaBits.push('ACTIVE · 已激活');
     if (!enh.owned) metaBits.push(`COST ${priceText}`);
@@ -118,7 +114,7 @@ function detailHtml(ctx: UIContext, enh: GlobalEnhancementSummary, showBackToGam
   const action = (() => {
     if (enh.owned) {
       if (enh.irreversible) {
-        return `<span class="orb-lock">已激活 · 不可撤回</span>`;
+        return `<span class="selector-detail-lock">已激活 · 不可撤回</span>`;
       }
       return `<button class="primary-button" data-global-enh-deactivate="${enh.id}">停用（可热插拔）<span>↗</span></button>`;
     }
@@ -126,22 +122,21 @@ function detailHtml(ctx: UIContext, enh: GlobalEnhancementSummary, showBackToGam
       return `<button class="primary-button" data-global-enh-purchase="${enh.id}">购买解锁 · ${ctx.escapeHtml(priceText)} <span>↗</span></button>`;
     }
     const label = enh.stage === 'presence' ? '条件未满足' : (enh.price.length === 0 ? '条件未满足' : `需要 ${ctx.escapeHtml(priceText)}`);
-    return `<span class="orb-lock">${label}</span>`;
+    return `<span class="selector-detail-lock">${label}</span>`;
   })();
 
   return `
-    <div class="init-orb-copy enh-orb-copy" data-selector-theme-key="enhancement:${enh.id}" style="${ctx.escapeHtml(enh.themeStyle)}">
+    <div class="selector-detail" data-selector-detail data-selector-theme-key="enhancement:${enh.id}" style="${ctx.escapeHtml(enh.themeStyle)}">
       <span class="eyebrow">GLOBAL ENHANCEMENT / SCOPE</span>
-      <span class="orb-big">GLOBAL · 全局作用域</span>
-      <h2>${ctx.escapeHtml(name)}</h2>
+      <span class="selector-detail-figure">GLOBAL · 全局作用域</span>
       <p>${ctx.escapeHtml(desc)}</p>
-      ${metaBits.length ? `<div class="orb-meta">${metaBits.map(b => `<span>${ctx.escapeHtml(b)}</span>`).join('')}</div>` : ''}
-      <div class="orb-actions">${action}</div>
-      ${showBackToGame ? '<p class="orb-note">强化改动即时生效；返回游戏继续当前世界线。</p>' : ''}
+      ${metaBits.length ? `<div class="selector-detail-meta">${metaBits.map(b => `<span>${ctx.escapeHtml(b)}</span>`).join('')}</div>` : ''}
+      <div class="selector-detail-actions">${action}</div>
+      ${showBackToGame ? '<p class="selector-detail-note">强化改动即时生效；返回游戏继续当前世界线。</p>' : ''}
     </div>`;
 }
 
-/** 右侧详情（镜像面坐在右盘弧上），供整页渲染与轮盘切换局部刷新共用。 */
+/** 右侧工作台的全局强化详情，供整页渲染与节点刷新共用。 */
 export function renderGlobalEnhancementDetail(
   ctx: UIContext,
   selectedId: string | null = null,
@@ -149,12 +144,6 @@ export function renderGlobalEnhancementDetail(
 ): string {
   const list = visibleGlobalEnhancements(ctx);
   const selected = list.find(enh => enh.id === selectedId) ?? list[0];
-  if (!selected) return '<div class="init-orb-copy enh-orb-copy"><p>暂无可选的全局强化。</p></div>';
+  if (!selected) return '<div class="selector-detail selector-detail-empty"><p>暂无可选的全局强化。</p></div>';
   return detailHtml(ctx, selected, showBackToGame);
-}
-
-/** 单张轮盘卡片，供购买/停用后的局部替换（避免整页重渲染）。 */
-export function renderGlobalEnhancementRow(ctx: UIContext, enhId: string): string | null {
-  const enh = visibleGlobalEnhancements(ctx).find(summary => summary.id === enhId);
-  return enh ? rowHtml(ctx, enh) : null;
 }

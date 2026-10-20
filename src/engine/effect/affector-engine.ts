@@ -371,6 +371,37 @@ export class AffectorEngine extends EventDrivenReactor {
     return sources;
   }
 
+  /** 返回当前 Active Affector 授权的子图 ID；只解锁图谱导航。 */
+  getActiveGraphCapabilities(): ReadonlySet<string> {
+    return new Set(this.getActiveGraphCapabilitySources().keys());
+  }
+
+  /** 返回当前 Active Affector 的图谱授权及来源实体，供 UI 将授权绑定到对应节点。 */
+  getActiveGraphCapabilitySources(): ReadonlyMap<string, readonly {
+    nodeId: string;
+    instanceId: string;
+    packId: string;
+    mountEntityId: string;
+  }[]> {
+    const sources = new Map<string, Array<{ nodeId: string; instanceId: string; packId: string; mountEntityId: string }>>();
+    for (const instance of this.activeInstances.values()) {
+      const pack = this.packs.get(instance.packId);
+      for (const grant of pack?.capabilities ?? []) {
+        if (grant.kind !== 'graph' || grant.mode !== 'enable' || !grant.graphId || !grant.nodeId) continue;
+        const list = sources.get(grant.graphId) ?? [];
+        list.push({
+          nodeId: grant.nodeId,
+          instanceId: instance.instanceId,
+          packId: instance.packId,
+          mountEntityId: instance.mountEntityId,
+        });
+        sources.set(grant.graphId, list);
+      }
+    }
+    return new Map([...sources].map(([id, list]) => [id, Object.freeze(list.map(source => Object.freeze(source)))]));
+  }
+
+
   /** 返回当前 Active Affector entry 追加的 Area 连通边；每次查询均从活跃 entry 重建。 */
   getActiveAreaConnections(): ActiveAreaConnection[] {
     const result: ActiveAreaConnection[] = [];

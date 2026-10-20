@@ -15783,6 +15783,14 @@
     },
     {
       "id": "base:affectorpack:foundation_mult",
+      "capabilities": [
+        {
+          "kind": "graph",
+          "graphId": "base:graph:foundation",
+          "nodeId": "init:base:init:millennium",
+          "mode": "enable"
+        }
+      ],
       "entries": [
         {
           "id": "base:affector:foundation_mult",
