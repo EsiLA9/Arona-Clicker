@@ -17,21 +17,31 @@ function actionE2EDatapack(): typeof gameplayBMapDatapack {
     target: { kind: 'none' as const },
     effects: [{ scope: 'team' as const, resourceId: 'clues', amount: 1 }],
   };
-  const actions = [...(source.actions ?? []), commandAction];
+  const actions = [...(source.actions ?? []), commandAction].map(action => ({
+    ...action,
+    costs: [{ scope: 'actor' as const, resourceId: 'stamina', amount: 1 }],
+  }));
   const candidates = actions.map(action => ({ actionId: action.id, tendencyWeight: 1 }));
   const map: GameplayMapDef = {
     ...source,
     resumeVersion: source.resumeVersion + 1,
     actions,
-    initialActorResources: source.partyCharacterIds.map(characterId => ({ characterId, resourceId: 'stamina', value: 100 })),
+    // Two committed rounds exhaust the small test budget; the next round uses the real Wait state.
+    initialActorResources: source.partyCharacterIds.map(characterId => ({ characterId, resourceId: 'stamina', value: 2 })),
     initialTeamResources: [{ resourceId: 'supplies', value: 100 }],
-    nodes: source.nodes.map(node => node.encounter ? {
-      ...node,
-      encounter: {
-        ...node.encounter,
-        participants: (node.encounter.participants ?? []).map(participant => ({ ...participant, actions: candidates })),
-      },
-    } : node),
+    nodes: source.nodes.map(node => {
+      if (!node.encounter) return node;
+      const { completion: _completion, ...encounter } = node.encounter;
+      void _completion;
+      return {
+        ...node,
+        encounter: {
+          ...encounter,
+          rounds: 3,
+          participants: (node.encounter.participants ?? []).map(participant => ({ ...participant, actions: candidates })),
+        },
+      };
+    }),
   };
   return {
     ...gameplayBMapDatapack,
@@ -67,6 +77,15 @@ function acquireMapParty(game: GameInstance, characterIds: readonly string[]): v
     if (!variant) throw new Error(`No registered Variant for Map party Character "${characterId}"`);
     if (!game.state.roster?.[variant.id]) game.mutations.acquireCharacter(variant.id, 'story');
   }
+}
+
+function moveToMapNode(root: HTMLElement, nodeId: string): void {
+  const card = root.querySelector<HTMLElement>(`[data-map-location-node-id="${nodeId}"]`);
+  const submit = root.querySelector<HTMLButtonElement>('[data-map-location-submit]');
+  if (!card || !submit) throw new Error(`Map Workspace did not render an available location ${nodeId}`);
+  card.click();
+  if (submit.disabled) throw new Error(`Map Workspace did not allow location ${nodeId}`);
+  submit.click();
 }
 
 describe('Gameplay B Map normal entry vertical slice', () => {
@@ -120,7 +139,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     acquireMapParty(game, map.partyCharacterIds);
     root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`)!.click();
     const runId = game.mapRun.getSnapshot()!.runId;
-    root.querySelector<HTMLButtonElement>('[data-map-move-to="battle"]')!.click();
+    moveToMapNode(root, 'battle');
     expect(root.textContent).toContain('两人对两敌');
     expect(root.querySelector('[data-map-complete-encounter]')).toBeNull();
 
@@ -142,7 +161,10 @@ describe('Gameplay B Map normal entry vertical slice', () => {
       { characterId: 'shiroko', currentHp: 6 },
       { characterId: 'serika', currentHp: 10 },
     ]);
-    expect(afterFirst.activeEncounter?.lastCommit?.enemyAttacks).toHaveLength(2);
+    expect(afterFirst.activeEncounter?.lastCommit?.enemyActions).toHaveLength(2);
+    expect(afterFirst.activeEncounter?.lastCommit?.enemyActions?.map(row => row.actionId)).toEqual([
+      'robot-counterattack', 'robot-counterattack',
+    ]);
     commitRound();
     const afterSecond = game.mapRun.getSnapshot()!;
     expect(afterSecond.activeEncounter?.enemies).toEqual([
@@ -153,7 +175,10 @@ describe('Gameplay B Map normal entry vertical slice', () => {
       { characterId: 'shiroko', currentHp: 4 },
       { characterId: 'serika', currentHp: 10 },
     ]);
-    expect(afterSecond.activeEncounter?.lastCommit?.enemyAttacks).toHaveLength(1);
+    expect(afterSecond.activeEncounter?.lastCommit?.enemyActions).toMatchObject([
+      { enemyId: '训练靶', skipReason: 'defeated' },
+      { enemyId: '机动靶', actionId: 'robot-counterattack' },
+    ]);
     commitRound();
     const afterThird = game.mapRun.getSnapshot()!;
     expect(afterThird.activeEncounter?.enemies).toEqual([
@@ -164,7 +189,10 @@ describe('Gameplay B Map normal entry vertical slice', () => {
       { characterId: 'shiroko', currentHp: 2 },
       { characterId: 'serika', currentHp: 10 },
     ]);
-    expect(afterThird.activeEncounter?.lastCommit?.enemyAttacks).toHaveLength(1);
+    expect(afterThird.activeEncounter?.lastCommit?.enemyActions).toMatchObject([
+      { enemyId: '训练靶', actionId: null },
+      { enemyId: '机动靶', actionId: 'robot-counterattack', targetCharacterId: 'shiroko' },
+    ]);
     commitRound();
     const won = game.mapRun.getSnapshot()!;
     expect(won.activeEncounter).toBeNull();
@@ -173,7 +201,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
       { characterId: 'shiroko', currentHp: 2 },
       { characterId: 'serika', currentHp: 10 },
     ]);
-    root.querySelector<HTMLButtonElement>('[data-map-move-to="exit"]')!.click();
+    moveToMapNode(root, 'exit');
     expect(game.mapRun.getWorkspaceView(runId)).toMatchObject({ kind: 'success', result: { mapId, runId } });
   });
 
@@ -288,7 +316,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
 
     let fullRenders = controller.getRefreshStats().fullRenders;
     let regionRefreshes = controller.getRefreshStats().regionRefreshes;
-    root.querySelector<HTMLButtonElement>(`[data-map-move-to="${encounterNode.id}"]`)!.click();
+    moveToMapNode(root, encounterNode.id);
     expect(game.mapRun.getSnapshot()).toMatchObject({ currentNodeId: encounterNode.id, activeEncounterNodeId: encounterNode.id });
     expect(controller.getRefreshStats().fullRenders).toBe(fullRenders);
     expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(regionRefreshes);
@@ -317,7 +345,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     expect(root.querySelector('[data-map-overview]')?.textContent).toContain(encounterNode.title);
     expect(root.querySelector('[data-map-overview]')?.textContent).toContain('当前位置');
 
-    root.querySelector<HTMLButtonElement>(`[data-map-move-to="${exitEdge!.toNodeId}"]`)!.click();
+    moveToMapNode(root, exitEdge!.toNodeId);
     const terminalView = game.mapRun.getWorkspaceView(runId);
     const exitNode = map.nodes.find(node => node.id === exitEdge!.toNodeId)!;
     expect(terminalView).toMatchObject({
@@ -391,7 +419,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     expect(run).toMatchObject({ mapId, status: 'inProgress', currentNodeId: map.startNodeId });
 
     const encounterNode = map.nodes.find(node => node.encounter)!;
-    root.querySelector<HTMLButtonElement>(`[data-map-move-to="${encounterNode.id}"]`)!.click();
+    moveToMapNode(root, encounterNode.id);
     expect(game.mapRun.getCurrentEncounter()).toMatchObject({ mapId, nodeId: encounterNode.id });
     expect(root.querySelector('[data-map-encounter-region]')).not.toBeNull();
 
@@ -581,11 +609,9 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     }
     assertStableEncounter();
 
-    if (!root.querySelector('[data-map-complete-encounter]')) {
-      root.querySelector<HTMLButtonElement>('[data-map-action-swap][data-character-id="shiroko"][data-action-id="assist-teammate"]')!.click();
-    }
-    const completion = root.querySelector<HTMLButtonElement>('[data-map-complete-encounter][data-map-run-id]')!;
-    completion.click();
+    expect(thirdRoundView.actionPreview.preparedActions.every(member => member.hand.length === 0 && member.preparedAction === null)).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-map-commit]')?.disabled).toBe(false);
+    root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
     expect(game.mapRun.getSnapshot()).toMatchObject({
       currentNodeId: encounterNode.id,
       activeEncounterNodeId: null,
@@ -595,9 +621,10 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     root.querySelector<HTMLButtonElement>('[data-map-show-map]')!.click();
     expect(root.querySelector('[data-map-overview]')?.textContent).toContain(encounterNode.title);
     expect(root.querySelector('[data-map-overview]')?.textContent).toContain('当前位置');
-    expect(root.querySelector<HTMLButtonElement>('[data-map-move-to]')?.disabled).toBe(false);
     const exitEdge = map.edges.find(edge => edge.fromNodeId === encounterNode.id && map.exitNodeIds.includes(edge.toNodeId))!;
-    root.querySelector<HTMLButtonElement>(`[data-map-move-to="${exitEdge.toNodeId}"]`)!.click();
+    expect(root.querySelector(`[data-map-location-node-id="${exitEdge.toNodeId}"]`)?.getAttribute('data-map-location-selectable')).toBe('true');
+    expect(root.querySelector<HTMLButtonElement>('[data-map-location-submit]')?.disabled).toBe(true);
+    moveToMapNode(root, exitEdge.toNodeId);
     expect(game.mapRun.getWorkspaceView(runId)).toMatchObject({ kind: 'success', result: { mapId, runId } });
   });
 });

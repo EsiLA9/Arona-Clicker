@@ -15,15 +15,26 @@ describe('MapRun domain cards', () => {
     initialPartyHp: ['shiroko', 'serika'].map(characterId => ({ characterId, initialHp: 20, maxHp: 20 })),
     actions: ['a', 'b', 'c', 'd'].map(id => ({ id, name: id, eligibleCharacterIds: ['shiroko', 'serika'], target: { kind: 'none' } })),
     nodes: [{ id: 'a', title: 'Start' }, { id: 'b', title: 'Battle', encounter: {
-      title: 'Battle', enemies: [{ id: 'robot', initialHp: 100, maxHp: 100, damage: 1 }],
+      title: 'Battle', enemies: [{ id: 'robot', initialHp: 100, maxHp: 100 }],
       participants: ['shiroko', 'serika'].map(characterId => ({ characterId,
         actions: ['a', 'b', 'c', 'd'].map(actionId => ({ actionId, tendencyWeight: 1 })) })),
     } }, { id: 'c', title: 'Exit' }],
     edges: [{ fromNodeId: 'a', toNodeId: 'b' }, { fromNodeId: 'b', toNodeId: 'c' }],
   };
+  function datapackFor(definition: GameplayMapDef) {
+    return {
+      ...gameplayBMapDatapack,
+      spots: gameplayBMapDatapack.spots.map(spot => ({
+        ...spot,
+        functionalities: (spot.functionalities ?? []).filter(functionality =>
+          functionality.kind !== 'mapEntry' || functionality.mapId === definition.id),
+      })),
+      maps: [definition],
+    };
+  }
   function setup(definition = map) {
     const game = new GameInstance(); games.push(game);
-    game.init([baseDatapack, { ...gameplayBMapDatapack, maps: [definition] }], { enterDefaultInit: false });
+    game.init([baseDatapack, datapackFor(definition)], { enterDefaultInit: false });
     for (const id of definition.partyCharacterIds) {
       game.mutations.acquireCharacter(game.rosterSystem.getAllVariants().find(row => row.proto === id)!.id, 'story');
     }

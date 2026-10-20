@@ -126,9 +126,10 @@ describe('GameNum Spot definition hot update', () => {
     game.init([baseDatapack]);
     game.inits.startNewGame(OFFICE);
 
-    const area = [...game.registry.areas.values()][0];
+    const area = game.registry.areas.get(game.state.currentAreaId!)!;
     const template = [...game.registry.spots.values()][0];
     const spot = makeSpot(template, area.id, RESOURCE_A, 5, 0);
+    game.state.spotLevels[SPOT_ID] = 1;
     game.registry.applySpotMutation({ operation: 'create', ownerModName: OWNER, spot });
     game.eventBus.emit({
       type: 'spotDefinitionChanged',
@@ -136,7 +137,6 @@ describe('GameNum Spot definition hot update', () => {
       operation: 'create',
       nextAreaId: spot.areaId,
     });
-    game.state.spotLevels[SPOT_ID] = 1;
     const full = game.gameNumSystem.spotSubtrees.get(SPOT_ID)!;
     expect(game.gameNumSystem.evaluateResourceGain(RESOURCE_A, game.state)).toBe(5);
 

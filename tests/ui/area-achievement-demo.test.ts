@@ -9,7 +9,7 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
 import { bindEvents } from '../../src/ui/controller-events';
 
-const PACK_DIR = 'datapack/area-achievement-demo';
+const PACK_DIR = 'datapack-dev/area-achievement-demo';
 const MOD = 'area-achievement-demo';
 const INIT = `${MOD}:init:archive-route`;
 const SUPPLY = `${MOD}:area:supply-station`;
@@ -43,8 +43,8 @@ describe('area achievement demo Records integration', () => {
   });
 
   afterEach(() => {
-    controller.destroy();
-    game.stop();
+    if (typeof controller !== 'undefined') controller.destroy();
+    if (typeof game !== 'undefined' && game.running) game.stop();
   });
 
   it('renders real progress and completion while preserving Records achievement rows', async () => {

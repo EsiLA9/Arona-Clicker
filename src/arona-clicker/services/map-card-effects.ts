@@ -3,11 +3,20 @@ import type { MapRunCardRef } from '../contracts/map-cards';
 import type { MapRunActionOverride } from '../contracts/map-run';
 import { parseMapRunCardRef } from './map-card-catalog';
 
-export interface MapCardActionChoice {
+export type MapCardActionChoice = ({
   readonly characterId: string;
+  readonly enemyId?: never;
+} | {
+  readonly enemyId: string;
+  readonly characterId?: never;
+}) & {
   readonly actionId: string | null;
   readonly overrideKind: MapRunActionOverride['kind'] | null;
   readonly targetCard?: MapRunCardRef | null;
+};
+
+export function mapCardActorKey(ownerKind: 'partyCharacter' | 'enemy', ownerId: string): string {
+  return ownerKind === 'partyCharacter' ? ownerId : JSON.stringify(['enemy', ownerId]);
 }
 
 export interface MapScostCost {
@@ -27,7 +36,12 @@ export function mapScostCost(action: GameplayMapActionDef, reduction = 0n): MapS
 }
 
 /** Validate card relationships and stage reductions, without granting resources or executing actions. */
-export function resolveMapCardEffects(definition: GameplayMapDef, scope: MapRunCardRef['scope'], choices: readonly MapCardActionChoice[]): {
+export function resolveMapCardEffects(
+  definition: GameplayMapDef,
+  scope: MapRunCardRef['scope'],
+  choices: readonly MapCardActionChoice[],
+  activeChoices: readonly MapCardActionChoice[] = choices,
+): {
   readonly targets: ReadonlyMap<string, MapRunCardRef>;
   readonly reductions: ReadonlyMap<string, bigint>;
 } {
@@ -36,16 +50,27 @@ export function resolveMapCardEffects(definition: GameplayMapDef, scope: MapRunC
   const encounter = scope.activityId === null ? node?.encounter : node?.activities?.find(row => row.id === scope.activityId)?.encounter;
   if (!encounter || scope.mapId !== definition.id) throw new Error('Card effects require their actual Encounter');
   const active = new Map<string, string>();
-  const seen = new Set<string>();
-  for (const choice of choices) {
-    if (!choice || typeof choice.characterId !== 'string' || seen.has(choice.characterId)) throw new Error('Invalid card effect source');
-    seen.add(choice.characterId);
+  const seenActive = new Set<string>();
+  for (const choice of activeChoices) {
+    if (!choice) throw new Error('Invalid card effect source');
+    const ownerKind = typeof choice.enemyId === 'string' ? 'enemy' : 'partyCharacter';
+    const ownerId = ownerKind === 'enemy' ? choice.enemyId! : choice.characterId!;
+    if (typeof ownerId !== 'string' || seenActive.has(mapCardActorKey(ownerKind, ownerId))) throw new Error('Invalid card effect source');
+    const sourceKey = mapCardActorKey(ownerKind, ownerId);
+    seenActive.add(sourceKey);
     if (choice.actionId === null) continue;
-    active.set(JSON.stringify([choice.overrideKind === 'playerCommand' ? 'playerCommand' : 'hand', 'partyCharacter', choice.characterId, choice.actionId]), choice.characterId);
+    active.set(JSON.stringify([choice.overrideKind === 'playerCommand' ? 'playerCommand' : 'hand', ownerKind, ownerId, choice.actionId]), sourceKey);
   }
   const targets = new Map<string, MapRunCardRef>();
   const reductions = new Map<string, bigint>();
+  const seenSources = new Set<string>();
   for (const choice of choices) {
+    if (!choice) throw new Error('Invalid card effect source');
+    const ownerKind = typeof choice.enemyId === 'string' ? 'enemy' : 'partyCharacter';
+    const ownerId = ownerKind === 'enemy' ? choice.enemyId! : choice.characterId!;
+    const sourceKey = mapCardActorKey(ownerKind, ownerId);
+    if (seenSources.has(sourceKey)) throw new Error('Invalid card effect source');
+    seenSources.add(sourceKey);
     const action = choice.actionId === null ? null : actions.get(choice.actionId);
     if (action?.target.kind !== 'card') {
       if (choice.targetCard != null || (action?.cardEffects?.length ?? 0) > 0) throw new Error('Unexpected card target or effect');
@@ -58,23 +83,36 @@ export function resolveMapCardEffects(definition: GameplayMapDef, scope: MapRunC
     let identity: unknown;
     try { identity = JSON.parse(target.id); } catch { throw new Error('Invalid domain card identity'); }
     if (!Array.isArray(identity) || identity.length !== 4 || JSON.stringify(identity) !== target.id
-      || !['hand', 'playerCommand'].includes(identity[0]) || identity[1] !== 'partyCharacter'
+      || !['hand', 'playerCommand'].includes(identity[0]) || !['partyCharacter', 'enemy'].includes(identity[1])
       || typeof identity[2] !== 'string' || typeof identity[3] !== 'string') throw new Error('Invalid scost target identity');
-    const [, , ownerId, actionId] = identity as string[];
+    const [, rawOwnerKind, targetOwnerId, actionId] = identity as string[];
+    const targetOwnerKind = rawOwnerKind as 'partyCharacter' | 'enemy';
     const targetAction = actions.get(actionId);
-    const candidates = encounter.participants?.find(row => row.characterId === ownerId)?.actions ?? [];
+    const partyCandidates = targetOwnerKind === 'partyCharacter'
+      ? encounter.participants?.find(row => row.characterId === targetOwnerId)?.actions ?? []
+      : [];
+    const enemyCandidates = targetOwnerKind === 'enemy'
+      ? encounter.enemies?.find(row => row.id === targetOwnerId)?.actions ?? []
+      : [];
     const targetCost = targetAction ? mapScostCost(targetAction) : null;
-    if (!definition.partyCharacterIds.includes(ownerId) || !targetAction?.eligibleCharacterIds.includes(ownerId)
-      || !candidates.some(row => row.actionId === actionId) || !targetCost
-      || (action.target.side === 'self' && ownerId !== choice.characterId)
-      || action.target.side === 'opponent') throw new Error('Card effect target is not an eligible scost card');
+    const exists = targetOwnerKind === 'partyCharacter'
+      ? definition.partyCharacterIds.includes(targetOwnerId) && !!targetAction?.eligibleCharacterIds.includes(targetOwnerId)
+        && partyCandidates.some(row => row.actionId === actionId)
+      : enemyCandidates.some(row => row.actionId === actionId);
+    const sourceIsAlly = ownerKind === targetOwnerKind;
+    if (!exists || !targetCost
+      || (action.target.side === 'self' && (targetOwnerKind !== ownerKind || targetOwnerId !== ownerId))
+      || (action.target.side === 'ally' && !sourceIsAlly)
+      || (action.target.side === 'opponent' && sourceIsAlly)) {
+      throw new Error('Card effect target is not an eligible scost card');
+    }
     if (!action.cardEffects?.length) throw new Error('Card target has no declared effect');
     let reduction = 0n;
     for (const effect of action.cardEffects) {
       if (effect.kind !== 'scostDiscount' || !Number.isSafeInteger(effect.amount) || effect.amount <= 0) throw new Error('Invalid scost discount');
       reduction += BigInt(effect.amount);
     }
-    targets.set(choice.characterId, target);
+    targets.set(sourceKey, target);
     const receiver = active.get(target.id);
     if (receiver) reductions.set(receiver, (reductions.get(receiver) ?? 0n) + reduction);
   }

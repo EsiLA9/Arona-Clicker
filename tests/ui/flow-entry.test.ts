@@ -75,18 +75,18 @@ describe('FlowEntry 投递策略', () => {
 
   it('不同流的同 ID 条目互不影响', () => {
     const left = deliverFlowEntry(createFlowStream('run:1'), entry({
-      streamKey: 'run:1', instanceKey: mapInstanceKey('current-enemy-info', '1'), contentId: 'gameplay-b:current-enemy-info',
+      streamKey: 'run:1', instanceKey: mapInstanceKey('current-note', '1'), contentId: 'sample:current-note',
     }));
     const right = deliverFlowEntry(createFlowStream('run:2'), entry({
-      streamKey: 'run:2', instanceKey: mapInstanceKey('current-enemy-info', '1'), contentId: 'gameplay-b:current-enemy-info',
+      streamKey: 'run:2', instanceKey: mapInstanceKey('current-note', '1'), contentId: 'sample:current-note',
     }));
     deliverFlowEntry(left, entry({
-      streamKey: 'run:1', instanceKey: mapInstanceKey('current-enemy-info', '2'), contentId: 'gameplay-b:current-enemy-info', repeatPolicy: 'replaceSameId',
+      streamKey: 'run:1', instanceKey: mapInstanceKey('current-note', '2'), contentId: 'sample:current-note', repeatPolicy: 'replaceSameId',
     }));
     expect(left.entries).toHaveLength(1);
     expect(right.entries).toHaveLength(1);
-    expect(left.entries[0].instanceKey).toBe(mapInstanceKey('current-enemy-info', '2'));
-    expect(right.entries[0].instanceKey).toBe(mapInstanceKey('current-enemy-info', '1'));
+    expect(left.entries[0].instanceKey).toBe(mapInstanceKey('current-note', '2'));
+    expect(right.entries[0].instanceKey).toBe(mapInstanceKey('current-note', '1'));
   });
 
   it('向其他流投递被拒绝', () => {
@@ -150,7 +150,7 @@ describe('Talklet 形态输入', () => {
 
   it('显式逻辑 ID 与策略原样透传，并映射呈现字段', () => {
     const talklet: FlowTalkletInput = {
-      id: 'gameplay-b:current-enemy-info',
+      id: 'sample:field-note',
       repeatPolicy: 'replaceSameId',
       kind: 'narration',
       speaker: '情报',
@@ -164,15 +164,15 @@ describe('Talklet 形态输入', () => {
     };
     const result = flowEntryFromTalklet({
       streamKey: 'run:1',
-      instanceKey: mapInstanceKey('current-enemy-info', 'robot'),
+      instanceKey: mapInstanceKey('field-note', 'unit-a'),
       talklet,
       lifecycle: 'current',
-      source: { kind: 'map.enemy-info', id: 'robot' },
+      source: { kind: 'sample.note', id: 'unit-a' },
     });
     expect(result).toMatchObject({
       streamKey: 'run:1',
-      instanceKey: 'map:current-enemy-info:robot',
-      contentId: 'gameplay-b:current-enemy-info',
+      instanceKey: 'map:field-note:unit-a',
+      contentId: 'sample:field-note',
       repeatPolicy: 'replaceSameId',
       kind: 'narration',
       speaker: '情报',
@@ -184,12 +184,12 @@ describe('Talklet 形态输入', () => {
       noAvatar: true,
       showAvatar: true,
       lifecycle: 'current',
-      source: { kind: 'map.enemy-info', id: 'robot' },
+      source: { kind: 'sample.note', id: 'unit-a' },
     });
     expect(applyFlowEntry(
-      [flowEntryFromTalklet({ streamKey: 'run:1', instanceKey: 'old', talklet: { text: '旧情报', id: 'gameplay-b:current-enemy-info' } })!],
+      [flowEntryFromTalklet({ streamKey: 'run:1', instanceKey: 'old', talklet: { text: '旧记录', id: 'sample:field-note' } })!],
       result!,
-    ).map(item => item.instanceKey)).toEqual(['map:current-enemy-info:robot']);
+    ).map(item => item.instanceKey)).toEqual(['map:field-note:unit-a']);
   });
 
   it('带 ID 的 Talklet 缺少 ID 时不能使用 replaceSameId', () => {

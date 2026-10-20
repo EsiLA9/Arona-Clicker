@@ -8,87 +8,35 @@
 
 ## 当前推进
 
-### Gameplay B 可复用卡牌宿主与对象交互（proposed，2026-10-19）
+- [[docs/plan-work/task-0304-node-graph-spatial-presentation]]：implementation complete, verification pending；固定轴测网格按视口延展且每 5 格加深、节点拖拽 / 观察平移、10%–1000% 滑杆 / 光标锚定滚轮缩放、低倍率节点简化、z 按平面倍率变化量的 25% 响应并在 100% 精确还原、平面投影虚线关系、正负高度 / 实际航道、固定逻辑坐标的无底板母图星座、D / X 共通入口与同帧更新的跨图链接已实现；母图连通节点总数可调，星座保持原 x/y 构图并以 y 向偏移展示高度，主图和子图新增至 10 / 6 个预设节点，并支持双向、单向与不参与探索的虚拟链接；母图范围按弱连通关系纳入单向边两端、排除虚拟边，比例尺与子图完全相同且不按内容范围拟合；浏览器验收待补。
 
-- [[docs/plan-work/task-0300-gameplay-b-reusable-card-interaction]]：已调查现行 MapRun / Encounter、0296—0299 与相关源码，提出共用卡牌绑定、逐实例入口及唯一交互 session；P0—P3 覆盖 Map / Popover 整理和首个 Flow 真实牌闭环，多目标与作用线列为后续阶段。本轮仅编写 Task，不修改产品代码。
+- [[docs/plan-work/task-0303-node-graph-demo-visual-polish]]：completed；桌面视觉增强与世界线偏移表现，提供偏移叠层 / 分歧轨迹 / 相位对照三种可切换方案，保持探索规则；不做手机适配；三种方案与对照已实现并验证。
 
-### Gameplay B 自主行动与目标策略（in progress，2026-10-19）
+- [[docs/plan-work/task-0302-standalone-node-graph-ui-demo]]：completed；TypeScript 独立节点探索与子图导航 UI Demo 已实现并装配到根工具台与 Vite 构建，定向类型检查、构建、preview 与 17 步浏览器验收通过；是否适合未来产品待使用者体验后裁定，不接入游戏业务。
 
-- [[docs/plan-work/task-0299-gameplay-b-autonomous-action-target-strategy]]：P0 产品规则已按负责人意见冻结，开始按 P0—P5 的 Patch Unit 施工；明确覆盖 0290 多目标手选和 0291 自动目标同轮失效合同，不重做旧 Operation Planner、0298 交互或第二 Runtime Owner。
+2026-10-19 已将 `docs/plan-work/` 根目录的 Gameplay B Task、Draft、Report 及拆分的 Patch Unit / Receipt 整批冻结归档；未完成事项保留原状态与待续范围，归档不代表结项。后续恢复时先核对当前源码与测试，再另立或更新活动 Task。
 
-### Gameplay B 作用关系、Hover 与目标交互（in progress，2026-10-19）
+## 本轮冻结归档（2026-10-19）
 
-- [[docs/plan-work/task-0298-gameplay-b-relations-hover-and-target-interaction]]：Goal 执行中，U1—U21 完成单位基础与真实卡牌的关系投影、高亮、Hover / Focus、换牌、点击 / 无连线拖拽和独立 Commit；正常协同演练显示真实 sCost 余额及原费 / 减免 / 实扣。8 文件 116 项定向回归、类型 / 架构与桌面验收通过。首个效果和左右规则裁定已收敛，Flow 全范围、保留的单位相对规则及 P5 / P6 尚未完成。
+### 冻结时仍有未完成事项
 
-### Gameplay B 敌我统一单位卡（in progress，2026-10-19）
+- [[archive/task-0287-gameplay-b-semantic-convergence-and-minimal-loop]]：总控阶段 C4 U4 当时施工中；C5 依赖 C4 验收。
+- [[archive/task-0291-gameplay-b-hp-enemy-ability-item]]：U1—U3 已复核，U4 Workspace / 后续验收按原文保留；敌方固定伤害合同已由 Task 0301 的后续实现取代，续作前须核对。
+- [[archive/task-0292-gameplay-b-c5-authoring-and-retirement]]：完整 C5 尚未开始，仍依赖 C4；保留默认包退役等已裁定范围。
+- [[archive/task-0297-gameplay-b-unified-unit-cards]]：实现完成，浏览器视觉验收待做。
+- [[archive/task-0298-gameplay-b-relations-hover-and-target-interaction]]：P0b、P5 / P6 与其余未完成验收项待续。
+- [[archive/task-0299-gameplay-b-autonomous-action-target-strategy]]：产品规则已冻结，P0—P5 施工及 Workspace 验收尚未闭环。
 
-- [[task-0297-gameplay-b-unified-unit-cards]]：执行共用 UnitFace、HP / sCost 信息层、仅悬挂当前生效的行为卡、点击后替换/取消的 Override 候选浮层；不新增行动槽或改变 Commit 结算边界。
+### 已完成或保留为裁定 / 调查来源
 
-### 基础地图玩法 P0—P3（completed，2026-10-18）
+- [[archive/task-0288-gameplay-b-map-node-vertical-slice]]、[[archive/task-0289-gameplay-b-maprun-state-and-encounter-lifecycle]]、[[archive/task-0290-gameplay-b-action-draw-hand-swap-commit]]、[[archive/task-0294-gameplay-b-three-column-button-ui]]、[[archive/task-0295-gameplay-b-basic-map-p0-p3]]：已完成阶段记录。
+- [[archive/task-0296-gameplay-b-shared-talklet-flow]]：正文记录 U1—U6 自动化与 DOM 验收完成；旧索引的“待浏览器验收”状态已纠正。
+- [[archive/task-0300-gameplay-b-reusable-card-interaction]]：正文标记 completed；P4 多目标与 P5 作用线仍作为后续独立范围，旧索引的 proposed 状态已纠正。
+- [[archive/task-0301-gameplay-b-enemy-autonomous-action-cards]]：P0—P5 已完成；既有检查问题见其 U5c Receipt。
+- [[archive/draft-0287-gameplay-b-phase-b-contract]]：已批准冻结的阶段 B 合同；[[archive/report-0287-gameplay-b-core-migration-investigation]]：阶段 A 只读调查报告。
+- [[archive/draft-0293-gameplay-b-old-new-entry-ui-comparison]]、[[archive/draft-0294-gameplay-b-three-column-ui-first-step]]、[[archive/draft-0296-gameplay-b-and-chat-shared-render-pipeline]]：分别保留交接调查、已实施 UI 设计依据和共享呈现流调查草案；细节及原裁定以归档正文为准。
 
-- [[docs/plan-work/task-0295-gameplay-b-basic-map-p0-p3]]：线性战斗不变量核验 → 单 Node 固定顺序 Battle / Rest / Shop → 单向分叉汇合 → 连续遭遇与条件 Edge。四阶段均已附实际修改、正式 Datapack 样例、可复现命令与结果；P0 未做无关重构，P1—P3 收敛在既有 Map / Node / Activity / Shop / Edge Condition 语义内。另补充 `mapEntryLabel` 作者文案，默认包 6 个地图入口均改为可辨识的“进入 XXX”。引擎 14 项、入口文案 6 项、UI 4 项新增验收与既有 Map 回归通过；未做浏览器人工验收，未运行全量测试，旧 Strategy Park 有 3 项与本 Task 无关的既有失败。
-
-### 当前总控 Task（阶段 A / B / C1 / C1a / C2 / C3、C4 U1–U3 完成；C4 U4 施工中；C5 合同已预备）
-
-- [[task-0287-gameplay-b-semantic-convergence-and-minimal-loop]]：Gameplay B 最终语义收敛、数据结构迁移与最小玩法闭环总控 Task；阶段 A / B / C1 / C1a / C2 / C3、C4 U1–U3 已完成并经主控独立复核；C4 U4 战斗 Workspace 施工中；C5 合同已预备，依赖 C4 验收。
-- [[task-0288-gameplay-b-map-node-vertical-slice]]：执行并完成 C1 / C1a；通过正常 Datapack / Registry / Resolver / Spot 入口实现 Map A→B→遭遇→回到 B→C 的最小竖切片。旧 Operation 内容仍留在定向测试夹具，但已从默认 Gameplay B bundle 移除。
-- [[task-0289-gameplay-b-maprun-state-and-encounter-lifecycle]]：C2 已完成：固定队伍准入、MapRun 初始 PlayerCost、checkpoint、成功回图与成功终态清理；失败触发与结果 UI 已冻结，待 C4 接入真实 HP。
-- [[task-0290-gameplay-b-action-draw-hand-swap-commit]]：执行 C3 Character Hand、Prepared Action、免费 Swap、PlayerCost Command、唯一整轮 Commit 与 MapRun-local Action resource 效果；C3 已完成并通过复核，作为归档实施记录保留。
-- [[task-0291-gameplay-b-hp-enemy-ability-item]]：C4 战斗 HP、Enemy、Ability / Item 与失败结算执行合同；默认规则已于 2026-10-18 冻结，U1–U3 已经主控独立验收，U4 Workspace 与失败结果 UI 施工中。
-- [[task-0292-gameplay-b-c5-authoring-and-retirement]]：C5 作者入口、Rest / Shop / Edge Branch 样例、Gameplay B 内容重建与旧专属 Operation 退役执行合同；负责人已裁定默认包立即切为 Map-only、旧 Strategy Park bundle 退役，旧 Run 可直接失效并在后续存档时清除，保留长期 PlayerState；其余完整 C5 施工仍依赖 C4 完成及独立复核。
-- [[report-0287-gameplay-b-core-migration-investigation]]：只读核对当前 Datapack/Registry、Operation Runtime、三个状态生命周期、UI/样例/存档/测试；附阶段 B 待裁定项与 C1a 早期端到端建议。
-- [[draft-0287-gameplay-b-phase-b-contract]]：阶段 B 最终合同；Hand / Swap 与 Map / Encounter / 状态 / 内容 / Save-Resume 规则均已获负责人冻结，作为 C 阶段实施验收依据。
-- [[draft-0293-gameplay-b-old-new-entry-ui-comparison]]：Gameplay B 旧 Operation 与新 Map 移植的入口链、当前默认包状态，以及旧三栏 UI 可复用结构与不可复用语义的交接对照。
-- [[docs/plan-work/draft-0294-gameplay-b-three-column-ui-first-step]]：负责人确定左我方／中 Talk 式信息流／右敌方与背景、仅按钮、内部滚动与外部统一顶部分割；保留 Luna 参考调查、起始到存档最小承接和第一步方案依据。
-- [[docs/plan-work/task-0294-gameplay-b-three-column-button-ui]]：第一阶段已完成三栏按钮 UI、统一顶部／内部滚动、跨栏稳定更新与起始到保存链路验证；记录定向测试、独立审查、桌面与窄屏浏览器结果及后续边界。
-- [[docs/plan-work/draft-0296-gameplay-b-and-chat-shared-render-pipeline]]：普通 Chat 与 Gameplay B 信息流的现状调查和共享管线设计来源；现行施工裁定见 Task 0296。
-- [[docs/plan-work/task-0296-gameplay-b-shared-talklet-flow]]：implemented（待浏览器验收）；U1—U5 已落地共享条目／reducer／按流实例滚动与 Map 接入（含只读「查看情报」），定向测试与类型／架构／文档检查通过；桌面浏览器验收与既有 Chat/Story Workspace 漂移待后续。
-
-### 本轮归档（2026-10-17）
-
-- 其他根目录 Draft / Report / Task 和已完成 Goal Set 已移入 `archive/`；保留各文档原有状态。归档不代表未完成 Task 已验收或结项。
-- [[archive/task-0280-gameplay-b-scene-composition-p1-mixed-scene-ui]]：冻结时仍待人工验收，原剩余事项不变。
-- [[archive/task-0285-gameplay-b-core-semantics-reduction-investigation]]、[[archive/report-0285-gameplay-b-core-semantics-reduction]]：只读实现调查与语义复杂度报告，供新 Task 重新核实。
-- [[archive/task-0286-gameplay-b-minimal-semantic-target]]、[[archive/report-0286-gameplay-b-minimal-semantic-ruling]]：已完成的最小语义探索；其推荐值可在新 Task 阶段 B 复核。
-- 其他 Gameplay B 与 Super Codex 计划及 Goal Set 见下方相应历史索引；本 Task 是唯一当前计划入口。
-
-### 本轮完成（2026-10-15）
-
-- [[archive/task-0282-super-codex-phase-a-reliable-relations]]：阶段 A 可靠引用语义、反向跳转、真实包与缓存边界验收完成；定向数据／Runtime回归29项通过。
-- [[archive/task-0283-super-codex-phase-b-friendly-workspace]]：阶段 B 中文图鉴、资料／被引用／技术详情、共享框架与连续导航验收完成；UI／Frame五文件62项通过，桌面1440×900浏览器验收完成。
-- [[archive/handoff-0282-0283-super-codex-2026-10-15]]：保留初始交接检查点与最终验收结果；窄屏按用户要求排除在本轮范围。
-- [[archive/draft-0282-super-codex-and-authoring-workspace]]：A/B已完成；保留阶段 C 编辑器迁入及阶段 D 扩充的设计来源。
-
-### 已归档未结项（归档时状态：2026-10-09）
-
-- [[archive/task-0280-gameplay-b-scene-composition-p1-mixed-scene-ui]]：Gameplay B 混合 Scene UI、正式 Rest 演示与 Atomic Scene 调查语义修订已完成代码和 Headless 检查；归档时为 **代码待人工验收（Pending Manual Acceptance）**，等待 M01–M08 和视觉/交互检查反馈。
-
-### 已归档讨论材料
-
-- [[archive/draft-0284-gameplay-b-current-system-and-improvement-discussion]]：用通俗语言梳理玩法 B 当前的数据结构、游玩循环、角色行动候选、玩家场景卡组、结算与复杂度，供 SolChat 提出综合改进方案；作为历史讨论材料保存。
-
-### 本轮完成（2026-10-13）
-
-- [[archive/task-0281-exclusive-theme-selection]]：普通游戏页改为单一完整主题选择；场景默认、玩家收集主题与用户主题互斥生效，保留通用堆叠算法。定向回归、类型、文档和架构检查通过。
-
-- [[archive/task-0279-gameplay-b-scene-pending-action-default]]：将 Atomic “检查故障设备”标为 fixed SceneAction，使空选择 Commit 自动解析行动与 Ride 目标；修正显式 Skip 绕过固定行动，补充 Engine / UI 回归。33 项定向测试、类型、文档和 GALHCG 检查通过；未做浏览器回放。
-- [[archive/task-0278-gameplay-b-unbounded-loop-and-character-autonomy]]：完成无上限循环、角色自动战斗计划、单槽干预与 selectable SceneAction 首选合法目标；U1–U8 已验收。U1–U7 为 15 个定向测试文件、230 项通过；U8 为 4 个 Engine / UI 文件、61 项通过；类型、文档和 GALHCG 检查通过。未做浏览器回放。
-- [[archive/task-0277-gameplay-b-three-column-workspace-unification]]：统一 Operation 三栏标题与分割线层级；修复替代行动重复点击收起；补充玩家手牌激活样式；移除执行者旧标记；同场景多行动牌默认铺开并响应式换行。42 项定向 UI 测试、类型检查及桌面/窄屏浏览器验收通过。
-
-### 玩法 B 原子化场景重构
-
-Goal Set：`gs-20261008-gameplay-b-atomic-scenes`（已整体移至 `docs/plan-work/archive/goalsets/`）。G01～G05 均已完成；玩法 B 原子场景重构的 PB-01～PB-26 已完成并归档。
-
-- **G01：V1 可读、可玩（completed）** — [[archive/draft-0251-gameplay-b-atomic-scenes-phase-i-v1-corrections]]；[[archive/task-0251-pb-01-runtime-combat-stage-projection]]、[[archive/task-0252-pb-02-event-correct-operation-copy]]、[[archive/task-0253-pb-03-cost-balance-slot-projection]]、[[archive/task-0254-pb-04-readable-operation-state-names]]、[[archive/task-0255-pb-05-actor-position-and-action-eligibility]]。
-- **G02：操作语义统一（completed）** — [[archive/draft-0252-gameplay-b-atomic-scenes-phase-ii-operation-semantics]]；[[archive/task-0256-pb-06-card-selection-states]]、[[archive/task-0257-pb-07-click-performer-assignment]]、[[archive/task-0258-pb-08-target-selection-and-count-validation]]、[[archive/task-0259-pb-09-reversible-local-action-plans]]、[[archive/task-0260-pb-10-legality-and-cost-preview]]、[[archive/task-0261-pb-11-confirm-return-and-skip]]、[[archive/task-0262-pb-12-operation-result-timeline]]。
-- **G03：原子场景骨架（completed）** — [[archive/draft-0253-gameplay-b-atomic-scenes-phase-iii-foundation]]；[[archive/task-0263-pb-13-scene-identity-lifecycle]]、[[archive/task-0264-pb-14-scene-content-presentation]]、[[archive/task-0265-pb-15-action-offer-projection]]、[[archive/task-0266-pb-16-scene-plan-preview]]、[[archive/task-0267-pb-17-scene-atomic-resolution]]、[[archive/task-0268-pb-18-scene-completion-location-exit]]。
-- **G04：真实玩法迁移（completed）** — [[archive/draft-0254-gameplay-b-atomic-scenes-phase-iv-migration]]；[[archive/task-0269-pb-19-carousel-sample-migration]]、[[archive/task-0270-pb-20-strategy-park-battle-migration]]、[[archive/task-0271-pb-21-location-exploration-migration]]、[[archive/task-0272-pb-22-multiple-scenes-per-location]]、[[archive/task-0273-pb-23-group-and-position-targets]]、[[archive/task-0274-pb-24-m-of-n-and-temporary-shop]]。
-- **G05：内容作者交付（completed）** — [[archive/draft-0255-gameplay-b-atomic-scenes-phase-v-authoring]]；[[archive/task-0275-pb-25-scene-authoring-and-validation]]、[[archive/task-0276-pb-26-remove-legacy-special-cases-and-regression]]。
-- **Goal Owner 统一裁定 / 一次性背景卷** — [[archive/draft-0256-gameplay-b-atomic-scenes-task-rulings]]；2026-10-08 默认规则是当时 PB-01～PB-26 的施工依据，现保留为历史记录；后续方向由 Task 0287 重新裁定。
-
-### 本轮冻结归档（2026-10-08）
-
-- [[archive/active-work-freeze-2026-10-08-gameplay-b-atomic-scenes]]：冻结根目录原有全部活动 Draft / Task，逐项保留冻结时的最后已知状态；未完成验收不因移入 `archive/` 而关闭。
+本批所有相关 Unit 与 Receipt 一并位于 `archive/` 下对应的 `task-*-units/` 或 `task-*-units/receipts/` 目录。
 
 ## 近期完成
 

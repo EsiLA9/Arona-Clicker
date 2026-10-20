@@ -15,9 +15,20 @@ import type { UIContext } from '../context';
 import { renderPanelHeaderRegion } from './tabs';
 import { renderWorkspaceFrame } from './workspace-frame';
 import { renderFlowEntries } from '../flow/flow-render';
-import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE, type FlowEntry } from '../flow/flow-entry';
+import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE, type FlowEntry, type FlowMapLocations } from '../flow/flow-entry';
 import { MapFlowModel } from '../flow/map-flow-model';
 import { mapObjectKey, mapUnitKey } from '../workspace/map-relation-presentation';
+import {
+  mapCardAttachmentAttributes,
+  mapCardBindingAttributes,
+  mapCardHostAttributes,
+  mapCardInstanceKey,
+  type MapCardDOMPlacement,
+  type MapCardEntry,
+  type MapCardUsage,
+} from '../cards/card-host';
+import { renderMapActionCardButton, renderMapActionCardContent, stableMapActionCardAngle } from '../cards/action-card';
+import type { MapRunCardInstance } from '../../arona-clicker/contracts/map-cards';
 import '../css/map-workspace.css';
 
 function escape(ctx: UIContext, value: string): string {
@@ -42,9 +53,42 @@ function unitKey(view: MapRunActiveWorkspaceView, kind: 'partyCharacter' | 'enem
   return scope ? mapUnitKey(scope, kind, id) : undefined;
 }
 
-function cardAttributes(ctx: UIContext, view: MapRunActiveWorkspaceView, ownerId: string, actionId: string): string {
-  const card = view.cards?.find(row => row.owner.kind === 'partyCharacter' && row.owner.id === ownerId && row.actionId === actionId);
-  return card ? ` data-map-object-key="${escape(ctx, mapObjectKey(card.ref))}"` : '';
+function findCard(view: MapRunActiveWorkspaceView, ownerId: string, actionId: string): MapRunCardInstance | undefined {
+  return view.cards?.find(row => row.owner.kind === 'partyCharacter' && row.owner.id === ownerId && row.actionId === actionId);
+}
+
+function findEnemyCard(view: MapRunActiveWorkspaceView, enemyId: string, actionId: string): MapRunCardInstance | undefined {
+  return view.cards?.find(row => row.owner.kind === 'enemy' && row.owner.id === enemyId
+    && row.zone === 'hand' && row.actionId === actionId);
+}
+
+/**
+ * One visual copy of a real card or an existing replacement offer.
+ * The same object may appear many times; only the instance key differs.
+ */
+function mapCardAttributes(
+  ctx: UIContext,
+  view: MapRunActiveWorkspaceView,
+  card: MapRunCardInstance | undefined,
+  usage: MapCardUsage,
+  slot: string,
+  entries: readonly MapCardEntry[],
+  options: { readonly relationKey?: string; readonly optionId?: string; readonly objectKey?: string } = {},
+  placement?: MapCardDOMPlacement,
+): string {
+  const objectKey = options.objectKey ?? (card ? mapObjectKey(card.ref) : undefined);
+  const binding = {
+    instanceKey: mapCardInstanceKey(`map:${view.run.runId}`, slot, objectKey),
+    usage,
+    ...(objectKey ? { objectKey } : {}),
+    ...(options.relationKey ? { relationKey: options.relationKey } : {}),
+    entries,
+    ...(options.optionId ? { optionId: options.optionId } : {}),
+  };
+  const escapeValue = (value: string) => escape(ctx, value);
+  return placement
+    ? mapCardAttachmentAttributes(escapeValue, binding, placement)
+    : mapCardBindingAttributes(escapeValue, binding);
 }
 
 function renderCardTargets(ctx: UIContext, view: MapRunActiveWorkspaceView, prepared: MapWorkspacePreparedActionView): string {
@@ -61,11 +105,84 @@ function renderCardTargets(ctx: UIContext, view: MapRunActiveWorkspaceView, prep
       const label = `${owner} · ${action?.name ?? '当前卡牌'}`;
       const selected = prepared.targetCard ? mapObjectKey(prepared.targetCard) === key : false;
       const semanticKey = `target-card:${prepared.characterId}:${ref.id}`;
-      return `<button type="button" class="mini-action map-workspace__target-choice map-workspace__card-target-choice" data-map-card-target="${escape(ctx, relation?.key ?? '')}" data-map-object-key="${escape(ctx, key)}"${focusKey(ctx, semanticKey)}${regionKey(ctx, semanticKey)} aria-pressed="${selected}">
+      return `<button type="button" class="mini-action map-workspace__target-choice map-workspace__card-target-choice" data-map-card-target="${escape(ctx, relation?.key ?? '')}"${mapCardAttributes(ctx, view, card, 'offer', `target:${prepared.characterId}:${key}`, ['target'], { objectKey: key, optionId: semanticKey })}${focusKey(ctx, semanticKey)}${regionKey(ctx, semanticKey)} aria-pressed="${selected}">
         <strong>${escape(ctx, label)}</strong><small>${card?.prepared ? '本轮准备牌' : '备选牌'}${selected ? ' · 已选目标' : ''}</small>
       </button>`;
     }).join('')}</div>
   </div>`;
+}
+
+function enemyPreparedTargetLabel(
+  ctx: UIContext,
+  view: MapRunActiveWorkspaceView,
+  prepared: NonNullable<MapRunActiveWorkspaceView['actionPreview']>['preparedEnemyActions'][number],
+): string {
+  if (prepared.skipReason === 'noLegalTarget') return '无法执行：没有合法目标';
+  if (!prepared.naturalAction) return '本轮待机';
+  if (prepared.targetKind === 'none') return '无目标';
+  if (prepared.targetKind === 'self') return '目标：自身';
+  if (prepared.targetKind === 'partyCharacter') {
+    return prepared.targetCharacterId
+      ? `目标角色：${ctx.nameOf('character', prepared.targetCharacterId)}` : '目标角色：待确定';
+  }
+  if (prepared.targetKind === 'enemy') {
+    return prepared.targetEnemyId ? `友方目标：${ctx.nameOf('enemy', prepared.targetEnemyId) || prepared.targetEnemyId}` : '友方目标：待确定';
+  }
+  if (prepared.targetKind === 'card') {
+    if (!prepared.targetCard) return '无法执行：没有合法卡牌目标';
+    const card = view.cards.find(row => mapObjectKey(row.ref) === mapObjectKey(prepared.targetCard!));
+    const action = view.actionPreview?.preparedActions.flatMap(row => [...row.hand, ...(row.preparedAction ? [row.preparedAction] : [])])
+      .concat(view.actionPreview.preparedEnemyActions.flatMap(row => [...row.hand, ...(row.naturalAction ? [row.naturalAction] : [])]))
+      .find(row => row.actionId === card?.actionId);
+    const owner = card?.owner.kind === 'partyCharacter'
+      ? ctx.nameOf('character', card.owner.id)
+      : card?.owner.kind === 'enemy' ? `敌方 ${ctx.nameOf('enemy', card.owner.id) || card.owner.id}` : '卡牌';
+    return `卡牌目标：${owner} · ${action?.name ?? '当前卡牌'}`;
+  }
+  return '目标：待确定';
+}
+
+function renderEnemyHandStack(
+  ctx: UIContext,
+  view: MapRunActiveWorkspaceView,
+  enemyId: string,
+  enemyName: string,
+): string {
+  const preview = view.actionPreview;
+  const prepared = preview?.preparedEnemyActions.find(row => row.enemyId === enemyId);
+  if (!preview || !prepared) return '';
+  const hostId = `enemy-hand:${view.run.runId}:${enemyId}`;
+  const sourceRelation = view.relations.find(row => row.source.kind === 'enemy' && row.source.id === enemyId);
+  const cards = prepared.hand.map((action, index) => {
+    const card = findEnemyCard(view, enemyId, action.actionId);
+    const current = action.actionId === prepared.naturalAction?.actionId;
+    const relationAttributes = current && sourceRelation ? { relationKey: sourceRelation.key } : {};
+    const slotId = `hand:${index}:${action.actionId}`;
+    const cardAttributes = mapCardAttributes(ctx, view, card, 'live', `enemy:${enemyId}:${slotId}`, ['inspect'],
+      relationAttributes, { hostId, slotId });
+    const angle = stableMapActionCardAngle(`${view.run.runId}:${preview.nodeId}:${preview.round}:${enemyId}:enemy:${action.actionId}`);
+    const actionName = escape(ctx, action.name);
+    const subtitle = current ? '敌方自然行动' : '敌方备选行动';
+    return `<div role="group" tabindex="0" class="map-workspace__action-card map-workspace__unit-action-card map-workspace__enemy-action-card${current ? ' is-current' : ''}" ${cardAttributes}${focusKey(ctx, `enemy-card:${enemyId}:${action.actionId}`)} aria-label="${actionName} · ${subtitle} · 只读" style="--map-card-angle:${angle};--map-card-right:${index * 10}px;--map-card-z:${current ? 40 : index + 1}">${renderMapActionCardContent(value => escape(ctx, value), { title: action.name, subtitle })}</div>`;
+  }).join('');
+  return cards ? `<div class="map-workspace__unit-card-stack map-workspace__enemy-action-stack"${regionKey(ctx, `enemy-hand:${enemyId}`)}${mapCardHostAttributes(value => escape(ctx, value), hostId, { alignment: 'right' })} aria-label="${escape(ctx, enemyName)} 的只读手牌">${cards}</div>` : '';
+}
+
+function renderEnemyActionDetails(
+  ctx: UIContext,
+  view: MapRunActiveWorkspaceView,
+  enemyId: string,
+): string {
+  const prepared = view.actionPreview?.preparedEnemyActions.find(row => row.enemyId === enemyId);
+  if (!prepared) return `<small class="map-workspace__enemy-action-details"${regionKey(ctx, `enemy-action:${enemyId}`)}>行动状态暂不可用</small>`;
+  const actionDetails = prepared.naturalAction
+    ? `<div class="map-workspace__enemy-action-details"${regionKey(ctx, `enemy-action:${enemyId}`)}>
+        <small>${escape(ctx, prepared.naturalAction.name)} · ${escape(ctx, enemyPreparedTargetLabel(ctx, view, prepared))}</small>
+        ${prepared.naturalAction.description ? `<small>${escape(ctx, prepared.naturalAction.description)}</small>` : ''}
+        ${renderActionCosts(ctx, prepared.naturalAction)}${renderActionHpEffects(prepared.naturalAction)}${renderCardEffects(ctx, prepared.naturalAction)}
+      </div>`
+    : `<small class="map-workspace__enemy-action-details"${regionKey(ctx, `enemy-action:${enemyId}`)}>${escape(ctx, enemyPreparedTargetLabel(ctx, view, prepared))}</small>`;
+  return actionDetails;
 }
 
 function titleContent(ctx: UIContext, title: string, subtitle?: string): string {
@@ -125,14 +242,6 @@ function renderActionHpEffects(action: { readonly hpEffects: readonly { readonly
 
 function renderCardEffects(ctx: UIContext, action: MapWorkspaceActionView): string {
   return (action.cardEffects ?? []).map(effect => `<small class="map-workspace__action-cost">受用卡牌本轮 sCost 减免 ${ctx.formatNumber(effect.amount)}，最低为 0</small>`).join('');
-}
-
-function stableMapCardAngle(key: string): string {
-  let hash = 2166136261;
-  for (let index = 0; index < key.length; index += 1) {
-    hash = Math.imul(hash ^ key.charCodeAt(index), 16777619);
-  }
-  return `${(hash >>> 0) % 17 - 8}deg`;
 }
 
 function renderUnitFace(
@@ -332,6 +441,7 @@ function renderCommitDiagnostic(ctx: UIContext, diagnostics: readonly string[]):
 type MapCommitDockAction =
   | { readonly kind: 'commit'; readonly view: MapRunActiveWorkspaceView; readonly preview: NonNullable<MapRunActiveWorkspaceView['actionPreview']> }
   | { readonly kind: 'complete'; readonly runId: string; readonly nodeId: string; readonly label: string }
+  | { readonly kind: 'move'; readonly runId: string; readonly fromNodeId: string }
   | { readonly kind: 'back'; readonly runId: string }
   | { readonly kind: 'disabled' };
 
@@ -344,13 +454,16 @@ function renderCommitDock(
   },
 ): string {
   const { action } = options;
-  const disabled = action.kind === 'disabled';
+  const disabled = action.kind === 'disabled' || action.kind === 'move';
   const label = action.kind === 'back' ? '返回游戏'
     : action.kind === 'complete' ? action.label : '提交本轮';
+  const moveLabel = action.kind === 'move' ? '选择目的地点' : label;
   const actionAttributes = action.kind === 'commit'
     ? ` data-map-commit${focusKey(ctx, 'commit')} data-map-expected-commit-version="${action.view.run.commitVersion}"${draftAttributes(ctx, action.view.run.runId, action.preview.draft)}`
     : action.kind === 'complete'
       ? ` data-map-complete-encounter${focusKey(ctx, `complete:${action.nodeId}`)} data-map-run-id="${escape(ctx, action.runId)}"`
+      : action.kind === 'move'
+        ? ` data-map-location-submit${focusKey(ctx, `location-submit:${action.fromNodeId}`)} data-map-run-id="${escape(ctx, action.runId)}" data-map-from-node="${escape(ctx, action.fromNodeId)}"`
       : action.kind === 'back'
         ? ` data-map-back="${escape(ctx, action.runId)}"${focusKey(ctx, 'back-game')}`
         : '';
@@ -360,19 +473,22 @@ function renderCommitDock(
       <div><span>PlayerCost</span><strong>${playerCost}</strong></div>
       <p role="status" aria-live="polite" data-map-commit-status>${escape(ctx, options.status)}</p>
     </div>
-    <button type="button" class="send-button send-player map-workspace__commit${disabled ? ' disabled' : ''}"${actionAttributes}${disabled ? ' disabled' : ''} aria-label="${escape(ctx, label)}">
-      <span class="send-bubble${disabled ? ' disabled' : ''}"><span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="send-text">${escape(ctx, label)}</span><span class="send-arrow" aria-hidden="true">↗</span></span>
+    <button type="button" class="send-button send-player map-workspace__commit${disabled ? ' disabled' : ''}"${actionAttributes}${disabled ? ' disabled' : ''} aria-label="${escape(ctx, moveLabel)}">
+      <span class="send-bubble${disabled ? ' disabled' : ''}"><span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="send-text">${escape(ctx, moveLabel)}</span><span class="send-arrow" aria-hidden="true">↗</span></span>
     </button>
   </footer>`;
 }
 
-function renderActionDock(ctx: UIContext, view: MapRunActiveWorkspaceView): string {
+function renderActionDock(ctx: UIContext, view: MapRunActiveWorkspaceView, locationChoices?: FlowMapLocations): string {
   if (view.shop) return renderShopDock(ctx, view);
   const preview = view.actionPreview;
   const encounter = view.currentEncounter;
   const canCommit = preview?.commitPreview.canCommit === true;
   const canComplete = !canCommit && encounter?.completion?.kind === 'manual';
-  const status = canCommit
+  const canMove = !canCommit && !canComplete && !!locationChoices;
+  const status = canMove
+    ? '请在上方选择目的地点。'
+    : canCommit
     ? `本轮可提交 · 预计消耗 ${ctx.formatNumber(preview?.commitPreview.playerCostRequired ?? 0)} PlayerCost`
     : canComplete
       ? '当前遭遇已满足手动完成条件。'
@@ -383,6 +499,8 @@ function renderActionDock(ctx: UIContext, view: MapRunActiveWorkspaceView): stri
     ? { kind: 'commit', view, preview }
     : canComplete && encounter
       ? { kind: 'complete', runId: view.run.runId, nodeId: encounter.nodeId, label: encounter.completion?.label ?? '完成遭遇' }
+      : canMove && locationChoices
+        ? { kind: 'move', runId: locationChoices.runId, fromNodeId: locationChoices.fromNodeId }
       : { kind: 'disabled' };
   const sources = renderEncounterSources(ctx, view);
   return `<section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="${preview ? `第 ${preview.round} 轮行动操作` : '当前遭遇操作'}">
@@ -418,10 +536,15 @@ function renderEnemyRegion(ctx: UIContext, runId: string, view: MapRunActiveWork
     ? `<section class="map-workspace__enemy-group" data-map-region-key="enemy-list" aria-label="活动敌方">
         <ul class="map-workspace__enemy-list">${enemies.map(enemy => {
           const enemyName = ctx.nameOf('enemy', enemy.enemyId) || `敌方 ${enemy.enemyId}`;
+          const prepared = view?.actionPreview?.preparedEnemyActions.find(row => row.enemyId === enemy.enemyId);
+          const enemyCards = view ? renderEnemyHandStack(ctx, view, enemy.enemyId, enemyName) : '';
           return `<li${regionKey(ctx, `enemy:${enemy.enemyId}`)} data-map-enemy-hp="${escape(ctx, enemy.enemyId)}">
             <article class="map-workspace__unit map-workspace__unit--enemy">
-              ${renderUnitFace(ctx, { name: enemyName, type: '敌方', currentHp: enemy.currentHp, maxHp: enemy.maxHp, regionKey: `enemy-face:${enemy.enemyId}`, objectKey: view ? unitKey(view, 'enemy', enemy.enemyId) : undefined, relationAttributes: view ? relationKey(ctx, view, 'enemy', enemy.enemyId) : '' })}
-              <div class="map-workspace__unit-note"><span>目标尚未确定 · 结算时决定</span><button type="button" class="mini-action map-workspace__enemy-info" data-map-enemy-info data-enemy-id="${escape(ctx, enemy.enemyId)}" data-map-run-id="${escape(ctx, runId)}"${focusKey(ctx, `enemy-info:${enemy.enemyId}`)} aria-label="查看敌方 ${escape(ctx, enemyName)} 的当前情报">查看情报</button></div>
+              <div class="map-workspace__unit-slot${prepared?.hand.length ? ' has-cards' : ''}">
+                ${renderUnitFace(ctx, { name: enemyName, type: '敌方', currentHp: enemy.currentHp, maxHp: enemy.maxHp, regionKey: `enemy-face:${enemy.enemyId}`, objectKey: view ? unitKey(view, 'enemy', enemy.enemyId) : undefined })}
+                ${enemyCards}
+              </div>
+              ${view ? renderEnemyActionDetails(ctx, view, enemy.enemyId) : `<small class="map-workspace__enemy-action-details"${regionKey(ctx, `enemy-action:${enemy.enemyId}`)}>行动状态暂不可用</small>`}
             </article>
           </li>`;
         }).join('')}</ul>
@@ -511,7 +634,8 @@ function renderActivePartyMember(
           const actionStatus = isNatural ? '恢复默认'
             : candidate.kind === 'playerCommand' ? 'PlayerCommand · 1 PlayerCost' : '免费换用';
           const command = candidate.kind === 'swap' ? 'data-map-action-swap' : 'data-map-player-command';
-          return `<button type="button" class="map-workspace__hand-picker-card" ${command}${cardAttributes(ctx, view, prepared.characterId, candidate.action.actionId)}${focusKey(ctx, key)}${regionKey(ctx, key)} data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, candidate.action.actionId)}"${attributes} aria-pressed="false"${candidate.disabled ? ' disabled' : ''}>
+          const card = findCard(view, prepared.characterId, candidate.action.actionId);
+          return `<button type="button" class="map-workspace__hand-picker-card" ${command}${mapCardAttributes(ctx, view, card, 'replacement', `picker:${prepared.characterId}:${candidate.kind}:${candidate.action.actionId}`, ['inspect'], { optionId: `${candidate.kind}:${candidate.action.actionId}` })}${focusKey(ctx, key)}${regionKey(ctx, key)} data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, candidate.action.actionId)}"${attributes} aria-pressed="false"${candidate.disabled ? ' disabled' : ''}>
             <strong>${escape(ctx, candidate.action.name)}</strong><small>${escape(ctx, actionStatus)}${candidate.kind === 'playerCommand' && candidate.reason ? ` · ${escape(ctx, candidate.reason)}` : ''}</small>
             ${candidate.action.description ? `<span>${escape(ctx, candidate.action.description)}</span>` : ''}${renderActionCosts(ctx, candidate.action)}${renderActionHpEffects(candidate.action)}${renderCardEffects(ctx, candidate.action)}
           </button>`;
@@ -523,23 +647,35 @@ function renderActivePartyMember(
     ? `unit-card:${prepared.characterId}:${currentKind}:${preparedAction.actionId}`
     : `unit-card:${prepared.characterId}:wait`;
   const currentCardStyle = preparedAction
-    ? `--map-card-angle:${stableMapCardAngle(`${view.run.runId}:${preview.nodeId}:${preview.round}:${prepared.characterId}:${currentKind}:${preparedAction.actionId}`)}`
+    ? `--map-card-angle:${stableMapActionCardAngle(`${view.run.runId}:${preview.nodeId}:${preview.round}:${prepared.characterId}:${currentKind}:${preparedAction.actionId}`)}`
     : '';
   const currentCardLabel = prepared.overrideKind === 'playerCommand' ? '当前生效的玩家指令'
     : preparedAction?.actionId === naturalActionId ? '当前生效的自然行为' : '当前生效的准备行为';
-  const sourceAttributes = relationKey(ctx, view, 'preparedAction', prepared.characterId)
-    + (preparedAction ? cardAttributes(ctx, view, prepared.characterId, preparedAction.actionId) : '');
   const relation = view.relations.find(row => row.source.kind === 'preparedAction' && row.source.id === prepared.characterId);
+  const currentCard = preparedAction ? findCard(view, prepared.characterId, preparedAction.actionId) : undefined;
+  const stackHostId = `unit-card-stack:${view.run.runId}:${prepared.characterId}`;
+  const cardEntries: MapCardEntry[] = ['inspect', 'target'];
+  if (relation?.canSelectTarget) cardEntries.push('editTarget');
+  if (replacementCandidates.length > 0) cardEntries.push('replace');
+  const sourceAttributes = preparedAction
+    ? mapCardAttributes(ctx, view, currentCard, 'live',
+      `current:${prepared.characterId}:${currentKind}:${preparedAction.actionId}`, cardEntries,
+      relation ? { relationKey: relation.key } : {},
+      { hostId: stackHostId, slotId: currentCardKey })
+    : '';
   const pinControl = relation ? `<button type="button" class="mini-action" data-map-relation-pin="${escape(ctx, relation.key)}"${focusKey(ctx, `relation-pin:${prepared.characterId}`)} aria-pressed="false">固定作用关系</button>` : '';
-  const targetControl = relation?.canSelectTarget ? `<button type="button" class="mini-action" data-map-target-edit="${escape(ctx, relation.key)}"${focusKey(ctx, `target-edit:${prepared.characterId}`)} aria-pressed="false">修改目标</button>` : '';
+  const targetControl = relation?.canSelectTarget ? `<button type="button" class="mini-action" data-map-target-edit="${escape(ctx, relation.key)}" data-map-card-entry="editTarget"${focusKey(ctx, `target-edit:${prepared.characterId}`)} aria-pressed="false">修改目标</button>` : '';
   const activeCard = preparedAction
     ? replacementCandidates.length > 0
-      ? `<button type="button"${sourceAttributes} class="map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" data-map-hand-stack-toggle data-map-run-id="${escape(ctx, view.run.runId)}" data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, preparedAction.actionId)}" data-action-kind="${currentKind}" data-picker-id="${escape(ctx, pickerId)}"${focusKey(ctx, currentCardKey)} aria-controls="${escape(ctx, pickerId)}" aria-expanded="false" aria-label="${escape(ctx, `${preparedAction.name} · ${currentCardLabel}，点击更换`)}" aria-pressed="true" style="${currentCardStyle}">
-          <strong>${escape(ctx, preparedAction.name)}</strong><small>${escape(ctx, currentCardLabel)}</small>
-        </button>`
-      : `<div tabindex="0"${sourceAttributes} class="map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" aria-label="${escape(ctx, currentCardLabel)}" style="${currentCardStyle}"><strong>${escape(ctx, preparedAction.name)}</strong><small>${escape(ctx, currentCardLabel)}</small></div>`
-    : `<div class="map-workspace__unit-action-card is-wait"><strong>Wait</strong><small>本轮待机</small></div>`;
-  const stackMarkup = `<div class="map-workspace__unit-card-stack" data-map-region-key="unit-card-stack:${escape(ctx, prepared.characterId)}" role="group" aria-label="${actorName} 当前生效的准备行为">
+      ? renderMapActionCardButton(value => escape(ctx, value), {
+        className: `map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}`,
+        attributes: `${sourceAttributes} data-map-hand-stack-toggle data-map-run-id="${escape(ctx, view.run.runId)}" data-character-id="${escape(ctx, prepared.characterId)}" data-action-id="${escape(ctx, preparedAction.actionId)}" data-action-kind="${currentKind}" data-picker-id="${escape(ctx, pickerId)}"${focusKey(ctx, currentCardKey)} aria-controls="${escape(ctx, pickerId)}" aria-expanded="false" aria-label="${escape(ctx, `${preparedAction.name} · ${currentCardLabel}，点击更换`)}" aria-pressed="true" style="${currentCardStyle}"`,
+        title: preparedAction.name,
+        subtitle: currentCardLabel,
+      })
+      : `<div tabindex="0"${sourceAttributes} class="map-workspace__action-card map-workspace__unit-action-card is-current${currentKind === 'playerCommand' ? ' is-command' : ''}" aria-label="${escape(ctx, currentCardLabel)}" style="${currentCardStyle}">${renderMapActionCardContent(value => escape(ctx, value), { title: preparedAction.name, subtitle: currentCardLabel })}</div>`
+    : `<div class="map-workspace__action-card map-workspace__unit-action-card is-wait">${renderMapActionCardContent(value => escape(ctx, value), { title: 'Wait', subtitle: '本轮待机' })}</div>`;
+  const stackMarkup = `<div class="map-workspace__unit-card-stack"${mapCardHostAttributes(value => escape(ctx, value), stackHostId)} data-map-region-key="unit-card-stack:${escape(ctx, prepared.characterId)}" role="group" aria-label="${actorName} 当前生效的准备行为">
     ${activeCard}${pickerMarkup}
   </div>`;
   const avatarUrl = characterAvatarUrl(ctx, partyMember?.variantId);
@@ -584,6 +720,7 @@ function renderPassivePartyMember(
     maxHp: encounterHp?.maxHp,
     avatarUrl: characterAvatarUrl(ctx, partyMember?.variantId),
     regionKey: `party-face:${characterId}`,
+    objectKey: unitKey(view, 'partyCharacter', characterId),
   });
   return `<article class="map-workspace__party-member map-workspace__party-member--passive" data-map-party-member="${escape(ctx, characterId)}"${regionKey(ctx, `party-member:${characterId}`)}>
     <div class="map-workspace__unit-slot">${face}</div>
@@ -646,6 +783,7 @@ function renderActiveCenter(ctx: UIContext, runId: string, view: MapRunActiveWor
     ? `<span class="map-workspace__hero-progress" aria-label="当前轮次或活动进度">${escape(ctx, progressLabel)}</span>`
     : '';
   const safeRunId = escape(ctx, runId);
+  const locationChoices = [...entries].reverse().find(entry => entry.mapLocations)?.mapLocations;
   const hero = `<section class="map-workspace__hero area-hero" data-map-region-key="map-hero" aria-label="当前地点">
     <div class="map-workspace__hero-heading">
       <div class="map-workspace__hero-copy">
@@ -656,13 +794,15 @@ function renderActiveCenter(ctx: UIContext, runId: string, view: MapRunActiveWor
     </div>
     <div class="map-workspace__hero-footer">
       ${progress}
-      <div class="map-workspace__hero-actions" role="group" aria-label="地图导航">
+      <div class="map-workspace__hero-actions" role="group" aria-label="当前地图操作">
         <button type="button" class="mini-action map-workspace__hero-action" data-map-show-map data-map-run-id="${safeRunId}" aria-label="查看地图地点">地图</button>
+        <button type="button" class="mini-action map-workspace__hero-action" data-map-restart="${safeRunId}" data-map-run-id="${safeRunId}" data-map-focus-key="map-restart" aria-label="重新开始整张地图">重新游戏</button>
+        <button type="button" class="mini-action map-workspace__hero-action map-workspace__hero-action--danger" data-map-abandon="${safeRunId}" data-map-run-id="${safeRunId}" data-map-focus-key="map-abandon" aria-label="放弃当前整张地图游戏">放弃游戏</button>
       </div>
     </div>
   </section>`;
   return `<div class="map-workspace__center-pane" data-map-region-key="center-pane">
-    ${hero}${renderFlowHost(ctx, runId, entries)}${renderActionDock(ctx, view)}
+    ${hero}${renderFlowHost(ctx, runId, entries)}${renderActionDock(ctx, view, locationChoices)}
   </div>`;
 }
 

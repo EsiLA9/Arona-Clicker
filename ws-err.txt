@@ -1,0 +1,23 @@
+(node:59548) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[31m⎯⎯⎯⎯⎯⎯⎯[1m[7m Failed Tests 1 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/ui/gameplay-b-map-workspace.test.ts[2m > [22mGameplay B Map Workspace[2m > [22mshares one real card target between the Map and a read-only Flow copy
+[31m[1mAssertionError[22m: expected [] to have a length of 2 but got +0[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 2[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m tests/ui/gameplay-b-map-workspace.test.ts:[2m342:25[22m[39m
+    [90m340| [39m    [35mconst[39m rifleKey [33m=[39m [34mmapObjectKey[39m(rifle[33m.[39mref)[33m;[39m
+    [90m341| [39m    [35mconst[39m flowCards [33m=[39m () [33m=>[39m [[33m...[39mroot[33m.[39mquerySelectorAll[33m<[39m[33mHTMLElement[39m[33m>[39m([32m'[d[39m…
+    [90m342| [39m    [34mexpect[39m([34mflowCards[39m())[33m.[39m[34mtoHaveLength[39m([34m2[39m)[33m;[39m
+    [90m   | [39m                        [31m^[39m
+    [90m343| [39m    [35mconst[39m flowRifle [33m=[39m [34mflowCards[39m()[33m.[39m[34mfind[39m(card [33m=>[39m card[33m.[39mdataset[33m.[39mmapObjectK…
+    [90m344| [39m    [35mconst[39m mapRifle [33m=[39m root[33m.[39mquerySelector[33m<[39m[33mHTMLElement[39m[33m>[39m([32m`[data-map-party-[39m…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+

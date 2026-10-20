@@ -26,7 +26,8 @@ export function mapRunCardKey(ref: MapRunCardRef): string {
 
 /** Called only with the Owner's validated current snapshot and action preview. */
 export function catalogMapRunCards(run: Pick<MapRun, 'runId' | 'mapId' | 'status' | 'activeEncounter'>,
-  preview: Pick<GameplayBActionPreview, 'preparedActions'>): readonly MapRunCardInstance[] {
+  preview: Pick<GameplayBActionPreview, 'preparedActions'>
+    & Partial<Pick<GameplayBActionPreview, 'preparedEnemyActions'>>): readonly MapRunCardInstance[] {
   const encounter = run.activeEncounter;
   if (!encounter || run.status !== 'inProgress') return Object.freeze([]);
   const scope = Object.freeze({ runId: run.runId, mapId: run.mapId, nodeId: encounter.nodeId,
@@ -45,6 +46,12 @@ export function catalogMapRunCards(run: Pick<MapRun, 'runId' | 'mapId' | 'status
     if (prepared.overrideKind === 'playerCommand' && prepared.preparedActionId !== null) {
       append(owner, 'playerCommand', prepared.preparedActionId, prepared.handActionIds.length, true, true);
     }
+  }
+  for (const prepared of preview.preparedEnemyActions ?? []) {
+    const owner = { kind: 'enemy' as const, id: prepared.enemyId };
+    prepared.handActionIds.forEach((actionId, index) => {
+      append(owner, 'hand', actionId, index, actionId === prepared.naturalActionId, false);
+    });
   }
   for (const [index, enemy] of encounter.enemies.entries()) {
     if (enemy.currentHp > 0) append({ kind: 'enemy', id: enemy.enemyId }, 'enemyIntent', null, index, true, false);

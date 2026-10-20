@@ -1189,6 +1189,75 @@ function onMapRoute(ctrl: UIController, runId: string): boolean {
     && route?.kind === 'map' && route.runId === runId;
 }
 
+function getActiveMapRunForRoute(ctrl: UIController, runId: string) {
+  if (!onMapRoute(ctrl, runId)) return null;
+  const run = ctrl.game.mapRun.getSnapshot();
+  return run?.runId === runId && run.status === 'inProgress' ? run : null;
+}
+
+function restoreMapControlFocus(ctrl: UIController, focusKey: string): void {
+  ctrl.root.querySelector<HTMLButtonElement>(`[data-map-focus-key="${focusKey}"]:not(:disabled)`)?.focus();
+}
+
+function openMapRestartConfirmation(ctrl: UIController, runId: string): void {
+  if (!getActiveMapRunForRoute(ctrl, runId)) return;
+  let confirmed = false;
+  ctrl.modal.open({
+    title: '重新游戏',
+    body: '<p>这会重新开始整张地图，从起点重新出发，并重置当前地图进度、队伍 HP 和本局资源。已经写入长期档案的变化不会回滚。</p>',
+    footer: '<button type="button" class="modal-close">取消</button><button type="button" class="primary-button" data-modal-action="restart-map-run">重新游戏</button>',
+    onClose: () => { if (!confirmed) restoreMapControlFocus(ctrl, 'map-restart'); },
+    onAction: action => {
+      if (action !== 'restart-map-run') return;
+      const current = getActiveMapRunForRoute(ctrl, runId);
+      confirmed = true;
+      ctrl.modal.close();
+      if (!current) {
+        ctrl.toast.show('地图进度已变化，请重新打开当前路线。', 'info');
+        return;
+      }
+      try {
+        const restarted = ctrl.commands.restartMap(runId);
+        ctrl.replaceWorkspaceRoute({ kind: 'map', runId: restarted.runId });
+        ctrl.render();
+        restoreMapControlFocus(ctrl, 'map-restart');
+      } catch {
+        ctrl.toast.show('整张地图未能重新开始，当前进度仍保留。', 'error');
+      }
+    },
+  });
+}
+
+function openMapAbandonConfirmation(ctrl: UIController, runId: string): void {
+  const run = getActiveMapRunForRoute(ctrl, runId);
+  if (!run) return;
+  let confirmed = false;
+  ctrl.modal.open({
+    title: '放弃游戏',
+    body: '<p>这会丢弃当前整张地图的进度和本局资源，并返回进入地图前的位置。之后可以从地图入口重新开始；已经写入长期档案的变化不会回滚。</p>',
+    footer: '<button type="button" class="modal-close">继续游戏</button><button type="button" class="primary-button map-workspace__danger-confirm" data-modal-action="abandon-map-run">放弃游戏</button>',
+    onClose: () => { if (!confirmed) restoreMapControlFocus(ctrl, 'map-abandon'); },
+    onAction: action => {
+      if (action !== 'abandon-map-run') return;
+      const current = getActiveMapRunForRoute(ctrl, runId);
+      confirmed = true;
+      ctrl.modal.close();
+      if (!current) {
+        ctrl.toast.show('地图进度已变化，请重新打开当前路线。', 'info');
+        return;
+      }
+      try {
+        ctrl.commands.abandonMap(runId);
+        ctrl.returnFromMapWorkspace(runId);
+        ctrl.render();
+        ctrl.root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${CSS.escape(current.mapId)}"]`)?.focus();
+      } catch {
+        ctrl.toast.show('地图游戏未能放弃，当前进度仍保留。', 'error');
+      }
+    },
+  });
+}
+
 function readMapDraftToken(target: HTMLElement): MapRunEncounterDraftToken | null {
   const nodeId = target.dataset.mapDraftNodeId;
   const activityId = target.dataset.mapDraftActivityId;
@@ -1269,7 +1338,7 @@ function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
     }
   }
   const target = rawTarget.closest<HTMLElement>(
-    '[data-map-entry-start], [data-map-entry-continue-run], [data-map-back], [data-map-show-map], [data-map-move-to], [data-map-complete-encounter], [data-map-hand-stack-toggle], [data-map-action-swap], [data-map-player-command], [data-map-target], [data-map-target-clear], [data-map-target-enemy], [data-map-target-enemy-clear], [data-map-ability-draft], [data-map-item-draft], [data-map-ability-target], [data-map-item-target], [data-map-ability-clear], [data-map-item-clear], [data-map-clear-override], [data-map-commit], [data-map-shop-offer], [data-map-shop-leave], [data-map-enemy-info]',
+    '[data-map-entry-start], [data-map-entry-continue-run], [data-map-back], [data-map-restart], [data-map-abandon], [data-map-show-map], [data-map-complete-encounter], [data-map-hand-stack-toggle], [data-map-action-swap], [data-map-player-command], [data-map-target], [data-map-target-clear], [data-map-target-enemy], [data-map-target-enemy-clear], [data-map-ability-draft], [data-map-item-draft], [data-map-ability-target], [data-map-item-target], [data-map-ability-clear], [data-map-item-clear], [data-map-clear-override], [data-map-commit], [data-map-shop-offer], [data-map-shop-leave]',
   );
   if (!target) return false;
   if (target instanceof HTMLButtonElement && target.disabled) return true;
@@ -1296,6 +1365,18 @@ function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
       || !mapFunctionAvailable(ctrl, target, mapId) || ctrl.panelState.workspace || ctrl.panelState.service !== 'game') return true;
     ctrl.enterWorkspaceRoute({ kind: 'map', runId });
     ctrl.render();
+    return true;
+  }
+
+  if (target.hasAttribute('data-map-restart')) {
+    const runId = target.dataset.mapRestart;
+    if (runId) openMapRestartConfirmation(ctrl, runId);
+    return true;
+  }
+
+  if (target.hasAttribute('data-map-abandon')) {
+    const runId = target.dataset.mapAbandon;
+    if (runId) openMapAbandonConfirmation(ctrl, runId);
     return true;
   }
 
@@ -1347,16 +1428,6 @@ function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
         picker.style.top = `${top}px`;
         target.setAttribute('aria-expanded', 'true');
       }
-    } else if (target.hasAttribute('data-map-enemy-info')) {
-      const enemyId = target.dataset.enemyId;
-      if (!enemyId) return true;
-      // 只读查询：写入当前 Run 的 UI 临时流，不改变目标选择或提交草稿。
-      ctrl.showMapEnemyInfo(runId, enemyId);
-    } else if (target.hasAttribute('data-map-move-to')) {
-      const nodeId = target.dataset.mapMoveTo;
-      const fromNodeId = target.dataset.mapFromNode;
-      if (!nodeId || !fromNodeId) return true;
-      ctrl.moveMapFromFlow(runId, fromNodeId, nodeId);
     } else if (target.hasAttribute('data-map-complete-encounter')) {
       ctrl.commands.completeMapEncounter(runId);
       ctrl.requestMapWorkspaceRefresh(runId);

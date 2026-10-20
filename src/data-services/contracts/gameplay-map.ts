@@ -42,13 +42,14 @@ export interface GameplayMapActionDef {
   readonly name: string;
   /** Optional player-facing action explanation. */
   readonly description?: string;
-  /** Fixed Map party members allowed to perform this Character action; use [] for actorless sources. */
+  /** Fixed Map party members allowed to perform this Character action; use [] when no Character may use it. */
   readonly eligibleCharacterIds: readonly Character[];
   /** The only target rule used by this action. */
   readonly target: GameplayMapActionTargetDef;
   /**
    * Optional explicit combat use for finite Encounter tendency adjustments.
-   * Omitted Actions use only their participant's base tendencyWeight.
+   * Role conditions are evaluated from the candidate actor's side; omitted
+   * Actions use only the candidate's base tendencyWeight.
    */
   readonly tendencyRole?: 'recovery' | 'defense' | 'attack';
   /** Optional resource balances consumed before applying effects. */
@@ -61,19 +62,19 @@ export interface GameplayMapActionDef {
   readonly cardEffects?: readonly GameplayMapActionCardEffectDef[];
 }
 
-/** Targets available to Character actions and actorless Ability / Item actions. */
+/** Targets available to autonomous Character / Enemy Actions and actorless Ability / Item actions. */
 export type GameplayMapActionTargetDef =
   | { readonly kind: 'none' }
   | { readonly kind: 'self' }
   | {
     readonly kind: 'partyCharacter';
     /** Optional legal-target preference; absent means the first Map party member. */
-    readonly preference?: 'stableOrder' | 'highestMissingHpRatio';
+    readonly preference?: 'stableOrder' | 'lowestHpRatio' | 'highestMissingHpRatio';
   }
   | {
     readonly kind: 'enemy';
     /** Optional legal-target preference; absent means the first Encounter Enemy. */
-    readonly preference?: 'stableOrder' | 'lowestHpRatio';
+    readonly preference?: 'stableOrder' | 'lowestHpRatio' | 'highestMissingHpRatio';
   }
   | {
     readonly kind: 'card';
@@ -91,21 +92,21 @@ export interface GameplayMapActionCardEffectDef {
   readonly amount: number;
 }
 
-/** Resource costs are positive amounts charged from the acting character or team. */
+/** Resource costs are positive amounts charged from the acting combatant or its side's team. */
 export interface GameplayMapActionResourceCostDef {
-  /** `actor` charges the performing character; `team` charges the shared MapRun pool. */
+  /** `actor` charges the performer; `team` charges its side's pool (MapRun-local for Character, Encounter-local for Enemy). */
   readonly scope: 'actor' | 'team';
-  /** MapRun-local resource key; an undeclared starting balance is 0. */
+  /** Resource key; an undeclared starting balance is 0. */
   readonly resourceId: string;
   /** Positive safe integer amount to consume. */
   readonly amount: number;
 }
 
-/** A signed change to an acting-character or shared-team MapRun resource. */
+/** A signed change to the acting combatant's Actor resource or its side's Team resource. */
 export interface GameplayMapActionResourceEffectDef {
-  /** `actor` changes one character balance; `team` changes the shared MapRun pool. */
+  /** `actor` changes the acting combatant's balance; `team` changes its side's shared pool. */
   readonly scope: 'actor' | 'team';
-  /** MapRun-local resource key; an undeclared starting balance is 0. */
+  /** Resource key; an undeclared starting balance is 0. */
   readonly resourceId: string;
   /** Non-zero safe integer delta; positive adds and negative removes balance. */
   readonly amount: number;
@@ -119,8 +120,16 @@ export interface GameplayMapActionResourceEffectDef {
 
 /** A signed HP change applied to the action's selected Enemy or party target. */
 export interface GameplayMapActionHpEffectDef {
-  /** Non-zero safe integer; damage is negative and healing is positive. */
+  /** Non-zero safe integer; negative damages and positive heals the selected unit. */
   readonly amount: number;
+}
+
+/** Encounter-local initial balance for an Enemy Actor or the Enemy Team. */
+export interface GameplayEncounterInitialEnemyResourceDef {
+  /** Encounter-local resource key. */
+  readonly resourceId: string;
+  /** Initial non-negative safe integer balance. */
+  readonly value: number;
 }
 
 /** Explicit starting HP and cap for one member of the fixed Map party. */
@@ -259,7 +268,7 @@ export interface GameplayMapEdgeConditionDef {
   readonly amount: number;
 }
 
-/** Encounter presentation, battle roster, source options, and Character participants. */
+/** Encounter presentation, battle roster, autonomous action pools, and player sources. */
 export interface GameplayEncounterDef {
   /** Player-facing encounter name. */
   readonly title: string;
@@ -277,6 +286,8 @@ export interface GameplayEncounterDef {
    * disables manual completion; omit the field for a non-battle Encounter.
    */
   readonly enemies?: readonly GameplayEncounterEnemyDef[];
+  /** Encounter-local shared resource balances for Enemy actions; starts at 0 when omitted. */
+  readonly initialEnemyTeamResources?: readonly GameplayEncounterInitialEnemyResourceDef[];
   /** Map-local Actions exposed as actorless Player Abilities. */
   readonly abilityActionIds?: readonly string[];
   /** Encounter-local mapping from one Consumable Item to a Map-local Action. */
@@ -299,11 +310,11 @@ export interface GameplayEncounterParticipantDef {
   readonly actions: readonly GameplayEncounterActionCandidateDef[];
 }
 
-/** One Map-local action available to a participant for weighted drawing. */
+/** One Map-local action available to a Character or Enemy for weighted drawing. */
 export interface GameplayEncounterActionCandidateDef {
   /** ID of an action defined in the owning Map. */
   readonly actionId: string;
-  /** Positive safe integer Tendency weight for this participant. */
+  /** Positive safe integer Tendency weight for this combatant. */
   readonly tendencyWeight: number;
 }
 
@@ -314,7 +325,7 @@ export interface GameplayEncounterCompletionDef {
   readonly label: string;
 }
 
-/** One Enemy with Encounter-local identity, bounded HP, and fixed damage. */
+/** One autonomous Enemy with Encounter-local identity, bounded HP, and an Action pool. */
 export interface GameplayEncounterEnemyDef {
   /** Stable ID unique within this Encounter. */
   readonly id: string;
@@ -322,8 +333,10 @@ export interface GameplayEncounterEnemyDef {
   readonly initialHp: number;
   /** Positive safe integer cap for this Enemy's Encounter-local HP. */
   readonly maxHp: number;
-  /** Positive safe integer damage dealt once per surviving Enemy turn. */
-  readonly damage: number;
+  /** Weighted autonomous Action candidates; omitted or empty means this Enemy waits. */
+  readonly actions?: readonly GameplayEncounterActionCandidateDef[];
+  /** Encounter-local Actor balances for this Enemy; undeclared resources start at 0. */
+  readonly initialResources?: readonly GameplayEncounterInitialEnemyResourceDef[];
 }
 
 /** Encounter-local Item source mapping; each Item ID appears at most once per Encounter. */

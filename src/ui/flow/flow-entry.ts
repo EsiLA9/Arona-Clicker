@@ -6,6 +6,7 @@
 
 import type { Talklet } from '../../data-services/contracts/story';
 import type { ChatEntry } from '../components/story';
+import type { MapCardHostLayout, MapLocationRef } from '../cards/card-host';
 
 /** 单条流的上限：与既有聊天流一致，先执行回收再裁剪。 */
 export const FLOW_STREAM_MAX = 200;
@@ -60,6 +61,48 @@ export interface FlowMapOverview {
   }[];
 }
 
+/**
+ * One real Gameplay B card attached to a Flow entry.
+ * Read-only by construction: it can be inspected and targeted, never edited or swapped.
+ */
+export interface FlowMapCard {
+  /** Host + Flow entry + slot + object key; never a domain identity. */
+  readonly instanceKey: string;
+  readonly objectKey: string;
+  /** Present only when this card is the current source of a projected relation. */
+  readonly relationKey?: string;
+  readonly entries: readonly ('inspect' | 'target')[];
+  readonly ownerName: string;
+  readonly actionName: string;
+  readonly description?: string;
+  readonly stateLabel: string;
+  readonly scost?: number;
+  readonly zone: 'hand' | 'playerCommand' | 'enemyIntent';
+}
+
+/** A current MapRun node shown as a selectable location card in Flow. */
+export interface FlowMapLocation {
+  /** Host + Flow entry + slot + Object Key; never a domain identity. */
+  readonly instanceKey: string;
+  readonly objectKey: string;
+  readonly ref: MapLocationRef;
+  readonly title: string;
+  readonly description?: string;
+  readonly stateLabel: string;
+  readonly selectable: boolean;
+  readonly unavailableReason?: string;
+}
+
+/** Current outgoing location choices; separate from Encounter cards and relations. */
+export interface FlowMapLocations {
+  readonly runId: string;
+  readonly mapId: string;
+  readonly fromNodeId: string;
+  /** Static placement settings for this Talklet's card landing point. */
+  readonly hostLayout?: MapCardHostLayout;
+  readonly locations: readonly FlowMapLocation[];
+}
+
 /** 通用呈现字段：普通 Chat 与 Map 都以它进入同一渲染入口。 */
 export interface FlowContent {
   readonly kind: FlowEntryKind;
@@ -72,6 +115,10 @@ export interface FlowContent {
   readonly actions?: readonly FlowAction[];
   /** 仅 `kind === 'map'` 使用；不进入作者 StoryDef / Datapack Talklet。 */
   readonly mapOverview?: FlowMapOverview;
+  /** Typed Gameplay B card attachments; absent for ordinary Talklets and history. */
+  readonly mapCards?: readonly FlowMapCard[];
+  /** Typed current MapRun node choices; never an Encounter card or target candidate. */
+  readonly mapLocations?: FlowMapLocations;
   /** 条目根元素的受控语义标记。 */
   readonly marks?: FlowMarks;
   /** 标题元素的受控语义标记（焦点锚点等）。 */

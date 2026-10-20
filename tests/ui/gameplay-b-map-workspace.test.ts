@@ -2,7 +2,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { gameplayBMapDatapack, gameplayBScostTrainingDefinition } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import {
+  gameplayBMapDatapack,
+  gameplayBForkedRouteDefinition,
+  gameplayBScostTrainingDefinition,
+} from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import { mapLocationObjectKey } from '../../src/ui/cards/card-host';
 import { Resource } from '../../src/arona-clicker/types/ids';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
@@ -28,6 +33,18 @@ describe('Gameplay B Map Workspace', () => {
     const map = datapack.maps?.find(candidate => candidate.id === entry.mapId);
     if (!map) throw new Error('The Gameplay B sample Map Entry does not resolve to a declared Map.');
     return map;
+  }
+
+  function autonomousBattleDatapack(): Datapack {
+    return {
+      ...gameplayBMapDatapack,
+      spots: gameplayBMapDatapack.spots.map(spot => ({
+        ...spot,
+        functionalities: (spot.functionalities ?? []).map(functionality => functionality.kind === 'mapEntry'
+          ? { ...functionality, mapId: 'gameplay-b:map:autonomous-target-battle' }
+          : functionality),
+      })),
+    };
   }
 
   function actionWorkspaceDatapack(waitForSerika = false, initialPlayerCost?: number): typeof gameplayBMapDatapack {
@@ -119,6 +136,14 @@ describe('Gameplay B Map Workspace', () => {
       target: { kind: 'partyCharacter' },
       hpEffects: [{ amount: 2 }],
     };
+    const enemyAction: GameplayMapActionDef = {
+      id: 'workspace-enemy-hit',
+      name: '敌方攻击',
+      eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter' },
+      tendencyRole: 'attack',
+      hpEffects: [{ amount: -(options.enemyDamage ?? 1) }],
+    };
     const items = [{
       id: 'gameplay-b:item:workspace-kit',
       name: '地图急救包',
@@ -139,14 +164,16 @@ describe('Gameplay B Map Workspace', () => {
         ...member,
         initialHp: options.partyHp ?? member.initialHp,
       })),
-      actions: [...characterActions, playerCommand, ability, itemAction],
+      actions: [...characterActions, playerCommand, ability, itemAction, enemyAction],
       nodes: source.nodes.map(node => node.id !== encounterNode.id ? node : ({
         ...node,
         encounter: {
           ...battleEncounter,
           enemies: [
-            { id: 'wolf', initialHp: 20, maxHp: 24, damage: options.enemyDamage ?? 1 },
-            { id: 'wolf-2', initialHp: 20, maxHp: 24, damage: options.enemyDamage ?? 1 },
+            { id: 'wolf', initialHp: 20, maxHp: 24,
+              actions: [{ actionId: enemyAction.id, tendencyWeight: 1 }] },
+            { id: 'wolf-2', initialHp: 20, maxHp: 24,
+              actions: [{ actionId: enemyAction.id, tendencyWeight: 1 }] },
           ],
           abilityActionIds: [ability.id],
           itemActions: [{ itemId: items[0]!.id, actionId: itemAction.id }],
@@ -186,7 +213,7 @@ describe('Gameplay B Map Workspace', () => {
           target: { kind: 'enemy' as const }, costs: [{ scope: 'actor' as const, resourceId: 'sCost', amount: 2 }], hpEffects: [{ amount: -1 }] })),
       ],
       nodes: source.nodes.map(node => !node.encounter ? node : { ...node, encounter: {
-        title: '卡牌作用演练', enemies: [{ id: 'robot', initialHp: 20, maxHp: 20, damage: 1 }],
+        title: '卡牌作用演练', enemies: [{ id: 'robot', initialHp: 20, maxHp: 20 }],
         participants: [{ characterId: 'shiroko', actions: ['plan-a', 'plan-b'].map(actionId => ({ actionId, tendencyWeight: 1 })) },
           { characterId: 'serika', actions: ['shot-a', 'shot-b', 'shot-c', 'shot-d'].map(actionId => ({ actionId, tendencyWeight: 1 })) }],
       } }),
@@ -219,6 +246,54 @@ describe('Gameplay B Map Workspace', () => {
     return { root, mapId: mapFixture(datapack).id };
   }
 
+  function commitFlowLocation(root: HTMLElement, nodeId: string): void {
+    const card = root.querySelector<HTMLElement>(`[data-map-location-node-id="${nodeId}"]`);
+    const submit = root.querySelector<HTMLButtonElement>('[data-map-location-submit]');
+    if (!card || !submit) throw new Error(`Map Workspace did not render location ${nodeId}`);
+    card.click();
+    if (submit.disabled) throw new Error(`Map Workspace did not allow location ${nodeId}`);
+    submit.click();
+  }
+
+  function forkedLocationDatapack(): Datapack {
+    return {
+      ...gameplayBMapDatapack,
+      spots: gameplayBMapDatapack.spots.map(spot => ({
+        ...spot,
+        functionalities: spot.functionalities?.map(functionality => functionality.kind === 'mapEntry'
+          && functionality.id === 'field-investigation-map'
+          ? { ...functionality, mapId: gameplayBForkedRouteDefinition.id }
+          : functionality),
+      })),
+    };
+  }
+
+  function locationConditionDatapack(requiredAmount = 100): Datapack {
+    const source = mapFixture();
+    const firstEdge = source.edges.find(edge => edge.fromNodeId === source.startNodeId);
+    if (!firstEdge) throw new Error('The sample Map has no outgoing start Edge.');
+    const map: GameplayMapDef = {
+      ...source,
+      id: 'gameplay-b:map:locked-location-test',
+      resumeVersion: source.resumeVersion + 100,
+      edges: source.edges.map(edge => edge === firstEdge ? {
+        ...edge,
+        condition: { kind: 'teamResourceAtLeast', resourceId: 'supplies', amount: requiredAmount },
+      } : edge),
+    };
+    return {
+      ...gameplayBMapDatapack,
+      maps: [...(gameplayBMapDatapack.maps ?? []).filter(candidate => candidate.id !== map.id), map],
+      spots: gameplayBMapDatapack.spots.map(spot => ({
+        ...spot,
+        functionalities: spot.functionalities?.map(functionality => functionality.kind === 'mapEntry'
+          && functionality.id === 'field-investigation-map'
+          ? { ...functionality, mapId: map.id }
+          : functionality),
+      })),
+    };
+  }
+
   function enterEncounter(root: HTMLElement, map: ReturnType<typeof mapFixture>): string {
     if (!controller) throw new Error('UI controller has not been initialized');
     const started = controller.commands.startMap(map.id);
@@ -228,9 +303,7 @@ describe('Gameplay B Map Workspace', () => {
     if (!encounterNode) throw new Error('Sample Map has no Encounter Node');
     const encounterEdge = map.edges.find(edge => edge.fromNodeId === map.startNodeId && edge.toNodeId === encounterNode.id);
     if (!encounterEdge) throw new Error('Sample Map has no route into its Encounter');
-    const move = root.querySelector<HTMLButtonElement>(`[data-map-move-to="${encounterNode.id}"]`);
-    if (!move) throw new Error('Map Workspace did not render its Encounter route');
-    move.click();
+    commitFlowLocation(root, encounterNode.id);
     return started.runId;
   }
 
@@ -324,6 +397,43 @@ describe('Gameplay B Map Workspace', () => {
     expect(root.querySelector('svg')).toBeNull();
   });
 
+  test('keeps prepared cards in the party workspace and omits the per-round Flow card row', async () => {
+    const { root } = mount(gameplayBMapDatapack);
+    const runId = enterEncounter(root, gameplayBScostTrainingDefinition);
+    const prepare = (characterId: string, actionId: string) => {
+      if (activeWorkspaceView(runId).actionPreview!.preparedActions.find(row => row.characterId === characterId)!.preparedAction!.actionId === actionId) return;
+      root.querySelector<HTMLButtonElement>(`[data-map-hand-stack-toggle][data-character-id="${characterId}"]`)!.click();
+      root.querySelector<HTMLButtonElement>(`[data-map-action-swap][data-character-id="${characterId}"][data-action-id="${actionId}"]`)!.click();
+    };
+    prepare('shiroko', 'planning');
+    prepare('serika', 'rifle-shot');
+
+    const before = activeWorkspaceView(runId);
+    const rifle = before.cards.find(card => card.owner.id === 'serika' && card.actionId === 'rifle-shot')!;
+    const rifleKey = mapObjectKey(rifle.ref);
+    const mapRifle = root.querySelector<HTMLElement>(`[data-map-party-member="serika"] .map-workspace__unit-action-card`)!;
+    expect(mapRifle.dataset.mapObjectKey).toBe(rifleKey);
+    expect(root.querySelector('[data-map-current-cards]')).toBeNull();
+    expect(root.querySelector('[data-flow-host-key] .map-card-face')).toBeNull();
+    expect(root.querySelector('[data-map-region-key="talk-feed"]')?.textContent).not.toContain('本轮当前玩法卡');
+
+    const confirm = vi.spyOn(controller!.commands, 'setMapPreparedCardTarget');
+    const mapSource = root.querySelector<HTMLElement>('[data-map-party-member="shiroko"] .map-workspace__unit-action-card')!;
+    mapSource.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
+    await Promise.resolve();
+    const targetChoice = [...root.querySelectorAll<HTMLElement>('[data-map-card-target]')]
+      .find(card => card.dataset.mapObjectKey === rifleKey)!;
+    expect(targetChoice.dataset.mapRoleCandidate).toBe('候选');
+
+    targetChoice.click();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(activeWorkspaceView(runId).actionPreview!.preparedActions.find(row => row.characterId === 'shiroko')!.targetCard).toEqual(rifle.ref);
+    expect(activeWorkspaceView(runId).run.activeEncounter!.round).toBe(before.run.activeEncounter!.round);
+    expect(activeWorkspaceView(runId).run.activeEncounter!.randomState).toEqual(before.run.activeEncounter!.randomState);
+    expect(root.querySelector('.map-workspace__target-drag-preview')).toBeNull();
+    vi.restoreAllMocks();
+  });
+
   test('projects detached Map, Node, Edge, start and exit facts from the current Run', () => {
     mount();
     const map = mapFixture();
@@ -385,18 +495,26 @@ describe('Gameplay B Map Workspace', () => {
     let view = activeWorkspaceView(started.runId);
     const firstEdge = view.map.edges.find(edge => edge.fromNodeId === view.run.currentNodeId)!;
     const firstTarget = view.map.nodes.find(node => node.id === firstEdge.toNodeId)!;
-    const initialMoveButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-map-move-to]')];
-    expect(initialMoveButtons.map(button => button.dataset.mapMoveTo)).toEqual([firstTarget.id]);
+    const locationCards = [...root.querySelectorAll<HTMLElement>('[data-map-location-node-id]')];
+    expect(locationCards.map(card => card.dataset.mapLocationNodeId)).toEqual([firstTarget.id]);
     expect(root.querySelector('[data-map-show-map]')).not.toBeNull();
-    expect(root.querySelector('[data-workspace-column="right"] [data-map-move-to]')).toBeNull();
-    expect(root.querySelector('[data-flow-host-key] [data-map-move-to]')).not.toBeNull();
+    expect(root.querySelector('[data-workspace-column="right"] [data-map-location-node-id]')).toBeNull();
+    expect(root.querySelector('[data-flow-host-key] [data-map-location-node-id]')).not.toBeNull();
     const remoteNode = view.map.nodes.find(node => node.id !== view.run.currentNodeId
       && !view.map.edges.some(edge => edge.fromNodeId === view.run.currentNodeId && edge.toNodeId === node.id));
     expect(remoteNode).toBeDefined();
-    expect(root.querySelector('[data-map-move-to="' + remoteNode!.id + '"]')).toBeNull();
+    expect(root.querySelector('[data-map-location-node-id="' + remoteNode!.id + '"]')).toBeNull();
 
-    controller!.commands.moveMap(started.runId, firstTarget.id);
-    controller!.render();
+    const startNodeId = view.run.currentNodeId;
+    const selectedLocation = root.querySelector<HTMLElement>(`[data-map-location-node-id="${firstTarget.id}"]`)!;
+    const confirmMove = root.querySelector<HTMLButtonElement>('[data-map-location-submit]')!;
+    expect(confirmMove.disabled).toBe(true);
+    selectedLocation.click();
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(startNodeId);
+    expect(root.querySelector('[data-map-movement]')).toBeNull();
+    expect(confirmMove.disabled).toBe(false);
+    confirmMove.click();
+
     view = activeWorkspaceView(started.runId);
     expect(view.currentEncounter).toMatchObject({ mapId: map.id, nodeId: firstTarget.id });
     expect(root.querySelector(`[data-workspace-column="center"] [data-map-region-key="feed-encounter:${firstTarget.id}"]`)?.textContent).toContain(view.currentEncounter?.title);
@@ -411,7 +529,7 @@ describe('Gameplay B Map Workspace', () => {
     expect(root.querySelector('[data-map-move-choices]')).toBeNull();
     const blockedTarget = view.map.edges.find(edge => edge.fromNodeId === view.run.currentNodeId)?.toNodeId;
     expect(blockedTarget).toBeDefined();
-    expect(root.querySelector('[data-map-move-to="' + blockedTarget + '"]')).toBeNull();
+    expect(root.querySelector('[data-map-location-node-id="' + blockedTarget + '"]')).toBeNull();
     expect(root.querySelector<HTMLButtonElement>('.map-workspace__commit')?.getAttribute('aria-label'))
       .toBe(view.actionPreview?.commitPreview.canCommit ? '提交本轮' : view.currentEncounter?.completion?.label);
 
@@ -444,7 +562,7 @@ describe('Gameplay B Map Workspace', () => {
     expect(root.querySelector('[data-map-run-result="success"]')).not.toBeNull();
     expectSharedMapTopbar(root.querySelector('[data-workspace-frame="map"]')!);
     expect(root.querySelector('[data-map-node-id]')).toBeNull();
-    expect(root.querySelector('[data-map-move-to]')).toBeNull();
+    expect(root.querySelector('[data-map-location-node-id]')).toBeNull();
     expect(root.querySelector('[data-map-back]')).not.toBeNull();
     expect(root.textContent).toContain(map.name);
     expect(root.textContent).toContain(exitNode.title);
@@ -458,8 +576,8 @@ describe('Gameplay B Map Workspace', () => {
     expect(game!.mapRun.getSnapshot()).toBeNull();
   });
 
-  test('consumes the flow mover only after success and preserves the mounted workspace', () => {
-    const datapack = actionWorkspaceDatapack(); // Unresolved party targets deterministically expose manual completion.
+  test('location selection waits for Click, recovers from failed movement and preserves the mounted workspace', () => {
+    const datapack = actionWorkspaceDatapack();
     const { root } = mount(datapack);
     const map = mapFixture(datapack);
     const started = controller!.commands.startMap(map.id);
@@ -474,19 +592,26 @@ describe('Gameplay B Map Workspace', () => {
     const party = root.querySelector('[data-map-region-key="party-scroll"]');
     const right = root.querySelector('[data-map-region-key="context-scroll"]');
     const mover = root.querySelector<HTMLElement>('[data-map-move-choices]')!;
-    const move = mover.querySelector<HTMLButtonElement>('[data-map-move-to]')!;
-    move.focus();
+    const card = mover.querySelector<HTMLElement>(`[data-map-location-node-id="${to.id}"]`)!;
+    const confirm = root.querySelector<HTMLButtonElement>('[data-map-location-submit]')!;
+    card.focus();
+    card.click();
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(from.id);
+    expect(confirm.disabled).toBe(false);
     const renders = controller!.getRefreshStats().fullRenders;
     controller!.requestMapWorkspaceRefresh(started.runId);
     expect(root.querySelector('[data-map-move-choices]')).toBe(mover);
-    expect(root.querySelector('[data-map-move-to]')).toBe(move);
+    expect(root.querySelector(`[data-map-location-node-id="${to.id}"]`)).toBe(card);
+    expect(confirm.disabled).toBe(false);
     const failed = vi.spyOn(controller!.commands, 'moveMap').mockImplementationOnce(() => { throw new Error('移动失败'); });
-    move.click();
+    confirm.click();
     expect(root.querySelector('[data-map-move-choices]')).toBe(mover);
     expect(root.querySelector('[data-map-movement]')).toBeNull();
-    expect(document.activeElement).toBe(move);
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(from.id);
+    expect(confirm.disabled).toBe(false);
+    expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('移动未执行');
     failed.mockRestore();
-    move.click();
+    confirm.click();
     expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(to.id);
     expect(mover.isConnected).toBe(false);
     expect(root.querySelector('[data-map-move-choices]')).toBeNull();
@@ -498,17 +623,131 @@ describe('Gameplay B Map Workspace', () => {
     expect(root.querySelector('[data-map-region-key="context-scroll"]')).toBe(right);
     controller!.requestMapWorkspaceRefresh(started.runId);
     expect(root.querySelectorAll('[data-map-movement]')).toHaveLength(1);
-    expect(controller!.moveMapFromFlow(started.runId, from.id, to.id)).toBe(false);
     expect(root.querySelectorAll('[data-map-movement]')).toHaveLength(1);
     expect(controller!.getRefreshStats().fullRenders).toBe(renders);
-    root.querySelector<HTMLButtonElement>('[data-map-complete-encounter]')!.click();
+    // Complete the declared manual Encounter to expose the following flow mover.
+    controller!.commands.completeMapEncounter(started.runId);
+    controller!.render();
     expect(root.querySelector('[data-flow-host-key] [data-map-move-choices]')).not.toBeNull();
-    expect(root.querySelector('[data-workspace-column="right"] [data-map-move-to]')).toBeNull();
-    const exit = root.querySelector<HTMLButtonElement>('[data-map-move-to]')!;
-    exit.click();
+    expect(root.querySelector('[data-workspace-column="right"] [data-map-location-node-id]')).toBeNull();
+    const exitEdge = activeWorkspaceView(started.runId).map.edges.find(candidate => candidate.fromNodeId === to.id)!;
+    commitFlowLocation(root, exitEdge.toNodeId);
     expect(root.querySelector('[data-map-run-result="success"]')).not.toBeNull();
     expect(root.querySelector('[data-map-move-choices]')).toBeNull();
     expect(root.querySelectorAll('[data-map-movement]')).toHaveLength(2);
+  });
+
+  test('two outgoing location cards can be reselected and a stale source cannot move twice', () => {
+    const datapack = forkedLocationDatapack();
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
+    const started = controller!.commands.startMap(map.id);
+    controller!.enterWorkspaceRoute({ kind: 'map', runId: started.runId });
+    controller!.render();
+    const startNodeId = activeWorkspaceView(started.runId).run.currentNodeId;
+    const chooser = root.querySelector<HTMLElement>('[data-map-location-choices]')!;
+    const cards = [...chooser.querySelectorAll<HTMLElement>('[data-map-location-node-id]')];
+    expect(cards.map(card => card.dataset.mapLocationNodeId)).toEqual(['b', 'c']);
+    const battle = cards.find(card => card.dataset.mapLocationNodeId === 'b')!;
+    const supply = cards.find(card => card.dataset.mapLocationNodeId === 'c')!;
+    const confirm = root.querySelector<HTMLButtonElement>('[data-map-location-submit]')!;
+    expect(confirm.disabled).toBe(true);
+
+    battle.click();
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(startNodeId);
+    expect(battle.getAttribute('aria-pressed')).toBe('true');
+    supply.click();
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(startNodeId);
+    expect(battle.getAttribute('aria-pressed')).toBe('false');
+    expect(supply.getAttribute('aria-pressed')).toBe('true');
+    confirm.click();
+
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe('c');
+    expect(root.querySelectorAll('[data-map-movement]')).toHaveLength(1);
+    const staleRef = { kind: 'mapNode' as const, runId: started.runId, mapId: map.id, nodeId: 'c' };
+    expect(controller!.commitMapLocationFromFlow({
+      ref: staleRef,
+      objectKey: mapLocationObjectKey(staleRef),
+      fromNodeId: startNodeId,
+    })).toMatchObject({ moved: false });
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe('c');
+    expect(root.querySelectorAll('[data-map-movement]')).toHaveLength(1);
+  });
+
+  test('a locked location cannot be selected or confirmed against the current Map View', () => {
+    const datapack = locationConditionDatapack();
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
+    const started = controller!.commands.startMap(map.id);
+    controller!.enterWorkspaceRoute({ kind: 'map', runId: started.runId });
+    controller!.render();
+    const view = activeWorkspaceView(started.runId);
+    const targetNodeId = view.map.edges.find(edge => edge.fromNodeId === view.run.currentNodeId)!.toNodeId;
+    const card = root.querySelector<HTMLElement>(`[data-map-location-node-id="${targetNodeId}"]`)!;
+    const confirm = root.querySelector<HTMLButtonElement>('[data-map-location-submit]')!;
+    expect(card.dataset.mapLocationSelectable).toBe('false');
+    expect(card.dataset.mapCardEntry).toBeUndefined();
+    expect(confirm.disabled).toBe(true);
+
+    card.click();
+    expect(confirm.disabled).toBe(true);
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(view.run.currentNodeId);
+    const ref = { kind: 'mapNode' as const, runId: started.runId, mapId: map.id, nodeId: targetNodeId };
+    expect(controller!.commitMapLocationFromFlow({
+      ref,
+      objectKey: mapLocationObjectKey(ref),
+      fromNodeId: view.run.currentNodeId,
+    })).toMatchObject({ moved: false, message: '当前路线条件未满足，该地点无法到达。' });
+    expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(view.run.currentNodeId);
+  });
+
+  test('rechecks a route condition after selection and refuses a now-locked destination', () => {
+    const datapack = locationConditionDatapack(1);
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
+    const started = controller!.commands.startMap(map.id);
+    controller!.enterWorkspaceRoute({ kind: 'map', runId: started.runId });
+    controller!.render();
+    const view = activeWorkspaceView(started.runId);
+    const edge = view.map.edges.find(candidate => candidate.fromNodeId === view.run.currentNodeId)!;
+    expect(edge.condition?.satisfied).toBe(true);
+    const card = root.querySelector<HTMLElement>(`[data-map-location-node-id="${edge.toNodeId}"]`)!;
+    const confirm = root.querySelector<HTMLButtonElement>('[data-map-location-submit]')!;
+    card.click();
+    expect(confirm.disabled).toBe(false);
+
+    const originalGame = controller!.game;
+    const descriptor = Object.getOwnPropertyDescriptor(controller!, 'game')!;
+    const mapRun = {
+      ...originalGame.mapRun,
+      getWorkspaceView: (runId: string) => {
+        const latest = originalGame.mapRun.getWorkspaceView(runId);
+        if (runId !== started.runId || latest?.kind !== 'active') return latest;
+        return {
+          ...latest,
+          map: { ...latest.map, edges: latest.map.edges.map(candidate => candidate.fromNodeId === edge.fromNodeId
+            && candidate.toNodeId === edge.toNodeId && candidate.condition
+            ? { ...candidate, condition: { ...candidate.condition, satisfied: false } }
+            : candidate) },
+        };
+      },
+    };
+    const gameWithLatestView = new Proxy(originalGame, {
+      get(target, property, receiver) {
+        return property === 'mapRun' ? mapRun : Reflect.get(target, property, receiver);
+      },
+    });
+    const move = vi.spyOn(controller!.commands, 'moveMap');
+    Object.defineProperty(controller!, 'game', { ...descriptor, value: gameWithLatestView });
+    try {
+      confirm.click();
+      expect(move).not.toHaveBeenCalled();
+      expect(activeWorkspaceView(started.runId).run.currentNodeId).toBe(view.run.currentNodeId);
+      expect(root.querySelector<HTMLButtonElement>('[data-map-location-submit]')?.disabled).toBe(true);
+      expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('路线条件未满足');
+    } finally {
+      Object.defineProperty(controller!, 'game', { ...descriptor, value: originalGame });
+    }
   });
 
   test('does not preserve a Map route over a different top-level service', () => {
@@ -616,7 +855,9 @@ describe('Gameplay B Map Workspace', () => {
     expect((document.activeElement as HTMLElement | null)?.dataset.actionId).toBe(command.action.actionId);
     expect(root.querySelector<HTMLButtonElement>('[data-map-action-swap][data-character-id="serika"]')?.disabled).toBe(false);
     expect(root.querySelector<HTMLButtonElement>('[data-map-player-command][data-character-id="serika"]')?.disabled).toBe(true);
-    expect(root.querySelector('[data-map-commit]')).toBeNull();
+    expect(root.querySelector<HTMLButtonElement>('[data-map-commit]')?.disabled).toBe(false);
+    expect(commandedPreview.preparedActions.find(member => member.characterId === 'shiroko')?.targetCharacterId)
+      .toBe(commandedPreview.preparedActions.find(member => member.characterId === 'shiroko')?.legalTargetCharacterIds[0]);
 
     const shirokoCommandTarget = commandedPreview.preparedActions.find(member => member.characterId === 'shiroko')!.legalTargetCharacterIds[0]!;
     root.querySelector<HTMLButtonElement>(
@@ -687,6 +928,110 @@ describe('Gameplay B Map Workspace', () => {
     expect(root.querySelector('[data-action-id="Wait"]')).toBeNull();
   });
 
+  test('renders Enemy Hands as same-size read-only Action cards with automatic targets', () => {
+    const datapack = battleWorkspaceDatapack();
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const view = activeWorkspaceView(runId);
+    const enemyCards = [...root.querySelectorAll<HTMLElement>(
+      '[data-workspace-column="right"] .map-workspace__enemy-action-card',
+    )];
+
+    expect(view.actionPreview?.preparedEnemyActions).toHaveLength(2);
+    expect(enemyCards).toHaveLength(2);
+    for (const [index, card] of enemyCards.entries()) {
+      const enemyId = index === 0 ? 'wolf' : 'wolf-2';
+      const prepared = view.actionPreview!.preparedEnemyActions.find(row => row.enemyId === enemyId)!;
+      const handCard = view.cards.find(row => row.owner.kind === 'enemy' && row.owner.id === enemyId)!;
+      expect(prepared.naturalAction?.name).toBe('敌方攻击');
+      expect(prepared.targetCharacterId).toBe('shiroko');
+      expect(card.tagName).toBe('DIV');
+      expect(card.getAttribute('role')).toBe('group');
+      expect(card.dataset.mapCardUsage).toBe('live');
+      expect(card.dataset.mapCardEntry).toBe('inspect');
+      expect(card.dataset.mapObjectKey).toBe(mapObjectKey(handCard.ref));
+      expect(card.dataset.mapCardHostRef).toBe(`enemy-hand:${runId}:${enemyId}`);
+      expect(card.getAttribute('aria-label')).toContain('只读');
+      expect(card.textContent).toContain('敌方自然行动');
+      expect(card.closest('.map-workspace__unit-slot.has-cards')).not.toBeNull();
+      expect(card.closest('.map-workspace__unit-card-stack')).not.toBeNull();
+      expect(card.closest('button')).toBeNull();
+      expect(card.dataset.mapCardEntry).not.toMatch(/target|replace|command/);
+    }
+    expect(root.querySelectorAll('[data-map-enemy-info]')).toHaveLength(0);
+    expect(root.querySelector('[data-map-region-key="enemy-action:wolf"]')?.textContent)
+      .toContain('目标角色：砂狼白子');
+    expect(root.querySelector('[data-workspace-column="right"] [data-map-target-enemy]')).toBeNull();
+    expect(root.querySelector('[data-workspace-column="right"] [data-map-action-swap]')).toBeNull();
+    expect(root.querySelector('[data-workspace-column="right"] [data-map-player-command]')).toBeNull();
+
+    const target = root.querySelector<HTMLElement>(
+      '[data-workspace-column="left"] [data-map-party-member="shiroko"] .map-workspace__unit-face',
+    )!;
+    enemyCards[0]!.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+    expect(enemyCards[0]!.dataset.mapRoleSource).toBe('发起');
+    expect(root.querySelector('[data-workspace-column="right"] [data-map-region-key="enemy-face:wolf"]')?.getAttribute('data-map-role-source')).toBeNull();
+    expect(target.dataset.mapRoleRecipient).toBe('接收');
+
+    const beforeInspect = game!.mapRun.getSnapshot();
+    enemyCards[0]!.click();
+    expect(game!.mapRun.getSnapshot()).toEqual(beforeInspect);
+  });
+
+  test('shows Enemy Wait without inventing a card when its Action pool is empty', () => {
+    const base = battleWorkspaceDatapack();
+    const source = mapFixture(base);
+    const map: GameplayMapDef = {
+      ...source,
+      resumeVersion: source.resumeVersion + 1,
+      nodes: source.nodes.map(node => node.encounter ? {
+        ...node,
+        encounter: { ...node.encounter, enemies: (node.encounter.enemies ?? []).map(enemy => ({ ...enemy, actions: [] })) },
+      } : node),
+    };
+    const datapack: Datapack = {
+      ...base,
+      maps: base.maps?.map(candidate => candidate.id === map.id ? map : candidate),
+    };
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, map);
+    const view = activeWorkspaceView(runId);
+
+    expect(view.actionPreview?.preparedEnemyActions).toHaveLength(2);
+    expect(view.actionPreview?.preparedEnemyActions.every(row => row.naturalAction === null && row.hand.length === 0)).toBe(true);
+    expect(root.querySelectorAll('[data-workspace-column="right"] .map-workspace__enemy-action-card')).toHaveLength(0);
+    expect(root.querySelector('[data-map-region-key="enemy-action:wolf"]')?.textContent).toContain('本轮待机');
+  });
+
+  test('runs the official three-Robot sample through the Map Workspace without selecting targets', () => {
+    const datapack = autonomousBattleDatapack();
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
+    const runId = enterEncounter(root, map);
+    const view = activeWorkspaceView(runId);
+
+    expect(view.actionPreview?.preparedActions.map(row => row.targetEnemyId)).toEqual(['robot-a', 'robot-a']);
+    expect(view.actionPreview?.preparedEnemyActions.map(row => row.enemyId)).toEqual(['robot-a', 'robot-b', 'robot-c']);
+    expect(root.querySelectorAll('[data-workspace-column="right"] .map-workspace__enemy-action-card')).toHaveLength(3);
+    expect(root.querySelector<HTMLButtonElement>('[data-map-commit]')?.disabled).toBe(false);
+    root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
+
+    const committed = game!.mapRun.getSnapshot()!;
+    expect(committed.activeEncounter?.enemies.map(row => [row.enemyId, row.currentHp])).toEqual([
+      ['robot-a', 0], ['robot-b', 6], ['robot-c', 8],
+    ]);
+    expect(committed.partyHp).toEqual([
+      { characterId: 'shiroko', currentHp: 4 },
+      { characterId: 'serika', currentHp: 10 },
+    ]);
+    expect(committed.activeEncounter?.lastCommit?.enemyActions).toMatchObject([
+      { enemyId: 'robot-a', skipReason: 'defeated' },
+      { enemyId: 'robot-b', actionId: 'robot-counterattack', targetCharacterId: 'shiroko' },
+      { enemyId: 'robot-c', actionId: 'robot-counterattack', targetCharacterId: 'shiroko' },
+    ]);
+    expect(root.querySelector('[data-map-region-key="feed-recent-commit"]')?.textContent).toContain('机器人射击');
+  });
+
   test('renders Action, Ability and Item names from a receipt as text instead of markup', () => {
     const { root } = mount();
     const map = mapFixture();
@@ -713,7 +1058,7 @@ describe('Gameplay B Map Workspace', () => {
         itemName, action: null, target: { kind: 'partyCharacter' as const, characterId: 'serika' },
         consumedCount: 1 as const, hpChanges: [],
       },
-      enemyAttacks: [],
+      enemyActions: [],
     } as NonNullable<typeof view.actionPreview>['recentCommit'];
     const actionPreview = view.actionPreview;
     expect(actionPreview).not.toBeNull();
@@ -769,18 +1114,18 @@ describe('Gameplay B Map Workspace', () => {
 
     expect(view.currentEncounter?.partyHp).toHaveLength(2);
     expect(view.currentEncounter?.enemies).toEqual([
-      { enemyId: 'wolf', currentHp: 20, maxHp: 24, damage: 1 },
-      { enemyId: 'wolf-2', currentHp: 20, maxHp: 24, damage: 1 },
+      { enemyId: 'wolf', currentHp: 20, maxHp: 24 },
+      { enemyId: 'wolf-2', currentHp: 20, maxHp: 24 },
     ]);
     expect(root.querySelectorAll('[data-workspace-column="left"] .map-workspace__unit-face')).toHaveLength(2);
     expect(root.querySelector('[data-map-region-key="party-face:shiroko"]')).not.toBeNull();
     expect(root.querySelector('[data-workspace-column="right"] [data-map-enemy-hp="wolf-2"]')?.textContent).toContain('20 / 24');
     expect(root.querySelector('[data-map-complete-encounter]')).toBeNull();
-    expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('选择对象');
+    expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('本轮可提交');
     expect(root.querySelectorAll('[data-map-target-enemy]')).toHaveLength(4);
     expect(root.querySelector('[data-workspace-column="left"] [data-map-target-enemy]')).not.toBeNull();
     expect(root.querySelector('[data-workspace-column="center"] [data-map-ability-draft]')).not.toBeNull();
-    expect(root.querySelector<HTMLButtonElement>('[data-workspace-column="center"] .map-workspace__commit')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-workspace-column="center"] .map-workspace__commit')?.disabled).toBe(false);
     expect(root.querySelector('[data-map-ability-draft]')?.textContent).toContain('1 PlayerCost');
     expect(root.querySelector('[data-map-ability-draft]')?.textContent).toContain('费用充足');
     expect(root.querySelector('[data-map-item-draft]')?.textContent).toContain('库存 1');
@@ -855,11 +1200,13 @@ describe('Gameplay B Map Workspace', () => {
     const receipt = game!.mapRun.getSnapshot()?.activeEncounter?.lastCommit;
     expect(receipt?.ability).toMatchObject({ target: { kind: 'enemy', enemyId: 'wolf-2' }, playerCostSpent: 1 });
     expect(receipt?.item).toMatchObject({ itemId, target: { kind: 'partyCharacter', characterId: 'serika' }, consumedCount: 1 });
-    expect(receipt?.enemyAttacks).toHaveLength(2);
+    expect(receipt?.enemyActions).toHaveLength(2);
     const resultText = root.querySelector('[data-map-region-key="feed-recent-commit"]')?.textContent ?? '';
     expect(resultText).toContain('Ability');
     expect(resultText).toContain('地图急救包');
     expect(resultText).toContain('敌方 wolf');
+    expect(resultText).toContain('敌方攻击');
+    expect(resultText).toContain('砂狼白子 HP -1');
     expect(root.querySelector('[data-workspace-frame="map"]')).toBe(stableFrame);
     expect(root.querySelector('[data-workspace-column="left"]')).toBe(stableLeft);
     expect(root.querySelector('[data-workspace-column="center"]')).toBe(stableCenter);
@@ -1124,7 +1471,7 @@ describe('Gameplay B Map Workspace', () => {
     expect(root.textContent).toContain(map.name);
     expect(root.querySelector('[data-map-node-id]')).toBeNull();
     expect(root.querySelector('[data-map-region-key^="feed-node:"]')).toBeNull();
-    expect(root.querySelector('[data-map-move-to]')).toBeNull();
+    expect(root.querySelector('[data-map-location-node-id]')).toBeNull();
     expect(root.querySelector('[data-map-complete-encounter]')).toBeNull();
     expect(root.querySelector('[data-map-encounter-state="completed"]')).toBeNull();
     expect(root.querySelector('[data-map-back]')).not.toBeNull();
@@ -1139,35 +1486,4 @@ describe('Gameplay B Map Workspace', () => {
     expectSharedMapTopbar(frame!);
   });
 
-  test('查看情报写入共享信息流且只保留最新一条，不改变领域目标选择', () => {
-    const datapack = battleWorkspaceDatapack();
-    const { root } = mount(datapack);
-    const map = mapFixture(datapack);
-    const runId = enterEncounter(root, map);
-    const feed = root.querySelector<HTMLElement>('[data-map-region-key="talk-feed"]')!;
-    const intelButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-map-enemy-info]')];
-    expect(intelButtons).toHaveLength(2);
-
-    const before = game!.mapRun.getSnapshot()!;
-    const targetsBefore = activeWorkspaceView(runId).actionPreview?.preparedActions
-      .map(member => member.targetEnemyId);
-
-    intelButtons[0].click();
-    const firstIntel = feed.querySelectorAll<HTMLElement>('[data-map-enemy-intel]');
-    expect(firstIntel).toHaveLength(1);
-    expect(firstIntel[0].textContent).toContain('HP');
-
-    intelButtons[1].click();
-    const secondIntel = feed.querySelectorAll<HTMLElement>('[data-map-enemy-intel]');
-    expect(secondIntel).toHaveLength(1);
-    expect(secondIntel[0].textContent).toContain('wolf-2');
-
-    // 只读查询不发送 GameCommand：提交版本、费用与已选目标都不变。
-    expect(game!.mapRun.getSnapshot()).toMatchObject({
-      commitVersion: before.commitVersion,
-      playerCost: before.playerCost,
-    });
-    expect(activeWorkspaceView(runId).actionPreview?.preparedActions.map(member => member.targetEnemyId))
-      .toEqual(targetsBefore);
-  });
 });

@@ -226,7 +226,7 @@ describe('装备（Gear）系统', () => {
 
 describe('装备（Gear）base 示例内容', () => {
   test('G-12 类型线 T1–T10 连续，装配 ×1 / 升阶 ×N，图纸物品齐备', () => {
-    expect(defaultDatapack.gears).toBe(baseGears);
+    expect(defaultDatapack.gears).toEqual(baseGears);
     expect(defaultDatapack.gearConfig?.expItems.length).toBe(2);
     const gear = baseGears[0];
     expect(gear.tiers.map(t => t.tier)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);

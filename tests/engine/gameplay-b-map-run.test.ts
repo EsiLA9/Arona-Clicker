@@ -404,6 +404,9 @@ function preparedEncounter(hands: MapRunEncounterSnapshot['hands']): MapRunEncou
     nodeId: 'b',
     round: 1,
     hands,
+    enemyHands: [],
+    enemyActorResources: [],
+    enemyTeamResources: [],
     overrides: [],
     targetSelections: [],
     enemies: [],
@@ -467,8 +470,8 @@ const BATTLE_MAP: TestMap = {
       id: 'b', title: 'Battle 1', encounter: {
         title: 'Battle 1',
         enemies: [
-          { id: 'serika', initialHp: 5, maxHp: 5, damage: 4 },
-          { id: 'wolf', initialHp: 5, maxHp: 5, damage: 4 },
+          { id: 'serika', initialHp: 5, maxHp: 5 },
+          { id: 'wolf', initialHp: 5, maxHp: 5 },
         ],
         participants: BATTLE_PARTICIPANTS,
       },
@@ -476,7 +479,7 @@ const BATTLE_MAP: TestMap = {
     {
       id: 'c', title: 'Battle 2', encounter: {
         title: 'Battle 2',
-        enemies: [{ id: 'serika', initialHp: 3, maxHp: 5, damage: 1 }],
+        enemies: [{ id: 'serika', initialHp: 3, maxHp: 5 }],
         participants: BATTLE_PARTICIPANTS,
       },
     },
@@ -506,15 +509,22 @@ const DEFEAT_MAP: TestMap = {
     { characterId: 'serika', initialHp: 1, maxHp: 1 },
   ],
   initialPlayerCost: 0,
-  actions: [{ id: 'wait-action', name: 'Wait Action', eligibleCharacterIds: ['shiroko', 'serika'], target: { kind: 'none' } }],
+  actions: [
+    { id: 'wait-action', name: 'Wait Action', eligibleCharacterIds: ['shiroko', 'serika'], target: { kind: 'none' } },
+    {
+      id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
+      tendencyRole: 'attack', hpEffects: [{ amount: -1 }],
+    },
+  ],
   nodes: [
     { id: 'a', title: 'Start' },
     {
       id: 'b', title: 'Defeat Battle', encounter: {
         title: 'Defeat Battle',
         enemies: [
-          { id: 'enemy-a', initialHp: 4, maxHp: 4, damage: 1 },
-          { id: 'enemy-b', initialHp: 4, maxHp: 4, damage: 1 },
+          { id: 'enemy-a', initialHp: 4, maxHp: 4, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
+          { id: 'enemy-b', initialHp: 4, maxHp: 4, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
+          { id: 'enemy-c', initialHp: 4, maxHp: 4, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
         ],
         participants: [
           { characterId: 'shiroko', actions: [] },
@@ -542,21 +552,76 @@ const ENEMY_TURN_MAP: TestMap = {
     { characterId: 'hoshino', initialHp: 5, maxHp: 10 },
   ],
   initialPlayerCost: 0,
-  actions: [{ id: 'support', name: 'Support', eligibleCharacterIds: ['hoshino'], target: { kind: 'partyCharacter' } }],
+  actions: [
+    { id: 'support', name: 'Support', eligibleCharacterIds: ['hoshino'], target: { kind: 'partyCharacter' } },
+    {
+      id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' }, tendencyRole: 'attack',
+      hpEffects: [{ amount: -3 }],
+    },
+  ],
   nodes: [
     { id: 'a', title: 'Start' },
     {
       id: 'b', title: 'Enemy Turn', encounter: {
         title: 'Enemy Turn',
         enemies: [
-          { id: 'enemy-a', initialHp: 10, maxHp: 10, damage: 3 },
-          { id: 'enemy-b', initialHp: 10, maxHp: 10, damage: 3 },
+          { id: 'enemy-a', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
+          { id: 'enemy-b', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
         ],
         participants: [
           { characterId: 'shiroko', actions: [] },
           { characterId: 'serika', actions: [] },
           { characterId: 'hoshino', actions: [{ actionId: 'support', tendencyWeight: 1 }] },
         ],
+      },
+    },
+    { id: 'c', title: 'Exit' },
+  ],
+  edges: [{ fromNodeId: 'a', toNodeId: 'b' }, { fromNodeId: 'b', toNodeId: 'c' }],
+};
+
+const ENEMY_HAND_MAP_ID = 'test:map:enemy-hand-snapshot';
+const ENEMY_HAND_MAP: TestMap = {
+  id: ENEMY_HAND_MAP_ID,
+  name: 'Enemy Hand Snapshot',
+  resumeVersion: 1,
+  startNodeId: 'a',
+  exitNodeIds: ['c'],
+  partyCharacterIds: ['shiroko'],
+  initialPartyHp: [{ characterId: 'shiroko', initialHp: 10, maxHp: 10 }],
+  initialPlayerCost: 0,
+  initialActorResources: [{ characterId: 'shiroko', resourceId: 'focus', value: 0 }],
+  actions: [{
+    id: 'player-card-buff', name: 'Player Card Buff', eligibleCharacterIds: ['shiroko'],
+    target: { kind: 'card', side: 'opponent' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }],
+  }, {
+    id: 'enemy-shot', name: 'Enemy Shot', eligibleCharacterIds: [],
+    target: { kind: 'partyCharacter' }, tendencyRole: 'attack',
+    costs: [
+      { scope: 'actor', resourceId: 'focus', amount: 1 },
+      { scope: 'actor', resourceId: 'sCost', amount: 2 },
+      { scope: 'team', resourceId: 'charge', amount: 2 },
+    ],
+    effects: [
+      { scope: 'actor', resourceId: 'focus', amount: 1 },
+      { scope: 'actor', resourceId: 'sCost', amount: 1 },
+      { scope: 'actor', resourceId: 'focus', amount: 1, recipient: 'target' },
+      { scope: 'team', resourceId: 'charge', amount: 1 },
+    ],
+  }],
+  nodes: [
+    { id: 'a', title: 'Start' },
+    {
+      id: 'b', title: 'Enemy Hand', encounter: {
+        title: 'Enemy Hand',
+        participants: [{ characterId: 'shiroko', actions: [{ actionId: 'player-card-buff', tendencyWeight: 1 }] }],
+        initialEnemyTeamResources: [{ resourceId: 'charge', value: 3 }],
+        enemies: [{
+          id: 'robot-a', initialHp: 10, maxHp: 10,
+          actions: [{ actionId: 'enemy-shot', tendencyWeight: 2 }],
+          initialResources: [{ resourceId: 'focus', value: 1 }, { resourceId: 'sCost', value: 2 }],
+        }],
       },
     },
     { id: 'c', title: 'Exit' },
@@ -578,6 +643,218 @@ function commitCommand(run: MapRun, requestId: string): { runId: string; request
 }
 
 describe('MapRunService', () => {
+  test('stores Enemy Hands and Encounter-local resources in the prepared snapshot and restores them unchanged', () => {
+    const source = battleService(ENEMY_HAND_MAP);
+    const started = source.start(ENEMY_HAND_MAP_ID, [{ characterId: 'shiroko', variantId: 'Shiroko' }]);
+    const entered = source.move(started.runId, 'b');
+    expect(entered.activeEncounter).toMatchObject({
+      enemyHands: [{ enemyId: 'robot-a', actionIds: ['enemy-shot'] }],
+      enemyActorResources: [
+        { enemyId: 'robot-a', resourceId: 'focus', value: 1 },
+        { enemyId: 'robot-a', resourceId: 'sCost', value: 2 },
+      ],
+      enemyTeamResources: [{ resourceId: 'charge', value: 3 }],
+    });
+
+    const checkpoint = source.createSaveSnapshot();
+    expect(checkpoint).not.toBeNull();
+    if (!checkpoint) throw new Error('Enemy Hand checkpoint is missing');
+    const restored = battleService(ENEMY_HAND_MAP);
+    expect(restored.restoreSaveSnapshot(checkpoint)).toMatchObject({ status: 'restored', runId: started.runId });
+    expect(restored.getSnapshot(started.runId)?.activeEncounter).toEqual(entered.activeEncounter);
+
+    const invalidEnemyHand = structuredClone(checkpoint) as unknown as {
+      run: { activeEncounter: { enemyHands: { actionIds: string[] }[] } };
+    };
+    invalidEnemyHand.run.activeEncounter.enemyHands[0]!.actionIds[0] = 'unknown-action';
+    expect(battleService(ENEMY_HAND_MAP).restoreSaveSnapshot(invalidEnemyHand))
+      .toMatchObject({ status: 'rejected', reason: 'invalid-run' });
+
+    const unaffordableSavedHand = structuredClone(checkpoint) as unknown as {
+      run: { activeEncounter: { enemyActorResources: { value: number }[] } };
+    };
+    unaffordableSavedHand.run.activeEncounter.enemyActorResources[0]!.value = 0;
+    expect(battleService(ENEMY_HAND_MAP).restoreSaveSnapshot(unaffordableSavedHand))
+      .toMatchObject({ status: 'rejected', reason: 'invalid-run' });
+
+    const missingInitialBalance = structuredClone(checkpoint) as unknown as {
+      run: { activeEncounter: { enemyActorResources: { enemyId: string; resourceId: string; value: number }[] } };
+    };
+    missingInitialBalance.run.activeEncounter.enemyActorResources = [];
+    expect(battleService(ENEMY_HAND_MAP).restoreSaveSnapshot(missingInitialBalance))
+      .toMatchObject({ status: 'rejected', reason: 'invalid-run' });
+  });
+
+  test('charges Enemy Actor and Enemy Team costs only on Commit and restores the receipt', () => {
+    const source = battleService(ENEMY_HAND_MAP);
+    const started = source.start(ENEMY_HAND_MAP_ID, [{ characterId: 'shiroko', variantId: 'Shiroko' }]);
+    const entered = source.move(started.runId, 'b');
+    const preview = source.previewEncounterCommit(started.runId);
+    expect(source.previewActions(started.runId)?.preparedActions[0]).toMatchObject({
+      naturalActionId: 'player-card-buff', targetKind: 'card', targetSelectionRequired: false,
+    });
+    expect(source.previewActions(started.runId)?.preparedActions[0].targetCard).toBeDefined();
+    expect(preview).toMatchObject({ canCommit: true, enemyActions: [{
+      enemyId: 'robot-a', actionId: 'enemy-shot', targetCharacterId: 'shiroko',
+      scostCost: { original: 2, discount: 1, paid: 1 },
+      resourceChanges: [
+        { kind: 'cost', scope: 'actor', enemyId: 'robot-a', resourceId: 'focus', delta: -1 },
+        { kind: 'cost', scope: 'actor', enemyId: 'robot-a', resourceId: 'sCost', delta: -1 },
+        { kind: 'cost', scope: 'team', teamSide: 'enemy', resourceId: 'charge', delta: -2 },
+        { kind: 'effect', scope: 'actor', enemyId: 'robot-a', resourceId: 'focus', delta: 1 },
+        { kind: 'effect', scope: 'actor', enemyId: 'robot-a', resourceId: 'sCost', delta: 1 },
+        { kind: 'effect', scope: 'actor', characterId: 'shiroko', resourceId: 'focus', delta: 1 },
+        { kind: 'effect', scope: 'team', teamSide: 'enemy', resourceId: 'charge', delta: 1 },
+      ],
+    }] });
+    expect(entered.activeEncounter?.enemyActorResources).toEqual([
+      { enemyId: 'robot-a', resourceId: 'focus', value: 1 },
+      { enemyId: 'robot-a', resourceId: 'sCost', value: 2 },
+    ]);
+    const committed = source.commitEncounterRound(commitCommand(entered, 'enemy-resource-cost'));
+    expect(committed.activeEncounter?.enemyActorResources).toEqual([
+      { enemyId: 'robot-a', resourceId: 'focus', value: 1 },
+      { enemyId: 'robot-a', resourceId: 'sCost', value: 2 },
+    ]);
+    expect(committed.activeEncounter?.enemyTeamResources).toEqual([{ resourceId: 'charge', value: 2 }]);
+    expect(committed.actorResources).toEqual([
+      { characterId: 'shiroko', resourceId: 'focus', value: 1 },
+      { characterId: 'shiroko', resourceId: 'sCost', value: 0 },
+    ]);
+    expect(committed.lastEncounterCommit?.enemyActions?.[0]).toMatchObject({
+      actionId: 'enemy-shot', targetCharacterId: 'shiroko',
+    });
+    expect(committed.activeEncounter?.enemyHands).toEqual([{ enemyId: 'robot-a', actionIds: ['enemy-shot'] }]);
+
+    const checkpoint = source.createSaveSnapshot();
+    if (!checkpoint) throw new Error('Enemy cost receipt checkpoint is missing');
+    const restored = battleService(ENEMY_HAND_MAP);
+    expect(restored.restoreSaveSnapshot(checkpoint)).toMatchObject({ status: 'restored', runId: started.runId });
+    expect(restored.getSnapshot(started.runId)).toEqual(committed);
+  });
+
+  test('skips a defeated Enemy natural action for free and lets later Enemies execute', () => {
+    const map: TestMap = {
+      ...ENEMY_HAND_MAP,
+      id: 'test:map:enemy-killed-before-turn',
+      actions: [
+        {
+          id: 'player-shot', name: 'Player Shot', eligibleCharacterIds: ['shiroko'],
+          target: { kind: 'enemy' }, hpEffects: [{ amount: -2 }],
+        },
+        {
+          id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [],
+          target: { kind: 'partyCharacter' }, tendencyRole: 'attack',
+          costs: [{ scope: 'actor', resourceId: 'focus', amount: 1 }], hpEffects: [{ amount: -1 }],
+        },
+      ],
+      nodes: ENEMY_HAND_MAP.nodes.map(node => node.id !== 'b' ? node : ({
+        ...node,
+        encounter: {
+          title: 'Enemy killed before its turn',
+          participants: [{ characterId: 'shiroko', actions: [{ actionId: 'player-shot', tendencyWeight: 1 }] }],
+          enemies: [
+            { id: 'robot-a', initialHp: 2, maxHp: 2,
+              actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }], initialResources: [{ resourceId: 'focus', value: 1 }] },
+            { id: 'robot-b', initialHp: 10, maxHp: 10,
+              actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }], initialResources: [{ resourceId: 'focus', value: 1 }] },
+          ],
+        },
+      })),
+    };
+    const source = battleService(map);
+    const started = source.start(map.id, [{ characterId: 'shiroko', variantId: 'Shiroko' }]);
+    const entered = source.move(started.runId, 'b');
+    expect(source.previewActions(started.runId)?.preparedEnemyActions.map(row => row.naturalActionId))
+      .toEqual(['enemy-hit', 'enemy-hit']);
+    const committed = source.commitEncounterRound(commitCommand(entered, 'enemy-killed-before-turn'));
+    expect(committed.activeEncounter?.enemies).toEqual([
+      { enemyId: 'robot-a', currentHp: 0 },
+      { enemyId: 'robot-b', currentHp: 10 },
+    ]);
+    expect(committed.partyHp).toEqual([{ characterId: 'shiroko', currentHp: 9 }]);
+    expect(committed.activeEncounter?.enemyActorResources).toEqual([
+      { enemyId: 'robot-a', resourceId: 'focus', value: 1 },
+      { enemyId: 'robot-b', resourceId: 'focus', value: 0 },
+    ]);
+    expect(committed.lastEncounterCommit?.enemyActions).toMatchObject([
+      { enemyId: 'robot-a', actionId: 'enemy-hit', skipReason: 'defeated', resourceChanges: [] },
+      { enemyId: 'robot-b', actionId: 'enemy-hit', targetCharacterId: 'shiroko',
+        resourceChanges: [{ kind: 'cost', scope: 'actor', enemyId: 'robot-b', resourceId: 'focus', delta: -1 }],
+        hpChanges: [{ scope: 'party', characterId: 'shiroko', delta: -1 }] },
+    ]);
+  });
+
+  test('projects Enemy unit and card targets from the shared stable target rules', () => {
+    const map: TestMap = {
+      ...ENEMY_HAND_MAP,
+      id: 'test:map:enemy-target-preview',
+      partyCharacterIds: ['shiroko', 'serika'],
+      initialPartyHp: [
+        { characterId: 'shiroko', initialHp: 8, maxHp: 10 },
+        { characterId: 'serika', initialHp: 4, maxHp: 10 },
+      ],
+      initialActorResources: [
+        { characterId: 'shiroko', resourceId: 'sCost', value: 1 },
+        { characterId: 'serika', resourceId: 'sCost', value: 1 },
+      ],
+      actions: [
+        {
+          id: 'player-shot', name: 'Player Shot', eligibleCharacterIds: ['shiroko', 'serika'],
+          target: { kind: 'enemy' }, costs: [{ scope: 'actor', resourceId: 'sCost', amount: 1 }],
+        },
+        {
+          id: 'enemy-aim', name: 'Enemy Aim', eligibleCharacterIds: [],
+          target: { kind: 'partyCharacter', preference: 'highestMissingHpRatio' }, tendencyRole: 'attack',
+        },
+        {
+          id: 'enemy-support', name: 'Enemy Support', eligibleCharacterIds: [],
+          target: { kind: 'enemy', preference: 'lowestHpRatio' }, tendencyRole: 'recovery',
+        },
+        {
+          id: 'enemy-card', name: 'Enemy Card', eligibleCharacterIds: [],
+          target: { kind: 'card', side: 'opponent' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }],
+        },
+      ],
+      nodes: ENEMY_HAND_MAP.nodes.map(node => node.id === 'b' ? {
+        ...node,
+        encounter: {
+          title: 'Enemy target preview',
+          participants: ['shiroko', 'serika'].map(characterId => ({
+            characterId,
+            actions: [{ actionId: 'player-shot', tendencyWeight: 1 }],
+          })),
+          enemies: [
+            { id: 'robot-a', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-aim', tendencyWeight: 1 }] },
+            { id: 'robot-b', initialHp: 4, maxHp: 10, actions: [{ actionId: 'enemy-support', tendencyWeight: 1 }] },
+            { id: 'robot-c', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-card', tendencyWeight: 1 }] },
+          ],
+        },
+      } : node),
+    };
+    const service = battleService(map);
+    const started = service.start(map.id, [
+      { characterId: 'shiroko', variantId: 'Shiroko' },
+      { characterId: 'serika', variantId: 'Serika' },
+    ]);
+    const entered = service.move(started.runId, 'b');
+    const before = service.getSnapshot(started.runId);
+    const preview = service.previewActions(started.runId);
+    expect(preview?.preparedEnemyActions).toMatchObject([
+      { enemyId: 'robot-a', naturalActionId: 'enemy-aim', targetCharacterId: 'serika', targetSelectionRequired: false },
+      { enemyId: 'robot-b', naturalActionId: 'enemy-support', targetEnemyId: 'robot-b', targetSelectionRequired: false },
+      {
+        enemyId: 'robot-c', naturalActionId: 'enemy-card', targetKind: 'card',
+        targetSelectionRequired: false,
+      },
+    ]);
+    expect(preview?.preparedEnemyActions[2]?.legalTargetCards).toHaveLength(2);
+    expect(preview?.preparedEnemyActions[2]?.targetCard).toEqual(preview?.preparedEnemyActions[2]?.legalTargetCards?.[0]);
+    expect(service.previewActions(started.runId)).toEqual(preview);
+    expect(service.getSnapshot(started.runId)).toEqual(before);
+    expect(entered.activeEncounter?.randomState).toEqual(before?.activeEncounter?.randomState);
+  });
+
   test('keeps faction-scoped Enemy targets through Save/Load, settles overkill costs, and auto-wins without an Enemy turn', () => {
     const source = battleService(BATTLE_MAP);
     const started = source.start(BATTLE_MAP_ID, BATTLE_PARTY);
@@ -641,7 +918,8 @@ describe('MapRunService', () => {
       teamResources: [{ resourceId: 'ammo', value: 3 }],
       lastEncounterCommit: { requestId: command.requestId, nodeId: 'b' },
     });
-    expect(victorious.lastEncounterCommit?.enemyAttacks).toBeUndefined();
+    expect(victorious.lastEncounterCommit?.enemyActions).toHaveLength(2);
+    expect(victorious.lastEncounterCommit?.enemyActions?.every(row => row.actionId === null)).toBe(true);
     expect(victorious.lastEncounterCommit?.settlements.find(row => row.characterId === 'serika')).toMatchObject({
       targetCharacterId: null,
       targetEnemyId: 'serika',
@@ -783,7 +1061,7 @@ describe('MapRunService', () => {
         {
           id: 'b', title: 'Battle', encounter: {
             title: 'Battle',
-            enemies: [{ id: 'enemy-a', initialHp: 5, maxHp: 5, damage: 1 }],
+            enemies: [{ id: 'enemy-a', initialHp: 5, maxHp: 5 }],
             participants: [
               { characterId: 'shiroko', actions: [{ actionId: 'shiroko-kill', tendencyWeight: 1 }] },
               { characterId: 'serika', actions: [
@@ -852,9 +1130,10 @@ describe('MapRunService', () => {
       { characterId: 'shiroko', currentHp: 0 },
       { characterId: 'serika', currentHp: 0 },
     ]);
-    expect(failed.lastEncounterCommit?.enemyAttacks).toEqual([
-      { enemyId: 'enemy-a', targetCharacterId: 'shiroko', damage: 1, actualDelta: -1 },
-      { enemyId: 'enemy-b', targetCharacterId: 'serika', damage: 1, actualDelta: -1 },
+    expect(failed.lastEncounterCommit?.enemyActions).toEqual([
+      { enemyId: 'enemy-a', actionId: 'enemy-hit', targetCharacterId: 'shiroko', resourceChanges: [], hpChanges: [{ scope: 'party', characterId: 'shiroko', delta: -1 }] },
+      { enemyId: 'enemy-b', actionId: 'enemy-hit', targetCharacterId: 'serika', resourceChanges: [], hpChanges: [{ scope: 'party', characterId: 'serika', delta: -1 }] },
+      { enemyId: 'enemy-c', actionId: 'enemy-hit', skipReason: 'roundEnded', resourceChanges: [] },
     ]);
     expect(source.getSnapshot()).toBeNull();
     expect(source.getFailureResult(started.runId)).toMatchObject({ outcome: 'failure', reason: 'partyDefeated' });
@@ -898,7 +1177,7 @@ describe('MapRunService', () => {
       { characterId: 'serika', currentHp: 2 },
       { characterId: 'hoshino', currentHp: 5 },
     ]);
-    expect(afterFirstEnemyTurn.lastEncounterCommit?.enemyAttacks?.map(row => row.targetCharacterId)).toEqual([
+    expect(afterFirstEnemyTurn.lastEncounterCommit?.enemyActions?.map(row => row.targetCharacterId)).toEqual([
       'shiroko',
       'serika',
     ]);
@@ -930,7 +1209,7 @@ describe('MapRunService', () => {
       { characterId: 'serika', currentHp: 0 },
       { characterId: 'hoshino', currentHp: 2 },
     ]);
-    expect(afterSecondEnemyTurn.lastEncounterCommit?.enemyAttacks?.map(row => row.targetCharacterId)).toEqual([
+    expect(afterSecondEnemyTurn.lastEncounterCommit?.enemyActions?.map(row => row.targetCharacterId)).toEqual([
       'serika',
       'hoshino',
     ]);
@@ -960,6 +1239,7 @@ describe('MapRunService', () => {
         partyHp: { currentHp: number }[];
         activeEncounter: {
           hands: { characterId: string; actionIds: string[] }[];
+            enemyHands: { enemyId: string; actionIds: string[] }[];
           drawCursorStart: number;
           randomState: { cursor: number };
         };
@@ -967,6 +1247,7 @@ describe('MapRunService', () => {
     };
     defeatedCheckpoint.run.partyHp[2]!.currentHp = 0;
     defeatedCheckpoint.run.activeEncounter.hands.forEach(hand => { hand.actionIds = []; });
+    defeatedCheckpoint.run.activeEncounter.enemyHands.forEach(hand => { hand.actionIds = []; });
     defeatedCheckpoint.run.activeEncounter.randomState.cursor = defeatedCheckpoint.run.activeEncounter.drawCursorStart;
     const defeatedRestore = battleService(ENEMY_TURN_MAP);
     expect(defeatedRestore.restoreSaveSnapshot(defeatedCheckpoint)).toMatchObject({ status: 'failed', reason: 'partyDefeated' });
@@ -1026,6 +1307,154 @@ describe('MapRunService', () => {
       if (draw.hands[0].actionIds[0] === 'favored') favoredFirstCount += 1;
     }
     expect(favoredFirstCount).toBeGreaterThan(250);
+  });
+
+  test('draws Enemy Hands after party Hands with isolated resources and stable replay', () => {
+    const input = {
+      partyCharacterIds: ['shiroko'],
+      livingPartyCharacterIds: ['shiroko'],
+      livingEnemyIds: ['robot-a', 'robot-b', 'robot-c'],
+      enemies: [
+        {
+          id: 'robot-a', initialHp: 10, maxHp: 10,
+          actions: [{ actionId: 'enemy-spend', tendencyWeight: 1 }],
+          initialResources: [{ resourceId: 'focus', value: 1 }],
+        },
+        {
+          id: 'robot-b', initialHp: 10, maxHp: 10,
+          actions: [
+            { actionId: 'enemy-spend', tendencyWeight: 1 },
+            { actionId: 'enemy-free', tendencyWeight: 1 },
+          ],
+          initialResources: [{ resourceId: 'focus', value: 1 }],
+        },
+        {
+          id: 'robot-c', initialHp: 10, maxHp: 10,
+          actions: [{ actionId: 'enemy-spend', tendencyWeight: 1 }],
+          initialResources: [{ resourceId: 'focus', value: 1 }],
+        },
+        { id: 'robot-dead', initialHp: 10, maxHp: 10,
+          actions: [{ actionId: 'enemy-spend', tendencyWeight: 1 }] },
+      ],
+      enemyHealth: [
+        { enemyId: 'robot-a', currentHp: 10, maxHp: 10 },
+        { enemyId: 'robot-b', currentHp: 10, maxHp: 10 },
+        { enemyId: 'robot-c', currentHp: 10, maxHp: 10 },
+        { enemyId: 'robot-dead', currentHp: 0, maxHp: 10 },
+      ],
+      participants: [{ characterId: 'shiroko', actions: [{ actionId: 'party-spend', tendencyWeight: 1 }] }],
+      actions: [
+        {
+          id: 'party-spend', name: 'Party spend', eligibleCharacterIds: ['shiroko'],
+          target: { kind: 'enemy' }, costs: [{ scope: 'team', resourceId: 'supply', amount: 2 }],
+        },
+        {
+          id: 'enemy-spend', name: 'Enemy spend', eligibleCharacterIds: [],
+          target: { kind: 'partyCharacter' },
+          costs: [
+            { scope: 'actor', resourceId: 'focus', amount: 1 },
+            { scope: 'team', resourceId: 'supply', amount: 2 },
+          ],
+        },
+        { id: 'enemy-free', name: 'Enemy free', eligibleCharacterIds: [], target: { kind: 'self' } },
+      ],
+      actorResources: [],
+      teamResources: [{ resourceId: 'supply', value: 3 }],
+      enemyTeamResources: [{ resourceId: 'supply', value: 2 }],
+      randomState: { algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM, seed: 23, cursor: 4 },
+    } as const;
+
+    const draw = drawGameplayBHands(input);
+    expect(draw).toEqual(drawGameplayBHands(input));
+    expect(draw.hands).toEqual([{ characterId: 'shiroko', actionIds: ['party-spend'] }]);
+    expect(draw.enemyHands).toEqual([
+      { enemyId: 'robot-a', actionIds: ['enemy-spend'] },
+      { enemyId: 'robot-b', actionIds: ['enemy-free', 'enemy-spend'] },
+      { enemyId: 'robot-c', actionIds: [] },
+      { enemyId: 'robot-dead', actionIds: [] },
+    ]);
+    expect(draw.enemyHands[1]?.actionIds[0]).toBe('enemy-free');
+    expect(draw.randomState.cursor).toBe(8);
+  });
+
+  test('applies recovery, defense, and attack tendency to the Enemy side using its own HP and legal targets', () => {
+    const countEnemySituationalFirst = (
+      role: 'recovery' | 'defense' | 'attack',
+      enemyHp: number,
+      allyHp: number,
+      livingPartyCharacterIds: string[] = ['shiroko'],
+    ) => {
+      let count = 0;
+      for (let seed = 0; seed < 500; seed += 1) {
+        const target = role === 'recovery'
+          ? { kind: 'enemy' as const }
+          : role === 'attack'
+            ? { kind: 'partyCharacter' as const }
+            : { kind: 'self' as const };
+        const draw = drawGameplayBHands({
+          partyCharacterIds: ['shiroko'],
+          livingPartyCharacterIds,
+          livingEnemyIds: ['robot-a', 'robot-b'],
+          enemies: [{
+            id: 'robot-a', initialHp: 10, maxHp: 10,
+            actions: [
+              { actionId: 'enemy-plain', tendencyWeight: 1 },
+              { actionId: 'enemy-situational', tendencyWeight: 1 },
+            ],
+          }, { id: 'robot-b', initialHp: 10, maxHp: 10 }],
+          enemyHealth: [
+            { enemyId: 'robot-a', currentHp: enemyHp, maxHp: 10 },
+            { enemyId: 'robot-b', currentHp: allyHp, maxHp: 10 },
+          ],
+          partyHealth: [{ characterId: 'shiroko', currentHp: 10, maxHp: 10 }],
+          actions: [
+            { id: 'enemy-plain', name: 'Plain', eligibleCharacterIds: [], target: { kind: 'self' } },
+            {
+              id: 'enemy-situational', name: 'Situational', eligibleCharacterIds: [], target,
+              tendencyRole: role,
+            },
+          ],
+          actorResources: [],
+          teamResources: [],
+          enemyActorResources: [],
+          enemyTeamResources: [],
+          randomState: { algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM, seed, cursor: 0 },
+        });
+        if (draw.enemyHands[0]?.actionIds[0] === 'enemy-situational') count += 1;
+      }
+      return count;
+    };
+
+    expect(countEnemySituationalFirst('recovery', 10, 7))
+      .toBeGreaterThan(countEnemySituationalFirst('recovery', 10, 10) + 50);
+    expect(countEnemySituationalFirst('defense', 5, 10))
+      .toBeGreaterThan(countEnemySituationalFirst('defense', 6, 10) + 50);
+    expect(countEnemySituationalFirst('attack', 10, 10))
+      .toBeGreaterThan(countEnemySituationalFirst('attack', 10, 10, []) + 100);
+
+    const randomState = { algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM, seed: 29, cursor: 7 } as const;
+    const noLegalEnemyAttack = drawGameplayBHands({
+      partyCharacterIds: ['shiroko'],
+      livingPartyCharacterIds: [],
+      livingEnemyIds: ['robot-a'],
+      enemies: [{
+        id: 'robot-a', initialHp: 10, maxHp: 10,
+        actions: [{ actionId: 'enemy-attack', tendencyWeight: 1 }],
+      }],
+      enemyHealth: [{ enemyId: 'robot-a', currentHp: 10, maxHp: 10 }],
+      partyHealth: [{ characterId: 'shiroko', currentHp: 0, maxHp: 10 }],
+      actions: [{
+        id: 'enemy-attack', name: 'Enemy attack', eligibleCharacterIds: [],
+        target: { kind: 'partyCharacter' }, tendencyRole: 'attack',
+      }],
+      actorResources: [],
+      teamResources: [],
+      enemyActorResources: [],
+      enemyTeamResources: [],
+      randomState,
+    });
+    expect(noLegalEnemyAttack.enemyHands).toEqual([{ enemyId: 'robot-a', actionIds: [] }]);
+    expect(noLegalEnemyAttack.randomState).toEqual(randomState);
   });
 
   test('applies explicit recovery, defense, and attack weights at their exact HP / target thresholds', () => {
@@ -1219,6 +1648,9 @@ describe('MapRunService', () => {
         { characterId: 'serika', actionIds: ['serika-strike'] },
         { characterId: 'hoshino', actionIds: ['hoshino-strike'] },
       ],
+      enemyHands: [{ enemyId: 'serika', actionIds: [] }, { enemyId: 'wolf', actionIds: [] }],
+      enemyActorResources: [],
+      enemyTeamResources: [],
       overrides: [],
       targetSelections: [{ characterId: 'shiroko', targetEnemyId: 'serika' }],
       enemies: [
@@ -1297,10 +1729,10 @@ describe('MapRunService', () => {
 
   test('selects lowest enemy HP ratio and highest party missing-HP ratio with stable ties', () => {
     const enemyDefinitions = [
-      { id: 'enemy-a', initialHp: 4, maxHp: 10, damage: 1 },
-      { id: 'enemy-b', initialHp: 4, maxHp: 20, damage: 1 },
-      { id: 'enemy-c', initialHp: 8, maxHp: 10, damage: 1 },
-      { id: 'enemy-d', initialHp: 2, maxHp: 10, damage: 1 },
+      { id: 'enemy-a', initialHp: 4, maxHp: 10 },
+      { id: 'enemy-b', initialHp: 4, maxHp: 20 },
+      { id: 'enemy-c', initialHp: 8, maxHp: 10 },
+      { id: 'enemy-d', initialHp: 2, maxHp: 10 },
     ];
     const enemyPreferenceMap: TestMap = {
       ...BATTLE_MAP,
@@ -1316,6 +1748,7 @@ describe('MapRunService', () => {
         characterId: member.characterId,
         actionIds: index === 0 ? ['shiroko-strike'] : [BATTLE_ACTIONS[index]!.id],
       }))),
+      enemyHands: enemyDefinitions.map(enemy => ({ enemyId: enemy.id, actionIds: [] })),
       enemies: [
         { enemyId: 'enemy-a', currentHp: 4 },
         { enemyId: 'enemy-b', currentHp: 4 },

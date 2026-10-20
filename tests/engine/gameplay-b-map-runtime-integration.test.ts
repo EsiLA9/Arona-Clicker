@@ -146,6 +146,85 @@ describe('Gameplay B MapRun GameInstance integration', () => {
     expect(game.mapRun.getSnapshot()).toBeNull();
   });
 
+  test('projects Enemy Hands and automatic targets as a read-only Runtime action view', () => {
+    const sourceMap = gameplayBMapDatapack.maps?.find(candidate => candidate.id === 'gameplay-b:map:minimal-battle');
+    if (!sourceMap) throw new Error('Minimal battle Map is missing');
+    const enemyAction: GameplayMapActionDef = {
+      id: 'enemy-autonomous-shot',
+      name: '敌方自主射击',
+      eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' },
+      tendencyRole: 'attack',
+    };
+    const datapack: Datapack = {
+      ...gameplayBMapDatapack,
+      maps: gameplayBMapDatapack.maps?.map(map => map.id !== sourceMap.id ? map : ({
+        ...map,
+        resumeVersion: map.resumeVersion + 1,
+        actions: [...(map.actions ?? []), enemyAction],
+        nodes: map.nodes.map(node => !node.encounter ? node : ({
+          ...node,
+          encounter: {
+            ...node.encounter,
+            enemies: node.encounter.enemies?.map(enemy => ({
+              ...enemy,
+              actions: [{ actionId: enemyAction.id, tendencyWeight: 1 }],
+            })),
+          },
+        })),
+      })) ?? [],
+    };
+    const game = createGame(datapack);
+    const commands = createGameCommands(game);
+    acquireMapParty(game);
+    const started = commands.startMap(sourceMap.id);
+    const map = game.registry.maps.get(sourceMap.id);
+    if (!map) throw new Error('Minimal battle Map did not load');
+    const edge = map.edges.find(candidate => candidate.fromNodeId === started.currentNodeId
+      && map.nodes.find(node => node.id === candidate.toNodeId)?.encounter);
+    if (!edge) throw new Error('Minimal battle has no Encounter edge');
+    const entered = commands.moveMap(started.runId, edge.toNodeId);
+    const view = game.mapRun.getWorkspaceView(started.runId);
+    if (view?.kind !== 'active' || !view.actionPreview) throw new Error('Enemy Runtime Preview is missing');
+
+    expect(view.actionPreview.preparedEnemyActions).toMatchObject([
+      {
+        enemyId: '训练靶',
+        hand: [{ actionId: enemyAction.id, name: enemyAction.name }],
+        naturalAction: { actionId: enemyAction.id },
+        targetKind: 'partyCharacter',
+        legalTargetCharacterIds: ['shiroko', 'serika'],
+        targetCharacterId: 'shiroko',
+        targetSelectionRequired: false,
+      },
+      {
+        enemyId: '机动靶',
+        naturalAction: { actionId: enemyAction.id },
+        targetCharacterId: 'shiroko',
+      },
+    ]);
+    expect(view.actionPreview.commitPreview.enemyActions).toMatchObject([
+      { enemyId: '训练靶', action: { actionId: enemyAction.id, name: enemyAction.name }, targetCharacterId: 'shiroko' },
+      { enemyId: '机动靶', action: { actionId: enemyAction.id }, targetCharacterId: 'shiroko' },
+    ]);
+    expect(Object.isFrozen(view.actionPreview.preparedEnemyActions)).toBe(true);
+    expect(Object.isFrozen(view.actionPreview.preparedEnemyActions[0])).toBe(true);
+    expect(game.mapRun.getSnapshot()?.activeEncounter).toEqual(entered.activeEncounter);
+
+    commands.commitMapEncounterRound({
+      runId: started.runId,
+      requestId: 'enemy-runtime-receipt',
+      expectedCommitVersion: entered.commitVersion,
+      draft: view.actionPreview.draft,
+    });
+    const recent = game.mapRun.getWorkspaceView(started.runId);
+    if (recent?.kind !== 'active' || !recent.actionPreview) throw new Error('Enemy Commit receipt View is missing');
+    expect(recent.actionPreview.recentCommit?.enemyActions).toMatchObject([
+      { enemyId: '训练靶', action: { actionId: enemyAction.id, name: enemyAction.name }, targetCharacterId: 'shiroko' },
+      { enemyId: '机动靶', action: { actionId: enemyAction.id }, targetCharacterId: 'shiroko' },
+    ]);
+  });
+
   test('resumes on load, ignores legacy saves without MapRun, and clears its owner on init, reset, and dispose', () => {
     const game = createGame();
     const commands = createGameCommands(game);

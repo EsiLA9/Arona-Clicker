@@ -20,7 +20,6 @@ export function projectMapRelations(view: RelationInput, definition: GameplayMap
     source: MapRelationSource, selectedTarget: MapTargetRef | null,
     candidates: readonly MapTargetRef[], targetState: MapActionRelation['targetState'],
     selectionMode: MapActionRelation['selectionMode'], canReplaceAction: boolean,
-    enemyDamage?: number,
   ): void {
     const action = source.actionId === null ? undefined : actions.get(source.actionId);
     const effects: MapEffectRecipient[] = (action?.hpEffects ?? []).map(effect => Object.freeze({
@@ -35,9 +34,6 @@ export function projectMapRelations(view: RelationInput, definition: GameplayMap
     }
     for (const effect of action?.cardEffects ?? []) effects.push(Object.freeze({
       kind: 'cardCost', resourceId: 'sCost', amount: -effect.amount, recipient: selectedTarget,
-    }));
-    if (enemyDamage !== undefined) effects.push(Object.freeze({
-      kind: 'hp', resourceId: null, amount: -enemyDamage, recipient: null,
     }));
     relations.push(Object.freeze({
       key: JSON.stringify([scope.runId, scope.mapId, scope.nodeId, scope.activityId, scope.round, source.kind, source.id, source.actionId]),
@@ -65,6 +61,21 @@ export function projectMapRelations(view: RelationInput, definition: GameplayMap
       selected, candidates, prepared.targetKind === 'none' ? 'none' : selected ? 'determined' : 'pending',
       prepared.targetKind === 'none' ? 'none' : prepared.targetKind === 'self' ? 'self' : 'selectable', replaceable);
   }
+  for (const prepared of preview.preparedEnemyActions) {
+    const action = prepared.naturalAction;
+    if (!action) continue;
+    const performer = unit('enemy', prepared.enemyId);
+    const selected = prepared.targetCard ?? (prepared.targetEnemyId !== null ? unit('enemy', prepared.targetEnemyId)
+      : prepared.targetCharacterId !== null ? unit('partyCharacter', prepared.targetCharacterId) : null);
+    const candidates = [
+      ...prepared.legalTargetCharacterIds.map(id => unit('partyCharacter', id)),
+      ...prepared.legalTargetEnemyIds.map(id => unit('enemy', id)),
+      ...(prepared.legalTargetCards ?? []),
+    ];
+    append({ kind: 'enemy', id: prepared.enemyId, actionId: action.actionId, performer }, selected, candidates,
+      prepared.targetKind === 'none' ? 'none' : selected ? 'determined' : 'unknown',
+      prepared.targetKind === 'none' ? 'none' : prepared.targetKind === 'self' ? 'self' : 'rule', false);
+  }
   const sources = view.sourcePreview;
   if (sources) {
     for (const kind of ['ability', 'item'] as const) {
@@ -80,11 +91,6 @@ export function projectMapRelations(view: RelationInput, definition: GameplayMap
         [...option.legalTargetCharacterIds.map(id => unit('partyCharacter', id)), ...option.legalTargetEnemyIds.map(id => unit('enemy', id))],
         selected ? 'determined' : 'pending', 'selectable', false);
     }
-  }
-  for (const enemy of view.currentEncounter?.enemies ?? []) {
-    if (enemy.currentHp <= 0) continue;
-    append({ kind: 'enemy', id: enemy.enemyId, actionId: null, performer: unit('enemy', enemy.enemyId) },
-      null, [], 'unknown', 'rule', false, enemy.damage);
   }
   return Object.freeze(relations);
 }

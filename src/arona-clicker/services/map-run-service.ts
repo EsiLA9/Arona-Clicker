@@ -5,6 +5,8 @@ import type {
   MapRunPartyMember,
   MapRunPartyHp,
   MapRunEnemyHp,
+  MapRunEnemyHand,
+  MapRunEnemyActorResourceBalance,
   MapRunSuccessResult,
   MapRunFailureResult,
   MapRunSaveSnapshot,
@@ -19,6 +21,7 @@ import type {
   MapRunEncounterCommitPreview,
   MapRunEncounterCommitReceipt,
   MapRunEncounterActionSettlement,
+  MapRunEncounterEnemyActionSettlement,
   MapRunEncounterSettlementResourceChange,
   MapRunEncounterHpChange,
   MapRunEncounterAbilityDraft,
@@ -33,7 +36,7 @@ import type {
 import { GAMEPLAY_B_HAND_RNG_ALGORITHM } from '../contracts/map-run';
 import type { MapRunCardInstance, MapRunCardRef } from '../contracts/map-cards';
 import { catalogMapRunCards, mapRunCardKey, parseMapRunCardRef } from './map-card-catalog';
-import { mapScostCost, resolveMapCardEffects, type MapCardActionChoice } from './map-card-effects';
+import { mapCardActorKey, mapScostCost, resolveMapCardEffects, type MapCardActionChoice } from './map-card-effects';
 import type {
   GameplayEncounterDef,
   GameplayMapActionDef,
@@ -84,15 +87,17 @@ interface TerminalMapRunCommitReplay {
 
 interface MapRunEncounterCommitPlan {
   readonly settlements: readonly MapRunEncounterActionSettlement[];
+  readonly enemyActions: readonly MapRunEncounterEnemyActionSettlement[];
   readonly ability: MapRunEncounterSourceSettlement | null;
   readonly item: MapRunEncounterItemSettlement | null;
   readonly playerCostRequired: number;
   readonly actorBalancesAfter: ReadonlyMap<string, number>;
   readonly teamBalancesAfter: ReadonlyMap<string, number>;
+  readonly enemyActorBalancesAfter: ReadonlyMap<string, number>;
+  readonly enemyTeamBalancesAfter: ReadonlyMap<string, number>;
   readonly partyHpAfter: ReadonlyMap<string, number>;
   readonly enemyHpAfter: ReadonlyMap<string, number>;
   readonly terminal: 'none' | 'victory' | 'failure';
-  readonly enemyAttacks: readonly { readonly enemyId: string; readonly targetCharacterId: string; readonly damage: number; readonly actualDelta: number }[];
 }
 
 /** Opaque detached result of preparing one Encounter Commit. */
@@ -119,7 +124,7 @@ let nextMapRunSequence = 0;
 function snapshotOf(run: MutableMapRun): MapRun {
   const cloneReceipt = (receipt: MapRunEncounterCommitReceipt | null) => receipt === null ? null : Object.freeze({
     ...receipt,
-    ...(receipt.enemyAttacks ? { enemyAttacks: Object.freeze(receipt.enemyAttacks.map(attack => Object.freeze({ ...attack }))) } : {}),
+    ...(receipt.enemyActions ? { enemyActions: freezeEnemyActionSettlements(receipt.enemyActions) } : {}),
     ...(receipt.ability ? { ability: Object.freeze({
       ...receipt.ability,
       target: cloneSourceTarget(receipt.ability.target)!,
@@ -147,6 +152,12 @@ function snapshotOf(run: MutableMapRun): MapRun {
       characterId: hand.characterId,
       actionIds: Object.freeze([...hand.actionIds]),
     }))),
+    enemyHands: Object.freeze(run.activeEncounter.enemyHands.map(hand => Object.freeze({
+      enemyId: hand.enemyId,
+      actionIds: Object.freeze([...hand.actionIds]),
+    }))),
+    enemyActorResources: Object.freeze(run.activeEncounter.enemyActorResources.map(balance => Object.freeze({ ...balance }))),
+    enemyTeamResources: Object.freeze(run.activeEncounter.enemyTeamResources.map(balance => Object.freeze({ ...balance }))),
     overrides: Object.freeze(run.activeEncounter.overrides.map(override => Object.freeze({ ...override }))),
     targetSelections: Object.freeze(run.activeEncounter.targetSelections.map(selection => Object.freeze({ ...selection,
       ...(selection.targetCard ? { targetCard: parseMapRunCardRef(selection.targetCard)! } : {}),
@@ -586,6 +597,8 @@ function createEncounterSnapshot(
   round = 1,
   randomState?: MapRunHandRandomState,
   retainedEnemies?: readonly MapRunEnemyHp[],
+  retainedEnemyActorResources?: readonly MapRunEnemyActorResourceBalance[],
+  retainedEnemyTeamResources?: readonly MapRunTeamResourceBalance[],
   activityId?: string,
 ): MapRunEncounterSnapshot {
   const enemyDefinitions: unknown = encounter.enemies ?? [];
@@ -595,8 +608,7 @@ function createEncounterSnapshot(
     if (!isRecord(enemy) || !isNonEmptyId(enemy.id) || enemyIds.has(enemy.id)
       || !Number.isSafeInteger(enemy.maxHp) || (enemy.maxHp as number) < 1
       || !Number.isSafeInteger(enemy.initialHp) || (enemy.initialHp as number) < 1
-      || (enemy.initialHp as number) > (enemy.maxHp as number)
-      || !Number.isSafeInteger(enemy.damage) || (enemy.damage as number) < 1) {
+      || (enemy.initialHp as number) > (enemy.maxHp as number)) {
       throw new MapRunError([`Encounter "${nodeId}" has an invalid Enemy definition`]);
     }
     enemyIds.add(enemy.id);
@@ -609,9 +621,28 @@ function createEncounterSnapshot(
   const enemies: MapRunEnemyHp[] = retainedEnemies === undefined
     ? (encounter.enemies ?? []).map(enemy => ({ enemyId: enemy.id, currentHp: enemy.initialHp }))
     : retainedEnemies.map(enemy => ({ ...enemy }));
+  const enemyActorResources = retainedEnemyActorResources === undefined
+    ? (encounter.enemies ?? []).flatMap(enemy => (enemy.initialResources ?? []).map(resource => ({
+      enemyId: enemy.id,
+      resourceId: resource.resourceId,
+      value: resource.value,
+    })))
+    : retainedEnemyActorResources.map(balance => ({ ...balance }));
+  const enemyTeamResources = retainedEnemyTeamResources === undefined
+    ? (encounter.initialEnemyTeamResources ?? []).map(resource => ({ ...resource }))
+    : retainedEnemyTeamResources.map(balance => ({ ...balance }));
+  const enemyDefinitionById = new Map((encounter.enemies ?? []).map(enemy => [enemy.id, enemy]));
   try {
     const draw = drawGameplayBHands({
       partyCharacterIds: party.map(member => member.characterId),
+      enemies: encounter.enemies,
+      enemyHealth: enemies.map(enemy => ({
+        enemyId: enemy.enemyId,
+        currentHp: enemy.currentHp,
+        maxHp: enemyDefinitionById.get(enemy.enemyId)!.maxHp,
+      })),
+      enemyActorResources,
+      enemyTeamResources,
       participants: encounter.participants,
       actions: definition.actions,
       actorResources,
@@ -626,6 +657,9 @@ function createEncounterSnapshot(
       ...(activityId === undefined ? {} : { activityId }),
       round,
       hands: draw.hands,
+      enemyHands: draw.enemyHands,
+      enemyActorResources,
+      enemyTeamResources,
       overrides: [],
       targetSelections: [],
       enemies,
@@ -694,6 +728,8 @@ function openNodeContent(
       1,
       undefined,
       undefined,
+      undefined,
+      undefined,
       activity.id,
     ),
   };
@@ -759,10 +795,24 @@ function advanceCompletedActivity(
   };
 }
 
+type SettlementActor = { readonly kind: 'partyCharacter' | 'enemy'; readonly id: string } | null;
+type SettlementUnitTarget = { readonly kind: 'partyCharacter' | 'enemy'; readonly id: string } | null;
+
+function settlementUnitTarget(
+  targetCharacterId: string | null,
+  targetEnemyId: string | null,
+): SettlementUnitTarget {
+  if (targetCharacterId !== null && targetEnemyId !== null) {
+    throw new MapRunError(['an Action cannot resolve both a party and Enemy unit target']);
+  }
+  return targetCharacterId !== null ? { kind: 'partyCharacter', id: targetCharacterId }
+    : targetEnemyId !== null ? { kind: 'enemy', id: targetEnemyId } : null;
+}
+
 function settlementChangesFor(
   action: GameplayMapActionDef,
-  actorCharacterId: string,
-  targetCharacterId: string | null,
+  actor: SettlementActor,
+  target: SettlementUnitTarget,
   scostDiscount = 0n,
 ): MapRunEncounterSettlementResourceChange[] {
   const changes: MapRunEncounterSettlementResourceChange[] = [];
@@ -780,10 +830,15 @@ function settlementChangesFor(
       cost -= reduction;
       scostDiscount -= reduction;
     }
+    if (rawCost.scope === 'actor' && actor === null) {
+      throw new MapRunError([`Actor cost on Action "${action.id}" has no owning unit`]);
+    }
     changes.push({
       kind: 'cost',
       scope: rawCost.scope,
-      ...(rawCost.scope === 'actor' ? { characterId: actorCharacterId } : {}),
+      ...(rawCost.scope === 'actor' && actor?.kind === 'partyCharacter' ? { characterId: actor.id } : {}),
+      ...(rawCost.scope === 'actor' && actor?.kind === 'enemy' ? { enemyId: actor.id } : {}),
+      ...(rawCost.scope === 'team' && actor?.kind === 'enemy' ? { teamSide: 'enemy' as const } : {}),
       resourceId: rawCost.resourceId,
       delta: cost === 0n ? 0 : -Number(cost),
     });
@@ -801,20 +856,23 @@ function settlementChangesFor(
       if (rawEffect.recipient !== undefined) {
         throw new MapRunError([`Team resource effect on Action "${action.id}" cannot name an Actor recipient`]);
       }
-      changes.push({ kind: 'effect', scope: 'team', resourceId: rawEffect.resourceId, delta: rawEffect.amount as number });
+      changes.push({
+        kind: 'effect', scope: 'team',
+        ...(actor?.kind === 'enemy' ? { teamSide: 'enemy' as const } : {}),
+        resourceId: rawEffect.resourceId,
+        delta: rawEffect.amount as number,
+      });
       continue;
     }
     if (rawEffect.recipient !== undefined && rawEffect.recipient !== 'actor' && rawEffect.recipient !== 'target') {
       throw new MapRunError([`Action "${action.id}" has an invalid Actor effect recipient`]);
     }
-    const characterId = rawEffect.recipient === 'target' ? targetCharacterId : actorCharacterId;
-    if (characterId === null) {
-      throw new MapRunError([`Action "${action.id}" requires a resolved target for its Actor effect`]);
-    }
+    const recipient = rawEffect.recipient === 'target' ? target : actor;
+    if (recipient === null) throw new MapRunError([`Action "${action.id}" requires a resolved unit for its Actor effect`]);
     changes.push({
       kind: 'effect',
       scope: 'actor',
-      characterId,
+      ...(recipient.kind === 'partyCharacter' ? { characterId: recipient.id } : { enemyId: recipient.id }),
       resourceId: rawEffect.resourceId,
       delta: rawEffect.amount as number,
     });
@@ -831,6 +889,17 @@ function freezeCommitSettlements(
     ...(settlement.scostCost ? { scostCost: Object.freeze({ ...settlement.scostCost }) } : {}),
     ...(settlement.hpChanges ? { hpChanges: Object.freeze(settlement.hpChanges.map(change => Object.freeze({ ...change }))) } : {}),
     resourceChanges: Object.freeze(settlement.resourceChanges.map(change => Object.freeze({ ...change }))),
+  })));
+}
+
+function freezeEnemyActionSettlements(
+  settlements: readonly MapRunEncounterEnemyActionSettlement[],
+): readonly MapRunEncounterEnemyActionSettlement[] {
+  return Object.freeze(settlements.map(settlement => Object.freeze({
+    ...settlement,
+    ...(settlement.targetCard ? { targetCard: parseMapRunCardRef(settlement.targetCard)! } : {}),
+    resourceChanges: Object.freeze(settlement.resourceChanges.map(change => Object.freeze({ ...change }))),
+    ...(settlement.hpChanges ? { hpChanges: Object.freeze(settlement.hpChanges.map(change => Object.freeze({ ...change }))) } : {}),
   })));
 }
 
@@ -914,19 +983,33 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   for (const prepared of preview.preparedActions) {
     if (prepared.targetSelectionRequired) throw new MapRunError([`Character "${prepared.characterId}" still requires a target selection`]);
   }
+  const partyCardChoices: MapCardActionChoice[] = preview.preparedActions.map(row => ({ characterId: row.characterId,
+    actionId: row.skipReason === 'noLegalTarget' ? null : row.preparedActionId,
+    overrideKind: row.overrideKind, targetCard: row.targetCard }));
+  const activeCardChoices: MapCardActionChoice[] = [
+    ...partyCardChoices,
+    ...preview.preparedEnemyActions.map(row => ({
+      enemyId: row.enemyId,
+      actionId: row.skipReason === 'noLegalTarget' ? null : row.naturalActionId,
+      overrideKind: null,
+      targetCard: row.targetCard,
+    })),
+  ];
   let cardPlan: ReturnType<typeof resolveMapCardEffects>;
   try {
     cardPlan = resolveMapCardEffects(slot.definition, { runId: slot.run.runId, mapId: slot.run.mapId,
       nodeId: encounter.nodeId, activityId: encounter.activityId ?? null, round: encounter.round },
-    preview.preparedActions.map(row => ({ characterId: row.characterId,
-      actionId: row.skipReason === 'noLegalTarget' ? null : row.preparedActionId,
-      overrideKind: row.overrideKind, targetCard: row.targetCard })));
+    partyCardChoices, activeCardChoices);
   } catch (error) { throw new MapRunError([error instanceof Error ? error.message : String(error)]); }
 
   const actorBalances = new Map(slot.run.actorResources.map(balance => [
     actorResourceKey(balance.characterId, balance.resourceId), balance.value,
   ]));
   const teamBalances = new Map(slot.run.teamResources.map(balance => [balance.resourceId, balance.value]));
+  const enemyActorBalances = new Map(encounter.enemyActorResources.map(balance => [
+    actorResourceKey(balance.enemyId, balance.resourceId), balance.value,
+  ]));
+  const enemyTeamBalances = new Map(encounter.enemyTeamResources.map(balance => [balance.resourceId, balance.value]));
   const settlements: MapRunEncounterActionSettlement[] = [];
   const pendingHpActions: {
     readonly settlement: { readonly kind: 'ability' } | { readonly kind: 'item' };
@@ -937,6 +1020,8 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   const requiredCosts = new Map<string, {
     readonly scope: 'actor' | 'team';
     readonly characterId?: string;
+    readonly enemyId?: string;
+    readonly teamSide?: 'enemy';
     readonly resourceId: string;
     amount: bigint;
   }>();
@@ -990,11 +1075,13 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   const addRequiredCosts = (resourceChanges: readonly MapRunEncounterSettlementResourceChange[]) => {
     for (const change of resourceChanges) {
       if (change.kind !== 'cost') continue;
-      const key = JSON.stringify([change.scope, change.characterId ?? null, change.resourceId]);
+      const key = JSON.stringify([change.scope, change.characterId ?? change.enemyId ?? null, change.teamSide ?? 'party', change.resourceId]);
       const existing = requiredCosts.get(key);
       requiredCosts.set(key, {
         scope: change.scope,
         ...(change.characterId === undefined ? {} : { characterId: change.characterId }),
+        ...(change.enemyId === undefined ? {} : { enemyId: change.enemyId }),
+        ...(change.teamSide === undefined ? {} : { teamSide: change.teamSide }),
         resourceId: change.resourceId,
         amount: (existing?.amount ?? 0n) + BigInt(-change.delta),
       });
@@ -1075,16 +1162,18 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
       throw new MapRunError([`Prepared Action "${actionId}" has an invalid resolved target`]);
     }
 
-    const reduction = cardPlan.reductions.get(prepared.characterId) ?? 0n;
+    const reduction = cardPlan.reductions.get(mapCardActorKey('partyCharacter', prepared.characterId)) ?? 0n;
     const scostCost = mapScostCost(action, reduction);
-    const resourceChanges = settlementChangesFor(action, prepared.characterId, targetCharacterId, reduction);
+    const resourceChanges = settlementChangesFor(action, { kind: 'partyCharacter', id: prepared.characterId },
+      settlementUnitTarget(targetCharacterId, targetEnemyId), reduction);
     addRequiredCosts(resourceChanges);
     const hpChanges = applyHpEffects(action, targetCharacterId, targetEnemyId);
     const settlement: MapRunEncounterActionSettlement = {
       characterId: prepared.characterId,
       actionId,
       targetCharacterId,
-      ...(cardPlan.targets.has(prepared.characterId) ? { targetCard: cardPlan.targets.get(prepared.characterId)! } : {}),
+      ...(cardPlan.targets.has(mapCardActorKey('partyCharacter', prepared.characterId))
+        ? { targetCard: cardPlan.targets.get(mapCardActorKey('partyCharacter', prepared.characterId))! } : {}),
       ...(scostCost ? { scostCost } : {}),
       ...(targetEnemyId === null ? {} : { targetEnemyId }),
       overrideKind: prepared.overrideKind,
@@ -1109,7 +1198,8 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     validateSourceTarget(abilityDraft.target, action, slot, 'Ability');
     playerCostRequired += 1;
     const { targetCharacterId, targetEnemyId } = sourceTargetIds(abilityDraft.target);
-    const resourceChanges = settlementChangesFor(action, '', targetCharacterId);
+    const resourceChanges = settlementChangesFor(action, null,
+      settlementUnitTarget(targetCharacterId, targetEnemyId));
     addRequiredCosts(resourceChanges);
     ability = {
       actionId: action.id,
@@ -1133,7 +1223,8 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     const action = actorlessSourceAction(slot, itemDraft.actionId, 'Item');
     validateSourceTarget(itemDraft.target, action, slot, 'Item');
     const { targetCharacterId, targetEnemyId } = sourceTargetIds(itemDraft.target);
-    const resourceChanges = settlementChangesFor(action, '', targetCharacterId);
+    const resourceChanges = settlementChangesFor(action, null,
+      settlementUnitTarget(targetCharacterId, targetEnemyId));
     addRequiredCosts(resourceChanges);
     item = {
       itemId: itemDraft.itemId,
@@ -1152,12 +1243,12 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     throw new MapRunError(['the Encounter round cannot pay its combined PlayerCost costs']);
   }
   for (const required of requiredCosts.values()) {
-    const key = required.scope === 'actor' && required.characterId !== undefined
-      ? actorResourceKey(required.characterId, required.resourceId)
+    const key = required.scope === 'actor' && (required.characterId !== undefined || required.enemyId !== undefined)
+      ? actorResourceKey(required.characterId ?? required.enemyId!, required.resourceId)
       : required.resourceId;
     const startingBalance = required.scope === 'actor'
-      ? actorBalances.get(key)
-      : teamBalances.get(key);
+      ? required.enemyId === undefined ? actorBalances.get(key) : enemyActorBalances.get(key)
+      : required.teamSide === 'enemy' ? enemyTeamBalances.get(key) : teamBalances.get(key);
     if (startingBalance === undefined) {
       throw new MapRunError([`Action costs reference a resource without a MapRun balance: "${required.resourceId}"`]);
     }
@@ -1166,15 +1257,20 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     }
   }
   for (const required of requiredCosts.values()) {
-    const key = required.scope === 'actor' && required.characterId !== undefined
-      ? actorResourceKey(required.characterId, required.resourceId)
+    const key = required.scope === 'actor' && (required.characterId !== undefined || required.enemyId !== undefined)
+      ? actorResourceKey(required.characterId ?? required.enemyId!, required.resourceId)
       : required.resourceId;
-    const balance = required.scope === 'actor' ? actorBalances.get(key)! : teamBalances.get(key)!;
+    const balance = required.scope === 'actor'
+      ? required.enemyId === undefined ? actorBalances.get(key)! : enemyActorBalances.get(key)!
+      : required.teamSide === 'enemy' ? enemyTeamBalances.get(key)! : teamBalances.get(key)!;
     const afterCosts = balance - Number(required.amount);
     if (!Number.isSafeInteger(afterCosts) || afterCosts < 0) {
       throw new MapRunError([`the fixed-party round produced an invalid post-cost balance for "${required.resourceId}"`]);
     }
-    if (required.scope === 'actor') actorBalances.set(key, afterCosts);
+    if (required.scope === 'actor') {
+      if (required.enemyId === undefined) actorBalances.set(key, afterCosts);
+      else enemyActorBalances.set(key, afterCosts);
+    } else if (required.teamSide === 'enemy') enemyTeamBalances.set(key, afterCosts);
     else teamBalances.set(key, afterCosts);
   }
 
@@ -1186,63 +1282,25 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   for (const settlement of resourceSettlements) {
     for (const change of settlement.resourceChanges) {
       if (change.kind !== 'effect') continue;
-      const key = change.scope === 'actor' && change.characterId !== undefined
-        ? actorResourceKey(change.characterId, change.resourceId)
+      const key = change.scope === 'actor' && (change.characterId !== undefined || change.enemyId !== undefined)
+        ? actorResourceKey(change.characterId ?? change.enemyId!, change.resourceId)
         : change.resourceId;
-      const currentBalance = change.scope === 'actor' ? actorBalances.get(key) : teamBalances.get(key);
-      if (currentBalance === undefined) {
-        throw new MapRunError([`Action "${settlement.actionId}" effect references a resource without a MapRun balance`]);
-      }
+      const targetBalances = change.scope === 'actor'
+        ? change.enemyId === undefined ? actorBalances : enemyActorBalances
+        : change.teamSide === 'enemy' ? enemyTeamBalances : teamBalances;
+      const currentBalance = targetBalances.get(key) ?? 0;
       const afterEffect = currentBalance + change.delta;
       if (!Number.isSafeInteger(afterEffect) || afterEffect < 0) {
         throw new MapRunError([`Action "${settlement.actionId}" effect would leave an invalid balance for "${change.resourceId}"`]);
       }
-      if (change.scope === 'actor') actorBalances.set(key, afterEffect);
-      else teamBalances.set(key, afterEffect);
+      targetBalances.set(key, afterEffect);
     }
   }
 
   const hpEffectsToApply: { settlement: (typeof pendingHpActions)[number]['settlement']; changes: MapRunEncounterHpChange[] }[] = [];
-
   for (const pending of pendingHpActions) {
     const changes = applyHpEffects(pending.action, pending.targetCharacterId, pending.targetEnemyId);
     if (changes && changes.length > 0) hpEffectsToApply.push({ settlement: pending.settlement, changes });
-  }
-
-  let terminal: MapRunEncounterCommitPlan['terminal'] = 'none';
-  const isDefeated = () => slot.run.party.every(member => (partyHpAfter.get(member.characterId) ?? 0) === 0);
-  const hasBattle = enemyDefinitions.length > 0;
-  const rounds = encounterRounds(encounterDef);
-  if (isDefeated()) {
-    terminal = 'failure';
-  } else if (hasBattle && enemyDefinitions.every(enemy => (enemyHpAfter.get(enemy.id) ?? 0) === 0)) {
-    terminal = 'victory';
-  } else if (!hasBattle && rounds !== undefined && encounter.round >= rounds) {
-    // A Rest ends on its declared finite round count, never on an empty Enemy roster.
-    terminal = 'victory';
-  }
-
-  const enemyAttacks: { enemyId: string; targetCharacterId: string; damage: number; actualDelta: number }[] = [];
-  if (terminal === 'none' && hasBattle) {
-    for (const enemy of enemyDefinitions) {
-      if ((enemyHpAfter.get(enemy.id) ?? 0) === 0) continue;
-      const livingTargets = slot.run.party.flatMap(member => {
-        const currentHp = partyHpAfter.get(member.characterId) ?? 0;
-        return currentHp > 0 ? [{ characterId: member.characterId, currentHp }] : [];
-      });
-      if (livingTargets.length === 0) {
-        terminal = 'failure';
-        break;
-      }
-      const target = livingTargets.reduce((best, candidate) => candidate.currentHp < best.currentHp ? candidate : best);
-      const nextHp = Math.max(0, target.currentHp - enemy.damage);
-      partyHpAfter.set(target.characterId, nextHp);
-      enemyAttacks.push({ enemyId: enemy.id, targetCharacterId: target.characterId, damage: enemy.damage, actualDelta: nextHp - target.currentHp });
-      if (isDefeated()) {
-        terminal = 'failure';
-        break;
-      }
-    }
   }
   for (const applied of hpEffectsToApply) {
     if (applied.settlement.kind === 'ability' && ability) {
@@ -1252,17 +1310,182 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     }
   }
 
+  let terminal: MapRunEncounterCommitPlan['terminal'] = 'none';
+  const isDefeated = () => slot.run.party.every(member => (partyHpAfter.get(member.characterId) ?? 0) === 0);
+  const hasBattle = enemyDefinitions.length > 0;
+  const rounds = encounterRounds(encounterDef);
+  const allEnemiesDefeated = () => hasBattle
+    && enemyDefinitions.every(enemy => (enemyHpAfter.get(enemy.id) ?? 0) === 0);
+  if (isDefeated()) {
+    terminal = 'failure';
+  } else if (allEnemiesDefeated()) {
+    terminal = 'victory';
+  } else if (!hasBattle && rounds !== undefined && encounter.round >= rounds) {
+    // A Rest ends on its declared finite round count, never on an empty Enemy roster.
+    terminal = 'victory';
+  }
+
+  const enemyActions: MapRunEncounterEnemyActionSettlement[] = [];
+  const enemyDiscounts = new Map(cardPlan.reductions);
+  const cardScope = { runId: slot.run.runId, mapId: slot.run.mapId,
+    nodeId: encounter.nodeId, activityId: encounter.activityId ?? null, round: encounter.round };
+  const enemyById = new Map(enemyDefinitions.map(enemy => [enemy.id, enemy]));
+  const enemyOrder = new Map(enemyDefinitions.map((enemy, index) => [enemy.id, index]));
+  const pushEnemySkip = (enemyId: string, actionId: string, skipReason: 'defeated' | 'noLegalTarget' | 'unaffordable' | 'roundEnded') => {
+    enemyActions.push({ enemyId, actionId, skipReason, resourceChanges: [] });
+  };
+  const applyEnemyResourceChanges = (actionId: string, changes: readonly MapRunEncounterSettlementResourceChange[]) => {
+    for (const kind of ['cost', 'effect'] as const) {
+      for (const change of changes) {
+        if (change.kind !== kind) continue;
+        const key = change.scope === 'actor'
+          ? actorResourceKey(change.characterId ?? change.enemyId ?? '', change.resourceId)
+          : change.resourceId;
+        const balances = change.scope === 'actor'
+          ? change.enemyId === undefined ? actorBalances : enemyActorBalances
+          : change.teamSide === 'enemy' ? enemyTeamBalances : teamBalances;
+        const current = balances.get(key) ?? 0;
+        const next = current + change.delta;
+        if (!Number.isSafeInteger(next) || next < 0) {
+          throw new MapRunError([`Action "${actionId}" would leave an invalid balance for "${change.resourceId}"`]);
+        }
+        balances.set(key, next);
+      }
+    }
+  };
+  const enemyActionCostsArePayable = (changes: readonly MapRunEncounterSettlementResourceChange[]) => {
+    const requirements = new Map<string, { readonly balance: number; amount: bigint }>();
+    for (const change of changes) {
+      if (change.kind !== 'cost') continue;
+      const key = JSON.stringify([change.scope, change.characterId ?? change.enemyId ?? null, change.teamSide ?? 'party', change.resourceId]);
+      const balance = change.scope === 'actor'
+        ? change.enemyId === undefined
+          ? actorBalances.get(actorResourceKey(change.characterId ?? '', change.resourceId)) ?? 0
+          : enemyActorBalances.get(actorResourceKey(change.enemyId, change.resourceId)) ?? 0
+        : change.teamSide === 'enemy' ? enemyTeamBalances.get(change.resourceId) ?? 0 : teamBalances.get(change.resourceId) ?? 0;
+      const previous = requirements.get(key);
+      requirements.set(key, { balance, amount: (previous?.amount ?? 0n) + BigInt(-change.delta) });
+    }
+    return [...requirements.values()].every(row => row.amount <= BigInt(row.balance));
+  };
+
+  for (const prepared of preview.preparedEnemyActions) {
+    const enemyId = prepared.enemyId;
+    const actionId = prepared.naturalActionId;
+    const enemy = enemyById.get(enemyId);
+    if (!enemy) throw new MapRunError([`Prepared Enemy "${enemyId}" is no longer in the Encounter roster`]);
+    if (actionId === null) {
+      enemyActions.push({ enemyId, actionId: null, resourceChanges: [] });
+      continue;
+    }
+    const action = actionById.get(actionId);
+    if (!action || !(enemy.actions ?? []).some(candidate => candidate.actionId === actionId)) {
+      throw new MapRunError([`Enemy Prepared Action "${actionId}" is no longer valid for "${enemyId}"`]);
+    }
+    if ((enemyHpAfter.get(enemyId) ?? 0) <= 0) {
+      pushEnemySkip(enemyId, actionId, 'defeated');
+      continue;
+    }
+    if (terminal !== 'none') {
+      pushEnemySkip(enemyId, actionId, 'roundEnded');
+      continue;
+    }
+
+    let targetCharacterId: string | null = null;
+    let targetEnemyId: string | null = null;
+    let targetCard = prepared.targetCard ?? null;
+    if (action.target.kind === 'partyCharacter') {
+      targetCharacterId = prepared.targetCharacterId;
+      if (targetCharacterId === null || (partyHpAfter.get(targetCharacterId) ?? 0) <= 0) {
+        targetCharacterId = selectGameplayBUnitTarget(slot.run.party.flatMap(member => {
+          const hp = partyHpAfter.get(member.characterId) ?? 0;
+          return hp > 0 ? [{ id: member.characterId, currentHp: hp, maxHp: partyCaps.get(member.characterId)! }] : [];
+        }), action.target.preference ?? 'stableOrder');
+      }
+      if (targetCharacterId === null) {
+        pushEnemySkip(enemyId, actionId, 'noLegalTarget');
+        continue;
+      }
+    } else if (action.target.kind === 'enemy') {
+      targetEnemyId = prepared.targetEnemyId;
+      if (targetEnemyId === null || (enemyHpAfter.get(targetEnemyId) ?? 0) <= 0) {
+        targetEnemyId = selectGameplayBUnitTarget(enemyDefinitions.flatMap(candidate => {
+          const hp = enemyHpAfter.get(candidate.id) ?? 0;
+          return hp > 0 ? [{ id: candidate.id, currentHp: hp, maxHp: candidate.maxHp }] : [];
+        }), action.target.preference ?? 'stableOrder');
+      }
+      if (targetEnemyId === null) {
+        pushEnemySkip(enemyId, actionId, 'noLegalTarget');
+        continue;
+      }
+    } else if (action.target.kind === 'self') {
+      targetEnemyId = enemyId;
+    } else if (action.target.kind === 'card') {
+      if (targetCard === null) {
+        pushEnemySkip(enemyId, actionId, 'noLegalTarget');
+        continue;
+      }
+    }
+
+    const reduction = enemyDiscounts.get(mapCardActorKey('enemy', enemyId)) ?? 0n;
+    const resourceChanges = settlementChangesFor(action, { kind: 'enemy', id: enemyId },
+      settlementUnitTarget(targetCharacterId, targetEnemyId), reduction);
+    if (!enemyActionCostsArePayable(resourceChanges)) {
+      pushEnemySkip(enemyId, actionId, 'unaffordable');
+      continue;
+    }
+    applyEnemyResourceChanges(actionId, resourceChanges);
+    const hpChanges = applyHpEffects(action, targetCharacterId, targetEnemyId);
+    const scostCost = mapScostCost(action, reduction);
+    enemyActions.push({
+      enemyId,
+      actionId,
+      ...(targetCharacterId === null ? {} : { targetCharacterId }),
+      ...(targetEnemyId === null ? {} : { targetEnemyId }),
+      ...(targetCard === null ? {} : { targetCard }),
+      ...(scostCost ? { scostCost } : {}),
+      resourceChanges,
+      ...(hpChanges ? { hpChanges } : {}),
+    });
+
+    if (action.target.kind === 'card') {
+      const enemyChoice: MapCardActionChoice = {
+        enemyId,
+        actionId,
+        overrideKind: null,
+        targetCard,
+      };
+      const activePlan = resolveMapCardEffects(slot.definition, cardScope, [enemyChoice], activeCardChoices);
+      for (const [futureEnemyId, orderIndex] of enemyOrder) {
+        if (orderIndex <= (enemyOrder.get(enemyId) ?? -1)) continue;
+        const key = mapCardActorKey('enemy', futureEnemyId);
+        const gained = activePlan.reductions.get(key) ?? 0n;
+        if (gained > 0n) enemyDiscounts.set(key, (enemyDiscounts.get(key) ?? 0n) + gained);
+      }
+    }
+    if (isDefeated()) {
+      terminal = 'failure';
+    } else if (allEnemiesDefeated()) {
+      terminal = 'victory';
+    }
+  }
+
+  if (terminal === 'none' && isDefeated()) terminal = 'failure';
+  else if (terminal === 'none' && allEnemiesDefeated()) terminal = 'victory';
+
   return {
     settlements,
+    enemyActions,
     ability,
     item,
     playerCostRequired,
     actorBalancesAfter: actorBalances,
     teamBalancesAfter: teamBalances,
+    enemyActorBalancesAfter: enemyActorBalances,
+    enemyTeamBalancesAfter: enemyTeamBalances,
     partyHpAfter,
     enemyHpAfter,
     terminal,
-    enemyAttacks,
   };
 }
 
@@ -1308,7 +1531,8 @@ function restoreActorlessSourceSettlement(
   }
   let expectedChanges: MapRunEncounterSettlementResourceChange[];
   try {
-    expectedChanges = settlementChangesFor(action, '', target.kind === 'partyCharacter' ? target.characterId : null);
+    expectedChanges = settlementChangesFor(action, null,
+      target.kind === 'partyCharacter' ? { kind: 'partyCharacter', id: target.characterId } : { kind: 'enemy', id: target.enemyId });
   } catch {
     return null;
   }
@@ -1316,13 +1540,18 @@ function restoreActorlessSourceSettlement(
   for (const [index, raw] of value.resourceChanges.entries()) {
     const expected = expectedChanges[index];
     if (!expected || !isRecord(raw)) return null;
-    const expectedKeysForChange = expected.characterId === undefined
-      ? ['kind', 'scope', 'resourceId', 'delta']
-      : ['kind', 'scope', 'characterId', 'resourceId', 'delta'];
+    const expectedKeysForChange = [
+      'kind', 'scope',
+      ...(expected.characterId === undefined ? [] : ['characterId']),
+      ...(expected.enemyId === undefined ? [] : ['enemyId']),
+      ...(expected.teamSide === undefined ? [] : ['teamSide']),
+      'resourceId', 'delta',
+    ];
     if (Object.keys(raw).length !== expectedKeysForChange.length
       || Object.keys(raw).some(key => !expectedKeysForChange.includes(key))
       || raw.kind !== expected.kind || raw.scope !== expected.scope
-      || raw.characterId !== expected.characterId || raw.resourceId !== expected.resourceId
+      || raw.characterId !== expected.characterId || raw.enemyId !== expected.enemyId
+      || raw.teamSide !== expected.teamSide || raw.resourceId !== expected.resourceId
       || raw.delta !== expected.delta) return null;
   }
   const rawHpEffects: unknown = action.hpEffects ?? [];
@@ -1377,12 +1606,12 @@ function restoreEncounterCommitReceipt(
   if (!isRecord(value)) return null;
   const keys = Object.keys(value);
   const receiptNodeId = typeof value.nodeId === 'string' ? value.nodeId : null;
-  const hasEnemyAttacks = Object.prototype.hasOwnProperty.call(value, 'enemyAttacks');
+  const hasEnemyActions = Object.prototype.hasOwnProperty.call(value, 'enemyActions');
   const hasAbility = Object.prototype.hasOwnProperty.call(value, 'ability');
   const hasItem = Object.prototype.hasOwnProperty.call(value, 'item');
   const hasActivityId = Object.prototype.hasOwnProperty.call(value, 'activityId');
   if (keys.length < 7 || keys.length > 11 || keys.some(key => ![
-    'requestId', 'commandVersion', 'resultingCommitVersion', 'nodeId', 'activityId', 'round', 'draftVersion', 'settlements', 'enemyAttacks', 'ability', 'item',
+    'requestId', 'commandVersion', 'resultingCommitVersion', 'nodeId', 'activityId', 'round', 'draftVersion', 'settlements', 'enemyActions', 'ability', 'item',
   ].includes(key))
     || !isNonEmptyId(value.requestId)
     || !Number.isSafeInteger(value.commandVersion) || (value.commandVersion as number) < 0
@@ -1397,11 +1626,13 @@ function restoreEncounterCommitReceipt(
     || (encounterRound !== null && value.round !== encounterRound - 1)
     || !Number.isSafeInteger(value.draftVersion) || (value.draftVersion as number) < 0
     || !Array.isArray(value.settlements) || value.settlements.length !== party.length
-    || (hasEnemyAttacks && !Array.isArray(value.enemyAttacks))) return null;
+    || (hasEnemyActions && !Array.isArray(value.enemyActions))) return null;
 
   const node = definition.nodes.find(candidate => candidate.id === receiptNodeId);
   const encounterDef = resolveNodeEncounter(node, activityId);
   if (!node || !encounterDef) return null;
+  const enemyRoster = encounterDef.enemies ?? [];
+  if (hasEnemyActions !== (enemyRoster.length > 0)) return null;
   const abilitySettlement = hasAbility
     ? restoreActorlessSourceSettlement(value.ability, 'ability', encounterDef, definition, party)
     : null;
@@ -1416,15 +1647,31 @@ function restoreEncounterCommitReceipt(
   const restoredSettlements: MapRunEncounterActionSettlement[] = [];
   const actionById = new Map((definition.actions ?? []).map(action => [action.id, action]));
   let cardPlan: ReturnType<typeof resolveMapCardEffects>;
+  let activeCardChoices: MapCardActionChoice[] = [];
   try {
-    cardPlan = resolveMapCardEffects(definition, { runId, mapId: definition.id, nodeId: receiptNodeId!,
-      activityId: activityId ?? null, round: value.round as number }, (value.settlements as unknown[]).map(raw => {
+    const partyCardChoices = (value.settlements as unknown[]).map(raw => {
+      if (!isRecord(raw)) return raw as unknown as MapCardActionChoice;
+      return {
+        characterId: raw.characterId as string,
+        actionId: raw.skipReason === 'noLegalTarget' ? null : raw.actionId as string | null,
+        overrideKind: raw.overrideKind as MapRunActionOverride['kind'] | null,
+        targetCard: raw.targetCard as MapRunCardRef | undefined,
+      } satisfies MapCardActionChoice;
+    });
+    const enemyCardChoices = hasEnemyActions
+      ? (value.enemyActions as unknown[]).map(raw => {
         if (!isRecord(raw)) return raw as unknown as MapCardActionChoice;
         return {
-          ...raw,
-          actionId: raw.skipReason === 'noLegalTarget' ? null : raw.actionId,
-        } as unknown as MapCardActionChoice;
-      }));
+          enemyId: raw.enemyId as string,
+          actionId: raw.skipReason === 'noLegalTarget' ? null : raw.actionId as string | null,
+          overrideKind: null,
+          targetCard: raw.targetCard as MapRunCardRef | undefined,
+        } satisfies MapCardActionChoice;
+      })
+      : [];
+    activeCardChoices = [ ...partyCardChoices, ...enemyCardChoices ];
+    cardPlan = resolveMapCardEffects(definition, { runId, mapId: definition.id, nodeId: receiptNodeId!,
+      activityId: activityId ?? null, round: value.round as number }, partyCardChoices, activeCardChoices);
   } catch { return null; }
   let playerCostSpentTotal = abilitySettlement ? 1 : 0;
   // Each Character may spend at most one PlayerCost per round; Ability spends one more.
@@ -1503,8 +1750,9 @@ function restoreEncounterCommitReceipt(
     let expectedChanges: MapRunEncounterSettlementResourceChange[];
     let expectedScost: ReturnType<typeof mapScostCost>;
     try {
-      const reduction = cardPlan.reductions.get(member.characterId) ?? 0n;
-      expectedChanges = settlementChangesFor(action, member.characterId, targetCharacterId, reduction);
+      const reduction = cardPlan.reductions.get(mapCardActorKey('partyCharacter', member.characterId)) ?? 0n;
+      expectedChanges = settlementChangesFor(action, { kind: 'partyCharacter', id: member.characterId },
+        settlementUnitTarget(targetCharacterId, targetEnemyId), reduction);
       expectedScost = mapScostCost(action, reduction);
     } catch {
       return null;
@@ -1517,13 +1765,18 @@ function restoreEncounterCommitReceipt(
     for (const [changeIndex, rawChange] of rawSettlement.resourceChanges.entries()) {
       const expected = expectedChanges[changeIndex];
       if (!expected || !isRecord(rawChange)) return null;
-      const expectedKeys = expected.characterId === undefined
-        ? ['kind', 'scope', 'resourceId', 'delta']
-        : ['kind', 'scope', 'characterId', 'resourceId', 'delta'];
+      const expectedKeys = [
+        'kind', 'scope',
+        ...(expected.characterId === undefined ? [] : ['characterId']),
+        ...(expected.enemyId === undefined ? [] : ['enemyId']),
+        ...(expected.teamSide === undefined ? [] : ['teamSide']),
+        'resourceId', 'delta',
+      ];
       const changeKeys = Object.keys(rawChange);
       if (changeKeys.length !== expectedKeys.length || changeKeys.some(key => !expectedKeys.includes(key))
         || rawChange.kind !== expected.kind || rawChange.scope !== expected.scope
-        || rawChange.characterId !== expected.characterId || rawChange.resourceId !== expected.resourceId
+        || rawChange.characterId !== expected.characterId || rawChange.enemyId !== expected.enemyId
+        || rawChange.teamSide !== expected.teamSide || rawChange.resourceId !== expected.resourceId
         || rawChange.delta !== expected.delta) return null;
     }
     let restoredHpChanges: MapRunEncounterHpChange[] | undefined;
@@ -1560,7 +1813,8 @@ function restoreEncounterCommitReceipt(
       actionId,
       targetCharacterId,
       ...(targetEnemyId === null ? {} : { targetEnemyId }),
-      ...(cardPlan.targets.has(member.characterId) ? { targetCard: cardPlan.targets.get(member.characterId)! } : {}),
+      ...(cardPlan.targets.has(mapCardActorKey('partyCharacter', member.characterId))
+        ? { targetCard: cardPlan.targets.get(mapCardActorKey('partyCharacter', member.characterId))! } : {}),
       ...(expectedScost ? { scostCost: expectedScost } : {}),
       overrideKind,
       playerCostSpent: rawSettlement.playerCostSpent as 0 | 1,
@@ -1569,35 +1823,162 @@ function restoreEncounterCommitReceipt(
     });
   }
 
-  const enemyAttacks: NonNullable<MapRunEncounterCommitReceipt['enemyAttacks']>[number][] = [];
-  if (hasEnemyAttacks) {
-    const roster = encounterDef.enemies ?? [];
-    const rosterOrder = new Map(roster.map((enemy, index) => [enemy.id, index]));
-    let previousEnemyIndex = -1;
-    const seenAttackers = new Set<string>();
-    for (const rawAttack of value.enemyAttacks as unknown[]) {
-      if (!isRecord(rawAttack) || !isNonEmptyId(rawAttack.enemyId)
-        || Object.keys(rawAttack).length !== 4
-        || Object.keys(rawAttack).some(key => !['enemyId', 'targetCharacterId', 'damage', 'actualDelta'].includes(key))
-        || !isNonEmptyId(rawAttack.targetCharacterId)
-        || !party.some(member => member.characterId === rawAttack.targetCharacterId)
-        || !Number.isSafeInteger(rawAttack.damage) || !Number.isSafeInteger(rawAttack.actualDelta)
-        || (rawAttack.actualDelta as number) >= 0) return null;
-      const enemy = roster.find(row => row.id === rawAttack.enemyId);
-      const enemyIndex = rosterOrder.get(rawAttack.enemyId);
-      if (!enemy || enemyIndex === undefined || enemyIndex <= previousEnemyIndex
-        || seenAttackers.has(rawAttack.enemyId) || rawAttack.damage !== enemy.damage
-        || Math.abs(rawAttack.actualDelta as number) > enemy.damage) return null;
-      previousEnemyIndex = enemyIndex;
-      seenAttackers.add(rawAttack.enemyId);
-      enemyAttacks.push({
-        enemyId: rawAttack.enemyId,
-        targetCharacterId: rawAttack.targetCharacterId,
-        damage: enemy.damage,
-        actualDelta: rawAttack.actualDelta as number,
+  const restoredEnemyActions: MapRunEncounterEnemyActionSettlement[] = [];
+  if (hasEnemyActions) {
+    const rawRows = value.enemyActions as unknown[];
+    if (rawRows.length !== enemyRoster.length) return null;
+    const enemyOrder = new Map(enemyRoster.map((enemy, index) => [enemy.id, index]));
+    for (const [index, rawSettlement] of rawRows.entries()) {
+      const enemy = enemyRoster[index];
+      if (!enemy || !isRecord(rawSettlement) || rawSettlement.enemyId !== enemy.id
+        || !(rawSettlement.actionId === null || isNonEmptyId(rawSettlement.actionId))
+        || !Array.isArray(rawSettlement.resourceChanges)) return null;
+      const hasTargetCharacter = Object.prototype.hasOwnProperty.call(rawSettlement, 'targetCharacterId');
+      const hasTargetEnemy = Object.prototype.hasOwnProperty.call(rawSettlement, 'targetEnemyId');
+      const hasTargetCard = Object.prototype.hasOwnProperty.call(rawSettlement, 'targetCard');
+      const hasSkipReason = Object.prototype.hasOwnProperty.call(rawSettlement, 'skipReason');
+      const hasScost = Object.prototype.hasOwnProperty.call(rawSettlement, 'scostCost');
+      const hasHpChanges = Object.prototype.hasOwnProperty.call(rawSettlement, 'hpChanges');
+      const actionId = rawSettlement.actionId as string | null;
+      if (actionId === null) {
+        if (Object.keys(rawSettlement).length !== 3 || hasTargetCharacter || hasTargetEnemy || hasTargetCard
+          || hasSkipReason || hasScost || hasHpChanges || rawSettlement.resourceChanges.length > 0) return null;
+        restoredEnemyActions.push({ enemyId: enemy.id, actionId: null, resourceChanges: [] });
+        continue;
+      }
+      const action = actionById.get(actionId);
+      if (!action || !(enemy.actions ?? []).some(candidate => candidate.actionId === actionId)) return null;
+      const allowedKeys = [
+        'enemyId', 'actionId', 'targetCharacterId', 'targetEnemyId', 'targetCard', 'scostCost',
+        'skipReason', 'resourceChanges', 'hpChanges',
+      ];
+      if (Object.keys(rawSettlement).some(key => !allowedKeys.includes(key))) return null;
+      const skipReason = hasSkipReason ? rawSettlement.skipReason : undefined;
+      if (hasSkipReason) {
+        if (!['defeated', 'noLegalTarget', 'unaffordable', 'roundEnded'].includes(String(skipReason))
+          || Object.keys(rawSettlement).length !== 4 || hasTargetCharacter || hasTargetEnemy || hasTargetCard
+          || hasScost || hasHpChanges || rawSettlement.resourceChanges.length !== 0
+          || (skipReason === 'noLegalTarget' && !['partyCharacter', 'enemy', 'card'].includes(action.target.kind))) return null;
+        restoredEnemyActions.push({ enemyId: enemy.id, actionId, skipReason: skipReason as 'defeated' | 'noLegalTarget' | 'unaffordable' | 'roundEnded', resourceChanges: [] });
+        continue;
+      }
+
+      const targetCharacterId = hasTargetCharacter && isNonEmptyId(rawSettlement.targetCharacterId)
+        ? rawSettlement.targetCharacterId : null;
+      const targetEnemyId = hasTargetEnemy && isNonEmptyId(rawSettlement.targetEnemyId)
+        ? rawSettlement.targetEnemyId : null;
+      if ((hasTargetCharacter && targetCharacterId === null) || (hasTargetEnemy && targetEnemyId === null)) return null;
+      let targetCard: MapRunCardRef | null = null;
+      if (hasTargetCard) {
+        targetCard = parseMapRunCardRef(rawSettlement.targetCard);
+        if (!targetCard || targetCard.scope.runId !== runId || targetCard.scope.mapId !== definition.id
+          || targetCard.scope.nodeId !== receiptNodeId || targetCard.scope.activityId !== (activityId ?? null)
+          || targetCard.scope.round !== value.round) return null;
+      }
+      const targetMatches = action.target.kind === 'none'
+        ? targetCharacterId === null && targetEnemyId === null && targetCard === null
+        : action.target.kind === 'self'
+          ? targetCharacterId === null && targetEnemyId === enemy.id && targetCard === null
+          : action.target.kind === 'partyCharacter'
+            ? targetCharacterId !== null && targetEnemyId === null && targetCard === null
+              && party.some(member => member.characterId === targetCharacterId)
+            : action.target.kind === 'enemy'
+              ? targetCharacterId === null && targetEnemyId !== null && enemyOrder.has(targetEnemyId) && targetCard === null
+              : targetCharacterId === null && targetEnemyId === null && targetCard !== null;
+      if (!targetMatches) return null;
+
+      const enemyActorKey = mapCardActorKey('enemy', enemy.id);
+      let reduction = cardPlan.reductions.get(enemyActorKey) ?? 0n;
+      for (const prior of restoredEnemyActions) {
+        if (prior.actionId === null || prior.skipReason !== undefined) continue;
+        const priorIndex = enemyOrder.get(prior.enemyId);
+        if (priorIndex === undefined || priorIndex >= index) continue;
+        const priorAction = actionById.get(prior.actionId);
+        if (priorAction?.target.kind !== 'card' || !prior.targetCard) continue;
+        try {
+          const priorPlan = resolveMapCardEffects(definition, {
+            runId, mapId: definition.id, nodeId: receiptNodeId!,
+            activityId: activityId ?? null, round: value.round as number,
+          }, [{ enemyId: prior.enemyId, actionId: prior.actionId, overrideKind: null, targetCard: prior.targetCard }], activeCardChoices);
+          reduction += priorPlan.reductions.get(enemyActorKey) ?? 0n;
+        } catch { return null; }
+      }
+      if (action.target.kind === 'card') {
+        try {
+          resolveMapCardEffects(definition, {
+            runId, mapId: definition.id, nodeId: receiptNodeId!,
+            activityId: activityId ?? null, round: value.round as number,
+          }, [{ enemyId: enemy.id, actionId, overrideKind: null, targetCard: targetCard! }], activeCardChoices);
+        } catch { return null; }
+      }
+
+      let expectedChanges: MapRunEncounterSettlementResourceChange[];
+      let expectedScost: ReturnType<typeof mapScostCost>;
+      try {
+        expectedChanges = settlementChangesFor(action, { kind: 'enemy', id: enemy.id },
+          settlementUnitTarget(targetCharacterId, targetEnemyId), reduction);
+        expectedScost = mapScostCost(action, reduction);
+      } catch { return null; }
+      if (hasScost !== (expectedScost !== null)) return null;
+      if (expectedScost && (!isRecord(rawSettlement.scostCost) || Object.keys(rawSettlement.scostCost).length !== 3
+        || Object.keys(expectedScost).some(key => (rawSettlement.scostCost as Record<string, unknown>)[key]
+          !== expectedScost![key as keyof typeof expectedScost]))) return null;
+      if (expectedChanges.length !== rawSettlement.resourceChanges.length) return null;
+      for (const [changeIndex, rawChange] of rawSettlement.resourceChanges.entries()) {
+        const expected = expectedChanges[changeIndex];
+        if (!expected || !isRecord(rawChange)) return null;
+        const expectedKeys = [
+          'kind', 'scope',
+          ...(expected.characterId === undefined ? [] : ['characterId']),
+          ...(expected.enemyId === undefined ? [] : ['enemyId']),
+          ...(expected.teamSide === undefined ? [] : ['teamSide']),
+          'resourceId', 'delta',
+        ];
+        if (Object.keys(rawChange).length !== expectedKeys.length
+          || Object.keys(rawChange).some(key => !expectedKeys.includes(key))
+          || rawChange.kind !== expected.kind || rawChange.scope !== expected.scope
+          || rawChange.characterId !== expected.characterId || rawChange.enemyId !== expected.enemyId
+          || rawChange.teamSide !== expected.teamSide || rawChange.resourceId !== expected.resourceId
+          || rawChange.delta !== expected.delta) return null;
+      }
+      const rawHpEffects: unknown = action.hpEffects ?? [];
+      if (!Array.isArray(rawHpEffects)) return null;
+      let hpChanges: MapRunEncounterHpChange[] | undefined;
+      if (rawHpEffects.length > 0) {
+        if (!hasHpChanges || !Array.isArray(rawSettlement.hpChanges)
+          || rawSettlement.hpChanges.length !== rawHpEffects.length) return null;
+        hpChanges = [];
+        for (const [hpIndex, rawHpChange] of rawSettlement.hpChanges.entries()) {
+          const effect = rawHpEffects[hpIndex];
+          if (!isRecord(effect) || !isRecord(rawHpChange)
+            || !Number.isSafeInteger(effect.amount) || (effect.amount as number) === 0
+            || !Number.isSafeInteger(rawHpChange.delta)) return null;
+          const expectedScope = targetEnemyId !== null ? 'enemy' : 'party';
+          const expectedId = targetEnemyId ?? targetCharacterId;
+          const expectedKeys = expectedScope === 'enemy' ? ['scope', 'enemyId', 'delta'] : ['scope', 'characterId', 'delta'];
+          if (expectedId === null || rawHpChange.scope !== expectedScope
+            || Object.keys(rawHpChange).length !== expectedKeys.length
+            || Object.keys(rawHpChange).some(key => !expectedKeys.includes(key))
+            || (expectedScope === 'enemy' ? rawHpChange.enemyId !== expectedId : rawHpChange.characterId !== expectedId)
+            || Math.abs(rawHpChange.delta as number) > Math.abs(effect.amount as number)
+            || ((effect.amount as number) < 0 && (rawHpChange.delta as number) > 0)
+            || ((effect.amount as number) > 0 && (rawHpChange.delta as number) < 0)) return null;
+          hpChanges.push(expectedScope === 'enemy'
+            ? { scope: 'enemy', enemyId: expectedId, delta: rawHpChange.delta as number }
+            : { scope: 'party', characterId: expectedId, delta: rawHpChange.delta as number });
+        }
+      } else if (hasHpChanges) return null;
+
+      restoredEnemyActions.push({
+        enemyId: enemy.id, actionId,
+        ...(targetCharacterId === null ? {} : { targetCharacterId }),
+        ...(targetEnemyId === null ? {} : { targetEnemyId }),
+        ...(targetCard === null ? {} : { targetCard }),
+        ...(expectedScost ? { scostCost: expectedScost } : {}),
+        resourceChanges: expectedChanges,
+        ...(hpChanges ? { hpChanges } : {}),
       });
     }
-    if (enemyAttacks.length > 0 && roster.length === 0) return null;
   }
 
   return {
@@ -1609,9 +1990,9 @@ function restoreEncounterCommitReceipt(
     round: value.round as number,
     draftVersion: value.draftVersion as number,
     settlements: restoredSettlements,
+    ...(hasEnemyActions ? { enemyActions: restoredEnemyActions } : {}),
     ...(abilitySettlement ? { ability: abilitySettlement } : {}),
     ...(itemSettlement ? { item: itemSettlement } : {}),
-    ...(hasEnemyAttacks ? { enemyAttacks } : {}),
   };
 }
 
@@ -1665,6 +2046,9 @@ function restoreEncounterSnapshot(
     || !Array.isArray(targetSelectionsSnapshot)
     || !Array.isArray(value.hands)
     || value.hands.length !== party.length
+    || !Array.isArray(value.enemyHands)
+    || !Array.isArray(value.enemyActorResources)
+    || !Array.isArray(value.enemyTeamResources)
     || !Array.isArray(value.enemies)) return null;
 
   const savedHands: { characterId: string; actionIds: string[] }[] = [];
@@ -1716,6 +2100,49 @@ function restoreEncounterSnapshot(
     enemies.push({ enemyId: expectedEnemy.id, currentHp: rawEnemy.currentHp as number });
   }
   if (expectedEnemyDefinitions.length > 0 && enemies.every(enemy => enemy.currentHp === 0)) return null;
+
+  if (value.enemyHands.length !== expectedEnemyDefinitions.length) return null;
+  const enemyHands: MapRunEnemyHand[] = [];
+  for (const [index, row] of value.enemyHands.entries()) {
+    const expectedEnemy = expectedEnemyDefinitions[index];
+    if (!expectedEnemy || !isRecord(row) || Object.keys(row).length !== 2
+      || Object.keys(row).some(key => !['enemyId', 'actionIds'].includes(key))
+      || row.enemyId !== expectedEnemy.id || !isUniqueIdArray(row.actionIds) || row.actionIds.length > 3) return null;
+    enemyHands.push({ enemyId: expectedEnemy.id, actionIds: [...row.actionIds] });
+  }
+
+  const expectedEnemyIds = new Set(expectedEnemyDefinitions.map(enemy => enemy.id));
+  const enemyActorResources: MapRunEnemyActorResourceBalance[] = [];
+  const enemyActorResourceKeys = new Set<string>();
+  for (const row of value.enemyActorResources) {
+    if (!isRecord(row) || Object.keys(row).length !== 3
+      || Object.keys(row).some(key => !['enemyId', 'resourceId', 'value'].includes(key))
+      || !isNonEmptyId(row.enemyId) || !expectedEnemyIds.has(row.enemyId)
+      || !isNonEmptyId(row.resourceId) || !Number.isSafeInteger(row.value) || (row.value as number) < 0) return null;
+    const key = JSON.stringify([row.enemyId, row.resourceId]);
+    if (enemyActorResourceKeys.has(key)) return null;
+    enemyActorResourceKeys.add(key);
+    enemyActorResources.push({ enemyId: row.enemyId, resourceId: row.resourceId, value: row.value as number });
+  }
+  for (const enemy of expectedEnemyDefinitions) {
+    for (const resource of enemy.initialResources ?? []) {
+      if (!enemyActorResourceKeys.has(JSON.stringify([enemy.id, resource.resourceId]))) return null;
+    }
+  }
+
+  const enemyTeamResources: MapRunTeamResourceBalance[] = [];
+  const enemyTeamResourceIds = new Set<string>();
+  for (const row of value.enemyTeamResources) {
+    if (!isRecord(row) || Object.keys(row).length !== 2
+      || Object.keys(row).some(key => !['resourceId', 'value'].includes(key))
+      || !isNonEmptyId(row.resourceId) || !Number.isSafeInteger(row.value) || (row.value as number) < 0
+      || enemyTeamResourceIds.has(row.resourceId)) return null;
+    enemyTeamResourceIds.add(row.resourceId);
+    enemyTeamResources.push({ resourceId: row.resourceId, value: row.value as number });
+  }
+  for (const resource of encounterDef.initialEnemyTeamResources ?? []) {
+    if (!enemyTeamResourceIds.has(resource.resourceId)) return null;
+  }
 
   const actionById = new Map((definition.actions ?? []).map(action => [action.id, action]));
   const abilityActionIds = encounterDef.abilityActionIds ?? [];
@@ -1789,6 +2216,14 @@ function restoreEncounterSnapshot(
   try {
     expectedDraw = drawGameplayBHands({
       partyCharacterIds: party.map(member => member.characterId),
+      enemies: expectedEnemyDefinitions,
+      enemyHealth: enemies.map(enemy => ({
+        enemyId: enemy.enemyId,
+        currentHp: enemy.currentHp,
+        maxHp: expectedEnemyDefinitions.find(definition => definition.id === enemy.enemyId)!.maxHp,
+      })),
+      enemyActorResources,
+      enemyTeamResources,
       livingPartyCharacterIds: partyHp.filter(row => row.currentHp > 0).map(row => row.characterId),
       livingEnemyIds: enemies.filter(enemy => enemy.currentHp > 0).map(enemy => enemy.enemyId),
       participants: encounterDef.participants,
@@ -1808,13 +2243,19 @@ function restoreEncounterSnapshot(
   if (expectedDraw.randomState.cursor !== value.randomState.cursor
     || expectedDraw.hands.some((hand, index) => hand.characterId !== savedHands[index]?.characterId
       || hand.actionIds.length !== savedHands[index]?.actionIds.length
-      || hand.actionIds.some((actionId, actionIndex) => actionId !== savedHands[index]?.actionIds[actionIndex]))) return null;
+      || hand.actionIds.some((actionId, actionIndex) => actionId !== savedHands[index]?.actionIds[actionIndex]))
+    || expectedDraw.enemyHands.some((hand, index) => hand.enemyId !== enemyHands[index]?.enemyId
+      || hand.actionIds.length !== enemyHands[index]?.actionIds.length
+      || hand.actionIds.some((actionId, actionIndex) => actionId !== enemyHands[index]?.actionIds[actionIndex]))) return null;
 
   const restored: MapRunEncounterSnapshot = {
     nodeId: expectedNodeId,
     ...(activityId === undefined ? {} : { activityId }),
     round: value.round as number,
     hands: savedHands,
+    enemyHands,
+    enemyActorResources,
+    enemyTeamResources,
     overrides,
     targetSelections,
     ...(abilityDraft === null ? {} : { abilityDraft }),
@@ -2215,6 +2656,39 @@ export class MapRunService {
     return snapshotOf(run);
   }
 
+  /** Rebuilds the entire active MapRun from its Map start and admitted party snapshot. */
+  restart(expectedRunId: string): MapRun {
+    const previousSlot = this.slot;
+    if (!previousSlot || previousSlot.run.runId !== expectedRunId || previousSlot.run.status !== 'inProgress') {
+      throw new MapRunError(['the MapRun to restart is no longer active']);
+    }
+    const previousResult = this.result;
+    const previousFailureResult = this.failureResult;
+    const previousTerminalReplay = this.terminalCommitReplay;
+    this.slot = null;
+    try {
+      return this.start(previousSlot.run.mapId, previousSlot.run.party);
+    } catch (error) {
+      this.slot = previousSlot;
+      this.result = previousResult;
+      this.failureResult = previousFailureResult;
+      this.terminalCommitReplay = previousTerminalReplay;
+      throw error;
+    }
+  }
+
+  /** Discards the complete active MapRun; it has no PlayerState or Save result. */
+  abandon(expectedRunId: string): void {
+    const slot = this.slot;
+    if (!slot || slot.run.runId !== expectedRunId || slot.run.status !== 'inProgress') {
+      throw new MapRunError(['the MapRun to abandon is no longer active']);
+    }
+    this.slot = null;
+    this.result = null;
+    this.failureResult = null;
+    this.terminalCommitReplay = null;
+  }
+
   getSnapshot(expectedRunId?: string): MapRun | null {
     const run = this.slot?.run;
     if (!run || (expectedRunId !== undefined && expectedRunId !== run.runId)) return null;
@@ -2301,6 +2775,7 @@ export class MapRunService {
         playerCostRequired: plan.playerCostRequired,
         diagnostics: Object.freeze([]),
         settlements: freezeCommitSettlements(plan.settlements),
+        enemyActions: freezeEnemyActionSettlements(plan.enemyActions),
       });
     } catch (error) {
       const diagnostics = error instanceof MapRunError
@@ -2312,6 +2787,7 @@ export class MapRunService {
         playerCostRequired: null,
         diagnostics: Object.freeze([...diagnostics]),
         settlements: null,
+        enemyActions: null,
       });
     }
   }
@@ -2406,6 +2882,11 @@ export class MapRunService {
       ...balance,
       value: plan.teamBalancesAfter.get(balance.resourceId) ?? balance.value,
     }));
+    const nextEnemyActorResources = [...plan.enemyActorBalancesAfter].map(([key, value]) => {
+      const identity = JSON.parse(key) as [string, string];
+      return { enemyId: identity[0], resourceId: identity[1], value };
+    });
+    const nextEnemyTeamResources = [...plan.enemyTeamBalancesAfter].map(([resourceId, value]) => ({ resourceId, value }));
     const commitNode = currentSlot.definition.nodes.find(candidate => candidate.id === currentEncounter.nodeId);
     const commitEncounterDef = resolveNodeEncounter(commitNode, currentEncounter.activityId);
     if (!commitEncounterDef) {
@@ -2420,9 +2901,9 @@ export class MapRunService {
       round: currentEncounter.round,
       draftVersion: currentEncounter.draftVersion,
       settlements: plan.settlements,
+      ...(plan.enemyActions.length > 0 ? { enemyActions: freezeEnemyActionSettlements(plan.enemyActions) } : {}),
       ...(plan.ability === null ? {} : { ability: plan.ability }),
       ...(plan.item === null ? {} : { item: plan.item }),
-      ...(plan.enemyAttacks.length > 0 ? { enemyAttacks: plan.enemyAttacks } : {}),
     };
     const nextPartyHp = currentSlot.run.party.map(member => ({
       characterId: member.characterId,
@@ -2466,6 +2947,8 @@ export class MapRunService {
         currentEncounter.round + 1,
         currentEncounter.randomState,
         nextEnemyHp,
+        nextEnemyActorResources,
+        nextEnemyTeamResources,
         currentEncounter.activityId,
       );
       nextRun = { ...baseRun, activeEncounter: { ...drawnEncounter, lastCommit: receipt } };

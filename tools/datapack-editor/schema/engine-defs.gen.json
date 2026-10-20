@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T18:10:13.980Z",
+  "generatedAt": "2026-10-19T08:58:31.430Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -11880,6 +11880,7 @@
     "GameplayEncounterCompletionDef",
     "GameplayEncounterDef",
     "GameplayEncounterEnemyDef",
+    "GameplayEncounterInitialEnemyResourceDef",
     "GameplayEncounterItemActionDef",
     "GameplayEncounterParticipantDef",
     "GameplayMapActionCardEffectDef",

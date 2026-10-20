@@ -10,10 +10,12 @@ import type {
   MapRunFailureWorkspaceView,
   MapRunSuccessWorkspaceView,
   MapRunWorkspaceView,
+  MapWorkspaceEnemyActionSettlementView,
   MapWorkspaceNodeView,
 } from '../../arona-clicker/contracts/runtime';
 import type {
   MapRunEncounterCommitReceipt,
+  MapRunEncounterEnemyActionSettlement,
   MapRunEncounterHpChange,
   MapRunEncounterSettlementResourceChange,
   MapRunEncounterSourceTarget,
@@ -23,10 +25,11 @@ import {
   applyFlowEntryInPlace,
   mapInstanceKey,
   type FlowEntry,
+  type FlowMapLocation,
+  type FlowMapLocations,
 } from './flow-entry';
+import { mapCardInstanceKey, mapLocationObjectKey, type MapLocationRef } from '../cards/card-host';
 
-/** 当前敌方情报的逻辑槽：重复查询回收上一条。 */
-export const MAP_FLOW_ENEMY_INFO_SLOT = 'gameplay-b:current-enemy-info';
 /** 当前地点说明的逻辑槽。 */
 export const MAP_FLOW_CURRENT_NODE_SLOT = 'gameplay-b:current-node';
 /** 玩家主动查看的地图地点概览逻辑槽。 */
@@ -34,6 +37,50 @@ export const MAP_FLOW_MAP_OVERVIEW_SLOT = 'gameplay-b:map-overview';
 /** 当前遭遇说明的逻辑槽。 */
 export const MAP_FLOW_CURRENT_ENCOUNTER_SLOT = 'gameplay-b:current-encounter';
 export const MAP_FLOW_MOVE_CHOICES_SLOT = 'gameplay-b:move-choices';
+
+/**
+ * Current location choices derived only from the active detached Map View.
+ * Controller uses the same projection when it validates a movement commit.
+ */
+export function mapLocationChoices(
+  view: MapRunActiveWorkspaceView,
+  port: MapFlowTextPort,
+  streamKey: string,
+): FlowMapLocations | null {
+  if (view.run.status !== 'inProgress' || view.run.activeEncounterNodeId !== null
+    || view.run.activeActivity !== null || view.activities.some(activity => !activity.completed)) return null;
+  const fromNodeId = view.run.currentNodeId;
+  const entryInstanceKey = mapInstanceKey('move-choices', fromNodeId);
+  const locations: FlowMapLocation[] = view.map.edges
+    .filter(edge => edge.fromNodeId === fromNodeId)
+    .flatMap(edge => {
+      const node = view.map.nodes.find(candidate => candidate.id === edge.toNodeId);
+      if (!node) return [];
+      const ref: MapLocationRef = { kind: 'mapNode', runId: view.run.runId, mapId: view.map.id, nodeId: node.id };
+      const objectKey = mapLocationObjectKey(ref);
+      const locked = edge.condition !== undefined && !edge.condition.satisfied;
+      const requirement = edge.condition
+        ? `需要 ${port.nameOf('resource', edge.condition.resourceId)} ≥ ${port.formatNumber(edge.condition.amount)}${locked ? '（未满足）' : '（已满足）'}`
+        : '';
+      return [{
+        instanceKey: mapCardInstanceKey(`flow:${streamKey}`, `${entryInstanceKey}:location:${node.id}`, objectKey),
+        objectKey,
+        ref,
+        title: node.title,
+        ...(node.description ? { description: node.description } : {}),
+        stateLabel: [mapNodeProgressLabel(view, node), requirement].filter(Boolean).join(' · '),
+        selectable: !locked,
+        ...(locked ? { unavailableReason: `需要 ${port.nameOf('resource', edge.condition!.resourceId)} ≥ ${port.formatNumber(edge.condition!.amount)}` } : {}),
+      }];
+    });
+  return locations.length ? {
+    runId: view.run.runId,
+    mapId: view.map.id,
+    fromNodeId,
+    hostLayout: { alignment: 'left', gapPx: 12 },
+    locations,
+  } : null;
+}
 
 /** 地点进度文案由地图列表与流内移动选项共用。 */
 export function mapNodeProgressLabel(view: MapRunActiveWorkspaceView, node: MapWorkspaceNodeView): string {
@@ -51,13 +98,6 @@ export function mapNodeProgressLabel(view: MapRunActiveWorkspaceView, node: MapW
 export interface MapFlowTextPort {
   nameOf(type: string, id: string): string;
   formatNumber(value: number): string;
-}
-
-/** 一次“查看情报”所需的只读事实。 */
-export interface MapEnemyInfoFacts {
-  readonly enemyId: string;
-  readonly currentHp: number;
-  readonly maxHp: number;
 }
 
 /** 归一化后的结算视图：投影回执与持久回执共用同一套逐行格式化。 */
@@ -88,10 +128,16 @@ interface CommitView {
     readonly consumedCount: 1;
     readonly hpChanges: readonly MapRunEncounterHpChange[];
   } | null;
-  readonly enemyAttacks: readonly {
+  readonly enemyActions: readonly {
     readonly enemyId: string;
-    readonly targetCharacterId: string;
-    readonly actualDelta: number;
+    readonly actionName: string;
+    readonly targetCharacterId: string | null;
+    readonly targetEnemyId: string | null;
+    readonly targetCard: boolean;
+    readonly skipReason?: MapRunEncounterEnemyActionSettlement['skipReason'];
+    readonly scostCost?: { readonly original: number; readonly discount: number; readonly paid: number };
+    readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
+    readonly hpChanges: readonly MapRunEncounterHpChange[];
   }[];
 }
 
@@ -125,6 +171,35 @@ function resourcesLabel(port: MapFlowTextPort, changes: readonly MapRunEncounter
     .join(' · ');
 }
 
+function enemySkipLabel(reason: MapRunEncounterEnemyActionSettlement['skipReason']): string {
+  switch (reason) {
+    case 'defeated': return '行动前已倒下，跳过';
+    case 'noLegalTarget': return '没有合法目标，跳过';
+    case 'unaffordable': return '费用不足，跳过';
+    case 'roundEnded': return '本场战斗已结束，跳过';
+    default: return '';
+  }
+}
+
+function enemyActionRows(
+  port: MapFlowTextPort,
+  rows: readonly (MapRunEncounterEnemyActionSettlement | MapWorkspaceEnemyActionSettlementView)[],
+): CommitView['enemyActions'] {
+  return rows.map(row => ({
+    enemyId: row.enemyId,
+    actionName: 'action' in row
+      ? row.action?.name ?? '待机'
+      : row.actionId ? port_name(port, 'action', row.actionId) : '待机',
+    targetCharacterId: row.targetCharacterId ?? null,
+    targetEnemyId: row.targetEnemyId ?? null,
+    targetCard: row.targetCard !== undefined,
+    ...(row.skipReason === undefined ? {} : { skipReason: row.skipReason }),
+    ...(row.scostCost ? { scostCost: row.scostCost } : {}),
+    resourceChanges: row.resourceChanges,
+    hpChanges: row.hpChanges ?? [],
+  }));
+}
+
 /** 持久回执 → 归一化视图；动作名称走 UIContext 查询。 */
 function commitViewFromReceipt(port: MapFlowTextPort, receipt: MapRunEncounterCommitReceipt): CommitView {
   return {
@@ -154,11 +229,7 @@ function commitViewFromReceipt(port: MapFlowTextPort, receipt: MapRunEncounterCo
       consumedCount: receipt.item.consumedCount,
       hpChanges: receipt.item.hpChanges,
     } : null,
-    enemyAttacks: (receipt.enemyAttacks ?? []).map(attack => ({
-      enemyId: attack.enemyId,
-      targetCharacterId: attack.targetCharacterId,
-      actualDelta: attack.actualDelta,
-    })),
+    enemyActions: enemyActionRows(port, receipt.enemyActions ?? []),
   };
 }
 
@@ -188,8 +259,21 @@ function commitLines(port: MapFlowTextPort, commit: CommitView): string[] {
     const hp = commit.item.hpChanges.length ? ` · ${hpChangesLabel(port, commit.item.hpChanges)}` : '';
     lines.push(`Item：${commit.item.itemName} → ${targetLabel(port, commit.item.target)} · 消耗 ${commit.item.consumedCount}${hp}`);
   }
-  for (const attack of commit.enemyAttacks) {
-    lines.push(`敌方 ${attack.enemyId} → ${port_name(port, 'character', attack.targetCharacterId)} · ${hpLabel(attack.actualDelta)}`);
+  for (const action of commit.enemyActions) {
+    const actor = `敌方 ${port_name(port, 'enemy', action.enemyId)}`;
+    if (action.skipReason) {
+      lines.push(`${actor}：${action.actionName} · ${enemySkipLabel(action.skipReason)}`);
+      continue;
+    }
+    const target = action.targetCharacterId
+      ? ` → ${port_name(port, 'character', action.targetCharacterId)}`
+      : action.targetEnemyId ? ` → 敌方 ${port_name(port, 'enemy', action.targetEnemyId)}`
+        : action.targetCard ? ' → 卡牌目标' : '';
+    const cost = action.scostCost
+      ? ` · sCost 实扣 ${port.formatNumber(action.scostCost.paid)}` : '';
+    const resources = resourcesLabel(port, action.resourceChanges);
+    const hp = action.hpChanges.length ? hpChangesLabel(port, action.hpChanges) : '';
+    lines.push(`${actor}：${action.actionName}${target}${cost}${resources ? ` · ${resources}` : ''}${hp ? ` · ${hp}` : ''}`);
   }
   return lines;
 }
@@ -204,10 +288,6 @@ function nodeView(view: MapRunActiveWorkspaceView): MapWorkspaceNodeView | undef
   return view.map.nodes.find(node => node.id === view.run.currentNodeId);
 }
 
-function enemySignature(enemyId: string, currentHp: number, maxHp: number): string {
-  return `${enemyId}:${currentHp}/${maxHp}`;
-}
-
 /**
  * 一个 MapRun 的 UI 临时流：基线来自 detached View，查询条目来自当前会话。
  * 只在 UI 层持有，不进入 MapRun Save；`dispose()` 于离开 Run 时清空。
@@ -218,7 +298,6 @@ export class MapFlowModel {
   private readonly port: MapFlowTextPort;
   private entries: FlowEntry[] = [];
   private sequence = 0;
-  private enemyInfo: { readonly signature: string; readonly entry: FlowEntry } | null = null;
 
   constructor(runId: string, port: MapFlowTextPort) {
     this.runId = runId;
@@ -240,10 +319,9 @@ export class MapFlowModel {
     const baseline = this.baselineFor(view);
     const pending = new Map(baseline.map(entry => [entry.instanceKey, entry]));
     const next: FlowEntry[] = [];
-    const enemyInfoKey = this.enemyInfo?.entry.instanceKey ?? null;
 
     for (const existing of this.entries) {
-      if (existing.lifecycle !== 'current' || existing.instanceKey === enemyInfoKey) {
+      if (existing.lifecycle !== 'current') {
         next.push(existing);
         continue;
       }
@@ -262,7 +340,6 @@ export class MapFlowModel {
     }
 
     this.entries = next;
-    this.dropStaleEnemyInfo(view);
     this.markLatestCommit();
     return this.entries;
   }
@@ -291,32 +368,6 @@ export class MapFlowModel {
       if (isLatest) marks['data-map-recent-commit'] = requestId;
       this.entries[index] = { ...entry, marks };
     }
-  }
-
-  /**
-   * 记录一次“查看情报”。同一逻辑槽用 `replaceSameId` 回收旧条目后尾插，
-   * 因此连续查看同一／不同敌人只保留最新一条。
-   */
-  pushEnemyInfo(facts: MapEnemyInfoFacts): readonly FlowEntry[] {
-    this.sequence += 1;
-    const signature = enemySignature(facts.enemyId, facts.currentHp, facts.maxHp);
-    const entry: FlowEntry = {
-      streamKey: this.streamKey,
-      instanceKey: mapInstanceKey('enemy-info', `${facts.enemyId}:${this.sequence}`),
-      contentId: MAP_FLOW_ENEMY_INFO_SLOT,
-      repeatPolicy: 'replaceSameId',
-      lifecycle: 'current',
-      kind: 'talk',
-      noAvatar: true,
-      speaker: '活动敌方 · 情报',
-      text: `敌方 ${facts.enemyId}`,
-      lines: [`HP ${facts.currentHp} / ${facts.maxHp}`],
-      marks: { 'data-map-enemy-intel': facts.enemyId },
-      source: { kind: 'map.enemy-info', id: facts.enemyId },
-    };
-    applyFlowEntryInPlace(this.entries, entry, FLOW_STREAM_MAX);
-    this.enemyInfo = { signature, entry };
-    return this.entries;
   }
 
   /**
@@ -386,22 +437,7 @@ export class MapFlowModel {
   /** 离开 Run：清空临时序列与查询事实。 */
   dispose(): void {
     this.entries.length = 0;
-    this.enemyInfo = null;
     this.sequence = 0;
-  }
-
-  private dropStaleEnemyInfo(view: MapRunWorkspaceView): void {
-    const current = this.enemyInfo;
-    if (!current) return;
-    const enemy = view.kind === 'active'
-      ? view.currentEncounter?.enemies.find(candidate => candidate.enemyId === current.entry.source?.id)
-      : undefined;
-    const matches = enemy !== undefined
-      && enemySignature(enemy.enemyId, enemy.currentHp, enemy.maxHp) === current.signature;
-    if (matches) return;
-    const index = this.entries.findIndex(entry => entry.instanceKey === current.entry.instanceKey);
-    if (index >= 0) this.entries.splice(index, 1);
-    this.enemyInfo = null;
   }
 
   private baselineFor(view: MapRunWorkspaceView): FlowEntry[] {
@@ -425,30 +461,8 @@ export class MapFlowModel {
   }
 
   private moveChoicesEntry(view: MapRunActiveWorkspaceView): FlowEntry | null {
-    // 含活动的 Node 必须完成整个固定序列；初始／空闲地点也需要选择下一站。
-    if (view.run.status !== 'inProgress' || view.run.activeEncounterNodeId !== null
-      || view.run.activeActivity !== null || view.activities.some(activity => !activity.completed)) return null;
-    const actions = view.map.edges.filter(edge => edge.fromNodeId === view.run.currentNodeId).flatMap(edge => {
-      const destination = view.map.nodes.find(node => node.id === edge.toNodeId);
-      if (!destination) return [];
-      const condition = edge.condition;
-      const locked = condition !== undefined && !condition.satisfied;
-      const requirement = condition
-        ? ` · 需要 ${this.port.nameOf('resource', condition.resourceId)} ≥ ${this.port.formatNumber(condition.amount)}${locked ? '（未满足）' : '（已满足）'}`
-        : '';
-      return [{
-        label: `前往 ${destination.title}`,
-        detail: mapNodeProgressLabel(view, destination) + requirement,
-        disabled: locked,
-        marks: {
-          'data-map-move-to': destination.id,
-          'data-map-from-node': view.run.currentNodeId,
-          'data-map-run-id': this.runId,
-          'data-map-focus-key': `move:${destination.id}`,
-        },
-      }];
-    });
-    if (!actions.length) return null;
+    const locations = mapLocationChoices(view, this.port, this.streamKey);
+    if (!locations) return null;
     return {
       streamKey: this.streamKey,
       instanceKey: mapInstanceKey('move-choices', view.run.currentNodeId),
@@ -456,8 +470,8 @@ export class MapFlowModel {
       repeatPolicy: 'replaceSameId',
       lifecycle: 'current',
       kind: 'talk', noAvatar: true,
-      speaker: '移动', text: '相邻地点', heading: 2,
-      actions,
+      speaker: '移动', text: '选择目的地点', heading: 2,
+      mapLocations: locations,
       marks: { 'data-map-move-choices': view.run.currentNodeId },
       source: { kind: 'map.move-choices', id: view.run.currentNodeId },
     };
@@ -550,11 +564,7 @@ export class MapFlowModel {
           consumedCount: projected.item.consumedCount,
           hpChanges: projected.item.hpChanges,
         } : null,
-        enemyAttacks: projected.enemyAttacks.map(attack => ({
-          enemyId: attack.enemyId,
-          targetCharacterId: attack.targetCharacterId,
-          actualDelta: attack.actualDelta,
-        })),
+        enemyActions: enemyActionRows(this.port, projected.enemyActions),
       };
     }
     const receipt = view.run.lastEncounterCommit;

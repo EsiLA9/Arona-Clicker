@@ -1,0 +1,50 @@
+- generic [ref=f5e2]:
+  - banner [ref=f5e3]:
+    - generic [ref=f5e4]:
+      - paragraph [ref=f5e5]: 节点探索实验
+      - heading "探索原野" [level=1] [ref=f5e6]
+    - navigation "图层级" [ref=f5e7]:
+      - generic [ref=f5e8] [cursor=pointer]: 母图
+    - generic [ref=f5e9]:
+      - group "母图投影样式" [ref=f5e10]:
+        - generic [ref=f5e11]: 投影
+        - button "扁平" [pressed] [ref=f5e12] [cursor=pointer]
+        - button "倾斜" [ref=f5e13] [cursor=pointer]
+      - generic [ref=f5e14]:
+        - button "随机节点" [ref=f5e15] [cursor=pointer]
+        - button "返回上层" [disabled] [ref=f5e16]
+        - button "重置 Demo" [ref=f5e17] [cursor=pointer]
+  - main [ref=f5e18]:
+    - region "节点图画布" [ref=f5e19]:
+      - generic [ref=f5e20]:
+        - group "世界线偏移表现" [ref=f5e21]:
+          - button "偏移叠层" [pressed] [ref=f5e22] [cursor=pointer]
+          - button "分歧轨迹" [ref=f5e23] [cursor=pointer]
+          - button "相位对照" [ref=f5e24] [cursor=pointer]
+        - generic [ref=f5e25]:
+          - paragraph [ref=f5e26]: 已拥有 1 · 已认识 1 · 待探索 1
+          - list [ref=f5e27]:
+            - listitem [ref=f5e28]: 待探索
+            - listitem [ref=f5e30]: 已认识
+            - listitem [ref=f5e32]: 已拥有
+      - group "探索原野 节点图" [ref=f5e35]:
+        - generic [ref=f5e39]:
+          - button "晨曦营地，已拥有" [pressed] [ref=f5e40] [cursor=pointer]:
+            - generic: ？
+            - generic: 晨曦营地
+          - button "风语小径，已认识" [ref=f5e44] [cursor=pointer]:
+            - generic: ？
+            - generic: 风语小径
+          - button "未知节点，待探索" [ref=f5e48] [cursor=pointer]:
+            - generic: ？
+            - generic: 未知节点
+      - group [ref=f5e53]:
+        - generic "调试信息" [ref=f5e54] [cursor=pointer]
+    - complementary [ref=f5e55]:
+      - generic [ref=f5e60]:
+        - paragraph [ref=f5e61]: 当前节点
+        - heading "晨曦营地" [level=2] [ref=f5e62]
+      - paragraph [ref=f5e63]: 已拥有
+      - paragraph [ref=f5e64]: 旅途起点的木质营地，晨光穿过旗面，在草地上留下长长的影子。
+      - paragraph [ref=f5e66]: 已拥有，信息在此持续可见。
+      - status [ref=f5e67]: 从「已拥有」的节点出发，沿着连线逐步探索。

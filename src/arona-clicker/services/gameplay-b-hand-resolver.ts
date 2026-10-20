@@ -1,4 +1,6 @@
 import type {
+  GameplayEncounterActionCandidateDef,
+  GameplayEncounterEnemyDef,
   GameplayEncounterParticipantDef,
   GameplayMapActionDef,
 } from '../../data-services/contracts/gameplay-map';
@@ -22,6 +24,14 @@ export interface GameplayBHandDrawInput {
   readonly livingPartyCharacterIds?: readonly string[];
   /** Living Enemy IDs from the active Encounter; unit target eligibility needs the current roster. */
   readonly livingEnemyIds: readonly string[];
+  /** Enemy definitions in roster order; their Action pools are drawn after the fixed party. */
+  readonly enemies?: readonly GameplayEncounterEnemyDef[];
+  /** Current Enemy HP with Encounter definition caps; derived from initial HP when omitted. */
+  readonly enemyHealth?: readonly GameplayBEnemyHealth[];
+  /** Encounter-local Actor resources for the Enemy roster. */
+  readonly enemyActorResources?: readonly GameplayBEnemyActorResourceBalance[];
+  /** Encounter-local shared resource balances for the Enemy team. */
+  readonly enemyTeamResources?: readonly MapRunTeamResourceBalance[];
   readonly participants?: readonly GameplayEncounterParticipantDef[];
   readonly actions?: readonly GameplayMapActionDef[];
   /** Current MapRun health with Map definition caps, derived rather than persisted separately. */
@@ -37,7 +47,25 @@ export interface GameplayBHandDrawInput {
 
 export interface GameplayBHandDrawResult {
   readonly hands: readonly MapRunEncounterHand[];
+  readonly enemyHands: readonly GameplayBEnemyHand[];
   readonly randomState: MapRunHandRandomState;
+}
+
+export interface GameplayBEnemyHand {
+  readonly enemyId: string;
+  readonly actionIds: readonly string[];
+}
+
+export interface GameplayBEnemyHealth {
+  readonly enemyId: string;
+  readonly currentHp: number;
+  readonly maxHp: number;
+}
+
+export interface GameplayBEnemyActorResourceBalance {
+  readonly enemyId: string;
+  readonly resourceId: string;
+  readonly value: number;
 }
 
 export class GameplayBHandResolutionError extends Error {
@@ -53,8 +81,8 @@ interface WeightedAction {
   readonly teamCosts: readonly { readonly resourceId: string; readonly amount: bigint }[];
 }
 
-interface PartyHealthRow {
-  readonly characterId: string;
+interface UnitHealthRow {
+  readonly id: string;
   readonly currentHp: number;
   readonly maxHp: number;
 }
@@ -122,16 +150,18 @@ function sampleBelow(total: bigint, seed: number, startCursor: number): { value:
 }
 
 function resolveCandidates(
-  characterId: string,
-  candidates: GameplayEncounterParticipantDef['actions'],
+  actorKind: 'Character' | 'Enemy',
+  actorId: string,
+  candidates: readonly GameplayEncounterActionCandidateDef[] | undefined,
   actionsById: ReadonlyMap<string, GameplayMapActionDef>,
   actorBalances: ReadonlyMap<string, number>,
   teamBalances: ReadonlyMap<string, number>,
   livingPartyIds: ReadonlySet<string>,
   livingEnemyIds: readonly string[],
-  partyHealth: ReadonlyMap<string, PartyHealthRow>,
+  partyHealth: ReadonlyMap<string, UnitHealthRow>,
+  enemyHealth: ReadonlyMap<string, UnitHealthRow>,
 ): WeightedAction[] {
-  if (!Array.isArray(candidates)) fail('Encounter participant actions must be an array: ' + characterId);
+  if (!Array.isArray(candidates)) fail('Encounter combatant actions must be an array: ' + actorId);
   const seenActionIds = new Set<string>();
   const result: WeightedAction[] = [];
   for (const candidate of candidates) {
@@ -139,16 +169,17 @@ function resolveCandidates(
       || !isNonEmptyId(candidate.actionId)
       || !Number.isSafeInteger(candidate.tendencyWeight)
       || (candidate.tendencyWeight as number) <= 0) {
-      fail('Encounter participant has a malformed Hand candidate: ' + characterId);
+      fail('Encounter combatant has a malformed Hand candidate: ' + actorId);
     }
     const actionId = candidate.actionId;
-    if (seenActionIds.has(actionId)) fail('Encounter participant has a duplicate Hand candidate: ' + actionId);
+    if (seenActionIds.has(actionId)) fail('Encounter combatant has a duplicate Hand candidate: ' + actionId);
     seenActionIds.add(actionId);
 
     const action = actionsById.get(actionId);
     if (!action) fail('Encounter Hand candidate references an unknown Map Action: ' + actionId);
-    if (!Array.isArray(action.eligibleCharacterIds) || !action.eligibleCharacterIds.some(id => id === characterId)) {
-      fail('Encounter Hand candidate is ineligible for Character "' + characterId + '": ' + actionId);
+    if (actorKind === 'Character'
+      && (!Array.isArray(action.eligibleCharacterIds) || !action.eligibleCharacterIds.some(id => id === actorId))) {
+      fail('Encounter Hand candidate is ineligible for Character "' + actorId + '": ' + actionId);
     }
     const costs: unknown = action.costs;
     if (costs !== undefined && !Array.isArray(costs)) fail('Map Action costs must be an array: ' + actionId);
@@ -162,7 +193,7 @@ function resolveCandidates(
       }
       const scopeKey = JSON.stringify([cost.scope, cost.resourceId]);
       const balance = cost.scope === 'actor'
-        ? actorBalances.get(JSON.stringify([characterId, cost.resourceId])) ?? 0
+        ? actorBalances.get(JSON.stringify([actorId, cost.resourceId])) ?? 0
         : teamBalances.get(cost.resourceId) ?? 0;
       const previous = requiredBalances.get(scopeKey);
       requiredBalances.set(scopeKey, {
@@ -180,24 +211,31 @@ function resolveCandidates(
     if (role !== undefined && !['recovery', 'defense', 'attack'].includes(role)) {
       fail('Map Action has an invalid tendencyRole: ' + actionId);
     }
-    if ((role === 'recovery' && action.target.kind !== 'self' && action.target.kind !== 'partyCharacter')
-      || (role === 'attack' && action.target.kind !== 'enemy')) {
-      fail('Map Action tendencyRole does not match its target: ' + actionId);
+    if ((role === 'recovery'
+      && (actorKind === 'Character'
+        ? action.target.kind !== 'self' && action.target.kind !== 'partyCharacter'
+        : action.target.kind !== 'self' && action.target.kind !== 'enemy'))
+      || (role === 'attack'
+        && (actorKind === 'Character' ? action.target.kind !== 'enemy' : action.target.kind !== 'partyCharacter'))) {
+      fail('Map Action tendencyRole does not match its ' + actorKind + ' target: ' + actionId);
     }
     let multiplier = 1n;
     if (role === 'recovery') {
-      const eligibleTargets = action.target.kind === 'self' ? [characterId] : [...livingPartyIds];
+      const eligibleTargets = action.target.kind === 'self'
+        ? [actorId]
+        : actorKind === 'Character' ? [...livingPartyIds] : [...livingEnemyIds];
       const needsRecovery = eligibleTargets.some(targetId => {
-        const health = partyHealth.get(targetId);
+        const health = (actorKind === 'Character' ? partyHealth : enemyHealth).get(targetId);
         if (!health) fail('recovery tendency requires current HP and maximum HP for ' + targetId);
         return BigInt(health.maxHp - health.currentHp) * 4n >= BigInt(health.maxHp);
       });
       if (needsRecovery) multiplier = 2n;
     } else if (role === 'defense') {
-      const health = partyHealth.get(characterId);
-      if (!health) fail('defense tendency requires current HP and maximum HP for ' + characterId);
+      const health = (actorKind === 'Character' ? partyHealth : enemyHealth).get(actorId);
+      if (!health) fail('defense tendency requires current HP and maximum HP for ' + actorId);
       if (BigInt(health.currentHp) * 2n <= BigInt(health.maxHp)) multiplier = 2n;
-    } else if (role === 'attack' && livingEnemyIds.length > 0) {
+    } else if (role === 'attack'
+      && (actorKind === 'Character' ? livingEnemyIds.length > 0 : livingPartyIds.size > 0)) {
       multiplier = 2n;
     }
     result.push({
@@ -259,6 +297,50 @@ function indexMapRunResources(
   return { actor, team };
 }
 
+function indexEnemyResources(
+  enemyIds: readonly string[],
+  enemies: readonly GameplayEncounterEnemyDef[],
+  actorResources: unknown,
+  teamResources: unknown,
+): { actor: Map<string, number>; team: Map<string, number> } {
+  if (!Array.isArray(teamResources)) {
+    fail('Encounter Hand draw requires Enemy Actor and Team resource snapshots');
+  }
+  const knownEnemyIds = new Set(enemyIds);
+  const actor = new Map<string, number>();
+  let actorRows: unknown[];
+  if (actorResources === undefined) {
+    actorRows = enemies.flatMap(enemy => (enemy.initialResources ?? []).map(row => ({
+      enemyId: enemy.id,
+      resourceId: row.resourceId,
+      value: row.value,
+    })));
+  } else if (Array.isArray(actorResources)) {
+    actorRows = actorResources;
+  } else {
+    fail('Encounter Hand draw requires an Enemy Actor resource array');
+  }
+  for (const row of actorRows) {
+    if (!isRecord(row) || !isNonEmptyId(row.enemyId) || !knownEnemyIds.has(row.enemyId)
+      || !isNonEmptyId(row.resourceId) || !Number.isSafeInteger(row.value) || (row.value as number) < 0) {
+      fail('Encounter Hand draw has a malformed Enemy Actor resource balance');
+    }
+    const key = JSON.stringify([row.enemyId, row.resourceId]);
+    if (actor.has(key)) fail('Encounter Hand draw has a duplicate Enemy Actor resource balance');
+    actor.set(key, row.value as number);
+  }
+  const team = new Map<string, number>();
+  for (const row of teamResources) {
+    if (!isRecord(row) || !isNonEmptyId(row.resourceId)
+      || !Number.isSafeInteger(row.value) || (row.value as number) < 0) {
+      fail('Encounter Hand draw has a malformed Enemy Team resource balance');
+    }
+    if (team.has(row.resourceId)) fail('Encounter Hand draw has a duplicate Enemy Team resource balance');
+    team.set(row.resourceId, row.value as number);
+  }
+  return { actor, team };
+}
+
 /**
  * Pure weighted, without-replacement Gameplay B Hand draw. Empty candidate sets
  * stay empty, and the returned random state is the only state a caller may save.
@@ -276,6 +358,55 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
     fail('MapRun Hand draw has an invalid living Enemy roster');
   }
   const balances = indexMapRunResources(input.partyCharacterIds, input.actorResources, input.teamResources);
+  const enemies = input.enemies ?? [];
+  if (!Array.isArray(enemies)) fail('Encounter enemies must be an array');
+  const enemyIds: string[] = [];
+  const enemiesById = new Map<string, GameplayEncounterEnemyDef>();
+  for (const enemy of enemies) {
+    if (!isRecord(enemy) || !isNonEmptyId(enemy.id) || enemiesById.has(enemy.id)) {
+      fail('Encounter Hand draw has an invalid or duplicate Enemy roster row');
+    }
+    enemiesById.set(enemy.id, enemy as unknown as GameplayEncounterEnemyDef);
+    enemyIds.push(enemy.id);
+  }
+  if (input.enemies !== undefined && [...input.livingEnemyIds].some(id => !enemiesById.has(id))) {
+    fail('MapRun Hand draw has a living Enemy outside the Encounter roster');
+  }
+  const livingEnemySet = new Set(input.livingEnemyIds);
+  const enemyHealth = new Map<string, UnitHealthRow>();
+  if (input.enemyHealth !== undefined) {
+    if (!Array.isArray(input.enemyHealth) || input.enemyHealth.length !== enemies.length) {
+      fail('Encounter Hand draw has an invalid Enemy health snapshot');
+    }
+    for (const [index, row] of input.enemyHealth.entries()) {
+      const expectedEnemyId = enemyIds[index];
+      if (!isRecord(row) || row.enemyId !== expectedEnemyId
+        || !Number.isSafeInteger(row.currentHp) || (row.currentHp as number) < 0
+        || !Number.isSafeInteger(row.maxHp) || (row.maxHp as number) < 1
+        || (row.currentHp as number) > (row.maxHp as number)) {
+        fail('Encounter Hand draw has an invalid Enemy health row');
+      }
+      enemyHealth.set(expectedEnemyId, {
+        id: expectedEnemyId,
+        currentHp: row.currentHp as number,
+        maxHp: row.maxHp as number,
+      });
+    }
+  } else {
+    for (const enemy of enemies) {
+      enemyHealth.set(enemy.id, {
+        id: enemy.id,
+        currentHp: enemy.initialHp,
+        maxHp: enemy.maxHp,
+      });
+    }
+  }
+  const enemyBalances = indexEnemyResources(
+    enemyIds,
+    enemies,
+    input.enemyActorResources,
+    input.enemyTeamResources ?? [],
+  );
 
   const actions = input.actions ?? [];
   if (!Array.isArray(actions)) fail('Map Actions must be an array');
@@ -300,7 +431,7 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
     || [...livingPartyIds].some(id => !partyIds.has(id))) {
     fail('MapRun Hand draw has a living party member outside the fixed party');
   }
-  const partyHealth = new Map<string, PartyHealthRow>();
+  const partyHealth = new Map<string, UnitHealthRow>();
   if (input.partyHealth !== undefined) {
     if (!Array.isArray(input.partyHealth) || input.partyHealth.length !== input.partyCharacterIds.length) {
       fail('MapRun Hand draw has an invalid party health snapshot');
@@ -314,7 +445,7 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
         fail('MapRun Hand draw has an invalid party health row');
       }
       partyHealth.set(row.characterId as string, {
-        characterId: row.characterId as string,
+        id: row.characterId as string,
         currentHp: row.currentHp as number,
         maxHp: row.maxHp as number,
       });
@@ -333,6 +464,7 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
 
   let cursor = input.randomState.cursor;
   const virtualTeamBalances = new Map(balances.team);
+  const virtualEnemyTeamBalances = new Map(enemyBalances.team);
   const hands: MapRunEncounterHand[] = [];
   for (const characterId of input.partyCharacterIds) {
     if (!livingPartyIds.has(characterId)) {
@@ -344,6 +476,7 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
       fail('Encounter participant actions must be an array: ' + characterId);
     }
     const startingBalanceCandidates = resolveCandidates(
+      'Character',
       characterId,
       participant?.actions ?? [],
       actionsById,
@@ -352,8 +485,10 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
       livingPartyIds,
       input.livingEnemyIds,
       partyHealth,
+      enemyHealth,
     );
     const naturalCandidates = resolveCandidates(
+      'Character',
       characterId,
       participant?.actions ?? [],
       actionsById,
@@ -362,6 +497,7 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
       livingPartyIds,
       input.livingEnemyIds,
       partyHealth,
+      enemyHealth,
     );
     if (naturalCandidates.length === 0) {
       hands.push({ characterId, actionIds: [] });
@@ -385,8 +521,51 @@ export function drawGameplayBHands(input: GameplayBHandDrawInput): GameplayBHand
     hands.push({ characterId, actionIds });
   }
 
+  const enemyHands: GameplayBEnemyHand[] = [];
+  for (const enemyId of enemyIds) {
+    if (!livingEnemySet.has(enemyId)) {
+      enemyHands.push({ enemyId, actionIds: [] });
+      continue;
+    }
+    const enemy = enemiesById.get(enemyId);
+    if (!enemy) fail('Encounter Hand draw lost an Enemy roster row: ' + enemyId);
+    if (enemy.actions !== undefined && !Array.isArray(enemy.actions)) {
+      fail('Encounter Enemy actions must be an array: ' + enemyId);
+    }
+    const candidates = enemy.actions ?? [];
+    const startingBalanceCandidates = resolveCandidates(
+      'Enemy', enemyId, candidates, actionsById, enemyBalances.actor, enemyBalances.team,
+      livingPartyIds, input.livingEnemyIds, partyHealth, enemyHealth,
+    );
+    const naturalCandidates = resolveCandidates(
+      'Enemy', enemyId, candidates, actionsById, enemyBalances.actor, virtualEnemyTeamBalances,
+      livingPartyIds, input.livingEnemyIds, partyHealth, enemyHealth,
+    );
+    if (naturalCandidates.length === 0) {
+      enemyHands.push({ enemyId, actionIds: [] });
+      continue;
+    }
+
+    const natural = takeWeightedAction(naturalCandidates, input.randomState.seed, cursor);
+    cursor = natural.cursor;
+    const actionIds = [natural.action.actionId];
+    const remaining = startingBalanceCandidates.filter(candidate => candidate.actionId !== natural.action.actionId);
+    for (const cost of natural.action.teamCosts) {
+      const balance = virtualEnemyTeamBalances.get(cost.resourceId) ?? 0;
+      if (cost.amount > BigInt(balance)) fail('natural Enemy Hand reservation exceeded the virtual Team balance');
+      virtualEnemyTeamBalances.set(cost.resourceId, balance - Number(cost.amount));
+    }
+    while (actionIds.length < HAND_LIMIT && remaining.length > 0) {
+      const next = takeWeightedAction(remaining, input.randomState.seed, cursor);
+      cursor = next.cursor;
+      actionIds.push(next.action.actionId);
+    }
+    enemyHands.push({ enemyId, actionIds });
+  }
+
   return freezeTree({
     hands,
+    enemyHands,
     randomState: {
       algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM,
       seed: input.randomState.seed,

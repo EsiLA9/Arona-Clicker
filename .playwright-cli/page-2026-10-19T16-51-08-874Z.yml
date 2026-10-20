@@ -1,0 +1,50 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - paragraph [ref=e5]: 节点探索实验
+      - heading "探索原野" [level=1] [ref=e6]
+    - navigation "图层级" [ref=e7]:
+      - generic [ref=e8] [cursor=pointer]: 母图
+    - generic [ref=e9]:
+      - group "母图投影样式" [ref=e10]:
+        - generic [ref=e11]: 投影
+        - button "扁平" [pressed] [ref=e12] [cursor=pointer]
+        - button "倾斜" [ref=e13] [cursor=pointer]
+      - generic [ref=e14]:
+        - button "随机节点" [ref=e15] [cursor=pointer]
+        - button "返回上层" [disabled] [ref=e16]
+        - button "重置 Demo" [ref=e17] [cursor=pointer]
+  - main [ref=e18]:
+    - region "节点图画布" [ref=e19]:
+      - generic [ref=e20]:
+        - group "世界线偏移表现" [ref=e21]:
+          - button "偏移叠层" [pressed] [ref=e22] [cursor=pointer]
+          - button "分歧轨迹" [ref=e23] [cursor=pointer]
+          - button "相位对照" [ref=e24] [cursor=pointer]
+        - generic [ref=e25]:
+          - paragraph [ref=e26]: 已拥有 1 · 已认识 1 · 待探索 1
+          - list [ref=e27]:
+            - listitem [ref=e28]: 待探索
+            - listitem [ref=e30]: 已认识
+            - listitem [ref=e32]: 已拥有
+      - group "探索原野 节点图" [ref=e35]:
+        - generic [ref=e39]:
+          - button "晨曦营地，已拥有" [pressed] [ref=e40] [cursor=pointer]:
+            - generic: ？
+            - generic: 晨曦营地
+          - button "风语小径，已认识" [ref=e44] [cursor=pointer]:
+            - generic: ？
+            - generic: 风语小径
+          - button "未知节点，待探索" [ref=e48] [cursor=pointer]:
+            - generic: ？
+            - generic: 未知节点
+      - group [ref=e53]:
+        - generic "调试信息" [ref=e54] [cursor=pointer]
+    - complementary [ref=e55]:
+      - generic [ref=e60]:
+        - paragraph [ref=e61]: 当前节点
+        - heading "晨曦营地" [level=2] [ref=e62]
+      - paragraph [ref=e63]: 已拥有
+      - paragraph [ref=e64]: 旅途起点的木质营地，晨光穿过旗面，在草地上留下长长的影子。
+      - paragraph [ref=e66]: 已拥有，信息在此持续可见。
+      - status [ref=e67]: 从「已拥有」的节点出发，沿着连线逐步探索。

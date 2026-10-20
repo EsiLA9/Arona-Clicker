@@ -168,6 +168,12 @@ describe('Gameplay B MapRun Save/Resume', () => {
       'autonomous-standard-shot', 'autonomous-standard-shot',
     ]);
     expect(round1View.actionPreview.preparedActions.map(row => row.targetEnemyId)).toEqual(['robot-a', 'robot-a']);
+    expect(round1View.actionPreview.preparedEnemyActions.map(row => [row.enemyId, row.naturalAction?.actionId, row.targetCharacterId]))
+      .toEqual([
+        ['robot-a', 'robot-counterattack', 'shiroko'],
+        ['robot-b', 'robot-counterattack', 'shiroko'],
+        ['robot-c', 'robot-counterattack', 'shiroko'],
+      ]);
     const beforePreview = source.mapRun.getSnapshot();
     const repeatedRound1View = source.mapRun.getWorkspaceView(started.runId);
     if (repeatedRound1View?.kind !== 'active' || !repeatedRound1View.actionPreview) throw new Error('Repeated Preview is missing');
@@ -189,6 +195,11 @@ describe('Gameplay B MapRun Save/Resume', () => {
       characterId: 'serika', actionId: 'autonomous-standard-shot', targetEnemyId: 'robot-b',
       hpChanges: [{ scope: 'enemy', enemyId: 'robot-b', delta: -2 }],
     });
+    expect(round1.lastEncounterCommit?.enemyActions).toMatchObject([
+      { enemyId: 'robot-a', actionId: 'robot-counterattack', skipReason: 'defeated' },
+      { enemyId: 'robot-b', actionId: 'robot-counterattack', targetCharacterId: 'shiroko', hpChanges: [{ scope: 'party', characterId: 'shiroko', delta: -3 }] },
+      { enemyId: 'robot-c', actionId: 'robot-counterattack', targetCharacterId: 'shiroko', hpChanges: [{ scope: 'party', characterId: 'shiroko', delta: -3 }] },
+    ]);
     expect(round1.activeEncounter).toMatchObject({ round: 2 });
     expect(round1.activeEncounter?.drawCursorStart).toBeGreaterThan(round1Run.activeEncounter!.drawCursorStart);
     expect(round1.activeEncounter?.enemies.map(enemy => [enemy.enemyId, enemy.currentHp])).toEqual([
@@ -205,6 +216,8 @@ describe('Gameplay B MapRun Save/Resume', () => {
     const round2View = source.mapRun.getWorkspaceView(started.runId);
     if (round2View?.kind !== 'active' || !round2View.actionPreview) throw new Error('Round 2 Preview is missing');
     expect(round2View.actionPreview.preparedActions.map(row => row.targetEnemyId)).toEqual(['robot-b', 'robot-b']);
+    expect(round2View.actionPreview.preparedEnemyActions.map(row => row.enemyId)).toEqual(['robot-a', 'robot-b', 'robot-c']);
+    expect(round2View.actionPreview.preparedEnemyActions.slice(1).every(row => row.naturalAction?.actionId === 'robot-counterattack')).toBe(true);
 
     const swapped = source.swapMapPreparedAction(
       started.runId, 'shiroko', 'autonomous-take-cover', round2View.actionPreview.draft,
@@ -263,6 +276,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
     expect(round2.lastEncounterCommit?.settlements.map(row => [row.characterId, row.targetEnemyId])).toEqual([
       ['shiroko', 'robot-c'], ['serika', 'robot-b'],
     ]);
+    expect(round2.lastEncounterCommit?.enemyActions).toHaveLength(3);
     expect(round2.activeEncounter?.enemies.map(enemy => [enemy.enemyId, enemy.currentHp])).toEqual([
       ['robot-a', 0], ['robot-b', 4], ['robot-c', 6],
     ]);
@@ -356,6 +370,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
 
   test('rejects an unknown Map or mismatched resumeVersion without changing PlayerState', () => {
     const source = createGame();
+    expect(gameplayBMapDatapack.maps?.every(candidate => candidate.resumeVersion >= 3)).toBe(true);
     const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
     if (!map) throw new Error('Gameplay B sample Map is missing');
@@ -372,6 +387,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
     const rejectedCheckpoints = [
       { checkpoint: { ...save.mapRun, mapId: 'gameplay-b:map:missing' }, diagnostic: 'Map is not available' },
       { checkpoint: { ...save.mapRun, resumeVersion: save.mapRun.resumeVersion + 1 }, diagnostic: 'resumeVersion changed' },
+      { checkpoint: { ...save.mapRun, resumeVersion: map.resumeVersion - 1 }, diagnostic: 'resumeVersion changed' },
       {
         checkpoint: {
           ...save.mapRun,

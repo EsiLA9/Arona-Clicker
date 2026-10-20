@@ -1,0 +1,43 @@
+- generic [ref=f24e2]:
+  - banner [ref=f24e3]:
+    - generic [ref=f24e4]:
+      - paragraph [ref=f24e5]: 节点探索实验
+      - heading "探索原野" [level=1] [ref=f24e6]
+    - navigation "图层级" [ref=f24e7]:
+      - generic [ref=f24e8] [cursor=pointer]: 探索原野
+    - group "母图背景样式" [ref=f24e9]:
+      - generic [ref=f24e10]: 母图背景
+      - button "扁平" [pressed] [ref=f24e11] [cursor=pointer]
+      - button "倾斜" [ref=f24e12] [cursor=pointer]
+    - generic [ref=f24e13]:
+      - button "随机节点" [ref=f24e14] [cursor=pointer]
+      - button "返回上层" [disabled] [ref=f24e15]
+      - button "重置 Demo" [ref=f24e16] [cursor=pointer]
+  - main [ref=f24e17]:
+    - region "节点图画布" [ref=f24e18]:
+      - generic [ref=f24e19]:
+        - paragraph [ref=f24e20]: 已拥有 1 · 已认识 1 · 待探索 1
+        - list [ref=f24e21]:
+          - listitem [ref=f24e22]: 待探索
+          - listitem [ref=f24e24]: 已认识
+          - listitem [ref=f24e26]: 已拥有
+      - group "探索原野 节点图" [ref=f24e29]:
+        - generic [ref=f24e33]:
+          - button "晨曦营地，已拥有" [pressed] [ref=f24e34] [cursor=pointer]:
+            - generic: A
+            - generic: 晨曦营地
+          - button "风语小径，已认识" [ref=f24e38] [cursor=pointer]:
+            - generic: B
+            - generic: 风语小径
+          - button "未知节点，待探索" [ref=f24e42] [cursor=pointer]:
+            - generic: ？
+            - generic: 未知节点
+      - group [ref=f24e46]:
+        - generic "调试信息" [ref=f24e47] [cursor=pointer]
+    - complementary [ref=f24e48]:
+      - paragraph [ref=f24e49]: 当前节点
+      - heading "晨曦营地" [level=2] [ref=f24e50]
+      - paragraph [ref=f24e51]: 已拥有
+      - paragraph [ref=f24e52]: 旅途起点的木质营地，晨光穿过旗面，在草地上留下长长的影子。
+      - paragraph [ref=f24e54]: 已拥有，信息在此持续可见。
+      - status [ref=f24e55]: 从「已拥有」的节点出发，沿着连线逐步探索。

@@ -28,7 +28,8 @@ describe('UIContext：簇与当前区域宿主', () => {
     expect(ctx.hoverTextColorModeForHost('header.button')).toBe('dark');
     expect(ctx.textColorModeForHost?.('missing', 'default')).toBe('auto');
     expect(ctx.presentationHostState('header.button', 'default')).toMatchObject({ textColorMode: 'light', source: 'default' });
-    expect(ctx.presentationHostState('header.button', 'default').background.layers).toHaveLength(0);
+    expect(ctx.presentationHostState('header.button', 'default').background.layers.map(layer => layer.value))
+      .toEqual(['var(--theme-node-panel, #ffffff)']);
   });
 
   test('状态明确设置 auto 时不继承宿主默认模式，改按自身背景合成判定', () => {
@@ -43,13 +44,15 @@ describe('UIContext：簇与当前区域宿主', () => {
     // 该 ctx 未带作用域变量表 → 不判定 var() 图层，保持 auto（保守回退）
     expect(ctx.textColorModeForHost?.('header.button', 'inactive')).toBe('auto');
 
-    // 给出作用域变量表后，inactive 兜底背景（浅色面板）判为深字
+    // 自动生成的语义基底仍沿用语义文字色；变量表不改变 auto 的语义。
     const scoped = createUIContext(game, {
       layers: [],
       themeVars: { '--theme-node-panel-light': '#e4e8ee' },
     }, presentation);
-    expect(scoped.textColorModeForHost?.('header.button', 'inactive')).toBe('dark');
-    expect(scoped.presentationHostState('header.button', 'inactive').ink?.light).toBe(true);
+    expect(scoped.textColorModeForHost?.('header.button', 'inactive')).toBe('auto');
+    expect(scoped.presentationHostState('header.button', 'inactive').ink).toBeNull();
+    expect(scoped.presentationHostState('header.button', 'inactive').background.layers.map(layer => layer.value))
+      .toEqual(['var(--theme-node-panel-light, var(--theme-node-panel, #ffffff))']);
   });
 
   test('auto 按宿主多图层背景的合成色判定文字模式', () => {
@@ -79,22 +82,21 @@ describe('UIContext：簇与当前区域宿主', () => {
     expect(ctx.presentationHostState('centerPanel.tab').ink).toBeNull();
   });
 
-  test('auto 按渲染作用域变量表判定，而非游戏页运行时 token（选择页顶栏深底深字回归）', () => {
+  test('auto 对自动生成的语义基底保持 auto，不用作用域变量表推断语义文字色', () => {
     const presentation = buildPresentationView({ hosts: [{ id: 'header.button' }] }, pics);
-    // 顶栏按钮无自有图层 → 走 inactive 兜底层 var(--ui-button-bg, …)：
-    // 该链在顶栏局部 ThemeTree 作用域求值，聚焦 Init 投影出深色主题时 panelLight 极深
+    // 顶栏按钮无自有图层，使用自动生成的语义面板底色；文字继续由语义 CSS 决定。
     const selector = createUIContext(game, {
       layers: [],
       themeVars: { '--theme-node-panel-light': 'hsl(161 14% 17%)' },
     }, presentation);
-    expect(selector.textColorModeForHost('header.button', 'inactive')).toBe('light');
-    expect(selector.presentationHostState('header.button', 'inactive').ink?.light).toBe(false);
+    expect(selector.textColorModeForHost('header.button', 'inactive')).toBe('auto');
+    expect(selector.presentationHostState('header.button', 'inactive').ink).toBeNull();
 
     const gamePage = createUIContext(game, {
       layers: [],
       themeVars: { '--theme-node-panel-light': '#e4e8ee' },
     }, presentation);
-    expect(gamePage.textColorModeForHost('header.button', 'inactive')).toBe('dark');
+    expect(gamePage.textColorModeForHost('header.button', 'inactive')).toBe('auto');
   });
 
   test('inactive 显式模式优先于默认态的 auto、light 或 dark', () => {
@@ -229,7 +231,7 @@ describe('UIContext：簇与当前区域宿主', () => {
       'var(--theme-palette-2, var(--theme-palette-1, var(--theme-node-primary)))',
     ]);
     expect(ctx.backgroundForHost('header.button', false, 'inactive').layers.map(layer => layer.value)).toEqual([
-      'var(--ui-button-bg, var(--theme-node-panel-light, var(--theme-node-panel, #ffffff)))',
+      'var(--theme-node-panel-light, var(--theme-node-panel, #ffffff))',
     ]);
     const activeHtml = renderPresentationHostBackground(ctx, 'header.button', 'presentation-host-background', 'active');
     expect(activeHtml).toContain('theme-palette-2');

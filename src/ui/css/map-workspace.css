@@ -221,6 +221,20 @@
   background: color-mix(in srgb, var(--panel-light) 78%, transparent);
 }
 
+.map-workspace__hero-action--danger {
+  border-color: color-mix(in srgb, var(--danger, #b43b48) 42%, transparent);
+  color: var(--danger, #b43b48);
+}
+
+.map-workspace__hero-action--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger, #b43b48) 10%, var(--panel-light));
+}
+
+.app-modal .map-workspace__danger-confirm {
+  background: var(--danger, #b43b48);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--danger, #b43b48) 28%, transparent);
+}
+
 .map-workspace__feed {
   flex: 1 1 auto;
   min-width: 0;
@@ -433,11 +447,6 @@
   color: inherit;
   font-size: 9px;
   line-height: 1.45;
-}
-
-.map-workspace__enemy-info {
-  justify-self: start;
-  margin-top: 3px;
 }
 
 .map-workspace__action-dock {
@@ -876,16 +885,10 @@
   pointer-events: none;
 }
 
-.map-workspace__unit-action-card {
-  position: absolute;
-  right: var(--map-card-right, 0);
-  bottom: 0;
-  z-index: var(--map-card-z, 30);
+.map-workspace__action-card {
   display: grid;
   align-content: start;
   gap: 5px;
-  width: 82px;
-  height: 58px;
   padding: 6px 7px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 38%, var(--line));
@@ -895,25 +898,34 @@
   box-shadow: 0 3px 8px color-mix(in srgb, var(--ink-on-panel) 20%, transparent);
   color: var(--ink-on-panel-light);
   text-align: left;
-  transform: rotate(var(--map-card-angle, 0deg));
-  transform-origin: 85% 85%;
-  pointer-events: auto;
   cursor: pointer;
   transition: transform 140ms ease, box-shadow 140ms ease;
 }
 
-.map-workspace__unit-action-card.is-command {
+.map-workspace__unit-action-card {
+  position: absolute;
+  right: var(--map-card-right, 0);
+  bottom: 0;
+  z-index: var(--map-card-z, 30);
+  width: 82px;
+  height: 58px;
+  transform: rotate(var(--map-card-angle, 0deg));
+  transform-origin: 85% 85%;
+  pointer-events: auto;
+}
+
+.map-workspace__action-card.is-command {
   border-top-color: var(--orange);
 }
 
-.map-workspace__unit-action-card.is-current {
+.map-workspace__action-card.is-current {
   z-index: 50;
   border-color: color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 68%, var(--line));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 42%, transparent), 0 5px 11px color-mix(in srgb, var(--ink-on-panel) 24%, transparent);
 }
 
-.map-workspace__unit-action-card:hover:not(:disabled),
-.map-workspace__unit-action-card:focus-visible {
+.map-workspace__action-card:hover:not(:disabled),
+.map-workspace__action-card:focus-visible {
   z-index: 80;
   outline: 2px solid var(--theme-node-primary, var(--cyan));
   outline-offset: 2px;
@@ -921,7 +933,7 @@
   transform: translateY(-7px) rotate(var(--map-card-angle, 0deg));
 }
 
-.map-workspace__unit-action-card > strong {
+.map-workspace__action-card > strong {
   display: -webkit-box;
   overflow: hidden;
   font-size: 8px;
@@ -930,18 +942,18 @@
   -webkit-line-clamp: 2;
 }
 
-.map-workspace__unit-action-card > small {
+.map-workspace__action-card > small {
   color: var(--muted-on-panel-light);
   font-size: 7px;
   line-height: 1;
 }
 
-.map-workspace__unit-action-card:disabled {
+.map-workspace__action-card:disabled {
   opacity: .55;
   cursor: default;
 }
 
-.map-workspace__unit-action-card.is-wait {
+.map-workspace__action-card.is-wait {
   pointer-events: none;
   cursor: default;
 }
@@ -1303,22 +1315,28 @@
   border: 0;
 }
 
-.map-workspace__unit-note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 7px;
-  min-width: 0;
-  padding: 0 3px;
-  color: var(--muted-on-panel-light);
-  font-size: 8px;
+.map-workspace__enemy-action-stack {
+  pointer-events: none;
 }
 
-.map-workspace__unit-note > span {
+.map-workspace__enemy-action-card {
+  cursor: default;
+}
+
+.map-workspace__enemy-action-card.is-current {
+  border-color: color-mix(in srgb, var(--orange) 76%, var(--line));
+  border-top-color: var(--orange);
+}
+
+.map-workspace__enemy-action-details {
+  display: grid;
+  gap: 3px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 2px 3px 0;
+  color: var(--muted-on-panel-light);
+  font-size: 8px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .map-workspace__feed .flow-action {
@@ -1529,3 +1547,165 @@
 }
 
 .map-workspace__region[data-map-relation-mode='dragging'] { user-select: none; }
+
+/* Flow 附着卡牌：只读副本，复用 Map 的卡牌绑定与关系高亮属性。 */
+.flow-map-cards {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-light);
+  color: var(--ink-on-panel-light);
+}
+
+.flow-map-cards__header {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+
+.flow-map-cards__header > span {
+  flex: 0 0 auto;
+  color: var(--muted-on-panel-light);
+  font-size: 8px;
+}
+
+.flow-map-cards__header > strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-map-cards__list {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.flow-map-locations__landing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--map-card-host-gap, 6px);
+  min-width: 0;
+  min-height: 66px;
+  margin: 7px 2px 3px;
+}
+
+.flow-map-locations__landing[data-map-card-host-align='center'] { justify-content: center; }
+.flow-map-locations__landing[data-map-card-host-align='right'] { justify-content: flex-end; }
+.flow-map-locations__landing[data-map-card-host-align='left'] { justify-content: flex-start; }
+
+.flow-map-location-card {
+  position: relative;
+  flex: 0 0 82px;
+  width: 82px;
+  min-width: 82px;
+  max-width: 82px;
+  height: 58px;
+  min-height: 58px;
+  box-sizing: border-box;
+  transform: rotate(var(--map-card-angle, 0deg));
+  transform-origin: 50% 80%;
+}
+
+.flow-map-location-card:hover:not(:disabled),
+.flow-map-location-card:focus-visible {
+  z-index: 1;
+  transform: translateY(-5px) rotate(var(--map-card-angle, 0deg));
+}
+
+.flow-map-location-card[aria-pressed='true'] {
+  border-color: var(--theme-node-primary, var(--cyan));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 12%, var(--panel)), var(--panel-light));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 28%, transparent);
+}
+
+.flow-map-location-card > small {
+  color: var(--muted-on-panel-light);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.flow-map-location-card > small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-map-location-card > .map-workspace__action-card-description {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 6px;
+  line-height: 1.1;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.flow-map-location-card:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+}
+
+.map-card-face {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--theme-node-primary, var(--cyan));
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink-on-panel);
+  cursor: default;
+}
+
+.map-card-face:focus-visible {
+  outline: 2px solid var(--theme-node-primary, var(--cyan));
+  outline-offset: 2px;
+}
+
+.map-card-face > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.map-card-face > header > strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-card-face__owner,
+.map-card-face__meta {
+  color: var(--muted-on-panel);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.map-card-face__description {
+  color: var(--muted-on-panel);
+  font-size: 8px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.map-card-face__state {
+  justify-self: start;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 45%, var(--line));
+  border-radius: 999px;
+  color: var(--theme-node-primary, var(--cyan));
+  font-size: 7px;
+}

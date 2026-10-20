@@ -261,7 +261,7 @@ describe('Gameplay B basic map P0—P3', () => {
             title: 'B',
             encounter: {
               title: 'Lethal',
-              enemies: [{ id: '守门者', initialHp: 10, maxHp: 10, damage: 1 }],
+              enemies: [{ id: '守门者', initialHp: 10, maxHp: 10 }],
               participants: [
                 { characterId: 'shiroko', actions: [{ actionId: 'wait-safe', tendencyWeight: 1 }] },
                 { characterId: 'serika', actions: [{ actionId: 'wait-safe', tendencyWeight: 1 }] },

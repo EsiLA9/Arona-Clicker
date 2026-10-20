@@ -56,6 +56,21 @@ describe('Map DOM interaction continuity', () => {
     expect(removed?.isConnected).toBe(false);
   });
 
+  it('keeps a card visual instance while its values refresh and removes it with its range', () => {
+    const current = markup('<section data-map-region-key="feed"><article class="map-card-face" data-map-instance-key="flow:a" data-map-object-key="object"><strong>精确射击</strong><small>sCost 6</small></article></section>');
+    document.body.append(current);
+    const card = current.firstElementChild;
+    const beforeRemove = vi.fn();
+    patchMapDOM(current, markup('<section data-map-region-key="feed"><article class="map-card-face" data-map-instance-key="flow:a" data-map-object-key="object"><strong>精确射击</strong><small>sCost 5</small></article></section>'), beforeRemove);
+    expect(current.firstElementChild).toBe(card);
+    expect(card?.textContent).toContain('sCost 5');
+    expect(beforeRemove).not.toHaveBeenCalled();
+    patchMapDOM(current, markup('<section data-map-region-key="feed"></section>'), beforeRemove);
+    expect(current.children).toHaveLength(0);
+    expect(beforeRemove).toHaveBeenCalledTimes(1);
+    expect(beforeRemove).toHaveBeenCalledWith(card);
+  });
+
   it('does not reuse a removed action button for a different action at the same position', () => {
     const current = markup('<section><button data-map-focus-key="old">旧行动</button></section>');
     document.body.append(current);

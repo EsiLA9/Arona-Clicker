@@ -9,7 +9,7 @@ export const GAMEPLAY_B_MAP_SPOT_ID = 'gameplay-b:spot:operation_terminal';
 export const gameplayBMapDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:field-investigation',
   name: '现场调查路线',
-  resumeVersion: 2,
+  resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['c'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -95,7 +95,7 @@ export const gameplayBMapDefinition: GameplayMapDef = {
 export const gameplayBMinimalBattleDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:minimal-battle',
   name: '极简战斗演练',
-  resumeVersion: 1,
+  resumeVersion: 3,
   startNodeId: 'entry',
   exitNodeIds: ['exit'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -111,6 +111,14 @@ export const gameplayBMinimalBattleDefinition: GameplayMapDef = {
     eligibleCharacterIds: ['shiroko', 'serika'],
     target: { kind: 'enemy' },
     hpEffects: [{ amount: -2 }],
+  }, {
+    id: 'robot-counterattack',
+    name: '机器人攻击',
+    description: '攻击当前 HP 比例最低的队员，造成 2 点伤害。',
+    eligibleCharacterIds: [],
+    target: { kind: 'partyCharacter', preference: 'lowestHpRatio' },
+    tendencyRole: 'attack',
+    hpEffects: [{ amount: -2 }],
   }],
   nodes: [
     { id: 'entry', title: '准备区', description: '白子与芹香各有 10 HP。前往演练场开始战斗。' },
@@ -120,10 +128,10 @@ export const gameplayBMinimalBattleDefinition: GameplayMapDef = {
       description: '击败训练靶后可前往出口。',
       encounter: {
         title: '两人对两敌',
-        description: '训练靶与机动靶各有 6 HP。两名队员每轮各攻击 2 点；每个存活敌人还击 2 点。集火击败两侧目标方可取胜。',
+        description: '训练靶与机动靶各有 6 HP。两名队员每轮各攻击 2 点；每个存活机器人会从手牌中自主攻击队员。集火击败两侧目标方可取胜。',
         enemies: [
-          { id: '训练靶', initialHp: 6, maxHp: 6, damage: 2 },
-          { id: '机动靶', initialHp: 6, maxHp: 6, damage: 2 },
+          { id: '训练靶', initialHp: 6, maxHp: 6, actions: [{ actionId: 'robot-counterattack', tendencyWeight: 1 }] },
+          { id: '机动靶', initialHp: 6, maxHp: 6, actions: [{ actionId: 'robot-counterattack', tendencyWeight: 1 }] },
         ],
         participants: [
           { characterId: 'shiroko', actions: [{ actionId: 'attack', tendencyWeight: 1 }] },
@@ -146,7 +154,7 @@ export const gameplayBMinimalBattleDefinition: GameplayMapDef = {
 export const gameplayBLinearBattleDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:linear-battle',
   name: '废弃走廊战斗',
-  resumeVersion: 1,
+  resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['c'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -189,6 +197,11 @@ export const gameplayBLinearBattleDefinition: GameplayMapDef = {
       target: { kind: 'none' },
       effects: [{ scope: 'team', resourceId: 'clues', amount: 1 }],
     },
+    {
+      id: 'patrol-counterattack', name: '巡逻机攻击', eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' }, tendencyRole: 'attack',
+      hpEffects: [{ amount: -2 }],
+    },
   ],
   initialActorResources: [
     { characterId: 'shiroko', resourceId: 'focus', value: 1 },
@@ -203,8 +216,8 @@ export const gameplayBLinearBattleDefinition: GameplayMapDef = {
       description: '巡逻机堵住了通道。击败它后走廊恢复通行。',
       encounter: {
         title: '走廊遭遇',
-        description: '巡逻机有 12 HP，每轮还击 2 点。手牌只有 3 张，第 4 项行动需要 PlayerCommand。',
-        enemies: [{ id: '巡逻机', initialHp: 12, maxHp: 12, damage: 2 }],
+        description: '巡逻机有 12 HP，会从自己的手牌中自主攻击。手牌只有 3 张，第 4 项行动需要 PlayerCommand。',
+        enemies: [{ id: '巡逻机', initialHp: 12, maxHp: 12, actions: [{ actionId: 'patrol-counterattack', tendencyWeight: 1 }] }],
         participants: [
           {
             characterId: 'shiroko',
@@ -242,7 +255,7 @@ export const gameplayBLinearBattleDefinition: GameplayMapDef = {
 export const gameplayBActivityHallDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:activity-hall',
   name: '废弃活动室',
-  resumeVersion: 1,
+  resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['c'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -302,6 +315,11 @@ export const gameplayBActivityHallDefinition: GameplayMapDef = {
       costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }],
       hpEffects: [{ amount: 3 }],
     },
+    {
+      id: 'hall-robot-counterattack', name: '巡逻机器人攻击', eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' }, tendencyRole: 'attack',
+      hpEffects: [{ amount: -2 }],
+    },
   ],
   initialActorResources: [
     { characterId: 'shiroko', resourceId: 'focus', value: 1 },
@@ -323,8 +341,8 @@ export const gameplayBActivityHallDefinition: GameplayMapDef = {
           title: '清除巡逻机器人',
           encounter: {
             title: '活动室战斗',
-            description: '巡逻机器人有 8 HP，每轮还击 2 点。',
-            enemies: [{ id: '巡逻机器人', initialHp: 8, maxHp: 8, damage: 2 }],
+            description: '巡逻机器人有 8 HP，会从自己的手牌中自主攻击。',
+            enemies: [{ id: '巡逻机器人', initialHp: 8, maxHp: 8, actions: [{ actionId: 'hall-robot-counterattack', tendencyWeight: 1 }] }],
             participants: [
               {
                 characterId: 'shiroko',
@@ -413,7 +431,7 @@ export const gameplayBActivityHallDefinition: GameplayMapDef = {
 export const gameplayBForkedRouteDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:forked-route',
   name: '分叉调查路线',
-  resumeVersion: 1,
+  resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['e'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -457,6 +475,11 @@ export const gameplayBForkedRouteDefinition: GameplayMapDef = {
       target: { kind: 'none' },
       effects: [{ scope: 'team', resourceId: 'clues', amount: 1 }],
     },
+    {
+      id: 'guard-counterattack', name: '守卫攻击', eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' }, tendencyRole: 'attack',
+      hpEffects: [{ amount: -2 }],
+    },
   ],
   initialActorResources: [
     { characterId: 'shiroko', resourceId: 'focus', value: 1 },
@@ -475,8 +498,8 @@ export const gameplayBForkedRouteDefinition: GameplayMapDef = {
       description: '清理守卫可以取得现场线索。',
       encounter: {
         title: '守卫遭遇',
-        description: '守卫有 6 HP，每轮还击 2 点。',
-        enemies: [{ id: '守卫', initialHp: 6, maxHp: 6, damage: 2 }],
+        description: '守卫有 6 HP，会从自己的手牌中自主攻击。',
+        enemies: [{ id: '守卫', initialHp: 6, maxHp: 6, actions: [{ actionId: 'guard-counterattack', tendencyWeight: 1 }] }],
         participants: [
           {
             characterId: 'shiroko',
@@ -547,7 +570,7 @@ export const gameplayBForkedRouteDefinition: GameplayMapDef = {
 export const gameplayBContinuousConditionalDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:continuous-conditional',
   name: '连续调查与员工通道',
-  resumeVersion: 1,
+  resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['e'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -615,6 +638,11 @@ export const gameplayBContinuousConditionalDefinition: GameplayMapDef = {
       costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }],
       hpEffects: [{ amount: 3 }],
     },
+    {
+      id: 'continuous-guard-counterattack', name: '守卫攻击', eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' }, tendencyRole: 'attack',
+      hpEffects: [{ amount: -2 }],
+    },
   ],
   initialActorResources: [
     { characterId: 'shiroko', resourceId: 'focus', value: 1 },
@@ -634,8 +662,8 @@ export const gameplayBContinuousConditionalDefinition: GameplayMapDef = {
       description: '守卫终端可能留有员工通行证。',
       encounter: {
         title: '守卫遭遇',
-        description: '守卫有 6 HP，每轮还击 2 点。检索终端是可选 Ability，提交时消耗 1 PlayerCost 取得通行证。',
-        enemies: [{ id: '守卫', initialHp: 6, maxHp: 6, damage: 2 }],
+        description: '守卫有 6 HP，会从自己的手牌中自主攻击。检索终端是可选 Ability，提交时消耗 1 PlayerCost 取得通行证。',
+        enemies: [{ id: '守卫', initialHp: 6, maxHp: 6, actions: [{ actionId: 'continuous-guard-counterattack', tendencyWeight: 1 }] }],
         abilityActionIds: ['search-terminal'],
         participants: [
           {
@@ -726,7 +754,7 @@ export const gameplayBContinuousConditionalDefinition: GameplayMapDef = {
 export const gameplayBScostTrainingDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:scost-training',
   name: '卡牌协同演练',
-  resumeVersion: 1,
+  resumeVersion: 3,
   startNodeId: 'briefing',
   exitNodeIds: ['exit'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -752,12 +780,14 @@ export const gameplayBScostTrainingDefinition: GameplayMapDef = {
       costs: [{ scope: 'actor', resourceId: 'sCost', amount: 3 }], hpEffects: [{ amount: -3 }] },
     { id: 'cover-shot', name: '牵制射击', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
       costs: [{ scope: 'actor', resourceId: 'sCost', amount: 2 }], hpEffects: [{ amount: -1 }] },
+    { id: 'training-target-counterattack', name: '训练靶攻击', eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' }, tendencyRole: 'attack', hpEffects: [{ amount: -1 }] },
   ],
   nodes: [
     { id: 'briefing', title: '协同准备', description: '白子负责筹划，芹香负责射击。可先更换准备牌，再选择将获得减免的卡牌。' },
     { id: 'training', title: '协同演练场', encounter: {
       title: '筹划与射击', description: '用高亮检查作用来源和受用卡牌。修改目标只准备行动，确认后再提交本轮。',
-      enemies: [{ id: '协同训练靶', initialHp: 6, maxHp: 6, damage: 1 }],
+      enemies: [{ id: '协同训练靶', initialHp: 6, maxHp: 6, actions: [{ actionId: 'training-target-counterattack', tendencyWeight: 1 }] }],
       participants: [
         { characterId: 'shiroko', actions: ['planning', 'coordinated-planning'].map(actionId => ({ actionId, tendencyWeight: 1 })) },
         { characterId: 'serika', actions: ['rifle-shot', 'burst-shot', 'cover-shot'].map(actionId => ({ actionId, tendencyWeight: 1 })) },
@@ -775,7 +805,7 @@ export const gameplayBScostTrainingDefinition: GameplayMapDef = {
 export const gameplayBAutonomousTargetBattleDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:autonomous-target-battle',
   name: '自主目标战斗演练',
-  resumeVersion: 1,
+  resumeVersion: 3,
   startNodeId: 'entry',
   exitNodeIds: ['exit'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -822,6 +852,15 @@ export const gameplayBAutonomousTargetBattleDefinition: GameplayMapDef = {
       tendencyRole: 'recovery',
       hpEffects: [{ amount: 2 }],
     },
+    {
+      id: 'robot-counterattack',
+      name: '机器人射击',
+      description: '自主攻击当前 HP 比例最低的队员，造成 3 点伤害。',
+      eligibleCharacterIds: [],
+      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' },
+      tendencyRole: 'attack',
+      hpEffects: [{ amount: -3 }],
+    },
   ],
   nodes: [
     { id: 'entry', title: '编队入口', description: '白子与芹香进入现场。' },
@@ -831,11 +870,11 @@ export const gameplayBAutonomousTargetBattleDefinition: GameplayMapDef = {
       description: '第一轮不需要手动指定目标；观察后手如何避开已击败的机器人。',
       encounter: {
         title: '自主索敌实战',
-        description: '机器人 A 起始 2 / 8 HP，B 与 C 各有 8 HP。存活机器人每轮造成 3 点伤害。',
+        description: '机器人 A 起始 2 / 8 HP，B 与 C 各有 8 HP。存活机器人会从各自手牌中自主攻击队员。',
         enemies: [
-          { id: 'robot-a', initialHp: 2, maxHp: 8, damage: 3 },
-          { id: 'robot-b', initialHp: 8, maxHp: 8, damage: 3 },
-          { id: 'robot-c', initialHp: 8, maxHp: 8, damage: 3 },
+          { id: 'robot-a', initialHp: 2, maxHp: 8, actions: [{ actionId: 'robot-counterattack', tendencyWeight: 1 }] },
+          { id: 'robot-b', initialHp: 8, maxHp: 8, actions: [{ actionId: 'robot-counterattack', tendencyWeight: 1 }] },
+          { id: 'robot-c', initialHp: 8, maxHp: 8, actions: [{ actionId: 'robot-counterattack', tendencyWeight: 1 }] },
         ],
         participants: [
           {

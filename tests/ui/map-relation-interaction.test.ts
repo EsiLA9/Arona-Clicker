@@ -1,10 +1,17 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { MapActionRelation, MapRelationScope, MapTargetRef } from '../../src/arona-clicker/contracts/map-relations';
-import { MapRelationInteraction } from '../../src/ui/workspace/map-relation-interaction';
+import {
+  MapRelationInteraction,
+  type MapLocationCommitResult,
+  type MapLocationSelectionIntent,
+  type MapRelationIntent,
+} from '../../src/ui/workspace/map-relation-interaction';
+import { mapCardBindingAttributes, mapLocationObjectKey } from '../../src/ui/cards/card-host';
 import { mapObjectKey, mapUnitKey } from '../../src/ui/workspace/map-relation-presentation';
 
 const scope: MapRelationScope = { runId: 'run', mapId: 'map', nodeId: 'node', activityId: null, round: 1 };
+const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function relation(id: string, target: string): MapActionRelation {
   return { key: id, scope, draft: { nodeId: 'node', round: 1, draftVersion: 0 }, phase: 'preparation', visibility: 'public',
     source: { kind: 'preparedAction', id, actionId: id, performer: { scope, kind: 'partyCharacter', id } },
@@ -16,7 +23,11 @@ function relation(id: string, target: string): MapActionRelation {
 describe('Map relation interaction priority', () => {
   const sessions: MapRelationInteraction[] = [];
   afterEach(() => { sessions.splice(0).forEach(session => session.dispose()); document.body.innerHTML = ''; vi.restoreAllMocks(); });
-  function setup(preview?: (relation: MapActionRelation, actionId: string) => readonly MapActionRelation[], confirm?: (relation: MapActionRelation, target: MapTargetRef) => void) {
+  function setup(
+    preview?: (relation: MapActionRelation, actionId: string) => readonly MapActionRelation[],
+    confirm?: (relation: MapActionRelation, target: MapTargetRef) => void,
+    commitLocation?: (intent: MapLocationSelectionIntent) => MapLocationCommitResult,
+  ) {
     const root = document.createElement('div');
     root.innerHTML = `<main data-map-workspace-region data-map-run-id="run">
       <button data-map-relation-key="a" data-map-hand-stack-toggle aria-expanded="false">A</button>
@@ -30,13 +41,23 @@ describe('Map relation interaction priority', () => {
     const target = root.querySelector<HTMLElement>('section')!;
     actorFace.dataset.mapObjectKey = mapUnitKey(scope, 'partyCharacter', 'a');
     target.dataset.mapObjectKey = mapUnitKey(scope, 'enemy', 'robot');
+    a.dataset.mapInstanceKey = 'card:a';
+    a.dataset.mapCardUsage = 'live';
+    a.dataset.mapCardEntry = 'inspect editTarget target';
     document.body.append(root);
     let relations = [relation('a', 'robot'), relation('b', 'robot-b')];
     const query = () => relations;
-    const session = new MapRelationInteraction(root, query, preview, confirm);
+    const intents: MapRelationIntent[] = [];
+    const session = new MapRelationInteraction({
+      root,
+      query,
+      ...(preview ? { previewReplacement: preview } : {}),
+      sendIntent: intent => { intents.push(intent); confirm?.(intent.relation, intent.target); },
+      ...(commitLocation ? { commitLocation } : {}),
+    });
     sessions.push(session);
     session.reconcile();
-    return { root, a, b, pin, actorFace, target, session, set: (next: MapActionRelation[]) => { relations = next; session.reconcile(); } };
+    return { root, a, b, pin, actorFace, target, session, intents, set: (next: MapActionRelation[]) => { relations = next; session.reconcile(); } };
   }
   const over = (element: HTMLElement) => element.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
 
@@ -129,9 +150,140 @@ describe('Map relation interaction priority', () => {
   function editButton(root: HTMLElement) {
     const edit = document.createElement('button');
     edit.dataset.mapTargetEdit = 'a';
+    edit.dataset.mapInstanceKey = 'edit:a';
+    edit.dataset.mapCardEntry = 'editTarget';
     root.querySelector('main')!.append(edit);
     return edit;
   }
+
+  function addLocationChoices(root: HTMLElement) {
+    const main = root.querySelector<HTMLElement>('main')!;
+    const section = document.createElement('section');
+    section.dataset.mapLocationChoices = '';
+    section.dataset.mapRunId = 'run';
+    section.dataset.mapMapId = 'map';
+    section.dataset.mapFromNode = 'node';
+    const makeChoice = (nodeId: string, selectable: boolean) => {
+      const ref = { kind: 'mapNode' as const, runId: 'run', mapId: 'map', nodeId };
+      const objectKey = mapLocationObjectKey(ref);
+      const binding = document.createElement('div');
+      binding.innerHTML = `<article${mapCardBindingAttributes(escapeHtml, {
+        instanceKey: `flow:run::entry:${nodeId}::${objectKey}`,
+        usage: 'live',
+        objectKey,
+        entries: selectable ? ['selectLocation'] : [],
+      })}></article>`;
+      const bound = binding.firstElementChild as HTMLElement;
+      for (const [name, value] of Object.entries({
+        'data-map-location-node-id': nodeId,
+        'data-map-location-selectable': String(selectable),
+        role: 'button',
+        'aria-pressed': 'false',
+        'aria-disabled': String(!selectable),
+      })) bound.setAttribute(name, value);
+      bound.tabIndex = 0;
+      bound.innerHTML = `<strong>${nodeId}</strong>`;
+      return bound;
+    };
+    const b = makeChoice('node-b', true);
+    const c = makeChoice('node-c', true);
+    const locked = makeChoice('node-locked', false);
+    section.append(b, c, locked);
+    const status = document.createElement('p');
+    status.dataset.mapCommitStatus = '';
+    main.append(status);
+    const confirm = document.createElement('button');
+    confirm.type = 'button';
+    confirm.dataset.mapLocationSubmit = '';
+    confirm.disabled = true;
+    confirm.innerHTML = '<span class="send-bubble disabled"><span class="send-text">选择目的地点</span></span>';
+    main.append(section, confirm);
+    return { section, b, c, locked, confirm, status };
+  }
+
+  test('Map地点卡 Click 只选择，改选会替换目标，Workspace Click 只提交一次', () => {
+    const commitLocation = vi.fn(() => ({ moved: true as const }));
+    const { root, session } = setup(undefined, undefined, commitLocation);
+    const choices = addLocationChoices(root);
+    over(choices.b);
+    choices.b.focus();
+    expect(choices.confirm.disabled).toBe(true);
+
+    choices.b.click();
+    expect(commitLocation).not.toHaveBeenCalled();
+    expect(choices.b.getAttribute('aria-pressed')).toBe('true');
+    expect(choices.c.getAttribute('aria-pressed')).toBe('false');
+    expect(choices.confirm.disabled).toBe(false);
+    expect(choices.status.textContent).toContain('node-b');
+
+    choices.c.click();
+    expect(commitLocation).not.toHaveBeenCalled();
+    expect(choices.b.getAttribute('aria-pressed')).toBe('false');
+    expect(choices.c.getAttribute('aria-pressed')).toBe('true');
+    expect(choices.confirm.disabled).toBe(false);
+
+    choices.confirm.click();
+    expect(commitLocation).toHaveBeenCalledOnce();
+    expect(commitLocation).toHaveBeenCalledWith({
+      ref: { kind: 'mapNode', runId: 'run', mapId: 'map', nodeId: 'node-c' },
+      objectKey: mapLocationObjectKey({ kind: 'mapNode', runId: 'run', mapId: 'map', nodeId: 'node-c' }),
+      fromNodeId: 'node',
+    });
+    expect(choices.confirm.disabled).toBe(true);
+    session.dispose();
+  });
+
+  test('locked地点、Hover与Focus不会选择；提交失败会显示原因并保留当前选择', () => {
+    const commitLocation = vi.fn(() => ({ moved: false as const, message: '路线条件未满足。' }));
+    const { root, session } = setup(undefined, undefined, commitLocation);
+    const choices = addLocationChoices(root);
+    over(choices.b);
+    choices.c.focus();
+    expect(choices.confirm.disabled).toBe(true);
+    choices.locked.click();
+    expect(choices.confirm.disabled).toBe(true);
+    expect(choices.locked.getAttribute('aria-pressed')).toBe('false');
+
+    choices.b.click();
+    choices.confirm.click();
+    expect(commitLocation).toHaveBeenCalledOnce();
+    expect(choices.status.textContent).toBe('路线条件未满足。');
+    expect(choices.confirm.disabled).toBe(false);
+    session.dispose();
+  });
+
+  test('待确认地点在来源变化或卡片候选移除后清空', () => {
+    const { root, session } = setup(undefined, undefined, vi.fn(() => ({ moved: true as const })));
+    const choices = addLocationChoices(root);
+    choices.b.click();
+    expect(choices.confirm.disabled).toBe(false);
+    choices.section.dataset.mapFromNode = 'node-next';
+    session.reconcile();
+    expect(choices.confirm.disabled).toBe(true);
+    expect(choices.b.getAttribute('aria-pressed')).toBe('false');
+    expect(choices.status.textContent).toContain('失效');
+
+    choices.section.dataset.mapFromNode = 'node';
+    choices.b.click();
+    choices.b.remove();
+    session.reconcile();
+    expect(choices.confirm.disabled).toBe(true);
+    expect(choices.c.getAttribute('aria-pressed')).toBe('false');
+    session.dispose();
+  });
+
+  test('地点选择模式与目标编辑互斥，并由 reset 清除待确认态', () => {
+    const { root, session } = setup(undefined, undefined, vi.fn(() => ({ moved: true as const })));
+    const choices = addLocationChoices(root);
+    editButton(root).click();
+    expect(root.querySelector('main')?.dataset.mapRelationMode).not.toBe('editing');
+    choices.b.click();
+    expect(choices.confirm.disabled).toBe(false);
+    session.reset();
+    expect(choices.confirm.disabled).toBe(true);
+    expect(choices.b.getAttribute('aria-pressed')).toBe('false');
+    session.dispose();
+  });
 
   test('card hit testing confirms the Owner candidate even when its raw ID matches a unit', () => {
     const confirm = vi.fn();
@@ -144,11 +296,27 @@ describe('Map relation interaction priority', () => {
     target.click(); // Same raw ID, but this is still a unit rather than a legal card.
     expect(confirm).not.toHaveBeenCalled();
     target.dataset.mapObjectKey = mapObjectKey(card);
+    target.click(); // A card copy without a typed target entry is not a legal hit.
+    expect(confirm).not.toHaveBeenCalled();
+    target.dataset.mapInstanceKey = 'card:target';
+    target.dataset.mapCardEntry = 'target';
     const inside = document.createElement('span'); target.append(inside);
     inside.click();
     expect(confirm).toHaveBeenCalledOnce();
     expect(confirm).toHaveBeenCalledWith(row, card);
     expect(root.querySelector('main')?.dataset.mapRelationMode).not.toBe('editing');
+  });
+
+  test('sends one intent with the relation, target and initiating visual instance', () => {
+    const { root, target, intents } = setup(undefined, vi.fn());
+    const edit = editButton(root);
+    edit.dataset.mapInstanceKey = 'unit:shiroko:current';
+    edit.click();
+    target.click();
+    expect(intents).toHaveLength(1);
+    expect(intents[0].relation.key).toBe('a');
+    expect(intents[0].target).toMatchObject({ kind: 'enemy', id: 'robot' });
+    expect(intents[0].sourceInstanceKey).toBe('unit:shiroko:current');
   });
 
   test('target editing blocks replacement opening and candidate commands until cancelled', () => {
@@ -243,6 +411,21 @@ describe('Map relation interaction priority', () => {
     expect(confirm).toHaveBeenCalledOnce();
     expect(ordinaryClick).not.toHaveBeenCalled();
     expect(root.querySelector('.map-workspace__target-drag-preview')).toBeNull();
+  });
+
+  test('removing the drag source cancels the ghost and editing lock', () => {
+    const confirm = vi.fn();
+    const { root, a, target, session } = setup(undefined, confirm);
+    a.classList.add('map-workspace__unit-action-card');
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(target);
+    a.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, button: 0, clientX: 10, clientY: 10 }));
+    root.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: 50, clientY: 10 }));
+    expect(root.querySelector('.map-workspace__target-drag-preview')).not.toBeNull();
+    a.remove();
+    session.reconcile();
+    expect(root.querySelector('.map-workspace__target-drag-preview')).toBeNull();
+    expect(root.querySelector('main')?.dataset.mapRelationMode).not.toBe('dragging');
+    expect(confirm).not.toHaveBeenCalled();
   });
 
   test('invalid release and pointer cancellation remove previews without selecting an obscured object', () => {

@@ -303,7 +303,7 @@ export interface MapEncounterQueryView {
   /** Declared finite round count for a Rest Encounter. */
   readonly rounds?: number;
   readonly partyHp: readonly { readonly characterId: string; readonly currentHp: number; readonly maxHp: number }[];
-  readonly enemies: readonly { readonly enemyId: string; readonly currentHp: number; readonly maxHp: number; readonly damage: number }[];
+  readonly enemies: readonly { readonly enemyId: string; readonly currentHp: number; readonly maxHp: number }[];
 }
 
 /** Display-only Node facts projected for a MapRun Workspace. */
@@ -407,6 +407,22 @@ export interface MapWorkspacePreparedActionView {
   readonly playerCost: 0 | 1;
 }
 
+/** One Enemy's read-only Hand-first action and automatic target. */
+export interface MapWorkspacePreparedEnemyActionView {
+  readonly enemyId: string;
+  readonly hand: readonly MapWorkspaceActionView[];
+  readonly naturalAction: MapWorkspaceActionView | null;
+  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy' | 'card' | null;
+  readonly legalTargetCards?: readonly MapRunCardRef[];
+  readonly targetCard?: MapRunCardRef | null;
+  readonly legalTargetCharacterIds: readonly string[];
+  readonly legalTargetEnemyIds: readonly string[];
+  readonly targetCharacterId: string | null;
+  readonly targetEnemyId: string | null;
+  readonly targetSelectionRequired: false;
+  readonly skipReason?: 'noLegalTarget';
+}
+
 /** A legal Hand-out candidate with Runtime-computed affordability. */
 export interface MapWorkspacePlayerCommandOptionView {
   readonly characterId: string;
@@ -421,6 +437,20 @@ export interface MapWorkspaceCommitPreviewView {
   readonly canCommit: boolean;
   readonly playerCostRequired: number | null;
   readonly diagnostics: readonly string[];
+  readonly enemyActions: readonly MapWorkspaceEnemyActionSettlementView[] | null;
+}
+
+/** Readable Enemy action plan or receipt row. */
+export interface MapWorkspaceEnemyActionSettlementView {
+  readonly enemyId: string;
+  readonly action: MapWorkspaceActionView | null;
+  readonly targetCharacterId: string | null;
+  readonly targetEnemyId: string | null;
+  readonly targetCard?: MapRunCardRef;
+  readonly scostCost?: { readonly original: number; readonly discount: number; readonly paid: number };
+  readonly skipReason?: 'defeated' | 'noLegalTarget' | 'unaffordable' | 'roundEnded';
+  readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
+  readonly hpChanges: readonly MapRunEncounterHpChange[];
 }
 
 /** Readable prior-round result projected from the Encounter's persisted Commit receipt. */
@@ -455,12 +485,7 @@ export interface MapWorkspaceRecentCommitView {
     readonly consumedCount: 1;
     readonly hpChanges: readonly MapRunEncounterHpChange[];
   } | null;
-  readonly enemyAttacks: readonly {
-    readonly enemyId: string;
-    readonly targetCharacterId: string;
-    readonly damage: number;
-    readonly actualDelta: number;
-  }[];
+  readonly enemyActions: readonly MapWorkspaceEnemyActionSettlementView[];
 }
 
 /** Complete detached action / target / Commit projection for one active Encounter. */
@@ -470,6 +495,7 @@ export interface MapRunEncounterWorkspaceView {
   readonly draft: MapRunEncounterDraftToken;
   readonly overrides: readonly MapRunActionOverride[];
   readonly preparedActions: readonly MapWorkspacePreparedActionView[];
+  readonly preparedEnemyActions: readonly MapWorkspacePreparedEnemyActionView[];
   readonly playerCommandOptions: readonly MapWorkspacePlayerCommandOptionView[];
   readonly commitPreview: MapWorkspaceCommitPreviewView;
   readonly recentCommit: MapWorkspaceRecentCommitView | null;
@@ -541,6 +567,8 @@ export interface GameCommands {
   triggerAffectionPush(owner: string): StoryStartResult;
   triggerTailPush(owner: string, storyId: string): StoryStartResult;
   startMap(mapId: string): MapRun;
+  restartMap(runId: string): MapRun;
+  abandonMap(runId: string): void;
   moveMap(runId: string, targetNodeId: string): MapRun;
   completeMapEncounter(runId: string): MapRun;
   purchaseMapShopOffer(runId: string, offerId: string, requestId: string, draft: MapRunShopDraftToken): MapRun;

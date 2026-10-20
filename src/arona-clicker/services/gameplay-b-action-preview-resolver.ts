@@ -1,4 +1,5 @@
 import type {
+  GameplayEncounterEnemyDef,
   GameplayMapActionDef,
   GameplayMapDef,
 } from '../../data-services/contracts/gameplay-map';
@@ -54,6 +55,24 @@ export interface GameplayBPreparedActionPreview {
   readonly playerCost: 0 | 1;
 }
 
+/** Read-only Enemy Hand-first Action and target; Enemy actions never have overrides. */
+export interface GameplayBPreparedEnemyActionPreview {
+  readonly enemyId: string;
+  readonly handActionIds: readonly string[];
+  readonly naturalActionId: string | null;
+  readonly actionName: string | null;
+  readonly actionDescription: string | null;
+  readonly targetKind: 'none' | 'self' | 'partyCharacter' | 'enemy' | 'card' | null;
+  readonly legalTargetCharacterIds: readonly string[];
+  readonly legalTargetEnemyIds: readonly string[];
+  readonly targetCharacterId: string | null;
+  readonly targetEnemyId: string | null;
+  readonly targetSelectionRequired: false;
+  readonly skipReason?: 'noLegalTarget';
+  readonly legalTargetCards?: readonly MapRunCardRef[];
+  readonly targetCard?: MapRunCardRef | null;
+}
+
 export interface GameplayBPlayerCommandOptionPreview {
   readonly characterId: string;
   readonly actionId: string;
@@ -71,6 +90,7 @@ export interface GameplayBActionPreview {
   readonly draftVersion: number;
   readonly overrides: readonly MapRunActionOverride[];
   readonly preparedActions: readonly GameplayBPreparedActionPreview[];
+  readonly preparedEnemyActions: readonly GameplayBPreparedEnemyActionPreview[];
   /** Hand-out Encounter candidates that may be selected by PlayerCommand. */
   readonly playerCommandOptions: readonly GameplayBPlayerCommandOptionPreview[];
 }
@@ -116,7 +136,7 @@ function indexResources(input: GameplayBActionPreviewInput): {
     }
     const key = resourceKey(row.characterId, row.resourceId);
     if (actor.has(key)) fail('MapRun contains a duplicate Actor resource balance');
-    actor.set(key, row.value);
+    actor.set(key, row.value as number);
   }
 
   const team = new Map<string, number>();
@@ -125,6 +145,37 @@ function indexResources(input: GameplayBActionPreviewInput): {
       fail('MapRun contains an invalid Team resource balance');
     }
     if (team.has(row.resourceId)) fail('MapRun contains a duplicate Team resource balance');
+    team.set(row.resourceId, row.value as number);
+  }
+  return { actor, team };
+}
+
+function indexEnemyResources(encounter: MapRunEncounterSnapshot, enemyIds: ReadonlySet<string>): {
+  readonly actor: ReadonlyMap<string, number>;
+  readonly team: ReadonlyMap<string, number>;
+} {
+  if (!Array.isArray(encounter.enemyActorResources) || !Array.isArray(encounter.enemyTeamResources)) {
+    fail('Action preview requires Enemy Actor and Team resource snapshots');
+  }
+  const actor = new Map<string, number>();
+  for (const row of encounter.enemyActorResources as readonly unknown[]) {
+    if (!isRecord(row) || !isNonEmptyId(row.enemyId) || !enemyIds.has(row.enemyId)
+      || !isNonEmptyId(row.resourceId) || typeof row.value !== 'number'
+      || !Number.isSafeInteger(row.value) || row.value < 0) {
+      fail('Encounter contains an invalid Enemy Actor resource balance');
+    }
+    const key = resourceKey(row.enemyId, row.resourceId);
+    if (actor.has(key)) fail('Encounter contains a duplicate Enemy Actor resource balance');
+    actor.set(key, row.value);
+  }
+
+  const team = new Map<string, number>();
+  for (const row of encounter.enemyTeamResources as readonly unknown[]) {
+    if (!isRecord(row) || !isNonEmptyId(row.resourceId) || typeof row.value !== 'number'
+      || !Number.isSafeInteger(row.value) || row.value < 0) {
+      fail('Encounter contains an invalid Enemy Team resource balance');
+    }
+    if (team.has(row.resourceId)) fail('Encounter contains a duplicate Enemy Team resource balance');
     team.set(row.resourceId, row.value);
   }
   return { actor, team };
@@ -185,6 +236,7 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
     || !Number.isSafeInteger(encounter.round) || encounter.round < 1
     || !Number.isSafeInteger(encounter.draftVersion) || encounter.draftVersion < 0
     || !Array.isArray(encounter.hands) || encounter.hands.length !== party.length
+    || !Array.isArray(encounter.enemyHands)
     || !Array.isArray(encounter.targetSelections)) {
     fail('Action preview requires a valid active Encounter snapshot');
   }
@@ -293,7 +345,75 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
     participantActions.set(rawParticipant.characterId, candidateIds);
   }
 
+  const enemyDefinitionsById = new Map<string, GameplayEncounterEnemyDef>();
+  const enemyCandidatesById = new Map<string, Set<string>>();
+  for (const rawEnemy of enemyDefinitions as unknown[]) {
+    if (!isRecord(rawEnemy) || !isNonEmptyId(rawEnemy.id) || enemyDefinitionsById.has(rawEnemy.id)
+      || (rawEnemy.actions !== undefined && !Array.isArray(rawEnemy.actions))) {
+      fail('Map Encounter has an invalid Enemy action pool');
+    }
+    const candidateIds = new Set<string>();
+    for (const rawCandidate of (rawEnemy.actions ?? []) as unknown[]) {
+      if (!isRecord(rawCandidate) || !isNonEmptyId(rawCandidate.actionId)
+        || !Number.isSafeInteger(rawCandidate.tendencyWeight) || (rawCandidate.tendencyWeight as number) <= 0) {
+        fail(`Enemy "${rawEnemy.id}" has an invalid Action candidate`);
+      }
+      if (!actionsById.has(rawCandidate.actionId) || candidateIds.has(rawCandidate.actionId)) {
+        fail(`Enemy "${rawEnemy.id}" references an unavailable or duplicate Action`);
+      }
+      candidateIds.add(rawCandidate.actionId);
+    }
+    enemyDefinitionsById.set(rawEnemy.id, rawEnemy as unknown as GameplayEncounterEnemyDef);
+    enemyCandidatesById.set(rawEnemy.id, candidateIds);
+  }
+
+  if (encounter.enemyHands.length !== enemyDefinitionsById.size) {
+    fail('Action preview received an Enemy Hand roster that does not match Map content');
+  }
+  const enemyHandsById = new Map<string, readonly string[]>();
+  for (const [index, rawHand] of encounter.enemyHands.entries()) {
+    const expectedEnemy = (enemyDefinitions as readonly GameplayEncounterEnemyDef[])[index];
+    if (!expectedEnemy || !isRecord(rawHand) || rawHand.enemyId !== expectedEnemy.id
+      || !Array.isArray(rawHand.actionIds) || rawHand.actionIds.length > 3
+      || !rawHand.actionIds.every(isNonEmptyId) || new Set(rawHand.actionIds).size !== rawHand.actionIds.length) {
+      fail('Action preview received a malformed Enemy Hand snapshot');
+    }
+    const currentHp = enemyHpById.get(expectedEnemy.id) ?? 0;
+    const candidates = enemyCandidatesById.get(expectedEnemy.id) ?? new Set<string>();
+    if (currentHp <= 0 && rawHand.actionIds.length > 0) {
+      fail(`Defeated Enemy "${expectedEnemy.id}" has a non-empty Hand`);
+    }
+    for (const actionId of rawHand.actionIds) {
+      const action = actionsById.get(actionId);
+      if (!action || !candidates.has(actionId)) {
+        fail(`Action preview found an invalid Hand Action "${actionId}" for Enemy "${expectedEnemy.id}"`);
+      }
+    }
+    enemyHandsById.set(expectedEnemy.id, rawHand.actionIds as string[]);
+  }
+
   const balances = indexResources(input);
+  const enemyBalances = indexEnemyResources(encounter, enemyIds);
+  for (const enemy of enemyDefinitionsById.values()) {
+    for (const resource of enemy.initialResources ?? []) {
+      if (!enemyBalances.actor.has(resourceKey(enemy.id, resource.resourceId))) {
+        fail(`Encounter is missing Enemy Actor resource "${resource.resourceId}" for "${enemy.id}"`);
+      }
+    }
+  }
+  for (const resource of encounterDef.initialEnemyTeamResources ?? []) {
+    if (!enemyBalances.team.has(resource.resourceId)) {
+      fail(`Encounter is missing initial Enemy Team resource "${resource.resourceId}"`);
+    }
+  }
+  for (const [enemyId, actionIds] of enemyHandsById) {
+    for (const actionId of actionIds) {
+      const action = actionsById.get(actionId)!;
+      if (!actionCostsArePayable(action, enemyId, enemyBalances.actor, enemyBalances.team)) {
+        fail(`Action preview found an unaffordable Enemy Hand Action "${actionId}" for "${enemyId}"`);
+      }
+    }
+  }
   const handsByCharacter = new Map<string, readonly string[]>();
   for (const [index, rawHand] of encounter.hands.entries()) {
     const member = party[index];
@@ -495,36 +615,122 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
     }
   }
 
+  const preparedEnemyActions: GameplayBPreparedEnemyActionPreview[] = [];
+  for (const enemy of enemyDefinitions as readonly GameplayEncounterEnemyDef[]) {
+    const handActionIds = [...(enemyHandsById.get(enemy.id) ?? [])];
+    const isLiving = (enemyHpById.get(enemy.id) ?? 0) > 0;
+    const naturalActionId = isLiving ? handActionIds[0] ?? null : null;
+    const action = naturalActionId === null ? null : actionsById.get(naturalActionId) ?? null;
+    if (naturalActionId !== null && !action) fail(`Enemy Prepared Action "${naturalActionId}" is missing from the Map`);
+
+    let targetKind: GameplayBPreparedEnemyActionPreview['targetKind'] = null;
+    let legalTargetCharacterIds: string[] = [];
+    let legalTargetEnemyIds: string[] = [];
+    let targetCharacterId: string | null = null;
+    let targetEnemyId: string | null = null;
+    let targetCard: MapRunCardRef | null | undefined;
+    let skipReason: 'noLegalTarget' | undefined;
+    if (action) {
+      targetKind = action.target.kind;
+      if (action.target.kind === 'self') {
+        legalTargetEnemyIds = [enemy.id];
+        targetEnemyId = enemy.id;
+      } else if (action.target.kind === 'partyCharacter') {
+        legalTargetCharacterIds = party.map(member => member.characterId).filter(id => livingPartyIds.has(id));
+        if (legalTargetCharacterIds.length > 0) {
+          const preference = action.target.preference ?? 'stableOrder';
+          if (preference === 'highestMissingHpRatio' && input.partyHp === undefined) {
+            fail(`Action "${action.id}" requires a MapRun HP snapshot for its target preference`);
+          }
+          targetCharacterId = selectGameplayBUnitTarget(legalTargetCharacterIds.map(id => ({
+            id,
+            currentHp: partyHp.get(id)!,
+            maxHp: partyHpCaps.get(id)!,
+          })), preference);
+        } else {
+          skipReason = 'noLegalTarget';
+        }
+      } else if (action.target.kind === 'enemy') {
+        legalTargetEnemyIds = [...livingEnemyIds];
+        if (legalTargetEnemyIds.length > 0) {
+          targetEnemyId = selectGameplayBUnitTarget(legalTargetEnemyIds.map(id => ({
+            id,
+            currentHp: enemyHpById.get(id)!,
+            maxHp: enemyMaxHpById.get(id)!,
+          })), action.target.preference ?? 'stableOrder');
+        } else {
+          skipReason = 'noLegalTarget';
+        }
+      } else if (action.target.kind === 'card') {
+        // Card targets are resolved after both sides' full Hands are known.
+      }
+    }
+    preparedEnemyActions.push(Object.freeze({
+      enemyId: enemy.id,
+      handActionIds: Object.freeze(handActionIds),
+      naturalActionId,
+      actionName: action?.name ?? null,
+      actionDescription: action?.description ?? null,
+      targetKind,
+      legalTargetCharacterIds: Object.freeze(legalTargetCharacterIds),
+      legalTargetEnemyIds: Object.freeze(legalTargetEnemyIds),
+      targetCharacterId,
+      targetEnemyId,
+      targetSelectionRequired: false,
+      ...(skipReason === undefined ? {} : { skipReason }),
+      ...(action?.target.kind === 'card' ? { targetCard } : {}),
+    }));
+  }
+
+  const hasCardTargets = preparedActions.some(row => row.targetKind === 'card')
+    || preparedEnemyActions.some(row => row.targetKind === 'card');
   let resolvedPrepared = preparedActions;
-  if (preparedActions.some(row => row.targetKind === 'card')) {
+  let resolvedPreparedEnemyActions = preparedEnemyActions;
+  if (hasCardTargets) {
     if (!isNonEmptyId(input.runId)) fail('Card target preview requires its MapRun identity');
-    const catalog = catalogMapRunCards({ runId: input.runId, mapId: definition.id, activeEncounter: encounter, status: 'inProgress' }, { preparedActions });
-    resolvedPrepared = preparedActions.map(row => {
-      if (row.targetKind !== 'card') return row;
-      const action = actionsById.get(row.preparedActionId!)!;
-      if (action.target.kind !== 'card' || !['self', 'ally', 'opponent', 'any'].includes(action.target.side)
-        || !action.cardEffects?.length || action.cardEffects.some(effect => effect.kind !== 'scostDiscount'
-          || !Number.isSafeInteger(effect.amount) || effect.amount <= 0)) fail(`Action "${action.id}" has invalid card effects`);
-      const side = action.target.side;
-      const legalTargetCards = Object.freeze(catalog.filter(card => {
-        const own = card.owner.kind === 'partyCharacter' && card.owner.id === row.characterId;
-        const allied = card.owner.kind === 'partyCharacter';
+    const catalog = catalogMapRunCards({ runId: input.runId, mapId: definition.id, activeEncounter: encounter, status: 'inProgress' }, {
+      preparedActions,
+      preparedEnemyActions,
+    });
+    const legalCardsFor = (side: 'self' | 'ally' | 'opponent' | 'any', ownerKind: 'partyCharacter' | 'enemy', ownerId: string) =>
+      Object.freeze(catalog.filter(card => {
+        const own = card.owner.kind === ownerKind && card.owner.id === ownerId;
+        const allied = card.owner.kind === ownerKind;
         if ((side === 'self' && !own) || (side === 'ally' && !allied) || (side === 'opponent' && allied)) return false;
         const targetAction = card.actionId === null ? null : actionsById.get(card.actionId);
         return (targetAction?.costs ?? []).some(cost => cost.scope === 'actor' && cost.resourceId === 'sCost' && cost.amount > 0);
       }).map(card => card.ref));
+
+    resolvedPrepared = preparedActions.map(row => {
+      if (row.targetKind !== 'card') return row;
+      const action = actionsById.get(row.preparedActionId!)!;
+      if (action.target.kind !== 'card' || !action.cardEffects?.length || action.cardEffects.some(effect => effect.kind !== 'scostDiscount'
+        || !Number.isSafeInteger(effect.amount) || effect.amount <= 0)) fail(`Action "${action.id}" has invalid card effects`);
+      const legalTargetCards = legalCardsFor(action.target.side, 'partyCharacter', row.characterId);
       const selected = targetSelections.get(row.characterId);
       if (selected && (selected.kind !== 'card' || !legalTargetCards.some(ref => mapRunCardKey(ref) === mapRunCardKey(selected.ref)))) {
         fail(`Card target selection is not legal for "${row.characterId}"`);
       }
       const targetCard = selected?.kind === 'card' ? selected.ref : legalTargetCards[0] ?? null;
-      const hasNoLegalTarget = legalTargetCards.length === 0;
       return Object.freeze({
         ...row,
         legalTargetCards,
         targetCard,
         targetSelectionRequired: false,
-        ...(hasNoLegalTarget ? { skipReason: 'noLegalTarget' as const } : {}),
+        ...(legalTargetCards.length === 0 ? { skipReason: 'noLegalTarget' as const } : {}),
+      });
+    });
+    resolvedPreparedEnemyActions = preparedEnemyActions.map(row => {
+      if (row.targetKind !== 'card') return row;
+      const action = actionsById.get(row.naturalActionId!)!;
+      if (action.target.kind !== 'card' || !action.cardEffects?.length || action.cardEffects.some(effect => effect.kind !== 'scostDiscount'
+        || !Number.isSafeInteger(effect.amount) || effect.amount <= 0)) fail(`Action "${action.id}" has invalid card effects`);
+      const legalTargetCards = legalCardsFor(action.target.side, 'enemy', row.enemyId);
+      return Object.freeze({
+        ...row,
+        legalTargetCards,
+        targetCard: legalTargetCards[0] ?? null,
+        ...(legalTargetCards.length === 0 ? { skipReason: 'noLegalTarget' as const } : {}),
       });
     });
   }
@@ -535,6 +741,7 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
     draftVersion: encounter.draftVersion,
     overrides: immutableOverrides(overrides),
     preparedActions: Object.freeze(resolvedPrepared),
+    preparedEnemyActions: Object.freeze(resolvedPreparedEnemyActions),
     playerCommandOptions: Object.freeze(commandOptions),
   });
 }

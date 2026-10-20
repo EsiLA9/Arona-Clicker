@@ -4,6 +4,9 @@ import { renderAvatarSvg } from '../avatar-renderer';
 import { renderPresentationHostBackground } from '../presentation-service';
 import type { FlowContent, FlowMarks, FlowRepeatPolicy } from '../flow/flow-entry';
 import { FLOW_ENTRY_KEY_ATTRIBUTE, FLOW_MARK_NAME, chatEntryToFlowContent, chatInstanceKey } from '../flow/flow-entry';
+import { isReservedCardMark, mapCardAttachmentAttributes, mapCardHostAttributes } from '../cards/card-host';
+import { renderAttachedCardFace } from '../cards/card-face';
+import { renderMapActionCardButton, stableMapActionCardAngle } from '../cards/action-card';
 
 export const storyErrorText: Record<string, string> = {
   AlreadyActive: '已有剧情流程进行中',
@@ -133,6 +136,8 @@ function markAttributes(ctx: UIContext, marks: FlowMarks | undefined): string {
   const parts: string[] = [];
   for (const [name, value] of Object.entries(marks)) {
     if (!FLOW_MARK_NAME.test(name)) continue;
+    // Typed card renderers own these; generic marks must not mint bindings or entries.
+    if (isReservedCardMark(name)) continue;
     if (value === true) parts.push(` ${name}`);
     else if (value !== '') parts.push(` ${name}="${ctx.escapeHtml(value)}"`);
   }
@@ -179,6 +184,7 @@ export function renderTalk(ctx: UIContext, entry: FlowContent, options: RenderCh
       ${renderPresentationHostBackground(ctx, 'bubble')}
       ${image}
       ${renderBubbleContent(ctx, entry)}
+      ${renderMapLocations(ctx, entry, options)}
     </div>`;
   const nameLine = hideIdentity ? '' : `<div class="chat-name">${badge}${name}</div>`;
   const main = `<div class="chat-talk-main">${nameLine}${bubble}</div>`;
@@ -282,12 +288,74 @@ function renderMapTalklet(ctx: UIContext, entry: FlowContent, options: RenderCha
   </section>`;
 }
 
+/** Flow 附着卡牌：复用真实卡牌绑定，只读查看并可作为合法目标。 */
+function renderMapCards(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
+  const cards = entry.mapCards ?? [];
+  const hostId = options.instanceKey ?? `flow-map-cards:${cards.map(card => card.objectKey).join('|')}`;
+  const faces = cards.map(card => renderAttachedCardFace(value => ctx.escapeHtml(value), {
+    face: {
+      title: card.actionName,
+      subtitle: card.ownerName,
+      description: card.description,
+      meta: card.scost === undefined ? undefined : `sCost ${ctx.formatNumber(card.scost)}`,
+      stateLabel: card.stateLabel,
+      tabIndex: 0,
+    },
+    binding: {
+      instanceKey: card.instanceKey,
+      usage: 'live',
+      objectKey: card.objectKey,
+      ...(card.relationKey ? { relationKey: card.relationKey } : {}),
+      entries: card.entries,
+    },
+    placement: { hostId, slotId: `card:${card.objectKey}` },
+  })).join('');
+  return `<section class="flow-map-cards"${entryAttributes(ctx, entry, options.instanceKey)} role="group" aria-label="关联卡牌">
+    <header class="flow-map-cards__header"><span>卡牌</span><strong>关联卡牌</strong></header>
+    <div class="flow-map-cards__list"${mapCardHostAttributes(value => ctx.escapeHtml(value), hostId)}>${faces}</div>
+  </section>`;
+}
+
+/** Current MapRun node choices: distinct from Encounter cards and read-only map overview. */
+function renderMapLocations(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
+  const choices = entry.mapLocations;
+  if (!choices?.locations.length) return '';
+  const hostId = options.instanceKey
+    ?? `flow-map-locations:${choices.runId}:${choices.mapId}:${choices.fromNodeId}`;
+  const faces = choices.locations.map(location => {
+    const attributes = mapCardAttachmentAttributes(value => ctx.escapeHtml(value), {
+      instanceKey: location.instanceKey,
+      usage: 'live',
+      objectKey: location.objectKey,
+      entries: location.selectable ? ['selectLocation'] : [],
+    }, { hostId, slotId: `location:${location.ref.nodeId}` })
+      + ` data-map-location-node-id="${ctx.escapeHtml(location.ref.nodeId)}"`
+      + ` data-map-location-selectable="${location.selectable}"`
+      + ` aria-pressed="false" aria-disabled="${!location.selectable}"`
+      + ` aria-label="${ctx.escapeHtml(`${location.title}。${location.unavailableReason ?? location.stateLabel}`)}"`
+      + ` style="--map-card-angle:${stableMapActionCardAngle(location.instanceKey)}"`;
+    return renderMapActionCardButton(value => ctx.escapeHtml(value), {
+      className: 'flow-map-location-card',
+      attributes,
+      title: location.title,
+      subtitle: location.stateLabel,
+      description: location.description,
+      disabled: !location.selectable,
+    });
+  }).join('');
+  return `<div class="flow-map-locations__landing"${mapCardHostAttributes(value => ctx.escapeHtml(value), hostId, choices.hostLayout)}
+      data-map-location-choices data-map-run-id="${ctx.escapeHtml(choices.runId)}"
+      data-map-map-id="${ctx.escapeHtml(choices.mapId)}" data-map-from-node="${ctx.escapeHtml(choices.fromNodeId)}"
+      role="group" aria-label="可达地点">${faces}</div>`;
+}
+
 /** 普通 Chat、Story 与 Gameplay B Map 共用这一处条目种类分派。 */
 export function renderChatEntry(
   ctx: UIContext,
   entry: FlowContent,
   options: RenderChatEntryOptions = {},
 ): string {
+  if (entry.mapCards?.length) return renderMapCards(ctx, entry, options);
   if (entry.kind === 'map') return renderMapTalklet(ctx, entry, options);
   if (entry.kind === 'narration') return renderNarration(ctx, entry, options);
   if (entry.kind === 'typing') return renderTyping(ctx, entry, options);

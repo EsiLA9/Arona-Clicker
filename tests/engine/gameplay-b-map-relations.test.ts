@@ -7,6 +7,17 @@ import { projectMapRelations } from '../../src/arona-clicker/services/map-relati
 
 describe('Map preparation relation projection', () => {
   const games: GameInstance[] = [];
+  function datapackFor(map: GameplayMapDef) {
+    return {
+      ...gameplayBMapDatapack,
+      spots: gameplayBMapDatapack.spots.map(spot => ({
+        ...spot,
+        functionalities: (spot.functionalities ?? []).filter(functionality =>
+          functionality.kind !== 'mapEntry' || functionality.mapId === map.id),
+      })),
+      maps: [map],
+    };
+  }
   function setup(target: GameplayMapActionTargetDef = { kind: 'enemy' }) {
     const original = gameplayBMapDatapack.maps![0]!;
     const map: GameplayMapDef = {
@@ -15,11 +26,16 @@ describe('Map preparation relation projection', () => {
         ...['hit', 'hit-b', 'hit-c', 'hit-d'].map(id => ({ id, name: id, eligibleCharacterIds: ['shiroko'], target,
           ...(target.kind === 'enemy' || target.kind === 'partyCharacter' ? { hpEffects: [{ amount: -1 }] } : {}),
           effects: [{ scope: 'actor' as const, resourceId: 'energy', amount: 1 }, { scope: 'team' as const, resourceId: 'supplies', amount: 1 }] })),
+        { id: 'enemy-hit', name: 'enemy-hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
+          tendencyRole: 'attack', hpEffects: [{ amount: -2 }] },
         { id: 'ability', name: 'Ability', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: 1 }] },
       ],
       nodes: original.nodes.map(node => node.id !== 'b' ? node : {
         ...node, encounter: {
-          title: 'Relation battle', enemies: [{ id: 'robot', initialHp: 20, maxHp: 20, damage: 2 }, { id: 'robot-b', initialHp: 20, maxHp: 20, damage: 1 }],
+          title: 'Relation battle', enemies: [
+            { id: 'robot', initialHp: 20, maxHp: 20, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
+            { id: 'robot-b', initialHp: 20, maxHp: 20, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
+          ],
           abilityActionIds: ['ability'], itemActions: [{ itemId: 'gameplay-b:item:relation-kit', actionId: 'ability' }],
           participants: [{ characterId: 'shiroko', actions: ['hit', 'hit-b', 'hit-c', 'hit-d'].map(actionId => ({ actionId, tendencyWeight: 1 })) }],
         },
@@ -27,7 +43,7 @@ describe('Map preparation relation projection', () => {
     };
     const game = new GameInstance();
     games.push(game);
-    game.init([baseDatapack, { ...gameplayBMapDatapack, maps: [map], items: [{
+    game.init([baseDatapack, { ...datapackFor(map), items: [{
       id: 'gameplay-b:item:relation-kit', name: 'Kit', description: 'Kit', maxStack: 3, rarity: 'common', type: 'consumable',
     }] }], { enterDefaultInit: false });
     for (const characterId of map.partyCharacterIds) {
@@ -48,23 +64,28 @@ describe('Map preparation relation projection', () => {
   test('separates selected enemy, actor resource and team resource recipients without writing state', () => {
     const { game, view, relations } = setup();
     const initial = view();
-    expect(relations()[0]).toMatchObject({ targetState: 'pending', selectedTarget: null, canSelectTarget: true });
-    game.setMapPreparedEnemyTarget(initial.run.runId, 'shiroko', 'robot', initial.actionPreview!.draft);
+    expect(relations()[0]).toMatchObject({ targetState: 'determined', selectedTarget: { kind: 'enemy', id: 'robot' }, canSelectTarget: true });
+    game.setMapPreparedEnemyTarget(initial.run.runId, 'shiroko', 'robot-b', initial.actionPreview!.draft);
     const before = game.mapRun.getSnapshot();
     const projected = relations();
     expect(view().relations).toEqual(projected);
     expect(projected[0]).toMatchObject({
       phase: 'preparation', source: { kind: 'preparedAction', performer: { id: 'shiroko' } },
-      selectedTarget: { kind: 'enemy', id: 'robot' }, targetState: 'determined',
+      selectedTarget: { kind: 'enemy', id: 'robot-b' }, targetState: 'determined',
       effectRecipients: [
-        { kind: 'hp', recipient: { kind: 'enemy', id: 'robot' } },
+        { kind: 'hp', recipient: { kind: 'enemy', id: 'robot-b' } },
         { kind: 'resource', recipient: { kind: 'partyCharacter', id: 'shiroko' } },
         { kind: 'resource', recipient: { kind: 'team' } },
       ],
     });
     expect(projected.filter(row => row.source.kind === 'preparedAction')).toHaveLength(1); // Serika waits.
     expect(projected.filter(row => row.source.kind === 'enemy')).toHaveLength(2);
-    expect(projected[1]).toMatchObject({ targetState: 'unknown', selectedTarget: null, candidates: [], canSelectTarget: false, canReplaceAction: false });
+    expect(projected[1]).toMatchObject({
+      source: { actionId: 'enemy-hit', performer: { kind: 'enemy', id: 'robot' } },
+      targetState: 'determined', selectedTarget: { kind: 'partyCharacter', id: 'shiroko' },
+      candidates: [{ kind: 'partyCharacter', id: 'shiroko' }, { kind: 'partyCharacter', id: 'serika' }],
+      canSelectTarget: false, canReplaceAction: false,
+    });
     expect(relations()).toEqual(projected);
     expect(game.mapRun.getSnapshot()).toEqual(before);
     expect(Object.isFrozen(projected[0].effectRecipients[0].recipient)).toBe(true);
@@ -111,13 +132,13 @@ describe('Map preparation relation projection', () => {
     const runId = current.run.runId;
     const natural = current.actionPreview!.preparedActions[0].naturalAction!.actionId;
     const alternate = current.actionPreview!.preparedActions[0].hand.find(action => action.actionId !== natural)!.actionId;
-    game.setMapPreparedEnemyTarget(runId, 'shiroko', 'robot', current.actionPreview!.draft);
+    game.setMapPreparedEnemyTarget(runId, 'shiroko', 'robot-b', current.actionPreview!.draft);
     current = view();
     const stale = current.actionPreview!.draft;
     const rng = current.run.activeEncounter!.randomState;
     game.swapMapPreparedAction(runId, 'shiroko', alternate, stale);
     current = view();
-    expect(current.relations[0]).toMatchObject({ targetState: 'pending', selectedTarget: null });
+    expect(current.relations[0]).toMatchObject({ targetState: 'determined', selectedTarget: { kind: 'enemy', id: 'robot' } });
     expect(current.relations[0].candidates.map(row => row.id)).toContain('robot');
     expect(current.run.activeEncounter!.targetSelections).toEqual([]);
     expect(() => game.setMapPreparedEnemyTarget(runId, 'shiroko', 'robot', stale)).toThrow(/stale/);
@@ -126,13 +147,17 @@ describe('Map preparation relation projection', () => {
     current = view();
     game.clearMapActionOverride(runId, 'shiroko', current.actionPreview!.draft);
     current = view();
-    expect(current.relations[0]).toMatchObject({ source: { actionId: natural }, targetState: 'pending', selectedTarget: null });
-    game.setMapPreparedEnemyTarget(runId, 'shiroko', 'robot', current.actionPreview!.draft);
+    expect(current.relations[0]).toMatchObject({
+      source: { actionId: natural }, targetState: 'determined', selectedTarget: { kind: 'enemy', id: 'robot' },
+    });
+    game.setMapPreparedEnemyTarget(runId, 'shiroko', 'robot-b', current.actionPreview!.draft);
     current = view();
     const command = current.actionPreview!.playerCommandOptions[0];
     game.issueMapPlayerCommand(runId, 'shiroko', command.action.actionId, current.actionPreview!.draft);
     current = view();
-    expect(current.relations[0]).toMatchObject({ source: { actionId: command.action.actionId }, targetState: 'pending', selectedTarget: null });
+    expect(current.relations[0]).toMatchObject({
+      source: { actionId: command.action.actionId }, targetState: 'determined', selectedTarget: { kind: 'enemy', id: 'robot' },
+    });
     expect(view().relations).toEqual(current.relations);
     expect(view().run.activeEncounter!.randomState).toEqual(rng);
     expect(view().run.playerCost).toBe(4);
@@ -142,14 +167,19 @@ describe('Map preparation relation projection', () => {
     const { game, view } = setup();
     let current = view();
     const runId = current.run.runId;
-    game.setMapPreparedEnemyTarget(runId, 'shiroko', 'robot', current.actionPreview!.draft);
+    game.setMapPreparedEnemyTarget(runId, 'shiroko', 'robot-b', current.actionPreview!.draft);
     current = view();
     const before = current.run;
     const prepared = current.actionPreview!.preparedActions[0];
     expect(() => game.mapRun.previewReplacement(runId, 'shiroko', prepared.preparedAction!.actionId, current.actionPreview!.draft)).toThrow(/different/);
     const actionId = prepared.hand.find(row => row.actionId !== prepared.preparedAction!.actionId)!.actionId;
     const preview = game.mapRun.previewReplacement(runId, 'shiroko', actionId, current.actionPreview!.draft);
-    expect(preview[0]).toMatchObject({ phase: 'replacementPreview', selectedTarget: null, targetState: 'pending', source: { actionId } });
+    expect(preview[0]).toMatchObject({
+      phase: 'replacementPreview',
+      selectedTarget: { kind: 'enemy', id: 'robot' },
+      targetState: 'determined',
+      source: { actionId },
+    });
     expect(game.mapRun.previewReplacement(runId, 'shiroko', actionId, current.actionPreview!.draft)).toEqual(preview);
     const command = current.actionPreview!.playerCommandOptions[0];
     expect(game.mapRun.previewReplacement(runId, 'shiroko', command.action.actionId, current.actionPreview!.draft)[0].source.actionId).toBe(command.action.actionId);

@@ -71,7 +71,8 @@ import { bindEntityPresentationActions } from './controller-actions-presentation
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 import { bindOperationActions, disposeOperationActions, type OperationFocusTarget } from './controller-actions-operation';
-import { MapRelationInteraction } from './workspace/map-relation-interaction';
+import { MapRelationInteraction, type MapLocationSelectionIntent } from './workspace/map-relation-interaction';
+import { mapLocationObjectKey } from './cards/card-host';
 import type { GameCommands } from '../arona-clicker/contracts';
 import type { PackCatalogReadModel } from '../arona-clicker/contracts';
 import type { OperationView } from '../arona-clicker/contracts/operation-view';
@@ -418,23 +419,30 @@ export class UIController {
     readonly root: HTMLElement,
   ) {
     this.commands = createGameCommands(game);
-    this.mapRelations = new MapRelationInteraction(root, runId => {
-      const route = this.panelState.workspaceNavigation?.current;
-      if (this.panelState.workspace || this.panelState.service !== 'game' || route?.kind !== 'map' || route.runId !== runId) return [];
-      const view = game.mapRun.getWorkspaceView(runId);
-      return view?.kind === 'active' ? view.relations : [];
-    }, (relation, actionId) => game.mapRun.previewReplacement(relation.scope.runId, relation.source.id, actionId, relation.draft), (relation, target) => {
-      const { runId } = relation.scope;
-      if (relation.source.kind === 'preparedAction') {
-        if (target.kind === 'card') this.commands.setMapPreparedCardTarget(runId, relation.source.id, target, relation.draft);
-        else if (target.kind === 'enemy') this.commands.setMapPreparedEnemyTarget(runId, relation.source.id, target.id, relation.draft);
-        else this.commands.setMapPreparedTarget(runId, relation.source.id, target.id, relation.draft);
-      } else if ((relation.source.kind === 'ability' || relation.source.kind === 'item') && target.kind !== 'card') {
-        const selected = target.kind === 'enemy' ? { kind: 'enemy' as const, enemyId: target.id } : { kind: 'partyCharacter' as const, characterId: target.id };
-        if (relation.source.kind === 'ability') this.commands.setMapAbilityDraft(runId, relation.source.actionId, selected, relation.draft);
-        else this.commands.setMapItemDraft(runId, relation.source.id, selected, relation.draft);
-      } else return;
-      this.requestMapWorkspaceRefresh(runId);
+    this.mapRelations = new MapRelationInteraction({
+      root,
+      query: runId => {
+        const route = this.panelState.workspaceNavigation?.current;
+        if (this.panelState.workspace || this.panelState.service !== 'game' || route?.kind !== 'map' || route.runId !== runId) return [];
+        const view = game.mapRun.getWorkspaceView(runId);
+        return view?.kind === 'active' ? view.relations : [];
+      },
+      previewReplacement: (relation, actionId) =>
+        game.mapRun.previewReplacement(relation.scope.runId, relation.source.id, actionId, relation.draft),
+      sendIntent: ({ relation, target }) => {
+        const { runId } = relation.scope;
+        if (relation.source.kind === 'preparedAction') {
+          if (target.kind === 'card') this.commands.setMapPreparedCardTarget(runId, relation.source.id, target, relation.draft);
+          else if (target.kind === 'enemy') this.commands.setMapPreparedEnemyTarget(runId, relation.source.id, target.id, relation.draft);
+          else this.commands.setMapPreparedTarget(runId, relation.source.id, target.id, relation.draft);
+        } else if ((relation.source.kind === 'ability' || relation.source.kind === 'item') && target.kind !== 'card') {
+          const selected = target.kind === 'enemy' ? { kind: 'enemy' as const, enemyId: target.id } : { kind: 'partyCharacter' as const, characterId: target.id };
+          if (relation.source.kind === 'ability') this.commands.setMapAbilityDraft(runId, relation.source.actionId, selected, relation.draft);
+          else this.commands.setMapItemDraft(runId, relation.source.id, selected, relation.draft);
+        } else return;
+        this.requestMapWorkspaceRefresh(runId);
+      },
+      commitLocation: intent => this.commitMapLocationFromFlow(intent),
     });
     this.surfaceRuntime = new UISurfaceRuntime(this.panelState);
     this.uiBehaviors = createDefaultUIBehaviorRegistry();
@@ -651,28 +659,6 @@ export class UIController {
   }
 
   /**
-   * 记录一次只读“查看情报”：写入当前 Run 的 UI 临时流并刷新 Map 区域。
-   * 不发送任何 GameCommand，也不改变领域目标选择。
-   */
-  showMapEnemyInfo(runId: string, enemyId: string): boolean {
-    const route = this.panelState.workspaceNavigation?.current;
-    if (this.panelState.workspace || this.panelState.service !== 'game'
-      || route?.kind !== 'map' || route.runId !== runId) return false;
-    const view = this.game.mapRun.getWorkspaceView(runId);
-    if (!view || view.kind !== 'active') return false;
-    const enemy = view.currentEncounter?.enemies.find(candidate => candidate.enemyId === enemyId);
-    if (!enemy) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    this.ensureMapFlow(runId, context).pushEnemyInfo({
-      enemyId: enemy.enemyId,
-      currentHp: enemy.currentHp,
-      maxHp: enemy.maxHp,
-    });
-    this.requestMapWorkspaceRefresh(runId);
-    return true;
-  }
-
-  /**
    * 将地图地点概览作为 Talklet 投递到当前 Run 的临时流；再次点击时按其末端位置移除或替换。
    * 不发送 GameCommand，也不改变地图状态。
    */
@@ -690,24 +676,46 @@ export class UIController {
     return true;
   }
 
-  /** 流内移动：只有成功命令才消费移动器并留下本次会话的移动记录。 */
-  moveMapFromFlow(runId: string, fromNodeId: string, targetNodeId: string): boolean {
+  /** Map 工作区 Click 键的地点提交入口；身份、来源和边条件均按当前 Owner View 重验。 */
+  commitMapLocationFromFlow(intent: MapLocationSelectionIntent): { readonly moved: true } | { readonly moved: false; readonly message: string } {
+    const { ref, objectKey, fromNodeId } = intent;
+    const reject = (message: string) => {
+      this.requestMapWorkspaceRefresh(ref.runId);
+      return { moved: false as const, message };
+    };
     const route = this.panelState.workspaceNavigation?.current;
     if (this.panelState.workspace || this.panelState.service !== 'game'
-      || route?.kind !== 'map' || route.runId !== runId) return false;
-    const view = this.game.mapRun.getWorkspaceView(runId);
-    if (!view || view.kind !== 'active' || view.run.currentNodeId !== fromNodeId) return false;
+      || route?.kind !== 'map' || route.runId !== ref.runId) {
+      return { moved: false, message: '地图位置已变化，请重新打开当前路线。' };
+    }
+    const view = this.game.mapRun.getWorkspaceView(ref.runId);
+    if (!view || view.kind !== 'active' || view.run.currentNodeId !== fromNodeId
+      || ref.runId !== view.run.runId || ref.mapId !== view.map.id
+      || ref.kind !== 'mapNode' || objectKey !== mapLocationObjectKey(ref)) {
+      return reject('来源地点或地图状态已变化，请根据当前候选重新选择。');
+    }
+    if (view.run.status !== 'inProgress' || view.run.activeEncounterNodeId !== null
+      || view.run.activeActivity !== null || view.activities.some(activity => !activity.completed)) {
+      return reject('当前遭遇或地点活动尚未结束，暂时不能移动。');
+    }
+    const edge = view.map.edges.find(candidate => candidate.fromNodeId === fromNodeId && candidate.toNodeId === ref.nodeId);
     const from = view.map.nodes.find(node => node.id === fromNodeId);
-    const to = view.map.nodes.find(node => node.id === targetNodeId);
-    if (!from || !to) return false;
+    const to = view.map.nodes.find(node => node.id === ref.nodeId);
+    if (!edge || !from || !to) return reject('该地点已不在当前可达路线中，请重新选择。');
+    if (edge.condition && !edge.condition.satisfied) return reject('当前路线条件未满足，该地点无法到达。');
+
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const flow = this.ensureMapFlow(runId, context);
+    const flow = this.ensureMapFlow(ref.runId, context);
     flow.sync(view);
-    const moved = this.commands.moveMap(runId, targetNodeId);
-    if (moved.currentNodeId !== targetNodeId) return false;
+    try {
+      const moved = this.commands.moveMap(ref.runId, ref.nodeId);
+      if (moved.currentNodeId !== ref.nodeId) return reject('地点移动未完成，请检查当前路线状态。');
+    } catch {
+      return reject('路线条件或地点状态已变化，移动未执行。请检查当前候选。');
+    }
     flow.recordMovement(from, to);
-    this.requestMapWorkspaceRefresh(runId);
-    return true;
+    this.requestMapWorkspaceRefresh(ref.runId);
+    return { moved: true };
   }
 
   /** Refreshes the active Encounter region when Map navigation and its Node remain stable. */

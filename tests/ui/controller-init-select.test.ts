@@ -308,7 +308,7 @@ describe('UIController Init 选择页', () => {
     expect(lobbyController.started).toBe(false);
     expect(lobbyGame.running).toBe(false);
     expect(lobbyRoot.querySelector('.service-workspace')).not.toBeNull();
-    expect(lobbyRoot.querySelector('.service-workspace h2')?.textContent).toBe('全部数据包');
+    expect(lobbyRoot.querySelector('.service-workspace h2')?.textContent).toBe('经典数据包');
 
     lobbyRoot.querySelector<HTMLButtonElement>('[data-service="game"]')!.click();
     expect(lobbyRoot.querySelector('.selector-shell')).not.toBeNull();

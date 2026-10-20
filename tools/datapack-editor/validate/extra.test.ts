@@ -116,6 +116,13 @@ describe('ID 三段式格式', () => {
         stage: 'scene',
         enabledActionIds: [],
         combinationRules: [],
+        actionMode: 'individual',
+        sceneActions: [{
+          id: 'inspect-worksite',
+          actionId: 'scene-authoring:operation-action:inspect',
+          scope: 'individual',
+          playerCost: 0,
+        }],
         routeEdges: [],
       }],
       operationActions: [{

@@ -22,6 +22,12 @@ export interface MapRunEncounterHand {
   readonly actionIds: readonly string[];
 }
 
+/** One Encounter-local Enemy's read-only Hand in roster order. */
+export interface MapRunEnemyHand {
+  readonly enemyId: string;
+  readonly actionIds: readonly string[];
+}
+
 /**
  * One player-chosen Encounter action override for the current round.
  * At most one entry exists per Character; an Action equal to the Character's
@@ -108,6 +114,13 @@ export interface MapRunEnemyHp {
   readonly currentHp: number;
 }
 
+/** One Encounter-local resource balance owned by an Enemy Actor. */
+export interface MapRunEnemyActorResourceBalance {
+  readonly enemyId: string;
+  readonly resourceId: string;
+  readonly value: number;
+}
+
 /** One bounded HP change recorded as the actual applied delta. */
 export type MapRunEncounterHpChange =
   | { readonly scope: 'party'; readonly characterId: string; readonly delta: number }
@@ -162,6 +175,10 @@ export interface MapRunEncounterSettlementResourceChange {
   readonly scope: 'actor' | 'team';
   /** Present only for an Actor-scoped change. */
   readonly characterId?: string;
+  /** Present only for an Enemy Actor-scoped change. */
+  readonly enemyId?: string;
+  /** Present only for Enemy Team-scoped changes; omitted means the MapRun party Team. */
+  readonly teamSide?: 'enemy';
   readonly resourceId: string;
   /** Costs are recorded as negative deltas; effects preserve their signed delta. */
   readonly delta: number;
@@ -187,6 +204,19 @@ export interface MapRunEncounterActionSettlement {
   readonly hpChanges?: readonly MapRunEncounterHpChange[];
 }
 
+/** One Enemy's automatic action result in Encounter roster order. */
+export interface MapRunEncounterEnemyActionSettlement {
+  readonly enemyId: string;
+  readonly actionId: string | null;
+  readonly targetCharacterId?: string;
+  readonly targetEnemyId?: string;
+  readonly targetCard?: MapRunCardRef;
+  readonly scostCost?: { readonly original: number; readonly discount: number; readonly paid: number };
+  readonly skipReason?: 'defeated' | 'noLegalTarget' | 'unaffordable' | 'roundEnded';
+  readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
+  readonly hpChanges?: readonly MapRunEncounterHpChange[];
+}
+
 /** Immutable idempotency receipt for the latest successful Commit in an Encounter. */
 export interface MapRunEncounterCommitReceipt {
   readonly requestId: string;
@@ -199,12 +229,12 @@ export interface MapRunEncounterCommitReceipt {
   readonly round: number;
   readonly draftVersion: number;
   readonly settlements: readonly MapRunEncounterActionSettlement[];
+  /** Enemy natural Actions in roster order; omitted when the Encounter has no Enemies. */
+  readonly enemyActions?: readonly MapRunEncounterEnemyActionSettlement[];
   /** Ability uses retain their source and one PlayerCost independently of Character settlements. */
   readonly ability?: MapRunEncounterSourceSettlement;
   /** Item uses retain the mapped Item and inventory debit independently of Character settlements. */
   readonly item?: MapRunEncounterItemSettlement;
-  /** Enemy turn actions in roster order; omitted when no Enemy attacked. */
-  readonly enemyAttacks?: readonly { readonly enemyId: string; readonly targetCharacterId: string; readonly damage: number; readonly actualDelta: number }[];
 }
 
 /** Actual target and bounded HP changes for one actorless source. */
@@ -245,6 +275,8 @@ export interface MapRunEncounterCommitPreview {
   readonly playerCostRequired: number | null;
   readonly diagnostics: readonly string[];
   readonly settlements: readonly MapRunEncounterActionSettlement[] | null;
+  /** Enemy actions from the same pure full-round settlement plan. */
+  readonly enemyActions: readonly MapRunEncounterEnemyActionSettlement[] | null;
 }
 
 /** Complete Encounter-local state owned by MapRunService. */
@@ -257,6 +289,12 @@ export interface MapRunEncounterSnapshot {
   readonly round: number;
   /** Hands in the same fixed order as the MapRun party. */
   readonly hands: readonly MapRunEncounterHand[];
+  /** Enemy Hands in the same fixed order as the Encounter Enemy roster. */
+  readonly enemyHands: readonly MapRunEnemyHand[];
+  /** Encounter-local balances owned by each Enemy Actor. */
+  readonly enemyActorResources: readonly MapRunEnemyActorResourceBalance[];
+  /** Encounter-local shared balances available to the Enemy team. */
+  readonly enemyTeamResources: readonly MapRunTeamResourceBalance[];
   /** Hand[0] is the natural Prepared Action; Wait is represented by an empty Hand. */
   /**
    * Action overrides in fixed-party order, at most one per Character.

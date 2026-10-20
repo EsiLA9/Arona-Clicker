@@ -4,11 +4,11 @@ import { getPresentationTargets, presentationTargetForLegacyRegion } from '../..
 
 describe('UI Host Registry', () => {
   it('把服务声明自动暴露给主题目标选择器', () => {
-    expect(getPresentationTargets().some(target => target.id === 'centerPanel.datapack')).toBe(true);
+    expect(getPresentationTargets().some(target => target.id === 'leftPanel.service.datapack.workspace')).toBe(true);
     expect(getPresentationTargets().some(target => target.id === 'centerPanel.saves.inspector')).toBe(true);
     expect(getPresentationTargets().some(target => target.id === 'centerPanel.contacts')).toBe(true);
     expect(getPresentationTargets().some(target => target.id === 'centerPanel.records')).toBe(true);
-    expect(UI_HOST_REGISTRY.get('centerPanel.datapack')?.serviceId).toBe('datapack');
+    expect(UI_HOST_REGISTRY.get('leftPanel.service.datapack.workspace')?.serviceId).toBe('datapack');
   });
 
   it('保留旧 region 到物理列 Host 的兼容解析', () => {
@@ -33,8 +33,8 @@ describe('UI Host Registry', () => {
   });
 
   it('提供父级链并通过注册表校验层级', () => {
-    expect(UI_HOST_REGISTRY.resolveParent('centerPanel.datapack.inspector').map(host => host.id)).toEqual([
-      'centerPanel.datapack', 'centerPanel', 'shell', 'global',
+    expect(UI_HOST_REGISTRY.resolveParent('rightPanel.service.datapack.inspector').map(host => host.id)).toEqual([
+      'rightPanel', 'shell', 'global',
     ]);
     expect(UI_HOST_REGISTRY.validate()).toEqual([]);
   });

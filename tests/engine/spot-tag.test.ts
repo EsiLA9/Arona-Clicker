@@ -76,24 +76,25 @@ describe('Spot 动态 Tag（撤出/新加入）', () => {
   });
 
   test('adding a tag enables a tag-scoped Enhancement for that spot', () => {
-    // field_work（tags: field/combat）本无 office；购买 office_layout
+    // credit_printer 在当前 Init 中可结算；移除 office 后再验证添加标签重新启用增强。
     game.state.spotLevels[PRINTER] = 2;
     game.state.resources[CREDIT] = 500;
     expect(game.enhancements.purchaseEnhancement(OFFICE_LAYOUT).success).toBe(true);
 
     for (const key of Object.keys(game.state.spotLevels)) delete game.state.spotLevels[key];
-    game.state.spotLevels['base:spot:field_work'] = 1;
+    game.state.spotLevels[PRINTER] = 1;
     game.state.resources[CREDIT] = 0;
+    expect(game.spot.removeSpotTag(PRINTER, tagPath('office'))).toBe(true);
 
-    // 尚无 office tag → 8（无倍率；条件功能未触发）
+    // 尚无 office tag → 7（无倍率；条件功能未触发）
     game.tick();
-    expect(game.state.resources[CREDIT]).toBe(8);
+    expect(game.state.resources[CREDIT]).toBe(7);
 
-    // 加入 office tag → office_layout 生效：8 ×1.25
+    // 加入 office tag → base 5 ×1.25 + 功能 2
     game.state.resources[CREDIT] = 0;
-    expect(game.spot.addSpotTag('base:spot:field_work', tagPath('office'))).toBe(true);
+    expect(game.spot.addSpotTag(PRINTER, tagPath('office'))).toBe(true);
     game.tick();
-    expect(game.state.resources[CREDIT]).toBe(10);
+    expect(game.state.resources[CREDIT]).toBe(5 * 1.25 + 2);
   });
 
   test('spotTagChanged event fires with tag and added flag', () => {

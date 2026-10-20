@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { baseDatapack } from '../../src/data/test-datapack';
+import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 import { UIController } from '../../src/ui/controller';
 
-const SPOT = 'base:spot:abydos_cafe';
+const INIT = 'base:init:theme_showcase';
+const SPOT = 'base:spot:theme_showcase_b';
 
 describe('Spot Shop workspace', () => {
   let game: GameInstance;
@@ -13,10 +14,15 @@ describe('Spot Shop workspace', () => {
   beforeEach(() => {
     localStorage.clear();
     game = new GameInstance();
-    game.init([baseDatapack]);
+    game.init([defaultDatapack]);
+    expect(game.inits.startNewGame(INIT)).toBe(true);
     document.body.innerHTML = '<div id="app"></div>';
     controller = new UIController(game, document.querySelector('#app')!);
     controller.mount();
+    game.state.spotLevels[SPOT] = 1;
+    const shopSpot = game.world.spots.get(SPOT);
+    expect(shopSpot).toBeDefined();
+    expect(game.spotFunctionalitySystem.functionalitiesOf(shopSpot!, game.state).some(fn => fn.kind === 'shop')).toBe(true);
   });
 
   afterEach(() => { game.stop(); localStorage.clear(); });

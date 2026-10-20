@@ -134,7 +134,7 @@ const VALID_BATTLE_ACTIONS: NonNullable<GameplayMapDef['actions']> = [
 ];
 const VALID_BATTLE_ENCOUNTER: NonNullable<GameplayMapDef['nodes'][number]['encounter']> = {
   title: 'Battle',
-  enemies: [{ id: 'raider', initialHp: 8, maxHp: 10, damage: 2 }],
+  enemies: [{ id: 'raider', initialHp: 8, maxHp: 10 }],
   abilityActionIds: ['ability'],
   itemActions: [{ itemId: TEST_MEDKIT.id, actionId: 'medkit-use' }],
   participants: [{ characterId: TEST_CHARACTER_ID, actions: [{ actionId: 'strike', tendencyWeight: 1 }] }],
@@ -188,6 +188,20 @@ function battleMapWithEncounter(
       ? { ...node, encounter: encounter as GameplayMapDef['nodes'][number]['encounter'] }
       : node),
   };
+}
+
+function battleMapWithPools(
+  actions: unknown,
+  participants: unknown,
+  enemies: unknown = VALID_BATTLE_ENCOUNTER.enemies,
+  extraEncounterFields: Record<string, unknown> = {},
+): GameplayMapDef {
+  return battleMapWithEncounter({
+    ...VALID_BATTLE_ENCOUNTER,
+    ...extraEncounterFields,
+    enemies,
+    participants,
+  }, actions);
 }
 
 function battleMapWithAbilityAction(action: unknown): GameplayMapDef {
@@ -483,7 +497,7 @@ describe('Gameplay B Map Action Registry', () => {
     const map = mapWithActions([...VALID_MAP_ACTIONS, cardAction]);
     expect(() => registry.load(makeDatapack({ maps: [map] }))).not.toThrow();
   });
-  test('accepts explicit target preferences compatible with each target kind', () => {
+  test('accepts unit target preferences for either faction and stable card preference', () => {
     const registry = new Registry();
     const map = mapWithActions([
       ...VALID_MAP_ACTIONS,
@@ -491,21 +505,143 @@ describe('Gameplay B Map Action Registry', () => {
         target: { kind: 'enemy', preference: 'lowestHpRatio' } },
       { id: 'heal-pref', name: 'Healing Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
         target: { kind: 'partyCharacter', preference: 'highestMissingHpRatio' } },
+      { id: 'party-low-pref', name: 'Party Lowest HP Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
+        target: { kind: 'partyCharacter', preference: 'lowestHpRatio' } },
+      { id: 'enemy-missing-pref', name: 'Enemy Missing HP Preference', eligibleCharacterIds: [],
+        target: { kind: 'enemy', preference: 'highestMissingHpRatio' } },
       { ...cardAction, target: { kind: 'card', side: 'ally', preference: 'stableOrder' } },
     ]);
     expect(() => registry.load(makeDatapack({ maps: [map] }))).not.toThrow();
   });
-  test('accepts the finite explicit tendencyRole values with compatible targets', () => {
-    const map = mapWithActions([
+  test('accepts the finite explicit tendencyRole values when compatible with the candidate actor side', () => {
+    const actions = [
       ...VALID_MAP_ACTIONS,
+      ...VALID_BATTLE_ACTIONS,
       { id: 'recovery', name: 'Recovery', eligibleCharacterIds: [TEST_CHARACTER_ID],
         target: { kind: 'partyCharacter' }, tendencyRole: 'recovery' },
       { id: 'defense', name: 'Defense', eligibleCharacterIds: [TEST_CHARACTER_ID],
         target: { kind: 'self' }, tendencyRole: 'defense' },
       { id: 'attack', name: 'Attack', eligibleCharacterIds: [TEST_CHARACTER_ID],
         target: { kind: 'enemy' }, tendencyRole: 'attack' },
+      { id: 'enemy-attack', name: 'Enemy Attack', eligibleCharacterIds: [],
+        target: { kind: 'partyCharacter' }, tendencyRole: 'attack' },
+      { id: 'enemy-recovery', name: 'Enemy Recovery', eligibleCharacterIds: [],
+        target: { kind: 'enemy' }, tendencyRole: 'recovery' },
+    ];
+    const map = battleMapWithPools(actions, [{
+      characterId: TEST_CHARACTER_ID,
+      actions: ['inspect', 'focus', 'assist', 'recovery', 'defense', 'attack']
+        .map(actionId => ({ actionId, tendencyWeight: 1 })),
+    }], [{
+      id: 'raider', initialHp: 8, maxHp: 10,
+      actions: ['enemy-attack', 'enemy-recovery'].map(actionId => ({ actionId, tendencyWeight: 1 })),
+    }]);
+    expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).not.toThrow();
+  });
+  test('accepts Enemy-owned Action pools and Encounter-local Actor / Team resources', () => {
+    const actions = [
+      ...VALID_BATTLE_ACTIONS,
+      {
+        id: 'enemy-attack', name: 'Enemy Attack', eligibleCharacterIds: [],
+        target: { kind: 'partyCharacter', preference: 'lowestHpRatio' }, tendencyRole: 'attack',
+        hpEffects: [{ amount: -2 }],
+      },
+      {
+        id: 'enemy-aid', name: 'Enemy Aid', eligibleCharacterIds: [],
+        target: { kind: 'enemy', preference: 'highestMissingHpRatio' }, tendencyRole: 'recovery',
+        costs: [
+          { scope: 'actor', resourceId: 'focus', amount: 1 },
+          { scope: 'team', resourceId: 'supplies', amount: 1 },
+        ],
+        effects: [{ scope: 'actor', resourceId: 'focus', amount: 1, recipient: 'target' }],
+        hpEffects: [{ amount: 2 }],
+      },
+    ];
+    const map = battleMapWithPools(actions, [], [
+      {
+        id: 'raider', initialHp: 8, maxHp: 10,
+        actions: [
+          { actionId: 'enemy-attack', tendencyWeight: 3 },
+          { actionId: 'enemy-aid', tendencyWeight: 1 },
+        ],
+        initialResources: [{ resourceId: 'focus', value: 2 }],
+      },
+      { id: 'scout', initialHp: 5, maxHp: 5, actions: [] },
+    ], {
+      initialEnemyTeamResources: [{ resourceId: 'supplies', value: 3 }],
+    });
+    expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).not.toThrow();
+  });
+  test.each([
+    {
+      label: 'Enemy attack aimed at Enemy',
+      action: { id: 'enemy-action', name: 'Enemy Action', eligibleCharacterIds: [], target: { kind: 'enemy' }, tendencyRole: 'attack' },
+    },
+    {
+      label: 'Enemy recovery aimed at Character',
+      action: { id: 'enemy-action', name: 'Enemy Action', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, tendencyRole: 'recovery' },
+    },
+  ])('rejects $label', ({ action }) => {
+    const map = battleMapWithPools([...VALID_BATTLE_ACTIONS, action], [], [
+      { id: 'raider', initialHp: 8, maxHp: 10, actions: [{ actionId: 'enemy-action', tendencyWeight: 1 }] },
     ]);
-    expect(() => loadMap(map)).not.toThrow();
+    expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).toThrow(/tendencyRole.*Enemy target/);
+  });
+  test('rejects malformed Enemy candidates and duplicate Encounter-local resources', () => {
+    const enemyAction = { id: 'enemy-action', name: 'Enemy Action', eligibleCharacterIds: [], target: { kind: 'partyCharacter' } };
+    const invalidCandidateMap = battleMapWithPools([...VALID_BATTLE_ACTIONS, enemyAction], [], [
+      { id: 'raider', initialHp: 8, maxHp: 10, actions: [{ actionId: 'unknown', tendencyWeight: 1 }] },
+    ]);
+    expect(() => loadMap(invalidCandidateMap)).toThrow(/enemies\[0\]\.actions.*未定义的 Action/);
+
+    const duplicateResourceMap = battleMapWithPools([...VALID_BATTLE_ACTIONS, enemyAction], [], [
+      {
+        id: 'raider', initialHp: 8, maxHp: 10,
+        actions: [{ actionId: 'enemy-action', tendencyWeight: 1 }],
+        initialResources: [
+          { resourceId: 'focus', value: 1 },
+          { resourceId: 'focus', value: 2 },
+        ],
+      },
+    ]);
+    expect(() => loadMap(duplicateResourceMap)).toThrow(/initialResources 含重复 resourceId/);
+  });
+  test.each([
+    {
+      label: 'duplicate Action candidates',
+      actions: [
+        { actionId: 'enemy-action', tendencyWeight: 1 },
+        { actionId: 'enemy-action', tendencyWeight: 2 },
+      ],
+      error: /enemies\[0\]\.actions 含重复 Action id/,
+    },
+    {
+      label: 'non-positive Tendency weight',
+      actions: [{ actionId: 'enemy-action', tendencyWeight: 0 }],
+      error: /tendencyWeight 必须是正安全整数/,
+    },
+  ])('rejects Enemy $label', ({ actions: candidates, error }) => {
+    const enemyAction = { id: 'enemy-action', name: 'Enemy Action', eligibleCharacterIds: [], target: { kind: 'partyCharacter' } };
+    const map = battleMapWithPools([...VALID_BATTLE_ACTIONS, enemyAction], [], [
+      { id: 'raider', initialHp: 8, maxHp: 10, actions: candidates },
+    ]);
+    expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).toThrow(error);
+  });
+  test('rejects duplicate Enemy Team resource balances', () => {
+    const map = battleMapWithPools(VALID_BATTLE_ACTIONS, [], VALID_BATTLE_ENCOUNTER.enemies, {
+      initialEnemyTeamResources: [
+        { resourceId: 'supplies', value: 1 },
+        { resourceId: 'supplies', value: 2 },
+      ],
+    });
+    expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).toThrow(/initialEnemyTeamResources 含重复 resourceId/);
+  });
+  test('does not treat an Enemy-pool Action as an actorless Ability or Item Action', () => {
+    const enemyAction = { id: 'enemy-action', name: 'Enemy Action', eligibleCharacterIds: [], target: { kind: 'partyCharacter' } };
+    const map = battleMapWithPools([...VALID_BATTLE_ACTIONS, enemyAction], [], [
+      { id: 'raider', initialHp: 8, maxHp: 10, actions: [{ actionId: 'enemy-action', tendencyWeight: 1 }] },
+    ], { abilityActionIds: ['enemy-action'] });
+    expect(() => loadMap(map)).toThrow(/已属于 Enemy 行动池，不能作为 Ability \/ Item 来源/);
   });
   test.each([
     { id: 'unknown-role', name: 'Unknown Role', eligibleCharacterIds: [TEST_CHARACTER_ID],
@@ -518,13 +654,17 @@ describe('Gameplay B Map Action Registry', () => {
       target: { kind: 'card', side: 'ally' }, tendencyRole: 'recovery',
       cardEffects: [{ kind: 'scostDiscount', amount: 1 }] },
   ])('rejects invalid tendencyRole configuration %#', action => {
-    expect(() => loadMap(mapWithActions([...VALID_MAP_ACTIONS, action]))).toThrow(/tendencyRole/);
+    if (action.id === 'unknown-role') {
+      expect(() => loadMap(mapWithActions([...VALID_MAP_ACTIONS, action]))).toThrow(/tendencyRole/);
+      return;
+    }
+    const map = battleMapWithPools([...VALID_BATTLE_ACTIONS, action], [{
+      characterId: TEST_CHARACTER_ID,
+      actions: [{ actionId: action.id, tendencyWeight: 1 }],
+    }]);
+    expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).toThrow(/tendencyRole/);
   });
   test.each([
-    { id: 'bad-enemy-pref', name: 'Bad Enemy Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
-      target: { kind: 'enemy', preference: 'highestMissingHpRatio' } },
-    { id: 'bad-party-pref', name: 'Bad Party Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
-      target: { kind: 'partyCharacter', preference: 'lowestHpRatio' } },
     { id: 'bad-card-pref', name: 'Bad Card Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
       target: { kind: 'card', side: 'ally', preference: 'lowestHpRatio' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }] },
     { id: 'bad-none-pref', name: 'Bad None Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
@@ -604,8 +744,8 @@ describe('Gameplay B Map Action Registry', () => {
       map: battleMapWithEncounter({
         ...VALID_BATTLE_ENCOUNTER,
         enemies: [
-          { id: 'raider', initialHp: 8, maxHp: 10, damage: 2 },
-          { id: 'raider', initialHp: 3, maxHp: 3, damage: 1 },
+          { id: 'raider', initialHp: 8, maxHp: 10 },
+          { id: 'raider', initialHp: 3, maxHp: 3 },
         ],
       }),
       items: [TEST_MEDKIT],
@@ -615,7 +755,7 @@ describe('Gameplay B Map Action Registry', () => {
       label: 'non-positive Enemy max HP',
       map: battleMapWithEncounter({
         ...VALID_BATTLE_ENCOUNTER,
-        enemies: [{ id: 'raider', initialHp: 1, maxHp: 0, damage: 2 }],
+        enemies: [{ id: 'raider', initialHp: 1, maxHp: 0 }],
       }),
       items: [TEST_MEDKIT],
       error: /maxHp 必须是正安全整数/,
@@ -624,7 +764,7 @@ describe('Gameplay B Map Action Registry', () => {
       label: 'Enemy initial HP outside its bounds',
       map: battleMapWithEncounter({
         ...VALID_BATTLE_ENCOUNTER,
-        enemies: [{ id: 'raider', initialHp: 11, maxHp: 10, damage: 2 }],
+        enemies: [{ id: 'raider', initialHp: 11, maxHp: 10 }],
       }),
       items: [TEST_MEDKIT],
       error: /initialHp 必须在 1\.\.maxHp 范围内/,
@@ -633,19 +773,19 @@ describe('Gameplay B Map Action Registry', () => {
       label: 'zero Enemy initial HP',
       map: battleMapWithEncounter({
         ...VALID_BATTLE_ENCOUNTER,
-        enemies: [{ id: 'raider', initialHp: 0, maxHp: 10, damage: 2 }],
+        enemies: [{ id: 'raider', initialHp: 0, maxHp: 10 }],
       }),
       items: [TEST_MEDKIT],
       error: /initialHp 必须在 1\.\.maxHp 范围内/,
     },
     {
-      label: 'non-positive Enemy damage',
+      label: 'legacy fixed Enemy damage field',
       map: battleMapWithEncounter({
         ...VALID_BATTLE_ENCOUNTER,
-        enemies: [{ id: 'raider', initialHp: 8, maxHp: 10, damage: 0 }],
+        enemies: [{ id: 'raider', initialHp: 8, maxHp: 10, damage: 2 }],
       }),
       items: [TEST_MEDKIT],
-      error: /damage 必须是正安全整数/,
+      error: /enemies\[0\].*合同外字段 "damage"/,
     },
     {
       label: 'manual completion on a Battle',
@@ -755,8 +895,6 @@ describe('Gameplay B Map Action Registry', () => {
   test.each([
     { label: 'a zero HP change', amount: 0, target: 'enemy', error: /非零安全整数/ },
     { label: 'an HP change larger than a safe integer', amount: Number.MAX_SAFE_INTEGER + 1, target: 'enemy', error: /非零安全整数/ },
-    { label: 'healing applied to an Enemy', amount: 1, target: 'enemy', error: /符号必须与 Enemy 伤害/ },
-    { label: 'damage applied to a party target', amount: -1, target: 'partyCharacter', error: /符号必须与 Enemy 伤害/ },
     { label: 'an HP effect with no selected target', amount: -1, target: 'none', error: /HP 效果必须选择 Enemy 或 partyCharacter target/ },
   ])('rejects $label', ({ amount, target, error }) => {
     const actions = VALID_BATTLE_ACTIONS.map(action => action.id === 'strike'
@@ -764,6 +902,21 @@ describe('Gameplay B Map Action Registry', () => {
       : action);
     const map = battleMapWithEncounter(VALID_BATTLE_ENCOUNTER, actions);
     expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).toThrow(error);
+  });
+  test('allows signed HP effects to damage or heal either legal unit collection', () => {
+    const actions = [
+      ...VALID_BATTLE_ACTIONS,
+      { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -1 }] },
+      { id: 'enemy-heal', name: 'Enemy Heal', eligibleCharacterIds: [], target: { kind: 'enemy' }, hpEffects: [{ amount: 1 }] },
+    ];
+    const map = battleMapWithPools(actions, [], [{
+      id: 'raider', initialHp: 8, maxHp: 10,
+      actions: [
+        { actionId: 'enemy-hit', tendencyWeight: 1 },
+        { actionId: 'enemy-heal', tendencyWeight: 1 },
+      ],
+    }]);
+    expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).not.toThrow();
   });
 
   test('allows empty candidate lists and omitted participants for Wait encounters', () => {
@@ -918,19 +1071,7 @@ describe('Gameplay B Map Action Registry', () => {
         },
         ...VALID_MAP_ACTIONS.slice(1),
       ]),
-      error: /recipient 为 target 时 Action 必须声明 self 或 partyCharacter target/,
-    },
-    {
-      label: 'target resource effect with an Enemy target',
-      map: mapWithActions([
-        {
-          ...VALID_MAP_ACTIONS[0],
-          target: { kind: 'enemy' },
-          effects: [{ scope: 'actor', resourceId: 'focus', amount: 1, recipient: 'target' }],
-        },
-        ...VALID_MAP_ACTIONS.slice(1),
-      ]),
-      error: /recipient 为 target 时 Action 必须声明 self 或 partyCharacter target/,
+      error: /recipient 为 target 时 Action 必须声明单位 target/,
     },
     {
       label: 'empty actor resource key',

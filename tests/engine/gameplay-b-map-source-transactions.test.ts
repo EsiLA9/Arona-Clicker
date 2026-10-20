@@ -67,11 +67,19 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
       hpEffects: [{ amount: options.itemDamage ?? -1 }],
     },
   ];
+  const enemyAction: GameplayMapActionDef | null = options.enemyDamage === undefined ? null : {
+    id: 'enemy-attack',
+    name: 'Enemy Attack',
+    eligibleCharacterIds: [],
+    target: { kind: 'partyCharacter', preference: 'lowestHpRatio' },
+    tendencyRole: 'attack',
+    hpEffects: [{ amount: -options.enemyDamage }],
+  };
   const enemies = Array.from({ length: options.enemyCount ?? 1 }, (_, index) => ({
     id: index === 0 ? ENEMY_ID : `wolf-${index + 1}`,
     initialHp: options.enemyHp ?? 20,
     maxHp: options.enemyHp ?? 20,
-    damage: options.enemyDamage ?? 1,
+    ...(enemyAction ? { actions: [{ actionId: enemyAction.id, tendencyWeight: 1 }] } : {}),
   }));
   const encounter = baseMap.nodes.find(node => node.id === 'b')?.encounter;
   if (!encounter) throw new Error('Gameplay B sample Encounter is missing');
@@ -81,7 +89,7 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
     ...baseMap,
     resumeVersion: baseMap.resumeVersion + 1,
     initialPlayerCost: options.playerCost ?? 2,
-    actions,
+    actions: enemyAction ? [...actions, enemyAction] : actions,
     nodes: baseMap.nodes.map(node => node.id !== 'b' ? node : ({
       ...node,
       encounter: {
@@ -114,7 +122,16 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
     // MapRun must not run this generic PlayerState effect.
     useEffects: [{ op: 'addResource' as const, target: Resource.Credit, value: 100 }],
   }));
-  return { ...gameplayBMapDatapack, maps: [map], items };
+  return {
+    ...gameplayBMapDatapack,
+    spots: gameplayBMapDatapack.spots.map(spot => ({
+      ...spot,
+      functionalities: (spot.functionalities ?? []).filter(functionality =>
+        functionality.kind !== 'mapEntry' || functionality.mapId === map.id),
+    })),
+    maps: [map],
+    items,
+  };
 }
 
 describe('Gameplay B Ability / Item source transactions', () => {
@@ -235,7 +252,9 @@ describe('Gameplay B Ability / Item source transactions', () => {
       itemId: ITEM_ID, actionId: ITEM_ACTION_ID, consumedCount: 1,
       hpChanges: [{ scope: 'enemy', enemyId: ENEMY_ID, delta: 0 }],
     });
-    expect(result.lastEncounterCommit?.enemyAttacks).toBeUndefined();
+    expect(result.lastEncounterCommit?.enemyActions).toEqual([
+      { enemyId: ENEMY_ID, actionId: null, resourceChanges: [] },
+    ]);
     expect(result.playerCost).toBe(1);
     expect(game.state.inventory[ITEM_ID]).toBeUndefined();
     expect(game.statsService.getSnapshot().global.itemsUsed[ITEM_ID]).toBe(1);

@@ -5,7 +5,7 @@ import { parsePack, parsePackFromZipBuffer } from '../../src/data-services/datap
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 
-const ROOT = join(process.cwd(), 'datapack', 'addition_test');
+const ROOT = join(process.cwd(), 'datapack-dev', 'addition_test');
 const FILES = [
   'datapack.json', '00-world.json', '01-content.json', '02-story.json', '03-systems.json', '04-records.json',
   'assets/addition-test.svg',
@@ -19,7 +19,7 @@ async function loadAdditionPack() {
 }
 
 async function loadAdditionZip(name: string) {
-  return parsePackFromZipBuffer(await readFile(join(process.cwd(), 'datapack', name)));
+  return parsePackFromZipBuffer(await readFile(join(process.cwd(), 'datapack-dev', name)));
 }
 
 describe('addition_test 综合数据包', () => {
@@ -77,7 +77,7 @@ describe('addition_test 综合数据包', () => {
       expect.objectContaining({ path: '$.defaultAreas[0]', value: 'addition-test:area:observatory', status: 'resolved' }),
       expect.objectContaining({ path: '$.startStoryId', value: 'addition-test:story:welcome', status: 'resolved' }),
       expect.objectContaining({ path: '$.purchaseCost[0].resourceId', value: 'base:resource:pyroxene', status: 'resolved', confidence: 'declared' }),
-      expect.objectContaining({ path: '$.revealTriggers[0].condition.conditions[0].key', value: 'base:resource:pyroxene', status: 'resolved', confidence: 'inferred' }),
+      expect.objectContaining({ path: '$.revealTriggers[0].condition.conditions[0].key', value: 'base:resource:pyroxene', status: 'resolved', confidence: 'declared' }),
     ]));
     expect(detail?.incomingReferences).toEqual(expect.arrayContaining([
       expect.objectContaining({ value: 'addition-test:init:observatory', status: 'resolved' }),

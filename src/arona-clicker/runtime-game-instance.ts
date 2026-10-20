@@ -65,6 +65,7 @@ import { createRegistryOperationContentResolver } from './services/registry-oper
 import { MapRunError, MapRunService } from './services/map-run-service';
 import { projectMapRelations } from './services/map-relation-projector';
 import type { MapRunCardRef } from './contracts/map-cards';
+import { parseMapRunCardRef } from './services/map-card-catalog';
 import type { GameplayBActionPreview } from './services/gameplay-b-action-preview-resolver';
 import { createRegistryMapContentResolver } from './services/registry-map-content-resolver';
 import type { MapContentResolver } from './contracts/map-content-resolver';
@@ -324,7 +325,6 @@ export class GameInstance {
       enemyId: enemy.id,
       currentHp: enemyHpById.get(enemy.id) ?? enemy.initialHp,
       maxHp: enemy.maxHp,
-      damage: enemy.damage,
     })));
     const completion = encounter.completion?.kind === 'manual'
       ? Object.freeze({ kind: 'manual' as const, label: encounter.completion.label })
@@ -398,6 +398,19 @@ export class GameInstance {
       overrideKind: prepared.overrideKind,
       playerCost: prepared.playerCost,
     })));
+    const preparedEnemyActions = Object.freeze(preview.preparedEnemyActions.map(prepared => Object.freeze({
+      enemyId: prepared.enemyId,
+      hand: Object.freeze(prepared.handActionIds.map(requiredActionView)),
+      naturalAction: projectAction(prepared.naturalActionId),
+      targetKind: prepared.targetKind,
+      ...(prepared.targetKind === 'card' ? { legalTargetCards: prepared.legalTargetCards, targetCard: prepared.targetCard } : {}),
+      legalTargetCharacterIds: Object.freeze([...prepared.legalTargetCharacterIds]),
+      legalTargetEnemyIds: Object.freeze([...prepared.legalTargetEnemyIds]),
+      targetCharacterId: prepared.targetCharacterId,
+      targetEnemyId: prepared.targetEnemyId,
+      targetSelectionRequired: false as const,
+      ...(prepared.skipReason === undefined ? {} : { skipReason: prepared.skipReason }),
+    })));
     const playerCommandOptions = Object.freeze(preview.playerCommandOptions.map(option => Object.freeze({
       characterId: option.characterId,
       action: requiredActionView(option.actionId),
@@ -436,7 +449,17 @@ export class GameInstance {
         consumedCount: encounter.lastCommit.item.consumedCount,
         hpChanges: Object.freeze(encounter.lastCommit.item.hpChanges.map(change => Object.freeze({ ...change }))),
       }) : null,
-      enemyAttacks: Object.freeze([...(encounter.lastCommit.enemyAttacks ?? [])].map(attack => Object.freeze({ ...attack }))),
+      enemyActions: Object.freeze((encounter.lastCommit.enemyActions ?? []).map(row => Object.freeze({
+        enemyId: row.enemyId,
+        action: projectAction(row.actionId),
+        targetCharacterId: row.targetCharacterId ?? null,
+        targetEnemyId: row.targetEnemyId ?? null,
+        ...(row.targetCard ? { targetCard: parseMapRunCardRef(row.targetCard)! } : {}),
+        ...(row.scostCost ? { scostCost: Object.freeze({ ...row.scostCost }) } : {}),
+        ...(row.skipReason === undefined ? {} : { skipReason: row.skipReason }),
+        resourceChanges: Object.freeze(row.resourceChanges.map(change => Object.freeze({ ...change }))),
+        hpChanges: Object.freeze([...(row.hpChanges ?? [])].map(change => Object.freeze({ ...change }))),
+      }))),
     });
 
     return Object.freeze({
@@ -450,11 +473,23 @@ export class GameInstance {
       }),
       overrides: Object.freeze(preview.overrides.map(override => Object.freeze({ ...override }))),
       preparedActions,
+      preparedEnemyActions,
       playerCommandOptions,
       commitPreview: Object.freeze({
         canCommit: commitPreview.canCommit,
         playerCostRequired: commitPreview.playerCostRequired,
         diagnostics: Object.freeze([...commitPreview.diagnostics]),
+        enemyActions: commitPreview.enemyActions === null ? null : Object.freeze(commitPreview.enemyActions.map(row => Object.freeze({
+          enemyId: row.enemyId,
+          action: projectAction(row.actionId),
+          targetCharacterId: row.targetCharacterId ?? null,
+          targetEnemyId: row.targetEnemyId ?? null,
+          ...(row.targetCard ? { targetCard: parseMapRunCardRef(row.targetCard)! } : {}),
+          ...(row.scostCost ? { scostCost: Object.freeze({ ...row.scostCost }) } : {}),
+          ...(row.skipReason === undefined ? {} : { skipReason: row.skipReason }),
+          resourceChanges: Object.freeze(row.resourceChanges.map(change => Object.freeze({ ...change }))),
+          hpChanges: Object.freeze([...(row.hpChanges ?? [])].map(change => Object.freeze({ ...change }))),
+        }))),
       }),
       recentCommit,
     });
@@ -633,6 +668,16 @@ export class GameInstance {
     if (!definition) return this.#mapRunOwner.start(mapId, []);
     const admittedParty = this.admitMapParty(mapId, definition.partyCharacterIds);
     return this.#mapRunOwner.start(mapId, admittedParty);
+  }
+
+  /** Restarts the matching MapRun from its Map start using the same admitted party. */
+  restartMap(runId: string): MapRun {
+    return this.#mapRunOwner.restart(runId);
+  }
+
+  /** Discards the matching active MapRun without changing Persistent PlayerState. */
+  abandonMap(runId: string): void {
+    this.#mapRunOwner.abandon(runId);
   }
 
   /** Resolves the Map's fixed party against current ownership without writing PlayerState. */

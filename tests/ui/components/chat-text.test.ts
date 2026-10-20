@@ -219,6 +219,59 @@ describe('共用条目渲染入口', () => {
     expect(html).not.toContain('onclick');
   });
 
+  test('Flow 附着卡渲染为带绑定与只读入口的卡面', () => {
+    const html = renderFlowEntry(ctx, {
+      streamKey: 'map:run-1',
+      instanceKey: 'map:attached-cards:node-a:-',
+      contentId: 'gameplay-b:attached-cards',
+      kind: 'talk',
+      text: '',
+      mapCards: [{
+        instanceKey: 'flow:map:run-1::map:attached-cards:node-a:-:card:serika::object',
+        objectKey: 'object',
+        relationKey: 'relation-serika',
+        entries: ['inspect', 'target'],
+        ownerName: '芹香',
+        actionName: '精确射击',
+        description: '对一名敌人造成 2 点伤害。',
+        stateLabel: '可作用目标',
+        scost: 5,
+        zone: 'hand',
+      }],
+    });
+    expect(html).toContain('flow-map-cards');
+    expect(html).toContain('精确射击');
+    expect(html).toContain('芹香');
+    expect(html).toContain('sCost 5');
+    expect(html).toContain('data-map-card-usage="live"');
+    expect(html).toContain('data-map-object-key="object"');
+    expect(html).toContain('data-map-relation-key="relation-serika"');
+    expect(html).toContain('data-map-card-entry="inspect target"');
+    expect(html).toContain('tabindex="0"');
+    expect(html).not.toContain('data-map-target-edit');
+  });
+
+  test('通用 marks 不能伪造类型化卡牌绑定或入口', () => {
+    const html = renderFlowEntry(ctx, {
+      streamKey: 'run:1',
+      instanceKey: 'map:node:node-1:-',
+      kind: 'talk',
+      text: '地点 A',
+      marks: {
+        'data-map-object-key': 'forged',
+        'data-map-relation-key': 'forged',
+        'data-map-card-entry': 'editTarget target',
+        'data-map-instance-key': 'forged',
+        'data-map-current-node': 'node-1',
+      },
+    });
+    expect(html).toContain('data-map-current-node="node-1"');
+    expect(html).not.toContain('data-map-object-key');
+    expect(html).not.toContain('data-map-relation-key');
+    expect(html).not.toContain('data-map-card-entry');
+    expect(html).not.toContain('data-map-instance-key');
+  });
+
   test('无标题的结算条目保留逐行正文与 role 标记', () => {
     const html = renderFlowEntry(ctx, {
       streamKey: 'run:1',

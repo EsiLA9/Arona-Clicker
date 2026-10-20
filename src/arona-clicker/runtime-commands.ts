@@ -32,6 +32,8 @@ export interface GameCommandSource {
   getDevLogs(): readonly DevLogEntry[];
   recordOperationObservation(input: OperationObservationInput): OperationObservation;
   startMap(mapId: string): MapRun;
+  restartMap(runId: string): MapRun;
+  abandonMap(runId: string): void;
   moveMap(runId: string, targetNodeId: string): MapRun;
   completeMapEncounter(runId: string): MapRun;
   purchaseMapShopOffer(runId: string, offerId: string, requestId: string, draft: MapRunShopDraftToken): MapRun;
@@ -97,6 +99,8 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     triggerAffectionPush: owner => game.story.triggerAffectionPush(owner),
     triggerTailPush: (owner, storyId) => game.story.triggerTailPush(owner, storyId),
     startMap: mapId => game.startMap(mapId),
+    restartMap: runId => game.restartMap(runId),
+    abandonMap: runId => game.abandonMap(runId),
     moveMap: (runId, targetNodeId) => game.moveMap(runId, targetNodeId),
     completeMapEncounter: runId => game.completeMapEncounter(runId),
     purchaseMapShopOffer: (runId, offerId, requestId, draft) =>

@@ -1,50 +1,11 @@
 /**
- * datapack.schema.test.ts —— 真实数据回归测试
+ * datapack.schema.test.ts —— Schema 校验器规则单测
  *
- * 用工具自身的 schema + 校验器校验 datapack/AronaClickerCore/*.json，
- * 必须 0 error。任何引擎类型更新导致的 schema 漂移都会在此暴露。
+ * 旧 datapack/AronaClickerCore 分片目录已退役；当前 Runtime Base 内容也包含独立编辑器 Schema
+ * 尚未覆盖的字段。本文件只验证编辑器已支持的校验规则，不作为 Runtime 内容的全量回归。
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { validateDatapack } from '../validate';
-import type { DatapackData } from '../validate';
-
-const DATAPACK_DIR = join(import.meta.dirname, '../../../datapack/AronaClickerCore');
-
-function loadDatapack(): DatapackData {
-  const files = readdirSync(DATAPACK_DIR).filter((f) => f.endsWith('.json'));
-  const merged: DatapackData = {};
-  for (const file of files) {
-    const partial = JSON.parse(readFileSync(join(DATAPACK_DIR, file), 'utf8')) as DatapackData;
-    for (const [key, value] of Object.entries(partial)) {
-      if (!(key in merged)) merged[key] = value;
-      else if (Array.isArray(merged[key]) && Array.isArray(value)) {
-        (merged[key] as unknown[]).push(...value);
-      }
-    }
-  }
-  return merged;
-}
-
-describe('真实 datapack 回归校验', () => {
-  const data = loadDatapack();
-
-  it('加载到数据（分片文件存在）', () => {
-    const files = readdirSync(DATAPACK_DIR).filter((f) => f.endsWith('.json'));
-    expect(files.length).toBeGreaterThan(0);
-  });
-
-  it('schema 校验 0 error', () => {
-    const issues = validateDatapack(data);
-    const errors = issues.filter((i) => i.severity === 'error');
-    if (errors.length > 0) {
-      const sample = errors.slice(0, 40).map((e) => `  ${e.message}`).join('\n');
-      throw new Error(`schema 校验发现 ${errors.length} 个错误：\n${sample}`);
-    }
-    expect(errors).toEqual([]);
-  });
-});
 
 describe('divider 横条（UI 语义分组，非数据字段）', () => {
   it('含 divider 的表校验正常，且不报未知字段', () => {

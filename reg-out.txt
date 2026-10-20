@@ -1,0 +1,20 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/15229/Documents/Obsidian Vault/1-项目/ACProgram[39m
+
+ [32m✓[39m tests/ui/flow-entry.test.ts [2m([22m[2m16 tests[22m[2m)[22m[90m 7[2mms[22m[39m
+ [32m✓[39m tests/ui/map-flow-adapter.test.ts [2m([22m[2m19 tests[22m[2m)[22m[90m 10[2mms[22m[39m
+ [32m✓[39m tests/ui/map-relation-presentation.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 9[2mms[22m[39m
+ [32m✓[39m tests/ui/map-dom-updates.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 13[2mms[22m[39m
+ [32m✓[39m tests/ui/map-relation-interaction.test.ts [2m([22m[2m16 tests[22m[2m)[22m[90m 48[2mms[22m[39m
+ [32m✓[39m tests/engine/gameplay-b-map-relations.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 75[2mms[22m[39m
+ [32m✓[39m tests/engine/gameplay-b-map-cards.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 163[2mms[22m[39m
+ [32m✓[39m tests/ui/gameplay-b-map-workspace.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 3521[2mms[22m[39m
+   [33m[2m✓[22m[39m Gameplay B Map Workspace[2m > [22mselects and drags a real card target without lines or Swap, then explicitly commits the discount [33m333[2mms[22m[39m
+   [33m[2m✓[22m[39m Gameplay B Map Workspace[2m > [22mprojects full Hands and routes Swap, PlayerCommand, Target and Commit through Controller commands [33m361[2mms[22m[39m
+   [33m[2m✓[22m[39m Gameplay B Map Workspace[2m > [22mrenders battle HP, routes Enemy targets, keeps Ability and Item drafts separate, and shows the round result [33m409[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m107 passed[39m[22m[90m (107)[39m
+[2m   Start at [22m 14:10:31
+[2m   Duration [22m 14.54s[2m (transform 3.11s, setup 61ms, collect 21.74s, tests 3.84s, environment 1.48s, prepare 828ms)[22m
+

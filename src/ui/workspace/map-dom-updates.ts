@@ -3,6 +3,8 @@ function mapNodeKey(node: Node): string | null {
   if (!(node instanceof HTMLElement)) return null;
   // 信息流条目先按共享实例键协调：同一条目刷新数值时保持节点身份。
   if (node.dataset.flowEntryKey) return `flow:${node.dataset.flowEntryKey}`;
+  // 卡牌视觉实例：同一对象的多个副本各有独立且稳定的键。
+  if (node.dataset.mapInstanceKey) return `card:${node.dataset.mapInstanceKey}`;
   if (node.dataset.mapFocusKey) return `control:${node.dataset.mapFocusKey}`;
   if (node.dataset.mapRegionKey) return `region:${node.dataset.mapRegionKey}`;
   if (node.dataset.mapPartyMember) return `party:${node.dataset.mapPartyMember}`;

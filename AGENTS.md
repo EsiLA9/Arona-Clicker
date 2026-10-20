@@ -22,4 +22,4 @@
 
 ## 项目地图
 
-遇到未知实现、新内容或文件关系时，先以 `graph_project(workspace_path="<任务绝对目录>")` 核对项目根，后续显式传返回的 `project_id`；按 [[docs/ai/galhcg-project-map]] 查询并回到当前文件核实。文件改动后只读复核直接影响；查询和文件改动不授权改图、刷新或写观察，维护时再读 `.galhcg/agent-maintenance.md`。
+遇到未知实现、新内容或文件关系时，先按客户端当前注册的模式使用项目身份入口（`simple` 为 `graph_project(workspace_path="<任务绝对目录>")`，`legacy` 为 `resolve_project`）核对项目根，后续显式传返回的 `project_id`；按 [[docs/ai/galhcg-project-map]] 查询并回到当前文件核实。文件改动后只读复核直接影响；查询和文件改动不授权改图、刷新或写观察，维护时再读 `.galhcg/agent-maintenance.md`。

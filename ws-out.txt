@@ -1,0 +1,4720 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/15229/Documents/Obsidian Vault/1-项目/ACProgram[39m
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mselects and drags a real card target without lines or Swap, then explicitly commits the discount
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mthe shipped cooperation sample offers real card targets and settles a chosen discount
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mshares one real card target between the Map and a read-only Flow copy
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mprojects detached Map, Node, Edge, start and exit facts from the current Run
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mrenders Map and active Encounter from one route, then returns to the completed Node and exit
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mconsumes the flow mover only after success and preserves the mounted workspace
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mprojects full Hands and routes Swap, PlayerCommand, Target and Commit through Controller commands
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mshows only the effective card and opens existing candidates without drawing or replacing workspace owners
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mrenders Wait as the prepared state without inventing a Hand card
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mrenders Action, Ability and Item names from a receipt as text instead of markup
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mdisables hand-out PlayerCommand options when Runtime says PlayerCost is insufficient
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mrenders battle HP, routes Enemy targets, keeps Ability and Item drafts separate, and shows the round result
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] resourceChanged {
+  type: [32m'resourceChanged'[39m,
+  resource: [32m'base:resource:credit'[39m,
+  delta: [33m10[39m,
+  newValue: [33m10[39m,
+  stats: [36m[Getter][39m
+}
+[Event] itemCollected {
+  type: [32m'itemCollected'[39m,
+  itemId: [32m'gameplay-b:item:workspace-kit'[39m,
+  count: [33m1[39m,
+  newTotal: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] itemCollected {
+  type: [32m'itemCollected'[39m,
+  itemId: [32m'gameplay-b:item:workspace-kit'[39m,
+  count: [33m-1[39m,
+  newTotal: [33m0[39m,
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2medits real Enemy targets by unit click and card drag without Commit or replacing the three columns
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mshows unavailable Ability cost and Item inventory/condition without enabling their drafts
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mreports when an Item use condition changes after its draft was selected
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] resourceChanged {
+  type: [32m'resourceChanged'[39m,
+  resource: [32m'base:resource:credit'[39m,
+  delta: [33m10[39m,
+  newValue: [33m10[39m,
+  stats: [36m[Getter][39m
+}
+[Event] itemCollected {
+  type: [32m'itemCollected'[39m,
+  itemId: [32m'gameplay-b:item:workspace-kit'[39m,
+  count: [33m1[39m,
+  newTotal: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] resourceChanged {
+  type: [32m'resourceChanged'[39m,
+  resource: [32m'base:resource:credit'[39m,
+  delta: [33m-10[39m,
+  newValue: [33m0[39m,
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mexplains combined Ability and PlayerCommand PlayerCost and lets the player clear Ability
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mrenders defeat as a read-only three-column result and returns to the game on request
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mreports illegal targets and stale Commit tokens without changing the MapRun
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mrenders only the minimal terminal result without reconstructing map progress
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2mrenders the shared three panel tab hosts when a Map route is unavailable
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+[90mstdout[2m | tests/ui/gameplay-b-map-workspace.test.ts[2m > [22m[2mGameplay B Map Workspace[2m > [22m[2m查看情报写入共享信息流且只保留最新一条，不改变领域目标选择
+[22m[39m[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'schale_entered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] initEntered { type: [32m'initEntered'[39m, initId: [32m'base:init:schale_office'[39m }
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:flow:base@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:funclet:credit_printer_linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+  packId: [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer'[39m,
+  mountEntityId: [32m'base:spot:credit_printer'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:funclet:credit_printer_linear@base:spot:credit_printer@base:spot:credit_printer'[39m,
+    [32m'base:spot:credit_printer:generic-level-linear@base:spot:credit_printer@base:spot:credit_printer'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:credit_printer'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:flow:base@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+  packId: [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal'[39m,
+  mountEntityId: [32m'base:spot:comms_terminal'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:comms_terminal@base:spot:comms_terminal'[39m,
+    [32m'base:spot:comms_terminal:generic-level-linear@base:spot:comms_terminal@base:spot:comms_terminal'[39m
+  ]
+}
+[Event] flagChanged {
+  type: [32m'flagChanged'[39m,
+  flag: [32m'office_mastered'[39m,
+  value: [32m'1'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:comms_terminal'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:flow:base@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorEntriesChanged {
+  type: [32m'affectorEntriesChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+}
+[Event] affectorStateChanged {
+  type: [32m'affectorStateChanged'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  oldState: [32m'Latent'[39m,
+  newState: [32m'Active'[39m
+}
+[Event] affectorMounted {
+  type: [32m'affectorMounted'[39m,
+  instanceId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m,
+  packId: [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper'[39m,
+  mountEntityId: [32m'base:spot:data_wiper'[39m
+}
+[Event] affectorRuntimeChanged {
+  type: [32m'affectorRuntimeChanged'[39m,
+  instanceIds: [
+    [32m'base:flow:base@base:spot:data_wiper@base:spot:data_wiper'[39m,
+    [32m'base:spot:data_wiper:generic-level-linear@base:spot:data_wiper@base:spot:data_wiper'[39m
+  ]
+}
+[Event] tagCollectedChanged { type: [32m'tagCollectedChanged'[39m, kind: [32m'spots'[39m }
+[Event] spotLevelChanged {
+  type: [32m'spotLevelChanged'[39m,
+  spotId: [32m'base:spot:data_wiper'[39m,
+  oldLevel: [33m0[39m,
+  newLevel: [33m1[39m,
+  stats: [36m[Getter][39m
+}
+[Event] storyTriggered { type: [32m'storyTriggered'[39m, storyId: [32m'base:activestory:schale_welcome'[39m }
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:rose'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:shiroko-duotone'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] equipmentCollected {
+  type: [32m'equipmentCollected'[39m,
+  equipmentId: [32m'base:colorequipment:dawn-aura'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:radial-dawn'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Shiroko'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:emerald'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] groupUnlocked {
+  type: [32m'groupUnlocked'[39m,
+  groupId: [32m'base:colorgroup:serika-gradient'[39m,
+  stats: [36m[Getter][39m
+}
+[Event] characterAcquired {
+  type: [32m'characterAcquired'[39m,
+  variantId: [32m'Serika'[39m,
+  via: [32m'story'[39m,
+  duplicate: [33mfalse[39m,
+  shards: [33m0[39m,
+  bonusResources: {},
+  stats: [36m[Getter][39m
+}
+
+ [31m❯[39m tests/ui/gameplay-b-map-workspace.test.ts [2m([22m[2m22 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 4178[2mms[22m[39m
+   [33m[2m✓[22m[39m Gameplay B Map Workspace[2m > [22mselects and drags a real card target without lines or Swap, then explicitly commits the discount [33m397[2mms[22m[39m
+[31m   [31m×[31m Gameplay B Map Workspace[2m > [22mshares one real card target between the Map and a read-only Flow copy[90m 128[2mms[22m[31m[39m
+[31m     → expected [] to have a length of 2 but got +0[39m
+   [33m[2m✓[22m[39m Gameplay B Map Workspace[2m > [22mprojects full Hands and routes Swap, PlayerCommand, Target and Commit through Controller commands [33m469[2mms[22m[39m
+   [33m[2m✓[22m[39m Gameplay B Map Workspace[2m > [22mrenders battle HP, routes Enemy targets, keeps Ability and Item drafts separate, and shows the round result [33m438[2mms[22m[39m
+   [33m[2m✓[22m[39m Gameplay B Map Workspace[2m > [22mexplains combined Ability and PlayerCommand PlayerCost and lets the player clear Ability [33m307[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m21 passed[39m[22m[90m (22)[39m
+[2m   Start at [22m 14:08:31
+[2m   Duration [22m 14.73s[2m (transform 1.83s, setup 12ms, collect 9.83s, tests 4.18s, environment 302ms, prepare 99ms)[22m
+

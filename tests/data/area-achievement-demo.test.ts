@@ -10,7 +10,7 @@ import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 const ROOT = process.cwd();
-const PACK_DIR = 'datapack/area-achievement-demo';
+const PACK_DIR = 'datapack-dev/area-achievement-demo';
 const ZIP_PATH = `${PACK_DIR}.zip`;
 const MOD = 'area-achievement-demo';
 const INIT = `${MOD}:init:archive-route`;

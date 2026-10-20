@@ -199,6 +199,18 @@ function validateMapActionContent(
   const isResourceScope = (value: unknown): value is 'actor' | 'team' =>
     value === 'actor' || value === 'team';
   const targetKinds = new Set(['none', 'self', 'partyCharacter', 'enemy', 'card']);
+  const tendencyRoleTargetCompatible = (action: Record<string, unknown>, actorKind: 'Character' | 'Enemy'): boolean => {
+    const role = action.tendencyRole;
+    const targetKind = isRecord(action.target) ? action.target.kind : undefined;
+    if (role === undefined || role === 'defense') return true;
+    if (role === 'attack') return actorKind === 'Character' ? targetKind === 'enemy' : targetKind === 'partyCharacter';
+    if (role === 'recovery') {
+      return actorKind === 'Character'
+        ? targetKind === 'self' || targetKind === 'partyCharacter'
+        : targetKind === 'self' || targetKind === 'enemy';
+    }
+    return false;
+  };
   const assertNoExtraFields = (
     value: Record<string, unknown>,
     allowedFields: readonly string[],
@@ -268,10 +280,8 @@ function validateMapActionContent(
         throw new RegistryError(`${actionPath}.target.kind 必须是 none、self、partyCharacter、enemy 或 card`);
       }
       if (target.preference !== undefined) {
-        const allowedPreferences = target.kind === 'enemy'
-          ? ['stableOrder', 'lowestHpRatio']
-          : target.kind === 'partyCharacter'
-            ? ['stableOrder', 'highestMissingHpRatio']
+        const allowedPreferences = target.kind === 'enemy' || target.kind === 'partyCharacter'
+          ? ['stableOrder', 'lowestHpRatio', 'highestMissingHpRatio']
             : target.kind === 'card'
               ? ['stableOrder']
               : [];
@@ -283,10 +293,6 @@ function validateMapActionContent(
       if (tendencyRole !== undefined
         && (typeof tendencyRole !== 'string' || !['recovery', 'defense', 'attack'].includes(tendencyRole))) {
         throw new RegistryError(`${actionPath}.tendencyRole 必须是 recovery、defense 或 attack`);
-      }
-      if ((tendencyRole === 'recovery' && target.kind !== 'self' && target.kind !== 'partyCharacter')
-        || (tendencyRole === 'attack' && target.kind !== 'enemy')) {
-        throw new RegistryError(`${actionPath}.tendencyRole 与 target.kind 不兼容`);
       }
       if (target.kind === 'card' && (typeof target.side !== 'string' || !['self', 'ally', 'opponent', 'any'].includes(target.side))) {
         throw new RegistryError(`${actionPath}.target.side 必须是 self、ally、opponent 或 any`);
@@ -351,8 +357,8 @@ function validateMapActionContent(
           throw new RegistryError(`${effectPath}.recipient 必须是 actor 或 target`);
         }
         if (rawEffect.scope === 'actor' && recipient === 'target'
-          && target.kind !== 'self' && target.kind !== 'partyCharacter') {
-          throw new RegistryError(`${effectPath}.recipient 为 target 时 Action 必须声明 self 或 partyCharacter target`);
+          && target.kind !== 'self' && target.kind !== 'partyCharacter' && target.kind !== 'enemy') {
+          throw new RegistryError(`${effectPath}.recipient 为 target 时 Action 必须声明单位 target`);
         }
         if (rawEffect.scope === 'team') knownTeamResourceIds.add(rawEffect.resourceId);
         const key = JSON.stringify([rawEffect.scope, rawEffect.resourceId, recipient ?? 'actor']);
@@ -376,10 +382,6 @@ function validateMapActionContent(
         assertNoExtraFields(rawHpEffect, ['amount'], hpEffectPath);
         if (!Number.isSafeInteger(rawHpEffect.amount) || (rawHpEffect.amount as number) === 0) {
           throw new RegistryError(`${hpEffectPath}.amount 必须是非零安全整数`);
-        }
-        if ((target.kind === 'enemy' && (rawHpEffect.amount as number) >= 0)
-          || (target.kind === 'partyCharacter' && (rawHpEffect.amount as number) <= 0)) {
-          throw new RegistryError(`${hpEffectPath}.amount 符号必须与 Enemy 伤害或 partyCharacter 治疗方向一致`);
         }
       }
     }
@@ -435,6 +437,7 @@ function validateMapActionContent(
       if (!isRecord(rawEncounter)) throw new RegistryError(`${encounterPath} 必须是对象`);
 
       const rawEnemies: unknown = rawEncounter.enemies;
+      const enemyCandidateActionIds = new Set<string>();
       let isBattle = false;
       if (rawEnemies !== undefined) {
         if (!Array.isArray(rawEnemies) || rawEnemies.length === 0) {
@@ -448,7 +451,7 @@ function validateMapActionContent(
         for (const [enemyIndex, rawEnemy] of rawEnemies.entries()) {
           const enemyPath = `${encounterPath}.enemies[${enemyIndex}]`;
           if (!isRecord(rawEnemy)) throw new RegistryError(`${enemyPath} 必须是 Enemy 对象`);
-          assertNoExtraFields(rawEnemy, ['id', 'initialHp', 'maxHp', 'damage'], enemyPath);
+          assertNoExtraFields(rawEnemy, ['id', 'initialHp', 'maxHp', 'actions', 'initialResources'], enemyPath);
           const enemyId = rawEnemy.id;
           if (!isNonEmptyString(enemyId)) {
             throw new RegistryError(`${enemyPath}.id 必须是非空 Encounter-local Enemy ID`);
@@ -463,15 +466,84 @@ function validateMapActionContent(
             || (rawEnemy.initialHp as number) > (rawEnemy.maxHp as number)) {
             throw new RegistryError(`${enemyPath}.initialHp 必须在 1..maxHp 范围内`);
           }
-          if (!Number.isSafeInteger(rawEnemy.damage) || (rawEnemy.damage as number) <= 0) {
-            throw new RegistryError(`${enemyPath}.damage 必须是正安全整数`);
+          const rawInitialResources: unknown = rawEnemy.initialResources;
+          if (rawInitialResources !== undefined && !Array.isArray(rawInitialResources)) {
+            throw new RegistryError(`${enemyPath}.initialResources 必须是资源初值数组`);
+          }
+          const initialResourceIds = new Set<string>();
+          for (const [resourceIndex, rawResource] of ((rawInitialResources ?? []) as unknown[]).entries()) {
+            const resourcePath = `${enemyPath}.initialResources[${resourceIndex}]`;
+            if (!isRecord(rawResource)) throw new RegistryError(`${resourcePath} 必须是资源初值对象`);
+            assertNoExtraFields(rawResource, ['resourceId', 'value'], resourcePath);
+            if (!isNonEmptyString(rawResource.resourceId)) throw new RegistryError(`${resourcePath}.resourceId 必须是非空字符串`);
+            if (!Number.isSafeInteger(rawResource.value) || (rawResource.value as number) < 0) {
+              throw new RegistryError(`${resourcePath}.value 必须是非负安全整数`);
+            }
+            if (initialResourceIds.has(rawResource.resourceId)) {
+              throw new RegistryError(`${enemyPath}.initialResources 含重复 resourceId "${rawResource.resourceId}"`);
+            }
+            initialResourceIds.add(rawResource.resourceId);
+          }
+
+          const rawCandidates: unknown = rawEnemy.actions;
+          if (rawCandidates !== undefined && !Array.isArray(rawCandidates)) {
+            throw new RegistryError(`${enemyPath}.actions 必须是候选 Action 数组`);
+          }
+          const candidateActionIds = new Set<string>();
+          for (const [candidateIndex, rawCandidate] of ((rawCandidates ?? []) as unknown[]).entries()) {
+            const candidatePath = `${enemyPath}.actions[${candidateIndex}]`;
+            if (!isRecord(rawCandidate)) throw new RegistryError(`${candidatePath} 必须是候选 Action 对象`);
+            assertNoExtraFields(rawCandidate, ['actionId', 'tendencyWeight'], candidatePath);
+            const actionId = rawCandidate.actionId;
+            if (!isNonEmptyString(actionId)) throw new RegistryError(`${candidatePath}.actionId 必须是非空 Map-local Action ID`);
+            if (!actionIds.has(actionId)) {
+              throw new RegistryError(`${candidatePath}.actionId 引用了 Map "${map.id}" 未定义的 Action "${actionId}"`);
+            }
+            if (candidateActionIds.has(actionId)) {
+              throw new RegistryError(`${enemyPath}.actions 含重复 Action id "${actionId}"`);
+            }
+            candidateActionIds.add(actionId);
+            enemyCandidateActionIds.add(actionId);
+            if (!Number.isSafeInteger(rawCandidate.tendencyWeight) || (rawCandidate.tendencyWeight as number) <= 0) {
+              throw new RegistryError(`${candidatePath}.tendencyWeight 必须是正安全整数`);
+            }
+            const action = actionDefinitions.get(actionId);
+            if (action && !tendencyRoleTargetCompatible(action, 'Enemy')) {
+              throw new RegistryError(`${candidatePath}.actionId "${actionId}" tendencyRole 与 Enemy target 不兼容`);
+            }
           }
         }
+      }
+
+      const rawEnemyTeamResources: unknown = rawEncounter.initialEnemyTeamResources;
+      if (rawEnemyTeamResources !== undefined) {
+        if (!isBattle) throw new RegistryError(`${encounterPath}.initialEnemyTeamResources 只允许用于 Battle Encounter`);
+        if (!Array.isArray(rawEnemyTeamResources)) {
+          throw new RegistryError(`${encounterPath}.initialEnemyTeamResources 必须是资源初值数组`);
+        }
+      }
+      const enemyTeamResourceIds = new Set<string>();
+      for (const [resourceIndex, rawResource] of ((rawEnemyTeamResources ?? []) as unknown[]).entries()) {
+        const resourcePath = `${encounterPath}.initialEnemyTeamResources[${resourceIndex}]`;
+        if (!isRecord(rawResource)) throw new RegistryError(`${resourcePath} 必须是资源初值对象`);
+        assertNoExtraFields(rawResource, ['resourceId', 'value'], resourcePath);
+        if (!isNonEmptyString(rawResource.resourceId)) throw new RegistryError(`${resourcePath}.resourceId 必须是非空字符串`);
+        if (!Number.isSafeInteger(rawResource.value) || (rawResource.value as number) < 0) {
+          throw new RegistryError(`${resourcePath}.value 必须是非负安全整数`);
+        }
+        if (enemyTeamResourceIds.has(rawResource.resourceId)) {
+          throw new RegistryError(`${encounterPath}.initialEnemyTeamResources 含重复 resourceId "${rawResource.resourceId}"`);
+        }
+        enemyTeamResourceIds.add(rawResource.resourceId);
+        knownTeamResourceIds.add(rawResource.resourceId);
       }
 
       const assertActorlessSourceAction = (actionId: string, actionPath: string): void => {
         const action = actionDefinitions.get(actionId);
         if (!action) throw new RegistryError(`${actionPath} 引用了 Map "${map.id}" 未定义的 Action "${actionId}"`);
+        if (enemyCandidateActionIds.has(actionId)) {
+          throw new RegistryError(`${actionPath} 的 Action "${actionId}" 已属于 Enemy 行动池，不能作为 Ability / Item 来源`);
+        }
         if (!Array.isArray(action.eligibleCharacterIds) || action.eligibleCharacterIds.length > 0) {
           throw new RegistryError(`${actionPath} 的 Action "${actionId}" 是 Character Action，不能作为 Ability / Item 来源`);
         }
@@ -580,6 +652,9 @@ function validateMapActionContent(
             throw new RegistryError(`${candidatePath}.actionId "${actionId}" 不允许 Character "${characterId}" 执行`);
           }
           const action = actionDefinitions.get(actionId);
+          if (action && !tendencyRoleTargetCompatible(action, 'Character')) {
+            throw new RegistryError(`${candidatePath}.actionId "${actionId}" tendencyRole 与 Character target 不兼容`);
+          }
           if (isRecord(action?.target) && action.target.kind === 'enemy' && !isBattle) {
             throw new RegistryError(`${candidatePath}.actionId "${actionId}" 选择 Enemy target 但 Encounter 没有 Battle roster`);
           }

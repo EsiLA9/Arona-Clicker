@@ -141,8 +141,11 @@ describe('Runtime Editor 支付方案嵌套编辑', () => {
     const target = runtime.createEditingPack(source.packRecordId ?? source.id);
     if (!target.ok || !target.packRecordId) throw new Error(target.message);
     editor.packRecordId = target.packRecordId;
-    editor.modName = 'base';
+    const targetEntry = runtime.getPackCatalog().entries.find(entry => (entry.packRecordId ?? entry.id) === target.packRecordId);
+    if (!targetEntry) throw new Error('未找到刚创建的编辑态数据包记录。');
+    editor.modName = targetEntry.modName;
     editor.displayName = 'Draft Mod';
+    editor.version = targetEntry.version;
     editor.activeSection = 'overview';
     setRuntimeEditorSpot(editor, {
       idName: 'printer',

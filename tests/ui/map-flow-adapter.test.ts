@@ -1,10 +1,9 @@
 // ============================================================
 // tests/ui/map-flow-adapter.test.ts — Map View → Flow 适配与按 Run 隔离的流
-// 覆盖：基线顺序 / 快照刷新不重排 / requestId 幂等 / 查询回收与失效 / dispose
+// 覆盖：基线顺序 / 快照刷新不重排 / requestId 幂等 / 观察条目 / dispose
 // ============================================================
 import { describe, expect, it } from 'vitest';
 import {
-  MAP_FLOW_ENEMY_INFO_SLOT,
   MapFlowModel,
   type MapFlowTextPort,
 } from '../../src/ui/flow/map-flow-model';
@@ -37,7 +36,7 @@ function activeView(patch: ActivePatch = {}): MapRunActiveWorkspaceView {
     title: '遭遇标题',
     description: '遭遇说明',
     partyHp: [],
-    enemies: [{ enemyId: 'robot', currentHp: patch.encounter.enemyHp ?? 6, maxHp: 6, damage: 1 }],
+    enemies: [{ enemyId: 'robot', currentHp: patch.encounter.enemyHp ?? 6, maxHp: 6 }],
   } : null;
   const commit = patch.commit === null ? null : patch.commit ? {
     requestId: patch.commit.requestId,
@@ -55,7 +54,10 @@ function activeView(patch: ActivePatch = {}): MapRunActiveWorkspaceView {
     }],
     ability: null,
     item: null,
-    enemyAttacks: [],
+    enemyActions: [{
+      enemyId: 'robot', action: { name: '反击' }, targetCharacterId: 'shiroko', targetEnemyId: null,
+      resourceChanges: [], hpChanges: [{ scope: 'party', characterId: 'shiroko', delta: -1 }],
+    }],
   } : null;
   return {
     kind: 'active',
@@ -100,17 +102,13 @@ function activeView(patch: ActivePatch = {}): MapRunActiveWorkspaceView {
       offers: [{ offerId: 'spare-parts', name: '备用零件', costs: [], effects: [], heal: null, canPurchase: true }],
       lastPurchase: { offerId: 'spare-parts', requestId: patch.shop.lastPurchase ?? '' },
     },
-    actionPreview: commit ? { nodeId: currentNodeId, round: 1, draft: {}, overrides: [], preparedActions: [], playerCommandOptions: [], commitPreview: { canCommit: true, playerCostRequired: 0, diagnostics: [] }, recentCommit: commit } : null,
+    actionPreview: commit ? { nodeId: currentNodeId, round: 1, draft: {}, overrides: [], preparedActions: [], preparedEnemyActions: [], playerCommandOptions: [], commitPreview: { canCommit: true, playerCostRequired: 0, diagnostics: [], enemyActions: [] }, recentCommit: commit } : null,
     sourcePreview: null,
   } as unknown as MapRunActiveWorkspaceView;
 }
 
 function keys(model: MapFlowModel): string[] {
   return model.snapshot.map(entry => entry.instanceKey);
-}
-
-function last<T>(items: readonly T[]): T {
-  return items[items.length - 1];
 }
 
 describe('Map Flow Adapter', () => {
@@ -133,7 +131,7 @@ describe('Map Flow Adapter', () => {
     }
   });
 
-  it('空闲地点唤起单个移动器，活动中收起；刷新／恢复不虚构移动历史', () => {
+  it('空闲地点投影地点卡候选，活动中收起；刷新／恢复不虚构移动历史', () => {
     const model = new MapFlowModel('run-1', port);
     const base = activeView();
     const idle = {
@@ -142,12 +140,20 @@ describe('Map Flow Adapter', () => {
     } as MapRunActiveWorkspaceView;
     model.sync(idle);
     const mover = model.snapshot.find(entry => entry.source?.kind === 'map.move-choices')!;
-    expect(mover.actions?.[0]).toMatchObject({ label: '前往 地点 B', disabled: true });
-    expect(mover.actions?.[0].detail).toContain('resource:key ≥ 2（未满足）');
+    expect(mover.actions).toBeUndefined();
+    expect(mover.mapLocations).toMatchObject({ runId: 'run-1', mapId: 'map-1', fromNodeId: 'node-a' });
+    expect(mover.mapLocations?.locations[0]).toMatchObject({
+      ref: { kind: 'mapNode', runId: 'run-1', mapId: 'map-1', nodeId: 'node-b' },
+      title: '地点 B',
+      selectable: false,
+      unavailableReason: '需要 resource:key ≥ 2',
+    });
+    expect(mover.mapLocations?.locations[0].stateLabel).toContain('resource:key ≥ 2（未满足）');
+    expect(mover.mapLocations?.locations[0].instanceKey).toContain(mover.mapLocations?.locations[0].objectKey ?? '');
     model.sync(idle);
     expect(model.snapshot.filter(entry => entry.source?.kind === 'map.move-choices')).toHaveLength(1);
     model.sync({ ...idle, run: { ...idle.run, activeActivity: { nodeId: 'node-a', activityId: 'shop', kind: 'shop' } } } as MapRunActiveWorkspaceView);
-    expect(model.snapshot.some(entry => entry.actions?.length)).toBe(false);
+    expect(model.snapshot.some(entry => entry.mapLocations)).toBe(false);
     model.sync(idle);
     model.recordMovement(base.map.nodes[0], base.map.nodes[1]);
     const destination = activeView({ currentNodeId: 'node-b', encounter: {} });
@@ -155,7 +161,7 @@ describe('Map Flow Adapter', () => {
     model.sync(destination);
     expect(model.snapshot.filter(entry => entry.source?.kind === 'map.movement').map(entry => entry.text))
       .toEqual(['从地点 A移动到了地点 B']);
-    expect(model.snapshot.some(entry => entry.actions?.length)).toBe(false);
+    expect(model.snapshot.some(entry => entry.mapLocations)).toBe(false);
     model.dispose();
     model.sync(destination);
     expect(model.snapshot.some(entry => entry.source?.kind === 'map.movement')).toBe(false);
@@ -181,6 +187,15 @@ describe('Map Flow Adapter', () => {
     });
   });
 
+  it('不把每轮准备行动重复投影到 Flow', () => {
+    const model = new MapFlowModel('run-1', port);
+    const view = activeView({ encounter: { enemyHp: 6 } });
+    const entries = model.sync(view);
+    expect(entries.map(entry => entry.speaker)).toEqual(['测试地图 · 当前地点', '当前遭遇']);
+    expect(entries.some(entry => entry.mapCards?.length)).toBe(false);
+    expect(entries.some(entry => entry.contentId === 'gameplay-b:current-cards')).toBe(false);
+  });
+
   it('地点 → 遭遇 → 回执按发生时序排列，回执带可读结算行', () => {
     const model = new MapFlowModel('run-1', port);
     const entries = model.sync(activeView({
@@ -191,6 +206,7 @@ describe('Map Flow Adapter', () => {
     const commit = entries.find(entry => entry.instanceKey === 'map:commit:R1')!;
     expect(commit.speaker).toBe('最近提交结果 · 地点 A · 第 2 轮结果');
     expect(commit.lines?.[0]).toBe('character:shiroko：攻击 → 敌方 robot · 敌方 robot HP -2');
+    expect(commit.lines?.[1]).toBe('敌方 enemy:robot：反击 → character:shiroko · character:shiroko HP -1');
     expect(commit.marks).toMatchObject({
       'data-map-recent-commit': 'R1',
       'data-map-commit-receipt': 'R1',
@@ -236,56 +252,6 @@ describe('Map Flow Adapter', () => {
     expect(keys(model)).toEqual(['map:commit:R1', 'map:node:node-b:-']);
   });
 
-  it('查询情报使用逻辑槽回收旧条目并尾插', () => {
-    const model = new MapFlowModel('run-1', port);
-    model.sync(activeView());
-    model.pushEnemyInfo({ enemyId: 'robot', currentHp: 6, maxHp: 6 });
-    expect(last(model.snapshot)).toMatchObject({
-      contentId: MAP_FLOW_ENEMY_INFO_SLOT,
-      repeatPolicy: 'replaceSameId',
-      text: '敌方 robot',
-      lines: ['HP 6 / 6'],
-    });
-
-    model.pushEnemyInfo({ enemyId: 'robot', currentHp: 3, maxHp: 6 });
-    const queries = model.snapshot.filter(entry => entry.contentId === MAP_FLOW_ENEMY_INFO_SLOT);
-    expect(queries).toHaveLength(1);
-    expect(queries[0].lines).toEqual(['HP 3 / 6']);
-    expect(last(model.snapshot)).toBe(queries[0]);
-
-    model.pushEnemyInfo({ enemyId: 'drone', currentHp: 2, maxHp: 2 });
-    const afterSwitch = model.snapshot.filter(entry => entry.contentId === MAP_FLOW_ENEMY_INFO_SLOT);
-    expect(afterSwitch).toHaveLength(1);
-    expect(afterSwitch[0].text).toBe('敌方 drone');
-  });
-
-  it('重复读同一 View 不复活旧查询，也不改变查询位置', () => {
-    const model = new MapFlowModel('run-1', port);
-    const view = activeView({ encounter: { enemyHp: 6 } });
-    model.sync(view);
-    model.pushEnemyInfo({ enemyId: 'robot', currentHp: 6, maxHp: 6 });
-    const keysAfterQuery = keys(model);
-    model.sync(view);
-    model.sync(view);
-    expect(keys(model)).toEqual(keysAfterQuery);
-  });
-
-  it('被查询事实变化时旧情报失效且不自动重投递', () => {
-    const model = new MapFlowModel('run-1', port);
-    model.sync(activeView({ encounter: { enemyHp: 6 } }));
-    model.pushEnemyInfo({ enemyId: 'robot', currentHp: 6, maxHp: 6 });
-    model.sync(activeView({ encounter: { enemyHp: 3 } }));
-    expect(model.snapshot.some(entry => entry.contentId === MAP_FLOW_ENEMY_INFO_SLOT)).toBe(false);
-  });
-
-  it('离开遭遇或读档后不再保留无法重建的查询', () => {
-    const model = new MapFlowModel('run-1', port);
-    model.sync(activeView({ encounter: { enemyHp: 6 } }));
-    model.pushEnemyInfo({ enemyId: 'robot', currentHp: 6, maxHp: 6 });
-    model.sync(activeView({ encounter: null }));
-    expect(model.snapshot.some(entry => entry.contentId === MAP_FLOW_ENEMY_INFO_SLOT)).toBe(false);
-  });
-
   it('商店最近购买只在来源仍可读取时呈现', () => {
     const model = new MapFlowModel('run-1', port);
     model.sync(activeView({ shop: { lastPurchase: 'P1' } }));
@@ -302,7 +268,6 @@ describe('Map Flow Adapter', () => {
   it('dispose 清空临时序列，重新进入只重建有权威来源的内容', () => {
     const model = new MapFlowModel('run-1', port);
     model.sync(activeView({ commit: { requestId: 'R1', round: 1 } }));
-    model.pushEnemyInfo({ enemyId: 'robot', currentHp: 6, maxHp: 6 });
     model.dispose();
     expect(model.snapshot).toHaveLength(0);
 

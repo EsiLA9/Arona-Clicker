@@ -151,7 +151,9 @@ test('默认内容提供真实 Spot Shop 与四类交易样例', () => {
   const shop = game.registry.shops.get('base:shop:abydos-cafe');
   expect(shop?.entries.map(entry => entry.id)).toEqual(expect.arrayContaining(['energy-drink', 'field-note-exchange', 'premium-drink', 'mystery-fragment']));
   const spot = game.registry.spots.get('base:spot:abydos_cafe')!;
+  game.state.spotLevels[spot.id] = 1;
   expect(game.spotFunctionalitySystem.functionalitiesOf(spot, game.state).some(fn => fn.kind === 'shop' && fn.shopId === shop?.id)).toBe(true);
   const showcaseSpot = game.registry.spots.get('base:spot:theme_showcase_b')!;
+  game.state.spotLevels[showcaseSpot.id] = 1;
   expect(game.spotFunctionalitySystem.functionalitiesOf(showcaseSpot, game.state).some(fn => fn.kind === 'shop' && fn.shopId === shop?.id)).toBe(true);
 });
