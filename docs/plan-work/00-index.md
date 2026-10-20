@@ -8,6 +8,8 @@
 
 ## 当前推进
 
+- [[docs/plan-work/task-0305-init-global-enhancement-node-graph-investigation]]：investigation complete；核对 Init / GlobalEnhancement 数据、揭示与命令边界，并提出保留顶部栏、全画布节点平面图 + 右侧独立工作台的重构结构；图探索、正式可及性、拥有与效果启用状态分轴建模，后续实施前待裁定拓扑授权与强化启用语义。
+
 - [[docs/plan-work/task-0304-node-graph-spatial-presentation]]：implementation complete, verification pending；固定轴测网格按视口延展且每 5 格加深、节点拖拽 / 观察平移、10%–1000% 滑杆 / 光标锚定滚轮缩放、低倍率节点简化、z 按平面倍率变化量的 25% 响应并在 100% 精确还原、平面投影虚线关系、正负高度 / 实际航道、固定逻辑坐标的无底板母图星座、D / X 共通入口与同帧更新的跨图链接已实现；母图连通节点总数可调，星座保持原 x/y 构图并以 y 向偏移展示高度，主图和子图新增至 10 / 6 个预设节点，并支持双向、单向与不参与探索的虚拟链接；母图范围按弱连通关系纳入单向边两端、排除虚拟边，比例尺与子图完全相同且不按内容范围拟合；浏览器验收待补。
 
 - [[docs/plan-work/task-0303-node-graph-demo-visual-polish]]：completed；桌面视觉增强与世界线偏移表现，提供偏移叠层 / 分歧轨迹 / 相位对照三种可切换方案，保持探索规则；不做手机适配；三种方案与对照已实现并验证。
