@@ -1,4 +1,5 @@
 import type { Character } from '../../engine/types/ids';
+import type { GameplayMapEffectProgramDef, GameplayMapEncounterLocalsDef, GameplayMapEffectConditionDef } from './gameplay-map-effects';
 
 /** Static Gameplay B map content. Node, edge, and action IDs are local to this map. */
 export interface GameplayMapDef {
@@ -67,6 +68,8 @@ export interface GameplayMapActionDef {
   readonly hpEffects?: readonly GameplayMapActionHpEffectDef[];
   /** Round-local effects on the selected domain card; requires a `card` target. */
   readonly cardEffects?: readonly GameplayMapActionCardEffectDef[];
+  /** Optional finite E1 program. Registry validates its syntax and source context before use. */
+  readonly effectProgram?: GameplayMapEffectProgramDef;
 }
 
 /** Targets available to autonomous Character / Enemy Actions and actorless Ability / Item actions. */
@@ -283,6 +286,8 @@ export interface GameplayEncounterDef {
   readonly description?: string;
   /** When present, exposes one legal manual completion action. */
   readonly completion?: GameplayEncounterCompletionDef;
+  /** Encounter-local bounded Counter and Flag declarations used by E1 programs. */
+  readonly locals?: GameplayMapEncounterLocalsDef;
   /**
    * Finite committed-round count for a non-battle Encounter (Rest). The
    * Encounter ends after this many rounds; ignored for Battle Encounters.
@@ -325,12 +330,20 @@ export interface GameplayEncounterActionCandidateDef {
   readonly tendencyWeight: number;
 }
 
-/** A manually submitted encounter completion action; no script or effect semantics. */
-export interface GameplayEncounterCompletionDef {
-  readonly kind: 'manual';
-  /** Player-facing label for the completion action. */
-  readonly label: string;
-}
+/** E1 non-battle completion rules; condition is evaluated after the full legal round. */
+export type GameplayEncounterCompletionDef =
+  | {
+    readonly kind: 'manual';
+    /** Player-facing label for the completion action. */
+    readonly label: string;
+  }
+  | {
+    readonly kind: 'condition';
+    /** Player-facing label for this completion rule. */
+    readonly label: string;
+    /** Restricted HP/Counter/Flag condition checked after all legal sources finish. */
+    readonly condition: GameplayMapEffectConditionDef;
+  };
 
 /** One autonomous Enemy with Encounter-local identity, bounded HP, and an Action pool. */
 export interface GameplayEncounterEnemyDef {

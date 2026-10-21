@@ -84,7 +84,8 @@ const text = (n) => n.getText();
  */
 function describeType(typeNode, decl, depth, ctx) {
   const tsType = text(typeNode);
-  if (depth > 4) return { kind: 'hand', tsType };
+  const maxDepth = ctx?.expandGameplayMap ? 24 : 4;
+  if (depth > maxDepth) return { kind: 'hand', tsType };
   if (!typeNode) return { kind: 'hand', tsType };
 
   if (typeNode.kind === ts.SyntaxKind.StringKeyword) return { kind: 'string', tsType };
@@ -111,12 +112,52 @@ function describeType(typeNode, decl, depth, ctx) {
       const options = literals.map((t) => t.literal.text);
       return { kind: 'enum', options, tsType };
     }
+    if (ctx?.expandGameplayMap) {
+      const variants = typeNode.types.filter(ts.isTypeLiteralNode);
+      if (variants.length === typeNode.types.length && variants.length > 1) {
+        for (const tagField of ['op', 'kind']) {
+          const tagged = variants.map((variant) => {
+            const tag = variant.members.find((member) => ts.isPropertySignature(member) && member.name.getText() === tagField);
+            const tagType = tag?.type;
+            return tag && tagType && ts.isLiteralTypeNode(tagType) && ts.isStringLiteral(tagType.literal)
+              ? { tag: tagType.literal.text, variant }
+              : undefined;
+          });
+          if (tagged.every(Boolean)) {
+            return {
+              kind: 'union',
+              tagField,
+              variants: tagged.map(({ tag, variant }) => ({
+                tag,
+                fields: describeInterface(variant, decl, depth + 1, ctx),
+              })),
+              tsType,
+            };
+          }
+        }
+      }
+    }
     return { kind: 'hand', tsType };
   }
   // 命名引用
   if (ts.isTypeReferenceNode(typeNode)) {
     const name = typeNode.typeName.getText();
     const t = decl.get(name);
+    if (ctx?.expandGameplayMap && /^Gameplay(?:Map|Encounter)/.test(name)) {
+      if (ctx.activeTypes.has(name)) return { kind: 'recursive', name, tsType };
+      if (t?.kind === 'typeAlias') {
+        ctx.activeTypes.add(name);
+        const expanded = describeType(t.node.type, decl, depth + 1, ctx);
+        ctx.activeTypes.delete(name);
+        return expanded.kind === 'hand' ? { kind: 'hand', tsType } : { ...expanded, tsType };
+      }
+      if (t?.kind === 'interface') {
+        ctx.activeTypes.add(name);
+        const fields = describeInterface(t.node, decl, depth + 1, ctx);
+        ctx.activeTypes.delete(name);
+        return { kind: 'object', fields, tsType };
+      }
+    }
     if (EXTRA_TYPES.has(name)) return { kind: 'extra', tsType };
     if (HAND_TYPES.has(name)) return { kind: 'hand', tsType };
     const refTable = ID_REF_TABLE[name.replace(/Id$/, '')];
@@ -133,7 +174,11 @@ function describeType(typeNode, decl, depth, ctx) {
       return { kind: 'enum', options, tsType };
     }
     if (t?.kind === 'interface' && !EXTRA_TYPES.has(name) && !HAND_TYPES.has(name)) {
+      const expandsMap = ctx?.expandGameplayMap && /^Gameplay(?:Map|Encounter)/.test(name);
+      if (expandsMap && ctx.activeTypes.has(name)) return { kind: 'recursive', name, tsType };
+      if (expandsMap) ctx.activeTypes.add(name);
       const fields = describeInterface(t.node, decl, depth + 1, ctx);
+      if (expandsMap) ctx.activeTypes.delete(name);
       return { kind: 'object', fields, tsType };
     }
     return { kind: 'hand', tsType };
@@ -254,7 +299,8 @@ export function parseEngineSchema({ dir = TYPES_DIR, contractDir = CONTRACTS_DIR
   for (const name of needed) {
     const d = decl.get(name);
     if (d?.kind === 'interface') {
-      defs[name] = { fields: describeInterface(d.node, decl, 0, {}) };
+      const expandGameplayMap = name === 'GameplayMapDef';
+      defs[name] = { fields: describeInterface(d.node, decl, 0, expandGameplayMap ? { expandGameplayMap: true, activeTypes: new Set() } : {}) };
     } else if (d?.kind === 'enum') {
       defs[name] = { enum: d.node.members.map((m) => m.name.getText()) };
     } else {
@@ -263,7 +309,6 @@ export function parseEngineSchema({ dir = TYPES_DIR, contractDir = CONTRACTS_DIR
   }
 
   return {
-    generatedAt: new Date().toISOString(),
     sourceDirs: ['src/engine/types', 'src/engine/contracts', 'src/data-services/contracts'],
     defMap,
     defs,

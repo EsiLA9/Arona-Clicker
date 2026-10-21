@@ -12,7 +12,7 @@ locals在真实Encounter生命周期中有唯一Owner、跨轮不重置、换Enc
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/services/map-run-service.ts：createEncounterSnapshot/snapshotOf/openNodeContent/advanceCompletedActivity/prepareEncounterRoundCommit | 进入/跨轮/离开真实生命周期 |
+| 源码 | src/arona-clicker/services/map-run-service.ts：createEncounterSnapshot/snapshotOf/openNodeContent/advanceCompletedActivity/prepareEncounterRoundCommit/resolveEncounterCommitPlan | 进入/跨轮/离开真实生命周期，以及U03实际locals过渡门 |
 | 合同 | src/arona-clicker/contracts/map-run.ts：MapRunEncounterSnapshot/CommitReceipt/Preview/SaveSnapshot；src/arona-clicker/contracts/map-effects.ts | locals及trace的typed挂接点 |
 | E0 | D03/D06/D07、NEW03/04 | 初值/寿命/快照 |
 
@@ -56,6 +56,8 @@ locals在真实Encounter生命周期中有唯一Owner、跨轮不重置、换Enc
 ## Work Items
 
 职责核对：本Unit只负责locals生命周期与快照；counterAdd/flagSet的纯语义在U06，接入真实整轮规划与安装在U10。不得增加临时执行命令、测试专用业务写入口或提前接程序来证明生命周期。
+
+负责人局部接线修订（2026-10-22）：依据 [[docs/plan-work/task-0312-units/receipts/task-0312-u03-receipt]] 及实际 `resolveEncounterCommitPlan`，U03新增了独立locals拒绝门。原计划未指定该门移除节点；现明确在本Unit完成状态持有后移除**仅locals声明**的拒绝，允许旧Action/Wait配合已持有的locals走真实跨轮生命周期。effectProgram与condition completion拒绝分别保留至U10/U11。文件白名单及依赖不变，只增加同文件符号阅读；不提前执行程序，不改变玩法或金样。
 
 1. 新增显式Encounter locals runtime类型和初始化/复制/校验小helper，只持有activeEncounter唯一活状态。为U10的trace/preview/receipt留可选typed字段引用U06类型；旧内容不强加locals或新字段。
 2. createEncounterSnapshot区分新Encounter初始化与同Encounter下一轮保留；openNodeContent/advanceCompletedActivity/失败/离开清理，下一activity重置；snapshotOf深拷贝冻结locals/trace，不能浅拷贝可写引用。

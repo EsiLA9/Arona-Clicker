@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T13:07:07.373Z",
+  "generatedAt": "2026-10-21T17:04:53.089Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -12029,6 +12029,15 @@
     "GameplayMapDef",
     "GameplayMapEdgeConditionDef",
     "GameplayMapEdgeDef",
+    "GameplayMapEffectAccount",
+    "GameplayMapEffectConditionDef",
+    "GameplayMapEffectPrepareDef",
+    "GameplayMapEffectProgramDef",
+    "GameplayMapEffectStatementDef",
+    "GameplayMapEffectUnit",
+    "GameplayMapEncounterCounterDef",
+    "GameplayMapEncounterFlagDef",
+    "GameplayMapEncounterLocalsDef",
     "GameplayMapInitialActorResourceDef",
     "GameplayMapInitialPartyHpDef",
     "GameplayMapInitialTeamResourceDef",

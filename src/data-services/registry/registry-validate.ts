@@ -17,6 +17,7 @@ import type { GameplayMapDef } from '../contracts/gameplay-map';
 import { validateAreaMapShapes } from './area-map-validation';
 import type { ItemDef } from '../contracts/item';
 import type { EffectOp } from '../../engine/types/expression';
+import { validateGameplayMapEffectContext } from '../validation/gameplay-map-effect-context';
 
 export class RegistryError extends Error {
   constructor(message: string) {
@@ -241,7 +242,7 @@ function validateMapActionContent(
       if (!isRecord(rawAction)) throw new RegistryError(`${actionPath} 必须是 Action 对象`);
       assertNoExtraFields(rawAction, [
         'id', 'name', 'description', 'eligibleCharacterIds', 'target', 'tendencyRole',
-        'costs', 'effects', 'hpEffects', 'cardEffects',
+        'costs', 'effects', 'hpEffects', 'cardEffects', 'effectProgram',
       ], actionPath);
 
       const actionId = rawAction.id;
@@ -300,8 +301,11 @@ function validateMapActionContent(
       }
       const cardEffects: unknown = rawAction.cardEffects;
       if (cardEffects !== undefined && !Array.isArray(cardEffects)) throw new RegistryError(`${actionPath}.cardEffects 必须是数组`);
-      if (target.kind === 'card' && (!Array.isArray(cardEffects) || cardEffects.length === 0)) {
-        throw new RegistryError(`${actionPath} card target 必须声明实际 cardEffects`);
+      const rawProgram: unknown = rawAction.effectProgram;
+      const prepareLeaves = isRecord(rawProgram) && Array.isArray(rawProgram.prepare) ? rawProgram.prepare : [];
+      const hasPrepare = prepareLeaves.length > 0;
+      if (target.kind === 'card' && (!Array.isArray(cardEffects) || cardEffects.length === 0) && !hasPrepare) {
+        throw new RegistryError(`${actionPath} card target 必须声明实际 cardEffects 或 effectProgram.prepare`);
       }
       if (Array.isArray(cardEffects) && cardEffects.length > 0 && target.kind !== 'card') {
         throw new RegistryError(`${actionPath}.cardEffects 必须使用 card target`);
@@ -436,6 +440,9 @@ function validateMapActionContent(
 
     const validateEncounter = (rawEncounter: unknown, encounterPath: string): void => {
       if (!isRecord(rawEncounter)) throw new RegistryError(`${encounterPath} 必须是对象`);
+      assertNoExtraFields(rawEncounter,
+        ['title', 'description', 'completion', 'locals', 'rounds', 'enemies', 'initialEnemyTeamResources', 'abilityActionIds', 'itemActions', 'participants'],
+        encounterPath);
 
       const rawEnemies: unknown = rawEncounter.enemies;
       const enemyCandidateActionIds = new Set<string>();
@@ -803,6 +810,11 @@ function validateMapActionContent(
       if (!knownTeamResourceIds.has(condition.resourceId)) {
         throw new RegistryError(`${edgePath}.condition.resourceId "${condition.resourceId}" 没有对应的 MapRun Team 资源余额`);
       }
+    }
+    const effectContextIssues = validateGameplayMapEffectContext(map);
+    if (effectContextIssues.length > 0) {
+      const issue = effectContextIssues[0];
+      throw new RegistryError(`${issue.path}: ${issue.message}`);
     }
   }
 }

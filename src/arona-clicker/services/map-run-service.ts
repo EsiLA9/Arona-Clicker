@@ -962,6 +962,29 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   const node = slot.definition.nodes.find(candidate => candidate.id === encounter.nodeId);
   const encounterDef = resolveNodeEncounter(node, encounter.activityId);
   if (!encounterDef) throw new MapRunError([`Encounter "${encounter.nodeId}" is not declared by the current Map`]);
+  const transitionDiagnostics: string[] = [];
+  if (encounterDef.completion?.kind === 'condition') {
+    transitionDiagnostics.push('E1 condition completion is not implemented by this MapRun Runtime');
+  }
+  if (encounterDef.locals !== undefined) {
+    transitionDiagnostics.push('E1 Encounter locals are not implemented by this MapRun Runtime');
+  }
+  const referencedActionIds = new Set<string>();
+  for (const participant of encounterDef.participants ?? []) {
+    for (const candidate of participant.actions) referencedActionIds.add(candidate.actionId);
+  }
+  for (const enemy of encounterDef.enemies ?? []) {
+    for (const candidate of enemy.actions ?? []) referencedActionIds.add(candidate.actionId);
+  }
+  for (const actionId of encounterDef.abilityActionIds ?? []) referencedActionIds.add(actionId);
+  for (const mapping of encounterDef.itemActions ?? []) referencedActionIds.add(mapping.actionId);
+  for (const actionId of referencedActionIds) {
+    const action = slot.definition.actions?.find(candidate => candidate.id === actionId);
+    if (action?.effectProgram !== undefined) {
+      transitionDiagnostics.push(`E1 effectProgram on Action "${actionId}" is not implemented by this MapRun Runtime`);
+    }
+  }
+  if (transitionDiagnostics.length > 0) throw new MapRunError(transitionDiagnostics);
 
   let preview: GameplayBActionPreview;
   try {

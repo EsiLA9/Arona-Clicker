@@ -47,16 +47,18 @@ describe('Gameplay B legacy effect goldens', () => {
       ],
     });
     const { game, runId } = owner(map);
-    const entered = game.mapRun.getSnapshot(runId)!;
-    expect(entered.activeEncounter?.randomState).toMatchObject({ seed: 0x08000000, cursor: 1 });
+    const entered = game.mapRun.getSnapshot()!;
+    expect(entered.activeEncounter?.randomState).toMatchObject({ seed: 0x08000000, cursor: 2 });
     expect(entered.activeEncounter?.hands.find(row => row.characterId === 'shiroko')?.actionIds).toEqual(['shot']);
 
-    const before = game.mapRun.getSnapshot(runId);
+    const before = game.mapRun.getSnapshot();
     const firstPreview = currentView(game, runId).actionPreview!;
     const secondPreview = currentView(game, runId).actionPreview!;
-    expect(game.mapRun.getSnapshot(runId)).toEqual(before);
+    expect(game.mapRun.getSnapshot()).toEqual(before);
     expect(secondPreview).toEqual(firstPreview);
-    expect(firstPreview.preparedActions[0]).toMatchObject({ preparedActionId: 'shot', targetEnemyId: 'e1' });
+    expect(firstPreview.preparedActions[0]).toMatchObject({
+      naturalAction: { actionId: 'shot' }, preparedAction: { actionId: 'shot' }, targetEnemyId: 'e1',
+    });
     expect(firstPreview.commitPreview).toMatchObject({ canCommit: true, playerCostRequired: 0 });
     const command = commitCommand(game, runId, 'old01-commit');
     const committed = game.commitMapEncounterRound(command);
@@ -72,15 +74,18 @@ describe('Gameplay B legacy effect goldens', () => {
           hpChanges: [{ scope: 'enemy', enemyId: 'e1', delta: -3 }] },
         { characterId: 'serika', actionId: null, playerCostSpent: 0, resourceChanges: [] },
       ],
-      enemyActions: [{ enemyId: 'e2', actionId: 'enemy-hit', targetCharacterId: 'shiroko',
-        hpChanges: [{ scope: 'party', characterId: 'shiroko', delta: -1 }] }],
+      enemyActions: [
+        { enemyId: 'e1', actionId: null, resourceChanges: [] },
+        { enemyId: 'e2', actionId: 'enemy-hit', targetCharacterId: 'shiroko',
+          hpChanges: [{ scope: 'party', characterId: 'shiroko', delta: -1 }] },
+      ],
     });
 
     const save = game.save();
     const restored = createLegacyGoldenRuntime(map);
     games.push(restored);
     restored.load(save);
-    expect(restored.mapRun.getSnapshot(runId)).toEqual(committed);
+    expect(restored.mapRun.getSnapshot()).toEqual(committed);
     expect(restored.commitMapEncounterRound(command)).toEqual(committed);
   });
 
@@ -93,6 +98,7 @@ describe('Gameplay B legacy effect goldens', () => {
         id: `discount-${index + 1}`, name: 'Discount', eligibleCharacterIds: [characterId],
         target: { kind: 'card' as const, side: 'ally' as const }, cardEffects: [{ kind: 'scostDiscount' as const, amount: index + 1 }],
       })),
+      { id: 'ability-hit', name: 'Ability Hit', eligibleCharacterIds: [], target: { kind: 'enemy' }, hpEffects: [{ amount: -1 }] },
       { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter', preference: 'stableOrder' }, hpEffects: [{ amount: -2 }] },
     ];
     const map = legacyGoldenMap({
@@ -105,19 +111,27 @@ describe('Gameplay B legacy effect goldens', () => {
         { id: 'e1', initialHp: 20, maxHp: 20, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
         { id: 'e2', initialHp: 20, maxHp: 20 },
       ],
+      abilityActionIds: ['ability-hit'],
     });
     const { game, runId } = owner(map);
+    game.setMapAbilityDraft(runId, 'ability-hit', { kind: 'enemy', enemyId: 'e1' }, draftToken(game, runId));
     const preview = currentView(game, runId).actionPreview!;
-    const shot = preview.preparedActions.find(row => row.characterId === 'shiroko');
-    expect(shot?.targetCard).toMatchObject({ kind: 'card', id: expect.any(String), owner: { kind: 'partyCharacter', id: 'shiroko' } });
-    expect(preview.commitPreview).toMatchObject({ canCommit: true });
+    const discounts = preview.preparedActions.filter(row => row.characterId !== 'shiroko');
+    expect(discounts).toHaveLength(2);
+    const shotCard = currentView(game, runId).cards.find(card => card.owner.kind === 'partyCharacter'
+      && card.owner.id === 'shiroko' && card.actionId === 'shot')?.ref;
+    expect(shotCard).toBeDefined();
+    expect(discounts.map(row => row.targetCard)).toEqual([shotCard, shotCard]);
+    expect(preview.commitPreview).toMatchObject({ canCommit: true, playerCostRequired: 1 });
     const committed = game.commitMapEncounterRound(commitCommand(game, runId, 'eq02-commit'));
+    expect(committed.playerCost).toBe(3);
     expect(committed.lastEncounterCommit?.settlements[0]?.scostCost).toEqual({ original: 2, discount: 2, paid: 0 });
     expect(committed.actorResources).toContainEqual({ characterId: 'shiroko', resourceId: 'sCost', value: 2 });
     expect(committed.lastEncounterCommit?.settlements.slice(1).map(row => row.actionId)).toEqual(['discount-1', 'discount-2']);
+    expect(committed.lastEncounterCommit?.ability).toMatchObject({ actionId: 'ability-hit', playerCostSpent: 1 });
     expect(committed.lastEncounterCommit?.enemyActions).toContainEqual(expect.objectContaining({
-      enemyId: 'e1', actionId: 'enemy-hit', targetCharacterId: 'serika',
-      hpChanges: [{ scope: 'party', characterId: 'serika', delta: -2 }],
+      enemyId: 'e1', actionId: 'enemy-hit', targetCharacterId: 'shiroko',
+      hpChanges: [{ scope: 'party', characterId: 'shiroko', delta: -2 }],
     }));
   });
 
@@ -166,7 +180,7 @@ describe('Gameplay B legacy effect goldens', () => {
         { characterId: 'shiroko', actions: [{ actionId: 'kill', tendencyWeight: 1 }] },
         { characterId: 'serika', actions: [{ actionId: 'miss', tendencyWeight: 1 }] },
       ],
-      enemies: [{ id: 'e1', initialHp: 3, maxHp: 3 }, { id: 'e2', initialHp: 10, maxHp: 10 }],
+      enemies: [{ id: 'e1', initialHp: 3, maxHp: 3 }],
     });
     const { game, runId } = owner(map);
     const committed = game.commitMapEncounterRound(commitCommand(game, runId, 'eq04-natural'));
@@ -183,7 +197,8 @@ describe('Gameplay B legacy effect goldens', () => {
       teamResources: [{ resourceId: 'supplies', value: 1 }],
       actions: [
         { id: 'kill', name: 'Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, hpEffects: [{ amount: -3 }] },
-        { id: 'natural', name: 'Natural', eligibleCharacterIds: ['serika'], target: { kind: 'none' } },
+        { id: 'natural', name: 'Natural', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
+          costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }] },
         ...commandActions.map(id => ({ id, name: id, eligibleCharacterIds: ['serika'], target: { kind: 'enemy' as const },
           costs: [{ scope: 'team' as const, resourceId: 'supplies', amount: 1 }], hpEffects: [{ amount: -1 }] })),
       ],
@@ -197,10 +212,10 @@ describe('Gameplay B legacy effect goldens', () => {
     const preview = currentView(game, runId).actionPreview!;
     const commandOption = preview.playerCommandOptions.find(option => option.characterId === 'serika' && option.canPayActionCosts);
     if (!commandOption) throw new Error('Owner preview did not expose a payable PlayerCommand candidate');
-    game.issueMapPlayerCommand(runId, 'serika', commandOption.actionId, draftToken(game, runId));
+    game.issueMapPlayerCommand(runId, 'serika', commandOption.action.actionId, draftToken(game, runId));
     const committed = game.commitMapEncounterRound(commitCommand(game, runId, 'eq04-command'));
     expect(committed.lastEncounterCommit?.settlements[1]).toMatchObject({
-      actionId: commandOption.actionId, overrideKind: 'playerCommand', playerCostSpent: 1,
+      actionId: commandOption.action.actionId, overrideKind: 'playerCommand', playerCostSpent: 1,
       resourceChanges: [], skipReason: 'noLegalTarget',
     });
     expect(committed.playerCost).toBe(0);
@@ -209,14 +224,15 @@ describe('Gameplay B legacy effect goldens', () => {
 
   test.each([
     { skip: 'unaffordable', id: 'e2', initialFuel: 1, drain: true },
-    { skip: 'defeated', id: 'e1', initialFuel: 0, drain: false },
+    { skip: 'defeated', id: 'e1', initialFuel: 1, drain: false },
   ] as const)('EQ04: Enemy $skip is an independent free source skip', ({ skip, id, initialFuel, drain }) => {
     const actions: GameplayMapActionDef[] = [
       { id: 'party-kill', name: 'Party Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, hpEffects: [{ amount: -5 }] },
       { id: 'enemy-cost', name: 'Enemy Cost', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
         costs: [{ scope: 'team', resourceId: 'fuel', amount: 1 }] },
+      ...(!drain ? [{ id: 'enemy-free', name: 'Enemy Free', eligibleCharacterIds: [], target: { kind: 'partyCharacter' as const } }] : []),
       ...(drain ? [{ id: 'enemy-drain', name: 'Enemy Drain', eligibleCharacterIds: [], target: { kind: 'none' as const },
-        costs: [{ scope: 'team' as const, resourceId: 'fuel', amount: 1 }] }] : []),
+        effects: [{ scope: 'team' as const, resourceId: 'fuel', amount: -1 }] }] : []),
     ];
     const map = legacyGoldenMap({
       id: `test:map:legacy-eq04-enemy-${skip}`, teamResources: [{ resourceId: 'unused', value: 0 }],
@@ -230,28 +246,35 @@ describe('Gameplay B legacy effect goldens', () => {
         ]
         : [
           { id: 'e1', initialHp: 5, maxHp: 5, actions: [{ actionId: 'enemy-cost', tendencyWeight: 1 }] },
-          { id: 'e2', initialHp: 20, maxHp: 20, actions: [{ actionId: 'enemy-cost', tendencyWeight: 1 }] },
+          { id: 'e2', initialHp: 20, maxHp: 20, actions: [{ actionId: 'enemy-free', tendencyWeight: 1 }] },
         ],
     });
     const { game, runId } = owner(map);
     const committed = game.commitMapEncounterRound(commitCommand(game, runId, `eq04-enemy-${skip}`));
-    expect(committed.lastEncounterCommit?.enemyActions).toEqual(expect.arrayContaining([
+    const enemyActions = committed.lastEncounterCommit?.enemyActions ?? [];
+    expect(enemyActions).toEqual(expect.arrayContaining([
       expect.objectContaining({ enemyId: id, actionId: 'enemy-cost', skipReason: skip, resourceChanges: [] }),
     ]));
     if (skip === 'unaffordable') {
-      expect(committed.lastEncounterCommit?.enemyActions[0]).toMatchObject({ enemyId: 'e1', actionId: 'enemy-drain' });
+      expect(enemyActions[0]).toMatchObject({ enemyId: 'e1', actionId: 'enemy-drain' });
+      expect(enemyActions[1]).toMatchObject({ enemyId: 'e2', actionId: 'enemy-cost', skipReason: 'unaffordable', resourceChanges: [] });
       expect(committed.activeEncounter?.enemyTeamResources).toEqual([{ resourceId: 'fuel', value: 0 }]);
+      expect(enemyActions[1]).not.toHaveProperty('hpChanges');
     } else {
-      expect(committed.lastEncounterCommit?.enemyActions[0]).toMatchObject({ enemyId: 'e1', actionId: 'enemy-cost', skipReason: 'defeated' });
-      expect(committed.lastEncounterCommit?.enemyActions[1]).toMatchObject({ enemyId: 'e2', actionId: 'enemy-cost' });
+      expect(enemyActions[0]).toMatchObject({ enemyId: 'e1', actionId: 'enemy-cost', skipReason: 'defeated', resourceChanges: [] });
+      expect(enemyActions[0]).not.toHaveProperty('hpChanges');
+      expect(enemyActions[1]).toMatchObject({ enemyId: 'e2', actionId: 'enemy-free' });
+      expect(committed.activeEncounter?.enemyTeamResources).toEqual([{ resourceId: 'fuel', value: 1 }]);
     }
   });
 
   test('EQ04: roundEnded belongs to a live Enemy after an earlier source defeats the full Party', () => {
     const map = legacyGoldenMap({
       id: 'test:map:legacy-eq04-round-ended', partyCharacterIds: ['shiroko'], partyHp: { shiroko: 1 },
-      actions: [{ id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -2 }] }],
+      actions: [{ id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
+        costs: [{ scope: 'team', resourceId: 'fuel', amount: 1 }], hpEffects: [{ amount: -2 }] }],
       participants: [{ characterId: 'shiroko', actions: [] }],
+      enemyTeamResources: [{ resourceId: 'fuel', value: 2 }],
       enemies: [
         { id: 'e1', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
         { id: 'e2', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
@@ -261,9 +284,13 @@ describe('Gameplay B legacy effect goldens', () => {
     const failed = game.commitMapEncounterRound(commitCommand(game, runId, 'eq04-round-ended'));
     expect(failed.status).toBe('failure');
     expect(failed.lastEncounterCommit?.enemyActions).toMatchObject([
-      { enemyId: 'e1', actionId: 'enemy-hit', targetCharacterId: 'shiroko', hpChanges: [{ delta: -2 }] },
+      { enemyId: 'e1', actionId: 'enemy-hit', targetCharacterId: 'shiroko',
+        resourceChanges: [{ kind: 'cost', resourceId: 'fuel', delta: -1 }], hpChanges: [{ delta: -1 }] },
       { enemyId: 'e2', actionId: 'enemy-hit', skipReason: 'roundEnded', resourceChanges: [] },
     ]);
+    const enemyActions = failed.lastEncounterCommit?.enemyActions ?? [];
+    expect(enemyActions[1]).not.toHaveProperty('hpChanges');
+    expect(failed.lastEncounterCommit?.enemyActions?.[0]?.resourceChanges).toHaveLength(1);
   });
 
   test('EQ04 Skip补全: Enemy card target with no legal CardRef skips before its payable cost', () => {
@@ -280,7 +307,8 @@ describe('Gameplay B legacy effect goldens', () => {
     });
     const { game, runId } = owner(map);
     const committed = game.commitMapEncounterRound(commitCommand(game, runId, 'eq04-no-card-target'));
-    expect(committed.lastEncounterCommit?.enemyActions[0]).toMatchObject({
+    const enemyActions = committed.lastEncounterCommit?.enemyActions ?? [];
+    expect(enemyActions[0]).toMatchObject({
       enemyId: 'e1', actionId: 'enemy-card', skipReason: 'noLegalTarget', resourceChanges: [],
     });
     expect(committed.activeEncounter?.enemyTeamResources).toEqual([{ resourceId: 'fuel', value: 1 }]);
@@ -299,7 +327,6 @@ describe('Gameplay B legacy effect goldens', () => {
         { characterId: 'serika', actions: [] }],
       enemies: [
         { id: 'e1', initialHp: 5, maxHp: 10, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
-        { id: 'e2', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] },
       ],
       abilityActionIds: ['ability-hit'],
       itemActions: [{ itemId: LEGACY_GOLDEN_ITEM_ID, actionId: 'item-hit' }],
@@ -307,9 +334,7 @@ describe('Gameplay B legacy effect goldens', () => {
     });
     const { game, runId } = owner(map, 1);
     game.mutations.addItem(LEGACY_GOLDEN_ITEM_ID, 1, 3);
-    let run = game.mapRun.getSnapshot(runId)!;
     game.setMapAbilityDraft(runId, 'ability-hit', { kind: 'enemy', enemyId: 'e1' }, draftToken(game, runId));
-    run = game.mapRun.getSnapshot(runId)!;
     game.setMapItemDraft(runId, LEGACY_GOLDEN_ITEM_ID, { kind: 'enemy', enemyId: 'e1' }, draftToken(game, runId));
     const command = commitCommand(game, runId, 'source-order-commit');
     const committed = game.commitMapEncounterRound(command);
@@ -320,8 +345,9 @@ describe('Gameplay B legacy effect goldens', () => {
     expect(committed.lastEncounterCommit?.item).toMatchObject({
       itemId: LEGACY_GOLDEN_ITEM_ID, consumedCount: 1, hpChanges: [{ scope: 'enemy', enemyId: 'e1', delta: 0 }],
     });
-    expect(committed.lastEncounterCommit?.enemyActions[0]).toMatchObject({ enemyId: 'e1', skipReason: 'defeated' });
-    expect(committed.lastEncounterCommit?.enemyActions[1]).toMatchObject({ enemyId: 'e2', actionId: 'enemy-hit' });
+    expect(committed.lastEncounterCommit?.enemyActions).toEqual([
+      { enemyId: 'e1', actionId: 'enemy-hit', skipReason: 'defeated', resourceChanges: [] },
+    ]);
     expect(game.state.inventory[LEGACY_GOLDEN_ITEM_ID]).toBeUndefined();
 
     const save = game.save();
@@ -331,5 +357,67 @@ describe('Gameplay B legacy effect goldens', () => {
     expect(restored.state.inventory[LEGACY_GOLDEN_ITEM_ID]).toBeUndefined();
     expect(restored.commitMapEncounterRound(command)).toEqual(committed);
     expect(restored.state.inventory[LEGACY_GOLDEN_ITEM_ID]).toBeUndefined();
+  });
+
+  test('OLD source phases are party Action, Ability, Item, then Enemy with clamped HP deltas', () => {
+    const map = legacyGoldenMap({
+      id: 'test:map:legacy-source-phases', playerCost: 1,
+      actions: [
+        { id: 'party-hit-self', name: 'Party Hit Self', eligibleCharacterIds: ['shiroko'],
+          target: { kind: 'partyCharacter', preference: 'stableOrder' }, hpEffects: [{ amount: -1 }] },
+        { id: 'ability-heal', name: 'Ability Heal', eligibleCharacterIds: [],
+          target: { kind: 'partyCharacter' }, hpEffects: [{ amount: 3 }] },
+        { id: 'item-hit', name: 'Item Hit', eligibleCharacterIds: [],
+          target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -2 }] },
+        { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [],
+          target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -1 }] },
+      ],
+      participants: [{ characterId: 'shiroko', actions: [{ actionId: 'party-hit-self', tendencyWeight: 1 }] },
+        { characterId: 'serika', actions: [] }],
+      enemies: [{ id: 'e1', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] }],
+      abilityActionIds: ['ability-heal'],
+      itemActions: [{ itemId: LEGACY_GOLDEN_ITEM_ID, actionId: 'item-hit' }],
+    });
+    const { game, runId } = owner(map, 1);
+    game.mutations.addItem(LEGACY_GOLDEN_ITEM_ID, 1, 3);
+    game.setMapAbilityDraft(runId, 'ability-heal', { kind: 'partyCharacter', characterId: 'shiroko' }, draftToken(game, runId));
+    game.setMapItemDraft(runId, LEGACY_GOLDEN_ITEM_ID, { kind: 'partyCharacter', characterId: 'shiroko' }, draftToken(game, runId));
+    const committed = game.commitMapEncounterRound(commitCommand(game, runId, 'source-phases'));
+    expect(committed.partyHp).toContainEqual({ characterId: 'shiroko', currentHp: 7 });
+    expect(committed.lastEncounterCommit?.settlements[0]?.hpChanges).toEqual([
+      { scope: 'party', characterId: 'shiroko', delta: -1 },
+    ]);
+    expect(committed.lastEncounterCommit?.ability?.hpChanges).toEqual([
+      { scope: 'party', characterId: 'shiroko', delta: 1 },
+    ]);
+    expect(committed.lastEncounterCommit?.item?.hpChanges).toEqual([
+      { scope: 'party', characterId: 'shiroko', delta: -2 },
+    ]);
+    expect(committed.lastEncounterCommit?.enemyActions?.[0]?.hpChanges).toEqual([
+      { scope: 'party', characterId: 'shiroko', delta: -1 },
+    ]);
+  });
+
+  test('OLD save continuation: a restored active MapRun can Commit the next real Owner round', () => {
+    const map = legacyGoldenMap({
+      id: 'test:map:legacy-save-continue',
+      actions: [
+        { id: 'wait-hit', name: 'Wait Hit', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, hpEffects: [{ amount: -1 }] },
+        { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -1 }] },
+      ],
+      participants: [{ characterId: 'shiroko', actions: [{ actionId: 'wait-hit', tendencyWeight: 1 }] },
+        { characterId: 'serika', actions: [] }],
+      enemies: [{ id: 'e1', initialHp: 10, maxHp: 10, actions: [{ actionId: 'enemy-hit', tendencyWeight: 1 }] }],
+    });
+    const { game, runId } = owner(map);
+    const first = game.commitMapEncounterRound(commitCommand(game, runId, 'save-continue-first'));
+    expect(first.activeEncounter?.round).toBe(2);
+    const restored = createLegacyGoldenRuntime(map);
+    games.push(restored);
+    restored.load(game.save());
+    expect(restored.mapRun.getSnapshot()?.activeEncounter?.round).toBe(2);
+    const second = restored.commitMapEncounterRound(commitCommand(restored, runId, 'save-continue-second'));
+    expect(second.activeEncounter?.round).toBe(3);
+    expect(second.lastEncounterCommit?.requestId).toBe('save-continue-second');
   });
 });

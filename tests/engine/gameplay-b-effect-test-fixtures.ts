@@ -6,7 +6,7 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GameplayEncounterDef, GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 
-export const LEGACY_GOLDEN_ITEM_ID = 'test:gameplay-b:legacy-kit';
+export const LEGACY_GOLDEN_ITEM_ID = 'test:item:legacy-kit';
 
 export interface LegacyGoldenMapOptions {
   readonly id: string;
@@ -128,13 +128,13 @@ export function createLegacyGoldenOwner(map: GameplayMapDef, itemCount = 0): Leg
 }
 
 export function draftToken(game: GameInstance, runId: string): MapRunEncounterDraftToken {
-  const encounter = game.mapRun.getSnapshot(runId)?.activeEncounter;
+  const encounter = game.mapRun.getSnapshot()?.activeEncounter;
   if (!encounter) throw new Error('Legacy golden Encounter is missing');
   return { nodeId: encounter.nodeId, round: encounter.round, draftVersion: encounter.draftVersion };
 }
 
 export function commitCommand(game: GameInstance, runId: string, requestId: string): MapRunEncounterCommitCommand {
-  const run = game.mapRun.getSnapshot(runId);
+  const run = game.mapRun.getSnapshot();
   if (!run) throw new Error('Legacy golden MapRun is missing');
   return { runId, requestId, expectedCommitVersion: run.commitVersion, draft: draftToken(game, runId) };
 }
