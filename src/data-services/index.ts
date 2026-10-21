@@ -16,6 +16,7 @@ export {
 export type { ArchiveEntry, ArchiveEntryContent, ArchivePlan, ArchiveWriter } from './archive/archive-writer';
 export { FolderPackSource, ZipPackSource } from './datapack/source';
 export type { Datapack } from './contracts/datapack';
+export type { AreaMapId, AreaMapNodeId, AreaMapDef, AreaMapNodeDef, AreaMapNodeAction, AreaMapEdgeDef } from './contracts/area-map';
 export type {
   GameplayEncounterEnemyDef,
   GameplayEncounterItemActionDef,

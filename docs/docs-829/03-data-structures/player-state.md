@@ -13,10 +13,12 @@
 | 归属 | 示例 | 生命周期 |
 | --- | --- | --- |
 | Save / 账号范围 | `globalResources`、`unlockedInits`、`characterMemory`、`informationRevealProgress`、主题自定义数据 | 跨 Init 保留，随 Save 状态持有 |
-| 当前 Init 快照字段 | `resources`、`spotLevels`、`visitedAreas`、`totalFrames`、`inventory`、`storyLog`、`flags`、部分角色与商店数据 | 由 `PER_INIT_FIELD_SPECS` 捕获、清除和恢复 |
+| 当前 Init 快照字段 | `resources`、`spotLevels`、`visitedAreas`、`totalFrames`、`inventory`、`storyLog`、`areaStoryDeliveries`、`flags`、部分角色与商店数据 | 由 `PER_INIT_FIELD_SPECS` 捕获、清除和恢复 |
 | Runtime 派生 / 游标 | Visibility、Stats、Affector 实例、当前剧情游标 | 由各运行时系统计算或持有；其中部分游标可在快照时经 context 捕获 |
 
 `InitSnapshot` 是按 InitId 索引的字段子集，不是完整 PlayerState 副本。`initSnapshots` 承载多个世界线的检查点；快照 spec 还可按 Registry 定义的 global/local 归属拆分 Spot 与 Enhancement 状态。
+
+`areaStoryDeliveries` 保存当前 Init 中 ActiveStoryEntry 的区域投递及完成回执，记录目标 Entry、Area、触发来源 ID 和 `pending` / `completed` 状态。正式剧情游标已开始播放时仍保留投递记录，播放中状态从 Story 游标的 Entry ID 推导；完成时只更新对应 Entry 的回执。新 Init 清空该集合，存档和 InitSnapshot 会恢复它。
 
 Gameplay B 的 `EventRun` 也不属于 `PlayerState` 或 `InitSnapshot`。`GameInstance.save()` 可将有界的 `operationRun` checkpoint 放入主 `SaveData`；读档时 Runtime 先清空内存 Run，再按当前 Registry 与 Event 的 `resumeVersion` 显式重建。它不会成为 per-Init 字段，也不改变 InitSnapshot 的捕获/清除/恢复登记。
 

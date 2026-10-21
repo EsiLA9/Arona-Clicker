@@ -26,7 +26,7 @@ import type { ShopDef } from '../contracts/shop';
 import type { AchievementDef, MilestoneListenerDef } from '../contracts/datapack';
 
 export const DATAPACK_LIST_FIELDS = [
-  'inits', 'areas', 'spots',
+  'inits', 'areas', 'spots', 'maps', 'areaMaps',
   'operationEvents', 'operationLocations', 'operationActions',
   'studentOperationProfiles', 'operationStrategyProfiles', 'operationCardPools',
   'enhancements', 'activeStories', 'passiveStories', 'stories',
@@ -135,6 +135,8 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
     characters: (lists.characters as CharacterData[] | undefined) ?? [],
   };
   if (lists.dropTables) datapack.dropTables = lists.dropTables as DropTableDef[];
+  if (lists.maps) datapack.maps = lists.maps as Datapack['maps'];
+  if (lists.areaMaps) datapack.areaMaps = lists.areaMaps as Datapack['areaMaps'];
   if (lists.operationEvents) datapack.operationEvents = lists.operationEvents as Datapack['operationEvents'];
   if (lists.operationLocations) datapack.operationLocations = lists.operationLocations as Datapack['operationLocations'];
   if (lists.operationActions) datapack.operationActions = lists.operationActions as Datapack['operationActions'];

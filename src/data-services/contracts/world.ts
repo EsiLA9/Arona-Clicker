@@ -58,6 +58,8 @@ export type InitPurchaseResult =
   | { success: false; initId: InitId; error: InitPurchaseError };
 
 export interface AreaDef {
+  /** 区域导航图入口；多个 Area 可以共享，不影响真实邻接。 @ref areaMaps */
+  navigationMapId?: string;
   /** @label ID */
   id: AreaId;
   /** @label 所属世界线 */
@@ -71,6 +73,8 @@ export interface AreaDef {
   enterEffects?: EntryEffectDef[];
   /** @label 相邻区域 */
   adjacentAreaIds?: AreaId[];
+  /** 已到访区域默认允许快速路线通过；false 时必须在此停下。 */
+  quickPassage?: boolean;
   revealTriggers?: RevealTrigger[];
   /** @label 标签 */
   tags?: TagPath[];

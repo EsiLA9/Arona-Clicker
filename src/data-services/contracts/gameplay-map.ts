@@ -6,6 +6,13 @@ export interface GameplayMapDef {
   readonly id: string;
   /** Player-facing map name. */
   readonly name: string;
+  /** Optional plain-text information shown before starting or resuming this map. */
+  readonly entryInfo?: {
+    /** Short map introduction; this field is presentation-only. */
+    readonly description?: string;
+    /** Short author-written hints; these do not affect map rules. */
+    readonly tips?: readonly string[];
+  };
   /**
    * Author-maintained compatibility version for MapRun resume. Raise this when
    * changing any action, encounter participant, tendency, target, cost, effect,

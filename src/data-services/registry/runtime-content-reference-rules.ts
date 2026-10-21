@@ -11,6 +11,7 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.purchaseCost\[\d+\]\.resourceId$/, '支付资源', ['resourceDisplays']],
   ],
   areas: [
+    [/^\$\.navigationMapId$/, '区域导航图', ['areaMaps']],
     [/^\$\.initId$/, '所属 Init', ['inits']],
     [/^\$\.defaultSpots\[\d+\]$/, '默认 Spot', ['spots']],
     [/^\$\.adjacentAreaIds\[\d+\]$/, '相邻 Area', ['areas']],
@@ -19,6 +20,11 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.areaId$/, '所属 Area', ['areas']],
     [/^\$\.gachaPools\[\d+\]$/, '设施卡池', ['gachaPools']],
     [/^\$\.colorGroupId$/, '默认色组', ['colorGroups']],
+  ],
+  areaMaps: [
+    [/^\$\.nodes\[\d+\]\.action\.areaId$/, '导航目标 Area', ['areas']],
+    [/^\$\.nodes\[\d+\]\.action\.mapId$/, '导航目标 Map', ['areaMaps']],
+    [/^\$\.nodes\[\d+\]\.appearance\.iconPicId$/, '节点图标', ['pics']],
   ],
   enhancements: [
     [/^\$\.price\[\d+\]\.resourceId$/, '强化价格资源', ['resourceDisplays']],
@@ -65,6 +71,7 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
   ],
   passivePools: [[/^\$\.children\[\d+\]\.id$/, '闲聊池成员', ['passiveStories', 'passivePools']]],
   affectorPacks: [
+    [/^\$\.entries\[\d+\]\.areaTransitNetworks\[\d+\]\.areaIds\[\d+\]$/, '交通网络成员', ['areas']],
     [/^\$\.entries\[\d+\]\.flows\[\d+\]\.resource$/, 'Affector 产出资源', ['resourceDisplays']],
     [/^\$\.entries\[\d+\]\.areaConnections\[\d+\]\.fromAreaId$/, '连接起点 Area', ['areas']],
     [/^\$\.entries\[\d+\]\.areaConnections\[\d+\]\.toAreaId$/, '连接终点 Area', ['areas']],

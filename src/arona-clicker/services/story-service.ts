@@ -8,7 +8,7 @@
 import type { PlayerState } from '../types/state';
 import type { BranchGuard, StoryEntryDef } from '../../data-services/contracts/story-entry';
 import type { StoryDef, Talklet } from '../../data-services/contracts/story';
-import type { SendResult, SendState, StoryAdvanceResult, StoryStartResult, StoryView } from '../contracts/results';
+import type { AreaStoryDeliveryView, SendResult, SendState, StoryAdvanceResult, StoryStartResult, StoryView } from '../contracts/results';
 import type { EventBus } from '../../engine/core/event-bus';
 import type { StoryCursorCollection } from '../../engine/contracts/story-cursor';
 import type { Registry } from '../../data-services/registry/registry';
@@ -111,12 +111,14 @@ export class StoryService {
   // --- 游标访问（GameInstance / 存档 / 移动规则使用） ---
 
   getCurrentStoryId(owner?: string | null): string | null {
-    return this.cursorFor(owner).currentStoryEntryId;
+    const cur = this.cursorFor(owner);
+    return this.ensureCursorValid(cur) ? cur.currentStoryEntryId : null;
   }
 
   /** 当前实际播放的 Story.id（跳转链中可变；无进行中剧情 = null）。 */
   getCurrentStoryDefId(owner?: string | null): string | null {
-    return this.cursorFor(owner).currentStoryDefId;
+    const cur = this.cursorFor(owner);
+    return this.ensureCursorValid(cur) ? cur.currentStoryDefId : null;
   }
 
   /** 当前 Entry 跳转链是否经过该 Story（供 visitedStoryInChain 条件评估）。 */
@@ -126,6 +128,7 @@ export class StoryService {
 
   /** 存档：导出全局游标快照。 */
   saveCursor(): StoryCursor {
+    this.ensureCursorValid(this.globalCursor);
     return this.globalCursor.save();
   }
 
@@ -133,6 +136,7 @@ export class StoryService {
   saveChatCursors(): Record<string, StoryCursor> {
     const out: Record<string, StoryCursor> = {};
     for (const [key, cur] of this.chatCursors) {
+      this.ensureCursorValid(cur);
       if (!cur.empty) out[key] = cur.save();
     }
     return out;
@@ -141,6 +145,7 @@ export class StoryService {
   /** 读档：恢复全局游标（兼容旧档缺失的新字段）。 */
   restoreCursor(cursor: StoryCursor): void {
     this.globalCursor.restore(cursor);
+    this.ensureCursorValid(this.globalCursor);
   }
 
   /** 读档：恢复聊天沙盒游标。 */
@@ -150,7 +155,7 @@ export class StoryService {
     for (const [key, cursor] of Object.entries(map)) {
       const cur = new StoryCursorState();
       cur.restore(cursor);
-      this.chatCursors.set(key, cur);
+      if (this.ensureCursorValid(cur)) this.chatCursors.set(key, cur);
     }
   }
 
@@ -182,26 +187,78 @@ export class StoryService {
     this.cursorFor(owner).clear();
   }
 
-  /** 当前是否有阻塞移动的剧情演出（active，或 passive 声明 leaveArea:false）。 */
+  /** 当前是否有阻塞手动移动的剧情（active、阻塞交互 passive 或 leaveArea:false passive）。 */
   isBlockingMovement(owner?: string | null): boolean {
-    const cur = this.cursorFor(owner);
-    if (cur.currentStoryEntryId === null) return false;
-    const entry = this.entryById(cur.currentStoryEntryId);
-    if (!entry) return false;
-    if (entry.type !== 'passive') return true;
-    return entry.leaveArea === false;
+    return this.cursorsForInteractionGate(owner).some(cur => {
+      if (!this.ensureCursorValid(cur)) return false;
+      const entry = this.entryById(cur.currentStoryEntryId!);
+      return entry?.type !== 'passive' || entry.blocksInteraction === true || entry.leaveArea === false;
+    });
   }
 
-  /** 移动出 Area 时打断正在播放的 PassiveStory；声明 interruptible:false 的闲聊不被打断。 */
+  /** 当前剧情是否阻塞 AreaHero 等外部交互入口（active 恒阻塞，passive 由 blocksInteraction 决定）。 */
+  isBlockingInteraction(owner?: string | null): boolean {
+    return this.cursorsForInteractionGate(owner).some(cur => {
+      if (!this.ensureCursorValid(cur)) return false;
+      const entry = this.entryById(cur.currentStoryEntryId!);
+      return entry?.type !== 'passive' || entry.blocksInteraction === true;
+    });
+  }
+
+  private cursorsForInteractionGate(owner?: string | null): StoryCursorState[] {
+    if (owner == null) return [this.globalCursor, ...this.chatCursors.values()];
+    const ownedCursor = this.cursorFor(owner);
+    return ownedCursor === this.globalCursor ? [ownedCursor] : [this.globalCursor, ownedCursor];
+  }
+
+  /** 移动出 Area 时打断普通 PassiveStory；interruptible:false 或 blocksInteraction:true 会保留当前游标。 */
   clearPassiveIfPlaying(owner?: string | null): void {
     const cur = this.cursorFor(owner);
-    if (cur.currentStoryEntryId === null) return;
-    const currentEntry = this.entryById(cur.currentStoryEntryId);
-    if (currentEntry?.type === 'passive' && currentEntry.interruptible !== false) cur.clear();
+    if (!this.ensureCursorValid(cur)) return;
+    const currentEntry = this.entryById(cur.currentStoryEntryId!);
+    if (currentEntry?.type === 'passive' && currentEntry.interruptible !== false && currentEntry.blocksInteraction !== true) cur.clear();
   }
 
   hasCompletedStory(storyId: string): boolean {
     return this.state.storyLog.some(story => story.storyId === storyId);
+  }
+
+  /** Pending, valid offers for one Area in the active Init. */
+  getAreaStoryDeliveries(areaId: string): readonly AreaStoryDeliveryView[] {
+    const state = this.state;
+    if (state.currentAreaId !== areaId) return [];
+    const area = this.registry.areas.get(areaId);
+    if (!area || area.initId !== state.activeInit) return [];
+    return (state.areaStoryDeliveries ?? []).flatMap(delivery => {
+      if (delivery.areaId !== areaId || delivery.status !== 'pending') return [];
+      const entry = this.registry.activeStories.get(delivery.entryId);
+      const story = entry ? this.registry.stories.get(entry.storyId) : undefined;
+      if (!entry || !story || story.talklets.length === 0
+        || (entry.availableInits.length > 0 && !entry.availableInits.includes(state.activeInit))) return [];
+      return [{
+        entryId: entry.id,
+        areaId,
+        title: entry.openingTitle ?? story.name,
+        owner: entry.owner ?? null,
+      }];
+    });
+  }
+
+  /** Starts a pending Area delivery only when its current area and owner cursor are still valid. */
+  acceptAreaStoryDelivery(storyEntryId: string, areaId: string): StoryStartResult {
+    const unavailable = (): StoryStartResult => ({ success: false, storyId: storyEntryId, error: 'AreaDeliveryUnavailable' });
+    const state = this.state;
+    const area = this.registry.areas.get(areaId);
+    const entry = this.registry.activeStories.get(storyEntryId);
+    const delivery = (state.areaStoryDeliveries ?? []).find(candidate =>
+      candidate.entryId === storyEntryId && candidate.areaId === areaId && candidate.status === 'pending');
+    if (state.currentAreaId !== areaId || !area || area.initId !== state.activeInit || !delivery || !entry) return unavailable();
+    if (entry.availableInits.length > 0 && !entry.availableInits.includes(state.activeInit)) return unavailable();
+    if (this.hasCompletedStory(entry.storyId)) return { success: false, storyId: storyEntryId, error: 'AlreadyCompleted' };
+
+    const owner = entry.owner ?? null;
+    if (this.getCurrentStoryId(owner) !== null) return { success: false, storyId: storyEntryId, error: 'AlreadyActive' };
+    return this.startStory(storyEntryId, 'active', owner);
   }
 
   // --- 公开 API（GameInstance 门面委托） ---
@@ -218,17 +275,26 @@ export class StoryService {
    * 与 clickSend 的 kizuna 处理（story-flow.ts:295-313）一致。
    */
   startCardStory(storyId: string, owner?: string | null): StoryStartResult {
-    this.runtime.cursorFor(owner).clear();
+    const cur = this.cursorFor(owner);
+    if (this.ensureCursorValid(cur)) {
+      const currentEntry = this.entryById(cur.currentStoryEntryId!);
+      if (currentEntry?.type === 'passive' && currentEntry.blocksInteraction === true) {
+        return { success: false, storyId, error: 'AlreadyActive' };
+      }
+    }
+    cur.clear();
     return this.startStory(storyId, 'active', owner, { skipConditions: true, force: true });
   }
 
   /** @see story-flow.startStory */
   startStory(storyId: string, expectedType: 'active' | 'passive', owner?: string | null, opts?: { force?: boolean; skipConditions?: boolean }): StoryStartResult {
+    this.ensureCursorValid(this.cursorFor(owner));
     return startStory(this.runtime, storyId, expectedType, owner, opts);
   }
 
   /** @see story-flow.triggerPassiveStory */
   triggerPassiveStory(initId: string = this.state.activeInit, owner?: string | null): StoryStartResult {
+    this.ensureCursorValid(this.cursorFor(owner));
     return triggerPassiveStory(this.runtime, initId, owner);
   }
 
@@ -237,6 +303,7 @@ export class StoryService {
    * 由「进入对话空间」（进入即推）与 clickSend idle（点击必中）两个时机调用。
    */
   triggerAffectionPush(owner: string): StoryStartResult {
+    this.ensureCursorValid(this.cursorFor(owner));
     return triggerAffectionPush(this.runtime, owner);
   }
 
@@ -245,6 +312,7 @@ export class StoryService {
    * owner 不匹配 / 已播过 / 游标占用均不触发——尾巴留在就绪队列顶由常规推送点送达。
    */
   triggerTailPush(owner: string, storyId: string): StoryStartResult {
+    this.ensureCursorValid(this.cursorFor(owner));
     return triggerTailPush(this.runtime, owner, storyId);
   }
 
@@ -258,26 +326,31 @@ export class StoryService {
 
   /** @see story-replay.replayStory */
   replayStory(storyId: string, owner?: string | null): StoryStartResult {
+    this.ensureCursorValid(this.cursorFor(owner));
     return replayStory(this.runtime, storyId, owner);
   }
 
   /** @see story-flow.advanceStory */
   advanceStory(choiceIndex?: number, owner?: string | null): StoryAdvanceResult {
+    this.ensureCursorValid(this.cursorFor(owner));
     return advanceStory(this.runtime, choiceIndex, owner);
   }
 
   /** @see story-flow.getSendState */
   getSendState(owner?: string | null): SendState {
+    this.ensureCursorValid(this.cursorFor(owner));
     return getSendState(this.runtime, owner);
   }
 
   /** @see story-flow.clickSend */
   clickSend(owner?: string | null): SendResult {
+    this.ensureCursorValid(this.cursorFor(owner));
     return clickSend(this.runtime, owner);
   }
 
   /** @see story-flow.getCurrentStoryView */
   getCurrentStoryView(owner?: string | null): StoryView | null {
+    this.ensureCursorValid(this.cursorFor(owner));
     return getCurrentStoryView(this.runtime, owner);
   }
 
@@ -291,6 +364,34 @@ export class StoryService {
   /** 通过 Entry 的 storyId 重定向到纯演出 Story（初始 Story）。 */
   private storyOf(entry: StoryEntryDef): StoryDef | undefined {
     return this.registry.stories.get(entry.storyId);
+  }
+
+  /**
+   * Keep a playing cursor bound to a valid source Entry, its captured type, and a resolvable Story.
+   * Invalid or stale cursors are discarded so the runtime returns to its ordinary idle state.
+   */
+  private ensureCursorValid(cur: StoryCursorState): boolean {
+    if (cur.empty) {
+      cur.clear();
+      return false;
+    }
+
+    const entry = this.entryById(cur.currentStoryEntryId!);
+    const sourceStory = entry ? this.registry.stories.get(entry.storyId) : undefined;
+    const currentStoryId = cur.currentStoryDefId ?? entry?.storyId ?? null;
+    const currentStory = currentStoryId ? this.registry.stories.get(currentStoryId) : undefined;
+    const page = currentStory?.talklets[cur.currentStoryPageIndex];
+    const typeMatches = cur.currentStoryEntryType === null || cur.currentStoryEntryType === entry?.type;
+
+    if (!entry || !typeMatches || !sourceStory?.talklets.length || !currentStory || !page) {
+      cur.clear();
+      return false;
+    }
+
+    // Old saves did not store the entry type or resolved initial Story ID.
+    cur.currentStoryEntryType = entry.type;
+    if (cur.currentStoryDefId === null) cur.currentStoryDefId = entry.storyId;
+    return true;
   }
 
   /** 当前游标指向的 Talklet（无进行中剧情或无页时 = undefined）。 */

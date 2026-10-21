@@ -1,6 +1,9 @@
 /** 剧情游标的持久化快照；不包含运行时瞬态。 */
 export interface StoryCursorSnapshot {
+  /** Source StoryEntry ID; stable while the playback jumps between Story definitions. */
   currentStoryId: string | null;
+  /** Type of the source StoryEntry for the active playback; absent in older saves. */
+  currentStoryEntryType?: 'active' | 'passive' | null;
   currentStoryDefId?: string | null;
   currentStoryPageIndex: number;
   currentStoryChoiceIndex: number;

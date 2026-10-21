@@ -11,6 +11,7 @@
 export type TableKey =
   | 'inits'
   | 'areas'
+  | 'areaMaps'
   | 'spots'
   | 'enhancements'
   | 'gachaPools'

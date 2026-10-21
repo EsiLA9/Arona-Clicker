@@ -5,6 +5,7 @@ export interface StoryCursor extends StoryCursorSnapshot {}
 
 export class StoryCursorState {
   currentStoryEntryId: string | null = null;
+  currentStoryEntryType: 'active' | 'passive' | null = null;
   currentStoryDefId: string | null = null;
   currentStoryPageIndex = 0;
   currentStoryChoiceIndex = -1;
@@ -21,6 +22,7 @@ export class StoryCursorState {
 
   clear(): void {
     this.currentStoryEntryId = null;
+    this.currentStoryEntryType = null;
     this.currentStoryDefId = null;
     this.currentStoryPageIndex = 0;
     this.currentStoryChoiceIndex = -1;
@@ -35,6 +37,7 @@ export class StoryCursorState {
   save(): StoryCursor {
     return {
       currentStoryId: this.currentStoryEntryId,
+      currentStoryEntryType: this.currentStoryEntryType,
       currentStoryDefId: this.currentStoryDefId,
       currentStoryPageIndex: this.currentStoryPageIndex,
       currentStoryChoiceIndex: this.currentStoryChoiceIndex,
@@ -47,6 +50,7 @@ export class StoryCursorState {
 
   restore(cursor: StoryCursor): void {
     this.currentStoryEntryId = cursor.currentStoryId;
+    this.currentStoryEntryType = cursor.currentStoryEntryType ?? null;
     this.currentStoryDefId = cursor.currentStoryDefId ?? null;
     this.currentStoryPageIndex = cursor.currentStoryPageIndex;
     this.currentStoryChoiceIndex = cursor.currentStoryChoiceIndex;

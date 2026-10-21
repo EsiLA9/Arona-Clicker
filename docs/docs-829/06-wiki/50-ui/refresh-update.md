@@ -15,6 +15,8 @@
 
 ## Dispatcher 怎样合并请求
 
+区域地图的 workspace.area-map region 由 AreaMapController 消费：按 Map+Node 身份协调 SVG 节点/连线，保留 Frame、工具条、viewport、world 与详情滚动宿主；选中、公开投影、反馈变化只更新实际消费者，投影指纹不变不改图。相机仅补 world transform；拖动达到阈值后才捕获指针，普通节点点击仍到达节点。替换/移除前关闭范围内 popover，缺失子区只在所属列补回；地图根/路由错配才恢复 Workspace。Hero/地图入口门控变化单独补属性。源码与行为测试见 [[docs/docs-829/04-mechanisms/arona-clicker/area-map-navigation]]。
+
 `src/ui/update/ui-update-dispatcher.ts` 按更新身份合并同一微任务中的重复请求，先检查 Surface token 是否仍有效，再按结构、区域、元素、行为的顺序处理。App 结构更新覆盖同批次的窄更新；Workspace 结构更新也覆盖其下窄更新；区域更新可压掉同宿主及子宿主的元素 / behavior 请求。控制器通过稳定宿主 ID 找目标；目标不存在时专用调用方可选择面板或结构回退。
 
 Surface key / generation 令旧 Workspace 发出的请求不会落入新页面，见 [[docs/docs-829/06-wiki/50-ui/workspace-routing]]。更新请求的四种类型在 `src/ui/update/ui-update-types.ts`；具体已有 DOM 目标的 behavior 在 `ui-behaviors.ts`。
@@ -56,6 +58,12 @@ Frame、列根、共享顶部、真实滚动 owner 与仍有效的按钮保持�
 相邻地点移动器属于中部流的 `gameplay-b:move-choices` 当前条目，按 Node 实例键协调；当前活动／遭遇或未完成的 Node 活动会收起它，Node 完成与空闲地点选择下一站时自动唤起。边条件与资源门槛从 detached View 读取。按钮委托沿用 Map 命令入口，并携带来源 Node 身份拒绝过期点击；只有移动命令成功才调用 `MapFlowModel.recordMovement()` 回收旧移动器，追加“从……移动到了……”的 observed 旁白。失败不消费选择器、不追加旁白；下一地点需要移动时生成自己的新移动器。历史只保留在当前 Run 的 UI 会话，离开或读档重建时不伪造此前移动记录。
 
 同一 Map 中移动、完成遭遇和进入终态仍需同步所有受影响消费者，不能误降为敌方区更新。缺失的内容区域可在所属列中补回；根或路由身份不匹配时取消旧请求或按当前路由恢复，不把全页 render 当作普通点击路径。验证入口为 `tests/ui/map-dom-updates.test.ts`、`tests/ui/gameplay-b-map-workspace.test.ts` 与 `tests/ui/gameplay-b-map-vertical-slice.test.ts`，视觉复用入口见 [[ui-style/patterns]]。
+
+## MapEntry 准备页的局部更新
+
+`map-entry` 是只携带 `mapId` 的 route-only Workspace。`MapEntryView` 通过 `MapRunQuery.getEntryView()` 读取；页面不写入 Run。准备页内的 Map 状态刷新与 Story / 前台门控重算使用专属 `workspace.map-entry` region 请求，Controller 只重绘 `map-entry` 根并经 `patchMapDOM()` 按 `data-map-region-key`、队员、资源项、焦点和 Frame / column / theme host key 协调。左右栏内容滚动宿主与仍有效的主操作节点保持身份，滚动位置恢复；管理区等 keyed DOM 自身状态保留。替换范围先通知 Popover owner，局部 patch 后再复核锚点。
+
+MapEntry 局部刷新检查当前仍是同一 mapId 路由，并用 UI 会话里的 `mapEntrySource` 重验 Spot 所属当前 Area、utility reveal、MapEntry functionality 与条件。正常 `render()` 也做同样检查。入口无法验证时，只退回最初 `returnTo` 并清除这次 UI 来源；不 abandon 有效 MapRun。来源绑定不进入 SaveData，读档或 Controller 重建后缺少有效来源时，玩家需从设施重新打开准备页。常规生产 Tick 不属于此页的独立刷新来源；实际更新由 Map / 门控变化的定向调用发起。实现入口：`src/ui/controller.ts` 的 `requestMapEntryWorkspaceRefresh()` / `refreshMapEntryWorkspaceRegion()` 与 `src/ui/components/map-entry-workspace.ts`；视觉复用见 [[ui-style/patterns]]。
 
 ## Map 单位关系的临时交互更新
 

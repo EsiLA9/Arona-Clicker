@@ -1,0 +1,591 @@
+{
+  "name": "区域地图演示",
+  "version": "1.0.0",
+  "resourceDisplays": [
+    {
+      "resourceId": "area-map-demo:resource:permit",
+      "label": "通行许可",
+      "showWhen": "hasAmount"
+    }
+  ],
+  "inits": [
+    {
+      "id": "area-map-demo:init:demo",
+      "name": "区域地图演示",
+      "description": "浏览区域节点图，选择后再尝试前往。",
+      "defaultAreas": [
+        "area-map-demo:area:a"
+      ]
+    }
+  ],
+  "areas": [
+    {
+      "id": "area-map-demo:area:a",
+      "initId": "area-map-demo:init:demo",
+      "name": "事务所",
+      "description": "从这里出发，浏览各地地图。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "area-map-demo:area:b",
+        "area-map-demo:area:mall_entrance"
+      ],
+      "navigationMapId": "area-map-demo:area-map:a"
+    },
+    {
+      "id": "area-map-demo:area:b",
+      "initId": "area-map-demo:init:demo",
+      "name": "中央广场",
+      "description": "与事务所共用城区地图。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "area-map-demo:area:a",
+        "area-map-demo:area:c"
+      ],
+      "navigationMapId": "area-map-demo:area-map:a",
+      "enterEffects": [
+        {
+          "first": true,
+          "effects": [
+            {
+              "op": "triggerStory",
+              "target": "area-map-demo:activestory:arrival",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "area-map-demo:area:c",
+      "initId": "area-map-demo:init:demo",
+      "name": "山间观测站",
+      "description": "广场之外的观测站。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "area-map-demo:area:b"
+      ],
+      "navigationMapId": "area-map-demo:area-map:c"
+    },
+    {
+      "id": "area-map-demo:area:mall_entrance",
+      "initId": "area-map-demo:init:demo",
+      "name": "商场入口",
+      "description": "进入商场后开放电梯，并获得一楼导览。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "area-map-demo:area:a"
+      ],
+      "navigationMapId": "area-map-demo:area-map:mall",
+      "enterEffects": [
+        {
+          "first": true,
+          "effects": [
+            {
+              "op": "addEnhancement",
+              "target": "",
+              "value": "area-map-demo:enhancement:mall_elevator"
+            },
+            {
+              "op": "addResource",
+              "target": "area-map-demo:resource:mall_guide",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "area-map-demo:area:hall1",
+      "initId": "area-map-demo:init:demo",
+      "name": "一楼大厅",
+      "description": "从这里开始探索一楼房间。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "area-map-demo:area:corridor"
+      ],
+      "navigationMapId": "area-map-demo:area-map:mall"
+    },
+    {
+      "id": "area-map-demo:area:hall2",
+      "initId": "area-map-demo:init:demo",
+      "name": "二楼大厅",
+      "description": "电梯开通后，即使未到访也可以乘电梯抵达。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [],
+      "navigationMapId": "area-map-demo:area-map:mall"
+    },
+    {
+      "id": "area-map-demo:area:corridor",
+      "initId": "area-map-demo:init:demo",
+      "name": "一楼走廊",
+      "description": "沿走廊继续探索店铺。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "area-map-demo:area:hall1",
+        "area-map-demo:area:shop"
+      ],
+      "navigationMapId": "area-map-demo:area-map:floor"
+    },
+    {
+      "id": "area-map-demo:area:shop",
+      "initId": "area-map-demo:init:demo",
+      "name": "走廊尽头的店铺",
+      "description": "首次需要经过走廊，之后可以快速返回。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "area-map-demo:area:corridor"
+      ],
+      "navigationMapId": "area-map-demo:area-map:floor"
+    }
+  ],
+  "areaMaps": [
+    {
+      "id": "area-map-demo:area-map:a",
+      "name": "城区导览",
+      "description": "事务所与中央广场共用此图。连线只显示真实存在的区域通路。",
+      "nodes": [
+        {
+          "id": "current",
+          "position": {
+            "x": -180,
+            "y": 90
+          },
+          "appearance": {
+            "kind": "landmark"
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:a"
+          }
+        },
+        {
+          "id": "plaza",
+          "position": {
+            "x": 180,
+            "y": 90
+          },
+          "appearance": {
+            "kind": "landmark"
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:b"
+          }
+        },
+        {
+          "id": "portal",
+          "name": "郊外地图",
+          "description": "打开郊外导览，当前位置保持不变。",
+          "position": {
+            "x": 0,
+            "y": -170
+          },
+          "appearance": {
+            "kind": "portal"
+          },
+          "action": {
+            "kind": "openMap",
+            "mapId": "area-map-demo:area-map:b"
+          }
+        },
+        {
+          "id": "note",
+          "name": "导览说明",
+          "description": "地图连线仅展示真实通路；选择地点后，领域规则决定能否前往。",
+          "position": {
+            "x": -200,
+            "y": -150
+          }
+        },
+        {
+          "id": "mall",
+          "name": "商场地图",
+          "position": {
+            "x": 400,
+            "y": -100
+          },
+          "appearance": {
+            "kind": "portal"
+          },
+          "action": {
+            "kind": "openMap",
+            "mapId": "area-map-demo:area-map:mall"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "current",
+          "toNodeId": "plaza"
+        },
+        {
+          "fromNodeId": "plaza",
+          "toNodeId": "portal"
+        }
+      ]
+    },
+    {
+      "id": "area-map-demo:area-map:b",
+      "name": "郊外导览",
+      "description": "这里可以查看观测站，也可以继续浏览其他地图。",
+      "nodes": [
+        {
+          "id": "portal",
+          "name": "山间地图",
+          "position": {
+            "x": 0,
+            "y": -140
+          },
+          "appearance": {
+            "kind": "portal"
+          },
+          "action": {
+            "kind": "openMap",
+            "mapId": "area-map-demo:area-map:c"
+          }
+        },
+        {
+          "id": "return",
+          "name": "城区地图",
+          "position": {
+            "x": -190,
+            "y": 120
+          },
+          "appearance": {
+            "kind": "portal"
+          },
+          "action": {
+            "kind": "openMap",
+            "mapId": "area-map-demo:area-map:a"
+          }
+        },
+        {
+          "id": "station",
+          "position": {
+            "x": 190,
+            "y": 120
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:c"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "return",
+          "toNodeId": "station"
+        },
+        {
+          "fromNodeId": "station",
+          "toNodeId": "portal"
+        }
+      ]
+    },
+    {
+      "id": "area-map-demo:area-map:c",
+      "name": "山间导览",
+      "description": "这张图与城区图互相连通，可以循环浏览。",
+      "nodes": [
+        {
+          "id": "portal",
+          "name": "城区地图",
+          "position": {
+            "x": -160,
+            "y": 0
+          },
+          "appearance": {
+            "kind": "portal"
+          },
+          "action": {
+            "kind": "openMap",
+            "mapId": "area-map-demo:area-map:a"
+          }
+        },
+        {
+          "id": "locked",
+          "name": "待开放路线",
+          "description": "路线尚未开放。",
+          "position": {
+            "x": 160,
+            "y": 0
+          },
+          "appearance": {
+            "kind": "landmark"
+          },
+          "revealTriggers": [
+            {
+              "reveal": "unlock",
+              "condition": {
+                "target": "resource",
+                "key": "area-map-demo:resource:permit",
+                "comparator": ">=",
+                "value": 1
+              }
+            }
+          ],
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:c"
+          }
+        },
+        {
+          "id": "hidden",
+          "name": "隐秘山径",
+          "position": {
+            "x": 0,
+            "y": 200
+          },
+          "revealTriggers": [
+            {
+              "reveal": "existence",
+              "condition": {
+                "target": "resource",
+                "key": "area-map-demo:resource:permit",
+                "comparator": ">=",
+                "value": 1
+              }
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "portal",
+          "toNodeId": "locked"
+        },
+        {
+          "fromNodeId": "locked",
+          "toNodeId": "hidden"
+        }
+      ]
+    },
+    {
+      "id": "area-map-demo:area-map:mall",
+      "name": "商场楼层导览",
+      "description": "导览仅显示真实通路。进入商场后开放电梯，可乘电梯抵达各大厅。",
+      "nodes": [
+        {
+          "id": "mall_entrance",
+          "position": {
+            "x": 0,
+            "y": 150
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:mall_entrance"
+          }
+        },
+        {
+          "id": "hall1",
+          "position": {
+            "x": -220,
+            "y": -80
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:hall1"
+          }
+        },
+        {
+          "id": "hall2",
+          "position": {
+            "x": 220,
+            "y": -80
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:hall2"
+          }
+        },
+        {
+          "id": "floor",
+          "name": "一楼内部图",
+          "position": {
+            "x": -220,
+            "y": -280
+          },
+          "appearance": {
+            "kind": "portal"
+          },
+          "action": {
+            "kind": "openMap",
+            "mapId": "area-map-demo:area-map:floor"
+          }
+        },
+        {
+          "id": "city",
+          "name": "城区地图",
+          "position": {
+            "x": 220,
+            "y": 250
+          },
+          "appearance": {
+            "kind": "portal"
+          },
+          "action": {
+            "kind": "openMap",
+            "mapId": "area-map-demo:area-map:a"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "mall_entrance",
+          "toNodeId": "hall1"
+        },
+        {
+          "fromNodeId": "mall_entrance",
+          "toNodeId": "hall2"
+        }
+      ]
+    },
+    {
+      "id": "area-map-demo:area-map:floor",
+      "name": "一楼内部图",
+      "description": "获得导览后可查看布局。房间沿通路探索，去过之后可沿已探索通路快速返回。",
+      "nodes": [
+        {
+          "id": "hall1",
+          "position": {
+            "x": -260,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:hall1"
+          }
+        },
+        {
+          "id": "corridor",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:corridor"
+          }
+        },
+        {
+          "id": "shop",
+          "position": {
+            "x": 260,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:shop"
+          }
+        },
+        {
+          "id": "mall",
+          "name": "商场楼层导览",
+          "position": {
+            "x": -260,
+            "y": -220
+          },
+          "appearance": {
+            "kind": "portal"
+          },
+          "action": {
+            "kind": "openMap",
+            "mapId": "area-map-demo:area-map:mall"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "hall1",
+          "toNodeId": "corridor"
+        },
+        {
+          "fromNodeId": "corridor",
+          "toNodeId": "shop"
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "target": "resource",
+            "key": "area-map-demo:resource:mall_guide",
+            "comparator": ">=",
+            "value": 1
+          }
+        }
+      ]
+    }
+  ],
+  "stories": [
+    {
+      "id": "area-map-demo:story:arrival",
+      "name": "抵达广场",
+      "talklets": [
+        {
+          "text": "你穿过街道，抵达了中央广场。",
+          "kind": "narration",
+          "typing": 0,
+          "thinking": 0
+        },
+        {
+          "text": "接下来，去哪里看看呢？",
+          "kind": "narration",
+          "typing": 0,
+          "thinking": 0
+        }
+      ]
+    }
+  ],
+  "activeStories": [
+    {
+      "id": "area-map-demo:activestory:arrival",
+      "storyId": "area-map-demo:story:arrival",
+      "type": "active",
+      "availableInits": [
+        "area-map-demo:init:demo"
+      ],
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      }
+    }
+  ],
+  "enhancements": [
+    {
+      "id": "area-map-demo:enhancement:mall_elevator",
+      "name": "商场电梯通行",
+      "description": "开放入口与各楼层大厅之间的电梯交通。",
+      "autoApply": false,
+      "effects": [],
+      "attachment": {
+        "kind": "init",
+        "initId": "area-map-demo:init:demo"
+      },
+      "affectorPackIds": [
+        "area-map-demo:affector:mall_elevator"
+      ]
+    }
+  ],
+  "affectorPacks": [
+    {
+      "id": "area-map-demo:affector:mall_elevator",
+      "entries": [
+        {
+          "id": "elevator",
+          "effects": [],
+          "areaTransitNetworks": [
+            {
+              "name": "商场电梯",
+              "areaIds": [
+                "area-map-demo:area:mall_entrance",
+                "area-map-demo:area:hall1",
+                "area-map-demo:area:hall2"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

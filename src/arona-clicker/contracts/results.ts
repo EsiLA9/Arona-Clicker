@@ -16,11 +16,11 @@ export type TravelError =
   | 'NotAdjacent'
   | 'AlreadyThere'
   | 'Locked'
-  /** 非 passive 剧情演出进行中，禁止玩家移动 Area（Story 自身要求移动不受限）。 */
+  /** 剧情阻塞手动移动时拒绝玩家移动 Area（Story 自身要求移动不受限）。 */
   | 'StoryBlocked';
 
 export type TravelResult =
-  | { success: true; areaId: AreaId; fromAreaId: AreaId | null }
+  | { success: true; areaId: AreaId; fromAreaId: AreaId | null; method?: 'adjacent' | 'visited' | 'transit' }
   | { success: false; areaId: AreaId; error: TravelError };
 
 export type EnhancementPurchaseError =
@@ -45,7 +45,9 @@ export type SpotUpgradeResult =
 // --- 剧情视图与结果 ---
 
 export interface StoryView {
+  /** Source StoryEntry ID; stable while the playback jumps between Story definitions. */
   storyId: StoryId;
+  /** Type of the source StoryEntry. */
   type: 'passive' | 'active';
   /** 当前实际播放的 Story.id（跳转链中可能不同于 Entry.storyId）。 */
   storyDefId: StoryId;
@@ -55,8 +57,17 @@ export interface StoryView {
   availableChoiceIndexes: number[];
 }
 
+/** Read-only AreaHero offer derived from the current Init's pending delivery records. */
+export interface AreaStoryDeliveryView {
+  entryId: StoryId;
+  areaId: string;
+  title: string;
+  owner: string | null;
+}
+
 export type StoryError =
   | 'NotFound'
+  | 'AreaDeliveryUnavailable'
   | 'AlreadyActive'
   | 'NoActiveStory'
   | 'ConditionNotMet'

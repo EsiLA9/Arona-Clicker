@@ -40,6 +40,16 @@ function setStartupStatus(message: string, state: 'loading' | 'error' = 'loading
 }
 
 async function boot(): Promise<void> {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('areaMapDemo') === '1') {
+    try {
+      const root = document.querySelector<HTMLDivElement>('#app');
+      if (!root) throw new Error('UI root is missing');
+      const { mountAreaMapDemo } = await import('./development/area-map-demo');
+      await mountAreaMapDemo(root);
+      document.querySelector('#startup-shell')?.remove();
+    } catch (error) { console.error(error); setStartupStatus('地图演示启动失败，请刷新重试。', 'error'); }
+    return;
+  }
   try {
     setStartupStatus('正在恢复本机数据包…');
     await game.restorePackManager(packStore);

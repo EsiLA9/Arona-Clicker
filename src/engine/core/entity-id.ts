@@ -50,6 +50,7 @@ export const ENTITY_TYPES: ReadonlySet<string> = new Set([
   'tag',
   'operation-event',
   'map',
+  'area-map',
   'operation-location',
   'operation-action',
   'student-operation-profile',

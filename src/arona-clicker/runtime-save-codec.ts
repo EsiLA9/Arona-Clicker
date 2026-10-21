@@ -17,6 +17,7 @@ export function buildSaveData(ctx: SaveBuildContext): SaveData {
     playerState: JSON.parse(JSON.stringify({ ...ctx.state, spotTagOverrides: tagOverrides.active, tagEffects: tagEffects.active })),
     visibility: JSON.parse(JSON.stringify(ctx.visibility())),
     pendingStoryId: storyCursor.currentStoryId,
+    pendingStoryEntryType: storyCursor.currentStoryEntryType,
     pendingStoryPageIndex: storyCursor.currentStoryPageIndex,
     pendingStoryChoiceIndex: storyCursor.currentStoryChoiceIndex,
     pendingTalkletClicks: storyCursor.talkletClickWork,

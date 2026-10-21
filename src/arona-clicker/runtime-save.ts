@@ -76,6 +76,7 @@ export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   else ctx.statsService.beginSession();
   ctx.storyService.restoreCursor({
     currentStoryId: saveData.pendingStoryId,
+    currentStoryEntryType: saveData.pendingStoryEntryType,
     currentStoryDefId: saveData.pendingStoryDefId ?? null,
     currentStoryPageIndex: saveData.pendingStoryPageIndex,
     currentStoryChoiceIndex: saveData.pendingStoryChoiceIndex ?? -1,

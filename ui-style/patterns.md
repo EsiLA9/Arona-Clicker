@@ -4,11 +4,13 @@
 
 ## 复用模式
 
+区域地图交通沿用 `area-map-workspace.ts` 的节点和详情区：当前区域通过主题色实心节点标记，详情显示到访状态，固定动作区区分普通前往、乘交通前往与快速返回。`area-map-dom.ts` 按节点身份原位更新；连线只显示领域中的真实连接，单向通路使用箭头；地图不授予通行资格。此为现有地图组件的扩展，行为覆盖见 `tests/ui/area-map-controller.test.ts`。
+
 | 模式 | 入口 / 已有例子 | 用途与例外 |
 | --- | --- | --- |
 | 工作区骨架 | `src/ui/components/workspace-frame.ts` 的 `renderWorkspaceFrame` / `renderWorkspaceColumn`；`src/ui/components/contacts-workspace.ts` 与 `src/ui/components/inventory-workspace.ts` | 复用列宿主、surface、布局与滚动归属，按业务配置内容，不另手写相似外框 |
 | 经典游戏右栏 | `src/ui/components/right-panels.ts`；几何对齐由 `src/ui/presentation-service.ts` 的 `renderPresentationHostGeometryStyle` 提供 | 顶部 switch 在资源条之前；资源条只出现在“设施”和“强化”页签；经典面板外框使用与背景层一致的圆角值 |
-| 区域 Workspace | `src/ui/components/area-workspace.ts`、`src/ui/workspace/workspace-router.ts`；area-hero 由 `src/ui/components/rail.ts` 进入 | 独立路由携带 Area ID；左栏保留区域导航，中栏显示区域概览占位，右栏显示区域详情占位并使用主题 panel surface 与宿主圆角；当前 Area 改变时回到经典 Game 页面。当前仅为首步骨架，不含故事、提醒或进入门控 |
+| 区域 Workspace | `src/ui/components/area-workspace.ts`、`src/ui/workspace/workspace-router.ts`；area-hero 由 `src/ui/components/rail.ts` 进入 | 独立路由携带 Area ID；左栏保留区域导航，中栏显示区域概览与可滚动的待接取 ActiveStoryEntry 列表，右栏显示区域详情占位；主题 panel surface 与宿主圆角沿用 WorkspaceFrame。点击接取经 GameCommands 启动，成功后返回一般 Game chat 并切到 Entry owner；当前 Area 改变时退出旧 Area 路由。行为覆盖见 `tests/ui/workspace-lifecycle.test.ts` |
 | 选择页节点图谱 | `src/ui/components/selector-graph.ts`、`src/ui/selector-page.ts`、`src/ui/css/selectors.css` | 顶栏保留在最上层；SVG 轴测平面铺满选择页背景，不套画布卡片框；右侧独立浮动工作台承载详情与命令；比例尺固定在图面左下角，进入子图时提供较大的返回按钮，不额外显示状态图例。节点用 `g[role=button]`，位置 / 连线只作呈现；可见性、拥有、价格与动作仍来自 RevealStage、`UIContext` 与 GameCommands。比例尺 / 滚轮锚定缩放只改相机，购买后原位刷新节点与工作台，不整页重建 |
 | 内容工具三栏 | `src/ui/components/workspace-frame.ts` 的纯布局 `renderWorkspaceLayout`、`src/ui/runtime-editor/codex/workspace.ts` 的 `renderContentWorkspace`；超级图鉴实际使用 | 把已渲染的导航／条目／详情作为 Frame 直接子项；使用 `pane-switch` 窄屏显隐。该入口不创建游戏列 Host、surface 或 Presentation host；工具自己拥有表面和滚动区。可选操作 footer 仅在有内容时出现，当前图鉴不挂载。搜索留在固定区域，条目与详情各自拥有内容滚动；现有编辑器尚未迁入新骨架 |
 | Tabs 与顶部区域 | `src/ui/components/tabs.ts` 的 `renderTabs`、`renderPanelTabsRegion`、`renderPanelHeaderRegion` | 保持顶部宿主、主题状态与标题区域一致，不只复制按钮 class 而漏掉宿主元数据 |
@@ -17,6 +19,7 @@
 | Operation 手牌扇列 | `src/ui/components/operation-workspace.ts` 的 `.operation-card-fan` 持有区；悬停展示由 `src/ui/operation-card-hover-overlay.ts` 承担 | 公共手牌、角色持有牌与场景行动候选共用横向交叠；卡面在独立顶层副本中显示抬高、焦点与光晕，原卡继续承接点击和拖拽。固定锚定的预备行动／敌方意图卡与购买项列表保留各自布局 |
 | Spot 行动入口按钮 | `src/ui/components/operation-entry.ts` 的 `renderOperationSpotFunctions`，由 `production.ts` 组合 | 沿用 `.mini-action` 和 `card.action` 主题宿主；同一 `operationEntry` 类型每按钮绑定一个关卡，放在设施操作组内，不插入聊天流。准入与继续状态从领域查询取得；已核对源码与定向测试 |
 | Map / Encounter Run Workspace | `workspace-router.ts` 的 `map` runId 路由、`src/ui/components/map-workspace.ts`、`workspace-frame.ts` 与 `tabs.ts` | 左我方身份／HP／角色行动按钮，中 Node／Encounter 说明与最近结算文本流及固定操作区，右活动敌方／背景／节点进度；相邻地点移动选项在中部 Talklet 内按需出现。Node / Event 顶部操作组提供地图查看、重新游戏与放弃游戏：重新游戏以同一准入队伍从地图起点建立全新 MapRun；放弃游戏清除活动 MapRun 并返回进入前的位置，两者不回滚已写入的长期档案变化。三列顶部经 `renderPanelHeaderRegion` 复用统一宿主、控件高度与分割；消费共享三列宽度变量。实际滚动 owner 是 `data-map-region-key` 为 `party-scroll`、`talk-feed`、`action-options`、`context-scroll` 的内容区，窄屏另由 Map 根承接堆叠结构滚动。`UIController.refreshMapWorkspaceRegion()` 使用一份 detached View，经 `workspace/map-dom-updates.ts` 按语义 key 协调变化的消费者，保留 Frame、列根、顶部、滚动容器和有效按钮；缺失子区局部补回，只有 Map 根缺失等恢复失败才回退当前路由。命令继续由 `controller-actions-operation.ts` 一次性事件委托进入 GameCommands；只处理可视卡牌与反馈，不新增领域卡实例、完整历史日志或 UI 自有 Run 状态。行为与连续性由 Map Workspace、vertical-slice 和 map-dom-updates 测试覆盖 |
+| MapEntry 行前／续行准备页 | `src/ui/components/map-entry-workspace.ts`、`workspace-router.ts`、`workspace-frame.ts` | route-only `map-entry` 复用三栏 WorkspaceFrame：中栏承载地图简介、提示、当前进度和明确的开始／继续操作；右栏固定显示队伍与局内资源；左栏保留游戏区域导航。复用 titlebar、panel surface、主题宿主与内容滚动区；不在准备页混入完整现场战斗操作或玩家选队。资料来自 MapEntryView，局部变更按稳定语义 key 保留 Frame、滚动和焦点；机制见 [[docs/docs-829/06-wiki/50-ui/refresh-update]]。桌面浏览器已核验有效队伍 fresh、受伤续行、缺员／Story 门控、重开／放弃管理、终局及隔离 Origin 刷新读档后重入续行。 |
 | 宿主与实体表现 | `src/ui/presentation-service.ts` 的 `renderUIHost`；`src/ui/components/entity-presentation.ts` 与 `src/ui/context.ts` 的查询 | 经只读上下文解析适用表现，不自行拼接全套主题规则或绕过实体揭示条件 |
 | 弹窗与提示层 | `src/ui/modal.ts`、`src/ui/popovers.ts`；`src/ui/css/modal.css`、`src/ui/css/popover.css` | 先查共享生命周期、锚点与焦点处理入口，再扩展内容，不复制独立浮层管理系统 |
 
@@ -25,6 +28,8 @@ Map 的相邻地点选择由类型化 `FlowMapLocations` 投影到标准 Talklet
 Map Encounter 的按钮版将角色 Target／完整候选保留左栏，Ability／Item 草稿、共享覆盖槽与 Commit 放中栏底部，敌方 HP 在右栏。`[data-map-encounter-region]` 仅作敌方信息锚点，不再代表整个遭遇的刷新边界；普通命令按消费者原位协调，保留 `data-map-focus-key` 控件、各滚动 owner 与范围外浮层。替换或移除节点前执行范围内浮层生命周期。最近回执来自 `actionPreview.recentCommit` 或同一只读 Run 的 `lastEncounterCommit`，按 requestId 标识更新；读者已在流底部时跟随新回执，阅读上文时保留位置。失败／成功按实际终态投影显示只读结果，不重建已清理的 Run。机制边界见 [[docs/docs-829/06-wiki/50-ui/refresh-update]]。
 
 ## 内容与结构
+
+区域导航图复用游戏三栏 Frame/Titlebar 和左侧真实 Area rail；中栏为平面 SVG 节点画布，右栏为独立详情滚动区与操作反馈。point/landmark/portal 仅区分外观，选中/Focus 用既有 cyan 与主题文字色，行为来自领域脱敏投影。复用入口：src/ui/components/area-map-workspace.ts、src/ui/css/area-map.css；当前状态为已实现并经桌面浏览器验收。稳定节点/刷新与会话语义见 [[docs/docs-829/04-mechanisms/arona-clicker/area-map-navigation]]；不复制 Init/GlobalEnh 的母子图层级。
 
 选择页右侧详情通过稳定的收起／展开按钮切换 `hidden` 与 `aria-expanded`，不替换工作台、滚动容器或画布。Init 的进入 CTA 先打开左侧世界线概览中转页（`renderInitOverview`），隐藏星图与右侧详情，保留顶栏、相机、子图历史和选中项；背景沿用 Init 投影，不叠加恢复区域的 Area 背景。概览只读取当前 View 或对应 Init 快照，确认进入才调用既有新建／恢复命令；返回星图或 Escape 恢复原按钮焦点与原画布。从世界线的结束游戏或硬重置入口离开时，也先停留在刚离开的 Init 概览；玩家主动返回星图后再展开节点图，排队的页面刷新保留该停留状态。该状态只由 `SelectorPage` 持有，不进入存档。复用与行为入口：`src/ui/components/init-select.ts`、`src/ui/controller-panels.ts`、`tests/ui/controller-init-select.test.ts`、`tests/ui/selector-graph-navigation.test.ts`。
 

@@ -26,11 +26,14 @@ import { DevLog } from '../../engine/core/dev-log';
 import { StoryService } from './story-service';
 import { InitSavepoint } from '../state/init-savepoint';
 import { extra, mergeExtra } from '../../engine/extra/index';
+import { unlockMet } from '../../engine/visibility/reveal';
 import { mountInitTriggers, unmountInitTriggers, type InitTriggerGroupState } from './init-mount';
 import type { StoryEntryReactionMount } from './story-entry-reaction-mount';
 import type { StoryFollowUpMount } from './story-follow-up-mount';
+import type { StoryAvailabilityDeliveryMount } from './story-availability-delivery-mount';
 import type { InformationRevealAdapter } from './information-reveal-adapter';
 import type { MilestoneAdapter } from './milestone-adapter';
+import { AreaTravelGraph, buildAreaTravelRoutes } from './area-travel-routes';
 
 export interface InitServiceOptions {
   registry: Registry;
@@ -44,6 +47,7 @@ export interface InitServiceOptions {
   triggerSystem: TriggerSystem;
   storyEntryReactions: StoryEntryReactionMount;
   storyFollowUps: StoryFollowUpMount;
+  storyAvailabilityDeliveries: StoryAvailabilityDeliveryMount;
   informationRevealAdapter: InformationRevealAdapter;
   milestoneAdapter: MilestoneAdapter;
   affectorEngine: AffectorEngine;
@@ -65,8 +69,8 @@ export interface InitServiceOptions {
   createDefaultState: () => PlayerState;
   /** 刷新 lastTickTimestamp（离线上限计时基准）。 */
   touchTickTimestamp: () => void;
-  /** 查询静态、Runtime Overlay 与 Affector 合并后的 Area 可达性。 */
-  getReachableAreaIds: (areaId: AreaId) => readonly AreaId[];
+  /** 查询静态、Runtime Overlay 与 Affector 合并后的真实连接快照。 */
+  getAreaGraph: () => AreaTravelGraph;
 }
 
 export class InitService {
@@ -273,6 +277,7 @@ export class InitService {
 
     this.opts.refreshVisibility();
     this.reconcileInformationRevealWatches();
+    this.opts.storyAvailabilityDeliveries.reconcileCurrentArea();
     this.opts.devLog.record(`进入 ${init.name}：解锁内容`, {
       source: 'init',
       level: 'info',
@@ -300,45 +305,19 @@ export class InitService {
 
   /**
    * 在当前世界线内移动到 Area（玩家入口）——可达性层。
-   * 门槛链：存在 → 同 Init → 非演出锁定 → 相邻 → 可见。
-   * 非 passive 剧情演出进行中时禁止移动；Story 自身要求移动（travelToArea effect）视 allowDuringStory 放行。
+   * 门槛链：存在 → 同 Init → 非演出锁定 → 邻接或地图交通 → 可见且解锁。
+   * 剧情声明阻塞移动时禁止玩家手动移动；Story 自身要求移动（travelToArea effect）视 allowDuringStory 放行。
    * checkAdjacency=false：Story 移动不判断拓扑（仍校验同 Init），用于 Talklet 触发跨区移动。
    */
   travelToArea(areaId: AreaId, allowDuringStory = false, checkAdjacency = true): TravelResult {
+    const admission = this.getAreaTravelStatus(areaId, allowDuringStory, checkAdjacency);
+    if (!admission.success) {
+      this.opts.devLog.record(`移动失败：${areaId}`, { source: 'area', level: 'warning', details: admission.error });
+      return admission;
+    }
     const state = this.state;
-    const area = this.opts.registry.areas.get(areaId);
-    if (!area) {
-      this.opts.devLog.record(`移动失败：${areaId}`, { source: 'area', level: 'error', details: 'NotFound' });
-      return { success: false, areaId, error: 'NotFound' };
-    }
-    if (area.initId !== state.activeInit) {
-      this.opts.devLog.record(`移动失败：${area.name} 不属于当前世界线`, { source: 'area', level: 'warning', details: 'NotInThisInit' });
-      return { success: false, areaId, error: 'NotInThisInit' };
-    }
-
-    if (!allowDuringStory && this.opts.storyService.isBlockingMovement()) {
-      this.opts.devLog.record(`移动失败：${area.name} 剧情演出中禁止移动`, {
-        source: 'area',
-        level: 'warning',
-        details: 'StoryBlocked',
-      });
-      return { success: false, areaId, error: 'StoryBlocked' };
-    }
-
-    const fromAreaId = state.currentAreaId ?? null;
-    if (fromAreaId === areaId) {
-      return { success: false, areaId, error: 'AlreadyThere' };
-    }
-    if (checkAdjacency && fromAreaId !== null) {
-      if (!this.opts.getReachableAreaIds(fromAreaId).includes(areaId)) {
-        this.opts.devLog.record(`移动失败：${area.name} 与当前位置不相邻`, { source: 'area', level: 'warning', details: 'NotAdjacent' });
-        return { success: false, areaId, error: 'NotAdjacent' };
-      }
-    }
-    if (!this.opts.visibilityEngine.isAreaVisible(areaId, state)) {
-      this.opts.devLog.record(`移动失败：${area.name} 尚未开放`, { source: 'area', level: 'warning', details: 'Locked' });
-      return { success: false, areaId, error: 'Locked' };
-    }
+    const area = this.opts.registry.areas.get(areaId)!;
+    const fromAreaId = admission.fromAreaId;
 
     this.opts.storyService.clearPassiveIfPlaying();
 
@@ -359,7 +338,54 @@ export class InitService {
     this.opts.affectorEngine.recheckAll();
     this.opts.milestoneAdapter.reconcileCurrent();
     this.opts.devLog.record(`已移动到 ${area.name}`, { source: 'area', level: 'success' });
-    return { success: true, areaId, fromAreaId };
+    return { success: true, areaId, fromAreaId, ...(admission.method && admission.method !== 'adjacent' ? { method: admission.method } : {}) };
+  }
+
+  /** Read-only admission snapshot. The command reruns this exact chain before effects. */
+  getAreaTravelStatus(areaId: AreaId, allowDuringStory = false, checkAdjacency = true): TravelResult {
+    return this.createAreaTravelQuery(allowDuringStory, checkAdjacency)(areaId);
+  }
+
+  /** Navigation includes direct exits (including locked ones) and explored-route destinations. */
+  reachableAreaIds(): string[] {
+    const state = this.state, graph = this.opts.getAreaGraph();
+    const direct = state.currentAreaId ? graph.neighbours(state.currentAreaId) : [];
+    return [...new Set([...direct, ...buildAreaTravelRoutes(graph, state, this.opts.conditionSystem).keys()])];
+  }
+
+  /** A fresh domain snapshot for one Map/UI batch; the command creates a new one at commit time. */
+  createAreaTravelQuery(allowDuringStory = false, checkAdjacency = true): (areaId: AreaId) => TravelResult {
+    const state = this.state;
+    const routes = checkAdjacency ? buildAreaTravelRoutes(this.opts.getAreaGraph(), state, this.opts.conditionSystem) : undefined;
+    return areaId => this.checkAreaTravel(areaId, allowDuringStory, routes);
+  }
+
+  private checkAreaTravel(areaId: AreaId, allowDuringStory: boolean, routes?: ReadonlyMap<string, 'adjacent' | 'visited' | 'transit'>): TravelResult {
+    const state = this.state;
+    const area = this.opts.registry.areas.get(areaId);
+    if (!area) {
+      return { success: false, areaId, error: 'NotFound' };
+    }
+    if (area.initId !== state.activeInit) {
+      return { success: false, areaId, error: 'NotInThisInit' };
+    }
+
+    if (!allowDuringStory && this.opts.storyService.isBlockingMovement()) {
+      return { success: false, areaId, error: 'StoryBlocked' };
+    }
+
+    const fromAreaId = state.currentAreaId ?? null;
+    if (fromAreaId === areaId) {
+      return { success: false, areaId, error: 'AlreadyThere' };
+    }
+    if (!this.opts.visibilityEngine.isAreaVisible(areaId, state) ||
+      !unlockMet(area.revealTriggers, condition => this.opts.conditionSystem.evaluateExpr(condition, state))) {
+      return { success: false, areaId, error: 'Locked' };
+    }
+    const method = routes?.get(areaId);
+    if (routes && fromAreaId !== null && !method) return { success: false, areaId, error: 'NotAdjacent' };
+
+    return { success: true, areaId, fromAreaId, ...(method ? { method } : {}) };
   }
 
   purchaseInit(initId: string): InitPurchaseResult {

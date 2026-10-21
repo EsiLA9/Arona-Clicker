@@ -5,10 +5,12 @@
 // ============================================================
 
 import { enhPurchaseErrorText, travelErrorText, itemUseErrorText } from './components/errors';
+import { storyErrorText } from './components/story';
 import type { UIController } from './controller';
 import { createInventoryWorkspaceState, deriveInventoryRows, type InventoryWorkspaceState } from './inventory-view';
 import { createUIContext } from './context';
 import type { PaymentOptionView } from '../arona-clicker/services/payment-service';
+import { getForegroundInteractionStatus } from './workspace/foreground-interaction';
 
 function inventoryWorkspace(ctrl: UIController): InventoryWorkspaceState {
   return ctrl.panelState.inventoryWorkspace ??= createInventoryWorkspaceState();
@@ -264,6 +266,7 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
   bindInventoryWorkspaceActions(ctrl, scope);
   scope.querySelectorAll<HTMLButtonElement>('[data-area-workspace-open]').forEach(button => {
     button.addEventListener('click', () => {
+      if (!getForegroundInteractionStatus(ctrl.game, ctrl.panelState, 'openAreaOverview', { confirmation: ctrl.modal.isOpen() }).allowed) return;
       const areaId = button.dataset.areaWorkspaceOpen;
       if (!areaId || ctrl.game.getView().currentAreaId !== areaId) return;
       const currentRoute = ctrl.panelState.workspaceNavigation?.current;
@@ -275,6 +278,37 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
   scope.querySelectorAll<HTMLButtonElement>('[data-area-workspace-leave]').forEach(button => {
     button.addEventListener('click', () => {
       if (ctrl.returnFromAreaWorkspace()) ctrl.render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-area-story-accept]').forEach(button => {
+    button.addEventListener('click', () => {
+      const storyEntryId = button.dataset.areaStoryAccept;
+      const route = ctrl.panelState.workspaceNavigation?.current;
+      const currentAreaId = ctrl.game.getView().currentAreaId;
+      if (!storyEntryId || route?.kind !== 'area' || route.areaId !== currentAreaId) return;
+      const delivery = ctrl.game.story.getAreaStoryDeliveries(route.areaId)
+        .find(candidate => candidate.entryId === storyEntryId);
+      if (!delivery) {
+        ctrl.toast.show('这条区域故事已无法接取，请返回区域列表后重试', 'error');
+        return;
+      }
+
+      const result = ctrl.commands.acceptAreaStoryDelivery(storyEntryId, route.areaId);
+      if (!result.success) {
+        ctrl.game.devLog.record(`区域故事接取失败：${storyErrorText[result.error] ?? result.error}`, {
+          source: 'story',
+          level: 'warning',
+          details: result.error,
+        });
+        ctrl.toast.show(`接取失败：${storyErrorText[result.error] ?? result.error}`, 'error');
+        return;
+      }
+
+      ctrl.panelState.conversationVariantId = delivery.owner;
+      ctrl.deliverPendingRewardsBeforeStory();
+      if (!ctrl.returnFromAreaWorkspaceForStory(delivery.owner)) return;
+      ctrl.render();
+      ctrl.scroll.forceToBottom();
     });
   });
   // 背包 / 区域 / 强化 / 升级

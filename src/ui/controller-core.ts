@@ -49,6 +49,7 @@ export function computeRevealFingerprint(ctrl: UIController): string {
  * 重算揭示指纹，与上次不同才重建 UI（无需玩家交互）。
  */
 export function refreshRevealIfChanged(ctrl: UIController): void {
+  if (ctrl.areaMaps.refresh()) return;
   if (!ctrl.started) return;
   if (ctrl.isContentRefreshBatchActive()) return;
   const now = Date.now();
@@ -108,9 +109,10 @@ export function refreshAchievementRows(ctrl: UIController): void {
  * 这样聊天流等区域的滚动位置与交互不受 Tick 干扰。
  */
 export function refreshLight(ctrl: UIController): void {
+  const areaMapActive = ctrl.areaMaps.refresh();
   refreshAchievementRows(ctrl);
   // 兜底：奖励/移动通知排队后若没有后续聊天刷新，由下一 Tick 补一次聊天范围刷新
-  if (ctrl.pendingRewardChats.length > 0 || ctrl.pendingTravelChats.length > 0) {
+  if (!areaMapActive && (ctrl.pendingRewardChats.length > 0 || ctrl.pendingTravelChats.length > 0)) {
     if (!ctrl.notificationFallbackRendered) {
       ctrl.notificationFallbackRendered = true;
       ctrl.refreshChatPanel();
@@ -139,6 +141,7 @@ export function destroy(ctrl: UIController): void {
  * 都回到一致的默认页面（左=区域、中=聊天、右=Spot），聊天流清空。
  */
 export function resetSessionPanel(ctrl: UIController): void {
+  ctrl.areaMaps.release();
   ctrl.panelState.workspaceNavigation = createWorkspaceNavigation();
   ctrl.panelState.leftTab = 'area';
   ctrl.panelState.centerTab = 'chat';

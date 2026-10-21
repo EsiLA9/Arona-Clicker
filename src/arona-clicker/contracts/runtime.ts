@@ -9,6 +9,7 @@ import type { RollSummary } from '../services/gacha-service';
 import type { SaveData } from './save-data';
 import type { DevLogEntry } from '../../engine/core/dev-log';
 import type { ContentCatalogQueryPort } from './content-catalog';
+import type { AreaMapQueryPort } from './area-map-query';
 import type { RuntimeContentBrowserQueryPort } from '../../data-services/contracts/runtime-content-browser';
 import type { ValueQueryPort } from './value-query';
 import type { ConditionQueryPort } from './condition-query';
@@ -37,6 +38,7 @@ import type { Datapack } from '../../data-services/contracts/datapack';
 import type { AchievementViewItem } from '../read-model/achievement-view';
 import type { OperationObservation } from './operation-observation';
 import type { OperationViewQuery } from './operation-view';
+import type { MapEntryView } from './map-entry';
 import type {
   MapRun,
   MapRunActionOverride,
@@ -172,6 +174,7 @@ export interface RuntimeInitDraft {
 }
 
 export interface RuntimeAreaDraft {
+  readonly navigationMapId?: string;
   readonly idName: string;
   readonly initId: string;
   readonly name: string;
@@ -255,6 +258,7 @@ export interface RuntimeModApplyResult {
 
 /** UI 可读取的 AronaClicker 运行时快照与查询能力。 */
 export interface GameReadModel {
+  readonly areaMap: AreaMapQueryPort;
   readonly state: Readonly<PlayerState>;
   readonly registry: ContentCatalogQueryPort;
   /** 当前 Registry 的只读有效内容图鉴；不包含 PackCatalog / 编辑态 Draft。 */
@@ -285,6 +289,10 @@ export interface GameReadModel {
   getView(): GameView;
   getAchievementView(): readonly AchievementViewItem[];
   availableAreaIds(areaId: string): string[];
+  /** Current navigation destinations: direct exits and valid explored routes. */
+  reachableAreaIds(): string[];
+  /** Pure snapshot of normal player travel admission; never performs travel. */
+  getAreaTravelStatus(areaId: string): TravelResult;
   getStoryView(owner: string): StoryView | null;
   getDevLogs(): readonly DevLogEntry[];
   getOperationObservations(options?: { readonly limit?: number }): readonly OperationObservation[];
@@ -537,6 +545,8 @@ export type MapRunWorkspaceView = MapRunActiveWorkspaceView | MapRunSuccessWorks
 
 /** Read-only facade over the GameInstance-owned MapRunService. */
 export interface MapRunQuery {
+  /** Detached, read-only preview for the explicit pre-entry / re-entry workspace. */
+  getEntryView(mapId: string): MapEntryView;
   getCards(runId: string): readonly MapRunCardInstance[];
   resolveCardReference(ref: MapRunCardRef): MapRunCardInstance | null;
   /** Hypothetical replacement, validated by the Owner without changing the draft. */
@@ -561,6 +571,7 @@ export interface GameCommands {
   save(): SaveData;
   load(saveData: SaveData): void;
   startActiveStory(storyId: string, owner?: string | null): StoryStartResult;
+  acceptAreaStoryDelivery(storyEntryId: string, areaId: AreaId): StoryStartResult;
   startCardStory(storyId: string, owner?: string | null): StoryStartResult;
   replayStory(storyId: string, owner?: string | null): StoryStartResult;
   triggerPassiveStory(initId?: string, owner?: string | null): StoryStartResult;

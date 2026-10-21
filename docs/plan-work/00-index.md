@@ -8,15 +8,25 @@
 
 ## 当前推进
 
+- [[docs/plan-work/draft-0311-gameplay-b-maprun-engine-integration-investigation]]：draft；当前检出只读调查完成，覆盖 MapRun 本体、外部引擎接线、测试证据与后续分期；完整结论见 [[docs/plan-work/report-0311-gameplay-b-maprun-engine-integration-investigation]]，玩法合同与实施 Task 待后续裁定。
+
+- [[docs/plan-work/task-0309-maprun-staging-and-reentry-workspace]]：proposed；已调查 MapRun 开始／继续、固定队伍准入、局内状态与保存恢复，提出行前／续行准备页、只读队伍和资源信息及入口—现场返回方案；V1 不实现选队，本轮只交接 Task，等待实施。
+
+
 - [[docs/plan-work/task-0306-area-hero-workspace-and-story-entry]]：proposed，等待其他模型执行；正常游戏 area-hero 进入区域 Workspace，中／右栏联动，统一信息概览、区域故事、主动故事与事项提醒入口，原“故事”收敛为历史重播；进入门控与右上角提示小标的细则在 P0 核实并裁定。
+- [[docs/plan-work/task-0308-active-story-area-delivery]]：implementation complete；FollowUp 与 9 个仅依赖故事目录开放的 ActiveStoryEntry 投递到当前 Area，故事页仅保留已完成历史；本次扩展通过类型检查，行为测试未重跑，宽屏体验待确认。
 
-- [[docs/plan-work/task-0305-init-global-enhancement-node-graph-investigation]]：implementation complete；核对 Init / GlobalEnhancement 数据、揭示与命令边界后，已删除双面轮盘并改为单一轴测节点图谱 + 右侧独立工作台；节点 / 连线只作呈现，可见性、拥有、活动态与购买 / 进入 / 移除仍来自既有 RevealStage、只读投影与 GameCommands，未新增存档字段或图边授权规则。
 
-- [[docs/plan-work/task-0304-node-graph-spatial-presentation]]：implementation complete, verification pending；固定轴测网格按视口延展且每 5 格加深、节点拖拽 / 观察平移、10%–1000% 滑杆 / 光标锚定滚轮缩放、低倍率节点简化、z 按平面倍率变化量的 25% 响应并在 100% 精确还原、平面投影虚线关系、正负高度 / 实际航道、固定逻辑坐标的无底板母图星座、D / X 共通入口与同帧更新的跨图链接已实现；母图连通节点总数可调，星座保持原 x/y 构图并以 y 向偏移展示高度，主图和子图新增至 10 / 6 个预设节点，并支持双向、单向与不参与探索的虚拟链接；母图范围按弱连通关系纳入单向边两端、排除虚拟边，比例尺与子图完全相同且不按内容范围拟合；浏览器验收待补。
+## 本轮归档（2026-10-21）
 
-- [[docs/plan-work/task-0303-node-graph-demo-visual-polish]]：completed；桌面视觉增强与世界线偏移表现，提供偏移叠层 / 分歧轨迹 / 相位对照三种可切换方案，保持探索规则；不做手机适配；三种方案与对照已实现并验证。
+- [[docs/plan-work/archive/task-0310-area-map-navigation-service-v1]]：completed；独立 areaMaps 装载与脱敏查询、共享旅行准入、三栏浏览/历史/相机、显式移动与生命周期已实现并通过宽屏浏览器验收；新增 49 项测试通过，最终跨域回归另有 5 个并行 Story 断言失败，见最终 Receipt。
 
-- [[docs/plan-work/task-0302-standalone-node-graph-ui-demo]]：completed；TypeScript 独立节点探索与子图导航 UI Demo 已实现并装配到根工具台与 Vite 构建，定向类型检查、构建、preview 与 17 步浏览器验收通过；是否适合未来产品待使用者体验后裁定，不接入游戏业务。
+- [[archive/task-0302-standalone-node-graph-ui-demo]]：completed；TypeScript 独立节点探索与子图导航 UI Demo 已实现并装配到根工具台与 Vite 构建，定向类型检查、构建、preview 与 17 步浏览器验收通过；是否适合未来产品待使用者体验后裁定，不接入游戏业务。
+- [[archive/task-0303-node-graph-demo-visual-polish]]：completed；桌面视觉增强与世界线偏移表现，提供偏移叠层 / 分歧轨迹 / 相位对照三种可切换方案，保持探索规则；不做手机适配；三种方案与对照已实现并验证。
+- [[archive/task-0304-node-graph-spatial-presentation]]：implementation complete, verification pending；保留原有轴测网格、节点交互、空间关系与主 / 子图表现记录；浏览器验收待补，归档不代表验收完成。
+- [[archive/task-0305-init-global-enhancement-node-graph-investigation]]：implementation complete；核对 Init / GlobalEnhancement 数据、揭示与命令边界后，已删除双面轮盘并改为单一轴测节点图谱 + 右侧独立工作台；节点 / 连线只作呈现，可见性、拥有、活动态与购买 / 进入 / 移除仍来自既有 RevealStage、只读投影与 GameCommands，未新增存档字段或图边授权规则。
+
+2026-10-21 按请求将 Task 0302–0305 移入 `archive/`；正文末态保留，归档不改变完成或验收状态。
 
 2026-10-19 已将 `docs/plan-work/` 根目录的 Gameplay B Task、Draft、Report 及拆分的 Patch Unit / Receipt 整批冻结归档；未完成事项保留原状态与待续范围，归档不代表结项。后续恢复时先核对当前源码与测试，再另立或更新活动 Task。
 

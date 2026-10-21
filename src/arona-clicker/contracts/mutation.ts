@@ -1,5 +1,5 @@
 import type { StateMutationPort } from '../../engine/contracts/mutation';
-import type { CompletedStory } from '../types/story-state';
+import type { AreaStoryDelivery, CompletedStory } from '../types/story-state';
 import type { CharaCustomOverride } from '../types/chara-profile';
 import type { PlayerState } from '../types/state';
 
@@ -62,7 +62,8 @@ export interface CharacterProfileMutationPort extends StateMutationHostPort {
 }
 
 export interface StoryMutationPort extends StateMutationHostPort {
-  completeStory(story: CompletedStory): void;
+  completeStory(story: CompletedStory, sourceEntryId?: string): void;
+  createAreaStoryDelivery(delivery: Omit<AreaStoryDelivery, 'status'>): boolean;
   recordStoryRead(storyId: string, talkletIndex: number, choiceIndex?: number): void;
   setPassiveCooldowns(cooldowns: Record<string, number>): void;
   setStudentBlock(variantId: string, entryId: string): void;

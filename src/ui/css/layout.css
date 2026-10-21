@@ -352,6 +352,12 @@ h3 {
 .workspace-column__slot > .workspace-column__body { height: 100%; }
 .workspace-column__body > .panel { display: flex; flex-direction: column; height: 100%; }
 .workspace-column__body > .panel > .panel-body { min-height: 0; flex: 1 1 auto; }
+.area-workspace .workspace-column__body { min-height: 0; overflow: hidden; padding: 0; }
+.area-workspace__center-content { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--panel-region-gap); min-width: 0; min-height: 0; overflow: auto; padding: var(--panel-content-padding); }
+.area-workspace__overview { display: grid; gap: 8px; }
+.area-workspace__overview h2 { margin: 0; color: var(--theme-node-text, var(--ink-on-panel)); font-size: 18px; }
+.area-workspace__overview p { max-width: 34em; margin: 0; color: var(--muted-on-panel); line-height: 1.7; }
+.area-workspace__empty { margin: 0; color: var(--muted-on-panel); line-height: 1.6; }
 
 .contacts-workspace .workspace-column,
 .story-workspace .workspace-column { position: relative; isolation: isolate; }

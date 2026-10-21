@@ -72,3 +72,21 @@ export const baseStoryHierarchy: StoryContentTable = {
     { id: 'club', name: '社团故事', parts: [] },
   ],
 };
+
+/**
+ * Entries whose only first-play entrance is the Story hierarchy.
+ * When their existing availability conditions become true, the runtime delivers them
+ * to the Area the player is currently visiting. Entries with Init / FollowUp / card
+ * activation paths are intentionally excluded.
+ */
+export const baseStoryPageOnlyEntryIds = [
+  'base:activestory:schale_flow_show',
+  'base:activestory:schale_theme_lite_test',
+  'base:activestory:abydos_welcome',
+  'base:activestory:millennium_welcome',
+  'base:activestory:millennium_game_crisis',
+  'base:activestory:serika_side_1',
+  'base:activestory:serika_side_2',
+  'base:activestory:run_chain_2',
+  'base:activestory:run_chain_3',
+] as const;

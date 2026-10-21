@@ -8,7 +8,7 @@
 
 通过一套简洁、统一的坐标投影，让使用者看清当前网络的空间层次，以及子图从母图的哪个共通入口展开。复用现有节点、拓扑、探索进度与交互流程，不重建图系统，不接入正式游戏业务。
 
-本 Task 承接 [[docs/plan-work/task-0303-node-graph-demo-visual-polish]] 的当前实现。继续只面向桌面浏览器，以 1440×900 和 1280×800 核对，保持可删除 Demo 的规模，不做手机适配。
+本 Task 承接 [[docs/plan-work/archive/task-0303-node-graph-demo-visual-polish]] 的当前实现。继续只面向桌面浏览器，以 1440×900 和 1280×800 核对，保持可删除 Demo 的规模，不做手机适配。
 
 ## 本轮裁定与前序方案的关系
 
@@ -232,4 +232,4 @@ planePoint = project(x, y, 0)
 
 ## 相关路由
 
-[[docs/plan-work/00-index]] · [[docs/plan-work/task-0303-node-graph-demo-visual-polish]] · [[docs/ai/goal-workflow]] · [[docs/ai/galhcg-project-map]] · [[docs/ai/context-packs/ui-presentation]]
+[[docs/plan-work/00-index]] · [[docs/plan-work/archive/task-0303-node-graph-demo-visual-polish]] · [[docs/ai/goal-workflow]] · [[docs/ai/galhcg-project-map]] · [[docs/ai/context-packs/ui-presentation]]

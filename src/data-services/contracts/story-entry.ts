@@ -37,5 +37,7 @@ export interface PassiveStoryEntry extends StoryEntryBase {
   type: 'passive'; repeatable: boolean; weight: number; completionReward?: { first?: Effect[]; repeat?: Effect[] };
   owner?: string; affectionRequired?: number; pushAfterStory?: string; cooldownFrames?: number;
   block?: ConditionGroup; interruptible?: boolean; leaveArea?: boolean;
+  /** 阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。 */
+  blocksInteraction?: boolean;
 }
 export type StoryEntryDef = ActiveStoryEntry | PassiveStoryEntry;

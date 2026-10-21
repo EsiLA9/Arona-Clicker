@@ -35,6 +35,12 @@ export interface AreaConnectionDef {
   toAreaId: AreaId;
   direction?: 'oneWay' | 'twoWay';
 }
+/** 实际交通网络；Active 期间成员之间存在双向交通连接，不依赖地图是否可见。 */
+export interface AreaTransitNetworkDef {
+  name: string;
+  /** @ref areas */
+  areaIds: AreaId[];
+}
 /** 当前活跃连接及其提供来源；同一条边可有多个来源。 */
 export interface ActiveAreaConnection extends AreaConnectionDef {
   source: {
@@ -44,7 +50,7 @@ export interface ActiveAreaConnection extends AreaConnectionDef {
     mountEntityId: string;
   };
 }
-export interface AffectorEffect { id: string; condition?: ConditionGroup; effects: Effect[]; perTickEffects?: Effect[]; flows?: AffectorFlow[]; zoneModifiers?: ZoneModifierDecl[]; areaConnections?: AreaConnectionDef[]; }
+export interface AffectorEffect { id: string; condition?: ConditionGroup; effects: Effect[]; perTickEffects?: Effect[]; flows?: AffectorFlow[]; zoneModifiers?: ZoneModifierDecl[]; areaConnections?: AreaConnectionDef[]; areaTransitNetworks?: AreaTransitNetworkDef[]; }
 export interface AffectorPackDef {
   /** @label ID */
   id: string;

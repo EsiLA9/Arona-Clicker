@@ -179,6 +179,8 @@ export const AREA_CONTENT_POLICY: ContentAuthoringPolicy = {
   fields: [
     { key: 'idName', label: 'Area ID 名', kind: 'entityName', section: 'basics' },
     { key: 'initId', label: '所属 Init', kind: 'ref', refType: 'init', section: 'basics' },
+    { key: 'navigationMapId', label: '区域导航图', kind: 'ref', refType: 'area-map', required: false, section: 'basics' },
+    { key: 'quickPassage', label: '允许快速路线通过', kind: 'boolean', required: false, section: 'basics' },
     { key: 'name', label: '名称', kind: 'nonEmptyString', section: 'basics' },
     { key: 'description', label: '描述', kind: 'string', section: 'basics' },
   ],
@@ -187,6 +189,8 @@ export const AREA_CONTENT_POLICY: ContentAuthoringPolicy = {
     reloadMaterialization('idName', ['registry-record'], 'none'), reloadMaterialization('initId', ['registry-record', 'area-index', 'init-scope']),
     reloadMaterialization('name', ['ui-dynamic'], 'none'), reloadMaterialization('description', ['ui-dynamic'], 'none'),
     reloadMaterialization('defaultSpots', ['registry-record', 'spot-service']), reloadMaterialization('topology', ['registry-record', 'ui-dynamic'], 'index'),
+    reloadMaterialization('navigationMapId', ['registry-record', 'ui-dynamic'], 'none'),
+    reloadMaterialization('quickPassage', ['registry-record', 'ui-dynamic'], 'none'),
     reloadMaterialization('tags', ['registry-record', 'game-num']), reloadMaterialization('revealTriggers', ['registry-record', 'visibility'], 'index'),
   ], state: 'retain', unsupportedFieldHint: 'enterEffects、theme 与 extra 暂不开放编辑；它们需要独立的 DSL / 表现层回写协议',
   mutate(registry, request): AuthoringMutationReceipt {

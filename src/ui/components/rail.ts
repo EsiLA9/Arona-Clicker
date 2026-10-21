@@ -1,6 +1,6 @@
 import { UIContext } from '../context';
 import { renderPanelTabsRegion, TabDef } from './tabs';
-import { getAreaReveal, getStoryReveal, describeCondition } from './tooltip';
+import { getAreaReveal, getStoryReveal } from './tooltip';
 import type { ActiveStoryEntry } from '../../data-services/contracts/story-entry';
 import type { StoryDef } from '../../data-services/contracts/story';
 import type { PanelState } from './app-shell';
@@ -15,6 +15,7 @@ import {
   StoryContentItem,
 } from '../../arona-clicker/content/story-hierarchy';
 import { resolveEntityPresentation, renderEntityPresentationOptions } from './entity-presentation';
+import { getForegroundInteractionStatus } from '../workspace/foreground-interaction';
 
 export const LEFT_TABS: TabDef[] = [
   { id: 'area', label: '区域' },
@@ -27,7 +28,7 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
   // the area body; their tab buttons remain route affordances handled by the
   // controller, never a second page identity inside Game.
   const tab = 'area';
-  const body = renderAreaTab(ctx);
+  const body = renderAreaTab(ctx, panelState);
   return `
     <aside class="ui-cluster ui-cluster--left-panel panel left-panel presentation-host-target" ${renderPresentationHostGeometryStyle(ctx, `leftPanel.${tab}`)} data-game-panel="left" data-theme-scope="left.${tab}" data-theme-host-id="leftPanel.${tab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`leftPanel.${tab}`)}">
       ${renderBackground(ctx.backgroundForHost(`leftPanel.${tab}`), 'console-panel-background')}
@@ -36,7 +37,7 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
     </aside>`;
 }
 
-function renderAreaTab(ctx: UIContext): string {
+function renderAreaTab(ctx: UIContext, panelState: PanelState): string {
   const { game, view } = ctx;
   const init = game.world.inits.get(view.activeInit);
   const currentAreaId = view.currentAreaId;
@@ -44,11 +45,16 @@ function renderAreaTab(ctx: UIContext): string {
   const currentPresentation = currentArea ? resolveEntityPresentation(ctx, 'area', currentArea.id) : undefined;
   const areaName = currentPresentation?.name ?? currentArea?.name ?? '—';
   const areaDescription = currentPresentation?.description ?? currentArea?.description ?? init?.description ?? '';
+  const interactionBlocked = !getForegroundInteractionStatus(game, panelState, 'openAreaOverview').allowed;
+  const mapEntry = currentArea ? game.areaMap?.getEntryView(currentArea.id) : undefined;
+  const mapRouteAllowed = !panelState.workspace && (!panelState.workspaceNavigation || panelState.workspaceNavigation.current.kind === 'game');
+  const mapButton = mapEntry && mapEntry.ready
+    ? `<button type="button" class="area-map-entry" data-area-map-open="${ctx.escapeHtml(currentArea!.id)}"${interactionBlocked || !mapRouteAllowed || panelState.areaMapSession ? ' disabled' : ''}>区域地图</button>` : '';
 
   // hero 横幅
   const hero = currentArea
     ? `<div class="area-hero">
-        <button type="button" class="area-hero__open" data-area-workspace-open="${ctx.escapeHtml(currentArea.id)}" aria-label="打开区域工作区：${ctx.escapeHtml(areaName)}">
+        <button type="button" class="area-hero__open" data-area-workspace-open="${ctx.escapeHtml(currentArea.id)}" aria-label="打开区域工作区：${ctx.escapeHtml(areaName)}"${interactionBlocked ? ' disabled aria-disabled="true" title="剧情进行中，暂不可打开区域工作区"' : ''}>
           <h2>${ctx.escapeHtml(areaName)}</h2>
           <p>${ctx.escapeHtml(areaDescription)}</p>
         </button>
@@ -58,24 +64,20 @@ function renderAreaTab(ctx: UIContext): string {
         : ''}`
     : `<div class="area-hero"><h2>${ctx.escapeHtml(areaName)}</h2><p>${ctx.escapeHtml(areaDescription)}</p></div>`;
 
-  // 可前往区域 = 统一可达性查询：静态拓扑 + Runtime Overlay + Affector 动态连接
+  // 可前往区域包含直接出口与沿已探索拓扑能够抵达的地点。
   const adjacent = currentArea
-    ? game.availableAreaIds(currentArea.id).filter(areaId => game.world.areas.get(areaId)?.initId === view.activeInit)
+    ? game.reachableAreaIds().filter(areaId => game.world.areas.get(areaId)?.initId === view.activeInit)
     : [];
   // 非 passive 剧情演出进行中禁止移动（演出锁定）
-  const storyLocked = view.currentStory !== null && view.currentStory.type !== 'passive';
-  const reachableRows = adjacent.map(areaId => renderAreaNavItem(ctx, areaId, 'reachable')).join('');
-  const currentRow = currentArea
-    ? renderAreaNavItem(ctx, currentArea.id, 'current')
-    : '<div class="nav-item"><span class="nav-marker"></span><span>未进入</span><small>—</small></div>';
+  const storyLocked = game.story.isBlockingMovement();
+  const reachableRows = adjacent.map(areaId => renderAreaNavItem(ctx, areaId)).join('');
 
   return `
     ${hero}
-    <div class="nav-sub">当前位置</div>
-    ${currentRow}
+    ${mapButton}
     <div class="nav-sub">可前往区域</div>
-    ${reachableRows || '<div class="nav-item"><span class="nav-marker"></span><span>无可达区域</span><small>—</small></div>'}
-    <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>${storyLocked ? '剧情演出中，暂不可移动区域。' : '点击可前往的区域即可移动；锁定区域需满足条件后才会开放。'}</p></div>`;
+    ${reachableRows || '<div class="nav-item"><span class="nav-marker"></span><span>暂无可达区域</span><small>—</small></div>'}
+    <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>${storyLocked ? '剧情演出中，暂不可移动区域。' : '点击区域即可前往；已探索地点会沿当前有效通路尽量连通。'}</p></div>`;
 }
 
 /** StoryWorkspace 与 Game 旧左栏共用故事导航内容，但不共用 Workspace 身份。 */
@@ -86,24 +88,13 @@ export function renderStoryNavigation(ctx: UIContext, path: string[]): string {
     <div class="story-nav-body">${renderStoryLevel(ctx, hierarchy, path)}</div>`;
 }
 
-export type AreaNavKind = 'current' | 'reachable';
-
 /** 生成单个区域导航项，供元素级揭示刷新复用。 */
-export function renderAreaNavItem(ctx: UIContext, areaId: string, kind: AreaNavKind): string {
+export function renderAreaNavItem(ctx: UIContext, areaId: string): string {
   const { game, view } = ctx;
   const area = game.world.areas.get(areaId);
   if (!area) return '';
-  if (kind === 'current') {
-    const spotCount = game.world.spotsOfArea(area.id).length;
-    const owned = game.world.spotsOfArea(area.id).filter(id => (view.spotLevels[id] ?? 0) > 0).length;
-    const presentation = resolveEntityPresentation(ctx, 'area', area.id);
-    return `
-      <button class="nav-item area-nav active hover-wrap" data-ui-area-nav="current:${area.id}" data-ui-area-nav-kind="current" data-area="${area.id}" data-tooltip="area:${area.id}" aria-disabled="true">
-        <span class="nav-marker"></span><span>${ctx.escapeHtml(presentation?.name ?? area.name)}</span><small>${owned}/${spotCount} 启用</small>
-      </button>`;
-  }
   const visible = view.visibility.areas[area.id] ?? false;
-  const storyLocked = view.currentStory !== null && view.currentStory.type !== 'passive';
+  const storyLocked = game.story.isBlockingMovement();
   const reveal = getAreaReveal(ctx, area);
   const presentation = resolveEntityPresentation(ctx, 'area', area.id);
   const name = reveal.nameKnown ? (presentation?.name ?? area.name) : '未知区域';
@@ -232,7 +223,7 @@ function isEntryAvailable(ctx: UIContext, entryId: string): boolean {
   const entry = ctx.game.registry.activeStories.get(entryId);
   if (!entry) return false;
   if (entry.availableInits.length > 0 && !entry.availableInits.includes(ctx.view.activeInit)) return false;
-  return true;
+  return ctx.view.storyLog.some(record => record.storyId === entry.storyId);
 }
 
 /** 解析当前路径下应展示的故事条目 HTML。 */
@@ -248,7 +239,6 @@ function resolveItemsAt(ctx: UIContext, h: StoryContentTable, path: string[]): s
     items = availableItemsInPart(ctx, part);
   }
 
-  const hasActiveStory = view.currentStory !== null && view.currentStory.type === 'active';
   const activeStoryId = view.currentStory?.storyId ?? null;
 
   const rows = items.map(item => {
@@ -256,41 +246,18 @@ function resolveItemsAt(ctx: UIContext, h: StoryContentTable, path: string[]): s
     if (!entry) return '';
     const story = game.registry.stories.get(entry.storyId);
     if (!story) return '';
-    const reveal = getStoryReveal(ctx, entry);
-    const completed = view.storyLog.some(s => s.storyId === story.id);
     const isRunning = activeStoryId === item.entryId;
-    const storyLocked = hasActiveStory && !isRunning;
     // 重读策略：内容项显式声明优先，否则回退 entry.replayable
     const replayable = item.replayable ?? entry.replayable === true;
 
-    let status: string;
-    let button = '';
-    if (completed) {
-      status = '<small class="story-done">✓ 已完成</small>';
-      if (replayable && !isRunning) {
-        button = `<button data-replay-story="${item.entryId}" class="story-trigger">重读</button>`;
-      }
-    } else if (isRunning) {
-      status = '<small class="story-active">● 进行中</small>';
-    } else if (storyLocked) {
-      status = '<small class="story-locked">🔒 演出中</small>';
-    } else if (reveal.stage === 'owned') {
-      status = '<small class="story-done">✓ 已完成</small>';
-    } else if (reveal.conditionKnown) {
-      const condText = entry.triggerCondition
-        ? describeCondition(entry.triggerCondition, ctx.nameOf)
-        : '无条件';
-      status = `<small class="story-cond">${ctx.escapeHtml(condText)}</small>`;
-      if (reveal.stage === 'purchaseable') {
-        button = `<button data-start-story="${item.entryId}" class="story-trigger">进入故事</button>`;
-      } else {
-        button = '<small class="story-locked">条件不足</small>';
-      }
-    } else {
-      status = '<small class="story-locked">条件未知</small>';
-    }
+    const status = isRunning
+      ? '<small class="story-active">● 重读中</small>'
+      : '<small class="story-done">✓ 已完成</small>';
+    const button = replayable && !isRunning
+      ? `<button data-replay-story="${item.entryId}" class="story-trigger">重读</button>`
+      : '';
 
-    const name = reveal.nameKnown ? (item.name ?? story.name) : '???';
+    const name = getStoryReveal(ctx, entry).nameKnown ? (item.name ?? story.name) : '???';
     return `
       <div class="nav-item story-entry ${isRunning ? 'active' : ''}">
         <span class="nav-marker"></span>

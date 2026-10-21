@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 // ============================================================
 // story-gate.test.ts — 剧情入口确认浮层 + 开幕标题横幅（集成）
-// 覆盖：kizuna 卡片 / 故事栏条目点击 → 浮层出现且剧情未启动；
-//   确认 → 按 mode 启动；取消 → 关闭未启动；横幅渲染与 3s 自动消失。
+// 覆盖：kizuna 卡片点击 → 浮层出现且剧情未启动；
+//   确认 → 按 mode 启动；故事页旧首次启动动作被拒绝；横幅渲染与 3s 自动消失。
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
@@ -92,17 +92,12 @@ describe('UIController 剧情入口确认浮层', () => {
     expect(game.getStoryView(HOSHINO)).toBeNull();
   });
 
-  it('故事栏条目点击 → 浮层（保留切 tab 行为）；确认后启动 active 剧情', () => {
+  it('旧故事栏首次启动动作不再打开未读 ActiveStoryEntry', () => {
     root.innerHTML = `<button data-start-story="${FLOW_SHOW}"></button>`;
     bindStoryActions(controller);
     root.querySelector<HTMLButtonElement>('[data-start-story]')!.click();
-    expect(panel.centerTab).toBe('chat');
-    expect(panel.storyGate).toEqual({ storyId: FLOW_SHOW, owner: null, mode: 'active' });
+    expect(panel.storyGate).toBeNull();
     expect(game.getView().currentStory).toBeNull();
-    root.querySelector<HTMLButtonElement>('[data-story-gate-confirm]')!.click();
-    expect(game.getView().currentStory?.storyId).toBe(FLOW_SHOW);
-    expect(panel.workspace?.type).toBe('story');
-    expect(panel.workspace?.mode).toBe('playing');
   });
 
   it('故事栏重读点击 → 浮层确认文案为「重新观看」；确认后 replayStory', () => {

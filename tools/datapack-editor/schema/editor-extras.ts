@@ -641,6 +641,10 @@ const affectorEntryObject = (): FieldDef =>
           r('toAreaId', 'areas', '终点区域', { required: true }),
           e('direction', [['oneWay', '单向'], ['twoWay', '双向']], '方向'),
         ], '区域连通'), '区域连通'),
+        alist('areaTransitNetworks', o('$', [
+          s('name', '交通网络名称', { required: true }),
+          alist('areaIds', r('$', 'areas', '区域'), '区域成员'),
+        ], '交通网络'), '交通网络'),
         alist('flows', o('$', [
           s('resource', '资源', { required: true }),
           { key: 'value', label: '值', type: { kind: 'flexible' } },
@@ -1049,6 +1053,9 @@ export interface TableMeta {
 
 /** Editor 表元数据：结构来自 engine defs，编辑语义/复杂结构在此兜底。 */
 export const TABLE_META: TableMeta[] = [
+  { key: 'areaMaps', label: '区域导航图', type: 'AreaMapDef', idField: 'id', overrides: {
+    revealTriggers: () => revealTriggersField(),
+  } },
   {
     key: 'inits',
     label: '世界线',

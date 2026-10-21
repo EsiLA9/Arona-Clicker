@@ -1,0 +1,30 @@
+import { expect, test } from 'vitest';
+import { createAreaMapSession, openAreaMap, previousAreaMap, reconcileAreaMap } from '../../src/ui/workspace/area-map-session';
+import { resolveCurrentWorkspaceRoute, workspaceRouteKey } from '../../src/ui/workspace/workspace-router';
+import type { AreaMapView, AreaMapQueryPort } from '../../src/arona-clicker/contracts/area-map-query';
+const view = (id: string): AreaMapView => ({ id, name: id, revision: id, nameKnown: true, utilityKnown: true, conditionKnown: true, unlocked: true, nodes: [], edges: [] });
+test('A→B→C→A remembers visit order and each map latest camera; self reference adds no history', () => {
+  const s = createAreaMapSession('s', 'init', 'area', view('a'), 0);
+  s.viewports.set('a', { scale: 2, x: 12, y: 30 });
+  for (const id of ['b', 'c', 'a', 'a']) openAreaMap(s, view(id));
+  expect(s.history.map(h => h.mapId)).toEqual(['a', 'b', 'c']);
+  const query = { getView: view } as AreaMapQueryPort;
+  expect(previousAreaMap(s, query)).toBe(true);
+  expect(s.currentMapId).toBe('c');
+  previousAreaMap(s, query); previousAreaMap(s, query);
+  expect(s.viewports.get('a')).toEqual({ scale: 2, x: 12, y: 30 });
+  openAreaMap(s, view('b')); openAreaMap(s, view('a'), true);
+  expect(s.history).toEqual([]);
+  expect(s.viewports.get('a')?.scale).toBe(2);
+});
+test('history skips removed maps and route-only identity retains session', () => {
+  const s = createAreaMapSession('s', 'init', 'area', view('a'), 0);
+  openAreaMap(s, view('b')); openAreaMap(s, view('c'));
+  const query = { getView: (id: string) => id === 'b' ? null : view(id) } as AreaMapQueryPort;
+  expect(previousAreaMap(s, query)).toBe(true);
+  expect(s.currentMapId).toBe('a');
+  const route = { kind: 'area-map', sessionId: 's' } as const;
+  expect(resolveCurrentWorkspaceRoute({ current: route }, { service: 'game' })).toEqual(route);
+  expect(workspaceRouteKey(route)).toBe('area-map:s');
+  expect(reconcileAreaMap(s, { getView: () => null } as unknown as AreaMapQueryPort)).toBe(false);
+});

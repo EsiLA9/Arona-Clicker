@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID, loadDefaultDatapack } from '../../src/app/runtime-bootstrap';
 import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import type { SpotDef } from '../../src/data-services/contracts/world';
@@ -38,9 +38,19 @@ function acquireMapParty(game: GameInstance, characterIds: readonly string[]): v
   }
 }
 
+function finishGlobalStory(game: GameInstance): void {
+  let guard = 0;
+  while (game.getView().currentStory && guard++ < 80) {
+    const result = game.story.advanceStory();
+    if (!result.success && 'error' in result && result.error === 'ChoiceRequired') game.story.advanceStory(0);
+    else if (!result.success) break;
+  }
+}
+
 /** Boots the default Datapack, enters the default Init, and opens the Map entry Spot. */
-async function bootToSpot(mapId: string): Promise<{
+async function bootToSpot(mapId: string, finishStory = true): Promise<{
   game: GameInstance;
+  controller: UIController;
   root: HTMLElement;
   spot: SpotDef;
   functionalityId: string;
@@ -64,6 +74,10 @@ async function bootToSpot(mapId: string): Promise<{
   startInit!.click();
   root.querySelector<HTMLButtonElement>('[data-init-confirm]')!.click();
   await Promise.resolve();
+  if (finishStory) {
+    finishGlobalStory(game);
+    controller.render();
+  }
 
   const entry = [...game.world.spots.values()]
     .flatMap(spot => (spot.functionalities ?? [])
@@ -84,13 +98,14 @@ async function bootToSpot(mapId: string): Promise<{
   const map = game.registry.maps.get(mapId)!;
   acquireMapParty(game, map.partyCharacterIds);
   const entryButton = root.querySelector<HTMLButtonElement>(
-    `[data-map-entry-spot="${spot.id}"][data-map-entry-functionality="${functionalityId}"][data-map-entry-start="${mapId}"]`,
+    `[data-map-entry-spot="${spot.id}"][data-map-entry-functionality="${functionalityId}"][data-map-entry-open="${mapId}"]`,
   )!;
-  return { game, root, spot, functionalityId, entryButton };
+  return { game, controller, root, spot, functionalityId, entryButton };
 }
 
 async function bootMap(mapId: string): Promise<{
   game: GameInstance;
+  controller: UIController;
   root: HTMLElement;
   spot: SpotDef;
   functionalityId: string;
@@ -99,10 +114,24 @@ async function bootMap(mapId: string): Promise<{
   const booted = await bootToSpot(mapId);
   const entryLabel = booted.entryButton.textContent?.trim() ?? '';
   booted.entryButton.click();
+  if (booted.game.mapRun.getSnapshot()) throw new Error('Opening Map preparation must not create a Run.');
+  const start = booted.root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`);
+  if (!start) throw new Error(`Map preparation did not render a start action for "${mapId}"`);
+  start.click();
+  finishGlobalStory(booted.game);
+  booted.controller.render();
   return { ...booted, entryLabel };
 }
 
 function clickMove(root: HTMLElement, nodeId: string): void {
+  const location = root.querySelector<HTMLElement>(`[data-map-location-node-id="${nodeId}"]`);
+  const submit = root.querySelector<HTMLButtonElement>('[data-map-location-submit]');
+  if (location && submit) {
+    location.click();
+    if (submit.disabled) throw new Error(`Map Workspace did not allow location "${nodeId}"`);
+    submit.click();
+    return;
+  }
   const button = root.querySelector<HTMLButtonElement>(`[data-map-move-to="${nodeId}"]`);
   if (!button) throw new Error(`no move button for "${nodeId}"`);
   if (button.disabled) throw new Error(`move button for "${nodeId}" is disabled`);
@@ -175,7 +204,7 @@ afterEach(() => {
 describe('Gameplay B basic map UI', () => {
   test('renders every Map entry with its authored "进入…" label', async () => {
     const { root } = await bootToSpot('gameplay-b:map:linear-battle');
-    const labels = [...root.querySelectorAll<HTMLButtonElement>('[data-map-entry-start]')]
+    const labels = [...root.querySelectorAll<HTMLButtonElement>('[data-map-entry-open]')]
       .map(button => button.textContent?.trim() ?? '');
     expect(labels).toEqual(expect.arrayContaining([
       '进入现场调查路线',
@@ -188,6 +217,107 @@ describe('Gameplay B basic map UI', () => {
     expect(labels).not.toContain('开始地图');
   });
 
+  test('opens the preparation page without creating a Run', async () => {
+    const { game, root, entryButton, spot } = await bootToSpot('gameplay-b:map:linear-battle');
+    expect(game.mapRun.getSnapshot()).toBeNull();
+    entryButton.click();
+    expect(root.querySelector('[data-map-entry-workspace]')).not.toBeNull();
+    expect(root.querySelector('[data-workspace-frame="map-entry"]')).not.toBeNull();
+    expect(game.mapRun.getSnapshot()).toBeNull();
+    expect(root.querySelector(`[data-map-entry-start="gameplay-b:map:linear-battle"]`)).not.toBeNull();
+    const map = game.registry.maps.get('gameplay-b:map:linear-battle')!;
+    expect(root.querySelector('.map-entry-workspace__overview h1')?.textContent).toBe(map.name);
+    expect(root.querySelector('.map-entry-workspace__overview > p')?.textContent).toBe(map.entryInfo?.description);
+    expect([...root.querySelectorAll('.map-entry-workspace__tips li')].map(item => item.textContent))
+      .toEqual(map.entryInfo?.tips);
+  });
+
+  test('blocks the facility entry while the opening Story is active', async () => {
+    const { game, controller, root, entryButton } = await bootToSpot('gameplay-b:map:linear-battle', false);
+    expect(game.story.isBlockingInteraction()).toBe(true);
+    expect(entryButton.disabled).toBe(true);
+    entryButton.click();
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
+    expect(root.querySelector('[data-map-entry-workspace]')).toBeNull();
+    expect(game.mapRun.getSnapshot()).toBeNull();
+  });
+
+  test('returns to the original game route when the source Area changes without abandoning its Run', async () => {
+    const mapId = 'gameplay-b:map:linear-battle';
+    const { game, controller, root, spot, entryButton } = await bootToSpot(mapId);
+    entryButton.click();
+    root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`)!.click();
+    const started = game.mapRun.getSnapshot()!;
+    root.querySelector<HTMLButtonElement>('[data-map-back-to-entry]')!.click();
+    expect(game.mapRun.getSnapshot()).toEqual(started);
+
+    const nextAreaId = game.availableAreaIds(spot.areaId).find(areaId => areaId !== spot.areaId);
+    expect(nextAreaId).toBeDefined();
+    controller.commands.travelToArea(nextAreaId!);
+    controller.render();
+
+    expect(game.getView().currentAreaId).toBe(nextAreaId);
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
+    expect(root.querySelector('[data-map-entry-workspace]')).toBeNull();
+    expect(game.mapRun.getSnapshot()).toEqual(started);
+  });
+
+  test('returns to the original game route when the source functionality disappears', async () => {
+    const mapId = 'gameplay-b:map:linear-battle';
+    const { game, controller, root, spot, entryButton } = await bootToSpot(mapId);
+    entryButton.click();
+    root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`)!.click();
+    root.querySelector<HTMLButtonElement>('[data-map-back-to-entry]')!.click();
+    const activeRun = game.mapRun.getSnapshot()!;
+    const originalFunctionalities = game.spotFunctionalitySystem.functionalitiesOf.bind(game.spotFunctionalitySystem);
+    vi.spyOn(game.spotFunctionalitySystem, 'functionalitiesOf').mockImplementation((candidate, state) =>
+      candidate.id === spot.id ? [] : originalFunctionalities(candidate, state));
+
+    controller.render();
+
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
+    expect(root.querySelector('[data-map-entry-workspace]')).toBeNull();
+    expect(game.mapRun.getSnapshot()).toEqual(activeRun);
+  });
+
+  test('returns the live Run to preparation, confirms restart and abandon without implicit starts', async () => {
+    const mapId = 'gameplay-b:map:linear-battle';
+    const { game, controller, root } = await bootMap(mapId);
+    const firstRun = game.mapRun.getSnapshot()!;
+    root.querySelector<HTMLButtonElement>('[data-map-back-to-entry]')!.click();
+    expect(game.mapRun.getSnapshot()).toEqual(firstRun);
+    expect(root.querySelector('[data-map-entry-mode="resume"]')).not.toBeNull();
+
+    root.querySelector<HTMLElement>('[data-map-region-key="management"] summary')!.click();
+    root.querySelector<HTMLButtonElement>('[data-map-restart]')!.click();
+    expect(game.mapRun.getSnapshot()).toEqual(firstRun);
+    document.querySelector<HTMLButtonElement>('.modal-close')!.click();
+    expect(game.mapRun.getSnapshot()).toEqual(firstRun);
+    expect(root.querySelector('[data-map-focus-key="map-restart"]')).toBe(document.activeElement);
+
+    root.querySelector<HTMLButtonElement>('[data-map-restart]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-modal-action="restart-map-run"]')!.click();
+    const restarted = game.mapRun.getSnapshot()!;
+    expect(restarted.runId).not.toBe(firstRun.runId);
+    expect(restarted.currentNodeId).toBe(game.registry.maps.get(mapId)!.startNodeId);
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'map', runId: restarted.runId });
+
+    root.querySelector<HTMLButtonElement>('[data-map-back-to-entry]')!.click();
+    const beforeAbandon = game.mapRun.getSnapshot()!;
+    root.querySelector<HTMLElement>('[data-map-region-key="management"] summary')!.click();
+    root.querySelector<HTMLButtonElement>('[data-map-abandon]')!.click();
+    expect(game.mapRun.getSnapshot()).toEqual(beforeAbandon);
+    document.querySelector<HTMLButtonElement>('.modal-close')!.click();
+    expect(game.mapRun.getSnapshot()).toEqual(beforeAbandon);
+
+    root.querySelector<HTMLButtonElement>('[data-map-abandon]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-modal-action="abandon-map-run"]')!.click();
+    expect(game.mapRun.getSnapshot()).toBeNull();
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'map-entry', mapId });
+    expect(root.querySelector('[data-map-entry-mode="fresh"]')).not.toBeNull();
+    expect(root.querySelector(`[data-map-entry-start="${mapId}"]`)).not.toBeNull();
+  });
+
   test('P0 plays the bundled linear battle and reaches the exit through the Workspace', async () => {
     const mapId = 'gameplay-b:map:linear-battle';
     const { game, root, entryLabel } = await bootMap(mapId);
@@ -198,6 +328,23 @@ describe('Gameplay B basic map UI', () => {
     expect(game.mapRun.getSnapshot()!.activeEncounter?.nodeId).toBe('b');
     expect(root.querySelector('[data-map-activity-state]')).toBeNull();
     expect(root.querySelector('[data-map-move-choices]')).toBeNull();
+
+    const beforeEncounterRound = game.mapRun.getSnapshot()!;
+    chooseDamagingActions(root);
+    commitRound(root);
+    const injuredRun = game.mapRun.getSnapshot()!;
+    expect(injuredRun.partyHp).not.toEqual(beforeEncounterRound.partyHp);
+    root.querySelector<HTMLButtonElement>('[data-map-back-to-entry]')!.click();
+    expect(game.mapRun.getEntryView(mapId).mode).toBe('resume');
+    expect(game.mapRun.getEntryView(mapId).party.map(member => ({
+      characterId: member.characterId, currentHp: member.currentHp, maxHp: member.maxHp,
+    }))).toEqual(injuredRun.partyHp.map(member => ({
+      characterId: member.characterId,
+      currentHp: member.currentHp,
+      maxHp: game.registry.maps.get(mapId)!.initialPartyHp.find(hp => hp.characterId === member.characterId)!.maxHp,
+    })));
+    root.querySelector<HTMLButtonElement>(`[data-map-entry-continue-run="${runId}"]`)!.click();
+    expect(game.mapRun.getSnapshot()).toEqual(injuredRun);
 
     playBattleRounds(game, root);
     const cleared = game.mapRun.getSnapshot()!;
@@ -247,7 +394,7 @@ describe('Gameplay B basic map UI', () => {
     leave!.click();
     expect(root.querySelector('[data-map-shop-offer]')).toBeNull();
     expect(activityStates()).toEqual(['completed', 'completed', 'completed']);
-    expect(root.querySelector('[data-flow-host-key] [data-map-move-to="c"]')).not.toBeNull();
+    expect(root.querySelector('[data-flow-host-key] [data-map-location-node-id="c"][data-map-location-selectable="true"]')).not.toBeNull();
 
     clickMove(root, 'c');
     expect(game.mapRun.getWorkspaceView(runId)).toMatchObject({ kind: 'success' });
@@ -268,11 +415,11 @@ describe('Gameplay B basic map UI', () => {
     chooseRestActions(root);
     commitRound(root);
 
-    const shortcut = root.querySelector<HTMLButtonElement>('[data-map-move-to="f"]');
+    const shortcut = root.querySelector<HTMLButtonElement>('[data-map-location-node-id="f"]');
     expect(shortcut).not.toBeNull();
     expect(shortcut!.disabled).toBe(true);
-    expect(shortcut!.textContent).toContain('未满足');
-    const defaultRoute = root.querySelector<HTMLButtonElement>('[data-map-move-to="d"]');
+    expect(shortcut!.getAttribute('aria-label')).toContain('需要 pass ≥ 1');
+    const defaultRoute = root.querySelector<HTMLButtonElement>('[data-map-location-node-id="d"]');
     expect(defaultRoute).not.toBeNull();
     expect(defaultRoute!.disabled).toBe(false);
     expect(() => game.moveMap(runId, 'f')).toThrow(/unsatisfied MapRun condition/);

@@ -4174,7 +4174,8 @@
             }
           }
         }
-      }
+      },
+      "navigationMapId": "base:area-map:schale_office"
     },
     {
       "id": "base:area:schale_library",
@@ -4193,7 +4194,8 @@
           "name": "夏莱资料室",
           "description": "堆满委托卷宗与旧档案的资料室。联邦的运作痕迹都沉淀在这里。"
         }
-      }
+      },
+      "navigationMapId": "base:area-map:schale_office"
     },
     {
       "id": "base:area:schale_hangar",
@@ -4230,7 +4232,8 @@
           "name": "夏莱机库",
           "description": "停放着夏莱专用车的机库。出勤的起点，也常被当作临时午休地。"
         }
-      }
+      },
+      "navigationMapId": "base:area-map:schale_office"
     },
     {
       "id": "base:area:schale_rooftop",
@@ -4252,7 +4255,8 @@
             "colorGroupId": "base:colorgroup:amber"
           }
         }
-      }
+      },
+      "navigationMapId": "base:area-map:schale_office"
     },
     {
       "id": "base:area:abydos_campus",
@@ -4276,7 +4280,8 @@
             "colorGroupId": "base:colorgroup:abydos-sand"
           }
         }
-      }
+      },
+      "navigationMapId": "base:area-map:abydos"
     },
     {
       "id": "base:area:abydos_pool",
@@ -4306,7 +4311,8 @@
             }
           }
         }
-      }
+      },
+      "navigationMapId": "base:area-map:abydos"
     },
     {
       "id": "base:area:millennium_lab",
@@ -4330,7 +4336,8 @@
             "colorGroupId": "base:colorgroup:indigo"
           }
         }
-      }
+      },
+      "navigationMapId": "base:area-map:millennium"
     },
     {
       "id": "base:area:millennium_canteen",
@@ -4347,7 +4354,8 @@
           "name": "千禧年自助食堂",
           "description": "自动化程度惊人的食堂。营养饮料与零食按需供给，学生们的能量补给站。"
         }
-      }
+      },
+      "navigationMapId": "base:area-map:millennium"
     },
     {
       "id": "base:area:millennium_server",
@@ -4381,7 +4389,8 @@
           "name": "千禧年服务器机房",
           "description": "全天候运转的服务器群。散发冷气与电流声，数据流无限循环。"
         }
-      }
+      },
+      "navigationMapId": "base:area-map:millennium"
     },
     {
       "id": "base:area:trinity_cathedral",
@@ -4406,7 +4415,8 @@
             "colorGroupId": "base:colorgroup:amber"
           }
         }
-      }
+      },
+      "navigationMapId": "base:area-map:trinity"
     },
     {
       "id": "base:area:trinity_tea_room",
@@ -4424,7 +4434,8 @@
           "name": "茶话会室",
           "description": "香气四溢的茶话会专用室。淑女们的午后聚会，优雅而充满算计。"
         }
-      }
+      },
+      "navigationMapId": "base:area-map:trinity"
     },
     {
       "id": "base:area:gehenna_council",
@@ -4448,7 +4459,8 @@
             "colorGroupId": "base:colorgroup:crimson"
           }
         }
-      }
+      },
+      "navigationMapId": "base:area-map:gehenna"
     },
     {
       "id": "base:area:gehenna_district",
@@ -4466,7 +4478,8 @@
           "name": "盖赫纳商业街",
           "description": "喧嚣热闹的商业街。小吃摊、杂货铺、以及便利屋68的秘密据点都藏在这里。"
         }
-      }
+      },
+      "navigationMapId": "base:area-map:gehenna"
     },
     {
       "id": "base:area:theme_showcase",
@@ -4512,7 +4525,8 @@
             ]
           }
         }
-      }
+      },
+      "navigationMapId": "base:area-map:theme_showcase"
     }
   ],
   "spots": [
@@ -15878,5 +15892,240 @@
       "v": 0
     }
   },
-  "modName": "base"
+  "modName": "base",
+  "areaMaps": [
+    {
+      "id": "base:area-map:schale_office",
+      "name": "夏莱办公室区域图",
+      "nodes": [
+        {
+          "id": "schale_main",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_main"
+          }
+        },
+        {
+          "id": "schale_library",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_library"
+          }
+        },
+        {
+          "id": "schale_hangar",
+          "position": {
+            "x": 480,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_hangar"
+          }
+        },
+        {
+          "id": "schale_rooftop",
+          "position": {
+            "x": 0,
+            "y": 180
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_rooftop"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "schale_library",
+          "toNodeId": "schale_main"
+        },
+        {
+          "fromNodeId": "schale_main",
+          "toNodeId": "schale_rooftop"
+        },
+        {
+          "fromNodeId": "schale_hangar",
+          "toNodeId": "schale_library"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:millennium",
+      "name": "千禧年学院区域图",
+      "nodes": [
+        {
+          "id": "millennium_lab",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_lab"
+          }
+        },
+        {
+          "id": "millennium_canteen",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_canteen"
+          }
+        },
+        {
+          "id": "millennium_server",
+          "position": {
+            "x": 480,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_server"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "millennium_canteen",
+          "toNodeId": "millennium_lab"
+        },
+        {
+          "fromNodeId": "millennium_canteen",
+          "toNodeId": "millennium_server"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:abydos",
+      "name": "阿比多斯学院区域图",
+      "nodes": [
+        {
+          "id": "abydos_campus",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:abydos_campus"
+          }
+        },
+        {
+          "id": "abydos_pool",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:abydos_pool"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "abydos_campus",
+          "toNodeId": "abydos_pool"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:trinity",
+      "name": "崔妮蒂学院区域图",
+      "nodes": [
+        {
+          "id": "trinity_cathedral",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:trinity_cathedral"
+          }
+        },
+        {
+          "id": "trinity_tea_room",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:trinity_tea_room"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "trinity_cathedral",
+          "toNodeId": "trinity_tea_room"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:gehenna",
+      "name": "盖赫纳学园区域图",
+      "nodes": [
+        {
+          "id": "gehenna_council",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:gehenna_council"
+          }
+        },
+        {
+          "id": "gehenna_district",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:gehenna_district"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "gehenna_council",
+          "toNodeId": "gehenna_district"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:theme_showcase",
+      "name": "主题系统展示 Init区域图",
+      "nodes": [
+        {
+          "id": "theme_showcase",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:theme_showcase"
+          }
+        }
+      ],
+      "edges": []
+    }
+  ]
 }

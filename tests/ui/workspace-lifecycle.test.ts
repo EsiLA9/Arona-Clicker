@@ -275,8 +275,10 @@ describe('Workspace 页面生命周期', () => {
   it('区域导航揭示状态可按按钮元素刷新，并保留无关中心 tooltip', () => {
     controller.render();
     const before = controller.getRefreshStats();
-    const currentNav = document.querySelector<HTMLElement>('[data-ui-area-nav-kind="current"]');
-    expect(currentNav).not.toBeNull();
+    const areaHero = document.querySelector<HTMLElement>('.area-hero__open');
+    expect(areaHero).not.toBeNull();
+    expect(document.querySelector('[data-ui-area-nav-kind="current"]')).toBeNull();
+    expect([...document.querySelectorAll('.nav-sub')].map(node => node.textContent)).not.toContain('当前位置');
     const center = document.querySelector<HTMLElement>('.center-panel')!;
     const centerAnchor = document.createElement('span');
     centerAnchor.className = 'hover-wrap';
@@ -292,7 +294,53 @@ describe('Workspace 页面生命周期', () => {
     expect(after.panelRefreshes).toBe(before.panelRefreshes);
     expect(after.fullRenders).toBe(before.fullRenders);
     expect(tooltip.classList.contains('is-open')).toBe(true);
-    expect(document.querySelector<HTMLElement>('[data-ui-area-nav-kind="current"]')).toBe(currentNav);
+    expect(document.querySelector<HTMLElement>('.area-hero__open')).toBe(areaHero);
+  });
+
+  it('AreaHero 交付接取后立即返回一般界面，并在 Entry owner 聊天流播放', () => {
+    let guard = 0;
+    while (game.getView().currentStory && guard++ < 50) {
+      const advance = game.story.advanceStory();
+      if (!advance.success && 'error' in advance && advance.error === 'ChoiceRequired') game.story.advanceStory(0);
+    }
+    const invite = game.story.startStory('base:passivestory:hoshino_conv_2', 'passive', 'Hoshino');
+    expect(invite.success).toBe(true);
+    let inviteGuard = 0;
+    while (game.getStoryView('Hoshino') && inviteGuard++ < 30) game.story.advanceStory(undefined, 'Hoshino');
+    game.mutations.acquireCharacter('Hoshino', 'story');
+
+    const entryId = 'base:activestory:hoshino_rooftop_meet';
+    const entry = game.registry.activeStories.get(entryId)!;
+    const ownerEntry = { ...entry, owner: 'Hoshino' };
+    (game.registry.activeStories as unknown as Map<string, typeof ownerEntry>).set(entryId, ownerEntry);
+    (game.registry.storyEntries as unknown as Map<string, typeof ownerEntry>).set(entryId, ownerEntry);
+    const areaId = game.getView().currentAreaId!;
+    game.mutations.createAreaStoryDelivery({ entryId, areaId, sourceId: 'test:area-hero' });
+
+    controller.panelState.leftTab = 'area';
+    controller.render();
+    document.querySelector<HTMLButtonElement>('[data-area-workspace-open]')!.click();
+
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'area', areaId });
+    expect(document.querySelector('[data-area-story-entry="base:activestory:hoshino_rooftop_meet"] strong')?.textContent)
+      .toBe('天台的相遇');
+
+    const acceptButton = document.querySelector<HTMLButtonElement>('[data-area-story-accept="base:activestory:hoshino_rooftop_meet"]')!;
+    expect(game.story.startStory('base:passivestory:schale_sunset', 'passive', 'Hoshino').success).toBe(true);
+    acceptButton.click();
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'area', areaId });
+    expect(game.state.areaStoryDeliveries?.find(delivery => delivery.entryId === entryId)?.status).toBe('pending');
+    game.story.clearCurrentStory('Hoshino');
+    acceptButton.click();
+
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
+    expect(controller.panelState.workspace).toBeUndefined();
+    expect(controller.panelState.centerTab).toBe('chat');
+    expect(controller.panelState.conversationVariantId).toBe('Hoshino');
+    expect(controller.panelState.storyGate).toBeNull();
+    expect(game.getStoryView('Hoshino')?.storyId).toBe(entryId);
+    expect(document.querySelector('[data-conversation="Hoshino"]')).not.toBeNull();
+    expect(document.querySelector<HTMLButtonElement>('[data-area-workspace-open]')?.disabled).toBe(true);
   });
 
   it('强化卡片揭示状态可按元素刷新，不增加右侧 Panel 刷新计数', () => {

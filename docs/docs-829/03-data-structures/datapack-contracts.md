@@ -20,6 +20,10 @@
 
 ## 表与消费边界
 
+区域导航使用可选 areaMaps 表与 AreaDef.navigationMapId，独立于 Gameplay B maps。局部节点与连线不拥有 Area，也不决定可达性；最终启用集需调用 Registry.validateAreaMapRefs。定义、引用校验与只读消费见 [[docs/docs-829/04-mechanisms/arona-clicker/area-map-navigation]]。
+
+区域导航使用可选 areaMaps 表与 AreaDef.navigationMapId，独立于 Gameplay B maps。局部节点与连线不拥有 Area，也不决定可达性；最终启用集需调用 Registry.validateAreaMapRefs。定义、引用校验与只读消费见 [[docs/docs-829/04-mechanisms/arona-clicker/area-map-navigation]]。
+
 Registry 为各契约表建立查询集合；内容作者策略则限定哪些表和字段可由通用编辑 API 修改，并声明编码、默认值与消费者。契约存在某字段不意味着它支持局部 mutation，也不意味着某 UI 已消费它。需区分：声明数据、Registry 物化、领域或 Engine 消费、作者入口授权。
 
 ### Gameplay B Operation 表

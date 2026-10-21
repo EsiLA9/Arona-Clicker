@@ -42,21 +42,6 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
   scope.querySelectorAll<HTMLElement>('[data-story-workspace-leave]').forEach(button => {
     button.addEventListener('click', () => ctrl.disposeWorkspace());
   });
-  // 剧情：首次进入 Entry 时切到剧情所需聊天空间（owner = VariantId → 学生对话空间沙盒；
-  // 无 owner → 一般聊天流全局沙盒），并切到聊天 tab 让浮层落在目标聊天窗格上；
-  // 实际启动改由确认浮层触发（storyGate → data-story-gate-confirm）。
-  // 不移动 Area：startActiveStory 只启动演出游标，不触发 travelToArea。
-  scope.querySelectorAll<HTMLButtonElement>('[data-start-story]').forEach(button => {
-    button.addEventListener('click', () => {
-      const storyId = button.dataset.startStory!;
-      const entry = ctrl.game.registry.activeStories.get(storyId);
-      const owner = entry?.owner ?? null;
-      ctrl.openStoryWorkspace({ selectedEntryId: storyId, conversationOwner: owner, mode: 'overview' });
-      ctrl.scroll.forceToBottom();
-      ctrl.panelState.storyGate = { storyId, owner, mode: 'active' };
-      ctrl.render();
-    });
-  });
   // 重阅读：故事栏已完成 + replayable 的内容项。
   // 点击后前往该 Entry 归属的对话空间并弹出确认浮层（实际重读由确认触发）。
   // 重读不移动 Area：replayStory 只重置演出游标，不触发 travelToArea。

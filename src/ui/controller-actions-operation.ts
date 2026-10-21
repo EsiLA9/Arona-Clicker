@@ -4,6 +4,7 @@ import { OperationRuntimeError } from '../arona-clicker/services/operation-runti
 import type { OperationSceneActionBatchCommand } from '../arona-clicker/contracts/operation-scene-action';
 import type { OperationView } from '../arona-clicker/contracts/operation-view';
 import type { MapRunEncounterCommitCommand, MapRunEncounterDraftToken, MapRunShopDraftToken } from '../arona-clicker/contracts/map-run';
+import type { MapEntrySourceBinding } from './components/app-shell';
 import type { UIController } from './controller';
 import { clearOperationSceneDraft, closeOperationWorkspaceMap, moveOperationWorkspaceMap, readOperationSceneDraft, saveOperationSceneDraft, setOperationWorkspaceTab, toggleOperationWorkspaceMap, type OperationSceneDraft } from './components/operation-workspace';
 import { operationRelationAnchors, operationRelationPath } from './operation-card-relation';
@@ -1173,14 +1174,31 @@ function operationFunctionAvailable(ctrl: UIController, target: HTMLElement, eve
   return !!fn && (!fn.condition || ctrl.game.conditionSystem.evaluateGroup(fn.condition, ctrl.game.state));
 }
 
-function mapFunctionAvailable(ctrl: UIController, target: HTMLElement, mapId: string): boolean {
-  const spotId = target.dataset.mapEntrySpot;
-  const spot = spotId ? ctrl.game.world.spots.get(spotId) : undefined;
+function mapEntrySourceAvailable(ctrl: UIController, source: MapEntrySourceBinding | undefined, mapId: string): boolean {
+  if (!source || source.mapId !== mapId) return false;
+  const spot = ctrl.game.world.spots.get(source.spotId);
   if (!spot || spot.areaId !== ctrl.game.getView().currentAreaId
     || !getSpotReveal(createUIContext(ctrl.game), spot).utilityKnown) return false;
-  return ctrl.game.spotFunctionalitySystem.functionalitiesOf(spot, ctrl.game.state).some(fn =>
-    fn.id === target.dataset.mapEntryFunctionality && fn.kind === 'mapEntry' && fn.mapId === mapId,
-  );
+  const functionality = ctrl.game.spotFunctionalitySystem.functionalitiesOf(spot, ctrl.game.state)
+    .find(fn => fn.id === source.functionalityId && fn.kind === 'mapEntry' && fn.mapId === mapId);
+  return !!functionality && (!functionality.condition
+    || ctrl.game.conditionSystem.evaluateGroup(functionality.condition, ctrl.game.state));
+}
+
+function mapFunctionAvailable(ctrl: UIController, target: HTMLElement, mapId: string): boolean {
+  return mapEntrySourceAvailable(ctrl, {
+    spotId: target.dataset.mapEntrySpot ?? '',
+    functionalityId: target.dataset.mapEntryFunctionality ?? '',
+    mapId: target.dataset.mapEntryMapId ?? '',
+  }, mapId);
+}
+
+function mapEntryGateReason(ctrl: UIController, ignoreCurrentModal = false): string | null {
+  if (ctrl.game.story.isBlockingInteraction()) return '请先完成当前剧情或对话。';
+  if (ctrl.panelState.sendGate || ctrl.panelState.storyGate || ctrl.panelState.openingBanner) return '请先完成当前对话。';
+  if (!ignoreCurrentModal && ctrl.modal.isOpen()) return '请先完成当前确认。';
+  if (ctrl.panelState.workspace || ctrl.panelState.service !== 'game') return '当前页面无法进入地图准备。';
+  return null;
 }
 
 function onMapRoute(ctrl: UIController, runId: string): boolean {
@@ -1189,10 +1207,18 @@ function onMapRoute(ctrl: UIController, runId: string): boolean {
     && route?.kind === 'map' && route.runId === runId;
 }
 
-function getActiveMapRunForRoute(ctrl: UIController, runId: string) {
-  if (!onMapRoute(ctrl, runId)) return null;
+function getActiveMapRunForRoute(ctrl: UIController, runId: string, ignoreCurrentModal = false) {
+  const route = ctrl.panelState.workspaceNavigation?.current;
+  const onEntryRoute = !ctrl.panelState.workspace && ctrl.panelState.service === 'game'
+    && route?.kind === 'map-entry';
+  if (!onMapRoute(ctrl, runId) && !onEntryRoute) return null;
   const run = ctrl.game.mapRun.getSnapshot();
-  return run?.runId === runId && run.status === 'inProgress' ? run : null;
+  if (!run || run.runId !== runId || run.status !== 'inProgress') return null;
+  if (onMapRoute(ctrl, runId)) return run;
+  if (!onEntryRoute || route.kind !== 'map-entry' || route.mapId !== run.mapId
+    || !mapEntrySourceAvailable(ctrl, ctrl.panelState.mapEntrySource, run.mapId)
+    || mapEntryGateReason(ctrl, ignoreCurrentModal)) return null;
+  return run;
 }
 
 function restoreMapControlFocus(ctrl: UIController, focusKey: string): void {
@@ -1201,6 +1227,7 @@ function restoreMapControlFocus(ctrl: UIController, focusKey: string): void {
 
 function openMapRestartConfirmation(ctrl: UIController, runId: string): void {
   if (!getActiveMapRunForRoute(ctrl, runId)) return;
+  const openedFromEntry = ctrl.panelState.workspaceNavigation?.current.kind === 'map-entry';
   let confirmed = false;
   ctrl.modal.open({
     title: '重新游戏',
@@ -1209,13 +1236,14 @@ function openMapRestartConfirmation(ctrl: UIController, runId: string): void {
     onClose: () => { if (!confirmed) restoreMapControlFocus(ctrl, 'map-restart'); },
     onAction: action => {
       if (action !== 'restart-map-run') return;
-      const current = getActiveMapRunForRoute(ctrl, runId);
+      const current = getActiveMapRunForRoute(ctrl, runId, true);
       confirmed = true;
       ctrl.modal.close();
       if (!current) {
         ctrl.toast.show('地图进度已变化，请重新打开当前路线。', 'info');
         return;
       }
+      if (openedFromEntry) ctrl.panelState.mapEntrySubmitting = true;
       try {
         const restarted = ctrl.commands.restartMap(runId);
         ctrl.replaceWorkspaceRoute({ kind: 'map', runId: restarted.runId });
@@ -1223,6 +1251,13 @@ function openMapRestartConfirmation(ctrl: UIController, runId: string): void {
         restoreMapControlFocus(ctrl, 'map-restart');
       } catch {
         ctrl.toast.show('整张地图未能重新开始，当前进度仍保留。', 'error');
+        if (openedFromEntry) {
+          ctrl.panelState.mapEntrySubmitting = false;
+          ctrl.render();
+          restoreMapControlFocus(ctrl, 'map-restart');
+        }
+      } finally {
+        ctrl.panelState.mapEntrySubmitting = false;
       }
     },
   });
@@ -1231,15 +1266,18 @@ function openMapRestartConfirmation(ctrl: UIController, runId: string): void {
 function openMapAbandonConfirmation(ctrl: UIController, runId: string): void {
   const run = getActiveMapRunForRoute(ctrl, runId);
   if (!run) return;
+  const openedFromEntry = ctrl.panelState.workspaceNavigation?.current.kind === 'map-entry';
   let confirmed = false;
   ctrl.modal.open({
-    title: '放弃游戏',
-    body: '<p>这会丢弃当前整张地图的进度和本局资源，并返回进入地图前的位置。之后可以从地图入口重新开始；已经写入长期档案的变化不会回滚。</p>',
+    title: '放弃当前地图',
+    body: openedFromEntry
+      ? '<p>这会清除当前地图进度和本局资源，并留在这张地图的准备页。不会自动开始下一局；已经写入长期档案的变化不会回滚。</p>'
+      : '<p>这会丢弃当前整张地图的进度和本局资源，并返回进入地图前的位置。之后可以从地图入口重新开始；已经写入长期档案的变化不会回滚。</p>',
     footer: '<button type="button" class="modal-close">继续游戏</button><button type="button" class="primary-button map-workspace__danger-confirm" data-modal-action="abandon-map-run">放弃游戏</button>',
     onClose: () => { if (!confirmed) restoreMapControlFocus(ctrl, 'map-abandon'); },
     onAction: action => {
       if (action !== 'abandon-map-run') return;
-      const current = getActiveMapRunForRoute(ctrl, runId);
+      const current = getActiveMapRunForRoute(ctrl, runId, true);
       confirmed = true;
       ctrl.modal.close();
       if (!current) {
@@ -1247,12 +1285,27 @@ function openMapAbandonConfirmation(ctrl: UIController, runId: string): void {
         return;
       }
       try {
+        if (openedFromEntry) ctrl.panelState.mapEntrySubmitting = true;
         ctrl.commands.abandonMap(runId);
-        ctrl.returnFromMapWorkspace(runId);
-        ctrl.render();
-        ctrl.root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${CSS.escape(current.mapId)}"]`)?.focus();
+        if (openedFromEntry) {
+          ctrl.panelState.mapEntrySubmitting = false;
+          ctrl.render();
+          ctrl.root.querySelector<HTMLButtonElement>('[data-map-entry-focus-key="primary"]:not(:disabled)')?.focus();
+        } else {
+          ctrl.returnFromMapWorkspace(runId);
+          ctrl.render();
+          [...ctrl.root.querySelectorAll<HTMLButtonElement>('[data-map-entry-open]')]
+            .find(button => button.dataset.mapEntryMapId === current.mapId)?.focus();
+        }
       } catch {
         ctrl.toast.show('地图游戏未能放弃，当前进度仍保留。', 'error');
+        if (openedFromEntry) {
+          ctrl.panelState.mapEntrySubmitting = false;
+          ctrl.render();
+          restoreMapControlFocus(ctrl, 'map-abandon');
+        }
+      } finally {
+        ctrl.panelState.mapEntrySubmitting = false;
       }
     },
   });
@@ -1338,33 +1391,110 @@ function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
     }
   }
   const target = rawTarget.closest<HTMLElement>(
-    '[data-map-entry-start], [data-map-entry-continue-run], [data-map-back], [data-map-restart], [data-map-abandon], [data-map-show-map], [data-map-complete-encounter], [data-map-hand-stack-toggle], [data-map-action-swap], [data-map-player-command], [data-map-target], [data-map-target-clear], [data-map-target-enemy], [data-map-target-enemy-clear], [data-map-ability-draft], [data-map-item-draft], [data-map-ability-target], [data-map-item-target], [data-map-ability-clear], [data-map-item-clear], [data-map-clear-override], [data-map-commit], [data-map-shop-offer], [data-map-shop-leave]',
+    '[data-map-entry-open], [data-map-entry-start], [data-map-entry-continue-run], [data-map-entry-leave], [data-map-back-to-entry], [data-map-back], [data-map-restart], [data-map-abandon], [data-map-show-map], [data-map-complete-encounter], [data-map-hand-stack-toggle], [data-map-action-swap], [data-map-player-command], [data-map-target], [data-map-target-clear], [data-map-target-enemy], [data-map-target-enemy-clear], [data-map-ability-draft], [data-map-item-draft], [data-map-ability-target], [data-map-item-target], [data-map-ability-clear], [data-map-item-clear], [data-map-clear-override], [data-map-commit], [data-map-shop-offer], [data-map-shop-leave]',
   );
   if (!target) return false;
   if (target instanceof HTMLButtonElement && target.disabled) return true;
 
+  if (target.hasAttribute('data-map-entry-open')) {
+    const mapId = target.dataset.mapEntryOpen;
+    const source: MapEntrySourceBinding = {
+      spotId: target.dataset.mapEntrySpot ?? '',
+      functionalityId: target.dataset.mapEntryFunctionality ?? '',
+      mapId: target.dataset.mapEntryMapId ?? '',
+    };
+    const gateReason = mapEntryGateReason(ctrl);
+    if (!mapId || mapId !== source.mapId || !mapFunctionAvailable(ctrl, target, mapId) || gateReason) {
+      if (gateReason) ctrl.toast.show(gateReason, 'info');
+      return true;
+    }
+    const currentRoute = ctrl.panelState.workspaceNavigation?.current;
+    if (currentRoute?.kind === 'map-entry' && currentRoute.mapId === mapId) return true;
+    ctrl.enterMapEntry(source);
+    ctrl.render();
+    return true;
+  }
+
+  if (target.hasAttribute('data-map-entry-leave')) {
+    const source = ctrl.panelState.mapEntrySource;
+    if (ctrl.returnFromMapEntry()) {
+      ctrl.render();
+      if (source) {
+        [...ctrl.root.querySelectorAll<HTMLButtonElement>('[data-map-entry-open]')]
+          .find(button => button.dataset.mapEntrySpot === source.spotId
+            && button.dataset.mapEntryFunctionality === source.functionalityId
+            && button.dataset.mapEntryMapId === source.mapId)?.focus();
+      }
+    }
+    return true;
+  }
+
   if (target.hasAttribute('data-map-entry-start')) {
     const mapId = target.dataset.mapEntryStart;
-    if (!mapId || mapId !== target.dataset.mapEntryMapId || !mapFunctionAvailable(ctrl, target, mapId)
-      || ctrl.panelState.workspace || ctrl.panelState.service !== 'game') return true;
+    const route = ctrl.panelState.workspaceNavigation?.current;
+    const source = ctrl.panelState.mapEntrySource;
+    const gateReason = mapEntryGateReason(ctrl);
+    if (!mapId || route?.kind !== 'map-entry' || route.mapId !== mapId
+      || !mapEntrySourceAvailable(ctrl, source, mapId) || gateReason
+      || ctrl.panelState.mapEntrySubmitting) {
+      if (gateReason) ctrl.toast.show(gateReason, 'info');
+      ctrl.render();
+      return true;
+    }
+    const currentView = ctrl.game.mapRun.getEntryView(mapId);
+    if (currentView.mode !== 'fresh') {
+      ctrl.toast.show(currentView.reason === 'party-ineligible' ? '固定队伍暂不满足准入条件。' : '地图进度已变化，请重新检查准备页。', 'info');
+      ctrl.render();
+      return true;
+    }
+    ctrl.panelState.mapEntrySubmitting = true;
     try {
+      const latestView = ctrl.game.mapRun.getEntryView(mapId);
+      if (latestView.mode !== 'fresh' || !mapEntrySourceAvailable(ctrl, source, mapId)
+        || mapEntryGateReason(ctrl) || ctrl.panelState.workspaceNavigation?.current.kind !== 'map-entry') {
+        ctrl.toast.show('地图准入或入口状态已变化，请重新检查准备页。', 'info');
+        ctrl.render();
+        return true;
+      }
       const run = ctrl.commands.startMap(mapId);
-      ctrl.enterWorkspaceRoute({ kind: 'map', runId: run.runId });
+      ctrl.replaceWorkspaceRoute({ kind: 'map', runId: run.runId });
       ctrl.render();
     } catch {
-      ctrl.toast.show('地图暂时无法开始，请检查入口和当前进度。', 'error');
+      ctrl.toast.show('地图暂时无法开始，请检查队伍准入和当前入口。', 'error');
+      ctrl.render();
+    } finally {
+      ctrl.panelState.mapEntrySubmitting = false;
     }
     return true;
   }
 
   if (target.hasAttribute('data-map-entry-continue-run')) {
     const runId = target.dataset.mapEntryContinueRun;
-    const mapId = target.dataset.mapEntryMapId;
-    const run = runId ? ctrl.game.mapRun.getSnapshot() : null;
-    if (!runId || !mapId || !run || run.runId !== runId || run.mapId !== mapId || run.status !== 'inProgress'
-      || !mapFunctionAvailable(ctrl, target, mapId) || ctrl.panelState.workspace || ctrl.panelState.service !== 'game') return true;
-    ctrl.enterWorkspaceRoute({ kind: 'map', runId });
+    const route = ctrl.panelState.workspaceNavigation?.current;
+    const mapId = route?.kind === 'map-entry' ? route.mapId : undefined;
+    const source = ctrl.panelState.mapEntrySource;
+    const gateReason = mapEntryGateReason(ctrl);
+    const view = mapId ? ctrl.game.mapRun.getEntryView(mapId) : null;
+    const run = ctrl.game.mapRun.getSnapshot();
+    if (!runId || !mapId || route?.kind !== 'map-entry' || !view || view.mode !== 'resume'
+      || view.progress?.runId !== runId || !run || run.runId !== runId || run.mapId !== mapId || run.status !== 'inProgress'
+      || !mapEntrySourceAvailable(ctrl, source, mapId) || gateReason) {
+      if (gateReason) ctrl.toast.show(gateReason, 'info');
+      ctrl.render();
+      return true;
+    }
+    ctrl.replaceWorkspaceRoute({ kind: 'map', runId });
     ctrl.render();
+    return true;
+  }
+
+  if (target.hasAttribute('data-map-back-to-entry')) {
+    const runId = target.dataset.mapBackToEntry;
+    const run = runId ? getActiveMapRunForRoute(ctrl, runId) : null;
+    if (run && ctrl.returnMapToEntry(run.runId, run.mapId)) {
+      ctrl.render();
+      ctrl.root.querySelector<HTMLButtonElement>('[data-map-entry-focus-key="primary"]:not(:disabled)')?.focus();
+    }
     return true;
   }
 

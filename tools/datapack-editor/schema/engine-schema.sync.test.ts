@@ -63,6 +63,11 @@ function collectRefs(type: FieldType, out: Set<string>, seen: Set<string>, depth
 }
 
 describe('Schema 描述协议：defMap 派生自 Datapack', () => {
+  it('区域地图使用独立表，Area 入口引用该表', () => {
+    expect(schema.defMap.areaMaps?.type).toBe('AreaMapDef');
+    expect(getTable('areaMaps')).toBeDefined();
+    expect(getTable('areas').fields.find(field => field.key === 'navigationMapId')?.type).toEqual({ kind: 'ref', table: 'areaMaps' });
+  });
   it('TableKey 覆盖现行 Datapack 表 gachaPools 与 shops', () => {
     const legacyEditorTables = {
       gachaPools: 'GachaPoolDef',

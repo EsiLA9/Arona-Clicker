@@ -47,7 +47,7 @@ export class ActiveStoryBuilder extends StoryEntryBaseBuilder {
 }
 export class PassiveStoryBuilder extends StoryEntryBaseBuilder {
   private _repeatable = true; private _weight = 1; private _completionReward?: { first?: Effect[]; repeat?: Effect[] }; private _owner?: string;
-  private _cooldownFrames?: number; private _block?: ConditionGroup; private _interruptible?: boolean; private _leaveArea?: boolean; private _affectionRequired?: number; private _pushAfterStory?: string;
+  private _cooldownFrames?: number; private _block?: ConditionGroup; private _interruptible?: boolean; private _leaveArea?: boolean; private _blocksInteraction?: boolean; private _affectionRequired?: number; private _pushAfterStory?: string;
   repeatable(value = true): this { this._repeatable = value; return this; }
   weight(value: number): this { this._weight = value; return this; }
   rewardFirst(...effects: Effect[]): this { this._completionReward = { ...(this._completionReward ?? {}), first: effects }; return this; }
@@ -60,11 +60,12 @@ export class PassiveStoryBuilder extends StoryEntryBaseBuilder {
   block(condition: ConditionGroup): this { this._block = condition; return this; }
   interruptible(value = true): this { this._interruptible = value; return this; }
   leaveArea(value = true): this { this._leaveArea = value; return this; }
+  blocksInteraction(value = true): this { this._blocksInteraction = value; return this; }
   build(): PassiveStoryEntry {
     const def: PassiveStoryEntry = { ...this.toBase(), type: 'passive', repeatable: this._repeatable, weight: this._weight };
     if (this._completionReward) def.completionReward = this._completionReward; if (this._owner) def.owner = this._owner; if (this._cooldownFrames !== undefined) def.cooldownFrames = this._cooldownFrames;
     if (this._affectionRequired !== undefined) def.affectionRequired = this._affectionRequired; if (this._pushAfterStory !== undefined) def.pushAfterStory = this._pushAfterStory;
-    if (this._block) def.block = this._block; if (this._interruptible !== undefined) def.interruptible = this._interruptible; if (this._leaveArea !== undefined) def.leaveArea = this._leaveArea; return def;
+    if (this._block) def.block = this._block; if (this._interruptible !== undefined) def.interruptible = this._interruptible; if (this._leaveArea !== undefined) def.leaveArea = this._leaveArea; if (this._blocksInteraction !== undefined) def.blocksInteraction = this._blocksInteraction; return def;
   }
 }
 export const activeStory = (id: StoryId, storyId?: StoryId): ActiveStoryBuilder => new ActiveStoryBuilder(id, storyId);

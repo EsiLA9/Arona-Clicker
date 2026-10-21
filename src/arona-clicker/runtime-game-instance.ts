@@ -37,6 +37,7 @@ import { buildAchievementView } from './read-model/achievement-view';
 import type { AchievementViewItem } from './read-model/achievement-view';
 import { OperationObservationStore } from './operation-observation';
 import type { OperationObservation, OperationObservationInput } from './contracts/operation-observation';
+import type { MapEntryPartyMemberView, MapEntryView } from './contracts/map-entry';
 import type {
   MapRun,
   MapRunEncounterCommitCommand,
@@ -113,6 +114,8 @@ import { PicService } from '../data-services/assets/pic-service';
 import { UserThemeService } from './services/user-theme-service';
 import { ShopService } from './services/shop-service';
 import type { StoryFollowUpMount } from './services/story-follow-up-mount';
+import { AreaMapQuery } from './services/area-map-query';
+import { AreaTravelGraph } from './services/area-travel-routes';
 
 import type { SaveData } from './contracts/save-data';
 import { clearTagResidueByMod, summarizeTagResidue, type TagOverrideResidue } from './state/tag-residue';
@@ -161,6 +164,12 @@ export class GameInstance {
   // 子系统（构造期由 game/wiring.ts 装配赋值）
   readonly eventBus!: EventBus;
   readonly registry!: Registry;
+  readonly areaMap = new AreaMapQuery({
+    registry: () => this.registry, state: () => this._state,
+    conditions: () => this.conditionSystem, travelStatus: areaId => this.getAreaTravelStatus(areaId),
+    travelQuery: () => this.initService.createAreaTravelQuery(),
+    connections: () => this.getAreaTravelGraph(),
+  });
   /** Read-only snapshot/query facade over the currently loaded effective Registry. */
   readonly runtimeContentBrowser: RuntimeContentBrowserQueryPort;
   get world(): WorldCatalogQueryPort { return this.registry; }
@@ -235,6 +244,7 @@ export class GameInstance {
     this.replaceMapRunOwner();
     this._mapRunQuery = Object.freeze({
       getCards: (runId: string) => this.#mapRunOwner.getCards(runId),
+      getEntryView: (mapId: string) => this.getMapEntryView(mapId),
       resolveCardReference: (ref: MapRunCardRef) => this.#mapRunOwner.resolveCardReference(ref),
       getSnapshot: () => this.#mapRunOwner.getSnapshot(),
       getResult: (runId: string) => this.#mapRunOwner.getResult(runId),
@@ -670,6 +680,123 @@ export class GameInstance {
     return this.#mapRunOwner.start(mapId, admittedParty);
   }
 
+  private getMapEntryView(mapId: string): MapEntryView {
+    const definition = this.#mapContentResolver.resolve(mapId);
+    if (!definition || definition.id !== mapId) {
+      return Object.freeze({
+        mapId,
+        name: null,
+        mode: 'unavailable',
+        reason: 'map-not-found',
+        partyMode: 'fixed',
+        party: Object.freeze([]),
+        playerCost: null,
+        actorResources: Object.freeze([]),
+        teamResources: Object.freeze([]),
+      });
+    }
+
+    const entryInfo = definition.entryInfo
+      ? Object.freeze({
+          ...(definition.entryInfo.description === undefined ? {} : { description: definition.entryInfo.description }),
+          ...(definition.entryInfo.tips === undefined ? {} : { tips: Object.freeze([...definition.entryInfo.tips]) }),
+        })
+      : undefined;
+    const initialHpByCharacter = new Map(definition.initialPartyHp.map(row => [row.characterId, row]));
+    const freshParty = this.resolveMapPartyAdmission(definition.partyCharacterIds).map(member => {
+      const hp = initialHpByCharacter.get(member.characterId);
+      return Object.freeze({
+        ...member,
+        ...(hp ? { initialHp: hp.initialHp, maxHp: hp.maxHp } : {}),
+      });
+    });
+    const actorResources = Object.freeze((definition.initialActorResources ?? []).map(row => Object.freeze({
+      characterId: row.characterId,
+      resourceId: row.resourceId,
+      value: row.value,
+    })));
+    const teamResources = Object.freeze((definition.initialTeamResources ?? []).map(row => Object.freeze({
+      resourceId: row.resourceId,
+      value: row.value,
+    })));
+    const activeRun = this.#mapRunOwner.getSnapshot();
+
+    if (activeRun?.mapId === mapId) {
+      const snapshot = this.#mapRunOwner.getEntrySnapshot(activeRun.runId);
+      if (!snapshot || snapshot.run.mapId !== mapId) {
+        return Object.freeze({
+          mapId,
+          name: definition.name,
+          ...(entryInfo ? { entryInfo } : {}),
+          mode: 'unavailable',
+          reason: 'run-content-unavailable',
+          partyMode: 'fixed',
+          party: Object.freeze([]),
+          playerCost: null,
+          actorResources: Object.freeze([]),
+          teamResources: Object.freeze([]),
+        });
+      }
+      const hpByCharacter = new Map(snapshot.partyHp.map(row => [row.characterId, row]));
+      const party = Object.freeze(snapshot.run.party.map(member => Object.freeze({
+        ...this.projectMapEntryPartyMember(member.characterId, member.variantId, 'admitted'),
+        ...(hpByCharacter.has(member.characterId) ? {
+          currentHp: hpByCharacter.get(member.characterId)!.currentHp,
+          maxHp: hpByCharacter.get(member.characterId)!.maxHp,
+        } : {}),
+      })));
+      return Object.freeze({
+        mapId,
+        name: snapshot.mapName,
+        ...(snapshot.entryInfo ? { entryInfo: snapshot.entryInfo } : {}),
+        mode: 'resume',
+        partyMode: 'fixed',
+        party,
+        playerCost: snapshot.run.playerCost,
+        actorResources: Object.freeze(snapshot.run.actorResources.map(row => Object.freeze({ ...row }))),
+        teamResources: Object.freeze(snapshot.run.teamResources.map(row => Object.freeze({ ...row }))),
+        progress: Object.freeze({
+          runId: snapshot.run.runId,
+          currentNodeId: snapshot.run.currentNodeId,
+          currentNodeTitle: snapshot.currentNodeTitle,
+          ...(snapshot.activity ? { activity: snapshot.activity } : {}),
+          ...(snapshot.round === undefined ? {} : { round: snapshot.round }),
+        }),
+      });
+    }
+
+    if (activeRun) {
+      const blockingSnapshot = this.#mapRunOwner.getEntrySnapshot(activeRun.runId);
+      return Object.freeze({
+        mapId,
+        name: definition.name,
+        ...(entryInfo ? { entryInfo } : {}),
+        mode: 'blocked',
+        reason: 'other-map-active',
+        ...(blockingSnapshot ? { blockedByMapName: blockingSnapshot.mapName } : { blockedByMapName: activeRun.mapId }),
+        partyMode: 'fixed',
+        party: Object.freeze(freshParty),
+        playerCost: definition.initialPlayerCost,
+        actorResources,
+        teamResources,
+      });
+    }
+
+    const partyEligible = freshParty.every(member => member.admission === 'admitted');
+    return Object.freeze({
+      mapId,
+      name: definition.name,
+      ...(entryInfo ? { entryInfo } : {}),
+      mode: partyEligible ? 'fresh' : 'blocked',
+      ...(partyEligible ? {} : { reason: 'party-ineligible' as const }),
+      partyMode: 'fixed',
+      party: Object.freeze(freshParty),
+      playerCost: definition.initialPlayerCost,
+      actorResources,
+      teamResources,
+    });
+  }
+
   /** Restarts the matching MapRun from its Map start using the same admitted party. */
   restartMap(runId: string): MapRun {
     return this.#mapRunOwner.restart(runId);
@@ -682,10 +809,23 @@ export class GameInstance {
 
   /** Resolves the Map's fixed party against current ownership without writing PlayerState. */
   private admitMapParty(mapId: string, characterIds: readonly string[]): MapRunPartyMember[] {
+    const diagnostics: string[] = [];
+    const party = this.resolveMapPartyAdmission(characterIds);
+    for (const member of party) {
+      if (member.admission === 'character-locked') {
+        diagnostics.push(`Map "${mapId}" party Character "${member.characterId}" is not currently owned or unlocked`);
+      } else if (member.admission === 'variant-unavailable') {
+        diagnostics.push(`Map "${mapId}" party Character "${member.characterId}" has no owned registered Variant`);
+      }
+    }
+    if (diagnostics.length > 0) throw new MapRunError(diagnostics);
+    return party.map(member => ({ characterId: member.characterId, variantId: member.variantId! }));
+  }
+
+  private resolveMapPartyAdmission(characterIds: readonly string[]): MapEntryPartyMemberView[] {
     const currentState = this._state;
     const unlockedCharacterIds = new Set(this.characterSystem.getUnlocked(currentState).map(character => character.id));
     const variantIdByCharacter = new Map<string, string>();
-
     for (const variantId of Object.keys(currentState.roster ?? {}).sort()) {
       if (!this.rosterSystem.getOwned(currentState, variantId)) continue;
       const variant = this.rosterSystem.getVariant(variantId);
@@ -693,24 +833,30 @@ export class GameInstance {
         || variantIdByCharacter.has(variant.proto)) continue;
       variantIdByCharacter.set(variant.proto, variant.id);
     }
-
-    const diagnostics: string[] = [];
-    const admittedParty: MapRunPartyMember[] = [];
-    for (const characterId of characterIds) {
+    return characterIds.map(characterId => {
       if (!unlockedCharacterIds.has(characterId)) {
-        diagnostics.push(`Map "${mapId}" party Character "${characterId}" is not currently owned or unlocked`);
-        continue;
+        return this.projectMapEntryPartyMember(characterId, null, 'character-locked');
       }
       const variantId = variantIdByCharacter.get(characterId);
-      if (!variantId) {
-        diagnostics.push(`Map "${mapId}" party Character "${characterId}" has no owned registered Variant`);
-        continue;
-      }
-      admittedParty.push({ characterId, variantId });
-    }
+      if (!variantId) return this.projectMapEntryPartyMember(characterId, null, 'variant-unavailable');
+      return this.projectMapEntryPartyMember(characterId, variantId, 'admitted');
+    });
+  }
 
-    if (diagnostics.length > 0) throw new MapRunError(diagnostics);
-    return admittedParty;
+  private projectMapEntryPartyMember(
+    characterId: string,
+    variantId: string | null,
+    admission: MapEntryPartyMemberView['admission'],
+  ): MapEntryPartyMemberView {
+    const profile = this.charaProfileService.characterProfile(characterId);
+    const variant = variantId ? this.rosterSystem.getVariant(variantId) : null;
+    return Object.freeze({
+      characterId,
+      variantId,
+      displayName: profile.name || variant?.displayName || characterId,
+      avatarRef: profile.avatar ?? this.picService.urlOf(variant?.avatar) ?? null,
+      admission,
+    });
   }
 
   /** Moves to a directed adjacent Node through the GameCommands adapter. */
@@ -965,23 +1111,26 @@ export class GameInstance {
 
   /** 静态 AreaDef、Runtime Editor Overlay 与 Affector 动态连接的统一可达性查询。 */
   availableAreaIds(areaId: string): string[] {
-    if (!this.registry.areas.has(areaId)) return [];
-    const result = new Set<string>(this.registry.areas.get(areaId)?.adjacentAreaIds ?? []);
-    for (const connection of this.runtimeAreaTopology) {
-      if (connection.fromAreaId === areaId) result.add(connection.toAreaId);
-      if (connection.type === 'twoWay' && connection.toAreaId === areaId) result.add(connection.fromAreaId);
-    }
-    for (const connection of this.affectorEngine.getActiveAreaConnections()) {
-      if (connection.fromAreaId === areaId) result.add(connection.toAreaId);
-      if (connection.direction === 'twoWay' && connection.toAreaId === areaId) result.add(connection.fromAreaId);
-    }
-    return [...result];
+    return this.getAreaTravelGraph().neighbours(areaId);
+  }
+
+  reachableAreaIds(): string[] { return this.initService.reachableAreaIds(); }
+
+  getAreaTravelGraph(): AreaTravelGraph {
+    return new AreaTravelGraph(this.registry.areas, [
+      ...this.runtimeAreaTopology.map(link => ({ fromAreaId: link.fromAreaId, toAreaId: link.toAreaId, direction: link.type })),
+      ...this.affectorEngine.getActiveAreaConnections(),
+    ], this.affectorEngine.getActiveAreaTransitNetworks());
   }
 
   // --- 初始化 ---
 
   /** 加载数据包并初始化游戏 */
   init(datapacks: Datapack[], options: RuntimeInitOptions = {}): void {
+    // Prove the complete navigation reference set before disposing any live owners/state.
+    const candidate = new Registry();
+    for (const datapack of datapacks) candidate.load(datapack);
+    candidate.validateAreaMapRefs();
     this.operationObservationStore.clear();
     this.#operationRuntimeOwner.reset();
     this.replaceMapRunOwner();
@@ -998,6 +1147,7 @@ export class GameInstance {
     this.funcletExecutor.setDefs(this.registry.funcletDefs as Map<string, import('../engine/types').FuncletDef>);
     // Character 引用完整性：全部数据包加载完成后统一校验（跨包引用允许）
     this.registry.validateCharacterRefs();
+    this.registry.validateAreaMapRefs();
     this.registry.validateShopRefs();
     this.registry.validateTagRefs();
     this.effectEngine.setState(this._state);
@@ -1120,6 +1270,10 @@ export class GameInstance {
     const result = this.initService.travelToArea(areaId, allowDuringStory, checkAdjacency);
     if (result.success) this.recheckStudentBlocks(); // 到达新区域可能满足对话空间阻断条件
     return result;
+  }
+
+  getAreaTravelStatus(areaId: AreaId): TravelResult {
+    return this.initService.getAreaTravelStatus(areaId);
   }
 
   // --- Extra 运行时 API（docs/13 §5.3） ---

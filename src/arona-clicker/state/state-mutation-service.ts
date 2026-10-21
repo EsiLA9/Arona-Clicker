@@ -19,7 +19,7 @@ import type { SpotTagOverrideState as SpotTagOverride } from '../../engine/contr
 import type { StatsContext } from '../../engine/contracts/stats';
 import type { CharaCustomOverride } from '../types/chara-profile';
 import type { DupRewards } from '../../data-services/contracts/gacha-pool';
-import type { CompletedStory } from '../types/story-state';
+import type { AreaStoryDelivery, CompletedStory } from '../types/story-state';
 import type {
   AronaClickerState,
   InformationRevealEntityKind,
@@ -1018,8 +1018,19 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     this.emit({ type: 'flagChanged', flag, value });
   }
 
-  completeStory(story: CompletedStory): void {
+  createAreaStoryDelivery(delivery: Omit<AreaStoryDelivery, 'status'>): boolean {
+    const deliveries = this.current.areaStoryDeliveries ?? (this.current.areaStoryDeliveries = []);
+    if (deliveries.some(existing => existing.entryId === delivery.entryId)) return true;
+    deliveries.push({ ...delivery, status: 'pending' });
+    return true;
+  }
+
+  completeStory(story: CompletedStory, sourceEntryId?: string): void {
     this.current.storyLog.push(story);
+    if (sourceEntryId) {
+      const delivery = this.current.areaStoryDeliveries?.find(candidate => candidate.entryId === sourceEntryId);
+      if (delivery?.status === 'pending') delivery.status = 'completed';
+    }
     this.statsService?.recordStoryCompleted(story.storyId);
     this.emit({ type: 'storyCompleted', storyId: story.storyId });
   }

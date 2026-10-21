@@ -14,6 +14,7 @@ import { parseEntityId, validateEntityId } from '../../engine/core/entity-id';
 import { assertValidExtra, expandFlatKeys, ExtraError } from '../../engine/extra/index';
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
 import type { GameplayMapDef } from '../contracts/gameplay-map';
+import { validateAreaMapShapes } from './area-map-validation';
 import type { ItemDef } from '../contracts/item';
 import type { EffectOp } from '../../engine/types/expression';
 
@@ -929,6 +930,10 @@ export interface DatapackValidationContext extends OperationContentValidationCon
 }
 
 export function validateDatapack(dp: Datapack, context: DatapackValidationContext = {}): void {
+  validateAreaMapShapes(dp.areaMaps, message => { throw new RegistryError(`[${dp.modName ?? dp.name}] ${message}`); });
+  for (const area of dp.areas ?? []) {
+    if (area.quickPassage !== undefined && typeof area.quickPassage !== 'boolean') throw new RegistryError(`Area "${area.id}" quickPassage 必须是布尔值`);
+  }
   if (dp.modName !== undefined && !/^[a-z0-9-]+$/.test(dp.modName)) {
     throw new RegistryError(`Datapack modName "${dp.modName}" 格式无效`);
   }
@@ -1208,6 +1213,12 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   }
   for (const pack of dp.affectorPacks ?? []) {
     for (const entry of pack.entries) {
+      for (const network of entry.areaTransitNetworks ?? []) {
+        if (!network.name?.trim() || !Array.isArray(network.areaIds) || network.areaIds.length < 2 ||
+          new Set(network.areaIds).size !== network.areaIds.length || network.areaIds.some(id => !areaIds.has(id))) {
+          throw new RegistryError(`Affector "${pack.id}" entry "${entry.id}" 的交通网络名称或成员非法`);
+        }
+      }
       for (const connection of entry.areaConnections ?? []) {
         if (!areaIds.has(connection.fromAreaId)) {
           throw new RegistryError(`Affector pack "${pack.id}" entry "${entry.id}" references unknown source area: "${connection.fromAreaId}"`);

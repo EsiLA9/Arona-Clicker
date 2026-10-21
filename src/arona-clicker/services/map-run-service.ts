@@ -35,6 +35,7 @@ import type {
 } from '../contracts/map-run';
 import { GAMEPLAY_B_HAND_RNG_ALGORITHM } from '../contracts/map-run';
 import type { MapRunCardInstance, MapRunCardRef } from '../contracts/map-cards';
+import type { MapRunEntrySnapshot } from '../contracts/map-entry';
 import { catalogMapRunCards, mapRunCardKey, parseMapRunCardRef } from './map-card-catalog';
 import { mapCardActorKey, mapScostCost, resolveMapCardEffects, type MapCardActionChoice } from './map-card-effects';
 import type {
@@ -2693,6 +2694,48 @@ export class MapRunService {
     const run = this.slot?.run;
     if (!run || (expectedRunId !== undefined && expectedRunId !== run.runId)) return null;
     return snapshotOf(run);
+  }
+
+  /** Returns an owner-bound, detached summary for the preparation workspace. */
+  getEntrySnapshot(expectedRunId: string): MapRunEntrySnapshot | null {
+    const slot = this.slot;
+    if (!slot || slot.run.runId !== expectedRunId || slot.run.status !== 'inProgress') return null;
+    const node = slot.definition.nodes.find(candidate => candidate.id === slot.run.currentNodeId);
+    if (!node) return null;
+    const run = snapshotOf(slot.run);
+    const caps = partyHpCaps(slot.definition, run.party);
+    if (caps.size !== run.party.length) return null;
+    const partyHp = Object.freeze(run.party.map(member => {
+      const current = run.partyHp.find(row => row.characterId === member.characterId);
+      const maxHp = caps.get(member.characterId);
+      if (!current || maxHp === undefined) return null;
+      return Object.freeze({ characterId: member.characterId, currentHp: current.currentHp, maxHp });
+    }));
+    if (partyHp.some(row => row === null)) return null;
+    const activities = nodeActivities(node);
+    const activeActivity = run.activeActivity;
+    const activity = activeActivity
+      ? Object.freeze({
+          kind: activeActivity.kind,
+          position: activeActivity.index + 1,
+          total: activities.length,
+        })
+      : undefined;
+    const entryInfo = slot.definition.entryInfo
+      ? Object.freeze({
+          ...(slot.definition.entryInfo.description === undefined ? {} : { description: slot.definition.entryInfo.description }),
+          ...(slot.definition.entryInfo.tips === undefined ? {} : { tips: Object.freeze([...slot.definition.entryInfo.tips]) }),
+        })
+      : undefined;
+    return Object.freeze({
+      run,
+      mapName: slot.definition.name,
+      ...(entryInfo ? { entryInfo } : {}),
+      currentNodeTitle: node.title,
+      partyHp: partyHp as readonly { readonly characterId: string; readonly currentHp: number; readonly maxHp: number }[],
+      ...(activity ? { activity } : {}),
+      ...(run.activeEncounter ? { round: run.activeEncounter.round } : {}),
+    });
   }
 
   /** Enumerates current domain cards, never visual copies or unselected command offers. */

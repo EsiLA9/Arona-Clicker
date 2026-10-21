@@ -426,6 +426,17 @@ export class AffectorEngine extends EventDrivenReactor {
     return result;
   }
 
+  /** 返回真实交通网络的成员，不展开成员之间的两两边。 */
+  getActiveAreaTransitNetworks(): readonly import('../contracts/affector').AreaTransitNetworkDef[] {
+    const networks: import('../contracts/affector').AreaTransitNetworkDef[] = [];
+    for (const instance of this.activeInstances.values()) {
+      for (const entry of this.packs.get(instance.packId)?.entries ?? []) {
+        if (instance.activeEntryIdSet?.has(entry.id)) networks.push(...entry.areaTransitNetworks ?? []);
+      }
+    }
+    return networks;
+  }
+
   /**
    * 扫描所有活跃 Affector 的 setSpotMaxLevel / removeSpotMaxLevel 效果，
    * 返回按优先级解析后的 maxLevel 覆盖表。

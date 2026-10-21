@@ -12,6 +12,8 @@ Area 移动受当前 Init、连通关系、可见性和剧情阻断条件约束�
 
 玩家移动 Area 时，`travelToArea()` 依次检查目标存在、属于当前 Init、剧情没有阻断、（通常）与当前位置相邻、当前可见。成功后才更新位置与访问记录、处理默认 Spot、记录统计并发出 `areaEntered`。剧情效果发起的移动可不查相邻关系，但仍须属于当前 Init。
 
+部分完成后的故事会在未来进入目标 Area 时投递一个 ActiveStoryEntry。玩家在 AreaHero 内页手动接取后，界面返回一般游戏聊天区域播放；离开 Area 不清除未完成投递，只有正式完成才撤离并留下回执。待接取投递属于当前 Init，随该线存档恢复。
+
 详细转换顺序见 [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]]；状态范围见 [[docs/docs-829/03-data-structures/player-state]]。
 
 ## 从哪里核对

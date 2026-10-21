@@ -12,6 +12,12 @@ export type { DatapackWorkspaceState } from '../workspace/datapack-workspace-sta
 export type { RuntimeDatapackEditorState } from '../runtime-editor/state';
 export type { WorkspaceLocation, WorkspaceNavigationState, WorkspaceRoute } from '../workspace/workspace-router';
 
+export interface MapEntrySourceBinding {
+  readonly spotId: string;
+  readonly functionalityId: string;
+  readonly mapId: string;
+}
+
 /** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 按钮"想回复"中。 */
 export type SendGatePhase = 'typing' | 'pause' | 'thinking';
 
@@ -32,6 +38,8 @@ export interface StoryGateState {
 }
 
 export interface PanelState {
+  /** UI-only navigation session; never included in PlayerState or save data. */
+  areaMapSession?: import('../workspace/area-map-session').AreaMapSession;
   /** 当前顶层服务工作区；game = 正常游玩三栏。 */
   service?: 'game' | 'settings' | 'inventory' | 'datapack' | 'saves' | 'records';
   datapackWorkspace?: DatapackWorkspaceState;
@@ -39,6 +47,10 @@ export interface PanelState {
   /** Runtime Editor 面板是否实际打开；仅用于服务页表现当前编辑目标。 */
   runtimeEditorPanelOpen?: boolean;
   workspaceNavigation?: WorkspaceNavigationState;
+  /** UI-only binding to the facility entry that opened the current MapRun prep flow. */
+  mapEntrySource?: MapEntrySourceBinding;
+  /** Synchronous guard against duplicate MapRun start submissions. */
+  mapEntrySubmitting?: boolean;
   inventoryWorkspace?: InventoryWorkspaceState;
   leftTab: string;
   centerTab: string;

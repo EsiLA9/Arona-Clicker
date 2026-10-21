@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T07:06:14.170Z",
+  "generatedAt": "2026-10-21T13:07:07.373Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -20,6 +20,10 @@
     },
     "maps": {
       "type": "GameplayMapDef",
+      "shape": "array"
+    },
+    "areaMaps": {
+      "type": "AreaMapDef",
       "shape": "array"
     },
     "operationEvents": {
@@ -1468,6 +1472,14 @@
     "AreaDef": {
       "fields": [
         {
+          "key": "navigationMapId",
+          "required": false,
+          "kind": "ref",
+          "tsType": "string",
+          "description": "区域导航图入口；多个 Area 可以共享，不影响真实邻接。",
+          "table": "areaMaps"
+        },
+        {
           "key": "id",
           "required": true,
           "kind": "ref",
@@ -1533,6 +1545,13 @@
             "table": "areas",
             "tsType": "AreaId"
           }
+        },
+        {
+          "key": "quickPassage",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "description": "已到访区域默认允许快速路线通过；false 时必须在此停下。"
         },
         {
           "key": "revealTriggers",
@@ -4093,6 +4112,13 @@
           "description": "Player-facing map name."
         },
         {
+          "key": "entryInfo",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{\n    /** Short map introduction; this field is presentation-only. */\n    readonly description?: string;\n    /** Short author-written hints; these do not affect map rules. */\n    readonly tips?: readonly string[];\n  }",
+          "description": "Optional plain-text information shown before starting or resuming this map."
+        },
+        {
           "key": "resumeVersion",
           "required": true,
           "kind": "float",
@@ -4168,6 +4194,126 @@
           "kind": "hand",
           "tsType": "readonly GameplayMapEdgeDef[]",
           "description": "Directed adjacency between local node IDs."
+        }
+      ]
+    },
+    "AreaMapDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "AreaMapId"
+        },
+        {
+          "key": "name",
+          "required": true,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "revealTriggers",
+          "required": false,
+          "kind": "array",
+          "tsType": "RevealTrigger[]",
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "RevealTrigger"
+          }
+        },
+        {
+          "key": "nodes",
+          "required": true,
+          "kind": "array",
+          "tsType": "AreaMapNodeDef[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "AreaMapNodeId"
+              },
+              {
+                "key": "name",
+                "required": false,
+                "kind": "string",
+                "tsType": "string"
+              },
+              {
+                "key": "description",
+                "required": false,
+                "kind": "string",
+                "tsType": "string"
+              },
+              {
+                "key": "position",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ x: number; y: number }",
+                "description": "有限逻辑坐标；只控制布局。"
+              },
+              {
+                "key": "appearance",
+                "required": false,
+                "kind": "hand",
+                "tsType": "{\n    /** 外观不推导节点动作。 */\n    kind?: 'point' | 'landmark' | 'portal';\n    /** @ref pics */\n    iconPicId?: string;\n  }"
+              },
+              {
+                "key": "revealTriggers",
+                "required": false,
+                "kind": "array",
+                "tsType": "RevealTrigger[]",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "RevealTrigger"
+                }
+              },
+              {
+                "key": "action",
+                "required": false,
+                "kind": "hand",
+                "tsType": "AreaMapNodeAction",
+                "description": "缺省为 inspect；每节点最多一个声明式动作。"
+              }
+            ],
+            "tsType": "AreaMapNodeDef"
+          }
+        },
+        {
+          "key": "edges",
+          "required": true,
+          "kind": "array",
+          "tsType": "AreaMapEdgeDef[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "fromNodeId",
+                "required": true,
+                "kind": "string",
+                "tsType": "AreaMapNodeId"
+              },
+              {
+                "key": "toNodeId",
+                "required": true,
+                "kind": "string",
+                "tsType": "AreaMapNodeId"
+              }
+            ],
+            "tsType": "AreaMapEdgeDef"
+          }
         }
       ]
     },
@@ -6244,6 +6390,13 @@
           "required": false,
           "kind": "bool",
           "tsType": "boolean"
+        },
+        {
+          "key": "blocksInteraction",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "description": "阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。"
         }
       ]
     },
@@ -11756,6 +11909,13 @@
     "AreaConnectionDef",
     "AreaDef",
     "AreaId",
+    "AreaMapDef",
+    "AreaMapEdgeDef",
+    "AreaMapId",
+    "AreaMapNodeAction",
+    "AreaMapNodeDef",
+    "AreaMapNodeId",
+    "AreaTransitNetworkDef",
     "BackgroundLayerDef",
     "BackgroundLayerKind",
     "BranchGuard",

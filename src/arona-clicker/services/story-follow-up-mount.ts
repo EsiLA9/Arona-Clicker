@@ -5,6 +5,7 @@ import { EventBus } from '../../engine/core/event-bus';
 import type { TriggerSystem } from '../../engine/effect/trigger-system';
 
 export type StartStoryEntry = (storyEntryId: string) => boolean;
+export type CreateAreaStoryDelivery = (storyEntryId: string, areaId: string, sourceId: string) => boolean;
 export type StoryFollowUpDiagnosticState = 'inactive' | 'waiting' | 'fulfilled';
 export interface StoryFollowUpDiagnostic {
   sourceStoryEntryId: string;
@@ -29,6 +30,7 @@ export class StoryFollowUpMount {
     eventBus: EventBus,
     private readonly getState: () => PlayerState,
     private readonly startStoryEntry: StartStoryEntry,
+    private readonly createAreaStoryDelivery: CreateAreaStoryDelivery,
   ) {
     eventBus.on('storyCompleted', () => this.reconcile());
     eventBus.on('areaEntered', event => this.onAreaEntered(event.areaId));
@@ -86,12 +88,36 @@ export class StoryFollowUpMount {
   }
 
   private onAreaEntered(areaId: string): void {
-    for (const [id, followUp] of [...this.mounted]) {
-      if (followUp.waitFor.areaId !== areaId) continue;
+    const initId = this.currentInitId;
+    if (!initId) return;
+    const matching = [...this.mounted].filter(([, followUp]) => followUp.waitFor.areaId === areaId);
+
+    // Area entry can deliver every matching ActiveStoryEntry. It does not start a Story,
+    // so one delivery must not prevent another offer from being created in the same Area.
+    for (const [id, followUp] of matching) {
+      const target = this.registry.storyEntries.get(followUp.outcome.storyEntryId);
+      if (target?.type !== 'active') continue;
+      const area = this.registry.areas.get(areaId);
+      if (!area || area.initId !== initId || !this.isAvailableInInit(target, initId)) continue;
+      const targetStory = this.registry.stories.get(target.storyId);
+      if (!targetStory || targetStory.talklets.length === 0) continue;
+      if (this.hasCompleted(target.storyId)) {
+        this.triggerSystem.commitOnce(id);
+        this.mounted.delete(id);
+        continue;
+      }
+      if (!this.createAreaStoryDelivery(target.id, areaId, id)) continue;
+      this.triggerSystem.commitOnce(id);
+      this.mounted.delete(id);
+    }
+
+    // Passive FollowUps keep their existing direct-start behavior and one-success-per-entry-event limit.
+    for (const [id, followUp] of matching) {
+      const target = this.registry.storyEntries.get(followUp.outcome.storyEntryId);
+      if (target?.type === 'active') continue;
       if (!this.startStoryEntry(followUp.outcome.storyEntryId)) continue;
       this.triggerSystem.commitOnce(id);
       this.mounted.delete(id);
-      // v1 一次区域进入最多成功启动一个目标 StoryEntry。
       break;
     }
   }

@@ -146,6 +146,55 @@ describe('Gameplay B MapRun GameInstance integration', () => {
     expect(game.mapRun.getSnapshot()).toBeNull();
   });
 
+  test('projects fresh, blocked, unavailable and same-Run preparation views without writing state', () => {
+    const game = createGame();
+    const commands = createGameCommands(game);
+    const map = gameplayBMapDatapack.maps?.[0];
+    const anotherMap = gameplayBMapDatapack.maps?.find(candidate => candidate.id !== map?.id);
+    if (!map || !anotherMap) throw new Error('Gameplay B sample Maps are missing');
+    acquireMapParty(game);
+
+    const stateBeforeQuery = JSON.stringify(game.state);
+    const fresh = game.mapRun.getEntryView(map.id);
+    expect(fresh).toMatchObject({
+      mapId: map.id,
+      name: map.name,
+      mode: 'fresh',
+      partyMode: 'fixed',
+      playerCost: map.initialPlayerCost,
+      party: [
+        { characterId: 'shiroko', admission: 'admitted', initialHp: map.initialPartyHp[0]?.initialHp },
+        { characterId: 'serika', admission: 'admitted' },
+      ],
+    });
+    expect(Object.isFrozen(fresh)).toBe(true);
+    expect(Object.isFrozen(fresh.party)).toBe(true);
+    expect(Object.isFrozen(fresh.party[0])).toBe(true);
+    expect(game.mapRun.getSnapshot()).toBeNull();
+    expect(JSON.stringify(game.state)).toBe(stateBeforeQuery);
+
+    const started = commands.startMap(map.id);
+    const runBeforeResumeQuery = JSON.stringify(game.mapRun.getSnapshot());
+    const resumed = game.mapRun.getEntryView(map.id);
+    expect(resumed).toMatchObject({
+      mapId: map.id,
+      mode: 'resume',
+      progress: { runId: started.runId, currentNodeId: map.startNodeId },
+      party: [
+        { characterId: 'shiroko', variantId: started.party[0]?.variantId, currentHp: started.partyHp[0]?.currentHp, maxHp: map.initialPartyHp[0]?.maxHp },
+        { characterId: 'serika', currentHp: started.partyHp[1]?.currentHp },
+      ],
+      playerCost: started.playerCost,
+    });
+    expect(game.mapRun.getSnapshot()).toEqual(started);
+    expect(JSON.stringify(game.mapRun.getSnapshot())).toBe(runBeforeResumeQuery);
+
+    const blocked = game.mapRun.getEntryView(anotherMap.id);
+    expect(blocked).toMatchObject({ mode: 'blocked', reason: 'other-map-active', blockedByMapName: map.name });
+    expect(game.mapRun.getSnapshot()).toEqual(started);
+    expect(game.mapRun.getEntryView('missing:map')).toMatchObject({ mode: 'unavailable', reason: 'map-not-found' });
+  });
+
   test('projects Enemy Hands and automatic targets as a read-only Runtime action view', () => {
     const sourceMap = gameplayBMapDatapack.maps?.find(candidate => candidate.id === 'gameplay-b:map:minimal-battle');
     if (!sourceMap) throw new Error('Minimal battle Map is missing');

@@ -18,6 +18,8 @@
 
 移动校验目标定义属于当前 Init、剧情是否阻断移动、是否已在目标处、拓扑可达性以及可见性。成功后更新当前位置和首次访问记录，初始化 Area 的 defaultSpots（尚未建设者），记录统计并发出 `areaEntered`，再执行进入效果、刷新可见性及重检 Affector/Milestone。
 
+当前 Init 内，完成来源故事后启用的 `StoryFollowUp` 会等待未来匹配的 Area 进入事件。目标为 ActiveStoryEntry 时，匹配事件创建按 `entryId` 幂等的 `areaStoryDeliveries` 记录并提交 FollowUp once 标记；抵达不启动 Story，同一 Entry 不会被后续 FollowUp 移到另一个 Area。故事目录中仅靠可用条件开放的 9 个 ActiveStoryEntry，在首次满足 `availableInits` 与 `triggerCondition` 时投递到当时所在 Area；已有 Init、FollowUp 或羁绊卡来源的条目不进入这条自动发现路径。投递状态随 Init 快照和 Save 恢复，播放时游标继续引用来源 Entry，完成时精确更新该 Entry 的回执。AreaHero 接取通过 StoryService 正常准入并采用 Entry owner 游标；被占用的 owner 游标不会被抢占。PassiveStory FollowUp 保留原直接启动路径。
+
 ## 生命周期状态
 
 Init 字段的具体快照范围由 [[docs/docs-829/03-data-structures/player-state]] 所述的 `PER_INIT_FIELD_SPECS` 决定。保存格式和运行时重建由 InitService 与 InitSavepoint 协作，不代表 Runtime 派生对象被整体复制。

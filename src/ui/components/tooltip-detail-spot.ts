@@ -3,7 +3,6 @@
 // 从 tooltip.ts 拆出：renderSpotDetail
 // ============================================================
 
-import { Character } from '../../arona-clicker/types/ids';
 import type { SpotDef } from '../../data-services/contracts/world';
 import { existenceCondition, unlockCondition } from '../../engine/visibility/reveal';
 import { UIContext } from '../context';
@@ -32,9 +31,6 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
   const yieldRows = yieldInfo.outputs.length > 0
     ? yieldInfo.outputs.map(output => `${ctx.formatNumber(output.amount)} ${ctx.nameOf('resource', output.resource)} / tick`).join('、')
     : '无持续产出';
-  const manager = view.spotManagers[spot.id] ?? Character.None;
-  const managerName = ctx.nameOf('character', manager);
-
   // 下一级升级信息：只读取当前等级条目的显式支付方案。
   const nextLevel = level + 1;
   const maxLevel = game.spot.getEffectiveMaxLevel(spot.id);
@@ -105,7 +101,6 @@ export function renderSpotDetail(ctx: UIContext, spot: SpotDef, level: number): 
       ${funcRows}
       ${upgradeRow}
       ${maxLevel !== undefined ? `<div class="info-row"><span>等级上限</span><span class="info-dim">Lv.${maxLevel}</span></div>` : ''}
-      <div class="info-row"><span>Manager</span><span>${ctx.escapeHtml(managerName)}</span></div>
       <div class="info-divider"></div>
       <div class="info-tags">${known ? ctx.world.effectiveSpotTags(spot.id, ctx.game.state.spotTagOverrides).map(tag => {
         const name = ctx.world.tagNameForSpotTag?.(spot.id, tag) ?? ctx.world.tagName(tag);

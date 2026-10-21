@@ -73,6 +73,13 @@
    color: #ffffff;
 }
 
+.area-workspace__stories { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.area-workspace__stories h3 { margin: 0; color: var(--theme-node-text, var(--ink-on-panel)); font-size: 14px; }
+.area-workspace__story-list { display: flex; flex-direction: column; gap: var(--panel-region-gap); }
+.area-story-delivery { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--panel) 84%, transparent); }
+.area-story-delivery__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--ink-on-panel); }
+.area-story-delivery__body strong { overflow-wrap: anywhere; }
+
 /* 故事层级导航 */
 .story-breadcrumb {
    display: flex;

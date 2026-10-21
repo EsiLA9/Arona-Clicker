@@ -9,6 +9,10 @@ export const GAMEPLAY_B_MAP_SPOT_ID = 'gameplay-b:spot:operation_terminal';
 export const gameplayBMapDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:field-investigation',
   name: '现场调查路线',
+  entryInfo: {
+    description: '检查现场、完成调查，再沿开放路线前往出口。',
+    tips: ['遭遇调查完成后，后续地点才会开放。', '行动点、队员体力和团队物资属于本局状态。'],
+  },
   resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['c'],
@@ -95,6 +99,10 @@ export const gameplayBMapDefinition: GameplayMapDef = {
 export const gameplayBMinimalBattleDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:minimal-battle',
   name: '极简战斗演练',
+  entryInfo: {
+    description: '进入演练场击败敌人，最后前往演练出口。',
+    tips: ['选择目标并提交本轮行动；存活敌人随后行动。', '队员生命会按战斗结算保留在本局进度中。'],
+  },
   resumeVersion: 3,
   startNodeId: 'entry',
   exitNodeIds: ['exit'],
@@ -154,6 +162,10 @@ export const gameplayBMinimalBattleDefinition: GameplayMapDef = {
 export const gameplayBLinearBattleDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:linear-battle',
   name: '废弃走廊战斗',
+  entryInfo: {
+    description: '沿废弃走廊推进，清除拦路遭遇后抵达出口。',
+    tips: ['先选择本轮行动目标，再提交本轮。', '完成当前遭遇后，路线才会继续开放。'],
+  },
   resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['c'],
@@ -255,6 +267,10 @@ export const gameplayBLinearBattleDefinition: GameplayMapDef = {
 export const gameplayBActivityHallDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:activity-hall',
   name: '废弃活动室',
+  entryInfo: {
+    description: '按地图顺序完成战斗、休整与补给活动，再前往出口。',
+    tips: ['当前活动完成后才能继续路线。', '商店购买会消耗本局资源，结余会保留在 Run 中。'],
+  },
   resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['c'],
@@ -431,6 +447,10 @@ export const gameplayBActivityHallDefinition: GameplayMapDef = {
 export const gameplayBForkedRouteDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:forked-route',
   name: '分叉调查路线',
+  entryInfo: {
+    description: '沿分岔调查路线选择可达地点，逐步前往出口。',
+    tips: ['路线候选会标注当前是否可走，不能跳过未完成的地点。', '遭遇或活动未完成时，移动可能暂不可用。'],
+  },
   resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['e'],
@@ -570,6 +590,10 @@ export const gameplayBForkedRouteDefinition: GameplayMapDef = {
 export const gameplayBContinuousConditionalDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:continuous-conditional',
   name: '连续调查与员工通道',
+  entryInfo: {
+    description: '完成连续调查，并在满足路线条件后前往员工通道。',
+    tips: ['员工通道有额外准入条件，移动界面会显示当前门槛。', '未满足条件时可先选择其他可达路线。'],
+  },
   resumeVersion: 3,
   startNodeId: 'a',
   exitNodeIds: ['e'],
@@ -754,6 +778,10 @@ export const gameplayBContinuousConditionalDefinition: GameplayMapDef = {
 export const gameplayBScostTrainingDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:scost-training',
   name: '卡牌协同演练',
+  entryInfo: {
+    description: '演练队员卡牌与 sCost 配合，完成本局遭遇并抵达出口。',
+    tips: ['卡牌费用减免只在受用卡实际执行时生效。', '能否提交以当前行动预览和费用状态为准。'],
+  },
   resumeVersion: 3,
   startNodeId: 'briefing',
   exitNodeIds: ['exit'],
@@ -805,6 +833,10 @@ export const gameplayBScostTrainingDefinition: GameplayMapDef = {
 export const gameplayBAutonomousTargetBattleDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:autonomous-target-battle',
   name: '自主目标战斗演练',
+  entryInfo: {
+    description: '安排队员的战斗行动，并完成敌人会自动选择目标的演练。',
+    tips: ['提交我方行动后，存活敌人会按自动目标规则行动。', '队员生命与本局资源会随 Run 进度保留。'],
+  },
   resumeVersion: 3,
   startNodeId: 'entry',
   exitNodeIds: ['exit'],

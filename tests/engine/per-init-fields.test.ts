@@ -15,7 +15,7 @@ import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-cli
 /** 快照键全集（与 types/state.ts InitSnapshot 对齐；漂移时本测试与编译期守卫同时报警）。 */
 const EXPECTED_SNAPSHOT_KEYS = [
   'resources', 'spotLevels', 'spotManagers', 'visitedAreas', 'totalFrames',
-  'inventory', 'unlockedEnhancements', 'storyLog', 'storyReadLogs', 'flags',
+  'inventory', 'unlockedEnhancements', 'storyLog', 'areaStoryDeliveries', 'storyReadLogs', 'flags',
   'triggersCompleted', 'currentAreaId', 'extras', 'roster', 'fragments', 'gachaState', 'chatRead',
   'equipmentsOwned', 'shopPurchaseRecords', 'storyCursors',
 ];

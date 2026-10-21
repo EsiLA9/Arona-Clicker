@@ -790,7 +790,7 @@ function renderActiveCenter(ctx: UIContext, runId: string, view: MapRunActiveWor
         <h1>${escape(ctx, node?.title ?? view.map.name)}</h1>
         ${node?.description ? `<p>${escape(ctx, node.description)}</p>` : ''}
       </div>
-      <button type="button" class="mini-action map-workspace__hero-action map-workspace__hero-action--back" data-map-back="${safeRunId}" data-map-focus-key="back-game" aria-label="返回游戏">返回游戏</button>
+      <button type="button" class="mini-action map-workspace__hero-action map-workspace__hero-action--back" data-map-back-to-entry="${safeRunId}" data-map-focus-key="back-entry" aria-label="返回准备页">返回准备页</button>
     </div>
     <div class="map-workspace__hero-footer">
       ${progress}

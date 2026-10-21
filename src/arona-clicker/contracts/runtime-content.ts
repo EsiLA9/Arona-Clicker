@@ -170,6 +170,7 @@ export interface RuntimeInitInput {
 }
 
 export interface RuntimeAreaInput {
+  readonly navigationMapId?: string;
   readonly idName: string;
   readonly initId: string;
   readonly name: string;

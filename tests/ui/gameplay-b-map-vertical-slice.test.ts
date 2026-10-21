@@ -79,6 +79,15 @@ function acquireMapParty(game: GameInstance, characterIds: readonly string[]): v
   }
 }
 
+function finishGlobalStory(game: GameInstance): void {
+  let guard = 0;
+  while (game.getView().currentStory && guard++ < 80) {
+    const result = game.story.advanceStory();
+    if (!result.success && 'error' in result && result.error === 'ChoiceRequired') game.story.advanceStory(0);
+    else if (!result.success) break;
+  }
+}
+
 function moveToMapNode(root: HTMLElement, nodeId: string): void {
   const card = root.querySelector<HTMLElement>(`[data-map-location-node-id="${nodeId}"]`);
   const submit = root.querySelector<HTMLButtonElement>('[data-map-location-submit]');
@@ -121,6 +130,8 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     startInit!.click();
     root.querySelector<HTMLButtonElement>('[data-init-confirm]')!.click();
     await Promise.resolve();
+    finishGlobalStory(game);
+    controller.render();
 
     const mapId = 'gameplay-b:map:minimal-battle';
     const map = game.registry.maps.get(mapId)!;
@@ -138,6 +149,9 @@ describe('Gameplay B Map normal entry vertical slice', () => {
       root.querySelector<HTMLButtonElement>(`[data-ui-spot-card="${terminal.id}"] [data-upgrade="${terminal.id}"]`)!.click();
     }
     acquireMapParty(game, map.partyCharacterIds);
+    root.querySelector<HTMLButtonElement>(`[data-map-entry-open="${mapId}"]`)!.click();
+    expect(game.mapRun.getSnapshot()).toBeNull();
+    expect(root.querySelector('[data-map-entry-workspace]')).not.toBeNull();
     root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`)!.click();
     const runId = game.mapRun.getSnapshot()!.runId;
     moveToMapNode(root, 'battle');
@@ -238,6 +252,8 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     startInit!.click();
     root.querySelector<HTMLButtonElement>('[data-init-confirm]')!.click();
     await Promise.resolve();
+    finishGlobalStory(game);
+    controller.render();
     expect(game.state.activeInit).toBe(DEFAULT_INIT_ID);
     expect(controller.started).toBe(true);
 
@@ -261,17 +277,23 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     }
 
     acquireMapParty(game, map.partyCharacterIds);
-    const startButton = root.querySelector<HTMLButtonElement>(
-      `[data-map-entry-spot="${spot.id}"][data-map-entry-functionality="${functionality.id}"][data-map-entry-start="${mapId}"]`,
+    const entryButton = root.querySelector<HTMLButtonElement>(
+      `[data-map-entry-spot="${spot.id}"][data-map-entry-functionality="${functionality.id}"][data-map-entry-open="${mapId}"]`,
     );
-    expect(startButton).not.toBeNull();
+    expect(entryButton).not.toBeNull();
     const fullBeforeStart = controller.getRefreshStats().fullRenders;
+    entryButton!.click();
+    expect(game.mapRun.getSnapshot()).toBeNull();
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'map-entry', mapId });
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBeforeStart + 1);
+    const startButton = root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`);
+    expect(startButton).not.toBeNull();
     startButton!.click();
     const started = game.mapRun.getSnapshot();
     expect(started).toMatchObject({ mapId, status: 'inProgress', currentNodeId: map.startNodeId });
     expect(controller.panelState.workspace).toBeUndefined();
     expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'map', runId: started!.runId });
-    expect(controller.getRefreshStats().fullRenders).toBe(fullBeforeStart + 1);
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBeforeStart + 2);
     expect(root.querySelector('[data-map-workspace-region]')).not.toBeNull();
 
     const runId = started!.runId;
@@ -292,9 +314,13 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     expect(game.mapRun.getSnapshot()).toEqual(beforeInvalidStartMove);
 
     const fullBeforeBack = controller.getRefreshStats().fullRenders;
-    root.querySelector<HTMLButtonElement>('[data-map-back]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-map-back-to-entry]')!.click();
+    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'map-entry', mapId });
+    expect(game.mapRun.getSnapshot()).toEqual(beforeInvalidStartMove);
+    expect(root.querySelector('[data-map-entry-mode="resume"]')).not.toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-map-entry-leave]')!.click();
     expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
-    expect(controller.getRefreshStats().fullRenders).toBe(fullBeforeBack + 1);
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBeforeBack + 2);
     controller.navigateToService('saves');
     controller.render();
     const saveButton = root.querySelector<HTMLButtonElement>('#save-game');
@@ -308,8 +334,9 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     expect(controller.panelState.service).toBe('game');
     expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
     expect(game.mapRun.getSnapshot()).toEqual(beforeInvalidStartMove);
+    root.querySelector<HTMLButtonElement>(`[data-map-entry-spot="${spot.id}"][data-map-entry-open="${mapId}"]`)!.click();
     const continueButton = root.querySelector<HTMLButtonElement>(
-      `[data-map-entry-spot="${spot.id}"][data-map-entry-continue-run="${runId}"]`,
+      `[data-map-entry-continue-run="${runId}"]`,
     );
     expect(continueButton).not.toBeNull();
     continueButton!.click();
@@ -374,8 +401,8 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     root.querySelector<HTMLButtonElement>('[data-map-back]')!.click();
     expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
     expect(game.mapRun.getSnapshot()).toBeNull();
-    expect(root.querySelector(`[data-map-entry-spot="${spot.id}"][data-map-entry-start="${mapId}"]`)).not.toBeNull();
-    expect(root.querySelector(`[data-map-entry-spot="${spot.id}"][data-map-entry-continue-run="${runId}"]`)).toBeNull();
+    expect(root.querySelector(`[data-map-entry-spot="${spot.id}"][data-map-entry-open="${mapId}"]`)).not.toBeNull();
+    expect(root.querySelector(`[data-map-entry-continue-run="${runId}"]`)).toBeNull();
   });
 
   test('runs a real two-character Encounter action turn through Datapack, Spot and MapRun with local refresh', () => {
@@ -388,6 +415,8 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     const controller = new UIController(game, root);
     controllers.push(controller);
     controller.started = true;
+    controller.render();
+    finishGlobalStory(game);
     controller.render();
 
     const mapEntry = [...game.world.spots.values()].flatMap(spot =>
@@ -411,11 +440,13 @@ describe('Gameplay B Map normal entry vertical slice', () => {
       root.querySelector<HTMLButtonElement>(`[data-ui-spot-card="${spot.id}"] [data-upgrade="${spot.id}"]`)!.click();
     }
     acquireMapParty(game, map.partyCharacterIds);
-    const startButton = root.querySelector<HTMLButtonElement>(
-      `[data-map-entry-spot="${spot.id}"][data-map-entry-functionality="${functionality.id}"][data-map-entry-start="${mapId}"]`,
+    const entryButton = root.querySelector<HTMLButtonElement>(
+      `[data-map-entry-spot="${spot.id}"][data-map-entry-functionality="${functionality.id}"][data-map-entry-open="${mapId}"]`,
     );
-    expect(startButton).not.toBeNull();
-    startButton!.click();
+    expect(entryButton).not.toBeNull();
+    entryButton!.click();
+    expect(game.mapRun.getSnapshot()).toBeNull();
+    root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`)!.click();
     const run = game.mapRun.getSnapshot()!;
     const runId = run.runId;
     expect(run).toMatchObject({ mapId, status: 'inProgress', currentNodeId: map.startNodeId });

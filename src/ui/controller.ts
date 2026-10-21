@@ -19,6 +19,7 @@ import {
   type OperationWorkspaceState,
   type StoryWorkspaceState,
   type WorkspaceReturnContext,
+  type MapEntrySourceBinding,
 } from './components/app-shell';
 import type { InitSelectMode } from './components/init-select';
 import type { ChatEntry } from './components/story';
@@ -67,13 +68,14 @@ import { bindThemeActions } from './controller-actions-theme';
 import { bindEntityPresentationActions } from './controller-actions-presentation';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
+import { AreaMapController, AREA_MAP_REGION } from './workspace/area-map-controller';
 import { bindOperationActions, disposeOperationActions, type OperationFocusTarget } from './controller-actions-operation';
 import { MapRelationInteraction, type MapLocationSelectionIntent } from './workspace/map-relation-interaction';
 import { mapLocationObjectKey } from './cards/card-host';
 import type { GameCommands } from '../arona-clicker/contracts';
 import type { PackCatalogReadModel } from '../arona-clicker/contracts';
 import type { OperationView } from '../arona-clicker/contracts/operation-view';
-import { renderAreaNavItem, renderLeftPanel, type AreaNavKind } from './components/rail';
+import { renderAreaNavItem, renderLeftPanel } from './components/rail';
 import { renderCenterPanel, renderChatTab, renderLogTab } from './components/center-panel';
 import { renderRightPanel } from './components/right-panels';
 import { renderSpotCard } from './components/production';
@@ -86,6 +88,7 @@ import { renderContactsWorkspace } from './components/contacts-workspace';
 import { renderStoryWorkspace } from './components/story-workspace';
 import { renderOperationWorkspace } from './components/operation-workspace';
 import { renderMapWorkspace } from './components/map-workspace';
+import { renderMapEntryWorkspace } from './components/map-entry-workspace';
 import { patchMapDOM } from './workspace/map-dom-updates';
 import { FlowScroll } from './flow/flow-scroll';
 import { MapFlowModel, type MapFlowTextPort } from './flow/map-flow-model';
@@ -127,6 +130,7 @@ const SHOP_REGION_HOST_IDS = [
   'rightPanel.shop.settlement',
 ] as const;
 const OPERATION_WORKSPACE_REGION_HOST_ID = 'workspace.operation';
+const MAP_ENTRY_WORKSPACE_REGION_HOST_ID = 'workspace.map-entry';
 const MAP_WORKSPACE_REGION_HOST_ID = 'workspace.map';
 const MAP_ENCOUNTER_REGION_HOST_ID = 'workspace.map.encounter';
 
@@ -282,6 +286,7 @@ export interface UIRefreshObservation {
 export class UIController {
   /** UI 写操作的能力边界；迁移期由 AronaClickerRuntime 直接实现。 */
   readonly commands: GameCommands;
+  readonly areaMaps = new AreaMapController(this);
   /** 每个聊天沙盒（含一般聊天）持久化的历史条数上限。 */
   static readonly MAX_CHAT_HISTORY = MAX_CHAT_HISTORY;
   /** @internal 供 controller-core 读取。 */
@@ -545,6 +550,7 @@ export class UIController {
   }
 
   destroy(): void {
+    this.areaMaps.destroy();
     this.mapRelations.dispose();
     disposeOperationActions(this);
     this.disposeMapFlow();
@@ -717,6 +723,10 @@ export class UIController {
   /** Refreshes the active Encounter region when Map navigation and its Node remain stable. */
   requestMapWorkspaceRefresh(runId: string, forceWorkspace = false): void {
     const route = this.panelState.workspaceNavigation?.current;
+    if (route?.kind === 'map-entry') {
+      this.requestMapEntryWorkspaceRefresh('map-run-change');
+      return;
+    }
     if (this.panelState.workspace || this.panelState.service !== 'game'
       || route?.kind !== 'map' || route.runId !== runId) return;
     const current = [...this.root.querySelectorAll<HTMLElement>('[data-map-workspace-region]')]
@@ -734,6 +744,27 @@ export class UIController {
       reason: 'map-command',
     });
     this.flushUIUpdates();
+  }
+
+  /** Refresh preparation data in place when the run, resources or local entry gates change. */
+  private requestMapEntryWorkspaceRefresh(reason: string): void {
+    const route = this.panelState.workspaceNavigation?.current;
+    if (this.panelState.workspace || this.panelState.service !== 'game' || route?.kind !== 'map-entry') return;
+    this.requestUIUpdate({ type: 'region', hostId: MAP_ENTRY_WORKSPACE_REGION_HOST_ID, reason });
+    this.flushUIUpdates();
+  }
+
+  private isMapEntrySourceAvailable(mapId: string): boolean {
+    const source = this.panelState.mapEntrySource;
+    if (!source || source.mapId !== mapId) return false;
+    const spot = this.game.world.spots.get(source.spotId);
+    if (!spot || spot.areaId !== this.game.getView().currentAreaId) return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    if (!getSpotReveal(context, spot).utilityKnown) return false;
+    const functionality = this.game.spotFunctionalitySystem.functionalitiesOf(spot, this.game.state)
+      .find(fn => fn.id === source.functionalityId && fn.kind === 'mapEntry' && fn.mapId === mapId);
+    return Boolean(functionality
+      && (!functionality.condition || this.game.conditionSystem.evaluateGroup(functionality.condition, this.game.state)));
   }
 
   /** 立即执行单个行为补丁；Tick 等高频路径使用它避免重建 DOM。 */
@@ -785,9 +816,9 @@ export class UIController {
     const view = this.game.getView();
     const currentAreaId = view.currentAreaId;
     if (!currentAreaId || !this.game.world.areas.has(currentAreaId)) return false;
-    const adjacent = this.game.availableAreaIds(currentAreaId)
+    const adjacent = this.game.reachableAreaIds()
       .filter(areaId => this.game.world.areas.get(areaId)?.initId === view.activeInit);
-    const expected = [`current:${currentAreaId}`, ...adjacent.map(areaId => `reachable:${areaId}`)].sort();
+    const expected = adjacent.map(areaId => `reachable:${areaId}`).sort();
     const actual = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
       .map(node => node.dataset.uiAreaNav)
       .filter((key): key is string => Boolean(key))
@@ -898,6 +929,7 @@ export class UIController {
 
   /** 同步当前聊天门控状态后，仅刷新中心聊天面板。 */
   refreshChatPanel(): void {
+    if (this.areaMaps.refresh()) return;
     if (!this.started) {
       this.render();
       return;
@@ -910,6 +942,10 @@ export class UIController {
       ?? (this.chat.bannerBlocking(this.panelState) ? 'typing' : null);
     this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
     this.scheduleRewardChats();
+    if (this.panelState.workspaceNavigation?.current.kind === 'map-entry') {
+      this.requestMapEntryWorkspaceRefresh('map-entry-gate');
+      return;
+    }
     if (this.panelState.workspace?.type === 'contacts' || this.panelState.workspace?.type === 'story') {
       this.refreshPanels(['center']);
       return;
@@ -977,6 +1013,7 @@ export class UIController {
 
   /** 只替换发生变化的工作区面板，保留其它面板、焦点与事件状态。 */
   refreshPanels(panels: Array<'left' | 'center' | 'right'>): void {
+    if (this.areaMaps.refresh(true)) return;
     // Workspace 接管三栏时，普通 panel renderer 不能局部覆盖 workspace。
     // Shop 已有自己的 Host 区域；其它 workspace 暂时保留全量 fallback。
     if (this.panelState.workspace?.type === 'shop') {
@@ -1095,6 +1132,7 @@ export class UIController {
 
   /** 全量重建 #app DOM（供 controller-core / controller-modals 触发）。 */
   render(): void {
+    this.areaMaps.beforeRender();
     this.surfaceRuntime.sync(this.panelState);
     this.refreshStats.fullRenders += 1;
     if (this.panelState.workspace) this.refreshStats.workspaceRenders += 1;
@@ -1120,6 +1158,10 @@ export class UIController {
     // 奖励通知在台词/回复气泡之后落账（排队见 storyRewarded 订阅）；
     // Story 末尾留一拍：延迟入流，避免奖励信息贴着最后一页台词瞬间弹出
     this.scheduleRewardChats();
+    if (this.panelState.workspaceNavigation?.current.kind === 'map-entry'
+      && !this.isMapEntrySourceAvailable(this.panelState.workspaceNavigation.current.mapId)) {
+      this.returnFromMapEntry();
+    }
     // DOM 重建前先捕获各面板滚动位置（条件变化触发的揭示刷新不得把列表拽回顶层）
     this.scroll.capturePanel(this.root);
     this.scroll.captureWorkspace(this.root);
@@ -1147,6 +1189,7 @@ export class UIController {
     this.lastLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
     this.popovers.bind();
     this.bindActions();
+    this.areaMaps.bind();
     this.scroll.restoreChat(this.root, {
       centerTab: this.panelState.centerTab,
       conversationVariantId: this.panelState.conversationVariantId,
@@ -1562,6 +1605,41 @@ export class UIController {
       return outcome;
     }
     if (update.type === 'region') {
+      if (update.hostId === AREA_MAP_REGION) {
+        const applied = this.areaMaps.apply();
+        if (!applied && this.panelState.areaMapSession) this.render();
+        if (applied) this.refreshStats.regionRefreshes += 1;
+        this.publishRefreshStats();
+        this.recordUIUpdate(update, applied ? 'applied' : 'not-found', applied ? undefined : 'area-map-root-recovery');
+        return applied ? 'applied' : 'not-found';
+      }
+      if (update.hostId === MAP_ENTRY_WORKSPACE_REGION_HOST_ID) {
+        const route = this.panelState.workspaceNavigation?.current;
+        const entryRoute = !this.panelState.workspace && this.panelState.service === 'game' && route?.kind === 'map-entry'
+          ? route
+          : null;
+        if (!entryRoute) {
+          this.render();
+          this.refreshStats.regionRefreshes += 1;
+          this.publishRefreshStats();
+          this.recordUIUpdate(update, 'applied', 'map-entry-route-ended-full-render');
+          return 'applied';
+        }
+        if (!this.isMapEntrySourceAvailable(entryRoute.mapId)) {
+          this.returnFromMapEntry();
+          this.render();
+          this.refreshStats.regionRefreshes += 1;
+          this.publishRefreshStats();
+          this.recordUIUpdate(update, 'applied', 'map-entry-source-invalid-restored-game');
+          return 'applied';
+        }
+        const applied = this.refreshMapEntryWorkspaceRegion(entryRoute.mapId);
+        if (!applied) this.render();
+        this.refreshStats.regionRefreshes += 1;
+        this.publishRefreshStats();
+        this.recordUIUpdate(update, 'applied', applied ? undefined : 'map-entry-region-missing-full-render');
+        return 'applied';
+      }
       if (update.hostId === MAP_WORKSPACE_REGION_HOST_ID || update.hostId === MAP_ENCOUNTER_REGION_HOST_ID) {
         const route = this.panelState.workspaceNavigation?.current;
         const mapRoute = !this.panelState.workspace && this.panelState.service === 'game' && route?.kind === 'map'
@@ -1725,14 +1803,14 @@ export class UIController {
   private refreshAreaNavItem(key: string): boolean {
     const separator = key.indexOf(':');
     if (separator <= 0) return false;
-    const kind = key.slice(0, separator) as AreaNavKind;
-    if (kind !== 'current' && kind !== 'reachable') return false;
+    const kind = key.slice(0, separator);
+    if (kind !== 'reachable') return false;
     const areaId = key.slice(separator + 1);
     const current = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
       .find(node => node.dataset.uiAreaNav === key);
     if (!current) return false;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const html = renderAreaNavItem(context, areaId, kind);
+    const html = renderAreaNavItem(context, areaId);
     if (!html) return false;
     if (elementMatchesMarkup(current, html)) return true;
     const focusSnapshot = captureFocusWithin(current);
@@ -1834,6 +1912,50 @@ export class UIController {
     }
 
     this.pendingOperationRefresh = null;
+    this.applyTheme(false);
+    return true;
+  }
+
+  private refreshMapEntryWorkspaceRegion(mapId: string): boolean {
+    const route = this.panelState.workspaceNavigation?.current;
+    if (this.panelState.workspace || this.panelState.service !== 'game'
+      || route?.kind !== 'map-entry' || route.mapId !== mapId) return false;
+    const current = [...this.root.querySelectorAll<HTMLElement>('[data-map-entry-workspace]')]
+      .find(region => region.dataset.mapId === mapId);
+    if (!current) return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const view = this.game.mapRun.getEntryView(mapId);
+    const template = document.createElement('template');
+    template.innerHTML = renderMapEntryWorkspace(context, mapId, view, this.panelState).trim();
+    const next = template.content.querySelector<HTMLElement>('[data-map-entry-workspace]');
+    if (!next || next.dataset.mapId !== mapId) return false;
+
+    const scrollPositions = [...current.querySelectorAll<HTMLElement>('[data-scroll-owner="content-region"]')]
+      .map(element => ({ element, top: element.scrollTop, left: element.scrollLeft }));
+    const active = document.activeElement;
+    const focusWasInside = active instanceof HTMLElement && current.contains(active);
+    const focusKey = focusWasInside ? active.dataset.mapFocusKey : undefined;
+
+    patchMapDOM(current, next, range => this.popovers.dismissBeforeRootMutation(range));
+    for (const entry of scrollPositions) {
+      if (!entry.element.isConnected) continue;
+      entry.element.scrollTop = entry.top;
+      entry.element.scrollLeft = entry.left;
+    }
+    if (focusWasInside && (document.activeElement !== active || !active.isConnected || (active instanceof HTMLButtonElement && active.disabled))) {
+      const replacement = focusKey
+        ? [...current.querySelectorAll<HTMLElement>('[data-map-focus-key]')].find(element =>
+          element.dataset.mapFocusKey === focusKey && !(element instanceof HTMLButtonElement && element.disabled))
+        : null;
+      const fallback = replacement
+        ?? current.querySelector<HTMLElement>('[data-map-focus-key="entry-primary"]:not(:disabled)')
+        ?? current.querySelector<HTMLElement>('.map-entry-workspace__notice');
+      if (fallback) {
+        if (!fallback.matches('button, a, input, select, textarea, [tabindex]')) fallback.tabIndex = -1;
+        fallback.focus({ preventScroll: true });
+      }
+    }
+    this.popovers.retainIfAnchored();
     this.applyTheme(false);
     return true;
   }
@@ -2091,6 +2213,8 @@ export class UIController {
   }
 
   private currentWorkspaceRoute(): WorkspaceRoute {
+    const savedRoute = this.panelState.workspaceNavigation?.current;
+    if (savedRoute?.kind === 'map' || savedRoute?.kind === 'area' || savedRoute?.kind === 'area-map' || savedRoute?.kind === 'map-entry') return savedRoute;
     return routeFromLegacyState({ service: this.panelState.service, workspace: this.workspaceRouteRef() });
   }
 
@@ -2111,6 +2235,7 @@ export class UIController {
 
   /** 顶层服务路由切换：清除互斥 Workspace，避免 service + workspace 组合态残留。 */
   navigateToService(service: NonNullable<PanelState['service']>): void {
+    this.areaMaps.release();
     const route = routeFromLegacyState({ service, workspace: null });
     this.panelState.workspace = undefined;
     this.panelState.service = service;
@@ -2119,11 +2244,53 @@ export class UIController {
 
   /** 进入新的 Workspace，并记录一个可选的单层返回位置。 */
   enterWorkspaceRoute(route: WorkspaceRoute): void {
+    if (route.kind !== 'area-map' && this.panelState.areaMapSession) this.areaMaps.close(false);
+    const previousRoute = this.panelState.workspaceNavigation?.current;
+    if ((previousRoute?.kind === 'map-entry' || previousRoute?.kind === 'map')
+      && route.kind !== 'map-entry' && route.kind !== 'map') this.panelState.mapEntrySource = undefined;
     // 离开 Map 路由即丢弃该 Run 的 UI 临时流；重新进入只重建有权威来源的内容。
     if (route.kind !== 'map') this.disposeMapFlow();
     const previous = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
     this.panelState.workspaceNavigation = enterWorkspaceNavigation(previous, route, this.workspaceLocation());
     this.setWorkspaceRouteMirror(route);
+  }
+
+  /** Opens the preparation route while retaining its UI-only Spot binding. */
+  enterMapEntry(source: MapEntrySourceBinding): void {
+    this.panelState.mapEntrySource = Object.freeze({ ...source });
+    this.enterWorkspaceRoute({ kind: 'map-entry', mapId: source.mapId });
+  }
+
+  /** Replaces an active Map route with its preparation page without changing returnTo. */
+  returnMapToEntry(runId: string, mapId: string): boolean {
+    const navigation = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
+    if (navigation.current.kind !== 'map' || navigation.current.runId !== runId) return false;
+    const run = this.game.mapRun.getSnapshot();
+    if (!run || run.runId !== runId || run.status !== 'inProgress' || run.mapId !== mapId) return false;
+    this.disposeMapFlow();
+    this.pendingMapRefreshRunId = null;
+    this.replaceWorkspaceRoute({ kind: 'map-entry', mapId });
+    return true;
+  }
+
+  /** Leaves the route-only preparation page and restores its original UI location. */
+  returnFromMapEntry(): boolean {
+    const navigation = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
+    if (navigation.current.kind !== 'map-entry') return false;
+    const returnLocation = navigation.returnTo;
+    const targetNavigation = backWorkspaceNavigation(navigation);
+    this.panelState.workspace = undefined;
+    this.panelState.workspaceNavigation = targetNavigation;
+    this.setWorkspaceRouteMirror(targetNavigation.current);
+    this.panelState.mapEntrySource = undefined;
+    if (returnLocation) {
+      this.panelState.leftTab = returnLocation.leftTab;
+      this.panelState.centerTab = returnLocation.centerTab;
+      this.panelState.rightTab = returnLocation.rightTab;
+      this.panelState.selectedVariantId = returnLocation.selectedVariantId;
+      this.panelState.conversationVariantId = returnLocation.conversationVariantId;
+    }
+    return true;
   }
 
   /** 离开 Area Workspace 并恢复进入前的经典游戏页面位置。 */
@@ -2143,6 +2310,18 @@ export class UIController {
       this.panelState.selectedVariantId = returnLocation.selectedVariantId;
       this.panelState.conversationVariantId = returnLocation.conversationVariantId;
     }
+    return true;
+  }
+
+  /** Leaves AreaHero after a successful delivery and places its owner Story in the ordinary Game chat. */
+  returnFromAreaWorkspaceForStory(owner: string | null): boolean {
+    if (!this.returnFromAreaWorkspace()) return false;
+    this.panelState.workspace = undefined;
+    this.panelState.service = 'game';
+    this.panelState.workspaceNavigation = createWorkspaceNavigation({ kind: 'game' });
+    this.panelState.centerTab = 'chat';
+    this.panelState.conversationVariantId = owner;
+    this.panelState.storyGate = null;
     return true;
   }
 
@@ -2169,6 +2348,7 @@ export class UIController {
 
   /** 在当前 Workspace 内替换轻量定位，不新增返回层。 */
   replaceWorkspaceRoute(route: WorkspaceRoute): void {
+    if (route.kind !== 'area-map' && this.panelState.areaMapSession) this.areaMaps.close(false);
     const previous = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
     this.panelState.workspaceNavigation = replaceWorkspaceNavigation(previous, route);
     this.setWorkspaceRouteMirror(route);

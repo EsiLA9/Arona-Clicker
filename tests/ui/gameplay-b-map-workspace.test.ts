@@ -423,7 +423,12 @@ describe('Gameplay B Map Workspace', () => {
     await Promise.resolve();
     const targetChoice = [...root.querySelectorAll<HTMLElement>('[data-map-card-target]')]
       .find(card => card.dataset.mapObjectKey === rifleKey)!;
-    expect(targetChoice.dataset.mapRoleCandidate).toBe('候选');
+    const sourceRelation = before.relations.find(row => row.source.id === 'shiroko');
+    const alreadySelected = sourceRelation?.selectedTarget !== null
+      && sourceRelation?.selectedTarget !== undefined
+      && mapObjectKey(sourceRelation.selectedTarget) === rifleKey;
+    expect(targetChoice.dataset.mapRoleRecipient ?? targetChoice.dataset.mapRoleCandidate)
+      .toBe(alreadySelected ? '接收' : '候选');
 
     targetChoice.click();
     expect(confirm).toHaveBeenCalledTimes(1);

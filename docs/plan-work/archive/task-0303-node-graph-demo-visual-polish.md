@@ -8,7 +8,7 @@
 
 保留现有浅色、柔和蓝色方向，重点改善画布、节点、连线、详情面板和操作反馈，并把母图 / 子图切换做成可体验的“世界线偏移”：看得见偏移来源、分支空间与返回关系。这仍是可删除的独立实验，不建立正式游戏 UI、设计系统或节点框架。
 
-本轮只编写增强 Task，实际修改由后续模型执行。前置成果见 [[docs/plan-work/task-0302-standalone-node-graph-ui-demo]]；0302 保持 completed，本文描述下一轮独立结果。
+本轮只编写增强 Task，实际修改由后续模型执行。前置成果见 [[docs/plan-work/archive/task-0302-standalone-node-graph-ui-demo]]；0302 保持 completed，本文描述下一轮独立结果。
 
 ## 用户裁定与边界
 
@@ -229,4 +229,4 @@
 
 ## 相关路由
 
-[[docs/plan-work/00-index]] · [[docs/plan-work/task-0302-standalone-node-graph-ui-demo]] · [[docs/ai/goal-workflow]] · [[docs/ai/context-packs/ui-presentation]] · [[docs/ai/galhcg-project-map]]
+[[docs/plan-work/00-index]] · [[docs/plan-work/archive/task-0302-standalone-node-graph-ui-demo]] · [[docs/ai/goal-workflow]] · [[docs/ai/context-packs/ui-presentation]] · [[docs/ai/galhcg-project-map]]

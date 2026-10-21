@@ -10,7 +10,8 @@ import { EventBus } from '../../src/engine/core/event-bus';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { Registry } from '../../src/data-services/registry/registry';
-import type { PassiveStoryEntry } from '../../src/data-services/contracts/story-entry';
+import type { ActiveStoryEntry, PassiveStoryEntry, StoryEntryDef } from '../../src/data-services/contracts/story-entry';
+import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { PassivePoolDef } from '../../src/data-services/contracts/passive-pool';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 
@@ -37,6 +38,14 @@ function setup(pools: PassivePoolDef[], entries: PassiveStoryEntry[]) {
   } as unknown as Registry;
   const system = new PassivePoolSystem(registry, cs, bus);
   return { system, bus, cs };
+}
+
+function registrySet<K, V>(map: ReadonlyMap<K, V>, key: K, value: V): void {
+  (map as Map<K, V>).set(key, value);
+}
+
+function setCurrentArea(game: GameInstance, areaId: string): void {
+  (game.state as PlayerState).currentAreaId = areaId;
 }
 
 const eligibleAll = () => true;
@@ -410,8 +419,8 @@ describe('基础数据包池树（schale_office）', () => {
     expect(game.getView().currentStory).toBeNull();
   });
 
-  // 复现用户场景：完整新游戏 → 排干初始剧情 → 聊天空间读邀约 → 前往天台 → 触发天台剧情。
-  test('天台 Trigger·完整流程：new game → 排干 welcome → 读邀约 → 前往天台触发剧情', () => {
+  // 复现用户场景：到达天台只投递邀约；玩家手动接取后才启动剧情。
+  test('天台 FollowUp·完整流程：进入后投递，手动接取后开播', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
@@ -429,11 +438,231 @@ describe('基础数据包池树（schale_office）', () => {
     const move = g.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
     expect(g.state.currentAreaId).toBe('base:area:schale_rooftop');
-    // 触发天台相遇剧情
+    // 到达天台后只创建待接取投递，不自动播放。
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
     expect(g.storyFollowUps.getDiagnostics().find(d => d.followUpId === 'rooftop-meet')?.state).toBe('fulfilled');
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop').map(delivery => delivery.entryId))
+      .toContain('base:activestory:hoshino_rooftop_meet');
+    expect(g.getView().currentStory).toBeNull();
+
+    const accepted = g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop');
+    expect(accepted.success).toBe(true);
     expect(g.getView().currentStory).not.toBeNull();
     expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+
+    let finishGuard = 0;
+    while (g.getView().currentStory && finishGuard++ < 50) {
+      const advance = g.story.advanceStory();
+      if (!advance.success && 'error' in advance && advance.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
+      .toBe('completed');
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toEqual([]);
+    const completedCount = g.state.storyLog.length;
+    expect(g.story.replayStory('base:activestory:hoshino_rooftop_meet').success).toBe(true);
+    let replayGuard = 0;
+    while (g.getView().currentStory && replayGuard++ < 50) {
+      const advance = g.story.advanceStory();
+      if (!advance.success && 'error' in advance && advance.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    expect(g.state.storyLog).toHaveLength(completedCount);
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
+      .toBe('completed');
+  });
+
+  test('FollowUp·同次进入交付所有 Active 项，并保留 Passive 直接开播行为', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    const sourceId = 'base:passivestory:hoshino_conv_2';
+    const source = g.registry.passiveStories.get(sourceId)!;
+    const parallelStory: StoryDef = { id: 'test:story:parallel_offer', name: '并行邀约', talklets: [{ text: '并行剧情。' }] };
+    const parallelActive: ActiveStoryEntry = {
+      id: 'test:activestory:parallel_offer',
+      storyId: parallelStory.id,
+      type: 'active',
+      availableInits: ['base:init:schale_office'],
+      triggerCondition: { type: 'AND', conditions: [] },
+    };
+    const parallelPassive: PassiveStoryEntry = {
+      id: 'test:passivestory:parallel_follow_up',
+      storyId: 'base:story:schale_sunset',
+      type: 'passive',
+      availableInits: ['base:init:schale_office'],
+      repeatable: true,
+      weight: 1,
+      triggerCondition: { type: 'AND', conditions: [] },
+    };
+    registrySet(g.registry.stories, parallelStory.id, parallelStory);
+    registrySet(g.registry.activeStories, parallelActive.id, parallelActive);
+    registrySet(g.registry.passiveStories, parallelPassive.id, parallelPassive);
+    registrySet(g.registry.storyEntries, parallelActive.id, parallelActive);
+    registrySet(g.registry.storyEntries, parallelPassive.id, parallelPassive);
+    const nextFollowUps = [
+      ...(source.followUps ?? []),
+      {
+        id: 'parallel-active',
+        waitFor: { kind: 'next-enter-area' as const, areaId: 'base:area:schale_rooftop' },
+        outcome: { kind: 'start-story-entry' as const, storyEntryId: parallelActive.id },
+      },
+      {
+        id: 'parallel-passive',
+        waitFor: { kind: 'next-enter-area' as const, areaId: 'base:area:schale_rooftop' },
+        outcome: { kind: 'start-story-entry' as const, storyEntryId: parallelPassive.id },
+      },
+    ];
+    const updatedSource: PassiveStoryEntry = { ...source, followUps: nextFollowUps };
+    registrySet(g.registry.passiveStories, sourceId, updatedSource);
+    registrySet(g.registry.storyEntries, sourceId, updatedSource as StoryEntryDef);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    readRooftopInvite(g);
+
+    expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
+    const deliveries = g.story.getAreaStoryDeliveries('base:area:schale_rooftop');
+    expect(deliveries.map(delivery => delivery.entryId)).toEqual(expect.arrayContaining([
+      'base:activestory:hoshino_rooftop_meet', parallelActive.id,
+    ]));
+    expect(deliveries).toHaveLength(2);
+    expect(g.getView().currentStory?.storyId).toBe(parallelPassive.id);
+
+    g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(2);
+  });
+
+  test('通用 triggerStory 仍直接启动，不产生 Area 投递', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+
+    g.effectEngine.applyEffects([{ op: 'triggerStory', target: 'base:activestory:schale_flow_show', value: 0 }]);
+
+    expect(g.getView().currentStory?.storyId).toBe('base:activestory:schale_flow_show');
+    expect(g.state.areaStoryDeliveries).toEqual([]);
+  });
+
+  test('AreaStoryDelivery·条件失败保留投递，条件满足后可正式接取', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    const story: StoryDef = { id: 'test:story:condition_gate', name: '条件剧情', talklets: [{ text: '条件已达成。' }] };
+    const entry: ActiveStoryEntry = {
+      id: 'test:activestory:condition_gate',
+      storyId: story.id,
+      type: 'active',
+      availableInits: ['base:init:schale_office'],
+      triggerCondition: { type: 'AND', conditions: [{ target: 'flag', key: 'delivery_ready', comparator: '==', value: 1 }] },
+    };
+    registrySet(g.registry.stories, story.id, story);
+    registrySet(g.registry.activeStories, entry.id, entry);
+    registrySet(g.registry.storyEntries, entry.id, entry);
+    g.mutations.createAreaStoryDelivery({ entryId: entry.id, areaId: 'base:area:schale_main', sourceId: 'test:follow-up' });
+
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_main')).toHaveLength(1);
+    expect(g.story.acceptAreaStoryDelivery(entry.id, 'base:area:schale_library'))
+      .toMatchObject({ success: false, error: 'AreaDeliveryUnavailable' });
+    expect(g.story.acceptAreaStoryDelivery(entry.id, 'base:area:schale_main'))
+      .toMatchObject({ success: false, error: 'ConditionNotMet' });
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === entry.id)?.status).toBe('pending');
+
+    g.mutations.setFlag('delivery_ready', '1');
+    expect(g.story.acceptAreaStoryDelivery(entry.id, 'base:area:schale_main').success).toBe(true);
+    expect(g.getView().currentStory?.storyId).toBe(entry.id);
+  });
+
+  test('AreaStoryDelivery·共享 StoryDef 完成时只标记当前 Entry，另一条记录保留', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    const story: StoryDef = { id: 'test:story:shared_delivery', name: '共用剧情', talklets: [{ text: '同一份剧情。' }] };
+    const makeEntry = (id: string): ActiveStoryEntry => ({
+      id,
+      storyId: story.id,
+      type: 'active',
+      availableInits: ['base:init:schale_office'],
+      triggerCondition: { type: 'AND', conditions: [] },
+    });
+    const first = makeEntry('test:activestory:shared_first');
+    const second = makeEntry('test:activestory:shared_second');
+    registrySet(g.registry.stories, story.id, story);
+    for (const entry of [first, second]) {
+      registrySet(g.registry.activeStories, entry.id, entry);
+      registrySet(g.registry.storyEntries, entry.id, entry);
+      g.mutations.createAreaStoryDelivery({ entryId: entry.id, areaId: 'base:area:schale_main', sourceId: `test:${entry.id}` });
+    }
+
+    expect(g.story.acceptAreaStoryDelivery(first.id, 'base:area:schale_main').success).toBe(true);
+    expect(g.story.advanceStory().success).toBe(true);
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === first.id)?.status).toBe('completed');
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === second.id)?.status).toBe('pending');
+    expect(g.story.acceptAreaStoryDelivery(second.id, 'base:area:schale_main'))
+      .toMatchObject({ success: false, error: 'AlreadyCompleted' });
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === second.id)?.status).toBe('pending');
+  });
+
+  test('AreaStoryDelivery·新 Init 从空投递集合开始', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    g.mutations.createAreaStoryDelivery({
+      entryId: 'base:activestory:hoshino_rooftop_meet',
+      areaId: 'base:area:schale_main',
+      sourceId: 'test:old-init',
+    });
+    g.inits.unlockInit('base:init:abydos');
+
+    expect(g.inits.startNewGame('base:init:abydos')).toBe(true);
+    expect(g.state.activeInit).toBe('base:init:abydos');
+    expect(g.state.areaStoryDeliveries).toEqual([]);
+  });
+
+  test('AreaStoryDelivery·owner 游标阻塞外部交互，拒绝打断普通 PassiveStory', () => {
+    const g = new GameInstance();
+    g.init([baseDatapack]);
+    g.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (g.getView().currentStory && guard++ < 50) {
+      const r = g.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
+    }
+    const active = g.registry.activeStories.get('base:activestory:hoshino_rooftop_meet')!;
+    const ownerEntry: ActiveStoryEntry = { ...active, owner: 'Hoshino' };
+    registrySet(g.registry.activeStories, ownerEntry.id, ownerEntry);
+    registrySet(g.registry.storyEntries, ownerEntry.id, ownerEntry);
+    g.mutations.createAreaStoryDelivery({ entryId: ownerEntry.id, areaId: 'base:area:schale_main', sourceId: 'test:owner' });
+
+    const passive = g.story.startStory('base:passivestory:schale_sunset', 'passive', 'Hoshino');
+    expect(passive.success).toBe(true);
+    const passiveEntryId = g.getStoryView('Hoshino')!.storyId;
+    const rejected = g.story.acceptAreaStoryDelivery(ownerEntry.id, 'base:area:schale_main');
+    expect(rejected).toMatchObject({ success: false, error: 'AlreadyActive' });
+    expect(g.getStoryView('Hoshino')?.storyId).toBe(passiveEntryId);
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === ownerEntry.id)?.status).toBe('pending');
+
+    g.story.clearCurrentStory('Hoshino');
+    expect(g.story.acceptAreaStoryDelivery(ownerEntry.id, 'base:area:schale_main').success).toBe(true);
+    expect(g.getStoryView('Hoshino')?.storyId).toBe(ownerEntry.id);
+    expect(g.story.isBlockingInteraction()).toBe(true);
+    expect(g.story.isBlockingMovement()).toBe(true);
+    expect(g.travelToArea('base:area:schale_library').success).toBe(false);
   });
 
   test('FollowUp·存档恢复：来源完成但尚未进入目标 Area 时重建等待监听', () => {
@@ -454,9 +683,52 @@ describe('基础数据包池树（schale_office）', () => {
     const move = restored.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
     expect(restored.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
-    expect(restored.getView().currentStory?.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+    expect(restored.getView().currentStory).toBeNull();
+    expect(restored.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
     g.stop();
     restored.stop();
+  });
+
+  test('AreaStoryDelivery·待接取和播放中记录均随存档恢复，正式完成后转完成回执', () => {
+    const source = new GameInstance();
+    const restored = new GameInstance();
+    const playing = new GameInstance();
+    source.init([baseDatapack]);
+    restored.init([baseDatapack]);
+    playing.init([baseDatapack]);
+    source.inits.startNewGame('base:init:schale_office');
+    let guard = 0;
+    while (source.getView().currentStory && guard++ < 50) {
+      const r = source.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') source.story.advanceStory(0);
+    }
+    readRooftopInvite(source);
+    expect(source.travelToArea('base:area:schale_rooftop').success).toBe(true);
+
+    restored.load(source.save());
+    expect(restored.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
+    const accepted = restored.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop');
+    expect(accepted.success).toBe(true);
+    expect(restored.state.areaStoryDeliveries?.[0]?.status).toBe('pending');
+
+    restored.story.clearCurrentStory();
+    expect(restored.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
+    expect(restored.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop').success).toBe(true);
+    playing.load(restored.save());
+    expect(playing.getView().currentStory?.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+    expect(playing.state.areaStoryDeliveries?.[0]?.status).toBe('pending');
+
+    let finishGuard = 0;
+    while (playing.getView().currentStory && finishGuard++ < 50) {
+      const r = playing.story.advanceStory();
+      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') playing.story.advanceStory(0);
+    }
+    expect(playing.state.areaStoryDeliveries?.[0]?.status).toBe('completed');
+    expect(playing.state.storyLog.some(row => row.storyId === 'base:story:hoshino_rooftop_meet')).toBe(true);
+
+    source.stop();
+    restored.stop();
+    playing.stop();
   });
 
   test('FollowUp·非目标区域不消费：先进入资料室后仍可在天台兑现', () => {
@@ -471,9 +743,12 @@ describe('基础数据包池树（schale_office）', () => {
     readRooftopInvite(g);
     expect(g.travelToArea('base:area:schale_library').success).toBe(true);
     expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(g.state.areaStoryDeliveries).toEqual([]);
     expect(g.travelToArea('base:area:schale_main').success).toBe(true);
     expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
+    expect(g.getView().currentStory).toBeNull();
   });
 
   test('FollowUp·当前已在目标区域不 catch-up：等待下一次匹配进入事件', () => {
@@ -489,9 +764,12 @@ describe('基础数据包池树（schale_office）', () => {
     readRooftopInvite(g);
     expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
     expect(g.getView().currentStory).toBeNull();
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toEqual([]);
     expect(g.travelToArea('base:area:schale_main').success).toBe(true);
     expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
+    expect(g.getView().currentStory).toBeNull();
   });
 
   test('FollowUp·Init 监听可重建：卸载后不响应，重新挂载后恢复等待', () => {
@@ -511,11 +789,13 @@ describe('基础数据包池树（schale_office）', () => {
 
     g.inits.mountInitTriggers('base:init:schale_office');
     expect(g.storyFollowUps.getDiagnostics().find(d => d.followUpId === 'rooftop-meet')?.state).toBe('waiting');
+    setCurrentArea(g, 'base:area:schale_rooftop');
     g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
   });
 
-  test('FollowUp·启动暂时失败不 fulfilled：清除占用后下一次匹配可重试', () => {
+  test('FollowUp·游标占用时仍投递：重复进入不复制，接取由命令拒绝', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
@@ -526,16 +806,18 @@ describe('基础数据包池树（schale_office）', () => {
     }
     readRooftopInvite(g);
     expect(g.story.startStory('base:activestory:schale_flow_show', 'active').success).toBe(true);
-    g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
-    expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
-    g.story.clearAllCurrentStories();
+    setCurrentArea(g, 'base:area:schale_rooftop');
     g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
+    const rejected = g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop');
+    expect(rejected).toMatchObject({ success: false, error: 'AlreadyActive' });
+    g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
   });
 
-  // 关键复现：玩家前往天台时全局游标已有被动闲聊在播放，天台 Trigger 仍应抢占触发
-  // （否则 storyStarter 会因 AlreadyActive 失败，天台剧情不触发）。
-  test('天台 Trigger·抢占：邀约已读且全局游标有被动闲聊时前往天台仍触发剧情', () => {
+  // Area 到达只投递，不能借 FollowUp 抢占播放中的被动闲聊。
+  test('天台 FollowUp·不抢占：游标播放时投递保留，接取失败后仍可重试', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
@@ -552,17 +834,22 @@ describe('基础数据包池树（schale_office）', () => {
     const extId = g.getView().currentStory!.storyId;
     expect(extId).not.toMatch(/hoshino_conv/);
 
-    // 前往天台 → 天台 Trigger（force）抢占该闲聊并启动天台剧情
-    const move = g.travelToArea('base:area:schale_rooftop');
-    expect(move.success).toBe(true);
+    // Area 进入事件只创建投递，不抢占当前被动闲聊。
+    setCurrentArea(g, 'base:area:schale_rooftop');
+    g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
-    expect(g.getView().currentStory).not.toBeNull();
-    expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+    expect(g.getView().currentStory?.storyId).toBe(extId);
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
+    expect(g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop'))
+      .toMatchObject({ success: false, error: 'AlreadyActive' });
+    expect(g.getView().currentStory?.storyId).toBe(extId);
+    g.story.clearAllCurrentStories();
+    expect(g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop').success).toBe(true);
+    expect(g.getView().currentStory?.storyDefId).toBe('base:story:hoshino_rooftop_meet');
   });
 
-  // 关键复现：玩家已通过星野聊天空间播放过天台邀约（hoshino_rooftop_hint 已读）后，
-  // 前往天台仍应触发独立的「天台相遇」剧情（force 跳过已读，且演出与邀约解耦不重复）。
-  test('天台 Trigger·已读：先播完聊天空间邀约后前往天台仍触发天台相遇', () => {
+  // 播完邀约、进入天台后出现独立的待接取「天台相遇」剧情。
+  test('天台 FollowUp·已读：先播完聊天空间邀约后进入天台可接取相遇剧情', () => {
     const g = new GameInstance();
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
@@ -573,11 +860,13 @@ describe('基础数据包池树（schale_office）', () => {
     }
     // 播完聊天空间邀约（hoshino_conv_2）→ hoshino_rooftop_hint 已读
     readRooftopInvite(g);
-    // 前往天台 → 天台 Trigger（force 跳过已读）仍应触发独立的天台相遇
+    // 前往天台只投递，不自动开播。
     const move = g.travelToArea('base:area:schale_rooftop');
     expect(move.success).toBe(true);
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
-    expect(g.getView().currentStory).not.toBeNull();
+    expect(g.getView().currentStory).toBeNull();
+    expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
+    expect(g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop').success).toBe(true);
     expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
   });
 

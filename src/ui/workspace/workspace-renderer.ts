@@ -14,10 +14,13 @@ import { renderSettingsWorkspace } from '../components/settings-workspace';
 import { renderInventoryWorkspace } from '../components/inventory-workspace';
 import { renderWorkspaceFrame } from '../components/workspace-frame';
 import { renderAreaWorkspace } from '../components/area-workspace';
+import { renderAreaMapWorkspace } from '../components/area-map-workspace';
+import { renderMapEntryWorkspace } from '../components/map-entry-workspace';
 import type { PanelState } from '../components/app-shell';
 import type { WorkspaceRoute } from './workspace-router';
 
 function studentVariantId(route: WorkspaceRoute, state: PanelState): string | null {
+  if (route.kind === 'area-map') return null;
   if (route.kind === 'area') return null;
   if (route.kind === 'character') return state.workspace?.type === 'character' ? state.workspace.conversationVariantId : null;
   if (route.kind === 'contacts') return state.workspace?.type === 'contacts' ? state.workspace.conversationVariantId : null;
@@ -42,7 +45,14 @@ function renderGameWorkspace(ctx: UIContext, state: PanelState): string {
 }
 
 function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: PanelState): { body: string; footerNote: string } {
+  if (route.kind === 'area-map' && state.areaMapSession?.sessionId === route.sessionId) {
+    return { body: renderAreaMapWorkspace(ctx, state.areaMapSession, state), footerNote: '区域地图' };
+  }
   if (route.kind === 'area') return { body: renderAreaWorkspace(ctx, route.areaId, state), footerNote: '区域工作区 · 当前区域' };
+  if (route.kind === 'map-entry') {
+    const entryView = ctx.game.mapRun.getEntryView(route.mapId);
+    return { body: renderMapEntryWorkspace(ctx, route.mapId, entryView, state), footerNote: '地图探索 · 行前准备' };
+  }
   if (route.kind === 'service') {
     if (route.page === 'settings') return { body: renderSettingsWorkspace(ctx, state), footerNote: 'SETTINGS WORKSPACE · LOCAL SERVICES' };
     if (route.page === 'inventory') return { body: renderInventoryWorkspace(ctx, state), footerNote: 'INVENTORY WORKSPACE · LOCAL SORTING' };

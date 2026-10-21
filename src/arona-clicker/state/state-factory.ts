@@ -13,6 +13,7 @@ export function createDefaultState(): AronaClickerState {
     tagEffects: {},
     entityEffects: {},
     storyLog: [],
+    areaStoryDeliveries: [],
     inventory: {},
     flags: {},
     triggersCompleted: [],

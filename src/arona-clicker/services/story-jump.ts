@@ -82,7 +82,7 @@ export function resolveStoryEnd(rt: StoryRuntime, cur: StoryCursorState, endedSt
       : { type: 'passive', storyId: story.id };
     if (!cur.isReplay) {
       applyCompletionReward(rt, entry, story);
-      rt.mutations.completeStory(completed);
+      rt.mutations.completeStory(completed, entry.id);
       // 被动闲聊完结：写冷却帧 + 设置对话空间阻断态（关卡式剧情）
       if (entry.type === 'passive') {
         recordPassiveCooldown(rt, entry);

@@ -28,6 +28,8 @@ import type {
 import type { PaymentOptionDef } from '../contracts/cost';
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
 import type { GameplayMapDef } from '../contracts/gameplay-map';
+import type { AreaMapDef } from '../contracts/area-map';
+import { validateAreaMapReferences } from './area-map-validation';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
 // ============================================================
@@ -87,6 +89,7 @@ export class Registry {
   private _areas: Map<string, AreaDef> = new Map();
   private _spots: Map<string, SpotDef> = new Map();
   private _maps: Map<string, GameplayMapDef> = new Map();
+  private _areaMaps = new Map<string, AreaMapDef>();
   private _suspendedSpots = new Map<string, { spot: SpotDef; ownerModName: string }>();
   private _initSourceModNames = new Map<string, string>();
   private _areaSourceModNames = new Map<string, string>();
@@ -378,6 +381,13 @@ export class Registry {
         table: 'maps',
         merge: dp => { if (dp.maps) for (const map of dp.maps) this._maps.set(map.id, map); },
         clear: () => this._maps.clear(),
+      },
+      {
+        table: 'areaMaps',
+        merge: dp => {
+          for (const map of dp.areaMaps ?? []) this._areaMaps.set(map.id, map);
+        },
+        clear: () => { this._areaMaps.clear(); },
       },
       {
         table: 'operationEvents',
@@ -812,6 +822,12 @@ export class Registry {
   get shops(): ReadonlyMap<string, ShopDef> { return this._shops; }
   /** Gameplay B Map definitions (MapId → Def). */
   get maps(): ReadonlyMap<string, GameplayMapDef> { return this._maps; }
+  get areaMaps(): ReadonlyMap<string, AreaMapDef> { return this._areaMaps; }
+
+  /** Finalize after all enabled packs are loaded; load/validate alone only prove local shape. */
+  validateAreaMapRefs(): void {
+    validateAreaMapReferences(this._areaMaps, this._areas, this._pics, message => { throw new RegistryError(message); });
+  }
   /** 色彩组表（ColorGroupId → Def；唯一色彩实体）。 */
   get colorGroups(): ReadonlyMap<string, ColorGroupDef> { return this._colorGroups; }
   /** 色彩装备表（EquipmentId → Def）。 */
@@ -1184,6 +1200,9 @@ export class Registry {
 
   private validateAreaCandidate(area: AreaDef, ownerModName: string): void {
     this.validateWorldId(area.id, 'area', ownerModName, 'Area');
+    if (area.navigationMapId !== undefined && !this._areaMaps.has(area.navigationMapId)) {
+      throw new RegistryError(`Area "${area.id}" navigationMapId 引用不存在的区域地图`);
+    }
     validateDatapack({
       modName: ownerModName,
       name: 'runtime-area-mutation',

@@ -14,6 +14,7 @@ export interface SaveData {
   visibility: VisibilitySnapshot;
   timers?: Record<string, unknown>;
   pendingStoryId: string | null;
+  pendingStoryEntryType?: 'active' | 'passive' | null;
   pendingStoryPageIndex: number;
   pendingStoryChoiceIndex?: number;
   pendingTalkletClicks?: { total: number; done: number } | null;

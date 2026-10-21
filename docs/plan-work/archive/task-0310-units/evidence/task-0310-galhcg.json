@@ -1,0 +1,731 @@
+{
+  "project_id": "acprogram",
+  "read_only": true,
+  "freshness_written": false,
+  "results": [
+    {
+      "path": "src/data-services/contracts/area-map.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/data-services/contracts/world.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "InitService → world.ts",
+            "SpotService → world.ts",
+            "InitService",
+            "SpotService"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/data-services/contracts/datapack.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Registry → datapack.ts",
+            "Registry"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/data-services/index.ts",
+      "ok": true,
+      "complete": false,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "ContentAuthoringPolicy → index.ts",
+            "Datapack Package I/O → index.ts",
+            "Registry → index.ts",
+            "ContentAuthoringPolicy",
+            "Datapack Package I/O",
+            "Registry"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/engine/core/entity-id.ts",
+      "ok": true,
+      "complete": false,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "ContentAuthoringPolicy → entity-id.ts",
+            "Registry → entity-id.ts",
+            "Runtime Datapack Editor UI → entity-id.ts",
+            "ContentAuthoringPolicy",
+            "Registry",
+            "Runtime Datapack Editor UI"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/data-services/registry/area-map-validation.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/data-services/registry/registry-validate.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Registry → registry-validate.ts",
+            "Registry"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/data-services/datapack/fragment-parser.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Datapack Package I/O",
+            "Datapack Package I/O → fragment-parser.ts",
+            "Datapack Package I/O"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/data-services/authoring/content-policies.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "ContentAuthoringPolicy → content-policies.ts",
+            "ContentAuthoringPolicy"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/data-services/registry/runtime-content-reference-rules.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/arona-clicker/runtime.ts",
+      "ok": true,
+      "complete": false,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "应用与 Runtime 组合",
+            "玩法 B（Gameplay B）",
+            "PackManager → runtime.ts",
+            "RuntimeContentCoordinator → runtime.ts",
+            "玩法 B（Gameplay B） → runtime.ts",
+            "PackManager",
+            "RuntimeContentCoordinator",
+            "玩法 B（Gameplay B）"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/arona-clicker/runtime-game-instance.ts",
+      "ok": true,
+      "complete": false,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "GameInstance Runtime Composition",
+            "GameInstance Runtime Composition → runtime-game-instance.ts",
+            "Operation Run Lifecycle and Persistence → runtime-game-instance.ts",
+            "buildGameView → runtime-game-instance.ts",
+            "GameInstance Runtime Composition",
+            "Operation Run Lifecycle and Persistence",
+            "buildGameView"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/arona-clicker/services/init-service.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "InitService",
+            "InitService → PlayerState",
+            "InitService → StoryService",
+            "InitService → init-service.ts",
+            "InitService"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/arona-clicker/contracts/runtime.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Controller → Runtime commands → runtime.ts",
+            "Controller → Runtime commands"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/arona-clicker/contracts/runtime-content.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "RuntimeContentCoordinator → runtime-content.ts",
+            "RuntimeWorldContentCoordinator → runtime-content.ts",
+            "RuntimeContentCoordinator",
+            "RuntimeWorldContentCoordinator"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/arona-clicker/contracts/area-map-query.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/arona-clicker/services/area-map-query.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/workspace/foreground-interaction.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/workspace/area-map-session.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/workspace/workspace-router.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "UI Workspace Routing and Lifecycle",
+            "UI Workspace Routing and Lifecycle → workspace-router.ts",
+            "UI Workspace Routing and Lifecycle"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/update/ui-surface.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "UI Workspace Routing and Lifecycle → ui-surface.ts",
+            "UI Workspace Routing and Lifecycle"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/components/app-shell.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "UI Workspace Renderer → app-shell.ts",
+            "UI Workspace Renderer"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/components/rail.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Story Content Catalog",
+            "Story Content Catalog → rail.ts",
+            "UI Workspace Renderer → rail.ts",
+            "Story Content Catalog",
+            "UI Workspace Renderer"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/controller-actions-inventory.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Controller → Runtime commands → controller-actions-inventory.ts",
+            "Controller → Runtime commands"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/components/area-map-workspace.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/css/area-map.css",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/workspace/workspace-renderer.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "UI Workspace Renderer",
+            "UI Workspace Renderer → workspace-renderer.ts",
+            "UI Workspace Renderer"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/workspace/area-map-dom.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/workspace/area-map-camera.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/controller.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Controller → Runtime commands",
+            "Controller → Runtime commands → controller.ts",
+            "Controller → Runtime commands"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/controller-core.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Controller → Runtime commands → controller-core.ts",
+            "Controller → Runtime commands"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/main.ts",
+      "ok": true,
+      "complete": false,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Test Harness and Configuration",
+            "游戏 UI",
+            "Test Harness and Configuration → main.ts",
+            "UI Workspace Renderer → main.ts",
+            "Test Harness and Configuration",
+            "UI Workspace Renderer"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "src/ui/development/area-map-demo-pack.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/development/area-map-demo.ts",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/development/area-map-demo/datapack.json",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "src/ui/development/area-map-demo/content.json",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "tools/datapack-editor/schema/types.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Datapack Editor UI → types.ts",
+            "Datapack Editor UI"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "tools/datapack-editor/schema/editor-extras.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "独立 Datapack Editor",
+            "Engine Schema sync → editor-extras.ts",
+            "Engine Schema sync"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "tools/datapack-editor/schema/engine-defs.gen.json",
+      "ok": true,
+      "complete": false,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Engine Schema sync",
+            "Registry",
+            "独立 Datapack Editor",
+            "Engine Schema sync → engine-defs.gen.json",
+            "Registry → engine-defs.gen.json",
+            "Engine Schema sync",
+            "Registry"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "tools/datapack-editor/schema/engine-schema.sync.test.ts",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "独立 Datapack Editor",
+            "Engine Schema sync → engine-schema.sync.test.ts",
+            "Registry → engine-schema.sync.test.ts",
+            "Engine Schema sync",
+            "Registry"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "docs/docs-829/04-mechanisms/arona-clicker/area-map-navigation.md",
+      "ok": false,
+      "error": "unreferenced_path"
+    },
+    {
+      "path": "docs/docs-829/03-data-structures/datapack-contracts.md",
+      "ok": true,
+      "complete": false,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "Engine Schema sync → Registry",
+            "Engine Schema sync → datapack-contracts.md",
+            "Operation Content Validation → datapack-contracts.md",
+            "Registry → datapack-contracts.md",
+            "Engine Schema sync",
+            "Operation Content Validation",
+            "Registry"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "docs/docs-829/06-wiki/50-ui/workspace-routing.md",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "导航与增量刷新",
+            "UI Workspace Routing and Lifecycle → workspace-routing.md",
+            "UI Workspace Routing and Lifecycle"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "docs/docs-829/06-wiki/50-ui/refresh-update.md",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "UI Incremental Refresh → refresh-update.md",
+            "UI Incremental Refresh"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "ui-style/patterns.md",
+      "ok": true,
+      "complete": true,
+      "entries": [
+        {
+          "status": "content_changed",
+          "owners": [
+            "UI 风格体系与复用约定",
+            "UI 风格体系与复用约定 → patterns.md",
+            "UI 风格体系与复用约定"
+          ],
+          "next": null,
+          "complete": true
+        }
+      ]
+    },
+    {
+      "path": "tests/data/area-map-registry.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/data/area-map-pack.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/data/area-map-authoring.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/data/area-map-demo.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/engine/area-map-query.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/engine/area-map-travel.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/engine/area-map-runtime.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/ui/foreground-interaction.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/ui/area-map-session.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/ui/area-map-workspace.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/ui/area-map-dom.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/ui/area-map-camera.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "tests/ui/area-map-controller.test.ts",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "docs/plan-work/archive/task-0310-area-map-navigation-service-v1.md",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md",
+      "ok": false,
+      "error": "unreferenced_path",
+      "owners": [],
+      "ownerComplete": true
+    },
+    {
+      "path": "docs/plan-work/00-index.md",
+      "ok": true,
+      "owners": [
+        "节点探索 UI Demo",
+        "项目协作与规划记录",
+        "ACProgram → 项目协作与规划记录",
+        "AI 协作入口与 Read Set 路由 → 00-index.md",
+        "Goal 与 Task 工作流 → 00-index.md",
+        "节点探索 UI Demo → 00-index.md",
+        "AI 协作入口与 Read Set 路由",
+        "Goal 与 Task 工作流",
+        "节点探索 UI Demo"
+      ],
+      "ownerComplete": true
+    }
+  ],
+  "registry_extra": {
+    "path": "src/data-services/registry/registry.ts",
+    "status": "content_changed",
+    "owner_total": 5,
+    "owner_complete": true
+  }
+}

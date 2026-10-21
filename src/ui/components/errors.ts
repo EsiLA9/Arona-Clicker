@@ -17,7 +17,7 @@ export const enhPurchaseErrorText: Record<EnhancementPurchaseError, string> = {
 export const travelErrorText: Record<TravelError, string> = {
   NotFound: '区域不存在',
   NotInThisInit: '不在当前世界线',
-  NotAdjacent: '未相邻',
+  NotAdjacent: '当前没有可用通路或地图交通',
   AlreadyThere: '已在当前区域',
   Locked: '区域未解锁',
   StoryBlocked: '剧情进行中，无法移动',

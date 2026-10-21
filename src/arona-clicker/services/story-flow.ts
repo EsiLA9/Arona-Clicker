@@ -26,6 +26,7 @@ function shouldEchoReply(page: Talklet): boolean {
 /** 初始化剧情游标（startStory / replayStory 共用）。 */
 export function beginStory(rt: StoryRuntime, cur: StoryCursorState, entry: StoryEntryDef, story: StoryDef, replay: boolean): void {
   cur.currentStoryEntryId = entry.id;
+  cur.currentStoryEntryType = entry.type;
   cur.currentStoryDefId = entry.storyId;
   cur.currentStoryPageIndex = 0;
   cur.currentStoryChoiceIndex = -1;
@@ -75,6 +76,9 @@ export function startStory(
   const cur = rt.cursorFor(owner);
   if (!cur.empty) {
     const currentEntry = cur.currentStoryEntryId ? rt.entryById(cur.currentStoryEntryId) : undefined;
+    if (currentEntry?.type === 'passive' && currentEntry.blocksInteraction === true) {
+      return { success: false, storyId, error: 'AlreadyActive' };
+    }
     if (expectedType === 'active') {
       // active（含羁绊剧情）：可打断被动闲聊，但不可打断 active 主线
       if (currentEntry?.type === 'passive') {
@@ -84,7 +88,7 @@ export function startStory(
         return { success: false, storyId, error: 'AlreadyActive' };
       }
     } else if (force && currentEntry?.type === 'passive') {
-      // 强制模式（Trigger 驱动的系统事件剧情）：打断已有被动闲聊再启动新剧情
+      // 强制模式（Trigger 驱动的系统事件剧情）：打断普通被动闲聊再启动新剧情
       cur.clear();
     } else {
       return { success: false, storyId, error: 'AlreadyActive' };
@@ -396,6 +400,10 @@ export function clickSend(rt: StoryRuntime, owner?: string | null): SendResult {
     // 羁绊卡片点击：清空当前游标（丢弃原 Story 剩余页，goto 语义），
     // 启动目标 ActiveStoryEntry 的演出 Story。skipConditions：卡片出现本身即入口判定；
     // 但仍尊重单次完成态（AlreadyCompleted 拒绝），见 startStory。
+    const currentEntry = cur.currentStoryEntryId ? rt.entryById(cur.currentStoryEntryId) : undefined;
+    if (currentEntry?.type === 'passive' && currentEntry.blocksInteraction === true) {
+      return { type: 'idle', started: false, error: 'AlreadyActive' };
+    }
     cur.clear();
     const result = startStory(rt, state.targetStoryId, 'active', owner, { skipConditions: true });
     if (result.success) {

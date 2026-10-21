@@ -57,6 +57,10 @@
    visibility: hidden;
    pointer-events: none;
    user-select: text;
+   box-sizing: border-box;
+   max-width: calc(100vw - 20px);
+   max-height: calc(100vh - 20px);
+   overflow: auto;
 }
 
 .floating-tooltip.is-open {
@@ -69,6 +73,8 @@
    position: relative;
    top: 0;
    left: 0;
+   box-sizing: border-box;
+   max-width: 100%;
    opacity: 1;
    visibility: visible;
    pointer-events: none;

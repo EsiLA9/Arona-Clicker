@@ -57,7 +57,7 @@ export interface GameCommandSource {
   clearDevLogs(): void;
   save(): SaveData;
   load(saveData: SaveData): void;
-  story: Pick<StoryService, 'startActiveStory' | 'startCardStory' | 'replayStory' | 'triggerPassiveStory' | 'triggerAffectionPush' | 'triggerTailPush' | 'advanceStory' | 'clickSend'>;
+  story: Pick<StoryService, 'startActiveStory' | 'acceptAreaStoryDelivery' | 'startCardStory' | 'replayStory' | 'triggerPassiveStory' | 'triggerAffectionPush' | 'triggerTailPush' | 'advanceStory' | 'clickSend'>;
   items: Pick<ItemService, 'useItem'>;
   enhancements: Pick<EnhancementService, 'purchaseEnhancement' | 'removeEnhancement'>;
   spot: Pick<SpotService, 'unlockSpot' | 'upgradeSpot'>;
@@ -93,6 +93,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     save: () => game.save(),
     load: saveData => game.load(saveData),
     startActiveStory: (storyId, owner) => game.story.startActiveStory(storyId, owner),
+    acceptAreaStoryDelivery: (storyEntryId, areaId) => game.story.acceptAreaStoryDelivery(storyEntryId, areaId),
     startCardStory: (storyId, owner) => game.story.startCardStory(storyId, owner),
     replayStory: (storyId, owner) => game.story.replayStory(storyId, owner),
     triggerPassiveStory: (initId, owner) => game.story.triggerPassiveStory(initId, owner),

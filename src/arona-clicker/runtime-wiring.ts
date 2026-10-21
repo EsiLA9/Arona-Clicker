@@ -32,6 +32,7 @@ import { ColorEquipmentSystem } from './services/color-equipment-system';
 import { GearSystem } from './services/gear-system';
 import { GachaService } from './services/gacha-service';
 import { PassivePoolSystem } from './services/passive-pool-system';
+import { StoryAvailabilityDeliveryMount } from './services/story-availability-delivery-mount';
 import { ColorUnlockReactor } from './services/color-unlock-reactor';
 import { CharaProfileService } from './services/chara-profile-service';
 import { PicService } from '../data-services/assets/pic-service';
@@ -44,6 +45,7 @@ import { SpotService } from './services/spot-service';
 import { InitService } from './services/init-service';
 import { StoryEntryReactionMount } from './services/story-entry-reaction-mount';
 import { StoryFollowUpMount } from './services/story-follow-up-mount';
+import { baseStoryPageOnlyEntryIds } from './content/story-hierarchy';
 import { InformationRevealAdapter } from './services/information-reveal-adapter';
 import { MilestoneAdapter } from './services/milestone-adapter';
 import { ItemService } from './services/item-service';
@@ -260,9 +262,26 @@ export function wireGameInstance(
       const entry = g.registry.storyEntries.get(storyEntryId);
       if (!entry) return false;
       // v1 使用正式 StoryService 启动入口；force 保留当前系统剧情对被动闲聊的抢占兼容，
-      // 但 FollowUp 只在该同步调用返回 success 后提交 fulfilled。
+      // Passive FollowUp 只在该同步调用返回 success 后提交 fulfilled。
       return g.storyService.startStory(storyEntryId, entry.type, null, { force: true }).success;
     },
+    (storyEntryId, areaId, sourceId) => g.mutations.createAreaStoryDelivery({
+      entryId: storyEntryId,
+      areaId,
+      sourceId,
+    }),
+  );
+  const storyAvailabilityDeliveries = new StoryAvailabilityDeliveryMount(
+    g.registry,
+    g.conditionSystem,
+    g.eventBus,
+    hooks.getState,
+    baseStoryPageOnlyEntryIds,
+    (storyEntryId, areaId, sourceId) => g.mutations.createAreaStoryDelivery({
+      entryId: storyEntryId,
+      areaId,
+      sourceId,
+    }),
   );
   g.storyFollowUps = storyFollowUps;
   // visitedStoryInChain 条件：查询当前 Entry 跳转链是否经过某 Story（由 StoryService 提供运行时上下文）
@@ -303,6 +322,7 @@ export function wireGameInstance(
     triggerSystem: g.triggerSystem,
     storyEntryReactions,
     storyFollowUps,
+    storyAvailabilityDeliveries,
     informationRevealAdapter,
     milestoneAdapter,
     affectorEngine: g.affectorEngine,
@@ -323,7 +343,7 @@ export function wireGameInstance(
     stop: () => g.stop(),
     createDefaultState: () => createDefaultPlayerState(),
     touchTickTimestamp: () => { g.sessionService.touchLastTick(); },
-    getReachableAreaIds: areaId => g.availableAreaIds(areaId),
+    getAreaGraph: () => g.getAreaTravelGraph(),
   });
   g.mutations.setInitScopedTargetGuard(spotId => {
     const spot = g.registry.spots.get(spotId);

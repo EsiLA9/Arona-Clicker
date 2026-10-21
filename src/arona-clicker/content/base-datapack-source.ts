@@ -1,4 +1,5 @@
 import type { Datapack } from '../../data-services/contracts/datapack';
+import type { AreaMapDef } from '../../data-services/contracts/area-map';
 import { baseAreas } from './areas';
 import { allCharacters } from './characters';
 import { baseDropTables } from './drop-tables';
@@ -50,7 +51,32 @@ function withDefaultPresentation<T extends {
 }
 
 const defaultInits = [...baseInits, ...themeShowcaseInits].map(def => withDefaultPresentation(def));
-const defaultAreas = [...baseAreas, ...themeShowcaseAreas].map(def => withDefaultPresentation(def));
+const navigationMapId = (initId: string) => initId.replace(':init:', ':area-map:');
+const defaultAreas = [...baseAreas, ...themeShowcaseAreas].map(def => ({
+  ...withDefaultPresentation(def), navigationMapId: navigationMapId(def.initId),
+}));
+// One small authored-content projection per Init; travel still uses the Area topology.
+const defaultAreaMaps: AreaMapDef[] = defaultInits.map(init => {
+  const areas = defaultAreas.filter(area => area.initId === init.id);
+  const nodeId = (areaId: string) => areaId.split(':')[2];
+  const areaIds = new Set(areas.map(area => area.id));
+  const edges = new Map<string, AreaMapDef['edges'][number]>();
+  for (const area of areas) {
+    for (const adjacentId of area.adjacentAreaIds ?? []) {
+      if (!areaIds.has(adjacentId)) continue;
+      const [fromNodeId, toNodeId] = [nodeId(area.id), nodeId(adjacentId)].sort();
+      edges.set(`${fromNodeId}:${toNodeId}`, { fromNodeId, toNodeId });
+    }
+  }
+  return {
+    id: navigationMapId(init.id), name: `${init.name}区域图`,
+    nodes: areas.map((area, index) => ({
+      id: nodeId(area.id), position: { x: (index % 3) * 240, y: Math.floor(index / 3) * 180 },
+      action: { kind: 'attemptAreaTravel', areaId: area.id },
+    })),
+    edges: [...edges.values()],
+  };
+});
 const defaultSpots = [...baseSpots, ...themeShowcaseSpots].map(def => withDefaultPresentation(def));
 const defaultEnhancements = [...baseEnhancements, ...baseGlobalEnhancements, ...themeShowcaseEnhancements]
   .map(def => withDefaultPresentation(def));
@@ -62,6 +88,7 @@ export const baseDatapackSource: Datapack = {
   version: '1.0.2',
   inits: defaultInits,
   areas: defaultAreas,
+  areaMaps: defaultAreaMaps,
   spots: defaultSpots,
   enhancements: defaultEnhancements,
   items: [...baseItems, ...baseGearItems],

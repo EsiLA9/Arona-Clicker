@@ -332,6 +332,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       for (const id of draft.order) {
         if (draft.enabledIds.includes(id)) registry.load(this.packManager.getPack(id)!.datapack);
       }
+      registry.validateAreaMapRefs();
       return { ok: true, errors: [], warnings: [] };
     } catch (error) {
       return { ok: false, errors: [error instanceof Error ? error.message : String(error)], warnings: [] };
@@ -361,6 +362,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       plan = this.packManager.buildRuntimeApplyPlan();
       const registry = new Registry();
       for (const entry of plan.entries) registry.load(this.packManager.getPack(entry.packRecordId)!.datapack);
+      registry.validateAreaMapRefs();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return { ok: false, message, validation: { ok: false, errors: [message], warnings: [] } };
@@ -817,6 +819,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   private validatePackDatapacks(datapacks: readonly Datapack[]): void {
     const registry = new Registry();
     for (const datapack of datapacks) registry.load(datapack);
+    registry.validateAreaMapRefs();
   }
 
   private createPackApplyTarget(): {

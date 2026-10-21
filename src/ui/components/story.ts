@@ -11,6 +11,7 @@ import { renderMapActionCardButton, stableMapActionCardAngle } from '../cards/ac
 export const storyErrorText: Record<string, string> = {
   AlreadyActive: '已有剧情流程进行中',
   AlreadyCompleted: '该剧情已经完成',
+  AreaDeliveryUnavailable: '这条区域故事已无法接取，请返回区域列表后重试',
   BranchGuardDenied: '分歧点准入条件未满足',
   ChoiceConditionNotMet: '当前选择条件未满足',
   ChoiceRequired: '请先选择一个回应',
