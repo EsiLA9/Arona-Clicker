@@ -22,6 +22,9 @@ export function bindEvents(ctrl: UIController): void {
 
   // EventBus 广播 → 揭示条件判断 → 变化则反射到 UI（无需玩家交互才刷新）
   ctrl.game.eventBus.onAny(event => {
+    if (event.type === 'areaEntered' && ctrl.returnFromAreaWorkspace(event.areaId)) {
+      ctrl.scheduleRender();
+    }
     if (event.type === 'resourceChanged'
       || event.type === 'spotProduced'
       || event.type === 'itemCollected'

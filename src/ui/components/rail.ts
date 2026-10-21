@@ -5,6 +5,7 @@ import type { ActiveStoryEntry } from '../../data-services/contracts/story-entry
 import type { StoryDef } from '../../data-services/contracts/story';
 import type { PanelState } from './app-shell';
 import { renderBackground } from '../background-service';
+import { renderPresentationHostGeometryStyle } from '../presentation-service';
 import {
   baseStoryHierarchy,
   StoryContentTable,
@@ -28,7 +29,7 @@ export function renderLeftPanel(ctx: UIContext, panelState: PanelState): string 
   const tab = 'area';
   const body = renderAreaTab(ctx);
   return `
-    <aside class="ui-cluster ui-cluster--left-panel panel left-panel presentation-host-target" data-game-panel="left" data-theme-scope="left.${tab}" data-theme-host-id="leftPanel.${tab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`leftPanel.${tab}`)}">
+    <aside class="ui-cluster ui-cluster--left-panel panel left-panel presentation-host-target" ${renderPresentationHostGeometryStyle(ctx, `leftPanel.${tab}`)} data-game-panel="left" data-theme-scope="left.${tab}" data-theme-host-id="leftPanel.${tab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`leftPanel.${tab}`)}">
       ${renderBackground(ctx.backgroundForHost(`leftPanel.${tab}`), 'console-panel-background')}
       ${renderPanelTabsRegion(ctx, 'left', LEFT_TABS, tab)}
       <div class="ui-cluster ui-cluster--left-${tab} panel-body">${body}</div>
@@ -45,14 +46,17 @@ function renderAreaTab(ctx: UIContext): string {
   const areaDescription = currentPresentation?.description ?? currentArea?.description ?? init?.description ?? '';
 
   // hero 横幅
-  const hero = `
-    <div class="area-hero">
-      <h2>${ctx.escapeHtml(areaName)}</h2>
-      <p>${ctx.escapeHtml(areaDescription)}</p>
-      ${currentArea && getAreaReveal(ctx, currentArea).utilityKnown
+  const hero = currentArea
+    ? `<div class="area-hero">
+        <button type="button" class="area-hero__open" data-area-workspace-open="${ctx.escapeHtml(currentArea.id)}" aria-label="打开区域工作区：${ctx.escapeHtml(areaName)}">
+          <h2>${ctx.escapeHtml(areaName)}</h2>
+          <p>${ctx.escapeHtml(areaDescription)}</p>
+        </button>
+      </div>
+      ${getAreaReveal(ctx, currentArea).utilityKnown
         ? renderEntityPresentationOptions(ctx, 'area', currentArea.id)
-        : ''}
-    </div>`;
+        : ''}`
+    : `<div class="area-hero"><h2>${ctx.escapeHtml(areaName)}</h2><p>${ctx.escapeHtml(areaDescription)}</p></div>`;
 
   // 可前往区域 = 统一可达性查询：静态拓扑 + Runtime Overlay + Affector 动态连接
   const adjacent = currentArea

@@ -778,6 +778,7 @@ h3 {
    min-width: 0;
    min-height: 0;
    overflow: hidden;
+   border-radius: var(--presentation-corner-radius, var(--panel-radius));
 }
 
 .left-panel,
@@ -807,6 +808,7 @@ h3 {
 
 .right-panel > .resource-bar {
    margin-inline: var(--panel-content-padding-inline, 14px);
+   margin-block: var(--panel-region-gap, 8px);
 }
 
 .panel-heading {

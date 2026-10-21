@@ -64,6 +64,7 @@ function legacyWorkspaceClass(id: string): string {
   if (id === 'character') return 'character-workspace';
   if (id === 'contacts') return 'contacts-workspace';
   if (id === 'story') return 'story-workspace';
+  if (id === 'area') return 'area-workspace';
   if (id === 'settings') return 'settings-workspace';
   if (id === 'inventory') return 'inventory-workspace';
   return id.startsWith('service-') ? 'service-workspace' : '';
@@ -85,7 +86,7 @@ export function renderWorkspaceColumn(ctx: UIContext, column: WorkspaceColumnSpe
   const role = column.role ? ` data-workspace-role="${ctx.escapeHtml(column.role)}"` : '';
   const owner = column.workspaceOwner ? ` data-workspace-owner="${ctx.escapeHtml(column.workspaceOwner)}"` : '';
   const content = `<div class="workspace-column__slot" data-workspace-column="${column.slot}" data-workspace-surface="${surface}"${role}${owner}>${body}</div>`;
-  return renderUIHost(ctx, { hostId: column.hostId, themeScope: column.themeScope, className, content });
+  return renderUIHost(ctx, { hostId: column.hostId, themeScope: column.themeScope, className, content, useHostGeometry: surface === 'panel' });
 }
 
 export function renderWorkspaceFrame(ctx: UIContext, spec: WorkspaceFrameSpec): string {

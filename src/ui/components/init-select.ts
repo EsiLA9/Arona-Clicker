@@ -178,3 +178,34 @@ export function renderInitDetail(
   if (!selected) return '<div class="selector-detail selector-detail-empty"><p>暂无可选的世界线。</p></div>';
   return detailHtml(ctx, selected, mode === 'restart');
 }
+
+/** 进入前的只读中转页；预览快照不恢复世界线，确认按钮仍由 Controller 发命令。 */
+export function renderInitOverview(ctx: UIContext, initId: string): string {
+  const init = summarize(ctx).find(candidate => candidate.id === initId && candidate.unlocked);
+  if (!init) return '';
+  const progress = init.active ? ctx.view : ctx.game.state.initSnapshots?.[initId];
+  const areaIds = ctx.world.areasOfInit(initId);
+  const spotIds = areaIds.flatMap(id => ctx.world.spotsOfArea(id));
+  const visited = areaIds.filter(id => progress?.visitedAreas.includes(id)).length;
+  const built = spotIds.filter(id => (progress?.spotLevels[id] ?? 0) > 0).length;
+  const area = progress?.currentAreaId ? ctx.world.areas.get(progress.currentAreaId) : undefined;
+  return `
+    <header class="selector-init-overview-head">
+      <span class="eyebrow">世界线概览</span>
+      <h1 tabindex="-1" data-selector-init-overview-title>${ctx.escapeHtml(init.name)}</h1>
+      <span class="selector-workbench-badge is-${initNodeState(init)}">${init.active ? '当前世界线' : '已解锁'}</span>
+    </header>
+    <div class="selector-init-overview-content">
+      <p id="selector-init-description">${ctx.escapeHtml(init.description)}</p>
+      <span class="selector-detail-figure">TILT ${ctx.escapeHtml(initTiltText(init))}</span>
+      <dl class="selector-init-progress">
+        <div><dt>当前区域</dt><dd>${ctx.escapeHtml(area?.name ?? '尚未进入')}</dd></div>
+        <div><dt>已探索区域</dt><dd>${visited} / ${init.areaCount}</dd></div>
+        <div><dt>已建设施</dt><dd>${built} / ${init.spotCount}</dd></div>
+      </dl>
+    </div>
+    <div class="selector-init-overview-actions">
+      <button type="button" class="primary-button" data-init="${ctx.escapeHtml(init.id)}" data-init-confirm>进入世界线 <span>↗</span></button>
+      <button type="button" class="toolbar-button" data-selector-init-overview-back>返回星图</button>
+    </div>`;
+}

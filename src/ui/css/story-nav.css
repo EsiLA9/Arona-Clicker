@@ -152,6 +152,24 @@
    border-radius: 12px;
 }
 
+.area-hero__open {
+   display: block;
+   width: 100%;
+   padding: 0;
+   border: 0;
+   background: transparent;
+   color: inherit;
+   font: inherit;
+   text-align: left;
+   cursor: pointer;
+}
+
+.area-hero__open:focus-visible {
+   outline: 2px solid var(--ink-on-panel-light);
+   outline-offset: 4px;
+   border-radius: 4px;
+}
+
 .area-hero h2 {
    margin: 0 0 6px;
    font-size: 22px;

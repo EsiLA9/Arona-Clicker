@@ -3,7 +3,8 @@ import { renderPanelHeaderRegion } from './tabs';
 
 export type WorkspaceTitlebarLeaveAction =
   | 'data-contacts-workspace-leave'
-  | 'data-story-workspace-leave';
+  | 'data-story-workspace-leave'
+  | 'data-area-workspace-leave';
 
 export type WorkspaceTitlebarPanel = 'left' | 'center' | 'right';
 
@@ -18,8 +19,9 @@ export function renderWorkspaceTitlebar(
   title: string,
   leaveAction?: WorkspaceTitlebarLeaveAction,
 ): string {
+  const leaveLabel = leaveAction === 'data-area-workspace-leave' ? '返回经典界面' : '返回上一页';
   const leaveButton = leaveAction
-    ? `<button type="button" class="conversation-back" ${leaveAction} aria-label="返回上一页" title="返回上一页">${BACK_CHEVRON}</button>`
+    ? `<button type="button" class="conversation-back" ${leaveAction} aria-label="${leaveLabel}" title="${leaveLabel}">${BACK_CHEVRON}</button>`
     : '';
   const content = `
     <div class="conversation-heading">

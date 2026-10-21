@@ -1937,6 +1937,13 @@ export class UIController {
     renderInitSelectImpl(this);
   }
 
+  /** 离开世界线后先停在该 Init 的概览，由玩家决定重新进入或返回星图。 */
+  renderInitOverview(initId: string | null): void {
+    this.selectorPage.restoreInitSelection(initId);
+    renderInitSelectImpl(this);
+    if (initId) this.selectorPage.openInitOverview(initId, { animate: false });
+  }
+
   /** 全量渲染选择页（默认聚焦全局强化节点，mid-game 热插拔入口）。 */
   renderGlobalEnhancementSelect(): void {
     renderGlobalEnhancementSelectImpl(this);
@@ -2117,6 +2124,26 @@ export class UIController {
     const previous = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
     this.panelState.workspaceNavigation = enterWorkspaceNavigation(previous, route, this.workspaceLocation());
     this.setWorkspaceRouteMirror(route);
+  }
+
+  /** 离开 Area Workspace 并恢复进入前的经典游戏页面位置。 */
+  returnFromAreaWorkspace(changedAreaId?: string): boolean {
+    const navigation = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
+    if (navigation.current.kind !== 'area') return false;
+    if (changedAreaId && changedAreaId === navigation.current.areaId) return false;
+    const returnLocation = navigation.returnTo;
+    const targetRoute = normalizeWorkspaceRoute(returnLocation?.route ?? { kind: 'game' });
+    this.panelState.workspace = undefined;
+    this.panelState.service = targetRoute.kind === 'service' ? targetRoute.page : 'game';
+    this.panelState.workspaceNavigation = createWorkspaceNavigation(targetRoute);
+    if (returnLocation) {
+      this.panelState.leftTab = returnLocation.leftTab;
+      this.panelState.centerTab = returnLocation.centerTab;
+      this.panelState.rightTab = returnLocation.rightTab;
+      this.panelState.selectedVariantId = returnLocation.selectedVariantId;
+      this.panelState.conversationVariantId = returnLocation.conversationVariantId;
+    }
+    return true;
   }
 
   /** Returns from a route-only Map Workspace to the saved UI location without creating PanelState workspace state. */

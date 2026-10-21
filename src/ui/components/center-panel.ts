@@ -7,7 +7,7 @@ import { renderOpeningBanner, renderStoryGate } from './story-gate';
 import type { SendState } from '../../arona-clicker/contracts/results';
 import type { ActiveBanner, SendGatePhase, StoryGateState } from './app-shell';
 import { renderBackground } from '../background-service';
-import { renderPresentationRegion } from '../presentation-service';
+import { renderPresentationHostGeometryStyle, renderPresentationRegion } from '../presentation-service';
 
 const CENTER_TABS: TabDef[] = [
   { id: 'chat', label: '聊天' },
@@ -39,7 +39,7 @@ export function renderCenterPanel(
     ? renderLogTab(ctx)
     : renderChatTab(ctx, chatEntries, chatTexts, sendState, sendGate ?? null, storyGate ?? null, openingBanner ?? null);
   return `
-    <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" data-game-panel="center" data-theme-scope="center.${activeTab}" data-theme-host-id="centerPanel.${activeTab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`centerPanel.${activeTab}`)}">
+    <section class="ui-cluster ui-cluster--center-panel panel center-panel presentation-host-target" ${renderPresentationHostGeometryStyle(ctx, `centerPanel.${activeTab}`)} data-game-panel="center" data-theme-scope="center.${activeTab}" data-theme-host-id="centerPanel.${activeTab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`centerPanel.${activeTab}`)}">
       ${renderBackground(ctx.backgroundForHost(`centerPanel.${activeTab}`), 'console-panel-background')}
       ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
       ${renderPanelTabsRegion(ctx, 'center', CENTER_TABS, activeTab)}

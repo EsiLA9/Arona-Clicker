@@ -7,6 +7,7 @@ import { renderCharacterPanel } from './contacts';
 import { describeAffectorPack } from '../../engine/effect/affector-text';
 import { describeCondition } from './tooltip';
 import { renderBackground } from '../background-service';
+import { renderPresentationHostGeometryStyle } from '../presentation-service';
 
 const RIGHT_TABS: TabDef[] = [
   { id: 'spot', label: '设施' },
@@ -26,11 +27,13 @@ export function renderRightPanel(ctx: UIContext, activeTab: string, selectedVari
   } else {
     body = renderProductionNodes(ctx);
   }
+  const hostId = `rightPanel.${activeTab}`;
+  const showResources = activeTab === 'spot' || activeTab === 'enh';
   return `
-    <aside class="ui-cluster ui-cluster--right-panel panel right-panel presentation-host-target" data-game-panel="right" data-theme-scope="right.${activeTab}" data-theme-host-id="rightPanel.${activeTab}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(`rightPanel.${activeTab}`)}">
-      ${renderBackground(ctx.backgroundForHost(`rightPanel.${activeTab}`), 'console-panel-background')}
-      ${renderResourceStrip(ctx)}
+    <aside class="ui-cluster ui-cluster--right-panel panel right-panel presentation-host-target" ${renderPresentationHostGeometryStyle(ctx, hostId)} data-game-panel="right" data-theme-scope="right.${activeTab}" data-theme-host-id="${hostId}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(hostId)}">
+      ${renderBackground(ctx.backgroundForHost(hostId), 'console-panel-background')}
       ${renderPanelTabsRegion(ctx, 'right', RIGHT_TABS, activeTab)}
+      ${showResources ? renderResourceStrip(ctx) : ''}
       <div class="ui-cluster ui-cluster--right-${activeTab} panel-body">${body}</div>
     </aside>`;
 }

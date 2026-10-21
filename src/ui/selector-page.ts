@@ -9,20 +9,24 @@
 
 import type { GameReadModel } from '../arona-clicker/contracts';
 import type { UIContext } from './context';
-import type { InitSelectMode } from './components/init-select';
+import { renderInitOverview, type InitSelectMode } from './components/init-select';
 import type { SelectorNodeKind } from './selector-theme';
 import {
   buildSelectorGraphView,
   selectorNodePresentation,
+  selectorConstellationScale,
+  selectorNodeRenderScale,
   updateSelectorGraphGrid,
   renderSelectorWorkbenchContent,
   renderSelectorWorkbenchHead,
-  renderSelectorWorkbench,
   renderSelectorGraphWorkspace,
   DEFAULT_SELECTOR_GRAPH_PORTAL,
   type SelectorGraphPortalDef,
   type SelectorSelection,
+  type SelectorGraphView,
 } from './components/selector-graph';
+import { SelectorGraphTransition, type GraphNavigationMotion } from './selector-graph-transition';
+import { SelectorSceneBackground } from './selector-scene-background';
 import type { PopoverManager } from './popovers';
 import { applyThemeTree } from './theme-tree';
 import { refreshPresentationHostElementsIn } from './controller-theme';
@@ -41,8 +45,6 @@ export interface SelectorHost {
   bindSelectorCommonActions(): void;
 }
 
-/** 与 selectors.css 的背景槽过渡保持一致。 */
-const SCENE_MS = 420;
 const VIEW_WIDTH = 900;
 const VIEW_HEIGHT = 620;
 const VIEW_CENTER = { x: VIEW_WIDTH / 2, y: VIEW_HEIGHT / 2 };
@@ -56,6 +58,7 @@ interface SelectorGraphHistoryEntry {
   selection: SelectorSelection;
   targetNodeId: string;
   portal: SelectorGraphPortalDef;
+  camera: CameraState;
 }
 
 interface CameraState {
@@ -91,20 +94,38 @@ export class SelectorPage {
   private world: SVGGElement | null = null;
   private camera: CameraState = { scale: 1, x: 0, y: 0 };
   private pan: PanState | null = null;
-  private sceneSeq = 0;
+  private readonly sceneBackground = new SelectorSceneBackground();
   private graphId = 'main';
   private readonly graphHistory: SelectorGraphHistoryEntry[] = [];
+  private transition: SelectorGraphTransition | null = null;
+  private navigationBound = false;
+  private workbenchCollapsed = false;
+  private overviewInitId: string | null = null;
+  private overviewReturnFocus: HTMLElement | null = null;
 
   constructor(private readonly host: SelectorHost) {
     // 视口本身由 SVG viewBox 自适应；只有相机缩放保存在这里，窗口变化无需重建。
     window.addEventListener('resize', () => {
-      if (this.host.root.querySelector('.selector-shell')) this.applyCamera();
+      if (!this.transition && this.host.root.querySelector('.selector-shell')) this.applyCamera();
     });
+    // 捕获阶段也阻止合成事件；inert 负责键盘可达性。顶栏仍可用于离开页面。
+    for (const type of ['click', 'keydown', 'wheel', 'pointerdown', 'pointermove']) {
+      this.host.root.addEventListener(type, event => {
+        if (!(event.target instanceof Element) || !event.target.closest('.selector-workspace')) return;
+        if (!this.transition && !(this.overviewInitId && event.target.closest('[data-selector-graph], [data-selector-workbench]'))) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }, { capture: true, passive: false });
+    }
   }
 
   /** 进入选择页前重置页面级瞬时状态；选中项按注册表有效性保留。 */
   reset(): void {
-    this.sceneSeq += 1;
+    this.transition?.cancel();
+    this.sceneBackground.cancel();
+    this.workbenchCollapsed = false;
+    this.overviewInitId = null;
+    this.overviewReturnFocus = null;
     this.graphId = 'main';
     this.graphHistory.length = 0;
     this.selection = null;
@@ -126,6 +147,7 @@ export class SelectorPage {
   get selectedInitId(): string | null { return this.initSelectedId; }
   get selectedEnhId(): string | null { return this.enhSelectedId; }
   get selectedNode(): SelectorSelection | null { return this.selection; }
+  get previewedInitId(): string | null { return this.overviewInitId; }
 
   /** Runtime 编辑器 Apply 重建选择页后恢复用户原先聚焦的 Init。 */
   restoreInitSelection(initId: string | null): void {
@@ -155,6 +177,7 @@ export class SelectorPage {
 
   /** 选中节点：只更新节点态与工作台，不重建画布。 */
   select(selection: SelectorSelection, options: { animate?: boolean } = {}): void {
+    if (this.transition || this.overviewInitId) return;
     if (this.selection?.kind === selection.kind && this.selection.entityId === selection.entityId) return;
     this.applySelection(selection);
     this.updateNodeSelection();
@@ -173,12 +196,71 @@ export class SelectorPage {
 
   /** 购买 / 停用后刷新工作台详情；选中项未变化时不会重建节点。 */
   refreshWorkbench(): void {
+    if (this.transition) return;
     this.replaceWorkbench();
     this.syncFocusedTheme(false);
   }
 
   /** 主题浮窗开合等顶栏状态变化后，只刷新选择页顶栏的宿主表现。 */
   refreshTopbarPresentation(): void { this.syncFocusedTheme(false); }
+
+  /** 星图与概览共享外壳；仅切换可见性，保存图层、相机、选择和工作台阅读位置。 */
+  openInitOverview(initId: string, options: { animate?: boolean } = {}): void {
+    if (this.transition || this.overviewInitId || this.selection?.kind !== 'init' || this.selection.entityId !== initId) return;
+    const region = this.host.root.querySelector<HTMLElement>('[data-selector-init-overview]');
+    if (!region) return;
+    const markup = renderInitOverview(this.host.selectorContext(), initId);
+    if (!markup) return;
+    this.overviewReturnFocus = this.host.root.querySelector<HTMLElement>('[data-selector-workbench] [data-init]');
+    this.overviewInitId = initId;
+    this.releasePan();
+    this.host.popovers.dismissBeforeRootMutation(this.host.root.querySelector<HTMLElement>('.selector-workspace') ?? region);
+    region.innerHTML = markup;
+    this.syncWorkspaceVisibility();
+    this.host.bindDetailActions();
+    this.syncFocusedTheme(options.animate !== false);
+    region.querySelector<HTMLElement>('[data-selector-init-overview-title]')?.focus({ preventScroll: true });
+  }
+
+  canEnterInit(initId: string): boolean {
+    const region = this.host.root.querySelector<HTMLElement>('[data-selector-init-overview]');
+    return !this.transition && this.overviewInitId === initId
+      && !!region?.isConnected && !region.hidden
+      && this.host.selectorContext().view.unlockedInits.includes(initId)
+      && this.host.game.world.inits.has(initId);
+  }
+
+  private closeInitOverview(): void {
+    if (!this.overviewInitId) return;
+    const region = this.host.root.querySelector<HTMLElement>('[data-selector-init-overview]');
+    if (region) this.host.popovers.dismissBeforeRootMutation(region);
+    this.overviewInitId = null;
+    this.syncWorkspaceVisibility();
+    this.syncFocusedTheme(true);
+    if (this.overviewReturnFocus?.isConnected) this.overviewReturnFocus.focus({ preventScroll: true });
+    this.overviewReturnFocus = null;
+    region?.replaceChildren();
+    this.host.popovers.retainIfAnchored();
+  }
+
+  private syncWorkspaceVisibility(): void {
+    const root = this.host.root;
+    const overview = !!this.overviewInitId;
+    const graph = root.querySelector<HTMLElement>('[data-selector-graph]');
+    const workbench = root.querySelector<HTMLElement>('[data-selector-workbench]');
+    const toggle = root.querySelector<HTMLButtonElement>('[data-selector-workbench-toggle]');
+    const region = root.querySelector<HTMLElement>('[data-selector-init-overview]');
+    if (graph) graph.hidden = overview;
+    if (workbench) workbench.hidden = overview || this.workbenchCollapsed;
+    if (toggle) {
+      toggle.hidden = overview;
+      toggle.setAttribute('aria-expanded', String(!this.workbenchCollapsed));
+      toggle.innerHTML = `${this.workbenchCollapsed ? '展开详情' : '收起详情'} <span aria-hidden="true">${this.workbenchCollapsed ? '‹' : '›'}</span>`;
+    }
+    if (region) region.hidden = !overview;
+    const subline = root.querySelector<HTMLElement>('.selector-topbar .status-line > .live');
+    if (subline) subline.textContent = overview ? '● WORLD LINE' : '● GRAPH VIEW';
+  }
 
   private resolveSelection(context: UIContext, initialKind: SelectorNodeKind): SelectorSelection | null {
     const nodes = buildSelectorGraphView(context, this.graphId, this.currentParentRelation()).nodes;
@@ -213,6 +295,7 @@ export class SelectorPage {
   private replaceWorkbench(): void {
     const body = this.host.root.querySelector<HTMLElement>('[data-selector-workbench-body]');
     if (!body) return;
+    this.host.popovers.dismissBeforeRootMutation(body);
     const context = this.host.selectorContext();
     body.innerHTML = renderSelectorWorkbenchContent(
       context,
@@ -226,13 +309,18 @@ export class SelectorPage {
         candidate.kind === this.selection?.kind && candidate.entityId === this.selection?.entityId)
       : undefined;
     const head = this.host.root.querySelector<HTMLElement>('.selector-workbench-head');
-    if (head) head.innerHTML = renderSelectorWorkbenchHead(context, node);
+    if (head) {
+      this.host.popovers.dismissBeforeRootMutation(head);
+      head.innerHTML = renderSelectorWorkbenchHead(context, node);
+    }
+    this.host.popovers.retainIfAnchored();
     this.host.bindDetailActions();
     this.host.bindGlobalEnhancementDetailActions();
     this.bindNavigationActions();
   }
 
   private refreshNode(kind: SelectorNodeKind, entityId: string): void {
+    if (this.transition) return;
     const context = this.host.selectorContext();
     const node = buildSelectorGraphView(context, this.graphId, this.currentParentRelation()).nodes.find(candidate =>
       candidate.kind === kind && candidate.entityId === entityId);
@@ -277,82 +365,178 @@ export class SelectorPage {
   }
 
   private bindNavigationActions(): void {
-    this.host.root.querySelectorAll<HTMLButtonElement>('[data-selector-graph-enter]').forEach(button => {
-      button.addEventListener('click', event => {
-        event.preventDefault();
-        const graphId = button.dataset.selectorGraphEnter;
-        const nodeId = button.dataset.selectorGraphTargetNode;
-        if (graphId && nodeId) this.enterSelectedGraph(graphId, nodeId);
-      });
-    });
-    this.host.root.querySelector<HTMLButtonElement>('[data-selector-graph-back]')?.addEventListener('click', event => {
+    if (this.navigationBound) return;
+    this.navigationBound = true;
+    this.host.root.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || !this.overviewInitId || !(event.target instanceof Element)
+        || !event.target.closest('[data-selector-init-overview]')) return;
       event.preventDefault();
-      this.leaveCurrentGraph();
+      this.closeInitOverview();
+    });
+    this.host.root.addEventListener('click', event => {
+      const button = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-selector-graph-enter], [data-selector-graph-back], [data-selector-workbench-toggle], [data-selector-init-overview-back]');
+      if (!button) return;
+      event.preventDefault();
+      if (button.hasAttribute('data-selector-init-overview-back')) { this.closeInitOverview(); return; }
+      if (this.overviewInitId || this.transition) return;
+      if (button.hasAttribute('data-selector-workbench-toggle')) {
+        const workbench = this.host.root.querySelector<HTMLElement>('[data-selector-workbench]');
+        if (workbench) this.host.popovers.dismissBeforeRootMutation(workbench);
+        this.workbenchCollapsed = !this.workbenchCollapsed;
+        this.syncWorkspaceVisibility();
+        button.focus({ preventScroll: true });
+        return;
+      }
+      if (button.hasAttribute('data-selector-graph-back')) this.leaveCurrentGraph();
+      else if (button.dataset.selectorGraphEnter && button.dataset.selectorGraphTargetNode) {
+        this.enterSelectedGraph(button.dataset.selectorGraphEnter, button.dataset.selectorGraphTargetNode);
+      }
     });
   }
 
   private enterSelectedGraph(graphId: string, nodeId: string): void {
-    if (!this.selection) return;
+    if (this.transition || this.overviewInitId || !this.selection) return;
     const context = this.host.selectorContext();
     const node = buildSelectorGraphView(context, this.graphId, this.currentParentRelation()).nodes.find(candidate =>
       candidate.kind === this.selection?.kind && candidate.entityId === this.selection?.entityId);
     const targetExists = node?.graphTargets.some(target => target.graphId === graphId && target.nodeId === nodeId);
     if (!node || !targetExists) return;
     const portal = node.graphPortal ?? DEFAULT_SELECTOR_GRAPH_PORTAL;
-    this.graphHistory.push({
+    const previous: SelectorGraphHistoryEntry = {
       graphId: this.graphId,
       selection: this.selection,
       targetNodeId: nodeId,
       portal,
-    });
-    this.graphId = graphId;
-    const [kind, ...entityParts] = nodeId.split(':');
-    const target: SelectorSelection = {
-      kind: kind as SelectorSelection['kind'],
-      entityId: entityParts.join(':'),
+      camera: { ...this.camera },
     };
-    this.applySelection(target);
-    this.replaceGraphWorkspace();
+    const graph = buildSelectorGraphView(context, graphId, {
+      graphId: previous.graphId, sourceNode: previous.selection, targetNodeId: nodeId, portal,
+    });
+    const target = graph.nodes.find(candidate => candidate.nodeId === nodeId);
+    // buildSelectorGraphView 的未知图回退不得被误当作授权目标。
+    if (graph.graphId !== graphId || !target) return;
+    this.navigateGraph(graph, target, this.frameGraphCamera(graph), {
+      direction: 'enter',
+      from: { graphId: this.graphId, nodeId: node.nodeId, position: node.position },
+      to: { graphId, nodeId, position: target.position },
+      constellation: portal.renderOtherGraph ? graph.backdrop?.nodes : undefined,
+      drawLink: portal.renderLink,
+    }, () => {
+      const source = buildSelectorGraphView(this.host.selectorContext(), this.graphId, this.currentParentRelation()).nodes.find(candidate => candidate.nodeId === node.nodeId);
+      if (!source?.graphTargets.some(candidate => candidate.graphId === graphId && candidate.nodeId === nodeId)) return false;
+      this.graphHistory.push(previous);
+      return true;
+    });
   }
 
   private leaveCurrentGraph(): void {
-    const previous = this.graphHistory.pop();
+    if (this.overviewInitId) return;
+    if (this.transition) return;
+    const previous = this.graphHistory[this.graphHistory.length - 1];
     if (!previous) return;
-    this.graphId = previous.graphId;
-    this.applySelection(previous.selection);
-    this.replaceGraphWorkspace();
+    const context = this.host.selectorContext();
+    const current = buildSelectorGraphView(context, this.graphId, this.currentParentRelation());
+    const parent = this.graphHistory[this.graphHistory.length - 2];
+    const graph = buildSelectorGraphView(context, previous.graphId, parent ? {
+      graphId: parent.graphId, sourceNode: parent.selection, targetNodeId: parent.targetNodeId, portal: parent.portal,
+    } : undefined);
+    const source = current.nodes.find(node => node.nodeId === previous.targetNodeId);
+    const target = graph.nodes.find(node => node.kind === previous.selection.kind && node.entityId === previous.selection.entityId);
+    if (graph.graphId !== previous.graphId || !target) return;
+    this.navigateGraph(graph, target, previous.camera, {
+      direction: 'return',
+      from: { graphId: this.graphId, nodeId: source?.nodeId ?? '', position: source?.position ?? target.position },
+      to: { graphId: graph.graphId, nodeId: target.nodeId, position: target.position },
+      constellation: previous.portal.renderOtherGraph ? current.backdrop?.nodes : undefined,
+      constellationScale: selectorConstellationScale(previous.portal),
+      drawLink: previous.portal.renderLink,
+    }, () => { this.graphHistory.pop(); return true; }, !source);
   }
 
-  private replaceGraphWorkspace(): void {
+  private navigateGraph(
+    graph: SelectorGraphView,
+    target: SelectorSelection,
+    camera: CameraState,
+    motion: GraphNavigationMotion,
+    commitHistory: () => boolean,
+    immediate = false,
+  ): void {
     const workspace = this.host.root.querySelector<HTMLElement>('.selector-workspace');
-    if (!workspace) return;
+    const graphHost = workspace?.querySelector<HTMLElement>('[data-selector-graph]');
+    const viewport = this.viewport;
+    const outgoing = this.world;
+    if (!workspace || !graphHost || !viewport?.isConnected || !outgoing) return;
     const context = this.host.selectorContext();
-    const projection = projectSelectorTheme(context, this.currentKind, this.selection?.entityId ?? null);
-    const graph = buildSelectorGraphView(context, this.graphId, this.currentParentRelation());
-    workspace.innerHTML = `${renderSelectorGraphWorkspace(
-      context,
-      graph,
-      this.selection,
-      projection.context.transitionKey,
-      this.graphId,
-      this.graphHistory.length > 0,
-    )}${renderSelectorWorkbench(
-      context,
-      this.host.initSelectMode(),
-      this.selection,
-      this.host.showBackToGame(),
-      this.graphId,
-    )}`;
-    this.viewport = this.host.root.querySelector<SVGSVGElement>('[data-selector-graph-viewport]');
-    this.world = this.host.root.querySelector<SVGGElement>('[data-selector-graph-world]');
-    this.camera = { scale: 1, x: 0, y: 0 };
-    this.bindGraphInteractions();
-    this.host.bindDetailActions();
-    this.host.bindGlobalEnhancementDetailActions();
-    this.host.bindSelectorCommonActions();
-    this.bindNavigationActions();
-    this.applyCamera();
-    this.syncFocusedTheme(false);
+    const next = htmlToElement(renderSelectorGraphWorkspace(context, graph, target, '', graph.graphId,
+      motion.direction === 'enter' || this.graphHistory.length > 1));
+    const incoming = next.querySelector<SVGGElement>('[data-selector-graph-world]')!;
+    this.applyCameraToWorld(incoming, camera);
+    this.releasePan();
+    const workbench = workspace.querySelector<HTMLElement>('[data-selector-workbench]');
+    graphHost.inert = true;
+    if (workbench) workbench.inert = true;
+    workspace.setAttribute('aria-busy', 'true');
+    this.host.popovers.dismissBeforeRootMutation(workspace);
+    const transition = new SelectorGraphTransition({
+      viewport, outgoing, incoming, view: graph, motion,
+      oldCamera: { ...this.camera }, newCamera: camera,
+      reducedMotion: immediate || (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false),
+      arrive: () => {
+        if (!viewport.isConnected || incoming.parentNode !== viewport) return false;
+        const latest = buildSelectorGraphView(this.host.selectorContext(), graph.graphId);
+        if (latest.graphId !== graph.graphId || !latest.nodes.some(node => node.nodeId === motion.to.nodeId) || !commitHistory()) return false;
+        this.graphId = graph.graphId;
+        this.applySelection({ kind: target.kind, entityId: target.entityId });
+        this.camera = { ...camera };
+        this.world = incoming;
+        graphHost.dataset.selectorGraphId = graph.graphId;
+        const toolbar = graphHost.querySelector('.selector-graph-toolbar');
+        if (toolbar) this.host.popovers.dismissBeforeRootMutation(toolbar);
+        toolbar?.remove();
+        const nextToolbar = next.querySelector('.selector-graph-toolbar');
+        if (nextToolbar) graphHost.prepend(nextToolbar);
+        this.replaceWorkbench();
+        this.refreshGraphSummary();
+        this.syncFocusedTheme(!immediate);
+        return true;
+      },
+      finish: () => {
+        if (this.transition !== transition) return;
+        this.transition = null;
+        graphHost.inert = false;
+        if (workbench) workbench.inert = false;
+        workspace.removeAttribute('aria-busy');
+        if (!viewport.isConnected || this.viewport !== viewport) return;
+        this.applyCamera();
+        this.host.popovers.retainIfAnchored();
+        // 顶栏可在动画中获得焦点；仅接回工作区内或被移除控件的焦点。
+        if (document.activeElement === document.body || workspace.contains(document.activeElement)) {
+          const focused = [...this.world!.querySelectorAll<SVGGElement>('[data-selector-node]')]
+            .find(node => node.dataset.nodeId === (this.graphId === graph.graphId ? motion.to.nodeId : motion.from.nodeId));
+          focused?.focus({ preventScroll: true });
+        }
+      },
+    });
+    this.transition = transition;
+    transition.start();
+  }
+
+  /** 初次进入按真实图形范围取景，避免 Portal 星座或高程节点被 viewBox 边缘裁掉。 */
+  private frameGraphCamera(graph: SelectorGraphView): CameraState {
+    const points = [...graph.nodes, ...(graph.backdrop?.nodes ?? [])].flatMap(node => [node.position, node.planePosition]);
+    if (points.length === 0) return { scale: 1, x: 0, y: 0 };
+    const minX = Math.min(...points.map(point => point.x));
+    const maxX = Math.max(...points.map(point => point.x));
+    const minY = Math.min(...points.map(point => point.y));
+    const maxY = Math.max(...points.map(point => point.y));
+    const margin = 48;
+    const scale = clamp(Math.min(1, (VIEW_WIDTH - margin * 2) / Math.max(1, maxX - minX), (VIEW_HEIGHT - margin * 2) / Math.max(1, maxY - minY)), ZOOM_MIN, 1);
+    const offset = (min: number, max: number, size: number): number => {
+      const low = margin - min * scale;
+      const high = size - margin - max * scale;
+      return low <= high ? clamp(0, low, high) : (low + high) / 2;
+    };
+    return { scale, x: offset(minX, maxX, VIEW_WIDTH), y: offset(minY, maxY, VIEW_HEIGHT) };
   }
 
   private bindGraphInteractions(): void {
@@ -423,6 +607,7 @@ export class SelectorPage {
       this.setZoom(Number(slider.value) / 100, VIEW_CENTER);
     });
     this.host.root.querySelector<HTMLButtonElement>('[data-selector-zoom-reset]')?.addEventListener('click', () => {
+      if (this.transition || this.overviewInitId) return;
       this.camera = { scale: 1, x: 0, y: 0 };
       this.applyCamera();
     });
@@ -455,6 +640,7 @@ export class SelectorPage {
   }
 
   private setZoom(next: number, anchor = VIEW_CENTER): void {
+    if (this.transition || this.overviewInitId) return;
     const scale = clamp(next, ZOOM_MIN, ZOOM_MAX);
     if (scale === this.camera.scale) return;
     const ratio = scale / this.camera.scale;
@@ -466,20 +652,38 @@ export class SelectorPage {
     this.applyCamera();
   }
 
+  private releasePan(): void {
+    if (!this.pan) return;
+    try { this.viewport?.releasePointerCapture(this.pan.pointerId); } catch { /* 已释放 */ }
+    this.pan = null;
+    this.viewport?.classList.remove('is-panning');
+  }
+
   /** 世界层随相机缩放；节点自身按非线性倍率反缩放，低倍率仍保持可读。 */
   private applyCamera(): void {
-    const { scale, x, y } = this.camera;
-    this.world?.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${scale.toFixed(4)})`);
-    updateSelectorGraphGrid(this.world?.querySelector<SVGGElement>('.selector-graph-grid') ?? null, this.camera);
-    const nodeScale = scale >= 1 ? 1 : Math.max(0.55, Math.pow(scale, 0.7));
+    if (this.transition) return;
+    const { scale } = this.camera;
+    if (this.world) this.applyCameraToWorld(this.world, this.camera);
+    const percent = String(Math.round(scale * 100));
+    const readout = this.host.root.querySelector<HTMLElement>('[data-selector-zoom-readout]');
+    if (readout) readout.textContent = `${percent}%`;
+    const slider = this.host.root.querySelector<HTMLInputElement>('[data-selector-zoom-slider]');
+    if (slider && slider.value !== percent) slider.value = percent;
+  }
+
+  private applyCameraToWorld(world: SVGGElement, camera: CameraState): void {
+    const { scale, x, y } = camera;
+    world.setAttribute('transform', `translate(${x} ${y}) scale(${scale})`);
+    updateSelectorGraphGrid(world.querySelector<SVGGElement>('.selector-graph-grid'), camera);
+    const nodeScale = selectorNodeRenderScale(scale);
     const counterScale = nodeScale / scale;
-    this.host.root.querySelectorAll<SVGGElement>('[data-selector-node]').forEach(node => {
+    world.querySelectorAll<SVGGElement>('[data-selector-node]').forEach(node => {
       const nodeX = node.getAttribute('data-node-x') ?? '0';
       const nodeY = node.getAttribute('data-node-y') ?? '0';
-      const transform = `translate(${nodeX} ${nodeY}) scale(${counterScale.toFixed(4)})`;
+      const transform = `translate(${nodeX} ${nodeY}) scale(${counterScale})`;
       node.setAttribute('transform', transform);
     });
-    this.host.root.querySelectorAll<SVGGElement>('[data-selector-node-height]').forEach(height => {
+    world.querySelectorAll<SVGGElement>('[data-selector-node-height]').forEach(height => {
       const nodeX = height.getAttribute('data-node-x') ?? '0';
       const nodeY = height.getAttribute('data-node-y') ?? '0';
       const planeOffset = height.getAttribute('data-plane-offset') ?? '0';
@@ -489,16 +693,15 @@ export class SelectorPage {
         `translate(0 ${planeOffset}) scale(${counterScale.toFixed(4)})`,
       );
     });
-    const percent = String(Math.round(scale * 100));
-    const readout = this.host.root.querySelector<HTMLElement>('[data-selector-zoom-readout]');
-    if (readout) readout.textContent = `${percent}%`;
-    const slider = this.host.root.querySelector<HTMLInputElement>('[data-selector-zoom-slider]');
-    if (slider && slider.value !== percent) slider.value = percent;
   }
 
   /** 把当前选中节点的局部主题投影到页面宿主、画布与工作台；节点自身保留局部主题。 */
   private syncFocusedTheme(animate: boolean): void {
-    const context = this.host.selectorContext();
+    const baseContext = this.host.selectorContext();
+    // 概览只展示 Init 背景，不叠加已保存位置的 Area 表现。
+    const context = this.overviewInitId
+      ? { ...baseContext, selectorThemePolicy: { includeResumedArea: false } }
+      : baseContext;
     const kind = this.selection?.kind ?? 'init';
     const focusedId = this.selection?.entityId ?? null;
     const projection = projectSelectorTheme(context, kind, focusedId);
@@ -537,34 +740,10 @@ export class SelectorPage {
         : 'GLOBAL ENH';
     }
 
-    const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]');
-    const next = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]');
-    if (!current || !next) return;
-    const seq = ++this.sceneSeq;
+    const stack = root.querySelector<HTMLElement>('.selector-scene-background-stack');
+    if (!stack) return;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    if (!animate || reducedMotion) {
-      current.outerHTML = renderSelectorSceneLayer(context, projection, 'current');
-      root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]')?.replaceWith(
-        htmlToElement(renderSelectorSceneLayer(context, null, 'next')),
-      );
-      return;
-    }
-
-    next.outerHTML = renderSelectorSceneLayer(context, projection, 'next');
-    const incoming = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]');
-    const outgoing = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]');
-    window.setTimeout(() => {
-      if (seq !== this.sceneSeq) return;
-      incoming?.classList.add('is-visible');
-      outgoing?.classList.add('is-hidden');
-    }, 0);
-    window.setTimeout(() => {
-      if (seq !== this.sceneSeq) return;
-      const currentNow = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]');
-      if (currentNow) currentNow.outerHTML = renderSelectorSceneLayer(context, projection, 'current');
-      const nextNow = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]');
-      if (nextNow) nextNow.outerHTML = renderSelectorSceneLayer(context, null, 'next');
-    }, SCENE_MS);
+    this.sceneBackground.show(stack, renderSelectorSceneLayer(context, projection, 'next'), animate && !reducedMotion);
   }
 }
 

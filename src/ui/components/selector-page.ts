@@ -71,6 +71,7 @@ export function renderSelectorPage(
       <div class="selector-workspace" style="${ctx.escapeHtml(projection.inlineStyle)}">
         ${renderSelectorGraphWorkspace(ctx, graph, selection, projection.context.transitionKey)}
         ${renderSelectorWorkbench(ctx, mode, selection, showBackToGame)}
+        <section class="selector-init-overview" data-selector-init-overview hidden aria-label="世界线概览" aria-describedby="selector-init-description"></section>
       </div>
 
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>TS-HTML ENGINE · NO NETWORK</span></footer>

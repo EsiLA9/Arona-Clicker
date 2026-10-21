@@ -262,6 +262,21 @@ function bindInventoryWorkspaceActions(ctrl: UIController, scope: ParentNode): v
 /** 绑定背包 / 区域 / 强化 / 升级 / 重启事件（render 后调用）。 */
 export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
   bindInventoryWorkspaceActions(ctrl, scope);
+  scope.querySelectorAll<HTMLButtonElement>('[data-area-workspace-open]').forEach(button => {
+    button.addEventListener('click', () => {
+      const areaId = button.dataset.areaWorkspaceOpen;
+      if (!areaId || ctrl.game.getView().currentAreaId !== areaId) return;
+      const currentRoute = ctrl.panelState.workspaceNavigation?.current;
+      if (currentRoute?.kind === 'area' && currentRoute.areaId === areaId) return;
+      ctrl.enterWorkspaceRoute({ kind: 'area', areaId });
+      ctrl.render();
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-area-workspace-leave]').forEach(button => {
+    button.addEventListener('click', () => {
+      if (ctrl.returnFromAreaWorkspace()) ctrl.render();
+    });
+  });
   // 背包 / 区域 / 强化 / 升级
   scope.querySelectorAll<HTMLButtonElement>('[data-use-item]').forEach(button => {
     button.addEventListener('click', () => {
@@ -325,24 +340,26 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
     button.addEventListener('click', () => {
       const spot = ctrl.game.world.spots.get(button.dataset.restartInit ?? '');
       if (!spot || !ctrl.game.spotFunctionalitySystem.hasFunctionality(spot, ctrl.game.state, 'restartInit')) return;
+      const initId = ctrl.game.state.activeInit ?? null;
       // 不立即调用 restartInit（会清资源），仅在控制器标记待重启。
-      // 玩家在 InitSelect 中选卡 / 购买时再真正执行 restartInit + resumeInit。
+      // 玩家在世界线概览确认进入时再真正执行 restartInit + resumeInit。
       ctrl.started = false;
       ctrl.pendingRestart = true;
-      ctrl.toast.show('选择世界线切换，或购买新世界线', 'info');
-      ctrl.renderInitSelect();
+      ctrl.toast.show('已离开世界线，可重新进入或返回星图', 'info');
+      ctrl.renderInitOverview(initId);
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-hard-reset-init]').forEach(button => {
     button.addEventListener('click', () => {
       const spot = ctrl.game.world.spots.get(button.dataset.hardResetInit ?? '');
       if (!spot || !ctrl.game.spotFunctionalitySystem.hasFunctionality(spot, ctrl.game.state, 'hardResetInit')) return;
+      const initId = ctrl.game.state.activeInit ?? null;
       // 硬重置仍需立即清档（放弃快照），但保留 unlockedInits 与统计。
       ctrl.commands.hardRestartInit();
       ctrl.started = false;
       ctrl.pendingRestart = true;
-      ctrl.toast.show('已彻底重置当前世界线，返回选择', 'info');
-      ctrl.renderInitSelect();
+      ctrl.toast.show('已彻底重置当前世界线，可重新进入或返回星图', 'info');
+      ctrl.renderInitOverview(initId);
     });
   });
 }

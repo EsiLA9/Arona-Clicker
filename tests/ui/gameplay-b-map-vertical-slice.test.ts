@@ -112,13 +112,14 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     const controller = new UIController(game, root);
     controllers.push(controller);
     controller.mount();
-    root.querySelector<HTMLButtonElement>(`[data-init-select="${DEFAULT_INIT_ID}"]`)!.click();
+    root.querySelector<SVGElement>(`[data-init-select="${DEFAULT_INIT_ID}"]`)!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     let startInit = root.querySelector<HTMLButtonElement>(`[data-init="${DEFAULT_INIT_ID}"]`);
     if (!startInit) {
       root.querySelector<HTMLButtonElement>(`[data-init-purchase="${DEFAULT_INIT_ID}"]`)!.click();
       startInit = root.querySelector<HTMLButtonElement>(`[data-init="${DEFAULT_INIT_ID}"]`);
     }
     startInit!.click();
+    root.querySelector<HTMLButtonElement>('[data-init-confirm]')!.click();
     await Promise.resolve();
 
     const mapId = 'gameplay-b:map:minimal-battle';
@@ -227,7 +228,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     const map = game.registry.maps.get(mapId)!;
     expect(map).toBeDefined();
 
-    root.querySelector<HTMLButtonElement>(`[data-init-select="${DEFAULT_INIT_ID}"]`)!.click();
+    root.querySelector<SVGElement>(`[data-init-select="${DEFAULT_INIT_ID}"]`)!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     let startInit = root.querySelector<HTMLButtonElement>(`[data-init="${DEFAULT_INIT_ID}"]`);
     if (!startInit) {
       root.querySelector<HTMLButtonElement>(`[data-init-purchase="${DEFAULT_INIT_ID}"]`)!.click();
@@ -235,6 +236,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     }
     expect(startInit).not.toBeNull();
     startInit!.click();
+    root.querySelector<HTMLButtonElement>('[data-init-confirm]')!.click();
     await Promise.resolve();
     expect(game.state.activeInit).toBe(DEFAULT_INIT_ID);
     expect(controller.started).toBe(true);

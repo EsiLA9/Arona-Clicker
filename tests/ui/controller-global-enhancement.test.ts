@@ -2,7 +2,7 @@
 // ============================================================
 // controller-global-enhancement.test.ts — 选择节点图 + GlobalEnhancement 购买
 // ============================================================
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
@@ -28,6 +28,7 @@ describe('UIController 选择节点图（Init / GlobalEnhancement）', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     game.stop();
     localStorage.clear();
   });
@@ -94,6 +95,7 @@ describe('UIController 选择节点图（Init / GlobalEnhancement）', () => {
   });
 
   it('由节点自身的 Active Affector 授权进入任意星图，并可返回来源图', () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
     game.mutations.changeResource('base:resource:pyroxene', 100);
     showSelectPage();
     clickNode(`[data-global-enh-select="${FOUNDATION}"]`);

@@ -366,6 +366,7 @@ export interface UIHostRenderOptions {
   state?: PresentationHostState;
   textMode?: PresentationTextColorMode;
   themeScope?: string;
+  useHostGeometry?: boolean;
 }
 
 /** 统一生成带表现宿主元数据的服务容器，避免新服务重复手写主题接线。 */
@@ -379,5 +380,14 @@ export function renderUIHost(ctx: UIContext, options: UIHostRenderOptions): stri
   const className = escapeAttribute(options.className ?? 'ui-host');
   const scope = options.themeScope ? ` data-theme-scope="${escapeAttribute(options.themeScope)}"` : '';
   const hoverTextAttribute = hoverTextMode ? ` data-theme-hover-text-mode="${hoverTextMode}"` : '';
-  return `<section class="${className} presentation-host-target" data-theme-host-id="${hostId}" data-theme-state="${state}" data-theme-text-mode="${textMode}"${hoverTextAttribute}${scope}>${background}<div class="presentation-host-content">${options.content}</div></section>`;
+  const geometryStyle = options.useHostGeometry ? ` ${renderPresentationHostGeometryStyle(ctx, options.hostId)}` : '';
+  return `<section class="${className} presentation-host-target" data-theme-host-id="${hostId}" data-theme-state="${state}" data-theme-text-mode="${textMode}"${hoverTextAttribute}${scope}${geometryStyle}>${background}<div class="presentation-host-content">${options.content}</div></section>`;
+}
+
+/** 给经典 UI 的面板外框使用与其背景图层相同的几何参数。 */
+export function renderPresentationHostGeometryStyle(ctx: UIContext, hostId: string): string {
+  const geometry = ctx.backgroundForHost(hostId);
+  const cornerRadius = typeof geometry.cornerRadius === 'number' && Number.isFinite(geometry.cornerRadius) ? geometry.cornerRadius : 12;
+  const skewXDeg = typeof geometry.skewXDeg === 'number' && Number.isFinite(geometry.skewXDeg) ? geometry.skewXDeg : 0;
+  return `style="--presentation-corner-radius:${cornerRadius}px;--presentation-skew-x:${skewXDeg}deg"`;
 }

@@ -109,6 +109,10 @@ export const DEFAULT_SELECTOR_GRAPH_PORTAL: SelectorGraphPortalDef = {
   constellationScale: 0.48,
 };
 
+export function selectorConstellationScale(portal: SelectorGraphPortalDef): number {
+  return Math.min(1, Math.max(0.1, portal.constellationScale ?? 0.48));
+}
+
 interface SelectorGraphNodeDef extends SelectorSelection {
   /** 该星图自己的逻辑平面坐标。 */
   coordinate: { x: number; y: number };
@@ -165,7 +169,12 @@ const PLANE_SKEW = 0.82;
 const PLANE_RISE = 0.44;
 const GRID_STEP = 80;
 const NODE_ELEVATION_STEP = 38;
-const NODE_VISUAL_SCALE = 0.8;
+const NODE_VISUAL_SCALE = 0.68;
+
+/** 屏幕内的节点尺寸独立于布局间距；放大画布或退场时最多为原尺寸的 1.5 倍。 */
+export function selectorNodeRenderScale(cameraScale: number): number {
+  return Math.min(1.5, cameraScale >= 1 ? cameraScale : Math.max(0.55, cameraScale ** 0.7));
+}
 
 /** 纯视觉高程；不参与可见性、购买、世界线归属或效果判断。 */
 const NODE_ELEVATIONS: Record<string, number> = {
@@ -493,7 +502,7 @@ function makeDefinedGraphView(
   if (canRenderParentConstellation && parent?.portal.renderOtherGraph) {
     const sourceNodeId = graphNodeId(parent.sourceNode);
     const targetNodeId = parent.targetNodeId;
-    const constellationScale = Math.min(1, Math.max(0.1, parent.portal.constellationScale ?? 0.48));
+    const constellationScale = selectorConstellationScale(parent.portal);
     const shiftedNodes = sourceView.nodes.map(node => moveNodeOnPlane(
       node,
       parent.portal.otherGraphPosition,
@@ -513,7 +522,7 @@ function makeDefinedGraphView(
     // 星图显示与跨图连线是两个独立开关；只画线时仍从来源图的平面坐标计算锚点。
     const source = sourceView.nodes.find(node => node.nodeId === graphNodeId(parent.sourceNode));
     if (source) {
-      const constellationScale = Math.min(1, Math.max(0.1, parent.portal.constellationScale ?? 0.48));
+      const constellationScale = selectorConstellationScale(parent.portal);
       const shifted = moveNodeOnPlane(source, parent.portal.otherGraphPosition, constellationScale);
       backdrop = {
         constellationId: `${parent.graphId}->${definition.id}`,
@@ -602,7 +611,7 @@ export function selectorNodePresentation(node: SelectorGraphNodeView, selected: 
 function labelLengthAttribute(label: string): string {
   let units = 0;
   for (const character of label) units += /[\u3000-\u9fff]/.test(character) ? 1 : 0.55;
-  return units * 14 > 116 ? ' textLength="116" lengthAdjust="spacingAndGlyphs"' : '';
+  return units * 12 > 100 ? ' textLength="100" lengthAdjust="spacingAndGlyphs"' : '';
 }
 
 function renderNodeHeight(node: SelectorGraphNodeView): string {
@@ -660,7 +669,7 @@ export function renderSelectorGraphNode(
         <circle class="selector-node-badge" cx="19" cy="-19" r="8"></circle>
         <path class="selector-node-check" d="M -3.4 0 L -1 2.6 L 3.6 -2.6" transform="translate(19 -19)"></path>
       </g>
-      <text class="selector-node-label${node.elevation === 0 ? '' : ' is-elevated'}" text-anchor="middle" x="0" y="48"${labelLengthAttribute(presentation.label)}>${ctx.escapeHtml(presentation.label)}</text>
+      <text class="selector-node-label${node.elevation === 0 ? '' : ' is-elevated'}" text-anchor="middle" x="0" y="41"${labelLengthAttribute(presentation.label)}>${ctx.escapeHtml(presentation.label)}</text>
     </g>`;
 }
 
@@ -745,6 +754,12 @@ export function updateSelectorGraphGrid(group: SVGGElement | null, camera: Graph
   if (group) group.innerHTML = renderGrid(camera);
 }
 
+/** 静态跨图线与导航绘线共用路径；反向交换两端即为同一曲线的反向。 */
+export function selectorGraphLinkPath(from: { x: number; y: number }, to: { x: number; y: number }): string {
+  const middleX = (from.x + to.x) / 2;
+  return `M ${from.x} ${from.y} C ${middleX} ${from.y}, ${middleX} ${to.y}, ${to.x} ${to.y}`;
+}
+
 function renderCanvas(ctx: UIContext, view: SelectorGraphView, selected: SelectorSelection | null): string {
   const byId = new Map(view.nodes.map(node => [node.nodeId, node]));
   const edges = view.edges.map(edge => {
@@ -781,7 +796,7 @@ function renderCanvas(ctx: UIContext, view: SelectorGraphView, selected: Selecto
   const targetNode = byId.get(view.backdrop?.targetNodeId ?? '');
   const sourcePosition = sourceNode?.position ?? view.backdrop?.sourcePosition;
   const connector = view.backdrop?.showConnector && sourcePosition && targetNode
-    ? `<path class="selector-graph-cross-link" d="M ${sourcePosition.x} ${sourcePosition.y} C ${(sourcePosition.x + targetNode.position.x) / 2} ${sourcePosition.y}, ${(sourcePosition.x + targetNode.position.x) / 2} ${targetNode.position.y}, ${targetNode.position.x} ${targetNode.position.y}"></path>`
+    ? `<path class="selector-graph-cross-link" d="${selectorGraphLinkPath(sourcePosition, targetNode.position)}"></path>`
     : '';
   return `
     <div class="selector-graph-stage">
@@ -894,7 +909,8 @@ export function renderSelectorWorkbench(
     ? view.nodes.find(candidate => candidate.kind === selected.kind && candidate.entityId === selected.entityId)
     : undefined;
   return `
-    <aside class="selector-workbench" data-selector-workbench aria-label="节点工作台">
+    <button type="button" class="selector-workbench-toggle" data-selector-workbench-toggle aria-expanded="true" aria-controls="selector-node-workbench">收起详情 <span aria-hidden="true">›</span></button>
+    <aside id="selector-node-workbench" class="selector-workbench" data-selector-workbench aria-label="节点工作台">
       <header class="selector-workbench-head">${renderSelectorWorkbenchHead(ctx, node)}</header>
       <div class="selector-workbench-body" data-selector-workbench-body>
         ${renderSelectorWorkbenchContent(ctx, mode, selected, showBackToGame, graphId)}

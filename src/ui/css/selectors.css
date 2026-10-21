@@ -63,16 +63,13 @@
    opacity: 1;
 }
 
-.selector-scene-background-next {
+.selector-scene-background-next,
+.selector-scene-background-retained {
    z-index: 1;
 }
 
 .selector-scene-background-next.is-visible {
    opacity: 1;
-}
-
-.selector-scene-background-current.is-hidden {
-   opacity: 0;
 }
 
 .selector-background {
@@ -123,7 +120,8 @@
    pointer-events: auto;
 }
 
-.selector-graph-back {
+.selector-graph-back,
+.selector-workbench-toggle {
    min-height: 46px;
    padding: 10px 18px;
    border: 1px solid color-mix(in srgb, var(--theme-node-primary, var(--cyan)) 55%, var(--theme-node-line, var(--line)));
@@ -140,6 +138,12 @@
 .selector-graph-back:focus-visible {
    border-color: var(--theme-node-primary, var(--cyan));
    background: var(--theme-node-panel, var(--panel));
+   color: var(--theme-node-primary, var(--cyan));
+}
+
+.selector-workbench-toggle:hover,
+.selector-workbench-toggle:focus-visible {
+   border-color: var(--theme-node-primary, var(--cyan));
    color: var(--theme-node-primary, var(--cyan));
 }
 
@@ -443,11 +447,11 @@
 .selector-node-label {
    fill: var(--ink-on-canvas, var(--ink));
    font-family: Manrope, '方正兰亭圆简体_中', sans-serif;
-   font-size: 14px;
+   font-size: 12px;
    font-weight: 600;
    paint-order: stroke;
    stroke: var(--theme-node-bg, #f8fbff);
-   stroke-width: 4px;
+   stroke-width: 3px;
    stroke-linejoin: round;
    pointer-events: none;
    user-select: none;
@@ -547,10 +551,27 @@
 
 /* ---------- 右侧工作台 ---------- */
 
-.selector-workbench {
+.selector-workbench-toggle {
    position: absolute;
    z-index: 4;
    top: 104px;
+   right: clamp(18px, 3vw, 44px);
+   min-height: 34px;
+   padding: 7px 12px;
+   pointer-events: auto;
+}
+
+[data-selector-graph][hidden],
+[data-selector-workbench][hidden],
+[data-selector-workbench-toggle][hidden],
+[data-selector-init-overview][hidden] {
+   display: none;
+}
+
+.selector-workbench {
+   position: absolute;
+   z-index: 4;
+   top: 148px;
    right: clamp(18px, 3vw, 44px);
    bottom: 24px;
    width: min(372px, calc(100vw - 48px));
@@ -803,6 +824,81 @@
 
 .selector-detail-empty h2 {
    font-size: 20px;
+}
+
+/* ---------- 进入世界线前的中转页 ---------- */
+
+.selector-init-overview {
+   position: absolute;
+   top: 120px;
+   left: clamp(18px, 3vw, 44px);
+   bottom: 36px;
+   width: min(440px, calc(100vw - 48px));
+   display: flex;
+   flex-direction: column;
+   min-height: 0;
+   padding: 26px;
+   border: 1px solid var(--theme-node-line, var(--line));
+   border-radius: 22px;
+   background: color-mix(in srgb, var(--theme-node-panel, var(--panel)) 90%, transparent);
+   box-shadow: var(--panel-shadow);
+   color: var(--ink-on-panel, var(--ink));
+   pointer-events: auto;
+}
+
+.selector-init-overview-head {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+   gap: 14px;
+}
+
+.selector-init-overview-head h1 {
+   margin: 0;
+   font-size: 28px;
+   line-height: 1.3;
+}
+
+.selector-init-overview-content {
+   flex: 1;
+   min-height: 0;
+   overflow-y: auto;
+   margin: 24px 0;
+   color: var(--muted-on-panel, var(--muted));
+   font-size: 13px;
+   line-height: 1.7;
+}
+
+.selector-init-overview-content p {
+   margin: 0 0 20px;
+}
+
+.selector-init-progress {
+   margin: 24px 0 0;
+}
+
+.selector-init-progress > div {
+   display: flex;
+   justify-content: space-between;
+   gap: 16px;
+   padding: 12px 0;
+   border-bottom: 1px solid var(--theme-node-line, var(--line));
+}
+
+.selector-init-progress dd {
+   margin: 0;
+   color: var(--ink-on-panel, var(--ink));
+   text-align: right;
+}
+
+.selector-init-overview-actions {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 12px;
+}
+
+.selector-init-overview-actions button {
+   min-height: 42px;
 }
 
 /* ---------- 响应式与动效偏好 ---------- */

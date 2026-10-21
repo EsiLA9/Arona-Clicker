@@ -29,6 +29,10 @@ export function showBackToGame(ctrl: UIController): boolean {
 
 /** 全量渲染选择页（Init / GlobalEnhancement 节点图）。initialKind 决定初始聚焦的节点类型。 */
 export function renderSelectorPage(ctrl: UIController, initialKind: SelectorNodeKind = 'init'): void {
+  // 离开世界线后的概览不能被已排队的主题 / 结构刷新重新展开成星图。
+  const overview = ctrl.root.querySelector<HTMLElement>('[data-selector-init-overview]');
+  const overviewInitId = initialKind === 'init' && overview && !overview.hidden
+    ? ctrl.selectorPage.previewedInitId : null;
   // 选择页是新游戏的首个可见界面：先落一份存档，避免用户在选择 Init
   // 或 GlobalEnhancement 前关闭页面后丢失这次新建会话。
   if (!SaveSystem.exists()) {
@@ -60,6 +64,7 @@ export function renderSelectorPage(ctrl: UIController, initialKind: SelectorNode
   bindTopBarActions(ctrl);
   bindThemeActions(ctrl);
   bindEntityPresentationActions(ctrl);
+  if (overviewInitId) ctrl.selectorPage.openInitOverview(overviewInitId, { animate: false });
 }
 
 /** 全量渲染选择页（默认聚焦世界线节点）。 */
@@ -72,18 +77,29 @@ export function renderGlobalEnhancementSelect(ctrl: UIController): void {
   renderSelectorPage(ctrl, 'global-enh');
 }
 
-/** 绑定世界线节点详情 CTA（进入 / 购买）。工作台局部刷新后需重绑。 */
+const initActionButtons = new WeakSet<HTMLButtonElement>();
+
+/** 绑定世界线详情 CTA：先预览，再确认进入；工作台与中转页局部刷新后补绑。 */
 export function bindDetailActions(ctrl: UIController): void {
-  // 详情 CTA：已解锁 → 直接进入（新游戏 / 恢复）
+  // 详情 CTA 只打开概览；确认按钮才进入（新游戏 / 恢复）。
   ctrl.root.querySelectorAll<HTMLButtonElement>('[data-init]').forEach(button => {
+    if (initActionButtons.has(button)) return;
+    initActionButtons.add(button);
     button.addEventListener('click', () => {
       const initId = button.dataset.init!;
+      if (!button.hasAttribute('data-init-confirm')) {
+        ctrl.selectorPage.openInitOverview(initId);
+        return;
+      }
+      if (button.disabled || !ctrl.selectorPage.canEnterInit(initId)) return;
+      button.disabled = true;
       if (ctrl.pendingRestart) {
         ctrl.pendingRestart = false;
         ctrl.resumeInit(initId);
       } else {
         ctrl.startNewGame(initId);
       }
+      if (!ctrl.started || ctrl.game.state.activeInit !== initId) button.disabled = false;
     });
   });
 
@@ -158,10 +174,21 @@ export function bindGlobalEnhancementDetailActions(ctrl: UIController): void {
   });
 }
 
-/** 绑定选择页顶栏共用交互（读档 / 返回游戏）。每次整页渲染绑定一次。 */
+const selectorCommonRoots = new WeakSet<HTMLElement>();
+
+/** 在稳定 root 委托读档 / 返回游戏，工作台局部替换后无需重绑顶栏。 */
 export function bindSelectorCommonActions(ctrl: UIController): void {
-  // 读档（选择页顶栏）
-  ctrl.root.querySelector('#load-game-init')?.addEventListener('click', () => {
+  if (selectorCommonRoots.has(ctrl.root)) return;
+  selectorCommonRoots.add(ctrl.root);
+  ctrl.root.addEventListener('click', event => {
+    const target = event.target as Element | null;
+    if (!target?.closest('.selector-shell')) return;
+    if (target.closest('[data-back-to-game]')) {
+      ctrl.render();
+      return;
+    }
+    if (!target.closest('#load-game-init')) return;
+    // 读档（选择页顶栏）
     const data = SaveSystem.load<SaveData>();
     if (data) {
       ctrl.commands.load(data);
@@ -178,10 +205,5 @@ export function bindSelectorCommonActions(ctrl: UIController): void {
       }
       ctrl.render();
     }
-  });
-
-  // 返回游戏（仅 mid-game 入口）
-  ctrl.root.querySelector('[data-back-to-game]')?.addEventListener('click', () => {
-    ctrl.render();
   });
 }

@@ -55,13 +55,14 @@ async function bootToSpot(mapId: string): Promise<{
   controllers.push(controller);
   controller.mount();
 
-  root.querySelector<HTMLButtonElement>(`[data-init-select="${DEFAULT_INIT_ID}"]`)!.click();
+  root.querySelector<SVGElement>(`[data-init-select="${DEFAULT_INIT_ID}"]`)!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   let startInit = root.querySelector<HTMLButtonElement>(`[data-init="${DEFAULT_INIT_ID}"]`);
   if (!startInit) {
     root.querySelector<HTMLButtonElement>(`[data-init-purchase="${DEFAULT_INIT_ID}"]`)!.click();
     startInit = root.querySelector<HTMLButtonElement>(`[data-init="${DEFAULT_INIT_ID}"]`);
   }
   startInit!.click();
+  root.querySelector<HTMLButtonElement>('[data-init-confirm]')!.click();
   await Promise.resolve();
 
   const entry = [...game.world.spots.values()]

@@ -13,10 +13,12 @@ import { renderMapWorkspace } from '../components/map-workspace';
 import { renderSettingsWorkspace } from '../components/settings-workspace';
 import { renderInventoryWorkspace } from '../components/inventory-workspace';
 import { renderWorkspaceFrame } from '../components/workspace-frame';
+import { renderAreaWorkspace } from '../components/area-workspace';
 import type { PanelState } from '../components/app-shell';
 import type { WorkspaceRoute } from './workspace-router';
 
 function studentVariantId(route: WorkspaceRoute, state: PanelState): string | null {
+  if (route.kind === 'area') return null;
   if (route.kind === 'character') return state.workspace?.type === 'character' ? state.workspace.conversationVariantId : null;
   if (route.kind === 'contacts') return state.workspace?.type === 'contacts' ? state.workspace.conversationVariantId : null;
   if (route.kind === 'story') return state.workspace?.type === 'story' ? state.workspace.conversationOwner : null;
@@ -40,6 +42,7 @@ function renderGameWorkspace(ctx: UIContext, state: PanelState): string {
 }
 
 function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: PanelState): { body: string; footerNote: string } {
+  if (route.kind === 'area') return { body: renderAreaWorkspace(ctx, route.areaId, state), footerNote: '区域工作区 · 当前区域' };
   if (route.kind === 'service') {
     if (route.page === 'settings') return { body: renderSettingsWorkspace(ctx, state), footerNote: 'SETTINGS WORKSPACE · LOCAL SERVICES' };
     if (route.page === 'inventory') return { body: renderInventoryWorkspace(ctx, state), footerNote: 'INVENTORY WORKSPACE · LOCAL SORTING' };

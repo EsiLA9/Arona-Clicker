@@ -24,6 +24,7 @@ export function surfaceKeyOf(state: PanelState): string {
   if (route.kind === 'game') return 'game';
   if (route.kind === 'shop') return ['shop', route.sessionId].join(':');
   if (route.kind === 'character') return ['character', route.variantId].join(':');
+  if (route.kind === 'area') return ['area', route.areaId].join(':');
   if (route.kind === 'operation') return ['operation', route.runId].join(':');
   if (route.kind === 'contacts' && workspace?.type === 'contacts') {
     return ['contacts', workspace.selectedVariantId ?? '', workspace.conversationVariantId ?? ''].join(':');

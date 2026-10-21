@@ -2,7 +2,7 @@
 // ============================================================
 // controller-init-select.test.ts — 选择页交互：购买后局部刷新
 // ============================================================
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller';
@@ -28,7 +28,10 @@ describe('UIController Init 选择页', () => {
   });
 
   afterEach(() => {
+    controller.selectorPage.reset();
+    controller.destroy();
     game.stop();
+    vi.restoreAllMocks();
     localStorage.clear();
   });
 
@@ -49,6 +52,130 @@ describe('UIController Init 选择页', () => {
     rowOwned: root.querySelector(`[data-init-select="${MILLENNIUM}"]`)?.classList.contains('is-owned') ?? false,
     copyHasPurchase: !!root.querySelector('.selector-detail [data-init-purchase]'),
     copyHasEnter: !!root.querySelector('.selector-detail [data-init]'),
+  });
+
+  it('右侧详情可收起与展开，选择其他节点后保留收起偏好与原画布', () => {
+    game.inits.unlockInit(MILLENNIUM);
+    showSelectPage();
+    const graph = root.querySelector('[data-selector-graph]');
+    const workbench = root.querySelector<HTMLElement>('[data-selector-workbench]')!;
+    const body = root.querySelector('[data-selector-workbench-body]');
+    const toggle = root.querySelector<HTMLButtonElement>('[data-selector-workbench-toggle]')!;
+    toggle.click();
+    expect(workbench.hidden).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.textContent).toContain('展开详情');
+    expect(root.querySelector('[data-selector-workbench-body]')).toBe(body);
+    expect(document.activeElement).toBe(toggle);
+    clickNode(`[data-init-select="${MILLENNIUM}"]`);
+    expect(workbench.hidden).toBe(true);
+    toggle.click();
+    expect(workbench.hidden).toBe(false);
+    expect(root.querySelector('[data-selector-graph]')).toBe(graph);
+    expect(root.querySelector('.selector-workbench-title')?.textContent).toBe('千禧年学院');
+  });
+
+  it('中转页只预览所选 Init，隐藏图与详情；返回保留相机、节点、滚动、焦点和业务状态', () => {
+    showSelectPage();
+    const viewport = root.querySelector('[data-selector-graph-viewport]');
+    const topbar = root.querySelector('.selector-topbar');
+    const graph = root.querySelector<HTMLElement>('[data-selector-graph]')!;
+    const world = root.querySelector('[data-selector-graph-world]')!;
+    const workbench = root.querySelector<HTMLElement>('[data-selector-workbench]')!;
+    const body = root.querySelector<HTMLElement>('[data-selector-workbench-body]')!;
+    const toggle = root.querySelector<HTMLElement>('[data-selector-workbench-toggle]')!;
+    const slider = root.querySelector<HTMLInputElement>('[data-selector-zoom-slider]')!;
+    slider.value = '145'; slider.dispatchEvent(new Event('input', { bubbles: true }));
+    const camera = world.getAttribute('transform');
+    const cta = body.querySelector<HTMLButtonElement>('[data-init]')!;
+    body.scrollTop = 140;
+    const before = JSON.stringify(game.state);
+    const started = controller.started;
+    cta.click();
+    const overview = root.querySelector<HTMLElement>('[data-selector-init-overview]')!;
+    expect(overview.hidden).toBe(false);
+    expect(overview.textContent).toContain('夏莱办公室');
+    expect(graph.hidden && workbench.hidden && toggle.hidden).toBe(true);
+    expect(root.querySelector('[data-selector-init-overview-title]')).toBe(document.activeElement);
+    expect(controller.started).toBe(started);
+    expect((controller as unknown as { pendingRestart: boolean }).pendingRestart).toBe(true);
+    expect(JSON.stringify(game.state)).toBe(before);
+    slider.value = '220'; slider.dispatchEvent(new Event('input', { bubbles: true }));
+    clickNode(`[data-init-select="${MILLENNIUM}"]`);
+    expect(controller.selectorPage.selectedInitId).toBe(OFFICE);
+    expect(world.getAttribute('transform')).toBe(camera);
+    root.querySelector<HTMLButtonElement>('[data-selector-init-overview-back]')!.click();
+    expect(overview.hidden).toBe(true);
+    expect(graph.hidden || workbench.hidden || toggle.hidden).toBe(false);
+    expect(root.querySelector('[data-selector-graph-viewport]')).toBe(viewport);
+    expect(root.querySelector('.selector-topbar')).toBe(topbar);
+    expect(world.getAttribute('transform')).toBe(camera);
+    expect(body.scrollTop).toBe(140);
+    expect(document.activeElement).toBe(cta);
+    expect(JSON.stringify(game.state)).toBe(before);
+  });
+
+  it('中转页 Escape 可返回，重复进入与减少动态效果仍保持正确状态', () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+    showSelectPage();
+    const cta = root.querySelector<HTMLButtonElement>('[data-init]')!;
+    cta.click();
+    const title = root.querySelector<HTMLElement>('[data-selector-init-overview-title]')!;
+    cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(root.querySelectorAll('[data-init-confirm]')).toHaveLength(1);
+    title.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(root.querySelector<HTMLElement>('[data-selector-init-overview]')!.hidden).toBe(true);
+    expect(document.activeElement).toBe(cta);
+    cta.click();
+    expect(root.querySelector<HTMLElement>('[data-selector-init-overview]')!.hidden).toBe(false);
+  });
+
+  it('活动世界线的中转页只使用 Init 背景，返回后恢复星图的 Area 投影策略', () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+    controller.startNewGame(OFFICE);
+    controller.render();
+    controller.openGlobalEnhancementSelect();
+    controller.selectorPage.select({ kind: 'init', entityId: OFFICE }, { animate: false });
+    const before = JSON.stringify(game.state);
+    expect(root.querySelector<HTMLElement>('.selector-workspace')!.dataset.selectorThemeKey).toContain(`|${game.state.currentAreaId}`);
+    root.querySelector<HTMLButtonElement>('[data-init]')!.click();
+    const workspace = root.querySelector<HTMLElement>('.selector-workspace')!;
+    const background = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]')!;
+    expect(workspace.dataset.selectorThemeKey?.endsWith('|')).toBe(true);
+    expect(background.innerHTML).not.toContain('/assets/Hoshino.png');
+    expect(background.innerHTML).not.toContain('triangles');
+    root.querySelector<HTMLButtonElement>('[data-selector-init-overview-back]')!.click();
+    expect(workspace.dataset.selectorThemeKey).toContain(`|${game.state.currentAreaId}`);
+    expect(JSON.stringify(game.state)).toBe(before);
+  });
+
+  it('中转页禁止预览未解锁节点，失效的确认按钮不能进入世界线', () => {
+    showSelectPage();
+    controller.selectorPage.select({ kind: 'init', entityId: MILLENNIUM }, { animate: false });
+    controller.selectorPage.openInitOverview(MILLENNIUM);
+    expect(root.querySelector<HTMLElement>('[data-selector-init-overview]')!.hidden).toBe(true);
+    controller.selectorPage.select({ kind: 'init', entityId: OFFICE }, { animate: false });
+    root.querySelector<HTMLButtonElement>('[data-init]')!.click();
+    const confirm = root.querySelector<HTMLButtonElement>('[data-init-confirm]')!;
+    root.querySelector<HTMLButtonElement>('[data-selector-init-overview-back]')!.click();
+    const resume = vi.spyOn(controller, 'resumeInit');
+    confirm.click();
+    expect(resume).not.toHaveBeenCalled();
+  });
+
+  it('新建世界线也先显示中转页，只有确认进入才发起新建命令，重复确认只执行一次', async () => {
+    (controller as unknown as { pendingRestart: boolean }).pendingRestart = false;
+    (controller as unknown as { renderInitSelect(): void }).renderInitSelect();
+    const start = vi.spyOn(controller, 'startNewGame');
+    root.querySelector<HTMLButtonElement>('[data-init]')!.click();
+    expect(start).not.toHaveBeenCalled();
+    const confirm = root.querySelector<HTMLButtonElement>('[data-init-confirm]')!;
+    confirm.click();
+    confirm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(start).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(controller.started).toBe(true);
+    expect(root.querySelector('.selector-shell')).toBeNull();
   });
 
   it('购买选中项后节点与工作台立即刷新，不触发整页重渲染', () => {
@@ -172,6 +299,8 @@ describe('UIController Init 选择页', () => {
     const current = root.querySelector<HTMLElement>('[data-selector-scene-slot="current"]')!;
     expect(controller.started).toBe(false);
     expect((controller as unknown as { pendingRestart: boolean }).pendingRestart).toBe(true);
+    expect(root.querySelector<HTMLElement>('[data-selector-init-overview]')!.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>('[data-selector-graph]')!.hidden).toBe(true);
     expect(shell.style.getPropertyValue('--theme-node-primary')).toBe('#4f46e5');
     expect(workspace.dataset.selectorThemeKey?.endsWith('|')).toBe(true);
     expect(current.innerHTML).toContain('#4f46e5');
@@ -189,6 +318,7 @@ describe('UIController Init 选择页', () => {
     expect(current.innerHTML).not.toContain('/assets/Hoshino.png');
     expect(current.innerHTML).not.toContain('triangles');
 
+    root.querySelector<HTMLButtonElement>('[data-selector-init-overview-back]')!.click();
     clickNode(`[data-init-select="${MILLENNIUM}"]`);
     const next = root.querySelector<HTMLElement>('[data-selector-scene-slot="next"]')!;
     expect(next.innerHTML).not.toContain('/assets/Hoshino.png');
@@ -201,8 +331,13 @@ describe('UIController Init 选择页', () => {
     game.inits.unlockInit(MILLENNIUM);
     controller.render();
     root.querySelector<HTMLButtonElement>('[data-restart-init]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-selector-init-overview-back]')!.click();
     clickNode(`[data-init-select="${MILLENNIUM}"]`);
     root.querySelector<HTMLButtonElement>(`[data-init="${MILLENNIUM}"]`)!.click();
+
+    expect(controller.started).toBe(false);
+    expect(root.querySelector<HTMLElement>('[data-selector-init-overview]')!.hidden).toBe(false);
+    root.querySelector<HTMLButtonElement>('[data-init-confirm]')!.click();
 
     expect(game.state.activeInit).toBe(MILLENNIUM);
     expect(controller.started).toBe(true);
