@@ -10,7 +10,7 @@ Draft：<路径>
 
 对每个问题给出：GALHCG 查询范围与匹配质量、结论、源码/测试位置、对方案或验收的影响、仍不确定之处。重点核对状态读取与写入方、事件发布与过滤、生命周期、数据包契约和现有测试中与问题相关的部分；不要默认展开全部领域。
 
-若本轮新增或更改源码、测试或当前机制文档，按 docs/ai/galhcg-project-map.md 对直接影响路径只读复核。维护授权明确时再按 .galhcg/agent-maintenance.md 更新有当前文件证据支持的 Evidence / maps_to，并执行预检、提交与回读；记录未维护的原因。查询和说明安装不自动授权改图、刷新或写 freshness。
+若本轮新增或更改源码、测试或当前机制文档，先累计直接影响路径，待该工作节点完成后按 docs/ai/galhcg-project-map.md 集中只读复核，也可委派 Luna 子 Agent；不在事实核对或施工中逐文件反复检查。维护授权明确时再按 .galhcg/agent-maintenance.md 更新有当前文件证据支持的 Evidence / maps_to，并执行预检、提交与回读；记录未维护的原因。查询和说明安装不自动授权改图、刷新或写 freshness。
 
 随后更新同一 Draft 的“已裁定 / 待裁定 / 已核实事实 / 下一步”。若满足 docs/ai/goal-workflow.md 的 Draft→Task 准入，提出一个可独立验收的 Task 轮廓和可能的 Patch Unit 顺序；若未满足，准确列出缺失证据。
 

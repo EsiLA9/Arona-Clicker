@@ -1,0 +1,85 @@
+# Unit 0312-U06：单来源纯效果规划与共享预算
+
+状态：ready / 未执行；阶段P2。前置：0312-U05实际完成Receipt与测试。
+
+## Goal
+
+NEW01条件前后/else、NEW03/04饱和与溢出、受用方、共享动态预算及HP0均有纯行为测试；输入快照不被修改，无随机/事件/安装。
+
+## Must Read / Read Set
+
+共用入口：[[docs/plan-work/task-0312-gameplay-b-effect-program-v1]]、[[docs/ai/PROJECT-CONSTITUTION]]；精确合同按Draft0312 §11、归档Task0313 §10最终批准，不重开E0。下表只读命中符号／命名用例，不整仓通读。未来新增路径只有前置Unit完成后才是当前源码。
+
+| 类型 | 路径／符号 | 用途 |
+| --- | --- | --- |
+| 输入 | src/data-services/normalization/gameplay-map-effect-program.ts 与U02类型/语法计数 | 单来源而非整轮新Runtime |
+| 源码 | src/arona-clicker/services/map-run-service.ts：applyHpEffects/settlementChangesFor；src/arona-clicker/contracts/map-run.ts：HP/resource delta类型 | 复用既有结果语义 |
+| 合同 | Draft0312 §11.1–11.3、NEW01/03/04/07 | guard时点、饱和、预算、trace |
+
+## Context Budget
+
+目标20k–40k token；文档3–8篇命中段落；只追溯本Unit指定E0合同/金样/Receipt，默认不读其它历史。单Unit最多4个变更文件加自己的Receipt、手写净改动≤500行。生成协议diff单列不计手写行数。超过60k上下文、预计超文件/行数先交负责人拆分。
+
+## Optional Read Set
+
+前置Receipt引用的直接依赖调用方或同文件共享fixture；额外最多2文件，超过先交上游。不得用扩大阅读范围代替拆分。UI具体结构仅U16按frontend-design与项目overlay，实际文档收尾仅U19。
+
+## Do Not Read by Default
+
+无关旧Operation/EventRun、整套EffectEngine/Trigger、独立编辑器UI、归档旧方案、dist与依赖目录；不读后续AG实现方案来覆盖本Unit的E1期望。
+
+## Confirmed Facts
+
+HP0不被正HP变化复活；成本与资源属于外层planner不同阶段，效果不得自行扣库存。 本轮仅核实源码，未在此规划轮运行本Unit测试；前置新增模块属于待施工产物。
+
+## Constraints
+
+- 唯一执行合同E1-COMPAT-1；采用已批准P1/P2/P3与D06–D08，不加入AG支付/排序/双方统一prepare。工程字段/函数细节可在已冻结接口责任内实现，不要求人类逐字段审批。
+- 效果核只做单source纯规划，真实状态/成本/目标/终局/安装归现有MapRun和GameInstance；不创建第二Owner/Runtime、任意Handler或第二套同义leaf。
+- 白名单仅本Unit可写；状态写入/依赖/存档遵循 [[docs/docs-829/05-conventions/architecture-discipline]]，Schema按 [[docs/docs-829/05-conventions/schema-sync]]，测试按 [[docs/docs-829/05-conventions/testing]]。
+- 本文件创建轮只交付规划、未实施；后续收到施工指令后按本Unit执行。前置Unit未完成不得以新增测试占位或跳过来提前开工。
+
+## Allowed Files
+
+- 新增（执行时才创建）：src/arona-clicker/contracts/map-effects.ts
+- 新增（执行时才创建）：src/arona-clicker/services/map-effect-planner.ts
+- 新增（执行时才创建）：tests/engine/gameplay-b-effect-planner.test.ts
+- 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u06-receipt.md
+
+路径为精确写入白名单，标“新增”的当前不创建；不能因Read Set包含某文件就修改它。其它Unit、E0归档、Draft语义、顶层协议、无关测试均不在白名单。源码路径名由本Task冻结；若需改路径先由负责人更新范围。
+
+## Explicit Non-goals
+
+不做费用预留、source排序、自动目标选择、完成Encounter或跨Owner消费。 共同排除E2–E5 TargetSet/Tag/Pool/Status/成长Adapter、任意脚本、全局模板、AG Scheduler。不得把内部helper测试当完整产品验收。
+
+## Work Items
+
+1. 新增map-effects合同与内部planMapEffectSource一类纯函数。输入已规范化程序、source/绑定primary/账户身份、detached HP/caps/locals、轮共享budget；输出HP/locals变化、有序资源账本、guard及实际trace。只由MapRun权威planner调用，不持有真实Owner/MutationPort/Registry/UI。
+2. 叶子共享实现：HP截0..cap且HP0不复活；Counter先安全整数加法后饱和；Flag严格bool；when到达处读当前规划HP/locals，可选else只执行一支；缺键/不合法source失败。resourceChange只记账，不暴露余额条件或Value。
+3. 支持legacy相位分片调用同一叶子函数而不重复执行；prepare固定折扣作为有界计划结果给CardRef适配。context不接受我敌固定执行顺序、费用支付政策或终局回调，资源账本由外层兑现。
+4. 整轮预算唯一归外层resolveEncounterCommitPlan创建、累计和判限；本helper只通过该轮注入的访问入口报告语句/条件访问，不另建累计器或重置轮额度。prepare由外层在实际规划阶段按U09返回元数据计一次，helper不得再对同批prepare重复报告。全部新source共4096，未走分支/短路/skip resolve不计，legacy不追溯。纯函数单测可注入测试计数器，但它不是第二个生产计数入口。trace记0 delta及读取证据，不保存世界副本。
+
+## Stop Conditions
+
+遵循PROJECT-CONSTITUTION六条：超Allowed Files/新增未列文件/预算、Read Set外增读>2文件、当前事实冲突、未裁定语义或扩目标、必需验证失败/不可解释。停止受影响Unit、写实际Receipt并上交，不自行放宽预算、删除旧金样或选另一个玩法。若仅8处已知check:docs错误前后相同，按总Task基线记录，不越界修复。
+
+## Completion Criteria
+
+- [ ] NEW01条件前后/else、NEW03/04饱和与溢出、受用方、共享动态预算及HP0均有纯行为测试；输入快照不被修改，无随机/事件/安装。
+- [ ] Work Items全部实际完成；产品编译和下列命中测试绿，无skip/todo/篡改OLD期望掩盖失败。
+- [ ] 变更不越白名单；真实验证/未执行项、合同ID和用例映射记录在Receipt；未开始不得预填成功。
+- [ ] 本Unit独立可验收，不要求提前实现后续Unit；完整E1发布与AG前置解除仍等U18/U19。
+
+## Verification
+
+| 项 | 命令／方式 | 期望 |
+| --- | --- | --- |
+| 定向行为 | `npx vitest run tests/engine/gameplay-b-effect-planner.test.ts` | 本Unit行为及命中旧回归全绿，记录实际文件/数量/退出码 |
+| 类型 | `npx tsc --noEmit` | 无本Unit引入类型错误；基线错误先记录并解释 |
+| 架构 | `npm run check:architecture` | 基础层无反向依赖，不新增业务写入口 |
+| 范围/空白 | `git --no-pager diff --check`；新增未跟踪文本另查尾随空白 | 无新增空白问题，实际变更符合白名单 |
+| 文档 | `npm run check:docs`（有文档/路径变化时） | 无新增错误；8处历史错误非零不写通过 |
+
+## Receipt
+
+执行结束或中断后按 [[docs/ai/templates/execution-receipt]] 创建唯一docs/plan-work/task-0312-units/receipts/task-0312-u06-receipt.md，列实际修改/未完成/命令与退出码/映射的OLD-EQ-NEW ID/风险/需上游项。记录GALHCG“直接影响范围累积，U19统一只读复核”，不得逐次编辑刷新图；本轮无图写授权。下一Unit从前置Receipt得知实际接口与验证，不以计划文字替代施工结果。

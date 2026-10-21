@@ -40,7 +40,7 @@ Gameplay B 的 `EventRun` 是独立的局内状态 owner，由每个 `GameInstan
 
 | 数据 | 入口 |
 | --- | --- |
-| 正式产品声明 | base：`src/arona-clicker/content/default-datapack.ts`；Gameplay B V1 bundle：`src/arona-clicker/content/operation-samples/gameplay-b-datapack.ts` + `src/arona-clicker/runtime.ts` |
+| 正式产品声明 | base：`src/arona-clicker/content/default-datapack.ts`；Gameplay B Map-only bundle：`src/arona-clicker/content/gameplay-b-map-datapack.ts` + `src/arona-clicker/runtime.ts` |
 | 汇总契约 | `src/data-services/contracts/datapack.ts` |
 | 定义装载与索引 | `src/data-services/registry/registry.ts` |
 | 玩家状态 | `src/arona-clicker/types/state.ts`、`src/arona-clicker/state/` |

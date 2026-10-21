@@ -32,7 +32,7 @@ Codex Goal 只负责当前会话的持续执行。长期状态、决策、验收
 2. **讨论阶段目标**：每个进入讨论的 Goal 建一份 Draft；多轮 SolChat 意见继续更新同一 Draft 的裁定记录，不为每轮建议另建文档。使用 [[docs/ai/templates/discussion-draft]] 与 [[docs/ai/prompts/sol-discussion]]。
 3. **核对事实**：把会改变方案或验收边界的未知项列为事实门槛。先按 [[docs/ai/galhcg-project-map]] 主动搜索相关 Module、Concept、相邻源码与当前文档；零命中时换别名、路径或源码字面量继续定位，不能以“图里没有”作结论。再按 [[docs/ai/task-read-set-routing]] 读取最小源码与测试，记录证据、结论和影响。使用 [[docs/ai/prompts/local-fact-review]]。事实核对不自动形成新的阶段目标。
 4. **冻结施工范围**：Draft 满足下方准入后，建立 Task 并在 `docs/plan-work/00-index.md` 登记。Task 写独立目标、当前代码事实、验收与剩余工作，不以 Goal Set 为必读前提。使用 [[docs/ai/templates/execution-task]]。
-5. **执行与收尾**：需要白名单边界的施工 Task 按 [[docs/ai/PROJECT-CONSTITUTION]] 拆 Patch Unit / Receipt。源码、测试或当前机制文档变化后，用当前 GALHCG 模式只读复核直接受影响路径：`simple` 使用 `graph_health(check="changed", options={"path":"<相对路径>"})`，`legacy` 使用 `review_changes(path=...)`。需要维护且授权范围明确时，按 `.galhcg/agent-maintenance.md` 更新有证据支持的关系；定向刷新不能替代语义映射更新，查询和说明安装不自动授权上述写入。实际核验后归档。用户要求清空当前工作区时，也可冻结未完成 Task 并保留原状态与待续记录。实现稳定的机制再按文档维护规则沉淀到 `docs/docs-829/`；只完成一个阶段不等于整个最终目标完成。
+5. **执行与收尾**：需要白名单边界的施工 Task 按 [[docs/ai/PROJECT-CONSTITUTION]] 拆 Patch Unit / Receipt。工作节点完成实现与必要验证后，按 [[docs/ai/galhcg-project-map]] 合并直接影响范围，统一做一次 GALHCG 健康复核；也可交由 Luna 子 Agent 收尾，不随每次文件修改重复检查。按当前模式复核：`simple` 使用 `graph_health(check="changed", options={"path":"<相对路径>"})`，`legacy` 使用 `review_changes(path=...)`。需要维护且授权范围明确时，按 `.galhcg/agent-maintenance.md` 更新有证据支持的关系；定向刷新不能替代语义映射更新，查询和说明安装不自动授权上述写入。实际核验后归档。用户要求清空当前工作区时，也可冻结未完成 Task 并保留原状态与待续记录。实现稳定的机制再按文档维护规则沉淀到 `docs/docs-829/`；只完成一个阶段不等于整个最终目标完成。
 
 ## Draft → Task 准入
 

@@ -56,7 +56,8 @@ describe('Flow Map location card rendering', () => {
     expect(cards[0].dataset.mapObjectKey).toBe('object-b');
     expect(cards[0].dataset.mapInstanceKey).toBe('flow:run-1::entry:node-b::object-b');
     expect(cards[0].dataset.mapCardEntry).toBe('selectLocation');
-    expect(cards[0].getAttribute('role')).toBe('button');
+    expect(cards[0].tagName).toBe('BUTTON');
+    expect(cards[0].getAttribute('type')).toBe('button');
     expect(cards[0].dataset.mapLocationNodeId).toBe('node-b');
     expect(cards[1].dataset.mapCardEntry).toBeUndefined();
     expect(cards[1].getAttribute('aria-disabled')).toBe('true');

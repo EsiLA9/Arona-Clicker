@@ -40,7 +40,7 @@
 ## GALHCG 影响闭环
 
 - 发现路径：<关键查询词与命中 / 未命中；未知项如何继续定位>
-- 变更审查：<按当前模式使用 graph_health(check="changed")（simple）或 review_changes（legacy）的直接路径与独立分页结果>
+- 收尾健康管理：<工作节点完成后合并直接影响范围统一检查，或委派 Luna 子 Agent；记录 graph_health(check="changed")（simple）或 review_changes（legacy）的范围、分页结果与未完成项；施工中不反复检查>
 - 地图维护：<授权范围；按 .galhcg/agent-maintenance.md 预检、提交 Evidence / maps_to 并写后回读；未更新时说明无直接语义影响、缺少裁定或维护授权；查询和说明安装不自动授权写入>
 
 ## 剩余工作

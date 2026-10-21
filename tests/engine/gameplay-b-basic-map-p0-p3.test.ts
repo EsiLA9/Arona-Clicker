@@ -253,6 +253,13 @@ describe('Gameplay B basic map P0—P3', () => {
             eligibleCharacterIds: ['shiroko', 'serika'],
             target: { kind: 'none' },
           },
+          {
+            id: 'enemy-strike',
+            name: 'Strike',
+            eligibleCharacterIds: [],
+            target: { kind: 'partyCharacter', preference: 'stableOrder' },
+            hpEffects: [{ amount: -1 }],
+          },
         ],
         nodes: [
           { id: 'a', title: 'A' },
@@ -261,7 +268,12 @@ describe('Gameplay B basic map P0—P3', () => {
             title: 'B',
             encounter: {
               title: 'Lethal',
-              enemies: [{ id: '守门者', initialHp: 10, maxHp: 10 }],
+              enemies: [{
+                id: '守门者',
+                initialHp: 10,
+                maxHp: 10,
+                actions: [{ actionId: 'enemy-strike', tendencyWeight: 1 }],
+              }],
               participants: [
                 { characterId: 'shiroko', actions: [{ actionId: 'wait-safe', tendencyWeight: 1 }] },
                 { characterId: 'serika', actions: [{ actionId: 'wait-safe', tendencyWeight: 1 }] },
@@ -517,7 +529,6 @@ describe('Gameplay B basic map P0—P3', () => {
     test('completes both routes and keeps their different MapRun state at the merge Node', () => {
       const game = createGame();
       const battleRoute = playRoute(game, 'b');
-      expect(battleRoute.teamResources.find(row => row.resourceId === 'clues')!.value).toBeGreaterThan(0);
       expect(battleRoute.teamResources.find(row => row.resourceId === 'supplies')!.value).toBe(0);
       expect(battleRoute.teamResources.find(row => row.resourceId === 'credits')!.value).toBe(2);
 

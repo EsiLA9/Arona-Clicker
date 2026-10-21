@@ -580,7 +580,7 @@ describe('GameInstance (integration)', () => {
     expect(game2.state.currentAreaId).toBe('base:area:schale_library');
   });
 
-  test('should require adjacency even for a previously visited area', () => {
+  test('should use an explored route to reach a previously visited area', () => {
     game.init([baseDatapack]);
     finishWelcome(game);
     // 主厅 → 资料室 → 机库
@@ -588,9 +588,13 @@ describe('GameInstance (integration)', () => {
     game.travelToArea('base:area:schale_hangar');
     expect(game.state.currentAreaId).toBe('base:area:schale_hangar');
 
-    // 机库 → 主厅：不相邻（机库仅邻资料室），即使此前访问过也拒绝
-    expect(game.travelToArea('base:area:schale_main')).toMatchObject({ success: false, error: 'NotAdjacent' });
-    expect(game.state.currentAreaId).toBe('base:area:schale_hangar');
+    // 机库与主厅不直接相邻，但已访问的资料室允许沿探索过的路线快速返回。
+    expect(game.travelToArea('base:area:schale_main')).toMatchObject({
+      success: true,
+      areaId: 'base:area:schale_main',
+      method: 'visited',
+    });
+    expect(game.state.currentAreaId).toBe('base:area:schale_main');
   });
 
   test('should reject travel to a locked area', () => {

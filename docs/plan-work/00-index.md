@@ -8,6 +8,9 @@
 
 ## 当前推进
 
+
+- [[docs/plan-work/draft-0312-gameplay-b-card-and-effect-primitives]]：E0-contract-approved；[[docs/plan-work/task-0312-gameplay-b-effect-program-v1]] 已按E0最终批准和行为金样更新为正式E1施工Task，拆分19个依赖明确的产品Unit（均未执行）。只实现E1-COMPAT-1；独立敏捷AG-1合同已批，等待E1产品验收，不提前施工E2–E5。
+
 - [[docs/plan-work/draft-0311-gameplay-b-maprun-engine-integration-investigation]]：draft；当前检出只读调查完成，覆盖 MapRun 本体、外部引擎接线、测试证据与后续分期；完整结论见 [[docs/plan-work/report-0311-gameplay-b-maprun-engine-integration-investigation]]，玩法合同与实施 Task 待后续裁定。
 
 - [[docs/plan-work/task-0309-maprun-staging-and-reentry-workspace]]：proposed；已调查 MapRun 开始／继续、固定队伍准入、局内状态与保存恢复，提出行前／续行准备页、只读队伍和资源信息及入口—现场返回方案；V1 不实现选队，本轮只交接 Task，等待实施。
@@ -18,6 +21,8 @@
 
 
 ## 本轮归档（2026-10-21）
+
+- [[docs/plan-work/archive/task-0313-gameplay-b-e0-contract-freeze-and-admission]]：E0文档交付complete；U1–U5现状核证/合同回写/敏捷设计/行为用例/准入完成，当前基线78项通过；用户2026-10-21“全部按推荐”批准§9.2全部八项；E1合同准入通过，敏捷等待E1前置实现，尚未实现产品。
 
 - [[docs/plan-work/archive/task-0310-area-map-navigation-service-v1]]：completed；独立 areaMaps 装载与脱敏查询、共享旅行准入、三栏浏览/历史/相机、显式移动与生命周期已实现并通过宽屏浏览器验收；新增 49 项测试通过，最终跨域回归另有 5 个并行 Story 断言失败，见最终 Receipt。
 

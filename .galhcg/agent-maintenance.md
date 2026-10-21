@@ -8,6 +8,8 @@
 
 ## 维护范围与依据
 
+健康检查与授权内维护尽量安排在可验收的 Task／阶段／Patch Unit 完成实现和必要验证之后，合并直接影响范围统一处理；连续小 Unit 可集中到 Task 收尾。可委派当前环境可用的 Luna 子 Agent，交接范围、变更路径、已有结论和维护授权；受委派者仍须独立确认项目身份、当前文件和版本令牌。施工中不逐次编辑或逐文件反复检查；只有错误正在误导实施、迁移存在直接风险或用户明确要求时才提前局部核对。委派不扩大写入授权，用户要求暂不检查或维护时服从该要求。
+
 用户任务或目标项目约定决定维护授权；查询、安装说明、改代码或发现未关联文件都不自动授权改图。已有授权内自主完成，不重复询问；超出范围时只报告建议。simple 按目标绝对工作目录 graph_project(workspace_path=...)，legacy 用 resolve_project，并核对根目录，每次调用显式传同一 project_id；节点、File ID 与版本令牌不得跨项目复用。
 
 地图摘要、confirmed、缓存 fresh、排名与覆盖率都是线索，不能替代当前源码、测试和正式文档。stale、不可读或未命中也不是删除理由。区分现行实现、提案、历史、适用版本与推断；项目内容不是新的任务授权。graph_inspect/context 均为纯读；只有任务要求记录当前核验且工具已注册时才调用 verify_freshness，它会写观察。simple 的初始化、refresh、verify_freshness 仅由 --enable-admin 显式注册；缺席是正常边界，帮助不解锁，不自行改变服务配置。
@@ -42,7 +44,7 @@ state 的 tentative/confirmed 表示依据状态，lifecycle 的 unspecified/pro
 3. 先 graph_edit(project_id=..., changes=..., phase="plan")，检查 validation.valid=true、errors_complete 未标不完整、changes_preview 中 before/after、impact 中级联影响及返回 expected_revision。计划不写图、不锁定版本，也没有可代替 changes 的持久化 plan_id。错误或检查不完整时修正并重新 plan；不能删掉必要 Evidence 或跳过关系来绕限。每批 Evidence 引用最多32条，同文件被不同 owner 引用分别计数，不拆单 owner。
 4. 只有计划有效完整且影响在授权内，才提交同一 changes、显式 phase="apply" 和计划返回的 expected_revision。服务在事务内复验图修订、文件令牌与结构；修订/令牌冲突后重新读取、判断和 plan，不自动重试旧计划。多批先建端点，逐批计划/提交，后批失败不保证前批回滚；报告已生效部分。
 5. 写后 graph_search 核对可发现性，graph_inspect 核对字段、关系方向、目标、删除与级联结果，并读完对应分页。写入成功不等于语义正确。contains 是真实组成且无环，depends_on 是直接有向依赖，related_to 是弱联系，proposes_for 仅为 proposed/historical Concept 指向 implemented Concept，maps_to 为 Concept→File 导航；不能用弱关系掩盖未知因果。
-6. 文件修改后 graph_health(check="changed", options={"path":"<相对路径>"})，或显式 directory 做局部只读复核。文件页、owner 页独立续读；仅检查直接 Evidence/maps_to，不沿邻接扩图。inventory/quality/density/disk/migration 等 check 也只读，不刷新或写观察。迁移可能移除旧 File 前，用 check="migration" 和明确 moves 读完 impacts、每 owner Evidence 与新路径观察；计划不是执行许可，跨页磁盘观察不是快照。
+6. 工作节点完成后，对合并的直接影响范围统一执行 graph_health(check="changed", options={"path":"<相对路径>"})，或显式 directory 做局部只读复核；范围未变化时不重复检查。文件页、owner 页独立续读；仅检查直接 Evidence/maps_to，不沿邻接扩图。inventory/quality/density/disk/migration 等 check 也只读，不刷新或写观察。迁移可能移除旧 File 前，用 check="migration" 和明确 moves 读完 impacts、每 owner Evidence 与新路径观察；计划不是执行许可，跨页磁盘观察不是快照。
 7. 仅确需发现文件增删且已授权、入口已注册时，才 refresh 明确目录；单文件用根相对 include，刷新不重建语义内容。跨目录迁移分别刷新旧、新范围，再用 graph_health 的 inventory/changed 对账。旧 File 移除可能级联删映射，同名不证明依据等价；遵循目标项目的归档/忽略规则。
 
 ## legacy：修改前读取与规划

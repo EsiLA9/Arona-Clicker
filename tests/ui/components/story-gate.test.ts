@@ -2,7 +2,7 @@
 // components/story-gate.test.ts — 确认浮层 / 开幕横幅渲染函数
 // 纯字符串断言：标题解析（openingTitle 优先）、owner 行、data 钩子、HTML 转义。
 // ============================================================
-import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { createUIContext } from '../../../src/ui/context';
@@ -17,6 +17,7 @@ describe('renderStoryGate / renderOpeningBanner', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     game.stop();
   });
 
@@ -96,6 +97,7 @@ describe('renderStoryGate / renderOpeningBanner', () => {
   test('横幅：重渲染断点续播——按 startedAt 写入负 animation-delay', () => {
     const ctx = createUIContext(game);
     const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now);
     expect(renderOpeningBanner(ctx, { title: 'X', startedAt: now })).not.toContain('animation-delay');
     // startedAt 早 900ms（±1ms 时钟抖动用正则容纳）
     expect(renderOpeningBanner(ctx, { title: 'X', startedAt: now - 900 })).toMatch(/animation-delay: -90\dms/);

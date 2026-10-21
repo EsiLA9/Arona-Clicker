@@ -23,4 +23,6 @@
 
 ## 项目地图
 
-遇到未知实现、新内容或文件关系时，先按客户端当前注册的模式使用项目身份入口（`simple` 为 `graph_project(workspace_path="<任务绝对目录>")`，`legacy` 为 `resolve_project`）核对项目根，后续显式传返回的 `project_id`；按 [[docs/ai/galhcg-project-map]] 查询并回到当前文件核实。文件改动后只读复核直接影响；查询和文件改动不授权改图、刷新或写观察，维护时再读 `.galhcg/agent-maintenance.md`。
+遇到未知实现、新内容或文件关系时，先按客户端当前注册的模式使用项目身份入口（`simple` 为 `graph_project(workspace_path="<任务绝对目录>")`，`legacy` 为 `resolve_project`）核对项目根，后续显式传返回的 `project_id`；按 [[docs/ai/galhcg-project-map]] 查询并回到当前文件核实。
+
+GALHCG 健康管理尽量集中在一个可验收的工作节点完成后，合并直接影响范围统一处理，也可委派 Luna 子 Agent；不在施工中逐次修改、逐文件反复检查。查询和文件改动不授权改图、刷新或写观察；授权内维护时再读 `.galhcg/agent-maintenance.md`，具体时机与委派规则见上述查询页。
