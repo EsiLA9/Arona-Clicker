@@ -6,13 +6,43 @@
  * 但 editor 未同步"的漂移（error 红灯）。
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { parseEngineSchema } from '../../../scripts/gen-engine-schema';
 import { TABLE_META } from './editor-extras';
 import { getTable, TABLES } from './datapack.schema';
 import type { FieldDef, FieldType } from './types';
 
 const schema = parseEngineSchema();
+const generatedSchema = JSON.parse(readFileSync(new URL('./engine-defs.gen.json', import.meta.url), 'utf8'));
 const VALID_KEYS = new Set<string>(TABLES.map((t) => t.key));
+
+function withoutGeneratedAt(value: Record<string, unknown>): Record<string, unknown> {
+  const { generatedAt: _generatedAt, ...semantic } = value;
+  return semantic;
+}
+
+function schemaField(fields: Array<{ key: string; [key: string]: any }>, key: string): any {
+  const found = fields.find((candidate) => candidate.key === key);
+  expect(found, `authoring schema missing ${key}`).toBeDefined();
+  return found;
+}
+
+function collectAuthoringTypeNodes(value: unknown, type: string, found: unknown[] = []): unknown[] {
+  if (!value || typeof value !== 'object') return found;
+  if (!Array.isArray(value) && (value as { type?: unknown }).type === type) found.push(value);
+  for (const child of Array.isArray(value) ? value : Object.values(value)) collectAuthoringTypeNodes(child, type, found);
+  return found;
+}
+
+function assertSupportedGenFields(value: unknown): void {
+  if (!value || typeof value !== 'object') return;
+  const field = value as { kind?: unknown; item?: unknown; value?: unknown; fields?: unknown[] };
+  const supported = new Set(['string', 'int', 'float', 'bool', 'enum', 'ref', 'extra', 'flexible', 'hand', 'array', 'object', 'record']);
+  if (field.kind !== undefined) expect(supported.has(String(field.kind)), `unsupported GenField.kind: ${String(field.kind)}`).toBe(true);
+  if (field.item) assertSupportedGenFields(field.item);
+  if (field.value) assertSupportedGenFields(field.value);
+  for (const child of field.fields ?? []) assertSupportedGenFields(child);
+}
 
 /**
  * 递归收集 FieldType 中的所有 ref 表引用。
@@ -151,6 +181,72 @@ describe('Schema 描述协议：defMap 派生自 Datapack', () => {
 });
 
 describe('Schema 描述协议：字段覆盖一致性', () => {
+  it('checked-in protocol matches generated schema and keeps a valid generatedAt timestamp', () => {
+    expect(typeof generatedSchema.generatedAt).toBe('string');
+    expect(Number.isFinite(Date.parse(generatedSchema.generatedAt))).toBe(true);
+    expect(typeof schema.generatedAt).toBe('string');
+    expect(withoutGeneratedAt(generatedSchema)).toEqual(withoutGeneratedAt(schema));
+  });
+
+  it('Gameplay Map keeps finite E1 authoring structure in hand-compatible metadata', () => {
+    const mapFields = schema.defs.GameplayMapDef.fields;
+    for (const fields of Object.values(schema.defs)) for (const field of fields.fields ?? []) assertSupportedGenFields(field);
+    const actions = schemaField(mapFields, 'actions');
+    expect(actions.kind).toBe('hand');
+    expect(actions.description).toContain('Map-local reusable actions');
+    expect(actions.authoringSchema.type).toBe('array'); // readonly arrays are unwrapped in metadata
+    const actionFields = actions.authoringSchema.item.fields;
+    const effectProgram = schemaField(actionFields, 'effectProgram');
+    expect(effectProgram.required).toBe(false);
+    expect(effectProgram.description).toContain('Optional finite E1 program');
+    const programFields = effectProgram.schema.fields;
+    const prepare = schemaField(programFields, 'prepare').schema.item.fields;
+    expect(schemaField(prepare, 'op').schema).toEqual({ type: 'literal', value: 'discountSCost' });
+    expect(schemaField(prepare, 'amount')).toMatchObject({ required: true, description: 'Positive safe-integer discount; stacked discounts are clamped at zero cost.' });
+
+    const resolve = schemaField(programFields, 'resolve').schema.item;
+    expect(resolve.type).toBe('union');
+    expect(resolve.discriminator).toBe('op');
+    expect(resolve.sourceType).toBe('GameplayMapEffectStatementDef');
+    expect(resolve.variants.map((variant: any) => variant.tag)).toEqual(['hpChange', 'resourceChange', 'counterAdd', 'flagSet', 'when']);
+    const when = resolve.variants.find((variant: any) => variant.tag === 'when');
+    const whenFields = when.fields;
+    expect(schemaField(whenFields, 'then').required).toBe(true);
+    expect(schemaField(whenFields, 'else').required).toBe(false);
+    expect(schemaField(whenFields, 'then').schema.item).toEqual({ type: 'recursive', name: 'GameplayMapEffectStatementDef' });
+    expect(collectAuthoringTypeNodes(resolve, 'recursive').map((node: any) => node.name)).toEqual(
+      expect.arrayContaining(['GameplayMapEffectStatementDef', 'GameplayMapEffectConditionDef']),
+    );
+    const condition = schemaField(whenFields, 'condition').schema;
+    expect(condition.discriminator).toBe('kind');
+    expect(condition.sourceType).toBe('GameplayMapEffectConditionDef');
+    expect(condition.variants.map((variant: any) => variant.tag)).toEqual([
+      'all', 'any', 'not', 'hpAtLeast', 'hpAtMost', 'hpRatioAtLeast', 'hpRatioAtMost', 'counter', 'flag',
+    ]);
+    const all = condition.variants.find((variant: any) => variant.tag === 'all');
+    expect(schemaField(all.fields, 'kind').schema.values).toEqual(['all', 'any']);
+    expect(schemaField(all.fields, 'conditions').schema.item).toEqual({ type: 'recursive', name: 'GameplayMapEffectConditionDef' });
+  });
+
+  it('Encounter locals and both completion variants preserve required fields and descriptions', () => {
+    const nodes = schemaField(schema.defs.GameplayMapDef.fields, 'nodes').authoringSchema.item;
+    const activities = schemaField(nodes.fields, 'activities').schema.item;
+    const encounter = schemaField(activities.fields, 'encounter').schema;
+    const locals = schemaField(encounter.fields, 'locals').schema;
+    const counters = schemaField(locals.fields, 'counters').schema.item.fields;
+    expect(['id', 'initial', 'min', 'max'].every((key) => schemaField(counters, key).required)).toBe(true);
+    expect(schemaField(counters, 'initial').description).toContain('Initial safe-integer value');
+    const flags = schemaField(locals.fields, 'flags').schema.item.fields;
+    expect(schemaField(flags, 'initial').schema.type).toBe('boolean');
+
+    const completion = schemaField(encounter.fields, 'completion').schema;
+    expect(completion.discriminator).toBe('kind');
+    expect(completion.variants.map((variant: any) => variant.tag)).toEqual(['manual', 'condition']);
+    for (const variant of completion.variants) expect(schemaField(variant.fields, 'label').required).toBe(true);
+    const conditionVariant = completion.variants.find((variant: any) => variant.tag === 'condition');
+    expect(schemaField(conditionVariant.fields, 'condition').required).toBe(true);
+  });
+
   it('每个生成字段在最终 TABLES 中都有 FieldDef（新增字段未同步 → error）', () => {
     for (const meta of TABLE_META) {
       if (meta.custom) continue;

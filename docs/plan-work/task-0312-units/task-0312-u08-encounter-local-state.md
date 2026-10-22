@@ -22,6 +22,8 @@ locals在真实Encounter生命周期中有唯一Owner、跨轮不重置、换Enc
 
 ## Optional Read Set
 
+负责人预算记录（2026-10-22）：依据当前接口与施工代理校准，合同约10–20行、locals helper50–90行、MapRun接线40–80行、生命周期测试180–260行、Receipt35–55行，总约315–505行。为保留完整跨轮/跨Activity/快照隔离验证，按用户授权将本Unit手写净改动额度放宽至1000行；五文件白名单和初始化/生命周期职责不变，不提前执行程序或恢复新存档字段。
+
 前置Receipt引用的直接依赖调用方或同文件共享fixture；额外最多2文件，超过先交上游。不得用扩大阅读范围代替拆分。UI具体结构仅U16按frontend-design与项目overlay，实际文档收尾仅U19。
 
 ## Do Not Read by Default

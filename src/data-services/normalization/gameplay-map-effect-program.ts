@@ -21,9 +21,23 @@ export interface GameplayMapEffectOrigin {
   readonly legacyPhase?: GameplayMapLegacyPhase;
 }
 
-export type NormalizedGameplayMapEffectCondition = GameplayMapEffectConditionDef & {
+type NormalizedGameplayMapEffectConditionMetadata = {
   readonly originPath: string;
+  readonly mode: 'program';
 };
+
+/** Every nested condition retains its own source path and program origin. */
+export type NormalizedGameplayMapEffectCondition =
+  | ({
+    readonly kind: 'all' | 'any';
+    readonly conditions: readonly NormalizedGameplayMapEffectCondition[];
+  } & NormalizedGameplayMapEffectConditionMetadata)
+  | ({
+    readonly kind: 'not';
+    readonly condition: NormalizedGameplayMapEffectCondition;
+  } & NormalizedGameplayMapEffectConditionMetadata)
+  | (Exclude<GameplayMapEffectConditionDef, { kind: 'all' | 'any' | 'not' }>
+    & NormalizedGameplayMapEffectConditionMetadata);
 
 export type NormalizedGameplayMapEffectInstruction =
   | (Extract<GameplayMapEffectStatementDef, { op: 'hpChange' }> & GameplayMapEffectOrigin)
@@ -73,13 +87,24 @@ const exactKeys = (value: RecordValue, allowed: readonly string[], path: string)
   if (extra) throw new GameplayMapEffectNormalizationError(`${path}.${extra}: unknown field`);
 };
 
-function normalizeCondition(value: GameplayMapEffectConditionDef, path: string, mode: 'program'): NormalizedGameplayMapEffectCondition {
-  const origin = { originPath: path, mode } as const;
-  if (value.kind === 'all' || value.kind === 'any') {
-    return { ...value, ...origin, conditions: value.conditions.map((child, index) => normalizeCondition(child, `${path}.conditions[${index}]`, mode)) };
+const ACTION_FIELDS = [
+  'id', 'name', 'description', 'eligibleCharacterIds', 'target', 'tendencyRole',
+  'costs', 'effects', 'hpEffects', 'cardEffects', 'effectProgram',
+] as const;
+
+function normalizeCondition(value: GameplayMapEffectConditionDef, path: string): NormalizedGameplayMapEffectCondition {
+  const origin = { originPath: path, mode: 'program' as const };
+  if (value.kind === 'not') {
+    return { ...value, ...origin, condition: normalizeCondition(value.condition, `${path}.condition`) };
   }
-  if (value.kind === 'not') return { ...value, ...origin, condition: normalizeCondition(value.condition, `${path}.condition`, mode) };
-  return { ...value, ...origin };
+  if (value.kind === 'all' || value.kind === 'any') {
+    return {
+      ...value,
+      ...origin,
+      conditions: value.conditions.map((child, index) => normalizeCondition(child, `${path}.conditions[${index}]`)),
+    } as NormalizedGameplayMapEffectCondition;
+  }
+  return { ...value, ...origin } as NormalizedGameplayMapEffectCondition;
 }
 
 function normalizeProgramStatements(
@@ -89,13 +114,14 @@ function normalizeProgramStatements(
     const statementPath = `${path}[${index}]`;
     const origin = { originPath: statementPath, mode: 'program' as const };
     if (statement.op !== 'when') return { ...statement, ...origin } as NormalizedGameplayMapEffectInstruction;
+    const { condition, then, else: otherwise, ...fields } = statement;
     return {
-      ...statement,
+      ...fields,
       ...origin,
-      condition: normalizeCondition(statement.condition, `${statementPath}.condition`, 'program'),
-      then: normalizeProgramStatements(statement.then, `${statementPath}.then`),
-      ...(statement.else === undefined ? {} : { else: normalizeProgramStatements(statement.else, `${statementPath}.else`) }),
-    };
+      condition: normalizeCondition(condition, `${statementPath}.condition`),
+      then: normalizeProgramStatements(then, `${statementPath}.then`),
+      ...(otherwise === undefined ? {} : { else: normalizeProgramStatements(otherwise, `${statementPath}.else`) }),
+    } as NormalizedGameplayMapEffectInstruction;
   });
 }
 
@@ -178,6 +204,7 @@ export function normalizeMapActionEffects(
   originPath = `actions.${action.id}`,
 ): NormalizedGameplayMapActionEffects {
   if (!isRecord(action)) throw new GameplayMapEffectNormalizationError(`${originPath}: expected Action object`);
+  exactKeys(action, ACTION_FIELDS, originPath);
   const hasProgram = action.effectProgram !== undefined;
   const legacyFields = ['hpEffects', 'effects', 'cardEffects'] as const;
   if (hasProgram && legacyFields.some(field => isOwn(action, field))) {

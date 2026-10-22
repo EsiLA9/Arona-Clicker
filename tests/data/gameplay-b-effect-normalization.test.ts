@@ -99,12 +99,97 @@ describe('gameplay-map effect normalization', () => {
     expect(normalizeMapActionEffects(action({ effectProgram: {} })).resolve).toEqual([]);
   });
 
+  test('nested all/not conditions keep typed path metadata and normalization leaves input untouched', () => {
+    const input = action({
+      effectProgram: {
+        resolve: [{
+          op: 'when',
+          condition: {
+            kind: 'all',
+            conditions: [{
+              kind: 'not',
+              condition: {
+                kind: 'all',
+                conditions: [
+                  { kind: 'flag', flagId: 'ready', value: true },
+                  { kind: 'counter', counterId: 'uses', comparison: 'gte', value: 1 },
+                ],
+              },
+            }],
+          },
+          then: [{ op: 'flagSet', flagId: 'ready', value: true }],
+        }],
+      },
+    });
+    const before = JSON.stringify(input);
+    const normalized = normalizeMapActionEffects(input, 'actions.nested');
+    const statement = normalized.resolve[0];
+
+    expect(statement?.op).toBe('when');
+    if (!statement || statement.op !== 'when') throw new Error('Expected when statement');
+    expect(statement.condition.originPath).toBe('actions.nested.effectProgram.resolve[0].condition');
+    expect(statement.condition.mode).toBe('program');
+    if (statement.condition.kind !== 'all') throw new Error('Expected root all condition');
+    const negated = statement.condition.conditions[0];
+    if (!negated || negated.kind !== 'not') throw new Error('Expected nested not condition');
+    expect(negated.originPath).toBe('actions.nested.effectProgram.resolve[0].condition.conditions[0]');
+    expect(negated.condition.originPath).toBe('actions.nested.effectProgram.resolve[0].condition.conditions[0].condition');
+    if (negated.condition.kind !== 'all') throw new Error('Expected nested all condition');
+    expect(negated.condition.conditions.map(condition => condition.originPath)).toEqual([
+      'actions.nested.effectProgram.resolve[0].condition.conditions[0].condition.conditions[0]',
+      'actions.nested.effectProgram.resolve[0].condition.conditions[0].condition.conditions[1]',
+    ]);
+    expect(negated.condition.conditions.every(condition => condition.mode === 'program')).toBe(true);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+
+  test('legacy arrays with more than 64 total leaves remain unmetered and normalizable', () => {
+    const normalized = normalizeMapActionEffects(action({
+      hpEffects: Array.from({ length: 22 }, () => ({ amount: -1 })),
+      effects: Array.from({ length: 22 }, () => ({ scope: 'team' as const, resourceId: 'supplies', amount: 1 })),
+      cardEffects: Array.from({ length: 22 }, () => ({ kind: 'scostDiscount' as const, amount: 1 })),
+    }));
+
+    expect(normalized).toMatchObject({ mode: 'legacy', budget: 'legacy-unmetered' });
+    expect(normalized.resolve).toHaveLength(44);
+    expect(normalized.prepare).toHaveLength(22);
+    expect(normalized.resolve.length + normalized.prepare.length).toBeGreaterThan(64);
+  });
+
   test('legacy empty arrays still conflict with a program and unknown fields are rejected', () => {
     expect(() => normalizeMapActionEffects(action({ effectProgram: {}, hpEffects: [] })))
       .toThrow(GameplayMapEffectNormalizationError);
     expect(() => normalizeMapActionEffects(action({ hpEffects: [{ amount: -1, hidden: true } as { amount: number }] })))
       .toThrow(/unknown field/);
-    expect(() => normalizeMapActionEffects(action({ effectProgram: { resolve: [{ op: 'hpChange', target: 'primary', delta: 1, hidden: true }] } as GameplayMapActionDef['effectProgram'] })))
+    expect(() => normalizeMapActionEffects(action({ effectProgram: { resolve: [{ op: 'hpChange', target: 'primary', delta: 1, hidden: true }] } as unknown as GameplayMapActionDef['effectProgram'] })))
       .toThrow(/Unknown field/);
+    expect(() => normalizeMapActionEffects({ ...action(), hiddenEffect: [] } as unknown as GameplayMapActionDef))
+      .toThrow(/hiddenEffect: unknown field/);
+    expect(() => normalizeMapActionEffects({ ...action(), hpChange: { target: 'primary', delta: 1 } } as unknown as GameplayMapActionDef))
+      .toThrow(/hpChange: unknown field/);
+  });
+
+  test('legacy Team, source Actor, and target Actor accounts retain Enemy and Actorless phase labels', () => {
+    const normalized = normalizeMapActionEffects(action({
+      effects: [
+        { scope: 'team', resourceId: 'supplies', amount: 1 },
+        { scope: 'actor', recipient: 'actor', resourceId: 'ammo', amount: -1 },
+        { scope: 'actor', recipient: 'target', resourceId: 'ammo', amount: 1 },
+      ],
+    }));
+
+    expect(normalized.resolve.map(effect => effect.op === 'resourceChange' ? effect.account : null)).toEqual([
+      'sourceTeam', 'sourceActor', 'primaryActor',
+    ]);
+    expect(normalized.resolve.map(effect => effect.legacyPhase?.actorlessSource)).toEqual([
+      'resource-settlement-before-actorless-hp',
+      'resource-settlement-before-actorless-hp',
+      'resource-settlement-before-actorless-hp',
+    ]);
+    expect(normalized.resolve.map(effect => effect.legacyPhase?.enemySource)).toEqual([
+      'enemy-resource-before-own-hp',
+      'enemy-resource-before-own-hp',
+      'enemy-resource-before-own-hp',
+    ]);
   });
 });

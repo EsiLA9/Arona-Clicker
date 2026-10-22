@@ -2,6 +2,8 @@ import type { GameplayMapActionDef, GameplayMapDef } from '../../data-services/c
 import type { MapRunCardRef } from '../contracts/map-cards';
 import type { MapRunActionOverride } from '../contracts/map-run';
 import { parseMapRunCardRef } from './map-card-catalog';
+import { normalizeMapActionEffects } from '../../data-services/normalization/gameplay-map-effect-program';
+import { planMapEffectSource } from './map-effect-planner';
 
 export type MapCardActionChoice = ({
   readonly characterId: string;
@@ -25,6 +27,19 @@ export interface MapScostCost {
   readonly paid: number;
 }
 
+/** Pure prepare work description for the authoritative MapRun planner to account once. */
+export interface MapCardPrepareMetadata {
+  readonly sourceKey: string;
+  readonly source: { readonly kind: 'partyCharacter' | 'enemy'; readonly id: string };
+  readonly actionId: string;
+  readonly effectPath: string;
+  readonly leaf: {
+    readonly op: 'discountSCost';
+    readonly amount: number;
+    readonly mode: 'legacy' | 'program';
+  };
+}
+
 /** Actual cost description, after all round-local reductions are combined. */
 export function mapScostCost(action: GameplayMapActionDef, reduction = 0n): MapScostCost | null {
   const original = (action.costs ?? []).filter(cost => cost.scope === 'actor' && cost.resourceId === 'sCost')
@@ -44,6 +59,7 @@ export function resolveMapCardEffects(
 ): {
   readonly targets: ReadonlyMap<string, MapRunCardRef>;
   readonly reductions: ReadonlyMap<string, bigint>;
+  readonly prepareMetadata: readonly MapCardPrepareMetadata[];
 } {
   const actions = new Map((definition.actions ?? []).map(action => [action.id, action]));
   const node = definition.nodes.find(row => row.id === scope.nodeId);
@@ -63,6 +79,7 @@ export function resolveMapCardEffects(
   }
   const targets = new Map<string, MapRunCardRef>();
   const reductions = new Map<string, bigint>();
+  const prepareMetadata: MapCardPrepareMetadata[] = [];
   const seenSources = new Set<string>();
   for (const choice of choices) {
     if (!choice) throw new Error('Invalid card effect source');
@@ -72,8 +89,9 @@ export function resolveMapCardEffects(
     if (seenSources.has(sourceKey)) throw new Error('Invalid card effect source');
     seenSources.add(sourceKey);
     const action = choice.actionId === null ? null : actions.get(choice.actionId);
+    const actionEffects = action ? normalizeMapActionEffects(action) : null;
     if (action?.target.kind !== 'card') {
-      if (choice.targetCard != null || (action?.cardEffects?.length ?? 0) > 0) throw new Error('Unexpected card target or effect');
+      if (choice.targetCard != null || (actionEffects?.prepare.length ?? 0) > 0) throw new Error('Unexpected card target or effect');
       continue;
     }
     const target = parseMapRunCardRef(choice.targetCard);
@@ -106,15 +124,38 @@ export function resolveMapCardEffects(
       || (action.target.side === 'opponent' && sourceIsAlly)) {
       throw new Error('Card effect target is not an eligible scost card');
     }
-    if (!action.cardEffects?.length) throw new Error('Card target has no declared effect');
-    let reduction = 0n;
-    for (const effect of action.cardEffects) {
-      if (effect.kind !== 'scostDiscount' || !Number.isSafeInteger(effect.amount) || effect.amount <= 0) throw new Error('Invalid scost discount');
-      reduction += BigInt(effect.amount);
+    if (!actionEffects || actionEffects.prepare.length === 0) throw new Error('Card target has no declared effect');
+    const preparePlan = planMapEffectSource({
+      input: {
+        sourceKey,
+        actionId: action.id,
+        source: ownerKind === 'partyCharacter' ? { kind: 'partyCharacter', id: ownerId } : { kind: 'enemy', id: ownerId },
+        primary: null,
+        sourceTeam: { kind: 'team', side: ownerKind === 'enemy' ? 'enemy' : 'party' },
+        hp: {},
+        locals: { counters: {}, flags: {} },
+      },
+      effects: actionEffects,
+      instructions: [],
+      // Prepare is described here, but its dynamic visits belong to the outer round planner.
+      // Empty instructions ensure this metadata query never invokes the callback.
+      visit: () => {},
+    });
+    for (const leaf of preparePlan.prepareDiscounts) {
+      prepareMetadata.push(Object.freeze({
+        sourceKey,
+        source: Object.freeze(ownerKind === 'partyCharacter'
+          ? { kind: 'partyCharacter' as const, id: ownerId }
+          : { kind: 'enemy' as const, id: ownerId }),
+        actionId: action.id,
+        effectPath: leaf.originPath,
+        leaf: Object.freeze({ op: leaf.op, amount: leaf.amount, mode: leaf.mode }),
+      }));
     }
+    const reduction = preparePlan.prepareDiscounts.reduce((sum, instruction) => sum + BigInt(instruction.amount), 0n);
     targets.set(sourceKey, target);
     const receiver = active.get(target.id);
     if (receiver) reductions.set(receiver, (reductions.get(receiver) ?? 0n) + reduction);
   }
-  return { targets, reductions };
+  return { targets, reductions, prepareMetadata: Object.freeze(prepareMetadata) };
 }

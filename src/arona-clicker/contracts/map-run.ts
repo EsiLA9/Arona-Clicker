@@ -1,4 +1,10 @@
 import type { MapRunCardRef } from './map-cards';
+import type {
+  MapEffectLocalsState,
+  MapEffectProgramSourceIdentity,
+  MapEffectTraceEntry,
+  MapEffectVisitKind,
+} from './map-effects';
 
 /** One fixed MapRun party member admitted against PlayerState before Run creation. */
 export interface MapRunPartyMember {
@@ -235,6 +241,34 @@ export interface MapRunEncounterCommitReceipt {
   readonly ability?: MapRunEncounterSourceSettlement;
   /** Item uses retain the mapped Item and inventory debit independently of Character settlements. */
   readonly item?: MapRunEncounterItemSettlement;
+  /** Program semantics and access log for the latest successful E1 Commit. */
+  readonly programReceiptVersion?: 1;
+  readonly executionContractId?: 'E1-COMPAT-1';
+  readonly effectScope?: MapRunEncounterProgramScope;
+  readonly programVisitCount?: number;
+  readonly programVisits?: readonly MapRunEncounterProgramVisit[];
+  readonly plannedLocals?: MapEffectLocalsState;
+  /** Program trace from the authoritative full-round planner, when available. */
+  readonly effectTrace?: readonly MapEffectTraceEntry[];
+}
+
+/** Root scope inherited by every source, visit, and trace in one pure round plan. */
+export interface MapRunEncounterProgramScope {
+  readonly runId: string;
+  readonly mapId: string;
+  readonly nodeId: string;
+  readonly activityId: string | null;
+  readonly round: number;
+}
+
+/** One actual D08 visit; its array index is the shared round-local budget position. */
+export interface MapRunEncounterProgramVisit {
+  readonly sourceKey: string;
+  readonly source: MapEffectProgramSourceIdentity;
+  readonly actionId: string;
+  readonly path: string;
+  readonly kind: MapEffectVisitKind;
+  readonly mode: 'program';
 }
 
 /** Actual target and bounded HP changes for one actorless source. */
@@ -277,12 +311,23 @@ export interface MapRunEncounterCommitPreview {
   readonly settlements: readonly MapRunEncounterActionSettlement[] | null;
   /** Enemy actions from the same pure full-round settlement plan. */
   readonly enemyActions: readonly MapRunEncounterEnemyActionSettlement[] | null;
+  /** E1 program metadata and result, present only when this plan reached new program effects. */
+  readonly programReceiptVersion?: 1;
+  readonly executionContractId?: 'E1-COMPAT-1';
+  readonly effectScope?: MapRunEncounterProgramScope;
+  readonly programVisitCount?: number;
+  readonly programVisits?: readonly MapRunEncounterProgramVisit[];
+  readonly plannedLocals?: MapEffectLocalsState;
+  /** Program trace from the authoritative full-round planner, when available. */
+  readonly effectTrace?: readonly MapEffectTraceEntry[];
 }
 
 /** Complete Encounter-local state owned by MapRunService. */
 export interface MapRunEncounterSnapshot {
   /** The sole authoritative active Encounter Node ID. */
   readonly nodeId: string;
+  /** Encounter-local bounded Counter and Flag values owned for this Encounter. */
+  readonly locals?: MapEffectLocalsState;
   /** Present only when the Node declares ordered `activities`. */
   readonly activityId?: string;
   /** Current Encounter round; the initial entry draw is round 1. */

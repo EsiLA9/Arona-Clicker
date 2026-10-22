@@ -1,6 +1,14 @@
 # Unit 0312-U10：新Effect程序接权威Planner与原子Commit
 
-状态：ready / 未执行；阶段P2。前置：0312-U08实际完成Receipt与测试、0312-U09实际完成Receipt与测试。
+状态：已拆为 U10A → U10B；阶段P2。U08/U09已完成并由负责人复核。U10整体完成须两份子Unit Receipt及原全部验收通过。
+
+### 2026-10-22 实际接线核对与拆分
+
+依据U06–U09实际Receipt：U06已有`planMapEffectSource`、外部`visit`和资源意图账本；U07的`settlementChangesFor`与`applyHpEffects`分别保留旧相位；U08提供`activeEncounter.locals`和复制函数；U09提供`cardPlan.prepareMetadata`。U08/U09根复验3 files / 24 tests通过；两代理报告全局类型、架构与文档检查通过。
+
+实际估算：`map-run-service.ts`新增380–450/删除120–180，净增260–270；`map-effect-planner.ts`净增10–25；新测试560–650；Receipt70–90，合计900–1035行，且尚需contract补版本/访问/资源实际余额字段。原白名单漏掉这些真实接线点，不能用压缩测试掩盖超额。
+
+负责人按本Unit原定拆分条款放行 [[docs/plan-work/task-0312-units/task-0312-u10a-program-planning]]（纯规划）→ [[docs/plan-work/task-0312-units/task-0312-u10b-program-installation]]（公开安装）。每个子Unit手写净改动上限1000行，逐文件预算和白名单见子Unit；不改变E1语义与本页全部验收要求。U11/U12均等待U10B完成，不允许仅凭U10A启动。下表历史“等待前置”描述由本段实际记录取代；原Work Items仍是U10总验收清单。
 
 开工附加条件：负责人根据U06–U09实际Receipt完成下述预算估算及接口核对后才放行。当前尚无前置实现，不能把规划文字当作实际估算；用户2026-10-22已授权按需放宽至1000行，负责人可记录该额度后放行，不因超过500行自动拆分。
 

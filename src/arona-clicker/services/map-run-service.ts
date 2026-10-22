@@ -29,6 +29,8 @@ import type {
   MapRunEncounterSourceTarget,
   MapRunEncounterSourceSettlement,
   MapRunEncounterItemSettlement,
+  MapRunEncounterProgramScope,
+  MapRunEncounterProgramVisit,
   MapRunActiveActivity,
   MapRunShopDraftToken,
   MapRunShopPurchaseReceipt,
@@ -46,13 +48,30 @@ import type {
   GameplayMapNodeDef,
   GameplayShopOfferDef,
 } from '../../data-services/contracts/gameplay-map';
+import type { GameplayMapEffectConditionDef } from '../../data-services/contracts/gameplay-map-effects';
 import type { MapContentResolver } from '../contracts/map-content-resolver';
+import type {
+  MapEffectActorIdentity,
+  MapEffectLocalsState,
+  MapEffectProgramSourceIdentity,
+  MapEffectResourceLedgerEntry,
+  MapEffectTraceEntry,
+} from '../contracts/map-effects';
 import { drawGameplayBHands } from './gameplay-b-hand-resolver';
+import {
+  normalizeMapActionEffects,
+  type NormalizedGameplayMapActionEffects,
+  type NormalizedGameplayMapEffectCondition,
+  type NormalizedGameplayMapEffectInstruction,
+} from '../../data-services/normalization/gameplay-map-effect-program';
+import { validateGameplayMapEffectContext } from '../../data-services/validation/gameplay-map-effect-context';
+import { planMapEffectSource } from './map-effect-planner';
 import {
   resolveGameplayBActionPreview,
   type GameplayBActionPreview,
 } from './gameplay-b-action-preview-resolver';
 import { selectGameplayBUnitTarget } from './gameplay-b-target-selection';
+import { copyMapEncounterLocalsState, initializeMapEncounterLocals } from './map-encounter-locals';
 
 type ResolvedMap = NonNullable<ReturnType<MapContentResolver['resolve']>>;
 type ResolveCharacterIdForVariant = (variantId: string) => string | null | undefined;
@@ -99,6 +118,12 @@ interface MapRunEncounterCommitPlan {
   readonly partyHpAfter: ReadonlyMap<string, number>;
   readonly enemyHpAfter: ReadonlyMap<string, number>;
   readonly terminal: 'none' | 'victory' | 'failure';
+  readonly programReceiptVersion?: 1;
+  readonly executionContractId?: 'E1-COMPAT-1';
+  readonly effectScope?: MapRunEncounterProgramScope;
+  readonly programVisits?: readonly MapRunEncounterProgramVisit[];
+  readonly plannedLocals?: MapEffectLocalsState;
+  readonly effectTrace?: readonly MapEffectTraceEntry[];
 }
 
 /** Opaque detached result of preparing one Encounter Commit. */
@@ -125,6 +150,13 @@ let nextMapRunSequence = 0;
 function snapshotOf(run: MutableMapRun): MapRun {
   const cloneReceipt = (receipt: MapRunEncounterCommitReceipt | null) => receipt === null ? null : Object.freeze({
     ...receipt,
+    ...(receipt.effectScope ? { effectScope: Object.freeze({ ...receipt.effectScope }) } : {}),
+    ...(receipt.programVisits ? { programVisits: Object.freeze(receipt.programVisits.map(visit => Object.freeze({
+      ...visit,
+      source: freezeProgramSource(visit.source),
+    }))) } : {}),
+    ...(receipt.plannedLocals ? { plannedLocals: copyMapEncounterLocalsState(receipt.plannedLocals) } : {}),
+    ...(receipt.effectTrace ? { effectTrace: Object.freeze(receipt.effectTrace.map(freezeProgramTraceEntry)) } : {}),
     ...(receipt.enemyActions ? { enemyActions: freezeEnemyActionSettlements(receipt.enemyActions) } : {}),
     ...(receipt.ability ? { ability: Object.freeze({
       ...receipt.ability,
@@ -168,6 +200,9 @@ function snapshotOf(run: MutableMapRun): MapRun {
     }),
     ...(run.activeEncounter.itemDraft == null ? {} : {
       itemDraft: Object.freeze({ ...run.activeEncounter.itemDraft, target: cloneSourceTarget(run.activeEncounter.itemDraft.target) }),
+    }),
+    ...(run.activeEncounter.locals === undefined ? {} : {
+      locals: copyMapEncounterLocalsState(run.activeEncounter.locals),
     }),
     enemies: Object.freeze(run.activeEncounter.enemies.map(enemy => Object.freeze({ ...enemy }))),
     randomState: Object.freeze({ ...run.activeEncounter.randomState }),
@@ -587,6 +622,21 @@ function initializeEncounterSeed(): number {
   return Math.floor(Math.random() * 0x1_0000_0000);
 }
 
+/** Derives the next activity's fresh Hand seed from detached, committed Encounter RNG state. */
+function nextActivityRandomState(current: MapRunHandRandomState): MapRunHandRandomState {
+  const mask = (1n << 64n) - 1n;
+  let word = BigInt.asUintN(64, BigInt(current.seed)) + 0x9E3779B97F4A7C15n * (BigInt(current.cursor) + 1n);
+  word &= mask;
+  word = ((word ^ (word >> 30n)) * 0xBF58476D1CE4E5B9n) & mask;
+  word = ((word ^ (word >> 27n)) * 0x94D049BB133111EBn) & mask;
+  word ^= word >> 31n;
+  return {
+    algorithm: GAMEPLAY_B_HAND_RNG_ALGORITHM,
+    seed: Number(word & 0xFFFF_FFFFn),
+    cursor: 0,
+  };
+}
+
 function createEncounterSnapshot(
   definition: ResolvedMap,
   nodeId: string,
@@ -601,6 +651,7 @@ function createEncounterSnapshot(
   retainedEnemyActorResources?: readonly MapRunEnemyActorResourceBalance[],
   retainedEnemyTeamResources?: readonly MapRunTeamResourceBalance[],
   activityId?: string,
+  retainedLocals?: MapRunEncounterSnapshot['locals'],
 ): MapRunEncounterSnapshot {
   const enemyDefinitions: unknown = encounter.enemies ?? [];
   if (!Array.isArray(enemyDefinitions)) throw new MapRunError([`Encounter "${nodeId}" has an invalid Enemy roster`]);
@@ -655,6 +706,11 @@ function createEncounterSnapshot(
     });
     return {
       nodeId,
+      ...(encounter.locals === undefined && retainedLocals === undefined ? {} : {
+        locals: retainedLocals === undefined
+          ? initializeMapEncounterLocals(encounter.locals)
+          : copyMapEncounterLocalsState(retainedLocals, encounter.locals),
+      }),
       ...(activityId === undefined ? {} : { activityId }),
       round,
       hands: draw.hands,
@@ -692,6 +748,7 @@ function openNodeContent(
   partyHp: readonly MapRunPartyHp[],
   completedActivityIds: readonly string[],
   fromIndex = 0,
+  activityRandomState?: MapRunHandRandomState,
 ): EnteredNodeState {
   const activities = nodeActivities(node);
   if (activities.length === 0) {
@@ -727,7 +784,7 @@ function openNodeContent(
       teamResources,
       partyHp,
       1,
-      undefined,
+      activityRandomState,
       undefined,
       undefined,
       undefined,
@@ -751,6 +808,7 @@ function advanceCompletedActivity(
   run: MutableMapRun,
   encounterNodeId: string,
   encounterActivityId: string | undefined,
+  nextActivityRandomState?: MapRunHandRandomState,
 ): ActivityAdvanceResult {
   const node = definition.nodes.find(candidate => candidate.id === encounterNodeId);
   const activities = node ? nodeActivities(node) : [];
@@ -778,6 +836,7 @@ function advanceCompletedActivity(
     run.partyHp,
     completedActivityIds,
     currentIndex + 1,
+    nextActivityRandomState,
   );
   if (next.activeActivity !== null) {
     return {
@@ -796,6 +855,57 @@ function advanceCompletedActivity(
   };
 }
 
+/** Evaluates the restricted completion predicate through U06's normalized condition kernel. */
+function encounterCompletionSatisfied(
+  condition: GameplayMapEffectConditionDef,
+  locals: MapEffectLocalsState,
+): boolean {
+  const annotateCondition = (value: GameplayMapEffectConditionDef, path: string): NormalizedGameplayMapEffectCondition => {
+    const origin = { originPath: path, mode: 'program' as const };
+    if (value.kind === 'not') return { ...value, ...origin, condition: annotateCondition(value.condition, `${path}.condition`) };
+    if (value.kind === 'all' || value.kind === 'any') {
+      return { ...value, ...origin, conditions: value.conditions.map((child, index) =>
+        annotateCondition(child, `${path}.conditions[${index}]`)) };
+    }
+    return { ...value, ...origin } as NormalizedGameplayMapEffectCondition;
+  };
+  const instruction: NormalizedGameplayMapEffectInstruction = {
+    op: 'when',
+    condition: annotateCondition(condition, 'Encounter.completion.condition'),
+    then: [],
+    originPath: 'Encounter.completion',
+    mode: 'program',
+  };
+  const effects: NormalizedGameplayMapActionEffects = {
+    mode: 'program',
+    budget: 'program-4096',
+    prepare: [],
+    resolve: [instruction],
+  };
+  try {
+    const evaluated = planMapEffectSource({
+      input: {
+        sourceKey: 'completion-condition',
+        actionId: 'Encounter.completion',
+        source: null,
+        primary: null,
+        sourceTeam: { kind: 'team', side: 'party' },
+        hp: {},
+        locals,
+      },
+      effects,
+      // The completion predicate is an Encounter terminal check, outside Action visits/trace.
+      visit: () => undefined,
+    });
+    const trace = [...evaluated.trace].reverse().find(row => row.op === 'when');
+    if (!trace || trace.op !== 'when') throw new MapRunError(['Encounter completion condition produced no result']);
+    return trace.result;
+  } catch (error) {
+    if (error instanceof MapRunError) throw error;
+    throw new MapRunError([error instanceof Error ? error.message : String(error)]);
+  }
+}
+
 type SettlementActor = { readonly kind: 'partyCharacter' | 'enemy'; readonly id: string } | null;
 type SettlementUnitTarget = { readonly kind: 'partyCharacter' | 'enemy'; readonly id: string } | null;
 
@@ -810,11 +920,50 @@ function settlementUnitTarget(
     : targetEnemyId !== null ? { kind: 'enemy', id: targetEnemyId } : null;
 }
 
+function normalizeMapRunActionEffects(action: GameplayMapActionDef): ReturnType<typeof normalizeMapActionEffects> {
+  try {
+    return normalizeMapActionEffects(action);
+  } catch (error) {
+    throw new MapRunError([error instanceof Error ? error.message : String(error)]);
+  }
+}
+
+function freezeProgramSource(source: MapEffectProgramSourceIdentity): MapEffectProgramSourceIdentity {
+  return Object.freeze({ ...source });
+}
+
+function freezeProgramTraceEntry(entry: MapEffectTraceEntry): MapEffectTraceEntry {
+  const source = entry.source ? freezeProgramSource(entry.source) : undefined;
+  const identity = entry.identity ? Object.freeze({ ...entry.identity }) : undefined;
+  if (entry.op === 'discountSCost') {
+    return Object.freeze({
+      ...entry,
+      ...(source ? { source } : {}),
+      targetCard: Object.freeze({ ...entry.targetCard, scope: Object.freeze({ ...entry.targetCard.scope }) }),
+      receiver: entry.receiver ? Object.freeze({ ...entry.receiver }) : null,
+    });
+  }
+  if (entry.op === 'when') return Object.freeze({
+    ...entry,
+    ...(source ? { source } : {}),
+    reads: Object.freeze(entry.reads.map(read => Object.freeze({
+      ...read,
+      ...('identity' in read ? { identity: Object.freeze({ ...read.identity }) } : {}),
+    }))),
+  }) as MapEffectTraceEntry;
+  return Object.freeze({ ...entry, ...(source ? { source } : {}), ...(identity ? { identity } : {}) }) as MapEffectTraceEntry;
+}
+
 function settlementChangesFor(
   action: GameplayMapActionDef,
   actor: SettlementActor,
   target: SettlementUnitTarget,
   scostDiscount = 0n,
+  options: {
+    readonly programPlan?: ReturnType<typeof planMapEffectSource>;
+    readonly programCostProbe?: boolean;
+    readonly onProgramResourceChange?: (change: MapRunEncounterSettlementResourceChange, entry: MapEffectResourceLedgerEntry) => void;
+  } = {},
 ): MapRunEncounterSettlementResourceChange[] {
   const changes: MapRunEncounterSettlementResourceChange[] = [];
   const rawCosts: unknown = action.costs ?? [];
@@ -845,38 +994,50 @@ function settlementChangesFor(
     });
   }
 
-  const rawEffects: unknown = action.effects ?? [];
-  if (!Array.isArray(rawEffects)) throw new MapRunError([`Action "${action.id}" effects must be an array`]);
-  for (const rawEffect of rawEffects) {
-    if (!isRecord(rawEffect) || (rawEffect.scope !== 'actor' && rawEffect.scope !== 'team')
-      || !isNonEmptyId(rawEffect.resourceId) || !Number.isSafeInteger(rawEffect.amount)
-      || (rawEffect.amount as number) === 0) {
-      throw new MapRunError([`Action "${action.id}" has an invalid resource effect`]);
-    }
-    if (rawEffect.scope === 'team') {
-      if (rawEffect.recipient !== undefined) {
-        throw new MapRunError([`Team resource effect on Action "${action.id}" cannot name an Actor recipient`]);
-      }
-      changes.push({
-        kind: 'effect', scope: 'team',
-        ...(actor?.kind === 'enemy' ? { teamSide: 'enemy' as const } : {}),
-        resourceId: rawEffect.resourceId,
-        delta: rawEffect.amount as number,
+  const effects = normalizeMapRunActionEffects(action);
+  const phase = actor === null ? 'actorlessSource' : actor.kind === 'enemy' ? 'enemySource' : 'partyAction';
+  const expectedPhase = phase === 'partyAction' ? 'resource-settlement-after-party-action-hp'
+    : phase === 'actorlessSource' ? 'resource-settlement-before-actorless-hp' : 'enemy-resource-before-own-hp';
+  let resourceLedger: readonly MapEffectResourceLedgerEntry[];
+  if (effects.mode === 'program') {
+    if (options.programPlan) resourceLedger = options.programPlan.resourceLedger;
+    else if (options.programCostProbe) resourceLedger = [];
+    else throw new MapRunError([`Action "${action.id}" must be planned by the authoritative Encounter planner`]);
+  } else {
+    const resourceInstructions = effects.resolve.filter(instruction => instruction.op === 'resourceChange'
+      && instruction.legacyPhase?.[phase] === expectedPhase);
+    let plan: ReturnType<typeof planMapEffectSource>;
+    try {
+      plan = planMapEffectSource({
+        input: {
+          sourceKey: actor ? mapCardActorKey(actor.kind, actor.id) : `actorless:${action.id}`,
+          actionId: action.id,
+          source: actor ? { kind: actor.kind, id: actor.id } : null,
+          primary: target ? { kind: target.kind, id: target.id } : null,
+          sourceTeam: { kind: 'team', side: actor?.kind === 'enemy' ? 'enemy' : 'party' },
+          hp: {},
+          locals: { counters: {}, flags: {} },
+        },
+        effects,
+        instructions: resourceInstructions,
       });
-      continue;
+    } catch (error) {
+      throw new MapRunError([error instanceof Error ? error.message : String(error)]);
     }
-    if (rawEffect.recipient !== undefined && rawEffect.recipient !== 'actor' && rawEffect.recipient !== 'target') {
-      throw new MapRunError([`Action "${action.id}" has an invalid Actor effect recipient`]);
-    }
-    const recipient = rawEffect.recipient === 'target' ? target : actor;
-    if (recipient === null) throw new MapRunError([`Action "${action.id}" requires a resolved unit for its Actor effect`]);
-    changes.push({
+    resourceLedger = plan.resourceLedger;
+  }
+  for (const entry of resourceLedger) {
+    const change: MapRunEncounterSettlementResourceChange = {
       kind: 'effect',
-      scope: 'actor',
-      ...(recipient.kind === 'partyCharacter' ? { characterId: recipient.id } : { enemyId: recipient.id }),
-      resourceId: rawEffect.resourceId,
-      delta: rawEffect.amount as number,
-    });
+      scope: entry.account === 'sourceTeam' ? 'team' : 'actor',
+      ...(entry.identity.kind === 'partyCharacter' ? { characterId: entry.identity.id } : {}),
+      ...(entry.identity.kind === 'enemy' ? { enemyId: entry.identity.id } : {}),
+      ...(entry.identity.kind === 'team' && entry.identity.side === 'enemy' ? { teamSide: 'enemy' as const } : {}),
+      resourceId: entry.resourceId,
+      delta: entry.delta,
+    };
+    changes.push(change);
+    if (effects.mode === 'program') options.onProgramResourceChange?.(change, entry);
   }
   return changes;
 }
@@ -956,19 +1117,12 @@ function validateSourceTarget(
 }
 
 /** Purely validates and stages one full Encounter round from its starting balances. */
-function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan {
+function encounterHasProgramActions(slot: MapRunSlot): boolean {
   const encounter = slot.run.activeEncounter;
-  if (!encounter) throw new MapRunError(['there is no active Encounter to commit']);
+  if (!encounter) return false;
   const node = slot.definition.nodes.find(candidate => candidate.id === encounter.nodeId);
   const encounterDef = resolveNodeEncounter(node, encounter.activityId);
-  if (!encounterDef) throw new MapRunError([`Encounter "${encounter.nodeId}" is not declared by the current Map`]);
-  const transitionDiagnostics: string[] = [];
-  if (encounterDef.completion?.kind === 'condition') {
-    transitionDiagnostics.push('E1 condition completion is not implemented by this MapRun Runtime');
-  }
-  if (encounterDef.locals !== undefined) {
-    transitionDiagnostics.push('E1 Encounter locals are not implemented by this MapRun Runtime');
-  }
+  if (!encounterDef) return false;
   const referencedActionIds = new Set<string>();
   for (const participant of encounterDef.participants ?? []) {
     for (const candidate of participant.actions) referencedActionIds.add(candidate.actionId);
@@ -978,13 +1132,27 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   }
   for (const actionId of encounterDef.abilityActionIds ?? []) referencedActionIds.add(actionId);
   for (const mapping of encounterDef.itemActions ?? []) referencedActionIds.add(mapping.actionId);
-  for (const actionId of referencedActionIds) {
-    const action = slot.definition.actions?.find(candidate => candidate.id === actionId);
-    if (action?.effectProgram !== undefined) {
-      transitionDiagnostics.push(`E1 effectProgram on Action "${actionId}" is not implemented by this MapRun Runtime`);
-    }
+  return [...referencedActionIds].some(actionId =>
+    slot.definition.actions?.find(candidate => candidate.id === actionId)?.effectProgram !== undefined);
+}
+
+function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan {
+  const encounter = slot.run.activeEncounter;
+  if (!encounter) throw new MapRunError(['there is no active Encounter to commit']);
+  const node = slot.definition.nodes.find(candidate => candidate.id === encounter.nodeId);
+  const encounterDef = resolveNodeEncounter(node, encounter.activityId);
+  if (!encounterDef) throw new MapRunError([`Encounter "${encounter.nodeId}" is not declared by the current Map`]);
+  const transitionDiagnostics: string[] = [];
+  const hasConditionCompletion = encounterDef.completion?.kind === 'condition';
+  if (hasConditionCompletion && (encounterDef.enemies?.length ?? 0) > 0) {
+    transitionDiagnostics.push('E1 condition completion is not available in Battle Encounters');
   }
+  const hasProgramActions = encounterHasProgramActions(slot);
   if (transitionDiagnostics.length > 0) throw new MapRunError(transitionDiagnostics);
+  if (hasProgramActions || hasConditionCompletion) {
+    const contextIssues = validateGameplayMapEffectContext(slot.definition);
+    if (contextIssues.length > 0) throw new MapRunError(contextIssues.map(issue => `${issue.path}: ${issue.message}`));
+  }
 
   let preview: GameplayBActionPreview;
   try {
@@ -1026,6 +1194,97 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     partyCardChoices, activeCardChoices);
   } catch (error) { throw new MapRunError([error instanceof Error ? error.message : String(error)]); }
 
+  const effectScope: MapRunEncounterProgramScope = Object.freeze({
+    runId: slot.run.runId,
+    mapId: slot.run.mapId,
+    nodeId: encounter.nodeId,
+    activityId: encounter.activityId ?? null,
+    round: encounter.round,
+  });
+  const programVisits: MapRunEncounterProgramVisit[] = [];
+  const programTrace: MapEffectTraceEntry[] = [];
+  const programResourceEntries = new WeakMap<MapRunEncounterSettlementResourceChange, MapEffectResourceLedgerEntry>();
+  const attachProgramResourceEntry = (change: MapRunEncounterSettlementResourceChange, entry: MapEffectResourceLedgerEntry) => {
+    programResourceEntries.set(change, entry);
+  };
+  const recordProgramResourceSettlement = (
+    change: MapRunEncounterSettlementResourceChange,
+    before: number,
+    after: number,
+  ) => {
+    if (change.kind !== 'effect') return;
+    const entry = programResourceEntries.get(change);
+    if (!entry) return;
+    const visit = [...programVisits].reverse().find(candidate => candidate.sourceKey === entry.sourceKey
+      && candidate.actionId === entry.actionId && candidate.path === entry.path);
+    if (!visit) throw new MapRunError(['Program resource has no matching source visit']);
+    programTrace.push(freezeProgramTraceEntry({
+      sourceKey: entry.sourceKey,
+      source: visit.source,
+      actionId: entry.actionId,
+      path: entry.path,
+      op: 'resourceSettlement',
+      mode: 'program',
+      identity: entry.identity,
+      account: entry.account,
+      resourceId: entry.resourceId,
+      intentDelta: entry.delta,
+      before,
+      after,
+      delta: after - before,
+    }));
+  };
+  const recordProgramVisit = (
+    source: MapEffectProgramSourceIdentity,
+    sourceKey: string,
+    actionId: string,
+    path: string,
+    kind: 'prepare' | 'statement' | 'condition',
+  ) => {
+    if (programVisits.length >= 4096) throw new MapRunError(['the Encounter program visit budget exceeds 4096']);
+    programVisits.push(Object.freeze({ sourceKey, source: freezeProgramSource(source), actionId, path, kind, mode: 'program' }));
+  };
+  const cardReceiverFor = (targetCard: MapRunCardRef): MapEffectActorIdentity | null => {
+    let rawIdentity: unknown;
+    try { rawIdentity = JSON.parse(targetCard.id); } catch { return null; }
+    if (!Array.isArray(rawIdentity) || rawIdentity.length !== 4) return null;
+    const [zone, rawKind, id, actionId] = rawIdentity;
+    if ((zone !== 'hand' && zone !== 'playerCommand') || typeof id !== 'string' || typeof actionId !== 'string'
+      || (rawKind !== 'partyCharacter' && rawKind !== 'enemy')) return null;
+    const choice = activeCardChoices.find(candidate => {
+      const ownerMatches = rawKind === 'partyCharacter'
+        ? 'characterId' in candidate && candidate.characterId === id
+        : 'enemyId' in candidate && candidate.enemyId === id;
+      const zoneMatches = zone === 'playerCommand'
+        ? candidate.overrideKind === 'playerCommand'
+        : candidate.overrideKind !== 'playerCommand';
+      return ownerMatches && candidate.actionId === actionId && zoneMatches;
+    });
+    return choice ? { kind: rawKind, id } : null;
+  };
+  const appendPrepareMetadata = (
+    metadata: ReturnType<typeof resolveMapCardEffects>['prepareMetadata'][number],
+    targets: ReadonlyMap<string, MapRunCardRef>,
+  ) => {
+    if (metadata.leaf.mode !== 'program') return;
+    const targetCard = targets.get(metadata.sourceKey);
+    if (!targetCard) throw new MapRunError([`Action "${metadata.actionId}" has no resolved prepare CardRef`]);
+    const source: MapEffectProgramSourceIdentity = metadata.source;
+    recordProgramVisit(source, metadata.sourceKey, metadata.actionId, metadata.effectPath, 'prepare');
+    programTrace.push(freezeProgramTraceEntry({
+      sourceKey: metadata.sourceKey,
+      source,
+      actionId: metadata.actionId,
+      path: metadata.effectPath,
+      op: 'discountSCost',
+      mode: 'program',
+      amount: metadata.leaf.amount,
+      targetCard,
+      receiver: cardReceiverFor(targetCard),
+    }));
+  };
+  for (const metadata of cardPlan.prepareMetadata) appendPrepareMetadata(metadata, cardPlan.targets);
+
   const actorBalances = new Map(slot.run.actorResources.map(balance => [
     actorResourceKey(balance.characterId, balance.resourceId), balance.value,
   ]));
@@ -1040,6 +1299,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     readonly action: GameplayMapActionDef;
     readonly targetCharacterId: string | null;
     readonly targetEnemyId: string | null;
+    readonly programPlan?: ReturnType<typeof planMapEffectSource>;
   }[] = [];
   const requiredCosts = new Map<string, {
     readonly scope: 'actor' | 'team';
@@ -1058,42 +1318,134 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
   const partyCaps = partyHpCaps(slot.definition, slot.run.party);
   const enemyDefinitions = encounterDef.enemies ?? [];
   const enemyCaps = new Map(enemyDefinitions.map(enemy => [enemy.id, enemy.maxHp]));
+  let plannedLocals = copyMapEncounterLocalsState(
+    encounter.locals ?? { counters: {}, flags: {} }, encounterDef.locals,
+  );
+  const programSourceKey = (source: MapEffectProgramSourceIdentity): string => source.kind === 'partyCharacter' || source.kind === 'enemy'
+    ? mapCardActorKey(source.kind, source.id)
+    : source.kind === 'ability' ? JSON.stringify(['ability', source.actionId])
+      : JSON.stringify(['item', source.itemId, source.actionId]);
+  const planProgramSource = (
+    action: GameplayMapActionDef,
+    source: MapEffectProgramSourceIdentity,
+    primary: MapEffectActorIdentity | null,
+    teamSide: 'party' | 'enemy',
+  ): ReturnType<typeof planMapEffectSource> => {
+    const effects = normalizeMapRunActionEffects(action);
+    if (effects.mode !== 'program') throw new MapRunError([`Action "${action.id}" has no E1 effectProgram`]);
+    const sourceKey = programSourceKey(source);
+    const hp: Record<string, { current: number; cap: number }> = {};
+    for (const [id, current] of partyHpAfter) {
+      const cap = partyCaps.get(id);
+      if (cap !== undefined) hp[`partyCharacter:${id}`] = { current, cap };
+    }
+    for (const [id, current] of enemyHpAfter) {
+      const cap = enemyCaps.get(id);
+      if (cap !== undefined) hp[`enemy:${id}`] = { current, cap };
+    }
+    let plan: ReturnType<typeof planMapEffectSource>;
+    try {
+      plan = planMapEffectSource({
+        input: {
+          sourceKey,
+          actionId: action.id,
+          source: source.kind === 'partyCharacter' || source.kind === 'enemy' ? source : null,
+          primary,
+          sourceTeam: { kind: 'team', side: teamSide },
+          hp,
+          locals: plannedLocals,
+        },
+        effects,
+        visit: access => recordProgramVisit(source, sourceKey, action.id, access.path, access.kind),
+      });
+    } catch (error) {
+      throw new MapRunError([error instanceof Error ? error.message : String(error)]);
+    }
+    for (const [key, value] of Object.entries(plan.hp)) {
+      const separator = key.indexOf(':');
+      const kind = key.slice(0, separator);
+      const id = key.slice(separator + 1);
+      if (kind === 'partyCharacter') partyHpAfter.set(id, value.current);
+      else if (kind === 'enemy') enemyHpAfter.set(id, value.current);
+    }
+    try {
+      plannedLocals = copyMapEncounterLocalsState(plan.locals, encounterDef.locals);
+    } catch (error) {
+      throw new MapRunError([error instanceof Error ? error.message : String(error)]);
+    }
+    for (const entry of plan.trace) {
+      if (entry.op === 'resourceChange') continue;
+      programTrace.push(freezeProgramTraceEntry({ ...entry, source, mode: 'program' }));
+    }
+    return plan;
+  };
 
   const applyHpEffects = (
     action: GameplayMapActionDef,
     targetCharacterId: string | null,
     targetEnemyId: string | null,
+    actor: SettlementActor,
+    programPlan?: ReturnType<typeof planMapEffectSource>,
   ): MapRunEncounterHpChange[] | undefined => {
-    const rawEffects: unknown = action.hpEffects ?? [];
-    if (!Array.isArray(rawEffects)) throw new MapRunError([`Action "${action.id}" hpEffects must be an array`]);
-    if (rawEffects.length === 0) return undefined;
-    const changes: MapRunEncounterHpChange[] = [];
-    for (const rawEffect of rawEffects) {
-      if (!isRecord(rawEffect) || !Number.isSafeInteger(rawEffect.amount) || (rawEffect.amount as number) === 0) {
-        throw new MapRunError([`Action "${action.id}" has an invalid HP effect`]);
+    const effects = normalizeMapRunActionEffects(action);
+    if (effects.mode === 'program') {
+      if (!programPlan) throw new MapRunError([`Action "${action.id}" has no detached E1 source plan`]);
+      const changes: MapRunEncounterHpChange[] = [];
+      for (const trace of programPlan.trace) {
+        if (trace.op !== 'hpChange' || !trace.identity
+          || (trace.identity.kind !== 'enemy' && trace.identity.kind !== 'partyCharacter')) continue;
+        changes.push(trace.identity.kind === 'enemy'
+          ? { scope: 'enemy', enemyId: trace.identity.id, delta: trace.delta }
+          : { scope: 'party', characterId: trace.identity.id, delta: trace.delta });
       }
-      const amount = rawEffect.amount as number;
-      if (targetEnemyId !== null) {
-        const current = enemyHpAfter.get(targetEnemyId);
-        const cap = enemyCaps.get(targetEnemyId);
-        if (current === undefined || cap === undefined) throw new MapRunError([`Action "${action.id}" targets an unknown Enemy`]);
-        const proposed = BigInt(current) + BigInt(amount);
-        const next = current === 0 ? 0 : Number(proposed <= 0n ? 0n : proposed >= BigInt(cap) ? BigInt(cap) : proposed);
-        enemyHpAfter.set(targetEnemyId, next);
-        changes.push({ scope: 'enemy', enemyId: targetEnemyId, delta: next - current });
-      } else if (targetCharacterId !== null) {
-        const current = partyHpAfter.get(targetCharacterId);
-        const cap = partyCaps.get(targetCharacterId);
-        if (current === undefined || cap === undefined) throw new MapRunError([`Action "${action.id}" targets an unknown party member`]);
-        const proposed = BigInt(current) + BigInt(amount);
-        const next = current === 0 ? 0 : Number(proposed <= 0n ? 0n : proposed >= BigInt(cap) ? BigInt(cap) : proposed);
-        partyHpAfter.set(targetCharacterId, next);
-        changes.push({ scope: 'party', characterId: targetCharacterId, delta: next - current });
-      } else {
-        throw new MapRunError([`Action "${action.id}" declares an HP effect without a selected target`]);
+      return changes.length > 0 ? changes : undefined;
+    }
+    const phase = actor === null ? 'actorlessSource' : actor.kind === 'enemy' ? 'enemySource' : 'partyAction';
+    const expectedPhase = phase === 'partyAction' ? 'party-action-hp-before-resource-settlement'
+      : phase === 'actorlessSource' ? 'actorless-hp-after-resource-settlement' : 'enemy-hp-after-own-resource';
+    const instructions = effects.resolve.filter(instruction => instruction.op === 'hpChange'
+      && instruction.legacyPhase?.[phase] === expectedPhase);
+    const hp: Record<string, { current: number; cap: number }> = {};
+    for (const [id, current] of partyHpAfter) {
+      const cap = partyCaps.get(id);
+      if (cap !== undefined) hp[`partyCharacter:${id}`] = { current, cap };
+    }
+    for (const [id, current] of enemyHpAfter) {
+      const cap = enemyCaps.get(id);
+      if (cap !== undefined) hp[`enemy:${id}`] = { current, cap };
+    }
+    let plan: ReturnType<typeof planMapEffectSource>;
+    try {
+      plan = planMapEffectSource({
+        input: {
+          sourceKey: actor ? mapCardActorKey(actor.kind, actor.id) : `actorless:${action.id}`,
+          actionId: action.id,
+          source: actor ? { kind: actor.kind, id: actor.id } : null,
+          primary: targetEnemyId !== null ? { kind: 'enemy', id: targetEnemyId }
+            : targetCharacterId !== null ? { kind: 'partyCharacter', id: targetCharacterId } : null,
+          sourceTeam: { kind: 'team', side: actor?.kind === 'enemy' ? 'enemy' : 'party' },
+          hp,
+          locals: { counters: {}, flags: {} },
+        },
+        effects,
+        instructions,
+      });
+    } catch (error) {
+      throw new MapRunError([error instanceof Error ? error.message : String(error)]);
+    }
+    const changes: MapRunEncounterHpChange[] = [];
+    for (const trace of plan.trace) {
+      if (trace.op !== 'hpChange' || !trace.identity
+        || (trace.identity.kind !== 'enemy' && trace.identity.kind !== 'partyCharacter')) continue;
+      if (trace.identity.kind === 'enemy') {
+        enemyHpAfter.set(trace.identity.id, trace.after);
+        changes.push({ scope: 'enemy', enemyId: trace.identity.id, delta: trace.delta });
+      } else if (trace.identity.kind === 'partyCharacter') {
+        partyHpAfter.set(trace.identity.id, trace.after);
+        changes.push({ scope: 'party', characterId: trace.identity.id, delta: trace.delta });
       }
     }
-    return changes;
+    return changes.length > 0 ? changes : undefined;
   };
 
   const addRequiredCosts = (resourceChanges: readonly MapRunEncounterSettlementResourceChange[]) => {
@@ -1188,10 +1540,20 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
 
     const reduction = cardPlan.reductions.get(mapCardActorKey('partyCharacter', prepared.characterId)) ?? 0n;
     const scostCost = mapScostCost(action, reduction);
+    const partySource: MapEffectProgramSourceIdentity = { kind: 'partyCharacter', id: prepared.characterId };
+    const programPlan = action.effectProgram === undefined ? undefined : planProgramSource(
+      action,
+      partySource,
+      targetEnemyId !== null ? { kind: 'enemy', id: targetEnemyId }
+        : targetCharacterId !== null ? { kind: 'partyCharacter', id: targetCharacterId } : null,
+      'party',
+    );
     const resourceChanges = settlementChangesFor(action, { kind: 'partyCharacter', id: prepared.characterId },
-      settlementUnitTarget(targetCharacterId, targetEnemyId), reduction);
+      settlementUnitTarget(targetCharacterId, targetEnemyId), reduction,
+      { programPlan, onProgramResourceChange: attachProgramResourceEntry });
     addRequiredCosts(resourceChanges);
-    const hpChanges = applyHpEffects(action, targetCharacterId, targetEnemyId);
+    const hpChanges = applyHpEffects(action, targetCharacterId, targetEnemyId,
+      { kind: 'partyCharacter', id: prepared.characterId }, programPlan);
     const settlement: MapRunEncounterActionSettlement = {
       characterId: prepared.characterId,
       actionId,
@@ -1222,8 +1584,16 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     validateSourceTarget(abilityDraft.target, action, slot, 'Ability');
     playerCostRequired += 1;
     const { targetCharacterId, targetEnemyId } = sourceTargetIds(abilityDraft.target);
+    const abilitySource: MapEffectProgramSourceIdentity = { kind: 'ability', actionId: action.id };
+    const programPlan = action.effectProgram === undefined ? undefined : planProgramSource(
+      action,
+      abilitySource,
+      targetEnemyId !== null ? { kind: 'enemy', id: targetEnemyId } : { kind: 'partyCharacter', id: targetCharacterId! },
+      'party',
+    );
     const resourceChanges = settlementChangesFor(action, null,
-      settlementUnitTarget(targetCharacterId, targetEnemyId));
+      settlementUnitTarget(targetCharacterId, targetEnemyId), 0n,
+      { programPlan, onProgramResourceChange: attachProgramResourceEntry });
     addRequiredCosts(resourceChanges);
     ability = {
       actionId: action.id,
@@ -1233,7 +1603,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
       hpChanges: [],
     };
     pendingHpActions.push({
-      settlement: { kind: 'ability' }, action, targetCharacterId, targetEnemyId,
+      settlement: { kind: 'ability' }, action, targetCharacterId, targetEnemyId, programPlan,
     });
   }
 
@@ -1247,8 +1617,18 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     const action = actorlessSourceAction(slot, itemDraft.actionId, 'Item');
     validateSourceTarget(itemDraft.target, action, slot, 'Item');
     const { targetCharacterId, targetEnemyId } = sourceTargetIds(itemDraft.target);
+    const itemSource: MapEffectProgramSourceIdentity = {
+      kind: 'item', actionId: action.id, itemId: itemDraft.itemId,
+    };
+    const programPlan = action.effectProgram === undefined ? undefined : planProgramSource(
+      action,
+      itemSource,
+      targetEnemyId !== null ? { kind: 'enemy', id: targetEnemyId } : { kind: 'partyCharacter', id: targetCharacterId! },
+      'party',
+    );
     const resourceChanges = settlementChangesFor(action, null,
-      settlementUnitTarget(targetCharacterId, targetEnemyId));
+      settlementUnitTarget(targetCharacterId, targetEnemyId), 0n,
+      { programPlan, onProgramResourceChange: attachProgramResourceEntry });
     addRequiredCosts(resourceChanges);
     item = {
       itemId: itemDraft.itemId,
@@ -1259,7 +1639,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
       hpChanges: [],
     };
     pendingHpActions.push({
-      settlement: { kind: 'item' }, action, targetCharacterId, targetEnemyId,
+      settlement: { kind: 'item' }, action, targetCharacterId, targetEnemyId, programPlan,
     });
   }
 
@@ -1318,12 +1698,13 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
         throw new MapRunError([`Action "${settlement.actionId}" effect would leave an invalid balance for "${change.resourceId}"`]);
       }
       targetBalances.set(key, afterEffect);
+      recordProgramResourceSettlement(change, currentBalance, afterEffect);
     }
   }
 
   const hpEffectsToApply: { settlement: (typeof pendingHpActions)[number]['settlement']; changes: MapRunEncounterHpChange[] }[] = [];
   for (const pending of pendingHpActions) {
-    const changes = applyHpEffects(pending.action, pending.targetCharacterId, pending.targetEnemyId);
+    const changes = applyHpEffects(pending.action, pending.targetCharacterId, pending.targetEnemyId, null, pending.programPlan);
     if (changes && changes.length > 0) hpEffectsToApply.push({ settlement: pending.settlement, changes });
   }
   for (const applied of hpEffectsToApply) {
@@ -1374,6 +1755,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
           throw new MapRunError([`Action "${actionId}" would leave an invalid balance for "${change.resourceId}"`]);
         }
         balances.set(key, next);
+        recordProgramResourceSettlement(change, current, next);
       }
     }
   };
@@ -1452,14 +1834,36 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     }
 
     const reduction = enemyDiscounts.get(mapCardActorKey('enemy', enemyId)) ?? 0n;
-    const resourceChanges = settlementChangesFor(action, { kind: 'enemy', id: enemyId },
-      settlementUnitTarget(targetCharacterId, targetEnemyId), reduction);
-    if (!enemyActionCostsArePayable(resourceChanges)) {
+    const enemyActor: SettlementActor = { kind: 'enemy', id: enemyId };
+    const resolvedTarget = settlementUnitTarget(targetCharacterId, targetEnemyId);
+    const isProgramAction = action.effectProgram !== undefined;
+    const costChanges = settlementChangesFor(action, enemyActor, resolvedTarget, reduction,
+      isProgramAction ? { programCostProbe: true } : {});
+    if (!enemyActionCostsArePayable(costChanges)) {
       pushEnemySkip(enemyId, actionId, 'unaffordable');
       continue;
     }
-    applyEnemyResourceChanges(actionId, resourceChanges);
-    const hpChanges = applyHpEffects(action, targetCharacterId, targetEnemyId);
+    if (isProgramAction) applyEnemyResourceChanges(actionId, costChanges);
+    const enemyChoice: MapCardActionChoice | null = action.target.kind === 'card'
+      ? { enemyId, actionId, overrideKind: null, targetCard } : null;
+    const activePlan = enemyChoice === null ? null
+      : resolveMapCardEffects(slot.definition, cardScope, [enemyChoice], activeCardChoices);
+    for (const metadata of activePlan?.prepareMetadata ?? []) appendPrepareMetadata(metadata, activePlan!.targets);
+    const enemySource: MapEffectProgramSourceIdentity = { kind: 'enemy', id: enemyId };
+    const programPlan = isProgramAction ? planProgramSource(
+      action,
+      enemySource,
+      targetEnemyId !== null ? { kind: 'enemy', id: targetEnemyId }
+        : targetCharacterId !== null ? { kind: 'partyCharacter', id: targetCharacterId } : null,
+      'enemy',
+    ) : undefined;
+    const plannedResourceChanges = isProgramAction
+      ? settlementChangesFor(action, enemyActor, resolvedTarget, reduction,
+        { programPlan, onProgramResourceChange: attachProgramResourceEntry }).filter(change => change.kind === 'effect')
+      : costChanges;
+    applyEnemyResourceChanges(actionId, plannedResourceChanges);
+    const resourceChanges = isProgramAction ? [...costChanges, ...plannedResourceChanges] : plannedResourceChanges;
+    const hpChanges = applyHpEffects(action, targetCharacterId, targetEnemyId, enemyActor, programPlan);
     const scostCost = mapScostCost(action, reduction);
     enemyActions.push({
       enemyId,
@@ -1472,14 +1876,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
       ...(hpChanges ? { hpChanges } : {}),
     });
 
-    if (action.target.kind === 'card') {
-      const enemyChoice: MapCardActionChoice = {
-        enemyId,
-        actionId,
-        overrideKind: null,
-        targetCard,
-      };
-      const activePlan = resolveMapCardEffects(slot.definition, cardScope, [enemyChoice], activeCardChoices);
+    if (activePlan) {
       for (const [futureEnemyId, orderIndex] of enemyOrder) {
         if (orderIndex <= (enemyOrder.get(enemyId) ?? -1)) continue;
         const key = mapCardActorKey('enemy', futureEnemyId);
@@ -1496,6 +1893,10 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
 
   if (terminal === 'none' && isDefeated()) terminal = 'failure';
   else if (terminal === 'none' && allEnemiesDefeated()) terminal = 'victory';
+  else if (terminal === 'none' && !hasBattle && encounterDef.completion?.kind === 'condition'
+    && encounterCompletionSatisfied(encounterDef.completion.condition, plannedLocals)) {
+    terminal = 'victory';
+  }
 
   return {
     settlements,
@@ -1510,6 +1911,14 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
     partyHpAfter,
     enemyHpAfter,
     terminal,
+    ...(!hasProgramActions ? {} : {
+      programReceiptVersion: 1 as const,
+      executionContractId: 'E1-COMPAT-1' as const,
+      effectScope,
+      programVisits: Object.freeze([...programVisits]),
+      plannedLocals: copyMapEncounterLocalsState(plannedLocals, encounterDef.locals),
+      effectTrace: Object.freeze(programTrace.map(freezeProgramTraceEntry)),
+    }),
   };
 }
 
@@ -2842,6 +3251,15 @@ export class MapRunService {
         diagnostics: Object.freeze([]),
         settlements: freezeCommitSettlements(plan.settlements),
         enemyActions: freezeEnemyActionSettlements(plan.enemyActions),
+        ...(plan.programReceiptVersion === undefined ? {} : {
+          programReceiptVersion: plan.programReceiptVersion,
+          executionContractId: plan.executionContractId,
+          effectScope: plan.effectScope,
+          programVisitCount: plan.programVisits?.length ?? 0,
+          programVisits: plan.programVisits,
+          plannedLocals: plan.plannedLocals,
+          effectTrace: plan.effectTrace,
+        }),
       });
     } catch (error) {
       const diagnostics = error instanceof MapRunError
@@ -2970,6 +3388,15 @@ export class MapRunService {
       ...(plan.enemyActions.length > 0 ? { enemyActions: freezeEnemyActionSettlements(plan.enemyActions) } : {}),
       ...(plan.ability === null ? {} : { ability: plan.ability }),
       ...(plan.item === null ? {} : { item: plan.item }),
+      ...(plan.programReceiptVersion === undefined ? {} : {
+        programReceiptVersion: plan.programReceiptVersion,
+        executionContractId: plan.executionContractId,
+        effectScope: plan.effectScope,
+        programVisitCount: plan.programVisits?.length ?? 0,
+        programVisits: plan.programVisits,
+        plannedLocals: plan.plannedLocals,
+        effectTrace: plan.effectTrace,
+      }),
     };
     const nextPartyHp = currentSlot.run.party.map(member => ({
       characterId: member.characterId,
@@ -2998,6 +3425,7 @@ export class MapRunService {
         baseRun,
         currentEncounter.nodeId,
         currentEncounter.activityId,
+        nextActivityRandomState(currentEncounter.randomState),
       );
       successAtExit = advanced.success;
       nextRun = { ...advanced.run, status: advanced.success ? 'success' : 'inProgress' };
@@ -3016,6 +3444,7 @@ export class MapRunService {
         nextEnemyActorResources,
         nextEnemyTeamResources,
         currentEncounter.activityId,
+        plan.programReceiptVersion === 1 ? plan.plannedLocals : currentEncounter.locals,
       );
       nextRun = { ...baseRun, activeEncounter: { ...drawnEncounter, lastCommit: receipt } };
     }

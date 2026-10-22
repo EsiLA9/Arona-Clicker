@@ -10,7 +10,7 @@
  *
  * 同时导出 parseEngineSchema() 供 vitest（engine-schema.sync.test.ts）复用。
  */
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -84,8 +84,7 @@ const text = (n) => n.getText();
  */
 function describeType(typeNode, decl, depth, ctx) {
   const tsType = text(typeNode);
-  const maxDepth = ctx?.expandGameplayMap ? 24 : 4;
-  if (depth > maxDepth) return { kind: 'hand', tsType };
+  if (depth > 4) return { kind: 'hand', tsType };
   if (!typeNode) return { kind: 'hand', tsType };
 
   if (typeNode.kind === ts.SyntaxKind.StringKeyword) return { kind: 'string', tsType };
@@ -112,52 +111,12 @@ function describeType(typeNode, decl, depth, ctx) {
       const options = literals.map((t) => t.literal.text);
       return { kind: 'enum', options, tsType };
     }
-    if (ctx?.expandGameplayMap) {
-      const variants = typeNode.types.filter(ts.isTypeLiteralNode);
-      if (variants.length === typeNode.types.length && variants.length > 1) {
-        for (const tagField of ['op', 'kind']) {
-          const tagged = variants.map((variant) => {
-            const tag = variant.members.find((member) => ts.isPropertySignature(member) && member.name.getText() === tagField);
-            const tagType = tag?.type;
-            return tag && tagType && ts.isLiteralTypeNode(tagType) && ts.isStringLiteral(tagType.literal)
-              ? { tag: tagType.literal.text, variant }
-              : undefined;
-          });
-          if (tagged.every(Boolean)) {
-            return {
-              kind: 'union',
-              tagField,
-              variants: tagged.map(({ tag, variant }) => ({
-                tag,
-                fields: describeInterface(variant, decl, depth + 1, ctx),
-              })),
-              tsType,
-            };
-          }
-        }
-      }
-    }
     return { kind: 'hand', tsType };
   }
   // 命名引用
   if (ts.isTypeReferenceNode(typeNode)) {
     const name = typeNode.typeName.getText();
     const t = decl.get(name);
-    if (ctx?.expandGameplayMap && /^Gameplay(?:Map|Encounter)/.test(name)) {
-      if (ctx.activeTypes.has(name)) return { kind: 'recursive', name, tsType };
-      if (t?.kind === 'typeAlias') {
-        ctx.activeTypes.add(name);
-        const expanded = describeType(t.node.type, decl, depth + 1, ctx);
-        ctx.activeTypes.delete(name);
-        return expanded.kind === 'hand' ? { kind: 'hand', tsType } : { ...expanded, tsType };
-      }
-      if (t?.kind === 'interface') {
-        ctx.activeTypes.add(name);
-        const fields = describeInterface(t.node, decl, depth + 1, ctx);
-        ctx.activeTypes.delete(name);
-        return { kind: 'object', fields, tsType };
-      }
-    }
     if (EXTRA_TYPES.has(name)) return { kind: 'extra', tsType };
     if (HAND_TYPES.has(name)) return { kind: 'hand', tsType };
     const refTable = ID_REF_TABLE[name.replace(/Id$/, '')];
@@ -174,16 +133,88 @@ function describeType(typeNode, decl, depth, ctx) {
       return { kind: 'enum', options, tsType };
     }
     if (t?.kind === 'interface' && !EXTRA_TYPES.has(name) && !HAND_TYPES.has(name)) {
-      const expandsMap = ctx?.expandGameplayMap && /^Gameplay(?:Map|Encounter)/.test(name);
-      if (expandsMap && ctx.activeTypes.has(name)) return { kind: 'recursive', name, tsType };
-      if (expandsMap) ctx.activeTypes.add(name);
       const fields = describeInterface(t.node, decl, depth + 1, ctx);
-      if (expandsMap) ctx.activeTypes.delete(name);
       return { kind: 'object', fields, tsType };
     }
     return { kind: 'hand', tsType };
   }
   return { kind: 'hand', tsType };
+}
+
+/** Preserve Map authoring contracts as side metadata while keeping GenField.kind consumer-safe. */
+function describeGameplayMapSchema(typeNode, decl, active = new Set(), depth = 0) {
+  if (!typeNode) return { type: 'unknown' };
+  if (depth > 32) return { type: 'depthLimit', sourceType: text(typeNode) };
+  if (ts.isTypeOperatorNode(typeNode) && typeNode.operator === ts.SyntaxKind.ReadonlyKeyword) {
+    return describeGameplayMapSchema(typeNode.type, decl, active, depth + 1);
+  }
+  if (typeNode.kind === ts.SyntaxKind.StringKeyword) return { type: 'string' };
+  if (typeNode.kind === ts.SyntaxKind.NumberKeyword) return { type: 'number' };
+  if (typeNode.kind === ts.SyntaxKind.BooleanKeyword) return { type: 'boolean' };
+  if (ts.isArrayTypeNode(typeNode)) {
+    return { type: 'array', item: describeGameplayMapSchema(typeNode.elementType, decl, active, depth + 1) };
+  }
+  if (ts.isLiteralTypeNode(typeNode) && ts.isStringLiteral(typeNode.literal)) {
+    return { type: 'literal', value: typeNode.literal.text };
+  }
+  if (ts.isUnionTypeNode(typeNode)) {
+    const literals = typeNode.types.filter((part) => ts.isLiteralTypeNode(part) && ts.isStringLiteral(part.literal));
+    if (literals.length === typeNode.types.length) {
+      return { type: 'stringUnion', values: literals.map((part) => part.literal.text) };
+    }
+    const members = typeNode.types.filter(ts.isTypeLiteralNode);
+    if (members.length === typeNode.types.length && members.length > 1) {
+      for (const discriminator of ['op', 'kind']) {
+        const variants = [];
+        let valid = true;
+        for (const member of members) {
+          const field = member.members.find((candidate) => ts.isPropertySignature(candidate) && candidate.name.getText() === discriminator);
+          const fieldType = field?.type;
+          const tags = fieldType && ts.isUnionTypeNode(fieldType)
+            ? fieldType.types
+            : fieldType ? [fieldType] : [];
+          const values = tags.filter((tag) => ts.isLiteralTypeNode(tag) && ts.isStringLiteral(tag.literal)).map((tag) => tag.literal.text);
+          if (!values.length || values.length !== tags.length) {
+            valid = false;
+            break;
+          }
+          const fields = describeGameplayMapFields(member.members, decl, active, depth + 1);
+          for (const tag of values) variants.push({ tag, fields });
+        }
+        if (valid) return { type: 'union', discriminator, variants };
+      }
+    }
+    return { type: 'union', variants: typeNode.types.map((part) => describeGameplayMapSchema(part, decl, active, depth + 1)) };
+  }
+  if (ts.isTypeLiteralNode(typeNode)) return { type: 'object', fields: describeGameplayMapFields(typeNode.members, decl, active, depth + 1) };
+  if (ts.isTypeReferenceNode(typeNode)) {
+    const name = typeNode.typeName.getText();
+    if (name === 'Array' && typeNode.typeArguments?.length === 1) {
+      return { type: 'array', item: describeGameplayMapSchema(typeNode.typeArguments[0], decl, active, depth + 1) };
+    }
+    const declaration = decl.get(name);
+    if (!/^Gameplay(?:Map|Encounter)/.test(name) || !declaration) return { type: 'reference', name };
+    if (active.has(name)) return { type: 'recursive', name };
+    active.add(name);
+    const schema = declaration.kind === 'interface'
+      ? { type: 'object', fields: describeGameplayMapFields(declaration.node.members, decl, active, depth + 1) }
+      : describeGameplayMapSchema(declaration.node.type, decl, active, depth + 1);
+    active.delete(name);
+    return { ...schema, sourceType: name };
+  }
+  return { type: 'unknown', sourceType: text(typeNode) };
+}
+
+function describeGameplayMapFields(members, decl, active, depth) {
+  return members.filter(ts.isPropertySignature).map((member) => {
+    const { comment } = collectTags(member);
+    return {
+      key: member.name.getText(),
+      required: !member.questionToken,
+      ...(comment ? { description: comment } : {}),
+      schema: describeGameplayMapSchema(member.type, decl, active, depth + 1),
+    };
+  });
 }
 
 function describeInterface(node, decl, depth, ctx) {
@@ -231,6 +262,7 @@ function describeInterface(node, decl, depth, ctx) {
       ...(label ? { label } : {}),
       ...(group ? { group } : {}),
       ...(comment ? { description: comment } : {}),
+      ...(ctx?.attachGameplayMapSchema ? { authoringSchema: describeGameplayMapSchema(member.type, decl) } : {}),
     };
     if (desc.kind === 'enum') {
       if (desc.options) f.options = desc.options;
@@ -299,8 +331,8 @@ export function parseEngineSchema({ dir = TYPES_DIR, contractDir = CONTRACTS_DIR
   for (const name of needed) {
     const d = decl.get(name);
     if (d?.kind === 'interface') {
-      const expandGameplayMap = name === 'GameplayMapDef';
-      defs[name] = { fields: describeInterface(d.node, decl, 0, expandGameplayMap ? { expandGameplayMap: true, activeTypes: new Set() } : {}) };
+      const attachGameplayMapSchema = name === 'GameplayMapDef';
+      defs[name] = { fields: describeInterface(d.node, decl, 0, attachGameplayMapSchema ? { attachGameplayMapSchema: true } : {}) };
     } else if (d?.kind === 'enum') {
       defs[name] = { enum: d.node.members.map((m) => m.name.getText()) };
     } else {
@@ -309,6 +341,7 @@ export function parseEngineSchema({ dir = TYPES_DIR, contractDir = CONTRACTS_DIR
   }
 
   return {
+    generatedAt: new Date().toISOString(),
     sourceDirs: ['src/engine/types', 'src/engine/contracts', 'src/data-services/contracts'],
     defMap,
     defs,
@@ -320,8 +353,15 @@ function main() {
   const schema = parseEngineSchema();
   if (process.argv.includes('--write')) {
     mkdirSync(dirname(OUT_FILE), { recursive: true });
-    writeFileSync(OUT_FILE, JSON.stringify(schema, null, 2) + '\n', 'utf8');
-    console.log(`[gen-engine-schema] wrote ${OUT_FILE}`);
+    const current = existsSync(OUT_FILE) ? JSON.parse(readFileSync(OUT_FILE, 'utf8')) : undefined;
+    const semantic = ({ generatedAt: _generatedAt, ...value }) => JSON.stringify(value);
+    const hasValidGeneratedAt = typeof current?.generatedAt === 'string' && Number.isFinite(Date.parse(current.generatedAt));
+    if (hasValidGeneratedAt && semantic(current) === semantic(schema)) {
+      console.log(`[gen-engine-schema] unchanged ${OUT_FILE}`);
+    } else {
+      writeFileSync(OUT_FILE, JSON.stringify(schema, null, 2) + '\n', 'utf8');
+      console.log(`[gen-engine-schema] wrote ${OUT_FILE}`);
+    }
   }
   console.log(`  defMap tables: ${Object.keys(schema.defMap).join(', ')}`);
   for (const [k, v] of Object.entries(schema.defMap)) {

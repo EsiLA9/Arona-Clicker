@@ -1,6 +1,12 @@
 # Unit 0312-U11：非战斗条件完成与活动转换安全
 
-状态：ready / 未执行；阶段P2。前置：0312-U10实际完成Receipt与测试。
+状态：ready / 未执行；阶段P2。前置：0312-U10A及U10B实际完成Receipt与测试；只有纯规划U10A不构成放行。
+
+2026-10-22负责人放行：U10A/U10B实际Receipt、独立源码/行为用例审查已通过；根复跑B新程序10项+旧金样13项共23项全绿。U10B报告6 files/90 tests、tsc/architecture/docs/空白均通过。实际接口为`plan.plannedLocals`、`programVisits`、`effectTrace`，新program公开安装已接通，仅condition过渡门仍保留。Read Set追加两份U10实际Receipt、U06 `map-effect-planner.ts`及U05规范化器，供复用既有条件语义；不得自行改这两个文件或建立第二效果执行器。
+
+预算按已核接口登记：map-run-service condition/局部转换随机修正净增80–160行；现有lifecycle/program测试净增300–500行；Receipt40–60行，合计420–720行，按用户已授权放宽本Unit上限1000行，白名单不扩。跨活动随机风险须先真实复现，只修本转换链的detached种子输入，不无证据改全局随机。U12可并行新增独立validator，不改本Unit的MapRun文件。
+
+施工事实调整：代理已用真实Registry/Variant Owner先复现同command/state两次prepare、不install时`Math.random`调用2次且下一活动seed不同（rounds:1终局转换）。根据此批准将确定性detached seed输入限定到`prepareEncounterRoundCommit`内所有terminal victory的跨activity转换（Battle/rounds/condition），手动completeEncounter及其它入口保持原路径。non-battle Registry禁止itemActions，库存失败反例必须用合法Battle终局→下一活动，不能伪造非战斗Item来源。完成谓词是Encounter终局检查，不是Action program来源，不追加到D08 programVisits；其条件树仍按Encounter语法64节点/深4有界。
 
 ## Goal
 

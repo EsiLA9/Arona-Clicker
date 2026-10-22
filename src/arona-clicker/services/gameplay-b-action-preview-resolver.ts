@@ -14,6 +14,7 @@ import type {
 import type { MapRunCardRef } from '../contracts/map-cards';
 import { catalogMapRunCards, mapRunCardKey, parseMapRunCardRef } from './map-card-catalog';
 import { selectGameplayBUnitTarget } from './gameplay-b-target-selection';
+import { normalizeMapActionEffects } from '../../data-services/normalization/gameplay-map-effect-program';
 
 export interface GameplayBActionPreviewInput {
   /** Required when resolving round-local card identities. */
@@ -704,8 +705,8 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
     resolvedPrepared = preparedActions.map(row => {
       if (row.targetKind !== 'card') return row;
       const action = actionsById.get(row.preparedActionId!)!;
-      if (action.target.kind !== 'card' || !action.cardEffects?.length || action.cardEffects.some(effect => effect.kind !== 'scostDiscount'
-        || !Number.isSafeInteger(effect.amount) || effect.amount <= 0)) fail(`Action "${action.id}" has invalid card effects`);
+      const effects = normalizeMapActionEffects(action);
+      if (action.target.kind !== 'card' || effects.prepare.length === 0) fail(`Action "${action.id}" has no valid card prepare effects`);
       const legalTargetCards = legalCardsFor(action.target.side, 'partyCharacter', row.characterId);
       const selected = targetSelections.get(row.characterId);
       if (selected && (selected.kind !== 'card' || !legalTargetCards.some(ref => mapRunCardKey(ref) === mapRunCardKey(selected.ref)))) {
@@ -723,8 +724,8 @@ export function resolveGameplayBActionPreview(input: GameplayBActionPreviewInput
     resolvedPreparedEnemyActions = preparedEnemyActions.map(row => {
       if (row.targetKind !== 'card') return row;
       const action = actionsById.get(row.naturalActionId!)!;
-      if (action.target.kind !== 'card' || !action.cardEffects?.length || action.cardEffects.some(effect => effect.kind !== 'scostDiscount'
-        || !Number.isSafeInteger(effect.amount) || effect.amount <= 0)) fail(`Action "${action.id}" has invalid card effects`);
+      const effects = normalizeMapActionEffects(action);
+      if (action.target.kind !== 'card' || effects.prepare.length === 0) fail(`Action "${action.id}" has no valid card prepare effects`);
       const legalTargetCards = legalCardsFor(action.target.side, 'enemy', row.enemyId);
       return Object.freeze({
         ...row,

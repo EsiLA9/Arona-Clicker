@@ -1,6 +1,6 @@
 # Unit 0312-U13：Owner快照与严格Save/Resume贯通
 
-状态：ready / 未执行；阶段P3。前置：0312-U11实际完成Receipt与测试、0312-U12实际完成Receipt与测试。
+状态：ready / 未执行；阶段P3。前置：0312-U11及0312-U12A/U12B实际完成Receipt与测试；仅U12A首稿不构成完整恢复校验或放行。
 
 ## Goal
 

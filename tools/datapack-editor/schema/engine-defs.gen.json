@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T17:04:53.089Z",
+  "generatedAt": "2026-10-22T00:21:13.010Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -4102,98 +4102,2712 @@
           "required": true,
           "kind": "string",
           "tsType": "string",
-          "description": "Stable three-part Datapack identity using the `map` entity type."
+          "description": "Stable three-part Datapack identity using the `map` entity type.",
+          "authoringSchema": {
+            "type": "string"
+          }
         },
         {
           "key": "name",
           "required": true,
           "kind": "string",
           "tsType": "string",
-          "description": "Player-facing map name."
+          "description": "Player-facing map name.",
+          "authoringSchema": {
+            "type": "string"
+          }
         },
         {
           "key": "entryInfo",
           "required": false,
           "kind": "hand",
           "tsType": "{\n    /** Short map introduction; this field is presentation-only. */\n    readonly description?: string;\n    /** Short author-written hints; these do not affect map rules. */\n    readonly tips?: readonly string[];\n  }",
-          "description": "Optional plain-text information shown before starting or resuming this map."
+          "description": "Optional plain-text information shown before starting or resuming this map.",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "description",
+                "required": false,
+                "description": "Short map introduction; this field is presentation-only.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "tips",
+                "required": false,
+                "description": "Short author-written hints; these do not affect map rules.",
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
         },
         {
           "key": "resumeVersion",
           "required": true,
           "kind": "float",
           "tsType": "number",
-          "description": "Author-maintained compatibility version for MapRun resume. Raise this when"
+          "description": "Author-maintained compatibility version for MapRun resume. Raise this when",
+          "authoringSchema": {
+            "type": "number"
+          }
         },
         {
           "key": "startNodeId",
           "required": true,
           "kind": "string",
           "tsType": "string",
-          "description": "Local ID of the node where a new MapRun begins."
+          "description": "Local ID of the node where a new MapRun begins.",
+          "authoringSchema": {
+            "type": "string"
+          }
         },
         {
           "key": "exitNodeIds",
           "required": true,
           "kind": "hand",
           "tsType": "readonly string[]",
-          "description": "Local IDs of nodes that end the MapRun when reached."
+          "description": "Local IDs of nodes that end the MapRun when reached.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "string"
+            }
+          }
         },
         {
           "key": "partyCharacterIds",
           "required": true,
           "kind": "hand",
           "tsType": "readonly Character[]",
-          "description": "Fixed Character IDs admitted to every Encounter in a new MapRun."
+          "description": "Fixed Character IDs admitted to every Encounter in a new MapRun.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "Character"
+            }
+          }
         },
         {
           "key": "initialPartyHp",
           "required": true,
           "kind": "hand",
           "tsType": "readonly GameplayMapInitialPartyHpDef[]",
-          "description": "Explicit MapRun-local starting HP and cap for every fixed party member."
+          "description": "Explicit MapRun-local starting HP and cap for every fixed party member.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "characterId",
+                  "required": true,
+                  "description": "Fixed Map party member whose local HP starts at `initialHp`.",
+                  "schema": {
+                    "type": "reference",
+                    "name": "Character"
+                  }
+                },
+                {
+                  "key": "initialHp",
+                  "required": true,
+                  "description": "Starting HP, in the inclusive range 1..maxHp.",
+                  "schema": {
+                    "type": "number"
+                  }
+                },
+                {
+                  "key": "maxHp",
+                  "required": true,
+                  "description": "Positive safe integer cap for this member's MapRun-local HP.",
+                  "schema": {
+                    "type": "number"
+                  }
+                }
+              ],
+              "sourceType": "GameplayMapInitialPartyHpDef"
+            }
+          }
         },
         {
           "key": "initialPlayerCost",
           "required": true,
           "kind": "float",
           "tsType": "number",
-          "description": "Explicit PlayerCost balance assigned when a new MapRun starts."
+          "description": "Explicit PlayerCost balance assigned when a new MapRun starts.",
+          "authoringSchema": {
+            "type": "number"
+          }
         },
         {
           "key": "actions",
           "required": false,
           "kind": "hand",
           "tsType": "readonly GameplayMapActionDef[]",
-          "description": "Map-local reusable actions; omitted when every encounter is Wait-only."
+          "description": "Map-local reusable actions; omitted when every encounter is Wait-only.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "description": "Stable only within the owning map.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "name",
+                  "required": true,
+                  "description": "Player-facing action name.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "description",
+                  "required": false,
+                  "description": "Optional player-facing action explanation.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "eligibleCharacterIds",
+                  "required": true,
+                  "description": "Fixed Map party members allowed to perform this Character action; use [] when no Character may use it.",
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "reference",
+                      "name": "Character"
+                    }
+                  }
+                },
+                {
+                  "key": "target",
+                  "required": true,
+                  "description": "The only target rule used by this action.",
+                  "schema": {
+                    "type": "union",
+                    "discriminator": "kind",
+                    "variants": [
+                      {
+                        "tag": "none",
+                        "fields": [
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "schema": {
+                              "type": "literal",
+                              "value": "none"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "self",
+                        "fields": [
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "schema": {
+                              "type": "literal",
+                              "value": "self"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "partyCharacter",
+                        "fields": [
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "schema": {
+                              "type": "literal",
+                              "value": "partyCharacter"
+                            }
+                          },
+                          {
+                            "key": "preference",
+                            "required": false,
+                            "description": "Optional legal-target preference; absent means the first Map party member.",
+                            "schema": {
+                              "type": "stringUnion",
+                              "values": [
+                                "stableOrder",
+                                "lowestHpRatio",
+                                "highestMissingHpRatio"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "enemy",
+                        "fields": [
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "schema": {
+                              "type": "literal",
+                              "value": "enemy"
+                            }
+                          },
+                          {
+                            "key": "preference",
+                            "required": false,
+                            "description": "Optional legal-target preference; absent means the first Encounter Enemy.",
+                            "schema": {
+                              "type": "stringUnion",
+                              "values": [
+                                "stableOrder",
+                                "lowestHpRatio",
+                                "highestMissingHpRatio"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "card",
+                        "fields": [
+                          {
+                            "key": "kind",
+                            "required": true,
+                            "schema": {
+                              "type": "literal",
+                              "value": "card"
+                            }
+                          },
+                          {
+                            "key": "side",
+                            "required": true,
+                            "description": "Relative to the source: self means its owner's cards; ally includes self.",
+                            "schema": {
+                              "type": "stringUnion",
+                              "values": [
+                                "self",
+                                "ally",
+                                "opponent",
+                                "any"
+                              ]
+                            }
+                          },
+                          {
+                            "key": "preference",
+                            "required": false,
+                            "description": "Cards currently support stable logical catalog order only.",
+                            "schema": {
+                              "type": "literal",
+                              "value": "stableOrder"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "sourceType": "GameplayMapActionTargetDef"
+                  }
+                },
+                {
+                  "key": "tendencyRole",
+                  "required": false,
+                  "description": "Optional explicit combat use for finite Encounter tendency adjustments.",
+                  "schema": {
+                    "type": "stringUnion",
+                    "values": [
+                      "recovery",
+                      "defense",
+                      "attack"
+                    ]
+                  }
+                },
+                {
+                  "key": "costs",
+                  "required": false,
+                  "description": "Optional resource balances consumed before applying effects.",
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "object",
+                      "fields": [
+                        {
+                          "key": "scope",
+                          "required": true,
+                          "description": "`actor` charges the performer; `team` charges its side's pool (MapRun-local for Character, Encounter-local for Enemy).",
+                          "schema": {
+                            "type": "stringUnion",
+                            "values": [
+                              "actor",
+                              "team"
+                            ]
+                          }
+                        },
+                        {
+                          "key": "resourceId",
+                          "required": true,
+                          "description": "Resource key; an undeclared starting balance is 0.",
+                          "schema": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "key": "amount",
+                          "required": true,
+                          "description": "Positive safe integer amount to consume.",
+                          "schema": {
+                            "type": "number"
+                          }
+                        }
+                      ],
+                      "sourceType": "GameplayMapActionResourceCostDef"
+                    }
+                  }
+                },
+                {
+                  "key": "effects",
+                  "required": false,
+                  "description": "Optional actor/team resource changes applied by a successful action.",
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "object",
+                      "fields": [
+                        {
+                          "key": "scope",
+                          "required": true,
+                          "description": "`actor` changes the acting combatant's balance; `team` changes its side's shared pool.",
+                          "schema": {
+                            "type": "stringUnion",
+                            "values": [
+                              "actor",
+                              "team"
+                            ]
+                          }
+                        },
+                        {
+                          "key": "resourceId",
+                          "required": true,
+                          "description": "Resource key; an undeclared starting balance is 0.",
+                          "schema": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "key": "amount",
+                          "required": true,
+                          "description": "Non-zero safe integer delta; positive adds and negative removes balance.",
+                          "schema": {
+                            "type": "number"
+                          }
+                        },
+                        {
+                          "key": "recipient",
+                          "required": false,
+                          "description": "For actor-scoped effects, defaults to the performer; `target` applies the",
+                          "schema": {
+                            "type": "stringUnion",
+                            "values": [
+                              "actor",
+                              "target"
+                            ]
+                          }
+                        }
+                      ],
+                      "sourceType": "GameplayMapActionResourceEffectDef"
+                    }
+                  }
+                },
+                {
+                  "key": "hpEffects",
+                  "required": false,
+                  "description": "Optional bounded HP changes applied to the selected Enemy or party target.",
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "object",
+                      "fields": [
+                        {
+                          "key": "amount",
+                          "required": true,
+                          "description": "Non-zero safe integer; negative damages and positive heals the selected unit.",
+                          "schema": {
+                            "type": "number"
+                          }
+                        }
+                      ],
+                      "sourceType": "GameplayMapActionHpEffectDef"
+                    }
+                  }
+                },
+                {
+                  "key": "cardEffects",
+                  "required": false,
+                  "description": "Round-local effects on the selected domain card; requires a `card` target.",
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "object",
+                      "fields": [
+                        {
+                          "key": "kind",
+                          "required": true,
+                          "description": "Only the target card's Actor `sCost` action cost is reduced, never PlayerCost.",
+                          "schema": {
+                            "type": "literal",
+                            "value": "scostDiscount"
+                          }
+                        },
+                        {
+                          "key": "amount",
+                          "required": true,
+                          "description": "Positive safe integer reduction; stacks within this round and clamps at zero cost.",
+                          "schema": {
+                            "type": "number"
+                          }
+                        }
+                      ],
+                      "sourceType": "GameplayMapActionCardEffectDef"
+                    }
+                  }
+                },
+                {
+                  "key": "effectProgram",
+                  "required": false,
+                  "description": "Optional finite E1 program. Registry validates its syntax and source context before use.",
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "prepare",
+                        "required": false,
+                        "description": "Fixed sCost reductions applied before the round is planned.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "op",
+                                "required": true,
+                                "description": "Add a fixed discount to the currently selected legal CardRef's Actor sCost before resolution.",
+                                "schema": {
+                                  "type": "literal",
+                                  "value": "discountSCost"
+                                }
+                              },
+                              {
+                                "key": "amount",
+                                "required": true,
+                                "description": "Positive safe-integer discount; stacked discounts are clamped at zero cost.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayMapEffectPrepareDef"
+                          }
+                        }
+                      },
+                      {
+                        "key": "resolve",
+                        "required": false,
+                        "description": "Ordered effects evaluated for this source.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "union",
+                            "discriminator": "op",
+                            "variants": [
+                              {
+                                "tag": "hpChange",
+                                "fields": [
+                                  {
+                                    "key": "op",
+                                    "required": true,
+                                    "schema": {
+                                      "type": "literal",
+                                      "value": "hpChange"
+                                    }
+                                  },
+                                  {
+                                    "key": "target",
+                                    "required": true,
+                                    "description": "source or the source's already resolved primary unit.",
+                                    "schema": {
+                                      "type": "stringUnion",
+                                      "values": [
+                                        "source",
+                                        "primary"
+                                      ],
+                                      "sourceType": "GameplayMapEffectUnit"
+                                    }
+                                  },
+                                  {
+                                    "key": "delta",
+                                    "required": true,
+                                    "description": "Non-zero signed safe integer; ordinary changes do not revive zero-HP units.",
+                                    "schema": {
+                                      "type": "number"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "resourceChange",
+                                "fields": [
+                                  {
+                                    "key": "op",
+                                    "required": true,
+                                    "schema": {
+                                      "type": "literal",
+                                      "value": "resourceChange"
+                                    }
+                                  },
+                                  {
+                                    "key": "account",
+                                    "required": true,
+                                    "description": "One of the source Actor, primary Actor, or source-side Team accounts.",
+                                    "schema": {
+                                      "type": "stringUnion",
+                                      "values": [
+                                        "sourceActor",
+                                        "primaryActor",
+                                        "sourceTeam"
+                                      ],
+                                      "sourceType": "GameplayMapEffectAccount"
+                                    }
+                                  },
+                                  {
+                                    "key": "resourceId",
+                                    "required": true,
+                                    "description": "Non-empty Map-local resource key; Registry later binds the declared balance.",
+                                    "schema": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "key": "delta",
+                                    "required": true,
+                                    "description": "Non-zero signed safe integer.",
+                                    "schema": {
+                                      "type": "number"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "counterAdd",
+                                "fields": [
+                                  {
+                                    "key": "op",
+                                    "required": true,
+                                    "schema": {
+                                      "type": "literal",
+                                      "value": "counterAdd"
+                                    }
+                                  },
+                                  {
+                                    "key": "counterId",
+                                    "required": true,
+                                    "description": "Name of a Counter declared in this Encounter.",
+                                    "schema": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "key": "delta",
+                                    "required": true,
+                                    "description": "Non-zero signed safe integer; result is clamped to declared min/max.",
+                                    "schema": {
+                                      "type": "number"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "flagSet",
+                                "fields": [
+                                  {
+                                    "key": "op",
+                                    "required": true,
+                                    "schema": {
+                                      "type": "literal",
+                                      "value": "flagSet"
+                                    }
+                                  },
+                                  {
+                                    "key": "flagId",
+                                    "required": true,
+                                    "description": "Name of a Flag declared in this Encounter.",
+                                    "schema": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "key": "value",
+                                    "required": true,
+                                    "description": "New boolean value.",
+                                    "schema": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "when",
+                                "fields": [
+                                  {
+                                    "key": "op",
+                                    "required": true,
+                                    "schema": {
+                                      "type": "literal",
+                                      "value": "when"
+                                    }
+                                  },
+                                  {
+                                    "key": "condition",
+                                    "required": true,
+                                    "description": "Evaluated against current planned HP/locals at this position.",
+                                    "schema": {
+                                      "type": "union",
+                                      "discriminator": "kind",
+                                      "variants": [
+                                        {
+                                          "tag": "all",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "all",
+                                                  "any"
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "key": "conditions",
+                                              "required": true,
+                                              "description": "Non-empty child conditions; all children are statically checked.",
+                                              "schema": {
+                                                "type": "array",
+                                                "item": {
+                                                  "type": "recursive",
+                                                  "name": "GameplayMapEffectConditionDef"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "tag": "any",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "all",
+                                                  "any"
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "key": "conditions",
+                                              "required": true,
+                                              "description": "Non-empty child conditions; all children are statically checked.",
+                                              "schema": {
+                                                "type": "array",
+                                                "item": {
+                                                  "type": "recursive",
+                                                  "name": "GameplayMapEffectConditionDef"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "tag": "not",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "literal",
+                                                "value": "not"
+                                              }
+                                            },
+                                            {
+                                              "key": "condition",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "recursive",
+                                                "name": "GameplayMapEffectConditionDef"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "tag": "hpAtLeast",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "hpAtLeast",
+                                                  "hpAtMost"
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "key": "target",
+                                              "required": true,
+                                              "description": "source or the source's already resolved primary unit.",
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "source",
+                                                  "primary"
+                                                ],
+                                                "sourceType": "GameplayMapEffectUnit"
+                                              }
+                                            },
+                                            {
+                                              "key": "value",
+                                              "required": true,
+                                              "description": "Non-negative safe-integer HP threshold.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "tag": "hpAtMost",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "hpAtLeast",
+                                                  "hpAtMost"
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "key": "target",
+                                              "required": true,
+                                              "description": "source or the source's already resolved primary unit.",
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "source",
+                                                  "primary"
+                                                ],
+                                                "sourceType": "GameplayMapEffectUnit"
+                                              }
+                                            },
+                                            {
+                                              "key": "value",
+                                              "required": true,
+                                              "description": "Non-negative safe-integer HP threshold.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "tag": "hpRatioAtLeast",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "hpRatioAtLeast",
+                                                  "hpRatioAtMost"
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "key": "target",
+                                              "required": true,
+                                              "description": "source or the source's already resolved primary unit.",
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "source",
+                                                  "primary"
+                                                ],
+                                                "sourceType": "GameplayMapEffectUnit"
+                                              }
+                                            },
+                                            {
+                                              "key": "numerator",
+                                              "required": true,
+                                              "description": "Non-negative safe integer no greater than denominator.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            },
+                                            {
+                                              "key": "denominator",
+                                              "required": true,
+                                              "description": "Positive safe integer.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "tag": "hpRatioAtMost",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "hpRatioAtLeast",
+                                                  "hpRatioAtMost"
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "key": "target",
+                                              "required": true,
+                                              "description": "source or the source's already resolved primary unit.",
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "source",
+                                                  "primary"
+                                                ],
+                                                "sourceType": "GameplayMapEffectUnit"
+                                              }
+                                            },
+                                            {
+                                              "key": "numerator",
+                                              "required": true,
+                                              "description": "Non-negative safe integer no greater than denominator.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            },
+                                            {
+                                              "key": "denominator",
+                                              "required": true,
+                                              "description": "Positive safe integer.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "tag": "counter",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "literal",
+                                                "value": "counter"
+                                              }
+                                            },
+                                            {
+                                              "key": "counterId",
+                                              "required": true,
+                                              "description": "Name of a Counter declared in this Encounter.",
+                                              "schema": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            {
+                                              "key": "comparison",
+                                              "required": true,
+                                              "description": "Inclusive or strict numeric comparison.",
+                                              "schema": {
+                                                "type": "stringUnion",
+                                                "values": [
+                                                  "eq",
+                                                  "lt",
+                                                  "lte",
+                                                  "gt",
+                                                  "gte"
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "key": "value",
+                                              "required": true,
+                                              "description": "Safe-integer value to compare.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "tag": "flag",
+                                          "fields": [
+                                            {
+                                              "key": "kind",
+                                              "required": true,
+                                              "schema": {
+                                                "type": "literal",
+                                                "value": "flag"
+                                              }
+                                            },
+                                            {
+                                              "key": "flagId",
+                                              "required": true,
+                                              "description": "Name of a Flag declared in this Encounter.",
+                                              "schema": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            {
+                                              "key": "value",
+                                              "required": true,
+                                              "description": "Expected boolean value.",
+                                              "schema": {
+                                                "type": "boolean"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ],
+                                      "sourceType": "GameplayMapEffectConditionDef"
+                                    }
+                                  },
+                                  {
+                                    "key": "then",
+                                    "required": true,
+                                    "description": "Required branch when the condition is true.",
+                                    "schema": {
+                                      "type": "array",
+                                      "item": {
+                                        "type": "recursive",
+                                        "name": "GameplayMapEffectStatementDef"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "key": "else",
+                                    "required": false,
+                                    "description": "Optional branch when the condition is false.",
+                                    "schema": {
+                                      "type": "array",
+                                      "item": {
+                                        "type": "recursive",
+                                        "name": "GameplayMapEffectStatementDef"
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ],
+                            "sourceType": "GameplayMapEffectStatementDef"
+                          }
+                        }
+                      }
+                    ],
+                    "sourceType": "GameplayMapEffectProgramDef"
+                  }
+                }
+              ],
+              "sourceType": "GameplayMapActionDef"
+            }
+          }
         },
         {
           "key": "initialActorResources",
           "required": false,
           "kind": "hand",
           "tsType": "readonly GameplayMapInitialActorResourceDef[]",
-          "description": "Per-character MapRun resource balances; all undeclared values start at 0."
+          "description": "Per-character MapRun resource balances; all undeclared values start at 0.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "characterId",
+                  "required": true,
+                  "description": "Fixed Map party character whose resource starts at `value`.",
+                  "schema": {
+                    "type": "reference",
+                    "name": "Character"
+                  }
+                },
+                {
+                  "key": "resourceId",
+                  "required": true,
+                  "description": "MapRun-local resource key.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "value",
+                  "required": true,
+                  "description": "Initial non-negative safe integer balance.",
+                  "schema": {
+                    "type": "number"
+                  }
+                }
+              ],
+              "sourceType": "GameplayMapInitialActorResourceDef"
+            }
+          }
         },
         {
           "key": "initialTeamResources",
           "required": false,
           "kind": "hand",
           "tsType": "readonly GameplayMapInitialTeamResourceDef[]",
-          "description": "Shared MapRun resource balances; all undeclared values start at 0."
+          "description": "Shared MapRun resource balances; all undeclared values start at 0.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "resourceId",
+                  "required": true,
+                  "description": "MapRun-local resource key.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "value",
+                  "required": true,
+                  "description": "Initial non-negative safe integer balance.",
+                  "schema": {
+                    "type": "number"
+                  }
+                }
+              ],
+              "sourceType": "GameplayMapInitialTeamResourceDef"
+            }
+          }
         },
         {
           "key": "nodes",
           "required": true,
           "kind": "hand",
           "tsType": "readonly GameplayMapNodeDef[]",
-          "description": "Nodes embedded in this map."
+          "description": "Nodes embedded in this map.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "description": "Stable only within the owning map.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "title",
+                  "required": true,
+                  "description": "Player-facing node name.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "description",
+                  "required": false,
+                  "description": "Optional player-facing node description.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "encounter",
+                  "required": false,
+                  "description": "Optional single encounter attached to this node. Mutually exclusive with",
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "title",
+                        "required": true,
+                        "description": "Player-facing encounter name.",
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "description",
+                        "required": false,
+                        "description": "Optional player-facing encounter description.",
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "completion",
+                        "required": false,
+                        "description": "When present, exposes one legal manual completion action.",
+                        "schema": {
+                          "type": "union",
+                          "discriminator": "kind",
+                          "variants": [
+                            {
+                              "tag": "manual",
+                              "fields": [
+                                {
+                                  "key": "kind",
+                                  "required": true,
+                                  "schema": {
+                                    "type": "literal",
+                                    "value": "manual"
+                                  }
+                                },
+                                {
+                                  "key": "label",
+                                  "required": true,
+                                  "description": "Player-facing label for the completion action.",
+                                  "schema": {
+                                    "type": "string"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "tag": "condition",
+                              "fields": [
+                                {
+                                  "key": "kind",
+                                  "required": true,
+                                  "schema": {
+                                    "type": "literal",
+                                    "value": "condition"
+                                  }
+                                },
+                                {
+                                  "key": "label",
+                                  "required": true,
+                                  "description": "Player-facing label for this completion rule.",
+                                  "schema": {
+                                    "type": "string"
+                                  }
+                                },
+                                {
+                                  "key": "condition",
+                                  "required": true,
+                                  "description": "Restricted HP/Counter/Flag condition checked after all legal sources finish.",
+                                  "schema": {
+                                    "type": "union",
+                                    "discriminator": "kind",
+                                    "variants": [
+                                      {
+                                        "tag": "all",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "all",
+                                                "any"
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": "conditions",
+                                            "required": true,
+                                            "description": "Non-empty child conditions; all children are statically checked.",
+                                            "schema": {
+                                              "type": "array",
+                                              "item": {
+                                                "type": "recursive",
+                                                "name": "GameplayMapEffectConditionDef"
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "tag": "any",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "all",
+                                                "any"
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": "conditions",
+                                            "required": true,
+                                            "description": "Non-empty child conditions; all children are statically checked.",
+                                            "schema": {
+                                              "type": "array",
+                                              "item": {
+                                                "type": "recursive",
+                                                "name": "GameplayMapEffectConditionDef"
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "tag": "not",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "literal",
+                                              "value": "not"
+                                            }
+                                          },
+                                          {
+                                            "key": "condition",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "recursive",
+                                              "name": "GameplayMapEffectConditionDef"
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "tag": "hpAtLeast",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "hpAtLeast",
+                                                "hpAtMost"
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": "target",
+                                            "required": true,
+                                            "description": "source or the source's already resolved primary unit.",
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "source",
+                                                "primary"
+                                              ],
+                                              "sourceType": "GameplayMapEffectUnit"
+                                            }
+                                          },
+                                          {
+                                            "key": "value",
+                                            "required": true,
+                                            "description": "Non-negative safe-integer HP threshold.",
+                                            "schema": {
+                                              "type": "number"
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "tag": "hpAtMost",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "hpAtLeast",
+                                                "hpAtMost"
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": "target",
+                                            "required": true,
+                                            "description": "source or the source's already resolved primary unit.",
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "source",
+                                                "primary"
+                                              ],
+                                              "sourceType": "GameplayMapEffectUnit"
+                                            }
+                                          },
+                                          {
+                                            "key": "value",
+                                            "required": true,
+                                            "description": "Non-negative safe-integer HP threshold.",
+                                            "schema": {
+                                              "type": "number"
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "tag": "hpRatioAtLeast",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "hpRatioAtLeast",
+                                                "hpRatioAtMost"
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": "target",
+                                            "required": true,
+                                            "description": "source or the source's already resolved primary unit.",
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "source",
+                                                "primary"
+                                              ],
+                                              "sourceType": "GameplayMapEffectUnit"
+                                            }
+                                          },
+                                          {
+                                            "key": "numerator",
+                                            "required": true,
+                                            "description": "Non-negative safe integer no greater than denominator.",
+                                            "schema": {
+                                              "type": "number"
+                                            }
+                                          },
+                                          {
+                                            "key": "denominator",
+                                            "required": true,
+                                            "description": "Positive safe integer.",
+                                            "schema": {
+                                              "type": "number"
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "tag": "hpRatioAtMost",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "hpRatioAtLeast",
+                                                "hpRatioAtMost"
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": "target",
+                                            "required": true,
+                                            "description": "source or the source's already resolved primary unit.",
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "source",
+                                                "primary"
+                                              ],
+                                              "sourceType": "GameplayMapEffectUnit"
+                                            }
+                                          },
+                                          {
+                                            "key": "numerator",
+                                            "required": true,
+                                            "description": "Non-negative safe integer no greater than denominator.",
+                                            "schema": {
+                                              "type": "number"
+                                            }
+                                          },
+                                          {
+                                            "key": "denominator",
+                                            "required": true,
+                                            "description": "Positive safe integer.",
+                                            "schema": {
+                                              "type": "number"
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "tag": "counter",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "literal",
+                                              "value": "counter"
+                                            }
+                                          },
+                                          {
+                                            "key": "counterId",
+                                            "required": true,
+                                            "description": "Name of a Counter declared in this Encounter.",
+                                            "schema": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          {
+                                            "key": "comparison",
+                                            "required": true,
+                                            "description": "Inclusive or strict numeric comparison.",
+                                            "schema": {
+                                              "type": "stringUnion",
+                                              "values": [
+                                                "eq",
+                                                "lt",
+                                                "lte",
+                                                "gt",
+                                                "gte"
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "key": "value",
+                                            "required": true,
+                                            "description": "Safe-integer value to compare.",
+                                            "schema": {
+                                              "type": "number"
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "tag": "flag",
+                                        "fields": [
+                                          {
+                                            "key": "kind",
+                                            "required": true,
+                                            "schema": {
+                                              "type": "literal",
+                                              "value": "flag"
+                                            }
+                                          },
+                                          {
+                                            "key": "flagId",
+                                            "required": true,
+                                            "description": "Name of a Flag declared in this Encounter.",
+                                            "schema": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          {
+                                            "key": "value",
+                                            "required": true,
+                                            "description": "Expected boolean value.",
+                                            "schema": {
+                                              "type": "boolean"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "sourceType": "GameplayMapEffectConditionDef"
+                                  }
+                                }
+                              ]
+                            }
+                          ],
+                          "sourceType": "GameplayEncounterCompletionDef"
+                        }
+                      },
+                      {
+                        "key": "locals",
+                        "required": false,
+                        "description": "Encounter-local bounded Counter and Flag declarations used by E1 programs.",
+                        "schema": {
+                          "type": "object",
+                          "fields": [
+                            {
+                              "key": "counters",
+                              "required": false,
+                              "description": "Encounter Counter declarations; combined with flags they are limited to 64.",
+                              "schema": {
+                                "type": "array",
+                                "item": {
+                                  "type": "object",
+                                  "fields": [
+                                    {
+                                      "key": "id",
+                                      "required": true,
+                                      "description": "Encounter-local identifier; Counter and Flag names share one namespace.",
+                                      "schema": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    {
+                                      "key": "initial",
+                                      "required": true,
+                                      "description": "Initial safe-integer value, within the inclusive min/max bounds.",
+                                      "schema": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    {
+                                      "key": "min",
+                                      "required": true,
+                                      "description": "Inclusive safe-integer lower bound; may be negative.",
+                                      "schema": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    {
+                                      "key": "max",
+                                      "required": true,
+                                      "description": "Inclusive safe-integer upper bound.",
+                                      "schema": {
+                                        "type": "number"
+                                      }
+                                    }
+                                  ],
+                                  "sourceType": "GameplayMapEncounterCounterDef"
+                                }
+                              }
+                            },
+                            {
+                              "key": "flags",
+                              "required": false,
+                              "description": "Encounter Flag declarations; combined with counters they are limited to 64.",
+                              "schema": {
+                                "type": "array",
+                                "item": {
+                                  "type": "object",
+                                  "fields": [
+                                    {
+                                      "key": "id",
+                                      "required": true,
+                                      "description": "Encounter-local identifier; Counter and Flag names share one namespace.",
+                                      "schema": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    {
+                                      "key": "initial",
+                                      "required": true,
+                                      "description": "Initial boolean value.",
+                                      "schema": {
+                                        "type": "boolean"
+                                      }
+                                    }
+                                  ],
+                                  "sourceType": "GameplayMapEncounterFlagDef"
+                                }
+                              }
+                            }
+                          ],
+                          "sourceType": "GameplayMapEncounterLocalsDef"
+                        }
+                      },
+                      {
+                        "key": "rounds",
+                        "required": false,
+                        "description": "Finite committed-round count for a non-battle Encounter (Rest). The",
+                        "schema": {
+                          "type": "number"
+                        }
+                      },
+                      {
+                        "key": "enemies",
+                        "required": false,
+                        "description": "Encounter-local battle roster. A non-empty roster makes this a Battle and",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "id",
+                                "required": true,
+                                "description": "Stable ID unique within this Encounter.",
+                                "schema": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "key": "initialHp",
+                                "required": true,
+                                "description": "Starting HP, in the inclusive range 1..maxHp.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              },
+                              {
+                                "key": "maxHp",
+                                "required": true,
+                                "description": "Positive safe integer cap for this Enemy's Encounter-local HP.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              },
+                              {
+                                "key": "actions",
+                                "required": false,
+                                "description": "Weighted autonomous Action candidates; omitted or empty means this Enemy waits.",
+                                "schema": {
+                                  "type": "array",
+                                  "item": {
+                                    "type": "object",
+                                    "fields": [
+                                      {
+                                        "key": "actionId",
+                                        "required": true,
+                                        "description": "ID of an action defined in the owning Map.",
+                                        "schema": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "key": "tendencyWeight",
+                                        "required": true,
+                                        "description": "Positive safe integer Tendency weight for this combatant.",
+                                        "schema": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    ],
+                                    "sourceType": "GameplayEncounterActionCandidateDef"
+                                  }
+                                }
+                              },
+                              {
+                                "key": "initialResources",
+                                "required": false,
+                                "description": "Encounter-local Actor balances for this Enemy; undeclared resources start at 0.",
+                                "schema": {
+                                  "type": "array",
+                                  "item": {
+                                    "type": "object",
+                                    "fields": [
+                                      {
+                                        "key": "resourceId",
+                                        "required": true,
+                                        "description": "Encounter-local resource key.",
+                                        "schema": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "key": "value",
+                                        "required": true,
+                                        "description": "Initial non-negative safe integer balance.",
+                                        "schema": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    ],
+                                    "sourceType": "GameplayEncounterInitialEnemyResourceDef"
+                                  }
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayEncounterEnemyDef"
+                          }
+                        }
+                      },
+                      {
+                        "key": "initialEnemyTeamResources",
+                        "required": false,
+                        "description": "Encounter-local shared resource balances for Enemy actions; starts at 0 when omitted.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "resourceId",
+                                "required": true,
+                                "description": "Encounter-local resource key.",
+                                "schema": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "key": "value",
+                                "required": true,
+                                "description": "Initial non-negative safe integer balance.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayEncounterInitialEnemyResourceDef"
+                          }
+                        }
+                      },
+                      {
+                        "key": "abilityActionIds",
+                        "required": false,
+                        "description": "Map-local Actions exposed as actorless Player Abilities.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "key": "itemActions",
+                        "required": false,
+                        "description": "Encounter-local mapping from one Consumable Item to a Map-local Action.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "itemId",
+                                "required": true,
+                                "description": "Existing ItemDef identity; Registry requires a Consumable.",
+                                "schema": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "key": "actionId",
+                                "required": true,
+                                "description": "Map-local Action supplying this Item's battle target and effects.",
+                                "schema": {
+                                  "type": "string"
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayEncounterItemActionDef"
+                          }
+                        }
+                      },
+                      {
+                        "key": "participants",
+                        "required": false,
+                        "description": "Characters that can draw actions here. Omitted participants and empty action",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "characterId",
+                                "required": true,
+                                "description": "Character must belong to the owning Map's fixed party.",
+                                "schema": {
+                                  "type": "reference",
+                                  "name": "Character"
+                                }
+                              },
+                              {
+                                "key": "actions",
+                                "required": true,
+                                "description": "Candidate actions and positive integer Tendency weights. An empty list is",
+                                "schema": {
+                                  "type": "array",
+                                  "item": {
+                                    "type": "object",
+                                    "fields": [
+                                      {
+                                        "key": "actionId",
+                                        "required": true,
+                                        "description": "ID of an action defined in the owning Map.",
+                                        "schema": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "key": "tendencyWeight",
+                                        "required": true,
+                                        "description": "Positive safe integer Tendency weight for this combatant.",
+                                        "schema": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    ],
+                                    "sourceType": "GameplayEncounterActionCandidateDef"
+                                  }
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayEncounterParticipantDef"
+                          }
+                        }
+                      }
+                    ],
+                    "sourceType": "GameplayEncounterDef"
+                  }
+                },
+                {
+                  "key": "activities",
+                  "required": false,
+                  "description": "Optional fixed-order activities. The node runs only one activity at a time",
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "object",
+                      "fields": [
+                        {
+                          "key": "id",
+                          "required": true,
+                          "description": "Stable only within the owning Node.",
+                          "schema": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "key": "title",
+                          "required": false,
+                          "description": "Optional player-facing activity label; falls back to the encounter / shop title.",
+                          "schema": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "key": "encounter",
+                          "required": false,
+                          "description": "Encounter content for battle, rest, or manually completed activities.",
+                          "schema": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "title",
+                                "required": true,
+                                "description": "Player-facing encounter name.",
+                                "schema": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "key": "description",
+                                "required": false,
+                                "description": "Optional player-facing encounter description.",
+                                "schema": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "key": "completion",
+                                "required": false,
+                                "description": "When present, exposes one legal manual completion action.",
+                                "schema": {
+                                  "type": "union",
+                                  "discriminator": "kind",
+                                  "variants": [
+                                    {
+                                      "tag": "manual",
+                                      "fields": [
+                                        {
+                                          "key": "kind",
+                                          "required": true,
+                                          "schema": {
+                                            "type": "literal",
+                                            "value": "manual"
+                                          }
+                                        },
+                                        {
+                                          "key": "label",
+                                          "required": true,
+                                          "description": "Player-facing label for the completion action.",
+                                          "schema": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "tag": "condition",
+                                      "fields": [
+                                        {
+                                          "key": "kind",
+                                          "required": true,
+                                          "schema": {
+                                            "type": "literal",
+                                            "value": "condition"
+                                          }
+                                        },
+                                        {
+                                          "key": "label",
+                                          "required": true,
+                                          "description": "Player-facing label for this completion rule.",
+                                          "schema": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        {
+                                          "key": "condition",
+                                          "required": true,
+                                          "description": "Restricted HP/Counter/Flag condition checked after all legal sources finish.",
+                                          "schema": {
+                                            "type": "union",
+                                            "discriminator": "kind",
+                                            "variants": [
+                                              {
+                                                "tag": "all",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "all",
+                                                        "any"
+                                                      ]
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "conditions",
+                                                    "required": true,
+                                                    "description": "Non-empty child conditions; all children are statically checked.",
+                                                    "schema": {
+                                                      "type": "array",
+                                                      "item": {
+                                                        "type": "recursive",
+                                                        "name": "GameplayMapEffectConditionDef"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "any",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "all",
+                                                        "any"
+                                                      ]
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "conditions",
+                                                    "required": true,
+                                                    "description": "Non-empty child conditions; all children are statically checked.",
+                                                    "schema": {
+                                                      "type": "array",
+                                                      "item": {
+                                                        "type": "recursive",
+                                                        "name": "GameplayMapEffectConditionDef"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "not",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "literal",
+                                                      "value": "not"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "condition",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "recursive",
+                                                      "name": "GameplayMapEffectConditionDef"
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "hpAtLeast",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "hpAtLeast",
+                                                        "hpAtMost"
+                                                      ]
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "target",
+                                                    "required": true,
+                                                    "description": "source or the source's already resolved primary unit.",
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "source",
+                                                        "primary"
+                                                      ],
+                                                      "sourceType": "GameplayMapEffectUnit"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "value",
+                                                    "required": true,
+                                                    "description": "Non-negative safe-integer HP threshold.",
+                                                    "schema": {
+                                                      "type": "number"
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "hpAtMost",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "hpAtLeast",
+                                                        "hpAtMost"
+                                                      ]
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "target",
+                                                    "required": true,
+                                                    "description": "source or the source's already resolved primary unit.",
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "source",
+                                                        "primary"
+                                                      ],
+                                                      "sourceType": "GameplayMapEffectUnit"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "value",
+                                                    "required": true,
+                                                    "description": "Non-negative safe-integer HP threshold.",
+                                                    "schema": {
+                                                      "type": "number"
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "hpRatioAtLeast",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "hpRatioAtLeast",
+                                                        "hpRatioAtMost"
+                                                      ]
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "target",
+                                                    "required": true,
+                                                    "description": "source or the source's already resolved primary unit.",
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "source",
+                                                        "primary"
+                                                      ],
+                                                      "sourceType": "GameplayMapEffectUnit"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "numerator",
+                                                    "required": true,
+                                                    "description": "Non-negative safe integer no greater than denominator.",
+                                                    "schema": {
+                                                      "type": "number"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "denominator",
+                                                    "required": true,
+                                                    "description": "Positive safe integer.",
+                                                    "schema": {
+                                                      "type": "number"
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "hpRatioAtMost",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "hpRatioAtLeast",
+                                                        "hpRatioAtMost"
+                                                      ]
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "target",
+                                                    "required": true,
+                                                    "description": "source or the source's already resolved primary unit.",
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "source",
+                                                        "primary"
+                                                      ],
+                                                      "sourceType": "GameplayMapEffectUnit"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "numerator",
+                                                    "required": true,
+                                                    "description": "Non-negative safe integer no greater than denominator.",
+                                                    "schema": {
+                                                      "type": "number"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "denominator",
+                                                    "required": true,
+                                                    "description": "Positive safe integer.",
+                                                    "schema": {
+                                                      "type": "number"
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "counter",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "literal",
+                                                      "value": "counter"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "counterId",
+                                                    "required": true,
+                                                    "description": "Name of a Counter declared in this Encounter.",
+                                                    "schema": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "comparison",
+                                                    "required": true,
+                                                    "description": "Inclusive or strict numeric comparison.",
+                                                    "schema": {
+                                                      "type": "stringUnion",
+                                                      "values": [
+                                                        "eq",
+                                                        "lt",
+                                                        "lte",
+                                                        "gt",
+                                                        "gte"
+                                                      ]
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "value",
+                                                    "required": true,
+                                                    "description": "Safe-integer value to compare.",
+                                                    "schema": {
+                                                      "type": "number"
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "flag",
+                                                "fields": [
+                                                  {
+                                                    "key": "kind",
+                                                    "required": true,
+                                                    "schema": {
+                                                      "type": "literal",
+                                                      "value": "flag"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "flagId",
+                                                    "required": true,
+                                                    "description": "Name of a Flag declared in this Encounter.",
+                                                    "schema": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": "value",
+                                                    "required": true,
+                                                    "description": "Expected boolean value.",
+                                                    "schema": {
+                                                      "type": "boolean"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "sourceType": "GameplayMapEffectConditionDef"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "sourceType": "GameplayEncounterCompletionDef"
+                                }
+                              },
+                              {
+                                "key": "locals",
+                                "required": false,
+                                "description": "Encounter-local bounded Counter and Flag declarations used by E1 programs.",
+                                "schema": {
+                                  "type": "object",
+                                  "fields": [
+                                    {
+                                      "key": "counters",
+                                      "required": false,
+                                      "description": "Encounter Counter declarations; combined with flags they are limited to 64.",
+                                      "schema": {
+                                        "type": "array",
+                                        "item": {
+                                          "type": "object",
+                                          "fields": [
+                                            {
+                                              "key": "id",
+                                              "required": true,
+                                              "description": "Encounter-local identifier; Counter and Flag names share one namespace.",
+                                              "schema": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            {
+                                              "key": "initial",
+                                              "required": true,
+                                              "description": "Initial safe-integer value, within the inclusive min/max bounds.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            },
+                                            {
+                                              "key": "min",
+                                              "required": true,
+                                              "description": "Inclusive safe-integer lower bound; may be negative.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            },
+                                            {
+                                              "key": "max",
+                                              "required": true,
+                                              "description": "Inclusive safe-integer upper bound.",
+                                              "schema": {
+                                                "type": "number"
+                                              }
+                                            }
+                                          ],
+                                          "sourceType": "GameplayMapEncounterCounterDef"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "key": "flags",
+                                      "required": false,
+                                      "description": "Encounter Flag declarations; combined with counters they are limited to 64.",
+                                      "schema": {
+                                        "type": "array",
+                                        "item": {
+                                          "type": "object",
+                                          "fields": [
+                                            {
+                                              "key": "id",
+                                              "required": true,
+                                              "description": "Encounter-local identifier; Counter and Flag names share one namespace.",
+                                              "schema": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            {
+                                              "key": "initial",
+                                              "required": true,
+                                              "description": "Initial boolean value.",
+                                              "schema": {
+                                                "type": "boolean"
+                                              }
+                                            }
+                                          ],
+                                          "sourceType": "GameplayMapEncounterFlagDef"
+                                        }
+                                      }
+                                    }
+                                  ],
+                                  "sourceType": "GameplayMapEncounterLocalsDef"
+                                }
+                              },
+                              {
+                                "key": "rounds",
+                                "required": false,
+                                "description": "Finite committed-round count for a non-battle Encounter (Rest). The",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              },
+                              {
+                                "key": "enemies",
+                                "required": false,
+                                "description": "Encounter-local battle roster. A non-empty roster makes this a Battle and",
+                                "schema": {
+                                  "type": "array",
+                                  "item": {
+                                    "type": "object",
+                                    "fields": [
+                                      {
+                                        "key": "id",
+                                        "required": true,
+                                        "description": "Stable ID unique within this Encounter.",
+                                        "schema": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "key": "initialHp",
+                                        "required": true,
+                                        "description": "Starting HP, in the inclusive range 1..maxHp.",
+                                        "schema": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      {
+                                        "key": "maxHp",
+                                        "required": true,
+                                        "description": "Positive safe integer cap for this Enemy's Encounter-local HP.",
+                                        "schema": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      {
+                                        "key": "actions",
+                                        "required": false,
+                                        "description": "Weighted autonomous Action candidates; omitted or empty means this Enemy waits.",
+                                        "schema": {
+                                          "type": "array",
+                                          "item": {
+                                            "type": "object",
+                                            "fields": [
+                                              {
+                                                "key": "actionId",
+                                                "required": true,
+                                                "description": "ID of an action defined in the owning Map.",
+                                                "schema": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              {
+                                                "key": "tendencyWeight",
+                                                "required": true,
+                                                "description": "Positive safe integer Tendency weight for this combatant.",
+                                                "schema": {
+                                                  "type": "number"
+                                                }
+                                              }
+                                            ],
+                                            "sourceType": "GameplayEncounterActionCandidateDef"
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "key": "initialResources",
+                                        "required": false,
+                                        "description": "Encounter-local Actor balances for this Enemy; undeclared resources start at 0.",
+                                        "schema": {
+                                          "type": "array",
+                                          "item": {
+                                            "type": "object",
+                                            "fields": [
+                                              {
+                                                "key": "resourceId",
+                                                "required": true,
+                                                "description": "Encounter-local resource key.",
+                                                "schema": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              {
+                                                "key": "value",
+                                                "required": true,
+                                                "description": "Initial non-negative safe integer balance.",
+                                                "schema": {
+                                                  "type": "number"
+                                                }
+                                              }
+                                            ],
+                                            "sourceType": "GameplayEncounterInitialEnemyResourceDef"
+                                          }
+                                        }
+                                      }
+                                    ],
+                                    "sourceType": "GameplayEncounterEnemyDef"
+                                  }
+                                }
+                              },
+                              {
+                                "key": "initialEnemyTeamResources",
+                                "required": false,
+                                "description": "Encounter-local shared resource balances for Enemy actions; starts at 0 when omitted.",
+                                "schema": {
+                                  "type": "array",
+                                  "item": {
+                                    "type": "object",
+                                    "fields": [
+                                      {
+                                        "key": "resourceId",
+                                        "required": true,
+                                        "description": "Encounter-local resource key.",
+                                        "schema": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "key": "value",
+                                        "required": true,
+                                        "description": "Initial non-negative safe integer balance.",
+                                        "schema": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    ],
+                                    "sourceType": "GameplayEncounterInitialEnemyResourceDef"
+                                  }
+                                }
+                              },
+                              {
+                                "key": "abilityActionIds",
+                                "required": false,
+                                "description": "Map-local Actions exposed as actorless Player Abilities.",
+                                "schema": {
+                                  "type": "array",
+                                  "item": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "key": "itemActions",
+                                "required": false,
+                                "description": "Encounter-local mapping from one Consumable Item to a Map-local Action.",
+                                "schema": {
+                                  "type": "array",
+                                  "item": {
+                                    "type": "object",
+                                    "fields": [
+                                      {
+                                        "key": "itemId",
+                                        "required": true,
+                                        "description": "Existing ItemDef identity; Registry requires a Consumable.",
+                                        "schema": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "key": "actionId",
+                                        "required": true,
+                                        "description": "Map-local Action supplying this Item's battle target and effects.",
+                                        "schema": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    ],
+                                    "sourceType": "GameplayEncounterItemActionDef"
+                                  }
+                                }
+                              },
+                              {
+                                "key": "participants",
+                                "required": false,
+                                "description": "Characters that can draw actions here. Omitted participants and empty action",
+                                "schema": {
+                                  "type": "array",
+                                  "item": {
+                                    "type": "object",
+                                    "fields": [
+                                      {
+                                        "key": "characterId",
+                                        "required": true,
+                                        "description": "Character must belong to the owning Map's fixed party.",
+                                        "schema": {
+                                          "type": "reference",
+                                          "name": "Character"
+                                        }
+                                      },
+                                      {
+                                        "key": "actions",
+                                        "required": true,
+                                        "description": "Candidate actions and positive integer Tendency weights. An empty list is",
+                                        "schema": {
+                                          "type": "array",
+                                          "item": {
+                                            "type": "object",
+                                            "fields": [
+                                              {
+                                                "key": "actionId",
+                                                "required": true,
+                                                "description": "ID of an action defined in the owning Map.",
+                                                "schema": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              {
+                                                "key": "tendencyWeight",
+                                                "required": true,
+                                                "description": "Positive safe integer Tendency weight for this combatant.",
+                                                "schema": {
+                                                  "type": "number"
+                                                }
+                                              }
+                                            ],
+                                            "sourceType": "GameplayEncounterActionCandidateDef"
+                                          }
+                                        }
+                                      }
+                                    ],
+                                    "sourceType": "GameplayEncounterParticipantDef"
+                                  }
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayEncounterDef"
+                          }
+                        },
+                        {
+                          "key": "shop",
+                          "required": false,
+                          "description": "Shop content; mutually exclusive with `encounter`.",
+                          "schema": {
+                            "type": "reference",
+                            "name": "GameplayShopDef"
+                          }
+                        }
+                      ],
+                      "sourceType": "GameplayMapActivityDef"
+                    }
+                  }
+                }
+              ],
+              "sourceType": "GameplayMapNodeDef"
+            }
+          }
         },
         {
           "key": "edges",
           "required": true,
           "kind": "hand",
           "tsType": "readonly GameplayMapEdgeDef[]",
-          "description": "Directed adjacency between local node IDs."
+          "description": "Directed adjacency between local node IDs.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "fromNodeId",
+                  "required": true,
+                  "description": "Local ID of the edge's source node.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "toNodeId",
+                  "required": true,
+                  "description": "Local ID of the edge's destination node.",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "condition",
+                  "required": false,
+                  "description": "Optional read-only, non-consuming gate. The Runtime rejects movement when",
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "description": "Requires a shared MapRun Team resource balance to reach `amount`.",
+                        "schema": {
+                          "type": "literal",
+                          "value": "teamResourceAtLeast"
+                        }
+                      },
+                      {
+                        "key": "resourceId",
+                        "required": true,
+                        "description": "MapRun-local Team resource key; reading it never consumes balance.",
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "amount",
+                        "required": true,
+                        "description": "Positive safe integer threshold.",
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    ],
+                    "sourceType": "GameplayMapEdgeConditionDef"
+                  }
+                }
+              ],
+              "sourceType": "GameplayMapEdgeDef"
+            }
+          }
         }
       ]
     },

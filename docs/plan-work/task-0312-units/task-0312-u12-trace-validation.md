@@ -1,6 +1,12 @@
 # Unit 0312-U12：有界Effect Receipt恢复校验器
 
-状态：ready / 未执行；阶段P3。前置：0312-U10实际完成Receipt与测试。
+状态：ready / 未执行；阶段P3。前置：0312-U10A及U10B实际完成Receipt与测试；只有纯规划U10A不构成放行。
+
+施工拆分（2026-10-22）：现首稿validator580行+测试138行+Receipt预计60行，共778；根审查发现合法legacy/program混合来源会被误拒、HP链缺旧相位插值、资源before/after缺跨事件账户链。完整补齐估计再增260–350行，总1038–1128，超过1000。按本Unit Stop Conditions拆为 [[docs/plan-work/task-0312-units/task-0312-u12a-trace-core]] → [[docs/plan-work/task-0312-units/task-0312-u12b-mixed-trace-chains]]，保留本页全部验收。两子Unit各≤1000行；U13必须等待U12B真实完整通过，不能把A的30项首稿用例当完整恢复校验。当前校验器尚未接Owner恢复，因此A中明确保留的混合链未完成项不对外声称产品已支持恢复。
+
+2026-10-22负责人放行：两份实际U10 Receipt及独立审查已通过；根复跑B新程序10项+旧金样13项共23项全绿。以两份Receipt、当前types及已安装的`lastEncounterCommit`为实际接口。U10B已复制冻结版本、root `effectScope`、`programVisits`、`plannedLocals`、`effectTrace`；实际资源op为`resourceSettlement`，意图不冒充实际事件。prepare保留source/path/amount/CardRef/receiver，总折扣从定义与投影重算，不要求逐leaf非唯一分摊。
+
+独立只读预算核对：validator约430–560行，真实正例及表驱动篡改测试330–410行，Receipt50–70行，总810–1040。负责人登记目标约900、上限1000行；若实际预计超1000先回报拆分，不删篡改项或预建完整历史Owner。Read Set追加U10A/U10B实际Receipt、U06纯kernel、U05 normalization与U10B实际正例测试，复用真实已安装Receipt，不复制另一套执行语义。与U11并行仅写本Unit三条白名单路径，不改MapRun或其它Unit测试。
 
 ## Goal
 

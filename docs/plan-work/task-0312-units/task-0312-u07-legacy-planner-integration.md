@@ -22,6 +22,8 @@
 
 ## Optional Read Set
 
+负责人预算记录（2026-10-22）：依据U05/U06实际接口与施工代理初估，旧执行接线涉及map-run-service约470行、CardRef适配约60行、Receipt约30行，旧金样预计不改。为完整保留费用/目标/相位和恢复投影，并避免以压行数代替单一语义接线，按用户授权将本Unit手写净改动额度放宽至1000行；实际新增/删除与净行数在Receipt分别记录，四文件白名单及所有旧期望保持。
+
 前置Receipt引用的直接依赖调用方或同文件共享fixture；额外最多2文件，超过先交上游。不得用扩大阅读范围代替拆分。UI具体结构仅U16按frontend-design与项目overlay，实际文档收尾仅U19。
 
 ## Do Not Read by Default
